@@ -32,7 +32,7 @@ import {
     Union, DenseUnion, SparseUnion,
 } from '../type';
 
-/** @ignore */
+/** @internal */
 export interface ToArrayVisitor extends Visitor {
     visit<T extends VectorType>(node: T): T['TArray'];
     visitMany<T extends VectorType>(nodes: T[]): T['TArray'][];
@@ -83,10 +83,10 @@ export interface ToArrayVisitor extends Visitor {
     visitMap                                     <T extends Map_>                (vector: VectorType<T>): VectorType<T>['TArray'];
 }
 
-/** @ignore */
+/** @internal */
 export class ToArrayVisitor extends Visitor {}
 
-/** @ignore */
+/** @internal */
 function arrayOfVector<T extends DataType>(vector: VectorType<T>): T['TArray'] {
 
     const { type, length, stride } = vector;
@@ -147,5 +147,5 @@ ToArrayVisitor.prototype.visitIntervalYearMonth    = arrayOfVector;
 ToArrayVisitor.prototype.visitFixedSizeList        = arrayOfVector;
 ToArrayVisitor.prototype.visitMap                  = arrayOfVector;
 
-/** @ignore */
+/** @internal */
 export const instance = new ToArrayVisitor();

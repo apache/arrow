@@ -28,13 +28,13 @@ import { UnionMode, DateUnit } from '../enum';
 import { toArrayBufferView } from '../util/buffer';
 import { BufferRegion, FieldNode } from '../ipc/metadata/message';
 
-/** @ignore */
+/** @internal */
 export interface VectorLoader extends Visitor {
     visit<T extends DataType>(node: Field<T> | T): Data<T>;
     visitMany<T extends DataType>(nodes: (Field<T> | T)[]): Data<T>[];
 }
 
-/** @ignore */
+/** @internal */
 export class VectorLoader extends Visitor {
     private bytes: Uint8Array;
     private nodes: FieldNode[];
@@ -90,7 +90,7 @@ export class VectorLoader extends Visitor {
     }
 }
 
-/** @ignore */
+/** @internal */
 export class JSONVectorLoader extends VectorLoader {
     private sources: any[][];
     constructor(sources: any[][], nodes: FieldNode[], buffers: BufferRegion[], dictionaries: Map<number, Vector<any>>) {
@@ -127,7 +127,7 @@ export class JSONVectorLoader extends VectorLoader {
     }
 }
 
-/** @ignore */
+/** @internal */
 function binaryDataFromJSON(values: string[]) {
     // "DATA": ["49BC7D5B6C47D2","3F5FB6D9322026"]
     // There are definitely more efficient ways to do this... but it gets the

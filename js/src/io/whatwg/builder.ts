@@ -20,7 +20,7 @@ import { Vector } from '../../vector';
 import { VectorType as V } from '../../interfaces';
 import { Builder, BuilderOptions } from '../../builder/index';
 
-/** @ignore */
+/** @internal */
 export interface BuilderTransformOptions<T extends DataType = any, TNull = any> extends BuilderOptions<T, TNull> {
     queueingStrategy?: 'bytes' | 'count';
     dictionaryHashFunction?: (value: any) => string | number;
@@ -29,12 +29,12 @@ export interface BuilderTransformOptions<T extends DataType = any, TNull = any> 
     valueToChildTypeId?: (builder: Builder<T, TNull>, value: any, offset: number) => number;
 }
 
-/** @ignore */
+/** @internal */
 export function builderThroughDOMStream<T extends DataType = any, TNull = any>(options: BuilderTransformOptions<T, TNull>) {
     return new BuilderTransform(options);
 }
 
-/** @ignore */
+/** @internal */
 export class BuilderTransform<T extends DataType = any, TNull = any> {
 
     public readable: ReadableStream<V<T>>;
@@ -112,5 +112,5 @@ export class BuilderTransform<T extends DataType = any, TNull = any> {
     }
 }
 
-/** @ignore */ const chunkLength = <T extends DataType = any>(chunk: Vector<T> | Builder<T>) => chunk.length;
-/** @ignore */ const chunkByteLength = <T extends DataType = any>(chunk: Vector<T> | Builder<T>) => chunk.byteLength;
+/** @internal */ const chunkLength = <T extends DataType = any>(chunk: Vector<T> | Builder<T>) => chunk.length;
+/** @internal */ const chunkByteLength = <T extends DataType = any>(chunk: Vector<T> | Builder<T>) => chunk.byteLength;

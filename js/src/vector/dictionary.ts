@@ -24,7 +24,7 @@ import { vectorFromValuesWithType } from './index';
 import { VectorBuilderOptionsAsync } from './index';
 import { DataType, Dictionary, TKeys } from '../type';
 
-/** @ignore */
+/** @internal */
 type FromArgs<T extends DataType = any, TKey extends TKeys = TKeys> = [Vector<T>, TKey, ArrayLike<number> | TKey['TArray']];
 
 /** @category Vector */

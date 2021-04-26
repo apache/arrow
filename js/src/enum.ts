@@ -42,10 +42,10 @@ export { MessageHeader } from './fb/Message';
  * metadata like `bitWidth` that impact the type signatures of the values we
  * accept and return.
  *
- * For example, the `Int8Vector` reads 1-byte numbers from an `Int8Array`, an
- * `Int32Vector` reads a 4-byte number from an `Int32Array`, and an `Int64Vector`
- * reads a pair of 4-byte lo, hi 32-bit integers as a zero-copy slice from the
- * underlying `Int32Array`.
+ * For example, the {@link Int8Vector} reads 1-byte numbers from an `Int8Array`,
+ * an {@link Int32Vector} reads a 4-byte number from an `Int32Array`, and an
+ * {@link Int64Vector} reads a pair of 4-byte lo, hi 32-bit integers as a
+ * zero-copy slice from the underlying `Int32Array`.
  *
  * Library consumers benefit by knowing the narrowest type, since we can ensure
  * the types across all public methods are propagated, and never bail to `any`.

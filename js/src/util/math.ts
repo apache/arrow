@@ -23,7 +23,7 @@ const u32 = new Uint32Array(f64.buffer);
  * https://github.com/numpy/numpy/blob/5a5987291dc95376bb098be8d8e5391e89e77a2c/numpy/core/src/npymath/halffloat.c#L29
  * @param h {number} the uint16 to convert
  * @private
- * @ignore
+ * @internal
  */
 export function uint16ToFloat64(h: number) {
     const expo = (h & 0x7C00) >> 10;
@@ -41,7 +41,7 @@ export function uint16ToFloat64(h: number) {
  * https://github.com/numpy/numpy/blob/5a5987291dc95376bb098be8d8e5391e89e77a2c/numpy/core/src/npymath/halffloat.c#L43
  * @param d {number} The float64 to convert
  * @private
- * @ignore
+ * @internal
  */
 export function float64ToUint16(d: number) {
 

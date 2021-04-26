@@ -17,17 +17,17 @@
 
 import { ReadableInterop, ArrowJSONLike } from '../io/interfaces';
 
-/** @ignore */
+/** @internal */
 type FSReadStream = import('fs').ReadStream;
-/** @ignore */
+/** @internal */
 type FileHandle = import('fs').promises.FileHandle;
 
-/** @ignore */
+/** @internal */
 export interface Subscription {
     unsubscribe: () => void;
 }
 
-/** @ignore */
+/** @internal */
 export interface Observer<T> {
     closed?: boolean;
     next: (value: T) => void;
@@ -35,12 +35,12 @@ export interface Observer<T> {
     complete: () => void;
 }
 
-/** @ignore */
+/** @internal */
 export interface Observable<T> {
     subscribe: (observer: Observer<T>) => Subscription;
 }
 
-/** @ignore */
+/** @internal */
 const [BigIntCtor, BigIntAvailable] = (() => {
     const BigIntUnavailableError = () => { throw new Error('BigInt is not available in this environment'); };
     function BigIntUnavailable() { throw BigIntUnavailableError(); }
@@ -49,7 +49,7 @@ const [BigIntCtor, BigIntAvailable] = (() => {
     return typeof BigInt !== 'undefined' ? [BigInt, true] : [<any> BigIntUnavailable, false];
 })() as [BigIntConstructor, boolean];
 
-/** @ignore */
+/** @internal */
 const [BigInt64ArrayCtor, BigInt64ArrayAvailable] = (() => {
     const BigInt64ArrayUnavailableError = () => { throw new Error('BigInt64Array is not available in this environment'); };
     class BigInt64ArrayUnavailable {
@@ -61,7 +61,7 @@ const [BigInt64ArrayCtor, BigInt64ArrayAvailable] = (() => {
     return typeof BigInt64Array !== 'undefined' ? [BigInt64Array, true] : [<any> BigInt64ArrayUnavailable, false];
 })() as [BigInt64ArrayConstructor, boolean];
 
-/** @ignore */
+/** @internal */
 const [BigUint64ArrayCtor, BigUint64ArrayAvailable] = (() => {
     const BigUint64ArrayUnavailableError = () => { throw new Error('BigUint64Array is not available in this environment'); };
     class BigUint64ArrayUnavailable {
@@ -77,49 +77,49 @@ export { BigIntCtor as BigInt, BigIntAvailable };
 export { BigInt64ArrayCtor as BigInt64Array, BigInt64ArrayAvailable };
 export { BigUint64ArrayCtor as BigUint64Array, BigUint64ArrayAvailable };
 
-/** @ignore */ const isNumber = (x: any) => typeof x === 'number';
-/** @ignore */ const isBoolean = (x: any) => typeof x === 'boolean';
-/** @ignore */ const isFunction = (x: any) => typeof x === 'function';
-/** @ignore */
+/** @internal */ const isNumber = (x: any) => typeof x === 'number';
+/** @internal */ const isBoolean = (x: any) => typeof x === 'boolean';
+/** @internal */ const isFunction = (x: any) => typeof x === 'function';
+/** @internal */
 // eslint-disable-next-line @typescript-eslint/ban-types
 export const isObject = (x: any): x is Object => x != null && Object(x) === x;
 
-/** @ignore */
+/** @internal */
 export const isPromise = <T = any>(x: any): x is PromiseLike<T> => {
     return isObject(x) && isFunction(x.then);
 };
 
-/** @ignore */
+/** @internal */
 export const isObservable = <T = any>(x: any): x is Observable<T> => {
     return isObject(x) && isFunction(x.subscribe);
 };
 
-/** @ignore */
+/** @internal */
 export const isIterable = <T = any>(x: any): x is Iterable<T> => {
     return isObject(x) && isFunction(x[Symbol.iterator]);
 };
 
-/** @ignore */
+/** @internal */
 export const isAsyncIterable = <T = any>(x: any): x is AsyncIterable<T> => {
     return isObject(x) && isFunction(x[Symbol.asyncIterator]);
 };
 
-/** @ignore */
+/** @internal */
 export const isArrowJSON = (x: any): x is ArrowJSONLike  => {
     return isObject(x) && isObject(x['schema']);
 };
 
-/** @ignore */
+/** @internal */
 export const isArrayLike = <T = any>(x: any): x is ArrayLike<T> => {
     return isObject(x) && isNumber(x['length']);
 };
 
-/** @ignore */
+/** @internal */
 export const isIteratorResult = <T = any>(x: any): x is IteratorResult<T> => {
     return isObject(x) && ('done' in x) && ('value' in x);
 };
 
-/** @ignore */
+/** @internal */
 export const isUnderlyingSink = <T = any>(x: any): x is UnderlyingSink<T> => {
     return isObject(x) &&
         isFunction(x['abort']) &&
@@ -128,22 +128,22 @@ export const isUnderlyingSink = <T = any>(x: any): x is UnderlyingSink<T> => {
         isFunction(x['write']);
 };
 
-/** @ignore */
+/** @internal */
 export const isFileHandle = (x: any): x is FileHandle => {
     return isObject(x) && isFunction(x['stat']) && isNumber(x['fd']);
 };
 
-/** @ignore */
+/** @internal */
 export const isFSReadStream = (x: any): x is FSReadStream => {
     return isReadableNodeStream(x) && isNumber((<any> x)['bytesRead']);
 };
 
-/** @ignore */
+/** @internal */
 export const isFetchResponse = (x: any): x is Response => {
     return isObject(x) && isReadableDOMStream(x['body']);
 };
 
-/** @ignore */
+/** @internal */
 export const isWritableDOMStream = <T = any>(x: any): x is WritableStream<T> => {
     return isObject(x) &&
         isFunction(x['abort']) &&
@@ -151,7 +151,7 @@ export const isWritableDOMStream = <T = any>(x: any): x is WritableStream<T> => 
         !(x instanceof ReadableInterop);
 };
 
-/** @ignore */
+/** @internal */
 export const isReadableDOMStream = <T = any>(x: any): x is ReadableStream<T> => {
     return isObject(x) &&
         isFunction(x['cancel']) &&
@@ -159,7 +159,7 @@ export const isReadableDOMStream = <T = any>(x: any): x is ReadableStream<T> => 
         !(x instanceof ReadableInterop);
 };
 
-/** @ignore */
+/** @internal */
 export const isWritableNodeStream = (x: any): x is NodeJS.WritableStream => {
     return isObject(x) &&
         isFunction(x['end']) &&
@@ -168,7 +168,7 @@ export const isWritableNodeStream = (x: any): x is NodeJS.WritableStream => {
         !(x instanceof ReadableInterop);
 };
 
-/** @ignore */
+/** @internal */
 export const isReadableNodeStream = (x: any): x is NodeJS.ReadableStream => {
     return isObject(x) &&
         isFunction(x['read']) &&

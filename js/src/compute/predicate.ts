@@ -19,12 +19,12 @@ import { Vector } from '../vector';
 import { RecordBatch } from '../recordbatch';
 import { DictionaryVector } from '../vector/dictionary';
 
-/** @ignore */
+/** @internal */
 export type ValueFunc<T> = (idx: number, cols: RecordBatch) => T | null;
-/** @ignore */
+/** @internal */
 export type PredicateFunc = (idx: number, cols: RecordBatch) => boolean;
 
-/** @ignore */
+/** @internal */
 export abstract class Value<T> {
     eq(other: Value<T> | T): Predicate {
         if (!(other instanceof Value)) { other = new Literal(other); }
@@ -49,12 +49,12 @@ export abstract class Value<T> {
     }
 }
 
-/** @ignore */
+/** @internal */
 export class Literal<T= any> extends Value<T> {
     constructor(public v: T) { super(); }
 }
 
-/** @ignore */
+/** @internal */
 export class Col<T= any> extends Value<T> {
     public vector!: Vector;
     public colidx!: number;
@@ -80,7 +80,7 @@ export class Col<T= any> extends Value<T> {
     }
 }
 
-/** @ignore */
+/** @internal */
 export abstract class Predicate {
     abstract bind(batch: RecordBatch): PredicateFunc;
     and(...expr: Predicate[]): And { return new And(this, ...expr); }
@@ -88,7 +88,7 @@ export abstract class Predicate {
     not(): Predicate { return new Not(this); }
 }
 
-/** @ignore */
+/** @internal */
 export abstract class ComparisonPredicate<T= any> extends Predicate {
     constructor(public readonly left: Value<T>, public readonly right: Value<T>) {
         super();
@@ -117,7 +117,7 @@ export abstract class ComparisonPredicate<T= any> extends Predicate {
     protected abstract _bindLitCol(batch: RecordBatch, lit: Literal, col: Col): PredicateFunc;
 }
 
-/** @ignore */
+/** @internal */
 export abstract class CombinationPredicate extends Predicate {
     readonly children: Predicate[];
     constructor(...children: Predicate[]) {
@@ -128,7 +128,7 @@ export abstract class CombinationPredicate extends Predicate {
 // add children to prototype so it doesn't get mangled in es2015/umd
 (<any> CombinationPredicate.prototype).children = Object.freeze([]); // freeze for safety
 
-/** @ignore */
+/** @internal */
 export class And extends CombinationPredicate {
     constructor(...children: Predicate[]) {
         // Flatten any Ands
@@ -143,7 +143,7 @@ export class And extends CombinationPredicate {
     }
 }
 
-/** @ignore */
+/** @internal */
 export class Or extends CombinationPredicate {
     constructor(...children: Predicate[]) {
         // Flatten any Ors
@@ -158,7 +158,7 @@ export class Or extends CombinationPredicate {
     }
 }
 
-/** @ignore */
+/** @internal */
 export class Equals extends ComparisonPredicate {
     // Helpers used to cache dictionary reverse lookups between calls to bind
     private lastDictionary: Vector|undefined;
@@ -211,7 +211,7 @@ export class Equals extends ComparisonPredicate {
     }
 }
 
-/** @ignore */
+/** @internal */
 export class LTeq extends ComparisonPredicate {
     protected _bindLitLit(_batch: RecordBatch, left: Literal, right: Literal): PredicateFunc {
         const rtrn: boolean = left.v <= right.v;
@@ -235,7 +235,7 @@ export class LTeq extends ComparisonPredicate {
     }
 }
 
-/** @ignore */
+/** @internal */
 export class GTeq extends ComparisonPredicate {
     protected _bindLitLit(_batch: RecordBatch, left: Literal, right: Literal): PredicateFunc {
         const rtrn: boolean = left.v >= right.v;
@@ -259,7 +259,7 @@ export class GTeq extends ComparisonPredicate {
     }
 }
 
-/** @ignore */
+/** @internal */
 export class Not extends Predicate {
     constructor(public readonly child: Predicate) {
         super();
@@ -271,7 +271,7 @@ export class Not extends Predicate {
     }
 }
 
-/** @ignore */
+/** @internal */
 export class CustomPredicate extends Predicate {
     constructor(private next: PredicateFunc, private bind_: (batch: RecordBatch) => void) {
         super();

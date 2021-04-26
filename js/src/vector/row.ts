@@ -20,11 +20,11 @@ import { StructVector } from './struct';
 import { valueToString } from '../util/pretty';
 import { DataType, Struct, RowLike } from '../type';
 
-/** @ignore */ const kParent = Symbol.for('parent');
-/** @ignore */ const kRowIndex = Symbol.for('rowIndex');
-/** @ignore */ const kKeyToIdx = Symbol.for('keyToIdx');
-/** @ignore */ const kIdxToVal = Symbol.for('idxToVal');
-/** @ignore */ const kCustomInspect = Symbol.for('nodejs.util.inspect.custom');
+/** @internal */ const kParent = Symbol.for('parent');
+/** @internal */ const kRowIndex = Symbol.for('rowIndex');
+/** @internal */ const kKeyToIdx = Symbol.for('keyToIdx');
+/** @internal */ const kIdxToVal = Symbol.for('idxToVal');
+/** @internal */ const kCustomInspect = Symbol.for('nodejs.util.inspect.custom');
 
 abstract class Row<K extends PropertyKey = any, V = any> implements Map<K, V> {
 
@@ -213,7 +213,7 @@ export class StructRow<T extends { [key: string]: DataType } = any> extends Row<
 
 Object.setPrototypeOf(Row.prototype, Map.prototype);
 
-/** @ignore */
+/** @internal */
 const defineRowProxyProperties = (() => {
     const desc = { enumerable: true, configurable: false, get: null as any, set: null as any };
     return <T extends Row>(row: T) => {
@@ -233,7 +233,7 @@ const defineRowProxyProperties = (() => {
     };
 })();
 
-/** @ignore */
+/** @internal */
 const createRowProxy = (() => {
     if (typeof Proxy === 'undefined') {
         return defineRowProxyProperties;

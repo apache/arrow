@@ -52,7 +52,7 @@ export interface IterableBuilderOptions<T extends DataType = any, TNull = any> e
 }
 
 /**
- * An abstract base class for types that construct Arrow Vectors from arbitrary JavaScript values.
+ * An abstract base class for types that construct {@link Vector}s from arbitrary JavaScript values.
  *
  * A `Builder` is responsible for writing arbitrary JavaScript values
  * to ArrayBuffers and/or child Builders according to the Arrow specification
@@ -420,7 +420,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
 (Builder.prototype as any).nullValues = null;
 (Builder.prototype as any)._isValid = () => true;
 
-/** @ignore */
+/** @internal */
 export abstract class FixedWidthBuilder<T extends Int | Float | FixedSizeBinary | Date_ | Timestamp | Time | Decimal | Interval = any, TNull = any> extends Builder<T, TNull> {
     constructor(opts: BuilderOptions<T, TNull>) {
         super(opts);
@@ -433,7 +433,7 @@ export abstract class FixedWidthBuilder<T extends Int | Float | FixedSizeBinary 
     }
 }
 
-/** @ignore */
+/** @internal */
 export abstract class VariableWidthBuilder<T extends Binary | Utf8 | List | Map_, TNull = any> extends Builder<T, TNull> {
     protected _pendingLength = 0;
     protected _offsets: OffsetsBufferBuilder;
@@ -482,10 +482,10 @@ export abstract class VariableWidthBuilder<T extends Binary | Utf8 | List | Map_
     protected abstract _flushPending(pending: Map<number, any>, pendingLength: number): void;
 }
 
-/** @ignore */
+/** @internal */
 type ThroughIterable<T extends DataType = any, TNull = any> = (source: Iterable<T['TValue'] | TNull>) => IterableIterator<V<T>>;
 
-/** @ignore */
+/** @internal */
 function throughIterable<T extends DataType = any, TNull = any>(options: IterableBuilderOptions<T, TNull>) {
     const { ['queueingStrategy']: queueingStrategy = 'count' } = options;
     const { ['highWaterMark']: highWaterMark = queueingStrategy !== 'bytes' ? 1000 : 2 ** 14 } = options;
@@ -504,10 +504,10 @@ function throughIterable<T extends DataType = any, TNull = any>(options: Iterabl
     } as ThroughIterable<T, TNull>;
 }
 
-/** @ignore */
+/** @internal */
 type ThroughAsyncIterable<T extends DataType = any, TNull = any> = (source: Iterable<T['TValue'] | TNull> | AsyncIterable<T['TValue'] | TNull>) => AsyncIterableIterator<V<T>>;
 
-/** @ignore */
+/** @internal */
 function throughAsyncIterable<T extends DataType = any, TNull = any>(options: IterableBuilderOptions<T, TNull>) {
     const { ['queueingStrategy']: queueingStrategy = 'count' } = options;
     const { ['highWaterMark']: highWaterMark = queueingStrategy !== 'bytes' ? 1000 : 2 ** 14 } = options;

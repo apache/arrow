@@ -19,7 +19,7 @@ import { Bool } from '../type';
 import { BitmapBufferBuilder } from './buffer';
 import { Builder, BuilderOptions } from '../builder';
 
-/** @ignore */
+/** @internal */
 export class BoolBuilder<TNull = any> extends Builder<Bool, TNull> {
     constructor(options: BuilderOptions<Bool, TNull>) {
         super(options);

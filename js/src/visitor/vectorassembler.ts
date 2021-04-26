@@ -31,7 +31,7 @@ import {
     Bool, Null, Utf8, Binary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
 } from '../type';
 
-/** @ignore */
+/** @internal */
 export interface VectorAssembler extends Visitor {
     visit<T extends Vector>(node: T): this;
     visitMany<T extends Vector>(nodes: T[]): this[];
@@ -56,7 +56,7 @@ export interface VectorAssembler extends Visitor {
     visitMap                  <T extends Map_>            (vector: V<T>): this;
 }
 
-/** @ignore */
+/** @internal */
 export class VectorAssembler extends Visitor {
 
     /** @nocollapse */
@@ -106,7 +106,7 @@ export class VectorAssembler extends Visitor {
     protected _bufferRegions: BufferRegion[] = [];
 }
 
-/** @ignore */
+/** @internal */
 function addBuffer(this: VectorAssembler, values: ArrayBufferView) {
     const byteLength = (values.byteLength + 7) & ~7; // Round up to a multiple of 8
     this.buffers.push(values);
@@ -115,7 +115,7 @@ function addBuffer(this: VectorAssembler, values: ArrayBufferView) {
     return this;
 }
 
-/** @ignore */
+/** @internal */
 function assembleUnion<T extends Union>(this: VectorAssembler, vector: V<T>) {
     const { type, length, typeIds, valueOffsets } = vector;
     // All Union Vectors have a typeIds buffer
@@ -164,7 +164,7 @@ function assembleUnion<T extends Union>(this: VectorAssembler, vector: V<T>) {
     return this;
 }
 
-/** @ignore */
+/** @internal */
 function assembleBoolVector<T extends Bool>(this: VectorAssembler, vector: V<T>) {
     // Bool vector is a special case of FlatVector, as its data buffer needs to stay packed
     let values: Uint8Array;
@@ -183,12 +183,12 @@ function assembleBoolVector<T extends Bool>(this: VectorAssembler, vector: V<T>)
     return addBuffer.call(this, packBools(vector));
 }
 
-/** @ignore */
+/** @internal */
 function assembleFlatVector<T extends Int | Float | FixedSizeBinary | Date_ | Timestamp | Time | Decimal | Interval>(this: VectorAssembler, vector: V<T>) {
     return addBuffer.call(this, vector.values.subarray(0, vector.length * vector.stride));
 }
 
-/** @ignore */
+/** @internal */
 function assembleFlatListVector<T extends Utf8 | Binary>(this: VectorAssembler, vector: V<T>) {
     const { length, values, valueOffsets } = vector;
     const firstOffset = valueOffsets[0];
@@ -200,7 +200,7 @@ function assembleFlatListVector<T extends Utf8 | Binary>(this: VectorAssembler, 
     return this;
 }
 
-/** @ignore */
+/** @internal */
 function assembleListVector<T extends Map_ | List | FixedSizeList>(this: VectorAssembler, vector: V<T>) {
     const { length, valueOffsets } = vector;
     // If we have valueOffsets (MapVector, ListVector), push that buffer first
@@ -211,7 +211,7 @@ function assembleListVector<T extends Map_ | List | FixedSizeList>(this: VectorA
     return this.visit(vector.getChildAt(0)!);
 }
 
-/** @ignore */
+/** @internal */
 function assembleNestedVector<T extends Struct | Union>(this: VectorAssembler, vector: V<T>) {
     return this.visitMany(vector.type.children.map((_, i) => vector.getChildAt(i)!).filter(Boolean))[0];
 }

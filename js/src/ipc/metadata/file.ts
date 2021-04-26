@@ -33,7 +33,7 @@ import { MetadataVersion } from '../../enum';
 import { toUint8Array } from '../../util/buffer';
 import { ArrayBufferViewInput } from '../../util/buffer';
 
-/** @ignore */
+/** @internal */
 class Footer_ {
 
     /** @nocollapse */
@@ -108,7 +108,7 @@ class Footer_ {
 
 export { Footer_ as Footer };
 
-/** @ignore */
+/** @internal */
 class OffHeapFooter extends Footer_ {
 
     public get numRecordBatches() { return this._footer.recordBatchesLength(); }
@@ -135,7 +135,7 @@ class OffHeapFooter extends Footer_ {
     }
 }
 
-/** @ignore */
+/** @internal */
 export class FileBlock {
 
     /** @nocollapse */

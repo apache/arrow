@@ -20,27 +20,27 @@ import { MapRow, StructRow } from '../vector/row';
 import { compareArrayLike } from '../util/buffer';
 import { BigInt, BigIntAvailable } from './compat';
 
-/** @ignore */
+/** @internal */
 type RangeLike = { length: number; stride?: number };
-/** @ignore */
+/** @internal */
 type ClampThen<T extends RangeLike> = (source: T, index: number) => any;
-/** @ignore */
+/** @internal */
 type ClampRangeThen<T extends RangeLike> = (source: T, offset: number, length: number) => any;
 
 export function clampIndex<T extends RangeLike>(source: T, index: number): number;
 export function clampIndex<T extends RangeLike, N extends ClampThen<T> = ClampThen<T>>(source: T, index: number, then: N): ReturnType<N>;
-/** @ignore */
+/** @internal */
 export function clampIndex<T extends RangeLike, N extends ClampThen<T> = ClampThen<T>>(source: T, index: number, then?: N) {
     const length = source.length;
     const adjust = index > -1 ? index : (length + (index % length));
     return then ? then(source, adjust) : adjust;
 }
 
-/** @ignore */
+/** @internal */
 let tmp: number;
 export function clampRange<T extends RangeLike>(source: T, begin: number | undefined, end: number | undefined): [number, number];
 export function clampRange<T extends RangeLike, N extends ClampRangeThen<T> = ClampRangeThen<T>>(source: T, begin: number | undefined, end: number | undefined, then: N): ReturnType<N>;
-/** @ignore */
+/** @internal */
 export function clampRange<T extends RangeLike, N extends ClampRangeThen<T> = ClampRangeThen<T>>(source: T, begin: number | undefined, end: number | undefined, then?: N) {
 
     // Adjust args similar to Array.prototype.slice. Normalize begin/end to
@@ -63,7 +63,7 @@ export function clampRange<T extends RangeLike, N extends ClampRangeThen<T> = Cl
 const big0 = BigIntAvailable ? BigInt(0) : 0;
 const isNaNFast = (value: any) => value !== value;
 
-/** @ignore */
+/** @internal */
 export function createElementComparator(search: any) {
     const typeofSearch = typeof search;
     // Compare primitives
@@ -95,7 +95,7 @@ export function createElementComparator(search: any) {
     return createObjectComparator(search);
 }
 
-/** @ignore */
+/** @internal */
 function createArrayLikeComparator(lhs: ArrayLike<any>) {
     const comparators = [] as ((x: any) => boolean)[];
     for (let i = -1, n = lhs.length; ++i < n;) {
@@ -104,7 +104,7 @@ function createArrayLikeComparator(lhs: ArrayLike<any>) {
     return createSubElementsComparator(comparators);
 }
 
-/** @ignore */
+/** @internal */
 function creatMapComparator(lhs: Map<any, any>) {
     let i = -1;
     const comparators = [] as ((x: any) => boolean)[];
@@ -112,7 +112,7 @@ function creatMapComparator(lhs: Map<any, any>) {
     return createSubElementsComparator(comparators);
 }
 
-/** @ignore */
+/** @internal */
 function createVectorComparator(lhs: Vector<any>) {
     const comparators = [] as ((x: any) => boolean)[];
     for (let i = -1, n = lhs.length; ++i < n;) {
@@ -121,7 +121,7 @@ function createVectorComparator(lhs: Vector<any>) {
     return createSubElementsComparator(comparators);
 }
 
-/** @ignore */
+/** @internal */
 function createObjectComparator(lhs: any) {
     const keys = Object.keys(lhs);
     // Only compare non-empty Objects

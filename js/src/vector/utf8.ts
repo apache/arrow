@@ -23,7 +23,10 @@ import { VectorBuilderOptions } from './index';
 import { vectorFromValuesWithType } from './index';
 import { VectorBuilderOptionsAsync } from './index';
 
-/** @category Vector */
+/**
+ * A Vector of unicode characters.
+ * @category Vector
+ */
 export class Utf8Vector extends BaseVector<Utf8> {
     public static from<TNull = any>(input: Iterable<string | TNull>): Utf8Vector;
     public static from<TNull = any>(input: AsyncIterable<string | TNull>): Promise<Utf8Vector>;

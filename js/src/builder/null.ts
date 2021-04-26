@@ -18,7 +18,7 @@
 import { Null } from '../type';
 import { Builder } from '../builder';
 
-/** @ignore */
+/** @internal */
 export class NullBuilder<TNull = any> extends Builder<Null, TNull> {
     // @ts-ignore
     public setValue(index: number, value: null) {}

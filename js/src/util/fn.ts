@@ -15,17 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/** @ignore */
+/** @internal */
 export function partial0<T>(visit: (node: T) => any) {
     return function(this: T) { return visit(this); };
 }
 
-/** @ignore */
+/** @internal */
 export function partial1<T>(visit: (node: T, a: any) => any) {
     return function(this: T, a: any) { return visit(this, a); };
 }
 
-/** @ignore */
+/** @internal */
 export function partial2<T>(visit: (node: T, a: any, b: any) => any) {
     return function(this: T, a: any, b: any) { return visit(this, a, b); };
 }

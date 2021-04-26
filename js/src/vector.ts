@@ -23,12 +23,10 @@ export interface Clonable<R extends AbstractVector> {
     clone(...args: any[]): R;
 }
 
-/** @ignore */
 export interface Sliceable<R extends AbstractVector> {
     slice(begin?: number, end?: number): R;
 }
 
-/** @ignore */
 export interface Applicative<T extends DataType, R extends Chunked> {
     concat(...others: Vector<T>[]): R;
     readonly [Symbol.isConcatSpreadable]: boolean;
@@ -45,7 +43,22 @@ export interface AbstractVector<T extends DataType = any>
     readonly TValue: T['TValue'];
 }
 
-/** @category Vector */
+/**
+ * An abstract Arrow Vector.
+ *
+ * The easiest and most flexible way to create a Vector is using a {@link Builder}.
+ *
+ * You can also construct Vectors from Types Arrays or arrays of JavaScript values.
+ *
+ * ```ts
+ * const a = new Int32Array([1, 2, 3]);
+ * const v1 = IntVector.from(a);
+ *
+ * const v2 = Int32Vector.from([1, 2, 3]);
+ * ```
+ *
+ * @category Vector
+ */
 export abstract class AbstractVector<T extends DataType = any> implements Iterable<T['TValue'] | null> {
 
     public abstract readonly data: Data<T>;

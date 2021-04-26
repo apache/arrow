@@ -33,15 +33,15 @@ import {
 // doing some computation. To avoid doing this eagerly, we set the null count
 // to -1 (any negative number will do). When Vector.nullCount is called the
 // first time, the null count will be computed. See ARROW-33
-/** @ignore */ export type kUnknownNullCount = -1;
-/** @ignore */ export const kUnknownNullCount = -1;
+/** @internal */ export type kUnknownNullCount = -1;
+/** @internal */ export const kUnknownNullCount = -1;
 
-/** @ignore */ export type NullBuffer = Uint8Array | null | undefined;
-/** @ignore */ export type TypeIdsBuffer = Int8Array  | ArrayLike<number> | Iterable<number> | undefined;
-/** @ignore */ export type ValueOffsetsBuffer = Int32Array  | ArrayLike<number> | Iterable<number> | undefined;
-/** @ignore */ export type DataBuffer<T extends DataType> = T['TArray'] | ArrayLike<number> | Iterable<number> | undefined;
+/** @internal */ export type NullBuffer = Uint8Array | null | undefined;
+/** @internal */ export type TypeIdsBuffer = Int8Array  | ArrayLike<number> | Iterable<number> | undefined;
+/** @internal */ export type ValueOffsetsBuffer = Int32Array  | ArrayLike<number> | Iterable<number> | undefined;
+/** @internal */ export type DataBuffer<T extends DataType> = T['TArray'] | ArrayLike<number> | Iterable<number> | undefined;
 
-/** @ignore */
+/** @internal */
 export interface Buffers<T extends DataType> {
       [BufferType.OFFSET]: Int32Array;
         [BufferType.DATA]: T['TArray'];
@@ -49,14 +49,14 @@ export interface Buffers<T extends DataType> {
         [BufferType.TYPE]: T['TArray'];
 }
 
-/** @ignore */
+/** @internal */
 export interface Data<T extends DataType = DataType> {
     readonly TType: T['TType'];
     readonly TArray: T['TArray'];
     readonly TValue: T['TValue'];
 }
 
-/** @ignore */
+/** @internal */
 export class Data<T extends DataType = DataType> {
 
     public readonly type: T;

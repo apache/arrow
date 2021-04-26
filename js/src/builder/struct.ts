@@ -19,7 +19,7 @@ import { Field } from '../schema';
 import { Builder } from '../builder';
 import { DataType, Struct } from '../type';
 
-/** @ignore */
+/** @internal */
 export class StructBuilder<T extends { [key: string]: DataType } = any, TNull = any> extends Builder<Struct<T>, TNull> {
     public addChild(child: Builder, name = `${this.numChildren}`) {
         const childIndex = this.children.push(child);

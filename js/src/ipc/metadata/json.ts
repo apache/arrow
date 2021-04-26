@@ -28,7 +28,7 @@ import {
 import { DictionaryBatch, RecordBatch, FieldNode, BufferRegion } from './message';
 import { TimeUnit, Precision, IntervalUnit, UnionMode, DateUnit } from '../../enum';
 
-/** @ignore */
+/** @internal */
 export function schemaFromJSON(_schema: any, dictionaries: Map<number, DataType> = new Map()) {
     return new Schema(
         schemaFieldsFromJSON(_schema, dictionaries),
@@ -37,7 +37,7 @@ export function schemaFromJSON(_schema: any, dictionaries: Map<number, DataType>
     );
 }
 
-/** @ignore */
+/** @internal */
 export function recordBatchFromJSON(b: any) {
     return new RecordBatch(
         b['count'],
@@ -46,7 +46,7 @@ export function recordBatchFromJSON(b: any) {
     );
 }
 
-/** @ignore */
+/** @internal */
 export function dictionaryBatchFromJSON(b: any) {
     return new DictionaryBatch(
         recordBatchFromJSON(b['data']),
@@ -54,17 +54,17 @@ export function dictionaryBatchFromJSON(b: any) {
     );
 }
 
-/** @ignore */
+/** @internal */
 function schemaFieldsFromJSON(_schema: any, dictionaries?: Map<number, DataType>) {
     return (_schema['fields'] || []).filter(Boolean).map((f: any) => Field.fromJSON(f, dictionaries));
 }
 
-/** @ignore */
+/** @internal */
 function fieldChildrenFromJSON(_field: any, dictionaries?: Map<number, DataType>): Field[] {
     return (_field['children'] || []).filter(Boolean).map((f: any) => Field.fromJSON(f, dictionaries));
 }
 
-/** @ignore */
+/** @internal */
 function fieldNodesFromJSON(xs: any[]): FieldNode[] {
     return (xs || []).reduce<FieldNode[]>((fieldNodes, column: any) => [
         ...fieldNodes,
@@ -76,7 +76,7 @@ function fieldNodesFromJSON(xs: any[]): FieldNode[] {
     ], [] as FieldNode[]);
 }
 
-/** @ignore */
+/** @internal */
 function buffersFromJSON(xs: any[], buffers: BufferRegion[] = []): BufferRegion[] {
     for (let i = -1, n = (xs || []).length; ++i < n;) {
         const column = xs[i];
@@ -89,12 +89,12 @@ function buffersFromJSON(xs: any[], buffers: BufferRegion[] = []): BufferRegion[
     return buffers;
 }
 
-/** @ignore */
+/** @internal */
 function nullCountFromJSON(validity: number[]) {
     return (validity || []).reduce((sum, val) => sum + +(val === 0), 0);
 }
 
-/** @ignore */
+/** @internal */
 export function fieldFromJSON(_field: any, dictionaries?: Map<number, DataType>) {
 
     let id: number;
@@ -130,17 +130,17 @@ export function fieldFromJSON(_field: any, dictionaries?: Map<number, DataType>)
     return field || null;
 }
 
-/** @ignore */
+/** @internal */
 function customMetadataFromJSON(_metadata?: Record<string, string>) {
     return new Map<string, string>(Object.entries(_metadata || {}));
 }
 
-/** @ignore */
+/** @internal */
 function indexTypeFromJSON(_type: any) {
     return new Int(_type['isSigned'], _type['bitWidth']);
 }
 
-/** @ignore */
+/** @internal */
 function typeFromJSON(f: any, children?: Field[]): DataType<any> {
 
     const typeId = f['type']['name'];

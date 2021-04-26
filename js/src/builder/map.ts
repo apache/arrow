@@ -19,11 +19,11 @@ import { Field } from '../schema';
 import { DataType, Map_, Struct } from '../type';
 import { Builder, VariableWidthBuilder } from '../builder';
 
-/** @ignore */ type MapValue<K extends DataType = any, V extends DataType = any> = Map_<K, V>['TValue'];
-/** @ignore */ type MapValues<K extends DataType = any, V extends DataType = any> = Map<number, MapValue<K, V> | undefined>;
-/** @ignore */ type MapValueExt<K extends DataType = any, V extends DataType = any> = MapValue<K, V> | { [key: string]: V } | { [key: number]: V } ;
+/** @internal */ type MapValue<K extends DataType = any, V extends DataType = any> = Map_<K, V>['TValue'];
+/** @internal */ type MapValues<K extends DataType = any, V extends DataType = any> = Map<number, MapValue<K, V> | undefined>;
+/** @internal */ type MapValueExt<K extends DataType = any, V extends DataType = any> = MapValue<K, V> | { [key: string]: V } | { [key: number]: V } ;
 
-/** @ignore */
+/** @internal */
 export class MapBuilder<K extends DataType = any, V extends DataType = any, TNull = any> extends VariableWidthBuilder<Map_<K, V>, TNull> {
 
     protected _pending: MapValues<K, V> | undefined;

@@ -18,14 +18,14 @@
 import { Readable } from 'stream';
 import { isIterable, isAsyncIterable } from '../../util/compat';
 
-/** @ignore */
+/** @internal */
 type ReadableOptions = import('stream').ReadableOptions;
-/** @ignore */
+/** @internal */
 type SourceIterator<T> = Generator<T, void, number | null>;
-/** @ignore */
+/** @internal */
 type AsyncSourceIterator<T> = AsyncGenerator<T, void, number | null>;
 
-/** @ignore */
+/** @internal */
 export function toNodeStream<T>(source: Iterable<T> | AsyncIterable<T>, options?: ReadableOptions): Readable {
     if (isAsyncIterable<T>(source)) { return new AsyncIterableReadable(source[Symbol.asyncIterator]() as AsyncSourceIterator<T>, options); }
     if (isIterable<T>(source)) { return new IterableReadable(source[Symbol.iterator]() as SourceIterator<T>, options); }
@@ -33,7 +33,7 @@ export function toNodeStream<T>(source: Iterable<T> | AsyncIterable<T>, options?
     throw new Error(`toNodeStream() must be called with an Iterable or AsyncIterable`);
 }
 
-/** @ignore */
+/** @internal */
 class IterableReadable<T extends Uint8Array | any> extends Readable {
     private _pulling: boolean;
     private _bytesMode: boolean;
@@ -73,7 +73,7 @@ class IterableReadable<T extends Uint8Array | any> extends Readable {
     }
 }
 
-/** @ignore */
+/** @internal */
 class AsyncIterableReadable<T extends Uint8Array | any> extends Readable {
     private _pulling: boolean;
     private _bytesMode: boolean;

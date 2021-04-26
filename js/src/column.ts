@@ -112,7 +112,7 @@ export class Column<T extends DataType = any>
     }
 }
 
-/** @ignore */
+/** @internal */
 class SingleChunkColumn<T extends DataType = any> extends Column<T> {
     protected _chunk: Vector<T>;
     constructor(field: Field<T>, vector: Vector<T>, offsets?: Uint32Array) {

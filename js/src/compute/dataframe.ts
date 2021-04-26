@@ -24,9 +24,9 @@ import { RecordBatch } from '../recordbatch';
 import { VectorType as V } from '../interfaces';
 import { DataType, Int, Struct, Dictionary } from '../type';
 
-/** @ignore */
+/** @internal */
 export type BindFunc = (batch: RecordBatch) => void;
-/** @ignore */
+/** @internal */
 export type NextFunc = (idx: number, batch: RecordBatch) => void;
 
 Table.prototype.countBy = function(this: Table, name: Col | string) { return new DataFrame(this.chunks).countBy(name); };
@@ -94,7 +94,7 @@ export class DataFrame<T extends { [key: string]: DataType } = any> extends Tabl
     }
 }
 
-/** @ignore */
+/** @internal */
 export class CountByResult<T extends DataType = any, TCount extends Int = Int> extends Table<{ values: T;  counts: TCount }> {
     constructor(values: Vector<T>, counts: V<TCount>) {
         type R = { values: T; counts: TCount };
@@ -115,7 +115,7 @@ export class CountByResult<T extends DataType = any, TCount extends Int = Int> e
     }
 }
 
-/** @ignore */
+/** @internal */
 class FilteredBatchIterator<T extends { [key: string]: DataType }> implements IterableIterator<Struct<T>['TValue']> {
     private batchIndex = 0;
     private batch: RecordBatch<T>;
@@ -159,7 +159,7 @@ class FilteredBatchIterator<T extends { [key: string]: DataType }> implements It
     }
 }
 
-/** @ignore */
+/** @internal */
 export class FilteredDataFrame<T extends { [key: string]: DataType } = any> extends DataFrame<T> {
     private _predicate: Predicate;
     constructor (batches: RecordBatch<T>[], predicate: Predicate) {

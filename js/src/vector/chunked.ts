@@ -24,15 +24,15 @@ import { DictionaryVector } from './dictionary';
 import { AbstractVector, Vector } from '../vector';
 import { Clonable, Sliceable, Applicative } from '../vector';
 
-/** @ignore */
+/** @internal */
 type ChunkedDict<T extends DataType> = T extends Dictionary ? Vector<T['dictionary']> : null | never;
-/** @ignore */
+/** @internal */
 type ChunkedKeys<T extends DataType> = T extends Dictionary ? Vector<T['indices']> | Chunked<T['indices']> : null | never;
 
-/** @ignore */
+/** @internal */
 export type SearchContinuation<T extends Chunked> = (column: T, chunkIndex: number, valueIndex: number) => any;
 
-/** @ignore */
+/** @internal */
 class ChunkedIterator<T extends DataType> implements IterableIterator<T['TValue'] | null> {
     private chunkIndex = 0;
     private chunkIterator: IterableIterator<T['TValue'] | null>;
@@ -285,7 +285,7 @@ export class Chunked<T extends DataType = any>
     }
 }
 
-/** @ignore */
+/** @internal */
 function calculateOffsets<T extends DataType>(vectors: Vector<T>[]) {
     const offsets = new Uint32Array((vectors || []).length + 1);
     let offset = offsets[0] = 0;
@@ -296,13 +296,13 @@ function calculateOffsets<T extends DataType>(vectors: Vector<T>[]) {
     return offsets;
 }
 
-/** @ignore */
+/** @internal */
 function typedSet(src: TypedArray, dst: TypedArray, offset: number) {
     dst.set(src, offset);
     return (offset + src.length);
 }
 
-/** @ignore */
+/** @internal */
 function arraySet(src: any[], dst: any[], offset: number) {
     let idx = offset;
     for (let i = -1, n = src.length; ++i < n;) {
@@ -311,7 +311,7 @@ function arraySet(src: any[], dst: any[], offset: number) {
     return idx;
 }
 
-/** @ignore */
+/** @internal */
 interface TypedArray extends ArrayBufferView {
     readonly length: number;
     readonly [n: number]: number;

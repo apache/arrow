@@ -33,7 +33,7 @@ import {
     Union, DenseUnion, SparseUnion,
 } from '../type';
 
-/** @ignore */
+/** @internal */
 export interface IndexOfVisitor extends Visitor {
     visit<T extends VectorType>  (node: T, value: T['TValue'] | null, index?: number): number;
     visitMany <T extends VectorType>  (nodes: T[], values: (T['TValue'] | null)[], indices: (number | undefined)[]): number[];
@@ -84,16 +84,16 @@ export interface IndexOfVisitor extends Visitor {
     visitMap                  <T extends Map_>                (vector: VectorType<T>, value: T['TValue'] | null, index?: number): number;
 }
 
-/** @ignore */
+/** @internal */
 export class IndexOfVisitor extends Visitor {}
 
-/** @ignore */
+/** @internal */
 function nullIndexOf(vector: VectorType<Null>, searchElement?: null) {
     // if you're looking for nulls and the vector isn't empty, we've got 'em!
     return searchElement === null && vector.length > 0 ? 0 : -1;
 }
 
-/** @ignore */
+/** @internal */
 function indexOfNull<T extends DataType>(vector: VectorType<T>, fromIndex?: number): number {
     const { nullBitmap } = vector.data;
     if (!nullBitmap || vector.nullCount <= 0) {
@@ -107,7 +107,7 @@ function indexOfNull<T extends DataType>(vector: VectorType<T>, fromIndex?: numb
     return -1;
 }
 
-/** @ignore */
+/** @internal */
 function indexOfValue<T extends DataType>(vector: VectorType<T>, searchElement?: T['TValue'] | null, fromIndex?: number): number {
     if (searchElement === undefined) { return -1; }
     if (searchElement === null) { return indexOfNull(vector, fromIndex); }
@@ -120,7 +120,7 @@ function indexOfValue<T extends DataType>(vector: VectorType<T>, searchElement?:
     return -1;
 }
 
-/** @ignore */
+/** @internal */
 function indexOfUnion<T extends DataType>(vector: VectorType<T>, searchElement?: T['TValue'] | null, fromIndex?: number): number {
     // Unions are special -- they do have a nullBitmap, but so can their children.
     // If the searchElement is null, we don't know whether it came from the Union's
@@ -179,5 +179,5 @@ IndexOfVisitor.prototype.visitIntervalYearMonth    = indexOfValue;
 IndexOfVisitor.prototype.visitFixedSizeList        = indexOfValue;
 IndexOfVisitor.prototype.visitMap                  = indexOfValue;
 
-/** @ignore */
+/** @internal */
 export const instance = new IndexOfVisitor();

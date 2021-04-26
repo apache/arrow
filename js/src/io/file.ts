@@ -19,7 +19,7 @@ import { FileHandle } from './interfaces';
 import { ByteStream, AsyncByteStream } from './stream';
 import { ArrayBufferViewInput, toUint8Array } from '../util/buffer';
 
-/** @ignore */
+/** @internal */
 export class RandomAccessFile extends ByteStream {
     public size: number;
     public position = 0;
@@ -57,7 +57,7 @@ export class RandomAccessFile extends ByteStream {
     public return(value?: any) { this.close(); return { done: true, value }; }
 }
 
-/** @ignore */
+/** @internal */
 export class AsyncRandomAccessFile extends AsyncByteStream {
     public size!: number;
     public position = 0;

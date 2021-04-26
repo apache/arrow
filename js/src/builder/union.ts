@@ -24,7 +24,7 @@ export interface UnionBuilderOptions<T extends Union = any, TNull = any> extends
     valueToChildTypeId?: (builder: UnionBuilder<T, TNull>, value: any, offset: number) => number;
 }
 
-/** @ignore */
+/** @internal */
 export abstract class UnionBuilder<T extends Union, TNull = any> extends Builder<T, TNull> {
 
     protected _typeIds: DataBufferBuilder<Int8Array>;
@@ -66,7 +66,7 @@ export abstract class UnionBuilder<T extends Union, TNull = any> extends Builder
         return childTypeId;
     }
 
-    /** @ignore */
+    /** @internal */
     // @ts-ignore
     protected _valueToChildTypeId(builder: UnionBuilder<T, TNull>, value: any, offset: number): number {
         throw new Error(`Cannot map UnionBuilder value to child typeId. \
@@ -75,9 +75,9 @@ or supply a \`valueToChildTypeId\` function as part of the UnionBuilder construc
     }
 }
 
-/** @ignore */
+/** @internal */
 export class SparseUnionBuilder<T extends SparseUnion, TNull = any> extends UnionBuilder<T, TNull> {}
-/** @ignore */
+/** @internal */
 export class DenseUnionBuilder<T extends DenseUnion, TNull = any> extends UnionBuilder<T, TNull> {
 
     protected _offsets: DataBufferBuilder<Int32Array>;
@@ -87,7 +87,7 @@ export class DenseUnionBuilder<T extends DenseUnion, TNull = any> extends UnionB
         this._offsets = new DataBufferBuilder(new Int32Array(0));
     }
 
-    /** @ignore */
+    /** @internal */
     public setValue(index: number, value: T['TValue'], childTypeId?: number) {
         const childIndex = this.type.typeIdToChildIndex[childTypeId!];
         this._offsets.set(index, this.getChildAt(childIndex)!.length);

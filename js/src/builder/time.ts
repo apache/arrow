@@ -18,13 +18,13 @@
 import { FixedWidthBuilder } from '../builder';
 import { Time, TimeSecond, TimeMillisecond, TimeMicrosecond, TimeNanosecond } from '../type';
 
-/** @ignore */
+/** @internal */
 export class TimeBuilder<T extends Time = Time, TNull = any> extends FixedWidthBuilder<T, TNull> {}
-/** @ignore */
+/** @internal */
 export class TimeSecondBuilder<TNull = any> extends TimeBuilder<TimeSecond, TNull> {}
-/** @ignore */
+/** @internal */
 export class TimeMillisecondBuilder<TNull = any> extends TimeBuilder<TimeMillisecond, TNull> {}
-/** @ignore */
+/** @internal */
 export class TimeMicrosecondBuilder<TNull = any> extends TimeBuilder<TimeMicrosecond, TNull> {}
-/** @ignore */
+/** @internal */
 export class TimeNanosecondBuilder<TNull = any> extends TimeBuilder<TimeNanosecond, TNull> {}

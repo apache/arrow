@@ -25,12 +25,12 @@ import { toUint8Array, ArrayBufferViewInput } from '../util/buffer';
 import { ByteStream, ReadableSource, AsyncByteStream } from '../io/stream';
 import { ArrowJSON, ArrowJSONLike, ITERATOR_DONE, FileHandle } from '../io/interfaces';
 
-/** @ignore */ const invalidMessageType       = (type: MessageHeader) => `Expected ${MessageHeader[type]} Message in stream, but was null or length 0.`;
-/** @ignore */ const nullMessage              = (type: MessageHeader) => `Header pointer of flatbuffer-encoded ${MessageHeader[type]} Message is null or length 0.`;
-/** @ignore */ const invalidMessageMetadata   = (expected: number, actual: number) => `Expected to read ${expected} metadata bytes, but only read ${actual}.`;
-/** @ignore */ const invalidMessageBodyLength = (expected: number, actual: number) => `Expected to read ${expected} bytes for message body, but only read ${actual}.`;
+/** @internal */ const invalidMessageType       = (type: MessageHeader) => `Expected ${MessageHeader[type]} Message in stream, but was null or length 0.`;
+/** @internal */ const nullMessage              = (type: MessageHeader) => `Header pointer of flatbuffer-encoded ${MessageHeader[type]} Message is null or length 0.`;
+/** @internal */ const invalidMessageMetadata   = (expected: number, actual: number) => `Expected to read ${expected} metadata bytes, but only read ${actual}.`;
+/** @internal */ const invalidMessageBodyLength = (expected: number, actual: number) => `Expected to read ${expected} bytes for message body, but only read ${actual}.`;
 
-/** @ignore */
+/** @internal */
 export class MessageReader implements IterableIterator<Message> {
     protected source: ByteStream;
     constructor(source: ByteStream | ArrayBufferViewInput | Iterable<ArrayBufferViewInput>) {
@@ -94,7 +94,7 @@ export class MessageReader implements IterableIterator<Message> {
     }
 }
 
-/** @ignore */
+/** @internal */
 export class AsyncMessageReader implements AsyncIterableIterator<Message> {
     protected source: AsyncByteStream;
     constructor(source: ReadableSource<Uint8Array>);
@@ -163,7 +163,7 @@ export class AsyncMessageReader implements AsyncIterableIterator<Message> {
     }
 }
 
-/** @ignore */
+/** @internal */
 export class JSONMessageReader extends MessageReader {
     private _schema = false;
     private _json: ArrowJSON;
@@ -228,18 +228,18 @@ export class JSONMessageReader extends MessageReader {
     }
 }
 
-/** @ignore */
+/** @internal */
 export const PADDING = 4;
-/** @ignore */
+/** @internal */
 export const MAGIC_STR = 'ARROW1';
-/** @ignore */
+/** @internal */
 export const MAGIC = new Uint8Array(MAGIC_STR.length);
 
 for (let i = 0; i < MAGIC_STR.length; i += 1 | 0) {
     MAGIC[i] = MAGIC_STR.charCodeAt(i);
 }
 
-/** @ignore */
+/** @internal */
 export function checkForMagicArrowString(buffer: Uint8Array, index = 0) {
     for (let i = -1, n = MAGIC.length; ++i < n;) {
         if (MAGIC[i] !== buffer[index + i]) {
@@ -249,9 +249,9 @@ export function checkForMagicArrowString(buffer: Uint8Array, index = 0) {
     return true;
 }
 
-/** @ignore */
+/** @internal */
 export const magicLength = MAGIC.length;
-/** @ignore */
+/** @internal */
 export const magicAndPadding = magicLength + PADDING;
-/** @ignore */
+/** @internal */
 export const magicX2AndPadding = magicLength * 2 + PADDING;

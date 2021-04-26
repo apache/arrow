@@ -26,7 +26,7 @@ export interface DictionaryBuilderOptions<T extends DataType = any, TNull = any>
     dictionaryHashFunction?: DictionaryHashFunction;
 }
 
-/** @ignore */
+/** @internal */
 export class DictionaryBuilder<T extends Dictionary, TNull = any> extends Builder<T, TNull> {
 
     protected _dictionaryOffset: number;

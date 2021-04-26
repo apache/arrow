@@ -23,6 +23,7 @@ module.exports = {
     excludePrivate: true,
     excludeProtected: true,
     excludeExternals: true,
+    excludeInternal: true,
     includeVersion: true,
     categorizeByGroup: true,
     exclude: [

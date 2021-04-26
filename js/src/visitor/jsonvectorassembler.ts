@@ -31,7 +31,7 @@ import {
     Bool, Null, Utf8, Binary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
 } from '../type';
 
-/** @ignore */
+/** @internal */
 export interface JSONVectorAssembler extends Visitor {
 
     visit     <T extends Column>  (node: T  ): Record<string, unknown>;
@@ -57,7 +57,7 @@ export interface JSONVectorAssembler extends Visitor {
     visitMap                  <T extends Map_>            (vector: V<T>): { children: any[] };
 }
 
-/** @ignore */
+/** @internal */
 export class JSONVectorAssembler extends Visitor {
 
     /** @nocollapse */
@@ -160,7 +160,7 @@ export class JSONVectorAssembler extends Visitor {
     }
 }
 
-/** @ignore */
+/** @internal */
 function* binaryToString(vector: Vector<Binary> | Vector<FixedSizeBinary>) {
     for (const octets of vector as Iterable<Uint8Array>) {
         yield octets.reduce((str, byte) => {
@@ -169,7 +169,7 @@ function* binaryToString(vector: Vector<Binary> | Vector<FixedSizeBinary>) {
     }
 }
 
-/** @ignore */
+/** @internal */
 function* bigNumsToStrings(values: Uint32Array | Int32Array, stride: number) {
     for (let i = -1, n = values.length / stride; ++i < n;) {
         yield `${BN.new(values.subarray((i + 0) * stride, (i + 1) * stride), false)}`;

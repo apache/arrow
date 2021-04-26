@@ -43,12 +43,12 @@ import {
     Map as Map_,
 } from '../fb/Schema';
 
-/** @ignore */
+/** @internal */
 export interface TypeAssembler extends Visitor {
     visit<T extends type.DataType>(node: T, builder: Builder): number | undefined;
 }
 
-/** @ignore */
+/** @internal */
 export class TypeAssembler extends Visitor {
     public visit<T extends type.DataType>(node: T, builder: Builder): number | undefined {
         return (node == null || builder == null) ? undefined : super.visit(node, builder);
@@ -154,5 +154,5 @@ export class TypeAssembler extends Visitor {
     }
 }
 
-/** @ignore */
+/** @internal */
 export const instance = new TypeAssembler();

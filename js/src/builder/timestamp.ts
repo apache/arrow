@@ -18,13 +18,13 @@
 import { FixedWidthBuilder } from '../builder';
 import { Timestamp, TimestampSecond, TimestampMillisecond, TimestampMicrosecond, TimestampNanosecond } from '../type';
 
-/** @ignore */
+/** @internal */
 export class TimestampBuilder<T extends Timestamp = Timestamp, TNull = any> extends FixedWidthBuilder<T, TNull> {}
-/** @ignore */
+/** @internal */
 export class TimestampSecondBuilder<TNull = any> extends TimestampBuilder<TimestampSecond, TNull> {}
-/** @ignore */
+/** @internal */
 export class TimestampMillisecondBuilder<TNull = any> extends TimestampBuilder<TimestampMillisecond, TNull> {}
-/** @ignore */
+/** @internal */
 export class TimestampMicrosecondBuilder<TNull = any> extends TimestampBuilder<TimestampMicrosecond, TNull> {}
-/** @ignore */
+/** @internal */
 export class TimestampNanosecondBuilder<TNull = any> extends TimestampBuilder<TimestampNanosecond, TNull> {}

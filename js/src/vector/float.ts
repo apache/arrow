@@ -25,14 +25,14 @@ import { VectorBuilderOptionsAsync } from './index';
 import { Float, Float16, Float32, Float64, FloatArray } from '../type';
 import { VectorType as V, TypedArrayConstructor } from '../interfaces';
 
-/** @ignore */
+/** @internal */
 type FloatVectorConstructors =
     typeof FloatVector   |
     typeof Float16Vector |
     typeof Float32Vector |
     typeof Float64Vector ;
 
-/** @ignore */
+/** @internal */
 type FromInput<T extends Float, TNull = any> =
     FloatArray                          |
     Iterable<T['TValue'] | TNull>       |
@@ -40,10 +40,20 @@ type FromInput<T extends Float, TNull = any> =
     VectorBuilderOptions<T, TNull>      |
     VectorBuilderOptionsAsync<T, TNull> ;
 
-/** @ignore */
+/** @internal */
 type FloatArrayCtor = TypedArrayConstructor<FloatArray>;
 
-/** @category Vector */
+/**
+ * A {@link Vector} of floats.
+ *
+ * With {@link FloatVector.from}, you can create a Vector from a Typed Array.
+ *
+ * ```ts
+ * const v1 = FloatVector.from(new Float32Array([.1, .2, .3]));
+ * ````
+ *
+ * @category Vector
+ */
 export class FloatVector<T extends Float = Float> extends BaseVector<T> {
 
     // Guaranteed zero-copy variants
@@ -119,12 +129,12 @@ export class Float32Vector extends FloatVector<Float32> {}
 /** @category Vector */
 export class Float64Vector extends FloatVector<Float64> {}
 
-/** @ignore */
+/** @internal */
 function convertTo16Bit(typeCtor: any, dataCtor: any) {
     return (typeCtor === Float16) && (dataCtor !== Uint16Array);
 }
 
-/** @ignore */
+/** @internal */
 function arrayTypeToDataType(ctor: FloatArrayCtor) {
     switch (ctor) {
         case Uint16Array:    return Float16;
@@ -134,7 +144,7 @@ function arrayTypeToDataType(ctor: FloatArrayCtor) {
     }
 }
 
-/** @ignore */
+/** @internal */
 function vectorTypeToDataType(ctor: FloatVectorConstructors) {
     switch (ctor) {
         case Float16Vector: return Float16;

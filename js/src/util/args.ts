@@ -26,9 +26,9 @@ type RecordBatchCtor = typeof import('../recordbatch').RecordBatch;
 
 const isArray = Array.isArray;
 
-/** @ignore */
+/** @internal */
 export const selectArgs = <T>(Ctor: any, vals: any[]) => _selectArgs(Ctor, vals, [], 0) as T[];
-/** @ignore */
+/** @internal */
 export const selectColumnArgs = <T extends { [key: string]: DataType }>(args: any[]) => {
     const [fields, values] = _selectFieldArgs<T>(args, [[], []]);
     return values.map((x, i) =>
@@ -37,16 +37,16 @@ export const selectColumnArgs = <T extends { [key: string]: DataType }>(args: an
                               Column.new(fields[i], [] as Vector<T[keyof T]>[]));
 };
 
-/** @ignore */
+/** @internal */
 export const selectFieldArgs = <T extends { [key: string]: DataType }>(args: any[]) => _selectFieldArgs<T>(args, [[], []]);
-/** @ignore */
+/** @internal */
 export const selectChunkArgs = <T>(Ctor: any, vals: any[]) => _selectChunkArgs(Ctor, vals, [], 0) as T[];
-/** @ignore */
+/** @internal */
 export const selectVectorChildrenArgs = <T extends Vector>(Ctor: RecordBatchCtor, vals: any[]) => _selectVectorChildrenArgs(Ctor, vals, [], 0) as T[];
-/** @ignore */
+/** @internal */
 export const selectColumnChildrenArgs = <T extends Column>(Ctor: RecordBatchCtor, vals: any[]) => _selectColumnChildrenArgs(Ctor, vals, [], 0) as T[];
 
-/** @ignore */
+/** @internal */
 function _selectArgs<T>(Ctor: any, vals: any[], res: T[], idx: number) {
     let value: any, j = idx;
     let i = -1;
@@ -59,7 +59,7 @@ function _selectArgs<T>(Ctor: any, vals: any[], res: T[], idx: number) {
     return res;
 }
 
-/** @ignore */
+/** @internal */
 function _selectChunkArgs<T>(Ctor: any, vals: any[], res: T[], idx: number) {
     let value: any, j = idx;
     let i = -1;
@@ -74,7 +74,7 @@ function _selectChunkArgs<T>(Ctor: any, vals: any[], res: T[], idx: number) {
     return res;
 }
 
-/** @ignore */
+/** @internal */
 function _selectVectorChildrenArgs<T extends Vector>(Ctor: RecordBatchCtor, vals: any[], res: T[], idx: number) {
     let value: any, j = idx;
     let i = -1;
@@ -89,7 +89,7 @@ function _selectVectorChildrenArgs<T extends Vector>(Ctor: RecordBatchCtor, vals
     return res;
 }
 
-/** @ignore */
+/** @internal */
 function _selectColumnChildrenArgs<T extends Column>(Ctor: RecordBatchCtor, vals: any[], res: T[], idx: number) {
     let value: any, j = idx;
     let i = -1;
@@ -104,10 +104,10 @@ function _selectColumnChildrenArgs<T extends Column>(Ctor: RecordBatchCtor, vals
     return res;
 }
 
-/** @ignore */
+/** @internal */
 const toKeysAndValues = (xs: [any[], any[]], [k, v]: [any, any], i: number) => (xs[0][i] = k, xs[1][i] = v, xs);
 
-/** @ignore */
+/** @internal */
 function _selectFieldArgs<T extends { [key: string]: DataType }>(vals: any[], ret: [Field<T[keyof T]>[], Vector<T[keyof T]>[]]): [Field<T[keyof T]>[], (T[keyof T] | Vector<T[keyof T]>)[]] {
     let keys: any[];
     let n: number;

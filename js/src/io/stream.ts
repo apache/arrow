@@ -26,12 +26,12 @@ import {
     isReadableDOMStream, isReadableNodeStream
 } from '../util/compat';
 
-/** @ignore */
+/** @internal */
 export type WritableSink<T> = Writable<T> | WritableStream<T> | NodeJS.WritableStream | null;
-/** @ignore */
+/** @internal */
 export type ReadableSource<T> = Readable<T> | PromiseLike<T> | AsyncIterable<T> | ReadableStream<T> | NodeJS.ReadableStream | null;
 
-/** @ignore */
+/** @internal */
 export class AsyncByteQueue<T extends ArrayBufferViewInput = Uint8Array> extends AsyncQueue<Uint8Array, T> {
     public write(value: ArrayBufferViewInput | Uint8Array) {
         if ((value = toUint8Array(value)).byteLength > 0) {
@@ -60,7 +60,7 @@ export class AsyncByteQueue<T extends ArrayBufferViewInput = Uint8Array> extends
     }
 }
 
-/** @ignore */
+/** @internal */
 export class ByteStream implements IterableIterator<Uint8Array> {
     private source!: ByteStreamSource<Uint8Array>;
     constructor(source?: Iterable<ArrayBufferViewInput> | ArrayBufferViewInput) {
@@ -76,7 +76,7 @@ export class ByteStream implements IterableIterator<Uint8Array> {
     public read(size?: number | null) { return this.source.read(size); }
 }
 
-/** @ignore */
+/** @internal */
 export class AsyncByteStream implements Readable<Uint8Array>, AsyncIterableIterator<Uint8Array> {
     private source!: AsyncByteStreamSource<Uint8Array>;
     constructor(source?: PromiseLike<ArrayBufferViewInput> | Response | ReadableStream<ArrayBufferViewInput> | NodeJS.ReadableStream | AsyncIterable<ArrayBufferViewInput> | Iterable<ArrayBufferViewInput>) {
@@ -108,12 +108,12 @@ export class AsyncByteStream implements Readable<Uint8Array>, AsyncIterableItera
     public read(size?: number | null) { return this.source.read(size); }
 }
 
-/** @ignore */
+/** @internal */
 type ByteStreamSourceIterator<T> = Generator<T, null, { cmd: 'peek' | 'read'; size?: number | null }>;
-/** @ignore */
+/** @internal */
 type AsyncByteStreamSourceIterator<T> = AsyncGenerator<T, null, { cmd: 'peek' | 'read'; size?: number | null }>;
 
-/** @ignore */
+/** @internal */
 class ByteStreamSource<T> {
     constructor(protected source: ByteStreamSourceIterator<T>) {}
     public cancel(reason?: any) { this.return(reason); }
@@ -124,7 +124,7 @@ class ByteStreamSource<T> {
     public return(value?: any) { return Object.create((this.source.return && this.source.return(value)) || ITERATOR_DONE); }
 }
 
-/** @ignore */
+/** @internal */
 class AsyncByteStreamSource<T> implements Readable<T> {
 
     private _closedPromise: Promise<void>;

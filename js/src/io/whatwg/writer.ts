@@ -20,7 +20,7 @@ import { RecordBatch } from '../../recordbatch';
 import { AsyncByteStream } from '../../io/stream';
 import { RecordBatchWriter } from '../../ipc/writer';
 
-/** @ignore */
+/** @internal */
 export function recordBatchWriterThroughDOMStream<T extends { [key: string]: DataType } = any>(
     this: typeof RecordBatchWriter,
     writableStrategy?: QueuingStrategy<RecordBatch<T>> & { autoDestroy: boolean },

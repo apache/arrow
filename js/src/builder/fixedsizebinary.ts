@@ -18,5 +18,5 @@
 import { FixedSizeBinary } from '../type';
 import { FixedWidthBuilder } from '../builder';
 
-/** @ignore */
+/** @internal */
 export class FixedSizeBinaryBuilder<TNull = any> extends FixedWidthBuilder<FixedSizeBinary, TNull> {}

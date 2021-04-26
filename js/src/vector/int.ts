@@ -27,7 +27,7 @@ import { toBigInt64Array, toBigUint64Array } from '../util/buffer';
 import { Int, Uint8, Uint16, Uint32, Uint64, Int8, Int16, Int32, Int64, IntArray } from '../type';
 import { VectorType as V, TypedArrayConstructor, BigIntArrayConstructor, BigIntArray } from '../interfaces';
 
-/** @ignore */
+/** @internal */
 type IntVectorConstructors =
     typeof IntVector    |
     typeof Int8Vector   |
@@ -39,7 +39,7 @@ type IntVectorConstructors =
     typeof Int64Vector  |
     typeof Uint64Vector ;
 
-/** @ignore */
+/** @internal */
 type FromInput<T extends Int, TNull = any> =
     IntArray | BigIntArray              |
     Iterable<T['TValue'] | TNull>       |
@@ -47,13 +47,23 @@ type FromInput<T extends Int, TNull = any> =
     VectorBuilderOptions<T, TNull>      |
     VectorBuilderOptionsAsync<T, TNull> ;
 
-/** @ignore */
+/** @internal */
 type FromArgs<T extends Int, TNull = any> = [FromInput<T, TNull>, boolean?];
 
-/** @ignore */
+/** @internal */
 type IntArrayCtor = TypedArrayConstructor<IntArray> | BigIntArrayConstructor<BigIntArray>;
 
-/** @category Vector */
+/**
+ * A {@link Vector} of signed or unsigned integers.
+ *
+ * With {@link IntVector.from}, you can create a Vector from a Typed Array.
+ *
+ * ```ts
+* const v1 = IntVector.from(new Int32Array([1, 2, 3]));
+ * ````
+ *
+ * @category Vector
+ */
 export class IntVector<T extends Int = Int> extends BaseVector<T> {
 
     // Guaranteed zero-copy variants
@@ -165,13 +175,13 @@ export class Uint64Vector extends IntVector<Uint64> {
     }
 }
 
-/** @ignore */
+/** @internal */
 function convert32To64Bit(typeCtor: any, dataCtor: any) {
     return (typeCtor === Int64 || typeCtor === Uint64) &&
            (dataCtor === Int32Array || dataCtor === Uint32Array);
 }
 
-/** @ignore */
+/** @internal */
 function arrayTypeToDataType(ctor: IntArrayCtor, is64bit: boolean) {
     switch (ctor) {
         case Int8Array:      return Int8;
@@ -186,7 +196,7 @@ function arrayTypeToDataType(ctor: IntArrayCtor, is64bit: boolean) {
     }
 }
 
-/** @ignore */
+/** @internal */
 function vectorTypeToDataType(ctor: IntVectorConstructors, is64bit: boolean) {
     switch (ctor) {
         case Int8Vector:   return Int8;

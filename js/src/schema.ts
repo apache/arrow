@@ -78,7 +78,7 @@ export class Schema<T extends { [key: string]: DataType } = any> {
 }
 
 /**
- * Fields names to {@link DataType}.
+ * Maps a field name to a {@link DataType}.
  */
 export class Field<T extends DataType = any> {
 
@@ -122,12 +122,12 @@ export class Field<T extends DataType = any> {
     }
 }
 
-/** @ignore */
+/** @internal */
 function mergeMaps<TKey, TVal>(m1?: Map<TKey, TVal> | null, m2?: Map<TKey, TVal> | null): Map<TKey, TVal> {
     return new Map([...(m1 || new Map()), ...(m2 || new Map())]);
 }
 
-/** @ignore */
+/** @internal */
 function generateDictionaryMap(fields: Field[], dictionaries = new Map<number, DataType>()): Map<number, DataType> {
 
     for (let i = -1, n = fields.length; ++i < n;) {

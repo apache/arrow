@@ -20,12 +20,12 @@ import { Visitor } from '../visitor';
 import { Type as ArrowType } from '../fb/Schema';
 import { Precision, DateUnit, TimeUnit, IntervalUnit, UnionMode } from '../enum';
 
-/** @ignore */
+/** @internal */
 export interface JSONTypeAssembler extends Visitor {
     visit<T extends type.DataType>(node: T): Record<string, unknown> | undefined;
 }
 
-/** @ignore */
+/** @internal */
 export class JSONTypeAssembler extends Visitor {
     public visit<T extends type.DataType>(node: T): Record<string, unknown> | undefined {
         return node == null ? undefined : super.visit(node);

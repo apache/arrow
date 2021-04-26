@@ -22,10 +22,10 @@ import { TypedArray, TypedArrayConstructor } from '../interfaces';
 import { BigIntArray, BigIntArrayConstructor } from '../interfaces';
 import { isPromise, isIterable, isAsyncIterable, isIteratorResult, BigInt64Array, BigUint64Array } from './compat';
 
-/** @ignore */
+/** @internal */
 const SharedArrayBuf = (typeof SharedArrayBuffer !== 'undefined' ? SharedArrayBuffer : ArrayBuffer);
 
-/** @ignore */
+/** @internal */
 function collapseContiguousByteRanges(chunks: Uint8Array[]) {
     const result = chunks[0] ? [chunks[0]] : [];
     let xOffset: number, yOffset: number, xLen: number, yLen: number;
@@ -49,7 +49,7 @@ function collapseContiguousByteRanges(chunks: Uint8Array[]) {
     return result;
 }
 
-/** @ignore */
+/** @internal */
 export function memcpy<TTarget extends ArrayBufferView, TSource extends ArrayBufferView>(target: TTarget, source: TSource, targetByteOffset = 0, sourceByteLength = source.byteLength) {
     const targetByteLength = target.byteLength;
     const dst = new Uint8Array(target.buffer, target.byteOffset, targetByteLength);
@@ -58,7 +58,7 @@ export function memcpy<TTarget extends ArrayBufferView, TSource extends ArrayBuf
     return target;
 }
 
-/** @ignore */
+/** @internal */
 export function joinUint8Arrays(chunks: Uint8Array[], size?: number | null): [Uint8Array, Uint8Array[], number] {
     // collapse chunks that share the same underlying ArrayBuffer and whose byte ranges overlap,
     // to avoid unnecessarily copying the bytes to do this buffer join. This is a common case during
@@ -84,12 +84,12 @@ export function joinUint8Arrays(chunks: Uint8Array[], size?: number | null): [Ui
     return [buffer || new Uint8Array(0), result.slice(index), byteLength - (buffer ? buffer.byteLength : 0)];
 }
 
-/** @ignore */
+/** @internal */
 export type ArrayBufferViewInput = ArrayBufferView | ArrayBufferLike | ArrayBufferView | Iterable<number> | ArrayLike<number> | ByteBuffer | string | null | undefined  |
                     IteratorResult<ArrayBufferView | ArrayBufferLike | ArrayBufferView | Iterable<number> | ArrayLike<number> | ByteBuffer | string | null | undefined> |
           ReadableStreamReadResult<ArrayBufferView | ArrayBufferLike | ArrayBufferView | Iterable<number> | ArrayLike<number> | ByteBuffer | string | null | undefined> ;
 
-/** @ignore */
+/** @internal */
 export function toArrayBufferView<T extends TypedArray>(ArrayBufferViewCtor: TypedArrayConstructor<T>, input: ArrayBufferViewInput): T;
 export function toArrayBufferView<T extends BigIntArray>(ArrayBufferViewCtor: BigIntArrayConstructor<T>, input: ArrayBufferViewInput): T;
 export function toArrayBufferView(ArrayBufferViewCtor: any, input: ArrayBufferViewInput) {
@@ -113,25 +113,25 @@ export function toArrayBufferView(ArrayBufferViewCtor: any, input: ArrayBufferVi
         : new ArrayBufferViewCtor(value.buffer, value.byteOffset, value.byteLength / ArrayBufferViewCtor.BYTES_PER_ELEMENT);
 }
 
-/** @ignore */ export const toInt8Array = (input: ArrayBufferViewInput) => toArrayBufferView(Int8Array, input);
-/** @ignore */ export const toInt16Array = (input: ArrayBufferViewInput) => toArrayBufferView(Int16Array, input);
-/** @ignore */ export const toInt32Array = (input: ArrayBufferViewInput) => toArrayBufferView(Int32Array, input);
-/** @ignore */ export const toBigInt64Array = (input: ArrayBufferViewInput) => toArrayBufferView(BigInt64Array, input);
-/** @ignore */ export const toUint8Array = (input: ArrayBufferViewInput) => toArrayBufferView(Uint8Array, input);
-/** @ignore */ export const toUint16Array = (input: ArrayBufferViewInput) => toArrayBufferView(Uint16Array, input);
-/** @ignore */ export const toUint32Array = (input: ArrayBufferViewInput) => toArrayBufferView(Uint32Array, input);
-/** @ignore */ export const toBigUint64Array = (input: ArrayBufferViewInput) => toArrayBufferView(BigUint64Array, input);
-/** @ignore */ export const toFloat32Array = (input: ArrayBufferViewInput) => toArrayBufferView(Float32Array, input);
-/** @ignore */ export const toFloat64Array = (input: ArrayBufferViewInput) => toArrayBufferView(Float64Array, input);
-/** @ignore */ export const toUint8ClampedArray = (input: ArrayBufferViewInput) => toArrayBufferView(Uint8ClampedArray, input);
+/** @internal */ export const toInt8Array = (input: ArrayBufferViewInput) => toArrayBufferView(Int8Array, input);
+/** @internal */ export const toInt16Array = (input: ArrayBufferViewInput) => toArrayBufferView(Int16Array, input);
+/** @internal */ export const toInt32Array = (input: ArrayBufferViewInput) => toArrayBufferView(Int32Array, input);
+/** @internal */ export const toBigInt64Array = (input: ArrayBufferViewInput) => toArrayBufferView(BigInt64Array, input);
+/** @internal */ export const toUint8Array = (input: ArrayBufferViewInput) => toArrayBufferView(Uint8Array, input);
+/** @internal */ export const toUint16Array = (input: ArrayBufferViewInput) => toArrayBufferView(Uint16Array, input);
+/** @internal */ export const toUint32Array = (input: ArrayBufferViewInput) => toArrayBufferView(Uint32Array, input);
+/** @internal */ export const toBigUint64Array = (input: ArrayBufferViewInput) => toArrayBufferView(BigUint64Array, input);
+/** @internal */ export const toFloat32Array = (input: ArrayBufferViewInput) => toArrayBufferView(Float32Array, input);
+/** @internal */ export const toFloat64Array = (input: ArrayBufferViewInput) => toArrayBufferView(Float64Array, input);
+/** @internal */ export const toUint8ClampedArray = (input: ArrayBufferViewInput) => toArrayBufferView(Uint8ClampedArray, input);
 
-/** @ignore */
+/** @internal */
 type ArrayBufferViewIteratorInput = Iterable<ArrayBufferViewInput> | ArrayBufferViewInput;
 
-/** @ignore */
+/** @internal */
 const pump = <T extends Iterator<any> | AsyncIterator<any>>(iterator: T) => { iterator.next(); return iterator; };
 
-/** @ignore */
+/** @internal */
 export function* toArrayBufferViewIterator<T extends TypedArray>(ArrayCtor: TypedArrayConstructor<T>, source: ArrayBufferViewIteratorInput) {
 
     const wrap = function*<T>(x: T) { yield x; };
@@ -151,20 +151,20 @@ export function* toArrayBufferViewIterator<T extends TypedArray>(ArrayCtor: Type
     return new ArrayCtor();
 }
 
-/** @ignore */ export const toInt8ArrayIterator = (input: ArrayBufferViewIteratorInput) => toArrayBufferViewIterator(Int8Array, input);
-/** @ignore */ export const toInt16ArrayIterator = (input: ArrayBufferViewIteratorInput) => toArrayBufferViewIterator(Int16Array, input);
-/** @ignore */ export const toInt32ArrayIterator = (input: ArrayBufferViewIteratorInput) => toArrayBufferViewIterator(Int32Array, input);
-/** @ignore */ export const toUint8ArrayIterator = (input: ArrayBufferViewIteratorInput) => toArrayBufferViewIterator(Uint8Array, input);
-/** @ignore */ export const toUint16ArrayIterator = (input: ArrayBufferViewIteratorInput) => toArrayBufferViewIterator(Uint16Array, input);
-/** @ignore */ export const toUint32ArrayIterator = (input: ArrayBufferViewIteratorInput) => toArrayBufferViewIterator(Uint32Array, input);
-/** @ignore */ export const toFloat32ArrayIterator = (input: ArrayBufferViewIteratorInput) => toArrayBufferViewIterator(Float32Array, input);
-/** @ignore */ export const toFloat64ArrayIterator = (input: ArrayBufferViewIteratorInput) => toArrayBufferViewIterator(Float64Array, input);
-/** @ignore */ export const toUint8ClampedArrayIterator = (input: ArrayBufferViewIteratorInput) => toArrayBufferViewIterator(Uint8ClampedArray, input);
+/** @internal */ export const toInt8ArrayIterator = (input: ArrayBufferViewIteratorInput) => toArrayBufferViewIterator(Int8Array, input);
+/** @internal */ export const toInt16ArrayIterator = (input: ArrayBufferViewIteratorInput) => toArrayBufferViewIterator(Int16Array, input);
+/** @internal */ export const toInt32ArrayIterator = (input: ArrayBufferViewIteratorInput) => toArrayBufferViewIterator(Int32Array, input);
+/** @internal */ export const toUint8ArrayIterator = (input: ArrayBufferViewIteratorInput) => toArrayBufferViewIterator(Uint8Array, input);
+/** @internal */ export const toUint16ArrayIterator = (input: ArrayBufferViewIteratorInput) => toArrayBufferViewIterator(Uint16Array, input);
+/** @internal */ export const toUint32ArrayIterator = (input: ArrayBufferViewIteratorInput) => toArrayBufferViewIterator(Uint32Array, input);
+/** @internal */ export const toFloat32ArrayIterator = (input: ArrayBufferViewIteratorInput) => toArrayBufferViewIterator(Float32Array, input);
+/** @internal */ export const toFloat64ArrayIterator = (input: ArrayBufferViewIteratorInput) => toArrayBufferViewIterator(Float64Array, input);
+/** @internal */ export const toUint8ClampedArrayIterator = (input: ArrayBufferViewIteratorInput) => toArrayBufferViewIterator(Uint8ClampedArray, input);
 
-/** @ignore */
+/** @internal */
 type ArrayBufferViewAsyncIteratorInput = AsyncIterable<ArrayBufferViewInput> | Iterable<ArrayBufferViewInput> | PromiseLike<ArrayBufferViewInput> | ArrayBufferViewInput;
 
-/** @ignore */
+/** @internal */
 export async function* toArrayBufferViewAsyncIterator<T extends TypedArray>(ArrayCtor: TypedArrayConstructor<T>, source: ArrayBufferViewAsyncIteratorInput): AsyncGenerator<T, T, number | undefined> {
 
     // if a Promise, unwrap the Promise and iterate the resolved value
@@ -200,17 +200,17 @@ export async function* toArrayBufferViewAsyncIterator<T extends TypedArray>(Arra
     return new ArrayCtor();
 }
 
-/** @ignore */ export const toInt8ArrayAsyncIterator = (input: ArrayBufferViewAsyncIteratorInput) => toArrayBufferViewAsyncIterator(Int8Array, input);
-/** @ignore */ export const toInt16ArrayAsyncIterator = (input: ArrayBufferViewAsyncIteratorInput) => toArrayBufferViewAsyncIterator(Int16Array, input);
-/** @ignore */ export const toInt32ArrayAsyncIterator = (input: ArrayBufferViewAsyncIteratorInput) => toArrayBufferViewAsyncIterator(Int32Array, input);
-/** @ignore */ export const toUint8ArrayAsyncIterator = (input: ArrayBufferViewAsyncIteratorInput) => toArrayBufferViewAsyncIterator(Uint8Array, input);
-/** @ignore */ export const toUint16ArrayAsyncIterator = (input: ArrayBufferViewAsyncIteratorInput) => toArrayBufferViewAsyncIterator(Uint16Array, input);
-/** @ignore */ export const toUint32ArrayAsyncIterator = (input: ArrayBufferViewAsyncIteratorInput) => toArrayBufferViewAsyncIterator(Uint32Array, input);
-/** @ignore */ export const toFloat32ArrayAsyncIterator = (input: ArrayBufferViewAsyncIteratorInput) => toArrayBufferViewAsyncIterator(Float32Array, input);
-/** @ignore */ export const toFloat64ArrayAsyncIterator = (input: ArrayBufferViewAsyncIteratorInput) => toArrayBufferViewAsyncIterator(Float64Array, input);
-/** @ignore */ export const toUint8ClampedArrayAsyncIterator = (input: ArrayBufferViewAsyncIteratorInput) => toArrayBufferViewAsyncIterator(Uint8ClampedArray, input);
+/** @internal */ export const toInt8ArrayAsyncIterator = (input: ArrayBufferViewAsyncIteratorInput) => toArrayBufferViewAsyncIterator(Int8Array, input);
+/** @internal */ export const toInt16ArrayAsyncIterator = (input: ArrayBufferViewAsyncIteratorInput) => toArrayBufferViewAsyncIterator(Int16Array, input);
+/** @internal */ export const toInt32ArrayAsyncIterator = (input: ArrayBufferViewAsyncIteratorInput) => toArrayBufferViewAsyncIterator(Int32Array, input);
+/** @internal */ export const toUint8ArrayAsyncIterator = (input: ArrayBufferViewAsyncIteratorInput) => toArrayBufferViewAsyncIterator(Uint8Array, input);
+/** @internal */ export const toUint16ArrayAsyncIterator = (input: ArrayBufferViewAsyncIteratorInput) => toArrayBufferViewAsyncIterator(Uint16Array, input);
+/** @internal */ export const toUint32ArrayAsyncIterator = (input: ArrayBufferViewAsyncIteratorInput) => toArrayBufferViewAsyncIterator(Uint32Array, input);
+/** @internal */ export const toFloat32ArrayAsyncIterator = (input: ArrayBufferViewAsyncIteratorInput) => toArrayBufferViewAsyncIterator(Float32Array, input);
+/** @internal */ export const toFloat64ArrayAsyncIterator = (input: ArrayBufferViewAsyncIteratorInput) => toArrayBufferViewAsyncIterator(Float64Array, input);
+/** @internal */ export const toUint8ClampedArrayAsyncIterator = (input: ArrayBufferViewAsyncIteratorInput) => toArrayBufferViewAsyncIterator(Uint8ClampedArray, input);
 
-/** @ignore */
+/** @internal */
 export function rebaseValueOffsets(offset: number, length: number, valueOffsets: Int32Array) {
     // If we have a non-zero offset, create a new offsets array with the values
     // shifted by the start offset, such that the new start offset is 0
@@ -223,7 +223,7 @@ export function rebaseValueOffsets(offset: number, length: number, valueOffsets:
     return valueOffsets;
 }
 
-/** @ignore */
+/** @internal */
 export function compareArrayLike<T extends ArrayLike<any>>(a: T, b: T) {
     let i = 0;
     const n = a.length;

@@ -21,12 +21,12 @@ import {
     TextEncoder as TextEncoderPolyfill,
 } from 'text-encoding-utf-8';
 
-/** @ignore @suppress {missingRequire} */
+/** @internal @suppress {missingRequire} */
 const _Buffer = eval("typeof Buffer === 'function' ? Buffer : null");
-/** @ignore */
+/** @internal */
 const useNativeEncoders = typeof TextDecoder === 'function' && typeof TextEncoder === 'function';
 
-/** @ignore */
+/** @internal */
 export const decodeUtf8 = ((TextDecoder) => {
     if (useNativeEncoders || !_Buffer) {
         const decoder = new TextDecoder('utf-8');
@@ -38,7 +38,7 @@ export const decodeUtf8 = ((TextDecoder) => {
     };
 })(typeof TextDecoder !== 'undefined' ? TextDecoder : TextDecoderPolyfill);
 
-/** @ignore */
+/** @internal */
 export const encodeUtf8 = ((TextEncoder) => {
     if (useNativeEncoders || !_Buffer) {
         const encoder = new TextEncoder();

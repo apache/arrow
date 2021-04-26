@@ -29,6 +29,7 @@ export interface BaseVector<T extends DataType = any> extends Clonable<V<T>>, Sl
     clone<R extends DataType = T>(data: Data<R>, children?: Vector<R>[]): V<R>;
 }
 
+/** @category Vector */
 export abstract class BaseVector<T extends DataType = any> extends AbstractVector<T>
     implements Clonable<V<T>>, Sliceable<V<T>>, Applicative<T, Chunked<T>> {
 
