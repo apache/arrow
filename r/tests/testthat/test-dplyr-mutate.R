@@ -494,7 +494,7 @@ test_that("can remove variables with NULL (dplyr #462)", {
   # even if it doesn't exist
   expect_dplyr_equal(input %>% mutate(z = NULL) %>% collect(), df)
   # or was just created
-  expect_dplyr_equal(input %>% mutate(z = 1, z = NULL) %>% collect(), df)
+  expect_dplyr_equal(input %>% mutate(z = rep(1, nrow(input)), z = NULL) %>% collect(), df)
 
   # regression test for https://github.com/tidyverse/dplyr/issues/4974
   expect_dplyr_equal(
