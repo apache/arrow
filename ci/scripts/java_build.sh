@@ -95,7 +95,8 @@ if [ "${ARROW_PLASMA}" = "ON" ]; then
 fi
 
 if [ "${with_docs}" == "true" ]; then
-  ${mvn} -Dcheckstyle.skip=true install site
+  # HTTP pooling is turned of to avoid download issues https://issues.apache.org/jira/browse/ARROW-11633
+  ${mvn} -Dcheckstyle.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false install site
 fi
 
 popd
