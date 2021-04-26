@@ -16,7 +16,7 @@
 // under the License.
 
 module.exports = {
-    entryPoints: ['src/Arrow.ts'],
+    entryPoints: ['src/Arrow.dom.ts', 'src/Arrow.node.ts'],
     out: 'doc',
     name: 'Apache Arrow',
     tsconfig: 'tsconfig/tsconfig.docs.json',
