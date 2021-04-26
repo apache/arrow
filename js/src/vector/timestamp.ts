@@ -18,13 +18,13 @@
 import { BaseVector } from './base';
 import { Timestamp, TimestampSecond, TimestampMillisecond, TimestampMicrosecond, TimestampNanosecond } from '../type';
 
-/** @ignore */
+/** @category Vector */
 export class TimestampVector<T extends Timestamp = Timestamp> extends BaseVector<T> {}
-/** @ignore */
+/** @category Vector */
 export class TimestampSecondVector extends TimestampVector<TimestampSecond> {}
-/** @ignore */
+/** @category Vector */
 export class TimestampMillisecondVector extends TimestampVector<TimestampMillisecond> {}
-/** @ignore */
+/** @category Vector */
 export class TimestampMicrosecondVector extends TimestampVector<TimestampMicrosecond> {}
-/** @ignore */
+/** @category Vector */
 export class TimestampNanosecondVector extends TimestampVector<TimestampNanosecond> {}

@@ -18,5 +18,5 @@
 import { BaseVector } from './base';
 import { DataType, FixedSizeList } from '../type';
 
-/** @ignore */
+/** @category Vector */
 export class FixedSizeListVector<T extends DataType = any> extends BaseVector<FixedSizeList<T>> {}

@@ -58,6 +58,7 @@ import { instance as byteWidthVisitor } from '../visitor/bytewidth';
 import { instance as getVectorConstructor } from '../visitor/vectorctor';
 
 declare module '../vector' {
+     /** @ignore */
     namespace Vector {
         export { newVector as new };
         export { vectorFrom as from };
@@ -65,13 +66,19 @@ declare module '../vector' {
 }
 
 declare module './base' {
+     /** @ignore */
     namespace BaseVector {
         export { vectorFrom as from };
     }
+    /** @category Vector */
     interface BaseVector<T extends DataType> {
         get(index: number): T['TValue'] | null;
         set(index: number, value: T['TValue'] | null): void;
         indexOf(value: T['TValue'] | null, fromIndex?: number): number;
+        /**
+         * Return the Vector as an array.
+         * For int and float vectors, `toArray` returns [Typed Arrays](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypedArray).
+         */
         toArray(): T['TArray'];
         getByteWidth(): number;
         [Symbol.iterator](): IterableIterator<T['TValue'] | null>;

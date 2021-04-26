@@ -43,7 +43,7 @@ type FromInput<T extends Float, TNull = any> =
 /** @ignore */
 type FloatArrayCtor = TypedArrayConstructor<FloatArray>;
 
-/** @ignore */
+/** @category Vector */
 export class FloatVector<T extends Float = Float> extends BaseVector<T> {
 
     // Guaranteed zero-copy variants
@@ -102,7 +102,7 @@ export class FloatVector<T extends Float = Float> extends BaseVector<T> {
     }
 }
 
-/** @ignore */
+/** @category Vector */
 export class Float16Vector extends FloatVector<Float16> {
     // Since JS doesn't have half floats, `toArray()` returns a zero-copy slice
     // of the underlying Uint16Array data. This behavior ensures we don't incur
@@ -114,31 +114,32 @@ export class Float16Vector extends FloatVector<Float16> {
     public toFloat64Array() { return new Float64Array(this as Iterable<number>); }
 }
 
-/** @ignore */
+/** @category Vector */
 export class Float32Vector extends FloatVector<Float32> {}
-/** @ignore */
+/** @category Vector */
 export class Float64Vector extends FloatVector<Float64> {}
 
-const convertTo16Bit = (typeCtor: any, dataCtor: any) => {
+/** @ignore */
+function convertTo16Bit(typeCtor: any, dataCtor: any) {
     return (typeCtor === Float16) && (dataCtor !== Uint16Array);
-};
+}
 
 /** @ignore */
-const arrayTypeToDataType = (ctor: FloatArrayCtor) => {
+function arrayTypeToDataType(ctor: FloatArrayCtor) {
     switch (ctor) {
         case Uint16Array:    return Float16;
         case Float32Array:   return Float32;
         case Float64Array:   return Float64;
         default: return null;
     }
-};
+}
 
 /** @ignore */
-const vectorTypeToDataType = (ctor: FloatVectorConstructors) => {
+function vectorTypeToDataType(ctor: FloatVectorConstructors) {
     switch (ctor) {
         case Float16Vector: return Float16;
         case Float32Vector: return Float32;
         case Float64Vector: return Float64;
         default: return null;
     }
-};
+}

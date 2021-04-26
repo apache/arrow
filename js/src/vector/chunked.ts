@@ -68,7 +68,6 @@ class ChunkedIterator<T extends DataType> implements IterableIterator<T['TValue'
     }
 }
 
-/** @ignore */
 export class Chunked<T extends DataType = any>
     extends AbstractVector<T>
     implements Clonable<Chunked<T>>,
@@ -298,19 +297,19 @@ function calculateOffsets<T extends DataType>(vectors: Vector<T>[]) {
 }
 
 /** @ignore */
-const typedSet = (src: TypedArray, dst: TypedArray, offset: number) => {
+function typedSet(src: TypedArray, dst: TypedArray, offset: number) {
     dst.set(src, offset);
     return (offset + src.length);
-};
+}
 
 /** @ignore */
-const arraySet = (src: any[], dst: any[], offset: number) => {
+function arraySet(src: any[], dst: any[], offset: number) {
     let idx = offset;
     for (let i = -1, n = src.length; ++i < n;) {
         dst[idx++] = src[i];
     }
     return idx;
-};
+}
 
 /** @ignore */
 interface TypedArray extends ArrayBufferView {

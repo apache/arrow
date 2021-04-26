@@ -17,6 +17,9 @@
 
 import { DataType } from './type';
 
+/**
+ * A Schema is a list of {@link Field}s.
+ */
 export class Schema<T extends { [key: string]: DataType } = any> {
 
     public readonly fields: Field<T[keyof T]>[];
@@ -74,6 +77,9 @@ export class Schema<T extends { [key: string]: DataType } = any> {
     }
 }
 
+/**
+ * Fields names to {@link DataType}.
+ */
 export class Field<T extends DataType = any> {
 
     public static new<T extends DataType = any>(props: { name: string | number; type: T; nullable?: boolean; metadata?: Map<string, string> | null }): Field<T>;

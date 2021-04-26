@@ -38,6 +38,9 @@ export interface RecordBatch<T extends { [key: string]: DataType } = any> {
     clone(data: Data<Struct<T>>, children?: Vector[]): RecordBatch<T>;
 }
 
+/**
+ * A record batch is a collection of equal-length arrays matching a {@link Schema}. It is a table-like data structure of {@link Column}s.
+ */
 export class RecordBatch<T extends { [key: string]: DataType } = any>
     extends StructVector<T>
     implements Clonable<RecordBatch<T>>,

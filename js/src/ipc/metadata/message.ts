@@ -261,11 +261,13 @@ BufferRegion['encode'] = encodeBufferRegion;
 BufferRegion['decode'] = decodeBufferRegion;
 
 declare module '../../schema' {
+    /** @ignore */
     namespace Field {
         export { encodeField as encode };
         export { decodeField as decode };
         export { fieldFromJSON as fromJSON };
     }
+    /** @ignore */
     namespace Schema {
         export { encodeSchema as encode };
         export { decodeSchema as decode };

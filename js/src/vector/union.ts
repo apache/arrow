@@ -18,15 +18,15 @@
 import { BaseVector } from './base';
 import { Union, DenseUnion, SparseUnion} from '../type';
 
-/** @ignore */
+/** @category Vector */
 export class UnionVector<T extends Union = Union> extends BaseVector<T> {
     public get typeIdToChildIndex() { return this.data.type.typeIdToChildIndex; }
 }
 
-/** @ignore */
+/** @category Vector */
 export class DenseUnionVector extends UnionVector<DenseUnion> {
     public get valueOffsets() { return this.data.valueOffsets!; }
 }
 
-/** @ignore */
+/** @category Vector */
 export class SparseUnionVector extends UnionVector<SparseUnion> {}

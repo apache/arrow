@@ -19,7 +19,6 @@ import { Data } from './data';
 import { DataType } from './type';
 import { Chunked } from './vector/chunked';
 
-/** @ignore */
 export interface Clonable<R extends AbstractVector> {
     clone(...args: any[]): R;
 }
@@ -35,6 +34,7 @@ export interface Applicative<T extends DataType, R extends Chunked> {
     readonly [Symbol.isConcatSpreadable]: boolean;
 }
 
+/** @category Vector */
 export interface AbstractVector<T extends DataType = any>
     extends Clonable<AbstractVector<T>>,
             Sliceable<AbstractVector<T>>,
@@ -45,6 +45,7 @@ export interface AbstractVector<T extends DataType = any>
     readonly TValue: T['TValue'];
 }
 
+/** @category Vector */
 export abstract class AbstractVector<T extends DataType = any> implements Iterable<T['TValue'] | null> {
 
     public abstract readonly data: Data<T>;

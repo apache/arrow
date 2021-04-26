@@ -21,7 +21,7 @@ import { Vector } from '../vector';
 import { BaseVector } from './base';
 import { DataType, Map_, Struct, List } from '../type';
 
-/** @ignore */
+/** @category Vector */
 export class MapVector<K extends DataType = any, V extends DataType = any> extends BaseVector<Map_<K, V>> {
     public asList() {
         const child = this.type.children[0] as Field<Struct<{ key: K; value: V }>>;

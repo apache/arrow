@@ -53,7 +53,7 @@ type FromArgs<T extends Int, TNull = any> = [FromInput<T, TNull>, boolean?];
 /** @ignore */
 type IntArrayCtor = TypedArrayConstructor<IntArray> | BigIntArrayConstructor<BigIntArray>;
 
-/** @ignore */
+/** @category Vector */
 export class IntVector<T extends Int = Int> extends BaseVector<T> {
 
     // Guaranteed zero-copy variants
@@ -125,13 +125,16 @@ export class IntVector<T extends Int = Int> extends BaseVector<T> {
     }
 }
 
-/** @ignore */
+/** @category Vector */
 export class Int8Vector extends IntVector<Int8> {}
-/** @ignore */
+
+/** @category Vector */
 export class Int16Vector extends IntVector<Int16> {}
-/** @ignore */
+
+/** @category Vector */
 export class Int32Vector extends IntVector<Int32> {}
-/** @ignore */
+
+/** @category Vector */
 export class Int64Vector extends IntVector<Int64> {
     public toBigInt64Array() {
         return toBigInt64Array(this.values);
@@ -142,13 +145,16 @@ export class Int64Vector extends IntVector<Int64> {
     }
 }
 
-/** @ignore */
+/** @category Vector */
 export class Uint8Vector extends IntVector<Uint8> {}
-/** @ignore */
+
+/** @category Vector */
 export class Uint16Vector extends IntVector<Uint16> {}
-/** @ignore */
+
+/** @category Vector */
 export class Uint32Vector extends IntVector<Uint32> {}
-/** @ignore */
+
+/** @category Vector */
 export class Uint64Vector extends IntVector<Uint64> {
     public toBigUint64Array() {
         return toBigUint64Array(this.values);
@@ -159,13 +165,14 @@ export class Uint64Vector extends IntVector<Uint64> {
     }
 }
 
-const convert32To64Bit = (typeCtor: any, dataCtor: any) => {
+/** @ignore */
+function convert32To64Bit(typeCtor: any, dataCtor: any) {
     return (typeCtor === Int64 || typeCtor === Uint64) &&
            (dataCtor === Int32Array || dataCtor === Uint32Array);
-};
+}
 
 /** @ignore */
-const arrayTypeToDataType = (ctor: IntArrayCtor, is64bit: boolean) => {
+function arrayTypeToDataType(ctor: IntArrayCtor, is64bit: boolean) {
     switch (ctor) {
         case Int8Array:      return Int8;
         case Int16Array:     return Int16;
@@ -177,10 +184,10 @@ const arrayTypeToDataType = (ctor: IntArrayCtor, is64bit: boolean) => {
         case BigUint64Array: return Uint64;
         default: return null;
     }
-};
+}
 
 /** @ignore */
-const vectorTypeToDataType = (ctor: IntVectorConstructors, is64bit: boolean) => {
+function vectorTypeToDataType(ctor: IntVectorConstructors, is64bit: boolean) {
     switch (ctor) {
         case Int8Vector:   return Int8;
         case Int16Vector:  return Int16;
@@ -192,4 +199,4 @@ const vectorTypeToDataType = (ctor: IntVectorConstructors, is64bit: boolean) => 
         case Uint64Vector: return Uint64;
         default: return null;
     }
-};
+}

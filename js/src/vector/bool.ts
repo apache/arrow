@@ -22,7 +22,7 @@ import { VectorBuilderOptions } from './index';
 import { vectorFromValuesWithType } from './index';
 import { VectorBuilderOptionsAsync } from './index';
 
-/** @ignore */
+/** @category Vector */
 export class BoolVector extends BaseVector<Bool> {
     public static from<TNull = any>(input: Iterable<boolean | TNull>): BoolVector;
     public static from<TNull = any>(input: AsyncIterable<boolean | TNull>): Promise<BoolVector>;

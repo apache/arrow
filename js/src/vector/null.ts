@@ -18,5 +18,5 @@
 import { Null } from '../type';
 import { BaseVector } from './base';
 
-/** @ignore */
+/** @category Vector */
 export class NullVector extends BaseVector<Null> {}

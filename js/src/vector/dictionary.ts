@@ -27,7 +27,7 @@ import { DataType, Dictionary, TKeys } from '../type';
 /** @ignore */
 type FromArgs<T extends DataType = any, TKey extends TKeys = TKeys> = [Vector<T>, TKey, ArrayLike<number> | TKey['TArray']];
 
-/** @ignore */
+/** @category Vector */
 export class DictionaryVector<T extends DataType = any, TKey extends TKeys = TKeys> extends BaseVector<Dictionary<T, TKey>> {
     public static from<T extends DataType = any, TKey extends TKeys = TKeys>(...args: FromArgs<T, TKey>): V<Dictionary<T, TKey>>;
     public static from<T extends DataType = any, TKey extends TKeys = TKeys>(input: VectorBuilderOptions<Dictionary<T, TKey>>): Vector<Dictionary<T, TKey>>;

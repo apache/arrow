@@ -23,14 +23,12 @@ import { clampRange } from '../util/vector';
 import { VectorType as V } from '../interfaces';
 import { AbstractVector, Vector, Clonable, Sliceable, Applicative } from '../vector';
 
-/** @ignore */
 export interface BaseVector<T extends DataType = any> extends Clonable<V<T>>, Sliceable<V<T>>, Applicative<T, Chunked<T>> {
     slice(begin?: number, end?: number): V<T>;
     concat(...others: Vector<T>[]): Chunked<T>;
     clone<R extends DataType = T>(data: Data<R>, children?: Vector<R>[]): V<R>;
 }
 
-/** @ignore */
 export abstract class BaseVector<T extends DataType = any> extends AbstractVector<T>
     implements Clonable<V<T>>, Sliceable<V<T>>, Applicative<T, Chunked<T>> {
 
@@ -96,6 +94,9 @@ export abstract class BaseVector<T extends DataType = any> extends AbstractVecto
         ) as Vector<R>;
     }
 
+    /**
+     * Return the Vector as a JavaScript array.
+     */
     public toJSON(): any { return [...this]; }
 
     protected _sliceInternal(self: this, begin: number, end: number) {

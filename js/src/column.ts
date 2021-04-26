@@ -29,6 +29,9 @@ export interface Column<T extends DataType = any> {
     clone(chunks?: Vector<T>[], offsets?: Uint32Array): Column<T>;
 }
 
+/**
+ * A column of a table represented by a {@link Field} and a {@link Vector}.
+ */
 export class Column<T extends DataType = any>
     extends Chunked<T>
     implements Clonable<Column<T>>,

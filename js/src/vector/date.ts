@@ -27,7 +27,7 @@ import { Date_, DateDay, DateMillisecond  } from '../type';
 /** @ignore */
 type FromArgs<T extends Date_> = [Iterable<Date>, T['unit']];
 
-/** @ignore */
+/** @category Vector */
 export class DateVector<T extends Date_ = Date_> extends BaseVector<T> {
     public static from<T extends DateUnit.DAY>(...args: FromArgs<DateDay>): V<DateDay>;
     public static from<T extends DateUnit.MILLISECOND>(...args: FromArgs<DateMillisecond>): V<DateMillisecond>;
@@ -44,8 +44,8 @@ export class DateVector<T extends Date_ = Date_> extends BaseVector<T> {
     }
 }
 
-/** @ignore */
+/** @category Vector */
 export class DateDayVector extends DateVector<DateDay> {}
 
-/** @ignore */
+/** @category Vector */
 export class DateMillisecondVector extends DateVector<DateMillisecond> {}

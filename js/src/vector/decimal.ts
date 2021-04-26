@@ -18,5 +18,5 @@
 import { Decimal } from '../type';
 import { BaseVector } from './base';
 
-/** @ignore */
+/** @category Vector */
 export class DecimalVector extends BaseVector<Decimal> {}
