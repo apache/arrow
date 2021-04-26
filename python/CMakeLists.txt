@@ -403,6 +403,7 @@ set(CYTHON_EXTENSIONS
     _feather
     _fs
     _hdfsio
+    _ipc
     _json)
 
 set(LINK_LIBS arrow_shared arrow_python_shared)
