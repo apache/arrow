@@ -462,9 +462,9 @@ test_that("mutations applied progressively", {
   )
 
   df <- data.frame(x = 1, y = 2)
-  expect_dplyr_equal(
-    input %>% mutate(x2 = x, x3 = x2 + 1) %>% collect(),
-    df
+  expect_equal(
+    df %>% Table$create() %>% mutate(x2 = x, x3 = x2 + 1) %>% collect(),
+    df %>% Table$create() %>% mutate(x2 = x + 0, x3 = x2 + 1) %>% collect()
   )
 })
 
