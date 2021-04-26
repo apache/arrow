@@ -90,10 +90,16 @@ static inline Result<csv::ConvertOptions> GetConvertOptions(
       GetFragmentScanOptions<CsvFragmentScanOptions>(
           kCsvTypeName, scan_options.get(), format.default_fragment_scan_options));
   auto convert_options = csv_scan_options->convert_options;
-  for (FieldRef ref : scan_options->MaterializedFields()) {
-    ARROW_ASSIGN_OR_RAISE(auto field, ref.GetOne(*scan_options->dataset_schema));
-
+  auto materialized = scan_options->MaterializedFields();
+  std::unordered_set<std::string> materialized_fields(materialized.begin(),
+                                                      materialized.end());
+  for (auto field : scan_options->dataset_schema->fields()) {
+    if (materialized_fields.find(field->name()) == materialized_fields.end()) continue;
+    // Ignore virtual columns.
     if (column_names.find(field->name()) == column_names.end()) continue;
+    // Only read the requested columns
+    convert_options.include_columns.push_back(field->name());
+    // Properly set conversion types
     convert_options.column_types[field->name()] = field->type();
   }
   return convert_options;

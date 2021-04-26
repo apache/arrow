@@ -18,7 +18,6 @@
 #include "arrow/dataset/scanner.h"
 
 #include <memory>
-#include <ostream>
 
 #include <gmock/gmock.h>
 
@@ -47,6 +46,19 @@ struct TestScannerParams {
   int num_child_datasets;
   int num_batches;
   int items_per_batch;
+
+  std::string ToString() const {
+    // GTest requires this to be alphanumeric
+    std::stringstream ss;
+    ss << (use_async ? "Async" : "Sync") << (use_threads ? "Threaded" : "Serial")
+       << num_child_datasets << "d" << num_batches << "b" << items_per_batch << "r";
+    return ss.str();
+  }
+
+  static std::string ToTestNameString(
+      const ::testing::TestParamInfo<TestScannerParams>& info) {
+    return std::to_string(info.index) + info.param.ToString();
+  }
 
   static std::vector<TestScannerParams> Values() {
     std::vector<TestScannerParams> values;
