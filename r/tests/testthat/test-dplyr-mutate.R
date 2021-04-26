@@ -483,8 +483,8 @@ test_that("can remove variables with NULL (dplyr #462)", {
 
   # regression test for https://github.com/tidyverse/dplyr/issues/4974
   expect_dplyr_equal(
-    data.frame(x = 1, y = 1) %>% mutate(z = 1, x = NULL, y = NULL) %>% collect(),
-    data.frame(z = 1)
+    input %>% mutate(z = 1, x = NULL, y = NULL) %>% collect(),
+    data.frame(x = 1, y = 1)
   )
 })
 
