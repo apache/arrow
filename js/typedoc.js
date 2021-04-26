@@ -16,13 +16,15 @@
 // under the License.
 
 module.exports = {
-    entryPoints: ['src/Arrow.dom.ts', 'src/Arrow.node.ts'],
+    entryPoints: ['src/Arrow.ts'],
     out: 'doc',
     name: 'Apache Arrow',
     tsconfig: 'tsconfig/tsconfig.docs.json',
     excludePrivate: true,
     excludeProtected: true,
     excludeExternals: true,
+    includeVersion: true,
+    categorizeByGroup: true,
     exclude: [
         'src/fb/*.ts',
         'src/bin/*.ts'
