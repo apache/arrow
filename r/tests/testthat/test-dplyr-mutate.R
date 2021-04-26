@@ -488,8 +488,8 @@ test_that("can remove variables with NULL (dplyr #462)", {
   df <- tibble(x = 1:3, y = 1:3)
   gf <- group_by(df, x)
 
-  expect_dplyr_equal(input %>% mutate(y = NULL) %>% collect(), df[1])
-  expect_dplyr_equal(input %>% mutate(y = NULL) %>% collect(), gf[1])
+  expect_dplyr_equal(input %>% mutate(y = NULL) %>% collect(), df)
+  expect_dplyr_equal(input %>% mutate(y = NULL) %>% collect(), gf)
 
   # even if it doesn't exist
   expect_dplyr_equal(input %>% mutate(z = NULL) %>% collect(), df)
