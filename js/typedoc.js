@@ -26,7 +26,7 @@ module.exports = {
     excludeInternal: true,
     includeVersion: true,
     categorizeByGroup: true,
-    exclude: [
+    externalPattern: [
         'src/fb/*.ts',
         'src/bin/*.ts'
     ]
