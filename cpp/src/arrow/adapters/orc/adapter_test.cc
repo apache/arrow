@@ -289,6 +289,8 @@ TEST(TestAdapterRead, ReadIntAndStringFileMultipleStripes) {
   constexpr uint64_t reader_batch_size = 1024;
 
   auto writer = CreateWriter(stripe_size, *type, &mem_stream);
+  // writer->addUserMetadata("key1", "value1");
+  // writer->addUserMetadata("key2", "value2");
   auto batch = writer->createRowBatch(stripe_row_count);
   auto struct_batch = internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
   auto long_batch =
@@ -326,6 +328,10 @@ TEST(TestAdapterRead, ReadIntAndStringFileMultipleStripes) {
   ASSERT_TRUE(
       adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool(), &reader).ok());
 
+  EXPECT_OK_AND_ASSIGN(auto metadata, reader->ReadMetadata());
+  std::shared_ptr<KeyValueMetadata> expected_metadata =
+      key_value_metadata(std::vector<std::string>(), std::vector<std::string>());
+  ASSERT_TRUE(metadata->Equals(*expected_metadata));
   ASSERT_EQ(stripe_row_count * stripe_count, reader->NumberOfRows());
   ASSERT_EQ(stripe_count, reader->NumberOfStripes());
   accumulated = 0;
