@@ -426,7 +426,7 @@ test_that("empty mutate returns input", {
 test_that("rownames preserved", {
   skip("Row names are not preserved")
   df <- data.frame(x = c(1, 2), row.names = c("a", "b"))
-  expect_dplyr_equal(input %>% mutate(y = 2) %>% collect(), df)
+  expect_dplyr_equal(input %>% mutate(y = c(3, 4)) %>% collect() %>% rownames(), df)
 })
 
 # similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L18-L29
