@@ -58,15 +58,6 @@ test_that("basic mutate", {
   )
 })
 
-test_that("mutate() with NULL inputs", {
-  expect_dplyr_equal(
-    input %>%
-      mutate(int = NULL) %>%
-      collect(),
-    tbl
-  )
-})
-
 test_that("transmute", {
   expect_dplyr_equal(
     input %>%
