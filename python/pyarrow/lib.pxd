@@ -37,20 +37,6 @@ cdef class _Weakrefable:
     cdef object __weakref__
 
 
-cdef class IpcWriteOptions(_Weakrefable):
-    cdef:
-        CIpcWriteOptions c_options
-
-cdef class IpcReadOptions(_Weakrefable):
-    cdef:
-        CIpcReadOptions c_options
-
-
-cdef class Message(_Weakrefable):
-    cdef:
-        unique_ptr[CMessage] message
-
-
 cdef class MemoryPool(_Weakrefable):
     cdef:
         CMemoryPool* pool
@@ -500,14 +486,7 @@ cdef class CompressedOutputStream(NativeFile):
     pass
 
 
-cdef class _CRecordBatchWriter(_Weakrefable):
-    cdef:
-        shared_ptr[CRecordBatchWriter] writer
-
-
-cdef class RecordBatchReader(_Weakrefable):
-    cdef:
-        shared_ptr[CRecordBatchReader] reader
+cdef CCompressionType _ensure_compression(str name) except *
 
 
 cdef class Codec(_Weakrefable):

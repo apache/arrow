@@ -358,6 +358,11 @@ variable to 1.
 If you wish to delete stale PyArrow build artifacts before rebuilding, navigate
 to the ``arrow/python`` folder and run ``git clean -Xfd .``.
 
+.. note::
+
+   The build process can be parallelized using the ``PYARROW_PARALLEL=N``
+   environment variable, which will result in faster builds.
+
 Now you are ready to install test dependencies and run `Unit Testing`_, as
 described above.
 

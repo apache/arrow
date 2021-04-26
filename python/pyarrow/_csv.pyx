@@ -30,14 +30,15 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_python cimport (MakeInvalidRowHandler,
                                                PyInvalidRowCallback)
 from pyarrow.lib cimport (check_status, Field, MemoryPool, Schema,
-                          RecordBatchReader, ensure_type,
-                          maybe_unbox_memory_pool, get_input_stream,
-                          get_writer, native_transcoding_input_stream,
+                          ensure_type, maybe_unbox_memory_pool, 
+                          get_input_stream, get_writer, 
+                          native_transcoding_input_stream,
                           pyarrow_unwrap_batch, pyarrow_unwrap_schema,
                           pyarrow_unwrap_table, pyarrow_wrap_schema,
                           pyarrow_wrap_table, pyarrow_wrap_data_type,
                           pyarrow_unwrap_data_type, Table, RecordBatch,
                           StopToken, _CRecordBatchWriter)
+from pyarrow._ipc cimport RecordBatchReader
 from pyarrow.lib import frombytes, tobytes, SignalStopHandler
 from pyarrow.util import _stringify_path
 

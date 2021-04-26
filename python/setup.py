@@ -216,6 +216,7 @@ class build_ext(_build_ext):
         '_s3fs',
         '_hdfs',
         '_hdfsio',
+        '_ipc',
         'gandiva']
 
     def _run_cmake(self):

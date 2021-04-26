@@ -15,8 +15,29 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# cython: language_level = 3
+# cython: profile = False
+# cython: embedsignature = True
+# cython: nonecheck = True
+# distutils: language = c++
+
+from cython.operator cimport dereference as deref
+
+from pyarrow.includes.common cimport *
+from pyarrow.includes.libarrow cimport *
+from pyarrow.lib cimport (check_status, _Weakrefable, NativeFile, Table,
+                          RecordBatch, Schema, Tensor, DictionaryMemo,
+                          pyarrow_wrap_buffer,
+                          get_writer, get_reader, get_input_stream,
+                          pyarrow_wrap_schema, pyarrow_unwrap_schema,
+                          pyarrow_wrap_batch, pyarrow_wrap_table,
+                          pyarrow_wrap_tensor, _ensure_compression)
+
 from collections import namedtuple
 import warnings
+
+from pyarrow.lib import (as_buffer, tobytes, frombytes, BufferOutputStream,
+                         PythonFile, BufferReader)
 
 
 cpdef enum MetadataVersion:

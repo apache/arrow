@@ -20,18 +20,17 @@
 import os
 
 import pyarrow as pa
+from pyarrow._ipc import (IpcReadOptions, IpcWriteOptions, ReadStats, WriteStats,  # noqa
+                          _ReadPandasMixin, MetadataVersion,
+                          Message, MessageReader,
+                          RecordBatchReader, read_message,
+                          read_record_batch, read_schema,
+                          read_tensor, write_tensor,
+                          get_record_batch_size, get_tensor_size)
+import pyarrow._ipc as _ipc
 
-from pyarrow.lib import (IpcReadOptions, IpcWriteOptions, ReadStats, WriteStats,  # noqa
-                         Message, MessageReader,
-                         RecordBatchReader, _ReadPandasMixin,
-                         MetadataVersion,
-                         read_message, read_record_batch, read_schema,
-                         read_tensor, write_tensor,
-                         get_record_batch_size, get_tensor_size)
-import pyarrow.lib as lib
 
-
-class RecordBatchStreamReader(lib._RecordBatchStreamReader):
+class RecordBatchStreamReader(_ipc._RecordBatchStreamReader):
     """
     Reader for the Arrow streaming binary format.
 
@@ -74,7 +73,7 @@ use_legacy_format : bool, default None
     setting the environment variable ARROW_PRE_0_15_IPC_FORMAT=1"""
 
 
-class RecordBatchStreamWriter(lib._RecordBatchStreamWriter):
+class RecordBatchStreamWriter(_ipc._RecordBatchStreamWriter):
     __doc__ = """Writer for the Arrow streaming binary format
 
 {}""".format(_ipc_writer_class_doc)
@@ -84,7 +83,7 @@ class RecordBatchStreamWriter(lib._RecordBatchStreamWriter):
         self._open(sink, schema, options=options)
 
 
-class RecordBatchFileReader(lib._RecordBatchFileReader):
+class RecordBatchFileReader(_ipc._RecordBatchFileReader):
     """
     Class for reading Arrow record batch data from the Arrow binary file format
 
@@ -109,7 +108,7 @@ class RecordBatchFileReader(lib._RecordBatchFileReader):
                    options=options, memory_pool=memory_pool)
 
 
-class RecordBatchFileWriter(lib._RecordBatchFileWriter):
+class RecordBatchFileWriter(_ipc._RecordBatchFileWriter):
 
     __doc__ = """Writer to create the Arrow binary file format
 
