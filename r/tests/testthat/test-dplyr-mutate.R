@@ -459,7 +459,6 @@ test_that("mutations applied progressively", {
   )
 })
 
-
 # similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L37-L54
 test_that("can remove variables with NULL (dplyr #462)", {
   df <- tibble(x = 1:3, y = 1:3)
