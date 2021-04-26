@@ -353,83 +353,58 @@ class RPrimitiveConverter<
 
  private:
   template <typename r_value_type>
-  Status AppendRangeLoopDifferentType(SEXP x, int64_t size) {
-    RETURN_NOT_OK(this->Reserve(size));
-
-    auto append_value = [this](r_value_type value) {
-      ARROW_ASSIGN_OR_RAISE(auto converted,
-                            RConvert::Convert(this->primitive_type_, value));
-      this->primitive_builder_->UnsafeAppend(converted);
-      return Status::OK();
-    };
-    auto append_null = [this]() {
-      this->primitive_builder_->UnsafeAppendNull();
-      return Status::OK();
-    };
-    return RVectorVisitor<r_value_type>::Visit(x, size, append_null, append_value);
-  }
-
-  template <typename r_value_type>
-  Status AppendRangeSameTypeNotALTREP(SEXP x, int64_t size) {
-    auto p = reinterpret_cast<const r_value_type*>(DATAPTR_RO(x));
-    auto p_end = p + size;
-
-    auto first_na = std::find_if(p, p_end, is_NA<r_value_type>);
-
-    if (first_na == p_end) {
-      // no nulls, so we can use AppendValues() directly
-      return this->primitive_builder_->AppendValues(p, p_end);
-    }
-
-    // Append all values up until the first NULL
-    RETURN_NOT_OK(this->primitive_builder_->AppendValues(p, first_na));
-
-    // loop for the remaining
-    RETURN_NOT_OK(this->primitive_builder_->Reserve(p_end - first_na));
-    p = first_na;
-    for (; p < p_end; ++p) {
-      r_value_type value = *p;
-      if (is_NA<r_value_type>(value)) {
-        this->primitive_builder_->UnsafeAppendNull();
-      } else {
-        this->primitive_builder_->UnsafeAppend(value);
-      }
-    }
-    return Status::OK();
-  }
-
-  template <typename r_value_type>
-  Status AppendRangeSameTypeALTREP(SEXP x, int64_t size) {
-    std::lock_guard<std::mutex> lock(arrow::r::get_r_mutex());
-
-    // if it is altrep, then we use cpp11 looping
-    // without needing to convert
-    RETURN_NOT_OK(this->primitive_builder_->Reserve(size));
-    typename RVectorVisitor<r_value_type>::r_vector_type vec(x);
-    auto it = vec.begin();
-    for (R_xlen_t i = 0; i < size; i++, ++it) {
-      r_value_type value = RVectorVisitor<r_value_type>::GetValue(*it);
-      if (is_NA<r_value_type>(value)) {
-        this->primitive_builder_->UnsafeAppendNull();
-      } else {
-        this->primitive_builder_->UnsafeAppend(value);
-      }
-    }
-    return Status::OK();
-  }
-
-  template <typename r_value_type>
   Status AppendRangeDispatch(SEXP x, int64_t size) {
-    if (std::is_same<typename T::c_type, r_value_type>::value) {
-      if (!ALTREP(x)) {
-        return AppendRangeSameTypeNotALTREP<r_value_type>(x, size);
+    bool altrep = ALTREP(x);
+
+    if (altrep) {
+      // `x` is an ALTREP R vector storing `r_value_type`
+      // and that type matches exactly the type of the array this is building
+
+      // constructing `vec` needs to protect `x` so we need locking
+      std::lock_guard<std::mutex> lock(arrow::r::get_r_mutex());
+
+      typename RVectorVisitor<r_value_type>::r_vector_type vec(x);
+      auto it = vec.begin();
+      auto get_r_value = [](decltype(*it) value) {
+        return RVectorVisitor<r_value_type>::GetValue(value);
+      };
+
+      return AppendRange_Iterate<r_value_type, decltype(it), decltype(get_r_value)>(
+          it, size, get_r_value);
+    } else {
+      // `x` is not an ALTREP vector so we have direct access to a range of values
+      auto it = reinterpret_cast<const r_value_type*>(DATAPTR_RO(x));
+      auto get_r_value = [](r_value_type value) { return value; };
+      return AppendRange_Iterate<r_value_type, decltype(it), decltype(get_r_value)>(
+          it, size, get_r_value);
+    }
+  }
+
+  template <typename r_value_type, typename Iterator, typename GetValue>
+  Status AppendRange_Iterate(Iterator it, int64_t size, GetValue get_r_value) {
+    constexpr bool needs_conversion =
+        !std::is_same<typename T::c_type, r_value_type>::value;
+
+    RETURN_NOT_OK(this->primitive_builder_->Reserve(size));
+
+    for (R_xlen_t i = 0; i < size; i++, ++it) {
+      // we need the get_r_value abstraction because of int64 vectors
+      // which don't have their cpp11:: vectors
+      r_value_type value = get_r_value(*it);
+
+      if (is_NA<r_value_type>(value)) {
+        this->primitive_builder_->UnsafeAppendNull();
       } else {
-        return AppendRangeSameTypeALTREP<r_value_type>(x, size);
+        if (needs_conversion) {
+          ARROW_ASSIGN_OR_RAISE(auto converted,
+                                RConvert::Convert(this->primitive_type_, value));
+          this->primitive_builder_->UnsafeAppend(converted);
+        } else {
+          this->primitive_builder_->UnsafeAppend(value);
+        }
       }
     }
-
-    // here if underlying types differ so going
-    return AppendRangeLoopDifferentType<r_value_type>(x, size);
+    return Status::OK();
   }
 };
 
