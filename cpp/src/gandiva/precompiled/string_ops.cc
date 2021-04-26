@@ -1530,7 +1530,7 @@ const char* right(gdv_int64 context, const char* text, gdv_int32 text_len,
     return "";
   }
 
-  int32_t startCharPos;  //the char result start position (inclusive)
+  int32_t startCharPos;  // the char result start position (inclusive)
   int32_t endCharLen;    // the char result end position (inclusive)
   if (number > 0) {
     // case where right('abc', 5) ==> 'abc' startCharPos=1.
