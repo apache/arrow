@@ -422,8 +422,8 @@ test_that("empty mutate returns input", {
   # dbl2 = 5, so I'm grouping by a constant
   gtbl <- group_by(tbl, dbl2)
 
+  expect_dplyr_equal(input %>% mutate() %>% collect(), tbl)
   expect_dplyr_equal(input %>% mutate(!!!list()) %>% collect(), tbl)
-
   expect_dplyr_equal(input %>% mutate() %>% collect(), gtbl)
   expect_dplyr_equal(input %>% mutate(!!!list()) %>% collect(), gtbl)
 })
