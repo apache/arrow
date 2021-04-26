@@ -1992,6 +1992,12 @@ cdef class DictionaryArray(Array):
     def dictionary_encode(self):
         return self
 
+    def dictionary_decode(self):
+        """
+        Decodes the DictionaryArray to an Array.
+        """
+        return self.dictionary.take(self.indices)
+
     @property
     def dictionary(self):
         cdef CDictionaryArray* darr = <CDictionaryArray*>(self.ap)
