@@ -1784,3 +1784,31 @@ test_that("Collecting zero columns from a dataset doesn't return entire dataset"
     c(32, 0)
   )
 })
+
+test_that("metadata of list elements (ARROW-12542)", {
+  skip_if_not_available("parquet")
+  df <- tibble::tibble(
+    part = 1:10,
+    a = rep(1:2, 5),
+    x = rep(list(structure(1, foo = "bar"), structure(2, baz = "qux")), 5)
+  )
+
+  # write the dataset, and open it
+  tmp <- tempfile()
+  write_dataset(df, tmp, partitioning = "part", format = "parquet")
+  ds <- open_dataset(tmp)
+
+  # arrange is necesary here because of the collation order for
+  expect_equal(
+    arrange(df, part, a),
+    collect(arrange(df, part, a))
+  )
+  expect_identical(attr(collect(ds)$x[[1]], "foo"), "bar")
+  expect_identical(attr(collect(ds)$x[[2]], "baz"), "qux")
+
+  expect_equal(
+    arrange(filter(df, a == 2), part, a),
+    arrange(collect(filter(ds, a == 2)), part, a)
+  )
+  expect_identical(attr(collect(filter(ds, a == 2))$x[[1]], "baz"), "qux")
+})
