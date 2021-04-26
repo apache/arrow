@@ -43,7 +43,7 @@ func ListOf(n Node, rep parquet.Repetition, fieldID int32) *GroupNode {
 	}
 
 	return NewGroupNodeLogical(listName, rep, FieldList{
-		NewGroupNode("list", parquet.Repetitions.Repeated, FieldList{n}, -1)},
+		NewGroupNode("list" /* name */, parquet.Repetitions.Repeated, FieldList{n}, -1 /* fieldID */)},
 		ListLogicalType{}, fieldID)
 }
 
@@ -97,6 +97,6 @@ func MapOf(name string, key Node, value Node, mapRep parquet.Repetition, fieldID
 	}
 
 	return NewGroupNodeLogical(name, mapRep, FieldList{
-		NewGroupNode("key_value", parquet.Repetitions.Repeated, keyval, -1),
+		NewGroupNode("key_value" /* name */, parquet.Repetitions.Repeated, keyval, -1 /* fieldID */),
 	}, MapLogicalType{}, fieldID)
 }

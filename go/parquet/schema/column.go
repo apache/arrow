@@ -33,8 +33,12 @@ import (
 type Column struct {
 	pnode *PrimitiveNode
 	// the maximum definition level in this column
+	// if this is > 0 then either this column or a parent column must be optional.
 	maxDefLvl int16
 	// the maximum repetition level in this column
+	// if this is > 0, then either this column or a parent column must be repeated.
+	// when the repetition level in the column data equals this value, it indicates
+	// additional elements in the innermost list.
 	maxRepLvl int16
 }
 

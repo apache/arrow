@@ -204,10 +204,26 @@ func (s *SchemaElementConstructionSuite) TestDecimal() {
 	checkDecimal := func(p *format.SchemaElement) bool { return p.LogicalType.IsSetDECIMAL() }
 
 	tests := []schemaElementConstructArgs{
-		{"decimal16_6", NewDecimalLogicalType(16, 6), parquet.Types.Int64, -1, true, ConvertedTypes.Decimal, true, checkDecimal},
-		{"decimal1_0", NewDecimalLogicalType(1, 0), parquet.Types.Int32, -1, true, ConvertedTypes.Decimal, true, checkDecimal},
-		{"decimal10", NewDecimalLogicalType(10, 0), parquet.Types.Int64, -1, true, ConvertedTypes.Decimal, true, checkDecimal},
-		{"decimal11_11", NewDecimalLogicalType(11, 11), parquet.Types.Int64, -1, true, ConvertedTypes.Decimal, true, checkDecimal},
+		{
+			name: "decimal16_6", logical: NewDecimalLogicalType(16 /* precision */, 6 /* scale */),
+			physical: parquet.Types.Int64, len: -1, expectConverted: true, converted: ConvertedTypes.Decimal,
+			expectLogical: true, checkLogical: checkDecimal,
+		},
+		{
+			name: "decimal1_0", logical: NewDecimalLogicalType(1 /* precision */, 0 /* scale */),
+			physical: parquet.Types.Int32, len: -1, expectConverted: true, converted: ConvertedTypes.Decimal,
+			expectLogical: true, checkLogical: checkDecimal,
+		},
+		{
+			name: "decimal10", logical: NewDecimalLogicalType(10 /* precision */, 0 /* scale */),
+			physical: parquet.Types.Int64, len: -1, expectConverted: true, converted: ConvertedTypes.Decimal,
+			expectLogical: true, checkLogical: checkDecimal,
+		},
+		{
+			name: "decimal11_11", logical: NewDecimalLogicalType(11 /* precision */, 11 /* scale */),
+			physical: parquet.Types.Int64, len: -1, expectConverted: true, converted: ConvertedTypes.Decimal,
+			expectLogical: true, checkLogical: checkDecimal,
+		},
 	}
 	for _, tt := range tests {
 		s.Run(tt.name, func() {
@@ -261,22 +277,64 @@ func (s *SchemaElementConstructionSuite) TestTemporal() {
 	}
 
 	timeTests := []schemaElementConstructArgs{
-		{"time_T_ms", NewTimeLogicalType(true, TimeUnitMillis), parquet.Types.Int32, -1, true, ConvertedTypes.TimeMillis, true, checkTime},
-		{"time_F_ms", NewTimeLogicalType(false, TimeUnitMillis), parquet.Types.Int32, -1, false, ConvertedTypes.NA, true, checkTime},
-		{"time_T_us", NewTimeLogicalType(true, TimeUnitMicros), parquet.Types.Int64, -1, true, ConvertedTypes.TimeMicros, true, checkTime},
-		{"time_F_us", NewTimeLogicalType(false, TimeUnitMicros), parquet.Types.Int64, -1, false, ConvertedTypes.NA, true, checkTime},
-		{"time_T_ns", NewTimeLogicalType(true, TimeUnitNanos), parquet.Types.Int64, -1, false, ConvertedTypes.NA, true, checkTime},
-		{"time_F_ns", NewTimeLogicalType(false, TimeUnitNanos), parquet.Types.Int64, -1, false, ConvertedTypes.NA, true, checkTime},
+		{
+			name: "time_T_ms", logical: NewTimeLogicalType(true, TimeUnitMillis), physical: parquet.Types.Int32, len: -1,
+			expectConverted: true, converted: ConvertedTypes.TimeMillis, expectLogical: true, checkLogical: checkTime,
+		},
+		{
+			name: "time_F_ms", logical: NewTimeLogicalType(false, TimeUnitMillis), physical: parquet.Types.Int32, len: -1,
+			expectConverted: false, converted: ConvertedTypes.NA, expectLogical: true, checkLogical: checkTime,
+		},
+		{
+			name: "time_T_us", logical: NewTimeLogicalType(true, TimeUnitMicros), physical: parquet.Types.Int64, len: -1,
+			expectConverted: true, converted: ConvertedTypes.TimeMicros, expectLogical: true, checkLogical: checkTime,
+		},
+		{
+			name: "time_F_us", logical: NewTimeLogicalType(false, TimeUnitMicros), physical: parquet.Types.Int64, len: -1,
+			expectConverted: false, converted: ConvertedTypes.NA, expectLogical: true, checkLogical: checkTime,
+		},
+		{
+			name: "time_T_ns", logical: NewTimeLogicalType(true, TimeUnitNanos), physical: parquet.Types.Int64, len: -1,
+			expectConverted: false, converted: ConvertedTypes.NA, expectLogical: true, checkLogical: checkTime,
+		},
+		{
+			name: "time_F_ns", logical: NewTimeLogicalType(false, TimeUnitNanos), physical: parquet.Types.Int64, len: -1,
+			expectConverted: false, converted: ConvertedTypes.NA, expectLogical: true, checkLogical: checkTime,
+		},
 	}
 	timeStampTests := []schemaElementConstructArgs{
-		{"timestamp_T_ms", NewTimestampLogicalType(true, TimeUnitMillis), parquet.Types.Int64, -1, true, ConvertedTypes.TimestampMillis, true, checkTimestamp},
-		{"timestamp_F_ms", NewTimestampLogicalType(false, TimeUnitMillis), parquet.Types.Int64, -1, false, ConvertedTypes.NA, true, checkTimestamp},
-		{"timestamp_F_ms_force", NewTimestampLogicalTypeForce(false, TimeUnitMillis), parquet.Types.Int64, -1, true, ConvertedTypes.TimestampMillis, true, checkTimestamp},
-		{"timestamp_T_us", NewTimestampLogicalType(true, TimeUnitMicros), parquet.Types.Int64, -1, true, ConvertedTypes.TimestampMicros, true, checkTimestamp},
-		{"timestamp_F_us", NewTimestampLogicalType(false, TimeUnitMicros), parquet.Types.Int64, -1, false, ConvertedTypes.NA, true, checkTimestamp},
-		{"timestamp_F_us_force", NewTimestampLogicalTypeForce(false, TimeUnitMicros), parquet.Types.Int64, -1, true, ConvertedTypes.TimestampMicros, true, checkTimestamp},
-		{"timestamp_T_ns", NewTimestampLogicalType(true, TimeUnitNanos), parquet.Types.Int64, -1, false, ConvertedTypes.NA, true, checkTimestamp},
-		{"timestamp_F_ns", NewTimestampLogicalType(false, TimeUnitNanos), parquet.Types.Int64, -1, false, ConvertedTypes.NA, true, checkTimestamp},
+		{
+			name: "timestamp_T_ms", logical: NewTimestampLogicalType(true, TimeUnitMillis), physical: parquet.Types.Int64, len: -1,
+			expectConverted: true, converted: ConvertedTypes.TimestampMillis, expectLogical: true, checkLogical: checkTimestamp,
+		},
+		{
+			name: "timestamp_F_ms", logical: NewTimestampLogicalType(false, TimeUnitMillis), physical: parquet.Types.Int64, len: -1,
+			expectConverted: false, converted: ConvertedTypes.NA, expectLogical: true, checkLogical: checkTimestamp,
+		},
+		{
+			name: "timestamp_F_ms_force", logical: NewTimestampLogicalTypeForce(false, TimeUnitMillis), physical: parquet.Types.Int64, len: -1,
+			expectConverted: true, converted: ConvertedTypes.TimestampMillis, expectLogical: true, checkLogical: checkTimestamp,
+		},
+		{
+			name: "timestamp_T_us", logical: NewTimestampLogicalType(true, TimeUnitMicros), physical: parquet.Types.Int64, len: -1,
+			expectConverted: true, converted: ConvertedTypes.TimestampMicros, expectLogical: true, checkLogical: checkTimestamp,
+		},
+		{
+			name: "timestamp_F_us", logical: NewTimestampLogicalType(false, TimeUnitMicros), physical: parquet.Types.Int64, len: -1,
+			expectConverted: false, converted: ConvertedTypes.NA, expectLogical: true, checkLogical: checkTimestamp,
+		},
+		{
+			name: "timestamp_F_us_force", logical: NewTimestampLogicalTypeForce(false, TimeUnitMicros), physical: parquet.Types.Int64, len: -1,
+			expectConverted: true, converted: ConvertedTypes.TimestampMicros, expectLogical: true, checkLogical: checkTimestamp,
+		},
+		{
+			name: "timestamp_T_ns", logical: NewTimestampLogicalType(true, TimeUnitNanos), physical: parquet.Types.Int64, len: -1,
+			expectConverted: false, converted: ConvertedTypes.NA, expectLogical: true, checkLogical: checkTimestamp,
+		},
+		{
+			name: "timestamp_F_ns", logical: NewTimestampLogicalType(false, TimeUnitNanos), physical: parquet.Types.Int64, len: -1,
+			expectConverted: false, converted: ConvertedTypes.NA, expectLogical: true, checkLogical: checkTimestamp,
+		},
 	}
 
 	for _, tt := range timeTests {
@@ -315,14 +373,38 @@ func (s *SchemaElementConstructionSuite) TestIntegerCases() {
 	checkInt := func(p *format.SchemaElement) bool { return p.LogicalType.IsSetINTEGER() }
 
 	tests := []schemaElementConstructArgs{
-		{"uint8", NewIntLogicalType(8, false), parquet.Types.Int32, -1, true, ConvertedTypes.Uint8, true, checkInt},
-		{"uint16", NewIntLogicalType(16, false), parquet.Types.Int32, -1, true, ConvertedTypes.Uint16, true, checkInt},
-		{"uint32", NewIntLogicalType(32, false), parquet.Types.Int32, -1, true, ConvertedTypes.Uint32, true, checkInt},
-		{"uint64", NewIntLogicalType(64, false), parquet.Types.Int64, -1, true, ConvertedTypes.Uint64, true, checkInt},
-		{"int8", NewIntLogicalType(8, true), parquet.Types.Int32, -1, true, ConvertedTypes.Int8, true, checkInt},
-		{"int16", NewIntLogicalType(16, true), parquet.Types.Int32, -1, true, ConvertedTypes.Int16, true, checkInt},
-		{"int32", NewIntLogicalType(32, true), parquet.Types.Int32, -1, true, ConvertedTypes.Int32, true, checkInt},
-		{"int64", NewIntLogicalType(64, true), parquet.Types.Int64, -1, true, ConvertedTypes.Int64, true, checkInt},
+		{
+			name: "uint8", logical: NewIntLogicalType(8, false), physical: parquet.Types.Int32, len: -1,
+			expectConverted: true, converted: ConvertedTypes.Uint8, expectLogical: true, checkLogical: checkInt,
+		},
+		{
+			name: "uint16", logical: NewIntLogicalType(16, false), physical: parquet.Types.Int32, len: -1,
+			expectConverted: true, converted: ConvertedTypes.Uint16, expectLogical: true, checkLogical: checkInt,
+		},
+		{
+			name: "uint32", logical: NewIntLogicalType(32, false), physical: parquet.Types.Int32, len: -1,
+			expectConverted: true, converted: ConvertedTypes.Uint32, expectLogical: true, checkLogical: checkInt,
+		},
+		{
+			name: "uint64", logical: NewIntLogicalType(64, false), physical: parquet.Types.Int64, len: -1,
+			expectConverted: true, converted: ConvertedTypes.Uint64, expectLogical: true, checkLogical: checkInt,
+		},
+		{
+			name: "int8", logical: NewIntLogicalType(8, true), physical: parquet.Types.Int32, len: -1,
+			expectConverted: true, converted: ConvertedTypes.Int8, expectLogical: true, checkLogical: checkInt,
+		},
+		{
+			name: "int16", logical: NewIntLogicalType(16, true), physical: parquet.Types.Int32, len: -1,
+			expectConverted: true, converted: ConvertedTypes.Int16, expectLogical: true, checkLogical: checkInt,
+		},
+		{
+			name: "int32", logical: NewIntLogicalType(32, true), physical: parquet.Types.Int32, len: -1,
+			expectConverted: true, converted: ConvertedTypes.Int32, expectLogical: true, checkLogical: checkInt,
+		},
+		{
+			name: "int64", logical: NewIntLogicalType(64, true), physical: parquet.Types.Int64, len: -1,
+			expectConverted: true, converted: ConvertedTypes.Int64, expectLogical: true, checkLogical: checkInt,
+		},
 	}
 	for _, tt := range tests {
 		s.Run(tt.name, func() {
@@ -336,14 +418,14 @@ func TestSchemaElementNestedSerialization(t *testing.T) {
 	// confirm that the intermediate thrift objects created during node serialization
 	// contain correct ConvertedType and ConvertedType information
 
-	strNode := NewPrimitiveNodeLogical("string", parquet.Repetitions.Required, StringLogicalType{}, parquet.Types.ByteArray, -1, -1)
-	dateNode := NewPrimitiveNodeLogical("date", parquet.Repetitions.Required, DateLogicalType{}, parquet.Types.Int32, -1, -1)
-	jsonNode := NewPrimitiveNodeLogical("json", parquet.Repetitions.Required, JSONLogicalType{}, parquet.Types.ByteArray, -1, -1)
-	uuidNode := NewPrimitiveNodeLogical("uuid", parquet.Repetitions.Required, UUIDLogicalType{}, parquet.Types.FixedLenByteArray, 16, -1)
-	timestampNode := NewPrimitiveNodeLogical("timestamp", parquet.Repetitions.Required, NewTimestampLogicalType(false, TimeUnitNanos), parquet.Types.Int64, -1, -1)
-	intNode := NewPrimitiveNodeLogical("int", parquet.Repetitions.Required, NewIntLogicalType(64, false), parquet.Types.Int64, -1, -1)
-	decimalNode := NewPrimitiveNodeLogical("decimal", parquet.Repetitions.Required, NewDecimalLogicalType(16, 6), parquet.Types.Int64, -1, -1)
-	listNode := NewGroupNodeLogical("list", parquet.Repetitions.Repeated, []Node{strNode, dateNode, jsonNode, uuidNode, timestampNode, intNode, decimalNode}, NewListLogicalType(), -1)
+	strNode := NewPrimitiveNodeLogical("string" /*name */, parquet.Repetitions.Required, StringLogicalType{}, parquet.Types.ByteArray, -1 /* type len */, -1 /* fieldID */)
+	dateNode := NewPrimitiveNodeLogical("date" /*name */, parquet.Repetitions.Required, DateLogicalType{}, parquet.Types.Int32, -1 /* type len */, -1 /* fieldID */)
+	jsonNode := NewPrimitiveNodeLogical("json" /*name */, parquet.Repetitions.Required, JSONLogicalType{}, parquet.Types.ByteArray, -1 /* type len */, -1 /* fieldID */)
+	uuidNode := NewPrimitiveNodeLogical("uuid" /*name */, parquet.Repetitions.Required, UUIDLogicalType{}, parquet.Types.FixedLenByteArray, 16 /* type len */, - /* fieldID */ 1)
+	timestampNode := NewPrimitiveNodeLogical("timestamp" /*name */, parquet.Repetitions.Required, NewTimestampLogicalType(false /* adjustedToUTC */, TimeUnitNanos), parquet.Types.Int64, -1 /* type len */, -1 /* fieldID */)
+	intNode := NewPrimitiveNodeLogical("int" /*name */, parquet.Repetitions.Required, NewIntLogicalType(64 /* bitWidth */, false /* signed */), parquet.Types.Int64, -1 /* type len */, -1 /* fieldID */)
+	decimalNode := NewPrimitiveNodeLogical("decimal" /*name */, parquet.Repetitions.Required, NewDecimalLogicalType(16 /* precision */, 6 /* scale */), parquet.Types.Int64, -1 /* type len */, -1 /* fieldID */)
+	listNode := NewGroupNodeLogical("list" /*name */, parquet.Repetitions.Repeated, []Node{strNode, dateNode, jsonNode, uuidNode, timestampNode, intNode, decimalNode}, NewListLogicalType(), -1 /* fieldID */)
 
 	listElems := ToThrift(listNode)
 	assert.Equal(t, "list", listElems[0].Name)
@@ -359,7 +441,7 @@ func TestSchemaElementNestedSerialization(t *testing.T) {
 	assert.True(t, listElems[6].LogicalType.IsSetINTEGER())
 	assert.True(t, listElems[7].LogicalType.IsSetDECIMAL())
 
-	mapNode := NewGroupNodeLogical("map", parquet.Repetitions.Required, []Node{}, MapLogicalType{}, -1)
+	mapNode := NewGroupNodeLogical("map" /* name */, parquet.Repetitions.Required, []Node{}, MapLogicalType{}, -1 /* fieldID */)
 	mapElems := ToThrift(mapNode)
 	assert.Equal(t, "map", mapElems[0].Name)
 	assert.True(t, mapElems[0].IsSetConvertedType())
@@ -409,19 +491,19 @@ func TestLogicalTypeSerializationRoundTrip(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			n := NewPrimitiveNodeLogical("something", parquet.Repetitions.Required, tt.logical, tt.physical, tt.len, -1)
+			n := NewPrimitiveNodeLogical("something" /* name */, parquet.Repetitions.Required, tt.logical, tt.physical, tt.len, -1 /* fieldID */)
 			elem := n.toThrift()
 			recover := PrimitiveNodeFromThrift(elem, -1)
 			assert.True(t, n.Equals(recover))
 		})
 	}
 
-	n := NewGroupNodeLogical("map", parquet.Repetitions.Required, []Node{}, MapLogicalType{}, -1)
+	n := NewGroupNodeLogical("map" /* name */, parquet.Repetitions.Required, []Node{}, MapLogicalType{}, -1 /* fieldID */)
 	elem := n.toThrift()
 	recover := GroupNodeFromThrift(elem, []Node{}, -1)
 	assert.True(t, recover.Equals(n))
 
-	n = NewGroupNodeLogical("list", parquet.Repetitions.Required, []Node{}, ListLogicalType{}, -1)
+	n = NewGroupNodeLogical("list" /* name */, parquet.Repetitions.Required, []Node{}, ListLogicalType{}, -1 /* fieldID */)
 	elem = n.toThrift()
 	recover = GroupNodeFromThrift(elem, []Node{}, -1)
 	assert.True(t, recover.Equals(n))

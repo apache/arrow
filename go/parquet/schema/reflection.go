@@ -303,7 +303,9 @@ func infoFromTags(f reflect.StructTag) *taggedInfo {
 	return nil
 }
 
+// typeToNode recurseively converts a physical type and the tag info into parquet Nodes
 func typeToNode(name string, typ reflect.Type, repType parquet.Repetition, info *taggedInfo) Node {
+	// set up our default values for everything
 	var (
 		converted             = ConvertedTypes.None
 		logical   LogicalType = NoLogicalType{}
@@ -313,7 +315,7 @@ func typeToNode(name string, typ reflect.Type, repType parquet.Repetition, info 
 		precision             = 0
 		scale                 = 0
 	)
-	if info != nil {
+	if info != nil { // we have struct tag info to process
 		fieldID = info.FieldID
 		if info.Converted != ConvertedTypes.NA {
 			converted = info.Converted
@@ -332,37 +334,45 @@ func typeToNode(name string, typ reflect.Type, repType parquet.Repetition, info 
 		}
 	}
 
+	// simplify the logic by switching based on the reflection Kind
 	switch typ.Kind() {
 	case reflect.Map:
+		// a map must have a logical type of MAP or have no tag for logical type in which case
+		// we assume MAP logical type.
 		if !logical.IsNone() && !logical.Equals(MapLogicalType{}) {
 			panic("cannot set logical type to something other than map for a map")
 		}
 
 		infoCopy := newTaggedInfo()
-		if info != nil {
+		if info != nil { // populate any value specific tags to propagate for the value type
 			infoCopy = info.CopyForValue()
 		}
 
+		// create the node for the value type of the map
 		value := typeToNode("value", typ.Elem(), parquet.Repetitions.Required, &infoCopy)
-		if info != nil {
+		if info != nil { // change our copy to now use the key specific tags if they exist
 			infoCopy = info.CopyForKey()
 		}
 
+		// create the node for the key type of the map
 		key := typeToNode("key", typ.Key(), parquet.Repetitions.Required, &infoCopy)
-		if key.RepetitionType() != parquet.Repetitions.Required {
+		if key.RepetitionType() != parquet.Repetitions.Required { // key cannot be optional
 			panic("key type of map must be Required")
 		}
 		return MapOf(name, key, value, repType, fieldID)
 	case reflect.Struct:
+		// structs are Group nodes
 		fields := make(FieldList, 0)
 		for i := 0; i < typ.NumField(); i++ {
 			f := typ.Field(i)
 
 			fields = append(fields, typeToNode(f.Name, f.Type, parquet.Repetitions.Required, infoFromTags(f.Tag)))
 		}
+		// group nodes don't have a physical type
 		if physical != parquet.Types.Undefined {
 			panic("cannot specify custom type on struct")
 		}
+		// group nodes don't have converted or logical types
 		if converted != ConvertedTypes.None {
 			panic("cannot specify converted types for a struct")
 		}
@@ -370,18 +380,19 @@ func typeToNode(name string, typ reflect.Type, repType parquet.Repetition, info 
 			panic("cannot specify logicaltype for a struct")
 		}
 		return NewGroupNode(name, repType, fields, fieldID)
-	case reflect.Ptr:
+	case reflect.Ptr: // if we encounter a pointer create a node for the type it points to, but mark it as optional
 		return typeToNode(name, typ.Elem(), parquet.Repetitions.Optional, info)
 	case reflect.Array:
+		// arrays are repeated or fixed size
 		if typ == reflect.TypeOf(parquet.Int96{}) {
 			return NewInt96Node(name, repType, fieldID)
 		}
 
-		if typ.Elem() == reflect.TypeOf(byte(0)) {
+		if typ.Elem() == reflect.TypeOf(byte(0)) { // something like [12]byte translates to FixedLenByteArray with length 12
 			if physical == parquet.Types.Undefined {
 				physical = parquet.Types.FixedLenByteArray
 			}
-			if typeLen == 0 {
+			if typeLen == 0 { // if there was no type length specified in the tag, use the length of the type.
 				typeLen = typ.Len()
 			}
 			if !logical.IsNone() {
@@ -389,8 +400,10 @@ func typeToNode(name string, typ reflect.Type, repType parquet.Repetition, info 
 			}
 			return NewPrimitiveNodeConverted(name, repType, physical, converted, typeLen, precision, scale, fieldID)
 		}
-		fallthrough
+		fallthrough // if it's not a fixed len byte array type, then just treat it like a slice
 	case reflect.Slice:
+		// for slices, we default to treating them as lists unless the repetition type is set to REPEATED or they are
+		// a bytearray/fixedlenbytearray
 		switch {
 		case repType == parquet.Repetitions.Repeated:
 			return typeToNode(name, typ.Elem(), parquet.Repetitions.Repeated, info)
@@ -423,6 +436,7 @@ func typeToNode(name string, typ reflect.Type, repType parquet.Repetition, info 
 			return ListOf(typeToNode(name, typ.Elem(), parquet.Repetitions.Required, elemInfo), repType, fieldID)
 		}
 	case reflect.String:
+		// strings are byte arrays or fixedlen byte array
 		t := parquet.Types.ByteArray
 		switch physical {
 		case parquet.Types.Undefined, parquet.Types.ByteArray:
@@ -438,6 +452,7 @@ func typeToNode(name string, typ reflect.Type, repType parquet.Repetition, info 
 
 		return NewPrimitiveNodeConverted(name, repType, t, converted, typeLen, precision, scale, fieldID)
 	case reflect.Int, reflect.Int32, reflect.Int8, reflect.Int16, reflect.Int64:
+		// handle integer types, default to setting the corresponding logical type
 		ptyp := parquet.Types.Int32
 		if typ.Bits() == 64 {
 			ptyp = parquet.Types.Int64
@@ -466,6 +481,7 @@ func typeToNode(name string, typ reflect.Type, repType parquet.Repetition, info 
 
 		return NewPrimitiveNodeLogical(name, repType, NewIntLogicalType(bitwidth, true), ptyp, 0, fieldID)
 	case reflect.Uint, reflect.Uint32, reflect.Uint8, reflect.Uint16, reflect.Uint64:
+		// handle unsigned integer types and default to the corresponding logical type for it.
 		ptyp := parquet.Types.Int32
 		if typ.Bits() == 64 {
 			ptyp = parquet.Types.Int64

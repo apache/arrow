@@ -60,9 +60,10 @@ func (s *SchemaFlattenSuite) SetupSuite() {
 }
 
 func (s *SchemaFlattenSuite) TestDecimalMetadata() {
-	group := NewGroupNodeConverted("group", parquet.Repetitions.Repeated, FieldList{
-		NewPrimitiveNodeConverted("decimal", parquet.Repetitions.Required, parquet.Types.Int64, ConvertedTypes.Decimal, 0, 8, 4, -1),
-	}, ConvertedTypes.List, -1)
+	group := NewGroupNodeConverted("group" /* name */, parquet.Repetitions.Repeated, FieldList{
+		NewPrimitiveNodeConverted("decimal" /* name */, parquet.Repetitions.Required, parquet.Types.Int64,
+			ConvertedTypes.Decimal, 0 /* type len */, 8 /* precision */, 4 /* scale */, -1 /* fieldID */),
+	}, ConvertedTypes.List, -1 /* fieldID */)
 	elements := ToThrift(group)
 
 	s.Len(elements, 2)
@@ -70,15 +71,17 @@ func (s *SchemaFlattenSuite) TestDecimalMetadata() {
 	s.True(elements[1].IsSetPrecision())
 	s.True(elements[1].IsSetScale())
 
-	group = NewGroupNodeLogical("group", parquet.Repetitions.Repeated, FieldList{
-		NewPrimitiveNodeLogical("decimal", parquet.Repetitions.Required, NewDecimalLogicalType(10, 5), parquet.Types.Int64, 0, -1),
-	}, NewListLogicalType(), -1)
+	group = NewGroupNodeLogical("group" /* name */, parquet.Repetitions.Repeated, FieldList{
+		NewPrimitiveNodeLogical("decimal" /* name */, parquet.Repetitions.Required, NewDecimalLogicalType(10 /* precision */, 5 /* scale */),
+			parquet.Types.Int64, 0 /* type len */, -1 /* fieldID */),
+	}, NewListLogicalType(), -1 /* fieldID */)
 	elements = ToThrift(group)
 	s.Equal("decimal", elements[1].Name)
 	s.True(elements[1].IsSetPrecision())
 	s.True(elements[1].IsSetScale())
 
-	group = NewGroupNodeConverted("group", parquet.Repetitions.Repeated, FieldList{NewInt64Node("int64", parquet.Repetitions.Required, -1)}, ConvertedTypes.List, -1)
+	group = NewGroupNodeConverted("group" /* name */, parquet.Repetitions.Repeated, FieldList{
+		NewInt64Node("int64" /* name */, parquet.Repetitions.Required, -1 /* fieldID */)}, ConvertedTypes.List, -1 /* fieldID */)
 	elements = ToThrift(group)
 	s.Equal("int64", elements[1].Name)
 	s.False(elements[0].IsSetPrecision())
@@ -90,20 +93,21 @@ func (s *SchemaFlattenSuite) TestDecimalMetadata() {
 func (s *SchemaFlattenSuite) TestNestedExample() {
 	elements := make([]*format.SchemaElement, 0)
 	elements = append(elements,
-		NewGroup(s.name, format.FieldRepetitionType_REPEATED, 2, 0),
-		NewPrimitive("a", format.FieldRepetitionType_REQUIRED, format.Type_INT32, 1),
-		NewGroup("bag", format.FieldRepetitionType_OPTIONAL, 1, 2))
+		NewGroup(s.name, format.FieldRepetitionType_REPEATED, 2 /* numChildren */, 0 /* fieldID */),
+		NewPrimitive("a" /* name */, format.FieldRepetitionType_REQUIRED, format.Type_INT32, 1 /* fieldID */),
+		NewGroup("bag" /* name */, format.FieldRepetitionType_OPTIONAL, 1 /* numChildren */, 2 /* fieldID */))
 
-	elt := NewGroup("b", format.FieldRepetitionType_REPEATED, 1, 3)
+	elt := NewGroup("b" /* name */, format.FieldRepetitionType_REPEATED, 1 /* numChildren */, 3 /* fieldID */)
 	elt.ConvertedType = format.ConvertedTypePtr(format.ConvertedType_LIST)
 	elt.LogicalType = &format.LogicalType{LIST: format.NewListType()}
-	elements = append(elements, elt, NewPrimitive("item", format.FieldRepetitionType_OPTIONAL, format.Type_INT64, 4))
+	elements = append(elements, elt, NewPrimitive("item" /* name */, format.FieldRepetitionType_OPTIONAL, format.Type_INT64, 4 /* fieldID */))
 
-	fields := FieldList{NewInt32Node("a", parquet.Repetitions.Required, 1)}
-	list := NewGroupNodeConverted("b", parquet.Repetitions.Repeated, FieldList{NewInt64Node("item", parquet.Repetitions.Optional, 4)}, ConvertedTypes.List, 3)
-	fields = append(fields, NewGroupNode("bag", parquet.Repetitions.Optional, FieldList{list}, 2))
+	fields := FieldList{NewInt32Node("a" /* name */, parquet.Repetitions.Required, 1 /* fieldID */)}
+	list := NewGroupNodeConverted("b" /* name */, parquet.Repetitions.Repeated, FieldList{
+		NewInt64Node("item" /* name */, parquet.Repetitions.Optional, 4 /* fieldID */)}, ConvertedTypes.List, 3 /* fieldID */)
+	fields = append(fields, NewGroupNode("bag" /* name */, parquet.Repetitions.Optional, FieldList{list}, 2 /* fieldID */))
 
-	sc := NewGroupNode(s.name, parquet.Repetitions.Repeated, fields, 0)
+	sc := NewGroupNode(s.name, parquet.Repetitions.Repeated, fields, 0 /* fieldID */)
 
 	flattened := ToThrift(sc)
 	s.Len(flattened, len(elements))
@@ -117,7 +121,8 @@ func TestSchemaFlatten(t *testing.T) {
 }
 
 func TestInvalidConvertedTypeInDeserialize(t *testing.T) {
-	n := NewPrimitiveNodeLogical("string", parquet.Repetitions.Required, StringLogicalType{}, parquet.Types.ByteArray, -1, -1)
+	n := NewPrimitiveNodeLogical("string" /* name */, parquet.Repetitions.Required, StringLogicalType{},
+		parquet.Types.ByteArray, -1 /* type len */, -1 /* fieldID */)
 	assert.True(t, n.LogicalType().Equals(StringLogicalType{}))
 	assert.True(t, n.LogicalType().IsValid())
 	assert.True(t, n.LogicalType().IsSerialized())
@@ -130,7 +135,8 @@ func TestInvalidConvertedTypeInDeserialize(t *testing.T) {
 }
 
 func TestInvalidTimeUnitInTimeLogical(t *testing.T) {
-	n := NewPrimitiveNodeLogical("time", parquet.Repetitions.Required, NewTimeLogicalType(true, TimeUnitNanos), parquet.Types.Int64, -1, -1)
+	n := NewPrimitiveNodeLogical("time" /* name */, parquet.Repetitions.Required,
+		NewTimeLogicalType(true /* adjustedToUTC */, TimeUnitNanos), parquet.Types.Int64, -1 /* type len */, -1 /* fieldID */)
 	intermediary := n.toThrift()
 	// corrupt it
 	intermediary.LogicalType.TIME.Unit.NANOS = nil
@@ -140,7 +146,8 @@ func TestInvalidTimeUnitInTimeLogical(t *testing.T) {
 }
 
 func TestInvalidTimeUnitInTimestampLogical(t *testing.T) {
-	n := NewPrimitiveNodeLogical("time", parquet.Repetitions.Required, NewTimestampLogicalType(true, TimeUnitNanos), parquet.Types.Int64, -1, -1)
+	n := NewPrimitiveNodeLogical("time" /* name */, parquet.Repetitions.Required,
+		NewTimestampLogicalType(true /* adjustedToUTC */, TimeUnitNanos), parquet.Types.Int64, -1 /* type len */, -1 /* fieldID */)
 	intermediary := n.toThrift()
 	// corrupt it
 	intermediary.LogicalType.TIMESTAMP.Unit.NANOS = nil

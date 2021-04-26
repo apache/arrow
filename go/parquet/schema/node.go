@@ -34,7 +34,8 @@ const (
 
 // Node is the interface for both Group and Primitive Nodes.
 // A logical schema type has a name, repetition level, and optionally
-// a logical type (ConvertedType in Parquet metadata parlance)
+// a logical type (converted type is the deprecated version of the logical
+// type concept, which is maintained for forward compatibility)
 type Node interface {
 	Name() string
 	Type() NodeType
@@ -72,12 +73,15 @@ func ColumnPathFromNode(n Node) parquet.ColumnPath {
 
 	c := make([]string, 0)
 
+	// build the path in reverse order as we traverse nodes to the top
 	cursor := n
 	for cursor.Parent() != nil {
 		c = append(c, cursor.Name())
 		cursor = cursor.Parent()
 	}
 
+	// reverse the order of the list in place so that our result
+	// is in the proper, correct order.
 	for i := len(c)/2 - 1; i >= 0; i-- {
 		opp := len(c) - 1 - i
 		c[i], c[opp] = c[opp], c[i]

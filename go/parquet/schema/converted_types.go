@@ -109,35 +109,35 @@ func (p ConvertedType) ToLogicalType(convertedDecimal DecimalMetadata) LogicalTy
 	case ConvertedTypes.Date:
 		return DateLogicalType{}
 	case ConvertedTypes.TimeMillis:
-		return NewTimeLogicalType(true, TimeUnitMillis)
+		return NewTimeLogicalType(true /* adjustedToUTC */, TimeUnitMillis)
 	case ConvertedTypes.TimeMicros:
-		return NewTimeLogicalType(true, TimeUnitMicros)
+		return NewTimeLogicalType(true /* adjustedToUTC */, TimeUnitMicros)
 	case ConvertedTypes.TimestampMillis:
-		t := NewTimestampLogicalType(true, TimeUnitMillis)
+		t := NewTimestampLogicalType(true /* adjustedToUTC */, TimeUnitMillis)
 		t.(*TimestampLogicalType).fromConverted = true
 		return t
 	case ConvertedTypes.TimestampMicros:
-		t := NewTimestampLogicalType(true, TimeUnitMicros)
+		t := NewTimestampLogicalType(true /* adjustedToUTC */, TimeUnitMicros)
 		t.(*TimestampLogicalType).fromConverted = true
 		return t
 	case ConvertedTypes.Interval:
 		return IntervalLogicalType{}
 	case ConvertedTypes.Int8:
-		return NewIntLogicalType(8, true)
+		return NewIntLogicalType(8 /* bitWidth */, true /* signed */)
 	case ConvertedTypes.Int16:
-		return NewIntLogicalType(16, true)
+		return NewIntLogicalType(16 /* bitWidth */, true /* signed */)
 	case ConvertedTypes.Int32:
-		return NewIntLogicalType(32, true)
+		return NewIntLogicalType(32 /* bitWidth */, true /* signed */)
 	case ConvertedTypes.Int64:
-		return NewIntLogicalType(64, true)
+		return NewIntLogicalType(64 /* bitWidth */, true /* signed */)
 	case ConvertedTypes.Uint8:
-		return NewIntLogicalType(8, false)
+		return NewIntLogicalType(8 /* bitWidth */, false /* signed */)
 	case ConvertedTypes.Uint16:
-		return NewIntLogicalType(16, false)
+		return NewIntLogicalType(16 /* bitWidth */, false /* signed */)
 	case ConvertedTypes.Uint32:
-		return NewIntLogicalType(32, false)
+		return NewIntLogicalType(32 /* bitWidth */, false /* signed */)
 	case ConvertedTypes.Uint64:
-		return NewIntLogicalType(64, false)
+		return NewIntLogicalType(64 /* bitWidth */, false /* signed */)
 	case ConvertedTypes.JSON:
 		return JSONLogicalType{}
 	case ConvertedTypes.BSON:
@@ -166,7 +166,8 @@ func GetSortOrder(convert ConvertedType, primitive format.Type) SortOrder {
 		ConvertedTypes.TimeMicros,
 		ConvertedTypes.TimeMillis,
 		ConvertedTypes.TimestampMicros,
-		ConvertedTypes.TimestampMillis:
+		ConvertedTypes.TimestampMillis,
+		ConvertedTypes.Decimal:
 		return SortSIGNED
 	case ConvertedTypes.Uint8,
 		ConvertedTypes.Uint16,
@@ -177,8 +178,7 @@ func GetSortOrder(convert ConvertedType, primitive format.Type) SortOrder {
 		ConvertedTypes.BSON,
 		ConvertedTypes.JSON:
 		return SortUNSIGNED
-	case ConvertedTypes.Decimal,
-		ConvertedTypes.List,
+	case ConvertedTypes.List,
 		ConvertedTypes.Map,
 		ConvertedTypes.MapKeyValue,
 		ConvertedTypes.Interval,

@@ -88,8 +88,9 @@ func (p *PrimitiveNodeTestSuite) convert(elt *format.SchemaElement) {
 }
 
 func (p *PrimitiveNodeTestSuite) TestAttrs() {
-	node1 := schema.NewInt32Node("foo", parquet.Repetitions.Repeated, -1)
-	node2 := schema.NewPrimitiveNodeConverted("bar", parquet.Repetitions.Optional, parquet.Types.ByteArray, schema.ConvertedTypes.UTF8, 0, 0, 0, -1)
+	node1 := schema.NewInt32Node("foo" /* name */, parquet.Repetitions.Repeated, -1 /* fieldID */)
+	node2 := schema.NewPrimitiveNodeConverted("bar" /* name */, parquet.Repetitions.Optional, parquet.Types.ByteArray,
+		schema.ConvertedTypes.UTF8, 0 /* type len */, 0 /* precision */, 0 /* scale */, -1 /* fieldID */)
 
 	p.Equal("foo", node1.Name())
 	p.Equal(schema.Primitive, node1.Type())
@@ -156,11 +157,12 @@ func (p *PrimitiveNodeTestSuite) TestFromParquet() {
 }
 
 func (p *PrimitiveNodeTestSuite) TestEquals() {
-	node1 := schema.NewInt32Node("foo", parquet.Repetitions.Required, -1)
-	node2 := schema.NewInt64Node("foo", parquet.Repetitions.Required, -1)
-	node3 := schema.NewInt32Node("bar", parquet.Repetitions.Required, -1)
-	node4 := schema.NewInt32Node("foo", parquet.Repetitions.Optional, -1)
-	node5 := schema.NewInt32Node("foo", parquet.Repetitions.Required, -1)
+	const fieldID = -1
+	node1 := schema.NewInt32Node("foo" /* name */, parquet.Repetitions.Required, fieldID)
+	node2 := schema.NewInt64Node("foo" /* name */, parquet.Repetitions.Required, fieldID)
+	node3 := schema.NewInt32Node("bar" /* name */, parquet.Repetitions.Required, fieldID)
+	node4 := schema.NewInt32Node("foo" /* name */, parquet.Repetitions.Optional, fieldID)
+	node5 := schema.NewInt32Node("foo" /* name */, parquet.Repetitions.Required, fieldID)
 
 	p.True(node1.Equals(node1))
 	p.False(node1.Equals(node2))
@@ -168,15 +170,20 @@ func (p *PrimitiveNodeTestSuite) TestEquals() {
 	p.False(node1.Equals(node4))
 	p.True(node1.Equals(node5))
 
-	flba1 := schema.NewPrimitiveNodeConverted("foo", parquet.Repetitions.Required, parquet.Types.FixedLenByteArray, schema.ConvertedTypes.Decimal, 12, 4, 2, -1)
-	flba2 := schema.NewPrimitiveNodeConverted("foo", parquet.Repetitions.Required, parquet.Types.FixedLenByteArray, schema.ConvertedTypes.Decimal, 1, 4, 2, -1)
+	flba1 := schema.NewPrimitiveNodeConverted("foo" /* name */, parquet.Repetitions.Required, parquet.Types.FixedLenByteArray,
+		schema.ConvertedTypes.Decimal, 12 /* type len */, 4 /* precision */, 2 /* scale */, fieldID)
+	flba2 := schema.NewPrimitiveNodeConverted("foo" /* name */, parquet.Repetitions.Required, parquet.Types.FixedLenByteArray,
+		schema.ConvertedTypes.Decimal, 1 /* type len */, 4 /* precision */, 2 /* scale */, fieldID)
 	flba2.SetTypeLength(12)
 
-	flba3 := schema.NewPrimitiveNodeConverted("foo", parquet.Repetitions.Required, parquet.Types.FixedLenByteArray, schema.ConvertedTypes.Decimal, 1, 4, 2, -1)
+	flba3 := schema.NewPrimitiveNodeConverted("foo" /* name */, parquet.Repetitions.Required, parquet.Types.FixedLenByteArray,
+		schema.ConvertedTypes.Decimal, 1 /* type len */, 4 /* precision */, 2 /* scale */, fieldID)
 	flba3.SetTypeLength(16)
 
-	flba4 := schema.NewPrimitiveNodeConverted("foo", parquet.Repetitions.Required, parquet.Types.FixedLenByteArray, schema.ConvertedTypes.Decimal, 12, 4, 0, -1)
-	flba5 := schema.NewPrimitiveNodeConverted("foo", parquet.Repetitions.Required, parquet.Types.FixedLenByteArray, schema.ConvertedTypes.None, 12, 4, 0, -1)
+	flba4 := schema.NewPrimitiveNodeConverted("foo" /* name */, parquet.Repetitions.Required, parquet.Types.FixedLenByteArray,
+		schema.ConvertedTypes.Decimal, 12 /* type len */, 4 /* precision */, 0 /* scale */, fieldID)
+	flba5 := schema.NewPrimitiveNodeConverted("foo" /* name */, parquet.Repetitions.Required, parquet.Types.FixedLenByteArray,
+		schema.ConvertedTypes.None, 12 /* type len */, 4 /* precision */, 0 /* scale */, fieldID)
 
 	p.True(flba1.Equals(flba2))
 	p.False(flba1.Equals(flba3))
@@ -186,55 +193,72 @@ func (p *PrimitiveNodeTestSuite) TestEquals() {
 
 func (p *PrimitiveNodeTestSuite) TestPhysicalLogicalMapping() {
 	p.NotPanics(func() {
-		schema.NewPrimitiveNodeConverted("foo", parquet.Repetitions.Required, parquet.Types.Int32, schema.ConvertedTypes.Int32, 0, 0, 0, -1)
+		schema.NewPrimitiveNodeConverted("foo" /* name */, parquet.Repetitions.Required, parquet.Types.Int32, schema.ConvertedTypes.Int32,
+			0 /* type len */, 0 /* precision */, 0 /* scale */, -1 /* fieldID */)
 	})
 	p.NotPanics(func() {
-		schema.NewPrimitiveNodeConverted("foo", parquet.Repetitions.Required, parquet.Types.ByteArray, schema.ConvertedTypes.JSON, 0, 0, 0, -1)
+		schema.NewPrimitiveNodeConverted("foo" /* name */, parquet.Repetitions.Required, parquet.Types.ByteArray, schema.ConvertedTypes.JSON,
+			0 /* type len */, 0 /* precision */, 0 /* scale */, -1 /* fieldID */)
 	})
 	p.Panics(func() {
-		schema.NewPrimitiveNodeConverted("foo", parquet.Repetitions.Required, parquet.Types.Int32, schema.ConvertedTypes.JSON, 0, 0, 0, -1)
+		schema.NewPrimitiveNodeConverted("foo" /* name */, parquet.Repetitions.Required, parquet.Types.Int32, schema.ConvertedTypes.JSON,
+			0 /* type len */, 0 /* precision */, 0 /* scale */, -1 /* fieldID */)
 	})
 	p.NotPanics(func() {
-		schema.NewPrimitiveNodeConverted("foo", parquet.Repetitions.Required, parquet.Types.Int64, schema.ConvertedTypes.TimestampMillis, 0, 0, 0, -1)
+		schema.NewPrimitiveNodeConverted("foo" /* name */, parquet.Repetitions.Required, parquet.Types.Int64, schema.ConvertedTypes.TimestampMillis,
+			0 /* type len */, 0 /* precision */, 0 /* scale */, -1 /* fieldID */)
 	})
 	p.Panics(func() {
-		schema.NewPrimitiveNodeConverted("foo", parquet.Repetitions.Required, parquet.Types.Int32, schema.ConvertedTypes.Int64, 0, 0, 0, -1)
+		schema.NewPrimitiveNodeConverted("foo" /* name */, parquet.Repetitions.Required, parquet.Types.Int32, schema.ConvertedTypes.Int64,
+			0 /* type len */, 0 /* precision */, 0 /* scale */, -1 /* fieldID */)
 	})
 	p.Panics(func() {
-		schema.NewPrimitiveNodeConverted("foo", parquet.Repetitions.Required, parquet.Types.ByteArray, schema.ConvertedTypes.Int8, 0, 0, 0, -1)
+		schema.NewPrimitiveNodeConverted("foo" /* name */, parquet.Repetitions.Required, parquet.Types.ByteArray, schema.ConvertedTypes.Int8,
+			0 /* type len */, 0 /* precision */, 0 /* scale */, -1 /* fieldID */)
 	})
 	p.Panics(func() {
-		schema.NewPrimitiveNodeConverted("foo", parquet.Repetitions.Required, parquet.Types.ByteArray, schema.ConvertedTypes.Interval, 0, 0, 0, -1)
+		schema.NewPrimitiveNodeConverted("foo" /* name */, parquet.Repetitions.Required, parquet.Types.ByteArray, schema.ConvertedTypes.Interval,
+			0 /* type len */, 0 /* precision */, 0 /* scale */, -1 /* fieldID */)
 	})
 	p.Panics(func() {
-		schema.NewPrimitiveNodeConverted("foo", parquet.Repetitions.Required, parquet.Types.FixedLenByteArray, schema.ConvertedTypes.Enum, 0, 0, 0, -1)
+		schema.NewPrimitiveNodeConverted("foo" /* name */, parquet.Repetitions.Required, parquet.Types.FixedLenByteArray, schema.ConvertedTypes.Enum,
+			0 /* type len */, 0 /* precision */, 0 /* scale */, -1 /* fieldID */)
 	})
 	p.NotPanics(func() {
-		schema.NewPrimitiveNodeConverted("foo", parquet.Repetitions.Required, parquet.Types.ByteArray, schema.ConvertedTypes.Enum, 0, 0, 0, -1)
+		schema.NewPrimitiveNodeConverted("foo" /* name */, parquet.Repetitions.Required, parquet.Types.ByteArray, schema.ConvertedTypes.Enum,
+			0 /* type len */, 0 /* precision */, 0 /* scale */, -1 /* fieldID */)
 	})
 	p.Panics(func() {
-		schema.NewPrimitiveNodeConverted("foo", parquet.Repetitions.Required, parquet.Types.FixedLenByteArray, schema.ConvertedTypes.Decimal, 0, 2, 4, -1)
+		schema.NewPrimitiveNodeConverted("foo" /* name */, parquet.Repetitions.Required, parquet.Types.FixedLenByteArray, schema.ConvertedTypes.Decimal,
+			0 /* type len */, 2 /* precision */, 4 /* scale */, -1 /* fieldID */)
 	})
 	p.Panics(func() {
-		schema.NewPrimitiveNodeConverted("foo", parquet.Repetitions.Required, parquet.Types.Float, schema.ConvertedTypes.Decimal, 0, 2, 4, -1)
+		schema.NewPrimitiveNodeConverted("foo" /* name */, parquet.Repetitions.Required, parquet.Types.Float, schema.ConvertedTypes.Decimal,
+			0 /* type len */, 2 /* precision */, 4 /* scale */, -1 /* fieldID */)
 	})
 	p.Panics(func() {
-		schema.NewPrimitiveNodeConverted("foo", parquet.Repetitions.Required, parquet.Types.FixedLenByteArray, schema.ConvertedTypes.Decimal, 0, 4, 0, -1)
+		schema.NewPrimitiveNodeConverted("foo" /* name */, parquet.Repetitions.Required, parquet.Types.FixedLenByteArray, schema.ConvertedTypes.Decimal,
+			0 /* type len */, 4 /* precision */, 0 /* scale */, -1 /* fieldID */)
 	})
 	p.Panics(func() {
-		schema.NewPrimitiveNodeConverted("foo", parquet.Repetitions.Required, parquet.Types.FixedLenByteArray, schema.ConvertedTypes.Decimal, 10, 4, -1, -1)
+		schema.NewPrimitiveNodeConverted("foo" /* name */, parquet.Repetitions.Required, parquet.Types.FixedLenByteArray, schema.ConvertedTypes.Decimal,
+			10 /* type len */, 4 /* precision */, -1 /* scale */, -1 /* fieldID */)
 	})
 	p.Panics(func() {
-		schema.NewPrimitiveNodeConverted("foo", parquet.Repetitions.Required, parquet.Types.FixedLenByteArray, schema.ConvertedTypes.Decimal, 10, 2, 4, -1)
+		schema.NewPrimitiveNodeConverted("foo" /* name */, parquet.Repetitions.Required, parquet.Types.FixedLenByteArray, schema.ConvertedTypes.Decimal,
+			10 /* type len */, 2 /* precision */, 4 /* scale */, -1 /* fieldID */)
 	})
 	p.NotPanics(func() {
-		schema.NewPrimitiveNodeConverted("foo", parquet.Repetitions.Required, parquet.Types.FixedLenByteArray, schema.ConvertedTypes.Decimal, 10, 6, 4, -1)
+		schema.NewPrimitiveNodeConverted("foo" /* name */, parquet.Repetitions.Required, parquet.Types.FixedLenByteArray, schema.ConvertedTypes.Decimal,
+			10 /* type len */, 6 /* precision */, 4 /* scale */, -1 /* fieldID */)
 	})
 	p.NotPanics(func() {
-		schema.NewPrimitiveNodeConverted("foo", parquet.Repetitions.Required, parquet.Types.FixedLenByteArray, schema.ConvertedTypes.Interval, 12, 0, 0, -1)
+		schema.NewPrimitiveNodeConverted("foo" /* name */, parquet.Repetitions.Required, parquet.Types.FixedLenByteArray, schema.ConvertedTypes.Interval,
+			12 /* type len */, 0 /* precision */, 0 /* scale */, -1 /* fieldID */)
 	})
 	p.Panics(func() {
-		schema.NewPrimitiveNodeConverted("foo", parquet.Repetitions.Required, parquet.Types.FixedLenByteArray, schema.ConvertedTypes.Interval, 10, 0, 0, -1)
+		schema.NewPrimitiveNodeConverted("foo" /* name */, parquet.Repetitions.Required, parquet.Types.FixedLenByteArray, schema.ConvertedTypes.Interval,
+			10 /* type len */, 0 /* precision */, 0 /* scale */, -1 /* fieldID */)
 	})
 }
 
@@ -244,25 +268,25 @@ type GroupNodeTestSuite struct {
 
 func (g *GroupNodeTestSuite) fields1() []schema.Node {
 	return schema.FieldList{
-		schema.NewInt32Node("one", parquet.Repetitions.Required, -1),
-		schema.NewInt64Node("two", parquet.Repetitions.Optional, -1),
-		schema.NewFloat64Node("three", parquet.Repetitions.Optional, -1),
+		schema.NewInt32Node("one" /* name */, parquet.Repetitions.Required, -1 /* fieldID */),
+		schema.NewInt64Node("two" /* name */, parquet.Repetitions.Optional, -1 /* fieldID */),
+		schema.NewFloat64Node("three" /* name */, parquet.Repetitions.Optional, -1 /* fieldID */),
 	}
 }
 
 func (g *GroupNodeTestSuite) fields2() []schema.Node {
 	return schema.FieldList{
-		schema.NewInt32Node("duplicate", parquet.Repetitions.Required, -1),
-		schema.NewInt64Node("unique", parquet.Repetitions.Optional, -1),
-		schema.NewFloat64Node("duplicate", parquet.Repetitions.Optional, -1),
+		schema.NewInt32Node("duplicate" /* name */, parquet.Repetitions.Required, -1 /* fieldID */),
+		schema.NewInt64Node("unique" /* name */, parquet.Repetitions.Optional, -1 /* fieldID */),
+		schema.NewFloat64Node("duplicate" /* name */, parquet.Repetitions.Optional, -1 /* fieldID */),
 	}
 }
 
 func (g *GroupNodeTestSuite) TestAttrs() {
 	fields := g.fields1()
 
-	node1 := schema.NewGroupNode("foo", parquet.Repetitions.Repeated, fields, -1)
-	node2 := schema.NewGroupNodeConverted("bar", parquet.Repetitions.Optional, fields, schema.ConvertedTypes.List, -1)
+	node1 := schema.NewGroupNode("foo" /* name */, parquet.Repetitions.Repeated, fields, -1 /* fieldID */)
+	node2 := schema.NewGroupNodeConverted("bar" /* name */, parquet.Repetitions.Optional, fields, schema.ConvertedTypes.List, -1 /* fieldID */)
 
 	g.Equal("foo", node1.Name())
 	g.Equal(schema.Group, node1.Type())
@@ -278,13 +302,13 @@ func (g *GroupNodeTestSuite) TestEquals() {
 	f1 := g.fields1()
 	f2 := g.fields1()
 
-	group1 := schema.NewGroupNode("group", parquet.Repetitions.Repeated, f1, -1)
-	group2 := schema.NewGroupNode("group", parquet.Repetitions.Repeated, f2, -1)
-	group3 := schema.NewGroupNode("group2", parquet.Repetitions.Repeated, f2, -1)
+	group1 := schema.NewGroupNode("group" /* name */, parquet.Repetitions.Repeated, f1, -1 /* fieldID */)
+	group2 := schema.NewGroupNode("group" /* name */, parquet.Repetitions.Repeated, f2, -1 /* fieldID */)
+	group3 := schema.NewGroupNode("group2" /* name */, parquet.Repetitions.Repeated, f2, -1 /* fieldID */)
 
-	f2 = append(f2, schema.NewFloat32Node("four", parquet.Repetitions.Optional, -1))
-	group4 := schema.NewGroupNode("group", parquet.Repetitions.Repeated, f2, -1)
-	group5 := schema.NewGroupNode("group", parquet.Repetitions.Repeated, g.fields1(), -1)
+	f2 = append(f2, schema.NewFloat32Node("four" /* name */, parquet.Repetitions.Optional, -1 /* fieldID */))
+	group4 := schema.NewGroupNode("group" /* name */, parquet.Repetitions.Repeated, f2, -1 /* fieldID */)
+	group5 := schema.NewGroupNode("group" /* name */, parquet.Repetitions.Repeated, g.fields1(), -1 /* fieldID */)
 
 	g.True(group1.Equals(group1))
 	g.True(group1.Equals(group2))
@@ -295,7 +319,7 @@ func (g *GroupNodeTestSuite) TestEquals() {
 
 func (g *GroupNodeTestSuite) TestFieldIndex() {
 	fields := g.fields1()
-	group := schema.NewGroupNode("group", parquet.Repetitions.Required, fields, -1)
+	group := schema.NewGroupNode("group" /* name */, parquet.Repetitions.Required, fields, -1 /* fieldID */)
 	for idx, field := range fields {
 		f := group.Field(idx)
 		g.Same(field, f)
@@ -304,15 +328,15 @@ func (g *GroupNodeTestSuite) TestFieldIndex() {
 	}
 
 	// Non field nodes
-	nonFieldAlien := schema.NewInt32Node("alien", parquet.Repetitions.Required, -1)
-	nonFieldFamiliar := schema.NewInt32Node("one", parquet.Repetitions.Repeated, -1)
+	nonFieldAlien := schema.NewInt32Node("alien" /* name */, parquet.Repetitions.Required, -1 /* fieldID */)
+	nonFieldFamiliar := schema.NewInt32Node("one" /* name */, parquet.Repetitions.Repeated, -1 /* fieldID */)
 	g.Less(group.FieldIndexByField(nonFieldAlien), 0)
 	g.Less(group.FieldIndexByField(nonFieldFamiliar), 0)
 }
 
 func (g *GroupNodeTestSuite) TestFieldIndexDuplicateName() {
 	fields := g.fields2()
-	group := schema.NewGroupNode("group", parquet.Repetitions.Required, fields, -1)
+	group := schema.NewGroupNode("group" /* name */, parquet.Repetitions.Required, fields, -1 /* fieldID */)
 	for idx, field := range fields {
 		f := group.Field(idx)
 		g.Same(f, field)
@@ -355,33 +379,33 @@ func (s *SchemaConverterSuite) checkParentConsistency(groupRoot *schema.GroupNod
 func (s *SchemaConverterSuite) TestNestedExample() {
 	elements := make([]*format.SchemaElement, 0)
 	elements = append(elements,
-		NewGroup(s.name, format.FieldRepetitionType_REPEATED, 2, 0),
-		NewPrimitive("a", format.FieldRepetitionType_REQUIRED, format.Type_INT32, 1),
-		NewGroup("bag", format.FieldRepetitionType_OPTIONAL, 1, 2))
-	elt := NewGroup("b", format.FieldRepetitionType_REPEATED, 1, 3)
+		NewGroup(s.name, format.FieldRepetitionType_REPEATED, 2 /* numChildren */, 0 /* fieldID */),
+		NewPrimitive("a" /* name */, format.FieldRepetitionType_REQUIRED, format.Type_INT32, 1 /* fieldID */),
+		NewGroup("bag" /* name */, format.FieldRepetitionType_OPTIONAL, 1 /* numChildren */, 2 /* fieldID */))
+	elt := NewGroup("b" /* name */, format.FieldRepetitionType_REPEATED, 1 /* numChildren */, 3 /* fieldID */)
 	elt.ConvertedType = format.ConvertedTypePtr(format.ConvertedType_LIST)
-	elements = append(elements, elt, NewPrimitive("item", format.FieldRepetitionType_OPTIONAL, format.Type_INT64, 4))
+	elements = append(elements, elt, NewPrimitive("item" /* name */, format.FieldRepetitionType_OPTIONAL, format.Type_INT64, 4 /* fieldID */))
 
 	s.convert(elements)
 
 	// construct the expected schema
 	fields := make([]schema.Node, 0)
-	fields = append(fields, schema.NewInt32Node("a", parquet.Repetitions.Required, 1))
+	fields = append(fields, schema.NewInt32Node("a" /* name */, parquet.Repetitions.Required, 1 /* fieldID */))
 
 	// 3-level list encoding
-	item := schema.NewInt64Node("item", parquet.Repetitions.Optional, 4)
-	list := schema.NewGroupNodeConverted("b", parquet.Repetitions.Repeated, schema.FieldList{item}, schema.ConvertedTypes.List, 3)
-	bag := schema.NewGroupNode("bag", parquet.Repetitions.Optional, schema.FieldList{list}, 2)
+	item := schema.NewInt64Node("item" /* name */, parquet.Repetitions.Optional, 4 /* fieldID */)
+	list := schema.NewGroupNodeConverted("b" /* name */, parquet.Repetitions.Repeated, schema.FieldList{item}, schema.ConvertedTypes.List, 3 /* fieldID */)
+	bag := schema.NewGroupNode("bag" /* name */, parquet.Repetitions.Optional, schema.FieldList{list}, 2 /* fieldID */)
 	fields = append(fields, bag)
 
-	sc := schema.NewGroupNode(s.name, parquet.Repetitions.Repeated, fields, 0)
+	sc := schema.NewGroupNode(s.name, parquet.Repetitions.Repeated, fields, 0 /* fieldID */)
 	s.True(sc.Equals(s.node))
 	s.Nil(s.node.Parent())
 	s.True(s.checkParentConsistency(s.node.(*schema.GroupNode)))
 }
 
 func (s *SchemaConverterSuite) TestZeroColumns() {
-	elements := []*format.SchemaElement{NewGroup("schema", format.FieldRepetitionType_REPEATED, 0, 0)}
+	elements := []*format.SchemaElement{NewGroup("schema" /* name */, format.FieldRepetitionType_REPEATED, 0 /* numChildren */, 0 /* fieldID */)}
 	s.NotPanics(func() { s.convert(elements) })
 }
 
@@ -389,7 +413,8 @@ func (s *SchemaConverterSuite) TestInvalidRoot() {
 	// According to the Parquet spec, the first element in the list<SchemaElement>
 	// is a group whose children (and their descendants) contain all of the rest of
 	// the flattened schema elments. If the first element is not a group, it is malformed
-	elements := []*format.SchemaElement{NewPrimitive("not-a-group", format.FieldRepetitionType_REQUIRED, format.Type_INT32, 0), format.NewSchemaElement()}
+	elements := []*format.SchemaElement{NewPrimitive("not-a-group" /* name */, format.FieldRepetitionType_REQUIRED,
+		format.Type_INT32, 0 /* fieldID */), format.NewSchemaElement()}
 	s.Panics(func() { s.convert(elements) })
 
 	// While the parquet spec indicates that the root group should have REPEATED
@@ -397,22 +422,23 @@ func (s *SchemaConverterSuite) TestInvalidRoot() {
 	// groups as the first element. These tests check that this is okay as a
 	// practicality matter
 	elements = []*format.SchemaElement{
-		NewGroup("not-repeated", format.FieldRepetitionType_REQUIRED, 1, 0),
-		NewPrimitive("a", format.FieldRepetitionType_REQUIRED, format.Type_INT32, 1)}
+		NewGroup("not-repeated" /* name */, format.FieldRepetitionType_REQUIRED, 1 /* numChildren */, 0 /* fieldID */),
+		NewPrimitive("a" /* name */, format.FieldRepetitionType_REQUIRED, format.Type_INT32, 1 /* fieldID */)}
 	s.NotPanics(func() { s.convert(elements) })
 
-	elements[0] = NewGroup("not-repeated", format.FieldRepetitionType_OPTIONAL, 1, 0)
+	elements[0] = NewGroup("not-repeated" /* name */, format.FieldRepetitionType_OPTIONAL, 1 /* numChildren */, 0 /* fieldID */)
 	s.NotPanics(func() { s.convert(elements) })
 }
 
 func (s *SchemaConverterSuite) TestNotEnoughChildren() {
 	s.Panics(func() {
-		s.convert([]*format.SchemaElement{NewGroup(s.name, format.FieldRepetitionType_REPEATED, 2, 0)})
+		s.convert([]*format.SchemaElement{NewGroup(s.name, format.FieldRepetitionType_REPEATED, 2 /* numChildren */, 0 /* fieldID */)})
 	})
 }
 
 func TestColumnDesc(t *testing.T) {
-	n := schema.NewPrimitiveNodeConverted("name", parquet.Repetitions.Optional, parquet.Types.ByteArray, schema.ConvertedTypes.UTF8, 0, 0, 0, -1)
+	n := schema.NewPrimitiveNodeConverted("name" /* name */, parquet.Repetitions.Optional, parquet.Types.ByteArray,
+		schema.ConvertedTypes.UTF8, 0 /* type len */, 0 /* precision */, 0 /* scale */, -1 /* fieldID */)
 	descr := schema.NewColumn(n, 4, 1)
 
 	assert.Equal(t, "name", descr.Name())
@@ -432,7 +458,7 @@ func TestColumnDesc(t *testing.T) {
 }`
 	assert.Equal(t, expectedDesc, descr.String())
 
-	n = schema.NewPrimitiveNodeConverted("name", parquet.Repetitions.Optional, parquet.Types.FixedLenByteArray, schema.ConvertedTypes.Decimal, 12, 10, 4, -1)
+	n = schema.NewPrimitiveNodeConverted("name" /* name */, parquet.Repetitions.Optional, parquet.Types.FixedLenByteArray, schema.ConvertedTypes.Decimal, 12 /* type len */, 10 /* precision */, 4 /* scale */, -1 /* fieldID */)
 	descr2 := schema.NewColumn(n, 4, 1)
 
 	assert.Equal(t, parquet.Types.FixedLenByteArray, descr2.PhysicalType())
@@ -456,43 +482,43 @@ func TestColumnDesc(t *testing.T) {
 func TestSchemaDescriptor(t *testing.T) {
 	t.Run("InitNonGroup", func(t *testing.T) {
 		assert.Panics(t, func() {
-			n := schema.NewInt32Node("field", parquet.Repetitions.Optional, -1)
+			n := schema.NewInt32Node("field" /* name */, parquet.Repetitions.Optional, -1 /* fieldID */)
 			schema.NewSchema(n)
 		})
 	})
 
 	t.Run("Equals", func(t *testing.T) {
-		inta := schema.NewInt32Node("a", parquet.Repetitions.Required, -1)
-		intb := schema.NewInt64Node("b", parquet.Repetitions.Optional, -1)
-		intb2 := schema.NewInt64Node("b2", parquet.Repetitions.Optional, -1)
-		intc := schema.NewByteArrayNode("c", parquet.Repetitions.Repeated, -1)
+		inta := schema.NewInt32Node("a" /* name */, parquet.Repetitions.Required, -1 /* fieldID */)
+		intb := schema.NewInt64Node("b" /* name */, parquet.Repetitions.Optional, -1 /* fieldID */)
+		intb2 := schema.NewInt64Node("b2" /* name */, parquet.Repetitions.Optional, -1 /* fieldID */)
+		intc := schema.NewByteArrayNode("c" /* name */, parquet.Repetitions.Repeated, -1 /* fieldID */)
 
-		item1 := schema.NewInt64Node("item1", parquet.Repetitions.Required, -1)
-		item2 := schema.NewBooleanNode("item2", parquet.Repetitions.Optional, -1)
-		item3 := schema.NewInt32Node("item3", parquet.Repetitions.Repeated, -1)
-		list := schema.NewGroupNodeConverted("records", parquet.Repetitions.Repeated, schema.FieldList{item1, item2, item3}, schema.ConvertedTypes.List, -1)
+		item1 := schema.NewInt64Node("item1" /* name */, parquet.Repetitions.Required, -1 /* fieldID */)
+		item2 := schema.NewBooleanNode("item2" /* name */, parquet.Repetitions.Optional, -1 /* fieldID */)
+		item3 := schema.NewInt32Node("item3" /* name */, parquet.Repetitions.Repeated, -1 /* fieldID */)
+		list := schema.NewGroupNodeConverted("records" /* name */, parquet.Repetitions.Repeated, schema.FieldList{item1, item2, item3}, schema.ConvertedTypes.List, -1 /* fieldID */)
 
-		bag := schema.NewGroupNode("bag", parquet.Repetitions.Optional, schema.FieldList{list}, -1)
-		bag2 := schema.NewGroupNode("bag", parquet.Repetitions.Required, schema.FieldList{list}, -1)
+		bag := schema.NewGroupNode("bag" /* name */, parquet.Repetitions.Optional, schema.FieldList{list}, -1 /* fieldID */)
+		bag2 := schema.NewGroupNode("bag" /* name */, parquet.Repetitions.Required, schema.FieldList{list}, -1 /* fieldID */)
 
-		descr1 := schema.NewSchema(schema.NewGroupNode("schema", parquet.Repetitions.Repeated, schema.FieldList{inta, intb, intc, bag}, -1))
+		descr1 := schema.NewSchema(schema.NewGroupNode("schema" /* name */, parquet.Repetitions.Repeated, schema.FieldList{inta, intb, intc, bag}, -1 /* fieldID */))
 		assert.True(t, descr1.Equals(descr1))
 
-		descr2 := schema.NewSchema(schema.NewGroupNode("schema", parquet.Repetitions.Repeated, schema.FieldList{inta, intb, intc, bag2}, -1))
+		descr2 := schema.NewSchema(schema.NewGroupNode("schema" /* name */, parquet.Repetitions.Repeated, schema.FieldList{inta, intb, intc, bag2}, -1 /* fieldID */))
 		assert.False(t, descr1.Equals(descr2))
 
-		descr3 := schema.NewSchema(schema.NewGroupNode("schema", parquet.Repetitions.Repeated, schema.FieldList{inta, intb2, intc, bag}, -1))
+		descr3 := schema.NewSchema(schema.NewGroupNode("schema" /* name */, parquet.Repetitions.Repeated, schema.FieldList{inta, intb2, intc, bag}, -1 /* fieldID */))
 		assert.False(t, descr1.Equals(descr3))
 
-		descr4 := schema.NewSchema(schema.NewGroupNode("SCHEMA", parquet.Repetitions.Repeated, schema.FieldList{inta, intb, intc, bag}, -1))
+		descr4 := schema.NewSchema(schema.NewGroupNode("SCHEMA" /* name */, parquet.Repetitions.Repeated, schema.FieldList{inta, intb, intc, bag}, -1 /* fieldID */))
 		assert.True(t, descr1.Equals(descr4))
 
-		descr5 := schema.NewSchema(schema.NewGroupNode("schema", parquet.Repetitions.Repeated, schema.FieldList{inta, intb, intc, bag, intb2}, -1))
+		descr5 := schema.NewSchema(schema.NewGroupNode("schema" /* name */, parquet.Repetitions.Repeated, schema.FieldList{inta, intb, intc, bag, intb2}, -1 /* fieldID */))
 		assert.False(t, descr1.Equals(descr5))
 
-		col1 := schema.NewColumn(inta, 5, 1)
-		col2 := schema.NewColumn(inta, 6, 1)
-		col3 := schema.NewColumn(inta, 5, 2)
+		col1 := schema.NewColumn(inta, 5 /* maxDefLvl */, 1 /* maxRepLvl */)
+		col2 := schema.NewColumn(inta, 6 /* maxDefLvl */, 1 /* maxRepLvl */)
+		col3 := schema.NewColumn(inta, 5 /* maxDefLvl */, 2 /* maxRepLvl */)
 
 		assert.True(t, col1.Equals(col1))
 		assert.False(t, col1.Equals(col2))
@@ -500,20 +526,20 @@ func TestSchemaDescriptor(t *testing.T) {
 	})
 
 	t.Run("BuildTree", func(t *testing.T) {
-		inta := schema.NewInt32Node("a", parquet.Repetitions.Required, -1)
+		inta := schema.NewInt32Node("a" /* name */, parquet.Repetitions.Required, -1 /* fieldID */)
 		fields := schema.FieldList{inta}
 		fields = append(fields,
-			schema.NewInt64Node("b", parquet.Repetitions.Optional, -1),
-			schema.NewByteArrayNode("c", parquet.Repetitions.Repeated, -1))
+			schema.NewInt64Node("b" /* name */, parquet.Repetitions.Optional, -1 /* fieldID */),
+			schema.NewByteArrayNode("c" /* name */, parquet.Repetitions.Repeated, -1 /* fieldID */))
 
-		item1 := schema.NewInt64Node("item1", parquet.Repetitions.Required, -1)
-		item2 := schema.NewBooleanNode("item2", parquet.Repetitions.Optional, -1)
-		item3 := schema.NewInt32Node("item3", parquet.Repetitions.Repeated, -1)
-		list := schema.NewGroupNodeConverted("records", parquet.Repetitions.Repeated, schema.FieldList{item1, item2, item3}, schema.ConvertedTypes.List, -1)
-		bag := schema.NewGroupNode("bag", parquet.Repetitions.Optional, schema.FieldList{list}, -1)
+		item1 := schema.NewInt64Node("item1" /* name */, parquet.Repetitions.Required, -1 /* fieldID */)
+		item2 := schema.NewBooleanNode("item2" /* name */, parquet.Repetitions.Optional, -1 /* fieldID */)
+		item3 := schema.NewInt32Node("item3" /* name */, parquet.Repetitions.Repeated, -1 /* fieldID */)
+		list := schema.NewGroupNodeConverted("records" /* name */, parquet.Repetitions.Repeated, schema.FieldList{item1, item2, item3}, schema.ConvertedTypes.List, -1 /* fieldID */)
+		bag := schema.NewGroupNode("bag" /* name */, parquet.Repetitions.Optional, schema.FieldList{list}, -1 /* fieldID */)
 		fields = append(fields, bag)
 
-		sc := schema.NewGroupNode("schema", parquet.Repetitions.Repeated, fields, -1)
+		sc := schema.NewGroupNode("schema" /* name */, parquet.Repetitions.Repeated, fields, -1 /* fieldID */)
 		descr := schema.NewSchema(sc)
 
 		const nleaves = 6
@@ -551,8 +577,8 @@ func TestSchemaDescriptor(t *testing.T) {
 			assert.Equal(t, i, descr.ColumnIndexByNode(col.SchemaNode()))
 		}
 
-		nonColumnAlien := schema.NewInt32Node("alien", parquet.Repetitions.Required, -1)
-		nonColumnFamiliar := schema.NewInt32Node("a", parquet.Repetitions.Repeated, -1)
+		nonColumnAlien := schema.NewInt32Node("alien" /* name */, parquet.Repetitions.Required, -1 /* fieldID */)
+		nonColumnFamiliar := schema.NewInt32Node("a" /* name */, parquet.Repetitions.Repeated, -1 /* fieldID */)
 		assert.Less(t, descr.ColumnIndexByNode(nonColumnAlien), 0)
 		assert.Less(t, descr.ColumnIndexByNode(nonColumnFamiliar), 0)
 
@@ -565,52 +591,52 @@ func TestSchemaDescriptor(t *testing.T) {
 	})
 
 	t.Run("HasRepeatedFields", func(t *testing.T) {
-		inta := schema.NewInt32Node("a", parquet.Repetitions.Required, -1)
+		inta := schema.NewInt32Node("a" /* name */, parquet.Repetitions.Required, -1 /* fieldID */)
 		fields := schema.FieldList{inta}
 		fields = append(fields,
-			schema.NewInt64Node("b", parquet.Repetitions.Optional, -1),
-			schema.NewByteArrayNode("c", parquet.Repetitions.Repeated, -1))
+			schema.NewInt64Node("b" /* name */, parquet.Repetitions.Optional, -1 /* fieldID */),
+			schema.NewByteArrayNode("c" /* name */, parquet.Repetitions.Repeated, -1 /* fieldID */))
 
-		sc := schema.NewGroupNode("schema", parquet.Repetitions.Repeated, fields, -1)
+		sc := schema.NewGroupNode("schema" /* name */, parquet.Repetitions.Repeated, fields, -1 /* fieldID */)
 		descr := schema.NewSchema(sc)
 		assert.True(t, descr.HasRepeatedFields())
 
-		item1 := schema.NewInt64Node("item1", parquet.Repetitions.Required, -1)
-		item2 := schema.NewBooleanNode("item2", parquet.Repetitions.Optional, -1)
-		item3 := schema.NewInt32Node("item3", parquet.Repetitions.Repeated, -1)
-		list := schema.NewGroupNodeConverted("records", parquet.Repetitions.Repeated, schema.FieldList{item1, item2, item3}, schema.ConvertedTypes.List, -1)
-		bag := schema.NewGroupNode("bag", parquet.Repetitions.Optional, schema.FieldList{list}, -1)
+		item1 := schema.NewInt64Node("item1" /* name */, parquet.Repetitions.Required, -1 /* fieldID */)
+		item2 := schema.NewBooleanNode("item2" /* name */, parquet.Repetitions.Optional, -1 /* fieldID */)
+		item3 := schema.NewInt32Node("item3" /* name */, parquet.Repetitions.Repeated, -1 /* fieldID */)
+		list := schema.NewGroupNodeConverted("records" /* name */, parquet.Repetitions.Repeated, schema.FieldList{item1, item2, item3}, schema.ConvertedTypes.List, -1 /* fieldID */)
+		bag := schema.NewGroupNode("bag" /* name */, parquet.Repetitions.Optional, schema.FieldList{list}, -1 /* fieldID */)
 		fields = append(fields, bag)
 
-		sc = schema.NewGroupNode("schema", parquet.Repetitions.Repeated, fields, -1)
+		sc = schema.NewGroupNode("schema" /* name */, parquet.Repetitions.Repeated, fields, -1 /* fieldID */)
 		descr = schema.NewSchema(sc)
 		assert.True(t, descr.HasRepeatedFields())
 
-		itemKey := schema.NewInt64Node("key", parquet.Repetitions.Required, -1)
-		itemValue := schema.NewBooleanNode("value", parquet.Repetitions.Optional, -1)
-		sc = schema.NewGroupNode("schema", parquet.Repetitions.Repeated, append(fields, schema.FieldList{
-			schema.NewGroupNode("my_map", parquet.Repetitions.Optional, schema.FieldList{
-				schema.NewGroupNodeConverted("map", parquet.Repetitions.Repeated, schema.FieldList{itemKey, itemValue}, schema.ConvertedTypes.Map, -1),
-			}, -1),
-		}...), -1)
+		itemKey := schema.NewInt64Node("key" /* name */, parquet.Repetitions.Required, -1 /* fieldID */)
+		itemValue := schema.NewBooleanNode("value" /* name */, parquet.Repetitions.Optional, -1 /* fieldID */)
+		sc = schema.NewGroupNode("schema" /* name */, parquet.Repetitions.Repeated, append(fields, schema.FieldList{
+			schema.NewGroupNode("my_map" /* name */, parquet.Repetitions.Optional, schema.FieldList{
+				schema.NewGroupNodeConverted("map" /* name */, parquet.Repetitions.Repeated, schema.FieldList{itemKey, itemValue}, schema.ConvertedTypes.Map, -1 /* fieldID */),
+			}, -1 /* fieldID */),
+		}...), -1 /* fieldID */)
 		descr = schema.NewSchema(sc)
 		assert.True(t, descr.HasRepeatedFields())
 	})
 }
 
 func ExamplePrintSchema() {
-	fields := schema.FieldList{schema.NewInt32Node("a", parquet.Repetitions.Required, 1)}
-	item1 := schema.NewInt64Node("item1", parquet.Repetitions.Optional, 4)
-	item2 := schema.NewBooleanNode("item2", parquet.Repetitions.Required, 5)
-	list := schema.NewGroupNodeConverted("b", parquet.Repetitions.Repeated, schema.FieldList{item1, item2}, schema.ConvertedTypes.List, 3)
-	bag := schema.NewGroupNode("bag", parquet.Repetitions.Optional, schema.FieldList{list}, 2)
+	fields := schema.FieldList{schema.NewInt32Node("a" /* name */, parquet.Repetitions.Required, 1 /* fieldID */)}
+	item1 := schema.NewInt64Node("item1" /* name */, parquet.Repetitions.Optional, 4 /* fieldID */)
+	item2 := schema.NewBooleanNode("item2" /* name */, parquet.Repetitions.Required, 5 /* fieldID */)
+	list := schema.NewGroupNodeConverted("b" /* name */, parquet.Repetitions.Repeated, schema.FieldList{item1, item2}, schema.ConvertedTypes.List, 3 /* fieldID */)
+	bag := schema.NewGroupNode("bag" /* name */, parquet.Repetitions.Optional, schema.FieldList{list}, 2 /* fieldID */)
 	fields = append(fields, bag)
 
 	fields = append(fields,
-		schema.NewPrimitiveNodeConverted("c", parquet.Repetitions.Required, parquet.Types.Int32, schema.ConvertedTypes.Decimal, 0, 3, 2, 6),
-		schema.NewPrimitiveNodeLogical("d", parquet.Repetitions.Required, schema.NewDecimalLogicalType(10, 5), parquet.Types.Int64, -1, 7))
+		schema.NewPrimitiveNodeConverted("c" /* name */, parquet.Repetitions.Required, parquet.Types.Int32, schema.ConvertedTypes.Decimal, 0 /* type len */, 3 /* precision */, 2 /* scale */, 6 /* fieldID */),
+		schema.NewPrimitiveNodeLogical("d" /* name */, parquet.Repetitions.Required, schema.NewDecimalLogicalType(10 /* precision */, 5 /* scale */), parquet.Types.Int64, -1 /* type len */, 7 /* fieldID */))
 
-	sc := schema.NewGroupNode("schema", parquet.Repetitions.Repeated, fields, 0)
+	sc := schema.NewGroupNode("schema" /* name */, parquet.Repetitions.Repeated, fields, 0 /* fieldID */)
 	schema.PrintSchema(sc, os.Stdout, 2)
 
 	// Output:
@@ -629,35 +655,35 @@ func ExamplePrintSchema() {
 
 func TestPanicSchemaNodeCreation(t *testing.T) {
 	assert.Panics(t, func() {
-		schema.NewPrimitiveNodeLogical("map", parquet.Repetitions.Required, schema.MapLogicalType{}, parquet.Types.Int64, -1, -1)
+		schema.NewPrimitiveNodeLogical("map" /* name */, parquet.Repetitions.Required, schema.MapLogicalType{}, parquet.Types.Int64, -1 /* type len */, -1 /* fieldID */)
 	}, "nested logical type on non-group node")
 
 	assert.Panics(t, func() {
-		schema.NewPrimitiveNodeLogical("string", parquet.Repetitions.Required, schema.StringLogicalType{}, parquet.Types.Boolean, -1, -1)
+		schema.NewPrimitiveNodeLogical("string" /* name */, parquet.Repetitions.Required, schema.StringLogicalType{}, parquet.Types.Boolean, -1 /* type len */, -1 /* fieldID */)
 	}, "incompatible primitive type")
 
 	assert.Panics(t, func() {
-		schema.NewPrimitiveNodeLogical("interval", parquet.Repetitions.Required, schema.IntervalLogicalType{}, parquet.Types.FixedLenByteArray, 11, -1)
+		schema.NewPrimitiveNodeLogical("interval" /* name */, parquet.Repetitions.Required, schema.IntervalLogicalType{}, parquet.Types.FixedLenByteArray, 11 /* type len */, -1 /* fieldID */)
 	}, "incompatible primitive length")
 
 	assert.Panics(t, func() {
-		schema.NewPrimitiveNodeLogical("decimal", parquet.Repetitions.Required, schema.NewDecimalLogicalType(16, 6), parquet.Types.Int32, -1, -1)
+		schema.NewPrimitiveNodeLogical("decimal" /* name */, parquet.Repetitions.Required, schema.NewDecimalLogicalType(16, 6), parquet.Types.Int32, -1 /* type len */, -1 /* fieldID */)
 	}, "primitive too small for given precision")
 
 	assert.Panics(t, func() {
-		schema.NewPrimitiveNodeLogical("uuid", parquet.Repetitions.Required, schema.UUIDLogicalType{}, parquet.Types.FixedLenByteArray, 64, -1)
+		schema.NewPrimitiveNodeLogical("uuid" /* name */, parquet.Repetitions.Required, schema.UUIDLogicalType{}, parquet.Types.FixedLenByteArray, 64 /* type len */, -1 /* fieldID */)
 	}, "incompatible primitive length")
 
 	assert.Panics(t, func() {
-		schema.NewPrimitiveNodeLogical("negative_len", parquet.Repetitions.Required, schema.NoLogicalType{}, parquet.Types.FixedLenByteArray, -16, -1)
+		schema.NewPrimitiveNodeLogical("negative_len" /* name */, parquet.Repetitions.Required, schema.NoLogicalType{}, parquet.Types.FixedLenByteArray, -16 /* type len */, -1 /* fieldID */)
 	}, "non-positive length for fixed length binary")
 
 	assert.Panics(t, func() {
-		schema.NewPrimitiveNodeLogical("zero_len", parquet.Repetitions.Required, schema.NoLogicalType{}, parquet.Types.FixedLenByteArray, 0, -1)
+		schema.NewPrimitiveNodeLogical("zero_len" /* name */, parquet.Repetitions.Required, schema.NoLogicalType{}, parquet.Types.FixedLenByteArray, 0 /* type len */, -1 /* fieldID */)
 	}, "non-positive length for fixed length binary")
 
 	assert.Panics(t, func() {
-		schema.NewGroupNodeLogical("list", parquet.Repetitions.Repeated, schema.FieldList{}, schema.JSONLogicalType{}, -1)
+		schema.NewGroupNodeLogical("list" /* name */, parquet.Repetitions.Repeated, schema.FieldList{}, schema.JSONLogicalType{}, -1 /* fieldID */)
 	}, "non-nested logical type on group node")
 }
 
@@ -667,12 +693,12 @@ func TestNullLogicalConvertsToNone(t *testing.T) {
 		n     schema.Node
 	)
 	assert.NotPanics(t, func() {
-		n = schema.NewPrimitiveNodeLogical("value", parquet.Repetitions.Required, empty, parquet.Types.Double, -1, -1)
+		n = schema.NewPrimitiveNodeLogical("value" /* name */, parquet.Repetitions.Required, empty, parquet.Types.Double, -1 /* type len */, -1 /* fieldID */)
 	})
 	assert.True(t, n.LogicalType().IsNone())
 	assert.Equal(t, schema.ConvertedTypes.None, n.ConvertedType())
 	assert.NotPanics(t, func() {
-		n = schema.NewGroupNodeLogical("items", parquet.Repetitions.Repeated, schema.FieldList{}, empty, -1)
+		n = schema.NewGroupNodeLogical("items" /* name */, parquet.Repetitions.Repeated, schema.FieldList{}, empty, -1 /* fieldID */)
 	})
 	assert.True(t, n.LogicalType().IsNone())
 	assert.Equal(t, schema.ConvertedTypes.None, n.ConvertedType())
