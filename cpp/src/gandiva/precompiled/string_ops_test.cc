@@ -749,7 +749,7 @@ TEST(TestStringOps, TestLpadString) {
   out_str = lpad_no_fill_text(ctx_ptr, "TestString", 0, 10, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "");
 
-  out_str = lpad_no_fill_text(ctx_ptr, "TestString", 10, 0,&out_len);
+  out_str = lpad_no_fill_text(ctx_ptr, "TestString", 10, 0, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "");
 
   out_str = lpad_no_fill_text(ctx_ptr, "TestString", 10, -500, &out_len);
@@ -818,7 +818,7 @@ TEST(TestStringOps, TestRpadString) {
   out_str = rpad_no_fill_text(ctx_ptr, "TestString", 0, 10, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "");
 
-  out_str = rpad_no_fill_text(ctx_ptr, "TestString", 10, 0,&out_len);
+  out_str = rpad_no_fill_text(ctx_ptr, "TestString", 10, 0, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "");
 
   out_str = rpad_no_fill_text(ctx_ptr, "TestString", 10, -500, &out_len);
