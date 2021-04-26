@@ -618,8 +618,7 @@ readr_to_csv_convert_options <- function(na,
 write_csv_arrow <- function(x,
                           sink,
                           include_header = TRUE,
-                          batch_size = 1024L,
-                          memory_pool = default_memory_pool()
+                          batch_size = 1024L
                           ) {
   # Handle and validate options before touching data
   batch_size <- as.integer(batch_size)
@@ -635,17 +634,15 @@ write_csv_arrow <- function(x,
   }
   assert_is(x, c("Table", "RecordBatch"))
   
-  assert_is(memory_pool, "MemoryPool")
-  
   if (!inherits(sink, "OutputStream")) {
     sink <- make_output_stream(sink)
     on.exit(sink$close())
   }
   
   if(inherits(x, "RecordBatch")){
-    csv__WriteCSV___RecordBatch(x, write_options, memory_pool, sink)
+    csv__WriteCSV___RecordBatch(x, write_options, sink)
   } else if(inherits(x, "Table")){
-    csv__WriteCSV___Table(x, write_options, memory_pool, sink)
+    csv__WriteCSV___Table(x, write_options, sink)
   }
   
   invisible(x_out)

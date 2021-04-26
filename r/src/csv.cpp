@@ -189,17 +189,16 @@ std::shared_ptr<arrow::TimestampParser> TimestampParser__MakeISO8601() {
 // [[arrow::export]]
 void csv__WriteCSV___Table(const std::shared_ptr<arrow::Table>& table,
                            const std::shared_ptr<arrow::csv::WriteOptions>& write_options,
-                           arrow::MemoryPool* pool,
-                           std::shared_ptr<arrow::io::OutputStream> stream) {
-  StopIfNotOk(arrow::csv::WriteCSV(*table, *write_options, pool, stream.get()));
+                           const std::shared_ptr<arrow::io::OutputStream>& stream) {
+  
+  StopIfNotOk(arrow::csv::WriteCSV(*table, *write_options, arrow::default_memory_pool(), stream.get()));
 }
 
 // [[arrow::export]]
 void csv__WriteCSV___RecordBatch(const std::shared_ptr<arrow::RecordBatch>& record_batch,
                            const std::shared_ptr<arrow::csv::WriteOptions>& write_options,
-                           arrow::MemoryPool* pool, 
-                           std::shared_ptr<arrow::io::OutputStream> stream) {
-  StopIfNotOk(arrow::csv::WriteCSV(*record_batch, *write_options, pool, stream.get()));
+                           const std::shared_ptr<arrow::io::OutputStream>& stream) {
+  StopIfNotOk(arrow::csv::WriteCSV(*record_batch, *write_options, arrow::default_memory_pool(), stream.get()));
 }
 
 

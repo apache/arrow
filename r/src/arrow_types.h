@@ -178,6 +178,7 @@ R6_CLASS_NAME(arrow::csv::ReadOptions, "CsvReadOptions");
 R6_CLASS_NAME(arrow::csv::ParseOptions, "CsvParseOptions");
 R6_CLASS_NAME(arrow::csv::ConvertOptions, "CsvConvertOptions");
 R6_CLASS_NAME(arrow::csv::TableReader, "CsvTableReader");
+R6_CLASS_NAME(arrow::csv::WriteOptions, "CsvWriteOptions");
 
 #if defined(ARROW_R_WITH_PARQUET)
 R6_CLASS_NAME(parquet::ArrowReaderProperties, "ParquetArrowReaderProperties");
