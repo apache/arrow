@@ -50,6 +50,41 @@ using internal::MakeConverter;
 
 namespace r {
 
+class RTasks {
+ public:
+  using Task = std::function<Status()>;
+
+  RTasks()
+      : parallel_tasks(arrow::internal::TaskGroup::MakeThreaded(
+            arrow::internal::GetCpuThreadPool())) {}
+
+  Status Finish() {
+    Status status = Status::OK();
+
+    // run the delayed tasks now
+    for (auto& task : delayed_serial_tasks) {
+      status &= task();
+      if (!status.ok()) break;
+    }
+
+    // then wait for the parallel tasks to finish
+    status &= parallel_tasks->Finish();
+
+    return status;
+  }
+
+  void Append(bool parallel, Task&& task) {
+    if (parallel) {
+      parallel_tasks->Append(task);
+    } else {
+      delayed_serial_tasks.push_back(std::move(task));
+    }
+  }
+
+  std::shared_ptr<arrow::internal::TaskGroup> parallel_tasks;
+  std::vector<std::function<Status()>> delayed_serial_tasks;
+};
+
 std::mutex& get_r_mutex() {
   static std::mutex m;
   return m;
@@ -249,6 +284,12 @@ class RConverter : public Converter<SEXP, RConversionOptions> {
 
   virtual Status Extend(SEXP values, int64_t size) {
     return Status::NotImplemented("Extend");
+  }
+
+  virtual void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) {
+    // by default, just delay the ->Extend(), i.e. not run in parallel
+    auto task = [this, values, size]() { return this->Extend(values, size); };
+    tasks.Append(false, task);
   }
 
   virtual Status ExtendMasked(SEXP values, SEXP mask, int64_t size) {
@@ -1130,41 +1171,6 @@ std::shared_ptr<arrow::Array> vec_to_arrow(SEXP x,
   return ValueOrStop(converter->ToArray());
 }
 
-class RTasks {
- public:
-  using Task = std::function<Status()>;
-
-  RTasks()
-      : parallel_tasks(arrow::internal::TaskGroup::MakeThreaded(
-            arrow::internal::GetCpuThreadPool())){};
-
-  Status Finish() {
-    Status status = Status::OK();
-
-    // run the delayed tasks now
-    for (auto& task : delayed_serial_tasks) {
-      status &= task();
-      if (!status.ok()) break;
-    }
-
-    // then wait for the parallel tasks to finish
-    status &= parallel_tasks->Finish();
-
-    return status;
-  }
-
-  void Append(bool parallel, Task&& task) {
-    if (parallel) {
-      parallel_tasks->Append(task);
-    } else {
-      delayed_serial_tasks.push_back(std::move(task));
-    }
-  }
-
-  std::shared_ptr<arrow::internal::TaskGroup> parallel_tasks;
-  std::vector<std::function<Status()>> delayed_serial_tasks;
-};
-
 }  // namespace r
 }  // namespace arrow
 
@@ -1257,23 +1263,22 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
   for (int j = 0; j < num_fields; j++) {
     auto& converter = converters[j];
     if (converter != nullptr) {
-      auto task = [j, &converters, &flatten_lst, &columns] {
-        auto& converter = converters[j];
-
-        SEXP x = flatten_lst[j];
-        RETURN_NOT_OK(converter->Extend(x, converter->options().size));
-        ARROW_ASSIGN_OR_RAISE(auto array, converter->ToArray());
-        columns[j] = std::make_shared<arrow::ChunkedArray>(array);
-        return arrow::Status::OK();
-      };
-
-      tasks.Append(converter->Parallel(), std::move(task));
+      converter->DelayedExtend(flatten_lst[j], converter->options().size, tasks);
     }
   }
 
   status &= tasks.Finish();
-  status &= check_consistent_column_length(columns);
 
+  for (int j = 0; j < num_fields; j++) {
+    auto& converter = converters[j];
+    if (converter != nullptr) {
+      auto maybe_array = converter->ToArray();
+      StopIfNotOk(maybe_array.status());
+      columns[j] = std::make_shared<arrow::ChunkedArray>(maybe_array.ValueUnsafe());
+    }
+  }
+
+  status &= check_consistent_column_length(columns);
   StopIfNotOk(status);
 
   return arrow::Table::Make(schema, columns);
