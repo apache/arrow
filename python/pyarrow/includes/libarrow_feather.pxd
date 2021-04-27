@@ -34,13 +34,13 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         int compression_level
 
     CStatus WriteFeather" arrow::ipc::feather::WriteTable" \
-                    (const CTable& table, COutputStream* out,
-                     CFeatherProperties properties)
+        (const CTable& table, COutputStream* out,
+         CFeatherProperties properties)
 
     cdef cppclass CFeatherReader" arrow::ipc::feather::Reader":
         @staticmethod
         CResult[shared_ptr[CFeatherReader]] Open(
-                const shared_ptr[CRandomAccessFile]& file)
+            const shared_ptr[CRandomAccessFile]& file)
         int version()
         shared_ptr[CSchema] schema()
 
