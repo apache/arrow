@@ -19,29 +19,55 @@ import { Data } from '../data';
 import { Field } from '../schema';
 import { Column } from '../column';
 import { Vector } from '../vector';
-import { DataType } from '../type';
+import { Bool, DataType, Float32, Float64, FloatArray, IntArray, Int16, Int32, Int64, Int8, Uint16, Uint32, Uint64, Uint8 } from '../type';
 import { Chunked } from '../vector/chunked';
-import { BigIntArray, TypedArray } from '../interfaces';
-import { arrayTypeToDataType as arrayTypeToIntDataType, IntArrayCtor } from '../vector/int';
-import { arrayTypeToDataType as arrayTypeToFloatDataType, FloatArrayCtor } from '../vector/float';
+import { BigIntArray, TypedArray as TypedArray_ } from '../interfaces';
+import { FloatArrayCtor } from '../vector/float';
+import { IntArrayCtor } from '../vector/int';
+import { TypedArrayConstructor } from '../interfaces';
 
 type RecordBatchCtor = typeof import('../recordbatch').RecordBatch;
 
 const isArray = Array.isArray;
 
+type TypedArray = Exclude<TypedArray_ | BigIntArray, Uint8ClampedArray>;
+
 /** @ignore */
-export function isTypedArray(arr: any): arr is TypedArray | BigIntArray {
+export function isTypedArray(arr: any): arr is TypedArray {
     return ArrayBuffer.isView(arr) && 'BYTES_PER_ELEMENT' in arr;
+}
+
+
+/** @ignore */
+type ArrayCtor = FloatArrayCtor | IntArrayCtor | TypedArrayConstructor<Uint8ClampedArray>;
+
+/** @ignore */
+export function arrayTypeToDataType(ctor: ArrayCtor) {
+    switch (ctor) {
+        case Int8Array:         return Int8;
+        case Int16Array:        return Int16;
+        case Int32Array:        return Int32;
+        case BigInt64Array:     return Int64;
+        case Uint8Array:        return Uint8;
+        case Uint8ClampedArray: return Bool;
+        case Uint16Array:       return Uint16;
+        case Uint32Array:       return Uint32;
+        case BigUint64Array:    return Uint64;
+        case Float32Array:      return Float32;
+        case Float64Array:      return Float64;
+        default: return null;
+    }
 }
 
 /** @ignore */
 function vectorFromTypedArray(array: TypedArray): Vector {
-    if (array instanceof Float32Array || array instanceof Float64Array) {
-        const ArrowType = arrayTypeToFloatDataType(array.constructor as FloatArrayCtor)!;
-        return Vector.new(Data.Float(new ArrowType(), 0, array.byteLength, 0, null, array));
+    const ArrowType = arrayTypeToDataType(array.constructor as ArrayCtor);
+    if (!ArrowType) {
+        throw new TypeError('Unrecognized Array input');
     }
-    const ArrowType = arrayTypeToIntDataType(array.constructor as IntArrayCtor, false)!;
-    return Vector.new(Data.Int(new ArrowType(), 0, array.byteLength, 0, null, array));
+    const type = new ArrowType();
+    const data = Data.new(type, 0, array.length, 0, [undefined, array as IntArray | FloatArray]);
+    return Vector.new(data);
 }
 
 /** @ignore */
@@ -52,7 +78,7 @@ export const selectColumnArgs = <T extends { [key: string]: DataType }>(args: an
     return values.map((x, i) =>
         x instanceof Column ? Column.new(x.field.clone(fields[i]), x) :
         x instanceof Vector ? Column.new(fields[i], x) as Column<T[keyof T]> :
-        isTypedArray(x) ? Column.new(fields[i], vectorFromTypedArray(x)) as Column<T[keyof T]> :
+        isTypedArray(x)     ? Column.new(fields[i], vectorFromTypedArray(x)) as Column<T[keyof T]> :
                               Column.new(fields[i], [] as Vector<T[keyof T]>[]));
 };
 

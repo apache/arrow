@@ -169,7 +169,7 @@ export type TypedArrayDataType<T extends TypedArray | BigIntArray> =
     T extends Int32Array ? type.Int32 :
     T extends BigInt64Array ? type.Int64 :
     T extends Uint8Array ? type.Uint8 :
-    T extends Uint8ClampedArray ? type.Uint8 :
+    T extends Uint8ClampedArray ? type.Bool :
     T extends Uint16Array ? type.Uint16 :
     T extends Uint32Array ? type.Uint32 :
     T extends BigUint64Array ? type.Uint64 :

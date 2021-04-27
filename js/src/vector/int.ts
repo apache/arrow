@@ -165,7 +165,7 @@ const convert32To64Bit = (typeCtor: any, dataCtor: any) => {
 };
 
 /** @ignore */
-export const arrayTypeToDataType = (ctor: IntArrayCtor, is64bit: boolean) => {
+const arrayTypeToDataType = (ctor: IntArrayCtor, is64bit: boolean) => {
     switch (ctor) {
         case Int8Array:      return Int8;
         case Int16Array:     return Int16;

@@ -124,7 +124,7 @@ const convertTo16Bit = (typeCtor: any, dataCtor: any) => {
 };
 
 /** @ignore */
-export const arrayTypeToDataType = (ctor: FloatArrayCtor) => {
+const arrayTypeToDataType = (ctor: FloatArrayCtor) => {
     switch (ctor) {
         case Uint16Array:    return Float16;
         case Float32Array:   return Float32;
