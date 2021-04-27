@@ -829,6 +829,9 @@ Future<std::vector<Result<T>>> All(std::vector<Future<T>> futures) {
   return out;
 }
 
+template <>
+inline Future<>::Future(Status s) : Future(internal::Empty::ToResult(std::move(s))) {}
+
 /// \brief Create a Future which completes when all of `futures` complete.
 ///
 /// The future will be marked complete if all `futures` complete
