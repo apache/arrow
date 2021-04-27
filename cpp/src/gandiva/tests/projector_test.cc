@@ -1033,20 +1033,19 @@ TEST_F(TestProjector, TestLpad) {
   auto array0 = MakeArrowArrayUtf8({"ab", "a", "ab", "invalid", "valid", "invalid", ""},
                                    {true, true, true, true, true, true, true});
   auto array1 = MakeArrowArrayInt32({1, 5, 3, 12, 0, 2, 10},
-                                   {true, true, true, true, true, true, true});
+                                    {true, true, true, true, true, true, true});
   auto array2 = MakeArrowArrayUtf8({"z", "z", "c", "valid", "invalid", "invalid", ""},
                                    {true, true, true, true, true, true, true});
   // expected output
   auto exp_lpad = MakeArrowArrayUtf8({"a", "zzzza", "cab", "validinvalid", "", "in", ""},
-                                       {true, true, true, true, true, true, true});
+                                     {true, true, true, true, true, true, true});
 
   // prepare input record batch
-  auto in_batch = arrow::RecordBatch::Make(schema, num_records,
-                                           {array0, array1, array2});
+  auto in = arrow::RecordBatch::Make(schema, num_records, {array0, array1, array2});
 
   // Evaluate expression
   arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  status = projector->Evaluate(*in, pool_, &outputs);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Validate results
@@ -1084,12 +1083,11 @@ TEST_F(TestProjector, TestRpad) {
                                      {true, true, true, true, true, true, true});
 
   // prepare input record batch
-  auto in_batch = arrow::RecordBatch::Make(schema, num_records,
-                                           {array0, array1, array2});
+  auto in = arrow::RecordBatch::Make(schema, num_records, {array0, array1, array2});
 
   // Evaluate expression
   arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  status = projector->Evaluate(*in, pool_, &outputs);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Validate results

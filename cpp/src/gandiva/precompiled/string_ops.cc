@@ -1555,7 +1555,6 @@ const char* rpad(gdv_int64 context, const char* text, gdv_int32 text_len,
   }
 }
 
-
 FORCE_INLINE
 const char* lpad_no_fill_text(gdv_int64 context, const char* text, gdv_int32 text_len,
                               gdv_int32 return_length, gdv_int32* out_len) {
@@ -1588,10 +1587,8 @@ const char* lpad_no_fill_text(gdv_int64 context, const char* text, gdv_int32 tex
     // case (return_length > text_char_count)
     // case where it needs to copy "fill_text" on the string left. The total number
     // of chars to copy is given by (return_length -  text_char_count)
-    char* ret =
-        reinterpret_cast<gdv_binary>(gdv_fn_context_arena_malloc(
-            context,
-            text_len + (return_length - text_char_count)));
+    char* ret = reinterpret_cast<gdv_binary>(gdv_fn_context_arena_malloc(
+        context, text_len + (return_length - text_char_count)));
     if (ret == nullptr) {
       gdv_fn_context_set_error_msg(context,
                                    "Could not allocate memory for output string");
@@ -1639,10 +1636,8 @@ const char* rpad_no_fill_text(gdv_int64 context, const char* text, gdv_int32 tex
   } else {
     // case (return_length > text_char_count)
     // case where it needs to copy "fill_text" on the string right
-    char* ret =
-        reinterpret_cast<gdv_binary>(gdv_fn_context_arena_malloc(
-            context,
-            text_len + (return_length - text_char_count)));
+    char* ret = reinterpret_cast<gdv_binary>(gdv_fn_context_arena_malloc(
+        context, text_len + (return_length - text_char_count)));
     if (ret == nullptr) {
       gdv_fn_context_set_error_msg(context,
                                    "Could not allocate memory for output string");
