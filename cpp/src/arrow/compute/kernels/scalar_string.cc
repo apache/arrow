@@ -394,8 +394,7 @@ struct MatchSubstring {
   using offset_type = typename Type::offset_type;
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     // TODO Cache matcher across invocations (for regex compilation)
-    Matcher matcher(MatchSubstringState::Get(ctx));
-    RETURN_NOT_OK(matcher.status_);
+    ARROW_ASSIGN_OR_RAISE(auto matcher, Matcher::Make(MatchSubstringState::Get(ctx)));
     StringBoolTransform<Type>(
         ctx, batch,
         [&matcher](const void* raw_offsets, const uint8_t* data, int64_t length,
@@ -405,7 +404,7 @@ struct MatchSubstring {
           for (int64_t i = 0; i < length; ++i) {
             const char* current_data = reinterpret_cast<const char*>(data + offsets[i]);
             int64_t current_length = offsets[i + 1] - offsets[i];
-            if (matcher.Match(util::string_view(current_data, current_length))) {
+            if (matcher->Match(util::string_view(current_data, current_length))) {
               bitmap_writer.Set();
             }
             bitmap_writer.Next();
@@ -421,7 +420,11 @@ struct MatchSubstring {
 struct PlainSubstringMatcher {
   const MatchSubstringOptions& options_;
   std::vector<int64_t> prefix_table;
-  const Status status_ = Status::OK();
+
+  static Result<std::unique_ptr<PlainSubstringMatcher>> Make(
+      const MatchSubstringOptions& options) {
+    return ::arrow::internal::make_unique<PlainSubstringMatcher>(options);
+  }
 
   explicit PlainSubstringMatcher(const MatchSubstringOptions& options)
       : options_(options) {
@@ -441,7 +444,7 @@ struct PlainSubstringMatcher {
     }
   }
 
-  bool Match(util::string_view current) {
+  bool Match(util::string_view current) const {
     // Phase 2: Find the prefix in the data
     const auto pattern_length = options_.pattern.size();
     int64_t pattern_pos = 0;
@@ -468,14 +471,18 @@ const FunctionDoc match_substring_doc(
 struct RegexSubstringMatcher {
   const MatchSubstringOptions& options_;
   const RE2 regex_match_;
-  Status status_;
 
-  explicit RegexSubstringMatcher(const MatchSubstringOptions& options)
-      : options_(options), regex_match_(options_.pattern, RE2::Quiet) {
-    status_ = RegexStatus(regex_match_);
+  static Result<std::unique_ptr<RegexSubstringMatcher>> Make(
+      const MatchSubstringOptions& options) {
+    auto matcher = ::arrow::internal::make_unique<RegexSubstringMatcher>(options);
+    RETURN_NOT_OK(RegexStatus(matcher->regex_match_));
+    return std::move(matcher);
   }
 
-  bool Match(util::string_view current) {
+  explicit RegexSubstringMatcher(const MatchSubstringOptions& options)
+      : options_(options), regex_match_(options_.pattern, RE2::Quiet) {}
+
+  bool Match(util::string_view current) const {
     auto piece = re2::StringPiece(current.data(), current.length());
     return re2::RE2::PartialMatch(piece, regex_match_);
   }
@@ -1314,13 +1321,12 @@ struct ReplaceSubString {
 
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     // TODO Cache replacer across invocations (for regex compilation)
-    Replacer replacer{State::Get(ctx)};
-    RETURN_NOT_OK(replacer.status_);
-    return Replace(ctx, batch, &replacer, out);
+    ARROW_ASSIGN_OR_RAISE(auto replacer, Replacer::Make(State::Get(ctx)));
+    return Replace(ctx, batch, *replacer, out);
   }
 
-  static Status Replace(KernelContext* ctx, const ExecBatch& batch, Replacer* replacer,
-                        Datum* out) {
+  static Status Replace(KernelContext* ctx, const ExecBatch& batch,
+                        const Replacer& replacer, Datum* out) {
     ValueDataBuilder value_data_builder(ctx->memory_pool());
     OffsetBuilder offset_builder(ctx->memory_pool());
 
@@ -1333,7 +1339,7 @@ struct ReplaceSubString {
       RETURN_NOT_OK(VisitArrayDataInline<Type>(
           input,
           [&](util::string_view s) {
-            RETURN_NOT_OK(replacer->ReplaceString(s, &value_data_builder));
+            RETURN_NOT_OK(replacer.ReplaceString(s, &value_data_builder));
             offset_builder.UnsafeAppend(
                 static_cast<offset_type>(value_data_builder.length()));
             return Status::OK();
@@ -1352,7 +1358,7 @@ struct ReplaceSubString {
       auto result = std::make_shared<ScalarType>();
       if (input.is_valid) {
         util::string_view s = static_cast<util::string_view>(*input.value);
-        RETURN_NOT_OK(replacer->ReplaceString(s, &value_data_builder));
+        RETURN_NOT_OK(replacer.ReplaceString(s, &value_data_builder));
         RETURN_NOT_OK(value_data_builder.Finish(&result->value));
         result->is_valid = true;
       }
@@ -1365,12 +1371,16 @@ struct ReplaceSubString {
 
 struct PlainSubStringReplacer {
   const ReplaceSubstringOptions& options_;
-  const Status status_ = Status::OK();
+
+  static Result<std::unique_ptr<PlainSubStringReplacer>> Make(
+      const ReplaceSubstringOptions& options) {
+    return arrow::internal::make_unique<PlainSubStringReplacer>(options);
+  }
 
   explicit PlainSubStringReplacer(const ReplaceSubstringOptions& options)
       : options_(options) {}
 
-  Status ReplaceString(util::string_view s, TypedBufferBuilder<uint8_t>* builder) {
+  Status ReplaceString(util::string_view s, TypedBufferBuilder<uint8_t>* builder) const {
     const char* i = s.begin();
     const char* end = s.end();
     int64_t max_replacements = options_.max_replacements;
@@ -1405,27 +1415,32 @@ struct RegexSubStringReplacer {
   const ReplaceSubstringOptions& options_;
   const RE2 regex_find_;
   const RE2 regex_replacement_;
-  Status status_;
+
+  static Result<std::unique_ptr<RegexSubStringReplacer>> Make(
+      const ReplaceSubstringOptions& options) {
+    auto replacer = arrow::internal::make_unique<RegexSubStringReplacer>(options);
+
+    RETURN_NOT_OK(RegexStatus(replacer->regex_find_));
+    RETURN_NOT_OK(RegexStatus(replacer->regex_replacement_));
+
+    std::string replacement_error;
+    if (!replacer->regex_replacement_.CheckRewriteString(replacer->options_.replacement,
+                                                         &replacement_error)) {
+      return Status::Invalid("Invalid replacement string: ",
+                             std::move(replacement_error));
+    }
+
+    return std::move(replacer);
+  }
 
   // Using RE2::FindAndConsume we can only find the pattern if it is a group, therefore
   // we have 2 regexes, one with () around it, one without.
   explicit RegexSubStringReplacer(const ReplaceSubstringOptions& options)
       : options_(options),
         regex_find_("(" + options_.pattern + ")", RE2::Quiet),
-        regex_replacement_(options_.pattern, RE2::Quiet) {
-    status_ = RegexStatus(regex_find_);
-    if (!status_.ok()) return;
-    status_ = RegexStatus(regex_replacement_);
-    if (!status_.ok()) return;
-    std::string replacement_error;
-    if (!regex_replacement_.CheckRewriteString(options_.replacement,
-                                               &replacement_error)) {
-      status_ =
-          Status::Invalid("Invalid replacement string: ", std::move(replacement_error));
-    }
-  }
+        regex_replacement_(options_.pattern, RE2::Quiet) {}
 
-  Status ReplaceString(util::string_view s, TypedBufferBuilder<uint8_t>* builder) {
+  Status ReplaceString(util::string_view s, TypedBufferBuilder<uint8_t>* builder) const {
     re2::StringPiece replacement(options_.replacement);
 
     if (options_.max_replacements == -1) {
@@ -2157,7 +2172,8 @@ void MakeUnaryStringUTF8TransformKernel(std::string name, FunctionRegistry* regi
 
 #endif
 
-// NOTE: Predicate should only update 'status' with errors, not Status::OK()
+// NOTE: Predicate should only populate 'status' with errors,
+//       leave it unmodified to indicate Status::OK()
 using StringPredicate =
     std::function<bool(KernelContext*, const uint8_t*, size_t, Status*)>;
 

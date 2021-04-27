@@ -547,7 +547,8 @@ struct OutputAdapter<Type, enable_if_base_binary<Type>> {
 //   template <typename OutValue, typename Arg0Value>
 //   static OutValue Call(KernelContext* ctx, Arg0Value val, Status* st) {
 //     // implementation
-//     // NOTE: "status" is only populated with errors, not Status::OK()
+//     // NOTE: "status" should only populated with errors,
+//     //        leave it unmodified to indicate Status::OK()
 //   }
 // };
 template <typename OutType, typename Arg0Type, typename Op>
@@ -750,7 +751,8 @@ struct ScalarUnaryNotNull {
 //   static OutValue Call(KernelContext* ctx, Arg0Value arg0, Arg1Value arg1, Status* st)
 //   {
 //     // implementation
-//     // NOTE: "status" is only populated with errors, not Status::OK()
+//     // NOTE: "status" should only populated with errors,
+//     //       leave it unmodified to indicate Status::OK()
 //   }
 // };
 template <typename OutType, typename Arg0Type, typename Arg1Type, typename Op>
