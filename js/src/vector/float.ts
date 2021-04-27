@@ -41,7 +41,7 @@ type FromInput<T extends Float, TNull = any> =
     VectorBuilderOptionsAsync<T, TNull> ;
 
 /** @ignore */
-type FloatArrayCtor = TypedArrayConstructor<FloatArray>;
+export type FloatArrayCtor = TypedArrayConstructor<FloatArray>;
 
 /** @ignore */
 export class FloatVector<T extends Float = Float> extends BaseVector<T> {
@@ -124,7 +124,7 @@ const convertTo16Bit = (typeCtor: any, dataCtor: any) => {
 };
 
 /** @ignore */
-const arrayTypeToDataType = (ctor: FloatArrayCtor) => {
+export const arrayTypeToDataType = (ctor: FloatArrayCtor) => {
     switch (ctor) {
         case Uint16Array:    return Float16;
         case Float32Array:   return Float32;

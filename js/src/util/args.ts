@@ -22,7 +22,8 @@ import { Vector } from '../vector';
 import { DataType } from '../type';
 import { Chunked } from '../vector/chunked';
 import { BigIntArray, TypedArray } from '../interfaces';
-import { FloatVector, IntVector } from '../vector/index';
+import { arrayTypeToDataType as arrayTypeToIntDataType, IntArrayCtor } from '../vector/int';
+import { arrayTypeToDataType as arrayTypeToFloatDataType, FloatArrayCtor } from '../vector/float';
 
 type RecordBatchCtor = typeof import('../recordbatch').RecordBatch;
 
@@ -36,9 +37,11 @@ export function isTypedArray(arr: any): arr is TypedArray | BigIntArray {
 /** @ignore */
 function vectorFromTypedArray(array: TypedArray): Vector {
     if (array instanceof Float32Array || array instanceof Float64Array) {
-        return FloatVector.from(array);
+        const ArrowType = arrayTypeToFloatDataType(array.constructor as FloatArrayCtor)!;
+        return Vector.new(Data.Float(new ArrowType(), 0, array.byteLength, 0, null, array));
     }
-    return IntVector.from(array);
+    const ArrowType = arrayTypeToIntDataType(array.constructor as IntArrayCtor, false)!;
+    return Vector.new(Data.Int(new ArrowType(), 0, array.byteLength, 0, null, array));
 }
 
 /** @ignore */

@@ -51,7 +51,7 @@ type FromInput<T extends Int, TNull = any> =
 type FromArgs<T extends Int, TNull = any> = [FromInput<T, TNull>, boolean?];
 
 /** @ignore */
-type IntArrayCtor = TypedArrayConstructor<IntArray> | BigIntArrayConstructor<BigIntArray>;
+export type IntArrayCtor = TypedArrayConstructor<IntArray> | BigIntArrayConstructor<BigIntArray>;
 
 /** @ignore */
 export class IntVector<T extends Int = Int> extends BaseVector<T> {
@@ -165,7 +165,7 @@ const convert32To64Bit = (typeCtor: any, dataCtor: any) => {
 };
 
 /** @ignore */
-const arrayTypeToDataType = (ctor: IntArrayCtor, is64bit: boolean) => {
+export const arrayTypeToDataType = (ctor: IntArrayCtor, is64bit: boolean) => {
     switch (ctor) {
         case Int8Array:      return Int8;
         case Int16Array:     return Int16;
