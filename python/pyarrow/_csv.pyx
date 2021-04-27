@@ -77,10 +77,13 @@ cdef class ReadOptions(_Weakrefable):
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
+    # __init__() is not called when unpickling, initialize storage here
+    def __cinit__(self, *argw, **kwargs):
+        self.options.reset(new CCSVReadOptions(CCSVReadOptions.Defaults()))
+
     def __init__(self, *, use_threads=None, block_size=None, skip_rows=None,
                  column_names=None, autogenerate_column_names=None,
                  encoding='utf8'):
-        self.options.reset(new CCSVReadOptions(CCSVReadOptions.Defaults()))
         if use_threads is not None:
             self.use_threads = use_threads
         if block_size is not None:
@@ -431,13 +434,15 @@ cdef class ConvertOptions(_Weakrefable):
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
+    def __cinit__(self, *argw, **kwargs):
+        self.options.reset(
+            new CCSVConvertOptions(CCSVConvertOptions.Defaults()))
+
     def __init__(self, *, check_utf8=None, column_types=None, null_values=None,
                  true_values=None, false_values=None,
                  strings_can_be_null=None, include_columns=None,
                  include_missing_columns=None, auto_dict_encode=None,
                  auto_dict_max_cardinality=None, timestamp_parsers=None):
-        self.options.reset(
-            new CCSVConvertOptions(CCSVConvertOptions.Defaults()))
         if check_utf8 is not None:
             self.check_utf8 = check_utf8
         if column_types is not None:
