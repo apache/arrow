@@ -63,22 +63,6 @@ class ARROW_EXPORT KernelContext {
   /// byte is preemptively zeroed to help avoid ASAN or valgrind issues.
   Result<std::shared_ptr<ResizableBuffer>> AllocateBitmap(int64_t num_bits);
 
-  /// \brief Indicate that an error has occurred, to be checked by a exec caller
-  /// \param[in] status a Status instance.
-  ///
-  /// \note Will not overwrite a prior set Status, so we will have the first
-  /// error that occurred until ExecContext::ResetStatus is called.
-  void SetStatus(const Status& status);
-
-  /// \brief Clear any error status.
-  void ResetStatus();
-
-  /// \brief Return true if an error has occurred.
-  bool HasError() const { return !status_.ok(); }
-
-  /// \brief Return the current status of the context.
-  const Status& status() const { return status_; }
-
   /// \brief Assign the active KernelState to be utilized for each stage of
   /// kernel execution. Ownership and memory lifetime of the KernelState must
   /// be minded separately.
@@ -96,20 +80,8 @@ class ARROW_EXPORT KernelContext {
 
  private:
   ExecContext* exec_ctx_;
-  Status status_;
   KernelState* state_;
 };
-
-// A macro to invoke for error control flow after invoking functions (such as
-// kernel init or exec functions) that propagate errors via KernelContext.
-#define ARROW_CTX_RETURN_IF_ERROR(CTX)            \
-  do {                                            \
-    if (ARROW_PREDICT_FALSE((CTX)->HasError())) { \
-      Status s = (CTX)->status();                 \
-      (CTX)->ResetStatus();                       \
-      return s;                                   \
-    }                                             \
-  } while (0)
 
 /// \brief The standard kernel execution API that must be implemented for
 /// SCALAR and VECTOR kernel types. This includes both stateless and stateful
@@ -119,7 +91,7 @@ class ARROW_EXPORT KernelContext {
 /// into pre-allocated memory if they are able, though for some kernels
 /// (e.g. in cases when a builder like StringBuilder) must be employed this may
 /// not be possible.
-using ArrayKernelExec = std::function<void(KernelContext*, const ExecBatch&, Datum*)>;
+using ArrayKernelExec = std::function<Status(KernelContext*, const ExecBatch&, Datum*)>;
 
 /// \brief An type-checking interface to permit customizable validation rules
 /// for use with InputType and KernelSignature. This is for scenarios where the
@@ -523,9 +495,8 @@ struct KernelInitArgs {
 };
 
 /// \brief Common initializer function for all kernel types.
-/// If an error occurs it will be stored in the KernelContext; nullptr will be returned.
-using KernelInit =
-    std::function<std::unique_ptr<KernelState>(KernelContext*, const KernelInitArgs&)>;
+using KernelInit = std::function<Result<std::unique_ptr<KernelState>>(
+    KernelContext*, const KernelInitArgs&)>;
 
 /// \brief Base type for kernels. Contains the function signature and
 /// optionally the state initialization function, along with some common
@@ -608,7 +579,7 @@ struct ScalarKernel : public ArrayKernel {
 // VectorKernel (for VectorFunction)
 
 /// \brief See VectorKernel::finalize member for usage
-using VectorFinalize = std::function<void(KernelContext*, std::vector<Datum>*)>;
+using VectorFinalize = std::function<Status(KernelContext*, std::vector<Datum>*)>;
 
 /// \brief Kernel data structure for implementations of VectorFunction. In
 /// addition to the members found in ArrayKernel, contains an optional
@@ -663,13 +634,13 @@ struct VectorKernel : public ArrayKernel {
 // ----------------------------------------------------------------------
 // ScalarAggregateKernel (for ScalarAggregateFunction)
 
-using ScalarAggregateConsume = std::function<void(KernelContext*, const ExecBatch&)>;
+using ScalarAggregateConsume = std::function<Status(KernelContext*, const ExecBatch&)>;
 
 using ScalarAggregateMerge =
-    std::function<void(KernelContext*, KernelState&&, KernelState*)>;
+    std::function<Status(KernelContext*, KernelState&&, KernelState*)>;
 
 // Finalize returns Datum to permit multiple return values
-using ScalarAggregateFinalize = std::function<void(KernelContext*, Datum*)>;
+using ScalarAggregateFinalize = std::function<Status(KernelContext*, Datum*)>;
 
 /// \brief Kernel data structure for implementations of
 /// ScalarAggregateFunction. The four necessary components of an aggregation
@@ -707,13 +678,13 @@ struct ScalarAggregateKernel : public Kernel {
 // ----------------------------------------------------------------------
 // HashAggregateKernel (for HashAggregateFunction)
 
-using HashAggregateConsume = std::function<void(KernelContext*, const ExecBatch&)>;
+using HashAggregateConsume = std::function<Status(KernelContext*, const ExecBatch&)>;
 
 using HashAggregateMerge =
-    std::function<void(KernelContext*, KernelState&&, KernelState*)>;
+    std::function<Status(KernelContext*, KernelState&&, KernelState*)>;
 
 // Finalize returns Datum to permit multiple return values
-using HashAggregateFinalize = std::function<void(KernelContext*, Datum*)>;
+using HashAggregateFinalize = std::function<Status(KernelContext*, Datum*)>;
 
 /// \brief Kernel data structure for implementations of
 /// HashAggregateFunction. The four necessary components of an aggregation

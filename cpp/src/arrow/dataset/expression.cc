@@ -427,10 +427,10 @@ Result<Expression> BindNonRecursive(Expression::Call call, bool insert_implicit_
 
   compute::KernelContext kernel_context(exec_context);
   if (call.kernel->init) {
-    call.kernel_state =
-        call.kernel->init(&kernel_context, {call.kernel, descrs, call.options.get()});
+    ARROW_ASSIGN_OR_RAISE(
+        call.kernel_state,
+        call.kernel->init(&kernel_context, {call.kernel, descrs, call.options.get()}));
 
-    RETURN_NOT_OK(kernel_context.status());
     kernel_context.SetState(call.kernel_state.get());
   }
 

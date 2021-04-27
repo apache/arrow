@@ -71,7 +71,7 @@ Result<std::pair<CType*, int64_t*>> PrepareOutput(int64_t n, KernelContext* ctx,
 // find top-n value:count pairs with minimal heap
 // suboptimal for tiny or large n, possibly okay as we're not in hot path
 template <typename InType, typename Generator>
-void Finalize(KernelContext* ctx, Datum* out, Generator&& gen) {
+Status Finalize(KernelContext* ctx, Datum* out, Generator&& gen) {
   using CType = typename InType::c_type;
 
   using ValueCountPair = std::pair<CType, uint64_t>;
@@ -100,13 +100,15 @@ void Finalize(KernelContext* ctx, Datum* out, Generator&& gen) {
 
   CType* mode_buffer;
   int64_t* count_buffer;
-  KERNEL_ASSIGN_OR_RAISE(std::tie(mode_buffer, count_buffer), ctx,
-                         PrepareOutput<InType>(n, ctx, out));
+  ARROW_ASSIGN_OR_RAISE(std::tie(mode_buffer, count_buffer),
+                        PrepareOutput<InType>(n, ctx, out));
 
   for (int64_t i = n - 1; i >= 0; --i) {
     std::tie(mode_buffer[i], count_buffer[i]) = min_heap.top();
     min_heap.pop();
   }
+
+  return Status::OK();
 }
 
 // count value occurances for integers with narrow value range
@@ -125,7 +127,7 @@ struct CountModer {
     this->counts.resize(value_range, 0);
   }
 
-  void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     // count values in all chunks, ignore nulls
     const Datum& datum = batch[0];
     CountValues<CType>(this->counts.data(), datum, this->min);
@@ -144,14 +146,14 @@ struct CountModer {
       return std::pair<CType, uint64_t>(0, kCountEOF);
     };
 
-    Finalize<T>(ctx, out, std::move(gen));
+    return Finalize<T>(ctx, out, std::move(gen));
   }
 };
 
 // booleans can be handled more straightforward
 template <>
 struct CountModer<BooleanType> {
-  void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     int64_t counts[2]{};
 
     const Datum& datum = batch[0];
@@ -171,8 +173,8 @@ struct CountModer<BooleanType> {
 
     bool* mode_buffer;
     int64_t* count_buffer;
-    KERNEL_ASSIGN_OR_RAISE(std::tie(mode_buffer, count_buffer), ctx,
-                           PrepareOutput<BooleanType>(n, ctx, out));
+    ARROW_ASSIGN_OR_RAISE(std::tie(mode_buffer, count_buffer),
+                          PrepareOutput<BooleanType>(n, ctx, out));
 
     if (n >= 1) {
       const bool index = counts[1] > counts[0];
@@ -183,6 +185,8 @@ struct CountModer<BooleanType> {
         count_buffer[1] = counts[!index];
       }
     }
+
+    return Status::OK();
   }
 };
 
@@ -193,7 +197,7 @@ struct SortModer {
   using CType = typename T::c_type;
   using Allocator = arrow::stl::allocator<CType>;
 
-  void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     // copy all chunks to a buffer, ignore nulls and nans
     std::vector<CType, Allocator> in_buffer(Allocator(ctx->memory_pool()));
 
@@ -238,7 +242,7 @@ struct SortModer {
       return std::make_pair(value, count);
     };
 
-    Finalize<T>(ctx, out, std::move(gen));
+    return Finalize<T>(ctx, out, std::move(gen));
   }
 };
 
@@ -247,7 +251,7 @@ template <typename T>
 struct CountOrSortModer {
   using CType = typename T::c_type;
 
-  void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     // cross point to benefit from counting approach
     // about 2x improvement for int32/64 from micro-benchmarking
     static constexpr int kMinArraySize = 8192;
@@ -259,12 +263,11 @@ struct CountOrSortModer {
       std::tie(min, max) = GetMinMax<CType>(datum);
 
       if (static_cast<uint64_t>(max) - static_cast<uint64_t>(min) <= kMaxValueRange) {
-        CountModer<T>(min, max).Exec(ctx, batch, out);
-        return;
+        return CountModer<T>(min, max).Exec(ctx, batch, out);
       }
     }
 
-    SortModer<T>().Exec(ctx, batch, out);
+    return SortModer<T>().Exec(ctx, batch, out);
   }
 };
 
@@ -301,18 +304,16 @@ struct Moder<InType, enable_if_t<is_floating_type<InType>::value>> {
 
 template <typename _, typename InType>
 struct ModeExecutor {
-  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     if (ctx->state() == nullptr) {
-      ctx->SetStatus(Status::Invalid("Mode requires ModeOptions"));
-      return;
+      return Status::Invalid("Mode requires ModeOptions");
     }
     const ModeOptions& options = ModeState::Get(ctx);
     if (options.n <= 0) {
-      ctx->SetStatus(Status::Invalid("ModeOption::n must be strictly positive"));
-      return;
+      return Status::Invalid("ModeOption::n must be strictly positive");
     }
 
-    Moder<InType>().impl.Exec(ctx, batch, out);
+    return Moder<InType>().impl.Exec(ctx, batch, out);
   }
 };
 
