@@ -92,8 +92,17 @@ Incremental reading
 -------------------
 
 For memory-constrained environments, it is also possible to read a CSV file
-one batch at a time, using :func:`open_csv`.  It currently doesn't support
-parallel reading.
+one batch at a time, using :func:`open_csv`.
+
+There are a few caveats:
+
+1. For now, the incremental reader is always single-threaded (regardless of
+   :attr:`ReadOptions.use_threads`)
+
+2. Type inference is done on the first block and types are frozen afterwards;
+   to make sure the right data types are inferred, either set
+   :attr:`ReadOptions.block_size` to a large enough value, or use
+   :attr:`ConvertOptions.column_types` to set the desired data types explicitly.
 
 Character encoding
 ------------------

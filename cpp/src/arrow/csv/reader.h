@@ -59,7 +59,14 @@ class ARROW_EXPORT TableReader {
       const ReadOptions&, const ParseOptions&, const ConvertOptions&);
 };
 
-/// Experimental
+/// \brief A class that reads a CSV file incrementally
+///
+/// Caveats:
+/// - For now, this is always single-threaded (regardless of `ReadOptions::use_threads`.
+/// - Type inference is done on the first block and types are frozen afterwards;
+///   to make sure the right data types are inferred, either set
+///   `ReadOptions::block_size` to a large enough value, or use
+///   `ConvertOptions::column_types` to set the desired data types explicitly.
 class ARROW_EXPORT StreamingReader : public RecordBatchReader {
  public:
   virtual ~StreamingReader() = default;
