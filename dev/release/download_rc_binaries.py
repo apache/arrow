@@ -20,8 +20,6 @@ import re
 import argparse
 import concurrent.futures as cf
 import functools
-import hashlib
-import json
 import os
 import subprocess
 import urllib.request
@@ -152,6 +150,7 @@ def download_rc_binaries(version, rc_number, re_match=None, dest=None,
         files = artifactory.get_file_list(prefix)
         if package_type in ARROW_REPOSITORY_PACKAGE_TYPES:
             version_pattern = re.compile(r'\d+\.\d+\.\d+')
+
             def is_old_release(path):
                 match = version_pattern.search(path)
                 if not match:
