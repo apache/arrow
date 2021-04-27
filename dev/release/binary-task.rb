@@ -367,11 +367,15 @@ class BinaryTask
 
     def upload(path, destination_path)
       with_retry(3, build_url(destination_path)) do
+        sha1 = Digest::SHA1.file(path).hexdigest
         sha256 = Digest::SHA256.file(path).hexdigest
         headers = {
+          "X-Artifactory-Last-Modified" => File.mtime(path).rfc2822,
           "X-Checksum-Deploy" => "false",
+          "X-Checksum-Sha1" => sha1,
           "X-Checksum-Sha256" => sha256,
           "Content-Length" => File.size(path).to_s,
+          "Content-Type" => "application/octet-stream",
         }
         File.open(path, "rb") do |input|
           request(:put, headers, destination_path, body: input)
@@ -595,7 +599,8 @@ class BinaryTask
     def upload
       progress_label = "Uploading: #{package}"
       progress_reporter = ProgressReporter.new(progress_label)
-      ArtifactoryClientPool.open(package, @api_key) do |client_pool|
+      prefix = "#{package}/#{@destination_prefix}"
+      ArtifactoryClientPool.open(prefix, @api_key) do |client_pool|
         files = client_pool.pull do |client|
           client.files
         end
@@ -610,8 +615,7 @@ class BinaryTask
         source = Pathname(@source)
         source.glob("**/*") do |path|
           next if path.directory?
-          destination_path =
-            "#{@destination_prefix}#{path.relative_path_from(source)}"
+          destination_path = path.relative_path_from(source)
           progress_reporter.increment_max
           thread_pool << [path, destination_path]
         end
@@ -1632,14 +1636,14 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
         task :download => release_dir do
           download_distribution(id.to_s,
                                 release_dir,
-                                prefix: "#{full_version}/")
+                                prefix: "#{full_version}")
         end
 
         desc "Upload release #{label} packages"
         task :upload => release_dir do
           uploader = ArtifactoryUploader.new(distribution: id.to_s,
                                              source: release_dir,
-                                             destination_prefix: "#{version}/",
+                                             destination_prefix: "#{version}",
                                              api_key: artifactory_api_key)
           uploader.upload
         end
