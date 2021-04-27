@@ -696,7 +696,8 @@ def test_dictionary_to_numpy():
         pa.array([0, 1, None, 0]),
         pa.array(['foo', 'bar'])
     )
-    assert (a.to_numpy(zero_copy_only=False) == expected).all()
+    np.testing.assert_array_equal(a.to_numpy(zero_copy_only=False),
+                                  expected)
 
     with pytest.raises(pa.ArrowInvalid):
         # If this would be changed to no longer raise in the future,
@@ -713,7 +714,8 @@ def test_dictionary_to_numpy():
     expected = pa.array(
         ["foo", "bar", "bar", "foo"]
     ).to_numpy(zero_copy_only=False)
-    assert (anonulls.to_numpy(zero_copy_only=False) == expected).all()
+    np.testing.assert_array_equal(anonulls.to_numpy(zero_copy_only=False),
+                                  expected)
 
     with pytest.raises(pa.ArrowInvalid):
         anonulls.to_numpy(zero_copy_only=True)
@@ -723,8 +725,10 @@ def test_dictionary_to_numpy():
         pa.array([13.7, 11.0])
     )
     expected = pa.array([13.7, 11.0, 11.0, 13.7]).to_numpy()
-    assert (afloat.to_numpy(zero_copy_only=True) == expected).all()
-    assert (afloat.to_numpy(zero_copy_only=False) == expected).all()
+    np.testing.assert_array_equal(afloat.to_numpy(zero_copy_only=True),
+                                  expected)
+    np.testing.assert_array_equal(afloat.to_numpy(zero_copy_only=False),
+                                  expected)
 
     afloat2 = pa.DictionaryArray.from_arrays(
         pa.array([0, 1, None, 0]),
