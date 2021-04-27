@@ -336,12 +336,12 @@ TimestampParser__MakeISO8601 <- function(){
     .Call(`_arrow_TimestampParser__MakeISO8601`)
 }
 
-csv__WriteCSV___Table <- function(table, write_options, stream){
-    invisible(.Call(`_arrow_csv__WriteCSV___Table`, table, write_options, stream))
+csv___WriteCSV__Table <- function(table, write_options, stream){
+    invisible(.Call(`_arrow_csv___WriteCSV__Table`, table, write_options, stream))
 }
 
-csv__WriteCSV___RecordBatch <- function(record_batch, write_options, stream){
-    invisible(.Call(`_arrow_csv__WriteCSV___RecordBatch`, record_batch, write_options, stream))
+csv___WriteCSV__RecordBatch <- function(record_batch, write_options, stream){
+    invisible(.Call(`_arrow_csv___WriteCSV__RecordBatch`, record_batch, write_options, stream))
 }
 
 dataset___Dataset__NewScan <- function(ds){

@@ -641,9 +641,9 @@ write_csv_arrow <- function(x,
   }
   
   if(inherits(x, "RecordBatch")){
-    csv__WriteCSV___RecordBatch(x, write_options, sink)
+    csv___WriteCSV__RecordBatch(x, write_options, sink)
   } else if(inherits(x, "Table")){
-    csv__WriteCSV___Table(x, write_options, sink)
+    csv___WriteCSV__Table(x, write_options, sink)
   }
   
   invisible(x_out)
