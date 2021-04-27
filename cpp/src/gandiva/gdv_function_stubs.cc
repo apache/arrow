@@ -29,6 +29,7 @@
 #include "gandiva/exported_funcs.h"
 #include "gandiva/formatting_utils.h"
 #include "gandiva/hash_utils.h"
+#include "gandiva/ilike_holder.h"
 #include "gandiva/in_holder.h"
 #include "gandiva/like_holder.h"
 #include "gandiva/precompiled/types.h"
@@ -49,6 +50,12 @@ bool gdv_fn_like_utf8_utf8_utf8(int64_t ptr, const char* data, int data_len,
                                 const char* pattern, int pattern_len,
                                 const char* escape_char, int escape_char_len) {
   gandiva::LikeHolder* holder = reinterpret_cast<gandiva::LikeHolder*>(ptr);
+  return (*holder)(std::string(data, data_len));
+}
+
+bool gdv_fn_ilike_utf8_utf8(int64_t ptr, const char* data, int data_len,
+                            const char* pattern, int pattern_len) {
+  gandiva::IlikeHolder* holder = reinterpret_cast<gandiva::IlikeHolder*>(ptr);
   return (*holder)(std::string(data, data_len));
 }
 
@@ -751,6 +758,17 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("gdv_fn_like_utf8_utf8_utf8",
                                   types->i1_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_like_utf8_utf8_utf8));
+
+  // gdv_fn_ilike_utf8_utf8
+  args = {types->i64_type(),     // int64_t ptr
+          types->i8_ptr_type(),  // const char* data
+          types->i32_type(),     // int data_len
+          types->i8_ptr_type(),  // const char* pattern
+          types->i32_type()};    // int pattern_len
+
+  engine->AddGlobalMappingForFunc("gdv_fn_ilike_utf8_utf8",
+                                  types->i1_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_ilike_utf8_utf8));
 
   // gdv_fn_to_date_utf8_utf8
   args = {types->i64_type(),                   // int64_t execution_context

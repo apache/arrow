@@ -54,6 +54,8 @@ Status ExprDecomposer::Visit(const FieldNode& node) {
 const FunctionNode ExprDecomposer::TryOptimize(const FunctionNode& node) {
   if (node.descriptor()->name() == "like") {
     return LikeHolder::TryOptimize(node);
+  } else if (node.descriptor()->name() == "ilike") {
+    return IlikeHolder::TryOptimize(node);
   } else {
     return node;
   }

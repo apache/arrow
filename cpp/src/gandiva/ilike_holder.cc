@@ -1,0 +1,101 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+#include "gandiva/ilike_holder.h"
+
+#include <regex>
+#include "gandiva/node.h"
+#include "gandiva/regex_util.h"
+
+namespace gandiva {
+RE2::Options IlikeHolder::regex_op_ = RE2::Options();
+
+RE2 IlikeHolder::starts_with_regex_(R"((?i)(\w|\s)*\.\*)");
+RE2 IlikeHolder::ends_with_regex_(R"((?i)\.\*(\w|\s)*)");
+RE2 IlikeHolder::is_substr_regex_(R"((?i)\.\*(\w|\s)*\.\*)");
+
+// Short-circuit pattern matches for the following common sub cases :
+// - starts_with, ends_with and is_substr
+const FunctionNode IlikeHolder::TryOptimize(const FunctionNode& node) {
+  std::shared_ptr<IlikeHolder> holder;
+  auto status = Make(node, &holder);
+  if (status.ok()) {
+    std::string& pattern = holder->pattern_;
+    auto literal_type = node.children().at(1)->return_type();
+
+    if (RE2::FullMatch(pattern, starts_with_regex_)) {
+      auto prefix = pattern.substr(0, pattern.length() - 2);  // trim .*
+      auto prefix_node =
+          std::make_shared<LiteralNode>(literal_type, LiteralHolder(prefix), false);
+      return FunctionNode("starts_with", {node.children().at(0), prefix_node},
+                          node.return_type());
+    } else if (RE2::FullMatch(pattern, ends_with_regex_)) {
+      auto suffix = pattern.substr(2);  // skip .*
+      auto suffix_node =
+          std::make_shared<LiteralNode>(literal_type, LiteralHolder(suffix), false);
+      return FunctionNode("ends_with", {node.children().at(0), suffix_node},
+                          node.return_type());
+    } else if (RE2::FullMatch(pattern, is_substr_regex_)) {
+      auto substr =
+          pattern.substr(2, pattern.length() - 4);  // trim starting and ending .*
+      auto substr_node =
+          std::make_shared<LiteralNode>(literal_type, LiteralHolder(substr), false);
+      return FunctionNode("is_substr", {node.children().at(0), substr_node},
+                          node.return_type());
+    }
+  }
+
+  // Could not optimize, return original node.
+  return node;
+}
+
+static bool IsArrowStringLiteral(arrow::Type::type type) {
+  return type == arrow::Type::STRING || type == arrow::Type::BINARY;
+}
+
+Status IlikeHolder::Make(const FunctionNode& node, std::shared_ptr<IlikeHolder>* holder) {
+  ARROW_RETURN_IF(node.children().size() != 2,
+                  Status::Invalid("'ilike' function requires two parameters"));
+
+  auto literal = dynamic_cast<LiteralNode*>(node.children().at(1).get());
+  ARROW_RETURN_IF(
+      literal == nullptr,
+      Status::Invalid("'ilike' function requires a literal as the second parameter"));
+
+  auto literal_type = literal->return_type()->id();
+  ARROW_RETURN_IF(
+      !IsArrowStringLiteral(literal_type),
+      Status::Invalid(
+          "'ilike' function requires a string literal as the second parameter"));
+
+  return Make(arrow::util::get<std::string>(literal->holder()), holder);
+}
+
+Status IlikeHolder::Make(const std::string& sql_pattern,
+                         std::shared_ptr<IlikeHolder>* holder) {
+  std::string pcre_pattern;
+  ARROW_RETURN_NOT_OK(RegexUtil::SqlLikePatternToPcre(sql_pattern, pcre_pattern));
+
+  regex_op_.set_case_sensitive(false);  // set insensitive case.
+  auto lholder = std::shared_ptr<IlikeHolder>(new IlikeHolder(pcre_pattern));
+  ARROW_RETURN_IF(!lholder->regex_.ok(),
+                  Status::Invalid("Building RE2 pattern '", pcre_pattern, "' failed"));
+
+  *holder = lholder;
+  return Status::OK();
+}
+}  // namespace gandiva

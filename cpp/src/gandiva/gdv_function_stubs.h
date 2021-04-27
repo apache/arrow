@@ -50,6 +50,9 @@ bool gdv_fn_like_utf8_utf8_utf8(int64_t ptr, const char* data, int data_len,
                                 const char* pattern, int pattern_len,
                                 const char* escape_char, int escape_char_len);
 
+bool gdv_fn_ilike_utf8_utf8(int64_t ptr, const char* data, int data_len,
+                            const char* pattern, int pattern_len);
+
 int64_t gdv_fn_to_date_utf8_utf8_int32(int64_t context, int64_t ptr, const char* data,
                                        int data_len, bool in1_validity,
                                        const char* pattern, int pattern_len,
