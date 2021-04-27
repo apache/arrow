@@ -19,9 +19,11 @@
 import os
 
 from pyarrow.pandas_compat import _pandas_api  # noqa
-from pyarrow.lib import (Codec, FeatherError, Table,  # noqa
+from pyarrow.lib import (Codec, Table,  # noqa
                          concat_tables, schema)
 import pyarrow.lib as ext
+from pyarrow import _feather
+from pyarrow._feather import FeatherError  # noqa: F401
 from pyarrow.vendored.version import Version
 
 
@@ -180,9 +182,9 @@ def write_feather(df, dest, compression=None, compression_level=None,
                                                 _FEATHER_SUPPORTED_CODECS))
 
     try:
-        ext.write_feather(table, dest, compression=compression,
-                          compression_level=compression_level,
-                          chunksize=chunksize, version=version)
+        _feather.write_feather(table, dest, compression=compression,
+                               compression_level=compression_level,
+                               chunksize=chunksize, version=version)
     except Exception:
         if isinstance(dest, str):
             try:
@@ -234,7 +236,7 @@ def read_table(source, columns=None, memory_map=True):
     -------
     table : pyarrow.Table
     """
-    reader = ext.FeatherReader()
+    reader = _feather.FeatherReader()
     reader.open(source, use_memory_map=memory_map)
 
     if columns is None:

@@ -145,9 +145,6 @@ include "io-hdfs.pxi"
 # IPC / Messaging
 include "ipc.pxi"
 
-# Feather format
-include "feather.pxi"
-
 # Python serialization
 include "serialization.pxi"
 
