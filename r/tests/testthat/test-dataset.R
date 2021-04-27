@@ -1798,7 +1798,7 @@ test_that("metadata of list elements (ARROW-12542)", {
   write_dataset(df, tmp, partitioning = "part", format = "parquet")
   ds <- open_dataset(tmp)
 
-  # arrange is necesary here because of the collation order for
+  # arrange is necessary here because of the collation order for
   expect_equal(
     arrange(df, part, a),
     collect(arrange(df, part, a))
