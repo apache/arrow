@@ -230,7 +230,7 @@ add_gandiva_test(internals-test
                  expression_registry_test.cc
                  selection_vector_test.cc
                  lru_cache_test.cc
-                 lower_value_used_cache_test.cc
+                 greedy_dual_size_cache_test.cc
                  to_date_holder_test.cc
                  simple_arena_test.cc
                  like_holder_test.cc

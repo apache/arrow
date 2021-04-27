@@ -25,11 +25,12 @@
 #include "arrow/util/optional.h"
 #include "gandiva/base_cache.h"
 
-// modified cache to support evict policy of lower value used.
+// modified cache to support evict policy using the GreedyDual-Size algorithm.
 namespace gandiva {
-// a cache which evicts the lower value used item when it is full
+// a particular LRU based cache which evicts the least recently used item
+// considering the different costs for each entry.
 template <class Key, class Value>
-class LowerValueUsedCache : public BaseCache<Key, Value> {
+class GreedyDualSizeCache : public BaseCache<Key, Value> {
  public:
   struct hasher {
     template <typename I>
@@ -39,11 +40,11 @@ class LowerValueUsedCache : public BaseCache<Key, Value> {
   };
   using map_type = std::unordered_map<Key, Value, hasher>;
 
-  explicit LowerValueUsedCache(size_t capacity) : BaseCache<Key, Value>(capacity) {}
+  explicit GreedyDualSizeCache(size_t capacity) : BaseCache<Key, Value>(capacity) {}
 
-  LowerValueUsedCache<Key, Value>() : BaseCache<Key, Value>() {}
+  GreedyDualSizeCache<Key, Value>() : BaseCache<Key, Value>() {}
 
-  ~LowerValueUsedCache() = default;
+  ~GreedyDualSizeCache() = default;
 
   size_t size() const override { return map_.size(); }
 
