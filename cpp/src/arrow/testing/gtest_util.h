@@ -98,6 +98,10 @@
                           << _st.ToString();                            \
   } while (false)
 
+#define ASSERT_NOT_OK(expr)                                                              \
+  for (::arrow::Status _st = ::arrow::internal::GenericToStatus((expr)); _st.ok();) \
+  FAIL() << "'" ARROW_STRINGIFY(expr) "' did not failed" << _st.ToString()
+
 #define ABORT_NOT_OK(expr)                                          \
   do {                                                              \
     auto _res = (expr);                                             \
