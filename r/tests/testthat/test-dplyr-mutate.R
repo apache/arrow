@@ -480,13 +480,6 @@ test_that("can remove variables with NULL (dplyr #462)", {
 })
 
 # similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L71-L75
-# test_that("assignments don't overwrite variables (dplyr #315)", {
-#   expect_dplyr_equal(
-#     tibble(x = 1, y = 2) %>% mutate(z = {x <- 10; x}) %>% collect(),
-#     tibble(x = 1, y = 2, z = 10)
-#   )
-# })
-# NOT SURE ABOUT THIS!
 test_that("assignments don't overwrite variables (dplyr #315)", {
   expect_dplyr_equal(
     input %>% mutate(z = {x <- 10; x}) %>% collect(),
