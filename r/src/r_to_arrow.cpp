@@ -85,11 +85,6 @@ class RTasks {
   std::vector<std::function<Status()>> delayed_serial_tasks;
 };
 
-std::mutex& get_r_mutex() {
-  static std::mutex m;
-  return m;
-}
-
 struct RConversionOptions {
   RConversionOptions() = default;
 
@@ -286,8 +281,9 @@ class RConverter : public Converter<SEXP, RConversionOptions> {
     return Status::NotImplemented("Extend");
   }
 
+  // by default, just delay the ->Extend(), i.e. not run in parallel
+  // implementations might redefine so that ->Extend() is run in parallel
   virtual void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) {
-    // by default, just delay the ->Extend(), i.e. not run in parallel
     auto task = [this, values, size]() { return this->Extend(values, size); };
     tasks.Append(false, task);
   }
@@ -295,8 +291,6 @@ class RConverter : public Converter<SEXP, RConversionOptions> {
   virtual Status ExtendMasked(SEXP values, SEXP mask, int64_t size) {
     return Status::NotImplemented("ExtendMasked");
   }
-
-  virtual bool Parallel() { return false; }
 };
 
 template <typename T, typename Enable = void>
@@ -394,8 +388,6 @@ class RPrimitiveConverter<T, enable_if_null<T>>
   Status Extend(SEXP, int64_t size) override {
     return this->primitive_builder_->AppendNulls(size);
   }
-
-  bool Parallel() override { return true; }
 };
 
 // TODO: extend this to BooleanType, but this needs some work in RConvert
@@ -423,7 +415,10 @@ class RPrimitiveConverter<
     return Status::Invalid("cannot convert");
   }
 
-  bool Parallel() override { return true; }
+  void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
+    auto task = [this, values, size]() { return this->Extend(values, size); };
+    tasks.Append(!ALTREP(values), std::move(task));
+  }
 
  private:
   template <typename r_value_type>
@@ -431,9 +426,6 @@ class RPrimitiveConverter<
     if (ALTREP(x)) {
       // `x` is an ALTREP R vector storing `r_value_type`
       // and that type matches exactly the type of the array this is building
-
-      // constructing `vec` needs to protect `x` so we need locking
-      std::lock_guard<std::mutex> lock(arrow::r::get_r_mutex());
       return Extend_impl(RVectorIterator_ALTREP<r_value_type>(x, 0), size);
     } else {
       // `x` is not an ALTREP vector so we have direct access to a range of values
@@ -480,14 +472,16 @@ class RPrimitiveConverter<T, enable_if_t<is_boolean_type<T>::value>>
     }
 
     if (ALTREP(x)) {
-      std::lock_guard<std::mutex> lock(arrow::r::get_r_mutex());
       return Extend_impl(RVectorIterator_ALTREP<cpp11::r_bool>(x, 0), size);
     } else {
       return Extend_impl(RVectorIterator<cpp11::r_bool>(x, 0), size);
     }
   }
 
-  bool Parallel() override { return true; }
+  void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
+    auto task = [this, values, size]() { return this->Extend(values, size); };
+    tasks.Append(!ALTREP(values), std::move(task));
+  }
 
  private:
   template <typename Iterator>
@@ -528,13 +522,15 @@ class RPrimitiveConverter<T, enable_if_t<is_date_type<T>::value>>
     return Status::Invalid("cannot convert to date type ");
   }
 
-  bool Parallel() override { return true; }
+  void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
+    auto task = [this, values, size]() { return this->Extend(values, size); };
+    tasks.Append(!ALTREP(values), std::move(task));
+  }
 
  private:
   template <typename r_value_type>
   Status AppendRange_Date_dispatch(SEXP x, int64_t size) {
     if (ALTREP(x)) {
-      std::lock_guard<std::mutex> lock(arrow::r::get_r_mutex());
       return AppendRange_Date(RVectorIterator_ALTREP<r_value_type>(x, 0), size);
     } else {
       return AppendRange_Date(RVectorIterator<r_value_type>(x, 0), size);
@@ -559,7 +555,6 @@ class RPrimitiveConverter<T, enable_if_t<is_date_type<T>::value>>
 
   Status AppendRange_Posixct_dispatch(SEXP x, int64_t size) {
     if (ALTREP(x)) {
-      std::lock_guard<std::mutex> lock(arrow::r::get_r_mutex());
       return AppendRange_Posixct(RVectorIterator_ALTREP<double>(x, 0), size);
     } else {
       return AppendRange_Posixct(RVectorIterator<double>(x, 0), size);
@@ -655,7 +650,6 @@ class RPrimitiveConverter<T, enable_if_t<is_time_type<T>::value>>
     };
 
     if (ALTREP(x)) {
-      std::lock_guard<std::mutex> lock(arrow::r::get_r_mutex());
       return VisitVector(RVectorIterator_ALTREP<double>(x, 0), size, append_null,
                          append_value);
     } else {
@@ -663,7 +657,10 @@ class RPrimitiveConverter<T, enable_if_t<is_time_type<T>::value>>
     }
   }
 
-  bool Parallel() override { return true; }
+  void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
+    auto task = [this, values, size]() { return this->Extend(values, size); };
+    tasks.Append(!ALTREP(values), std::move(task));
+  }
 };
 
 template <typename T>
@@ -691,7 +688,6 @@ class RPrimitiveConverter<T, enable_if_t<is_timestamp_type<T>::value>>
     };
 
     if (ALTREP(x)) {
-      std::lock_guard<std::mutex> lock(arrow::r::get_r_mutex());
       return VisitVector(RVectorIterator_ALTREP<double>(x, 0), size, append_null,
                          append_value);
     } else {
@@ -699,7 +695,10 @@ class RPrimitiveConverter<T, enable_if_t<is_timestamp_type<T>::value>>
     }
   }
 
-  bool Parallel() override { return true; }
+  void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
+    auto task = [this, values, size]() { return this->Extend(values, size); };
+    tasks.Append(!ALTREP(values), std::move(task));
+  }
 };
 
 template <typename T>
@@ -756,7 +755,10 @@ class RPrimitiveConverter<T, enable_if_binary<T>>
     return VisitVector(RVectorIterator<SEXP>(x, 0), size, append_null, append_value);
   }
 
-  bool Parallel() override { return true; }
+  void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
+    auto task = [this, values, size]() { return this->Extend(values, size); };
+    tasks.Append(true, std::move(task));
+  }
 };
 
 template <typename T>
@@ -785,7 +787,10 @@ class RPrimitiveConverter<T, enable_if_t<std::is_same<T, FixedSizeBinaryType>::v
     return VisitVector(RVectorIterator<SEXP>(x, 0), size, append_null, append_value);
   }
 
-  bool Parallel() override { return true; }
+  void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
+    auto task = [this, values, size]() { return this->Extend(values, size); };
+    tasks.Append(true, std::move(task));
+  }
 };
 
 template <typename T>
@@ -793,9 +798,6 @@ class RPrimitiveConverter<T, enable_if_string_like<T>>
     : public PrimitiveConverter<T, RConverter> {
  public:
   using OffsetType = typename T::offset_type;
-
-  // TODO: reconsider, but e.g. needed for arrow::r::utf8_strings()
-  bool Parallel() override { return false; }
 
   Status Extend(SEXP x, int64_t size) override {
     int64_t start = 0;
@@ -828,6 +830,12 @@ class RPrimitiveConverter<T, enable_if_string_like<T>>
     }
 
     return Status::OK();
+  }
+
+  void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
+    auto task = [this, values, size]() { return this->Extend(values, size); };
+    // TODO: refine this., e.g. extract setup from Extend()
+    tasks.Append(false, std::move(task));
   }
 };
 
@@ -862,9 +870,6 @@ class RDictionaryConverter<ValueType, enable_if_has_string_view<ValueType>>
  public:
   using BuilderType = DictionaryBuilder<ValueType>;
 
-  // TODO: reconsider
-  bool Parallel() override { return false; }
-
   Status Extend(SEXP x, int64_t size) override {
     // first we need to handle the levels
     cpp11::strings levels(Rf_getAttrib(x, R_LevelsSymbol));
@@ -887,6 +892,12 @@ class RDictionaryConverter<ValueType, enable_if_has_string_view<ValueType>>
     };
 
     return VisitVector(RVectorIterator<int>(x, 0), size, append_null, append_value);
+  }
+
+  void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
+    auto task = [this, values, size]() { return this->Extend(values, size); };
+    // TODO: refine
+    tasks.Append(false, std::move(task));
   }
 
   Result<std::shared_ptr<Array>> ToArray() override {
@@ -922,9 +933,6 @@ struct RConverterTrait<T, enable_if_list_like<T>> {
 template <typename T>
 class RListConverter : public ListConverter<T, RConverter, RConverterTrait> {
  public:
-  // TODO: reconsider
-  bool Parallel() override { return false; }
-
   Status Extend(SEXP x, int64_t size) override {
     RETURN_NOT_OK(this->Reserve(size));
 
@@ -945,6 +953,12 @@ class RListConverter : public ListConverter<T, RConverter, RConverterTrait> {
 
     return VisitVector(RVectorIterator<SEXP>(x, 0), size, append_null, append_value);
   }
+
+  void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
+    auto task = [this, values, size]() { return this->Extend(values, size); };
+    // TODO: refine
+    tasks.Append(false, std::move(task));
+  }
 };
 
 class RStructConverter;
@@ -956,9 +970,6 @@ struct RConverterTrait<StructType> {
 
 class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
  public:
-  // TODO: reconsider
-  bool Parallel() override { return false; }
-
   Status Extend(SEXP x, int64_t size) override {
     // check that x is compatible
     R_xlen_t n_columns = XLENGTH(x);
@@ -1012,6 +1023,12 @@ class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
     }
 
     return Status::OK();
+  }
+
+  void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
+    auto task = [this, values, size]() { return this->Extend(values, size); };
+    // TODO: refine. e.g. do setup and then spawn child tasks
+    tasks.Append(false, std::move(task));
   }
 
  protected:
