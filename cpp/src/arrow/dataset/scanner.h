@@ -148,6 +148,9 @@ class ARROW_DS_EXPORT ScanTask {
   /// resulting from the Scan. Execution semantics are encapsulated in the
   /// particular ScanTask implementation
   virtual Result<RecordBatchIterator> Execute() = 0;
+  virtual Future<RecordBatchVector> SafeExecute(internal::Executor* executor);
+  virtual Future<> SafeVisit(internal::Executor* executor,
+                             std::function<Status(std::shared_ptr<RecordBatch>)> visitor);
 
   virtual ~ScanTask() = default;
 

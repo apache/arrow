@@ -71,6 +71,20 @@ Result<RecordBatchIterator> InMemoryScanTask::Execute() {
   return MakeVectorIterator(record_batches_);
 }
 
+Future<RecordBatchVector> ScanTask::SafeExecute(internal::Executor* executor) {
+  // If the ScanTask can't possibly be async then just execute it
+  ARROW_ASSIGN_OR_RAISE(auto rb_it, Execute());
+  return Future<RecordBatchVector>::MakeFinished(rb_it.ToVector());
+}
+
+Future<> ScanTask::SafeVisit(
+    internal::Executor* executor,
+    std::function<Status(std::shared_ptr<RecordBatch>)> visitor) {
+  // If the ScanTask can't possibly be async then just execute it
+  ARROW_ASSIGN_OR_RAISE(auto rb_it, Execute());
+  return Future<>::MakeFinished(rb_it.Visit(visitor));
+}
+
 Result<ScanTaskIterator> Scanner::Scan() {
   // TODO(ARROW-12289) This is overridden in SyncScanner and will never be implemented in
   // AsyncScanner.  It is deprecated and will eventually go away.
@@ -730,13 +744,6 @@ struct TableAssemblyState {
 };
 
 Result<std::shared_ptr<Table>> SyncScanner::ToTable() {
-  return internal::RunSynchronously<std::shared_ptr<Table>>(
-      [this](Executor* executor) { return ToTableInternal(executor); },
-      scan_options_->use_threads);
-}
-
-Future<std::shared_ptr<Table>> SyncScanner::ToTableInternal(
-    internal::Executor* cpu_executor) {
   ARROW_ASSIGN_OR_RAISE(auto scan_task_it, ScanInternal());
   auto task_group = scan_options_->TaskGroup();
 
@@ -752,8 +759,11 @@ Future<std::shared_ptr<Table>> SyncScanner::ToTableInternal(
 
     auto id = scan_task_id++;
     task_group->Append([state, id, scan_task] {
-      ARROW_ASSIGN_OR_RAISE(auto batch_it, scan_task->Execute());
-      ARROW_ASSIGN_OR_RAISE(auto local, batch_it.ToVector());
+      ARROW_ASSIGN_OR_RAISE(
+          auto local, internal::SerialExecutor::RunInSerialExecutor<RecordBatchVector>(
+                          [&](internal::Executor* executor) {
+                            return scan_task->SafeExecute(executor);
+                          }));
       state->Emplace(std::move(local), id);
       return Status::OK();
     });
