@@ -632,6 +632,7 @@ write_csv_arrow <- function(x,
   if (is.data.frame(x)) {
     x <- Table$create(x)
   }
+  
   assert_is(x, c("Table", "RecordBatch"))
   
   if (!inherits(sink, "OutputStream")) {
