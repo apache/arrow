@@ -87,7 +87,7 @@ call activate %CONDA_ENV_PATH%
 set WHEEL_FILENAME=pyarrow-%ARROW_VERSION%-cp%PY_VERSION_NO_PERIOD%-cp%PY_VERSION_NO_PERIOD%%ABI_TAG%-win_amd64.whl
 
 @rem Requires GNU Wget for Windows
-wget --no-check-certificate -O %WHEEL_FILENAME% https://bintray.com/apache/arrow/download_file?file_path=python-rc%%2F%ARROW_VERSION%-rc%RC_NUMBER%%%2F%WHEEL_FILENAME% || EXIT /B 1
+wget --no-check-certificate -O %WHEEL_FILENAME% https://apache.jfrog.io/artifactory/arrow/download_file?file_path=python-rc%%2F%ARROW_VERSION%-rc%RC_NUMBER%%%2F%WHEEL_FILENAME% || EXIT /B 1
 
 pip install %WHEEL_FILENAME% || EXIT /B 1
 

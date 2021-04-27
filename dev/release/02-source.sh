@@ -151,10 +151,10 @@ The vote will be open for at least 72 hours.
 [1]: ${jira_url}/issues/?jql=${jql}
 [2]: https://github.com/apache/arrow/tree/${release_hash}
 [3]: ${rc_url}
-[4]: https://bintray.com/apache/arrow/centos-rc/${version}-rc${rc}
-[5]: https://bintray.com/apache/arrow/debian-rc/${version}-rc${rc}
-[6]: https://bintray.com/apache/arrow/python-rc/${version}-rc${rc}
-[7]: https://bintray.com/apache/arrow/ubuntu-rc/${version}-rc${rc}
+[4]: https://apache.jfrog.io/artifactory/arrow/centos-rc/${version}-rc${rc}
+[5]: https://apache.jfrog.io/artifactory/arrow/debian-rc/${version}-rc${rc}
+[6]: https://apache.jfrog.io/artifactory/arrow/python-rc/${version}-rc${rc}
+[7]: https://apache.jfrog.io/artifactory/arrow/ubuntu-rc/${version}-rc${rc}
 [8]: https://github.com/apache/arrow/blob/${release_hash}/CHANGELOG.md
 [9]: https://cwiki.apache.org/confluence/display/ARROW/How+to+Verify+Release+Candidates
 MAIL
