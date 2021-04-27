@@ -588,11 +588,13 @@ class BinaryTask
                    rc: nil,
                    source:,
                    destination_prefix: "",
+                   sync: false,
                    api_key:)
       @distribution = distribution
       @rc = rc
       @source = source
       @destination_prefix = destination_prefix
+      @sync = sync
       @api_key = api_key
     end
 
@@ -601,8 +603,12 @@ class BinaryTask
       progress_reporter = ProgressReporter.new(progress_label)
       prefix = "#{package}/#{@destination_prefix}"
       ArtifactoryClientPool.open(prefix, @api_key) do |client_pool|
-        files = client_pool.pull do |client|
-          client.files
+        if @sync
+          existing_files = client_pool.pull do |client|
+            client.files
+          end
+        else
+          existing_files = []
         end
 
         thread_pool = ThreadPool.new(:artifactory) do |path, relative_path|
@@ -617,9 +623,18 @@ class BinaryTask
           next if path.directory?
           destination_path = path.relative_path_from(source)
           progress_reporter.increment_max
+          existing_files.delete(destination_path.to_s)
           thread_pool << [path, destination_path]
         end
         thread_pool.join
+
+        if @sync
+          existing_files.each do |file|
+            client_pool.pull do |client|
+              client.delete(file)
+            end
+          end
+        end
       end
       progress_reporter.finish
     end
@@ -1517,7 +1532,8 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
                 ArtifactoryUploader.new(distribution: distribution,
                                         rc: rc,
                                         source: repodata_dir.to_s,
-                                        destination_prefix: "#{relative_dir}/",
+                                        destination_prefix: relative_dir,
+                                        sync: true,
                                         api_key: artifactory_api_key)
               uploader.upload
             end
