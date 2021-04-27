@@ -490,7 +490,7 @@ test_that("can remove variables with NULL (dplyr #462)", {
 test_that("assignments don't overwrite variables (dplyr #315)", {
   expect_dplyr_equal(
     input %>% mutate(z = {x <- 10; x}) %>% collect(),
-    tibble(x = 1, y = 2, z = 10)
+    tibble(x = 1, y = 2)
   )
 })
 
