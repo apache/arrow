@@ -78,7 +78,6 @@
     "eslint-plugin-jest": "^24.3.5",
     "esm": "3.2.25",
     "glob": "7.1.4",
-    "google-closure-compiler": "20210406.0.0",
     "gulp": "4.0.2",
     "gulp-json-transform": "0.4.6",
     "gulp-rename": "1.4.0",

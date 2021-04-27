@@ -18,7 +18,6 @@
 const {
     targetDir,
     mainExport,
-    UMDSourceTargets,
     terserLanguageNames,
     shouldRunInChildProcess,
     spawnGulpCommandInChildProcess,
@@ -37,8 +36,7 @@ const minifyTask = ((cache, commonConfig) => memoizeTask(cache, function minifyJ
         return spawnGulpCommandInChildProcess('compile', target, format);
     }
 
-    const sourceTarget = UMDSourceTargets[target];
-    const out = targetDir(target, format), src = targetDir(sourceTarget, `cls`);
+    const out = targetDir(target, format), src = targetDir(target, `esm`);
 
     const targetConfig = { ...commonConfig,
         output: { ...commonConfig.output,

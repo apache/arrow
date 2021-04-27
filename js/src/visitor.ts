@@ -231,8 +231,7 @@ export interface Visitor {
     visitMap                   (node: any, ...args: any[]): any;
 }
 
-// Add these here so they're picked up by the externs creator
-// in the build, and closure-compiler doesn't minify them away
+// Add these here so they're picked up by the externs creator in the build
 (Visitor.prototype as any).visitInt8 = null;
 (Visitor.prototype as any).visitInt16 = null;
 (Visitor.prototype as any).visitInt32 = null;

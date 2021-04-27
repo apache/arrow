@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-const del = require('del');
 const gulp = require('gulp');
 const { Observable } = require('rxjs');
 const cleanTask = require('./gulp/clean-task');
@@ -25,9 +24,8 @@ const { targets, modules } = require('./gulp/argv');
 const { testTask, createTestData, cleanTestData } = require('./gulp/test-task');
 const {
     taskName, combinations,
-    targetDir, knownTargets,
-    npmPkgName, UMDSourceTargets,
-    tasksToSkipPerTargetOrFormat
+    npmPkgName, tasksToSkipPerTargetOrFormat,
+    knownTargets
 } = require('./gulp/util');
 
 for (const [target, format] of combinations([`all`], [`all`])) {
@@ -46,13 +44,10 @@ for (const [target, format] of combinations([`all`], [`all`])) {
 // a minifier, so we special case that here.
 knownTargets.forEach((target) => {
     const umd = taskName(target, `umd`);
-    const cls = taskName(UMDSourceTargets[target], `cls`);
+    const esm = taskName(target, `esm`);
     gulp.task(`build:${umd}`, gulp.series(
-        `build:${cls}`,
-        `clean:${umd}`, `compile:${umd}`, `package:${umd}`,
-        function remove_closure_tmp_files() {
-            return del(targetDir(target, `cls`))
-        }
+        `build:${esm}`,
+        `clean:${umd}`, `compile:${umd}`, `package:${umd}`
     ));
 });
 

@@ -142,8 +142,7 @@ function generateDictionaryMap(fields: Field[], dictionaries = new Map<number, D
     return dictionaries;
 }
 
-// Add these here so they're picked up by the externs creator
-// in the build, and closure-compiler doesn't minify them away
+// Add these here so they're picked up by the externs creator in the build
 (Schema.prototype as any).fields = null;
 (Schema.prototype as any).metadata = null;
 (Schema.prototype as any).dictionaries = null;

@@ -42,7 +42,7 @@ Object.defineProperty(ArrayBuffer, Symbol.hasInstance, {
 
 // these are duplicated in the gulpfile :<
 const targets = [`es5`, `es2015`, `esnext`];
-const formats = [`cjs`, `esm`, `cls`, `umd`];
+const formats = [`cjs`, `esm`, `umd`];
 
 const path = require('path');
 const target = process.env.TEST_TARGET!;

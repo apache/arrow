@@ -29,10 +29,9 @@ const npmOrgName = `@${npmPkgName}`;
 
 const releasesRootDir = `targets`;
 const knownTargets = [`es5`, `es2015`, `esnext`];
-const knownModules = [`cjs`, `esm`, `cls`, `umd`];
+const knownModules = [`cjs`, `esm`, `umd`];
 const tasksToSkipPerTargetOrFormat = {
-    src: { clean: true, build: true },
-    cls: { test: true, package: true }
+    src: { clean: true, build: true }
 };
 const packageJSONFields = [
   `version`, `license`, `description`,
@@ -54,23 +53,6 @@ const metadataFiles = [`LICENSE.txt`, `NOTICE.txt`, `README.md`].map((filename) 
     }
     return path.join(p, filename);
 });
-
-// see: https://github.com/google/closure-compiler/blob/c1372b799d94582eaf4b507a4a22558ff26c403c/src/com/google/javascript/jscomp/CompilerOptions.java#L2988
-const gCCLanguageNames = {
-    es5: `ECMASCRIPT5`,
- es2015: `ECMASCRIPT_2015`,
- es2016: `ECMASCRIPT_2016`,
- es2017: `ECMASCRIPT_2017`,
- esnext: `ECMASCRIPT_NEXT`
-};
-
-const UMDSourceTargets = {
-    es5: `es5`,
- es2015: `es2015`,
- es2016: `es2016`,
- es2017: `es2017`,
- esnext: `esnext`
-};
 
 const terserLanguageNames = {
     es5: 5, es2015: 6,
@@ -211,7 +193,7 @@ module.exports = {
     mainExport, npmPkgName, npmOrgName, metadataFiles, packageJSONFields,
 
     knownTargets, knownModules, tasksToSkipPerTargetOrFormat,
-    gCCLanguageNames, UMDSourceTargets, terserLanguageNames,
+    terserLanguageNames,
 
     taskName, packageName, tsconfigName, targetDir, combinations, observableFromStreams,
     ESKeywords, publicModulePaths, esmRequire, shouldRunInChildProcess, spawnGulpCommandInChildProcess

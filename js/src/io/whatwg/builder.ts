@@ -49,12 +49,10 @@ export class BuilderTransform<T extends DataType = any, TNull = any> {
 
     constructor(options: BuilderTransformOptions<T, TNull>) {
 
-        // Access properties by string indexers to defeat closure compiler
-
         const {
-            ['readableStrategy']: readableStrategy,
-            ['writableStrategy']: writableStrategy,
-            ['queueingStrategy']: queueingStrategy = 'count',
+            readableStrategy: readableStrategy,
+            writableStrategy: writableStrategy,
+            queueingStrategy: queueingStrategy = 'count',
             ...builderOptions
         } = options;
 
@@ -62,25 +60,25 @@ export class BuilderTransform<T extends DataType = any, TNull = any> {
         this._builder = Builder.new<T, TNull>(builderOptions);
         this._getSize = queueingStrategy !== 'bytes' ? chunkLength : chunkByteLength;
 
-        const { ['highWaterMark']: readableHighWaterMark = queueingStrategy === 'bytes' ? 2 ** 14 : 1000 } = { ...readableStrategy };
-        const { ['highWaterMark']: writableHighWaterMark = queueingStrategy === 'bytes' ? 2 ** 14 : 1000 } = { ...writableStrategy };
+        const { highWaterMark: readableHighWaterMark = queueingStrategy === 'bytes' ? 2 ** 14 : 1000 } = { ...readableStrategy };
+        const { highWaterMark: writableHighWaterMark = queueingStrategy === 'bytes' ? 2 ** 14 : 1000 } = { ...writableStrategy };
 
-        this['readable'] = new ReadableStream<V<T>>({
-            ['cancel']: ()  => { this._builder.clear(); },
-            ['pull']: (c) => { this._maybeFlush(this._builder, this._controller = c); },
-            ['start']: (c) => { this._maybeFlush(this._builder, this._controller = c); },
+        this.readable = new ReadableStream<V<T>>({
+            cancel: ()  => { this._builder.clear(); },
+            pull: (c) => { this._maybeFlush(this._builder, this._controller = c); },
+            start: (c) => { this._maybeFlush(this._builder, this._controller = c); },
         }, {
-            'highWaterMark': readableHighWaterMark,
-            'size': queueingStrategy !== 'bytes' ? chunkLength : chunkByteLength,
+            highWaterMark: readableHighWaterMark,
+            size: queueingStrategy !== 'bytes' ? chunkLength : chunkByteLength,
         });
 
-        this['writable'] = new WritableStream({
-            ['abort']: () => { this._builder.clear(); },
-            ['write']: () => { this._maybeFlush(this._builder, this._controller); },
-            ['close']: () => { this._maybeFlush(this._builder.finish(), this._controller); },
+        this.writable = new WritableStream({
+            abort: () => { this._builder.clear(); },
+            write: () => { this._maybeFlush(this._builder, this._controller); },
+            close: () => { this._maybeFlush(this._builder.finish(), this._controller); },
         }, {
-            'highWaterMark': writableHighWaterMark,
-            'size': (value: T['TValue'] | TNull) => this._writeValueAndReturnChunkSize(value),
+            highWaterMark: writableHighWaterMark,
+            size: (value: T['TValue'] | TNull) => this._writeValueAndReturnChunkSize(value),
         });
     }
 

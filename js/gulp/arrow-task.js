@@ -57,8 +57,8 @@ const arrowTSTask = ((cache) => memoizeTask(cache, async function copyTS(target,
     await pipeline(gulp.src(`src/**/*`), gulp.dest(out));
     await del(`${out}/**/*.js`);
 }))({});
-  
-  
+
+
 module.exports = arrowTask;
 module.exports.arrowTask = arrowTask;
 module.exports.arrowTSTask = arrowTSTask;
