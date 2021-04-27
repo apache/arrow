@@ -3,7 +3,7 @@
     "extends": "./tsconfig.base.json",
     "exclude": ["../node_modules"],
     "include": ["../src/bin/*.ts"],
-      "compilerOptions": {
+    "compilerOptions": {
       "target": "esnext",
       "module": "commonjs",
       "declaration": false
