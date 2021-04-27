@@ -42,7 +42,7 @@ tar xf ${tar_gz}
 pushd ${archive_name}
 
 # clone the testing data to the appropiate directories
-git clone https://github.com/apache/arrow-testing testing
+git clone https://github.com/apache/arrow-testing.git testing
 git clone https://github.com/apache/parquet-testing.git cpp/submodules/parquet-testing
 
 # build the jni bindings similarly like the 01-perform.sh does
