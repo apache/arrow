@@ -2186,7 +2186,10 @@ cdef class StructArray(Array):
 
         arrays = [asarray(x) for x in arrays]
         for arr in arrays:
-            c_arrays.push_back(pyarrow_unwrap_array(arr))
+            c_array = pyarrow_unwrap_array(arr)
+            if c_array == nullptr:
+                raise TypeError(f"Expected Array, got {arr.__class__}")
+            c_arrays.push_back(c_array)
         if names is not None:
             for name in names:
                 c_names.push_back(tobytes(name))

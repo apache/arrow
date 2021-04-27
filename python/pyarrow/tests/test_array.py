@@ -669,6 +669,16 @@ def test_struct_from_arrays():
         pa.StructArray.from_arrays([a, b, c], fields=[fa2, fb, fc])
 
 
+def test_struct_array_from_chunked():
+    # ARROW-11780
+    # Check that we don't segfault when trying to build
+    # a StructArray from a chunked array.
+    chunked_arr = pa.chunked_array([[1, 2, 3], [4, 5, 6]])
+
+    with pytest.raises(TypeError, match="Expected Array"):
+        pa.StructArray.from_arrays([chunked_arr], ["foo"])
+
+
 def test_dictionary_from_numpy():
     indices = np.repeat([0, 1, 2], 2)
     dictionary = np.array(['foo', 'bar', 'baz'], dtype=object)
