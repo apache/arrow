@@ -19,12 +19,11 @@ import { Data } from '../data';
 import { Field } from '../schema';
 import { Column } from '../column';
 import { Vector } from '../vector';
-import { Bool, DataType, Float32, Float64, FloatArray, IntArray, Int16, Int32, Int64, Int8, Uint16, Uint32, Uint64, Uint8 } from '../type';
+import { DataType, Float32, Float64, FloatArray, IntArray, Int16, Int32, Int64, Int8, Uint16, Uint32, Uint64, Uint8 } from '../type';
 import { Chunked } from '../vector/chunked';
 import { BigIntArray, TypedArray as TypedArray_ } from '../interfaces';
 import { FloatArrayCtor } from '../vector/float';
 import { IntArrayCtor } from '../vector/int';
-import { TypedArrayConstructor } from '../interfaces';
 
 type RecordBatchCtor = typeof import('../recordbatch').RecordBatch;
 
@@ -39,7 +38,7 @@ export function isTypedArray(arr: any): arr is TypedArray {
 
 
 /** @ignore */
-type ArrayCtor = FloatArrayCtor | IntArrayCtor | TypedArrayConstructor<Uint8ClampedArray>;
+type ArrayCtor = FloatArrayCtor | IntArrayCtor;
 
 /** @ignore */
 export function arrayTypeToDataType(ctor: ArrayCtor) {
@@ -49,7 +48,6 @@ export function arrayTypeToDataType(ctor: ArrayCtor) {
         case Int32Array:        return Int32;
         case BigInt64Array:     return Int64;
         case Uint8Array:        return Uint8;
-        case Uint8ClampedArray: return Bool;
         case Uint16Array:       return Uint16;
         case Uint32Array:       return Uint32;
         case BigUint64Array:    return Uint64;
