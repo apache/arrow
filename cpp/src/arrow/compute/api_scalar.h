@@ -213,6 +213,17 @@ Result<Datum> Divide(const Datum& left, const Datum& right,
                      ArithmeticOptions options = ArithmeticOptions(),
                      ExecContext* ctx = NULLPTR);
 
+/// \brief Negate a value. Array values can be of arbitrary length. If argument
+/// is null the result will be null.
+///
+/// \param[in] arg the value negated
+/// \param[in] options arithmetic options (overflow handling), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise negation
+ARROW_EXPORT
+Result<Datum> Negate(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
+                     ExecContext* ctx = NULLPTR);
+
 /// \brief Raise the values of base array to the power of the exponent array values.
 /// Array values must be the same length. If either base or exponent is null the result
 /// will be null.

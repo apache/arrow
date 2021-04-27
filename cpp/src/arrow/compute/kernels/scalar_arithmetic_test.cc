@@ -55,6 +55,116 @@ std::shared_ptr<Array> TweakValidityBit(const std::shared_ptr<Array>& array,
 }
 
 template <typename T>
+class TestUnaryArithmetic : public TestBase {
+ protected:
+  using ArrowType = T;
+  using CType = typename ArrowType::c_type;
+
+  static std::shared_ptr<DataType> type_singleton() {
+    return TypeTraits<ArrowType>::type_singleton();
+  }
+
+  using UnaryFunction =
+      std::function<Result<Datum>(const Datum&, ArithmeticOptions, ExecContext*)>;
+
+  void SetUp() override { options_.check_overflow = false; }
+
+  std::shared_ptr<Scalar> MakeNullScalar() {
+    return arrow::MakeNullScalar(type_singleton());
+  }
+
+  std::shared_ptr<Scalar> MakeScalar(CType value) {
+    return *arrow::MakeScalar(type_singleton(), value);
+  }
+
+  // (Scalar)
+  void AssertUnaryOp(UnaryFunction func, CType argument, CType expected) {
+    auto arg = MakeScalar(argument);
+    auto exp = MakeScalar(expected);
+    ASSERT_OK_AND_ASSIGN(auto actual, func(arg, options_, nullptr));
+    AssertScalarsApproxEqual(*exp, *actual.scalar(), /*verbose=*/true);
+  }
+
+  // (Scalar)
+  void AssertUnaryOp(UnaryFunction func, const std::shared_ptr<Scalar>& arg,
+                     const std::shared_ptr<Scalar>& expected) {
+    ASSERT_OK_AND_ASSIGN(auto actual, func(arg, options_, nullptr));
+    AssertScalarsApproxEqual(*expected, *actual.scalar(), /*verbose=*/true);
+  }
+
+  // (Array)
+  void AssertUnaryOp(UnaryFunction func, const std::string& argument,
+                     const std::string& expected) {
+    auto arg = ArrayFromJSON(type_singleton(), argument);
+    AssertUnaryOp(func, arg, expected);
+  }
+
+  // (Array)
+  void AssertUnaryOp(UnaryFunction func, const std::shared_ptr<Array>& arg,
+                     const std::string& expected_json) {
+    const auto expected = ArrayFromJSON(type_singleton(), expected_json);
+    ASSERT_OK_AND_ASSIGN(Datum actual, func(arg, options_, nullptr));
+    ValidateAndAssertApproxEqual(actual.make_array(), expected);
+
+    // Also check (Scalar) operations
+    const int64_t length = expected->length();
+    for (int64_t i = 0; i < length; ++i) {
+      const auto expected_scalar = *expected->GetScalar(i);
+      ASSERT_OK_AND_ASSIGN(actual, func(*arg->GetScalar(i), options_, nullptr));
+      AssertScalarsApproxEqual(*expected_scalar, *actual.scalar(), /*verbose=*/true,
+                               equal_options_);
+    }
+  }
+
+  void AssertUnaryOpRaises(UnaryFunction func, const std::string& argument,
+                           const std::string& expected_msg) {
+    auto arg = ArrayFromJSON(type_singleton(), argument);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(expected_msg),
+                                    func(arg, options_, nullptr));
+  }
+
+  void AssertUnaryOpNotImplemented(UnaryFunction func, const std::string& argument) {
+    auto arg = ArrayFromJSON(type_singleton(), argument);
+    const char* expected_msg = "has no kernel matching input types";
+    EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented, ::testing::HasSubstr(expected_msg),
+                                    func(arg, options_, nullptr));
+  }
+
+  void ValidateAndAssertApproxEqual(const std::shared_ptr<Array>& actual,
+                                    const std::string& expected) {
+    const auto exp = ArrayFromJSON(type_singleton(), expected);
+    ValidateAndAssertApproxEqual(actual, exp);
+  }
+
+  void ValidateAndAssertApproxEqual(const std::shared_ptr<Array>& actual,
+                                    const std::shared_ptr<Array>& expected) {
+    ASSERT_OK(actual->ValidateFull());
+    AssertArraysApproxEqual(*expected, *actual, /*verbose=*/true, equal_options_);
+  }
+
+  void SetOverflowCheck(bool value = true) { options_.check_overflow = value; }
+
+  void SetNansEqual(bool value = true) {
+    this->equal_options_ = equal_options_.nans_equal(value);
+  }
+
+  ArithmeticOptions options_ = ArithmeticOptions();
+  EqualOptions equal_options_ = EqualOptions::Defaults();
+};
+
+template <typename T>
+class TestUnaryArithmeticIntegral : public TestUnaryArithmetic<T> {};
+
+template <typename T>
+class TestUnaryArithmeticSigned : public TestUnaryArithmeticIntegral<T> {};
+
+template <typename T>
+class TestUnaryArithmeticUnsigned : public TestUnaryArithmeticIntegral<T> {};
+
+template <typename T>
+class TestUnaryArithmeticFloating : public TestUnaryArithmetic<T> {};
+
+template <typename T>
 class TestBinaryArithmetic : public TestBase {
  protected:
   using ArrowType = T;
@@ -213,6 +323,11 @@ using UnsignedIntegerTypes =
 
 // TODO(kszucs): add half-float
 using FloatingTypes = testing::Types<FloatType, DoubleType>;
+
+TYPED_TEST_SUITE(TestUnaryArithmeticIntegral, IntegralTypes);
+TYPED_TEST_SUITE(TestUnaryArithmeticSigned, SignedIntegerTypes);
+TYPED_TEST_SUITE(TestUnaryArithmeticUnsigned, UnsignedIntegerTypes);
+TYPED_TEST_SUITE(TestUnaryArithmeticFloating, FloatingTypes);
 
 TYPED_TEST_SUITE(TestBinaryArithmeticIntegral, IntegralTypes);
 TYPED_TEST_SUITE(TestBinaryArithmeticSigned, SignedIntegerTypes);
@@ -815,6 +930,131 @@ TEST(TestBinaryArithmetic, AddWithImplicitCastsUint64EdgeCase) {
   ASSERT_RAISES(Invalid,
                 CallFunction("add", {ArrayFromJSON(int64(), "[-1]"),
                                      ArrayFromJSON(uint64(), "[18446744073709551615]")}));
+}
+
+TEST(TestUnaryArithmetic, DispatchBest) {
+  for (std::string name : {"negate"}) {
+    for (const auto& ty : {int8(), int16(), int32(), int64(), uint8(), uint16(), uint32(),
+                           uint64(), float32(), float64()}) {
+      CheckDispatchBest(name, {ty}, {ty});
+      CheckDispatchBest(name, {dictionary(int8(), ty)}, {ty});
+    }
+  }
+
+  for (std::string name : {"negate_checked"}) {
+    for (const auto& ty : {int8(), int16(), int32(), int64(), float32(), float64()}) {
+      CheckDispatchBest(name, {ty}, {ty});
+      CheckDispatchBest(name, {dictionary(int8(), ty)}, {ty});
+    }
+  }
+
+  for (std::string name : {"negate", "negate_checked"}) {
+    CheckDispatchFails(name, {null()});
+  }
+}
+
+TYPED_TEST(TestUnaryArithmeticSigned, Negate) {
+  using CType = typename TestFixture::CType;
+
+  auto min = std::numeric_limits<CType>::min();
+  auto max = std::numeric_limits<CType>::max();
+
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+    // Empty arrays
+    this->AssertUnaryOp(Negate, "[]", "[]");
+    // Array with nulls
+    this->AssertUnaryOp(Negate, "[null]", "[null]");
+    this->AssertUnaryOp(Negate, this->MakeNullScalar(), this->MakeNullScalar());
+    this->AssertUnaryOp(Negate, "[1, null, -10]", "[-1, null, 10]");
+    // Arrays with zeros
+    this->AssertUnaryOp(Negate, "[0, 0, -0]", "[0, -0, 0]");
+    this->AssertUnaryOp(Negate, 0, -0);
+    this->AssertUnaryOp(Negate, -0, 0);
+    this->AssertUnaryOp(Negate, 0, 0);
+    // Ordinary arrays (positive inputs)
+    this->AssertUnaryOp(Negate, "[1, 10, 127]", "[-1, -10, -127]");
+    this->AssertUnaryOp(Negate, 1, -1);
+    this->AssertUnaryOp(Negate, this->MakeScalar(1), this->MakeScalar(-1));
+    // Ordinary arrays (negative inputs)
+    this->AssertUnaryOp(Negate, "[-1, -10, -127]", "[1, 10, 127]");
+    this->AssertUnaryOp(Negate, -1, 1);
+    this->AssertUnaryOp(Negate, MakeArray(-1), "[1]");
+    // Min/max (wrap arounds and overflow)
+    this->AssertUnaryOp(Negate, max, min + 1);
+    if (check_overflow) {
+      this->AssertUnaryOpRaises(Negate, MakeArray(min), "overflow");
+    } else {
+      this->AssertUnaryOp(Negate, min, min);
+    }
+  }
+
+  // Overflow should not be checked on underlying value slots when output would be null
+  this->SetOverflowCheck(true);
+  auto arg = ArrayFromJSON(this->type_singleton(), MakeArray(1, max, min));
+  arg = TweakValidityBit(arg, 1, false);
+  arg = TweakValidityBit(arg, 2, false);
+  this->AssertUnaryOp(Negate, arg, "[-1, null, null]");
+}
+
+TYPED_TEST(TestUnaryArithmeticUnsigned, Negate) {
+  using CType = typename TestFixture::CType;
+
+  auto min = std::numeric_limits<CType>::min();
+  auto max = std::numeric_limits<CType>::max();
+
+  // Empty arrays
+  this->AssertUnaryOp(Negate, "[]", "[]");
+  // Array with nulls
+  this->AssertUnaryOp(Negate, "[null]", "[null]");
+  this->AssertUnaryOp(Negate, this->MakeNullScalar(), this->MakeNullScalar());
+  // Min/max (wrap around)
+  this->AssertUnaryOp(Negate, min, min);
+  this->AssertUnaryOp(Negate, max, 1);
+  this->AssertUnaryOp(Negate, 1, max);
+  // Not implemented kernels
+  this->SetOverflowCheck(true);
+  this->AssertUnaryOpNotImplemented(Negate, "[0]");
+}
+
+TYPED_TEST(TestUnaryArithmeticFloating, Negate) {
+  using CType = typename TestFixture::CType;
+
+  auto min = std::numeric_limits<CType>::lowest();
+  auto max = std::numeric_limits<CType>::max();
+
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+    // Empty arrays
+    this->AssertUnaryOp(Negate, "[]", "[]");
+    // Array with nulls
+    this->AssertUnaryOp(Negate, "[null]", "[null]");
+    this->AssertUnaryOp(Negate, this->MakeNullScalar(), this->MakeNullScalar());
+    this->AssertUnaryOp(Negate, "[1.3, null, -10.80]", "[-1.3, null, 10.80]");
+    // Arrays with zeros
+    this->AssertUnaryOp(Negate, "[0.0, 0.0, -0.0]", "[0.0, -0.0, 0.0]");
+    this->AssertUnaryOp(Negate, 0.0F, -0.0F);
+    this->AssertUnaryOp(Negate, -0.0F, 0.0F);
+    this->AssertUnaryOp(Negate, 0.0F, 0.0F);
+    // Ordinary arrays (positive inputs)
+    this->AssertUnaryOp(Negate, "[1.3, 10.80, 12748.001]", "[-1.3, -10.80, -12748.001]");
+    this->AssertUnaryOp(Negate, 1.3F, -1.3F);
+    this->AssertUnaryOp(Negate, this->MakeScalar(1.3F), this->MakeScalar(-1.3F));
+    // Ordinary arrays (negative inputs)
+    this->AssertUnaryOp(Negate, "[-1.3, -10.80, -12748.001]", "[1.3, 10.80, 12748.001]");
+    this->AssertUnaryOp(Negate, -1.3F, 1.3F);
+    this->AssertUnaryOp(Negate, MakeArray(-1.3F), "[1.3]");
+    // Arrays with infinites
+    this->AssertUnaryOp(Negate, "[Inf, -Inf]", "[-Inf, Inf]");
+    // Arrays with NaNs
+    this->SetNansEqual(true);
+    this->AssertUnaryOp(Negate, "[NaN]", "[NaN]");
+    this->AssertUnaryOp(Negate, "[NaN]", "[-NaN]");
+    this->AssertUnaryOp(Negate, "[-NaN]", "[NaN]");
+    // Min/max
+    this->AssertUnaryOp(Negate, min, max);
+    this->AssertUnaryOp(Negate, max, min);
+  }
 }
 
 }  // namespace compute

@@ -18,6 +18,7 @@
 #include <cmath>
 
 #include "arrow/compute/kernels/common.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/int_util_internal.h"
 #include "arrow/util/macros.h"
 
@@ -26,6 +27,7 @@ namespace arrow {
 using internal::AddWithOverflow;
 using internal::DivideWithOverflow;
 using internal::MultiplyWithOverflow;
+using internal::NegateWithOverflow;
 using internal::SubtractWithOverflow;
 
 namespace compute {
@@ -33,6 +35,8 @@ namespace internal {
 
 using applicator::ScalarBinaryEqualTypes;
 using applicator::ScalarBinaryNotNullEqualTypes;
+using applicator::ScalarUnary;
+using applicator::ScalarUnaryNotNull;
 
 namespace {
 
@@ -246,6 +250,49 @@ struct DivideChecked {
   }
 };
 
+struct Negate {
+  template <typename T, typename Arg>
+  static constexpr enable_if_floating_point<T> Call(KernelContext*, Arg arg, Status*) {
+    return -arg;
+  }
+
+  template <typename T, typename Arg>
+  static constexpr enable_if_unsigned_integer<T> Call(KernelContext*, Arg arg, Status*) {
+    return ~arg + 1;
+  }
+
+  template <typename T, typename Arg>
+  static constexpr enable_if_signed_integer<T> Call(KernelContext*, Arg arg, Status* st) {
+    return arrow::internal::SafeSignedNegate(arg);
+  }
+};
+
+struct NegateChecked {
+  template <typename T, typename Arg>
+  static enable_if_signed_integer<T> Call(KernelContext*, Arg arg, Status* st) {
+    static_assert(std::is_same<T, Arg>::value, "");
+    T result = 0;
+    if (ARROW_PREDICT_FALSE(NegateWithOverflow(arg, &result))) {
+      *st = Status::Invalid("overflow");
+    }
+    return result;
+  }
+
+  template <typename T, typename Arg>
+  static enable_if_unsigned_integer<T> Call(KernelContext* ctx, Arg arg, Status* st) {
+    static_assert(std::is_same<T, Arg>::value, "");
+    DCHECK(false) << "This is included only for the purposes of instantiability from the "
+                     "arithmetic kernel generator";
+    return 0;
+  }
+
+  template <typename T, typename Arg>
+  static constexpr enable_if_floating_point<T> Call(KernelContext*, Arg arg, Status* st) {
+    static_assert(std::is_same<T, Arg>::value, "");
+    return -arg;
+  }
+};
+
 struct Power {
   ARROW_NOINLINE
   static uint64_t IntegerPower(uint64_t base, uint64_t exp) {
@@ -310,7 +357,7 @@ struct PowerChecked {
 
 // Generate a kernel given an arithmetic functor
 template <template <typename... Args> class KernelGenerator, typename Op>
-ArrayKernelExec NumericEqualTypesBinary(detail::GetTypeId get_id) {
+ArrayKernelExec ArithmeticExecFromOp(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::INT8:
       return KernelGenerator<Int8Type, Int8Type, Op>::Exec;
@@ -349,10 +396,14 @@ struct ArithmeticFunction : ScalarFunction {
     if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
 
     EnsureDictionaryDecoded(values);
-    ReplaceNullWithOtherType(values);
 
-    if (auto type = CommonNumeric(*values)) {
-      ReplaceTypes(type, values);
+    // Only promote types for binary functions
+    if (values->size() == 2) {
+      ReplaceNullWithOtherType(values);
+
+      if (auto type = CommonNumeric(*values)) {
+        ReplaceTypes(type, values);
+      }
     }
 
     if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
@@ -365,7 +416,7 @@ std::shared_ptr<ScalarFunction> MakeArithmeticFunction(std::string name,
                                                        const FunctionDoc* doc) {
   auto func = std::make_shared<ArithmeticFunction>(name, Arity::Binary(), doc);
   for (const auto& ty : NumericTypes()) {
-    auto exec = NumericEqualTypesBinary<ScalarBinaryEqualTypes, Op>(ty);
+    auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
   }
   return func;
@@ -378,8 +429,34 @@ std::shared_ptr<ScalarFunction> MakeArithmeticFunctionNotNull(std::string name,
                                                               const FunctionDoc* doc) {
   auto func = std::make_shared<ArithmeticFunction>(name, Arity::Binary(), doc);
   for (const auto& ty : NumericTypes()) {
-    auto exec = NumericEqualTypesBinary<ScalarBinaryNotNullEqualTypes, Op>(ty);
+    auto exec = ArithmeticExecFromOp<ScalarBinaryNotNullEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
+  }
+  return func;
+}
+
+template <typename Op>
+std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunction(std::string name,
+                                                            const FunctionDoc* doc) {
+  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), doc);
+  for (const auto& ty : NumericTypes()) {
+    auto exec = ArithmeticExecFromOp<ScalarUnary, Op>(ty);
+    DCHECK_OK(func->AddKernel({ty}, ty, exec));
+  }
+  return func;
+}
+
+// Like MakeUnaryArithmeticFunction, but for signed arithmetic ops that need to run
+// only on non-null output.
+template <typename Op>
+std::shared_ptr<ScalarFunction> MakeUnarySignedArithmeticFunctionNotNull(
+    std::string name, const FunctionDoc* doc) {
+  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), doc);
+  for (const auto& ty : NumericTypes()) {
+    if (!arrow::is_unsigned_integer(ty->id())) {
+      auto exec = ArithmeticExecFromOp<ScalarUnaryNotNull, Op>(ty);
+      DCHECK_OK(func->AddKernel({ty}, ty, exec));
+    }
   }
   return func;
 }
@@ -396,14 +473,14 @@ const FunctionDoc add_checked_doc{
      "doesn't fail on overflow, use function \"add\"."),
     {"x", "y"}};
 
-const FunctionDoc sub_doc{"Substract the arguments element-wise",
+const FunctionDoc sub_doc{"Subtract the arguments element-wise",
                           ("Results will wrap around on integer overflow.\n"
                            "Use function \"subtract_checked\" if you want overflow\n"
                            "to return an error."),
                           {"x", "y"}};
 
 const FunctionDoc sub_checked_doc{
-    "Substract the arguments element-wise",
+    "Subtract the arguments element-wise",
     ("This function returns an error on overflow.  For a variant that\n"
      "doesn't fail on overflow, use function \"subtract\"."),
     {"x", "y"}};
@@ -434,6 +511,18 @@ const FunctionDoc div_checked_doc{
      "integer overflow is encountered."),
     {"dividend", "divisor"}};
 
+const FunctionDoc negate_doc{"Negate the argument element-wise",
+                             ("Results will wrap around on integer overflow.\n"
+                              "Use function \"negate_checked\" if you want overflow\n"
+                              "to return an error."),
+                             {"x"}};
+
+const FunctionDoc negate_checked_doc{
+    "Negate the arguments element-wise",
+    ("This function returns an error on overflow.  For a variant that\n"
+     "doesn't fail on overflow, use function \"negate\"."),
+    {"x"}};
+
 const FunctionDoc pow_doc{
     "Raise arguments to power element-wise",
     ("Integer to negative integer power returns an error. However, integer overflow\n"
@@ -445,7 +534,6 @@ const FunctionDoc pow_checked_doc{
     ("An error is returned when integer to negative integer power is encountered,\n"
      "or integer overflow is encountered."),
     {"base", "exponent"}};
-
 }  // namespace
 
 void RegisterScalarArithmetic(FunctionRegistry* registry) {
@@ -465,8 +553,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // Add subtract(timestamp, timestamp) -> duration
   for (auto unit : AllTimeUnits()) {
     InputType in_type(match::TimestampTypeUnit(unit));
-    auto exec =
-        NumericEqualTypesBinary<ScalarBinaryEqualTypes, Subtract>(Type::TIMESTAMP);
+    auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Subtract>(Type::TIMESTAMP);
     DCHECK_OK(subtract->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
   }
 
@@ -494,6 +581,15 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   auto divide_checked =
       MakeArithmeticFunctionNotNull<DivideChecked>("divide_checked", &div_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(divide_checked)));
+
+  // ----------------------------------------------------------------------
+  auto negate = MakeUnaryArithmeticFunction<Negate>("negate", &negate_doc);
+  DCHECK_OK(registry->AddFunction(std::move(negate)));
+
+  // ----------------------------------------------------------------------
+  auto negate_checked = MakeUnarySignedArithmeticFunctionNotNull<NegateChecked>(
+      "negate_checked", &negate_checked_doc);
+  DCHECK_OK(registry->AddFunction(std::move(negate_checked)));
 
   // ----------------------------------------------------------------------
   auto power = MakeArithmeticFunction<Power>("power", &pow_doc);
