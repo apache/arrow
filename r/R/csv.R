@@ -408,6 +408,23 @@ CsvReadOptions$create <- function(use_threads = option_use_threads(),
   )
 }
 
+#' @title File writer options
+#' @rdname CsvWriteOptions
+#' @name CsvWriteOptions
+#' @docType class
+#' @usage NULL
+#' @format NULL
+#' @description `CsvReadOptions`, `CsvParseOptions`, `CsvConvertOptions`,
+#' `JsonReadOptions`, `JsonParseOptions`, and `TimestampParser` are containers for various
+#' file reading options. See their usage in [read_csv_arrow()] and
+#' [read_json_arrow()], respectively.
+#'
+#' @section Factory:
+#'
+#' The `CsvWriteOptions$create()` factory method takes the following arguments:
+#' - `include_header` Whether to write an initial header line with column names
+#' - `batch_size` Maximum number of rows processed at a time. Default is 1024
+#' @docType class
 #' @export
 CsvWriteOptions <- R6Class("CsvWriteOptions", inherit = ArrowObject)
 CsvWriteOptions$create <- function(include_header = TRUE, batch_size = 1024L){
