@@ -495,15 +495,14 @@ test_that("assignments don't overwrite variables (dplyr #315)", {
 })
 
 # similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L77-L81
-# NOT SURE ABOUT THIS!
-# test_that("can mutate a data frame with zero columns and `NULL` column names", {
-#   df <- vctrs::new_data_frame(n = 2L)
-#   colnames(df) <- NULL
-#   expect_dplyr_equal(
-#     input %>% mutate(x = 1) %>% collect(),
-#     df
-#   )
-# })
+test_that("can mutate a data frame with zero columns and `NULL` column names", {
+  df <- vctrs::new_data_frame(n = 2L)
+  colnames(df) <- NULL
+  expect_dplyr_equal(
+    input %>% mutate(x = c(1,2)) %>% collect(),
+    df
+  )
+})
 
 # similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L102-L106
 test_that("mutate disambiguates NA and NaN (#1448)", {
