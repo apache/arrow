@@ -302,48 +302,6 @@ char* gdv_fn_dec_to_string(int64_t context, int64_t x_high, uint64_t x_low,
     return val;                                                                      \
   }
 
-#define GDV_FN_TO_CHAR(IN_TYPE, ARROW_TYPE)                                         \
-  /* Converts expression to a string using the format specified in format */                                                                                  \
-  GANDIVA_EXPORT                                                                         \
-  const char* gdv_fn_to_char_##IN_TYPE##_int64(int64_t context, gdv_##IN_TYPE value, \
-                                                   int64_t len, const char* pattern, int32_t * out_len) {     \
-    if (len < 0) {                                                                       \
-      gdv_fn_context_set_error_msg(context, "Buffer length can not be negative");        \
-      *out_len = 0;                                                                      \
-      return "";                                                                         \
-    }                                                                                    \
-    if (len == 0) {                                                                      \
-      *out_len = 0;                                                                      \
-      return "";                                                                         \
-    }                                                                                    \
-    arrow::internal::StringFormatter<arrow::ARROW_TYPE> formatter;                       \
-    char* ret = reinterpret_cast<char*>(                                                 \
-        gdv_fn_context_arena_malloc(context, static_cast<int32_t>(len)));                \
-    if (ret == nullptr) {                                                                \
-      gdv_fn_context_set_error_msg(context, "Could not allocate memory");                \
-      *out_len = 0;                                                                      \
-      return "";                                                                         \
-    }                                                                                    \
-    arrow::Status status = formatter(value, [&](arrow::util::string_view v) {            \
-      int64_t size = static_cast<int64_t>(v.size());                                     \
-      *out_len = static_cast<int32_t>(len < size ? len : size);                          \
-      memcpy(ret, v.data(), *out_len);                                                   \
-      return arrow::Status::OK();                                                        \
-    });                                                                                  \
-    if (!status.ok()) {                                                                  \
-      std::string err = "Could not cast " + std::to_string(value) + " to string";        \
-      gdv_fn_context_set_error_msg(context, err.c_str());                                \
-      *out_len = 0;                                                                      \
-      return "";                                                                         \
-    }                                                                                    \
-    return ret;                                                                          \
-  }
-
-GDV_FN_TO_CHAR(int32, Int32Type)
-GDV_FN_TO_CHAR(int64, Int64Type)
-GDV_FN_TO_CHAR(float32, FloatType)
-GDV_FN_TO_CHAR(float64, DoubleType)
-
 #undef GDV_FN_CAST_VARCHAR
 
 CAST_NUMERIC_FROM_STRING(int32_t, arrow::Int32Type, INT)
