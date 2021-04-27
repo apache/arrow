@@ -20,31 +20,36 @@ import { RecordBatch } from '../recordbatch';
 import { DictionaryVector } from '../vector/dictionary';
 
 /** @ignore */
-export type ValueFunc<T> = (idx: number, cols: RecordBatch) => T | null;
-/** @ignore */
 export type PredicateFunc = (idx: number, cols: RecordBatch) => boolean;
 
 /** @ignore */
+export interface Predicate {
+    bind(batch: RecordBatch): PredicateFunc;
+
+    and(...expr: Predicate[]): Predicate;
+}
+
+/** @ignore */
 export abstract class Value<T> {
-    eq(other: Value<T> | T): Predicate {
+    eq(other: Value<T> | T): ArrowPredicate {
         if (!(other instanceof Value)) { other = new Literal(other); }
         return new Equals(this, other);
     }
-    le(other: Value<T> | T): Predicate {
+    le(other: Value<T> | T): ArrowPredicate {
         if (!(other instanceof Value)) { other = new Literal(other); }
         return new LTeq(this, other);
     }
-    ge(other: Value<T> | T): Predicate {
+    ge(other: Value<T> | T): ArrowPredicate {
         if (!(other instanceof Value)) { other = new Literal(other); }
         return new GTeq(this, other);
     }
-    lt(other: Value<T> | T): Predicate {
+    lt(other: Value<T> | T): ArrowPredicate {
         return new Not(this.ge(other));
     }
-    gt(other: Value<T> | T): Predicate {
+    gt(other: Value<T> | T): ArrowPredicate {
         return new Not(this.le(other));
     }
-    ne(other: Value<T> | T): Predicate {
+    ne(other: Value<T> | T): ArrowPredicate {
         return new Not(this.eq(other));
     }
 }
@@ -81,15 +86,15 @@ export class Col<T= any> extends Value<T> {
 }
 
 /** @ignore */
-export abstract class Predicate {
+export abstract class ArrowPredicate implements Predicate {
     abstract bind(batch: RecordBatch): PredicateFunc;
-    and(...expr: Predicate[]): And { return new And(this, ...expr); }
-    or(...expr: Predicate[]): Or { return new Or(this, ...expr); }
-    not(): Predicate { return new Not(this); }
+    and(...expr: ArrowPredicate[]): And { return new And(this, ...expr); }
+    or(...expr: ArrowPredicate[]): Or { return new Or(this, ...expr); }
+    not(): ArrowPredicate { return new Not(this); }
 }
 
 /** @ignore */
-export abstract class ComparisonPredicate<T= any> extends Predicate {
+export abstract class ComparisonPredicate<T= any> extends ArrowPredicate {
     constructor(public readonly left: Value<T>, public readonly right: Value<T>) {
         super();
     }
@@ -118,9 +123,9 @@ export abstract class ComparisonPredicate<T= any> extends Predicate {
 }
 
 /** @ignore */
-export abstract class CombinationPredicate extends Predicate {
-    readonly children: Predicate[];
-    constructor(...children: Predicate[]) {
+export abstract class CombinationPredicate extends ArrowPredicate {
+    readonly children: ArrowPredicate[];
+    constructor(...children: ArrowPredicate[]) {
         super();
         this.children = children;
     }
@@ -130,9 +135,9 @@ export abstract class CombinationPredicate extends Predicate {
 
 /** @ignore */
 export class And extends CombinationPredicate {
-    constructor(...children: Predicate[]) {
+    constructor(...children: ArrowPredicate[]) {
         // Flatten any Ands
-        children = children.reduce((accum: Predicate[], p: Predicate): Predicate[] => {
+        children = children.reduce((accum: ArrowPredicate[], p: ArrowPredicate): ArrowPredicate[] => {
             return accum.concat(p instanceof And ? p.children : p);
         }, []);
         super(...children);
@@ -145,9 +150,9 @@ export class And extends CombinationPredicate {
 
 /** @ignore */
 export class Or extends CombinationPredicate {
-    constructor(...children: Predicate[]) {
+    constructor(...children: ArrowPredicate[]) {
         // Flatten any Ors
-        children = children.reduce((accum: Predicate[], p: Predicate): Predicate[] => {
+        children = children.reduce((accum: ArrowPredicate[], p: ArrowPredicate): ArrowPredicate[] => {
             return accum.concat(p instanceof Or ? p.children : p);
         }, []);
         super(...children);
@@ -260,8 +265,8 @@ export class GTeq extends ComparisonPredicate {
 }
 
 /** @ignore */
-export class Not extends Predicate {
-    constructor(public readonly child: Predicate) {
+export class Not extends ArrowPredicate {
+    constructor(public readonly child: ArrowPredicate) {
         super();
     }
 
@@ -272,7 +277,7 @@ export class Not extends Predicate {
 }
 
 /** @ignore */
-export class CustomPredicate extends Predicate {
+export class CustomPredicate extends ArrowPredicate {
     constructor(private next: PredicateFunc, private bind_: (batch: RecordBatch) => void) {
         super();
     }
@@ -285,8 +290,8 @@ export class CustomPredicate extends Predicate {
 
 export function lit(v: any): Value<any> { return new Literal(v); }
 export function col(n: string): Col<any> { return new Col(n); }
-export function and(...p: Predicate[]): And { return new And(...p); }
-export function or(...p: Predicate[]): Or { return new Or(...p); }
+export function and(...p: ArrowPredicate[]): And { return new And(...p); }
+export function or(...p: ArrowPredicate[]): Or { return new Or(...p); }
 export function custom(next: PredicateFunc, bind: (batch: RecordBatch) => void) {
     return new CustomPredicate(next, bind);
 }
