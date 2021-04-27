@@ -102,7 +102,7 @@ There are a few caveats:
 2. Type inference is done on the first block and types are frozen afterwards;
    to make sure the right data types are inferred, either set
    :attr:`ReadOptions.block_size` to a large enough value, or use
-   :attr:`ConvertOptions.column_types` to explicit set the desired data types.
+   :attr:`ConvertOptions.column_types` to set the desired data types explicitly.
 
 Character encoding
 ------------------

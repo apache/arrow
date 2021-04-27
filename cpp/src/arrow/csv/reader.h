@@ -66,7 +66,7 @@ class ARROW_EXPORT TableReader {
 /// - Type inference is done on the first block and types are frozen afterwards;
 ///   to make sure the right data types are inferred, either set
 ///   `ReadOptions::block_size` to a large enough value, or use
-///   `ConvertOptions::column_types` to explicit set the desired data types.
+///   `ConvertOptions::column_types` to set the desired data types explicitly.
 class ARROW_EXPORT StreamingReader : public RecordBatchReader {
  public:
   virtual ~StreamingReader() = default;
