@@ -24,12 +24,6 @@ jobs:
     name: Build C++ Gandiva Libs Ubuntu
     runs-on: ubuntu-18.04
     steps:
-      - uses: actions/checkout@v2
-      - name: Cache Arrow Directory
-        uses: actions/cache@v2
-        with:
-          path: ${{ github.workspace }}/arrow
-          key: gandiva-libs-${{ github.sha }}
       - name: Checkout Arrow
         run: |
           git clone --no-checkout {{ arrow.remote }} arrow
@@ -49,17 +43,21 @@ jobs:
         env:
           OS_NAME: "linux"
           CHECK_SHARED_DEPENDENCIES: true
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: ubuntu-shared-lib-${{ github.sha }}
+          path: ${{ github.workspace }}/arrow/dist/libgandiva_jni.so
   build-cpp-macos:
     name: Build C++ Gandiva Libs MacOS
     runs-on: macos-latest
-    needs: build-cpp-ubuntu
     steps:
-      - uses: actions/checkout@v2
-      - name: Cache Arrow Directory
-        uses: actions/cache@v2
-        with:
-          path: ${{ github.workspace }}/arrow
-          key: gandiva-libs-${{ github.sha }}
+      - name: Checkout Arrow
+        run: |
+          git clone --no-checkout {{ arrow.remote }} arrow
+          git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
+          if [ $CROSSBOW_USE_COMMIT_ID = true ]; then git -C arrow checkout {{ arrow.head }}; else git -C arrow checkout FETCH_HEAD; fi
+          git -C arrow submodule update --init --recursive
       - name: Build Gandiva
         run: |
           cd arrow
@@ -72,19 +70,33 @@ jobs:
           OS_NAME: "osx"
           CHECK_SHARED_DEPENDENCIES: true
           MACOSX_DEPLOYMENT_TARGET: "10.11"
-  package-jar-macos:
-    # Checks if the gandiva jar is built correctly inside the MacOS
-    # and if all the Gandiva tests are running fine in Java
-    name: Build Gandiva Jar MacOS
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: macos-shared-lib-${{ github.sha }}
+          path: ${{ github.workspace }}/arrow/dist/libgandiva_jni.dylib
+  package-jar:
+    name: Build Gandiva Jar
     runs-on: macos-latest
     needs: [build-cpp-macos, build-cpp-ubuntu]
     steps:
-      - uses: actions/checkout@v2
-      - name: Cache Arrow Directory
-        uses: actions/cache@v2
+      - name: Checkout Arrow
+        run: |
+          git clone --no-checkout {{ arrow.remote }} arrow
+          git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
+          if [ $CROSSBOW_USE_COMMIT_ID = true ]; then git -C arrow checkout {{ arrow.head }}; else git -C arrow checkout FETCH_HEAD; fi
+          git -C arrow submodule update --init --recursive
+          mkdir -p arrow/dist
+      - name: Download Linux Gandiva Library
+        uses: actions/download-artifact@v2
         with:
-          path: ${{ github.workspace }}/arrow
-          key: gandiva-libs-${{ github.sha }} 
+          name: ubuntu-shared-lib-${{ github.sha }}
+          path: ${{ github.workspace }}/arrow/dist
+      - name: Download MacOS Gandiva Library
+        uses: actions/download-artifact@v2
+        with:
+          name: macos-shared-lib-${{ github.sha }}
+          path: ${{ github.workspace }}/arrow/dist
       - name: Build Gandiva Jar
         run: |
           cd arrow
@@ -95,26 +107,5 @@ jobs:
           OS_NAME: "osx"
           COPY_JAR_TO_DISTRIBUTION_FOLDER: false
           MACOSX_DEPLOYMENT_TARGET: "10.11"
-  package-and-upload-jar-ubuntu:
-    name: Package Gandiva Jar Ubuntu
-    runs-on: ubuntu-18.04
-    needs: [build-cpp-macos, build-cpp-ubuntu, package-jar-macos]
-    steps:
-      - uses: actions/checkout@v2
-      - name: Cache Arrow Directory
-        uses: actions/cache@v2
-        with:
-          path: ${{ github.workspace }}/arrow
-          key: gandiva-libs-${{ github.sha }}
-      - name: Build Gandiva Jar
-        run: |
-          python3 -VV
-          cd arrow
-          ulimit -c unlimited -S
-          set -e
-          dev/tasks/gandiva-jars/build-java.sh
-        env:
-          OS_NAME: "linux"
-          COPY_JAR_TO_DISTRIBUTION_FOLDER: true
-
+  
       {{ macros.github_upload_releases("arrow/dist/*.jar")|indent }}
