@@ -196,5 +196,10 @@ void CheckDispatchBest(std::string func_name, std::vector<ValueDescr> original_v
       << expected_kernel->signature->ToString();
 }
 
+void CheckDispatchFails(std::string func_name, std::vector<ValueDescr> values) {
+  ASSERT_OK_AND_ASSIGN(auto function, GetFunctionRegistry()->GetFunction(func_name));
+  ASSERT_NOT_OK(function->DispatchBest(&values));
+}
+
 }  // namespace compute
 }  // namespace arrow
