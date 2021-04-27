@@ -521,5 +521,112 @@ ARROW_EXPORT
 Result<Datum> IfElse(const Datum& cond, const Datum& left, const Datum& right,
                      ExecContext* ctx = NULLPTR);
 
+/// \brief Year returns year value for each element of `values`
+///
+/// \param[in] values input to extract year from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 4.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Year(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief Month returns month value for each element of `values`
+///
+/// \param[in] values input to extract month from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 4.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Month(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief Day returns day value for each element of `values`
+///
+/// \param[in] values input to extract day from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 4.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Day(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief Week returns week of year value for each element of `values`
+///
+/// \param[in] values input to extract week of year from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 4.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> Week(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief Quarter returns quarter of year value for each element of `values`
+///
+/// \param[in] values input to extract quarter of year from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 4.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> Quarter(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief DayOfYear returns day of year value for each element of `values`
+///
+/// \param[in] values input to extract day of year from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 4.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> DayOfYear(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief DayOfWeek returns day of the week value for each element of `values`
+///
+/// \param[in] values input to extract dat of the week from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 4.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> DayOfWeek(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief Hour returns hour value for each element of `values`
+///
+/// \param[in] values input to extract hour from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 4.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Hour(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief Minute returns minutes value for each element of `values`
+///
+/// \param[in] values input to extract minutes from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 4.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Minute(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief Second returns seconds value for each element of `values`
+///
+/// \param[in] values input to extract seconds from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 4.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Second(const Datum& values, ExecContext* ctx = NULLPTR);
+
 }  // namespace compute
 }  // namespace arrow

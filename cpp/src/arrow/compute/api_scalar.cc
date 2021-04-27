@@ -172,5 +172,20 @@ Result<Datum> IfElse(const Datum& cond, const Datum& if_true, const Datum& if_fa
   return CallFunction("if_else", {cond, if_true, if_false}, ctx);
 }
 
+// ----------------------------------------------------------------------
+// Temporal functions
+
+SCALAR_EAGER_UNARY(Year, "year")
+SCALAR_EAGER_UNARY(Month, "month")
+SCALAR_EAGER_UNARY(Day, "day")
+SCALAR_EAGER_UNARY(Week, "week")
+SCALAR_EAGER_UNARY(Quarter, "quarter")
+SCALAR_EAGER_UNARY(DayOfYear, "day_of_year")
+SCALAR_EAGER_UNARY(DayOfWeek, "day_of_week")
+SCALAR_EAGER_UNARY(Hour, "hour")
+SCALAR_EAGER_UNARY(Minute, "minute")
+SCALAR_EAGER_UNARY(Second, "second")
+>>>>>>> e10c71612... First commit.
+
 }  // namespace compute
 }  // namespace arrow
