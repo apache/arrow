@@ -524,42 +524,31 @@ test_that("mutate disambiguates NA and NaN (#1448)", {
 
 # similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L102-L106
 # this is somewhat "contained" in the previous test
-# test_that("mutate handles data frame columns", {
-#   expect_dplyr_equal(
-#     input %>% mutate(new_col = data.frame(x = 1:3)) %>% select(new_col) %>% collect(),
-#     data.frame(x = 1:3)
-#   )
-#
-#   # mutate() on grouped data not supported in Arrow; this will be pulling data into R
-#   # expect_dplyr_equal(
-#   #   input %>%
-#   #     group_by(x) %>%
-#   #     mutate(new_col = x) %>%
-#   #     ungroup() %>%
-#   #     select(new_col) %>%
-#   #     collect(),
-#   #   data.frame(x = 1:3)
-#   # )
-#
-#   # ROWWISE IS NOT IMPLEMENTED
-#   # expect_dplyr_equal(
-#   #   input %>%
-#   #     rowwise(x) %>%
-#   #     mutate(new_col = x) %>%
-#   #     ungroup() %>%
-#   #     select(new_col) %>%
-#   #     collect(),
-#   #   data.frame(x = 1:3)
-#   # )
-# })
+test_that("mutate handles data frame columns", {
+  expect_dplyr_equal(
+    input %>% mutate(new_col = data.frame(x = 1:3)) %>% select(new_col) %>% collect(),
+    data.frame(x = 1:3)
+  )
 
-# QUESTIONS SO FAR ----
+  # mutate() on grouped data not supported in Arrow; this will be pulling data into R
+  expect_dplyr_equal(
+    input %>%
+      group_by(x) %>%
+      mutate(new_col = x) %>%
+      ungroup() %>%
+      select(new_col) %>%
+      collect(),
+    data.frame(x = 1:3)
+  )
 
-# https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L56-L59
-# https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L108-L115
-# does it make sense to create expect_dplyr_named() to mimic the behaviour from dply tests?
-
-# https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L61-L69
-# https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L83-L91
-# https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L129-L142
-# does it make sense to create expect_dplyr_identical() to mimic the behaviour from dplyr tests?
+  skip("rowwise() is not (yet) implemented in Arrow")
+  expect_dplyr_equal(
+    input %>%
+      rowwise(x) %>%
+      mutate(new_col = x) %>%
+      ungroup() %>%
+      select(new_col) %>%
+      collect(),
+    data.frame(x = 1:3)
+  )
+})
