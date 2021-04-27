@@ -871,33 +871,24 @@ class RDictionaryConverter<ValueType, enable_if_has_string_view<ValueType>>
   using BuilderType = DictionaryBuilder<ValueType>;
 
   Status Extend(SEXP x, int64_t size) override {
-    // first we need to handle the levels
-    cpp11::strings levels(Rf_getAttrib(x, R_LevelsSymbol));
-    auto memo_array = arrow::r::vec_to_arrow(levels, utf8(), false);
-    RETURN_NOT_OK(this->value_builder_->InsertMemoValues(*memo_array));
-
-    // then we can proceed
-    RETURN_NOT_OK(this->Reserve(size));
-
-    RVectorType rtype = GetVectorType(x);
-    if (rtype != FACTOR) {
-      return Status::Invalid("invalid R type to convert to dictionary");
-    }
-
-    auto append_null = [this]() { return this->value_builder_->AppendNull(); };
-
-    auto append_value = [this, levels](int value) {
-      SEXP s = STRING_ELT(levels, value - 1);
-      return this->value_builder_->Append(CHAR(s));
-    };
-
-    return VisitVector(RVectorIterator<int>(x, 0), size, append_null, append_value);
+    RETURN_NOT_OK(ExtendSetup(x, size));
+    return ExtendImpl(x, size, GetCharLevels(x));
   }
 
   void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
-    auto task = [this, values, size]() { return this->Extend(values, size); };
-    // TODO: refine
-    tasks.Append(false, std::move(task));
+    // the setup runs synchronously first
+    Status setup = ExtendSetup(values, size);
+
+    if (!setup.ok()) {
+      // if that fails, propagate the error
+      tasks.Append(false, [setup]() { return setup; });
+    } else {
+      auto char_levels = GetCharLevels(values);
+
+      tasks.Append(true, [this, values, size, char_levels]() {
+        return this->ExtendImpl(values, size, char_levels);
+      });
+    }
   }
 
   Result<std::shared_ptr<Array>> ToArray() override {
@@ -912,6 +903,44 @@ class RDictionaryConverter<ValueType, enable_if_has_string_view<ValueType>>
     }
 
     return std::make_shared<DictionaryArray>(result->data());
+  }
+
+ private:
+  std::vector<const char*> GetCharLevels(SEXP x) {
+    SEXP levels = Rf_getAttrib(x, R_LevelsSymbol);
+    R_xlen_t n_levels = XLENGTH(levels);
+    std::vector<const char*> char_levels(XLENGTH(levels));
+    const SEXP* p_levels = reinterpret_cast<const SEXP*>(DATAPTR_RO(levels));
+    for (R_xlen_t i = 0; i < n_levels; i++, ++p_levels) {
+      char_levels[i] = CHAR(*p_levels);
+    }
+
+    return char_levels;
+  }
+
+  Status ExtendSetup(SEXP x, int64_t size) {
+    RVectorType rtype = GetVectorType(x);
+    if (rtype != FACTOR) {
+      return Status::Invalid("invalid R type to convert to dictionary");
+    }
+
+    // first we need to handle the levels
+    SEXP levels = Rf_getAttrib(x, R_LevelsSymbol);
+    auto memo_array = arrow::r::vec_to_arrow(levels, utf8(), false);
+    RETURN_NOT_OK(this->value_builder_->InsertMemoValues(*memo_array));
+
+    // then we can proceed
+    return this->Reserve(size);
+  }
+
+  Status ExtendImpl(SEXP values, int64_t size,
+                    const std::vector<const char*>& char_levels) {
+    auto append_null = [this]() { return this->value_builder_->AppendNull(); };
+    auto append_value = [this, &char_levels](int value) {
+      return this->value_builder_->Append(char_levels[value - 1]);
+    };
+
+    return VisitVector(RVectorIterator<int>(values, 0), size, append_null, append_value);
   }
 };
 
@@ -971,6 +1000,45 @@ struct RConverterTrait<StructType> {
 class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
  public:
   Status Extend(SEXP x, int64_t size) override {
+    RETURN_NOT_OK(ExtendSetup(x, size));
+
+    auto fields = this->struct_type_->fields();
+    R_xlen_t n_columns = XLENGTH(x);
+    for (R_xlen_t i = 0; i < n_columns; i++) {
+      auto status = children_[i]->Extend(VECTOR_ELT(x, i), size);
+      if (!status.ok()) {
+        return Status::Invalid("Problem with column ", (i + 1), " (", fields[i]->name(),
+                               "): ", status.ToString());
+      }
+    }
+
+    return Status::OK();
+  }
+
+  void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
+    // the setup runs synchronously first
+    Status setup = ExtendSetup(values, size);
+
+    if (!setup.ok()) {
+      // if that fails, propagate the error
+      tasks.Append(false, [setup]() { return setup; });
+    } else {
+      // otherwise deal with each column, maybe concurrently
+      auto fields = this->struct_type_->fields();
+      R_xlen_t n_columns = XLENGTH(values);
+
+      for (R_xlen_t i = 0; i < n_columns; i++) {
+        children_[i]->DelayedExtend(VECTOR_ELT(values, i), size, tasks);
+      }
+    }
+  }
+
+ protected:
+  Status Init(MemoryPool* pool) override {
+    return StructConverter<RConverter, RConverterTrait>::Init(pool);
+  }
+
+  Status ExtendSetup(SEXP x, int64_t size) {
     // check that x is compatible
     R_xlen_t n_columns = XLENGTH(x);
 
@@ -1014,26 +1082,7 @@ class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
       RETURN_NOT_OK(struct_builder_->Append());
     }
 
-    for (R_xlen_t i = 0; i < n_columns; i++) {
-      auto status = children_[i]->Extend(VECTOR_ELT(x, i), size);
-      if (!status.ok()) {
-        return Status::Invalid("Problem with column ", (i + 1), " (", fields[i]->name(),
-                               "): ", status.ToString());
-      }
-    }
-
     return Status::OK();
-  }
-
-  void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
-    auto task = [this, values, size]() { return this->Extend(values, size); };
-    // TODO: refine. e.g. do setup and then spawn child tasks
-    tasks.Append(false, std::move(task));
-  }
-
- protected:
-  Status Init(MemoryPool* pool) override {
-    return StructConverter<RConverter, RConverterTrait>::Init(pool);
   }
 };
 
