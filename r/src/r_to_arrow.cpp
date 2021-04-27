@@ -1130,6 +1130,41 @@ std::shared_ptr<arrow::Array> vec_to_arrow(SEXP x,
   return ValueOrStop(converter->ToArray());
 }
 
+class RTasks {
+ public:
+  using Task = std::function<Status()>;
+
+  RTasks()
+      : parallel_tasks(arrow::internal::TaskGroup::MakeThreaded(
+            arrow::internal::GetCpuThreadPool())){};
+
+  Status Finish() {
+    Status status = Status::OK();
+
+    // run the delayed tasks now
+    for (auto& task : delayed_serial_tasks) {
+      status &= task();
+      if (!status.ok()) break;
+    }
+
+    // then wait for the parallel tasks to finish
+    status &= parallel_tasks->Finish();
+
+    return status;
+  }
+
+  void Append(bool parallel, Task&& task) {
+    if (parallel) {
+      parallel_tasks->Append(task);
+    } else {
+      delayed_serial_tasks.push_back(std::move(task));
+    }
+  }
+
+  std::shared_ptr<arrow::internal::TaskGroup> parallel_tasks;
+  std::vector<std::function<Status()>> delayed_serial_tasks;
+};
+
 }  // namespace r
 }  // namespace arrow
 
@@ -1179,9 +1214,7 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
     arrow::r::TraverseDots(lst, num_fields, check_name);
   }
 
-  auto parallel_tasks =
-      arrow::internal::TaskGroup::MakeThreaded(arrow::internal::GetCpuThreadPool());
-  std::vector<std::function<arrow::Status()>> delayed_serial_tasks;
+  arrow::r::RTasks tasks;
 
   arrow::Status status = arrow::Status::OK();
 
@@ -1234,19 +1267,11 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
         return arrow::Status::OK();
       };
 
-      if (converter->Parallel()) {
-        parallel_tasks->Append(task);
-      } else {
-        delayed_serial_tasks.push_back(std::move(task));
-      }
+      tasks.Append(converter->Parallel(), std::move(task));
     }
   }
 
-  for (auto& task : delayed_serial_tasks) {
-    status &= task();
-  }
-
-  status &= parallel_tasks->Finish();
+  status &= tasks.Finish();
   status &= check_consistent_column_length(columns);
 
   StopIfNotOk(status);
