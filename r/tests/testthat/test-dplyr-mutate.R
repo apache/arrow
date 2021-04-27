@@ -505,15 +505,6 @@ test_that("assignments don't overwrite variables (dplyr #315)", {
 #   )
 # })
 
-# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L95-L100
-# glue is a dependency of tidyselect
-test_that("glue() is supported", {
-  expect_dplyr_equal(
-    input %>% mutate(y = glue::glue("")) %>% collect(),
-    tibble(x = 1, y = glue::glue(""))
-  )
-})
-
 # similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L102-L106
 test_that("mutate disambiguates NA and NaN (#1448)", {
   expect_dplyr_equal(
@@ -531,7 +522,7 @@ test_that("mutate handles data frame columns", {
   )
 
   # mutate() on grouped data not supported in Arrow; this will be pulling data into R
-  expect_dplyr_equal(
+  expect_warning(expect_dplyr_equal(
     input %>%
       group_by(x) %>%
       mutate(new_col = x) %>%
@@ -539,7 +530,7 @@ test_that("mutate handles data frame columns", {
       select(new_col) %>%
       collect(),
     data.frame(x = 1:3)
-  )
+  ))
 
   skip("rowwise() is not (yet) implemented in Arrow")
   expect_dplyr_equal(
