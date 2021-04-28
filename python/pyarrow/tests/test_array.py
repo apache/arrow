@@ -743,6 +743,9 @@ def test_dictionary_to_numpy():
         equal_nan=True
     )
 
+    # Testing for integers can reveal problems related to dealing
+    # with None values, as a numpy array of int dtype
+    # can't contain NaN nor None.
     aints = pa.DictionaryArray.from_arrays(
         pa.array([0, 1, None, 0]),
         pa.array([7, 11])
