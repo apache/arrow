@@ -286,7 +286,12 @@ cast_options <- function(safe = TRUE, ...) {
 }
 
 #' @export
-strsplit.ArrowDatum <- function(x, split, fixed = TRUE, perl = FALSE, useBytes = FALSE){
-  split_options <- list(pattern = split)
-  call_function("split_pattern", x, options = split_options)
+strsplit <- function(x, split, fixed = TRUE, perl = FALSE, useBytes = FALSE, ...) UseMethod("strsplit")
+
+#' @export
+strsplit.default <- base::strsplit
+
+#' @export
+strsplit.ArrowDatum <- function(x, split, fixed = TRUE, perl = FALSE, useBytes = FALSE, ...){
+  call_function("split_pattern", x, options = list(pattern = split, reverse = FALSE))
 }

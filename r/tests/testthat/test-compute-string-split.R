@@ -17,63 +17,16 @@
 
 test_str <-c("foobar, foo, bar", "baz, qux, quux.")
 
-test_that("split_pattern", {
-  
-  test_scalar <- Scalar$create(test_str[1])
-  test_array <- Array$create(test_str)
-  test_charray <- chunked_array(test_str[1], test_str[2])
-  
-  expect_equal(
-    split_pattern(test_scalar, pattern = ","),
-    Scalar$create(list(c("foobar", " foo", " bar")))
-  )
-  
-  expect_equal(
-    split_pattern(test_array, pattern = ","),
-    Array$create(list(c("foobar", " foo", " bar"), c("baz", " qux", " quux.")))
-  )
-  
-  expect_equal(
-    split_pattern(test_charray, pattern = ","),
-    ChunkedArray$create(list(c("foobar", " foo", " bar"), c("baz", " qux", " quux.")))
-  )
-  
+test_that("strsplit for Array and ChunkedArray ", {
+  expect_vector_equal(strsplit(input, split = ","), test_str, ignore_attr = TRUE)
 })
 
-test_that("split_pattern with max splits and reverse", {
-  
+test_that("strsplit for Scalar", {
   test_scalar <- Scalar$create(test_str[1])
-  test_array <- Array$create(test_str)
-  test_charray <- chunked_array(test_str[1], test_str[2])
-  
   expect_equal(
-    split_pattern(test_scalar, pattern = ",", max_split = 1),
-    Scalar$create(list(c("foobar", " foo, bar")))
+    strsplit(test_scalar, split = ","),
+    Scalar$create(list(c("foobar", " foo", " bar")))
   )
-  
-  expect_equal(
-    split_pattern(test_array, pattern = ",", max_split = 1),
-    Array$create(list(c("foobar", " foo, bar"), c("baz", " qux, quux.")))
-  )
-  
-  expect_equal(
-    split_pattern(test_charray, pattern = ",", max_split = 1),
-    ChunkedArray$create(list(c("foobar", " foo, bar"), c("baz", " qux, quux.")))
-  )
-  
-  expect_equal(
-    split_pattern(test_scalar, pattern = ",", max_split = 1, reverse = TRUE),
-    Scalar$create(list(c("foobar, foo", " bar")))
-  )
-  
-  expect_equal(
-    split_pattern(test_array, pattern = ",", max_split = 1, reverse = TRUE),
-    Array$create(list(c("foobar, foo", " bar"), c("baz, qux", " quux.")))
-  )
-  
-  expect_equal(
-    split_pattern(test_charray, pattern = ",", max_split = 1, reverse = TRUE),
-    ChunkedArray$create(list(c("foobar, foo", " bar"), c("baz, qux", " quux.")))
-  )
-  
 })
+
+
