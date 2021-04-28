@@ -1139,7 +1139,7 @@ tasks:
 
   gandiva-jar:
     ci: github
-    template: gandiva-jars/github-linux-macos.yml
+    template: gandiva-jars/github.linux.macos.yml
     artifacts:
       - arrow-gandiva-{no_rc_version}-SNAPSHOT.jar
 
