@@ -701,6 +701,76 @@ def test_dictionary_from_numpy():
             assert d2[i].as_py() == dictionary[indices[i]]
 
 
+def test_dictionary_to_numpy():
+    expected = pa.array(
+        ["foo", "bar", None, "foo"]
+    ).to_numpy(zero_copy_only=False)
+    a = pa.DictionaryArray.from_arrays(
+        pa.array([0, 1, None, 0]),
+        pa.array(['foo', 'bar'])
+    )
+    np.testing.assert_array_equal(a.to_numpy(zero_copy_only=False),
+                                  expected)
+
+    with pytest.raises(pa.ArrowInvalid):
+        # If this would be changed to no longer raise in the future,
+        # ensure to test the actual result because, currently, to_numpy takes
+        # for granted that when zero_copy_only=True there will be no nulls
+        # (it's the decoding of the DictionaryArray that handles the nulls and
+        # this is only activated with zero_copy_only=False)
+        a.to_numpy(zero_copy_only=True)
+
+    anonulls = pa.DictionaryArray.from_arrays(
+        pa.array([0, 1, 1, 0]),
+        pa.array(['foo', 'bar'])
+    )
+    expected = pa.array(
+        ["foo", "bar", "bar", "foo"]
+    ).to_numpy(zero_copy_only=False)
+    np.testing.assert_array_equal(anonulls.to_numpy(zero_copy_only=False),
+                                  expected)
+
+    with pytest.raises(pa.ArrowInvalid):
+        anonulls.to_numpy(zero_copy_only=True)
+
+    afloat = pa.DictionaryArray.from_arrays(
+        pa.array([0, 1, 1, 0]),
+        pa.array([13.7, 11.0])
+    )
+    expected = pa.array([13.7, 11.0, 11.0, 13.7]).to_numpy()
+    np.testing.assert_array_equal(afloat.to_numpy(zero_copy_only=True),
+                                  expected)
+    np.testing.assert_array_equal(afloat.to_numpy(zero_copy_only=False),
+                                  expected)
+
+    afloat2 = pa.DictionaryArray.from_arrays(
+        pa.array([0, 1, None, 0]),
+        pa.array([13.7, 11.0])
+    )
+    expected = pa.array(
+        [13.7, 11.0, None, 13.7]
+    ).to_numpy(zero_copy_only=False)
+    assert np.array_equal(
+        afloat2.to_numpy(zero_copy_only=False),
+        expected,
+        equal_nan=True
+    )
+
+    # Testing for integers can reveal problems related to dealing
+    # with None values, as a numpy array of int dtype
+    # can't contain NaN nor None.
+    aints = pa.DictionaryArray.from_arrays(
+        pa.array([0, 1, None, 0]),
+        pa.array([7, 11])
+    )
+    expected = pa.array([7, 11, None, 7]).to_numpy(zero_copy_only=False)
+    assert np.array_equal(
+        aints.to_numpy(zero_copy_only=False),
+        expected,
+        equal_nan=True
+    )
+
+
 def test_dictionary_from_boxed_arrays():
     indices = np.repeat([0, 1, 2], 2)
     dictionary = np.array(['foo', 'bar', 'baz'], dtype=object)

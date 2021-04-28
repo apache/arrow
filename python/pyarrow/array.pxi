@@ -1161,6 +1161,11 @@ cdef class Array(_PandasConvertible):
             raise ValueError(
                 "Cannot return a writable array if asking for zero-copy")
 
+        # If there are nulls and the array is a DictionaryArray
+        # decoding the dictionary will make sure nulls are correctly handled.
+        # Decoding a dictionary does imply a copy by the way,
+        # so it can't be done if the user requested a zero_copy.
+        c_options.decode_dictionaries = not zero_copy_only
         c_options.zero_copy_only = zero_copy_only
 
         with nogil:
