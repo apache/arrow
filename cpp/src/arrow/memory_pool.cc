@@ -253,6 +253,8 @@ class SystemAllocator {
 #endif
     }
   }
+
+  static void ReleaseUnused() {}
 };
 
 #ifdef ARROW_JEMALLOC
@@ -300,6 +302,8 @@ class JemallocAllocator {
       dallocx(ptr, MALLOCX_ALIGN(kAlignment));
     }
   }
+
+  static void ReleaseUnused() {}
 };
 
 #endif  // defined(ARROW_JEMALLOC)
@@ -321,6 +325,8 @@ class MimallocAllocator {
     }
     return Status::OK();
   }
+
+  static void ReleaseUnused() { mi_collect(true); }
 
   static Status ReallocateAligned(int64_t old_size, int64_t new_size, uint8_t** ptr) {
     uint8_t* previous_ptr = *ptr;
@@ -427,6 +433,8 @@ class BaseMemoryPoolImpl : public MemoryPool {
 
     stats_.UpdateAllocatedBytes(-size);
   }
+
+  void ReleaseUnused() override { Allocator::ReleaseUnused(); }
 
   int64_t bytes_allocated() const override { return stats_.bytes_allocated(); }
 

@@ -87,6 +87,11 @@ class ARROW_EXPORT MemoryPool {
   ///   faster deallocation if supported by its backend.
   virtual void Free(uint8_t* buffer, int64_t size) = 0;
 
+  /// Returns unused memory to the OS
+  ///
+  /// Only applies to allocators that hold onto unused memory
+  virtual void ReleaseUnused(){};
+
   /// The number of bytes that were allocated and not yet free'd through
   /// this allocator.
   virtual int64_t bytes_allocated() const = 0;
