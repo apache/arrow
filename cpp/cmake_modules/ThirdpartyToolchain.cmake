@@ -287,10 +287,11 @@ if(ARROW_S3)
   set(ARROW_WITH_ZLIB ON)
 endif()
 
-if(NOT ARROW_COMPUTE)
-  # utf8proc is only potentially used in kernels for now
+if((NOT ARROW_COMPUTE) AND (NOT ARROW_GANDIVA))
+  # utf8proc is only potentially used in kernels and gandiva for now
   set(ARROW_WITH_UTF8PROC OFF)
 endif()
+
 if((NOT ARROW_COMPUTE) AND (NOT ARROW_GANDIVA) AND (NOT ARROW_WITH_GRPC))
   set(ARROW_WITH_RE2 OFF)
 endif()
