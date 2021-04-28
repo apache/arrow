@@ -516,7 +516,7 @@ if(ARROW_BUILD_STATIC AND WIN32)
 endif()
 
 foreach(LIB_TARGET ${ARROW_LIBRARIES})
-    target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_EXPORTING)
+  target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_EXPORTING)
 endforeach()
 
 if(ARROW_WITH_BACKTRACE)
