@@ -711,42 +711,50 @@ class CountingBufferReader : public BufferReader {
 TEST(RangeReadCache, Basics) {
   std::string data = "abcdefghijklmnopqrstuvwxyz";
 
-  auto file = std::make_shared<CountingBufferReader>(Buffer(data));
   CacheOptions options = CacheOptions::Defaults();
   options.hole_size_limit = 2;
   options.range_size_limit = 10;
-  internal::ReadRangeCache cache(file, {}, options);
 
-  ASSERT_OK(cache.Cache({{1, 2}, {3, 2}, {8, 2}, {20, 2}, {25, 0}}));
-  ASSERT_OK(cache.Cache({{10, 4}, {14, 0}, {15, 4}}));
+  for (auto lazy : std::vector<bool>{false, true}) {
+    SCOPED_TRACE(lazy);
+    options.lazy = lazy;
+    auto file = std::make_shared<CountingBufferReader>(Buffer(data));
+    internal::ReadRangeCache cache(file, {}, options);
 
-  ASSERT_OK_AND_ASSIGN(auto buf, cache.Read({20, 2}));
-  AssertBufferEqual(*buf, "uv");
-  ASSERT_OK_AND_ASSIGN(buf, cache.Read({1, 2}));
-  AssertBufferEqual(*buf, "bc");
-  ASSERT_OK_AND_ASSIGN(buf, cache.Read({3, 2}));
-  AssertBufferEqual(*buf, "de");
-  ASSERT_OK_AND_ASSIGN(buf, cache.Read({8, 2}));
-  AssertBufferEqual(*buf, "ij");
-  ASSERT_OK_AND_ASSIGN(buf, cache.Read({10, 4}));
-  AssertBufferEqual(*buf, "klmn");
-  ASSERT_OK_AND_ASSIGN(buf, cache.Read({15, 4}));
-  AssertBufferEqual(*buf, "pqrs");
-  // Zero-sized
-  ASSERT_OK_AND_ASSIGN(buf, cache.Read({14, 0}));
-  AssertBufferEqual(*buf, "");
-  ASSERT_OK_AND_ASSIGN(buf, cache.Read({25, 0}));
-  AssertBufferEqual(*buf, "");
+    ASSERT_OK(cache.Cache({{1, 2}, {3, 2}, {8, 2}, {20, 2}, {25, 0}}));
+    ASSERT_OK(cache.Cache({{10, 4}, {14, 0}, {15, 4}}));
 
-  // Non-cached ranges
-  ASSERT_RAISES(Invalid, cache.Read({20, 3}));
-  ASSERT_RAISES(Invalid, cache.Read({19, 3}));
-  ASSERT_RAISES(Invalid, cache.Read({0, 3}));
-  ASSERT_RAISES(Invalid, cache.Read({25, 2}));
+    ASSERT_OK_AND_ASSIGN(auto buf, cache.Read({20, 2}));
+    AssertBufferEqual(*buf, "uv");
+    ASSERT_OK_AND_ASSIGN(buf, cache.Read({1, 2}));
+    AssertBufferEqual(*buf, "bc");
+    ASSERT_OK_AND_ASSIGN(buf, cache.Read({3, 2}));
+    AssertBufferEqual(*buf, "de");
+    ASSERT_OK_AND_ASSIGN(buf, cache.Read({8, 2}));
+    AssertBufferEqual(*buf, "ij");
+    ASSERT_OK_AND_ASSIGN(buf, cache.Read({10, 4}));
+    AssertBufferEqual(*buf, "klmn");
+    ASSERT_OK_AND_ASSIGN(buf, cache.Read({15, 4}));
+    AssertBufferEqual(*buf, "pqrs");
+    ASSERT_FINISHES_OK(cache.WaitFor({{15, 1}, {16, 3}, {25, 0}, {1, 2}}));
+    // Zero-sized
+    ASSERT_OK_AND_ASSIGN(buf, cache.Read({14, 0}));
+    AssertBufferEqual(*buf, "");
+    ASSERT_OK_AND_ASSIGN(buf, cache.Read({25, 0}));
+    AssertBufferEqual(*buf, "");
 
-  ASSERT_FINISHES_OK(cache.Wait());
-  // 8 ranges should lead to less than 8 reads
-  ASSERT_LT(file->read_count(), 8);
+    // Non-cached ranges
+    ASSERT_RAISES(Invalid, cache.Read({20, 3}));
+    ASSERT_RAISES(Invalid, cache.Read({19, 3}));
+    ASSERT_RAISES(Invalid, cache.Read({0, 3}));
+    ASSERT_RAISES(Invalid, cache.Read({25, 2}));
+    ASSERT_FINISHES_AND_RAISES(Invalid, cache.WaitFor({{25, 2}}));
+    ASSERT_FINISHES_AND_RAISES(Invalid, cache.WaitFor({{1, 2}, {25, 2}}));
+
+    ASSERT_FINISHES_OK(cache.Wait());
+    // 8 ranges should lead to less than 8 reads
+    ASSERT_LT(file->read_count(), 8);
+  }
 }
 
 TEST(RangeReadCache, Concurrency) {
@@ -757,6 +765,7 @@ TEST(RangeReadCache, Concurrency) {
                                 {25, 0}, {10, 4}, {14, 0}, {15, 4}};
 
   for (auto lazy : std::vector<bool>{false, true}) {
+    SCOPED_TRACE(lazy);
     CacheOptions options = CacheOptions::Defaults();
     options.hole_size_limit = 2;
     options.range_size_limit = 10;

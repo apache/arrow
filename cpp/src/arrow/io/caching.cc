@@ -134,6 +134,10 @@ struct RangeCacheEntry {
   ReadRange range;
   Future<std::shared_ptr<Buffer>> future;
 
+  RangeCacheEntry() = default;
+  RangeCacheEntry(const ReadRange& range_, Future<std::shared_ptr<Buffer>> future_)
+      : range(range_), future(std::move(future_)) {}
+
   friend bool operator<(const RangeCacheEntry& left, const RangeCacheEntry& right) {
     return left.range.offset < right.range.offset;
   }
@@ -154,20 +158,22 @@ struct ReadRangeCache::Impl {
     return entry->future;
   }
 
-  // Make a cache entry for a range
-  virtual RangeCacheEntry MakeCacheEntry(const ReadRange& range) {
-    return {range, file->ReadAsync(ctx, range.offset, range.length)};
+  // Make cache entries for ranges
+  virtual std::vector<RangeCacheEntry> MakeCacheEntries(
+      const std::vector<ReadRange>& ranges) {
+    std::vector<RangeCacheEntry> new_entries;
+    new_entries.reserve(ranges.size());
+    for (const auto& range : ranges) {
+      new_entries.emplace_back(range, file->ReadAsync(ctx, range.offset, range.length));
+    }
+    return new_entries;
   }
 
   // Add the given ranges to the cache, coalescing them where possible
   virtual Status Cache(std::vector<ReadRange> ranges) {
     ranges = internal::CoalesceReadRanges(std::move(ranges), options.hole_size_limit,
                                           options.range_size_limit);
-    std::vector<RangeCacheEntry> new_entries;
-    new_entries.reserve(ranges.size());
-    for (const auto& range : ranges) {
-      new_entries.push_back(MakeCacheEntry(range));
-    }
+    std::vector<RangeCacheEntry> new_entries = MakeCacheEntries(ranges);
     // Add new entries, themselves ordered by offset
     if (entries.size() > 0) {
       std::vector<RangeCacheEntry> merged(entries.size() + new_entries.size());
@@ -215,28 +221,20 @@ struct ReadRangeCache::Impl {
     auto end = std::remove_if(ranges.begin(), ranges.end(),
                               [](const ReadRange& range) { return range.length == 0; });
     ranges.resize(end - ranges.begin());
-    // Sort in reverse position order
-    std::sort(ranges.begin(), ranges.end(),
-              [](const ReadRange& a, const ReadRange& b) { return a.offset > b.offset; });
-
     std::vector<Future<>> futures;
-    for (auto& entry : entries) {
-      bool include = false;
-      while (!ranges.empty()) {
-        const auto& next = ranges.back();
-        if (next.offset >= entry.range.offset &&
-            next.offset + next.length <= entry.range.offset + entry.range.length) {
-          include = true;
-          ranges.pop_back();
-        } else {
-          break;
-        }
+    futures.reserve(ranges.size());
+    for (auto& range : ranges) {
+      const auto it = std::lower_bound(
+          entries.begin(), entries.end(), range,
+          [](const RangeCacheEntry& entry, const ReadRange& range) {
+            return entry.range.offset + entry.range.length < range.offset + range.length;
+          });
+      if (it != entries.end() && it->range.Contains(range)) {
+        futures.push_back(Future<>(MaybeRead(&*it)));
+      } else {
+        return Status::Invalid("Range was not requested for caching: offset=",
+                               range.offset, " length=", range.length);
       }
-      if (include) futures.emplace_back(MaybeRead(&entry));
-      if (ranges.empty()) break;
-    }
-    if (!ranges.empty()) {
-      return Status::Invalid("Given ranges were not previously requested for caching");
     }
     return AllComplete(futures);
   }
@@ -258,10 +256,16 @@ struct ReadRangeCache::LazyImpl : public ReadRangeCache::Impl {
     return entry->future;
   }
 
-  RangeCacheEntry MakeCacheEntry(const ReadRange& range) override {
-    // In the lazy variant, don't read data here - later, a call to Read or WaitFor
-    // will call back to MaybeRead (under the lock) which will fill the future.
-    return {range, Future<std::shared_ptr<Buffer>>()};
+  std::vector<RangeCacheEntry> MakeCacheEntries(
+      const std::vector<ReadRange>& ranges) override {
+    std::vector<RangeCacheEntry> new_entries;
+    new_entries.reserve(ranges.size());
+    for (const auto& range : ranges) {
+      // In the lazy variant, don't read data here - later, a call to Read or WaitFor
+      // will call back to MaybeRead (under the lock) which will fill the future.
+      new_entries.emplace_back(range, Future<std::shared_ptr<Buffer>>());
+    }
+    return new_entries;
   }
 
   Status Cache(std::vector<ReadRange> ranges) override {
