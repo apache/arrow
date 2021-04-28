@@ -162,6 +162,7 @@ reference:
       - match_arrow
       - value_counts
       - list_compute_functions
+      - split_pattern
   - title: Configuration
     contents:
       - arrow_info

@@ -233,6 +233,16 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
                                      max_replacements);
   }
 
+  if (func_name == "split_pattern") {
+    using Options = arrow::compute::SplitPatternOptions;
+    int64_t max_splits = -1;
+    if (!Rf_isNull(options["max_splits"])) {
+      max_splits = cpp11::as_cpp<int64_t>(options["max_splits"]);
+    }
+    return std::make_shared<Options>(cpp11::as_cpp<std::string>(options["pattern"]),
+                                     max_splits, cpp11::as_cpp<bool>(options["reverse"]));
+  }
+
   return nullptr;
 }
 
