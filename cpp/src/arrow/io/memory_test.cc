@@ -692,6 +692,9 @@ TEST(CoalesceReadRanges, Basics) {
   // Same as (*) but unsorted
   check({{140, 100}, {120, 11}, {240, 11}, {110, 10}, {260, 11}},
         {{110, 21}, {140, 100}, {240, 31}});
+
+  // Completely overlapping ranges should be eliminated
+  check({{20, 5}, {20, 5}, {21, 2}}, {{20, 5}});
 }
 
 class CountingBufferReader : public BufferReader {
