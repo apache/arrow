@@ -46,45 +46,44 @@ class TestGreedyDualSizeCache : public ::testing::Test {
 };
 
 TEST_F(TestGreedyDualSizeCache, TestEvict) {
+  // check if the cache is evicting the items with low priority on cache
   cache_.insert(GreedyDualSizeCacheKey(1), "bye", 1);
   cache_.insert(GreedyDualSizeCacheKey(2), "bye", 10);
-  cache_.insert(GreedyDualSizeCacheKey(1), "bye", 1);
   cache_.insert(GreedyDualSizeCacheKey(3), "bye", 20);
-  cache_.insert(GreedyDualSizeCacheKey(4), "bye", 100);
+  cache_.insert(GreedyDualSizeCacheKey(4), "bye", 15);
   cache_.insert(GreedyDualSizeCacheKey(1), "bye", 1);
   ASSERT_EQ(2, cache_.size());
-  ASSERT_EQ(cache_.get(GreedyDualSizeCacheKey(1)), arrow::util::nullopt);
+  // we check initially the values that won't be on the cache, since the get operation
+  // may affect the entity costs, which is not the purpose of this test
   ASSERT_EQ(cache_.get(GreedyDualSizeCacheKey(2)), arrow::util::nullopt);
-  ASSERT_EQ(cache_.get(GreedyDualSizeCacheKey(3)), "bye");
+  ASSERT_EQ(cache_.get(GreedyDualSizeCacheKey(3)), arrow::util::nullopt);
+  ASSERT_EQ(cache_.get(GreedyDualSizeCacheKey(1)), "bye");
   ASSERT_EQ(cache_.get(GreedyDualSizeCacheKey(4)), "bye");
 }
 
 TEST_F(TestGreedyDualSizeCache, TestGreedyDualSizeBehavior) {
-  // should insert key 1 and 2
-  cache_.insert(GreedyDualSizeCacheKey(1), "bye", 1);
-  cache_.insert(GreedyDualSizeCacheKey(2), "bye", 10);
-  cache_.insert(GreedyDualSizeCacheKey(1), "bye", 1);
+  // insert 1 and 3 evicting 2 (this eviction will increase the inflation cost by 20)
+  cache_.insert(GreedyDualSizeCacheKey(1), "bye", 40);
+  cache_.insert(GreedyDualSizeCacheKey(2), "bye", 20);
+  cache_.insert(GreedyDualSizeCacheKey(3), "bye", 30);
+
+  // when accessing key 3, its actual cost will be increased by the inflation, so in the
+  // next eviction, the key 1 will be evicted, since the key 1 actual cost (original(40))
+  // is smaller than key 3 actual increased cost (original(30) + inflation(20))
+  ASSERT_EQ(cache_.get(GreedyDualSizeCacheKey(3)), "bye");
+
+  // try to insert key 2 and expect the eviction of key 1
+  cache_.insert(GreedyDualSizeCacheKey(2), "bye", 20);
+  ASSERT_EQ(cache_.get(GreedyDualSizeCacheKey(1)), arrow::util::nullopt);
+
+  // when accessing key 2, its original cost should be increased by inflation, so when
+  // inserting the key 1 again, now the key 3 should be evicted
+  ASSERT_EQ(cache_.get(GreedyDualSizeCacheKey(2)), "bye");
+  cache_.insert(GreedyDualSizeCacheKey(1), "bye", 20);
+
   ASSERT_EQ(cache_.get(GreedyDualSizeCacheKey(1)), "bye");
   ASSERT_EQ(cache_.get(GreedyDualSizeCacheKey(2)), "bye");
-
-  // should insert key 3 evicting key 1 (because value to order of key 3 is higher)
-  cache_.insert(GreedyDualSizeCacheKey(3), "bye", 20);
-  ASSERT_EQ(cache_.get(GreedyDualSizeCacheKey(3)), "bye");
-  ASSERT_EQ(cache_.get(GreedyDualSizeCacheKey(2)), "bye");
-  ASSERT_EQ(cache_.get(GreedyDualSizeCacheKey(1)), arrow::util::nullopt);
-
-  // should insert key 4 evicting key 2 (because value to order of key 4 is higher)
-  cache_.insert(GreedyDualSizeCacheKey(4), "bye", 100);
-  ASSERT_EQ(cache_.get(GreedyDualSizeCacheKey(3)), "bye");
-  ASSERT_EQ(cache_.get(GreedyDualSizeCacheKey(4)), "bye");
-  ASSERT_EQ(cache_.get(GreedyDualSizeCacheKey(2)), arrow::util::nullopt);
-  ASSERT_EQ(cache_.get(GreedyDualSizeCacheKey(1)), arrow::util::nullopt);
-
-  // should not insert key 1 on cache (because the value to order is lower)
-  cache_.insert(GreedyDualSizeCacheKey(1), "bye", 1);
-  ASSERT_EQ(cache_.get(GreedyDualSizeCacheKey(3)), "bye");
-  ASSERT_EQ(cache_.get(GreedyDualSizeCacheKey(4)), "bye");
-  ASSERT_EQ(cache_.get(GreedyDualSizeCacheKey(1)), arrow::util::nullopt);
-  ASSERT_EQ(cache_.get(GreedyDualSizeCacheKey(2)), arrow::util::nullopt);
+  ASSERT_EQ(cache_.get(GreedyDualSizeCacheKey(3)), arrow::util::nullopt);
+  ASSERT_EQ(2, cache_.size());
 }
 }  // namespace gandiva
