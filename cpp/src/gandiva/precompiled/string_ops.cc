@@ -1936,8 +1936,9 @@ const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_le
 }
 
 FORCE_INLINE
-const char* byte_substr(gdv_int64 context, const char* text, gdv_int32 text_len,
-                        gdv_int32 offset, gdv_int32 length, gdv_int32* out_len) {
+const char* byte_substr_binary_int32_int32(gdv_int64 context, const char* text,
+                                           gdv_int32 text_len, gdv_int32 offset,
+                                           gdv_int32 length, gdv_int32* out_len) {
   // the first offset position for a string is 1, so not consider offset == 0
   // also, the length should be always a positive number
   if (text_len == 0 || offset == 0 || length <= 0) {
