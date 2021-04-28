@@ -35,14 +35,18 @@ using detail::ParsedValueDesc;
 
 namespace {
 
-Status ParseError(const char* message) {
-  return Status::Invalid("CSV parse error: ", message);
+template <typename... Args>
+Status ParseError(Args&&... args) {
+  return Status::Invalid("CSV parse error: ", std::forward<Args>(args)...);
 }
 
-Status MismatchingColumns(int32_t expected, int32_t actual) {
-  char s[50];
-  snprintf(s, sizeof(s), "Expected %d columns, got %d", expected, actual);
-  return ParseError(s);
+Status MismatchingColumns(int32_t expected, int32_t actual,
+                          const util::string_view& row) {
+  if (row.length() > 100) {
+    return ParseError("Expected ", expected, " columns, got ", actual, ": ",
+                      row.substr(0, 96), " ...");
+  }
+  return ParseError("Expected ", expected, " columns, got ", actual, ": ", row);
 }
 
 inline bool IsControlChar(uint8_t c) { return c < ' '; }
@@ -184,6 +188,7 @@ class BlockParserImpl {
                    const char** out_data) {
     int32_t num_cols = 0;
     char c;
+    const auto start = data;
 
     DCHECK_GT(data_end, data);
 
@@ -299,7 +304,16 @@ class BlockParserImpl {
       if (batch_.num_cols_ == -1) {
         batch_.num_cols_ = num_cols;
       } else {
-        return MismatchingColumns(batch_.num_cols_, num_cols);
+        // Find the end of the line without newline or carriage return
+        auto end = data;
+        if (*(end - 1) == '\n') {
+          end -= 1;
+          if (*(end - 1) == '\r') {
+            end -= 1;
+          }
+        }
+        return MismatchingColumns(batch_.num_cols_, num_cols,
+                                  util::string_view(start, end - start));
       }
     }
     ++batch_.num_rows_;
