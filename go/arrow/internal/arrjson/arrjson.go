@@ -136,6 +136,8 @@ func (f FieldWrapper) MarshalJSON() ([]byte, error) {
 		}
 	case *arrow.ListType:
 		typ = nameJSON{"list"}
+	case *arrow.MapType:
+		typ = mapJSON{Name: "map", KeysSorted: dt.KeysSorted}
 	case *arrow.StructType:
 		typ = nameJSON{"struct"}
 	case *arrow.FixedSizeListType:
@@ -266,6 +268,14 @@ func (f *FieldWrapper) UnmarshalJSON(data []byte) error {
 		}
 	case "list":
 		f.arrowType = arrow.ListOf(f.Children[0].arrowType)
+	case "map":
+		t := mapJSON{}
+		if err := json.Unmarshal(f.Type, &t); err != nil {
+			return err
+		}
+		pairType := f.Children[0].arrowType
+		f.arrowType = arrow.MapOf(pairType.(*arrow.StructType).Field(0).Type, pairType.(*arrow.StructType).Field(1).Type)
+		f.arrowType.(*arrow.MapType).KeysSorted = t.KeysSorted
 	case "struct":
 		f.arrowType = arrow.StructOf(fieldsFromJSON(f.Children)...)
 	case "fixedsizebinary":
@@ -363,6 +373,11 @@ type byteWidthJSON struct {
 	ByteWidth int    `json:"byteWidth,omitempty"`
 }
 
+type mapJSON struct {
+	Name       string `json:"name"`
+	KeysSorted bool   `json:"keysSorted,omitempty"`
+}
+
 func schemaToJSON(schema *arrow.Schema) Schema {
 	return Schema{
 		Fields: fieldsToJSON(schema.Fields()),
@@ -389,6 +404,8 @@ func fieldsToJSON(fields []arrow.Field) []FieldWrapper {
 			o[i].Children = fieldsToJSON([]arrow.Field{{Name: "item", Type: dt.Elem(), Nullable: f.Nullable}})
 		case *arrow.StructType:
 			o[i].Children = fieldsToJSON(dt.Fields())
+		case *arrow.MapType:
+			o[i].Children = fieldsToJSON([]arrow.Field{{Name: "entries", Type: dt.ValueType()}})
 		}
 	}
 	return o
@@ -652,6 +669,25 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) array.Int
 		bldr.AppendValues(data, valids)
 		return bldr.NewArray()
 
+	case *arrow.MapType:
+		bldr := array.NewMapBuilder(mem, dt.KeyType(), dt.ItemType(), dt.KeysSorted)
+		defer bldr.Release()
+		valids := validsFromJSON(arr.Valids)
+		pairs := arrayFromJSON(mem, dt.ValueType(), arr.Children[0])
+		defer pairs.Release()
+		for i, v := range valids {
+			bldr.Append(v)
+			beg := int64(arr.Offset[i])
+			end := int64(arr.Offset[i+1])
+			slice := array.NewSlice(pairs, beg, end).(*array.Struct)
+			kb := bldr.KeyBuilder()
+			buildArray(kb, slice.Field(0))
+			ib := bldr.ItemBuilder()
+			buildArray(ib, slice.Field(1))
+			slice.Release()
+		}
+		return bldr.NewArray()
+
 	case *arrow.Date32Type:
 		bldr := array.NewDate32Builder(mem)
 		defer bldr.Release()
@@ -859,6 +895,18 @@ func arrayToJSON(field arrow.Field, arr array.Interface) Array {
 			Offset: arr.Offsets(),
 			Children: []Array{
 				arrayToJSON(arrow.Field{Name: "item", Type: arr.DataType().(*arrow.ListType).Elem()}, arr.ListValues()),
+			},
+		}
+		return o
+
+	case *array.Map:
+		o := Array{
+			Name:   field.Name,
+			Count:  arr.Len(),
+			Valids: validsToJSON(arr),
+			Offset: arr.Offsets(),
+			Children: []Array{
+				arrayToJSON(arrow.Field{Name: "entries", Type: arr.DataType().(*arrow.MapType).ValueType()}, arr.ListValues()),
 			},
 		}
 		return o
