@@ -757,7 +757,7 @@ class RPrimitiveConverter<T, enable_if_binary<T>>
 
   void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
     auto task = [this, values, size]() { return this->Extend(values, size); };
-    tasks.Append(true, std::move(task));
+    tasks.Append(!ALTREP(values), std::move(task));
   }
 };
 
@@ -789,7 +789,7 @@ class RPrimitiveConverter<T, enable_if_t<std::is_same<T, FixedSizeBinaryType>::v
 
   void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
     auto task = [this, values, size]() { return this->Extend(values, size); };
-    tasks.Append(true, std::move(task));
+    tasks.Append(!ALTREP(values), std::move(task));
   }
 };
 
@@ -973,6 +973,8 @@ class RListConverter : public ListConverter<T, RConverter, RConverterTrait> {
     auto append_null = [this]() { return this->list_builder_->AppendNull(); };
 
     auto append_value = [this](SEXP value) {
+      // TODO: if we decide that this can be run concurrently
+      //       we'll have to do vec_size() upfront
       int n = vctrs::vec_size(value);
 
       RETURN_NOT_OK(this->list_builder_->ValidateOverflow(n));
@@ -984,9 +986,12 @@ class RListConverter : public ListConverter<T, RConverter, RConverterTrait> {
   }
 
   void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
-    auto task = [this, values, size]() { return this->Extend(values, size); };
-    // TODO: refine
-    tasks.Append(false, std::move(task));
+    // NOTE: because Extend::[]append_value() calls Extend() on the
+    // value converter, which might require a setup step, it feels
+    // complicated to run this task concurrently.
+    //
+    // TODO: perhaps allow running concurrently in some cases, e.g. list(int32(!altrep))
+    tasks.Append(false, [this, values, size]() { return this->Extend(values, size); });
   }
 };
 
