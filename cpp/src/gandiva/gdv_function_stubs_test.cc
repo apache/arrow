@@ -323,7 +323,8 @@ TEST(TestGdvFnStubs, TestInitCap) {
   EXPECT_EQ(std::string(out_str, out_len), "  Øhpqršvñ  \n\n");
   EXPECT_FALSE(ctx.has_error());
 
-  out_str = gdv_fn_initcap_utf8(ctx_ptr, "möbelträgerfüße   \nmöbelträgerfüße", 42, &out_len);
+  out_str =
+      gdv_fn_initcap_utf8(ctx_ptr, "möbelträgerfüße   \nmöbelträgerfüße", 42, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "Möbelträgerfüße   \nMöbelträgerfüße");
   EXPECT_FALSE(ctx.has_error());
 
@@ -336,7 +337,8 @@ TEST(TestGdvFnStubs, TestInitCap) {
   EXPECT_FALSE(ctx.has_error());
 
   std::string d("AbOJjÜoß\xc3");
-  out_str = gdv_fn_initcap_utf8(ctx_ptr, d.data(), static_cast<int>(d.length()), &out_len);
+  out_str =
+      gdv_fn_initcap_utf8(ctx_ptr, d.data(), static_cast<int>(d.length()), &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "");
   EXPECT_THAT(ctx.get_error(),
               ::testing::HasSubstr(
@@ -346,7 +348,8 @@ TEST(TestGdvFnStubs, TestInitCap) {
   std::string e(
       "åbÑg\xe0\xa0"
       "åBUå");
-  out_str = gdv_fn_initcap_utf8(ctx_ptr, e.data(), static_cast<int>(e.length()), &out_len);
+  out_str =
+      gdv_fn_initcap_utf8(ctx_ptr, e.data(), static_cast<int>(e.length()), &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "");
   EXPECT_THAT(ctx.get_error(),
               ::testing::HasSubstr(

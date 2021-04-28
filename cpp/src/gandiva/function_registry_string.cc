@@ -240,8 +240,8 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      kResultNullIfNull, "split_part",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
-      NativeFunction("initcap", {}, DataTypeVector{utf8()}, utf8(),
-                     kResultNullIfNull, "gdv_fn_initcap_utf8",
+      NativeFunction("initcap", {}, DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
+                     "gdv_fn_initcap_utf8",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)};
 
   return string_fn_registry_;
