@@ -61,7 +61,7 @@ const FunctionNode IlikeHolder::TryOptimize(const FunctionNode& node) {
   return node;
 }
 
-static bool IsArrowStringLiteral(arrow::Type::type type) {
+static bool IsStringLiteral(arrow::Type::type type) {
   return type == arrow::Type::STRING || type == arrow::Type::BINARY;
 }
 
@@ -76,7 +76,7 @@ Status IlikeHolder::Make(const FunctionNode& node, std::shared_ptr<IlikeHolder>*
 
   auto literal_type = literal->return_type()->id();
   ARROW_RETURN_IF(
-      !IsArrowStringLiteral(literal_type),
+      !IsStringLiteral(literal_type),
       Status::Invalid(
           "'ilike' function requires a string literal as the second parameter"));
 
