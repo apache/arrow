@@ -17,10 +17,10 @@
 
 #include "gandiva/gdv_function_stubs.h"
 
+#include <boost/format.hpp>
 #include <cstdlib>
 #include <string>
 #include <vector>
-#include <boost/format.hpp>
 
 #include "arrow/util/formatting.h"
 #include "arrow/util/value_parsing.h"
@@ -32,6 +32,7 @@
 #include "gandiva/like_holder.h"
 #include "gandiva/precompiled/types.h"
 #include "gandiva/random_generator_holder.h"
+#include "gandiva/to_char_holder.h"
 #include "gandiva/to_date_holder.h"
 
 /// Stub functions that can be accessed from LLVM or the pre-compiled library.
@@ -309,17 +310,18 @@ CAST_NUMERIC_FROM_STRING(double, arrow::DoubleType, FLOAT8)
 
 #undef CAST_NUMERIC_FROM_STRING
 
-#define GDV_FN_TO_CHAR(IN_TYPE, ARROW_TYPE, TYPE_NAME)                    \
-  GANDIVA_EXPORT                                                                     \
-  const char* gdv_fn_to_char_##IN_TYPE##_utf8(int64_t context, gdv_##IN_TYPE##_t data,    \
-                                         const char* format, int32_t format_len) {                              \
-    return "";                                                                      \
+#define GDV_FN_TO_CHAR(IN_TYPE, ARROW_TYPE, TYPE_NAME)                                 \
+  GANDIVA_EXPORT                                                                       \
+  const char* gdv_fn_to_char_##TYPE_NAME##_utf8(                                       \
+      int64_t context, gdv_##IN_TYPE data, const char* format, int32_t format_len) {   \
+    gandiva::ToCharHolder* holder = reinterpret_cast<gandiva::ToCharHolder*>(context); \
+    return holder->Format<gdv_##IN_TYPE>(data);                                        \
   }
 
 GDV_FN_TO_CHAR(int32, arrow::Int32Type, INT)
 GDV_FN_TO_CHAR(int64, arrow::Int64Type, BIGINT)
-GDV_FN_TO_CHAR(float, arrow::FloatType, FLOAT4)
-GDV_FN_TO_CHAR(double, arrow::DoubleType, FLOAT8)
+GDV_FN_TO_CHAR(float32, arrow::FloatType, FLOAT4)
+GDV_FN_TO_CHAR(float64, arrow::DoubleType, FLOAT8)
 
 #undef CAST_NUMERIC_FROM_STRING
 
@@ -570,41 +572,41 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("gdv_fn_castFLOAT8_utf8", types->double_type(), args,
                                   reinterpret_cast<void*>(gdv_fn_castFLOAT8_utf8));
 
-    // gdv_fn_to_char_int32_int64
-    args = {types->i64_type(),       // int64_t execution_context
-            types->i32_type(),       // int32_t data
-            types->i8_ptr_type(),       // const char* format
-            types->i32_type()};  // int32_t format_len
-    engine->AddGlobalMappingForFunc(
-            "gdv_fn_to_char_int32_utf8", types->i8_ptr_type() /*return_type*/, args,
-            reinterpret_cast<void*>(gdv_fn_to_char_int32_utf8));
+  // gdv_fn_to_char_int32_int64
+  args = {types->i64_type(),     // int64_t execution_context
+          types->i32_type(),     // int32_t data
+          types->i8_ptr_type(),  // const char* format
+          types->i32_type()};    // int32_t format_len
+  engine->AddGlobalMappingForFunc("gdv_fn_to_char_int32_utf8",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_to_char_INT_utf8));
 
-    // gdv_fn_to_char_int64_int64
-    args = {types->i64_type(),       // int64_t execution_context
-            types->i64_type(),       // int64_t data
-            types->i8_ptr_type(),       // const char* format
-            types->i32_type()};  // int32_t format_len
-    engine->AddGlobalMappingForFunc(
-            "gdv_fn_to_char_int64_utf8", types->i8_ptr_type() /*return_type*/, args,
-            reinterpret_cast<void*>(gdv_fn_to_char_int64_utf8));
+  // gdv_fn_to_char_int64_int64
+  args = {types->i64_type(),     // int64_t execution_context
+          types->i64_type(),     // int64_t data
+          types->i8_ptr_type(),  // const char* format
+          types->i32_type()};    // int32_t format_len
+  engine->AddGlobalMappingForFunc("gdv_fn_to_char_int64_utf8",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_to_char_BIGINT_utf8));
 
-    // gdv_fn_to_char_float32_int64
-    args = {types->i64_type(),       // int64_t execution_context
-            types->float_type(),       // float data
-            types->i8_ptr_type(),       // const char* format
-            types->i32_type()};  // int32_t format_len
-    engine->AddGlobalMappingForFunc(
-            "gdv_fn_to_char_float32_utf8", types->i8_ptr_type() /*return_type*/, args,
-            reinterpret_cast<void*>(gdv_fn_to_char_float_utf8));
+  // gdv_fn_to_char_float32_int64
+  args = {types->i64_type(),     // int64_t execution_context
+          types->float_type(),   // float data
+          types->i8_ptr_type(),  // const char* format
+          types->i32_type()};    // int32_t format_len
+  engine->AddGlobalMappingForFunc("gdv_fn_to_char_float32_utf8",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_to_char_FLOAT4_utf8));
 
-    // gdv_fn_to_char_float64_int64
-    args = {types->i64_type(),       // int64_t execution_context
-            types->double_type(),       // double data
-            types->i8_ptr_type(),       // const char* format
-            types->i32_type()};  // int32_t format_len
-    engine->AddGlobalMappingForFunc(
-            "gdv_fn_to_char_double_utf8", types->i8_ptr_type() /*return_type*/, args,
-            reinterpret_cast<void*>(gdv_fn_to_char_double_utf8));
+  // gdv_fn_to_char_float64_int64
+  args = {types->i64_type(),     // int64_t execution_context
+          types->double_type(),  // double data
+          types->i8_ptr_type(),  // const char* format
+          types->i32_type()};    // int32_t format_len
+  engine->AddGlobalMappingForFunc("gdv_fn_to_char_double_utf8",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_to_char_FLOAT8_utf8));
 
   // gdv_fn_castVARCHAR_int32_int64
   args = {types->i64_type(),       // int64_t execution_context

@@ -89,6 +89,7 @@ set(SRC_FILES
     selection_vector.cc
     tree_expr_builder.cc
     to_date_holder.cc
+    to_char_holder.cpp
     random_generator_holder.cc
     ${GANDIVA_PRECOMPILED_CC_PATH})
 

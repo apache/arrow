@@ -17,58 +17,63 @@
 
 #pragma once
 
+#include "arrow/status.h"
+
+#include "gandiva/execution_context.h"
+#include "gandiva/function_holder.h"
+#include "gandiva/node.h"
+#include "gandiva/visibility.h"
+
 namespace gandiva {
-    /// Function Holder for SQL 'to_char'
+/// Function Holder for SQL 'to_char'
 
-    template<typename T>
-    class GANDIVA_EXPORT ToCharHolder : public FunctionHolder {
+class GANDIVA_EXPORT ToCharHolder : public FunctionHolder {
+ public:
+  ~ToCharHolder() override = default;
 
-    public:
-        ~ToCharHolder() override = default;
+  static Status Make(const FunctionNode& node, std::shared_ptr<ToCharHolder>* holder);
 
-        static Status Make(const FunctionNode& node, std::shared_ptr<ToCharHolder>* holder);
+  static Status Make(const std::string& java_pattern,
+                     std::shared_ptr<ToCharHolder>* holder);
 
-        static Status Make(const std::string& java_pattern, std::shared_ptr<ToCharHolder>* holder);
+  template <typename T>
+  const char* Format(T number) {
+    return "";
+  }
 
-        const char* Format(T number, int32_t number_type) {
-            return "";
-        }
+ private:
+  explicit ToCharHolder(const char* pattern, int32_t pattern_size)
+      : pattern_(pattern), pattern_size_(pattern_size) {
+    maximumFractionDigits_ = Setup();
+  }
 
-    private:
+  // Sets the format's metadata, such as the maximum number of decimal digits and if
+  // the patterns contains a dollar sign.
+  int32_t Setup() {
+    int32_t ret = 0;
+    bool is_decimal_part = false;
+    has_dollar_sign_ = false;
+    for (size_t i = 0; i < pattern_size_; ++i) {
+      if (pattern_[i] == '$') {
+        has_dollar_sign_ = true;
+      }
 
-    explicit ToCharHolder(const char* pattern, int32_t pattern_size)
-            : pattern_(pattern), pattern_size_(pattern_size) {
-        maximumFractionDigits_ = Setup();
+      if (pattern_[i] == '.') {
+        is_decimal_part = true;
+        continue;
+      }
+
+      if (is_decimal_part) {
+        ret++;
+      }
     }
 
-        // Sets the format's metadata, such as the maximum number of decimal digits and if
-        // the patterns contains a dollar sign.
-        int32_t Setup() {
-            int32_t ret = 0;
-            bool is_decimal_part = false;
-            has_dollar_sign_ = false;
-            for (size_t i = 0; i < pattern_size_; ++i) {
-                if (pattern_[i] == '$') {
-                    has_dollar_sign_ = true;
-                }
+    return ret;
+  }
 
-                if (pattern_[i] == '.') {
-                    is_decimal_part = true;
-                    continue;
-                }
-
-                if (is_decimal_part) {
-                    ret++;
-                }
-            }
-
-            return ret;
-        }
-
-        const char* pattern_;
-        size_t pattern_size_;
-        int32_t maximumFractionDigits_;
-        bool has_dollar_sign_;
-
-    };
-}
+  const char* pattern_;
+  size_t pattern_size_;
+  int32_t maximumFractionDigits_;
+  bool has_dollar_sign_;
+};
+}  // namespace gandiva
