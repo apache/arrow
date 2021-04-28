@@ -269,6 +269,7 @@ class ARROW_DS_EXPORT Scanner {
   /// If the readahead queue fills up then I/O will pause until the calling thread catches
   /// up.
   virtual Result<TaggedRecordBatchIterator> ScanBatches() = 0;
+  virtual Result<TaggedRecordBatchGenerator> ScanBatchesAsync() = 0;
   /// \brief Scan the dataset into a stream of record batches.  Unlike ScanBatches this
   /// method may allow record batches to be returned out of order.  This allows for more
   /// efficient scanning: some fragments may be accessed more quickly than others (e.g.
@@ -277,6 +278,7 @@ class ARROW_DS_EXPORT Scanner {
   /// To make up for the out-of-order iteration each batch is further tagged with
   /// positional information.
   virtual Result<EnumeratedRecordBatchIterator> ScanBatchesUnordered();
+  virtual Result<EnumeratedRecordBatchGenerator> ScanBatchesUnorderedAsync() = 0;
   /// \brief A convenience to synchronously load the given rows by index.
   ///
   /// Will only consume as many batches as needed from ScanBatches().
@@ -349,6 +351,11 @@ class ARROW_DS_EXPORT ScannerBuilder {
   /// \brief Indicate if the Scanner should make use of the available
   ///        ThreadPool found in ScanOptions;
   Status UseThreads(bool use_threads = true);
+
+  /// \brief Limit how many fragments the scanner will read at once
+  ///
+  /// Note: This is only enforced in "async" mode
+  Status FragmentReadahead(int fragment_readahead);
 
   /// \brief Indicate if the Scanner should run in experimental "async" mode
   ///
