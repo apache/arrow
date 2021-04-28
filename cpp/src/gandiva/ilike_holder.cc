@@ -22,8 +22,6 @@
 #include "gandiva/regex_util.h"
 
 namespace gandiva {
-RE2::Options IlikeHolder::regex_op_ = RE2::Options();
-
 RE2 IlikeHolder::starts_with_regex_(R"((?i)(\w|\s)*\.\*)");
 RE2 IlikeHolder::ends_with_regex_(R"((?i)\.\*(\w|\s)*)");
 RE2 IlikeHolder::is_substr_regex_(R"((?i)\.\*(\w|\s)*\.\*)");

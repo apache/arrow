@@ -25,7 +25,6 @@
 #include "arrow/status.h"
 
 #include "gandiva/function_holder.h"
-#include "gandiva/like_holder.h"
 #include "gandiva/node.h"
 #include "gandiva/visibility.h"
 
