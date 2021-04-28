@@ -46,8 +46,8 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v2
         with:
-          name: ubuntu-shared-lib-${{ github.sha }}
-          path: ${{ github.workspace }}/arrow/dist/libgandiva_jni.so
+          name: ubuntu-shared-lib-{{ '${{ github.sha }}' }}
+          path: {{ '${{ github.workspace }}' }}/arrow/dist/libgandiva_jni.so
   build-cpp-macos:
     name: Build C++ Gandiva Libs MacOS
     runs-on: macos-latest
@@ -73,8 +73,8 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v2
         with:
-          name: macos-shared-lib-${{ github.sha }}
-          path: ${{ github.workspace }}/arrow/dist/libgandiva_jni.dylib
+          name: macos-shared-lib-{{ '${{ github.sha }}' }}
+          path: {{ '${{ github.workspace }}' }}/arrow/dist/libgandiva_jni.dylib
   package-jar:
     name: Build Gandiva Jar
     runs-on: macos-latest
@@ -90,13 +90,13 @@ jobs:
       - name: Download Linux Gandiva Library
         uses: actions/download-artifact@v2
         with:
-          name: ubuntu-shared-lib-${{ github.sha }}
-          path: ${{ github.workspace }}/arrow/dist
+          name: ubuntu-shared-lib-{{ '${{ github.sha }}' }}
+          path: {{ '${{ github.workspace }}' }}/arrow/dist
       - name: Download MacOS Gandiva Library
         uses: actions/download-artifact@v2
         with:
-          name: macos-shared-lib-${{ github.sha }}
-          path: ${{ github.workspace }}/arrow/dist
+          name: macos-shared-lib-{{ '${{ github.sha }}' }}
+          path: {{ '${{ github.workspace }}' }}/arrow/dist
       - name: Build Gandiva Jar
         run: |
           cd arrow
@@ -105,7 +105,7 @@ jobs:
           dev/tasks/gandiva-jars/build-java.sh
         env:
           OS_NAME: "osx"
-          COPY_JAR_TO_DISTRIBUTION_FOLDER: false
+          COPY_JAR_TO_DISTRIBUTION_FOLDER: true
           MACOSX_DEPLOYMENT_TARGET: "10.11"
   
       {{ macros.github_upload_releases("arrow/dist/*.jar")|indent }}
