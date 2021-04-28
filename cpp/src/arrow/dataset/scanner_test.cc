@@ -605,13 +605,13 @@ class TestReordering : public ::testing::Test {
                                                    TaggedRecordBatchGenerator gen) {
     std::vector<TaggedRecordBatch> collected;
     auto last_indices = GetLastIndices(order);
-    int num_fragments = last_indices.size();
+    int num_fragments = static_cast<int>(last_indices.size());
     std::vector<int> batches_seen_for_fragment(num_fragments);
     auto current_fragment_index = 0;
     auto seen_fragment = false;
     for (std::size_t i = 0; i < order.size(); i++) {
       auto fragment_index = order[i];
-      dataset_->DeliverBatch(fragment_index, i);
+      dataset_->DeliverBatch(fragment_index, static_cast<int>(i));
       batches_seen_for_fragment[fragment_index]++;
       if (static_cast<int>(i) == last_indices[fragment_index]) {
         dataset_->FinishFragment(fragment_index);
@@ -678,7 +678,7 @@ class TestReordering : public ::testing::Test {
     auto fragment_stats = GetFragmentStats(order);
     for (std::size_t i = 0; i < order.size(); i++) {
       auto fragment_index = order[i];
-      dataset_->DeliverBatch(fragment_index, i);
+      dataset_->DeliverBatch(fragment_index, static_cast<int>(i));
       if (static_cast<int>(i) == fragment_stats[fragment_index].last_index) {
         dataset_->FinishFragment(fragment_index);
         EXPECT_FINISHES_OK_AND_ASSIGN(auto next, gen());
