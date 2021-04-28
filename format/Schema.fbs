@@ -273,12 +273,14 @@ enum IntervalUnit: short { YEAR_MONTH, DAY_TIME, MONTH_DAY_NANO}
 // A "calendar" interval which models types that don't necessarily
 // have a precise duration without the context of a base timestamp (e.g.
 // days can differ in length during day light savings time transitions).
+// All integers in the types below are stored in the endianness indicated
+// by the schema.
 // YEAR_MONTH - Indicates the number of elapsed whole months, stored as
 //   4-byte integers.
 // DAY_TIME - Indicates the number of elapsed days and milliseconds,
 //   stored as 2 contiguous 32-bit integers (8-bytes in total).  Support
 //   of this IntervalUnit is not required for full arrow compatibility.
-// MONTH_DAY_NANOS - A triple of (# of months, # of days, # nanoseconds).
+// MONTH_DAY_NANOS - A triple of # of elapsted months, days, and nanoseconds.
 //  The values are stored contiguously in 16 byte blocks. Months and
 //  days are encoded as 32 bit integers and nanoseconds is encoded as a
 //  64 bit integer.
