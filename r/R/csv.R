@@ -620,7 +620,7 @@ readr_to_csv_convert_options <- function(na,
 #' @param sink A string file path, URI, or [OutputStream], or path in a file
 #' system (`SubTreeFileSystem`)
 #' @param include_header Whether to write an initial header line with column names
-#' @param batch_size Maximum number of rows processed at a time. Default is 1024
+#' @param batch_size Maximum number of rows processed at a time. Default is 1024.
 #'
 #' @return The input `x`, invisibly. Note that if `sink` is an [OutputStream],
 #' the stream will be left open.
