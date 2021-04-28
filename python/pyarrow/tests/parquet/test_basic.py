@@ -139,10 +139,15 @@ def test_special_chars_filename(tempdir, use_legacy_dataset):
 
 @parametrize_legacy_dataset
 def test_invalid_source(use_legacy_dataset):
-    with pytest.raises(TypeError, match="instead of the given type: NoneType"):
+    # Test that we provide an helpful error message pointing out
+    # that None wasn't expected when trying to open a Parquet None file.
+    #
+    # Depending on use_legacy_dataset the message changes slightly
+    # but in both cases it should point out that None wasn't expected.
+    with pytest.raises(TypeError, match="None"):
         pq.read_table(None, use_legacy_dataset=use_legacy_dataset)
 
-    with pytest.raises(TypeError, match="instead of the given type: NoneType"):
+    with pytest.raises(TypeError, match="None"):
         pq.ParquetFile(None)
 
 
