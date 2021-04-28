@@ -52,10 +52,8 @@ Status ExprDecomposer::Visit(const FieldNode& node) {
 // eg. replacing 'like' with 'starts_with' can save function calls at evaluation
 // time.
 const FunctionNode ExprDecomposer::TryOptimize(const FunctionNode& node) {
-  if (node.descriptor()->name() == "like") {
+  if (node.descriptor()->name() == "like" || node.descriptor()->name() == "ilike") {
     return LikeHolder::TryOptimize(node);
-  } else if (node.descriptor()->name() == "ilike") {
-    return IlikeHolder::TryOptimize(node);
   } else {
     return node;
   }

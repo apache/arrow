@@ -25,7 +25,6 @@
 #include "arrow/status.h"
 
 #include "gandiva/function_holder.h"
-#include "gandiva/ilike_holder.h"
 #include "gandiva/like_holder.h"
 #include "gandiva/node.h"
 #include "gandiva/random_generator_holder.h"
@@ -63,7 +62,7 @@ class FunctionHolderRegistry {
   static map_type& makers() {
     static map_type maker_map = {
         {"like", LAMBDA_MAKER(LikeHolder)},
-        {"ilike", LAMBDA_MAKER(IlikeHolder)},
+        {"ilike", LAMBDA_MAKER(LikeHolder)},
         {"to_date", LAMBDA_MAKER(ToDateHolder)},
         {"random", LAMBDA_MAKER(RandomGeneratorHolder)},
         {"rand", LAMBDA_MAKER(RandomGeneratorHolder)},

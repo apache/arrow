@@ -80,6 +80,12 @@ Status LikeHolder::Make(const FunctionNode& node, std::shared_ptr<LikeHolder>* h
       !IsArrowStringLiteral(literal_type),
       Status::Invalid(
           "'like' function requires a string literal as the second parameter"));
+  if (node.descriptor()->name() == "ilike") {
+    RE2::Options regex_op;
+    regex_op.set_case_sensitive(false);  // set case-insensitive for ilike function.
+
+    return Make(arrow::util::get<std::string>(literal->holder()), holder, regex_op);
+  }
   if (node.children().size() == 2) {
     return Make(arrow::util::get<std::string>(literal->holder()), holder);
   } else {
@@ -125,6 +131,19 @@ Status LikeHolder::Make(const std::string& sql_pattern, const std::string& escap
   }
 
   auto lholder = std::shared_ptr<LikeHolder>(new LikeHolder(pcre_pattern));
+  ARROW_RETURN_IF(!lholder->regex_.ok(),
+                  Status::Invalid("Building RE2 pattern '", pcre_pattern, "' failed"));
+
+  *holder = lholder;
+  return Status::OK();
+}
+
+Status LikeHolder::Make(const std::string& sql_pattern,
+                        std::shared_ptr<LikeHolder>* holder, RE2::Options regex_op) {
+  std::string pcre_pattern;
+  ARROW_RETURN_NOT_OK(RegexUtil::SqlLikePatternToPcre(sql_pattern, pcre_pattern));
+
+  auto lholder = std::shared_ptr<LikeHolder>(new LikeHolder(pcre_pattern, regex_op));
   ARROW_RETURN_IF(!lholder->regex_.ok(),
                   Status::Invalid("Building RE2 pattern '", pcre_pattern, "' failed"));
 

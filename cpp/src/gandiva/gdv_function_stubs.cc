@@ -29,7 +29,6 @@
 #include "gandiva/exported_funcs.h"
 #include "gandiva/formatting_utils.h"
 #include "gandiva/hash_utils.h"
-#include "gandiva/ilike_holder.h"
 #include "gandiva/in_holder.h"
 #include "gandiva/like_holder.h"
 #include "gandiva/precompiled/types.h"
@@ -55,7 +54,7 @@ bool gdv_fn_like_utf8_utf8_utf8(int64_t ptr, const char* data, int data_len,
 
 bool gdv_fn_ilike_utf8_utf8(int64_t ptr, const char* data, int data_len,
                             const char* pattern, int pattern_len) {
-  gandiva::IlikeHolder* holder = reinterpret_cast<gandiva::IlikeHolder*>(ptr);
+  gandiva::LikeHolder* holder = reinterpret_cast<gandiva::LikeHolder*>(ptr);
   return (*holder)(std::string(data, data_len));
 }
 

@@ -211,4 +211,103 @@ TEST_F(TestLikeHolder, TestMultipleEscapeChar) {
   auto status = LikeHolder::Make("ab\\_", "\\\\", &like_holder);
   EXPECT_EQ(status.ok(), false) << status.message();
 }
+class TestILikeHolder : public ::testing::Test {
+ public:
+  RE2::Options regex_op;
+  FunctionNode BuildILike(std::string pattern) {
+    auto field = std::make_shared<FieldNode>(arrow::field("in", arrow::utf8()));
+    auto pattern_node =
+        std::make_shared<LiteralNode>(arrow::utf8(), LiteralHolder(pattern), false);
+    return FunctionNode("ilike", {field, pattern_node}, arrow::boolean());
+  }
+};
+
+TEST_F(TestILikeHolder, TestMatchAny) {
+  std::shared_ptr<LikeHolder> like_holder;
+
+  regex_op.set_case_sensitive(false);
+  auto status = LikeHolder::Make("ab%", &like_holder, regex_op);
+  EXPECT_EQ(status.ok(), true) << status.message();
+
+  auto& like = *like_holder;
+  EXPECT_TRUE(like("ab"));
+  EXPECT_TRUE(like("aBc"));
+  EXPECT_TRUE(like("ABCD"));
+
+  EXPECT_FALSE(like("a"));
+  EXPECT_FALSE(like("cab"));
+}
+
+TEST_F(TestILikeHolder, TestMatchOne) {
+  std::shared_ptr<LikeHolder> like_holder;
+
+  regex_op.set_case_sensitive(false);
+  auto status = LikeHolder::Make("Ab_", &like_holder, regex_op);
+  EXPECT_EQ(status.ok(), true) << status.message();
+
+  auto& like = *like_holder;
+  EXPECT_TRUE(like("abc"));
+  EXPECT_TRUE(like("aBd"));
+
+  EXPECT_FALSE(like("A"));
+  EXPECT_FALSE(like("Abcd"));
+  EXPECT_FALSE(like("DaBc"));
+}
+
+TEST_F(TestILikeHolder, TestPcreSpecial) {
+  std::shared_ptr<LikeHolder> like_holder;
+
+  regex_op.set_case_sensitive(false);
+  auto status = LikeHolder::Make(".*aB_", &like_holder, regex_op);
+  EXPECT_EQ(status.ok(), true) << status.message();
+
+  auto& like = *like_holder;
+  EXPECT_TRUE(like(".*Abc"));  // . and * aren't special in sql regex
+  EXPECT_FALSE(like("xxAbc"));
+}
+
+TEST_F(TestILikeHolder, TestDot) {
+  std::shared_ptr<LikeHolder> like_holder;
+
+  regex_op.set_case_sensitive(false);
+  auto status = LikeHolder::Make("aBc.", &like_holder, regex_op);
+  EXPECT_EQ(status.ok(), true) << status.message();
+
+  auto& like = *like_holder;
+  EXPECT_FALSE(like("abcd"));
+}
+
+TEST_F(TestILikeHolder, TestOptimise) {
+  // optimise for 'starts_with'
+  auto fnode = LikeHolder::TryOptimize(BuildILike("xy 123z%"));
+  EXPECT_EQ(fnode.descriptor()->name(), "starts_with");
+  EXPECT_EQ(fnode.ToString(), "bool starts_with((string) in, (const string) xy 123z)");
+
+  // optimise for 'ends_with'
+  fnode = LikeHolder::TryOptimize(BuildILike("%xyz"));
+  EXPECT_EQ(fnode.descriptor()->name(), "ends_with");
+  EXPECT_EQ(fnode.ToString(), "bool ends_with((string) in, (const string) xyz)");
+
+  // optimise for 'is_substr'
+  fnode = LikeHolder::TryOptimize(BuildILike("%abc%"));
+  EXPECT_EQ(fnode.descriptor()->name(), "is_substr");
+  EXPECT_EQ(fnode.ToString(), "bool is_substr((string) in, (const string) abc)");
+
+  // no optimisation for others.
+  fnode = LikeHolder::TryOptimize(BuildILike("xyz_"));
+  EXPECT_EQ(fnode.descriptor()->name(), "ilike");
+
+  fnode = LikeHolder::TryOptimize(BuildILike("_xyz"));
+  EXPECT_EQ(fnode.descriptor()->name(), "ilike");
+
+  fnode = LikeHolder::TryOptimize(BuildILike("_xyz_"));
+  EXPECT_EQ(fnode.descriptor()->name(), "ilike");
+
+  fnode = LikeHolder::TryOptimize(BuildILike("%xyz_"));
+  EXPECT_EQ(fnode.descriptor()->name(), "ilike");
+
+  fnode = LikeHolder::TryOptimize(BuildILike("x_yz%"));
+  EXPECT_EQ(fnode.descriptor()->name(), "ilike");
+}
+
 }  // namespace gandiva
