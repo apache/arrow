@@ -70,7 +70,7 @@ inline RecordBatchIterator FilterRecordBatch(RecordBatchIterator it,
 }
 
 inline Result<std::shared_ptr<RecordBatch>> ProjectSingleBatch(
-    const std::shared_ptr<RecordBatch>& in, const Expression& projection,
+    const std::shared_ptr<RecordBatch>& in, const compute::Expression& projection,
     MemoryPool* pool) {
   compute::ExecContext exec_context{pool};
   ARROW_ASSIGN_OR_RAISE(Datum projected,
@@ -126,10 +126,10 @@ class FilterAndProjectScanTask : public ScanTask {
   Result<RecordBatchIterator> ToFilteredAndProjectedIterator(
       const RecordBatchVector& rbs) {
     auto it = MakeVectorIterator(rbs);
-    ARROW_ASSIGN_OR_RAISE(Expression simplified_filter,
+    ARROW_ASSIGN_OR_RAISE(compute::Expression simplified_filter,
                           SimplifyWithGuarantee(options()->filter, partition_));
 
-    ARROW_ASSIGN_OR_RAISE(Expression simplified_projection,
+    ARROW_ASSIGN_OR_RAISE(compute::Expression simplified_projection,
                           SimplifyWithGuarantee(options()->projection, partition_));
 
     RecordBatchIterator filter_it =
@@ -141,10 +141,10 @@ class FilterAndProjectScanTask : public ScanTask {
 
   Result<std::shared_ptr<RecordBatch>> FilterAndProjectBatch(
       const std::shared_ptr<RecordBatch>& batch) {
-    ARROW_ASSIGN_OR_RAISE(Expression simplified_filter,
+    ARROW_ASSIGN_OR_RAISE(compute::Expression simplified_filter,
                           SimplifyWithGuarantee(options()->filter, partition_));
 
-    ARROW_ASSIGN_OR_RAISE(Expression simplified_projection,
+    ARROW_ASSIGN_OR_RAISE(compute::Expression simplified_projection,
                           SimplifyWithGuarantee(options()->projection, partition_));
     ARROW_ASSIGN_OR_RAISE(auto filtered,
                           FilterSingleBatch(batch, simplified_filter, options_->pool));

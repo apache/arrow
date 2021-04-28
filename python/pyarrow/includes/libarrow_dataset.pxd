@@ -32,28 +32,36 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         pass
 
 
-cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
+cdef extern from "arrow/compute/exec/expression.h" namespace "arrow::compute" nogil:
 
-    cdef cppclass CExpression "arrow::dataset::Expression":
+    cdef cppclass CExpression "arrow::compute::Expression":
         c_bool Equals(const CExpression& other) const
         c_string ToString() const
         CResult[CExpression] Bind(const CSchema&)
 
     cdef CExpression CMakeScalarExpression \
-        "arrow::dataset::literal"(shared_ptr[CScalar] value)
+        "arrow::compute::literal"(shared_ptr[CScalar] value)
 
     cdef CExpression CMakeFieldExpression \
-        "arrow::dataset::field_ref"(c_string name)
+        "arrow::compute::field_ref"(c_string name)
 
     cdef CExpression CMakeCallExpression \
-        "arrow::dataset::call"(c_string function,
+        "arrow::compute::call"(c_string function,
                                vector[CExpression] arguments,
                                shared_ptr[CFunctionOptions] options)
 
     cdef CResult[shared_ptr[CBuffer]] CSerializeExpression \
-        "arrow::dataset::Serialize"(const CExpression&)
+        "arrow::compute::Serialize"(const CExpression&)
+
     cdef CResult[CExpression] CDeserializeExpression \
-        "arrow::dataset::Deserialize"(shared_ptr[CBuffer])
+        "arrow::compute::Deserialize"(shared_ptr[CBuffer])
+
+    cdef CResult[unordered_map[CFieldRef, CDatum, CFieldRefHash]] \
+        CExtractKnownFieldValues "arrow::compute::ExtractKnownFieldValues"(
+            const CExpression& partition_expression)
+
+
+cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CScanOptions "arrow::dataset::ScanOptions":
         @staticmethod
@@ -330,10 +338,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             shared_ptr[CPartitioningFactory])
         shared_ptr[CPartitioning] partitioning() const
         shared_ptr[CPartitioningFactory] factory() const
-
-    cdef CResult[unordered_map[CFieldRef, CDatum, CFieldRefHash]] \
-        CExtractKnownFieldValues "arrow::dataset::ExtractKnownFieldValues"(
-            const CExpression& partition_expression)
 
     cdef cppclass CFileSystemFactoryOptions \
             "arrow::dataset::FileSystemFactoryOptions":
