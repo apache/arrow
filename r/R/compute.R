@@ -285,19 +285,8 @@ cast_options <- function(safe = TRUE, ...) {
   modifyList(opts, list(...))
 }
 
-#' String splitting
-#' 
-#' Split a string into a list of strings
-#' 
-#' @param x `Scalar`, `Array` or `ChunkedArray`
-#' @param pattern The exact substring to look for inside input values.
-#' @param max_splits Maximum number of splits. Default -1 means no limit.
-#' @param reverse When true, the splitting is done from the end of the string.
-#' 
-#' @return An object (same type as `x`) containing lists of strings
-#' 
 #' @export
-split_pattern <- function(x, pattern, max_splits = -1L, reverse = FALSE){
-  split_options <- list(pattern = pattern, max_splits = max_splits, reverse = reverse)
+strsplit.ArrowDatum <- function(x, split, fixed = TRUE, perl = FALSE, useBytes = FALSE){
+  split_options <- list(pattern = split)
   call_function("split_pattern", x, options = split_options)
 }
