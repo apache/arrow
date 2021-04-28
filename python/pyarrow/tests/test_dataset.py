@@ -21,7 +21,6 @@ import posixpath
 import pathlib
 import pickle
 import textwrap
-import threading
 
 import numpy as np
 import pytest
@@ -307,15 +306,13 @@ def test_dataset(dataset):
     # TODO(kszucs): test non-boolean Exprs for filter do raise
     expected_i64 = pa.array([0, 1, 2, 3, 4], type=pa.int64())
     expected_f64 = pa.array([0, 1, 2, 3, 4], type=pa.float64())
-    with pytest.deprecated_call():
-        dataset.scan()
 
     for batch in dataset.to_batches():
         assert isinstance(batch, pa.RecordBatch)
         assert batch.column(0).equals(expected_i64)
         assert batch.column(1).equals(expected_f64)
 
-    for batch in ds.Scanner.from_dataset(dataset).scan_batches():
+    for batch in dataset.scanner().scan_batches():
         assert isinstance(batch, ds.TaggedRecordBatch)
         assert isinstance(batch.fragment, ds.Fragment)
 
@@ -333,37 +330,25 @@ def test_dataset(dataset):
     assert sorted(result['key']) == ['xxx', 'yyy']
 
 
-def test_dataset_execute_iterator(dataset):
-    # ARROW-11596: this would segfault due to Cython raising
-    # StopIteration without holding the GIL. (Fixed on Cython master,
-    # post 3.0a6)
-    with pytest.deprecated_call():
-        tasks = dataset.scan()
-    task = next(tasks)
-    iterator = task.execute()
-    thread = threading.Thread(target=lambda: next(iterator))
-    thread.start()
-    thread.join()
-    with pytest.raises(StopIteration):
-        next(iterator)
-
-
 def test_scanner(dataset):
-    scanner = ds.Scanner.from_dataset(dataset,
-                                      memory_pool=pa.default_memory_pool())
+    scanner = dataset.scanner(memory_pool=pa.default_memory_pool())
     assert isinstance(scanner, ds.Scanner)
 
     with pytest.raises(pa.ArrowInvalid):
-        ds.Scanner.from_dataset(dataset, columns=['unknown'])
+        dataset.scanner(columns=['unknown'])
 
-    scanner = ds.Scanner.from_dataset(dataset, columns=['i64'],
-                                      memory_pool=pa.default_memory_pool())
+    scanner = dataset.scanner(columns=['i64'],
+                              memory_pool=pa.default_memory_pool())
+    assert scanner.dataset_schema == dataset.schema
+    assert scanner.projected_schema == pa.schema([("i64", pa.int64())])
 
     assert isinstance(scanner, ds.Scanner)
     for batch in scanner.to_batches():
+        assert batch.schema == scanner.projected_schema
         assert batch.num_columns == 1
 
     table = scanner.to_table()
+    assert table.schema == scanner.projected_schema
     for i in range(table.num_rows):
         indices = pa.array([i])
         assert table.take(indices) == scanner.take(indices)
@@ -671,7 +656,7 @@ def test_filesystem_factory(mockfs, paths_or_selector, pre_buffer):
     dataset = factory.finish()
     assert isinstance(dataset, ds.FileSystemDataset)
 
-    scanner = ds.Scanner.from_dataset(dataset)
+    scanner = dataset.scanner()
     expected_i64 = pa.array([0, 1, 2, 3, 4], type=pa.int64())
     expected_f64 = pa.array([0, 1, 2, 3, 4], type=pa.float64())
     expected_str = pa.DictionaryArray.from_arrays(

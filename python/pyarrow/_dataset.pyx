@@ -359,19 +359,12 @@ cdef class Dataset(_Weakrefable):
         for maybe_fragment in c_fragments:
             yield Fragment.wrap(GetResultValue(move(maybe_fragment)))
 
-    def _scanner(self, **kwargs):
-        return Scanner.from_dataset(self, **kwargs)
-
-    def scan(self, **kwargs):
+    def scanner(self, **kwargs):
         """Builds a scan operation against the dataset.
 
-        It produces a stream of ScanTasks which is meant to be a unit of work
-        to be dispatched. The tasks are not executed automatically, the user is
-        responsible to execute and dispatch the individual tasks, so custom
-        local task scheduling can be implemented.
-
-        .. deprecated:: 4.0.0
-           Use `to_batches` instead.
+        Data is not loaded immediately. Instead, this produces a Scanner,
+        which exposes further operations (e.g. loading all data as a
+        table, counting rows).
 
         Parameters
         ----------
@@ -408,7 +401,7 @@ cdef class Dataset(_Weakrefable):
 
         Returns
         -------
-        scan_tasks : iterator of ScanTask
+        scanner : Scanner
 
         Examples
         --------
@@ -427,13 +420,10 @@ cdef class Dataset(_Weakrefable):
 
         >>> dataset.scan(filter=ds.field("A") > 0)
         """
-        return self._scanner(**kwargs).scan()
+        return Scanner.from_dataset(self, **kwargs)
 
     def to_batches(self, **kwargs):
         """Read the dataset as materialized record batches.
-
-        Builds a scan operation against the dataset and sequentially executes
-        the ScanTasks as the returned generator gets consumed.
 
         See scan method parameters documentation.
 
@@ -441,7 +431,7 @@ cdef class Dataset(_Weakrefable):
         -------
         record_batches : iterator of RecordBatch
         """
-        return self._scanner(**kwargs).to_batches()
+        return self.scanner(**kwargs).to_batches()
 
     def to_table(self, **kwargs):
         """Read the dataset to an arrow table.
@@ -455,7 +445,7 @@ cdef class Dataset(_Weakrefable):
         -------
         table : Table instance
         """
-        return self._scanner(**kwargs).to_table()
+        return self.scanner(**kwargs).to_table()
 
     def head(self, int num_rows, **kwargs):
         """Load the first N rows of the dataset.
@@ -466,7 +456,7 @@ cdef class Dataset(_Weakrefable):
         -------
         table : Table instance
         """
-        return self._scanner(**kwargs).head(num_rows)
+        return self.scanner(**kwargs).head(num_rows)
 
     @property
     def schema(self):
@@ -918,19 +908,12 @@ cdef class Fragment(_Weakrefable):
         """
         return Expression.wrap(self.fragment.partition_expression())
 
-    def _scanner(self, **kwargs):
-        return Scanner.from_fragment(self, **kwargs)
-
-    def scan(self, Schema schema=None, **kwargs):
+    def scanner(self, Schema schema=None, **kwargs):
         """Builds a scan operation against the dataset.
 
-        It produces a stream of ScanTasks which is meant to be a unit of work
-        to be dispatched. The tasks are not executed automatically, the user is
-        responsible to execute and dispatch the individual tasks, so custom
-        local task scheduling can be implemented.
-
-        .. deprecated:: 4.0.0
-           Use `to_batches` instead.
+        Data is not loaded immediately. Instead, this produces a Scanner,
+        which exposes further operations (e.g. loading all data as a
+        table, counting rows).
 
         Parameters
         ----------
@@ -971,9 +954,10 @@ cdef class Fragment(_Weakrefable):
 
         Returns
         -------
-        scan_tasks : iterator of ScanTask
+        scanner : Scanner
+
         """
-        return self._scanner(schema=schema, **kwargs).scan()
+        return Scanner.from_fragment(self, schema=schema, **kwargs)
 
     def to_batches(self, Schema schema=None, **kwargs):
         """Read the fragment as materialized record batches.
@@ -984,7 +968,7 @@ cdef class Fragment(_Weakrefable):
         -------
         record_batches : iterator of RecordBatch
         """
-        return self._scanner(schema=schema, **kwargs).to_batches()
+        return self.scanner(schema=schema, **kwargs).to_batches()
 
     def to_table(self, Schema schema=None, **kwargs):
         """Convert this Fragment into a Table.
@@ -998,7 +982,7 @@ cdef class Fragment(_Weakrefable):
         -------
         table : Table
         """
-        return self._scanner(schema=schema, **kwargs).to_table()
+        return self.scanner(schema=schema, **kwargs).to_table()
 
     def head(self, int num_rows, **kwargs):
         """Load the first N rows of the fragment.
@@ -1009,7 +993,7 @@ cdef class Fragment(_Weakrefable):
         -------
         table : Table instance
         """
-        return self._scanner(**kwargs).head(num_rows)
+        return self.scanner(**kwargs).head(num_rows)
 
 
 cdef class FileFragment(Fragment):
@@ -2548,53 +2532,6 @@ cdef class ParquetDatasetFactory(DatasetFactory):
         self.parquet_factory = <CParquetDatasetFactory*> sp.get()
 
 
-cdef class ScanTask(_Weakrefable):
-    """Read record batches from a range of a single data fragment.
-
-    A ScanTask is meant to be a unit of work to be dispatched.
-    """
-
-    cdef:
-        shared_ptr[CScanTask] wrapped
-        CScanTask* task
-
-    def __init__(self):
-        _forbid_instantiation(self.__class__, subclasses_instead=False)
-
-    cdef init(self, shared_ptr[CScanTask]& sp):
-        self.wrapped = sp
-        self.task = self.wrapped.get()
-
-    @staticmethod
-    cdef wrap(shared_ptr[CScanTask]& sp):
-        cdef ScanTask self = ScanTask.__new__(ScanTask)
-        self.init(sp)
-        return self
-
-    cdef inline shared_ptr[CScanTask] unwrap(self) nogil:
-        return self.wrapped
-
-    def execute(self):
-        """Iterate through sequence of materialized record batches.
-
-        Execution semantics are encapsulated in the particular ScanTask
-        implementation.
-
-        Returns
-        -------
-        record_batches : iterator of RecordBatch
-        """
-        # Return an explicit iterator object instead of using a
-        # generator so that this method is eagerly evaluated (a
-        # generator would mean no work gets done until the first
-        # iteration). This also works around a bug in Cython's
-        # generator.
-        cdef CRecordBatchIterator iterator
-        with nogil:
-            iterator = move(GetResultValue(self.task.Execute()))
-        return RecordBatchIterator.wrap(self, move(iterator))
-
-
 cdef class RecordBatchIterator(_Weakrefable):
     """An iterator over a sequence of record batches."""
     cdef:
@@ -2814,36 +2751,23 @@ cdef class Scanner(_Weakrefable):
         scanner = GetResultValue(builder.get().Finish())
         return Scanner.wrap(scanner)
 
-    def scan(self):
-        """Returns a stream of ScanTasks
+    @property
+    def dataset_schema(self):
+        """The schema with which batches will be read from fragments."""
+        return pyarrow_wrap_schema(
+            self.scanner.options().get().dataset_schema)
 
-        The caller is responsible to dispatch/schedule said tasks. Tasks should
-        be safe to run in a concurrent fashion and outlive the iterator.
+    @property
+    def projected_schema(self):
+        """The materialized schema of the data, accounting for projections.
 
-        .. deprecated:: 4.0.0
-           Use `to_batches` instead.
-
-        Returns
-        -------
-        scan_tasks : iterator of ScanTask
+        This is the schema of any data returned from the scanner.
         """
-        import warnings
-        warnings.warn("Scanner.scan is deprecated as of 4.0.0, "
-                      "please use Scanner.to_batches instead.",
-                      DeprecationWarning)
-        # Planned for removal in ARROW-11782
-        # Make this method eager so the warning appears immediately
-        return self._scan()
-
-    def _scan(self):
-        for maybe_task in GetResultValue(self.scanner.Scan()):
-            yield ScanTask.wrap(GetResultValue(move(maybe_task)))
+        return pyarrow_wrap_schema(
+            self.scanner.options().get().projected_schema)
 
     def to_batches(self):
         """Consume a Scanner in record batches.
-
-        Sequentially executes the ScanTasks as the returned generator gets
-        consumed.
 
         Returns
         -------
@@ -2857,9 +2781,6 @@ cdef class Scanner(_Weakrefable):
 
     def scan_batches(self):
         """Consume a Scanner in record batches with corresponding fragments.
-
-        Sequentially executes the ScanTasks as the returned generator gets
-        consumed.
 
         Returns
         -------
@@ -2970,7 +2891,7 @@ def _filesystemdataset_write(
     c_options.max_partitions = max_partitions
     c_options.basename_template = tobytes(basename_template)
 
-    scanner = data._scanner(use_threads=use_threads)
+    scanner = data.scanner(use_threads=use_threads)
 
     c_scanner = (<Scanner> scanner).unwrap()
     with nogil:
