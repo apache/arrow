@@ -16,13 +16,20 @@
 // under the License.
 
 #include "jni/dataset/jni_util.h"
-
+#include "arrow/ipc/metadata_internal.h"
+#include "arrow/util/base64.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 
 #include <memory>
 #include <mutex>
 
+#include <flatbuffers/flatbuffers.h>
+
 namespace arrow {
+
+namespace flatbuf = org::apache::arrow::flatbuf;
+
 namespace dataset {
 namespace jni {
 
@@ -185,6 +192,15 @@ std::shared_ptr<ReservationListener> ReservationListenableMemoryPool::get_listen
 
 ReservationListenableMemoryPool::~ReservationListenableMemoryPool() {}
 
+Status CheckException(JNIEnv* env) {
+  if (env->ExceptionCheck()) {
+    env->ExceptionDescribe();
+    env->ExceptionClear();
+    return Status::Invalid("Error during calling Java code from native code");
+  }
+  return Status::OK();
+}
+
 jclass CreateGlobalClassReference(JNIEnv* env, const char* class_name) {
   jclass local_class = env->FindClass(class_name);
   jclass global_class = (jclass)env->NewGlobalRef(local_class);
@@ -257,115 +273,158 @@ Result<std::shared_ptr<Schema>> FromSchemaByteArray(JNIEnv* env, jbyteArray sche
   return schema;
 }
 
-Status SetSingleField(std::shared_ptr<ArrayData> array_data,
-                      UnsafeNativeManagedRecordBatchProto& batch_proto) {
-  FieldProto* field_adder = batch_proto.add_fields();
-  field_adder->set_length(array_data->length);
-  field_adder->set_nullcount(array_data->null_count);
+Status SetMetadataForSingleField(std::shared_ptr<ArrayData> array_data,
+                                 std::vector<ipc::internal::FieldMetadata>& nodes_meta,
+                                 std::vector<ipc::internal::BufferMetadata>& buffers_meta,
+                                 std::shared_ptr<KeyValueMetadata>& custom_metadata) {
+  nodes_meta.push_back({array_data->length, array_data->null_count, 0L});
 
-  std::vector<std::shared_ptr<Buffer>> buffers;
-  for (const auto& buffer : array_data->buffers) {
-    buffers.push_back(buffer);
-  }
-
-  for (const auto& buffer : buffers) {
+  for (size_t i = 0; i < array_data->buffers.size(); i++) {
+    auto buffer = array_data->buffers.at(i);
     uint8_t* data = nullptr;
     int64_t size = 0;
-    int64_t capacity = 0;
     if (buffer != nullptr) {
       data = (uint8_t*)buffer->data();
       size = buffer->size();
-      capacity = buffer->capacity();
     }
-    NativeManagedBufferProto* native_managed_buffer = batch_proto.add_buffers();
-    native_managed_buffer->set_nativebufferid(CreateNativeRef(buffer));
-    native_managed_buffer->set_memoryaddress(reinterpret_cast<uintptr_t>(data));
-    native_managed_buffer->set_size(size);
-    native_managed_buffer->set_capacity(capacity);
+    ipc::internal::BufferMetadata buffer_metadata{};
+    buffer_metadata.offset = reinterpret_cast<int64_t>(data);
+    buffer_metadata.length = size;
+    // store buffer refs into custom metadata
+    jlong ref = CreateNativeRef(buffer);
+    custom_metadata->Append(
+        "NATIVE_BUFFER_REF_" + std::to_string(i),
+        util::base64_encode(reinterpret_cast<unsigned char*>(&ref), sizeof(ref)));
+    buffers_meta.push_back(buffer_metadata);
   }
+
   auto children_data = array_data->child_data;
   for (const auto& child_data : children_data) {
-    RETURN_NOT_OK(SetSingleField(child_data, batch_proto));
+    RETURN_NOT_OK(
+        SetMetadataForSingleField(child_data, nodes_meta, buffers_meta, custom_metadata));
   }
   return Status::OK();
 }
 
+Result<std::shared_ptr<Buffer>> SerializeMetadata(const RecordBatch& batch,
+                                                  const ipc::IpcWriteOptions& options) {
+  std::vector<ipc::internal::FieldMetadata> nodes;
+  std::vector<ipc::internal::BufferMetadata> buffers;
+  std::shared_ptr<KeyValueMetadata> custom_metadata =
+      std::make_shared<KeyValueMetadata>();
+  for (const auto& column : batch.columns()) {
+    auto array_data = column->data();
+    RETURN_NOT_OK(SetMetadataForSingleField(array_data, nodes, buffers, custom_metadata));
+  }
+  std::shared_ptr<Buffer> meta_buffer;
+  RETURN_NOT_OK(ipc::internal::WriteRecordBatchMessage(
+      batch.num_rows(), 0L, custom_metadata, nodes, buffers, options, &meta_buffer));
+  // no message body is needed for JNI serialization/deserialization
+  int32_t meta_length = -1;
+  ARROW_ASSIGN_OR_RAISE(auto stream, io::BufferOutputStream::Create(1024L));
+  RETURN_NOT_OK(ipc::WriteMessage(*meta_buffer, options, stream.get(), &meta_length));
+  return stream->Finish();
+}
+
 Result<jbyteArray> SerializeUnsafeFromNative(JNIEnv* env,
                                              const std::shared_ptr<RecordBatch>& batch) {
-  UnsafeNativeManagedRecordBatchProto batch_proto;
-  batch_proto.set_numrows(batch->num_rows());
+  ARROW_ASSIGN_OR_RAISE(auto meta_buffer,
+                        SerializeMetadata(*batch, ipc::IpcWriteOptions::Defaults()));
 
-  for (const auto& column : batch->columns()) {
-    auto array_data = column->data();
-    RETURN_NOT_OK(SetSingleField(array_data, batch_proto));
-  }
-
-  auto size = static_cast<int32_t>(batch_proto.ByteSizeLong());
-  std::unique_ptr<jbyte[]> buffer{new jbyte[size]};
-  batch_proto.SerializeToArray(reinterpret_cast<void*>(buffer.get()), size);
-  jbyteArray ret = env->NewByteArray(size);
-  env->SetByteArrayRegion(ret, 0, size, buffer.get());
+  jbyteArray ret = env->NewByteArray(meta_buffer->size());
+  auto src = reinterpret_cast<const jbyte*>(meta_buffer->data());
+  env->SetByteArrayRegion(ret, 0, meta_buffer->size(), src);
   return ret;
 }
 
 Result<std::shared_ptr<ArrayData>> MakeArrayData(
-    JNIEnv* env, const UnsafeJavaManagedRecordBatchProto& batch_proto,
-    const std::shared_ptr<DataType>& type, int* field_offset, int* buffer_offset) {
-  const FieldProto& field = batch_proto.fields((*field_offset)++);
-  int own_buffer_size = static_cast<int>(type->layout().buffers.size());
+    JNIEnv* env, const flatbuf::RecordBatch& batch_meta,
+    const std::shared_ptr<const KeyValueMetadata>& custom_metadata,
+    const std::shared_ptr<DataType>& type, int32_t* field_offset,
+    int32_t* buffer_offset) {
+  const org::apache::arrow::flatbuf::FieldNode* field =
+      batch_meta.nodes()->Get((*field_offset)++);
+  int32_t own_buffer_size = static_cast<int32_t>(type->layout().buffers.size());
   std::vector<std::shared_ptr<Buffer>> buffers;
-  for (int i = *buffer_offset; i < *buffer_offset + own_buffer_size; i++) {
-    const JavaManagedBufferProto& java_managed_buffer = batch_proto.buffers(i);
+  for (int32_t i = *buffer_offset; i < *buffer_offset + own_buffer_size; i++) {
+    const org::apache::arrow::flatbuf::Buffer* java_managed_buffer =
+        batch_meta.buffers()->Get(i);
+    const std::string& cleaner_object_ref_base64 =
+        util::base64_decode(custom_metadata->value(i * 2));
+    const std::string& cleaner_method_ref_base64 =
+        util::base64_decode(custom_metadata->value(i * 2 + 1));
+    const auto* cleaner_object_ref =
+        reinterpret_cast<const jlong*>(cleaner_object_ref_base64.data());
+    const auto* cleaner_method_ref =
+        reinterpret_cast<const jlong*>(cleaner_method_ref_base64.data());
     auto buffer = std::make_shared<JavaAllocatedBuffer>(
-        env, reinterpret_cast<jobject>(java_managed_buffer.cleanerobjectref()),
-        reinterpret_cast<jmethodID>(java_managed_buffer.cleanermethodref()),
-        reinterpret_cast<uint8_t*>(java_managed_buffer.memoryaddress()),
-        java_managed_buffer.size());
+        env, reinterpret_cast<jobject>(*cleaner_object_ref),
+        reinterpret_cast<jmethodID>(*cleaner_method_ref),
+        reinterpret_cast<uint8_t*>(java_managed_buffer->offset()),
+        java_managed_buffer->length());
     buffers.push_back(buffer);
   }
   (*buffer_offset) += own_buffer_size;
   if (type->num_fields() == 0) {
-    return ArrayData::Make(type, field.length(), buffers, field.nullcount());
+    return ArrayData::Make(type, field->length(), buffers, field->null_count());
   }
   std::vector<std::shared_ptr<ArrayData>> children_array_data;
   for (const auto& child_field : type->fields()) {
-    ARROW_ASSIGN_OR_RAISE(
-        auto child_array_data,
-        MakeArrayData(env, batch_proto, child_field->type(), field_offset, buffer_offset))
+    ARROW_ASSIGN_OR_RAISE(auto child_array_data,
+                          MakeArrayData(env, batch_meta, custom_metadata,
+                                        child_field->type(), field_offset, buffer_offset))
     children_array_data.push_back(child_array_data);
   }
-  return ArrayData::Make(type, field.length(), buffers, children_array_data,
-                         field.nullcount());
+  return ArrayData::Make(type, field->length(), buffers, children_array_data,
+                         field->null_count());
 }
 
 Result<std::shared_ptr<RecordBatch>> DeserializeUnsafeFromJava(
-    JNIEnv* env, std::shared_ptr<Schema> schema, jbyteArray data_bytes) {
-  int bytes_len = env->GetArrayLength(data_bytes);
-  jbyte* bytes_data = env->GetByteArrayElements(data_bytes, nullptr);
-  UnsafeJavaManagedRecordBatchProto batch_proto;
-  batch_proto.ParseFromArray(bytes_data, bytes_len);
-  std::vector<std::shared_ptr<ArrayData>> columns_array_data;
-  int field_offset = 0;
-  int buffer_offset = 0;
-  for (int i = 0; i < schema->num_fields(); i++) {
-    auto field = schema->field(i);
-    ARROW_ASSIGN_OR_RAISE(
-        auto column_array_data,
-        MakeArrayData(env, batch_proto, field->type(), &field_offset, &buffer_offset))
+    JNIEnv* env, std::shared_ptr<Schema> schema, jbyteArray byte_array) {
+  int bytes_len = env->GetArrayLength(byte_array);
+  jbyte* byte_data = env->GetByteArrayElements(byte_array, nullptr);
+  io::BufferReader meta_reader(reinterpret_cast<const uint8_t*>(byte_data),
+                               static_cast<int64_t>(bytes_len));
+  ARROW_ASSIGN_OR_RAISE(auto meta_message, ipc::ReadMessage(&meta_reader))
+  auto meta_buffer = meta_message->metadata();
+  auto custom_metadata = meta_message->custom_metadata();
+  const flatbuf::Message* flat_meta = nullptr;
+  RETURN_NOT_OK(
+      ipc::internal::VerifyMessage(meta_buffer->data(), meta_buffer->size(), &flat_meta));
+  auto batch_meta = flat_meta->header_as_RecordBatch();
 
+  // Record batch serialized from java should have two ref IDs per buffer: cleaner object
+  // ref and cleaner method ref. The refs are originally of 64bit integer type and encoded
+  // within base64.
+  if (custom_metadata->size() !=
+      static_cast<int32_t>(batch_meta->buffers()->size() * 2)) {
+    return Status::SerializationError(
+        "Buffer count mismatch between metadata and Java managed refs");
+  }
+
+  std::vector<std::shared_ptr<ArrayData>> columns_array_data;
+  int32_t field_offset = 0;
+  int32_t buffer_offset = 0;
+  for (int32_t i = 0; i < schema->num_fields(); i++) {
+    auto field = schema->field(i);
+    ARROW_ASSIGN_OR_RAISE(auto column_array_data,
+                          MakeArrayData(env, *batch_meta, custom_metadata, field->type(),
+                                        &field_offset, &buffer_offset))
     columns_array_data.push_back(column_array_data);
   }
-  if (field_offset != batch_proto.fields_size()) {
+  if (field_offset != static_cast<int32_t>(batch_meta->nodes()->size())) {
     return Status::SerializationError(
         "Deserialization failed: Field count is not "
         "as expected based on type layout");
   }
-  if (buffer_offset != batch_proto.buffers_size()) {
+  if (buffer_offset != static_cast<int32_t>(batch_meta->buffers()->size())) {
     return Status::SerializationError(
         "Deserialization failed: Buffer count is not "
         "as expected based on type layout");
   }
-  return RecordBatch::Make(schema, batch_proto.numrows(), columns_array_data);
+  int64_t length = batch_meta->length();
+  env->ReleaseByteArrayElements(byte_array, byte_data, JNI_ABORT);
+  return RecordBatch::Make(schema, length, columns_array_data);
 }
 
 }  // namespace jni

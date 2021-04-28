@@ -115,7 +115,7 @@ public class NativeScannerAdaptorImpl implements NativeScannerAdaptor, AutoClose
     }
 
     private byte[] serialize(ArrowRecordBatch batch) {
-      return UnsafeRecordBatchSerializer.fromJavaManagedBatch(batch);
+      return UnsafeRecordBatchSerializer.serializeUnsafe(batch);
     }
   }
 }

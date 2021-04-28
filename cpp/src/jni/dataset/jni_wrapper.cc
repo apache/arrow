@@ -97,11 +97,7 @@ class ReserveFromJava : public arrow::dataset::jni::ReservationListener {
       return arrow::Status::Invalid("JNIEnv was not attached to current thread");
     }
     env->CallObjectMethod(java_reservation_listener_, reserve_memory_method, size);
-    if (env->ExceptionCheck()) {
-      env->ExceptionDescribe();
-      env->ExceptionClear();
-      return arrow::Status::Invalid("Error calling Java side reservation listener");
-    }
+    RETURN_NOT_OK(arrow::dataset::jni::CheckException(env));
     return arrow::Status::OK();
   }
 
@@ -111,11 +107,7 @@ class ReserveFromJava : public arrow::dataset::jni::ReservationListener {
       return arrow::Status::Invalid("JNIEnv was not attached to current thread");
     }
     env->CallObjectMethod(java_reservation_listener_, unreserve_memory_method, size);
-    if (env->ExceptionCheck()) {
-      env->ExceptionDescribe();
-      env->ExceptionClear();
-      return arrow::Status::Invalid("Error calling Java side reservation listener");
-    }
+    RETURN_NOT_OK(arrow::dataset::jni::CheckException(env));
     return arrow::Status::OK();
   }
 
@@ -269,12 +261,8 @@ arrow::Result<std::shared_ptr<arrow::dataset::Scanner>> MakeJavaDatasetScanner(
         }
         auto bytes = (jbyteArray)env->CallObjectMethod(
             java_serialized_record_batch_iterator, serialized_record_batch_iterator_next);
+        RETURN_NOT_OK(arrow::dataset::jni::CheckException(env));
         ARROW_ASSIGN_OR_RAISE(auto batch, FromBytes(env, schema, bytes));
-        if (env->ExceptionCheck()) {
-          env->ExceptionDescribe();
-          env->ExceptionClear();
-          return arrow::Status::Invalid("Error calling Java side record batch iterator");
-        }
         return batch;
       });
 

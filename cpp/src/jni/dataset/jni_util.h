@@ -24,13 +24,13 @@
 #include "arrow/result.h"
 #include "arrow/type.h"
 
-#include "jni/dataset/record_batch.pb.h"
-
 #include <jni.h>
 
 namespace arrow {
 namespace dataset {
 namespace jni {
+
+Status CheckException(JNIEnv* env);
 
 jclass CreateGlobalClassReference(JNIEnv* env, const char* class_name);
 
@@ -56,7 +56,7 @@ Result<jbyteArray> SerializeUnsafeFromNative(JNIEnv* env,
 
 /// \brief Deserialize jbyteArray (Java byte array byte[]) to arrow::RecordBatch.
 Result<std::shared_ptr<RecordBatch>> DeserializeUnsafeFromJava(
-    JNIEnv* env, std::shared_ptr<Schema> schema, jbyteArray data_bytes);
+    JNIEnv* env, std::shared_ptr<Schema> schema, jbyteArray byte_array);
 
 /// \brief Create a new shared_ptr on heap from shared_ptr t to prevent
 /// the managed object from being garbage-collected.

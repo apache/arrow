@@ -20,7 +20,7 @@ package org.apache.arrow.dataset.jni;
 import java.util.Iterator;
 
 /**
- * Iterate on protobuf-serialized {@link org.apache.arrow.vector.ipc.message.ArrowRecordBatch}.
+ * Iterate on flatbuffers-serialized {@link org.apache.arrow.vector.ipc.message.ArrowRecordBatch}.
  * <p>
  * {@link #next()} should be called from C++ scanner to read Java-generated Arrow data.
  */

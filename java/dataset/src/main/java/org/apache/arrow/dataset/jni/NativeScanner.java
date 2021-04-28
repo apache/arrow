@@ -86,7 +86,7 @@ public class NativeScanner implements Scanner {
         if (bytes == null) {
           return false;
         }
-        peek = UnsafeRecordBatchSerializer.toNativeManagedBatch(context.getAllocator(), bytes);
+        peek = UnsafeRecordBatchSerializer.deserializeUnsafe(context.getAllocator(), bytes);
         return true;
       }
 

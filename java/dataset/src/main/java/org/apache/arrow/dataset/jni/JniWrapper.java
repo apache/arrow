@@ -96,8 +96,8 @@ public class JniWrapper {
    * Read next record batch from the specified scanner.
    *
    * @param scannerId the native pointer of the arrow::dataset::Scanner instance.
-   * @return a protobuf-serialized
-   *     {@link org.apache.arrow.dataset.jni.RecordBatchProtos.UnsafeNativeManagedRecordBatchProto} describing
+   * @return a flatbuffers-serialized
+   *     {@link org.apache.arrow.flatbuf.Message} describing
    *     the overall layout of the native record batch.
    */
   public native byte[] nextRecordBatch(long scannerId);

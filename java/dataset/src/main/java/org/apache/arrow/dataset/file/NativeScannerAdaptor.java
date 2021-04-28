@@ -28,7 +28,7 @@ public interface NativeScannerAdaptor {
   /**
    * Scan with the delegated scanner.
    *
-   * @return a iterator outputting JNI-friendly protobuf-serialized
+   * @return a iterator outputting JNI-friendly flatbuffers-serialized
    * {@link org.apache.arrow.vector.ipc.message.ArrowRecordBatch} instances.
    */
   NativeSerializedRecordBatchIterator scan();

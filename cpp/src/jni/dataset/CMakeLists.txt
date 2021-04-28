@@ -33,33 +33,9 @@ add_subdirectory(../../../../java/dataset ./java)
 
 set(ARROW_BUILD_STATIC OFF)
 
-set(ARROW_DATASET_JNI_LIBS arrow_dataset_static ${ARROW_PROTOBUF_LIBPROTOBUF})
-set(PROTO_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR})
-set(PROTO_OUTPUT_FILES "${PROTO_OUTPUT_DIR}/record_batch.pb.cc")
-set(PROTO_OUTPUT_FILES ${PROTO_OUTPUT_FILES} "${PROTO_OUTPUT_DIR}/record_batch.pb.h")
+set(ARROW_DATASET_JNI_LIBS arrow_dataset_static)
 
-set_source_files_properties(${PROTO_OUTPUT_FILES} PROPERTIES GENERATED TRUE)
-
-get_filename_component(ABS_ARROW_DATASET_PROTO
-                       ${CMAKE_SOURCE_DIR}/src/jni/dataset/proto/record_batch.proto
-                       ABSOLUTE)
-
-add_custom_command(OUTPUT ${PROTO_OUTPUT_FILES}
-                   COMMAND ${ARROW_PROTOBUF_PROTOC}
-                           --proto_path
-                           ${CMAKE_SOURCE_DIR}/src/jni/dataset/proto
-                           --cpp_out
-                           ${PROTO_OUTPUT_DIR}
-                           ${CMAKE_SOURCE_DIR}/src/jni/dataset/proto/record_batch.proto
-                   DEPENDS ${ABS_ARROW_DATASET_PROTO} ${ARROW_PROTOBUF_LIBPROTOBUF}
-                   COMMENT "Running PROTO compiler on record_batch.proto"
-                   VERBATIM)
-
-add_custom_target(arrow_dataset_jni_proto ALL DEPENDS ${PROTO_OUTPUT_FILES})
-
-set(PROTO_SRCS "${PROTO_OUTPUT_DIR}/record_batch.pb.cc")
-set(PROTO_HDRS "${PROTO_OUTPUT_DIR}/record_batch.pb.h")
-set(ARROW_DATASET_JNI_SOURCES jni_wrapper.cc jni_util.cc ${PROTO_SRCS})
+set(ARROW_DATASET_JNI_SOURCES jni_wrapper.cc jni_util.cc)
 
 add_arrow_lib(arrow_dataset_jni
               BUILD_SHARED
@@ -77,8 +53,7 @@ add_arrow_lib(arrow_dataset_jni
               ${JNI_INCLUDE_DIRS}
               DEPENDENCIES
               arrow_static
-              arrow_dataset_java
-              arrow_dataset_jni_proto)
+              arrow_dataset_java)
 
 add_dependencies(arrow_dataset_jni ${ARROW_DATASET_JNI_LIBRARIES})
 
