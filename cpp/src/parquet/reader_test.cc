@@ -60,17 +60,28 @@ std::string nation_dict_truncated_data_page() {
   return data_file("nation.dict-malformed.parquet");
 }
 
-// Compressed using custom Hadoop LZ4 format (block LZ4 format + custom header)
+// LZ4-compressed data files.
+// These files come in three flavours:
+// - legacy "LZ4" compression type, actually compressed with block LZ4 codec
+//   (as emitted by some earlier versions of parquet-cpp)
+// - legacy "LZ4" compression type, actually compressed with custom Hadoop LZ4 codec
+//   (as emitted by parquet-mr)
+// - "LZ4_RAW" compression type (added in Parquet format version 2.9.0)
+
 std::string hadoop_lz4_compressed() { return data_file("hadoop_lz4_compressed.parquet"); }
 
-// Compressed using block LZ4 format
+std::string hadoop_lz4_compressed_larger() {
+  return data_file("hadoop_lz4_compressed_larger.parquet");
+}
+
 std::string non_hadoop_lz4_compressed() {
   return data_file("non_hadoop_lz4_compressed.parquet");
 }
 
-// Larger data compressed using custom Hadoop LZ4 format (several frames)
-std::string hadoop_lz4_compressed_larger() {
-  return data_file("hadoop_lz4_compressed_larger.parquet");
+std::string lz4_raw_compressed() { return data_file("lz4_raw_compressed.parquet"); }
+
+std::string lz4_raw_compressed_larger() {
+  return data_file("lz4_raw_compressed_larger.parquet");
 }
 
 // TODO: Assert on definition and repetition levels
@@ -548,13 +559,25 @@ TEST(TestFileReader, BufferedReads) {
   }
 }
 
-class TestCodec : public ::testing::TestWithParam<std::string> {
- protected:
-  const std::string& GetDataFile() { return GetParam(); }
+#ifdef ARROW_WITH_LZ4
+struct TestCodecParam {
+  std::string name;
+  std::string small_data_file;
+  std::string larger_data_file;
 };
 
-TEST_P(TestCodec, FileMetadataAndValues) {
-  std::unique_ptr<ParquetFileReader> reader_ = ParquetFileReader::OpenFile(GetDataFile());
+void PrintTo(const TestCodecParam& p, std::ostream* os) { *os << p.name; }
+
+class TestCodec : public ::testing::TestWithParam<TestCodecParam> {
+ protected:
+  const std::string& GetSmallDataFile() { return GetParam().small_data_file; }
+
+  const std::string& GetLargerDataFile() { return GetParam().larger_data_file; }
+};
+
+TEST_P(TestCodec, SmallFileMetadataAndValues) {
+  std::unique_ptr<ParquetFileReader> reader_ =
+      ParquetFileReader::OpenFile(GetSmallDataFile());
   std::shared_ptr<RowGroupReader> group = reader_->RowGroup(0);
   const auto rg_metadata = group->metadata();
 
@@ -593,14 +616,14 @@ TEST_P(TestCodec, FileMetadataAndValues) {
   AssertColumnValues(col2, 4, 4, expected_double_values, 4);
 }
 
-#ifdef ARROW_WITH_LZ4
-INSTANTIATE_TEST_SUITE_P(Lz4CodecTests, TestCodec,
-                         ::testing::Values(hadoop_lz4_compressed(),
-                                           non_hadoop_lz4_compressed()));
-
-TEST(TestLz4HadoopCodec, TestSeveralFrames) {
-  // ARROW-9177: Hadoop can compress a data block in several LZ4 "frames"
-  auto file = ParquetFileReader::OpenFile(hadoop_lz4_compressed_larger());
+TEST_P(TestCodec, LargeFileValues) {
+  // Test codec with a larger data file such data may have been compressed
+  // in several "frames" (ARROW-9177)
+  auto file_path = GetParam().larger_data_file;
+  if (file_path.empty()) {
+    GTEST_SKIP() << "Larger data file not available for this codec";
+  }
+  auto file = ParquetFileReader::OpenFile(file_path);
   auto group = file->RowGroup(0);
 
   const int64_t kNumRows = 10000;
@@ -624,6 +647,14 @@ TEST(TestLz4HadoopCodec, TestSeveralFrames) {
   ASSERT_EQ(values[kNumRows - 2], ByteArray("ab52a0cc-c6bb-4d61-8a8f-166dc4b8b13c"));
   ASSERT_EQ(values[kNumRows - 1], ByteArray("85440778-460a-41ac-aa2e-ac3ee41696bf"));
 }
-#endif
+
+std::vector<TestCodecParam> test_codec_params{
+    {"LegacyLZ4Hadoop", hadoop_lz4_compressed(), hadoop_lz4_compressed_larger()},
+    {"LegacyLZ4NonHadoop", non_hadoop_lz4_compressed(), ""},
+    {"LZ4Raw", lz4_raw_compressed(), lz4_raw_compressed_larger()}};
+
+INSTANTIATE_TEST_SUITE_P(Lz4CodecTests, TestCodec, ::testing::ValuesIn(test_codec_params),
+                         testing::PrintToStringParamName());
+#endif  // ARROW_WITH_LZ4
 
 }  // namespace parquet

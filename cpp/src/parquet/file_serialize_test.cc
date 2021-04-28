@@ -330,8 +330,7 @@ TYPED_TEST(TestSerialize, SmallFileGzip) {
 
 #ifdef ARROW_WITH_LZ4
 TYPED_TEST(TestSerialize, SmallFileLz4) {
-  ASSERT_NO_FATAL_FAILURE(
-      this->FileSerializeTest(Compression::LZ4, Compression::LZ4_HADOOP));
+  ASSERT_NO_FATAL_FAILURE(this->FileSerializeTest(Compression::LZ4));
 }
 
 TYPED_TEST(TestSerialize, SmallFileLz4Hadoop) {

@@ -166,6 +166,10 @@ class ARROW_EXPORT RecordBatch {
   /// \return PrettyPrint representation suitable for debugging
   std::string ToString() const;
 
+  /// \brief Return new record batch with specified columns
+  Result<std::shared_ptr<RecordBatch>> SelectColumns(
+      const std::vector<int>& indices) const;
+
   /// \brief Perform cheap validation checks to determine obvious inconsistencies
   /// within the record batch's schema and internal data.
   ///

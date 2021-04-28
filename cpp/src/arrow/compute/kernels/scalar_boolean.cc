@@ -96,57 +96,62 @@ inline Bitmap GetBitmap(const ArrayData& arr, int index) {
 }
 
 struct Invert {
-  static void Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
+  static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
     *checked_cast<BooleanScalar*>(out) = InvertScalar(in);
+    return Status::OK();
   }
 
-  static void Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
+  static Status Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
     GetBitmap(*out, 1).CopyFromInverted(GetBitmap(in, 1));
+    return Status::OK();
   }
 };
 
 template <typename Op>
 struct Commutative {
-  static void Call(KernelContext* ctx, const Scalar& left, const ArrayData& right,
-                   ArrayData* out) {
-    Op::Call(ctx, right, left, out);
+  static Status Call(KernelContext* ctx, const Scalar& left, const ArrayData& right,
+                     ArrayData* out) {
+    return Op::Call(ctx, right, left, out);
   }
 };
 
 struct And : Commutative<And> {
   using Commutative<And>::Call;
 
-  static void Call(KernelContext* ctx, const Scalar& left, const Scalar& right,
-                   Scalar* out) {
+  static Status Call(KernelContext* ctx, const Scalar& left, const Scalar& right,
+                     Scalar* out) {
     if (left.is_valid && right.is_valid) {
       checked_cast<BooleanScalar*>(out)->value =
           checked_cast<const BooleanScalar&>(left).value &&
           checked_cast<const BooleanScalar&>(right).value;
     }
+    return Status::OK();
   }
 
-  static void Call(KernelContext* ctx, const ArrayData& left, const Scalar& right,
-                   ArrayData* out) {
-    if (!right.is_valid) return;  // all null case
-
-    return checked_cast<const BooleanScalar&>(right).value
-               ? GetBitmap(*out, 1).CopyFrom(GetBitmap(left, 1))
-               : GetBitmap(*out, 1).SetBitsTo(false);
+  static Status Call(KernelContext* ctx, const ArrayData& left, const Scalar& right,
+                     ArrayData* out) {
+    if (right.is_valid) {
+      checked_cast<const BooleanScalar&>(right).value
+          ? GetBitmap(*out, 1).CopyFrom(GetBitmap(left, 1))
+          : GetBitmap(*out, 1).SetBitsTo(false);
+    }
+    return Status::OK();
   }
 
-  static void Call(KernelContext* ctx, const ArrayData& left, const ArrayData& right,
-                   ArrayData* out) {
+  static Status Call(KernelContext* ctx, const ArrayData& left, const ArrayData& right,
+                     ArrayData* out) {
     ::arrow::internal::BitmapAnd(left.buffers[1]->data(), left.offset,
                                  right.buffers[1]->data(), right.offset, right.length,
                                  out->offset, out->buffers[1]->mutable_data());
+    return Status::OK();
   }
 };
 
 struct KleeneAnd : Commutative<KleeneAnd> {
   using Commutative<KleeneAnd>::Call;
 
-  static void Call(KernelContext* ctx, const Scalar& left, const Scalar& right,
-                   Scalar* out) {
+  static Status Call(KernelContext* ctx, const Scalar& left, const Scalar& right,
+                     Scalar* out) {
     bool left_true = left.is_valid && checked_cast<const BooleanScalar&>(left).value;
     bool left_false = left.is_valid && !checked_cast<const BooleanScalar&>(left).value;
 
@@ -155,21 +160,24 @@ struct KleeneAnd : Commutative<KleeneAnd> {
 
     checked_cast<BooleanScalar*>(out)->value = left_true && right_true;
     out->is_valid = left_false || right_false || (left_true && right_true);
+    return Status::OK();
   }
 
-  static void Call(KernelContext* ctx, const ArrayData& left, const Scalar& right,
-                   ArrayData* out) {
+  static Status Call(KernelContext* ctx, const ArrayData& left, const Scalar& right,
+                     ArrayData* out) {
     bool right_true = right.is_valid && checked_cast<const BooleanScalar&>(right).value;
     bool right_false = right.is_valid && !checked_cast<const BooleanScalar&>(right).value;
 
     if (right_false) {
-      return GetBitmap(*out, 0).SetBitsTo(true),
-             GetBitmap(*out, 1).SetBitsTo(false);  // all false case
+      GetBitmap(*out, 0).SetBitsTo(true);
+      GetBitmap(*out, 1).SetBitsTo(false);  // all false case
+      return Status::OK();
     }
 
     if (right_true) {
-      return GetBitmap(*out, 0).CopyFrom(GetBitmap(left, 0)),
-             GetBitmap(*out, 1).CopyFrom(GetBitmap(left, 1));
+      GetBitmap(*out, 0).CopyFrom(GetBitmap(left, 0));
+      GetBitmap(*out, 1).CopyFrom(GetBitmap(left, 1));
+      return Status::OK();
     }
 
     // scalar was null: out[i] is valid iff left[i] was false
@@ -178,10 +186,11 @@ struct KleeneAnd : Commutative<KleeneAnd> {
                                     out->offset, out->buffers[0]->mutable_data());
     ::arrow::internal::CopyBitmap(left.buffers[1]->data(), left.offset, left.length,
                                   out->buffers[1]->mutable_data(), out->offset);
+    return Status::OK();
   }
 
-  static void Call(KernelContext* ctx, const ArrayData& left, const ArrayData& right,
-                   ArrayData* out) {
+  static Status Call(KernelContext* ctx, const ArrayData& left, const ArrayData& right,
+                     ArrayData* out) {
     if (left.GetNullCount() == 0 && right.GetNullCount() == 0) {
       GetBitmap(*out, 0).SetBitsTo(true);
       return And::Call(ctx, left, right, out);
@@ -193,43 +202,47 @@ struct KleeneAnd : Commutative<KleeneAnd> {
       *out_valid = left_false | right_false | (left_true & right_true);
     };
     ComputeKleene(compute_word, ctx, left, right, out);
+    return Status::OK();
   }
 };
 
 struct Or : Commutative<Or> {
   using Commutative<Or>::Call;
 
-  static void Call(KernelContext* ctx, const Scalar& left, const Scalar& right,
-                   Scalar* out) {
+  static Status Call(KernelContext* ctx, const Scalar& left, const Scalar& right,
+                     Scalar* out) {
     if (left.is_valid && right.is_valid) {
       checked_cast<BooleanScalar*>(out)->value =
           checked_cast<const BooleanScalar&>(left).value ||
           checked_cast<const BooleanScalar&>(right).value;
     }
+    return Status::OK();
   }
 
-  static void Call(KernelContext* ctx, const ArrayData& left, const Scalar& right,
-                   ArrayData* out) {
-    if (!right.is_valid) return;  // all null case
-
-    return checked_cast<const BooleanScalar&>(right).value
-               ? GetBitmap(*out, 1).SetBitsTo(true)
-               : GetBitmap(*out, 1).CopyFrom(GetBitmap(left, 1));
+  static Status Call(KernelContext* ctx, const ArrayData& left, const Scalar& right,
+                     ArrayData* out) {
+    if (right.is_valid) {
+      checked_cast<const BooleanScalar&>(right).value
+          ? GetBitmap(*out, 1).SetBitsTo(true)
+          : GetBitmap(*out, 1).CopyFrom(GetBitmap(left, 1));
+    }
+    return Status::OK();
   }
 
-  static void Call(KernelContext* ctx, const ArrayData& left, const ArrayData& right,
-                   ArrayData* out) {
+  static Status Call(KernelContext* ctx, const ArrayData& left, const ArrayData& right,
+                     ArrayData* out) {
     ::arrow::internal::BitmapOr(left.buffers[1]->data(), left.offset,
                                 right.buffers[1]->data(), right.offset, right.length,
                                 out->offset, out->buffers[1]->mutable_data());
+    return Status::OK();
   }
 };
 
 struct KleeneOr : Commutative<KleeneOr> {
   using Commutative<KleeneOr>::Call;
 
-  static void Call(KernelContext* ctx, const Scalar& left, const Scalar& right,
-                   Scalar* out) {
+  static Status Call(KernelContext* ctx, const Scalar& left, const Scalar& right,
+                     Scalar* out) {
     bool left_true = left.is_valid && checked_cast<const BooleanScalar&>(left).value;
     bool left_false = left.is_valid && !checked_cast<const BooleanScalar&>(left).value;
 
@@ -238,21 +251,24 @@ struct KleeneOr : Commutative<KleeneOr> {
 
     checked_cast<BooleanScalar*>(out)->value = left_true || right_true;
     out->is_valid = left_true || right_true || (left_false && right_false);
+    return Status::OK();
   }
 
-  static void Call(KernelContext* ctx, const ArrayData& left, const Scalar& right,
-                   ArrayData* out) {
+  static Status Call(KernelContext* ctx, const ArrayData& left, const Scalar& right,
+                     ArrayData* out) {
     bool right_true = right.is_valid && checked_cast<const BooleanScalar&>(right).value;
     bool right_false = right.is_valid && !checked_cast<const BooleanScalar&>(right).value;
 
     if (right_true) {
-      return GetBitmap(*out, 0).SetBitsTo(true),
-             GetBitmap(*out, 1).SetBitsTo(true);  // all true case
+      GetBitmap(*out, 0).SetBitsTo(true);
+      GetBitmap(*out, 1).SetBitsTo(true);  // all true case
+      return Status::OK();
     }
 
     if (right_false) {
-      return GetBitmap(*out, 0).CopyFrom(GetBitmap(left, 0)),
-             GetBitmap(*out, 1).CopyFrom(GetBitmap(left, 1));
+      GetBitmap(*out, 0).CopyFrom(GetBitmap(left, 0));
+      GetBitmap(*out, 1).CopyFrom(GetBitmap(left, 1));
+      return Status::OK();
     }
 
     // scalar was null: out[i] is valid iff left[i] was true
@@ -261,10 +277,11 @@ struct KleeneOr : Commutative<KleeneOr> {
                                  out->offset, out->buffers[0]->mutable_data());
     ::arrow::internal::CopyBitmap(left.buffers[1]->data(), left.offset, left.length,
                                   out->buffers[1]->mutable_data(), out->offset);
+    return Status::OK();
   }
 
-  static void Call(KernelContext* ctx, const ArrayData& left, const ArrayData& right,
-                   ArrayData* out) {
+  static Status Call(KernelContext* ctx, const ArrayData& left, const ArrayData& right,
+                     ArrayData* out) {
     if (left.GetNullCount() == 0 && right.GetNullCount() == 0) {
       GetBitmap(*out, 0).SetBitsTo(true);
       return Or::Call(ctx, left, right, out);
@@ -277,86 +294,94 @@ struct KleeneOr : Commutative<KleeneOr> {
       *out_valid = left_true | right_true | (left_false & right_false);
     };
 
-    return ComputeKleene(compute_word, ctx, left, right, out);
+    ComputeKleene(compute_word, ctx, left, right, out);
+    return Status::OK();
   }
 };
 
 struct Xor : Commutative<Xor> {
   using Commutative<Xor>::Call;
 
-  static void Call(KernelContext* ctx, const Scalar& left, const Scalar& right,
-                   Scalar* out) {
+  static Status Call(KernelContext* ctx, const Scalar& left, const Scalar& right,
+                     Scalar* out) {
     if (left.is_valid && right.is_valid) {
       checked_cast<BooleanScalar*>(out)->value =
           checked_cast<const BooleanScalar&>(left).value ^
           checked_cast<const BooleanScalar&>(right).value;
     }
+    return Status::OK();
   }
 
-  static void Call(KernelContext* ctx, const ArrayData& left, const Scalar& right,
-                   ArrayData* out) {
-    if (!right.is_valid) return;  // all null case
-
-    return checked_cast<const BooleanScalar&>(right).value
-               ? GetBitmap(*out, 1).CopyFromInverted(GetBitmap(left, 1))
-               : GetBitmap(*out, 1).CopyFrom(GetBitmap(left, 1));
+  static Status Call(KernelContext* ctx, const ArrayData& left, const Scalar& right,
+                     ArrayData* out) {
+    if (right.is_valid) {
+      checked_cast<const BooleanScalar&>(right).value
+          ? GetBitmap(*out, 1).CopyFromInverted(GetBitmap(left, 1))
+          : GetBitmap(*out, 1).CopyFrom(GetBitmap(left, 1));
+    }
+    return Status::OK();
   }
 
-  static void Call(KernelContext* ctx, const ArrayData& left, const ArrayData& right,
-                   ArrayData* out) {
+  static Status Call(KernelContext* ctx, const ArrayData& left, const ArrayData& right,
+                     ArrayData* out) {
     ::arrow::internal::BitmapXor(left.buffers[1]->data(), left.offset,
                                  right.buffers[1]->data(), right.offset, right.length,
                                  out->offset, out->buffers[1]->mutable_data());
+    return Status::OK();
   }
 };
 
 struct AndNot {
-  static void Call(KernelContext* ctx, const Scalar& left, const Scalar& right,
-                   Scalar* out) {
-    And::Call(ctx, left, InvertScalar(right), out);
+  static Status Call(KernelContext* ctx, const Scalar& left, const Scalar& right,
+                     Scalar* out) {
+    return And::Call(ctx, left, InvertScalar(right), out);
   }
 
-  static void Call(KernelContext* ctx, const Scalar& left, const ArrayData& right,
-                   ArrayData* out) {
-    if (!left.is_valid) return;  // all null case
-
-    return checked_cast<const BooleanScalar&>(left).value
-               ? GetBitmap(*out, 1).CopyFromInverted(GetBitmap(right, 1))
-               : GetBitmap(*out, 1).SetBitsTo(false);
+  static Status Call(KernelContext* ctx, const Scalar& left, const ArrayData& right,
+                     ArrayData* out) {
+    if (left.is_valid) {
+      checked_cast<const BooleanScalar&>(left).value
+          ? GetBitmap(*out, 1).CopyFromInverted(GetBitmap(right, 1))
+          : GetBitmap(*out, 1).SetBitsTo(false);
+    }
+    return Status::OK();
   }
 
-  static void Call(KernelContext* ctx, const ArrayData& left, const Scalar& right,
-                   ArrayData* out) {
-    And::Call(ctx, left, InvertScalar(right), out);
+  static Status Call(KernelContext* ctx, const ArrayData& left, const Scalar& right,
+                     ArrayData* out) {
+    return And::Call(ctx, left, InvertScalar(right), out);
   }
 
-  static void Call(KernelContext* ctx, const ArrayData& left, const ArrayData& right,
-                   ArrayData* out) {
+  static Status Call(KernelContext* ctx, const ArrayData& left, const ArrayData& right,
+                     ArrayData* out) {
     ::arrow::internal::BitmapAndNot(left.buffers[1]->data(), left.offset,
                                     right.buffers[1]->data(), right.offset, right.length,
                                     out->offset, out->buffers[1]->mutable_data());
+    return Status::OK();
   }
 };
 
 struct KleeneAndNot {
-  static void Call(KernelContext* ctx, const Scalar& left, const Scalar& right,
-                   Scalar* out) {
-    KleeneAnd::Call(ctx, left, InvertScalar(right), out);
+  static Status Call(KernelContext* ctx, const Scalar& left, const Scalar& right,
+                     Scalar* out) {
+    return KleeneAnd::Call(ctx, left, InvertScalar(right), out);
   }
 
-  static void Call(KernelContext* ctx, const Scalar& left, const ArrayData& right,
-                   ArrayData* out) {
+  static Status Call(KernelContext* ctx, const Scalar& left, const ArrayData& right,
+                     ArrayData* out) {
     bool left_true = left.is_valid && checked_cast<const BooleanScalar&>(left).value;
     bool left_false = left.is_valid && !checked_cast<const BooleanScalar&>(left).value;
 
     if (left_false) {
-      return GetBitmap(*out, 0).SetBitsTo(true),
-             GetBitmap(*out, 1).SetBitsTo(false);  // all false case
+      GetBitmap(*out, 0).SetBitsTo(true);
+      GetBitmap(*out, 1).SetBitsTo(false);  // all false case
+      return Status::OK();
     }
 
     if (left_true) {
-      return GetBitmap(*out, 0).CopyFrom(GetBitmap(right, 0)),
-             GetBitmap(*out, 1).CopyFromInverted(GetBitmap(right, 1));
+      GetBitmap(*out, 0).CopyFrom(GetBitmap(right, 0));
+      GetBitmap(*out, 1).CopyFromInverted(GetBitmap(right, 1));
+      return Status::OK();
     }
 
     // scalar was null: out[i] is valid iff right[i] was true
@@ -365,15 +390,16 @@ struct KleeneAndNot {
                                  out->offset, out->buffers[0]->mutable_data());
     ::arrow::internal::InvertBitmap(right.buffers[1]->data(), right.offset, right.length,
                                     out->buffers[1]->mutable_data(), out->offset);
+    return Status::OK();
   }
 
-  static void Call(KernelContext* ctx, const ArrayData& left, const Scalar& right,
-                   ArrayData* out) {
-    KleeneAnd::Call(ctx, left, InvertScalar(right), out);
+  static Status Call(KernelContext* ctx, const ArrayData& left, const Scalar& right,
+                     ArrayData* out) {
+    return KleeneAnd::Call(ctx, left, InvertScalar(right), out);
   }
 
-  static void Call(KernelContext* ctx, const ArrayData& left, const ArrayData& right,
-                   ArrayData* out) {
+  static Status Call(KernelContext* ctx, const ArrayData& left, const ArrayData& right,
+                     ArrayData* out) {
     if (left.GetNullCount() == 0 && right.GetNullCount() == 0) {
       GetBitmap(*out, 0).SetBitsTo(true);
       return AndNot::Call(ctx, left, right, out);
@@ -386,7 +412,8 @@ struct KleeneAndNot {
       *out_valid = left_false | right_true | (left_true & right_false);
     };
 
-    return ComputeKleene(compute_word, ctx, left, right, out);
+    ComputeKleene(compute_word, ctx, left, right, out);
+    return Status::OK();
   }
 };
 

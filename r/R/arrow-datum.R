@@ -46,6 +46,22 @@ as.vector.ArrowDatum <- function(x, mode) {
   )
 }
 
+#' @export
+na.omit.ArrowDatum <- function(object, ...){
+  object$Filter(!is.na(object))
+}
+
+#' @export
+na.exclude.ArrowDatum <- na.omit.ArrowDatum
+
+#' @export
+na.fail.ArrowDatum <- function(object, ...){
+  if (object$null_count > 0) {
+    stop("missing values in object", call. = FALSE)
+  }
+  object
+}
+
 filter_rows <- function(x, i, keep_na = TRUE, ...) {
   # General purpose function for [ row subsetting with R semantics
   # Based on the input for `i`, calls x$Filter, x$Slice, or x$Take

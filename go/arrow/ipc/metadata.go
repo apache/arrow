@@ -375,6 +375,13 @@ func (fv *fieldVisitor) visit(field arrow.Field) {
 		flatbuf.DurationAddUnit(fv.b, unit)
 		fv.offset = flatbuf.DurationEnd(fv.b)
 
+	case *arrow.MapType:
+		fv.dtype = flatbuf.TypeMap
+		fv.kids = append(fv.kids, fieldToFB(fv.b, arrow.Field{Name: "entries", Type: dt.ValueType()}, fv.memo))
+		flatbuf.MapStart(fv.b)
+		flatbuf.MapAddKeysSorted(fv.b, dt.KeysSorted)
+		fv.offset = flatbuf.MapEnd(fv.b)
+
 	default:
 		err := xerrors.Errorf("arrow/ipc: invalid data type %v", dt)
 		panic(err) // FIXME(sbinet): implement all data-types.
@@ -510,11 +517,6 @@ func typeFromFB(field *flatbuf.Field, children []arrow.Field, md arrow.Metadata)
 }
 
 func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arrow.Field) (arrow.DataType, error) {
-	var (
-		dt  arrow.DataType
-		err error
-	)
-
 	switch typ {
 	case flatbuf.TypeNONE:
 		return nil, xerrors.Errorf("arrow/ipc: Type metadata cannot be none")
@@ -593,12 +595,30 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 		dt.Init(data.Bytes, data.Pos)
 		return durationFromFB(dt)
 
+	case flatbuf.TypeMap:
+		if len(children) != 1 {
+			return nil, xerrors.Errorf("arrow/ipc: Map must have exactly 1 child field")
+		}
+
+		if children[0].Nullable || children[0].Type.ID() != arrow.STRUCT || len(children[0].Type.(*arrow.StructType).Fields()) != 2 {
+			return nil, xerrors.Errorf("arrow/ipc: Map's key-item pairs must be non-nullable structs")
+		}
+
+		pairType := children[0].Type.(*arrow.StructType)
+		if pairType.Field(0).Nullable {
+			return nil, xerrors.Errorf("arrow/ipc: Map's keys must be non-nullable")
+		}
+
+		var dt flatbuf.Map
+		dt.Init(data.Bytes, data.Pos)
+		ret := arrow.MapOf(pairType.Field(0).Type, pairType.Field(1).Type)
+		ret.KeysSorted = dt.KeysSorted()
+		return ret, nil
+
 	default:
 		// FIXME(sbinet): implement all the other types.
 		panic(xerrors.Errorf("arrow/ipc: type %v not implemented", flatbuf.EnumNamesType[typ]))
 	}
-
-	return dt, err
 }
 
 func intFromFB(data flatbuf.Int) (arrow.DataType, error) {

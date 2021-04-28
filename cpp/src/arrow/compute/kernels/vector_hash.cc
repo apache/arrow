@@ -513,17 +513,19 @@ struct HashKernelTraits<Type, Action, enable_if_has_string_view<Type>> {
 };
 
 template <typename Type, typename Action>
-std::unique_ptr<HashKernel> HashInitImpl(KernelContext* ctx, const KernelInitArgs& args) {
+Result<std::unique_ptr<HashKernel>> HashInitImpl(KernelContext* ctx,
+                                                 const KernelInitArgs& args) {
   using HashKernelType = typename HashKernelTraits<Type, Action>::HashKernel;
   auto result = ::arrow::internal::make_unique<HashKernelType>(
       args.inputs[0].type, args.options, ctx->memory_pool());
-  ctx->SetStatus(result->Reset());
+  RETURN_NOT_OK(result->Reset());
   return std::move(result);
 }
 
 template <typename Type, typename Action>
-std::unique_ptr<KernelState> HashInit(KernelContext* ctx, const KernelInitArgs& args) {
-  return std::move(HashInitImpl<Type, Action>(ctx, args));
+Result<std::unique_ptr<KernelState>> HashInit(KernelContext* ctx,
+                                              const KernelInitArgs& args) {
+  return HashInitImpl<Type, Action>(ctx, args);
 }
 
 template <typename Action>
@@ -574,10 +576,10 @@ KernelInit GetHashInit(Type::type type_id) {
 using DictionaryEncodeState = OptionsWrapper<DictionaryEncodeOptions>;
 
 template <typename Action>
-std::unique_ptr<KernelState> DictionaryHashInit(KernelContext* ctx,
-                                                const KernelInitArgs& args) {
+Result<std::unique_ptr<KernelState>> DictionaryHashInit(KernelContext* ctx,
+                                                        const KernelInitArgs& args) {
   const auto& dict_type = checked_cast<const DictionaryType&>(*args.inputs[0].type);
-  std::unique_ptr<HashKernel> indices_hasher;
+  Result<std::unique_ptr<HashKernel>> indices_hasher;
   switch (dict_type.index_type()->id()) {
     case Type::INT8:
       indices_hasher = HashInitImpl<UInt8Type, Action>(ctx, args);
@@ -595,32 +597,37 @@ std::unique_ptr<KernelState> DictionaryHashInit(KernelContext* ctx,
       DCHECK(false) << "Unsupported dictionary index type";
       break;
   }
-  return ::arrow::internal::make_unique<DictionaryHashKernel>(std::move(indices_hasher));
+  RETURN_NOT_OK(indices_hasher);
+  return ::arrow::internal::make_unique<DictionaryHashKernel>(
+      std::move(indices_hasher.ValueOrDie()));
 }
 
-void HashExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status HashExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   auto hash_impl = checked_cast<HashKernel*>(ctx->state());
-  KERNEL_RETURN_IF_ERROR(ctx, hash_impl->Append(ctx, *batch[0].array()));
-  KERNEL_RETURN_IF_ERROR(ctx, hash_impl->Flush(out));
+  RETURN_NOT_OK(hash_impl->Append(ctx, *batch[0].array()));
+  RETURN_NOT_OK(hash_impl->Flush(out));
+  return Status::OK();
 }
 
-void UniqueFinalize(KernelContext* ctx, std::vector<Datum>* out) {
+Status UniqueFinalize(KernelContext* ctx, std::vector<Datum>* out) {
   auto hash_impl = checked_cast<HashKernel*>(ctx->state());
   std::shared_ptr<ArrayData> uniques;
-  KERNEL_RETURN_IF_ERROR(ctx, hash_impl->GetDictionary(&uniques));
+  RETURN_NOT_OK(hash_impl->GetDictionary(&uniques));
   *out = {Datum(uniques)};
+  return Status::OK();
 }
 
-void DictEncodeFinalize(KernelContext* ctx, std::vector<Datum>* out) {
+Status DictEncodeFinalize(KernelContext* ctx, std::vector<Datum>* out) {
   auto hash_impl = checked_cast<HashKernel*>(ctx->state());
   std::shared_ptr<ArrayData> uniques;
-  KERNEL_RETURN_IF_ERROR(ctx, hash_impl->GetDictionary(&uniques));
+  RETURN_NOT_OK(hash_impl->GetDictionary(&uniques));
   auto dict_type = dictionary(int32(), uniques->type);
   auto dict = MakeArray(uniques);
   for (size_t i = 0; i < out->size(); ++i) {
     (*out)[i] =
         std::make_shared<DictionaryArray>(dict_type, (*out)[i].make_array(), dict);
   }
+  return Status::OK();
 }
 
 std::shared_ptr<ArrayData> BoxValueCounts(const std::shared_ptr<ArrayData>& uniques,
@@ -631,33 +638,33 @@ std::shared_ptr<ArrayData> BoxValueCounts(const std::shared_ptr<ArrayData>& uniq
   return std::make_shared<StructArray>(data_type, uniques->length, children)->data();
 }
 
-void ValueCountsFinalize(KernelContext* ctx, std::vector<Datum>* out) {
+Status ValueCountsFinalize(KernelContext* ctx, std::vector<Datum>* out) {
   auto hash_impl = checked_cast<HashKernel*>(ctx->state());
   std::shared_ptr<ArrayData> uniques;
   Datum value_counts;
 
-  KERNEL_RETURN_IF_ERROR(ctx, hash_impl->GetDictionary(&uniques));
-  KERNEL_RETURN_IF_ERROR(ctx, hash_impl->FlushFinal(&value_counts));
+  RETURN_NOT_OK(hash_impl->GetDictionary(&uniques));
+  RETURN_NOT_OK(hash_impl->FlushFinal(&value_counts));
   *out = {Datum(BoxValueCounts(uniques, value_counts.array()))};
+  return Status::OK();
 }
 
-void UniqueFinalizeDictionary(KernelContext* ctx, std::vector<Datum>* out) {
-  UniqueFinalize(ctx, out);
-  if (ctx->HasError()) {
-    return;
-  }
+Status UniqueFinalizeDictionary(KernelContext* ctx, std::vector<Datum>* out) {
+  RETURN_NOT_OK(UniqueFinalize(ctx, out));
   auto hash = checked_cast<DictionaryHashKernel*>(ctx->state());
   (*out)[0].mutable_array()->dictionary = hash->dictionary();
+  return Status::OK();
 }
 
-void ValueCountsFinalizeDictionary(KernelContext* ctx, std::vector<Datum>* out) {
+Status ValueCountsFinalizeDictionary(KernelContext* ctx, std::vector<Datum>* out) {
   auto hash = checked_cast<DictionaryHashKernel*>(ctx->state());
   std::shared_ptr<ArrayData> uniques;
   Datum value_counts;
-  KERNEL_RETURN_IF_ERROR(ctx, hash->GetDictionary(&uniques));
-  KERNEL_RETURN_IF_ERROR(ctx, hash->FlushFinal(&value_counts));
+  RETURN_NOT_OK(hash->GetDictionary(&uniques));
+  RETURN_NOT_OK(hash->FlushFinal(&value_counts));
   uniques->dictionary = hash->dictionary();
   *out = {Datum(BoxValueCounts(uniques, value_counts.array()))};
+  return Status::OK();
 }
 
 ValueDescr DictEncodeOutput(KernelContext*, const std::vector<ValueDescr>& descrs) {

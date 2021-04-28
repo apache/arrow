@@ -197,6 +197,7 @@ class build_ext(_build_ext):
         '_cuda',
         '_flight',
         '_dataset',
+        '_feather',
         '_parquet',
         '_orc',
         '_plasma',
@@ -519,7 +520,7 @@ def _move_shared_libs_unix(build_prefix, build_lib, lib_name):
 
 # If the event of not running from a git clone (e.g. from a git archive
 # or a Python sdist), see if we can set the version number ourselves
-default_version = '4.0.0-SNAPSHOT'
+default_version = '5.0.0-SNAPSHOT'
 if (not os.path.exists('../.git') and
         not os.environ.get('SETUPTOOLS_SCM_PRETEND_VERSION')):
     if os.path.exists('PKG-INFO'):

@@ -475,29 +475,28 @@ Status WriteNextBatch(WriteState& state, const std::shared_ptr<Fragment>& fragme
   return Status::OK();
 }
 
-Future<> WriteInternal(const ScanOptions& scan_options, WriteState& state,
-                       ScanTaskVector scan_tasks, internal::Executor* cpu_executor) {
+Status WriteInternal(const ScanOptions& scan_options, WriteState& state,
+                     ScanTaskVector scan_tasks) {
   // Store a mapping from partitions (represened by their formatted partition expressions)
   // to a WriteQueue which flushes batches into that partition's output file. In principle
   // any thread could produce a batch for any partition, so each task alternates between
   // pushing batches and flushing them to disk.
-  std::vector<Future<>> scan_futs;
   auto task_group = scan_options.TaskGroup();
 
   for (const auto& scan_task : scan_tasks) {
     task_group->Append([&, scan_task] {
-      ARROW_ASSIGN_OR_RAISE(auto batches, scan_task->Execute());
-
-      for (auto maybe_batch : batches) {
-        ARROW_ASSIGN_OR_RAISE(auto batch, maybe_batch);
-        RETURN_NOT_OK(WriteNextBatch(state, scan_task->fragment(), std::move(batch)));
-      }
-
-      return Status::OK();
+      std::function<Status(std::shared_ptr<RecordBatch>)> visitor =
+          [&](std::shared_ptr<RecordBatch> batch) {
+            return WriteNextBatch(state, scan_task->fragment(), std::move(batch));
+          };
+      return internal::SerialExecutor::RunInSerialExecutor<detail::Empty>(
+                 [&](internal::Executor* executor) {
+                   return scan_task->SafeVisit(executor, visitor);
+                 })
+          .status();
     });
   }
-  scan_futs.push_back(task_group->FinishAsync());
-  return AllComplete(scan_futs);
+  return task_group->Finish();
 }
 
 }  // namespace
@@ -537,13 +536,7 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
 #endif
 
   WriteState state(write_options);
-  auto res = internal::RunSynchronously<arrow::detail::Empty>(
-      [&](internal::Executor* cpu_executor) -> Future<> {
-        return WriteInternal(*scanner->options(), state, std::move(scan_tasks),
-                             cpu_executor);
-      },
-      scanner->options()->use_threads);
-  RETURN_NOT_OK(res);
+  RETURN_NOT_OK(WriteInternal(*scanner->options(), state, std::move(scan_tasks)));
 
   auto task_group = scanner->options()->TaskGroup();
   for (const auto& part_queue : state.queues) {

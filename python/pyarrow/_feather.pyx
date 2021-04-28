@@ -18,6 +18,19 @@
 # ---------------------------------------------------------------------
 # Implement Feather file format
 
+# cython: profile=False
+# distutils: language = c++
+# cython: embedsignature = True
+# cython: language_level=3
+
+from cython.operator cimport dereference as deref
+from pyarrow.includes.common cimport *
+from pyarrow.includes.libarrow cimport *
+from pyarrow.includes.libarrow_feather cimport *
+from pyarrow.lib cimport (check_status, Table, _Weakrefable,
+                          get_writer, get_reader, pyarrow_wrap_table)
+from pyarrow.lib import tobytes
+
 
 class FeatherError(Exception):
     pass

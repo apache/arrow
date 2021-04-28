@@ -224,6 +224,8 @@ setup_miniconda() {
     else
         MINICONDA_URL=https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
     fi
+  elif [ "$(uname)" == "Linux" ] && [ "$(uname -m)" == "aarch64" ]; then
+    MINICONDA_URL=https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-aarch64.sh
   else
     MINICONDA_URL=https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
   fi
@@ -431,9 +433,12 @@ test_js() {
 test_ruby() {
   pushd ruby
 
-  local modules="red-arrow red-plasma red-gandiva red-parquet"
+  local modules="red-arrow red-plasma red-parquet"
   if [ "${ARROW_CUDA}" = "ON" ]; then
     modules="${modules} red-arrow-cuda"
+  fi
+  if [ "${ARROW_GANDIVA}" = "ON" ]; then
+    modules="${modules} red-gandiva"
   fi
 
   for module in ${modules}; do

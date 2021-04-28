@@ -2229,6 +2229,11 @@ Status ConvertChunkedArrayToPandas(const PandasOptions& options,
         checked_cast<const DictionaryType&>(*arr->type()).value_type();
     RETURN_NOT_OK(DecodeDictionaries(options.pool, dense_type, &arr));
     DCHECK_NE(arr->type()->id(), Type::DICTIONARY);
+
+    // The original Python DictionaryArray won't own the memory anymore
+    // as we actually built a new array when we decoded the DictionaryArray
+    // thus let the final resulting numpy array own the memory through a Capsule
+    py_ref = nullptr;
   }
 
   if (options.strings_to_categorical && is_base_binary_like(arr->type()->id())) {

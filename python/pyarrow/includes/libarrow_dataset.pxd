@@ -59,6 +59,9 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         @staticmethod
         shared_ptr[CScanOptions] Make(shared_ptr[CSchema] schema)
 
+        shared_ptr[CSchema] dataset_schema
+        shared_ptr[CSchema] projected_schema
+
     cdef cppclass CFragmentScanOptions "arrow::dataset::FragmentScanOptions":
         c_string type_name() const
 

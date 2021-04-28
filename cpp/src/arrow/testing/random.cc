@@ -41,6 +41,7 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/pcg_random.h"
 #include "arrow/util/value_parsing.h"
 
 namespace arrow {
@@ -79,7 +80,7 @@ struct GenerateOptions {
       GenerateTypedDataNoNan(data, n);
       return;
     }
-    std::default_random_engine rng(seed_++);
+    pcg32_fast rng(seed_++);
     DistributionType dist(min_, max_);
     std::bernoulli_distribution nan_dist(nan_probability_);
     const ValueType nan_value = std::numeric_limits<ValueType>::quiet_NaN();
@@ -91,7 +92,7 @@ struct GenerateOptions {
   }
 
   void GenerateTypedDataNoNan(ValueType* data, size_t n) {
-    std::default_random_engine rng(seed_++);
+    pcg32_fast rng(seed_++);
     DistributionType dist(min_, max_);
 
     // A static cast is required due to the int16 -> int8 handling.
@@ -100,7 +101,7 @@ struct GenerateOptions {
 
   void GenerateBitmap(uint8_t* buffer, size_t n, int64_t* null_count) {
     int64_t count = 0;
-    std::default_random_engine rng(seed_++);
+    pcg32_fast rng(seed_++);
     std::bernoulli_distribution dist(1.0 - probability_);
 
     for (size_t i = 0; i < n; i++) {

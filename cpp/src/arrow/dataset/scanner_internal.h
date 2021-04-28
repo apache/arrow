@@ -38,49 +38,60 @@ using internal::Executor;
 
 namespace dataset {
 
+inline Result<std::shared_ptr<RecordBatch>> FilterSingleBatch(
+    const std::shared_ptr<RecordBatch>& in, const Expression& filter, MemoryPool* pool) {
+  compute::ExecContext exec_context{pool};
+  ARROW_ASSIGN_OR_RAISE(Datum mask,
+                        ExecuteScalarExpression(filter, Datum(in), &exec_context));
+
+  if (mask.is_scalar()) {
+    const auto& mask_scalar = mask.scalar_as<BooleanScalar>();
+    if (mask_scalar.is_valid && mask_scalar.value) {
+      return in;
+    }
+    return in->Slice(0, 0);
+  }
+
+  ARROW_ASSIGN_OR_RAISE(
+      Datum filtered,
+      compute::Filter(in, mask, compute::FilterOptions::Defaults(), &exec_context));
+  return filtered.record_batch();
+}
+
 inline RecordBatchIterator FilterRecordBatch(RecordBatchIterator it, Expression filter,
                                              MemoryPool* pool) {
   return MakeMaybeMapIterator(
       [=](std::shared_ptr<RecordBatch> in) -> Result<std::shared_ptr<RecordBatch>> {
-        compute::ExecContext exec_context{pool};
-        ARROW_ASSIGN_OR_RAISE(Datum mask,
-                              ExecuteScalarExpression(filter, Datum(in), &exec_context));
-
-        if (mask.is_scalar()) {
-          const auto& mask_scalar = mask.scalar_as<BooleanScalar>();
-          if (mask_scalar.is_valid && mask_scalar.value) {
-            return std::move(in);
-          }
-          return in->Slice(0, 0);
-        }
-
-        ARROW_ASSIGN_OR_RAISE(
-            Datum filtered,
-            compute::Filter(in, mask, compute::FilterOptions::Defaults(), &exec_context));
-        return filtered.record_batch();
+        return FilterSingleBatch(in, filter, pool);
       },
       std::move(it));
+}
+
+inline Result<std::shared_ptr<RecordBatch>> ProjectSingleBatch(
+    const std::shared_ptr<RecordBatch>& in, const Expression& projection,
+    MemoryPool* pool) {
+  compute::ExecContext exec_context{pool};
+  ARROW_ASSIGN_OR_RAISE(Datum projected,
+                        ExecuteScalarExpression(projection, Datum(in), &exec_context));
+
+  DCHECK_EQ(projected.type()->id(), Type::STRUCT);
+  if (projected.shape() == ValueDescr::SCALAR) {
+    // Only virtual columns are projected. Broadcast to an array
+    ARROW_ASSIGN_OR_RAISE(projected,
+                          MakeArrayFromScalar(*projected.scalar(), in->num_rows(), pool));
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto out,
+                        RecordBatch::FromStructArray(projected.array_as<StructArray>()));
+
+  return out->ReplaceSchemaMetadata(in->schema()->metadata());
 }
 
 inline RecordBatchIterator ProjectRecordBatch(RecordBatchIterator it,
                                               Expression projection, MemoryPool* pool) {
   return MakeMaybeMapIterator(
       [=](std::shared_ptr<RecordBatch> in) -> Result<std::shared_ptr<RecordBatch>> {
-        compute::ExecContext exec_context{pool};
-        ARROW_ASSIGN_OR_RAISE(Datum projected, ExecuteScalarExpression(
-                                                   projection, Datum(in), &exec_context));
-
-        DCHECK_EQ(projected.type()->id(), Type::STRUCT);
-        if (projected.shape() == ValueDescr::SCALAR) {
-          // Only virtual columns are projected. Broadcast to an array
-          ARROW_ASSIGN_OR_RAISE(
-              projected, MakeArrayFromScalar(*projected.scalar(), in->num_rows(), pool));
-        }
-
-        ARROW_ASSIGN_OR_RAISE(
-            auto out, RecordBatch::FromStructArray(projected.array_as<StructArray>()));
-
-        return out->ReplaceSchemaMetadata(in->schema()->metadata());
+        return ProjectSingleBatch(in, projection, pool);
       },
       std::move(it));
 }
@@ -106,6 +117,59 @@ class FilterAndProjectScanTask : public ScanTask {
 
     return ProjectRecordBatch(std::move(filter_it), simplified_projection,
                               options_->pool);
+  }
+
+  Result<RecordBatchIterator> ToFilteredAndProjectedIterator(
+      const RecordBatchVector& rbs) {
+    auto it = MakeVectorIterator(rbs);
+    ARROW_ASSIGN_OR_RAISE(Expression simplified_filter,
+                          SimplifyWithGuarantee(options()->filter, partition_));
+
+    ARROW_ASSIGN_OR_RAISE(Expression simplified_projection,
+                          SimplifyWithGuarantee(options()->projection, partition_));
+
+    RecordBatchIterator filter_it =
+        FilterRecordBatch(std::move(it), simplified_filter, options_->pool);
+
+    return ProjectRecordBatch(std::move(filter_it), simplified_projection,
+                              options_->pool);
+  }
+
+  Result<std::shared_ptr<RecordBatch>> FilterAndProjectBatch(
+      const std::shared_ptr<RecordBatch>& batch) {
+    ARROW_ASSIGN_OR_RAISE(Expression simplified_filter,
+                          SimplifyWithGuarantee(options()->filter, partition_));
+
+    ARROW_ASSIGN_OR_RAISE(Expression simplified_projection,
+                          SimplifyWithGuarantee(options()->projection, partition_));
+    ARROW_ASSIGN_OR_RAISE(auto filtered,
+                          FilterSingleBatch(batch, simplified_filter, options_->pool));
+    return ProjectSingleBatch(filtered, simplified_projection, options_->pool);
+  }
+
+  inline Future<RecordBatchVector> SafeExecute(internal::Executor* executor) override {
+    return task_->SafeExecute(executor).Then(
+        // This should only be run via SerialExecutor so it should be safe to capture
+        // `this`
+        [this](const RecordBatchVector& rbs) -> Result<RecordBatchVector> {
+          ARROW_ASSIGN_OR_RAISE(auto projected_it, ToFilteredAndProjectedIterator(rbs));
+          return projected_it.ToVector();
+        });
+  }
+
+  inline Future<> SafeVisit(
+      internal::Executor* executor,
+      std::function<Status(std::shared_ptr<RecordBatch>)> visitor) override {
+    auto filter_and_project_visitor =
+        [this, visitor](const std::shared_ptr<RecordBatch>& batch) {
+          ARROW_ASSIGN_OR_RAISE(auto projected, FilterAndProjectBatch(batch));
+          return visitor(projected);
+        };
+    return task_->SafeExecute(executor).Then(
+        [this, filter_and_project_visitor](const RecordBatchVector& rbs) -> Status {
+          ARROW_ASSIGN_OR_RAISE(auto projected_it, ToFilteredAndProjectedIterator(rbs));
+          return projected_it.Visit(filter_and_project_visitor);
+        });
   }
 
  private:

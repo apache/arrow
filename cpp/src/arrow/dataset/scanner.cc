@@ -71,6 +71,20 @@ Result<RecordBatchIterator> InMemoryScanTask::Execute() {
   return MakeVectorIterator(record_batches_);
 }
 
+Future<RecordBatchVector> ScanTask::SafeExecute(internal::Executor* executor) {
+  // If the ScanTask can't possibly be async then just execute it
+  ARROW_ASSIGN_OR_RAISE(auto rb_it, Execute());
+  return Future<RecordBatchVector>::MakeFinished(rb_it.ToVector());
+}
+
+Future<> ScanTask::SafeVisit(
+    internal::Executor* executor,
+    std::function<Status(std::shared_ptr<RecordBatch>)> visitor) {
+  // If the ScanTask can't possibly be async then just execute it
+  ARROW_ASSIGN_OR_RAISE(auto rb_it, Execute());
+  return Future<>::MakeFinished(rb_it.Visit(visitor));
+}
+
 Result<ScanTaskIterator> Scanner::Scan() {
   // TODO(ARROW-12289) This is overridden in SyncScanner and will never be implemented in
   // AsyncScanner.  It is deprecated and will eventually go away.
@@ -160,6 +174,19 @@ struct ScanBatchesState : public std::enable_shared_from_this<ScanBatchesState> 
     ready.notify_one();
   }
 
+  template <typename T>
+  Result<T> PushError(Result<T>&& result, size_t task_index) {
+    if (!result.ok()) {
+      {
+        std::lock_guard<std::mutex> lock(mutex);
+        task_drained[task_index] = true;
+        iteration_error = result.status();
+      }
+      ready.notify_one();
+    }
+    return std::move(result);
+  }
+
   Status Finish(size_t task_index) {
     {
       std::lock_guard<std::mutex> lock(mutex);
@@ -190,9 +217,9 @@ struct ScanBatchesState : public std::enable_shared_from_this<ScanBatchesState> 
 
     lock.unlock();
     task_group->Append([state, id, scan_task]() {
-      ARROW_ASSIGN_OR_RAISE(auto batch_it, scan_task->Execute());
+      ARROW_ASSIGN_OR_RAISE(auto batch_it, state->PushError(scan_task->Execute(), id));
       for (auto maybe_batch : batch_it) {
-        ARROW_ASSIGN_OR_RAISE(auto batch, maybe_batch);
+        ARROW_ASSIGN_OR_RAISE(auto batch, state->PushError(std::move(maybe_batch), id));
         state->Push(TaggedRecordBatch{std::move(batch), scan_task->fragment()}, id);
       }
       return state->Finish(id);
@@ -257,6 +284,8 @@ class ARROW_DS_EXPORT SyncScanner : public Scanner {
   Result<ScanTaskIterator> Scan() override;
   Status Scan(std::function<Status(TaggedRecordBatch)> visitor) override;
   Result<std::shared_ptr<Table>> ToTable() override;
+  Result<TaggedRecordBatchGenerator> ScanBatchesAsync() override;
+  Result<EnumeratedRecordBatchGenerator> ScanBatchesUnorderedAsync() override;
 
  protected:
   /// \brief GetFragments returns an iterator over all Fragments in this scan.
@@ -282,6 +311,14 @@ Result<TaggedRecordBatchIterator> SyncScanner::ScanBatches() {
     RETURN_NOT_OK(task_group->Finish());
     return IterationEnd<TaggedRecordBatch>();
   });
+}
+
+Result<TaggedRecordBatchGenerator> SyncScanner::ScanBatchesAsync() {
+  return Status::NotImplemented("Asynchronous scanning is not supported by SyncScanner");
+}
+
+Result<EnumeratedRecordBatchGenerator> SyncScanner::ScanBatchesUnorderedAsync() {
+  return Status::NotImplemented("Asynchronous scanning is not supported by SyncScanner");
 }
 
 Result<FragmentIterator> SyncScanner::GetFragments() {
@@ -347,7 +384,9 @@ class ARROW_DS_EXPORT AsyncScanner : public Scanner,
 
   Status Scan(std::function<Status(TaggedRecordBatch)> visitor) override;
   Result<TaggedRecordBatchIterator> ScanBatches() override;
+  Result<TaggedRecordBatchGenerator> ScanBatchesAsync() override;
   Result<EnumeratedRecordBatchIterator> ScanBatchesUnordered() override;
+  Result<EnumeratedRecordBatchGenerator> ScanBatchesUnorderedAsync() override;
   Result<std::shared_ptr<Table>> ToTable() override;
 
  private:
@@ -480,13 +519,24 @@ Result<std::shared_ptr<Table>> AsyncScanner::ToTable() {
   return table_fut.result();
 }
 
+Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync() {
+  return ScanBatchesUnorderedAsync(internal::GetCpuThreadPool());
+}
+
 Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
     internal::Executor* cpu_executor) {
   auto self = shared_from_this();
   ARROW_ASSIGN_OR_RAISE(auto fragment_gen, GetFragments());
   ARROW_ASSIGN_OR_RAISE(auto batch_gen_gen,
                         FragmentsToBatches(self, std::move(fragment_gen)));
-  return MakeConcatenatedGenerator(std::move(batch_gen_gen));
+  auto batch_gen_gen_readahead = MakeSerialReadaheadGenerator(
+      std::move(batch_gen_gen), scan_options_->fragment_readahead);
+  return MakeMergedGenerator(std::move(batch_gen_gen_readahead),
+                             scan_options_->fragment_readahead);
+}
+
+Result<TaggedRecordBatchGenerator> AsyncScanner::ScanBatchesAsync() {
+  return ScanBatchesAsync(internal::GetCpuThreadPool());
 }
 
 Result<TaggedRecordBatchGenerator> AsyncScanner::ScanBatchesAsync(
@@ -649,6 +699,15 @@ Status ScannerBuilder::UseThreads(bool use_threads) {
   return Status::OK();
 }
 
+Status ScannerBuilder::FragmentReadahead(int fragment_readahead) {
+  if (fragment_readahead <= 0) {
+    return Status::Invalid("FragmentReadahead must be greater than 0, got ",
+                           fragment_readahead);
+  }
+  scan_options_->fragment_readahead = fragment_readahead;
+  return Status::OK();
+}
+
 Status ScannerBuilder::UseAsync(bool use_async) {
   scan_options_->use_async = use_async;
   return Status::OK();
@@ -717,13 +776,6 @@ struct TableAssemblyState {
 };
 
 Result<std::shared_ptr<Table>> SyncScanner::ToTable() {
-  return internal::RunSynchronously<std::shared_ptr<Table>>(
-      [this](Executor* executor) { return ToTableInternal(executor); },
-      scan_options_->use_threads);
-}
-
-Future<std::shared_ptr<Table>> SyncScanner::ToTableInternal(
-    internal::Executor* cpu_executor) {
   ARROW_ASSIGN_OR_RAISE(auto scan_task_it, ScanInternal());
   auto task_group = scan_options_->TaskGroup();
 
@@ -739,8 +791,11 @@ Future<std::shared_ptr<Table>> SyncScanner::ToTableInternal(
 
     auto id = scan_task_id++;
     task_group->Append([state, id, scan_task] {
-      ARROW_ASSIGN_OR_RAISE(auto batch_it, scan_task->Execute());
-      ARROW_ASSIGN_OR_RAISE(auto local, batch_it.ToVector());
+      ARROW_ASSIGN_OR_RAISE(
+          auto local, internal::SerialExecutor::RunInSerialExecutor<RecordBatchVector>(
+                          [&](internal::Executor* executor) {
+                            return scan_task->SafeExecute(executor);
+                          }));
       state->Emplace(std::move(local), id);
       return Status::OK();
     });

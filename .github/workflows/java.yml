@@ -46,6 +46,7 @@ jobs:
     name: AMD64 Debian 9 Java JDK ${{ matrix.jdk }} Maven ${{ matrix.maven }}
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -88,6 +89,7 @@ jobs:
     name: AMD64 MacOS 10.15 Java JDK ${{ matrix.jdk }}
     runs-on: macos-latest
     if: github.event_name == 'push'
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:

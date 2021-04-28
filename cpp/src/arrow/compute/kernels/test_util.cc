@@ -118,7 +118,7 @@ void CheckScalar(std::string func_name, const ArrayVector& inputs,
                             expected->Slice(2 * slice_length), options);
   }
 
-  // should also work with an empty slice
+  // Should also work with an empty slice
   CheckScalarNonRecursive(func_name, SliceAll(inputs, 0, 0), expected->Slice(0, 0),
                           options);
 
@@ -194,6 +194,12 @@ void CheckDispatchBest(std::string func_name, std::vector<ValueDescr> original_v
       << actual_kernel->signature->ToString() << "\n"
       << "  DispatchExact" << ValueDescr::ToString(expected_equivalent_values) << " => "
       << expected_kernel->signature->ToString();
+}
+
+void CheckDispatchFails(std::string func_name, std::vector<ValueDescr> values) {
+  ASSERT_OK_AND_ASSIGN(auto function, GetFunctionRegistry()->GetFunction(func_name));
+  ASSERT_NOT_OK(function->DispatchBest(&values));
+  ASSERT_NOT_OK(function->DispatchExact(values));
 }
 
 }  // namespace compute

@@ -351,3 +351,33 @@ test_that("value_counts", {
   expect_identical(as.data.frame(value_counts(a)), result_df)
   expect_identical(as.vector(value_counts(a)$counts), result_df$counts)
 })
+
+test_that("any.Array and any.ChunkedArray", {
+  
+  data <- c(1:10, NA, NA)
+
+  expect_vector_equal(any(input > 5), data)
+  expect_vector_equal(any(input < 1), data)
+  expect_vector_equal(any(input < 1, na.rm = TRUE), data)
+  
+  data_logical <- c(TRUE, FALSE, TRUE, NA, FALSE)
+  
+  expect_vector_equal(any(input), data_logical)
+  expect_vector_equal(any(input, na.rm = TRUE), data_logical)
+  
+})
+
+test_that("all.Array and all.ChunkedArray", {
+
+  data <- c(1:10, NA, NA)
+  
+  expect_vector_equal(all(input > 5), data)
+  expect_vector_equal(all(input < 11), data)
+  expect_vector_equal(all(input < 11, na.rm = TRUE), data)
+  
+  data_logical <- c(TRUE, TRUE, NA)
+  
+  expect_vector_equal(all(input), data_logical)
+  expect_vector_equal(all(input, na.rm = TRUE), data_logical)
+  
+})

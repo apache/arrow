@@ -179,8 +179,7 @@ Result<Datum> Function::Execute(const std::vector<Datum>& args,
 
   KernelContext kernel_ctx{ctx};
   if (kernel->init) {
-    state = kernel->init(&kernel_ctx, {kernel, inputs, options});
-    RETURN_NOT_OK(kernel_ctx.status());
+    ARROW_ASSIGN_OR_RAISE(state, kernel->init(&kernel_ctx, {kernel, inputs, options}));
     kernel_ctx.SetState(state.get());
   }
 

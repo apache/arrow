@@ -87,8 +87,7 @@ TEST(VectorFunction, Basics) {
 }
 
 auto ExecNYI = [](KernelContext* ctx, const ExecBatch& args, Datum* out) {
-  ctx->SetStatus(Status::NotImplemented("NYI"));
-  return;
+  return Status::NotImplemented("NYI");
 };
 
 template <typename FunctionType>
@@ -181,13 +180,15 @@ TEST(ScalarAggregateFunction, Basics) {
   ASSERT_EQ(Function::SCALAR_AGGREGATE, func.kind());
 }
 
-std::unique_ptr<KernelState> NoopInit(KernelContext*, const KernelInitArgs&) {
+Result<std::unique_ptr<KernelState>> NoopInit(KernelContext*, const KernelInitArgs&) {
   return nullptr;
 }
 
-void NoopConsume(KernelContext*, const ExecBatch&) {}
-void NoopMerge(KernelContext*, const KernelState&, KernelState*) {}
-void NoopFinalize(KernelContext*, Datum*) {}
+Status NoopConsume(KernelContext*, const ExecBatch&) { return Status::OK(); }
+Status NoopMerge(KernelContext*, const KernelState&, KernelState*) {
+  return Status::OK();
+}
+Status NoopFinalize(KernelContext*, Datum*) { return Status::OK(); }
 
 TEST(ScalarAggregateFunction, DispatchExact) {
   ScalarAggregateFunction func("agg_test", Arity::Unary(), /*doc=*/nullptr);

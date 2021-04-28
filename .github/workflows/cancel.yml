@@ -27,6 +27,7 @@ jobs:
   cancel-stale-workflow-runs:
     name: "Cancel stale workflow runs"
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       # Unfortunately, we need to define a separate cancellation step for
       # each workflow where we want to cancel stale runs.
