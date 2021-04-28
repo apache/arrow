@@ -29,6 +29,7 @@
 #include "gandiva/node.h"
 #include "gandiva/random_generator_holder.h"
 #include "gandiva/to_date_holder.h"
+#include "gandiva/to_char_holder.h"
 
 namespace gandiva {
 
@@ -65,6 +66,7 @@ class FunctionHolderRegistry {
         {"to_date", LAMBDA_MAKER(ToDateHolder)},
         {"random", LAMBDA_MAKER(RandomGeneratorHolder)},
         {"rand", LAMBDA_MAKER(RandomGeneratorHolder)},
+        {"to_char", LAMBDA_MAKER(ToCharHolder)}
     };
     return maker_map;
   }
