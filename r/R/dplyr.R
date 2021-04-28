@@ -30,6 +30,9 @@ arrow_dplyr_query <- function(.data) {
   if (inherits(.data, "arrow_dplyr_query")) {
     return(.data)
   }
+  if (!inherits(.data, "Dataset")) {
+    .data <- InMemoryDataset$create(.data)
+  }
   structure(
     list(
       .data = .data$clone(),
@@ -37,7 +40,7 @@ arrow_dplyr_query <- function(.data) {
       # * contents are references/expressions pointing to the data
       # * names are the names they should be in the end (i.e. this
       #   records any renaming)
-      selected_columns = make_field_refs(names(.data), dataset = inherits(.data, "Dataset")),
+      selected_columns = make_field_refs(names(.data)),
       # filtered_rows will be an Expression
       filtered_rows = TRUE,
       # group_by_vars is a character vector of columns (as renamed)
@@ -76,22 +79,14 @@ print.arrow_dplyr_query <- function(x, ...) {
   cat(fields, "\n", sep = "")
   cat("\n")
   if (!isTRUE(x$filtered_rows)) {
-    if (query_on_dataset(x)) {
-      filter_string <- x$filtered_rows$ToString()
-    } else {
-      filter_string <- .format_array_expression(x$filtered_rows)
-    }
+    filter_string <- x$filtered_rows$ToString()
     cat("* Filter: ", filter_string, "\n", sep = "")
   }
   if (length(x$group_by_vars)) {
     cat("* Grouped by ", paste(x$group_by_vars, collapse = ", "), "\n", sep = "")
   }
   if (length(x$arrange_vars)) {
-    if (query_on_dataset(x)) {
-      arrange_strings <- map_chr(x$arrange_vars, function(x) x$ToString())
-    } else {
-      arrange_strings <- map_chr(x$arrange_vars, .format_array_expression)
-    }
+    arrange_strings <- map_chr(x$arrange_vars, function(x) x$ToString())
     cat(
       "* Sorted by ",
       paste(
@@ -127,12 +122,8 @@ get_field_names <- function(selected_cols) {
   })
 }
 
-make_field_refs <- function(field_names, dataset = TRUE) {
-  if (dataset) {
-    out <- lapply(field_names, Expression$field_ref)
-  } else {
-    out <- lapply(field_names, function(x) array_expression("array_ref", field_name = x))
-  }
+make_field_refs <- function(field_names) {
+  out <- lapply(field_names, Expression$field_ref)
   set_names(out, field_names)
 }
 
@@ -146,12 +137,8 @@ dim.arrow_dplyr_query <- function(x) {
 
   if (isTRUE(x$filtered)) {
     rows <- x$.data$num_rows
-  } else if (query_on_dataset(x)) {
-    scanner <- Scanner$create(x)
-    rows <- scanner$CountRows()
   } else {
-    # Evaluate the filter expression to a BooleanArray and count
-    rows <- as.integer(sum(eval_array_expression(x$filtered_rows, x$.data), na.rm = TRUE))
+    rows <- Scanner$create(x)$CountRows()
   }
   c(rows, cols)
 }
@@ -162,46 +149,13 @@ as.data.frame.arrow_dplyr_query <- function(x, row.names = NULL, optional = FALS
 }
 
 #' @export
-head.arrow_dplyr_query <- function(x, n = 6L, ...) {
-  if (query_on_dataset(x)) {
-    head.Dataset(x, n, ...)
-  } else {
-    out <- collect.arrow_dplyr_query(x, as_data_frame = FALSE)
-    if (inherits(out, "arrow_dplyr_query")) {
-      out$.data <- head(out$.data, n)
-    } else {
-      out <- head(out, n)
-    }
-    out
-  }
-}
+head.arrow_dplyr_query <- head.Dataset
 
 #' @export
-tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
-  if (query_on_dataset(x)) {
-    tail.Dataset(x, n, ...)
-  } else {
-    out <- collect.arrow_dplyr_query(x, as_data_frame = FALSE)
-    if (inherits(out, "arrow_dplyr_query")) {
-      out$.data <- tail(out$.data, n)
-    } else {
-      out <- tail(out, n)
-    }
-    out
-  }
-}
+tail.arrow_dplyr_query <- tail.Dataset
 
 #' @export
-`[.arrow_dplyr_query` <- function(x, i, j, ..., drop = FALSE) {
-  if (query_on_dataset(x)) {
-    `[.Dataset`(x, i, j, ..., drop = FALSE)
-  } else {
-    stop(
-      "[ method not implemented for queries. Call 'collect(x, as_data_frame = FALSE)' first",
-      call. = FALSE
-    )
-  }
-}
+`[.arrow_dplyr_query` <- `[.Dataset`
 
 # The following S3 methods are registered on load if dplyr is present
 tbl_vars.arrow_dplyr_query <- function(x) names(x$selected_columns)
@@ -686,11 +640,7 @@ init_env()
 
 # Create a data mask for evaluating a dplyr expression
 arrow_mask <- function(.data) {
-  if (query_on_dataset(.data)) {
-    f_env <- new_environment(dplyr_functions$dataset)
-  } else {
-    f_env <- new_environment(dplyr_functions$array)
-  }
+  f_env <- new_environment(dplyr_functions$dataset)
 
   # Add functions that need to error hard and clear.
   # Some R functions will still try to evaluate on an Expression
@@ -730,36 +680,8 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
   x <- ensure_group_vars(x)
   x <- ensure_arrange_vars(x) # this sets x$temp_columns
   # Pull only the selected rows and cols into R
-  if (query_on_dataset(x)) {
-    # See dataset.R for Dataset and Scanner(Builder) classes
-    tab <- Scanner$create(x)$ToTable()
-  } else {
-    # This is a Table or RecordBatch
-
-    # Filter and select the data referenced in selected columns
-    if (isTRUE(x$filtered_rows)) {
-      filter <- TRUE
-    } else {
-      filter <- eval_array_expression(x$filtered_rows, x$.data)
-    }
-    # TODO: shortcut if identical(names(x$.data), find_array_refs(c(x$selected_columns, x$temp_columns)))?
-    tab <- x$.data[
-      filter,
-      find_array_refs(c(x$selected_columns, x$temp_columns)),
-      keep_na = FALSE
-    ]
-    # Now evaluate those expressions on the filtered table
-    cols <- lapply(c(x$selected_columns, x$temp_columns), eval_array_expression, data = tab)
-    if (length(cols) == 0) {
-      tab <- tab[, integer(0)]
-    } else {
-      if (inherits(x$.data, "Table")) {
-        tab <- Table$create(!!!cols)
-      } else {
-        tab <- RecordBatch$create(!!!cols)
-      }
-    }
-  }
+  # See dataset.R for Dataset and Scanner(Builder) classes
+  tab <- Scanner$create(x)$ToTable()
   # Arrange rows
   if (length(x$arrange_vars) > 0) {
     tab <- tab[
@@ -797,7 +719,7 @@ ensure_group_vars <- function(x) {
       # Add them back
       x$selected_columns <- c(
         x$selected_columns,
-        make_field_refs(gv, dataset = query_on_dataset(.data))
+        make_field_refs(gv)
       )
     }
   }
@@ -992,7 +914,6 @@ mutate.arrow_dplyr_query <- function(.data,
   # Deparse and take the first element in case they're long expressions
   names(exprs)[unnamed] <- map_chr(exprs[unnamed], as_label)
 
-  is_dataset <- query_on_dataset(.data)
   mask <- arrow_mask(.data)
   results <- list()
   for (i in seq_along(exprs)) {
@@ -1003,8 +924,7 @@ mutate.arrow_dplyr_query <- function(.data,
     if (inherits(results[[new_var]], "try-error")) {
       msg <- paste('Expression', as_label(exprs[[i]]), 'not supported in Arrow')
       return(abandon_ship(call, .data, msg))
-    } else if (is_dataset &&
-               !inherits(results[[new_var]], "Expression") &&
+    } else if (!inherits(results[[new_var]], "Expression") &&
                !is.null(results[[new_var]])) {
       # We need some wrapping to handle literal values
       if (length(results[[new_var]]) != 1) {
@@ -1153,7 +1073,7 @@ find_and_remove_desc <- function(quosure) {
   )
 }
 
-query_on_dataset <- function(x) inherits(x$.data, "Dataset")
+query_on_dataset <- function(x) inherits(x$.data, "Dataset") && !inherits(x$.data, "InMemoryDataset")
 
 not_implemented_for_dataset <- function(method) {
   stop(

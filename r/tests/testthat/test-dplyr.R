@@ -57,11 +57,11 @@ test_that("Print method", {
       filter(int < 5) %>%
       select(int, chr) %>%
       print(),
-'RecordBatch (query)
+'InMemoryDataset (query)
 int: int32
 chr: string
 
-* Filter: and(and(greater(dbl, 2), or(equal(chr, "d"), equal(chr, "f"))), less(int, 5))
+* Filter: (((dbl > 2) and ((chr == "d") or (chr == "f"))) and (int < 5))
 See $.data for the source Arrow object',
   fixed = TRUE
   )
@@ -187,7 +187,8 @@ test_that("collect(as_data_frame=FALSE)", {
     filter(int > 5) %>%
     collect(as_data_frame = FALSE)
 
-  expect_r6_class(b2, "RecordBatch")
+  # collect(as_data_frame = FALSE) always returns Table now
+  expect_r6_class(b2, "Table")
   expected <- tbl[tbl$int > 5 & !is.na(tbl$int), c("int", "chr")]
   expect_equal(as.data.frame(b2), expected)
 
@@ -195,7 +196,7 @@ test_that("collect(as_data_frame=FALSE)", {
     select(int, strng = chr) %>%
     filter(int > 5) %>%
     collect(as_data_frame = FALSE)
-  expect_r6_class(b3, "RecordBatch")
+  expect_r6_class(b3, "Table")
   expect_equal(as.data.frame(b3), set_names(expected, c("int", "strng")))
 
   b4 <- batch %>%
@@ -217,14 +218,14 @@ test_that("compute()", {
 
   b1 <- batch %>% compute()
 
-  expect_is(b1, "RecordBatch")
+  expect_r6_class(b1, "RecordBatch")
 
   b2 <- batch %>%
     select(int, chr) %>%
     filter(int > 5) %>%
     compute()
 
-  expect_is(b2, "RecordBatch")
+  expect_r6_class(b2, "Table")
   expected <- tbl[tbl$int > 5 & !is.na(tbl$int), c("int", "chr")]
   expect_equal(as.data.frame(b2), expected)
 
@@ -232,7 +233,7 @@ test_that("compute()", {
     select(int, strng = chr) %>%
     filter(int > 5) %>%
     compute()
-  expect_is(b3, "RecordBatch")
+  expect_r6_class(b3, "Table")
   expect_equal(as.data.frame(b3), set_names(expected, c("int", "strng")))
 
   b4 <- batch %>%
@@ -240,7 +241,7 @@ test_that("compute()", {
     filter(int > 5) %>%
     group_by(int) %>%
     compute()
-  expect_is(b4, "arrow_dplyr_query")
+  expect_s3_class(b4, "arrow_dplyr_query")
   expect_equal(
     as.data.frame(b4),
     expected %>%
@@ -257,7 +258,7 @@ test_that("head", {
     filter(int > 5) %>%
     head(2)
 
-  expect_r6_class(b2, "RecordBatch")
+  expect_r6_class(b2, "Table")
   expected <- tbl[tbl$int > 5 & !is.na(tbl$int), c("int", "chr")][1:2, ]
   expect_equal(as.data.frame(b2), expected)
 
@@ -265,7 +266,8 @@ test_that("head", {
     select(int, strng = chr) %>%
     filter(int > 5) %>%
     head(2)
-  expect_r6_class(b3, "RecordBatch")
+  expect_r6_class(b3, "Table")
+  print(as.data.frame(b3))
   expect_equal(as.data.frame(b3), set_names(expected, c("int", "strng")))
 
   b4 <- batch %>%
@@ -273,7 +275,7 @@ test_that("head", {
     filter(int > 5) %>%
     group_by(int) %>%
     head(2)
-  expect_s3_class(b4, "arrow_dplyr_query")
+  expect_s3_class(b4, "Table")
   expect_equal(
     as.data.frame(b4),
     expected %>%
@@ -290,7 +292,7 @@ test_that("tail", {
     filter(int > 5) %>%
     tail(2)
 
-  expect_r6_class(b2, "RecordBatch")
+  expect_r6_class(b2, "Table")
   expected <- tail(tbl[tbl$int > 5 & !is.na(tbl$int), c("int", "chr")], 2)
   expect_equal(as.data.frame(b2), expected)
 
@@ -298,7 +300,7 @@ test_that("tail", {
     select(int, strng = chr) %>%
     filter(int > 5) %>%
     tail(2)
-  expect_r6_class(b3, "RecordBatch")
+  expect_r6_class(b3, "Table")
   expect_equal(as.data.frame(b3), set_names(expected, c("int", "strng")))
 
   b4 <- batch %>%
@@ -306,7 +308,7 @@ test_that("tail", {
     filter(int > 5) %>%
     group_by(int) %>%
     tail(2)
-  expect_s3_class(b4, "arrow_dplyr_query")
+  expect_s3_class(b4, "Table")
   expect_equal(
     as.data.frame(b4),
     expected %>%

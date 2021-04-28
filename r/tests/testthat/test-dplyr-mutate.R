@@ -344,7 +344,7 @@ test_that("print a mutated table", {
       select(int) %>%
       mutate(twice = int * 2) %>%
       print(),
-'Table (query)
+'InMemoryDataset (query)
 int: int32
 twice: expr
 
@@ -352,12 +352,13 @@ See $.data for the source Arrow object',
   fixed = TRUE)
 
   # Handling non-expressions/edge cases
+  skip("InMemoryDataset$Project() doesn't accept array (or could it?)")
   expect_output(
     Table$create(tbl) %>%
       select(int) %>%
       mutate(again = 1:10) %>%
       print(),
-'Table (query)
+'InMemoryDataset (query)
 int: int32
 again: expr
 
