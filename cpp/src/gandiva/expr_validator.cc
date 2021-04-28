@@ -181,10 +181,11 @@ Status ExprValidator::ValidateInExpression(size_t number_of_values,
   ARROW_RETURN_IF(number_of_values == 0,
                   Status::ExpressionValidationError(
                       "IN Expression needs a non-empty constant list to match."));
-  ARROW_RETURN_IF(!in_expr_return_type->Equals(type_of_values),
-                  Status::ExpressionValidationError(
-                      "Evaluation expression for IN clause returns ", in_expr_return_type,
-                      " values are of type", type_of_values));
+  ARROW_RETURN_IF(
+      !in_expr_return_type->Equals(type_of_values),
+      Status::ExpressionValidationError(
+          "Evaluation expression for IN clause returns ", in_expr_return_type->ToString(),
+          " values are of type", type_of_values->ToString()));
 
   return Status::OK();
 }
