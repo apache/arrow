@@ -65,9 +65,11 @@ Status CastListExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   Datum values = in_array.child_data[0];
 
   if (in_array.offset != 0) {
-    ARROW_ASSIGN_OR_RAISE(out_array->buffers[0],
-                          CopyBitmap(ctx->memory_pool(), in_array.buffers[0]->data(),
-                                     in_array.offset, in_array.length));
+    if (in_array.buffers[0]) {
+      ARROW_ASSIGN_OR_RAISE(out_array->buffers[0],
+                            CopyBitmap(ctx->memory_pool(), in_array.buffers[0]->data(),
+                                       in_array.offset, in_array.length));
+    }
     ARROW_ASSIGN_OR_RAISE(out_array->buffers[1],
                           ctx->Allocate(sizeof(offset_type) * (in_array.length + 1)));
 
