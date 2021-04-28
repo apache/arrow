@@ -22,6 +22,8 @@ FROM ${repo}:${arch}-conda-cpp
 # install python specific packages
 ARG python=3.6
 COPY ci/conda_env_python.yml /arrow/ci/
+# gdb is not yet available for Python 3.9 (ARROW-12543)
+RUN conda remove gdb
 RUN conda install -q \
         --file arrow/ci/conda_env_python.yml \
         $([ "$python" == "3.6" -o "$python" == "3.7" ] && echo "pickle5") \
