@@ -515,11 +515,14 @@ if(ARROW_BUILD_STATIC AND WIN32)
   target_compile_definitions(arrow_static PUBLIC ARROW_STATIC)
 endif()
 
+foreach(LIB_TARGET ${ARROW_LIBRARIES})
+    target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_EXPORTING)
+endforeach()
+
 if(ARROW_WITH_BACKTRACE)
   find_package(Backtrace)
 
   foreach(LIB_TARGET ${ARROW_LIBRARIES})
-    target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_EXPORTING)
     if(Backtrace_FOUND AND ARROW_WITH_BACKTRACE)
       target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_WITH_BACKTRACE)
     endif()
