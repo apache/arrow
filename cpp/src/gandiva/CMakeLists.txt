@@ -83,7 +83,7 @@ set(SRC_FILES
     llvm_generator.cc
     llvm_types.cc
     like_holder.cc
-        literal_holder.cc
+    literal_holder.cc
     projector.cc
     regex_util.cc
     selection_vector.cc
