@@ -598,6 +598,8 @@ Status NumPyConverter::Visit(const FixedSizeBinaryType& type) {
     for (int64_t i = 0; i < length_; ++i) {
         inverted_mask[i] = !mask_values[i];
     }
+    // AppendValues wants the mask flipped from what we got,
+    // so we need to provide it the inverted_mask, not the original one.
     RETURN_NOT_OK(builder.AppendValues(data, length_, inverted_mask.get()));
   } else {
     RETURN_NOT_OK(builder.AppendValues(data, length_));
