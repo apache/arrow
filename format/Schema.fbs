@@ -17,6 +17,11 @@
 
 /// Logical types, vector layouts, and schemas
 
+/// Format Version History.
+/// Version 1.0 - Forward and backwards compability guaranteed.
+/// Version 1.1 - Add Decimal256 (No format release).
+/// Version 1.2 (Pending)- Add Interal DAY_TIME_NANO
+
 namespace org.apache.arrow.flatbuf;
 
 enum MetadataVersion:short {
@@ -276,14 +281,14 @@ enum IntervalUnit: short { YEAR_MONTH, DAY_TIME, MONTH_DAY_NANO}
 // All integers in the types below are stored in the endianness indicated
 // by the schema.
 // YEAR_MONTH - Indicates the number of elapsed whole months, stored as
-//   4-byte integers.
+//   4-byte signed integers.
 // DAY_TIME - Indicates the number of elapsed days and milliseconds,
 //   stored as 2 contiguous 32-bit integers (8-bytes in total).  Support
 //   of this IntervalUnit is not required for full arrow compatibility.
-// MONTH_DAY_NANOS - A triple of # of elapsted months, days, and nanoseconds.
+// MONTH_DAY_NANOS - A triple of # of elapsed months, days, and nanoseconds.
 //  The values are stored contiguously in 16 byte blocks. Months and
 //  days are encoded as 32 bit integers and nanoseconds is encoded as a
-//  64 bit integer.
+//  64 bit integer. All integers are signed.
 table Interval {
   unit: IntervalUnit;
 }
