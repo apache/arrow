@@ -594,7 +594,11 @@ Status NumPyConverter::Visit(const FixedSizeBinaryType& type) {
 
   if (mask_ != nullptr) {
     Ndarray1DIndexer<uint8_t> mask_values(mask_);
-    RETURN_NOT_OK(builder.AppendValues(data, length_, mask_values.data()));
+    std::unique_ptr<uint8_t[]> inverted_mask(new uint8_t[length_]);
+    for (int64_t i = 0; i < length_; ++i) {
+        inverted_mask[i] = !mask_values[i];
+    }
+    RETURN_NOT_OK(builder.AppendValues(data, length_, inverted_mask.get()));
   } else {
     RETURN_NOT_OK(builder.AppendValues(data, length_));
   }

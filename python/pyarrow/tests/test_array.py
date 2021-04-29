@@ -2714,6 +2714,21 @@ def test_array_masked():
     assert arr.type == pa.int64()
 
 
+def test_binary_array_masked():
+    # ARROW-12431
+    masked_basic = pa.array([b'\x05'], type=pa.binary(1),
+                             mask=np.array([False]))
+    assert pa.array([b'\x05']).to_pylist() == masked_basic.to_pylist()
+
+    masked = pa.array(np.array([b'\x05']), type=pa.binary(1),
+                      mask=np.array([False]))
+    assert pa.array([b'\x05']).to_pylist() == masked.to_pylist()
+
+    masked_nulls = pa.array(np.array([b'\x05']), type=pa.binary(1),
+                            mask=np.array([True]))
+    assert pa.array([None]).to_pylist() == masked_nulls.to_pylist()
+
+
 def test_array_invalid_mask_raises():
     # ARROW-10742
     cases = [
