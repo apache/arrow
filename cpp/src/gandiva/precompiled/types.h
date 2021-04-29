@@ -419,7 +419,7 @@ const char* lpad_utf8_int32(gdv_int64 context, const char* text, gdv_int32 text_
                             gdv_int32 return_length, gdv_int32* out_len);
 
 const char* rpad_utf8_int32(gdv_int64 context, const char* text, gdv_int32 text_len,
-                              gdv_int32 return_length, gdv_int32* out_len);
+                            gdv_int32 return_length, gdv_int32* out_len);
 
 const char* replace_with_max_len_utf8_utf8_utf8(gdv_int64 context, const char* text,
                                                 gdv_int32 text_len, const char* from_str,
