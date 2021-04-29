@@ -1311,8 +1311,9 @@ const char* convert_replace_invalid_fromUTF8_binary(int64_t context, const char*
   return ret;
 }
 
+// Converts a double variable to binary
 FORCE_INLINE
-const char* convert_toDOUBLE_binary(int64_t context, double value, int32_t* out_len) {
+const char* convert_toDOUBLE(int64_t context, double value, int32_t* out_len) {
   *out_len = sizeof(value);
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
 
@@ -1330,10 +1331,10 @@ const char* convert_toDOUBLE_binary(int64_t context, double value, int32_t* out_
 }
 
 FORCE_INLINE
-const char* convert_toDOUBLE_binary_be(int64_t context, double value, int32_t* out_len) {
-  // The function behaves like convert_toDOUBLE_binary, but always return the result
+const char* convert_toDOUBLE_be(int64_t context, double value, int32_t* out_len) {
+  // The function behaves like convert_toDOUBLE, but always return the result
   // in big endian format
-  char* ret = const_cast<char*>(convert_toDOUBLE_binary(context, value, out_len));
+  char* ret = const_cast<char*>(convert_toDOUBLE(context, value, out_len));
 
 #if ARROW_LITTLE_ENDIAN
   std::reverse(ret, ret + *out_len);
@@ -1342,8 +1343,9 @@ const char* convert_toDOUBLE_binary_be(int64_t context, double value, int32_t* o
   return ret;
 }
 
+// Converts a float variable to binary
 FORCE_INLINE
-const char* convert_toFLOAT_binary(int64_t context, float value, int32_t* out_len) {
+const char* convert_toFLOAT(int64_t context, float value, int32_t* out_len) {
   *out_len = sizeof(value);
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
 
@@ -1361,10 +1363,10 @@ const char* convert_toFLOAT_binary(int64_t context, float value, int32_t* out_le
 }
 
 FORCE_INLINE
-const char* convert_toFLOAT_binary_be(int64_t context, float value, int32_t* out_len) {
-  // The function behaves like convert_toFLOAT_binary, but always return the result
+const char* convert_toFLOAT_be(int64_t context, float value, int32_t* out_len) {
+  // The function behaves like convert_toFLOAT, but always return the result
   // in big endian format
-  char* ret = const_cast<char*>(convert_toFLOAT_binary(context, value, out_len));
+  char* ret = const_cast<char*>(convert_toFLOAT(context, value, out_len));
 
 #if ARROW_LITTLE_ENDIAN
   std::reverse(ret, ret + *out_len);
@@ -1373,8 +1375,9 @@ const char* convert_toFLOAT_binary_be(int64_t context, float value, int32_t* out
   return ret;
 }
 
+// Converts a bigint(int with 64 bits) variable to binary
 FORCE_INLINE
-const char* convert_toBIGINT_binary(int64_t context, int64_t value, int32_t* out_len) {
+const char* convert_toBIGINT(int64_t context, int64_t value, int32_t* out_len) {
   *out_len = sizeof(value);
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
 
@@ -1392,10 +1395,10 @@ const char* convert_toBIGINT_binary(int64_t context, int64_t value, int32_t* out
 }
 
 FORCE_INLINE
-const char* convert_toBIGINT_binary_be(int64_t context, int64_t value, int32_t* out_len) {
-  // The function behaves like convert_toBIGINT_binary, but always return the result
+const char* convert_toBIGINT_be(int64_t context, int64_t value, int32_t* out_len) {
+  // The function behaves like convert_toBIGINT, but always return the result
   // in big endian format
-  char* ret = const_cast<char*>(convert_toBIGINT_binary(context, value, out_len));
+  char* ret = const_cast<char*>(convert_toBIGINT(context, value, out_len));
 
 #if ARROW_LITTLE_ENDIAN
   std::reverse(ret, ret + *out_len);
@@ -1404,8 +1407,9 @@ const char* convert_toBIGINT_binary_be(int64_t context, int64_t value, int32_t* 
   return ret;
 }
 
+// Converts an integer(with 32 bits) variable to binary
 FORCE_INLINE
-const char* convert_toINT_binary(int64_t context, int32_t value, int32_t* out_len) {
+const char* convert_toINT(int64_t context, int32_t value, int32_t* out_len) {
   *out_len = sizeof(value);
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
 
@@ -1423,10 +1427,10 @@ const char* convert_toINT_binary(int64_t context, int32_t value, int32_t* out_le
 }
 
 FORCE_INLINE
-const char* convert_toINT_binary_be(int64_t context, int32_t value, int32_t* out_len) {
-  // The function behaves like convert_toINT_binary, but always return the result
+const char* convert_toINT_be(int64_t context, int32_t value, int32_t* out_len) {
+  // The function behaves like convert_toINT, but always return the result
   // in big endian format
-  char* ret = const_cast<char*>(convert_toINT_binary(context, value, out_len));
+  char* ret = const_cast<char*>(convert_toINT(context, value, out_len));
 
 #if ARROW_LITTLE_ENDIAN
   std::reverse(ret, ret + *out_len);
@@ -1435,8 +1439,9 @@ const char* convert_toINT_binary_be(int64_t context, int32_t value, int32_t* out
   return ret;
 }
 
+// Converts a boolean variable to binary
 FORCE_INLINE
-const char* convert_toBOOLEAN_binary(int64_t context, bool value, int32_t* out_len) {
+const char* convert_toBOOLEAN(int64_t context, bool value, int32_t* out_len) {
   *out_len = sizeof(value);
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
 
@@ -1453,49 +1458,53 @@ const char* convert_toBOOLEAN_binary(int64_t context, bool value, int32_t* out_l
   return ret;
 }
 
+// Converts a time variable to binary
 FORCE_INLINE
-const char* convert_toTIME_EPOCH_binary(int64_t context, int32_t value,
+const char* convert_toTIME_EPOCH(int64_t context, int32_t value,
                                         int32_t* out_len) {
-  return convert_toINT_binary(context, value, out_len);
+  return convert_toINT(context, value, out_len);
 }
 
 FORCE_INLINE
-const char* convert_toTIME_EPOCH_binary_be(int64_t context, int32_t value,
+const char* convert_toTIME_EPOCH_be(int64_t context, int32_t value,
                                            int32_t* out_len) {
-  // The function behaves as convert_toTIME_EPOCH_binary, but
+  // The function behaves as convert_toTIME_EPOCH, but
   // returns the bytes in big endian format
-  return convert_toINT_binary_be(context, value, out_len);
+  return convert_toINT_be(context, value, out_len);
 }
 
+// Converts a timestamp variable to binary
 FORCE_INLINE
-const char* convert_toTIMESTAMP_EPOCH_binary(int64_t context, int64_t timestamp,
+const char* convert_toTIMESTAMP_EPOCH(int64_t context, int64_t timestamp,
                                              int32_t* out_len) {
-  return convert_toBIGINT_binary(context, timestamp, out_len);
+  return convert_toBIGINT(context, timestamp, out_len);
 }
 
 FORCE_INLINE
-const char* convert_toTIMESTAMP_EPOCH_binary_be(int64_t context, int64_t timestamp,
+const char* convert_toTIMESTAMP_EPOCH_be(int64_t context, int64_t timestamp,
                                                 int32_t* out_len) {
-  // The function behaves as convert_toTIMESTAMP_EPOCH_binary, but
+  // The function behaves as convert_toTIMESTAMP_EPOCH, but
   // returns the bytes in big endian format
-  return convert_toBIGINT_binary_be(context, timestamp, out_len);
+  return convert_toBIGINT_be(context, timestamp, out_len);
+}
+
+// Converts a date variable to binary
+FORCE_INLINE
+const char* convert_toDATE_EPOCH(int64_t context, int64_t date, int32_t* out_len) {
+  return convert_toBIGINT(context, date, out_len);
 }
 
 FORCE_INLINE
-const char* convert_toDATE_EPOCH_binary(int64_t context, int64_t date, int32_t* out_len) {
-  return convert_toBIGINT_binary(context, date, out_len);
-}
-
-FORCE_INLINE
-const char* convert_toDATE_EPOCH_binary_be(int64_t context, int64_t date,
+const char* convert_toDATE_EPOCH_be(int64_t context, int64_t date,
                                            int32_t* out_len) {
-  // The function behaves as convert_toDATE_EPOCH_binary, but
+  // The function behaves as convert_toDATE_EPOCH, but
   // returns the bytes in big endian format
-  return convert_toBIGINT_binary_be(context, date, out_len);
+  return convert_toBIGINT_be(context, date, out_len);
 }
 
+// Converts a string variable to binary
 FORCE_INLINE
-const char* convert_toUTF8_binary(int64_t context, const char* value, int32_t value_len,
+const char* convert_toUTF8(int64_t context, const char* value, int32_t value_len,
                                   int32_t* out_len) {
   *out_len = value_len;
   return value;

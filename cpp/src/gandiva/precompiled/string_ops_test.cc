@@ -1099,28 +1099,28 @@ TEST(TestStringOps, TestConvertTo) {
   const int32_t ALL_BYTES_MATCH = 0;
 
   int32_t integer_value = std::numeric_limits<int32_t>::max();
-  out_str = convert_toINT_binary(ctx_ptr, integer_value, &out_len);
+  out_str = convert_toINT(ctx_ptr, integer_value, &out_len);
   EXPECT_EQ(out_len, sizeof(integer_value));
   EXPECT_EQ(ALL_BYTES_MATCH, memcmp(out_str, &integer_value, out_len));
 
   int64_t big_integer_value = std::numeric_limits<int64_t>::max();
-  out_str = convert_toBIGINT_binary(ctx_ptr, big_integer_value, &out_len);
+  out_str = convert_toBIGINT(ctx_ptr, big_integer_value, &out_len);
   EXPECT_EQ(out_len, sizeof(big_integer_value));
   EXPECT_EQ(ALL_BYTES_MATCH, memcmp(out_str, &big_integer_value, out_len));
 
   float float_value = std::numeric_limits<float>::max();
-  out_str = convert_toFLOAT_binary(ctx_ptr, float_value, &out_len);
+  out_str = convert_toFLOAT(ctx_ptr, float_value, &out_len);
   EXPECT_EQ(out_len, sizeof(float_value));
   EXPECT_EQ(ALL_BYTES_MATCH, memcmp(out_str, &float_value, out_len));
 
   double double_value = std::numeric_limits<double>::max();
-  out_str = convert_toDOUBLE_binary(ctx_ptr, double_value, &out_len);
+  out_str = convert_toDOUBLE(ctx_ptr, double_value, &out_len);
   EXPECT_EQ(out_len, sizeof(double_value));
   EXPECT_EQ(ALL_BYTES_MATCH, memcmp(out_str, &double_value, out_len));
 
   const char* test_string = "test string";
   int32_t str_len = 11;
-  out_str = convert_toUTF8_binary(ctx_ptr, test_string, str_len, &out_len);
+  out_str = convert_toUTF8(ctx_ptr, test_string, str_len, &out_len);
   EXPECT_EQ(out_len, str_len);
   EXPECT_EQ(ALL_BYTES_MATCH, memcmp(out_str, test_string, out_len));
 }
@@ -1134,9 +1134,9 @@ TEST(TestStringOps, TestConvertToBigEndian) {
   const char* out_str_big_endian;
 
   int64_t big_integer_value = std::numeric_limits<int64_t>::max();
-  out_str = convert_toBIGINT_binary(ctx_ptr, big_integer_value, &out_len);
+  out_str = convert_toBIGINT(ctx_ptr, big_integer_value, &out_len);
   out_str_big_endian =
-      convert_toBIGINT_binary_be(ctx_ptr, big_integer_value, &out_len_big_endian);
+      convert_toBIGINT_be(ctx_ptr, big_integer_value, &out_len_big_endian);
   EXPECT_EQ(out_len_big_endian, sizeof(big_integer_value));
   EXPECT_EQ(out_len_big_endian, out_len);
 
@@ -1152,9 +1152,9 @@ TEST(TestStringOps, TestConvertToBigEndian) {
 #endif
 
   double double_value = std::numeric_limits<double>::max();
-  out_str = convert_toDOUBLE_binary(ctx_ptr, double_value, &out_len);
+  out_str = convert_toDOUBLE(ctx_ptr, double_value, &out_len);
   out_str_big_endian =
-      convert_toDOUBLE_binary_be(ctx_ptr, double_value, &out_len_big_endian);
+      convert_toDOUBLE_be(ctx_ptr, double_value, &out_len_big_endian);
   EXPECT_EQ(out_len_big_endian, sizeof(double_value));
   EXPECT_EQ(out_len_big_endian, out_len);
 

@@ -425,40 +425,40 @@ const char* convert_replace_invalid_fromUTF8_binary(int64_t context, const char*
                                                     int32_t char_to_replace_len,
                                                     int32_t* out_len);
 
-const char* convert_toDOUBLE_binary(int64_t context, double value, int32_t* out_len);
+const char* convert_toDOUBLE(int64_t context, double value, int32_t* out_len);
 
-const char* convert_toDOUBLE_binary_be(int64_t context, double value, int32_t* out_len);
+const char* convert_toDOUBLE_be(int64_t context, double value, int32_t* out_len);
 
-const char* convert_toFLOAT_binary(int64_t context, float value, int32_t* out_len);
+const char* convert_toFLOAT(int64_t context, float value, int32_t* out_len);
 
-const char* convert_toFLOAT_binary_be(int64_t context, float value, int32_t* out_len);
+const char* convert_toFLOAT_be(int64_t context, float value, int32_t* out_len);
 
-const char* convert_toBIGINT_binary(int64_t context, int64_t value, int32_t* out_len);
+const char* convert_toBIGINT(int64_t context, int64_t value, int32_t* out_len);
 
-const char* convert_toBIGINT_binary_be(int64_t context, int64_t value, int32_t* out_len);
+const char* convert_toBIGINT_be(int64_t context, int64_t value, int32_t* out_len);
 
-const char* convert_toINT_binary(int64_t context, int32_t value, int32_t* out_len);
+const char* convert_toINT(int64_t context, int32_t value, int32_t* out_len);
 
-const char* convert_toINT_binary_be(int64_t context, int32_t value, int32_t* out_len);
+const char* convert_toINT_be(int64_t context, int32_t value, int32_t* out_len);
 
-const char* convert_toBOOLEAN_binary(int64_t context, bool value, int32_t* out_len);
+const char* convert_toBOOLEAN(int64_t context, bool value, int32_t* out_len);
 
-const char* convert_toTIME_EPOCH_binary(int64_t context, int32_t value, int32_t* out_len);
+const char* convert_toTIME_EPOCH(int64_t context, int32_t value, int32_t* out_len);
 
-const char* convert_toTIME_EPOCH_binary_be(int64_t context, int32_t value,
+const char* convert_toTIME_EPOCH_be(int64_t context, int32_t value,
                                            int32_t* out_len);
 
-const char* convert_toTIMESTAMP_EPOCH_binary(int64_t context, int64_t timestamp,
+const char* convert_toTIMESTAMP_EPOCH(int64_t context, int64_t timestamp,
                                              int32_t* out_len);
-const char* convert_toTIMESTAMP_EPOCH_binary_be(int64_t context, int64_t timestamp,
+const char* convert_toTIMESTAMP_EPOCH_be(int64_t context, int64_t timestamp,
                                                 int32_t* out_len);
 
-const char* convert_toDATE_EPOCH_binary(int64_t context, int64_t date, int32_t* out_len);
+const char* convert_toDATE_EPOCH(int64_t context, int64_t date, int32_t* out_len);
 
-const char* convert_toDATE_EPOCH_binary_be(int64_t context, int64_t date,
+const char* convert_toDATE_EPOCH_be(int64_t context, int64_t date,
                                            int32_t* out_len);
 
-const char* convert_toUTF8_binary(int64_t context, const char* value, int32_t value_len,
+const char* convert_toUTF8(int64_t context, const char* value, int32_t value_len,
                                   int32_t* out_len);
 
 const char* split_part(gdv_int64 context, const char* text, gdv_int32 text_len,
