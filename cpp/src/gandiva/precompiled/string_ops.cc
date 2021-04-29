@@ -1491,25 +1491,25 @@ const char* left(gdv_int64 context, const char* text, gdv_int32 text_len,
   }
 
   // initially counts the number of utf8 characters in the defined text
-  int32_t charCount = utf8_length(context, text, text_len);
-  // charCount is zero if input has invalid utf8 char
-  if (charCount == 0) {
+  int32_t char_count = utf8_length(context, text, text_len);
+  // char_count is zero if input has invalid utf8 char
+  if (char_count == 0) {
     *out_len = 0;
     return "";
   }
 
-  int32_t endCharPos;  // the char result end position (inclusive)
+  int32_t end_char_pos;  // the char result end position (inclusive)
   if (number > 0) {
     // case where left('abc', 5) -> 'abc'
-    endCharPos = (charCount < number) ? charCount : number;
+    end_char_pos = (char_count < number) ? char_count : number;
   } else if (number < 0) {
     // case where left('abc', -5) ==> ''
-    endCharPos = (charCount + number > 0) ? charCount + number : 0;
+    end_char_pos = (char_count + number > 0) ? char_count + number : 0;
   } else {
-    endCharPos = 0;
+    end_char_pos = 0;
   }
 
-  *out_len = utf8_byte_pos(context, text, text_len, endCharPos);
+  *out_len = utf8_byte_pos(context, text, text_len, end_char_pos);
   return text;
 }
 
@@ -1523,27 +1523,27 @@ const char* right(gdv_int64 context, const char* text, gdv_int32 text_len,
   }
 
   // initially counts the number of utf8 characters in the defined text
-  int32_t charCount = utf8_length(context, text, text_len);
-  // charCount is zero if input has invalid utf8 char
-  if (charCount == 0) {
+  int32_t char_count = utf8_length(context, text, text_len);
+  // char_count is zero if input has invalid utf8 char
+  if (char_count == 0) {
     *out_len = 0;
     return "";
   }
 
-  int32_t startCharPos;  // the char result start position (inclusive)
-  int32_t endCharLen;    // the char result end position (inclusive)
+  int32_t start_char_pos;  // the char result start position (inclusive)
+  int32_t end_char_len;    // the char result end position (inclusive)
   if (number > 0) {
-    // case where right('abc', 5) ==> 'abc' startCharPos=1.
-    startCharPos = (charCount - number + 1 > 1) ? charCount - number + 1 : 1;
-    endCharLen = charCount - startCharPos + 1;
+    // case where right('abc', 5) ==> 'abc' start_char_pos=1.
+    start_char_pos = (char_count - number + 1 > 1) ? char_count - number + 1 : 1;
+    end_char_len = char_count - start_char_pos + 1;
   } else {
-    startCharPos = ((number > 0) ? number : number * -1) + 1;
-    endCharLen = charCount - startCharPos + 1;
+    start_char_pos = ((number > 0) ? number : number * -1) + 1;
+    end_char_len = char_count - start_char_pos + 1;
   }
 
   // calculate the start byte position and the output length
-  int32_t startBytePos = utf8_byte_pos(context, text, text_len, startCharPos - 1);
-  *out_len = utf8_byte_pos(context, text, text_len, endCharLen);
+  int32_t start_byte_pos = utf8_byte_pos(context, text, text_len, start_char_pos - 1);
+  *out_len = utf8_byte_pos(context, text, text_len, end_char_len);
 
   // try to allocate memory for the response
   char* ret =
@@ -1553,7 +1553,7 @@ const char* right(gdv_int64 context, const char* text, gdv_int32 text_len,
     *out_len = 0;
     return "";
   }
-  memcpy(ret, text + startBytePos, *out_len);
+  memcpy(ret, text + start_byte_pos, *out_len);
   return ret;
 }
 
