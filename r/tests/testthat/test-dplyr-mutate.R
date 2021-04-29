@@ -414,7 +414,6 @@ test_that("mutate and write_dataset", {
 })
 
 # PACHA ADDITIONS ----
-# READ THIS CAREFULLY PLEASE, IT'S MY 1ST DAY WRITING THIS KIND OF SENSITIVE TESTS
 
 # similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L1-L10
 # the rest of that test belongs in L55-62 here
@@ -505,15 +504,14 @@ test_that("mutate disambiguates NA and NaN (#1448)", {
   )
 })
 
-# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L102-L106
-# this is somewhat "contained" in the previous test
+# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L117-L127
 test_that("mutate handles data frame columns", {
   expect_dplyr_equal(
     input %>% mutate(new_col = data.frame(x = 1:3)) %>% select(new_col) %>% collect(),
     data.frame(x = 1:3)
   )
 
-  # mutate() on grouped data not supported in Arrow; this will be pulling data into R
+  # mutate() on grouped data not supported in Arrow; this will be pulling data back into R
   expect_warning(expect_dplyr_equal(
     input %>%
       group_by(x) %>%
@@ -522,7 +520,7 @@ test_that("mutate handles data frame columns", {
       select(new_col) %>%
       collect(),
     data.frame(x = 1:3)
-  ))
+  ), "not supported in Arrow")
 
   skip("rowwise() is not (yet) implemented in Arrow")
   expect_dplyr_equal(
@@ -533,5 +531,52 @@ test_that("mutate handles data frame columns", {
       select(new_col) %>%
       collect(),
     data.frame(x = 1:3)
+  )
+})
+
+# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L129-L142
+test_that("unnamed data frames are automatically unspliced", {
+  # this works in arrow
+  expect_dplyr_equal(
+    input %>% mutate(tibble(b = 2)) %>% collect(),
+    tibble(a = 1)
+  )
+
+  # not this
+  expect_error(expect_dplyr_equal(
+    input %>% mutate(tibble(b = 2), tibble(b = 3)) %>% collect(),
+    tibble(a = 1)
+  ))
+
+  # nor this
+  expect_error(expect_dplyr_equal(
+    input %>% mutate(tibble(b = 2), c = b) %>% collect(),
+    tibble(a = 1)
+  ))
+})
+
+# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L144-L148
+test_that("named data frames are packed", {
+  expect_warning(expect_dplyr_equal(
+    input %>% mutate(y = tibble(x = a)) %>% collect(),
+    tibble(a = 1)
+  ), "not supported in Arrow")
+})
+
+# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L150-L158
+test_that("unchop only called for when multiple groups", {
+  df <- data.frame(g = 1, x = 1:5)
+
+  # translate to arrow
+  d <- df %>% record_batch() %>% mutate(y = x + 1)
+  expect_s3_class(
+    d,
+    "arrow_dplyr_query"
+  )
+
+  # now try translate back to R
+  expect_error(
+    d %>% mutate(y = ts(x, start = c(2010, 1), frequency = 5)) %>% collect(),
+    "Expecting a character vector"
   )
 })
