@@ -1336,10 +1336,10 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
 
   engine->AddGlobalMappingForFunc("gdv_fn_lower_utf8",
                                   types->i8_ptr_type() /*return_type*/, args,
-                                  reinterpret_cast<void*>(gdv_fn_lower_utf8))
+                                  reinterpret_cast<void*>(gdv_fn_lower_utf8));
 
-      // gdv_fn_initcap_utf8
-      args = {
+  // gdv_fn_initcap_utf8
+  args = {
       types->i64_type(),     // context
       types->i8_ptr_type(),  // const char*
       types->i32_type(),     // value_length
