@@ -130,10 +130,6 @@ class TestParquetFileFormat : public FileFormatFixtureMixin<ParquetFormatHelper>
     return Batches(std::move(scan_task_it));
   }
 
-  void SetFilter(compute::Expression filter) {
-    ASSERT_OK_AND_ASSIGN(opts_->filter, filter.Bind(*opts_->dataset_schema));
-  }
-
   std::shared_ptr<RecordBatch> SingleBatch(Fragment* fragment) {
     auto batches = IteratorToVector(Batches(fragment));
     EXPECT_EQ(batches.size(), 1);
