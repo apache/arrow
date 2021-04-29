@@ -39,11 +39,11 @@ jobs:
 
       - name: Execute Docker Build
         shell: bash
-        run: archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" {{ run }}
+        run: archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" {{ flags|default("") }} {{ image }}
 
     {% if arrow.branch == 'master' %}
       {{ macros.github_login_dockerhub()|indent }}
       - name: Push Docker Image
         shell: bash
-        run: archery docker push {{ run }}
+        run: archery docker push {{ image }}
     {% endif %}
