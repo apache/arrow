@@ -110,10 +110,9 @@ static void RunInSerialExecutor(benchmark::State& state) {  // NOLINT non-const 
   Workload workload(workload_size);
 
   for (auto _ : state) {
-    ABORT_NOT_OK(SerialExecutor::RunInSerialExecutor<arrow::detail::Empty>(
-        [&](internal::Executor* executor) {
-          return DeferNotOk(executor->Submit(std::ref(workload)));
-        }));
+    ABORT_NOT_OK(SerialExecutor::RunInSerialExecutor<>([&](internal::Executor* executor) {
+      return DeferNotOk(executor->Submit(std::ref(workload)));
+    }));
   }
 
   state.SetItemsProcessed(state.iterations());

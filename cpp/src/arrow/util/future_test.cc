@@ -261,10 +261,6 @@ TEST(FutureSyncTest, Empty) {
     // MakeFinished()
     auto fut = Future<>::MakeFinished();
     AssertSuccessful(fut);
-    auto res = fut.result();
-    ASSERT_OK(res);
-    res = std::move(fut.result());
-    ASSERT_OK(res);
   }
   {
     // MarkFinished(Status)
@@ -352,8 +348,7 @@ TEST(FutureRefTest, ChainRemoved) {
   std::weak_ptr<FutureImpl> ref2;
   {
     auto fut = Future<>::Make();
-    auto fut2 =
-        fut.Then([](const Result<detail::Empty>& status) { return Status::OK(); });
+    auto fut2 = fut.Then([]() { return Status::OK(); });
     ref = fut.impl_;
     ref2 = fut2.impl_;
   }
@@ -362,7 +357,7 @@ TEST(FutureRefTest, ChainRemoved) {
 
   {
     auto fut = Future<>::Make();
-    auto fut2 = fut.Then([](const Result<detail::Empty>&) { return Future<>::Make(); });
+    auto fut2 = fut.Then([]() { return Future<>::Make(); });
     ref = fut.impl_;
     ref2 = fut2.impl_;
   }
@@ -377,7 +372,7 @@ TEST(FutureRefTest, TailRemoved) {
   bool side_effect_run = false;
   {
     ref = std::make_shared<Future<>>(Future<>::Make());
-    auto fut2 = ref->Then([&side_effect_run](const Result<detail::Empty>& status) {
+    auto fut2 = ref->Then([&side_effect_run]() {
       side_effect_run = true;
       return Status::OK();
     });
@@ -434,7 +429,8 @@ TEST(FutureStressTest, Callback) {
       auto test_thread = std::this_thread::get_id();
       while (!finished.load()) {
         fut.AddCallback([&test_thread, &count_finished_immediately,
-                         &count_finished_deferred](const Result<detail::Empty>& result) {
+                         &count_finished_deferred](const Status& status) {
+          ARROW_EXPECT_OK(status);
           if (std::this_thread::get_id() == test_thread) {
             count_finished_immediately++;
           } else {
@@ -483,14 +479,15 @@ TEST(FutureStressTest, TryAddCallback) {
 
     std::thread callback_adder([&] {
       callback_adder_thread_id = std::this_thread::get_id();
-      std::function<void(const Result<detail::Empty>&)> callback =
-          [&callback_adder_thread_id](const Result<detail::Empty>&) {
+      std::function<void(const Status&)> callback =
+          [&callback_adder_thread_id](const Status& st) {
+            ARROW_EXPECT_OK(st);
             if (std::this_thread::get_id() == callback_adder_thread_id) {
               FAIL() << "TryAddCallback allowed a callback to be run synchronously";
             }
           };
-      std::function<std::function<void(const Result<detail::Empty>&)>()>
-          callback_factory = [&callback]() { return callback; };
+      std::function<std::function<void(const Status&)>()> callback_factory =
+          [&callback]() { return callback; };
       while (true) {
         auto callback_added = fut.TryAddCallback(callback_factory);
         if (callback_added) {
@@ -549,7 +546,7 @@ TEST(FutureCompletionTest, Void) {
   {
     // From void
     auto fut = Future<>::Make();
-    auto fut2 = fut.Then([](const Result<detail::Empty>&) {});
+    auto fut2 = fut.Then([]() {});
     fut.MarkFinished();
     AssertSuccessful(fut2);
   }
@@ -557,9 +554,9 @@ TEST(FutureCompletionTest, Void) {
     // Propagate failure by not having on_failure
     auto fut = Future<>::Make();
     auto cb_was_run = false;
-    auto fut2 = fut.Then([&cb_was_run](const Result<detail::Empty>& res) {
+    auto fut2 = fut.Then([&cb_was_run]() {
       cb_was_run = true;
-      return res;
+      return Status::OK();
     });
     fut.MarkFinished(Status::IOError("xxx"));
     AssertFailed(fut2);
@@ -775,7 +772,7 @@ TEST(FutureCompletionTest, Status) {
   {
     // From void
     auto fut = Future<>::Make();
-    auto fut2 = fut.Then([](const Result<detail::Empty>& res) { return Status::OK(); });
+    auto fut2 = fut.Then([]() { return Status::OK(); });
     fut.MarkFinished();
     AssertSuccessful(fut2);
   }
@@ -784,7 +781,7 @@ TEST(FutureCompletionTest, Status) {
     auto fut = Future<>::Make();
     auto was_cb_run = false;
     auto fut2 = fut.Then(
-        [&was_cb_run](const Result<detail::Empty>& res) {
+        [&was_cb_run]() {
           was_cb_run = true;
           return Status::OK();
         },
@@ -1596,7 +1593,5 @@ TEST(FnOnceTest, MoveOnlyDataType) {
   ASSERT_EQ(i0.moves, 0);
   ASSERT_EQ(i1.moves, 0);
 }
-
 }  // namespace internal
-
 }  // namespace arrow

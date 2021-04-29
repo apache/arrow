@@ -759,8 +759,7 @@ class SerialStreamingReader : public BaseStreamingReader,
             }
             return Status::OK();
           })
-          .Then([self](const ::arrow::detail::Empty& st)
-                    -> Result<std::shared_ptr<RecordBatch>> {
+          .Then([self]() -> Result<std::shared_ptr<RecordBatch>> {
             return self->DecodeBatchAndUpdateSchema();
           });
     }
@@ -788,14 +787,14 @@ class SerialStreamingReader : public BaseStreamingReader,
     }
     auto self = shared_from_this();
     if (!block_generator_) {
-      return SetupReader(self).Then([self](const Result<::arrow::detail::Empty>& res)
-                                        -> Future<std::shared_ptr<RecordBatch>> {
-        if (!res.ok()) {
-          self->eof_ = true;
-          return res.status();
-        }
-        return self->ReadNextSkippingEmpty(self);
-      });
+      return SetupReader(self).Then(
+          [self]() -> Future<std::shared_ptr<RecordBatch>> {
+            return self->ReadNextSkippingEmpty(self);
+          },
+          [self](const Status& err) -> Result<std::shared_ptr<RecordBatch>> {
+            self->eof_ = true;
+            return err;
+          });
     } else {
       return self->ReadNextSkippingEmpty(self);
     }

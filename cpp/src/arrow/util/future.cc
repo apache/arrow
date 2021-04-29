@@ -357,11 +357,11 @@ Future<> AllComplete(const std::vector<Future<>>& futures) {
   auto state = std::make_shared<State>(futures.size());
   auto out = Future<>::Make();
   for (const auto& future : futures) {
-    future.AddCallback([state, out](const Result<detail::Empty>& result) mutable {
-      if (!result.ok()) {
+    future.AddCallback([state, out](const Status& status) mutable {
+      if (!status.ok()) {
         std::unique_lock<std::mutex> lock(state->mutex);
         if (!out.is_finished()) {
-          out.MarkFinished(result);
+          out.MarkFinished(status);
         }
         return;
       }

@@ -52,8 +52,7 @@ AsyncGenerator<T> FailsAt(AsyncGenerator<T> src, int failing_index) {
 template <typename T>
 AsyncGenerator<T> SlowdownABit(AsyncGenerator<T> source) {
   return MakeMappedGenerator<T, T>(std::move(source), [](const T& res) -> Future<T> {
-    return SleepABitAsync().Then(
-        [res](const Result<detail::Empty>& empty) { return res; });
+    return SleepABitAsync().Then([res]() { return res; });
   });
 }
 
@@ -362,9 +361,7 @@ TEST(TestAsyncUtil, MapAsync) {
   std::vector<TestInt> input = {1, 2, 3};
   auto generator = AsyncVectorIt(input);
   std::function<Future<TestStr>(const TestInt&)> mapper = [](const TestInt& in) {
-    return SleepAsync(1e-3).Then([in](const Result<detail::Empty>& empty) {
-      return TestStr(std::to_string(in.value));
-    });
+    return SleepAsync(1e-3).Then([in]() { return TestStr(std::to_string(in.value)); });
   };
   auto mapped = MakeMappedGenerator(std::move(generator), mapper);
   std::vector<TestStr> expected{"1", "2", "3"};

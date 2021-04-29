@@ -21,10 +21,20 @@
 #include <tuple>
 #include <type_traits>
 
+#include "arrow/result.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {
 namespace internal {
+
+struct Empty {
+  static Result<Empty> ToResult(Status s) {
+    if (ARROW_PREDICT_TRUE(s.ok())) {
+      return Empty{};
+    }
+    return s;
+  }
+};
 
 /// Helper struct for examining lambdas and other callables.
 /// TODO(bkietz) support function pointers
@@ -82,6 +92,13 @@ struct call_traits {
   template <typename F, typename T, typename RT = T>
   using enable_if_return =
       typename std::enable_if<std::is_same<return_type<F>, T>::value, RT>;
+
+  template <typename T, typename R = void>
+  using enable_if_empty = typename std::enable_if<std::is_same<T, Empty>::value, R>::type;
+
+  template <typename T, typename R = void>
+  using enable_if_not_empty =
+      typename std::enable_if<!std::is_same<T, Empty>::value, R>::type;
 };
 
 /// A type erased callable object which may only be invoked once.

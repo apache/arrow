@@ -189,11 +189,7 @@ TEST_P(TestRunSynchronously, SpawnMoreNested) {
   auto top_level_task = [&](Executor* executor) -> Future<> {
     auto fut_a = DeferNotOk(executor->Submit([&] { nested_ran++; }));
     auto fut_b = DeferNotOk(executor->Submit([&] { nested_ran++; }));
-    return AllComplete({fut_a, fut_b})
-        .Then([&](const Result<arrow::detail::Empty>& result) {
-          nested_ran++;
-          return result;
-        });
+    return AllComplete({fut_a, fut_b}).Then([&]() { nested_ran++; });
   };
   ASSERT_OK(RunVoid(std::move(top_level_task)));
   EXPECT_EQ(nested_ran, 3);

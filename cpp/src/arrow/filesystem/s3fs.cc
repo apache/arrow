@@ -1595,8 +1595,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
 
     TreeWalker::WalkAsync(client_, io_context_, bucket, key, kListObjectsMaxKeys,
                           handle_results, handle_error, handle_recursion)
-        .AddCallback([collector, producer,
-                      self](const Result<::arrow::detail::Empty>& res) mutable {
+        .AddCallback([collector, producer, self](const Status& status) mutable {
           auto st = collector->Finish(self.get());
           if (!st.ok()) {
             producer.Push(st);
