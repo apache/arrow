@@ -1153,8 +1153,7 @@ TEST(TestStringOps, TestConvertToBigEndian) {
 
   double double_value = std::numeric_limits<double>::max();
   out_str = convert_toDOUBLE(ctx_ptr, double_value, &out_len);
-  out_str_big_endian =
-      convert_toDOUBLE_be(ctx_ptr, double_value, &out_len_big_endian);
+  out_str_big_endian = convert_toDOUBLE_be(ctx_ptr, double_value, &out_len_big_endian);
   EXPECT_EQ(out_len_big_endian, sizeof(double_value));
   EXPECT_EQ(out_len_big_endian, out_len);
 

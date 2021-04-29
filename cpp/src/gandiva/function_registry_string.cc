@@ -234,16 +234,14 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      NativeFunction::kNeedsContext),
 
       NativeFunction("convert_tofloat", {}, DataTypeVector{float32()}, binary(),
-                     kResultNullIfNull, "convert_toFLOAT",
-                     NativeFunction::kNeedsContext),
+                     kResultNullIfNull, "convert_toFLOAT", NativeFunction::kNeedsContext),
 
       NativeFunction("convert_tofloat_be", {}, DataTypeVector{float32()}, binary(),
                      kResultNullIfNull, "convert_toFLOAT_be",
                      NativeFunction::kNeedsContext),
 
       NativeFunction("convert_toint", {}, DataTypeVector{int32()}, binary(),
-                     kResultNullIfNull, "convert_toINT",
-                     NativeFunction::kNeedsContext),
+                     kResultNullIfNull, "convert_toINT", NativeFunction::kNeedsContext),
 
       NativeFunction("convert_toint_be", {}, DataTypeVector{int32()}, binary(),
                      kResultNullIfNull, "convert_toINT_be",
@@ -286,8 +284,7 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      NativeFunction::kNeedsContext),
 
       NativeFunction("convert_toutf8", {}, DataTypeVector{utf8()}, binary(),
-                     kResultNullIfNull, "convert_toUTF8",
-                     NativeFunction::kNeedsContext),
+                     kResultNullIfNull, "convert_toUTF8", NativeFunction::kNeedsContext),
 
       NativeFunction("locate", {"position"}, DataTypeVector{utf8(), utf8(), int32()},
                      int32(), kResultNullIfNull, "locate_utf8_utf8_int32",

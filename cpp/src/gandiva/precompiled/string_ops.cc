@@ -1311,6 +1311,18 @@ const char* convert_replace_invalid_fromUTF8_binary(int64_t context, const char*
   return ret;
 }
 
+// The function reverse a char array in-place
+static inline void reverse_char_buf(char* buf, int32_t len) {
+  char temp;
+
+  for (int32_t i = 0; i < len / 2; i++) {
+    int32_t pos_swp = len - (1 + i);
+    temp = buf[pos_swp];
+    buf[pos_swp] = buf[i];
+    buf[i] = temp;
+  }
+}
+
 // Converts a double variable to binary
 FORCE_INLINE
 const char* convert_toDOUBLE(int64_t context, double value, int32_t* out_len) {
@@ -1337,7 +1349,7 @@ const char* convert_toDOUBLE_be(int64_t context, double value, int32_t* out_len)
   char* ret = const_cast<char*>(convert_toDOUBLE(context, value, out_len));
 
 #if ARROW_LITTLE_ENDIAN
-  std::reverse(ret, ret + *out_len);
+  reverse_char_buf(ret, *out_len);
 #endif
 
   return ret;
@@ -1369,7 +1381,7 @@ const char* convert_toFLOAT_be(int64_t context, float value, int32_t* out_len) {
   char* ret = const_cast<char*>(convert_toFLOAT(context, value, out_len));
 
 #if ARROW_LITTLE_ENDIAN
-  std::reverse(ret, ret + *out_len);
+  reverse_char_buf(ret, *out_len);
 #endif
 
   return ret;
@@ -1401,7 +1413,7 @@ const char* convert_toBIGINT_be(int64_t context, int64_t value, int32_t* out_len
   char* ret = const_cast<char*>(convert_toBIGINT(context, value, out_len));
 
 #if ARROW_LITTLE_ENDIAN
-  std::reverse(ret, ret + *out_len);
+  reverse_char_buf(ret, *out_len);
 #endif
 
   return ret;
@@ -1433,7 +1445,7 @@ const char* convert_toINT_be(int64_t context, int32_t value, int32_t* out_len) {
   char* ret = const_cast<char*>(convert_toINT(context, value, out_len));
 
 #if ARROW_LITTLE_ENDIAN
-  std::reverse(ret, ret + *out_len);
+  reverse_char_buf(ret, *out_len);
 #endif
 
   return ret;
@@ -1460,14 +1472,12 @@ const char* convert_toBOOLEAN(int64_t context, bool value, int32_t* out_len) {
 
 // Converts a time variable to binary
 FORCE_INLINE
-const char* convert_toTIME_EPOCH(int64_t context, int32_t value,
-                                        int32_t* out_len) {
+const char* convert_toTIME_EPOCH(int64_t context, int32_t value, int32_t* out_len) {
   return convert_toINT(context, value, out_len);
 }
 
 FORCE_INLINE
-const char* convert_toTIME_EPOCH_be(int64_t context, int32_t value,
-                                           int32_t* out_len) {
+const char* convert_toTIME_EPOCH_be(int64_t context, int32_t value, int32_t* out_len) {
   // The function behaves as convert_toTIME_EPOCH, but
   // returns the bytes in big endian format
   return convert_toINT_be(context, value, out_len);
@@ -1476,13 +1486,13 @@ const char* convert_toTIME_EPOCH_be(int64_t context, int32_t value,
 // Converts a timestamp variable to binary
 FORCE_INLINE
 const char* convert_toTIMESTAMP_EPOCH(int64_t context, int64_t timestamp,
-                                             int32_t* out_len) {
+                                      int32_t* out_len) {
   return convert_toBIGINT(context, timestamp, out_len);
 }
 
 FORCE_INLINE
 const char* convert_toTIMESTAMP_EPOCH_be(int64_t context, int64_t timestamp,
-                                                int32_t* out_len) {
+                                         int32_t* out_len) {
   // The function behaves as convert_toTIMESTAMP_EPOCH, but
   // returns the bytes in big endian format
   return convert_toBIGINT_be(context, timestamp, out_len);
@@ -1495,8 +1505,7 @@ const char* convert_toDATE_EPOCH(int64_t context, int64_t date, int32_t* out_len
 }
 
 FORCE_INLINE
-const char* convert_toDATE_EPOCH_be(int64_t context, int64_t date,
-                                           int32_t* out_len) {
+const char* convert_toDATE_EPOCH_be(int64_t context, int64_t date, int32_t* out_len) {
   // The function behaves as convert_toDATE_EPOCH, but
   // returns the bytes in big endian format
   return convert_toBIGINT_be(context, date, out_len);
@@ -1505,7 +1514,7 @@ const char* convert_toDATE_EPOCH_be(int64_t context, int64_t date,
 // Converts a string variable to binary
 FORCE_INLINE
 const char* convert_toUTF8(int64_t context, const char* value, int32_t value_len,
-                                  int32_t* out_len) {
+                           int32_t* out_len) {
   *out_len = value_len;
   return value;
 }
