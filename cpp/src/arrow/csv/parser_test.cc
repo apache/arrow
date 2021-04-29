@@ -533,7 +533,7 @@ TEST(BlockParser, QuotesSpecial) {
   }
 }
 
-TEST(BlockParser, MismatchingNumColumns) {
+TEST(BlockParser, MismatchingNumColumnsDefault) {
   uint32_t out_size;
   {
     BlockParser parser(ParseOptions::Defaults());
@@ -552,6 +552,54 @@ TEST(BlockParser, MismatchingNumColumns) {
     auto csv = MakeCSVData({"a,b,c\n"});
     Status st = Parse(parser, csv, &out_size);
     ASSERT_RAISES(Invalid, st);
+  }
+}
+
+TEST(BlockParser, MismatchingNumColumnsCustom) {
+  struct CustomHandler {
+    operator InvalidRowHandler() {
+      return [this](RowModifier& modifier) {
+        skipped.push_back(modifier.line().to_string());
+        modifier.Skip();
+        return Status::OK();
+      };
+    }
+
+    std::vector<std::string> skipped;
+  };
+
+  {
+    ParseOptions opts = ParseOptions::Defaults();
+    CustomHandler handler;
+    opts.invalid_row_handler = handler;
+    BlockParser parser(opts);
+    ASSERT_NO_FATAL_FAILURE(AssertParseOk(parser, "a,b\nc\nd,e\n"));
+    ASSERT_EQ(2, parser.num_rows());
+    ASSERT_EQ(1, handler.skipped.size());
+    ASSERT_EQ("c", handler.skipped[0]);
+    ASSERT_NO_FATAL_FAILURE(AssertLastRowEq(parser, {"d", "e"}, {false, false}));
+  }
+  {
+    ParseOptions opts = ParseOptions::Defaults();
+    CustomHandler handler;
+    opts.invalid_row_handler = handler;
+    BlockParser parser(opts, 2 /* num_cols */);
+    ASSERT_NO_FATAL_FAILURE(AssertParseOk(parser, "a\nb,c\n"));
+    ASSERT_EQ(1, parser.num_rows());
+    ASSERT_EQ(1, handler.skipped.size());
+    ASSERT_EQ("a", handler.skipped[0]);
+    ASSERT_NO_FATAL_FAILURE(AssertLastRowEq(parser, {"b", "c"}, {false, false}));
+  }
+  {
+    ParseOptions opts = ParseOptions::Defaults();
+    CustomHandler handler;
+    opts.invalid_row_handler = handler;
+    BlockParser parser(opts, 2 /* num_cols */);
+    ASSERT_NO_FATAL_FAILURE(AssertParseOk(parser, "a,b,c\nd,e\n"));
+    ASSERT_EQ(1, parser.num_rows());
+    ASSERT_EQ(1, handler.skipped.size());
+    ASSERT_EQ("a,b,c", handler.skipped[0]);
+    ASSERT_NO_FATAL_FAILURE(AssertLastRowEq(parser, {"d", "e"}, {false, false}));
   }
 }
 

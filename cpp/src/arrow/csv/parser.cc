@@ -18,7 +18,7 @@
 #include "arrow/csv/parser.h"
 
 #include <algorithm>
-#include <cstdio>
+#include <cstdint>
 #include <limits>
 #include <utility>
 
@@ -59,7 +59,8 @@ class SpecializedOptions {
 };
 
 // A helper class allocating the buffer for parsed values and writing into it
-// without any further resizes, except at the end.
+// avoiding any further resizes, except at the end and if full fields are inserted during
+// error handling.
 class PresizedDataWriter {
  public:
   PresizedDataWriter(MemoryPool* pool, uint32_t size)
@@ -80,8 +81,78 @@ class PresizedDataWriter {
     parsed_[parsed_size_++] = static_cast<uint8_t>(c);
   }
 
+  // Push the value of a fully complete field. This should only be used to fill in missing
+  // values. This method can reallocate the buffer if there isn't enough extra space for
+  // the field.
+  Status PushField(const std::string& field) {
+    const auto field_length = field.length();
+    if (field_length == 0) {
+      return Status::OK();
+    }
+
+    if (field_length > extra_allocated_) {
+      // just in case this happens more allocate enough for 10x this amount
+      auto to_allocate = static_cast<uint32_t>(
+          std::max(field_length * 10, static_cast<std::string::size_type>(128)));
+      int64_t new_capacity = parsed_capacity_ + to_allocate;
+      RETURN_NOT_OK(parsed_buffer_->Resize(new_capacity));
+      parsed_ = parsed_buffer_->mutable_data();
+      parsed_capacity_ = new_capacity;
+      extra_allocated_ += to_allocate;
+    }
+
+    ::memcpy(&parsed_[parsed_size_], field.data(), field_length);
+    parsed_size_ += field_length;
+    extra_allocated_ -= static_cast<uint32_t>(field_length);
+    return Status::OK();
+  }
+
+  // Push the value of a fully complete field multiple times. This should only be used to
+  // fill in missing values. This method can reallocate the buffer if there isn't enough
+  // extra space for the fields. This will only allocate enough space for the fields
+  template <typename ValueDescWriter>
+  Status PushFields(ValueDescWriter* values_writer, const std::string& field, int count) {
+    const auto field_length = field.length();
+    const auto fields_length = field_length * static_cast<std::string::size_type>(count);
+    if (fields_length > extra_allocated_) {
+      // just in case this happens more allocate enough for 10x this amount
+      auto to_allocate = static_cast<uint32_t>(
+          fields_length - static_cast<std::string::size_type>(extra_allocated_));
+      int64_t new_capacity = parsed_capacity_ + to_allocate;
+      RETURN_NOT_OK(parsed_buffer_->Resize(new_capacity));
+      parsed_ = parsed_buffer_->mutable_data();
+      parsed_capacity_ = new_capacity;
+      extra_allocated_ += to_allocate;
+    }
+
+    for (int i = 0; i < count; ++i) {
+      values_writer->StartField(false);
+      ::memcpy(&parsed_[parsed_size_], field.data(), field_length);
+      parsed_size_ += field_length;
+      values_writer->FinishField(this);
+    }
+    extra_allocated_ -= static_cast<uint32_t>(fields_length);
+    return Status::OK();
+  }
+
   // Rollback the state that was saved in BeginLine()
   void RollbackLine() { parsed_size_ = saved_parsed_size_; }
+
+  // Rollback the state to the given offset optionally adding the new space as extra
+  Status RollbackTo(int64_t offset, bool add_to_extra = false) {
+    if (ARROW_PREDICT_FALSE(offset > parsed_size_)) {
+      return Status::Invalid("Offset is beyond size");
+    }
+    if (ARROW_PREDICT_FALSE(offset < saved_parsed_size_)) {
+      return Status::Invalid("Offset is smaller than saved size");
+    }
+
+    if (add_to_extra) {
+      extra_allocated_ += static_cast<uint32_t>(parsed_size_ - offset);
+    }
+    parsed_size_ = offset;
+    return Status::OK();
+  }
 
   int64_t size() { return parsed_size_; }
 
@@ -92,6 +163,7 @@ class PresizedDataWriter {
   int64_t parsed_capacity_;
   // Checkpointing, for when an incomplete line is encountered at end of block
   int64_t saved_parsed_size_;
+  uint32_t extra_allocated_ = 0;
 };
 
 template <typename Derived>
@@ -121,6 +193,16 @@ class ValueDescWriter {
   void Finish(std::shared_ptr<Buffer>* out_values) {
     ARROW_CHECK_OK(values_buffer_->Resize(values_size_ * sizeof(*values_)));
     *out_values = values_buffer_;
+  }
+
+  // Remove the last count number of fields and return the new end offset of the values
+  Result<int64_t> RemoveFields(int count) {
+    if (ARROW_PREDICT_FALSE(saved_values_size_ > values_size_ - count)) {
+      return Status::Invalid("Not enough fields in row to remove: ", count);
+    }
+
+    values_size_ -= count;
+    return static_cast<uint64_t>(values_[values_size_ - 1].offset);
   }
 
  protected:
@@ -170,6 +252,81 @@ class PresizedValueDescWriter : public ValueDescWriter<PresizedValueDescWriter> 
     DCHECK_LT(values_size_, values_capacity_);
     values_[values_size_++] = v;
   }
+};
+
+template <typename ValueDescWriter, typename DataWriter>
+class RowModifierImpl : public RowModifier {
+ public:
+  RowModifierImpl(ValueDescWriter* values_writer, DataWriter* parsed_writer,
+                  int32_t expected_num_columns, int32_t num_columns,
+                  const util::string_view& line)
+      : values_writer_(values_writer),
+        parsed_writer_(parsed_writer),
+        expected_num_columns_(expected_num_columns),
+        num_columns_(num_columns),
+        line_(line) {}
+
+  ~RowModifierImpl() override = default;
+
+  void Skip() override {
+    values_writer_->RollbackLine();
+    parsed_writer_->RollbackLine();
+    skipped_ = true;
+  }
+
+  Status AddField(const std::string& field) override {
+    if (skipped_) {
+      return Status::Invalid("Row is already skipped");
+    }
+    values_writer_->StartField(false);
+    ARROW_RETURN_NOT_OK(parsed_writer_->PushField(field));
+    values_writer_->FinishField(parsed_writer_);
+    ++num_columns_;
+    return Status::OK();
+  }
+
+  Status AddFields(const std::string& field, int count) override {
+    if (ARROW_PREDICT_FALSE(skipped_)) {
+      return Status::Invalid("Row is already skipped");
+    }
+    if (ARROW_PREDICT_FALSE(count <= 0)) {
+      return Status::Invalid("Count must be greater than 0: ", count);
+    }
+    ARROW_RETURN_NOT_OK(parsed_writer_->PushFields(values_writer_, field, count));
+    num_columns_ += count;
+    return Status::OK();
+  }
+
+  Status RemoveFields(int count) override {
+    if (ARROW_PREDICT_FALSE(skipped_)) {
+      return Status::Invalid("Row is already skipped");
+    }
+    if (ARROW_PREDICT_FALSE(count <= 0)) {
+      return Status::Invalid("Count must be greater than 0: ", count);
+    }
+    ARROW_ASSIGN_OR_RAISE(auto offset, values_writer_->RemoveFields(count));
+    ARROW_RETURN_NOT_OK(parsed_writer_->RollbackTo(offset, true));
+    num_columns_ -= count;
+    return Status::OK();
+  }
+
+  int32_t expected_num_columns() const override { return expected_num_columns_; }
+
+  int32_t num_columns() const override { return num_columns_; }
+
+  const util::string_view& line() const override { return line_; }
+
+  bool skipped() { return skipped_; }
+
+  bool corrected() { return expected_num_columns_ == num_columns_ || skipped_; }
+
+ private:
+  ValueDescWriter* values_writer_;
+  DataWriter* parsed_writer_;
+  const int32_t expected_num_columns_;
+  int32_t num_columns_;
+  const util::string_view& line_;
+  bool skipped_ = false;
 };
 
 }  // namespace
@@ -312,8 +469,13 @@ class BlockParserImpl {
             end -= 1;
           }
         }
-        return MismatchingColumns(batch_.num_cols_, num_cols,
-                                  util::string_view(start, end - start));
+        ARROW_ASSIGN_OR_RAISE(auto use_row,
+                              HandleBadNumColumns(values_writer, parsed_writer, num_cols,
+                                                  util::string_view(start, end - start)));
+        if (!use_row) {
+          *out_data = data;
+          return Status::OK();
+        }
       }
     }
     ++batch_.num_rows_;
@@ -493,6 +655,28 @@ class BlockParserImpl {
   }
 
  protected:
+  /// \brief Call the handler for bad number of columns
+  ///
+  /// If the row is not able to be handled than an error status is returned. If the row is
+  /// handled than a result of true indicates if the row should be kept otherwise the
+  /// modified row should be skipped
+  template <typename ValueDescWriter, typename DataWriter>
+  Result<bool> HandleBadNumColumns(ValueDescWriter* values_writer,
+                                   DataWriter* parsed_writer, int32_t num_columns,
+                                   const util::string_view& line) {
+    if (options_.invalid_row_handler) {
+      RowModifierImpl<ValueDescWriter, DataWriter> modifier(
+          values_writer, parsed_writer, batch_.num_cols_, num_columns, line);
+
+      ARROW_RETURN_NOT_OK(options_.invalid_row_handler.value()(modifier));
+      if (modifier.corrected()) {
+        return !modifier.skipped();
+      }
+    }
+
+    return MismatchingColumns(batch_.num_cols_, num_columns, line);
+  }
+
   MemoryPool* pool_;
   const ParseOptions options_;
   // The maximum number of rows to parse from a block

@@ -188,5 +188,48 @@ class ARROW_EXPORT BlockParser {
   const detail::DataBatch& parsed_batch() const;
 };
 
+/// \class RowModifier
+/// \brief Interface used to modify the current row being parsed
+///
+/// Currently used by InvalidRowHandler when a row does not have the correct number of
+/// columns
+class ARROW_EXPORT RowModifier {
+ public:
+  virtual ~RowModifier() = default;
+
+  /// \brief skip this row
+  virtual void Skip() = 0;
+
+  /// \brief Add a new field to the row
+  ///
+  /// \note If field is not an empty string this will cause extra memory allocations
+  /// \param field to be added
+  /// \return status of the addition
+  virtual Status AddField(const std::string& field) = 0;
+
+  /// \brief Add a field multiple times to the row
+  ///
+  /// \note If field is not an empty string this will cause extra memory allocations
+  /// \param field to be added
+  /// \param count number of times to add the field
+  /// \return status of the addition
+  virtual Status AddFields(const std::string& field, int count) = 0;
+
+  /// \brief Remove the last field from the column
+  ///
+  /// \param count number of fields to remove
+  /// \return failure if there is no field to remove
+  virtual Status RemoveFields(int count) = 0;
+
+  /// \brief return the expected number of columns in the row
+  virtual int32_t expected_num_columns() const = 0;
+
+  /// \brief return the current number of columns in the row
+  virtual int32_t num_columns() const = 0;
+
+  /// \brief return the raw line which was parsed for this row
+  virtual const util::string_view& line() const = 0;
+};
+
 }  // namespace csv
 }  // namespace arrow

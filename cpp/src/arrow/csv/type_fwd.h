@@ -19,6 +19,7 @@ namespace arrow {
 namespace csv {
 
 class TableReader;
+class RowModifier;
 struct ConvertOptions;
 struct ReadOptions;
 struct ParseOptions;

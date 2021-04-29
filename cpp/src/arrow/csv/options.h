@@ -18,12 +18,15 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
 #include "arrow/csv/type_fwd.h"
+#include "arrow/status.h"
+#include "arrow/util/optional.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -35,6 +38,9 @@ namespace csv {
 
 // Silly workaround for https://github.com/michaeljones/breathe/issues/453
 constexpr char kDefaultEscapeChar = '\\';
+
+/// Function used to handle when a parsed row does not have the correct column count
+using InvalidRowHandler = std::function<Status(RowModifier&)>;
 
 struct ARROW_EXPORT ParseOptions {
   // Parsing options
@@ -56,6 +62,8 @@ struct ARROW_EXPORT ParseOptions {
   /// Whether empty lines are ignored.  If false, an empty line represents
   /// a single empty value (assuming a one-column CSV file).
   bool ignore_empty_lines = true;
+  /// A handler function for rows which do not have the correct number of columns
+  util::optional<InvalidRowHandler> invalid_row_handler;
 
   /// Create parsing options with default values
   static ParseOptions Defaults();
