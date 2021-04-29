@@ -23,6 +23,12 @@ jobs:
   test:
     name: Docker Test
     runs-on: ubuntu-latest
+  {% if env is defined %}
+    env:
+    {% for key, value in env.items() %}
+      {{ key }}: {{ value }}
+    {% endfor %}
+  {% endif %}
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_install_archery()|indent }}
@@ -33,10 +39,11 @@ jobs:
 
       - name: Execute Docker Build
         shell: bash
-        {% if env is defined %}
-        env:
-        {% for key, value in env.items() %}
-          {{ key }}: {{ value }}
-        {% endfor %}
-        {% endif %}
         run: archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" {{ run }}
+
+    {% if arrow.branch == 'master' %}
+      {{ macros.github_login_dockerhub()|indent }}
+      - name: Push Docker Image
+        shell: bash
+        run: archery docker push {{ run }}
+    {% endif %}
