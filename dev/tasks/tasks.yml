@@ -405,7 +405,11 @@ tasks:
     template: linux-packages/travis.linux.arm64.yml
     {% endif %}
     params:
+    {% if architecture == "amd64" %}
       target: "{{ target }}"
+    {% else %}
+      target: "{{ target }}-arm64"
+    {% endif %}
       task_namespace: "apt"
       upload_extensions:
         - .ddeb

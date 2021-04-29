@@ -71,8 +71,11 @@ RUN \
     rapidjson-dev \
     tzdata \
     zlib1g-dev && \
-  ! apt list | grep -q '^libcuda1' || \
-    apt install -y -V ${quiet} nvidia-cuda-toolkit && \
+  if apt list | grep -q '^libcuda1'; then \
+    apt install -y -V ${quiet} nvidia-cuda-toolkit; \
+  else \
+    :; \
+  fi && \
   apt clean && \
   python3 -m pip install --no-use-pep517 meson && \
   ln -s /usr/local/bin/meson /usr/bin/ && \
