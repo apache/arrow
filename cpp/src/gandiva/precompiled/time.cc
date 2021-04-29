@@ -851,10 +851,10 @@ gdv_int64 castBIGINT_daytimeinterval(gdv_day_time_interval in) {
 NUMERIC_TYPES(TO_TIMESTAMP)
 
 // Convert the seconds since epoch argument to time
-#define TO_TIME(TYPE)                               \
-  FORCE_INLINE                                      \
-  gdv_time32 to_time##_##TYPE(gdv_##TYPE seconds) { \
-    return static_cast<gdv_time32>(seconds) * MILLIS_IN_SEC;        \
+#define TO_TIME(TYPE)                                        \
+  FORCE_INLINE                                               \
+  gdv_time32 to_time##_##TYPE(gdv_##TYPE seconds) {          \
+    return static_cast<gdv_time32>(seconds) * MILLIS_IN_SEC; \
   }
 
 NUMERIC_TYPES(TO_TIME)
