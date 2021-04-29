@@ -47,41 +47,23 @@ test_that("mutate() is lazy", {
   )
 })
 
+# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L1-L10
+test_that("empty mutate returns input", {
+  # dbl2 = 5, so I'm grouping by a constant
+  gtbl <- group_by(tbl, dbl2)
+
+  expect_dplyr_equal(input %>% mutate() %>% collect(), tbl)
+  expect_dplyr_equal(input %>% mutate(!!!list()) %>% collect(), tbl)
+  expect_dplyr_equal(input %>% mutate() %>% collect(), gtbl)
+  expect_dplyr_equal(input %>% mutate(!!!list()) %>% collect(), gtbl)
+})
+
 test_that("basic mutate", {
   expect_dplyr_equal(
     input %>%
       select(int, chr) %>%
       filter(int > 5) %>%
       mutate(int = int + 6L) %>%
-      collect(),
-    tbl
-  )
-})
-
-test_that("transmute", {
-  expect_dplyr_equal(
-    input %>%
-      select(int, chr) %>%
-      filter(int > 5) %>%
-      transmute(int = int + 6L) %>%
-      collect(),
-    tbl
-  )
-})
-
-test_that("transmute() with NULL inputs", {
-  expect_dplyr_equal(
-    input %>%
-      transmute(int = NULL) %>%
-      collect(),
-    tbl
-  )
-})
-
-test_that("empty transmute()", {
-  expect_dplyr_equal(
-    input %>%
-      transmute() %>%
       collect(),
     tbl
   )
@@ -179,6 +161,238 @@ test_that("mutate with single value for recycling", {
       ) %>%
       collect(),
     tbl
+  )
+})
+
+# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L12-L6
+test_that("rownames are preserved", {
+  skip("Row names are not preserved")
+  df <- data.frame(x = c(1, 2), row.names = c("a", "b"))
+  expect_dplyr_equal(input %>% mutate(y = c(3, 4)) %>% collect() %>% rownames(), df)
+})
+
+# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L18-L29
+test_that("mutations are applied progressively", {
+  df <- tibble(x = 1)
+
+  expect_dplyr_equal(
+    input %>% mutate(y = x + 1, z = y + 1) %>% collect(),
+    df
+  )
+  expect_dplyr_equal(
+    input %>% mutate(x = x + 1, x = x + 1) %>% collect(),
+    df
+  )
+  expect_dplyr_equal(
+    input %>% mutate(y = x + 1, z = y + 1) %>% collect(),
+    df
+  )
+
+  df <- data.frame(x = 1, y = 2)
+  expect_equal(
+    df %>% Table$create() %>% mutate(x2 = x, x3 = x2 + 1) %>% collect(),
+    df %>% Table$create() %>% mutate(x2 = x + 0, x3 = x2 + 1) %>% collect()
+  )
+})
+
+# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L37-L54
+test_that("can remove variables with NULL (dplyr #462)", {
+  df <- tibble(x = 1:3, y = 1:3)
+  gf <- group_by(df, x)
+
+  expect_dplyr_equal(input %>% mutate(y = NULL) %>% collect(), df)
+  expect_dplyr_equal(input %>% mutate(y = NULL) %>% collect(), gf)
+
+  # even if it doesn't exist
+  expect_dplyr_equal(input %>% mutate(z = NULL) %>% collect(), df)
+  # or was just created
+  expect_dplyr_equal(input %>% mutate(z = rep(1, nrow(input)), z = NULL) %>% collect(), df)
+
+  # regression test for https://github.com/tidyverse/dplyr/issues/4974
+  expect_dplyr_equal(
+    input %>% mutate(z = 1, x = NULL, y = NULL) %>% collect(),
+    data.frame(x = 1, y = 1)
+  )
+})
+
+# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L71-L75
+test_that("assignments don't overwrite variables (dplyr #315)", {
+  expect_dplyr_equal(
+    input %>% mutate(z = {x <- 10; x}) %>% collect(),
+    tibble(x = 1, y = 2)
+  )
+})
+
+# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L77-L81
+test_that("can mutate a data frame with zero columns and `NULL` column names", {
+  df <- vctrs::new_data_frame(n = 2L)
+  colnames(df) <- NULL
+  expect_dplyr_equal(
+    input %>% mutate(x = c(1,2)) %>% collect(),
+    df
+  )
+})
+
+# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L102-L106
+test_that("mutate disambiguates NA and NaN (#1448)", {
+  expect_dplyr_equal(
+    input %>% mutate(y = x * 1) %>% select(y) %>% collect(),
+    tibble(x = c(1, NA, NaN))
+  )
+})
+
+# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L117-L127
+test_that("mutate handles data frame columns", {
+  expect_dplyr_equal(
+    input %>% mutate(new_col = data.frame(x = 1:3)) %>% select(new_col) %>% collect(),
+    data.frame(x = 1:3)
+  )
+
+  # mutate() on grouped data not supported in Arrow; this will be pulling data back into R
+  expect_warning(expect_dplyr_equal(
+    input %>%
+      group_by(x) %>%
+      mutate(new_col = x) %>%
+      ungroup() %>%
+      select(new_col) %>%
+      collect(),
+    data.frame(x = 1:3)
+  ), "not supported in Arrow")
+
+  skip("rowwise() is not (yet) implemented in Arrow")
+  expect_dplyr_equal(
+    input %>%
+      rowwise(x) %>%
+      mutate(new_col = x) %>%
+      ungroup() %>%
+      select(new_col) %>%
+      collect(),
+    data.frame(x = 1:3)
+  )
+})
+
+# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L129-L142
+test_that("unnamed data frames are automatically unspliced", {
+  # this works in arrow
+  expect_dplyr_equal(
+    input %>% mutate(tibble(b = 2)) %>% collect(),
+    tibble(a = 1)
+  )
+
+  # not this
+  expect_error(expect_dplyr_equal(
+    input %>% mutate(tibble(b = 2), tibble(b = 3)) %>% collect(),
+    tibble(a = 1)
+  ))
+
+  # nor this
+  expect_error(expect_dplyr_equal(
+    input %>% mutate(tibble(b = 2), c = b) %>% collect(),
+    tibble(a = 1)
+  ))
+})
+
+# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L144-L148
+test_that("named data frames are packed", {
+  expect_warning(expect_dplyr_equal(
+    input %>% mutate(y = tibble(x = a)) %>% collect(),
+    tibble(a = 1)
+  ), "not supported in Arrow")
+})
+
+# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L150-L158
+test_that("ts class columns in arrow", {
+  df <- data.frame(g = 1, x = 1:5)
+
+  # translate to arrow
+  d <- df %>% record_batch() %>% mutate(y = x + 1)
+  expect_s3_class(
+    d,
+    "arrow_dplyr_query"
+  )
+
+  # now try to translate back to R
+  expect_error(
+    d %>% mutate(y = ts(x, start = c(2010, 1), frequency = 5)) %>% collect(),
+    "Expecting a character vector"
+  )
+})
+
+test_that("print a mutated table", {
+  expect_output(
+    Table$create(tbl) %>%
+      select(int) %>%
+      mutate(twice = int * 2) %>%
+      print(),
+    'Table (query)
+int: int32
+twice: expr
+
+See $.data for the source Arrow object',
+    fixed = TRUE)
+
+  # Handling non-expressions/edge cases
+  expect_output(
+    Table$create(tbl) %>%
+      select(int) %>%
+      mutate(again = 1:10) %>%
+      print(),
+    'Table (query)
+int: int32
+again: expr
+
+See $.data for the source Arrow object',
+    fixed = TRUE)
+})
+
+test_that("mutate and write_dataset", {
+  skip_if_not_available("dataset")
+  # See related test in test-dataset.R
+
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
+
+  first_date <- lubridate::ymd_hms("2015-04-29 03:12:39")
+  df1 <- tibble(
+    int = 1:10,
+    dbl = as.numeric(1:10),
+    lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
+    chr = letters[1:10],
+    fct = factor(LETTERS[1:10]),
+    ts = first_date + lubridate::days(1:10)
+  )
+
+  second_date <- lubridate::ymd_hms("2017-03-09 07:01:02")
+  df2 <- tibble(
+    int = 101:110,
+    dbl = c(as.numeric(51:59), NaN),
+    lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
+    chr = letters[10:1],
+    fct = factor(LETTERS[10:1]),
+    ts = second_date + lubridate::days(10:1)
+  )
+
+  dst_dir <- tempfile()
+  stacked <- record_batch(rbind(df1, df2))
+  stacked %>%
+    mutate(twice = int * 2) %>%
+    group_by(int) %>%
+    write_dataset(dst_dir, format = "feather")
+  expect_true(dir.exists(dst_dir))
+  expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
+
+  new_ds <- open_dataset(dst_dir, format = "feather")
+
+  expect_equivalent(
+    new_ds %>%
+      select(string = chr, integer = int, twice) %>%
+      filter(integer > 6 & integer < 11) %>%
+      collect() %>%
+      summarize(mean = mean(integer)),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      mutate(twice = integer * 2) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
   )
 })
 
@@ -316,6 +530,35 @@ test_that("dplyr::mutate's examples", {
   )
 })
 
+test_that("transmute", {
+  expect_dplyr_equal(
+    input %>%
+      select(int, chr) %>%
+      filter(int > 5) %>%
+      transmute(int = int + 6L) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("transmute() with NULL inputs", {
+  expect_dplyr_equal(
+    input %>%
+      transmute(int = NULL) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("empty transmute()", {
+  expect_dplyr_equal(
+    input %>%
+      transmute() %>%
+      collect(),
+    tbl
+  )
+})
+
 test_that("handle bad expressions", {
   # TODO: search for functions other than mean() (see above test)
   # that need to be forced to fail because they error ambiguously
@@ -333,250 +576,4 @@ test_that("handle bad expressions", {
       NA
     )
   })
-})
-
-test_that("print a mutated table", {
-  expect_output(
-    Table$create(tbl) %>%
-      select(int) %>%
-      mutate(twice = int * 2) %>%
-      print(),
-'Table (query)
-int: int32
-twice: expr
-
-See $.data for the source Arrow object',
-  fixed = TRUE)
-
-  # Handling non-expressions/edge cases
-  expect_output(
-    Table$create(tbl) %>%
-      select(int) %>%
-      mutate(again = 1:10) %>%
-      print(),
-'Table (query)
-int: int32
-again: expr
-
-See $.data for the source Arrow object',
-  fixed = TRUE)
-})
-
-test_that("mutate and write_dataset", {
-  skip_if_not_available("dataset")
-  # See related test in test-dataset.R
-
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
-
-  first_date <- lubridate::ymd_hms("2015-04-29 03:12:39")
-  df1 <- tibble(
-    int = 1:10,
-    dbl = as.numeric(1:10),
-    lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
-    chr = letters[1:10],
-    fct = factor(LETTERS[1:10]),
-    ts = first_date + lubridate::days(1:10)
-  )
-
-  second_date <- lubridate::ymd_hms("2017-03-09 07:01:02")
-  df2 <- tibble(
-    int = 101:110,
-    dbl = c(as.numeric(51:59), NaN),
-    lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
-    chr = letters[10:1],
-    fct = factor(LETTERS[10:1]),
-    ts = second_date + lubridate::days(10:1)
-  )
-
-  dst_dir <- tempfile()
-  stacked <- record_batch(rbind(df1, df2))
-  stacked %>%
-    mutate(twice = int * 2) %>%
-    group_by(int) %>%
-    write_dataset(dst_dir, format = "feather")
-  expect_true(dir.exists(dst_dir))
-  expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
-
-  new_ds <- open_dataset(dst_dir, format = "feather")
-
-  expect_equivalent(
-    new_ds %>%
-      select(string = chr, integer = int, twice) %>%
-      filter(integer > 6 & integer < 11) %>%
-      collect() %>%
-      summarize(mean = mean(integer)),
-    df1 %>%
-      select(string = chr, integer = int) %>%
-      mutate(twice = integer * 2) %>%
-      filter(integer > 6) %>%
-      summarize(mean = mean(integer))
-  )
-})
-
-# PACHA ADDITIONS ----
-
-# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L1-L10
-# the rest of that test belongs in L55-62 here
-test_that("empty mutate returns input", {
-  # dbl2 = 5, so I'm grouping by a constant
-  gtbl <- group_by(tbl, dbl2)
-
-  expect_dplyr_equal(input %>% mutate() %>% collect(), tbl)
-  expect_dplyr_equal(input %>% mutate(!!!list()) %>% collect(), tbl)
-  expect_dplyr_equal(input %>% mutate() %>% collect(), gtbl)
-  expect_dplyr_equal(input %>% mutate(!!!list()) %>% collect(), gtbl)
-})
-
-# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L12-L6
-test_that("rownames preserved", {
-  skip("Row names are not preserved")
-  df <- data.frame(x = c(1, 2), row.names = c("a", "b"))
-  expect_dplyr_equal(input %>% mutate(y = c(3, 4)) %>% collect() %>% rownames(), df)
-})
-
-# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L18-L29
-test_that("mutations applied progressively", {
-  df <- tibble(x = 1)
-
-  expect_dplyr_equal(
-    input %>% mutate(y = x + 1, z = y + 1) %>% collect(),
-    df
-  )
-  expect_dplyr_equal(
-    input %>% mutate(x = x + 1, x = x + 1) %>% collect(),
-    df
-  )
-  expect_dplyr_equal(
-    input %>% mutate(y = x + 1, z = y + 1) %>% collect(),
-    df
-  )
-
-  df <- data.frame(x = 1, y = 2)
-  expect_equal(
-    df %>% Table$create() %>% mutate(x2 = x, x3 = x2 + 1) %>% collect(),
-    df %>% Table$create() %>% mutate(x2 = x + 0, x3 = x2 + 1) %>% collect()
-  )
-})
-
-# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L37-L54
-test_that("can remove variables with NULL (dplyr #462)", {
-  df <- tibble(x = 1:3, y = 1:3)
-  gf <- group_by(df, x)
-
-  expect_dplyr_equal(input %>% mutate(y = NULL) %>% collect(), df)
-  expect_dplyr_equal(input %>% mutate(y = NULL) %>% collect(), gf)
-
-  # even if it doesn't exist
-  expect_dplyr_equal(input %>% mutate(z = NULL) %>% collect(), df)
-  # or was just created
-  expect_dplyr_equal(input %>% mutate(z = rep(1, nrow(input)), z = NULL) %>% collect(), df)
-
-  # regression test for https://github.com/tidyverse/dplyr/issues/4974
-  expect_dplyr_equal(
-    input %>% mutate(z = 1, x = NULL, y = NULL) %>% collect(),
-    data.frame(x = 1, y = 1)
-  )
-})
-
-# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L71-L75
-test_that("assignments don't overwrite variables (dplyr #315)", {
-  expect_dplyr_equal(
-    input %>% mutate(z = {x <- 10; x}) %>% collect(),
-    tibble(x = 1, y = 2)
-  )
-})
-
-# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L77-L81
-test_that("can mutate a data frame with zero columns and `NULL` column names", {
-  df <- vctrs::new_data_frame(n = 2L)
-  colnames(df) <- NULL
-  expect_dplyr_equal(
-    input %>% mutate(x = c(1,2)) %>% collect(),
-    df
-  )
-})
-
-# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L102-L106
-test_that("mutate disambiguates NA and NaN (#1448)", {
-  expect_dplyr_equal(
-    input %>% mutate(y = x * 1) %>% select(y) %>% collect(),
-    tibble(x = c(1, NA, NaN))
-  )
-})
-
-# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L117-L127
-test_that("mutate handles data frame columns", {
-  expect_dplyr_equal(
-    input %>% mutate(new_col = data.frame(x = 1:3)) %>% select(new_col) %>% collect(),
-    data.frame(x = 1:3)
-  )
-
-  # mutate() on grouped data not supported in Arrow; this will be pulling data back into R
-  expect_warning(expect_dplyr_equal(
-    input %>%
-      group_by(x) %>%
-      mutate(new_col = x) %>%
-      ungroup() %>%
-      select(new_col) %>%
-      collect(),
-    data.frame(x = 1:3)
-  ), "not supported in Arrow")
-
-  skip("rowwise() is not (yet) implemented in Arrow")
-  expect_dplyr_equal(
-    input %>%
-      rowwise(x) %>%
-      mutate(new_col = x) %>%
-      ungroup() %>%
-      select(new_col) %>%
-      collect(),
-    data.frame(x = 1:3)
-  )
-})
-
-# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L129-L142
-test_that("unnamed data frames are automatically unspliced", {
-  # this works in arrow
-  expect_dplyr_equal(
-    input %>% mutate(tibble(b = 2)) %>% collect(),
-    tibble(a = 1)
-  )
-
-  # not this
-  expect_error(expect_dplyr_equal(
-    input %>% mutate(tibble(b = 2), tibble(b = 3)) %>% collect(),
-    tibble(a = 1)
-  ))
-
-  # nor this
-  expect_error(expect_dplyr_equal(
-    input %>% mutate(tibble(b = 2), c = b) %>% collect(),
-    tibble(a = 1)
-  ))
-})
-
-# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L144-L148
-test_that("named data frames are packed", {
-  expect_warning(expect_dplyr_equal(
-    input %>% mutate(y = tibble(x = a)) %>% collect(),
-    tibble(a = 1)
-  ), "not supported in Arrow")
-})
-
-# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L150-L158
-test_that("unchop only called for when multiple groups", {
-  df <- data.frame(g = 1, x = 1:5)
-
-  # translate to arrow
-  d <- df %>% record_batch() %>% mutate(y = x + 1)
-  expect_s3_class(
-    d,
-    "arrow_dplyr_query"
-  )
-
-  # now try translate back to R
-  expect_error(
-    d %>% mutate(y = ts(x, start = c(2010, 1), frequency = 5)) %>% collect(),
-    "Expecting a character vector"
-  )
 })
