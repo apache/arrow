@@ -25,6 +25,7 @@
 #include <random>
 #include <vector>
 
+#include "arrow/testing/uniform_real.h"
 #include "arrow/testing/visibility.h"
 #include "arrow/type.h"
 
@@ -455,7 +456,7 @@ template <typename T, typename U>
 void random_real(int64_t n, uint32_t seed, T min_value, T max_value,
                  std::vector<U>* out) {
   std::default_random_engine gen(seed);
-  std::uniform_real_distribution<T> d(min_value, max_value);
+  ::arrow::random::uniform_real_distribution<T> d(min_value, max_value);
   out->resize(n, static_cast<T>(0));
   std::generate(out->begin(), out->end(), [&d, &gen] { return static_cast<U>(d(gen)); });
 }
