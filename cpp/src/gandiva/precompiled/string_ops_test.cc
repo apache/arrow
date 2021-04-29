@@ -1872,4 +1872,230 @@ TEST(TestStringOps, TestEltFunction) {
   EXPECT_EQ(out_vality, true);
 }
 
+TEST(TestStringOps, TestToHex) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = 0;
+  int32_t in_len = 0;
+  const char* out_str;
+
+  in_len = 10;
+  char in_str[] = {0x54, 0x65, 0x73, 0x74, 0x53, 0x74, 0x72, 0x69, 0x6E, 0x67};
+  out_str = to_hex_binary(ctx_ptr, in_str, in_len, &out_len);
+  std::string output = std::string(out_str, out_len);
+  EXPECT_EQ(out_len, 2 * in_len);
+  EXPECT_EQ(output, "54657374537472696E67");
+
+  in_len = 0;
+  out_str = to_hex_binary(ctx_ptr, "", in_len, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_EQ(output, "");
+
+  in_len = 1;
+  char in_str_one_char[] = {0x54};
+  out_str = to_hex_binary(ctx_ptr, in_str_one_char, in_len, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(out_len, 2 * in_len);
+  EXPECT_EQ(output, "54");
+
+  in_len = 16;
+  char in_str_spaces[] = {0x54, 0x65, 0x73, 0x74, 0x20, 0x77, 0x69, 0x74,
+                          0x68, 0x20, 0x73, 0x70, 0x61, 0x63, 0x65, 0x73};
+  out_str = to_hex_binary(ctx_ptr, in_str_spaces, in_len, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "54657374207769746820737061636573");
+
+  in_len = 20;
+  char in_str_break_line[] = {0x54, 0x65, 0x78, 0x74, 0x20, 0x77, 0x69, 0x74, 0x68, 0x0A,
+                              0x62, 0x72, 0x65, 0x61, 0x6B, 0x20, 0x6C, 0x69, 0x6E, 0x65};
+  out_str = to_hex_binary(ctx_ptr, in_str_break_line, in_len, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(out_len, 2 * in_len);
+  EXPECT_EQ(output, "5465787420776974680A627265616B206C696E65");
+
+  in_len = 27;
+  char in_str_with_num[] = {0x54, 0x65, 0x73, 0x74, 0x20, 0x77, 0x69, 0x74, 0x68,
+                            0x20, 0x6E, 0x75, 0x6D, 0x62, 0x65, 0x72, 0x73, 0x20,
+                            0x31, 0x20, 0x2B, 0x20, 0x31, 0x20, 0x3D, 0x20, 0x32};
+  out_str = to_hex_binary(ctx_ptr, in_str_with_num, in_len, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(out_len, 2 * in_len);
+  EXPECT_EQ(output, "546573742077697468206E756D626572732031202B2031203D2032");
+
+  in_len = 22;
+  char in_str_with_tabs[] = {0x09, 0x0A, 0x09, 0x0A, 0x09, 0x0A, 0x09, 0x0A,
+                             0x0A, 0x0A, 0x09, 0x20, 0x61, 0x20, 0x6C, 0x65,
+                             0x74, 0x74, 0x40, 0x5D, 0x65, 0x72};
+  out_str = to_hex_binary(ctx_ptr, in_str_with_tabs, in_len, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(out_len, 2 * in_len);
+  EXPECT_EQ(output, "090A090A090A090A0A0A092061206C657474405D6572");
+
+  in_len = 22;
+  const char* binary_string =
+      "\x09\x0A\x09\x0A\x09\x0A\x09\x0A\x0A\x0A\x09\x20\x61\x20\x6C\x65\x74\x74\x40\x5D"
+      "\x65\x72";
+  out_str = to_hex_binary(ctx_ptr, binary_string, in_len, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(out_len, 2 * in_len);
+  EXPECT_EQ(output, "090A090A090A090A0A0A092061206C657474405D6572");
+}
+
+TEST(TestStringOps, TestToHexInt64) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = 0;
+  const char* out_str;
+
+  int64_t max_data = INT64_MAX;
+  out_str = to_hex_int64(ctx_ptr, max_data, &out_len);
+  std::string output = std::string(out_str, out_len);
+  EXPECT_FALSE(ctx.has_error());
+  EXPECT_EQ(out_len, 16);
+  EXPECT_EQ(output, "7FFFFFFFFFFFFFFF");
+  ctx.Reset();
+
+  int64_t min_data = INT64_MIN;
+  out_str = to_hex_int64(ctx_ptr, min_data, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_FALSE(ctx.has_error());
+  EXPECT_EQ(out_len, 16);
+  EXPECT_EQ(output, "8000000000000000");
+  ctx.Reset();
+
+  int64_t zero_data = 0;
+  out_str = to_hex_int64(ctx_ptr, zero_data, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_FALSE(ctx.has_error());
+  EXPECT_EQ(out_len, 1);
+  EXPECT_EQ(output, "0");
+  ctx.Reset();
+
+  int64_t minus_zero_data = -0;
+  out_str = to_hex_int64(ctx_ptr, minus_zero_data, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_FALSE(ctx.has_error());
+  EXPECT_EQ(out_len, 1);
+  EXPECT_EQ(output, "0");
+  ctx.Reset();
+
+  int64_t minus_one_data = -1;
+  out_str = to_hex_int64(ctx_ptr, minus_one_data, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_FALSE(ctx.has_error());
+  EXPECT_EQ(out_len, 16);
+  EXPECT_EQ(output, "FFFFFFFFFFFFFFFF");
+  ctx.Reset();
+
+  int64_t one_data = 1;
+  out_str = to_hex_int64(ctx_ptr, one_data, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_FALSE(ctx.has_error());
+  EXPECT_EQ(out_len, 1);
+  EXPECT_EQ(output, "1");
+  ctx.Reset();
+}
+
+TEST(TestStringOps, TestToHexInt32) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = 0;
+  const char* out_str;
+
+  int32_t max_data = INT32_MAX;
+  out_str = to_hex_int32(ctx_ptr, max_data, &out_len);
+  std::string output = std::string(out_str, out_len);
+  EXPECT_FALSE(ctx.has_error());
+  EXPECT_EQ(out_len, 8);
+  EXPECT_EQ(output, "7FFFFFFF");
+  ctx.Reset();
+
+  int32_t min_data = INT32_MIN;
+  out_str = to_hex_int32(ctx_ptr, min_data, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_FALSE(ctx.has_error());
+  EXPECT_EQ(out_len, 8);
+  EXPECT_EQ(output, "80000000");
+  ctx.Reset();
+
+  int32_t zero_data = 0;
+  out_str = to_hex_int32(ctx_ptr, zero_data, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_FALSE(ctx.has_error());
+  EXPECT_EQ(out_len, 1);
+  EXPECT_EQ(output, "0");
+  ctx.Reset();
+
+  int32_t minus_zero_data = -0;
+  out_str = to_hex_int32(ctx_ptr, minus_zero_data, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_FALSE(ctx.has_error());
+  EXPECT_EQ(out_len, 1);
+  EXPECT_EQ(output, "0");
+  ctx.Reset();
+
+  int32_t minus_one_data = -1;
+  out_str = to_hex_int32(ctx_ptr, minus_one_data, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_FALSE(ctx.has_error());
+  EXPECT_EQ(out_len, 8);
+  EXPECT_EQ(output, "FFFFFFFF");
+  ctx.Reset();
+
+  int32_t one_data = 1;
+  out_str = to_hex_int32(ctx_ptr, one_data, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_FALSE(ctx.has_error());
+  EXPECT_EQ(out_len, 1);
+  EXPECT_EQ(output, "1");
+  ctx.Reset();
+}
+
+TEST(TestStringOps, TestFromHex) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+  const char* out_str;
+
+  out_str = from_hex_utf8(ctx_ptr, "414243", 6, &out_len);
+  std::string output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "ABC");
+
+  out_str = from_hex_utf8(ctx_ptr, "", 0, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "");
+
+  out_str = from_hex_utf8(ctx_ptr, "41", 2, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "A");
+
+  out_str = from_hex_utf8(ctx_ptr, "6d6D", 4, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "mm");
+
+  out_str = from_hex_utf8(ctx_ptr, "6f6d", 4, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "om");
+
+  out_str = from_hex_utf8(ctx_ptr, "4f4D", 4, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "OM");
+
+  out_str = from_hex_utf8(ctx_ptr, "T", 1, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "");
+  EXPECT_THAT(
+      ctx.get_error(),
+      ::testing::HasSubstr("Error parsing hex string, length was not a multiple of"));
+  ctx.Reset();
+
+  out_str = from_hex_utf8(ctx_ptr, "\\x41\\x42\\x43", 12, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "");
+  EXPECT_THAT(
+      ctx.get_error(),
+      ::testing::HasSubstr("Error parsing hex string, one or more bytes are not valid."));
+  ctx.Reset();
+}
 }  // namespace gandiva
