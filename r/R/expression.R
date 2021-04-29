@@ -56,13 +56,10 @@ build_array_expression <- function(FUN,
                                    args = list(...),
                                    options = empty_named_list()) {
   if (FUN == "-" && length(args) == 1L) {
-    # Unary -, i.e. just make it negative, and somehow this works
+    # Unary -, i.e. just make it negative
     if (inherits(args[[1]], c("ArrowObject", "array_expression"))) {
-      # Make it be 0 - arg
-      # TODO(ARROW-11950): do this in C++ compute
-      args <- list(0L, args[[1]])
+      return(build_array_expression("negate", args[[1]]))
     } else {
-      # Somehow this works
       return(-args[[1]])
     }
   }
@@ -127,7 +124,8 @@ cast_array_expression <- function(x, to_type, safe = TRUE, ...) {
   # stringr spellings of those
   "str_length" = "utf8_length",
   "str_to_lower" = "utf8_lower",
-  "str_to_upper" = "utf8_upper"
+  "str_to_upper" = "utf8_upper",
+  "negate" = "negate"
   # str_trim is defined in dplyr.R
 )
 

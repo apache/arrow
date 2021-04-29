@@ -25,6 +25,10 @@ test_that("as.vector(array_expression)", {
   expect_equal(as.vector(build_array_expression(">", Array$create(1:5), 4)), c(FALSE, FALSE, FALSE, FALSE, TRUE))
 })
 
+test_that("negate array_expression)", {
+  expect_equal(as.vector(build_array_expression("-", Array$create(1:5))), -1:-5)
+})
+
 test_that("array_expression print method", {
   expect_output(
     print(build_array_expression(">", Array$create(1:5), 4)),
