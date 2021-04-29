@@ -27,6 +27,7 @@ import threading
 import time
 import warnings
 from io import BufferedIOBase, IOBase, TextIOBase, UnsupportedOperation
+from queue import Queue, Empty as QueueEmpty
 
 from pyarrow.util import _is_path_like, _stringify_path
 
