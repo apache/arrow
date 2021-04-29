@@ -8,13 +8,11 @@ TASK_BRANCH=$3
 TASK_TAG=$4
 UPLOAD_TO_ANACONDA=$5
 
-pip install pygit2
-
 conda install -y mamba
 $FEEDSTOCK_ROOT/build_steps.sh ${OUTPUT_DIR}
 
 # Upload as Github release
-mamba install -y anaconda-client shyaml -c conda-forge
+mamba install -y anaconda-client shyaml pygit2 -c conda-forge
 
 pushd $DRONE_WORKSPACE
 pip install -e arrow/dev/archery[crossbow]
