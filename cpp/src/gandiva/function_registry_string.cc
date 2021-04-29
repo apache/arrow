@@ -237,10 +237,12 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      kResultNullIfNull, "binary_string", NativeFunction::kNeedsContext),
 
       NativeFunction("left", {}, DataTypeVector{utf8(), int32()}, utf8(),
-                     kResultNullIfNull, "left", NativeFunction::kNeedsContext),
+                     kResultNullIfNull, "left_utf8_int32",
+                     NativeFunction::kNeedsContext),
 
       NativeFunction("right", {}, DataTypeVector{utf8(), int32()}, utf8(),
-                     kResultNullIfNull, "right", NativeFunction::kNeedsContext),
+                     kResultNullIfNull, "right_utf8_int32",
+                     NativeFunction::kNeedsContext),
 
       NativeFunction("split_part", {}, DataTypeVector{utf8(), utf8(), int32()}, utf8(),
                      kResultNullIfNull, "split_part",

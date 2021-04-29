@@ -1486,8 +1486,8 @@ const char* split_part(gdv_int64 context, const char* text, gdv_int32 text_len,
 //     LEFT("TestString", 3) => "Tes"
 //     LEFT("TestString", -3) => "TestStr"
 FORCE_INLINE
-const char* left(gdv_int64 context, const char* text, gdv_int32 text_len,
-                 gdv_int32 number, gdv_int32* out_len) {
+const char* left_utf8_int32(gdv_int64 context, const char* text, gdv_int32 text_len,
+                            gdv_int32 number, gdv_int32* out_len) {
   // returns the 'number' left most characters of a given text
   if (text_len == 0 || number == 0) {
     *out_len = 0;
@@ -1530,8 +1530,8 @@ const char* left(gdv_int64 context, const char* text, gdv_int32 text_len,
 //     RIGHT("TestString", 3) => "ing"
 //     RIGHT("TestString", -3) => "tString"
 FORCE_INLINE
-const char* right(gdv_int64 context, const char* text, gdv_int32 text_len,
-                  gdv_int32 number, gdv_int32* out_len) {
+const char* right_utf8_int32(gdv_int64 context, const char* text, gdv_int32 text_len,
+                             gdv_int32 number, gdv_int32* out_len) {
   // returns the 'number' left most characters of a given text
   if (text_len == 0 || number == 0) {
     *out_len = 0;
