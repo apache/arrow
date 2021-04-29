@@ -122,4 +122,11 @@ const char* gdv_fn_upper_utf8(int64_t context, const char* data, int32_t data_le
 GANDIVA_EXPORT
 const char* gdv_fn_lower_utf8(int64_t context, const char* data, int32_t data_len,
                               int32_t* out_len);
+
+GANDIVA_EXPORT
+bool gdv_fn_is_codepoint_for_space(uint32_t val);
+
+GANDIVA_EXPORT
+const char* gdv_fn_initcap_utf8(int64_t context, const char* data, int32_t data_len,
+                                int32_t* out_len);
 }

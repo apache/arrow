@@ -68,6 +68,10 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       NativeFunction("lower", {}, DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
                      "gdv_fn_lower_utf8", NativeFunction::kNeedsContext),
 
+      NativeFunction("initcap", {}, DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
+                     "gdv_fn_initcap_utf8",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
       NativeFunction("castINT", {}, DataTypeVector{utf8()}, int32(), kResultNullIfNull,
                      "gdv_fn_castINT_utf8",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
