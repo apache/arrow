@@ -25,8 +25,9 @@ VersionInfo = namedtuple('VersionInfo', ('major', 'minor', 'patch'))
 BuildInfo = namedtuple(
     'BuildInfo',
     ('version', 'version_info', 'so_version', 'full_so_version',
-     'compiler_id', 'compiler_version', 'compiler_flags',
-     'git_id', 'git_description', 'package_kind'))
+     'format_version', 'format_version_info', 'compiler_id',
+     'compiler_version', 'compiler_flags', 'git_id',
+     'git_description', 'package_kind'))
 
 RuntimeInfo = namedtuple('RuntimeInfo',
                          ('simd_level', 'detected_simd_level'))
@@ -43,6 +44,11 @@ cdef _build_info():
                                               c_info.version_patch),
                      so_version=frombytes(c_info.so_version),
                      full_so_version=frombytes(c_info.full_so_version),
+                     format_version=frombytes(c_info.format_version_string),
+                     format_version_info=VersionInfo(
+                         c_info.format_version_major,
+                         c_info.format_version_minor,
+                         c_info.format_version_patch),
                      compiler_id=frombytes(c_info.compiler_id),
                      compiler_version=frombytes(c_info.compiler_version),
                      compiler_flags=frombytes(c_info.compiler_flags),

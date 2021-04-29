@@ -37,6 +37,16 @@ struct BuildInfo {
   std::string version_string;
   std::string so_version;
   std::string full_so_version;
+  /// A packed version number for the supported Arrow columnar format
+  int format_version;
+  /// The major version number of the supported Arrow columnar format
+  int format_version_major;
+  /// The minor version number of the supported Arrow columnar format
+  int format_version_minor;
+  /// The patch version number of the supported Arrow columnar format
+  int format_version_patch;
+  /// The supported Arrow columnar format version as a string
+  std::string format_version_string;
   std::string compiler_id;
   std::string compiler_version;
   std::string compiler_flags;

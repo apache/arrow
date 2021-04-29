@@ -48,7 +48,9 @@ def test_cpu_count():
 def test_build_info():
     assert isinstance(pa.cpp_build_info, pa.BuildInfo)
     assert isinstance(pa.cpp_version_info, pa.VersionInfo)
+    assert isinstance(pa.format_version_info, pa.VersionInfo)
     assert isinstance(pa.cpp_version, str)
+    assert isinstance(pa.format_version, str)
     assert isinstance(pa.__version__, str)
     assert pa.cpp_build_info.version_info == pa.cpp_version_info
 

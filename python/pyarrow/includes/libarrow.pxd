@@ -63,6 +63,11 @@ cdef extern from "arrow/config.h" namespace "arrow" nogil:
         c_string version_string
         c_string so_version
         c_string full_so_version
+        int format_version
+        int format_version_major
+        int format_version_minor
+        int format_version_patch
+        c_string format_version_string
         c_string compiler_id
         c_string compiler_version
         c_string compiler_flags

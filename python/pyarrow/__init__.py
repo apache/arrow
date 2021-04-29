@@ -80,6 +80,8 @@ def show_versions():
                                     if len(cpp_build_info.package_kind) > 0
                                     else "not indicated"))
     print("Arrow C++ library version: {0}".format(cpp_build_info.version))
+    print("Arrow C++ supported Arrow format version: {0}"
+          .format(cpp_build_info.format_version))
     print("Arrow C++ compiler: {0} {1}"
           .format(cpp_build_info.compiler_id, cpp_build_info.compiler_version))
     print("Arrow C++ compiler flags: {0}"
