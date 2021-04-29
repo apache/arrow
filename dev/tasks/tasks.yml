@@ -397,10 +397,11 @@ tasks:
                   "ubuntu-hirsute"] %}
   {% for architecture in ["amd64", "arm64"] %}
   {{ target }}-{{ architecture }}:
-    ci: github
     {% if architecture == "amd64" %}
+    ci: github
     template: linux-packages/github.linux.amd64.yml
     {% else %}
+    ci: travis
     template: linux-packages/travis.linux.arm64.yml
     {% endif %}
     params:
