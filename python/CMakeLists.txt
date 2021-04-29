@@ -387,12 +387,12 @@ endif()
 
 set(CYTHON_EXTENSIONS
     lib
-    _fs
     _compute
     _csv
     _feather
-    _json
-    _hdfsio)
+    _fs
+    _hdfsio
+    _json)
 
 set(LINK_LIBS arrow_shared arrow_python_shared)
 
