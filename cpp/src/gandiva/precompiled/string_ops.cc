@@ -1481,6 +1481,10 @@ const char* split_part(gdv_int64 context, const char* text, gdv_int32 text_len,
   return "";
 }
 
+// Returns the x leftmost characters of a given string. Cases:
+//     LEFT("TestString", 10) => "TestString"
+//     LEFT("TestString", 3) => "Tes"
+//     LEFT("TestString", -3) => "TestStr"
 FORCE_INLINE
 const char* left(gdv_int64 context, const char* text, gdv_int32 text_len,
                  gdv_int32 number, gdv_int32* out_len) {
@@ -1521,6 +1525,10 @@ const char* left(gdv_int64 context, const char* text, gdv_int32 text_len,
   return text;
 }
 
+// Returns the x rightmost characters of a given string. Cases:
+//     RIGHT("TestString", 10) => "TestString"
+//     RIGHT("TestString", 3) => "ing"
+//     RIGHT("TestString", -3) => "tString"
 FORCE_INLINE
 const char* right(gdv_int64 context, const char* text, gdv_int32 text_len,
                   gdv_int32 number, gdv_int32* out_len) {
@@ -1542,15 +1550,15 @@ const char* right(gdv_int64 context, const char* text, gdv_int32 text_len,
   int32_t end_char_len;    // the char result end position (inclusive)
   if (number > 0) {
     // case where right('abc', 5) ==> 'abc' start_char_pos=1.
-    start_char_pos = (char_count - number + 1 > 1) ? char_count - number + 1 : 1;
-    end_char_len = char_count - start_char_pos + 1;
+    start_char_pos = (char_count > number) ? char_count - number : 0;
+    end_char_len = char_count - start_char_pos;
   } else {
-    start_char_pos = ((number > 0) ? number : number * -1) + 1;
-    end_char_len = char_count - start_char_pos + 1;
+    start_char_pos = ((number > 0) ? number : number * -1);
+    end_char_len = char_count - start_char_pos;
   }
 
   // calculate the start byte position and the output length
-  int32_t start_byte_pos = utf8_byte_pos(context, text, text_len, start_char_pos - 1);
+  int32_t start_byte_pos = utf8_byte_pos(context, text, text_len, start_char_pos);
   *out_len = utf8_byte_pos(context, text, text_len, end_char_len);
 
   // try to allocate memory for the response
