@@ -1491,6 +1491,16 @@ class _ParquetDatasetV2:
                     "Keyword '{0}' is not yet supported with the new "
                     "Dataset API".format(keyword))
 
+        if (
+            hasattr(path_or_paths, "__fspath__")
+            and filesystem is not None
+            and not isinstance(filesystem, LocalFileSystem)
+        ):
+            raise ValueError(
+                "Path-like objects with __fspath__ must only be used with local file "
+                f"systems, not {type(filesystem)}"
+            )
+
         # map format arguments
         read_options = {}
         if buffer_size:

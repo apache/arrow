@@ -23,7 +23,7 @@ import pytest
 
 import pyarrow as pa
 from pyarrow import fs
-from pyarrow.filesystem import LocalFileSystem
+from pyarrow.filesystem import LocalFileSystem, FileSystem
 from pyarrow.tests import util
 from pyarrow.tests.parquet.common import (
     parametrize_legacy_dataset, parametrize_legacy_dataset_fixed,
@@ -1604,3 +1604,21 @@ def test_read_table_with_fspath(tempdir):
 
     result = _read_table(fs_protocol_obj)
     assert result.equals(table)
+
+
+def test_read_table_with_fspath_and_filesystem(tempdir):
+    class FSProtocolClass:
+        def __init__(self, path):
+            self._path = path
+
+        def __fspath__(self):
+            return str(self._path)
+
+    path = tempdir / "test.parquet"
+    table = pa.table({"a": [1, 2, 3]})
+    _write_table(table, path)
+
+    fs_protocol_obj = FSProtocolClass(path)
+
+    with pytest.raises(ValueError, match="Path-like objects with __fspath__"):
+        _read_table(fs_protocol_obj, filesystem=FileSystem())
