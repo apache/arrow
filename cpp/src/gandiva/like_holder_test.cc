@@ -277,37 +277,4 @@ TEST_F(TestILikeHolder, TestDot) {
   EXPECT_FALSE(like("abcd"));
 }
 
-TEST_F(TestILikeHolder, TestOptimise) {
-  // optimise for 'starts_with'
-  auto fnode = LikeHolder::TryOptimize(BuildILike("xy 123z%"));
-  EXPECT_EQ(fnode.descriptor()->name(), "starts_with");
-  EXPECT_EQ(fnode.ToString(), "bool starts_with((string) in, (const string) xy 123z)");
-
-  // optimise for 'ends_with'
-  fnode = LikeHolder::TryOptimize(BuildILike("%xyz"));
-  EXPECT_EQ(fnode.descriptor()->name(), "ends_with");
-  EXPECT_EQ(fnode.ToString(), "bool ends_with((string) in, (const string) xyz)");
-
-  // optimise for 'is_substr'
-  fnode = LikeHolder::TryOptimize(BuildILike("%abc%"));
-  EXPECT_EQ(fnode.descriptor()->name(), "is_substr");
-  EXPECT_EQ(fnode.ToString(), "bool is_substr((string) in, (const string) abc)");
-
-  // no optimisation for others.
-  fnode = LikeHolder::TryOptimize(BuildILike("xyz_"));
-  EXPECT_EQ(fnode.descriptor()->name(), "ilike");
-
-  fnode = LikeHolder::TryOptimize(BuildILike("_xyz"));
-  EXPECT_EQ(fnode.descriptor()->name(), "ilike");
-
-  fnode = LikeHolder::TryOptimize(BuildILike("_xyz_"));
-  EXPECT_EQ(fnode.descriptor()->name(), "ilike");
-
-  fnode = LikeHolder::TryOptimize(BuildILike("%xyz_"));
-  EXPECT_EQ(fnode.descriptor()->name(), "ilike");
-
-  fnode = LikeHolder::TryOptimize(BuildILike("x_yz%"));
-  EXPECT_EQ(fnode.descriptor()->name(), "ilike");
-}
-
 }  // namespace gandiva
