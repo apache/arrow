@@ -452,6 +452,11 @@ func (ctx *arrayLoaderContext) loadArray(dt arrow.DataType) array.Interface {
 	case *arrow.MapType:
 		return ctx.loadMap(dt)
 
+	case arrow.ExtensionType:
+		storage := ctx.loadArray(dt.StorageType())
+		defer storage.Release()
+		return array.NewExtensionArrayWithStorage(dt, storage)
+
 	default:
 		panic(xerrors.Errorf("array type %T not handled yet", dt))
 	}

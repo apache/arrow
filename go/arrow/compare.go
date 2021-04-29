@@ -51,6 +51,10 @@ func TypeEqual(left, right DataType, opts ...TypeEqualOption) bool {
 		return false
 	}
 
+	if e, ok := left.(ExtensionType); ok {
+		return e.ExtensionEquals(right.(ExtensionType))
+	}
+
 	// StructType is the only type that has metadata.
 	l, ok := left.(*StructType)
 	if !ok || cfg.metadata {

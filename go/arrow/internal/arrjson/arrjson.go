@@ -29,6 +29,7 @@ import (
 	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/decimal128"
 	"github.com/apache/arrow/go/arrow/float16"
+	"github.com/apache/arrow/go/arrow/ipc"
 	"github.com/apache/arrow/go/arrow/memory"
 	"golang.org/x/xerrors"
 )
@@ -52,12 +53,37 @@ type Field struct {
 	// leave this as a json RawMessage in order to partially unmarshal as needed
 	// during marshal/unmarshal time so we can determine what the structure is
 	// actually expected to be.
-	Type     json.RawMessage `json:"type"`
-	Nullable bool            `json:"nullable"`
-	Children []FieldWrapper  `json:"children"`
+	Type      json.RawMessage `json:"type"`
+	Nullable  bool            `json:"nullable"`
+	Children  []FieldWrapper  `json:"children"`
+	arrowMeta arrow.Metadata  `json:"-"`
+	Metadata  []metaKV        `json:"metadata,omitempty"`
+}
+
+type metaKV struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
 }
 
 func (f FieldWrapper) MarshalJSON() ([]byte, error) {
+	// for extension types, add the extension type metadata appropriately
+	// and then marshal as normal for the storage type.
+	if f.arrowType.ID() == arrow.EXTENSION {
+		exType := f.arrowType.(arrow.ExtensionType)
+
+		mdkeys := append(f.arrowMeta.Keys(), ipc.ExtensionTypeKeyName)
+		mdvals := append(f.arrowMeta.Values(), exType.ExtensionName())
+
+		serializedData := exType.Serialize()
+		if len(serializedData) > 0 {
+			mdkeys = append(mdkeys, ipc.ExtensionMetadataKeyName)
+			mdvals = append(mdvals, string(serializedData))
+		}
+
+		f.arrowMeta = arrow.NewMetadata(mdkeys, mdvals)
+		f.arrowType = exType.StorageType()
+	}
+
 	var typ interface{}
 	switch dt := f.arrowType.(type) {
 	case *arrow.NullType:
@@ -154,6 +180,15 @@ func (f FieldWrapper) MarshalJSON() ([]byte, error) {
 	if f.Type, err = json.Marshal(typ); err != nil {
 		return nil, err
 	}
+
+	// if we have metadata then add the key/value pairs to the json
+	if f.arrowMeta.Len() > 0 {
+		f.Metadata = make([]metaKV, 0, f.arrowMeta.Len())
+		for i := 0; i < f.arrowMeta.Len(); i++ {
+			f.Metadata = append(f.Metadata, metaKV{Key: f.arrowMeta.Keys()[i], Value: f.arrowMeta.Values()[i]})
+		}
+	}
+
 	return json.Marshal(f.Field)
 }
 
@@ -323,10 +358,42 @@ func (f *FieldWrapper) UnmarshalJSON(data []byte) error {
 		}
 		f.arrowType = &arrow.Decimal128Type{Precision: int32(t.Precision), Scale: int32(t.Scale)}
 	}
-	if f.arrowType != nil {
-		return nil
+
+	if f.arrowType == nil {
+		return xerrors.Errorf("unhandled type unmarshalling from json: %s", tmp.Name)
 	}
-	return xerrors.Errorf("unhandled type unmarshalling from json: %s", tmp.Name)
+
+	var err error
+	if len(f.Metadata) > 0 { // unmarshal the key/value metadata pairs
+		var (
+			mdkeys  = make([]string, 0, len(f.Metadata))
+			mdvals  = make([]string, 0, len(f.Metadata))
+			extType arrow.ExtensionType
+			extMeta []byte
+		)
+
+		for _, kv := range f.Metadata {
+			// don't copy over the extension type metadata keys if they exist
+			switch kv.Key {
+			case ipc.ExtensionTypeKeyName:
+				extType = arrow.GetExtensionType(kv.Value)
+			case ipc.ExtensionMetadataKeyName:
+				extMeta = []byte(kv.Value)
+			default:
+				mdkeys = append(mdkeys, kv.Key)
+				mdvals = append(mdvals, kv.Value)
+			}
+		}
+
+		f.arrowMeta = arrow.NewMetadata(mdkeys, mdvals)
+		if extType != nil {
+			// if this was an extension type, update the type based on the
+			// extension metadata keys
+			f.arrowType, err = extType.Deserialize(f.arrowType, extMeta)
+		}
+	}
+
+	return err
 }
 
 // the structs below represent various configurations of the Type
@@ -396,6 +463,7 @@ func fieldsToJSON(fields []arrow.Field) []FieldWrapper {
 			arrowType: f.Type,
 			Nullable:  f.Nullable,
 			Children:  []FieldWrapper{},
+			arrowMeta: f.Metadata,
 		}}
 		switch dt := f.Type.(type) {
 		case *arrow.ListType:
@@ -424,6 +492,7 @@ func fieldFromJSON(f Field) arrow.Field {
 		Name:     f.Name,
 		Type:     f.arrowType,
 		Nullable: f.Nullable,
+		Metadata: f.arrowMeta,
 	}
 }
 
@@ -760,6 +829,11 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) array.Int
 		bldr.AppendValues(data, valids)
 		return bldr.NewArray()
 
+	case arrow.ExtensionType:
+		storage := arrayFromJSON(mem, dt.StorageType(), arr)
+		defer storage.Release()
+		return array.NewExtensionArrayWithStorage(dt, storage)
+
 	default:
 		panic(xerrors.Errorf("unknown data type %v %T", dt, dt))
 	}
@@ -1020,6 +1094,9 @@ func arrayToJSON(field arrow.Field, arr array.Interface) Array {
 			Data:   decimal128ToJSON(arr),
 			Valids: validsToJSON(arr),
 		}
+
+	case array.ExtensionArray:
+		return arrayToJSON(field, arr.Storage())
 
 	default:
 		panic(xerrors.Errorf("unknown array type %T", arr))

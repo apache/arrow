@@ -41,6 +41,7 @@ func TestReadWrite(t *testing.T) {
 	wantJSONs["durations"] = makeDurationsWantJSONs()
 	wantJSONs["decimal128"] = makeDecimal128sWantJSONs()
 	wantJSONs["maps"] = makeMapsWantJSONs()
+	wantJSONs["extension"] = makeExtensionsWantJSONs()
 
 	tempDir, err := ioutil.TempDir("", "go-arrow-read-write-")
 	if err != nil {
@@ -3813,6 +3814,407 @@ func makeMapsWantJSONs() string {
                     "4555"
                   ]
                 }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}`
+}
+
+func makeExtensionsWantJSONs() string {
+	return `{
+  "schema": {
+    "fields": [
+      {
+        "name": "p1",
+        "type": {
+          "name": "int",
+          "isSigned": true,
+          "bitWidth": 32
+        },
+        "nullable": true,
+        "children": [],
+        "metadata": [
+          {
+            "key": "k1",
+            "value": "v1"
+          },
+          {
+            "key": "k2",
+            "value": "v2"
+          },
+          {
+            "key": "ARROW:extension:name",
+            "value": "parametric-type-1"
+          },
+          {
+            "key": "ARROW:extension:metadata",
+            "value": "\u0006\u0000\u0000\u0000"
+          }
+        ]
+      },
+      {
+        "name": "p2",
+        "type": {
+          "name": "int",
+          "isSigned": true,
+          "bitWidth": 32
+        },
+        "nullable": true,
+        "children": [],
+        "metadata": [
+          {
+            "key": "k1",
+            "value": "v1"
+          },
+          {
+            "key": "k2",
+            "value": "v2"
+          },
+          {
+            "key": "ARROW:extension:name",
+            "value": "parametric-type-1"
+          },
+          {
+            "key": "ARROW:extension:metadata",
+            "value": "\u000c\u0000\u0000\u0000"
+          }
+        ]
+      },
+      {
+        "name": "p3",
+        "type": {
+          "name": "int",
+          "isSigned": true,
+          "bitWidth": 32
+        },
+        "nullable": true,
+        "children": [],
+        "metadata": [
+          {
+            "key": "k1",
+            "value": "v1"
+          },
+          {
+            "key": "k2",
+            "value": "v2"
+          },
+          {
+            "key": "ARROW:extension:name",
+            "value": "parametric-type-2\u003cparam=2\u003e"
+          },
+          {
+            "key": "ARROW:extension:metadata",
+            "value": "\u0002\u0000\u0000\u0000"
+          }
+        ]
+      },
+      {
+        "name": "p4",
+        "type": {
+          "name": "int",
+          "isSigned": true,
+          "bitWidth": 32
+        },
+        "nullable": true,
+        "children": [],
+        "metadata": [
+          {
+            "key": "k1",
+            "value": "v1"
+          },
+          {
+            "key": "k2",
+            "value": "v2"
+          },
+          {
+            "key": "ARROW:extension:name",
+            "value": "parametric-type-2\u003cparam=3\u003e"
+          },
+          {
+            "key": "ARROW:extension:metadata",
+            "value": "\u0003\u0000\u0000\u0000"
+          }
+        ]
+      },
+      {
+        "name": "p5",
+        "type": {
+          "name": "struct"
+        },
+        "nullable": true,
+        "children": [],
+        "metadata": [
+          {
+            "key": "k1",
+            "value": "v1"
+          },
+          {
+            "key": "k2",
+            "value": "v2"
+          },
+          {
+            "key": "ARROW:extension:name",
+            "value": "ext-struct-type"
+          },
+          {
+            "key": "ARROW:extension:metadata",
+            "value": "ext-struct-type-unique-code"
+          }
+        ]
+      }
+    ]
+  },
+  "batches": [
+    {
+      "count": 5,
+      "columns": [
+        {
+          "name": "p1",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            1,
+            1,
+            0
+          ],
+          "DATA": [
+            1,
+            -1,
+            2,
+            3,
+            -1
+          ]
+        },
+        {
+          "name": "p2",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            1,
+            1,
+            0
+          ],
+          "DATA": [
+            2,
+            -1,
+            3,
+            4,
+            -1
+          ]
+        },
+        {
+          "name": "p3",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            1,
+            1,
+            0
+          ],
+          "DATA": [
+            5,
+            -1,
+            6,
+            7,
+            8
+          ]
+        },
+        {
+          "name": "p4",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            1,
+            1,
+            0
+          ],
+          "DATA": [
+            5,
+            -1,
+            7,
+            9,
+            -1
+          ]
+        },
+        {
+          "name": "p5",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            1,
+            1,
+            0
+          ],
+          "children": [
+            {
+              "name": "a",
+              "count": 5,
+              "VALIDITY": [
+                1,
+                0,
+                1,
+                1,
+                0
+              ],
+              "DATA": [
+                "1",
+                "0",
+                "2",
+                "3",
+                "0"
+              ]
+            },
+            {
+              "name": "b",
+              "count": 5,
+              "VALIDITY": [
+                1,
+                0,
+                1,
+                1,
+                0
+              ],
+              "DATA": [
+                0.1,
+                0,
+                0.2,
+                0.3,
+                0
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "count": 5,
+      "columns": [
+        {
+          "name": "p1",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            1,
+            1,
+            0
+          ],
+          "DATA": [
+            10,
+            -1,
+            20,
+            30,
+            -1
+          ]
+        },
+        {
+          "name": "p2",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            1,
+            1,
+            0
+          ],
+          "DATA": [
+            20,
+            -1,
+            30,
+            40,
+            -1
+          ]
+        },
+        {
+          "name": "p3",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            1,
+            1,
+            0
+          ],
+          "DATA": [
+            50,
+            -1,
+            60,
+            70,
+            8
+          ]
+        },
+        {
+          "name": "p4",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            1,
+            1,
+            0
+          ],
+          "DATA": [
+            50,
+            -1,
+            70,
+            90,
+            -1
+          ]
+        },
+        {
+          "name": "p5",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            1,
+            1,
+            0
+          ],
+          "children": [
+            {
+              "name": "a",
+              "count": 5,
+              "VALIDITY": [
+                1,
+                0,
+                1,
+                1,
+                0
+              ],
+              "DATA": [
+                "10",
+                "0",
+                "20",
+                "30",
+                "0"
+              ]
+            },
+            {
+              "name": "b",
+              "count": 5,
+              "VALIDITY": [
+                1,
+                0,
+                1,
+                1,
+                0
+              ],
+              "DATA": [
+                0.01,
+                0,
+                0.02,
+                0.03,
+                0
               ]
             }
           ]
