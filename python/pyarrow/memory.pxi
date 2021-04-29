@@ -43,7 +43,8 @@ cdef class MemoryPool(_Weakrefable):
         or debugging as it could be expensive and detrimental to performance.
         """
         cdef CMemoryPool* pool = c_get_memory_pool()
-        pool.ReleaseUnused()
+        with nogil:
+            pool.ReleaseUnused()
 
     def bytes_allocated(self):
         """
