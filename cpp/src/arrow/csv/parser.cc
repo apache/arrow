@@ -743,5 +743,33 @@ int32_t SkipRows(const uint8_t* data, uint32_t size, int32_t num_rows,
   return skipped_rows;
 }
 
+InvalidRowHandler InvalidRowHandlers::Skip() {
+  return [](RowModifier& modifier) {
+    modifier.Skip();
+    return Status::OK();
+  };
+}
+
+InvalidRowHandler InvalidRowHandlers::AddNulls(const std::string& null_value) {
+  return [null_value](RowModifier& modifier) {
+    int needed_columns = modifier.expected_num_columns() - modifier.num_columns();
+    RETURN_NOT_OK(modifier.AddFields(null_value, needed_columns));
+    return Status::OK();
+  };
+}
+
+InvalidRowHandler InvalidRowHandlers::Force(const std::string& null_value) {
+  return [null_value](RowModifier& modifier) {
+    auto delta = modifier.expected_num_columns() - modifier.num_columns();
+    DCHECK(delta != 0);
+    if (delta > 0) {
+      RETURN_NOT_OK(modifier.AddFields(null_value, delta));
+    } else {
+      RETURN_NOT_OK(modifier.RemoveFields(-delta));
+    }
+    return Status::OK();
+  };
+}
+
 }  // namespace csv
 }  // namespace arrow

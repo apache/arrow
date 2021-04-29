@@ -555,6 +555,79 @@ TEST(BlockParser, MismatchingNumColumnsDefault) {
   }
 }
 
+TEST(BlockParser, MismatchingNumColumnsSkip) {
+  ParseOptions opts = ParseOptions::Defaults();
+  opts.invalid_row_handler = InvalidRowHandlers::Skip();
+  {
+    BlockParser parser(opts);
+    ASSERT_NO_FATAL_FAILURE(AssertParseOk(parser, "a,b\nc\nd,e\n"));
+    ASSERT_EQ(2, parser.num_rows());
+    ASSERT_NO_FATAL_FAILURE(AssertLastRowEq(parser, {"d", "e"}, {false, false}));
+  }
+  {
+    BlockParser parser(opts, 2 /* num_cols */);
+    ASSERT_NO_FATAL_FAILURE(AssertParseOk(parser, "a\nb,c\n"));
+    ASSERT_EQ(1, parser.num_rows());
+    ASSERT_NO_FATAL_FAILURE(AssertLastRowEq(parser, {"b", "c"}, {false, false}));
+  }
+  {
+    BlockParser parser(opts, 2 /* num_cols */);
+    ASSERT_NO_FATAL_FAILURE(AssertParseOk(parser, "a,b,c\nd,e\n"));
+    ASSERT_EQ(1, parser.num_rows());
+    ASSERT_NO_FATAL_FAILURE(AssertLastRowEq(parser, {"d", "e"}, {false, false}));
+  }
+}
+
+TEST(BlockParser, MismatchingNumColumnsAddNulls) {
+  ParseOptions opts = ParseOptions::Defaults();
+  opts.invalid_row_handler = InvalidRowHandlers::AddNulls("NULL");
+  {
+    BlockParser parser(opts);
+    ASSERT_NO_FATAL_FAILURE(AssertParseOk(parser, "a,b\nc\n"));
+    ASSERT_EQ(2, parser.num_rows());
+    ASSERT_NO_FATAL_FAILURE(AssertLastRowEq(parser, {"c", "NULL"}, {false, false}));
+  }
+  {
+    BlockParser parser(opts, 2 /* num_cols */);
+    ASSERT_NO_FATAL_FAILURE(AssertParseOk(parser, "a\n"));
+    ASSERT_EQ(1, parser.num_rows());
+    ASSERT_NO_FATAL_FAILURE(AssertLastRowEq(parser, {"a", "NULL"}, {false, false}));
+  }
+  {
+    uint32_t out_size;
+    BlockParser parser(opts, 2 /* num_cols */);
+    Status st = Parse(parser, "a,b,c\nd,e\n", &out_size);
+    ASSERT_RAISES(Invalid, st);
+  }
+}
+
+TEST(BlockParser, MismatchingNumColumnsForce) {
+  ParseOptions opts = ParseOptions::Defaults();
+  opts.invalid_row_handler = InvalidRowHandlers::Force();
+  {
+    BlockParser parser(opts);
+    ASSERT_NO_FATAL_FAILURE(AssertParseOk(parser, "a,b\nc\nd,e\n"));
+    ASSERT_EQ(3, parser.num_rows());
+    ASSERT_NO_FATAL_FAILURE(
+        AssertColumnsEq(parser, {{"a", "c", "d"}, {"b", "", "e"}},
+                        {{false, false, false}, {false, false, false}}));
+  }
+  {
+    BlockParser parser(opts, 2 /* num_cols */);
+    ASSERT_NO_FATAL_FAILURE(AssertParseOk(parser, "a\nb,c\n"));
+    ASSERT_EQ(2, parser.num_rows());
+    ASSERT_NO_FATAL_FAILURE(AssertColumnsEq(parser, {{"a", "b"}, {"", "c"}},
+                                            {{false, false}, {false, false}}));
+  }
+  {
+    BlockParser parser(opts, 2 /* num_cols */);
+    ASSERT_NO_FATAL_FAILURE(AssertParseOk(parser, "a,b,c\nd,e\n"));
+    ASSERT_EQ(2, parser.num_rows());
+    ASSERT_NO_FATAL_FAILURE(AssertColumnsEq(parser, {{"a", "d"}, {"b", "e"}},
+                                            {{false, false}, {false, false}}));
+  }
+}
+
 TEST(BlockParser, MismatchingNumColumnsCustom) {
   struct CustomHandler {
     operator InvalidRowHandler() {

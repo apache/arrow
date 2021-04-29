@@ -231,5 +231,34 @@ class ARROW_EXPORT RowModifier {
   virtual const util::string_view& line() const = 0;
 };
 
+/// \class InvalidRowHandlers
+/// \brief Utility class for builtin InvalidRowHandler
+class ARROW_EXPORT InvalidRowHandlers {
+ public:
+  /// \brief Creates a InvalidRowHandler which skips rows with incorrect columns
+  static InvalidRowHandler Skip();
+
+  /// \brief Create a InvalidRowHandler which adds nulls for missing columns
+  ///
+  /// \note Using a null_value other than "" can cause extra memory reallocations during
+  /// parsing if there are rows without enough columns
+  ///
+  /// \param null_value Value to insert for null. Default is ""
+  /// \return InvalidRowHandler which adds null_value
+  static InvalidRowHandler AddNulls(const std::string& null_value = "");
+
+  /// \brief Create a InvalidRowHandler which either adds nulls or removes columns
+  ///
+  /// \note Using a null_value other than "" can cause extra memory reallocations during
+  /// parsing if there are rows without enough columns
+  ///
+  /// \param null_value Value to insert for null. Default is ""
+  /// \return InvalidRowHandler which forces the number of columns to be correct
+  static InvalidRowHandler Force(const std::string& null_value = "");
+
+ private:
+  InvalidRowHandlers() = delete;
+};
+
 }  // namespace csv
 }  // namespace arrow
