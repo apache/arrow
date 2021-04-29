@@ -144,6 +144,7 @@ arrow_info <- function() {
   if (out$libarrow) {
     pool <- default_memory_pool()
     runtimeinfo <- runtime_info()
+    buildinfo <- build_info()
     compute_funcs <- list_compute_functions()
     out <- c(out, list(
       capabilities = c(
@@ -163,6 +164,13 @@ arrow_info <- function() {
       runtime_info = list(
         simd_level = runtimeinfo[1],
         detected_simd_level = runtimeinfo[2]
+      ),
+      build_info = list(
+        cpp_version = buildinfo[1],
+        cpp_compiler = buildinfo[2],
+        cpp_compiler_version = buildinfo[3],
+        cpp_compiler_flags = buildinfo[4],
+        git_id = buildinfo[5]
       )
     ))
   }
@@ -216,6 +224,12 @@ print.arrow_info <- function(x, ...) {
     print_key_values("Runtime", c(
       `SIMD Level` = x$runtime_info$simd_level,
       `Detected SIMD Level` = x$runtime_info$detected_simd_level
+    ))
+    print_key_values("Build", c(
+      `C++ Library Version` = x$build_info$cpp_version,
+      `C++ Compiler` = x$build_info$cpp_compiler,
+      `C++ Compiler Version` = x$build_info$cpp_compiler_version,
+      `Git ID` = x$build_info$git_id
     ))
   } else {
     cat("Arrow C++ library not available. See https://arrow.apache.org/docs/r/articles/install.html for troubleshooting.\n")
