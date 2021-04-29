@@ -1189,8 +1189,8 @@ test_that("compute()/collect(as_data_frame=FALSE)", {
   # the group_by() prevents compute() from returning a Table...
   expect_is(tab5, "arrow_dplyr_query")
 
-  # ... but $.data is a Table...
-  expect_is(tab5$.data, "Table")
+  # ... but $.data is a Table (InMemoryDataset)...
+  expect_r6_class(tab5$.data, "InMemoryDataset")
   # ... and the mutate() was evaluated
   expect_true("negint" %in% names(tab5$.data))
 
@@ -1553,13 +1553,14 @@ test_that("Dataset writing: dplyr methods", {
   dst_dir2 <- tempfile()
   ds %>%
     group_by(int) %>%
-    select(chr, dbl) %>%
+    select(chr, dubs = dbl) %>%
     write_dataset(dst_dir2, format = "feather")
   new_ds <- open_dataset(dst_dir2, format = "feather")
 
+  # Renaming doesn't work, but mutating does??
   expect_equivalent(
-    collect(new_ds) %>% arrange(int),
-    rbind(df1[c("chr", "dbl", "int")], df2[c("chr", "dbl", "int")])
+    collect(new_ds) %>% arrange(int) %>% print(),
+    rbind(df1[c("chr", "dbl", "int")], df2[c("chr", "dbl", "int")]) %>% rename(dubs = dbl) %>% print()
   )
 
   # filter to restrict written rows
@@ -1750,10 +1751,6 @@ test_that("Dataset writing: unsupported features/input validation", {
   expect_error(write_dataset(4), 'dataset must be a "Dataset"')
 
   ds <- open_dataset(hive_dir)
-  expect_error(
-    select(ds, integer = int) %>% write_dataset(ds),
-    "Renaming columns when writing a dataset is not yet supported"
-  )
   expect_error(
     write_dataset(ds, partitioning = c("int", "NOTACOLUMN"), format = "ipc"),
     'Invalid field name: "NOTACOLUMN"'

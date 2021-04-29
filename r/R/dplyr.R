@@ -149,13 +149,20 @@ as.data.frame.arrow_dplyr_query <- function(x, row.names = NULL, optional = FALS
 }
 
 #' @export
-head.arrow_dplyr_query <- head.Dataset
+head.arrow_dplyr_query <- function(x, n = 6L, ...) {
+  out <- head.Dataset(x, n, ...)
+  restore_dplyr_features(out, x)
+}
 
 #' @export
-tail.arrow_dplyr_query <- tail.Dataset
+tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
+  out <- tail.Dataset(x, n, ...)
+  restore_dplyr_features(out, x)
+}
 
 #' @export
 `[.arrow_dplyr_query` <- `[.Dataset`
+# TODO: ^ should also probably restore_dplyr_features, and/or that should be moved down
 
 # The following S3 methods are registered on load if dplyr is present
 tbl_vars.arrow_dplyr_query <- function(x) names(x$selected_columns)

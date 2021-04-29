@@ -267,7 +267,6 @@ test_that("head", {
     filter(int > 5) %>%
     head(2)
   expect_r6_class(b3, "Table")
-  print(as.data.frame(b3))
   expect_equal(as.data.frame(b3), set_names(expected, c("int", "strng")))
 
   b4 <- batch %>%
@@ -275,7 +274,7 @@ test_that("head", {
     filter(int > 5) %>%
     group_by(int) %>%
     head(2)
-  expect_s3_class(b4, "Table")
+  expect_s3_class(b4, "arrow_dplyr_query")
   expect_equal(
     as.data.frame(b4),
     expected %>%
@@ -308,7 +307,7 @@ test_that("tail", {
     filter(int > 5) %>%
     group_by(int) %>%
     tail(2)
-  expect_s3_class(b4, "Table")
+  expect_s3_class(b4, "arrow_dplyr_query")
   expect_equal(
     as.data.frame(b4),
     expected %>%
