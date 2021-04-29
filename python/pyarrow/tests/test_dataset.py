@@ -356,10 +356,6 @@ def test_scanner(dataset):
         scanner.take(pa.array([table.num_rows]))
 
     assert table.num_rows == scanner.count_rows()
-    scanner = ds.Scanner.from_dataset(dataset, filter=ds.field("i64") >= 3)
-    assert scanner.count_rows() == 4
-    scanner = ds.Scanner.from_dataset(dataset, filter=ds.field("i64") < 0)
-    assert scanner.count_rows() == 0
 
 
 def test_head(dataset):
@@ -382,6 +378,32 @@ def test_head(dataset):
 
     result = fragment.head(1024, columns=['i64']).to_pydict()
     assert result == {'i64': list(range(5))}
+
+
+def test_take(dataset):
+    fragment = next(dataset.get_fragments())
+    indices = pa.array([1, 3])
+    assert fragment.take(indices) == fragment.to_table().take(indices)
+    with pytest.raises(IndexError):
+        fragment.take(pa.array([5]))
+
+    indices = pa.array([1, 7])
+    assert dataset.take(indices) == dataset.to_table().take(indices)
+    with pytest.raises(IndexError):
+        dataset.take(pa.array([10]))
+
+
+def test_count_rows(dataset):
+    fragment = next(dataset.get_fragments())
+    assert fragment.count_rows() == 5
+    assert fragment.count_rows(filter=ds.field("i64") == 4) == 1
+
+    assert dataset.count_rows() == 10
+    # Filter on partition key
+    assert dataset.count_rows(filter=ds.field("group") == 1) == 5
+    # Filter on data
+    assert dataset.count_rows(filter=ds.field("i64") >= 3) == 4
+    assert dataset.count_rows(filter=ds.field("i64") < 0) == 0
 
 
 def test_abstract_classes():
