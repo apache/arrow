@@ -45,21 +45,6 @@ class FilterCacheKey {
 
   bool operator!=(const FilterCacheKey& other) const { return !(*this == other); }
 
-  bool operator<(const FilterCacheKey& other) const {
-    if (hash_code_ < other.hash_code_) {
-      return true;
-    }
-
-    if (expression_as_string_ < other.expression_as_string_) {
-      return true;
-    }
-
-    if (uniqifier_ < other.uniqifier_) {
-      return true;
-    }
-    return false;
-  }
-
   SchemaPtr schema() const { return schema_; }
 
   std::string ToString() const;

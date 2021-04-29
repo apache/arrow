@@ -31,7 +31,6 @@ class GreedyDualSizeCacheKey {
   bool operator==(const GreedyDualSizeCacheKey& other) const {
     return tmp_ == other.tmp_;
   }
-  bool operator<(const GreedyDualSizeCacheKey& other) const { return tmp_ < other.tmp_; }
 
  private:
   int tmp_;
