@@ -1553,7 +1553,7 @@ const char* right_utf8_int32(gdv_int64 context, const char* text, gdv_int32 text
     start_char_pos = (char_count > number) ? char_count - number : 0;
     end_char_len = char_count - start_char_pos;
   } else {
-    start_char_pos = ((number > 0) ? number : number * -1);
+    start_char_pos = number * -1;
     end_char_len = char_count - start_char_pos;
   }
 
