@@ -162,8 +162,8 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
       std::shared_ptr<Schema> physical_schema);
 
   /// \brief Create a FileFragment for a FileSource.
-  Result<std::shared_ptr<FileFragment>> MakeFragment(FileSource source,
-                                                     compute::Expression partition_expression);
+  Result<std::shared_ptr<FileFragment>> MakeFragment(
+      FileSource source, compute::Expression partition_expression);
 
   /// \brief Create a FileFragment for a FileSource.
   Result<std::shared_ptr<FileFragment>> MakeFragment(
@@ -193,7 +193,8 @@ class ARROW_DS_EXPORT FileFragment : public Fragment {
 
  protected:
   FileFragment(FileSource source, std::shared_ptr<FileFormat> format,
-               compute::Expression partition_expression, std::shared_ptr<Schema> physical_schema)
+               compute::Expression partition_expression,
+               std::shared_ptr<Schema> physical_schema)
       : Fragment(std::move(partition_expression), std::move(physical_schema)),
         source_(std::move(source)),
         format_(std::move(format)) {}
@@ -258,7 +259,8 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
   explicit FileSystemDataset(std::shared_ptr<Schema> schema)
       : Dataset(std::move(schema)) {}
 
-  FileSystemDataset(std::shared_ptr<Schema> schema, compute::Expression partition_expression)
+  FileSystemDataset(std::shared_ptr<Schema> schema,
+                    compute::Expression partition_expression)
       : Dataset(std::move(schema), partition_expression) {}
 
   Result<FragmentIterator> GetFragmentsImpl(compute::Expression predicate) override;

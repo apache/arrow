@@ -32,7 +32,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         pass
 
 
-cdef extern from "arrow/compute/exec/expression.h" namespace "arrow::compute" nogil:
+cdef extern from "arrow/compute/exec/expression.h" \
+        namespace "arrow::compute" nogil:
 
     cdef cppclass CExpression "arrow::compute::Expression":
         c_bool Equals(const CExpression& other) const

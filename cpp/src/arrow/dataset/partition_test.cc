@@ -64,7 +64,8 @@ class TestPartitioning : public ::testing::Test {
 
     // ensure the formatted path round trips the relevant components of the partition
     // expression: roundtripped should be a subset of expr
-    ASSERT_OK_AND_ASSIGN(compute::Expression roundtripped, partitioning_->Parse(formatted));
+    ASSERT_OK_AND_ASSIGN(compute::Expression roundtripped,
+                         partitioning_->Parse(formatted));
 
     ASSERT_OK_AND_ASSIGN(roundtripped, roundtripped.Bind(*written_schema_));
     ASSERT_OK_AND_ASSIGN(auto simplified, SimplifyWithGuarantee(roundtripped, expr));
@@ -91,7 +92,8 @@ class TestPartitioning : public ::testing::Test {
       std::shared_ptr<RecordBatch> actual_batch =
           partition_results.batches[partition_index];
       AssertBatchesEqual(*expected_batches[partition_index], *actual_batch);
-      compute::Expression actual_expression = partition_results.expressions[partition_index];
+      compute::Expression actual_expression =
+          partition_results.expressions[partition_index];
       ASSERT_EQ(expected_expressions[partition_index], actual_expression);
     }
   }

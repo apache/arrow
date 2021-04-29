@@ -108,7 +108,8 @@ struct SubtreeImpl {
     expression_codes partition_expression;
   };
 
-  std::unordered_map<compute::Expression, expression_code, compute::Expression::Hash> expr_to_code_;
+  std::unordered_map<compute::Expression, expression_code, compute::Expression::Hash>
+      expr_to_code_;
   std::vector<compute::Expression> code_to_expr_;
   std::unordered_set<expression_codes> subtree_exprs_;
 
@@ -124,7 +125,8 @@ struct SubtreeImpl {
   }
 
   // Encode an expression (recursively breaking up conjunction members if possible).
-  void EncodeConjunctionMembers(const compute::Expression& expr, expression_codes* codes) {
+  void EncodeConjunctionMembers(const compute::Expression& expr,
+                                expression_codes* codes) {
     if (auto call = expr.call()) {
       if (call->function_name == "and_kleene") {
         // expr is a conjunction, encode its arguments

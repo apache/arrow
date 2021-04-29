@@ -20,4 +20,3 @@ arrow_install_all_headers("arrow/compute/exec")
 add_arrow_compute_test(expression_test PREFIX "arrow-compute")
 
 add_arrow_benchmark(expression_benchmark PREFIX "arrow-compute")
-
