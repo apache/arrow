@@ -190,6 +190,27 @@ gdv_int32 utf8_length(gdv_int64 context, const char* data, gdv_int32 data_len) {
   return count;
 }
 
+// Count the number of utf8 characters, ignoring invalid char, considering size 1
+FORCE_INLINE
+gdv_int32 utf8_length_ignore_invalid(const char* data, gdv_int32 data_len) {
+  int char_len = 0;
+  int count = 0;
+  for (int i = 0; i < data_len; i += char_len) {
+    char_len = utf8_char_length(data[i]);
+    if (char_len == 0 || i + char_len > data_len) {  // invalid byte or incomplete glyph
+      // if invalid byte or incomplete glyph, ignore it
+      char_len = 1;
+    }
+    for (int j = 1; j < char_len; ++j) {
+      if ((data[i + j] & 0xC0) != 0x80) {  // bytes following head-byte of glyph
+        char_len += 1;
+      }
+    }
+    ++count;
+  }
+  return count;
+}
+
 // Get the byte position corresponding to a character position for a non-empty utf8
 // sequence
 FORCE_INLINE
@@ -1433,15 +1454,8 @@ const char* lpad_utf8_int32_utf8(gdv_int64 context, const char* text, gdv_int32 
     return "";
   }
 
-  // initially counts the number of utf8 characters in the defined text and fill_text
-  int32_t text_char_count = utf8_length(context, text, text_len);
-  int32_t fill_char_count = utf8_length(context, fill_text, fill_text_len);
-  // text_char_count is zero if input has invalid utf8 char
-  // fill_char_count is zero if fill_text_len is > 0 and its value has invalid utf8 char
-  if (text_char_count == 0 || (fill_text_len > 0 && fill_char_count == 0)) {
-    *out_len = 0;
-    return "";
-  }
+  // count the number of utf8 characters on text, ignoring invalid bytes
+  int text_char_count = utf8_length_ignore_invalid(text, text_len);
 
   if (return_length == text_char_count ||
       (return_length > text_char_count && fill_text_len == 0)) {
@@ -1477,6 +1491,8 @@ const char* lpad_utf8_int32_utf8(gdv_int64 context, const char* text, gdv_int32 
           break;
         }
         char_len = utf8_char_length(fill_text[fill_index]);
+        // ignore invalid char on the fill text, considering it as size 1
+        if (char_len == 0) char_len += 1;
         copied_chars_count++;
       }
       memcpy(ret + copied_chars_position, fill_text, fill_index);
@@ -1500,15 +1516,8 @@ const char* rpad_utf8_int32_utf8(gdv_int64 context, const char* text, gdv_int32 
     return "";
   }
 
-  // initially counts the number of utf8 characters in the defined text and fill_text
-  int32_t text_char_count = utf8_length(context, text, text_len);
-  int32_t fill_char_count = utf8_length(context, fill_text, fill_text_len);
-  // text_char_count is zero if input has invalid utf8 char
-  // fill_char_count is zero if fill_text_len is > 0 and its value has invalid utf8 char
-  if (text_char_count == 0 || (fill_text_len > 0 && fill_char_count == 0)) {
-    *out_len = 0;
-    return "";
-  }
+  // count the number of utf8 characters on text, ignoring invalid bytes
+  int text_char_count = utf8_length_ignore_invalid(text, text_len);
 
   if (return_length == text_char_count ||
       (return_length > text_char_count && fill_text_len == 0)) {
@@ -1545,6 +1554,8 @@ const char* rpad_utf8_int32_utf8(gdv_int64 context, const char* text, gdv_int32 
           break;
         }
         char_len = utf8_char_length(fill_text[fill_length]);
+        // ignore invalid char on the fill text, considering it as size 1
+        if (char_len == 0) char_len += 1;
         copied_chars_count++;
       }
       memcpy(ret + text_len + copied_chars_position, fill_text, fill_length);
