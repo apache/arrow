@@ -1490,26 +1490,34 @@ const char* left(gdv_int64 context, const char* text, gdv_int32 text_len,
     return "";
   }
 
-  // initially counts the number of utf8 characters in the defined text
-  int32_t char_count = utf8_length(context, text, text_len);
-  // char_count is zero if input has invalid utf8 char
-  if (char_count == 0) {
-    *out_len = 0;
-    return "";
-  }
-
-  int32_t end_char_pos;  // the char result end position (inclusive)
-  if (number > 0) {
+  // iterate over the utf8 string validating each character
+  int char_len;
+  int char_count = 0;
+  int byte_index = 0;
+  for (int i = 0; i < text_len; i += char_len) {
+    char_len = utf8_char_length(text[i]);
+    if (char_len == 0 || i + char_len > text_len) {  // invalid byte or incomplete glyph
+      set_error_for_invalid_utf(context, text[i]);
+      *out_len = 0;
+      return "";
+    }
+    for (int j = 1; j < char_len; ++j) {
+      if ((text[i + j] & 0xC0) != 0x80) {  // bytes following head-byte of glyph
+        set_error_for_invalid_utf(context, text[i + j]);
+        *out_len = 0;
+        return "";
+      }
+    }
+    byte_index += char_len;
+    ++char_count;
+    // Define the rules to stop the iteration over the string
     // case where left('abc', 5) -> 'abc'
-    end_char_pos = (char_count < number) ? char_count : number;
-  } else if (number < 0) {
+    if (number > 0 && char_count == number) break;
     // case where left('abc', -5) ==> ''
-    end_char_pos = (char_count + number > 0) ? char_count + number : 0;
-  } else {
-    end_char_pos = 0;
+    if (number < 0 && char_count == number + text_len) break;
   }
 
-  *out_len = utf8_byte_pos(context, text, text_len, end_char_pos);
+  *out_len = byte_index;
   return text;
 }
 
