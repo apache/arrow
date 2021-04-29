@@ -71,6 +71,9 @@ static void GetFilteredFragments(benchmark::State& state, compute::Expression fi
   }
 }
 
+using compute::field_ref;
+using compute::literal;
+
 BENCHMARK(GetAllFragments);
 // Drill down to a subtree.
 BENCHMARK_CAPTURE(GetFilteredFragments, single_dir, equal(field_ref("a"), literal(90)));

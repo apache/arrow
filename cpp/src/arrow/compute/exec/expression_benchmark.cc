@@ -26,15 +26,8 @@
 namespace arrow {
 namespace compute {
 
-static Expression GetPartitionExpression(const std::string& path, bool infer_dictionary) {
-  auto options = HivePartitioningFactoryOptions();
-  options.infer_dictionary = infer_dictionary;
-  auto factory = HivePartitioning::MakeFactory(options);
-  ASSIGN_OR_ABORT(auto schema, factory->Inspect({path}));
-  ASSIGN_OR_ABORT(auto partitioning, factory->Finish(schema));
-  ASSIGN_OR_ABORT(auto expr, partitioning->Parse(path));
-  return expr;
-}
+std::shared_ptr<Scalar> ninety_nine_dict =
+    DictionaryScalar::Make(MakeScalar(0), ArrayFromJSON(int64(), "[99]"));
 
 // A benchmark of SimplifyWithGuarantee using expressions arising from partitioning.
 static void SimplifyFilterWithGuarantee(benchmark::State& state, Expression filter,
@@ -61,11 +54,15 @@ auto filter_cast_negative =
 auto filter_cast_positive =
     and_(equal(call("cast", {field_ref("a")}, to_int64), literal(99)),
          equal(call("cast", {field_ref("b")}, to_int64), literal(99)));
-// A fully simplified partition expression.
-auto guarantee = GetPartitionExpression("a=99/b=99", /*infer_dictionary=*/false);
-// A partition expression that uses dictionaries, which are inferred by default.
-auto guarantee_dictionary =
-    GetPartitionExpression("a=99/b=99", /*infer_dictionary=*/true);
+
+// An unencoded partition expression for "a=99/b=99".
+auto guarantee = and_(equal(field_ref("a"), literal(int64_t(99))),
+                      equal(field_ref("b"), literal(int64_t(99))));
+
+// A partition expression for "a=99/b=99" that uses dictionaries (inferred by default).
+auto guarantee_dictionary = and_(equal(field_ref("a"), literal(ninety_nine_dict)),
+                                 equal(field_ref("b"), literal(ninety_nine_dict)));
+
 // Negative queries (partition expressions that fail the filter)
 BENCHMARK_CAPTURE(SimplifyFilterWithGuarantee, negative_filter_simple_guarantee_simple,
                   filter_simple_negative, guarantee);
