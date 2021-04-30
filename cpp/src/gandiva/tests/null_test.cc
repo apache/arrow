@@ -57,10 +57,7 @@ TEST_F(TestNull, TestSimple) {
   EXPECT_TRUE(status.ok()) << status.message();
 
   arrow::ArrayVector outputs;
-  auto nb = std::make_shared<arrow::NullBuilder>();
-  auto _ = nb->AppendNulls(4);
-  std::shared_ptr<arrow::NullArray> null_array;
-  _ = nb->Finish(&null_array);
+  auto null_array = std::make_shared<arrow::NullArray>(4);
   auto in_batch = arrow::RecordBatch::Make(schema, 4, {null_array});
   status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
@@ -106,10 +103,7 @@ TEST_F(TestNull, TestOps) {
   EXPECT_TRUE(status.ok()) << status.message();
 
   arrow::ArrayVector outputs;
-  auto nb = std::make_shared<arrow::NullBuilder>();
-  auto _ = nb->AppendNulls(4);
-  std::shared_ptr<arrow::NullArray> null_array;
-  _ = nb->Finish(&null_array);
+  auto null_array = std::make_shared<arrow::NullArray>(4);
   auto in_batch = arrow::RecordBatch::Make(schema, 4, {null_array});
   status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
@@ -123,6 +117,43 @@ TEST_F(TestNull, TestOps) {
   }
   EXPECT_ARROW_ARRAY_EQUALS(exp_true, outputs.at(6));
   EXPECT_ARROW_ARRAY_EQUALS(exp_false, outputs.at(7));
+}
+
+TEST_F(TestNull, TestMakeIf) {
+  // schema for input fields
+  auto field_null = field("field_null", null());
+  auto schema = arrow::schema({field_null});
+
+  // output fields
+  auto res_1 = field("res1", null());
+  auto res_2 = field("res2", null());
+
+  auto null_node = TreeExprBuilder::MakeNull(null());
+  auto expr_1 = TreeExprBuilder::MakeExpression(
+      TreeExprBuilder::MakeIf(TreeExprBuilder::MakeLiteral(true), null_node, null_node,
+                              null()),
+      res_1);
+  auto expr_2 = TreeExprBuilder::MakeExpression(
+      TreeExprBuilder::MakeIf(TreeExprBuilder::MakeLiteral(false), null_node, null_node,
+                              null()),
+      res_2);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  auto status =
+      Projector::Make(schema, {expr_1, expr_2}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  arrow::ArrayVector outputs;
+  auto null_array = std::make_shared<arrow::NullArray>(4);
+  auto in_batch = arrow::RecordBatch::Make(schema, 4, {null_array});
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  for (auto& output : outputs) {
+    EXPECT_EQ(output->null_count(), 4);
+  }
 }
 
 }  // namespace gandiva

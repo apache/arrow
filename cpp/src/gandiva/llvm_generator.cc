@@ -1152,6 +1152,9 @@ LValuePtr LLVMGenerator::Visitor::BuildIfElse(llvm::Value* condition,
   // Emit the merge block.
   builder->SetInsertPoint(merge_bb);
   auto llvm_type = types->IRType(result_type->id());
+  if (llvm_type == nullptr) {
+    return nullptr;
+  }
   llvm::PHINode* result_value = builder->CreatePHI(llvm_type, 2, "res_value");
   result_value->addIncoming(then_lvalue->data(), then_bb);
   result_value->addIncoming(else_lvalue->data(), else_bb);
