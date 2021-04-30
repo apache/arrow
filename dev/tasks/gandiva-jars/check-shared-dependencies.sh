@@ -38,7 +38,7 @@ if [[ $CHECK_SHARED_DEPENDENCIES ]] ; then
   # exit if any shared library not in whitelisted set is found
   echo "Checking shared dependencies"
 
-  awk 'print {print $1}'dependencies_temp_file.txt | \
+  awk '{print $1}' dependencies_temp_file.txt | \
   while read -r line
   do
     found=false
@@ -51,7 +51,7 @@ if [[ $CHECK_SHARED_DEPENDENCIES ]] ; then
     done
 
     if [[ "$found" == false ]] ; then
-      echo "Unexpected shared dependency found"
+      echo "Unexpected shared dependency found $line"
       exit 1
     fi
   done
