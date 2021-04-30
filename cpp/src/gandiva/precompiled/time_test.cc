@@ -773,6 +773,19 @@ TEST(TestTime, TestToTimestamp) {
   EXPECT_EQ(ts, to_timestamp_int64(86400));
   EXPECT_EQ(ts, to_timestamp_float32(86400));
   EXPECT_EQ(ts, to_timestamp_float64(86400));
+
+  // tests with fractional part
+  ts = StringToTimestamp("1970-01-01 00:00:01") + 500;
+  EXPECT_EQ(ts, to_timestamp_float32(1.500f));
+  EXPECT_EQ(ts, to_timestamp_float64(1.500));
+
+  ts = StringToTimestamp("1970-01-01 00:01:01") + 600;
+  EXPECT_EQ(ts, to_timestamp_float32(61.600f));
+  EXPECT_EQ(ts, to_timestamp_float64(61.600));
+
+  ts = StringToTimestamp("1970-01-01 01:00:01") + 400;
+  EXPECT_EQ(ts, to_timestamp_float32(3601.400f));
+  EXPECT_EQ(ts, to_timestamp_float64(3601.400));
 }
 
 TEST(TestTime, TestToTimeNumeric) {

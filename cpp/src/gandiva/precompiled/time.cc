@@ -845,7 +845,7 @@ gdv_int64 castBIGINT_daytimeinterval(gdv_day_time_interval in) {
 #define TO_TIMESTAMP(TYPE)                                      \
   FORCE_INLINE                                                  \
   gdv_timestamp to_timestamp##_##TYPE(gdv_##TYPE seconds) {     \
-    return static_cast<gdv_timestamp>(seconds) * MILLIS_IN_SEC; \
+    return static_cast<gdv_timestamp>(seconds * MILLIS_IN_SEC); \
   }
 
 NUMERIC_TYPES(TO_TIMESTAMP)
