@@ -417,8 +417,11 @@ build_function_list <- function(FUN) {
       is_regex <- grepl("[.\\|()[{^$*+?]", split)
       
       # if !fixed but no regex metachars in split pattern, allow to proceed as split isn't regex
-      if(!fixed && is_regex || perl){
+      if(!fixed && is_regex){
         stop("regular expression matching not supported in strsplit for Arrow", call. = FALSE)
+      }
+      if(fixed && perl){
+        warning("argument 'perl = TRUE' will be ignored")
       }
       FUN("split_pattern", x, options = list(pattern = split, reverse = FALSE, max_splits = -1))
     },
