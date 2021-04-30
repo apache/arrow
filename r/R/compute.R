@@ -267,6 +267,25 @@ value_counts <- function(x) {
   call_function("value_counts", x)
 }
 
+
+#' `variance` and `stddev` for Arrow objects
+#'
+#' These functions calculate the variance and standard deviation of Arrow arrays
+#' @param x `Array` or `ChunkedArray`
+#' @param ddof The divisor used in calculations is N - ddof, where N is the number of elements. 
+#' By default, ddof is zero, and population variance or stddev is returned. 
+#' @return A `Scalar` containing the calculated value.
+#' @export
+stddev <- function(x, ddof = 0) {
+  call_function("stddev", x, options = list(ddof = ddof))
+}
+
+#' @rdname stddev
+#' @export
+variance <- function(x, ddof = 0) {
+  call_function("variance", x, options = list(ddof = ddof))
+}
+
 #' Cast options
 #'
 #' @param safe logical: enforce safe conversion? Default `TRUE`
