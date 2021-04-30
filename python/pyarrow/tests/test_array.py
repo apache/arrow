@@ -2720,11 +2720,21 @@ def test_binary_array_masked():
                              mask=np.array([False]))
     assert pa.array([b'\x05']).to_pylist() == masked_basic.to_pylist()
 
+    # Fixed Length Binary
     masked = pa.array(np.array([b'\x05']), type=pa.binary(1),
                       mask=np.array([False]))
     assert pa.array([b'\x05']).to_pylist() == masked.to_pylist()
 
     masked_nulls = pa.array(np.array([b'\x05']), type=pa.binary(1),
+                            mask=np.array([True]))
+    assert pa.array([None]).to_pylist() == masked_nulls.to_pylist()
+
+    # Variable Length Binary
+    masked = pa.array(np.array([b'\x05']), type=pa.binary(-1),
+                      mask=np.array([False]))
+    assert pa.array([b'\x05']).to_pylist() == masked.to_pylist()
+
+    masked_nulls = pa.array(np.array([b'\x05']), type=pa.binary(-1),
                             mask=np.array([True]))
     assert pa.array([None]).to_pylist() == masked_nulls.to_pylist()
 
