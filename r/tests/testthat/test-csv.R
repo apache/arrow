@@ -53,18 +53,7 @@ test_that("Write a CSV file with no header", {
   names(tbl_expected) <- c("f0", "f1", "f2", "f3")
   
   expect_identical(tbl_in, tbl_expected)
-  
-  skip("Doesn't yet work with date columns due to ARROW-12540")
-  
-  tbl_out <- write_csv_arrow(tbl, csv_file, include_header = FALSE)
-  expect_true(file.exists(csv_file))
-  expect_identical(tbl_out, tbl)
-  tbl_in <- read_csv_arrow(csv_file, col_names = FALSE)
-  
-  tbl_expected <- tbl
-  names(tbl_expected) <- c("f0", "f1", "f2", "f3", "f4")
-  
-  expect_identical(tbl_in, tbl_expected)
+
 })
 
 test_that("Write a CSV file with different batch sizes", {
@@ -86,26 +75,6 @@ test_that("Write a CSV file with different batch sizes", {
   expect_identical(tbl_out3, tbl_no_dates)
   tbl_in3 <- read_csv_arrow(csv_file)
   expect_identical(tbl_in3, tbl_no_dates)
-  
-  skip("Doesn't yet work with date columns due to ARROW-12540")
-  
-  tbl_out1 <- write_csv_arrow(tbl, csv_file, batch_size = 1)
-  expect_true(file.exists(csv_file))
-  expect_identical(tbl_out1, tbl)
-  tbl_in1 <- read_csv_arrow(csv_file)
-  expect_identical(tbl_in1, tbl)
-  
-  tbl_out2 <- write_csv_arrow(tbl, csv_file, batch_size = 2)
-  expect_true(file.exists(csv_file))
-  expect_identical(tbl_out2, tbl)
-  tbl_in2 <- read_csv_arrow(csv_file)
-  expect_identical(tbl_in2, tbl)
-  
-  tbl_out3 <- write_csv_arrow(tbl, csv_file, batch_size = 12)
-  expect_true(file.exists(csv_file))
-  expect_identical(tbl_out3, tbl)
-  tbl_in3 <- read_csv_arrow(csv_file)
-  expect_identical(tbl_in3, tbl)
   
 })
 
