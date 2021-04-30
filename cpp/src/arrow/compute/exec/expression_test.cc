@@ -29,7 +29,6 @@
 #include "arrow/compute/exec/expression_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/testing/gtest_util.h"
-#include "arrow/util/iterator.h"
 
 using testing::HasSubstr;
 using testing::UnorderedElementsAreArray;
@@ -522,24 +521,6 @@ Result<Datum> NaiveExecuteScalarExpression(const Expression& expr, const Datum& 
     return ExecuteScalarExpression(expr, input);
   }
 
-  if (input.kind() == Datum::TABLE) {
-    ArrayVector chunks;
-
-    for (auto maybe_batch :
-         MakeIteratorFromReader(std::make_shared<TableBatchReader>(*input.table()))) {
-      ARROW_ASSIGN_OR_RAISE(auto batch, maybe_batch);
-
-      ARROW_ASSIGN_OR_RAISE(Datum res, NaiveExecuteScalarExpression(expr, batch));
-      if (res.is_scalar()) {
-        ARROW_ASSIGN_OR_RAISE(res, MakeArrayFromScalar(*res.scalar(), batch->num_rows()));
-      }
-
-      chunks.push_back(res.make_array());
-    }
-
-    return ChunkedArray::Make(std::move(chunks), expr.type());
-  }
-
   std::vector<Datum> arguments(call->arguments.size());
   for (size_t i = 0; i < arguments.size(); ++i) {
     ARROW_ASSIGN_OR_RAISE(arguments[i],
@@ -604,30 +585,6 @@ TEST(Expression, ExecuteCall) {
     {"a": 0.0},
     {"a": -1}
   ])"));
-}
-
-TEST(Expression, ExecuteAgainstTable) {
-  ExpectExecute(field_ref("i32"), TableFromJSON(kBoringSchema, {}));
-
-  ExpectExecute(field_ref("i32"), TableFromJSON(kBoringSchema, {R"([
-    {"i32": 32},
-    {"i32": 52}
-    ])",
-                                                                R"([
-    {"i32": 71}
-  ])"}));
-
-  ExpectExecute(call("add", {field_ref("f32"), literal(3.5)}),
-                TableFromJSON(kBoringSchema, {}));
-
-  ExpectExecute(call("add", {field_ref("f32"), literal(3.5)}),
-                TableFromJSON(kBoringSchema, {R"([
-    {"f32": -1.5},
-    {"f32": 2.25}
-    ])",
-                                              R"([
-    {"f32": 3.75}
-  ])"}));
 }
 
 TEST(Expression, ExecuteDictionaryTransparent) {

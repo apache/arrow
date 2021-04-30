@@ -28,7 +28,6 @@
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/util/atomic_shared_ptr.h"
-#include "arrow/util/iterator.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
@@ -525,25 +524,6 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const Datum& input
   if (!expr.IsScalarExpression()) {
     return Status::Invalid(
         "ExecuteScalarExpression cannot Execute non-scalar expression ", expr.ToString());
-  }
-
-  if (input.kind() == Datum::TABLE) {
-    ArrayVector chunks;
-
-    for (auto maybe_batch :
-         MakeIteratorFromReader(std::make_shared<TableBatchReader>(*input.table()))) {
-      ARROW_ASSIGN_OR_RAISE(auto batch, maybe_batch);
-
-      ARROW_ASSIGN_OR_RAISE(Datum res, ExecuteScalarExpression(expr, batch));
-      if (res.is_scalar()) {
-        ARROW_ASSIGN_OR_RAISE(res, MakeArrayFromScalar(*res.scalar(), batch->num_rows(),
-                                                       exec_context->memory_pool()));
-      }
-
-      chunks.push_back(res.make_array());
-    }
-
-    return ChunkedArray::Make(std::move(chunks), expr.type());
   }
 
   if (auto lit = expr.literal()) return *lit;
