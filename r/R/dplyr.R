@@ -412,8 +412,9 @@ build_function_list <- function(FUN) {
     },
     strsplit = function(x, split, fixed = FALSE, perl = FALSE, useBytes = FALSE){
       
-      regex_metachars <- c(".", "\\", "|", "(", ")", "[", "{", "^", "$", "*", "+", "?")
-      is_regex <- any(map_lgl(regex_metachars, ~grepl(.x, split, fixed = TRUE)))
+      assert_that(length(split) == 1)
+      
+      is_regex <- grepl("[.\\|()[{^$*+?]", split)
       
       # if !fixed but no regex metachars in split pattern, allow to proceed as split isn't regex
       if(!fixed && is_regex || perl){
