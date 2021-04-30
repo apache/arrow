@@ -225,65 +225,65 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      "convert_replace_invalid_fromUTF8_binary",
                      NativeFunction::kNeedsContext),
 
-      NativeFunction("convert_todouble", {}, DataTypeVector{float64()}, binary(),
+      NativeFunction("convert_toDOUBLE", {}, DataTypeVector{float64()}, binary(),
                      kResultNullIfNull, "convert_toDOUBLE",
                      NativeFunction::kNeedsContext),
 
-      NativeFunction("convert_todouble_be", {}, DataTypeVector{float64()}, binary(),
+      NativeFunction("convert_toDOUBLE_be", {}, DataTypeVector{float64()}, binary(),
                      kResultNullIfNull, "convert_toDOUBLE_be",
                      NativeFunction::kNeedsContext),
 
-      NativeFunction("convert_tofloat", {}, DataTypeVector{float32()}, binary(),
+      NativeFunction("convert_toFLOAT", {}, DataTypeVector{float32()}, binary(),
                      kResultNullIfNull, "convert_toFLOAT", NativeFunction::kNeedsContext),
 
-      NativeFunction("convert_tofloat_be", {}, DataTypeVector{float32()}, binary(),
+      NativeFunction("convert_toFLOAT_be", {}, DataTypeVector{float32()}, binary(),
                      kResultNullIfNull, "convert_toFLOAT_be",
                      NativeFunction::kNeedsContext),
 
-      NativeFunction("convert_toint", {}, DataTypeVector{int32()}, binary(),
+      NativeFunction("convert_toINT", {}, DataTypeVector{int32()}, binary(),
                      kResultNullIfNull, "convert_toINT", NativeFunction::kNeedsContext),
 
-      NativeFunction("convert_toint_be", {}, DataTypeVector{int32()}, binary(),
+      NativeFunction("convert_toINT_be", {}, DataTypeVector{int32()}, binary(),
                      kResultNullIfNull, "convert_toINT_be",
                      NativeFunction::kNeedsContext),
 
-      NativeFunction("convert_tobigint", {}, DataTypeVector{int64()}, binary(),
+      NativeFunction("convert_toBIGINT", {}, DataTypeVector{int64()}, binary(),
                      kResultNullIfNull, "convert_toBIGINT",
                      NativeFunction::kNeedsContext),
 
-      NativeFunction("convert_tobigint_be", {}, DataTypeVector{int64()}, binary(),
+      NativeFunction("convert_toBIGINT_be", {}, DataTypeVector{int64()}, binary(),
                      kResultNullIfNull, "convert_toBIGINT_be",
                      NativeFunction::kNeedsContext),
 
-      NativeFunction("convert_toboolean_byte", {}, DataTypeVector{boolean()}, binary(),
+      NativeFunction("convert_toBOOLEAN_BYTE", {}, DataTypeVector{boolean()}, binary(),
                      kResultNullIfNull, "convert_toBOOLEAN",
                      NativeFunction::kNeedsContext),
 
-      NativeFunction("convert_totime_epoch", {}, DataTypeVector{time32()}, binary(),
+      NativeFunction("convert_toTIME_EPOCH", {}, DataTypeVector{time32()}, binary(),
                      kResultNullIfNull, "convert_toTIME_EPOCH",
                      NativeFunction::kNeedsContext),
 
-      NativeFunction("convert_totime_epoch_be", {}, DataTypeVector{time32()}, binary(),
+      NativeFunction("convert_toTIME_EPOCH_be", {}, DataTypeVector{time32()}, binary(),
                      kResultNullIfNull, "convert_toTIME_EPOCH_be",
                      NativeFunction::kNeedsContext),
 
-      NativeFunction("convert_totimestamp_epoch", {}, DataTypeVector{timestamp()},
+      NativeFunction("convert_toTIMESTAMP_EPOCH", {}, DataTypeVector{timestamp()},
                      binary(), kResultNullIfNull, "convert_toTIMESTAMP_EPOCH",
                      NativeFunction::kNeedsContext),
 
-      NativeFunction("convert_totimestamp_epoch_be", {}, DataTypeVector{timestamp()},
+      NativeFunction("convert_toTIMESTAMP_EPOCH_be", {}, DataTypeVector{timestamp()},
                      binary(), kResultNullIfNull, "convert_toTIMESTAMP_EPOCH_be",
                      NativeFunction::kNeedsContext),
 
-      NativeFunction("convert_todate_epoch", {}, DataTypeVector{date64()}, binary(),
+      NativeFunction("convert_toDATE_EPOCH", {}, DataTypeVector{date64()}, binary(),
                      kResultNullIfNull, "convert_toDATE_EPOCH",
                      NativeFunction::kNeedsContext),
 
-      NativeFunction("convert_todate_epoch_be", {}, DataTypeVector{date64()}, binary(),
+      NativeFunction("convert_toDATE_EPOCH_be", {}, DataTypeVector{date64()}, binary(),
                      kResultNullIfNull, "convert_toDATE_EPOCH_be",
                      NativeFunction::kNeedsContext),
 
-      NativeFunction("convert_toutf8", {}, DataTypeVector{utf8()}, binary(),
+      NativeFunction("convert_toUTF8", {}, DataTypeVector{utf8()}, binary(),
                      kResultNullIfNull, "convert_toUTF8", NativeFunction::kNeedsContext),
 
       NativeFunction("locate", {"position"}, DataTypeVector{utf8(), utf8(), int32()},
