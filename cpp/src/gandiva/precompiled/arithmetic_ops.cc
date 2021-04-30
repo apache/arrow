@@ -126,21 +126,8 @@ CAST_UNARY(castFLOAT4, float64, float32)
 #define CAST_INT_FLOAT(NAME, IN_TYPE, OUT_TYPE)       \
   FORCE_INLINE                                        \
   gdv_##OUT_TYPE NAME##_##IN_TYPE(gdv_##IN_TYPE in) { \
-    gdv_##OUT_TYPE out;                               \
-    bool sign = (in < 0);                             \
-    in = fabs(in);                                    \
-    double fractional = fmod(in, 1);                  \
-    int64_t digit = ((int64_t)(fractional * 10));     \
-                                                      \
-    out = ((gdv_##OUT_TYPE)in);                       \
-    if (digit > 4) {                                  \
-      out++;                                          \
-    }                                                 \
-                                                      \
-    if (sign) {                                       \
-      out *= -1;                                      \
-    }                                                 \
-    return out;                                       \
+    gdv_##OUT_TYPE out = round(in);                   \
+    return out;\
   }
 
 CAST_INT_FLOAT(castBIGINT, float32, int64)
