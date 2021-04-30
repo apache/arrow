@@ -1234,7 +1234,7 @@ tasks:
     ci: github
     template: docker-tests/github.linux.yml
     params:
-      run: {{ image }}
+      image: {{ image }}
 {% endfor %}
 
 {% for ubuntu_version in ["18.04", "20.04"] %}
@@ -1244,7 +1244,7 @@ tasks:
     params:
       env:
         UBUNTU: {{ ubuntu_version }}
-      run: ubuntu-cpp
+      image: ubuntu-cpp
 {% endfor %}
 
   test-debian-10-cpp:
@@ -1253,7 +1253,7 @@ tasks:
     params:
       env:
         DEBIAN: 10
-      run: debian-cpp
+      image: debian-cpp
 
   test-fedora-33-cpp:
     ci: github
@@ -1261,7 +1261,7 @@ tasks:
     params:
       env:
         FEDORA: 33
-      run: fedora-cpp
+      image: fedora-cpp
 
   test-ubuntu-18.04-cpp-release:
     ci: github
@@ -1269,7 +1269,8 @@ tasks:
     params:
       env:
         UBUNTU: 18.04
-      run: "-e ARROW_BUILD_TYPE=release ubuntu-cpp"
+      flags: "-e ARROW_BUILD_TYPE=release"
+      image: ubuntu-cpp
 
   test-ubuntu-18.04-cpp-static:
     ci: github
@@ -1277,7 +1278,8 @@ tasks:
     params:
       env:
         UBUNTU: 18.04
-      run: "-e ARROW_BUILD_SHARED=OFF -e ARROW_BUILD_STATIC=ON -e ARROW_TEST_LINKAGE=static ubuntu-cpp"
+      flags: "-e ARROW_BUILD_SHARED=OFF -e ARROW_BUILD_STATIC=ON -e ARROW_TEST_LINKAGE=static"
+      image: ubuntu-cpp
 
 {% for cpp_standard in [14, 17] %}
   test-ubuntu-20.04-cpp-{{ cpp_standard }}:
@@ -1286,7 +1288,8 @@ tasks:
     params:
       env:
         UBUNTU: 20.04
-      run: "-e CMAKE_ARGS=-DCMAKE_CXX_STANDARD={{ cpp_standard }} ubuntu-cpp"
+      flags: "-e CMAKE_ARGS=-DCMAKE_CXX_STANDARD={{ cpp_standard }}"
+      image: ubuntu-cpp
 {% endfor %}
 
   test-ubuntu-20.04-cpp-thread-sanitizer:
@@ -1296,7 +1299,7 @@ tasks:
       env:
         CLANG_TOOLS: 11
         UBUNTU: 20.04
-      run: ubuntu-cpp-thread-sanitizer
+      image: ubuntu-cpp-thread-sanitizer
 
 {% for python_version in ["3.6", "3.7", "3.8", "3.9"] %}
   test-conda-python-{{ python_version }}:
@@ -1305,7 +1308,7 @@ tasks:
     params:
       env:
         PYTHON: {{ python_version }}
-      run: conda-python
+      image: conda-python
 {% endfor %}
 
   test-conda-python-3.8-hypothesis:
@@ -1318,7 +1321,7 @@ tasks:
         PYTHON: 3.8
         # limit to execute hypothesis tests only
         PYTEST_ARGS: "-m hypothesis"
-      run: conda-python-pandas
+      image: conda-python-pandas
 
   test-debian-10-python-3:
     ci: azure
@@ -1464,11 +1467,10 @@ tasks:
         PYTHON: {{ python_version }}
         PANDAS: {{ pandas_version }}
     {% if cache_leaf %}
-      run: conda-python-pandas
-    {% else %}
       # use the latest pandas release, so prevent reusing any cached layers
-      run: --no-leaf-cache conda-python-pandas
+      flags: --no-leaf-cache
     {% endif %}
+      image: conda-python-pandas
 {% endfor %}
 
 {% for dask_version in ["latest", "master"] %}
@@ -1480,7 +1482,8 @@ tasks:
         PYTHON: 3.7
         DASK: {{ dask_version }}
       # use the latest dask release, so prevent reusing any cached layers
-      run: --no-leaf-cache conda-python-dask
+      flags: --no-leaf-cache
+      image: conda-python-dask
 {% endfor %}
 
 {% for turbodbc_version in ["latest", "master"] %}
@@ -1492,7 +1495,8 @@ tasks:
         PYTHON: 3.7
         TURBODBC: {{ turbodbc_version }}
       # use the latest turbodbc release, so prevent reusing any cached layers
-      run: --no-leaf-cache conda-python-turbodbc
+      flags: --no-leaf-cache
+      image: conda-python-turbodbc
 {% endfor %}
 
 {% for kartothek_version in ["latest", "master"] %}
@@ -1503,7 +1507,8 @@ tasks:
       env:
         PYTHON: 3.7
         KARTOTHEK: {{ kartothek_version }}
-      run: --no-leaf-cache conda-python-kartothek
+      flags: --no-leaf-cache
+      image: conda-python-kartothek
 {% endfor %}
 
 {% for hdfs_version in ["2.9.2", "3.2.1"] %}
@@ -1514,7 +1519,7 @@ tasks:
       env:
         PYTHON: 3.7
         HDFS: {{ hdfs_version }}
-      run: conda-python-hdfs
+      image: conda-python-hdfs
 {% endfor %}
 
 {% for python_version, spark_version, test_pyarrow_only in [("3.7", "branch-3.0", "true"),
@@ -1528,7 +1533,8 @@ tasks:
         SPARK: {{ spark_version }}
         TEST_PYARROW_ONLY: {{ test_pyarrow_only }}
       # use the branch-3.0 of spark, so prevent reusing any layers
-      run: --no-leaf-cache conda-python-spark
+      flags: --no-leaf-cache
+      image: conda-python-spark
 {% endfor %}
 
   test-conda-python-3.8-jpype:
@@ -1537,14 +1543,14 @@ tasks:
     params:
       env:
         PYTHON: 3.8
-      run: conda-python-jpype
+      image: conda-python-jpype
 
   # Remove the "skipped-" prefix in ARROW-8475
   skipped-test-conda-cpp-hiveserver2:
     ci: github
     template: docker-tests/github.linux.yml
     params:
-      run: conda-cpp-hiveserver2
+      image: conda-cpp-hiveserver2
 
 {% for kind in ["static", "static-system-dependency"] %}
   example-cpp-minimal-build-{{ kind }}:
