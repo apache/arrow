@@ -25,7 +25,7 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/dataset/expression.h"
+#include "arrow/compute/exec/expression.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/util/macros.h"
@@ -75,19 +75,21 @@ class ARROW_DS_EXPORT Fragment : public std::enable_shared_from_this<Fragment> {
 
   /// \brief An expression which evaluates to true for all data viewed by this
   /// Fragment.
-  const Expression& partition_expression() const { return partition_expression_; }
+  const compute::Expression& partition_expression() const {
+    return partition_expression_;
+  }
 
   virtual ~Fragment() = default;
 
  protected:
   Fragment() = default;
-  explicit Fragment(Expression partition_expression,
+  explicit Fragment(compute::Expression partition_expression,
                     std::shared_ptr<Schema> physical_schema);
 
   virtual Result<std::shared_ptr<Schema>> ReadPhysicalSchemaImpl() = 0;
 
   util::Mutex physical_schema_mutex_;
-  Expression partition_expression_ = literal(true);
+  compute::Expression partition_expression_ = compute::literal(true);
   std::shared_ptr<Schema> physical_schema_;
 };
 
@@ -115,8 +117,9 @@ class ARROW_DS_EXPORT FragmentScanOptions {
 class ARROW_DS_EXPORT InMemoryFragment : public Fragment {
  public:
   InMemoryFragment(std::shared_ptr<Schema> schema, RecordBatchVector record_batches,
-                   Expression = literal(true));
-  explicit InMemoryFragment(RecordBatchVector record_batches, Expression = literal(true));
+                   compute::Expression = compute::literal(true));
+  explicit InMemoryFragment(RecordBatchVector record_batches,
+                            compute::Expression = compute::literal(true));
 
   Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options) override;
   Result<RecordBatchGenerator> ScanBatchesAsync(
@@ -144,14 +147,16 @@ class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
   Result<std::shared_ptr<ScannerBuilder>> NewScan();
 
   /// \brief GetFragments returns an iterator of Fragments given a predicate.
-  Result<FragmentIterator> GetFragments(Expression predicate);
+  Result<FragmentIterator> GetFragments(compute::Expression predicate);
   Result<FragmentIterator> GetFragments();
 
   const std::shared_ptr<Schema>& schema() const { return schema_; }
 
   /// \brief An expression which evaluates to true for all data viewed by this Dataset.
   /// May be null, which indicates no information is available.
-  const Expression& partition_expression() const { return partition_expression_; }
+  const compute::Expression& partition_expression() const {
+    return partition_expression_;
+  }
 
   /// \brief The name identifying the kind of Dataset
   virtual std::string type_name() const = 0;
@@ -168,12 +173,12 @@ class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
  protected:
   explicit Dataset(std::shared_ptr<Schema> schema) : schema_(std::move(schema)) {}
 
-  Dataset(std::shared_ptr<Schema> schema, Expression partition_expression);
+  Dataset(std::shared_ptr<Schema> schema, compute::Expression partition_expression);
 
-  virtual Result<FragmentIterator> GetFragmentsImpl(Expression predicate) = 0;
+  virtual Result<FragmentIterator> GetFragmentsImpl(compute::Expression predicate) = 0;
 
   std::shared_ptr<Schema> schema_;
-  Expression partition_expression_ = literal(true);
+  compute::Expression partition_expression_ = compute::literal(true);
 };
 
 /// \addtogroup dataset-implementations
@@ -209,7 +214,7 @@ class ARROW_DS_EXPORT InMemoryDataset : public Dataset {
       std::shared_ptr<Schema> schema) const override;
 
  protected:
-  Result<FragmentIterator> GetFragmentsImpl(Expression predicate) override;
+  Result<FragmentIterator> GetFragmentsImpl(compute::Expression predicate) override;
 
   std::shared_ptr<RecordBatchGenerator> get_batches_;
 };
@@ -233,7 +238,7 @@ class ARROW_DS_EXPORT UnionDataset : public Dataset {
       std::shared_ptr<Schema> schema) const override;
 
  protected:
-  Result<FragmentIterator> GetFragmentsImpl(Expression predicate) override;
+  Result<FragmentIterator> GetFragmentsImpl(compute::Expression predicate) override;
 
   explicit UnionDataset(std::shared_ptr<Schema> schema, DatasetVector children)
       : Dataset(std::move(schema)), children_(std::move(children)) {}

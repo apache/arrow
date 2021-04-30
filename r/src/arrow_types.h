@@ -55,6 +55,7 @@
 namespace ds = ::arrow::dataset;
 #endif
 
+namespace compute = ::arrow::compute;
 namespace fs = ::arrow::fs;
 
 SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);

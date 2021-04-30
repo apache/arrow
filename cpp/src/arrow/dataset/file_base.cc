@@ -86,16 +86,17 @@ Result<std::shared_ptr<io::InputStream>> FileSource::OpenCompressed(
 
 Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
     FileSource source, std::shared_ptr<Schema> physical_schema) {
-  return MakeFragment(std::move(source), literal(true), std::move(physical_schema));
+  return MakeFragment(std::move(source), compute::literal(true),
+                      std::move(physical_schema));
 }
 
 Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
-    FileSource source, Expression partition_expression) {
+    FileSource source, compute::Expression partition_expression) {
   return MakeFragment(std::move(source), std::move(partition_expression), nullptr);
 }
 
 Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
-    FileSource source, Expression partition_expression,
+    FileSource source, compute::Expression partition_expression,
     std::shared_ptr<Schema> physical_schema) {
   return std::shared_ptr<FileFragment>(
       new FileFragment(std::move(source), shared_from_this(),
@@ -172,11 +173,11 @@ struct FileSystemDataset::FragmentSubtrees {
   // Forest for skipping fragments based on extracted subtree expressions
   Forest forest;
   // fragment indices and subtree expressions in forest order
-  std::vector<util::Variant<int, Expression>> fragments_and_subtrees;
+  std::vector<util::Variant<int, compute::Expression>> fragments_and_subtrees;
 };
 
 Result<std::shared_ptr<FileSystemDataset>> FileSystemDataset::Make(
-    std::shared_ptr<Schema> schema, Expression root_partition,
+    std::shared_ptr<Schema> schema, compute::Expression root_partition,
     std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
     std::vector<std::shared_ptr<FileFragment>> fragments) {
   std::shared_ptr<FileSystemDataset> out(
@@ -215,7 +216,7 @@ std::string FileSystemDataset::ToString() const {
     repr += "\n" + fragment->source().path();
 
     const auto& partition = fragment->partition_expression();
-    if (partition != literal(true)) {
+    if (partition != compute::literal(true)) {
       repr += ": " + partition.ToString();
     }
   }
@@ -264,15 +265,16 @@ void FileSystemDataset::SetupSubtreePruning() {
   });
 }
 
-Result<FragmentIterator> FileSystemDataset::GetFragmentsImpl(Expression predicate) {
-  if (predicate == literal(true)) {
+Result<FragmentIterator> FileSystemDataset::GetFragmentsImpl(
+    compute::Expression predicate) {
+  if (predicate == compute::literal(true)) {
     // trivial predicate; skip subtree pruning
     return MakeVectorIterator(FragmentVector(fragments_.begin(), fragments_.end()));
   }
 
   std::vector<int> fragment_indices;
 
-  std::vector<Expression> predicates{predicate};
+  std::vector<compute::Expression> predicates{predicate};
   RETURN_NOT_OK(subtrees_->forest.Visit(
       [&](Forest::Ref ref) -> Result<bool> {
         if (auto fragment_index =
@@ -282,7 +284,7 @@ Result<FragmentIterator> FileSystemDataset::GetFragmentsImpl(Expression predicat
         }
 
         const auto& subtree_expr =
-            util::get<Expression>(subtrees_->fragments_and_subtrees[ref.i]);
+            util::get<compute::Expression>(subtrees_->fragments_and_subtrees[ref.i]);
         ARROW_ASSIGN_OR_RAISE(auto simplified,
                               SimplifyWithGuarantee(predicates.back(), subtree_expr));
 

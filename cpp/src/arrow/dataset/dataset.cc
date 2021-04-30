@@ -31,7 +31,7 @@
 namespace arrow {
 namespace dataset {
 
-Fragment::Fragment(Expression partition_expression,
+Fragment::Fragment(compute::Expression partition_expression,
                    std::shared_ptr<Schema> physical_schema)
     : partition_expression_(std::move(partition_expression)),
       physical_schema_(std::move(physical_schema)) {}
@@ -58,14 +58,14 @@ Result<std::shared_ptr<Schema>> InMemoryFragment::ReadPhysicalSchemaImpl() {
 
 InMemoryFragment::InMemoryFragment(std::shared_ptr<Schema> schema,
                                    RecordBatchVector record_batches,
-                                   Expression partition_expression)
+                                   compute::Expression partition_expression)
     : Fragment(std::move(partition_expression), std::move(schema)),
       record_batches_(std::move(record_batches)) {
   DCHECK_NE(physical_schema_, nullptr);
 }
 
 InMemoryFragment::InMemoryFragment(RecordBatchVector record_batches,
-                                   Expression partition_expression)
+                                   compute::Expression partition_expression)
     : Fragment(std::move(partition_expression), /*schema=*/nullptr),
       record_batches_(std::move(record_batches)) {
   // Order of argument evaluation is undefined, so compute physical_schema here
@@ -144,7 +144,7 @@ Result<RecordBatchGenerator> InMemoryFragment::ScanBatchesAsync(
                    options->batch_size);
 }
 
-Dataset::Dataset(std::shared_ptr<Schema> schema, Expression partition_expression)
+Dataset::Dataset(std::shared_ptr<Schema> schema, compute::Expression partition_expression)
     : schema_(std::move(schema)),
       partition_expression_(std::move(partition_expression)) {}
 
@@ -158,11 +158,10 @@ Result<std::shared_ptr<ScannerBuilder>> Dataset::NewScan() {
 }
 
 Result<FragmentIterator> Dataset::GetFragments() {
-  ARROW_ASSIGN_OR_RAISE(auto predicate, literal(true).Bind(*schema_));
-  return GetFragments(std::move(predicate));
+  return GetFragments(compute::literal(true));
 }
 
-Result<FragmentIterator> Dataset::GetFragments(Expression predicate) {
+Result<FragmentIterator> Dataset::GetFragments(compute::Expression predicate) {
   ARROW_ASSIGN_OR_RAISE(
       predicate, SimplifyWithGuarantee(std::move(predicate), partition_expression_));
   return predicate.IsSatisfiable() ? GetFragmentsImpl(std::move(predicate))
@@ -228,7 +227,7 @@ Result<std::shared_ptr<Dataset>> InMemoryDataset::ReplaceSchema(
   return std::make_shared<InMemoryDataset>(std::move(schema), get_batches_);
 }
 
-Result<FragmentIterator> InMemoryDataset::GetFragmentsImpl(Expression) {
+Result<FragmentIterator> InMemoryDataset::GetFragmentsImpl(compute::Expression) {
   auto schema = this->schema();
 
   auto create_fragment =
@@ -269,7 +268,7 @@ Result<std::shared_ptr<Dataset>> UnionDataset::ReplaceSchema(
       new UnionDataset(std::move(schema), std::move(children)));
 }
 
-Result<FragmentIterator> UnionDataset::GetFragmentsImpl(Expression predicate) {
+Result<FragmentIterator> UnionDataset::GetFragmentsImpl(compute::Expression predicate) {
   return GetFragmentsFromDatasets(children_, predicate);
 }
 

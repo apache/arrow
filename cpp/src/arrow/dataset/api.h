@@ -19,9 +19,9 @@
 
 #pragma once
 
+#include "arrow/compute/exec/expression.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/discovery.h"
-#include "arrow/dataset/expression.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/file_csv.h"
 #include "arrow/dataset/file_ipc.h"

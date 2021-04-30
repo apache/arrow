@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/dataset/expression.h"
+#include "arrow/compute/exec/expression.h"
 
 #include <cstdint>
 #include <memory>
@@ -26,9 +26,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/compute/exec/expression_internal.h"
 #include "arrow/compute/registry.h"
-#include "arrow/dataset/expression_internal.h"
-#include "arrow/dataset/test_util.h"
 #include "arrow/testing/gtest_util.h"
 
 using testing::HasSubstr;
@@ -39,7 +38,24 @@ namespace arrow {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
-namespace dataset {
+namespace compute {
+
+const std::shared_ptr<Schema> kBoringSchema = schema({
+    field("bool", boolean()),
+    field("i8", int8()),
+    field("i32", int32()),
+    field("i32_req", int32(), /*nullable=*/false),
+    field("u32", uint32()),
+    field("i64", int64()),
+    field("f32", float32()),
+    field("f32_req", float32(), /*nullable=*/false),
+    field("f64", float64()),
+    field("date64", date64()),
+    field("str", utf8()),
+    field("dict_str", dictionary(int32(), utf8())),
+    field("dict_i32", dictionary(int32(), int32())),
+    field("ts_ns", timestamp(TimeUnit::NANO)),
+});
 
 #define EXPECT_OK ARROW_EXPECT_OK
 
@@ -1278,5 +1294,5 @@ TEST(Projection, AugmentWithKnownValues) {
       }));
 }
 
-}  // namespace dataset
+}  // namespace compute
 }  // namespace arrow

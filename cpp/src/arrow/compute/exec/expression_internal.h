@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/dataset/expression.h"
+#include "arrow/compute/exec/expression.h"
 
 #include <unordered_map>
 #include <unordered_set>
@@ -32,7 +32,7 @@ namespace arrow {
 
 using internal::checked_cast;
 
-namespace dataset {
+namespace compute {
 
 inline const Expression::Call* CallNotNull(const Expression& expr) {
   auto call = expr.call();
@@ -338,5 +338,5 @@ Result<Expression> Modify(Expression expr, const PreVisit& pre,
   return post_call(std::move(expr), nullptr);
 }
 
-}  // namespace dataset
+}  // namespace compute
 }  // namespace arrow
