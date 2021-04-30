@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @importFrom stats quantile median na.omit na.exclude na.pass na.fail sd var
+#' @importFrom stats quantile median na.omit na.exclude na.pass na.fail
 #' @importFrom R6 R6Class
 #' @importFrom purrr as_mapper map map2 map_chr map_dfr map_int map_lgl keep
 #' @importFrom assertthat assert_that is.string
