@@ -1161,7 +1161,7 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
       std::shared_ptr<Array> actual_struct;
 
       for (auto maybe_batch :
-           IteratorFromReader(std::make_shared<TableBatchReader>(*actual_table))) {
+           MakeIteratorFromReader(std::make_shared<TableBatchReader>(*actual_table))) {
         ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
         ASSERT_OK_AND_ASSIGN(actual_struct, batch->ToStructArray());
       }
