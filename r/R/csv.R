@@ -381,6 +381,11 @@ CsvTableReader$create <- function(file,
 #' `TimestampParser$create()` takes an optional `format` string argument.
 #' See [`strptime()`][base::strptime()] for example syntax.
 #' The default is to use an ISO-8601 format parser.
+#' 
+#' The `CsvWriteOptions$create()` factory method takes the following arguments:
+#' - `include_header` Whether to write an initial header line with column names
+#' - `batch_size` Maximum number of rows processed at a time. Default is 1024.
+#' 
 #' @section Active bindings:
 #'
 #' - `column_names`: from `CsvReadOptions`
@@ -408,23 +413,7 @@ CsvReadOptions$create <- function(use_threads = option_use_threads(),
   )
 }
 
-#' @title File writer options
-#' @rdname CsvWriteOptions
-#' @name CsvWriteOptions
-#' @docType class
-#' @usage NULL
-#' @format NULL
-#' @description `CsvReadOptions`, `CsvParseOptions`, `CsvConvertOptions`,
-#' `JsonReadOptions`, `JsonParseOptions`, and `TimestampParser` are containers for various
-#' file reading options. See their usage in [read_csv_arrow()] and
-#' [read_json_arrow()], respectively.
-#'
-#' @section Factory:
-#'
-#' The `CsvWriteOptions$create()` factory method takes the following arguments:
-#' - `include_header` Whether to write an initial header line with column names
-#' - `batch_size` Maximum number of rows processed at a time. Default is 1024
-#' @docType class
+#' @rdname CsvReadOptions
 #' @export
 CsvWriteOptions <- R6Class("CsvWriteOptions", inherit = ArrowObject)
 CsvWriteOptions$create <- function(include_header = TRUE, batch_size = 1024L){
@@ -633,24 +622,19 @@ readr_to_csv_convert_options <- function(na,
 #' }
 #' @include arrow-package.R
 write_csv_arrow <- function(x,
-                          sink,
-                          include_header = TRUE,
-                          batch_size = 1024L
-                          ) {
+                            sink,
+                            include_header = TRUE,
+                            batch_size = 1024L) {
   # Handle and validate options before touching data
   batch_size <- as.integer(batch_size)
-  assert_that(batch_size > 0)
-  assert_that(length(include_header) == 1)
-  assert_that(is.logical(include_header))
-  
-  write_options = CsvWriteOptions$create(include_header, batch_size)
+  write_options <- CsvWriteOptions$create(include_header, batch_size)
   
   x_out <- x
   if (is.data.frame(x)) {
     x <- Table$create(x)
   }
   
-  assert_is(x, c("Table", "RecordBatch"))
+  assert_is(x, "ArrowTabular")
   
   if (!inherits(sink, "OutputStream")) {
     sink <- make_output_stream(sink)
