@@ -421,7 +421,7 @@ build_function_list <- function(FUN) {
       }
       
       FUN("split_pattern", x, options = list(pattern = split))
-    }
+    },
     # as.factor() is mapped in expression.R
     as.character = function(x) {
       FUN("cast", x, options = cast_options(to_type = string()))
