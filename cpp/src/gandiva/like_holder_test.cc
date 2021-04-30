@@ -27,6 +27,7 @@ namespace gandiva {
 
 class TestLikeHolder : public ::testing::Test {
  public:
+  RE2::Options regex_op;
   FunctionNode BuildLike(std::string pattern) {
     auto field = std::make_shared<FieldNode>(arrow::field("in", arrow::utf8()));
     auto pattern_node =
@@ -48,7 +49,7 @@ class TestLikeHolder : public ::testing::Test {
 TEST_F(TestLikeHolder, TestMatchAny) {
   std::shared_ptr<LikeHolder> like_holder;
 
-  auto status = LikeHolder::Make("ab%", &like_holder);
+  auto status = LikeHolder::Make("ab%", &like_holder, regex_op);
   EXPECT_EQ(status.ok(), true) << status.message();
 
   auto& like = *like_holder;
@@ -63,7 +64,7 @@ TEST_F(TestLikeHolder, TestMatchAny) {
 TEST_F(TestLikeHolder, TestMatchOne) {
   std::shared_ptr<LikeHolder> like_holder;
 
-  auto status = LikeHolder::Make("ab_", &like_holder);
+  auto status = LikeHolder::Make("ab_", &like_holder, regex_op);
   EXPECT_EQ(status.ok(), true) << status.message();
 
   auto& like = *like_holder;
@@ -78,7 +79,7 @@ TEST_F(TestLikeHolder, TestMatchOne) {
 TEST_F(TestLikeHolder, TestPcreSpecial) {
   std::shared_ptr<LikeHolder> like_holder;
 
-  auto status = LikeHolder::Make(".*ab_", &like_holder);
+  auto status = LikeHolder::Make(".*ab_", &like_holder, regex_op);
   EXPECT_EQ(status.ok(), true) << status.message();
 
   auto& like = *like_holder;
@@ -97,7 +98,7 @@ TEST_F(TestLikeHolder, TestRegexEscape) {
 TEST_F(TestLikeHolder, TestDot) {
   std::shared_ptr<LikeHolder> like_holder;
 
-  auto status = LikeHolder::Make("abc.", &like_holder);
+  auto status = LikeHolder::Make("abc.", &like_holder, regex_op);
   EXPECT_EQ(status.ok(), true) << status.message();
 
   auto& like = *like_holder;

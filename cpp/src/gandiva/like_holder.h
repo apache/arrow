@@ -54,7 +54,7 @@ class GANDIVA_EXPORT LikeHolder : public FunctionHolder {
  private:
   explicit LikeHolder(const std::string& pattern) : pattern_(pattern), regex_(pattern) {}
 
-  explicit LikeHolder(const std::string& pattern, RE2::Options regex_op)
+  LikeHolder(const std::string& pattern, RE2::Options regex_op)
       : pattern_(pattern), regex_(pattern, regex_op) {}
 
   std::string pattern_;  // posix pattern string, to help debugging
