@@ -480,6 +480,18 @@ build_function_list <- function(FUN) {
     between = function(x, left, right) {
       x >= left & x <= right
     },
+    sd = function(x, na.rm = FALSE){
+      if (!na.rm && x$null_count > 0) {
+        return(Scalar$create(NA_real_))
+      }
+      FUN("stddev", x, options = list(ddof = 0))
+    },
+    var = function(x, na.rm = FALSE){
+      if (!na.rm && x$null_count > 0) {
+        return(Scalar$create(NA_real_))
+      }
+      FUN("variance", x, options = list(ddof = 0))
+    },
     # Now also include all available Arrow Compute functions,
     # namespaced as arrow_fun
     set_names(
