@@ -19,6 +19,7 @@
 
 #include "arrow/csv/options.h"
 #include "arrow/io/interfaces.h"
+#include "arrow/ipc/type_fwd.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
 
@@ -42,6 +43,19 @@ ARROW_EXPORT Status WriteCSV(const Table& table, const WriteOptions& options,
 /// Experimental
 ARROW_EXPORT Status WriteCSV(const RecordBatch& batch, const WriteOptions& options,
                              MemoryPool* pool, arrow::io::OutputStream* output);
+
+/// \brief Create a new CSV writer. User is responsible for closing the
+/// actual OutputStream.
+///
+/// \param[in] sink output stream to write to
+/// \param[in] schema the schema of the record batches to be written
+/// \param[in] pool pool to use for allocations
+/// \param[in] options options for serialization
+/// \return Result<std::shared_ptr<RecordBatchWriter>>
+ARROW_EXPORT
+Result<std::shared_ptr<ipc::RecordBatchWriter>> MakeCSVWriter(
+    std::shared_ptr<io::OutputStream> sink, const std::shared_ptr<Schema>& schema,
+    MemoryPool* pool = NULLPTR, const WriteOptions& options = WriteOptions::Defaults());
 
 }  // namespace csv
 }  // namespace arrow
