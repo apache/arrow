@@ -534,7 +534,7 @@ const char* castVARCHAR_bool_int64(gdv_int64 context, gdv_boolean value,
 }
 
 // Truncates the string to given length
-#define CAST_VARCHAR_UTF8_BINARY(TYPE)                                                 \
+#define CAST_VARCHAR_FROM_VARLEN_TYPE(TYPE)                                            \
   FORCE_INLINE                                                                         \
   const char* castVARCHAR_##TYPE##_int64(gdv_int64 context, const char* data,          \
                                          gdv_int32 data_len, int64_t out_len,          \
@@ -620,10 +620,10 @@ const char* castVARCHAR_bool_int64(gdv_int64 context, gdv_boolean value,
     return data;                                                                       \
   }
 
-CAST_VARCHAR_UTF8_BINARY(utf8)
-CAST_VARCHAR_UTF8_BINARY(binary)
+CAST_VARCHAR_FROM_VARLEN_TYPE(utf8)
+CAST_VARCHAR_FROM_VARLEN_TYPE(binary)
 
-#undef CAST_VARCHAR_UTF8_BINARY
+#undef CAST_VARCHAR_FROM_VARLEN_TYPE
 
 #define IS_NULL(NAME, TYPE)                                                \
   FORCE_INLINE                                                             \
