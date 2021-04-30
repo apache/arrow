@@ -170,7 +170,9 @@ arrow_info <- function() {
         cpp_compiler = buildinfo[2],
         cpp_compiler_version = buildinfo[3],
         cpp_compiler_flags = buildinfo[4],
-        git_id = buildinfo[5]
+        # git_id is "" if not built from a git checkout
+        # convert that to NULL
+        git_id = if (nzchar(buildinfo[5])) buildinfo[5]
       )
     ))
   }
