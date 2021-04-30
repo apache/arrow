@@ -410,6 +410,18 @@ build_function_list <- function(FUN) {
         options = list(null_encoding_behavior = null_encoding_behavior)
       )
     },
+    strsplit = function(x, split, fixed = FALSE, perl = FALSE, useBytes = FALSE){
+      
+      regex_metachars <- c(".", "\\", "|", "(", ")", "[", "{", "^", "$", "*", "+", "?")
+      is_regex <- map_lgl(regex_metachars, ~grepl(.x, split, fixed = TRUE))
+      
+      # if !fixed but no regex metachars in split pattern, allow to proceed as split isn't regex
+      if(!fixed && is_regex || perl){
+        stop("regular expression matching not supported in strsplit for Arrow", call. = FALSE)
+      }
+      
+      FUN("split_pattern", x, options = list(pattern = split))
+    }
     # as.factor() is mapped in expression.R
     as.character = function(x) {
       FUN("cast", x, options = cast_options(to_type = string()))
