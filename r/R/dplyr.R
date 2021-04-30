@@ -419,7 +419,6 @@ build_function_list <- function(FUN) {
       if(!fixed && is_regex || perl){
         stop("regular expression matching not supported in strsplit for Arrow", call. = FALSE)
       }
-      
       FUN("split_pattern", x, options = list(pattern = split, reverse = FALSE, max_splits = -1))
     },
     # as.factor() is mapped in expression.R
