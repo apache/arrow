@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG FROM=debian:buster
+ARG FROM=ubuntu:hirsute
 FROM ${FROM}
 
 RUN \
@@ -26,12 +26,6 @@ RUN \
   echo 'APT::Install-Recommends "false";' > \
     /etc/apt/apt.conf.d/disable-install-recommends
 
-RUN sed -i'' -e 's/main$/main contrib non-free/g' /etc/apt/sources.list
-
-RUN \
-  echo "deb http://deb.debian.org/debian buster-backports main" > \
-    /etc/apt/sources.list.d/backports.list
-
 ARG DEBUG
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
@@ -39,6 +33,7 @@ RUN \
   apt install -y -V ${quiet} \
     build-essential \
     ccache \
+    clang \
     cmake \
     debhelper \
     devscripts \
@@ -48,36 +43,40 @@ RUN \
     libboost-system-dev \
     libbrotli-dev \
     libbz2-dev \
-    libc-ares-dev \
     libcurl4-openssl-dev \
     libgirepository1.0-dev \
     libglib2.0-doc \
     libgmock-dev \
     libgoogle-glog-dev \
+    libgrpc++-dev \
     libgtest-dev \
     liblz4-dev \
+    libprotoc-dev \
+    libprotobuf-dev \
     libre2-dev \
     libsnappy-dev \
     libssl-dev \
     libthrift-dev \
     libutf8proc-dev \
     libzstd-dev \
+    llvm-dev \
     lsb-release \
     ninja-build \
     pkg-config \
+    protobuf-compiler-grpc \
     python3-dev \
     python3-numpy \
     python3-pip \
+    python3-setuptools \
     rapidjson-dev \
     tzdata \
     zlib1g-dev && \
-  apt install -y -V -t buster-backports ${quiet} \
-    clang-11 \
-    llvm-11-dev && \
-  if apt list | grep '^nvidia-cuda-toolkit/'; then \
+  if apt list | grep -q '^libcuda1'; then \
     apt install -y -V ${quiet} nvidia-cuda-toolkit; \
+  else \
+    :; \
   fi && \
-  pip3 install --upgrade meson && \
-  ln -s /usr/local/bin/meson /usr/bin/ && \
   apt clean && \
+  python3 -m pip install --no-use-pep517 meson && \
+  ln -s /usr/local/bin/meson /usr/bin/ && \
   rm -rf /var/lib/apt/lists/*

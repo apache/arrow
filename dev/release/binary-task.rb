@@ -868,6 +868,7 @@ class BinaryTask
       ["ubuntu", "bionic", "main"],
       ["ubuntu", "focal", "main"],
       ["ubuntu", "groovy", "main"],
+      ["ubuntu", "hirsute", "main"],
     ]
   end
 

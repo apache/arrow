@@ -779,8 +779,8 @@ class PrepareTest < Test::Unit::TestCase
       },
       {
         sampled_diff: [
-          "-      - libarrow-glib#{@so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb",
-          "+      - libarrow-glib#{@next_so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb",
+          "-      - libarrow-dataset-glib#{@so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb",
+          "+      - libarrow-dataset-glib#{@next_so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb",
         ],
         path: "dev/tasks/tasks.yml",
       },

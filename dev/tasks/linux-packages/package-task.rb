@@ -257,6 +257,8 @@ class PackageTask
       # "ubuntu-focal-arm64",
       "ubuntu-groovy",
       # "ubuntu-groovy-arm64",
+      "ubuntu-hirsute",
+      # "ubuntu-hirsute-arm64",
     ]
   end
 

@@ -84,8 +84,6 @@ class ApacheArrowPackageTask < PackageTask
   end
 
   def apt_arm64_cuda_available_target?(target)
-    # ubuntu-20.10 has navidia-cuda-toolkit but not libcuda1.
-    # ubuntu-21.04 may support this.
     false
   end
 
