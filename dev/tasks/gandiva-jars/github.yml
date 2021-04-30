@@ -65,7 +65,7 @@ jobs:
           export ARROW_TEST_DATA=$PWD/testing/data
           set -e
           dev/tasks/gandiva-jars/build-cpp-osx.sh
-          dev/tasks/gandiva-jars/check_shared_dependencies.sh
+          dev/tasks/gandiva-jars/check-shared-dependencies.sh
         env:
           OS_NAME: "osx"
           CHECK_SHARED_DEPENDENCIES: true
