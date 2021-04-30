@@ -35,6 +35,10 @@
 #include "arrow/util/optional.h"
 #include "arrow/util/string.h"
 
+#ifdef __GLIBCXX__
+#include <malloc.h>
+#endif
+
 #ifdef ARROW_JEMALLOC
 // Needed to support jemalloc 3 and 4
 #define JEMALLOC_MANGLE
@@ -254,7 +258,13 @@ class SystemAllocator {
     }
   }
 
-  static void ReleaseUnused() {}
+  static void ReleaseUnused() {
+#ifdef __GLIBCXX__
+    // The return value of malloc_trim is not an error but to inform
+    // you if memory was actually released or not, which we do not care about here
+    ARROW_UNUSED(malloc_trim(0));
+#endif
+  }
 };
 
 #ifdef ARROW_JEMALLOC
@@ -303,7 +313,9 @@ class JemallocAllocator {
     }
   }
 
-  static void ReleaseUnused() {}
+  static void ReleaseUnused() {
+    mallctl("arena." ARROW_STRINGIFY(MALLCTL_ARENAS_ALL) ".purge", NULL, NULL, NULL, 0);
+  }
 };
 
 #endif  // defined(ARROW_JEMALLOC)
