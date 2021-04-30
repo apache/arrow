@@ -31,6 +31,7 @@
 #include "arrow/io/memory.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
+#include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 
@@ -281,8 +282,19 @@ N/A,bar
   ASSERT_OK(batch_it.Visit([](TaggedRecordBatch) { return Status::OK(); }));
 }
 
-TEST_P(TestCsvFileFormat, WriteRecordBatchReader) {
-  GTEST_SKIP() << "Write support not implemented for CSV";
+TEST_P(TestCsvFileFormat, WriteRecordBatchReader) { TestWrite(); }
+
+TEST_P(TestCsvFileFormat, WriteRecordBatchReaderCustomOptions) {
+  auto options =
+      checked_pointer_cast<CsvFileWriteOptions>(format_->DefaultWriteOptions());
+  options->options->include_header = false;
+  auto data_schema = schema({field("f64", float64())});
+  ASSERT_OK_AND_ASSIGN(auto sink, GetFileSink());
+  ASSERT_OK_AND_ASSIGN(auto writer, format_->MakeWriter(sink, data_schema, options));
+  ASSERT_OK(writer->Write(ConstantArrayGenerator::Zeroes(5, data_schema)));
+  ASSERT_OK(writer->Finish());
+  ASSERT_OK_AND_ASSIGN(auto written, sink->Finish());
+  ASSERT_EQ("0\n0\n0\n0\n0\n", written->ToString());
 }
 
 INSTANTIATE_TEST_SUITE_P(TestUncompressedCsv, TestCsvFileFormat,
