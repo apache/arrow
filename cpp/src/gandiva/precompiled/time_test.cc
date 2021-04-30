@@ -776,35 +776,30 @@ TEST(TestTime, TestToTimestamp) {
 }
 
 TEST(TestTime, TestToTimeNumeric) {
-  auto millis = 0;
-  EXPECT_EQ(millis, to_time_int32(0));
-  EXPECT_EQ(millis, to_time_int64(0));
-  EXPECT_EQ(millis, to_time_float32(0));
-  EXPECT_EQ(millis, to_time_float64(0));
 
-  millis = 1000;
-  EXPECT_EQ(millis, to_time_int32(1));
-  EXPECT_EQ(millis, to_time_int64(1));
-  EXPECT_EQ(millis, to_time_float32(1));
-  EXPECT_EQ(millis, to_time_float64(1));
+  auto ts = StringToTimestamp("1970-01-02 00:00:00") / 1000;
+  EXPECT_EQ(0, to_time_int32(ts));
+  EXPECT_EQ(0, to_time_int64(ts));
+  EXPECT_EQ(0, to_time_float32(ts));
+  EXPECT_EQ(0, to_time_float64(ts));
 
-  millis = 600000;
-  EXPECT_EQ(millis, to_time_int32(600));
-  EXPECT_EQ(millis, to_time_int64(600));
-  EXPECT_EQ(millis, to_time_float32(600));
-  EXPECT_EQ(millis, to_time_float64(600));
+  ts = StringToTimestamp("1970-01-01 00:00:01") / 1000;
+  EXPECT_EQ(1000, to_time_int32(ts));
+  EXPECT_EQ(1000, to_time_int64(ts));
+  EXPECT_EQ(1000, to_time_float32(ts));
+  EXPECT_EQ(1000, to_time_float64(ts));
 
-  millis = 360000;
-  EXPECT_EQ(millis, to_time_int32(360));
-  EXPECT_EQ(millis, to_time_int64(360));
-  EXPECT_EQ(millis, to_time_float32(360));
-  EXPECT_EQ(millis, to_time_float64(360));
+  ts = StringToTimestamp("1970-01-01 01:00:00") / 1000;
+  EXPECT_EQ(3600000, to_time_int32(ts));
+  EXPECT_EQ(3600000, to_time_int64(ts));
+  EXPECT_EQ(3600000, to_time_float32(ts));
+  EXPECT_EQ(3600000, to_time_float64(ts));
 
-  millis = 86400000;
-  EXPECT_EQ(millis, to_time_int32(86400));
-  EXPECT_EQ(millis, to_time_int64(86400));
-  EXPECT_EQ(millis, to_time_float32(86400));
-  EXPECT_EQ(millis, to_time_float64(86400));
+  ts = StringToTimestamp("1970-01-01 23:59:59") / 1000;
+  EXPECT_EQ(86399000, to_time_int32(ts));
+  EXPECT_EQ(86399000, to_time_int64(ts));
+  EXPECT_EQ(86399000, to_time_float32(ts));
+  EXPECT_EQ(86399000, to_time_float64(ts));
 }
 
 }  // namespace gandiva

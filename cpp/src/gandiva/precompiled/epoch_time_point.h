@@ -87,17 +87,17 @@ class EpochTimePoint {
 
   int64_t MillisSinceEpoch() const { return tp_.time_since_epoch().count(); }
 
- private:
-  arrow_vendored::date::year_month_day YearMonthDay() const {
-    return arrow_vendored::date::year_month_day{
-        arrow_vendored::date::floor<arrow_vendored::date::days>(tp_)};  // NOLINT
-  }
-
   arrow_vendored::date::time_of_day<std::chrono::milliseconds> TimeOfDay() const {
     auto millis_since_midnight =
         tp_ - arrow_vendored::date::floor<arrow_vendored::date::days>(tp_);
     return arrow_vendored::date::time_of_day<std::chrono::milliseconds>(
         millis_since_midnight);
+  }
+
+ private:
+  arrow_vendored::date::year_month_day YearMonthDay() const {
+    return arrow_vendored::date::year_month_day{
+        arrow_vendored::date::floor<arrow_vendored::date::days>(tp_)};  // NOLINT
   }
 
   std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> tp_;
