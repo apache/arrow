@@ -480,18 +480,6 @@ build_function_list <- function(FUN) {
     between = function(x, left, right) {
       x >= left & x <= right
     },
-    sd = function(x, na.rm = FALSE){
-      if (!na.rm && x$null_count > 0) {
-        return(Scalar$create(NA_real_))
-      }
-      FUN("stddev", x, options = list(ddof = 0))
-    },
-    var = function(x, na.rm = FALSE){
-      if (!na.rm && x$null_count > 0) {
-        return(Scalar$create(NA_real_))
-      }
-      FUN("variance", x, options = list(ddof = 0))
-    },
     # Now also include all available Arrow Compute functions,
     # namespaced as arrow_fun
     set_names(
@@ -644,7 +632,7 @@ arrow_mask <- function(.data) {
   # Some R functions will still try to evaluate on an Expression
   # and return NA with a warning
   fail <- function(...) stop("Not implemented")
-  for (f in c("mean")) {
+  for (f in c("mean", "sd")) {
     f_env[[f]] <- fail
   }
 
@@ -1018,7 +1006,6 @@ abandon_ship <- function(call, .data, msg = NULL) {
       stop(msg, "\nCall collect() first to pull data into R.", call. = FALSE)
     }
   }
-
   # else, collect and call dplyr method
   if (!is.null(msg)) {
     warning(msg, "; pulling data into R", immediate. = TRUE, call. = FALSE)
