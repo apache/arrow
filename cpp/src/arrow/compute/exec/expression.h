@@ -27,8 +27,6 @@
 #include <vector>
 
 #include "arrow/compute/type_fwd.h"
-#include "arrow/dataset/type_fwd.h"
-#include "arrow/dataset/visibility.h"
 #include "arrow/datum.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/variant.h"
