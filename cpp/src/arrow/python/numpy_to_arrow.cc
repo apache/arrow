@@ -596,7 +596,7 @@ Status NumPyConverter::Visit(const FixedSizeBinaryType& type) {
     Ndarray1DIndexer<uint8_t> mask_values(mask_);
     std::unique_ptr<uint8_t[]> inverted_mask(new uint8_t[length_]);
     for (int64_t i = 0; i < length_; ++i) {
-        inverted_mask[i] = !mask_values[i];
+      inverted_mask[i] = !mask_values[i];
     }
     // AppendValues wants the mask flipped from what we got,
     // so we need to provide it the inverted_mask, not the original one.
