@@ -23,6 +23,7 @@
 
 #include <gflags/gflags.h>
 
+#include "arrow/io/file.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/api.h"
 #include "arrow/record_batch.h"
@@ -58,6 +59,9 @@ DEFINE_string(compression, "",
               "Leave blank to disable compression.\n"
               "E.g., \"zstd\":   zstd with default compression level.\n"
               "      \"zstd:7\": zstd with compression leve = 7.\n");
+DEFINE_string(
+    data_file, "",
+    "Instead of random data, use data from the given IPC file. Only affects -test_put.");
 
 namespace perf = arrow::flight::perf;
 
@@ -164,29 +168,35 @@ arrow::Result<PerformanceResult> RunDoGetTest(FlightClient* client,
   return PerformanceResult{num_batches, num_records, num_bytes};
 }
 
-arrow::Result<PerformanceResult> RunDoPutTest(FlightClient* client,
-                                              const FlightCallOptions& call_options,
-                                              const perf::Token& token,
-                                              const FlightEndpoint& endpoint,
-                                              PerformanceStats* stats) {
-  std::unique_ptr<FlightStreamWriter> writer;
-  std::unique_ptr<FlightMetadataReader> reader;
+struct SizedBatch {
+  std::shared_ptr<arrow::RecordBatch> batch;
+  int64_t bytes;
+};
+
+arrow::Result<std::vector<SizedBatch>> GetPutData(const perf::Token& token) {
+  if (!FLAGS_data_file.empty()) {
+    ARROW_ASSIGN_OR_RAISE(auto file, arrow::io::ReadableFile::Open(FLAGS_data_file));
+    ARROW_ASSIGN_OR_RAISE(auto reader,
+                          arrow::ipc::RecordBatchFileReader::Open(std::move(file)));
+    std::vector<SizedBatch> batches(reader->num_record_batches());
+    for (int i = 0; i < reader->num_record_batches(); i++) {
+      ARROW_ASSIGN_OR_RAISE(batches[i].batch, reader->ReadRecordBatch(i));
+      RETURN_NOT_OK(arrow::ipc::GetRecordBatchSize(*batches[i].batch, &batches[i].bytes));
+    }
+    return batches;
+  }
+
   std::shared_ptr<Schema> schema =
       arrow::schema({field("a", int64()), field("b", int64()), field("c", int64()),
                      field("d", int64())});
-  RETURN_NOT_OK(
-      client->DoPut(call_options, FlightDescriptor{}, schema, &writer, &reader));
 
   // This is hard-coded for right now, 4 columns each with int64
   const int bytes_per_record = 32;
 
-  int64_t num_bytes = 0;
-  int64_t num_records = 0;
-  int64_t num_batches = 0;
-
   std::shared_ptr<ResizableBuffer> buffer;
   std::vector<std::shared_ptr<Array>> arrays;
 
+  const int64_t total_records = token.definition().records_per_stream();
   const int32_t length = token.definition().records_per_batch();
   const int32_t ncolumns = 4;
   for (int i = 0; i < ncolumns; ++i) {
@@ -197,32 +207,55 @@ arrow::Result<PerformanceResult> RunDoPutTest(FlightClient* client,
   }
 
   std::shared_ptr<RecordBatch> batch = RecordBatch::Make(schema, length, arrays);
+  std::vector<SizedBatch> batches;
 
   int64_t records_sent = 0;
-  const int64_t total_records = token.definition().records_per_stream();
-  StopWatch timer;
   while (records_sent < total_records) {
     if (records_sent + length > total_records) {
       const int last_length = total_records - records_sent;
-      RETURN_NOT_OK(writer->WriteRecordBatch(*(batch->Slice(0, last_length))));
-      num_records += last_length;
       // Hard-coded
-      num_bytes += last_length * bytes_per_record;
+      batches.push_back(SizedBatch{batch->Slice(0, last_length),
+                                   /*bytes=*/last_length * bytes_per_record});
       records_sent += last_length;
     } else {
-      timer.Start();
-      RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
-      stats->AddLatency(timer.Stop());
-      num_records += length;
       // Hard-coded
-      num_bytes += length * bytes_per_record;
+      batches.push_back(SizedBatch{batch, /*bytes=*/length * bytes_per_record});
       records_sent += length;
     }
-    ++num_batches;
   }
+  return batches;
+}
 
+arrow::Result<PerformanceResult> RunDoPutTest(FlightClient* client,
+                                              const FlightCallOptions& call_options,
+                                              const perf::Token& token,
+                                              const FlightEndpoint& endpoint,
+                                              PerformanceStats* stats) {
+  ARROW_ASSIGN_OR_RAISE(const auto batches, GetPutData(token));
+  StopWatch timer;
+  int64_t num_records = 0;
+  int64_t num_bytes = 0;
+  std::unique_ptr<FlightStreamWriter> writer;
+  std::unique_ptr<FlightMetadataReader> reader;
+  RETURN_NOT_OK(client->DoPut(call_options, FlightDescriptor{},
+                              batches[0].batch->schema(), &writer, &reader));
+  for (size_t i = 0; i < batches.size(); i++) {
+    auto batch = batches[i];
+    auto is_last = i == (batches.size() - 1);
+    if (is_last) {
+      RETURN_NOT_OK(writer->WriteRecordBatch(*batch.batch));
+      num_records += batch.batch->num_rows();
+      num_bytes += batch.bytes;
+    } else {
+      timer.Start();
+      RETURN_NOT_OK(writer->WriteRecordBatch(*batch.batch));
+      stats->AddLatency(timer.Stop());
+      num_records += batch.batch->num_rows();
+      num_bytes += batch.bytes;
+    }
+  }
   RETURN_NOT_OK(writer->Close());
-  return PerformanceResult{num_batches, num_records, num_bytes};
+  return PerformanceResult{static_cast<int64_t>(batches.size()), num_records, num_bytes};
 }
 
 Status DoSinglePerfRun(FlightClient* client, const FlightCallOptions& call_options,
@@ -283,12 +316,13 @@ Status DoSinglePerfRun(FlightClient* client, const FlightCallOptions& call_optio
     RETURN_NOT_OK(task.status());
   }
 
-  // Check that number of rows read / written is as expected
-  int64_t records_for_run = stats->total_records - start_total_records;
-  if (records_for_run != static_cast<int64_t>(plan->total_records())) {
-    return Status::Invalid("Did not consume expected number of records");
+  if (FLAGS_data_file.empty()) {
+    // Check that number of rows read / written is as expected
+    int64_t records_for_run = stats->total_records - start_total_records;
+    if (records_for_run != static_cast<int64_t>(plan->total_records())) {
+      return Status::Invalid("Did not consume expected number of records");
+    }
   }
-
   return Status::OK();
 }
 
@@ -380,6 +414,10 @@ int main(int argc, char** argv) {
     std::cout << std::endl;
 
     call_options.write_options.codec = std::move(codec);
+  }
+  if (!FLAGS_data_file.empty() && !FLAGS_test_put) {
+    std::cerr << "A data file can only be specified with \"-test_put\"" << std::endl;
+    return 1;
   }
 
   std::unique_ptr<arrow::flight::TestServer> server;
