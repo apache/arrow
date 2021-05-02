@@ -854,7 +854,7 @@ NUMERIC_TYPES(TO_TIMESTAMP)
 #define TO_TIME(TYPE)                                                        \
   FORCE_INLINE                                                               \
   gdv_timestamp to_time##_##TYPE(gdv_##TYPE seconds) {                       \
-    EpochTimePoint tp(seconds * MILLIS_IN_SEC);                              \
+    EpochTimePoint tp(static_cast<int64_t>(seconds* MILLIS_IN_SEC));         \
     return static_cast<gdv_timestamp>(tp.TimeOfDay().to_duration().count()); \
   }
 

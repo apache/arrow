@@ -790,42 +790,46 @@ TEST(TestTime, TestToTimestamp) {
 
 TEST(TestTime, TestToTimeNumeric) {
 
-  auto ts = StringToTimestamp("1970-01-02 00:00:00") / 1000;
-  EXPECT_EQ(0, to_time_int32(ts));
-  EXPECT_EQ(0, to_time_int64(ts));
-  EXPECT_EQ(0, to_time_float32(ts));
-  EXPECT_EQ(0, to_time_float64(ts));
+  auto ts = StringToTimestamp("1970-01-01 00:00:00");
+  EXPECT_EQ(ts, to_time_int32(0));
+  EXPECT_EQ(ts, to_time_int64(0));
+  EXPECT_EQ(ts, to_time_float32(0));
+  EXPECT_EQ(ts, to_time_float64(0));
 
-  ts = StringToTimestamp("1970-01-01 00:00:01") / 1000;
-  EXPECT_EQ(1000, to_time_int32(ts));
-  EXPECT_EQ(1000, to_time_int64(ts));
-  EXPECT_EQ(1000, to_time_float32(ts));
-  EXPECT_EQ(1000, to_time_float64(ts));
+  ts = StringToTimestamp("1970-01-01 00:00:01");
+  EXPECT_EQ(ts, to_time_int32(1));
+  EXPECT_EQ(ts, to_time_int64(1));
+  EXPECT_EQ(ts, to_time_float32(1));
+  EXPECT_EQ(ts, to_time_float64(1));
 
-  ts = StringToTimestamp("1970-01-01 01:00:00") / 1000;
-  EXPECT_EQ(3600000, to_time_int32(ts));
-  EXPECT_EQ(3600000, to_time_int64(ts));
-  EXPECT_EQ(3600000, to_time_float32(ts));
-  EXPECT_EQ(3600000, to_time_float64(ts));
+  ts = StringToTimestamp("1970-01-01 01:00:00");
+  EXPECT_EQ(ts, to_time_int32(3600));
+  EXPECT_EQ(ts, to_time_int64(3600));
+  EXPECT_EQ(ts, to_time_float32(3600));
+  EXPECT_EQ(ts, to_time_float64(3600));
 
-  ts = StringToTimestamp("1970-01-01 23:59:59") / 1000;
-  EXPECT_EQ(86399000, to_time_int32(ts));
-  EXPECT_EQ(86399000, to_time_int64(ts));
-  EXPECT_EQ(86399000, to_time_float32(ts));
-  EXPECT_EQ(86399000, to_time_float64(ts));
+  ts = StringToTimestamp("1970-01-01 23:59:59");
+  EXPECT_EQ(ts, to_time_int32(86399));
+  EXPECT_EQ(ts, to_time_int64(86399));
+  EXPECT_EQ(ts, to_time_float32(86399));
+  EXPECT_EQ(ts, to_time_float64(86399));
+
+  ts = StringToTimestamp("2020-01-01 00:00:01");
+  EXPECT_EQ(1000, to_time_int64(static_cast<int64_t>(ts / 1000)));
+  EXPECT_EQ(1000, to_time_float64(static_cast<double>(ts / 1000.0)));
 
   // tests with fractional part
   ts = StringToTimestamp("1970-01-01 00:00:01") + 500;
-  EXPECT_EQ(ts, to_time_float32(ts/1000.0));
-  EXPECT_EQ(ts, to_time_float64(ts/1000.0));
+  EXPECT_EQ(ts, to_time_float32(static_cast<float>(ts / 1000.0)));
+  EXPECT_EQ(ts, to_time_float64(static_cast<double>(ts / 1000.0)));
 
   ts = StringToTimestamp("1970-01-01 00:01:01") + 600;
-  EXPECT_EQ(ts, to_time_float32(ts/1000.0));
-  EXPECT_EQ(ts, to_time_float64(ts/1000.0));
+  EXPECT_EQ(ts, to_time_float32(static_cast<float>(ts / 1000.0)));
+  EXPECT_EQ(ts, to_time_float64(static_cast<double>(ts / 1000.0)));
 
   ts = StringToTimestamp("1970-01-01 01:00:01") + 400;
-  EXPECT_EQ(ts, to_time_float32(ts/1000.0));
-  EXPECT_EQ(ts, to_time_float64(ts/1000.0));
+  EXPECT_EQ(ts, to_time_float32(static_cast<float>(ts / 1000.0)));
+  EXPECT_EQ(ts, to_time_float64(static_cast<double>(ts / 1000.0)));
 }
 
 }  // namespace gandiva
