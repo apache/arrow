@@ -1710,7 +1710,7 @@ cdef class CsvFileFormat(FileFormat):
 
     @parse_options.setter
     def parse_options(self, ParseOptions parse_options not None):
-        self.csv_format.parse_options = parse_options.options
+        self.csv_format.parse_options = deref(parse_options.options)
 
     cdef _set_default_fragment_scan_options(self, FragmentScanOptions options):
         if options.type_name == 'csv':

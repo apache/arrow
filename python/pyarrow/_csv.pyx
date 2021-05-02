@@ -224,10 +224,12 @@ cdef class ParseOptions(_Weakrefable):
     """
     __slots__ = ()
 
+    def __cinit__(self, *argw, **kwargs):
+        self.options.reset(new CCSVParseOptions(CCSVParseOptions.Defaults()))
+
     def __init__(self, *, delimiter=None, quote_char=None, double_quote=None,
                  escape_char=None, newlines_in_values=None,
                  ignore_empty_lines=None):
-        self.options = CCSVParseOptions.Defaults()
         if delimiter is not None:
             self.delimiter = delimiter
         if quote_char is not None:
@@ -246,11 +248,11 @@ cdef class ParseOptions(_Weakrefable):
         """
         The character delimiting individual cells in the CSV data.
         """
-        return chr(self.options.delimiter)
+        return chr(deref(self.options).delimiter)
 
     @delimiter.setter
     def delimiter(self, value):
-        self.options.delimiter = _single_char(value)
+        deref(self.options).delimiter = _single_char(value)
 
     @property
     def quote_char(self):
@@ -258,18 +260,18 @@ cdef class ParseOptions(_Weakrefable):
         The character used optionally for quoting CSV values
         (False if quoting is not allowed).
         """
-        if self.options.quoting:
-            return chr(self.options.quote_char)
+        if deref(self.options).quoting:
+            return chr(deref(self.options).quote_char)
         else:
             return False
 
     @quote_char.setter
     def quote_char(self, value):
         if value is False:
-            self.options.quoting = False
+            deref(self.options).quoting = False
         else:
-            self.options.quote_char = _single_char(value)
-            self.options.quoting = True
+            deref(self.options).quote_char = _single_char(value)
+            deref(self.options).quoting = True
 
     @property
     def double_quote(self):
@@ -277,11 +279,11 @@ cdef class ParseOptions(_Weakrefable):
         Whether two quotes in a quoted CSV value denote a single quote
         in the data.
         """
-        return self.options.double_quote
+        return deref(self.options).double_quote
 
     @double_quote.setter
     def double_quote(self, value):
-        self.options.double_quote = value
+        deref(self.options).double_quote = value
 
     @property
     def escape_char(self):
@@ -289,18 +291,18 @@ cdef class ParseOptions(_Weakrefable):
         The character used optionally for escaping special characters
         (False if escaping is not allowed).
         """
-        if self.options.escaping:
-            return chr(self.options.escape_char)
+        if deref(self.options).escaping:
+            return chr(deref(self.options).escape_char)
         else:
             return False
 
     @escape_char.setter
     def escape_char(self, value):
         if value is False:
-            self.options.escaping = False
+            deref(self.options).escaping = False
         else:
-            self.options.escape_char = _single_char(value)
-            self.options.escaping = True
+            deref(self.options).escape_char = _single_char(value)
+            deref(self.options).escaping = True
 
     @property
     def newlines_in_values(self):
@@ -309,11 +311,11 @@ cdef class ParseOptions(_Weakrefable):
         Setting this to True reduces the performance of multi-threaded
         CSV reading.
         """
-        return self.options.newlines_in_values
+        return deref(self.options).newlines_in_values
 
     @newlines_in_values.setter
     def newlines_in_values(self, value):
-        self.options.newlines_in_values = value
+        deref(self.options).newlines_in_values = value
 
     @property
     def ignore_empty_lines(self):
@@ -322,11 +324,11 @@ cdef class ParseOptions(_Weakrefable):
         If False, an empty line is interpreted as containing a single empty
         value (assuming a one-column CSV file).
         """
-        return self.options.ignore_empty_lines
+        return deref(self.options).ignore_empty_lines
 
     @ignore_empty_lines.setter
     def ignore_empty_lines(self, value):
-        self.options.ignore_empty_lines = value
+        deref(self.options).ignore_empty_lines = value
 
     def equals(self, ParseOptions other):
         return (
@@ -341,7 +343,7 @@ cdef class ParseOptions(_Weakrefable):
     @staticmethod
     cdef ParseOptions wrap(CCSVParseOptions options):
         out = ParseOptions()
-        out.options = options
+        out.options.reset(new CCSVParseOptions(move(options)))
         return out
 
     def __getstate__(self):
@@ -707,7 +709,7 @@ cdef _get_parse_options(ParseOptions parse_options, CCSVParseOptions* out):
     if parse_options is None:
         out[0] = CCSVParseOptions.Defaults()
     else:
-        out[0] = parse_options.options
+        out[0] = deref(parse_options.options)
 
 
 cdef _get_convert_options(ConvertOptions convert_options,
@@ -880,8 +882,10 @@ cdef class WriteOptions(_Weakrefable):
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
-    def __init__(self, *, include_header=None, batch_size=None):
+    def __cinit__(self, *argw, **kwargs):
         self.options.reset(new CCSVWriteOptions(CCSVWriteOptions.Defaults()))
+
+    def __init__(self, *, include_header=None, batch_size=None):
         if include_header is not None:
             self.include_header = include_header
         if batch_size is not None:

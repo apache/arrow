@@ -228,6 +228,9 @@ def test_write_options():
     check_options_class(
         cls, include_header=[True, False])
 
+    check_options_class_pickling(
+        cls, include_header=False, batch_size=100)
+
     assert opts.batch_size > 0
     opts.batch_size = 12345
     assert opts.batch_size == 12345
