@@ -18,7 +18,7 @@
 /// Logical types, vector layouts, and schemas
 
 /// Format Version History.
-/// Version 1.0 - Forward and backwards compability guaranteed.
+/// Version 1.0 - Forward and backwards compatibility guaranteed.
 /// Version 1.1 - Add Decimal256 (No format release).
 /// Version 1.2 (Pending)- Add Interal DAY_TIME_NANO
 
