@@ -175,7 +175,7 @@ struct KleeneAnd : Commutative<KleeneAnd> {
     }
 
     if (right_true) {
-      if (left.null_count == 0) {
+      if (left.GetNullCount() == 0) {
         GetBitmap(*out, 0).SetBitsTo(true);
       } else {
         GetBitmap(*out, 0).CopyFrom(GetBitmap(left, 0));
@@ -185,7 +185,7 @@ struct KleeneAnd : Commutative<KleeneAnd> {
     }
 
     // scalar was null: out[i] is valid iff left[i] was false
-    if (left.null_count == 0) {
+    if (left.GetNullCount() == 0) {
       ::arrow::internal::InvertBitmap(left.buffers[1]->data(), left.offset, left.length,
                                       out->buffers[0]->mutable_data(), out->offset);
     } else {
@@ -275,7 +275,7 @@ struct KleeneOr : Commutative<KleeneOr> {
     }
 
     if (right_false) {
-      if (left.null_count == 0) {
+      if (left.GetNullCount() == 0) {
         GetBitmap(*out, 0).SetBitsTo(true);
       } else {
         GetBitmap(*out, 0).CopyFrom(GetBitmap(left, 0));
@@ -285,7 +285,7 @@ struct KleeneOr : Commutative<KleeneOr> {
     }
 
     // scalar was null: out[i] is valid iff left[i] was true
-    if (left.null_count == 0) {
+    if (left.GetNullCount() == 0) {
       ::arrow::internal::CopyBitmap(left.buffers[1]->data(), left.offset, left.length,
                                     out->buffers[0]->mutable_data(), out->offset);
     } else {
@@ -397,7 +397,7 @@ struct KleeneAndNot {
     }
 
     if (left_true) {
-      if (right.null_count == 0) {
+      if (right.GetNullCount() == 0) {
         GetBitmap(*out, 0).SetBitsTo(true);
       } else {
         GetBitmap(*out, 0).CopyFrom(GetBitmap(right, 0));
@@ -407,7 +407,7 @@ struct KleeneAndNot {
     }
 
     // scalar was null: out[i] is valid iff right[i] was true
-    if (right.null_count == 0) {
+    if (right.GetNullCount() == 0) {
       ::arrow::internal::CopyBitmap(right.buffers[1]->data(), right.offset, right.length,
                                     out->buffers[0]->mutable_data(), out->offset);
     } else {
