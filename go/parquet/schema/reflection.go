@@ -304,6 +304,10 @@ func infoFromTags(f reflect.StructTag) *taggedInfo {
 }
 
 // typeToNode recurseively converts a physical type and the tag info into parquet Nodes
+//
+// to avoid having to propagate errors up potentially high numbers of recursive calls
+// we use panics and then recover in the public function NewSchemaFromStruct so that a
+// failure very far down the stack quickly unwinds.
 func typeToNode(name string, typ reflect.Type, repType parquet.Repetition, info *taggedInfo) Node {
 	// set up our default values for everything
 	var (
@@ -359,7 +363,7 @@ func typeToNode(name string, typ reflect.Type, repType parquet.Repetition, info 
 		if key.RepetitionType() != parquet.Repetitions.Required { // key cannot be optional
 			panic("key type of map must be Required")
 		}
-		return MapOf(name, key, value, repType, fieldID)
+		return Must(MapOf(name, key, value, repType, fieldID))
 	case reflect.Struct:
 		// structs are Group nodes
 		fields := make(FieldList, 0)
@@ -379,7 +383,7 @@ func typeToNode(name string, typ reflect.Type, repType parquet.Repetition, info 
 		if !logical.IsNone() {
 			panic("cannot specify logicaltype for a struct")
 		}
-		return NewGroupNode(name, repType, fields, fieldID)
+		return Must(NewGroupNode(name, repType, fields, fieldID))
 	case reflect.Ptr: // if we encounter a pointer create a node for the type it points to, but mark it as optional
 		return typeToNode(name, typ.Elem(), parquet.Repetitions.Optional, info)
 	case reflect.Array:
@@ -396,9 +400,9 @@ func typeToNode(name string, typ reflect.Type, repType parquet.Repetition, info 
 				typeLen = typ.Len()
 			}
 			if !logical.IsNone() {
-				return NewPrimitiveNodeLogical(name, repType, logical, physical, typeLen, fieldID)
+				return MustPrimitive(NewPrimitiveNodeLogical(name, repType, logical, physical, typeLen, fieldID))
 			}
-			return NewPrimitiveNodeConverted(name, repType, physical, converted, typeLen, precision, scale, fieldID)
+			return MustPrimitive(NewPrimitiveNodeConverted(name, repType, physical, converted, typeLen, precision, scale, fieldID))
 		}
 		fallthrough // if it's not a fixed len byte array type, then just treat it like a slice
 	case reflect.Slice:
@@ -417,9 +421,9 @@ func typeToNode(name string, typ reflect.Type, repType parquet.Repetition, info 
 				physical = parquet.Types.ByteArray
 			}
 			if !logical.IsNone() {
-				return NewPrimitiveNodeLogical(name, repType, logical, physical, typeLen, fieldID)
+				return MustPrimitive(NewPrimitiveNodeLogical(name, repType, logical, physical, typeLen, fieldID))
 			}
-			return NewPrimitiveNodeConverted(name, repType, physical, converted, typeLen, precision, scale, fieldID)
+			return MustPrimitive(NewPrimitiveNodeConverted(name, repType, physical, converted, typeLen, precision, scale, fieldID))
 		default:
 			var elemInfo *taggedInfo
 			if info != nil {
@@ -433,7 +437,7 @@ func typeToNode(name string, typ reflect.Type, repType parquet.Repetition, info 
 			if converted != ConvertedTypes.None && converted != ConvertedTypes.List {
 				panic("slice must either be repeated or a List type")
 			}
-			return ListOf(typeToNode(name, typ.Elem(), parquet.Repetitions.Required, elemInfo), repType, fieldID)
+			return Must(ListOf(typeToNode(name, typ.Elem(), parquet.Repetitions.Required, elemInfo), repType, fieldID))
 		}
 	case reflect.String:
 		// strings are byte arrays or fixedlen byte array
@@ -447,10 +451,10 @@ func typeToNode(name string, typ reflect.Type, repType parquet.Repetition, info 
 		}
 
 		if !logical.IsNone() {
-			return NewPrimitiveNodeLogical(name, repType, logical, t, typeLen, fieldID)
+			return MustPrimitive(NewPrimitiveNodeLogical(name, repType, logical, t, typeLen, fieldID))
 		}
 
-		return NewPrimitiveNodeConverted(name, repType, t, converted, typeLen, precision, scale, fieldID)
+		return MustPrimitive(NewPrimitiveNodeConverted(name, repType, t, converted, typeLen, precision, scale, fieldID))
 	case reflect.Int, reflect.Int32, reflect.Int8, reflect.Int16, reflect.Int64:
 		// handle integer types, default to setting the corresponding logical type
 		ptyp := parquet.Types.Int32
@@ -463,7 +467,7 @@ func typeToNode(name string, typ reflect.Type, repType parquet.Repetition, info 
 		}
 
 		if !logical.IsNone() {
-			return NewPrimitiveNodeLogical(name, repType, logical, ptyp, typeLen, fieldID)
+			return MustPrimitive(NewPrimitiveNodeLogical(name, repType, logical, ptyp, typeLen, fieldID))
 		}
 
 		bitwidth := int8(typ.Bits())
@@ -476,10 +480,10 @@ func typeToNode(name string, typ reflect.Type, repType parquet.Repetition, info 
 		}
 
 		if converted != ConvertedTypes.None {
-			return NewPrimitiveNodeConverted(name, repType, ptyp, converted, 0, precision, scale, fieldID)
+			return MustPrimitive(NewPrimitiveNodeConverted(name, repType, ptyp, converted, 0, precision, scale, fieldID))
 		}
 
-		return NewPrimitiveNodeLogical(name, repType, NewIntLogicalType(bitwidth, true), ptyp, 0, fieldID)
+		return MustPrimitive(NewPrimitiveNodeLogical(name, repType, NewIntLogicalType(bitwidth, true), ptyp, 0, fieldID))
 	case reflect.Uint, reflect.Uint32, reflect.Uint8, reflect.Uint16, reflect.Uint64:
 		// handle unsigned integer types and default to the corresponding logical type for it.
 		ptyp := parquet.Types.Int32
@@ -492,7 +496,7 @@ func typeToNode(name string, typ reflect.Type, repType parquet.Repetition, info 
 		}
 
 		if !logical.IsNone() {
-			return NewPrimitiveNodeLogical(name, repType, logical, ptyp, typeLen, fieldID)
+			return MustPrimitive(NewPrimitiveNodeLogical(name, repType, logical, ptyp, typeLen, fieldID))
 		}
 
 		bitwidth := int8(typ.Bits())
@@ -505,25 +509,25 @@ func typeToNode(name string, typ reflect.Type, repType parquet.Repetition, info 
 		}
 
 		if converted != ConvertedTypes.None {
-			return NewPrimitiveNodeConverted(name, repType, ptyp, converted, 0, precision, scale, fieldID)
+			return MustPrimitive(NewPrimitiveNodeConverted(name, repType, ptyp, converted, 0, precision, scale, fieldID))
 		}
 
-		return NewPrimitiveNodeLogical(name, repType, NewIntLogicalType(bitwidth, false), ptyp, 0, fieldID)
+		return MustPrimitive(NewPrimitiveNodeLogical(name, repType, NewIntLogicalType(bitwidth, false), ptyp, 0, fieldID))
 	case reflect.Bool:
 		if !logical.IsNone() {
-			return NewPrimitiveNodeLogical(name, repType, logical, parquet.Types.Boolean, typeLen, fieldID)
+			return MustPrimitive(NewPrimitiveNodeLogical(name, repType, logical, parquet.Types.Boolean, typeLen, fieldID))
 		}
-		return NewPrimitiveNodeConverted(name, repType, parquet.Types.Boolean, converted, typeLen, precision, scale, fieldID)
+		return MustPrimitive(NewPrimitiveNodeConverted(name, repType, parquet.Types.Boolean, converted, typeLen, precision, scale, fieldID))
 	case reflect.Float32:
 		if !logical.IsNone() {
-			return NewPrimitiveNodeLogical(name, repType, logical, parquet.Types.Float, typeLen, fieldID)
+			return MustPrimitive(NewPrimitiveNodeLogical(name, repType, logical, parquet.Types.Float, typeLen, fieldID))
 		}
-		return NewPrimitiveNodeConverted(name, repType, parquet.Types.Float, converted, typeLen, precision, scale, fieldID)
+		return MustPrimitive(NewPrimitiveNodeConverted(name, repType, parquet.Types.Float, converted, typeLen, precision, scale, fieldID))
 	case reflect.Float64:
 		if !logical.IsNone() {
-			return NewPrimitiveNodeLogical(name, repType, logical, parquet.Types.Double, typeLen, fieldID)
+			return MustPrimitive(NewPrimitiveNodeLogical(name, repType, logical, parquet.Types.Double, typeLen, fieldID))
 		}
-		return NewPrimitiveNodeConverted(name, repType, parquet.Types.Double, converted, typeLen, precision, scale, fieldID)
+		return MustPrimitive(NewPrimitiveNodeConverted(name, repType, parquet.Types.Double, converted, typeLen, precision, scale, fieldID))
 	}
 	return nil
 }
@@ -584,6 +588,8 @@ func NewSchemaFromStruct(obj interface{}) (sc *Schema, err error) {
 		ot = ot.Elem()
 	}
 
+	// typeToNode uses panics to fail fast / fail early instead of propagating
+	// errors up recursive stacks. so we recover here and return it as an error
 	defer func() {
 		if r := recover(); r != nil {
 			sc = nil
@@ -599,7 +605,7 @@ func NewSchemaFromStruct(obj interface{}) (sc *Schema, err error) {
 	}()
 
 	root := typeToNode(ot.Name(), ot, parquet.Repetitions.Repeated, nil)
-	return NewSchema(root), nil
+	return NewSchema(root.(*GroupNode)), nil
 }
 
 var parquetTypeToReflect = map[parquet.Type]reflect.Type{
@@ -798,10 +804,24 @@ func typeFromNode(n Node) reflect.Type {
 // It will use maps for map types and slices for list types, but otherwise ignores the
 // converted and logical types of the nodes. Group nodes that are not List or Map will
 // be nested structs.
-func NewStructFromSchema(sc *Schema) reflect.Type {
-	t := typeFromNode(sc.root)
+func NewStructFromSchema(sc *Schema) (t reflect.Type, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			t = nil
+			switch x := r.(type) {
+			case string:
+				err = xerrors.New(x)
+			case error:
+				err = x
+			default:
+				err = xerrors.New("unknown panic")
+			}
+		}
+	}()
+
+	t = typeFromNode(sc.root)
 	if t.Kind() == reflect.Slice || t.Kind() == reflect.Ptr {
-		return t.Elem()
+		return t.Elem(), nil
 	}
-	return t
+	return
 }

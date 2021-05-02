@@ -148,7 +148,7 @@ type PrimitiveNode struct {
 
 // NewPrimitiveNodeLogical constructs a Primtive node using the provided logical type for a given
 // physical type and typelength.
-func NewPrimitiveNodeLogical(name string, repetition parquet.Repetition, logicalType LogicalType, physicalType parquet.Type, typeLen int, id int32) *PrimitiveNode {
+func NewPrimitiveNodeLogical(name string, repetition parquet.Repetition, logicalType LogicalType, physicalType parquet.Type, typeLen int, id int32) (*PrimitiveNode, error) {
 	n := &PrimitiveNode{
 		node:         node{typ: Primitive, name: name, repetition: repetition, logicalType: logicalType, fieldID: id},
 		physicalType: physicalType,
@@ -160,10 +160,10 @@ func NewPrimitiveNodeLogical(name string, repetition parquet.Repetition, logical
 			if logicalType.IsApplicable(physicalType, int32(typeLen)) {
 				n.convertedType, n.decimalMetaData = n.logicalType.ToConvertedType()
 			} else {
-				panic(xerrors.Errorf("%s cannot be applied to primitive type %s", logicalType, physicalType))
+				return nil, xerrors.Errorf("%s cannot be applied to primitive type %s", logicalType, physicalType)
 			}
 		} else {
-			panic(xerrors.Errorf("nested logical type %s can not be applied to a non-group node", logicalType))
+			return nil, xerrors.Errorf("nested logical type %s can not be applied to a non-group node", logicalType)
 		}
 	} else {
 		n.logicalType = NoLogicalType{}
@@ -171,18 +171,18 @@ func NewPrimitiveNodeLogical(name string, repetition parquet.Repetition, logical
 	}
 
 	if !(n.logicalType != nil && !n.logicalType.IsNested() && n.logicalType.IsCompatible(n.convertedType, n.decimalMetaData)) {
-		panic("invalid logical type " + n.logicalType.String())
+		return nil, xerrors.Errorf("invalid logical type %s", n.logicalType)
 	}
 
 	if n.physicalType == parquet.Types.FixedLenByteArray && n.typeLen <= 0 {
-		panic("invalid fixed length byte array length")
+		return nil, xerrors.New("invalid fixed length byte array length")
 	}
-	return n
+	return n, nil
 }
 
 // NewPrimitiveNodeConverted constructs a primitive node from the given physical type and converted type,
 // determining the logical type from the converted type.
-func NewPrimitiveNodeConverted(name string, repetition parquet.Repetition, typ parquet.Type, converted ConvertedType, typeLen, precision, scale int, id int32) *PrimitiveNode {
+func NewPrimitiveNodeConverted(name string, repetition parquet.Repetition, typ parquet.Type, converted ConvertedType, typeLen, precision, scale int, id int32) (*PrimitiveNode, error) {
 	n := &PrimitiveNode{
 		node:         node{typ: Primitive, name: name, repetition: repetition, convertedType: converted, fieldID: id},
 		physicalType: typ,
@@ -193,22 +193,22 @@ func NewPrimitiveNodeConverted(name string, repetition parquet.Repetition, typ p
 	case ConvertedTypes.None:
 	case ConvertedTypes.UTF8, ConvertedTypes.JSON, ConvertedTypes.BSON:
 		if typ != parquet.Types.ByteArray {
-			panic(xerrors.Errorf("parquet: %s can only annotate BYTE_LEN fields", typ.String()))
+			return nil, xerrors.Errorf("parquet: %s can only annotate BYTE_LEN fields", typ)
 		}
 	case ConvertedTypes.Decimal:
 		switch typ {
 		case parquet.Types.Int32, parquet.Types.Int64, parquet.Types.ByteArray, parquet.Types.FixedLenByteArray:
 		default:
-			panic("parquet: DECIMAL can only annotate INT32, INT64, BYTE_ARRAY and FIXED")
+			return nil, xerrors.New("parquet: DECIMAL can only annotate INT32, INT64, BYTE_ARRAY and FIXED")
 		}
 
 		switch {
 		case precision <= 0:
-			panic(xerrors.Errorf("parquet: invalid decimal precision: %d, must be between 1 and 38 inclusive", precision))
+			return nil, xerrors.Errorf("parquet: invalid decimal precision: %d, must be between 1 and 38 inclusive", precision)
 		case scale < 0:
-			panic(xerrors.Errorf("parquet: invalid decimal scale: %d, must be a number between 0 and precision inclusive", scale))
+			return nil, xerrors.Errorf("parquet: invalid decimal scale: %d, must be a number between 0 and precision inclusive", scale)
 		case scale > precision:
-			panic(xerrors.Errorf("parquet: invalid decimal scale %d, cannot be greater than precision: %d", scale, precision))
+			return nil, xerrors.Errorf("parquet: invalid decimal scale %d, cannot be greater than precision: %d", scale, precision)
 		}
 		n.decimalMetaData.IsSet = true
 		n.decimalMetaData.Precision = int32(precision)
@@ -222,7 +222,7 @@ func NewPrimitiveNodeConverted(name string, repetition parquet.Repetition, typ p
 		ConvertedTypes.Uint16,
 		ConvertedTypes.Uint32:
 		if typ != parquet.Types.Int32 {
-			panic(xerrors.Errorf("parquet: %s can only annotate INT32", converted.String()))
+			return nil, xerrors.Errorf("parquet: %s can only annotate INT32", converted)
 		}
 	case ConvertedTypes.TimeMicros,
 		ConvertedTypes.TimestampMicros,
@@ -230,37 +230,37 @@ func NewPrimitiveNodeConverted(name string, repetition parquet.Repetition, typ p
 		ConvertedTypes.Int64,
 		ConvertedTypes.Uint64:
 		if typ != parquet.Types.Int64 {
-			panic(xerrors.Errorf("parquet: %s can only annotate INT64", converted.String()))
+			return nil, xerrors.Errorf("parquet: %s can only annotate INT64", converted)
 		}
 	case ConvertedTypes.Interval:
 		if typ != parquet.Types.FixedLenByteArray || typeLen != 12 {
-			panic("parquet: INTERVAL can only annotate FIXED_LEN_BYTE_ARRAY(12)")
+			return nil, xerrors.New("parquet: INTERVAL can only annotate FIXED_LEN_BYTE_ARRAY(12)")
 		}
 	case ConvertedTypes.Enum:
 		if typ != parquet.Types.ByteArray {
-			panic("parquet: ENUM can only annotate BYTE_ARRAY fields")
+			return nil, xerrors.New("parquet: ENUM can only annotate BYTE_ARRAY fields")
 		}
 	case ConvertedTypes.NA:
 	default:
-		panic(xerrors.Errorf("parquet: %s cannot be applied to a primitive type", converted.String()))
+		return nil, xerrors.Errorf("parquet: %s cannot be applied to a primitive type", converted.String())
 	}
 
 	n.logicalType = n.convertedType.ToLogicalType(n.decimalMetaData)
 	if !(n.logicalType != nil && !n.logicalType.IsNested() && n.logicalType.IsCompatible(n.convertedType, n.decimalMetaData)) {
-		panic("invalid logical type " + n.logicalType.String())
+		return nil, xerrors.Errorf("invalid logical type %s", n.logicalType)
 	}
 
 	if n.physicalType == parquet.Types.FixedLenByteArray {
 		if typeLen <= 0 {
-			panic("invalid fixed len byte array length")
+			return nil, xerrors.New("invalid fixed len byte array length")
 		}
 		n.typeLen = typeLen
 	}
 
-	return n
+	return n, nil
 }
 
-func PrimitiveNodeFromThrift(elem *format.SchemaElement, fieldID int32) *PrimitiveNode {
+func PrimitiveNodeFromThrift(elem *format.SchemaElement, fieldID int32) (*PrimitiveNode, error) {
 	if elem.IsSetFieldID() {
 		fieldID = elem.GetFieldID()
 	}
@@ -280,7 +280,7 @@ func PrimitiveNodeFromThrift(elem *format.SchemaElement, fieldID int32) *Primiti
 // NewPrimitiveNode constructs a primitive node with the ConvertedType of None and no logical type.
 //
 // Use NewPrimitiveNodeLogical and NewPrimitiveNodeConverted to specify the logical or converted type.
-func NewPrimitiveNode(name string, repetition parquet.Repetition, typ parquet.Type, fieldID, typeLength int32) Node {
+func NewPrimitiveNode(name string, repetition parquet.Repetition, typ parquet.Type, fieldID, typeLength int32) (*PrimitiveNode, error) {
 	return NewPrimitiveNodeLogical(name, repetition, nil, typ, int(typeLength), fieldID)
 }
 
@@ -379,14 +379,15 @@ type GroupNode struct {
 
 // NewGroupNodeConverted constructs a group node with the provided fields and converted type,
 // determining the logical type from that converted type.
-func NewGroupNodeConverted(name string, repetition parquet.Repetition, fields FieldList, converted ConvertedType, id int32) *GroupNode {
-	n := &GroupNode{
+func NewGroupNodeConverted(name string, repetition parquet.Repetition, fields FieldList, converted ConvertedType, id int32) (n *GroupNode, err error) {
+	n = &GroupNode{
 		node:   node{typ: Group, name: name, repetition: repetition, convertedType: converted, fieldID: id},
 		fields: fields,
 	}
 	n.logicalType = n.convertedType.ToLogicalType(DecimalMetadata{})
 	if !(n.logicalType != nil && (n.logicalType.IsNested() || n.logicalType.IsNone()) && n.logicalType.IsCompatible(n.convertedType, DecimalMetadata{})) {
-		panic("invalid logical type " + n.logicalType.String())
+		err = xerrors.Errorf("invalid logical type %s", n.logicalType.String())
+		return
 	}
 
 	n.nameToIdx = make(strIntMultimap)
@@ -394,13 +395,13 @@ func NewGroupNodeConverted(name string, repetition parquet.Repetition, fields Fi
 		f.SetParent(n)
 		n.nameToIdx.Add(f.Name(), idx)
 	}
-	return n
+	return
 }
 
 // NewGroupNodeLogical constructs a group node with the provided fields and logical type,
 // determining the converted type from the provided logical type.
-func NewGroupNodeLogical(name string, repetition parquet.Repetition, fields FieldList, logical LogicalType, id int32) *GroupNode {
-	n := &GroupNode{
+func NewGroupNodeLogical(name string, repetition parquet.Repetition, fields FieldList, logical LogicalType, id int32) (n *GroupNode, err error) {
+	n = &GroupNode{
 		node:   node{typ: Group, name: name, repetition: repetition, logicalType: logical, fieldID: id},
 		fields: fields,
 	}
@@ -409,7 +410,8 @@ func NewGroupNodeLogical(name string, repetition parquet.Repetition, fields Fiel
 		if logical.IsNested() {
 			n.convertedType, _ = logical.ToConvertedType()
 		} else {
-			panic(xerrors.Errorf("logical type %s cannot be applied to group node", logical))
+			err = xerrors.Errorf("logical type %s cannot be applied to group node", logical)
+			return
 		}
 	} else {
 		n.logicalType = NoLogicalType{}
@@ -417,7 +419,8 @@ func NewGroupNodeLogical(name string, repetition parquet.Repetition, fields Fiel
 	}
 
 	if !(n.logicalType != nil && (n.logicalType.IsNested() || n.logicalType.IsNone()) && n.logicalType.IsCompatible(n.convertedType, DecimalMetadata{})) {
-		panic("invalid logical type " + n.logicalType.String())
+		err = xerrors.Errorf("invalid logical type %s", n.logicalType)
+		return
 	}
 
 	n.nameToIdx = make(strIntMultimap)
@@ -425,16 +428,43 @@ func NewGroupNodeLogical(name string, repetition parquet.Repetition, fields Fiel
 		f.SetParent(n)
 		n.nameToIdx.Add(f.Name(), idx)
 	}
-	return n
+	return
 }
 
 // NewGroupNode constructs a new group node with the provided fields,
 // but with converted type None and No Logical Type
-func NewGroupNode(name string, repetition parquet.Repetition, fields FieldList, fieldID int32) *GroupNode {
+func NewGroupNode(name string, repetition parquet.Repetition, fields FieldList, fieldID int32) (*GroupNode, error) {
 	return NewGroupNodeConverted(name, repetition, fields, ConvertedTypes.None, fieldID)
 }
 
-func GroupNodeFromThrift(elem *format.SchemaElement, fields FieldList, id int32) *GroupNode {
+// Must is a convenience function for the NewNode functions that return a Node
+// and an error, panic'ing if err != nil or returning the node
+func Must(n Node, err error) Node {
+	if err != nil {
+		panic(err)
+	}
+	return n
+}
+
+// MustGroup is like Must, except it casts the node to a *GroupNode, which will panic
+// if it is a primitive node.
+func MustGroup(n Node, err error) *GroupNode {
+	if err != nil {
+		panic(err)
+	}
+	return n.(*GroupNode)
+}
+
+// MustPrimitive is like Must except it casts the node to *PrimitiveNode which will panic
+// if it is a group node.
+func MustPrimitive(n Node, err error) *PrimitiveNode {
+	if err != nil {
+		panic(err)
+	}
+	return n.(*PrimitiveNode)
+}
+
+func GroupNodeFromThrift(elem *format.SchemaElement, fields FieldList, id int32) (*GroupNode, error) {
 	if elem.IsSetFieldID() {
 		id = elem.GetFieldID()
 	}
@@ -555,41 +585,41 @@ func (g *GroupNode) HasRepeatedFields() bool {
 
 // NewInt32Node is a convenience factory for constructing an Int32 Primitive Node
 func NewInt32Node(name string, rep parquet.Repetition, fieldID int32) *PrimitiveNode {
-	return NewPrimitiveNode(name, rep, parquet.Types.Int32, fieldID, -1).(*PrimitiveNode)
+	return MustPrimitive(NewPrimitiveNode(name, rep, parquet.Types.Int32, fieldID, -1))
 }
 
 // NewInt64Node is a convenience factory for constructing an Int64 Primitive Node
 func NewInt64Node(name string, rep parquet.Repetition, fieldID int32) *PrimitiveNode {
-	return NewPrimitiveNode(name, rep, parquet.Types.Int64, fieldID, -1).(*PrimitiveNode)
+	return MustPrimitive(NewPrimitiveNode(name, rep, parquet.Types.Int64, fieldID, -1))
 }
 
 // NewInt96Node is a convenience factory for constructing an Int96 Primitive Node
 func NewInt96Node(name string, rep parquet.Repetition, fieldID int32) *PrimitiveNode {
-	return NewPrimitiveNode(name, rep, parquet.Types.Int96, fieldID, -1).(*PrimitiveNode)
+	return MustPrimitive(NewPrimitiveNode(name, rep, parquet.Types.Int96, fieldID, -1))
 }
 
 // NewFloat32Node is a convenience factory for constructing an Float Primitive Node
 func NewFloat32Node(name string, rep parquet.Repetition, fieldID int32) *PrimitiveNode {
-	return NewPrimitiveNode(name, rep, parquet.Types.Float, fieldID, -1).(*PrimitiveNode)
+	return MustPrimitive(NewPrimitiveNode(name, rep, parquet.Types.Float, fieldID, -1))
 }
 
 // NewFloat64Node is a convenience factory for constructing an Double Primitive Node
 func NewFloat64Node(name string, rep parquet.Repetition, fieldID int32) *PrimitiveNode {
-	return NewPrimitiveNode(name, rep, parquet.Types.Double, fieldID, -1).(*PrimitiveNode)
+	return MustPrimitive(NewPrimitiveNode(name, rep, parquet.Types.Double, fieldID, -1))
 }
 
 // NewBooleanNode is a convenience factory for constructing an Boolean Primitive Node
 func NewBooleanNode(name string, rep parquet.Repetition, fieldID int32) *PrimitiveNode {
-	return NewPrimitiveNode(name, rep, parquet.Types.Boolean, fieldID, -1).(*PrimitiveNode)
+	return MustPrimitive(NewPrimitiveNode(name, rep, parquet.Types.Boolean, fieldID, -1))
 }
 
 // NewByteArrayNode is a convenience factory for constructing an Byte Array Primitive Node
 func NewByteArrayNode(name string, rep parquet.Repetition, fieldID int32) *PrimitiveNode {
-	return NewPrimitiveNode(name, rep, parquet.Types.ByteArray, fieldID, -1).(*PrimitiveNode)
+	return MustPrimitive(NewPrimitiveNode(name, rep, parquet.Types.ByteArray, fieldID, -1))
 }
 
 // NewFixedLenByteArrayNode is a convenience factory for constructing an Fixed Length
 // Byte Array Primitive Node of the given length
 func NewFixedLenByteArrayNode(name string, rep parquet.Repetition, length int32, fieldID int32) *PrimitiveNode {
-	return NewPrimitiveNode(name, rep, parquet.Types.FixedLenByteArray, fieldID, length).(*PrimitiveNode)
+	return MustPrimitive(NewPrimitiveNode(name, rep, parquet.Types.FixedLenByteArray, fieldID, length))
 }

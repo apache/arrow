@@ -286,18 +286,21 @@ func ExampleNewSchemaFromStruct_nestedtypes() {
 }
 
 func TestStructFromSchema(t *testing.T) {
-	sc := schema.NewSchema(
-		schema.NewGroupNode("schema", parquet.Repetitions.Repeated, schema.FieldList{
-			schema.NewBooleanNode("bool", parquet.Repetitions.Required, -1),
-			schema.NewInt32Node("int32", parquet.Repetitions.Optional, -1),
-			schema.NewInt64Node("int64", parquet.Repetitions.Repeated, -1),
-			schema.NewInt96Node("int96", parquet.Repetitions.Required, -1),
-			schema.NewFloat32Node("float", parquet.Repetitions.Required, -1),
-			schema.NewByteArrayNode("bytearray", parquet.Repetitions.Required, -1),
-			schema.NewFixedLenByteArrayNode("fixedLen", parquet.Repetitions.Required, 10, -1),
-		}, -1))
+	root, err := schema.NewGroupNode("schema", parquet.Repetitions.Repeated, schema.FieldList{
+		schema.NewBooleanNode("bool", parquet.Repetitions.Required, -1),
+		schema.NewInt32Node("int32", parquet.Repetitions.Optional, -1),
+		schema.NewInt64Node("int64", parquet.Repetitions.Repeated, -1),
+		schema.NewInt96Node("int96", parquet.Repetitions.Required, -1),
+		schema.NewFloat32Node("float", parquet.Repetitions.Required, -1),
+		schema.NewByteArrayNode("bytearray", parquet.Repetitions.Required, -1),
+		schema.NewFixedLenByteArrayNode("fixedLen", parquet.Repetitions.Required, 10, -1),
+	}, -1)
+	assert.NoError(t, err)
 
-	typ := schema.NewStructFromSchema(sc)
+	sc := schema.NewSchema(root)
+
+	typ, err := schema.NewStructFromSchema(sc)
+	assert.NoError(t, err)
 
 	assert.Equal(t, reflect.Struct, typ.Kind())
 	assert.Equal(t, "struct { bool bool; int32 *int32; int64 []int64; int96 parquet.Int96; float float32; bytearray parquet.ByteArray; fixedLen parquet.FixedLenByteArray }",
@@ -320,7 +323,8 @@ func TestStructFromSchemaWithNesting(t *testing.T) {
 	sc, err := schema.NewSchemaFromStruct(Nested{})
 	assert.NoError(t, err)
 
-	typ := schema.NewStructFromSchema(sc)
+	typ, err := schema.NewStructFromSchema(sc)
+	assert.NoError(t, err)
 	assert.Equal(t, "struct { Nest []int32; OptionalNest []*int64; Mapped map[string]float32; Other []struct { List *[]*float32 }; Other2 struct { List *[]*float32 } }",
 		typ.String())
 }
@@ -331,34 +335,35 @@ func TestStructFromSchemaBackwardsCompatList(t *testing.T) {
 		n        schema.Node
 		expected string
 	}{
-		{"proper list", schema.NewGroupNodeLogical("my_list", parquet.Repetitions.Required,
+		{"proper list", schema.MustGroup(schema.NewGroupNodeLogical("my_list", parquet.Repetitions.Required,
 			schema.FieldList{
-				schema.NewGroupNode("list", parquet.Repetitions.Repeated, schema.FieldList{schema.NewBooleanNode("element", parquet.Repetitions.Optional, -1)}, -1),
-			}, schema.NewListLogicalType(), -1), "struct { my_list []*bool }"},
-		{"backward nullable list nonnull ints", schema.NewGroupNodeLogical("my_list", parquet.Repetitions.Optional, schema.FieldList{
+				schema.MustGroup(schema.NewGroupNode("list", parquet.Repetitions.Repeated, schema.FieldList{schema.NewBooleanNode("element", parquet.Repetitions.Optional, -1)}, -1)),
+			}, schema.NewListLogicalType(), -1)), "struct { my_list []*bool }"},
+		{"backward nullable list nonnull ints", schema.MustGroup(schema.NewGroupNodeLogical("my_list", parquet.Repetitions.Optional, schema.FieldList{
 			schema.NewInt32Node("element", parquet.Repetitions.Repeated, -1),
-		}, schema.NewListLogicalType(), -1), "struct { my_list *[]int32 }"},
-		{"backward nullable list tuple string int", schema.NewGroupNodeLogical("my_list", parquet.Repetitions.Optional, schema.FieldList{
-			schema.NewGroupNode("element", parquet.Repetitions.Repeated, schema.FieldList{
-				schema.NewPrimitiveNodeLogical("str", parquet.Repetitions.Required, schema.StringLogicalType{}, parquet.Types.ByteArray, 0, -1),
+		}, schema.NewListLogicalType(), -1)), "struct { my_list *[]int32 }"},
+		{"backward nullable list tuple string int", schema.MustGroup(schema.NewGroupNodeLogical("my_list", parquet.Repetitions.Optional, schema.FieldList{
+			schema.MustGroup(schema.NewGroupNode("element", parquet.Repetitions.Repeated, schema.FieldList{
+				schema.MustPrimitive(schema.NewPrimitiveNodeLogical("str", parquet.Repetitions.Required, schema.StringLogicalType{}, parquet.Types.ByteArray, 0, -1)),
 				schema.NewInt32Node("num", parquet.Repetitions.Required, -1),
-			}, -1),
-		}, schema.NewListLogicalType(), -1), "struct { my_list *[]struct { str string; num int32 } }"},
-		{"list tuple string", schema.NewGroupNodeLogical("my_list", parquet.Repetitions.Required, schema.FieldList{
-			schema.NewGroupNode("array", parquet.Repetitions.Repeated, schema.FieldList{
+			}, -1)),
+		}, schema.NewListLogicalType(), -1)), "struct { my_list *[]struct { str string; num int32 } }"},
+		{"list tuple string", schema.MustGroup(schema.NewGroupNodeLogical("my_list", parquet.Repetitions.Required, schema.FieldList{
+			schema.MustGroup(schema.NewGroupNode("array", parquet.Repetitions.Repeated, schema.FieldList{
 				schema.NewByteArrayNode("str", parquet.Repetitions.Required, -1),
-			}, -1),
-		}, schema.NewListLogicalType(), -1), "struct { my_list []struct { str parquet.ByteArray } }"},
-		{"list tuple string my_list_tuple", schema.NewGroupNodeLogical("my_list", parquet.Repetitions.Optional, schema.FieldList{
-			schema.NewGroupNode("my_list_tuple", parquet.Repetitions.Repeated, schema.FieldList{
-				schema.NewPrimitiveNodeLogical("str", parquet.Repetitions.Required, schema.StringLogicalType{}, parquet.Types.ByteArray, 0, -1),
-			}, -1),
-		}, schema.NewListLogicalType(), -1), "struct { my_list *[]struct { str string } }"},
+			}, -1)),
+		}, schema.NewListLogicalType(), -1)), "struct { my_list []struct { str parquet.ByteArray } }"},
+		{"list tuple string my_list_tuple", schema.MustGroup(schema.NewGroupNodeLogical("my_list", parquet.Repetitions.Optional, schema.FieldList{
+			schema.MustGroup(schema.NewGroupNode("my_list_tuple", parquet.Repetitions.Repeated, schema.FieldList{
+				schema.MustPrimitive(schema.NewPrimitiveNodeLogical("str", parquet.Repetitions.Required, schema.StringLogicalType{}, parquet.Types.ByteArray, 0, -1)),
+			}, -1)),
+		}, schema.NewListLogicalType(), -1)), "struct { my_list *[]struct { str string } }"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			typ := schema.NewStructFromSchema(schema.NewSchema(schema.NewGroupNode("schema", parquet.Repetitions.Repeated, schema.FieldList{tt.n}, -1)))
+			typ, err := schema.NewStructFromSchema(schema.NewSchema(schema.MustGroup(schema.NewGroupNode("schema", parquet.Repetitions.Repeated, schema.FieldList{tt.n}, -1))))
+			assert.NoError(t, err)
 			assert.Equal(t, tt.expected, typ.String())
 		})
 	}
@@ -370,27 +375,28 @@ func TestStructFromSchemaMaps(t *testing.T) {
 		n        schema.Node
 		expected string
 	}{
-		{"map string int", schema.NewGroupNodeLogical("my_map", parquet.Repetitions.Required, schema.FieldList{
-			schema.NewGroupNode("key_value", parquet.Repetitions.Repeated, schema.FieldList{
-				schema.NewPrimitiveNodeLogical("key", parquet.Repetitions.Required, schema.StringLogicalType{}, parquet.Types.ByteArray, 0, -1),
+		{"map string int", schema.MustGroup(schema.NewGroupNodeLogical("my_map", parquet.Repetitions.Required, schema.FieldList{
+			schema.MustGroup(schema.NewGroupNode("key_value", parquet.Repetitions.Repeated, schema.FieldList{
+				schema.MustPrimitive(schema.NewPrimitiveNodeLogical("key", parquet.Repetitions.Required, schema.StringLogicalType{}, parquet.Types.ByteArray, 0, -1)),
 				schema.NewInt32Node("value", parquet.Repetitions.Optional, -1),
-			}, -1),
-		}, schema.MapLogicalType{}, -1), "struct { my_map map[string]*int32 }"},
-		{"nullable map string, int, required values", schema.NewGroupNodeLogical("my_map", parquet.Repetitions.Optional, schema.FieldList{
-			schema.NewGroupNode("map", parquet.Repetitions.Repeated, schema.FieldList{
+			}, -1)),
+		}, schema.MapLogicalType{}, -1)), "struct { my_map map[string]*int32 }"},
+		{"nullable map string, int, required values", schema.MustGroup(schema.NewGroupNodeLogical("my_map", parquet.Repetitions.Optional, schema.FieldList{
+			schema.MustGroup(schema.NewGroupNode("map", parquet.Repetitions.Repeated, schema.FieldList{
 				schema.NewByteArrayNode("str", parquet.Repetitions.Required, -1),
 				schema.NewInt32Node("num", parquet.Repetitions.Required, -1),
-			}, -1),
-		}, schema.MapLogicalType{}, -1), "struct { my_map *map[string]int32 }"},
-		{"map_key_value with missing value", schema.NewGroupNodeConverted("my_map", parquet.Repetitions.Optional, schema.FieldList{
-			schema.NewGroupNode("map", parquet.Repetitions.Repeated, schema.FieldList{
+			}, -1)),
+		}, schema.MapLogicalType{}, -1)), "struct { my_map *map[string]int32 }"},
+		{"map_key_value with missing value", schema.MustGroup(schema.NewGroupNodeConverted("my_map", parquet.Repetitions.Optional, schema.FieldList{
+			schema.MustGroup(schema.NewGroupNode("map", parquet.Repetitions.Repeated, schema.FieldList{
 				schema.NewByteArrayNode("key", parquet.Repetitions.Required, -1),
-			}, -1),
-		}, schema.ConvertedTypes.MapKeyValue, -1), "struct { my_map *map[string]bool }"},
+			}, -1)),
+		}, schema.ConvertedTypes.MapKeyValue, -1)), "struct { my_map *map[string]bool }"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			typ := schema.NewStructFromSchema(schema.NewSchema(schema.NewGroupNode("schema", parquet.Repetitions.Repeated, schema.FieldList{tt.n}, -1)))
+			typ, err := schema.NewStructFromSchema(schema.NewSchema(schema.MustGroup(schema.NewGroupNode("schema", parquet.Repetitions.Repeated, schema.FieldList{tt.n}, -1))))
+			assert.NoError(t, err)
 			assert.Equal(t, tt.expected, typ.String())
 		})
 	}

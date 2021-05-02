@@ -80,7 +80,7 @@ type SchemaElementConstructionSuite struct {
 
 func (s *SchemaElementConstructionSuite) reconstruct(c schemaElementConstructArgs) *schemaElementConstruction {
 	ret := &schemaElementConstruction{
-		node:            NewPrimitiveNodeLogical(c.name, parquet.Repetitions.Required, c.logical, c.physical, c.len, -1),
+		node:            MustPrimitive(NewPrimitiveNodeLogical(c.name, parquet.Repetitions.Required, c.logical, c.physical, c.len, -1)),
 		name:            c.name,
 		expectConverted: c.expectConverted,
 		converted:       c.converted,
@@ -93,7 +93,7 @@ func (s *SchemaElementConstructionSuite) reconstruct(c schemaElementConstructArg
 
 func (s *SchemaElementConstructionSuite) legacyReconstruct(c legacySchemaElementConstructArgs) *schemaElementConstruction {
 	ret := &schemaElementConstruction{
-		node:            NewPrimitiveNodeConverted(c.name, parquet.Repetitions.Required, c.physical, c.converted, c.len, 0, 0, -1),
+		node:            MustPrimitive(NewPrimitiveNodeConverted(c.name, parquet.Repetitions.Required, c.physical, c.converted, c.len, 0, 0, -1)),
 		name:            c.name,
 		expectConverted: c.expectConverted,
 		converted:       c.converted,
@@ -418,14 +418,14 @@ func TestSchemaElementNestedSerialization(t *testing.T) {
 	// confirm that the intermediate thrift objects created during node serialization
 	// contain correct ConvertedType and ConvertedType information
 
-	strNode := NewPrimitiveNodeLogical("string" /*name */, parquet.Repetitions.Required, StringLogicalType{}, parquet.Types.ByteArray, -1 /* type len */, -1 /* fieldID */)
-	dateNode := NewPrimitiveNodeLogical("date" /*name */, parquet.Repetitions.Required, DateLogicalType{}, parquet.Types.Int32, -1 /* type len */, -1 /* fieldID */)
-	jsonNode := NewPrimitiveNodeLogical("json" /*name */, parquet.Repetitions.Required, JSONLogicalType{}, parquet.Types.ByteArray, -1 /* type len */, -1 /* fieldID */)
-	uuidNode := NewPrimitiveNodeLogical("uuid" /*name */, parquet.Repetitions.Required, UUIDLogicalType{}, parquet.Types.FixedLenByteArray, 16 /* type len */, - /* fieldID */ 1)
-	timestampNode := NewPrimitiveNodeLogical("timestamp" /*name */, parquet.Repetitions.Required, NewTimestampLogicalType(false /* adjustedToUTC */, TimeUnitNanos), parquet.Types.Int64, -1 /* type len */, -1 /* fieldID */)
-	intNode := NewPrimitiveNodeLogical("int" /*name */, parquet.Repetitions.Required, NewIntLogicalType(64 /* bitWidth */, false /* signed */), parquet.Types.Int64, -1 /* type len */, -1 /* fieldID */)
-	decimalNode := NewPrimitiveNodeLogical("decimal" /*name */, parquet.Repetitions.Required, NewDecimalLogicalType(16 /* precision */, 6 /* scale */), parquet.Types.Int64, -1 /* type len */, -1 /* fieldID */)
-	listNode := NewGroupNodeLogical("list" /*name */, parquet.Repetitions.Repeated, []Node{strNode, dateNode, jsonNode, uuidNode, timestampNode, intNode, decimalNode}, NewListLogicalType(), -1 /* fieldID */)
+	strNode := MustPrimitive(NewPrimitiveNodeLogical("string" /*name */, parquet.Repetitions.Required, StringLogicalType{}, parquet.Types.ByteArray, -1 /* type len */, -1 /* fieldID */))
+	dateNode := MustPrimitive(NewPrimitiveNodeLogical("date" /*name */, parquet.Repetitions.Required, DateLogicalType{}, parquet.Types.Int32, -1 /* type len */, -1 /* fieldID */))
+	jsonNode := MustPrimitive(NewPrimitiveNodeLogical("json" /*name */, parquet.Repetitions.Required, JSONLogicalType{}, parquet.Types.ByteArray, -1 /* type len */, -1 /* fieldID */))
+	uuidNode := MustPrimitive(NewPrimitiveNodeLogical("uuid" /*name */, parquet.Repetitions.Required, UUIDLogicalType{}, parquet.Types.FixedLenByteArray, 16 /* type len */, - /* fieldID */ 1))
+	timestampNode := MustPrimitive(NewPrimitiveNodeLogical("timestamp" /*name */, parquet.Repetitions.Required, NewTimestampLogicalType(false /* adjustedToUTC */, TimeUnitNanos), parquet.Types.Int64, -1 /* type len */, -1 /* fieldID */))
+	intNode := MustPrimitive(NewPrimitiveNodeLogical("int" /*name */, parquet.Repetitions.Required, NewIntLogicalType(64 /* bitWidth */, false /* signed */), parquet.Types.Int64, -1 /* type len */, -1 /* fieldID */))
+	decimalNode := MustPrimitive(NewPrimitiveNodeLogical("decimal" /*name */, parquet.Repetitions.Required, NewDecimalLogicalType(16 /* precision */, 6 /* scale */), parquet.Types.Int64, -1 /* type len */, -1 /* fieldID */))
+	listNode := MustGroup(NewGroupNodeLogical("list" /*name */, parquet.Repetitions.Repeated, []Node{strNode, dateNode, jsonNode, uuidNode, timestampNode, intNode, decimalNode}, NewListLogicalType(), -1 /* fieldID */))
 
 	listElems := ToThrift(listNode)
 	assert.Equal(t, "list", listElems[0].Name)
@@ -441,7 +441,7 @@ func TestSchemaElementNestedSerialization(t *testing.T) {
 	assert.True(t, listElems[6].LogicalType.IsSetINTEGER())
 	assert.True(t, listElems[7].LogicalType.IsSetDECIMAL())
 
-	mapNode := NewGroupNodeLogical("map" /* name */, parquet.Repetitions.Required, []Node{}, MapLogicalType{}, -1 /* fieldID */)
+	mapNode := MustGroup(NewGroupNodeLogical("map" /* name */, parquet.Repetitions.Required, []Node{}, MapLogicalType{}, -1 /* fieldID */))
 	mapElems := ToThrift(mapNode)
 	assert.Equal(t, "map", mapElems[0].Name)
 	assert.True(t, mapElems[0].IsSetConvertedType())
@@ -491,21 +491,21 @@ func TestLogicalTypeSerializationRoundTrip(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			n := NewPrimitiveNodeLogical("something" /* name */, parquet.Repetitions.Required, tt.logical, tt.physical, tt.len, -1 /* fieldID */)
+			n := MustPrimitive(NewPrimitiveNodeLogical("something" /* name */, parquet.Repetitions.Required, tt.logical, tt.physical, tt.len, -1 /* fieldID */))
 			elem := n.toThrift()
-			recover := PrimitiveNodeFromThrift(elem, -1)
+			recover := MustPrimitive(PrimitiveNodeFromThrift(elem, -1))
 			assert.True(t, n.Equals(recover))
 		})
 	}
 
-	n := NewGroupNodeLogical("map" /* name */, parquet.Repetitions.Required, []Node{}, MapLogicalType{}, -1 /* fieldID */)
+	n := MustGroup(NewGroupNodeLogical("map" /* name */, parquet.Repetitions.Required, []Node{}, MapLogicalType{}, -1 /* fieldID */))
 	elem := n.toThrift()
-	recover := GroupNodeFromThrift(elem, []Node{}, -1)
+	recover := MustGroup(GroupNodeFromThrift(elem, []Node{}, -1))
 	assert.True(t, recover.Equals(n))
 
-	n = NewGroupNodeLogical("list" /* name */, parquet.Repetitions.Required, []Node{}, ListLogicalType{}, -1 /* fieldID */)
+	n = MustGroup(NewGroupNodeLogical("list" /* name */, parquet.Repetitions.Required, []Node{}, ListLogicalType{}, -1 /* fieldID */))
 	elem = n.toThrift()
-	recover = GroupNodeFromThrift(elem, []Node{}, -1)
+	recover = MustGroup(GroupNodeFromThrift(elem, []Node{}, -1))
 	assert.True(t, recover.Equals(n))
 }
 

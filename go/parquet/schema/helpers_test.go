@@ -28,8 +28,9 @@ import (
 
 func TestListOf(t *testing.T) {
 	n := schema.NewByteArrayNode("str", parquet.Repetitions.Required, 1)
-	list := schema.ListOf(n, parquet.Repetitions.Optional, 2)
+	list, err := schema.ListOf(n, parquet.Repetitions.Optional, 2)
 
+	assert.NoError(t, err)
 	assert.Equal(t, "str", list.Name())
 	assert.Equal(t, parquet.Repetitions.Optional, list.RepetitionType())
 	assert.Equal(t, 1, list.NumFields())
@@ -42,8 +43,10 @@ func TestListOf(t *testing.T) {
 }
 
 func TestListOfNested(t *testing.T) {
-	n := schema.ListOf(schema.NewInt32Node("arrays", parquet.Repetitions.Required, -1), parquet.Repetitions.Required, -1)
-	final := schema.ListOf(n, parquet.Repetitions.Required, -1)
+	n, err := schema.ListOf(schema.NewInt32Node("arrays", parquet.Repetitions.Required, -1), parquet.Repetitions.Required, -1)
+	assert.NoError(t, err)
+	final, err := schema.ListOf(n, parquet.Repetitions.Required, -1)
+	assert.NoError(t, err)
 
 	var buf bytes.Buffer
 	schema.PrintSchema(final, &buf, 4)
@@ -60,17 +63,24 @@ func TestListOfNested(t *testing.T) {
 }
 
 func TestMapOfNestedTypes(t *testing.T) {
-	n := schema.NewGroupNode("student", parquet.Repetitions.Required, schema.FieldList{
+	n, err := schema.NewGroupNode("student", parquet.Repetitions.Required, schema.FieldList{
 		schema.NewByteArrayNode("name", parquet.Repetitions.Required, -1),
 		schema.NewInt32Node("age", parquet.Repetitions.Optional, -1),
 	}, -1)
+	assert.NoError(t, err)
 
-	classes := schema.ListOf(schema.NewGroupNode("classes", parquet.Repetitions.Optional, schema.FieldList{
+	grp, err := schema.NewGroupNode("classes", parquet.Repetitions.Optional, schema.FieldList{
 		schema.NewInt32Node("a", parquet.Repetitions.Repeated, -1),
 		schema.NewFloat32Node("b", parquet.Repetitions.Repeated, -1),
-	}, -1), parquet.Repetitions.Optional, -1)
+	}, -1)
+	assert.NoError(t, err)
 
-	m := schema.MapOf("studentmap", n, classes, parquet.Repetitions.Required, 1)
+	classes, err := schema.ListOf(grp, parquet.Repetitions.Optional, -1)
+	assert.NoError(t, err)
+
+	m, err := schema.MapOf("studentmap", n, classes, parquet.Repetitions.Required, 1)
+	assert.NoError(t, err)
+
 	var buf bytes.Buffer
 	schema.PrintSchema(m, &buf, 4)
 	assert.Equal(t,

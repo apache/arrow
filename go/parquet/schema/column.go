@@ -22,7 +22,6 @@ import (
 
 	"github.com/apache/arrow/go/parquet"
 	format "github.com/apache/arrow/go/parquet/internal/gen-go/parquet"
-	"golang.org/x/xerrors"
 )
 
 // Column encapsulates the information necessary to interpret primitive
@@ -44,13 +43,8 @@ type Column struct {
 
 // NewColumn returns a new column object for the given node with the provided
 // maximum definition and repetition levels.
-//
-// n MUST be a PrimitiveNode, otherwise this will panic.
-func NewColumn(n Node, maxDefinitionLvl, maxRepetitionLvl int16) *Column {
-	if n.Type() != Primitive {
-		panic(xerrors.Errorf("parquet: Column must be a primitive type node, not group: Path: %s, Name: %s", n.Name(), n.Path()))
-	}
-	return &Column{n.(*PrimitiveNode), maxDefinitionLvl, maxRepetitionLvl}
+func NewColumn(n *PrimitiveNode, maxDefinitionLvl, maxRepetitionLvl int16) *Column {
+	return &Column{n, maxDefinitionLvl, maxRepetitionLvl}
 }
 
 // Name is the column's name

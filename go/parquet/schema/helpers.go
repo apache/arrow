@@ -16,7 +16,10 @@
 
 package schema
 
-import "github.com/apache/arrow/go/parquet"
+import (
+	"github.com/apache/arrow/go/parquet"
+	"golang.org/x/xerrors"
+)
 
 // ListOf is a convenience helper function to create a properly structured
 // list structure according to the Parquet Spec.
@@ -29,9 +32,9 @@ import "github.com/apache/arrow/go/parquet"
 //
 // <list-repetition> can only be optional or required. panics if repeated.
 // <element-repetition> can only be optional or required. panics if repeated.
-func ListOf(n Node, rep parquet.Repetition, fieldID int32) *GroupNode {
+func ListOf(n Node, rep parquet.Repetition, fieldID int32) (*GroupNode, error) {
 	if rep == parquet.Repetitions.Repeated || n.RepetitionType() == parquet.Repetitions.Repeated {
-		panic("parquet: listof repetition and element repetition must not be repeated.")
+		return nil, xerrors.New("parquet: listof repetition and element repetition must not be repeated.")
 	}
 	listName := n.Name()
 
@@ -42,9 +45,11 @@ func ListOf(n Node, rep parquet.Repetition, fieldID int32) *GroupNode {
 		n.name = "element"
 	}
 
-	return NewGroupNodeLogical(listName, rep, FieldList{
-		NewGroupNode("list" /* name */, parquet.Repetitions.Repeated, FieldList{n}, -1 /* fieldID */)},
-		ListLogicalType{}, fieldID)
+	list, err := NewGroupNode("list" /* name */, parquet.Repetitions.Repeated, FieldList{n}, -1 /* fieldID */)
+	if err != nil {
+		return nil, err
+	}
+	return NewGroupNodeLogical(listName, rep, FieldList{list}, ListLogicalType{}, fieldID)
 }
 
 // MapOf is a convenience helper function to create a properly structured
@@ -65,16 +70,16 @@ func ListOf(n Node, rep parquet.Repetition, fieldID int32) *GroupNode {
 //
 // value node can be nil (omitted) or have a repetition of required or optional *only*.
 // panics if value node is not nil and has a repetition of repeated.
-func MapOf(name string, key Node, value Node, mapRep parquet.Repetition, fieldID int32) *GroupNode {
+func MapOf(name string, key Node, value Node, mapRep parquet.Repetition, fieldID int32) (*GroupNode, error) {
 	if mapRep == parquet.Repetitions.Repeated {
-		panic("parquet: map repetition cannot be Repeated")
+		return nil, xerrors.New("parquet: map repetition cannot be Repeated")
 	}
 	if key.RepetitionType() != parquet.Repetitions.Required {
-		panic("parquet: map key repetition must be Required")
+		return nil, xerrors.New("parquet: map key repetition must be Required")
 	}
 	if value != nil {
 		if value.RepetitionType() == parquet.Repetitions.Repeated {
-			panic("parquet: map value cannot have repetition Repeated")
+			return nil, xerrors.New("parquet: map value cannot have repetition Repeated")
 		}
 		switch value := value.(type) {
 		case *PrimitiveNode:
@@ -96,7 +101,9 @@ func MapOf(name string, key Node, value Node, mapRep parquet.Repetition, fieldID
 		keyval = append(keyval, value)
 	}
 
-	return NewGroupNodeLogical(name, mapRep, FieldList{
-		NewGroupNode("key_value" /* name */, parquet.Repetitions.Repeated, keyval, -1 /* fieldID */),
-	}, MapLogicalType{}, fieldID)
+	kvNode, err := NewGroupNode("key_value" /* name */, parquet.Repetitions.Repeated, keyval, -1 /* fieldID */)
+	if err != nil {
+		return nil, err
+	}
+	return NewGroupNodeLogical(name, mapRep, FieldList{kvNode}, MapLogicalType{}, fieldID)
 }

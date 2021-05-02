@@ -536,17 +536,24 @@ func TestNodeFactoryEquivalences(t *testing.T) {
 			name := "something"
 			repetition := parquet.Repetitions.Required
 
-			fromConverted := schema.NewPrimitiveNodeConverted(name, repetition, tt.typ, tt.converted, tt.physicalLen, tt.precision, tt.scale, -1 /* fieldID */)
-			fromLogical := schema.NewPrimitiveNodeLogical(name, repetition, tt.logical, tt.typ, tt.physicalLen, -1 /* fieldID */)
+			fromConverted := schema.MustPrimitive(schema.NewPrimitiveNodeConverted(name, repetition, tt.typ, tt.converted, tt.physicalLen, tt.precision, tt.scale, -1 /* fieldID */))
+			fromLogical := schema.MustPrimitive(schema.NewPrimitiveNodeLogical(name, repetition, tt.logical, tt.typ, tt.physicalLen, -1 /* fieldID */))
 			assert.True(t, fromConverted.Equals(fromLogical))
 		})
 	}
 
 	rep := parquet.Repetitions.Optional
-	fromConverted := schema.NewGroupNodeConverted("map" /* name */, rep, []schema.Node{}, schema.ConvertedTypes.Map, -1 /* fieldID */)
-	fromLogical := schema.NewGroupNodeLogical("map" /* name */, rep, []schema.Node{}, schema.MapLogicalType{}, -1 /* fieldID */)
+	fromConverted, err := schema.NewGroupNodeConverted("map" /* name */, rep, []schema.Node{}, schema.ConvertedTypes.Map, -1 /* fieldID */)
+	assert.NoError(t, err)
+
+	fromLogical, err := schema.NewGroupNodeLogical("map" /* name */, rep, []schema.Node{}, schema.MapLogicalType{}, -1 /* fieldID */)
+	assert.NoError(t, err)
 	assert.True(t, fromConverted.Equals(fromLogical))
-	fromConverted = schema.NewGroupNodeConverted("list" /* name */, rep, []schema.Node{}, schema.ConvertedTypes.List, -1 /* fieldID */)
-	fromLogical = schema.NewGroupNodeLogical("list" /* name */, rep, []schema.Node{}, schema.NewListLogicalType(), -1 /* fieldID */)
+
+	fromConverted, err = schema.NewGroupNodeConverted("list" /* name */, rep, []schema.Node{}, schema.ConvertedTypes.List, -1 /* fieldID */)
+	assert.NoError(t, err)
+
+	fromLogical, err = schema.NewGroupNodeLogical("list" /* name */, rep, []schema.Node{}, schema.NewListLogicalType(), -1 /* fieldID */)
+	assert.NoError(t, err)
 	assert.True(t, fromConverted.Equals(fromLogical))
 }

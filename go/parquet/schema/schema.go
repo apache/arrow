@@ -37,6 +37,7 @@ import (
 
 	"github.com/apache/arrow/go/parquet"
 	format "github.com/apache/arrow/go/parquet/internal/gen-go/parquet"
+	"golang.org/x/xerrors"
 )
 
 // Schema is the container for the converted Parquet schema with a computed
@@ -59,14 +60,14 @@ type Schema struct {
 }
 
 // FromParquet converts a slice of thrift Schema Elements to the correct node type
-func FromParquet(elems []*format.SchemaElement) Node {
+func FromParquet(elems []*format.SchemaElement) (Node, error) {
 	if len(elems) == 0 {
-		panic("parquet: empty schema (no root)")
+		return nil, xerrors.New("parquet: empty schema (no root)")
 	}
 
 	if elems[0].GetNumChildren() == 0 {
 		if len(elems) > 1 {
-			panic("parquet: schema had multiple nodes but root had no children")
+			return nil, xerrors.New("parquet: schema had multiple nodes but root had no children")
 		}
 		// parquet file with no columns
 		return GroupNodeFromThrift(elems[0], []Node{}, 0)
@@ -77,12 +78,12 @@ func FromParquet(elems []*format.SchemaElement) Node {
 	var (
 		pos      = 0
 		curID    = 0
-		nextNode func() Node
+		nextNode func() (Node, error)
 	)
 
-	nextNode = func() Node {
+	nextNode = func() (Node, error) {
 		if pos == len(elems) {
-			panic("parquet: malformed schema: not enough elements")
+			return nil, xerrors.New("parquet: malformed schema: not enough elements")
 		}
 
 		elem := elems[pos]
@@ -96,7 +97,11 @@ func FromParquet(elems []*format.SchemaElement) Node {
 
 		fields := make([]Node, 0, elem.GetNumChildren())
 		for i := 0; i < int(elem.GetNumChildren()); i++ {
-			fields = append(fields, nextNode())
+			n, err := nextNode()
+			if err != nil {
+				return nil, err
+			}
+			fields = append(fields, n)
 		}
 
 		return GroupNodeFromThrift(elem, fields, fieldID)
@@ -196,24 +201,21 @@ func (s *Schema) HasRepeatedFields() bool {
 }
 
 // UpdateColumnOrders must get a slice that is the same length as the number of leaf columns
-// and is used to update the schema metadata Column Orders.
-func (s *Schema) UpdateColumnOrders(orders []parquet.ColumnOrder) {
+// and is used to update the schema metadata Column Orders. len(orders) must equal s.NumColumns()
+func (s *Schema) UpdateColumnOrders(orders []parquet.ColumnOrder) error {
 	if len(orders) != s.NumColumns() {
-		panic("parquet: malformed schema: not enough ColumnOrder values")
+		return xerrors.New("parquet: malformed schema: not enough ColumnOrder values")
 	}
+
 	visitor := schemaColumnOrderUpdater{orders, 0}
 	s.root.Visit(&visitor)
+	return nil
 }
 
 // NewSchema constructs a new Schema object from a root group node.
 //
-// Panics if root is not a Group node. Any fields with a field-id of -1
-// will be given an appropriate field number based on their order.
-func NewSchema(root Node) *Schema {
-	if root.Type() != Group {
-		panic("parquet: root node of schema must be a group node")
-	}
-
+// Any fields with a field-id of -1 will be given an appropriate field number based on their order.
+func NewSchema(root *GroupNode) *Schema {
 	s := &Schema{
 		root,
 		make([]*Column, 0),
@@ -222,7 +224,7 @@ func NewSchema(root Node) *Schema {
 		make(strIntMultimap),
 	}
 
-	for _, f := range root.(*GroupNode).fields {
+	for _, f := range root.fields {
 		s.buildTree(f, 0, 0, f)
 	}
 	return s
