@@ -172,6 +172,7 @@ TEST(Expression, ToString) {
   EXPECT_EQ(literal("a").ToString(), "\"a\"");
   EXPECT_EQ(literal("a\nb").ToString(), "\"a\\nb\"");
   EXPECT_EQ(literal(std::make_shared<BooleanScalar>()).ToString(), "null");
+  EXPECT_EQ(literal(std::make_shared<Int64Scalar>()).ToString(), "null");
   EXPECT_EQ(literal(std::make_shared<BinaryScalar>(Buffer::FromString("az"))).ToString(),
             "\"617A\"");
 
@@ -540,7 +541,7 @@ void ExpectExecute(Expression expr, Datum in, Datum* actual_out = NULLPTR) {
   if (in.is_value()) {
     ASSERT_OK_AND_ASSIGN(expr, expr.Bind(in.descr()));
   } else {
-    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*in.record_batch()->schema()));
+    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*in.schema()));
   }
 
   ASSERT_OK_AND_ASSIGN(Datum actual, ExecuteScalarExpression(expr, in));

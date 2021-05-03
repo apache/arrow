@@ -526,23 +526,6 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const Datum& input
         "ExecuteScalarExpression cannot Execute non-scalar expression ", expr.ToString());
   }
 
-  if (input.kind() == Datum::TABLE) {
-    TableBatchReader reader(*input.table());
-    std::shared_ptr<RecordBatch> batch;
-
-    while (true) {
-      RETURN_NOT_OK(reader.ReadNext(&batch));
-      if (batch != nullptr) {
-        break;
-      }
-      ARROW_ASSIGN_OR_RAISE(Datum res, ExecuteScalarExpression(expr, batch));
-      if (res.is_scalar()) {
-        ARROW_ASSIGN_OR_RAISE(res, MakeArrayFromScalar(*res.scalar(), batch->num_rows(),
-                                                       exec_context->memory_pool()));
-      }
-    }
-  }
-
   if (auto lit = expr.literal()) return *lit;
 
   if (auto ref = expr.field_ref()) {
