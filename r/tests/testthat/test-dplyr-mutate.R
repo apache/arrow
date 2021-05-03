@@ -15,8 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# because expect_dplyr_equal involves no assertion (wrong initial thought)
-# we need to "translate" dplyr tests as:
+# developer note:
+# when adapting tests from the dplyr package, note that expect_dplyr_equal()
+# works differently from expect_equal(). the first argument is a dplyr
+# expression containing the placeholder `input`, and the second argument
+# is the R data frame to pass in as that input. So for example, adapt a test
+# from dplyr as follows:
 #
 # dplyr:
 # expect_equal(
