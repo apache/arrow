@@ -145,11 +145,7 @@ Status LikeHolder::Make(const std::string& sql_pattern,
   ARROW_RETURN_NOT_OK(RegexUtil::SqlLikePatternToPcre(sql_pattern, pcre_pattern));
 
   std::shared_ptr<LikeHolder> lholder;
-  if (regex_op.case_sensitive()) {
-    lholder = std::shared_ptr<LikeHolder>(new LikeHolder(pcre_pattern));
-  } else {
-    lholder = std::shared_ptr<LikeHolder>(new LikeHolder(pcre_pattern, regex_op));
-  }
+  lholder = std::shared_ptr<LikeHolder>(new LikeHolder(pcre_pattern, regex_op));
 
   ARROW_RETURN_IF(!lholder->regex_.ok(),
                   Status::Invalid("Building RE2 pattern '", pcre_pattern, "' failed"));
