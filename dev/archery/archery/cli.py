@@ -1160,7 +1160,10 @@ except ImportError as exc:
 
     @archery.command(
         'crossbow',
-        context_settings={"ignore_unknown_options": True}
+        context_settings={
+            "allow_extra_args": True,
+            "ignore_unknown_options": True,
+        }
     )
     def crossbow():
         raise click.ClickException(
