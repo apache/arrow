@@ -17,8 +17,12 @@ mamba install -y anaconda-client shyaml pygit2 -c conda-forge
 pushd $DRONE_WORKSPACE
 
 pip install arrow/dev/archery[crossbow]
+which archery
+archery crossbow --help
+archery crossbow upload-artifacts --help
+
 archery crossbow \
-  --queue-path . \
+  --queue-path $(pwd) \
   --queue-remote ${QUEUE_REMOTE_URL} \
   upload-artifacts \
   --sha ${TASK_BRANCH} \
