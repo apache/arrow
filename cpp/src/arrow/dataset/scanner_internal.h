@@ -169,11 +169,7 @@ class FilterAndProjectScanTask : public ScanTask {
           ARROW_ASSIGN_OR_RAISE(auto projected, FilterAndProjectBatch(batch));
           return visitor(projected);
         };
-    return task_->SafeExecute(executor).Then(
-        [this, filter_and_project_visitor](const RecordBatchVector& rbs) -> Status {
-          ARROW_ASSIGN_OR_RAISE(auto projected_it, ToFilteredAndProjectedIterator(rbs));
-          return projected_it.Visit(filter_and_project_visitor);
-        });
+    return task_->SafeVisit(executor, filter_and_project_visitor);
   }
 
  private:
