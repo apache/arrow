@@ -123,8 +123,7 @@ cast_array_expression <- function(x, to_type, safe = TRUE, ...) {
   # stringr spellings of those
   "str_length" = "utf8_length",
   "str_to_lower" = "utf8_lower",
-  "str_to_upper" = "utf8_upper",
-  "negate" = "negate"
+  "str_to_upper" = "utf8_upper"
   # str_trim is defined in dplyr.R
 )
 
