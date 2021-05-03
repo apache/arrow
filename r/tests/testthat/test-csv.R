@@ -321,11 +321,9 @@ test_that("Write a CSV file with invalid input type", {
     )
 })
 
-
 test_that("Write a CSV file with invalid batch size", {
   expect_error(
     write_csv_arrow(tbl_no_dates, csv_file, batch_size = -1),
     regexp = 'batch_size not greater than 0'
   )
 })
-
