@@ -19,6 +19,7 @@
 
 set -ex
 
+arrow_dir=${1}
 source_dir=${1}/rust
 
 # This file is used to build the rust binaries needed for the
@@ -31,6 +32,21 @@ export RUSTFLAGS="-C debuginfo=1"
 export ARROW_TEST_DATA=${arrow_dir}/testing/data
 export PARQUET_TEST_DATA=${arrow_dir}/cpp/submodules/parquet-testing/data
 
+
+if [ "${ARCHERY_INTEGRATION_WITH_RUST}" -eq "0" ]; then
+  echo "===================================================================="
+  echo "Not building the Rust implementation."
+  echo "===================================================================="
+  exit 0;
+elif [ ! -d "${source_dir}" ]; then
+  echo "===================================================================="
+  echo "The Rust source is missing from location ${source_dir}, please clone"
+  echo "the arrow-rs repository before running the integration tests:"
+  echo "  git clone https://github.com/apache/arrow-rs.git ${source_dir}"
+  echo "===================================================================="
+  exit 1;
+fi
+
 # show activated toolchain
 rustup show
 
@@ -38,8 +54,5 @@ pushd ${source_dir}
 
 # build only the integration testing binaries
 cargo build -p arrow-integration-testing
-
-# Remove incremental build artifacts to save space
-rm -rf  target/debug/deps/ target/debug/build/
 
 popd

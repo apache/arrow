@@ -20,9 +20,6 @@
 set -ex
 
 arrow_dir=${1}
-source_dir=${1}/cpp
-build_dir=${2}/cpp
-
 gold_dir=$arrow_dir/testing/data/arrow-ipc-stream/integration
 
 pip install -e $arrow_dir/dev/archery
