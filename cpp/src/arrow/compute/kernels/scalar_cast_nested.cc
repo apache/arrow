@@ -66,9 +66,11 @@ void CastListExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   Datum values = in_array.child_data[0];
 
   if (in_array.offset != 0) {
-    KERNEL_ASSIGN_OR_RAISE(out_array->buffers[0], ctx,
-                           CopyBitmap(ctx->memory_pool(), in_array.buffers[0]->data(),
-                                      in_array.offset, in_array.length));
+    if (in_array.buffers[0]) {
+      KERNEL_ASSIGN_OR_RAISE(out_array->buffers[0], ctx,
+                             CopyBitmap(ctx->memory_pool(), in_array.buffers[0]->data(),
+                                        in_array.offset, in_array.length));
+    }
     KERNEL_ASSIGN_OR_RAISE(out_array->buffers[1], ctx,
                            ctx->Allocate(sizeof(offset_type) * (in_array.length + 1)));
 

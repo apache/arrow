@@ -483,9 +483,11 @@ struct GroupedCountImpl : public GroupedAggregator {
     const auto& input = batch[0].array();
 
     if (options_.count_mode == CountOptions::COUNT_NULL) {
-      for (int64_t i = 0, input_i = input->offset; i < input->length; ++i, ++input_i) {
-        auto g = group_ids[i];
-        raw_counts[g] += !BitUtil::GetBit(input->buffers[0]->data(), input_i);
+      if (input->GetNullCount() != 0) {
+        for (int64_t i = 0, input_i = input->offset; i < input->length; ++i, ++input_i) {
+          auto g = group_ids[i];
+          raw_counts[g] += !BitUtil::GetBit(input->buffers[0]->data(), input_i);
+        }
       }
       return Status::OK();
     }
