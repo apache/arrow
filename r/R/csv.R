@@ -627,6 +627,8 @@ write_csv_arrow <- function(x,
                             batch_size = 1024L) {
   # Handle and validate options before touching data
   batch_size <- as.integer(batch_size)
+  assert_that(batch_size > 0)
+  
   write_options <- CsvWriteOptions$create(include_header, batch_size)
   
   x_out <- x

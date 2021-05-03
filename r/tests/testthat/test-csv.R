@@ -314,3 +314,18 @@ test_that("Write a CSV file with different batch sizes", {
   
 })
 
+test_that("Write a CSV file with invalid input type", {
+  expect_error(
+    write_csv_arrow(Array$create(1:5), csv_file),
+    regexp = 'x must be a "ArrowTabular"'
+    )
+})
+
+
+test_that("Write a CSV file with invalid batch size", {
+  expect_error(
+    write_csv_arrow(tbl_no_dates, csv_file, batch_size = -1),
+    regexp = 'batch_size not greater than 0'
+  )
+})
+
