@@ -9,7 +9,7 @@ TASK_TAG=$4
 UPLOAD_TO_ANACONDA=$5
 
 conda install -y mamba
-# $FEEDSTOCK_ROOT/build_steps.sh ${OUTPUT_DIR}
+$FEEDSTOCK_ROOT/build_steps.sh ${OUTPUT_DIR}
 
 # Upload as Github release
 mamba install -y anaconda-client shyaml pygit2 -c conda-forge
