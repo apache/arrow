@@ -74,7 +74,11 @@ class GreedyDualSizeCache : public BaseCache<Key, Value> {
 
   bool contains(const Key& key) override { return map_.find(key) != map_.end(); }
 
-  void insert(const Key& key, const Value& value, const uint64_t priority) override {
+  void insert(const Key& key, const Value& value) override {
+    insert(key, value, 0);
+  }
+
+  void insert(const Key& key, const Value& value, const uint64_t priority) {
     typename map_type::iterator i = map_.find(key);
     // check if element is not in the cache to add it
     if (i == map_.end()) {

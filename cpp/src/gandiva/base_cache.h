@@ -43,7 +43,7 @@ class BaseCache {
 
   virtual bool contains(const Key& key) = 0;
 
-  virtual void insert(const Key& key, const Value& value, uint64_t value_to_order) = 0;
+  virtual void insert(const Key& key, const Value& value) = 0;
 
   virtual arrow::util::optional<Value> get(const Key& key) = 0;
 
@@ -55,4 +55,15 @@ class BaseCache {
  protected:
   size_t cache_capacity_{};
 };
+
+// internal  class to handle values with costs
+template <class ValueType>
+class ValueObject {
+ public:
+  explicit ValueObject(ValueType module, uint64_t cost) : module(module), cost(cost) {}
+  ValueObject<ValueType>() {};
+  ValueType module;
+  uint64_t cost;
+  bool operator<(const ValueObject& other) const { return this->cost < other.cost; }
+ };
 }  // namespace gandiva

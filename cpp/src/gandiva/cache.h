@@ -21,6 +21,7 @@
 #include <memory>
 #include <mutex>
 
+#include "gandiva/base_cache.h"
 #include "gandiva/greedy_dual_size_cache.h"
 #include "gandiva/lru_cache.h"
 #include "gandiva/visibility.h"
@@ -41,9 +42,10 @@ class Cache {
  public:
   explicit Cache(size_t capacity, int cache_type_to_use) {
     if (cache_type_to_use == 0) {
-      this->cache_ = std::make_unique<GreedyDualSizeCache<KeyType, ValueType>>(capacity);
+      this->cache_ =
+          std::make_unique<GreedyDualSizeCache<KeyType, ValueObject>>(capacity);
     } else {
-      this->cache_ = std::make_unique<LruCache<KeyType, ValueType>>(capacity);
+      this->cache_ = std::make_unique<LruCache<KeyType, ValueObject>>(capacity);
     }
     LogCacheSize(capacity);
   }
@@ -51,22 +53,31 @@ class Cache {
   Cache() : Cache(GetCapacity(), GetCacheTypeToUse()) {}
 
   ValueType GetModule(KeyType cache_key) {
-    arrow::util::optional<ValueType> result;
+    arrow::util::optional<ValueObject> result;
     mtx_.lock();
     result = (*cache_).get(cache_key);
     mtx_.unlock();
-    return result != arrow::util::nullopt ? *result : nullptr;
+    return result != arrow::util::nullopt ? (*result).module : nullptr;
   }
 
   void PutModule(KeyType cache_key, ValueType module, uint64_t priority) {
     // Define value_to_order if the cache being used considers it, otherwise define 0
     mtx_.lock();
-    (*cache_).insert(cache_key, module, priority);
+    ValueObject value = *std::make_unique<ValueObject>(module, priority);
+    (*cache_).insert(cache_key, value);
     mtx_.unlock();
   }
 
  private:
-  std::unique_ptr<BaseCache<KeyType, ValueType>> cache_;
+  class ValueObject {
+   public:
+    explicit ValueObject(ValueType module, uint64_t cost) : module(module), cost(cost) {}
+    ValueObject() {};
+    ValueType module;
+    uint64_t cost;
+    bool operator<(const ValueObject& other) const { return this->cost < other.cost; }
+  };
+  std::unique_ptr<BaseCache<KeyType, ValueObject>> cache_;
   std::mutex mtx_;
 };
 }  // namespace gandiva
