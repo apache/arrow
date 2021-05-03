@@ -88,7 +88,6 @@ groups:
   integration:
     - test-*dask*
     - test-*hdfs*
-    - test-*jpype*
     - test-*kartothek*
     - test-*pandas*
     - test-*spark*
@@ -1530,14 +1529,6 @@ tasks:
       # use the branch-3.0 of spark, so prevent reusing any layers
       run: --no-leaf-cache conda-python-spark
 {% endfor %}
-
-  test-conda-python-3.8-jpype:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        PYTHON: 3.8
-      run: conda-python-jpype
 
   # Remove the "skipped-" prefix in ARROW-8475
   skipped-test-conda-cpp-hiveserver2:
