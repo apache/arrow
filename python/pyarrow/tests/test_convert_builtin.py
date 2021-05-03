@@ -1502,6 +1502,22 @@ def test_sequence_decimal_too_high_precision():
 
 
 def test_sequence_decimal_infer():
+    for data, typ in [
+        # simple case
+        (decimal.Decimal('1.234'), pa.decimal128(4, 3)),
+        # trailing zeros
+        (decimal.Decimal('12300'), pa.decimal128(5, 0)),
+        (decimal.Decimal('12300.0'), pa.decimal128(6, 1)),
+        # scientific power notation
+        (decimal.Decimal('123E+2'), pa.decimal128(3, -2)),
+    ]:
+        assert pa.infer_type([data]) == typ
+        arr = pa.array([data])
+        assert arr.type == typ
+        assert arr.to_pylist()[0] == data
+
+
+def test_sequence_decimal_infer_mixed():
     # ARROW-12150 - ensure mixed precision gets correctly inferred to
     # common type that can hold all input values
     cases = [
@@ -1511,8 +1527,11 @@ def test_sequence_decimal_infer():
          pa.decimal128(6, 3)),
         ([decimal.Decimal('123.4'), decimal.Decimal('4.567')],
          pa.decimal128(6, 3)),
+        ([decimal.Decimal('123e2'), decimal.Decimal('4567e3')],
+         pa.decimal128(5, -2)),
     ]
     for data, typ in cases:
+        assert pa.infer_type(data) == typ
         arr = pa.array(data)
         assert arr.type == typ
         assert arr.to_pylist() == data

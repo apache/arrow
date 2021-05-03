@@ -120,16 +120,18 @@ Status DecimalFromStdString(const std::string& decimal_string,
   const int32_t precision = arrow_type.precision();
   const int32_t scale = arrow_type.scale();
 
-  if (ARROW_PREDICT_FALSE(inferred_precision > precision)) {
+  if (scale != inferred_scale) {
+    DCHECK_NE(out, NULLPTR);
+    ARROW_ASSIGN_OR_RAISE(*out, out->Rescale(inferred_scale, scale));
+  }
+
+  auto inferred_scale_delta = inferred_scale - scale;
+  if (ARROW_PREDICT_FALSE((inferred_precision - inferred_scale_delta) > precision)) {
     return Status::Invalid(
         "Decimal type with precision ", inferred_precision,
         " does not fit into precision inferred from first array element: ", precision);
   }
 
-  if (scale != inferred_scale) {
-    DCHECK_NE(out, NULLPTR);
-    ARROW_ASSIGN_OR_RAISE(*out, out->Rescale(inferred_scale, scale));
-  }
   return Status::OK();
 }
 
