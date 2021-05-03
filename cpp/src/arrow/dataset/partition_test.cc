@@ -46,17 +46,17 @@ class TestPartitioning : public ::testing::Test {
     ASSERT_RAISES(Invalid, partitioning_->Parse(path));
   }
 
-  void AssertParse(const std::string& path, Expression expected) {
+  void AssertParse(const std::string& path, compute::Expression expected) {
     ASSERT_OK_AND_ASSIGN(auto parsed, partitioning_->Parse(path));
     ASSERT_EQ(parsed, expected);
   }
 
   template <StatusCode code = StatusCode::Invalid>
-  void AssertFormatError(Expression expr) {
+  void AssertFormatError(compute::Expression expr) {
     ASSERT_EQ(partitioning_->Format(expr).status().code(), code);
   }
 
-  void AssertFormat(Expression expr, const std::string& expected) {
+  void AssertFormat(compute::Expression expr, const std::string& expected) {
     // formatted partition expressions are bound to the schema of the dataset being
     // written
     ASSERT_OK_AND_ASSIGN(auto formatted, partitioning_->Format(expr));
@@ -64,7 +64,8 @@ class TestPartitioning : public ::testing::Test {
 
     // ensure the formatted path round trips the relevant components of the partition
     // expression: roundtripped should be a subset of expr
-    ASSERT_OK_AND_ASSIGN(Expression roundtripped, partitioning_->Parse(formatted));
+    ASSERT_OK_AND_ASSIGN(compute::Expression roundtripped,
+                         partitioning_->Parse(formatted));
 
     ASSERT_OK_AND_ASSIGN(roundtripped, roundtripped.Bind(*written_schema_));
     ASSERT_OK_AND_ASSIGN(auto simplified, SimplifyWithGuarantee(roundtripped, expr));
@@ -81,7 +82,7 @@ class TestPartitioning : public ::testing::Test {
   void AssertPartition(const std::shared_ptr<Partitioning> partitioning,
                        const std::shared_ptr<RecordBatch> full_batch,
                        const RecordBatchVector& expected_batches,
-                       const std::vector<Expression>& expected_expressions) {
+                       const std::vector<compute::Expression>& expected_expressions) {
     ASSERT_OK_AND_ASSIGN(auto partition_results, partitioning->Partition(full_batch));
     std::shared_ptr<RecordBatch> rest = full_batch;
     ASSERT_EQ(partition_results.batches.size(), expected_batches.size());
@@ -91,7 +92,8 @@ class TestPartitioning : public ::testing::Test {
       std::shared_ptr<RecordBatch> actual_batch =
           partition_results.batches[partition_index];
       AssertBatchesEqual(*expected_batches[partition_index], *actual_batch);
-      Expression actual_expression = partition_results.expressions[partition_index];
+      compute::Expression actual_expression =
+          partition_results.expressions[partition_index];
       ASSERT_EQ(expected_expressions[partition_index], actual_expression);
     }
   }
@@ -101,7 +103,7 @@ class TestPartitioning : public ::testing::Test {
                        const std::string& record_batch_json,
                        const std::shared_ptr<Schema> partitioned_schema,
                        const std::vector<std::string>& expected_record_batch_strs,
-                       const std::vector<Expression>& expected_expressions) {
+                       const std::vector<compute::Expression>& expected_expressions) {
     auto record_batch = RecordBatchFromJSON(schema, record_batch_json);
     RecordBatchVector expected_batches;
     for (const auto& expected_record_batch_str : expected_record_batch_strs) {
@@ -161,7 +163,7 @@ TEST_F(TestPartitioning, Partition) {
       R"([{"c": 4}])",
   };
 
-  std::vector<Expression> expected_expressions = {
+  std::vector<compute::Expression> expected_expressions = {
       and_(equal(field_ref("a"), literal(3)), equal(field_ref("b"), literal("x"))),
       and_(equal(field_ref("a"), literal(1)), is_null(field_ref("b"))),
       and_(is_null(field_ref("a")), is_null(field_ref("b"))),
@@ -562,7 +564,7 @@ TEST_F(TestPartitioning, EtlThenHive) {
               field("hour", int8()), field("alpha", int32()), field("beta", float32())});
 
   partitioning_ = std::make_shared<FunctionPartitioning>(
-      schm, [&](const std::string& path) -> Result<Expression> {
+      schm, [&](const std::string& path) -> Result<compute::Expression> {
         auto segments = fs::internal::SplitAbstractPath(path);
         if (segments.size() < etl_fields.size() + alphabeta_fields.size()) {
           return Status::Invalid("path ", path, " can't be parsed");
@@ -604,8 +606,8 @@ TEST_F(TestPartitioning, Set) {
   // An adhoc partitioning which parses segments like "/x in [1 4 5]"
   // into (field_ref("x") == 1 or field_ref("x") == 4 or field_ref("x") == 5)
   partitioning_ = std::make_shared<FunctionPartitioning>(
-      schm, [&](const std::string& path) -> Result<Expression> {
-        std::vector<Expression> subexpressions;
+      schm, [&](const std::string& path) -> Result<compute::Expression> {
+        std::vector<compute::Expression> subexpressions;
         for (auto segment : fs::internal::SplitAbstractPath(path)) {
           std::smatch matches;
 
@@ -643,8 +645,8 @@ class RangePartitioning : public Partitioning {
 
   std::string type_name() const override { return "range"; }
 
-  Result<Expression> Parse(const std::string& path) const override {
-    std::vector<Expression> ranges;
+  Result<compute::Expression> Parse(const std::string& path) const override {
+    std::vector<compute::Expression> ranges;
 
     for (auto segment : fs::internal::SplitAbstractPath(path)) {
       auto key = HivePartitioning::ParseKey(segment, "");
@@ -688,7 +690,7 @@ class RangePartitioning : public Partitioning {
     return Status::OK();
   }
 
-  Result<std::string> Format(const Expression&) const override { return ""; }
+  Result<std::string> Format(const compute::Expression&) const override { return ""; }
   Result<PartitionedBatches> Partition(
       const std::shared_ptr<RecordBatch>&) const override {
     return Status::OK();

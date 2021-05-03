@@ -115,10 +115,3 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           workflowFileName: ruby.yml
           skipEventTypes: '["push", "schedule"]'
-      - uses: potiuk/cancel-workflow-runs@master
-        name: "Cancel stale Rust runs"
-        with:
-          cancelMode: allDuplicates
-          token: ${{ secrets.GITHUB_TOKEN }}
-          workflowFileName: rust.yml
-          skipEventTypes: '["push", "schedule"]'

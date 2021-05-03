@@ -52,7 +52,8 @@ of a directory with two parquet files:
 
 .. literalinclude:: ../../../cpp/examples/arrow/dataset_documentation_example.cc
    :language: cpp
-   :lines: 50-85
+   :start-after: (Doc section: Reading Datasets)
+   :end-before: (Doc section: Reading Datasets)
    :linenos:
    :lineno-match:
 
@@ -68,7 +69,8 @@ given a base directory path:
 
 .. literalinclude:: ../../../cpp/examples/arrow/dataset_documentation_example.cc
    :language: cpp
-   :lines: 151-165
+   :start-after: (Doc section: Dataset discovery)
+   :end-before: (Doc section: Dataset discovery)
    :emphasize-lines: 6-11
    :linenos:
    :lineno-match:
@@ -103,7 +105,8 @@ method:
 
 .. literalinclude:: ../../../cpp/examples/arrow/dataset_documentation_example.cc
    :language: cpp
-   :lines: 151-170
+   :start-after: (Doc section: Dataset discovery)
+   :end-before: (Doc section: Dataset discovery)
    :emphasize-lines: 16-19
    :linenos:
    :lineno-match:
@@ -126,16 +129,19 @@ If we save the table as Feather files instead of Parquet files:
 
 .. literalinclude:: ../../../cpp/examples/arrow/dataset_documentation_example.cc
    :language: cpp
-   :lines: 87-104
+   :start-after: (Doc section: Reading different file formats)
+   :end-before: (Doc section: Reading different file formats)
    :linenos:
    :lineno-match:
 
 …then we can read the Feather file by passing an :class:`arrow::dataset::IpcFileFormat`:
 
-.. literalinclude:: ../../../cpp/examples/arrow/dataset_documentation_example.cc
-   :language: cpp
-   :lines: 318,334
-   :linenos:
+.. code-block:: cpp
+
+    auto format = std::make_shared<ds::ParquetFileFormat>();
+    // ...
+    auto factory = ds::FileSystemDatasetFactory::Make(filesystem, selector, format, options)
+                       .ValueOrDie();
 
 Customizing file formats
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -169,7 +175,8 @@ which columns to read:
 
 .. literalinclude:: ../../../cpp/examples/arrow/dataset_documentation_example.cc
    :language: cpp
-   :lines: 172-191
+   :start-after: (Doc section: Filtering data)
+   :end-before: (Doc section: Filtering data)
    :emphasize-lines: 16
    :linenos:
    :lineno-match:
@@ -184,7 +191,8 @@ reduce the amount of I/O needed.
 
 .. literalinclude:: ../../../cpp/examples/arrow/dataset_documentation_example.cc
    :language: cpp
-   :lines: 172-191
+   :start-after: (Doc section: Filtering data)
+   :end-before: (Doc section: Filtering data)
    :emphasize-lines: 17
    :linenos:
    :lineno-match:
@@ -204,7 +212,8 @@ and a vector of names for the columns:
 
 .. literalinclude:: ../../../cpp/examples/arrow/dataset_documentation_example.cc
    :language: cpp
-   :lines: 193-223
+   :start-after: (Doc section: Projecting columns)
+   :end-before: (Doc section: Projecting columns)
    :emphasize-lines: 18-28
    :linenos:
    :lineno-match:
@@ -216,7 +225,8 @@ dataset schema:
 
 .. literalinclude:: ../../../cpp/examples/arrow/dataset_documentation_example.cc
    :language: cpp
-   :lines: 225-254
+   :start-after: (Doc section: Projecting columns #2)
+   :end-before: (Doc section: Projecting columns #2)
    :emphasize-lines: 17-27
    :linenos:
    :lineno-match:
@@ -268,7 +278,8 @@ writing functionality.
 
 .. literalinclude:: ../../../cpp/examples/arrow/dataset_documentation_example.cc
    :language: cpp
-   :lines: 106-149
+   :start-after: (Doc section: Reading and writing partitioned data)
+   :end-before: (Doc section: Reading and writing partitioned data)
    :emphasize-lines: 25-42
    :linenos:
    :lineno-match:
@@ -282,7 +293,8 @@ partitioning scheme:
 
 .. literalinclude:: ../../../cpp/examples/arrow/dataset_documentation_example.cc
    :language: cpp
-   :lines: 256-279
+   :start-after: (Doc section: Reading and writing partitioned data #2)
+   :end-before: (Doc section: Reading and writing partitioned data #2)
    :emphasize-lines: 7,9-11
    :linenos:
    :lineno-match:
@@ -316,7 +328,8 @@ altogether if they do not match the filter:
 
 .. literalinclude:: ../../../cpp/examples/arrow/dataset_documentation_example.cc
    :language: cpp
-   :lines: 281-301
+   :start-after: (Doc section: Reading and writing partitioned data #3)
+   :end-before: (Doc section: Reading and writing partitioned data #3)
    :emphasize-lines: 15-18
    :linenos:
    :lineno-match:
@@ -377,7 +390,8 @@ disk which was used in the rest of the example:
 
 .. literalinclude:: ../../../cpp/examples/arrow/dataset_documentation_example.cc
    :language: cpp
-   :lines: 106-149
+   :start-after: Reading and writing partitioned data
+   :end-before: Reading and writing partitioned data
    :emphasize-lines: 24-28
    :linenos:
    :lineno-match:

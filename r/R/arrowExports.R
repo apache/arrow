@@ -756,24 +756,24 @@ FixedSizeListType__list_size <- function(type){
     .Call(`_arrow_FixedSizeListType__list_size`, type)
 }
 
-dataset___expr__call <- function(func_name, argument_list, options){
-    .Call(`_arrow_dataset___expr__call`, func_name, argument_list, options)
+compute___expr__call <- function(func_name, argument_list, options){
+    .Call(`_arrow_compute___expr__call`, func_name, argument_list, options)
 }
 
-dataset___expr__field_ref <- function(name){
-    .Call(`_arrow_dataset___expr__field_ref`, name)
+compute___expr__field_ref <- function(name){
+    .Call(`_arrow_compute___expr__field_ref`, name)
 }
 
-dataset___expr__get_field_ref_name <- function(ref){
-    .Call(`_arrow_dataset___expr__get_field_ref_name`, ref)
+compute___expr__get_field_ref_name <- function(x){
+    .Call(`_arrow_compute___expr__get_field_ref_name`, x)
 }
 
-dataset___expr__scalar <- function(x){
-    .Call(`_arrow_dataset___expr__scalar`, x)
+compute___expr__scalar <- function(x){
+    .Call(`_arrow_compute___expr__scalar`, x)
 }
 
-dataset___expr__ToString <- function(x){
-    .Call(`_arrow_dataset___expr__ToString`, x)
+compute___expr__ToString <- function(x){
+    .Call(`_arrow_compute___expr__ToString`, x)
 }
 
 ipc___WriteFeather__Table <- function(stream, table, version, chunk_size, compression, compression_level){

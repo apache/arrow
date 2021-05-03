@@ -1855,11 +1855,11 @@ extern "C" SEXP _arrow_dataset___ScannerBuilder__ProjectNames(SEXP sb_sexp, SEXP
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
-void dataset___ScannerBuilder__ProjectExprs(const std::shared_ptr<ds::ScannerBuilder>& sb, const std::vector<std::shared_ptr<ds::Expression>>& exprs, const std::vector<std::string>& names);
+void dataset___ScannerBuilder__ProjectExprs(const std::shared_ptr<ds::ScannerBuilder>& sb, const std::vector<std::shared_ptr<compute::Expression>>& exprs, const std::vector<std::string>& names);
 extern "C" SEXP _arrow_dataset___ScannerBuilder__ProjectExprs(SEXP sb_sexp, SEXP exprs_sexp, SEXP names_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<ds::ScannerBuilder>&>::type sb(sb_sexp);
-	arrow::r::Input<const std::vector<std::shared_ptr<ds::Expression>>&>::type exprs(exprs_sexp);
+	arrow::r::Input<const std::vector<std::shared_ptr<compute::Expression>>&>::type exprs(exprs_sexp);
 	arrow::r::Input<const std::vector<std::string>&>::type names(names_sexp);
 	dataset___ScannerBuilder__ProjectExprs(sb, exprs, names);
 	return R_NilValue;
@@ -1873,11 +1873,11 @@ extern "C" SEXP _arrow_dataset___ScannerBuilder__ProjectExprs(SEXP sb_sexp, SEXP
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
-void dataset___ScannerBuilder__Filter(const std::shared_ptr<ds::ScannerBuilder>& sb, const std::shared_ptr<ds::Expression>& expr);
+void dataset___ScannerBuilder__Filter(const std::shared_ptr<ds::ScannerBuilder>& sb, const std::shared_ptr<compute::Expression>& expr);
 extern "C" SEXP _arrow_dataset___ScannerBuilder__Filter(SEXP sb_sexp, SEXP expr_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<ds::ScannerBuilder>&>::type sb(sb_sexp);
-	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type expr(expr_sexp);
+	arrow::r::Input<const std::shared_ptr<compute::Expression>&>::type expr(expr_sexp);
 	dataset___ScannerBuilder__Filter(sb, expr);
 	return R_NilValue;
 END_CPP11
@@ -2927,79 +2927,79 @@ extern "C" SEXP _arrow_FixedSizeListType__list_size(SEXP type_sexp){
 #endif
 
 // expression.cpp
-#if defined(ARROW_R_WITH_DATASET)
-std::shared_ptr<ds::Expression> dataset___expr__call(std::string func_name, cpp11::list argument_list, cpp11::list options);
-extern "C" SEXP _arrow_dataset___expr__call(SEXP func_name_sexp, SEXP argument_list_sexp, SEXP options_sexp){
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<compute::Expression> compute___expr__call(std::string func_name, cpp11::list argument_list, cpp11::list options);
+extern "C" SEXP _arrow_compute___expr__call(SEXP func_name_sexp, SEXP argument_list_sexp, SEXP options_sexp){
 BEGIN_CPP11
 	arrow::r::Input<std::string>::type func_name(func_name_sexp);
 	arrow::r::Input<cpp11::list>::type argument_list(argument_list_sexp);
 	arrow::r::Input<cpp11::list>::type options(options_sexp);
-	return cpp11::as_sexp(dataset___expr__call(func_name, argument_list, options));
+	return cpp11::as_sexp(compute___expr__call(func_name, argument_list, options));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___expr__call(SEXP func_name_sexp, SEXP argument_list_sexp, SEXP options_sexp){
-	Rf_error("Cannot call dataset___expr__call(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+extern "C" SEXP _arrow_compute___expr__call(SEXP func_name_sexp, SEXP argument_list_sexp, SEXP options_sexp){
+	Rf_error("Cannot call compute___expr__call(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
 // expression.cpp
-#if defined(ARROW_R_WITH_DATASET)
-std::shared_ptr<ds::Expression> dataset___expr__field_ref(std::string name);
-extern "C" SEXP _arrow_dataset___expr__field_ref(SEXP name_sexp){
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<compute::Expression> compute___expr__field_ref(std::string name);
+extern "C" SEXP _arrow_compute___expr__field_ref(SEXP name_sexp){
 BEGIN_CPP11
 	arrow::r::Input<std::string>::type name(name_sexp);
-	return cpp11::as_sexp(dataset___expr__field_ref(name));
+	return cpp11::as_sexp(compute___expr__field_ref(name));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___expr__field_ref(SEXP name_sexp){
-	Rf_error("Cannot call dataset___expr__field_ref(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+extern "C" SEXP _arrow_compute___expr__field_ref(SEXP name_sexp){
+	Rf_error("Cannot call compute___expr__field_ref(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
 // expression.cpp
-#if defined(ARROW_R_WITH_DATASET)
-std::string dataset___expr__get_field_ref_name(const std::shared_ptr<ds::Expression>& ref);
-extern "C" SEXP _arrow_dataset___expr__get_field_ref_name(SEXP ref_sexp){
+#if defined(ARROW_R_WITH_ARROW)
+std::string compute___expr__get_field_ref_name(const std::shared_ptr<compute::Expression>& x);
+extern "C" SEXP _arrow_compute___expr__get_field_ref_name(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type ref(ref_sexp);
-	return cpp11::as_sexp(dataset___expr__get_field_ref_name(ref));
+	arrow::r::Input<const std::shared_ptr<compute::Expression>&>::type x(x_sexp);
+	return cpp11::as_sexp(compute___expr__get_field_ref_name(x));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___expr__get_field_ref_name(SEXP ref_sexp){
-	Rf_error("Cannot call dataset___expr__get_field_ref_name(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+extern "C" SEXP _arrow_compute___expr__get_field_ref_name(SEXP x_sexp){
+	Rf_error("Cannot call compute___expr__get_field_ref_name(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
 // expression.cpp
-#if defined(ARROW_R_WITH_DATASET)
-std::shared_ptr<ds::Expression> dataset___expr__scalar(const std::shared_ptr<arrow::Scalar>& x);
-extern "C" SEXP _arrow_dataset___expr__scalar(SEXP x_sexp){
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<compute::Expression> compute___expr__scalar(const std::shared_ptr<arrow::Scalar>& x);
+extern "C" SEXP _arrow_compute___expr__scalar(SEXP x_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::Scalar>&>::type x(x_sexp);
-	return cpp11::as_sexp(dataset___expr__scalar(x));
+	return cpp11::as_sexp(compute___expr__scalar(x));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___expr__scalar(SEXP x_sexp){
-	Rf_error("Cannot call dataset___expr__scalar(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+extern "C" SEXP _arrow_compute___expr__scalar(SEXP x_sexp){
+	Rf_error("Cannot call compute___expr__scalar(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
 // expression.cpp
-#if defined(ARROW_R_WITH_DATASET)
-std::string dataset___expr__ToString(const std::shared_ptr<ds::Expression>& x);
-extern "C" SEXP _arrow_dataset___expr__ToString(SEXP x_sexp){
+#if defined(ARROW_R_WITH_ARROW)
+std::string compute___expr__ToString(const std::shared_ptr<compute::Expression>& x);
+extern "C" SEXP _arrow_compute___expr__ToString(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type x(x_sexp);
-	return cpp11::as_sexp(dataset___expr__ToString(x));
+	arrow::r::Input<const std::shared_ptr<compute::Expression>&>::type x(x_sexp);
+	return cpp11::as_sexp(compute___expr__ToString(x));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___expr__ToString(SEXP x_sexp){
-	Rf_error("Cannot call dataset___expr__ToString(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+extern "C" SEXP _arrow_compute___expr__ToString(SEXP x_sexp){
+	Rf_error("Cannot call compute___expr__ToString(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -6793,11 +6793,11 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_FixedSizeListType__value_field", (DL_FUNC) &_arrow_FixedSizeListType__value_field, 1}, 
 		{ "_arrow_FixedSizeListType__value_type", (DL_FUNC) &_arrow_FixedSizeListType__value_type, 1}, 
 		{ "_arrow_FixedSizeListType__list_size", (DL_FUNC) &_arrow_FixedSizeListType__list_size, 1}, 
-		{ "_arrow_dataset___expr__call", (DL_FUNC) &_arrow_dataset___expr__call, 3}, 
-		{ "_arrow_dataset___expr__field_ref", (DL_FUNC) &_arrow_dataset___expr__field_ref, 1}, 
-		{ "_arrow_dataset___expr__get_field_ref_name", (DL_FUNC) &_arrow_dataset___expr__get_field_ref_name, 1}, 
-		{ "_arrow_dataset___expr__scalar", (DL_FUNC) &_arrow_dataset___expr__scalar, 1}, 
-		{ "_arrow_dataset___expr__ToString", (DL_FUNC) &_arrow_dataset___expr__ToString, 1}, 
+		{ "_arrow_compute___expr__call", (DL_FUNC) &_arrow_compute___expr__call, 3}, 
+		{ "_arrow_compute___expr__field_ref", (DL_FUNC) &_arrow_compute___expr__field_ref, 1}, 
+		{ "_arrow_compute___expr__get_field_ref_name", (DL_FUNC) &_arrow_compute___expr__get_field_ref_name, 1}, 
+		{ "_arrow_compute___expr__scalar", (DL_FUNC) &_arrow_compute___expr__scalar, 1}, 
+		{ "_arrow_compute___expr__ToString", (DL_FUNC) &_arrow_compute___expr__ToString, 1}, 
 		{ "_arrow_ipc___WriteFeather__Table", (DL_FUNC) &_arrow_ipc___WriteFeather__Table, 6}, 
 		{ "_arrow_ipc___feather___Reader__version", (DL_FUNC) &_arrow_ipc___feather___Reader__version, 1}, 
 		{ "_arrow_ipc___feather___Reader__Read", (DL_FUNC) &_arrow_ipc___feather___Reader__Read, 2}, 

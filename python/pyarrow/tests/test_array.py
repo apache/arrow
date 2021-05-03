@@ -750,7 +750,7 @@ def test_dictionary_to_numpy():
     expected = pa.array(
         [13.7, 11.0, None, 13.7]
     ).to_numpy(zero_copy_only=False)
-    assert np.array_equal(
+    np.testing.assert_allclose(
         afloat2.to_numpy(zero_copy_only=False),
         expected,
         equal_nan=True
@@ -764,7 +764,7 @@ def test_dictionary_to_numpy():
         pa.array([7, 11])
     )
     expected = pa.array([7, 11, None, 7]).to_numpy(zero_copy_only=False)
-    assert np.array_equal(
+    np.testing.assert_allclose(
         aints.to_numpy(zero_copy_only=False),
         expected,
         equal_nan=True

@@ -26,7 +26,7 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/dataset/expression.h"
+#include "arrow/compute/exec/expression.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/util/optional.h"
@@ -67,15 +67,15 @@ class ARROW_DS_EXPORT Partitioning {
   /// produce sub-batches which satisfy mutually exclusive Expressions.
   struct PartitionedBatches {
     RecordBatchVector batches;
-    std::vector<Expression> expressions;
+    std::vector<compute::Expression> expressions;
   };
   virtual Result<PartitionedBatches> Partition(
       const std::shared_ptr<RecordBatch>& batch) const = 0;
 
   /// \brief Parse a path into a partition expression
-  virtual Result<Expression> Parse(const std::string& path) const = 0;
+  virtual Result<compute::Expression> Parse(const std::string& path) const = 0;
 
-  virtual Result<std::string> Format(const Expression& expr) const = 0;
+  virtual Result<std::string> Format(const compute::Expression& expr) const = 0;
 
   /// \brief A default Partitioning which always yields scalar(true)
   static std::shared_ptr<Partitioning> Default();
@@ -142,9 +142,9 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
   Result<PartitionedBatches> Partition(
       const std::shared_ptr<RecordBatch>& batch) const override;
 
-  Result<Expression> Parse(const std::string& path) const override;
+  Result<compute::Expression> Parse(const std::string& path) const override;
 
-  Result<std::string> Format(const Expression& expr) const override;
+  Result<std::string> Format(const compute::Expression& expr) const override;
 
  protected:
   KeyValuePartitioning(std::shared_ptr<Schema> schema, ArrayVector dictionaries)
@@ -159,7 +159,7 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
   virtual Result<std::string> FormatValues(const ScalarVector& values) const = 0;
 
   /// Convert a Key to a full expression.
-  Result<Expression> ConvertKey(const Key& key) const;
+  Result<compute::Expression> ConvertKey(const Key& key) const;
 
   ArrayVector dictionaries_;
 };
@@ -234,9 +234,9 @@ class ARROW_DS_EXPORT HivePartitioning : public KeyValuePartitioning {
 /// \brief Implementation provided by lambda or other callable
 class ARROW_DS_EXPORT FunctionPartitioning : public Partitioning {
  public:
-  using ParseImpl = std::function<Result<Expression>(const std::string&)>;
+  using ParseImpl = std::function<Result<compute::Expression>(const std::string&)>;
 
-  using FormatImpl = std::function<Result<std::string>(const Expression&)>;
+  using FormatImpl = std::function<Result<std::string>(const compute::Expression&)>;
 
   FunctionPartitioning(std::shared_ptr<Schema> schema, ParseImpl parse_impl,
                        FormatImpl format_impl = NULLPTR, std::string name = "function")
@@ -247,11 +247,11 @@ class ARROW_DS_EXPORT FunctionPartitioning : public Partitioning {
 
   std::string type_name() const override { return name_; }
 
-  Result<Expression> Parse(const std::string& path) const override {
+  Result<compute::Expression> Parse(const std::string& path) const override {
     return parse_impl_(path);
   }
 
-  Result<std::string> Format(const Expression& expr) const override {
+  Result<std::string> Format(const compute::Expression& expr) const override {
     if (format_impl_) {
       return format_impl_(expr);
     }

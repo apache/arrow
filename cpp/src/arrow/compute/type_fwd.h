@@ -39,5 +39,7 @@ struct VectorKernel;
 
 struct KernelState;
 
+class Expression;
+
 }  // namespace compute
 }  // namespace arrow

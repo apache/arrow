@@ -52,7 +52,7 @@ Major components of the project include:
  - [Python libraries](https://github.com/apache/arrow/tree/master/python)
  - [R libraries](https://github.com/apache/arrow/tree/master/r)
  - [Ruby libraries](https://github.com/apache/arrow/tree/master/ruby)
- - [Rust libraries](https://github.com/apache/arrow/tree/master/rust)
+ - [Rust libraries](https://github.com/apache/arrow-rs)
 
 Arrow is an [Apache Software Foundation](https://www.apache.org) project. Learn more at
 [arrow.apache.org](https://arrow.apache.org).

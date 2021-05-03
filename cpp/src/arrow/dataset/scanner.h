@@ -25,8 +25,8 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/compute/exec/expression.h"
 #include "arrow/dataset/dataset.h"
-#include "arrow/dataset/expression.h"
 #include "arrow/dataset/projector.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
@@ -55,9 +55,9 @@ constexpr int32_t kDefaultFragmentReadahead = 8;
 /// Scan-specific options, which can be changed between scans of the same dataset.
 struct ARROW_DS_EXPORT ScanOptions {
   /// A row filter (which will be pushed down to partitioning/reading if supported).
-  Expression filter = literal(true);
+  compute::Expression filter = compute::literal(true);
   /// A projection expression (which can add/remove/rename columns).
-  Expression projection;
+  compute::Expression projection;
 
   /// Schema with which batches will be read from fragments. This is also known as the
   /// "reader schema" it will be used (for example) in constructing CSV file readers to
@@ -333,7 +333,7 @@ class ARROW_DS_EXPORT ScannerBuilder {
   ///
   /// \return Failure if any referenced column does not exists in the dataset's
   ///         Schema.
-  Status Project(std::vector<Expression> exprs, std::vector<std::string> names);
+  Status Project(std::vector<compute::Expression> exprs, std::vector<std::string> names);
 
   /// \brief Set the filter expression to return only rows matching the filter.
   ///
@@ -346,7 +346,7 @@ class ARROW_DS_EXPORT ScannerBuilder {
   ///
   /// \return Failure if any referenced columns does not exist in the dataset's
   ///         Schema.
-  Status Filter(const Expression& filter);
+  Status Filter(const compute::Expression& filter);
 
   /// \brief Indicate if the Scanner should make use of the available
   ///        ThreadPool found in ScanOptions;
