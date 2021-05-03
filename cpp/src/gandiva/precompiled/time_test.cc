@@ -789,7 +789,6 @@ TEST(TestTime, TestToTimestamp) {
 }
 
 TEST(TestTime, TestToTimeNumeric) {
-
   auto ts = StringToTimestamp("1970-01-01 00:00:00");
   EXPECT_EQ(ts, to_time_int32(0));
   EXPECT_EQ(ts, to_time_int64(0));
@@ -819,15 +818,15 @@ TEST(TestTime, TestToTimeNumeric) {
   EXPECT_EQ(1000, to_time_float64(static_cast<double>(ts / 1000.0)));
 
   // tests with fractional part
-  ts = StringToTimestamp("1970-01-01 00:00:01") + 500;
+  ts = StringToTimestamp("1970-01-01 01:00:00") + 500;
   EXPECT_EQ(ts, to_time_float32(static_cast<float>(ts / 1000.0)));
   EXPECT_EQ(ts, to_time_float64(static_cast<double>(ts / 1000.0)));
 
-  ts = StringToTimestamp("1970-01-01 00:01:01") + 600;
+  ts = StringToTimestamp("1970-01-01 01:00:00") + 600;
   EXPECT_EQ(ts, to_time_float32(static_cast<float>(ts / 1000.0)));
   EXPECT_EQ(ts, to_time_float64(static_cast<double>(ts / 1000.0)));
 
-  ts = StringToTimestamp("1970-01-01 01:00:01") + 400;
+  ts = StringToTimestamp("1970-01-01 01:00:00") + 400;
   EXPECT_EQ(ts, to_time_float32(static_cast<float>(ts / 1000.0)));
   EXPECT_EQ(ts, to_time_float64(static_cast<double>(ts / 1000.0)));
 }
