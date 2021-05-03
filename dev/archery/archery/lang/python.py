@@ -26,6 +26,7 @@ except ImportError:
 else:
     have_numpydoc = True
 
+from ..utils.logger import logger
 from ..utils.command import Command, capture_stdout, default_bin
 
 
@@ -192,7 +193,12 @@ class NumpyDoc:
         results = []
 
         def callback(obj):
-            result = validate(obj)
+            try:
+                result = validate(obj)
+            except OSError as e:
+                symbol = f"{obj.__module__}.{obj.__name__}"
+                logger.warning(f"Unable to validate `{symbol}` due to `{e}`")
+                return
 
             errors = []
             for errcode, errmsg in result.get('errors', []):

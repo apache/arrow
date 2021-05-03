@@ -348,7 +348,7 @@ def numpydoc(src, symbols, allow_rule, disallow_rule):
     disallow_rule = disallow_rule or {'GL01', 'SA01', 'EX01', 'ES01'}
     try:
         results = python_numpydoc(symbols, allow_rules=allow_rule,
-                                  disallow_rule=disallow_rule)
+                                  disallow_rules=disallow_rule)
         for result in results:
             result.ok()
     except LintValidationException:
