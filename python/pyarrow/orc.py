@@ -191,16 +191,16 @@ def write_table(table, where):
 
     Parameters
     ----------
+    table : pyarrow.lib.Table
+        The table to be written into the ORC file
     where : str or pyarrow.io.NativeFile
         Writable target. For passing Python file objects or byte buffers,
         see pyarrow.io.PythonFileInterface, pyarrow.io.BufferOutputStream
         or pyarrow.io.FixedSizeBufferWriter.
-    table : pyarrow.lib.Table
-        The table to be written into the ORC file
     """
     if isinstance(where, Table):
         warnings.warn(
-            "The order of the keyword arguments has changed. Pass as "
+            "The order of the arguments has changed. Pass as "
             "'write_table(table, where)' instead. The old order will raise "
             "an error in the future.", FutureWarning, stacklevel=2
         )
