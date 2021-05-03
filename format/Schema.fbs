@@ -290,7 +290,7 @@ enum IntervalUnit: short { YEAR_MONTH, DAY_TIME, MONTH_DAY_NANO}
 //  days are encoded as 32 bit integers and nanoseconds is encoded as a
 //  64 bit integer. All integers are signed. Each field is independent
 //  (e.g. there is no constraint that nanoseconds have the same sign
-//   as days or that the quantitiy of nanoseconds is less represents less
+//   as days or that the quantitiy of nanoseconds represents less
 //   then a day's worth of time).
 table Interval {
   unit: IntervalUnit;
