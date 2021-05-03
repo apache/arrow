@@ -733,19 +733,17 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
     """
     from pyarrow.fs import _resolve_filesystem_and_path
 
-    if isinstance(data, Dataset):
-        schema = schema or data.schema
-    elif isinstance(data, (list, tuple)):
+    if isinstance(data, (list, tuple)):
         schema = schema or data[0].schema
         data = InMemoryDataset(data, schema=schema)
     elif isinstance(data, (pa.RecordBatch, pa.ipc.RecordBatchReader,
                            pa.Table)) or _is_iterable(data):
         data = InMemoryDataset(data, schema=schema)
-        schema = schema or data.schema
-    else:
+    elif not isinstance(data, (Dataset, Scanner)):
         raise ValueError(
-            "Only Dataset, Table/RecordBatch, RecordBatchReader, a list "
-            "of Tables/RecordBatches, or iterable of batches are supported."
+            "Only Dataset, Scanner, Table/RecordBatch, RecordBatchReader, "
+            "a list of Tables/RecordBatches, or iterable of batches are "
+            "supported."
         )
 
     if format is None and isinstance(data, FileSystemDataset):
@@ -771,8 +769,12 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
 
     filesystem, base_dir = _resolve_filesystem_and_path(base_dir, filesystem)
 
+    if isinstance(data, Dataset):
+        scanner = data.scanner(use_threads=use_threads)
+    else:
+        scanner = data
+
     _filesystemdataset_write(
-        data, base_dir, basename_template, schema,
-        filesystem, partitioning, file_options, use_threads,
-        max_partitions
+        scanner, base_dir, basename_template, filesystem, partitioning,
+        file_options, max_partitions
     )

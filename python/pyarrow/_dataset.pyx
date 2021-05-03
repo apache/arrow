@@ -2866,14 +2866,12 @@ def _get_partition_keys(Expression partition_expression):
 
 
 def _filesystemdataset_write(
-    Dataset data not None,
+    Scanner data not None,
     object base_dir not None,
     str basename_template not None,
-    Schema schema not None,
     FileSystem filesystem not None,
     Partitioning partitioning not None,
     FileWriteOptions file_options not None,
-    bint use_threads,
     int max_partitions,
 ):
     """
@@ -2891,8 +2889,6 @@ def _filesystemdataset_write(
     c_options.max_partitions = max_partitions
     c_options.basename_template = tobytes(basename_template)
 
-    scanner = data.scanner(use_threads=use_threads)
-
-    c_scanner = (<Scanner> scanner).unwrap()
+    c_scanner = data.unwrap()
     with nogil:
         check_status(CFileSystemDataset.Write(c_options, c_scanner))
