@@ -17,7 +17,7 @@ mamba list
 
 pushd $DRONE_WORKSPACE
 
-pip install -e arrow/dev/archery[crossbow]
+pip install arrow/dev/archery[crossbow]
 archery crossbow \
   --queue-path . \
   --queue-remote ${QUEUE_REMOTE_URL} \
