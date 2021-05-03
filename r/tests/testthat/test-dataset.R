@@ -1574,6 +1574,19 @@ test_that("Dataset writing: dplyr methods", {
     new_ds %>% select(names(df1)) %>% collect(),
     df1 %>% filter(int == 4)
   )
+
+  # mutate
+  dst_dir3 <- tempfile()
+  ds %>%
+    filter(int == 4) %>%
+    mutate(twice = int * 2) %>%
+    write_dataset(dst_dir3, format = "feather")
+  new_ds <- open_dataset(dst_dir3, format = "feather")
+
+  expect_equivalent(
+    new_ds %>% select(c(names(df1), "twice")) %>% collect(),
+    df1 %>% filter(int == 4) %>% mutate(twice = int * 2)
+  )
 })
 
 test_that("Dataset writing: non-hive", {
