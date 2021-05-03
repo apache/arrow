@@ -56,7 +56,6 @@ build_array_expression <- function(FUN,
                                    args = list(...),
                                    options = empty_named_list()) {
   if (FUN == "-" && length(args) == 1L) {
-    # Unary - i.e. just make it negative
     if (inherits(args[[1]], c("ArrowObject", "array_expression"))) {
       return(build_array_expression("negate", args[[1]]))
     } else {
@@ -286,12 +285,9 @@ build_dataset_expression <- function(FUN,
                                      args = list(...),
                                      options = empty_named_list()) {
   if (FUN == "-" && length(args) == 1L) {
-    # Unary -, i.e. make it negative
     if (inherits(args[[1]], c("ArrowObject", "Expression"))) {
-      # TODO(ARROW-11950): do this in C++ compute
-      args <- list(0L, args[[1]])
+      return(build_array_expression("negate", args[[1]]))
     } else {
-      # Somehow this just works
       return(-args[[1]])
     }
   }
