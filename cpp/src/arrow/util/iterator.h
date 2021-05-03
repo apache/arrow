@@ -561,8 +561,8 @@ Iterator<T> MakeFlattenIterator(Iterator<Iterator<T>> it) {
 }
 
 template <typename Reader>
-auto MakeIteratorFromReader(const std::shared_ptr<Reader>& reader)
-    -> Iterator<typename decltype(std::declval<Reader>().Next())::ValueType> {
+Iterator<typename Reader::ValueType> MakeIteratorFromReader(
+    const std::shared_ptr<Reader>& reader) {
   return MakeFunctionIterator([reader] { return reader->Next(); });
 }
 
