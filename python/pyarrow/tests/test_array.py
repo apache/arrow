@@ -2730,11 +2730,11 @@ def test_binary_array_masked():
     assert [None] == masked_nulls.to_pylist()
 
     # Variable Length Binary
-    masked = pa.array(np.array([b'\x05']), type=pa.binary(-1),
+    masked = pa.array(np.array([b'\x05']), type=pa.binary(),
                       mask=np.array([False]))
     assert [b'\x05'] == masked.to_pylist()
 
-    masked_nulls = pa.array(np.array([b'\x05']), type=pa.binary(-1),
+    masked_nulls = pa.array(np.array([b'\x05']), type=pa.binary(),
                             mask=np.array([True]))
     assert [None] == masked_nulls.to_pylist()
 
