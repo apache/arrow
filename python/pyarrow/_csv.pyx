@@ -877,15 +877,13 @@ cdef class WriteOptions(_Weakrefable):
         CSV data
     """
     cdef:
-        unique_ptr[CCSVWriteOptions] options
+        CCSVWriteOptions options
 
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
-    def __cinit__(self, *argw, **kwargs):
-        self.options.reset(new CCSVWriteOptions(CCSVWriteOptions.Defaults()))
-
     def __init__(self, *, include_header=None, batch_size=None):
+        self.options = CCSVWriteOptions.Defaults()
         if include_header is not None:
             self.include_header = include_header
         if batch_size is not None:
@@ -896,11 +894,11 @@ cdef class WriteOptions(_Weakrefable):
         """
         Whether to write an initial header line with column names.
         """
-        return deref(self.options).include_header
+        return self.options.include_header
 
     @include_header.setter
     def include_header(self, value):
-        deref(self.options).include_header = value
+        self.options.include_header = value
 
     @property
     def batch_size(self):
@@ -908,18 +906,18 @@ cdef class WriteOptions(_Weakrefable):
         How many rows to process together when converting and writing
         CSV data.
         """
-        return deref(self.options).batch_size
+        return self.options.batch_size
 
     @batch_size.setter
     def batch_size(self, value):
-        deref(self.options).batch_size = value
+        self.options.batch_size = value
 
 
 cdef _get_write_options(WriteOptions write_options, CCSVWriteOptions* out):
     if write_options is None:
         out[0] = CCSVWriteOptions.Defaults()
     else:
-        out[0] = deref(write_options.options)
+        out[0] = write_options.options
 
 
 def write_csv(data, output_file, write_options=None,
