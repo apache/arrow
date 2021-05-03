@@ -45,15 +45,6 @@ COPY --from=hadolint /bin/hadolint /usr/bin/hadolint
 COPY ci/scripts/install_iwyu.sh /arrow/ci/scripts/
 RUN arrow/ci/scripts/install_iwyu.sh /tmp/iwyu /usr/local ${clang_tools}
 
-# Rust linter
-ARG rust=nightly-2021-03-24
-RUN curl https://sh.rustup.rs -sSf | \
-    sh -s -- --default-toolchain stable -y
-ENV PATH /root/.cargo/bin:$PATH
-RUN rustup install ${rust} && \
-    rustup default ${rust} && \
-    rustup component add rustfmt
-
 # Use python3 by default in scripts
 RUN ln -s /usr/bin/python3 /usr/local/bin/python && \
     ln -s /usr/bin/pip3 /usr/local/bin/pip

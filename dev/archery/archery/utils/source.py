@@ -89,11 +89,6 @@ class ArrowSources:
         return self.path / "r"
 
     @property
-    def rust(self):
-        """ Returns the rust directory of an Arrow sources. """
-        return self.path / "rust"
-
-    @property
     def git_backed(self):
         """ Indicate if the sources are backed by git. """
         return (self.path / ".git").exists()
