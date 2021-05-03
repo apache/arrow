@@ -17,6 +17,16 @@
 
 #pragma once
 
+#ifdef _WIN32
+
+// parquet.thrift's OPTIONAL RepetitionType conflicts with a #define from
+// above, so we undefine it
+#ifdef OPTIONAL
+#undef OPTIONAL
+#endif
+
+#endif
+
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
