@@ -1549,7 +1549,7 @@ test_that("Dataset writing: dplyr methods", {
   expect_true(dir.exists(dst_dir))
   expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
 
-  # select to specify schema
+  # select to specify schema (and rename)
   dst_dir2 <- tempfile()
   ds %>%
     group_by(int) %>%
@@ -1557,10 +1557,9 @@ test_that("Dataset writing: dplyr methods", {
     write_dataset(dst_dir2, format = "feather")
   new_ds <- open_dataset(dst_dir2, format = "feather")
 
-  # Renaming doesn't work, but mutating does??
   expect_equivalent(
-    collect(new_ds) %>% arrange(int) %>% print(),
-    rbind(df1[c("chr", "dbl", "int")], df2[c("chr", "dbl", "int")]) %>% rename(dubs = dbl) %>% print()
+    collect(new_ds) %>% arrange(int),
+    rbind(df1[c("chr", "dbl", "int")], df2[c("chr", "dbl", "int")]) %>% rename(dubs = dbl)
   )
 
   # filter to restrict written rows
