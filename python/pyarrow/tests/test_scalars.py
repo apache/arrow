@@ -77,6 +77,7 @@ def test_basics(value, ty, klass, deprecated):
     assert s != "else"
     assert hash(s) == hash(s)
     assert s.is_valid is True
+    assert s != None
     with pytest.warns(FutureWarning):
         assert isinstance(s, deprecated)
 
