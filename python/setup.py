@@ -203,6 +203,7 @@ class build_ext(_build_ext):
         '_plasma',
         '_s3fs',
         '_hdfs',
+        '_hdfsio',
         'gandiva']
 
     def _run_cmake(self):

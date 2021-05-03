@@ -51,7 +51,7 @@ type FromInput<T extends Int, TNull = any> =
 type FromArgs<T extends Int, TNull = any> = [FromInput<T, TNull>, boolean?];
 
 /** @ignore */
-type IntArrayCtor = TypedArrayConstructor<IntArray> | BigIntArrayConstructor<BigIntArray>;
+export type IntArrayCtor = TypedArrayConstructor<IntArray> | BigIntArrayConstructor<BigIntArray>;
 
 /** @ignore */
 export class IntVector<T extends Int = Int> extends BaseVector<T> {

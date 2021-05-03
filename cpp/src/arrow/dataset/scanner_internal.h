@@ -39,7 +39,8 @@ using internal::Executor;
 namespace dataset {
 
 inline Result<std::shared_ptr<RecordBatch>> FilterSingleBatch(
-    const std::shared_ptr<RecordBatch>& in, const Expression& filter, MemoryPool* pool) {
+    const std::shared_ptr<RecordBatch>& in, const compute::Expression& filter,
+    MemoryPool* pool) {
   compute::ExecContext exec_context{pool};
   ARROW_ASSIGN_OR_RAISE(Datum mask,
                         ExecuteScalarExpression(filter, Datum(in), &exec_context));
@@ -58,7 +59,8 @@ inline Result<std::shared_ptr<RecordBatch>> FilterSingleBatch(
   return filtered.record_batch();
 }
 
-inline RecordBatchIterator FilterRecordBatch(RecordBatchIterator it, Expression filter,
+inline RecordBatchIterator FilterRecordBatch(RecordBatchIterator it,
+                                             compute::Expression filter,
                                              MemoryPool* pool) {
   return MakeMaybeMapIterator(
       [=](std::shared_ptr<RecordBatch> in) -> Result<std::shared_ptr<RecordBatch>> {
@@ -68,7 +70,7 @@ inline RecordBatchIterator FilterRecordBatch(RecordBatchIterator it, Expression 
 }
 
 inline Result<std::shared_ptr<RecordBatch>> ProjectSingleBatch(
-    const std::shared_ptr<RecordBatch>& in, const Expression& projection,
+    const std::shared_ptr<RecordBatch>& in, const compute::Expression& projection,
     MemoryPool* pool) {
   compute::ExecContext exec_context{pool};
   ARROW_ASSIGN_OR_RAISE(Datum projected,
@@ -88,7 +90,8 @@ inline Result<std::shared_ptr<RecordBatch>> ProjectSingleBatch(
 }
 
 inline RecordBatchIterator ProjectRecordBatch(RecordBatchIterator it,
-                                              Expression projection, MemoryPool* pool) {
+                                              compute::Expression projection,
+                                              MemoryPool* pool) {
   return MakeMaybeMapIterator(
       [=](std::shared_ptr<RecordBatch> in) -> Result<std::shared_ptr<RecordBatch>> {
         return ProjectSingleBatch(in, projection, pool);
@@ -98,7 +101,8 @@ inline RecordBatchIterator ProjectRecordBatch(RecordBatchIterator it,
 
 class FilterAndProjectScanTask : public ScanTask {
  public:
-  explicit FilterAndProjectScanTask(std::shared_ptr<ScanTask> task, Expression partition)
+  explicit FilterAndProjectScanTask(std::shared_ptr<ScanTask> task,
+                                    compute::Expression partition)
       : ScanTask(task->options(), task->fragment()),
         task_(std::move(task)),
         partition_(std::move(partition)) {}
@@ -106,10 +110,10 @@ class FilterAndProjectScanTask : public ScanTask {
   Result<RecordBatchIterator> Execute() override {
     ARROW_ASSIGN_OR_RAISE(auto it, task_->Execute());
 
-    ARROW_ASSIGN_OR_RAISE(Expression simplified_filter,
+    ARROW_ASSIGN_OR_RAISE(compute::Expression simplified_filter,
                           SimplifyWithGuarantee(options()->filter, partition_));
 
-    ARROW_ASSIGN_OR_RAISE(Expression simplified_projection,
+    ARROW_ASSIGN_OR_RAISE(compute::Expression simplified_projection,
                           SimplifyWithGuarantee(options()->projection, partition_));
 
     RecordBatchIterator filter_it =
@@ -122,10 +126,10 @@ class FilterAndProjectScanTask : public ScanTask {
   Result<RecordBatchIterator> ToFilteredAndProjectedIterator(
       const RecordBatchVector& rbs) {
     auto it = MakeVectorIterator(rbs);
-    ARROW_ASSIGN_OR_RAISE(Expression simplified_filter,
+    ARROW_ASSIGN_OR_RAISE(compute::Expression simplified_filter,
                           SimplifyWithGuarantee(options()->filter, partition_));
 
-    ARROW_ASSIGN_OR_RAISE(Expression simplified_projection,
+    ARROW_ASSIGN_OR_RAISE(compute::Expression simplified_projection,
                           SimplifyWithGuarantee(options()->projection, partition_));
 
     RecordBatchIterator filter_it =
@@ -137,10 +141,10 @@ class FilterAndProjectScanTask : public ScanTask {
 
   Result<std::shared_ptr<RecordBatch>> FilterAndProjectBatch(
       const std::shared_ptr<RecordBatch>& batch) {
-    ARROW_ASSIGN_OR_RAISE(Expression simplified_filter,
+    ARROW_ASSIGN_OR_RAISE(compute::Expression simplified_filter,
                           SimplifyWithGuarantee(options()->filter, partition_));
 
-    ARROW_ASSIGN_OR_RAISE(Expression simplified_projection,
+    ARROW_ASSIGN_OR_RAISE(compute::Expression simplified_projection,
                           SimplifyWithGuarantee(options()->projection, partition_));
     ARROW_ASSIGN_OR_RAISE(auto filtered,
                           FilterSingleBatch(batch, simplified_filter, options_->pool));
@@ -165,16 +169,12 @@ class FilterAndProjectScanTask : public ScanTask {
           ARROW_ASSIGN_OR_RAISE(auto projected, FilterAndProjectBatch(batch));
           return visitor(projected);
         };
-    return task_->SafeExecute(executor).Then(
-        [this, filter_and_project_visitor](const RecordBatchVector& rbs) -> Status {
-          ARROW_ASSIGN_OR_RAISE(auto projected_it, ToFilteredAndProjectedIterator(rbs));
-          return projected_it.Visit(filter_and_project_visitor);
-        });
+    return task_->SafeVisit(executor, filter_and_project_visitor);
   }
 
  private:
   std::shared_ptr<ScanTask> task_;
-  Expression partition_;
+  compute::Expression partition_;
 };
 
 /// \brief GetScanTaskIterator transforms an Iterator<Fragment> in a
@@ -209,7 +209,7 @@ inline Status NestedFieldRefsNotImplemented() {
   return Status::NotImplemented("Nested field references in scans.");
 }
 
-inline Status SetProjection(ScanOptions* options, const Expression& projection) {
+inline Status SetProjection(ScanOptions* options, const compute::Expression& projection) {
   ARROW_ASSIGN_OR_RAISE(options->projection, projection.Bind(*options->dataset_schema));
 
   if (options->projection.type()->id() != Type::STRUCT) {
@@ -223,7 +223,7 @@ inline Status SetProjection(ScanOptions* options, const Expression& projection) 
   return Status::OK();
 }
 
-inline Status SetProjection(ScanOptions* options, std::vector<Expression> exprs,
+inline Status SetProjection(ScanOptions* options, std::vector<compute::Expression> exprs,
                             std::vector<std::string> names) {
   compute::ProjectOptions project_options{std::move(names)};
 
@@ -243,14 +243,14 @@ inline Status SetProjection(ScanOptions* options, std::vector<Expression> exprs,
 }
 
 inline Status SetProjection(ScanOptions* options, std::vector<std::string> names) {
-  std::vector<Expression> exprs(names.size());
+  std::vector<compute::Expression> exprs(names.size());
   for (size_t i = 0; i < exprs.size(); ++i) {
-    exprs[i] = field_ref(names[i]);
+    exprs[i] = compute::field_ref(names[i]);
   }
   return SetProjection(options, std::move(exprs), std::move(names));
 }
 
-inline Status SetFilter(ScanOptions* options, const Expression& filter) {
+inline Status SetFilter(ScanOptions* options, const compute::Expression& filter) {
   for (const auto& ref : FieldsInExpression(filter)) {
     if (!ref.name()) return NestedFieldRefsNotImplemented();
 

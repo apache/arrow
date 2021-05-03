@@ -51,23 +51,12 @@ fi
 
 cd "${SOURCE_DIR}"
 
-: ${BINTRAY_REPOSITORY_CUSTOM:=${BINTRAY_REPOSITORY:-}}
-: ${SOURCE_BINTRAY_REPOSITORY_CUSTOM:=${SOURCE_BINTRAY_REPOSITORY:-}}}
-
 if [ ! -f .env ]; then
   echo "You must create $(pwd)/.env"
   echo "You can use $(pwd)/.env.example as template"
   exit 1
 fi
 . .env
-
-if [ -n "${BINTRAY_REPOSITORY_CUSTOM}" ]; then
-  BINTRAY_REPOSITORY=${BINTRAY_REPOSITORY_CUSTOM}
-fi
-
-if [ -n "${SOURCE_BINTRAY_REPOSITORY_CUSTOM}" ]; then
-  SOURCE_BINTRAY_REPOSITORY=${SOURCE_BINTRAY_REPOSITORY_CUSTOM}
-fi
 
 . utils-binary.sh
 
@@ -131,8 +120,6 @@ docker_run \
     "${rake_tasks[@]}" \
     APT_TARGETS=$(IFS=,; echo "${apt_targets[*]}") \
     ARTIFACTS_DIR="${tmp_dir}/artifacts" \
-    BINTRAY_REPOSITORY=${BINTRAY_REPOSITORY} \
     RC=${rc} \
-    SOURCE_BINTRAY_REPOSITORY=${SOURCE_BINTRAY_REPOSITORY} \
     VERSION=${version} \
     YUM_TARGETS=$(IFS=,; echo "${yum_targets[*]}")

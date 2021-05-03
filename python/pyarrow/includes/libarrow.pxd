@@ -1583,6 +1583,9 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         c_bool newlines_in_values
         c_bool ignore_empty_lines
 
+        CCSVParseOptions()
+        CCSVParseOptions(CCSVParseOptions&&)
+
         @staticmethod
         CCSVParseOptions Defaults()
 
@@ -1601,6 +1604,9 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         vector[c_string] include_columns
         c_bool include_missing_columns
 
+        CCSVConvertOptions()
+        CCSVConvertOptions(CCSVConvertOptions&&)
+
         @staticmethod
         CCSVConvertOptions Defaults()
 
@@ -1610,6 +1616,9 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         int32_t skip_rows
         vector[c_string] column_names
         c_bool autogenerate_column_names
+
+        CCSVReadOptions()
+        CCSVReadOptions(CCSVReadOptions&&)
 
         @staticmethod
         CCSVReadOptions Defaults()

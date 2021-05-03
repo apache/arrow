@@ -566,7 +566,7 @@ class ControlledDataset : public Dataset {
   void FinishFragment(int fragment_index) { fragments_[fragment_index]->Finish(); }
 
  protected:
-  Result<FragmentIterator> GetFragmentsImpl(Expression predicate) override {
+  Result<FragmentIterator> GetFragmentsImpl(compute::Expression predicate) override {
     std::vector<std::shared_ptr<Fragment>> casted_fragments(fragments_.begin(),
                                                             fragments_.end());
     return MakeVectorIterator(std::move(casted_fragments));

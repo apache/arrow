@@ -190,9 +190,6 @@ r/inst/include/cpp11.hpp
 r/inst/include/cpp11/*.hpp
 .gitattributes
 ruby/red-arrow/.yardopts
-rust/arrow/test/data/*.csv
-rust/rust-toolchain
-rust/arrow-flight/src/arrow.flight.protocol.rs
 julia/Arrow/Project.toml
 julia/Arrow/README.md
 julia/Arrow/docs/Manifest.toml
@@ -202,6 +199,3 @@ julia/Arrow/docs/mkdocs.yml
 julia/Arrow/docs/src/index.md
 julia/Arrow/docs/src/manual.md
 julia/Arrow/docs/src/reference.md
-rust/ballista/rust/benchmarks/tpch/queries/q*.sql
-rust/ballista/rust/scheduler/testdata/*
-rust/ballista/ui/scheduler/yarn.lock

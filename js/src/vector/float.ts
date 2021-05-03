@@ -41,7 +41,7 @@ type FromInput<T extends Float, TNull = any> =
     VectorBuilderOptionsAsync<T, TNull> ;
 
 /** @ignore */
-type FloatArrayCtor = TypedArrayConstructor<FloatArray>;
+export type FloatArrayCtor = TypedArrayConstructor<FloatArray>;
 
 /** @ignore */
 export class FloatVector<T extends Float = Float> extends BaseVector<T> {

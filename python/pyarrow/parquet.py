@@ -510,7 +510,9 @@ data_page_size : int, default None
 allow_truncated_timestamps : bool, default False
     Allow loss of data when coercing timestamps to a particular
     resolution. E.g. if microsecond or nanosecond data is lost when coercing to
-    'ms', do not raise an exception.
+    'ms', do not raise an exception. Passing ``allow_truncated_timestamp=True``
+    will NOT result in the truncation exception being ignored unless
+    ``coerce_timestamps`` is not None.
 compression : str or dict
     Specify the compression codec, either on a general basis or per-column.
     Valid values: {'NONE', 'SNAPPY', 'GZIP', 'BROTLI', 'LZ4', 'ZSTD'}.

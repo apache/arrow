@@ -157,7 +157,8 @@ class TestParquetFileFormat : public FileFormatFixtureMixin<ParquetFormatHelper>
   }
 
   void CountRowGroupsInFragment(const std::shared_ptr<Fragment>& fragment,
-                                std::vector<int> expected_row_groups, Expression filter) {
+                                std::vector<int> expected_row_groups,
+                                compute::Expression filter) {
     SetFilter(filter);
 
     auto parquet_fragment = checked_pointer_cast<ParquetFileFragment>(fragment);
@@ -271,7 +272,8 @@ class TestParquetFileFormatScan : public FileFormatScanMixin<ParquetFormatHelper
   }
 
   void CountRowGroupsInFragment(const std::shared_ptr<Fragment>& fragment,
-                                std::vector<int> expected_row_groups, Expression filter) {
+                                std::vector<int> expected_row_groups,
+                                compute::Expression filter) {
     SetFilter(filter);
 
     auto parquet_fragment = checked_pointer_cast<ParquetFileFragment>(fragment);
