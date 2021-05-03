@@ -573,6 +573,15 @@ class ARROW_MUST_USE_TYPE Future {
   FRIEND_TEST(FutureRefTest, HeadRemoved);
 };
 
+namespace internal {
+
+template <typename T>
+inline Status GenericToStatus(const Future<T>& fut) {
+  return fut.status();
+}
+
+}  // namespace internal
+
 template <typename T>
 class WeakFuture {
  public:

@@ -286,6 +286,16 @@ class ARROW_EXPORT ThreadPool : public Executor {
   // tasks are finished.
   Status Shutdown(bool wait = true);
 
+  /// Return the ThreadPool associated with the current thread of execution,
+  /// or nullptr if the current thread of execution is not associated with a
+  /// ThreadPool.
+  static ThreadPool* GetCurrentThreadPool();
+
+  /// Return an id associated with the current thread of execution. The returned
+  /// value will be in the range [0, capacity), and if the current thread is not
+  /// associated with a ThreadPool will always be 0.
+  static int GetCurrentThreadId();
+
   struct State;
 
  protected:

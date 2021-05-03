@@ -411,7 +411,7 @@ TEST_F(TestThreadPool, QuickShutdown) {
   {
     auto pool = this->MakeThreadPool(3);
     add_tester.SpawnTasks(pool.get(), task_slow_add<int>{/*seconds=*/0.02});
-    ASSERT_OK(pool->Shutdown(false /* wait */));
+    ASSERT_OK(pool->Shutdown(/*wait=*/false));
     add_tester.CheckNotAllComputed();
   }
   add_tester.CheckNotAllComputed();
@@ -510,6 +510,56 @@ TEST_F(TestThreadPool, Submit) {
     ASSERT_OK_AND_ASSIGN(auto fut, pool->Submit(SleepFor, 0.001));
     ASSERT_OK(fut.status());
   }
+}
+
+TEST_F(TestThreadPool, GetCurrentThreadPool) {
+  ASSERT_EQ(ThreadPool::GetCurrentThreadPool(), nullptr);
+
+  auto pool = this->MakeThreadPool(5);
+
+  std::vector<Future<>> futures(1000);
+
+  for (size_t i = 0; i < futures.size(); ++i) {
+    ASSERT_OK_AND_ASSIGN(futures[i], pool->Submit([i, pool] {
+      if (ThreadPool::GetCurrentThreadPool() == pool.get()) {
+        return Status::OK();
+      }
+      return Status::Invalid("Task #", i, " did not point to the associated ThreadPool");
+    }));
+  }
+
+  ASSERT_OK(AllComplete(futures));
+  ASSERT_OK(pool->Shutdown());
+}
+
+TEST_F(TestThreadPool, GetCurrentThreadId) {
+  ASSERT_EQ(ThreadPool::GetCurrentThreadId(), 0);
+
+  const int capacity = 5;
+
+  auto pool = this->MakeThreadPool(capacity);
+
+  std::vector<Future<>> futures(1000);
+  std::vector<util::optional<std::thread::id>> std_ids(capacity);
+
+  for (size_t i = 0; i < futures.size(); ++i) {
+    ASSERT_OK_AND_ASSIGN(futures[i], pool->Submit([&std_ids, i, pool] {
+      auto id = ThreadPool::GetCurrentThreadId();
+      if (!std_ids[id].has_value()) {
+        std_ids[id] = std::this_thread::get_id();
+        return Status::OK();
+      }
+
+      if (std_ids[id] == std::this_thread::get_id()) {
+        return Status::OK();
+      }
+
+      return Status::Invalid("Task #", i, " did not point to the associated ThreadPool");
+    }));
+  }
+
+  ASSERT_OK(AllComplete(futures));
+  ASSERT_OK(pool->Shutdown());
 }
 
 TEST_F(TestThreadPool, SubmitWithStopToken) {
