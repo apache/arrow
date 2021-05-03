@@ -169,14 +169,16 @@ struct KleeneAnd : Commutative<KleeneAnd> {
     bool right_false = right.is_valid && !checked_cast<const BooleanScalar&>(right).value;
 
     if (right_false) {
-      GetBitmap(*out, 0).SetBitsTo(true);
+      out->null_count = 0;
+      out->buffers[0] = nullptr;
       GetBitmap(*out, 1).SetBitsTo(false);  // all false case
       return Status::OK();
     }
 
     if (right_true) {
       if (left.GetNullCount() == 0) {
-        GetBitmap(*out, 0).SetBitsTo(true);
+        out->null_count = 0;
+        out->buffers[0] = nullptr;
       } else {
         GetBitmap(*out, 0).CopyFrom(GetBitmap(left, 0));
       }
@@ -201,7 +203,8 @@ struct KleeneAnd : Commutative<KleeneAnd> {
   static Status Call(KernelContext* ctx, const ArrayData& left, const ArrayData& right,
                      ArrayData* out) {
     if (left.GetNullCount() == 0 && right.GetNullCount() == 0) {
-      GetBitmap(*out, 0).SetBitsTo(true);
+      out->null_count = 0;
+      out->buffers[0] = nullptr;
       return And::Call(ctx, left, right, out);
     }
     auto compute_word = [](uint64_t left_true, uint64_t left_false, uint64_t right_true,
@@ -269,14 +272,16 @@ struct KleeneOr : Commutative<KleeneOr> {
     bool right_false = right.is_valid && !checked_cast<const BooleanScalar&>(right).value;
 
     if (right_true) {
-      GetBitmap(*out, 0).SetBitsTo(true);
+      out->null_count = 0;
+      out->buffers[0] = nullptr;
       GetBitmap(*out, 1).SetBitsTo(true);  // all true case
       return Status::OK();
     }
 
     if (right_false) {
       if (left.GetNullCount() == 0) {
-        GetBitmap(*out, 0).SetBitsTo(true);
+        out->null_count = 0;
+        out->buffers[0] = nullptr;
       } else {
         GetBitmap(*out, 0).CopyFrom(GetBitmap(left, 0));
       }
@@ -301,7 +306,8 @@ struct KleeneOr : Commutative<KleeneOr> {
   static Status Call(KernelContext* ctx, const ArrayData& left, const ArrayData& right,
                      ArrayData* out) {
     if (left.GetNullCount() == 0 && right.GetNullCount() == 0) {
-      GetBitmap(*out, 0).SetBitsTo(true);
+      out->null_count = 0;
+      out->buffers[0] = nullptr;
       return Or::Call(ctx, left, right, out);
     }
 
@@ -391,14 +397,16 @@ struct KleeneAndNot {
     bool left_false = left.is_valid && !checked_cast<const BooleanScalar&>(left).value;
 
     if (left_false) {
-      GetBitmap(*out, 0).SetBitsTo(true);
+      out->null_count = 0;
+      out->buffers[0] = nullptr;
       GetBitmap(*out, 1).SetBitsTo(false);  // all false case
       return Status::OK();
     }
 
     if (left_true) {
       if (right.GetNullCount() == 0) {
-        GetBitmap(*out, 0).SetBitsTo(true);
+        out->null_count = 0;
+        out->buffers[0] = nullptr;
       } else {
         GetBitmap(*out, 0).CopyFrom(GetBitmap(right, 0));
       }
@@ -428,7 +436,8 @@ struct KleeneAndNot {
   static Status Call(KernelContext* ctx, const ArrayData& left, const ArrayData& right,
                      ArrayData* out) {
     if (left.GetNullCount() == 0 && right.GetNullCount() == 0) {
-      GetBitmap(*out, 0).SetBitsTo(true);
+      out->null_count = 0;
+      out->buffers[0] = nullptr;
       return AndNot::Call(ctx, left, right, out);
     }
 
