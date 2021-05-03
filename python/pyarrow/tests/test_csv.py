@@ -942,6 +942,14 @@ class BaseTestCSVRead:
         assert isinstance(e, pa.ArrowCancelled)
         assert e.signum == signal.SIGINT
 
+    def test_cancellation_disabled(self):
+        # ARROW-12622: reader would segfault when the cancelling signal
+        # handler was not enabled (e.g. if disabled, or if not on the
+        # main thread)
+        t = threading.Thread(target=lambda: self.read_bytes(b"f64\n0.1"))
+        t.start()
+        t.join()
+
 
 class TestSerialCSVRead(BaseTestCSVRead, unittest.TestCase):
 
