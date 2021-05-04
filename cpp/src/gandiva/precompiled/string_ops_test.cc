@@ -1683,4 +1683,102 @@ TEST(TestStringOps, TestConvertToBigEndian) {
   }
 #endif
 }
+TEST(TestStringOps, TestCastINTVarbinary) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+
+  EXPECT_EQ(castINT_varbinary(ctx_ptr, "-FFF3", 5), -65523);
+  EXPECT_FALSE(ctx.has_error());
+  ctx.Reset();
+
+  EXPECT_EQ(castINT_varbinary(ctx_ptr, "FFF3", 4), 65523);
+  EXPECT_FALSE(ctx.has_error());
+  ctx.Reset();
+
+  EXPECT_EQ(castINT_varbinary(ctx_ptr, "-7FFFFFFF", 9), INT32_MIN+1);
+  EXPECT_FALSE(ctx.has_error());
+  ctx.Reset();
+
+  EXPECT_EQ(castINT_varbinary(ctx_ptr, "7FFFFFFF", 8), INT32_MAX);
+  EXPECT_FALSE(ctx.has_error());
+  ctx.Reset();
+
+  EXPECT_EQ(castINT_varbinary(ctx_ptr, "0", 1), 0);
+  EXPECT_FALSE(ctx.has_error());
+  ctx.Reset();
+
+  EXPECT_EQ(castINT_varbinary(ctx_ptr, "-0", 2), 0);
+  EXPECT_FALSE(ctx.has_error());
+  ctx.Reset();
+
+  castINT_varbinary(ctx_ptr, "", 0);
+  EXPECT_STREQ(ctx.get_error().c_str(), "Can't cast an empty string.");
+  ctx.Reset();
+
+  castINT_varbinary(ctx_ptr, "-", 1);
+  EXPECT_STREQ(ctx.get_error().c_str(), "Can't cast hexadecimal with only a minus sign.");
+  ctx.Reset();
+
+  castINT_varbinary(ctx_ptr, "8FFFFFFF", 8);
+  EXPECT_STREQ(ctx.get_error().c_str(), "Integer overflow.");
+  ctx.Reset();
+
+  castINT_varbinary(ctx_ptr, "-8FFFFFFF", 9);
+  EXPECT_STREQ(ctx.get_error().c_str(), "Integer overflow.");
+  ctx.Reset();
+
+  castINT_varbinary(ctx_ptr, "-8FFFFFGF", 8);
+  EXPECT_STREQ(ctx.get_error().c_str(), "The hexadecimal given has invalid characters.");
+  ctx.Reset();
+}
+
+TEST(TestStringOps, TestCastBIGINTVarbinary) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+
+  EXPECT_EQ(castBIGINT_varbinary(ctx_ptr, "-FFF3", 5), -65523);
+  EXPECT_FALSE(ctx.has_error());
+  ctx.Reset();
+
+  EXPECT_EQ(castBIGINT_varbinary(ctx_ptr, "FFF3", 4), 65523);
+  EXPECT_FALSE(ctx.has_error());
+  ctx.Reset();
+
+  EXPECT_EQ(castBIGINT_varbinary(ctx_ptr, "-7FFFFFFFFFFFFFFF", 17), INT64_MIN+1);
+  EXPECT_FALSE(ctx.has_error());
+  ctx.Reset();
+
+  EXPECT_EQ(castBIGINT_varbinary(ctx_ptr, "7FFFFFFFFFFFFFFF", 16), INT64_MAX);
+  EXPECT_FALSE(ctx.has_error());
+  ctx.Reset();
+
+  EXPECT_EQ(castBIGINT_varbinary(ctx_ptr, "0", 1), 0);
+  EXPECT_FALSE(ctx.has_error());
+  ctx.Reset();
+
+  EXPECT_EQ(castBIGINT_varbinary(ctx_ptr, "-0", 2), 0);
+  EXPECT_FALSE(ctx.has_error());
+  ctx.Reset();
+
+  castBIGINT_varbinary(ctx_ptr, "", 0);
+  EXPECT_STREQ(ctx.get_error().c_str(), "Can't cast an empty string.");
+  ctx.Reset();
+
+  castBIGINT_varbinary(ctx_ptr, "-", 1);
+  EXPECT_STREQ(ctx.get_error().c_str(), "Can't cast hexadecimal with only a minus sign.");
+  ctx.Reset();
+
+  castBIGINT_varbinary(ctx_ptr, "8FFFFFFFFFFFFFFF", 16);
+  EXPECT_STREQ(ctx.get_error().c_str(), "Integer overflow.");
+  ctx.Reset();
+
+  castBIGINT_varbinary(ctx_ptr, "-8FFFFFFFFFFFFFFF", 17);
+  EXPECT_STREQ(ctx.get_error().c_str(), "Integer overflow.");
+  ctx.Reset();
+
+  castBIGINT_varbinary(ctx_ptr, "-8FFFFFGF", 8);
+  EXPECT_STREQ(ctx.get_error().c_str(), "The hexadecimal given has invalid characters.");
+  ctx.Reset();
+}
+
 }  // namespace gandiva

@@ -364,10 +364,10 @@ const char* gdv_fn_base64_decode_utf8(int64_t context, const char* in, int32_t i
   return ret;
 }
 
-#define CAST_NUMERIC_STRING(OUT_TYPE, ARROW_TYPE, TYPE_NAME, INNER_TYPE)             \
+#define CAST_NUMERIC_FROM_STRING(OUT_TYPE, ARROW_TYPE, TYPE_NAME)                    \
   GANDIVA_EXPORT                                                                     \
-  OUT_TYPE gdv_fn_cast##TYPE_NAME##_##INNER_TYPE(int64_t context, const char* data,  \
-                                                 int32_t len) {                      \
+  OUT_TYPE gdv_fn_cast##TYPE_NAME##_utf8(int64_t context, const char* data,          \
+                                         int32_t len) {                              \
     OUT_TYPE val = 0;                                                                \
     /* trim leading and trailing spaces */                                           \
     int32_t trimmed_len;                                                             \
@@ -388,15 +388,10 @@ const char* gdv_fn_base64_decode_utf8(int64_t context, const char* in, int32_t i
     return val;                                                                      \
   }
 
-CAST_NUMERIC_STRING(int32_t, arrow::Int32Type, INT, utf8)
-CAST_NUMERIC_STRING(int64_t, arrow::Int64Type, BIGINT, utf8)
-CAST_NUMERIC_STRING(float, arrow::FloatType, FLOAT4, utf8)
-CAST_NUMERIC_STRING(double, arrow::DoubleType, FLOAT8, utf8)
-
-CAST_NUMERIC_STRING(int32_t, arrow::Int32Type, INT, varbinary)
-CAST_NUMERIC_STRING(int64_t, arrow::Int64Type, BIGINT, varbinary)
-CAST_NUMERIC_STRING(float, arrow::FloatType, FLOAT4, varbinary)
-CAST_NUMERIC_STRING(double, arrow::DoubleType, FLOAT8, varbinary)
+CAST_NUMERIC_FROM_STRING(int32_t, arrow::Int32Type, INT)
+CAST_NUMERIC_FROM_STRING(int64_t, arrow::Int64Type, BIGINT)
+CAST_NUMERIC_FROM_STRING(float, arrow::FloatType, FLOAT4)
+CAST_NUMERIC_FROM_STRING(double, arrow::DoubleType, FLOAT8)
 
 #undef CAST_NUMERIC_STRING
 
@@ -1060,36 +1055,6 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc(
       "gdv_fn_castVARCHAR_float64_int64", types->i8_ptr_type() /*return_type*/, args,
       reinterpret_cast<void*>(gdv_fn_castVARCHAR_float64_int64));
-
-  args = {types->i64_type(),     // int64_t context_ptr
-          types->i8_ptr_type(),  // const char* data
-          types->i32_type()};    // int32_t lenr
-
-  engine->AddGlobalMappingForFunc("gdv_fn_castINT_varbinary", types->i32_type(), args,
-                                  reinterpret_cast<void*>(gdv_fn_castINT_varbinary));
-
-  args = {types->i64_type(),     // int64_t context_ptr
-          types->i8_ptr_type(),  // const char* data
-          types->i32_type()};    // int32_t lenr
-
-  engine->AddGlobalMappingForFunc("gdv_fn_castBIGINT_varbinary", types->i64_type(), args,
-                                  reinterpret_cast<void*>(gdv_fn_castBIGINT_varbinary));
-
-  args = {types->i64_type(),     // int64_t context_ptr
-          types->i8_ptr_type(),  // const char* data
-          types->i32_type()};    // int32_t lenr
-
-  engine->AddGlobalMappingForFunc("gdv_fn_castFLOAT4_varbinary", types->float_type(),
-                                  args,
-                                  reinterpret_cast<void*>(gdv_fn_castFLOAT4_varbinary));
-
-  args = {types->i64_type(),     // int64_t context_ptr
-          types->i8_ptr_type(),  // const char* data
-          types->i32_type()};    // int32_t lenr
-
-  engine->AddGlobalMappingForFunc("gdv_fn_castFLOAT8_varbinary", types->double_type(),
-                                  args,
-                                  reinterpret_cast<void*>(gdv_fn_castFLOAT8_varbinary));
 
   // gdv_fn_sha1_int8
   args = {

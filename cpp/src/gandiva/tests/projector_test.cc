@@ -1070,7 +1070,7 @@ TEST_F(TestProjector, TestCastFunction) {
 
   //  {cast_expr_float4, cast_expr_float8, cast_expr_int4, cast_expr_int8}
   auto status = Projector::Make(
-      schema, {cast_expr_float4, cast_expr_float8, cast_expr_int4, cast_expr_int8},
+      schema, {cast_expr_int4, cast_expr_int8},
       TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok());
 
@@ -1137,16 +1137,10 @@ TEST_F(TestProjector, TestCastVarbinaryFunction) {
   auto schema = arrow::schema({field0});
 
   // output fields
-  auto res_float4 = field("res_float4", arrow::float32());
-  auto res_float8 = field("res_float8", arrow::float64());
   auto res_int4 = field("res_int4", arrow::int32());
   auto res_int8 = field("res_int8", arrow::int64());
 
   // Build expression
-  auto cast_expr_float4 =
-      TreeExprBuilder::MakeExpression("castFLOAT4", {field0}, res_float4);
-  auto cast_expr_float8 =
-      TreeExprBuilder::MakeExpression("castFLOAT8", {field0}, res_float8);
   auto cast_expr_int4 = TreeExprBuilder::MakeExpression("castINT", {field0}, res_int4);
   auto cast_expr_int8 = TreeExprBuilder::MakeExpression("castBIGINT", {field0}, res_int8);
 
@@ -1163,13 +1157,11 @@ TEST_F(TestProjector, TestCastVarbinaryFunction) {
 
   // Last validity is false and the cast functions throw error when input is empty. Should
   // not be evaluated due to addition of NativeFunction::kCanReturnErrors
-  auto array0 = MakeArrowArrayBinary({"1", "2", "3", "4"}, {true, true, true, false});
+  auto array0 = MakeArrowArrayBinary({"25", "-7FFFFFFF", "7FFFFFFF", "4"}, {true, true, true, false});
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
 
-  auto out_float4 = MakeArrowArrayFloat32({1, 2, 3, 0}, {true, true, true, false});
-  auto out_float8 = MakeArrowArrayFloat64({1, 2, 3, 0}, {true, true, true, false});
-  auto out_int4 = MakeArrowArrayInt32({1, 2, 3, 0}, {true, true, true, false});
-  auto out_int8 = MakeArrowArrayInt64({1, 2, 3, 0}, {true, true, true, false});
+  auto out_int4 = MakeArrowArrayInt32({37, INT32_MIN+1, INT32_MAX, 0}, {true, true, true, false});
+  auto out_int8 = MakeArrowArrayInt64({37, INT32_MIN+1, INT32_MAX, 0}, {true, true, true, false});
 
   arrow::ArrayVector outputs;
 
@@ -1177,10 +1169,8 @@ TEST_F(TestProjector, TestCastVarbinaryFunction) {
   status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
 
-  EXPECT_ARROW_ARRAY_EQUALS(out_float4, outputs.at(0));
-  EXPECT_ARROW_ARRAY_EQUALS(out_float8, outputs.at(1));
-  EXPECT_ARROW_ARRAY_EQUALS(out_int4, outputs.at(2));
-  EXPECT_ARROW_ARRAY_EQUALS(out_int8, outputs.at(3));
+  EXPECT_ARROW_ARRAY_EQUALS(out_int4, outputs.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(out_int8, outputs.at(1));
 }
 
 TEST_F(TestProjector, TestToDate) {
