@@ -94,9 +94,7 @@ class MavenDefinition:
         if os.path.exists(build_dir):
             # Extra safety to ensure we're deleting a build folder.
             if not MavenBuild.is_build_dir(build_dir):
-                raise FileExistsError(
-                    "{} is not a maven build".format(build_dir)
-                )
+                raise FileExistsError(f"{build_dir} is not a maven build")
 
         cmd_kwargs = cmd_kwargs if cmd_kwargs else {}
         assert MavenBuild.is_build_dir(build_dir)
@@ -126,7 +124,7 @@ class MavenDefinition:
         return arguments
 
     def __repr__(self):
-        return "MavenDefinition[source={}]".format(self.source)
+        return f"MavenDefinition[source={self.source}]"
 
 
 class MavenBuild(Maven):
@@ -175,7 +173,7 @@ class MavenBuild(Maven):
             verbose=verbose,
             cwd=cwd,
             env=self.definition.env,
-            **kwargs
+            **kwargs,
         )
 
     def list(self, *argv, verbose=False, **kwargs):
@@ -187,7 +185,7 @@ class MavenBuild(Maven):
             verbose=verbose,
             cwd=cwd,
             env=self.definition.env,
-            **kwargs
+            **kwargs,
         )
 
     def benchmark(self, *argv, verbose=False, **kwargs):
@@ -199,7 +197,7 @@ class MavenBuild(Maven):
             verbose=verbose,
             cwd=cwd,
             env=self.definition.env,
-            **kwargs
+            **kwargs,
         )
 
     @staticmethod
@@ -224,7 +222,7 @@ class MavenBuild(Maven):
         be lost.
         """
         if not MavenBuild.is_build_dir(path):
-            raise ValueError("Not a valid MavenBuild path: {}".format(path))
+            raise ValueError(f"Not a valid MavenBuild path: {path}")
 
         return MavenBuild(path, definition=None)
 

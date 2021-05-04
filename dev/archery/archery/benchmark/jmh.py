@@ -58,7 +58,7 @@ class JavaMicrobenchmarkHarnessCommand(Command):
     def list_benchmarks(self):
         argv = []
         if self.benchmark_filter:
-            argv.append("-Dbenchmark.filter={}".format(self.benchmark_filter))
+            argv.append(f"-Dbenchmark.filter={self.benchmark_filter}")
         result = self.build.list(
             *argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
@@ -79,14 +79,12 @@ class JavaMicrobenchmarkHarnessCommand(Command):
     def results(self, repetitions):
         with NamedTemporaryFile(suffix=".json") as out:
             argv = [
-                "-Dbenchmark.runs={}".format(repetitions),
-                "-Dbenchmark.resultfile={}".format(out.name),
+                f"-Dbenchmark.runs={repetitions}",
+                f"-Dbenchmark.resultfile={out.name}",
                 "-Dbenchmark.resultformat=json",
             ]
             if self.benchmark_filter:
-                argv.append(
-                    "-Dbenchmark.filter={}".format(self.benchmark_filter)
-                )
+                argv.append(f"-Dbenchmark.filter={self.benchmark_filter}")
 
             self.build.benchmark(*argv, check=True)
             return json.load(out)
@@ -102,7 +100,7 @@ class JavaMicrobenchmarkHarnessObservation:
         forks,
         warmupIterations,
         measurementIterations,
-        **counters
+        **counters,
     ):
         self.name = benchmark
         self.primaryMetric = primaryMetric
@@ -198,9 +196,7 @@ class JavaMicrobenchmarkHarness(Benchmark):
         )
 
     def __repr__(self):
-        return "JavaMicrobenchmark[name={},runs={}]".format(
-            self.name, self.runs
-        )
+        return f"JavaMicrobenchmark[name={self.name},runs={self.runs}]"
 
     @classmethod
     def from_json(cls, payload):

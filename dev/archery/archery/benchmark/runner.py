@@ -269,7 +269,7 @@ class JavaBenchmarkRunner(BenchmarkRunner):
         suite_cmd = JavaMicrobenchmarkHarnessCommand(self.build)
         benchmark_names = suite_cmd.list_benchmarks()
         for benchmark_name in benchmark_names:
-            yield "{}".format(benchmark_name)
+            yield f"{benchmark_name}"
 
     @property
     def suites(self):
@@ -279,7 +279,7 @@ class JavaBenchmarkRunner(BenchmarkRunner):
 
         # Filter may exclude all benchmarks
         if not suite:
-            logger.debug("Suite {} executed but no results".format(suite_name))
+            logger.debug(f"Suite {suite_name} executed but no results")
             return
 
         yield suite
