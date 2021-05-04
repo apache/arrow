@@ -76,18 +76,17 @@ static Status InferDecimalPrecisionAndScale(PyObject* python_decimal, int32_t* p
 
   int32_t num_additional_zeros;
 
-  if (num_digits <= abs_exponent) {
+  if ((exponent < 0) && (num_digits <= abs_exponent)) {
     DCHECK_NE(exponent, 0) << "exponent should never be zero here";
 
-    // we have leading/trailing zeros, leading if exponent is negative
-    num_additional_zeros = exponent < 0 ? abs_exponent - num_digits : exponent;
-    *scale = static_cast<int32_t>(exponent < 0) * -exponent;
+    // we have leading zeros, need to add to precision
+    num_additional_zeros = abs_exponent - num_digits;
   } else {
     // we can use the number of digits as the precision
     num_additional_zeros = 0;
-    *scale = -exponent;
   }
 
+  *scale = -exponent;
   *precision = num_digits + num_additional_zeros;
   return Status::OK();
 }

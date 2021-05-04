@@ -1511,7 +1511,7 @@ def test_sequence_decimal_infer():
         # scientific power notation
         (decimal.Decimal('1.23E+4'), pa.decimal128(3, -2)),
         (decimal.Decimal('123E+2'), pa.decimal128(3, -2)),
-        (decimal.Decimal('123E+4'), pa.decimal128(7, 0)),
+        (decimal.Decimal('123E+4'), pa.decimal128(3, -4)),
         # leading zeros
         (decimal.Decimal('0.0123'), pa.decimal128(4, 4)),
         (decimal.Decimal('0.01230'), pa.decimal128(5, 5)),
@@ -1536,7 +1536,7 @@ def test_sequence_decimal_infer_mixed():
         ([decimal.Decimal('123e2'), decimal.Decimal('4567e3')],
          pa.decimal128(5, -2)),
         ([decimal.Decimal('123e4'), decimal.Decimal('4567e2')],
-         pa.decimal128(7, 0)),
+         pa.decimal128(5, -2)),
         ([decimal.Decimal('0.123'), decimal.Decimal('0.04567')],
          pa.decimal128(5, 5)),
     ]

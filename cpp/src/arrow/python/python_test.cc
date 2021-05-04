@@ -329,8 +329,8 @@ TEST_F(DecimalTest, TestInferAllLeadingZerosExponentialNotationPositive) {
   OwnedRef python_decimal(this->CreatePythonDecimal(decimal_string));
   internal::DecimalMetadata metadata;
   ASSERT_OK(metadata.Update(python_decimal.obj()));
-  ASSERT_EQ(4, metadata.precision());
-  ASSERT_EQ(0, metadata.scale());
+  ASSERT_EQ(1, metadata.precision());
+  ASSERT_EQ(-3, metadata.scale());
 }
 
 TEST_F(DecimalTest, TestInferAllLeadingZerosExponentialNotationNegative) {
@@ -338,8 +338,8 @@ TEST_F(DecimalTest, TestInferAllLeadingZerosExponentialNotationNegative) {
   OwnedRef python_decimal(this->CreatePythonDecimal(decimal_string));
   internal::DecimalMetadata metadata;
   ASSERT_OK(metadata.Update(python_decimal.obj()));
-  ASSERT_EQ(2, metadata.precision());
-  ASSERT_EQ(0, metadata.scale());
+  ASSERT_EQ(1, metadata.precision());
+  ASSERT_EQ(-1, metadata.scale());
 }
 
 TEST(PandasConversionTest, TestObjectBlockWriteFails) {
