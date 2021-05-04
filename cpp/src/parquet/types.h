@@ -31,13 +31,12 @@
 
 #ifdef _WIN32
 
-// parquet.thrift's OPTIONAL RepetitionType conflicts with a #define,
-// so we undefine it
+// Repetition::OPTIONAL conflicts with a #define, so we undefine it
 #ifdef OPTIONAL
 #undef OPTIONAL
 #endif
 
-#endif // _WIN32
+#endif  // _WIN32
 
 namespace arrow {
 namespace util {
