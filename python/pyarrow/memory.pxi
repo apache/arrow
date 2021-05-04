@@ -215,6 +215,7 @@ def jemalloc_set_decay_ms(decay_ms):
     """
     check_status(c_jemalloc_set_decay_ms(decay_ms))
 
+
 def jemalloc_set_background_thread(use_background_thread):
     """
     Enables or disables background threads for dirty page purging.  If true
@@ -233,6 +234,7 @@ def jemalloc_set_background_thread(use_background_thread):
         terminate existing threads.
     """
     check_status(c_jemalloc_set_background_thread(use_background_thread))
+
 
 def jemalloc_get_background_thread():
     """

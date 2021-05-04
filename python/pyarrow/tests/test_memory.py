@@ -92,12 +92,12 @@ def test_enable_disable_background_threads():
     if should_have_jemalloc:
         was_true = pa.jemalloc_get_background_thread()
         pa.jemalloc_set_background_thread(False)
-        assert pa.jemalloc_get_background_thread() == False
+        assert not pa.jemalloc_get_background_thread()
         if was_true:
             # Apple currently has the background thread disabled and
             # we don't want to enable it so we check was_true
             pa.jemalloc_set_background_thread(True)
-            assert pa.jemalloc_get_background_thread() == True
+            assert pa.jemalloc_get_background_thread()
     else:
         pytest.skip("jemalloc not enabled")
 

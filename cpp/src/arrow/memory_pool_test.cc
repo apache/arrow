@@ -186,7 +186,6 @@ void TestBackgroundJemallocWithBackgroundThread() {
 
 void TestBackgroundJemallocWithoutBackgroundThread() {
   ASSERT_OK_AND_ASSIGN(auto has_stats, jemalloc_has_stats());
-  ASSERT_OK_AND_EQ(false, jemalloc_get_background_thread());
   if (!has_stats) {
     GTEST_SKIP() << "Jemalloc was not compiled with statistics";
   }
