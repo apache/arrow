@@ -62,6 +62,8 @@ DEFINE_string(compression, "",
 DEFINE_string(
     data_file, "",
     "Instead of random data, use data from the given IPC file. Only affects -test_put.");
+DEFINE_string(cert_file, "", "Path to TLS certificate");
+DEFINE_string(key_file, "", "Path to TLS private key (used when spawning a server)");
 
 namespace perf = arrow::flight::perf;
 
@@ -258,8 +260,9 @@ arrow::Result<PerformanceResult> RunDoPutTest(FlightClient* client,
   return PerformanceResult{static_cast<int64_t>(batches.size()), num_records, num_bytes};
 }
 
-Status DoSinglePerfRun(FlightClient* client, const FlightCallOptions& call_options,
-                       bool test_put, PerformanceStats* stats) {
+Status DoSinglePerfRun(FlightClient* client, const FlightClientOptions client_options,
+                       const FlightCallOptions& call_options, bool test_put,
+                       PerformanceStats* stats) {
   // schema not needed
   perf::Perf perf;
   perf.set_stream_count(FLAGS_num_streams);
@@ -282,11 +285,11 @@ Status DoSinglePerfRun(FlightClient* client, const FlightCallOptions& call_optio
   int64_t start_total_records = stats->total_records;
 
   auto test_loop = test_put ? &RunDoPutTest : &RunDoGetTest;
-  auto ConsumeStream = [&stats, &test_loop,
+  auto ConsumeStream = [&stats, &test_loop, &client_options,
                         &call_options](const FlightEndpoint& endpoint) {
-    // TODO(wesm): Use location from endpoint, same host/port for now
     std::unique_ptr<FlightClient> client;
-    RETURN_NOT_OK(FlightClient::Connect(endpoint.locations.front(), &client));
+    RETURN_NOT_OK(
+        FlightClient::Connect(endpoint.locations.front(), client_options, &client));
 
     perf::Token token;
     token.ParseFromString(endpoint.ticket.ticket);
@@ -326,14 +329,15 @@ Status DoSinglePerfRun(FlightClient* client, const FlightCallOptions& call_optio
   return Status::OK();
 }
 
-Status RunPerformanceTest(FlightClient* client, const FlightCallOptions& call_options,
-                          bool test_put) {
+Status RunPerformanceTest(FlightClient* client, const FlightClientOptions& client_options,
+                          const FlightCallOptions& call_options, bool test_put) {
   StopWatch timer;
   timer.Start();
 
   PerformanceStats stats;
   for (int i = 0; i < FLAGS_num_perf_runs; ++i) {
-    RETURN_NOT_OK(DoSinglePerfRun(client, call_options, test_put, &stats));
+    RETURN_NOT_OK(
+        DoSinglePerfRun(client, client_options, call_options, test_put, &stats));
   }
 
   // Elapsed time in seconds
@@ -422,6 +426,7 @@ int main(int argc, char** argv) {
 
   std::unique_ptr<arrow::flight::TestServer> server;
   arrow::flight::Location location;
+  auto options = arrow::flight::FlightClientOptions::Defaults();
   if (FLAGS_test_unix || !FLAGS_server_unix.empty()) {
     if (FLAGS_server_unix == "") {
       FLAGS_server_unix = "/tmp/flight-bench-spawn.sock";
@@ -440,22 +445,41 @@ int main(int argc, char** argv) {
       std::cout << "Using spawned TCP server" << std::endl;
       server.reset(
           new arrow::flight::TestServer("arrow-flight-perf-server", FLAGS_server_port));
-      server->Start();
+      std::vector<std::string> args;
+      if (!FLAGS_cert_file.empty() || !FLAGS_key_file.empty()) {
+        if (!FLAGS_cert_file.empty() && !FLAGS_key_file.empty()) {
+          std::cout << "Enabling TLS for spawned server" << std::endl;
+          args.push_back("-cert_file");
+          args.push_back(FLAGS_cert_file);
+          args.push_back("-key_file");
+          args.push_back(FLAGS_key_file);
+        } else {
+          std::cerr << "If providing TLS cert/key, must provide both" << std::endl;
+          return 1;
+        }
+      }
+      server->Start(args);
     } else {
       std::cout << "Using standalone TCP server" << std::endl;
     }
     std::cout << "Server host: " << FLAGS_server_host << std::endl
               << "Server port: " << FLAGS_server_port << std::endl;
-    ABORT_NOT_OK(arrow::flight::Location::ForGrpcTcp(FLAGS_server_host, FLAGS_server_port,
-                                                     &location));
+    if (FLAGS_cert_file.empty()) {
+      ABORT_NOT_OK(arrow::flight::Location::ForGrpcTcp(FLAGS_server_host,
+                                                       FLAGS_server_port, &location));
+    } else {
+      ABORT_NOT_OK(arrow::flight::Location::ForGrpcTls(FLAGS_server_host,
+                                                       FLAGS_server_port, &location));
+      options.disable_server_verification = true;
+    }
   }
 
   std::unique_ptr<arrow::flight::FlightClient> client;
-  ABORT_NOT_OK(arrow::flight::FlightClient::Connect(location, &client));
+  ABORT_NOT_OK(arrow::flight::FlightClient::Connect(location, options, &client));
   ABORT_NOT_OK(arrow::flight::WaitForReady(client.get(), call_options));
 
-  arrow::Status s =
-      arrow::flight::RunPerformanceTest(client.get(), call_options, FLAGS_test_put);
+  arrow::Status s = arrow::flight::RunPerformanceTest(client.get(), options, call_options,
+                                                      FLAGS_test_put);
 
   if (server) {
     server->Stop();
