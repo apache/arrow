@@ -334,6 +334,10 @@ else()
 
 endif()
 
+if(NOT MSVC)
+  add_link_options("LINKER:-Bsymbolic-functions")
+endif()
+
 if(MSVC)
   # Disable annoying "performance warning" about int-to-bool conversion
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4800")
