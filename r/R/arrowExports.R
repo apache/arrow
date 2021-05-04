@@ -292,6 +292,14 @@ compute__GetFunctionNames <- function(){
     .Call(`_arrow_compute__GetFunctionNames`)
 }
 
+build_info <- function(){
+    .Call(`_arrow_build_info`)
+}
+
+runtime_info <- function(){
+    .Call(`_arrow_runtime_info`)
+}
+
 csv___WriteOptions__initialize <- function(options){
     .Call(`_arrow_csv___WriteOptions__initialize`, options)
 }
@@ -1466,10 +1474,6 @@ ipc___RecordBatchFileWriter__Open <- function(stream, schema, use_legacy_format,
 
 ipc___RecordBatchStreamWriter__Open <- function(stream, schema, use_legacy_format, metadata_version){
     .Call(`_arrow_ipc___RecordBatchStreamWriter__Open`, stream, schema, use_legacy_format, metadata_version)
-}
-
-runtime_info <- function(){
-    .Call(`_arrow_runtime_info`)
 }
 
 Array__GetScalar <- function(x, i){
