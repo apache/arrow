@@ -772,6 +772,10 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
     if isinstance(data, Dataset):
         scanner = data.scanner(use_threads=use_threads)
     else:
+        # scanner was passed directly by the user, in which case a schema
+        # cannot be passed
+        if schema is not None:
+            raise ValueError("Cannot specify a schema when writing a Scanner")
         scanner = data
 
     _filesystemdataset_write(

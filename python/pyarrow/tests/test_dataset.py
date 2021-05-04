@@ -3018,6 +3018,11 @@ def test_write_scanner(tempdir):
     result = ds.dataset(base_dir, format="ipc").to_table()
     assert result.equals(table.select(["f1"]))
 
+    # schema not allowed when writing a scanner
+    with pytest.raises(ValueError, match="Cannot specify a schema"):
+        ds.write_dataset(dataset.scanner(), base_dir, schema=table.schema,
+                         format="feather")
+
 
 def test_write_table_partitioned_dict(tempdir):
     # ensure writing table partitioned on a dictionary column works without
