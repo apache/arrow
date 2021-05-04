@@ -17,16 +17,16 @@
 
 import os
 import shlex
-from pathlib import Path
-from functools import partial
 import tempfile
+from functools import partial
+from pathlib import Path
 
 import click
 import github
 
+from .crossbow import CommentReport, Config, Job, Queue, Repo, Target
 from .utils.git import git
 from .utils.logger import logger
-from .crossbow import Repo, Queue, Config, Target, Job, CommentReport
 
 
 class EventError(Exception):
@@ -34,17 +34,16 @@ class EventError(Exception):
 
 
 class CommandError(Exception):
-
     def __init__(self, message):
         self.message = message
 
 
 class _CommandMixin:
-
     def get_help_option(self, ctx):
         def show_help(ctx, param, value):
             if value and not ctx.resilient_parsing:
                 raise click.UsageError(ctx.get_help())
+
         option = super().get_help_option(ctx)
         option.callback = show_help
         return option
@@ -63,13 +62,12 @@ class Command(_CommandMixin, click.Command):
 
 
 class Group(_CommandMixin, click.Group):
-
     def command(self, *args, **kwargs):
-        kwargs.setdefault('cls', Command)
+        kwargs.setdefault("cls", Command)
         return super().command(*args, **kwargs)
 
     def group(self, *args, **kwargs):
-        kwargs.setdefault('cls', Group)
+        kwargs.setdefault("cls", Group)
         return super().group(*args, **kwargs)
 
     def parse_args(self, ctx, args):
@@ -83,7 +81,6 @@ group = partial(click.group, cls=Group)
 
 
 class CommentBot:
-
     def __init__(self, name, handler, token=None):
         # TODO(kszucs): validate
         assert isinstance(name, str)
@@ -95,24 +92,24 @@ class CommentBot:
     def parse_command(self, payload):
         # only allow users of apache org to submit commands, for more see
         # https://developer.github.com/v4/enum/commentauthorassociation/
-        allowed_roles = {'OWNER', 'MEMBER', 'CONTRIBUTOR'}
-        mention = '@{}'.format(self.name)
-        comment = payload['comment']
+        allowed_roles = {"OWNER", "MEMBER", "CONTRIBUTOR"}
+        mention = f"@{self.name}"
+        comment = payload["comment"]
 
-        if payload['sender']['login'] == self.name:
+        if payload["sender"]["login"] == self.name:
             raise EventError("Don't respond to itself")
-        elif payload['action'] not in {'created', 'edited'}:
+        elif payload["action"] not in {"created", "edited"}:
             raise EventError("Don't respond to comment deletion")
-        elif comment['author_association'] not in allowed_roles:
+        elif comment["author_association"] not in allowed_roles:
             raise EventError(
                 "Don't respond to comments from non-authorized users"
             )
-        elif not comment['body'].lstrip().startswith(mention):
+        elif not comment["body"].lstrip().startswith(mention):
             raise EventError("The bot is not mentioned")
 
         # Parse the comment, removing the bot mentioned (and everything
         # before it)
-        command = payload['comment']['body'].split(mention)[-1]
+        command = payload["comment"]["body"].split(mention)[-1]
 
         # then split on newlines and keep only the first line
         # (ignoring all other lines)
@@ -126,16 +123,16 @@ class CommentBot:
             # see the possible reasons in the validate method
             return
 
-        if event == 'issue_comment':
+        if event == "issue_comment":
             return self.handle_issue_comment(command, payload)
-        elif event == 'pull_request_review_comment':
+        elif event == "pull_request_review_comment":
             return self.handle_review_comment(command, payload)
         else:
-            raise ValueError("Unexpected event type {}".format(event))
+            raise ValueError(f"Unexpected event type {event}")
 
     def handle_issue_comment(self, command, payload):
-        repo = self.github.get_repo(payload['repository']['id'], lazy=True)
-        issue = repo.get_issue(payload['issue']['number'])
+        repo = self.github.get_repo(payload["repository"]["id"], lazy=True)
+        issue = repo.get_issue(payload["issue"]["number"])
 
         try:
             pull = issue.as_pull_request()
@@ -144,24 +141,25 @@ class CommentBot:
                 "The comment bot only listens to pull request comments!"
             )
 
-        comment = pull.get_issue_comment(payload['comment']['id'])
+        comment = pull.get_issue_comment(payload["comment"]["id"])
         try:
-            self.handler(command, issue=issue, pull_request=pull,
-                         comment=comment)
+            self.handler(
+                command, issue=issue, pull_request=pull, comment=comment
+            )
         except CommandError as e:
             logger.error(e)
-            pull.create_issue_comment("```\n{}\n```".format(e.message))
+            pull.create_issue_comment(f"```\n{e.message}\n```")
         except Exception as e:
             logger.exception(e)
-            comment.create_reaction('-1')
+            comment.create_reaction("-1")
         else:
-            comment.create_reaction('+1')
+            comment.create_reaction("+1")
 
     def handle_review_comment(self, payload):
         raise NotImplementedError()
 
 
-@group(name='@github-actions')
+@group(name="@github-actions")
 @click.pass_context
 def actions(ctx):
     """Ursabot"""
@@ -169,14 +167,18 @@ def actions(ctx):
 
 
 @actions.group()
-@click.option('--crossbow', '-c', default='ursacomputing/crossbow',
-              help='Crossbow repository on github to use')
+@click.option(
+    "--crossbow",
+    "-c",
+    default="ursacomputing/crossbow",
+    help="Crossbow repository on github to use",
+)
 @click.pass_obj
 def crossbow(obj, crossbow):
     """
     Trigger crossbow builds for this pull request
     """
-    obj['crossbow_repo'] = crossbow
+    obj["crossbow_repo"] = crossbow
 
 
 def _clone_arrow_and_crossbow(dest, crossbow_repo, pull_request):
@@ -193,23 +195,23 @@ def _clone_arrow_and_crossbow(dest, crossbow_repo, pull_request):
         Object containing information about the pull request the comment bot
         was triggered from.
     """
-    arrow_path = dest / 'arrow'
-    queue_path = dest / 'crossbow'
+    arrow_path = dest / "arrow"
+    queue_path = dest / "crossbow"
 
     # clone arrow and checkout the pull request's branch
-    pull_request_ref = 'pull/{}/head:{}'.format(
+    pull_request_ref = "pull/{}/head:{}".format(
         pull_request.number, pull_request.head.ref
     )
     git.clone(pull_request.base.repo.clone_url, str(arrow_path))
-    git.fetch('origin', pull_request_ref, git_dir=arrow_path)
+    git.fetch("origin", pull_request_ref, git_dir=arrow_path)
     git.checkout(pull_request.head.ref, git_dir=arrow_path)
 
     # clone crossbow repository
-    crossbow_url = 'https://github.com/{}'.format(crossbow_repo)
+    crossbow_url = f"https://github.com/{crossbow_repo}"
     git.clone(crossbow_url, str(queue_path))
 
     # initialize crossbow objects
-    github_token = os.environ['CROSSBOW_GITHUB_TOKEN']
+    github_token = os.environ["CROSSBOW_GITHUB_TOKEN"]
     arrow = Repo(arrow_path)
     queue = Queue(queue_path, github_token=github_token, require_https=True)
 
@@ -217,13 +219,27 @@ def _clone_arrow_and_crossbow(dest, crossbow_repo, pull_request):
 
 
 @crossbow.command()
-@click.argument('tasks', nargs=-1, required=False)
-@click.option('--group', '-g', 'groups', multiple=True,
-              help='Submit task groups as defined in tests.yml')
-@click.option('--param', '-p', 'params', multiple=True,
-              help='Additional task parameters for rendering the CI templates')
-@click.option('--arrow-version', '-v', default=None,
-              help='Set target version explicitly.')
+@click.argument("tasks", nargs=-1, required=False)
+@click.option(
+    "--group",
+    "-g",
+    "groups",
+    multiple=True,
+    help="Submit task groups as defined in tests.yml",
+)
+@click.option(
+    "--param",
+    "-p",
+    "params",
+    multiple=True,
+    help="Additional task parameters for rendering the CI templates",
+)
+@click.option(
+    "--arrow-version",
+    "-v",
+    default=None,
+    help="Set target version explicitly.",
+)
 @click.pass_obj
 def submit(obj, tasks, groups, params, arrow_version):
     """
@@ -231,8 +247,8 @@ def submit(obj, tasks, groups, params, arrow_version):
 
     See groups defined in arrow/dev/tasks/tests.yml
     """
-    crossbow_repo = obj['crossbow_repo']
-    pull_request = obj['pull_request']
+    crossbow_repo = obj["crossbow_repo"]
+    pull_request = obj["pull_request"]
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         arrow, queue = _clone_arrow_and_crossbow(
@@ -245,16 +261,24 @@ def submit(obj, tasks, groups, params, arrow_version):
         config.validate()
 
         # initialize the crossbow build's target repository
-        target = Target.from_repo(arrow, version=arrow_version,
-                                  remote=pull_request.head.repo.clone_url,
-                                  branch=pull_request.head.ref)
+        target = Target.from_repo(
+            arrow,
+            version=arrow_version,
+            remote=pull_request.head.repo.clone_url,
+            branch=pull_request.head.ref,
+        )
 
         # parse additional job parameters
         params = dict([p.split("=") for p in params])
 
         # instantiate the job object
-        job = Job.from_config(config=config, target=target, tasks=tasks,
-                              groups=groups, params=params)
+        job = Job.from_config(
+            config=config,
+            target=target,
+            tasks=tasks,
+            groups=groups,
+            params=params,
+        )
 
         # add the job to the crossbow queue and push to the remote repository
         queue.put(job, prefix="actions")

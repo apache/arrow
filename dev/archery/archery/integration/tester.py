@@ -33,7 +33,7 @@ class Tester(object):
         self.debug = debug
 
     def run_shell_command(self, cmd):
-        cmd = ' '.join(cmd)
+        cmd = " ".join(cmd)
         if self.debug:
             log(cmd)
         subprocess.check_call(cmd, shell=True)

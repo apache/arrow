@@ -16,8 +16,8 @@
 # under the License.
 
 import os
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
 from .git import git
 
@@ -27,16 +27,17 @@ class InvalidArrowSource(Exception):
 
 
 class ArrowSources:
-    """ ArrowSources is a companion class representing a directory containing
+    """ArrowSources is a companion class representing a directory containing
     Apache Arrow's sources.
     """
+
     # Note that WORKSPACE is a reserved git revision name by this module to
     # reference the current git workspace. In other words, this indicates to
     # ArrowSources.at_revision that no cloning/checkout is required.
     WORKSPACE = "WORKSPACE"
 
     def __init__(self, path):
-        """ Initialize an ArrowSources
+        """Initialize an ArrowSources
 
         The caller must ensure that path is valid arrow source directory (can
         be checked with ArrowSources.valid)
@@ -47,65 +48,62 @@ class ArrowSources:
         """
         path = Path(path)
         # validate by checking a specific path in the arrow source tree
-        if not (path / 'cpp' / 'CMakeLists.txt').exists():
-            raise InvalidArrowSource(
-                "No Arrow C++ sources found in {}.".format(path)
-            )
+        if not (path / "cpp" / "CMakeLists.txt").exists():
+            raise InvalidArrowSource(f"No Arrow C++ sources found in {path}.")
         self.path = path
 
     @property
     def archery(self):
-        """ Returns the archery directory of an Arrow sources. """
+        """Returns the archery directory of an Arrow sources."""
         return self.dev / "archery"
 
     @property
     def cpp(self):
-        """ Returns the cpp directory of an Arrow sources. """
+        """Returns the cpp directory of an Arrow sources."""
         return self.path / "cpp"
 
     @property
     def dev(self):
-        """ Returns the dev directory of an Arrow sources. """
+        """Returns the dev directory of an Arrow sources."""
         return self.path / "dev"
 
     @property
     def java(self):
-        """ Returns the java directory of an Arrow sources. """
+        """Returns the java directory of an Arrow sources."""
         return self.path / "java"
 
     @property
     def python(self):
-        """ Returns the python directory of an Arrow sources. """
+        """Returns the python directory of an Arrow sources."""
         return self.path / "python"
 
     @property
     def pyarrow(self):
-        """ Returns the python/pyarrow directory of an Arrow sources. """
+        """Returns the python/pyarrow directory of an Arrow sources."""
         return self.python / "pyarrow"
 
     @property
     def r(self):
-        """ Returns the r directory of an Arrow sources. """
+        """Returns the r directory of an Arrow sources."""
         return self.path / "r"
 
     @property
     def git_backed(self):
-        """ Indicate if the sources are backed by git. """
+        """Indicate if the sources are backed by git."""
         return (self.path / ".git").exists()
 
     @property
     def git_dirty(self):
-        """ Indicate if the sources is a dirty git directory. """
+        """Indicate if the sources is a dirty git directory."""
         return self.git_backed and git.dirty(git_dir=self.path)
 
     def archive(self, path, dereference=False, compressor=None, revision=None):
-        """ Saves a git archive at path. """
+        """Saves a git archive at path."""
         if not self.git_backed:
-            raise ValueError("{} is not backed by git".format(self))
+            raise ValueError(f"{self} is not backed by git")
 
         rev = revision if revision else "HEAD"
-        archive = git.archive("--prefix=apache-arrow/", rev,
-                              git_dir=self.path)
+        archive = git.archive("--prefix=apache-arrow/", rev, git_dir=self.path)
 
         # TODO(fsaintjacques): fix dereference for
 
@@ -116,7 +114,7 @@ class ArrowSources:
             archive_fd.write(archive)
 
     def at_revision(self, revision, clone_dir):
-        """ Return a copy of the current sources for a specified git revision.
+        """Return a copy of the current sources for a specified git revision.
 
         This method may return the current object if no checkout is required.
         The caller is responsible to remove the cloned repository directory.
@@ -135,7 +133,7 @@ class ArrowSources:
                     Path to checkout the local clone.
         """
         if not self.git_backed:
-            raise ValueError("{} is not backed by git".format(self))
+            raise ValueError(f"{self} is not backed by git")
 
         if revision == ArrowSources.WORKSPACE:
             return self, False
@@ -158,7 +156,7 @@ class ArrowSources:
 
     @staticmethod
     def find(path=None):
-        """ Infer Arrow sources directory from various method.
+        """Infer Arrow sources directory from various method.
 
         The following guesses are done in order until a valid match is found:
 
@@ -201,7 +199,7 @@ class ArrowSources:
             except InvalidArrowSource:
                 pass
 
-        searched_paths = "\n".join([" - {}".format(p) for p in paths])
+        searched_paths = "\n".join([f" - {p}" for p in paths])
         raise InvalidArrowSource(
             "Unable to locate Arrow's source directory. "
             "Searched paths are:\n{}".format(searched_paths)

@@ -23,40 +23,27 @@ from archery.testing import PartialEnv, assert_subprocess_calls
 
 
 def test_partial_env():
-    assert PartialEnv(a=1, b=2) == {'a': 1, 'b': 2, 'c': 3}
-    assert PartialEnv(a=1) == {'a': 1, 'b': 2, 'c': 3}
-    assert PartialEnv(a=1, b=2) == {'a': 1, 'b': 2}
-    assert PartialEnv(a=1, b=2) != {'b': 2, 'c': 3}
-    assert PartialEnv(a=1, b=2) != {'a': 1, 'c': 3}
+    assert PartialEnv(a=1, b=2) == {"a": 1, "b": 2, "c": 3}
+    assert PartialEnv(a=1) == {"a": 1, "b": 2, "c": 3}
+    assert PartialEnv(a=1, b=2) == {"a": 1, "b": 2}
+    assert PartialEnv(a=1, b=2) != {"b": 2, "c": 3}
+    assert PartialEnv(a=1, b=2) != {"a": 1, "c": 3}
 
 
 def test_assert_subprocess_calls():
-    expected_calls = [
-        "echo Hello",
-        ["echo", "World"]
-    ]
+    expected_calls = ["echo Hello", ["echo", "World"]]
     with assert_subprocess_calls(expected_calls):
-        subprocess.run(['echo', 'Hello'])
-        subprocess.run(['echo', 'World'])
+        subprocess.run(["echo", "Hello"])
+        subprocess.run(["echo", "World"])
 
-    expected_env = PartialEnv(
-        CUSTOM_ENV_A='a',
-        CUSTOM_ENV_C='c'
-    )
+    expected_env = PartialEnv(CUSTOM_ENV_A="a", CUSTOM_ENV_C="c")
     with assert_subprocess_calls(expected_calls, env=expected_env):
-        env = {
-            'CUSTOM_ENV_A': 'a',
-            'CUSTOM_ENV_B': 'b',
-            'CUSTOM_ENV_C': 'c'
-        }
-        subprocess.run(['echo', 'Hello'], env=env)
-        subprocess.run(['echo', 'World'], env=env)
+        env = {"CUSTOM_ENV_A": "a", "CUSTOM_ENV_B": "b", "CUSTOM_ENV_C": "c"}
+        subprocess.run(["echo", "Hello"], env=env)
+        subprocess.run(["echo", "World"], env=env)
 
     with pytest.raises(AssertionError):
         with assert_subprocess_calls(expected_calls, env=expected_env):
-            env = {
-                'CUSTOM_ENV_B': 'b',
-                'CUSTOM_ENV_C': 'c'
-            }
-            subprocess.run(['echo', 'Hello'], env=env)
-            subprocess.run(['echo', 'World'], env=env)
+            env = {"CUSTOM_ENV_B": "b", "CUSTOM_ENV_C": "c"}
+            subprocess.run(["echo", "Hello"], env=env)
+            subprocess.run(["echo", "World"], env=env)

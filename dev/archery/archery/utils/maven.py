@@ -29,7 +29,7 @@ maven = Maven()
 
 
 class MavenDefinition:
-    """ MavenDefinition captures the maven invocation arguments.
+    """MavenDefinition captures the maven invocation arguments.
 
     It allows creating build directories with the same definition, e.g.
     ```
@@ -42,9 +42,14 @@ class MavenDefinition:
     build2.install()
     """
 
-    def __init__(self, source, build_definitions=None,
-                 benchmark_definitions=None, env=None):
-        """ Initialize a MavenDefinition
+    def __init__(
+        self,
+        source,
+        build_definitions=None,
+        benchmark_definitions=None,
+        env=None,
+    ):
+        """Initialize a MavenDefinition
 
         Parameters
         ----------
@@ -56,23 +61,28 @@ class MavenDefinition:
         """
         self.source = os.path.abspath(source)
         self.build_definitions = build_definitions if build_definitions else []
-        self.benchmark_definitions =\
+        self.benchmark_definitions = (
             benchmark_definitions if benchmark_definitions else []
+        )
         self.env = env
 
     @property
     def build_arguments(self):
-        """" Return the arguments to maven invocation for build. """
+        """ " Return the arguments to maven invocation for build."""
         arguments = self.build_definitions + [
-            "-B", "-DskipTests", "-Drat.skip=true",
+            "-B",
+            "-DskipTests",
+            "-Drat.skip=true",
             "-Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer."
             "Slf4jMavenTransferListener=warn",
-            "-T", "2C", "install"
+            "-T",
+            "2C",
+            "install",
         ]
         return arguments
 
     def build(self, build_dir, force=False, cmd_kwargs=None, **kwargs):
-        """ Invoke maven into a build directory.
+        """Invoke maven into a build directory.
 
         Parameters
         ----------
@@ -95,20 +105,23 @@ class MavenDefinition:
 
     @property
     def list_arguments(self):
-        """" Return the arguments to maven invocation for list """
+        """ " Return the arguments to maven invocation for list"""
         arguments = [
-            "-Dskip.perf.benchmarks=false", "-Dbenchmark.list=-lp", "install"
+            "-Dskip.perf.benchmarks=false",
+            "-Dbenchmark.list=-lp",
+            "install",
         ]
         return arguments
 
     @property
     def benchmark_arguments(self):
-        """" Return the arguments to maven invocation for benchmark """
+        """ " Return the arguments to maven invocation for benchmark"""
         arguments = self.benchmark_definitions + [
-            "-Dskip.perf.benchmarks=false", "-Dbenchmark.fork=1",
-            "-Dbenchmark.jvmargs=\"-Darrow.enable_null_check_for_get=false "
-            "-Darrow.enable_unsafe_memory_access=true\"",
-            "install"
+            "-Dskip.perf.benchmarks=false",
+            "-Dbenchmark.fork=1",
+            '-Dbenchmark.jvmargs="-Darrow.enable_null_check_for_get=false '
+            '-Darrow.enable_unsafe_memory_access=true"',
+            "install",
         ]
         return arguments
 
@@ -117,14 +130,14 @@ class MavenDefinition:
 
 
 class MavenBuild(Maven):
-    """ MavenBuild represents a build directory initialized by maven.
+    """MavenBuild represents a build directory initialized by maven.
 
     The build instance can be used to build/test/install. It alleviates the
     user to know which generator is used.
     """
 
     def __init__(self, build_dir, definition=None):
-        """ Initialize a MavenBuild.
+        """Initialize a MavenBuild.
 
         The caller must ensure that maven was invoked in the build directory.
 
@@ -156,24 +169,42 @@ class MavenBuild(Maven):
     def build(self, *argv, verbose=False, **kwargs):
         definition_args = self.definition.build_arguments
         cwd = self.binaries_dir
-        return self.run(*argv, *definition_args, verbose=verbose, cwd=cwd,
-                        env=self.definition.env, **kwargs)
+        return self.run(
+            *argv,
+            *definition_args,
+            verbose=verbose,
+            cwd=cwd,
+            env=self.definition.env,
+            **kwargs
+        )
 
     def list(self, *argv, verbose=False, **kwargs):
         definition_args = self.definition.list_arguments
         cwd = self.binaries_dir + "/performance"
-        return self.run(*argv, *definition_args, verbose=verbose, cwd=cwd,
-                        env=self.definition.env, **kwargs)
+        return self.run(
+            *argv,
+            *definition_args,
+            verbose=verbose,
+            cwd=cwd,
+            env=self.definition.env,
+            **kwargs
+        )
 
     def benchmark(self, *argv, verbose=False, **kwargs):
         definition_args = self.definition.benchmark_arguments
         cwd = self.binaries_dir + "/performance"
-        return self.run(*argv, *definition_args, verbose=verbose, cwd=cwd,
-                        env=self.definition.env, **kwargs)
+        return self.run(
+            *argv,
+            *definition_args,
+            verbose=verbose,
+            cwd=cwd,
+            env=self.definition.env,
+            **kwargs
+        )
 
     @staticmethod
     def is_build_dir(path):
-        """ Indicate if a path is Maven top directory.
+        """Indicate if a path is Maven top directory.
 
         This method only checks for the existence of paths and does not do any
         validation whatsoever.
@@ -184,7 +215,7 @@ class MavenBuild(Maven):
 
     @staticmethod
     def from_path(path):
-        """ Instantiate a Maven from a path.
+        """Instantiate a Maven from a path.
 
         This is used to recover from an existing physical directory (created
         with or without Maven).
@@ -198,7 +229,8 @@ class MavenBuild(Maven):
         return MavenBuild(path, definition=None)
 
     def __repr__(self):
-        return ("MavenBuild["
-                "build = {},"
-                "definition = {}]".format(self.build_dir,
-                                          self.definition))
+        return (
+            "MavenBuild["
+            "build = {},"
+            "definition = {}]".format(self.build_dir, self.definition)
+        )

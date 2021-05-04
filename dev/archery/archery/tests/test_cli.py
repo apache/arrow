@@ -39,7 +39,7 @@ def test_docker_run_with_custom_command(run, build, pull):
         use_cache=True,
         use_leaf_cache=True,
         using_docker=False,
-        using_buildx=False
+        using_buildx=False,
     )
     run.assert_called_once_with(
         "ubuntu-cpp",
@@ -81,7 +81,7 @@ def test_docker_run_options(run, build, pull):
         use_cache=True,
         use_leaf_cache=True,
         using_docker=False,
-        using_buildx=False
+        using_buildx=False,
     )
     run.assert_called_once_with(
         "ubuntu-cpp",
@@ -125,7 +125,7 @@ def test_docker_run_only_pulling_and_building(build, pull):
         use_cache=True,
         use_leaf_cache=True,
         using_docker=False,
-        using_buildx=False
+        using_buildx=False,
     )
 
 
@@ -150,7 +150,7 @@ def test_docker_run_without_build_cache(run, build):
         use_cache=False,
         use_leaf_cache=False,
         using_docker=False,
-        using_buildx=False
+        using_buildx=False,
     )
     run.assert_called_once_with(
         "ubuntu-cpp",

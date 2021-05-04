@@ -139,7 +139,7 @@ before_install:
     fi
 
 install:
-  - pip3 install -e dev/archery[docker]
+  - pip3 install dev/archery[docker]
 
 script:
   - sudo sysctl -w kernel.core_pattern="core.%e.%p"

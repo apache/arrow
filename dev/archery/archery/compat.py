@@ -21,9 +21,11 @@ import pathlib
 def _is_path_like(path):
     # PEP519 filesystem path protocol is available from python 3.6, so pathlib
     # doesn't implement __fspath__ for earlier versions
-    return (isinstance(path, str) or
-            hasattr(path, '__fspath__') or
-            isinstance(path, pathlib.Path))
+    return (
+        isinstance(path, str)
+        or hasattr(path, "__fspath__")
+        or isinstance(path, pathlib.Path)
+    )
 
 
 def _ensure_path(path):

@@ -19,10 +19,9 @@ from pathlib import Path
 
 import click
 
-from .core import Config, Repo, Queue, Target, Job, CrossbowError
-from .reports import EmailReport, ConsoleReport
 from ..utils.source import ArrowSources
-
+from .core import Config, CrossbowError, Job, Queue, Repo, Target
+from .reports import ConsoleReport, EmailReport
 
 _default_arrow_path = ArrowSources.find().path
 _default_queue_path = _default_arrow_path.parent / "crossbow"
@@ -30,84 +29,164 @@ _default_config_path = _default_arrow_path / "dev" / "tasks" / "tasks.yml"
 
 
 @click.group()
-@click.option('--github-token', '-t', default=None,
-              envvar="CROSSBOW_GITHUB_TOKEN",
-              help='OAuth token for GitHub authentication')
-@click.option('--arrow-path', '-a',
-              type=click.Path(), default=_default_arrow_path,
-              help='Arrow\'s repository path. Defaults to the repository of '
-                   'this script')
-@click.option('--queue-path', '-q',
-              type=click.Path(), default=_default_queue_path,
-              help='The repository path used for scheduling the tasks. '
-                   'Defaults to crossbow directory placed next to arrow')
-@click.option('--queue-remote', '-qr', default=None,
-              help='Force to use this remote URL for the Queue repository')
-@click.option('--output-file', metavar='<output>',
-              type=click.File('w', encoding='utf8'), default='-',
-              help='Capture output result into file.')
+@click.option(
+    "--github-token",
+    "-t",
+    default=None,
+    envvar="CROSSBOW_GITHUB_TOKEN",
+    help="OAuth token for GitHub authentication",
+)
+@click.option(
+    "--arrow-path",
+    "-a",
+    type=click.Path(),
+    default=_default_arrow_path,
+    help="Arrow's repository path. Defaults to the repository of "
+    "this script",
+)
+@click.option(
+    "--queue-path",
+    "-q",
+    type=click.Path(),
+    default=_default_queue_path,
+    help="The repository path used for scheduling the tasks. "
+    "Defaults to crossbow directory placed next to arrow",
+)
+@click.option(
+    "--queue-remote",
+    "-qr",
+    default=None,
+    help="Force to use this remote URL for the Queue repository",
+)
+@click.option(
+    "--output-file",
+    metavar="<output>",
+    type=click.File("w", encoding="utf8"),
+    default="-",
+    help="Capture output result into file.",
+)
 @click.pass_context
-def crossbow(ctx, github_token, arrow_path, queue_path, queue_remote,
-             output_file):
+def crossbow(
+    ctx, github_token, arrow_path, queue_path, queue_remote, output_file
+):
     """
     Schedule packaging tasks or nightly builds on CI services.
     """
     ctx.ensure_object(dict)
-    ctx.obj['output'] = output_file
-    ctx.obj['arrow'] = Repo(arrow_path)
-    ctx.obj['queue'] = Queue(queue_path, remote_url=queue_remote,
-                             github_token=github_token, require_https=True)
+    ctx.obj["output"] = output_file
+    ctx.obj["arrow"] = Repo(arrow_path)
+    ctx.obj["queue"] = Queue(
+        queue_path,
+        remote_url=queue_remote,
+        github_token=github_token,
+        require_https=True,
+    )
 
 
 @crossbow.command()
-@click.option('--config-path', '-c',
-              type=click.Path(exists=True), default=_default_config_path,
-              help='Task configuration yml. Defaults to tasks.yml')
+@click.option(
+    "--config-path",
+    "-c",
+    type=click.Path(exists=True),
+    default=_default_config_path,
+    help="Task configuration yml. Defaults to tasks.yml",
+)
 @click.pass_obj
 def check_config(obj, config_path):
     # load available tasks configuration and groups from yaml
     config = Config.load_yaml(config_path)
     config.validate()
 
-    output = obj['output']
+    output = obj["output"]
     config.show(output)
 
 
 @crossbow.command()
-@click.argument('tasks', nargs=-1, required=False)
-@click.option('--group', '-g', 'groups', multiple=True,
-              help='Submit task groups as defined in task.yml')
-@click.option('--param', '-p', 'params', multiple=True,
-              help='Additional task parameters for rendering the CI templates')
-@click.option('--job-prefix', default='build',
-              help='Arbitrary prefix for branch names, e.g. nightly')
-@click.option('--config-path', '-c',
-              type=click.Path(exists=True), default=_default_config_path,
-              help='Task configuration yml. Defaults to tasks.yml')
-@click.option('--arrow-version', '-v', default=None,
-              help='Set target version explicitly.')
-@click.option('--arrow-remote', '-r', default=None,
-              help='Set GitHub remote explicitly, which is going to be cloned '
-                   'on the CI services. Note, that no validation happens '
-                   'locally. Examples: https://github.com/apache/arrow or '
-                   'https://github.com/kszucs/arrow.')
-@click.option('--arrow-branch', '-b', default=None,
-              help='Give the branch name explicitly, e.g. master, ARROW-1949.')
-@click.option('--arrow-sha', '-t', default=None,
-              help='Set commit SHA or Tag name explicitly, e.g. f67a515, '
-                   'apache-arrow-0.11.1.')
-@click.option('--fetch/--no-fetch', default=True,
-              help='Fetch references (branches and tags) from the remote')
-@click.option('--dry-run/--commit', default=False,
-              help='Just display the rendered CI configurations without '
-                   'committing them')
-@click.option('--no-push/--push', default=False,
-              help='Don\'t push the changes')
+@click.argument("tasks", nargs=-1, required=False)
+@click.option(
+    "--group",
+    "-g",
+    "groups",
+    multiple=True,
+    help="Submit task groups as defined in task.yml",
+)
+@click.option(
+    "--param",
+    "-p",
+    "params",
+    multiple=True,
+    help="Additional task parameters for rendering the CI templates",
+)
+@click.option(
+    "--job-prefix",
+    default="build",
+    help="Arbitrary prefix for branch names, e.g. nightly",
+)
+@click.option(
+    "--config-path",
+    "-c",
+    type=click.Path(exists=True),
+    default=_default_config_path,
+    help="Task configuration yml. Defaults to tasks.yml",
+)
+@click.option(
+    "--arrow-version",
+    "-v",
+    default=None,
+    help="Set target version explicitly.",
+)
+@click.option(
+    "--arrow-remote",
+    "-r",
+    default=None,
+    help="Set GitHub remote explicitly, which is going to be cloned "
+    "on the CI services. Note, that no validation happens "
+    "locally. Examples: https://github.com/apache/arrow or "
+    "https://github.com/kszucs/arrow.",
+)
+@click.option(
+    "--arrow-branch",
+    "-b",
+    default=None,
+    help="Give the branch name explicitly, e.g. master, ARROW-1949.",
+)
+@click.option(
+    "--arrow-sha",
+    "-t",
+    default=None,
+    help="Set commit SHA or Tag name explicitly, e.g. f67a515, "
+    "apache-arrow-0.11.1.",
+)
+@click.option(
+    "--fetch/--no-fetch",
+    default=True,
+    help="Fetch references (branches and tags) from the remote",
+)
+@click.option(
+    "--dry-run/--commit",
+    default=False,
+    help="Just display the rendered CI configurations without "
+    "committing them",
+)
+@click.option("--no-push/--push", default=False, help="Don't push the changes")
 @click.pass_obj
-def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
-           arrow_remote, arrow_branch, arrow_sha, fetch, dry_run, no_push):
-    output = obj['output']
-    queue, arrow = obj['queue'], obj['arrow']
+def submit(
+    obj,
+    tasks,
+    groups,
+    params,
+    job_prefix,
+    config_path,
+    arrow_version,
+    arrow_remote,
+    arrow_branch,
+    arrow_sha,
+    fetch,
+    dry_run,
+    no_push,
+):
+    output = obj["output"]
+    queue, arrow = obj["queue"], obj["arrow"]
 
     # load available tasks configuration and groups from yaml
     config = Config.load_yaml(config_path)
@@ -123,16 +202,26 @@ def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
     # in case of the release procedure), because the templates still
     # contain some business logic (dependency installation, deployments)
     # which will be reduced to a single command in the future.
-    target = Target.from_repo(arrow, remote=arrow_remote, branch=arrow_branch,
-                              head=arrow_sha, version=arrow_version)
+    target = Target.from_repo(
+        arrow,
+        remote=arrow_remote,
+        branch=arrow_branch,
+        head=arrow_sha,
+        version=arrow_version,
+    )
 
     # parse additional job parameters
     params = dict([p.split("=") for p in params])
 
     # instantiate the job object
     try:
-        job = Job.from_config(config=config, target=target, tasks=tasks,
-                              groups=groups, params=params)
+        job = Job.from_config(
+            config=config,
+            target=target,
+            tasks=tasks,
+            groups=groups,
+            params=params,
+        )
     except CrossbowError as e:
         raise click.ClickException(str(e))
 
@@ -145,35 +234,69 @@ def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
     queue.put(job, prefix=job_prefix)
 
     if no_push:
-        click.echo('Branches and commits created but not pushed: `{}`'
-                   .format(job.branch))
+        click.echo(
+            f"Branches and commits created but not pushed: `{job.branch}`"
+        )
     else:
         queue.push()
-        click.echo('Pushed job identifier is: `{}`'.format(job.branch))
+        click.echo(f"Pushed job identifier is: `{job.branch}`")
 
 
 @crossbow.command()
-@click.argument('task', required=True)
-@click.option('--config-path', '-c',
-              type=click.Path(exists=True), default=_default_config_path,
-              help='Task configuration yml. Defaults to tasks.yml')
-@click.option('--arrow-version', '-v', default=None,
-              help='Set target version explicitly.')
-@click.option('--arrow-remote', '-r', default=None,
-              help='Set GitHub remote explicitly, which is going to be cloned '
-                   'on the CI services. Note, that no validation happens '
-                   'locally. Examples: https://github.com/apache/arrow or '
-                   'https://github.com/kszucs/arrow.')
-@click.option('--arrow-branch', '-b', default=None,
-              help='Give the branch name explicitly, e.g. master, ARROW-1949.')
-@click.option('--arrow-sha', '-t', default=None,
-              help='Set commit SHA or Tag name explicitly, e.g. f67a515, '
-                   'apache-arrow-0.11.1.')
-@click.option('--param', '-p', 'params', multiple=True,
-              help='Additional task parameters for rendering the CI templates')
+@click.argument("task", required=True)
+@click.option(
+    "--config-path",
+    "-c",
+    type=click.Path(exists=True),
+    default=_default_config_path,
+    help="Task configuration yml. Defaults to tasks.yml",
+)
+@click.option(
+    "--arrow-version",
+    "-v",
+    default=None,
+    help="Set target version explicitly.",
+)
+@click.option(
+    "--arrow-remote",
+    "-r",
+    default=None,
+    help="Set GitHub remote explicitly, which is going to be cloned "
+    "on the CI services. Note, that no validation happens "
+    "locally. Examples: https://github.com/apache/arrow or "
+    "https://github.com/kszucs/arrow.",
+)
+@click.option(
+    "--arrow-branch",
+    "-b",
+    default=None,
+    help="Give the branch name explicitly, e.g. master, ARROW-1949.",
+)
+@click.option(
+    "--arrow-sha",
+    "-t",
+    default=None,
+    help="Set commit SHA or Tag name explicitly, e.g. f67a515, "
+    "apache-arrow-0.11.1.",
+)
+@click.option(
+    "--param",
+    "-p",
+    "params",
+    multiple=True,
+    help="Additional task parameters for rendering the CI templates",
+)
 @click.pass_obj
-def render(obj, task, config_path, arrow_version, arrow_remote, arrow_branch,
-           arrow_sha, params):
+def render(
+    obj,
+    task,
+    config_path,
+    arrow_version,
+    arrow_remote,
+    arrow_branch,
+    arrow_sha,
+    params,
+):
     """
     Utility command to check the rendered CI templates.
     """
@@ -182,38 +305,48 @@ def render(obj, task, config_path, arrow_version, arrow_remote, arrow_branch,
     def highlight(code):
         try:
             from pygments import highlight
-            from pygments.lexers import YamlLexer
             from pygments.formatters import TerminalFormatter
+            from pygments.lexers import YamlLexer
+
             return highlight(code, YamlLexer(), TerminalFormatter())
         except ImportError:
             return code
 
-    arrow = obj['arrow']
+    arrow = obj["arrow"]
 
-    target = Target.from_repo(arrow, remote=arrow_remote, branch=arrow_branch,
-                              head=arrow_sha, version=arrow_version)
+    target = Target.from_repo(
+        arrow,
+        remote=arrow_remote,
+        branch=arrow_branch,
+        head=arrow_sha,
+        version=arrow_version,
+    )
     config = Config.load_yaml(config_path)
     params = dict([p.split("=") for p in params])
     params["queue_remote_url"] = "https://github.com/org/crossbow"
-    job = Job.from_config(config=config, target=target, tasks=[task],
-                          params=params)
+    job = Job.from_config(
+        config=config, target=target, tasks=[task], params=params
+    )
 
     for task_name, rendered_files in job.render_tasks().items():
         for path, content in _flatten(rendered_files).items():
-            click.echo('#' * 80)
-            click.echo('### {:^72} ###'.format("/".join(path)))
-            click.echo('#' * 80)
+            click.echo("#" * 80)
+            click.echo("### {:^72} ###".format("/".join(path)))
+            click.echo("#" * 80)
             click.echo(highlight(content))
 
 
 @crossbow.command()
-@click.argument('job-name', required=True)
-@click.option('--fetch/--no-fetch', default=True,
-              help='Fetch references (branches and tags) from the remote')
+@click.argument("job-name", required=True)
+@click.option(
+    "--fetch/--no-fetch",
+    default=True,
+    help="Fetch references (branches and tags) from the remote",
+)
 @click.pass_obj
 def status(obj, job_name, fetch):
-    output = obj['output']
-    queue = obj['queue']
+    output = obj["output"]
+    queue = obj["queue"]
     if fetch:
         queue.fetch()
     job = queue.get(job_name)
@@ -221,12 +354,15 @@ def status(obj, job_name, fetch):
 
 
 @crossbow.command()
-@click.argument('prefix', required=True)
-@click.option('--fetch/--no-fetch', default=True,
-              help='Fetch references (branches and tags) from the remote')
+@click.argument("prefix", required=True)
+@click.option(
+    "--fetch/--no-fetch",
+    default=True,
+    help="Fetch references (branches and tags) from the remote",
+)
 @click.pass_obj
 def latest_prefix(obj, prefix, fetch):
-    queue = obj['queue']
+    queue = obj["queue"]
     if fetch:
         queue.fetch()
     latest = queue.latest_for_prefix(prefix)
@@ -234,40 +370,75 @@ def latest_prefix(obj, prefix, fetch):
 
 
 @crossbow.command()
-@click.argument('job-name', required=True)
-@click.option('--sender-name', '-n',
-              help='Name to use for report e-mail.')
-@click.option('--sender-email', '-e',
-              help='E-mail to use for report e-mail.')
-@click.option('--recipient-email', '-r',
-              help='Where to send the e-mail report')
-@click.option('--smtp-user', '-u',
-              help='E-mail address to use for SMTP login')
-@click.option('--smtp-password', '-P',
-              help='SMTP password to use for report e-mail.')
-@click.option('--smtp-server', '-s', default='smtp.gmail.com',
-              help='SMTP server to use for report e-mail.')
-@click.option('--smtp-port', '-p', default=465,
-              help='SMTP port to use for report e-mail.')
-@click.option('--poll/--no-poll', default=False,
-              help='Wait for completion if there are tasks pending')
-@click.option('--poll-max-minutes', default=180,
-              help='Maximum amount of time waiting for job completion')
-@click.option('--poll-interval-minutes', default=10,
-              help='Number of minutes to wait to check job status again')
-@click.option('--send/--dry-run', default=False,
-              help='Just display the report, don\'t send it')
-@click.option('--fetch/--no-fetch', default=True,
-              help='Fetch references (branches and tags) from the remote')
+@click.argument("job-name", required=True)
+@click.option("--sender-name", "-n", help="Name to use for report e-mail.")
+@click.option("--sender-email", "-e", help="E-mail to use for report e-mail.")
+@click.option(
+    "--recipient-email", "-r", help="Where to send the e-mail report"
+)
+@click.option("--smtp-user", "-u", help="E-mail address to use for SMTP login")
+@click.option(
+    "--smtp-password", "-P", help="SMTP password to use for report e-mail."
+)
+@click.option(
+    "--smtp-server",
+    "-s",
+    default="smtp.gmail.com",
+    help="SMTP server to use for report e-mail.",
+)
+@click.option(
+    "--smtp-port",
+    "-p",
+    default=465,
+    help="SMTP port to use for report e-mail.",
+)
+@click.option(
+    "--poll/--no-poll",
+    default=False,
+    help="Wait for completion if there are tasks pending",
+)
+@click.option(
+    "--poll-max-minutes",
+    default=180,
+    help="Maximum amount of time waiting for job completion",
+)
+@click.option(
+    "--poll-interval-minutes",
+    default=10,
+    help="Number of minutes to wait to check job status again",
+)
+@click.option(
+    "--send/--dry-run",
+    default=False,
+    help="Just display the report, don't send it",
+)
+@click.option(
+    "--fetch/--no-fetch",
+    default=True,
+    help="Fetch references (branches and tags) from the remote",
+)
 @click.pass_obj
-def report(obj, job_name, sender_name, sender_email, recipient_email,
-           smtp_user, smtp_password, smtp_server, smtp_port, poll,
-           poll_max_minutes, poll_interval_minutes, send, fetch):
+def report(
+    obj,
+    job_name,
+    sender_name,
+    sender_email,
+    recipient_email,
+    smtp_user,
+    smtp_password,
+    smtp_server,
+    smtp_port,
+    poll,
+    poll_max_minutes,
+    poll_interval_minutes,
+    send,
+    fetch,
+):
     """
     Send an e-mail report showing success/failure of tasks in a Crossbow run
     """
-    output = obj['output']
-    queue = obj['queue']
+    output = obj["output"]
+    queue = obj["queue"]
     if fetch:
         queue.fetch()
 
@@ -276,13 +447,13 @@ def report(obj, job_name, sender_name, sender_email, recipient_email,
         job=job,
         sender_name=sender_name,
         sender_email=sender_email,
-        recipient_email=recipient_email
+        recipient_email=recipient_email,
     )
 
     if poll:
         job.wait_until_finished(
             poll_max_minutes=poll_max_minutes,
-            poll_interval_minutes=poll_interval_minutes
+            poll_interval_minutes=poll_interval_minutes,
         )
 
     if send:
@@ -290,29 +461,38 @@ def report(obj, job_name, sender_name, sender_email, recipient_email,
             smtp_user=smtp_user,
             smtp_password=smtp_password,
             smtp_server=smtp_server,
-            smtp_port=smtp_port
+            smtp_port=smtp_port,
         )
     else:
         report.show(output)
 
 
 @crossbow.command()
-@click.argument('job-name', required=True)
-@click.option('-t', '--target-dir',
-              default=_default_arrow_path / 'packages',
-              type=click.Path(file_okay=False, dir_okay=True),
-              help='Directory to download the build artifacts')
-@click.option('--dry-run/--execute', default=False,
-              help='Just display process, don\'t download anything')
-@click.option('--fetch/--no-fetch', default=True,
-              help='Fetch references (branches and tags) from the remote')
+@click.argument("job-name", required=True)
+@click.option(
+    "-t",
+    "--target-dir",
+    default=_default_arrow_path / "packages",
+    type=click.Path(file_okay=False, dir_okay=True),
+    help="Directory to download the build artifacts",
+)
+@click.option(
+    "--dry-run/--execute",
+    default=False,
+    help="Just display process, don't download anything",
+)
+@click.option(
+    "--fetch/--no-fetch",
+    default=True,
+    help="Fetch references (branches and tags) from the remote",
+)
 @click.pass_obj
 def download_artifacts(obj, job_name, target_dir, dry_run, fetch):
     """Download build artifacts from GitHub releases"""
-    output = obj['output']
+    output = obj["output"]
 
     # fetch the queue repository
-    queue = obj['queue']
+    queue = obj["queue"]
     if fetch:
         queue.fetch()
 
@@ -331,8 +511,8 @@ def download_artifacts(obj, job_name, target_dir, dry_run, fetch):
             if not dry_run:
                 asset.download(path)
 
-    click.echo('Downloading {}\'s artifacts.'.format(job_name))
-    click.echo('Destination directory is {}'.format(target_dir))
+    click.echo(f"Downloading {job_name}'s artifacts.")
+    click.echo(f"Destination directory is {target_dir}")
     click.echo()
 
     report = ConsoleReport(job)
@@ -340,13 +520,13 @@ def download_artifacts(obj, job_name, target_dir, dry_run, fetch):
 
 
 @crossbow.command()
-@click.argument('patterns', nargs=-1, required=True)
-@click.option('--sha', required=True, help='Target committish')
-@click.option('--tag', required=True, help='Target tag')
-@click.option('--method', default='curl', help='Use cURL to upload')
+@click.argument("patterns", nargs=-1, required=True)
+@click.option("--sha", required=True, help="Target committish")
+@click.option("--tag", required=True, help="Target tag")
+@click.option("--method", default="curl", help="Use cURL to upload")
 @click.pass_obj
 def upload_artifacts(obj, tag, sha, patterns, method):
-    queue = obj['queue']
+    queue = obj["queue"]
     queue.github_overwrite_release_assets(
         tag_name=tag, target_commitish=sha, method=method, patterns=patterns
     )

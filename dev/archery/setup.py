@@ -22,36 +22,41 @@ import sys
 from setuptools import setup, find_packages
 
 if sys.version_info < (3, 6):
-    sys.exit('Python < 3.6 is not supported')
+    sys.exit("Python < 3.6 is not supported")
 
 # For pathlib.Path compatibility
-jinja_req = 'jinja2>=2.11'
+jinja_req = "jinja2>=2.11"
 
 extras = {
-    'lint': ['numpydoc==1.1.0', 'autopep8', 'flake8', 'cmake_format==0.5.2'],
-    'benchmark': ['pandas'],
-    'docker': ['ruamel.yaml', 'python-dotenv'],
-    'release': [jinja_req, 'jira', 'semver', 'gitpython'],
-    'crossbow': ['github3.py', jinja_req, 'pygit2', 'ruamel.yaml',
-                 'setuptools_scm'],
+    "lint": ["numpydoc==1.1.0", "autopep8", "flake8", "cmake_format==0.5.2"],
+    "benchmark": ["pandas"],
+    "docker": ["ruamel.yaml", "python-dotenv"],
+    "release": [jinja_req, "jira", "semver", "gitpython"],
+    "crossbow": [
+        "github3.py",
+        jinja_req,
+        "pygit2",
+        "ruamel.yaml",
+        "setuptools_scm",
+    ],
 }
-extras['bot'] = extras['crossbow'] + ['pygithub', 'jira']
-extras['all'] = list(set(functools.reduce(operator.add, extras.values())))
+extras["bot"] = extras["crossbow"] + ["pygithub", "jira"]
+extras["all"] = list(set(functools.reduce(operator.add, extras.values())))
 
 setup(
-    name='archery',
+    name="archery",
     version="0.1.0",
-    description='Apache Arrow Developers Tools',
-    url='http://github.com/apache/arrow',
-    maintainer='Arrow Developers',
-    maintainer_email='dev@arrow.apache.org',
+    description="Apache Arrow Developers Tools",
+    url="http://github.com/apache/arrow",
+    maintainer="Arrow Developers",
+    maintainer_email="dev@arrow.apache.org",
     packages=find_packages(),
     include_package_data=True,
-    install_requires=['click>=7'],
-    tests_require=['pytest', 'responses'],
+    install_requires=["click>=7"],
+    tests_require=["pytest", "responses"],
     extras_require=extras,
-    entry_points='''
+    entry_points="""
         [console_scripts]
         archery=archery.cli:archery
-    '''
+    """,
 )

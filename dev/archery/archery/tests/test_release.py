@@ -18,11 +18,17 @@
 import pytest
 
 from archery.release import (
-    Release, MajorRelease, MinorRelease, PatchRelease,
-    Jira, Version, Issue, CommitTitle, Commit
+    Commit,
+    CommitTitle,
+    Issue,
+    Jira,
+    MajorRelease,
+    MinorRelease,
+    PatchRelease,
+    Release,
+    Version,
 )
 from archery.testing import DotDict
-
 
 # subset of issues per revision
 _issues = {
@@ -33,7 +39,7 @@ _issues = {
         Issue("ARROW-9644", type="Bug", summary="[C++][Dataset] Title"),
         Issue("ARROW-9643", type="Bug", summary="[C++] Title"),
         Issue("ARROW-9609", type="Bug", summary="[C++] Title"),
-        Issue("ARROW-9606", type="Bug", summary="[C++][Dataset] Title")
+        Issue("ARROW-9606", type="Bug", summary="[C++][Dataset] Title"),
     ],
     "1.0.0": [
         Issue("ARROW-300", type="New Feature", summary="[Format] Title"),
@@ -43,7 +49,7 @@ _issues = {
         Issue("ARROW-8472", type="Bug", summary="[Go][Integration] Title"),
         Issue("ARROW-8471", type="Bug", summary="[C++][Integration] Title"),
         Issue("ARROW-8974", type="Improvement", summary="[C++] Title"),
-        Issue("ARROW-8973", type="New Feature", summary="[Java] Title")
+        Issue("ARROW-8973", type="New Feature", summary="[Java] Title"),
     ],
     "0.17.1": [
         Issue("ARROW-8684", type="Bug", summary="[Python] Title"),
@@ -57,17 +63,16 @@ _issues = {
         Issue("ARROW-2447", type="Improvement", summary="[C++] Title"),
         Issue("ARROW-2255", type="Bug", summary="[Integration] Title"),
         Issue("ARROW-1907", type="Bug", summary="[C++/Python] Title"),
-        Issue("ARROW-1636", type="New Feature", summary="[Format] Title")
-    ]
+        Issue("ARROW-1636", type="New Feature", summary="[Format] Title"),
+    ],
 }
 
 
 class FakeJira(Jira):
-
     def __init__(self):
         pass
 
-    def project_versions(self, project='ARROW'):
+    def project_versions(self, project="ARROW"):
         return [
             Version.parse("3.0.0", released=False),
             Version.parse("2.0.0", released=False),
@@ -82,7 +87,7 @@ class FakeJira(Jira):
             Version.parse("0.15.0", released=True),
         ]
 
-    def project_issues(self, version, project='ARROW'):
+    def project_issues(self, version, project="ARROW"):
         return _issues[str(version)]
 
 
@@ -110,29 +115,29 @@ def test_version(fake_jira):
 
 
 def test_issue(fake_jira):
-    i = Issue("ARROW-1234", type='Bug', summary="title")
+    i = Issue("ARROW-1234", type="Bug", summary="title")
     assert i.key == "ARROW-1234"
     assert i.type == "Bug"
     assert i.summary == "title"
     assert i.project == "ARROW"
     assert i.number == 1234
 
-    i = Issue("PARQUET-1111", type='Improvement', summary="another title")
+    i = Issue("PARQUET-1111", type="Improvement", summary="another title")
     assert i.key == "PARQUET-1111"
     assert i.type == "Improvement"
     assert i.summary == "another title"
     assert i.project == "PARQUET"
     assert i.number == 1111
 
-    fake_jira_issue = DotDict({
-        'key': 'ARROW-2222',
-        'fields': {
-            'issuetype': {
-                'name': 'Feature'
+    fake_jira_issue = DotDict(
+        {
+            "key": "ARROW-2222",
+            "fields": {
+                "issuetype": {"name": "Feature"},
+                "summary": "Issue title",
             },
-            'summary': 'Issue title'
         }
-    })
+    )
     i = Issue.from_jira(fake_jira_issue)
     assert i.key == "ARROW-2222"
     assert i.type == "Feature"
@@ -182,8 +187,8 @@ def test_commit_title():
     t = CommitTitle.parse(
         "PARQUET-1882: [C++] Buffered Reads should allow for 0 length"
     )
-    assert t.project == 'PARQUET'
-    assert t.issue == 'PARQUET-1882'
+    assert t.project == "PARQUET"
+    assert t.issue == "PARQUET-1882"
     assert t.components == ["C++"]
     assert t.summary == "Buffered Reads should allow for 0 length"
 
@@ -192,8 +197,8 @@ def test_commit_title():
         "\nsomething else\n"
         "\nwhich should be truncated"
     )
-    assert t.project == 'ARROW'
-    assert t.issue == 'ARROW-9340'
+    assert t.project == "ARROW"
+    assert t.issue == "ARROW-9340"
     assert t.components == ["R"]
     assert t.summary == "Use CRAN version of decor package "
 
@@ -202,27 +207,27 @@ def test_release_basics(fake_jira):
     r = Release.from_jira("1.0.0", jira=fake_jira)
     assert isinstance(r, MajorRelease)
     assert r.is_released is True
-    assert r.branch == 'master'
-    assert r.tag == 'apache-arrow-1.0.0'
+    assert r.branch == "master"
+    assert r.tag == "apache-arrow-1.0.0"
 
     r = Release.from_jira("1.1.0", jira=fake_jira)
     assert isinstance(r, MinorRelease)
     assert r.is_released is False
-    assert r.branch == 'maint-1.x.x'
-    assert r.tag == 'apache-arrow-1.1.0'
+    assert r.branch == "maint-1.x.x"
+    assert r.tag == "apache-arrow-1.1.0"
 
     # minor releases before 1.0 are treated as major releases
     r = Release.from_jira("0.17.0", jira=fake_jira)
     assert isinstance(r, MajorRelease)
     assert r.is_released is True
-    assert r.branch == 'master'
-    assert r.tag == 'apache-arrow-0.17.0'
+    assert r.branch == "master"
+    assert r.tag == "apache-arrow-0.17.0"
 
     r = Release.from_jira("0.17.1", jira=fake_jira)
     assert isinstance(r, PatchRelease)
     assert r.is_released is True
-    assert r.branch == 'maint-0.17.x'
-    assert r.tag == 'apache-arrow-0.17.1'
+    assert r.branch == "maint-0.17.x"
+    assert r.tag == "apache-arrow-0.17.1"
 
 
 def test_previous_and_next_release(fake_jira):
@@ -270,45 +275,49 @@ def test_previous_and_next_release(fake_jira):
 def test_release_issues(fake_jira):
     # major release issues
     r = Release.from_jira("1.0.0", jira=fake_jira)
-    assert r.issues.keys() == set([
-        "ARROW-300",
-        "ARROW-4427",
-        "ARROW-5035",
-        "ARROW-8473",
-        "ARROW-8472",
-        "ARROW-8471",
-        "ARROW-8974",
-        "ARROW-8973"
-    ])
+    assert r.issues.keys() == set(
+        [
+            "ARROW-300",
+            "ARROW-4427",
+            "ARROW-5035",
+            "ARROW-8473",
+            "ARROW-8472",
+            "ARROW-8471",
+            "ARROW-8974",
+            "ARROW-8973",
+        ]
+    )
     # minor release issues
     r = Release.from_jira("0.17.0", jira=fake_jira)
-    assert r.issues.keys() == set([
-        "ARROW-2882",
-        "ARROW-2587",
-        "ARROW-2447",
-        "ARROW-2255",
-        "ARROW-1907",
-        "ARROW-1636",
-    ])
+    assert r.issues.keys() == set(
+        [
+            "ARROW-2882",
+            "ARROW-2587",
+            "ARROW-2447",
+            "ARROW-2255",
+            "ARROW-1907",
+            "ARROW-1636",
+        ]
+    )
     # patch release issues
     r = Release.from_jira("1.0.1", jira=fake_jira)
-    assert r.issues.keys() == set([
-        "ARROW-9684",
-        "ARROW-9667",
-        "ARROW-9659",
-        "ARROW-9644",
-        "ARROW-9643",
-        "ARROW-9609",
-        "ARROW-9606"
-    ])
+    assert r.issues.keys() == set(
+        [
+            "ARROW-9684",
+            "ARROW-9667",
+            "ARROW-9659",
+            "ARROW-9644",
+            "ARROW-9643",
+            "ARROW-9609",
+            "ARROW-9606",
+        ]
+    )
 
 
-@pytest.mark.parametrize(('version', 'ncommits'), [
-    ("1.0.0", 771),
-    ("0.17.1", 27),
-    ("0.17.0", 569),
-    ("0.15.1", 41)
-])
+@pytest.mark.parametrize(
+    ("version", "ncommits"),
+    [("1.0.0", 771), ("0.17.1", 27), ("0.17.0", 569), ("0.15.1", 41)],
+)
 def test_release_commits(fake_jira, version, ncommits):
     r = Release.from_jira(version, jira=fake_jira)
     assert len(r.commits) == ncommits
@@ -325,9 +334,9 @@ def test_maintenance_patch_selection(fake_jira):
         c.hexsha for c in r.commits_to_pick(exclude_already_applied=False)
     ]
     expected = [
-        '8939b4bd446ee406d5225c79d563a27d30fd7d6d',
-        'bcef6c95a324417e85e0140f9745d342cd8784b3',
-        '6002ec388840de5622e39af85abdc57a2cccc9b2',
-        '9123dadfd123bca7af4eaa9455f5b0d1ca8b929d',
+        "8939b4bd446ee406d5225c79d563a27d30fd7d6d",
+        "bcef6c95a324417e85e0140f9745d342cd8784b3",
+        "6002ec388840de5622e39af85abdc57a2cccc9b2",
+        "9123dadfd123bca7af4eaa9455f5b0d1ca8b929d",
     ]
     assert shas_to_pick == expected

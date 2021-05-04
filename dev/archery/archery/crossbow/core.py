@@ -15,24 +15,25 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import os
-import re
 import fnmatch
 import glob
-import time
 import logging
 import mimetypes
+import os
+import re
 import subprocess
 import textwrap
+import time
+from datetime import date
 from io import StringIO
 from pathlib import Path
-from datetime import date
 
 import jinja2
 from ruamel.yaml import YAML
 
 try:
     import github3
+
     _have_github3 = True
 except ImportError:
     github3 = object
@@ -46,7 +47,6 @@ else:
     PygitRemoteCallbacks = pygit2.RemoteCallbacks
 
 from ..utils.source import ArrowSources
-
 
 for pkg in ["requests", "urllib3", "github3"]:
     logging.getLogger(pkg).setLevel(logging.WARNING)
@@ -111,7 +111,7 @@ def _unflatten_tree(files):
             }
         }
     """
-    files = {tuple(k.split('/')): v for k, v in files.items()}
+    files = {tuple(k.split("/")): v for k, v in files.items()}
     return _unflatten(files)
 
 
@@ -120,10 +120,13 @@ def _render_jinja_template(searchpath, template, params):
         return [pattern.format(item) for item in items]
 
     loader = jinja2.FileSystemLoader(searchpath)
-    env = jinja2.Environment(loader=loader, trim_blocks=True,
-                             lstrip_blocks=True,
-                             undefined=jinja2.StrictUndefined)
-    env.filters['format_all'] = format_all
+    env = jinja2.Environment(
+        loader=loader,
+        trim_blocks=True,
+        lstrip_blocks=True,
+        undefined=jinja2.StrictUndefined,
+    )
+    env.filters["format_all"] = format_all
     template = env.get_template(template)
     return template.render(**params)
 
@@ -166,13 +169,12 @@ workflows:
 """
 
 _default_tree = {
-    '.travis.yml': _default_travis_yml,
-    '.circleci/config.yml': _default_circle_yml
+    ".travis.yml": _default_travis_yml,
+    ".circleci/config.yml": _default_circle_yml,
 }
 
 
 class GitRemoteCallbacks(PygitRemoteCallbacks):
-
     def __init__(self, token):
         self.token = token
         self.attempts = 0
@@ -190,18 +192,18 @@ class GitRemoteCallbacks(PygitRemoteCallbacks):
 
         if self.attempts >= 5:
             # pygit2 doesn't propagate the exception properly
-            msg = 'Wrong oauth personal access token'
+            msg = "Wrong oauth personal access token"
             print(msg)
             raise CrossbowError(msg)
 
         if allowed_types & pygit2.credentials.GIT_CREDTYPE_USERPASS_PLAINTEXT:
-            return pygit2.UserPass(self.token, 'x-oauth-basic')
+            return pygit2.UserPass(self.token, "x-oauth-basic")
         else:
             return None
 
 
 def _git_ssh_to_https(url):
-    return url.replace('git@github.com:', 'https://github.com/')
+    return url.replace("git@github.com:", "https://github.com/")
 
 
 class Repo:
@@ -218,8 +220,9 @@ class Repo:
         Raise exception for SSH origin URLs
     """
 
-    def __init__(self, path, github_token=None, remote_url=None,
-                 require_https=False):
+    def __init__(
+        self, path, github_token=None, remote_url=None, require_https=False
+    ):
         self.path = Path(path)
         self.github_token = github_token
         self.require_https = require_https
@@ -229,14 +232,16 @@ class Repo:
         self._updated_refs = []
 
     def __str__(self):
-        tpl = textwrap.dedent('''
+        tpl = textwrap.dedent(
+            """
             Repo: {remote}@{branch}
             Commit: {head}
-        ''')
+        """
+        )
         return tpl.format(
             remote=self.remote_url,
             branch=self.branch.branch_name,
-            head=self.head
+            head=self.head,
         )
 
     @property
@@ -247,32 +252,36 @@ class Repo:
 
     @property
     def origin(self):
-        remote = self.repo.remotes['origin']
-        if self.require_https and remote.url.startswith('git@github.com'):
-            raise CrossbowError("Change SSH origin URL to HTTPS to use "
-                                "Crossbow: {}".format(remote.url))
+        remote = self.repo.remotes["origin"]
+        if self.require_https and remote.url.startswith("git@github.com"):
+            raise CrossbowError(
+                f"Change SSH origin URL to HTTPS to use Crossbow: {remote.url}"
+            )
         return remote
 
     def fetch(self):
-        refspec = '+refs/heads/*:refs/remotes/origin/*'
+        refspec = "+refs/heads/*:refs/remotes/origin/*"
         self.origin.fetch([refspec])
 
     def push(self, refs=None, github_token=None):
         github_token = github_token or self.github_token
         if github_token is None:
             raise RuntimeError(
-                'Could not determine GitHub token. Please set the '
-                'CROSSBOW_GITHUB_TOKEN environment variable to a '
-                'valid GitHub access token or pass one to --github-token.'
+                "Could not determine GitHub token. Please set the "
+                "CROSSBOW_GITHUB_TOKEN environment variable to a "
+                "valid GitHub access token or pass one to --github-token."
             )
         callbacks = GitRemoteCallbacks(github_token)
         refs = refs or []
         try:
             self.origin.push(refs + self._updated_refs, callbacks=callbacks)
         except pygit2.GitError:
-            raise RuntimeError('Failed to push updated references, '
-                               'potentially because of credential issues: {}'
-                               .format(self._updated_refs))
+            raise RuntimeError(
+                "Failed to push updated references, "
+                "potentially because of credential issues: {}".format(
+                    self._updated_refs
+                )
+            )
         else:
             self.updated_refs = []
 
@@ -312,21 +321,22 @@ class Repo:
     @property
     def user_name(self):
         try:
-            return next(self.repo.config.get_multivar('user.name'))
+            return next(self.repo.config.get_multivar("user.name"))
         except StopIteration:
-            return os.environ.get('GIT_COMMITTER_NAME', 'unknown')
+            return os.environ.get("GIT_COMMITTER_NAME", "unknown")
 
     @property
     def user_email(self):
         try:
-            return next(self.repo.config.get_multivar('user.email'))
+            return next(self.repo.config.get_multivar("user.email"))
         except StopIteration:
-            return os.environ.get('GIT_COMMITTER_EMAIL', 'unknown')
+            return os.environ.get("GIT_COMMITTER_EMAIL", "unknown")
 
     @property
     def signature(self):
-        return pygit2.Signature(self.user_name, self.user_email,
-                                int(time.time()))
+        return pygit2.Signature(
+            self.user_name, self.user_email, int(time.time())
+        )
 
     def create_tree(self, files):
         builder = self.repo.TreeBuilder()
@@ -344,8 +354,9 @@ class Repo:
         tree_id = builder.write()
         return tree_id
 
-    def create_commit(self, files, parents=None, message='',
-                      reference_name=None):
+    def create_commit(
+        self, files, parents=None, message="", reference_name=None
+    ):
         if parents is None:
             # by default use the main branch as the base of the new branch
             # required to reuse github actions cache across crossbow tasks
@@ -354,12 +365,14 @@ class Repo:
         tree_id = self.create_tree(files)
 
         author = committer = self.signature
-        commit_id = self.repo.create_commit(reference_name, author, committer,
-                                            message, tree_id, parents)
+        commit_id = self.repo.create_commit(
+            reference_name, author, committer, message, tree_id, parents
+        )
         return self.repo[commit_id]
 
-    def create_branch(self, branch_name, files, parents=None, message='',
-                      signature=None):
+    def create_branch(
+        self, branch_name, files, parents=None, message="", signature=None
+    ):
         # create commit with the passed tree
         commit = self.create_commit(files, parents=parents, message=message)
 
@@ -367,17 +380,17 @@ class Repo:
         branch = self.repo.create_branch(branch_name, commit)
 
         # append to the pushable references
-        self._updated_refs.append('refs/heads/{}'.format(branch_name))
+        self._updated_refs.append(f"refs/heads/{branch_name}")
 
         return branch
 
-    def create_tag(self, tag_name, commit_id, message=''):
-        tag_id = self.repo.create_tag(tag_name, commit_id,
-                                      pygit2.GIT_OBJ_COMMIT, self.signature,
-                                      message)
+    def create_tag(self, tag_name, commit_id, message=""):
+        tag_id = self.repo.create_tag(
+            tag_name, commit_id, pygit2.GIT_OBJ_COMMIT, self.signature, message
+        )
 
         # append to the pushable references
-        self._updated_refs.append('refs/tags/{}'.format(tag_name))
+        self._updated_refs.append(f"refs/tags/{tag_name}")
 
         return self.repo[tag_id]
 
@@ -388,7 +401,7 @@ class Repo:
         return blob.data
 
     def _parse_github_user_repo(self):
-        m = re.match(r'.*\/([^\/]+)\/([^\/\.]+)(\.git)?$', self.remote_url)
+        m = re.match(r".*\/([^\/]+)\/([^\/\.]+)(\.git)?$", self.remote_url)
         if m is None:
             raise CrossbowError(
                 "Unable to parse the github owner and repository from the "
@@ -401,12 +414,11 @@ class Repo:
         """Converts it to a repository object which wraps the GitHub API"""
         if self._github_repo is None:
             if not _have_github3:
-                raise ImportError('Must install github3.py')
+                raise ImportError("Must install github3.py")
             github_token = github_token or self.github_token
             username, reponame = self._parse_github_user_repo()
             session = github3.session.GitHubSession(
-                default_connect_timeout=10,
-                default_read_timeout=30
+                default_connect_timeout=10, default_read_timeout=30
             )
             github = github3.GitHub(session=session)
             github.login(token=github_token)
@@ -424,25 +436,30 @@ class Repo:
         except github3.exceptions.NotFoundError:
             return None
 
-    def github_upload_asset_requests(self, release, path, name, mime,
-                                     max_retries=None, retry_backoff=None):
+    def github_upload_asset_requests(
+        self, release, path, name, mime, max_retries=None, retry_backoff=None
+    ):
         if max_retries is None:
-            max_retries = int(os.environ.get('CROSSBOW_MAX_RETRIES', 8))
+            max_retries = int(os.environ.get("CROSSBOW_MAX_RETRIES", 8))
         if retry_backoff is None:
-            retry_backoff = int(os.environ.get('CROSSBOW_RETRY_BACKOFF', 5))
+            retry_backoff = int(os.environ.get("CROSSBOW_RETRY_BACKOFF", 5))
 
         for i in range(max_retries):
             try:
-                with open(path, 'rb') as fp:
-                    result = release.upload_asset(name=name, asset=fp,
-                                                  content_type=mime)
+                with open(path, "rb") as fp:
+                    result = release.upload_asset(
+                        name=name, asset=fp, content_type=mime
+                    )
             except github3.exceptions.ResponseError as e:
-                logger.error('Attempt {} has failed with message: {}.'
-                             .format(i + 1, str(e)))
-                logger.error('Error message {}'.format(e.msg))
-                logger.error('List of errors provided by Github:')
+                logger.error(
+                    "Attempt {} has failed with message: {}.".format(
+                        i + 1, str(e)
+                    )
+                )
+                logger.error(f"Error message {e.msg}")
+                logger.error("List of errors provided by Github:")
                 for err in e.errors:
-                    logger.error(' - {}'.format(err))
+                    logger.error(f" - {err}")
 
                 if e.code == 422:
                     # 422 Validation Failed, probably raised because
@@ -450,47 +467,56 @@ class Repo:
                     # reattempting the asset upload
                     for asset in release.assets():
                         if asset.name == name:
-                            logger.info('Release asset {} already exists, '
-                                        'removing it...'.format(name))
+                            logger.info(
+                                "Release asset {} already exists, "
+                                "removing it...".format(name)
+                            )
                             asset.delete()
-                            logger.info('Asset {} removed.'.format(name))
+                            logger.info(f"Asset {name} removed.")
                             break
             except github3.exceptions.ConnectionError as e:
-                logger.error('Attempt {} has failed with message: {}.'
-                             .format(i + 1, str(e)))
+                logger.error(
+                    "Attempt {} has failed with message: {}.".format(
+                        i + 1, str(e)
+                    )
+                )
             else:
-                logger.info('Attempt {} has finished.'.format(i + 1))
+                logger.info(f"Attempt {i + 1} has finished.")
                 return result
 
             time.sleep(retry_backoff)
 
-        raise RuntimeError('Github asset uploading has failed!')
+        raise RuntimeError("Github asset uploading has failed!")
 
     def github_upload_asset_curl(self, release, path, name, mime):
-        upload_url, _ = release.upload_url.split('{?')
-        upload_url += '?name={}'.format(name)
+        upload_url, _ = release.upload_url.split("{?")
+        upload_url += f"?name={name}"
 
         command = [
-            'curl',
-            '--fail',
-            '-H', "Authorization: token {}".format(self.github_token),
-            '-H', "Content-Type: {}".format(mime),
-            '--data-binary', '@{}'.format(path),
-            upload_url
+            "curl",
+            "--fail",
+            "-H",
+            f"Authorization: token {self.github_token}",
+            "-H",
+            f"Content-Type: {mime}",
+            "--data-binary",
+            f"@{path}",
+            upload_url,
         ]
         return subprocess.run(command, shell=False, check=True)
 
-    def github_overwrite_release_assets(self, tag_name, target_commitish,
-                                        patterns, method='requests'):
+    def github_overwrite_release_assets(
+        self, tag_name, target_commitish, patterns, method="requests"
+    ):
         # Since github has changed something the asset uploading via requests
         # got instable, so prefer the cURL alternative.
         # Potential cause:
         #    sigmavirus24/github3.py/issues/779#issuecomment-379470626
         repo = self.as_github_repo()
         if not tag_name:
-            raise CrossbowError('Empty tag name')
+            raise CrossbowError("Empty tag name")
         if not target_commitish:
-            raise CrossbowError('Empty target commit for the release tag')
+            raise CrossbowError("Empty target commit for the release tag")
 
         # remove the whole release if it already exists
         try:
@@ -505,29 +531,28 @@ class Repo:
             for path in glob.glob(pattern, recursive=True):
                 name = os.path.basename(path)
                 size = os.path.getsize(path)
-                mime = mimetypes.guess_type(name)[0] or 'application/zip'
+                mime = mimetypes.guess_type(name)[0] or "application/zip"
 
                 logger.info(
-                    'Uploading asset `{}` with mimetype {} and size {}...'
-                    .format(name, mime, size)
+                    f"Uploading asset `{name}` with mimetype {mime} and "
+                    f"size {size}..."
                 )
 
-                if method == 'requests':
-                    self.github_upload_asset_requests(release, path, name=name,
-                                                      mime=mime)
-                elif method == 'curl':
-                    self.github_upload_asset_curl(release, path, name=name,
-                                                  mime=mime)
-                else:
-                    raise CrossbowError(
-                        'Unsupported upload method {}'.format(method)
+                if method == "requests":
+                    self.github_upload_asset_requests(
+                        release, path, name=name, mime=mime
                     )
+                elif method == "curl":
+                    self.github_upload_asset_curl(
+                        release, path, name=name, mime=mime
+                    )
+                else:
+                    raise CrossbowError(f"Unsupported upload method {method}")
 
 
 class Queue(Repo):
-
     def _latest_prefix_id(self, prefix):
-        pattern = re.compile(r'[\w\/-]*{}-(\d+)'.format(prefix))
+        pattern = re.compile(r"[\w\/-]*{}-(\d+)".format(prefix))
         matches = list(filter(None, map(pattern.match, self.repo.branches)))
         if matches:
             latest = max(int(m.group(1)) for m in matches)
@@ -538,21 +563,21 @@ class Queue(Repo):
     def _next_job_id(self, prefix):
         """Auto increments the branch's identifier based on the prefix"""
         latest_id = self._latest_prefix_id(prefix)
-        return '{}-{}'.format(prefix, latest_id + 1)
+        return f"{prefix}-{latest_id + 1}"
 
     def latest_for_prefix(self, prefix):
         latest_id = self._latest_prefix_id(prefix)
         if latest_id < 0:
             raise RuntimeError(
-                'No job has been submitted with prefix {} yet'.format(prefix)
+                f"No job has been submitted with prefix {prefix} yet"
             )
-        job_name = '{}-{}'.format(prefix, latest_id)
+        job_name = f"{prefix}-{latest_id}"
         return self.get(job_name)
 
     def date_of(self, job):
         # it'd be better to bound to the queue repository on deserialization
         # and reorganize these methods to Job
-        branch_name = 'origin/{}'.format(job.branch)
+        branch_name = f"origin/{job.branch}"
         branch = self.repo.branches[branch_name]
         commit = self.repo[branch.target]
         return date.fromtimestamp(commit.commit_time)
@@ -561,7 +586,7 @@ class Queue(Repo):
         """Return jobs sorted by its identifier in reverse order"""
         job_names = []
         for name in self.repo.branches.remote:
-            origin, name = name.split('/', 1)
+            origin, name = name.split("/", 1)
             result = re.match(pattern, name)
             if result:
                 job_names.append(name)
@@ -570,38 +595,38 @@ class Queue(Repo):
             yield self.get(name)
 
     def get(self, job_name):
-        branch_name = 'origin/{}'.format(job_name)
+        branch_name = f"origin/{job_name}"
         branch = self.repo.branches[branch_name]
         try:
-            content = self.file_contents(branch.target, 'job.yml')
+            content = self.file_contents(branch.target, "job.yml")
         except KeyError:
-            raise CrossbowError(
-                'No job is found with name: {}'.format(job_name)
-            )
+            raise CrossbowError(f"No job is found with name: {job_name}")
 
-        buffer = StringIO(content.decode('utf-8'))
+        buffer = StringIO(content.decode("utf-8"))
         job = yaml.load(buffer)
         job.queue = self
         return job
 
-    def put(self, job, prefix='build'):
+    def put(self, job, prefix="build"):
         if not isinstance(job, Job):
-            raise CrossbowError('`job` must be an instance of Job')
+            raise CrossbowError("`job` must be an instance of Job")
         if job.branch is not None:
-            raise CrossbowError('`job.branch` is automatically generated, '
-                                'thus it must be blank')
+            raise CrossbowError(
+                "`job.branch` is automatically generated, "
+                "thus it must be blank"
+            )
 
         if job.target.remote is None:
             raise CrossbowError(
-                'Cannot determine git remote for the Arrow repository to '
-                'clone or push to, try to push the `{}` branch first to have '
-                'a remote tracking counterpart.'.format(job.target.branch)
+                "Cannot determine git remote for the Arrow repository to "
+                "clone or push to, try to push the `{}` branch first to have "
+                "a remote tracking counterpart.".format(job.target.branch)
             )
         if job.target.branch is None:
             raise CrossbowError(
-                'Cannot determine the current branch of the Arrow repository '
-                'to clone or push to, perhaps it is in detached HEAD state. '
-                'Please checkout a branch.'
+                "Cannot determine the current branch of the Arrow repository "
+                "to clone or push to, perhaps it is in detached HEAD state. "
+                "Please checkout a branch."
             )
 
         # auto increment and set next job id, e.g. build-85
@@ -612,11 +637,11 @@ class Queue(Repo):
         for task_name, task in job.tasks.items():
             # adding CI's name to the end of the branch in order to use skip
             # patterns on travis and circleci
-            task.branch = '{}-{}-{}'.format(job.branch, task.ci, task_name)
+            task.branch = f"{job.branch}-{task.ci}-{task_name}"
             params = {
                 **job.params,
                 "arrow": job.target,
-                "queue_remote_url": self.remote_url
+                "queue_remote_url": self.remote_url,
             }
             files = task.render_files(job.template_searchpath, params=params)
             branch = self.create_branch(task.branch, files=files)
@@ -635,9 +660,9 @@ def get_version(root, **kwargs):
     from setuptools_scm.git import parse as parse_git_version
 
     # query the calculated version based on the git tags
-    kwargs['describe_command'] = (
-        'git describe --dirty --tags --long --match "apache-arrow-[0-9].*"'
-    )
+    kwargs[
+        "describe_command"
+    ] = 'git describe --dirty --tags --long --match "apache-arrow-[0-9].*"'
     version = parse_git_version(root, **kwargs)
 
     # increment the minor version, because there can be patch releases created
@@ -649,15 +674,14 @@ def get_version(root, **kwargs):
     major, minor, patch = map(int, match.groups())
 
     # the bumped version number after 0.17.x will be 0.18.0.dev300
-    return "{}.{}.{}.dev{}".format(major, minor + 1, patch, version.distance)
+    return f"{major}.{minor + 1}.{patch}.dev{version.distance}"
 
 
 class Serializable:
-
     @classmethod
     def to_yaml(cls, representer, data):
-        tag = '!{}'.format(cls.__name__)
-        dct = {k: v for k, v in data.__dict__.items() if not k.startswith('_')}
+        tag = f"!{cls.__name__}"
+        dct = {k: v for k, v in data.__dict__.items() if not k.startswith("_")}
         return representer.represent_mapping(tag, dct)
 
 
@@ -676,7 +700,7 @@ class Target(Serializable):
         self.branch = branch
         self.remote = remote
         self.version = version
-        self.no_rc_version = re.sub(r'-rc\d+\Z', '', version)
+        self.no_rc_version = re.sub(r"-rc\d+\Z", "", version)
         # Semantic Versioning 1.0.0: https://semver.org/spec/v1.0.0.html
         #
         # > A pre-release version number MAY be denoted by appending an
@@ -688,12 +712,20 @@ class Target(Serializable):
         #
         #   '0.16.1.dev10' ->
         #   '0.16.1-dev10'
-        self.no_rc_semver_version = \
-            re.sub(r'\.(dev\d+)\Z', r'-\1', self.no_rc_version)
+        self.no_rc_semver_version = re.sub(
+            r"\.(dev\d+)\Z", r"-\1", self.no_rc_version
+        )
 
     @classmethod
-    def from_repo(cls, repo, head=None, branch=None, remote=None, version=None,
-                  email=None):
+    def from_repo(
+        cls,
+        repo,
+        head=None,
+        branch=None,
+        remote=None,
+        version=None,
+        email=None,
+    ):
         """Initialize from a repository
 
         Optionally override detected remote, branch, head, and/or version.
@@ -711,8 +743,13 @@ class Target(Serializable):
         if email is None:
             email = repo.user_email
 
-        return cls(head=head, email=email, branch=branch, remote=remote,
-                   version=version)
+        return cls(
+            head=head,
+            email=email,
+            branch=branch,
+            remote=remote,
+            version=version,
+        )
 
 
 class Task(Serializable):
@@ -729,12 +766,12 @@ class Task(Serializable):
 
     def __init__(self, ci, template, artifacts=None, params=None):
         assert ci in {
-            'circle',
-            'travis',
-            'appveyor',
-            'azure',
-            'github',
-            'drone',
+            "circle",
+            "travis",
+            "appveyor",
+            "azure",
+            "github",
+            "drone",
         }
         self.ci = ci
         self.template = template
@@ -749,11 +786,12 @@ class Task(Serializable):
     def render_files(self, searchpath, params=None):
         params = {**self.params, **(params or {}), "task": self}
         try:
-            rendered = _render_jinja_template(searchpath, self.template,
-                                              params=params)
+            rendered = _render_jinja_template(
+                searchpath, self.template, params=params
+            )
         except jinja2.TemplateError as e:
             raise RuntimeError(
-                'Failed to render template `{}` with {}: {}'.format(
+                "Failed to render template `{}` with {}: {}".format(
                     self.template, e.__class__.__name__, str(e)
                 )
             )
@@ -768,28 +806,29 @@ class Task(Serializable):
     @property
     def filename(self):
         config_files = {
-            'circle': '.circleci/config.yml',
-            'travis': '.travis.yml',
-            'appveyor': 'appveyor.yml',
-            'azure': 'azure-pipelines.yml',
-            'github': '.github/workflows/crossbow.yml',
-            'drone': '.drone.yml',
+            "circle": ".circleci/config.yml",
+            "travis": ".travis.yml",
+            "appveyor": "appveyor.yml",
+            "azure": "azure-pipelines.yml",
+            "github": ".github/workflows/crossbow.yml",
+            "drone": ".drone.yml",
         }
         return config_files[self.ci]
 
     def status(self, force_query=False):
-        _status = getattr(self, '_status', None)
+        _status = getattr(self, "_status", None)
         if force_query or _status is None:
             github_commit = self._queue.github_commit(self.commit)
             self._status = TaskStatus(github_commit)
         return self._status
 
     def assets(self, force_query=False):
-        _assets = getattr(self, '_assets', None)
+        _assets = getattr(self, "_assets", None)
         if force_query or _assets is None:
             github_release = self._queue.github_release(self.tag)
-            self._assets = TaskAssets(github_release,
-                                      artifact_patterns=self.artifacts)
+            self._assets = TaskAssets(
+                github_release, artifact_patterns=self.artifacts
+            )
         return self._assets
 
 
@@ -836,25 +875,28 @@ class TaskStatus:
         states = [s.state for s in status.statuses]
 
         for check in check_runs:
-            if check.status == 'completed':
-                if check.conclusion in {'success', 'failure'}:
+            if check.status == "completed":
+                if check.conclusion in {"success", "failure"}:
                     states.append(check.conclusion)
-                elif check.conclusion in {'cancelled', 'timed_out',
-                                          'action_required'}:
-                    states.append('error')
+                elif check.conclusion in {
+                    "cancelled",
+                    "timed_out",
+                    "action_required",
+                }:
+                    states.append("error")
                 # omit `neutral` conclusion
             else:
-                states.append('pending')
+                states.append("pending")
 
         # it could be more effective, but the following is more descriptive
-        combined_state = 'error'
+        combined_state = "error"
         if len(states):
-            if any(state in {'error', 'failure'} for state in states):
-                combined_state = 'failure'
-            elif any(state == 'pending' for state in states):
-                combined_state = 'pending'
-            elif all(state == 'success' for state in states):
-                combined_state = 'success'
+            if any(state in {"error", "failure"} for state in states):
+                combined_state = "failure"
+            elif any(state == "pending" for state in states):
+                combined_state = "pending"
+            elif all(state == "success" for state in states):
+                combined_state = "success"
 
         # show link to the actual build, some of the CI providers implement
         # the statuses API others implement the checks API, so display both
@@ -869,7 +911,6 @@ class TaskStatus:
 
 
 class TaskAssets(dict):
-
     def __init__(self, github_release, artifact_patterns):
         # HACK(kszucs): don't expect uploaded assets of no atifacts were
         # defiened for the tasks in order to spare a bit of github rate limit
@@ -896,8 +937,8 @@ class TaskAssets(dict):
                 self[pattern] = github_assets[matches[0].group(0)]
             else:
                 raise CrossbowError(
-                    'Only a single asset should match pattern `{}`, there are '
-                    'multiple ones: {}'.format(pattern, ', '.join(matches))
+                    "Only a single asset should match pattern `{}`, there are "
+                    "multiple ones: {}".format(pattern, ", ".join(matches))
                 )
 
     def missing_patterns(self):
@@ -912,15 +953,15 @@ class Job(Serializable):
 
     def __init__(self, target, tasks, params=None, template_searchpath=None):
         if not tasks:
-            raise ValueError('no tasks were provided for the job')
+            raise ValueError("no tasks were provided for the job")
         if not all(isinstance(task, Task) for task in tasks.values()):
-            raise ValueError('each `tasks` mus be an instance of Task')
+            raise ValueError("each `tasks` mus be an instance of Task")
         if not isinstance(target, Target):
-            raise ValueError('`target` must be an instance of Target')
+            raise ValueError("`target` must be an instance of Target")
         if not isinstance(target, Target):
-            raise ValueError('`target` must be an instance of Target')
+            raise ValueError("`target` must be an instance of Target")
         if not isinstance(params, dict):
-            raise ValueError('`params` must be an instance of dict')
+            raise ValueError("`params` must be an instance of dict")
 
         self.target = target
         self.tasks = tasks
@@ -941,11 +982,7 @@ class Job(Serializable):
 
     def render_tasks(self, params=None):
         result = {}
-        params = {
-            **self.params,
-            "arrow": self.target,
-            **(params or {})
-        }
+        params = {**self.params, "arrow": self.target, **(params or {})}
         for task_name, task in self.tasks.items():
             files = task.render_files(self._template_searchpath, params)
             result[task_name] = files
@@ -969,7 +1006,7 @@ class Job(Serializable):
 
     @property
     def email(self):
-        return os.environ.get('CROSSBOW_EMAIL', self.target.email)
+        return os.environ.get("CROSSBOW_EMAIL", self.target.email)
 
     @property
     def date(self):
@@ -1010,26 +1047,33 @@ class Job(Serializable):
 
         # instantiate the tasks
         tasks = {}
-        versions = {'version': target.version,
-                    'no_rc_version': target.no_rc_version,
-                    'no_rc_semver_version': target.no_rc_semver_version}
+        versions = {
+            "version": target.version,
+            "no_rc_version": target.no_rc_version,
+            "no_rc_semver_version": target.no_rc_semver_version,
+        }
         for task_name, task in task_definitions.items():
-            artifacts = task.pop('artifacts', None) or []  # because of yaml
+            artifacts = task.pop("artifacts", None) or []  # because of yaml
             artifacts = [fn.format(**versions) for fn in artifacts]
             tasks[task_name] = Task(artifacts=artifacts, **task)
 
-        return cls(target=target, tasks=tasks, params=params,
-                   template_searchpath=config.template_searchpath)
+        return cls(
+            target=target,
+            tasks=tasks,
+            params=params,
+            template_searchpath=config.template_searchpath,
+        )
 
     def is_finished(self):
         for task in self.tasks.values():
             status = task.status(force_query=True)
-            if status.combined_state == 'pending':
+            if status.combined_state == "pending":
                 return False
         return True
 
-    def wait_until_finished(self, poll_max_minutes=120,
-                            poll_interval_minutes=10):
+    def wait_until_finished(
+        self, poll_max_minutes=120, poll_interval_minutes=10
+    ):
         started_at = time.time()
         while True:
             if self.is_finished():
@@ -1037,17 +1081,21 @@ class Job(Serializable):
 
             waited_for_minutes = (time.time() - started_at) / 60
             if waited_for_minutes > poll_max_minutes:
-                msg = ('Exceeded the maximum amount of time waiting for job '
-                       'to finish, waited for {} minutes.')
+                msg = (
+                    "Exceeded the maximum amount of time waiting for job "
+                    "to finish, waited for {} minutes."
+                )
                 raise RuntimeError(msg.format(waited_for_minutes))
 
-            logger.info('Waiting {} minutes and then checking again'
-                        .format(poll_interval_minutes))
+            logger.info(
+                "Waiting {} minutes and then checking again".format(
+                    poll_interval_minutes
+                )
+            )
             time.sleep(poll_interval_minutes * 60)
 
 
 class Config(dict):
-
     def __init__(self, tasks, template_searchpath):
         super().__init__(tasks)
         self.template_searchpath = template_searchpath
@@ -1056,8 +1104,9 @@ class Config(dict):
     def load_yaml(cls, path):
         path = Path(path)
         searchpath = path.parent
-        rendered = _render_jinja_template(searchpath, template=path.name,
-                                          params={})
+        rendered = _render_jinja_template(
+            searchpath, template=path.name, params={}
+        )
         config = yaml.load(rendered)
         return cls(config, template_searchpath=searchpath)
 
@@ -1065,8 +1114,8 @@ class Config(dict):
         return yaml.dump(dict(self), stream=stream)
 
     def select(self, tasks=None, groups=None):
-        config_groups = dict(self['groups'])
-        config_tasks = dict(self['tasks'])
+        config_groups = dict(self["groups"])
+        config_tasks = dict(self["tasks"])
         valid_groups = set(config_groups.keys())
         valid_tasks = set(config_tasks.keys())
         group_whitelist = list(groups or [])
@@ -1076,7 +1125,7 @@ class Config(dict):
         requested_groups = set(group_whitelist)
         invalid_groups = requested_groups - valid_groups
         if invalid_groups:
-            msg = 'Invalid group(s) {!r}. Must be one of {!r}'.format(
+            msg = "Invalid group(s) {!r}. Must be one of {!r}".format(
                 invalid_groups, valid_groups
             )
             raise CrossbowError(msg)
@@ -1093,13 +1142,13 @@ class Config(dict):
                 requested_tasks.update(matches)
             else:
                 raise CrossbowError(
-                    "Unable to match any tasks for `{}`".format(pattern)
+                    f"Unable to match any tasks for `{pattern}`"
                 )
 
         # validate that the passed and matched tasks are defined in the config
         invalid_tasks = requested_tasks - valid_tasks
         if invalid_tasks:
-            msg = 'Invalid task(s) {!r}. Must be one of {!r}'.format(
+            msg = "Invalid task(s) {!r}. Must be one of {!r}".format(
                 invalid_tasks, valid_tasks
             )
             raise CrossbowError(msg)
@@ -1110,7 +1159,7 @@ class Config(dict):
 
     def validate(self):
         # validate that the task groups are properly referening the tasks
-        for group_name, group in self['groups'].items():
+        for group_name, group in self["groups"].items():
             for pattern in group:
                 tasks = self.select(tasks=[pattern])
                 if not tasks:
@@ -1121,38 +1170,39 @@ class Config(dict):
                     )
 
         # validate that the tasks are constructible
-        for task_name, task in self['tasks'].items():
+        for task_name, task in self["tasks"].items():
             try:
                 Task(**task)
             except Exception as e:
                 raise CrossbowError(
-                    'Unable to construct a task object from the '
-                    'definition  of task `{}`. The original error message '
-                    'is: `{}`'.format(task_name, str(e))
+                    "Unable to construct a task object from the "
+                    "definition  of task `{}`. The original error message "
+                    "is: `{}`".format(task_name, str(e))
                 )
 
         # validate that the defined tasks are renderable, in order to to that
         # define the required object with dummy data
         target = Target(
-            head='e279a7e06e61c14868ca7d71dea795420aea6539',
-            branch='master',
-            remote='https://github.com/apache/arrow',
-            version='1.0.0dev123',
-            email='dummy@example.ltd'
+            head="e279a7e06e61c14868ca7d71dea795420aea6539",
+            branch="master",
+            remote="https://github.com/apache/arrow",
+            version="1.0.0dev123",
+            email="dummy@example.ltd",
         )
 
-        for task_name, task in self['tasks'].items():
+        for task_name, task in self["tasks"].items():
             task = Task(**task)
             files = task.render_files(
                 self.template_searchpath,
                 params=dict(
                     arrow=target,
-                    queue_remote_url='https://github.com/org/crossbow'
-                )
+                    queue_remote_url="https://github.com/org/crossbow",
+                ),
             )
             if not files:
-                raise CrossbowError('No files have been rendered for task `{}`'
-                                    .format(task_name))
+                raise CrossbowError(
+                    f"No files have been rendered for task `{task_name}`"
+                )
 
 
 # configure yaml serializer

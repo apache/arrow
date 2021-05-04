@@ -15,5 +15,5 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from .core import Config, Repo, Queue, Target, Job  # noqa
+from .core import Config, Job, Queue, Repo, Target  # noqa
 from .reports import CommentReport, ConsoleReport, EmailReport  # noqa

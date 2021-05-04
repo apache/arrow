@@ -15,8 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from pathlib import Path
 import os
+from pathlib import Path
 from urllib.request import urlopen
 
 from .logger import logger
@@ -25,7 +25,7 @@ ARCHERY_CACHE_DIR = Path.home() / ".cache" / "archery"
 
 
 class Cache:
-    """ Cache stores downloaded objects, notably apache-rat.jar. """
+    """Cache stores downloaded objects, notably apache-rat.jar."""
 
     def __init__(self, path=ARCHERY_CACHE_DIR):
         self.root = path
@@ -34,16 +34,16 @@ class Cache:
             os.makedirs(path)
 
     def key_path(self, key):
-        """ Return the full path of a key. """
-        return self.root/key
+        """Return the full path of a key."""
+        return self.root / key
 
     def get(self, key):
-        """ Return the full path of a key if cached, None otherwise. """
+        """Return the full path of a key if cached, None otherwise."""
         path = self.key_path(key)
         return path if path.exists() else None
 
     def delete(self, key):
-        """ Remove a key (and the file) from the cache. """
+        """Remove a key (and the file) from the cache."""
         path = self.get(key)
         if path:
             path.unlink()
@@ -68,9 +68,10 @@ class Cache:
         Get or Insert a key from the cache. If the key is not found, the file
         is downloaded from `url`.
         """
+
         def download(path):
-            """ Tiny wrapper that download a file and save as key. """
-            logger.debug("Downloading {} as {}".format(url, path))
+            """Tiny wrapper that download a file and save as key."""
+            logger.debug(f"Downloading {url} as {path}")
             conn = urlopen(url)
             # Ensure the download is completed before writing to disks.
             content = conn.read()

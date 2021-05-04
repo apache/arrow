@@ -20,14 +20,14 @@ import json
 import os
 import re
 
-from .core import BenchmarkSuite
-from .google import GoogleBenchmarkCommand, GoogleBenchmark
-from .jmh import JavaMicrobenchmarkHarnessCommand, JavaMicrobenchmarkHarness
 from ..lang.cpp import CppCMakeDefinition, CppConfiguration
-from ..lang.java import JavaMavenDefinition, JavaConfiguration
+from ..lang.java import JavaConfiguration, JavaMavenDefinition
 from ..utils.cmake import CMakeBuild
-from ..utils.maven import MavenBuild
 from ..utils.logger import logger
+from ..utils.maven import MavenBuild
+from .core import BenchmarkSuite
+from .google import GoogleBenchmark, GoogleBenchmarkCommand
+from .jmh import JavaMicrobenchmarkHarness, JavaMicrobenchmarkHarnessCommand
 
 
 def regex_filter(re_expr):
@@ -41,8 +41,12 @@ DEFAULT_REPETITIONS = 1
 
 
 class BenchmarkRunner:
-    def __init__(self, suite_filter=None, benchmark_filter=None,
-                 repetitions=DEFAULT_REPETITIONS):
+    def __init__(
+        self,
+        suite_filter=None,
+        benchmark_filter=None,
+        repetitions=DEFAULT_REPETITIONS,
+    ):
         self.suite_filter = suite_filter
         self.benchmark_filter = benchmark_filter
         self.repetitions = repetitions
@@ -54,11 +58,12 @@ class BenchmarkRunner:
     @staticmethod
     def from_rev_or_path(src, root, rev_or_path, cmake_conf, **kwargs):
         raise NotImplementedError(
-            "BenchmarkRunner must implement from_rev_or_path")
+            "BenchmarkRunner must implement from_rev_or_path"
+        )
 
 
 class StaticBenchmarkRunner(BenchmarkRunner):
-    """ Run suites from a (static) set of suites. """
+    """Run suites from a (static) set of suites."""
 
     def __init__(self, suites, **kwargs):
         self._suites = suites
@@ -68,7 +73,7 @@ class StaticBenchmarkRunner(BenchmarkRunner):
     def list_benchmarks(self):
         for suite in self._suites:
             for benchmark in suite.benchmarks:
-                yield "{}.{}".format(suite.name, benchmark.name)
+                yield f"{suite.name}.{benchmark.name}"
 
     @property
     def suites(self):
@@ -93,6 +98,7 @@ class StaticBenchmarkRunner(BenchmarkRunner):
     def from_json(path_or_str, **kwargs):
         # .codec imported here to break recursive imports
         from .codec import BenchmarkRunnerCodec
+
         if os.path.isfile(path_or_str):
             with open(path_or_str) as f:
                 loaded = json.load(f)
@@ -105,18 +111,20 @@ class StaticBenchmarkRunner(BenchmarkRunner):
 
 
 class CppBenchmarkRunner(BenchmarkRunner):
-    """ Run suites from a CMakeBuild. """
+    """Run suites from a CMakeBuild."""
 
     def __init__(self, build, **kwargs):
-        """ Initialize a CppBenchmarkRunner. """
+        """Initialize a CppBenchmarkRunner."""
         self.build = build
         super().__init__(**kwargs)
 
     @staticmethod
     def default_configuration(**kwargs):
-        """ Returns the default benchmark configuration. """
+        """Returns the default benchmark configuration."""
         return CppConfiguration(
-            build_type="release", with_tests=False, with_benchmarks=True,
+            build_type="release",
+            with_tests=False,
+            with_benchmarks=True,
             with_compute=True,
             with_csv=True,
             with_dataset=True,
@@ -129,11 +137,12 @@ class CppBenchmarkRunner(BenchmarkRunner):
             with_snappy=True,
             with_zlib=True,
             with_zstd=True,
-            **kwargs)
+            **kwargs,
+        )
 
     @property
     def suites_binaries(self):
-        """ Returns a list of benchmark binaries for this build. """
+        """Returns a list of benchmark binaries for this build."""
         # Ensure build is up-to-date to run benchmarks
         self.build()
         # Not the best method, but works for now
@@ -141,7 +150,7 @@ class CppBenchmarkRunner(BenchmarkRunner):
         return {os.path.basename(b): b for b in glob.glob(glob_expr)}
 
     def suite(self, name, suite_bin):
-        """ Returns the resulting benchmarks for a given suite. """
+        """Returns the resulting benchmarks for a given suite."""
         suite_cmd = GoogleBenchmarkCommand(suite_bin, self.benchmark_filter)
 
         # Ensure there will be data
@@ -158,17 +167,17 @@ class CppBenchmarkRunner(BenchmarkRunner):
         for suite_name, suite_bin in self.suites_binaries.items():
             suite_cmd = GoogleBenchmarkCommand(suite_bin)
             for benchmark_name in suite_cmd.list_benchmarks():
-                yield "{}.{}".format(suite_name, benchmark_name)
+                yield f"{suite_name}.{benchmark_name}"
 
     @property
     def suites(self):
-        """ Returns all suite for a runner. """
+        """Returns all suite for a runner."""
         suite_matcher = regex_filter(self.suite_filter)
 
         suite_and_binaries = self.suites_binaries
         for suite_name in suite_and_binaries:
             if not suite_matcher(suite_name):
-                logger.debug("Ignoring suite {}".format(suite_name))
+                logger.debug(f"Ignoring suite {suite_name}")
                 continue
 
             suite_bin = suite_and_binaries[suite_name]
@@ -176,15 +185,14 @@ class CppBenchmarkRunner(BenchmarkRunner):
 
             # Filter may exclude all benchmarks
             if not suite:
-                logger.debug("Suite {} executed but no results"
-                             .format(suite_name))
+                logger.debug(f"Suite {suite_name} executed but no results")
                 continue
 
             yield suite
 
     @staticmethod
     def from_rev_or_path(src, root, rev_or_path, cmake_conf, **kwargs):
-        """ Returns a BenchmarkRunner from a path or a git revision.
+        """Returns a BenchmarkRunner from a path or a git revision.
 
         First, it checks if `rev_or_path` is a valid path (or string) of a json
         object that can deserialize to a BenchmarkRunner. If so, it initialize
@@ -221,26 +229,27 @@ class CppBenchmarkRunner(BenchmarkRunner):
 
 
 class JavaBenchmarkRunner(BenchmarkRunner):
-    """ Run suites for Java. """
+    """Run suites for Java."""
 
     # default repetitions is 5 for Java microbenchmark harness
     def __init__(self, build, **kwargs):
-        """ Initialize a JavaBenchmarkRunner. """
+        """Initialize a JavaBenchmarkRunner."""
         self.build = build
         super().__init__(**kwargs)
 
     @staticmethod
     def default_configuration(**kwargs):
-        """ Returns the default benchmark configuration. """
+        """Returns the default benchmark configuration."""
         return JavaConfiguration(**kwargs)
 
     def suite(self, name):
-        """ Returns the resulting benchmarks for a given suite. """
+        """Returns the resulting benchmarks for a given suite."""
         # update .m2 directory, which installs target jars
         self.build.build()
 
         suite_cmd = JavaMicrobenchmarkHarnessCommand(
-            self.build, self.benchmark_filter)
+            self.build, self.benchmark_filter
+        )
 
         # Ensure there will be data
         benchmark_names = suite_cmd.list_benchmarks()
@@ -253,7 +262,7 @@ class JavaBenchmarkRunner(BenchmarkRunner):
 
     @property
     def list_benchmarks(self):
-        """ Returns all suite names """
+        """Returns all suite names"""
         # Ensure build is up-to-date to run benchmarks
         self.build.build()
 
@@ -264,21 +273,20 @@ class JavaBenchmarkRunner(BenchmarkRunner):
 
     @property
     def suites(self):
-        """ Returns all suite for a runner. """
+        """Returns all suite for a runner."""
         suite_name = "JavaBenchmark"
         suite = self.suite(suite_name)
 
         # Filter may exclude all benchmarks
         if not suite:
-            logger.debug("Suite {} executed but no results"
-                         .format(suite_name))
+            logger.debug("Suite {} executed but no results".format(suite_name))
             return
 
         yield suite
 
     @staticmethod
     def from_rev_or_path(src, root, rev_or_path, maven_conf, **kwargs):
-        """ Returns a BenchmarkRunner from a path or a git revision.
+        """Returns a BenchmarkRunner from a path or a git revision.
 
         First, it checks if `rev_or_path` is a valid path (or string) of a json
         object that can deserialize to a BenchmarkRunner. If so, it initialize

@@ -16,7 +16,7 @@
 # under the License.
 
 from contextlib import contextmanager
-from tempfile import mkdtemp, TemporaryDirectory
+from tempfile import TemporaryDirectory, mkdtemp
 
 
 @contextmanager

@@ -33,12 +33,11 @@ def guid():
 
 
 # SKIP categories
-SKIP_ARROW = 'arrow'
-SKIP_FLIGHT = 'flight'
+SKIP_ARROW = "arrow"
+SKIP_FLIGHT = "flight"
 
 ARROW_ROOT_DEFAULT = os.environ.get(
-    'ARROW_ROOT',
-    os.path.abspath(__file__).rsplit("/", 5)[0]
+    "ARROW_ROOT", os.path.abspath(__file__).rsplit("/", 5)[0]
 )
 
 
@@ -104,7 +103,7 @@ def random_utf8(nchars):
     """
     Generate one random UTF8 string.
     """
-    return ''.join(np.random.choice(_RAND_CHARS, nchars))
+    return "".join(np.random.choice(_RAND_CHARS, nchars))
 
 
 def random_bytes(nbytes):
@@ -113,38 +112,39 @@ def random_bytes(nbytes):
     """
     # NOTE getrandbits(0) fails
     if nbytes > 0:
-        return random.getrandbits(nbytes * 8).to_bytes(nbytes,
-                                                       byteorder='little')
+        return random.getrandbits(nbytes * 8).to_bytes(
+            nbytes, byteorder="little"
+        )
     else:
         return b""
 
 
 def tobytes(o):
     if isinstance(o, str):
-        return o.encode('utf8')
+        return o.encode("utf8")
     return o
 
 
 def frombytes(o):
     if isinstance(o, bytes):
-        return o.decode('utf8')
+        return o.decode("utf8")
     return o
 
 
 def run_cmd(cmd):
     if isinstance(cmd, str):
-        cmd = cmd.split(' ')
+        cmd = cmd.split(" ")
 
     try:
         output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
         # this avoids hiding the stdout / stderr of failed processes
         sio = io.StringIO()
-        print('Command failed:', " ".join(cmd), file=sio)
-        print('With output:', file=sio)
-        print('--------------', file=sio)
+        print("Command failed:", " ".join(cmd), file=sio)
+        print("With output:", file=sio)
+        print("--------------", file=sio)
         print(frombytes(e.output), file=sio)
-        print('--------------', file=sio)
+        print("--------------", file=sio)
         raise RuntimeError(sio.getvalue())
 
     return frombytes(output)
@@ -160,7 +160,7 @@ def find_unused_port(family=socket.AF_INET, socktype=socket.SOCK_STREAM):
     then closed and deleted, and the ephemeral port is returned.
     """
     with socket.socket(family, socktype) as tempsock:
-        tempsock.bind(('', 0))
+        tempsock.bind(("", 0))
         port = tempsock.getsockname()[1]
     del tempsock
     return port

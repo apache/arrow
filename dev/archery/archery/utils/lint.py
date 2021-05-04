@@ -21,12 +21,12 @@ from pathlib import Path
 
 import click
 
-from .command import Bash, Command, default_bin
+from ..lang.cpp import CppCMakeDefinition, CppConfiguration
+from ..lang.python import Autopep8, Black, Flake8, Isort, NumpyDoc
 from .cmake import CMake
+from .command import Bash, Command, default_bin
 from .git import git
 from .logger import logger
-from ..lang.cpp import CppCMakeDefinition, CppConfiguration
-from ..lang.python import Autopep8, Flake8, NumpyDoc
 from .rat import Rat, exclusion_from_globs
 from .tmpdir import tmpdir
 
@@ -48,10 +48,17 @@ class LintResult:
         return LintResult(command_result.returncode == 0)
 
 
-def cpp_linter(src, build_dir, clang_format=True, cpplint=True,
-               clang_tidy=False, iwyu=False, iwyu_all=False,
-               fix=False):
-    """ Run clang-format, cpplint and clang-tidy on cpp/ codebase. """
+def cpp_linter(
+    src,
+    build_dir,
+    clang_format=True,
+    cpplint=True,
+    clang_tidy=False,
+    iwyu=False,
+    iwyu_all=False,
+    fix=False,
+):
+    """Run clang-format, cpplint and clang-tidy on cpp/ codebase."""
     logger.info("Running C++ linters")
 
     cmake = CMake()
@@ -95,7 +102,9 @@ class CMakeFormat(Command):
 
 
 def cmake_linter(src, fix=False):
-    """ Run cmake-format.py on all CMakeFiles.txt """
+    """
+    Run cmake-format.py on all CMakeFiles.txt
+    """
     logger.info("Running cmake-format linters")
 
     if not fix:
@@ -107,8 +116,9 @@ def cmake_linter(src, fix=False):
 
 
 def python_linter(src, fix=False):
-    """Run Python linters on python/pyarrow, python/examples, setup.py
-    and dev/. """
+    """
+    Run Python linters on python/pyarrow, python/examples, setup.py, dev
+    """
     setup_py = os.path.join(src.python, "setup.py")
     setup_cfg = os.path.join(src.python, "setup.cfg")
 
@@ -118,35 +128,38 @@ def python_linter(src, fix=False):
     if not autopep8.available:
         logger.error(
             "Python formatter requested but autopep8 binary not found. "
-            "Please run `pip install -r dev/archery/requirements-lint.txt`")
+            "Please run `pip install -r dev/archery/requirements-lint.txt`"
+        )
         return
 
     # Gather files for autopep8
-    patterns = ["python/pyarrow/**/*.py",
-                "python/pyarrow/**/*.pyx",
-                "python/pyarrow/**/*.pxd",
-                "python/pyarrow/**/*.pxi",
-                "python/examples/**/*.py",
-                "dev/archery/**/*.py",
-                ]
+    patterns = [
+        "python/pyarrow/**/*.py",
+        "python/pyarrow/**/*.pyx",
+        "python/pyarrow/**/*.pxd",
+        "python/pyarrow/**/*.pxi",
+        "python/examples/**/*.py",
+        "dev/*.py",
+        "dev/release/*.py",
+    ]
     files = [setup_py]
     for pattern in patterns:
         files += list(map(str, Path(src.path).glob(pattern)))
 
-    args = ['--global-config', setup_cfg, '--ignore-local-config']
+    args = ["--global-config", setup_cfg, "--ignore-local-config"]
     if fix:
-        args += ['-j0', '--in-place']
+        args += ["-j0", "--in-place"]
         args += sorted(files)
         yield LintResult.from_cmd(autopep8(*args))
     else:
         # XXX `-j0` doesn't work well with `--exit-code`, so instead
         # we capture the diff and check whether it's empty
         # (https://github.com/hhatto/autopep8/issues/543)
-        args += ['-j0', '--diff']
+        args += ["-j0", "--diff"]
         args += sorted(files)
         diff = autopep8.run_captured(*args)
         if diff:
-            print(diff.decode('utf8'))
+            print(diff.decode("utf8"))
             yield LintResult(success=False)
         else:
             yield LintResult(success=True)
@@ -158,42 +171,95 @@ def python_linter(src, fix=False):
     if not flake8.available:
         logger.error(
             "Python linter requested but flake8 binary not found. "
-            "Please run `pip install -r dev/archery/requirements-lint.txt`")
+            "Please run `pip install -r dev/archery/requirements-lint.txt`"
+        )
         return
 
-    flake8_exclude = ['.venv*']
+    flake8_exclude = [".venv*"]
 
     yield LintResult.from_cmd(
-        flake8("--extend-exclude=" + ','.join(flake8_exclude),
-               setup_py, src.pyarrow, os.path.join(src.python, "examples"),
-               src.dev, check=False))
+        flake8(
+            f"--extend-exclude={','.join(flake8_exclude)}",
+            setup_py,
+            src.pyarrow,
+            os.path.join(src.python, "examples"),
+            check=False,
+        )
+    )
     config = os.path.join(src.python, ".flake8.cython")
     yield LintResult.from_cmd(
-        flake8("--config=" + config, src.pyarrow, check=False))
+        flake8(f"--config={config}", src.pyarrow, check=False)
+    )
+
+
+def archery_linter(src, fix=False):
+    """
+    Formatting and linting archery itself
+    """
+    archery_path = str(src.archery)
+
+    logger.info("Running Python include sorter for archery (isort)")
+    isort = Isort()
+    if not isort.available:
+        logger.error(
+            "Python include sorter requested but isort binary not found. "
+            "Please run `pip install -r dev/archery/requirements-lint.txt`"
+        )
+        return
+    cmd = isort(archery_path) if fix else isort("--check", archery_path)
+    yield LintResult.from_cmd(cmd)
+
+    logger.info("Running Python formatter for archery (black)")
+    black = Black()
+    if not black.available:
+        logger.error(
+            "Python formatter requested but black binary not found. "
+            "Please run `pip install -r dev/archery/requirements-lint.txt`"
+        )
+        return
+    if fix:
+        cmd = black(archery_path)
+    else:
+        cmd = black("--check", archery_path, check=False)
+    yield LintResult.from_cmd(cmd)
+
+    logger.info("Running Python linter for archery (flake8)")
+    flake8 = Flake8()
+    if not flake8.available:
+        logger.error(
+            "Python linter requested but flake8 binary not found. "
+            "Please run `pip install -r dev/archery/requirements-lint.txt`"
+        )
+        return
+    flake_config = src.archery / ".flake8"
+    yield LintResult.from_cmd(
+        flake8(f"--config={flake_config}", archery_path, check=False)
+    )
 
 
 def python_numpydoc(symbols=None, allow_rules=None, disallow_rules=None):
-    """Run numpydoc linter on python.
+    """
+    Run numpydoc linter on python.
 
     Pyarrow must be available for import.
     """
     logger.info("Running Python docstring linters")
     # by default try to run on all pyarrow package
     symbols = symbols or {
-        'pyarrow',
-        'pyarrow.compute',
-        'pyarrow.csv',
-        'pyarrow.dataset',
-        'pyarrow.feather',
-        'pyarrow.flight',
-        'pyarrow.fs',
-        'pyarrow.gandiva',
-        'pyarrow.ipc',
-        'pyarrow.json',
-        'pyarrow.orc',
-        'pyarrow.parquet',
-        'pyarrow.plasma',
-        'pyarrow.types',
+        "pyarrow",
+        "pyarrow.compute",
+        "pyarrow.csv",
+        "pyarrow.dataset",
+        "pyarrow.feather",
+        "pyarrow.flight",
+        "pyarrow.fs",
+        "pyarrow.gandiva",
+        "pyarrow.ipc",
+        "pyarrow.json",
+        "pyarrow.orc",
+        "pyarrow.parquet",
+        "pyarrow.plasma",
+        "pyarrow.types",
     }
     try:
         numpydoc = NumpyDoc(symbols)
@@ -204,9 +270,9 @@ def python_numpydoc(symbols=None, allow_rules=None, disallow_rules=None):
 
     results = numpydoc.validate(
         # limit the validation scope to the pyarrow package
-        from_package='pyarrow',
+        from_package="pyarrow",
         allow_rules=allow_rules,
-        disallow_rules=disallow_rules
+        disallow_rules=disallow_rules,
     )
 
     if len(results) == 0:
@@ -215,47 +281,42 @@ def python_numpydoc(symbols=None, allow_rules=None, disallow_rules=None):
 
     number_of_violations = 0
     for obj, result in results:
-        errors = result['errors']
+        errors = result["errors"]
 
         # inspect doesn't play nice with cython generated source code,
         # to use a hacky way to represent a proper __qualname__
-        doc = getattr(obj, '__doc__', '')
-        name = getattr(obj, '__name__', '')
-        qualname = getattr(obj, '__qualname__', '')
-        module = getattr(obj, '__module__', '')
-        instance = getattr(obj, '__self__', '')
+        doc = getattr(obj, "__doc__", "")
+        name = getattr(obj, "__name__", "")
+        qualname = getattr(obj, "__qualname__", "")
+        module = getattr(obj, "__module__", "")
+        instance = getattr(obj, "__self__", "")
         if instance:
             klass = instance.__class__.__name__
         else:
-            klass = ''
+            klass = ""
 
         try:
             cython_signature = doc.splitlines()[0]
         except Exception:
-            cython_signature = ''
+            cython_signature = ""
 
-        desc = '.'.join(filter(None, [module, klass, qualname or name]))
+        desc = ".".join(filter(None, [module, klass, qualname or name]))
 
         click.echo()
-        click.echo(click.style(desc, bold=True, fg='yellow'))
+        click.echo(click.style(desc, bold=True, fg="yellow"))
         if cython_signature:
-            qualname_with_signature = '.'.join([module, cython_signature])
+            qualname_with_signature = ".".join([module, cython_signature])
             click.echo(
-                click.style(
-                    '-> {}'.format(qualname_with_signature),
-                    fg='yellow'
-                )
+                click.style(f"-> {qualname_with_signature}", fg="yellow")
             )
 
         for error in errors:
             number_of_violations += 1
-            click.echo('{}: {}'.format(*error))
+            click.echo("{}: {}".format(*error))
 
-    msg = 'Total number of docstring violations: {}'.format(
-        number_of_violations
-    )
+    msg = f"Total number of docstring violations: {number_of_violations}"
     click.echo()
-    click.echo(click.style(msg, fg='red'))
+    click.echo(click.style(msg, fg="red"))
 
     yield LintResult(success=False)
 
@@ -265,11 +326,14 @@ def rat_linter(src, root):
     logger.info("Running apache-rat linter")
 
     if src.git_dirty:
-        logger.warn("Due to the usage of git-archive, uncommitted files will"
-                    " not be checked for rat violations. ")
+        logger.warn(
+            "Due to the usage of git-archive, uncommitted files will"
+            " not be checked for rat violations. "
+        )
 
     exclusion = exclusion_from_globs(
-        os.path.join(src.dev, "release", "rat_exclude_files.txt"))
+        os.path.join(src.dev, "release", "rat_exclude_files.txt")
+    )
 
     # Creates a git-archive of ArrowSources, apache-rat expects a gzip
     # compressed tar archive.
@@ -279,7 +343,7 @@ def rat_linter(src, root):
 
     violations = list(report.validate(exclusion=exclusion))
     for violation in violations:
-        print("apache-rat license violation: {}".format(violation))
+        print(f"apache-rat license violation: {violation}")
 
     yield LintResult(len(violations) == 0)
 
@@ -300,8 +364,9 @@ def is_docker_image(path):
     dirname = os.path.dirname(path)
     filename = os.path.basename(path)
 
-    excluded = dirname.startswith(
-        "dev") or dirname.startswith("python/manylinux")
+    excluded = dirname.startswith("dev") or dirname.startswith(
+        "python/manylinux"
+    )
 
     return filename.startswith("Dockerfile") and not excluded
 
@@ -314,19 +379,34 @@ def docker_linter(src):
 
     if not hadolint.available:
         logger.error(
-            "hadolint linter requested but hadolint binary not found.")
+            "hadolint linter requested but hadolint binary not found."
+        )
         return
 
     for path in git.ls_files(git_dir=src.path):
         if is_docker_image(path):
-            yield LintResult.from_cmd(hadolint.run(path, check=False,
-                                                   cwd=src.path))
+            yield LintResult.from_cmd(
+                hadolint.run(path, check=False, cwd=src.path)
+            )
 
 
-def linter(src, fix=False, *, clang_format=False, cpplint=False,
-           clang_tidy=False, iwyu=False, iwyu_all=False,
-           python=False, numpydoc=False, cmake_format=False, rat=False,
-           r=False, docker=False):
+def linter(
+    src,
+    fix=False,
+    *,
+    clang_format=False,
+    cpplint=False,
+    clang_tidy=False,
+    iwyu=False,
+    iwyu_all=False,
+    python=False,
+    archery=False,
+    numpydoc=False,
+    cmake_format=False,
+    rat=False,
+    r=False,
+    docker=False,
+):
     """Run all linters."""
     with tmpdir(prefix="arrow-lint-") as root:
         build_dir = os.path.join(root, "cpp-build")
@@ -337,16 +417,24 @@ def linter(src, fix=False, *, clang_format=False, cpplint=False,
         results = []
 
         if clang_format or cpplint or clang_tidy or iwyu:
-            results.extend(cpp_linter(src, build_dir,
-                                      clang_format=clang_format,
-                                      cpplint=cpplint,
-                                      clang_tidy=clang_tidy,
-                                      iwyu=iwyu,
-                                      iwyu_all=iwyu_all,
-                                      fix=fix))
+            results.extend(
+                cpp_linter(
+                    src,
+                    build_dir,
+                    clang_format=clang_format,
+                    cpplint=cpplint,
+                    clang_tidy=clang_tidy,
+                    iwyu=iwyu,
+                    iwyu_all=iwyu_all,
+                    fix=fix,
+                )
+            )
 
         if python:
             results.extend(python_linter(src, fix=fix))
+
+        if archery:
+            results.extend(archery_linter(src, fix=fix))
 
         if numpydoc:
             results.extend(python_numpydoc())

@@ -15,9 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from collections import namedtuple
-from concurrent.futures import ThreadPoolExecutor
-from functools import partial
 import glob
 import gzip
 import itertools
@@ -25,20 +22,22 @@ import os
 import sys
 import tempfile
 import traceback
+from collections import namedtuple
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
 
+from . import datagen
 from .scenario import Scenario
 from .tester_cpp import CPPTester
 from .tester_go import GoTester
-from .tester_rust import RustTester
 from .tester_java import JavaTester
 from .tester_js import JSTester
-from .util import (ARROW_ROOT_DEFAULT, guid, SKIP_ARROW, SKIP_FLIGHT,
-                   printer)
-from . import datagen
+from .tester_rust import RustTester
+from .util import ARROW_ROOT_DEFAULT, SKIP_ARROW, SKIP_FLIGHT, guid, printer
 
-
-Failure = namedtuple('Failure',
-                     ('test_case', 'producer', 'consumer', 'exc_info'))
+Failure = namedtuple(
+    "Failure", ("test_case", "producer", "consumer", "exc_info")
+)
 
 log = printer.print
 
@@ -50,10 +49,19 @@ class Outcome:
 
 
 class IntegrationRunner(object):
-
-    def __init__(self, json_files, flight_scenarios, testers, tempdir=None,
-                 debug=False, stop_on_error=True, gold_dirs=None,
-                 serial=False, match=None, **unused_kwargs):
+    def __init__(
+        self,
+        json_files,
+        flight_scenarios,
+        testers,
+        tempdir=None,
+        debug=False,
+        stop_on_error=True,
+        gold_dirs=None,
+        serial=False,
+        match=None,
+        **unused_kwargs,
+    ):
         self.json_files = json_files
         self.flight_scenarios = flight_scenarios
         self.testers = testers
@@ -66,10 +74,12 @@ class IntegrationRunner(object):
         self.match = match
 
         if self.match is not None:
-            print("-- Only running tests with {} in their name"
-                  .format(self.match))
-            self.json_files = [json_file for json_file in self.json_files
-                               if self.match in json_file.name]
+            print(f"-- Only running tests with {self.match} in their name")
+            self.json_files = [
+                json_file
+                for json_file in self.json_files
+                if self.match in json_file.name
+            ]
 
     def run(self):
         """
@@ -77,26 +87,29 @@ class IntegrationRunner(object):
         implementations.
         """
         for producer, consumer in itertools.product(
-                filter(lambda t: t.PRODUCER, self.testers),
-                filter(lambda t: t.CONSUMER, self.testers)):
+            filter(lambda t: t.PRODUCER, self.testers),
+            filter(lambda t: t.CONSUMER, self.testers),
+        ):
             self._compare_implementations(
-                producer, consumer, self._produce_consume,
-                self.json_files)
+                producer, consumer, self._produce_consume, self.json_files
+            )
         if self.gold_dirs:
             for gold_dir, consumer in itertools.product(
-                    self.gold_dirs,
-                    filter(lambda t: t.CONSUMER, self.testers)):
-                log('\n\n\n\n')
-                log('******************************************************')
-                log('Tests against golden files in {}'.format(gold_dir))
-                log('******************************************************')
+                self.gold_dirs, filter(lambda t: t.CONSUMER, self.testers)
+            ):
+                log("\n\n\n\n")
+                log("******************************************************")
+                log(f"Tests against golden files in {gold_dir}")
+                log("******************************************************")
 
                 def run_gold(producer, consumer, outcome, test_case):
-                    self._run_gold(gold_dir, producer, consumer, outcome,
-                                   test_case)
+                    self._run_gold(
+                        gold_dir, producer, consumer, outcome, test_case
+                    )
+
                 self._compare_implementations(
-                    consumer, consumer, run_gold,
-                    self._gold_tests(gold_dir))
+                    consumer, consumer, run_gold, self._gold_tests(gold_dir)
+                )
 
     def run_flight(self):
         """
@@ -104,8 +117,9 @@ class IntegrationRunner(object):
         implementations.
         """
         servers = filter(lambda t: t.FLIGHT_SERVER, self.testers)
-        clients = filter(lambda t: (t.FLIGHT_CLIENT and t.CONSUMER),
-                         self.testers)
+        clients = filter(
+            lambda t: (t.FLIGHT_CLIENT and t.CONSUMER), self.testers
+        )
         for server, client in itertools.product(servers, clients):
             self._compare_flight_implementations(server, client)
 
@@ -114,39 +128,37 @@ class IntegrationRunner(object):
         SUFFIX = ".json.gz"
         golds = [jf for jf in os.listdir(gold_dir) if jf.endswith(SUFFIX)]
         for json_path in golds:
-            name = json_path[json_path.index('_')+1: -len(SUFFIX)]
-            base_name = prefix + "_" + name + ".gold.json"
+            name = json_path[json_path.index("_") + 1 : -len(SUFFIX)]
+            base_name = f"{prefix}_{name}.gold.json"
             out_path = os.path.join(self.temp_dir, base_name)
             with gzip.open(os.path.join(gold_dir, json_path)) as i:
                 with open(out_path, "wb") as out:
                     out.write(i.read())
 
             try:
-                skip = next(f for f in self.json_files
-                            if f.name == name).skip
+                skip = next(f for f in self.json_files if f.name == name).skip
             except StopIteration:
                 skip = set()
-            if name == 'union' and prefix == '0.17.1':
+            if name == "union" and prefix == "0.17.1":
                 skip.add("Java")
-            if prefix == '1.0.0-bigendian' or prefix == '1.0.0-littleendian':
+            if prefix == "1.0.0-bigendian" or prefix == "1.0.0-littleendian":
                 skip.add("Go")
                 skip.add("Java")
                 skip.add("JS")
                 skip.add("Rust")
-            if prefix == '2.0.0-compression':
+            if prefix == "2.0.0-compression":
                 skip.add("JS")
                 skip.add("Rust")
 
             # See https://github.com/apache/arrow/pull/9822 for how to
             # disable specific compression type tests.
 
-            if prefix == '4.0.0-shareddict':
+            if prefix == "4.0.0-shareddict":
                 skip.add("Go")
 
             yield datagen.File(name, None, None, skip=skip, path=out_path)
 
-    def _run_test_cases(self, producer, consumer, case_runner,
-                        test_cases):
+    def _run_test_cases(self, producer, consumer, case_runner, test_cases):
         def case_wrapper(test_case):
             with printer.cork():
                 return case_runner(test_case)
@@ -170,17 +182,18 @@ class IntegrationRunner(object):
                             break
 
     def _compare_implementations(
-            self, producer, consumer, run_binaries, test_cases):
+        self, producer, consumer, run_binaries, test_cases
+    ):
         """
         Compare Arrow IPC for two implementations (one producer, one consumer).
         """
-        log('##########################################################')
-        log('IPC: {0} producing, {1} consuming'
-            .format(producer.name, consumer.name))
-        log('##########################################################')
+        log("##########################################################")
+        log(f"IPC: {producer.name} producing, {consumer.name} consuming")
+        log("##########################################################")
 
-        case_runner = partial(self._run_ipc_test_case,
-                              producer, consumer, run_binaries)
+        case_runner = partial(
+            self._run_ipc_test_case, producer, consumer, run_binaries
+        )
         self._run_test_cases(producer, consumer, case_runner, test_cases)
 
     def _run_ipc_test_case(self, producer, consumer, run_binaries, test_case):
@@ -190,22 +203,26 @@ class IntegrationRunner(object):
         outcome = Outcome()
 
         json_path = test_case.path
-        log('==========================================================')
-        log('Testing file {0}'.format(json_path))
-        log('==========================================================')
+        log("==========================================================")
+        log(f"Testing file {json_path}")
+        log("==========================================================")
 
         if producer.name in test_case.skip:
-            log('-- Skipping test because producer {0} does '
-                'not support'.format(producer.name))
+            log(
+                "-- Skipping test because producer {0} does "
+                "not support".format(producer.name)
+            )
             outcome.skipped = True
 
         elif consumer.name in test_case.skip:
-            log('-- Skipping test because consumer {0} does '
-                'not support'.format(consumer.name))
+            log(
+                "-- Skipping test because consumer {0} does "
+                "not support".format(consumer.name)
+            )
             outcome.skipped = True
 
         elif SKIP_ARROW in test_case.skip:
-            log('-- Skipping test')
+            log("-- Skipping test")
             outcome.skipped = True
 
         else:
@@ -213,8 +230,9 @@ class IntegrationRunner(object):
                 run_binaries(producer, consumer, outcome, test_case)
             except Exception:
                 traceback.print_exc(file=printer.stdout)
-                outcome.failure = Failure(test_case, producer, consumer,
-                                          sys.exc_info())
+                outcome.failure = Failure(
+                    test_case, producer, consumer, sys.exc_info()
+                )
 
         return outcome
 
@@ -224,21 +242,24 @@ class IntegrationRunner(object):
         file_id = guid()[:8]
         name = os.path.splitext(os.path.basename(json_path))[0]
 
-        producer_file_path = os.path.join(self.temp_dir, file_id + '_' +
-                                          name + '.json_as_file')
-        producer_stream_path = os.path.join(self.temp_dir, file_id + '_' +
-                                            name + '.producer_file_as_stream')
-        consumer_file_path = os.path.join(self.temp_dir, file_id + '_' +
-                                          name + '.consumer_stream_as_file')
+        producer_file_path = os.path.join(
+            self.temp_dir, f"{file_id}_{name}.json_as_file"
+        )
+        producer_stream_path = os.path.join(
+            self.temp_dir, f"{file_id}_{name}.producer_file_as_stream"
+        )
+        consumer_file_path = os.path.join(
+            self.temp_dir, f"{file_id}_{name}.consumer_stream_as_file"
+        )
 
-        log('-- Creating binary inputs')
+        log("-- Creating binary inputs")
         producer.json_to_file(json_path, producer_file_path)
 
         # Validate the file
-        log('-- Validating file')
+        log("-- Validating file")
         consumer.validate(json_path, producer_file_path)
 
-        log('-- Validating stream')
+        log("-- Validating stream")
         producer.file_to_stream(producer_file_path, producer_stream_path)
         consumer.stream_to_file(producer_stream_path, consumer_file_path)
         consumer.validate(json_path, consumer_file_path)
@@ -247,32 +268,38 @@ class IntegrationRunner(object):
         json_path = test_case.path
 
         # Validate the file
-        log('-- Validating file')
+        log("-- Validating file")
         producer_file_path = os.path.join(
-            gold_dir, "generated_" + test_case.name + ".arrow_file")
+            gold_dir, f"generated_{test_case.name}.arrow_file"
+        )
         consumer.validate(json_path, producer_file_path)
 
-        log('-- Validating stream')
+        log("-- Validating stream")
         consumer_stream_path = os.path.join(
-            gold_dir, "generated_" + test_case.name + ".stream")
+            gold_dir, f"generated_{test_case.name}.stream"
+        )
         file_id = guid()[:8]
         name = os.path.splitext(os.path.basename(json_path))[0]
 
-        consumer_file_path = os.path.join(self.temp_dir, file_id + '_' +
-                                          name + '.consumer_stream_as_file')
+        consumer_file_path = os.path.join(
+            self.temp_dir, f"{file_id}_{name}.consumer_stream_as_file"
+        )
 
         consumer.stream_to_file(consumer_stream_path, consumer_file_path)
         consumer.validate(json_path, consumer_file_path)
 
     def _compare_flight_implementations(self, producer, consumer):
-        log('##########################################################')
-        log('Flight: {0} serving, {1} requesting'
-            .format(producer.name, consumer.name))
-        log('##########################################################')
+        log("##########################################################")
+        log(f"Flight: {producer.name} serving, {consumer.name} requesting")
+        log("##########################################################")
 
         case_runner = partial(self._run_flight_test_case, producer, consumer)
-        self._run_test_cases(producer, consumer, case_runner,
-                             self.json_files + self.flight_scenarios)
+        self._run_test_cases(
+            producer,
+            consumer,
+            case_runner,
+            self.json_files + self.flight_scenarios,
+        )
 
     def _run_flight_test_case(self, producer, consumer, test_case):
         """
@@ -280,32 +307,36 @@ class IntegrationRunner(object):
         """
         outcome = Outcome()
 
-        log('=' * 58)
-        log('Testing file {0}'.format(test_case.name))
-        log('=' * 58)
+        log("=" * 58)
+        log(f"Testing file {test_case.name}")
+        log("=" * 58)
 
         if producer.name in test_case.skip:
-            log('-- Skipping test because producer {0} does '
-                'not support'.format(producer.name))
+            log(
+                "-- Skipping test because producer {0} does "
+                "not support".format(producer.name)
+            )
             outcome.skipped = True
 
         elif consumer.name in test_case.skip:
-            log('-- Skipping test because consumer {0} does '
-                'not support'.format(consumer.name))
+            log(
+                "-- Skipping test because consumer {0} does "
+                "not support".format(consumer.name)
+            )
             outcome.skipped = True
 
         elif SKIP_FLIGHT in test_case.skip:
-            log('-- Skipping test')
+            log("-- Skipping test")
             outcome.skipped = True
 
         else:
             try:
                 if isinstance(test_case, Scenario):
                     server = producer.flight_server(test_case.name)
-                    client_args = {'scenario_name': test_case.name}
+                    client_args = {"scenario_name": test_case.name}
                 else:
                     server = producer.flight_server()
-                    client_args = {'json_path': test_case.path}
+                    client_args = {"json_path": test_case.path}
 
                 with server as port:
                     # Have the client upload the file, then download and
@@ -313,26 +344,40 @@ class IntegrationRunner(object):
                     consumer.flight_request(port, **client_args)
             except Exception:
                 traceback.print_exc(file=printer.stdout)
-                outcome.failure = Failure(test_case, producer, consumer,
-                                          sys.exc_info())
+                outcome.failure = Failure(
+                    test_case, producer, consumer, sys.exc_info()
+                )
 
         return outcome
 
 
 def get_static_json_files():
-    glob_pattern = os.path.join(ARROW_ROOT_DEFAULT,
-                                'integration', 'data', '*.json')
+    glob_pattern = os.path.join(
+        ARROW_ROOT_DEFAULT, "integration", "data", "*.json"
+    )
     return [
-        datagen.File(name=os.path.basename(p), path=p, skip=set(),
-                     schema=None, batches=None)
+        datagen.File(
+            name=os.path.basename(p),
+            path=p,
+            skip=set(),
+            schema=None,
+            batches=None,
+        )
         for p in glob.glob(glob_pattern)
     ]
 
 
-def run_all_tests(with_cpp=True, with_java=True, with_js=True,
-                  with_go=True, with_rust=False, run_flight=False,
-                  tempdir=None, **kwargs):
-    tempdir = tempdir or tempfile.mkdtemp(prefix='arrow-integration-')
+def run_all_tests(
+    with_cpp=True,
+    with_java=True,
+    with_js=True,
+    with_go=True,
+    with_rust=False,
+    run_flight=False,
+    tempdir=None,
+    **kwargs,
+):
+    tempdir = tempdir or tempfile.mkdtemp(prefix="arrow-integration-")
 
     testers = []
 
@@ -359,11 +404,12 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
     flight_scenarios = [
         Scenario(
             "auth:basic_proto",
-            description="Authenticate using the BasicAuth protobuf."),
+            description="Authenticate using the BasicAuth protobuf.",
+        ),
         Scenario(
             "middleware",
             description="Ensure headers are propagated via middleware.",
-            skip={"Rust"}   # TODO(ARROW-10961): tonic upgrade needed
+            skip={"Rust"},  # TODO(ARROW-10961): tonic upgrade needed
         ),
     ]
 
@@ -378,8 +424,13 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
         for test_case, producer, consumer, exc_info in runner.failures:
             fail_count += 1
             log("FAILED TEST:", end=" ")
-            log(test_case.name, producer.name, "producing, ",
-                consumer.name, "consuming")
+            log(
+                test_case.name,
+                producer.name,
+                "producing, ",
+                consumer.name,
+                "consuming",
+            )
             if exc_info:
                 traceback.print_exception(*exc_info)
             log()
@@ -390,33 +441,31 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
 
 
 def write_js_test_json(directory):
-    datagen.generate_map_case().write(
-        os.path.join(directory, 'map.json')
-    )
+    datagen.generate_map_case().write(os.path.join(directory, "map.json"))
     datagen.generate_nested_case().write(
-        os.path.join(directory, 'nested.json')
+        os.path.join(directory, "nested.json")
     )
     datagen.generate_decimal128_case().write(
-        os.path.join(directory, 'decimal.json')
+        os.path.join(directory, "decimal.json")
     )
     datagen.generate_decimal256_case().write(
-        os.path.join(directory, 'decimal256.json')
+        os.path.join(directory, "decimal256.json")
     )
     datagen.generate_datetime_case().write(
-        os.path.join(directory, 'datetime.json')
+        os.path.join(directory, "datetime.json")
     )
     datagen.generate_dictionary_case().write(
-        os.path.join(directory, 'dictionary.json')
+        os.path.join(directory, "dictionary.json")
     )
     datagen.generate_dictionary_unsigned_case().write(
-        os.path.join(directory, 'dictionary_unsigned.json')
+        os.path.join(directory, "dictionary_unsigned.json")
     )
     datagen.generate_primitive_case([]).write(
-        os.path.join(directory, 'primitive_no_batches.json')
+        os.path.join(directory, "primitive_no_batches.json")
     )
     datagen.generate_primitive_case([7, 10]).write(
-        os.path.join(directory, 'primitive.json')
+        os.path.join(directory, "primitive.json")
     )
     datagen.generate_primitive_case([0, 0, 0]).write(
-        os.path.join(directory, 'primitive-empty.json')
+        os.path.join(directory, "primitive-empty.json")
     )

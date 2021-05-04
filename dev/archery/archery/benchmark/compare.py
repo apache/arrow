@@ -24,25 +24,25 @@ DEFAULT_THRESHOLD = 0.05
 def items_per_seconds_fmt(value):
     if value < 1000:
         return "{} items/sec".format(value)
-    if value < 1000**2:
+    if value < 1000 ** 2:
         return "{:.3f}K items/sec".format(value / 1000)
-    if value < 1000**3:
-        return "{:.3f}M items/sec".format(value / 1000**2)
+    if value < 1000 ** 3:
+        return "{:.3f}M items/sec".format(value / 1000 ** 2)
     else:
-        return "{:.3f}G items/sec".format(value / 1000**3)
+        return "{:.3f}G items/sec".format(value / 1000 ** 3)
 
 
 def bytes_per_seconds_fmt(value):
     if value < 1024:
         return "{} bytes/sec".format(value)
-    if value < 1024**2:
+    if value < 1024 ** 2:
         return "{:.3f} KiB/sec".format(value / 1024)
-    if value < 1024**3:
-        return "{:.3f} MiB/sec".format(value / 1024**2)
-    if value < 1024**4:
-        return "{:.3f} GiB/sec".format(value / 1024**3)
+    if value < 1024 ** 3:
+        return "{:.3f} MiB/sec".format(value / 1024 ** 2)
+    if value < 1024 ** 4:
+        return "{:.3f} GiB/sec".format(value / 1024 ** 3)
     else:
-        return "{:.3f} TiB/sec".format(value / 1024**4)
+        return "{:.3f} TiB/sec".format(value / 1024 ** 4)
 
 
 def change_fmt(value):
@@ -59,14 +59,15 @@ def formatter_for_unit(unit):
 
 
 class BenchmarkComparator:
-    """ Compares two benchmarks.
+    """Compares two benchmarks.
 
     Encodes the logic of comparing two benchmarks and taking a decision on
     if it induce a regression.
     """
 
-    def __init__(self, contender, baseline, threshold=DEFAULT_THRESHOLD,
-                 suite_name=None):
+    def __init__(
+        self, contender, baseline, threshold=DEFAULT_THRESHOLD, suite_name=None
+    ):
         self.contender = contender
         self.baseline = baseline
         self.threshold = threshold
@@ -98,14 +99,14 @@ class BenchmarkComparator:
 
     @property
     def confidence(self):
-        """ Indicate if a comparison of benchmarks should be trusted. """
+        """Indicate if a comparison of benchmarks should be trusted."""
         return True
 
     @property
     def regression(self):
         change = self.change
         adjusted_change = change if self.less_is_better else -change
-        return (self.confidence and adjusted_change > self.threshold)
+        return self.confidence and adjusted_change > self.threshold
 
     @property
     def formatted(self):
@@ -118,7 +119,7 @@ class BenchmarkComparator:
             "contender": fmt(self.contender.value),
             "unit": self.unit,
             "less_is_better": self.less_is_better,
-            "counters": str(self.baseline.counters)
+            "counters": str(self.baseline.counters),
         }
 
     def compare(self, comparator=None):
@@ -130,7 +131,7 @@ class BenchmarkComparator:
             "contender": self.contender.value,
             "unit": self.unit,
             "less_is_better": self.less_is_better,
-            "counters": self.baseline.counters
+            "counters": self.baseline.counters,
         }
 
     def __call__(self, **kwargs):
@@ -141,12 +142,12 @@ def pairwise_compare(contender, baseline):
     dict_contender = {e.name: e for e in contender}
     dict_baseline = {e.name: e for e in baseline}
 
-    for name in (dict_contender.keys() & dict_baseline.keys()):
+    for name in dict_contender.keys() & dict_baseline.keys():
         yield name, (dict_contender[name], dict_baseline[name])
 
 
 class RunnerComparator:
-    """ Compares suites/benchmarks from runners.
+    """Compares suites/benchmarks from runners.
 
     It is up to the caller that ensure that runners are compatible (both from
     the same language implementation).
@@ -165,9 +166,13 @@ class RunnerComparator:
 
         for suite_name, (suite_cont, suite_base) in suites:
             benchmarks = pairwise_compare(
-                suite_cont.benchmarks, suite_base.benchmarks)
+                suite_cont.benchmarks, suite_base.benchmarks
+            )
 
             for _, (bench_cont, bench_base) in benchmarks:
-                yield BenchmarkComparator(bench_cont, bench_base,
-                                          threshold=self.threshold,
-                                          suite_name=suite_name)
+                yield BenchmarkComparator(
+                    bench_cont,
+                    bench_base,
+                    threshold=self.threshold,
+                    suite_name=suite_name,
+                )

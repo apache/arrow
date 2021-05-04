@@ -28,4 +28,5 @@ RUN dnf update -y && \
         cmake \
         ninja-build \
         python3-devel \
-        python3-virtualenv
+        python3-virtualenv && \
+    dnf clean all

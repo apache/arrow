@@ -53,7 +53,10 @@ jobs:
         with:
           python-version: '3.6'
       - name: Install Archery, Crossbow- and Test Dependencies
-        run: pip install pytest responses -e dev/archery[all]
+        run: pip install pytest flake8 isort black responses -e dev/archery[all]
+      - name: Formatter Checks
+        working-directory: dev/archery
+        run: archery lint --archery
       - name: Archery Unittests
         working-directory: dev/archery
         run: pytest -v archery

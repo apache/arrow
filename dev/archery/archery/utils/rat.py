@@ -24,7 +24,7 @@ from .cache import Cache
 from .command import capture_stdout
 
 RAT_VERSION = 0.13
-RAT_JAR_FILENAME = "apache-rat-{}.jar".format(RAT_VERSION)
+RAT_JAR_FILENAME = f"apache-rat-{RAT_VERSION}.jar"
 RAT_URL_ = "https://repo1.maven.org/maven2/org/apache/rat/apache-rat"
 RAT_URL = "/".join([RAT_URL_, str(RAT_VERSION), RAT_JAR_FILENAME])
 
@@ -43,7 +43,7 @@ class Rat(Jar):
 
 
 def exclusion_from_globs(exclusions_path):
-    with open(exclusions_path, 'r') as exclusions_fd:
+    with open(exclusions_path, "r") as exclusions_fd:
         exclusions = [e.strip() for e in exclusions_fd]
         return lambda path: any([fnmatch.fnmatch(path, e) for e in exclusions])
 
@@ -54,15 +54,15 @@ class RatReport:
         self.tree = ElementTree.fromstring(xml)
 
     def __repr__(self):
-        return "RatReport({})".format(self.xml)
+        return f"RatReport({self.xml})"
 
     def validate(self, exclusion=None):
-        for r in self.tree.findall('resource'):
-            approvals = r.findall('license-approval')
-            if not approvals or approvals[0].attrib['name'] == 'true':
+        for r in self.tree.findall("resource"):
+            approvals = r.findall("license-approval")
+            if not approvals or approvals[0].attrib["name"] == "true":
                 continue
 
-            clean_name = re.sub('^[^/]+/', '', r.attrib['name'])
+            clean_name = re.sub("^[^/]+/", "", r.attrib["name"])
 
             if exclusion and exclusion(clean_name):
                 continue

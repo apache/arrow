@@ -15,11 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from archery.crossbow import Config
-from archery.utils.source import ArrowSources
-
-
-def test_config():
-    src = ArrowSources.find()
-    conf = Config.load_yaml(src.dev / "tasks" / "tasks.yml")
-    conf.validate()
+[flake8]
+ignore =
+    E203, # space before : (otherwise it conflicts with black formatter)
+    W503, # line break before binary operator
+    W504, # line break after binary operator

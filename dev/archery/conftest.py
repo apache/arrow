@@ -25,7 +25,7 @@ def pytest_addoption(parser):
         "--enable-integration",
         action="store_true",
         default=False,
-        help="run slow tests"
+        help="run slow tests",
     )
 
 
@@ -35,7 +35,7 @@ def pytest_configure(config):
         (
             "integration: mark test as integration tests involving more "
             "extensive setup (only used for crossbow at the moment)"
-        )
+        ),
     )
 
 
@@ -53,18 +53,20 @@ def load_fixture(request):
     current_test_directory = pathlib.Path(request.node.fspath).parent
 
     def decoder(path):
-        with path.open('r') as fp:
-            if path.suffix == '.json':
+        with path.open("r") as fp:
+            if path.suffix == ".json":
                 import json
+
                 return json.load(fp)
-            elif path.suffix == '.yaml':
+            elif path.suffix == ".yaml":
                 import yaml
+
                 return yaml.load(fp)
             else:
                 return fp.read()
 
     def loader(name, decoder=decoder):
-        path = current_test_directory / 'fixtures' / name
+        path = current_test_directory / "fixtures" / name
         return decoder(path)
 
     return loader

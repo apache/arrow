@@ -1,3 +1,5 @@
 autopep8
+black
 flake8
+isort
 cmake_format==0.5.2

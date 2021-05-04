@@ -15,14 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from contextlib import contextmanager
 import os
-from unittest import mock
 import re
+from contextlib import contextmanager
+from unittest import mock
 
 
 class DotDict(dict):
-
     def __getattr__(self, key):
         try:
             item = self[key]
@@ -35,7 +34,6 @@ class DotDict(dict):
 
 
 class PartialEnv(dict):
-
     def __eq__(self, other):
         return self.items() <= other.items()
 
@@ -56,7 +54,6 @@ def _ensure_mock_call_object(obj, **kwargs):
 
 
 class SuccessfulSubprocessResult:
-
     def check_returncode(self):
         return
 
@@ -67,7 +64,7 @@ def assert_subprocess_calls(expected_commands_or_calls, **kwargs):
         _ensure_mock_call_object(obj, **kwargs)
         for obj in expected_commands_or_calls
     ]
-    with mock.patch('subprocess.run', autospec=True) as run:
+    with mock.patch("subprocess.run", autospec=True) as run:
         run.return_value = SuccessfulSubprocessResult()
         yield run
         run.assert_has_calls(calls)

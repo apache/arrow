@@ -27,8 +27,16 @@ def median(values):
 
 
 class Benchmark:
-    def __init__(self, name, unit, less_is_better, values, time_unit,
-                 times, counters=None):
+    def __init__(
+        self,
+        name,
+        unit,
+        less_is_better,
+        values,
+        time_unit,
+        times,
+        counters=None,
+    ):
         self.name = name
         self.unit = unit
         self.less_is_better = less_is_better
@@ -43,7 +51,7 @@ class Benchmark:
         return self.median
 
     def __repr__(self):
-        return "Benchmark[name={},value={}]".format(self.name, self.value)
+        return f"Benchmark[name={self.name},value={self.value}]"
 
 
 class BenchmarkSuite:

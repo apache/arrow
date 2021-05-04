@@ -44,18 +44,45 @@ repos:
         entry: --entrypoint /bin/hadolint hadolint/hadolint:latest -
         exclude: ^dev/.*$
   - repo: git://github.com/pre-commit/pre-commit-hooks
-    sha: v1.2.3
+    rev: v1.2.3
     hooks:
      - id: flake8
-       name: Python Format
-       files: ^(python|dev|integration)/
+       name: Python Flake8 Format
+       files: ^(python|integration)/
        types:
          - file
          - python
      - id: flake8
-       name: Cython Format
+       name: Cython Flake8 Format
        files: ^python/
        types:
          - file
          - cython
        args: [--config=python/.flake8.cython]
+     - id: flake8
+       name: Archery Flake8 Format
+       files: ^dev/
+       types:
+         - file
+         - python
+       args: [--config=dev/archery/.flake8]
+  - repo: https://github.com/pycqa/isort
+    rev: 5.8.0
+    hooks:
+      - id: isort
+        name: Archery Isort Format
+        files: ^dev/archery/
+        types:
+         - file
+         - python
+  - repo: https://github.com/psf/black
+    rev: 20.8b1
+    hooks:
+     - id: black
+       name: Archery Black Format
+       files: ^dev/archery/
+       types:
+         - file
+         - python
+       args: [--config=dev/archery/pyproject.toml]
+
