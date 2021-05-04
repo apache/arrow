@@ -632,7 +632,7 @@ arrow_mask <- function(.data) {
   # Some R functions will still try to evaluate on an Expression
   # and return NA with a warning
   fail <- function(...) stop("Not implemented")
-  for (f in c("mean")) {
+  for (f in c("mean", "sd")) {
     f_env[[f]] <- fail
   }
 
@@ -1006,7 +1006,6 @@ abandon_ship <- function(call, .data, msg = NULL) {
       stop(msg, "\nCall collect() first to pull data into R.", call. = FALSE)
     }
   }
-
   # else, collect and call dplyr method
   if (!is.null(msg)) {
     warning(msg, "; pulling data into R", immediate. = TRUE, call. = FALSE)

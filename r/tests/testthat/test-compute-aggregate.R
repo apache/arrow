@@ -381,3 +381,21 @@ test_that("all.Array and all.ChunkedArray", {
   expect_vector_equal(all(input, na.rm = TRUE), data_logical)
   
 })
+
+test_that("variance", {
+  data <- c(-37, 267, 88, -120, 9, 101, -65, -23, NA)
+  arr <- Array$create(data)
+  chunked_arr <- ChunkedArray$create(data)
+  
+  expect_equal(call_function("variance", arr, options = list(ddof = 5)), Scalar$create(34596))
+  expect_equal(call_function("variance", chunked_arr, options = list(ddof = 5)), Scalar$create(34596))
+})
+
+test_that("stddev", {
+  data <- c(-37, 267, 88, -120, 9, 101, -65, -23, NA)
+  arr <- Array$create(data)
+  chunked_arr <- ChunkedArray$create(data)
+  
+  expect_equal(call_function("stddev", arr, options = list(ddof = 5)), Scalar$create(186))
+  expect_equal(call_function("stddev", chunked_arr, options = list(ddof = 5)), Scalar$create(186))
+})
