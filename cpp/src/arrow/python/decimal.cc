@@ -219,9 +219,14 @@ Status DecimalMetadata::Update(int32_t suggested_precision, int32_t suggested_sc
   scale_ = std::max(current_scale, suggested_scale);
 
   const int32_t current_precision = precision_;
-  auto n_integral = std::max(std::max(current_precision, 0) - std::max(current_scale, 0),
-                             suggested_precision - suggested_scale);
-  precision_ = std::max(n_integral + scale_, current_precision);
+
+  if (current_precision == std::numeric_limits<int32_t>::min()) {
+    precision_ = suggested_precision;
+  } else {
+    auto num_digits = std::max(current_precision - current_scale,
+                               suggested_precision - suggested_scale);
+    precision_ = std::max(num_digits + scale_, current_precision);
+  }
 
   // if our suggested scale is zero and we don't yet have enough precision then we need to
   // add whatever the current scale is to the precision
