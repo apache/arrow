@@ -60,12 +60,12 @@ skip_on_valgrind <- function() {
   # This does not actually skip on valgrind because we can't exactly detect it.
   # Instead, it skips on CRAN when the OS is linux + and the R version is development 
   # (which is where valgrind is run as of this code)
-  # linux_dev <- identical(tolower(Sys.info()[["sysname"]]), "linux") &&
-  #   grepl("devel", R.version.string)
+  linux_dev <- identical(tolower(Sys.info()[["sysname"]]), "linux") &&
+    grepl("devel", R.version.string)
 
-  # if (linux_dev) {
-  #   skip_on_cran()
-  # }
+  if (linux_dev) {
+    skip_on_cran()
+  }
 }
 
 process_is_running <- function(x) {
