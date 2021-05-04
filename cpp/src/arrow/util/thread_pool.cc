@@ -325,9 +325,9 @@ thread_local ThreadPool* g_current_thread_pool = nullptr;
 
 ThreadPool* ThreadPool::GetCurrentThreadPool() { return g_current_thread_pool; }
 
-thread_local int g_current_thread_id = 0;
+thread_local int g_current_thread_index = 0;
 
-int ThreadPool::GetCurrentThreadId() { return g_current_thread_id; }
+int ThreadPool::GetCurrentThreadIndex() { return g_current_thread_index; }
 
 void ThreadPool::LaunchWorkersUnlocked(int threads) {
   std::shared_ptr<State> state = sp_state_;
@@ -340,7 +340,7 @@ void ThreadPool::LaunchWorkersUnlocked(int threads) {
     auto it = --(state_->workers_.end());
     *it = std::thread([this, id, state, it] {
       g_current_thread_pool = this;
-      g_current_thread_id = id;
+      g_current_thread_index = id;
       WorkerLoop(state, it);
     });
   }

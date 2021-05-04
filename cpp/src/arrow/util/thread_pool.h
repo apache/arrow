@@ -291,10 +291,10 @@ class ARROW_EXPORT ThreadPool : public Executor {
   /// ThreadPool.
   static ThreadPool* GetCurrentThreadPool();
 
-  /// Return an id associated with the current thread of execution. The returned
+  /// Return an index associated with the current thread of execution. The returned
   /// value will be in the range [0, capacity), and if the current thread is not
   /// associated with a ThreadPool will always be 0.
-  static int GetCurrentThreadId();
+  static int GetCurrentThreadIndex();
 
   struct State;
 
