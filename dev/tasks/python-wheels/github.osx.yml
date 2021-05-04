@@ -52,9 +52,9 @@ jobs:
           # where we build pre-build the vcpkg packages
           setupOnly: true
           doNotSaveCache: true
-          appendedCacheKey: "-macos-{{ macos_deployment_target }}-vcpkg-2021.04.30"
+          appendedCacheKey: "-macos-{{ macos_deployment_target }}"
           vcpkgDirectory: {{ "${{ github.workspace }}/vcpkg" }}
-          vcpkgGitCommitId: fced4bef1606260f110d74de1ae1975c2b9ac549
+          vcpkgGitCommitId: "2021.04.30"
 
       - name: Patch Vcpkg Ports
         run: |
