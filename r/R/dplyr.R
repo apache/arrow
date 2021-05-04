@@ -410,21 +410,6 @@ build_function_list <- function(FUN) {
         options = list(null_encoding_behavior = null_encoding_behavior)
       )
     },
-    strsplit = function(x, split, fixed = FALSE, perl = FALSE, useBytes = FALSE){
-      
-      assert_that(length(split) == 1)
-      
-      is_regex <- grepl("[.\\|()[{^$*+?]", split)
-      
-      # if !fixed but no regex metachars in split pattern, allow to proceed as split isn't regex
-      if(!fixed && is_regex){
-        stop("regular expression matching not supported in strsplit for Arrow", call. = FALSE)
-      }
-      if(fixed && perl){
-        warning("argument 'perl = TRUE' will be ignored")
-      }
-      FUN("split_pattern", x, options = list(pattern = split, reverse = FALSE, max_splits = -1))
-    },
     # as.factor() is mapped in expression.R
     as.character = function(x) {
       FUN("cast", x, options = cast_options(to_type = string()))
@@ -492,6 +477,8 @@ build_function_list <- function(FUN) {
     gsub = arrow_r_string_replace_function(FUN, -1L),
     str_replace = arrow_stringr_string_replace_function(FUN, 1L),
     str_replace_all = arrow_stringr_string_replace_function(FUN, -1L),
+    strsplit = arrow_r_string_split_function(FUN),
+    str_split = arrow_stringr_string_split_function(FUN),
     between = function(x, left, right) {
       x >= left & x <= right
     },
@@ -552,6 +539,31 @@ arrow_stringr_string_replace_function <- function(FUN, max_replacements) {
       ignore.case = opts$ignore_case,
       fixed = opts$fixed
     )
+  }
+}
+
+arrow_r_string_split_function <- function(FUN, reverse = FALSE, max_splits = -1){
+  function(x, split, fixed = FALSE, perl = FALSE, useBytes = FALSE){
+    
+    assert_that(length(split) == 1)
+    
+    # if !fixed but no regex metachars in split pattern, allow to proceed as split isn't regex
+    if(!fixed && contains_regex(split)){
+      stop("regular expression matching not supported in strsplit for Arrow", call. = FALSE)
+    }
+    if(fixed && perl){
+      warning("argument 'perl = TRUE' will be ignored")
+    }
+    FUN("split_pattern", x, options = list(pattern = split, reverse = reverse, max_splits = max_splits))
+  }
+}
+
+arrow_stringr_string_split_function <- function(FUN, reverse = FALSE){
+  function(string, pattern, n = 0){
+    if(contains_regex(pattern)){
+      stop("regular expression matching not supported in str_split for Arrow", call. = FALSE)
+    }
+    FUN("split_pattern", string, options = list(pattern = pattern, reverse = reverse, max_splits = n-1))
   }
 }
 
@@ -1113,4 +1125,13 @@ not_implemented_for_dataset <- function(method) {
     "Call collect() first to pull data into R.",
     call. = FALSE
   )
+}
+
+#' Does this string contain regex metacharacters?
+#' 
+#' @param string String to be tested
+#' @keywords internal
+#' @return Logical: does `string` contain regex metacharacters?
+contains_regex <- function(string){
+  grepl("[.\\|()[{^$*+?]", string)
 }

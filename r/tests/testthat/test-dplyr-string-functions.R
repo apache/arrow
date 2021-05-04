@@ -239,6 +239,53 @@ test_that("str_replace and str_replace_all", {
 
 })
 
+test_that("strsplit and str_split", {
+  df <- tibble(x = c("Foo and bar", "baz and qux and quux"))
+  
+  expect_dplyr_equal(
+    input %>%
+      transmute(x = strsplit(x, "and")) %>%
+      collect(),
+    df
+  )
+  
+  expect_warning(
+    df %>%
+    Table$create() %>%
+      mutate(x = strsplit(x, "and.*", fixed = FALSE)) %>%
+      collect(),
+    regexp = "not supported in Arrow"
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = strsplit(x, "and.*", fixed = TRUE)) %>%
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      transmute(x = str_split(x, "and")) %>%
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      transmute(x = str_split(x, "and", n = 2)) %>%
+      collect(),
+    df
+  )
+  
+  expect_warning(
+    df %>%
+      Table$create() %>%
+      transmute(x = str_split(x, "and.?")) %>%
+      collect()
+  )
+})
+
 test_that("backreferences in pattern", {
   skip("RE2 does not support backreferences in pattern (https://github.com/google/re2/issues/101)")
   df <- tibble(x = c("Foo", "bar"))
