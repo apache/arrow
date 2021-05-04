@@ -793,50 +793,50 @@ TEST(TestTime, TestToTimeNumeric) {
   int64_t expected_output = 0;  // 0 milliseconds
   EXPECT_EQ(expected_output, to_time_int32(0));
   EXPECT_EQ(expected_output, to_time_int64(0));
-  EXPECT_EQ(expected_output, to_time_float32(0.0000f));
-  EXPECT_EQ(expected_output, to_time_float64(0.0000));
+  EXPECT_EQ(expected_output, to_time_float32(0.000f));
+  EXPECT_EQ(expected_output, to_time_float64(0.000));
 
   // input timestamp in seconds: 1970-01-01 00:00:01
   expected_output = 1000;  // 1 seconds
   EXPECT_EQ(expected_output, to_time_int32(1));
   EXPECT_EQ(expected_output, to_time_int64(1));
-  EXPECT_EQ(expected_output, to_time_float32(1.0000f));
-  EXPECT_EQ(expected_output, to_time_float64(1.0000));
+  EXPECT_EQ(expected_output, to_time_float32(1.000f));
+  EXPECT_EQ(expected_output, to_time_float64(1.000));
 
   // input timestamp in seconds: 1970-01-01 01:00:00
   expected_output = 3600000;  // 3600 seconds
   EXPECT_EQ(expected_output, to_time_int32(3600));
   EXPECT_EQ(expected_output, to_time_int64(3600));
-  EXPECT_EQ(expected_output, to_time_float32(3600.0000f));
-  EXPECT_EQ(expected_output, to_time_float64(3600.0000));
+  EXPECT_EQ(expected_output, to_time_float32(3600.000f));
+  EXPECT_EQ(expected_output, to_time_float64(3600.000));
 
   // input timestamp in seconds: 1970-01-01 23:59:59
   expected_output = 86399000;  // 86399 seconds
   EXPECT_EQ(expected_output, to_time_int32(86399));
   EXPECT_EQ(expected_output, to_time_int64(86399));
-  EXPECT_EQ(expected_output, to_time_float32(86399.0000f));
-  EXPECT_EQ(expected_output, to_time_float64(86399.0000));
+  EXPECT_EQ(expected_output, to_time_float32(86399.000f));
+  EXPECT_EQ(expected_output, to_time_float64(86399.000));
 
   // input timestamp in seconds: 2020-01-01 00:00:01
   expected_output = 1000;  // 1 second
   EXPECT_EQ(expected_output, to_time_int64(1577836801));
-  EXPECT_EQ(expected_output, to_time_float64(1577836801.0000));
+  EXPECT_EQ(expected_output, to_time_float64(1577836801.000));
 
   // tests with fractional part
-  // input timestamp in seconds: 1970-01-01 01:00:00.500
-  expected_output = 3600500;  // 3600.5 seconds
-  EXPECT_EQ(expected_output, to_time_float32(3600.5000f));
-  EXPECT_EQ(expected_output, to_time_float64(3600.5000));
+  // input timestamp in seconds: 1970-01-01 01:00:01.500
+  expected_output = 3601500;  // 3600.5 seconds
+  EXPECT_EQ(expected_output, to_time_float32(3601.500f));
+  EXPECT_EQ(expected_output, to_time_float64(3601.500));
 
-  // input timestamp in seconds: 1970-01-01 01:00:00.600
-  expected_output = 3600600;  // 3600.6 seconds
-  EXPECT_EQ(expected_output, to_time_float32(3600.6000f));
-  EXPECT_EQ(expected_output, to_time_float64(3600.6000));
+  // input timestamp in seconds: 1970-01-01 01:00:01.600
+  expected_output = 3601600;  // 3600.6 seconds
+  EXPECT_EQ(expected_output, to_time_float32(3601.600f));
+  EXPECT_EQ(expected_output, to_time_float64(3601.600));
 
-  // input timestamp in seconds: 1970-01-01 01:00:00.400
-  expected_output = 3600400;  // 3600.4 seconds
-  EXPECT_EQ(expected_output, to_time_float32(3600.4000f));
-  EXPECT_EQ(expected_output, to_time_float64(3600.4000));
+  // input timestamp in seconds: 1970-01-01 01:00:01.400
+  expected_output = 3601400;  // 3600.4 seconds
+  EXPECT_EQ(expected_output, to_time_float32(3601.400f));
+  EXPECT_EQ(expected_output, to_time_float64(3601.400));
 }
 
 }  // namespace gandiva
