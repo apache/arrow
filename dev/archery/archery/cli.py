@@ -726,7 +726,8 @@ def _set_default(opt, default):
 @click.option('--with-go', type=bool, default=False,
               help='Include Go in integration tests')
 @click.option('--with-rust', type=bool, default=False,
-              help='Include Rust in integration tests')
+              help='Include Rust in integration tests',
+              envvar="ARCHERY_INTEGRATION_WITH_RUST")
 @click.option('--write_generated_json', default=False,
               help='Generate test JSON to indicated path')
 @click.option('--run-flight', is_flag=True, default=False,

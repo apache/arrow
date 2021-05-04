@@ -29,7 +29,6 @@ on:
       - 'cpp/**'
       - 'java/**'
       - 'format/**'
-      - 'rust/**'
   pull_request:
     paths:
       - '.github/workflows/integration.yml'
@@ -41,7 +40,6 @@ on:
       - 'cpp/**'
       - 'java/**'
       - 'format/**'
-      - 'rust/**'
 
 env:
   DOCKER_VOLUME_PREFIX: ".docker/"
@@ -82,7 +80,7 @@ jobs:
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
-        run: archery docker run conda-integration
+        run: archery docker run -e ARCHERY_INTEGRATION_WITH_RUST=1 conda-integration
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
