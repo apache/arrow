@@ -17,16 +17,6 @@
 
 #pragma once
 
-#ifdef _WIN32
-
-// parquet.thrift's OPTIONAL RepetitionType conflicts with a #define from
-// above, so we undefine it
-#ifdef OPTIONAL
-#undef OPTIONAL
-#endif
-
-#endif
-
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
@@ -38,6 +28,16 @@
 
 #include "parquet/platform.h"
 #include "parquet/type_fwd.h"
+
+#ifdef _WIN32
+
+// parquet.thrift's OPTIONAL RepetitionType conflicts with a #define,
+// so we undefine it
+#ifdef OPTIONAL
+#undef OPTIONAL
+#endif
+
+#endif // _WIN32
 
 namespace arrow {
 namespace util {
