@@ -57,7 +57,7 @@ build_array_expression <- function(FUN,
                                    options = empty_named_list()) {
   if (FUN == "-" && length(args) == 1L) {
     if (inherits(args[[1]], c("ArrowObject", "array_expression"))) {
-      return(build_array_expression("negate", args[[1]]))
+      return(build_array_expression("negate_checked", args[[1]]))
     } else {
       return(-args[[1]])
     }
@@ -285,7 +285,7 @@ build_dataset_expression <- function(FUN,
                                      options = empty_named_list()) {
   if (FUN == "-" && length(args) == 1L) {
     if (inherits(args[[1]], c("ArrowObject", "Expression"))) {
-      return(build_dataset_expression("negate", args[[1]]))
+      return(build_dataset_expression("negate_checked", args[[1]]))
     } else {
       return(-args[[1]])
     }
