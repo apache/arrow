@@ -292,6 +292,10 @@ compute__GetFunctionNames <- function(){
     .Call(`_arrow_compute__GetFunctionNames`)
 }
 
+csv___WriteOptions__initialize <- function(options){
+    .Call(`_arrow_csv___WriteOptions__initialize`, options)
+}
+
 csv___ReadOptions__initialize <- function(options){
     .Call(`_arrow_csv___ReadOptions__initialize`, options)
 }
@@ -330,6 +334,14 @@ TimestampParser__MakeStrptime <- function(format){
 
 TimestampParser__MakeISO8601 <- function(){
     .Call(`_arrow_TimestampParser__MakeISO8601`)
+}
+
+csv___WriteCSV__Table <- function(table, write_options, stream){
+    invisible(.Call(`_arrow_csv___WriteCSV__Table`, table, write_options, stream))
+}
+
+csv___WriteCSV__RecordBatch <- function(record_batch, write_options, stream){
+    invisible(.Call(`_arrow_csv___WriteCSV__RecordBatch`, record_batch, write_options, stream))
 }
 
 dataset___Dataset__NewScan <- function(ds){
