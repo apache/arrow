@@ -4265,6 +4265,36 @@ extern "C" SEXP _arrow_supported_memory_backends(){
 }
 #endif
 
+// memorypool.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void jemalloc_set_background_thread(bool use_background_threads);
+extern "C" SEXP _arrow_jemalloc_set_background_thread(SEXP use_background_threads_sexp){
+BEGIN_CPP11
+	arrow::r::Input<bool>::type use_background_threads(use_background_threads_sexp);
+	jemalloc_set_background_thread(use_background_threads);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_jemalloc_set_background_thread(SEXP use_background_threads_sexp){
+	Rf_error("Cannot call jemalloc_set_background_thread(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// memorypool.cpp
+#if defined(ARROW_R_WITH_ARROW)
+bool jemalloc_get_background_thread();
+extern "C" SEXP _arrow_jemalloc_get_background_thread(){
+BEGIN_CPP11
+	return cpp11::as_sexp(jemalloc_get_background_thread());
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_jemalloc_get_background_thread(){
+	Rf_error("Cannot call jemalloc_get_background_thread(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // message.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int64_t ipc___Message__body_length(const std::unique_ptr<arrow::ipc::Message>& message);
@@ -6877,6 +6907,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_MemoryPool__max_memory", (DL_FUNC) &_arrow_MemoryPool__max_memory, 1}, 
 		{ "_arrow_MemoryPool__backend_name", (DL_FUNC) &_arrow_MemoryPool__backend_name, 1}, 
 		{ "_arrow_supported_memory_backends", (DL_FUNC) &_arrow_supported_memory_backends, 0}, 
+		{ "_arrow_jemalloc_set_background_thread", (DL_FUNC) &_arrow_jemalloc_set_background_thread, 1}, 
+		{ "_arrow_jemalloc_get_background_thread", (DL_FUNC) &_arrow_jemalloc_get_background_thread, 0}, 
 		{ "_arrow_ipc___Message__body_length", (DL_FUNC) &_arrow_ipc___Message__body_length, 1}, 
 		{ "_arrow_ipc___Message__metadata", (DL_FUNC) &_arrow_ipc___Message__metadata, 1}, 
 		{ "_arrow_ipc___Message__body", (DL_FUNC) &_arrow_ipc___Message__body, 1}, 

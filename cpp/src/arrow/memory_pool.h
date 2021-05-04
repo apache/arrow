@@ -154,7 +154,7 @@ ARROW_EXPORT MemoryPool* system_memory_pool();
 
 /// \brief Return a process-wide memory pool based on jemalloc.
 ///
-/// May return NotImplemented if jemalloc is not available.
+/// returns NotImplemented if jemalloc is not available.
 ARROW_EXPORT Status jemalloc_memory_pool(MemoryPool** out);
 
 /// \brief Set jemalloc memory page purging behavior for future-created arenas
@@ -165,8 +165,47 @@ ARROW_EXPORT Status jemalloc_memory_pool(MemoryPool** out);
 /// seconds. If you set the value to 0, dirty / muzzy pages will be released
 /// immediately rather than with a time decay, but this may reduce application
 /// performance.
+///
+/// returns NotImplemented if jemalloc is not available.
 ARROW_EXPORT
 Status jemalloc_set_decay_ms(int ms);
+
+/// \brief Configure whether jemalloc should use background threads for purging
+/// data.  This has been shown to give better performance and is enabled by
+/// default.
+///
+/// However, the creation of extra background threads can be undesirable in some
+/// situations (ARROW-9530).  Setting this configuration to false will synchronously
+/// terminate all existing background threads and prevent new ones from being created.
+///
+/// In addition, jemalloc disables background thread creation on fork on the child
+/// process.  You may need to use this option to re-enable background threads after
+/// a fork.
+///
+/// This is a process wide setting.
+///
+/// returns NotImplemented if jemalloc is not available.
+ARROW_EXPORT Status jemalloc_set_background_thread(bool use_background_thread);
+
+/// \brief Returns true if jemalloc background threads are currently enabled.
+///
+/// returns NotImplemented if jemalloc is not available.
+ARROW_EXPORT Result<bool> jemalloc_get_background_thread();
+
+/// \brief Returns true if jemalloc was compiled with statistics
+///
+/// returns NotImplemented if jemalloc is not available.
+ARROW_EXPORT Result<bool> jemalloc_has_stats();
+
+/// \brief Returns the number of jemalloc background threads currently running
+///
+/// returns NotImplemented if jemalloc is not available.
+ARROW_EXPORT Result<std::size_t> jemalloc_num_threads();
+
+/// \brief Updates jemalloc statistics by bumping the epoch (see jemalloc docs)
+///
+/// returns NotImplemented if jemalloc is not available.
+ARROW_EXPORT Status jemalloc_update_stats();
 
 /// \brief Return a process-wide memory pool based on mimalloc.
 ///

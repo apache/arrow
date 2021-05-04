@@ -214,3 +214,29 @@ def jemalloc_set_decay_ms(decay_ms):
         that this change will only affect future memory arenas
     """
     check_status(c_jemalloc_set_decay_ms(decay_ms))
+
+def jemalloc_set_background_thread(use_background_thread):
+    """
+    Enables or disables background threads for dirty page purging.  If true
+    then jemalloc will start background threads to release pages to the OS.
+    This generally has better performance.  If this is set to false then any
+    existing threads will synchronously terminate.  This may be desired in
+    situations where precise control over threads is needed.  See the
+    jemalloc docs for more information.
+
+    It's best to set this at the start of your application.
+
+    Parameters
+    ----------
+    use_background_thread : bool
+        Set to True to enable background threads.  Setting to false will
+        terminate existing threads.
+    """
+    check_status(c_jemalloc_set_background_thread(use_background_thread))
+
+def jemalloc_get_background_thread():
+    """
+    Returns True if jemalloc is configured to use background threads and
+    False otherwise.
+    """
+    return GetResultValue(c_jemalloc_get_background_thread())

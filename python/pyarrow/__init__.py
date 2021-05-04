@@ -161,7 +161,9 @@ from pyarrow.lib import (MemoryPool, LoggingMemoryPool, ProxyMemoryPool,
                          default_memory_pool, system_memory_pool,
                          jemalloc_memory_pool, mimalloc_memory_pool,
                          logging_memory_pool, proxy_memory_pool,
-                         log_memory_allocations, jemalloc_set_decay_ms)
+                         log_memory_allocations, jemalloc_set_decay_ms,
+                         jemalloc_set_background_thread,
+                         jemalloc_get_background_thread)
 
 # I/O
 from pyarrow.lib import (NativeFile, PythonFile,

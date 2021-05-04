@@ -167,7 +167,48 @@ TEST(Jemalloc, SetDirtyPageDecayMillis) {
 #ifdef ARROW_JEMALLOC
   ASSERT_OK(jemalloc_set_decay_ms(0));
 #else
-  ASSERT_RAISES(Invalid, jemalloc_set_decay_ms(0));
+  ASSERT_RAISES(NotImplemented, jemalloc_set_decay_ms(0));
+#endif
+}
+
+void TestBackgroundJemallocWithBackgroundThread() {
+  ASSERT_OK_AND_ASSIGN(auto has_stats, jemalloc_has_stats());
+  ASSERT_OK_AND_EQ(true, jemalloc_get_background_thread());
+  if (!has_stats) {
+    GTEST_SKIP() << "Jemalloc was not compiled with statistics";
+  }
+  ASSERT_OK_AND_EQ(1, jemalloc_num_threads());
+  ASSERT_OK(jemalloc_set_background_thread(false));
+  ASSERT_OK_AND_EQ(false, jemalloc_get_background_thread());
+  ASSERT_OK(jemalloc_update_stats());
+  ASSERT_OK_AND_EQ(0, jemalloc_num_threads());
+}
+
+void TestBackgroundJemallocWithoutBackgroundThread() {
+  ASSERT_OK_AND_ASSIGN(auto has_stats, jemalloc_has_stats());
+  ASSERT_OK_AND_EQ(false, jemalloc_get_background_thread());
+  if (!has_stats) {
+    GTEST_SKIP() << "Jemalloc was not compiled with statistics";
+  }
+  ASSERT_OK_AND_EQ(0, jemalloc_num_threads());
+}
+
+void TestBackgroundJemallocNotBuilt() {
+  ASSERT_RAISES(NotImplemented, jemalloc_has_stats());
+  ASSERT_RAISES(NotImplemented, jemalloc_get_background_thread());
+  ASSERT_RAISES(NotImplemented, jemalloc_num_threads());
+  ASSERT_RAISES(NotImplemented, jemalloc_set_background_thread(false));
+}
+
+TEST(Jemalloc, SetBackgroundThread) {
+#ifdef ARROW_JEMALLOC
+#ifndef __APPLE__
+  TestBackgroundJemallocWithBackgroundThread();
+#else
+  TestBackgroundJemallocWithoutBackgroundThread();
+#endif
+#else
+  TestBackgroundJemallocNotBuilt();
 #endif
 }
 

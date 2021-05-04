@@ -1092,6 +1092,14 @@ supported_memory_backends <- function(){
     .Call(`_arrow_supported_memory_backends`)
 }
 
+jemalloc_set_background_thread <- function(use_background_threads){
+    invisible(.Call(`_arrow_jemalloc_set_background_thread`, use_background_threads))
+}
+
+jemalloc_get_background_thread <- function(){
+    .Call(`_arrow_jemalloc_get_background_thread`)
+}
+
 ipc___Message__body_length <- function(message){
     .Call(`_arrow_ipc___Message__body_length`, message)
 }

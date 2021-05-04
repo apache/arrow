@@ -445,6 +445,34 @@ class SystemMemoryPool : public BaseMemoryPoolImpl<SystemAllocator> {
 class JemallocMemoryPool : public BaseMemoryPoolImpl<JemallocAllocator> {
  public:
   std::string backend_name() const override { return "jemalloc"; }
+
+  template <typename T>
+  Result<T> GetMallctl(std::string key) {
+    T value = false;
+    auto len = sizeof(T);
+    auto err = mallctl(key.c_str(), &value, &len, nullptr, 0);
+    if (err != 0) {
+      return Status::UnknownError("Could not obtain jemalloc configuration for key " +
+                                  key);
+    }
+    return value;
+  }
+
+  template <typename T>
+  Status SetMallctl(std::string key, T value) {
+    auto err = mallctl(key.c_str(), nullptr, nullptr, &value, sizeof(T));
+    if (err != 0) {
+      return Status::UnknownError("Could not set jemalloc configuration for key " + key);
+    }
+    return Status::OK();
+  }
+
+  Status BumpEpoch() {
+    ARROW_ASSIGN_OR_RAISE(auto old_epoch, GetMallctl<uint64_t>("epoch"));
+    auto new_epoch = old_epoch++;
+    RETURN_NOT_OK(SetMallctl("epoch", new_epoch));
+    return Status::OK();
+  }
 };
 #endif
 
@@ -541,7 +569,53 @@ Status jemalloc_set_decay_ms(int ms) {
 
   return Status::OK();
 #else
-  return Status::Invalid("jemalloc support is not built");
+  return Status::NotImplemented("This Arrow build does not enable jemalloc");
+#endif
+}
+
+/// Configures whether jemalloc will use background threads or not.  This calls
+/// mallctl (see jemalloc documentation) under the hood.
+///
+/// It is not clear if this is thread safe so for best results this should be called
+/// before actually using the memory pool at all.
+Status jemalloc_set_background_thread(bool use_background_thread) {
+#ifdef ARROW_JEMALLOC
+  return jemalloc_pool.SetMallctl("background_thread", use_background_thread);
+#else
+  return Status::NotImplemented("This Arrow build does not enable jemalloc");
+#endif
+}
+
+/// Returns whether jemalloc is currently configured to use background threads.
+Result<bool> jemalloc_get_background_thread() {
+#ifdef ARROW_JEMALLOC
+  return jemalloc_pool.GetMallctl<bool>("background_thread");
+#else
+  return Status::NotImplemented("This Arrow build does not enable jemalloc");
+#endif
+}
+
+Status jemalloc_update_stats() {
+#ifdef ARROW_JEMALLOC
+  return jemalloc_pool.BumpEpoch();
+#else
+  return Status::NotImplemented("This Arrow build does not enable jemalloc");
+#endif
+}
+
+Result<bool> jemalloc_has_stats() {
+#ifdef ARROW_JEMALLOC
+  return jemalloc_pool.GetMallctl<bool>("config.stats");
+#else
+  return Status::NotImplemented("This Arrow build does not enable jemalloc");
+#endif
+}
+
+Result<std::size_t> jemalloc_num_threads() {
+#ifdef ARROW_JEMALLOC
+  return jemalloc_pool.GetMallctl<std::size_t>("stats.background_thread.num_threads");
+#else
+  return Status::NotImplemented("This Arrow build does not enable jemalloc");
 #endif
 }
 

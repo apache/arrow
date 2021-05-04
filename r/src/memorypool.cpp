@@ -89,4 +89,14 @@ std::vector<std::string> supported_memory_backends() {
   return arrow::SupportedMemoryBackendNames();
 }
 
+// [[arrow::export]]
+void jemalloc_set_background_thread(bool use_background_threads) {
+  StopIfNotOk(arrow::jemalloc_set_background_thread(use_background_threads));
+}
+
+// [[arrow::export]]
+bool jemalloc_get_background_thread() {
+  return ValueOrStop(arrow::jemalloc_get_background_thread());
+}
+
 #endif

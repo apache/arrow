@@ -332,6 +332,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CMemoryPool** out)
 
     CStatus c_jemalloc_set_decay_ms" arrow::jemalloc_set_decay_ms"(int ms)
+    CStatus c_jemalloc_set_background_thread" arrow::jemalloc_set_background_thread"(c_bool use_background_thread)
+    CResult[c_bool] c_jemalloc_get_background_thread" arrow::jemalloc_get_background_thread"()
 
     cdef cppclass CListType" arrow::ListType"(CDataType):
         CListType(const shared_ptr[CDataType]& value_type)

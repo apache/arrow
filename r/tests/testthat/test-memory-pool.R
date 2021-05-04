@@ -24,3 +24,20 @@ test_that("default_memory_pool and its attributes", {
 
   expect_true(all(supported_memory_backends() %in% c("system", "jemalloc", "mimalloc")))
 })
+
+test_that("set_jemalloc_background_thread works", {
+  if ("jemalloc" %in% supported_memory_backends()) {
+    was_true <- jemalloc_get_background_thread()
+    jemalloc_set_background_thread(FALSE);
+    expect_false(jemalloc_get_background_thread());
+    if (was_true) {
+      # Some environments (e.g. Apple) have the background
+      # thread disabled so don't turn it back on unless it was
+      # originally on
+      jemalloc_set_background_thread(TRUE);
+      expect_true(jemalloc_get_background_thread());
+    }
+  } else {
+    skip("Jemalloc not enabled")
+  }
+})
