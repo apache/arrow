@@ -240,7 +240,7 @@ def test_decimal_roundtrip(tempdir, use_legacy_dataset):
 
 @pytest.mark.pandas
 @pytest.mark.xfail(
-    raises=pa.ArrowException, reason='Parquet does not support negative scale'
+    raises=OSError, reason='Parquet does not support negative scale'
 )
 def test_decimal_roundtrip_negative_scale(tempdir):
     expected = pd.DataFrame({'decimal_num': [decimal.Decimal('1.23E4')]})
