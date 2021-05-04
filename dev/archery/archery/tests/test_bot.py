@@ -156,6 +156,7 @@ def test_respond_with_usage(load_fixture, responses):
 
 @pytest.mark.parametrize(('command', 'reaction'), [
     ('@ursabot build', '+1'),
+    ('@ursabot build\nwith a comment', '+1'),
     ('@ursabot listen', '-1'),
 ])
 def test_issue_comment_with_commands(load_fixture, responses, command,

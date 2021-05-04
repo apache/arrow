@@ -110,7 +110,9 @@ class CommentBot:
         elif not comment['body'].lstrip().startswith(mention):
             raise EventError("The bot is not mentioned")
 
-        return payload['comment']['body'].split(mention)[-1].strip()
+        # Parse the comment, removing the bot mentioned (and everything before it)
+        # then split on newlines and keep only the first line (ignoring all other lines)
+        return payload['comment']['body'].split(mention)[-1].split("\n")[0].strip()
 
     def handle(self, event, payload):
         try:
