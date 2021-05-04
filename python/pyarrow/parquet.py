@@ -1221,7 +1221,7 @@ pre_buffer : bool, default True
     Coalesce and issue file reads in parallel to improve performance on
     high-latency filesystems (e.g. S3). If True, Arrow will use a
     background I/O thread pool. This option is only supported for
-    use_legacy_dataset=True. If using a filesystem layer that itself
+    use_legacy_dataset=False. If using a filesystem layer that itself
     performs readahead (e.g. fsspec's S3FS), disable readahead for best
     results.
 """.format(_read_docstring_common, _DNF_filter_doc)
