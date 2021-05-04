@@ -837,7 +837,7 @@ cdef class _ScalarAggregateOptions(FunctionOptions):
 
 
 class ScalarAggregateOptions(_ScalarAggregateOptions):
-    def __init__(self, skip_nulls=True, min_count=0):
+    def __init__(self, skip_nulls=True, min_count=1):
         self._set_options(skip_nulls, min_count)
 
 

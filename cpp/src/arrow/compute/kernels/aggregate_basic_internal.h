@@ -268,10 +268,8 @@ struct MinMaxImpl : public ScalarAggregator {
     using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
 
     std::vector<std::shared_ptr<Scalar>> values;
-    if (!state.has_values && options.skip_nulls && options.min_count == 0) {
-      values = {std::make_shared<ScalarType>(state.min),
-                std::make_shared<ScalarType>(state.max)};
-    } else if (!state.has_values || (state.has_nulls && !options.skip_nulls)) {
+    if (options.min_count > 0 &&
+        (!state.has_values || (state.has_nulls && !options.skip_nulls))) {
       // (null, null)
       values = {std::make_shared<ScalarType>(), std::make_shared<ScalarType>()};
     } else {

@@ -206,8 +206,16 @@ def test_sum_array(arrow_type):
     assert arr.sum().as_py() == 10
     assert pc.sum(arr).as_py() == 10
 
+    arr = pa.array([1, 2, 3, 4, None], type=arrow_type)
+    assert arr.sum().as_py() == 10
+    assert pc.sum(arr).as_py() == 10
+
+    arr = pa.array([None], type=arrow_type)
+    assert arr.sum().as_py() is None  # noqa: E711
+    assert pc.sum(arr).as_py() is None  # noqa: E711
+
     arr = pa.array([], type=arrow_type)
-    assert arr.sum().as_py() == 0
+    assert arr.sum().as_py() is None  # noqa: E711
 
 
 @pytest.mark.parametrize('arrow_type', numerical_arrow_types)
@@ -229,7 +237,7 @@ def test_sum_chunked_array(arrow_type):
 
     arr = pa.chunked_array((), type=arrow_type)
     assert arr.num_chunks == 0
-    assert pc.sum(arr).as_py() == 0
+    assert pc.sum(arr).as_py() is None  # noqa: E711
 
 
 def test_mode_array():
@@ -1094,6 +1102,9 @@ def test_count():
     assert pc.count(arr).as_py() == 3
     assert pc.count(arr, skip_nulls=True).as_py() == 3
     assert pc.count(arr, skip_nulls=False).as_py() == 2
+
+    with pytest.raises(TypeError, match="an integer is required"):
+        pc.count(arr, min_count='zzz')
 
 
 def test_partition_nth():

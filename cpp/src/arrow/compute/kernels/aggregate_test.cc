@@ -162,8 +162,8 @@ void ValidateBooleanAgg(const std::string& json,
 
 TEST(TestBooleanAggregation, Sum) {
   const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults();
-  ValidateBooleanAgg<Sum>("[]", std::make_shared<UInt64Scalar>(0), options);
-  ValidateBooleanAgg<Sum>("[null]", std::make_shared<UInt64Scalar>(0), options);
+  ValidateBooleanAgg<Sum>("[]", std::make_shared<UInt64Scalar>(), options);
+  ValidateBooleanAgg<Sum>("[null]", std::make_shared<UInt64Scalar>(), options);
   ValidateBooleanAgg<Sum>("[null, false]", std::make_shared<UInt64Scalar>(0), options);
   ValidateBooleanAgg<Sum>("[true]", std::make_shared<UInt64Scalar>(1), options);
   ValidateBooleanAgg<Sum>("[true, false, true]", std::make_shared<UInt64Scalar>(2),
@@ -172,9 +172,10 @@ TEST(TestBooleanAggregation, Sum) {
                           std::make_shared<UInt64Scalar>(3), options);
 
   const ScalarAggregateOptions& options_min_count_zero =
-      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1);
-  ValidateBooleanAgg<Sum>("[]", std::make_shared<UInt64Scalar>(), options_min_count_zero);
-  ValidateBooleanAgg<Sum>("[null]", std::make_shared<UInt64Scalar>(),
+      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0);
+  ValidateBooleanAgg<Sum>("[]", std::make_shared<UInt64Scalar>(0),
+                          options_min_count_zero);
+  ValidateBooleanAgg<Sum>("[null]", std::make_shared<UInt64Scalar>(0),
                           options_min_count_zero);
 
   const char* json = "[true, null, false, null]";
@@ -194,8 +195,8 @@ TEST(TestBooleanAggregation, Sum) {
 
 TEST(TestBooleanAggregation, Mean) {
   const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults();
-  ValidateBooleanAgg<Mean>("[]", std::make_shared<DoubleScalar>(NAN), options);
-  ValidateBooleanAgg<Mean>("[null]", std::make_shared<DoubleScalar>(NAN), options);
+  ValidateBooleanAgg<Mean>("[]", std::make_shared<DoubleScalar>(), options);
+  ValidateBooleanAgg<Mean>("[null]", std::make_shared<DoubleScalar>(), options);
   ValidateBooleanAgg<Mean>("[null, false]", std::make_shared<DoubleScalar>(0), options);
   ValidateBooleanAgg<Mean>("[true]", std::make_shared<DoubleScalar>(1), options);
   ValidateBooleanAgg<Mean>("[true, false, true, false]",
@@ -237,10 +238,9 @@ TYPED_TEST(TestNumericSumKernel, SimpleSum) {
   using ScalarType = typename TypeTraits<SumType>::ScalarType;
   using T = typename TypeParam::c_type;
 
-  ValidateSum<TypeParam>("[]", Datum(std::make_shared<ScalarType>(static_cast<T>(0))));
+  ValidateSum<TypeParam>("[]", Datum(std::make_shared<ScalarType>()));
 
-  ValidateSum<TypeParam>("[null]",
-                         Datum(std::make_shared<ScalarType>(static_cast<T>(0))));
+  ValidateSum<TypeParam>("[null]", Datum(std::make_shared<ScalarType>()));
 
   ValidateSum<TypeParam>("[0, 1, 2, 3, 4, 5]",
                          Datum(std::make_shared<ScalarType>(static_cast<T>(5 * 6 / 2))));
@@ -258,14 +258,17 @@ TYPED_TEST(TestNumericSumKernel, SimpleSum) {
                          Datum(std::make_shared<ScalarType>(static_cast<T>(5 * 6 / 2))));
 
   const ScalarAggregateOptions& options =
-      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1);
+      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0);
 
-  ValidateSum<TypeParam>("[]", Datum(std::make_shared<ScalarType>()), options);
+  ValidateSum<TypeParam>("[]", Datum(std::make_shared<ScalarType>(static_cast<T>(0))),
+                         options);
 
-  ValidateSum<TypeParam>("[null]", Datum(std::make_shared<ScalarType>()), options);
+  ValidateSum<TypeParam>("[null]", Datum(std::make_shared<ScalarType>(static_cast<T>(0))),
+                         options);
 
   chunks = {};
-  ValidateSum<TypeParam>(chunks, Datum(std::make_shared<ScalarType>()), options);  // null
+  ValidateSum<TypeParam>(chunks, Datum(std::make_shared<ScalarType>(static_cast<T>(0))),
+                         options);
 
   const T expected_result = static_cast<T>(14);
   ValidateSum<TypeParam>("[1, null, 3, null, 3, null, 7]",
@@ -510,20 +513,16 @@ TYPED_TEST_SUITE(TestMeanKernelNumeric, NumericArrowTypes);
 TYPED_TEST(TestMeanKernelNumeric, SimpleMean) {
   using ScalarType = typename TypeTraits<DoubleType>::ScalarType;
 
-  ValidateMean<TypeParam>("[]", Datum(std::make_shared<ScalarType>(NAN)));
-
-  ValidateMean<TypeParam>("[null]", Datum(std::make_shared<ScalarType>(NAN)));
-
   const ScalarAggregateOptions& options =
-      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1);
+      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0);
 
-  ValidateMean<TypeParam>("[]", Datum(std::make_shared<ScalarType>()), options);
+  ValidateMean<TypeParam>("[]", Datum(std::make_shared<ScalarType>(NAN)), options);
 
-  ValidateMean<TypeParam>("[null]", Datum(std::make_shared<ScalarType>()), options);
+  ValidateMean<TypeParam>("[null]", Datum(std::make_shared<ScalarType>(NAN)), options);
 
-  ValidateMean<TypeParam>("[]", Datum(std::make_shared<ScalarType>(NAN)));
+  ValidateMean<TypeParam>("[]", Datum(std::make_shared<ScalarType>()));
 
-  ValidateMean<TypeParam>("[null]", Datum(std::make_shared<ScalarType>(NAN)));
+  ValidateMean<TypeParam>("[null]", Datum(std::make_shared<ScalarType>()));
 
   ValidateMean<TypeParam>("[1, null, 1]", Datum(std::make_shared<ScalarType>(1.0)));
 
@@ -735,18 +734,14 @@ TEST_F(TestBooleanMinMaxKernel, Basics) {
 
 TYPED_TEST_SUITE(TestIntegerMinMaxKernel, IntegralArrowTypes);
 TYPED_TEST(TestIntegerMinMaxKernel, Basics) {
-  using T = typename TypeParam::c_type;
-  T min = std::numeric_limits<T>::max();
-  T max = std::numeric_limits<T>::min();
-
   ScalarAggregateOptions options;
   std::vector<std::string> chunked_input1 = {"[5, 1, 2, 3, 4]", "[9, 1, null, 3, 4]"};
   std::vector<std::string> chunked_input2 = {"[5, null, 2, 3, 4]", "[9, 1, 2, 3, 4]"};
   std::vector<std::string> chunked_input3 = {"[5, 1, 2, 3, null]", "[9, 1, null, 3, 4]"};
 
-  // Default behaviour
-  this->AssertMinMaxIs("[]", min, max, options);
-  this->AssertMinMaxIs("[null, null, null]", min, max, options);
+  // SKIP nulls by default
+  this->AssertMinMaxIsNull("[]", options);
+  this->AssertMinMaxIsNull("[null, null, null]", options);
   this->AssertMinMaxIs("[5, 1, 2, 3, 4]", 1, 5, options);
   this->AssertMinMaxIs("[5, null, 2, 3, 4]", 2, 5, options);
   this->AssertMinMaxIs(chunked_input1, 1, 9, options);

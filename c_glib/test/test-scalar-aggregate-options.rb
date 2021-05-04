@@ -27,6 +27,6 @@ class TestScalarAggregateOptions < Test::Unit::TestCase
   end
 
   def test_default_min_count
-    assert_equal(0, @options.min_count)
+    assert_equal(1, @options.min_count)
   end
 end

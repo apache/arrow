@@ -105,12 +105,12 @@ mean.ArrowDatum <- function(..., na.rm = FALSE, na.min_count = 0) {
 }
 
 #' @export
-min.ArrowDatum <- function(..., na.rm = FALSE, na.min_count = 0) {
+min.ArrowDatum <- function(..., na.rm = FALSE, na.min_count = 1) {
   scalar_aggregate("min_max", ..., na.rm = na.rm, na.min_count = na.min_count)$GetFieldByName("min")
 }
 
 #' @export
-max.ArrowDatum <- function(..., na.rm = FALSE, na.min_count = 0) {
+max.ArrowDatum <- function(..., na.rm = FALSE, na.min_count = 1) {
   scalar_aggregate("min_max", ..., na.rm = na.rm, na.min_count = na.min_count)$GetFieldByName("max")
 }
 
@@ -122,6 +122,7 @@ scalar_aggregate <- function(FUN, ..., na.rm = FALSE, na.min_count = 0) {
   if (FUN == "min_max" && na.rm && a$null_count == length(a)) {
     # Arrow sum/mean returns with the output type equal to input. But here R expects +/-Inf for boolean
     # and integer types which arrow will only return with float input.
+    na.min_count = 0
     a <- a$cast(float64())
   }
   call_function(FUN, a, options = list(na.rm = na.rm, na.min_count = na.min_count))
