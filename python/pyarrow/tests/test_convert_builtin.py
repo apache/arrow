@@ -1509,7 +1509,13 @@ def test_sequence_decimal_infer():
         (decimal.Decimal('12300'), pa.decimal128(5, 0)),
         (decimal.Decimal('12300.0'), pa.decimal128(6, 1)),
         # scientific power notation
+        (decimal.Decimal('1.23E+4'), pa.decimal128(3, -2)),
         (decimal.Decimal('123E+2'), pa.decimal128(3, -2)),
+        (decimal.Decimal('123E+4'), pa.decimal128(7, 0)),
+        # leading zeros
+        (decimal.Decimal('0.0123'), pa.decimal128(4, 4)),
+        (decimal.Decimal('0.01230'), pa.decimal128(5, 5)),
+        (decimal.Decimal('1.230E-2'), pa.decimal128(5, 5)),
     ]:
         assert pa.infer_type([data]) == typ
         arr = pa.array([data])
@@ -1529,6 +1535,10 @@ def test_sequence_decimal_infer_mixed():
          pa.decimal128(6, 3)),
         ([decimal.Decimal('123e2'), decimal.Decimal('4567e3')],
          pa.decimal128(5, -2)),
+        ([decimal.Decimal('123e4'), decimal.Decimal('4567e2')],
+         pa.decimal128(7, 0)),
+        ([decimal.Decimal('0.123'), decimal.Decimal('0.04567')],
+         pa.decimal128(5, 5)),
     ]
     for data, typ in cases:
         assert pa.infer_type(data) == typ
