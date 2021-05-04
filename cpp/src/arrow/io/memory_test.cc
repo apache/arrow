@@ -779,8 +779,8 @@ TEST(RangeReadCache, Concurrency) {
       ASSERT_OK(cache.Cache(ranges));
       std::vector<Future<std::shared_ptr<Buffer>>> futures;
       for (const auto& range : ranges) {
-        futures.push_back(cache.WaitFor({range}).Then(
-            [&cache, range](const detail::Empty&) { return cache.Read(range); }));
+        futures.push_back(
+            cache.WaitFor({range}).Then([&cache, range]() { return cache.Read(range); }));
       }
       for (auto fut : futures) {
         ASSERT_FINISHES_OK(fut);

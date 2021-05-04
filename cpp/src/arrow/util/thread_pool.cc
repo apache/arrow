@@ -424,15 +424,6 @@ ThreadPool* GetCpuThreadPool() {
   return singleton.get();
 }
 
-Status RunSynchronouslyVoid(FnOnce<Future<>(Executor*)> get_future, bool use_threads) {
-  if (use_threads) {
-    return std::move(get_future)(GetCpuThreadPool()).status();
-  } else {
-    return SerialExecutor::RunInSerialExecutor<arrow::internal::Empty>(
-        std::move(get_future));
-  }
-}
-
 }  // namespace internal
 
 int GetCpuThreadPoolCapacity() { return internal::GetCpuThreadPool()->GetCapacity(); }

@@ -1644,11 +1644,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
     struct DeleteCallback {
       const std::string bucket;
 
-      Status operator()(const Result<S3Model::DeleteObjectsOutcome>& result) {
-        if (!result.ok()) {
-          return result.status();
-        }
-        const auto& outcome = *result;
+      Status operator()(const S3Model::DeleteObjectsOutcome& outcome) {
         if (!outcome.IsSuccess()) {
           return ErrorToStatus(outcome.GetError());
         }
@@ -1753,7 +1749,10 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
   Future<std::vector<std::string>> ListBucketsAsync(io::IOContext ctx) {
     auto self = shared_from_this();
     return DeferNotOk(SubmitIO(ctx, [self]() { return self->client_->ListBuckets(); }))
-        .Then(Impl::ProcessListBuckets);
+        // TODO(ARROW-12655) Change to Then(Impl::ProcessListBuckets)
+        .Then([](const Aws::S3::Model::ListBucketsOutcome& outcome) {
+          return Impl::ProcessListBuckets(outcome);
+        });
   }
 
   Result<std::shared_ptr<ObjectInputFile>> OpenInputFile(const std::string& s,

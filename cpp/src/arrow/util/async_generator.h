@@ -484,13 +484,9 @@ class TransformingGenerator {
           // Otherwise, if not finished immediately, add callback to process results
         } else {
           auto self = this->shared_from_this();
-          return next_fut.Then([self](const Result<T>& next_result) {
-            if (next_result.ok()) {
-              self->last_value_ = *next_result;
-              return (*self)();
-            } else {
-              return Future<V>::MakeFinished(next_result.status());
-            }
+          return next_fut.Then([self](const T& next_result) {
+            self->last_value_ = next_result;
+            return (*self)();
           });
         }
       }
@@ -565,7 +561,7 @@ class SerialReadaheadGenerator {
       // Lazy generator, need to wait for the first ask to prime the pump
       state_->first_ = false;
       auto next = state_->source_();
-      return next.Then(Callback{state_});
+      return next.Then(Callback{state_}, ErrCallback{state_});
     }
 
     // This generator is not async-reentrant.  We won't be called until the last
@@ -600,7 +596,7 @@ class SerialReadaheadGenerator {
           readahead_queue_(max_readahead + 1) {}
 
     Status Pump(const std::shared_ptr<State>& self) {
-      // Can't do readahead_queue.write(source().Then(Callback{self})) because then the
+      // Can't do readahead_queue.write(source().Then(...)) because then the
       // callback might run immediately and add itself to the queue before this gets added
       // to the queue messing up the order.
       auto next_slot = std::make_shared<Future<T>>();
@@ -614,7 +610,7 @@ class SerialReadaheadGenerator {
       // writing.  That is because this callback (the callback for future X) must be
       // finished before future X is marked complete and this source is not pulled
       // reentrantly so it will not poll for future X+1 until this callback has completed.
-      *next_slot = source_().Then(Callback{self});
+      *next_slot = source_().Then(Callback{self}, ErrCallback{self});
       return Status::OK();
     }
 
@@ -634,21 +630,25 @@ class SerialReadaheadGenerator {
   };
 
   struct Callback {
-    Result<T> operator()(const Result<T>& maybe_next) {
-      if (!maybe_next.ok()) {
-        state_->finished_.store(true);
-        return maybe_next;
-      }
-      const auto& next = *maybe_next;
+    Result<T> operator()(const T& next) {
       if (IsIterationEnd(next)) {
         state_->finished_.store(true);
-        return maybe_next;
+        return next;
       }
       auto last_available = state_->spaces_available_.fetch_sub(1);
       if (last_available > 1) {
         ARROW_RETURN_NOT_OK(state_->Pump(state_));
       }
-      return maybe_next;
+      return next;
+    }
+
+    std::shared_ptr<State> state_;
+  };
+
+  struct ErrCallback {
+    Result<T> operator()(const Status& st) {
+      state_->finished_.store(true);
+      return st;
     }
 
     std::shared_ptr<State> state_;

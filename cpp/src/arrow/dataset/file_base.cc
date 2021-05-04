@@ -508,10 +508,11 @@ Status WriteInternal(const ScanOptions& scan_options, WriteState& state,
           [&](std::shared_ptr<RecordBatch> batch) {
             return WriteNextBatch(state, scan_task->fragment(), std::move(batch));
           };
-      return internal::SerialExecutor::RunInSerialExecutor<>(
+      return internal::RunSynchronously<Future<>>(
           [&](internal::Executor* executor) {
             return scan_task->SafeVisit(executor, visitor);
-          });
+          },
+          /*use_threads=*/false);
     });
   }
   return task_group->Finish();

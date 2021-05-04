@@ -163,7 +163,7 @@ class ReentrantChecker {
     std::atomic<bool> valid;
   };
   struct Callback {
-    Future<T> operator()(const Result<T>& result) {
+    Future<T> operator()(const T& result) {
       state_->generated_unfinished_future.store(false);
       return result;
     }
@@ -648,7 +648,7 @@ TEST(TestAsyncUtil, MakeTransferredGenerator) {
       MakeTransferredGenerator<TestInt>(std::move(slow_generator), thread_pool.get());
 
   auto current_thread_id = std::this_thread::get_id();
-  auto fut = transferred().Then([&current_thread_id](const Result<TestInt>& result) {
+  auto fut = transferred().Then([&current_thread_id](const TestInt&) {
     ASSERT_NE(current_thread_id, std::this_thread::get_id());
   });
 
@@ -1006,8 +1006,8 @@ TEST(TestAsyncUtil, SerialReadaheadStressFailing) {
     AsyncGenerator<TestInt> it = BackgroundAsyncVectorIt(RangeVector(NITEMS));
     AsyncGenerator<TestInt> fails_at_ten = [&it]() {
       auto next = it();
-      return next.Then([](const Result<TestInt>& item) -> Result<TestInt> {
-        if (item->value >= 10) {
+      return next.Then([](const TestInt& item) -> Result<TestInt> {
+        if (item.value >= 10) {
           return Status::Invalid("XYZ");
         } else {
           return item;

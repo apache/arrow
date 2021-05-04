@@ -698,11 +698,10 @@ struct AsyncTableAssemblyState {
 };
 
 Status AsyncScanner::Scan(std::function<Status(TaggedRecordBatch)> visitor) {
-  return internal::RunSynchronouslyVoid(
-      [this, &visitor](Executor* executor) {
-        return VisitBatchesAsync(visitor, executor);
-      },
-      scan_options_->use_threads);
+  auto top_level_task = [this, &visitor](Executor* executor) {
+    return VisitBatchesAsync(visitor, executor);
+  };
+  return internal::RunSynchronously<Future<>>(top_level_task, scan_options_->use_threads);
 }
 
 Future<> AsyncScanner::VisitBatchesAsync(std::function<Status(TaggedRecordBatch)> visitor,

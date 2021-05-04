@@ -538,7 +538,7 @@ TEST(FutureCompletionTest, Void) {
   {
     // Propagate failure by returning it from on_failure
     auto fut = Future<int>::Make();
-    auto fut2 = fut.Then([](...) {}, [](const Status& s) { return s; });
+    auto fut2 = fut.Then([](const int&) {}, [](const Status& s) { return s; });
     fut.MarkFinished(Status::IOError("xxx"));
     AssertFailed(fut2);
     ASSERT_TRUE(fut2.status().IsIOError());
@@ -1142,7 +1142,7 @@ TEST(FutureLoopTest, AllowsBreakFutToBeDiscarded) {
     }
     return Future<ControlFlow<int>>::MakeFinished(Break(-1));
   };
-  auto loop_fut = Loop(loop_body).Then([](...) { return Status::OK(); });
+  auto loop_fut = Loop(loop_body).Then([](const int&) { return Status::OK(); });
   ASSERT_TRUE(loop_fut.Wait(0.1));
 }
 

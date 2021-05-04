@@ -133,7 +133,7 @@ class TestRunSynchronously : public testing::TestWithParam<bool> {
   }
 
   Status RunVoid(FnOnce<Future<>(Executor*)> top_level_task) {
-    return RunSynchronouslyVoid(std::move(top_level_task), UseThreads());
+    return RunSynchronously(std::move(top_level_task), UseThreads());
   }
 
   void TestContinueAfterExternal(bool transfer_to_main_thread) {

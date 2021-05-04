@@ -37,7 +37,7 @@ struct Empty {
 };
 
 /// Helper struct for examining lambdas and other callables.
-/// TODO(bkietz) support function pointers
+/// TODO(ARROW-12655) support function pointers
 struct call_traits {
  public:
   template <typename R, typename... A>

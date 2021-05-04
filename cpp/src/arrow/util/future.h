@@ -48,37 +48,45 @@ template <typename Signature>
 using result_of_t = typename std::result_of<Signature>::type;
 
 template <typename Source, typename Dest>
-typename std::enable_if<Source::is_empty>::type Propagate(Source& source, Dest dest) {
+typename std::enable_if<Source::is_empty>::type Propagate(Source* source, Dest dest) {
   struct MarkNextFinished {
     void operator()(const Status& status) && { next.MarkFinished(status); }
     Dest next;
   };
-  source.AddCallback(MarkNextFinished{std::move(dest)});
+  source->AddCallback(MarkNextFinished{std::move(dest)});
 }
 
-template <typename Source, typename Dest>
-typename std::enable_if<!Source::is_empty && Dest::is_empty>::type Propagate(
-    Source& source, Dest dest) {
-  struct MarkNextFinished {
-    void operator()(const Result<typename Source::ValueType>& res) && {
-      next.MarkFinished(res.status());
-    }
-    Dest next;
-  };
-  source.AddCallback(MarkNextFinished{std::move(dest)});
-}
+template <typename Source, typename Dest, bool SourceEmpty = Source::is_empty,
+          bool DestEmpty = Dest::is_empty>
+struct MarkNextFinished {};
 
 template <typename Source, typename Dest>
-typename std::enable_if<!Source::is_empty && !Dest::is_empty>::type Propagate(
-    Source& source, Dest dest) {
-  struct MarkNextFinished {
-    void operator()(const Result<typename Source::ValueType>& res) && {
-      next.MarkFinished(res);
-    }
-    Dest next;
-  };
-  source.AddCallback(MarkNextFinished{std::move(dest)});
-}
+struct MarkNextFinished<Source, Dest, true, false> {
+  void operator()(const Status& status) && { next.MarkFinished(status); }
+  Dest next;
+};
+
+template <typename Source, typename Dest>
+struct MarkNextFinished<Source, Dest, true, true> {
+  void operator()(const Status& status) && { next.MarkFinished(status); }
+  Dest next;
+};
+
+template <typename Source, typename Dest>
+struct MarkNextFinished<Source, Dest, false, true> {
+  void operator()(const Result<typename Source::ValueType>& res) && {
+    next.MarkFinished(res.status());
+  }
+  Dest next;
+};
+
+template <typename Source, typename Dest>
+struct MarkNextFinished<Source, Dest, false, false> {
+  void operator()(const Result<typename Source::ValueType>& res) && {
+    next.MarkFinished(res);
+  }
+  Dest next;
+};
 
 struct ContinueFuture {
   template <typename Return>
@@ -126,7 +134,8 @@ struct ContinueFuture {
       NextFuture next, ContinueFunc&& f, Args&&... a) const {
     ContinueResult signal_to_complete_next =
         std::forward<ContinueFunc>(f)(std::forward<Args>(a)...);
-    Propagate<ContinueResult, NextFuture>(signal_to_complete_next, std::move(next));
+    MarkNextFinished<ContinueResult, NextFuture> callback{std::move(next)};
+    signal_to_complete_next.AddCallback(std::move(callback));
   }
 };
 
@@ -383,6 +392,7 @@ template <typename T>
 class ARROW_MUST_USE_TYPE Future : public FutureBase<T> {
  public:
   using ValueType = T;
+  using SyncType = Result<T>;
   static constexpr bool is_empty = false;
 
   Future() = default;
@@ -397,6 +407,13 @@ class ARROW_MUST_USE_TYPE Future : public FutureBase<T> {
     FutureBase<T>::Wait();
     return std::move(*FutureBase<T>::GetResult());
   }
+
+  /// \brief Wait for the Future to complete and return its Result (or Status for an empty
+  /// future)
+  ///
+  /// This method is useful for general purpose code converting from async to sync where T
+  /// is a template parameter and may be empty.
+  const SyncType& to_sync() const { return FutureBase<T>::result(); }
 
   // Producer API
 
@@ -504,6 +521,11 @@ class ARROW_MUST_USE_TYPE Future : public FutureBase<T> {
         std::is_same<detail::ContinueFuture::ForSignature<OnFailure && (const Status&)>,
                      ContinuedFuture>::value,
         "OnSuccess and OnFailure must continue with the same future type");
+    using OnSuccessArg =
+        typename std::decay<internal::call_traits::argument_type<0, OnSuccess>>::type;
+    static_assert(
+        !std::is_same<OnSuccessArg, typename EnsureResult<OnSuccessArg>::type>::value,
+        "OnSuccess' argument should not be a Result");
 
     auto next = ContinuedFuture::Make();
 
@@ -616,6 +638,7 @@ class ARROW_MUST_USE_TYPE Future<arrow::internal::Empty>
     : public FutureBase<arrow::internal::Empty> {
  public:
   using ValueType = arrow::internal::Empty;
+  using SyncType = Status;
   static constexpr bool is_empty = true;
 
   Future() = default;
@@ -629,6 +652,8 @@ class ARROW_MUST_USE_TYPE Future<arrow::internal::Empty>
     fut.InitializeFromResult(internal::Empty::ToResult(std::move(s)));
     return fut;
   }
+
+  const SyncType& to_sync() const { return status(); }
 
   template <typename OnComplete>
   void AddCallback(OnComplete on_complete) const {
@@ -860,11 +885,11 @@ template <typename T = internal::Empty>
 using ControlFlow = util::optional<T>;
 
 template <typename T>
-void ForwardControlResult(const Result<ControlFlow<T>>& result, Future<T>& sink) {
+void ForwardControlResult(const Result<ControlFlow<T>>& result, Future<T> sink) {
   sink.MarkFinished(**result);
 }
 template <>
-inline void ForwardControlResult(const Result<ControlFlow<>>& result, Future<>& sink) {
+inline void ForwardControlResult(const Result<ControlFlow<>>& result, Future<> sink) {
   sink.MarkFinished();
 }
 
@@ -878,8 +903,6 @@ template <typename Iterate,
           typename Control = typename detail::result_of_t<Iterate()>::ValueType,
           typename BreakValueType = typename Control::value_type>
 Future<BreakValueType> Loop(Iterate iterate) {
-  auto break_fut = Future<BreakValueType>::Make();
-
   struct Callback {
     bool CheckForTermination(const Result<Control>& control_res) {
       if (!control_res.ok()) {
@@ -887,7 +910,7 @@ Future<BreakValueType> Loop(Iterate iterate) {
         return true;
       }
       if (control_res->has_value()) {
-        ForwardControlResult(control_res, break_fut);
+        ForwardControlResult(control_res, std::move(break_fut));
         return true;
       }
       return false;
@@ -922,6 +945,7 @@ Future<BreakValueType> Loop(Iterate iterate) {
     Future<BreakValueType> break_fut;
   };
 
+  auto break_fut = Future<BreakValueType>::Make();
   auto control_fut = iterate();
   control_fut.AddCallback(Callback{std::move(iterate), break_fut});
 
