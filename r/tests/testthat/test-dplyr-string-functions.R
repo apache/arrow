@@ -248,7 +248,7 @@ test_that("strsplit and str_split", {
       collect(),
     df
   )
-  
+
   expect_warning(
     df %>%
     Table$create() %>%
@@ -256,32 +256,32 @@ test_that("strsplit and str_split", {
       collect(),
     regexp = "not supported in Arrow"
   )
-  
+
   expect_dplyr_equal(
     input %>%
       mutate(x = strsplit(x, "and.*", fixed = TRUE)) %>%
       collect(),
     df
   )
-  
+
   expect_dplyr_equal(
     input %>%
       transmute(x = str_split(x, "and")) %>%
       collect(),
     df
   )
-  
+
   expect_dplyr_equal(
     input %>%
       transmute(x = str_split(x, "and", n = 2)) %>%
       collect(),
     df
   )
-  
+
   expect_warning(
     df %>%
       Table$create() %>%
-      transmute(x = str_split(x, "and.?")) %>%
+      mutate(x = str_split(x, "and.?")) %>%
       collect()
   )
 })
