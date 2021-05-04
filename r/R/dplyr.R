@@ -548,7 +548,7 @@ arrow_r_string_split_function <- function(FUN, reverse = FALSE, max_splits = -1)
     assert_that(is.string(split))
     
     # if !fixed but no regex metachars in split pattern, allow to proceed as split isn't regex
-    if(!fixed && contains_regex(split)){
+    if (!fixed && contains_regex(split)) {
       stop("Regular expression matching not supported in strsplit for Arrow", call. = FALSE)
     }
     if (fixed && perl) {
@@ -558,9 +558,9 @@ arrow_r_string_split_function <- function(FUN, reverse = FALSE, max_splits = -1)
   }
 }
 
-arrow_stringr_string_split_function <- function(FUN, reverse = FALSE){
-  function(string, pattern, n = 0){
-    if(contains_regex(pattern)){
+arrow_stringr_string_split_function <- function(FUN, reverse = FALSE) {
+  function(string, pattern, n = 0) {
+    if (contains_regex(pattern)) {
       stop("Regular expression matching not supported in str_split() for Arrow", call. = FALSE)
     }
     FUN("split_pattern", string, options = list(pattern = pattern, reverse = reverse, max_splits = n-1))
