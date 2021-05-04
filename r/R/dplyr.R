@@ -542,8 +542,8 @@ arrow_stringr_string_replace_function <- function(FUN, max_replacements) {
   }
 }
 
-arrow_r_string_split_function <- function(FUN, reverse = FALSE, max_splits = -1){
-  function(x, split, fixed = FALSE, perl = FALSE, useBytes = FALSE){
+arrow_r_string_split_function <- function(FUN, reverse = FALSE, max_splits = -1) {
+  function(x, split, fixed = FALSE, perl = FALSE, useBytes = FALSE) {
     
     assert_that(is.string(split))
     
@@ -551,7 +551,7 @@ arrow_r_string_split_function <- function(FUN, reverse = FALSE, max_splits = -1)
     if(!fixed && contains_regex(split)){
       stop("Regular expression matching not supported in strsplit for Arrow", call. = FALSE)
     }
-    if(fixed && perl){
+    if (fixed && perl) {
       warning("argument 'perl = TRUE' will be ignored")
     }
     FUN("split_pattern", x, options = list(pattern = split, reverse = reverse, max_splits = max_splits))
@@ -1132,6 +1132,6 @@ not_implemented_for_dataset <- function(method) {
 #' @param string String to be tested
 #' @keywords internal
 #' @return Logical: does `string` contain regex metacharacters?
-contains_regex <- function(string){
+contains_regex <- function(string) {
   grepl("[.\\|()[{^$*+?]", string)
 }
