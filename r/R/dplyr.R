@@ -545,7 +545,7 @@ arrow_stringr_string_replace_function <- function(FUN, max_replacements) {
 arrow_r_string_split_function <- function(FUN, reverse = FALSE, max_splits = -1){
   function(x, split, fixed = FALSE, perl = FALSE, useBytes = FALSE){
     
-    assert_that(length(split) == 1)
+    assert_that(is.string(split))
     
     # if !fixed but no regex metachars in split pattern, allow to proceed as split isn't regex
     if(!fixed && contains_regex(split)){
