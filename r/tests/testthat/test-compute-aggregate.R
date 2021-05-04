@@ -389,7 +389,6 @@ test_that("variance", {
   
   expect_equal(call_function("variance", arr, options = list(ddof = 5)), Scalar$create(8.833333333333334))
   expect_equal(call_function("variance", chunked_arr, options = list(ddof = 5)), Scalar$create(8.833333333333334))
-  
 })
 
 test_that("stddev", {
