@@ -186,8 +186,8 @@ static util::optional<compute::Expression> ColumnChunkStatisticsAsExpression(
   auto field_expr = compute::field_ref(field->name());
 
   // Optimize for corner case where all values are nulls
-  if (statistics->num_values() == statistics->null_count()) {
-    return equal(std::move(field_expr), compute::literal(MakeNullScalar(field->type())));
+  if (statistics->num_values() == 0 && statistics->null_count() > 0) {
+    return is_null(std::move(field_expr));
   }
 
   std::shared_ptr<Scalar> min, max;
@@ -198,12 +198,16 @@ static util::optional<compute::Expression> ColumnChunkStatisticsAsExpression(
   auto maybe_min = min->CastTo(field->type());
   auto maybe_max = max->CastTo(field->type());
   if (maybe_min.ok() && maybe_max.ok()) {
+    auto col_min = maybe_min.MoveValueUnsafe();
+    auto col_max = maybe_max.MoveValueUnsafe();
+    if (col_min->Equals(col_max)) {
+      return compute::equal(std::move(field_expr), compute::literal(std::move(col_min)));
+    }
+
     auto lower_bound =
-        compute::greater_equal(field_expr, compute::literal(maybe_min.MoveValueUnsafe()));
-
-    auto upper_bound = compute::less_equal(std::move(field_expr),
-                                           compute::literal(maybe_max.MoveValueUnsafe()));
-
+        compute::greater_equal(field_expr, compute::literal(std::move(col_min)));
+    auto upper_bound =
+        compute::less_equal(std::move(field_expr), compute::literal(std::move(col_max)));
     return compute::and_(std::move(lower_bound), std::move(upper_bound));
   }
 
@@ -641,8 +645,9 @@ Result<util::optional<int64_t>> ParquetFileFragment::TryCountRows(
     ARROW_ASSIGN_OR_RAISE(auto expressions, TestRowGroups(std::move(predicate)));
     int64_t rows = 0;
     for (size_t i = 0; i < row_groups_->size(); i++) {
+      // If the row group is entirely excluded, exclude it from the row count
+      if (!expressions[i].IsSatisfiable()) continue;
       // Unless the row group is entirely included, bail out of fast path
-      if (expressions[i] == compute::literal(false)) continue;
       if (expressions[i] != compute::literal(true)) return util::nullopt;
       BEGIN_PARQUET_CATCH_EXCEPTIONS
       rows += metadata()->RowGroup((*row_groups_)[i])->num_rows();

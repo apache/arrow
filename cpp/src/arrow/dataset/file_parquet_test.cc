@@ -245,13 +245,41 @@ TEST_F(TestParquetFileFormat, CountRowsPredicatePushdown) {
     ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(expected),
                               fragment->CountRows(predicate, options));
 
-    // N.B. SimplifyWithGuarantee can't handle simplifying (i64 == 1) against (i64 <= 1 &
-    // i64 >= 1) right now, but this works
     predicate = and_(less_equal(field_ref("i64"), literal(i)),
                      greater_equal(field_ref("i64"), literal(i)));
     ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*reader->schema()));
     ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(i),
                               fragment->CountRows(predicate, options));
+
+    predicate = equal(field_ref("i64"), literal(i));
+    ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*reader->schema()));
+    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(i),
+                              fragment->CountRows(predicate, options));
+  }
+
+  // Ensure nulls are properly handled
+  {
+    auto dataset_schema = schema({field("i64", int64())});
+    auto null_batch = RecordBatchFromJSON(dataset_schema, R"([
+[null],
+[null],
+[null]
+])");
+    auto batch = RecordBatchFromJSON(dataset_schema, R"([
+[1],
+[2]
+])");
+    ASSERT_OK_AND_ASSIGN(auto reader,
+                         RecordBatchReader::Make({null_batch, batch}, dataset_schema));
+    auto source = GetFileSource(reader.get());
+    auto fragment = MakeFragment(*source);
+    ASSERT_OK_AND_ASSIGN(
+        auto predicate,
+        greater_equal(field_ref("i64"), literal(1)).Bind(*dataset_schema));
+    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(2),
+                              fragment->CountRows(predicate, options));
+    // TODO(ARROW-12659): SimplifyWithGuarantee can't handle
+    // not(is_null) so trying to count with is_null doesn't work
   }
 }
 
