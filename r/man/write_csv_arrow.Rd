@@ -14,7 +14,7 @@ system (\code{SubTreeFileSystem})}
 
 \item{include_header}{Whether to write an initial header line with column names}
 
-\item{batch_size}{Maximum number of rows processed at a time. Default is 1024}
+\item{batch_size}{Maximum number of rows processed at a time. Default is 1024.}
 }
 \value{
 The input \code{x}, invisibly. Note that if \code{sink} is an \link{OutputStream},
