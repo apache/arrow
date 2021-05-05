@@ -1508,7 +1508,7 @@ class _ParquetDatasetV2:
             filesystem is not None and
             not _is_local_file_system(filesystem)
         ):
-            raise ValueError(
+            raise TypeError(
                 "Path-like objects with __fspath__ must only be used with "
                 f"local file systems, not {type(filesystem)}"
             )

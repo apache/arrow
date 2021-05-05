@@ -1606,5 +1606,5 @@ def test_read_table_with_fspath_and_filesystem(tempdir):
 
     fs_protocol_obj = util.FSProtocolClass(path)
 
-    with pytest.raises(ValueError, match="Path-like objects with __fspath__"):
+    with pytest.raises(TypeError):
         _read_table(fs_protocol_obj, filesystem=FileSystem())
