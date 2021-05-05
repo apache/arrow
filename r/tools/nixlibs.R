@@ -214,19 +214,18 @@ download_source <- function() {
   src_dir <- tempfile()
   if (bintray_download(tf1)) {
     # First try from bintray
-    cat("*** Successfully retrieved C++ source\n")
     unzip(tf1, exdir = src_dir)
     unlink(tf1)
     src_dir <- paste0(src_dir, "/cpp")
   } else if (apache_download(tf1)) {
     # If that fails, try for an official release
-    cat("*** Successfully retrieved C++ source\n")
     untar(tf1, exdir = src_dir)
     unlink(tf1)
     src_dir <- paste0(src_dir, "/apache-arrow-", VERSION, "/cpp")
   }
 
   if (dir.exists(src_dir)) {
+    cat("*** Successfully retrieved C++ source\n")
     options(.arrow.cleanup = c(getOption(".arrow.cleanup"), src_dir))
     # These scripts need to be executable
     system(
@@ -245,6 +244,20 @@ bintray_download <- function(destfile) {
 }
 
 apache_download <- function(destfile, n_mirrors = 3) {
+  # Regex to match x.y.z.p
+  pattern <- "^([0-9]+\\.[0-9]+\\.[0-9]+)\\.([0-9]+)$"
+  if (grepl(pattern, VERSION)) {
+    # We have a extra (R-only) patch version
+    p <- as.numeric(sub(pattern, "\\2", VERSION))
+    if (p > 1000) {
+      # This is a dev version (x.y.z.9000) or a nightly (x.y.z.20210505)
+      # so there is definitely no Apache version to download
+      return(FALSE)
+    }
+    # Else, just keep the x.y.z
+    VERSION <- sub(pattern, "\\1", VERSION)
+  }
+
   apache_path <- paste0("arrow/arrow-", VERSION, "/apache-arrow-", VERSION, ".tar.gz")
   apache_urls <- c(
     # This returns a different mirror each time
