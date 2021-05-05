@@ -38,7 +38,7 @@ Process
 * The committer *must* initiate an email thread with the sole purpose of
   presenting updates to the community about the status of the repo.
 * There *must not* be official releases from the repository.
-* Merge / migrations / make official *must* be discussed over the mailing list.
+* Any decision to make the experimental repo official in any way, whether by merging or migrating, *must* be discussed and voted on in the mailing list.
 * The committer is responsible for managing issues, documentation, CI of the repository,
   including licensing checks.
 * The committer decides when the repository is archived.
