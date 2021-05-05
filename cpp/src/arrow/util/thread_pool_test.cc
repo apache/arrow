@@ -512,56 +512,6 @@ TEST_F(TestThreadPool, Submit) {
   }
 }
 
-TEST_F(TestThreadPool, GetCurrentThreadPool) {
-  ASSERT_EQ(ThreadPool::GetCurrentThreadPool(), nullptr);
-
-  auto pool = this->MakeThreadPool(5);
-
-  std::vector<Future<>> futures(1000);
-
-  for (size_t i = 0; i < futures.size(); ++i) {
-    ASSERT_OK_AND_ASSIGN(futures[i], pool->Submit([i, pool] {
-      if (ThreadPool::GetCurrentThreadPool() == pool.get()) {
-        return Status::OK();
-      }
-      return Status::Invalid("Task #", i, " did not point to the associated ThreadPool");
-    }));
-  }
-
-  ASSERT_OK(AllComplete(futures).status());
-  ASSERT_OK(pool->Shutdown());
-}
-
-TEST_F(TestThreadPool, GetCurrentThreadIndex) {
-  ASSERT_EQ(ThreadPool::GetCurrentThreadIndex(), 0);
-
-  constexpr int capacity = 5;
-
-  auto pool = this->MakeThreadPool(capacity);
-
-  std::vector<Future<>> futures(1000);
-  std::vector<util::optional<std::thread::id>> std_ids(capacity);
-
-  for (size_t i = 0; i < futures.size(); ++i) {
-    ASSERT_OK_AND_ASSIGN(futures[i], pool->Submit([&std_ids, i] {
-      auto id = ThreadPool::GetCurrentThreadIndex();
-      if (!std_ids[id].has_value()) {
-        std_ids[id] = std::this_thread::get_id();
-        return Status::OK();
-      }
-
-      if (std_ids[id] == std::this_thread::get_id()) {
-        return Status::OK();
-      }
-
-      return Status::Invalid("Task #", i, " did not point to the associated ThreadPool");
-    }));
-  }
-
-  ASSERT_OK(AllComplete(futures).status());
-  ASSERT_OK(pool->Shutdown());
-}
-
 TEST_F(TestThreadPool, ParallelSummationWithThreadLocalState) {
   // Sum all integers in [0, 1000000) in parallel using thread local sums.
   constexpr int kThreadPoolCapacity = 5;
@@ -570,38 +520,52 @@ TEST_F(TestThreadPool, ParallelSummationWithThreadLocalState) {
 
   auto pool = this->MakeThreadPool(kThreadPoolCapacity);
 
-  std::vector<std::unique_ptr<int64_t>> local_sums(kThreadPoolCapacity);
-  for (auto& local_sum : local_sums) {
-    local_sum.reset(new int64_t{0});
-  }
+  std::atomic<int64_t> sum{0}, construct_count{0}, destroy_count{0};
+  auto local_sums = pool->MakeThreadLocalState<int64_t>(
+      [&] {
+        ++construct_count;
+        return 0;
+      },
+      [&](int64_t&& local_sum) {
+        ++destroy_count;
+        // Need explicit construct/destroy so that if a state is destroyed
+        // it can be added into the global sum.
+        sum += local_sum;
+      });
 
   std::atomic<int64_t> next_addend{0};
 
+  std::vector<Future<>> futures(kBatchCount);
+
   for (int i = 0; i < kBatchCount; ++i) {
-    ASSERT_OK(pool->Spawn([&] {
+    ASSERT_OK_AND_ASSIGN(futures[i], pool->Submit([&, local_sums] {
       // Acquire thread local state. Each task may safely mutate since tasks
       // running in another thread will acquire a different local_sum
-      auto thread_index = ThreadPool::GetCurrentThreadIndex();
-      int64_t* local_sum = local_sums[thread_index].get();
+      Borrowed<int64_t> local_sum = local_sums->BorrowOne();
 
       // Assemble a batch of addends
       int64_t addends_begin = next_addend.fetch_add(kBatchSize);
       int64_t addends_end = addends_begin + kBatchSize;
       for (int64_t addend = addends_begin; addend < addends_end; ++addend) {
-        *local_sum += addend;
+        local_sum.get() += addend;
+      }
+
+      // decrease the thread pool capacity halfway through:
+      if (i == kBatchCount / 2) {
+        ASSERT_OK(pool->SetCapacity(kThreadPoolCapacity / 2));
       }
     }));
   }
 
+  ASSERT_OK(AllComplete(futures).status());
+  local_sums.reset();
   ASSERT_OK(pool->Shutdown());
 
-  int64_t sum = 0;
-  for (const auto& local_sum : local_sums) {
-    sum += *local_sum;
-  }
+  EXPECT_EQ(construct_count, destroy_count);
+  EXPECT_LE(construct_count, kThreadPoolCapacity);
 
   int64_t max_addend = kBatchSize * kBatchCount - 1;
-  ASSERT_EQ(sum, max_addend * (max_addend + 1) / 2);
+  EXPECT_EQ(sum, max_addend * (max_addend + 1) / 2);
 }
 
 TEST_F(TestThreadPool, SubmitWithStopToken) {

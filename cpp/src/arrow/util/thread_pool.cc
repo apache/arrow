@@ -31,9 +31,6 @@
 
 namespace arrow {
 namespace internal {
-
-Executor::~Executor() = default;
-
 namespace {
 
 struct Task {
@@ -129,6 +126,7 @@ struct ThreadPool::State {
 
   // Desired number of threads
   int desired_capacity_ = 0;
+  std::vector<std::function<bool(int)>> capacity_callbacks_;
 
   // Total number of tasks that are either queued or running
   int tasks_queued_or_running_ = 0;
@@ -262,6 +260,12 @@ Status ThreadPool::SetCapacity(int threads) {
   CollectFinishedWorkersUnlocked();
 
   state_->desired_capacity_ = threads;
+  // Run capacity callbacks, removing any which are done
+  auto new_end = std::partition(
+      state_->capacity_callbacks_.begin(), state_->capacity_callbacks_.end(),
+      [threads](const std::function<bool(int)>& callback) { return callback(threads); });
+  state_->capacity_callbacks_.erase(new_end, state_->capacity_callbacks_.end());
+
   // See if we need to increase or decrease the number of running threads
   const int required = std::min(static_cast<int>(state_->pending_tasks_.size()),
                                 threads - static_cast<int>(state_->workers_.size()));
@@ -293,6 +297,14 @@ int ThreadPool::GetActualCapacity() {
   return static_cast<int>(state_->workers_.size());
 }
 
+void ThreadPool::AddCapacityCallback(std::function<bool(int)> callback) {
+  ProtectAgainstFork();
+  std::unique_lock<std::mutex> lock(state_->mutex_);
+  if (callback(state_->desired_capacity_)) {
+    state_->capacity_callbacks_.push_back(std::move(callback));
+  }
+}
+
 Status ThreadPool::Shutdown(bool wait) {
   ProtectAgainstFork();
   std::unique_lock<std::mutex> lock(state_->mutex_);
@@ -321,28 +333,14 @@ void ThreadPool::CollectFinishedWorkersUnlocked() {
   state_->finished_workers_.clear();
 }
 
-thread_local ThreadPool* g_current_thread_pool = nullptr;
-
-ThreadPool* ThreadPool::GetCurrentThreadPool() { return g_current_thread_pool; }
-
-thread_local int g_current_thread_index = 0;
-
-int ThreadPool::GetCurrentThreadIndex() { return g_current_thread_index; }
-
 void ThreadPool::LaunchWorkersUnlocked(int threads) {
   std::shared_ptr<State> state = sp_state_;
 
   for (int i = 0; i < threads; i++) {
-    auto id = static_cast<int>(state_->workers_.size());
-
     state_->workers_.emplace_back();
 
     auto it = --(state_->workers_.end());
-    *it = std::thread([this, id, state, it] {
-      g_current_thread_pool = this;
-      g_current_thread_index = id;
-      WorkerLoop(state, it);
-    });
+    *it = std::thread([state, it] { WorkerLoop(state, it); });
   }
 }
 

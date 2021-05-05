@@ -17,11 +17,13 @@
 
 #pragma once
 
+#include "arrow/util/mutex.h"
 #ifndef _WIN32
 #include <unistd.h>
 #endif
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <queue>
 #include <type_traits>
@@ -29,6 +31,7 @@
 
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/borrowed.h"
 #include "arrow/util/cancel.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/future.h"
@@ -78,7 +81,7 @@ class ARROW_EXPORT Executor {
  public:
   using StopCallback = internal::FnOnce<void(const Status&)>;
 
-  virtual ~Executor();
+  virtual ~Executor() = default;
 
   // Spawn a fire-and-forget task.
   template <typename Function>
@@ -192,8 +195,8 @@ class ARROW_EXPORT Executor {
 /// \brief An executor implementation that runs all tasks on a single thread using an
 /// event loop.
 ///
-/// Note: Any sort of nested parallelism will deadlock this executor.  Blocking waits are
-/// fine but if one task needs to wait for another task it must be expressed as an
+/// Note: Any sort of nested parallelism will deadlock this executor.  Blocking waits
+/// are fine but if one task needs to wait for another task it must be expressed as an
 /// asynchronous continuation.
 class ARROW_EXPORT SerialExecutor : public Executor {
  public:
@@ -209,8 +212,8 @@ class ARROW_EXPORT SerialExecutor : public Executor {
   /// \brief Runs the TopLevelTask and any scheduled tasks
   ///
   /// The TopLevelTask (or one of the tasks it schedules) must either return an invalid
-  /// status or call the finish signal. Failure to do this will result in a deadlock.  For
-  /// this reason it is preferable (if possible) to use the helper methods (below)
+  /// status or call the finish signal. Failure to do this will result in a deadlock.
+  /// For this reason it is preferable (if possible) to use the helper methods (below)
   /// RunSynchronously/RunSerially which delegates the responsiblity onto a Future
   /// producer's existing responsibility to always mark a future finished (which can
   /// someday be aided by ARROW-12207).
@@ -243,8 +246,8 @@ class ARROW_EXPORT SerialExecutor : public Executor {
 /// An Executor implementation spawning tasks in FIFO manner on a fixed-size
 /// pool of worker threads.
 ///
-/// Note: Any sort of nested parallelism will deadlock this executor.  Blocking waits are
-/// fine but if one task needs to wait for another task it must be expressed as an
+/// Note: Any sort of nested parallelism will deadlock this executor.  Blocking waits
+/// are fine but if one task needs to wait for another task it must be expressed as an
 /// asynchronous continuation.
 class ARROW_EXPORT ThreadPool : public Executor {
  public:
@@ -286,15 +289,26 @@ class ARROW_EXPORT ThreadPool : public Executor {
   // tasks are finished.
   Status Shutdown(bool wait = true);
 
-  /// Return the ThreadPool associated with the current thread of execution,
-  /// or nullptr if the current thread of execution is not associated with a
-  /// ThreadPool.
-  static ThreadPool* GetCurrentThreadPool();
+  /// Construct a BorrowSet<State> which can be shared between all tasks,
+  /// from which each task can borrow a unique (safely mutable) instance of
+  /// State. One instance of State will be constructed for each worker thread.
+  template <typename State>
+  std::shared_ptr<BorrowSet<State>> MakeThreadLocalState(
+      std::function<State()> construct, std::function<void(State&&)> destroy) {
+    auto set = BorrowSet<State>::Make(std::move(construct), std::move(destroy));
 
-  /// Return an index associated with the current thread of execution. The returned
-  /// value will be in the range [0, capacity), and if the current thread is not
-  /// associated with a ThreadPool will always be 0.
-  static int GetCurrentThreadIndex();
+    std::weak_ptr<BorrowSet<State>> weak_set(set);
+    AddCapacityCallback([weak_set](int capacity) {
+      if (auto set = weak_set.lock()) {
+        set->SetCapacity(capacity);
+        return true;
+      }
+      // set was discarded, delete this callback
+      return false;
+    });
+
+    return set;
+  }
 
   struct State;
 
@@ -316,6 +330,9 @@ class ARROW_EXPORT ThreadPool : public Executor {
   int GetActualCapacity();
   // Reinitialize the thread pool if the pid changed
   void ProtectAgainstFork();
+  // Add a callback to be invoked with the capacity and any time the capacity
+  // changes. If `false` is returned the callback will be deleted.
+  void AddCapacityCallback(std::function<bool(int)> callback);
 
   static std::shared_ptr<ThreadPool> MakeCpuThreadPool();
 
