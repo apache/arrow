@@ -37,7 +37,11 @@ test_that("sum.Array", {
 
   floats <- c(floats, NA)
   na <- Array$create(floats)
-  expect_identical(as.numeric(sum(na)), sum(floats))
+  if (!grepl("devel", R.version.string)) {
+    # Valgrind on R-devel confuses NaN and NA_real_
+    # https://r.789695.n4.nabble.com/Difference-in-NA-behavior-in-R-devel-running-under-valgrind-td4768731.html
+    expect_identical(as.numeric(sum(na)), sum(floats))
+  }
   expect_r6_class(sum(na, na.rm = TRUE), "Scalar")
   expect_identical(as.numeric(sum(na, na.rm = TRUE)), sum(floats, na.rm = TRUE))
 
@@ -78,7 +82,11 @@ test_that("mean.Array", {
 
   floats <- c(floats, NA)
   na <- Array$create(floats)
-  expect_identical(as.vector(mean(na)), mean(floats))
+  if (!grepl("devel", R.version.string)) {
+    # Valgrind on R-devel confuses NaN and NA_real_
+    # https://r.789695.n4.nabble.com/Difference-in-NA-behavior-in-R-devel-running-under-valgrind-td4768731.html
+    expect_identical(as.vector(mean(na)), mean(floats))
+  }
   expect_r6_class(mean(na, na.rm = TRUE), "Scalar")
   expect_identical(as.vector(mean(na, na.rm = TRUE)), mean(floats, na.rm = TRUE))
 
