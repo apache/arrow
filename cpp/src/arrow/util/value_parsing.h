@@ -812,6 +812,57 @@ static inline bool ParseTimestampStrptime(const char* buf, size_t length,
   return true;
 }
 
+static inline bool ParseTimestampArrowVendored(const char* buf, size_t length,
+                                               const char* format,
+                                               bool allow_trailing_chars,
+                                               bool ignore_time_in_day,
+                                               arrow::TimeUnit::type unit, int64_t* out) {
+  std::string clean_copy(buf, length);
+  std::istringstream in(clean_copy);
+  std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> result;
+
+  in.imbue(std::locale::classic());
+  in >> arrow_vendored::date::parse(format, result);
+
+  if (in.fail()) {
+    return false;
+  }
+
+  if (!allow_trailing_chars &&
+      static_cast<size_t>(in.str().c_str() - clean_copy.c_str()) != length) {
+    return false;
+  }
+
+  auto date = arrow_vendored::date::floor<arrow_vendored::date::days>(result);
+  auto ymd = arrow_vendored::date::year_month_day(date);
+
+  // ignore the time part
+  arrow_vendored::date::sys_seconds secs =
+      arrow_vendored::date::sys_days(ymd.year() / ymd.month() / ymd.day());
+
+  int64_t subseconds = 0;
+  if (!ignore_time_in_day) {
+    auto time = arrow_vendored::date::hh_mm_ss<std::chrono::milliseconds>(
+        arrow_vendored::date::floor<std::chrono::milliseconds>(result - date));
+
+    secs += (std::chrono::hours(time.hours().count()) +
+             std::chrono::minutes(time.minutes().count()) +
+             std::chrono::seconds(time.seconds().count()));
+
+    subseconds = static_cast<int64_t>(time.subseconds().count());
+  }
+
+  *out = util::CastSecondsToUnit(unit, secs.time_since_epoch().count());
+
+  if (unit == arrow::TimeUnit::MILLI) {
+    *out += subseconds;
+  } else if (unit == arrow::TimeUnit::MICRO) {
+    *out += (subseconds * 1000);
+  }
+
+  return true;
+}
+
 template <>
 struct StringConverter<TimestampType> {
   using value_type = int64_t;

@@ -50,9 +50,10 @@ class GANDIVA_EXPORT ToDateFunctionsHolder : public FunctionHolder {
     // 1. processes date that do not match the format.
     // 2. does not process time in format +08:00 (or) id.
     int64_t unit_time_since_epoch = 0;
-    if (!ParseDateToUnit(data, data_len, pattern_.c_str(),
-                         /*ignore_time_in_day=*/ignore_time_, time_unit_,
-                         &unit_time_since_epoch)) {
+    if (!arrow::internal::ParseTimestampArrowVendored(
+            data, data_len, pattern_.c_str(),
+            /*allow_trailing_chars=*/true, /*ignore_time_in_day=*/ignore_time_,
+            time_unit_, &unit_time_since_epoch)) {
       return_error(context, data, data_len);
       return 0;
     }
@@ -138,49 +139,6 @@ class GANDIVA_EXPORT ToDateFunctionsHolder : public FunctionHolder {
         new HOLDER_TYPE(*(transformed_pattern.get()), suppress_errors));
     *holder = lholder;
     return Status::OK();
-  }
-
-  bool ParseDateToUnit(const char* buf, size_t length, const char* format,
-                       bool ignore_time_in_day, arrow::TimeUnit::type unit,
-                       int64_t* out) {
-    std::string clean_copy(buf, length);
-    std::istringstream in(clean_copy);
-    std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> result;
-
-    in.imbue(std::locale::classic());
-    in >> arrow_vendored::date::parse(format, result);
-
-    if (in.fail()) {
-      return false;
-    }
-
-    auto date = arrow_vendored::date::floor<arrow_vendored::date::days>(result);
-    auto ymd = arrow_vendored::date::year_month_day(date);
-
-    // ignore the time part
-    arrow_vendored::date::sys_seconds secs =
-        arrow_vendored::date::sys_days(ymd.year() / ymd.month() / ymd.day());
-
-    int64_t subseconds = 0;
-    if (!ignore_time_in_day) {
-      auto time = arrow_vendored::date::hh_mm_ss<std::chrono::milliseconds>(
-          arrow_vendored::date::floor<std::chrono::milliseconds>(result - date));
-
-      secs += (std::chrono::hours(time.hours().count()) +
-               std::chrono::minutes(time.minutes().count()) +
-               std::chrono::seconds(time.seconds().count()));
-
-      subseconds = static_cast<int64_t>(time.subseconds().count());
-    }
-
-    *out = secs.time_since_epoch().count();
-
-    if (unit == arrow::TimeUnit::MILLI) {
-      *out *= 1000;
-      *out += subseconds;
-    }
-
-    return true;
   }
 };
 

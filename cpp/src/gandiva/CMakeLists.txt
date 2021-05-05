@@ -230,8 +230,8 @@ add_gandiva_test(internals-test
                  expr_decomposer_test.cc
                  expression_registry_test.cc
                  selection_vector_test.cc
-                 to_date_functions_holder.cc
                  greedy_dual_size_cache_test.cc
+                 to_date_functions_holder_test.cc
                  lru_cache_test.cc
                  to_date_holder_test.cc
                  is_date_holder_test.cc
