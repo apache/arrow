@@ -84,10 +84,10 @@ Result<std::shared_ptr<io::InputStream>> FileSource::OpenCompressed(
   return io::CompressedInputStream::Make(codec.get(), std::move(file));
 }
 
-util::optional<Future<int64_t>> FileFormat::CountRows(
+Future<util::optional<int64_t>> FileFormat::CountRows(
     const std::shared_ptr<FileFragment>&, compute::Expression,
     std::shared_ptr<ScanOptions>) {
-  return util::nullopt;
+  return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
 }
 
 Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
@@ -175,12 +175,12 @@ Result<RecordBatchGenerator> FileFragment::ScanBatchesAsync(
   return format_->ScanBatchesAsync(options, self);
 }
 
-util::optional<Future<int64_t>> FileFragment::CountRows(
+Future<util::optional<int64_t>> FileFragment::CountRows(
     compute::Expression predicate, std::shared_ptr<ScanOptions> options) {
   ARROW_ASSIGN_OR_RAISE(predicate, compute::SimplifyWithGuarantee(std::move(predicate),
                                                                   partition_expression_));
   if (!predicate.IsSatisfiable()) {
-    return Future<int64_t>::MakeFinished(0);
+    return Future<util::optional<int64_t>>::MakeFinished(0);
   }
   auto self = internal::checked_pointer_cast<FileFragment>(shared_from_this());
   return format()->CountRows(self, std::move(predicate), std::move(options));

@@ -74,8 +74,9 @@ class ARROW_DS_EXPORT Fragment : public std::enable_shared_from_this<Fragment> {
   /// \brief Count the number of rows in this fragment matching the filter using metadata
   /// only. That is, this method may perform I/O, but will not load data.
   ///
-  /// If this is not possible, return an empty optional.
-  virtual util::optional<Future<int64_t>> CountRows(compute::Expression predicate,
+  /// If this is not possible, resolve with an empty optional. The fragment can perform
+  /// I/O (e.g. to read metadata) before it deciding whether it can satisfy the request.
+  virtual Future<util::optional<int64_t>> CountRows(compute::Expression predicate,
                                                     std::shared_ptr<ScanOptions> options);
 
   virtual std::string type_name() const = 0;

@@ -24,6 +24,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/compute/exec.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/filesystem/path_util.h"
@@ -385,19 +386,51 @@ Result<ScanTaskIterator> ParquetFileFormat::ScanFile(
   return MakeVectorIterator(std::move(tasks));
 }
 
-util::optional<Future<int64_t>> ParquetFileFormat::CountRows(
+Future<util::optional<int64_t>> ParquetFileFormat::CountRows(
     const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
     std::shared_ptr<ScanOptions> options) {
   auto parquet_file = internal::checked_pointer_cast<ParquetFileFragment>(file);
-  if (FieldsInExpression(predicate).size() > 0) {
-    return util::nullopt;
-  } else if (parquet_file->metadata()) {
-    return Future<int64_t>::MakeFinished(parquet_file->metadata()->num_rows());
+
+  auto evaluate = [=]() -> Result<util::optional<int64_t>> {
+    if (FieldsInExpression(predicate).size() > 0) {
+      ARROW_ASSIGN_OR_RAISE(auto expressions,
+                            parquet_file->TestRowGroups(std::move(predicate)));
+      int64_t rows = 0;
+      for (size_t i = 0; i < parquet_file->row_groups_->size(); i++) {
+        // Row group can definitely be eliminated
+        if (!expressions[i].IsSatisfiable()) continue;
+        // Unknown, bail out of fast path
+        if (FieldsInExpression(expressions[i]).size() > 0) return util::nullopt;
+
+        compute::ExecContext exec_context{options->pool};
+        ARROW_ASSIGN_OR_RAISE(
+            Datum mask, ExecuteScalarExpression(expressions[i], Datum(), &exec_context));
+        // Evaluated to something other than a scalar
+        if (!mask.is_scalar()) return util::nullopt;
+        const auto& mask_scalar = mask.scalar_as<BooleanScalar>();
+        // Evaluated to something other than a Boolean
+        if (!mask_scalar.is_valid) return util::nullopt;
+        // Row group can definitely be eliminated
+        if (!mask_scalar.value) continue;
+        BEGIN_PARQUET_CATCH_EXCEPTIONS
+        rows += parquet_file->metadata()
+                    ->RowGroup((*parquet_file->row_groups_)[i])
+                    ->num_rows();
+        END_PARQUET_CATCH_EXCEPTIONS
+      }
+      return rows;
+    }
+    return parquet_file->metadata()->num_rows();
+  };
+
+  if (parquet_file->metadata()) {
+    ARROW_ASSIGN_OR_RAISE(auto maybe_count, evaluate());
+    return Future<util::optional<int64_t>>::MakeFinished(maybe_count);
   } else {
-    return DeferNotOk(
-        options->io_context.executor()->Submit([parquet_file]() -> Result<int64_t> {
+    return DeferNotOk(options->io_context.executor()->Submit(
+        [evaluate, parquet_file]() -> Result<util::optional<int64_t>> {
           RETURN_NOT_OK(parquet_file->EnsureCompleteMetadata());
-          return parquet_file->metadata()->num_rows();
+          return evaluate();
         }));
   }
 }
@@ -576,6 +609,21 @@ inline void FoldingAnd(compute::Expression* l, compute::Expression r) {
 
 Result<std::vector<int>> ParquetFileFragment::FilterRowGroups(
     compute::Expression predicate) {
+  std::vector<int> row_groups;
+  ARROW_ASSIGN_OR_RAISE(auto expressions, TestRowGroups(std::move(predicate)));
+
+  auto lock = physical_schema_mutex_.Lock();
+  DCHECK(expressions.empty() || (expressions.size() == row_groups_->size()));
+  for (size_t i = 0; i < expressions.size(); i++) {
+    if (expressions[i].IsSatisfiable()) {
+      row_groups.push_back(row_groups_->at(i));
+    }
+  }
+  return row_groups;
+}
+
+Result<std::vector<compute::Expression>> ParquetFileFragment::TestRowGroups(
+    compute::Expression predicate) {
   auto lock = physical_schema_mutex_.Lock();
 
   DCHECK_NE(metadata_, nullptr);
@@ -583,7 +631,7 @@ Result<std::vector<int>> ParquetFileFragment::FilterRowGroups(
       predicate, SimplifyWithGuarantee(std::move(predicate), partition_expression_));
 
   if (!predicate.IsSatisfiable()) {
-    return std::vector<int>{};
+    return std::vector<compute::Expression>{};
   }
 
   for (const FieldRef& ref : FieldsInExpression(predicate)) {
@@ -609,15 +657,12 @@ Result<std::vector<int>> ParquetFileFragment::FilterRowGroups(
     }
   }
 
-  std::vector<int> row_groups;
+  std::vector<compute::Expression> row_groups(row_groups_->size());
   for (size_t i = 0; i < row_groups_->size(); ++i) {
     ARROW_ASSIGN_OR_RAISE(auto row_group_predicate,
                           SimplifyWithGuarantee(predicate, statistics_expressions_[i]));
-    if (row_group_predicate.IsSatisfiable()) {
-      row_groups.push_back(row_groups_->at(i));
-    }
+    row_groups[i] = std::move(row_group_predicate);
   }
-
   return row_groups;
 }
 

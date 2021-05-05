@@ -347,14 +347,16 @@ class CountRowsOnlyFragment : public InMemoryFragment {
  public:
   using InMemoryFragment::InMemoryFragment;
 
-  util::optional<Future<int64_t>> CountRows(compute::Expression predicate,
+  Future<util::optional<int64_t>> CountRows(compute::Expression predicate,
                                             std::shared_ptr<ScanOptions>) override {
-    if (compute::FieldsInExpression(predicate).size() > 0) return util::nullopt;
+    if (compute::FieldsInExpression(predicate).size() > 0) {
+      return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
+    }
     int64_t sum = 0;
     for (const auto& batch : record_batches_) {
       sum += batch->num_rows();
     }
-    return Future<int64_t>::MakeFinished(sum);
+    return Future<util::optional<int64_t>>::MakeFinished(sum);
   }
   Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions>) override {
     return Status::Invalid("Don't scan me!");
@@ -369,9 +371,9 @@ class ScanOnlyFragment : public InMemoryFragment {
  public:
   using InMemoryFragment::InMemoryFragment;
 
-  util::optional<Future<int64_t>> CountRows(compute::Expression predicate,
+  Future<util::optional<int64_t>> CountRows(compute::Expression predicate,
                                             std::shared_ptr<ScanOptions>) override {
-    return util::nullopt;
+    return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
   }
   Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options) override {
     auto self = shared_from_this();

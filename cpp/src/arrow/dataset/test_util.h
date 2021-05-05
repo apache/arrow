@@ -465,31 +465,26 @@ class FileFormatFixtureMixin : public ::testing::Test {
     auto source = this->GetFileSource(reader.get());
 
     auto fragment = this->MakeFragment(*source);
-    auto optional = fragment->CountRows(literal(true), options);
-    ASSERT_TRUE(optional.has_value());
-    ASSERT_FINISHES_OK_AND_EQ(expected_rows(), optional.value());
+    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(expected_rows()),
+                              fragment->CountRows(literal(true), options));
 
     fragment = this->MakeFragment(*source, equal(field_ref("part"), literal(2)));
-    optional = fragment->CountRows(literal(true), options);
-    ASSERT_TRUE(optional.has_value());
-    ASSERT_FINISHES_OK_AND_EQ(expected_rows(), optional.value());
+    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(expected_rows()),
+                              fragment->CountRows(literal(true), options));
 
     auto predicate = equal(field_ref("part"), literal(1));
     ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*full_schema));
-    optional = fragment->CountRows(predicate, options);
-    ASSERT_TRUE(optional.has_value());
-    ASSERT_FINISHES_OK_AND_EQ(0, optional.value());
+    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(0),
+                              fragment->CountRows(predicate, options));
 
     predicate = equal(field_ref("part"), literal(2));
     ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*full_schema));
-    optional = fragment->CountRows(predicate, options);
-    ASSERT_TRUE(optional.has_value());
-    ASSERT_FINISHES_OK_AND_EQ(expected_rows(), optional.value());
+    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(expected_rows()),
+                              fragment->CountRows(predicate, options));
 
-    predicate = equal(field_ref("f64"), literal(2));
+    predicate = equal(call("add", {field_ref("f64"), literal(3)}), literal(2));
     ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*full_schema));
-    optional = fragment->CountRows(predicate, options);
-    ASSERT_FALSE(optional.has_value());
+    ASSERT_FINISHES_OK_AND_EQ(util::nullopt, fragment->CountRows(predicate, options));
   }
 
  protected:

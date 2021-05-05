@@ -520,19 +520,25 @@ Result<AsyncGenerator<AsyncGenerator<util::optional<int64_t>>>> FragmentsToRowCo
   auto count_fragment_fn =
       [scanner, options](const Enumerated<std::shared_ptr<Fragment>>& fragment)
       -> Result<AsyncGenerator<util::optional<int64_t>>> {
-    auto count = fragment.value->CountRows(options->filter, options);
-    // Fast path
-    if (count.has_value()) {
-      return MakeSingleFutureGenerator(
-          count->Then([](int64_t val) { return util::make_optional<int64_t>(val); }));
-    }
-    // Slow path
-    ARROW_ASSIGN_OR_RAISE(auto batch_gen, FragmentToBatches(scanner, fragment, options));
-    auto count_fn =
-        [](const EnumeratedRecordBatch& enumerated) -> util::optional<int64_t> {
-      return enumerated.record_batch.value->num_rows();
-    };
-    return MakeMappedGenerator<util::optional<int64_t>>(batch_gen, std::move(count_fn));
+    auto count_fut = fragment.value->CountRows(options->filter, options);
+    return MakeFromFuture(
+        count_fut.Then([=](util::optional<int64_t> val)
+                           -> Result<AsyncGenerator<util::optional<int64_t>>> {
+          // Fast path
+          if (val.has_value()) {
+            return MakeSingleFutureGenerator(
+                Future<util::optional<int64_t>>::MakeFinished(val));
+          }
+          // Slow path
+          ARROW_ASSIGN_OR_RAISE(auto batch_gen,
+                                FragmentToBatches(scanner, fragment, options));
+          auto count_fn =
+              [](const EnumeratedRecordBatch& enumerated) -> util::optional<int64_t> {
+            return enumerated.record_batch.value->num_rows();
+          };
+          return MakeMappedGenerator<util::optional<int64_t>>(batch_gen,
+                                                              std::move(count_fn));
+        }));
   };
   return MakeMappedGenerator<AsyncGenerator<util::optional<int64_t>>>(
       std::move(enumerated_fragment_gen), std::move(count_fragment_fn));
@@ -985,15 +991,24 @@ Result<int64_t> SyncScanner::CountRows() {
   FragmentVector fragments;
   for (auto maybe_fragment : fragment_it) {
     ARROW_ASSIGN_OR_RAISE(auto fragment, maybe_fragment);
-    auto count = fragment->CountRows(scan_options_->filter, scan_options_);
-    if (count.has_value()) {
-      futures.push_back(count.value());
-    } else {
-      fragments.push_back(fragment);
-    }
+    auto count_fut = fragment->CountRows(scan_options_->filter, scan_options_);
+    // Take fragments by reference since future must complete before method returns
+    futures.push_back(
+        count_fut.Then([&fragments, fragment](util::optional<int64_t> count) -> int64_t {
+          if (count.has_value()) {
+            return *count;
+          }
+          fragments.push_back(fragment);
+          return 0;
+        }));
   }
 
   int64_t count = 0;
+  for (auto& future : futures) {
+    ARROW_ASSIGN_OR_RAISE(auto subcount, future.result());
+    count += subcount;
+  }
+  // Now check for any fragments where we couldn't take the fast path
   if (!fragments.empty()) {
     auto options = std::make_shared<ScanOptions>(*scan_options_);
     RETURN_NOT_OK(SetProjection(options.get(), std::vector<std::string>()));
@@ -1005,10 +1020,6 @@ Result<int64_t> SyncScanner::CountRows() {
       count += batch.record_batch->num_rows();
       return Status::OK();
     }));
-  }
-  for (auto& future : futures) {
-    ARROW_ASSIGN_OR_RAISE(auto subcount, future.result());
-    count += subcount;
   }
   return count;
 }

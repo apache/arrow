@@ -155,7 +155,7 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
   virtual Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options,
       const std::shared_ptr<FileFragment>& file);
-  virtual util::optional<Future<int64_t>> CountRows(
+  virtual Future<util::optional<int64_t>> CountRows(
       const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
       std::shared_ptr<ScanOptions> options);
 
@@ -187,7 +187,7 @@ class ARROW_DS_EXPORT FileFragment : public Fragment {
   Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options) override;
   Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options) override;
-  util::optional<Future<int64_t>> CountRows(
+  Future<util::optional<int64_t>> CountRows(
       compute::Expression predicate, std::shared_ptr<ScanOptions> options) override;
 
   std::string type_name() const override { return format_->type_name(); }

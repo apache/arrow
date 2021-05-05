@@ -222,6 +222,39 @@ TEST_F(TestParquetFileFormat, WriteRecordBatchReaderCustomOptions) {
 
 TEST_F(TestParquetFileFormat, CountRows) { TestCountRows(); }
 
+TEST_F(TestParquetFileFormat, CountRowsPredicatePushdown) {
+  constexpr int64_t kNumRowGroups = 16;
+  constexpr int64_t kTotalNumRows = kNumRowGroups * (kNumRowGroups + 1) / 2;
+
+  // See PredicatePushdown test below for a description of the generated data
+  auto reader = ArithmeticDatasetFixture::GetRecordBatchReader(kNumRowGroups);
+  auto source = GetFileSource(reader.get());
+  auto options = std::make_shared<ScanOptions>();
+
+  auto fragment = MakeFragment(*source);
+
+  ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(kTotalNumRows),
+                            fragment->CountRows(literal(true), options));
+
+  for (int i = 1; i <= kNumRowGroups; i++) {
+    SCOPED_TRACE(i);
+    // The row group for which all values in column i64 == i has i rows
+    auto predicate = less_equal(field_ref("i64"), literal(i));
+    ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*reader->schema()));
+    auto expected = i * (i + 1) / 2;
+    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(expected),
+                              fragment->CountRows(predicate, options));
+
+    // N.B. SimplifyWithGuarantee can't handle simplifying (i64 == 1) against (i64 <= 1 &
+    // i64 >= 1) right now, but this works
+    predicate = and_(less_equal(field_ref("i64"), literal(i)),
+                     greater_equal(field_ref("i64"), literal(i)));
+    ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*reader->schema()));
+    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(i),
+                              fragment->CountRows(predicate, options));
+  }
+}
+
 class TestParquetFileSystemDataset : public WriteFileSystemDatasetMixin,
                                      public testing::Test {
  public:

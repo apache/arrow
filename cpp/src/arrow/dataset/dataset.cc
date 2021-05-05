@@ -52,9 +52,9 @@ Result<std::shared_ptr<Schema>> Fragment::ReadPhysicalSchema() {
   return physical_schema_;
 }
 
-util::optional<Future<int64_t>> Fragment::CountRows(compute::Expression,
+Future<util::optional<int64_t>> Fragment::CountRows(compute::Expression,
                                                     std::shared_ptr<ScanOptions>) {
-  return util::nullopt;
+  return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
 }
 
 Result<std::shared_ptr<Schema>> InMemoryFragment::ReadPhysicalSchemaImpl() {
