@@ -46,21 +46,21 @@ class TestToDateHolder : public ::testing::Test {
 
 TEST_F(TestToDateHolder, TestSimpleDateTime) {
   std::shared_ptr<ToDateHolder> to_date_holder;
-  ASSERT_OK(ToDateHolder::Make("YYYY-MM-DD HH:MI:SS", 1, &to_date_holder));
+  ASSERT_OK(ToDateHolder::Make("YYYY-MM-DD HH:MI:SS AM", 1, &to_date_holder));
 
   auto& to_date = *to_date_holder;
   bool out_valid;
-  std::string s("1986-12-01 01:01:01");
+  std::string s("1986-12-01 01:01:01 am");
   int64_t millis_since_epoch =
       to_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
   EXPECT_EQ(millis_since_epoch, 533779200000);
 
-  s = std::string("1986-12-01 01:01:01.11");
+  s = std::string("1986-12-01 01:01:01.11 AM");
   millis_since_epoch =
       to_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
   EXPECT_EQ(millis_since_epoch, 533779200000);
 
-  s = std::string("1986-12-01 01:01:01 +0800");
+  s = std::string("1986-12-01 01:01:01 AM +0800");
   millis_since_epoch =
       to_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
   EXPECT_EQ(millis_since_epoch, 533779200000);
@@ -74,12 +74,12 @@ TEST_F(TestToDateHolder, TestSimpleDateTime) {
   EXPECT_EQ(millis_since_epoch, -2621894400000);
 #endif
 
-  s = std::string("1886-12-01 01:01:01");
+  s = std::string("1886-12-01 01:01:01 AM");
   millis_since_epoch =
       to_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
   EXPECT_EQ(millis_since_epoch, -2621894400000);
 
-  s = std::string("1986-12-11 01:30:00");
+  s = std::string("1986-12-11 01:30:00 AM");
   millis_since_epoch =
       to_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
   EXPECT_EQ(millis_since_epoch, 534643200000);

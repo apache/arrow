@@ -94,7 +94,7 @@ namespace date
 //---------------+
 
 #ifndef ONLY_C_LOCALE
-#  define ONLY_C_LOCALE 0
+#  define ONLY_C_LOCALE 1
 #endif
 
 #if defined(_MSC_VER) && (!defined(__clang__) || (_MSC_VER < 1910))
