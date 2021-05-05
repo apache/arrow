@@ -219,7 +219,7 @@ download_source <- function() {
     # This is either just x.y.z or it has a small (R-only) patch version
     # Download from the official Apache release, dropping the p
     VERSION <- as.character(package_version(VERSION)[1, -4])
-    if (apache_download(tf1)) {
+    if (apache_download(VERSION, tf1)) {
       untar(tf1, exdir = src_dir)
       unlink(tf1)
       src_dir <- paste0(src_dir, "/apache-arrow-", VERSION, "/cpp")
@@ -227,7 +227,7 @@ download_source <- function() {
   } else if (p != 9000) {
     # This is a custom dev version (x.y.z.9999) or a nightly (x.y.z.20210505)
     # (Don't try to download on the default dev .9000 version)
-    if (nightly_download(tf1)) {
+    if (nightly_download(VERSION, tf1)) {
       unzip(tf1, exdir = src_dir)
       unlink(tf1)
       src_dir <- paste0(src_dir, "/cpp")
@@ -248,13 +248,13 @@ download_source <- function() {
   }
 }
 
-nightly_download <- function(destfile) {
-  source_url <- paste0(arrow_repo, "src/arrow-", VERSION, ".zip")
+nightly_download <- function(version, destfile) {
+  source_url <- paste0(arrow_repo, "src/arrow-", version, ".zip")
   try_download(source_url, destfile)
 }
 
-apache_download <- function(destfile, n_mirrors = 3) {
-  apache_path <- paste0("arrow/arrow-", VERSION, "/apache-arrow-", VERSION, ".tar.gz")
+apache_download <- function(version, destfile, n_mirrors = 3) {
+  apache_path <- paste0("arrow/arrow-", version, "/apache-arrow-", version, ".tar.gz")
   apache_urls <- c(
     # This returns a different mirror each time
     rep("https://www.apache.org/dyn/closer.lua?action=download&filename=", n_mirrors),
