@@ -912,8 +912,7 @@ TEST(Expression, CanonicalizeAnd) {
                         and_(and_(and_(and_(null_, null_), true_), b), c));
 
   // catches and_kleene even when it's a subexpression
-  ExpectCanonicalizesTo(call("is_valid", {and_(b, true_)}),
-                        call("is_valid", {and_(true_, b)}));
+  ExpectCanonicalizesTo(is_valid(and_(b, true_)), is_valid(and_(true_, b)));
 }
 
 TEST(Expression, CanonicalizeComparison) {
@@ -1128,8 +1127,20 @@ TEST(Expression, SimplifyWithGuarantee) {
       .Expect(literal(true));
 
   Simplify{is_valid(field_ref("i32"))}
+      .WithGuarantee(is_null(field_ref("i32")))
+      .Expect(literal(false));
+
+  Simplify{is_valid(field_ref("i32"))}
       .WithGuarantee(is_valid(field_ref("i32")))
+      .Expect(literal(true));
+
+  Simplify{is_valid(field_ref("i32"))}
+      .WithGuarantee(is_valid(field_ref("dict_i32")))  // different field
       .Expect(is_valid(field_ref("i32")));
+
+  Simplify{is_null(field_ref("i32"))}
+      .WithGuarantee(is_valid(field_ref("i32")))
+      .Expect(literal(false));
 }
 
 TEST(Expression, SimplifyThenExecute) {

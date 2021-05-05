@@ -33,6 +33,7 @@
 #include "arrow/util/optional.h"
 #include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
+#include "arrow/util/vector.h"
 
 namespace arrow {
 
@@ -700,29 +701,31 @@ std::vector<Expression> GuaranteeConjunctionMembers(
 Status ExtractKnownFieldValuesImpl(
     std::vector<Expression>* conjunction_members,
     std::unordered_map<FieldRef, Datum, FieldRef::Hash>* known_values) {
-  auto unconsumed_end =
-      std::partition(conjunction_members->begin(), conjunction_members->end(),
-                     [](const Expression& expr) {
-                       // search for an equality conditions between a field and a literal
-                       auto call = expr.call();
-                       if (!call) return true;
+  auto known_values_exprs = arrow::internal::FilterVector(
+      std::move(*conjunction_members),
+      [](const Expression& expr) -> bool {
+        auto call = expr.call();
+        if (!call) return false;
 
-                       if (call->function_name == "equal") {
-                         auto ref = call->arguments[0].field_ref();
-                         auto lit = call->arguments[1].literal();
-                         return !(ref && lit);
-                       }
+        // search for an equality conditions between a field and a literal
+        if (call->function_name == "equal") {
+          auto ref = call->arguments[0].field_ref();
+          auto lit = call->arguments[1].literal();
+          return ref && lit;
+        }
 
-                       if (call->function_name == "is_null") {
-                         auto ref = call->arguments[0].field_ref();
-                         return !ref;
-                       }
+        // ... or a known null field
+        if (call->function_name == "is_null") {
+          auto ref = call->arguments[0].field_ref();
+          return ref;
+        }
 
-                       return true;
-                     });
+        return false;
+      },
+      /*filtered_out=*/conjunction_members);
 
-  for (auto it = unconsumed_end; it != conjunction_members->end(); ++it) {
-    auto call = CallNotNull(*it);
+  for (const Expression& expr : known_values_exprs) {
+    auto call = CallNotNull(expr);
 
     if (call->function_name == "equal") {
       auto ref = call->arguments[0].field_ref();
@@ -733,8 +736,6 @@ Status ExtractKnownFieldValuesImpl(
       known_values->emplace(*ref, Datum(std::make_shared<NullScalar>()));
     }
   }
-
-  conjunction_members->erase(unconsumed_end, conjunction_members->end());
 
   return Status::OK();
 }
@@ -895,31 +896,31 @@ namespace {
 
 Result<Expression> DirectComparisonSimplification(Expression expr,
                                                   const Expression::Call& guarantee) {
+  auto cmp_guarantee = Comparison::Get(guarantee.function_name);
+  if (!cmp_guarantee) return expr;
+
+  const auto& guarantee_lhs = guarantee.arguments[0];
+
+  auto guarantee_rhs = guarantee.arguments[1].literal();
+  if (!guarantee_rhs) return expr;
+  if (!guarantee_rhs->is_scalar()) return expr;
+
   return Modify(
       std::move(expr), [](Expression expr) { return expr; },
-      [&guarantee](Expression expr, ...) -> Result<Expression> {
+      [&](Expression expr, ...) -> Result<Expression> {
         auto call = expr.call();
         if (!call) return expr;
 
         // Ensure both calls are comparisons with equal LHS and scalar RHS
         auto cmp = Comparison::Get(expr);
-        auto cmp_guarantee = Comparison::Get(guarantee.function_name);
-
         if (!cmp) return expr;
-        if (!cmp_guarantee) return expr;
 
         const auto& lhs = Comparison::StripOrderPreservingCasts(call->arguments[0]);
-        const auto& guarantee_lhs = guarantee.arguments[0];
         if (lhs != guarantee_lhs) return expr;
 
         auto rhs = call->arguments[1].literal();
-        auto guarantee_rhs = guarantee.arguments[1].literal();
-
         if (!rhs) return expr;
         if (!rhs->is_scalar()) return expr;
-
-        if (!guarantee_rhs) return expr;
-        if (!guarantee_rhs->is_scalar()) return expr;
 
         ARROW_ASSIGN_OR_RAISE(auto cmp_rhs_guarantee_rhs,
                               Comparison::Execute(*rhs, *guarantee_rhs));
@@ -958,6 +959,26 @@ Result<Expression> DirectComparisonSimplification(Expression expr,
       });
 }
 
+Result<Expression> IsValidSimplification(Expression expr,
+                                         const Expression::Call& guarantee) {
+  if (guarantee.function_name != "is_valid") return expr;
+
+  return Modify(
+      std::move(expr), [](Expression expr) { return expr; },
+      [&](Expression expr, ...) -> Result<Expression> {
+        auto call = expr.call();
+        if (!call) return expr;
+
+        if (call->arguments[0] != guarantee.arguments[0]) return expr;
+
+        if (call->function_name == "is_valid") return literal(true);
+
+        if (call->function_name == "is_null") return literal(false);
+
+        return expr;
+      });
+}
+
 }  // namespace
 
 Result<Expression> SimplifyWithGuarantee(Expression expr,
@@ -978,9 +999,23 @@ Result<Expression> SimplifyWithGuarantee(Expression expr,
   RETURN_NOT_OK(CanonicalizeAndFoldConstants());
 
   for (const auto& guarantee : conjunction_members) {
-    if (Comparison::Get(guarantee) && guarantee.call()->arguments[1].literal()) {
+    auto guarantee_call = guarantee.call();
+    if (!guarantee_call) continue;
+
+    if (Comparison::Get(guarantee) && guarantee_call->arguments[1].literal()) {
+      ARROW_ASSIGN_OR_RAISE(auto simplified,
+                            DirectComparisonSimplification(expr, *guarantee_call));
+
+      if (Identical(simplified, expr)) continue;
+
+      expr = std::move(simplified);
+      RETURN_NOT_OK(CanonicalizeAndFoldConstants());
+    }
+
+    if (guarantee_call->function_name == "is_valid") {
       ARROW_ASSIGN_OR_RAISE(
-          auto simplified, DirectComparisonSimplification(expr, *CallNotNull(guarantee)));
+          auto simplified,
+          IsValidSimplification(std::move(expr), *CallNotNull(guarantee)));
 
       if (Identical(simplified, expr)) continue;
 

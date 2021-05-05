@@ -77,9 +77,14 @@ std::vector<T> ReplaceVectorElement(const std::vector<T>& values, size_t index,
 }
 
 template <typename T, typename Predicate>
-std::vector<T> FilterVector(std::vector<T> values, Predicate&& predicate) {
-  auto new_end =
-      std::remove_if(values.begin(), values.end(), std::forward<Predicate>(predicate));
+std::vector<T> FilterVector(std::vector<T> values, Predicate&& predicate,
+                            std::vector<T>* filtered_out = NULLPTR) {
+  auto new_end = std::stable_partition(values.begin(), values.end(),
+                                       std::forward<Predicate>(predicate));
+  if (filtered_out) {
+    filtered_out->resize(values.end() - new_end);
+    std::move(new_end, values.end(), filtered_out->begin());
+  }
   values.erase(new_end, values.end());
   return values;
 }
