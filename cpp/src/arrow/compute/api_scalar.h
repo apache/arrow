@@ -628,5 +628,38 @@ Result<Datum> Minute(const Datum& values, ExecContext* ctx = NULLPTR);
 ARROW_EXPORT
 Result<Datum> Second(const Datum& values, ExecContext* ctx = NULLPTR);
 
+/// \brief Millisecond returns milliseconds value for each element of `values`
+///
+/// \param[in] values input to extract milliseconds from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 4.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Millisecond(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief Microsecond returns microseconds value for each element of `values`
+///
+/// \param[in] values input to extract microseconds from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 4.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Microsecond(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief Nanosecond returns nanoseconds value for each element of `values`
+///
+/// \param[in] values input to extract nanoseconds from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 4.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Nanosecond(const Datum& values, ExecContext* ctx = NULLPTR);
+
 }  // namespace compute
 }  // namespace arrow

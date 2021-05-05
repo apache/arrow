@@ -22,43 +22,181 @@
 namespace arrow {
 
 namespace compute {
-namespace {
+namespace internal {
 
-using TimePoint =
-    std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>;
+using arrow_vendored::date::days;
+using arrow_vendored::date::floor;
+using arrow_vendored::date::hh_mm_ss;
+using arrow_vendored::date::local_days;
+using arrow_vendored::date::locate_zone;
+using arrow_vendored::date::sys_days;
+using arrow_vendored::date::sys_time;
+using arrow_vendored::date::trunc;
+using arrow_vendored::date::weeks;
+using arrow_vendored::date::year_month_day;
+using arrow_vendored::date::years;
+using arrow_vendored::date::literals::dec;
+using arrow_vendored::date::literals::jan;
+using arrow_vendored::date::literals::last;
+using arrow_vendored::date::literals::mon;
+using arrow_vendored::date::literals::thu;
 
-inline arrow_vendored::date::year_month_day get_year_month_day(const int64_t in_data) {
-  std::chrono::seconds since_epoch{in_data};
-  return arrow_vendored::date::sys_days{
-      arrow_vendored::date::floor<arrow_vendored::date::days>(since_epoch)};
+template <typename Duration>
+inline year_month_day ymd_caster_template(const int64_t data) {
+  return year_month_day(floor<days>(sys_time<Duration>(Duration{data})));
 }
 
 template <typename Duration>
-inline arrow_vendored::date::hh_mm_ss<Duration> get_time_of_day(const int64_t in_data) {
-  std::chrono::seconds since_epoch{in_data};
-  arrow_vendored::date::sys_days timepoint_days{
-      arrow_vendored::date::floor<arrow_vendored::date::days>(since_epoch)};
-  std::chrono::seconds since_midnight = since_epoch - timepoint_days.time_since_epoch();
-  return arrow_vendored::date::make_time(since_midnight);
+inline std::function<year_month_day(const int64_t)> ymd_caster_zoned_template(
+    const std::string timezone) {
+  static const arrow_vendored::date::time_zone* tz = locate_zone(timezone);
+  return [](const int64_t data) {
+    return year_month_day(floor<days>(tz->to_local(sys_time<Duration>(Duration{data}))));
+  };
 }
 
-inline unsigned day_of_year(const int64_t in_data) {
-  // Based on
-  // https://github.com/HowardHinnant/date/blob/6e921e1b1d21e84a5c82416ba7ecd98e33a436d0/include/date/iso_week.h#L1021
-  const auto t2 = arrow_vendored::date::sys_days{
-      arrow_vendored::date::floor<arrow_vendored::date::days>(
-          std::chrono::seconds{in_data})};
-  const auto t1 = arrow_vendored::date::year_month_day(t2).year() /
-                  arrow_vendored::date::month(1) / arrow_vendored::date::day(1);
-  const auto since_new_year = t2 - arrow_vendored::date::sys_days(t1);
-  return static_cast<unsigned>(since_new_year.count());
+inline std::function<year_month_day(const int64_t)> make_ymd_caster(
+    const std::shared_ptr<DataType> type) {
+  const auto ts_type = std::static_pointer_cast<const TimestampType>(type);
+  const TimeUnit::type unit = ts_type->unit();
+  const std::string timezone = ts_type->timezone();
+
+  if (timezone.empty()) {
+    switch (unit) {
+      case TimeUnit::SECOND:
+        return ymd_caster_template<std::chrono::seconds>;
+      case TimeUnit::MILLI:
+        return ymd_caster_template<std::chrono::milliseconds>;
+      case TimeUnit::MICRO:
+        return ymd_caster_template<std::chrono::microseconds>;
+      case TimeUnit::NANO:
+        return ymd_caster_template<std::chrono::nanoseconds>;
+    }
+  } else {
+    switch (unit) {
+      case TimeUnit::SECOND:
+        return ymd_caster_zoned_template<std::chrono::seconds>(timezone);
+      case TimeUnit::MILLI:
+        return ymd_caster_zoned_template<std::chrono::milliseconds>(timezone);
+      case TimeUnit::MICRO:
+        return ymd_caster_zoned_template<std::chrono::microseconds>(timezone);
+      case TimeUnit::NANO:
+        return ymd_caster_zoned_template<std::chrono::nanoseconds>(timezone);
+    }
+  }
+  return ymd_caster_template<std::chrono::seconds>;
 }
 
-inline unsigned week(const int64_t in_data) {
+template <typename DurationIn, typename DurationOut>
+inline hh_mm_ss<DurationOut> hhmmss_caster_template(const int64_t data) {
+  DurationIn t = DurationIn{data};
+  return hh_mm_ss<DurationOut>(
+      std::chrono::duration_cast<DurationOut>(t - floor<days>(t)));
+}
+
+template <typename DurationIn, typename DurationOut>
+inline std::function<hh_mm_ss<DurationOut>(const int64_t)> hhmmss_caster_zoned_template(
+    const std::string timezone) {
+  static const arrow_vendored::date::time_zone* tz = locate_zone(timezone);
+  return [](const int64_t data) {
+    const auto z = sys_time<DurationIn>(DurationIn{data});
+    const auto l = make_zoned(tz, z).get_local_time();
+    return hh_mm_ss<DurationOut>(
+        std::chrono::duration_cast<DurationOut>(l - floor<days>(l)));
+  };
+}
+
+template <typename Duration>
+inline std::function<hh_mm_ss<Duration>(const int64_t)> make_hhmmss_caster(
+    const std::shared_ptr<DataType> type) {
+  const auto ts_type = std::static_pointer_cast<const TimestampType>(type);
+  const TimeUnit::type unit = ts_type->unit();
+  const std::string timezone = ts_type->timezone();
+
+  if (timezone.empty()) {
+    switch (unit) {
+      case TimeUnit::SECOND:
+        return hhmmss_caster_template<std::chrono::seconds, Duration>;
+      case TimeUnit::MILLI:
+        return hhmmss_caster_template<std::chrono::milliseconds, Duration>;
+      case TimeUnit::MICRO:
+        return hhmmss_caster_template<std::chrono::microseconds, Duration>;
+      case TimeUnit::NANO:
+        return hhmmss_caster_template<std::chrono::nanoseconds, Duration>;
+    }
+  } else {
+    switch (unit) {
+      case TimeUnit::SECOND:
+        return hhmmss_caster_zoned_template<std::chrono::seconds, Duration>(timezone);
+      case TimeUnit::MILLI:
+        return hhmmss_caster_zoned_template<std::chrono::milliseconds, Duration>(
+            timezone);
+      case TimeUnit::MICRO:
+        return hhmmss_caster_zoned_template<std::chrono::microseconds, Duration>(
+            timezone);
+      case TimeUnit::NANO:
+        return hhmmss_caster_zoned_template<std::chrono::nanoseconds, Duration>(timezone);
+    }
+  }
+  return hhmmss_caster_template<std::chrono::seconds, Duration>;
+}
+
+template <typename Duration>
+inline unsigned day_of_year_caster_template(const int64_t data) {
+  const auto sd = sys_days{floor<days>(Duration{data})};
+  const auto y = year_month_day(sd).year();
+  return static_cast<unsigned>((sd - sys_days(y / jan / 0)).count());
+}
+
+template <typename Duration>
+inline std::function<unsigned(const int64_t)> day_of_year_zoned_caster_template(
+    const std::string timezone) {
+  static const arrow_vendored::date::time_zone* tz = locate_zone(timezone);
+  return [](const int64_t data) {
+    auto ld =
+        year_month_day(floor<days>(tz->to_local(sys_time<Duration>(Duration{data}))));
+    return static_cast<unsigned>(
+        (local_days(ld) - local_days(ld.year() / jan / 1) + days{1}).count());
+  };
+}
+
+inline std::function<unsigned(const int64_t)> get_day_of_year_caster(
+    const std::shared_ptr<DataType> type) {
+  const auto ts_type = std::static_pointer_cast<const TimestampType>(type);
+  const TimeUnit::type unit = ts_type->unit();
+  const std::string timezone = ts_type->timezone();
+
+  if (timezone.empty()) {
+    switch (unit) {
+      case TimeUnit::SECOND:
+        return day_of_year_caster_template<std::chrono::seconds>;
+      case TimeUnit::MILLI:
+        return day_of_year_caster_template<std::chrono::milliseconds>;
+      case TimeUnit::MICRO:
+        return day_of_year_caster_template<std::chrono::microseconds>;
+      case TimeUnit::NANO:
+        return day_of_year_caster_template<std::chrono::nanoseconds>;
+    }
+  } else {
+    switch (unit) {
+      case TimeUnit::SECOND:
+        return day_of_year_zoned_caster_template<std::chrono::seconds>(timezone);
+      case TimeUnit::MILLI:
+        return day_of_year_zoned_caster_template<std::chrono::milliseconds>(timezone);
+      case TimeUnit::MICRO:
+        return day_of_year_zoned_caster_template<std::chrono::microseconds>(timezone);
+      case TimeUnit::NANO:
+        return day_of_year_zoned_caster_template<std::chrono::nanoseconds>(timezone);
+    }
+  }
+  return day_of_year_caster_template<std::chrono::seconds>;
+}
+
+template <typename Duration>
+inline unsigned week_caster_template(const int64_t data) {
   // Based on
   // https://github.com/HowardHinnant/date/blob/6e921e1b1d21e84a5c82416ba7ecd98e33a436d0/include/date/iso_week.h#L1503
-  using namespace arrow_vendored::date;
-  const auto dp = sys_days{floor<days>(std::chrono::seconds{in_data})};
+  const auto dp = sys_days{floor<days>(Duration{data})};
   auto y = year_month_day{dp + days{3}}.year();
   auto start = sys_days((y - years{1}) / dec / thu[last]) + (mon - thu);
   if (dp < start) {
@@ -68,6 +206,54 @@ inline unsigned week(const int64_t in_data) {
   return static_cast<unsigned>(trunc<weeks>(dp - start).count() + 1);
 }
 
+template <typename Duration>
+inline std::function<unsigned(const int64_t)> week_zoned_caster_template(
+    const std::string timezone) {
+  static const arrow_vendored::date::time_zone* tz = locate_zone(timezone);
+  return [](const int64_t data) {
+    const auto ld = floor<days>(tz->to_local(sys_time<Duration>(Duration{data})));
+    auto y = year_month_day{ld + days{3}}.year();
+    auto start = local_days((y - years{1}) / dec / thu[last]) + (mon - thu);
+    if (ld < start) {
+      --y;
+      start = local_days((y - years{1}) / dec / thu[last]) + (mon - thu);
+    }
+    return static_cast<unsigned>(trunc<weeks>(local_days(ld) - start).count() + 1);
+  };
+}
+
+inline std::function<unsigned(const int64_t)> make_week_caster(
+    const std::shared_ptr<DataType> type) {
+  const auto ts_type = std::static_pointer_cast<const TimestampType>(type);
+  const TimeUnit::type unit = ts_type->unit();
+  const std::string timezone = ts_type->timezone();
+
+  if (timezone.empty()) {
+    switch (unit) {
+      case TimeUnit::SECOND:
+        return week_caster_template<std::chrono::seconds>;
+      case TimeUnit::MILLI:
+        return week_caster_template<std::chrono::milliseconds>;
+      case TimeUnit::MICRO:
+        return week_caster_template<std::chrono::microseconds>;
+      case TimeUnit::NANO:
+        return week_caster_template<std::chrono::nanoseconds>;
+    }
+  } else {
+    switch (unit) {
+      case TimeUnit::SECOND:
+        return week_zoned_caster_template<std::chrono::seconds>(timezone);
+      case TimeUnit::MILLI:
+        return week_zoned_caster_template<std::chrono::milliseconds>(timezone);
+      case TimeUnit::MICRO:
+        return week_zoned_caster_template<std::chrono::microseconds>(timezone);
+      case TimeUnit::NANO:
+        return week_zoned_caster_template<std::chrono::nanoseconds>(timezone);
+    }
+  }
+  return day_of_year_caster_template<std::chrono::seconds>;
+}
+
 // ----------------------------------------------------------------------
 // Extract year from timestamp
 
@@ -75,16 +261,17 @@ template <typename out_type>
 struct Year {
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
     const auto& in_data = internal::UnboxScalar<const TimestampType>::Unbox(in);
-    checked_cast<Int64Scalar*>(out)->value =
-        static_cast<int>(get_year_month_day(in_data).year());
+    auto ymd_caster = make_ymd_caster(in.type);
+    checked_cast<Int64Scalar*>(out)->value = static_cast<int>(ymd_caster(in_data).year());
     return Status::OK();
   }
 
   static Status Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
     auto in_data = in.GetValues<uint64_t>(1);
     auto out_data = out->GetMutableValues<out_type>(1);
+    auto ymd_caster = make_ymd_caster(in.type);
     for (int64_t i = 0; i < in.length; i++) {
-      out_data[i] = static_cast<int>(get_year_month_day(in_data[i]).year());
+      out_data[i] = static_cast<int>(ymd_caster(in_data[i]).year());
     }
     return Status::OK();
   }
@@ -97,16 +284,18 @@ template <typename out_type>
 struct Month {
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
     const auto& in_data = internal::UnboxScalar<const TimestampType>::Unbox(in);
+    auto ymd_caster = make_ymd_caster(in.type);
     checked_cast<Int64Scalar*>(out)->value =
-        static_cast<unsigned>(get_year_month_day(in_data).month());
+        static_cast<unsigned>(ymd_caster(in_data).month());
     return Status::OK();
   }
 
   static Status Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
     auto in_data = in.GetValues<uint64_t>(1);
     auto out_data = out->GetMutableValues<out_type>(1);
+    auto ymd_caster = make_ymd_caster(in.type);
     for (int64_t i = 0; i < in.length; i++) {
-      out_data[i] = static_cast<unsigned>(get_year_month_day(in_data[i]).month());
+      out_data[i] = static_cast<unsigned>(ymd_caster(in_data[i]).month());
     }
     return Status::OK();
   }
@@ -118,17 +307,19 @@ struct Month {
 template <typename out_type>
 struct Day {
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
-    const auto& in_data = internal::UnboxScalar<const TimestampType>::Unbox(in);
+    const int64_t& in_data = internal::UnboxScalar<const TimestampType>::Unbox(in);
+    auto ymd_caster = make_ymd_caster(in.type);
     checked_cast<Int64Scalar*>(out)->value =
-        static_cast<unsigned>(get_year_month_day(in_data).day());
+        static_cast<unsigned>(ymd_caster(in_data).day());
     return Status::OK();
   }
 
   static Status Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
     auto in_data = in.GetValues<uint64_t>(1);
     auto out_data = out->GetMutableValues<out_type>(1);
+    auto ymd_caster = make_ymd_caster(in.type);
     for (int64_t i = 0; i < in.length; i++) {
-      out_data[i] = static_cast<unsigned>(get_year_month_day(in_data[i]).day());
+      out_data[i] = static_cast<unsigned>(ymd_caster(in_data[i]).day());
     }
     return Status::OK();
   }
@@ -141,15 +332,17 @@ template <typename out_type>
 struct Week {
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
     const auto& in_data = internal::UnboxScalar<const TimestampType>::Unbox(in);
-    checked_cast<Int64Scalar*>(out)->value = week(in_data);
+    auto week_caster = make_week_caster(in.type);
+    checked_cast<Int64Scalar*>(out)->value = week_caster(in_data);
     return Status::OK();
   }
 
   static Status Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
     auto in_data = in.GetValues<uint64_t>(1);
     auto out_data = out->GetMutableValues<out_type>(1);
+    auto week_caster = make_week_caster(in.type);
     for (int64_t i = 0; i < in.length; i++) {
-      out_data[i] = week(in_data[i]);
+      out_data[i] = week_caster(in_data[i]);
     }
     return Status::OK();
   }
@@ -162,16 +355,18 @@ template <typename out_type>
 struct Quarter {
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
     const auto& in_data = internal::UnboxScalar<const TimestampType>::Unbox(in);
+    auto ymd_caster = make_ymd_caster(in.type);
     checked_cast<Int64Scalar*>(out)->value =
-        static_cast<unsigned>(get_year_month_day(in_data).month()) / 3 + 1;
+        (static_cast<unsigned>(ymd_caster(in_data).month()) - 1) / 3 + 1;
     return Status::OK();
   }
 
   static Status Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
     auto in_data = in.GetValues<uint64_t>(1);
     auto out_data = out->GetMutableValues<out_type>(1);
+    auto ymd_caster = make_ymd_caster(in.type);
     for (int64_t i = 0; i < in.length; i++) {
-      out_data[i] = static_cast<unsigned>(get_year_month_day(in_data[i]).month()) / 3 + 1;
+      out_data[i] = (static_cast<unsigned>(ymd_caster(in_data[i]).month()) - 1) / 3 + 1;
     }
     return Status::OK();
   }
@@ -184,15 +379,17 @@ template <typename out_type>
 struct DayOfYear {
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
     const auto& in_data = internal::UnboxScalar<const TimestampType>::Unbox(in);
-    checked_cast<Int64Scalar*>(out)->value = day_of_year(in_data);
+    auto day_of_year_caster = get_day_of_year_caster(in.type);
+    checked_cast<Int64Scalar*>(out)->value = day_of_year_caster(in_data);
     return Status::OK();
   }
 
   static Status Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
     auto in_data = in.GetValues<uint64_t>(1);
     auto out_data = out->GetMutableValues<out_type>(1);
+    auto day_of_year_caster = get_day_of_year_caster(in.type);
     for (int64_t i = 0; i < in.length; i++) {
-      out_data[i] = day_of_year(in_data[i]);
+      out_data[i] = day_of_year_caster(in_data[i]);
     }
     return Status::OK();
   }
@@ -205,17 +402,19 @@ template <typename out_type>
 struct DayOfWeek {
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
     const auto& in_data = internal::UnboxScalar<const TimestampType>::Unbox(in);
+    auto ymd_caster = make_ymd_caster(in.type);
     checked_cast<Int64Scalar*>(out)->value = static_cast<int>(
-        arrow_vendored::date::weekday(get_year_month_day(in_data)).iso_encoding());
+        arrow_vendored::date::weekday(ymd_caster(in_data)).iso_encoding());
     return Status::OK();
   }
 
   static Status Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
     auto in_data = in.GetValues<uint64_t>(1);
     auto out_data = out->GetMutableValues<out_type>(1);
+    auto ymd_caster = make_ymd_caster(in.type);
     for (int64_t i = 0; i < in.length; i++) {
       out_data[i] = static_cast<int>(
-          arrow_vendored::date::weekday(get_year_month_day(in_data[i])).iso_encoding());
+          arrow_vendored::date::weekday(ymd_caster(in_data[i])).iso_encoding());
     }
     return Status::OK();
   }
@@ -228,17 +427,18 @@ template <typename out_type>
 struct Hour {
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
     const auto& in_data = internal::UnboxScalar<const TimestampType>::Unbox(in);
-    checked_cast<Int64Scalar*>(out)->value = static_cast<unsigned>(
-        get_time_of_day<std::chrono::seconds>(in_data).hours().count());
+    auto hhmmss_caster = make_hhmmss_caster<std::chrono::seconds>(in.type);
+    checked_cast<Int64Scalar*>(out)->value =
+        static_cast<unsigned>(hhmmss_caster(in_data).hours().count());
     return Status::OK();
   }
 
   static Status Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
     auto in_data = in.GetValues<uint64_t>(1);
     auto out_data = out->GetMutableValues<out_type>(1);
+    auto hhmmss_caster = make_hhmmss_caster<std::chrono::seconds>(in.type);
     for (int64_t i = 0; i < in.length; i++) {
-      out_data[i] = static_cast<unsigned>(
-          get_time_of_day<std::chrono::seconds>(in_data[i]).hours().count());
+      out_data[i] = static_cast<unsigned>(hhmmss_caster(in_data[i]).hours().count());
     }
     return Status::OK();
   }
@@ -251,17 +451,18 @@ template <typename out_type>
 struct Minute {
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
     const auto& in_data = internal::UnboxScalar<const TimestampType>::Unbox(in);
-    checked_cast<Int64Scalar*>(out)->value = static_cast<unsigned>(
-        get_time_of_day<std::chrono::seconds>(in_data).minutes().count());
+    auto hhmmss_caster = make_hhmmss_caster<std::chrono::seconds>(in.type);
+    checked_cast<Int64Scalar*>(out)->value =
+        static_cast<unsigned>(hhmmss_caster(in_data).minutes().count());
     return Status::OK();
   }
 
   static Status Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
     auto in_data = in.GetValues<uint64_t>(1);
     auto out_data = out->GetMutableValues<out_type>(1);
+    auto hhmmss_caster = make_hhmmss_caster<std::chrono::seconds>(in.type);
     for (int64_t i = 0; i < in.length; i++) {
-      out_data[i] = static_cast<unsigned>(
-          get_time_of_day<std::chrono::seconds>(in_data[i]).minutes().count());
+      out_data[i] = static_cast<unsigned>(hhmmss_caster(in_data[i]).minutes().count());
     }
     return Status::OK();
   }
@@ -274,17 +475,93 @@ template <typename out_type>
 struct Second {
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
     const auto& in_data = internal::UnboxScalar<const TimestampType>::Unbox(in);
-    checked_cast<Int64Scalar*>(out)->value = static_cast<unsigned>(
-        get_time_of_day<std::chrono::seconds>(in_data).seconds().count());
+    auto hhmmss_caster = make_hhmmss_caster<std::chrono::milliseconds>(in.type);
+    checked_cast<Int64Scalar*>(out)->value =
+        static_cast<unsigned>(hhmmss_caster(in_data).seconds().count());
     return Status::OK();
   }
 
   static Status Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
     auto in_data = in.GetValues<uint64_t>(1);
     auto out_data = out->GetMutableValues<out_type>(1);
+    auto hhmmss_caster = make_hhmmss_caster<std::chrono::milliseconds>(in.type);
     for (int64_t i = 0; i < in.length; i++) {
-      out_data[i] = static_cast<unsigned>(
-          get_time_of_day<std::chrono::seconds>(in_data[i]).seconds().count());
+      out_data[i] = static_cast<unsigned>(hhmmss_caster(in_data[i]).seconds().count());
+    }
+    return Status::OK();
+  }
+};
+
+// ----------------------------------------------------------------------
+// Extract milliseconds from timestamp
+
+template <typename out_type>
+struct Millisecond {
+  static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
+    const auto& in_data = internal::UnboxScalar<const TimestampType>::Unbox(in);
+    auto hhmmss_caster = make_hhmmss_caster<std::chrono::milliseconds>(in.type);
+    checked_cast<Int64Scalar*>(out)->value =
+        static_cast<unsigned>(hhmmss_caster(in_data).subseconds().count() % 1000);
+    return Status::OK();
+  }
+
+  static Status Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
+    auto in_data = in.GetValues<uint64_t>(1);
+    auto out_data = out->GetMutableValues<out_type>(1);
+    auto hhmmss_caster = make_hhmmss_caster<std::chrono::milliseconds>(in.type);
+    for (int64_t i = 0; i < in.length; i++) {
+      out_data[i] =
+          static_cast<unsigned>(hhmmss_caster(in_data[i]).subseconds().count() % 1000);
+    }
+    return Status::OK();
+  }
+};
+
+// ----------------------------------------------------------------------
+// Extract microseconds from timestamp
+
+template <typename out_type>
+struct Microsecond {
+  static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
+    const auto& in_data = internal::UnboxScalar<const TimestampType>::Unbox(in);
+    auto hhmmss_caster = make_hhmmss_caster<std::chrono::microseconds>(in.type);
+    checked_cast<Int64Scalar*>(out)->value =
+        static_cast<unsigned>(hhmmss_caster(in_data).subseconds().count() % 1000);
+    return Status::OK();
+  }
+
+  static Status Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
+    auto in_data = in.GetValues<uint64_t>(1);
+    auto out_data = out->GetMutableValues<out_type>(1);
+    auto hhmmss_caster = make_hhmmss_caster<std::chrono::microseconds>(in.type);
+    for (int64_t i = 0; i < in.length; i++) {
+      out_data[i] =
+          static_cast<unsigned>(hhmmss_caster(in_data[i]).subseconds().count() % 1000);
+    }
+    return Status::OK();
+  }
+};
+
+// ----------------------------------------------------------------------
+// Extract nanoseconds from timestamp
+
+template <typename out_type>
+struct Nanosecond {
+  static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
+    const auto& in_data = internal::UnboxScalar<const TimestampType>::Unbox(in);
+    auto hhmmss_caster = make_hhmmss_caster<std::chrono::nanoseconds>(in.type);
+    checked_cast<Int64Scalar*>(out)->value =
+        static_cast<unsigned>(hhmmss_caster(in_data).subseconds().count() % 1000);
+    return Status::OK();
+  }
+
+  static Status Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
+    auto in_data = in.GetValues<uint64_t>(1);
+    auto out_data = out->GetMutableValues<out_type>(1);
+    auto hhmmss_caster = make_hhmmss_caster<std::chrono::nanoseconds>(in.type);
+    for (int64_t i = 0; i < in.length; i++) {
+      out_data[i] =
+          static_cast<unsigned>(hhmmss_caster(in_data[i]).subseconds().count() % 1000);
     }
     return Status::OK();
   }
@@ -315,8 +592,11 @@ const FunctionDoc day_of_week_doc{"Extract day of week values", "", {"values"}};
 const FunctionDoc hour_doc{"Extract hour values", "", {"values"}};
 const FunctionDoc minute_doc{"Extract minute values", "", {"values"}};
 const FunctionDoc second_doc{"Extract second values", "", {"values"}};
+const FunctionDoc millisecond_doc{"Extract millisecond values", "", {"values"}};
+const FunctionDoc microsecond_doc{"Extract microsecond values", "", {"values"}};
+const FunctionDoc nanosecond_doc{"Extract nanosecond values", "", {"values"}};
 
-}  // namespace
+}  // namespace internal
 namespace internal {
 
 void RegisterScalarTemporal(FunctionRegistry* registry) {
@@ -339,11 +619,12 @@ void RegisterScalarTemporal(FunctionRegistry* registry) {
                registry);
   MakeFunction("second", applicator::SimpleUnary<Second<int64_t>>, &second_doc, int64(),
                registry);
-
-  // TODO
-  //  millisecond
-  //  microsecond
-  //  nanosecond
+  MakeFunction("millisecond", applicator::SimpleUnary<Millisecond<int64_t>>,
+               &millisecond_doc, int64(), registry);
+  MakeFunction("microsecond", applicator::SimpleUnary<Microsecond<int64_t>>,
+               &microsecond_doc, int64(), registry);
+  MakeFunction("nanosecond", applicator::SimpleUnary<Nanosecond<int64_t>>,
+               &nanosecond_doc, int64(), registry);
 }
 
 }  // namespace internal

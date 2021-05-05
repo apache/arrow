@@ -185,7 +185,9 @@ SCALAR_EAGER_UNARY(DayOfWeek, "day_of_week")
 SCALAR_EAGER_UNARY(Hour, "hour")
 SCALAR_EAGER_UNARY(Minute, "minute")
 SCALAR_EAGER_UNARY(Second, "second")
->>>>>>> e10c71612... First commit.
+SCALAR_EAGER_UNARY(Millisecond, "millisecond")
+SCALAR_EAGER_UNARY(Microsecond, "microsecond")
+SCALAR_EAGER_UNARY(Nanosecond, "nanosecond")
 
 }  // namespace compute
 }  // namespace arrow
