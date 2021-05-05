@@ -23,30 +23,11 @@
 #include <vector>
 
 #include "arrow/util/functional.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/mutex.h"
 
 namespace arrow {
 namespace internal {
-
-/// A wrapper for a value borrowed from another context.
-/// Includes a callback which returns the value to that context in ~Borrowed.
-template <typename T>
-class Borrowed {
- public:
-  Borrowed(T value, FnOnce<void(T)> ret)
-      : borrowed_(std::move(value)), return_(std::move(ret)) {}
-
-  Borrowed(Borrowed&&) = default;
-  Borrowed& operator=(Borrowed&&) = default;
-
-  ~Borrowed() { std::move(return_)(std::move(borrowed_)); }
-
-  T& get() { return borrowed_; }
-
- private:
-  T borrowed_;
-  FnOnce<void(T)> return_;
-};
 
 /// A thread safe set of values which can be borrowed (for example by tasks running in a
 /// ThreadPool). Borrowing a value will either lazily construct or pop from a cache.
@@ -65,6 +46,23 @@ class BorrowSet : public std::enable_shared_from_this<BorrowSet<T>> {
   }
 
   ~BorrowSet() { SetCapacity(0); }
+
+  struct Value {
+   public:
+    Value(T value, BorrowSet* set)
+        : value_(std::move(value)), set_(set->shared_from_this()) {}
+
+    ARROW_DEFAULT_MOVE_AND_ASSIGN(Value);
+    ARROW_DISALLOW_COPY_AND_ASSIGN(Value);
+
+    ~Value() { set_->ReturnOne(std::move(value_)); }
+
+    T& get() { return value_; }
+
+   private:
+    T value_;
+    std::shared_ptr<BorrowSet> set_;
+  };
 
   void SetCapacity(int capacity) {
     auto lock = mutex_.Lock();
@@ -87,7 +85,7 @@ class BorrowSet : public std::enable_shared_from_this<BorrowSet<T>> {
     }
   }
 
-  Borrowed<T> BorrowOne() {
+  Value BorrowOne() {
     auto lock = mutex_.Lock();
     // NB: can't assert that we haven't exceeded capacity because we might
     // have multiple still-borrowed instances after a capacity change
@@ -97,13 +95,13 @@ class BorrowSet : public std::enable_shared_from_this<BorrowSet<T>> {
     if (cache_.empty()) {
       // create a new value and borrow that
       lock.Unlock();
-      return Borrow(construct_());
+      return Value(construct_(), this);
     }
 
     // pop a value from the cache
     auto cached = std::move(cache_.back());
     cache_.pop_back();
-    return Borrow(std::move(cached));
+    return Value(std::move(cached), this);
   }
 
  private:
@@ -111,12 +109,6 @@ class BorrowSet : public std::enable_shared_from_this<BorrowSet<T>> {
 
   int GetInstanceCountUnlocked() const {
     return borrowed_count_ + static_cast<int>(cache_.size());
-  }
-
-  Borrowed<T> Borrow(T value) {
-    auto self = this->shared_from_this();
-    return Borrowed<T>(std::move(value),
-                       [self](T returned) { self->ReturnOne(std::move(returned)); });
   }
 
   void ReturnOne(T returned) {

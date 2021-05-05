@@ -541,7 +541,7 @@ TEST_F(TestThreadPool, ParallelSummationWithThreadLocalState) {
     ASSERT_OK_AND_ASSIGN(futures[i], pool->Submit([&, local_sums] {
       // Acquire thread local state. Each task may safely mutate since tasks
       // running in another thread will acquire a different local_sum
-      Borrowed<int64_t> local_sum = local_sums->BorrowOne();
+      auto local_sum = local_sums->BorrowOne();
 
       // Assemble a batch of addends
       int64_t addends_begin = next_addend.fetch_add(kBatchSize);
