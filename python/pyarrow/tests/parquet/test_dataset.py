@@ -1589,36 +1589,22 @@ def test_parquet_dataset_partitions_piece_path_with_fsspec(tempdir):
 
 
 def test_read_table_with_fspath(tempdir):
-    class FSProtocolClass:
-        def __init__(self, path):
-            self._path = path
-
-        def __fspath__(self):
-            return str(self._path)
-
     path = tempdir / "test.parquet"
     table = pa.table({"a": [1, 2, 3]})
     _write_table(table, path)
 
-    fs_protocol_obj = FSProtocolClass(path)
+    fs_protocol_obj = util.FSProtocolClass(path)
 
     result = _read_table(fs_protocol_obj)
     assert result.equals(table)
 
 
 def test_read_table_with_fspath_and_filesystem(tempdir):
-    class FSProtocolClass:
-        def __init__(self, path):
-            self._path = path
-
-        def __fspath__(self):
-            return str(self._path)
-
     path = tempdir / "test.parquet"
     table = pa.table({"a": [1, 2, 3]})
     _write_table(table, path)
 
-    fs_protocol_obj = FSProtocolClass(path)
+    fs_protocol_obj = util.FSProtocolClass(path)
 
     with pytest.raises(ValueError, match="Path-like objects with __fspath__"):
         _read_table(fs_protocol_obj, filesystem=FileSystem())

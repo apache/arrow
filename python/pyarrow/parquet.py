@@ -1471,6 +1471,14 @@ def _make_manifest(path_or_paths, fs, pathsep='/', metadata_nthreads=1,
     return pieces, partitions, common_metadata_path, metadata_path
 
 
+def _is_local_file_system(fs):
+    import fsspec
+    if isinstance(fs, fsspec.AbstractFileSystem):
+        if type(fs).__name__ == 'LocalFileSystem':
+            return True
+        return False
+    return isinstance(fs, LocalFileSystem) or isinstance(fs, legacyfs.LocalFileSystem)
+
 class _ParquetDatasetV2:
     """
     ParquetDataset shim using the Dataset API under the hood.
@@ -1494,7 +1502,7 @@ class _ParquetDatasetV2:
         if (
             hasattr(path_or_paths, "__fspath__")
             and filesystem is not None
-            and not isinstance(filesystem, LocalFileSystem)
+            and not _is_local_file_system(filesystem)
         ):
             raise ValueError(
                 "Path-like objects with __fspath__ must only be used with local file "
