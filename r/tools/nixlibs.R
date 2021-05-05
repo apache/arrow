@@ -212,16 +212,26 @@ find_available_binary <- function(os) {
 download_source <- function() {
   tf1 <- tempfile()
   src_dir <- tempfile()
-  if (bintray_download(tf1)) {
-    # First try from bintray
-    unzip(tf1, exdir = src_dir)
-    unlink(tf1)
-    src_dir <- paste0(src_dir, "/cpp")
-  } else if (apache_download(tf1)) {
-    # If that fails, try for an official release
-    untar(tf1, exdir = src_dir)
-    unlink(tf1)
-    src_dir <- paste0(src_dir, "/apache-arrow-", VERSION, "/cpp")
+
+  # Given VERSION as x.y.z.p
+  p <- package_version(VERSION)[1, 4]
+  if (is.na(p) || p < 1000) {
+    # This is either just x.y.z or it has a small (R-only) patch version
+    # Download from the official Apache release, dropping the p
+    VERSION <- as.character(package_version(VERSION)[1, -4])
+    if (apache_download(tf1)) {
+      untar(tf1, exdir = src_dir)
+      unlink(tf1)
+      src_dir <- paste0(src_dir, "/apache-arrow-", VERSION, "/cpp")
+    }
+  } else if (p != 9000) {
+    # This is a custom dev version (x.y.z.9999) or a nightly (x.y.z.20210505)
+    # (Don't try to download on the default dev .9000 version)
+    if (nightly_download(tf1)) {
+      unzip(tf1, exdir = src_dir)
+      unlink(tf1)
+      src_dir <- paste0(src_dir, "/cpp")
+    }
   }
 
   if (dir.exists(src_dir)) {
@@ -238,26 +248,12 @@ download_source <- function() {
   }
 }
 
-bintray_download <- function(destfile) {
+nightly_download <- function(destfile) {
   source_url <- paste0(arrow_repo, "src/arrow-", VERSION, ".zip")
   try_download(source_url, destfile)
 }
 
 apache_download <- function(destfile, n_mirrors = 3) {
-  # Regex to match x.y.z.p
-  pattern <- "^([0-9]+\\.[0-9]+\\.[0-9]+)\\.([0-9]+)$"
-  if (grepl(pattern, VERSION)) {
-    # We have a extra (R-only) patch version
-    p <- as.numeric(sub(pattern, "\\2", VERSION))
-    if (p > 1000) {
-      # This is a dev version (x.y.z.9000) or a nightly (x.y.z.20210505)
-      # so there is definitely no Apache version to download
-      return(FALSE)
-    }
-    # Else, just keep the x.y.z
-    VERSION <- sub(pattern, "\\1", VERSION)
-  }
-
   apache_path <- paste0("arrow/arrow-", VERSION, "/apache-arrow-", VERSION, ".tar.gz")
   apache_urls <- c(
     # This returns a different mirror each time
