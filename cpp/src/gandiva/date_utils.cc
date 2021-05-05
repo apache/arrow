@@ -216,9 +216,9 @@ DateUtils::date_format_converter DateUtils::InitMap() {
   // Seconds
   map["ss"] = "%S";
   // Milliseconds
-  map["f"] = "S";
-  map["ff"] = "SS";
-  map["fff"] = "SSS";
+  map["ss.f"] = "%4S";
+  map["ss.ff"] = "%5S";
+  map["ss.fff"] = "%6S";
   /*
   // Timezone not tested/supported yet fully.
   map["tzd"] = "%Z";

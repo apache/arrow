@@ -39,7 +39,7 @@ class TestUnixTimestampHolder : public ::testing::Test {
 
 TEST_F(TestUnixTimestampHolder, TestSimpleDateTime) {
   std::shared_ptr<UnixTimestampHolder> unix_timestamp_holder;
-  ASSERT_OK(UnixTimestampHolder::Make("YYYY-MM-DD HH:MI:SS", 1, &unix_timestamp_holder));
+  ASSERT_OK(UnixTimestampHolder::Make("YYYY-MM-DD HH24:MI:SS", 1, &unix_timestamp_holder));
 
   auto& to_date = *unix_timestamp_holder;
   bool out_valid;
@@ -72,21 +72,6 @@ TEST_F(TestUnixTimestampHolder, TestSimpleDateTime) {
       to_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
   expected_result = 534648600;
   EXPECT_EQ(millis_since_epoch, expected_result);
-}
-
-TEST_F(TestUnixTimestampHolder, TestSimpleDateTimeWithMillis) {
-  std::shared_ptr<UnixTimestampHolder> unix_timestamp_holder;
-  ASSERT_OK(
-      UnixTimestampHolder::Make("YYYY-MM-DD HH:MI:SS.FFF", 1, &unix_timestamp_holder));
-
-  // Milliseconds in formatting are not supported yet by the library that do the
-  // date formatting
-  auto& to_date = *unix_timestamp_holder;
-  bool out_valid;
-  std::string s("1986-12-01 01:01:01.347");
-  int64_t millis_since_epoch =
-      to_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
-  EXPECT_EQ(millis_since_epoch, 0);
 }
 
 TEST_F(TestUnixTimestampHolder, TestSimpleDate) {

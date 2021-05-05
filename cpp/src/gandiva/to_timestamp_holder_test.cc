@@ -45,7 +45,7 @@ class TestToTimestampHolder : public ::testing::Test {
 
 TEST_F(TestToTimestampHolder, TestSimpleDateTime) {
   std::shared_ptr<ToTimestampHolder> to_timestamp_holder;
-  ASSERT_OK(ToTimestampHolder::Make("YYYY-MM-DD HH:MI:SS", 1, &to_timestamp_holder));
+  ASSERT_OK(ToTimestampHolder::Make("YYYY-MM-DD HH24:MI:SS", 1, &to_timestamp_holder));
 
   auto& to_date = *to_timestamp_holder;
   bool out_valid;
