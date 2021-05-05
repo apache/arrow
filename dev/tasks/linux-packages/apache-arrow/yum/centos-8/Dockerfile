@@ -54,7 +54,6 @@ RUN \
     python3-pip \
     re2-devel \
     # rapidjson-devel \
-    rpm-build \
     rpmdevtools \
     snappy-devel \
     tar \

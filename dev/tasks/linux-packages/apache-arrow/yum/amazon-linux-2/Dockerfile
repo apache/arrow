@@ -15,12 +15,42 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM centos:7
+ARG FROM=amazonlinux:2
+FROM ${FROM}
+
+COPY qemu-* /usr/bin/
 
 ARG DEBUG
 
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "--quiet") && \
+  yum update -y ${quiet} && \
+  amazon-linux-extras install -y epel && \
   yum install -y ${quiet} \
-    rpmdevtools && \
+    bison \
+    brotli-devel \
+    bzip2-devel \
+    ccache \
+    cmake3 \
+    flex \
+    gcc-c++ \
+    git \
+    glog-devel \
+    gobject-introspection-devel \
+    gtk-doc \
+    libzstd-devel \
+    lz4-devel \
+    make \
+    openssl-devel \
+    pkg-config \
+    rapidjson-devel \
+    rpmdevtools \
+    snappy-devel \
+    tar \
+    utf8proc-devel \
+    zlib-devel && \
+  # Install ninja-build dependencies in amzn2-core
+  yum install -y ${quiet} ninja-build && \
+  # Install ninja-build from EPEL because ninja-build in amzn2-core is old.
+  yum install -y ${quiet} --disablerepo=amzn2-core ninja-build && \
   yum clean ${quiet} all

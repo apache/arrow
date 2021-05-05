@@ -64,6 +64,8 @@ fi
 # To deactivate one category, deactivate the category and all of its dependents.
 # To explicitly select one category, set UPLOAD_DEFAULT=0 UPLOAD_X=1.
 : ${UPLOAD_DEFAULT:=1}
+: ${UPLOAD_AMAZON_LINUX_RPM:=${UPLOAD_DEFAULT}}
+: ${UPLOAD_AMAZON_LINUX_YUM:=${UPLOAD_DEFAULT}}
 : ${UPLOAD_CENTOS_RPM:=${UPLOAD_DEFAULT}}
 : ${UPLOAD_CENTOS_YUM:=${UPLOAD_DEFAULT}}
 : ${UPLOAD_DEBIAN_APT:=${UPLOAD_DEFAULT}}
@@ -76,21 +78,13 @@ fi
 rake_tasks=()
 apt_targets=()
 yum_targets=()
-if [ ${UPLOAD_DEBIAN_DEB} -gt 0 ]; then
-  rake_tasks+=(deb)
-  apt_targets+=(debian)
+if [ ${UPLOAD_AMAZON_LINUX_RPM} -gt 0 ]; then
+  rake_tasks+=(rpm)
+  yum_targets+=(amazon-linux)
 fi
-if [ ${UPLOAD_DEBIAN_APT} -gt 0 ]; then
-  rake_tasks+=(apt:rc)
-  apt_targets+=(debian)
-fi
-if [ ${UPLOAD_UBUNTU_DEB} -gt 0 ]; then
-  rake_tasks+=(deb)
-  apt_targets+=(ubuntu)
-fi
-if [ ${UPLOAD_UBUNTU_APT} -gt 0 ]; then
-  rake_tasks+=(apt:rc)
-  apt_targets+=(ubuntu)
+if [ ${UPLOAD_AMAZON_LINUX_YUM} -gt 0 ]; then
+  rake_tasks+=(yum:rc)
+  yum_targets+=(amazon-linux)
 fi
 if [ ${UPLOAD_CENTOS_RPM} -gt 0 ]; then
   rake_tasks+=(rpm)
@@ -100,11 +94,27 @@ if [ ${UPLOAD_CENTOS_YUM} -gt 0 ]; then
   rake_tasks+=(yum:rc)
   yum_targets+=(centos)
 fi
+if [ ${UPLOAD_DEBIAN_DEB} -gt 0 ]; then
+  rake_tasks+=(deb)
+  apt_targets+=(debian)
+fi
+if [ ${UPLOAD_DEBIAN_APT} -gt 0 ]; then
+  rake_tasks+=(apt:rc)
+  apt_targets+=(debian)
+fi
 if [ ${UPLOAD_NUGET} -gt 0 ]; then
   rake_tasks+=(nuget:rc)
 fi
 if [ ${UPLOAD_PYTHON} -gt 0 ]; then
   rake_tasks+=(python:rc)
+fi
+if [ ${UPLOAD_UBUNTU_DEB} -gt 0 ]; then
+  rake_tasks+=(deb)
+  apt_targets+=(ubuntu)
+fi
+if [ ${UPLOAD_UBUNTU_APT} -gt 0 ]; then
+  rake_tasks+=(apt:rc)
+  apt_targets+=(ubuntu)
 fi
 rake_tasks+=(summary:rc)
 
