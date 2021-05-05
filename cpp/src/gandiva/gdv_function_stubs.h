@@ -101,12 +101,13 @@ const char* gdv_fn_castVARCHAR_int32_int64(int64_t context, int32_t value, int64
                                            int32_t* out_len);
 
 GANDIVA_EXPORT
-const char* gdv_fn_castVARCHAR_day_time_interval_int64(int64_t context, gdv_day_time_interval value, int64_t len,
-                                                       int32_t* out_len);
+const char* gdv_fn_castVARCHAR_day_time_interval_int64(int64_t context,
+                                                       gdv_day_time_interval value,
+                                                       int64_t len, int32_t* out_len);
 
 GANDIVA_EXPORT
-const char* gdv_fn_castVARCHAR_date64_int64(int64_t context, gdv_date64 value, int64_t len,
-                                                       int32_t* out_len);
+const char* gdv_fn_castVARCHAR_date64_int64(int64_t context, gdv_date64 value,
+                                            int64_t len, int32_t* out_len);
 
 GANDIVA_EXPORT
 const char* gdv_fn_castVARCHAR_int64_int64(int64_t context, int64_t value, int64_t len,
