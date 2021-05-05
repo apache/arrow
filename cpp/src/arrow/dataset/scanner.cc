@@ -673,6 +673,62 @@ ScannerBuilder::ScannerBuilder(std::shared_ptr<Schema> schema,
   DCHECK_OK(Filter(scan_options_->filter));
 }
 
+class ARROW_DS_EXPORT OneShotScanTask : public ScanTask {
+ public:
+  OneShotScanTask(RecordBatchIterator batch_it, std::shared_ptr<ScanOptions> options,
+                  std::shared_ptr<Fragment> fragment)
+      : ScanTask(std::move(options), std::move(fragment)),
+        batch_it_(std::move(batch_it)) {}
+  Result<RecordBatchIterator> Execute() override {
+    if (!batch_it_) return Status::Invalid("OneShotScanTask was already scanned");
+    return std::move(batch_it_);
+  }
+
+ private:
+  RecordBatchIterator batch_it_;
+};
+
+class ARROW_DS_EXPORT OneShotFragment : public Fragment {
+ public:
+  OneShotFragment(std::shared_ptr<Schema> schema, RecordBatchIterator batch_it)
+      : Fragment(compute::literal(true), std::move(schema)),
+        batch_it_(std::move(batch_it)) {
+    DCHECK_NE(physical_schema_, nullptr);
+  }
+  Status CheckConsumed() {
+    if (!batch_it_) return Status::Invalid("OneShotFragment was already scanned");
+    return Status::OK();
+  }
+  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options) override {
+    RETURN_NOT_OK(CheckConsumed());
+    ScanTaskVector tasks{std::make_shared<OneShotScanTask>(
+        std::move(batch_it_), std::move(options), shared_from_this())};
+    return MakeVectorIterator(std::move(tasks));
+  }
+  Result<RecordBatchGenerator> ScanBatchesAsync(
+      const std::shared_ptr<ScanOptions>& options) override {
+    RETURN_NOT_OK(CheckConsumed());
+    return MakeBackgroundGenerator(std::move(batch_it_), options->io_context.executor());
+  }
+  std::string type_name() const override { return "one-shot"; }
+
+ protected:
+  Result<std::shared_ptr<Schema>> ReadPhysicalSchemaImpl() override {
+    return physical_schema_;
+  }
+
+  RecordBatchIterator batch_it_;
+};
+
+std::shared_ptr<ScannerBuilder> ScannerBuilder::FromRecordBatchReader(
+    std::shared_ptr<RecordBatchReader> reader) {
+  auto batch_it = MakeFunctionIterator([reader] { return reader->Next(); });
+  auto fragment =
+      std::make_shared<OneShotFragment>(reader->schema(), std::move(batch_it));
+  return std::make_shared<ScannerBuilder>(reader->schema(), std::move(fragment),
+                                          std::make_shared<ScanOptions>());
+}
+
 const std::shared_ptr<Schema>& ScannerBuilder::schema() const {
   return scan_options_->dataset_schema;
 }

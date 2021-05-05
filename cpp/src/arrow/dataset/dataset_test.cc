@@ -79,38 +79,6 @@ TEST_F(TestInMemoryDataset, ReplaceSchema) {
                     .status());
 }
 
-TEST_F(TestInMemoryDataset, FromReader) {
-  constexpr int64_t kBatchSize = 1024;
-  constexpr int64_t kNumberBatches = 16;
-
-  SetSchema({field("i32", int32()), field("f64", float64())});
-  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
-  auto source_reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
-  auto target_reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
-
-  auto dataset = std::make_shared<OneShotDataset>(source_reader);
-
-  AssertDatasetEquals(target_reader.get(), dataset.get());
-  // Such datasets can only be scanned once (but you can get fragments multiple times)
-  ASSERT_OK_AND_ASSIGN(auto fragments, dataset->GetFragments());
-  ASSERT_OK_AND_ASSIGN(auto fragment, fragments.Next());
-  ASSERT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(options_));
-  ASSERT_OK_AND_ASSIGN(auto scan_task, scan_task_it.Next());
-  ASSERT_OK_AND_ASSIGN(auto batch_it, scan_task->Execute());
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::HasSubstr("OneShotDataset was already consumed"),
-      batch_it.Next());
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::HasSubstr("OneShotScanTask was already scanned"),
-      scan_task->Execute());
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::HasSubstr("OneShotFragment was already scanned"),
-      fragment->Scan(options_));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::HasSubstr("OneShotFragment was already scanned"),
-      fragment->ScanBatchesAsync(options_));
-}
-
 TEST_F(TestInMemoryDataset, GetFragments) {
   constexpr int64_t kBatchSize = 1024;
   constexpr int64_t kNumberBatches = 16;
