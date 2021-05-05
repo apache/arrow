@@ -879,7 +879,7 @@ class BinaryTask
     else
       available_apt_targets.select do |distribution, code_name, component|
         env_apt_targets.any? do |env_apt_target|
-          if /\d/.match?(env_apt_target)
+          if env_apt_target.include?("-")
             env_apt_target.start_with?("#{distribution}-#{code_name}")
           else
             env_apt_target == distribution
