@@ -536,15 +536,12 @@ TEST_F(TestHash, TestSha256FunctionsAlias) {
 
   // output fields
   auto res_0 = field("res0", utf8());
-  auto res_0_sha2 = field("res0sha2", utf8());
   auto res_0_sha256 = field("res0sha256", utf8());
 
   auto res_1 = field("res1", utf8());
-  auto res_1_sha2 = field("res1sha2", utf8());
   auto res_1_sha256 = field("res1sha256", utf8());
 
   auto res_2 = field("res2", utf8());
-  auto res_2_sha2 = field("res2_sha2", utf8());
   auto res_2_sha256 = field("res2_sha256", utf8());
 
   // build expressions.
@@ -552,34 +549,26 @@ TEST_F(TestHash, TestSha256FunctionsAlias) {
   auto node_a = TreeExprBuilder::MakeField(field_a);
   auto hashSha2 = TreeExprBuilder::MakeFunction("hashSHA256", {node_a}, utf8());
   auto expr_0 = TreeExprBuilder::MakeExpression(hashSha2, res_0);
-  auto sha2 = TreeExprBuilder::MakeFunction("sha2", {node_a}, utf8());
-  auto expr_0_sha2 = TreeExprBuilder::MakeExpression(sha2, res_0_sha2);
   auto sha256 = TreeExprBuilder::MakeFunction("sha256", {node_a}, utf8());
   auto expr_0_sha256 = TreeExprBuilder::MakeExpression(sha256, res_0_sha256);
 
   auto node_b = TreeExprBuilder::MakeField(field_b);
   auto hashSha2_1 = TreeExprBuilder::MakeFunction("hashSHA256", {node_b}, utf8());
   auto expr_1 = TreeExprBuilder::MakeExpression(hashSha2_1, res_1);
-  auto sha2_1 = TreeExprBuilder::MakeFunction("sha2", {node_b}, utf8());
-  auto expr_1_sha2 = TreeExprBuilder::MakeExpression(sha2_1, res_1_sha2);
   auto sha256_1 = TreeExprBuilder::MakeFunction("sha256", {node_b}, utf8());
   auto expr_1_sha256 = TreeExprBuilder::MakeExpression(sha256_1, res_1_sha256);
 
   auto node_c = TreeExprBuilder::MakeField(field_c);
   auto hashSha2_2 = TreeExprBuilder::MakeFunction("hashSHA256", {node_c}, utf8());
   auto expr_2 = TreeExprBuilder::MakeExpression(hashSha2_2, res_2);
-  auto sha2_2 = TreeExprBuilder::MakeFunction("sha2", {node_c}, utf8());
-  auto expr_2_sha2 = TreeExprBuilder::MakeExpression(sha2_2, res_2_sha2);
   auto sha256_2 = TreeExprBuilder::MakeFunction("sha256", {node_c}, utf8());
   auto expr_2_sha256 = TreeExprBuilder::MakeExpression(sha256_2, res_2_sha256);
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status =
-      Projector::Make(schema,
-                      {expr_0, expr_0_sha256, expr_0_sha2, expr_1, expr_1_sha256,
-                       expr_1_sha2, expr_2, expr_2_sha256, expr_2_sha2},
-                      TestConfiguration(), &projector);
+  auto status = Projector::Make(
+      schema, {expr_0, expr_0_sha256, expr_1, expr_1_sha256, expr_2, expr_2_sha256},
+      TestConfiguration(), &projector);
   ASSERT_OK(status) << status.message();
 
   // Create a row-batch with some sample data
@@ -613,17 +602,14 @@ TEST_F(TestHash, TestSha256FunctionsAlias) {
   // Checks that the response for the hashSHA2, sha256 and sha2 are equals for the first
   // field of utf8 type
   EXPECT_ARROW_ARRAY_EQUALS(outputs.at(0), outputs.at(1));  // hashSha2 and sha256
-  EXPECT_ARROW_ARRAY_EQUALS(outputs.at(1), outputs.at(2));  // sha256 and sha2
 
   // Checks that the response for the hashSHA2, sha256 and sha2 are equals for the second
   // field of int64 type
-  EXPECT_ARROW_ARRAY_EQUALS(outputs.at(3), outputs.at(4));  // hashSha2 and sha256
-  EXPECT_ARROW_ARRAY_EQUALS(outputs.at(4), outputs.at(5));  // sha256 and sha2
+  EXPECT_ARROW_ARRAY_EQUALS(outputs.at(2), outputs.at(3));  // hashSha2 and sha256
 
   // Checks that the response for the hashSHA2, sha256 and sha2 are equals for the first
   // field of float64 type
-  EXPECT_ARROW_ARRAY_EQUALS(outputs.at(6),
-                            outputs.at(7));  // hashSha2 and sha256 responses
-  EXPECT_ARROW_ARRAY_EQUALS(outputs.at(7), outputs.at(8));  // sha256 and sha2 responses
+  EXPECT_ARROW_ARRAY_EQUALS(outputs.at(4),
+                            outputs.at(5));  // hashSha2 and sha256 responses
 }
 }  // namespace gandiva

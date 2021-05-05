@@ -223,9 +223,9 @@ typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyH
 // - can return errors
 //
 // The function name includes the base name & input type name. gdv_fn_sha256_float64
-#define HASH_SHA256_NULL_NEVER(NAME, ALIASES, TYPE)                         \
-  NativeFunction(#NAME, {"sha2", "sha256"}, DataTypeVector{TYPE()}, utf8(), \
-                 kResultNullNever, ARROW_STRINGIFY(gdv_fn_sha256_##TYPE),   \
+#define HASH_SHA256_NULL_NEVER(NAME, ALIASES, TYPE)                                   \
+  NativeFunction(#NAME, {"sha256"}, DataTypeVector{TYPE()}, utf8(), kResultNullNever, \
+                 ARROW_STRINGIFY(gdv_fn_sha256_##TYPE),                               \
                  NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)
 
 // Iterate the inner macro over all numeric types
