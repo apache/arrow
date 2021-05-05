@@ -176,7 +176,7 @@ Result<ScanTaskIterator> IpcFileFormat::ScanFile(
 Future<util::optional<int64_t>> IpcFileFormat::CountRows(
     const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
     std::shared_ptr<ScanOptions> options) {
-  if (FieldsInExpression(predicate).size() > 0) {
+  if (ExpressionHasFieldRefs(predicate)) {
     return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
   }
   auto self = internal::checked_pointer_cast<IpcFileFormat>(shared_from_this());

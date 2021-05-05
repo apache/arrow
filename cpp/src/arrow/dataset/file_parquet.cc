@@ -390,47 +390,15 @@ Future<util::optional<int64_t>> ParquetFileFormat::CountRows(
     const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
     std::shared_ptr<ScanOptions> options) {
   auto parquet_file = internal::checked_pointer_cast<ParquetFileFragment>(file);
-
-  auto evaluate = [=]() -> Result<util::optional<int64_t>> {
-    if (FieldsInExpression(predicate).size() > 0) {
-      ARROW_ASSIGN_OR_RAISE(auto expressions,
-                            parquet_file->TestRowGroups(std::move(predicate)));
-      int64_t rows = 0;
-      for (size_t i = 0; i < parquet_file->row_groups_->size(); i++) {
-        // Row group can definitely be eliminated
-        if (!expressions[i].IsSatisfiable()) continue;
-        // Unknown, bail out of fast path
-        if (FieldsInExpression(expressions[i]).size() > 0) return util::nullopt;
-
-        compute::ExecContext exec_context{options->pool};
-        ARROW_ASSIGN_OR_RAISE(
-            Datum mask, ExecuteScalarExpression(expressions[i], Datum(), &exec_context));
-        // Evaluated to something other than a scalar
-        if (!mask.is_scalar()) return util::nullopt;
-        const auto& mask_scalar = mask.scalar_as<BooleanScalar>();
-        // Evaluated to something other than a Boolean
-        if (!mask_scalar.is_valid) return util::nullopt;
-        // Row group can definitely be eliminated
-        if (!mask_scalar.value) continue;
-        BEGIN_PARQUET_CATCH_EXCEPTIONS
-        rows += parquet_file->metadata()
-                    ->RowGroup((*parquet_file->row_groups_)[i])
-                    ->num_rows();
-        END_PARQUET_CATCH_EXCEPTIONS
-      }
-      return rows;
-    }
-    return parquet_file->metadata()->num_rows();
-  };
-
   if (parquet_file->metadata()) {
-    ARROW_ASSIGN_OR_RAISE(auto maybe_count, evaluate());
+    ARROW_ASSIGN_OR_RAISE(auto maybe_count,
+                          parquet_file->TryCountRows(std::move(predicate)));
     return Future<util::optional<int64_t>>::MakeFinished(maybe_count);
   } else {
     return DeferNotOk(options->io_context.executor()->Submit(
-        [evaluate, parquet_file]() -> Result<util::optional<int64_t>> {
+        [parquet_file, predicate]() -> Result<util::optional<int64_t>> {
           RETURN_NOT_OK(parquet_file->EnsureCompleteMetadata());
-          return evaluate();
+          return parquet_file->TryCountRows(predicate);
         }));
   }
 }
@@ -664,6 +632,25 @@ Result<std::vector<compute::Expression>> ParquetFileFragment::TestRowGroups(
     row_groups[i] = std::move(row_group_predicate);
   }
   return row_groups;
+}
+
+Result<util::optional<int64_t>> ParquetFileFragment::TryCountRows(
+    compute::Expression predicate) {
+  DCHECK_NE(metadata_, nullptr);
+  if (ExpressionHasFieldRefs(predicate)) {
+    ARROW_ASSIGN_OR_RAISE(auto expressions, TestRowGroups(std::move(predicate)));
+    int64_t rows = 0;
+    for (size_t i = 0; i < row_groups_->size(); i++) {
+      // Unless the row group is entirely included, bail out of fast path
+      if (expressions[i] == compute::literal(false)) continue;
+      if (expressions[i] != compute::literal(true)) return util::nullopt;
+      BEGIN_PARQUET_CATCH_EXCEPTIONS
+      rows += metadata()->RowGroup((*row_groups_)[i])->num_rows();
+      END_PARQUET_CATCH_EXCEPTIONS
+    }
+    return rows;
+  }
+  return metadata()->num_rows();
 }
 
 //

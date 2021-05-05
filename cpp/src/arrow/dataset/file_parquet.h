@@ -178,6 +178,10 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   Result<std::vector<int>> FilterRowGroups(compute::Expression predicate);
   /// Simplify the predicate against the statistics of each row group.
   Result<std::vector<compute::Expression>> TestRowGroups(compute::Expression predicate);
+  /// Try to count rows matching the predicate using metadata. Expects
+  /// metadata to be present, and expects the predicate to have been
+  /// simplified against the partition expression already.
+  Result<util::optional<int64_t>> TryCountRows(compute::Expression predicate);
 
   ParquetFileFormat& parquet_format_;
 
