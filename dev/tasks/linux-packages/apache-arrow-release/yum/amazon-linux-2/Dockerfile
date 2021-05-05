@@ -15,23 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-[apache-arrow-amazon-linux]
-name=Apache Arrow for Amazon Linux $releasever - $basearch
-baseurl=https://apache.jfrog.io/artifactory/arrow/amazon-linux/$releasever/$basearch/
-gpgcheck=1
-enabled=0
-gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-Apache-Arrow
+FROM amazonlinux:2
 
-[apache-arrow-centos]
-name=Apache Arrow for CentOS $releasever - $basearch
-baseurl=https://apache.jfrog.io/artifactory/arrow/centos/$releasever/$basearch/
-gpgcheck=1
-enabled=0
-gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-Apache-Arrow
+ARG DEBUG
 
-[apache-arrow-rhel]
-name=Apache Arrow for RHEL $releasever - $basearch
-baseurl=https://apache.jfrog.io/artifactory/arrow/centos/$releasever/$basearch/
-gpgcheck=1
-enabled=0
-gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-Apache-Arrow
+RUN \
+  quiet=$([ "${DEBUG}" = "yes" ] || echo "--quiet") && \
+  yum install -y ${quiet} \
+    rpmdevtools && \
+  yum clean ${quiet} all

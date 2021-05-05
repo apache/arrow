@@ -872,17 +872,6 @@ class BinaryTask
     ]
   end
 
-  def apt_distribution_label(distribution)
-    case distribution
-    when "debian"
-      "Debian"
-    when "ubuntu"
-      "Ubuntu"
-    else
-      distribution
-    end
-  end
-
   def apt_targets
     env_apt_targets = (ENV["APT_TARGETS"] || "").split(",")
     if env_apt_targets.empty?
@@ -890,7 +879,7 @@ class BinaryTask
     else
       available_apt_targets.select do |distribution, code_name, component|
         env_apt_targets.any? do |env_apt_target|
-          if env_apt_target.include?("-")
+          if /\d/.match?(env_apt_target)
             env_apt_target.start_with?("#{distribution}-#{code_name}")
           else
             env_apt_target == distribution
@@ -991,7 +980,6 @@ class BinaryTask
       task :upload do
         apt_distributions.each do |distribution|
           distribution_dir = "#{deb_dir}/#{distribution}"
-          distribution_label = apt_distribution_label(distribution)
           uploader = ArtifactoryUploader.new(distribution: distribution,
                                              rc: rc,
                                              source: distribution_dir,
@@ -1173,7 +1161,6 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
         task :upload => apt_rc_repositories_dir do
           apt_distributions.each do |distribution|
             dists_dir = "#{apt_rc_repositories_dir}/#{distribution}/dists"
-            distribution_label = apt_distribution_label(distribution)
             uploader = ArtifactoryUploader.new(distribution: distribution,
                                                rc: rc,
                                                source: dists_dir,
@@ -1211,7 +1198,6 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
         task :upload => apt_release_repositories_dir do
           apt_distributions.each do |distribution|
             distribution_dir = "#{apt_release_repositories_dir}/#{distribution}"
-            distribution_label = apt_distribution_label(distribution)
             uploader = ArtifactoryUploader.new(distribution: distribution,
                                                source: distribution_dir,
                                                api_key: artifactory_api_key)
@@ -1249,18 +1235,10 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
 
   def available_yum_targets
     [
+      ["amazon-linux", "2"],
       ["centos", "7"],
       ["centos", "8"],
     ]
-  end
-
-  def yum_distribution_label(distribution)
-    case distribution
-    when "centos"
-      "CentOS"
-    else
-      distribution
-    end
   end
 
   def yum_targets
@@ -1270,7 +1248,7 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
     else
       available_yum_targets.select do |distribution, distribution_version|
         env_yum_targets.any? do |env_yum_target|
-          if env_yum_target.include?("-")
+          if /\d/.match?(env_yum_target)
             env_yum_target.start_with?("#{distribution}-#{distribution_version}")
           else
             env_yum_target == distribution
@@ -1432,7 +1410,6 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
       task :upload do
         yum_distributions.each do |distribution|
           distribution_dir = "#{rpm_dir}/#{distribution}"
-          distribution_label = yum_distribution_label(distribution)
           uploader = ArtifactoryUploader.new(distribution: distribution,
                                              rc: rc,
                                              source: distribution_dir,
@@ -1517,7 +1494,6 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
         desc "Upload RC Yum repositories"
         task :upload => yum_rc_repositories_dir do
           yum_targets.each do |distribution, distribution_version|
-            distribution_label = yum_distribution_label(distribution)
             base_dir = [
               yum_rc_repositories_dir,
               distribution,
@@ -1569,7 +1545,6 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
         task :upload => yum_release_repositories_dir do
           yum_distributions.each do |distribution|
             distribution_dir = "#{yum_release_repositories_dir}/#{distribution}"
-            distribution_label = yum_distribution_label(distribution)
             uploader = ArtifactoryUploader.new(distribution: distribution,
                                                source: distribution_dir,
                                                api_key: artifactory_api_key)
@@ -1706,11 +1681,12 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
       task :rc do
         puts(<<-SUMMARY)
 Success! The release candidate binaries are available here:
-  https://apache.jfrog.io/artifactory/arrow/debian-rc/
-  https://apache.jfrog.io/artifactory/arrow/ubuntu-rc/
+  https://apache.jfrog.io/artifactory/arrow/amazon-linux-rc/
   https://apache.jfrog.io/artifactory/arrow/centos-rc/
-  https://apache.jfrog.io/artifactory/arrow/python-rc/#{full_version}
+  https://apache.jfrog.io/artifactory/arrow/debian-rc/
   https://apache.jfrog.io/artifactory/arrow/nuget-rc/#{full_version}
+  https://apache.jfrog.io/artifactory/arrow/python-rc/#{full_version}
+  https://apache.jfrog.io/artifactory/arrow/ubuntu-rc/
         SUMMARY
       end
 
@@ -1718,11 +1694,12 @@ Success! The release candidate binaries are available here:
       task :release do
         puts(<<-SUMMARY)
 Success! The release binaries are available here:
-  https://apache.jfrog.io/arrow/debian/
-  https://apache.jfrog.io/arrow/ubuntu/
+  https://apache.jfrog.io/arrow/amazon-linux/
   https://apache.jfrog.io/arrow/centos/
-  https://apache.jfrog.io/arrow/python/#{version}
+  https://apache.jfrog.io/arrow/debian/
   https://apache.jfrog.io/arrow/nuget/#{version}
+  https://apache.jfrog.io/arrow/python/#{version}
+  https://apache.jfrog.io/arrow/ubuntu/
         SUMMARY
       end
     end

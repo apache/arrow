@@ -109,6 +109,7 @@ class LocalBinaryTask < BinaryTask
 
   def resolve_docker_image(target)
     image = ""
+    target = target.gsub(/\Aamazon-linux/, "amazonlinux")
     case target
     when /-(?:arm64|aarch64)\z/
       target = $PREMATCH
@@ -203,6 +204,8 @@ class LocalBinaryTask < BinaryTask
     # Disable aarch64 targets by default for now
     # because they require some setups on host.
     [
+      "amazon-linux-2",
+      # "amazon-linux-2-aarch64",
       "centos-7",
       "centos-8",
       # "centos-8-aarch64",

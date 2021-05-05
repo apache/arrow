@@ -48,8 +48,17 @@ have_flight=yes
 have_gandiva=yes
 have_glib=yes
 have_parquet=yes
+have_python=yes
 install_command="dnf install -y --enablerepo=powertools"
 case "${distribution}-${distribution_version}" in
+  amzn-2)
+    cmake_package=cmake3
+    cmake_command=cmake3
+    have_flight=no
+    have_gandiva=no
+    have_python=no
+    install_command="yum install -y"
+    ;;
   centos-7)
     cmake_package=cmake3
     cmake_command=cmake3
@@ -75,9 +84,19 @@ if [ "${TYPE}" = "local" ]; then
       package_version="${VERSION}-1"
       ;;
   esac
-  package_version+=".el${distribution_version}"
   release_path="${local_prefix}/yum/repositories"
-  release_path+="/centos/${distribution_version}/$(arch)/Packages"
+  case "${distribution}" in
+    amzn)
+      package_version+=".${distribution}${distribution_version}"
+      release_path+="/amazon-linux"
+      amazon-linux-extras install -y epel
+      ;;
+    *)
+      package_version+=".el${distribution_version}"
+      release_path+="/centos"
+      ;;
+  esac
+  release_path+="/${distribution_version}/$(arch)/Packages"
   release_path+="/apache-arrow-release-${package_version}.noarch.rpm"
   ${install_command} "${release_path}"
 else
@@ -122,7 +141,10 @@ if [ "${have_glib}" = "yes" ]; then
   ${install_command} --enablerepo=epel arrow-glib-devel-${package_version}
   ${install_command} --enablerepo=epel arrow-glib-doc-${package_version}
 fi
-${install_command} --enablerepo=epel arrow-python-devel-${package_version}
+
+if [ "${have_python}" = "yes" ]; then
+  ${install_command} --enablerepo=epel arrow-python-devel-${package_version}
+fi
 
 if [ "${have_glib}" = "yes" ]; then
   ${install_command} --enablerepo=epel plasma-glib-devel-${package_version}
