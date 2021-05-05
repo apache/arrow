@@ -3195,5 +3195,5 @@ def test_open_dataset_filesystem_fspath(tempdir):
     assert dataset2.schema.equals(table.schema)
 
     # passing different filesystem
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError):
         ds.dataset(fspath, filesystem=fs._MockFileSystem())
