@@ -1396,6 +1396,14 @@ tasks:
         FEDORA: 33
       run: fedora-python
 
+  test-r-linux-valgrind:
+    ci: azure
+    template: docker-tests/azure.linux.yml
+    params:
+      env:
+        UBUNTU: 18.04
+      run: ubuntu-r-valgrind
+
   test-r-linux-as-cran:
     ci: github
     template: r/github.linux.cran.yml
