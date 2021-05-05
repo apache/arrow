@@ -589,27 +589,16 @@ Status NumPyConverter::Visit(const FixedSizeBinaryType& type) {
                            byte_width, ")");
   }
 
-  FixedSizeBinaryBuilder builder(::arrow::fixed_size_binary(byte_width), pool_);
-  auto data = reinterpret_cast<const uint8_t*>(PyArray_DATA(arr_));
-
+  RETURN_NOT_OK(InitNullBitmap());
   if (mask_ != nullptr) {
-    Ndarray1DIndexer<uint8_t> mask_values(mask_);
-    RETURN_NOT_OK(builder.Reserve(length_));
-    for (int64_t i = 0; i < length_; ++i) {
-      if (mask_values[i]) {
-        RETURN_NOT_OK(builder.AppendNull());
-      } else {
-        RETURN_NOT_OK(builder.Append(data));
-      }
-      data += stride_;
-    }
-  } else {
-    RETURN_NOT_OK(builder.AppendValues(data, length_));
+    null_count_ = MaskToBitmap(mask_, length_, null_bitmap_data_);
   }
 
-  std::shared_ptr<Array> result;
-  RETURN_NOT_OK(builder.Finish(&result));
-  return PushArray(result->data());
+  std::shared_ptr<Buffer> data;
+  RETURN_NOT_OK(PrepareInputData<FixedSizeBinaryType>(&data));
+
+  auto arr_data = ArrayData::Make(type_, length_, {null_bitmap_, data}, null_count_, 0);
+  return PushArray(arr_data);
 }
 
 namespace {
