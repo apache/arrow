@@ -484,4 +484,9 @@ std::shared_ptr<arrow::Table> dataset___Scanner__TakeRows(
   return ValueOrStop(scanner->TakeRows(*indices));
 }
 
+// [[dataset::export]]
+int64_t dataset___Scanner__CountRows(const std::shared_ptr<ds::Scanner>& scanner) {
+  return ValueOrStop(scanner->CountRows());
+}
+
 #endif

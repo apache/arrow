@@ -357,6 +357,28 @@ TEST(Expression, FieldsInExpression) {
                   {"a", "b", "c"});
 }
 
+TEST(Expression, ExpressionHasFieldRefs) {
+  EXPECT_FALSE(ExpressionHasFieldRefs(literal(true)));
+
+  EXPECT_FALSE(ExpressionHasFieldRefs(call("add", {literal(1), literal(3)})));
+
+  EXPECT_TRUE(ExpressionHasFieldRefs(field_ref("a")));
+
+  EXPECT_TRUE(ExpressionHasFieldRefs(equal(field_ref("a"), literal(1))));
+
+  EXPECT_TRUE(ExpressionHasFieldRefs(equal(field_ref("a"), field_ref("b"))));
+
+  EXPECT_TRUE(ExpressionHasFieldRefs(
+      or_(equal(field_ref("a"), literal(1)), equal(field_ref("a"), literal(2)))));
+
+  EXPECT_TRUE(ExpressionHasFieldRefs(
+      or_(equal(field_ref("a"), literal(1)), equal(field_ref("b"), literal(2)))));
+
+  EXPECT_TRUE(ExpressionHasFieldRefs(or_(
+      and_(not_(equal(field_ref("a"), literal(1))), equal(field_ref("b"), literal(2))),
+      not_(less(field_ref("c"), literal(3))))));
+}
+
 TEST(Expression, BindLiteral) {
   for (Datum dat : {
            Datum(3),

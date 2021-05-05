@@ -169,6 +169,9 @@ class ARROW_EXPORT RecordBatchFileReader {
 
   /// \brief Return current read statistics
   virtual ReadStats stats() const = 0;
+
+  /// \brief Computes the total number of rows in the file.
+  virtual Result<int64_t> CountRows() = 0;
 };
 
 /// \brief A general listener class to receive events.

@@ -410,22 +410,24 @@ cdef class Dataset(_Weakrefable):
 
         Selecting a subset of the columns:
 
-        >>> dataset.scan(columns=["A", "B"])
+        >>> dataset.scanner(columns=["A", "B"]).to_table()
 
         Projecting selected columns using an expression:
 
-        >>> dataset.scan(columns={"A_int": ds.field("A").cast("int64")})
+        >>> dataset.scanner(columns={
+        ...     "A_int": ds.field("A").cast("int64"),
+        ... }).to_table()
 
         Filtering rows while scanning:
 
-        >>> dataset.scan(filter=ds.field("A") > 0)
+        >>> dataset.scanner(filter=ds.field("A") > 0).to_table()
         """
         return Scanner.from_dataset(self, **kwargs)
 
     def to_batches(self, **kwargs):
         """Read the dataset as materialized record batches.
 
-        See scan method parameters documentation.
+        See scanner method parameters documentation.
 
         Returns
         -------
@@ -439,7 +441,7 @@ cdef class Dataset(_Weakrefable):
         Note that this method reads all the selected data from the dataset
         into memory.
 
-        See scan method parameters documentation.
+        See scanner method parameters documentation.
 
         Returns
         -------
@@ -447,16 +449,38 @@ cdef class Dataset(_Weakrefable):
         """
         return self.scanner(**kwargs).to_table()
 
+    def take(self, object indices, **kwargs):
+        """Select rows of data by index.
+
+        See scanner method parameters documentation.
+
+        Returns
+        -------
+        table : Table instance
+        """
+        return self.scanner(**kwargs).take(indices)
+
     def head(self, int num_rows, **kwargs):
         """Load the first N rows of the dataset.
 
-        See scan method parameters documentation.
+        See scanner method parameters documentation.
 
         Returns
         -------
         table : Table instance
         """
         return self.scanner(**kwargs).head(num_rows)
+
+    def count_rows(self, **kwargs):
+        """Count rows matching the scanner filter.
+
+        See scanner method parameters documentation.
+
+        Returns
+        -------
+        count : int
+        """
+        return self.scanner(**kwargs).count_rows()
 
     @property
     def schema(self):
@@ -962,7 +986,7 @@ cdef class Fragment(_Weakrefable):
     def to_batches(self, Schema schema=None, **kwargs):
         """Read the fragment as materialized record batches.
 
-        See scan method parameters documentation.
+        See scanner method parameters documentation.
 
         Returns
         -------
@@ -976,7 +1000,7 @@ cdef class Fragment(_Weakrefable):
         Use this convenience utility with care. This will serially materialize
         the Scan result in memory before creating the Table.
 
-        See scan method parameters documentation.
+        See scanner method parameters documentation.
 
         Returns
         -------
@@ -984,16 +1008,38 @@ cdef class Fragment(_Weakrefable):
         """
         return self.scanner(schema=schema, **kwargs).to_table()
 
+    def take(self, object indices, **kwargs):
+        """Select rows of data by index.
+
+        See scanner method parameters documentation.
+
+        Returns
+        -------
+        table : Table instance
+        """
+        return self.scanner(**kwargs).take(indices)
+
     def head(self, int num_rows, **kwargs):
         """Load the first N rows of the fragment.
 
-        See scan method parameters documentation.
+        See scanner method parameters documentation.
 
         Returns
         -------
         table : Table instance
         """
         return self.scanner(**kwargs).head(num_rows)
+
+    def count_rows(self, **kwargs):
+        """Count rows matching the scanner filter.
+
+        See scanner method parameters documentation.
+
+        Returns
+        -------
+        count : int
+        """
+        return self.scanner(**kwargs).count_rows()
 
 
 cdef class FileFragment(Fragment):
@@ -2837,6 +2883,18 @@ cdef class Scanner(_Weakrefable):
         with nogil:
             result = self.scanner.Head(num_rows)
         return pyarrow_wrap_table(GetResultValue(result))
+
+    def count_rows(self):
+        """Count rows matching the scanner filter.
+
+        Returns
+        -------
+        count : int
+        """
+        cdef CResult[int64_t] result
+        with nogil:
+            result = self.scanner.CountRows()
+        return GetResultValue(result)
 
 
 def _get_partition_keys(Expression partition_expression):

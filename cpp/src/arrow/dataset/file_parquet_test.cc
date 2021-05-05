@@ -220,6 +220,69 @@ TEST_F(TestParquetFileFormat, WriteRecordBatchReaderCustomOptions) {
                     *actual_schema);
 }
 
+TEST_F(TestParquetFileFormat, CountRows) { TestCountRows(); }
+
+TEST_F(TestParquetFileFormat, CountRowsPredicatePushdown) {
+  constexpr int64_t kNumRowGroups = 16;
+  constexpr int64_t kTotalNumRows = kNumRowGroups * (kNumRowGroups + 1) / 2;
+
+  // See PredicatePushdown test below for a description of the generated data
+  auto reader = ArithmeticDatasetFixture::GetRecordBatchReader(kNumRowGroups);
+  auto source = GetFileSource(reader.get());
+  auto options = std::make_shared<ScanOptions>();
+
+  auto fragment = MakeFragment(*source);
+
+  ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(kTotalNumRows),
+                            fragment->CountRows(literal(true), options));
+
+  for (int i = 1; i <= kNumRowGroups; i++) {
+    SCOPED_TRACE(i);
+    // The row group for which all values in column i64 == i has i rows
+    auto predicate = less_equal(field_ref("i64"), literal(i));
+    ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*reader->schema()));
+    auto expected = i * (i + 1) / 2;
+    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(expected),
+                              fragment->CountRows(predicate, options));
+
+    predicate = and_(less_equal(field_ref("i64"), literal(i)),
+                     greater_equal(field_ref("i64"), literal(i)));
+    ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*reader->schema()));
+    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(i),
+                              fragment->CountRows(predicate, options));
+
+    predicate = equal(field_ref("i64"), literal(i));
+    ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*reader->schema()));
+    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(i),
+                              fragment->CountRows(predicate, options));
+  }
+
+  // Ensure nulls are properly handled
+  {
+    auto dataset_schema = schema({field("i64", int64())});
+    auto null_batch = RecordBatchFromJSON(dataset_schema, R"([
+[null],
+[null],
+[null]
+])");
+    auto batch = RecordBatchFromJSON(dataset_schema, R"([
+[1],
+[2]
+])");
+    ASSERT_OK_AND_ASSIGN(auto reader,
+                         RecordBatchReader::Make({null_batch, batch}, dataset_schema));
+    auto source = GetFileSource(reader.get());
+    auto fragment = MakeFragment(*source);
+    ASSERT_OK_AND_ASSIGN(
+        auto predicate,
+        greater_equal(field_ref("i64"), literal(1)).Bind(*dataset_schema));
+    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(2),
+                              fragment->CountRows(predicate, options));
+    // TODO(ARROW-12659): SimplifyWithGuarantee can't handle
+    // not(is_null) so trying to count with is_null doesn't work
+  }
+}
+
 class TestParquetFileSystemDataset : public WriteFileSystemDatasetMixin,
                                      public testing::Test {
  public:

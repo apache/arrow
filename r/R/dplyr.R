@@ -147,9 +147,8 @@ dim.arrow_dplyr_query <- function(x) {
   if (isTRUE(x$filtered)) {
     rows <- x$.data$num_rows
   } else if (query_on_dataset(x)) {
-    warning("Number of rows unknown; returning NA", call. = FALSE)
-    # TODO: https://issues.apache.org/jira/browse/ARROW-9697
-    rows <- NA_integer_
+    scanner <- Scanner$create(x)
+    rows <- scanner$CountRows()
   } else {
     # Evaluate the filter expression to a BooleanArray and count
     rows <- as.integer(sum(eval_array_expression(x$filtered_rows, x$.data), na.rm = TRUE))

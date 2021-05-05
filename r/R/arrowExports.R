@@ -548,6 +548,10 @@ dataset___Scanner__TakeRows <- function(scanner, indices){
     .Call(`_arrow_dataset___Scanner__TakeRows`, scanner, indices)
 }
 
+dataset___Scanner__CountRows <- function(scanner){
+    .Call(`_arrow_dataset___Scanner__CountRows`, scanner)
+}
+
 Int8__initialize <- function(){
     .Call(`_arrow_Int8__initialize`)
 }
