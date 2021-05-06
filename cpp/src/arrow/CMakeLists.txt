@@ -367,6 +367,7 @@ if(ARROW_COMPUTE)
               compute/api_vector.cc
               compute/cast.cc
               compute/exec.cc
+              compute/exec/exec_plan.cc
               compute/exec/expression.cc
               compute/function.cc
               compute/kernel.cc
@@ -405,6 +406,7 @@ if(ARROW_COMPUTE)
     set_source_files_properties(compute/kernels/aggregate_basic_avx2.cc PROPERTIES
                                 COMPILE_FLAGS ${ARROW_AVX2_FLAG})
   endif()
+
   if(ARROW_HAVE_RUNTIME_AVX512)
     list(APPEND ARROW_SRCS compute/kernels/aggregate_basic_avx512.cc)
     set_source_files_properties(compute/kernels/aggregate_basic_avx512.cc PROPERTIES
@@ -412,11 +414,8 @@ if(ARROW_COMPUTE)
     set_source_files_properties(compute/kernels/aggregate_basic_avx512.cc PROPERTIES
                                 COMPILE_FLAGS ${ARROW_AVX512_FLAG})
   endif()
-endif()
 
-if(ARROW_ENGINE)
-  list(APPEND ARROW_SRCS engine/exec_plan.cc)
-  list(APPEND ARROW_TESTING_SRCS engine/test_util.cc)
+  list(APPEND ARROW_TESTING_SRCS compute/exec/test_util.cc)
 endif()
 
 if(ARROW_FILESYSTEM)
@@ -682,10 +681,6 @@ endif()
 
 if(ARROW_DATASET)
   add_subdirectory(dataset)
-endif()
-
-if(ARROW_ENGINE)
-  add_subdirectory(engine)
 endif()
 
 if(ARROW_FILESYSTEM)

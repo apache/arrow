@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/engine/exec_plan.h"
+#include "arrow/compute/exec/exec_plan.h"
 
 #include <unordered_set>
 

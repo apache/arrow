@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/engine/test_util.h"
+#include "arrow/compute/exec/test_util.h"
 
 #include <algorithm>
 #include <functional>
@@ -27,7 +27,7 @@
 
 #include "arrow/compute/exec.h"
 #include "arrow/datum.h"
-#include "arrow/engine/exec_plan.h"
+#include "arrow/compute/exec/exec_plan.h"
 #include "arrow/record_batch.h"
 #include "arrow/type.h"
 #include "arrow/util/async_generator.h"

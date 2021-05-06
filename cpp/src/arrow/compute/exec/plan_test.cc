@@ -20,8 +20,8 @@
 #include <functional>
 #include <memory>
 
-#include "arrow/engine/exec_plan.h"
-#include "arrow/engine/test_util.h"
+#include "arrow/compute/exec/exec_plan.h"
+#include "arrow/compute/exec/test_util.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"

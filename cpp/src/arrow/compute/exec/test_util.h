@@ -22,7 +22,7 @@
 #include <string>
 #include <vector>
 
-#include "arrow/engine/exec_plan.h"
+#include "arrow/compute/exec/exec_plan.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/visibility.h"
 #include "arrow/util/async_generator.h"
