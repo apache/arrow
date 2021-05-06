@@ -37,6 +37,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
 #include "arrow/util/string_view.h"
+#include "arrow/util/uri.h"
 
 namespace arrow {
 
@@ -267,7 +268,11 @@ std::vector<KeyValuePartitioning::Key> DirectoryPartitioning::ParseKeys(
   for (auto&& segment : fs::internal::SplitAbstractPath(path)) {
     if (i >= schema_->num_fields()) break;
 
-    keys.push_back({schema_->field(i++)->name(), std::move(segment)});
+    if (options_.url_decode_segments) {
+      keys.push_back({schema_->field(i++)->name(), internal::UriUnescape(segment)});
+    } else {
+      keys.push_back({schema_->field(i++)->name(), std::move(segment)});
+    }
   }
 
   return keys;
@@ -306,6 +311,20 @@ Result<std::string> DirectoryPartitioning::FormatValues(
   }
 
   return fs::internal::JoinAbstractPath(std::move(segments));
+}
+
+KeyValuePartitioningOptions PartitioningFactoryOptions::AsPartitioningOptions() const {
+  KeyValuePartitioningOptions options;
+  options.url_decode_segments = url_decode_segments;
+  return options;
+}
+
+HivePartitioningOptions HivePartitioningFactoryOptions::AsHivePartitioningOptions()
+    const {
+  HivePartitioningOptions options;
+  options.url_decode_segments = url_decode_segments;
+  options.null_fallback = null_fallback;
+  return options;
 }
 
 namespace {
@@ -441,7 +460,12 @@ class DirectoryPartitioningFactory : public KeyValuePartitioningFactory {
       for (auto&& segment : fs::internal::SplitAbstractPath(path)) {
         if (field_index == field_names_.size()) break;
 
-        RETURN_NOT_OK(InsertRepr(static_cast<int>(field_index++), segment));
+        if (options_.url_decode_segments) {
+          RETURN_NOT_OK(InsertRepr(static_cast<int>(field_index++),
+                                   internal::UriUnescape(segment)));
+        } else {
+          RETURN_NOT_OK(InsertRepr(static_cast<int>(field_index++), segment));
+        }
       }
     }
 
@@ -458,7 +482,8 @@ class DirectoryPartitioningFactory : public KeyValuePartitioningFactory {
     // drop fields which aren't in field_names_
     auto out_schema = SchemaFromColumnNames(schema, field_names_);
 
-    return std::make_shared<DirectoryPartitioning>(std::move(out_schema), dictionaries_);
+    return std::make_shared<DirectoryPartitioning>(std::move(out_schema), dictionaries_,
+                                                   options_.AsPartitioningOptions());
   }
 
  private:
@@ -482,7 +507,7 @@ std::shared_ptr<PartitioningFactory> DirectoryPartitioning::MakeFactory(
 }
 
 util::optional<KeyValuePartitioning::Key> HivePartitioning::ParseKey(
-    const std::string& segment, const std::string& null_fallback) {
+    const std::string& segment, const HivePartitioningOptions& options) {
   auto name_end = string_view(segment).find_first_of('=');
   // Not round-trippable
   if (name_end == string_view::npos) {
@@ -490,11 +515,18 @@ util::optional<KeyValuePartitioning::Key> HivePartitioning::ParseKey(
   }
 
   auto name = segment.substr(0, name_end);
-  auto value = segment.substr(name_end + 1);
-  if (value == null_fallback) {
-    return Key{name, util::nullopt};
+  std::string value;
+  if (options.url_decode_segments) {
+    value = internal::UriUnescape(
+        util::string_view(segment.data() + name_end + 1, segment.size() - name_end - 1));
+  } else {
+    value = segment.substr(name_end + 1);
   }
-  return Key{name, value};
+
+  if (value == options.null_fallback) {
+    return Key{std::move(name), util::nullopt};
+  }
+  return Key{std::move(name), std::move(value)};
 }
 
 std::vector<KeyValuePartitioning::Key> HivePartitioning::ParseKeys(
@@ -502,7 +534,7 @@ std::vector<KeyValuePartitioning::Key> HivePartitioning::ParseKeys(
   std::vector<Key> keys;
 
   for (const auto& segment : fs::internal::SplitAbstractPath(path)) {
-    if (auto key = ParseKey(segment, null_fallback_)) {
+    if (auto key = ParseKey(segment, hive_options_)) {
       keys.push_back(std::move(*key));
     }
   }
@@ -521,7 +553,7 @@ Result<std::string> HivePartitioning::FormatValues(const ScalarVector& values) c
     } else if (!values[i]->is_valid) {
       // If no key is available just provide a placeholder segment to maintain the
       // field_index <-> path nesting relation
-      segments[i] = name + "=" + null_fallback_;
+      segments[i] = name + "=" + hive_options_.null_fallback;
     } else {
       segments[i] = name + "=" + values[i]->ToString();
     }
@@ -533,15 +565,16 @@ Result<std::string> HivePartitioning::FormatValues(const ScalarVector& values) c
 class HivePartitioningFactory : public KeyValuePartitioningFactory {
  public:
   explicit HivePartitioningFactory(HivePartitioningFactoryOptions options)
-      : KeyValuePartitioningFactory(options), null_fallback_(options.null_fallback) {}
+      : KeyValuePartitioningFactory(options), options_(std::move(options)) {}
 
   std::string type_name() const override { return "hive"; }
 
   Result<std::shared_ptr<Schema>> Inspect(
       const std::vector<std::string>& paths) override {
+    auto options = options_.AsHivePartitioningOptions();
     for (auto path : paths) {
       for (auto&& segment : fs::internal::SplitAbstractPath(path)) {
-        if (auto key = HivePartitioning::ParseKey(segment, null_fallback_)) {
+        if (auto key = HivePartitioning::ParseKey(segment, options)) {
           RETURN_NOT_OK(InsertRepr(key->name, key->value));
         }
       }
@@ -565,12 +598,12 @@ class HivePartitioningFactory : public KeyValuePartitioningFactory {
       auto out_schema = SchemaFromColumnNames(schema, field_names_);
 
       return std::make_shared<HivePartitioning>(std::move(out_schema), dictionaries_,
-                                                null_fallback_);
+                                                options_.AsHivePartitioningOptions());
     }
   }
 
  private:
-  const std::string null_fallback_;
+  const HivePartitioningFactoryOptions options_;
   std::vector<std::string> field_names_;
 };
 
