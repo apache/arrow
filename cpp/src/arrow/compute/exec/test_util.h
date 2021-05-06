@@ -37,14 +37,12 @@ using StopProducingFunc = std::function<void(ExecNode*)>;
 // Make a dummy node that has no execution behaviour
 ARROW_TESTING_EXPORT
 ExecNode* MakeDummyNode(ExecPlan* plan, std::string label, int num_inputs,
-                        int num_outputs, StartProducingFunc = {}, StopProducingFunc = {});
+                        StartProducingFunc = {}, StopProducingFunc = {});
 
 using RecordBatchGenerator = AsyncGenerator<std::shared_ptr<RecordBatch>>;
 
-// Make a source node that produces record batches by reading in the background
-// from a RecordBatchReader.
-// 0 input
-// 1 output (N columns)
+// Make a source node (no inputs) that produces record batches by reading in the
+// background from a RecordBatchReader.
 ARROW_TESTING_EXPORT
 ExecNode* MakeRecordBatchReaderNode(ExecPlan* plan, std::string label,
                                     std::shared_ptr<RecordBatchReader> reader,

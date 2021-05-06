@@ -23,11 +23,12 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "arrow/compute/exec.h"
-#include "arrow/datum.h"
 #include "arrow/compute/exec/exec_plan.h"
+#include "arrow/datum.h"
 #include "arrow/record_batch.h"
 #include "arrow/type.h"
 #include "arrow/util/async_generator.h"
@@ -44,38 +45,31 @@ namespace {
 
 // TODO expose this as `static ValueDescr::FromSchemaColumns`?
 std::vector<ValueDescr> DescrFromSchemaColumns(const Schema& schema) {
-  std::vector<ValueDescr> descr;
-  descr.reserve(schema.num_fields());
-  std::transform(schema.fields().begin(), schema.fields().end(),
-                 std::back_inserter(descr), [](const std::shared_ptr<Field>& field) {
+  std::vector<ValueDescr> descr(schema.num_fields());
+  std::transform(schema.fields().begin(), schema.fields().end(), descr.begin(),
+                 [](const std::shared_ptr<Field>& field) {
                    return ValueDescr::Array(field->type());
                  });
   return descr;
 }
 
 struct DummyNode : ExecNode {
-  DummyNode(ExecPlan* plan, std::string label, int num_inputs, int num_outputs,
+  DummyNode(ExecPlan* plan, std::string label, int num_inputs,
             StartProducingFunc start_producing, StopProducingFunc stop_producing)
       : ExecNode(plan, std::move(label)),
-        num_inputs_(num_inputs),
-        num_outputs_(num_outputs),
         start_producing_(std::move(start_producing)),
         stop_producing_(std::move(stop_producing)) {
     input_descrs_.assign(num_inputs, descr());
-    output_descrs_.assign(num_outputs, descr());
+    output_descr_ = descr();
   }
 
   const char* kind_name() override { return "RecordBatchReader"; }
 
-  int num_inputs() const override { return num_inputs_; }
+  void InputReceived(ExecNode* input, int seq_num, compute::ExecBatch batch) override {}
 
-  int num_outputs() const override { return num_outputs_; }
+  void ErrorReceived(ExecNode* input, Status error) override {}
 
-  void InputReceived(int input_index, int seq_num, compute::ExecBatch batch) override {}
-
-  void ErrorReceived(int input_index, Status error) override {}
-
-  void InputFinished(int input_index, int seq_stop) override {}
+  void InputFinished(ExecNode* input, int seq_stop) override {}
 
   Status StartProducing() override {
     if (start_producing_) {
@@ -100,8 +94,6 @@ struct DummyNode : ExecNode {
  private:
   BatchDescr descr() const { return std::vector<ValueDescr>{ValueDescr(null())}; }
 
-  int num_inputs_;
-  int num_outputs_;
   StartProducingFunc start_producing_;
   StopProducingFunc stop_producing_;
   bool started_ = false;
@@ -114,7 +106,7 @@ struct RecordBatchReaderNode : ExecNode {
         schema_(reader->schema()),
         reader_(std::move(reader)),
         io_executor_(io_executor) {
-    output_descrs_.push_back(DescrFromSchemaColumns(*schema_));
+    output_descr_ = DescrFromSchemaColumns(*schema_);
   }
 
   RecordBatchReaderNode(ExecPlan* plan, std::string label, std::shared_ptr<Schema> schema,
@@ -123,20 +115,16 @@ struct RecordBatchReaderNode : ExecNode {
         schema_(std::move(schema)),
         io_executor_(io_executor),
         generator_(std::move(generator)) {
-    output_descrs_.push_back(DescrFromSchemaColumns(*schema_));
+    output_descr_ = DescrFromSchemaColumns(*schema_);
   }
 
   const char* kind_name() override { return "RecordBatchReader"; }
 
-  int num_inputs() const override { return 0; }
+  void InputReceived(ExecNode* input, int seq_num, compute::ExecBatch batch) override {}
 
-  int num_outputs() const override { return 1; }
+  void ErrorReceived(ExecNode* input, Status error) override {}
 
-  void InputReceived(int input_index, int seq_num, compute::ExecBatch batch) override {}
-
-  void ErrorReceived(int input_index, Status error) override {}
-
-  void InputFinished(int input_index, int seq_stop) override {}
+  void InputFinished(ExecNode* input, int seq_stop) override {}
 
   Status StartProducing() override {
     next_batch_index_ = 0;
@@ -162,7 +150,7 @@ struct RecordBatchReaderNode : ExecNode {
       // Stopped
       return;
     }
-    auto plan = plan_ref();
+    auto plan = this->plan()->shared_from_this();
     auto fut = generator_();
     const auto batch_index = next_batch_index_++;
 
@@ -172,20 +160,17 @@ struct RecordBatchReaderNode : ExecNode {
         .AddCallback(
             [plan, batch_index, this](const Result<std::shared_ptr<RecordBatch>>& res) {
               std::unique_lock<std::mutex> lock(mutex_);
-              DCHECK_EQ(outputs_.size(), 1);
-              OutputNode* out = &outputs_[0];
               if (!res.ok()) {
-                out->output->ErrorReceived(out->input_index, res.status());
+                output_->ErrorReceived(output_, res.status());
                 return;
               }
               const auto& batch = *res;
               if (IsIterationEnd(batch)) {
                 lock.unlock();
-                out->output->InputFinished(out->input_index, batch_index);
+                output_->InputFinished(output_, batch_index);
               } else {
                 lock.unlock();
-                out->output->InputReceived(out->input_index, batch_index,
-                                           compute::ExecBatch(*batch));
+                output_->InputReceived(output_, batch_index, compute::ExecBatch(*batch));
                 lock.lock();
                 GenerateOne(std::move(lock));
               }
@@ -203,18 +188,14 @@ struct RecordBatchReaderNode : ExecNode {
 
 struct RecordBatchCollectNodeImpl : public RecordBatchCollectNode {
   RecordBatchCollectNodeImpl(ExecPlan* plan, std::string label,
-                             const std::shared_ptr<Schema>& schema)
-      : RecordBatchCollectNode(plan, std::move(label)), schema_(schema) {
+                             std::shared_ptr<Schema> schema)
+      : RecordBatchCollectNode(plan, std::move(label)), schema_(std::move(schema)) {
     input_descrs_.push_back(DescrFromSchemaColumns(*schema_));
   }
 
   RecordBatchGenerator generator() override { return generator_; }
 
   const char* kind_name() override { return "RecordBatchReader"; }
-
-  int num_inputs() const override { return 1; }
-
-  int num_outputs() const override { return 0; }
 
   Status StartProducing() override {
     num_received_ = 0;
@@ -230,7 +211,7 @@ struct RecordBatchCollectNodeImpl : public RecordBatchCollectNode {
     StopProducing(&lock);
   }
 
-  void InputReceived(int input_index, int seq_num,
+  void InputReceived(ExecNode* input, int seq_num,
                      compute::ExecBatch exec_batch) override {
     std::unique_lock<std::mutex> lock(mutex_);
     if (stopped_) {
@@ -286,13 +267,13 @@ struct RecordBatchCollectNodeImpl : public RecordBatchCollectNode {
     num_emitted_ = seq_num;
   }
 
-  void ErrorReceived(int input_index, Status error) override {
+  void ErrorReceived(ExecNode* input, Status error) override {
     // XXX do we care about properly sequencing the error?
     producer_->Push(std::move(error));
     StopProducing();
   }
 
-  void InputFinished(int input_index, int seq_stop) override {
+  void InputFinished(ExecNode* input, int seq_stop) override {
     std::unique_lock<std::mutex> lock(mutex_);
     DCHECK_GE(seq_stop, static_cast<int>(received_batches_.size()));
     received_batches_.reserve(seq_stop);
@@ -343,36 +324,30 @@ struct RecordBatchCollectNodeImpl : public RecordBatchCollectNode {
 ExecNode* MakeRecordBatchReaderNode(ExecPlan* plan, std::string label,
                                     std::shared_ptr<RecordBatchReader> reader,
                                     Executor* io_executor) {
-  auto ptr =
-      new RecordBatchReaderNode(plan, std::move(label), std::move(reader), io_executor);
-  plan->AddNode(std::unique_ptr<ExecNode>{ptr});
-  return ptr;
+  return plan->EmplaceNode<RecordBatchReaderNode>(plan, std::move(label),
+                                                  std::move(reader), io_executor);
 }
 
 ExecNode* MakeRecordBatchReaderNode(ExecPlan* plan, std::string label,
                                     std::shared_ptr<Schema> schema,
                                     RecordBatchGenerator generator,
                                     ::arrow::internal::Executor* io_executor) {
-  auto ptr = new RecordBatchReaderNode(plan, std::move(label), std::move(schema),
-                                       std::move(generator), io_executor);
-  plan->AddNode(std::unique_ptr<ExecNode>{ptr});
-  return ptr;
+  return plan->EmplaceNode<RecordBatchReaderNode>(
+      plan, std::move(label), std::move(schema), std::move(generator), io_executor);
 }
 
 ExecNode* MakeDummyNode(ExecPlan* plan, std::string label, int num_inputs,
-                        int num_outputs, StartProducingFunc start_producing,
+                        StartProducingFunc start_producing,
                         StopProducingFunc stop_producing) {
-  auto ptr = new DummyNode(plan, std::move(label), num_inputs, num_outputs,
-                           std::move(start_producing), std::move(stop_producing));
-  plan->AddNode(std::unique_ptr<ExecNode>{ptr});
-  return ptr;
+  return plan->EmplaceNode<DummyNode>(plan, std::move(label), num_inputs,
+                                      std::move(start_producing),
+                                      std::move(stop_producing));
 }
 
 RecordBatchCollectNode* MakeRecordBatchCollectNode(
     ExecPlan* plan, std::string label, const std::shared_ptr<Schema>& schema) {
-  auto ptr = new RecordBatchCollectNodeImpl(plan, std::move(label), schema);
-  plan->AddNode(std::unique_ptr<ExecNode>{ptr});
-  return ptr;
+  return internal::checked_cast<RecordBatchCollectNode*>(
+      plan->EmplaceNode<RecordBatchCollectNodeImpl>(plan, std::move(label), schema));
 }
 
 }  // namespace compute

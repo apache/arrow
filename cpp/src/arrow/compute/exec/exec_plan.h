@@ -45,13 +45,18 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
   /// Make an empty exec plan
   static Result<std::shared_ptr<ExecPlan>> Make();
 
-  void AddNode(std::unique_ptr<ExecNode> node);
+  ExecNode* AddNode(std::unique_ptr<ExecNode> node);
+
+  template <typename Node, typename... Args>
+  ExecNode* EmplaceNode(Args&&... args) {
+    return AddNode(std::unique_ptr<Node>(new Node{std::forward<Args>(args)...}));
+  }
 
   /// The initial inputs
   const NodeVector& sources() const;
 
   /// The final outputs
-  const NodeVector& sinks() const;
+  NodeVector sinks() const;
 
   // XXX API question:
   // There are clearly two phases in the ExecPlan lifecycle:
@@ -78,59 +83,44 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
 
 class ARROW_EXPORT ExecNode {
  public:
-  struct OutputNode {
-    ExecNode* output;
-    // Index of corresponding input in `output` node
-    int input_index;
-  };
-
   using NodeVector = std::vector<ExecNode*>;
-  using OutputNodeVector = std::vector<OutputNode>;
   using BatchDescr = std::vector<ValueDescr>;
 
-  virtual ~ExecNode();
+  virtual ~ExecNode() = default;
 
   virtual const char* kind_name() = 0;
-  // The number of inputs and outputs expected by this node
-  // XXX should these simply return `input_descrs_.size()`
-  // (`output_descrs_.size()` respectively)?
-  virtual int num_inputs() const = 0;
-  virtual int num_outputs() const = 0;
+
+  // The number of inputs expected by this node
+  int num_inputs() const { return static_cast<int>(input_descrs_.size()); }
 
   /// This node's predecessors in the exec plan
   const NodeVector& inputs() const { return inputs_; }
 
-  /// The datatypes for each input
-  // XXX Should it be std::vector<DataType>?
+  /// The datatypes accepted by this node for each input
   const std::vector<BatchDescr>& input_descrs() const { return input_descrs_; }
 
-  /// This node's successors in the exec plan
-  const OutputNodeVector& outputs() const { return outputs_; }
+  /// \brief Labels identifying the function of each input.
+  ///
+  /// For example, FilterNode accepts "target" and "filter" inputs.
+  const std::string& input_labels() const { return input_labels_; }
 
-  /// The datatypes for each output
-  // XXX Should it be std::vector<DataType>?
-  const std::vector<BatchDescr>& output_descrs() const { return output_descrs_; }
+  /// This node's successor in the exec plan
+  ExecNode* output() const { return output_; }
+
+  /// The datatypes for batches produced by this node
+  const BatchDescr& output_descr() const { return output_descr_; }
 
   /// This node's exec plan
   ExecPlan* plan() { return plan_; }
-  std::shared_ptr<ExecPlan> plan_ref() { return plan_->shared_from_this(); }
 
   /// \brief An optional label, for display and debugging
   ///
   /// There is no guarantee that this value is non-empty or unique.
   const std::string& label() const { return label_; }
 
-  int AddInput(ExecNode* node) {
-    inputs_.push_back(node);
-    return static_cast<int>(inputs_.size() - 1);
-  }
-
-  void AddOutput(ExecNode* node, int input_index) {
-    outputs_.push_back({node, input_index});
-  }
-
-  static void Bind(ExecNode* input, ExecNode* output) {
-    input->AddOutput(output, output->AddInput(input));
+  void AddInput(ExecNode* input) {
+    inputs_.push_back(input);
+    input->output_ = this;
   }
 
   Status Validate() const;
@@ -148,17 +138,17 @@ class ARROW_EXPORT ExecNode {
   ///   and StopProducing()
 
   /// Transfer input batch to ExecNode
-  virtual void InputReceived(int input_index, int seq_num, compute::ExecBatch batch) = 0;
+  virtual void InputReceived(ExecNode* input, int seq_num, compute::ExecBatch batch) = 0;
 
   /// Signal error to ExecNode
-  virtual void ErrorReceived(int input_index, Status error) = 0;
+  virtual void ErrorReceived(ExecNode* input, Status error) = 0;
 
   /// Mark the inputs finished after the given number of batches.
   ///
   /// This may be called before all inputs are received.  This simply fixes
   /// the total number of incoming batches for an input, so that the ExecNode
   /// knows when it has received all input, regardless of order.
-  virtual void InputFinished(int input_index, int seq_stop) = 0;
+  virtual void InputFinished(ExecNode* input, int seq_stop) = 0;
 
   /// Lifecycle API:
   /// - start / stop to initiate and terminate production
@@ -215,7 +205,7 @@ class ARROW_EXPORT ExecNode {
   ///
   /// This may be called any number of times after StartProducing() succeeds.
   /// However, the node is still free to produce data (which may be difficult
-  /// to prevent anyway if data is producer using multiple threads).
+  /// to prevent anyway if data is produced using multiple threads).
   virtual void PauseProducing();
 
   /// \brief Resume producing after a temporary pause
@@ -234,11 +224,15 @@ class ARROW_EXPORT ExecNode {
   ExecNode(ExecPlan* plan, std::string label);
 
   ExecPlan* plan_;
+
   std::string label_;
-  NodeVector inputs_;
-  OutputNodeVector outputs_;
+
   std::vector<BatchDescr> input_descrs_;
-  std::vector<BatchDescr> output_descrs_;
+  std::string input_labels_;
+  NodeVector inputs_;
+
+  BatchDescr output_descr_;
+  ExecNode* output_ = NULLPTR;
 };
 
 }  // namespace compute

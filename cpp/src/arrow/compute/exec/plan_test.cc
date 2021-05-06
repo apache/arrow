@@ -51,55 +51,58 @@ TEST(ExecPlanConstruction, Empty) {
 
 TEST(ExecPlanConstruction, SingleNode) {
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-  auto node = MakeDummyNode(plan.get(), "dummy", /*num_inputs=*/0, /*num_outputs=*/0);
+  auto node = MakeDummyNode(plan.get(), "dummy", /*num_inputs=*/0);
   ASSERT_OK(plan->Validate());
   ASSERT_THAT(plan->sources(), ::testing::ElementsAre(node));
   ASSERT_THAT(plan->sinks(), ::testing::ElementsAre(node));
 
   ASSERT_OK_AND_ASSIGN(plan, ExecPlan::Make());
-  node = MakeDummyNode(plan.get(), "dummy", /*num_inputs=*/1, /*num_outputs=*/0);
+  node = MakeDummyNode(plan.get(), "dummy", /*num_inputs=*/1);
   // Input not bound
-  ASSERT_RAISES(Invalid, plan->Validate());
-
-  ASSERT_OK_AND_ASSIGN(plan, ExecPlan::Make());
-  node = MakeDummyNode(plan.get(), "dummy", /*num_inputs=*/0, /*num_outputs=*/1);
-  // Output not bound
   ASSERT_RAISES(Invalid, plan->Validate());
 }
 
 TEST(ExecPlanConstruction, SourceSink) {
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-  auto source = MakeDummyNode(plan.get(), "source", /*num_inputs=*/0, /*num_outputs=*/1);
-  auto sink = MakeDummyNode(plan.get(), "sink", /*num_inputs=*/1, /*num_outputs=*/0);
-  // Input / output not bound
+  auto source = MakeDummyNode(plan.get(), "source", /*num_inputs=*/0);
+  auto sink = MakeDummyNode(plan.get(), "sink", /*num_inputs=*/1);
+  EXPECT_EQ(source->num_inputs(), 0);
+  EXPECT_EQ(sink->num_inputs(), 1);
+  EXPECT_EQ(sink->inputs().size(), 0);
+  // Sink's input not bound
   ASSERT_RAISES(Invalid, plan->Validate());
 
-  ExecNode::Bind(source, sink);
+  sink->AddInput(source);
   ASSERT_OK(plan->Validate());
-  ASSERT_THAT(plan->sources(), ::testing::ElementsAre(source));
-  ASSERT_THAT(plan->sinks(), ::testing::ElementsAre(sink));
+  EXPECT_THAT(plan->sources(), ::testing::ElementsAre(source));
+  EXPECT_THAT(plan->sinks(), ::testing::ElementsAre(sink));
 }
 
 TEST(ExecPlanConstruction, MultipleNode) {
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-  auto source1 =
-      MakeDummyNode(plan.get(), "source1", /*num_inputs=*/0, /*num_outputs=*/2);
-  auto source2 =
-      MakeDummyNode(plan.get(), "source2", /*num_inputs=*/0, /*num_outputs=*/1);
-  auto process1 =
-      MakeDummyNode(plan.get(), "process1", /*num_inputs=*/1, /*num_outputs=*/2);
-  auto process2 =
-      MakeDummyNode(plan.get(), "process1", /*num_inputs=*/2, /*num_outputs=*/1);
-  ExecNode::Bind(source1, process1);
-  ExecNode::Bind(source1, process2);
-  ExecNode::Bind(source2, process2);
-  auto process3 =
-      MakeDummyNode(plan.get(), "process3", /*num_inputs=*/3, /*num_outputs=*/1);
-  ExecNode::Bind(process1, process3);
-  ExecNode::Bind(process1, process3);
-  ExecNode::Bind(process2, process3);
-  auto sink = MakeDummyNode(plan.get(), "sink", /*num_inputs=*/1, /*num_outputs=*/0);
-  ExecNode::Bind(process3, sink);
+
+  auto source1 = MakeDummyNode(plan.get(), "source1", /*num_inputs=*/0);
+
+  auto source2 = MakeDummyNode(plan.get(), "source2", /*num_inputs=*/0);
+
+  auto process1 = MakeDummyNode(plan.get(), "process1", /*num_inputs=*/1);
+
+  auto process2 = MakeDummyNode(plan.get(), "process1", /*num_inputs=*/2);
+
+  auto process3 = MakeDummyNode(plan.get(), "process3", /*num_inputs=*/3);
+
+  auto sink = MakeDummyNode(plan.get(), "sink", /*num_inputs=*/1);
+
+  sink->AddInput(process3);
+
+  process3->AddInput(process1);
+  process3->AddInput(process2);
+  process3->AddInput(process1);
+
+  process2->AddInput(source1);
+  process2->AddInput(source2);
+
+  process1->AddInput(source1);
 
   ASSERT_OK(plan->Validate());
   ASSERT_THAT(plan->sources(), ::testing::ElementsAre(source1, source2));
@@ -107,8 +110,7 @@ TEST(ExecPlanConstruction, MultipleNode) {
 }
 
 struct StartStopTracker {
-  std::vector<std::string> started;
-  std::vector<std::string> stopped;
+  std::vector<std::string> started, stopped;
 
   StartProducingFunc start_producing_func(Status st = Status::OK()) {
     return [this, st](ExecNode* node) {
@@ -126,28 +128,32 @@ TEST(ExecPlan, DummyStartProducing) {
   StartStopTracker t;
 
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-  auto source1 = MakeDummyNode(plan.get(), "source1", /*num_inputs=*/0, /*num_outputs=*/2,
+
+  auto source1 = MakeDummyNode(plan.get(), "source1", /*num_inputs=*/0,
                                t.start_producing_func(), t.stop_producing_func());
-  auto source2 = MakeDummyNode(plan.get(), "source2", /*num_inputs=*/0, /*num_outputs=*/1,
+
+  auto source2 = MakeDummyNode(plan.get(), "source2", /*num_inputs=*/0,
                                t.start_producing_func(), t.stop_producing_func());
-  auto process1 =
-      MakeDummyNode(plan.get(), "process1", /*num_inputs=*/1, /*num_outputs=*/2,
-                    t.start_producing_func(), t.stop_producing_func());
-  auto process2 =
-      MakeDummyNode(plan.get(), "process2", /*num_inputs=*/2, /*num_outputs=*/1,
-                    t.start_producing_func(), t.stop_producing_func());
-  ExecNode::Bind(source1, process1);
-  ExecNode::Bind(process1, process2);
-  ExecNode::Bind(source2, process2);
-  auto process3 =
-      MakeDummyNode(plan.get(), "process3", /*num_inputs=*/3, /*num_outputs=*/1,
-                    t.start_producing_func(), t.stop_producing_func());
-  ExecNode::Bind(process1, process3);
-  ExecNode::Bind(source1, process3);
-  ExecNode::Bind(process2, process3);
-  auto sink = MakeDummyNode(plan.get(), "sink", /*num_inputs=*/1, /*num_outputs=*/0,
+
+  auto process1 = MakeDummyNode(plan.get(), "process1", /*num_inputs=*/1,
+                                t.start_producing_func(), t.stop_producing_func());
+
+  auto process2 = MakeDummyNode(plan.get(), "process2", /*num_inputs=*/2,
+                                t.start_producing_func(), t.stop_producing_func());
+
+  auto process3 = MakeDummyNode(plan.get(), "process3", /*num_inputs=*/3,
+                                t.start_producing_func(), t.stop_producing_func());
+
+  auto sink = MakeDummyNode(plan.get(), "sink", /*num_inputs=*/1,
                             t.start_producing_func(), t.stop_producing_func());
-  ExecNode::Bind(process3, sink);
+
+  process1->AddInput(source1);
+  process2->AddInput(process1);
+  process2->AddInput(source2);
+  process3->AddInput(process1);
+  process3->AddInput(source1);
+  process3->AddInput(process2);
+  sink->AddInput(process3);
 
   ASSERT_OK(plan->Validate());
   ASSERT_EQ(t.started.size(), 0);
@@ -156,34 +162,38 @@ TEST(ExecPlan, DummyStartProducing) {
   ASSERT_OK(plan->StartProducing());
   // Note that any correct reverse topological order may do
   ASSERT_THAT(t.started, ::testing::ElementsAre("sink", "process3", "process2",
-                                                "process1", "source1", "source2"));
+                                                "process1", "source2", "source1"));
   ASSERT_EQ(t.stopped.size(), 0);
 }
 
 TEST(ExecPlan, DummyStartProducingCycle) {
   // A trivial cycle
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-  auto node = MakeDummyNode(plan.get(), "dummy", /*num_inputs=*/1, /*num_outputs=*/1);
-  ExecNode::Bind(node, node);
+  auto node = MakeDummyNode(plan.get(), "dummy", /*num_inputs=*/1);
+  node->AddInput(node);
   ASSERT_OK(plan->Validate());
   ASSERT_RAISES(Invalid, plan->StartProducing());
 
   // A less trivial one
   ASSERT_OK_AND_ASSIGN(plan, ExecPlan::Make());
-  auto source = MakeDummyNode(plan.get(), "source", /*num_inputs=*/0, /*num_outputs=*/1);
-  auto process1 =
-      MakeDummyNode(plan.get(), "process1", /*num_inputs=*/2, /*num_outputs=*/2);
-  auto process2 =
-      MakeDummyNode(plan.get(), "process2", /*num_inputs=*/1, /*num_outputs=*/1);
-  auto process3 =
-      MakeDummyNode(plan.get(), "process3", /*num_inputs=*/2, /*num_outputs=*/2);
-  auto sink = MakeDummyNode(plan.get(), "sink", /*num_inputs=*/1, /*num_outputs=*/0);
-  ExecNode::Bind(source, process1);
-  ExecNode::Bind(process1, process2);
-  ExecNode::Bind(process2, process3);
-  ExecNode::Bind(process1, process3);
-  ExecNode::Bind(process3, process1);
-  ExecNode::Bind(process3, sink);
+
+  auto source = MakeDummyNode(plan.get(), "source", /*num_inputs=*/0);
+
+  auto process1 = MakeDummyNode(plan.get(), "process1", /*num_inputs=*/2);
+
+  auto process2 = MakeDummyNode(plan.get(), "process2", /*num_inputs=*/1);
+
+  auto process3 = MakeDummyNode(plan.get(), "process3", /*num_inputs=*/2);
+
+  auto sink = MakeDummyNode(plan.get(), "sink", /*num_inputs=*/1);
+
+  process1->AddInput(source);
+  process2->AddInput(process1);
+  process3->AddInput(process2);
+  process3->AddInput(process1);
+  process1->AddInput(process3);
+  sink->AddInput(process3);
+
   ASSERT_OK(plan->Validate());
   ASSERT_RAISES(Invalid, plan->StartProducing());
 }
@@ -192,29 +202,27 @@ TEST(ExecPlan, DummyStartProducingError) {
   StartStopTracker t;
 
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-  auto source1 = MakeDummyNode(plan.get(), "source1", /*num_inputs=*/0, /*num_outputs=*/2,
+  auto source1 = MakeDummyNode(plan.get(), "source1", /*num_inputs=*/0,
                                t.start_producing_func(Status::NotImplemented("zzz")),
                                t.stop_producing_func());
-  auto source2 = MakeDummyNode(plan.get(), "source2", /*num_inputs=*/0, /*num_outputs=*/1,
+  auto source2 = MakeDummyNode(plan.get(), "source2", /*num_inputs=*/0,
                                t.start_producing_func(), t.stop_producing_func());
-  auto process1 = MakeDummyNode(
-      plan.get(), "process1", /*num_inputs=*/1, /*num_outputs=*/2,
-      t.start_producing_func(Status::IOError("xxx")), t.stop_producing_func());
-  auto process2 =
-      MakeDummyNode(plan.get(), "process2", /*num_inputs=*/2, /*num_outputs=*/1,
-                    t.start_producing_func(), t.stop_producing_func());
-  ExecNode::Bind(source1, process1);
-  ExecNode::Bind(process1, process2);
-  ExecNode::Bind(source2, process2);
-  auto process3 =
-      MakeDummyNode(plan.get(), "process3", /*num_inputs=*/3, /*num_outputs=*/1,
-                    t.start_producing_func(), t.stop_producing_func());
-  ExecNode::Bind(process1, process3);
-  ExecNode::Bind(source1, process3);
-  ExecNode::Bind(process2, process3);
-  auto sink = MakeDummyNode(plan.get(), "sink", /*num_inputs=*/1, /*num_outputs=*/0,
+  auto process1 = MakeDummyNode(plan.get(), "process1", /*num_inputs=*/1,
+                                t.start_producing_func(Status::IOError("xxx")),
+                                t.stop_producing_func());
+  auto process2 = MakeDummyNode(plan.get(), "process2", /*num_inputs=*/2,
+                                t.start_producing_func(), t.stop_producing_func());
+  process1->AddInput(source1);
+  process2->AddInput(process1);
+  process2->AddInput(source2);
+  auto process3 = MakeDummyNode(plan.get(), "process3", /*num_inputs=*/3,
+                                t.start_producing_func(), t.stop_producing_func());
+  process3->AddInput(process1);
+  process3->AddInput(source1);
+  process3->AddInput(process2);
+  auto sink = MakeDummyNode(plan.get(), "sink", /*num_inputs=*/1,
                             t.start_producing_func(), t.stop_producing_func());
-  ExecNode::Bind(process3, sink);
+  sink->AddInput(process3);
 
   ASSERT_OK(plan->Validate());
   ASSERT_EQ(t.started.size(), 0);
@@ -299,7 +307,7 @@ class TestExecPlanExecution : public ::testing::Test {
     auto source =
         MakeRecordBatchReaderNode(plan.get(), "source", reader, io_executor_.get());
     auto sink = MakeRecordBatchCollectNode(plan.get(), "sink", schema);
-    ExecNode::Bind(source, sink);
+    sink->AddInput(source);
     return CollectorPlan{plan, sink};
   }
 
@@ -309,7 +317,7 @@ class TestExecPlanExecution : public ::testing::Test {
     auto source = MakeRecordBatchReaderNode(plan.get(), "source", schema, generator,
                                             io_executor_.get());
     auto sink = MakeRecordBatchCollectNode(plan.get(), "sink", schema);
-    ExecNode::Bind(source, sink);
+    sink->AddInput(source);
     return CollectorPlan{plan, sink};
   }
 
@@ -329,15 +337,13 @@ class TestExecPlanExecution : public ::testing::Test {
   template <typename RecordBatchReaderFactory>
   void TestSourceSink(RecordBatchReaderFactory batch_factory) {
     auto schema = ::arrow::schema({field("a", int32()), field("b", boolean())});
-    // clang-format off
     RecordBatchVector batches{
         RecordBatchFromJSON(schema, R"([{"a": null, "b": true},
                                         {"a": 4,    "b": false}])"),
         RecordBatchFromJSON(schema, R"([{"a": 5,    "b": null},
                                         {"a": 6,    "b": false},
-                                        {"a": 7,    "b": false}])")
+                                        {"a": 7,    "b": false}])"),
     };
-    // clang-format on
 
     ASSERT_OK_AND_ASSIGN(auto reader, batch_factory(batches, schema));
     ASSERT_OK_AND_ASSIGN(auto cp, MakeSourceSink(reader, schema));
