@@ -27,7 +27,7 @@ func TestTypeEqual(t *testing.T) {
 		checkMetadata bool
 	}{
 		{
-			nil, nil, false, false,
+			nil, nil, true, false,
 		},
 		{
 			nil, PrimitiveTypes.Uint8, false, false,

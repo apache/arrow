@@ -46,7 +46,7 @@ func TypeEqual(left, right DataType, opts ...TypeEqualOption) bool {
 
 	switch {
 	case left == nil || right == nil:
-		return false
+		return left == nil && right == nil
 	case left.ID() != right.ID():
 		return false
 	}
