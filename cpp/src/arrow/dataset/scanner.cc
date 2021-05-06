@@ -673,6 +673,7 @@ ScannerBuilder::ScannerBuilder(std::shared_ptr<Schema> schema,
   DCHECK_OK(Filter(scan_options_->filter));
 }
 
+namespace {
 class ARROW_DS_EXPORT OneShotScanTask : public ScanTask {
  public:
   OneShotScanTask(RecordBatchIterator batch_it, std::shared_ptr<ScanOptions> options,
@@ -719,10 +720,11 @@ class ARROW_DS_EXPORT OneShotFragment : public Fragment {
 
   RecordBatchIterator batch_it_;
 };
+}  // namespace
 
 std::shared_ptr<ScannerBuilder> ScannerBuilder::FromRecordBatchReader(
     std::shared_ptr<RecordBatchReader> reader) {
-  auto batch_it = MakeFunctionIterator([reader] { return reader->Next(); });
+  auto batch_it = MakeIteratorFromReader(reader);
   auto fragment =
       std::make_shared<OneShotFragment>(reader->schema(), std::move(batch_it));
   return std::make_shared<ScannerBuilder>(reader->schema(), std::move(fragment),
