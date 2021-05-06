@@ -612,12 +612,14 @@ format_string_replacement <- function(replacement, ignore.case, fixed) {
 }
 
 #' Get `stringr` pattern options
-#' 
-#' This function assigns definitions for the stringr pattern modifier functions
-#' (fixed, regex, etc.) in itself, and uses them to evaluate the quoted
-#' expression `pattern`
-#' 
-#' @param pattern Unevaluated pattern to be evaluated
+#'
+#' This function assigns definitions for the `stringr` pattern modifier
+#' functions (`fixed()`, `regex()`, etc.) inside itself, and uses them to
+#' evaluate the quoted expression `pattern`, returning a list that is used
+#' to control pattern matching behavior in internal `arrow` functions.
+#'
+#' @param pattern Unevaluated expression containing a call to a `stringr`
+#' pattern modifier function
 #'
 #' @return List containing elements `pattern`, `fixed`, and `ignore_case`
 #' @keywords internal
