@@ -40,7 +40,6 @@ test_that("basic select/filter/collect", {
 })
 
 test_that("dim() on query", {
-  skip("ARROW-9697")
   expect_dplyr_equal(
     input %>%
       filter(int > 5) %>%
