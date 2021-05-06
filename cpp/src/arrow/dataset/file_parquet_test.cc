@@ -39,10 +39,6 @@
 namespace arrow {
 namespace dataset {
 
-constexpr int64_t kBatchSize = 1UL << 12;
-constexpr int64_t kBatchRepetitions = 1 << 5;
-constexpr int64_t kNumRows = kBatchSize * kBatchRepetitions;
-
 using parquet::ArrowWriterProperties;
 using parquet::default_arrow_writer_properties;
 
@@ -56,9 +52,24 @@ using testing::Pointee;
 
 using internal::checked_pointer_cast;
 
-class ArrowParquetWriterMixin : public ::testing::Test {
+class ParquetFormatHelper {
  public:
-  Status WriteRecordBatch(const RecordBatch& batch, parquet::arrow::FileWriter* writer) {
+  using FormatType = ParquetFileFormat;
+
+  static Result<std::shared_ptr<Buffer>> Write(RecordBatchReader* reader) {
+    auto pool = ::arrow::default_memory_pool();
+    std::shared_ptr<Buffer> out;
+    auto sink = CreateOutputStream(pool);
+    RETURN_NOT_OK(WriteRecordBatchReader(reader, pool, sink));
+    return sink->Finish();
+  }
+  static std::shared_ptr<ParquetFileFormat> MakeFormat() {
+    return std::make_shared<ParquetFileFormat>();
+  }
+
+ private:
+  static Status WriteRecordBatch(const RecordBatch& batch,
+                                 parquet::arrow::FileWriter* writer) {
     auto schema = batch.schema();
     auto size = batch.num_rows();
 
@@ -76,8 +87,8 @@ class ArrowParquetWriterMixin : public ::testing::Test {
     return Status::OK();
   }
 
-  Status WriteRecordBatchReader(RecordBatchReader* reader,
-                                parquet::arrow::FileWriter* writer) {
+  static Status WriteRecordBatchReader(RecordBatchReader* reader,
+                                       parquet::arrow::FileWriter* writer) {
     auto schema = reader->schema();
 
     if (!schema->Equals(*writer->schema(), false)) {
@@ -92,7 +103,7 @@ class ArrowParquetWriterMixin : public ::testing::Test {
         });
   }
 
-  Status WriteRecordBatchReader(
+  static Status WriteRecordBatchReader(
       RecordBatchReader* reader, MemoryPool* pool,
       const std::shared_ptr<io::OutputStream>& sink,
       const std::shared_ptr<WriterProperties>& properties = default_writer_properties(),
@@ -104,52 +115,10 @@ class ArrowParquetWriterMixin : public ::testing::Test {
     RETURN_NOT_OK(WriteRecordBatchReader(reader, writer.get()));
     return writer->Close();
   }
-
-  std::shared_ptr<Buffer> Write(RecordBatchReader* reader) {
-    auto pool = ::arrow::default_memory_pool();
-
-    std::shared_ptr<Buffer> out;
-
-    auto sink = CreateOutputStream(pool);
-
-    ARROW_EXPECT_OK(WriteRecordBatchReader(reader, pool, sink));
-    // XXX the rest of the test may crash if this fails, since out will be nullptr
-    EXPECT_OK_AND_ASSIGN(out, sink->Finish());
-
-    return out;
-  }
-
-  std::shared_ptr<Buffer> Write(const Table& table) {
-    auto pool = ::arrow::default_memory_pool();
-
-    std::shared_ptr<Buffer> out;
-    auto sink = CreateOutputStream(pool);
-
-    ARROW_EXPECT_OK(WriteTable(table, pool, sink, 1U << 16));
-    // XXX the rest of the test may crash if this fails, since out will be nullptr
-    EXPECT_OK_AND_ASSIGN(out, sink->Finish());
-    return out;
-  }
 };
 
-class TestParquetFileFormat : public ArrowParquetWriterMixin {
+class TestParquetFileFormat : public FileFormatFixtureMixin<ParquetFormatHelper> {
  public:
-  std::unique_ptr<FileSource> GetFileSource(RecordBatchReader* reader) {
-    auto buffer = Write(reader);
-    return internal::make_unique<FileSource>(std::move(buffer));
-  }
-
-  std::unique_ptr<RecordBatchReader> GetRecordBatchReader(
-      std::shared_ptr<Schema> schema) {
-    return MakeGeneratedRecordBatch(schema, kBatchSize, kBatchRepetitions);
-  }
-
-  Result<std::shared_ptr<io::BufferOutputStream>> GetFileSink() {
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ResizableBuffer> buffer,
-                          AllocateResizableBuffer(0));
-    return std::make_shared<io::BufferOutputStream>(buffer);
-  }
-
   RecordBatchIterator Batches(ScanTaskIterator scan_task_it) {
     return MakeFlattenIterator(MakeMaybeMapIterator(
         [](std::shared_ptr<ScanTask> scan_task) { return scan_task->Execute(); },
@@ -159,10 +128,6 @@ class TestParquetFileFormat : public ArrowParquetWriterMixin {
   RecordBatchIterator Batches(Fragment* fragment) {
     EXPECT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_));
     return Batches(std::move(scan_task_it));
-  }
-
-  void SetFilter(Expression filter) {
-    ASSERT_OK_AND_ASSIGN(opts_->filter, filter.Bind(*opts_->dataset_schema));
   }
 
   std::shared_ptr<RecordBatch> SingleBatch(Fragment* fragment) {
@@ -192,7 +157,8 @@ class TestParquetFileFormat : public ArrowParquetWriterMixin {
   }
 
   void CountRowGroupsInFragment(const std::shared_ptr<Fragment>& fragment,
-                                std::vector<int> expected_row_groups, Expression filter) {
+                                std::vector<int> expected_row_groups,
+                                compute::Expression filter) {
     SetFilter(filter);
 
     auto parquet_fragment = checked_pointer_cast<ParquetFileFragment>(fragment);
@@ -207,186 +173,12 @@ class TestParquetFileFormat : public ArrowParquetWriterMixin {
       EXPECT_EQ(SingleBatch(parquet_fragment.get())->num_rows(), expected + 1);
     }
   }
-
-  void SetSchema(std::vector<std::shared_ptr<Field>> fields) {
-    opts_ = std::make_shared<ScanOptions>();
-    opts_->dataset_schema = schema(std::move(fields));
-    ASSERT_OK(SetProjection(opts_.get(), opts_->dataset_schema->field_names()));
-  }
-
- protected:
-  std::shared_ptr<ParquetFileFormat> format_ = std::make_shared<ParquetFileFormat>();
-  std::shared_ptr<ScanOptions> opts_;
 };
 
-TEST_F(TestParquetFileFormat, ScanRecordBatchReader) {
-  auto reader = GetRecordBatchReader(schema({field("f64", float64())}));
-  auto source = GetFileSource(reader.get());
-
-  SetSchema(reader->schema()->fields());
-  SetFilter(literal(true));
-  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
-
-  int64_t row_count = 0;
-
-  for (auto maybe_batch : Batches(fragment.get())) {
-    ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
-    row_count += batch->num_rows();
-  }
-
-  ASSERT_EQ(row_count, kNumRows);
+TEST_F(TestParquetFileFormat, InspectFailureWithRelevantError) {
+  TestInspectFailureWithRelevantError(StatusCode::IOError);
 }
-
-TEST_F(TestParquetFileFormat, ScanRecordBatchReaderDictEncoded) {
-  auto reader = GetRecordBatchReader(schema({field("utf8", utf8())}));
-  auto source = GetFileSource(reader.get());
-
-  SetSchema(reader->schema()->fields());
-  SetFilter(literal(true));
-
-  format_->reader_options.dict_columns = {"utf8"};
-  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
-
-  ASSERT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_));
-  int64_t row_count = 0;
-
-  Schema expected_schema({field("utf8", dictionary(int32(), utf8()))});
-
-  for (auto maybe_task : scan_task_it) {
-    ASSERT_OK_AND_ASSIGN(auto task, maybe_task);
-    ASSERT_OK_AND_ASSIGN(auto rb_it, task->Execute());
-    for (auto maybe_batch : rb_it) {
-      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
-      row_count += batch->num_rows();
-      AssertSchemaEqual(*batch->schema(), expected_schema, /* check_metadata = */ false);
-    }
-  }
-
-  ASSERT_EQ(row_count, kNumRows);
-}
-
-TEST_F(TestParquetFileFormat, ScanRecordBatchReaderPreBuffer) {
-  auto reader = GetRecordBatchReader(schema({field("f64", float64())}));
-  auto source = GetFileSource(reader.get());
-
-  SetSchema(reader->schema()->fields());
-  SetFilter(literal(true));
-
-  format_->reader_options.pre_buffer = true;
-  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
-  ASSERT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_));
-
-  int64_t task_count = 0;
-  int64_t row_count = 0;
-
-  for (auto maybe_task : scan_task_it) {
-    ASSERT_OK_AND_ASSIGN(auto task, maybe_task);
-    task_count += 1;
-    ASSERT_OK_AND_ASSIGN(auto rb_it, task->Execute());
-    for (auto maybe_batch : rb_it) {
-      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
-      row_count += batch->num_rows();
-    }
-  }
-
-  ASSERT_EQ(task_count, kBatchRepetitions);
-  ASSERT_EQ(row_count, kNumRows);
-}
-
-TEST_F(TestParquetFileFormat, OpenFailureWithRelevantError) {
-  std::shared_ptr<Buffer> buf = std::make_shared<Buffer>(util::string_view(""));
-  auto result = format_->Inspect(FileSource(buf));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(IOError, testing::HasSubstr("<Buffer>"),
-                                  result.status());
-
-  constexpr auto file_name = "herp/derp";
-  ASSERT_OK_AND_ASSIGN(
-      auto fs, fs::internal::MockFileSystem::Make(fs::kNoTime, {fs::File(file_name)}));
-  result = format_->Inspect({file_name, fs});
-  EXPECT_RAISES_WITH_MESSAGE_THAT(IOError, testing::HasSubstr(file_name),
-                                  result.status());
-}
-
-static auto f32 = field("f32", float32());
-static auto f64 = field("f64", float64());
-static auto i32 = field("i32", int32());
-static auto i64 = field("i64", int64());
-
-TEST_F(TestParquetFileFormat, ScanRecordBatchReaderProjected) {
-  SetSchema({f64, i64, f32, i32});
-  ASSERT_OK(SetProjection(opts_.get(), {"f64"}));
-  SetFilter(equal(field_ref("i32"), literal(0)));
-
-  // NB: projection is applied by the scanner; FileFragment does not evaluate it so
-  // we will not drop "i32" even though it is not projected since we need it for
-  // filtering
-  auto expected_schema = schema({f64, i32});
-
-  auto reader = GetRecordBatchReader(opts_->dataset_schema);
-  auto source = GetFileSource(reader.get());
-  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
-
-  int64_t row_count = 0;
-
-  for (auto maybe_batch : Batches(fragment.get())) {
-    ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
-    row_count += batch->num_rows();
-    AssertSchemaEqual(*batch->schema(), *expected_schema,
-                      /*check_metadata=*/false);
-  }
-
-  ASSERT_EQ(row_count, kNumRows);
-}
-
-TEST_F(TestParquetFileFormat, ScanRecordBatchReaderProjectedMissingCols) {
-  SetSchema({f64, i64, f32, i32});
-  ASSERT_OK(SetProjection(opts_.get(), {"f64"}));
-  SetFilter(equal(field_ref("i32"), literal(0)));
-
-  auto reader_without_i32 = GetRecordBatchReader(schema({f64, i64, f32}));
-  auto reader_without_f64 = GetRecordBatchReader(schema({i64, f32, i32}));
-  auto reader = GetRecordBatchReader(schema({f64, i64, f32, i32}));
-
-  auto readers = {reader.get(), reader_without_i32.get(), reader_without_f64.get()};
-  for (auto reader : readers) {
-    auto source = GetFileSource(reader);
-    ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
-
-    // NB: projection is applied by the scanner; FileFragment does not evaluate it so
-    // we will not drop "i32" even though it is not projected since we need it for
-    // filtering
-    //
-    // in the case where a file doesn't contain a referenced field, we won't
-    // materialize it as nulls later
-    std::shared_ptr<Schema> expected_schema;
-    if (reader == reader_without_i32.get()) {
-      expected_schema = schema({f64});
-    } else if (reader == reader_without_f64.get()) {
-      expected_schema = schema({i32});
-    } else {
-      expected_schema = schema({f64, i32});
-    }
-
-    int64_t row_count = 0;
-
-    for (auto maybe_batch : Batches(fragment.get())) {
-      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
-      row_count += batch->num_rows();
-      AssertSchemaEqual(*batch->schema(), *expected_schema,
-                        /*check_metadata=*/false);
-    }
-
-    ASSERT_EQ(row_count, kNumRows);
-  }
-}
-
-TEST_F(TestParquetFileFormat, Inspect) {
-  auto reader = GetRecordBatchReader(schema({field("f64", float64())}));
-  auto source = GetFileSource(reader.get());
-
-  ASSERT_OK_AND_ASSIGN(auto actual, format_->Inspect(*source.get()));
-  AssertSchemaEqual(*actual, *reader->schema(), /*check_metadata=*/false);
-}
+TEST_F(TestParquetFileFormat, Inspect) { TestInspect(); }
 
 TEST_F(TestParquetFileFormat, InspectDictEncoded) {
   auto reader = GetRecordBatchReader(schema({field("utf8", utf8())}));
@@ -399,25 +191,213 @@ TEST_F(TestParquetFileFormat, InspectDictEncoded) {
   AssertSchemaEqual(*actual, expected_schema, /* check_metadata = */ false);
 }
 
-TEST_F(TestParquetFileFormat, IsSupported) {
+TEST_F(TestParquetFileFormat, IsSupported) { TestIsSupported(); }
+
+TEST_F(TestParquetFileFormat, WriteRecordBatchReader) { TestWrite(); }
+
+TEST_F(TestParquetFileFormat, WriteRecordBatchReaderCustomOptions) {
+  TimeUnit::type coerce_timestamps_to = TimeUnit::MICRO,
+                 coerce_timestamps_from = TimeUnit::NANO;
+
+  auto reader =
+      GetRecordBatchReader(schema({field("ts", timestamp(coerce_timestamps_from))}));
+  auto options =
+      checked_pointer_cast<ParquetFileWriteOptions>(format_->DefaultWriteOptions());
+  options->writer_properties = parquet::WriterProperties::Builder()
+                                   .created_by("TestParquetFileFormat")
+                                   ->disable_statistics()
+                                   ->build();
+  options->arrow_writer_properties = parquet::ArrowWriterProperties::Builder()
+                                         .coerce_timestamps(coerce_timestamps_to)
+                                         ->allow_truncated_timestamps()
+                                         ->build();
+
+  auto written = WriteToBuffer(reader->schema(), options);
+
+  EXPECT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(FileSource{written}));
+  EXPECT_OK_AND_ASSIGN(auto actual_schema, fragment->ReadPhysicalSchema());
+  AssertSchemaEqual(Schema({field("ts", timestamp(coerce_timestamps_to))}),
+                    *actual_schema);
+}
+
+TEST_F(TestParquetFileFormat, CountRows) { TestCountRows(); }
+
+TEST_F(TestParquetFileFormat, CountRowsPredicatePushdown) {
+  constexpr int64_t kNumRowGroups = 16;
+  constexpr int64_t kTotalNumRows = kNumRowGroups * (kNumRowGroups + 1) / 2;
+
+  // See PredicatePushdown test below for a description of the generated data
+  auto reader = ArithmeticDatasetFixture::GetRecordBatchReader(kNumRowGroups);
+  auto source = GetFileSource(reader.get());
+  auto options = std::make_shared<ScanOptions>();
+
+  auto fragment = MakeFragment(*source);
+
+  ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(kTotalNumRows),
+                            fragment->CountRows(literal(true), options));
+
+  for (int i = 1; i <= kNumRowGroups; i++) {
+    SCOPED_TRACE(i);
+    // The row group for which all values in column i64 == i has i rows
+    auto predicate = less_equal(field_ref("i64"), literal(i));
+    ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*reader->schema()));
+    auto expected = i * (i + 1) / 2;
+    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(expected),
+                              fragment->CountRows(predicate, options));
+
+    predicate = and_(less_equal(field_ref("i64"), literal(i)),
+                     greater_equal(field_ref("i64"), literal(i)));
+    ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*reader->schema()));
+    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(i),
+                              fragment->CountRows(predicate, options));
+
+    predicate = equal(field_ref("i64"), literal(i));
+    ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*reader->schema()));
+    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(i),
+                              fragment->CountRows(predicate, options));
+  }
+
+  // Ensure nulls are properly handled
+  {
+    auto dataset_schema = schema({field("i64", int64())});
+    auto null_batch = RecordBatchFromJSON(dataset_schema, R"([
+[null],
+[null],
+[null]
+])");
+    auto batch = RecordBatchFromJSON(dataset_schema, R"([
+[1],
+[2]
+])");
+    ASSERT_OK_AND_ASSIGN(auto reader,
+                         RecordBatchReader::Make({null_batch, batch}, dataset_schema));
+    auto source = GetFileSource(reader.get());
+    auto fragment = MakeFragment(*source);
+    ASSERT_OK_AND_ASSIGN(
+        auto predicate,
+        greater_equal(field_ref("i64"), literal(1)).Bind(*dataset_schema));
+    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(2),
+                              fragment->CountRows(predicate, options));
+    // TODO(ARROW-12659): SimplifyWithGuarantee can't handle
+    // not(is_null) so trying to count with is_null doesn't work
+  }
+}
+
+class TestParquetFileSystemDataset : public WriteFileSystemDatasetMixin,
+                                     public testing::Test {
+ public:
+  void SetUp() override {
+    MakeSourceDataset();
+    check_metadata_ = false;
+    auto parquet_format = std::make_shared<ParquetFileFormat>();
+    format_ = parquet_format;
+    SetWriteOptions(parquet_format->DefaultWriteOptions());
+  }
+};
+
+TEST_F(TestParquetFileSystemDataset, WriteWithIdenticalPartitioningSchema) {
+  TestWriteWithIdenticalPartitioningSchema();
+}
+
+TEST_F(TestParquetFileSystemDataset, WriteWithUnrelatedPartitioningSchema) {
+  TestWriteWithUnrelatedPartitioningSchema();
+}
+
+TEST_F(TestParquetFileSystemDataset, WriteWithSupersetPartitioningSchema) {
+  TestWriteWithSupersetPartitioningSchema();
+}
+
+TEST_F(TestParquetFileSystemDataset, WriteWithEmptyPartitioningSchema) {
+  TestWriteWithEmptyPartitioningSchema();
+}
+
+class TestParquetFileFormatScan : public FileFormatScanMixin<ParquetFormatHelper> {
+ public:
+  std::shared_ptr<RecordBatch> SingleBatch(std::shared_ptr<Fragment> fragment) {
+    auto batches = IteratorToVector(PhysicalBatches(fragment));
+    EXPECT_EQ(batches.size(), 1);
+    return batches.front();
+  }
+
+  void CountRowsAndBatchesInScan(std::shared_ptr<Fragment> fragment,
+                                 int64_t expected_rows, int64_t expected_batches) {
+    int64_t actual_rows = 0;
+    int64_t actual_batches = 0;
+
+    for (auto maybe_batch : PhysicalBatches(fragment)) {
+      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+      actual_rows += batch->num_rows();
+      ++actual_batches;
+    }
+
+    EXPECT_EQ(actual_rows, expected_rows);
+    EXPECT_EQ(actual_batches, expected_batches);
+  }
+
+  void CountRowGroupsInFragment(const std::shared_ptr<Fragment>& fragment,
+                                std::vector<int> expected_row_groups,
+                                compute::Expression filter) {
+    SetFilter(filter);
+
+    auto parquet_fragment = checked_pointer_cast<ParquetFileFragment>(fragment);
+    ASSERT_OK_AND_ASSIGN(auto fragments, parquet_fragment->SplitByRowGroup(opts_->filter))
+
+    EXPECT_EQ(fragments.size(), expected_row_groups.size());
+    for (size_t i = 0; i < fragments.size(); i++) {
+      auto expected = expected_row_groups[i];
+      auto parquet_fragment = checked_pointer_cast<ParquetFileFragment>(fragments[i]);
+
+      EXPECT_EQ(parquet_fragment->row_groups(), std::vector<int>{expected});
+      EXPECT_EQ(SingleBatch(parquet_fragment)->num_rows(), expected + 1);
+    }
+  }
+};
+
+TEST_P(TestParquetFileFormatScan, ScanRecordBatchReader) { TestScan(); }
+TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderProjected) { TestScanProjected(); }
+TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderProjectedMissingCols) {
+  TestScanProjectedMissingCols();
+}
+TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderDictEncoded) {
+  auto reader = GetRecordBatchReader(schema({field("utf8", utf8())}));
+  auto source = GetFileSource(reader.get());
+
+  SetSchema(reader->schema()->fields());
+  SetFilter(literal(true));
+  format_->reader_options.dict_columns = {"utf8"};
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+
+  int64_t row_count = 0;
+  Schema expected_schema({field("utf8", dictionary(int32(), utf8()))});
+
+  for (auto maybe_batch : PhysicalBatches(fragment)) {
+    ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+    row_count += batch->num_rows();
+    AssertSchemaEqual(*batch->schema(), expected_schema, /* check_metadata = */ false);
+  }
+  ASSERT_EQ(row_count, expected_rows());
+}
+TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderPreBuffer) {
   auto reader = GetRecordBatchReader(schema({field("f64", float64())}));
   auto source = GetFileSource(reader.get());
 
-  bool supported = false;
+  SetSchema(reader->schema()->fields());
+  SetFilter(literal(true));
 
-  std::shared_ptr<Buffer> buf = std::make_shared<Buffer>(util::string_view(""));
-  ASSERT_OK_AND_ASSIGN(supported, format_->IsSupported(FileSource(buf)));
-  ASSERT_EQ(supported, false);
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+  auto fragment_scan_options = std::make_shared<ParquetFragmentScanOptions>();
+  fragment_scan_options->arrow_reader_properties->set_pre_buffer(true);
+  opts_->fragment_scan_options = fragment_scan_options;
+  ASSERT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_));
 
-  buf = std::make_shared<Buffer>(util::string_view("corrupted"));
-  ASSERT_OK_AND_ASSIGN(supported, format_->IsSupported(FileSource(buf)));
-  ASSERT_EQ(supported, false);
-
-  ASSERT_OK_AND_ASSIGN(supported, format_->IsSupported(*source));
-  EXPECT_EQ(supported, true);
+  int64_t row_count = 0;
+  for (auto maybe_batch : PhysicalBatches(fragment)) {
+    ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+    row_count += batch->num_rows();
+  }
+  ASSERT_EQ(row_count, expected_rows());
 }
-
-TEST_F(TestParquetFileFormat, PredicatePushdown) {
+TEST_P(TestParquetFileFormatScan, PredicatePushdown) {
   // Given a number `n`, the arithmetic dataset creates n RecordBatches where
   // each RecordBatch is keyed by a unique integer in [1, n]. Let `rb_i` denote
   // the record batch keyed by `i`. `rb_i` is composed of `i` rows where all
@@ -430,6 +410,7 @@ TEST_F(TestParquetFileFormat, PredicatePushdown) {
   // applied via ScanOptions' evaluator. Thus, counting the number of returned
   // rows and returned row groups is a good enough proxy to check if pushdown
   // predicate is working.
+
   constexpr int64_t kNumRowGroups = 16;
   constexpr int64_t kTotalNumRows = kNumRowGroups * (kNumRowGroups + 1) / 2;
 
@@ -471,7 +452,7 @@ TEST_F(TestParquetFileFormat, PredicatePushdown) {
                             kNumRowGroups - 5);
 }
 
-TEST_F(TestParquetFileFormat, PredicatePushdownRowGroupFragments) {
+TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragments) {
   constexpr int64_t kNumRowGroups = 16;
 
   auto reader = ArithmeticDatasetFixture::GetRecordBatchReader(kNumRowGroups);
@@ -522,24 +503,7 @@ TEST_F(TestParquetFileFormat, PredicatePushdownRowGroupFragments) {
                                 less(field_ref("i64"), literal(8))));
 }
 
-TEST_F(TestParquetFileFormat, PredicatePushdownRowGroupFragmentsUsingStringColumn) {
-  auto table = TableFromJSON(schema({field("x", utf8())}),
-                             {
-                                 R"([{"x": "a"}])",
-                                 R"([{"x": "b"}, {"x": "b"}])",
-                                 R"([{"x": "c"}, {"x": "c"}, {"x": "c"}])",
-                                 R"([{"x": "a"}, {"x": "b"}, {"x": "c"}, {"x": "d"}])",
-                             });
-  TableBatchReader reader(*table);
-  auto source = GetFileSource(&reader);
-
-  SetSchema(reader.schema()->fields());
-  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
-
-  CountRowGroupsInFragment(fragment, {0, 3}, equal(field_ref("x"), literal("a")));
-}
-
-TEST_F(TestParquetFileFormat, ExplicitRowGroupSelection) {
+TEST_P(TestParquetFileFormatScan, ExplicitRowGroupSelection) {
   constexpr int64_t kNumRowGroups = 16;
   constexpr int64_t kTotalNumRows = kNumRowGroups * (kNumRowGroups + 1) / 2;
 
@@ -596,87 +560,26 @@ TEST_F(TestParquetFileFormat, ExplicitRowGroupSelection) {
       row_groups_fragment({kNumRowGroups + 1})->Scan(opts_));
 }
 
-TEST_F(TestParquetFileFormat, WriteRecordBatchReader) {
-  std::shared_ptr<RecordBatchReader> reader =
-      GetRecordBatchReader(schema({field("f64", float64())}));
-  auto source = GetFileSource(reader.get());
-  reader = GetRecordBatchReader(schema({field("f64", float64())}));
+TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsUsingStringColumn) {
+  auto table = TableFromJSON(schema({field("x", utf8())}),
+                             {
+                                 R"([{"x": "a"}])",
+                                 R"([{"x": "b"}, {"x": "b"}])",
+                                 R"([{"x": "c"}, {"x": "c"}, {"x": "c"}])",
+                                 R"([{"x": "a"}, {"x": "b"}, {"x": "c"}, {"x": "d"}])",
+                             });
+  TableBatchReader reader(*table);
+  auto source = GetFileSource(&reader);
 
-  SetSchema(reader->schema()->fields());
+  SetSchema(reader.schema()->fields());
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
 
-  EXPECT_OK_AND_ASSIGN(auto sink, GetFileSink());
-
-  auto options = format_->DefaultWriteOptions();
-  EXPECT_OK_AND_ASSIGN(auto writer, format_->MakeWriter(sink, reader->schema(), options));
-  ASSERT_OK(writer->Write(reader.get()));
-  ASSERT_OK(writer->Finish());
-
-  EXPECT_OK_AND_ASSIGN(auto written, sink->Finish());
-
-  AssertBufferEqual(*written, *source->buffer());
+  CountRowGroupsInFragment(fragment, {0, 3}, equal(field_ref("x"), literal("a")));
 }
 
-TEST_F(TestParquetFileFormat, WriteRecordBatchReaderCustomOptions) {
-  TimeUnit::type coerce_timestamps_to = TimeUnit::MICRO,
-                 coerce_timestamps_from = TimeUnit::NANO;
-
-  std::shared_ptr<RecordBatchReader> reader =
-      GetRecordBatchReader(schema({field("ts", timestamp(coerce_timestamps_from))}));
-
-  SetSchema(reader->schema()->fields());
-
-  EXPECT_OK_AND_ASSIGN(auto sink, GetFileSink());
-
-  auto options =
-      checked_pointer_cast<ParquetFileWriteOptions>(format_->DefaultWriteOptions());
-  options->writer_properties = parquet::WriterProperties::Builder()
-                                   .created_by("TestParquetFileFormat")
-                                   ->disable_statistics()
-                                   ->build();
-
-  options->arrow_writer_properties = parquet::ArrowWriterProperties::Builder()
-                                         .coerce_timestamps(coerce_timestamps_to)
-                                         ->build();
-
-  EXPECT_OK_AND_ASSIGN(auto writer, format_->MakeWriter(sink, reader->schema(), options));
-  ASSERT_OK(writer->Write(reader.get()));
-  ASSERT_OK(writer->Finish());
-
-  EXPECT_OK_AND_ASSIGN(auto written, sink->Finish());
-  EXPECT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(FileSource{written}));
-
-  EXPECT_OK_AND_ASSIGN(auto actual_schema, fragment->ReadPhysicalSchema());
-  AssertSchemaEqual(Schema({field("ts", timestamp(coerce_timestamps_to))}),
-                    *actual_schema);
-}
-
-class TestParquetFileSystemDataset : public WriteFileSystemDatasetMixin,
-                                     public testing::Test {
- public:
-  void SetUp() override {
-    MakeSourceDataset();
-    check_metadata_ = false;
-    auto parquet_format = std::make_shared<ParquetFileFormat>();
-    format_ = parquet_format;
-    SetWriteOptions(parquet_format->DefaultWriteOptions());
-  }
-};
-
-TEST_F(TestParquetFileSystemDataset, WriteWithIdenticalPartitioningSchema) {
-  TestWriteWithIdenticalPartitioningSchema();
-}
-
-TEST_F(TestParquetFileSystemDataset, WriteWithUnrelatedPartitioningSchema) {
-  TestWriteWithUnrelatedPartitioningSchema();
-}
-
-TEST_F(TestParquetFileSystemDataset, WriteWithSupersetPartitioningSchema) {
-  TestWriteWithSupersetPartitioningSchema();
-}
-
-TEST_F(TestParquetFileSystemDataset, WriteWithEmptyPartitioningSchema) {
-  TestWriteWithEmptyPartitioningSchema();
-}
+INSTANTIATE_TEST_SUITE_P(TestScan, TestParquetFileFormatScan,
+                         ::testing::ValuesIn(TestFormatParams::Values()),
+                         TestFormatParams::ToTestNameString);
 
 }  // namespace dataset
 }  // namespace arrow

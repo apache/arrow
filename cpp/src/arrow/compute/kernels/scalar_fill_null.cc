@@ -43,7 +43,7 @@ template <typename Type>
 struct FillNullFunctor<Type, enable_if_t<is_number_type<Type>::value>> {
   using T = typename TypeTraits<Type>::CType;
 
-  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const ArrayData& data = *batch[0].array();
     const Scalar& fill_value = *batch[1].scalar();
     ArrayData* output = out->mutable_array();
@@ -54,8 +54,8 @@ struct FillNullFunctor<Type, enable_if_t<is_number_type<Type>::value>> {
 
     T value = UnboxScalar<Type>::Unbox(fill_value);
     if (data.MayHaveNulls() != 0 && fill_value.is_valid) {
-      KERNEL_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf, ctx,
-                             ctx->Allocate(data.length * sizeof(T)));
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
+                            ctx->Allocate(data.length * sizeof(T)));
 
       const uint8_t* is_valid = data.buffers[0]->data();
       const T* in_values = data.GetValues<T>(1);
@@ -83,6 +83,8 @@ struct FillNullFunctor<Type, enable_if_t<is_number_type<Type>::value>> {
     } else {
       *output = data;
     }
+
+    return Status::OK();
   }
 };
 
@@ -90,15 +92,15 @@ struct FillNullFunctor<Type, enable_if_t<is_number_type<Type>::value>> {
 
 template <typename Type>
 struct FillNullFunctor<Type, enable_if_t<is_boolean_type<Type>::value>> {
-  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const ArrayData& data = *batch[0].array();
     const Scalar& fill_value = *batch[1].scalar();
     ArrayData* output = out->mutable_array();
 
     bool value = UnboxScalar<BooleanType>::Unbox(fill_value);
     if (data.MayHaveNulls() != 0 && fill_value.is_valid) {
-      KERNEL_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf, ctx,
-                             ctx->AllocateBitmap(data.length));
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
+                            ctx->AllocateBitmap(data.length));
 
       const uint8_t* is_valid = data.buffers[0]->data();
       const uint8_t* data_bitmap = data.buffers[1]->data();
@@ -132,6 +134,8 @@ struct FillNullFunctor<Type, enable_if_t<is_boolean_type<Type>::value>> {
     } else {
       *output = data;
     }
+
+    return Status::OK();
   }
 };
 
@@ -139,9 +143,10 @@ struct FillNullFunctor<Type, enable_if_t<is_boolean_type<Type>::value>> {
 
 template <typename Type>
 struct FillNullFunctor<Type, enable_if_t<is_null_type<Type>::value>> {
-  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     // Nothing preallocated, so we assign into the output
     *out->mutable_array() = *batch[0].array();
+    return Status::OK();
   }
 };
 
@@ -151,7 +156,7 @@ template <typename Type>
 struct FillNullFunctor<Type, enable_if_t<is_base_binary_type<Type>::value>> {
   using BuilderType = typename TypeTraits<Type>::BuilderType;
 
-  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const ArrayData& input = *batch[0].array();
     const auto& fill_value_scalar =
         checked_cast<const BaseBinaryScalar&>(*batch[1].scalar());
@@ -166,22 +171,15 @@ struct FillNullFunctor<Type, enable_if_t<is_base_binary_type<Type>::value>> {
 
     if (null_count > 0 && fill_value_scalar.is_valid) {
       BuilderType builder(input.type, ctx->memory_pool());
-      KERNEL_RETURN_IF_ERROR(ctx, builder.ReserveData(input.buffers[2]->size() +
-                                                      fill_value.length() * null_count));
-      KERNEL_RETURN_IF_ERROR(ctx, builder.Resize(input.length));
+      RETURN_NOT_OK(builder.ReserveData(input.buffers[2]->size() +
+                                        fill_value.length() * null_count));
+      RETURN_NOT_OK(builder.Resize(input.length));
 
-      KERNEL_RETURN_IF_ERROR(ctx, VisitArrayDataInline<Type>(
-                                      input,
-                                      [&](util::string_view s) {
-                                        builder.UnsafeAppend(s);
-                                        return Status::OK();
-                                      },
-                                      [&]() {
-                                        builder.UnsafeAppend(fill_value);
-                                        return Status::OK();
-                                      }));
+      VisitArrayDataInline<Type>(
+          input, [&](util::string_view s) { builder.UnsafeAppend(s); },
+          [&]() { builder.UnsafeAppend(fill_value); });
       std::shared_ptr<Array> string_array;
-      KERNEL_RETURN_IF_ERROR(ctx, builder.Finish(&string_array));
+      RETURN_NOT_OK(builder.Finish(&string_array));
       *output = *string_array->data();
       // The builder does not match the logical type, due to
       // GenerateTypeAgnosticVarBinaryBase
@@ -189,6 +187,8 @@ struct FillNullFunctor<Type, enable_if_t<is_base_binary_type<Type>::value>> {
     } else {
       *output = input;
     }
+
+    return Status::OK();
   }
 };
 

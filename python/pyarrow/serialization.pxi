@@ -355,10 +355,14 @@ cdef class SerializedPyObject(_Weakrefable):
 
 def serialize(object value, SerializationContext context=None):
     """
-    EXPERIMENTAL: Serialize a general Python sequence for transient storage
+    DEPRECATED: Serialize a general Python sequence for transient storage
     and transport.
 
-    This may have better performance and memory efficiency than Python pickle.
+    .. deprecated:: 2.0
+        The custom serialization functionality is deprecated in pyarrow 2.0,
+        and will be removed in a future version. Use the standard library
+        ``pickle`` or the IPC functionality of pyarrow (see :ref:`ipc` for
+        more).
 
     Notes
     -----
@@ -398,7 +402,13 @@ def _serialize(object value, SerializationContext context=None):
 
 def serialize_to(object value, sink, SerializationContext context=None):
     """
-    EXPERIMENTAL: Serialize a Python sequence to a file.
+    DEPRECATED: Serialize a Python sequence to a file.
+
+    .. deprecated:: 2.0
+        The custom serialization functionality is deprecated in pyarrow 2.0,
+        and will be removed in a future version. Use the standard library
+        ``pickle`` or the IPC functionality of pyarrow (see :ref:`ipc` for
+        more).
 
     Parameters
     ----------
@@ -417,7 +427,13 @@ def serialize_to(object value, sink, SerializationContext context=None):
 
 def read_serialized(source, base=None):
     """
-    EXPERIMENTAL: Read serialized Python sequence from file-like object.
+    DEPRECATED: Read serialized Python sequence from file-like object.
+
+    .. deprecated:: 2.0
+        The custom serialization functionality is deprecated in pyarrow 2.0,
+        and will be removed in a future version. Use the standard library
+        ``pickle`` or the IPC functionality of pyarrow (see :ref:`ipc` for
+        more).
 
     Parameters
     ----------
@@ -449,7 +465,13 @@ def _read_serialized(source, base=None):
 
 def deserialize_from(source, object base, SerializationContext context=None):
     """
-    EXPERIMENTAL: Deserialize a Python sequence from a file.
+    DEPRECATED: Deserialize a Python sequence from a file.
+
+    .. deprecated:: 2.0
+        The custom serialization functionality is deprecated in pyarrow 2.0,
+        and will be removed in a future version. Use the standard library
+        ``pickle`` or the IPC functionality of pyarrow (see :ref:`ipc` for
+        more).
 
     This only can interact with data produced by pyarrow.serialize or
     pyarrow.serialize_to.
@@ -476,7 +498,14 @@ def deserialize_from(source, object base, SerializationContext context=None):
 
 def deserialize_components(components, SerializationContext context=None):
     """
-    Reconstruct Python object from output of SerializedPyObject.to_components.
+    DEPRECATED: Reconstruct Python object from output of
+    SerializedPyObject.to_components.
+
+    .. deprecated:: 2.0
+        The custom serialization functionality is deprecated in pyarrow 2.0,
+        and will be removed in a future version. Use the standard library
+        ``pickle`` or the IPC functionality of pyarrow (see :ref:`ipc` for
+        more).
 
     Parameters
     ----------
@@ -495,8 +524,14 @@ def deserialize_components(components, SerializationContext context=None):
 
 def deserialize(obj, SerializationContext context=None):
     """
-    EXPERIMENTAL: Deserialize Python object from Buffer or other Python
+    DEPRECATED: Deserialize Python object from Buffer or other Python
     object supporting the buffer protocol.
+
+    .. deprecated:: 2.0
+        The custom serialization functionality is deprecated in pyarrow 2.0,
+        and will be removed in a future version. Use the standard library
+        ``pickle`` or the IPC functionality of pyarrow (see :ref:`ipc` for
+        more).
 
     This only can interact with data produced by pyarrow.serialize or
     pyarrow.serialize_to.

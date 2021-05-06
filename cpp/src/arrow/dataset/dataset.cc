@@ -31,7 +31,7 @@
 namespace arrow {
 namespace dataset {
 
-Fragment::Fragment(Expression partition_expression,
+Fragment::Fragment(compute::Expression partition_expression,
                    std::shared_ptr<Schema> physical_schema)
     : partition_expression_(std::move(partition_expression)),
       physical_schema_(std::move(physical_schema)) {}
@@ -52,20 +52,25 @@ Result<std::shared_ptr<Schema>> Fragment::ReadPhysicalSchema() {
   return physical_schema_;
 }
 
+Future<util::optional<int64_t>> Fragment::CountRows(compute::Expression,
+                                                    std::shared_ptr<ScanOptions>) {
+  return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
+}
+
 Result<std::shared_ptr<Schema>> InMemoryFragment::ReadPhysicalSchemaImpl() {
   return physical_schema_;
 }
 
 InMemoryFragment::InMemoryFragment(std::shared_ptr<Schema> schema,
                                    RecordBatchVector record_batches,
-                                   Expression partition_expression)
+                                   compute::Expression partition_expression)
     : Fragment(std::move(partition_expression), std::move(schema)),
       record_batches_(std::move(record_batches)) {
   DCHECK_NE(physical_schema_, nullptr);
 }
 
 InMemoryFragment::InMemoryFragment(RecordBatchVector record_batches,
-                                   Expression partition_expression)
+                                   compute::Expression partition_expression)
     : Fragment(std::move(partition_expression), /*schema=*/nullptr),
       record_batches_(std::move(record_batches)) {
   // Order of argument evaluation is undefined, so compute physical_schema here
@@ -95,7 +100,56 @@ Result<ScanTaskIterator> InMemoryFragment::Scan(std::shared_ptr<ScanOptions> opt
   return MakeMapIterator(fn, std::move(batches_it));
 }
 
-Dataset::Dataset(std::shared_ptr<Schema> schema, Expression partition_expression)
+Result<RecordBatchGenerator> InMemoryFragment::ScanBatchesAsync(
+    const std::shared_ptr<ScanOptions>& options) {
+  struct State {
+    State(std::shared_ptr<InMemoryFragment> fragment, int64_t batch_size)
+        : fragment(std::move(fragment)),
+          batch_index(0),
+          offset(0),
+          batch_size(batch_size) {}
+
+    std::shared_ptr<RecordBatch> Next() {
+      const auto& next_parent = fragment->record_batches_[batch_index];
+      if (offset < next_parent->num_rows()) {
+        auto next = next_parent->Slice(offset, batch_size);
+        offset += batch_size;
+        return next;
+      }
+      batch_index++;
+      offset = 0;
+      return nullptr;
+    }
+
+    bool Finished() { return batch_index >= fragment->record_batches_.size(); }
+
+    std::shared_ptr<InMemoryFragment> fragment;
+    std::size_t batch_index;
+    int64_t offset;
+    int64_t batch_size;
+  };
+
+  struct Generator {
+    Generator(std::shared_ptr<InMemoryFragment> fragment, int64_t batch_size)
+        : state(std::make_shared<State>(std::move(fragment), batch_size)) {}
+
+    Future<std::shared_ptr<RecordBatch>> operator()() {
+      while (!state->Finished()) {
+        auto next = state->Next();
+        if (next) {
+          return Future<std::shared_ptr<RecordBatch>>::MakeFinished(std::move(next));
+        }
+      }
+      return AsyncGeneratorEnd<std::shared_ptr<RecordBatch>>();
+    }
+
+    std::shared_ptr<State> state;
+  };
+  return Generator(internal::checked_pointer_cast<InMemoryFragment>(shared_from_this()),
+                   options->batch_size);
+}
+
+Dataset::Dataset(std::shared_ptr<Schema> schema, compute::Expression partition_expression)
     : schema_(std::move(schema)),
       partition_expression_(std::move(partition_expression)) {}
 
@@ -109,11 +163,10 @@ Result<std::shared_ptr<ScannerBuilder>> Dataset::NewScan() {
 }
 
 Result<FragmentIterator> Dataset::GetFragments() {
-  ARROW_ASSIGN_OR_RAISE(auto predicate, literal(true).Bind(*schema_));
-  return GetFragments(std::move(predicate));
+  return GetFragments(compute::literal(true));
 }
 
-Result<FragmentIterator> Dataset::GetFragments(Expression predicate) {
+Result<FragmentIterator> Dataset::GetFragments(compute::Expression predicate) {
   ARROW_ASSIGN_OR_RAISE(
       predicate, SimplifyWithGuarantee(std::move(predicate), partition_expression_));
   return predicate.IsSatisfiable() ? GetFragmentsImpl(std::move(predicate))
@@ -179,7 +232,7 @@ Result<std::shared_ptr<Dataset>> InMemoryDataset::ReplaceSchema(
   return std::make_shared<InMemoryDataset>(std::move(schema), get_batches_);
 }
 
-Result<FragmentIterator> InMemoryDataset::GetFragmentsImpl(Expression) {
+Result<FragmentIterator> InMemoryDataset::GetFragmentsImpl(compute::Expression) {
   auto schema = this->schema();
 
   auto create_fragment =
@@ -189,11 +242,11 @@ Result<FragmentIterator> InMemoryDataset::GetFragmentsImpl(Expression) {
                                " which did not match InMemorySource's: ", *schema);
     }
 
-    RecordBatchVector batches{batch};
-    return std::make_shared<InMemoryFragment>(std::move(batches));
+    return std::make_shared<InMemoryFragment>(RecordBatchVector{std::move(batch)});
   };
 
-  return MakeMaybeMapIterator(std::move(create_fragment), get_batches_->Get());
+  auto batches_it = get_batches_->Get();
+  return MakeMaybeMapIterator(std::move(create_fragment), std::move(batches_it));
 }
 
 Result<std::shared_ptr<UnionDataset>> UnionDataset::Make(std::shared_ptr<Schema> schema,
@@ -220,7 +273,7 @@ Result<std::shared_ptr<Dataset>> UnionDataset::ReplaceSchema(
       new UnionDataset(std::move(schema), std::move(children)));
 }
 
-Result<FragmentIterator> UnionDataset::GetFragmentsImpl(Expression predicate) {
+Result<FragmentIterator> UnionDataset::GetFragmentsImpl(compute::Expression predicate) {
   return GetFragmentsFromDatasets(children_, predicate);
 }
 

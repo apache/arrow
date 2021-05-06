@@ -252,4 +252,48 @@ class InExpressionNode : public Node {
   std::unordered_set<Type> values_;
 };
 
+template <>
+class InExpressionNode<gandiva::DecimalScalar128> : public Node {
+ public:
+  InExpressionNode(NodePtr eval_expr,
+                   std::unordered_set<gandiva::DecimalScalar128>& values,
+                   int32_t precision, int32_t scale)
+      : Node(arrow::boolean()),
+        eval_expr_(std::move(eval_expr)),
+        values_(std::move(values)),
+        precision_(precision),
+        scale_(scale) {}
+
+  int32_t get_precision() const { return precision_; }
+
+  int32_t get_scale() const { return scale_; }
+
+  const NodePtr& eval_expr() const { return eval_expr_; }
+
+  const std::unordered_set<gandiva::DecimalScalar128>& values() const { return values_; }
+
+  Status Accept(NodeVisitor& visitor) const override { return visitor.Visit(*this); }
+
+  std::string ToString() const override {
+    std::stringstream ss;
+    ss << eval_expr_->ToString() << " IN (";
+    bool add_comma = false;
+    for (auto& value : values_) {
+      if (add_comma) {
+        ss << ", ";
+      }
+      // add type in the front to differentiate
+      ss << value;
+      add_comma = true;
+    }
+    ss << ")";
+    return ss.str();
+  }
+
+ private:
+  NodePtr eval_expr_;
+  std::unordered_set<gandiva::DecimalScalar128> values_;
+  int32_t precision_, scale_;
+};
+
 }  // namespace gandiva

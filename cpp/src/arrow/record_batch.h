@@ -25,7 +25,6 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
-#include "arrow/util/future.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -167,6 +166,10 @@ class ARROW_EXPORT RecordBatch {
   /// \return PrettyPrint representation suitable for debugging
   std::string ToString() const;
 
+  /// \brief Return new record batch with specified columns
+  Result<std::shared_ptr<RecordBatch>> SelectColumns(
+      const std::vector<int>& indices) const;
+
   /// \brief Perform cheap validation checks to determine obvious inconsistencies
   /// within the record batch's schema and internal data.
   ///
@@ -196,6 +199,8 @@ class ARROW_EXPORT RecordBatch {
 /// \brief Abstract interface for reading stream of record batches
 class ARROW_EXPORT RecordBatchReader {
  public:
+  using ValueType = std::shared_ptr<RecordBatch>;
+
   virtual ~RecordBatchReader() = default;
 
   /// \return the shared schema of the record batches in the stream
@@ -207,14 +212,6 @@ class ARROW_EXPORT RecordBatchReader {
   /// \param[out] batch the next loaded batch, null at end of stream
   /// \return Status
   virtual Status ReadNext(std::shared_ptr<RecordBatch>* batch) = 0;
-
-  // Fallback to sync implementation until all other readers are converted(ARROW-11770)
-  // and then this could become pure virtual with ReadNext falling back to async impl.
-  virtual Future<std::shared_ptr<RecordBatch>> ReadNextAsync() {
-    std::shared_ptr<RecordBatch> batch;
-    ARROW_RETURN_NOT_OK(ReadNext(&batch));
-    return Future<std::shared_ptr<RecordBatch>>::MakeFinished(std::move(batch));
-  }
 
   /// \brief Iterator interface
   Result<std::shared_ptr<RecordBatch>> Next() {

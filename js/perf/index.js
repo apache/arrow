@@ -48,11 +48,13 @@ for (let {name, buffers, countBys, counts} of require('./table_config')) {
     const dfCountBySuiteName = `DataFrame Count By "${name}"`;
     const dfFilterCountSuiteName = `DataFrame Filter-Scan Count "${name}"`;
     const dfDirectCountSuiteName = `DataFrame Direct Count "${name}"`;
+    const dfFilterIterSuiteName = `DataFrame Filter-Iterate "${name}"`;
 
     suites.push(createTestSuite(tableIterateSuiteName, createTableIterateTest(table)));
     suites.push(...countBys.map((countBy) => createTestSuite(dfCountBySuiteName, createDataFrameCountByTest(table, countBy))));
     suites.push(...counts.map(({ col, test, value }) => createTestSuite(dfFilterCountSuiteName, createDataFrameFilterCountTest(table, col, test, value))));
     suites.push(...counts.map(({ col, test, value }) => createTestSuite(dfDirectCountSuiteName, createDataFrameDirectCountTest(table, col, test, value))));
+    suites.push(...counts.map(({ col, test, value }) => createTestSuite(dfFilterIterSuiteName, createDataFrameFilterIterateTest(table, col, test, value))));
 }
 
 console.log('Running apache-arrow performance tests...\n');
@@ -60,12 +62,12 @@ console.log('Running apache-arrow performance tests...\n');
 run();
 
 function run() {
-    var suite = suites.shift();
+    const suite = suites.shift();
     suite && suite.on('complete', function() {
         console.log(suite.name + ':\n' + this.map(function(x) {
-            var str = x.toString();
-            var meanMsPerOp = Math.round(x.stats.mean * 100000)/100;
-            var sliceOf60FPS = Math.round((meanMsPerOp / (1000/60)) * 100000)/1000;
+            const str = x.toString();
+            const meanMsPerOp = Math.round(x.stats.mean * 100000)/100;
+            const sliceOf60FPS = Math.round((meanMsPerOp / (1000/60)) * 100000)/1000;
             return `${str}\n   avg: ${meanMsPerOp}ms\n   ${sliceOf60FPS}% of a frame @ 60FPS ${x.suffix || ''}`;
         }).join('\n') + '\n');
         if (suites.length > 0) {
@@ -147,7 +149,7 @@ function createTableIterateTest(table) {
 }
 
 function createDataFrameDirectCountTest(table, column, test, value) {
-    let sum, colidx = table.schema.fields.findIndex((c)=>c.name === column);
+    let sum, colidx = table.schema.fields.findIndex((c)=>c.name === column), op;
 
     if (test == 'gt') {
         op = () => {
@@ -224,3 +226,23 @@ function createDataFrameFilterCountTest(table, column, test, value) {
         }
     };
 }
+
+function createDataFrameFilterIterateTest(table, column, test, value) {
+    let colidx = table.schema.fields.findIndex((c)=> c.name === column);
+    let df;
+
+    if (test == 'gt') {
+        df = table.filter(col(column).gt(value));
+    } else if (test == 'eq') {
+        df = table.filter(col(column).eq(value));
+    } else {
+        throw new Error(`Unrecognized test "${test}"`);
+    }
+
+    return {
+        async: true,
+        name: `name: '${column}', length: ${table.length}, type: ${table.getColumnAt(colidx).type}, test: ${test}, value: ${value}\n`,
+        fn() { for (value of df) {} }
+    };
+}
+

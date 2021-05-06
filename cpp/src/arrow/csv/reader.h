@@ -26,6 +26,7 @@
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/future.h"
+#include "arrow/util/thread_pool.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -58,10 +59,19 @@ class ARROW_EXPORT TableReader {
       const ReadOptions&, const ParseOptions&, const ConvertOptions&);
 };
 
-/// Experimental
+/// \brief A class that reads a CSV file incrementally
+///
+/// Caveats:
+/// - For now, this is always single-threaded (regardless of `ReadOptions::use_threads`.
+/// - Type inference is done on the first block and types are frozen afterwards;
+///   to make sure the right data types are inferred, either set
+///   `ReadOptions::block_size` to a large enough value, or use
+///   `ConvertOptions::column_types` to set the desired data types explicitly.
 class ARROW_EXPORT StreamingReader : public RecordBatchReader {
  public:
   virtual ~StreamingReader() = default;
+
+  virtual Future<std::shared_ptr<RecordBatch>> ReadNextAsync() = 0;
 
   /// Create a StreamingReader instance
   ///
@@ -72,7 +82,8 @@ class ARROW_EXPORT StreamingReader : public RecordBatchReader {
   /// parsing (see ARROW-11889)
   static Future<std::shared_ptr<StreamingReader>> MakeAsync(
       io::IOContext io_context, std::shared_ptr<io::InputStream> input,
-      const ReadOptions&, const ParseOptions&, const ConvertOptions&);
+      internal::Executor* cpu_executor, const ReadOptions&, const ParseOptions&,
+      const ConvertOptions&);
 
   static Result<std::shared_ptr<StreamingReader>> Make(
       io::IOContext io_context, std::shared_ptr<io::InputStream> input,

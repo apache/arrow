@@ -19,8 +19,12 @@ module github.com/apache/arrow/go/parquet
 go 1.15
 
 require (
+	github.com/andybalholm/brotli v1.0.1
 	github.com/apache/arrow/go/arrow v0.0.0-20210310173904-5de02e3697aa
+	github.com/apache/thrift/lib/go/thrift v0.0.0-20210120171102-e27e82c46ba4
+	github.com/golang/snappy v0.0.3
 	github.com/klauspost/asmfmt v1.2.3
+	github.com/klauspost/compress v1.11.12
 	github.com/minio/asm2plan9s v0.0.0-20200509001527-cdd76441f9d8
 	github.com/minio/c2goasm v0.0.0-20190812172519-36a3d3bbc4f3
 	github.com/stretchr/testify v1.7.0

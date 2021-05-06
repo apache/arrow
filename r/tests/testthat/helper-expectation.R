@@ -15,12 +15,22 @@
 # specific language governing permissions and limitations
 # under the License.
 
-expect_vector <- function(x, y, ...) {
-  expect_equal(as.vector(x), y, ...)
+expect_as_vector <- function(x, y, ignore_attr = FALSE, ...) {
+  expect_fun <- if(ignore_attr){
+    expect_equivalent
+  } else {
+    expect_equal
+  }
+  expect_fun(as.vector(x), y, ...)
 }
 
 expect_data_frame <- function(x, y, ...) {
   expect_equal(as.data.frame(x), y, ...)
+}
+
+expect_r6_class <- function(object, class){
+  expect_s3_class(object, class)
+  expect_s3_class(object, "R6")
 }
 
 expect_equivalent <- function(object, expected, ...) {
@@ -98,12 +108,35 @@ expect_dplyr_equal <- function(expr, # A dplyr pipeline with `input` as its star
 expect_dplyr_error <- function(expr, # A dplyr pipeline with `input` as its start
                                tbl,  # A tbl/df as reference, will make RB/Table with
                                ...) {
+  # ensure we have supplied tbl
+  force(tbl)
+  
   expr <- rlang::enquo(expr)
   msg <- tryCatch(
     rlang::eval_tidy(expr, rlang::new_data_mask(rlang::env(input = tbl))),
-    error = function (e) conditionMessage(e)
+    error = function (e) {
+      msg <- conditionMessage(e)
+
+      # The error here is of the form:
+      #
+      # Problem with `filter()` input `..1`.
+      # x object 'b_var' not found
+      # ℹ Input `..1` is `chr == b_var`.
+      #
+      # but what we really care about is the `x` block
+      # so (temporarily) let's pull those blocks out when we find them
+      pattern <- i18ize_error_messages()
+      
+      if (grepl(pattern, msg)) {
+        msg <- sub(paste0("^.*(", pattern, ").*$"), "\\1", msg)
+      }
+      msg
+    }
   )
-  expect_is(msg, "character", label = "dplyr on data.frame did not error")
+  # make sure msg is a character object (i.e. there has been an error)
+  # If it did not error, we would get a data.frame or whatever
+  # This expectation will tell us "dplyr on data.frame errored is not TRUE"
+  expect_true(identical(typeof(msg), "character"), label = "dplyr on data.frame errored")
 
   expect_error(
     rlang::eval_tidy(
@@ -127,10 +160,10 @@ expect_vector_equal <- function(expr, # A vectorized R expression containing `in
                                vec,  # A vector as reference, will make Array/ChunkedArray with
                                skip_array = NULL, # Msg, if should skip Array test
                                skip_chunked_array = NULL, # Msg, if should skip ChunkedArray test
+                               ignore_attr = FALSE, # ignore attributes?
                                ...) {
   expr <- rlang::enquo(expr)
   expected <- rlang::eval_tidy(expr, rlang::new_data_mask(rlang::env(input = vec)))
-
   skip_msg <- NULL
 
   if (is.null(skip_array)) {
@@ -138,21 +171,20 @@ expect_vector_equal <- function(expr, # A vectorized R expression containing `in
       expr,
       rlang::new_data_mask(rlang::env(input = Array$create(vec)))
     )
-    expect_vector(via_array, expected, ...)
+    expect_as_vector(via_array, expected, ignore_attr, ...)
   } else {
     skip_msg <- c(skip_msg, skip_array)
   }
 
   if (is.null(skip_chunked_array)) {
     # split input vector into two to exercise ChunkedArray with >1 chunk
-    vec_split <- length(vec) %/% 2
-    vec1 <- vec[seq(from = min(1, length(vec) - 1), to = min(length(vec) - 1, vec_split), by = 1)]
-    vec2 <- vec[seq(from = min(length(vec), vec_split + 1), to = length(vec), by = 1)]
+    split_vector <- split_vector_as_list(vec)
+    
     via_chunked <- rlang::eval_tidy(
       expr,
-      rlang::new_data_mask(rlang::env(input = ChunkedArray$create(vec1, vec2)))
+      rlang::new_data_mask(rlang::env(input = ChunkedArray$create(split_vector[[1]], split_vector[[2]])))
     )
-    expect_vector(via_chunked, expected, ...)
+    expect_as_vector(via_chunked, expected, ignore_attr, ...)
   } else {
     skip_msg <- c(skip_msg, skip_chunked_array)
   }
@@ -160,4 +192,72 @@ expect_vector_equal <- function(expr, # A vectorized R expression containing `in
   if (!is.null(skip_msg)) {
     skip(paste(skip_msg, collpase = "\n"))
   }
+}
+
+expect_vector_error <- function(expr, # A vectorized R expression containing `input` as its input
+                                vec,  # A vector as reference, will make Array/ChunkedArray with
+                                skip_array = NULL, # Msg, if should skip Array test
+                                skip_chunked_array = NULL, # Msg, if should skip ChunkedArray test
+                                ...) {
+  
+  expr <- rlang::enquo(expr)
+  
+  msg <- tryCatch(
+    rlang::eval_tidy(expr, rlang::new_data_mask(rlang::env(input = vec))),
+    error = function (e) {
+      msg <- conditionMessage(e)
+      
+      pattern <- i18ize_error_messages()
+      
+      if (grepl(pattern, msg)) {
+        msg <- sub(paste0("^.*(", pattern, ").*$"), "\\1", msg)
+      }
+      msg
+    }
+  )
+  
+  expect_true(identical(typeof(msg), "character"), label = "vector errored")
+  
+  skip_msg <- NULL
+  
+  if (is.null(skip_array)) {
+    
+    expect_error(
+      rlang::eval_tidy(
+        expr,
+        rlang::new_data_mask(rlang::env(input = Array$create(vec)))
+      ),
+      msg,
+      ...
+    )
+  } else {
+    skip_msg <- c(skip_msg, skip_array)
+  }
+  
+  if (is.null(skip_chunked_array)) {
+    # split input vector into two to exercise ChunkedArray with >1 chunk
+    split_vector <- split_vector_as_list(vec)
+    
+    expect_error(
+      rlang::eval_tidy(
+        expr,
+        rlang::new_data_mask(rlang::env(input = ChunkedArray$create(split_vector[[1]], split_vector[[2]])))
+      ),
+      msg,
+      ...
+    )
+  } else {
+    skip_msg <- c(skip_msg, skip_chunked_array)
+  }
+  
+  if (!is.null(skip_msg)) {
+    skip(paste(skip_msg, collpase = "\n"))
+  }
+}
+
+split_vector_as_list <- function(vec){
+  vec_split <- length(vec) %/% 2
+  vec1 <- vec[seq(from = min(1, length(vec) - 1), to = min(length(vec) - 1, vec_split), by = 1)]
+  vec2 <- vec[seq(from = min(length(vec), vec_split + 1), to = length(vec), by = 1)]
+  list(vec1, vec2)
 }

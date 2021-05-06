@@ -135,10 +135,10 @@ The vote will be open for at least 72 hours.
 [1]: https://issues.apache.org/jira/issues/?jql=project%20%3D%20ARROW%20AND%20status%20in%20%28Resolved%2C%20Closed%29%20AND%20fixVersion%20%3D%20#{@release_version}
 [2]: https://github.com/apache/arrow/tree/#{@current_commit}
 [3]: https://dist.apache.org/repos/dist/dev/arrow/apache-arrow-#{@release_version}-rc0
-[4]: https://bintray.com/apache/arrow/centos-rc/#{@release_version}-rc0
-[5]: https://bintray.com/apache/arrow/debian-rc/#{@release_version}-rc0
-[6]: https://bintray.com/apache/arrow/python-rc/#{@release_version}-rc0
-[7]: https://bintray.com/apache/arrow/ubuntu-rc/#{@release_version}-rc0
+[4]: https://apache.jfrog.io/artifactory/arrow/centos-rc/#{@release_version}-rc0
+[5]: https://apache.jfrog.io/artifactory/arrow/debian-rc/#{@release_version}-rc0
+[6]: https://apache.jfrog.io/artifactory/arrow/python-rc/#{@release_version}-rc0
+[7]: https://apache.jfrog.io/artifactory/arrow/ubuntu-rc/#{@release_version}-rc0
 [8]: https://github.com/apache/arrow/blob/#{@current_commit}/CHANGELOG.md
 [9]: https://cwiki.apache.org/confluence/display/ARROW/How+to+Verify+Release+Candidates
     VOTE

@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+/* eslint-disable jest/no-standalone-expect */
+
 import { Data } from '../../src/data';
 import { Field } from '../../src/schema';
 import { Column } from '../../src/column';

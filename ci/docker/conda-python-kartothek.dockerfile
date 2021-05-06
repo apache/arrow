@@ -38,9 +38,7 @@ RUN conda install -c conda-forge -q \
         storefact \
         toolz \
         urlquote \
-        zstandard \
-        # temporary pin for numpy (see https://issues.apache.org/jira/browse/ARROW-11472)
-        numpy=1.19 && \
+        zstandard && \
     conda clean --all
 
 ARG kartothek=latest

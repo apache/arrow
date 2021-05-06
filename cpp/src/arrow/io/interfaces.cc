@@ -136,9 +136,8 @@ Future<std::shared_ptr<Buffer>> RandomAccessFile::ReadAsync(const IOContext& ctx
   TaskHints hints;
   hints.io_size = nbytes;
   hints.external_id = ctx.external_id();
-  return DeferNotOk(ctx.executor()->Submit(std::move(hints), [self, position, nbytes] {
-    return self->ReadAt(position, nbytes);
-  }));
+  return DeferNotOk(internal::SubmitIO(
+      ctx, [self, position, nbytes] { return self->ReadAt(position, nbytes); }));
 }
 
 Future<std::shared_ptr<Buffer>> RandomAccessFile::ReadAsync(int64_t position,
@@ -358,10 +357,16 @@ struct ReadRangeCombiner {
     // Remove zero-sized ranges
     auto end = std::remove_if(ranges.begin(), ranges.end(),
                               [](const ReadRange& range) { return range.length == 0; });
-    ranges.resize(end - ranges.begin());
     // Sort in position order
-    std::sort(ranges.begin(), ranges.end(),
+    std::sort(ranges.begin(), end,
               [](const ReadRange& a, const ReadRange& b) { return a.offset < b.offset; });
+    // Remove ranges that overlap 100%
+    end = std::unique(ranges.begin(), end,
+                      [](const ReadRange& left, const ReadRange& right) {
+                        return right.offset >= left.offset &&
+                               right.offset + right.length <= left.offset + left.length;
+                      });
+    ranges.resize(end - ranges.begin());
 
     // Skip further processing if ranges is empty after removing zero-sized ranges.
     if (ranges.empty()) {

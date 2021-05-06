@@ -97,6 +97,14 @@ cdef class Statistics(_Weakrefable):
         return self.statistics.get().HasMinMax()
 
     @property
+    def has_null_count(self):
+        return self.statistics.get().HasNullCount()
+
+    @property
+    def has_distinct_count(self):
+        return self.statistics.get().HasDistinctCount()
+
+    @property
     def min_raw(self):
         if self.has_min_max:
             return _cast_statistic_raw_min(self.statistics.get())
@@ -972,9 +980,10 @@ cdef class ParquetReader(_Weakrefable):
         self.pool = maybe_unbox_memory_pool(memory_pool)
         self._metadata = None
 
-    def open(self, object source, bint use_memory_map=True,
+    def open(self, object source not None, bint use_memory_map=True,
              read_dictionary=None, FileMetaData metadata=None,
-             int buffer_size=0, LowLevelDecryptionProperties lldecrypt=None):
+             int buffer_size=0, bint pre_buffer=False,
+             LowLevelDecryptionProperties lldecrypt=None):
         cdef:
             shared_ptr[CRandomAccessFile] rd_handle
             shared_ptr[CFileMetaData] c_metadata
@@ -999,6 +1008,8 @@ cdef class ParquetReader(_Weakrefable):
         if lldecrypt is not None:
             decryption_properties = lldecrypt.decryption_properties
             properties.file_decryption_properties(decryption_properties)
+
+        arrow_props.set_pre_buffer(pre_buffer)
 
         self.source = source
 

@@ -15,10 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-const fs = require('fs');
-const glob = require('glob');
-const path = require('path');
-
 const argv = require(`command-line-args`)([
     { name: `all`, type: Boolean },
     { name: 'verbose', alias: `v`, type: Boolean },

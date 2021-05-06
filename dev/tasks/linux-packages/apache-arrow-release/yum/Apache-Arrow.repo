@@ -16,22 +16,22 @@
 # under the License.
 
 [apache-arrow-amazon-linux]
-name=Apache Arrow for Amazon Linux 2 - $basearch
-baseurl=https://apache.bintray.com/arrow/centos/7/$basearch/
+name=Apache Arrow for Amazon Linux $releasever - $basearch
+baseurl=https://apache.jfrog.io/artifactory/arrow/amazon-linux/$releasever/$basearch/
 gpgcheck=1
-enabled=1
+enabled=0
 gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-Apache-Arrow
 
 [apache-arrow-centos]
 name=Apache Arrow for CentOS $releasever - $basearch
-baseurl=https://apache.bintray.com/arrow/centos/$releasever/$basearch/
+baseurl=https://apache.jfrog.io/artifactory/arrow/centos/$releasever/$basearch/
 gpgcheck=1
-enabled=1
+enabled=0
 gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-Apache-Arrow
 
 [apache-arrow-rhel]
 name=Apache Arrow for RHEL $releasever - $basearch
-baseurl=https://apache.bintray.com/arrow/centos/$releasever/$basearch/
+baseurl=https://apache.jfrog.io/artifactory/arrow/centos/$releasever/$basearch/
 gpgcheck=1
-enabled=1
+enabled=0
 gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-Apache-Arrow

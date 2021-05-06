@@ -279,6 +279,13 @@ def test_match_substring():
     assert expected.equals(result)
 
 
+def test_match_substring_regex():
+    arr = pa.array(["ab", "abc", "ba", "c", None])
+    result = pc.match_substring_regex(arr, "^a?b")
+    expected = pa.array([True, True, True, False, None])
+    assert expected.equals(result)
+
+
 def test_trim():
     # \u3000 is unicode whitespace
     arr = pa.array([" foo", None, " \u3000foo bar \t"])
@@ -589,6 +596,13 @@ def test_replace_regex():
     ar = pa.array(['foo', 'mood', None])
     ar = pc.replace_substring_regex(ar, pattern='(.)oo', replacement=r'\100')
     assert ar.tolist() == ['f00', 'm00d', None]
+
+
+def test_extract_regex():
+    ar = pa.array(['a1', 'zb2z'])
+    struct = pc.extract_regex(ar, pattern=r'(?P<letter>[ab])(?P<digit>\d)')
+    assert struct.tolist() == [{'letter': 'a', 'digit': '1'}, {
+        'letter': 'b', 'digit': '2'}]
 
 
 @pytest.mark.parametrize(('ty', 'values'), all_array_types)

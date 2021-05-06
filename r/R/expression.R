@@ -117,6 +117,7 @@ cast_array_expression <- function(x, to_type, safe = TRUE, ...) {
 
 .unary_function_map <- list(
   "!" = "invert",
+  "as.factor" = "dictionary_encode",
   "is.na" = "is_null",
   "is.nan" = "is_nan",
   # nchar is defined in dplyr.R because it is more complex
@@ -147,7 +148,7 @@ cast_array_expression <- function(x, to_type, safe = TRUE, ...) {
   # we don't actually use divide_checked with `%%`, rather it is rewritten to
   # use %/% above.
   "%%" = "divide_checked",
-  # TODO: "^"  (ARROW-11070)
+  "^" = "power_checked",
   "%in%" = "is_in_meta_binary"
 )
 
@@ -252,7 +253,7 @@ print.array_expression <- function(x, ...) {
 #' @export
 Expression <- R6Class("Expression", inherit = ArrowObject,
   public = list(
-    ToString = function() dataset___expr__ToString(self),
+    ToString = function() compute___expr__ToString(self),
     cast = function(to_type, safe = TRUE, ...) {
       opts <- list(
         to_type = to_type,
@@ -264,7 +265,7 @@ Expression <- R6Class("Expression", inherit = ArrowObject,
     }
   ),
   active = list(
-    field_name = function() dataset___expr__get_field_ref_name(self)
+    field_name = function() compute___expr__get_field_ref_name(self)
   )
 )
 Expression$create <- function(function_name,
@@ -272,14 +273,14 @@ Expression$create <- function(function_name,
                               args = list(...),
                               options = empty_named_list()) {
   assert_that(is.string(function_name))
-  dataset___expr__call(function_name, args, options)
+  compute___expr__call(function_name, args, options)
 }
 Expression$field_ref <- function(name) {
   assert_that(is.string(name))
-  dataset___expr__field_ref(name)
+  compute___expr__field_ref(name)
 }
 Expression$scalar <- function(x) {
-  dataset___expr__scalar(Scalar$create(x))
+  compute___expr__scalar(Scalar$create(x))
 }
 
 build_dataset_expression <- function(FUN,

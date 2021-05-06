@@ -105,7 +105,7 @@ test_that("[, [[, $ for Table", {
   expect_data_frame(tab[6:7,], tbl[6:7,])
   expect_data_frame(tab[6:7, 2:4], tbl[6:7, 2:4])
   expect_data_frame(tab[, c("dbl", "fct")], tbl[, c(2, 5)])
-  expect_vector(tab[, "chr", drop = TRUE], tbl$chr)
+  expect_as_vector(tab[, "chr", drop = TRUE], tbl$chr)
   # Take within a single chunk
   expect_data_frame(tab[c(7, 3, 5), 2:4], tbl[c(7, 3, 5), 2:4])
   expect_data_frame(tab[rep(c(FALSE, TRUE), 5),], tbl[c(2, 4, 6, 8, 10),])
@@ -123,9 +123,9 @@ test_that("[, [[, $ for Table", {
   # Expression
   expect_data_frame(tab[tab$int > 6,], tbl[tbl$int > 6,])
 
-  expect_vector(tab[["int"]], tbl$int)
-  expect_vector(tab$int, tbl$int)
-  expect_vector(tab[[4]], tbl$chr)
+  expect_as_vector(tab[["int"]], tbl$int)
+  expect_as_vector(tab$int, tbl$int)
+  expect_as_vector(tab[[4]], tbl$chr)
   expect_null(tab$qwerty)
   expect_null(tab[["asdf"]])
   # List-like column slicing
@@ -173,16 +173,16 @@ test_that("[[<- assignment", {
 
   # can replace a column by index
   tab[[2]] <- as.numeric(10:1)
-  expect_vector(tab[[2]], as.numeric(10:1))
+  expect_as_vector(tab[[2]], as.numeric(10:1))
 
   # can add a column by index
   tab[[5]] <- as.numeric(10:1)
-  expect_vector(tab[[5]], as.numeric(10:1))
-  expect_vector(tab[["5"]], as.numeric(10:1))
+  expect_as_vector(tab[[5]], as.numeric(10:1))
+  expect_as_vector(tab[["5"]], as.numeric(10:1))
 
   # can replace a column
   tab[["int"]] <- 10:1
-  expect_vector(tab[["int"]], 10:1)
+  expect_as_vector(tab[["int"]], 10:1)
 
   # can use $
   tab$new <- NULL
@@ -190,11 +190,11 @@ test_that("[[<- assignment", {
   expect_identical(dim(tab), c(10L, 4L))
 
   tab$int <- 1:10
-  expect_vector(tab$int, 1:10)
+  expect_as_vector(tab$int, 1:10)
 
   # recycling
   tab[["atom"]] <- 1L
-  expect_vector(tab[["atom"]], rep(1L, 10))
+  expect_as_vector(tab[["atom"]], rep(1L, 10))
 
   expect_error(
     tab[["atom"]] <- 1:6,
@@ -204,10 +204,10 @@ test_that("[[<- assignment", {
   # assign Arrow array and chunked_array
   array <- Array$create(c(10:1))
   tab$array <- array
-  expect_vector(tab$array, 10:1)
+  expect_as_vector(tab$array, 10:1)
 
   tab$chunked <- chunked_array(1:10)
-  expect_vector(tab$chunked, 1:10)
+  expect_as_vector(tab$chunked, 1:10)
 
   # nonsense indexes
   expect_error(tab[[NA]] <- letters[10:1], "'i' must be character or numeric, not logical")
@@ -299,7 +299,7 @@ test_that("table active bindings", {
   tab <- Table$create(tbl)
 
   expect_identical(dim(tbl), dim(tab))
-  expect_is(tab$columns, "list")
+  expect_type(tab$columns, "list")
   expect_equal(tab$columns[[1]], tab[[1]])
 })
 
@@ -400,8 +400,8 @@ test_that("Table$Equals(check_metadata)", {
   tab2 <- Table$create(x = 1:2, y = c("a", "b"),
                        schema = tab1$schema$WithMetadata(list(some="metadata")))
 
-  expect_is(tab1, "Table")
-  expect_is(tab2, "Table")
+  expect_r6_class(tab1, "Table")
+  expect_r6_class(tab2, "Table")
   expect_false(tab1$schema$HasMetadata)
   expect_true(tab2$schema$HasMetadata)
   expect_identical(tab2$schema$metadata, list(some = "metadata"))

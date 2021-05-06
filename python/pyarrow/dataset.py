@@ -43,12 +43,13 @@ from pyarrow._dataset import (  # noqa
     ParquetFileFormat,
     ParquetFileFragment,
     ParquetFileWriteOptions,
+    ParquetFragmentScanOptions,
     ParquetReadOptions,
     Partitioning,
     PartitioningFactory,
     RowGroupInfo,
     Scanner,
-    ScanTask,
+    TaggedRecordBatch,
     UnionDataset,
     UnionDatasetFactory,
     _get_partition_keys,
@@ -516,8 +517,8 @@ def dataset(source, schema=None, format=None, filesystem=None,
 
     Parameters
     ----------
-    source : path, list of paths, dataset, list of datasets, (list of) batches
-             or tables, iterable of batches, RecordBatchReader, or URI
+    source : path, list of paths, dataset, list of datasets, (list of) batches\
+or tables, iterable of batches, RecordBatchReader, or URI
         Path pointing to a single file:
             Open a FileSystemDataset from a single file.
         Path pointing to a directory:
@@ -732,19 +733,17 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
     """
     from pyarrow.fs import _resolve_filesystem_and_path
 
-    if isinstance(data, Dataset):
-        schema = schema or data.schema
-    elif isinstance(data, (list, tuple)):
+    if isinstance(data, (list, tuple)):
         schema = schema or data[0].schema
         data = InMemoryDataset(data, schema=schema)
     elif isinstance(data, (pa.RecordBatch, pa.ipc.RecordBatchReader,
                            pa.Table)) or _is_iterable(data):
         data = InMemoryDataset(data, schema=schema)
-        schema = schema or data.schema
-    else:
+    elif not isinstance(data, (Dataset, Scanner)):
         raise ValueError(
-            "Only Dataset, Table/RecordBatch, RecordBatchReader, a list "
-            "of Tables/RecordBatches, or iterable of batches are supported."
+            "Only Dataset, Scanner, Table/RecordBatch, RecordBatchReader, "
+            "a list of Tables/RecordBatches, or iterable of batches are "
+            "supported."
         )
 
     if format is None and isinstance(data, FileSystemDataset):
@@ -770,8 +769,16 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
 
     filesystem, base_dir = _resolve_filesystem_and_path(base_dir, filesystem)
 
+    if isinstance(data, Dataset):
+        scanner = data.scanner(use_threads=use_threads)
+    else:
+        # scanner was passed directly by the user, in which case a schema
+        # cannot be passed
+        if schema is not None:
+            raise ValueError("Cannot specify a schema when writing a Scanner")
+        scanner = data
+
     _filesystemdataset_write(
-        data, base_dir, basename_template, schema,
-        filesystem, partitioning, file_options, use_threads,
-        max_partitions
+        scanner, base_dir, basename_template, filesystem, partitioning,
+        file_options, max_partitions
     )

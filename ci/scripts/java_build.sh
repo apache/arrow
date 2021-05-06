@@ -25,59 +25,50 @@ with_docs=${3:-false}
 
 if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
   # Since some files for s390_64 are not available at maven central,
-  # download pre-build files from bintray and install them explicitly
+  # download pre-build files from Artifactory and install them explicitly
   mvn_install="mvn install:install-file"
   wget="wget"
-  bintray_base_url="https://dl.bintray.com/apache/arrow"
+  artifactory_base_url="https://apache.jfrog.io/artifactory/arrow"
 
-  bintray_dir="flatc-binary"
-  group="com.github.icexelloss"
-  artifact="flatc-linux-s390_64"
-  ver="1.9.0"
-  extension="exe"
-  target=${artifact}-${ver}.${extension}
-  ${wget} ${bintray_base_url}/${bintray_dir}/${ver}/${target}
-  ${mvn_install} -DgroupId=${group} -DartifactId=${artifact} -Dversion=${ver} -Dpackaging=${extension} -Dfile=$(pwd)/${target}
-
-  bintray_dir="protoc-binary"
+  artifactory_dir="protoc-binary"
   group="com.google.protobuf"
   artifact="protoc"
   ver="3.7.1"
   classifier="linux-s390_64"
   extension="exe"
   target=${artifact}-${ver}-${classifier}.${extension}
-  ${wget} ${bintray_base_url}/${bintray_dir}/${ver}/${target}
+  ${wget} ${artifactory_base_url}/${artifactory_dir}/${ver}/${target}
   ${mvn_install} -DgroupId=${group} -DartifactId=${artifact} -Dversion=${ver} -Dclassifier=${classifier} -Dpackaging=${extension} -Dfile=$(pwd)/${target}
   # protoc requires libprotoc.so.18 libprotobuf.so.18
-  ${wget} ${bintray_base_url}/${bintray_dir}/${ver}/libprotoc.so.18
-  ${wget} ${bintray_base_url}/${bintray_dir}/${ver}/libprotobuf.so.18
+  ${wget} ${artifactory_base_url}/${artifactory_dir}/${ver}/libprotoc.so.18
+  ${wget} ${artifactory_base_url}/${artifactory_dir}/${ver}/libprotobuf.so.18
   mkdir -p ${ARROW_HOME}/lib
   cp lib*.so.18 ${ARROW_HOME}/lib
   export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${ARROW_HOME}/lib
 
-  bintray_dir="protoc-gen-grpc-java-binary"
+  artifactory_dir="protoc-gen-grpc-java-binary"
   group="io.grpc"
   artifact="protoc-gen-grpc-java"
   ver="1.30.2"
   classifier="linux-s390_64"
   extension="exe"
   target=${artifact}-${ver}-${classifier}.${extension}
-  ${wget} ${bintray_base_url}/${bintray_dir}/${ver}/${target}
+  ${wget} ${artifactory_base_url}/${artifactory_dir}/${ver}/${target}
   ${mvn_install} -DgroupId=${group} -DartifactId=${artifact} -Dversion=${ver} -Dclassifier=${classifier} -Dpackaging=${extension} -Dfile=$(pwd)/${target}
 
-  bintray_dir="netty-binary"
+  artifactory_dir="netty-binary"
   group="io.netty"
   artifact="netty-transport-native-unix-common"
   ver="4.1.48.Final"
   classifier="linux-s390_64"
   extension="jar"
   target=${artifact}-${ver}-${classifier}.${extension}
-  ${wget} ${bintray_base_url}/${bintray_dir}/${ver}/${target}
+  ${wget} ${artifactory_base_url}/${artifactory_dir}/${ver}/${target}
   ${mvn_install} -DgroupId=${group} -DartifactId=${artifact} -Dversion=${ver} -Dclassifier=${classifier} -Dpackaging=${extension} -Dfile=$(pwd)/${target}
   artifact="netty-transport-native-epoll"
   extension="jar"
   target=${artifact}-${ver}-${classifier}.${extension}
-  ${wget} ${bintray_base_url}/${bintray_dir}/${ver}/${target}
+  ${wget} ${artifactory_base_url}/${artifactory_dir}/${ver}/${target}
   ${mvn_install} -DgroupId=${group} -DartifactId=${artifact} -Dversion=${ver} -Dclassifier=${classifier} -Dpackaging=${extension} -Dfile=$(pwd)/${target}
 fi
 
@@ -104,7 +95,8 @@ if [ "${ARROW_PLASMA}" = "ON" ]; then
 fi
 
 if [ "${with_docs}" == "true" ]; then
-  ${mvn} -Dcheckstyle.skip=true install site
+  # HTTP pooling is turned of to avoid download issues https://issues.apache.org/jira/browse/ARROW-11633
+  ${mvn} -Dcheckstyle.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false install site
 fi
 
 popd

@@ -37,9 +37,6 @@
 #include "arrow/util/thread_pool.h"
 
 namespace arrow {
-
-using RecordBatchGenerator = AsyncGenerator<std::shared_ptr<RecordBatch>>;
-
 namespace csv {
 
 // Allows the streaming reader to be used in tests that expect a table reader
@@ -49,17 +46,19 @@ class StreamingReaderAsTableReader : public TableReader {
       : reader_(std::move(reader)) {}
   virtual ~StreamingReaderAsTableReader() = default;
   virtual Result<std::shared_ptr<Table>> Read() {
-    auto table_fut = ReadAsync();
-    auto table_res = table_fut.result();
-    ARROW_ASSIGN_OR_RAISE(auto table, table_res);
+    std::shared_ptr<Table> table;
+    RETURN_NOT_OK(reader_->ReadAll(&table));
     return table;
   }
   virtual Future<std::shared_ptr<Table>> ReadAsync() {
     auto reader = reader_;
-    RecordBatchGenerator rb_generator = [reader]() { return reader->ReadNextAsync(); };
-    return CollectAsyncGenerator(rb_generator).Then([](const RecordBatchVector& rbs) {
-      return Table::FromRecordBatches(rbs);
-    });
+    AsyncGenerator<std::shared_ptr<RecordBatch>> gen = [reader] {
+      return reader->ReadNextAsync();
+    };
+    return CollectAsyncGenerator(std::move(gen))
+        .Then([](const RecordBatchVector& batches) {
+          return Table::FromRecordBatches(batches);
+        });
   }
 
  private:
@@ -70,8 +69,13 @@ using TableReaderFactory =
     std::function<Result<std::shared_ptr<TableReader>>(std::shared_ptr<io::InputStream>)>;
 
 void StressTableReader(TableReaderFactory reader_factory) {
+#ifdef ARROW_VALGRIND
+  const int NTASKS = 10;
+  const int NROWS = 100;
+#else
   const int NTASKS = 100;
   const int NROWS = 1000;
+#endif
   ASSERT_OK_AND_ASSIGN(auto table_buffer, MakeSampleCsvBuffer(NROWS));
 
   std::vector<Future<std::shared_ptr<Table>>> task_futures(NTASKS);
@@ -92,8 +96,13 @@ void StressTableReader(TableReaderFactory reader_factory) {
 }
 
 void StressInvalidTableReader(TableReaderFactory reader_factory) {
+#ifdef ARROW_VALGRIND
+  const int NTASKS = 10;
+  const int NROWS = 100;
+#else
   const int NTASKS = 100;
   const int NROWS = 1000;
+#endif
   ASSERT_OK_AND_ASSIGN(auto table_buffer, MakeSampleCsvBuffer(NROWS, false));
 
   std::vector<Future<std::shared_ptr<Table>>> task_futures(NTASKS);

@@ -30,7 +30,9 @@
 #include "arrow/status.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/future.h"
+#include "arrow/util/vector.h"
 
 using ::testing::ElementsAre;
 
@@ -109,6 +111,12 @@ void CreateFile(FileSystem* fs, const std::string& path, const std::string& data
 
 void SortInfos(std::vector<FileInfo>* infos) {
   std::sort(infos->begin(), infos->end(), FileInfo::ByPath{});
+}
+
+void CollectFileInfoGenerator(FileInfoGenerator gen, FileInfoVector* out_infos) {
+  auto fut = CollectAsyncGenerator(gen);
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto nested_infos, fut);
+  *out_infos = ::arrow::internal::FlattenVectors(nested_infos);
 }
 
 void AssertFileInfo(const FileInfo& info, const std::string& path, FileType type) {
@@ -203,6 +211,9 @@ void GenericFileSystemTest::TestCreateDir(FileSystem* fs) {
 }
 
 void GenericFileSystemTest::TestDeleteDir(FileSystem* fs) {
+  if (have_flaky_directory_tree_deletion())
+    GTEST_SKIP() << "Flaky directory deletion on Windows";
+
   ASSERT_OK(fs->CreateDir("AB/CD/EF"));
   ASSERT_OK(fs->CreateDir("AB/GH/IJ"));
   CreateFile(fs, "AB/abc", "");
@@ -229,6 +240,9 @@ void GenericFileSystemTest::TestDeleteDir(FileSystem* fs) {
 }
 
 void GenericFileSystemTest::TestDeleteDirContents(FileSystem* fs) {
+  if (have_flaky_directory_tree_deletion())
+    GTEST_SKIP() << "Flaky directory deletion on Windows";
+
   ASSERT_OK(fs->CreateDir("AB/CD/EF"));
   ASSERT_OK(fs->CreateDir("AB/GH/IJ"));
   CreateFile(fs, "AB/abc", "");
@@ -681,7 +695,7 @@ void GenericFileSystemTest::TestGetFileInfoSelector(FileSystem* fs) {
   ASSERT_RAISES(IOError, fs->GetFileInfo(s));
 }
 
-void GenericFileSystemTest::TestGetFileInfoSelectorAsync(FileSystem* fs) {
+void GenericFileSystemTest::TestGetFileInfoGenerator(FileSystem* fs) {
   ASSERT_OK(fs->CreateDir("AB/CD"));
   CreateFile(fs, "abc", "data");
   CreateFile(fs, "AB/def", "some data");
@@ -691,9 +705,11 @@ void GenericFileSystemTest::TestGetFileInfoSelectorAsync(FileSystem* fs) {
   FileSelector s;
   s.base_dir = "";
   std::vector<FileInfo> infos;
+  std::vector<std::vector<FileInfo>> nested_infos;
 
   // Non-recursive
-  ASSERT_FINISHES_OK_AND_ASSIGN(infos, fs->GetFileInfoAsync(s));
+  auto gen = fs->GetFileInfoGenerator(s);
+  CollectFileInfoGenerator(std::move(gen), &infos);
   SortInfos(&infos);
   ASSERT_EQ(infos.size(), 2);
   AssertFileInfo(infos[0], "AB", FileType::Directory);
@@ -702,7 +718,7 @@ void GenericFileSystemTest::TestGetFileInfoSelectorAsync(FileSystem* fs) {
   // Recursive
   s.base_dir = "AB";
   s.recursive = true;
-  ASSERT_FINISHES_OK_AND_ASSIGN(infos, fs->GetFileInfoAsync(s));
+  CollectFileInfoGenerator(fs->GetFileInfoGenerator(s), &infos);
   SortInfos(&infos);
   ASSERT_EQ(infos.size(), 4);
   AssertFileInfo(infos[0], "AB/CD", FileType::Directory);
@@ -712,9 +728,10 @@ void GenericFileSystemTest::TestGetFileInfoSelectorAsync(FileSystem* fs) {
 
   // Doesn't exist
   s.base_dir = "XX";
-  ASSERT_RAISES(IOError, fs->GetFileInfoAsync(s).result());
+  auto fut = CollectAsyncGenerator(fs->GetFileInfoGenerator(s));
+  ASSERT_FINISHES_AND_RAISES(IOError, fut);
   s.allow_not_found = true;
-  ASSERT_FINISHES_OK_AND_ASSIGN(infos, fs->GetFileInfoAsync(s));
+  CollectFileInfoGenerator(fs->GetFileInfoGenerator(s), &infos);
   ASSERT_EQ(infos.size(), 0);
 }
 
@@ -1025,7 +1042,7 @@ GENERIC_FS_TEST_DEFINE(TestGetFileInfoVector)
 GENERIC_FS_TEST_DEFINE(TestGetFileInfoSelector)
 GENERIC_FS_TEST_DEFINE(TestGetFileInfoSelectorWithRecursion)
 GENERIC_FS_TEST_DEFINE(TestGetFileInfoAsync)
-GENERIC_FS_TEST_DEFINE(TestGetFileInfoSelectorAsync)
+GENERIC_FS_TEST_DEFINE(TestGetFileInfoGenerator)
 GENERIC_FS_TEST_DEFINE(TestOpenOutputStream)
 GENERIC_FS_TEST_DEFINE(TestOpenAppendStream)
 GENERIC_FS_TEST_DEFINE(TestOpenInputStream)

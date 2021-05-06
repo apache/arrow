@@ -1021,9 +1021,11 @@ cdef class Array(_PandasConvertible):
         try:
             return self.equals(other)
         except TypeError:
+            # This also handles comparing with None
+            # as Array.equals(None) raises a TypeError.
             return NotImplemented
 
-    def equals(Array self, Array other):
+    def equals(Array self, Array other not None):
         return self.ap.Equals(deref(other.ap))
 
     def __len__(self):
@@ -1159,6 +1161,11 @@ cdef class Array(_PandasConvertible):
             raise ValueError(
                 "Cannot return a writable array if asking for zero-copy")
 
+        # If there are nulls and the array is a DictionaryArray
+        # decoding the dictionary will make sure nulls are correctly handled.
+        # Decoding a dictionary does imply a copy by the way,
+        # so it can't be done if the user requested a zero_copy.
+        c_options.decode_dictionaries = not zero_copy_only
         c_options.zero_copy_only = zero_copy_only
 
         with nogil:
@@ -1990,6 +1997,12 @@ cdef class DictionaryArray(Array):
     def dictionary_encode(self):
         return self
 
+    def dictionary_decode(self):
+        """
+        Decodes the DictionaryArray to an Array.
+        """
+        return self.dictionary.take(self.indices)
+
     @property
     def dictionary(self):
         cdef CDictionaryArray* darr = <CDictionaryArray*>(self.ap)
@@ -2178,7 +2191,10 @@ cdef class StructArray(Array):
 
         arrays = [asarray(x) for x in arrays]
         for arr in arrays:
-            c_arrays.push_back(pyarrow_unwrap_array(arr))
+            c_array = pyarrow_unwrap_array(arr)
+            if c_array == nullptr:
+                raise TypeError(f"Expected Array, got {arr.__class__}")
+            c_arrays.push_back(c_array)
         if names is not None:
             for name in names:
                 c_names.push_back(tobytes(name))

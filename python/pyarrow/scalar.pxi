@@ -83,7 +83,7 @@ cdef class Scalar(_Weakrefable):
     def __str__(self):
         return str(self.as_py())
 
-    def equals(self, Scalar other):
+    def equals(self, Scalar other not None):
         return self.wrapped.get().Equals(other.unwrap().get()[0])
 
     def __eq__(self, other):

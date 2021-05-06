@@ -253,6 +253,27 @@ bool RecordBatch::ApproxEquals(const RecordBatch& other) const {
   return true;
 }
 
+Result<std::shared_ptr<RecordBatch>> RecordBatch::SelectColumns(
+    const std::vector<int>& indices) const {
+  int n = static_cast<int>(indices.size());
+
+  FieldVector fields(n);
+  ArrayVector columns(n);
+
+  for (int i = 0; i < n; i++) {
+    int pos = indices[i];
+    if (pos < 0 || pos > num_columns() - 1) {
+      return Status::Invalid("Invalid column index ", pos, " to select columns.");
+    }
+    fields[i] = schema()->field(pos);
+    columns[i] = column(pos);
+  }
+
+  auto new_schema =
+      std::make_shared<arrow::Schema>(std::move(fields), schema()->metadata());
+  return RecordBatch::Make(new_schema, num_rows(), std::move(columns));
+}
+
 std::shared_ptr<RecordBatch> RecordBatch::Slice(int64_t offset) const {
   return Slice(offset, this->num_rows() - offset);
 }

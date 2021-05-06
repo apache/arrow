@@ -39,6 +39,10 @@ namespace arrow {
 
 namespace dataset {
 
+/// \defgroup dataset-filesystem File system datasets
+///
+/// @{
+
 /// \brief The path and filesystem where an actual file is located or a buffer which can
 /// be read like a file
 class ARROW_DS_EXPORT FileSource {
@@ -134,9 +138,6 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
   /// \brief The name identifying the kind of file format
   virtual std::string type_name() const = 0;
 
-  /// \brief Return true if fragments of this format can benefit from parallel scanning.
-  virtual bool splittable() const { return false; }
-
   virtual bool Equals(const FileFormat& other) const = 0;
 
   /// \brief Indicate if the FileSource is supported/readable by this format.
@@ -148,24 +149,35 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
   /// \brief Open a FileFragment for scanning.
   /// May populate lazy properties of the FileFragment.
   virtual Result<ScanTaskIterator> ScanFile(
-      std::shared_ptr<ScanOptions> options,
+      const std::shared_ptr<ScanOptions>& options,
       const std::shared_ptr<FileFragment>& file) const = 0;
+
+  virtual Result<RecordBatchGenerator> ScanBatchesAsync(
+      const std::shared_ptr<ScanOptions>& options,
+      const std::shared_ptr<FileFragment>& file) const;
+  virtual Future<util::optional<int64_t>> CountRows(
+      const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
+      std::shared_ptr<ScanOptions> options);
 
   /// \brief Open a fragment
   virtual Result<std::shared_ptr<FileFragment>> MakeFragment(
-      FileSource source, Expression partition_expression,
+      FileSource source, compute::Expression partition_expression,
       std::shared_ptr<Schema> physical_schema);
 
-  Result<std::shared_ptr<FileFragment>> MakeFragment(FileSource source,
-                                                     Expression partition_expression);
+  /// \brief Create a FileFragment for a FileSource.
+  Result<std::shared_ptr<FileFragment>> MakeFragment(
+      FileSource source, compute::Expression partition_expression);
 
+  /// \brief Create a FileFragment for a FileSource.
   Result<std::shared_ptr<FileFragment>> MakeFragment(
       FileSource source, std::shared_ptr<Schema> physical_schema = NULLPTR);
 
+  /// \brief Create a writer for this format.
   virtual Result<std::shared_ptr<FileWriter>> MakeWriter(
       std::shared_ptr<io::OutputStream> destination, std::shared_ptr<Schema> schema,
       std::shared_ptr<FileWriteOptions> options) const = 0;
 
+  /// \brief Get default write options for this format.
   virtual std::shared_ptr<FileWriteOptions> DefaultWriteOptions() = 0;
 };
 
@@ -173,17 +185,21 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
 class ARROW_DS_EXPORT FileFragment : public Fragment {
  public:
   Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options) override;
+  Result<RecordBatchGenerator> ScanBatchesAsync(
+      const std::shared_ptr<ScanOptions>& options) override;
+  Future<util::optional<int64_t>> CountRows(
+      compute::Expression predicate, std::shared_ptr<ScanOptions> options) override;
 
   std::string type_name() const override { return format_->type_name(); }
   std::string ToString() const override { return source_.path(); };
-  bool splittable() const override { return format_->splittable(); }
 
   const FileSource& source() const { return source_; }
   const std::shared_ptr<FileFormat>& format() const { return format_; }
 
  protected:
   FileFragment(FileSource source, std::shared_ptr<FileFormat> format,
-               Expression partition_expression, std::shared_ptr<Schema> physical_schema)
+               compute::Expression partition_expression,
+               std::shared_ptr<Schema> physical_schema)
       : Fragment(std::move(partition_expression), std::move(physical_schema)),
         source_(std::move(source)),
         format_(std::move(format)) {}
@@ -216,7 +232,7 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
   ///
   /// \return A constructed dataset.
   static Result<std::shared_ptr<FileSystemDataset>> Make(
-      std::shared_ptr<Schema> schema, Expression root_partition,
+      std::shared_ptr<Schema> schema, compute::Expression root_partition,
       std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
       std::vector<std::shared_ptr<FileFragment>> fragments);
 
@@ -248,10 +264,11 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
   explicit FileSystemDataset(std::shared_ptr<Schema> schema)
       : Dataset(std::move(schema)) {}
 
-  FileSystemDataset(std::shared_ptr<Schema> schema, Expression partition_expression)
+  FileSystemDataset(std::shared_ptr<Schema> schema,
+                    compute::Expression partition_expression)
       : Dataset(std::move(schema), partition_expression) {}
 
-  Result<FragmentIterator> GetFragmentsImpl(Expression predicate) override;
+  Result<FragmentIterator> GetFragmentsImpl(compute::Expression predicate) override;
 
   void SetupSubtreePruning();
 
@@ -262,6 +279,7 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
   std::shared_ptr<FragmentSubtrees> subtrees_;
 };
 
+/// \brief Options for writing a file of this format.
 class ARROW_DS_EXPORT FileWriteOptions {
  public:
   virtual ~FileWriteOptions() = default;
@@ -277,14 +295,18 @@ class ARROW_DS_EXPORT FileWriteOptions {
   std::shared_ptr<FileFormat> format_;
 };
 
+/// \brief A writer for this format.
 class ARROW_DS_EXPORT FileWriter {
  public:
   virtual ~FileWriter() = default;
 
+  /// \brief Write the given batch.
   virtual Status Write(const std::shared_ptr<RecordBatch>& batch) = 0;
 
+  /// \brief Write all batches from the reader.
   Status Write(RecordBatchReader* batches);
 
+  /// \brief Indicate that writing is done.
   virtual Status Finish();
 
   const std::shared_ptr<FileFormat>& format() const { return options_->format(); }
@@ -305,6 +327,7 @@ class ARROW_DS_EXPORT FileWriter {
   std::shared_ptr<io::OutputStream> destination_;
 };
 
+/// \brief Options for writing a dataset.
 struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
   /// Options for individual fragment writing.
   std::shared_ptr<FileWriteOptions> file_write_options;
@@ -329,6 +352,8 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
     return file_write_options->format();
   }
 };
+
+/// @}
 
 }  // namespace dataset
 }  // namespace arrow

@@ -442,7 +442,7 @@ TEST_F(TestEndToEnd, EndToEndSingleDataset) {
   // In the simplest case, consumption is simply conversion to a Table.
   ASSERT_OK_AND_ASSIGN(auto table, scanner->ToTable());
 
-  auto expected = TableFromJSON(scanner->schema(), {R"([
+  auto expected = TableFromJSON(scanner_builder->projected_schema(), {R"([
     {"sales": 152.25, "model": "3", "country": "CA"},
     {"sales": 273.5, "model": "3", "country": "US"}
   ])"});
@@ -547,7 +547,7 @@ class TestSchemaUnification : public TestUnionDataset {
   void AssertScanEquals(std::shared_ptr<Scanner> scanner,
                         const std::vector<TupleType>& expected_rows) {
     std::vector<std::string> columns;
-    for (const auto& field : scanner->schema()->fields()) {
+    for (const auto& field : scanner->options()->projected_schema->fields()) {
       columns.push_back(field->name());
     }
 

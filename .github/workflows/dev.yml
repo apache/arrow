@@ -29,7 +29,7 @@ env:
 jobs:
 
   lint:
-    name: Lint C++, Python, R, Rust, Docker, RAT
+    name: Lint C++, Python, R, Docker, RAT
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     steps:
@@ -79,7 +79,7 @@ jobs:
         with:
           python-version: '3.6'
       - name: Install Ruby
-        uses: actions/setup-ruby@v1
+        uses: ruby/setup-ruby@v1
         with:
           ruby-version: '2.6'
       - name: Install Dependencies

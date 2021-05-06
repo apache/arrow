@@ -78,6 +78,16 @@ jobs:
           if changed '^r/src'; then
             echo "CLANG_FORMAT_R=true" >> $GITHUB_ENV
           fi
+      - name: Ensure clang-format has the appropriate versoin
+        if: env.CMAKE_FORMAT == 'true' || 
+          env.CLANG_FORMAT_CPP == 'true' || 
+          env.CLANG_FORMAT_R == 'true' || 
+          endsWith(github.event.comment.body, 'everything')
+        run: |
+          set -e
+          . .env # To get the clang version we use
+          sudo apt update
+          sudo apt install -y clang-format-${CLANG_TOOLS}
       - name: Run cmake_format
         if: env.CMAKE_FORMAT == 'true' || endsWith(github.event.comment.body, 'everything')
         run: |

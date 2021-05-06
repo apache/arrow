@@ -20,8 +20,6 @@
 # [Apache Arrow](https://github.com/apache/arrow) in JS
 
 [![npm version](https://img.shields.io/npm/v/apache-arrow.svg)](https://www.npmjs.com/package/apache-arrow)
-[![Build Status](https://travis-ci.org/apache/arrow.svg?branch=master)](https://travis-ci.org/apache/arrow)
-[![Coverage Status](https://coveralls.io/repos/github/apache/arrow/badge.svg)](https://coveralls.io/github/apache/arrow)
 
 Arrow is a set of technologies that enable big data systems to process and transfer data quickly.
 
@@ -224,7 +222,7 @@ The base `apache-arrow` package includes all the compilation targets for conveni
 The targets are also published under the `@apache-arrow` namespace:
 
 ```sh
-npm install apache-arrow # <-- combined es5/UMD, es2015/CommonJS/ESModules/UMD, and TypeScript package
+npm install apache-arrow # <-- combined es2015/UMD + esnext/CommonJS/ESModules/UMD
 npm install @apache-arrow/ts # standalone TypeScript package
 npm install @apache-arrow/es5-cjs # standalone es5/CommonJS package
 npm install @apache-arrow/es5-esm # standalone es5/ESModules package

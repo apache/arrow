@@ -26,9 +26,9 @@ const u32 = new Uint32Array(f64.buffer);
  * @ignore
  */
 export function uint16ToFloat64(h: number) {
-    let expo = (h & 0x7C00) >> 10;
-    let sigf = (h & 0x03FF) / 1024;
-    let sign = (-1) ** ((h & 0x8000) >> 15);
+    const expo = (h & 0x7C00) >> 10;
+    const sigf = (h & 0x03FF) / 1024;
+    const sign = (-1) ** ((h & 0x8000) >> 15);
     switch (expo) {
         case 0x1F: return sign * (sigf ? NaN : 1 / 0);
         case 0x00: return sign * (sigf ? 6.103515625e-5 * sigf : 0);
@@ -54,7 +54,7 @@ export function float64ToUint16(d: number) {
     // 0x7ff00000 = 01111111 11110000 00000000 00000000 -- masks the 21st-31st bits
     // 0x000fffff = 00000000 00001111 11111111 11111111 -- masks the 1st-20th bit
 
-    let sign = (u32[1] & 0x80000000) >> 16 & 0xFFFF;
+    const sign = (u32[1] & 0x80000000) >> 16 & 0xFFFF;
     let expo = (u32[1] & 0x7ff00000), sigf = 0x0000;
 
     if (expo >= 0x40f00000) {

@@ -1078,7 +1078,7 @@ TEST_F(TestInt32ModeKernel, SmallValueRange) {
 }
 
 TEST_F(TestInt32ModeKernel, LargeValueRange) {
-  // Large value range => should exercise hashmap-based Mode implementation
+  // Large value range => should exercise sorter-based Mode implementation
   CheckModeWithRange<ArrowType>(-10000000, 10000000);
 }
 
@@ -1303,12 +1303,17 @@ std::pair<double, double> WelfordVar(const ArrayType& array) {
 template <typename ArrowType>
 class TestVarStdKernelRandom : public TestPrimitiveVarStdKernel<ArrowType> {};
 
-typedef ::testing::Types<Int32Type, UInt32Type, Int64Type, UInt64Type, FloatType,
-                         DoubleType>
-    VarStdRandomTypes;
+using VarStdRandomTypes =
+    ::testing::Types<Int32Type, UInt32Type, Int64Type, UInt64Type, FloatType, DoubleType>;
 
 TYPED_TEST_SUITE(TestVarStdKernelRandom, VarStdRandomTypes);
+
 TYPED_TEST(TestVarStdKernelRandom, Basics) {
+#if defined(__MINGW32__) && !defined(__MINGW64__)
+  if (TypeParam::type_id == Type::FLOAT) {
+    GTEST_SKIP() << "Precision issues on MinGW32 with float32";
+  }
+#endif
   // Cut array into small chunks
   constexpr int array_size = 5000;
   constexpr int chunk_size_max = 50;

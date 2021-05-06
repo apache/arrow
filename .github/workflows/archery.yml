@@ -37,15 +37,15 @@ jobs:
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     name: Archery Unittests and Crossbow Check Config
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
       - name: Git Fixup
-        if: ${{ github.event_name == 'pull_request' }}
         shell: bash
-        run: git branch master origin/master
+        run: git branch master origin/master || true
       - name: Free Up Disk Space
         run: ci/scripts/util_cleanup.sh
       - name: Setup Python
@@ -53,8 +53,7 @@ jobs:
         with:
           python-version: '3.6'
       - name: Install Archery, Crossbow- and Test Dependencies
-        working-directory: dev/archery
-        run: pip install pytest responses toolz jinja2 -e .[all]
+        run: pip install pytest responses -e dev/archery[all]
       - name: Archery Unittests
         working-directory: dev/archery
         run: pytest -v archery
@@ -62,4 +61,4 @@ jobs:
         run: archery docker
       - name: Crossbow Check Config
         working-directory: dev/tasks
-        run: python crossbow.py check-config
+        run: archery crossbow check-config

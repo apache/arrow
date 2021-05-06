@@ -65,7 +65,5 @@ test_that <- function(what, code) {
 # Wrapper to run tests that only touch R code even when the C++ library isn't
 # available (so that at least some tests are run on those platforms)
 r_only <- function(code) {
-  old <- options(..skip.tests = FALSE)
-  on.exit(options(old))
-  code
+  withr::with_options(list(..skip.tests = FALSE), code)
 }

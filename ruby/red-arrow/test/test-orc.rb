@@ -118,39 +118,35 @@ class ORCTest < Test::Unit::TestCase
                        ]
                      ],
                      [
-                       "map: list<item: " +
-                       "struct<key: string, value: " +
-                       "struct<int1: int32, string1: string>>>",
+                       "map: map<string, struct<int1: int32, string1: string>>",
                        [
                          <<-MAP.chomp
 [
+  keys:
+  []
+  values:
   -- is_valid: all not null
-  -- child 0 type: string
+  -- child 0 type: int32
     []
-  -- child 1 type: struct<int1: int32, string1: string>
-    -- is_valid: all not null
-    -- child 0 type: int32
-      []
-    -- child 1 type: string
-      [],
+  -- child 1 type: string
+    [],
+  keys:
+  [
+    "chani",
+    "mauddib"
+  ]
+  values:
   -- is_valid: all not null
-  -- child 0 type: string
+  -- child 0 type: int32
+    [
+      5,
+      1
+    ]
+  -- child 1 type: string
     [
       "chani",
       "mauddib"
     ]
-  -- child 1 type: struct<int1: int32, string1: string>
-    -- is_valid: all not null
-    -- child 0 type: int32
-      [
-        5,
-        1
-      ]
-    -- child 1 type: string
-      [
-        "chani",
-        "mauddib"
-      ]
 ]
                          MAP
                        ],

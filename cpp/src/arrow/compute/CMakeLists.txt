@@ -68,3 +68,5 @@ add_arrow_compute_test(internals_test
 add_arrow_benchmark(function_benchmark PREFIX "arrow-compute")
 
 add_subdirectory(kernels)
+
+add_subdirectory(exec)

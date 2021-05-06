@@ -31,6 +31,7 @@
 #include "arrow/compute/kernels/common.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/bitmap_writer.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/make_unique.h"
 #include "arrow/visitor_inline.h"
@@ -38,6 +39,7 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::FirstTimeBitmapWriter;
 
 namespace compute {
 namespace internal {
@@ -70,12 +72,19 @@ struct KeyEncoder {
 
     if (*null_count > 0) {
       ARROW_ASSIGN_OR_RAISE(*null_bitmap, AllocateBitmap(length, pool));
-
       uint8_t* validity = (*null_bitmap)->mutable_data();
+
+      FirstTimeBitmapWriter writer(validity, 0, length);
       for (int32_t i = 0; i < length; ++i) {
-        BitUtil::SetBitTo(validity, i, encoded_bytes[i][0] == kValidByte);
+        if (encoded_bytes[i][0] == kValidByte) {
+          writer.Set();
+        } else {
+          writer.Clear();
+        }
+        writer.Next();
         encoded_bytes[i] += 1;
       }
+      writer.Finish();
     } else {
       for (int32_t i = 0; i < length; ++i) {
         encoded_bytes[i] += 1;
@@ -474,9 +483,11 @@ struct GroupedCountImpl : public GroupedAggregator {
     const auto& input = batch[0].array();
 
     if (options_.count_mode == CountOptions::COUNT_NULL) {
-      for (int64_t i = 0, input_i = input->offset; i < input->length; ++i, ++input_i) {
-        auto g = group_ids[i];
-        raw_counts[g] += !BitUtil::GetBit(input->buffers[0]->data(), input_i);
+      if (input->GetNullCount() != 0) {
+        for (int64_t i = 0, input_i = input->offset; i < input->length; ++i, ++input_i) {
+          auto g = group_ids[i];
+          raw_counts[g] += !BitUtil::GetBit(input->buffers[0]->data(), input_i);
+        }
       }
       return Status::OK();
     }
@@ -761,12 +772,11 @@ HashAggregateKernel MakeKernel(InputType argument_type) {
   HashAggregateKernel kernel;
 
   kernel.init = [](KernelContext* ctx,
-                   const KernelInitArgs& args) -> std::unique_ptr<KernelState> {
+                   const KernelInitArgs& args) -> Result<std::unique_ptr<KernelState>> {
     auto impl = ::arrow::internal::make_unique<Impl>();
     // FIXME(bkietz) Init should not take a type. That should be an unboxed template arg
     // for the Impl. Otherwise we're not exposing dispatch as well as we should.
-    ctx->SetStatus(impl->Init(ctx->exec_context(), args.options, args.inputs[0].type));
-    if (ctx->HasError()) return nullptr;
+    RETURN_NOT_OK(impl->Init(ctx->exec_context(), args.options, args.inputs[0].type));
     return std::move(impl);
   };
 
@@ -779,17 +789,18 @@ HashAggregateKernel MakeKernel(InputType argument_type) {
           }));
 
   kernel.consume = [](KernelContext* ctx, const ExecBatch& batch) {
-    ctx->SetStatus(checked_cast<GroupedAggregator*>(ctx->state())->Consume(batch));
+    return checked_cast<GroupedAggregator*>(ctx->state())->Consume(batch);
   };
 
   kernel.merge = [](KernelContext* ctx, KernelState&&, KernelState*) {
     // TODO(ARROW-11840) merge two hash tables
-    ctx->SetStatus(Status::NotImplemented("Merge hashed aggregations"));
+    return Status::NotImplemented("Merge hashed aggregations");
   };
 
   kernel.finalize = [](KernelContext* ctx, Datum* out) {
-    KERNEL_ASSIGN_OR_RAISE(*out, ctx,
-                           checked_cast<GroupedAggregator*>(ctx->state())->Finalize());
+    ARROW_ASSIGN_OR_RAISE(*out,
+                          checked_cast<GroupedAggregator*>(ctx->state())->Finalize());
+    return Status::OK();
   };
 
   return kernel;
@@ -834,14 +845,14 @@ Result<std::vector<std::unique_ptr<KernelState>>> InitKernels(
     }
 
     KernelContext kernel_ctx{ctx};
-    states[i] = kernels[i]->init(&kernel_ctx, KernelInitArgs{kernels[i],
-                                                             {
-                                                                 in_descrs[i].type,
-                                                                 uint32(),
-                                                                 uint32(),
-                                                             },
-                                                             options});
-    if (kernel_ctx.HasError()) return kernel_ctx.status();
+    ARROW_ASSIGN_OR_RAISE(
+        states[i], kernels[i]->init(&kernel_ctx, KernelInitArgs{kernels[i],
+                                                                {
+                                                                    in_descrs[i].type,
+                                                                    uint32(),
+                                                                    uint32(),
+                                                                },
+                                                                options}));
   }
 
   return std::move(states);
@@ -927,8 +938,7 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
       batch_ctx.SetState(states[i].get());
       ARROW_ASSIGN_OR_RAISE(auto batch, ExecBatch::Make({argument_batch[i], id_batch,
                                                          Datum(grouper->num_groups())}));
-      kernels[i]->consume(&batch_ctx, batch);
-      if (batch_ctx.HasError()) return batch_ctx.status();
+      RETURN_NOT_OK(kernels[i]->consume(&batch_ctx, batch));
     }
   }
 
@@ -940,8 +950,7 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
     KernelContext batch_ctx{ctx};
     batch_ctx.SetState(states[i].get());
     Datum out;
-    kernels[i]->finalize(&batch_ctx, &out);
-    if (batch_ctx.HasError()) return batch_ctx.status();
+    RETURN_NOT_OK(kernels[i]->finalize(&batch_ctx, &out));
     *it++ = out.array();
   }
 

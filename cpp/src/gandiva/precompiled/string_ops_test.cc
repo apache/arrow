@@ -115,6 +115,64 @@ TEST(TestStringOps, TestCharLength) {
   ctx.Reset();
 }
 
+TEST(TestStringOps, TestConvertReplaceInvalidUtf8Char) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+
+  // invalid utf8 (xf8 is invalid but x28 is not - x28 = '(')
+  std::string a(
+      "ok-\xf8\x28"
+      "-a");
+  auto a_in_out_len = static_cast<int>(a.length());
+  const char* a_str = convert_replace_invalid_fromUTF8_binary(
+      ctx_ptr, a.data(), a_in_out_len, "a", 1, &a_in_out_len);
+  EXPECT_EQ(std::string(a_str, a_in_out_len), "ok-a(-a");
+  EXPECT_FALSE(ctx.has_error());
+
+  // invalid utf8 (xa0 and xa1 are invalid)
+  std::string b("ok-\xa0\xa1-valid");
+  auto b_in_out_len = static_cast<int>(b.length());
+  const char* b_str = convert_replace_invalid_fromUTF8_binary(
+      ctx_ptr, b.data(), b_in_out_len, "b", 1, &b_in_out_len);
+  EXPECT_EQ(std::string(b_str, b_in_out_len), "ok-bb-valid");
+  EXPECT_FALSE(ctx.has_error());
+
+  // full valid utf8
+  std::string c("all-valid");
+  auto c_in_out_len = static_cast<int>(c.length());
+  const char* c_str = convert_replace_invalid_fromUTF8_binary(
+      ctx_ptr, c.data(), c_in_out_len, "c", 1, &c_in_out_len);
+  EXPECT_EQ(std::string(c_str, c_in_out_len), "all-valid");
+  EXPECT_FALSE(ctx.has_error());
+
+  // valid utf8 (महसुस is 4-char string, each char of which is likely a multibyte char)
+  std::string d("ok-महसुस-valid-new");
+  auto d_in_out_len = static_cast<int>(d.length());
+  const char* d_str = convert_replace_invalid_fromUTF8_binary(
+      ctx_ptr, d.data(), d_in_out_len, "d", 1, &d_in_out_len);
+  EXPECT_EQ(std::string(d_str, d_in_out_len), "ok-महसुस-valid-new");
+  EXPECT_FALSE(ctx.has_error());
+
+  // full valid utf8, but invalid replacement char length
+  std::string e("all-valid");
+  auto e_in_out_len = static_cast<int>(e.length());
+  const char* e_str = convert_replace_invalid_fromUTF8_binary(
+      ctx_ptr, e.data(), e_in_out_len, "ee", 2, &e_in_out_len);
+  EXPECT_EQ(std::string(e_str, e_in_out_len), "");
+  EXPECT_TRUE(ctx.has_error());
+  ctx.Reset();
+
+  // full valid utf8, but invalid replacement char length
+  std::string f("ok-\xa0\xa1-valid");
+  auto f_in_out_len = static_cast<int>(f.length());
+  const char* f_str = convert_replace_invalid_fromUTF8_binary(
+      ctx_ptr, f.data(), f_in_out_len, "", 0, &f_in_out_len);
+  EXPECT_EQ(std::string(f_str, f_in_out_len), "ok-\xa0\xa1-valid");
+  EXPECT_FALSE(ctx.has_error());
+
+  ctx.Reset();
+}
+
 TEST(TestStringOps, TestCastBoolToVarchar) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);

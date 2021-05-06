@@ -704,6 +704,23 @@ class ReplaceSubstringOptions(_ReplaceSubstringOptions):
         self._set_options(pattern, replacement, max_replacements)
 
 
+cdef class _ExtractRegexOptions(FunctionOptions):
+    cdef:
+        unique_ptr[CExtractRegexOptions] extract_regex_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.extract_regex_options.get()
+
+    def _set_options(self, pattern):
+        self.extract_regex_options.reset(
+            new CExtractRegexOptions(tobytes(pattern)))
+
+
+class ExtractRegexOptions(_ExtractRegexOptions):
+    def __init__(self, pattern):
+        self._set_options(pattern)
+
+
 cdef class _FilterOptions(FunctionOptions):
     cdef:
         unique_ptr[CFilterOptions] filter_options

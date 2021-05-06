@@ -18,11 +18,41 @@
 #include <sstream>
 #include <string>
 
+#include "arrow/config.h"
+
+// Include various "api.h" entrypoints and check they don't leak internal symbols
+
 #include "arrow/api.h"      // IWYU pragma: keep
 #include "arrow/io/api.h"   // IWYU pragma: keep
 #include "arrow/ipc/api.h"  // IWYU pragma: keep
 
-// TODO: should exercise more public APIs (compute etc.)
+#ifdef ARROW_COMPUTE
+#include "arrow/compute/api.h"  // IWYU pragma: keep
+#endif
+
+#ifdef ARROW_CSV
+#include "arrow/csv/api.h"  // IWYU pragma: keep
+#endif
+
+#ifdef ARROW_DATASET
+#include "arrow/dataset/api.h"  // IWYU pragma: keep
+#endif
+
+#ifdef ARROW_FILESYSTEM
+#include "arrow/filesystem/api.h"  // IWYU pragma: keep
+#endif
+
+#ifdef ARROW_FLIGHT
+#include "arrow/flight/api.h"  // IWYU pragma: keep
+#endif
+
+#ifdef ARROW_JSON
+#include "arrow/json/api.h"  // IWYU pragma: keep
+#endif
+
+#ifdef ARROW_PYTHON
+#include "arrow/python/api.h"  // IWYU pragma: keep
+#endif
 
 #ifdef DCHECK
 #error "DCHECK should not be visible from Arrow public headers."

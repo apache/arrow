@@ -38,6 +38,9 @@ ARROW_R_DEV=`echo $ARROW_R_DEV | tr '[:upper:]' '[:lower:]'`
 FORCE_AUTOBREW=`echo $FORCE_AUTOBREW | tr '[:upper:]' '[:lower:]'`
 FORCE_BUNDLED_BUILD=`echo $FORCE_BUNDLED_BUILD | tr '[:upper:]' '[:lower:]'`
 ARROW_USE_PKG_CONFIG=`echo $ARROW_USE_PKG_CONFIG | tr '[:upper:]' '[:lower:]'`
+LIBARROW_MINIMAL=`echo $LIBARROW_MINIMAL | tr '[:upper:]' '[:lower:]'`
+LIBARROW_DOWNLOAD=`echo $LIBARROW_DOWNLOAD | tr '[:upper:]' '[:lower:]'`
+NOT_CRAN=`echo $NOT_CRAN | tr '[:upper:]' '[:lower:]'`
 
 VERSION=`grep '^Version' DESCRIPTION | sed s/Version:\ //`
 UNAME=`uname -s`
@@ -66,21 +69,25 @@ if [ "$FORCE_AUTOBREW" = "true" ] || [ "$FORCE_BUNDLED_BUILD" = "true" ]; then
 fi
 
 # Note that cflags may be empty in case of success
-if [ "$INCLUDE_DIR" ] || [ "$LIB_DIR" ]; then
-  echo "*** Using INCLUDE_DIR/LIB_DIR"
+if [ "$ARROW_HOME" ]; then
+  echo "*** Using ARROW_HOME as the source of libarrow"
+  PKG_CFLAGS="-I$ARROW_HOME/include $PKG_CFLAGS"
+  PKG_DIRS="-L$ARROW_HOME/lib"
+elif [ "$INCLUDE_DIR" ] && [ "$LIB_DIR" ]; then
+  echo "*** Using INCLUDE_DIR/LIB_DIR as the source of libarrow"
   PKG_CFLAGS="-I$INCLUDE_DIR $PKG_CFLAGS"
   PKG_DIRS="-L$LIB_DIR"
 else
   # Use pkg-config if available and allowed
   pkg-config --version >/dev/null 2>&1
-  if [ "$ARROW_USE_PKG_CONFIG" != "false" ] && [ $? -eq 0 ]; then
+  if [ $? -eq 0 ] && [ "$ARROW_USE_PKG_CONFIG" != "false" ]; then
     PKGCONFIG_CFLAGS=`pkg-config --cflags --silence-errors ${PKG_CONFIG_NAME}`
     PKGCONFIG_LIBS=`pkg-config --libs-only-l --silence-errors ${PKG_CONFIG_NAME}`
     PKGCONFIG_DIRS=`pkg-config --libs-only-L --silence-errors ${PKG_CONFIG_NAME}`
     # TODO: what about --libs-only-other?
   fi
 
-  if [ "$PKGCONFIG_CFLAGS" ] || [ "$PKGCONFIG_LIBS" ]; then
+  if [ "$PKGCONFIG_CFLAGS" ] && [ "$PKGCONFIG_LIBS" ]; then
     echo "*** Arrow C++ libraries found via pkg-config"
     PKG_CFLAGS="$PKGCONFIG_CFLAGS"
     PKG_LIBS=${PKGCONFIG_LIBS}
@@ -144,7 +151,7 @@ else
       if [ "$UNAME" = "Darwin" ] && [ "${OPENSSL_ROOT_DIR}" = "" ]; then
         brew --prefix openssl >/dev/null 2>&1
         if [ $? -eq 0 ]; then
-          export OPENSSL_ROOT_DIR="$(brew --prefix openssl)"
+          OPENSSL_ROOT_DIR="`brew --prefix openssl`"; export OPENSSL_ROOT_DIR
         fi
       fi
 

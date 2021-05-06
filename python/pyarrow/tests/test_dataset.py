@@ -21,7 +21,6 @@ import posixpath
 import pathlib
 import pickle
 import textwrap
-import threading
 
 import numpy as np
 import pytest
@@ -307,14 +306,15 @@ def test_dataset(dataset):
     # TODO(kszucs): test non-boolean Exprs for filter do raise
     expected_i64 = pa.array([0, 1, 2, 3, 4], type=pa.int64())
     expected_f64 = pa.array([0, 1, 2, 3, 4], type=pa.float64())
-    for task in dataset.scan():
-        assert isinstance(task, ds.ScanTask)
-        for batch in task.execute():
-            assert batch.column(0).equals(expected_i64)
-            assert batch.column(1).equals(expected_f64)
 
-    batches = dataset.to_batches()
-    assert all(isinstance(batch, pa.RecordBatch) for batch in batches)
+    for batch in dataset.to_batches():
+        assert isinstance(batch, pa.RecordBatch)
+        assert batch.column(0).equals(expected_i64)
+        assert batch.column(1).equals(expected_f64)
+
+    for batch in dataset.scanner().scan_batches():
+        assert isinstance(batch, ds.TaggedRecordBatch)
+        assert isinstance(batch.fragment, ds.Fragment)
 
     table = dataset.to_table()
     assert isinstance(table, pa.Table)
@@ -330,37 +330,80 @@ def test_dataset(dataset):
     assert sorted(result['key']) == ['xxx', 'yyy']
 
 
-def test_dataset_execute_iterator(dataset):
-    # ARROW-11596: this would segfault due to Cython raising
-    # StopIteration without holding the GIL. (Fixed on Cython master,
-    # post 3.0a6)
-    tasks = dataset.scan()
-    task = next(tasks)
-    iterator = task.execute()
-    thread = threading.Thread(target=lambda: next(iterator))
-    thread.start()
-    thread.join()
-    with pytest.raises(StopIteration):
-        next(iterator)
-
-
 def test_scanner(dataset):
-    scanner = ds.Scanner.from_dataset(dataset,
-                                      memory_pool=pa.default_memory_pool())
+    scanner = dataset.scanner(memory_pool=pa.default_memory_pool())
     assert isinstance(scanner, ds.Scanner)
-    assert len(list(scanner.scan())) == 2
 
     with pytest.raises(pa.ArrowInvalid):
-        ds.Scanner.from_dataset(dataset, columns=['unknown'])
+        dataset.scanner(columns=['unknown'])
 
-    scanner = ds.Scanner.from_dataset(dataset, columns=['i64'],
-                                      memory_pool=pa.default_memory_pool())
+    scanner = dataset.scanner(columns=['i64'],
+                              memory_pool=pa.default_memory_pool())
+    assert scanner.dataset_schema == dataset.schema
+    assert scanner.projected_schema == pa.schema([("i64", pa.int64())])
 
     assert isinstance(scanner, ds.Scanner)
-    assert len(list(scanner.scan())) == 2
-    for task in scanner.scan():
-        for batch in task.execute():
-            assert batch.num_columns == 1
+    for batch in scanner.to_batches():
+        assert batch.schema == scanner.projected_schema
+        assert batch.num_columns == 1
+
+    table = scanner.to_table()
+    assert table.schema == scanner.projected_schema
+    for i in range(table.num_rows):
+        indices = pa.array([i])
+        assert table.take(indices) == scanner.take(indices)
+    with pytest.raises(pa.ArrowIndexError):
+        scanner.take(pa.array([table.num_rows]))
+
+    assert table.num_rows == scanner.count_rows()
+
+
+def test_head(dataset):
+    result = dataset.head(0)
+    assert result == pa.Table.from_batches([], schema=dataset.schema)
+
+    result = dataset.head(1, columns=['i64']).to_pydict()
+    assert result == {'i64': [0]}
+
+    result = dataset.head(2, columns=['i64'],
+                          filter=ds.field('i64') > 1).to_pydict()
+    assert result == {'i64': [2, 3]}
+
+    result = dataset.head(1024, columns=['i64']).to_pydict()
+    assert result == {'i64': list(range(5)) * 2}
+
+    fragment = next(dataset.get_fragments())
+    result = fragment.head(1, columns=['i64']).to_pydict()
+    assert result == {'i64': [0]}
+
+    result = fragment.head(1024, columns=['i64']).to_pydict()
+    assert result == {'i64': list(range(5))}
+
+
+def test_take(dataset):
+    fragment = next(dataset.get_fragments())
+    indices = pa.array([1, 3])
+    assert fragment.take(indices) == fragment.to_table().take(indices)
+    with pytest.raises(IndexError):
+        fragment.take(pa.array([5]))
+
+    indices = pa.array([1, 7])
+    assert dataset.take(indices) == dataset.to_table().take(indices)
+    with pytest.raises(IndexError):
+        dataset.take(pa.array([10]))
+
+
+def test_count_rows(dataset):
+    fragment = next(dataset.get_fragments())
+    assert fragment.count_rows() == 5
+    assert fragment.count_rows(filter=ds.field("i64") == 4) == 1
+
+    assert dataset.count_rows() == 10
+    # Filter on partition key
+    assert dataset.count_rows(filter=ds.field("group") == 1) == 5
+    # Filter on data
+    assert dataset.count_rows(filter=ds.field("i64") >= 3) == 4
+    assert dataset.count_rows(filter=ds.field("i64") < 0) == 0
 
 
 def test_abstract_classes():
@@ -487,6 +530,23 @@ def test_expression_boolean_operators():
         not true
 
 
+def test_expression_arithmetic_operators():
+    dataset = ds.dataset(pa.table({'a': [1, 2, 3], 'b': [2, 2, 2]}))
+    a = ds.field("a")
+    b = ds.field("b")
+    result = dataset.to_table(columns={
+        "a+1": a + 1,
+        "b-a": b - a,
+        "a*2": a * 2,
+        "a/b": a.cast("float64") / b,
+    })
+    expected = pa.table({
+        "a+1": [2, 3, 4], "b-a": [1, 0, -1],
+        "a*2": [2, 4, 6], "a/b": [0.5, 1.0, 1.5],
+    })
+    assert result.equals(expected)
+
+
 def test_partition_keys():
     a, b, c = [ds.field(f) == f for f in 'abc']
     assert ds._get_partition_keys(a) == {'a': 'a'}
@@ -502,32 +562,38 @@ def test_partition_keys():
 
 def test_parquet_read_options():
     opts1 = ds.ParquetReadOptions()
-    opts2 = ds.ParquetReadOptions(buffer_size=4096,
-                                  dictionary_columns=['a', 'b'])
-    opts3 = ds.ParquetReadOptions(buffer_size=2**13, use_buffered_stream=True,
-                                  dictionary_columns={'a', 'b'})
-    opts4 = ds.ParquetReadOptions(buffer_size=2**13, pre_buffer=True,
-                                  dictionary_columns={'a', 'b'})
+    opts2 = ds.ParquetReadOptions(dictionary_columns=['a', 'b'])
+
+    assert opts1.dictionary_columns == set()
+
+    assert opts2.dictionary_columns == {'a', 'b'}
+
+    assert opts1 == opts1
+    assert opts1 != opts2
+
+
+def test_parquet_scan_options():
+    opts1 = ds.ParquetFragmentScanOptions()
+    opts2 = ds.ParquetFragmentScanOptions(buffer_size=4096)
+    opts3 = ds.ParquetFragmentScanOptions(
+        buffer_size=2**13, use_buffered_stream=True)
+    opts4 = ds.ParquetFragmentScanOptions(buffer_size=2**13, pre_buffer=True)
 
     assert opts1.use_buffered_stream is False
     assert opts1.buffer_size == 2**13
     assert opts1.pre_buffer is False
-    assert opts1.dictionary_columns == set()
 
     assert opts2.use_buffered_stream is False
     assert opts2.buffer_size == 2**12
     assert opts2.pre_buffer is False
-    assert opts2.dictionary_columns == {'a', 'b'}
 
     assert opts3.use_buffered_stream is True
     assert opts3.buffer_size == 2**13
     assert opts3.pre_buffer is False
-    assert opts3.dictionary_columns == {'a', 'b'}
 
     assert opts4.use_buffered_stream is False
     assert opts4.buffer_size == 2**13
     assert opts4.pre_buffer is True
-    assert opts4.dictionary_columns == {'a', 'b'}
 
     assert opts1 == opts1
     assert opts1 != opts2
@@ -546,14 +612,11 @@ def test_file_format_pickling():
         ds.CsvFileFormat(read_options=pa.csv.ReadOptions(
             skip_rows=3, block_size=2**20)),
         ds.ParquetFileFormat(),
+        ds.ParquetFileFormat(dictionary_columns={'a'}),
+        ds.ParquetFileFormat(use_buffered_stream=True),
         ds.ParquetFileFormat(
-            read_options=ds.ParquetReadOptions(use_buffered_stream=True)
-        ),
-        ds.ParquetFileFormat(
-            read_options={
-                'use_buffered_stream': True,
-                'buffer_size': 4096,
-            }
+            use_buffered_stream=True,
+            buffer_size=4096,
         )
     ]
     for file_format in formats:
@@ -567,6 +630,8 @@ def test_fragment_scan_options_pickling():
             convert_options=pa.csv.ConvertOptions(strings_can_be_null=True)),
         ds.CsvFragmentScanOptions(
             read_options=pa.csv.ReadOptions(block_size=2**16)),
+        ds.ParquetFragmentScanOptions(buffer_size=4096),
+        ds.ParquetFragmentScanOptions(pre_buffer=True),
     ]
     for option in options:
         assert pickle.loads(pickle.dumps(option)) == option
@@ -582,8 +647,8 @@ def test_fragment_scan_options_pickling():
 @pytest.mark.parametrize('pre_buffer', [False, True])
 def test_filesystem_factory(mockfs, paths_or_selector, pre_buffer):
     format = ds.ParquetFileFormat(
-        read_options=ds.ParquetReadOptions(dictionary_columns={"str"},
-                                           pre_buffer=pre_buffer)
+        read_options=ds.ParquetReadOptions(dictionary_columns={"str"}),
+        pre_buffer=pre_buffer
     )
 
     options = ds.FileSystemFactoryOptions('subdir')
@@ -618,27 +683,28 @@ def test_filesystem_factory(mockfs, paths_or_selector, pre_buffer):
 
     dataset = factory.finish()
     assert isinstance(dataset, ds.FileSystemDataset)
-    assert len(list(dataset.scan())) == 2
 
-    scanner = ds.Scanner.from_dataset(dataset)
+    scanner = dataset.scanner()
     expected_i64 = pa.array([0, 1, 2, 3, 4], type=pa.int64())
     expected_f64 = pa.array([0, 1, 2, 3, 4], type=pa.float64())
     expected_str = pa.DictionaryArray.from_arrays(
         pa.array([0, 1, 2, 3, 4], type=pa.int32()),
         pa.array("0 1 2 3 4".split(), type=pa.string())
     )
-    for task, group, key in zip(scanner.scan(), [1, 2], ['xxx', 'yyy']):
+    iterator = scanner.scan_batches()
+    for (batch, fragment), group, key in zip(iterator, [1, 2], ['xxx', 'yyy']):
         expected_group = pa.array([group] * 5, type=pa.int32())
         expected_key = pa.array([key] * 5, type=pa.string())
         expected_const = pa.array([group - 1] * 5, type=pa.int64())
-        for batch in task.execute():
-            assert batch.num_columns == 6
-            assert batch[0].equals(expected_i64)
-            assert batch[1].equals(expected_f64)
-            assert batch[2].equals(expected_str)
-            assert batch[3].equals(expected_const)
-            assert batch[4].equals(expected_group)
-            assert batch[5].equals(expected_key)
+        # Can't compare or really introspect expressions from Python
+        assert fragment.partition_expression is not None
+        assert batch.num_columns == 6
+        assert batch[0].equals(expected_i64)
+        assert batch[1].equals(expected_f64)
+        assert batch[2].equals(expected_str)
+        assert batch[3].equals(expected_const)
+        assert batch[4].equals(expected_group)
+        assert batch[5].equals(expected_key)
 
     table = dataset.to_table()
     assert isinstance(table, pa.Table)
@@ -702,10 +768,10 @@ def test_make_parquet_fragment_from_buffer():
     ]
     dictionary_format = ds.ParquetFileFormat(
         read_options=ds.ParquetReadOptions(
-            use_buffered_stream=True,
-            buffer_size=4096,
             dictionary_columns=['alpha', 'animal']
-        )
+        ),
+        use_buffered_stream=True,
+        buffer_size=4096,
     )
 
     cases = [
@@ -1697,6 +1763,7 @@ def test_construct_in_memory():
         assert dataset.to_table() == table
         assert dataset.to_table() == table
         assert next(dataset.get_fragments()).to_table() == table
+        assert pa.Table.from_batches(list(dataset.to_batches())) == table
 
     # When constructed from readers/iterators, should be one-shot
     match = "InMemoryDataset was already consumed"
@@ -2960,6 +3027,31 @@ def test_write_iterable(tempdir):
     assert result.equals(table)
 
 
+def test_write_scanner(tempdir):
+    table = pa.table([
+        pa.array(range(20)), pa.array(np.random.randn(20)),
+        pa.array(np.repeat(['a', 'b'], 10))
+    ], names=["f1", "f2", "part"])
+    dataset = ds.dataset(table)
+
+    base_dir = tempdir / 'dataset_from_scanner'
+    ds.write_dataset(dataset.scanner(), base_dir, format="feather")
+    result = ds.dataset(base_dir, format="ipc").to_table()
+    assert result.equals(table)
+
+    # scanner with different projected_schema
+    base_dir = tempdir / 'dataset_from_scanner2'
+    ds.write_dataset(dataset.scanner(columns=["f1"]),
+                     base_dir, format="feather")
+    result = ds.dataset(base_dir, format="ipc").to_table()
+    assert result.equals(table.select(["f1"]))
+
+    # schema not allowed when writing a scanner
+    with pytest.raises(ValueError, match="Cannot specify a schema"):
+        ds.write_dataset(dataset.scanner(), base_dir, schema=table.schema,
+                         format="feather")
+
+
 def test_write_table_partitioned_dict(tempdir):
     # ensure writing table partitioned on a dictionary column works without
     # specifying the dictionary values explicitly
@@ -3102,3 +3194,24 @@ def test_write_dataset_s3(s3_example_simple):
         "mybucket/dataset3", filesystem=fs, format="ipc", partitioning="hive"
     ).to_table()
     assert result.equals(table)
+
+
+@pytest.mark.parquet
+def test_dataset_null_to_dictionary_cast(tempdir):
+    # ARROW-12420
+    import pyarrow.parquet as pq
+
+    table = pa.table({"a": [None, None]})
+    pq.write_table(table, tempdir / "test.parquet")
+
+    schema = pa.schema([
+        pa.field("a", pa.dictionary(pa.int32(), pa.string()))
+    ])
+    fsds = ds.FileSystemDataset.from_paths(
+        paths=[tempdir / "test.parquet"],
+        schema=schema,
+        format=ds.ParquetFileFormat(),
+        filesystem=fs.LocalFileSystem(),
+    )
+    table = fsds.to_table()
+    assert table.schema == schema

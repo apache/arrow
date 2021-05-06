@@ -102,6 +102,8 @@ static inline Compression::type FromThriftUnsafe(format::CompressionCodec::type 
       return Compression::BROTLI;
     case format::CompressionCodec::LZ4:
       return Compression::LZ4_HADOOP;
+    case format::CompressionCodec::LZ4_RAW:
+      return Compression::LZ4;
     case format::CompressionCodec::ZSTD:
       return Compression::ZSTD;
     default:
@@ -212,7 +214,8 @@ inline typename Compression::type LoadEnumSafe(const format::CompressionCodec::t
   // as format::CompressionCodec.
   const auto min_value =
       static_cast<decltype(raw_value)>(format::CompressionCodec::UNCOMPRESSED);
-  const auto max_value = static_cast<decltype(raw_value)>(format::CompressionCodec::ZSTD);
+  const auto max_value =
+      static_cast<decltype(raw_value)>(format::CompressionCodec::LZ4_RAW);
   if (raw_value < min_value || raw_value > max_value) {
     return Compression::UNCOMPRESSED;
   }
@@ -282,9 +285,10 @@ static inline format::CompressionCodec::type ToThrift(Compression::type type) {
       return format::CompressionCodec::LZO;
     case Compression::BROTLI:
       return format::CompressionCodec::BROTLI;
-    // For compatibility with existing source code
     case Compression::LZ4:
+      return format::CompressionCodec::LZ4_RAW;
     case Compression::LZ4_HADOOP:
+      // Deprecated "LZ4" Parquet compression has Hadoop-specific framing
       return format::CompressionCodec::LZ4;
     case Compression::ZSTD:
       return format::CompressionCodec::ZSTD;

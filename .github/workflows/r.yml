@@ -49,6 +49,7 @@ jobs:
     name: AMD64 Ubuntu ${{ matrix.ubuntu }} R ${{ matrix.r }}
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -72,6 +73,8 @@ jobs:
           path: .docker
           key: ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-${{ hashFiles('cpp/**') }}
           restore-keys: ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-
+      - name: Check pkgdown reference sections
+        run: ci/scripts/r_pkgdown_check.sh
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
@@ -104,6 +107,7 @@ jobs:
     name: "${{ matrix.config.org }}/${{ matrix.config.image }}:${{ matrix.config.tag }}"
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -161,6 +165,7 @@ jobs:
     name: AMD64 Windows RTools ${{ matrix.rtools }}
     runs-on: windows-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:

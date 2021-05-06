@@ -84,7 +84,25 @@ void DoubleToStringConverter::CreateExponentialRepresentation(
     StringBuilder* result_builder) const {
   ASSERT(length != 0);
   result_builder->AddCharacter(decimal_digits[0]);
-  if (length != 1) {
+
+  /* If the mantissa of the scientific notation representation is an integer number,
+   * the EMIT_TRAILING_DECIMAL_POINT flag will add a '.' character at the end of the
+   * representation:
+   * - With EMIT_TRAILING_DECIMAL_POINT enabled -> 0.0009 => 9.E-4
+   * - With EMIT_TRAILING_DECIMAL_POINT disabled -> 0.0009 => 9E-4
+   *
+   * If the mantissa is an integer and the EMIT_TRAILING_ZERO_AFTER_POINT flag is enabled
+   * it will add a '0' character at the end of the mantissa representation. Note that that
+   * flag depends on EMIT_TRAILING_DECIMAL_POINT flag be enabled.*/
+  if(length == 1){
+    if ((flags_ & EMIT_TRAILING_DECIMAL_POINT) != 0) {
+      result_builder->AddCharacter('.');
+
+      if ((flags_ & EMIT_TRAILING_ZERO_AFTER_POINT) != 0) {
+          result_builder->AddCharacter('0');
+      }
+    }
+  } else {
     result_builder->AddCharacter('.');
     result_builder->AddSubstring(&decimal_digits[1], length-1);
   }

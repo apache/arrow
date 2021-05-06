@@ -181,6 +181,18 @@ Status ExprDecomposer::Visit(const BooleanNode& node) {
   result_ = std::make_shared<ValueValidityPair>(validity_dex, value_dex);
   return Status::OK();
 }
+Status ExprDecomposer::Visit(const InExpressionNode<gandiva::DecimalScalar128>& node) {
+  /* decompose the children. */
+  std::vector<ValueValidityPairPtr> args;
+  auto status = node.eval_expr()->Accept(*this);
+  ARROW_RETURN_NOT_OK(status);
+  args.push_back(result());
+  /* In always outputs valid results, so no validity dex */
+  auto value_dex = std::make_shared<InExprDex<gandiva::DecimalScalar128>>(
+      args, node.values(), node.get_precision(), node.get_scale());
+  result_ = std::make_shared<ValueValidityPair>(value_dex);
+  return Status::OK();
+}
 
 #define MAKE_VISIT_IN(ctype)                                                  \
   Status ExprDecomposer::Visit(const InExpressionNode<ctype>& node) {         \

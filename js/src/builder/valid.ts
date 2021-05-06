@@ -47,7 +47,7 @@ export function createIsValidFunction<T extends DataType = any, TNull = any>(nul
     }
 
     let fnBody = '';
-    let noNaNs = nullValues.filter((x) => x === x);
+    const noNaNs = nullValues.filter((x) => x === x);
 
     if (noNaNs.length > 0) {
         fnBody = `

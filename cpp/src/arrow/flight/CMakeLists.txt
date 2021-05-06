@@ -19,15 +19,10 @@ add_custom_target(arrow_flight)
 
 arrow_install_all_headers("arrow/flight")
 
-set(ARROW_FLIGHT_STATIC_LINK_LIBS
-    gRPC::grpc++
-    ${ABSL_LIBRARIES}
-    ${ARROW_PROTOBUF_LIBPROTOBUF}
-    c-ares::cares
-    ZLIB::ZLIB)
+set(ARROW_FLIGHT_LINK_LIBS gRPC::grpc++)
 
 if(WIN32)
-  list(APPEND ARROW_FLIGHT_STATIC_LINK_LIBS ws2_32.lib)
+  list(APPEND ARROW_FLIGHT_LINK_LIBS ws2_32.lib)
 endif()
 
 if(ARROW_TEST_LINKAGE STREQUAL "static")
@@ -83,7 +78,7 @@ function(test_grpc_version DST_VAR DETECT_VERSION TEST_FILE)
     try_compile(HAS_GRPC_VERSION ${CMAKE_CURRENT_BINARY_DIR}/try_compile SOURCES
                 "${CMAKE_CURRENT_SOURCE_DIR}/try_compile/${TEST_FILE}"
                 CMAKE_FLAGS "-DINCLUDE_DIRECTORIES=${CURRENT_INCLUDE_DIRECTORIES}"
-                LINK_LIBRARIES gRPC::grpc gRPC::grpc++
+                LINK_LIBRARIES gRPC::grpc++
                 OUTPUT_VARIABLE TLS_CREDENTIALS_OPTIONS_CHECK_OUTPUT CXX_STANDARD 11)
     if(HAS_GRPC_VERSION)
       set(${DST_VAR}
@@ -177,10 +172,10 @@ add_arrow_lib(arrow_flight
               ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
               SHARED_LINK_LIBS
               arrow_shared
-              ${ARROW_FLIGHT_STATIC_LINK_LIBS}
+              ${ARROW_FLIGHT_LINK_LIBS}
               STATIC_LINK_LIBS
               arrow_static
-              ${ARROW_FLIGHT_STATIC_LINK_LIBS})
+              ${ARROW_FLIGHT_LINK_LIBS})
 
 foreach(LIB_TARGET ${ARROW_FLIGHT_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_FLIGHT_EXPORTING)

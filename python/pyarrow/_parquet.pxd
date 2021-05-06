@@ -242,6 +242,8 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         int64_t distinct_count() const
         int64_t num_values() const
         bint HasMinMax()
+        bint HasNullCount()
+        bint HasDistinctCount()
         c_bool Equals(const CStatistics&) const
         void Reset()
         c_string EncodeMin()
@@ -330,6 +332,7 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
                                        uint32_t* metadata_len)
 
     cdef cppclass CReaderProperties" parquet::ReaderProperties":
+        c_bool is_buffered_stream_enabled() const
         void enable_buffered_stream()
         void disable_buffered_stream()
         void set_buffer_size(int64_t buf_size)
@@ -344,6 +347,8 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         c_bool read_dictionary()
         void set_batch_size(int64_t batch_size)
         int64_t batch_size()
+        void set_pre_buffer(c_bool pre_buffer)
+        c_bool pre_buffer() const
 
     ArrowReaderProperties default_arrow_reader_properties()
 

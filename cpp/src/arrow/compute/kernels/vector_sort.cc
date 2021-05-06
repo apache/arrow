@@ -25,6 +25,7 @@
 #include "arrow/array/data.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/util_internal.h"
 #include "arrow/table.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_block_counter.h"
@@ -321,27 +322,25 @@ template <typename OutType, typename InType>
 struct PartitionNthToIndices {
   using ArrayType = typename TypeTraits<InType>::ArrayType;
 
-  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     using GetView = GetViewType<InType>;
 
     if (ctx->state() == nullptr) {
-      ctx->SetStatus(Status::Invalid("NthToIndices requires PartitionNthOptions"));
-      return;
+      return Status::Invalid("NthToIndices requires PartitionNthOptions");
     }
 
     ArrayType arr(batch[0].array());
 
     int64_t pivot = PartitionNthToIndicesState::Get(ctx).pivot;
     if (pivot > arr.length()) {
-      ctx->SetStatus(Status::IndexError("NthToIndices index out of bound"));
-      return;
+      return Status::IndexError("NthToIndices index out of bound");
     }
     ArrayData* out_arr = out->mutable_array();
     uint64_t* out_begin = out_arr->GetMutableValues<uint64_t>(1);
     uint64_t* out_end = out_begin + arr.length();
     std::iota(out_begin, out_end, 0);
     if (pivot == arr.length()) {
-      return;
+      return Status::OK();
     }
     auto nulls_begin =
         PartitionNulls<ArrayType, NonStablePartitioner>(out_begin, out_end, arr, 0);
@@ -354,6 +353,7 @@ struct PartitionNthToIndices {
                          return lval < rval;
                        });
     }
+    return Status::OK();
   }
 };
 
@@ -492,16 +492,8 @@ class ArrayCountOrCompareSorter {
   uint64_t* Sort(uint64_t* indices_begin, uint64_t* indices_end, const ArrayType& values,
                  int64_t offset, const ArraySortOptions& options) {
     if (values.length() >= countsort_min_len_ && values.length() > values.null_count()) {
-      c_type min{std::numeric_limits<c_type>::max()};
-      c_type max{std::numeric_limits<c_type>::min()};
-
-      VisitRawValuesInline(
-          values,
-          [&](c_type v) {
-            min = std::min(min, v);
-            max = std::max(max, v);
-          },
-          []() {});
+      c_type min, max;
+      std::tie(min, max) = GetMinMax<c_type>(*values.data());
 
       // For signed int32/64, (max - min) may overflow and trigger UBSAN.
       // Cast to largest unsigned type(uint64_t) before subtraction.
@@ -566,7 +558,7 @@ using ArraySortIndicesState = internal::OptionsWrapper<ArraySortOptions>;
 template <typename OutType, typename InType>
 struct ArraySortIndices {
   using ArrayType = typename TypeTraits<InType>::ArrayType;
-  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const auto& options = ArraySortIndicesState::Get(ctx);
 
     ArrayType arr(batch[0].array());
@@ -577,6 +569,8 @@ struct ArraySortIndices {
 
     ArraySorter<InType> sorter;
     sorter.impl.Sort(out_begin, out_end, arr, 0, options);
+
+    return Status::OK();
   }
 };
 

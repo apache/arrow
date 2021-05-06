@@ -32,7 +32,7 @@ import (
 var Magic = []byte("ARROW1")
 
 const (
-	currentMetadataVersion = MetadataV4
+	currentMetadataVersion = MetadataV5
 	minMetadataVersion     = MetadataV4
 
 	kExtensionTypeKeyName = "arrow_extension_name"
@@ -375,6 +375,13 @@ func (fv *fieldVisitor) visit(field arrow.Field) {
 		flatbuf.DurationAddUnit(fv.b, unit)
 		fv.offset = flatbuf.DurationEnd(fv.b)
 
+	case *arrow.MapType:
+		fv.dtype = flatbuf.TypeMap
+		fv.kids = append(fv.kids, fieldToFB(fv.b, arrow.Field{Name: "entries", Type: dt.ValueType()}, fv.memo))
+		flatbuf.MapStart(fv.b)
+		flatbuf.MapAddKeysSorted(fv.b, dt.KeysSorted)
+		fv.offset = flatbuf.MapEnd(fv.b)
+
 	default:
 		err := xerrors.Errorf("arrow/ipc: invalid data type %v", dt)
 		panic(err) // FIXME(sbinet): implement all data-types.
@@ -510,11 +517,6 @@ func typeFromFB(field *flatbuf.Field, children []arrow.Field, md arrow.Metadata)
 }
 
 func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arrow.Field) (arrow.DataType, error) {
-	var (
-		dt  arrow.DataType
-		err error
-	)
-
 	switch typ {
 	case flatbuf.TypeNONE:
 		return nil, xerrors.Errorf("arrow/ipc: Type metadata cannot be none")
@@ -593,12 +595,30 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 		dt.Init(data.Bytes, data.Pos)
 		return durationFromFB(dt)
 
+	case flatbuf.TypeMap:
+		if len(children) != 1 {
+			return nil, xerrors.Errorf("arrow/ipc: Map must have exactly 1 child field")
+		}
+
+		if children[0].Nullable || children[0].Type.ID() != arrow.STRUCT || len(children[0].Type.(*arrow.StructType).Fields()) != 2 {
+			return nil, xerrors.Errorf("arrow/ipc: Map's key-item pairs must be non-nullable structs")
+		}
+
+		pairType := children[0].Type.(*arrow.StructType)
+		if pairType.Field(0).Nullable {
+			return nil, xerrors.Errorf("arrow/ipc: Map's keys must be non-nullable")
+		}
+
+		var dt flatbuf.Map
+		dt.Init(data.Bytes, data.Pos)
+		ret := arrow.MapOf(pairType.Field(0).Type, pairType.Field(1).Type)
+		ret.KeysSorted = dt.KeysSorted()
+		return ret, nil
+
 	default:
 		// FIXME(sbinet): implement all the other types.
 		panic(xerrors.Errorf("arrow/ipc: type %v not implemented", flatbuf.EnumNamesType[typ]))
 	}
-
-	return dt, err
 }
 
 func intFromFB(data flatbuf.Int) (arrow.DataType, error) {
@@ -966,20 +986,28 @@ func writeFileFooter(schema *arrow.Schema, dicts, recs []fileBlock, w io.Writer)
 	return err
 }
 
-func writeRecordMessage(mem memory.Allocator, size, bodyLength int64, fields []fieldMetadata, meta []bufferMetadata) *memory.Buffer {
+func writeRecordMessage(mem memory.Allocator, size, bodyLength int64, fields []fieldMetadata, meta []bufferMetadata, codec flatbuf.CompressionType) *memory.Buffer {
 	b := flatbuffers.NewBuilder(0)
-	recFB := recordToFB(b, size, bodyLength, fields, meta)
+	recFB := recordToFB(b, size, bodyLength, fields, meta, codec)
 	return writeMessageFB(b, mem, flatbuf.MessageHeaderRecordBatch, recFB, bodyLength)
 }
 
-func recordToFB(b *flatbuffers.Builder, size, bodyLength int64, fields []fieldMetadata, meta []bufferMetadata) flatbuffers.UOffsetT {
+func recordToFB(b *flatbuffers.Builder, size, bodyLength int64, fields []fieldMetadata, meta []bufferMetadata, codec flatbuf.CompressionType) flatbuffers.UOffsetT {
 	fieldsFB := writeFieldNodes(b, fields, flatbuf.RecordBatchStartNodesVector)
 	metaFB := writeBuffers(b, meta, flatbuf.RecordBatchStartBuffersVector)
+	var bodyCompressFB flatbuffers.UOffsetT
+	if codec != -1 {
+		bodyCompressFB = writeBodyCompression(b, codec)
+	}
 
 	flatbuf.RecordBatchStart(b)
 	flatbuf.RecordBatchAddLength(b, size)
 	flatbuf.RecordBatchAddNodes(b, fieldsFB)
 	flatbuf.RecordBatchAddBuffers(b, metaFB)
+	if codec != -1 {
+		flatbuf.RecordBatchAddCompression(b, bodyCompressFB)
+	}
+
 	return flatbuf.RecordBatchEnd(b)
 }
 
@@ -1004,6 +1032,13 @@ func writeBuffers(b *flatbuffers.Builder, buffers []bufferMetadata, start startV
 		flatbuf.CreateBuffer(b, buffer.Offset, buffer.Len)
 	}
 	return b.EndVector(len(buffers))
+}
+
+func writeBodyCompression(b *flatbuffers.Builder, codec flatbuf.CompressionType) flatbuffers.UOffsetT {
+	flatbuf.BodyCompressionStart(b)
+	flatbuf.BodyCompressionAddCodec(b, codec)
+	flatbuf.BodyCompressionAddMethod(b, flatbuf.BodyCompressionMethodBUFFER)
+	return flatbuf.BodyCompressionEnd(b)
 }
 
 func writeMessage(msg *memory.Buffer, alignment int32, w io.Writer) (int, error) {

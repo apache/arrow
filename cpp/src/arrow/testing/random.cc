@@ -17,6 +17,8 @@
 
 #include "arrow/testing/random.h"
 
+#include <gtest/gtest.h>
+
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -24,8 +26,6 @@
 #include <random>
 #include <type_traits>
 #include <vector>
-
-#include <gtest/gtest.h>
 
 #include "arrow/array.h"
 #include "arrow/array/builder_decimal.h"
@@ -41,6 +41,7 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/pcg_random.h"
 #include "arrow/util/value_parsing.h"
 
 namespace arrow {
@@ -79,7 +80,7 @@ struct GenerateOptions {
       GenerateTypedDataNoNan(data, n);
       return;
     }
-    std::default_random_engine rng(seed_++);
+    pcg32_fast rng(seed_++);
     DistributionType dist(min_, max_);
     std::bernoulli_distribution nan_dist(nan_probability_);
     const ValueType nan_value = std::numeric_limits<ValueType>::quiet_NaN();
@@ -91,7 +92,7 @@ struct GenerateOptions {
   }
 
   void GenerateTypedDataNoNan(ValueType* data, size_t n) {
-    std::default_random_engine rng(seed_++);
+    pcg32_fast rng(seed_++);
     DistributionType dist(min_, max_);
 
     // A static cast is required due to the int16 -> int8 handling.
@@ -100,7 +101,7 @@ struct GenerateOptions {
 
   void GenerateBitmap(uint8_t* buffer, size_t n, int64_t* null_count) {
     int64_t count = 0;
-    std::default_random_engine rng(seed_++);
+    pcg32_fast rng(seed_++);
     std::bernoulli_distribution dist(1.0 - probability_);
 
     for (size_t i = 0; i < n; i++) {
@@ -390,8 +391,12 @@ std::shared_ptr<Array> GenerateOffsets(SeedType seed, int64_t size,
   uint8_t* null_bitmap = buffers[0]->mutable_data();
   options.GenerateBitmap(null_bitmap, size, &null_count);
   // Make sure the first and last entry are non-null
-  arrow::BitUtil::SetBit(null_bitmap, 0);
-  arrow::BitUtil::SetBit(null_bitmap, size - 1);
+  for (const int64_t offset : std::vector<int64_t>{0, size - 1}) {
+    if (!arrow::BitUtil::GetBit(null_bitmap, offset)) {
+      arrow::BitUtil::SetBit(null_bitmap, offset);
+      --null_count;
+    }
+  }
 
   buffers[1] = *AllocateBuffer(sizeof(typename OffsetArrayType::value_type) * size);
   auto data =
@@ -494,10 +499,21 @@ std::shared_ptr<Array> RandomArrayGenerator::LargeOffsets(int64_t size,
 std::shared_ptr<Array> RandomArrayGenerator::List(const Array& values, int64_t size,
                                                   double null_probability,
                                                   bool force_empty_nulls) {
-  auto offsets = Offsets(size, static_cast<int32_t>(values.offset()),
+  auto offsets = Offsets(size + 1, static_cast<int32_t>(values.offset()),
                          static_cast<int32_t>(values.offset() + values.length()),
                          null_probability, force_empty_nulls);
   return *::arrow::ListArray::FromArrays(*offsets, values);
+}
+
+std::shared_ptr<Array> RandomArrayGenerator::Map(const std::shared_ptr<Array>& keys,
+                                                 const std::shared_ptr<Array>& items,
+                                                 int64_t size, double null_probability,
+                                                 bool force_empty_nulls) {
+  DCHECK_EQ(keys->length(), items->length());
+  auto offsets = Offsets(size + 1, static_cast<int32_t>(keys->offset()),
+                         static_cast<int32_t>(keys->offset() + keys->length()),
+                         null_probability, force_empty_nulls);
+  return *::arrow::MapArray::FromArrays(offsets, keys, items);
 }
 
 std::shared_ptr<Array> RandomArrayGenerator::SparseUnion(const ArrayVector& fields,

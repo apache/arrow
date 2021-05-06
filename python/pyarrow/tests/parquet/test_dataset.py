@@ -972,6 +972,12 @@ def test_dataset_read_pandas(tempdir, use_legacy_dataset):
 
     tm.assert_frame_equal(result, expected)
 
+    # also be able to pass the columns as a set (ARROW-12314)
+    result = dataset.read_pandas(columns=set(columns)).to_pandas()
+    assert result.shape == expected.shape
+    # column order can be different because of using a set
+    tm.assert_frame_equal(result.reindex(columns=expected.columns), expected)
+
 
 @pytest.mark.pandas
 @parametrize_legacy_dataset
@@ -1013,6 +1019,27 @@ def test_dataset_enable_buffered_stream(tempdir, use_legacy_dataset):
             dirpath, buffer_size=buffer_size,
             use_legacy_dataset=use_legacy_dataset)
         assert dataset.read().equals(table)
+
+
+@pytest.mark.pandas
+@parametrize_legacy_dataset
+def test_dataset_enable_pre_buffer(tempdir, use_legacy_dataset):
+    dirpath = tempdir / guid()
+    dirpath.mkdir()
+
+    df = _test_dataframe(10, seed=0)
+    path = dirpath / '{}.parquet'.format(0)
+    table = pa.Table.from_pandas(df)
+    _write_table(table, path, version='2.0')
+
+    for pre_buffer in (True, False):
+        dataset = pq.ParquetDataset(
+            dirpath, pre_buffer=pre_buffer,
+            use_legacy_dataset=use_legacy_dataset)
+        assert dataset.read().equals(table)
+        actual = pq.read_table(dirpath, pre_buffer=pre_buffer,
+                               use_legacy_dataset=use_legacy_dataset)
+        assert actual.equals(table)
 
 
 def _make_example_multifile_dataset(base_path, nfiles=10, file_nrows=5):
@@ -1375,6 +1402,17 @@ def test_write_to_dataset_with_partitions_and_custom_filenames(
     output_basenames = [os.path.basename(p.path) for p in dataset.pieces]
 
     assert sorted(expected_basenames) == sorted(output_basenames)
+
+
+@pytest.mark.pandas
+def test_write_to_dataset_filesystem(tempdir):
+    df = pd.DataFrame({'A': [1, 2, 3]})
+    table = pa.Table.from_pandas(df)
+    path = str(tempdir)
+
+    pq.write_to_dataset(table, path, filesystem=fs.LocalFileSystem())
+    result = pq.read_table(path)
+    assert result.equals(table)
 
 
 # TODO(dataset) support pickling

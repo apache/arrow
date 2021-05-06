@@ -522,6 +522,9 @@ def test_array_eq():
     assert (arr1 == arr3) is False
     assert (arr1 != arr3) is True
 
+    assert (arr1 == 1) is False
+    assert (arr1 == None) is False  # noqa: E711
+
 
 def test_array_from_buffers():
     values_buf = pa.py_buffer(np.int16([4, 5, 6, 7]))
@@ -666,6 +669,16 @@ def test_struct_from_arrays():
         pa.StructArray.from_arrays([a, b, c], fields=[fa2, fb, fc])
 
 
+def test_struct_array_from_chunked():
+    # ARROW-11780
+    # Check that we don't segfault when trying to build
+    # a StructArray from a chunked array.
+    chunked_arr = pa.chunked_array([[1, 2, 3], [4, 5, 6]])
+
+    with pytest.raises(TypeError, match="Expected Array"):
+        pa.StructArray.from_arrays([chunked_arr], ["foo"])
+
+
 def test_dictionary_from_numpy():
     indices = np.repeat([0, 1, 2], 2)
     dictionary = np.array(['foo', 'bar', 'baz'], dtype=object)
@@ -686,6 +699,76 @@ def test_dictionary_from_numpy():
             assert d2[i].as_py() is None
         else:
             assert d2[i].as_py() == dictionary[indices[i]]
+
+
+def test_dictionary_to_numpy():
+    expected = pa.array(
+        ["foo", "bar", None, "foo"]
+    ).to_numpy(zero_copy_only=False)
+    a = pa.DictionaryArray.from_arrays(
+        pa.array([0, 1, None, 0]),
+        pa.array(['foo', 'bar'])
+    )
+    np.testing.assert_array_equal(a.to_numpy(zero_copy_only=False),
+                                  expected)
+
+    with pytest.raises(pa.ArrowInvalid):
+        # If this would be changed to no longer raise in the future,
+        # ensure to test the actual result because, currently, to_numpy takes
+        # for granted that when zero_copy_only=True there will be no nulls
+        # (it's the decoding of the DictionaryArray that handles the nulls and
+        # this is only activated with zero_copy_only=False)
+        a.to_numpy(zero_copy_only=True)
+
+    anonulls = pa.DictionaryArray.from_arrays(
+        pa.array([0, 1, 1, 0]),
+        pa.array(['foo', 'bar'])
+    )
+    expected = pa.array(
+        ["foo", "bar", "bar", "foo"]
+    ).to_numpy(zero_copy_only=False)
+    np.testing.assert_array_equal(anonulls.to_numpy(zero_copy_only=False),
+                                  expected)
+
+    with pytest.raises(pa.ArrowInvalid):
+        anonulls.to_numpy(zero_copy_only=True)
+
+    afloat = pa.DictionaryArray.from_arrays(
+        pa.array([0, 1, 1, 0]),
+        pa.array([13.7, 11.0])
+    )
+    expected = pa.array([13.7, 11.0, 11.0, 13.7]).to_numpy()
+    np.testing.assert_array_equal(afloat.to_numpy(zero_copy_only=True),
+                                  expected)
+    np.testing.assert_array_equal(afloat.to_numpy(zero_copy_only=False),
+                                  expected)
+
+    afloat2 = pa.DictionaryArray.from_arrays(
+        pa.array([0, 1, None, 0]),
+        pa.array([13.7, 11.0])
+    )
+    expected = pa.array(
+        [13.7, 11.0, None, 13.7]
+    ).to_numpy(zero_copy_only=False)
+    np.testing.assert_allclose(
+        afloat2.to_numpy(zero_copy_only=False),
+        expected,
+        equal_nan=True
+    )
+
+    # Testing for integers can reveal problems related to dealing
+    # with None values, as a numpy array of int dtype
+    # can't contain NaN nor None.
+    aints = pa.DictionaryArray.from_arrays(
+        pa.array([0, 1, None, 0]),
+        pa.array([7, 11])
+    )
+    expected = pa.array([7, 11, None, 7]).to_numpy(zero_copy_only=False)
+    np.testing.assert_allclose(
+        aints.to_numpy(zero_copy_only=False),
+        expected,
+        equal_nan=True
+    )
 
 
 def test_dictionary_from_boxed_arrays():
@@ -1358,12 +1441,13 @@ def test_cast_from_null():
         pa.struct([pa.field('a', pa.int32()),
                    pa.field('b', pa.list_(pa.int8())),
                    pa.field('c', pa.string())]),
+        pa.dictionary(pa.int32(), pa.string()),
     ]
     for out_type in out_types:
         _check_cast_case((in_data, in_type, in_data, out_type))
 
     out_types = [
-        pa.dictionary(pa.int32(), pa.string()),
+
         pa.union([pa.field('a', pa.binary(10)),
                   pa.field('b', pa.string())], mode=pa.lib.UnionMode_DENSE),
         pa.union([pa.field('a', pa.binary(10)),
@@ -1526,6 +1610,26 @@ def test_dictionary_encode_zero_length():
     encoded = arr.dictionary_encode()
     assert len(encoded.dictionary) == 0
     encoded.validate(full=True)
+
+
+def test_dictionary_decode():
+    cases = [
+        (pa.array([1, 2, 3, None, 1, 2, 3]),
+         pa.DictionaryArray.from_arrays(
+             pa.array([0, 1, 2, None, 0, 1, 2], type='int32'),
+             [1, 2, 3])),
+        (pa.array(['foo', None, 'bar', 'foo']),
+         pa.DictionaryArray.from_arrays(
+             pa.array([0, None, 1, 0], type='int32'),
+             ['foo', 'bar'])),
+        (pa.array(['foo', None, 'bar', 'foo'], type=pa.large_binary()),
+         pa.DictionaryArray.from_arrays(
+             pa.array([0, None, 1, 0], type='int32'),
+             pa.array(['foo', 'bar'], type=pa.large_binary()))),
+    ]
+    for expected, arr in cases:
+        result = arr.dictionary_decode()
+        assert result.equals(expected)
 
 
 def test_cast_time32_to_int():

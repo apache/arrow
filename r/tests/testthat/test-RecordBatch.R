@@ -155,9 +155,9 @@ test_that("[ on RecordBatch", {
 })
 
 test_that("[[ and $ on RecordBatch", {
-  expect_vector(batch[["int"]], tbl$int)
-  expect_vector(batch$int, tbl$int)
-  expect_vector(batch[[4]], tbl$chr)
+  expect_as_vector(batch[["int"]], tbl$int)
+  expect_as_vector(batch$int, tbl$int)
+  expect_as_vector(batch[[4]], tbl$chr)
   expect_null(batch$qwerty)
   expect_null(batch[["asdf"]])
   expect_error(batch[[c(4, 3)]])
@@ -190,16 +190,16 @@ test_that("[[<- assignment", {
 
   # can replace a column by index
   batch[[2]] <- as.numeric(10:1)
-  expect_vector(batch[[2]], as.numeric(10:1))
+  expect_as_vector(batch[[2]], as.numeric(10:1))
 
   # can add a column by index
   batch[[5]] <- as.numeric(10:1)
-  expect_vector(batch[[5]], as.numeric(10:1))
-  expect_vector(batch[["5"]], as.numeric(10:1))
+  expect_as_vector(batch[[5]], as.numeric(10:1))
+  expect_as_vector(batch[["5"]], as.numeric(10:1))
 
   # can replace a column
   batch[["int"]] <- 10:1
-  expect_vector(batch[["int"]], 10:1)
+  expect_as_vector(batch[["int"]], 10:1)
 
   # can use $
   batch$new <- NULL
@@ -207,11 +207,11 @@ test_that("[[<- assignment", {
   expect_identical(dim(batch), c(10L, 4L))
 
   batch$int <- 1:10
-  expect_vector(batch$int, 1:10)
+  expect_as_vector(batch$int, 1:10)
 
   # recycling
   batch[["atom"]] <- 1L
-  expect_vector(batch[["atom"]], rep(1L, 10))
+  expect_as_vector(batch[["atom"]], rep(1L, 10))
 
   expect_error(
     batch[["atom"]] <- 1:6,
@@ -221,7 +221,7 @@ test_that("[[<- assignment", {
   # assign Arrow array
   array <- Array$create(c(10:1))
   batch$array <- array
-  expect_vector(batch$array, 10:1)
+  expect_as_vector(batch$array, 10:1)
 
   # nonsense indexes
   expect_error(batch[[NA]] <- letters[10:1], "'i' must be character or numeric, not logical")
@@ -438,8 +438,8 @@ test_that("RecordBatch$Equals(check_metadata)", {
   rb1 <- record_batch(df)
   rb2 <- record_batch(df, schema = rb1$schema$WithMetadata(list(some="metadata")))
 
-  expect_is(rb1, "RecordBatch")
-  expect_is(rb2, "RecordBatch")
+  expect_r6_class(rb1, "RecordBatch")
+  expect_r6_class(rb2, "RecordBatch")
   expect_false(rb1$schema$HasMetadata)
   expect_true(rb2$schema$HasMetadata)
   expect_identical(rb2$schema$metadata, list(some = "metadata"))
@@ -470,4 +470,32 @@ test_that("record_batch() with different length arrays", {
   msg <- "All arrays must have the same length"
   expect_error(record_batch(a=1:5, b = 42), msg)
   expect_error(record_batch(a=1:5, b = 1:6), msg)
+})
+
+test_that("Handling string data with embedded nuls", {
+  raws <- structure(list(
+    as.raw(c(0x70, 0x65, 0x72, 0x73, 0x6f, 0x6e)),
+    as.raw(c(0x77, 0x6f, 0x6d, 0x61, 0x6e)),
+    as.raw(c(0x6d, 0x61, 0x00, 0x6e)), # <-- there's your nul, 0x00
+    as.raw(c(0x63, 0x61, 0x6d, 0x65, 0x72, 0x61)),
+    as.raw(c(0x74, 0x76))),
+    class = c("arrow_binary", "vctrs_vctr", "list"))
+  batch_with_nul <- record_batch(a = 1:5, b = raws)
+  batch_with_nul$b <- batch_with_nul$b$cast(utf8())
+  expect_error(
+    as.data.frame(batch_with_nul),
+    "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow to R, set options(arrow.skip_nul = TRUE)",
+    fixed = TRUE
+  )
+
+  withr::with_options(list(arrow.skip_nul = TRUE), {
+    expect_warning(
+      expect_equivalent(
+        as.data.frame(batch_with_nul)$b,
+        c("person", "woman", "man", "camera", "tv")
+      ),
+      "Stripping '\\0' (nul) from character vector",
+      fixed = TRUE
+    )
+  })
 })

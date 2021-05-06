@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+{% import 'macros.jinja' as macros with context %}
+
 arch: arm64-graviton2
 virt: vm
 os: linux
@@ -35,6 +37,10 @@ addons:
       - rake
       - rpm
 
+      # https://bugs.launchpad.net/ubuntu/+source/glibc/+bug/1916485
+      # We need to use runc 1.0.0~rc93 or later from focal-updated.
+      - runc
+
       # To build createrepo_c from source.
       # We can remove them when we can install createrepo_c package
       - cmake
@@ -50,6 +56,7 @@ addons:
       - libzstd-dev
       - pkg-config
       - zlib1g-dev
+    update: true
 
 services:
   - docker
@@ -66,9 +73,9 @@ env:
     - YUM_TARGETS={{ target }}
 
 before_script:
-  - git clone --no-checkout {{ arrow.remote }} arrow
-  - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-  - git -C arrow checkout FETCH_HEAD
+  - set -e
+  {{ macros.travis_checkout_arrow() }}
+  {{ macros.travis_docker_login() }}
 
   # Build createrepo_c from source.
   # We can remove them when we can install createrepo_c package
@@ -94,7 +101,7 @@ script:
   - rake version:update
   - |
       rake docker:pull || :
-  - pushd apache-arrow-archive-keyring/apt
+  - pushd apache-arrow-apt-source/apt
   - |
       for target in debian-* ubuntu-*; do
         cp -a ${target} ${target}-arm64
@@ -143,15 +150,5 @@ script:
   - popd
 
 after_success:
-  - sudo -H pip3 install --upgrade pip
-  - sudo -H pip3 install -r arrow/dev/tasks/requirements-crossbow.txt pygit2==1.0
-  - |
-    python3 arrow/dev/tasks/crossbow.py \
-      --queue-path . \
-      --queue-remote {{ queue_remote_url }} \
-      upload-artifacts \
-    {%- for extension in upload_extensions %}
-      --pattern "arrow/dev/tasks/linux-packages/**/*{{ extension }}" \
-    {%- endfor %}
-      --sha {{ task.branch }} \
-      --tag {{ task.tag }}
+  {% set patterns = upload_extensions | format_all("arrow/dev/tasks/linux-packages/**/*{}") %}
+  {{ macros.travis_upload_releases(patterns) }}

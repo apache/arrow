@@ -35,9 +35,7 @@ import { ArrowIOTestHelper, readableDOMStreamToAsyncIterator } from '../helpers'
         return test('not testing DOM streams because process.env.TEST_DOM_STREAMS !== "true"', () => {});
     }
 
-    /* tslint:disable */
     const { parse: bignumJSONParse } = require('json-bignum');
-    /* tslint:disable */
     const { concatStream } = require('web-stream-tools').default;
 
     for (const table of generateRandomTables([10, 20, 30])) {

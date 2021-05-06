@@ -58,7 +58,7 @@ struct SumImpl : public ScalarAggregator {
   using SumType = typename FindAccumulatorType<ArrowType>::Type;
   using OutputType = typename TypeTraits<SumType>::ScalarType;
 
-  void Consume(KernelContext*, const ExecBatch& batch) override {
+  Status Consume(KernelContext*, const ExecBatch& batch) override {
     const auto& data = batch[0].array();
     this->count = data->length - data->GetNullCount();
     if (is_boolean_type<ArrowType>::value) {
@@ -67,20 +67,23 @@ struct SumImpl : public ScalarAggregator {
       this->sum =
           arrow::compute::detail::SumArray<CType, typename SumType::c_type>(*data);
     }
+    return Status::OK();
   }
 
-  void MergeFrom(KernelContext*, KernelState&& src) override {
+  Status MergeFrom(KernelContext*, KernelState&& src) override {
     const auto& other = checked_cast<const ThisType&>(src);
     this->count += other.count;
     this->sum += other.sum;
+    return Status::OK();
   }
 
-  void Finalize(KernelContext*, Datum* out) override {
+  Status Finalize(KernelContext*, Datum* out) override {
     if (this->count == 0) {
       out->value = std::make_shared<OutputType>();
     } else {
       out->value = MakeScalar(this->sum);
     }
+    return Status::OK();
   }
 
   size_t count = 0;
@@ -89,13 +92,14 @@ struct SumImpl : public ScalarAggregator {
 
 template <typename ArrowType, SimdLevel::type SimdLevel>
 struct MeanImpl : public SumImpl<ArrowType, SimdLevel> {
-  void Finalize(KernelContext*, Datum* out) override {
+  Status Finalize(KernelContext*, Datum* out) override {
     if (this->count == 0) {
       out->value = std::make_shared<DoubleScalar>();
     } else {
       const double mean = static_cast<double>(this->sum) / this->count;
       out->value = std::make_shared<DoubleScalar>(mean);
     }
+    return Status::OK();
   }
 };
 
@@ -124,8 +128,8 @@ struct SumLikeInit {
     return Status::OK();
   }
 
-  std::unique_ptr<KernelState> Create() {
-    ctx->SetStatus(VisitTypeInline(type, this));
+  Result<std::unique_ptr<KernelState>> Create() {
+    RETURN_NOT_OK(VisitTypeInline(type, this));
     return std::move(state);
   }
 };
@@ -217,7 +221,7 @@ struct MinMaxImpl : public ScalarAggregator {
   MinMaxImpl(const std::shared_ptr<DataType>& out_type, const MinMaxOptions& options)
       : out_type(out_type), options(options) {}
 
-  void Consume(KernelContext*, const ExecBatch& batch) override {
+  Status Consume(KernelContext*, const ExecBatch& batch) override {
     StateType local;
 
     ArrayType arr(batch[0].array());
@@ -228,7 +232,7 @@ struct MinMaxImpl : public ScalarAggregator {
 
     if (local.has_nulls && options.null_handling == MinMaxOptions::EMIT_NULL) {
       this->state = local;
-      return;
+      return Status::OK();
     }
 
     if (local.has_nulls) {
@@ -239,14 +243,16 @@ struct MinMaxImpl : public ScalarAggregator {
       }
     }
     this->state = local;
+    return Status::OK();
   }
 
-  void MergeFrom(KernelContext*, KernelState&& src) override {
+  Status MergeFrom(KernelContext*, KernelState&& src) override {
     const auto& other = checked_cast<const ThisType&>(src);
     this->state += other.state;
+    return Status::OK();
   }
 
-  void Finalize(KernelContext*, Datum* out) override {
+  Status Finalize(KernelContext*, Datum* out) override {
     using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
 
     std::vector<std::shared_ptr<Scalar>> values;
@@ -259,6 +265,7 @@ struct MinMaxImpl : public ScalarAggregator {
                 std::make_shared<ScalarType>(state.max)};
     }
     out->value = std::make_shared<StructScalar>(std::move(values), this->out_type);
+    return Status::OK();
   }
 
   std::shared_ptr<DataType> out_type;
@@ -331,7 +338,7 @@ struct BooleanMinMaxImpl : public MinMaxImpl<BooleanType, SimdLevel> {
   using MinMaxImpl<BooleanType, SimdLevel>::MinMaxImpl;
   using MinMaxImpl<BooleanType, SimdLevel>::options;
 
-  void Consume(KernelContext*, const ExecBatch& batch) override {
+  Status Consume(KernelContext*, const ExecBatch& batch) override {
     StateType local;
     ArrayType arr(batch[0].array());
 
@@ -343,7 +350,7 @@ struct BooleanMinMaxImpl : public MinMaxImpl<BooleanType, SimdLevel> {
     local.has_values = valid_count > 0;
     if (local.has_nulls && options.null_handling == MinMaxOptions::EMIT_NULL) {
       this->state = local;
-      return;
+      return Status::OK();
     }
 
     const auto true_count = arr.true_count();
@@ -352,6 +359,7 @@ struct BooleanMinMaxImpl : public MinMaxImpl<BooleanType, SimdLevel> {
     local.min = false_count == 0;
 
     this->state = local;
+    return Status::OK();
   }
 };
 
@@ -386,8 +394,8 @@ struct MinMaxInitState {
     return Status::OK();
   }
 
-  std::unique_ptr<KernelState> Create() {
-    ctx->SetStatus(VisitTypeInline(in_type, this));
+  Result<std::unique_ptr<KernelState>> Create() {
+    RETURN_NOT_OK(VisitTypeInline(in_type, this));
     return std::move(state);
   }
 };

@@ -42,6 +42,7 @@ jobs:
     name: ${{ matrix.title }}
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -61,6 +62,7 @@ jobs:
             title: AMD64 Conda Python 3.6 Pandas 0.23
             python: 3.6
             pandas: 0.23
+            numpy: 1.16
           - name: conda-python-3.7-pandas-latest
             cache: conda-python-3.7
             image: conda-python-pandas
@@ -107,6 +109,7 @@ jobs:
     name: AMD64 MacOS 10.15 Python 3
     runs-on: macos-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 60
     env:
       ARROW_HOME: /usr/local
       ARROW_DATASET: ON

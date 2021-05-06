@@ -79,18 +79,19 @@ x-hierarchy:
   # Each node must be either a string scalar of a list containing the
   # descendant images if any. Archery checks that all node has a corresponding
   # service entry, so any new image/service must be listed here.
-  - conda-cpp:
-    - conda-cpp-hiveserver2
-    - conda-cpp-valgrind
+  - conda:
+    - conda-cpp:
+      - conda-cpp-hiveserver2
+      - conda-cpp-valgrind
+      - conda-python:
+        - conda-python-pandas
+        - conda-python-dask
+        - conda-python-hdfs
+        - conda-python-jpype
+        - conda-python-turbodbc
+        - conda-python-kartothek
+        - conda-python-spark
     - conda-integration
-    - conda-python:
-      - conda-python-pandas
-      - conda-python-dask
-      - conda-python-hdfs
-      - conda-python-jpype
-      - conda-python-turbodbc
-      - conda-python-kartothek
-      - conda-python-spark
   - debian-cpp:
     - debian-c-glib:
       - debian-ruby
@@ -115,6 +116,7 @@ x-hierarchy:
   - ubuntu-cpp-sanitizer
   - ubuntu-cpp-thread-sanitizer
   - ubuntu-r-sanitizer
+  - ubuntu-r-valgrind
   - python-sdist
   - r
   # helper services
@@ -160,10 +162,31 @@ services:
   #     -e ARROW_TEST_LINKAGE=static \
   #     conda-cpp|debian-cpp|...
 
+  conda:
+    # Base image for conda builds.
+    #
+    # Usage:
+    #   docker-compose build con
+    #   docker-compose run --rm conda
+    # Parameters:
+    #   ARCH: amd64, arm32v7
+    image: ${REPO}:${ARCH}-conda
+    build:
+      context: .
+      dockerfile: ci/docker/conda.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-conda
+      args:
+        arch: ${ARCH}
+        prefix: /opt/conda
+    volumes:
+      - .:/arrow:delegated
+
   conda-cpp:
     # C++ build in conda environment, including the doxygen docs.
     #
     # Usage:
+    #   docker-compose build conda
     #   docker-compose build conda-cpp
     #   docker-compose run --rm conda-cpp
     # Parameters:
@@ -175,8 +198,8 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-conda-cpp
       args:
+        repo: ${REPO}
         arch: ${ARCH}
-        prefix: /opt/conda
     shm_size: &shm-size 2G
     ulimits: &ulimits
       core: ${ULIMIT_CORE}
@@ -196,6 +219,7 @@ services:
 
   conda-cpp-valgrind:
     # Usage:
+    #   docker-compose build conda
     #   docker-compose build conda-cpp
     #   docker-compose run --rm conda-cpp-valgrind
     # Parameters:
@@ -207,6 +231,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-conda-cpp
       args:
+        repo: ${REPO}
         arch: ${ARCH}
         prefix: /opt/conda
     shm_size: *shm-size
@@ -342,6 +367,7 @@ services:
       ARROW_FUZZING: "ON"  # Check fuzz regressions
       ARROW_JEMALLOC: "OFF"
       ARROW_ORC: "OFF"
+      ARROW_S3: "OFF"
       ARROW_USE_ASAN: "ON"
       ARROW_USE_UBSAN: "ON"
       # utf8proc 2.1.0 in Ubuntu Bionic has test failures
@@ -523,6 +549,7 @@ services:
 
   conda-python:
     # Usage:
+    #   docker-compose build conda
     #   docker-compose build conda-cpp
     #   docker-compose build conda-python
     #   docker-compose run --rm conda-python
@@ -694,7 +721,7 @@ services:
   #    https://quay.io/repository/pypa/manylinux2010_x86_64?tab=tags
   #    only amd64 arch is supported
   python-wheel-manylinux-2010:
-    image: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2010
+    image: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2010-vcpkg-${VCPKG}
     build:
       args:
         arch_alias: ${ARCH_ALIAS}
@@ -705,7 +732,7 @@ services:
       context: .
       dockerfile: ci/docker/python-wheel-manylinux-201x.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2010
+        - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2010-vcpkg-${VCPKG}
     environment:
       <<: *ccache
       MANYLINUX_VERSION: 2010
@@ -717,7 +744,7 @@ services:
   # See available versions at:
   #    https://quay.io/repository/pypa/manylinux2014_x86_64?tab=tags
   python-wheel-manylinux-2014:
-    image: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014
+    image: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014-vcpkg-${VCPKG}
     build:
       args:
         arch_alias: ${ARCH_ALIAS}
@@ -728,7 +755,7 @@ services:
       context: .
       dockerfile: ci/docker/python-wheel-manylinux-201x.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014
+        - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014-vcpkg-${VCPKG}
     environment:
       <<: *ccache
       MANYLINUX_VERSION: 2014
@@ -760,7 +787,7 @@ services:
     command: /arrow/ci/scripts/python_wheel_manylinux_test.sh unittests
 
   python-wheel-windows-vs2017:
-    image: ${REPO}:python-${PYTHON}-wheel-windows-vs2017
+    image: ${REPO}:python-${PYTHON}-wheel-windows-vs2017-vcpkg-${VCPKG}
     build:
       args:
         vcpkg: ${VCPKG}
@@ -795,6 +822,7 @@ services:
     #  - `master`: git master branch, use `docker-compose run --no-cache`
     #  - `<version>`: specific version available on conda-forge
     # Usage:
+    #   docker-compose build conda
     #   docker-compose build conda-cpp
     #   docker-compose build conda-python
     #   docker-compose build conda-python-pandas
@@ -823,6 +851,7 @@ services:
     #  - `master`: git master branch, use `docker-compose run --no-cache`
     #  - `<version>`: specific version available on conda-forge
     # Usage:
+    #   docker-compose build conda
     #   docker-compose build conda-cpp
     #   docker-compose build conda-python
     #   docker-compose build conda-python-dask
@@ -849,6 +878,7 @@ services:
 
   conda-python-jpype:
     # Usage:
+    #   docker-compose build conda
     #   docker-compose build conda-cpp
     #   docker-compose build conda-python
     #   docker-compose build conda-python-jpype
@@ -881,6 +911,7 @@ services:
     #  - `master`: git master branch, use `docker-compose run --no-cache`
     #  - `<version>`: specific version available under github releases
     # Usage:
+    #   docker-compose build conda
     #   docker-compose build conda-cpp
     #   docker-compose build conda-python
     #   docker-compose build conda-python-turbodbc
@@ -911,6 +942,7 @@ services:
     #  - `master`: git master branch, use `docker-compose run --no-cache`
     #  - `<version>`: specific version available under github releases
     # Usage:
+    #   docker-compose build conda
     #   docker-compose build conda-cpp
     #   docker-compose build conda-python
     #   docker-compose build conda-python-kartothek
@@ -985,7 +1017,7 @@ services:
     shm_size: *shm-size
     environment:
       LIBARROW_DOWNLOAD: "false"
-      ARROW_HOME: "/arrow"
+      ARROW_SOURCE_HOME: "/arrow"
       ARROW_R_DEV: ${ARROW_R_DEV}
       # To test for CRAN release, delete ^^ these two env vars so we download the Apache release
       ARROW_USE_PKG_CONFIG: "false"
@@ -1018,6 +1050,31 @@ services:
     command: >
       /bin/bash -c "
         /arrow/ci/scripts/r_sanitize.sh /arrow"
+
+  ubuntu-r-valgrind:
+    # Only 18.04 and amd64 supported
+    # Usage:
+    #   docker-compose build ubuntu-r-valgrind
+    #   docker-compose run ubuntu-r-valgrind
+    image: ${REPO}:amd64-ubuntu-18.04-r-valgrind
+    build:
+      context: .
+      dockerfile: ci/docker/linux-r.dockerfile
+      cache_from:
+        - ${REPO}:amd64-ubuntu-18.04-r-valgrind
+      args:
+        base: wch1/r-debug:latest
+        r_bin: RDvalgrind
+    environment:
+      <<: *ccache
+      # AVX512 not supported by Valgrind (similar to ARROW-9851) some runners support AVX512 and some do not
+      # so some build might pass without this setting, but we want to ensure that we stay to AVX2 regardless of runner.
+      EXTRA_CMAKE_FLAGS: "-DARROW_RUNTIME_SIMD_LEVEL=AVX2"
+    volumes: *ubuntu-volumes
+    command: >
+      /bin/bash -c "
+        /arrow/ci/scripts/r_valgrind.sh /arrow"
+
 
   ################################# Go ########################################
 
@@ -1164,24 +1221,14 @@ services:
     volumes: *conda-volumes
     environment:
       <<: *ccache
-      ARROW_BUILD_STATIC: "OFF"
-      ARROW_COMPUTE: "OFF"
-      ARROW_CSV: "OFF"
-      ARROW_FLIGHT: "ON"
-      ARROW_GANDIVA: "OFF"
-      ARROW_PARQUET: "OFF"
-      ARROW_S3: "OFF"
       # tell archery where the arrow binaries are located
       ARROW_CPP_EXE_PATH: /build/cpp/debug
-      CMAKE_UNITY_BUILD: "ON"
+      ARCHERY_INTEGRATION_WITH_RUST: 0
     command:
       ["/arrow/ci/scripts/rust_build.sh /arrow /build &&
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/go_build.sh /arrow &&
         /arrow/ci/scripts/java_build.sh /arrow /build &&
-        df -h &&
-        du -hx --threshold=100M / &&
-        du -hx --threshold=500M /arrow/ &&
         /arrow/ci/scripts/js_build.sh /arrow /build &&
         /arrow/ci/scripts/integration_arrow.sh /arrow /build"]
 

@@ -1,6 +1,7 @@
 {
-  "lerna": "2.11.0",
-  "version": "0.1.1",
+  "lerna": "3.22.1",
+  "version": "4.0.0",
+  "npmClient": "yarn",
   "packages": [
     "targets/ts",
     "targets/es5/*",

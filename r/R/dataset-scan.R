@@ -56,7 +56,8 @@
 Scanner <- R6Class("Scanner", inherit = ArrowObject,
   public = list(
     ToTable = function() dataset___Scanner__ToTable(self),
-    Scan = function() dataset___Scanner__Scan(self)
+    ScanBatches = function() dataset___Scanner__ScanBatches(self),
+    CountRows = function() dataset___Scanner__CountRows(self)
   ),
   active = list(
     schema = function() dataset___Scanner__schema(self)
@@ -142,17 +143,12 @@ map_batches <- function(X, FUN, ..., .data.frame = TRUE) {
   scanner <- Scanner$create(ensure_group_vars(X))
   FUN <- as_mapper(FUN)
   # message("Making ScanTasks")
-  lapply(scanner$Scan(), function(scan_task) {
-    # This outer lapply could be parallelized
-    # message("Making Batches")
-    lapply(scan_task$Execute(), function(batch) {
-      # message("Processing Batch")
-      # This inner lapply cannot be parallelized
-      # TODO: wrap batch in arrow_dplyr_query with X$selected_columns,
-      # X$temp_columns, and X$group_by_vars
-      # if X is arrow_dplyr_query, if some other arg (.dplyr?) == TRUE
-      FUN(batch, ...)
-    })
+  lapply(scanner$ScanBatches(), function(batch) {
+    # message("Processing Batch")
+    # TODO: wrap batch in arrow_dplyr_query with X$selected_columns,
+    # X$temp_columns, and X$group_by_vars
+    # if X is arrow_dplyr_query, if some other arg (.dplyr?) == TRUE
+    FUN(batch, ...)
   })
 }
 

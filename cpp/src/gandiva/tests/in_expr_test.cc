@@ -16,6 +16,7 @@
 // under the License.
 
 #include <gtest/gtest.h>
+
 #include "arrow/memory_pool.h"
 #include "gandiva/filter.h"
 #include "gandiva/tests/test_util.h"
@@ -34,6 +35,20 @@ class TestIn : public ::testing::Test {
  protected:
   arrow::MemoryPool* pool_;
 };
+std::vector<Decimal128> MakeDecimalVector(std::vector<std::string> values) {
+  std::vector<arrow::Decimal128> ret;
+  for (auto str : values) {
+    Decimal128 decimal_value;
+    int32_t decimal_precision;
+    int32_t decimal_scale;
+
+    DCHECK_OK(
+        Decimal128::FromString(str, &decimal_value, &decimal_precision, &decimal_scale));
+
+    ret.push_back(decimal_value);
+  }
+  return ret;
+}
 
 TEST_F(TestIn, TestInSimple) {
   // schema for input fields
@@ -63,6 +78,52 @@ TEST_F(TestIn, TestInSimple) {
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
+
+  std::shared_ptr<SelectionVector> selection_vector;
+  status = SelectionVector::MakeInt16(num_records, pool_, &selection_vector);
+  EXPECT_TRUE(status.ok());
+
+  // Evaluate expression
+  status = filter->Evaluate(*in_batch, selection_vector);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp, selection_vector->ToArray());
+}
+
+TEST_F(TestIn, TestInDecimal) {
+  int32_t precision = 38;
+  int32_t scale = 5;
+  auto decimal_type = std::make_shared<arrow::Decimal128Type>(precision, scale);
+
+  // schema for input fields
+  auto field0 = field("f0", arrow::decimal(precision, scale));
+  auto schema = arrow::schema({field0});
+
+  // Build In f0 + f1 in (6, 11)
+  auto node_f0 = TreeExprBuilder::MakeField(field0);
+
+  gandiva::DecimalScalar128 d0("6", precision, scale);
+  gandiva::DecimalScalar128 d1("12", precision, scale);
+  gandiva::DecimalScalar128 d2("11", precision, scale);
+  std::unordered_set<gandiva::DecimalScalar128> in_constants({d0, d1, d2});
+  auto in_expr = TreeExprBuilder::MakeInExpressionDecimal(node_f0, in_constants);
+  auto condition = TreeExprBuilder::MakeCondition(in_expr);
+
+  std::shared_ptr<Filter> filter;
+  auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 5;
+  auto values0 = MakeDecimalVector({"1", "2", "0", "-6", "6"});
+  auto array0 =
+      MakeArrowArrayDecimal(decimal_type, values0, {true, true, true, false, true});
+  // expected output (indices for which condition matches)
+  auto exp = MakeArrowArrayUint16({4});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
 
   std::shared_ptr<SelectionVector> selection_vector;
   status = SelectionVector::MakeInt16(num_records, pool_, &selection_vector);

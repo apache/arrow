@@ -45,6 +45,7 @@ func init() {
 	Records["intervals"] = makeIntervalsRecords()
 	Records["durations"] = makeDurationsRecords()
 	Records["decimal128"] = makeDecimal128sRecords()
+	Records["maps"] = makeMapsRecords()
 
 	for k := range Records {
 		RecordNames = append(RecordNames, k)
@@ -690,6 +691,128 @@ func makeDecimal128sRecords() []array.Record {
 	return recs
 }
 
+func makeMapsRecords() []array.Record {
+	mem := memory.NewGoAllocator()
+	dtype := arrow.MapOf(arrow.PrimitiveTypes.Int32, arrow.BinaryTypes.String)
+	dtype.KeysSorted = true
+	schema := arrow.NewSchema([]arrow.Field{{Name: "map_int_utf8", Type: dtype, Nullable: true}}, nil)
+
+	mask := []bool{true, false, false, true, true}
+	chunks := [][]array.Interface{
+		{
+			mapOf(mem, dtype.KeysSorted, []array.Interface{
+				structOf(mem, dtype.ValueType(), [][]array.Interface{
+					{
+						arrayOf(mem, []int32{-1, -2, -3, -4, -5}, nil),
+						arrayOf(mem, []string{"111", "222", "333", "444", "555"}, mask[:5]),
+					},
+					{
+						arrayOf(mem, []int32{-1, -2, -3, -4, -5}, nil),
+						arrayOf(mem, []string{"1111", "1222", "1333", "1444", "1555"}, mask[:5]),
+					},
+					{
+						arrayOf(mem, []int32{-1, -2, -3, -4, -5}, nil),
+						arrayOf(mem, []string{"2111", "2222", "2333", "2444", "2555"}, mask[:5]),
+					},
+					{
+						arrayOf(mem, []int32{-1, -2, -3, -4, -5}, nil),
+						arrayOf(mem, []string{"3111", "3222", "3333", "3444", "3555"}, mask[:5]),
+					},
+					{
+						arrayOf(mem, []int32{-1, -2, -3, -4, -5}, nil),
+						arrayOf(mem, []string{"4111", "4222", "4333", "4444", "4555"}, mask[:5]),
+					},
+				}, nil),
+				structOf(mem, dtype.ValueType(), [][]array.Interface{
+					{
+						arrayOf(mem, []int32{1, 2, 3, 4, 5}, nil),
+						arrayOf(mem, []string{"-111", "-222", "-333", "-444", "-555"}, mask[:5]),
+					},
+					{
+						arrayOf(mem, []int32{1, 2, 3, 4, 5}, nil),
+						arrayOf(mem, []string{"-1111", "-1222", "-1333", "-1444", "-1555"}, mask[:5]),
+					},
+					{
+						arrayOf(mem, []int32{1, 2, 3, 4, 5}, nil),
+						arrayOf(mem, []string{"-2111", "-2222", "-2333", "-2444", "-2555"}, mask[:5]),
+					},
+					{
+						arrayOf(mem, []int32{1, 2, 3, 4, 5}, nil),
+						arrayOf(mem, []string{"-3111", "-3222", "-3333", "-3444", "-3555"}, mask[:5]),
+					},
+					{
+						arrayOf(mem, []int32{1, 2, 3, 4, 5}, nil),
+						arrayOf(mem, []string{"-4111", "-4222", "-4333", "-4444", "-4555"}, mask[:5]),
+					},
+				}, nil),
+			}, []bool{true, false, true, true, true}),
+		},
+		{
+			mapOf(mem, dtype.KeysSorted, []array.Interface{
+				structOf(mem, dtype.ValueType(), [][]array.Interface{
+					{
+						arrayOf(mem, []int32{1, 2, 3, 4, 5}, nil),
+						arrayOf(mem, []string{"-111", "-222", "-333", "-444", "-555"}, mask[:5]),
+					},
+					{
+						arrayOf(mem, []int32{1, 2, 3, 4, 5}, nil),
+						arrayOf(mem, []string{"-1111", "-1222", "-1333", "-1444", "-1555"}, mask[:5]),
+					},
+					{
+						arrayOf(mem, []int32{1, 2, 3, 4, 5}, nil),
+						arrayOf(mem, []string{"-2111", "-2222", "-2333", "-2444", "-2555"}, mask[:5]),
+					},
+					{
+						arrayOf(mem, []int32{1, 2, 3, 4, 5}, nil),
+						arrayOf(mem, []string{"-3111", "-3222", "-3333", "-3444", "-3555"}, mask[:5]),
+					},
+					{
+						arrayOf(mem, []int32{1, 2, 3, 4, 5}, nil),
+						arrayOf(mem, []string{"-4111", "-4222", "-4333", "-4444", "-4555"}, mask[:5]),
+					},
+				}, nil),
+				structOf(mem, dtype.ValueType(), [][]array.Interface{
+					{
+						arrayOf(mem, []int32{-1, -2, -3, -4, -5}, nil),
+						arrayOf(mem, []string{"111", "222", "333", "444", "555"}, mask[:5]),
+					},
+					{
+						arrayOf(mem, []int32{-1, -2, -3, -4, -5}, nil),
+						arrayOf(mem, []string{"1111", "1222", "1333", "1444", "1555"}, mask[:5]),
+					},
+					{
+						arrayOf(mem, []int32{-1, -2, -3, -4, -5}, nil),
+						arrayOf(mem, []string{"2111", "2222", "2333", "2444", "2555"}, mask[:5]),
+					},
+					{
+						arrayOf(mem, []int32{-1, -2, -3, -4, -5}, nil),
+						arrayOf(mem, []string{"3111", "3222", "3333", "3444", "3555"}, mask[:5]),
+					},
+					{
+						arrayOf(mem, []int32{-1, -2, -3, -4, -5}, nil),
+						arrayOf(mem, []string{"4111", "4222", "4333", "4444", "4555"}, mask[:5]),
+					},
+				}, nil),
+			}, []bool{true, false, true, true, true}),
+		},
+	}
+
+	defer func() {
+		for _, chunk := range chunks {
+			for _, col := range chunk {
+				col.Release()
+			}
+		}
+	}()
+
+	recs := make([]array.Record, len(chunks))
+	for i, chunk := range chunks {
+		recs[i] = array.NewRecord(schema, chunk, -1)
+	}
+
+	return recs
+}
+
 func arrayOf(mem memory.Allocator, a interface{}, valids []bool) array.Interface {
 	if mem == nil {
 		mem = memory.NewGoAllocator()
@@ -1048,6 +1171,33 @@ func structOf(mem memory.Allocator, dtype *arrow.StructType, fields [][]array.In
 	}
 
 	return bldr.NewStructArray()
+}
+
+func mapOf(mem memory.Allocator, sortedKeys bool, values []array.Interface, valids []bool) *array.Map {
+	if mem == nil {
+		mem = memory.NewGoAllocator()
+	}
+
+	pairType := values[0].DataType().(*arrow.StructType)
+	bldr := array.NewMapBuilder(mem, pairType.Field(0).Type, pairType.Field(1).Type, sortedKeys)
+	defer bldr.Release()
+
+	valid := func(i int) bool {
+		return valids[i]
+	}
+
+	if valids == nil {
+		valid = func(i int) bool { return true }
+	}
+
+	vb := bldr.ValueBuilder()
+	for i, value := range values {
+		bldr.Append(valid(i))
+		buildArray(vb.FieldBuilder(0), value.(*array.Struct).Field(0))
+		buildArray(vb.FieldBuilder(1), value.(*array.Struct).Field(1))
+	}
+
+	return bldr.NewMapArray()
 }
 
 func buildArray(bldr array.Builder, data array.Interface) {

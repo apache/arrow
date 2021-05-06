@@ -23,10 +23,6 @@
 Compute Functions
 =================
 
-.. sidebar:: Contents
-
-   .. contents:: :local:
-
 The generic Compute API
 =======================
 
@@ -250,10 +246,10 @@ Binary functions have the following semantics (which is sometimes called
 Arithmetic functions
 ~~~~~~~~~~~~~~~~~~~~
 
-These functions expect two inputs of numeric type and apply a given binary
-operation to each pair of elements gathered from the inputs.  If any of the
-input elements in a pair is null, the corresponding output element is null.
-Inputs will be cast to the :ref:`common numeric type <common-numeric-type>`
+These functions expect inputs of numeric type and apply a given arithmetic
+operation to each element(s) gathered from the input(s).  If any of the
+input element(s) is null, the corresponding output element is null.
+Input(s) will be cast to the :ref:`common numeric type <common-numeric-type>`
 (and dictionary decoded, if applicable) before the operation is applied.
 
 The default variant of these functions does not detect overflow (the result
@@ -275,6 +271,14 @@ an ``Invalid`` :class:`Status` when overflow is detected.
 | multiply                 | Binary     | Numeric            | Numeric             |
 +--------------------------+------------+--------------------+---------------------+
 | multiply_checked         | Binary     | Numeric            | Numeric             |
++--------------------------+------------+--------------------+---------------------+
+| negate                   | Unary      | Numeric            | Numeric             |
++--------------------------+------------+--------------------+---------------------+
+| negate_checked           | Unary      | Signed Numeric     | Signed Numeric      |
++--------------------------+------------+--------------------+---------------------+
+| power                    | Binary     | Numeric            | Numeric             |
++--------------------------+------------+--------------------+---------------------+
+| power_checked            | Binary     | Numeric            | Numeric             |
 +--------------------------+------------+--------------------+---------------------+
 | subtract                 | Binary     | Numeric            | Numeric             |
 +--------------------------+------------+--------------------+---------------------+
@@ -522,26 +526,31 @@ These functions trim off characters on both sides (trim), or the left (ltrim) or
 Containment tests
 ~~~~~~~~~~~~~~~~~
 
-+--------------------+------------+------------------------------------+---------------+----------------------------------------+
-| Function name      | Arity      | Input types                        | Output type   | Options class                          |
-+====================+============+====================================+===============+========================================+
-| match_substring    | Unary      | String-like                        | Boolean (1)   | :struct:`MatchSubstringOptions`        |
-+--------------------+------------+------------------------------------+---------------+----------------------------------------+
-| index_in           | Unary      | Boolean, Null, Numeric, Temporal,  | Int32 (2)     | :struct:`SetLookupOptions`             |
-|                    |            | Binary- and String-like            |               |                                        |
-+--------------------+------------+------------------------------------+---------------+----------------------------------------+
-| is_in              | Unary      | Boolean, Null, Numeric, Temporal,  | Boolean (3)   | :struct:`SetLookupOptions`             |
-|                    |            | Binary- and String-like            |               |                                        |
-+--------------------+------------+------------------------------------+---------------+----------------------------------------+
++---------------------------+------------+------------------------------------+---------------+----------------------------------------+
+| Function name             | Arity      | Input types                        | Output type   | Options class                          |
++===========================+============+====================================+===============+========================================+
+| match_substring           | Unary      | String-like                        | Boolean (1)   | :struct:`MatchSubstringOptions`        |
++---------------------------+------------+------------------------------------+---------------+----------------------------------------+
+| match_substring_regex     | Unary      | String-like                        | Boolean (2)   | :struct:`MatchSubstringOptions`        |
++---------------------------+------------+------------------------------------+---------------+----------------------------------------+
+| index_in                  | Unary      | Boolean, Null, Numeric, Temporal,  | Int32 (3)     | :struct:`SetLookupOptions`             |
+|                           |            | Binary- and String-like            |               |                                        |
++---------------------------+------------+------------------------------------+---------------+----------------------------------------+
+| is_in                     | Unary      | Boolean, Null, Numeric, Temporal,  | Boolean (4)   | :struct:`SetLookupOptions`             |
+|                           |            | Binary- and String-like            |               |                                        |
++---------------------------+------------+------------------------------------+---------------+----------------------------------------+
 
 * \(1) Output is true iff :member:`MatchSubstringOptions::pattern`
   is a substring of the corresponding input element.
 
-* \(2) Output is the index of the corresponding input element in
+* \(2) Output is true iff :member:`MatchSubstringOptions::pattern`
+  matches the corresponding input element at any position.
+
+* \(3) Output is the index of the corresponding input element in
   :member:`SetLookupOptions::value_set`, if found there.  Otherwise,
   output is null.
 
-* \(3) Output is true iff the corresponding input element is equal to one
+* \(4) Output is true iff the corresponding input element is equal to one
   of the elements in :member:`SetLookupOptions::value_set`.
 
 
@@ -573,6 +582,21 @@ when a positive ``max_splits`` is given.
 * \(3) A non-zero length sequence of ASCII defined whitespace bytes
   (``'\t'``, ``'\n'``, ``'\v'``, ``'\f'``, ``'\r'``  and ``' '``) is seen
   as separator.
+
+
+String extraction
+~~~~~~~~~~~~~~~~~
+
++--------------------+------------+------------------------------------+---------------+----------------------------------------+
+| Function name      | Arity      | Input types                        | Output type   | Options class                          |
++====================+============+====================================+===============+========================================+
+| extract_regex      | Unary      | String-like                        | Struct (1)    | :struct:`ExtractRegexOptions`          |
++--------------------+------------+------------------------------------+---------------+----------------------------------------+
+
+* \(1) Extract substrings defined by a regular expression using the Google RE2
+  library.  The output struct field names refer to the named capture groups,
+  e.g. 'letter' and 'digit' for the regular expression
+  ``(?P<letter>[ab])(?P<digit>\\d)``.
 
 
 Structural transforms

@@ -17,6 +17,7 @@
 
 #include <memory>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #ifdef ARROW_WITH_UTF8PROC
@@ -348,6 +349,47 @@ TYPED_TEST(TestStringKernels, MatchSubstring) {
                    &options_double_char_2);
 }
 
+#ifdef ARROW_WITH_RE2
+TYPED_TEST(TestStringKernels, MatchSubstringRegex) {
+  MatchSubstringOptions options{"ab"};
+  this->CheckUnary("match_substring_regex", "[]", boolean(), "[]", &options);
+  this->CheckUnary("match_substring_regex", R"(["abc", "acb", "cab", null, "bac"])",
+                   boolean(), "[true, false, true, null, false]", &options);
+  MatchSubstringOptions options_repeated{"(ab){2}"};
+  this->CheckUnary("match_substring_regex", R"(["abab", "ab", "cababc", null, "bac"])",
+                   boolean(), "[true, false, true, null, false]", &options_repeated);
+  MatchSubstringOptions options_digit{"\\d"};
+  this->CheckUnary("match_substring_regex", R"(["aacb", "a2ab", "", "24"])", boolean(),
+                   "[false, true, false, true]", &options_digit);
+  MatchSubstringOptions options_star{"a*b"};
+  this->CheckUnary("match_substring_regex", R"(["aacb", "aab", "dab", "caaab", "b", ""])",
+                   boolean(), "[true, true, true, true, true, false]", &options_star);
+  MatchSubstringOptions options_plus{"a+b"};
+  this->CheckUnary("match_substring_regex", R"(["aacb", "aab", "dab", "caaab", "b", ""])",
+                   boolean(), "[false, true, true, true, false, false]", &options_plus);
+
+  // Unicode character semantics
+  // "\pL" means: unicode category "letter"
+  // (re2 interprets "\w" as ASCII-only: https://github.com/google/re2/wiki/Syntax)
+  MatchSubstringOptions options_unicode{"^\\pL+$"};
+  this->CheckUnary("match_substring_regex", R"(["été", "ß", "€", ""])", boolean(),
+                   "[true, true, false, false]", &options_unicode);
+}
+
+TYPED_TEST(TestStringKernels, MatchSubstringRegexNoOptions) {
+  Datum input = ArrayFromJSON(this->type(), "[]");
+  ASSERT_RAISES(Invalid, CallFunction("match_substring_regex", {input}));
+}
+
+TYPED_TEST(TestStringKernels, MatchSubstringRegexInvalid) {
+  Datum input = ArrayFromJSON(this->type(), "[null]");
+  MatchSubstringOptions options{"invalid["};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("Invalid regular expression: missing ]"),
+      CallFunction("match_substring_regex", {input}, &options));
+}
+#endif
+
 TYPED_TEST(TestStringKernels, SplitBasics) {
   SplitPatternOptions options{" "};
   // basics
@@ -474,6 +516,63 @@ TYPED_TEST(TestStringKernels, ReplaceSubstringRegexNoOptions) {
   Datum input = ArrayFromJSON(this->type(), "[]");
   ASSERT_RAISES(Invalid, CallFunction("replace_substring_regex", {input}));
 }
+
+TYPED_TEST(TestStringKernels, ReplaceSubstringRegexInvalid) {
+  Datum input = ArrayFromJSON(this->type(), R"(["foo"])");
+  ReplaceSubstringOptions options{"invalid[", ""};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("Invalid regular expression: missing ]"),
+      CallFunction("replace_substring_regex", {input}, &options));
+
+  // Capture group number out of range
+  options = ReplaceSubstringOptions{"(.)", "\\9"};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("Invalid replacement string"),
+      CallFunction("replace_substring_regex", {input}, &options));
+}
+
+TYPED_TEST(TestStringKernels, ExtractRegex) {
+  ExtractRegexOptions options{"(?P<letter>[ab])(?P<digit>\\d)"};
+  auto type = struct_({field("letter", this->type()), field("digit", this->type())});
+  this->CheckUnary("extract_regex", R"([])", type, R"([])", &options);
+  this->CheckUnary(
+      "extract_regex", R"(["a1", "b2", "c3", null])", type,
+      R"([{"letter": "a", "digit": "1"}, {"letter": "b", "digit": "2"}, null, null])",
+      &options);
+  this->CheckUnary("extract_regex", R"(["a1", "b2"])", type,
+                   R"([{"letter": "a", "digit": "1"}, {"letter": "b", "digit": "2"}])",
+                   &options);
+  this->CheckUnary("extract_regex", R"(["a1", "zb3z"])", type,
+                   R"([{"letter": "a", "digit": "1"}, {"letter": "b", "digit": "3"}])",
+                   &options);
+}
+
+TYPED_TEST(TestStringKernels, ExtractRegexNoCapture) {
+  // XXX Should we accept this or is it a user error?
+  ExtractRegexOptions options{"foo"};
+  auto type = struct_({});
+  this->CheckUnary("extract_regex", R"(["oofoo", "bar", null])", type,
+                   R"([{}, null, null])", &options);
+}
+
+TYPED_TEST(TestStringKernels, ExtractRegexNoOptions) {
+  Datum input = ArrayFromJSON(this->type(), "[]");
+  ASSERT_RAISES(Invalid, CallFunction("extract_regex", {input}));
+}
+
+TYPED_TEST(TestStringKernels, ExtractRegexInvalid) {
+  Datum input = ArrayFromJSON(this->type(), "[]");
+  ExtractRegexOptions options{"invalid["};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("Invalid regular expression: missing ]"),
+      CallFunction("extract_regex", {input}, &options));
+
+  options = ExtractRegexOptions{"(.)"};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("Regular expression contains unnamed groups"),
+      CallFunction("extract_regex", {input}, &options));
+}
+
 #endif
 
 TYPED_TEST(TestStringKernels, Strptime) {

@@ -33,6 +33,10 @@ namespace dataset {
 
 constexpr char kCsvTypeName[] = "csv";
 
+/// \addtogroup dataset-file-formats
+///
+/// @{
+
 /// \brief A FileFormat implementation that reads from and writes to Csv files
 class ARROW_DS_EXPORT CsvFileFormat : public FileFormat {
  public:
@@ -50,8 +54,12 @@ class ARROW_DS_EXPORT CsvFileFormat : public FileFormat {
 
   /// \brief Open a file for scanning
   Result<ScanTaskIterator> ScanFile(
-      std::shared_ptr<ScanOptions> options,
+      const std::shared_ptr<ScanOptions>& options,
       const std::shared_ptr<FileFragment>& fragment) const override;
+
+  Result<RecordBatchGenerator> ScanBatchesAsync(
+      const std::shared_ptr<ScanOptions>& scan_options,
+      const std::shared_ptr<FileFragment>& file) const override;
 
   Result<std::shared_ptr<FileWriter>> MakeWriter(
       std::shared_ptr<io::OutputStream> destination, std::shared_ptr<Schema> schema,
@@ -74,6 +82,8 @@ struct ARROW_DS_EXPORT CsvFragmentScanOptions : public FragmentScanOptions {
   /// Note that use_threads is always ignored.
   csv::ReadOptions read_options = csv::ReadOptions::Defaults();
 };
+
+/// @}
 
 }  // namespace dataset
 }  // namespace arrow

@@ -70,9 +70,12 @@
 #include "arrow/filesystem/test_util.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
@@ -639,6 +642,34 @@ TEST_F(TestS3FS, GetFileInfoSelectorRecursive) {
   ASSERT_EQ(infos.size(), 2);
   AssertFileInfo(infos[0], "bucket/somedir/subdir", FileType::Directory);
   AssertFileInfo(infos[1], "bucket/somedir/subdir/subfile", FileType::File, 8);
+}
+
+TEST_F(TestS3FS, GetFileInfoGenerator) {
+  FileSelector select;
+  FileInfoVector infos;
+
+  // Root dir
+  select.base_dir = "";
+  CollectFileInfoGenerator(fs_->GetFileInfoGenerator(select), &infos);
+  ASSERT_EQ(infos.size(), 2);
+  SortInfos(&infos);
+  AssertFileInfo(infos[0], "bucket", FileType::Directory);
+  AssertFileInfo(infos[1], "empty-bucket", FileType::Directory);
+
+  // Root dir, recursive
+  select.recursive = true;
+  CollectFileInfoGenerator(fs_->GetFileInfoGenerator(select), &infos);
+  ASSERT_EQ(infos.size(), 7);
+  SortInfos(&infos);
+  AssertFileInfo(infos[0], "bucket", FileType::Directory);
+  AssertFileInfo(infos[1], "bucket/emptydir", FileType::Directory);
+  AssertFileInfo(infos[2], "bucket/somedir", FileType::Directory);
+  AssertFileInfo(infos[3], "bucket/somedir/subdir", FileType::Directory);
+  AssertFileInfo(infos[4], "bucket/somedir/subdir/subfile", FileType::File, 8);
+  AssertFileInfo(infos[5], "bucket/somefile", FileType::File, 9);
+  AssertFileInfo(infos[6], "empty-bucket", FileType::Directory);
+
+  // Non-root dir case is tested by generic tests
 }
 
 TEST_F(TestS3FS, CreateDir) {

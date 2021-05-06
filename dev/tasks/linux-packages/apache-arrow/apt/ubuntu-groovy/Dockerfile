@@ -18,8 +18,6 @@
 ARG FROM=ubuntu:groovy
 FROM ${FROM}
 
-COPY qemu-* /usr/bin/
-
 RUN \
   echo "debconf debconf/frontend select Noninteractive" | \
     debconf-set-selections
@@ -35,7 +33,7 @@ RUN \
   apt install -y -V ${quiet} \
     build-essential \
     ccache \
-    clang-11 \
+    clang \
     cmake \
     debhelper \
     devscripts \
@@ -53,13 +51,15 @@ RUN \
     libgrpc++-dev \
     libgtest-dev \
     liblz4-dev \
+    libprotoc-dev \
+    libprotobuf-dev \
     libre2-dev \
     libsnappy-dev \
     libssl-dev \
     libthrift-dev \
     libutf8proc-dev \
     libzstd-dev \
-    llvm-11-dev \
+    llvm-dev \
     lsb-release \
     ninja-build \
     pkg-config \

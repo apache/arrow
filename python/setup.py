@@ -110,6 +110,7 @@ class build_ext(_build_ext):
                      ('with-flight', None, 'build the Flight extension'),
                      ('with-dataset', None, 'build the Dataset extension'),
                      ('with-parquet', None, 'build the Parquet extension'),
+                     ('with-s3', None, 'build the Amazon S3 extension'),
                      ('with-static-parquet', None, 'link parquet statically'),
                      ('with-static-boost', None, 'link boost statically'),
                      ('with-plasma', None, 'build the Plasma extension'),
@@ -197,11 +198,13 @@ class build_ext(_build_ext):
         '_cuda',
         '_flight',
         '_dataset',
+        '_feather',
         '_parquet',
         '_orc',
         '_plasma',
         '_s3fs',
         '_hdfs',
+        '_hdfsio',
         'gandiva']
 
     def _run_cmake(self):
@@ -519,7 +522,7 @@ def _move_shared_libs_unix(build_prefix, build_lib, lib_name):
 
 # If the event of not running from a git clone (e.g. from a git archive
 # or a Python sdist), see if we can set the version number ourselves
-default_version = '4.0.0-SNAPSHOT'
+default_version = '5.0.0-SNAPSHOT'
 if (not os.path.exists('../.git') and
         not os.environ.get('SETUPTOOLS_SCM_PRETEND_VERSION')):
     if os.path.exists('PKG-INFO'):

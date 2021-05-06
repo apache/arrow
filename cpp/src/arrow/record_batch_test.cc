@@ -255,6 +255,34 @@ TEST_F(TestRecordBatch, RemoveColumn) {
   AssertBatchesEqual(*new_batch, *batch4);
 }
 
+TEST_F(TestRecordBatch, SelectColumns) {
+  const int length = 10;
+
+  auto field1 = field("f1", int32());
+  auto field2 = field("f2", uint8());
+  auto field3 = field("f3", int16());
+
+  auto schema1 = ::arrow::schema({field1, field2, field3});
+
+  auto array1 = MakeRandomArray<Int32Array>(length);
+  auto array2 = MakeRandomArray<UInt8Array>(length);
+  auto array3 = MakeRandomArray<Int16Array>(length);
+
+  auto batch = RecordBatch::Make(schema1, length, {array1, array2, array3});
+
+  ASSERT_OK_AND_ASSIGN(auto subset, batch->SelectColumns({0, 2}));
+  ASSERT_OK(subset->ValidateFull());
+
+  auto expected_schema = ::arrow::schema({schema1->field(0), schema1->field(2)});
+  auto expected =
+      RecordBatch::Make(expected_schema, length, {batch->column(0), batch->column(2)});
+  ASSERT_TRUE(subset->Equals(*expected));
+
+  // Out of bounds indices
+  ASSERT_RAISES(Invalid, batch->SelectColumns({0, 3}));
+  ASSERT_RAISES(Invalid, batch->SelectColumns({-1}));
+}
+
 TEST_F(TestRecordBatch, RemoveColumnEmpty) {
   const int length = 10;
 

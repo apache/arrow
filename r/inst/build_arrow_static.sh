@@ -18,7 +18,7 @@
 # under the License.
 
 # Quit on failure
-# set -e
+set -e
 
 # Print commands for debugging
 set -x
@@ -35,6 +35,9 @@ set -x
 # Make sure SOURCE and DEST dirs are absolute and exist
 SOURCE_DIR="$(cd "${SOURCE_DIR}" && pwd)"
 DEST_DIR="$(mkdir -p "${DEST_DIR}" && cd "${DEST_DIR}" && pwd)"
+
+# Make some env vars case-insensitive
+LIBARROW_MINIMAL=`echo $LIBARROW_MINIMAL | tr '[:upper:]' '[:lower:]'`
 
 if [ "$LIBARROW_MINIMAL" = "false" ]; then
   ARROW_DEFAULT_PARAM="ON"
@@ -53,8 +56,8 @@ ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
     -DARROW_DATASET=${ARROW_DATASET:-ON} \
     -DARROW_DEPENDENCY_SOURCE=BUNDLED \
     -DARROW_FILESYSTEM=ON \
-    -DARROW_JEMALLOC=${ARROW_JEMALLOC:-ON} \
-    -DARROW_MIMALLOC=${ARROW_MIMALLOC:-$ARROW_DEFAULT_PARAM} \
+    -DARROW_JEMALLOC=${ARROW_JEMALLOC:-$ARROW_DEFAULT_PARAM} \
+    -DARROW_MIMALLOC=${ARROW_MIMALLOC:-ON} \
     -DARROW_JSON=ON \
     -DARROW_PARQUET=${ARROW_PARQUET:-ON} \
     -DARROW_S3=${ARROW_S3:-$ARROW_DEFAULT_PARAM} \

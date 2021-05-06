@@ -29,7 +29,6 @@ on:
       - 'cpp/**'
       - 'java/**'
       - 'format/**'
-      - 'rust/**'
   pull_request:
     paths:
       - '.github/workflows/integration.yml'
@@ -41,7 +40,6 @@ on:
       - 'cpp/**'
       - 'java/**'
       - 'format/**'
-      - 'rust/**'
 
 env:
   DOCKER_VOLUME_PREFIX: ".docker/"
@@ -54,6 +52,7 @@ jobs:
     name: AMD64 Conda Integration Test
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 60
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
@@ -61,6 +60,11 @@ jobs:
           fetch-depth: 0
       - name: Fetch Submodules and Tags
         run: ci/scripts/util_checkout.sh
+      - name: Checkout Arrow Rust
+        uses: actions/checkout@v2
+        with:
+          repository: apache/arrow-rs
+          path: rust
       - name: Free Up Disk Space
         run: ci/scripts/util_cleanup.sh
       - name: Cache Docker Volumes
@@ -76,7 +80,7 @@ jobs:
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
-        run: archery docker run conda-integration
+        run: archery docker run -e ARCHERY_INTEGRATION_WITH_RUST=1 conda-integration
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true

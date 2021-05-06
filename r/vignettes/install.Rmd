@@ -1,8 +1,8 @@
 ---
-title: "Installing the Arrow Package"
+title: "Installing the Arrow Package on Linux"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Installing the Arrow Package}
+  %\VignetteIndexEntry{Installing the Arrow Package on Linux}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -168,31 +168,6 @@ which calls `tools/nixlibs.R`.
 If the C++ library is built from source, `inst/build_arrow_static.sh` is executed.
 This build script is also what is used to generate the prebuilt binaries.
 
-
-# Using `remotes::install_github(...)`
-
-If you need an Arrow installation from a specific repository or at a specific ref,
-`remotes::install_github("apache/arrow/r", build = FALSE)`
-should work on most platforms (with the notable exception of Windows).
-The `build = FALSE` argument is important so that the installation can access the
-C++ source in the `cpp/` directory in `apache/arrow`.
-
-As with other installation methods, setting the environment variables `LIBARROW_MINIMAL=false` and `ARROW_R_DEV=true` will provide a more full-featured version of Arrow and provide more verbose output, respectively.
-
-For example, to install from the (fictional) branch `bugfix` from `apache/arrow` one could:
-
-```r
-Sys.setenv(LIBARROW_MINIMAL="false")
-remotes::install_github("apache/arrow/r@bugfix", build = FALSE)
-```
-
-Developers may wish to use this method of installing a specific commit
-separate from another Arrow development environment or system installation
-(e.g. we use this in [arrowbench](https://github.com/ursacomputing/arrowbench) to install development versions of arrow isolated from the system install). If you already have Arrow C++ libraries installed system-wide, you may need to set some additional variables in order to isolate this build from your system libraries:
-
-* Setting the environment variable `FORCE_BUNDLED_BUILD` to `true` will skip the `pkg-config` search for Arrow libraries and attempt to build from the same source at the repository+ref given.
-* You may also need to set the Makevars `CPPFLAGS` and `LDFLAGS` to `""` in order to prevent the installation process from attempting to link to already installed system versions of Arrow. One way to do this temporarily is wrapping your `remotes::install_github()` call like so: `withr::with_makevars(list(CPPFLAGS = "", LDFLAGS = ""), remotes::install_github(...))`.
-
 # Troubleshooting
 
 The intent is that `install.packages("arrow")` will just work and handle all C++
@@ -243,30 +218,6 @@ if you update your system Arrow, you'll need to reinstall the R package to match
 Similarly, if you're using Arrow system libraries, running `update.packages()`
 after a new release of the `arrow` package will likely fail unless you first
 update the system packages.
-
-## Using a local Arrow C++ build
-
-If you've built the Arrow C++ libraries locally from source
-but haven't installed them where `pkg-config` will find them,
-there are a few options for telling the R package how to locate them.
-You can set `PKG_CONFIG_PATH` to `/path/to/your/installation/pkgconfig`
-(that is, `PKG_CONFIG_PATH=${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/pkgconfig`,
-if you've set those variables).
-Alternatively, you can set the `INCLUDE_DIR` and `LIB_DIR` environment variables
-to point to their location.
-
-If the package fails to install/load with an error like this:
-
-```
-** testing if installed package can be loaded from temporary location
-Error: package or namespace load failed for 'arrow' in dyn.load(file, DLLpath = DLLpath, ...):
-unable to load shared object '/Users/you/R/00LOCK-r/00new/arrow/libs/arrow.so':
-dlopen(/Users/you/R/00LOCK-r/00new/arrow/libs/arrow.so, 6): Library not loaded: @rpath/libarrow.14.dylib
-```
-
-try setting the environment variable `R_LD_LIBRARY_PATH` to wherever Arrow C++
-was put in `make install`, e.g. `export R_LD_LIBRARY_PATH=/usr/local/lib`, and
-retry installing the R package.
 
 ## Using prebuilt binaries
 
@@ -335,6 +286,17 @@ See discussion [here](https://issues.apache.org/jira/browse/ARROW-8556).
 
 ## Summary of build environment variables
 
+Some features are optional when you build Arrow from source. With the exception of `ARROW_S3`, these are all `ON` by default in the bundled C++ build, but you can set them to `OFF` to disable them.
+
+* `ARROW_S3`: If set to `ON` S3 support will be built as long as the 
+  dependencies are met; if they are not met, the build script will turn this `OFF` 
+* `ARROW_JEMALLOC` for the `jemalloc` memory allocator
+* `ARROW_PARQUET`
+* `ARROW_DATASET`
+* `ARROW_WITH_RE2` for the RE2 regular expression library, used in some string compute functions
+* `ARROW_WITH_UTF8PROC` for the UTF8Proc string library, used in many other string compute functions
+
+There are a number of other variables that affect the `configure` script and the bundled build script.
 By default, these are all unset. All boolean variables are case-insensitive.
 
 * `ARROW_USE_PKG_CONFIG`: If set to `false`, the configure script
@@ -379,7 +341,8 @@ By default, these are all unset. All boolean variables are case-insensitive.
   The directory will be created if it does not exist.
 * `CMAKE`: When building the C++ library from source, you can specify a
   `/path/to/cmake` to use a different version than whatever is found on the `$PATH`
-
+  
+  
 # Contributing
 
 As mentioned above, please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues)

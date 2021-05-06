@@ -35,7 +35,7 @@ namespace compute {
 namespace internal {
 
 template <typename Type>
-void CastListExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status CastListExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   using offset_type = typename Type::offset_type;
   using ScalarType = typename TypeTraits<Type>::ScalarType;
 
@@ -49,13 +49,12 @@ void CastListExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 
     DCHECK(!out_scalar->is_valid);
     if (in_scalar.is_valid) {
-      KERNEL_ASSIGN_OR_RAISE(
-          out_scalar->value, ctx,
-          Cast(*in_scalar.value, child_type, options, ctx->exec_context()));
+      ARROW_ASSIGN_OR_RAISE(out_scalar->value, Cast(*in_scalar.value, child_type, options,
+                                                    ctx->exec_context()));
 
       out_scalar->is_valid = true;
     }
-    return;
+    return Status::OK();
   }
 
   const ArrayData& in_array = *batch[0].array();
@@ -66,11 +65,13 @@ void CastListExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   Datum values = in_array.child_data[0];
 
   if (in_array.offset != 0) {
-    KERNEL_ASSIGN_OR_RAISE(out_array->buffers[0], ctx,
-                           CopyBitmap(ctx->memory_pool(), in_array.buffers[0]->data(),
-                                      in_array.offset, in_array.length));
-    KERNEL_ASSIGN_OR_RAISE(out_array->buffers[1], ctx,
-                           ctx->Allocate(sizeof(offset_type) * (in_array.length + 1)));
+    if (in_array.buffers[0]) {
+      ARROW_ASSIGN_OR_RAISE(out_array->buffers[0],
+                            CopyBitmap(ctx->memory_pool(), in_array.buffers[0]->data(),
+                                       in_array.offset, in_array.length));
+    }
+    ARROW_ASSIGN_OR_RAISE(out_array->buffers[1],
+                          ctx->Allocate(sizeof(offset_type) * (in_array.length + 1)));
 
     auto offsets = in_array.GetValues<offset_type>(1);
     auto shifted_offsets = out_array->GetMutableValues<offset_type>(1);
@@ -81,11 +82,12 @@ void CastListExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     values = in_array.child_data[0]->Slice(offsets[0], offsets[in_array.length]);
   }
 
-  KERNEL_ASSIGN_OR_RAISE(Datum cast_values, ctx,
-                         Cast(values, child_type, options, ctx->exec_context()));
+  ARROW_ASSIGN_OR_RAISE(Datum cast_values,
+                        Cast(values, child_type, options, ctx->exec_context()));
 
   DCHECK_EQ(Datum::ARRAY, cast_values.kind());
   out_array->child_data.push_back(cast_values.array());
+  return Status::OK();
 }
 
 template <typename Type>
@@ -118,7 +120,12 @@ std::vector<std::shared_ptr<CastFunction>> GetNestedCasts() {
   auto cast_struct = std::make_shared<CastFunction>("cast_struct", Type::STRUCT);
   AddCommonCasts(Type::STRUCT, kOutputTargetType, cast_struct.get());
 
-  return {cast_list, cast_large_list, cast_fsl, cast_struct};
+  // So is dictionary
+  auto cast_dictionary =
+      std::make_shared<CastFunction>("cast_dictionary", Type::DICTIONARY);
+  AddCommonCasts(Type::DICTIONARY, kOutputTargetType, cast_dictionary.get());
+
+  return {cast_list, cast_large_list, cast_fsl, cast_struct, cast_dictionary};
 }
 
 }  // namespace internal

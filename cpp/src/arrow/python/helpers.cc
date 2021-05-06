@@ -201,7 +201,7 @@ Status CIntFromPythonImpl(PyObject* obj, Int* out, const std::string& overflow_m
   // PyLong_AsUnsignedLong() and PyLong_AsUnsignedLongLong() don't handle
   // conversion from non-ints (e.g. np.uint64), so do it ourselves
   if (!PyLong_Check(obj)) {
-    ref.reset(PyNumber_Long(obj));
+    ref.reset(PyNumber_Index(obj));
     if (!ref) {
       RETURN_IF_PYERROR();
     }
@@ -348,16 +348,14 @@ bool IsPandasTimestamp(PyObject* obj) {
 }
 
 Status InvalidValue(PyObject* obj, const std::string& why) {
-  std::string obj_as_str;
-  RETURN_NOT_OK(internal::PyObject_StdStringStr(obj, &obj_as_str));
-  return Status::Invalid("Could not convert ", obj_as_str, " with type ",
+  auto obj_as_str = PyObject_StdStringRepr(obj);
+  return Status::Invalid("Could not convert ", std::move(obj_as_str), " with type ",
                          Py_TYPE(obj)->tp_name, ": ", why);
 }
 
 Status InvalidType(PyObject* obj, const std::string& why) {
-  std::string obj_as_str;
-  RETURN_NOT_OK(internal::PyObject_StdStringStr(obj, &obj_as_str));
-  return Status::TypeError("Could not convert ", obj_as_str, " with type ",
+  auto obj_as_str = PyObject_StdStringRepr(obj);
+  return Status::TypeError("Could not convert ", std::move(obj_as_str), " with type ",
                            Py_TYPE(obj)->tp_name, ": ", why);
 }
 

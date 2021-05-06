@@ -98,6 +98,15 @@ Schema <- R6Class("Schema",
     },
     field = function(i) Schema__field(self, i),
     GetFieldByName = function(x) Schema__GetFieldByName(self, x),
+    AddField = function(i, field) {
+      assert_is(field, "Field")
+      Schema__AddField(self, i, field)
+    },
+    SetField = function(i, field) {
+      assert_is(field, "Field")
+      Schema__SetField(self, i, field)
+    },
+    RemoveField = function(i) Schema__RemoveField(self, i),
     serialize = function() Schema__serialize(self),
     WithMetadata = function(metadata = NULL) {
       metadata <- prepare_key_value_metadata(metadata)
@@ -172,6 +181,47 @@ length.Schema <- function(x) x$num_fields
     stop("'i' must be character or numeric, not ", class(i), call. = FALSE)
   }
 }
+
+#' @export
+`[[<-.Schema` <- function(x, i, value) {
+  assert_that(length(i) == 1)
+  if (is.character(i)) {
+    field_names <- names(x)
+    if (anyDuplicated(field_names)) {
+      stop("Cannot update field by name with duplicates", call. = FALSE)
+    }
+
+    # If i is character, it's the field name
+    if (!is.null(value) && !inherits(value, "Field")) {
+      value <- field(i, as_type(value, "value"))
+    }
+
+    # No match means we're adding to the end
+    i <- match(i, field_names, nomatch = length(field_names) + 1L)
+  } else {
+    assert_that(is.numeric(i), !is.na(i), i > 0)
+    # If i is numeric and we have a type,
+    # we need to grab the existing field name for the new one
+    if (!is.null(value) && !inherits(value, "Field")) {
+      value <- field(names(x)[i], as_type(value, "value"))
+    }
+  }
+
+  i <- as.integer(i - 1L)
+  if (i >= length(x)) {
+    if (!is.null(value)) {
+      x <- x$AddField(i, value)
+    }
+  } else if (is.null(value)) {
+    x <- x$RemoveField(i)
+  } else {
+    x <- x$SetField(i, value)
+  }
+  x
+}
+
+#' @export
+`$<-.Schema` <- `$<-.ArrowTabular`
 
 #' @export
 `[.Schema` <- function(x, i, ...) {

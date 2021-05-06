@@ -157,8 +157,9 @@ class GoogleBenchmark(Benchmark):
         values = [b.value for b in self.runs]
         times = [b.real_time for b in self.runs]
         # Slight kludge to extract the UserCounters for each benchmark
-        self.counters = self.runs[0].counters
-        super().__init__(name, unit, less_is_better, values, time_unit, times)
+        counters = self.runs[0].counters
+        super().__init__(name, unit, less_is_better, values, time_unit, times,
+                         counters)
 
     def __repr__(self):
         return "GoogleBenchmark[name={},runs={}]".format(self.names, self.runs)

@@ -15,6 +15,9 @@
 # limitations under the License.
 
 PERL_FIXUP_ROTATE=perl -i -pe 's/(ro[rl]\s+\w{2,3})$$/\1, 1/'
+# since we're passing an int16, swap the MOVQ for the argument to a MOVW as per
+# the message given by go vet since it's a 2-byte value.
+PERL_FIXUP_MOVQ_MOVW=perl -i -pe 's/MOVQ rhs\+16\(FP\)/MOVW rhs+16(FP)/'
 C2GOASM=c2goasm -a -f
 CC=clang
 C_FLAGS=-masm=intel -mno-red-zone -mstackrealign -mllvm -inline-threshold=1000 \
@@ -37,4 +40,8 @@ _lib/bitmap_bmi2.s: _lib/bitmap_bmi2.c
 	$(CC) -S $(ASM_FLAGS_AVX2) $(ASM_FLAGS_BMI2) $(ASM_FLAGS_POPCNT) $(C_FLAGS)  $^ -o $@ ; $(PERL_FIXUP_ROTATE) $@
 
 bitmap_bmi2.s: _lib/bitmap_bmi2.s
-	$(C2GOASM) $^ $@
+	$(C2GOASM) $^ $@ ; $(PERL_FIXUP_MOVQ_MOVW) $@
+
+clean:
+	rm -f $(INTEL_SOURCES)
+	rm -f _lib/$(INTEL_SOURCES)

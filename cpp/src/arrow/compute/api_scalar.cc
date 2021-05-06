@@ -41,6 +41,14 @@ namespace compute {
 // ----------------------------------------------------------------------
 // Arithmetic
 
+#define SCALAR_ARITHMETIC_UNARY(NAME, REGISTRY_NAME, REGISTRY_CHECKED_NAME)            \
+  Result<Datum> NAME(const Datum& arg, ArithmeticOptions options, ExecContext* ctx) {  \
+    auto func_name = (options.check_overflow) ? REGISTRY_CHECKED_NAME : REGISTRY_NAME; \
+    return CallFunction(func_name, {arg}, ctx);                                        \
+  }
+
+SCALAR_ARITHMETIC_UNARY(Negate, "negate", "negate_checked")
+
 #define SCALAR_ARITHMETIC_BINARY(NAME, REGISTRY_NAME, REGISTRY_CHECKED_NAME)           \
   Result<Datum> NAME(const Datum& left, const Datum& right, ArithmeticOptions options, \
                      ExecContext* ctx) {                                               \
@@ -52,6 +60,7 @@ SCALAR_ARITHMETIC_BINARY(Add, "add", "add_checked")
 SCALAR_ARITHMETIC_BINARY(Subtract, "subtract", "subtract_checked")
 SCALAR_ARITHMETIC_BINARY(Multiply, "multiply", "multiply_checked")
 SCALAR_ARITHMETIC_BINARY(Divide, "divide", "divide_checked")
+SCALAR_ARITHMETIC_BINARY(Power, "power", "power_checked")
 
 // ----------------------------------------------------------------------
 // Set-related operations

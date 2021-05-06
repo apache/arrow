@@ -202,8 +202,24 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
                                      cpp11::as_cpp<bool>(options["skip_nulls"]));
   }
 
+  if (func_name == "dictionary_encode") {
+    using Options = arrow::compute::DictionaryEncodeOptions;
+    auto out = std::make_shared<Options>(Options::Defaults());
+    if (!Rf_isNull(options["null_encoding_behavior"])) {
+      out->null_encoding_behavior = cpp11::as_cpp<
+          enum arrow::compute::DictionaryEncodeOptions::NullEncodingBehavior>(
+          options["null_encoding_behavior"]);
+    }
+    return out;
+  }
+
   if (func_name == "cast") {
     return make_cast_options(options);
+  }
+
+  if (func_name == "match_substring" || func_name == "match_substring_regex") {
+    using Options = arrow::compute::MatchSubstringOptions;
+    return std::make_shared<Options>(cpp11::as_cpp<std::string>(options["pattern"]));
   }
 
   if (func_name == "replace_substring" || func_name == "replace_substring_regex") {
@@ -215,6 +231,11 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     return std::make_shared<Options>(cpp11::as_cpp<std::string>(options["pattern"]),
                                      cpp11::as_cpp<std::string>(options["replacement"]),
                                      max_replacements);
+  }
+
+  if (func_name == "variance" || func_name == "stddev") {
+    using Options = arrow::compute::VarianceOptions;
+    return std::make_shared<Options>(cpp11::as_cpp<int64_t>(options["ddof"]));
   }
 
   return nullptr;
@@ -278,7 +299,7 @@ SEXP compute__GroupBy(cpp11::list arguments, cpp11::list keys, cpp11::list optio
 }
 
 // [[arrow::export]]
-std::vector<std::string> list_compute_functions() {
+std::vector<std::string> compute__GetFunctionNames() {
   return arrow::compute::GetFunctionRegistry()->GetFunctionNames();
 }
 

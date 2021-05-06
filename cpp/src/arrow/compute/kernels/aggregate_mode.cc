@@ -17,13 +17,15 @@
 
 #include <cmath>
 #include <queue>
-#include <unordered_map>
+#include <utility>
 
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
 #include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/util_internal.h"
+#include "arrow/result.h"
+#include "arrow/stl_allocator.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/bit_run_reader.h"
 
 namespace arrow {
 namespace compute {
@@ -31,340 +33,313 @@ namespace internal {
 
 namespace {
 
+using ModeState = OptionsWrapper<ModeOptions>;
+
 constexpr char kModeFieldName[] = "mode";
 constexpr char kCountFieldName[] = "count";
 
-// {value:count} map
-template <typename CType>
-using CounterMap = std::unordered_map<CType, int64_t>;
+constexpr uint64_t kCountEOF = ~0ULL;
 
-// map based counter for floating points
-template <typename ArrayType, typename CType = typename ArrayType::TypeClass::c_type>
-enable_if_t<std::is_floating_point<CType>::value, CounterMap<CType>> CountValuesByMap(
-    const ArrayType& array, int64_t& nan_count) {
-  CounterMap<CType> value_counts_map;
-  const ArrayData& data = *array.data();
-  const CType* values = data.GetValues<CType>(1);
+template <typename InType, typename CType = typename InType::c_type>
+Result<std::pair<CType*, int64_t*>> PrepareOutput(int64_t n, KernelContext* ctx,
+                                                  Datum* out) {
+  const auto& mode_type = TypeTraits<InType>::type_singleton();
+  const auto& count_type = int64();
 
-  nan_count = 0;
-  if (array.length() > array.null_count()) {
-    arrow::internal::VisitSetBitRunsVoid(data.buffers[0], data.offset, data.length,
-                                         [&](int64_t pos, int64_t len) {
-                                           for (int64_t i = 0; i < len; ++i) {
-                                             const auto value = values[pos + i];
-                                             if (std::isnan(value)) {
-                                               ++nan_count;
-                                             } else {
-                                               ++value_counts_map[value];
-                                             }
-                                           }
-                                         });
+  auto mode_data = ArrayData::Make(mode_type, /*length=*/n, /*null_count=*/0);
+  mode_data->buffers.resize(2, nullptr);
+  auto count_data = ArrayData::Make(count_type, n, 0);
+  count_data->buffers.resize(2, nullptr);
+
+  CType* mode_buffer = nullptr;
+  int64_t* count_buffer = nullptr;
+
+  if (n > 0) {
+    ARROW_ASSIGN_OR_RAISE(mode_data->buffers[1], ctx->Allocate(n * sizeof(CType)));
+    ARROW_ASSIGN_OR_RAISE(count_data->buffers[1], ctx->Allocate(n * sizeof(int64_t)));
+    mode_buffer = mode_data->template GetMutableValues<CType>(1);
+    count_buffer = count_data->template GetMutableValues<int64_t>(1);
   }
 
-  return value_counts_map;
+  const auto& out_type =
+      struct_({field(kModeFieldName, mode_type), field(kCountFieldName, count_type)});
+  *out = Datum(ArrayData::Make(out_type, n, {nullptr}, {mode_data, count_data}, 0));
+
+  return std::make_pair(mode_buffer, count_buffer);
 }
 
-// map base counter for non floating points
-template <typename ArrayType, typename CType = typename ArrayType::TypeClass::c_type>
-enable_if_t<!std::is_floating_point<CType>::value, CounterMap<CType>> CountValuesByMap(
-    const ArrayType& array) {
-  CounterMap<CType> value_counts_map;
-  const ArrayData& data = *array.data();
-  const CType* values = data.GetValues<CType>(1);
+// find top-n value:count pairs with minimal heap
+// suboptimal for tiny or large n, possibly okay as we're not in hot path
+template <typename InType, typename Generator>
+Status Finalize(KernelContext* ctx, Datum* out, Generator&& gen) {
+  using CType = typename InType::c_type;
 
-  if (array.length() > array.null_count()) {
-    arrow::internal::VisitSetBitRunsVoid(data.buffers[0], data.offset, data.length,
-                                         [&](int64_t pos, int64_t len) {
-                                           for (int64_t i = 0; i < len; ++i) {
-                                             ++value_counts_map[values[pos + i]];
-                                           }
-                                         });
-  }
+  using ValueCountPair = std::pair<CType, uint64_t>;
+  auto gt = [](const ValueCountPair& lhs, const ValueCountPair& rhs) {
+    const bool rhs_is_nan = rhs.first != rhs.first;  // nan as largest value
+    return lhs.second > rhs.second ||
+           (lhs.second == rhs.second && (lhs.first < rhs.first || rhs_is_nan));
+  };
 
-  return value_counts_map;
-}
+  std::priority_queue<ValueCountPair, std::vector<ValueCountPair>, decltype(gt)> min_heap(
+      std::move(gt));
 
-// vector based counter for int8 or integers with small value range
-template <typename ArrayType, typename CType = typename ArrayType::TypeClass::c_type>
-CounterMap<CType> CountValuesByVector(const ArrayType& array, CType min, CType max) {
-  const int range = static_cast<int>(max - min);
-  DCHECK(range >= 0 && range < 64 * 1024 * 1024);
-  const ArrayData& data = *array.data();
-  const CType* values = data.GetValues<CType>(1);
-
-  std::vector<int64_t> value_counts_vector(range + 1);
-  if (array.length() > array.null_count()) {
-    arrow::internal::VisitSetBitRunsVoid(data.buffers[0], data.offset, data.length,
-                                         [&](int64_t pos, int64_t len) {
-                                           for (int64_t i = 0; i < len; ++i) {
-                                             ++value_counts_vector[values[pos + i] - min];
-                                           }
-                                         });
-  }
-
-  // Transfer value counts to a map to be consistent with other chunks
-  CounterMap<CType> value_counts_map(range + 1);
-  for (int i = 0; i <= range; ++i) {
-    CType value = static_cast<CType>(i + min);
-    int64_t count = value_counts_vector[i];
-    if (count) {
-      value_counts_map[value] = count;
+  const ModeOptions& options = ModeState::Get(ctx);
+  while (true) {
+    const ValueCountPair& value_count = gen();
+    DCHECK_NE(value_count.second, 0);
+    if (value_count.second == kCountEOF) break;
+    if (static_cast<int64_t>(min_heap.size()) < options.n) {
+      min_heap.push(value_count);
+    } else if (gt(value_count, min_heap.top())) {
+      min_heap.pop();
+      min_heap.push(value_count);
     }
   }
+  const int64_t n = min_heap.size();
 
-  return value_counts_map;
-}
+  CType* mode_buffer;
+  int64_t* count_buffer;
+  ARROW_ASSIGN_OR_RAISE(std::tie(mode_buffer, count_buffer),
+                        PrepareOutput<InType>(n, ctx, out));
 
-// map or vector based counter for int16/32/64 per value range
-template <typename ArrayType, typename CType = typename ArrayType::TypeClass::c_type>
-CounterMap<CType> CountValuesByMapOrVector(const ArrayType& array) {
-  // see https://issues.apache.org/jira/browse/ARROW-9873
-  static constexpr int kMinArraySize = 8192 / sizeof(CType);
-  static constexpr int kMaxValueRange = 16384;
-  const ArrayData& data = *array.data();
-  const CType* values = data.GetValues<CType>(1);
-
-  if ((array.length() - array.null_count()) >= kMinArraySize) {
-    CType min = std::numeric_limits<CType>::max();
-    CType max = std::numeric_limits<CType>::min();
-
-    arrow::internal::VisitSetBitRunsVoid(data.buffers[0], data.offset, data.length,
-                                         [&](int64_t pos, int64_t len) {
-                                           for (int64_t i = 0; i < len; ++i) {
-                                             const auto value = values[pos + i];
-                                             min = std::min(min, value);
-                                             max = std::max(max, value);
-                                           }
-                                         });
-
-    if (static_cast<uint64_t>(max) - static_cast<uint64_t>(min) <= kMaxValueRange) {
-      return CountValuesByVector(array, min, max);
-    }
+  for (int64_t i = n - 1; i >= 0; --i) {
+    std::tie(mode_buffer[i], count_buffer[i]) = min_heap.top();
+    min_heap.pop();
   }
-  return CountValuesByMap(array);
+
+  return Status::OK();
 }
 
-// bool
-template <typename ArrayType, typename CType = typename ArrayType::TypeClass::c_type>
-enable_if_t<is_boolean_type<typename ArrayType::TypeClass>::value, CounterMap<CType>>
-CountValues(const ArrayType& array, int64_t& nan_count) {
-  // we need just count ones and zeros
-  CounterMap<CType> map;
-  if (array.length() > array.null_count()) {
-    map[true] = array.true_count();
-    map[false] = array.length() - array.null_count() - map[true];
+// count value occurances for integers with narrow value range
+// O(1) space, O(n) time
+template <typename T>
+struct CountModer {
+  using CType = typename T::c_type;
+
+  CType min;
+  std::vector<uint64_t> counts;
+
+  CountModer(CType min, CType max) {
+    uint32_t value_range = static_cast<uint32_t>(max - min) + 1;
+    DCHECK_LT(value_range, 1 << 20);
+    this->min = min;
+    this->counts.resize(value_range, 0);
   }
-  nan_count = 0;
-  return map;
-}
 
-// int8
-template <typename ArrayType, typename CType = typename ArrayType::TypeClass::c_type>
-enable_if_t<is_integer_type<typename ArrayType::TypeClass>::value && sizeof(CType) == 1,
-            CounterMap<CType>>
-CountValues(const ArrayType& array, int64_t& nan_count) {
-  using Limits = std::numeric_limits<CType>;
-  nan_count = 0;
-  return CountValuesByVector(array, Limits::min(), Limits::max());
-}
+  Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    // count values in all chunks, ignore nulls
+    const Datum& datum = batch[0];
+    CountValues<CType>(this->counts.data(), datum, this->min);
 
-// int16/32/64
-template <typename ArrayType, typename CType = typename ArrayType::TypeClass::c_type>
-enable_if_t<is_integer_type<typename ArrayType::TypeClass>::value && (sizeof(CType) > 1),
-            CounterMap<CType>>
-CountValues(const ArrayType& array, int64_t& nan_count) {
-  nan_count = 0;
-  return CountValuesByMapOrVector(array);
-}
-
-// float/double
-template <typename ArrayType, typename CType = typename ArrayType::TypeClass::c_type>
-enable_if_t<(std::is_floating_point<CType>::value), CounterMap<CType>>  // NOLINT format
-CountValues(const ArrayType& array, int64_t& nan_count) {
-  nan_count = 0;
-  return CountValuesByMap(array, nan_count);
-}
-
-template <typename ArrowType>
-struct ModeState {
-  using ThisType = ModeState<ArrowType>;
-  using CType = typename ArrowType::c_type;
-
-  void MergeFrom(ThisType&& state) {
-    if (this->value_counts.empty()) {
-      this->value_counts = std::move(state.value_counts);
-    } else {
-      for (const auto& value_count : state.value_counts) {
-        auto value = value_count.first;
-        auto count = value_count.second;
-        this->value_counts[value] += count;
+    // generator to emit next value:count pair
+    int index = 0;
+    auto gen = [&]() {
+      for (; index < static_cast<int>(counts.size()); ++index) {
+        if (counts[index] != 0) {
+          auto value_count =
+              std::make_pair(static_cast<CType>(index + this->min), counts[index]);
+          ++index;
+          return value_count;
+        }
       }
-    }
-    if (is_floating_type<ArrowType>::value) {
-      this->nan_count += state.nan_count;
-    }
-  }
-
-  // find top-n value/count pairs with min-heap (priority queue with '>' comparator)
-  void Finalize(CType* modes, int64_t* counts, const int64_t n) {
-    DCHECK(n >= 1 && n <= this->DistinctValues());
-
-    // mode 'greater than' comparator: larger count or same count with smaller value
-    using ValueCountPair = std::pair<CType, int64_t>;
-    auto mode_gt = [](const ValueCountPair& lhs, const ValueCountPair& rhs) {
-      const bool rhs_is_nan = rhs.first != rhs.first;  // nan as largest value
-      return lhs.second > rhs.second ||
-             (lhs.second == rhs.second && (lhs.first < rhs.first || rhs_is_nan));
+      return std::pair<CType, uint64_t>(0, kCountEOF);
     };
 
-    // initialize min-heap with first n modes
-    std::vector<ValueCountPair> vector(n);
-    // push nan if exists
-    const bool has_nan = is_floating_type<ArrowType>::value && this->nan_count > 0;
-    if (has_nan) {
-      vector[0] = std::make_pair(static_cast<CType>(NAN), this->nan_count);
-    }
-    // push n or n-1 modes
-    auto it = this->value_counts.cbegin();
-    for (int i = has_nan; i < n; ++i) {
-      vector[i] = *it++;
-    }
-    // turn to min-heap
-    std::priority_queue<ValueCountPair, std::vector<ValueCountPair>, decltype(mode_gt)>
-        min_heap(std::move(mode_gt), std::move(vector));
+    return Finalize<T>(ctx, out, std::move(gen));
+  }
+};
 
-    // iterate and insert modes into min-heap
-    // - mode < heap top: ignore mode
-    // - mode > heap top: discard heap top, insert mode
-    for (; it != this->value_counts.cend(); ++it) {
-      if (mode_gt(*it, min_heap.top())) {
-        min_heap.pop();
-        min_heap.push(*it);
+// booleans can be handled more straightforward
+template <>
+struct CountModer<BooleanType> {
+  Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    int64_t counts[2]{};
+
+    const Datum& datum = batch[0];
+    for (const auto& array : datum.chunks()) {
+      if (array->length() > array->null_count()) {
+        const int64_t true_count =
+            arrow::internal::checked_pointer_cast<BooleanArray>(array)->true_count();
+        const int64_t false_count = array->length() - array->null_count() - true_count;
+        counts[true] += true_count;
+        counts[false] += false_count;
       }
     }
 
-    // pop modes from min-heap and insert into output array (in reverse order)
-    DCHECK_EQ(min_heap.size(), static_cast<size_t>(n));
-    for (int64_t i = n - 1; i >= 0; --i) {
-      std::tie(modes[i], counts[i]) = min_heap.top();
-      min_heap.pop();
-    }
-  }
+    const ModeOptions& options = ModeState::Get(ctx);
+    const int64_t distinct_values = (counts[0] != 0) + (counts[1] != 0);
+    const int64_t n = std::min(options.n, distinct_values);
 
-  int64_t DistinctValues() const {
-    return this->value_counts.size() +
-           (is_floating_type<ArrowType>::value && this->nan_count > 0);
-  }
+    bool* mode_buffer;
+    int64_t* count_buffer;
+    ARROW_ASSIGN_OR_RAISE(std::tie(mode_buffer, count_buffer),
+                          PrepareOutput<BooleanType>(n, ctx, out));
 
-  int64_t nan_count = 0;  // only make sense to floating types
-  CounterMap<CType> value_counts;
-};
-
-template <typename ArrowType>
-struct ModeImpl : public ScalarAggregator {
-  using ThisType = ModeImpl<ArrowType>;
-  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
-  using CType = typename ArrowType::c_type;
-
-  ModeImpl(const std::shared_ptr<DataType>& out_type, const ModeOptions& options)
-      : out_type(out_type), options(options) {}
-
-  void Consume(KernelContext*, const ExecBatch& batch) override {
-    ArrayType array(batch[0].array());
-    this->state.value_counts = CountValues(array, this->state.nan_count);
-  }
-
-  void MergeFrom(KernelContext*, KernelState&& src) override {
-    auto& other = checked_cast<ThisType&>(src);
-    this->state.MergeFrom(std::move(other.state));
-  }
-
-  static std::shared_ptr<ArrayData> MakeArrayData(
-      const std::shared_ptr<DataType>& data_type, int64_t n) {
-    auto data = ArrayData::Make(data_type, n, 0);
-    data->buffers.resize(2);
-    data->buffers[0] = nullptr;
-    data->buffers[1] = nullptr;
-    return data;
-  }
-
-  void Finalize(KernelContext* ctx, Datum* out) override {
-    const auto& mode_type = TypeTraits<ArrowType>::type_singleton();
-    const auto& count_type = int64();
-    const auto& out_type =
-        struct_({field(kModeFieldName, mode_type), field(kCountFieldName, count_type)});
-
-    int64_t n = this->options.n;
-    if (n > state.DistinctValues()) {
-      n = state.DistinctValues();
-    } else if (n < 0) {
-      n = 0;
+    if (n >= 1) {
+      const bool index = counts[1] > counts[0];
+      mode_buffer[0] = index;
+      count_buffer[0] = counts[index];
+      if (n == 2) {
+        mode_buffer[1] = !index;
+        count_buffer[1] = counts[!index];
+      }
     }
 
-    auto mode_data = this->MakeArrayData(mode_type, n);
-    auto count_data = this->MakeArrayData(count_type, n);
-    if (n > 0) {
-      KERNEL_ASSIGN_OR_RAISE(mode_data->buffers[1], ctx,
-                             ctx->Allocate(n * sizeof(CType)));
-      KERNEL_ASSIGN_OR_RAISE(count_data->buffers[1], ctx,
-                             ctx->Allocate(n * sizeof(int64_t)));
-      CType* mode_buffer = mode_data->template GetMutableValues<CType>(1);
-      int64_t* count_buffer = count_data->template GetMutableValues<int64_t>(1);
-      this->state.Finalize(mode_buffer, count_buffer, n);
-    }
-
-    *out = Datum(ArrayData::Make(out_type, n, {nullptr}, {mode_data, count_data}, 0));
-  }
-
-  std::shared_ptr<DataType> out_type;
-  ModeState<ArrowType> state;
-  ModeOptions options;
-};
-
-struct ModeInitState {
-  std::unique_ptr<KernelState> state;
-  KernelContext* ctx;
-  const DataType& in_type;
-  const std::shared_ptr<DataType>& out_type;
-  const ModeOptions& options;
-
-  ModeInitState(KernelContext* ctx, const DataType& in_type,
-                const std::shared_ptr<DataType>& out_type, const ModeOptions& options)
-      : ctx(ctx), in_type(in_type), out_type(out_type), options(options) {}
-
-  Status Visit(const DataType&) { return Status::NotImplemented("No mode implemented"); }
-
-  Status Visit(const HalfFloatType&) {
-    return Status::NotImplemented("No mode implemented");
-  }
-
-  template <typename Type>
-  enable_if_t<is_number_type<Type>::value || is_boolean_type<Type>::value, Status> Visit(
-      const Type&) {
-    state.reset(new ModeImpl<Type>(out_type, options));
     return Status::OK();
   }
+};
 
-  std::unique_ptr<KernelState> Create() {
-    ctx->SetStatus(VisitTypeInline(in_type, this));
-    return std::move(state);
+// copy and sort approach for floating points or integers with wide value range
+// O(n) space, O(nlogn) time
+template <typename T>
+struct SortModer {
+  using CType = typename T::c_type;
+  using Allocator = arrow::stl::allocator<CType>;
+
+  Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    // copy all chunks to a buffer, ignore nulls and nans
+    std::vector<CType, Allocator> in_buffer(Allocator(ctx->memory_pool()));
+
+    uint64_t nan_count = 0;
+    const Datum& datum = batch[0];
+    const int64_t in_length = datum.length() - datum.null_count();
+    if (in_length > 0) {
+      in_buffer.resize(in_length);
+      CopyNonNullValues<sizeof(CType)>(datum, in_buffer.data());
+
+      // drop nan
+      if (is_floating_type<T>::value) {
+        const auto& it = std::remove_if(in_buffer.begin(), in_buffer.end(),
+                                        [](CType v) { return v != v; });
+        nan_count = in_buffer.end() - it;
+        in_buffer.resize(it - in_buffer.begin());
+      }
+    }
+
+    // sort the input data to count same values
+    std::sort(in_buffer.begin(), in_buffer.end());
+
+    // generator to emit next value:count pair
+    auto it = in_buffer.cbegin();
+    auto gen = [&]() {
+      if (ARROW_PREDICT_FALSE(it == in_buffer.cend())) {
+        // handle NAN at last
+        if (nan_count > 0) {
+          auto value_count = std::make_pair(static_cast<CType>(NAN), nan_count);
+          nan_count = 0;
+          return value_count;
+        }
+        return std::pair<CType, uint64_t>(static_cast<CType>(0), kCountEOF);
+      }
+      // count same values
+      const CType value = *it;
+      uint64_t count = 0;
+      do {
+        ++it;
+        ++count;
+      } while (it != in_buffer.cend() && *it == value);
+      return std::make_pair(value, count);
+    };
+
+    return Finalize<T>(ctx, out, std::move(gen));
   }
 };
 
-std::unique_ptr<KernelState> ModeInit(KernelContext* ctx, const KernelInitArgs& args) {
-  ModeInitState visitor(ctx, *args.inputs[0].type,
-                        args.kernel->signature->out_type().type(),
-                        static_cast<const ModeOptions&>(*args.options));
-  return visitor.Create();
+// pick counting or sorting approach per integers value range
+template <typename T>
+struct CountOrSortModer {
+  using CType = typename T::c_type;
+
+  Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    // cross point to benefit from counting approach
+    // about 2x improvement for int32/64 from micro-benchmarking
+    static constexpr int kMinArraySize = 8192;
+    static constexpr int kMaxValueRange = 32768;
+
+    const Datum& datum = batch[0];
+    if (datum.length() - datum.null_count() >= kMinArraySize) {
+      CType min, max;
+      std::tie(min, max) = GetMinMax<CType>(datum);
+
+      if (static_cast<uint64_t>(max) - static_cast<uint64_t>(min) <= kMaxValueRange) {
+        return CountModer<T>(min, max).Exec(ctx, batch, out);
+      }
+    }
+
+    return SortModer<T>().Exec(ctx, batch, out);
+  }
+};
+
+template <typename InType, typename Enable = void>
+struct Moder;
+
+template <>
+struct Moder<Int8Type> {
+  CountModer<Int8Type> impl;
+  Moder() : impl(-128, 127) {}
+};
+
+template <>
+struct Moder<UInt8Type> {
+  CountModer<UInt8Type> impl;
+  Moder() : impl(0, 255) {}
+};
+
+template <>
+struct Moder<BooleanType> {
+  CountModer<BooleanType> impl;
+};
+
+template <typename InType>
+struct Moder<InType, enable_if_t<(is_integer_type<InType>::value &&
+                                  (sizeof(typename InType::c_type) > 1))>> {
+  CountOrSortModer<InType> impl;
+};
+
+template <typename InType>
+struct Moder<InType, enable_if_t<is_floating_type<InType>::value>> {
+  SortModer<InType> impl;
+};
+
+template <typename _, typename InType>
+struct ModeExecutor {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    if (ctx->state() == nullptr) {
+      return Status::Invalid("Mode requires ModeOptions");
+    }
+    const ModeOptions& options = ModeState::Get(ctx);
+    if (options.n <= 0) {
+      return Status::Invalid("ModeOption::n must be strictly positive");
+    }
+
+    return Moder<InType>().impl.Exec(ctx, batch, out);
+  }
+};
+
+VectorKernel NewModeKernel(const std::shared_ptr<DataType>& in_type) {
+  VectorKernel kernel;
+  kernel.init = ModeState::Init;
+  kernel.can_execute_chunkwise = false;
+  kernel.output_chunked = false;
+  auto out_type =
+      struct_({field(kModeFieldName, in_type), field(kCountFieldName, int64())});
+  kernel.signature =
+      KernelSignature::Make({InputType::Array(in_type)}, ValueDescr::Array(out_type));
+  return kernel;
 }
 
-void AddModeKernels(KernelInit init, const std::vector<std::shared_ptr<DataType>>& types,
-                    ScalarAggregateFunction* func) {
-  for (const auto& ty : types) {
-    // array[T] -> array[struct<mode: T, count: int64_t>]
-    auto out_ty = struct_({field(kModeFieldName, ty), field(kCountFieldName, int64())});
-    auto sig = KernelSignature::Make({InputType::Array(ty)}, ValueDescr::Array(out_ty));
-    AddAggKernel(std::move(sig), init, func);
+void AddBooleanModeKernel(VectorFunction* func) {
+  VectorKernel kernel = NewModeKernel(boolean());
+  kernel.exec = ModeExecutor<StructType, BooleanType>::Exec;
+  DCHECK_OK(func->AddKernel(kernel));
+}
+
+void AddNumericModeKernels(VectorFunction* func) {
+  for (const auto& type : NumericTypes()) {
+    VectorKernel kernel = NewModeKernel(type);
+    kernel.exec = GenerateNumeric<ModeExecutor, StructType>(*type);
+    DCHECK_OK(func->AddKernel(kernel));
   }
 }
 
@@ -379,19 +354,15 @@ const FunctionDoc mode_doc{
     {"array"},
     "ModeOptions"};
 
-std::shared_ptr<ScalarAggregateFunction> AddModeAggKernels() {
-  static auto default_mode_options = ModeOptions::Defaults();
-  auto func = std::make_shared<ScalarAggregateFunction>("mode", Arity::Unary(), &mode_doc,
-                                                        &default_mode_options);
-  AddModeKernels(ModeInit, {boolean()}, func.get());
-  AddModeKernels(ModeInit, NumericTypes(), func.get());
-  return func;
-}
-
 }  // namespace
 
 void RegisterScalarAggregateMode(FunctionRegistry* registry) {
-  DCHECK_OK(registry->AddFunction(AddModeAggKernels()));
+  static auto default_options = ModeOptions::Defaults();
+  auto func = std::make_shared<VectorFunction>("mode", Arity::Unary(), &mode_doc,
+                                               &default_options);
+  AddBooleanModeKernel(func.get());
+  AddNumericModeKernels(func.get());
+  DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
 }  // namespace internal

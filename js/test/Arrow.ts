@@ -15,12 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/* tslint:disable */
 // Dynamically load an Arrow target build based on command line arguments
 
-import 'web-streams-polyfill';
+import 'web-streams-polyfill/es6';
 
-/* tslint:disable */
 // import this before assigning window global since it does a `typeof window` check
 require('web-stream-tools');
 

@@ -501,21 +501,31 @@ SUM_KERNEL_BENCHMARK(SumKernelInt64, Int64Type);
 //
 
 template <typename ArrowType>
-void ModeKernelBench(benchmark::State& state) {
+void ModeKernel(benchmark::State& state, int min, int max) {
   using CType = typename TypeTraits<ArrowType>::CType;
 
   RegressionArgs args(state);
   const int64_t array_size = args.size / sizeof(CType);
   auto rand = random::RandomArrayGenerator(1924);
-  auto array = rand.Numeric<ArrowType>(array_size, -100, 100, args.null_proportion);
+  auto array = rand.Numeric<ArrowType>(array_size, min, max, args.null_proportion);
 
   for (auto _ : state) {
     ABORT_NOT_OK(Mode(array).status());
   }
 }
 
+template <typename ArrowType>
+void ModeKernelNarrow(benchmark::State& state) {
+  ModeKernel<ArrowType>(state, -5000, 8000);  // max - min < 16384
+}
+
 template <>
-void ModeKernelBench<BooleanType>(benchmark::State& state) {
+void ModeKernelNarrow<Int8Type>(benchmark::State& state) {
+  ModeKernel<Int8Type>(state, -128, 127);
+}
+
+template <>
+void ModeKernelNarrow<BooleanType>(benchmark::State& state) {
   RegressionArgs args(state);
   auto rand = random::RandomArrayGenerator(1924);
   auto array = rand.Boolean(args.size * 8, 0.5, args.null_proportion);
@@ -525,19 +535,23 @@ void ModeKernelBench<BooleanType>(benchmark::State& state) {
   }
 }
 
-static void ModeKernelBenchArgs(benchmark::internal::Benchmark* bench) {
+template <typename ArrowType>
+void ModeKernelWide(benchmark::State& state) {
+  ModeKernel<ArrowType>(state, -1234567, 7654321);
+}
+
+static void ModeKernelArgs(benchmark::internal::Benchmark* bench) {
   BenchmarkSetArgsWithSizes(bench, {1 * 1024 * 1024});  // 1M
 }
 
-#define MODE_KERNEL_BENCHMARK(FuncName, Type)                                     \
-  static void FuncName(benchmark::State& state) { ModeKernelBench<Type>(state); } \
-  BENCHMARK(FuncName)->Apply(ModeKernelBenchArgs)
-
-MODE_KERNEL_BENCHMARK(ModeKernelBoolean, BooleanType);
-MODE_KERNEL_BENCHMARK(ModeKernelInt8, Int8Type);
-MODE_KERNEL_BENCHMARK(ModeKernelInt16, Int16Type);
-MODE_KERNEL_BENCHMARK(ModeKernelInt32, Int32Type);
-MODE_KERNEL_BENCHMARK(ModeKernelInt64, Int64Type);
+BENCHMARK_TEMPLATE(ModeKernelNarrow, BooleanType)->Apply(ModeKernelArgs);
+BENCHMARK_TEMPLATE(ModeKernelNarrow, Int8Type)->Apply(ModeKernelArgs);
+BENCHMARK_TEMPLATE(ModeKernelNarrow, Int32Type)->Apply(ModeKernelArgs);
+BENCHMARK_TEMPLATE(ModeKernelNarrow, Int64Type)->Apply(ModeKernelArgs);
+BENCHMARK_TEMPLATE(ModeKernelWide, Int32Type)->Apply(ModeKernelArgs);
+BENCHMARK_TEMPLATE(ModeKernelWide, Int64Type)->Apply(ModeKernelArgs);
+BENCHMARK_TEMPLATE(ModeKernelWide, FloatType)->Apply(ModeKernelArgs);
+BENCHMARK_TEMPLATE(ModeKernelWide, DoubleType)->Apply(ModeKernelArgs);
 
 //
 // MinMax
