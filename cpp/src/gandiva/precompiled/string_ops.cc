@@ -319,6 +319,32 @@ const char* reverse_utf8(gdv_int64 context, const char* data, gdv_int32 data_len
   return ret;
 }
 
+// returns a string with empty space of given length
+FORCE_INLINE
+const char* space_int32(gdv_int64 context, gdv_int32 len, int32_t* out_len) {
+  if (len <= 0) {
+    *out_len = 0;
+    return "";
+  }
+
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, len));
+
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  int32_t index = 0;
+  while (index < len) {
+    ret[index] = ' ';
+    index++;
+  }
+
+  *out_len = len;
+  return ret;
+}
+
 // Trims whitespaces from the left end of the input utf8 sequence
 FORCE_INLINE
 const char* ltrim_utf8(gdv_int64 context, const char* data, gdv_int32 data_len,

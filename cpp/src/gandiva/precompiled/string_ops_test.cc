@@ -617,6 +617,23 @@ TEST(TestStringOps, TestReverse) {
   ctx.Reset();
 }
 
+TEST(TestStringOps, TestSpace) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+
+  const char* out_str;
+  gdv_int32 out_len = 0;
+  out_str = space_int32(ctx_ptr, 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "    ");
+  EXPECT_FALSE(ctx.has_error());
+  out_str = space_int32(ctx_ptr, 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "   ");
+  EXPECT_FALSE(ctx.has_error());
+  out_str = space_int32(ctx_ptr, 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+}
+
 TEST(TestStringOps, TestLtrim) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);

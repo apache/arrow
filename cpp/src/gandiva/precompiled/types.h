@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstdint>
+
 #include "gandiva/gdv_function_stubs.h"
 
 // Use the same names as in arrow data types. Makes it easy to write pre-processor macros.
@@ -84,6 +85,15 @@ gdv_int64 timestampaddMonth_int32_timestamp(gdv_int32, gdv_timestamp);
 gdv_int64 timestampaddQuarter_int32_timestamp(gdv_int32, gdv_timestamp);
 gdv_int64 timestampaddYear_int32_timestamp(gdv_int32, gdv_timestamp);
 
+gdv_int64 timestampaddSecond_timestamp_int32(gdv_timestamp, gdv_int32);
+gdv_int64 timestampaddMinute_timestamp_int32(gdv_timestamp, gdv_int32);
+gdv_int64 timestampaddHour_timestamp_int32(gdv_timestamp, gdv_int32);
+gdv_int64 timestampaddDay_timestamp_int32(gdv_timestamp, gdv_int32);
+gdv_int64 timestampaddWeek_timestamp_int32(gdv_timestamp, gdv_int32);
+gdv_int64 timestampaddMonth_timestamp_int32(gdv_timestamp, gdv_int32);
+gdv_int64 timestampaddQuarter_timestamp_int32(gdv_timestamp, gdv_int32);
+gdv_int64 timestampaddYear_timestamp_int32(gdv_timestamp, gdv_int32);
+
 gdv_int64 timestampaddSecond_int64_timestamp(gdv_int64, gdv_timestamp);
 gdv_int64 timestampaddMinute_int64_timestamp(gdv_int64, gdv_timestamp);
 gdv_int64 timestampaddHour_int64_timestamp(gdv_int64, gdv_timestamp);
@@ -92,6 +102,15 @@ gdv_int64 timestampaddWeek_int64_timestamp(gdv_int64, gdv_timestamp);
 gdv_int64 timestampaddMonth_int64_timestamp(gdv_int64, gdv_timestamp);
 gdv_int64 timestampaddQuarter_int64_timestamp(gdv_int64, gdv_timestamp);
 gdv_int64 timestampaddYear_int64_timestamp(gdv_int64, gdv_timestamp);
+
+gdv_int64 timestampaddSecond_timestamp_int64(gdv_timestamp, gdv_int64);
+gdv_int64 timestampaddMinute_timestamp_int64(gdv_timestamp, gdv_int64);
+gdv_int64 timestampaddHour_timestamp_int64(gdv_timestamp, gdv_int64);
+gdv_int64 timestampaddDay_timestamp_int64(gdv_timestamp, gdv_int64);
+gdv_int64 timestampaddWeek_timestamp_int64(gdv_timestamp, gdv_int64);
+gdv_int64 timestampaddMonth_timestamp_int64(gdv_timestamp, gdv_int64);
+gdv_int64 timestampaddQuarter_timestamp_int64(gdv_timestamp, gdv_int64);
+gdv_int64 timestampaddYear_timestamp_int64(gdv_timestamp, gdv_int64);
 
 gdv_int64 date_add_int32_timestamp(gdv_int32, gdv_timestamp);
 gdv_int64 add_int64_timestamp(gdv_int64, gdv_timestamp);
@@ -378,6 +397,8 @@ const char* lower_utf8(gdv_int64 context, const char* data, gdv_int32 data_len,
 
 const char* reverse_utf8(gdv_int64 context, const char* data, gdv_int32 data_len,
                          int32_t* out_len);
+
+const char* space_int32(gdv_int64 context, gdv_int32 len, int32_t* out_len);
 
 const char* ltrim_utf8(gdv_int64 context, const char* data, gdv_int32 data_len,
                        int32_t* out_len);

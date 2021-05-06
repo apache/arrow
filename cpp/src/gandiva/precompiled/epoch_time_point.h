@@ -20,6 +20,10 @@
 // TODO(wesm): IR compilation does not have any include directories set
 #include "../../arrow/vendored/datetime/date.h"
 
+bool is_leap_year(int yy);
+bool did_days_overflow(arrow_vendored::date::year_month_day ymd);
+int last_possible_day_in_month(int month, int year);
+
 // A point of time measured in millis since epoch.
 class EpochTimePoint {
  public:
@@ -67,9 +71,19 @@ class EpochTimePoint {
 
   EpochTimePoint AddMonths(int num_months) const {
     auto ymd = YearMonthDay() + arrow_vendored::date::months(num_months);
-    return EpochTimePoint((arrow_vendored::date::sys_days{ymd} +  // NOLINT
-                           TimeOfDay().to_duration())
-                              .time_since_epoch());
+
+    EpochTimePoint tp = EpochTimePoint((arrow_vendored::date::sys_days{ymd} +  // NOLINT
+                                        TimeOfDay().to_duration())
+                                           .time_since_epoch());
+
+    if (did_days_overflow(ymd)) {
+      int days_to_offset =
+          last_possible_day_in_month(static_cast<int>(ymd.year()),
+                                     static_cast<unsigned int>(ymd.month())) -
+          static_cast<unsigned int>(ymd.day());
+      tp = tp.AddDays(days_to_offset);
+    }
+    return tp;
   }
 
   EpochTimePoint AddDays(int num_days) const {
