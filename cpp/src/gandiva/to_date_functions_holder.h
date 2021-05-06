@@ -28,6 +28,7 @@
 #include "gandiva/execution_context.h"
 #include "gandiva/function_holder.h"
 #include "gandiva/node.h"
+#include "gandiva/precompiled/epoch_time_point.h"
 #include "gandiva/visibility.h"
 
 namespace gandiva {
@@ -40,8 +41,8 @@ class GANDIVA_EXPORT ToDateFunctionsHolder : public FunctionHolder {
   ~ToDateFunctionsHolder() override = default;
 
   /// Return true if the data matches the pattern.
-  int64_t operator()(ExecutionContext* context, const char* data, int data_len,
-                     bool in_valid, bool* out_valid) {
+  virtual int64_t operator()(ExecutionContext* context, const char* data, int data_len,
+                             bool in_valid, bool* out_valid) {
     *out_valid = false;
     if (!in_valid) {
       return 0;
@@ -171,6 +172,17 @@ class GANDIVA_EXPORT ToTimeHolder : public ToDateFunctionsHolder<ToTimeHolder> {
   ToTimeHolder(const std::string& pattern, int32_t suppress_errors)
       : ToDateFunctionsHolder<ToTimeHolder>(pattern, suppress_errors, false,
                                             ::arrow::TimeUnit::MILLI) {}
+
+  int64_t operator()(ExecutionContext* context, const char* data, int data_len,
+                     bool in_valid, bool* out_valid) override {
+    int64_t millis_since_epoch = ToDateFunctionsHolder<ToTimeHolder>::operator()(
+        context, data, data_len, in_valid, out_valid);
+
+    EpochTimePoint base_epoch(millis_since_epoch);
+    EpochTimePoint base_epoch_without_time = base_epoch.ClearTimeOfDay();
+
+    return base_epoch.MillisSinceEpoch() - base_epoch_without_time.MillisSinceEpoch();
+  }
 
   static Status Make(const FunctionNode& node, std::shared_ptr<ToTimeHolder>* holder) {
     const std::string function_name("to_time");
