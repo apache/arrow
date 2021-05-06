@@ -169,21 +169,32 @@ struct KleeneAnd : Commutative<KleeneAnd> {
     bool right_false = right.is_valid && !checked_cast<const BooleanScalar&>(right).value;
 
     if (right_false) {
-      GetBitmap(*out, 0).SetBitsTo(true);
+      out->null_count = 0;
+      out->buffers[0] = nullptr;
       GetBitmap(*out, 1).SetBitsTo(false);  // all false case
       return Status::OK();
     }
 
     if (right_true) {
-      GetBitmap(*out, 0).CopyFrom(GetBitmap(left, 0));
+      if (left.GetNullCount() == 0) {
+        out->null_count = 0;
+        out->buffers[0] = nullptr;
+      } else {
+        GetBitmap(*out, 0).CopyFrom(GetBitmap(left, 0));
+      }
       GetBitmap(*out, 1).CopyFrom(GetBitmap(left, 1));
       return Status::OK();
     }
 
     // scalar was null: out[i] is valid iff left[i] was false
-    ::arrow::internal::BitmapAndNot(left.buffers[0]->data(), left.offset,
-                                    left.buffers[1]->data(), left.offset, left.length,
-                                    out->offset, out->buffers[0]->mutable_data());
+    if (left.GetNullCount() == 0) {
+      ::arrow::internal::InvertBitmap(left.buffers[1]->data(), left.offset, left.length,
+                                      out->buffers[0]->mutable_data(), out->offset);
+    } else {
+      ::arrow::internal::BitmapAndNot(left.buffers[0]->data(), left.offset,
+                                      left.buffers[1]->data(), left.offset, left.length,
+                                      out->offset, out->buffers[0]->mutable_data());
+    }
     ::arrow::internal::CopyBitmap(left.buffers[1]->data(), left.offset, left.length,
                                   out->buffers[1]->mutable_data(), out->offset);
     return Status::OK();
@@ -192,7 +203,8 @@ struct KleeneAnd : Commutative<KleeneAnd> {
   static Status Call(KernelContext* ctx, const ArrayData& left, const ArrayData& right,
                      ArrayData* out) {
     if (left.GetNullCount() == 0 && right.GetNullCount() == 0) {
-      GetBitmap(*out, 0).SetBitsTo(true);
+      out->null_count = 0;
+      out->buffers[0] = nullptr;
       return And::Call(ctx, left, right, out);
     }
     auto compute_word = [](uint64_t left_true, uint64_t left_false, uint64_t right_true,
@@ -260,21 +272,32 @@ struct KleeneOr : Commutative<KleeneOr> {
     bool right_false = right.is_valid && !checked_cast<const BooleanScalar&>(right).value;
 
     if (right_true) {
-      GetBitmap(*out, 0).SetBitsTo(true);
+      out->null_count = 0;
+      out->buffers[0] = nullptr;
       GetBitmap(*out, 1).SetBitsTo(true);  // all true case
       return Status::OK();
     }
 
     if (right_false) {
-      GetBitmap(*out, 0).CopyFrom(GetBitmap(left, 0));
+      if (left.GetNullCount() == 0) {
+        out->null_count = 0;
+        out->buffers[0] = nullptr;
+      } else {
+        GetBitmap(*out, 0).CopyFrom(GetBitmap(left, 0));
+      }
       GetBitmap(*out, 1).CopyFrom(GetBitmap(left, 1));
       return Status::OK();
     }
 
     // scalar was null: out[i] is valid iff left[i] was true
-    ::arrow::internal::BitmapAnd(left.buffers[0]->data(), left.offset,
-                                 left.buffers[1]->data(), left.offset, left.length,
-                                 out->offset, out->buffers[0]->mutable_data());
+    if (left.GetNullCount() == 0) {
+      ::arrow::internal::CopyBitmap(left.buffers[1]->data(), left.offset, left.length,
+                                    out->buffers[0]->mutable_data(), out->offset);
+    } else {
+      ::arrow::internal::BitmapAnd(left.buffers[0]->data(), left.offset,
+                                   left.buffers[1]->data(), left.offset, left.length,
+                                   out->offset, out->buffers[0]->mutable_data());
+    }
     ::arrow::internal::CopyBitmap(left.buffers[1]->data(), left.offset, left.length,
                                   out->buffers[1]->mutable_data(), out->offset);
     return Status::OK();
@@ -283,7 +306,8 @@ struct KleeneOr : Commutative<KleeneOr> {
   static Status Call(KernelContext* ctx, const ArrayData& left, const ArrayData& right,
                      ArrayData* out) {
     if (left.GetNullCount() == 0 && right.GetNullCount() == 0) {
-      GetBitmap(*out, 0).SetBitsTo(true);
+      out->null_count = 0;
+      out->buffers[0] = nullptr;
       return Or::Call(ctx, left, right, out);
     }
 
@@ -373,21 +397,32 @@ struct KleeneAndNot {
     bool left_false = left.is_valid && !checked_cast<const BooleanScalar&>(left).value;
 
     if (left_false) {
-      GetBitmap(*out, 0).SetBitsTo(true);
+      out->null_count = 0;
+      out->buffers[0] = nullptr;
       GetBitmap(*out, 1).SetBitsTo(false);  // all false case
       return Status::OK();
     }
 
     if (left_true) {
-      GetBitmap(*out, 0).CopyFrom(GetBitmap(right, 0));
+      if (right.GetNullCount() == 0) {
+        out->null_count = 0;
+        out->buffers[0] = nullptr;
+      } else {
+        GetBitmap(*out, 0).CopyFrom(GetBitmap(right, 0));
+      }
       GetBitmap(*out, 1).CopyFromInverted(GetBitmap(right, 1));
       return Status::OK();
     }
 
     // scalar was null: out[i] is valid iff right[i] was true
-    ::arrow::internal::BitmapAnd(right.buffers[0]->data(), right.offset,
-                                 right.buffers[1]->data(), right.offset, right.length,
-                                 out->offset, out->buffers[0]->mutable_data());
+    if (right.GetNullCount() == 0) {
+      ::arrow::internal::CopyBitmap(right.buffers[1]->data(), right.offset, right.length,
+                                    out->buffers[0]->mutable_data(), out->offset);
+    } else {
+      ::arrow::internal::BitmapAnd(right.buffers[0]->data(), right.offset,
+                                   right.buffers[1]->data(), right.offset, right.length,
+                                   out->offset, out->buffers[0]->mutable_data());
+    }
     ::arrow::internal::InvertBitmap(right.buffers[1]->data(), right.offset, right.length,
                                     out->buffers[1]->mutable_data(), out->offset);
     return Status::OK();
@@ -401,7 +436,8 @@ struct KleeneAndNot {
   static Status Call(KernelContext* ctx, const ArrayData& left, const ArrayData& right,
                      ArrayData* out) {
     if (left.GetNullCount() == 0 && right.GetNullCount() == 0) {
-      GetBitmap(*out, 0).SetBitsTo(true);
+      out->null_count = 0;
+      out->buffers[0] = nullptr;
       return AndNot::Call(ctx, left, right, out);
     }
 

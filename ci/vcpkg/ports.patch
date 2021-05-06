@@ -1,5 +1,5 @@
 diff --git a/ports/aws-c-common/portfile.cmake b/ports/aws-c-common/portfile.cmake
-index f3704ef05..3af543058 100644
+index f3704ef05b..3af543058d 100644
 --- a/ports/aws-c-common/portfile.cmake
 +++ b/ports/aws-c-common/portfile.cmake
 @@ -1,8 +1,8 @@
@@ -14,20 +14,20 @@ index f3704ef05..3af543058 100644
      PATCHES
          disable-error-4068.patch # This patch fixes dependency port compilation failure
 diff --git a/ports/curl/portfile.cmake b/ports/curl/portfile.cmake
-index 6e18aecd0..2ccecf33c 100644
+index be66d452be..a5ce325e9d 100644
 --- a/ports/curl/portfile.cmake
 +++ b/ports/curl/portfile.cmake
-@@ -76,6 +76,8 @@ vcpkg_configure_cmake(
+@@ -94,6 +94,8 @@ vcpkg_configure_cmake(
          -DCMAKE_DISABLE_FIND_PACKAGE_Perl=ON
          -DENABLE_DEBUG=ON
          -DCURL_CA_FALLBACK=ON
 +        -DCURL_CA_PATH=none
 +        -DCURL_CA_BUNDLE=none
- )
- 
- vcpkg_install_cmake()
+     OPTIONS_DEBUG
+         ${EXTRA_ARGS_DEBUG}
+     OPTIONS_RELEASE
 diff --git a/ports/snappy/portfile.cmake b/ports/snappy/portfile.cmake
-index 75dd13302..84345c7ca 100644
+index 75dd133027..84345c7caa 100644
 --- a/ports/snappy/portfile.cmake
 +++ b/ports/snappy/portfile.cmake
 @@ -4,6 +4,7 @@ vcpkg_from_github(
@@ -36,11 +36,11 @@ index 75dd13302..84345c7ca 100644
      HEAD_REF master
 +    PATCHES "snappy-disable-bmi.patch"
  )
- 
+
  vcpkg_configure_cmake(
 diff --git a/ports/snappy/snappy-disable-bmi.patch b/ports/snappy/snappy-disable-bmi.patch
 new file mode 100644
-index 000000000..2cbb1533a
+index 0000000000..2cbb1533a8
 --- /dev/null
 +++ b/ports/snappy/snappy-disable-bmi.patch
 @@ -0,0 +1,17 @@

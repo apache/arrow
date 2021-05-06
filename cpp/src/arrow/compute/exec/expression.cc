@@ -526,23 +526,6 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const Datum& input
         "ExecuteScalarExpression cannot Execute non-scalar expression ", expr.ToString());
   }
 
-  if (input.kind() == Datum::TABLE) {
-    TableBatchReader reader(*input.table());
-    std::shared_ptr<RecordBatch> batch;
-
-    while (true) {
-      RETURN_NOT_OK(reader.ReadNext(&batch));
-      if (batch != nullptr) {
-        break;
-      }
-      ARROW_ASSIGN_OR_RAISE(Datum res, ExecuteScalarExpression(expr, batch));
-      if (res.is_scalar()) {
-        ARROW_ASSIGN_OR_RAISE(res, MakeArrayFromScalar(*res.scalar(), batch->num_rows(),
-                                                       exec_context->memory_pool()));
-      }
-    }
-  }
-
   if (auto lit = expr.literal()) return *lit;
 
   if (auto ref = expr.field_ref()) {
@@ -628,6 +611,17 @@ std::vector<FieldRef> FieldsInExpression(const Expression& expr) {
     std::move(argument_fields.begin(), argument_fields.end(), std::back_inserter(fields));
   }
   return fields;
+}
+
+bool ExpressionHasFieldRefs(const Expression& expr) {
+  if (expr.literal()) return false;
+
+  if (auto ref = expr.field_ref()) return true;
+
+  for (const Expression& arg : CallNotNull(expr)->arguments) {
+    if (ExpressionHasFieldRefs(arg)) return true;
+  }
+  return false;
 }
 
 Result<Expression> FoldConstants(Expression expr) {

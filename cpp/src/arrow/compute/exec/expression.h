@@ -27,8 +27,6 @@
 #include <vector>
 
 #include "arrow/compute/type_fwd.h"
-#include "arrow/dataset/type_fwd.h"
-#include "arrow/dataset/visibility.h"
 #include "arrow/datum.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/variant.h"
@@ -158,6 +156,10 @@ Expression call(std::string function, std::vector<Expression> arguments,
 /// Assemble a list of all fields referenced by an Expression at any depth.
 ARROW_EXPORT
 std::vector<FieldRef> FieldsInExpression(const Expression&);
+
+/// Check if the expression references any fields.
+ARROW_EXPORT
+bool ExpressionHasFieldRefs(const Expression&);
 
 /// Assemble a mapping from field references to known values.
 ARROW_EXPORT

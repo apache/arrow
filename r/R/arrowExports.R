@@ -292,6 +292,18 @@ compute__GetFunctionNames <- function(){
     .Call(`_arrow_compute__GetFunctionNames`)
 }
 
+build_info <- function(){
+    .Call(`_arrow_build_info`)
+}
+
+runtime_info <- function(){
+    .Call(`_arrow_runtime_info`)
+}
+
+csv___WriteOptions__initialize <- function(options){
+    .Call(`_arrow_csv___WriteOptions__initialize`, options)
+}
+
 csv___ReadOptions__initialize <- function(options){
     .Call(`_arrow_csv___ReadOptions__initialize`, options)
 }
@@ -330,6 +342,14 @@ TimestampParser__MakeStrptime <- function(format){
 
 TimestampParser__MakeISO8601 <- function(){
     .Call(`_arrow_TimestampParser__MakeISO8601`)
+}
+
+csv___WriteCSV__Table <- function(table, write_options, stream){
+    invisible(.Call(`_arrow_csv___WriteCSV__Table`, table, write_options, stream))
+}
+
+csv___WriteCSV__RecordBatch <- function(record_batch, write_options, stream){
+    invisible(.Call(`_arrow_csv___WriteCSV__RecordBatch`, record_batch, write_options, stream))
 }
 
 dataset___Dataset__NewScan <- function(ds){
@@ -526,6 +546,10 @@ dataset___Dataset__Write <- function(file_write_options, filesystem, base_dir, p
 
 dataset___Scanner__TakeRows <- function(scanner, indices){
     .Call(`_arrow_dataset___Scanner__TakeRows`, scanner, indices)
+}
+
+dataset___Scanner__CountRows <- function(scanner){
+    .Call(`_arrow_dataset___Scanner__CountRows`, scanner)
 }
 
 Int8__initialize <- function(){
@@ -1454,10 +1478,6 @@ ipc___RecordBatchFileWriter__Open <- function(stream, schema, use_legacy_format,
 
 ipc___RecordBatchStreamWriter__Open <- function(stream, schema, use_legacy_format, metadata_version){
     .Call(`_arrow_ipc___RecordBatchStreamWriter__Open`, stream, schema, use_legacy_format, metadata_version)
-}
-
-runtime_info <- function(){
-    .Call(`_arrow_runtime_info`)
 }
 
 Array__GetScalar <- function(x, i){

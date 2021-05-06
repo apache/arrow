@@ -97,6 +97,7 @@ def check_options_class(cls, **attr_values):
         assert getattr(opts, name) == value
 
 
+# The various options classes need to be picklable for dataset
 def check_options_class_pickling(cls, **attr_values):
     opts = cls(**attr_values)
     new_opts = pickle.loads(pickle.dumps(opts,
@@ -114,6 +115,12 @@ def test_read_options():
                         column_names=[[], ["ab", "cd"]],
                         autogenerate_column_names=[False, True],
                         encoding=['utf8', 'utf16'])
+
+    check_options_class_pickling(cls, use_threads=True,
+                                 skip_rows=3,
+                                 column_names=["ab", "cd"],
+                                 autogenerate_column_names=False,
+                                 encoding='utf16')
 
     assert opts.block_size > 0
     opts.block_size = 12345
@@ -133,7 +140,6 @@ def test_parse_options():
                         newlines_in_values=[False, True],
                         ignore_empty_lines=[True, False])
 
-    # ParseOptions needs to be picklable for dataset
     check_options_class_pickling(cls, delimiter='x',
                                  escape_char='y',
                                  quote_char=False,
@@ -153,6 +159,14 @@ def test_convert_options():
         include_missing_columns=[False, True],
         auto_dict_encode=[False, True],
         timestamp_parsers=[[], [ISO8601, '%y-%m']])
+
+    check_options_class_pickling(
+        cls, check_utf8=True,
+        strings_can_be_null=False,
+        include_columns=['def', 'abc'],
+        include_missing_columns=False,
+        auto_dict_encode=True,
+        timestamp_parsers=[ISO8601, '%y-%m'])
 
     assert opts.auto_dict_max_cardinality > 0
     opts.auto_dict_max_cardinality = 99999
@@ -941,6 +955,14 @@ class BaseTestCSVRead:
         e = exc_info.value.__context__
         assert isinstance(e, pa.ArrowCancelled)
         assert e.signum == signal.SIGINT
+
+    def test_cancellation_disabled(self):
+        # ARROW-12622: reader would segfault when the cancelling signal
+        # handler was not enabled (e.g. if disabled, or if not on the
+        # main thread)
+        t = threading.Thread(target=lambda: self.read_bytes(b"f64\n0.1"))
+        t.start()
+        t.join()
 
 
 class TestSerialCSVRead(BaseTestCSVRead, unittest.TestCase):

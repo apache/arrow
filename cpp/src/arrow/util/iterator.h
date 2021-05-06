@@ -560,4 +560,10 @@ Iterator<T> MakeFlattenIterator(Iterator<Iterator<T>> it) {
   return Iterator<T>(FlattenIterator<T>(std::move(it)));
 }
 
+template <typename Reader>
+Iterator<typename Reader::ValueType> MakeIteratorFromReader(
+    const std::shared_ptr<Reader>& reader) {
+  return MakeFunctionIterator([reader] { return reader->Next(); });
+}
+
 }  // namespace arrow

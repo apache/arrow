@@ -48,6 +48,7 @@ namespace cp = arrow::compute;
     }                                              \
   } while (0);
 
+// (Doc section: Reading Datasets)
 // Generate some data for the rest of this example.
 std::shared_ptr<arrow::Table> CreateTable() {
   auto schema =
@@ -84,7 +85,9 @@ std::string CreateExampleParquetDataset(const std::shared_ptr<fs::FileSystem>& f
       *table->Slice(5), arrow::default_memory_pool(), output, /*chunk_size=*/2048));
   return base_path;
 }
+// (Doc section: Reading Datasets)
 
+// (Doc section: Reading different file formats)
 // Set up a dataset by writing two Feather files.
 std::string CreateExampleFeatherDataset(const std::shared_ptr<fs::FileSystem>& filesystem,
                                         const std::string& root_path) {
@@ -103,7 +106,9 @@ std::string CreateExampleFeatherDataset(const std::shared_ptr<fs::FileSystem>& f
   ABORT_ON_FAILURE(writer->Close());
   return base_path;
 }
+// (Doc section: Reading different file formats)
 
+// (Doc section: Reading and writing partitioned data)
 // Set up a dataset by writing files with partitioning
 std::string CreateExampleParquetHivePartitionedDataset(
     const std::shared_ptr<fs::FileSystem>& filesystem, const std::string& root_path) {
@@ -148,7 +153,9 @@ std::string CreateExampleParquetHivePartitionedDataset(
   ABORT_ON_FAILURE(ds::FileSystemDataset::Write(write_options, scanner));
   return base_path;
 }
+// (Doc section: Reading and writing partitioned data)
 
+// (Doc section: Dataset discovery)
 // Read the whole dataset with the given format, without partitioning.
 std::shared_ptr<arrow::Table> ScanWholeDataset(
     const std::shared_ptr<fs::FileSystem>& filesystem,
@@ -169,7 +176,9 @@ std::shared_ptr<arrow::Table> ScanWholeDataset(
   auto scanner = scan_builder->Finish().ValueOrDie();
   return scanner->ToTable().ValueOrDie();
 }
+// (Doc section: Dataset discovery)
 
+// (Doc section: Filtering data)
 // Read a dataset, but select only column "b" and only rows where b < 4.
 //
 // This is useful when you only want a few columns from a dataset. Where possible,
@@ -190,7 +199,9 @@ std::shared_ptr<arrow::Table> FilterAndSelectDataset(
   auto scanner = scan_builder->Finish().ValueOrDie();
   return scanner->ToTable().ValueOrDie();
 }
+// (Doc section: Filtering data)
 
+// (Doc section: Projecting columns)
 // Read a dataset, but with column projection.
 //
 // This is useful to derive new columns from existing data. For example, here we
@@ -222,7 +233,9 @@ std::shared_ptr<arrow::Table> ProjectDataset(
   auto scanner = scan_builder->Finish().ValueOrDie();
   return scanner->ToTable().ValueOrDie();
 }
+// (Doc section: Projecting columns)
 
+// (Doc section: Projecting columns #2)
 // Read a dataset, but with column projection.
 //
 // This time, we read all original columns plus one derived column. This simply combines
@@ -253,7 +266,9 @@ std::shared_ptr<arrow::Table> SelectAndProjectDataset(
   auto scanner = scan_builder->Finish().ValueOrDie();
   return scanner->ToTable().ValueOrDie();
 }
+// (Doc section: Projecting columns #2)
 
+// (Doc section: Reading and writing partitioned data #2)
 // Read an entire dataset, but with partitioning information.
 std::shared_ptr<arrow::Table> ScanPartitionedDataset(
     const std::shared_ptr<fs::FileSystem>& filesystem,
@@ -278,7 +293,9 @@ std::shared_ptr<arrow::Table> ScanPartitionedDataset(
   auto scanner = scan_builder->Finish().ValueOrDie();
   return scanner->ToTable().ValueOrDie();
 }
+// (Doc section: Reading and writing partitioned data #2)
 
+// (Doc section: Reading and writing partitioned data #3)
 // Read an entire dataset, but with partitioning information. Also, filter the dataset on
 // the partition values.
 std::shared_ptr<arrow::Table> FilterPartitionedDataset(
@@ -300,6 +317,7 @@ std::shared_ptr<arrow::Table> FilterPartitionedDataset(
   auto scanner = scan_builder->Finish().ValueOrDie();
   return scanner->ToTable().ValueOrDie();
 }
+// (Doc section: Reading and writing partitioned data #3)
 
 int main(int argc, char** argv) {
   if (argc < 3) {

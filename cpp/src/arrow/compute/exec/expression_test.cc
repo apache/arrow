@@ -172,6 +172,7 @@ TEST(Expression, ToString) {
   EXPECT_EQ(literal("a").ToString(), "\"a\"");
   EXPECT_EQ(literal("a\nb").ToString(), "\"a\\nb\"");
   EXPECT_EQ(literal(std::make_shared<BooleanScalar>()).ToString(), "null");
+  EXPECT_EQ(literal(std::make_shared<Int64Scalar>()).ToString(), "null");
   EXPECT_EQ(literal(std::make_shared<BinaryScalar>(Buffer::FromString("az"))).ToString(),
             "\"617A\"");
 
@@ -354,6 +355,28 @@ TEST(Expression, FieldsInExpression) {
                            equal(field_ref("b"), literal(2))),
                       not_(less(field_ref("c"), literal(3)))),
                   {"a", "b", "c"});
+}
+
+TEST(Expression, ExpressionHasFieldRefs) {
+  EXPECT_FALSE(ExpressionHasFieldRefs(literal(true)));
+
+  EXPECT_FALSE(ExpressionHasFieldRefs(call("add", {literal(1), literal(3)})));
+
+  EXPECT_TRUE(ExpressionHasFieldRefs(field_ref("a")));
+
+  EXPECT_TRUE(ExpressionHasFieldRefs(equal(field_ref("a"), literal(1))));
+
+  EXPECT_TRUE(ExpressionHasFieldRefs(equal(field_ref("a"), field_ref("b"))));
+
+  EXPECT_TRUE(ExpressionHasFieldRefs(
+      or_(equal(field_ref("a"), literal(1)), equal(field_ref("a"), literal(2)))));
+
+  EXPECT_TRUE(ExpressionHasFieldRefs(
+      or_(equal(field_ref("a"), literal(1)), equal(field_ref("b"), literal(2)))));
+
+  EXPECT_TRUE(ExpressionHasFieldRefs(or_(
+      and_(not_(equal(field_ref("a"), literal(1))), equal(field_ref("b"), literal(2))),
+      not_(less(field_ref("c"), literal(3))))));
 }
 
 TEST(Expression, BindLiteral) {
@@ -540,7 +563,7 @@ void ExpectExecute(Expression expr, Datum in, Datum* actual_out = NULLPTR) {
   if (in.is_value()) {
     ASSERT_OK_AND_ASSIGN(expr, expr.Bind(in.descr()));
   } else {
-    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*in.record_batch()->schema()));
+    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*in.schema()));
   }
 
   ASSERT_OK_AND_ASSIGN(Datum actual, ExecuteScalarExpression(expr, in));

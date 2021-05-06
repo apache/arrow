@@ -678,6 +678,29 @@ TEST(GroupBy, ConcreteCaseWithValidateGroupBy) {
   }
 }
 
+// Count nulls/non_nulls from record batch with no nulls
+TEST(GroupBy, CountNull) {
+  auto batch = RecordBatchFromJSON(
+      schema({field("argument", float64()), field("key", utf8())}), R"([
+    [1.0, "alfa"],
+    [2.0, "beta"],
+    [3.0, "gama"]
+  ])");
+
+  CountOptions count_non_null{CountOptions::COUNT_NON_NULL},
+      count_null{CountOptions::COUNT_NULL};
+
+  using internal::Aggregate;
+  for (auto agg : {
+           Aggregate{"hash_count", &count_non_null},
+           Aggregate{"hash_count", &count_null},
+       }) {
+    SCOPED_TRACE(agg.function);
+    ValidateGroupBy({agg}, {batch->GetColumnByName("argument")},
+                    {batch->GetColumnByName("key")});
+  }
+}
+
 TEST(GroupBy, RandomArraySum) {
   for (int64_t length : {1 << 10, 1 << 12, 1 << 15}) {
     for (auto null_probability : {0.0, 0.01, 0.5, 1.0}) {

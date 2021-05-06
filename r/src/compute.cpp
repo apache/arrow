@@ -241,6 +241,10 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     }
     return std::make_shared<Options>(cpp11::as_cpp<std::string>(options["pattern"]),
                                      max_splits, cpp11::as_cpp<bool>(options["reverse"]));
+
+  if (func_name == "variance" || func_name == "stddev") {
+    using Options = arrow::compute::VarianceOptions;
+    return std::make_shared<Options>(cpp11::as_cpp<int64_t>(options["ddof"]));
   }
 
   return nullptr;

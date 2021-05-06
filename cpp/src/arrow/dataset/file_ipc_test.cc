@@ -89,6 +89,7 @@ TEST_F(TestIpcFileFormat, InspectFailureWithRelevantError) {
 }
 TEST_F(TestIpcFileFormat, Inspect) { TestInspect(); }
 TEST_F(TestIpcFileFormat, IsSupported) { TestIsSupported(); }
+TEST_F(TestIpcFileFormat, CountRows) { TestCountRows(); }
 
 class TestIpcFileSystemDataset : public testing::Test,
                                  public WriteFileSystemDatasetMixin {

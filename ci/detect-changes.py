@@ -140,7 +140,7 @@ def list_github_actions_affected_files():
 
 
 LANGUAGE_TOPICS = ['c_glib', 'cpp', 'docs', 'go', 'java', 'js', 'python',
-                   'r', 'ruby', 'rust', 'csharp']
+                   'r', 'ruby', 'csharp']
 
 ALL_TOPICS = LANGUAGE_TOPICS + ['integration', 'dev']
 
@@ -161,7 +161,7 @@ AFFECTED_DEPENDENCIES = {
 }
 
 COMPONENTS = {'cpp', 'java', 'c_glib', 'r', 'ruby', 'integration', 'js',
-              'rust', 'csharp', 'go', 'docs', 'python', 'dev'}
+              'csharp', 'go', 'docs', 'python', 'dev'}
 
 
 def get_affected_topics(affected_files):
@@ -298,7 +298,6 @@ def test_get_affected_topics():
         'python': True,
         'r': True,
         'ruby': True,
-        'rust': False,
         'csharp': False,
         'integration': True,
         'dev': False
@@ -315,7 +314,6 @@ def test_get_affected_topics():
         'python': True,
         'r': True,
         'ruby': True,
-        'rust': True,
         'csharp': True,
         'integration': True,
         'dev': False
@@ -332,7 +330,6 @@ def test_get_affected_topics():
         'python': True,
         'r': True,
         'ruby': True,
-        'rust': True,
         'csharp': True,
         'integration': True,
         'dev': True,

@@ -173,10 +173,7 @@ Dataset <- R6Class("Dataset", inherit = ArrowObject,
       }
     },
     metadata = function() self$schema$metadata,
-    num_rows = function() {
-      warning("Number of rows unknown; returning NA", call. = FALSE)
-      NA_integer_
-    },
+    num_rows = function() self$NewScan()$Finish()$CountRows(),
     num_cols = function() length(self$schema),
     # @description
     # Return the Dataset's type.
@@ -220,20 +217,6 @@ FileSystemDataset <- R6Class("FileSystemDataset", inherit = Dataset,
     # Return the filesystem of files in this `Dataset`
     filesystem = function() {
       dataset___FileSystemDataset__filesystem(self)
-    },
-    num_rows = function() {
-      if (inherits(self$format, "ParquetFileFormat")) {
-        # It's generally fast enough to skim the files directly
-        sum(map_int(self$files, ~ParquetFileReader$create(.x)$num_rows))
-      } else {
-        # TODO: implement for other file formats
-        warning("Number of rows unknown; returning NA", call. = FALSE)
-        NA_integer_
-        # Could do a scan, picking only the last column, which hopefully is virtual
-        # But this is can be slow
-        # Scanner$create(self, projection = tail(names(self), 1))$ToTable()$num_rows
-        # See also https://issues.apache.org/jira/browse/ARROW-9697
-      }
     }
   )
 )

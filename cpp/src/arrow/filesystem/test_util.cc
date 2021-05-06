@@ -211,6 +211,9 @@ void GenericFileSystemTest::TestCreateDir(FileSystem* fs) {
 }
 
 void GenericFileSystemTest::TestDeleteDir(FileSystem* fs) {
+  if (have_flaky_directory_tree_deletion())
+    GTEST_SKIP() << "Flaky directory deletion on Windows";
+
   ASSERT_OK(fs->CreateDir("AB/CD/EF"));
   ASSERT_OK(fs->CreateDir("AB/GH/IJ"));
   CreateFile(fs, "AB/abc", "");
@@ -237,6 +240,9 @@ void GenericFileSystemTest::TestDeleteDir(FileSystem* fs) {
 }
 
 void GenericFileSystemTest::TestDeleteDirContents(FileSystem* fs) {
+  if (have_flaky_directory_tree_deletion())
+    GTEST_SKIP() << "Flaky directory deletion on Windows";
+
   ASSERT_OK(fs->CreateDir("AB/CD/EF"));
   ASSERT_OK(fs->CreateDir("AB/GH/IJ"));
   CreateFile(fs, "AB/abc", "");

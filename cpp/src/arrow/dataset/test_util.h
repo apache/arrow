@@ -42,6 +42,7 @@
 #include "arrow/filesystem/test_util.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
+#include "arrow/testing/future_util.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
@@ -363,6 +364,13 @@ class FileFormatFixtureMixin : public ::testing::Test {
     return fragment;
   }
 
+  std::shared_ptr<FileFragment> MakeFragment(const FileSource& source,
+                                             compute::Expression partition_expression) {
+    EXPECT_OK_AND_ASSIGN(auto fragment,
+                         format_->MakeFragment(source, partition_expression));
+    return fragment;
+  }
+
   std::shared_ptr<FileSource> GetFileSource(RecordBatchReader* reader) {
     EXPECT_OK_AND_ASSIGN(auto buffer, FormatHelper::Write(reader));
     return std::make_shared<FileSource>(std::move(buffer));
@@ -449,6 +457,34 @@ class FileFormatFixtureMixin : public ::testing::Test {
     auto source = this->GetFileSource(reader.get());
     auto written = this->WriteToBuffer(reader->schema());
     AssertBufferEqual(*written, *source->buffer());
+  }
+  void TestCountRows() {
+    auto options = std::make_shared<ScanOptions>();
+    auto reader = this->GetRecordBatchReader(schema({field("f64", float64())}));
+    auto full_schema = schema({field("f64", float64()), field("part", int64())});
+    auto source = this->GetFileSource(reader.get());
+
+    auto fragment = this->MakeFragment(*source);
+    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(expected_rows()),
+                              fragment->CountRows(literal(true), options));
+
+    fragment = this->MakeFragment(*source, equal(field_ref("part"), literal(2)));
+    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(expected_rows()),
+                              fragment->CountRows(literal(true), options));
+
+    auto predicate = equal(field_ref("part"), literal(1));
+    ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*full_schema));
+    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(0),
+                              fragment->CountRows(predicate, options));
+
+    predicate = equal(field_ref("part"), literal(2));
+    ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*full_schema));
+    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(expected_rows()),
+                              fragment->CountRows(predicate, options));
+
+    predicate = equal(call("add", {field_ref("f64"), literal(3)}), literal(2));
+    ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*full_schema));
+    ASSERT_FINISHES_OK_AND_EQ(util::nullopt, fragment->CountRows(predicate, options));
   }
 
  protected:
@@ -1161,7 +1197,7 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
       std::shared_ptr<Array> actual_struct;
 
       for (auto maybe_batch :
-           IteratorFromReader(std::make_shared<TableBatchReader>(*actual_table))) {
+           MakeIteratorFromReader(std::make_shared<TableBatchReader>(*actual_table))) {
         ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
         ASSERT_OK_AND_ASSIGN(actual_struct, batch->ToStructArray());
       }

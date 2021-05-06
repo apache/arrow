@@ -355,6 +355,8 @@ def test_scanner(dataset):
     with pytest.raises(pa.ArrowIndexError):
         scanner.take(pa.array([table.num_rows]))
 
+    assert table.num_rows == scanner.count_rows()
+
 
 def test_head(dataset):
     result = dataset.head(0)
@@ -376,6 +378,32 @@ def test_head(dataset):
 
     result = fragment.head(1024, columns=['i64']).to_pydict()
     assert result == {'i64': list(range(5))}
+
+
+def test_take(dataset):
+    fragment = next(dataset.get_fragments())
+    indices = pa.array([1, 3])
+    assert fragment.take(indices) == fragment.to_table().take(indices)
+    with pytest.raises(IndexError):
+        fragment.take(pa.array([5]))
+
+    indices = pa.array([1, 7])
+    assert dataset.take(indices) == dataset.to_table().take(indices)
+    with pytest.raises(IndexError):
+        dataset.take(pa.array([10]))
+
+
+def test_count_rows(dataset):
+    fragment = next(dataset.get_fragments())
+    assert fragment.count_rows() == 5
+    assert fragment.count_rows(filter=ds.field("i64") == 4) == 1
+
+    assert dataset.count_rows() == 10
+    # Filter on partition key
+    assert dataset.count_rows(filter=ds.field("group") == 1) == 5
+    # Filter on data
+    assert dataset.count_rows(filter=ds.field("i64") >= 3) == 4
+    assert dataset.count_rows(filter=ds.field("i64") < 0) == 0
 
 
 def test_abstract_classes():
@@ -2997,6 +3025,31 @@ def test_write_iterable(tempdir):
                      basename_template='dat_{i}.arrow', format="feather")
     result = ds.dataset(base_dir, format="ipc").to_table()
     assert result.equals(table)
+
+
+def test_write_scanner(tempdir):
+    table = pa.table([
+        pa.array(range(20)), pa.array(np.random.randn(20)),
+        pa.array(np.repeat(['a', 'b'], 10))
+    ], names=["f1", "f2", "part"])
+    dataset = ds.dataset(table)
+
+    base_dir = tempdir / 'dataset_from_scanner'
+    ds.write_dataset(dataset.scanner(), base_dir, format="feather")
+    result = ds.dataset(base_dir, format="ipc").to_table()
+    assert result.equals(table)
+
+    # scanner with different projected_schema
+    base_dir = tempdir / 'dataset_from_scanner2'
+    ds.write_dataset(dataset.scanner(columns=["f1"]),
+                     base_dir, format="feather")
+    result = ds.dataset(base_dir, format="ipc").to_table()
+    assert result.equals(table.select(["f1"]))
+
+    # schema not allowed when writing a scanner
+    with pytest.raises(ValueError, match="Cannot specify a schema"):
+        ds.write_dataset(dataset.scanner(), base_dir, schema=table.schema,
+                         format="feather")
 
 
 def test_write_table_partitioned_dict(tempdir):

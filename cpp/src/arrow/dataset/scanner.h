@@ -285,6 +285,11 @@ class ARROW_DS_EXPORT Scanner {
   virtual Result<std::shared_ptr<Table>> TakeRows(const Array& indices);
   /// \brief Get the first N rows.
   virtual Result<std::shared_ptr<Table>> Head(int64_t num_rows);
+  /// \brief Count rows matching a predicate.
+  ///
+  /// This method will push down the predicate and compute the result based on fragment
+  /// metadata if possible.
+  virtual Result<int64_t> CountRows();
 
   /// \brief Get the options for this scan.
   const std::shared_ptr<ScanOptions>& options() const { return scan_options_; }

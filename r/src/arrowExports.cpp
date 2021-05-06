@@ -1143,6 +1143,49 @@ extern "C" SEXP _arrow_compute__GetFunctionNames(){
 }
 #endif
 
+// config.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::vector<std::string> build_info();
+extern "C" SEXP _arrow_build_info(){
+BEGIN_CPP11
+	return cpp11::as_sexp(build_info());
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_build_info(){
+	Rf_error("Cannot call build_info(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// config.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::vector<std::string> runtime_info();
+extern "C" SEXP _arrow_runtime_info(){
+BEGIN_CPP11
+	return cpp11::as_sexp(runtime_info());
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_runtime_info(){
+	Rf_error("Cannot call runtime_info(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// csv.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::csv::WriteOptions> csv___WriteOptions__initialize(cpp11::list options);
+extern "C" SEXP _arrow_csv___WriteOptions__initialize(SEXP options_sexp){
+BEGIN_CPP11
+	arrow::r::Input<cpp11::list>::type options(options_sexp);
+	return cpp11::as_sexp(csv___WriteOptions__initialize(options));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_csv___WriteOptions__initialize(SEXP options_sexp){
+	Rf_error("Cannot call csv___WriteOptions__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // csv.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::csv::ReadOptions> csv___ReadOptions__initialize(cpp11::list options);
@@ -1292,6 +1335,42 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_TimestampParser__MakeISO8601(){
 	Rf_error("Cannot call TimestampParser__MakeISO8601(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// csv.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void csv___WriteCSV__Table(const std::shared_ptr<arrow::Table>& table, const std::shared_ptr<arrow::csv::WriteOptions>& write_options, const std::shared_ptr<arrow::io::OutputStream>& stream);
+extern "C" SEXP _arrow_csv___WriteCSV__Table(SEXP table_sexp, SEXP write_options_sexp, SEXP stream_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::csv::WriteOptions>&>::type write_options(write_options_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::io::OutputStream>&>::type stream(stream_sexp);
+	csv___WriteCSV__Table(table, write_options, stream);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_csv___WriteCSV__Table(SEXP table_sexp, SEXP write_options_sexp, SEXP stream_sexp){
+	Rf_error("Cannot call csv___WriteCSV__Table(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// csv.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void csv___WriteCSV__RecordBatch(const std::shared_ptr<arrow::RecordBatch>& record_batch, const std::shared_ptr<arrow::csv::WriteOptions>& write_options, const std::shared_ptr<arrow::io::OutputStream>& stream);
+extern "C" SEXP _arrow_csv___WriteCSV__RecordBatch(SEXP record_batch_sexp, SEXP write_options_sexp, SEXP stream_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type record_batch(record_batch_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::csv::WriteOptions>&>::type write_options(write_options_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::io::OutputStream>&>::type stream(stream_sexp);
+	csv___WriteCSV__RecordBatch(record_batch, write_options, stream);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_csv___WriteCSV__RecordBatch(SEXP record_batch_sexp, SEXP write_options_sexp, SEXP stream_sexp){
+	Rf_error("Cannot call csv___WriteCSV__RecordBatch(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2079,6 +2158,21 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_dataset___Scanner__TakeRows(SEXP scanner_sexp, SEXP indices_sexp){
 	Rf_error("Cannot call dataset___Scanner__TakeRows(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_DATASET)
+int64_t dataset___Scanner__CountRows(const std::shared_ptr<ds::Scanner>& scanner);
+extern "C" SEXP _arrow_dataset___Scanner__CountRows(SEXP scanner_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<ds::Scanner>&>::type scanner(scanner_sexp);
+	return cpp11::as_sexp(dataset___Scanner__CountRows(scanner));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_dataset___Scanner__CountRows(SEXP scanner_sexp){
+	Rf_error("Cannot call dataset___Scanner__CountRows(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5723,20 +5817,6 @@ extern "C" SEXP _arrow_ipc___RecordBatchStreamWriter__Open(SEXP stream_sexp, SEX
 }
 #endif
 
-// runtimeinfo.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::vector<std::string> runtime_info();
-extern "C" SEXP _arrow_runtime_info(){
-BEGIN_CPP11
-	return cpp11::as_sexp(runtime_info());
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_runtime_info(){
-	Rf_error("Cannot call runtime_info(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
 // scalar.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Scalar> Array__GetScalar(const std::shared_ptr<arrow::Array>& x, int64_t i);
@@ -6677,6 +6757,9 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_compute__CallFunction", (DL_FUNC) &_arrow_compute__CallFunction, 3}, 
 		{ "_arrow_compute__GroupBy", (DL_FUNC) &_arrow_compute__GroupBy, 3}, 
 		{ "_arrow_compute__GetFunctionNames", (DL_FUNC) &_arrow_compute__GetFunctionNames, 0}, 
+		{ "_arrow_build_info", (DL_FUNC) &_arrow_build_info, 0}, 
+		{ "_arrow_runtime_info", (DL_FUNC) &_arrow_runtime_info, 0}, 
+		{ "_arrow_csv___WriteOptions__initialize", (DL_FUNC) &_arrow_csv___WriteOptions__initialize, 1}, 
 		{ "_arrow_csv___ReadOptions__initialize", (DL_FUNC) &_arrow_csv___ReadOptions__initialize, 1}, 
 		{ "_arrow_csv___ParseOptions__initialize", (DL_FUNC) &_arrow_csv___ParseOptions__initialize, 1}, 
 		{ "_arrow_csv___ReadOptions__column_names", (DL_FUNC) &_arrow_csv___ReadOptions__column_names, 1}, 
@@ -6687,6 +6770,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_TimestampParser__format", (DL_FUNC) &_arrow_TimestampParser__format, 1}, 
 		{ "_arrow_TimestampParser__MakeStrptime", (DL_FUNC) &_arrow_TimestampParser__MakeStrptime, 1}, 
 		{ "_arrow_TimestampParser__MakeISO8601", (DL_FUNC) &_arrow_TimestampParser__MakeISO8601, 0}, 
+		{ "_arrow_csv___WriteCSV__Table", (DL_FUNC) &_arrow_csv___WriteCSV__Table, 3}, 
+		{ "_arrow_csv___WriteCSV__RecordBatch", (DL_FUNC) &_arrow_csv___WriteCSV__RecordBatch, 3}, 
 		{ "_arrow_dataset___Dataset__NewScan", (DL_FUNC) &_arrow_dataset___Dataset__NewScan, 1}, 
 		{ "_arrow_dataset___Dataset__schema", (DL_FUNC) &_arrow_dataset___Dataset__schema, 1}, 
 		{ "_arrow_dataset___Dataset__type_name", (DL_FUNC) &_arrow_dataset___Dataset__type_name, 1}, 
@@ -6736,6 +6821,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___ScanTask__get_batches", (DL_FUNC) &_arrow_dataset___ScanTask__get_batches, 1}, 
 		{ "_arrow_dataset___Dataset__Write", (DL_FUNC) &_arrow_dataset___Dataset__Write, 6}, 
 		{ "_arrow_dataset___Scanner__TakeRows", (DL_FUNC) &_arrow_dataset___Scanner__TakeRows, 2}, 
+		{ "_arrow_dataset___Scanner__CountRows", (DL_FUNC) &_arrow_dataset___Scanner__CountRows, 1}, 
 		{ "_arrow_Int8__initialize", (DL_FUNC) &_arrow_Int8__initialize, 0}, 
 		{ "_arrow_Int16__initialize", (DL_FUNC) &_arrow_Int16__initialize, 0}, 
 		{ "_arrow_Int32__initialize", (DL_FUNC) &_arrow_Int32__initialize, 0}, 
@@ -6968,7 +7054,6 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ipc___RecordBatchWriter__Close", (DL_FUNC) &_arrow_ipc___RecordBatchWriter__Close, 1}, 
 		{ "_arrow_ipc___RecordBatchFileWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchFileWriter__Open, 4}, 
 		{ "_arrow_ipc___RecordBatchStreamWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchStreamWriter__Open, 4}, 
-		{ "_arrow_runtime_info", (DL_FUNC) &_arrow_runtime_info, 0}, 
 		{ "_arrow_Array__GetScalar", (DL_FUNC) &_arrow_Array__GetScalar, 2}, 
 		{ "_arrow_Scalar__ToString", (DL_FUNC) &_arrow_Scalar__ToString, 1}, 
 		{ "_arrow_StructScalar__field", (DL_FUNC) &_arrow_StructScalar__field, 2}, 

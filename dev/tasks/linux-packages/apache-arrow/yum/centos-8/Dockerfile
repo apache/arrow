@@ -18,8 +18,6 @@
 ARG FROM=centos:8
 FROM ${FROM}
 
-COPY qemu-* /usr/bin/
-
 ARG DEBUG
 
 RUN \
@@ -56,7 +54,6 @@ RUN \
     python3-pip \
     re2-devel \
     # rapidjson-devel \
-    rpm-build \
     rpmdevtools \
     snappy-devel \
     tar \

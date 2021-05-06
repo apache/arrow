@@ -54,11 +54,6 @@ inline Result<FragmentIterator> GetFragmentsFromDatasets(const DatasetVector& da
   return MakeFlattenIterator(std::move(fragments_it));
 }
 
-inline RecordBatchIterator IteratorFromReader(
-    const std::shared_ptr<RecordBatchReader>& reader) {
-  return MakeFunctionIterator([reader] { return reader->Next(); });
-}
-
 inline std::shared_ptr<Schema> SchemaFromColumnNames(
     const std::shared_ptr<Schema>& input, const std::vector<std::string>& column_names) {
   std::vector<std::shared_ptr<Field>> columns;

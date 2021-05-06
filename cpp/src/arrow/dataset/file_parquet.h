@@ -99,6 +99,10 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
       const std::shared_ptr<ScanOptions>& options,
       const std::shared_ptr<FileFragment>& file) const override;
 
+  Future<util::optional<int64_t>> CountRows(
+      const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
+      std::shared_ptr<ScanOptions> options) override;
+
   using FileFormat::MakeFragment;
 
   /// \brief Create a Fragment targeting all RowGroups.
@@ -172,6 +176,12 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
 
   /// Return a filtered subset of row group indices.
   Result<std::vector<int>> FilterRowGroups(compute::Expression predicate);
+  /// Simplify the predicate against the statistics of each row group.
+  Result<std::vector<compute::Expression>> TestRowGroups(compute::Expression predicate);
+  /// Try to count rows matching the predicate using metadata. Expects
+  /// metadata to be present, and expects the predicate to have been
+  /// simplified against the partition expression already.
+  Result<util::optional<int64_t>> TryCountRows(compute::Expression predicate);
 
   ParquetFileFormat& parquet_format_;
 
