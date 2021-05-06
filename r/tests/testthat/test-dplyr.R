@@ -502,7 +502,7 @@ test_that("explicit type conversions with as.*()", {
 })
 
 test_that("as.factor()/dictionary_encode()", {
-  skip("ExecuteScalarExpression cannot Execute non-scalar expression {x=dictionary_encode(x, {NON-REPRESENTABLE OPTIONS})}")
+  skip("ARROW-12632: ExecuteScalarExpression cannot Execute non-scalar expression {x=dictionary_encode(x, {NON-REPRESENTABLE OPTIONS})}")
   df1 <- tibble(x = c("C", "D", "B", NA, "D", "B", "S", "A", "B", "Z", "B"))
   df2 <- tibble(x = c(5, 5, 5, NA, 2, 3, 6, 8))
 
