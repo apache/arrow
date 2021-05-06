@@ -674,7 +674,7 @@ ScannerBuilder::ScannerBuilder(std::shared_ptr<Schema> schema,
 }
 
 namespace {
-class ARROW_DS_EXPORT OneShotScanTask : public ScanTask {
+class OneShotScanTask : public ScanTask {
  public:
   OneShotScanTask(RecordBatchIterator batch_it, std::shared_ptr<ScanOptions> options,
                   std::shared_ptr<Fragment> fragment)
@@ -689,7 +689,7 @@ class ARROW_DS_EXPORT OneShotScanTask : public ScanTask {
   RecordBatchIterator batch_it_;
 };
 
-class ARROW_DS_EXPORT OneShotFragment : public Fragment {
+class OneShotFragment : public Fragment {
  public:
   OneShotFragment(std::shared_ptr<Schema> schema, RecordBatchIterator batch_it)
       : Fragment(compute::literal(true), std::move(schema)),
