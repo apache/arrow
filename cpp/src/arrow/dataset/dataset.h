@@ -215,7 +215,6 @@ class ARROW_DS_EXPORT InMemoryDataset : public Dataset {
 
   /// Convenience constructor taking a Table
   explicit InMemoryDataset(std::shared_ptr<Table> table);
-  explicit InMemoryDataset(std::shared_ptr<RecordBatchReader> reader);
 
   std::string type_name() const override { return "in-memory"; }
 

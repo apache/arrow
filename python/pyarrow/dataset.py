@@ -669,10 +669,7 @@ or tables, iterable of batches, RecordBatchReader, or URI
                 'of batches or tables. The given list contains the following '
                 'types: {}'.format(type_names)
             )
-    elif isinstance(source, (pa.RecordBatch, pa.ipc.RecordBatchReader,
-                             pa.Table)):
-        return _in_memory_dataset(source, **kwargs)
-    elif _is_iterable(source):
+    elif isinstance(source, (pa.RecordBatch, pa.Table)):
         return _in_memory_dataset(source, **kwargs)
     else:
         raise TypeError(
@@ -736,9 +733,12 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
     if isinstance(data, (list, tuple)):
         schema = schema or data[0].schema
         data = InMemoryDataset(data, schema=schema)
-    elif isinstance(data, (pa.RecordBatch, pa.ipc.RecordBatchReader,
-                           pa.Table)) or _is_iterable(data):
+    elif isinstance(data, (pa.RecordBatch, pa.Table)):
+        schema = schema or data.schema
         data = InMemoryDataset(data, schema=schema)
+    elif isinstance(data, pa.ipc.RecordBatchReader) or _is_iterable(data):
+        data = Scanner.from_batches(data, schema=schema)
+        schema = None
     elif not isinstance(data, (Dataset, Scanner)):
         raise ValueError(
             "Only Dataset, Scanner, Table/RecordBatch, RecordBatchReader, "

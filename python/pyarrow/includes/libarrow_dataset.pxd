@@ -122,6 +122,10 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
                         shared_ptr[CScanOptions] scan_options)
         CScannerBuilder(shared_ptr[CSchema], shared_ptr[CFragment],
                         shared_ptr[CScanOptions] scan_options)
+
+        @staticmethod
+        shared_ptr[CScannerBuilder] FromRecordBatchReader(
+            shared_ptr[CRecordBatchReader] reader)
         CStatus ProjectColumns "Project"(const vector[c_string]& columns)
         CStatus Project(vector[CExpression]& exprs, vector[c_string]& columns)
         CStatus Filter(CExpression filter)

@@ -1710,9 +1710,10 @@ def test_construct_from_invalid_sources_raise(multisourcefs):
         ds.dataset(None)
 
     expected = (
-        "Must provide schema to construct in-memory dataset from an iterable"
+        "Expected a path-like, list of path-likes or a list of Datasets "
+        "instead of the given type: generator"
     )
-    with pytest.raises(ValueError, match=expected):
+    with pytest.raises(TypeError, match=expected):
         ds.dataset((batch1 for _ in range(3)))
 
     expected = (
@@ -1745,49 +1746,32 @@ def test_construct_from_invalid_sources_raise(multisourcefs):
 def test_construct_in_memory():
     batch = pa.RecordBatch.from_arrays([pa.array(range(10))], names=["a"])
     table = pa.Table.from_batches([batch])
-    reader = pa.ipc.RecordBatchReader.from_batches(batch.schema, [batch])
-    iterable = (batch for _ in range(1))
 
-    for source in (batch, table, reader, [batch], [table]):
-        dataset = ds.dataset(source)
-        assert dataset.to_table() == table
-
-    assert ds.dataset(iterable, schema=batch.schema).to_table().equals(table)
     assert ds.dataset([], schema=pa.schema([])).to_table() == pa.table([])
 
-    # When constructed from batches/tables, should be reusable
     for source in (batch, table, [batch], [table]):
         dataset = ds.dataset(source)
-        assert len(list(dataset.get_fragments())) == 1
-        assert len(list(dataset.get_fragments())) == 1
         assert dataset.to_table() == table
-        assert dataset.to_table() == table
+        assert len(list(dataset.get_fragments())) == 1
         assert next(dataset.get_fragments()).to_table() == table
         assert pa.Table.from_batches(list(dataset.to_batches())) == table
 
+
+def test_scan_iterator():
+    batch = pa.RecordBatch.from_arrays([pa.array(range(10))], names=["a"])
+    table = pa.Table.from_batches([batch])
     # When constructed from readers/iterators, should be one-shot
-    match = "InMemoryDataset was already consumed"
-    for factory in (
-            lambda: pa.ipc.RecordBatchReader.from_batches(
-                batch.schema, [batch]),
-            lambda: (batch for _ in range(1)),
+    match = "OneShotFragment was already scanned"
+    for factory, schema in (
+            (lambda: pa.ipc.RecordBatchReader.from_batches(
+                batch.schema, [batch]), None),
+            (lambda: (batch for _ in range(1)), batch.schema),
     ):
-        dataset = ds.dataset(factory(), schema=batch.schema)
-        # Getting fragments consumes the underlying iterator
-        fragments = list(dataset.get_fragments())
-        assert len(fragments) == 1
-        assert fragments[0].to_table() == table
+        # Scanning the fragment consumes the underlying iterator
+        scanner = ds.Scanner.from_batches(factory(), schema=schema)
+        assert scanner.to_table() == table
         with pytest.raises(pa.ArrowInvalid, match=match):
-            list(dataset.get_fragments())
-        with pytest.raises(pa.ArrowInvalid, match=match):
-            dataset.to_table()
-        # Materializing consumes the underlying iterator
-        dataset = ds.dataset(factory(), schema=batch.schema)
-        assert dataset.to_table() == table
-        with pytest.raises(pa.ArrowInvalid, match=match):
-            list(dataset.get_fragments())
-        with pytest.raises(pa.ArrowInvalid, match=match):
-            dataset.to_table()
+            scanner.to_table()
 
 
 @pytest.mark.parquet

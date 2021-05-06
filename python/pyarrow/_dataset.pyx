@@ -298,6 +298,7 @@ cdef class Dataset(_Weakrefable):
         classes = {
             'union': UnionDataset,
             'filesystem': FileSystemDataset,
+            'in-memory': InMemoryDataset,
         }
 
         class_ = classes.get(type_name, None)
@@ -535,19 +536,10 @@ cdef class InMemoryDataset(Dataset):
             table = pa.Table.from_batches(batches, schema=schema)
             in_memory_dataset = make_shared[CInMemoryDataset](
                 pyarrow_unwrap_table(table))
-        elif isinstance(source, pa.ipc.RecordBatchReader):
-            reader = source
-            in_memory_dataset = make_shared[CInMemoryDataset](reader.reader)
-        elif _is_iterable(source):
-            if schema is None:
-                raise ValueError('Must provide schema to construct in-memory '
-                                 'dataset from an iterable')
-            reader = pa.ipc.RecordBatchReader.from_batches(schema, source)
-            in_memory_dataset = make_shared[CInMemoryDataset](reader.reader)
         else:
             raise TypeError(
-                'Expected a table, batch, iterable of tables/batches, or a '
-                'record batch reader instead of the given type: ' +
+                'Expected a table, batch, or list of tables/batches '
+                'instead of the given type: ' +
                 type(source).__name__
             )
 
@@ -2794,6 +2786,46 @@ cdef class Scanner(_Weakrefable):
                           memory_pool=memory_pool,
                           fragment_scan_options=fragment_scan_options)
 
+        scanner = GetResultValue(builder.get().Finish())
+        return Scanner.wrap(scanner)
+
+    @staticmethod
+    def from_batches(source, Schema schema=None, bint use_threads=True,
+                     MemoryPool memory_pool=None, object columns=None,
+                     Expression filter=None,
+                     int batch_size=_DEFAULT_BATCH_SIZE,
+                     FragmentScanOptions fragment_scan_options=None):
+        """Create a Scanner from an iterator of batches.
+
+        This creates a scanner which can be used only once. It is
+        intended to support writing a dataset (which takes a scanner)
+        from a source which can be read only once (e.g. a
+        RecordBatchReader or generator).
+        """
+        cdef:
+            shared_ptr[CScanOptions] options = make_shared[CScanOptions]()
+            shared_ptr[CScannerBuilder] builder
+            shared_ptr[CScanner] scanner
+            RecordBatchReader reader
+        if isinstance(source, pa.ipc.RecordBatchReader):
+            if schema:
+                raise ValueError('Cannot specify a schema when providing '
+                                 'a RecordBatchReader')
+            reader = source
+        elif _is_iterable(source):
+            if schema is None:
+                raise ValueError('Must provide schema to construct scanner '
+                                 'from an iterable')
+            reader = pa.ipc.RecordBatchReader.from_batches(schema, source)
+        else:
+            raise TypeError('Expected a RecordBatchReader or an iterable of '
+                            'batches instead of the given type: ' +
+                            type(source).__name__)
+        builder = CScannerBuilder.FromRecordBatchReader(reader.reader)
+        _populate_builder(builder, columns=columns, filter=filter,
+                          batch_size=batch_size, use_threads=use_threads,
+                          memory_pool=memory_pool,
+                          fragment_scan_options=fragment_scan_options)
         scanner = GetResultValue(builder.get().Finish())
         return Scanner.wrap(scanner)
 

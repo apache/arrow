@@ -317,6 +317,14 @@ class ARROW_DS_EXPORT ScannerBuilder {
   ScannerBuilder(std::shared_ptr<Schema> schema, std::shared_ptr<Fragment> fragment,
                  std::shared_ptr<ScanOptions> scan_options);
 
+  /// \brief Make a scanner from a record batch reader.
+  ///
+  /// The resulting scanner can be scanned only once. This is intended
+  /// to support writing data from streaming sources or other sources
+  /// that can be iterated only once.
+  static std::shared_ptr<ScannerBuilder> FromRecordBatchReader(
+      std::shared_ptr<RecordBatchReader> reader);
+
   /// \brief Set the subset of columns to materialize.
   ///
   /// Columns which are not referenced may not be read from fragments.
