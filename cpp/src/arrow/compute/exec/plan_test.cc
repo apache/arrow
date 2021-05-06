@@ -33,7 +33,7 @@ namespace arrow {
 
 using internal::Executor;
 
-namespace engine {
+namespace compute {
 
 void AssertBatchesEqual(const RecordBatchVector& expected,
                         const RecordBatchVector& actual) {
@@ -387,5 +387,5 @@ TEST_F(TestExecPlanExecution, StressSlowSourceSinkParallel) {
   TestStressSourceSink(/*num_batches=*/300, MakeSlowRecordBatchGenerator);
 }
 
-}  // namespace engine
+}  // namespace compute
 }  // namespace arrow

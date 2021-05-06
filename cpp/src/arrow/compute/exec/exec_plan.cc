@@ -28,7 +28,7 @@ namespace arrow {
 
 using internal::checked_cast;
 
-namespace engine {
+namespace compute {
 
 namespace {
 
@@ -207,5 +207,5 @@ void ExecNode::ResumeProducing() {
   }
 }
 
-}  // namespace engine
+}  // namespace compute
 }  // namespace arrow

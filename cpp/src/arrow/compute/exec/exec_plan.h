@@ -32,7 +32,7 @@
 // - node to combine input needs to reorder
 
 namespace arrow {
-namespace engine {
+namespace compute {
 
 class ExecNode;
 
@@ -241,5 +241,5 @@ class ARROW_EXPORT ExecNode {
   std::vector<BatchDescr> output_descrs_;
 };
 
-}  // namespace engine
+}  // namespace compute
 }  // namespace arrow

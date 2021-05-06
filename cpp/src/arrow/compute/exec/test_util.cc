@@ -39,7 +39,7 @@ namespace arrow {
 
 using internal::Executor;
 
-namespace engine {
+namespace compute {
 namespace {
 
 // TODO expose this as `static ValueDescr::FromSchemaColumns`?
@@ -375,5 +375,5 @@ RecordBatchCollectNode* MakeRecordBatchCollectNode(
   return ptr;
 }
 
-}  // namespace engine
+}  // namespace compute
 }  // namespace arrow

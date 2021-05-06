@@ -29,7 +29,7 @@
 #include "arrow/util/type_fwd.h"
 
 namespace arrow {
-namespace engine {
+namespace compute {
 
 using StartProducingFunc = std::function<Status(ExecNode*)>;
 using StopProducingFunc = std::function<void(ExecNode*)>;
@@ -68,5 +68,5 @@ ARROW_TESTING_EXPORT
 RecordBatchCollectNode* MakeRecordBatchCollectNode(ExecPlan* plan, std::string label,
                                                    const std::shared_ptr<Schema>& schema);
 
-}  // namespace engine
+}  // namespace compute
 }  // namespace arrow
