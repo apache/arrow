@@ -31,7 +31,6 @@
 
 #include "arrow/result.h"
 #include "arrow/status.h"
-#include "arrow/util/borrowed.h"
 #include "arrow/util/cancel.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/future.h"
@@ -182,6 +181,10 @@ class ARROW_EXPORT Executor {
   // concurrently).  This may be an approximate number.
   virtual int GetCapacity() = 0;
 
+  // Add a callback to be invoked with the capacity and any time the capacity
+  // changes. Callbacks may return `false` to indicate they no longer require updates.
+  virtual void OnCapacityChanged(std::function<bool(int)> callback) = 0;
+
  protected:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Executor);
 
@@ -203,9 +206,8 @@ class ARROW_EXPORT SerialExecutor : public Executor {
   template <typename T = ::arrow::detail::Empty>
   using TopLevelTask = internal::FnOnce<Future<T>(Executor*)>;
 
-  ~SerialExecutor();
+  ~SerialExecutor() override = default;
 
-  int GetCapacity() override { return 1; };
   Status SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken,
                    StopCallback&&) override;
 
@@ -221,6 +223,10 @@ class ARROW_EXPORT SerialExecutor : public Executor {
   static Result<T> RunInSerialExecutor(TopLevelTask<T> initial_task) {
     return SerialExecutor().Run<T>(std::move(initial_task));
   }
+
+  int GetCapacity() override { return 1; };
+
+  void OnCapacityChanged(std::function<bool(int)> callback) override { callback(1); }
 
  private:
   SerialExecutor();
@@ -289,26 +295,7 @@ class ARROW_EXPORT ThreadPool : public Executor {
   // tasks are finished.
   Status Shutdown(bool wait = true);
 
-  /// Construct a BorrowSet<State> which can be shared between all tasks,
-  /// from which each task can borrow a unique (safely mutable) instance of
-  /// State. One instance of State will be constructed for each worker thread.
-  template <typename State>
-  std::shared_ptr<BorrowSet<State>> MakeThreadLocalState(
-      std::function<State()> construct, std::function<void(State&&)> destroy) {
-    auto set = BorrowSet<State>::Make(std::move(construct), std::move(destroy));
-
-    std::weak_ptr<BorrowSet<State>> weak_set(set);
-    AddCapacityCallback([weak_set](int capacity) {
-      if (auto set = weak_set.lock()) {
-        set->SetCapacity(capacity);
-        return true;
-      }
-      // set was discarded, delete this callback
-      return false;
-    });
-
-    return set;
-  }
+  void OnCapacityChanged(std::function<bool(int)> callback) override;
 
   struct State;
 
@@ -330,9 +317,6 @@ class ARROW_EXPORT ThreadPool : public Executor {
   int GetActualCapacity();
   // Reinitialize the thread pool if the pid changed
   void ProtectAgainstFork();
-  // Add a callback to be invoked with the capacity and any time the capacity
-  // changes. If `false` is returned the callback will be deleted.
-  void AddCapacityCallback(std::function<bool(int)> callback);
 
   static std::shared_ptr<ThreadPool> MakeCpuThreadPool();
 

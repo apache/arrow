@@ -50,8 +50,6 @@ struct SerialExecutor::State {
 
 SerialExecutor::SerialExecutor() : state_(std::make_shared<State>()) {}
 
-SerialExecutor::~SerialExecutor() = default;
-
 Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
                                  StopToken stop_token, StopCallback&& stop_callback) {
   // While the SerialExecutor runs tasks synchronously on its main thread,
@@ -297,7 +295,7 @@ int ThreadPool::GetActualCapacity() {
   return static_cast<int>(state_->workers_.size());
 }
 
-void ThreadPool::AddCapacityCallback(std::function<bool(int)> callback) {
+void ThreadPool::OnCapacityChanged(std::function<bool(int)> callback) {
   ProtectAgainstFork();
   std::unique_lock<std::mutex> lock(state_->mutex_);
   if (callback(state_->desired_capacity_)) {

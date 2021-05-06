@@ -256,7 +256,7 @@ class GeneratorTestFixture : public ::testing::TestWithParam<bool> {
 template <typename T>
 class ManualIteratorControl {
  public:
-  virtual ~ManualIteratorControl() {}
+  virtual ~ManualIteratorControl() = default;
   virtual void Push(Result<T> result) = 0;
   virtual uint32_t times_polled() = 0;
 };
@@ -265,7 +265,7 @@ template <typename T>
 class PushIterator : public ManualIteratorControl<T> {
  public:
   PushIterator() : state_(std::make_shared<State>()) {}
-  virtual ~PushIterator() {}
+  ~PushIterator() override = default;
 
   Result<T> Next() {
     std::unique_lock<std::mutex> lk(state_->mx);

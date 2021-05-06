@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/util/range.h"
 #ifndef _WIN32
 #include <sys/wait.h>
 #include <unistd.h>
@@ -33,6 +34,7 @@
 
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/borrowed.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/thread_pool.h"
@@ -55,7 +57,7 @@ struct task_slow_add {
   const double seconds_;
 };
 
-typedef std::function<void(int, int, int*)> AddTaskFunc;
+using AddTaskFunc = std::function<void(int, int, int*)>;
 
 template <typename T>
 static T add(T x, T y) {
@@ -512,42 +514,56 @@ TEST_F(TestThreadPool, Submit) {
   }
 }
 
-TEST_F(TestThreadPool, ParallelSummationWithThreadLocalState) {
-  // Sum all integers in [0, 1000000) in parallel using thread local sums.
+TEST_F(TestThreadPool, ParallelSummationWithPerThreadState) {
+  // Sum all integers in [0, 1000000) in parallel.
+  struct {
+    void WriteInto(std::vector<int64_t>* addends) {
+      constexpr int kBatchSize = 1000;
+
+      addends->resize(kBatchSize);
+      std::iota(addends->begin(), addends->end(), begin_.fetch_add(kBatchSize));
+
+      expected_sum_ += (addends->front() + addends->back()) * kBatchSize / 2;
+    }
+
+    std::atomic<int64_t> begin_{0}, expected_sum_{0};
+  } addend_source;
+
   constexpr int kThreadPoolCapacity = 5;
-  constexpr int kBatchSize = 1000;
   constexpr int kBatchCount = 1000;
 
   auto pool = this->MakeThreadPool(kThreadPoolCapacity);
 
-  std::atomic<int64_t> sum{0}, construct_count{0}, destroy_count{0};
-  auto local_sums = pool->MakeThreadLocalState<int64_t>(
-      [&] {
-        ++construct_count;
-        return 0;
-      },
-      [&](int64_t&& local_sum) {
-        ++destroy_count;
-        // Need explicit construct/destroy so that if a state is destroyed
-        // it can be added into the global sum.
-        sum += local_sum;
-      });
+  // Each thread will have a unique local sum
+  auto local_sums = BorrowSet<int64_t>::Make(pool.get());
 
-  std::atomic<int64_t> next_addend{0};
+  // Each task needs a vector into which addends can be written by a source.
+  // Instead of allocating a vector in each task, we can provide a BorrowSet
+  // to allow reuse of a vector.
+  auto local_addend_batches = BorrowSet<std::vector<int64_t>>::Make(pool.get());
+
+  std::atomic<int64_t> sum{0}, state_count{0};
+  local_sums->OnDone([&](int64_t&& local_sum) {
+    // When we're done with a local sum, add it into the global sum.
+    sum += local_sum;
+
+    // Track the total number of constructed states; should == thread count
+    ++state_count;
+  });
 
   std::vector<Future<>> futures(kBatchCount);
 
   for (int i = 0; i < kBatchCount; ++i) {
-    ASSERT_OK_AND_ASSIGN(futures[i], pool->Submit([&, local_sums] {
+    ASSERT_OK_AND_ASSIGN(futures[i], pool->Submit([&, local_sums, local_addend_batches] {
       // Acquire thread local state. Each task may safely mutate since tasks
       // running in another thread will acquire a different local_sum
       auto local_sum = local_sums->BorrowOne();
 
-      // Assemble a batch of addends
-      int64_t addends_begin = next_addend.fetch_add(kBatchSize);
-      int64_t addends_end = addends_begin + kBatchSize;
-      for (int64_t addend = addends_begin; addend < addends_end; ++addend) {
-        local_sum.get() += addend;
+      auto addends = local_addend_batches->BorrowOne();
+      addend_source.WriteInto(addends.get());
+
+      for (int64_t addend : *addends) {
+        *local_sum += addend;
       }
 
       // decrease the thread pool capacity halfway through:
@@ -560,12 +576,10 @@ TEST_F(TestThreadPool, ParallelSummationWithThreadLocalState) {
   ASSERT_OK(AllComplete(futures).status());
   local_sums.reset();
   ASSERT_OK(pool->Shutdown());
+  local_addend_batches.reset();
 
-  EXPECT_EQ(construct_count, destroy_count);
-  EXPECT_LE(construct_count, kThreadPoolCapacity);
-
-  int64_t max_addend = kBatchSize * kBatchCount - 1;
-  EXPECT_EQ(sum, max_addend * (max_addend + 1) / 2);
+  EXPECT_LE(state_count, kThreadPoolCapacity);
+  EXPECT_EQ(sum, addend_source.expected_sum_);
 }
 
 TEST_F(TestThreadPool, SubmitWithStopToken) {
