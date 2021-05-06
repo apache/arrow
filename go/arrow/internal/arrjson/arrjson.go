@@ -19,6 +19,7 @@
 package arrjson // import "github.com/apache/arrow/go/arrow/internal/arrjson"
 
 import (
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"math/big"
@@ -35,7 +36,50 @@ import (
 )
 
 type Schema struct {
-	Fields []FieldWrapper `json:"fields"`
+	Fields    []FieldWrapper `json:"fields"`
+	arrowMeta arrow.Metadata `json:"-"`
+	Metadata  []metaKV       `json:"metadata,omitempty"`
+}
+
+func (s Schema) MarshalJSON() ([]byte, error) {
+	if s.arrowMeta.Len() > 0 {
+		s.Metadata = make([]metaKV, 0, s.arrowMeta.Len())
+		keys := s.arrowMeta.Keys()
+		vals := s.arrowMeta.Values()
+		for i := range keys {
+			s.Metadata = append(s.Metadata, metaKV{Key: keys[i], Value: vals[i]})
+		}
+	}
+	type alias Schema
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	err := enc.Encode(alias(s))
+	return buf.Bytes(), err
+}
+
+func (s *Schema) UnmarshalJSON(data []byte) error {
+	type Alias Schema
+	aux := &struct {
+		*Alias
+	}{Alias: (*Alias)(s)}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	var (
+		mdkeys = make([]string, 0)
+		mdvals = make([]string, 0)
+	)
+	for _, kv := range s.Metadata {
+		mdkeys = append(mdkeys, kv.Key)
+		mdvals = append(mdvals, kv.Value)
+	}
+
+	if len(s.Metadata) > 0 {
+		s.arrowMeta = arrow.NewMetadata(mdkeys, mdvals)
+	}
+	return nil
 }
 
 // FieldWrapper gets used in order to hook into the JSON marshalling and
@@ -189,7 +233,11 @@ func (f FieldWrapper) MarshalJSON() ([]byte, error) {
 		}
 	}
 
-	return json.Marshal(f.Field)
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	err = enc.Encode(f.Field)
+	return buf.Bytes(), err
 }
 
 func (f *FieldWrapper) UnmarshalJSON(data []byte) error {
@@ -366,31 +414,59 @@ func (f *FieldWrapper) UnmarshalJSON(data []byte) error {
 	var err error
 	if len(f.Metadata) > 0 { // unmarshal the key/value metadata pairs
 		var (
-			mdkeys  = make([]string, 0, len(f.Metadata))
-			mdvals  = make([]string, 0, len(f.Metadata))
-			extType arrow.ExtensionType
-			extMeta []byte
+			mdkeys         = make([]string, 0, len(f.Metadata))
+			mdvals         = make([]string, 0, len(f.Metadata))
+			extKeyIdx  int = -1
+			extDataIdx int = -1
 		)
-
-		for _, kv := range f.Metadata {
-			// don't copy over the extension type metadata keys if they exist
+		for i, kv := range f.Metadata {
 			switch kv.Key {
 			case ipc.ExtensionTypeKeyName:
-				extType = arrow.GetExtensionType(kv.Value)
+				extKeyIdx = i
 			case ipc.ExtensionMetadataKeyName:
-				extMeta = []byte(kv.Value)
-			default:
-				mdkeys = append(mdkeys, kv.Key)
-				mdvals = append(mdvals, kv.Value)
+				extDataIdx = i
 			}
+			mdkeys = append(mdkeys, kv.Key)
+			mdvals = append(mdvals, kv.Value)
+		}
+
+		if extKeyIdx == -1 { // no extension metadata just create the metadata
+			f.arrowMeta = arrow.NewMetadata(mdkeys, mdvals)
+			return nil
+		}
+
+		extType := arrow.GetExtensionType(mdvals[extKeyIdx])
+		if extType == nil { // unregistered extension type, just keep the metadata
+			f.arrowMeta = arrow.NewMetadata(mdkeys, mdvals)
+			return nil
+		}
+
+		var extData []byte
+		if extDataIdx > -1 {
+			extData = []byte(mdvals[extDataIdx])
+			// if both extension type and extension type metadata exist
+			// filter out both keys
+			newkeys := make([]string, 0, len(mdkeys)-2)
+			newvals := make([]string, 0, len(mdvals)-2)
+			for i := range mdkeys {
+				if i != extKeyIdx && i != extDataIdx {
+					newkeys = append(newkeys, mdkeys[i])
+					newvals = append(newvals, mdvals[i])
+				}
+			}
+			mdkeys = newkeys
+			mdvals = newvals
+		} else {
+			// if only extension type key is present, we can simplify filtering it out
+			mdkeys = append(mdkeys[:extKeyIdx], mdkeys[extKeyIdx+1:]...)
+			mdvals = append(mdvals[:extKeyIdx], mdvals[extKeyIdx+1:]...)
+		}
+
+		if f.arrowType, err = extType.Deserialize(f.arrowType, extData); err != nil {
+			return err
 		}
 
 		f.arrowMeta = arrow.NewMetadata(mdkeys, mdvals)
-		if extType != nil {
-			// if this was an extension type, update the type based on the
-			// extension metadata keys
-			f.arrowType, err = extType.Deserialize(f.arrowType, extMeta)
-		}
 	}
 
 	return err
@@ -447,12 +523,13 @@ type mapJSON struct {
 
 func schemaToJSON(schema *arrow.Schema) Schema {
 	return Schema{
-		Fields: fieldsToJSON(schema.Fields()),
+		Fields:    fieldsToJSON(schema.Fields()),
+		arrowMeta: schema.Metadata(),
 	}
 }
 
 func schemaFromJSON(schema Schema) *arrow.Schema {
-	return arrow.NewSchema(fieldsFromJSON(schema.Fields), nil)
+	return arrow.NewSchema(fieldsFromJSON(schema.Fields), &schema.arrowMeta)
 }
 
 func fieldsToJSON(fields []arrow.Field) []FieldWrapper {

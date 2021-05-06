@@ -26,6 +26,7 @@ import (
 	"github.com/apache/arrow/go/arrow/decimal128"
 	"github.com/apache/arrow/go/arrow/float16"
 	"github.com/apache/arrow/go/arrow/internal/testing/types"
+	"github.com/apache/arrow/go/arrow/ipc"
 	"github.com/apache/arrow/go/arrow/memory"
 )
 
@@ -834,6 +835,10 @@ func makeExtensionRecords() []array.Record {
 		[]string{"v1", "v2"},
 	)
 
+	unregisteredMeta := arrow.NewMetadata(
+		append(meta.Keys(), ipc.ExtensionTypeKeyName, ipc.ExtensionMetadataKeyName),
+		append(meta.Values(), "unregistered", ""))
+
 	schema := arrow.NewSchema(
 		[]arrow.Field{
 			{Name: "p1", Type: p1Type, Nullable: true, Metadata: meta},
@@ -841,6 +846,7 @@ func makeExtensionRecords() []array.Record {
 			{Name: "p3", Type: p3Type, Nullable: true, Metadata: meta},
 			{Name: "p4", Type: p4Type, Nullable: true, Metadata: meta},
 			{Name: "p5", Type: p5Type, Nullable: true, Metadata: meta},
+			{Name: "unreg", Type: arrow.PrimitiveTypes.Int8, Nullable: true, Metadata: unregisteredMeta},
 		}, nil)
 
 	mask := []bool{true, false, true, true, false}
@@ -856,6 +862,7 @@ func makeExtensionRecords() []array.Record {
 					arrayOf(mem, []float64{0.1, -1, 0.2, 0.3, -1}, mask),
 				},
 			}, mask),
+			arrayOf(mem, []int8{-1, -2, -3, -4, -5}, mask),
 		},
 		{
 			extArray(mem, p1Type, []int32{10, -1, 20, 30, -1}, mask),
@@ -868,6 +875,7 @@ func makeExtensionRecords() []array.Record {
 					arrayOf(mem, []float64{0.01, -1, 0.02, 0.03, -1}, mask),
 				},
 			}, mask),
+			arrayOf(mem, []int8{-11, -12, -13, -14, -15}, mask),
 		},
 	}
 

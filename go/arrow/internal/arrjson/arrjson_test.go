@@ -20,6 +20,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/apache/arrow/go/arrow/array"
@@ -84,7 +85,7 @@ func TestReadWrite(t *testing.T) {
 			}
 
 			fileBytes, _ := ioutil.ReadFile(f.Name())
-			if wantJSONs[name] != string(fileBytes) {
+			if wantJSONs[name] != strings.TrimSpace(string(fileBytes)) {
 				t.Fatalf("not expected JSON pretty output for case: %v", name)
 			}
 
@@ -145,6 +146,20 @@ func makeNullWantJSONs() string {
         },
         "nullable": true,
         "children": []
+      }
+    ],
+    "metadata": [
+      {
+        "key": "k1",
+        "value": "v1"
+      },
+      {
+        "key": "k2",
+        "value": "v2"
+      },
+      {
+        "key": "k3",
+        "value": "v3"
       }
     ]
   },
@@ -285,6 +300,20 @@ func makePrimitiveWantJSONs() string {
         },
         "nullable": true,
         "children": []
+      }
+    ],
+    "metadata": [
+      {
+        "key": "k1",
+        "value": "v1"
+      },
+      {
+        "key": "k2",
+        "value": "v2"
+      },
+      {
+        "key": "k3",
+        "value": "v3"
       }
     ]
   },
@@ -3904,7 +3933,7 @@ func makeExtensionsWantJSONs() string {
           },
           {
             "key": "ARROW:extension:name",
-            "value": "parametric-type-2\u003cparam=2\u003e"
+            "value": "parametric-type-2<param=2>"
           },
           {
             "key": "ARROW:extension:metadata",
@@ -3932,7 +3961,7 @@ func makeExtensionsWantJSONs() string {
           },
           {
             "key": "ARROW:extension:name",
-            "value": "parametric-type-2\u003cparam=3\u003e"
+            "value": "parametric-type-2<param=3>"
           },
           {
             "key": "ARROW:extension:metadata",
@@ -3963,6 +3992,34 @@ func makeExtensionsWantJSONs() string {
           {
             "key": "ARROW:extension:metadata",
             "value": "ext-struct-type-unique-code"
+          }
+        ]
+      },
+      {
+        "name": "unreg",
+        "type": {
+          "name": "int",
+          "isSigned": true,
+          "bitWidth": 8
+        },
+        "nullable": true,
+        "children": [],
+        "metadata": [
+          {
+            "key": "k1",
+            "value": "v1"
+          },
+          {
+            "key": "k2",
+            "value": "v2"
+          },
+          {
+            "key": "ARROW:extension:name",
+            "value": "unregistered"
+          },
+          {
+            "key": "ARROW:extension:metadata",
+            "value": ""
           }
         ]
       }
@@ -4092,6 +4149,24 @@ func makeExtensionsWantJSONs() string {
               ]
             }
           ]
+        },
+        {
+          "name": "unreg",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            1,
+            1,
+            0
+          ],
+          "DATA": [
+            -1,
+            -2,
+            -3,
+            -4,
+            -5
+          ]
         }
       ]
     },
@@ -4217,6 +4292,24 @@ func makeExtensionsWantJSONs() string {
                 0
               ]
             }
+          ]
+        },
+        {
+          "name": "unreg",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            1,
+            1,
+            0
+          ],
+          "DATA": [
+            -11,
+            -12,
+            -13,
+            -14,
+            -15
           ]
         }
       ]
