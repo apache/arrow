@@ -1930,6 +1930,8 @@ cdef class DirectoryPartitioning(Partitioning):
         corresponding entry of `dictionaries` must be an array containing
         every value which may be taken by the corresponding column or an
         error will be raised in parsing.
+    url_decode_segments : bool, default True
+        After splitting paths into segments, URL-decode the segments.
 
     Returns
     -------
@@ -1947,13 +1949,17 @@ cdef class DirectoryPartitioning(Partitioning):
     cdef:
         CDirectoryPartitioning* directory_partitioning
 
-    def __init__(self, Schema schema not None, dictionaries=None):
+    def __init__(self, Schema schema not None, dictionaries=None,
+                 bint url_decode_segments=True):
         cdef:
             shared_ptr[CDirectoryPartitioning] c_partitioning
+            CKeyValuePartitioningOptions c_options
 
+        c_options.url_decode_segments = url_decode_segments
         c_partitioning = make_shared[CDirectoryPartitioning](
             pyarrow_unwrap_schema(schema),
-            _partitioning_dictionaries(schema, dictionaries)
+            _partitioning_dictionaries(schema, dictionaries),
+            c_options,
         )
         self.init(<shared_ptr[CPartitioning]> c_partitioning)
 
@@ -1964,7 +1970,7 @@ cdef class DirectoryPartitioning(Partitioning):
     @staticmethod
     def discover(field_names=None, infer_dictionary=False,
                  max_partition_dictionary_size=0,
-                 schema=None):
+                 schema=None, bint url_decode_segments=True):
         """
         Discover a DirectoryPartitioning.
 
@@ -1987,6 +1993,8 @@ cdef class DirectoryPartitioning(Partitioning):
             Use this schema instead of inferring a schema from partition
             values. Partition values will be validated against this schema
             before accumulation into the Partitioning's dictionary.
+        url_decode_segments : bool, default True
+            After splitting paths into segments, URL-decode the segments.
 
         Returns
         -------
@@ -2015,6 +2023,9 @@ cdef class DirectoryPartitioning(Partitioning):
                 "cannot infer field_names")
         else:
             c_field_names = [tobytes(s) for s in field_names]
+
+        c_options.url_decode_segments = url_decode_segments
+
         return PartitioningFactory.wrap(
             CDirectoryPartitioning.MakeFactory(c_field_names, c_options))
 
@@ -2044,6 +2055,8 @@ cdef class HivePartitioning(Partitioning):
         error will be raised in parsing.
     null_fallback : str, default "__HIVE_DEFAULT_PARTITION__"
         If any field is None then this fallback will be used as a label
+    url_decode_segments : bool, default True
+        After splitting paths into segments, URL-decode the segments.
 
     Returns
     -------
@@ -2065,16 +2078,20 @@ cdef class HivePartitioning(Partitioning):
     def __init__(self,
                  Schema schema not None,
                  dictionaries=None,
-                 null_fallback="__HIVE_DEFAULT_PARTITION__"):
+                 null_fallback="__HIVE_DEFAULT_PARTITION__",
+                 bint url_decode_segments=True):
 
         cdef:
             shared_ptr[CHivePartitioning] c_partitioning
-            c_string c_null_fallback = tobytes(null_fallback)
+            CHivePartitioningOptions c_options
+
+        c_options.null_fallback = tobytes(null_fallback)
+        c_options.url_decode_segments = url_decode_segments
 
         c_partitioning = make_shared[CHivePartitioning](
             pyarrow_unwrap_schema(schema),
             _partitioning_dictionaries(schema, dictionaries),
-            c_null_fallback
+            c_options,
         )
         self.init(<shared_ptr[CPartitioning]> c_partitioning)
 
@@ -2086,7 +2103,8 @@ cdef class HivePartitioning(Partitioning):
     def discover(infer_dictionary=False,
                  max_partition_dictionary_size=0,
                  null_fallback="__HIVE_DEFAULT_PARTITION__",
-                 schema=None):
+                 schema=None,
+                 bint url_decode_segments=True):
         """
         Discover a HivePartitioning.
 
@@ -2110,6 +2128,8 @@ cdef class HivePartitioning(Partitioning):
             Use this schema instead of inferring a schema from partition
             values. Partition values will be validated against this schema
             before accumulation into the Partitioning's dictionary.
+        url_decode_segments : bool, default True
+            After splitting paths into segments, URL-decode the segments.
 
         Returns
         -------
@@ -2132,6 +2152,8 @@ cdef class HivePartitioning(Partitioning):
 
         if schema:
             c_options.schema = pyarrow_unwrap_schema(schema)
+
+        c_options.url_decode_segments = url_decode_segments
 
         return PartitioningFactory.wrap(
             CHivePartitioning.MakeFactory(c_options))
