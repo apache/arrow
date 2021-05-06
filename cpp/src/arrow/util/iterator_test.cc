@@ -32,8 +32,6 @@
 #include "arrow/util/test_common.h"
 #include "arrow/util/vector.h"
 
-// TODO add test for MakePointerIterator
-
 namespace arrow {
 
 template <typename T>

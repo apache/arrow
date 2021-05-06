@@ -184,6 +184,8 @@ Status ExecNode::Validate() const {
                            num_inputs(), ", actual ", inputs_.size(), ")");
   }
 
+  DCHECK_EQ(input_descrs_.size(), input_labels_.size());
+
   if (output_) {
     auto input_index = GetNodeIndex(output_->inputs(), this);
     if (!input_index) {

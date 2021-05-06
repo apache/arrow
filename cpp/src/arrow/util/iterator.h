@@ -370,12 +370,6 @@ Iterator<T> MakeErrorIterator(Status s) {
   });
 }
 
-template <typename It,
-          typename T = typename decltype(std::declval<It>().Next())::ValueType>
-Iterator<T> MakePointerIterator(It* it) {
-  return MakeFunctionIterator([it]() -> Result<T> { return it->Next(); });
-}
-
 /// \brief Simple iterator which yields the elements of a std::vector
 template <typename T>
 class VectorIterator {

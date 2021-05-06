@@ -102,7 +102,7 @@ class ARROW_EXPORT ExecNode {
   /// \brief Labels identifying the function of each input.
   ///
   /// For example, FilterNode accepts "target" and "filter" inputs.
-  const std::string& input_labels() const { return input_labels_; }
+  const std::vector<std::string>& input_labels() const { return input_labels_; }
 
   /// This node's successor in the exec plan
   ExecNode* output() const { return output_; }
@@ -228,7 +228,7 @@ class ARROW_EXPORT ExecNode {
   std::string label_;
 
   std::vector<BatchDescr> input_descrs_;
-  std::string input_labels_;
+  std::vector<std::string> input_labels_;
   NodeVector inputs_;
 
   BatchDescr output_descr_;

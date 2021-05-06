@@ -59,6 +59,9 @@ struct DummyNode : ExecNode {
       : ExecNode(plan, std::move(label)),
         start_producing_(std::move(start_producing)),
         stop_producing_(std::move(stop_producing)) {
+    for (int i = 0; i < num_inputs; ++i) {
+      input_labels_.push_back(std::to_string(i));
+    }
     input_descrs_.assign(num_inputs, descr());
     output_descr_ = descr();
   }
@@ -129,7 +132,7 @@ struct RecordBatchReaderNode : ExecNode {
   Status StartProducing() override {
     next_batch_index_ = 0;
     if (!generator_) {
-      auto it = MakePointerIterator(reader_.get());
+      auto it = MakeIteratorFromReader(reader_);
       ARROW_ASSIGN_OR_RAISE(generator_,
                             MakeBackgroundGenerator(std::move(it), io_executor_));
     }
@@ -191,6 +194,7 @@ struct RecordBatchCollectNodeImpl : public RecordBatchCollectNode {
                              std::shared_ptr<Schema> schema)
       : RecordBatchCollectNode(plan, std::move(label)), schema_(std::move(schema)) {
     input_descrs_.push_back(DescrFromSchemaColumns(*schema_));
+    input_labels_.emplace_back("batches_to_collect");
   }
 
   RecordBatchGenerator generator() override { return generator_; }
