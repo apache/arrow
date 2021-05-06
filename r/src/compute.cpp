@@ -239,8 +239,12 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     if (!Rf_isNull(options["max_splits"])) {
       max_splits = cpp11::as_cpp<int64_t>(options["max_splits"]);
     }
+    bool reverse = false;
+    if (!Rf_isNull(options["reverse"])) {
+      reverse = cpp11::as_cpp<bool>(options["reverse"]);
+    }
     return std::make_shared<Options>(cpp11::as_cpp<std::string>(options["pattern"]),
-                                     max_splits, cpp11::as_cpp<bool>(options["reverse"]));
+                                     max_splits, reverse);
   }
 
   if (func_name == "variance" || func_name == "stddev") {
