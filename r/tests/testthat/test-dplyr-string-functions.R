@@ -264,15 +264,7 @@ test_that("strsplit and str_split", {
       collect(),
     df
   )
-
-  expect_warning(
-    df %>%
-    Table$create() %>%
-      mutate(x = strsplit(x, "and.*", fixed = FALSE)) %>%
-      collect(),
-    regexp = "not supported in Arrow"
-  )
-
+  
   expect_dplyr_equal(
     input %>%
       mutate(x = strsplit(x, "and.*", fixed = TRUE)) %>%
@@ -307,22 +299,6 @@ test_that("strsplit and str_split", {
       collect(),
     df
   )
-  
-  expect_warning(
-    df %>%
-      Table$create() %>%
-      mutate(x = str_split(x, regex("and.*"), n = 2)) %>%
-      collect(),
-    regexp = "not supported"
-  )
-
-  expect_warning(
-    df %>%
-      Table$create() %>%
-      mutate(x = str_split(x, "and.?")) %>%
-      collect()
-  )
-  
 })
 
 test_that("backreferences in pattern", {
@@ -350,6 +326,12 @@ test_that("backreferences (substitutions) in replacement", {
       ) %>%
       collect(),
     tibble(url = "https://arrow.apache.org/docs/r/")
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(x = str_replace(x, "^(\\w)o(.*)", "\\1\\2p")) %>%
+      collect(),
+    df
   )
   expect_dplyr_equal(
     input %>%
@@ -411,6 +393,41 @@ test_that("errors and warnings", {
   expect_warning(
     df %>%
       Table$create() %>%
+      mutate(x = strsplit(x, "and.*", fixed = FALSE)) %>%
+      collect(),
+    regexp = "not supported in Arrow"
+  )
+  expect_warning(
+    df %>%
+      Table$create() %>%
+      mutate(x = str_split(x, "and.?")) %>%
+      collect()
+  )
+  expect_warning(
+    df %>%
+      Table$create() %>%
+      mutate(x = str_split(x, regex("and.?"), n = 2)) %>%
+      collect(),
+    regexp = "not supported"
+  )
+  expect_warning(
+    df %>%
+      Table$create() %>%
+      mutate(x = str_split(x, coll("and.?"))) %>%
+      collect(),
+    regexp = "not supported"
+  )
+  
+  expect_warning(
+    df %>%
+      Table$create() %>%
+      mutate(x = str_split(x, boundary(type = "word"))) %>%
+      collect(),
+    regexp = "not supported"
+  )
+  expect_warning(
+    df %>%
+      Table$create() %>%
       filter(str_detect(x, boundary(type = "character"))) %>%
       collect(),
     "not implemented"
@@ -422,7 +439,6 @@ test_that("errors and warnings", {
       collect(),
     "not supported"
   )
-
   # This condition generates a warning
   expect_warning(
     df %>%
@@ -430,4 +446,5 @@ test_that("errors and warnings", {
       transmute(x = str_replace_all(x, regex("o", multiline = TRUE), "u")),
     "Ignoring pattern modifier argument not supported in Arrow: \"multiline\""
   )
+  
 })
