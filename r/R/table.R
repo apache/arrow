@@ -170,7 +170,7 @@ Table$create <- function(..., schema = NULL) {
   stopifnot(length(dots) > 0)
   
   # Preserve any grouping
-  if (length(dots) == 1 && is_grouped_df(dots[[1]])) {
+  if (length(dots) == 1 && iinherits(dots[[1]], "grouped_df")) {
     out <- Table__from_dots(dots, schema)
     return(group_by(out, !!!groups(dots[[1]])))
   }

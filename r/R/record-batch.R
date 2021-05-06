@@ -157,7 +157,7 @@ RecordBatch$create <- function(..., schema = NULL) {
   stopifnot(length(arrays) > 0)
 
   # Preserve any grouping
-  if (length(arrays) == 1 && is_grouped_df(arrays[[1]])) {
+  if (length(arrays) == 1 && inherits(arrays[[1]], "grouped_df")) {
     out <- RecordBatch__from_arrays(schema, arrays)
     return(group_by(out, !!!groups(arrays[[1]])))
   }
