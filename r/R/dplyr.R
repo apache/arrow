@@ -30,12 +30,14 @@ arrow_dplyr_query <- function(.data) {
   if (inherits(.data, "arrow_dplyr_query")) {
     return(.data)
   }
-  if (!inherits(.data, "Dataset")) {
-    .data <- InMemoryDataset$create(.data)
-  }
+
   structure(
     list(
-      .data = .data$clone(),
+      .data = if (inherits(.data, "Dataset")) {
+        .data$clone()
+      } else {
+        InMemoryDataset$create(.data)
+      },
       # selected_columns is a named list:
       # * contents are references/expressions pointing to the data
       # * names are the names they should be in the end (i.e. this
@@ -61,20 +63,24 @@ arrow_dplyr_query <- function(.data) {
   )
 }
 
+make_field_refs <- function(field_names) {
+  set_names(lapply(field_names, Expression$field_ref), field_names)
+}
+
 #' @export
 print.arrow_dplyr_query <- function(x, ...) {
   schm <- x$.data$schema
-  cols <- get_field_names(x)
-  # If cols are expressions, they won't be in the schema and will be "" in cols
-  fields <- map_chr(cols, function(name) {
+  fields <- map_chr(x$selected_columns, function(expr) {
+    name <- expr$field_name
     if (nzchar(name)) {
       schm$GetFieldByName(name)$ToString()
     } else {
+      # It's "" because this is not a field_ref, it's a more complex expression
       "expr"
     }
   })
   # Strip off the field names as they are in the dataset and add the renamed ones
-  fields <- paste(names(cols), sub("^.*?: ", "", fields), sep = ": ", collapse = "\n")
+  fields <- paste(names(fields), sub("^.*?: ", "", fields), sep = ": ", collapse = "\n")
   cat(class(x$.data)[1], " (query)\n", sep = "")
   cat(fields, "\n", sep = "")
   cat("\n")
@@ -102,29 +108,6 @@ print.arrow_dplyr_query <- function(x, ...) {
   }
   cat("See $.data for the source Arrow object\n")
   invisible(x)
-}
-
-get_field_names <- function(selected_cols) {
-  if (inherits(selected_cols, "arrow_dplyr_query")) {
-    selected_cols <- selected_cols$selected_columns
-  }
-  map_chr(selected_cols, function(x) {
-    if (inherits(x, "Expression")) {
-      out <- x$field_name
-    } else if (inherits(x, "array_expression")) {
-      out <- x$args$field_name
-    } else {
-      out <- NULL
-    }
-    # If x isn't some kind of field reference, out is NULL,
-    # but we always need to return a string
-    out %||% ""
-  })
-}
-
-make_field_refs <- function(field_names) {
-  out <- lapply(field_names, Expression$field_ref)
-  set_names(out, field_names)
 }
 
 # These are the names reflecting all select/rename, not what is in Arrow
@@ -751,13 +734,7 @@ restore_dplyr_features <- function(df, query) {
   # An arrow_dplyr_query holds some attributes that Arrow doesn't know about
   # After calling collect(), make sure these features are carried over
 
-  grouped <- length(query$group_by_vars) > 0
-  renamed <- ncol(df) && !identical(names(df), names(query))
-  if (renamed) {
-    # In case variables were renamed, apply those names
-    names(df) <- names(query)
-  }
-  if (grouped) {
+  if (length(query$group_by_vars) > 0) {
     # Preserve groupings, if present
     if (is.data.frame(df)) {
       df <- dplyr::grouped_df(
