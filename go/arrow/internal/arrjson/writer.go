@@ -39,7 +39,6 @@ type rawJSON struct {
 type Writer struct {
 	w io.Writer
 
-	// schema *arrow.Schema
 	nrecs int64
 	raw   rawJSON
 }
@@ -49,6 +48,7 @@ func NewWriter(w io.Writer, schema *arrow.Schema) (*Writer, error) {
 		w: w,
 	}
 	ww.raw.Schema = schemaToJSON(schema)
+	ww.raw.Records = make([]Record, 0)
 	return ww, nil
 }
 

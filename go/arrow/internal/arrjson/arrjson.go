@@ -71,6 +71,7 @@ func (s *Schema) UnmarshalJSON(data []byte) error {
 		mdkeys = make([]string, 0)
 		mdvals = make([]string, 0)
 	)
+
 	for _, kv := range s.Metadata {
 		mdkeys = append(mdkeys, kv.Key)
 		mdvals = append(mdvals, kv.Value)
@@ -419,6 +420,7 @@ func (f *FieldWrapper) UnmarshalJSON(data []byte) error {
 			extKeyIdx  int = -1
 			extDataIdx int = -1
 		)
+
 		for i, kv := range f.Metadata {
 			switch kv.Key {
 			case ipc.ExtensionTypeKeyName:

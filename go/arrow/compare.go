@@ -57,7 +57,7 @@ func TypeEqual(left, right DataType, opts ...TypeEqualOption) bool {
 
 	// StructType is the only type that has metadata.
 	l, ok := left.(*StructType)
-	if !ok || cfg.metadata {
+	if !ok {
 		return reflect.DeepEqual(left, right)
 	}
 
@@ -76,6 +76,8 @@ func TypeEqual(left, right DataType, opts ...TypeEqualOption) bool {
 		case leftField.Nullable != rightField.Nullable:
 			return false
 		case !TypeEqual(leftField.Type, rightField.Type, opts...):
+			return false
+		case cfg.metadata && !leftField.Metadata.Equals(rightField.Metadata):
 			return false
 		}
 	}

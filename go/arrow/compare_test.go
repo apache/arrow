@@ -222,7 +222,7 @@ func TestTypeEqual(t *testing.T) {
 					Field{Name: "f2", Type: PrimitiveTypes.Float32, Nullable: false},
 				},
 				index: map[string]int{"f1": 0, "f2": 1},
-				meta:  MetadataFrom(map[string]string{"k1": "v1"}),
+				meta:  MetadataFrom(map[string]string{"k1": "v1", "k2": "v2"}),
 			},
 			&StructType{
 				fields: []Field{
@@ -230,7 +230,7 @@ func TestTypeEqual(t *testing.T) {
 					Field{Name: "f2", Type: PrimitiveTypes.Float32, Nullable: false},
 				},
 				index: map[string]int{"f1": 0, "f2": 1},
-				meta:  MetadataFrom(map[string]string{"k1": "v1"}),
+				meta:  MetadataFrom(map[string]string{"k2": "v2", "k1": "v1"}),
 			},
 			true, true,
 		},
