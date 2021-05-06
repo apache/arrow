@@ -116,7 +116,7 @@ func (md Metadata) sortedIndices() []int {
 	return idxes
 }
 
-func (md Metadata) Equals(rhs Metadata) bool {
+func (md Metadata) Equal(rhs Metadata) bool {
 	if md.Len() != rhs.Len() {
 		return false
 	}

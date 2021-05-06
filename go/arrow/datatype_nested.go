@@ -18,7 +18,6 @@ package arrow
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 )
 
@@ -192,7 +191,17 @@ type Field struct {
 func (f Field) HasMetadata() bool { return f.Metadata.Len() != 0 }
 
 func (f Field) Equal(o Field) bool {
-	return reflect.DeepEqual(f, o)
+	switch {
+	case f.Name != o.Name:
+		return false
+	case f.Nullable != o.Nullable:
+		return false
+	case !TypeEqual(f.Type, o.Type, CheckMetadata()):
+		return false
+	case !f.Metadata.Equal(o.Metadata):
+		return false
+	}
+	return true
 }
 
 func (f Field) String() string {

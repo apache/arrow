@@ -77,7 +77,7 @@ func TypeEqual(left, right DataType, opts ...TypeEqualOption) bool {
 			return false
 		case !TypeEqual(leftField.Type, rightField.Type, opts...):
 			return false
-		case cfg.metadata && !leftField.Metadata.Equals(rightField.Metadata):
+		case cfg.metadata && !leftField.Metadata.Equal(rightField.Metadata):
 			return false
 		}
 	}
