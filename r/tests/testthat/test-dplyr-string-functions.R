@@ -255,53 +255,144 @@ test_that("str_replace and str_replace_all", {
 })
 
 test_that("strsplit and str_split", {
-  
+
   df <- tibble(x = c("Foo and bar", "baz and qux and quux"))
-  
+
   expect_dplyr_equal(
     input %>%
       mutate(x = strsplit(x, "and")) %>%
       collect(),
     df
   )
-  
   expect_dplyr_equal(
     input %>%
       mutate(x = strsplit(x, "and.*", fixed = TRUE)) %>%
       collect(),
     df
   )
-
   expect_dplyr_equal(
     input %>%
       mutate(x = str_split(x, "and")) %>%
       collect(),
     df
   )
-
   expect_dplyr_equal(
     input %>%
       mutate(x = str_split(x, "and", n = 2)) %>%
       collect(),
     df
   )
-  
   expect_dplyr_equal(
     input %>%
       mutate(x = str_split(x, fixed("and"), n = 2)) %>%
       collect(),
     df
   )
-  
   expect_dplyr_equal(
     input %>%
       mutate(x = str_split(x, regex("and"), n = 2)) %>%
       collect(),
     df
   )
+
 })
 
-test_that("backreferences in pattern", {
+test_that("errors and warnings in string splitting", {
+  df <- tibble(x = c("Foo and bar", "baz and qux and quux"))
+
+  # These conditions generate an error, but abandon_ship() catches the error,
+  # issues a warning, and pulls the data into R
+  expect_warning(
+    df %>%
+      Table$create() %>%
+      mutate(x = strsplit(x, "and.*", fixed = FALSE)) %>%
+      collect(),
+    regexp = "not supported"
+  )
+  expect_warning(
+    df %>%
+      Table$create() %>%
+      mutate(x = str_split(x, "and.?")) %>%
+      collect()
+  )
+  expect_warning(
+    df %>%
+      Table$create() %>%
+      mutate(x = str_split(x, regex("and.?"), n = 2)) %>%
+      collect(),
+    regexp = "not supported"
+  )
+  expect_warning(
+    df %>%
+      Table$create() %>%
+      mutate(x = str_split(x, fixed("and", ignore_case = TRUE))) %>%
+      collect(),
+    "not supported"
+  )
+  expect_warning(
+    df %>%
+      Table$create() %>%
+      mutate(x = str_split(x, coll("and.?"))) %>%
+      collect(),
+    regexp = "not supported"
+  )
+  expect_warning(
+    df %>%
+      Table$create() %>%
+      mutate(x = str_split(x, boundary(type = "word"))) %>%
+      collect(),
+    regexp = "not supported"
+  )
+  expect_warning(
+    df %>%
+      Table$create() %>%
+      mutate(x = str_split(x, "and", n = 0)) %>%
+      collect(),
+    regexp = "not supported"
+  )
+
+  # This condition generates a warning
+  expect_warning(
+    df %>%
+      Table$create() %>%
+      mutate(x = str_split(x, fixed("and"), simplify = TRUE)) %>%
+      collect(),
+    "ignored"
+  )
+
+})
+
+test_that("errors and warnings in string detection and replacement", {
+  df <- tibble(x = c("Foo", "bar"))
+
+  # These conditions generate an error, but abandon_ship() catches the error,
+  # issues a warning, and pulls the data into R
+  expect_warning(
+    df %>%
+      Table$create() %>%
+      filter(str_detect(x, boundary(type = "character"))) %>%
+      collect(),
+    regexp = "not implemented"
+  )
+  expect_warning(
+    df %>%
+      Table$create() %>%
+      mutate(x = str_replace_all(x, coll("o", locale = "en"), "ó")) %>%
+      collect(),
+    regexp = "not supported"
+  )
+
+  # This condition generates a warning
+  expect_warning(
+    df %>%
+      Table$create() %>%
+      transmute(x = str_replace_all(x, regex("o", multiline = TRUE), "u")),
+    "Ignoring pattern modifier argument not supported in Arrow: \"multiline\""
+  )
+
+})
+
+test_that("backreferences in pattern in string detection", {
   skip("RE2 does not support backreferences in pattern (https://github.com/google/re2/issues/101)")
   df <- tibble(x = c("Foo", "bar"))
 
@@ -313,7 +404,7 @@ test_that("backreferences in pattern", {
   )
 })
 
-test_that("backreferences (substitutions) in replacement", {
+test_that("backreferences (substitutions) in string replacement", {
   df <- tibble(x = c("Foo", "bar"))
 
   expect_dplyr_equal(
@@ -347,7 +438,7 @@ test_that("backreferences (substitutions) in replacement", {
   )
 })
 
-test_that("edge cases", {
+test_that("edge cases in string detection and replacement", {
 
   # in case-insensitive fixed match/replace, test that "\\E" in the search
   # string and backslashes in the replacement string are interpreted literally.
@@ -383,68 +474,4 @@ test_that("edge cases", {
     tibble(x = c("ABC"))
   )
 
-})
-
-test_that("errors and warnings", {
-  df <- tibble(x = c("Foo", "bar"))
-
-  # These conditions generate an error, but abandon_ship() catches the error,
-  # issues a warning, and pulls the data into R
-  expect_warning(
-    df %>%
-      Table$create() %>%
-      mutate(x = strsplit(x, "and.*", fixed = FALSE)) %>%
-      collect(),
-    regexp = "not supported in Arrow"
-  )
-  expect_warning(
-    df %>%
-      Table$create() %>%
-      mutate(x = str_split(x, "and.?")) %>%
-      collect()
-  )
-  expect_warning(
-    df %>%
-      Table$create() %>%
-      mutate(x = str_split(x, regex("and.?"), n = 2)) %>%
-      collect(),
-    regexp = "not supported"
-  )
-  expect_warning(
-    df %>%
-      Table$create() %>%
-      mutate(x = str_split(x, coll("and.?"))) %>%
-      collect(),
-    regexp = "not supported"
-  )
-  
-  expect_warning(
-    df %>%
-      Table$create() %>%
-      mutate(x = str_split(x, boundary(type = "word"))) %>%
-      collect(),
-    regexp = "not supported"
-  )
-  expect_warning(
-    df %>%
-      Table$create() %>%
-      filter(str_detect(x, boundary(type = "character"))) %>%
-      collect(),
-    "not implemented"
-  )
-  expect_warning(
-    df %>%
-      Table$create() %>%
-      mutate(x = str_replace_all(x, coll("o", locale = "en"), "ó")) %>%
-      collect(),
-    "not supported"
-  )
-  # This condition generates a warning
-  expect_warning(
-    df %>%
-      Table$create() %>%
-      transmute(x = str_replace_all(x, regex("o", multiline = TRUE), "u")),
-    "Ignoring pattern modifier argument not supported in Arrow: \"multiline\""
-  )
-  
 })
