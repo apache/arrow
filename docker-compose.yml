@@ -721,7 +721,7 @@ services:
   #    https://quay.io/repository/pypa/manylinux2010_x86_64?tab=tags
   #    only amd64 arch is supported
   python-wheel-manylinux-2010:
-    image: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2010
+    image: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2010-vcpkg-${VCPKG}
     build:
       args:
         arch_alias: ${ARCH_ALIAS}
@@ -732,7 +732,7 @@ services:
       context: .
       dockerfile: ci/docker/python-wheel-manylinux-201x.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2010
+        - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2010-vcpkg-${VCPKG}
     environment:
       <<: *ccache
       MANYLINUX_VERSION: 2010
@@ -744,7 +744,7 @@ services:
   # See available versions at:
   #    https://quay.io/repository/pypa/manylinux2014_x86_64?tab=tags
   python-wheel-manylinux-2014:
-    image: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014
+    image: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014-vcpkg-${VCPKG}
     build:
       args:
         arch_alias: ${ARCH_ALIAS}
@@ -755,7 +755,7 @@ services:
       context: .
       dockerfile: ci/docker/python-wheel-manylinux-201x.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014
+        - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014-vcpkg-${VCPKG}
     environment:
       <<: *ccache
       MANYLINUX_VERSION: 2014
@@ -787,7 +787,7 @@ services:
     command: /arrow/ci/scripts/python_wheel_manylinux_test.sh unittests
 
   python-wheel-windows-vs2017:
-    image: ${REPO}:python-${PYTHON}-wheel-windows-vs2017
+    image: ${REPO}:python-${PYTHON}-wheel-windows-vs2017-vcpkg-${VCPKG}
     build:
       args:
         vcpkg: ${VCPKG}
