@@ -3177,23 +3177,3 @@ def test_dataset_null_to_dictionary_cast(tempdir):
     )
     table = fsds.to_table()
     assert table.schema == schema
-
-
-@pytest.mark.parquet
-def test_open_dataset_filesystem_fspath(tempdir):
-    # single file
-    table, path = _create_single_file(tempdir)
-
-    fspath = FSProtocolClass(path)
-
-    # filesystem inferred from path
-    dataset1 = ds.dataset(fspath)
-    assert dataset1.schema.equals(table.schema)
-
-    # filesystem specified
-    dataset2 = ds.dataset(fspath, filesystem=fs.LocalFileSystem())
-    assert dataset2.schema.equals(table.schema)
-
-    # passing different filesystem
-    with pytest.raises(TypeError):
-        ds.dataset(fspath, filesystem=fs._MockFileSystem())

@@ -222,6 +222,37 @@ def test_multiple_path_types(tempdir, use_legacy_dataset):
     tm.assert_frame_equal(df, df_read)
 
 
+def _create_single_file(base_dir, table=None, row_group_size=None):
+    import pyarrow.parquet as pq
+    if table is None:
+        table = pa.table({'a': range(9), 'b': [0.] * 4 + [1.] * 5})
+    path = base_dir / "test.parquet"
+    pq.write_table(table, path, row_group_size=row_group_size)
+    return table, path
+
+
+@pytest.mark.dataset
+def test_open_dataset_filesystem_fspath(tempdir):
+    import pyarrow.dataset as ds
+
+    # single file
+    table, path = _create_single_file(tempdir)
+
+    fspath = util.FSProtocolClass(path)
+
+    # filesystem inferred from path
+    dataset1 = ds.dataset(fspath)
+    assert dataset1.schema.equals(table.schema)
+
+    # filesystem specified
+    dataset2 = ds.dataset(fspath, filesystem=fs.LocalFileSystem())
+    assert dataset2.schema.equals(table.schema)
+
+    # passing different filesystem
+    with pytest.raises(TypeError):
+        ds.dataset(fspath, filesystem=fs._MockFileSystem())
+
+
 @pytest.mark.dataset
 @parametrize_legacy_dataset
 @pytest.mark.parametrize("filesystem", [
