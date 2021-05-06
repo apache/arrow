@@ -52,7 +52,7 @@ skip_if_not_available("re2")
 test_that("grepl", {
   df <- tibble(x = c("Foo", "bar"))
 
-  for(fixed in c(TRUE, FALSE)) {
+  for (fixed in c(TRUE, FALSE)) {
 
     expect_dplyr_equal(
       input %>%
@@ -150,7 +150,7 @@ test_that("str_detect", {
 test_that("sub and gsub", {
   df <- tibble(x = c("Foo", "bar"))
 
-  for(fixed in c(TRUE, FALSE)) {
+  for (fixed in c(TRUE, FALSE)) {
 
     expect_dplyr_equal(
       input %>%
@@ -208,10 +208,25 @@ test_that("str_replace and str_replace_all", {
 
   expect_dplyr_equal(
     input %>%
+      transmute(x = str_replace_all(x, "^F", "baz")) %>%
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
       transmute(x = str_replace_all(x, regex("^F"), "baz")) %>%
       collect(),
     df
   )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = str_replace(x, "^F[a-z]{2}", "baz")) %>%
+      collect(),
+    df
+  )
+  
   expect_dplyr_equal(
     input %>%
       transmute(x = str_replace(x, regex("^f[A-Z]{2}", ignore_case = TRUE), "baz")) %>%
@@ -240,11 +255,12 @@ test_that("str_replace and str_replace_all", {
 })
 
 test_that("strsplit and str_split", {
+  
   df <- tibble(x = c("Foo and bar", "baz and qux and quux"))
   
   expect_dplyr_equal(
     input %>%
-      transmute(x = strsplit(x, "and")) %>%
+      mutate(x = strsplit(x, "and")) %>%
       collect(),
     df
   )
@@ -266,16 +282,38 @@ test_that("strsplit and str_split", {
 
   expect_dplyr_equal(
     input %>%
-      transmute(x = str_split(x, "and")) %>%
+      mutate(x = str_split(x, "and")) %>%
       collect(),
     df
   )
 
   expect_dplyr_equal(
     input %>%
-      transmute(x = str_split(x, "and", n = 2)) %>%
+      mutate(x = str_split(x, "and", n = 2)) %>%
       collect(),
     df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = str_split(x, fixed("and"), n = 2)) %>%
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = str_split(x, regex("and"), n = 2)) %>%
+      collect(),
+    df
+  )
+  
+  expect_warning(
+    df %>%
+      Table$create() %>%
+      mutate(x = str_split(x, regex("and.*"), n = 2)) %>%
+      collect(),
+    regexp = "not supported"
   )
 
   expect_warning(
@@ -284,6 +322,7 @@ test_that("strsplit and str_split", {
       mutate(x = str_split(x, "and.?")) %>%
       collect()
   )
+  
 })
 
 test_that("backreferences in pattern", {
