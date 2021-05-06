@@ -516,15 +516,6 @@ cdef extern from "parquet/encryption/encryption.h" namespace "parquet" nogil:
         PutKey(const c_string& key_id, const c_string& key)
         c_string GetKey(const c_string& key_metadata)
 
-    ctypedef c_string (*KeyRetrieverFunc)(void*, const c_string&)
-
-    cdef cppclass FunctionKeyRetriever(DecryptionKeyRetriever):
-        FunctionKeyRetriever(void* object, KeyRetrieverFunc callable)
-
-        @staticmethod
-        shared_ptr[DecryptionKeyRetriever] build(
-            void* object, KeyRetrieverFunc callable)
-
     cdef cppclass ColumnDecryptionProperties:
         cppclass Builder:
             Builder(const c_string& name)

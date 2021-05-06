@@ -913,11 +913,16 @@ cdef ParquetCompression compression_from_name(name):
         return ParquetCompression_UNCOMPRESSED
 
 
-cdef c_string retrieve_key_from_python(
-    void* pyobject, const c_string& key_metadata
-) with gil:
-    retrieve_key_callable = <object> pyobject
-    return retrieve_key_callable(key_metadata)
+cdef cppclass PythonKeyRetriever(DecryptionKeyRetriever):
+    # Retrieve a decryption key from a Python function.
+    object pyobject
+
+    __init__(object pyobject):
+        this.pyobject = pyobject
+
+    c_string GetKey(const c_string& key_metadata) nogil:
+        with gil:
+            return this.pyobject(key_metadata)
 
 
 cdef class LowLevelDecryptionProperties(_Weakrefable):
@@ -943,8 +948,12 @@ cdef class LowLevelDecryptionProperties(_Weakrefable):
         builder = FileDecryptionProperties.Builder()
 
         if retrieve_key is not None:
-            key_retriever = FunctionKeyRetriever.build(
-                <void*>retrieve_key, retrieve_key_from_python)
+            if not callable(retrieve_key):
+                raise ValueError(
+                    "retrieve_key %s is not callable" % (retrieve_key,))
+            key_retriever = shared_ptr[DecryptionKeyRetriever](
+                new PythonKeyRetriever(retrieve_key)
+            )
             builder.key_retriever(key_retriever)
 
         if footer_key is not None:
