@@ -558,7 +558,7 @@ arrow_r_string_split_function <- function(FUN, reverse = FALSE, max_splits = -1)
 }
 
 arrow_stringr_string_split_function <- function(FUN, reverse = FALSE) {
-  function(string, pattern, n = 0) {
+  function(string, pattern, n = Inf, simplify = FALSE) {
     opts <- get_stringr_pattern_options(enexpr(pattern))
     if (!opts$fixed && contains_regex(opts$pattern)) {
       stop("Regular expression matching not supported in str_split() for Arrow", call. = FALSE)
@@ -566,7 +566,16 @@ arrow_stringr_string_split_function <- function(FUN, reverse = FALSE) {
     if (opts$ignore_case) {
       stop("Case-insensitive string splitting not supported in Arrow", call. = FALSE)
     }
-    FUN("split_pattern", string, options = list(pattern = opts$pattern, reverse = reverse, max_splits = n - 1))
+    if (n == 0) {
+      stop("Splitting strings into zero parts not supported in Arrow" , call. = FALSE)
+    }
+    if (identical(n, Inf)) {
+      n <- 0L
+    }
+    if (simplify) {
+      warning("Argument 'simplify = TRUE' will be ignored", call. = FALSE)
+    }
+    FUN("split_pattern", string, options = list(pattern = opts$pattern, reverse = reverse, max_splits = n - 1L))
   }
 }
 
