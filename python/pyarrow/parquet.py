@@ -1518,8 +1518,8 @@ class _ParquetDatasetV2:
             # path can in principle be URI for any filesystem)
             filesystem = LocalFileSystem(use_mmap=memory_map)
 
-        # This needs to be checked after _ensure_filesystem, because that handles the
-        # case of an fsspec LocalFileSystem
+        # This needs to be checked after _ensure_filesystem, because that
+        # handles the case of an fsspec LocalFileSystem
         if (
             hasattr(path_or_paths, "__fspath__") and
             filesystem is not None and
