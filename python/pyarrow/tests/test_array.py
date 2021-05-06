@@ -2738,6 +2738,13 @@ def test_binary_array_masked():
                             mask=np.array([True]))
     assert [None] == masked_nulls.to_pylist()
 
+    # Fixed Length Binary, copy
+    npa = np.array([b'aaa', b'bbb', b'ccc']*10)
+    arrow_array = pa.array(npa, type=pa.binary(3),
+                           mask=np.array([False, False, False]*10))
+    npa[npa == b"bbb"] = b"XXX"
+    assert ([b'aaa', b'bbb', b'ccc']*10) == arrow_array.to_pylist()
+
 
 def test_array_invalid_mask_raises():
     # ARROW-10742
