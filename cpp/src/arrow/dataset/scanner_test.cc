@@ -403,6 +403,40 @@ TEST_P(TestScanner, CountRowsEmpty) {
   ASSERT_OK_AND_EQ(batch->num_rows(), scanner->CountRows());
 }
 
+// Regression test for ARROW-12668: ensure failures are properly handled
+class CountFailFragment : public InMemoryFragment {
+ public:
+  explicit CountFailFragment(RecordBatchVector record_batches)
+      : InMemoryFragment(std::move(record_batches)),
+        count(Future<util::optional<int64_t>>::Make()) {}
+
+  Future<util::optional<int64_t>> CountRows(compute::Expression,
+                                            std::shared_ptr<ScanOptions>) override {
+    return count;
+  }
+
+  Future<util::optional<int64_t>> count;
+};
+TEST_P(TestScanner, CountRowsFailure) {
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
+  RecordBatchVector batches = {batch};
+  auto fragment1 = std::make_shared<CountFailFragment>(batches);
+  auto fragment2 = std::make_shared<CountFailFragment>(batches);
+  ScannerBuilder builder(
+      std::make_shared<FragmentDataset>(schema_, FragmentVector{fragment1, fragment2}),
+      options_);
+  ASSERT_OK(builder.UseAsync(GetParam().use_async));
+  ASSERT_OK(builder.UseThreads(GetParam().use_threads));
+  ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
+  fragment1->count.MarkFinished(Status::Invalid(""));
+  // Should immediately stop the count
+  ASSERT_RAISES(Invalid, scanner->CountRows());
+  // Fragment 2 doesn't complete until after the count stops - should not break anything
+  // under ASan, etc.
+  fragment2->count.MarkFinished(util::nullopt);
+}
+
 TEST_P(TestScanner, CountRowsWithMetadata) {
   SetSchema({field("i32", int32()), field("f64", float64())});
   auto batch = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
