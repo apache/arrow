@@ -603,9 +603,16 @@ format_string_replacement <- function(replacement, ignore.case, fixed) {
   replacement
 }
 
-# this function assigns definitions for the stringr pattern modifier functions
-# (fixed, regex, etc.) in itself, and uses them to evaluate the quoted
-# expression `pattern`
+#' Get `stringr` pattern options
+#' 
+#' This function assigns definitions for the stringr pattern modifier functions
+#' (fixed, regex, etc.) in itself, and uses them to evaluate the quoted
+#' expression `pattern`
+#' 
+#' @param pattern Unevaluated pattern to be evaluated
+#'
+#' @return List containing elements `pattern`, `fixed`, and `ignore_case`
+#' @keywords internal
 get_stringr_pattern_options <- function(pattern) {
   fixed <- function(pattern, ignore_case = FALSE, ...) {
     check_dots(...)
@@ -637,7 +644,7 @@ get_stringr_pattern_options <- function(pattern) {
   }
   ensure_opts <- function(opts) {
     if (is.character(opts)) {
-      opts <- list(pattern = opts, fixed = TRUE, ignore_case = FALSE)
+      opts <- list(pattern = opts, fixed = FALSE, ignore_case = FALSE)
     }
     opts
   }
