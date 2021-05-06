@@ -516,11 +516,4 @@ test_that("ARROW-11769 - grouping preserved in record batch creation", {
     c("fct", "fct2")
   )
   
-  expect_identical(
-    tbl %>%
-      record_batch() %>%
-      group_by(fct, fct2) %>%
-      group_vars(),
-    c("fct", "fct2")
-  )
 })

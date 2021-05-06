@@ -475,3 +475,22 @@ test_that("Table$create() with different length columns", {
   expect_error(Table$create(a=1:5, b = 42), msg)
   expect_error(Table$create(a=1:5, b = 1:6), msg)
 })
+
+test_that("ARROW-11769 - grouping preserved in table creation", {
+  
+  tbl <- tibble::tibble(
+    int = 1:10,
+    fct = factor(rep(c("A", "B"), 5)),
+    fct2 = factor(rep(c("C", "D"), each = 5)),
+  )
+  
+  expect_identical(
+    tbl %>%
+      group_by(fct, fct2) %>%
+      Table$create() %>%
+      group_vars(),
+    c("fct", "fct2")
+  )
+  
+})
+

@@ -168,6 +168,13 @@ Table$create <- function(..., schema = NULL) {
     names(dots) <- rep_len("", length(dots))
   }
   stopifnot(length(dots) > 0)
+  
+  # Preserve any grouping
+  if (length(dots) == 1 && is_grouped_df(dots[[1]])) {
+    out <- Table__from_dots(dots, schema)
+    return(group_by(out, !!!groups(dots[[1]])))
+  }
+  
   if (all_record_batches(dots)) {
     Table__from_record_batches(dots, schema)
   } else {
