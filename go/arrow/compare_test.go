@@ -69,25 +69,25 @@ func TestTypeEqual(t *testing.T) {
 			&TimestampType{Unit: Second, TimeZone: "UTC"}, &TimestampType{Unit: Nanosecond, TimeZone: "CET"}, false, false,
 		},
 		{
-			&ListType{PrimitiveTypes.Uint64}, &ListType{PrimitiveTypes.Uint64}, true, false,
+			&ListType{elem: PrimitiveTypes.Uint64}, &ListType{elem: PrimitiveTypes.Uint64}, true, false,
 		},
 		{
-			&ListType{PrimitiveTypes.Uint64}, &ListType{PrimitiveTypes.Uint32}, false, false,
+			&ListType{elem: PrimitiveTypes.Uint64}, &ListType{elem: PrimitiveTypes.Uint32}, false, false,
 		},
 		{
-			&ListType{&Time32Type{Unit: Millisecond}}, &ListType{&Time32Type{Unit: Millisecond}}, true, false,
+			&ListType{elem: &Time32Type{Unit: Millisecond}}, &ListType{elem: &Time32Type{Unit: Millisecond}}, true, false,
 		},
 		{
-			&ListType{&Time32Type{Unit: Millisecond}}, &ListType{&Time32Type{Unit: Second}}, false, false,
+			&ListType{elem: &Time32Type{Unit: Millisecond}}, &ListType{elem: &Time32Type{Unit: Second}}, false, false,
 		},
 		{
-			&ListType{&ListType{PrimitiveTypes.Uint16}}, &ListType{&ListType{PrimitiveTypes.Uint16}}, true, false,
+			&ListType{elem: &ListType{elem: PrimitiveTypes.Uint16}}, &ListType{elem: &ListType{elem: PrimitiveTypes.Uint16}}, true, false,
 		},
 		{
-			&ListType{&ListType{PrimitiveTypes.Uint16}}, &ListType{&ListType{PrimitiveTypes.Uint8}}, false, false,
+			&ListType{elem: &ListType{elem: PrimitiveTypes.Uint16}}, &ListType{elem: &ListType{elem: PrimitiveTypes.Uint8}}, false, false,
 		},
 		{
-			&ListType{&ListType{&ListType{PrimitiveTypes.Uint16}}}, &ListType{&ListType{PrimitiveTypes.Uint8}}, false, false,
+			&ListType{elem: &ListType{elem: &ListType{elem: PrimitiveTypes.Uint16}}}, &ListType{elem: &ListType{elem: PrimitiveTypes.Uint8}}, false, false,
 		},
 		{
 			&StructType{

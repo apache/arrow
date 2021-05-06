@@ -347,7 +347,7 @@ func (fv *fieldVisitor) visit(field arrow.Field) {
 
 	case *arrow.ListType:
 		fv.dtype = flatbuf.TypeList
-		fv.kids = append(fv.kids, fieldToFB(fv.b, arrow.Field{Name: "item", Type: dt.Elem(), Nullable: field.Nullable}, fv.memo))
+		fv.kids = append(fv.kids, fieldToFB(fv.b, arrow.Field{Name: "item", Type: dt.Elem(), Nullable: field.Nullable, Metadata: dt.Meta}, fv.memo))
 		flatbuf.ListStart(fv.b)
 		fv.offset = flatbuf.ListEnd(fv.b)
 
@@ -605,7 +605,9 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 		if len(children) != 1 {
 			return nil, xerrors.Errorf("arrow/ipc: List must have exactly 1 child field (got=%d)", len(children))
 		}
-		return arrow.ListOf(children[0].Type), nil
+		dt := arrow.ListOf(children[0].Type)
+		dt.Meta = children[0].Metadata
+		return dt, nil
 
 	case flatbuf.TypeFixedSizeList:
 		var dt flatbuf.FixedSizeList

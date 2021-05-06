@@ -25,6 +25,7 @@ import (
 // a variable-size sequence of values, all having the same relative type.
 type ListType struct {
 	elem DataType // DataType of the list's elements
+	Meta Metadata
 }
 
 // ListOf returns the list type with element type t.
