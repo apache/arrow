@@ -1585,7 +1585,7 @@ def get_generated_json_files(tempdir=None):
         .skip_category('Rust'),
 
         generate_extension_case()
-        .skip_category('Go') # requires dictionaries TODO(ARROW-3039)
+        .skip_category('Go') # TODO(ARROW-3039): requires dictionaries
         .skip_category('JS')
         .skip_category('Rust'),
     ]
