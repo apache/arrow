@@ -583,8 +583,10 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
                         FragmentsToBatches(self, std::move(fragment_gen)));
   auto batch_gen_gen_readahead = MakeSerialReadaheadGenerator(
       std::move(batch_gen_gen), scan_options_->fragment_readahead);
-  return MakeMergedGenerator(std::move(batch_gen_gen_readahead),
-                             scan_options_->fragment_readahead);
+  auto merged_batch_gen = MakeMergedGenerator(std::move(batch_gen_gen_readahead),
+                                              scan_options_->fragment_readahead);
+  return MakeReadaheadGenerator(std::move(merged_batch_gen),
+                                scan_options_->fragment_readahead);
 }
 
 Result<TaggedRecordBatchGenerator> AsyncScanner::ScanBatchesAsync() {

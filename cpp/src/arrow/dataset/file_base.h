@@ -154,7 +154,7 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
 
   virtual Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options,
-      const std::shared_ptr<FileFragment>& file);
+      const std::shared_ptr<FileFragment>& file) const;
   virtual Future<util::optional<int64_t>> CountRows(
       const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
       std::shared_ptr<ScanOptions> options);

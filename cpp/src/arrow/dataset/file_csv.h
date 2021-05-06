@@ -57,6 +57,10 @@ class ARROW_DS_EXPORT CsvFileFormat : public FileFormat {
       const std::shared_ptr<ScanOptions>& options,
       const std::shared_ptr<FileFragment>& fragment) const override;
 
+  Result<RecordBatchGenerator> ScanBatchesAsync(
+      const std::shared_ptr<ScanOptions>& scan_options,
+      const std::shared_ptr<FileFragment>& file) const override;
+
   Result<std::shared_ptr<FileWriter>> MakeWriter(
       std::shared_ptr<io::OutputStream> destination, std::shared_ptr<Schema> schema,
       std::shared_ptr<FileWriteOptions> options) const override {

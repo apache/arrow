@@ -114,7 +114,7 @@ Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
 // formats should provide their own efficient implementation.
 Result<RecordBatchGenerator> FileFormat::ScanBatchesAsync(
     const std::shared_ptr<ScanOptions>& scan_options,
-    const std::shared_ptr<FileFragment>& file) {
+    const std::shared_ptr<FileFragment>& file) const {
   ARROW_ASSIGN_OR_RAISE(auto scan_task_it, ScanFile(scan_options, file));
   struct State {
     State(std::shared_ptr<ScanOptions> scan_options, ScanTaskIterator scan_task_it)
