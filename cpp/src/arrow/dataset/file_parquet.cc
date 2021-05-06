@@ -198,17 +198,22 @@ static util::optional<compute::Expression> ColumnChunkStatisticsAsExpression(
   auto maybe_min = min->CastTo(field->type());
   auto maybe_max = max->CastTo(field->type());
   if (maybe_min.ok() && maybe_max.ok()) {
-    auto col_min = maybe_min.MoveValueUnsafe();
-    auto col_max = maybe_max.MoveValueUnsafe();
-    if (col_min->Equals(col_max)) {
-      return compute::equal(std::move(field_expr), compute::literal(std::move(col_min)));
+    min = maybe_min.MoveValueUnsafe();
+    max = maybe_max.MoveValueUnsafe();
+    if (min->Equals(max)) {
+      return compute::equal(std::move(field_expr), compute::literal(std::move(min)));
     }
 
     auto lower_bound =
-        compute::greater_equal(field_expr, compute::literal(std::move(col_min)));
-    auto upper_bound =
-        compute::less_equal(std::move(field_expr), compute::literal(std::move(col_max)));
-    return compute::and_(std::move(lower_bound), std::move(upper_bound));
+        compute::greater_equal(field_expr, compute::literal(std::move(min)));
+    auto upper_bound = compute::less_equal(field_expr, compute::literal(std::move(max)));
+
+    auto range = compute::and_(std::move(lower_bound), std::move(upper_bound));
+    if (statistics->null_count() == 0) {
+      return compute::and_(std::move(range), is_valid(std::move(field_expr)));
+    }
+
+    return range;
   }
 
   return util::nullopt;
