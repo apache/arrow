@@ -989,26 +989,29 @@ Result<int64_t> SyncScanner::CountRows() {
   // indeed, the Parquet reader does this), counting rows using that optimization is
   // still slower than just hitting metadata directly where possible.
   ARROW_ASSIGN_OR_RAISE(auto fragment_it, GetFragments());
-  std::vector<Future<int64_t>> futures;
-  FragmentVector fragments;
+  // Fragment is non-null iff fast path could not be taken.
+  std::vector<Future<std::pair<int64_t, std::shared_ptr<Fragment>>>> futures;
   for (auto maybe_fragment : fragment_it) {
     ARROW_ASSIGN_OR_RAISE(auto fragment, maybe_fragment);
     auto count_fut = fragment->CountRows(scan_options_->filter, scan_options_);
-    // Take fragments by reference since future must complete before method returns
     futures.push_back(
-        count_fut.Then([&fragments, fragment](util::optional<int64_t> count) -> int64_t {
+        count_fut.Then([fragment](const util::optional<int64_t>& count)
+                           -> std::pair<int64_t, std::shared_ptr<Fragment>> {
           if (count.has_value()) {
-            return *count;
+            return std::make_pair(*count, nullptr);
           }
-          fragments.push_back(fragment);
-          return 0;
+          return std::make_pair(0, std::move(fragment));
         }));
   }
 
   int64_t count = 0;
+  FragmentVector fragments;
   for (auto& future : futures) {
-    ARROW_ASSIGN_OR_RAISE(auto subcount, future.result());
-    count += subcount;
+    ARROW_ASSIGN_OR_RAISE(auto count_result, future.result());
+    count += count_result.first;
+    if (count_result.second) {
+      fragments.push_back(std::move(count_result.second));
+    }
   }
   // Now check for any fragments where we couldn't take the fast path
   if (!fragments.empty()) {
