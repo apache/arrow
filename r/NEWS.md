@@ -24,7 +24,9 @@
  * The mimalloc memory allocator is the default memory allocator when using a static source build of the package on Linux. This is because it has better behavior under valgrind than jemalloc does. A full-featured build (installed with `LIBARROW_MINIMAL=false`) includes both jemalloc and mimalloc, and it has still has jemalloc as default, though this is configurable at runtime with the `ARROW_DEFAULT_MEMORY_POOL` environment variable.
  * Environment variables `LIBARROW_MINIMAL`, `LIBARROW_DOWNLOAD`, and `NOT_CRAN` are now case-insensitive in the Linux build script.
  * A build configuration issue in the macOS binary package has been resolved.
+
 # arrow 4.0.0
+
 ## dplyr methods
 
 Many more `dplyr` verbs are supported on Arrow objects:
