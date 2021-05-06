@@ -499,3 +499,28 @@ test_that("Handling string data with embedded nuls", {
     )
   })
 })
+
+test_that("ARROW-11769 - grouping preserved in record batch creation", {
+  
+  tbl <- tibble::tibble(
+    int = 1:10,
+    fct = factor(rep(c("A", "B"), 5)),
+    fct2 = factor(rep(c("C", "D"), each = 5)),
+  )
+  
+  expect_identical(
+    tbl %>%
+      group_by(fct, fct2) %>%
+      record_batch() %>%
+      group_vars(),
+    c("fct", "fct2")
+  )
+  
+  expect_identical(
+    tbl %>%
+      record_batch() %>%
+      group_by(fct, fct2) %>%
+      group_vars(),
+    c("fct", "fct2")
+  )
+})

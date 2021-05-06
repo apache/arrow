@@ -148,6 +148,7 @@ RecordBatch$create <- function(..., schema = NULL) {
   if (length(arrays) == 1 && inherits(arrays[[1]], c("raw", "Buffer", "InputStream", "Message"))) {
     return(RecordBatch$from_message(arrays[[1]], schema))
   }
+  
   # Else, list of arrays
   # making sure there are always names
   if (is.null(names(arrays))) {
@@ -155,6 +156,12 @@ RecordBatch$create <- function(..., schema = NULL) {
   }
   stopifnot(length(arrays) > 0)
 
+  # Preserve any grouping
+  if (length(arrays) == 1 && is_grouped_df(arrays[[1]])) {
+    out <- RecordBatch__from_arrays(schema, arrays)
+    return(group_by(out, !!!groups(arrays[[1]])))
+  }
+  
   # TODO: should this also assert that they're all Arrays?
   RecordBatch__from_arrays(schema, arrays)
 }
