@@ -269,7 +269,7 @@ struct NullGeneralization {
 
     // Do not count the bits if they haven't been counted already
     const int64_t known_null_count = arr.null_count.load();
-    if (known_null_count == 0) {
+    if ((known_null_count == 0) || (arr.buffers[0] == NULLPTR)) {
       return ALL_VALID;
     }
 
