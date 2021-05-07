@@ -1108,6 +1108,117 @@ test_that("Assembling a Dataset manually and getting a Table", {
   expect_scan_result(ds, schm)
 })
 
+test_that("URL-decoding with directory partitioning", {
+  root <- make_temp_dir()
+  fmt <- FileFormat$create("feather")
+  fs <- LocalFileSystem$create()
+  selector <- FileSelector$create(root, recursive = TRUE)
+  dir1 <- file.path(root, "2021-05-04 00%3A00%3A00", "%24")
+  dir2 <- file.path(root, "2021-05-05 00:00:00", "$")
+  dir.create(dir1, recursive = TRUE)
+  dir.create(dir2, recursive = TRUE)
+  write_feather(df1, file.path(dir1, "data.feather"))
+  write_feather(df2, file.path(dir2, "data.feather"))
+
+  partitioning <- DirectoryPartitioning$create(
+    schema(date = timestamp(unit = "s"), string = utf8()))
+  factory <- FileSystemDatasetFactory$create(
+    fs, selector, NULL, fmt, partitioning = partitioning)
+  schm <- factory$Inspect()
+  ds <- factory$Finish(schm)
+  expect_scan_result(ds, schm)
+
+  partitioning <- DirectoryPartitioning$create(
+    schema(date = timestamp(unit = "s"), string = utf8()),
+    url_decode_segments = FALSE)
+  factory <- FileSystemDatasetFactory$create(
+    fs, selector, NULL, fmt, partitioning = partitioning)
+  schm <- factory$Inspect()
+  expect_error(factory$Finish(schm), "Invalid: error parsing")
+
+  partitioning_factory <- DirectoryPartitioningFactory$create(
+    c("date", "string"))
+  factory <- FileSystemDatasetFactory$create(
+    fs, selector, NULL, fmt, partitioning_factory)
+  schm <- factory$Inspect()
+  ds <- factory$Finish(schm)
+  # Can't directly inspect partition expressions, so do it implicitly via scan
+  expect_equal(
+    ds %>%
+      filter(date == "2021-05-04 00:00:00") %>%
+      select(int) %>%
+      collect(),
+    df1 %>% select(int) %>% collect()
+  )
+
+  partitioning_factory <- DirectoryPartitioningFactory$create(
+    c("date", "string"), url_decode_segments = FALSE)
+  factory <- FileSystemDatasetFactory$create(
+    fs, selector, NULL, fmt, partitioning_factory)
+  schm <- factory$Inspect()
+  ds <- factory$Finish(schm)
+  expect_equal(
+    ds %>%
+      filter(date == "2021-05-04 00%3A00%3A00") %>%
+      select(int) %>%
+      collect(),
+    df1 %>% select(int) %>% collect()
+  )
+})
+
+test_that("URL-decoding with hive partitioning", {
+  root <- make_temp_dir()
+  fmt <- FileFormat$create("feather")
+  fs <- LocalFileSystem$create()
+  selector <- FileSelector$create(root, recursive = TRUE)
+  dir1 <- file.path(root, "date=2021-05-04 00%3A00%3A00", "string=%24")
+  dir2 <- file.path(root, "date=2021-05-05 00:00:00", "string=$")
+  dir.create(dir1, recursive = TRUE)
+  dir.create(dir2, recursive = TRUE)
+  write_feather(df1, file.path(dir1, "data.feather"))
+  write_feather(df2, file.path(dir2, "data.feather"))
+
+  partitioning <- hive_partition(
+    date = timestamp(unit = "s"), string = utf8())
+  factory <- FileSystemDatasetFactory$create(
+    fs, selector, NULL, fmt, partitioning = partitioning)
+  ds <- factory$Finish(schm)
+  expect_scan_result(ds, schm)
+
+  partitioning <- hive_partition(
+    date = timestamp(unit = "s"), string = utf8(), url_decode_segments = FALSE)
+  factory <- FileSystemDatasetFactory$create(
+    fs, selector, NULL, fmt, partitioning = partitioning)
+  expect_error(factory$Finish(schm), "Invalid: error parsing")
+
+  partitioning_factory <- hive_partition()
+  factory <- FileSystemDatasetFactory$create(
+    fs, selector, NULL, fmt, partitioning_factory)
+  schm <- factory$Inspect()
+  ds <- factory$Finish(schm)
+  # Can't directly inspect partition expressions, so do it implicitly via scan
+  expect_equal(
+    ds %>%
+      filter(date == "2021-05-04 00:00:00") %>%
+      select(int) %>%
+      collect(),
+    df1 %>% select(int) %>% collect()
+  )
+
+  partitioning_factory <- hive_partition(url_decode_segments = FALSE)
+  factory <- FileSystemDatasetFactory$create(
+    fs, selector, NULL, fmt, partitioning_factory)
+  schm <- factory$Inspect()
+  ds <- factory$Finish(schm)
+  expect_equal(
+    ds %>%
+      filter(date == "2021-05-04 00%3A00%3A00") %>%
+      select(int) %>%
+      collect(),
+    df1 %>% select(int) %>% collect()
+  )
+})
+
 test_that("Assembling multiple DatasetFactories with DatasetFactory", {
   skip_if_not_available("parquet")
   factory1 <- dataset_factory(file.path(dataset_dir, 1), format = "parquet")

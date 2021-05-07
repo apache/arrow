@@ -335,28 +335,38 @@ dataset___ParquetFragmentScanOptions__Make(bool use_buffered_stream, int64_t buf
 
 // [[dataset::export]]
 std::shared_ptr<ds::DirectoryPartitioning> dataset___DirectoryPartitioning(
-    const std::shared_ptr<arrow::Schema>& schm) {
-  return std::make_shared<ds::DirectoryPartitioning>(schm);
+    const std::shared_ptr<arrow::Schema>& schm, bool url_decode_segments) {
+  ds::KeyValuePartitioningOptions options;
+  options.url_decode_segments = url_decode_segments;
+  std::vector<std::shared_ptr<arrow::Array>> dictionaries;
+  return std::make_shared<ds::DirectoryPartitioning>(schm, dictionaries, options);
 }
 
 // [[dataset::export]]
 std::shared_ptr<ds::PartitioningFactory> dataset___DirectoryPartitioning__MakeFactory(
-    const std::vector<std::string>& field_names) {
-  return ds::DirectoryPartitioning::MakeFactory(field_names);
+    const std::vector<std::string>& field_names, bool url_decode_segments) {
+  ds::PartitioningFactoryOptions options;
+  options.url_decode_segments = url_decode_segments;
+  return ds::DirectoryPartitioning::MakeFactory(field_names, options);
 }
 
 // [[dataset::export]]
 std::shared_ptr<ds::HivePartitioning> dataset___HivePartitioning(
-    const std::shared_ptr<arrow::Schema>& schm, const std::string& null_fallback) {
+    const std::shared_ptr<arrow::Schema>& schm, const std::string& null_fallback,
+    bool url_decode_segments) {
+  ds::HivePartitioningOptions options;
+  options.null_fallback = null_fallback;
+  options.url_decode_segments = url_decode_segments;
   std::vector<std::shared_ptr<arrow::Array>> dictionaries;
-  return std::make_shared<ds::HivePartitioning>(schm, dictionaries, null_fallback);
+  return std::make_shared<ds::HivePartitioning>(schm, dictionaries, options);
 }
 
 // [[dataset::export]]
 std::shared_ptr<ds::PartitioningFactory> dataset___HivePartitioning__MakeFactory(
-    const std::string& null_fallback) {
+    const std::string& null_fallback, bool url_decode_segments) {
   ds::HivePartitioningFactoryOptions options;
   options.null_fallback = null_fallback;
+  options.url_decode_segments = url_decode_segments;
   return ds::HivePartitioning::MakeFactory(options);
 }
 
