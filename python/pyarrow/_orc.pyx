@@ -22,6 +22,7 @@
 from cython.operator cimport dereference as deref
 from libcpp.vector cimport vector as std_vector
 from libcpp.utility cimport move
+from libcpp.memory cimport const_pointer_cast
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport (check_status, _Weakrefable,
@@ -64,7 +65,7 @@ cdef class ORCReader(_Weakrefable):
 
         Returns
         -------
-        metadata : pyarrow.Metadata
+        metadata : pyarrow.KeyValueMetadata
         """
         cdef:
             shared_ptr[CKeyValueMetadata] sp_arrow_metadata
@@ -73,7 +74,9 @@ cdef class ORCReader(_Weakrefable):
             sp_arrow_metadata = GetResultValue[shared_ptr[CKeyValueMetadata]](
                 deref(self.reader).ReadMetadata())
 
-        return pyarrow_wrap_metadata(sp_arrow_metadata)
+        return pyarrow_wrap_metadata(
+            const_pointer_cast[const CKeyValueMetadata,
+                                CKeyValueMetadata](sp_arrow_metadata))
 
     def schema(self):
         """

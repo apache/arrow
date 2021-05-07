@@ -229,7 +229,7 @@ class ORCFileReader::Impl {
     return GetArrowSchema(type, out);
   }
 
-  Result<std::shared_ptr<KeyValueMetadata>> ReadMetadata() {
+  Result<std::shared_ptr<const KeyValueMetadata>> ReadMetadata() {
     std::list<std::string> keys = reader_->getMetadataKeys();
     auto metadata = std::make_shared<KeyValueMetadata>();
     if (!keys.empty()) {
@@ -237,7 +237,7 @@ class ORCFileReader::Impl {
         metadata->Append(*it, reader_->getMetadataValue(*it));
       }
     }
-    return std::move(metadata);
+    return std::move(std::const_pointer_cast<const KeyValueMetadata>(metadata));
   }
 
   Status GetArrowSchema(const liborc::Type& type, std::shared_ptr<Schema>* out) {
@@ -438,7 +438,7 @@ Status ORCFileReader::Open(const std::shared_ptr<io::RandomAccessFile>& file,
   return Status::OK();
 }
 
-Result<std::shared_ptr<KeyValueMetadata>> ORCFileReader::ReadMetadata() {
+Result<std::shared_ptr<const KeyValueMetadata>> ORCFileReader::ReadMetadata() {
   return impl_->ReadMetadata();
 }
 

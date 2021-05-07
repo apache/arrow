@@ -329,8 +329,8 @@ TEST(TestAdapterRead, ReadIntAndStringFileMultipleStripes) {
       adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool(), &reader).ok());
 
   EXPECT_OK_AND_ASSIGN(auto metadata, reader->ReadMetadata());
-  std::shared_ptr<KeyValueMetadata> expected_metadata =
-      key_value_metadata(std::vector<std::string>(), std::vector<std::string>());
+  auto expected_metadata = std::const_pointer_cast<const KeyValueMetadata>(
+      key_value_metadata(std::vector<std::string>(), std::vector<std::string>()));
   ASSERT_TRUE(metadata->Equals(*expected_metadata));
   ASSERT_EQ(stripe_row_count * stripe_count, reader->NumberOfRows());
   ASSERT_EQ(stripe_count, reader->NumberOfStripes());
