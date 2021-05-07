@@ -58,6 +58,13 @@ class RTasks {
       : parallel_tasks(arrow::internal::TaskGroup::MakeThreaded(
             arrow::internal::GetCpuThreadPool())) {}
 
+  // This Finish() method must never be called from a thread pool thread
+  // as this would deadlock.
+  //
+  // Usage is to :
+  // - create an RTasks instance on the main thread
+  // - add some tasks with .Append()
+  // - and then call .Finish() so that the parallel tasks are finished
   Status Finish() {
     Status status = Status::OK();
 
