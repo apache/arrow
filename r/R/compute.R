@@ -27,6 +27,8 @@
 #' `RecordBatch`, or `Table`.
 #' @param args list arguments as an alternative to specifying in `...`
 #' @param options named list of C++ function options.
+#' @details When passing indices in `...`, `args`, or `options`, express them as
+#' 0-based integers (consistent with C++).
 #' @return An `Array`, `ChunkedArray`, `Scalar`, `RecordBatch`, or `Table`, whatever the compute function results in.
 #' @seealso [Arrow C++ documentation](https://arrow.apache.org/docs/cpp/compute.html) for the functions and their respective options.
 #' @examples
