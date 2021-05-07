@@ -53,18 +53,18 @@ std::shared_ptr<Partitioning> Partitioning::Default() {
 
     std::string type_name() const override { return "default"; }
 
-    Result<Expression> Parse(const std::string& path) const override {
-      return literal(true);
+    Result<compute::Expression> Parse(const std::string& path) const override {
+      return compute::literal(true);
     }
 
-    Result<std::string> Format(const Expression& expr) const override {
+    Result<std::string> Format(const compute::Expression& expr) const override {
       return Status::NotImplemented("formatting paths from ", type_name(),
                                     " Partitioning");
     }
 
     Result<PartitionedBatches> Partition(
         const std::shared_ptr<RecordBatch>& batch) const override {
-      return PartitionedBatches{{batch}, {literal(true)}};
+      return PartitionedBatches{{batch}, {compute::literal(true)}};
     }
   };
 
@@ -103,7 +103,7 @@ Result<Partitioning::PartitionedBatches> KeyValuePartitioning::Partition(
 
   if (key_indices.empty()) {
     // no fields to group by; return the whole batch
-    return PartitionedBatches{{batch}, {literal(true)}};
+    return PartitionedBatches{{batch}, {compute::literal(true)}};
   }
 
   // assemble an ExecBatch of the key columns
@@ -132,14 +132,15 @@ Result<Partitioning::PartitionedBatches> KeyValuePartitioning::Partition(
   // assemble partition expressions from the unique keys
   out.expressions.resize(grouper->num_groups());
   for (uint32_t group = 0; group < grouper->num_groups(); ++group) {
-    std::vector<Expression> exprs(num_keys);
+    std::vector<compute::Expression> exprs(num_keys);
 
     for (int i = 0; i < num_keys; ++i) {
       ARROW_ASSIGN_OR_RAISE(auto val, unique_arrays[i]->GetScalar(group));
       const auto& name = batch->schema()->field(key_indices[i])->name();
 
-      exprs[i] = val->is_valid ? equal(field_ref(name), literal(std::move(val)))
-                               : is_null(field_ref(name));
+      exprs[i] = val->is_valid ? compute::equal(compute::field_ref(name),
+                                                compute::literal(std::move(val)))
+                               : compute::is_null(compute::field_ref(name));
     }
     out.expressions[group] = and_(std::move(exprs));
   }
@@ -157,10 +158,10 @@ Result<Partitioning::PartitionedBatches> KeyValuePartitioning::Partition(
   return out;
 }
 
-Result<Expression> KeyValuePartitioning::ConvertKey(const Key& key) const {
+Result<compute::Expression> KeyValuePartitioning::ConvertKey(const Key& key) const {
   ARROW_ASSIGN_OR_RAISE(auto match, FieldRef(key.name).FindOneOrNone(*schema_));
   if (match.empty()) {
-    return literal(true);
+    return compute::literal(true);
   }
 
   auto field_index = match[0];
@@ -169,7 +170,7 @@ Result<Expression> KeyValuePartitioning::ConvertKey(const Key& key) const {
   std::shared_ptr<Scalar> converted;
 
   if (!key.value.has_value()) {
-    return is_null(field_ref(field->name()));
+    return compute::is_null(compute::field_ref(field->name()));
   } else if (field->type()->id() == Type::DICTIONARY) {
     if (dictionaries_.empty() || dictionaries_[field_index] == nullptr) {
       return Status::Invalid("No dictionary provided for dictionary field ",
@@ -201,22 +202,23 @@ Result<Expression> KeyValuePartitioning::ConvertKey(const Key& key) const {
     ARROW_ASSIGN_OR_RAISE(converted, Scalar::Parse(field->type(), *key.value));
   }
 
-  return equal(field_ref(field->name()), literal(std::move(converted)));
+  return compute::equal(compute::field_ref(field->name()),
+                        compute::literal(std::move(converted)));
 }
 
-Result<Expression> KeyValuePartitioning::Parse(const std::string& path) const {
-  std::vector<Expression> expressions;
+Result<compute::Expression> KeyValuePartitioning::Parse(const std::string& path) const {
+  std::vector<compute::Expression> expressions;
 
   for (const Key& key : ParseKeys(path)) {
     ARROW_ASSIGN_OR_RAISE(auto expr, ConvertKey(key));
-    if (expr == literal(true)) continue;
+    if (expr == compute::literal(true)) continue;
     expressions.push_back(std::move(expr));
   }
 
   return and_(std::move(expressions));
 }
 
-Result<std::string> KeyValuePartitioning::Format(const Expression& expr) const {
+Result<std::string> KeyValuePartitioning::Format(const compute::Expression& expr) const {
   ScalarVector values{static_cast<size_t>(schema_->num_fields()), nullptr};
 
   ARROW_ASSIGN_OR_RAISE(auto known_values, ExtractKnownFieldValues(expr));

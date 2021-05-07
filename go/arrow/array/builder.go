@@ -277,6 +277,8 @@ func NewBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 	case arrow.UNION:
 	case arrow.DICTIONARY:
 	case arrow.MAP:
+		typ := dtype.(*arrow.MapType)
+		return NewMapBuilder(mem, typ.KeyType(), typ.ItemType(), typ.KeysSorted)
 	case arrow.EXTENSION:
 	case arrow.FIXED_SIZE_LIST:
 		typ := dtype.(*arrow.FixedSizeListType)

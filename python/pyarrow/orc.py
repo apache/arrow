@@ -18,9 +18,10 @@
 
 from itertools import count
 from numbers import Integral
+import warnings
 
 from pyarrow import types
-from pyarrow.lib import Schema
+from pyarrow.lib import Schema, Table
 import pyarrow._orc as _orc
 
 
@@ -193,19 +194,26 @@ class ORCWriter:
         self.writer.close()
 
 
-def write_table(where, table):
+def write_table(table, where):
     """
     Write a table into an ORC file
 
     Parameters
     ----------
+    table : pyarrow.lib.Table
+        The table to be written into the ORC file
     where : str or pyarrow.io.NativeFile
         Writable target. For passing Python file objects or byte buffers,
         see pyarrow.io.PythonFileInterface, pyarrow.io.BufferOutputStream
         or pyarrow.io.FixedSizeBufferWriter.
-    table : pyarrow.lib.Table
-        The table to be written into the ORC file
     """
+    if isinstance(where, Table):
+        warnings.warn(
+            "The order of the arguments has changed. Pass as "
+            "'write_table(table, where)' instead. The old order will raise "
+            "an error in the future.", FutureWarning, stacklevel=2
+        )
+        table, where = where, table
     writer = ORCWriter(where)
     writer.write(table)
     writer.close()

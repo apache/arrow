@@ -362,5 +362,5 @@ The table below provides a high-level roadmap for the development of specific ca
 [Add-On Explorer]: https://www.mathworks.com/help/matlab/matlab_env/get-add-ons.html
 [JavaScript user]: https://github.com/apache/arrow/tree/master/js
 [`apache-arrow` package via the `npm` package manager]: https://www.npmjs.com/package/apache-arrow
-[Rust user]: https://github.com/apache/arrow/tree/master/rust
+[Rust user]: https://github.com/apache/arrow-rs
 [`arrow` crate via the `cargo` package manager]: https://crates.io/crates/arrow

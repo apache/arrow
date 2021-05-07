@@ -147,9 +147,8 @@ dim.arrow_dplyr_query <- function(x) {
   if (isTRUE(x$filtered)) {
     rows <- x$.data$num_rows
   } else if (query_on_dataset(x)) {
-    warning("Number of rows unknown; returning NA", call. = FALSE)
-    # TODO: https://issues.apache.org/jira/browse/ARROW-9697
-    rows <- NA_integer_
+    scanner <- Scanner$create(x)
+    rows <- scanner$CountRows()
   } else {
     # Evaluate the filter expression to a BooleanArray and count
     rows <- as.integer(sum(eval_array_expression(x$filtered_rows, x$.data), na.rm = TRUE))
@@ -632,7 +631,7 @@ arrow_mask <- function(.data) {
   # Some R functions will still try to evaluate on an Expression
   # and return NA with a warning
   fail <- function(...) stop("Not implemented")
-  for (f in c("mean")) {
+  for (f in c("mean", "sd")) {
     f_env[[f]] <- fail
   }
 
@@ -1006,7 +1005,6 @@ abandon_ship <- function(call, .data, msg = NULL) {
       stop(msg, "\nCall collect() first to pull data into R.", call. = FALSE)
     }
   }
-
   # else, collect and call dplyr method
   if (!is.null(msg)) {
     warning(msg, "; pulling data into R", immediate. = TRUE, call. = FALSE)

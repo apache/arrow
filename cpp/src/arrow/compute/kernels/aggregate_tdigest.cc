@@ -39,7 +39,7 @@ struct TDigestImpl : public ScalarAggregator {
   explicit TDigestImpl(const TDigestOptions& options)
       : q{options.q}, tdigest{options.delta, options.buffer_size} {}
 
-  void Consume(KernelContext*, const ExecBatch& batch) override {
+  Status Consume(KernelContext*, const ExecBatch& batch) override {
     const ArrayData& data = *batch[0].array();
     const CType* values = data.GetValues<CType>(1);
 
@@ -51,23 +51,25 @@ struct TDigestImpl : public ScalarAggregator {
                             }
                           });
     }
+    return Status::OK();
   }
 
-  void MergeFrom(KernelContext*, KernelState&& src) override {
+  Status MergeFrom(KernelContext*, KernelState&& src) override {
     auto& other = checked_cast<ThisType&>(src);
     std::vector<TDigest> other_tdigest;
     other_tdigest.push_back(std::move(other.tdigest));
     this->tdigest.Merge(&other_tdigest);
+    return Status::OK();
   }
 
-  void Finalize(KernelContext* ctx, Datum* out) override {
+  Status Finalize(KernelContext* ctx, Datum* out) override {
     const int64_t out_length = this->tdigest.is_empty() ? 0 : this->q.size();
     auto out_data = ArrayData::Make(float64(), out_length, 0);
     out_data->buffers.resize(2, nullptr);
 
     if (out_length > 0) {
-      KERNEL_ASSIGN_OR_RAISE(out_data->buffers[1], ctx,
-                             ctx->Allocate(out_length * sizeof(double)));
+      ARROW_ASSIGN_OR_RAISE(out_data->buffers[1],
+                            ctx->Allocate(out_length * sizeof(double)));
       double* out_buffer = out_data->template GetMutableValues<double>(1);
       for (int64_t i = 0; i < out_length; ++i) {
         out_buffer[i] = this->tdigest.Quantile(this->q[i]);
@@ -75,6 +77,7 @@ struct TDigestImpl : public ScalarAggregator {
     }
 
     *out = Datum(std::move(out_data));
+    return Status::OK();
   }
 
   const std::vector<double>& q;
@@ -105,13 +108,14 @@ struct TDigestInitState {
     return Status::OK();
   }
 
-  std::unique_ptr<KernelState> Create() {
-    ctx->SetStatus(VisitTypeInline(in_type, this));
+  Result<std::unique_ptr<KernelState>> Create() {
+    RETURN_NOT_OK(VisitTypeInline(in_type, this));
     return std::move(state);
   }
 };
 
-std::unique_ptr<KernelState> TDigestInit(KernelContext* ctx, const KernelInitArgs& args) {
+Result<std::unique_ptr<KernelState>> TDigestInit(KernelContext* ctx,
+                                                 const KernelInitArgs& args) {
   TDigestInitState visitor(ctx, *args.inputs[0].type,
                            static_cast<const TDigestOptions&>(*args.options));
   return visitor.Create();

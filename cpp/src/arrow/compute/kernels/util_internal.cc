@@ -59,24 +59,21 @@ PrimitiveArg GetPrimitiveArg(const ArrayData& arr) {
 
 ArrayKernelExec TrivialScalarUnaryAsArraysExec(ArrayKernelExec exec,
                                                NullHandling::type null_handling) {
-  return [=](KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  return [=](KernelContext* ctx, const ExecBatch& batch, Datum* out) -> Status {
     if (out->is_array()) {
       return exec(ctx, batch, out);
     }
 
     if (null_handling == NullHandling::INTERSECTION && !batch[0].scalar()->is_valid) {
       out->scalar()->is_valid = false;
-      return;
+      return Status::OK();
     }
 
-    KERNEL_ASSIGN_OR_RAISE(Datum array_in, ctx,
-                           MakeArrayFromScalar(*batch[0].scalar(), 1));
-
-    KERNEL_ASSIGN_OR_RAISE(Datum array_out, ctx, MakeArrayFromScalar(*out->scalar(), 1));
-
-    exec(ctx, ExecBatch{{std::move(array_in)}, 1}, &array_out);
-
-    KERNEL_ASSIGN_OR_RAISE(*out, ctx, array_out.make_array()->GetScalar(0));
+    ARROW_ASSIGN_OR_RAISE(Datum array_in, MakeArrayFromScalar(*batch[0].scalar(), 1));
+    ARROW_ASSIGN_OR_RAISE(Datum array_out, MakeArrayFromScalar(*out->scalar(), 1));
+    RETURN_NOT_OK(exec(ctx, ExecBatch{{std::move(array_in)}, 1}, &array_out));
+    ARROW_ASSIGN_OR_RAISE(*out, array_out.make_array()->GetScalar(0));
+    return Status::OK();
   };
 }
 

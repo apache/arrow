@@ -354,3 +354,73 @@ func TestFixedSizeListOf(t *testing.T) {
 		})
 	}
 }
+
+func TestMapOf(t *testing.T) {
+	for _, tc := range []struct {
+		key, item DataType
+		want      DataType
+		str       string
+	}{
+		{
+			key:  BinaryTypes.String,
+			item: PrimitiveTypes.Uint8,
+			want: &MapType{value: ListOf(StructOf(
+				Field{Name: "key", Type: BinaryTypes.String},
+				Field{Name: "value", Type: PrimitiveTypes.Uint8, Nullable: true},
+			))},
+			str: "map<utf8, uint8>",
+		},
+		{
+			key:  BinaryTypes.String,
+			item: MapOf(PrimitiveTypes.Uint32, FixedWidthTypes.Date32),
+			want: &MapType{value: ListOf(StructOf(
+				Field{Name: "key", Type: BinaryTypes.String},
+				Field{Name: "value", Nullable: true,
+					Type: &MapType{value: ListOf(StructOf(
+						Field{Name: "key", Type: PrimitiveTypes.Uint32},
+						Field{Name: "value", Type: FixedWidthTypes.Date32, Nullable: true},
+					))}},
+			))},
+			str: "map<utf8, map<uint32, date32>>",
+		},
+	} {
+		t.Run("", func(t *testing.T) {
+			got := MapOf(tc.key, tc.item)
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("got=%#v, want=%#v", got, tc.want)
+			}
+
+			if got, want := got.ID(), MAP; got != want {
+				t.Fatalf("invalid ID. got=%v, want=%v", got, want)
+			}
+
+			if got, want := got.Name(), "map"; got != want {
+				t.Fatalf("invalid name. got=%q, want=%q", got, want)
+			}
+
+			if got, want := got.KeyField().Name, "key"; got != want {
+				t.Fatalf("invalid key field name. got=%q, want=%q", got, want)
+			}
+
+			if got, want := got.ItemField().Name, "value"; got != want {
+				t.Fatalf("invalid item field name. got=%q, want=%q", got, want)
+			}
+
+			if got, want := got.KeyType(), tc.key; got != want {
+				t.Fatalf("invalid key type. got=%q, want=%q", got, want)
+			}
+
+			if got, want := got.ItemType(), tc.item; got != want {
+				t.Fatalf("invalid item type. got=%q, want=%q", got, want)
+			}
+
+			if got, want := got.ValueType(), StructOf(got.KeyField(), got.ItemField()); !TypeEqual(got, want) {
+				t.Fatalf("invalid value type. got=%q, want=%q", got, want)
+			}
+
+			if got, want := got.String(), tc.str; got != want {
+				t.Fatalf("invalid String() result. got=%q, want=%q", got, want)
+			}
+		})
+	}
+}

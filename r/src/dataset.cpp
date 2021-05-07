@@ -31,6 +31,7 @@
 
 namespace ds = ::arrow::dataset;
 namespace fs = ::arrow::fs;
+namespace compute = ::arrow::compute;
 
 namespace cpp11 {
 
@@ -370,10 +371,10 @@ void dataset___ScannerBuilder__ProjectNames(const std::shared_ptr<ds::ScannerBui
 // [[dataset::export]]
 void dataset___ScannerBuilder__ProjectExprs(
     const std::shared_ptr<ds::ScannerBuilder>& sb,
-    const std::vector<std::shared_ptr<ds::Expression>>& exprs,
+    const std::vector<std::shared_ptr<compute::Expression>>& exprs,
     const std::vector<std::string>& names) {
   // We have shared_ptrs of expressions but need the Expressions
-  std::vector<ds::Expression> expressions;
+  std::vector<compute::Expression> expressions;
   for (auto expr : exprs) {
     expressions.push_back(*expr);
   }
@@ -382,7 +383,7 @@ void dataset___ScannerBuilder__ProjectExprs(
 
 // [[dataset::export]]
 void dataset___ScannerBuilder__Filter(const std::shared_ptr<ds::ScannerBuilder>& sb,
-                                      const std::shared_ptr<ds::Expression>& expr) {
+                                      const std::shared_ptr<compute::Expression>& expr) {
   StopIfNotOk(sb->Filter(*expr));
 }
 
@@ -481,6 +482,11 @@ std::shared_ptr<arrow::Table> dataset___Scanner__TakeRows(
     const std::shared_ptr<ds::Scanner>& scanner,
     const std::shared_ptr<arrow::Array>& indices) {
   return ValueOrStop(scanner->TakeRows(*indices));
+}
+
+// [[dataset::export]]
+int64_t dataset___Scanner__CountRows(const std::shared_ptr<ds::Scanner>& scanner) {
+  return ValueOrStop(scanner->CountRows());
 }
 
 #endif

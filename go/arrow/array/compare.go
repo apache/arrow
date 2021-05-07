@@ -164,7 +164,9 @@ func ArrayEqual(left, right Interface) bool {
 	case *Duration:
 		r := right.(*Duration)
 		return arrayEqualDuration(l, r)
-
+	case *Map:
+		r := right.(*Map)
+		return arrayEqualMap(l, r)
 	default:
 		panic(xerrors.Errorf("arrow/array: unknown array type %T", l))
 	}
@@ -353,7 +355,9 @@ func arrayApproxEqual(left, right Interface, opt equalOption) bool {
 	case *Duration:
 		r := right.(*Duration)
 		return arrayEqualDuration(l, r)
-
+	case *Map:
+		r := right.(*Map)
+		return arrayApproxEqualList(l.List, r.List, opt)
 	default:
 		panic(xerrors.Errorf("arrow/array: unknown array type %T", l))
 	}

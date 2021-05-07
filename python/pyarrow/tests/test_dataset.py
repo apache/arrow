@@ -21,7 +21,6 @@ import posixpath
 import pathlib
 import pickle
 import textwrap
-import threading
 
 import numpy as np
 import pytest
@@ -307,15 +306,13 @@ def test_dataset(dataset):
     # TODO(kszucs): test non-boolean Exprs for filter do raise
     expected_i64 = pa.array([0, 1, 2, 3, 4], type=pa.int64())
     expected_f64 = pa.array([0, 1, 2, 3, 4], type=pa.float64())
-    with pytest.deprecated_call():
-        dataset.scan()
 
     for batch in dataset.to_batches():
         assert isinstance(batch, pa.RecordBatch)
         assert batch.column(0).equals(expected_i64)
         assert batch.column(1).equals(expected_f64)
 
-    for batch in ds.Scanner.from_dataset(dataset).scan_batches():
+    for batch in dataset.scanner().scan_batches():
         assert isinstance(batch, ds.TaggedRecordBatch)
         assert isinstance(batch.fragment, ds.Fragment)
 
@@ -333,42 +330,32 @@ def test_dataset(dataset):
     assert sorted(result['key']) == ['xxx', 'yyy']
 
 
-def test_dataset_execute_iterator(dataset):
-    # ARROW-11596: this would segfault due to Cython raising
-    # StopIteration without holding the GIL. (Fixed on Cython master,
-    # post 3.0a6)
-    with pytest.deprecated_call():
-        tasks = dataset.scan()
-    task = next(tasks)
-    iterator = task.execute()
-    thread = threading.Thread(target=lambda: next(iterator))
-    thread.start()
-    thread.join()
-    with pytest.raises(StopIteration):
-        next(iterator)
-
-
 def test_scanner(dataset):
-    scanner = ds.Scanner.from_dataset(dataset,
-                                      memory_pool=pa.default_memory_pool())
+    scanner = dataset.scanner(memory_pool=pa.default_memory_pool())
     assert isinstance(scanner, ds.Scanner)
 
     with pytest.raises(pa.ArrowInvalid):
-        ds.Scanner.from_dataset(dataset, columns=['unknown'])
+        dataset.scanner(columns=['unknown'])
 
-    scanner = ds.Scanner.from_dataset(dataset, columns=['i64'],
-                                      memory_pool=pa.default_memory_pool())
+    scanner = dataset.scanner(columns=['i64'],
+                              memory_pool=pa.default_memory_pool())
+    assert scanner.dataset_schema == dataset.schema
+    assert scanner.projected_schema == pa.schema([("i64", pa.int64())])
 
     assert isinstance(scanner, ds.Scanner)
     for batch in scanner.to_batches():
+        assert batch.schema == scanner.projected_schema
         assert batch.num_columns == 1
 
     table = scanner.to_table()
+    assert table.schema == scanner.projected_schema
     for i in range(table.num_rows):
         indices = pa.array([i])
         assert table.take(indices) == scanner.take(indices)
     with pytest.raises(pa.ArrowIndexError):
         scanner.take(pa.array([table.num_rows]))
+
+    assert table.num_rows == scanner.count_rows()
 
 
 def test_head(dataset):
@@ -391,6 +378,32 @@ def test_head(dataset):
 
     result = fragment.head(1024, columns=['i64']).to_pydict()
     assert result == {'i64': list(range(5))}
+
+
+def test_take(dataset):
+    fragment = next(dataset.get_fragments())
+    indices = pa.array([1, 3])
+    assert fragment.take(indices) == fragment.to_table().take(indices)
+    with pytest.raises(IndexError):
+        fragment.take(pa.array([5]))
+
+    indices = pa.array([1, 7])
+    assert dataset.take(indices) == dataset.to_table().take(indices)
+    with pytest.raises(IndexError):
+        dataset.take(pa.array([10]))
+
+
+def test_count_rows(dataset):
+    fragment = next(dataset.get_fragments())
+    assert fragment.count_rows() == 5
+    assert fragment.count_rows(filter=ds.field("i64") == 4) == 1
+
+    assert dataset.count_rows() == 10
+    # Filter on partition key
+    assert dataset.count_rows(filter=ds.field("group") == 1) == 5
+    # Filter on data
+    assert dataset.count_rows(filter=ds.field("i64") >= 3) == 4
+    assert dataset.count_rows(filter=ds.field("i64") < 0) == 0
 
 
 def test_abstract_classes():
@@ -671,7 +684,7 @@ def test_filesystem_factory(mockfs, paths_or_selector, pre_buffer):
     dataset = factory.finish()
     assert isinstance(dataset, ds.FileSystemDataset)
 
-    scanner = ds.Scanner.from_dataset(dataset)
+    scanner = dataset.scanner()
     expected_i64 = pa.array([0, 1, 2, 3, 4], type=pa.int64())
     expected_f64 = pa.array([0, 1, 2, 3, 4], type=pa.float64())
     expected_str = pa.DictionaryArray.from_arrays(
@@ -1697,9 +1710,10 @@ def test_construct_from_invalid_sources_raise(multisourcefs):
         ds.dataset(None)
 
     expected = (
-        "Must provide schema to construct in-memory dataset from an iterable"
+        "Expected a path-like, list of path-likes or a list of Datasets "
+        "instead of the given type: generator"
     )
-    with pytest.raises(ValueError, match=expected):
+    with pytest.raises(TypeError, match=expected):
         ds.dataset((batch1 for _ in range(3)))
 
     expected = (
@@ -1732,49 +1746,32 @@ def test_construct_from_invalid_sources_raise(multisourcefs):
 def test_construct_in_memory():
     batch = pa.RecordBatch.from_arrays([pa.array(range(10))], names=["a"])
     table = pa.Table.from_batches([batch])
-    reader = pa.ipc.RecordBatchReader.from_batches(batch.schema, [batch])
-    iterable = (batch for _ in range(1))
 
-    for source in (batch, table, reader, [batch], [table]):
-        dataset = ds.dataset(source)
-        assert dataset.to_table() == table
-
-    assert ds.dataset(iterable, schema=batch.schema).to_table().equals(table)
     assert ds.dataset([], schema=pa.schema([])).to_table() == pa.table([])
 
-    # When constructed from batches/tables, should be reusable
     for source in (batch, table, [batch], [table]):
         dataset = ds.dataset(source)
-        assert len(list(dataset.get_fragments())) == 1
-        assert len(list(dataset.get_fragments())) == 1
         assert dataset.to_table() == table
-        assert dataset.to_table() == table
+        assert len(list(dataset.get_fragments())) == 1
         assert next(dataset.get_fragments()).to_table() == table
         assert pa.Table.from_batches(list(dataset.to_batches())) == table
 
+
+def test_scan_iterator():
+    batch = pa.RecordBatch.from_arrays([pa.array(range(10))], names=["a"])
+    table = pa.Table.from_batches([batch])
     # When constructed from readers/iterators, should be one-shot
-    match = "InMemoryDataset was already consumed"
-    for factory in (
-            lambda: pa.ipc.RecordBatchReader.from_batches(
-                batch.schema, [batch]),
-            lambda: (batch for _ in range(1)),
+    match = "OneShotFragment was already scanned"
+    for factory, schema in (
+            (lambda: pa.ipc.RecordBatchReader.from_batches(
+                batch.schema, [batch]), None),
+            (lambda: (batch for _ in range(1)), batch.schema),
     ):
-        dataset = ds.dataset(factory(), schema=batch.schema)
-        # Getting fragments consumes the underlying iterator
-        fragments = list(dataset.get_fragments())
-        assert len(fragments) == 1
-        assert fragments[0].to_table() == table
+        # Scanning the fragment consumes the underlying iterator
+        scanner = ds.Scanner.from_batches(factory(), schema=schema)
+        assert scanner.to_table() == table
         with pytest.raises(pa.ArrowInvalid, match=match):
-            list(dataset.get_fragments())
-        with pytest.raises(pa.ArrowInvalid, match=match):
-            dataset.to_table()
-        # Materializing consumes the underlying iterator
-        dataset = ds.dataset(factory(), schema=batch.schema)
-        assert dataset.to_table() == table
-        with pytest.raises(pa.ArrowInvalid, match=match):
-            list(dataset.get_fragments())
-        with pytest.raises(pa.ArrowInvalid, match=match):
-            dataset.to_table()
+            scanner.to_table()
 
 
 @pytest.mark.parquet
@@ -3012,6 +3009,31 @@ def test_write_iterable(tempdir):
                      basename_template='dat_{i}.arrow', format="feather")
     result = ds.dataset(base_dir, format="ipc").to_table()
     assert result.equals(table)
+
+
+def test_write_scanner(tempdir):
+    table = pa.table([
+        pa.array(range(20)), pa.array(np.random.randn(20)),
+        pa.array(np.repeat(['a', 'b'], 10))
+    ], names=["f1", "f2", "part"])
+    dataset = ds.dataset(table)
+
+    base_dir = tempdir / 'dataset_from_scanner'
+    ds.write_dataset(dataset.scanner(), base_dir, format="feather")
+    result = ds.dataset(base_dir, format="ipc").to_table()
+    assert result.equals(table)
+
+    # scanner with different projected_schema
+    base_dir = tempdir / 'dataset_from_scanner2'
+    ds.write_dataset(dataset.scanner(columns=["f1"]),
+                     base_dir, format="feather")
+    result = ds.dataset(base_dir, format="ipc").to_table()
+    assert result.equals(table.select(["f1"]))
+
+    # schema not allowed when writing a scanner
+    with pytest.raises(ValueError, match="Cannot specify a schema"):
+        ds.write_dataset(dataset.scanner(), base_dir, schema=table.schema,
+                         format="feather")
 
 
 def test_write_table_partitioned_dict(tempdir):

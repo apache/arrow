@@ -215,7 +215,7 @@ in the end. To make the review process smooth for everyone, try to
   for maintainers to accept.
 * Add new unit tests for your code.
 * Follow the style guides for the part(s) of the project you're modifying.
-  Some languages (C++, Python, and Rust, for example) run a lint check in
+  Some languages (C++ and Python, for example) run a lint check in
   continuous integration. For all languages, see their respective developer
   documentation and READMEs for style guidance. In general, try to make it look
   as if the codebase has a single author, and emulate any conventions you see,

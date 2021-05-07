@@ -55,6 +55,16 @@ a.navbar-brand img {
 }
 
 
+/* This is the bootstrap CSS style for "table-striped". Since the theme does
+not yet provide an easy way to configure this globaly, it easier to simply
+include this snippet here than updating each table in all rst files to
+add ":class: table-striped" */
+
+.table tbody tr:nth-of-type(odd) {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+
 /* Limit the max height of the sidebar navigation section. Because in our
 custimized template, there is more content above the navigation, i.e.
 larger logo: if we don't decrease the max-height, it will overlap with

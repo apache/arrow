@@ -116,6 +116,7 @@ x-hierarchy:
   - ubuntu-cpp-sanitizer
   - ubuntu-cpp-thread-sanitizer
   - ubuntu-r-sanitizer
+  - ubuntu-r-valgrind
   - python-sdist
   - r
   # helper services
@@ -720,7 +721,7 @@ services:
   #    https://quay.io/repository/pypa/manylinux2010_x86_64?tab=tags
   #    only amd64 arch is supported
   python-wheel-manylinux-2010:
-    image: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2010
+    image: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2010-vcpkg-${VCPKG}
     build:
       args:
         arch_alias: ${ARCH_ALIAS}
@@ -731,7 +732,7 @@ services:
       context: .
       dockerfile: ci/docker/python-wheel-manylinux-201x.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2010
+        - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2010-vcpkg-${VCPKG}
     environment:
       <<: *ccache
       MANYLINUX_VERSION: 2010
@@ -743,7 +744,7 @@ services:
   # See available versions at:
   #    https://quay.io/repository/pypa/manylinux2014_x86_64?tab=tags
   python-wheel-manylinux-2014:
-    image: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014
+    image: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014-vcpkg-${VCPKG}
     build:
       args:
         arch_alias: ${ARCH_ALIAS}
@@ -754,7 +755,7 @@ services:
       context: .
       dockerfile: ci/docker/python-wheel-manylinux-201x.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014
+        - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014-vcpkg-${VCPKG}
     environment:
       <<: *ccache
       MANYLINUX_VERSION: 2014
@@ -786,7 +787,7 @@ services:
     command: /arrow/ci/scripts/python_wheel_manylinux_test.sh unittests
 
   python-wheel-windows-vs2017:
-    image: ${REPO}:python-${PYTHON}-wheel-windows-vs2017
+    image: ${REPO}:python-${PYTHON}-wheel-windows-vs2017-vcpkg-${VCPKG}
     build:
       args:
         vcpkg: ${VCPKG}
@@ -1050,6 +1051,31 @@ services:
       /bin/bash -c "
         /arrow/ci/scripts/r_sanitize.sh /arrow"
 
+  ubuntu-r-valgrind:
+    # Only 18.04 and amd64 supported
+    # Usage:
+    #   docker-compose build ubuntu-r-valgrind
+    #   docker-compose run ubuntu-r-valgrind
+    image: ${REPO}:amd64-ubuntu-18.04-r-valgrind
+    build:
+      context: .
+      dockerfile: ci/docker/linux-r.dockerfile
+      cache_from:
+        - ${REPO}:amd64-ubuntu-18.04-r-valgrind
+      args:
+        base: wch1/r-debug:latest
+        r_bin: RDvalgrind
+    environment:
+      <<: *ccache
+      # AVX512 not supported by Valgrind (similar to ARROW-9851) some runners support AVX512 and some do not
+      # so some build might pass without this setting, but we want to ensure that we stay to AVX2 regardless of runner.
+      EXTRA_CMAKE_FLAGS: "-DARROW_RUNTIME_SIMD_LEVEL=AVX2"
+    volumes: *ubuntu-volumes
+    command: >
+      /bin/bash -c "
+        /arrow/ci/scripts/r_valgrind.sh /arrow"
+
+
   ################################# Go ########################################
 
   debian-go:
@@ -1197,6 +1223,7 @@ services:
       <<: *ccache
       # tell archery where the arrow binaries are located
       ARROW_CPP_EXE_PATH: /build/cpp/debug
+      ARCHERY_INTEGRATION_WITH_RUST: 0
     command:
       ["/arrow/ci/scripts/rust_build.sh /arrow /build &&
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&

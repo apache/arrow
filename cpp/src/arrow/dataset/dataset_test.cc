@@ -79,23 +79,6 @@ TEST_F(TestInMemoryDataset, ReplaceSchema) {
                     .status());
 }
 
-TEST_F(TestInMemoryDataset, FromReader) {
-  constexpr int64_t kBatchSize = 1024;
-  constexpr int64_t kNumberBatches = 16;
-
-  SetSchema({field("i32", int32()), field("f64", float64())});
-  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
-  auto source_reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
-  auto target_reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
-
-  auto dataset = std::make_shared<InMemoryDataset>(source_reader);
-
-  AssertDatasetEquals(target_reader.get(), dataset.get());
-  // Such datasets can only be scanned once
-  ASSERT_OK_AND_ASSIGN(auto fragments, dataset->GetFragments());
-  ASSERT_RAISES(Invalid, fragments.Next());
-}
-
 TEST_F(TestInMemoryDataset, GetFragments) {
   constexpr int64_t kBatchSize = 1024;
   constexpr int64_t kNumberBatches = 16;

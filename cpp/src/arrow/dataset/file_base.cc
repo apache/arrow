@@ -84,18 +84,25 @@ Result<std::shared_ptr<io::InputStream>> FileSource::OpenCompressed(
   return io::CompressedInputStream::Make(codec.get(), std::move(file));
 }
 
-Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
-    FileSource source, std::shared_ptr<Schema> physical_schema) {
-  return MakeFragment(std::move(source), literal(true), std::move(physical_schema));
+Future<util::optional<int64_t>> FileFormat::CountRows(
+    const std::shared_ptr<FileFragment>&, compute::Expression,
+    std::shared_ptr<ScanOptions>) {
+  return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
 }
 
 Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
-    FileSource source, Expression partition_expression) {
+    FileSource source, std::shared_ptr<Schema> physical_schema) {
+  return MakeFragment(std::move(source), compute::literal(true),
+                      std::move(physical_schema));
+}
+
+Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
+    FileSource source, compute::Expression partition_expression) {
   return MakeFragment(std::move(source), std::move(partition_expression), nullptr);
 }
 
 Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
-    FileSource source, Expression partition_expression,
+    FileSource source, compute::Expression partition_expression,
     std::shared_ptr<Schema> physical_schema) {
   return std::shared_ptr<FileFragment>(
       new FileFragment(std::move(source), shared_from_this(),
@@ -107,7 +114,7 @@ Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
 // formats should provide their own efficient implementation.
 Result<RecordBatchGenerator> FileFormat::ScanBatchesAsync(
     const std::shared_ptr<ScanOptions>& scan_options,
-    const std::shared_ptr<FileFragment>& file) {
+    const std::shared_ptr<FileFragment>& file) const {
   ARROW_ASSIGN_OR_RAISE(auto scan_task_it, ScanFile(scan_options, file));
   struct State {
     State(std::shared_ptr<ScanOptions> scan_options, ScanTaskIterator scan_task_it)
@@ -168,15 +175,26 @@ Result<RecordBatchGenerator> FileFragment::ScanBatchesAsync(
   return format_->ScanBatchesAsync(options, self);
 }
 
+Future<util::optional<int64_t>> FileFragment::CountRows(
+    compute::Expression predicate, std::shared_ptr<ScanOptions> options) {
+  ARROW_ASSIGN_OR_RAISE(predicate, compute::SimplifyWithGuarantee(std::move(predicate),
+                                                                  partition_expression_));
+  if (!predicate.IsSatisfiable()) {
+    return Future<util::optional<int64_t>>::MakeFinished(0);
+  }
+  auto self = internal::checked_pointer_cast<FileFragment>(shared_from_this());
+  return format()->CountRows(self, std::move(predicate), std::move(options));
+}
+
 struct FileSystemDataset::FragmentSubtrees {
   // Forest for skipping fragments based on extracted subtree expressions
   Forest forest;
   // fragment indices and subtree expressions in forest order
-  std::vector<util::Variant<int, Expression>> fragments_and_subtrees;
+  std::vector<util::Variant<int, compute::Expression>> fragments_and_subtrees;
 };
 
 Result<std::shared_ptr<FileSystemDataset>> FileSystemDataset::Make(
-    std::shared_ptr<Schema> schema, Expression root_partition,
+    std::shared_ptr<Schema> schema, compute::Expression root_partition,
     std::shared_ptr<FileFormat> format, std::shared_ptr<fs::FileSystem> filesystem,
     std::vector<std::shared_ptr<FileFragment>> fragments) {
   std::shared_ptr<FileSystemDataset> out(
@@ -215,7 +233,7 @@ std::string FileSystemDataset::ToString() const {
     repr += "\n" + fragment->source().path();
 
     const auto& partition = fragment->partition_expression();
-    if (partition != literal(true)) {
+    if (partition != compute::literal(true)) {
       repr += ": " + partition.ToString();
     }
   }
@@ -264,15 +282,16 @@ void FileSystemDataset::SetupSubtreePruning() {
   });
 }
 
-Result<FragmentIterator> FileSystemDataset::GetFragmentsImpl(Expression predicate) {
-  if (predicate == literal(true)) {
+Result<FragmentIterator> FileSystemDataset::GetFragmentsImpl(
+    compute::Expression predicate) {
+  if (predicate == compute::literal(true)) {
     // trivial predicate; skip subtree pruning
     return MakeVectorIterator(FragmentVector(fragments_.begin(), fragments_.end()));
   }
 
   std::vector<int> fragment_indices;
 
-  std::vector<Expression> predicates{predicate};
+  std::vector<compute::Expression> predicates{predicate};
   RETURN_NOT_OK(subtrees_->forest.Visit(
       [&](Forest::Ref ref) -> Result<bool> {
         if (auto fragment_index =
@@ -282,7 +301,7 @@ Result<FragmentIterator> FileSystemDataset::GetFragmentsImpl(Expression predicat
         }
 
         const auto& subtree_expr =
-            util::get<Expression>(subtrees_->fragments_and_subtrees[ref.i]);
+            util::get<compute::Expression>(subtrees_->fragments_and_subtrees[ref.i]);
         ARROW_ASSIGN_OR_RAISE(auto simplified,
                               SimplifyWithGuarantee(predicates.back(), subtree_expr));
 
@@ -475,29 +494,28 @@ Status WriteNextBatch(WriteState& state, const std::shared_ptr<Fragment>& fragme
   return Status::OK();
 }
 
-Future<> WriteInternal(const ScanOptions& scan_options, WriteState& state,
-                       ScanTaskVector scan_tasks, internal::Executor* cpu_executor) {
+Status WriteInternal(const ScanOptions& scan_options, WriteState& state,
+                     ScanTaskVector scan_tasks) {
   // Store a mapping from partitions (represened by their formatted partition expressions)
   // to a WriteQueue which flushes batches into that partition's output file. In principle
   // any thread could produce a batch for any partition, so each task alternates between
   // pushing batches and flushing them to disk.
-  std::vector<Future<>> scan_futs;
   auto task_group = scan_options.TaskGroup();
 
   for (const auto& scan_task : scan_tasks) {
     task_group->Append([&, scan_task] {
-      ARROW_ASSIGN_OR_RAISE(auto batches, scan_task->Execute());
-
-      for (auto maybe_batch : batches) {
-        ARROW_ASSIGN_OR_RAISE(auto batch, maybe_batch);
-        RETURN_NOT_OK(WriteNextBatch(state, scan_task->fragment(), std::move(batch)));
-      }
-
-      return Status::OK();
+      std::function<Status(std::shared_ptr<RecordBatch>)> visitor =
+          [&](std::shared_ptr<RecordBatch> batch) {
+            return WriteNextBatch(state, scan_task->fragment(), std::move(batch));
+          };
+      return internal::SerialExecutor::RunInSerialExecutor<detail::Empty>(
+                 [&](internal::Executor* executor) {
+                   return scan_task->SafeVisit(executor, visitor);
+                 })
+          .status();
     });
   }
-  scan_futs.push_back(task_group->FinishAsync());
-  return AllComplete(scan_futs);
+  return task_group->Finish();
 }
 
 }  // namespace
@@ -537,13 +555,7 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
 #endif
 
   WriteState state(write_options);
-  auto res = internal::RunSynchronously<arrow::detail::Empty>(
-      [&](internal::Executor* cpu_executor) -> Future<> {
-        return WriteInternal(*scanner->options(), state, std::move(scan_tasks),
-                             cpu_executor);
-      },
-      scanner->options()->use_threads);
-  RETURN_NOT_OK(res);
+  RETURN_NOT_OK(WriteInternal(*scanner->options(), state, std::move(scan_tasks)));
 
   auto task_group = scanner->options()->TaskGroup();
   for (const auto& part_queue : state.queues) {

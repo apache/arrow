@@ -78,16 +78,17 @@ void BM_CastDispatchBaseline(benchmark::State& state) {
 
   ExecContext exec_context;
   KernelContext kernel_context(&exec_context);
-  auto cast_state =
-      cast_kernel->init(&kernel_context, {cast_kernel, {double_type}, &cast_options});
-  ABORT_NOT_OK(kernel_context.status());
+  auto cast_state = cast_kernel
+                        ->init(&kernel_context,
+                               KernelInitArgs{cast_kernel, {double_type}, &cast_options})
+                        .ValueOrDie();
   kernel_context.SetState(cast_state.get());
 
   for (auto _ : state) {
     Datum timestamp_scalar = MakeNullScalar(double_type);
     for (Datum int_scalar : int_scalars) {
-      exec(&kernel_context, {{std::move(int_scalar)}, 1}, &timestamp_scalar);
-      ABORT_NOT_OK(kernel_context.status());
+      ABORT_NOT_OK(
+          exec(&kernel_context, {{std::move(int_scalar)}, 1}, &timestamp_scalar));
     }
     benchmark::DoNotOptimize(timestamp_scalar);
   }
@@ -164,8 +165,7 @@ void BM_ExecuteScalarKernelOnScalar(benchmark::State& state) {
     int64_t total = 0;
     for (const auto& scalar : scalars) {
       Datum result{MakeNullScalar(int64())};
-      exec(&kernel_context, ExecBatch{{scalar}, /*length=*/1}, &result);
-      ABORT_NOT_OK(kernel_context.status());
+      ABORT_NOT_OK(exec(&kernel_context, ExecBatch{{scalar}, /*length=*/1}, &result));
       total += result.scalar()->is_valid;
     }
     benchmark::DoNotOptimize(total);

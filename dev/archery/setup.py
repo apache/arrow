@@ -19,7 +19,7 @@
 import functools
 import operator
 import sys
-from setuptools import setup
+from setuptools import setup, find_packages
 
 if sys.version_info < (3, 6):
     sys.exit('Python < 3.6 is not supported')
@@ -44,13 +44,7 @@ setup(
     url='http://github.com/apache/arrow',
     maintainer='Arrow Developers',
     maintainer_email='dev@arrow.apache.org',
-    packages=[
-        'archery',
-        'archery.benchmark',
-        'archery.integration',
-        'archery.lang',
-        'archery.utils'
-    ],
+    packages=find_packages(),
     include_package_data=True,
     install_requires=['click>=7'],
     tests_require=['pytest', 'responses'],

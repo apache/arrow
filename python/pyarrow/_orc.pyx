@@ -31,6 +31,7 @@ from pyarrow.lib cimport (check_status, _Weakrefable,
                           KeyValueMetadata,
                           pyarrow_wrap_batch,
                           RecordBatch,
+                          Table,
                           pyarrow_wrap_table,
                           pyarrow_unwrap_schema,
                           pyarrow_wrap_metadata,
@@ -149,7 +150,7 @@ cdef class ORCWriter(_Weakrefable):
             self.writer = move(GetResultValue[unique_ptr[ORCFileWriter]](
                 ORCFileWriter.Open(self.rd_handle.get())))
 
-    def write(self, object table):
+    def write(self, Table table):
         cdef:
             shared_ptr[CTable] sp_table
         sp_table = pyarrow_unwrap_table(table)

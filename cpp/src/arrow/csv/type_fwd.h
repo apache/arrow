@@ -22,6 +22,7 @@ class TableReader;
 struct ConvertOptions;
 struct ReadOptions;
 struct ParseOptions;
+struct WriteOptions;
 
 }  // namespace csv
 }  // namespace arrow

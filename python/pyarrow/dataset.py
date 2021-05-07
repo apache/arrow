@@ -49,7 +49,6 @@ from pyarrow._dataset import (  # noqa
     PartitioningFactory,
     RowGroupInfo,
     Scanner,
-    ScanTask,
     TaggedRecordBatch,
     UnionDataset,
     UnionDatasetFactory,
@@ -670,10 +669,7 @@ or tables, iterable of batches, RecordBatchReader, or URI
                 'of batches or tables. The given list contains the following '
                 'types: {}'.format(type_names)
             )
-    elif isinstance(source, (pa.RecordBatch, pa.ipc.RecordBatchReader,
-                             pa.Table)):
-        return _in_memory_dataset(source, **kwargs)
-    elif _is_iterable(source):
+    elif isinstance(source, (pa.RecordBatch, pa.Table)):
         return _in_memory_dataset(source, **kwargs)
     else:
         raise TypeError(
@@ -734,19 +730,20 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
     """
     from pyarrow.fs import _resolve_filesystem_and_path
 
-    if isinstance(data, Dataset):
-        schema = schema or data.schema
-    elif isinstance(data, (list, tuple)):
+    if isinstance(data, (list, tuple)):
         schema = schema or data[0].schema
         data = InMemoryDataset(data, schema=schema)
-    elif isinstance(data, (pa.RecordBatch, pa.ipc.RecordBatchReader,
-                           pa.Table)) or _is_iterable(data):
-        data = InMemoryDataset(data, schema=schema)
+    elif isinstance(data, (pa.RecordBatch, pa.Table)):
         schema = schema or data.schema
-    else:
+        data = InMemoryDataset(data, schema=schema)
+    elif isinstance(data, pa.ipc.RecordBatchReader) or _is_iterable(data):
+        data = Scanner.from_batches(data, schema=schema)
+        schema = None
+    elif not isinstance(data, (Dataset, Scanner)):
         raise ValueError(
-            "Only Dataset, Table/RecordBatch, RecordBatchReader, a list "
-            "of Tables/RecordBatches, or iterable of batches are supported."
+            "Only Dataset, Scanner, Table/RecordBatch, RecordBatchReader, "
+            "a list of Tables/RecordBatches, or iterable of batches are "
+            "supported."
         )
 
     if format is None and isinstance(data, FileSystemDataset):
@@ -772,8 +769,16 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
 
     filesystem, base_dir = _resolve_filesystem_and_path(base_dir, filesystem)
 
+    if isinstance(data, Dataset):
+        scanner = data.scanner(use_threads=use_threads)
+    else:
+        # scanner was passed directly by the user, in which case a schema
+        # cannot be passed
+        if schema is not None:
+            raise ValueError("Cannot specify a schema when writing a Scanner")
+        scanner = data
+
     _filesystemdataset_write(
-        data, base_dir, basename_template, schema,
-        filesystem, partitioning, file_options, use_threads,
-        max_partitions
+        scanner, base_dir, basename_template, filesystem, partitioning,
+        file_options, max_partitions
     )

@@ -490,9 +490,9 @@ void TakeIndexDispatch(const PrimitiveArg& values, const PrimitiveArg& indices,
   }
 }
 
-void PrimitiveTake(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status PrimitiveTake(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   if (TakeState::Get(ctx).boundscheck) {
-    KERNEL_RETURN_IF_ERROR(ctx, CheckIndexBounds(*batch[1].array(), batch[0].length()));
+    RETURN_NOT_OK(CheckIndexBounds(*batch[1].array(), batch[0].length()));
   }
 
   PrimitiveArg values = GetPrimitiveArg(*batch[0].array());
@@ -504,23 +504,29 @@ void PrimitiveTake(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   // allocating the validity bitmap altogether and save time and space. A
   // streamlined PrimitiveTakeImpl would need to be written that skips all
   // interactions with the output validity bitmap, though.
-  KERNEL_RETURN_IF_ERROR(ctx, PreallocateData(ctx, indices.length, values.bit_width,
-                                              /*allocate_validity=*/true, out_arr));
+  RETURN_NOT_OK(PreallocateData(ctx, indices.length, values.bit_width,
+                                /*allocate_validity=*/true, out_arr));
   switch (values.bit_width) {
     case 1:
-      return TakeIndexDispatch<BooleanTakeImpl>(values, indices, out_arr);
+      TakeIndexDispatch<BooleanTakeImpl>(values, indices, out_arr);
+      break;
     case 8:
-      return TakeIndexDispatch<PrimitiveTakeImpl, int8_t>(values, indices, out_arr);
+      TakeIndexDispatch<PrimitiveTakeImpl, int8_t>(values, indices, out_arr);
+      break;
     case 16:
-      return TakeIndexDispatch<PrimitiveTakeImpl, int16_t>(values, indices, out_arr);
+      TakeIndexDispatch<PrimitiveTakeImpl, int16_t>(values, indices, out_arr);
+      break;
     case 32:
-      return TakeIndexDispatch<PrimitiveTakeImpl, int32_t>(values, indices, out_arr);
+      TakeIndexDispatch<PrimitiveTakeImpl, int32_t>(values, indices, out_arr);
+      break;
     case 64:
-      return TakeIndexDispatch<PrimitiveTakeImpl, int64_t>(values, indices, out_arr);
+      TakeIndexDispatch<PrimitiveTakeImpl, int64_t>(values, indices, out_arr);
+      break;
     default:
       DCHECK(false) << "Invalid values byte width";
       break;
   }
+  return Status::OK();
 }
 
 // ----------------------------------------------------------------------
@@ -777,7 +783,7 @@ inline void PrimitiveFilterImpl<BooleanType>::WriteNull() {
   BitUtil::ClearBit(out_data_, out_offset_ + out_position_++);
 }
 
-void PrimitiveFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status PrimitiveFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   PrimitiveArg values = GetPrimitiveArg(*batch[0].array());
   PrimitiveArg filter = GetPrimitiveArg(*batch[1].array());
   FilterOptions::NullSelectionBehavior null_selection =
@@ -802,29 +808,30 @@ void PrimitiveFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   // validity bitmap.
   bool allocate_validity = values.null_count != 0 || filter.null_count != 0;
 
-  KERNEL_RETURN_IF_ERROR(ctx, PreallocateData(ctx, output_length, values.bit_width,
-                                              allocate_validity, out_arr));
+  RETURN_NOT_OK(
+      PreallocateData(ctx, output_length, values.bit_width, allocate_validity, out_arr));
 
   switch (values.bit_width) {
     case 1:
-      return PrimitiveFilterImpl<BooleanType>(values, filter, null_selection, out_arr)
-          .Exec();
+      PrimitiveFilterImpl<BooleanType>(values, filter, null_selection, out_arr).Exec();
+      break;
     case 8:
-      return PrimitiveFilterImpl<UInt8Type>(values, filter, null_selection, out_arr)
-          .Exec();
+      PrimitiveFilterImpl<UInt8Type>(values, filter, null_selection, out_arr).Exec();
+      break;
     case 16:
-      return PrimitiveFilterImpl<UInt16Type>(values, filter, null_selection, out_arr)
-          .Exec();
+      PrimitiveFilterImpl<UInt16Type>(values, filter, null_selection, out_arr).Exec();
+      break;
     case 32:
-      return PrimitiveFilterImpl<UInt32Type>(values, filter, null_selection, out_arr)
-          .Exec();
+      PrimitiveFilterImpl<UInt32Type>(values, filter, null_selection, out_arr).Exec();
+      break;
     case 64:
-      return PrimitiveFilterImpl<UInt64Type>(values, filter, null_selection, out_arr)
-          .Exec();
+      PrimitiveFilterImpl<UInt64Type>(values, filter, null_selection, out_arr).Exec();
+      break;
     default:
       DCHECK(false) << "Invalid values bit width";
       break;
   }
+  return Status::OK();
 }
 
 // ----------------------------------------------------------------------
@@ -1072,7 +1079,7 @@ Status BinaryFilterImpl(KernelContext* ctx, const ArrayData& values,
 #undef APPEND_RAW_DATA
 #undef APPEND_SINGLE_VALUE
 
-void BinaryFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status BinaryFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   FilterOptions::NullSelectionBehavior null_selection =
       FilterState::Get(ctx).null_selection_behavior;
 
@@ -1094,97 +1101,100 @@ void BinaryFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   if (values.null_count == 0 && filter.null_count == 0) {
     // Faster no-nulls case
     if (is_binary_like(type_id)) {
-      KERNEL_RETURN_IF_ERROR(
-          ctx, BinaryFilterNonNullImpl<BinaryType>(ctx, values, filter, output_length,
-                                                   null_selection, out_arr));
+      RETURN_NOT_OK(BinaryFilterNonNullImpl<BinaryType>(
+          ctx, values, filter, output_length, null_selection, out_arr));
     } else if (is_large_binary_like(type_id)) {
-      KERNEL_RETURN_IF_ERROR(
-          ctx, BinaryFilterNonNullImpl<LargeBinaryType>(
-                   ctx, values, filter, output_length, null_selection, out_arr));
+      RETURN_NOT_OK(BinaryFilterNonNullImpl<LargeBinaryType>(
+          ctx, values, filter, output_length, null_selection, out_arr));
     } else {
       DCHECK(false);
     }
   } else {
     // Output may have nulls
-    KERNEL_RETURN_IF_ERROR(
-        ctx, ctx->AllocateBitmap(output_length).Value(&out_arr->buffers[0]));
+    RETURN_NOT_OK(ctx->AllocateBitmap(output_length).Value(&out_arr->buffers[0]));
     if (is_binary_like(type_id)) {
-      KERNEL_RETURN_IF_ERROR(
-          ctx, BinaryFilterImpl<BinaryType>(ctx, values, filter, output_length,
-                                            null_selection, out_arr));
-    } else if (is_large_binary_like(type_id)) {
-      KERNEL_RETURN_IF_ERROR(
-          ctx, BinaryFilterImpl<LargeBinaryType>(ctx, values, filter, output_length,
+      RETURN_NOT_OK(BinaryFilterImpl<BinaryType>(ctx, values, filter, output_length,
                                                  null_selection, out_arr));
+    } else if (is_large_binary_like(type_id)) {
+      RETURN_NOT_OK(BinaryFilterImpl<LargeBinaryType>(ctx, values, filter, output_length,
+                                                      null_selection, out_arr));
     } else {
       DCHECK(false);
     }
   }
+
+  return Status::OK();
 }
 
 // ----------------------------------------------------------------------
 // Null take and filter
 
-void NullTake(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status NullTake(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   if (TakeState::Get(ctx).boundscheck) {
-    KERNEL_RETURN_IF_ERROR(ctx, CheckIndexBounds(*batch[1].array(), batch[0].length()));
+    RETURN_NOT_OK(CheckIndexBounds(*batch[1].array(), batch[0].length()));
   }
   // batch.length doesn't take into account the take indices
   auto new_length = batch[1].array()->length;
   out->value = std::make_shared<NullArray>(new_length)->data();
+  return Status::OK();
 }
 
-void NullFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status NullFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   int64_t output_length = GetFilterOutputSize(
       *batch[1].array(), FilterState::Get(ctx).null_selection_behavior);
   out->value = std::make_shared<NullArray>(output_length)->data();
+  return Status::OK();
 }
 
 // ----------------------------------------------------------------------
 // Dictionary take and filter
 
-void DictionaryTake(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status DictionaryTake(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   DictionaryArray values(batch[0].array());
   Datum result;
-  KERNEL_RETURN_IF_ERROR(ctx, Take(Datum(values.indices()), batch[1], TakeState::Get(ctx),
-                                   ctx->exec_context())
-                                  .Value(&result));
+  RETURN_NOT_OK(
+      Take(Datum(values.indices()), batch[1], TakeState::Get(ctx), ctx->exec_context())
+          .Value(&result));
   DictionaryArray taken_values(values.type(), result.make_array(), values.dictionary());
   out->value = taken_values.data();
+  return Status::OK();
 }
 
-void DictionaryFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status DictionaryFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   DictionaryArray dict_values(batch[0].array());
   Datum result;
-  KERNEL_RETURN_IF_ERROR(ctx, Filter(Datum(dict_values.indices()), batch[1].array(),
-                                     FilterState::Get(ctx), ctx->exec_context())
-                                  .Value(&result));
+  RETURN_NOT_OK(Filter(Datum(dict_values.indices()), batch[1].array(),
+                       FilterState::Get(ctx), ctx->exec_context())
+                    .Value(&result));
   DictionaryArray filtered_values(dict_values.type(), result.make_array(),
                                   dict_values.dictionary());
   out->value = filtered_values.data();
+  return Status::OK();
 }
 
 // ----------------------------------------------------------------------
 // Extension take and filter
 
-void ExtensionTake(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status ExtensionTake(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   ExtensionArray values(batch[0].array());
   Datum result;
-  KERNEL_RETURN_IF_ERROR(ctx, Take(Datum(values.storage()), batch[1], TakeState::Get(ctx),
-                                   ctx->exec_context())
-                                  .Value(&result));
+  RETURN_NOT_OK(
+      Take(Datum(values.storage()), batch[1], TakeState::Get(ctx), ctx->exec_context())
+          .Value(&result));
   ExtensionArray taken_values(values.type(), result.make_array());
   out->value = taken_values.data();
+  return Status::OK();
 }
 
-void ExtensionFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status ExtensionFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   ExtensionArray ext_values(batch[0].array());
   Datum result;
-  KERNEL_RETURN_IF_ERROR(ctx, Filter(Datum(ext_values.storage()), batch[1].array(),
-                                     FilterState::Get(ctx), ctx->exec_context())
-                                  .Value(&result));
+  RETURN_NOT_OK(Filter(Datum(ext_values.storage()), batch[1].array(),
+                       FilterState::Get(ctx), ctx->exec_context())
+                    .Value(&result));
   ExtensionArray filtered_values(ext_values.type(), result.make_array());
   out->value = filtered_values.data();
+  return Status::OK();
 }
 
 // ----------------------------------------------------------------------
@@ -1742,20 +1752,20 @@ struct StructImpl : public Selection<StructImpl, StructType> {
   }
 };
 
-void StructFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status StructFilter(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   // Transform filter to selection indices and then use Take.
   std::shared_ptr<ArrayData> indices;
-  KERNEL_RETURN_IF_ERROR(
-      ctx,
-      GetTakeIndices(*batch[1].array(), FilterState::Get(ctx).null_selection_behavior,
-                     ctx->memory_pool())
-          .Value(&indices));
+  RETURN_NOT_OK(GetTakeIndices(*batch[1].array(),
+                               FilterState::Get(ctx).null_selection_behavior,
+                               ctx->memory_pool())
+                    .Value(&indices));
 
   Datum result;
-  KERNEL_RETURN_IF_ERROR(ctx, Take(batch[0], Datum(indices), TakeOptions::NoBoundsCheck(),
-                                   ctx->exec_context())
-                                  .Value(&result));
+  RETURN_NOT_OK(
+      Take(batch[0], Datum(indices), TakeOptions::NoBoundsCheck(), ctx->exec_context())
+          .Value(&result));
   out->value = result.array();
+  return Status::OK();
 }
 
 #undef LIFT_BASE_MEMBERS
@@ -2064,21 +2074,21 @@ class TakeMetaFunction : public MetaFunction {
 // ----------------------------------------------------------------------
 
 template <typename Impl>
-void FilterExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status FilterExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   // TODO: where are the values and filter length equality checked?
   int64_t output_length = GetFilterOutputSize(
       *batch[1].array(), FilterState::Get(ctx).null_selection_behavior);
   Impl kernel(ctx, batch, output_length, out);
-  KERNEL_RETURN_IF_ERROR(ctx, kernel.ExecFilter());
+  return kernel.ExecFilter();
 }
 
 template <typename Impl>
-void TakeExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status TakeExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   if (TakeState::Get(ctx).boundscheck) {
-    KERNEL_RETURN_IF_ERROR(ctx, CheckIndexBounds(*batch[1].array(), batch[0].length()));
+    RETURN_NOT_OK(CheckIndexBounds(*batch[1].array(), batch[0].length()));
   }
   Impl kernel(ctx, batch, /*output_length=*/batch[1].length(), out);
-  KERNEL_RETURN_IF_ERROR(ctx, kernel.ExecTake());
+  return kernel.ExecTake();
 }
 
 struct SelectionKernelDescr {

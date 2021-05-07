@@ -51,9 +51,6 @@ fi
 
 cd "${SOURCE_DIR}"
 
-: ${BINTRAY_REPOSITORY_CUSTOM:=${BINTRAY_REPOSITORY:-}}
-: ${SOURCE_BINTRAY_REPOSITORY_CUSTOM:=${SOURCE_BINTRAY_REPOSITORY:-}}}
-
 if [ ! -f .env ]; then
   echo "You must create $(pwd)/.env"
   echo "You can use $(pwd)/.env.example as template"
@@ -61,20 +58,14 @@ if [ ! -f .env ]; then
 fi
 . .env
 
-if [ -n "${BINTRAY_REPOSITORY_CUSTOM}" ]; then
-  BINTRAY_REPOSITORY=${BINTRAY_REPOSITORY_CUSTOM}
-fi
-
-if [ -n "${SOURCE_BINTRAY_REPOSITORY_CUSTOM}" ]; then
-  SOURCE_BINTRAY_REPOSITORY=${SOURCE_BINTRAY_REPOSITORY_CUSTOM}
-fi
-
 . utils-binary.sh
 
 # By default upload all artifacts.
 # To deactivate one category, deactivate the category and all of its dependents.
 # To explicitly select one category, set UPLOAD_DEFAULT=0 UPLOAD_X=1.
 : ${UPLOAD_DEFAULT:=1}
+: ${UPLOAD_AMAZON_LINUX_RPM:=${UPLOAD_DEFAULT}}
+: ${UPLOAD_AMAZON_LINUX_YUM:=${UPLOAD_DEFAULT}}
 : ${UPLOAD_CENTOS_RPM:=${UPLOAD_DEFAULT}}
 : ${UPLOAD_CENTOS_YUM:=${UPLOAD_DEFAULT}}
 : ${UPLOAD_DEBIAN_APT:=${UPLOAD_DEFAULT}}
@@ -87,21 +78,13 @@ fi
 rake_tasks=()
 apt_targets=()
 yum_targets=()
-if [ ${UPLOAD_DEBIAN_DEB} -gt 0 ]; then
-  rake_tasks+=(deb)
-  apt_targets+=(debian)
+if [ ${UPLOAD_AMAZON_LINUX_RPM} -gt 0 ]; then
+  rake_tasks+=(rpm)
+  yum_targets+=(amazon-linux)
 fi
-if [ ${UPLOAD_DEBIAN_APT} -gt 0 ]; then
-  rake_tasks+=(apt:rc)
-  apt_targets+=(debian)
-fi
-if [ ${UPLOAD_UBUNTU_DEB} -gt 0 ]; then
-  rake_tasks+=(deb)
-  apt_targets+=(ubuntu)
-fi
-if [ ${UPLOAD_UBUNTU_APT} -gt 0 ]; then
-  rake_tasks+=(apt:rc)
-  apt_targets+=(ubuntu)
+if [ ${UPLOAD_AMAZON_LINUX_YUM} -gt 0 ]; then
+  rake_tasks+=(yum:rc)
+  yum_targets+=(amazon-linux)
 fi
 if [ ${UPLOAD_CENTOS_RPM} -gt 0 ]; then
   rake_tasks+=(rpm)
@@ -111,11 +94,27 @@ if [ ${UPLOAD_CENTOS_YUM} -gt 0 ]; then
   rake_tasks+=(yum:rc)
   yum_targets+=(centos)
 fi
+if [ ${UPLOAD_DEBIAN_DEB} -gt 0 ]; then
+  rake_tasks+=(deb)
+  apt_targets+=(debian)
+fi
+if [ ${UPLOAD_DEBIAN_APT} -gt 0 ]; then
+  rake_tasks+=(apt:rc)
+  apt_targets+=(debian)
+fi
 if [ ${UPLOAD_NUGET} -gt 0 ]; then
   rake_tasks+=(nuget:rc)
 fi
 if [ ${UPLOAD_PYTHON} -gt 0 ]; then
   rake_tasks+=(python:rc)
+fi
+if [ ${UPLOAD_UBUNTU_DEB} -gt 0 ]; then
+  rake_tasks+=(deb)
+  apt_targets+=(ubuntu)
+fi
+if [ ${UPLOAD_UBUNTU_APT} -gt 0 ]; then
+  rake_tasks+=(apt:rc)
+  apt_targets+=(ubuntu)
 fi
 rake_tasks+=(summary:rc)
 
@@ -131,8 +130,6 @@ docker_run \
     "${rake_tasks[@]}" \
     APT_TARGETS=$(IFS=,; echo "${apt_targets[*]}") \
     ARTIFACTS_DIR="${tmp_dir}/artifacts" \
-    BINTRAY_REPOSITORY=${BINTRAY_REPOSITORY} \
     RC=${rc} \
-    SOURCE_BINTRAY_REPOSITORY=${SOURCE_BINTRAY_REPOSITORY} \
     VERSION=${version} \
     YUM_TARGETS=$(IFS=,; echo "${yum_targets[*]}")

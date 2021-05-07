@@ -47,7 +47,7 @@ for base_name in ${base_names[@]}; do
       --fail \
       --location \
       --remote-name \
-      https://apache.bintray.com/arrow/nuget/${version}/${path}
+      https://apache.jfrog.io/artifactory/nuget/${version}/${path}
   done
   dotnet nuget push \
     ${base_name}.nupkg \

@@ -128,7 +128,7 @@ test_binary() {
   local download_dir=binaries
   mkdir -p ${download_dir}
 
-  python $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
+  ${PYTHON:-python} $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
          --dest=${download_dir}
 
   verify_dir_artifact_signatures ${download_dir}
@@ -163,8 +163,7 @@ test_apt() {
            "${target}" \
            /arrow/dev/release/verify-apt.sh \
            "${VERSION}" \
-           "rc" \
-           "${BINTRAY_REPOSITORY}"; then
+           "rc"; then
       echo "Failed to verify the APT repository for ${target}"
       exit 1
     fi
@@ -172,7 +171,8 @@ test_apt() {
 }
 
 test_yum() {
-  for target in "centos:7" \
+  for target in "amazonlinux:2" \
+                "centos:7" \
                 "centos:8" \
                 "arm64v8/centos:8"; do
     case "${target}" in
@@ -188,8 +188,7 @@ test_yum() {
            "${target}" \
            /arrow/dev/release/verify-yum.sh \
            "${VERSION}" \
-           "rc" \
-           "${BINTRAY_REPOSITORY}"; then
+           "rc"; then
       echo "Failed to verify the Yum repository for ${target}"
       exit 1
     fi
@@ -600,8 +599,6 @@ test_source_distribution() {
 }
 
 test_binary_distribution() {
-  : ${BINTRAY_REPOSITORY:=apache/arrow}
-
   if [ ${TEST_BINARY} -gt 0 ]; then
     test_binary
   fi
@@ -766,7 +763,17 @@ TEST_JS=$((${TEST_JS} + ${TEST_INTEGRATION_JS}))
 TEST_GO=$((${TEST_GO} + ${TEST_INTEGRATION_GO}))
 TEST_INTEGRATION=$((${TEST_INTEGRATION} + ${TEST_INTEGRATION_CPP} + ${TEST_INTEGRATION_JAVA} + ${TEST_INTEGRATION_JS} + ${TEST_INTEGRATION_GO}))
 
-NEED_MINICONDA=$((${TEST_CPP} + ${TEST_WHEELS} + ${TEST_BINARY} + ${TEST_INTEGRATION}))
+if [ "${ARTIFACT}" == "source" ]; then
+  NEED_MINICONDA=$((${TEST_CPP} + ${TEST_INTEGRATION}))
+elif [ "${ARTIFACT}" == "wheels" ]; then
+  NEED_MINICONDA=$((${TEST_WHEELS}))
+else
+  if [ -z "${PYTHON:-}" ]; then
+    NEED_MINICONDA=$((${TEST_BINARY}))
+  else
+    NEED_MINICONDA=0
+  fi
+fi
 
 : ${TEST_ARCHIVE:=apache-arrow-${VERSION}.tar.gz}
 case "${TEST_ARCHIVE}" in

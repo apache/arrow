@@ -56,7 +56,8 @@
 Scanner <- R6Class("Scanner", inherit = ArrowObject,
   public = list(
     ToTable = function() dataset___Scanner__ToTable(self),
-    ScanBatches = function() dataset___Scanner__ScanBatches(self)
+    ScanBatches = function() dataset___Scanner__ScanBatches(self),
+    CountRows = function() dataset___Scanner__CountRows(self)
   ),
   active = list(
     schema = function() dataset___Scanner__schema(self)

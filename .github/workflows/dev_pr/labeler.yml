@@ -45,19 +45,9 @@ lang-R:
 lang-ruby:
   - ruby/**/*
 
-lang-rust:
-  - rust/**/*
-
-datafusion:
-  - rust/datafusion/**/*
-
-ballista:
-  - rust/ballista/**/*
-
 flight:
   - cpp/src/arrow/flight/**/*
   - r/R/flight.*
-  - rust/arrow-flight/**/*
   - python/pyarrow/*flight.*
 
 gandiva:
@@ -71,4 +61,3 @@ parquet:
   - cpp/src/parquet/**/*
   - r/R/parquet.*
   - ruby/red-parquet/**/*
-  - rust/parquet*/**/*

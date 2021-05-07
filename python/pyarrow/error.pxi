@@ -188,8 +188,8 @@ cdef class SignalStopHandler:
                 if signal.getsignal(sig) not in (signal.SIG_DFL,
                                                  signal.SIG_IGN, None)]
 
+        self._stop_token = StopToken()
         if not self._signals.empty():
-            self._stop_token = StopToken()
             self._stop_token.init(GetResultValue(
                 SetSignalStopSource()).token())
             self._enabled = True

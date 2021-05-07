@@ -22,6 +22,13 @@
 jobs:
   package:
     name: Package
+    # We can't use Ubuntu 20.04 because it doesn't ship neither
+    # createrepo nor createrepo_c. We'll be able to use Ubuntu
+    # 22.04. It will ship createrepo_c. Or we can build createrepo_c
+    # from source like we do in travis.linux.arm64.yml.
+    #
+    # Note that createrepo or createrepo_c is only needed to test Yum
+    # repository.
     runs-on: ubuntu-18.04
     steps:
       {{ macros.github_checkout_arrow()|indent }}
@@ -30,7 +37,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '2.6'
+          ruby-version: '3.0'
       - name: Free Up Disk Space
         shell: bash
         run: arrow/ci/scripts/util_cleanup.sh
