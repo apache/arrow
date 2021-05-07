@@ -759,4 +759,53 @@ TEST(TestGdvFnStubs, TestCastVarbinaryFloat8) {
   ctx.Reset();
 }
 
+TEST(TestGdvFnStubs, TestCastFLOAT4Varbinary) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+
+  EXPECT_EQ(gdv_fn_castFLOAT4_varbinary(ctx_ptr, "-FFF.3", 6), -65523);
+  EXPECT_FALSE(ctx.has_error());
+  ctx.Reset();
+
+  EXPECT_EQ(gdv_fn_castFLOAT4_varbinary(ctx_ptr, "FFF3", 4), 65523);
+  EXPECT_FALSE(ctx.has_error());
+  ctx.Reset();
+
+  EXPECT_EQ(gdv_fn_castFLOAT4_varbinary(ctx_ptr, "-7FFFFFFFFFFFFFFF", 17), INT64_MIN + 1);
+  EXPECT_FALSE(ctx.has_error());
+  ctx.Reset();
+
+  EXPECT_EQ(gdv_fn_castFLOAT4_varbinary(ctx_ptr, "7FFFFFFFFFFFFFFF", 16), INT64_MAX);
+  EXPECT_FALSE(ctx.has_error());
+  ctx.Reset();
+
+  EXPECT_EQ(gdv_fn_castFLOAT4_varbinary(ctx_ptr, "0", 1), 0);
+  EXPECT_FALSE(ctx.has_error());
+  ctx.Reset();
+
+  EXPECT_EQ(gdv_fn_castFLOAT4_varbinary(ctx_ptr, "-0", 2), 0);
+  EXPECT_FALSE(ctx.has_error());
+  ctx.Reset();
+
+  gdv_fn_castFLOAT4_varbinary(ctx_ptr, "", 0);
+  EXPECT_STREQ(ctx.get_error().c_str(), "Can't cast an empty string.");
+  ctx.Reset();
+
+  gdv_fn_castFLOAT4_varbinary(ctx_ptr, "-", 1);
+  EXPECT_STREQ(ctx.get_error().c_str(), "Can't cast hexadecimal with only a minus sign.");
+  ctx.Reset();
+
+  gdv_fn_castFLOAT4_varbinary(ctx_ptr, "8FFFFFFFFFFFFFFF", 16);
+  EXPECT_STREQ(ctx.get_error().c_str(), "Integer overflow.");
+  ctx.Reset();
+
+  gdv_fn_castFLOAT4_varbinary(ctx_ptr, "-8FFFFFFFFFFFFFFF", 17);
+  EXPECT_STREQ(ctx.get_error().c_str(), "Integer overflow.");
+  ctx.Reset();
+
+  gdv_fn_castFLOAT4_varbinary(ctx_ptr, "-8FFFFFGF", 8);
+  EXPECT_STREQ(ctx.get_error().c_str(), "The hexadecimal given has invalid characters.");
+  ctx.Reset();
+}
+
 }  // namespace gandiva

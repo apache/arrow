@@ -1146,10 +1146,9 @@ TEST_F(TestProjector, TestCastVarbinaryFunction) {
 
   std::shared_ptr<Projector> projector;
 
-  //  {cast_expr_float4, cast_expr_float8, cast_expr_int4, cast_expr_int8}
-  auto status = Projector::Make(
-      schema, {cast_expr_float4, cast_expr_float8, cast_expr_int4, cast_expr_int8},
-      TestConfiguration(), &projector);
+  //  {cast_expr_int4, cast_expr_int8}
+  auto status = Projector::Make(schema, {cast_expr_int4, cast_expr_int8},
+                                TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -1157,11 +1156,14 @@ TEST_F(TestProjector, TestCastVarbinaryFunction) {
 
   // Last validity is false and the cast functions throw error when input is empty. Should
   // not be evaluated due to addition of NativeFunction::kCanReturnErrors
-  auto array0 = MakeArrowArrayBinary({"25", "-7FFFFFFF", "7FFFFFFF", "4"}, {true, true, true, false});
+  auto array0 = MakeArrowArrayBinary({"25", "-7FFFFFFF", "7FFFFFFF", "4"},
+                                     {true, true, true, false});
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
 
-  auto out_int4 = MakeArrowArrayInt32({37, INT32_MIN+1, INT32_MAX, 0}, {true, true, true, false});
-  auto out_int8 = MakeArrowArrayInt64({37, INT32_MIN+1, INT32_MAX, 0}, {true, true, true, false});
+  auto out_int4 =
+      MakeArrowArrayInt32({37, INT32_MIN + 1, INT32_MAX, 0}, {true, true, true, false});
+  auto out_int8 =
+      MakeArrowArrayInt64({37, INT32_MIN + 1, INT32_MAX, 0}, {true, true, true, false});
 
   arrow::ArrayVector outputs;
 

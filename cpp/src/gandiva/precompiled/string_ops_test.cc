@@ -1695,7 +1695,7 @@ TEST(TestStringOps, TestCastINTVarbinary) {
   EXPECT_FALSE(ctx.has_error());
   ctx.Reset();
 
-  EXPECT_EQ(castINT_varbinary(ctx_ptr, "-7FFFFFFF", 9), INT32_MIN+1);
+  EXPECT_EQ(castINT_varbinary(ctx_ptr, "-7FFFFFFF", 9), INT32_MIN + 1);
   EXPECT_FALSE(ctx.has_error());
   ctx.Reset();
 
@@ -1744,7 +1744,7 @@ TEST(TestStringOps, TestCastBIGINTVarbinary) {
   EXPECT_FALSE(ctx.has_error());
   ctx.Reset();
 
-  EXPECT_EQ(castBIGINT_varbinary(ctx_ptr, "-7FFFFFFFFFFFFFFF", 17), INT64_MIN+1);
+  EXPECT_EQ(castBIGINT_varbinary(ctx_ptr, "-7FFFFFFFFFFFFFFF", 17), INT64_MIN + 1);
   EXPECT_FALSE(ctx.has_error());
   ctx.Reset();
 
