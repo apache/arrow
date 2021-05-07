@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-library(purrr)
-
 test_that("RecordBatch", {
   # Note that we're reusing `tbl` and `batch` throughout the tests in this file
   tbl <- tibble::tibble(
