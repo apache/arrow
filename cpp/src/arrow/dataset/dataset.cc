@@ -149,6 +149,18 @@ Result<RecordBatchGenerator> InMemoryFragment::ScanBatchesAsync(
                    options->batch_size);
 }
 
+Future<util::optional<int64_t>> InMemoryFragment::CountRows(
+    compute::Expression predicate, std::shared_ptr<ScanOptions> options) {
+  if (ExpressionHasFieldRefs(predicate)) {
+    return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
+  }
+  int64_t total = 0;
+  for (const auto& batch : record_batches_) {
+    total += batch->num_rows();
+  }
+  return Future<util::optional<int64_t>>::MakeFinished(total);
+}
+
 Dataset::Dataset(std::shared_ptr<Schema> schema, compute::Expression partition_expression)
     : schema_(std::move(schema)),
       partition_expression_(std::move(partition_expression)) {}

@@ -133,6 +133,8 @@ class ARROW_DS_EXPORT InMemoryFragment : public Fragment {
   Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options) override;
   Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options) override;
+  Future<util::optional<int64_t>> CountRows(
+      compute::Expression predicate, std::shared_ptr<ScanOptions> options) override;
 
   std::string type_name() const override { return "in-memory"; }
 
