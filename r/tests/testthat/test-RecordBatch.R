@@ -510,9 +510,9 @@ test_that("ARROW-11769 - grouping preserved in record batch creation", {
   
   expect_identical(
     tbl %>%
-      group_by(fct, fct2) %>%
+      dplyr::group_by(fct, fct2) %>%
       record_batch() %>%
-      group_vars(),
+      dplyr::group_vars(),
     c("fct", "fct2")
   )
   
