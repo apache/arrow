@@ -550,7 +550,7 @@ arrow_r_string_split_function <- function(FUN, reverse = FALSE, max_splits = -1)
     # expression pattern (ARROW-12608) but the default behavior of
     # base::strsplit() is to interpret the split pattern as a regex
     # (fixed = FALSE). R users commonly pass non-regex split patterns to
-    # strsplit() without bothering to set fixed = TRUE It would be annoying if
+    # strsplit() without bothering to set fixed = TRUE. It would be annoying if
     # that didn't work here. So: if fixed = FALSE, let's check the split pattern
     # to see if it is a regex (if it contains any regex metacharacters). If not,
     # then allow to proceed.
