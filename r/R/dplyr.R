@@ -543,16 +543,28 @@ arrow_stringr_string_replace_function <- function(FUN, max_replacements) {
 
 arrow_r_string_split_function <- function(FUN, reverse = FALSE, max_splits = -1) {
   function(x, split, fixed = FALSE, perl = FALSE, useBytes = FALSE) {
-    
+
     assert_that(is.string(split))
-    
-    # if !fixed but no regex metachars in split pattern, allow to proceed as split isn't regex
+
+    # The Arrow C++ library does not support splitting a string by a regular
+    # expression pattern (ARROW-12608) but the default behavior of
+    # base::strsplit() is to interpret the split pattern as a regex
+    # (fixed = FALSE). R users commonly pass non-regex split patterns to
+    # strsplit() without bothering to set fixed = FALSE. It would be annoying if
+    # that didn't work here. So: if fixed = FALSE, let's check the split pattern
+    # to see if it is a regex (if it contains any regex metacharacters). If not,
+    # then allow to proceed.
     if (!fixed && contains_regex(split)) {
       stop("Regular expression matching not supported in strsplit for Arrow", call. = FALSE)
     }
+    # warn when the user specifies both fixed = TRUE and perl = TRUE, for
+    # consistency with the behavior of base::strsplit()
     if (fixed && perl) {
       warning("Argument 'perl = TRUE' will be ignored", call. = FALSE)
     }
+    # since split is not a regex, proceed without any warnings or errors
+    # regardless of the value of perl, for consistency with the behavior of
+    # base::strsplit()
     FUN("split_pattern", x, options = list(pattern = split, reverse = reverse, max_splits = max_splits))
   }
 }
@@ -575,6 +587,10 @@ arrow_stringr_string_split_function <- function(FUN, reverse = FALSE) {
     if (simplify) {
       warning("Argument 'simplify = TRUE' will be ignored", call. = FALSE)
     }
+    # The max_splits option in the Arrow C++ library controls the maximum number
+    # of places at which the string is split, whereas the argument n to
+    # str_split() controls the maximum number of pieces to return. So we must
+    # subtract 1 from n to get max_splits.
     FUN("split_pattern", string, options = list(pattern = opts$pattern, reverse = reverse, max_splits = n - 1L))
   }
 }
@@ -1148,7 +1164,7 @@ not_implemented_for_dataset <- function(method) {
 }
 
 #' Does this string contain regex metacharacters?
-#' 
+#'
 #' @param string String to be tested
 #' @keywords internal
 #' @return Logical: does `string` contain regex metacharacters?
