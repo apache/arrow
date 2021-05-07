@@ -212,21 +212,21 @@ test_that("str_replace and str_replace_all", {
       collect(),
     df
   )
-  
+
   expect_dplyr_equal(
     input %>%
       transmute(x = str_replace_all(x, regex("^F"), "baz")) %>%
       collect(),
     df
   )
-  
+
   expect_dplyr_equal(
     input %>%
       mutate(x = str_replace(x, "^F[a-z]{2}", "baz")) %>%
       collect(),
     df
   )
-  
+
   expect_dplyr_equal(
     input %>%
       transmute(x = str_replace(x, regex("^f[A-Z]{2}", ignore_case = TRUE), "baz")) %>%
@@ -307,6 +307,7 @@ test_that("arrow_*_split_whitespace functions", {
 
   df_split <- tibble(x = list(c("Foo", "and", "bar"), c("baz", "and", "qux", "and", "quux")))
 
+  # use default option values
   expect_equivalent(
     df_ascii %>%
       Table$create() %>%
@@ -320,6 +321,26 @@ test_that("arrow_*_split_whitespace functions", {
       mutate(x = arrow_utf8_split_whitespace(x)) %>%
       collect(),
     df_split
+  )
+
+  # specify non-default option values
+  expect_equivalent(
+    df_ascii %>%
+      Table$create() %>%
+      mutate(
+        x = arrow_ascii_split_whitespace(x, options = list(max_splits = 1, reverse = TRUE))
+      ) %>%
+      collect(),
+    tibble(x = list(c("Foo\nand", "bar"), c("baz\tand qux and", "quux")))
+  )
+  expect_equivalent(
+    df_utf8 %>%
+      Table$create() %>%
+      mutate(
+        x = arrow_utf8_split_whitespace(x, options = list(max_splits = 1, reverse = TRUE))
+      ) %>%
+      collect(),
+    tibble(x = list(c("Foo\u00A0and", "bar"), c("baz\u2006and\u1680qux\u3000and", "quux")))
   )
 
 })
