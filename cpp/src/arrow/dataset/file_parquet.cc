@@ -200,20 +200,26 @@ static util::optional<compute::Expression> ColumnChunkStatisticsAsExpression(
   if (maybe_min.ok() && maybe_max.ok()) {
     min = maybe_min.MoveValueUnsafe();
     max = maybe_max.MoveValueUnsafe();
+
+    compute::Expression range;
     if (min->Equals(max)) {
-      return compute::equal(std::move(field_expr), compute::literal(std::move(min)));
+      auto single_value = compute::equal(field_expr, compute::literal(std::move(min)));
+
+      if (statistics->null_count() == 0) {
+        return single_value;
+      }
+      return compute::or_(std::move(single_value), is_null(std::move(field_expr)));
     }
 
     auto lower_bound =
         compute::greater_equal(field_expr, compute::literal(std::move(min)));
     auto upper_bound = compute::less_equal(field_expr, compute::literal(std::move(max)));
 
-    auto range = compute::and_(std::move(lower_bound), std::move(upper_bound));
     if (statistics->null_count() == 0) {
-      return compute::and_(std::move(range), is_valid(std::move(field_expr)));
+      lower_bound = compute::or_(std::move(lower_bound), is_null(field_expr));
+      upper_bound = compute::or_(std::move(upper_bound), is_null(std::move(field_expr)));
     }
-
-    return range;
+    return compute::and_(std::move(lower_bound), std::move(upper_bound));
   }
 
   return util::nullopt;
