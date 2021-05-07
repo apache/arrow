@@ -149,7 +149,7 @@ RecordBatch$create <- function(..., schema = NULL) {
     return(RecordBatch$from_message(arrays[[1]], schema))
   }
   
-  # Else, list of arrays
+  # Else, a list of arrays or data.frames
   # making sure there are always names
   if (is.null(names(arrays))) {
     names(arrays) <- rep_len("", length(arrays))
