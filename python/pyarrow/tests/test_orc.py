@@ -47,12 +47,11 @@ def fix_example_values(actual_cols, expected_cols):
     for name in expected_cols:
         expected = expected_cols[name]
         actual = actual_cols[name]
-        if name == "map" and [
-            d.keys() == {"key", "value"} for m in expected for d in m
-        ]:
+        if (name == "map" and
+                [d.keys() == {'key', 'value'} for m in expected for d in m]):
             # convert [{'key': k, 'value': v}, ...] to [(k, v), ...]
             for i, m in enumerate(expected):
-                expected_cols[name][i] = [(d["key"], d["value"]) for d in m]
+                expected_cols[name][i] = [(d['key'], d['value']) for d in m]
             continue
 
         typ = actual[0].__class__
@@ -70,15 +69,15 @@ def fix_example_values(actual_cols, expected_cols):
                     exp = d.as_tuple().exponent
                     factor = 10 ** -exp
                     converted_decimals[i] = (
-                        decimal.Decimal(round(v * factor)).scaleb(exp)
-            expected=pd.Series(converted_decimals)
+                        decimal.Decimal(round(v * factor)).scaleb(exp))
+            expected = pd.Series(converted_decimals)
 
-        expected_cols[name]=expected
+        expected_cols[name] = expected
 
 
 def check_example_values(orc_df, expected_df, start=None, stop=None):
     if start is not None or stop is not None:
-        expected_df=expected_df[start:stop].reset_index(drop=True)
+        expected_df = expected_df[start:stop].reset_index(drop=True)
     assert_frame_equal(orc_df, expected_df, check_dtype=False)
 
 
@@ -88,46 +87,42 @@ def check_example_file(orc_path, expected_df, need_fix=False):
     """
     from pyarrow import orc
 
-    orc_file=orc.ORCFile(orc_path)
-    # Check that there is no user metadata
-    assert orc_file.metadata() == pa.KeyValueMetadata({})
+    orc_file = orc.ORCFile(orc_path)
     # Exercise ORCFile.read()
-    table=orc_file.read()
+    table = orc_file.read()
     assert isinstance(table, pa.Table)
     table.validate()
 
     # This workaround needed because of ARROW-3080
-    orc_df=pd.DataFrame(table.to_pydict())
+    orc_df = pd.DataFrame(table.to_pydict())
 
     assert set(expected_df.columns) == set(orc_df.columns)
 
     # reorder columns if necessary
     if not orc_df.columns.equals(expected_df.columns):
-        expected_df=expected_df.reindex(columns=orc_df.columns)
+        expected_df = expected_df.reindex(columns=orc_df.columns)
 
     if need_fix:
         fix_example_values(orc_df, expected_df)
 
     check_example_values(orc_df, expected_df)
     # Exercise ORCFile.read_stripe()
-    json_pos=0
+    json_pos = 0
     for i in range(orc_file.nstripes):
-        batch=orc_file.read_stripe(i)
-        check_example_values(
-            pd.DataFrame(batch.to_pydict()),
-            expected_df,
-            start=json_pos,
-            stop=json_pos + len(batch),
-        )
+        batch = orc_file.read_stripe(i)
+        check_example_values(pd.DataFrame(batch.to_pydict()),
+                             expected_df,
+                             start=json_pos,
+                             stop=json_pos + len(batch))
         json_pos += len(batch)
     assert json_pos == orc_file.nrows
 
 
 @pytest.mark.pandas
-@pytest.mark.parametrize("filename", [
-    "TestOrcFile.test1.orc",
-    "TestOrcFile.testDate1900.orc",
-    "decimal.orc"
+@pytest.mark.parametrize('filename', [
+    'TestOrcFile.test1.orc',
+    'TestOrcFile.testDate1900.orc',
+    'decimal.orc'
 ])
 def test_example_using_json(filename, datadir):
     """
@@ -136,18 +131,18 @@ def test_example_using_json(filename, datadir):
     line, corresponding to one row in the ORC file).
     """
     # Read JSON file
-    path=datadir / filename
-    table=pd.read_json(str(path.with_suffix(".jsn.gz")), lines=True)
+    path = datadir / filename
+    table = pd.read_json(str(path.with_suffix('.jsn.gz')), lines=True)
     check_example_file(path, table, need_fix=True)
 
 
 def test_orcfile_empty(datadir):
     from pyarrow import orc
 
-    table=orc.ORCFile(datadir / "TestOrcFile.emptyFile.orc").read()
+    table = orc.ORCFile(datadir / "TestOrcFile.emptyFile.orc").read()
     assert table.num_rows == 0
 
-    expected_schema=pa.schema([
+    expected_schema = pa.schema([
         ("boolean1", pa.bool_()),
         ("byte1", pa.int8()),
         ("short1", pa.int16()),

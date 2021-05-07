@@ -27,7 +27,6 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
-#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -53,7 +52,7 @@ class ARROW_EXPORT ORCFileReader {
   ///
   /// \return The returned KeyValueMetadata object containing the ORC metadata or Status
   /// if error occurs
-  Result<std::shared_ptr<KeyValueMetadata>> ReadMetadata();
+  Result<std::shared_ptr<const KeyValueMetadata>> ReadMetadata();
 
   /// \brief Return the schema read from the ORC file
   ///
@@ -156,7 +155,7 @@ class ARROW_EXPORT ORCFileWriter {
   /// \brief Creates a new ORC writer.
   ///
   /// \param[in] output_stream a pointer to the io::OutputStream to write into
-  /// \return the returned writer object or Status if error occurs
+  /// \return the returned writer object
   static Result<std::unique_ptr<ORCFileWriter>> Open(io::OutputStream* output_stream);
 
   /// \brief Write a table

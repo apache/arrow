@@ -69,15 +69,15 @@ cdef class ORCReader(_Weakrefable):
         metadata : pyarrow.KeyValueMetadata
         """
         cdef:
-            shared_ptr[CKeyValueMetadata] sp_arrow_metadata
+            shared_ptr[const CKeyValueMetadata] sp_arrow_metadata
 
         with nogil:
-            sp_arrow_metadata = GetResultValue[shared_ptr[CKeyValueMetadata]](
-                deref(self.reader).ReadMetadata())
+            sp_arrow_metadata = GetResultValue[shared_ptr
+                                               [const CKeyValueMetadata]](
+                deref(self.reader).ReadMetadata()
+            )
 
-        return pyarrow_wrap_metadata(
-            const_pointer_cast[const CKeyValueMetadata,
-                                CKeyValueMetadata](sp_arrow_metadata))
+        return pyarrow_wrap_metadata(sp_arrow_metadata)
 
     def schema(self):
         """
@@ -108,14 +108,14 @@ cdef class ORCReader(_Weakrefable):
             int64_t stripe
             std_vector[int] indices
 
-        stripe = n
+        stripe=n
 
         if include_indices is None:
             with nogil:
                 (check_status(deref(self.reader)
                               .ReadStripe(stripe, &sp_record_batch)))
         else:
-            indices = include_indices
+            indices=include_indices
             with nogil:
                 (check_status(deref(self.reader)
                               .ReadStripe(stripe, indices, &sp_record_batch)))
@@ -131,7 +131,7 @@ cdef class ORCReader(_Weakrefable):
             with nogil:
                 check_status(deref(self.reader).Read(&sp_table))
         else:
-            indices = include_indices
+            indices=include_indices
             with nogil:
                 check_status(deref(self.reader).Read(indices, &sp_table))
 
@@ -144,16 +144,16 @@ cdef class ORCWriter(_Weakrefable):
         shared_ptr[COutputStream] rd_handle
 
     def open(self, object source):
-        self.source = source
+        self.source=source
         get_writer(source, &self.rd_handle)
         with nogil:
-            self.writer = move(GetResultValue[unique_ptr[ORCFileWriter]](
+            self.writer=move(GetResultValue[unique_ptr[ORCFileWriter]](
                 ORCFileWriter.Open(self.rd_handle.get())))
 
     def write(self, Table table):
         cdef:
             shared_ptr[CTable] sp_table
-        sp_table = pyarrow_unwrap_table(table)
+        sp_table=pyarrow_unwrap_table(table)
         with nogil:
             check_status(deref(self.writer).Write(deref(sp_table)))
 

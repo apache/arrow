@@ -36,6 +36,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/key_value_metadata.h"
 
 namespace liborc = orc;
 
@@ -289,8 +290,6 @@ TEST(TestAdapterRead, ReadIntAndStringFileMultipleStripes) {
   constexpr uint64_t reader_batch_size = 1024;
 
   auto writer = CreateWriter(stripe_size, *type, &mem_stream);
-  // writer->addUserMetadata("key1", "value1");
-  // writer->addUserMetadata("key2", "value2");
   auto batch = writer->createRowBatch(stripe_row_count);
   auto struct_batch = internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
   auto long_batch =
