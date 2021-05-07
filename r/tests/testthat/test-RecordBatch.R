@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("RecordBatch")
 
 test_that("RecordBatch", {
   # Note that we're reusing `tbl` and `batch` throughout the tests in this file
@@ -498,4 +497,22 @@ test_that("Handling string data with embedded nuls", {
       fixed = TRUE
     )
   })
+})
+
+test_that("ARROW-11769 - grouping preserved in record batch creation", {
+  
+  tbl <- tibble::tibble(
+    int = 1:10,
+    fct = factor(rep(c("A", "B"), 5)),
+    fct2 = factor(rep(c("C", "D"), each = 5)),
+  )
+  
+  expect_identical(
+    tbl %>%
+      dplyr::group_by(fct, fct2) %>%
+      record_batch() %>%
+      dplyr::group_vars(),
+    c("fct", "fct2")
+  )
+  
 })
