@@ -679,14 +679,14 @@ def test_struct_from_arrays():
     assert arr.to_pylist() == [None] + expected_list[1:]
 
     # Bad masks
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match='Mask must be'):
         pa.StructArray.from_arrays(arrays, fields, mask=[True, False, False])
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match='not contain nulls'):
         pa.StructArray.from_arrays(
             arrays, fields, mask=pa.array([True, False, None]))
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match='Mask must be'):
         pa.StructArray.from_arrays(
             arrays, fields, mask=pa.chunked_array([mask]))
 
