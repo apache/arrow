@@ -171,7 +171,7 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
     }
   }
 
-  virtual std::vector<Key> ParseKeys(const std::string& path) const = 0;
+  virtual Result<std::vector<Key>> ParseKeys(const std::string& path) const = 0;
 
   virtual Result<std::string> FormatValues(const ScalarVector& values) const = 0;
 
@@ -194,8 +194,7 @@ class ARROW_DS_EXPORT DirectoryPartitioning : public KeyValuePartitioning {
   /// dictionaries must be contain the dictionary of values for that field.
   explicit DirectoryPartitioning(
       std::shared_ptr<Schema> schema, ArrayVector dictionaries = {},
-      KeyValuePartitioningOptions options = KeyValuePartitioningOptions())
-      : KeyValuePartitioning(std::move(schema), std::move(dictionaries), options) {}
+      KeyValuePartitioningOptions options = KeyValuePartitioningOptions());
 
   std::string type_name() const override { return "schema"; }
 
@@ -207,7 +206,7 @@ class ARROW_DS_EXPORT DirectoryPartitioning : public KeyValuePartitioning {
       std::vector<std::string> field_names, PartitioningFactoryOptions = {});
 
  private:
-  std::vector<Key> ParseKeys(const std::string& path) const override;
+  Result<std::vector<Key>> ParseKeys(const std::string& path) const override;
 
   Result<std::string> FormatValues(const ScalarVector& values) const override;
 };
@@ -255,8 +254,8 @@ class ARROW_DS_EXPORT HivePartitioning : public KeyValuePartitioning {
   std::string null_fallback() const { return hive_options_.null_fallback; }
   const HivePartitioningOptions& options() const { return hive_options_; }
 
-  static util::optional<Key> ParseKey(const std::string& segment,
-                                      const HivePartitioningOptions& options);
+  static Result<util::optional<Key>> ParseKey(const std::string& segment,
+                                              const HivePartitioningOptions& options);
 
   /// \brief Create a factory for a hive partitioning.
   static std::shared_ptr<PartitioningFactory> MakeFactory(
@@ -264,7 +263,7 @@ class ARROW_DS_EXPORT HivePartitioning : public KeyValuePartitioning {
 
  private:
   const HivePartitioningOptions hive_options_;
-  std::vector<Key> ParseKeys(const std::string& path) const override;
+  Result<std::vector<Key>> ParseKeys(const std::string& path) const override;
 
   Result<std::string> FormatValues(const ScalarVector& values) const override;
 };

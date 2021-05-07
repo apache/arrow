@@ -575,6 +575,12 @@ TEST_F(TestPartitioning, UrlEncodedDirectory) {
                     equal(field_ref("time"), literal(time)),
                     equal(field_ref("str"), literal("$"))}));
 
+  // Invalid UTF-8
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("was not valid UTF-8"),
+                                  factory_->Inspect({"/%AF/%BF/%CF"}));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("was not valid UTF-8"),
+                                  partitioning_->Parse({"/%AF/%BF/%CF"}));
+
   options.url_decode_segments = false;
   options.schema =
       schema({field("date", utf8()), field("time", utf8()), field("str", utf8())});
@@ -618,6 +624,12 @@ TEST_F(TestPartitioning, UrlEncodedHive) {
   AssertParse("/date=2021-05-04 00%3A00%3A00/time=2021-05-04 07%3A27%3A00/str=%24",
               and_({equal(field_ref("date"), literal(date)),
                     equal(field_ref("time"), literal(time)), is_null(field_ref("str"))}));
+
+  // Invalid UTF-8
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("was not valid UTF-8"),
+                                  factory_->Inspect({"/date=%AF/time=%BF/str=%CF"}));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("was not valid UTF-8"),
+                                  partitioning_->Parse({"/date=%AF/time=%BF/str=%CF"}));
 
   options.url_decode_segments = false;
   options.schema =
@@ -735,7 +747,7 @@ class RangePartitioning : public Partitioning {
 
     HivePartitioningOptions options;
     for (auto segment : fs::internal::SplitAbstractPath(path)) {
-      auto key = HivePartitioning::ParseKey(segment, options);
+      ARROW_ASSIGN_OR_RAISE(auto key, HivePartitioning::ParseKey(segment, options));
       if (!key) {
         return Status::Invalid("can't parse '", segment, "' as a range");
       }

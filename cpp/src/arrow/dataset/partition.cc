@@ -38,6 +38,7 @@
 #include "arrow/util/make_unique.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/uri.h"
+#include "arrow/util/utf8.h"
 
 namespace arrow {
 
@@ -46,6 +47,18 @@ using internal::checked_pointer_cast;
 using util::string_view;
 
 namespace dataset {
+
+namespace {
+/// Apply UriUnescape, then ensure the results are valid UTF-8.
+Result<std::string> SafeUriUnescape(util::string_view encoded) {
+  auto decoded = internal::UriUnescape(encoded);
+  if (!util::ValidateUTF8(decoded)) {
+    return Status::Invalid("Partition segment was not valid UTF-8 after URL decoding: ",
+                           encoded);
+  }
+  return decoded;
+}
+}  // namespace
 
 std::shared_ptr<Partitioning> Partitioning::Default() {
   class DefaultPartitioning : public Partitioning {
@@ -210,7 +223,8 @@ Result<compute::Expression> KeyValuePartitioning::ConvertKey(const Key& key) con
 Result<compute::Expression> KeyValuePartitioning::Parse(const std::string& path) const {
   std::vector<compute::Expression> expressions;
 
-  for (const Key& key : ParseKeys(path)) {
+  ARROW_ASSIGN_OR_RAISE(auto parsed, ParseKeys(path));
+  for (const Key& key : parsed) {
     ARROW_ASSIGN_OR_RAISE(auto expr, ConvertKey(key));
     if (expr == compute::literal(true)) continue;
     expressions.push_back(std::move(expr));
@@ -260,7 +274,16 @@ Result<std::string> KeyValuePartitioning::Format(const compute::Expression& expr
   return FormatValues(values);
 }
 
-std::vector<KeyValuePartitioning::Key> DirectoryPartitioning::ParseKeys(
+DirectoryPartitioning::DirectoryPartitioning(std::shared_ptr<Schema> schema,
+                                             ArrayVector dictionaries,
+                                             KeyValuePartitioningOptions options)
+    : KeyValuePartitioning(std::move(schema), std::move(dictionaries), options) {
+  if (options.url_decode_segments) {
+    util::InitializeUTF8();
+  }
+}
+
+Result<std::vector<KeyValuePartitioning::Key>> DirectoryPartitioning::ParseKeys(
     const std::string& path) const {
   std::vector<Key> keys;
 
@@ -269,7 +292,8 @@ std::vector<KeyValuePartitioning::Key> DirectoryPartitioning::ParseKeys(
     if (i >= schema_->num_fields()) break;
 
     if (options_.url_decode_segments) {
-      keys.push_back({schema_->field(i++)->name(), internal::UriUnescape(segment)});
+      ARROW_ASSIGN_OR_RAISE(auto decoded, SafeUriUnescape(segment));
+      keys.push_back({schema_->field(i++)->name(), std::move(decoded)});
     } else {
       keys.push_back({schema_->field(i++)->name(), std::move(segment)});
     }
@@ -449,6 +473,9 @@ class DirectoryPartitioningFactory : public KeyValuePartitioningFactory {
                                PartitioningFactoryOptions options)
       : KeyValuePartitioningFactory(options), field_names_(std::move(field_names)) {
     Reset();
+    if (options.url_decode_segments) {
+      util::InitializeUTF8();
+    }
   }
 
   std::string type_name() const override { return "schema"; }
@@ -461,8 +488,8 @@ class DirectoryPartitioningFactory : public KeyValuePartitioningFactory {
         if (field_index == field_names_.size()) break;
 
         if (options_.url_decode_segments) {
-          RETURN_NOT_OK(InsertRepr(static_cast<int>(field_index++),
-                                   internal::UriUnescape(segment)));
+          ARROW_ASSIGN_OR_RAISE(auto decoded, SafeUriUnescape(segment));
+          RETURN_NOT_OK(InsertRepr(static_cast<int>(field_index++), decoded));
         } else {
           RETURN_NOT_OK(InsertRepr(static_cast<int>(field_index++), segment));
         }
@@ -506,7 +533,7 @@ std::shared_ptr<PartitioningFactory> DirectoryPartitioning::MakeFactory(
       new DirectoryPartitioningFactory(std::move(field_names), options));
 }
 
-util::optional<KeyValuePartitioning::Key> HivePartitioning::ParseKey(
+Result<util::optional<KeyValuePartitioning::Key>> HivePartitioning::ParseKey(
     const std::string& segment, const HivePartitioningOptions& options) {
   auto name_end = string_view(segment).find_first_of('=');
   // Not round-trippable
@@ -517,8 +544,11 @@ util::optional<KeyValuePartitioning::Key> HivePartitioning::ParseKey(
   auto name = segment.substr(0, name_end);
   std::string value;
   if (options.url_decode_segments) {
-    value = internal::UriUnescape(
-        util::string_view(segment.data() + name_end + 1, segment.size() - name_end - 1));
+    // Static method, so we have no better place for it
+    util::InitializeUTF8();
+    auto raw_value =
+        util::string_view(segment.data() + name_end + 1, segment.size() - name_end - 1);
+    ARROW_ASSIGN_OR_RAISE(value, SafeUriUnescape(raw_value));
   } else {
     value = segment.substr(name_end + 1);
   }
@@ -529,12 +559,13 @@ util::optional<KeyValuePartitioning::Key> HivePartitioning::ParseKey(
   return Key{std::move(name), std::move(value)};
 }
 
-std::vector<KeyValuePartitioning::Key> HivePartitioning::ParseKeys(
+Result<std::vector<KeyValuePartitioning::Key>> HivePartitioning::ParseKeys(
     const std::string& path) const {
   std::vector<Key> keys;
 
   for (const auto& segment : fs::internal::SplitAbstractPath(path)) {
-    if (auto key = ParseKey(segment, hive_options_)) {
+    ARROW_ASSIGN_OR_RAISE(auto maybe_key, ParseKey(segment, hive_options_));
+    if (auto key = maybe_key) {
       keys.push_back(std::move(*key));
     }
   }
@@ -574,7 +605,9 @@ class HivePartitioningFactory : public KeyValuePartitioningFactory {
     auto options = options_.AsHivePartitioningOptions();
     for (auto path : paths) {
       for (auto&& segment : fs::internal::SplitAbstractPath(path)) {
-        if (auto key = HivePartitioning::ParseKey(segment, options)) {
+        ARROW_ASSIGN_OR_RAISE(auto maybe_key,
+                              HivePartitioning::ParseKey(segment, options));
+        if (auto key = maybe_key) {
           RETURN_NOT_OK(InsertRepr(key->name, key->value));
         }
       }
