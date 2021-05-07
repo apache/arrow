@@ -180,10 +180,7 @@ def test_orcfile_readwrite():
     buffer_reader = pa.BufferReader(buffer_output_stream.getvalue())
     orc_file = orc.ORCFile(buffer_reader)
     output_table = orc_file.read()
-    metadata_ = orc_file.metadata
     assert table.equals(output_table)
-    assert isinstance(metadata_, dict)
-    assert not metadata_
 
     # deprecated keyword order
     buffer_output_stream = pa.BufferOutputStream()
@@ -194,5 +191,3 @@ def test_orcfile_readwrite():
     output_table = orc_file.read()
     metadata_ = orc_file.metadata
     assert table.equals(output_table)
-    assert isinstance(metadata_, dict)
-    assert not metadata_
