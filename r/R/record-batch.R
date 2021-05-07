@@ -159,7 +159,7 @@ RecordBatch$create <- function(..., schema = NULL) {
   # Preserve any grouping
   if (length(arrays) == 1 && inherits(arrays[[1]], "grouped_df")) {
     out <- RecordBatch__from_arrays(schema, arrays)
-    return(group_by(out, !!!groups(arrays[[1]])))
+    return(dplyr::group_by(out, !!!dplyr::groups(arrays[[1]])))
   }
   
   # TODO: should this also assert that they're all Arrays?
