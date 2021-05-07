@@ -1114,11 +1114,8 @@ test_that("URL-decoding with directory partitioning", {
   fs <- LocalFileSystem$create()
   selector <- FileSelector$create(root, recursive = TRUE)
   dir1 <- file.path(root, "2021-05-04 00%3A00%3A00", "%24")
-  dir2 <- file.path(root, "2021-05-05 00:00:00", "$")
   dir.create(dir1, recursive = TRUE)
-  dir.create(dir2, recursive = TRUE)
   write_feather(df1, file.path(dir1, "data.feather"))
-  write_feather(df2, file.path(dir2, "data.feather"))
 
   partitioning <- DirectoryPartitioning$create(
     schema(date = timestamp(unit = "s"), string = utf8()))
@@ -1145,7 +1142,7 @@ test_that("URL-decoding with directory partitioning", {
   # Can't directly inspect partition expressions, so do it implicitly via scan
   expect_equal(
     ds %>%
-      filter(date == "2021-05-04 00:00:00") %>%
+      filter(date == "2021-05-04 00:00:00", string == "$") %>%
       select(int) %>%
       collect(),
     df1 %>% select(int) %>% collect()
@@ -1159,7 +1156,7 @@ test_that("URL-decoding with directory partitioning", {
   ds <- factory$Finish(schm)
   expect_equal(
     ds %>%
-      filter(date == "2021-05-04 00%3A00%3A00") %>%
+      filter(date == "2021-05-04 00%3A00%3A00", string == "%24") %>%
       select(int) %>%
       collect(),
     df1 %>% select(int) %>% collect()
@@ -1172,11 +1169,8 @@ test_that("URL-decoding with hive partitioning", {
   fs <- LocalFileSystem$create()
   selector <- FileSelector$create(root, recursive = TRUE)
   dir1 <- file.path(root, "date=2021-05-04 00%3A00%3A00", "string=%24")
-  dir2 <- file.path(root, "date=2021-05-05 00:00:00", "string=$")
   dir.create(dir1, recursive = TRUE)
-  dir.create(dir2, recursive = TRUE)
   write_feather(df1, file.path(dir1, "data.feather"))
-  write_feather(df2, file.path(dir2, "data.feather"))
 
   partitioning <- hive_partition(
     date = timestamp(unit = "s"), string = utf8())
@@ -1199,7 +1193,7 @@ test_that("URL-decoding with hive partitioning", {
   # Can't directly inspect partition expressions, so do it implicitly via scan
   expect_equal(
     ds %>%
-      filter(date == "2021-05-04 00:00:00") %>%
+      filter(date == "2021-05-04 00:00:00", string == "$") %>%
       select(int) %>%
       collect(),
     df1 %>% select(int) %>% collect()
@@ -1212,7 +1206,7 @@ test_that("URL-decoding with hive partitioning", {
   ds <- factory$Finish(schm)
   expect_equal(
     ds %>%
-      filter(date == "2021-05-04 00%3A00%3A00") %>%
+      filter(date == "2021-05-04 00%3A00%3A00", string == "%24") %>%
       select(int) %>%
       collect(),
     df1 %>% select(int) %>% collect()

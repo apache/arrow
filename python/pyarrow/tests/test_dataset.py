@@ -1428,6 +1428,7 @@ def test_partitioning_factory_url_decode():
     mockfs = fs._MockFileSystem()
     format = ds.IpcFileFormat()
     schema = pa.schema([("i64", pa.int64())])
+    table = pa.table([pa.array(range(10))], schema=schema)
     partition_schema = pa.schema(
         [("date", pa.timestamp("s")), ("string", pa.string())])
     string_partition_schema = pa.schema(
@@ -1435,13 +1436,12 @@ def test_partitioning_factory_url_decode():
     full_schema = pa.schema(list(schema) + list(partition_schema))
     for directory in [
             "directory/2021-05-04 00%3A00%3A00/%24",
-            "directory/2021-05-05 00:00:00/$",
             "hive/date=2021-05-04 00%3A00%3A00/string=%24",
-            "hive/date=2021-05-05 00:00:00/string=$",
     ]:
         mockfs.create_dir(directory)
         with mockfs.open_output_stream(directory + "/0.feather") as sink:
             with pa.ipc.new_file(sink, schema) as writer:
+                writer.write_table(table)
                 writer.close()
 
     # Directory
@@ -1452,6 +1452,10 @@ def test_partitioning_factory_url_decode():
     factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
     inferred_schema = factory.inspect()
     assert inferred_schema == full_schema
+    actual = factory.finish().to_table(columns={
+        "date_int": ds.field("date").cast(pa.int64()),
+    })
+    assert actual[0][0].as_py() == 1620086400
 
     options.partitioning_factory = ds.DirectoryPartitioning.discover(
         ["date", "string"], url_decode_segments=False)
@@ -1460,9 +1464,6 @@ def test_partitioning_factory_url_decode():
     assert fragments[0].partition_expression.equals(
         (ds.field("date") == "2021-05-04 00%3A00%3A00") &
         (ds.field("string") == "%24"))
-    assert fragments[1].partition_expression.equals(
-        (ds.field("date") == "2021-05-05 00:00:00") &
-        (ds.field("string") == "$"))
 
     options.partitioning = ds.DirectoryPartitioning(
         string_partition_schema, url_decode_segments=False)
@@ -1471,9 +1472,6 @@ def test_partitioning_factory_url_decode():
     assert fragments[0].partition_expression.equals(
         (ds.field("date") == "2021-05-04 00%3A00%3A00") &
         (ds.field("string") == "%24"))
-    assert fragments[1].partition_expression.equals(
-        (ds.field("date") == "2021-05-05 00:00:00") &
-        (ds.field("string") == "$"))
 
     options.partitioning_factory = ds.DirectoryPartitioning.discover(
         schema=partition_schema, url_decode_segments=False)
@@ -1490,6 +1488,10 @@ def test_partitioning_factory_url_decode():
     factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
     inferred_schema = factory.inspect()
     assert inferred_schema == full_schema
+    actual = factory.finish().to_table(columns={
+        "date_int": ds.field("date").cast(pa.int64()),
+    })
+    assert actual[0][0].as_py() == 1620086400
 
     options.partitioning_factory = ds.HivePartitioning.discover(
         url_decode_segments=False)
@@ -1498,9 +1500,6 @@ def test_partitioning_factory_url_decode():
     assert fragments[0].partition_expression.equals(
         (ds.field("date") == "2021-05-04 00%3A00%3A00") &
         (ds.field("string") == "%24"))
-    assert fragments[1].partition_expression.equals(
-        (ds.field("date") == "2021-05-05 00:00:00") &
-        (ds.field("string") == "$"))
 
     options.partitioning = ds.HivePartitioning(
         string_partition_schema, url_decode_segments=False)
@@ -1509,9 +1508,6 @@ def test_partitioning_factory_url_decode():
     assert fragments[0].partition_expression.equals(
         (ds.field("date") == "2021-05-04 00%3A00%3A00") &
         (ds.field("string") == "%24"))
-    assert fragments[1].partition_expression.equals(
-        (ds.field("date") == "2021-05-05 00:00:00") &
-        (ds.field("string") == "$"))
 
     options.partitioning_factory = ds.HivePartitioning.discover(
         schema=partition_schema, url_decode_segments=False)
