@@ -297,6 +297,33 @@ test_that("strsplit and str_split", {
 
 })
 
+test_that("arrow_*_split_whitespace functions", {
+
+  # use only ASCII whitespace characters
+  df_ascii <- tibble(x = c("Foo\nand bar", "baz\tand qux and quux"))
+
+  # use only non-ASCII whitespace characters
+  df_utf8 <- tibble(x = c("Foo\u00A0and\u2000bar", "baz\u2006and\u1680qux\u3000and\u2008quux"))
+
+  df_split <- tibble(x = list(c("Foo", "and", "bar"), c("baz", "and", "qux", "and", "quux")))
+
+  expect_equivalent(
+    df_ascii %>%
+      Table$create() %>%
+      mutate(x = arrow_ascii_split_whitespace(x)) %>%
+      collect(),
+    df_split
+  )
+  expect_equivalent(
+    df_utf8 %>%
+      Table$create() %>%
+      mutate(x = arrow_utf8_split_whitespace(x)) %>%
+      collect(),
+    df_split
+  )
+
+})
+
 test_that("errors and warnings in string splitting", {
   df <- tibble(x = c("Foo and bar", "baz and qux and quux"))
 
