@@ -52,7 +52,7 @@ namespace r {
 
 class RTasks {
  public:
-  using Task = std::function<Status()>;
+  using Task = internal::FnOnce<Status()>;
 
   RTasks()
       : parallel_tasks(arrow::internal::TaskGroup::MakeThreaded(
@@ -63,7 +63,7 @@ class RTasks {
 
     // run the delayed tasks now
     for (auto& task : delayed_serial_tasks) {
-      status &= task();
+      status &= std::move(task)();
       if (!status.ok()) break;
     }
 
@@ -75,14 +75,14 @@ class RTasks {
 
   void Append(bool parallel, Task&& task) {
     if (parallel) {
-      parallel_tasks->Append(task);
+      parallel_tasks->Append(std::move(task));
     } else {
       delayed_serial_tasks.push_back(std::move(task));
     }
   }
 
   std::shared_ptr<arrow::internal::TaskGroup> parallel_tasks;
-  std::vector<std::function<Status()>> delayed_serial_tasks;
+  std::vector<Task> delayed_serial_tasks;
 };
 
 struct RConversionOptions {
