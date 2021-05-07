@@ -218,10 +218,10 @@ tasks:
       - pyarrow-{no_rc_version}-py{{ pyver }}(h[a-z0-9]+)_0_cuda.tar.bz2
 
   conda-linux-gcc-py{{ pyver }}-arm64:
-    ci: drone
-    template: conda-recipes/drone.yml
+    ci: azure
+    template: conda-recipes/azure.linux.yml
     params:
-      config: linux_aarch64_python{{ python_version }}.____cpython
+      config: linux_aarch64_numpy{{ numpy_version }}python{{ python_version }}.____cpython
     artifacts:
       - arrow-cpp-{no_rc_version}-py{{ pyver }}(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py{{ pyver }}(h[a-z0-9]+)_0_cpu.tar.bz2
