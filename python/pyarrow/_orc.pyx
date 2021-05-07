@@ -73,8 +73,8 @@ cdef class ORCReader(_Weakrefable):
 
         with nogil:
             sp_arrow_metadata = GetResultValue(
-                    deref(self.reader).ReadMetadata()
-                )
+                deref(self.reader).ReadMetadata()
+            )
 
         return pyarrow_wrap_metadata(sp_arrow_metadata)
 
