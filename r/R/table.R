@@ -172,7 +172,7 @@ Table$create <- function(..., schema = NULL) {
   # Preserve any grouping
   if (length(dots) == 1 && inherits(dots[[1]], "grouped_df")) {
     out <- Table__from_dots(dots, schema)
-    return(group_by(out, !!!groups(dots[[1]])))
+    return(dplyr::group_by(out, !!!dplyr::groups(dots[[1]])))
   }
   
   if (all_record_batches(dots)) {
