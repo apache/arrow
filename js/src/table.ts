@@ -15,20 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data } from './data';
 import { Column } from './column';
-import { Schema, Field } from './schema';
-import { RecordBatch, _InternalEmptyPlaceholderRecordBatch } from './recordbatch';
-import { DataFrame } from './compute/dataframe';
-import { RecordBatchReader } from './ipc/reader';
-import { DataType, RowLike, Struct } from './type';
-import { selectColumnArgs, selectArgs } from './util/args';
-import { Clonable, Sliceable, Applicative } from './vector';
-import { isPromise, isIterable, isAsyncIterable } from './util/compat';
-import { RecordBatchFileWriter, RecordBatchStreamWriter } from './ipc/writer';
-import { distributeColumnsIntoRecordBatches, distributeVectorsIntoRecordBatches } from './util/recordbatch';
-import { Vector, Chunked, StructVector, VectorBuilderOptions, VectorBuilderOptionsAsync } from './vector/index';
+import { Data } from './data';
 import { TypedArray, TypedArrayDataType } from './interfaces';
+import { RecordBatchReader } from './ipc/reader';
+import { RecordBatchFileWriter, RecordBatchStreamWriter } from './ipc/writer';
+import { RecordBatch, _InternalEmptyPlaceholderRecordBatch } from './recordbatch';
+import { Field, Schema } from './schema';
+import { DataType, RowLike, Struct } from './type';
+import { selectArgs, selectColumnArgs } from './util/args';
+import { isAsyncIterable, isIterable, isPromise } from './util/compat';
+import { distributeColumnsIntoRecordBatches, distributeVectorsIntoRecordBatches } from './util/recordbatch';
+import { Applicative, Clonable, Sliceable } from './vector';
+import { Chunked, StructVector, Vector, VectorBuilderOptions, VectorBuilderOptionsAsync } from './vector/index';
 
 type VectorMap = { [key: string]: Vector | Exclude<TypedArray, Uint8ClampedArray> };
 type Fields<T extends { [key: string]: DataType }> = (keyof T)[] | Field<T[keyof T]>[];
@@ -43,17 +42,11 @@ export interface Table<T extends { [key: string]: DataType } = any> {
     slice(begin?: number, end?: number): Table<T>;
     concat(...others: Vector<Struct<T>>[]): Table<T>;
     clone(chunks?: RecordBatch<T>[], offsets?: Uint32Array): Table<T>;
-
-    scan(next: import('./compute/dataframe').NextFunc, bind?: import('./compute/dataframe').BindFunc): void;
-    scanReverse(next: import('./compute/dataframe').NextFunc, bind?: import('./compute/dataframe').BindFunc): void;
-    countBy(name: import('./compute/predicate').Col | string): import('./compute/dataframe').CountByResult;
-    filter(predicate: import('./compute/predicate').Predicate): import('./compute/dataframe').FilteredDataFrame<T>;
 }
 
 export class Table<T extends { [key: string]: DataType } = any>
     extends Chunked<Struct<T>>
-    implements DataFrame<T>,
-               Clonable<Table<T>>,
+    implements Clonable<Table<T>>,
                Sliceable<Table<T>>,
                Applicative<Struct<T>, Table<T>> {
 
@@ -173,6 +166,7 @@ export class Table<T extends { [key: string]: DataType } = any>
         return new Table(...distributeColumnsIntoRecordBatches(selectColumnArgs(cols)));
     }
 
+    constructor(table: Table<T>);
     constructor(batches: RecordBatch<T>[]);
     constructor(...batches: RecordBatch<T>[]);
     constructor(schema: Schema<T>, batches: RecordBatch<T>[]);
@@ -181,9 +175,9 @@ export class Table<T extends { [key: string]: DataType } = any>
 
         let schema: Schema<T> = null!;
 
-        if (args[0] instanceof Schema) { schema = args.shift(); }
+        if (args[0] instanceof Schema) { schema = args[0]; }
 
-        const chunks = selectArgs<RecordBatch<T>>(RecordBatch, args);
+        const chunks = args[0] instanceof Table ? (args[0] as Table<T>).chunks : selectArgs<RecordBatch<T>>(RecordBatch, args);
 
         if (!schema && !(schema = chunks[0]?.schema)) {
             throw new TypeError('Table must be initialized with a Schema or at least one RecordBatch');
