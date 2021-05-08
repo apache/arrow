@@ -1769,6 +1769,20 @@ TEST(Cast, EmptyCasts) {
   }
 }
 
+TEST(Cast, CastWithNoValidityBitmapButUnknownNullCount) {
+  // ARROW-12672 segfault when casting slightly malformed array
+  // (no validity bitmap but atomic null count non-zero)
+  auto values = ArrayFromJSON(boolean(), "[true, true, false]");
+
+  ASSERT_OK_AND_ASSIGN(auto expected, Cast(*values, int8()));
+
+  ASSERT_EQ(values->data()->buffers[0], NULLPTR);
+  values->data()->null_count = kUnknownNullCount;
+  ASSERT_OK_AND_ASSIGN(auto result, Cast(*values, int8()));
+
+  AssertArraysEqual(*expected, *result);
+}
+
 // ----------------------------------------------------------------------
 // Test casting from NullType
 

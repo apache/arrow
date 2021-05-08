@@ -80,6 +80,7 @@ struct FillNullFunctor<Type, enable_if_t<is_number_type<Type>::value>> {
         in_values += block.length;
       }
       output->buffers[1] = out_buf;
+      output->null_count = 0;
     } else {
       *output = data;
     }
@@ -131,6 +132,7 @@ struct FillNullFunctor<Type, enable_if_t<is_boolean_type<Type>::value>> {
         out_offset += block.length;
       }
       output->buffers[1] = out_buf;
+      output->null_count = 0;
     } else {
       *output = data;
     }
