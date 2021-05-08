@@ -30,14 +30,14 @@ struct SumImplAvx512 : public SumImpl<ArrowType, SimdLevel::AVX512> {};
 template <typename ArrowType>
 struct MeanImplAvx512 : public MeanImpl<ArrowType, SimdLevel::AVX512> {};
 
-std::unique_ptr<KernelState> SumInitAvx512(KernelContext* ctx,
-                                           const KernelInitArgs& args) {
+Result<std::unique_ptr<KernelState>> SumInitAvx512(KernelContext* ctx,
+                                                   const KernelInitArgs& args) {
   SumLikeInit<SumImplAvx512> visitor(ctx, *args.inputs[0].type);
   return visitor.Create();
 }
 
-std::unique_ptr<KernelState> MeanInitAvx512(KernelContext* ctx,
-                                            const KernelInitArgs& args) {
+Result<std::unique_ptr<KernelState>> MeanInitAvx512(KernelContext* ctx,
+                                                    const KernelInitArgs& args) {
   SumLikeInit<MeanImplAvx512> visitor(ctx, *args.inputs[0].type);
   return visitor.Create();
 }
@@ -45,8 +45,8 @@ std::unique_ptr<KernelState> MeanInitAvx512(KernelContext* ctx,
 // ----------------------------------------------------------------------
 // MinMax implementation
 
-std::unique_ptr<KernelState> MinMaxInitAvx512(KernelContext* ctx,
-                                              const KernelInitArgs& args) {
+Result<std::unique_ptr<KernelState>> MinMaxInitAvx512(KernelContext* ctx,
+                                                      const KernelInitArgs& args) {
   MinMaxInitState<SimdLevel::AVX512> visitor(
       ctx, *args.inputs[0].type, args.kernel->signature->out_type().type(),
       static_cast<const MinMaxOptions&>(*args.options));

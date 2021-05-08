@@ -18,8 +18,6 @@
 ARG FROM=ubuntu:bionic
 FROM ${FROM}
 
-COPY qemu-* /usr/bin/
-
 RUN \
   echo "debconf debconf/frontend select Noninteractive" | \
     debconf-set-selections

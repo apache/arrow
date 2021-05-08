@@ -29,7 +29,7 @@ namespace internal {
 namespace {
 
 template <typename Type, typename offset_type = typename Type::offset_type>
-void ListValueLength(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status ListValueLength(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   using ScalarType = typename TypeTraits<Type>::ScalarType;
   using OffsetScalarType = typename TypeTraits<Type>::OffsetScalarType;
 
@@ -51,6 +51,8 @@ void ListValueLength(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
           static_cast<offset_type>(arg0.value->length());
     }
   }
+
+  return Status::OK();
 }
 
 const FunctionDoc list_value_length_doc{
@@ -99,16 +101,15 @@ Result<ValueDescr> ProjectResolve(KernelContext* ctx,
   return ValueDescr{struct_(std::move(fields)), shape};
 }
 
-void ProjectExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  KERNEL_ASSIGN_OR_RAISE(auto descr, ctx, ProjectResolve(ctx, batch.GetDescriptors()));
+Status ProjectExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  ARROW_ASSIGN_OR_RAISE(auto descr, ProjectResolve(ctx, batch.GetDescriptors()));
 
   for (int i = 0; i < batch.num_values(); ++i) {
     const auto& field = checked_cast<const StructType&>(*descr.type).field(i);
     if (batch[i].null_count() > 0 && !field->nullable()) {
-      ctx->SetStatus(Status::Invalid("Output field ", field, " (#", i,
-                                     ") does not allow nulls but the corresponding "
-                                     "argument was not entirely valid."));
-      return;
+      return Status::Invalid("Output field ", field, " (#", i,
+                             ") does not allow nulls but the corresponding "
+                             "argument was not entirely valid.");
     }
   }
 
@@ -120,7 +121,7 @@ void ProjectExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 
     *out =
         Datum(std::make_shared<StructScalar>(std::move(scalars), std::move(descr.type)));
-    return;
+    return Status::OK();
   }
 
   ArrayVector arrays(batch.num_values());
@@ -130,12 +131,12 @@ void ProjectExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
       continue;
     }
 
-    KERNEL_ASSIGN_OR_RAISE(
-        arrays[i], ctx,
-        MakeArrayFromScalar(*batch[i].scalar(), batch.length, ctx->memory_pool()));
+    ARROW_ASSIGN_OR_RAISE(arrays[i], MakeArrayFromScalar(*batch[i].scalar(), batch.length,
+                                                         ctx->memory_pool()));
   }
 
   *out = std::make_shared<StructArray>(descr.type, batch.length, std::move(arrays));
+  return Status::OK();
 }
 
 const FunctionDoc project_doc{"Wrap Arrays into a StructArray",

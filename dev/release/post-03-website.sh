@@ -145,10 +145,10 @@ archery release changelog generate ${version} | \
 
 cat <<ANNOUNCE >> "${announce_file}"
 [1]: https://www.apache.org/dyn/closer.lua/arrow/arrow-${version}/
-[2]: https://bintray.com/apache/arrow/centos/${version}/
-[3]: https://bintray.com/apache/arrow/debian/${version}/
-[4]: https://bintray.com/apache/arrow/python/${version}/
-[5]: https://bintray.com/apache/arrow/ubuntu/${version}/
+[2]: https://apache.jfrog.io/artifactory/arrow/centos/
+[3]: https://apache.jfrog.io/artifactory/arrow/debian/
+[4]: https://apache.jfrog.io/artifactory/arrow/python/${version}/
+[5]: https://apache.jfrog.io/artifactory/arrow/ubuntu/
 [6]: https://github.com/apache/arrow/releases/tag/apache-arrow-${version}
 ANNOUNCE
 git add "${announce_file}"

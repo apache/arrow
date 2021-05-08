@@ -269,7 +269,7 @@ struct NullGeneralization {
 
     // Do not count the bits if they haven't been counted already
     const int64_t known_null_count = arr.null_count.load();
-    if (known_null_count == 0) {
+    if ((known_null_count == 0) || (arr.buffers[0] == NULLPTR)) {
       return ALL_VALID;
     }
 
@@ -616,8 +616,7 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
       }
     }
 
-    kernel_->exec(kernel_ctx_, batch, &out);
-    ARROW_CTX_RETURN_IF_ERROR(kernel_ctx_);
+    RETURN_NOT_OK(kernel_->exec(kernel_ctx_, batch, &out));
     if (!preallocate_contiguous_) {
       // If we are producing chunked output rather than one big array, then
       // emit each chunk as soon as it's available
@@ -794,8 +793,7 @@ class VectorExecutor : public KernelExecutorImpl<VectorKernel> {
         output_descr_.shape == ValueDescr::ARRAY) {
       RETURN_NOT_OK(PropagateNulls(kernel_ctx_, batch, out.mutable_array()));
     }
-    kernel_->exec(kernel_ctx_, batch, &out);
-    ARROW_CTX_RETURN_IF_ERROR(kernel_ctx_);
+    RETURN_NOT_OK(kernel_->exec(kernel_ctx_, batch, &out));
     if (!kernel_->finalize) {
       // If there is no result finalizer (e.g. for hash-based functions, we can
       // emit the processed batch right away rather than waiting
@@ -810,8 +808,7 @@ class VectorExecutor : public KernelExecutorImpl<VectorKernel> {
     if (kernel_->finalize) {
       // Intermediate results require post-processing after the execution is
       // completed (possibly involving some accumulated state)
-      kernel_->finalize(kernel_ctx_, &results_);
-      ARROW_CTX_RETURN_IF_ERROR(kernel_ctx_);
+      RETURN_NOT_OK(kernel_->finalize(kernel_ctx_, &results_));
       for (const auto& result : results_) {
         RETURN_NOT_OK(listener->OnResult(result));
       }
@@ -864,8 +861,7 @@ class ScalarAggExecutor : public KernelExecutorImpl<ScalarAggregateKernel> {
     }
 
     Datum out;
-    kernel_->finalize(kernel_ctx_, &out);
-    ARROW_CTX_RETURN_IF_ERROR(kernel_ctx_);
+    RETURN_NOT_OK(kernel_->finalize(kernel_ctx_, &out));
     RETURN_NOT_OK(listener->OnResult(std::move(out)));
     return Status::OK();
   }
@@ -879,24 +875,19 @@ class ScalarAggExecutor : public KernelExecutorImpl<ScalarAggregateKernel> {
  private:
   Status Consume(const ExecBatch& batch) {
     // FIXME(ARROW-11840) don't merge *any* aggegates for every batch
-    auto batch_state = kernel_->init(kernel_ctx_, {kernel_, *input_descrs_, options_});
-    ARROW_CTX_RETURN_IF_ERROR(kernel_ctx_);
+    ARROW_ASSIGN_OR_RAISE(
+        auto batch_state,
+        kernel_->init(kernel_ctx_, {kernel_, *input_descrs_, options_}));
 
     if (batch_state == nullptr) {
-      kernel_ctx_->SetStatus(
-          Status::Invalid("ScalarAggregation requires non-null kernel state"));
-      return kernel_ctx_->status();
+      return Status::Invalid("ScalarAggregation requires non-null kernel state");
     }
 
     KernelContext batch_ctx(exec_context());
     batch_ctx.SetState(batch_state.get());
 
-    kernel_->consume(&batch_ctx, batch);
-    ARROW_CTX_RETURN_IF_ERROR(&batch_ctx);
-
-    kernel_->merge(kernel_ctx_, std::move(*batch_state), state());
-    ARROW_CTX_RETURN_IF_ERROR(kernel_ctx_);
-
+    RETURN_NOT_OK(kernel_->consume(&batch_ctx, batch));
+    RETURN_NOT_OK(kernel_->merge(kernel_ctx_, std::move(*batch_state), state()));
     return Status::OK();
   }
 

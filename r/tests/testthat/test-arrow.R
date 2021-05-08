@@ -62,6 +62,10 @@ test_that("check for an ArrowObject in functions use std::shared_ptr", {
 })
 
 test_that("MemoryPool calls gc() to free memory when allocation fails (ARROW-10080)", {
+  # There is a valgrind error on this test because there cannot be memory allocated
+  # which is exactly what this test is checking, but we quiet this
+  skip_on_valgrind()
+
   env <- new.env()
   trace(gc, print = FALSE, tracer = function() {
           env$gc_was_called <- TRUE

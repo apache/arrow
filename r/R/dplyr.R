@@ -147,9 +147,8 @@ dim.arrow_dplyr_query <- function(x) {
   if (isTRUE(x$filtered)) {
     rows <- x$.data$num_rows
   } else if (query_on_dataset(x)) {
-    warning("Number of rows unknown; returning NA", call. = FALSE)
-    # TODO: https://issues.apache.org/jira/browse/ARROW-9697
-    rows <- NA_integer_
+    scanner <- Scanner$create(x)
+    rows <- scanner$CountRows()
   } else {
     # Evaluate the filter expression to a BooleanArray and count
     rows <- as.integer(sum(eval_array_expression(x$filtered_rows, x$.data), na.rm = TRUE))
@@ -477,6 +476,8 @@ build_function_list <- function(FUN) {
     gsub = arrow_r_string_replace_function(FUN, -1L),
     str_replace = arrow_stringr_string_replace_function(FUN, 1L),
     str_replace_all = arrow_stringr_string_replace_function(FUN, -1L),
+    strsplit = arrow_r_string_split_function(FUN),
+    str_split = arrow_stringr_string_split_function(FUN),
     between = function(x, left, right) {
       x >= left & x <= right
     },
@@ -540,6 +541,60 @@ arrow_stringr_string_replace_function <- function(FUN, max_replacements) {
   }
 }
 
+arrow_r_string_split_function <- function(FUN, reverse = FALSE, max_splits = -1) {
+  function(x, split, fixed = FALSE, perl = FALSE, useBytes = FALSE) {
+
+    assert_that(is.string(split))
+
+    # The Arrow C++ library does not support splitting a string by a regular
+    # expression pattern (ARROW-12608) but the default behavior of
+    # base::strsplit() is to interpret the split pattern as a regex
+    # (fixed = FALSE). R users commonly pass non-regex split patterns to
+    # strsplit() without bothering to set fixed = TRUE. It would be annoying if
+    # that didn't work here. So: if fixed = FALSE, let's check the split pattern
+    # to see if it is a regex (if it contains any regex metacharacters). If not,
+    # then allow to proceed.
+    if (!fixed && contains_regex(split)) {
+      stop("Regular expression matching not supported in strsplit for Arrow", call. = FALSE)
+    }
+    # warn when the user specifies both fixed = TRUE and perl = TRUE, for
+    # consistency with the behavior of base::strsplit()
+    if (fixed && perl) {
+      warning("Argument 'perl = TRUE' will be ignored", call. = FALSE)
+    }
+    # since split is not a regex, proceed without any warnings or errors
+    # regardless of the value of perl, for consistency with the behavior of
+    # base::strsplit()
+    FUN("split_pattern", x, options = list(pattern = split, reverse = reverse, max_splits = max_splits))
+  }
+}
+
+arrow_stringr_string_split_function <- function(FUN, reverse = FALSE) {
+  function(string, pattern, n = Inf, simplify = FALSE) {
+    opts <- get_stringr_pattern_options(enexpr(pattern))
+    if (!opts$fixed && contains_regex(opts$pattern)) {
+      stop("Regular expression matching not supported in str_split() for Arrow", call. = FALSE)
+    }
+    if (opts$ignore_case) {
+      stop("Case-insensitive string splitting not supported in Arrow", call. = FALSE)
+    }
+    if (n == 0) {
+      stop("Splitting strings into zero parts not supported in Arrow" , call. = FALSE)
+    }
+    if (identical(n, Inf)) {
+      n <- 0L
+    }
+    if (simplify) {
+      warning("Argument 'simplify = TRUE' will be ignored", call. = FALSE)
+    }
+    # The max_splits option in the Arrow C++ library controls the maximum number
+    # of places at which the string is split, whereas the argument n to
+    # str_split() controls the maximum number of pieces to return. So we must
+    # subtract 1 from n to get max_splits.
+    FUN("split_pattern", string, options = list(pattern = opts$pattern, reverse = reverse, max_splits = n - 1L))
+  }
+}
+
 # format `pattern` as needed for case insensitivity and literal matching by RE2
 format_string_pattern <- function(pattern, ignore.case, fixed) {
   # Arrow lacks native support for case-insensitive literal string matching and
@@ -572,9 +627,18 @@ format_string_replacement <- function(replacement, ignore.case, fixed) {
   replacement
 }
 
-# this function assigns definitions for the stringr pattern modifier functions
-# (fixed, regex, etc.) in itself, and uses them to evaluate the quoted
-# expression `pattern`
+#' Get `stringr` pattern options
+#'
+#' This function assigns definitions for the `stringr` pattern modifier
+#' functions (`fixed()`, `regex()`, etc.) inside itself, and uses them to
+#' evaluate the quoted expression `pattern`, returning a list that is used
+#' to control pattern matching behavior in internal `arrow` functions.
+#'
+#' @param pattern Unevaluated expression containing a call to a `stringr`
+#' pattern modifier function
+#'
+#' @return List containing elements `pattern`, `fixed`, and `ignore_case`
+#' @keywords internal
 get_stringr_pattern_options <- function(pattern) {
   fixed <- function(pattern, ignore_case = FALSE, ...) {
     check_dots(...)
@@ -606,7 +670,7 @@ get_stringr_pattern_options <- function(pattern) {
   }
   ensure_opts <- function(opts) {
     if (is.character(opts)) {
-      opts <- list(pattern = opts, fixed = TRUE, ignore_case = FALSE)
+      opts <- list(pattern = opts, fixed = FALSE, ignore_case = FALSE)
     }
     opts
   }
@@ -632,7 +696,7 @@ arrow_mask <- function(.data) {
   # Some R functions will still try to evaluate on an Expression
   # and return NA with a warning
   fail <- function(...) stop("Not implemented")
-  for (f in c("mean")) {
+  for (f in c("mean", "sd")) {
     f_env[[f]] <- fail
   }
 
@@ -1006,7 +1070,6 @@ abandon_ship <- function(call, .data, msg = NULL) {
       stop(msg, "\nCall collect() first to pull data into R.", call. = FALSE)
     }
   }
-
   # else, collect and call dplyr method
   if (!is.null(msg)) {
     warning(msg, "; pulling data into R", immediate. = TRUE, call. = FALSE)
@@ -1098,4 +1161,13 @@ not_implemented_for_dataset <- function(method) {
     "Call collect() first to pull data into R.",
     call. = FALSE
   )
+}
+
+#' Does this string contain regex metacharacters?
+#'
+#' @param string String to be tested
+#' @keywords internal
+#' @return Logical: does `string` contain regex metacharacters?
+contains_regex <- function(string) {
+  grepl("[.\\|()[{^$*+?]", string)
 }

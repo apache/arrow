@@ -24,7 +24,7 @@ module.exports = {
     globals: {
         'ts-jest': {
             diagnostics: false,
-            tsConfig: 'test/tsconfig.coverage.json'
+            tsconfig: 'test/tsconfig.coverage.json'
         }
     }
 };

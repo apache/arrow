@@ -1248,3 +1248,10 @@ def test_tdigest():
     arr = pa.chunked_array([pa.array([1, 2]), pa.array([3, 4])])
     result = pc.tdigest(arr, q=[0, 0.5, 1])
     assert result.to_pylist() == [1, 2.5, 4]
+
+
+def test_fill_null_segfault():
+    # ARROW-12672
+    arr = pa.array([None], pa.bool_()).fill_null(False)
+    result = arr.cast(pa.int8())
+    assert result == pa.array([0], pa.int8())

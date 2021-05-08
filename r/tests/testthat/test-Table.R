@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("Table")
 
 test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
   tbl <- tibble::tibble(
@@ -474,4 +473,22 @@ test_that("Table$create() with different length columns", {
   msg <- "All columns must have the same length"
   expect_error(Table$create(a=1:5, b = 42), msg)
   expect_error(Table$create(a=1:5, b = 1:6), msg)
+})
+
+test_that("ARROW-11769 - grouping preserved in table creation", {
+  
+  tbl <- tibble::tibble(
+    int = 1:10,
+    fct = factor(rep(c("A", "B"), 5)),
+    fct2 = factor(rep(c("C", "D"), each = 5)),
+  )
+  
+  expect_identical(
+    tbl %>%
+      dplyr::group_by(fct, fct2) %>%
+      Table$create() %>%
+      dplyr::group_vars(),
+    c("fct", "fct2")
+  )
+  
 })

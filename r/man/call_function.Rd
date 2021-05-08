@@ -31,6 +31,10 @@ Many Arrow compute functions are mapped to R methods,
 and in a \code{dplyr} evaluation context, \link[=list_compute_functions]{all Arrow functions}
 are callable with an \code{arrow_} prefix.
 }
+\details{
+When passing indices in \code{...}, \code{args}, or \code{options}, express them as
+0-based integers (consistent with C++).
+}
 \examples{
 \donttest{
 a <- Array$create(c(1L, 2L, 3L, NA, 5L))

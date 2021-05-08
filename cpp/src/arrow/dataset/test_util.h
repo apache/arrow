@@ -21,6 +21,7 @@
 #include <ciso646>
 #include <functional>
 #include <memory>
+#include <ostream>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -30,6 +31,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/compute/exec/expression.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
@@ -40,6 +42,7 @@
 #include "arrow/filesystem/test_util.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
+#include "arrow/testing/future_util.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
@@ -53,22 +56,22 @@
 namespace arrow {
 namespace dataset {
 
-const std::shared_ptr<Schema> kBoringSchema = schema({
-    field("bool", boolean()),
-    field("i8", int8()),
-    field("i32", int32()),
-    field("i32_req", int32(), /*nullable=*/false),
-    field("u32", uint32()),
-    field("i64", int64()),
-    field("f32", float32()),
-    field("f32_req", float32(), /*nullable=*/false),
-    field("f64", float64()),
-    field("date64", date64()),
-    field("str", utf8()),
-    field("dict_str", dictionary(int32(), utf8())),
-    field("dict_i32", dictionary(int32(), int32())),
-    field("ts_ns", timestamp(TimeUnit::NANO)),
-});
+using compute::call;
+using compute::field_ref;
+using compute::literal;
+
+using compute::and_;
+using compute::equal;
+using compute::greater;
+using compute::greater_equal;
+using compute::is_null;
+using compute::is_valid;
+using compute::less;
+using compute::less_equal;
+using compute::not_;
+using compute::not_equal;
+using compute::or_;
+using compute::project;
 
 using fs::internal::GetAbstractPathExtension;
 using internal::checked_cast;
@@ -124,13 +127,15 @@ class FragmentDataset : public Dataset {
  public:
   FragmentDataset(std::shared_ptr<Schema> schema, FragmentVector fragments)
       : Dataset(std::move(schema)), fragments_(std::move(fragments)) {}
+
   std::string type_name() const override { return "fragment"; }
+
   Result<std::shared_ptr<Dataset>> ReplaceSchema(std::shared_ptr<Schema>) const override {
     return Status::NotImplemented("");
   }
 
  protected:
-  Result<FragmentIterator> GetFragmentsImpl(Expression predicate) override {
+  Result<FragmentIterator> GetFragmentsImpl(compute::Expression predicate) override {
     return MakeVectorIterator(fragments_);
   }
   FragmentVector fragments_;
@@ -287,7 +292,7 @@ class DatasetFixtureMixin : public ::testing::Test {
     SetFilter(literal(true));
   }
 
-  void SetFilter(Expression filter) {
+  void SetFilter(compute::Expression filter) {
     ASSERT_OK_AND_ASSIGN(options_->filter, filter.Bind(*schema_));
   }
 
@@ -302,6 +307,350 @@ class DatasetFixtureMixin : public ::testing::Test {
 template <typename P>
 class DatasetFixtureMixinWithParam : public DatasetFixtureMixin,
                                      public ::testing::WithParamInterface<P> {};
+
+struct TestFormatParams {
+  bool use_async;
+  int num_batches;
+  int items_per_batch;
+
+  int64_t expected_rows() const { return num_batches * items_per_batch; }
+
+  std::string ToString() const {
+    // GTest requires this to be alphanumeric
+    std::stringstream ss;
+    ss << (use_async ? "Async" : "Sync") << num_batches << "b" << items_per_batch << "r";
+    return ss.str();
+  }
+
+  static std::string ToTestNameString(
+      const ::testing::TestParamInfo<TestFormatParams>& info) {
+    return std::to_string(info.index) + info.param.ToString();
+  }
+
+  static std::vector<TestFormatParams> Values() {
+    std::vector<TestFormatParams> values{{/*async=*/false, 16, 1024},
+                                         {/*async=*/true, 16, 1024}};
+    return values;
+  }
+};
+
+std::ostream& operator<<(std::ostream& out, const TestFormatParams& params) {
+  out << params.ToString();
+  return out;
+}
+
+class FileFormatWriterMixin {
+  virtual std::shared_ptr<Buffer> Write(RecordBatchReader* reader) = 0;
+  virtual std::shared_ptr<Buffer> Write(const Table& table) = 0;
+};
+
+/// FormatHelper should be a class with these static methods:
+/// std::shared_ptr<Buffer> Write(RecordBatchReader* reader);
+/// std::shared_ptr<FileFormat> MakeFormat();
+template <typename FormatHelper>
+class FileFormatFixtureMixin : public ::testing::Test {
+ public:
+  constexpr static int64_t kBatchSize = 1UL << 12;
+  constexpr static int64_t kBatchRepetitions = 1 << 5;
+
+  FileFormatFixtureMixin()
+      : format_(FormatHelper::MakeFormat()), opts_(std::make_shared<ScanOptions>()) {}
+
+  int64_t expected_batches() const { return kBatchRepetitions; }
+  int64_t expected_rows() const { return kBatchSize * kBatchRepetitions; }
+
+  std::shared_ptr<FileFragment> MakeFragment(const FileSource& source) {
+    EXPECT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(source));
+    return fragment;
+  }
+
+  std::shared_ptr<FileFragment> MakeFragment(const FileSource& source,
+                                             compute::Expression partition_expression) {
+    EXPECT_OK_AND_ASSIGN(auto fragment,
+                         format_->MakeFragment(source, partition_expression));
+    return fragment;
+  }
+
+  std::shared_ptr<FileSource> GetFileSource(RecordBatchReader* reader) {
+    EXPECT_OK_AND_ASSIGN(auto buffer, FormatHelper::Write(reader));
+    return std::make_shared<FileSource>(std::move(buffer));
+  }
+
+  virtual std::shared_ptr<RecordBatchReader> GetRecordBatchReader(
+      std::shared_ptr<Schema> schema) {
+    return MakeGeneratedRecordBatch(schema, kBatchSize, kBatchRepetitions);
+  }
+
+  Result<std::shared_ptr<io::BufferOutputStream>> GetFileSink() {
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ResizableBuffer> buffer,
+                          AllocateResizableBuffer(0));
+    return std::make_shared<io::BufferOutputStream>(buffer);
+  }
+
+  void SetSchema(std::vector<std::shared_ptr<Field>> fields) {
+    opts_->dataset_schema = schema(std::move(fields));
+    ASSERT_OK(SetProjection(opts_.get(), opts_->dataset_schema->field_names()));
+  }
+
+  void SetFilter(compute::Expression filter) {
+    ASSERT_OK_AND_ASSIGN(opts_->filter, filter.Bind(*opts_->dataset_schema));
+  }
+
+  void Project(std::vector<std::string> names) {
+    ASSERT_OK(SetProjection(opts_.get(), std::move(names)));
+  }
+
+  // Shared test cases
+  void TestInspectFailureWithRelevantError(StatusCode code) {
+    std::shared_ptr<Buffer> buf = std::make_shared<Buffer>(util::string_view(""));
+    auto result = format_->Inspect(FileSource(buf));
+    EXPECT_EQ(code, result.status().code());
+    EXPECT_THAT(result.status().ToString(), testing::HasSubstr("<Buffer>"));
+
+    constexpr auto file_name = "herp/derp";
+    ASSERT_OK_AND_ASSIGN(
+        auto fs, fs::internal::MockFileSystem::Make(fs::kNoTime, {fs::File(file_name)}));
+    result = format_->Inspect({file_name, fs});
+    EXPECT_EQ(code, result.status().code());
+    EXPECT_THAT(result.status().ToString(), testing::HasSubstr(file_name));
+  }
+  void TestInspect() {
+    auto reader = GetRecordBatchReader(schema({field("f64", float64())}));
+    auto source = GetFileSource(reader.get());
+
+    ASSERT_OK_AND_ASSIGN(auto actual, format_->Inspect(*source.get()));
+    AssertSchemaEqual(*actual, *reader->schema(), /*check_metadata=*/false);
+  }
+  void TestIsSupported() {
+    auto reader = GetRecordBatchReader(schema({field("f64", float64())}));
+    auto source = GetFileSource(reader.get());
+
+    bool supported = false;
+
+    std::shared_ptr<Buffer> buf = std::make_shared<Buffer>(util::string_view(""));
+    ASSERT_OK_AND_ASSIGN(supported, format_->IsSupported(FileSource(buf)));
+    ASSERT_EQ(supported, false);
+
+    buf = std::make_shared<Buffer>(util::string_view("corrupted"));
+    ASSERT_OK_AND_ASSIGN(supported, format_->IsSupported(FileSource(buf)));
+    ASSERT_EQ(supported, false);
+
+    ASSERT_OK_AND_ASSIGN(supported, format_->IsSupported(*source));
+    EXPECT_EQ(supported, true);
+  }
+  std::shared_ptr<Buffer> WriteToBuffer(
+      std::shared_ptr<Schema> schema,
+      std::shared_ptr<FileWriteOptions> options = nullptr) {
+    auto format = format_;
+    SetSchema(schema->fields());
+    EXPECT_OK_AND_ASSIGN(auto sink, GetFileSink());
+
+    if (!options) options = format->DefaultWriteOptions();
+    EXPECT_OK_AND_ASSIGN(auto writer, format->MakeWriter(sink, schema, options));
+    ARROW_EXPECT_OK(writer->Write(GetRecordBatchReader(schema).get()));
+    ARROW_EXPECT_OK(writer->Finish());
+    EXPECT_OK_AND_ASSIGN(auto written, sink->Finish());
+    return written;
+  }
+  void TestWrite() {
+    auto reader = this->GetRecordBatchReader(schema({field("f64", float64())}));
+    auto source = this->GetFileSource(reader.get());
+    auto written = this->WriteToBuffer(reader->schema());
+    AssertBufferEqual(*written, *source->buffer());
+  }
+  void TestCountRows() {
+    auto options = std::make_shared<ScanOptions>();
+    auto reader = this->GetRecordBatchReader(schema({field("f64", float64())}));
+    auto full_schema = schema({field("f64", float64()), field("part", int64())});
+    auto source = this->GetFileSource(reader.get());
+
+    auto fragment = this->MakeFragment(*source);
+    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(expected_rows()),
+                              fragment->CountRows(literal(true), options));
+
+    fragment = this->MakeFragment(*source, equal(field_ref("part"), literal(2)));
+    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(expected_rows()),
+                              fragment->CountRows(literal(true), options));
+
+    auto predicate = equal(field_ref("part"), literal(1));
+    ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*full_schema));
+    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(0),
+                              fragment->CountRows(predicate, options));
+
+    predicate = equal(field_ref("part"), literal(2));
+    ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*full_schema));
+    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(expected_rows()),
+                              fragment->CountRows(predicate, options));
+
+    predicate = equal(call("add", {field_ref("f64"), literal(3)}), literal(2));
+    ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*full_schema));
+    ASSERT_FINISHES_OK_AND_EQ(util::nullopt, fragment->CountRows(predicate, options));
+  }
+
+ protected:
+  std::shared_ptr<typename FormatHelper::FormatType> format_;
+  std::shared_ptr<ScanOptions> opts_;
+};
+
+template <typename FormatHelper>
+class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
+                            public ::testing::WithParamInterface<TestFormatParams> {
+ public:
+  int64_t expected_batches() const { return GetParam().num_batches; }
+  int64_t expected_rows() const { return GetParam().expected_rows(); }
+
+  std::shared_ptr<RecordBatchReader> GetRecordBatchReader(
+      std::shared_ptr<Schema> schema) override {
+    return MakeGeneratedRecordBatch(schema, GetParam().items_per_batch,
+                                    GetParam().num_batches);
+  }
+
+  // Scan the fragment through the scanner.
+  RecordBatchIterator Batches(std::shared_ptr<Fragment> fragment) {
+    EXPECT_OK_AND_ASSIGN(auto schema, fragment->ReadPhysicalSchema());
+    auto dataset = std::make_shared<FragmentDataset>(schema, FragmentVector{fragment});
+    ScannerBuilder builder(dataset, opts_);
+    ARROW_EXPECT_OK(builder.UseAsync(GetParam().use_async));
+    EXPECT_OK_AND_ASSIGN(auto scanner, builder.Finish());
+    EXPECT_OK_AND_ASSIGN(auto batch_it, scanner->ScanBatches());
+    return MakeMapIterator([](TaggedRecordBatch tagged) { return tagged.record_batch; },
+                           std::move(batch_it));
+  }
+
+  // Scan the fragment directly, without using the scanner.
+  RecordBatchIterator PhysicalBatches(std::shared_ptr<Fragment> fragment) {
+    if (GetParam().use_async) {
+      EXPECT_OK_AND_ASSIGN(auto batch_gen, fragment->ScanBatchesAsync(opts_));
+      EXPECT_OK_AND_ASSIGN(auto batch_it, MakeGeneratorIterator(std::move(batch_gen)));
+      return batch_it;
+    }
+    EXPECT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_));
+    return MakeFlattenIterator(MakeMaybeMapIterator(
+        [](std::shared_ptr<ScanTask> scan_task) { return scan_task->Execute(); },
+        std::move(scan_task_it)));
+  }
+
+  // Shared test cases
+  void TestScan() {
+    auto reader = GetRecordBatchReader(schema({field("f64", float64())}));
+    auto source = this->GetFileSource(reader.get());
+
+    this->SetSchema(reader->schema()->fields());
+    auto fragment = this->MakeFragment(*source);
+
+    int64_t row_count = 0;
+    for (auto maybe_batch : Batches(fragment)) {
+      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+      row_count += batch->num_rows();
+    }
+    ASSERT_EQ(row_count, GetParam().expected_rows());
+  }
+  // Ensure file formats only return columns needed to fulfill filter/projection
+  void TestScanProjected() {
+    auto f32 = field("f32", float32());
+    auto f64 = field("f64", float64());
+    auto i32 = field("i32", int32());
+    auto i64 = field("i64", int64());
+    this->SetSchema({f64, i64, f32, i32});
+    this->Project({"f64"});
+    this->SetFilter(equal(field_ref("i32"), literal(0)));
+
+    // NB: projection is applied by the scanner; FileFragment does not evaluate it so
+    // we will not drop "i32" even though it is not projected since we need it for
+    // filtering
+    auto expected_schema = schema({f64, i32});
+
+    auto reader = this->GetRecordBatchReader(opts_->dataset_schema);
+    auto source = this->GetFileSource(reader.get());
+    auto fragment = this->MakeFragment(*source);
+
+    int64_t row_count = 0;
+
+    for (auto maybe_batch : PhysicalBatches(fragment)) {
+      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+      row_count += batch->num_rows();
+      AssertSchemaEqual(*batch->schema(), *expected_schema,
+                        /*check_metadata=*/false);
+    }
+
+    ASSERT_EQ(row_count, expected_rows());
+  }
+  void TestScanProjectedMissingCols() {
+    auto f32 = field("f32", float32());
+    auto f64 = field("f64", float64());
+    auto i32 = field("i32", int32());
+    auto i64 = field("i64", int64());
+    this->SetSchema({f64, i64, f32, i32});
+    this->Project({"f64"});
+    this->SetFilter(equal(field_ref("i32"), literal(0)));
+
+    auto reader_without_i32 = this->GetRecordBatchReader(schema({f64, i64, f32}));
+    auto reader_without_f64 = this->GetRecordBatchReader(schema({i64, f32, i32}));
+    auto reader = this->GetRecordBatchReader(schema({f64, i64, f32, i32}));
+
+    auto readers = {reader.get(), reader_without_i32.get(), reader_without_f64.get()};
+    for (auto reader : readers) {
+      SCOPED_TRACE(reader->schema()->ToString());
+      auto source = this->GetFileSource(reader);
+      auto fragment = this->MakeFragment(*source);
+
+      // NB: projection is applied by the scanner; FileFragment does not evaluate it so
+      // we will not drop "i32" even though it is not projected since we need it for
+      // filtering
+      //
+      // in the case where a file doesn't contain a referenced field, we won't
+      // materialize it as nulls later
+      std::shared_ptr<Schema> expected_schema;
+      if (reader == reader_without_i32.get()) {
+        expected_schema = schema({f64});
+      } else if (reader == reader_without_f64.get()) {
+        expected_schema = schema({i32});
+      } else {
+        expected_schema = schema({f64, i32});
+      }
+
+      int64_t row_count = 0;
+      for (auto maybe_batch : PhysicalBatches(fragment)) {
+        ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+        row_count += batch->num_rows();
+        AssertSchemaEqual(*batch->schema(), *expected_schema,
+                          /*check_metadata=*/false);
+      }
+      ASSERT_EQ(row_count, expected_rows());
+    }
+  }
+  void TestScanWithVirtualColumn() {
+    auto reader = this->GetRecordBatchReader(schema({field("f64", float64())}));
+    auto source = this->GetFileSource(reader.get());
+    // NB: dataset_schema includes a column not present in the file
+    this->SetSchema({reader->schema()->field(0), field("virtual", int32())});
+    auto fragment = this->MakeFragment(*source);
+
+    ASSERT_OK_AND_ASSIGN(auto physical_schema, fragment->ReadPhysicalSchema());
+    AssertSchemaEqual(Schema({field("f64", float64())}), *physical_schema);
+    {
+      int64_t row_count = 0;
+      for (auto maybe_batch : Batches(fragment)) {
+        ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+        AssertSchemaEqual(*batch->schema(), *opts_->projected_schema);
+        row_count += batch->num_rows();
+      }
+      ASSERT_EQ(row_count, expected_rows());
+    }
+    {
+      int64_t row_count = 0;
+      for (auto maybe_batch : PhysicalBatches(fragment)) {
+        ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+        AssertSchemaEqual(*batch->schema(), *physical_schema);
+        row_count += batch->num_rows();
+      }
+      ASSERT_EQ(row_count, expected_rows());
+    }
+  }
+
+ protected:
+  using FileFormatFixtureMixin<FormatHelper>::opts_;
+};
 
 /// \brief A dummy FileFormat implementation
 class DummyFileFormat : public FileFormat {
@@ -430,9 +779,9 @@ struct MakeFileSystemDatasetMixin {
   }
 
   void MakeDataset(const std::vector<fs::FileInfo>& infos,
-                   Expression root_partition = literal(true),
-                   std::vector<Expression> partitions = {},
-                   std::shared_ptr<Schema> s = kBoringSchema) {
+                   compute::Expression root_partition = literal(true),
+                   std::vector<compute::Expression> partitions = {},
+                   std::shared_ptr<Schema> s = schema({})) {
     auto n_fragments = infos.size();
     if (partitions.empty()) {
       partitions.resize(n_fragments, literal(true));
@@ -491,8 +840,9 @@ void AssertFragmentsAreFromPath(FragmentIterator it, std::vector<std::string> ex
               testing::UnorderedElementsAreArray(expected));
 }
 
-static std::vector<Expression> PartitionExpressionsOf(const FragmentVector& fragments) {
-  std::vector<Expression> partition_expressions;
+static std::vector<compute::Expression> PartitionExpressionsOf(
+    const FragmentVector& fragments) {
+  std::vector<compute::Expression> partition_expressions;
   std::transform(fragments.begin(), fragments.end(),
                  std::back_inserter(partition_expressions),
                  [](const std::shared_ptr<Fragment>& fragment) {
@@ -502,7 +852,7 @@ static std::vector<Expression> PartitionExpressionsOf(const FragmentVector& frag
 }
 
 void AssertFragmentsHavePartitionExpressions(std::shared_ptr<Dataset> dataset,
-                                             std::vector<Expression> expected) {
+                                             std::vector<compute::Expression> expected) {
   ASSERT_OK_AND_ASSIGN(auto fragment_it, dataset->GetFragments());
   for (auto& expr : expected) {
     ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*dataset->schema()));
@@ -847,7 +1197,7 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
       std::shared_ptr<Array> actual_struct;
 
       for (auto maybe_batch :
-           IteratorFromReader(std::make_shared<TableBatchReader>(*actual_table))) {
+           MakeIteratorFromReader(std::make_shared<TableBatchReader>(*actual_table))) {
         ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
         ASSERT_OK_AND_ASSIGN(actual_struct, batch->ToStructArray());
       }

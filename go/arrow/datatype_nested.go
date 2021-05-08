@@ -148,6 +148,40 @@ func (t *StructType) FieldByName(name string) (Field, bool) {
 	return t.fields[i], true
 }
 
+type MapType struct {
+	value      *ListType
+	KeysSorted bool
+}
+
+func MapOf(key, item DataType) *MapType {
+	if key == nil || item == nil {
+		panic("arrow: nil key or item type for MapType")
+	}
+
+	return &MapType{value: ListOf(StructOf(Field{Name: "key", Type: key}, Field{Name: "value", Type: item, Nullable: true}))}
+}
+
+func (*MapType) ID() Type     { return MAP }
+func (*MapType) Name() string { return "map" }
+
+func (t *MapType) String() string {
+	var o strings.Builder
+	o.WriteString(fmt.Sprintf("map<%s, %s",
+		t.value.Elem().(*StructType).Field(0).Type,
+		t.value.Elem().(*StructType).Field(1).Type))
+	if t.KeysSorted {
+		o.WriteString(", keys_sorted")
+	}
+	o.WriteString(">")
+	return o.String()
+}
+
+func (t *MapType) KeyField() Field        { return t.value.Elem().(*StructType).Field(0) }
+func (t *MapType) KeyType() DataType      { return t.KeyField().Type }
+func (t *MapType) ItemField() Field       { return t.value.Elem().(*StructType).Field(1) }
+func (t *MapType) ItemType() DataType     { return t.ItemField().Type }
+func (t *MapType) ValueType() *StructType { return t.value.Elem().(*StructType) }
+
 type Field struct {
 	Name     string   // Field name
 	Type     DataType // The field's data type
@@ -177,4 +211,5 @@ func (f Field) String() string {
 var (
 	_ DataType = (*ListType)(nil)
 	_ DataType = (*StructType)(nil)
+	_ DataType = (*MapType)(nil)
 )

@@ -151,17 +151,19 @@ struct VarStdImpl : public ScalarAggregator {
                       const VarianceOptions& options, VarOrStd return_type)
       : out_type(out_type), options(options), return_type(return_type) {}
 
-  void Consume(KernelContext*, const ExecBatch& batch) override {
+  Status Consume(KernelContext*, const ExecBatch& batch) override {
     ArrayType array(batch[0].array());
     this->state.Consume(array);
+    return Status::OK();
   }
 
-  void MergeFrom(KernelContext*, KernelState&& src) override {
+  Status MergeFrom(KernelContext*, KernelState&& src) override {
     const auto& other = checked_cast<const ThisType&>(src);
     this->state.MergeFrom(other.state);
+    return Status::OK();
   }
 
-  void Finalize(KernelContext*, Datum* out) override {
+  Status Finalize(KernelContext*, Datum* out) override {
     if (this->state.count <= options.ddof) {
       out->value = std::make_shared<DoubleScalar>();
     } else {
@@ -169,6 +171,7 @@ struct VarStdImpl : public ScalarAggregator {
       out->value =
           std::make_shared<DoubleScalar>(return_type == VarOrStd::Var ? var : sqrt(var));
     }
+    return Status::OK();
   }
 
   std::shared_ptr<DataType> out_type;
@@ -208,21 +211,22 @@ struct VarStdInitState {
     return Status::OK();
   }
 
-  std::unique_ptr<KernelState> Create() {
-    ctx->SetStatus(VisitTypeInline(in_type, this));
+  Result<std::unique_ptr<KernelState>> Create() {
+    RETURN_NOT_OK(VisitTypeInline(in_type, this));
     return std::move(state);
   }
 };
 
-std::unique_ptr<KernelState> StddevInit(KernelContext* ctx, const KernelInitArgs& args) {
+Result<std::unique_ptr<KernelState>> StddevInit(KernelContext* ctx,
+                                                const KernelInitArgs& args) {
   VarStdInitState visitor(
       ctx, *args.inputs[0].type, args.kernel->signature->out_type().type(),
       static_cast<const VarianceOptions&>(*args.options), VarOrStd::Std);
   return visitor.Create();
 }
 
-std::unique_ptr<KernelState> VarianceInit(KernelContext* ctx,
-                                          const KernelInitArgs& args) {
+Result<std::unique_ptr<KernelState>> VarianceInit(KernelContext* ctx,
+                                                  const KernelInitArgs& args) {
   VarStdInitState visitor(
       ctx, *args.inputs[0].type, args.kernel->signature->out_type().type(),
       static_cast<const VarianceOptions&>(*args.options), VarOrStd::Var);

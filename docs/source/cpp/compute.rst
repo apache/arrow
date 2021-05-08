@@ -246,10 +246,10 @@ Binary functions have the following semantics (which is sometimes called
 Arithmetic functions
 ~~~~~~~~~~~~~~~~~~~~
 
-These functions expect two inputs of numeric type and apply a given binary
-operation to each pair of elements gathered from the inputs.  If any of the
-input elements in a pair is null, the corresponding output element is null.
-Inputs will be cast to the :ref:`common numeric type <common-numeric-type>`
+These functions expect inputs of numeric type and apply a given arithmetic
+operation to each element(s) gathered from the input(s).  If any of the
+input element(s) is null, the corresponding output element is null.
+Input(s) will be cast to the :ref:`common numeric type <common-numeric-type>`
 (and dictionary decoded, if applicable) before the operation is applied.
 
 The default variant of these functions does not detect overflow (the result
@@ -268,13 +268,17 @@ an ``Invalid`` :class:`Status` when overflow is detected.
 +--------------------------+------------+--------------------+---------------------+
 | divide_checked           | Binary     | Numeric            | Numeric             |
 +--------------------------+------------+--------------------+---------------------+
-| power                    | Binary     | Numeric            | Numeric             |
-+--------------------------+------------+--------------------+---------------------+
-| power_checked            | Binary     | Numeric            | Numeric             |
-+--------------------------+------------+--------------------+---------------------+
 | multiply                 | Binary     | Numeric            | Numeric             |
 +--------------------------+------------+--------------------+---------------------+
 | multiply_checked         | Binary     | Numeric            | Numeric             |
++--------------------------+------------+--------------------+---------------------+
+| negate                   | Unary      | Numeric            | Numeric             |
++--------------------------+------------+--------------------+---------------------+
+| negate_checked           | Unary      | Signed Numeric     | Signed Numeric      |
++--------------------------+------------+--------------------+---------------------+
+| power                    | Binary     | Numeric            | Numeric             |
++--------------------------+------------+--------------------+---------------------+
+| power_checked            | Binary     | Numeric            | Numeric             |
 +--------------------------+------------+--------------------+---------------------+
 | subtract                 | Binary     | Numeric            | Numeric             |
 +--------------------------+------------+--------------------+---------------------+

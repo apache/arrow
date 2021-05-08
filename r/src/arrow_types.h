@@ -55,6 +55,7 @@
 namespace ds = ::arrow::dataset;
 #endif
 
+namespace compute = ::arrow::compute;
 namespace fs = ::arrow::fs;
 
 SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
@@ -178,6 +179,7 @@ R6_CLASS_NAME(arrow::csv::ReadOptions, "CsvReadOptions");
 R6_CLASS_NAME(arrow::csv::ParseOptions, "CsvParseOptions");
 R6_CLASS_NAME(arrow::csv::ConvertOptions, "CsvConvertOptions");
 R6_CLASS_NAME(arrow::csv::TableReader, "CsvTableReader");
+R6_CLASS_NAME(arrow::csv::WriteOptions, "CsvWriteOptions");
 
 #if defined(ARROW_R_WITH_PARQUET)
 R6_CLASS_NAME(parquet::ArrowReaderProperties, "ParquetArrowReaderProperties");

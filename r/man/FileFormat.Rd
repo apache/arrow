@@ -28,11 +28,8 @@ delimiter for text files
 
 `format = "parquet"``:
 \itemize{
-\item \code{use_buffered_stream}: Read files through buffered input streams rather than
-loading entire row groups at once. This may be enabled
-to reduce memory overhead. Disabled by default.
-\item \code{buffer_size}: Size of buffered stream, if enabled. Default is 8KB.
 \item \code{dict_columns}: Names of columns which should be read as dictionaries.
+\item Any Parquet options from \link{FragmentScanOptions}.
 }
 
 \code{format = "text"}: see \link{CsvParseOptions}. Note that you can specify them either

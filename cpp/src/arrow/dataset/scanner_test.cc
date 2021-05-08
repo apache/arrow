@@ -18,7 +18,6 @@
 #include "arrow/dataset/scanner.h"
 
 #include <memory>
-#include <ostream>
 
 #include <gmock/gmock.h>
 
@@ -30,6 +29,7 @@
 #include "arrow/dataset/test_util.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
+#include "arrow/testing/future_util.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
@@ -47,6 +47,19 @@ struct TestScannerParams {
   int num_child_datasets;
   int num_batches;
   int items_per_batch;
+
+  std::string ToString() const {
+    // GTest requires this to be alphanumeric
+    std::stringstream ss;
+    ss << (use_async ? "Async" : "Sync") << (use_threads ? "Threaded" : "Serial")
+       << num_child_datasets << "d" << num_batches << "b" << items_per_batch << "r";
+    return ss.str();
+  }
+
+  static std::string ToTestNameString(
+      const ::testing::TestParamInfo<TestScannerParams>& info) {
+    return std::to_string(info.index) + info.param.ToString();
+  }
 
   static std::vector<TestScannerParams> Values() {
     std::vector<TestScannerParams> values;
@@ -308,6 +321,142 @@ TEST_P(TestScanner, TakeIndices) {
   }
 }
 
+TEST_P(TestScanner, CountRows) {
+  const auto items_per_batch = GetParam().items_per_batch;
+  const auto num_batches = GetParam().num_batches;
+  const auto num_datasets = GetParam().num_child_datasets;
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  ArrayVector arrays(2);
+  ArrayFromVector<Int32Type>(
+      internal::Iota<int32_t>(static_cast<int32_t>(items_per_batch)), &arrays[0]);
+  ArrayFromVector<DoubleType>(
+      internal::Iota<double>(static_cast<double>(items_per_batch)), &arrays[1]);
+  auto batch = RecordBatch::Make(schema_, items_per_batch, arrays);
+  auto scanner = MakeScanner(batch);
+
+  ASSERT_OK_AND_ASSIGN(auto rows, scanner->CountRows());
+  ASSERT_EQ(rows, num_datasets * num_batches * items_per_batch);
+
+  ASSERT_OK_AND_ASSIGN(options_->filter,
+                       greater_equal(field_ref("i32"), literal(64)).Bind(*schema_));
+  ASSERT_OK_AND_ASSIGN(rows, scanner->CountRows());
+  ASSERT_EQ(rows, num_datasets * num_batches * (items_per_batch - 64));
+}
+
+class CountRowsOnlyFragment : public InMemoryFragment {
+ public:
+  using InMemoryFragment::InMemoryFragment;
+
+  Future<util::optional<int64_t>> CountRows(compute::Expression predicate,
+                                            std::shared_ptr<ScanOptions>) override {
+    if (compute::FieldsInExpression(predicate).size() > 0) {
+      return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
+    }
+    int64_t sum = 0;
+    for (const auto& batch : record_batches_) {
+      sum += batch->num_rows();
+    }
+    return Future<util::optional<int64_t>>::MakeFinished(sum);
+  }
+  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions>) override {
+    return Status::Invalid("Don't scan me!");
+  }
+  Result<RecordBatchGenerator> ScanBatchesAsync(
+      const std::shared_ptr<ScanOptions>&) override {
+    return Status::Invalid("Don't scan me!");
+  }
+};
+
+class ScanOnlyFragment : public InMemoryFragment {
+ public:
+  using InMemoryFragment::InMemoryFragment;
+
+  Future<util::optional<int64_t>> CountRows(compute::Expression predicate,
+                                            std::shared_ptr<ScanOptions>) override {
+    return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
+  }
+  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options) override {
+    auto self = shared_from_this();
+    ScanTaskVector tasks{
+        std::make_shared<InMemoryScanTask>(record_batches_, options, self)};
+    return MakeVectorIterator(std::move(tasks));
+  }
+  Result<RecordBatchGenerator> ScanBatchesAsync(
+      const std::shared_ptr<ScanOptions>&) override {
+    return MakeVectorGenerator(record_batches_);
+  }
+};
+
+// Ensure the pipeline does not break on an empty batch
+TEST_P(TestScanner, CountRowsEmpty) {
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto empty_batch = ConstantArrayGenerator::Zeroes(0, schema_);
+  auto batch = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
+  RecordBatchVector batches = {empty_batch, batch};
+  ScannerBuilder builder(
+      std::make_shared<FragmentDataset>(
+          schema_, FragmentVector{std::make_shared<ScanOnlyFragment>(batches)}),
+      options_);
+  ASSERT_OK(builder.UseAsync(GetParam().use_async));
+  ASSERT_OK(builder.UseThreads(GetParam().use_threads));
+  ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
+  ASSERT_OK_AND_EQ(batch->num_rows(), scanner->CountRows());
+}
+
+// Regression test for ARROW-12668: ensure failures are properly handled
+class CountFailFragment : public InMemoryFragment {
+ public:
+  explicit CountFailFragment(RecordBatchVector record_batches)
+      : InMemoryFragment(std::move(record_batches)),
+        count(Future<util::optional<int64_t>>::Make()) {}
+
+  Future<util::optional<int64_t>> CountRows(compute::Expression,
+                                            std::shared_ptr<ScanOptions>) override {
+    return count;
+  }
+
+  Future<util::optional<int64_t>> count;
+};
+TEST_P(TestScanner, CountRowsFailure) {
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
+  RecordBatchVector batches = {batch};
+  auto fragment1 = std::make_shared<CountFailFragment>(batches);
+  auto fragment2 = std::make_shared<CountFailFragment>(batches);
+  ScannerBuilder builder(
+      std::make_shared<FragmentDataset>(schema_, FragmentVector{fragment1, fragment2}),
+      options_);
+  ASSERT_OK(builder.UseAsync(GetParam().use_async));
+  ASSERT_OK(builder.UseThreads(GetParam().use_threads));
+  ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
+  fragment1->count.MarkFinished(Status::Invalid(""));
+  // Should immediately stop the count
+  ASSERT_RAISES(Invalid, scanner->CountRows());
+  // Fragment 2 doesn't complete until after the count stops - should not break anything
+  // under ASan, etc.
+  fragment2->count.MarkFinished(util::nullopt);
+}
+
+TEST_P(TestScanner, CountRowsWithMetadata) {
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
+  RecordBatchVector batches = {batch, batch, batch, batch};
+  ScannerBuilder builder(
+      std::make_shared<FragmentDataset>(
+          schema_, FragmentVector{std::make_shared<CountRowsOnlyFragment>(batches)}),
+      options_);
+  ASSERT_OK(builder.UseAsync(GetParam().use_async));
+  ASSERT_OK(builder.UseThreads(GetParam().use_threads));
+  ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
+  ASSERT_OK_AND_EQ(4 * batch->num_rows(), scanner->CountRows());
+
+  ASSERT_OK(builder.Filter(equal(field_ref("i32"), literal(5))));
+  ASSERT_OK_AND_ASSIGN(scanner, builder.Finish());
+  // Scanner should fall back on reading data and hit the error
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("Don't scan me!"),
+                                  scanner->CountRows());
+}
+
 class FailingFragment : public InMemoryFragment {
  public:
   using InMemoryFragment::InMemoryFragment;
@@ -494,8 +643,317 @@ TEST_P(TestScanner, Head) {
   AssertTablesEqual(*expected, *actual);
 }
 
+TEST_P(TestScanner, FromReader) {
+  if (GetParam().use_async) {
+    GTEST_SKIP() << "Async scanner does not support construction from reader";
+  }
+  auto batch_size = GetParam().items_per_batch;
+  auto num_batches = GetParam().num_batches;
+
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(batch_size, schema_);
+  auto source_reader = ConstantArrayGenerator::Repeat(num_batches, batch);
+  auto target_reader = ConstantArrayGenerator::Repeat(num_batches, batch);
+
+  auto builder = ScannerBuilder::FromRecordBatchReader(source_reader);
+  ARROW_EXPECT_OK(builder->UseThreads(GetParam().use_threads));
+  ASSERT_OK_AND_ASSIGN(auto scanner, builder->Finish());
+  AssertScannerEquals(target_reader.get(), scanner.get());
+
+  // Such datasets can only be scanned once (but you can get fragments multiple times)
+  ASSERT_OK_AND_ASSIGN(auto batch_it, scanner->ScanBatches());
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("OneShotFragment was already scanned"),
+      batch_it.Next());
+}
+
 INSTANTIATE_TEST_SUITE_P(TestScannerThreading, TestScanner,
-                         ::testing::ValuesIn(TestScannerParams::Values()));
+                         ::testing::ValuesIn(TestScannerParams::Values()),
+                         [](const ::testing::TestParamInfo<TestScannerParams>& info) {
+                           return std::to_string(info.index) + info.param.ToString();
+                         });
+
+/// These ControlledXyz classes allow for controlling the order in which things are
+/// delivered so that we can test out of order resequencing.  The dataset allows
+/// batches to be delivered on any fragment.  When delivering batches a num_rows
+/// parameter is taken which can be used to differentiate batches.
+class ControlledFragment : public Fragment {
+ public:
+  explicit ControlledFragment(std::shared_ptr<Schema> schema)
+      : Fragment(literal(true), std::move(schema)) {}
+
+  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options) override {
+    return Status::NotImplemented(
+        "Not needed for testing.  Sync can only return things in-order.");
+  }
+  Result<std::shared_ptr<Schema>> ReadPhysicalSchemaImpl() override {
+    return physical_schema_;
+  }
+  std::string type_name() const override { return "scanner_test.cc::ControlledFragment"; }
+
+  Result<RecordBatchGenerator> ScanBatchesAsync(
+      const std::shared_ptr<ScanOptions>& options) override {
+    return record_batch_generator_;
+  };
+
+  void Finish() { ARROW_UNUSED(record_batch_generator_.producer().Close()); }
+  void DeliverBatch(uint32_t num_rows) {
+    auto batch = ConstantArrayGenerator::Zeroes(num_rows, physical_schema_);
+    record_batch_generator_.producer().Push(std::move(batch));
+  }
+
+ private:
+  PushGenerator<std::shared_ptr<RecordBatch>> record_batch_generator_;
+};
+
+// TODO(ARROW-8163) Add testing for fragments arriving out of order
+class ControlledDataset : public Dataset {
+ public:
+  explicit ControlledDataset(int num_fragments)
+      : Dataset(arrow::schema({field("i32", int32())})), fragments_() {
+    for (int i = 0; i < num_fragments; i++) {
+      fragments_.push_back(std::make_shared<ControlledFragment>(schema_));
+    }
+  }
+
+  std::string type_name() const override { return "scanner_test.cc::ControlledDataset"; }
+  Result<std::shared_ptr<Dataset>> ReplaceSchema(
+      std::shared_ptr<Schema> schema) const override {
+    return Status::NotImplemented("Should not be called by unit test");
+  }
+
+  void DeliverBatch(int fragment_index, int num_rows) {
+    fragments_[fragment_index]->DeliverBatch(num_rows);
+  }
+
+  void FinishFragment(int fragment_index) { fragments_[fragment_index]->Finish(); }
+
+ protected:
+  Result<FragmentIterator> GetFragmentsImpl(compute::Expression predicate) override {
+    std::vector<std::shared_ptr<Fragment>> casted_fragments(fragments_.begin(),
+                                                            fragments_.end());
+    return MakeVectorIterator(std::move(casted_fragments));
+  }
+
+ private:
+  std::vector<std::shared_ptr<ControlledFragment>> fragments_;
+};
+
+constexpr int kNumFragments = 2;
+
+class TestReordering : public ::testing::Test {
+ public:
+  void SetUp() override { dataset_ = std::make_shared<ControlledDataset>(kNumFragments); }
+
+  // Given a vector of fragment indices (one per batch) return a vector
+  // (one per fragment) mapping fragment index to the last occurrence of that
+  // index in order
+  //
+  // This allows us to know when to mark a fragment as finished
+  std::vector<int> GetLastIndices(const std::vector<int>& order) {
+    std::vector<int> last_indices(kNumFragments);
+    for (std::size_t i = 0; i < kNumFragments; i++) {
+      auto last_p = std::find(order.rbegin(), order.rend(), static_cast<int>(i));
+      EXPECT_NE(last_p, order.rend());
+      last_indices[i] = static_cast<int>(std::distance(last_p, order.rend())) - 1;
+    }
+    return last_indices;
+  }
+
+  /// We buffer one item in order to enumerate it (technically this could be avoided if
+  /// delivering in order but easier to have a single code path).  We also can't deliver
+  /// items that don't come next.  These two facts make for some pretty complex logic
+  /// to determine when items are ready to be collected.
+  std::vector<TaggedRecordBatch> DeliverAndCollect(std::vector<int> order,
+                                                   TaggedRecordBatchGenerator gen) {
+    std::vector<TaggedRecordBatch> collected;
+    auto last_indices = GetLastIndices(order);
+    int num_fragments = static_cast<int>(last_indices.size());
+    std::vector<int> batches_seen_for_fragment(num_fragments);
+    auto current_fragment_index = 0;
+    auto seen_fragment = false;
+    for (std::size_t i = 0; i < order.size(); i++) {
+      auto fragment_index = order[i];
+      dataset_->DeliverBatch(fragment_index, static_cast<int>(i));
+      batches_seen_for_fragment[fragment_index]++;
+      if (static_cast<int>(i) == last_indices[fragment_index]) {
+        dataset_->FinishFragment(fragment_index);
+      }
+      if (current_fragment_index == fragment_index) {
+        if (seen_fragment) {
+          EXPECT_FINISHES_OK_AND_ASSIGN(auto next, gen());
+          collected.push_back(std::move(next));
+        } else {
+          seen_fragment = true;
+        }
+        if (static_cast<int>(i) == last_indices[fragment_index]) {
+          // Immediately collect your bonus fragment
+          EXPECT_FINISHES_OK_AND_ASSIGN(auto next, gen());
+          collected.push_back(std::move(next));
+          // Now collect any batches freed up that couldn't be delivered because they came
+          // from the wrong fragment
+          auto last_fragment_index = fragment_index;
+          fragment_index++;
+          seen_fragment = batches_seen_for_fragment[fragment_index] > 0;
+          while (fragment_index < num_fragments &&
+                 fragment_index != last_fragment_index) {
+            last_fragment_index = fragment_index;
+            for (int j = 0; j < batches_seen_for_fragment[fragment_index] - 1; j++) {
+              EXPECT_FINISHES_OK_AND_ASSIGN(auto next, gen());
+              collected.push_back(std::move(next));
+            }
+            if (static_cast<int>(i) >= last_indices[fragment_index]) {
+              EXPECT_FINISHES_OK_AND_ASSIGN(auto next, gen());
+              collected.push_back(std::move(next));
+              fragment_index++;
+              if (fragment_index < num_fragments) {
+                seen_fragment = batches_seen_for_fragment[fragment_index] > 0;
+              }
+            }
+          }
+        }
+      }
+    }
+    return collected;
+  }
+
+  struct FragmentStats {
+    int last_index;
+    bool seen;
+  };
+
+  std::vector<FragmentStats> GetFragmentStats(const std::vector<int>& order) {
+    auto last_indices = GetLastIndices(order);
+    std::vector<FragmentStats> fragment_stats;
+    for (std::size_t i = 0; i < last_indices.size(); i++) {
+      fragment_stats.push_back({last_indices[i], false});
+    }
+    return fragment_stats;
+  }
+
+  /// When data arrives out of order then we first have to buffer up 1 item in order to
+  /// know when the last item has arrived (so we can mark it as the last).  This means
+  /// sometimes we deliver an item and don't get one (first in a fragment) and sometimes
+  /// we deliver an item and we end up getting two (last in a fragment)
+  std::vector<EnumeratedRecordBatch> DeliverAndCollect(
+      std::vector<int> order, EnumeratedRecordBatchGenerator gen) {
+    std::vector<EnumeratedRecordBatch> collected;
+    auto fragment_stats = GetFragmentStats(order);
+    for (std::size_t i = 0; i < order.size(); i++) {
+      auto fragment_index = order[i];
+      dataset_->DeliverBatch(fragment_index, static_cast<int>(i));
+      if (static_cast<int>(i) == fragment_stats[fragment_index].last_index) {
+        dataset_->FinishFragment(fragment_index);
+        EXPECT_FINISHES_OK_AND_ASSIGN(auto next, gen());
+        collected.push_back(std::move(next));
+      }
+      if (!fragment_stats[fragment_index].seen) {
+        fragment_stats[fragment_index].seen = true;
+      } else {
+        EXPECT_FINISHES_OK_AND_ASSIGN(auto next, gen());
+        collected.push_back(std::move(next));
+      }
+    }
+    return collected;
+  }
+
+  std::shared_ptr<Scanner> MakeScanner(int fragment_readahead = 0) {
+    ScannerBuilder builder(dataset_);
+    // Reordering tests only make sense for async
+    ARROW_EXPECT_OK(builder.UseAsync(true));
+    if (fragment_readahead != 0) {
+      ARROW_EXPECT_OK(builder.FragmentReadahead(fragment_readahead));
+    }
+    EXPECT_OK_AND_ASSIGN(auto scanner, builder.Finish());
+    return scanner;
+  }
+
+  void AssertBatchesInOrder(const std::vector<TaggedRecordBatch>& batches,
+                            std::vector<int> expected_order) {
+    ASSERT_EQ(expected_order.size(), batches.size());
+    for (std::size_t i = 0; i < batches.size(); i++) {
+      ASSERT_EQ(expected_order[i], batches[i].record_batch->num_rows());
+    }
+  }
+
+  void AssertBatchesInOrder(const std::vector<EnumeratedRecordBatch>& batches,
+                            std::vector<int> expected_batch_indices,
+                            std::vector<int> expected_row_sizes) {
+    ASSERT_EQ(expected_batch_indices.size(), batches.size());
+    for (std::size_t i = 0; i < batches.size(); i++) {
+      ASSERT_EQ(expected_row_sizes[i], batches[i].record_batch.value->num_rows());
+      ASSERT_EQ(expected_batch_indices[i], batches[i].record_batch.index);
+    }
+  }
+
+  std::shared_ptr<ControlledDataset> dataset_;
+};
+
+TEST_F(TestReordering, ScanBatches) {
+  auto scanner = MakeScanner();
+  ASSERT_OK_AND_ASSIGN(auto batch_gen, scanner->ScanBatchesAsync());
+  auto collected = DeliverAndCollect({0, 0, 1, 1, 0}, std::move(batch_gen));
+  AssertBatchesInOrder(collected, {0, 1, 4, 2, 3});
+}
+
+TEST_F(TestReordering, ScanBatchesUnordered) {
+  auto scanner = MakeScanner();
+  ASSERT_OK_AND_ASSIGN(auto batch_gen, scanner->ScanBatchesUnorderedAsync());
+  auto collected = DeliverAndCollect({0, 0, 1, 1, 0}, std::move(batch_gen));
+  AssertBatchesInOrder(collected, {0, 0, 1, 1, 2}, {0, 2, 3, 1, 4});
+}
+
+struct BatchConsumer {
+  explicit BatchConsumer(EnumeratedRecordBatchGenerator generator)
+      : generator(generator), next() {}
+
+  void AssertCanConsume() {
+    if (!next.is_valid()) {
+      next = generator();
+    }
+    ASSERT_FINISHES_OK(next);
+    next = Future<EnumeratedRecordBatch>();
+  }
+
+  void AssertCannotConsume() {
+    if (!next.is_valid()) {
+      next = generator();
+    }
+    SleepABit();
+    ASSERT_FALSE(next.is_finished());
+  }
+
+  void AssertFinished() {
+    if (!next.is_valid()) {
+      next = generator();
+    }
+    ASSERT_FINISHES_OK_AND_ASSIGN(auto last, next);
+    ASSERT_TRUE(IsIterationEnd(last));
+  }
+
+  EnumeratedRecordBatchGenerator generator;
+  Future<EnumeratedRecordBatch> next;
+};
+
+TEST_F(TestReordering, FileReadahead) {
+  auto scanner = MakeScanner(/*fragment_readahead=*/1);
+  ASSERT_OK_AND_ASSIGN(auto batch_gen, scanner->ScanBatchesUnorderedAsync());
+  BatchConsumer consumer(std::move(batch_gen));
+  dataset_->DeliverBatch(0, 0);
+  dataset_->DeliverBatch(0, 1);
+  consumer.AssertCanConsume();
+  consumer.AssertCannotConsume();
+  dataset_->DeliverBatch(1, 0);
+  consumer.AssertCannotConsume();
+  dataset_->FinishFragment(1);
+  // Even though fragment 1 is finished we cannot read it because fragment_readahead
+  // is 1 so we should only be reading fragment 0
+  consumer.AssertCannotConsume();
+  dataset_->FinishFragment(0);
+  consumer.AssertCanConsume();
+  consumer.AssertCanConsume();
+  consumer.AssertFinished();
+}
 
 class TestScannerBuilder : public ::testing::Test {
   void SetUp() override {

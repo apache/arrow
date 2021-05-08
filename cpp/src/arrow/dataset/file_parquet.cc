@@ -24,6 +24,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/compute/exec.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/filesystem/path_util.h"
@@ -163,7 +164,7 @@ static Result<std::shared_ptr<SchemaManifest>> GetSchemaManifest(
   return manifest;
 }
 
-static util::optional<Expression> ColumnChunkStatisticsAsExpression(
+static util::optional<compute::Expression> ColumnChunkStatisticsAsExpression(
     const SchemaField& schema_field, const parquet::RowGroupMetaData& metadata) {
   // For the remaining of this function, failure to extract/parse statistics
   // are ignored by returning nullptr. The goal is two fold. First
@@ -182,11 +183,11 @@ static util::optional<Expression> ColumnChunkStatisticsAsExpression(
   }
 
   const auto& field = schema_field.field;
-  auto field_expr = field_ref(field->name());
+  auto field_expr = compute::field_ref(field->name());
 
   // Optimize for corner case where all values are nulls
-  if (statistics->num_values() == statistics->null_count()) {
-    return equal(std::move(field_expr), literal(MakeNullScalar(field->type())));
+  if (statistics->num_values() == 0 && statistics->null_count() > 0) {
+    return is_null(std::move(field_expr));
   }
 
   std::shared_ptr<Scalar> min, max;
@@ -197,10 +198,17 @@ static util::optional<Expression> ColumnChunkStatisticsAsExpression(
   auto maybe_min = min->CastTo(field->type());
   auto maybe_max = max->CastTo(field->type());
   if (maybe_min.ok() && maybe_max.ok()) {
-    min = maybe_min.MoveValueUnsafe();
-    max = maybe_max.MoveValueUnsafe();
-    return and_(greater_equal(field_expr, literal(min)),
-                less_equal(field_expr, literal(max)));
+    auto col_min = maybe_min.MoveValueUnsafe();
+    auto col_max = maybe_max.MoveValueUnsafe();
+    if (col_min->Equals(col_max)) {
+      return compute::equal(std::move(field_expr), compute::literal(std::move(col_min)));
+    }
+
+    auto lower_bound =
+        compute::greater_equal(field_expr, compute::literal(std::move(col_min)));
+    auto upper_bound =
+        compute::less_equal(std::move(field_expr), compute::literal(std::move(col_max)));
+    return compute::and_(std::move(lower_bound), std::move(upper_bound));
   }
 
   return util::nullopt;
@@ -382,8 +390,25 @@ Result<ScanTaskIterator> ParquetFileFormat::ScanFile(
   return MakeVectorIterator(std::move(tasks));
 }
 
+Future<util::optional<int64_t>> ParquetFileFormat::CountRows(
+    const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
+    std::shared_ptr<ScanOptions> options) {
+  auto parquet_file = internal::checked_pointer_cast<ParquetFileFragment>(file);
+  if (parquet_file->metadata()) {
+    ARROW_ASSIGN_OR_RAISE(auto maybe_count,
+                          parquet_file->TryCountRows(std::move(predicate)));
+    return Future<util::optional<int64_t>>::MakeFinished(maybe_count);
+  } else {
+    return DeferNotOk(options->io_context.executor()->Submit(
+        [parquet_file, predicate]() -> Result<util::optional<int64_t>> {
+          RETURN_NOT_OK(parquet_file->EnsureCompleteMetadata());
+          return parquet_file->TryCountRows(predicate);
+        }));
+  }
+}
+
 Result<std::shared_ptr<ParquetFileFragment>> ParquetFileFormat::MakeFragment(
-    FileSource source, Expression partition_expression,
+    FileSource source, compute::Expression partition_expression,
     std::shared_ptr<Schema> physical_schema, std::vector<int> row_groups) {
   return std::shared_ptr<ParquetFileFragment>(new ParquetFileFragment(
       std::move(source), shared_from_this(), std::move(partition_expression),
@@ -391,7 +416,7 @@ Result<std::shared_ptr<ParquetFileFragment>> ParquetFileFormat::MakeFragment(
 }
 
 Result<std::shared_ptr<FileFragment>> ParquetFileFormat::MakeFragment(
-    FileSource source, Expression partition_expression,
+    FileSource source, compute::Expression partition_expression,
     std::shared_ptr<Schema> physical_schema) {
   return std::shared_ptr<FileFragment>(new ParquetFileFragment(
       std::move(source), shared_from_this(), std::move(partition_expression),
@@ -447,7 +472,7 @@ Status ParquetFileWriter::FinishInternal() { return parquet_writer_->Close(); }
 
 ParquetFileFragment::ParquetFileFragment(FileSource source,
                                          std::shared_ptr<FileFormat> format,
-                                         Expression partition_expression,
+                                         compute::Expression partition_expression,
                                          std::shared_ptr<Schema> physical_schema,
                                          util::optional<std::vector<int>> row_groups)
     : FileFragment(std::move(source), std::move(format), std::move(partition_expression),
@@ -494,7 +519,7 @@ Status ParquetFileFragment::SetMetadata(
   metadata_ = std::move(metadata);
   manifest_ = std::move(manifest);
 
-  statistics_expressions_.resize(row_groups_->size(), literal(true));
+  statistics_expressions_.resize(row_groups_->size(), compute::literal(true));
   statistics_expressions_complete_.resize(physical_schema_->num_fields(), false);
 
   for (int row_group : *row_groups_) {
@@ -509,7 +534,8 @@ Status ParquetFileFragment::SetMetadata(
   return Status::OK();
 }
 
-Result<FragmentVector> ParquetFileFragment::SplitByRowGroup(Expression predicate) {
+Result<FragmentVector> ParquetFileFragment::SplitByRowGroup(
+    compute::Expression predicate) {
   RETURN_NOT_OK(EnsureCompleteMetadata());
   ARROW_ASSIGN_OR_RAISE(auto row_groups, FilterRowGroups(predicate));
 
@@ -527,7 +553,8 @@ Result<FragmentVector> ParquetFileFragment::SplitByRowGroup(Expression predicate
   return fragments;
 }
 
-Result<std::shared_ptr<Fragment>> ParquetFileFragment::Subset(Expression predicate) {
+Result<std::shared_ptr<Fragment>> ParquetFileFragment::Subset(
+    compute::Expression predicate) {
   RETURN_NOT_OK(EnsureCompleteMetadata());
   ARROW_ASSIGN_OR_RAISE(auto row_groups, FilterRowGroups(predicate));
   return Subset(std::move(row_groups));
@@ -544,15 +571,31 @@ Result<std::shared_ptr<Fragment>> ParquetFileFragment::Subset(
   return new_fragment;
 }
 
-inline void FoldingAnd(Expression* l, Expression r) {
-  if (*l == literal(true)) {
+inline void FoldingAnd(compute::Expression* l, compute::Expression r) {
+  if (*l == compute::literal(true)) {
     *l = std::move(r);
   } else {
     *l = and_(std::move(*l), std::move(r));
   }
 }
 
-Result<std::vector<int>> ParquetFileFragment::FilterRowGroups(Expression predicate) {
+Result<std::vector<int>> ParquetFileFragment::FilterRowGroups(
+    compute::Expression predicate) {
+  std::vector<int> row_groups;
+  ARROW_ASSIGN_OR_RAISE(auto expressions, TestRowGroups(std::move(predicate)));
+
+  auto lock = physical_schema_mutex_.Lock();
+  DCHECK(expressions.empty() || (expressions.size() == row_groups_->size()));
+  for (size_t i = 0; i < expressions.size(); i++) {
+    if (expressions[i].IsSatisfiable()) {
+      row_groups.push_back(row_groups_->at(i));
+    }
+  }
+  return row_groups;
+}
+
+Result<std::vector<compute::Expression>> ParquetFileFragment::TestRowGroups(
+    compute::Expression predicate) {
   auto lock = physical_schema_mutex_.Lock();
 
   DCHECK_NE(metadata_, nullptr);
@@ -560,7 +603,7 @@ Result<std::vector<int>> ParquetFileFragment::FilterRowGroups(Expression predica
       predicate, SimplifyWithGuarantee(std::move(predicate), partition_expression_));
 
   if (!predicate.IsSatisfiable()) {
-    return std::vector<int>{};
+    return std::vector<compute::Expression>{};
   }
 
   for (const FieldRef& ref : FieldsInExpression(predicate)) {
@@ -586,16 +629,33 @@ Result<std::vector<int>> ParquetFileFragment::FilterRowGroups(Expression predica
     }
   }
 
-  std::vector<int> row_groups;
+  std::vector<compute::Expression> row_groups(row_groups_->size());
   for (size_t i = 0; i < row_groups_->size(); ++i) {
     ARROW_ASSIGN_OR_RAISE(auto row_group_predicate,
                           SimplifyWithGuarantee(predicate, statistics_expressions_[i]));
-    if (row_group_predicate.IsSatisfiable()) {
-      row_groups.push_back(row_groups_->at(i));
-    }
+    row_groups[i] = std::move(row_group_predicate);
   }
-
   return row_groups;
+}
+
+Result<util::optional<int64_t>> ParquetFileFragment::TryCountRows(
+    compute::Expression predicate) {
+  DCHECK_NE(metadata_, nullptr);
+  if (ExpressionHasFieldRefs(predicate)) {
+    ARROW_ASSIGN_OR_RAISE(auto expressions, TestRowGroups(std::move(predicate)));
+    int64_t rows = 0;
+    for (size_t i = 0; i < row_groups_->size(); i++) {
+      // If the row group is entirely excluded, exclude it from the row count
+      if (!expressions[i].IsSatisfiable()) continue;
+      // Unless the row group is entirely included, bail out of fast path
+      if (expressions[i] != compute::literal(true)) return util::nullopt;
+      BEGIN_PARQUET_CATCH_EXCEPTIONS
+      rows += metadata()->RowGroup((*row_groups_)[i])->num_rows();
+      END_PARQUET_CATCH_EXCEPTIONS
+    }
+    return rows;
+  }
+  return metadata()->num_rows();
 }
 
 //
@@ -724,7 +784,7 @@ ParquetDatasetFactory::CollectParquetFragments(const Partitioning& partitioning)
 
     auto partition_expression =
         partitioning.Parse(StripPrefixAndFilename(path, options_.partition_base_dir))
-            .ValueOr(literal(true));
+            .ValueOr(compute::literal(true));
 
     ARROW_ASSIGN_OR_RAISE(
         auto fragment,
@@ -775,8 +835,8 @@ Result<std::shared_ptr<Dataset>> ParquetDatasetFactory::Finish(FinishOptions opt
   }
 
   ARROW_ASSIGN_OR_RAISE(auto fragments, CollectParquetFragments(*partitioning));
-  return FileSystemDataset::Make(std::move(schema), literal(true), format_, filesystem_,
-                                 std::move(fragments));
+  return FileSystemDataset::Make(std::move(schema), compute::literal(true), format_,
+                                 filesystem_, std::move(fragments));
 }
 
 }  // namespace dataset

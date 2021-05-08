@@ -25,8 +25,8 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/compute/exec/expression.h"
 #include "arrow/dataset/dataset.h"
-#include "arrow/dataset/expression.h"
 #include "arrow/dataset/projector.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
@@ -55,9 +55,9 @@ constexpr int32_t kDefaultFragmentReadahead = 8;
 /// Scan-specific options, which can be changed between scans of the same dataset.
 struct ARROW_DS_EXPORT ScanOptions {
   /// A row filter (which will be pushed down to partitioning/reading if supported).
-  Expression filter = literal(true);
+  compute::Expression filter = compute::literal(true);
   /// A projection expression (which can add/remove/rename columns).
-  Expression projection;
+  compute::Expression projection;
 
   /// Schema with which batches will be read from fragments. This is also known as the
   /// "reader schema" it will be used (for example) in constructing CSV file readers to
@@ -148,6 +148,9 @@ class ARROW_DS_EXPORT ScanTask {
   /// resulting from the Scan. Execution semantics are encapsulated in the
   /// particular ScanTask implementation
   virtual Result<RecordBatchIterator> Execute() = 0;
+  virtual Future<RecordBatchVector> SafeExecute(internal::Executor* executor);
+  virtual Future<> SafeVisit(internal::Executor* executor,
+                             std::function<Status(std::shared_ptr<RecordBatch>)> visitor);
 
   virtual ~ScanTask() = default;
 
@@ -266,6 +269,7 @@ class ARROW_DS_EXPORT Scanner {
   /// If the readahead queue fills up then I/O will pause until the calling thread catches
   /// up.
   virtual Result<TaggedRecordBatchIterator> ScanBatches() = 0;
+  virtual Result<TaggedRecordBatchGenerator> ScanBatchesAsync() = 0;
   /// \brief Scan the dataset into a stream of record batches.  Unlike ScanBatches this
   /// method may allow record batches to be returned out of order.  This allows for more
   /// efficient scanning: some fragments may be accessed more quickly than others (e.g.
@@ -274,12 +278,18 @@ class ARROW_DS_EXPORT Scanner {
   /// To make up for the out-of-order iteration each batch is further tagged with
   /// positional information.
   virtual Result<EnumeratedRecordBatchIterator> ScanBatchesUnordered();
+  virtual Result<EnumeratedRecordBatchGenerator> ScanBatchesUnorderedAsync() = 0;
   /// \brief A convenience to synchronously load the given rows by index.
   ///
   /// Will only consume as many batches as needed from ScanBatches().
   virtual Result<std::shared_ptr<Table>> TakeRows(const Array& indices);
   /// \brief Get the first N rows.
   virtual Result<std::shared_ptr<Table>> Head(int64_t num_rows);
+  /// \brief Count rows matching a predicate.
+  ///
+  /// This method will push down the predicate and compute the result based on fragment
+  /// metadata if possible.
+  virtual Result<int64_t> CountRows();
 
   /// \brief Get the options for this scan.
   const std::shared_ptr<ScanOptions>& options() const { return scan_options_; }
@@ -307,6 +317,14 @@ class ARROW_DS_EXPORT ScannerBuilder {
   ScannerBuilder(std::shared_ptr<Schema> schema, std::shared_ptr<Fragment> fragment,
                  std::shared_ptr<ScanOptions> scan_options);
 
+  /// \brief Make a scanner from a record batch reader.
+  ///
+  /// The resulting scanner can be scanned only once. This is intended
+  /// to support writing data from streaming sources or other sources
+  /// that can be iterated only once.
+  static std::shared_ptr<ScannerBuilder> FromRecordBatchReader(
+      std::shared_ptr<RecordBatchReader> reader);
+
   /// \brief Set the subset of columns to materialize.
   ///
   /// Columns which are not referenced may not be read from fragments.
@@ -328,7 +346,7 @@ class ARROW_DS_EXPORT ScannerBuilder {
   ///
   /// \return Failure if any referenced column does not exists in the dataset's
   ///         Schema.
-  Status Project(std::vector<Expression> exprs, std::vector<std::string> names);
+  Status Project(std::vector<compute::Expression> exprs, std::vector<std::string> names);
 
   /// \brief Set the filter expression to return only rows matching the filter.
   ///
@@ -341,11 +359,16 @@ class ARROW_DS_EXPORT ScannerBuilder {
   ///
   /// \return Failure if any referenced columns does not exist in the dataset's
   ///         Schema.
-  Status Filter(const Expression& filter);
+  Status Filter(const compute::Expression& filter);
 
   /// \brief Indicate if the Scanner should make use of the available
   ///        ThreadPool found in ScanOptions;
   Status UseThreads(bool use_threads = true);
+
+  /// \brief Limit how many fragments the scanner will read at once
+  ///
+  /// Note: This is only enforced in "async" mode
+  Status FragmentReadahead(int fragment_readahead);
 
   /// \brief Indicate if the Scanner should run in experimental "async" mode
   ///

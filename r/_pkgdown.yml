@@ -98,6 +98,7 @@ reference:
       - write_ipc_stream
       - write_to_raw
       - write_parquet
+      - write_csv_arrow
   - title: C++ reader/writer interface
     contents:
       - ParquetFileReader
@@ -109,6 +110,7 @@ reference:
       - RecordBatchReader
       - RecordBatchWriter
       - CsvReadOptions
+      - CsvWriteOptions
   - title: Arrow data containers
     contents:
       - array

@@ -17,35 +17,38 @@
 # specific language governing permissions and limitations
 # under the License.
 
-%define _centos_ver %{?centos_ver:%{centos_ver}}%{!?centos_ver:8}
+%define _amzn %{?amzn:%{amzn}}%{!?amzn:0}
+%define is_amazon_linux (%{_amzn} != 0)
 
 %define boost_version %( \
-  if [ "%{_centos_ver}" = 7 ]; then \
+  if [ %{rhel} -eq 7 ]; then \
     echo 169; \
   fi)
 %define cmake_version %( \
-  if [ "%{_centos_ver}" -lt 8 ]; then \
+  if [ %{rhel} -lt 8 ]; then \
     echo 3; \
   fi)
 %define python_version %( \
-  if [ "%{_centos_ver}" = 7 ]; then \
+  if [ %{rhel} -eq 7 ]; then \
     echo 36; \
   else \
     echo 3; \
   fi)
 
-%define use_flight (%{_centos_ver} >= 8)
-%define use_gandiva (%{_centos_ver} >= 8 && %{_arch} != "aarch64")
-%define use_mimalloc (%{_centos_ver} >= 8)
-%define use_ninja (%{_centos_ver} >= 8)
+%define use_boost (!%{is_amazon_linux})
+%define use_flight (%{rhel} >= 8)
+%define use_gandiva (%{rhel} >= 8 && %{_arch} != "aarch64")
+%define use_gflags (!%{is_amazon_linux})
+%define use_mimalloc (%{rhel} >= 8)
+%define use_python (!%{is_amazon_linux})
 # TODO: Enable this. This works on local but is fragile on GitHub Actions and
 # Travis CI.
 # %define use_s3 (%{_centos_ver} >= 8)
 %define use_s3 0
 
-%define have_rapidjson (%{_centos_ver} == 7)
-%define have_re2 (%{_centos_ver} >= 8)
-%define have_utf8proc (%{_centos_ver} == 7)
+%define have_rapidjson (%{rhel} == 7)
+%define have_re2 (%{rhel} >= 8)
+%define have_utf8proc (%{rhel} == 7)
 
 Name:		@PACKAGE@
 Version:	@VERSION@
@@ -57,7 +60,9 @@ URL:		https://arrow.apache.org/
 Source0:	https://dist.apache.org/repos/dist/release/@PACKAGE@/@PACKAGE@-%{version}/apache-@PACKAGE@-%{version}.tar.gz
 
 BuildRequires:	bison
+%if %{use_boost}
 BuildRequires:	boost%{boost_version}-devel
+%endif
 BuildRequires:	brotli-devel
 BuildRequires:	bzip2-devel
 BuildRequires:	cmake%{cmake_version}
@@ -66,15 +71,20 @@ BuildRequires:	curl-devel
 %endif
 BuildRequires:	flex
 BuildRequires:	gcc-c++
+%if %{use_gflags}
 BuildRequires:	gflags-devel
+%endif
 BuildRequires:	git
 BuildRequires:	glog-devel
 BuildRequires:	libzstd-devel
 BuildRequires:	lz4-devel
+BuildRequires:	ninja-build
 BuildRequires:	openssl-devel
 BuildRequires:	pkgconfig
+%if %{use_python}
 BuildRequires:	python%{python_version}-devel
 BuildRequires:	python%{python_version}-numpy
+%endif
 %if %{have_rapidjson}
 BuildRequires:	rapidjson-devel
 %endif
@@ -106,19 +116,26 @@ cpp_build_type=release
 mkdir cpp/build
 cd cpp/build
 %cmake3 .. \
+  -DARROW_CSV=ON \
+  -DARROW_DATASET=ON \
 %if %{use_flight}
   -DARROW_FLIGHT=ON \
 %endif
 %if %{use_gandiva}
   -DARROW_GANDIVA=ON \
 %endif
+  -DARROW_HDFS=ON \
+  -DARROW_JSON=ON \
 %if %{use_mimalloc}
   -DARROW_MIMALLOC=ON \
 %endif
   -DARROW_ORC=ON \
+  -DARROW_PACKAGE_KIND=rpm \
   -DARROW_PARQUET=ON \
   -DARROW_PLASMA=ON \
+%if %{use_python}
   -DARROW_PYTHON=ON \
+%endif
 %if %{use_s3}
   -DARROW_S3=ON \
 %endif
@@ -132,17 +149,13 @@ cd cpp/build
   -DARROW_USE_CCACHE=OFF \
   -DCMAKE_UNITY_BUILD=ON \
   -DPARQUET_REQUIRE_ENCRYPTION=ON \
+%if %{use_python}
   -DPythonInterp_FIND_VERSION=ON \
   -DPythonInterp_FIND_VERSION_MAJOR=3 \
-%if %{use_ninja}
+%endif
   -GNinja
-%endif
 
-%if %{use_ninja}
 ninja %{?_smp_mflags}
-%else
-make %{?_smp_mflags}
-%endif
 cd -
 
 cd c_glib
@@ -154,7 +167,8 @@ meson setup build \
   -Darrow_cpp_build_dir=../cpp/build \
   -Darrow_cpp_build_type=$cpp_build_type \
   -Dgtk_doc=true
-LD_LIBRARY_PATH=$PWD/../cpp/build/$cpp_build_type ninja -C build %{?_smp_mflags}
+LD_LIBRARY_PATH=$PWD/../cpp/build/$cpp_build_type \
+  ninja -C build %{?_smp_mflags}
 cd -
 
 %install
@@ -166,22 +180,17 @@ ninja -C build clean
 cd -
 
 cd cpp/build
-%if %{use_ninja}
 DESTDIR=$RPM_BUILD_ROOT ninja install
 ninja clean
-%else
-make install DESTDIR=$RPM_BUILD_ROOT
-make clean
-%endif
 cd -
 
 %package libs
 Summary:	Runtime libraries for Apache Arrow C++
 License:	Apache-2.0
-Requires:	boost%{boost_version}-system
-Requires:	boost%{boost_version}-filesystem
 Requires:	brotli
+%if %{use_gflags}
 Requires:	gflags
+%endif
 Requires:	glog
 Requires:	libzstd
 Requires:	lz4
@@ -364,6 +373,7 @@ Libraries and header files for Gandiva.
 %{_libdir}/pkgconfig/gandiva.pc
 %endif
 
+%if %{use_python}
 %package python-libs
 Summary:	Python integration library for Apache Arrow
 License:	Apache-2.0
@@ -437,6 +447,7 @@ Apache Arrow Flight.
 %{_libdir}/libarrow_python_flight.so
 %{_libdir}/pkgconfig/arrow-python-flight.pc
 %endif
+%endif
 
 %package -n plasma-libs
 Summary:	Runtime libraries for Plasma in-memory object store
@@ -486,7 +497,6 @@ Libraries and header files for Plasma in-memory object store.
 %package -n parquet-libs
 Summary:	Runtime libraries for Apache Parquet C++
 License:	Apache-2.0
-Requires:	boost%{boost_version}-program-options
 Requires:	%{name}-libs = %{version}-%{release}
 Requires:	openssl
 

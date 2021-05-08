@@ -21,12 +21,10 @@ set -exu
 
 if [ $# -lt 2 ]; then
   echo "Usage: $0 VERSION rc"
-  echo "       $0 VERSION rc BINTRAY_REPOSITORY"
   echo "       $0 VERSION release"
   echo "       $0 VERSION local"
   echo " e.g.: $0 0.13.0 rc           # Verify 0.13.0 RC"
   echo " e.g.: $0 0.13.0 release      # Verify 0.13.0"
-  echo " e.g.: $0 0.13.0 rc kszucs/arrow # Verify 0.13.0 RC at https://bintray.com/kszucs/arrow"
   echo " e.g.: $0 0.13.0-dev20210203 local # Verify 0.13.0-dev20210203 on local"
   exit 1
 fi
@@ -50,8 +48,17 @@ have_flight=yes
 have_gandiva=yes
 have_glib=yes
 have_parquet=yes
+have_python=yes
 install_command="dnf install -y --enablerepo=powertools"
 case "${distribution}-${distribution_version}" in
+  amzn-2)
+    cmake_package=cmake3
+    cmake_command=cmake3
+    have_flight=no
+    have_gandiva=no
+    have_python=no
+    install_command="yum install -y"
+    ;;
   centos-7)
     cmake_package=cmake3
     cmake_command=cmake3
@@ -77,20 +84,25 @@ if [ "${TYPE}" = "local" ]; then
       package_version="${VERSION}-1"
       ;;
   esac
-  package_version+=".el${distribution_version}"
   release_path="${local_prefix}/yum/repositories"
-  release_path+="/centos/${distribution_version}/$(arch)/Packages"
+  case "${distribution}" in
+    amzn)
+      package_version+=".${distribution}${distribution_version}"
+      release_path+="/amazon-linux"
+      amazon-linux-extras install -y epel
+      ;;
+    *)
+      package_version+=".el${distribution_version}"
+      release_path+="/centos"
+      ;;
+  esac
+  release_path+="/${distribution_version}/$(arch)/Packages"
   release_path+="/apache-arrow-release-${package_version}.noarch.rpm"
   ${install_command} "${release_path}"
 else
   package_version="${VERSION}"
-  if [ $# -eq 3 ]; then
-    ${install_command} \
-      https://dl.bintray.com/$3/centos-rc/${distribution_version}/apache-arrow-release-latest.rpm
-  else
-    ${install_command} \
-      ${artifactory_base_url}/${distribution_version}/apache-arrow-release-latest.rpm
-  fi
+  ${install_command} \
+    ${artifactory_base_url}/${distribution_version}/apache-arrow-release-latest.rpm
 fi
 
 if [ "${TYPE}" = "local" ]; then
@@ -104,17 +116,10 @@ if [ "${TYPE}" = "local" ]; then
   fi
 else
   if [ "${TYPE}" = "rc" ]; then
-    if [ $# -eq 3 ]; then
-      sed \
-        -i"" \
-        -e "s,baseurl=https://apache\.jfrog\.io/artifactory/arrow/centos/,baseurl=https://dl.bintray.com/$3/centos-rc/,g" \
-        /etc/yum.repos.d/Apache-Arrow.repo
-    else
-      sed \
-        -i"" \
-        -e "s,/centos/,/centos-rc/,g" \
-        /etc/yum.repos.d/Apache-Arrow.repo
-    fi
+    sed \
+      -i"" \
+      -e "s,/centos/,/centos-rc/,g" \
+      /etc/yum.repos.d/Apache-Arrow.repo
   fi
 fi
 
@@ -136,7 +141,10 @@ if [ "${have_glib}" = "yes" ]; then
   ${install_command} --enablerepo=epel arrow-glib-devel-${package_version}
   ${install_command} --enablerepo=epel arrow-glib-doc-${package_version}
 fi
-${install_command} --enablerepo=epel arrow-python-devel-${package_version}
+
+if [ "${have_python}" = "yes" ]; then
+  ${install_command} --enablerepo=epel arrow-python-devel-${package_version}
+fi
 
 if [ "${have_glib}" = "yes" ]; then
   ${install_command} --enablerepo=epel plasma-glib-devel-${package_version}

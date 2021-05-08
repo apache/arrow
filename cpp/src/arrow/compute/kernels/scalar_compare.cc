@@ -30,28 +30,28 @@ namespace {
 
 struct Equal {
   template <typename T>
-  static constexpr bool Call(KernelContext*, const T& left, const T& right) {
+  static constexpr bool Call(KernelContext*, const T& left, const T& right, Status*) {
     return left == right;
   }
 };
 
 struct NotEqual {
   template <typename T>
-  static constexpr bool Call(KernelContext*, const T& left, const T& right) {
+  static constexpr bool Call(KernelContext*, const T& left, const T& right, Status*) {
     return left != right;
   }
 };
 
 struct Greater {
   template <typename T>
-  static constexpr bool Call(KernelContext*, const T& left, const T& right) {
+  static constexpr bool Call(KernelContext*, const T& left, const T& right, Status*) {
     return left > right;
   }
 };
 
 struct GreaterEqual {
   template <typename T>
-  static constexpr bool Call(KernelContext*, const T& left, const T& right) {
+  static constexpr bool Call(KernelContext*, const T& left, const T& right, Status*) {
     return left >= right;
   }
 };

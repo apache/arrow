@@ -1702,6 +1702,20 @@ TEST(Cast, ListToList) {
     CheckCast(MakeArray(list_float32), MakeArray(list_int32));
     CheckCast(MakeArray(list_int64), MakeArray(list_int32));
   }
+
+  // No nulls (ARROW-12568)
+  for (auto make_list : std::vector<make_list_t*>{&list, &large_list}) {
+    auto list_int32 = ArrayFromJSON(make_list(int32()),
+                                    "[[0], [1], [2, 3, 4], [5, 6], [], [7], [8, 9]]")
+                          ->data();
+    auto list_int64 = list_int32->Copy();
+    list_int64->type = make_list(int64());
+    list_int64->child_data[0] = Cast(list_int32->child_data[0], int64())->array();
+    ASSERT_OK(MakeArray(list_int64)->ValidateFull());
+
+    CheckCast(MakeArray(list_int32), MakeArray(list_int64));
+    CheckCast(MakeArray(list_int64), MakeArray(list_int32));
+  }
 }
 
 TEST(Cast, ListToListOptionsPassthru) {
@@ -1753,6 +1767,20 @@ TEST(Cast, EmptyCasts) {
     CheckCastEmpty(boolean(), numeric);
     CheckCastEmpty(numeric, boolean());
   }
+}
+
+TEST(Cast, CastWithNoValidityBitmapButUnknownNullCount) {
+  // ARROW-12672 segfault when casting slightly malformed array
+  // (no validity bitmap but atomic null count non-zero)
+  auto values = ArrayFromJSON(boolean(), "[true, true, false]");
+
+  ASSERT_OK_AND_ASSIGN(auto expected, Cast(*values, int8()));
+
+  ASSERT_EQ(values->data()->buffers[0], NULLPTR);
+  values->data()->null_count = kUnknownNullCount;
+  ASSERT_OK_AND_ASSIGN(auto result, Cast(*values, int8()));
+
+  AssertArraysEqual(*expected, *result);
 }
 
 // ----------------------------------------------------------------------

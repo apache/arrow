@@ -44,9 +44,8 @@ jobs:
         with:
           fetch-depth: 0
       - name: Git Fixup
-        if: ${{ github.ref != 'master' }}
         shell: bash
-        run: git branch master origin/master
+        run: git branch master origin/master || true
       - name: Free Up Disk Space
         run: ci/scripts/util_cleanup.sh
       - name: Setup Python

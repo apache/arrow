@@ -38,6 +38,9 @@ ARROW_R_DEV=`echo $ARROW_R_DEV | tr '[:upper:]' '[:lower:]'`
 FORCE_AUTOBREW=`echo $FORCE_AUTOBREW | tr '[:upper:]' '[:lower:]'`
 FORCE_BUNDLED_BUILD=`echo $FORCE_BUNDLED_BUILD | tr '[:upper:]' '[:lower:]'`
 ARROW_USE_PKG_CONFIG=`echo $ARROW_USE_PKG_CONFIG | tr '[:upper:]' '[:lower:]'`
+LIBARROW_MINIMAL=`echo $LIBARROW_MINIMAL | tr '[:upper:]' '[:lower:]'`
+LIBARROW_DOWNLOAD=`echo $LIBARROW_DOWNLOAD | tr '[:upper:]' '[:lower:]'`
+NOT_CRAN=`echo $NOT_CRAN | tr '[:upper:]' '[:lower:]'`
 
 VERSION=`grep '^Version' DESCRIPTION | sed s/Version:\ //`
 UNAME=`uname -s`
@@ -77,7 +80,7 @@ elif [ "$INCLUDE_DIR" ] && [ "$LIB_DIR" ]; then
 else
   # Use pkg-config if available and allowed
   pkg-config --version >/dev/null 2>&1
-  if [ "$ARROW_USE_PKG_CONFIG" != "false" ] && [ $? -eq 0 ]; then
+  if [ $? -eq 0 ] && [ "$ARROW_USE_PKG_CONFIG" != "false" ]; then
     PKGCONFIG_CFLAGS=`pkg-config --cflags --silence-errors ${PKG_CONFIG_NAME}`
     PKGCONFIG_LIBS=`pkg-config --libs-only-l --silence-errors ${PKG_CONFIG_NAME}`
     PKGCONFIG_DIRS=`pkg-config --libs-only-L --silence-errors ${PKG_CONFIG_NAME}`

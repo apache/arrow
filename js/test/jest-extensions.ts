@@ -105,7 +105,7 @@ function toEqualVector<
     if (v1 == null || v2 == null) {
         return {
             pass: false,
-            message: [
+            message: () => [
                 [columnName, `(${format(this, format1, format2, ' !== ')})`].filter(Boolean).join(':'),
                 `${v1 == null ? 'actual' : 'expected'} is null`
             ].join('\n')

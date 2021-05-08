@@ -17,7 +17,15 @@
   under the License.
 -->
 
-# arrow 3.0.0.9000
+# arrow 4.0.0.9000
+
+# arrow 4.0.0.1
+
+ * The mimalloc memory allocator is the default memory allocator when using a static source build of the package on Linux. This is because it has better behavior under valgrind than jemalloc does. A full-featured build (installed with `LIBARROW_MINIMAL=false`) includes both jemalloc and mimalloc, and it has still has jemalloc as default, though this is configurable at runtime with the `ARROW_DEFAULT_MEMORY_POOL` environment variable.
+ * Environment variables `LIBARROW_MINIMAL`, `LIBARROW_DOWNLOAD`, and `NOT_CRAN` are now case-insensitive in the Linux build script.
+ * A build configuration issue in the macOS binary package has been resolved.
+
+# arrow 4.0.0
 
 ## dplyr methods
 
@@ -25,7 +33,7 @@ Many more `dplyr` verbs are supported on Arrow objects:
 
 * `dplyr::mutate()` is now supported in Arrow for many applications. For queries on `Table` and `RecordBatch` that are not yet supported in Arrow, the implementation falls back to pulling data into an in-memory R `data.frame` first, as in the previous release. For queries on `Dataset` (which can be larger than memory), it raises an error if the function is not implemented. The main `mutate()` features that cannot yet be called on Arrow objects are (1) `mutate()` after `group_by()` (which is typically used in combination with aggregation) and (2) queries that use `dplyr::across()`.
 * `dplyr::transmute()` (which calls `mutate()`)
-* `dplyr::group_by()` now preserves the `.drop()` argument and supports on-the-fly definition of columns
+* `dplyr::group_by()` now preserves the `.drop` argument and supports on-the-fly definition of columns
 * `dplyr::relocate()` to reorder columns
 * `dplyr::arrange()` to sort rows
 * `dplyr::compute()` to evaluate the lazy expressions and return an Arrow Table. This is equivalent to `dplyr::collect(as_data_frame = FALSE)`, which was added in 2.0.0.
