@@ -67,7 +67,7 @@ type ToStringState = {
 })()
 .then((x) => +x || 0, (err) => {
     if (err) {
-        console.error(`${err && err.stack || err}`);
+        console.error(`${err?.stack || err}`);
     }
     return process.exitCode || 1;
 }).then((code) => process.exit(code));
