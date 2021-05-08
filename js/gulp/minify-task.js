@@ -46,6 +46,7 @@ const minifyTask = ((cache, commonConfig) => memoizeTask(cache, function minifyJ
 
     const webpackConfigs = [mainExport].map((entry) => ({
         ...targetConfig,
+        mode: 'production',
         name: entry,
         entry: { [entry]: path.resolve(`${src}/${entry}.dom.js`) },
         plugins: [
@@ -62,13 +63,10 @@ const minifyTask = ((cache, commonConfig) => memoizeTask(cache, function minifyJ
             minimize: true,
             minimizer: [
                 new TerserPlugin({
-                    sourceMap: true,
                     terserOptions: {
                         ecma: terserLanguageNames[target],
-                        output: { comments: false, beautify: false },
-                        compress: { unsafe: true },
-                        mangle: true,
-                        safari10: true // <-- works around safari10 bugs, see the "safari10" option here: https://github.com/terser-js/terser#minify-options
+                        output: { comments: false },
+                        compress: { unsafe: true }
                     },
                 })
             ]
