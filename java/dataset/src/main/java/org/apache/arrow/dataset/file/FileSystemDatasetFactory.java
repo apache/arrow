@@ -28,11 +28,16 @@ public class FileSystemDatasetFactory extends NativeDatasetFactory {
 
   public FileSystemDatasetFactory(BufferAllocator allocator, NativeMemoryPool memoryPool, FileFormat format,
       String uri) {
-    super(allocator, memoryPool, createNative(format, uri));
+    super(allocator, memoryPool, createNative(format, uri, -1L, -1L));
   }
 
-  private static long createNative(FileFormat format, String uri) {
-    return JniWrapper.get().makeFileSystemDatasetFactory(uri, format.id());
+  public FileSystemDatasetFactory(BufferAllocator allocator, NativeMemoryPool memoryPool, FileFormat format,
+                                  String uri, long startOffset, long length) {
+    super(allocator, memoryPool, createNative(format, uri, startOffset, length));
+  }
+
+  private static long createNative(FileFormat format, String uri, long startOffset, long length) {
+    return JniWrapper.get().makeFileSystemDatasetFactory(uri, format.id(), startOffset, length);
   }
 
 }

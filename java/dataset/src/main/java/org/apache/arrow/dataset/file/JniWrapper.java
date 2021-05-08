@@ -40,9 +40,11 @@ public class JniWrapper {
    *
    * @param uri file uri to read, either a file or a directory
    * @param fileFormat file format ID
+   * @param startOffset random read position. -1 for reading from start.
+   * @param length reading length. -1 for reading all bytes of the file.
    * @return the native pointer of the arrow::dataset::FileSystemDatasetFactory instance.
    * @see FileFormat
    */
-  public native long makeFileSystemDatasetFactory(String uri, int fileFormat);
+  public native long makeFileSystemDatasetFactory(String uri, int fileFormat, long startOffset, long length);
 
 }
