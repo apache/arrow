@@ -221,9 +221,9 @@ TEST(TestBooleanAggregation, Mean) {
                            ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/2));
   ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(),
                            ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/3));
-  ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(0.25),
+  ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(0.5),
                            ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1));
-  ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(0.25),
+  ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(0.5),
                            ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/2));
   ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(),
                            ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
@@ -539,12 +539,9 @@ TYPED_TEST(TestMeanKernelNumeric, SimpleMean) {
 TYPED_TEST_SUITE(TestMeanKernelNumeric, NumericArrowTypes);
 TYPED_TEST(TestMeanKernelNumeric, ScalarAggregateOptions) {
   using ScalarType = typename TypeTraits<DoubleType>::ScalarType;
-
-  auto expected_result_keepna = Datum(std::make_shared<ScalarType>(2));
-  auto expected_result_skipna = Datum(std::make_shared<ScalarType>(3));
+  auto expected_result = Datum(std::make_shared<ScalarType>(2));
   auto null_result = Datum(std::make_shared<ScalarType>());
   auto nan_result = Datum(std::make_shared<ScalarType>(NAN));
-  auto zero_result = Datum(std::make_shared<ScalarType>(0));
   const char* json = "[1, null, 2, 2, null, 7]";
 
   ValidateMean<TypeParam>("[]", nan_result,
@@ -555,28 +552,28 @@ TYPED_TEST(TestMeanKernelNumeric, ScalarAggregateOptions) {
                           ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1));
   ValidateMean<TypeParam>("[null]", null_result,
                           ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1));
-  ValidateMean<TypeParam>(json, expected_result_skipna,
+  ValidateMean<TypeParam>(json, expected_result,
                           ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0));
-  ValidateMean<TypeParam>(json, expected_result_skipna,
+  ValidateMean<TypeParam>(json, expected_result,
                           ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/3));
-  ValidateMean<TypeParam>(json, expected_result_skipna,
+  ValidateMean<TypeParam>(json, expected_result,
                           ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/4));
   ValidateMean<TypeParam>(json, null_result,
                           ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/5));
 
   ValidateMean<TypeParam>("[]", nan_result,
                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
-  ValidateMean<TypeParam>("[null]", zero_result,
+  ValidateMean<TypeParam>("[null]", nan_result,
                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
   ValidateMean<TypeParam>("[]", null_result,
                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1));
   ValidateMean<TypeParam>("[null]", null_result,
                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1));
-  ValidateMean<TypeParam>(json, expected_result_keepna,
+  ValidateMean<TypeParam>(json, expected_result,
                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
-  ValidateMean<TypeParam>(json, expected_result_keepna,
+  ValidateMean<TypeParam>(json, expected_result,
                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
-  ValidateMean<TypeParam>(json, expected_result_keepna,
+  ValidateMean<TypeParam>(json, expected_result,
                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/4));
   ValidateMean<TypeParam>(json, null_result,
                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/15));

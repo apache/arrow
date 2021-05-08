@@ -60,7 +60,6 @@ struct SumImpl : public ScalarAggregator {
 
   Status Consume(KernelContext*, const ExecBatch& batch) override {
     const auto& data = batch[0].array();
-    this->length = data->length;
     this->count = data->length - data->GetNullCount();
     if (is_boolean_type<ArrowType>::value) {
       this->sum = static_cast<typename SumType::c_type>(BooleanArray(data).true_count());
@@ -73,7 +72,6 @@ struct SumImpl : public ScalarAggregator {
 
   Status MergeFrom(KernelContext*, KernelState&& src) override {
     const auto& other = checked_cast<const ThisType&>(src);
-    this->length += other.length;
     this->count += other.count;
     this->sum += other.sum;
     return Status::OK();
@@ -88,7 +86,6 @@ struct SumImpl : public ScalarAggregator {
     return Status::OK();
   }
 
-  size_t length = 0;
   size_t count = 0;
   typename SumType::c_type sum = 0;
   ScalarAggregateOptions options;
@@ -99,11 +96,8 @@ struct MeanImpl : public SumImpl<ArrowType, SimdLevel> {
   Status Finalize(KernelContext*, Datum* out) override {
     if (this->count < options.min_count) {
       out->value = std::make_shared<DoubleScalar>();
-    } else if (options.skip_nulls) {
-      const double mean = static_cast<double>(this->sum) / this->count;
-      out->value = std::make_shared<DoubleScalar>(mean);
     } else {
-      const double mean = static_cast<double>(this->sum) / this->length;
+      const double mean = static_cast<double>(this->sum) / this->count;
       out->value = std::make_shared<DoubleScalar>(mean);
     }
     return Status::OK();
