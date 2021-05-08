@@ -103,7 +103,7 @@ Result<std::shared_ptr<Dataset>> UnionDatasetFactory::Finish(FinishOptions optio
 }
 
 FileSystemDatasetFactory::FileSystemDatasetFactory(
-    std::vector<fs::FileInfo> files, std::shared_ptr<fs::FileSystem> filesystem,
+    std::vector<FileSource> files, std::shared_ptr<fs::FileSystem> filesystem,
     std::shared_ptr<FileFormat> format, FileSystemFactoryOptions options)
     : files_(std::move(files)),
       fs_(std::move(filesystem)),
@@ -113,7 +113,7 @@ FileSystemDatasetFactory::FileSystemDatasetFactory(
 Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
     std::shared_ptr<fs::FileSystem> filesystem, const std::vector<std::string>& paths,
     std::shared_ptr<FileFormat> format, FileSystemFactoryOptions options) {
-  std::vector<fs::FileInfo> filtered_files;
+  std::vector<FileSource> filtered_files;
   for (const auto& path : paths) {
     if (options.exclude_invalid_files) {
       ARROW_ASSIGN_OR_RAISE(auto supported,
@@ -123,7 +123,7 @@ Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
       }
     }
 
-    filtered_files.emplace_back(path);
+    filtered_files.emplace_back(path, filesystem);
   }
 
   return std::shared_ptr<DatasetFactory>(
@@ -134,7 +134,7 @@ Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
 Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
     std::shared_ptr<fs::FileSystem> filesystem, const std::vector<fs::FileInfo>& files,
     std::shared_ptr<FileFormat> format, FileSystemFactoryOptions options) {
-  std::vector<fs::FileInfo> filtered_files;
+  std::vector<FileSource> filtered_files;
   for (const auto& info : files) {
     if (options.exclude_invalid_files) {
       ARROW_ASSIGN_OR_RAISE(auto supported,
@@ -144,7 +144,7 @@ Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
       }
     }
 
-    filtered_files.emplace_back(info);
+    filtered_files.emplace_back(info, filesystem);
   }
 
   return std::shared_ptr<DatasetFactory>(
@@ -208,7 +208,9 @@ Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
 }
 
 Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
-    std::string uri, std::shared_ptr<FileFormat> format,
+    std::string uri,
+    int64_t start_offset,
+    int64_t length, std::shared_ptr<FileFormat> format,
     FileSystemFactoryOptions options) {
   // TODO Partitioning support. Dictionary support should be done before that. See
   // ARROW-12481.
@@ -226,7 +228,8 @@ Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
   }
   // is a single file
   return std::shared_ptr<DatasetFactory>(new FileSystemDatasetFactory(
-      {file_info}, std::move(filesystem), std::move(format), std::move(options)));
+      {FileSource(file_info.path(), filesystem, start_offset, length)}, std::move(filesystem), std::move(format),
+      std::move(options)));
 }
 
 Result<std::vector<std::shared_ptr<Schema>>> FileSystemDatasetFactory::InspectSchemas(
@@ -235,21 +238,23 @@ Result<std::vector<std::shared_ptr<Schema>>> FileSystemDatasetFactory::InspectSc
 
   const bool has_fragments_limit = options.fragments >= 0;
   int fragments = options.fragments;
-  for (const auto& info : files_) {
+  std::vector<std::string> paths;
+  for (const auto& src : files_) {
     if (has_fragments_limit && fragments-- == 0) break;
-    auto result = format_->Inspect({info, fs_});
+    auto result = format_->Inspect(src);
     if (ARROW_PREDICT_FALSE(!result.ok())) {
       return result.status().WithMessage(
-          "Error creating dataset. Could not read schema from '", info.path(),
+          "Error creating dataset. Could not read schema from '", src.path(),
           "': ", result.status().message(), ". Is this a '", format_->type_name(),
           "' file?");
     }
     schemas.push_back(result.MoveValueUnsafe());
+    paths.push_back(src.path());
   }
 
   ARROW_ASSIGN_OR_RAISE(auto partition_schema,
                         options_.partitioning.GetOrInferSchema(
-                            StripPrefixAndFilename(files_, options_.partition_base_dir)));
+                            StripPrefixAndFilename(paths, options_.partition_base_dir)));
   schemas.push_back(partition_schema);
 
   return schemas;
@@ -278,10 +283,10 @@ Result<std::shared_ptr<Dataset>> FileSystemDatasetFactory::Finish(FinishOptions 
   }
 
   std::vector<std::shared_ptr<FileFragment>> fragments;
-  for (const auto& info : files_) {
-    auto fixed_path = StripPrefix(info.path(), options_.partition_base_dir);
+  for (const auto& src : files_) {
+    auto fixed_path = StripPrefix(src.path(), options_.partition_base_dir);
     ARROW_ASSIGN_OR_RAISE(auto partition, partitioning->Parse(fixed_path));
-    ARROW_ASSIGN_OR_RAISE(auto fragment, format_->MakeFragment({info, fs_}, partition));
+    ARROW_ASSIGN_OR_RAISE(auto fragment, format_->MakeFragment(src, partition));
     fragments.push_back(fragment);
   }
 

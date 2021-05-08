@@ -94,6 +94,29 @@ public class TestFileSystemDataset extends TestNativeDataset {
   }
 
   @Test
+  public void testReadPartialFile() throws Exception {
+    ParquetWriteSupport writeSupport = ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
+    ScanOptions options = new ScanOptions(100, Optional.of(new String[0]));
+
+    FileSystemDatasetFactory factory1 = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
+            FileFormat.PARQUET, writeSupport.getOutputURI(), 0, 0);
+    List<ArrowRecordBatch> datum1 = collectResultFromFactory(factory1, options);
+    assertEquals(0, datum1.size());
+
+    FileSystemDatasetFactory factory2 = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
+            FileFormat.PARQUET, writeSupport.getOutputURI(), 0, 100000);
+    List<ArrowRecordBatch> datum2 = collectResultFromFactory(factory2, options);
+    assertEquals(1, datum2.size());
+
+    FileSystemDatasetFactory factory3 = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
+            FileFormat.PARQUET, writeSupport.getOutputURI(), 100000, 100000);
+    List<ArrowRecordBatch> datum3 = collectResultFromFactory(factory3, options);
+    assertEquals(0, datum3.size());
+
+    AutoCloseables.close(datum1, datum2, datum3);
+  }
+
+  @Test
   public void testParquetProjectSingleColumn() throws Exception {
     ParquetWriteSupport writeSupport = ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
 

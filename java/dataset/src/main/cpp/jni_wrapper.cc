@@ -495,14 +495,15 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_releaseBuffe
  */
 JNIEXPORT jlong JNICALL
 Java_org_apache_arrow_dataset_file_JniWrapper_makeFileSystemDatasetFactory(
-    JNIEnv* env, jobject, jstring uri, jint file_format_id) {
+    JNIEnv* env, jobject, jstring uri, jint file_format_id,
+    jlong start_offset, jlong length) {
   JNI_METHOD_START
   std::shared_ptr<arrow::dataset::FileFormat> file_format =
       JniGetOrThrow(GetFileFormat(file_format_id));
   arrow::dataset::FileSystemFactoryOptions options;
   std::shared_ptr<arrow::dataset::DatasetFactory> d =
       JniGetOrThrow(arrow::dataset::FileSystemDatasetFactory::Make(
-          JStringToCString(env, uri), file_format, options));
+          JStringToCString(env, uri), start_offset, length, file_format, options));
   return CreateNativeRef(d);
   JNI_METHOD_END(-1L)
 }

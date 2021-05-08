@@ -601,8 +601,39 @@ Status ParquetFileFragment::EnsureCompleteMetadata(parquet::arrow::FileReader* r
   }
   physical_schema_ = std::move(schema);
 
+  auto parquet_reader = reader->parquet_reader();
+
   if (!row_groups_) {
-    row_groups_ = Iota(reader->num_row_groups());
+    auto all_row_groups = Iota(reader->num_row_groups());
+    FileSource source = this->source();
+    if (source.start_offset() == -1L) {
+      row_groups_ = all_row_groups;
+    } else {
+      // random read
+      std::vector<int> random_read_selected_row_groups = std::vector<int>();
+      for (int i : all_row_groups) {
+        std::shared_ptr<parquet::ColumnChunkMetaData> leading_cc =
+            parquet_reader->RowGroup(i)->metadata()->ColumnChunk(0);
+        int64_t r_start = leading_cc->data_page_offset();
+        if (leading_cc->has_dictionary_page() &&
+            r_start > leading_cc->dictionary_page_offset()) {
+          r_start = leading_cc->dictionary_page_offset();
+        }
+        int64_t r_bytes = 0L;
+        for (int col_id = 0; col_id < parquet_reader->RowGroup(i)
+            ->metadata()->num_columns();
+             col_id++) {
+          r_bytes += parquet_reader->
+              RowGroup(i)->metadata()->ColumnChunk(col_id)->total_compressed_size();
+        }
+        int64_t midpoint = r_start + r_bytes / 2;
+        if (midpoint >= source.start_offset()
+            && midpoint < (source.start_offset() + source.length())) {
+          random_read_selected_row_groups.push_back(i);
+        }
+      }
+      row_groups_ = random_read_selected_row_groups;
+    }
   }
 
   ARROW_ASSIGN_OR_RAISE(

@@ -52,12 +52,26 @@ class ARROW_DS_EXPORT FileSource : public util::EqualityComparable<FileSource> {
              Compression::type compression = Compression::UNCOMPRESSED)
       : file_info_(std::move(path)),
         filesystem_(std::move(filesystem)),
+        start_offset_(-1),
+        length_(-1),
         compression_(compression) {}
 
   FileSource(fs::FileInfo info, std::shared_ptr<fs::FileSystem> filesystem,
              Compression::type compression = Compression::UNCOMPRESSED)
       : file_info_(std::move(info)),
         filesystem_(std::move(filesystem)),
+        start_offset_(-1),
+        length_(-1),
+        compression_(compression) {}
+
+  FileSource(std::string path,
+             std::shared_ptr<fs::FileSystem> filesystem,
+             int64_t start_offset, int64_t length,
+             Compression::type compression = Compression::UNCOMPRESSED)
+      : file_info_(std::move(path)),
+        filesystem_(std::move(filesystem)),
+        start_offset_(start_offset),
+        length_(length),
         compression_(compression) {}
 
   explicit FileSource(std::shared_ptr<Buffer> buffer,
@@ -102,6 +116,14 @@ class ARROW_DS_EXPORT FileSource : public util::EqualityComparable<FileSource> {
   /// \brief Return the filesystem, if any. Otherwise returns nullptr
   const std::shared_ptr<fs::FileSystem>& filesystem() const { return filesystem_; }
 
+  int64_t start_offset() const {
+    return start_offset_;
+  }
+
+  int64_t length() const {
+    return length_;
+  }
+
   /// \brief Return the buffer containing the file, if any. Otherwise returns nullptr
   const std::shared_ptr<Buffer>& buffer() const { return buffer_; }
 
@@ -124,6 +146,8 @@ class ARROW_DS_EXPORT FileSource : public util::EqualityComparable<FileSource> {
 
   fs::FileInfo file_info_;
   std::shared_ptr<fs::FileSystem> filesystem_;
+  int64_t start_offset_;
+  int64_t length_;
   std::shared_ptr<Buffer> buffer_;
   CustomOpen custom_open_;
   Compression::type compression_ = Compression::UNCOMPRESSED;
