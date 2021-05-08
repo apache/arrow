@@ -94,15 +94,15 @@
     "npm-run-all": "4.1.5",
     "randomatic": "3.1.1",
     "rxjs": "5.5.11",
-    "source-map-loader": "0.2.4",
-    "terser-webpack-plugin": "4.2.2",
+    "source-map-loader": "2.0.1",
+    "terser-webpack-plugin": "5.1.1",
     "ts-jest": "26.5.4",
     "ts-node": "9.1.1",
     "typedoc": "0.20.35",
     "typescript": "4.0.2",
     "web-stream-tools": "0.0.1",
     "web-streams-polyfill": "3.0.3",
-    "webpack": "4.29.0",
+    "webpack": "5.36.2",
     "xml2js": "0.4.19"
   },
   "engines": {
