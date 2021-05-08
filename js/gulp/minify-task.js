@@ -81,7 +81,7 @@ const minifyTask = ((cache, commonConfig) => memoizeTask(cache, function minifyJ
 }))({}, {
     resolve: { mainFields: [`module`, `main`] },
     module: { rules: [{ test: /\.js$/, enforce: `pre`, use: [`source-map-loader`] }] },
-    output: { filename: '[name].js', library: mainExport, libraryTarget: `umd`, umdNamedDefine: true },
+    output: { filename: '[name].js', library: mainExport, libraryTarget: `umd`, umdNamedDefine: true, globalObject: 'this' },
 });
 
 module.exports = minifyTask;
