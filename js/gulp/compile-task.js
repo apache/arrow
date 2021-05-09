@@ -28,8 +28,8 @@ const compileTask = ((cache) => memoizeTask(cache, function compile(target, form
     return target === `src`                    ? Observable.empty()
          : target === npmPkgName               ? arrowTask(target, format, ...args)()
          : target === `ts`                     ? arrowTSTask(target, format, ...args)()
-         : format === `umd`                    ? closureTask(target, format, ...args)()
-                                            //    : minifyTask(target, format, ...args)()
+         : format === `umd` ? target !== `es5` ? closureTask(target, format, ...args)()
+                                               : minifyTask(target, format, ...args)()
                                                : typescriptTask(target, format, ...args)();
 }))({});
 
