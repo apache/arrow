@@ -250,6 +250,7 @@ print.array_expression <- function(x, ...) {
 Expression <- R6Class("Expression", inherit = ArrowObject,
   public = list(
     ToString = function() compute___expr__ToString(self),
+    type = function(schema) compute___expr__type(self, schema),
     cast = function(to_type, safe = TRUE, ...) {
       opts <- list(
         to_type = to_type,

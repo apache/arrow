@@ -346,10 +346,11 @@ test_that("print a mutated table", {
       print(),
 'InMemoryDataset (query)
 int: int32
-twice: expr
+twice: double (multiply_checked(int, 2))
 
 See $.data for the source Arrow object',
-  fixed = TRUE)
+    fixed = TRUE
+  )
 
   # Handling non-expressions/edge cases
   skip("InMemoryDataset$Project() doesn't accept array (or could it?)")

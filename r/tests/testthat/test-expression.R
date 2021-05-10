@@ -76,6 +76,14 @@ test_that("C++ expressions", {
     'Expression\n(f > 4)',
     fixed = TRUE
   )
+  expect_type_equal(
+    f$type(schema(f = float64())),
+    float64()
+  )
+  expect_type_equal(
+    (f > 4)$type(schema(f = float64())),
+    bool()
+  )
   # Interprets that as a list type
   expect_r6_class(f == c(1L, 2L), "Expression")
 })

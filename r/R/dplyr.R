@@ -70,17 +70,20 @@ make_field_refs <- function(field_names) {
 #' @export
 print.arrow_dplyr_query <- function(x, ...) {
   schm <- x$.data$schema
-  fields <- map_chr(x$selected_columns, function(expr) {
+  types <- map_chr(x$selected_columns, function(expr) {
     name <- expr$field_name
     if (nzchar(name)) {
-      schm$GetFieldByName(name)$ToString()
+      # Just a field_ref, so look up in the schema
+      schm$GetFieldByName(name)$type$ToString()
     } else {
-      # It's "" because this is not a field_ref, it's a more complex expression
-      "expr"
+      # Expression, so get its type and append the expression
+      paste0(
+        expr$type(schm)$ToString(),
+        " (", expr$ToString(), ")"
+      )
     }
   })
-  # Strip off the field names as they are in the dataset and add the renamed ones
-  fields <- paste(names(fields), sub("^.*?: ", "", fields), sep = ": ", collapse = "\n")
+  fields <- paste(names(types), types, sep = ": ", collapse = "\n")
   cat(class(x$.data)[1], " (query)\n", sep = "")
   cat(fields, "\n", sep = "")
   cat("\n")
