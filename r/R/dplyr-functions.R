@@ -344,3 +344,12 @@ get_stringr_pattern_options <- function(pattern) {
   }
   ensure_opts(eval(pattern))
 }
+
+#' Does this string contain regex metacharacters?
+#'
+#' @param string String to be tested
+#' @keywords internal
+#' @return Logical: does `string` contain regex metacharacters?
+contains_regex <- function(string) {
+  grepl("[.\\|()[{^$*+?]", string)
+}
