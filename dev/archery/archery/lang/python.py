@@ -26,8 +26,8 @@ except ImportError:
 else:
     have_numpydoc = True
 
-from ..utils.logger import logger
 from ..utils.command import Command, capture_stdout, default_bin
+from ..utils.logger import logger
 
 
 class Isort(Command):
