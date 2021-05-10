@@ -222,7 +222,8 @@ def test_multiple_path_types(tempdir, use_legacy_dataset):
     tm.assert_frame_equal(df, df_read)
 
 
-def test_fspath(tempdir):
+@parametrize_legacy_dataset
+def test_fspath(tempdir, use_legacy_dataset):
     # ARROW-12472 support __fspath__ objects without using str()
     path = tempdir / "test.parquet"
     table = pa.table({"a": [1, 2, 3]})
@@ -230,7 +231,9 @@ def test_fspath(tempdir):
 
     fs_protocol_obj = util.FSProtocolClass(path)
 
-    result = _read_table(fs_protocol_obj)
+    result = _read_table(
+        fs_protocol_obj, use_legacy_dataset=use_legacy_dataset
+    )
     assert result.equals(table)
 
     # combined with non-local filesystem raises
