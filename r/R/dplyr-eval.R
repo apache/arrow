@@ -47,6 +47,17 @@ arrow_eval <- function (expr, mask) {
   })
 }
 
+handle_arrow_not_supported <- function(err, lab) {
+  # Look for informative message from the Arrow function version (see above)
+  if (inherits(err, "arrow-try-error")) {
+    # Include it if found
+    paste0('In ', lab, ', ', as.character(err))
+  } else {
+    # Otherwise be opaque (the original error is probably not useful)
+    paste('Expression', lab, 'not supported in Arrow')
+  }
+}
+
 i18ize_error_messages <- function() {
   # Figure out what the error messages will be with this LANGUAGE
   # so that we can look for them

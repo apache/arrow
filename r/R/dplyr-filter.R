@@ -31,19 +31,31 @@ filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
   filters <- lapply(filts, arrow_eval, arrow_mask(.data))
   bad_filters <- map_lgl(filters, ~inherits(., "try-error"))
   if (any(bad_filters)) {
-    bads <- oxford_paste(map_chr(filts, as_label)[bad_filters], quote = FALSE)
+    # This is similar to abandon_ship() except that the filter eval is
+    # vectorized, and we apply filters that _did_ work before abandoning ship
+    # with the rest
+    expr_labs <- map_chr(filts[bad_filters], as_label)
     if (query_on_dataset(.data)) {
       # Abort. We don't want to auto-collect if this is a Dataset because that
       # could blow up, too big.
       stop(
-        "Filter expression not supported for Arrow Datasets: ", bads,
+        "Filter expression not supported for Arrow Datasets: ",
+        oxford_paste(expr_labs, quote = FALSE),
         "\nCall collect() first to pull data into R.",
         call. = FALSE
       )
     } else {
-      # TODO: only show this in some debug mode?
+      arrow_errors <- map2_chr(
+        filters[bad_filters], expr_labs,
+        handle_arrow_not_supported
+      )
+      if (length(arrow_errors) == 1) {
+        msg <- paste0(arrow_errors, "; ")
+      } else {
+        msg <- paste0("* ", arrow_errors, "\n", collapse = "")
+      }
       warning(
-        "Filter expression not implemented in Arrow: ", bads, "; pulling data into R",
+        msg, "pulling data into R",
         immediate. = TRUE,
         call. = FALSE
       )

@@ -242,34 +242,6 @@ test_that("filter() with between()", {
 
 test_that("filter() with string ops", {
   skip_if_not_available("utf8proc")
-  skip_if(getRversion() < "3.4.0", "R < 3.4")
-  # Extra instrumentation to ensure that we're calling Arrow compute here
-  # because many base R string functions implicitly call as.character,
-  # which means they still work on Arrays but actually force data into R
-  # 1) wrapper that raises a warning if as.character is called. Can't wrap
-  #    the whole test because as.character apparently gets called in other
-  #    (presumably legitimate) places
-  # 2) Wrap the test in expect_warning(expr, NA) to catch the warning
-  with_no_as_character <- function(expr) {
-    trace(
-      "as.character",
-      tracer = quote(warning("as.character was called")),
-      print = FALSE,
-      where = toupper
-    )
-    on.exit(untrace("as.character", where = toupper))
-    force(expr)
-  }
-
-  expect_warning(
-    expect_dplyr_equal(
-      input %>%
-        filter(dbl > 2, with_no_as_character(toupper(chr)) %in% c("D", "F")) %>%
-        collect(),
-      tbl
-    ),
-  NA)
-
   expect_dplyr_equal(
     input %>%
       filter(dbl > 2, str_length(verses) > 25) %>%
@@ -340,7 +312,7 @@ test_that("Filtering on a column that doesn't exist errors correctly", {
   })
 })
 
-test_that("Filtering with a function that doesn't have an Array/expr method still works", {
+test_that("Filtering with unsupported functions", {
   expect_warning(
     expect_dplyr_equal(
       input %>%
@@ -348,7 +320,23 @@ test_that("Filtering with a function that doesn't have an Array/expr method stil
         collect(),
       tbl
     ),
-    'Filter expression not implemented in Arrow: pnorm(dbl) > 0.99; pulling data into R',
+    'Expression pnorm(dbl) > 0.99 not supported in Arrow; pulling data into R',
+    fixed = TRUE
+  )
+  expect_warning(
+    expect_dplyr_equal(
+      input %>%
+        filter(
+          nchar(chr, type = "bytes", allowNA = TRUE) == 1, # bad, Arrow msg
+          int > 2,                                         # good
+          pnorm(dbl) > .99                                 # bad, opaque
+        ) %>%
+        collect(),
+      tbl
+    ),
+'* In nchar(chr, type = "bytes", allowNA = TRUE) == 1, allowNA = TRUE not supported by Arrow
+* Expression pnorm(dbl) > 0.99 not supported in Arrow
+pulling data into R',
     fixed = TRUE
   )
 })
