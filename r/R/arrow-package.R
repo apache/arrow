@@ -49,7 +49,18 @@
 
   # Create these once, at package build time
   if (arrow_available()) {
-    dplyr_functions$dataset <- build_function_list(build_dataset_expression)
+    # Also include all available Arrow Compute functions,
+    # namespaced as arrow_fun.
+    # We can't do this at install time because list_compute_functions() may error
+    all_arrow_funs <- list_compute_functions()
+    arrow_funcs <- set_names(
+      lapply(all_arrow_funs, function(fun) {
+        force(fun)
+        function(...) build_expr(fun, ...)
+      }),
+      paste0("arrow_", all_arrow_funs)
+    )
+    .cache$functions <- c(nse_funcs, arrow_funcs)
   }
   invisible()
 }

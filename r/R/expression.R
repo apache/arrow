@@ -106,13 +106,16 @@ Expression$scalar <- function(x) {
   compute___expr__scalar(Scalar$create(x))
 }
 
-build_dataset_expression <- function(FUN,
-                                     ...,
-                                     args = list(...),
-                                     options = empty_named_list()) {
+# Wrapper around Expression$create that:
+# (1) maps R function names to Arrow C++ compute ("/" --> "divide_checked")
+# (2) wraps R input args as Array or Scalar
+build_expr <- function(FUN,
+                       ...,
+                       args = list(...),
+                       options = empty_named_list()) {
   if (FUN == "-" && length(args) == 1L) {
     if (inherits(args[[1]], c("ArrowObject", "Expression"))) {
-      return(build_dataset_expression("negate_checked", args[[1]]))
+      return(build_expr("negate_checked", args[[1]]))
     } else {
       return(-args[[1]])
     }
@@ -142,7 +145,7 @@ build_dataset_expression <- function(FUN,
       args <- lapply(args, function(x) x$cast(float64()))
     } else if (FUN == "%/%") {
       # In R, integer division works like floor(float division)
-      out <- build_dataset_expression("/", args = args)
+      out <- build_expr("/", args = args)
       return(out$cast(int32(), allow_float_truncate = TRUE))
     } else if (FUN == "%%") {
       return(args[[1]] - args[[2]] * ( args[[1]] %/% args[[2]] ))
@@ -156,9 +159,9 @@ build_dataset_expression <- function(FUN,
 #' @export
 Ops.Expression <- function(e1, e2) {
   if (.Generic == "!") {
-    build_dataset_expression(.Generic, e1)
+    build_expr(.Generic, e1)
   } else {
-    build_dataset_expression(.Generic, e1, e2)
+    build_expr(.Generic, e1, e2)
   }
 }
 
