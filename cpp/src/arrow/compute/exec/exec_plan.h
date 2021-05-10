@@ -56,7 +56,7 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
   const NodeVector& sources() const;
 
   /// The final outputs
-  NodeVector sinks() const;
+  const NodeVector& sinks() const;
 
   // XXX API question:
   // There are clearly two phases in the ExecPlan lifecycle:
@@ -90,8 +90,9 @@ class ARROW_EXPORT ExecNode {
 
   virtual const char* kind_name() = 0;
 
-  // The number of inputs expected by this node
+  // The number of inputs/outputs expected by this node
   int num_inputs() const { return static_cast<int>(input_descrs_.size()); }
+  int num_outputs() const { return num_outputs_; }
 
   /// This node's predecessors in the exec plan
   const NodeVector& inputs() const { return inputs_; }
@@ -187,9 +188,6 @@ class ARROW_EXPORT ExecNode {
   // - A method allows passing a ProductionHint asynchronously from an output node
   //   (replacing PauseProducing(), ResumeProducing(), StopProducing())
 
-  // TODO PauseProducing() etc. should probably take the index of the output which calls
-  // them?
-
   /// \brief Start producing
   ///
   /// This must only be called once.  If this fails, then other lifecycle
@@ -206,7 +204,7 @@ class ARROW_EXPORT ExecNode {
   /// This may be called any number of times after StartProducing() succeeds.
   /// However, the node is still free to produce data (which may be difficult
   /// to prevent anyway if data is produced using multiple threads).
-  virtual void PauseProducing();
+  virtual void PauseProducing(ExecNode* output) = 0;
 
   /// \brief Resume producing after a temporary pause
   ///
@@ -215,13 +213,21 @@ class ARROW_EXPORT ExecNode {
   /// This may be called any number of times after StartProducing() succeeds.
   /// This may also be called concurrently with PauseProducing(), which suggests
   /// the implementation may use an atomic counter.
-  virtual void ResumeProducing();
+  virtual void ResumeProducing(ExecNode* output) = 0;
+
+  /// \brief Stop producing definitively to a single output
+  ///
+  /// This call is a hint that an output node has completed and is not willing
+  /// to not receive any further data.
+  virtual void StopProducing(ExecNode* output) = 0;
 
   /// \brief Stop producing definitively
   virtual void StopProducing() = 0;
 
  protected:
-  ExecNode(ExecPlan* plan, std::string label);
+  ExecNode(ExecPlan* plan, std::string label, std::vector<BatchDescr> input_descrs,
+           std::vector<std::string> input_labels, BatchDescr output_descr,
+           int num_outputs);
 
   ExecPlan* plan_;
 
@@ -232,6 +238,7 @@ class ARROW_EXPORT ExecNode {
   NodeVector inputs_;
 
   BatchDescr output_descr_;
+  int num_outputs_;
   NodeVector outputs_;
 };
 

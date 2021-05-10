@@ -42,6 +42,9 @@ struct ExecPlanImpl : public ExecPlan {
     if (node->num_inputs() == 0) {
       sources_.push_back(node.get());
     }
+    if (node->num_outputs() == 0) {
+      sinks_.push_back(node.get());
+    }
     nodes_.push_back(std::move(node));
     return nodes_.back().get();
   }
@@ -130,7 +133,7 @@ struct ExecPlanImpl : public ExecPlan {
   }
 
   std::vector<std::unique_ptr<ExecNode>> nodes_;
-  NodeVector sources_;
+  NodeVector sources_, sinks_;
 };
 
 ExecPlanImpl* ToDerived(ExecPlan* ptr) { return checked_cast<ExecPlanImpl*>(ptr); }
@@ -161,27 +164,32 @@ const ExecPlan::NodeVector& ExecPlan::sources() const {
   return ToDerived(this)->sources_;
 }
 
-ExecPlan::NodeVector ExecPlan::sinks() const {
-  NodeVector sinks;
-  for (const auto& node : ToDerived(this)->nodes_) {
-    if (node->outputs().empty()) {
-      sinks.push_back(node.get());
-    }
-  }
-  return sinks;
-}
+const ExecPlan::NodeVector& ExecPlan::sinks() const { return ToDerived(this)->sinks_; }
 
 Status ExecPlan::Validate() { return ToDerived(this)->Validate(); }
 
 Status ExecPlan::StartProducing() { return ToDerived(this)->StartProducing(); }
 
-ExecNode::ExecNode(ExecPlan* plan, std::string label)
-    : plan_(plan), label_(std::move(label)) {}
+ExecNode::ExecNode(ExecPlan* plan, std::string label,
+                   std::vector<BatchDescr> input_descrs,
+                   std::vector<std::string> input_labels, BatchDescr output_descr,
+                   int num_outputs)
+    : plan_(plan),
+      label_(std::move(label)),
+      input_descrs_(std::move(input_descrs)),
+      input_labels_(std::move(input_labels)),
+      output_descr_(std::move(output_descr)),
+      num_outputs_(num_outputs) {}
 
 Status ExecNode::Validate() const {
   if (inputs_.size() != input_descrs_.size()) {
     return Status::Invalid("Invalid number of inputs for '", label(), "' (expected ",
                            num_inputs(), ", actual ", inputs_.size(), ")");
+  }
+
+  if (static_cast<int>(outputs_.size()) != num_outputs_) {
+    return Status::Invalid("Invalid number of outputs for '", label(), "' (expected ",
+                           num_outputs(), ", actual ", outputs_.size(), ")");
   }
 
   DCHECK_EQ(input_descrs_.size(), input_labels_.size());
@@ -204,18 +212,6 @@ Status ExecNode::Validate() const {
   }
 
   return Status::OK();
-}
-
-void ExecNode::PauseProducing() {
-  for (const auto& node : inputs_) {
-    node->PauseProducing();
-  }
-}
-
-void ExecNode::ResumeProducing() {
-  for (const auto& node : inputs_) {
-    node->ResumeProducing();
-  }
 }
 
 }  // namespace compute

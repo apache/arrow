@@ -26,6 +26,9 @@
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock-matchers.h>
+#include <gtest/gtest.h>
+
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/datum.h"
@@ -54,19 +57,18 @@ std::vector<ValueDescr> DescrFromSchemaColumns(const Schema& schema) {
 }
 
 struct DummyNode : ExecNode {
-  DummyNode(ExecPlan* plan, std::string label, int num_inputs,
+  DummyNode(ExecPlan* plan, std::string label, int num_inputs, int num_outputs,
             StartProducingFunc start_producing, StopProducingFunc stop_producing)
-      : ExecNode(plan, std::move(label)),
+      : ExecNode(plan, std::move(label), std::vector<BatchDescr>(num_inputs, descr()), {},
+                 descr(), num_outputs),
         start_producing_(std::move(start_producing)),
         stop_producing_(std::move(stop_producing)) {
     for (int i = 0; i < num_inputs; ++i) {
       input_labels_.push_back(std::to_string(i));
     }
-    input_descrs_.assign(num_inputs, descr());
-    output_descr_ = descr();
   }
 
-  const char* kind_name() override { return "RecordBatchReader"; }
+  const char* kind_name() override { return "Dummy"; }
 
   void InputReceived(ExecNode* input, int seq_num, compute::ExecBatch batch) override {}
 
@@ -82,11 +84,27 @@ struct DummyNode : ExecNode {
     return Status::OK();
   }
 
+  void PauseProducing(ExecNode* output) override {
+    ASSERT_GE(num_outputs(), 0) << "Sink nodes should not experience backpressure";
+    AssertIsOutput(output);
+  }
+
+  void ResumeProducing(ExecNode* output) override {
+    ASSERT_GE(num_outputs(), 0) << "Sink nodes should not experience backpressure";
+    AssertIsOutput(output);
+  }
+
+  void StopProducing(ExecNode* output) override {
+    ASSERT_GE(num_outputs(), 0) << "Sink nodes should not experience backpressure";
+    AssertIsOutput(output);
+    StopProducing();
+  }
+
   void StopProducing() override {
     if (started_) {
       started_ = false;
       for (const auto& input : inputs_) {
-        input->StopProducing();
+        input->StopProducing(this);
       }
       if (stop_producing_) {
         stop_producing_(this);
@@ -95,6 +113,10 @@ struct DummyNode : ExecNode {
   }
 
  private:
+  void AssertIsOutput(ExecNode* output) {
+    ASSERT_NE(std::find(outputs_.begin(), outputs_.end(), output), outputs_.end());
+  }
+
   BatchDescr descr() const { return std::vector<ValueDescr>{ValueDescr(null())}; }
 
   StartProducingFunc start_producing_;
@@ -105,21 +127,19 @@ struct DummyNode : ExecNode {
 struct RecordBatchReaderNode : ExecNode {
   RecordBatchReaderNode(ExecPlan* plan, std::string label,
                         std::shared_ptr<RecordBatchReader> reader, Executor* io_executor)
-      : ExecNode(plan, std::move(label)),
+      : ExecNode(plan, std::move(label), {}, {},
+                 DescrFromSchemaColumns(*reader->schema()), /*num_outputs=*/1),
         schema_(reader->schema()),
         reader_(std::move(reader)),
-        io_executor_(io_executor) {
-    output_descr_ = DescrFromSchemaColumns(*schema_);
-  }
+        io_executor_(io_executor) {}
 
   RecordBatchReaderNode(ExecPlan* plan, std::string label, std::shared_ptr<Schema> schema,
                         RecordBatchGenerator generator, Executor* io_executor)
-      : ExecNode(plan, std::move(label)),
+      : ExecNode(plan, std::move(label), {}, {}, DescrFromSchemaColumns(*schema),
+                 /*num_outputs=*/1),
         schema_(std::move(schema)),
-        io_executor_(io_executor),
-        generator_(std::move(generator)) {
-    output_descr_ = DescrFromSchemaColumns(*schema_);
-  }
+        generator_(std::move(generator)),
+        io_executor_(io_executor) {}
 
   const char* kind_name() override { return "RecordBatchReader"; }
 
@@ -140,12 +160,17 @@ struct RecordBatchReaderNode : ExecNode {
     return Status::OK();
   }
 
-  void StopProducing() override {
+  void PauseProducing(ExecNode* output) override {}
+
+  void ResumeProducing(ExecNode* output) override {}
+
+  void StopProducing(ExecNode* output) override {
+    ASSERT_EQ(output, outputs_[0]);
     std::unique_lock<std::mutex> lock(mutex_);
     generator_ = nullptr;  // null function
   }
 
-  // TODO implement PauseProducing / ResumeProducing
+  void StopProducing() override { StopProducing(outputs_[0]); }
 
  private:
   void GenerateOne(std::unique_lock<std::mutex>&& lock) {
@@ -186,22 +211,21 @@ struct RecordBatchReaderNode : ExecNode {
             });
   }
 
+  std::mutex mutex_;
   const std::shared_ptr<Schema> schema_;
   const std::shared_ptr<RecordBatchReader> reader_;
-  Executor* const io_executor_;
-
-  std::mutex mutex_;
   RecordBatchGenerator generator_;
   int next_batch_index_;
+
+  Executor* const io_executor_;
 };
 
 struct RecordBatchCollectNodeImpl : public RecordBatchCollectNode {
   RecordBatchCollectNodeImpl(ExecPlan* plan, std::string label,
                              std::shared_ptr<Schema> schema)
-      : RecordBatchCollectNode(plan, std::move(label)), schema_(std::move(schema)) {
-    input_descrs_.push_back(DescrFromSchemaColumns(*schema_));
-    input_labels_.emplace_back("batches_to_collect");
-  }
+      : RecordBatchCollectNode(plan, std::move(label), {DescrFromSchemaColumns(*schema)},
+                               {"batches_to_collect"}, {}, 0),
+        schema_(std::move(schema)) {}
 
   RecordBatchGenerator generator() override { return generator_; }
 
@@ -216,9 +240,20 @@ struct RecordBatchCollectNodeImpl : public RecordBatchCollectNode {
     return Status::OK();
   }
 
+  // sink nodes have no outputs from which to feel backpressure
+  void ResumeProducing(ExecNode* output) override {
+    FAIL() << "no outputs; this should never be called";
+  }
+  void PauseProducing(ExecNode* output) override {
+    FAIL() << "no outputs; this should never be called";
+  }
+  void StopProducing(ExecNode* output) override {
+    FAIL() << "no outputs; this should never be called";
+  }
+
   void StopProducing() override {
     std::unique_lock<std::mutex> lock(mutex_);
-    StopProducing(&lock);
+    StopProducingUnlocked();
   }
 
   void InputReceived(ExecNode* input, int seq_num,
@@ -250,7 +285,7 @@ struct RecordBatchCollectNodeImpl : public RecordBatchCollectNode {
       return;
     }
     if (num_received_ == emit_stop_) {
-      StopProducing(&lock);
+      StopProducingUnlocked();
     }
 
     // Emit batches in order as far as possible
@@ -280,7 +315,8 @@ struct RecordBatchCollectNodeImpl : public RecordBatchCollectNode {
   void ErrorReceived(ExecNode* input, Status error) override {
     // XXX do we care about properly sequencing the error?
     producer_->Push(std::move(error));
-    StopProducing();
+    std::unique_lock<std::mutex> lock(mutex_);
+    StopProducingUnlocked();
   }
 
   void InputFinished(ExecNode* input, int seq_stop) override {
@@ -290,16 +326,16 @@ struct RecordBatchCollectNodeImpl : public RecordBatchCollectNode {
     emit_stop_ = seq_stop;
     if (emit_stop_ == num_received_) {
       DCHECK_EQ(emit_stop_, num_emitted_);
-      StopProducing(&lock);
+      StopProducingUnlocked();
     }
   }
 
  private:
-  void StopProducing(std::unique_lock<std::mutex>* lock) {
+  void StopProducingUnlocked() {
     if (!stopped_) {
       stopped_ = true;
       producer_->Close();
-      inputs_[0]->StopProducing();
+      inputs_[0]->StopProducing(this);
     }
   }
 
@@ -347,9 +383,9 @@ ExecNode* MakeRecordBatchReaderNode(ExecPlan* plan, std::string label,
 }
 
 ExecNode* MakeDummyNode(ExecPlan* plan, std::string label, int num_inputs,
-                        StartProducingFunc start_producing,
+                        int num_outputs, StartProducingFunc start_producing,
                         StopProducingFunc stop_producing) {
-  return plan->EmplaceNode<DummyNode>(plan, std::move(label), num_inputs,
+  return plan->EmplaceNode<DummyNode>(plan, std::move(label), num_inputs, num_outputs,
                                       std::move(start_producing),
                                       std::move(stop_producing));
 }
