@@ -125,29 +125,26 @@ int64_t CountValues(uint64_t* counts, const Datum& datum, T min) {
 }
 
 // Copy numerical array values to a buffer, ignore nulls.
-template <size_t SizeOfCType>
-ARROW_NOINLINE int64_t CopyNonNullValues(const ArrayData& data, void* out) {
-  uint8_t* u8_buffer = reinterpret_cast<uint8_t*>(out);
+template <typename T>
+ARROW_NOINLINE int64_t CopyNonNullValues(const ArrayData& data, T* out) {
   const int64_t n = data.length - data.GetNullCount();
   if (n > 0) {
     int64_t index = 0;
-    const uint8_t* u8_values = data.GetValues<uint8_t>(1);
+    const T* values = data.GetValues<T>(1);
     arrow::internal::VisitSetBitRunsVoid(
         data.buffers[0], data.offset, data.length, [&](int64_t pos, int64_t len) {
-          memcpy(u8_buffer + index * SizeOfCType, u8_values + pos * SizeOfCType,
-                 len * SizeOfCType);
+          memcpy(out + index, values + pos, len * sizeof(T));
           index += len;
         });
   }
   return n;
 }
 
-template <size_t SizeOfCType>
-int64_t CopyNonNullValues(const Datum& datum, void* out) {
-  uint8_t* u8_buffer = reinterpret_cast<uint8_t*>(out);
+template <typename T>
+int64_t CopyNonNullValues(const Datum& datum, T* out) {
   int64_t n = 0;
   for (const auto& array : datum.chunks()) {
-    n += CopyNonNullValues<SizeOfCType>(*array->data(), u8_buffer + n * SizeOfCType);
+    n += CopyNonNullValues(*array->data(), out + n);
   }
   return n;
 }
