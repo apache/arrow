@@ -539,6 +539,10 @@ TYPED_TEST(TestStringKernels, ExtractRegex) {
       "extract_regex", R"(["a1", "b2", "c3", null])", type,
       R"([{"letter": "a", "digit": "1"}, {"letter": "b", "digit": "2"}, null, null])",
       &options);
+  this->CheckUnary(
+      "extract_regex", R"(["a1", "c3", null, "b2"])", type,
+      R"([{"letter": "a", "digit": "1"}, null, null, {"letter": "b", "digit": "2"}])",
+      &options);
   this->CheckUnary("extract_regex", R"(["a1", "b2"])", type,
                    R"([{"letter": "a", "digit": "1"}, {"letter": "b", "digit": "2"}])",
                    &options);
