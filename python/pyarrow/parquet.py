@@ -1486,6 +1486,12 @@ def _make_manifest(path_or_paths, fs, pathsep='/', metadata_nthreads=1,
     return pieces, partitions, common_metadata_path, metadata_path
 
 
+def _is_local_file_system(fs):
+    return isinstance(fs, LocalFileSystem) or isinstance(
+        fs, legacyfs.LocalFileSystem
+    )
+
+
 class _ParquetDatasetV2:
     """
     ParquetDataset shim using the Dataset API under the hood.
@@ -1528,6 +1534,18 @@ class _ParquetDatasetV2:
             # path can in principle be URI for any filesystem)
             filesystem = LocalFileSystem(use_mmap=memory_map)
 
+        # This needs to be checked after _ensure_filesystem, because that
+        # handles the case of an fsspec LocalFileSystem
+        if (
+            hasattr(path_or_paths, "__fspath__") and
+            filesystem is not None and
+            not _is_local_file_system(filesystem)
+        ):
+            raise TypeError(
+                "Path-like objects with __fspath__ must only be used with "
+                f"local file systems, not {type(filesystem)}"
+            )
+
         # check for single fragment dataset
         single_file = None
         if isinstance(path_or_paths, list):
@@ -1535,7 +1553,7 @@ class _ParquetDatasetV2:
                 single_file = path_or_paths[0]
         else:
             if _is_path_like(path_or_paths):
-                path_or_paths = str(path_or_paths)
+                path_or_paths = _stringify_path(path_or_paths)
                 if filesystem is None:
                     # path might be a URI describing the FileSystem as well
                     try:
