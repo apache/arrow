@@ -165,7 +165,7 @@ RecordBatch$create <- function(..., schema = NULL) {
   # If any arrays are length 1, recycle them  
   arr_lens <- map(arrays, length)
   if (length(arrays) > 1 && any(arr_lens == 1) && !all(arr_lens==1)){
-    arrays <- purrr::modify2(
+    arrays <- modify2(
       arrays,
       arr_lens == 1,
       ~if(.y) rep(.x, max(unlist(arr_lens))) else .x
