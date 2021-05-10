@@ -229,15 +229,17 @@ TEST_P(TestCsvFileFormat, InspectWithCustomConvertOptions) {
 1.0
 
 N/A
-2
-whoops)");
+2)");
   auto defaults = std::make_shared<CsvFragmentScanOptions>();
-  // Prevent type inference from seeing the string value
-  defaults->read_options.block_size = 20;
+  format_->default_fragment_scan_options = defaults;
+
+  ASSERT_OK_AND_ASSIGN(auto actual, format_->Inspect(*source.get()));
+  // Default type inferred
+  EXPECT_EQ(*actual, Schema({field("actually_string", float64())}));
+
   // Override the inferred type
   defaults->convert_options.column_types["actually_string"] = utf8();
-  format_->default_fragment_scan_options = defaults;
-  ASSERT_OK_AND_ASSIGN(auto actual, format_->Inspect(*source.get()));
+  ASSERT_OK_AND_ASSIGN(actual, format_->Inspect(*source.get()));
   EXPECT_EQ(*actual, Schema({field("actually_string", utf8())}));
 }
 
