@@ -5354,16 +5354,17 @@ extern "C" SEXP _arrow_ExportRecordBatchReader(SEXP reader_sexp, SEXP stream_ptr
 
 // r_to_arrow.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp);
-extern "C" SEXP _arrow_Table__from_dots(SEXP lst_sexp, SEXP schema_sxp_sexp){
+std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp, bool use_threads);
+extern "C" SEXP _arrow_Table__from_dots(SEXP lst_sexp, SEXP schema_sxp_sexp, SEXP use_threads_sexp){
 BEGIN_CPP11
 	arrow::r::Input<SEXP>::type lst(lst_sexp);
 	arrow::r::Input<SEXP>::type schema_sxp(schema_sxp_sexp);
-	return cpp11::as_sexp(Table__from_dots(lst, schema_sxp));
+	arrow::r::Input<bool>::type use_threads(use_threads_sexp);
+	return cpp11::as_sexp(Table__from_dots(lst, schema_sxp, use_threads));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_Table__from_dots(SEXP lst_sexp, SEXP schema_sxp_sexp){
+extern "C" SEXP _arrow_Table__from_dots(SEXP lst_sexp, SEXP schema_sxp_sexp, SEXP use_threads_sexp){
 	Rf_error("Cannot call Table__from_dots(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
@@ -7165,10 +7166,14 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ExportArray", (DL_FUNC) &_arrow_ExportArray, 3}, 
 		{ "_arrow_ExportRecordBatch", (DL_FUNC) &_arrow_ExportRecordBatch, 3}, 
 <<<<<<< HEAD
+<<<<<<< HEAD
 		{ "_arrow_ExportRecordBatchReader", (DL_FUNC) &_arrow_ExportRecordBatchReader, 2}, 
 =======
 		{ "_arrow_Table__from_dots", (DL_FUNC) &_arrow_Table__from_dots, 2}, 
 >>>>>>> e8b766472 (towards a parallel Table__from_dots())
+=======
+		{ "_arrow_Table__from_dots", (DL_FUNC) &_arrow_Table__from_dots, 3}, 
+>>>>>>> f2ef4f637 (trickle down options.use_threads())
 		{ "_arrow_vec_to_arrow", (DL_FUNC) &_arrow_vec_to_arrow, 2}, 
 		{ "_arrow_DictionaryArray__FromArrays", (DL_FUNC) &_arrow_DictionaryArray__FromArrays, 3}, 
 		{ "_arrow_RecordBatch__num_columns", (DL_FUNC) &_arrow_RecordBatch__num_columns, 1}, 

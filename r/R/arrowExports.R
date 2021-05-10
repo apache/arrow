@@ -1361,12 +1361,17 @@ ExportRecordBatch <- function(batch, array_ptr, schema_ptr){
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 ExportRecordBatchReader <- function(reader, stream_ptr){
     invisible(.Call(`_arrow_ExportRecordBatchReader`, reader, stream_ptr))
 =======
 Table__from_dots <- function(lst, schema_sxp){
     .Call(`_arrow_Table__from_dots`, lst, schema_sxp)
 >>>>>>> e8b766472 (towards a parallel Table__from_dots())
+=======
+Table__from_dots <- function(lst, schema_sxp, use_threads){
+    .Call(`_arrow_Table__from_dots`, lst, schema_sxp, use_threads)
+>>>>>>> f2ef4f637 (trickle down options.use_threads())
 }
 
 vec_to_arrow <- function(x, s_type){

@@ -54,9 +54,11 @@ class RTasks {
  public:
   using Task = internal::FnOnce<Status()>;
 
-  RTasks()
-      : parallel_tasks(arrow::internal::TaskGroup::MakeThreaded(
-            arrow::internal::GetCpuThreadPool())) {}
+  explicit RTasks(bool use_threads)
+      : use_threads_(use_threads),
+        parallel_tasks_(use_threads ? arrow::internal::TaskGroup::MakeThreaded(
+                                          arrow::internal::GetCpuThreadPool())
+                                    : nullptr) {}
 
   // This Finish() method must never be called from a thread pool thread
   // as this would deadlock.
@@ -69,27 +71,30 @@ class RTasks {
     Status status = Status::OK();
 
     // run the delayed tasks now
-    for (auto& task : delayed_serial_tasks) {
+    for (auto& task : delayed_serial_tasks_) {
       status &= std::move(task)();
       if (!status.ok()) break;
     }
 
     // then wait for the parallel tasks to finish
-    status &= parallel_tasks->Finish();
+    if (use_threads_) {
+      status &= parallel_tasks_->Finish();
+    }
 
     return status;
   }
 
   void Append(bool parallel, Task&& task) {
-    if (parallel) {
-      parallel_tasks->Append(std::move(task));
+    if (parallel && use_threads_) {
+      parallel_tasks_->Append(std::move(task));
     } else {
-      delayed_serial_tasks.push_back(std::move(task));
+      delayed_serial_tasks_.push_back(std::move(task));
     }
   }
 
-  std::shared_ptr<arrow::internal::TaskGroup> parallel_tasks;
-  std::vector<Task> delayed_serial_tasks;
+  bool use_threads_;
+  std::shared_ptr<arrow::internal::TaskGroup> parallel_tasks_;
+  std::vector<Task> delayed_serial_tasks_;
 };
 
 struct RConversionOptions {
@@ -1268,7 +1273,8 @@ arrow::Status check_consistent_column_length(
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
+std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp,
+                                               bool use_threads) {
   bool infer_schema = !Rf_inherits(schema_sxp, "Schema");
 
   int num_fields;
@@ -1298,7 +1304,7 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
     arrow::r::TraverseDots(lst, num_fields, check_name);
   }
 
-  arrow::r::RTasks tasks;
+  arrow::r::RTasks tasks(use_threads);
 
   arrow::Status status = arrow::Status::OK();
 

@@ -178,7 +178,7 @@ Table$create <- function(..., schema = NULL) {
   if (all_record_batches(dots)) {
     Table__from_record_batches(dots, schema)
   } else {
-    Table__from_dots(dots, schema)
+    Table__from_dots(dots, schema, option_use_threads())
   }
 }
 
