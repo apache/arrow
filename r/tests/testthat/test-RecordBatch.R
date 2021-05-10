@@ -421,6 +421,16 @@ test_that("record_batch() scalar recycling", {
   )
 })
 
+test_that("record_batch() no recycling with tibbles", {
+  expect_error(
+    record_batch(
+      tibble::tibble(a = 1:10, b = 5),
+      tibble::tibble(a = 1, b = 5)
+    ),
+    regexp = "All arrays must have the same length"
+  )
+})
+
 test_that("RecordBatch$Equals", {
   df <- tibble::tibble(x = 1:10, y = letters[1:10])
   a <- record_batch(df)

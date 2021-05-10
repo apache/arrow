@@ -470,13 +470,23 @@ test_that("Table name assignment", {
 
 test_that("Table$create() with different length columns", {
   msg <- "All columns must have the same length"
-  expect_error(Table$create(a=1:5, b = 1:6), msg)
+  expect_error(Table$create(a = 1:5, b = 1:6), msg)
 })
 
 test_that("Table$create() scalar recycling", {
   expect_data_frame(
     Table$create(a = 1:10, b = 5),
     tibble::tibble(a = 1:10, b = 5)
+  )
+})
+
+test_that("Table$create() no recycling with tibbles", {
+  expect_error(
+    Table$create(
+      tibble::tibble(a = 1:10, b = 5),
+      tibble::tibble(a = 1, b = 5)
+    ),
+    regexp = "All columns must have the same length"
   )
 })
 
