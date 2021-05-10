@@ -21,11 +21,14 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
+#include "generated/parquet_types.h"
+
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/reader_internal.h"
 #include "parquet/arrow/schema.h"
 #include "parquet/file_reader.h"
 #include "parquet/schema.h"
+#include "parquet/schema_internal.h"
 #include "parquet/test_util.h"
 
 #include "arrow/array.h"
@@ -1155,6 +1158,92 @@ TEST_F(TestConvertArrowSchema, ParquetFlatDecimals) {
   ASSERT_OK(ConvertSchema(arrow_fields));
 
   ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(parquet_fields));
+}
+
+class TestConvertRoundTrip : public ::testing::Test {
+ public:
+  ::arrow::Status ConvertSchema(
+      const std::vector<std::shared_ptr<Field>>& fields,
+      std::shared_ptr<::parquet::ArrowWriterProperties> arrow_properties =
+          ::parquet::default_arrow_writer_properties()) {
+    arrow_schema_ = ::arrow::schema(fields);
+    std::shared_ptr<::parquet::WriterProperties> properties =
+        ::parquet::default_writer_properties();
+    RETURN_NOT_OK(ToParquetSchema(arrow_schema_.get(), *properties.get(),
+                                  *arrow_properties, &parquet_schema_));
+    ::parquet::schema::ToParquet(parquet_schema_->group_node(), &parquet_format_schema_);
+    auto parquet_schema = ::parquet::schema::FromParquet(parquet_format_schema_);
+    return FromParquetSchema(parquet_schema.get(), &result_schema_);
+  }
+
+ protected:
+  std::shared_ptr<::arrow::Schema> arrow_schema_;
+  std::shared_ptr<SchemaDescriptor> parquet_schema_;
+  std::vector<format::SchemaElement> parquet_format_schema_;
+  std::shared_ptr<::arrow::Schema> result_schema_;
+};
+
+int GetFieldId(const ::arrow::Field& field) {
+  auto maybe_field = field.metadata()->Get("PARQUET:field_id");
+  if (!maybe_field.ok()) {
+    return -1;
+  }
+  return std::stoi(maybe_field.ValueOrDie());
+}
+
+void GetFieldIdsDfs(const ::arrow::FieldVector& fields, std::vector<int>* field_ids) {
+  for (const auto& field : fields) {
+    field_ids->push_back(GetFieldId(*field));
+    GetFieldIdsDfs(field->type()->fields(), field_ids);
+  }
+}
+
+std::vector<int> GetFieldIdsDfs(const ::arrow::FieldVector& fields) {
+  std::vector<int> field_ids;
+  GetFieldIdsDfs(fields, &field_ids);
+  return field_ids;
+}
+
+TEST_F(TestConvertRoundTrip, GroupIdDfsIfNotSpecified) {
+  std::vector<std::shared_ptr<Field>> arrow_fields;
+  arrow_fields.push_back(::arrow::field("simple", ::arrow::int32(), false));
+  /// { "nested": { "outer": { "inner" }, "sibling" }
+  arrow_fields.push_back(::arrow::field(
+      "nested",
+      ::arrow::struct_({::arrow::field("outer", ::arrow::struct_({::arrow::field(
+                                                    "inner", ::arrow::utf8())})),
+                        ::arrow::field("sibling", ::arrow::date32())}),
+      false));
+
+  ASSERT_OK(ConvertSchema(arrow_fields));
+  auto field_ids = GetFieldIdsDfs(result_schema_->fields());
+  auto field_id_counter = 1;
+  for (int actual_id : field_ids) {
+    ASSERT_EQ(actual_id, field_id_counter++);
+  }
+}
+
+std::shared_ptr<::arrow::KeyValueMetadata> FieldIdMetadata(int field_id) {
+  return ::arrow::key_value_metadata({"PARQUET:field_id"}, {std::to_string(field_id)});
+}
+
+TEST_F(TestConvertRoundTrip, GroupIdPreserveExisting) {
+  std::vector<std::shared_ptr<Field>> arrow_fields;
+  arrow_fields.push_back(
+      ::arrow::field("simple", ::arrow::int32(), /*nullable=*/true, FieldIdMetadata(2)));
+  /// { "nested": { "outer": { "inner" }, "sibling" }
+  arrow_fields.push_back(::arrow::field(
+      "nested",
+      ::arrow::struct_({::arrow::field("outer", ::arrow::struct_({::arrow::field(
+                                                    "inner", ::arrow::utf8())})),
+                        ::arrow::field("sibling", ::arrow::date32(), /*nullable=*/true,
+                                       FieldIdMetadata(17))}),
+      false));
+
+  ASSERT_OK(ConvertSchema(arrow_fields));
+  auto field_ids = GetFieldIdsDfs(result_schema_->fields());
+  auto expected_field_ids = std::vector<int>{2, 1, 3, 4, 17};
+  ASSERT_EQ(field_ids, expected_field_ids);
 }
 
 TEST(InvalidSchema, ParquetNegativeDecimalScale) {

@@ -30,6 +30,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/value_parsing.h"
 
 #include "parquet/arrow/schema_internal.h"
 #include "parquet/exception.h"
@@ -231,6 +232,32 @@ static Status GetTimestampMetadata(const ::arrow::TimestampType& type,
   return Status::OK();
 }
 
+static constexpr char FIELD_ID_KEY[] = "PARQUET:field_id";
+static constexpr int NO_FIELD_ID = -1;
+
+std::shared_ptr<::arrow::KeyValueMetadata> FieldIdMetadata(int field_id) {
+  return ::arrow::key_value_metadata({FIELD_ID_KEY}, {std::to_string(field_id)});
+}
+
+int FieldIdFromMetadata(
+    const std::shared_ptr<const ::arrow::KeyValueMetadata>& metadata) {
+  if (!metadata) {
+    return NO_FIELD_ID;
+  }
+  int key = metadata->FindKey(FIELD_ID_KEY);
+  if (key < 0) {
+    return NO_FIELD_ID;
+  }
+  std::string field_id_str = metadata->value(key);
+  int field_id;
+  if (::arrow::internal::ParseValue<::arrow::Int32Type>(
+          field_id_str.c_str(), field_id_str.length(), &field_id)) {
+    return field_id;
+  } else {
+    return NO_FIELD_ID;
+  }
+}
+
 Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
                    const WriterProperties& properties,
                    const ArrowWriterProperties& arrow_properties, NodePtr* out) {
@@ -387,8 +414,9 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
     }
   }
 
+  int field_id = FieldIdFromMetadata(field->metadata());
   PARQUET_CATCH_NOT_OK(*out = PrimitiveNode::Make(name, repetition, logical_type, type,
-                                                  length));
+                                                  length, field_id));
 
   return Status::OK();
 }
@@ -451,10 +479,6 @@ Status PopulateLeaf(int column_index, const std::shared_ptr<Field>& field,
 bool HasStructListName(const GroupNode& node) {
   ::arrow::util::string_view name{node.name()};
   return name == "array" || name.ends_with("_tuple");
-}
-
-std::shared_ptr<::arrow::KeyValueMetadata> FieldIdMetadata(int field_id) {
-  return ::arrow::key_value_metadata({"PARQUET:field_id"}, {std::to_string(field_id)});
 }
 
 Status GroupToStruct(const GroupNode& node, LevelInfo current_levels,
