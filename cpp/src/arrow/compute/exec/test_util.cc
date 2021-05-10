@@ -164,16 +164,22 @@ struct RecordBatchReaderNode : ExecNode {
             [plan, batch_index, this](const Result<std::shared_ptr<RecordBatch>>& res) {
               std::unique_lock<std::mutex> lock(mutex_);
               if (!res.ok()) {
-                output_->ErrorReceived(output_, res.status());
+                for (auto out : outputs_) {
+                  out->ErrorReceived(this, res.status());
+                }
                 return;
               }
               const auto& batch = *res;
               if (IsIterationEnd(batch)) {
                 lock.unlock();
-                output_->InputFinished(output_, batch_index);
+                for (auto out : outputs_) {
+                  out->InputFinished(this, batch_index);
+                }
               } else {
                 lock.unlock();
-                output_->InputReceived(output_, batch_index, compute::ExecBatch(*batch));
+                for (auto out : outputs_) {
+                  out->InputReceived(this, batch_index, compute::ExecBatch(*batch));
+                }
                 lock.lock();
                 GenerateOne(std::move(lock));
               }

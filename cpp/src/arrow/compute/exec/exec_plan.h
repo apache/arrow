@@ -60,7 +60,7 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
 
   // XXX API question:
   // There are clearly two phases in the ExecPlan lifecycle:
-  // - one construction phase where AddNode() and ExecNode::Bind() is called
+  // - one construction phase where AddNode() and ExecNode::AddInput() is called
   //   (with optional validation at the end)
   // - one execution phase where the nodes are topo-sorted and then started
   //
@@ -104,8 +104,8 @@ class ARROW_EXPORT ExecNode {
   /// For example, FilterNode accepts "target" and "filter" inputs.
   const std::vector<std::string>& input_labels() const { return input_labels_; }
 
-  /// This node's successor in the exec plan
-  ExecNode* output() const { return output_; }
+  /// This node's successors in the exec plan
+  const NodeVector& outputs() const { return outputs_; }
 
   /// The datatypes for batches produced by this node
   const BatchDescr& output_descr() const { return output_descr_; }
@@ -120,7 +120,7 @@ class ARROW_EXPORT ExecNode {
 
   void AddInput(ExecNode* input) {
     inputs_.push_back(input);
-    input->output_ = this;
+    input->outputs_.push_back(this);
   }
 
   Status Validate() const;
@@ -232,7 +232,7 @@ class ARROW_EXPORT ExecNode {
   NodeVector inputs_;
 
   BatchDescr output_descr_;
-  ExecNode* output_ = NULLPTR;
+  NodeVector outputs_;
 };
 
 }  // namespace compute

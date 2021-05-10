@@ -164,7 +164,7 @@ const ExecPlan::NodeVector& ExecPlan::sources() const {
 ExecPlan::NodeVector ExecPlan::sinks() const {
   NodeVector sinks;
   for (const auto& node : ToDerived(this)->nodes_) {
-    if (node->output() == nullptr) {
+    if (node->outputs().empty()) {
       sinks.push_back(node.get());
     }
   }
@@ -186,19 +186,19 @@ Status ExecNode::Validate() const {
 
   DCHECK_EQ(input_descrs_.size(), input_labels_.size());
 
-  if (output_) {
-    auto input_index = GetNodeIndex(output_->inputs(), this);
+  for (auto out : outputs_) {
+    auto input_index = GetNodeIndex(out->inputs(), this);
     if (!input_index) {
-      return Status::Invalid("Node '", label(), "' outputs to node '", output_->label(),
+      return Status::Invalid("Node '", label(), "' outputs to node '", out->label(),
                              "' but is not listed as an input.");
     }
 
-    const auto& in_descr = output_->input_descrs_[*input_index];
+    const auto& in_descr = out->input_descrs_[*input_index];
     if (in_descr != output_descr_) {
       return Status::Invalid(
           "Node '", label(), "' (bound to input ", input_labels_[*input_index],
           ") produces batches with type '", ValueDescr::ToString(output_descr_),
-          "' inconsistent with consumer '", output_->label(), "' which accepts '",
+          "' inconsistent with consumer '", out->label(), "' which accepts '",
           ValueDescr::ToString(in_descr), "'");
     }
   }
