@@ -201,8 +201,9 @@ def test_issue_comment_with_commands(load_fixture, responses, command,
     post = responses.calls[3]
     assert json.loads(post.request.body) == {'content': reaction}
 
-# when the @-mention is not first, this is a no-op
+
 def test_issue_comment_with_commands_bot_not_first(load_fixture, responses):
+    # when the @-mention is not first, this is a no-op
     handler = Mock()
 
     payload = load_fixture('event-issue-comment-build-command.json')
