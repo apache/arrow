@@ -613,22 +613,6 @@ test_that("Creating UnionDataset", {
   expect_error(c(ds1, 42), "character")
 })
 
-test_that("InMemoryDataset", {
-  ds <- InMemoryDataset$create(rbind(df1, df2))
-  expect_r6_class(ds, "InMemoryDataset")
-  expect_equivalent(
-    ds %>%
-      select(chr, dbl) %>%
-      filter(dbl > 7 & dbl < 53L) %>%
-      collect() %>%
-      arrange(dbl),
-    rbind(
-      df1[8:10, c("chr", "dbl")],
-      df2[1:2, c("chr", "dbl")]
-    )
-  )
-})
-
 test_that("map_batches", {
   skip_if_not_available("parquet")
   ds <- open_dataset(dataset_dir, partitioning = "part")
@@ -645,18 +629,6 @@ test_that("partitioning = NULL to ignore partition information (but why?)", {
   skip_if_not_available("parquet")
   ds <- open_dataset(hive_dir, partitioning = NULL)
   expect_identical(names(ds), names(df1)) # i.e. not c(names(df1), "group", "other")
-})
-
-test_that("filter() with is.na()", {
-  skip_if_not_available("parquet")
-  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
-  expect_equivalent(
-    ds %>%
-      select(part, lgl) %>%
-      filter(!is.na(lgl), part == 1) %>%
-      collect(),
-    tibble(part = 1L, lgl = df1$lgl[!is.na(df1$lgl)])
-  )
 })
 
 test_that("filter() with is.nan()", {
@@ -690,103 +662,6 @@ test_that("filter() with %in%", {
       select(names(df2)) %>%
       collect(),
     df2
-  )
-})
-
-test_that("filter() with negative scalar", {
-  skip_if_not_available("parquet")
-  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
-  expect_equivalent(
-    ds %>%
-      filter(part == 1) %>%
-      select(chr, int) %>%
-      filter(int > -2) %>%
-      collect(),
-    df1[, c("chr", "int")]
-  )
-
-  expect_equivalent(
-    ds %>%
-      filter(part == 1) %>%
-      select(chr, int) %>%
-      filter(int %in% -2) %>%
-      collect(),
-    df1[FALSE, c("chr", "int")]
-  )
-
-  expect_equivalent(
-    ds %>%
-      filter(part == 1) %>%
-      select(chr, int) %>%
-      filter(-int < -2) %>%
-      collect(),
-    df1[df1$int > 2, c("chr", "int")]
-  )
-})
-
-test_that("filter() with strings", {
-  skip_if_not_available("parquet")
-  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
-  expect_equivalent(
-    ds %>%
-      select(chr, part) %>%
-      filter(chr == "b", part == 1) %>%
-      collect(),
-    tibble(chr = "b", part = 1)
-  )
-
-  skip_if_not_available("utf8proc")
-  expect_equivalent(
-    ds %>%
-      select(chr, part) %>%
-      filter(toupper(chr) == "B", part == 1) %>%
-      collect(),
-    tibble(chr = "b", part = 1)
-  )
-})
-
-test_that("filter() with arrow compute functions by name", {
-  skip_if_not_available("parquet")
-  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
-  expect_equivalent(
-    ds %>%
-      select(part, lgl) %>%
-      filter(arrow_is_valid(lgl), arrow_equal(part, 1)) %>%
-      collect(),
-    ds %>%
-       select(part, lgl) %>%
-       filter(!is.na(lgl), part == 1L) %>%
-       collect()
-  )
-})
-
-test_that("filter() with .data", {
-  skip_if_not_available("parquet")
-  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
-  expect_equivalent(
-    ds %>%
-      select(.data$int, .data$part) %>%
-      filter(.data$int == 3, .data$part == 1) %>%
-      collect(),
-    tibble(int = df1$int[3], part = 1)
-  )
-
-  expect_equivalent(
-    ds %>%
-      select(.data$int, .data$part) %>%
-      filter(.data$int %in% c(6, 4, 3, 103, 107), .data$part == 1) %>%
-      collect(),
-    tibble(int = df1$int[c(3, 4, 6)], part = 1)
-  )
-
-  # and the .env pronoun too!
-  chr <- 1
-  expect_equivalent(
-    ds %>%
-      select(.data$int, .data$part) %>%
-      filter(.data$int %in% c(6, 4, 3, 103, 107), .data$part == .env$chr) %>%
-      collect(),
-    tibble(int = df1$int[c(3, 4, 6)], part = 1)
   )
 })
 
@@ -849,109 +724,6 @@ test_that("filter() on date32 columns", {
   )
 })
 
-test_that("filter() with expressions", {
-  skip_if_not_available("parquet")
-  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
-  expect_r6_class(ds$format, "ParquetFileFormat")
-  expect_r6_class(ds$filesystem, "LocalFileSystem")
-  expect_r6_class(ds, "Dataset")
-  expect_equivalent(
-    ds %>%
-      select(chr, dbl) %>%
-      filter(dbl * 2 > 14 & dbl - 50 < 3L) %>%
-      collect() %>%
-      arrange(dbl),
-    rbind(
-      df1[8:10, c("chr", "dbl")],
-      df2[1:2, c("chr", "dbl")]
-    )
-  )
-
-  # check division's special casing.
-  expect_equivalent(
-    ds %>%
-      select(chr, dbl) %>%
-      filter(dbl / 2 > 3.5 & dbl < 53) %>%
-      collect() %>%
-      arrange(dbl),
-    rbind(
-      df1[8:10, c("chr", "dbl")],
-      df2[1:2, c("chr", "dbl")]
-    )
-  )
-
-  expect_equivalent(
-    ds %>%
-      select(chr, dbl, int) %>%
-      filter(int %/% 2L > 3 & dbl < 53) %>%
-      collect() %>%
-      arrange(dbl),
-    rbind(
-      df1[8:10, c("chr", "dbl", "int")],
-      df2[1:2, c("chr", "dbl", "int")]
-    )
-  )
-
-  expect_equivalent(
-    ds %>%
-      select(chr, dbl, int) %>%
-      filter(int %/% 2 > 3 & dbl < 53) %>%
-      collect() %>%
-      arrange(dbl),
-    rbind(
-      df1[8:10, c("chr", "dbl", "int")],
-      df2[1:2, c("chr", "dbl", "int")]
-    )
-  )
-
-  expect_equivalent(
-    ds %>%
-      select(chr, dbl, int) %>%
-      filter(int %% 2L > 0 & dbl < 53) %>%
-      collect() %>%
-      arrange(dbl),
-    rbind(
-      df1[c(1, 3, 5, 7, 9), c("chr", "dbl", "int")],
-      df2[1, c("chr", "dbl", "int")]
-    )
-  )
-
-  expect_equivalent(
-    ds %>%
-      select(chr, dbl, int) %>%
-      filter(int %% 2L > 0 & dbl < 53) %>%
-      collect() %>%
-      arrange(dbl),
-    rbind(
-      df1[c(1, 3, 5, 7, 9), c("chr", "dbl", "int")],
-      df2[1, c("chr", "dbl", "int")]
-    )
-  )
-
-  expect_equivalent(
-    ds %>%
-      select(chr, dbl, int) %>%
-      filter(int %% 2 > 0 & dbl < 53) %>%
-      collect() %>%
-      arrange(dbl),
-    rbind(
-      df1[c(1, 3, 5, 7, 9), c("chr", "dbl", "int")],
-      df2[1, c("chr", "dbl", "int")]
-    )
-  )
-
-  expect_equivalent(
-    ds %>%
-      select(chr, dbl, int) %>%
-      filter(dbl + int > 15 & dbl < 53L) %>%
-      collect() %>%
-      arrange(dbl),
-    rbind(
-      df1[8:10, c("chr", "dbl", "int")],
-      df2[1:2, c("chr", "dbl", "int")]
-    )
-  )
-})
 
 test_that("mutate()", {
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
@@ -985,26 +757,6 @@ See $.data for the source Arrow object",
   )
 })
 
-test_that("transmute()", {
-  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
-  mutated <-
-  expect_equivalent(
-    ds %>%
-      select(chr, dbl, int) %>%
-      filter(dbl * 2 > 14 & dbl - 50 < 3L) %>%
-      transmute(twice = int * 2) %>%
-      collect() %>%
-      arrange(twice),
-    rbind(
-      df1[8:10, "int", drop = FALSE],
-      df2[1:2, "int", drop = FALSE]
-    ) %>%
-      transmute(
-        twice = int * 2
-      )
-  )
-})
-
 test_that("mutate() features not yet implemented", {
   expect_error(
     ds %>%
@@ -1012,66 +764,6 @@ test_that("mutate() features not yet implemented", {
       mutate(avg = mean(int)),
     "mutate() on grouped data not supported in Arrow\nCall collect() first to pull data into R.",
     fixed = TRUE
-  )
-})
-
-
-test_that("mutate() with scalar (length 1) literal inputs", {
-  expect_equal(
-    ds %>%
-      mutate(the_answer = 42) %>%
-      collect() %>%
-      pull(the_answer),
-    rep(42, nrow(ds))
-  )
-
-  expect_error(
-    ds %>% mutate(the_answer = c(42, 42)),
-    "In the_answer = c(42, 42), only values of size one are recycled\nCall collect() first to pull data into R.",
-    fixed = TRUE
-  )
-})
-
-test_that("mutate() with NULL inputs", {
-  expect_equal(
-    ds %>%
-      mutate(int = NULL) %>%
-      collect(),
-    ds %>%
-      select(-int) %>%
-      collect()
-  )
-})
-
-test_that("empty mutate()", {
-  expect_equal(
-    ds %>%
-      mutate() %>%
-      collect(),
-    ds %>%
-      collect()
-  )
-})
-
-test_that("transmute() with NULL inputs", {
-  expect_equal(
-    ds %>%
-      transmute(int = NULL) %>%
-      collect(),
-    ds %>%
-      select() %>%
-      collect()
-  )
-})
-
-test_that("empty transmute()", {
-  expect_equal(
-    ds %>%
-      transmute() %>%
-      collect(),
-    ds %>%
-      select() %>%
-      collect()
   )
 })
 

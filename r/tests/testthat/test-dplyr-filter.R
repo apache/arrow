@@ -193,7 +193,6 @@ test_that("Negative scalar values", {
   )
 })
 
-
 test_that("filter() with between()", {
   expect_dplyr_equal(
     input %>%

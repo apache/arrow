@@ -173,7 +173,6 @@ test_that("mutate with reassigning same name", {
 })
 
 test_that("mutate with single value for recycling", {
-  skip("Not implemented (ARROW-11705")
   expect_dplyr_equal(
     input %>%
       select(int, padded_strings) %>%
