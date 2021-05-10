@@ -303,9 +303,9 @@ test_that("filter environment scope", {
 
   skip("Need to substitute in user defined function too")
   # TODO: fix this: this isEqualTo function is eagerly evaluating; it should
-  # instead yield array_expressions. Probably bc the parent env of the function
-  # has the Ops.Array methods defined; we need to move it so that the parent
-  # env is the data mask we use in the dplyr eval
+  # instead yield Expressions. Probably bc the parent env of the function
+  # has the Ops.Expression methods defined; we need to move it so that the
+  # parent env is the data mask we use in the dplyr eval
   isEqualTo <- function(x, y) x == y & !is.na(x)
   expect_dplyr_equal(
     input %>%

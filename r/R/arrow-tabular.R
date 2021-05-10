@@ -223,13 +223,13 @@ na.fail.ArrowTabular <- function(object, ...){
 
 #' @export
 na.omit.ArrowTabular <- function(object, ...){
-  not_na <- map(object$columns, ~build_array_expression("is_valid", .x))
+  not_na <- map(object$columns, ~call_function("is_valid", .x))
   not_na_agg <- Reduce("&", not_na)
-  object$Filter(eval_array_expression(not_na_agg))
+  object$Filter(not_na_agg)
 }
 
 #' @export
-na.exclude.ArrowTabular <- na.omit.ArrowTabular 
+na.exclude.ArrowTabular <- na.omit.ArrowTabular
 
 ToString_tabular <- function(x, ...) {
   # Generic to work with both RecordBatch and Table

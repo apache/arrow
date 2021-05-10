@@ -17,34 +17,6 @@
 
 context("Expressions")
 
-test_that("Can create an expression", {
-  expect_s3_class(build_array_expression(">", Array$create(1:5), 4), "array_expression")
-})
-
-test_that("as.vector(array_expression)", {
-  expect_equal(as.vector(build_array_expression(">", Array$create(1:5), 4)), c(FALSE, FALSE, FALSE, FALSE, TRUE))
-})
-
-test_that("array_expression print method", {
-  expect_output(
-    print(build_array_expression(">", Array$create(1:5), 4)),
-    # Not ideal but it is informative
-    "greater(<Array>, 4)",
-    fixed = TRUE
-  )
-})
-
-test_that("array_refs", {
-  tab <- Table$create(a = 1:5)
-  ex <- build_array_expression(">", array_expression("array_ref", field_name = "a"), 4)
-  expect_s3_class(ex, "array_expression")
-  expect_identical(ex$args[[1]]$args$field_name, "a")
-  expect_identical(find_array_refs(ex), "a")
-  out <- eval_array_expression(ex, tab)
-  expect_r6_class(out, "ChunkedArray")
-  expect_equal(as.vector(out), c(FALSE, FALSE, FALSE, FALSE, TRUE))
-})
-
 test_that("C++ expressions", {
   skip_if_not_available("dataset")
   f <- Expression$field_ref("f")
@@ -86,22 +58,4 @@ test_that("C++ expressions", {
   )
   # Interprets that as a list type
   expect_r6_class(f == c(1L, 2L), "Expression")
-})
-
-test_that("Can create an expression", {
-  a <- Array$create(as.numeric(1:5))
-  expr <- array_expression("cast", a, options = list(to_type = int32()))
-  expect_s3_class(expr, "array_expression")
-  expect_equal(eval_array_expression(expr), Array$create(1:5))
-
-  b <- Array$create(0.5:4.5)
-  bad_expr <- array_expression("cast", b, options = list(to_type = int32()))
-  expect_s3_class(bad_expr, "array_expression")
-  expect_error(
-    eval_array_expression(bad_expr),
-    "Invalid: Float value .* was truncated converting"
-  )
-  expr <- array_expression("cast", b, options = list(to_type = int32(), allow_float_truncate = TRUE))
-  expect_s3_class(expr, "array_expression")
-  expect_equal(eval_array_expression(expr), Array$create(0:4))
 })
