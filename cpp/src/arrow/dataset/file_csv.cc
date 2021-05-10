@@ -81,17 +81,21 @@ Result<std::unordered_set<std::string>> GetColumnNames(
 }
 
 static inline Result<csv::ConvertOptions> GetConvertOptions(
-    const CsvFileFormat& format, const std::shared_ptr<ScanOptions>& scan_options,
+    const CsvFileFormat& format, const ScanOptions* scan_options,
     const util::string_view first_block) {
   ARROW_ASSIGN_OR_RAISE(
       auto column_names,
-      GetColumnNames(format.parse_options, first_block, scan_options->pool));
+      GetColumnNames(format.parse_options, first_block,
+                     scan_options ? scan_options->pool : default_memory_pool()));
 
   ARROW_ASSIGN_OR_RAISE(
       auto csv_scan_options,
       GetFragmentScanOptions<CsvFragmentScanOptions>(
-          kCsvTypeName, scan_options.get(), format.default_fragment_scan_options));
+          kCsvTypeName, scan_options, format.default_fragment_scan_options));
   auto convert_options = csv_scan_options->convert_options;
+
+  if (!scan_options) return convert_options;
+
   auto materialized = scan_options->MaterializedFields();
   std::unordered_set<std::string> materialized_fields(materialized.begin(),
                                                       materialized.end());
@@ -133,34 +137,31 @@ static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderAsync(
 
   // Grab the first block and use it to determine the schema and create a reader.  The
   // input->Peek call blocks so we run the whole thing on the I/O thread pool.
-  return DeferNotOk(input->io_context().executor()->Submit(
+  auto reader_fut = DeferNotOk(input->io_context().executor()->Submit(
       [=]() -> Future<std::shared_ptr<csv::StreamingReader>> {
         ARROW_ASSIGN_OR_RAISE(auto first_block, input->Peek(reader_options.block_size));
         const auto& parse_options = format.parse_options;
-        auto convert_options = csv::ConvertOptions::Defaults();
-        if (scan_options != nullptr) {
-          ARROW_ASSIGN_OR_RAISE(convert_options,
-                                GetConvertOptions(format, scan_options, first_block));
-        }
-
-        auto reader_fut = csv::StreamingReader::MakeAsync(
-            io::default_io_context(), std::move(input), cpu_executor, reader_options,
-            parse_options, convert_options);
-        // Adds the filename to the error
-        return reader_fut.Then(
-            [](const std::shared_ptr<csv::StreamingReader>& maybe_reader)
-                -> Result<std::shared_ptr<csv::StreamingReader>> { return maybe_reader; },
-            [source](const Status& err) -> Result<std::shared_ptr<csv::StreamingReader>> {
-              return err.WithMessage("Could not open CSV input source '", source.path(),
-                                     "': ", err);
-            });
+        ARROW_ASSIGN_OR_RAISE(
+            auto convert_options,
+            GetConvertOptions(format, scan_options ? scan_options.get() : nullptr,
+                              first_block));
+        return csv::StreamingReader::MakeAsync(io::default_io_context(), std::move(input),
+                                               cpu_executor, reader_options,
+                                               parse_options, convert_options);
       }));
+  return reader_fut.Then(
+      // Adds the filename to the error
+      [](const std::shared_ptr<csv::StreamingReader>& maybe_reader)
+          -> Result<std::shared_ptr<csv::StreamingReader>> { return maybe_reader; },
+      [source](const Status& err) -> Result<std::shared_ptr<csv::StreamingReader>> {
+        return err.WithMessage("Could not open CSV input source '", source.path(),
+                               "': ", err);
+      });
 }
 
 static inline Result<std::shared_ptr<csv::StreamingReader>> OpenReader(
     const FileSource& source, const CsvFileFormat& format,
-    const std::shared_ptr<ScanOptions>& scan_options = nullptr,
-    MemoryPool* pool = default_memory_pool()) {
+    const std::shared_ptr<ScanOptions>& scan_options = nullptr) {
   auto open_reader_fut =
       OpenReaderAsync(source, format, scan_options, internal::GetCpuThreadPool());
   return open_reader_fut.result();
