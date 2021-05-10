@@ -21,8 +21,6 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
-#include "generated/parquet_types.h"
-
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/reader_internal.h"
 #include "parquet/arrow/schema.h"
@@ -30,6 +28,7 @@
 #include "parquet/schema.h"
 #include "parquet/schema_internal.h"
 #include "parquet/test_util.h"
+#include "parquet/thrift_internal.h"
 
 #include "arrow/array.h"
 #include "arrow/testing/gtest_util.h"
@@ -44,6 +43,7 @@ using ParquetType = parquet::Type;
 using parquet::ConvertedType;
 using parquet::LogicalType;
 using parquet::Repetition;
+using parquet::format::SchemaElement;
 using parquet::internal::LevelInfo;
 using parquet::schema::GroupNode;
 using parquet::schema::NodePtr;
@@ -1179,7 +1179,7 @@ class TestConvertRoundTrip : public ::testing::Test {
  protected:
   std::shared_ptr<::arrow::Schema> arrow_schema_;
   std::shared_ptr<SchemaDescriptor> parquet_schema_;
-  std::vector<format::SchemaElement> parquet_format_schema_;
+  std::vector<SchemaElement> parquet_format_schema_;
   std::shared_ptr<::arrow::Schema> result_schema_;
 };
 
