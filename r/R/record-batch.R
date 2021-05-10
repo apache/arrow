@@ -165,10 +165,11 @@ RecordBatch$create <- function(..., schema = NULL) {
   # If any arrays are length 1, recycle them  
   arr_lens <- map(arrays, length)
   if (length(arrays) > 1 && any(arr_lens == 1) && !all(arr_lens==1)){
+    max_array_len <- max(unlist(arr_lens))
     arrays <- modify2(
       arrays,
       arr_lens == 1,
-      ~if(.y) rep(.x, max(unlist(arr_lens))) else .x
+      ~if(.y) MakeArrayFromScalar(Scalar$create(as.vector(.x)), max_array_len) else .x
     )
   }
   

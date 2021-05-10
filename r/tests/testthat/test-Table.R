@@ -473,11 +473,30 @@ test_that("Table$create() with different length columns", {
   expect_error(Table$create(a = 1:5, b = 1:6), msg)
 })
 
-test_that("Table$create() scalar recycling", {
+test_that("Table$create() scalar recycling with vectors", {
   expect_data_frame(
     Table$create(a = 1:10, b = 5),
     tibble::tibble(a = 1:10, b = 5)
   )
+})
+
+test_that("Table$create() scalar recycling with Scalars, Arrays, and ChunkedArrays", {
+  
+  expect_data_frame(
+    Table$create(a = Array$create(1:10), b = Scalar$create(5)),
+    tibble::tibble(a = 1:10, b = 5)
+  )
+  
+  expect_data_frame(
+    Table$create(a = Array$create(1:10), b = Array$create(5)),
+    tibble::tibble(a = 1:10, b = 5)
+  )
+  
+  expect_data_frame(
+    Table$create(a = Array$create(1:10), b = ChunkedArray$create(5)),
+    tibble::tibble(a = 1:10, b = 5)
+  )
+  
 })
 
 test_that("Table$create() no recycling with tibbles", {

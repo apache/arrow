@@ -414,11 +414,30 @@ test_that("record_batch() handles null type (ARROW-7064)", {
   expect_equivalent(batch$schema,  schema(a = int32(), n = null()))
 })
 
-test_that("record_batch() scalar recycling", {
+test_that("record_batch() scalar recycling with vectors", {
   expect_data_frame(
     record_batch(a = 1:10, b = 5),
     tibble::tibble(a = 1:10, b = 5)
   )
+})
+
+test_that("record_batch() scalar recycling with Scalars, Arrays, and ChunkedArrays", {
+  
+  expect_data_frame(
+    record_batch(a = Array$create(1:10), b = Scalar$create(5)),
+    tibble::tibble(a = 1:10, b = 5)
+  )
+  
+  expect_data_frame(
+    record_batch(a = Array$create(1:10), b = Array$create(5)),
+    tibble::tibble(a = 1:10, b = 5)
+  )
+  
+  expect_data_frame(
+    record_batch(a = Array$create(1:10), b = ChunkedArray$create(5)),
+    tibble::tibble(a = 1:10, b = 5)
+  )
+  
 })
 
 test_that("record_batch() no recycling with tibbles", {
