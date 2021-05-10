@@ -58,7 +58,15 @@ mutate.arrow_dplyr_query <- function(.data,
     new_var <- names(exprs)[i]
     results[[new_var]] <- arrow_eval(exprs[[i]], mask)
     if (inherits(results[[new_var]], "try-error")) {
-      msg <- paste('Expression', as_label(exprs[[i]]), 'not supported in Arrow')
+      expr_lab <- as_label(exprs[[i]])
+      # Look for informative message from the Arrow function version
+      if (inherits(results[[new_var]], "arrow-try-error")) {
+        # Include it if found
+        msg <- paste0('In ', expr_lab, ', ', as.character(results[[new_var]]))
+      } else {
+        # Otherwise be opaque (the original error is probably not useful)
+        msg <- paste('Expression', expr_lab, 'not supported in Arrow')
+      }
       return(abandon_ship(call, .data, msg))
     } else if (!inherits(results[[new_var]], "Expression") &&
                !is.null(results[[new_var]])) {

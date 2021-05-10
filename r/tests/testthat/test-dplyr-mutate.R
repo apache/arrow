@@ -116,6 +116,7 @@ test_that("nchar() arguments", {
       collect(),
     tbl
   )
+  # This tests the whole abandon_ship() machinery
   expect_warning(
     expect_dplyr_equal(
       input %>%
@@ -128,7 +129,8 @@ test_that("nchar() arguments", {
         collect(),
       tbl
     ),
-    "not supported"
+    'In nchar(verses, type = "bytes", allowNA = TRUE), allowNA = TRUE not supported by Arrow; pulling data into R',
+    fixed = TRUE
   )
 })
 

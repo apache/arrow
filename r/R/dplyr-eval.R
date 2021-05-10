@@ -37,7 +37,13 @@ arrow_eval <- function (expr, mask) {
     if (grepl(patterns, msg)) {
       stop(e)
     }
-    invisible(structure(msg, class = "try-error", condition = e))
+
+    out <- structure(msg, class = "try-error", condition = e)
+    if (grepl("not supported.*Arrow", msg)) {
+      # One of ours. Mark it so that consumers can handle it differently
+      class(out) <- c("arrow-try-error", class(out))
+    }
+    invisible(out)
   })
 }
 
@@ -49,6 +55,12 @@ i18ize_error_messages <- function() {
     fun = tryCatch(eval(parse(text = "X_____X()")), error = function(e) conditionMessage(e))
   )
   paste(map(out, ~sub("X_____X", ".*", .)), collapse = "|")
+}
+
+# Helper to raise a common error
+arrow_not_supported <- function(msg) {
+  # TODO: raise a classed error?
+  stop(paste(msg, "not supported by Arrow"), call. = FALSE)
 }
 
 # Create a data mask for evaluating a dplyr expression

@@ -112,14 +112,14 @@ nse_funcs$as.numeric = function(x) {
 # String functions
 nse_funcs$nchar = function(x, type = "chars", allowNA = FALSE, keepNA = NA) {
   if (allowNA) {
-    stop("allowNA = TRUE not supported for Arrow", call. = FALSE)
+    arrow_not_supported("allowNA = TRUE")
   }
   if (is.na(keepNA)) {
     keepNA <- !identical(type, "width")
   }
   if (!keepNA) {
     # TODO: I think there is a fill_null kernel we could use, set null to 2
-    stop("keepNA = TRUE not supported for Arrow", call. = FALSE)
+    arrow_not_supported("keepNA = TRUE")
   }
   if (identical(type, "bytes")) {
     Expression$create("binary_length", x)
@@ -210,7 +210,7 @@ nse_funcs$strsplit <- function(x,
   # to see if it is a regex (if it contains any regex metacharacters). If not,
   # then allow to proceed.
   if (!fixed && contains_regex(split)) {
-    stop("Regular expression matching not supported in strsplit for Arrow", call. = FALSE)
+    arrow_not_supported("Regular expression matching in strsplit()")
   }
   # warn when the user specifies both fixed = TRUE and perl = TRUE, for
   # consistency with the behavior of base::strsplit()
@@ -230,13 +230,13 @@ nse_funcs$strsplit <- function(x,
 nse_funcs$str_split <- function(string, pattern, n = Inf, simplify = FALSE) {
   opts <- get_stringr_pattern_options(enexpr(pattern))
   if (!opts$fixed && contains_regex(opts$pattern)) {
-    stop("Regular expression matching not supported in str_split() for Arrow", call. = FALSE)
+    arrow_not_supported("Regular expression matching in str_split()")
   }
   if (opts$ignore_case) {
-    stop("Case-insensitive string splitting not supported in Arrow", call. = FALSE)
+    arrow_not_supported("Case-insensitive string splitting")
   }
   if (n == 0) {
-    stop("Splitting strings into zero parts not supported in Arrow" , call. = FALSE)
+    arrow_not_supported("Splitting strings into zero parts")
   }
   if (identical(n, Inf)) {
     n <- 0L
@@ -259,7 +259,6 @@ nse_funcs$str_split <- function(string, pattern, n = Inf, simplify = FALSE) {
     )
   )
 }
-
 
 # String function helpers
 
@@ -316,13 +315,11 @@ get_stringr_pattern_options <- function(pattern) {
     check_dots(...)
     list(pattern = pattern, fixed = FALSE, ignore_case = ignore_case)
   }
-  coll <- boundary <- function(...) {
-    stop(
-      "Pattern modifier `",
-      match.call()[[1]],
-      "()` is not supported in Arrow",
-      call. = FALSE
-    )
+  coll <- function(...) {
+    arrow_not_supported("Pattern modifier `coll()`")
+  }
+  boundary <- function(...) {
+    arrow_not_supported("Pattern modifier `boundary()`")
   }
   check_dots <- function(...) {
     dots <- list(...)
