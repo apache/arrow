@@ -23,7 +23,7 @@ import pytest
 
 import pyarrow as pa
 from pyarrow import fs
-from pyarrow.filesystem import LocalFileSystem, FileSystem
+from pyarrow.filesystem import LocalFileSystem
 from pyarrow.tests import util
 from pyarrow.tests.parquet.common import (
     parametrize_legacy_dataset, parametrize_legacy_dataset_fixed,
@@ -1586,25 +1586,3 @@ def test_parquet_dataset_partitions_piece_path_with_fsspec(tempdir):
     # ensure the piece path is also posix-style
     expected = path + "/data.parquet"
     assert dataset.pieces[0].path == expected
-
-
-def test_read_table_with_fspath(tempdir):
-    path = tempdir / "test.parquet"
-    table = pa.table({"a": [1, 2, 3]})
-    _write_table(table, path)
-
-    fs_protocol_obj = util.FSProtocolClass(path)
-
-    result = _read_table(fs_protocol_obj)
-    assert result.equals(table)
-
-
-def test_read_table_with_fspath_and_filesystem(tempdir):
-    path = tempdir / "test.parquet"
-    table = pa.table({"a": [1, 2, 3]})
-    _write_table(table, path)
-
-    fs_protocol_obj = util.FSProtocolClass(path)
-
-    with pytest.raises(TypeError):
-        _read_table(fs_protocol_obj, filesystem=FileSystem())
