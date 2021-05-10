@@ -725,8 +725,8 @@ TEST_F(TestBooleanMinMaxKernel, Basics) {
   this->AssertMinMaxIsNull(chunked_input3, options);
 
   options = ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0);
-  this->AssertMinMaxIs("[]", true, false, options);
-  this->AssertMinMaxIs("[null]", true, false, options);
+  this->AssertMinMaxIsNull("[]", options);
+  this->AssertMinMaxIsNull("[null]", options);
 }
 
 TYPED_TEST_SUITE(TestIntegerMinMaxKernel, IntegralArrowTypes);
@@ -785,8 +785,8 @@ TYPED_TEST(TestFloatingMinMaxKernel, Floats) {
   this->AssertMinMaxIsNull(chunked_input3, options);
 
   options = ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0);
-  this->AssertMinMaxIs("[]", INFINITY, -INFINITY, options);
-  this->AssertMinMaxIs("[null]", INFINITY, -INFINITY, options);
+  this->AssertMinMaxIsNull("[]", options);
+  this->AssertMinMaxIsNull("[null]", options);
 
   options = ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1);
   this->AssertMinMaxIsNull("[]", options);
