@@ -38,7 +38,7 @@ RealType generate_canonical(Rng& rng) {
   const size_t k = b / log2R + (b % log2R != 0) + (b == 0);
   const RealType r = static_cast<RealType>(Rng::max() - Rng::min()) + 1;
   RealType base = r;
-  RealType sp = rng() - Rng::min();
+  RealType sp = static_cast<RealType>(rng() - Rng::min());
   for (size_t i = 1; i < k; ++i, base *= r) {
     sp += (rng() - Rng::min()) * base;
   }
@@ -69,7 +69,7 @@ struct bernoulli_distribution {
   explicit bernoulli_distribution(double p = 0.5) : p(p) {}
 
   template <class Rng>
-  double operator()(Rng& rng) {
+  bool operator()(Rng& rng) {
     return detail::generate_canonical<double>(rng) < p;
   }
 };

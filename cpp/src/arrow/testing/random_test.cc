@@ -414,8 +414,8 @@ TEST(BernoulliTest, Basic) {
   // verify #trues is near p*total
   auto verify = [&count](double p, int total, double dev) {
     const int cnt = count(p, total);
-    const int min = std::max<int>(0, total * p * (1 - dev));
-    const int max = std::min<int>(total, total * p * (1 + dev));
+    const int min = std::max(0, static_cast<int>(total * p * (1 - dev)));
+    const int max = std::min(total, static_cast<int>(total * p * (1 + dev)));
     ASSERT_TRUE(cnt >= min && cnt <= max);
   };
 
