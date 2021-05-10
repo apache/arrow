@@ -1642,7 +1642,7 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {
   void CheckTDigests(const std::vector<int>& chunk_sizes, int64_t num_quantiles) {
     std::shared_ptr<ChunkedArray> chunked;
     std::vector<double> quantiles;
-    GenerateChunk(chunk_sizes, num_quantiles, &chunked, &quantiles);
+    GenerateChunked(chunk_sizes, num_quantiles, &chunked, &quantiles);
 
     VerifyTDigest(chunked, quantiles);
   }
@@ -1650,7 +1650,7 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {
   void CheckTDigestsSliced(const std::vector<int>& chunk_sizes, int64_t num_quantiles) {
     std::shared_ptr<ChunkedArray> chunked;
     std::vector<double> quantiles;
-    GenerateChunk(chunk_sizes, num_quantiles, &chunked, &quantiles);
+    GenerateChunked(chunk_sizes, num_quantiles, &chunked, &quantiles);
 
     const int64_t size = chunked->length();
     const std::vector<std::array<int64_t, 2>> offset_size{
@@ -1680,9 +1680,9 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {
     *std::max_element(quantiles->begin(), quantiles->end()) = 1;
   }
 
-  void GenerateChunk(const std::vector<int>& chunk_sizes, int64_t num_quantiles,
-                     std::shared_ptr<ChunkedArray>* chunked,
-                     std::vector<double>* quantiles) {
+  void GenerateChunked(const std::vector<int>& chunk_sizes, int64_t num_quantiles,
+                       std::shared_ptr<ChunkedArray>* chunked,
+                       std::vector<double>* quantiles) {
     int total_size = 0;
     for (int size : chunk_sizes) {
       total_size += size;
