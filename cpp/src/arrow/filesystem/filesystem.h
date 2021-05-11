@@ -283,13 +283,15 @@ class ARROW_EXPORT FileSystem : public std::enable_shared_from_this<FileSystem> 
   ///
   /// If the target already exists, existing data is truncated.
   virtual Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
-      const std::string& path, const io::StreamMetadata& metadata = {}) = 0;
+      const std::string& path, const io::StreamMetadata& metadata) = 0;
+  Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(const std::string& path);
 
   /// Open an output stream for appending.
   ///
   /// If the target doesn't exist, a new empty file is created.
   virtual Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
-      const std::string& path, const io::StreamMetadata& metadata = {}) = 0;
+      const std::string& path, const io::StreamMetadata& metadata) = 0;
+  Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(const std::string& path);
 
  protected:
   explicit FileSystem(const io::IOContext& io_context = io::default_io_context())

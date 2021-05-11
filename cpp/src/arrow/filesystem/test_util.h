@@ -18,7 +18,7 @@
 #pragma once
 
 #include <chrono>
-#include <ios>
+#include <iosfwd>
 #include <memory>
 #include <string>
 #include <vector>

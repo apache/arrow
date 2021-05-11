@@ -232,6 +232,16 @@ Future<std::shared_ptr<io::RandomAccessFile>> FileSystem::OpenInputFileAsync(
       [info](std::shared_ptr<FileSystem> self) { return self->OpenInputFile(info); });
 }
 
+Result<std::shared_ptr<io::OutputStream>> FileSystem::OpenOutputStream(
+    const std::string& path) {
+  return OpenOutputStream(path, io::StreamMetadata{});
+}
+
+Result<std::shared_ptr<io::OutputStream>> FileSystem::OpenAppendStream(
+    const std::string& path) {
+  return OpenAppendStream(path, io::StreamMetadata{});
+}
+
 //////////////////////////////////////////////////////////////////////////
 // SubTreeFileSystem implementation
 
