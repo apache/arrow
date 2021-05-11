@@ -80,7 +80,7 @@ class SimpleRecordBatch : public RecordBatch {
 
   std::shared_ptr<ArrayData> column_data(int i) const override { return columns_[i]; }
 
-  ArrayDataVector column_data() const override { return columns_; }
+  const ArrayDataVector& column_data() const override { return columns_; }
 
   Result<std::shared_ptr<RecordBatch>> AddColumn(
       int i, const std::shared_ptr<Field>& field,
