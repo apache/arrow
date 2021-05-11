@@ -164,12 +164,12 @@ RecordBatch$create <- function(..., schema = NULL) {
 
   # If any arrays are length 1, recycle them  
   arr_lens <- map_int(arrays, length)
-  if (length(arrays) > 1 && any(arr_lens == 1) && !all(arr_lens==1)){
+  if (length(arrays) > 1 && any(arr_lens == 1) && !all(arr_lens==1)) {
     max_array_len <- max(arr_lens)
     arrays <- modify2(
       arrays,
       arr_lens == 1,
-      ~if(.y) repeat_value_as_array(.x, max_array_len) else .x
+      ~if (.y) repeat_value_as_array(.x, max_array_len) else .x
     )
   }
 

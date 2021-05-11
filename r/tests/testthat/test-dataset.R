@@ -90,7 +90,7 @@ test_that("Setup (putting data in the dir)", {
   expect_length(dir(tsv_dir, recursive = TRUE), 2)
 })
 
-if(arrow_with_parquet()) {
+if (arrow_with_parquet()) {
   files <- c(
     file.path(dataset_dir, 1, "file1.parquet", fsep = "/"),
     file.path(dataset_dir, 2, "file2.parquet", fsep = "/")

@@ -176,12 +176,12 @@ Table$create <- function(..., schema = NULL) {
   # If any arrays are length 1, recycle them  
   arr_lens <- map_int(dots, length)
 
-  if (length(dots) > 1 && any(arr_lens == 1) && !all(arr_lens==1)){
+  if (length(dots) > 1 && any(arr_lens == 1) && !all(arr_lens==1)) {
     max_array_len <- max(arr_lens)
     dots <- modify2(
       dots,
       arr_lens == 1,
-      ~if(.y) repeat_value_as_array(.x, max_array_len) else .x
+      ~if (.y) repeat_value_as_array(.x, max_array_len) else .x
     )
   }
   

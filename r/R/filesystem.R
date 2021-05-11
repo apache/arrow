@@ -203,7 +203,7 @@ FileSystem <- R6Class("FileSystem", inherit = ArrowObject,
     GetFileInfo = function(x) {
       if (inherits(x, "FileSelector")) {
         fs___FileSystem__GetTargetInfos_FileSelector(self, x)
-      } else if (is.character(x)){
+      } else if (is.character(x)) {
         fs___FileSystem__GetTargetInfos_Paths(self, clean_path_rel(x))
       } else {
         abort("incompatible type for FileSystem$GetFileInfo()")

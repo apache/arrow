@@ -147,8 +147,8 @@ attr(is_writable_table, "fail") <- function(call, env){
 #' @return `Array` of length `n`
 #' 
 #' @keywords internal
-repeat_value_as_array <- function(object, n){
-  if(length(object) != 1){
+repeat_value_as_array <- function(object, n) {
+  if (length(object) != 1) {
     stop("Object to be repeated must be of length 1")
   }
   if (inherits(object, "ChunkedArray")) {

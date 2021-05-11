@@ -16,7 +16,7 @@
 # under the License.
 
 expect_as_vector <- function(x, y, ignore_attr = FALSE, ...) {
-  expect_fun <- if(ignore_attr){
+  expect_fun <- if (ignore_attr) {
     expect_equivalent
   } else {
     expect_equal
@@ -28,7 +28,7 @@ expect_data_frame <- function(x, y, ...) {
   expect_equal(as.data.frame(x), y, ...)
 }
 
-expect_r6_class <- function(object, class){
+expect_r6_class <- function(object, class) {
   expect_s3_class(object, class)
   expect_s3_class(object, "R6")
 }
@@ -255,7 +255,7 @@ expect_vector_error <- function(expr, # A vectorized R expression containing `in
   }
 }
 
-split_vector_as_list <- function(vec){
+split_vector_as_list <- function(vec) {
   vec_split <- length(vec) %/% 2
   vec1 <- vec[seq(from = min(1, length(vec) - 1), to = min(length(vec) - 1, vec_split), by = 1)]
   vec2 <- vec[seq(from = min(length(vec), vec_split + 1), to = length(vec), by = 1)]
