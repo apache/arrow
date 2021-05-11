@@ -163,7 +163,7 @@ func TestRWFooter(t *testing.T) {
 }
 
 func exampleUUID(mem memory.Allocator) array.Interface {
-	extType := types.NewUuidType()
+	extType := types.NewUUIDType()
 	bldr := array.NewExtensionBuilder(mem, extType)
 	defer bldr.Release()
 
@@ -179,7 +179,7 @@ func TestUnrecognizedExtensionType(t *testing.T) {
 	defer pool.AssertSize(t, 0)
 
 	// register the uuid type
-	assert.NoError(t, arrow.RegisterExtensionType(types.NewUuidType()))
+	assert.NoError(t, arrow.RegisterExtensionType(types.NewUUIDType()))
 
 	extArr := exampleUUID(pool)
 	defer extArr.Release()

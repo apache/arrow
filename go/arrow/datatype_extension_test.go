@@ -51,7 +51,7 @@ type ExtensionTypeTestSuite struct {
 }
 
 func (e *ExtensionTypeTestSuite) SetupTest() {
-	e.NoError(arrow.RegisterExtensionType(types.NewUuidType()))
+	e.NoError(arrow.RegisterExtensionType(types.NewUUIDType()))
 }
 
 func (e *ExtensionTypeTestSuite) TearDownTest() {
@@ -64,10 +64,10 @@ func (e *ExtensionTypeTestSuite) TestExtensionType() {
 	e.Nil(arrow.GetExtensionType("uuid-unknown"))
 	e.NotNil(arrow.GetExtensionType("uuid"))
 
-	e.Error(arrow.RegisterExtensionType(types.NewUuidType()))
+	e.Error(arrow.RegisterExtensionType(types.NewUUIDType()))
 	e.Error(arrow.UnregisterExtensionType("uuid-unknown"))
 
-	typ := types.NewUuidType()
+	typ := types.NewUUIDType()
 	e.Implements((*arrow.ExtensionType)(nil), typ)
 	e.Equal(arrow.EXTENSION, typ.ID())
 	e.Equal("extension", typ.Name())

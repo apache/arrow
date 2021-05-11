@@ -31,7 +31,7 @@ type ExtensionTypeTestSuite struct {
 }
 
 func (e *ExtensionTypeTestSuite) SetupTest() {
-	e.NoError(arrow.RegisterExtensionType(types.NewUuidType()))
+	e.NoError(arrow.RegisterExtensionType(types.NewUUIDType()))
 }
 
 func (e *ExtensionTypeTestSuite) TearDownTest() {

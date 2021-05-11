@@ -94,7 +94,7 @@ func TestMakeFromData(t *testing.T) {
 		},
 
 		{name: "extension", d: &testDataType{arrow.EXTENSION}, expPanic: true, expError: "arrow/array: DataType for ExtensionArray must implement arrow.ExtensionType"},
-		{name: "extension", d: types.NewUuidType()},
+		{name: "extension", d: types.NewUUIDType()},
 
 		// unsupported types
 		{name: "union", d: &testDataType{arrow.UNION}, expPanic: true, expError: "unsupported data type: UNION"},

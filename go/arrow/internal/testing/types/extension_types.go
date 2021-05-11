@@ -27,47 +27,47 @@ import (
 	"golang.org/x/xerrors"
 )
 
-// UuidArray is a simple array which is a FixedSizeBinary(16)
-type UuidArray struct {
+// UUIDArray is a simple array which is a FixedSizeBinary(16)
+type UUIDArray struct {
 	array.ExtensionArrayBase
 }
 
-// UuidType is a simple extension type that represents a FixedSizeBinary(16)
+// UUIDType is a simple extension type that represents a FixedSizeBinary(16)
 // to be used for representing UUIDs
-type UuidType struct {
+type UUIDType struct {
 	arrow.ExtensionBase
 }
 
-// NewUuidType is a convenience function to create an instance of UuidType
+// NewUUIDType is a convenience function to create an instance of UuidType
 // with the correct storage type
-func NewUuidType() *UuidType {
-	return &UuidType{
+func NewUUIDType() *UUIDType {
+	return &UUIDType{
 		ExtensionBase: arrow.ExtensionBase{
 			Storage: &arrow.FixedSizeBinaryType{ByteWidth: 16}}}
 }
 
 // ArrayType returns TypeOf(UuidArray) for constructing uuid arrays
-func (UuidType) ArrayType() reflect.Type { return reflect.TypeOf(UuidArray{}) }
+func (UUIDType) ArrayType() reflect.Type { return reflect.TypeOf(UUIDArray{}) }
 
-func (UuidType) ExtensionName() string { return "uuid" }
+func (UUIDType) ExtensionName() string { return "uuid" }
 
 // Serialize returns "uuid-serialized" for testing proper metadata passing
-func (UuidType) Serialize() []byte { return []byte("uuid-serialized") }
+func (UUIDType) Serialize() []byte { return []byte("uuid-serialized") }
 
 // Deserialize expects storageType to be FixedSizeBinaryType{ByteWidth: 16} and the data to be
 // "uuid-serialized" in order to correctly create a UuidType for testing deserialize.
-func (UuidType) Deserialize(storageType arrow.DataType, data []byte) (arrow.ExtensionType, error) {
+func (UUIDType) Deserialize(storageType arrow.DataType, data []byte) (arrow.ExtensionType, error) {
 	if string(data) != "uuid-serialized" {
 		return nil, xerrors.Errorf("type identifier did not match: '%s'", string(data))
 	}
 	if !arrow.TypeEqual(storageType, &arrow.FixedSizeBinaryType{ByteWidth: 16}) {
 		return nil, xerrors.Errorf("invalid storage type for UuidType: %s", storageType.Name())
 	}
-	return NewUuidType(), nil
+	return NewUUIDType(), nil
 }
 
 // UuidTypes are equal if both are named "uuid"
-func (u UuidType) ExtensionEquals(other arrow.ExtensionType) bool {
+func (u UUIDType) ExtensionEquals(other arrow.ExtensionType) bool {
 	return u.ExtensionName() == other.ExtensionName()
 }
 
@@ -236,11 +236,11 @@ func (ExtStructType) Deserialize(_ arrow.DataType, serialized []byte) (arrow.Ext
 }
 
 var (
-	_ arrow.ExtensionType  = (*UuidType)(nil)
+	_ arrow.ExtensionType  = (*UUIDType)(nil)
 	_ arrow.ExtensionType  = (*Parametric1Type)(nil)
 	_ arrow.ExtensionType  = (*Parametric2Type)(nil)
 	_ arrow.ExtensionType  = (*ExtStructType)(nil)
-	_ array.ExtensionArray = (*UuidArray)(nil)
+	_ array.ExtensionArray = (*UUIDArray)(nil)
 	_ array.ExtensionArray = (*Parametric1Array)(nil)
 	_ array.ExtensionArray = (*Parametric2Array)(nil)
 	_ array.ExtensionArray = (*ExtStructArray)(nil)

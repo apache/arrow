@@ -50,7 +50,7 @@ func main() {
 }
 
 func runCommand(jsonName, arrowName, mode string, verbose bool) error {
-	arrow.RegisterExtensionType(types.NewUuidType())
+	arrow.RegisterExtensionType(types.NewUUIDType())
 
 	if jsonName == "" {
 		return xerrors.Errorf("must specify json file name")
