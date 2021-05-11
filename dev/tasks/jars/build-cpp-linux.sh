@@ -22,7 +22,7 @@ source /multibuild/manylinux_utils.sh
 # Quit on failure
 set -e
 
-PYTHON_VERSION=3.6
+PYTHON_VERSION=3.7
 CPYTHON_PATH="$(cpython_path ${PYTHON_VERSION})"
 PYTHON_INTERPRETER="${CPYTHON_PATH}/bin/python"
 PIP="${CPYTHON_PATH}/bin/pip"
@@ -33,6 +33,8 @@ pushd "${ARROW_BUILD_DIR}"
 
 PATH="${CPYTHON_PATH}/bin:${PATH}"
 export ARROW_TEST_DATA="/arrow/testing/data"
+export PARQUET_TEST_DATA="/arrow/cpp/submodules/parquet-testing/data"
+export AWS_EC2_METADATA_DISABLED=TRUE
 
 cmake -DCMAKE_BUILD_TYPE=Release \
     -DARROW_DEPENDENCY_SOURCE="SYSTEM" \
@@ -52,7 +54,7 @@ cmake -DCMAKE_BUILD_TYPE=Release \
     -DARROW_THRIFT_USE_SHARED=OFF \
     -DARROW_UTF8PROC_USE_SHARED=OFF \
     -DARROW_ZSTD_USE_SHARED=OFF \
-    -DARROW_GANDIVA_PC_CXX_FLAGS="-isystem;/opt/rh/devtoolset-2/root/usr/include/c++/4.8.2;-isystem;/opt/rh/devtoolset-2/root/usr/include/c++/4.8.2/x86_64-CentOS-linux/" \
+    -DARROW_GANDIVA_PC_CXX_FLAGS="-isystem;/opt/rh/devtoolset-9/root/usr/include/c++/9;-isystem;/opt/rh/devtoolset-9/root/usr/include/c++/9/x86_64-redhat-linux;-isystem;-lpthread" \
     -DARROW_JEMALLOC=ON \
     -DARROW_RPATH_ORIGIN=ON \
     -DARROW_PYTHON=OFF \
