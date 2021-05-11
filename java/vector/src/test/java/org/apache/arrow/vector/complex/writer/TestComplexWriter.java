@@ -36,6 +36,7 @@ import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.SchemaChangeCallBack;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
@@ -44,6 +45,7 @@ import org.apache.arrow.vector.complex.impl.SingleStructReaderImpl;
 import org.apache.arrow.vector.complex.impl.SingleStructWriter;
 import org.apache.arrow.vector.complex.impl.UnionListReader;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
+import org.apache.arrow.vector.complex.impl.UnionMapReader;
 import org.apache.arrow.vector.complex.impl.UnionReader;
 import org.apache.arrow.vector.complex.impl.UnionWriter;
 import org.apache.arrow.vector.complex.reader.BaseReader.StructReader;
@@ -54,6 +56,7 @@ import org.apache.arrow.vector.complex.reader.Float8Reader;
 import org.apache.arrow.vector.complex.reader.IntReader;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
+import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
 import org.apache.arrow.vector.holders.DecimalHolder;
 import org.apache.arrow.vector.holders.IntHolder;
@@ -547,6 +550,59 @@ public class TestComplexWriter {
   }
 
   @Test
+  public void testListMapType() {
+    try (ListVector listVector = ListVector.empty("list", allocator)) {
+      listVector.allocateNew();
+      UnionListWriter listWriter = new UnionListWriter(listVector);
+      MapWriter innerMapWriter = listWriter.map(true);
+
+      for (int i = 0; i < COUNT; i++) {
+        listWriter.startList();
+        for (int j = 0; j < i % 7; j++) {
+          innerMapWriter.startMap();
+          for (int k = 0; k < i % 13; k++) {
+            innerMapWriter.startEntry();
+            innerMapWriter.key().integer().writeInt(k);
+            if (k % 2 == 0) {
+              innerMapWriter.value().bigInt().writeBigInt(k);
+            }
+            innerMapWriter.endEntry();
+          }
+          innerMapWriter.endMap();
+        }
+        listWriter.endList();
+      }
+      listWriter.setValueCount(COUNT);
+      checkListMap(listVector);
+
+      // Verify that the map vector has keysSorted = true
+      MapVector mapVector = (MapVector) listVector.getDataVector();
+      ArrowType arrowType = mapVector.getField().getFieldType().getType();
+      assertTrue(((ArrowType.Map) arrowType).getKeysSorted());
+    }
+  }
+
+  private void checkListMap(ListVector listVector) {
+    UnionListReader listReader = new UnionListReader(listVector);
+    for (int i = 0; i < COUNT; i++) {
+      listReader.setPosition(i);
+      for (int j = 0; j < i % 7; j++) {
+        listReader.next();
+        UnionMapReader mapReader = (UnionMapReader) listReader.reader();
+        for (int k = 0; k < i % 13; k++) {
+          mapReader.next();
+          Assert.assertEquals("record key: " + i, k, mapReader.key().readInteger().intValue());
+          if (k % 2 == 0) {
+            Assert.assertEquals("record value: " + i, k, mapReader.value().readLong().longValue());
+          } else {
+            Assert.assertNull("record value: " + i, mapReader.value().readLong());
+          }
+        }
+      }
+    }
+  }
+
+  @Test
   public void simpleUnion() {
     UnionVector vector = new UnionVector("union", allocator, null);
     UnionWriter unionWriter = new UnionWriter(vector);
@@ -1022,6 +1078,7 @@ public class TestComplexWriter {
       Float4Writer float4Writer = singleStructWriter.float4("float4Field");
       Float8Writer float8Writer = singleStructWriter.float8("float8Field");
       ListWriter listWriter = singleStructWriter.list("listField");
+      MapWriter mapWriter = singleStructWriter.map("mapField", false);
 
       int intValue = 100;
       long bigIntValue = 10000;
@@ -1043,6 +1100,18 @@ public class TestComplexWriter {
         listWriter.integer().writeInt(intValue + i + 2);
         listWriter.integer().writeInt(intValue + i + 3);
         listWriter.endList();
+
+        mapWriter.setPosition(i);
+        mapWriter.startMap();
+        mapWriter.startEntry();
+        mapWriter.key().integer().writeInt(intValue + i);
+        mapWriter.value().integer().writeInt(intValue + i + 1);
+        mapWriter.endEntry();
+        mapWriter.startEntry();
+        mapWriter.key().integer().writeInt(intValue + i + 2);
+        mapWriter.value().integer().writeInt(intValue + i + 3);
+        mapWriter.endEntry();
+        mapWriter.endMap();
 
         singleStructWriter.end();
       }
@@ -1070,6 +1139,7 @@ public class TestComplexWriter {
       Float4Reader float4Reader = singleStructReader.reader("float4Field");
       Float8Reader float8Reader = singleStructReader.reader("float8Field");
       UnionListReader listReader = (UnionListReader) singleStructReader.reader("listField");
+      UnionMapReader mapReader = (UnionMapReader) singleStructReader.reader("mapField");
 
       for (int i = 0; i < initialCapacity; i++) {
         intReader.setPosition(i);
@@ -1077,6 +1147,7 @@ public class TestComplexWriter {
         float4Reader.setPosition(i);
         float8Reader.setPosition(i);
         listReader.setPosition(i);
+        mapReader.setPosition(i);
 
         assertEquals(intValue + i, intReader.readInteger().intValue());
         assertEquals(bigIntValue + (long) i, bigIntReader.readLong().longValue());
@@ -1086,6 +1157,12 @@ public class TestComplexWriter {
         for (int j = 0; j < 4; j++) {
           listReader.next();
           assertEquals(intValue + i + j, listReader.reader().readInteger().intValue());
+        }
+
+        for (int k = 0; k < 4; k += 2) {
+          mapReader.next();
+          assertEquals(intValue + k + i, mapReader.key().readInteger().intValue());
+          assertEquals(intValue + k + i + 1, mapReader.value().readInteger().intValue());
         }
       }
     }
