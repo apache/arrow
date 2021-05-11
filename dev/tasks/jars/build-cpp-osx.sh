@@ -59,5 +59,7 @@ pushd cpp
     ctest
 
     cp -L release/libgandiva_jni.dylib $GITHUB_WORKSPACE/arrow/dist
+    cp -L release/libarrow_dataset_jni.dylib $GITHUB_WORKSPACE/arrow/dist
+    cp -L release/libarrow_orc_jni.dylib $GITHUB_WORKSPACE/arrow/dist
   popd
 popd
