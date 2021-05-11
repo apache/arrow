@@ -1708,6 +1708,8 @@ filters : List[Tuple] or List[List[Tuple]] or None (default)
     keys and only a hive-style directory structure is supported. When
     setting `use_legacy_dataset` to False, also within-file level filtering
     and different partitioning schemes are supported.
+
+    {3}
 pre_buffer : bool, default True
     Coalesce and issue file reads in parallel to improve performance on
     high-latency filesystems (e.g. S3). If True, Arrow will use a
@@ -1715,8 +1717,6 @@ pre_buffer : bool, default True
     use_legacy_dataset=False. If using a filesystem layer that itself
     performs readahead (e.g. fsspec's S3FS), disable readahead for best
     results.
-
-    {3}
 
 Returns
 -------
