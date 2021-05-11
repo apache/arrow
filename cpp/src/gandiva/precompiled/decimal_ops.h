@@ -19,10 +19,19 @@
 
 #include <cstdint>
 #include <string>
+
 #include "gandiva/basic_decimal_scalar.h"
 
 namespace gandiva {
 namespace decimalops {
+
+enum RoundType {
+  kRoundTypeCeil,         // +1 if +ve and trailing value is > 0, else no rounding.
+  kRoundTypeFloor,        // -1 if -ve and trailing value is < 0, else no rounding.
+  kRoundTypeTrunc,        // no rounding, truncate the trailing digits.
+  kRoundTypeHalfRoundUp,  // if +ve and trailing value is >= half of base, +1.
+  // else if -ve and trailing value is >= half of base, -1.
+};
 
 /// Return the sum of 'x' and 'y'.
 /// out_precision and out_scale are passed along for efficiency, they must match
@@ -57,7 +66,8 @@ arrow::BasicDecimal128 Mod(int64_t context, const BasicDecimalScalar128& x,
 int32_t Compare(const BasicDecimalScalar128& x, const BasicDecimalScalar128& y);
 
 /// Convert to decimal from double.
-BasicDecimal128 FromDouble(double in, int32_t precision, int32_t scale, bool* overflow);
+BasicDecimal128 FromDouble(double in, int32_t precision, int32_t scale, bool* overflow,
+                           RoundType roundType = RoundType::kRoundTypeHalfRoundUp);
 
 /// Convert from decimal to double.
 double ToDouble(const BasicDecimalScalar128& in, bool* overflow);

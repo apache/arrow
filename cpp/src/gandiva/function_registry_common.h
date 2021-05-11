@@ -127,6 +127,17 @@ typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyH
   NativeFunction(#NAME, std::vector<std::string> ALIASES, DataTypeVector{IN_TYPE()}, \
                  OUT_TYPE(), kResultNullIfNull, ARROW_STRINGIFY(NAME##_##IN_TYPE))
 
+// Unary functions in gdv stubs file that :
+// - NULL handling is of type NULL_IF_NULL
+//
+// The pre-compiled fn name includes the base name & input type name.
+// eg. gdv_fn_abs_float32
+#define STUBS_UNARY_SAFE_NULL_IF_NULL(NAME, ALIASES, IN_TYPE, OUT_TYPE)              \
+  NativeFunction(#NAME, std::vector<std::string> ALIASES, DataTypeVector{IN_TYPE()}, \
+                 OUT_TYPE(), kResultNullIfNull,                                      \
+                 ARROW_STRINGIFY(gdv_fn_##NAME##_##IN_TYPE),                         \
+                 NativeFunction::kNeedsContext)
+
 // Unary functions that :
 // - NULL handling is of type NULL_NEVER
 //

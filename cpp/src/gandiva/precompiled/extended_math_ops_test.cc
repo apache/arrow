@@ -41,7 +41,7 @@ TEST(TestExtendedMathOps, TestCbrt) {
   VerifyFuzzyEquals(cbrt_float64(27), 3);
   VerifyFuzzyEquals(cbrt_float64(-27), -3);
 
-  VerifyFuzzyEquals(cbrt_float32(15.625), 2.5);
+  VerifyFuzzyEquals(cbrt_float32(15.625f), 2.5f);
   VerifyFuzzyEquals(cbrt_float64(15.625), 2.5);
 }
 
@@ -111,6 +111,13 @@ TEST(TestExtendedMathOps, TestLog10) {
   VerifyFuzzyEquals(log10_int64(100), 2);
   VerifyFuzzyEquals(log10_float32(100), 2);
   VerifyFuzzyEquals(log10_float64(100), 2);
+}
+
+TEST(TestExtendedMathOps, TestLog2) {
+  VerifyFuzzyEquals(log2_int32(1024), 10);
+  VerifyFuzzyEquals(log2_int64(1024), 10);
+  VerifyFuzzyEquals(log2_float32(1024.0f), 10.0f);
+  VerifyFuzzyEquals(log2_float64(1024.0), 10.0);
 }
 
 TEST(TestExtendedMathOps, TestPower) {
@@ -201,13 +208,64 @@ TEST(TestExtendedMathOps, TestRound) {
   EXPECT_EQ(round_int64_int32(345353425343, -12), 0);
 }
 
-TEST(TestExtendedMathOps, TestTruncate) {
+TEST(TestExtendedMathOps, TestTruncateWithScale) {
+  // Test the truncate function for longs
   EXPECT_EQ(truncate_int64_int32(1234, 4), 1234);
   EXPECT_EQ(truncate_int64_int32(-1234, 4), -1234);
   EXPECT_EQ(truncate_int64_int32(1234, -4), 0);
   EXPECT_EQ(truncate_int64_int32(-1234, -2), -1200);
   EXPECT_EQ(truncate_int64_int32(8124674407369523212, 0), 8124674407369523212);
   EXPECT_EQ(truncate_int64_int32(8124674407369523212, -2), 8124674407369523200);
+
+  // Test truncate function for integers
+  EXPECT_EQ(truncate_int32_int32(1234, 4), 1234);
+  EXPECT_EQ(truncate_int32_int32(-1234, 4), -1234);
+  EXPECT_EQ(truncate_int32_int32(1234, -4), 0);
+  EXPECT_EQ(truncate_int32_int32(-1234, -2), -1200);
+  EXPECT_EQ(truncate_int32_int32(8124674, 0), 8124674);
+  EXPECT_EQ(truncate_int32_int32(8124674, -2), 8124600);
+}
+
+TEST(TestExtendedMathOps, TestTruncateWithoutScale) {
+  // Test the truncate function for longs
+  EXPECT_EQ(truncate_int64(1234), 1234);
+  EXPECT_EQ(truncate_int64(-1234), -1234);
+  EXPECT_EQ(truncate_int64(8124674407369523212), 8124674407369523212);
+
+  // Test truncate function for integers
+  EXPECT_EQ(truncate_int32(1234), 1234);
+  EXPECT_EQ(truncate_int32(-1234), -1234);
+  EXPECT_EQ(truncate_int32(8124674), 8124674);
+}
+
+TEST(TestExtendedMathOps, TestTruncateFloat) {
+  VerifyFuzzyEquals(truncate_float32(1234.245f), 1234.0f);
+  VerifyFuzzyEquals(truncate_float32(-11.7892f), -11.0f);
+  VerifyFuzzyEquals(truncate_float32(1.4999999f), 1.0f);
+  EXPECT_EQ(std::signbit(truncate_float32(0)), 0);
+  VerifyFuzzyEquals(truncate_float32_int32(1234.789f, 2), 1234.78f);
+  VerifyFuzzyEquals(truncate_float32_int32(1234.12345f, -3), 1000.0f);
+  VerifyFuzzyEquals(truncate_float32_int32(-1234.4567f, 3), -1234.456f);
+  VerifyFuzzyEquals(truncate_float32_int32(-1234.4567f, -3), -1000.0f);
+  VerifyFuzzyEquals(truncate_float32_int32(1234.4567f, 0), 1234);
+  VerifyFuzzyEquals(truncate_float32_int32(1.5499999523162842f, 1), 1.5f);
+  EXPECT_EQ(std::signbit(truncate_float32_int32(0, 5)), 0);
+  VerifyFuzzyEquals(truncate_float32_int32(static_cast<float>(1.55), 1), 1.5f);
+  VerifyFuzzyEquals(truncate_float32_int32(static_cast<float>(9.134123), 2), 9.13f);
+  VerifyFuzzyEquals(truncate_float32_int32(static_cast<float>(-1.923), 1), -1.9f);
+
+  VerifyFuzzyEquals(truncate_float64(1234.245), 1234.0);
+  VerifyFuzzyEquals(truncate_float64(-11.7892), -11.0);
+  VerifyFuzzyEquals(truncate_float64(1.4999999), 1.0);
+  EXPECT_EQ(std::signbit(truncate_float64(0)), 0);
+  VerifyFuzzyEquals(truncate_float64_int32(1234.789, 2), 1234.78);
+  VerifyFuzzyEquals(truncate_float64_int32(1234.12345, -3), 1000.0);
+  VerifyFuzzyEquals(truncate_float64_int32(-1234.4567, 3), -1234.456);
+  VerifyFuzzyEquals(truncate_float64_int32(-1234.4567, -3), -1000.0);
+  VerifyFuzzyEquals(truncate_float64_int32(1234.4567, 0), 1234.0);
+  EXPECT_EQ(std::signbit(truncate_float64_int32(0, -2)), 0);
+  VerifyFuzzyEquals(truncate_float64_int32((double)INT_MAX + 1, 0), (double)INT_MAX + 1);
+  VerifyFuzzyEquals(truncate_float64_int32((double)INT_MIN - 1, 0), (double)INT_MIN - 1);
 }
 
 TEST(TestExtendedMathOps, TestTrigonometricFunctions) {
@@ -407,4 +465,142 @@ TEST(TestExtendedMathOps, TestBinRepresentation) {
             "1000000000000000000000000000000000000000000000000000000000000000");
   EXPECT_FALSE(ctx.has_error());
 }
+
+TEST(TestExtendedMathOps, TestCeil) {
+  // Ceil functions
+  VerifyFuzzyEquals(ceil_float32(0), ceil(0));
+  VerifyFuzzyEquals(ceil_float64(0), ceil(0));
+
+  VerifyFuzzyEquals(ceil_float32(-5), ceil(-5));
+  VerifyFuzzyEquals(ceil_float64(-5), ceil(-5));
+
+  VerifyFuzzyEquals(ceil_float32(-2371041), ceil(-2371041));
+  VerifyFuzzyEquals(ceil_float64(-2371041), ceil(-2371041));
+
+  VerifyFuzzyEquals(ceil_float32(5.45f), ceil(5.45f));
+  VerifyFuzzyEquals(ceil_float64(5.45), ceil(5.45));
+
+  VerifyFuzzyEquals(ceil_float32(-3600.50f), ceil(-3600.50f));
+  VerifyFuzzyEquals(ceil_float64(-3600.50), ceil(-3600.50));
+}
+
+TEST(TestExtendedMathOps, TestFloor) {
+  // Ceil functions
+  VerifyFuzzyEquals(floor_float32(0), floor(0));
+  VerifyFuzzyEquals(floor_float64(0), floor(0));
+
+  VerifyFuzzyEquals(floor_float32(-5), floor(-5));
+  VerifyFuzzyEquals(floor_float64(-5), floor(-5));
+
+  VerifyFuzzyEquals(floor_float32(-2371041), floor(-2371041));
+  VerifyFuzzyEquals(floor_float64(-2371041), floor(-2371041));
+
+  VerifyFuzzyEquals(floor_float32(5.45f), floor(5.45f));
+  VerifyFuzzyEquals(floor_float64(5.45), floor(5.45));
+
+  VerifyFuzzyEquals(floor_float32(-3600.50f), floor(-3600.50f));
+  VerifyFuzzyEquals(floor_float64(-3600.50), floor(-3600.50));
+}
+
+TEST(TestExtendedMathOps, TestConstants) {
+  // Constants functions
+  VerifyFuzzyEquals(pi(), M_PI);
+  VerifyFuzzyEquals(e(), exp(1.0));
+}
+
+TEST(TestExtendedMathOps, TestSqrt) {
+  // Sqrt functions
+  VerifyFuzzyEquals(sqrt_int32(0), sqrt(0));
+  VerifyFuzzyEquals(sqrt_int64(0), sqrt(0));
+  VerifyFuzzyEquals(sqrt_float32(0), sqrt(0));
+  VerifyFuzzyEquals(sqrt_float64(0), sqrt(0));
+
+  VerifyFuzzyEquals(sqrt_int32(5), sqrt(5));
+  VerifyFuzzyEquals(sqrt_int64(5), sqrt(5));
+  VerifyFuzzyEquals(sqrt_float32(5), sqrt(5));
+  VerifyFuzzyEquals(sqrt_float64(5), sqrt(5));
+
+  VerifyFuzzyEquals(sqrt_int32(2371041), sqrt(2371041));
+  VerifyFuzzyEquals(sqrt_int64(2371041), sqrt(2371041));
+  VerifyFuzzyEquals(sqrt_float32(2371041), sqrt(2371041));
+  VerifyFuzzyEquals(sqrt_float64(2371041), sqrt(2371041));
+
+  VerifyFuzzyEquals(sqrt_float32(3600.50f), sqrt(3600.50f));
+  VerifyFuzzyEquals(sqrt_float64(3600.50), sqrt(3600.50));
+}
+
+TEST(TestExtendedMathOps, TestSign) {
+  // Sqrt functions
+  EXPECT_EQ(sign_int32(0), 0);
+  EXPECT_EQ(sign_int64(0), 0);
+  EXPECT_EQ(sign_float32(0), 0);
+  EXPECT_EQ(sign_float64(0), 0);
+
+  EXPECT_EQ(sign_int32(5), 1);
+  EXPECT_EQ(sign_int64(5), 1);
+  EXPECT_EQ(sign_float32(5), 1);
+  EXPECT_EQ(sign_float64(5), 1);
+
+  EXPECT_EQ(sign_int32(2371041), 1);
+  EXPECT_EQ(sign_int64(2371041), 1);
+  EXPECT_EQ(sign_float32(2371041), 1);
+  EXPECT_EQ(sign_float64(2371041), 1);
+
+  EXPECT_EQ(sign_int32(-3600), -1);
+  EXPECT_EQ(sign_int64(-3600), -1);
+  EXPECT_EQ(sign_float32(-3600.50f), -1);
+  EXPECT_EQ(sign_float64(-3600.50), -1);
+}
+
+TEST(TestExtendedMathOps, TestLshiftRshift) {
+  // Lshift functions
+  EXPECT_EQ(lshift_int32(1, 32), lshift_int32(1, 0));
+  EXPECT_EQ(lshift_int64(1, 64), lshift_int64(1, 0));
+  EXPECT_EQ(lshift_int32(-1, 33), lshift_int32(-1, 0));
+  EXPECT_EQ(lshift_int32(-1, 100), lshift_int32(-1, 0));
+  EXPECT_EQ(lshift_int64(-1, 65), lshift_int64(-1, 0));
+  EXPECT_EQ(lshift_int64(-1, 125), lshift_int64(-1, 0));
+  EXPECT_EQ(lshift_int32(-1, -1), lshift_int32(-1, 0));
+  EXPECT_EQ(lshift_int64(-1, -1), lshift_int64(-1, 0));
+
+  EXPECT_EQ(lshift_int32(1, 31), lshift_int32(-1, 31));
+
+  EXPECT_EQ(lshift_int32(2, 31), 0);
+  EXPECT_EQ(lshift_int32(2, 31), lshift_int32(-2, 31));
+  EXPECT_EQ(lshift_int64(2, 63), 0);
+  EXPECT_EQ(lshift_int64(2, 63), lshift_int64(-2, 63));
+
+  EXPECT_EQ(lshift_int32(-2, 16), -131072);
+  EXPECT_EQ(lshift_int32(2, 16), 131072);
+  EXPECT_EQ(lshift_int64(-2, 33), -17179869184L);
+  EXPECT_EQ(lshift_int64(2, 33), 17179869184L);
+
+  // Rshift functions
+  EXPECT_EQ(rshift_int32(1, 32), rshift_int32(1, 0));
+  EXPECT_EQ(rshift_int64(1, 64), rshift_int64(1, 0));
+  EXPECT_EQ(rshift_int32(-1, 33), rshift_int32(-1, 1));
+  EXPECT_EQ(rshift_int64(-1, 65), rshift_int64(-1, 1));
+  EXPECT_EQ(rshift_int32(-1, 31), rshift_int32(-1, -1));
+  EXPECT_EQ(rshift_int64(-1, 63), rshift_int64(-1, -1));
+  EXPECT_EQ(rshift_int32(-1, -62), rshift_int32(-1, 1));
+  EXPECT_EQ(rshift_int64(-1, -126), rshift_int64(-1, 1));
+
+  EXPECT_EQ(rshift_int32(10, 31), 0);
+  EXPECT_EQ(rshift_int64(10, 63), 0);
+  EXPECT_EQ(rshift_int32(-10, 31), -1);
+  EXPECT_EQ(rshift_int64(-10, 63), -1);
+
+  EXPECT_EQ(rshift_int32(-1024, 6), -16);
+  EXPECT_EQ(rshift_int64(-65536, 10), -64);
+
+  int32_t val = -3;
+  int32_t num_shift = 16;
+  EXPECT_EQ(rshift_int32(lshift_int32(val, num_shift), num_shift), val);
+
+  int64_t val_int64 = -3;
+  int64_t num_shift_int64 = 32;
+  EXPECT_EQ(rshift_int64(lshift_int64(val_int64, num_shift_int64), num_shift_int64),
+            val_int64);
+}
+
 }  // namespace gandiva

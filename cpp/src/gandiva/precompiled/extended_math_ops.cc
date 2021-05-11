@@ -40,6 +40,23 @@ extern "C" {
   INNER(float32, OUT_TYPE)                    \
   INNER(float64, OUT_TYPE)
 
+#define ESIGNED_INTEGER_TYPES(INNER) \
+  INNER(int32)                       \
+  INNER(int64)
+
+#define EINTEGER_TYPES(INNER)  \
+  ESIGNED_INTEGER_TYPES(INNER) \
+  INNER(uint32)                \
+  INNER(uint64)
+
+#define EREAL_TYPES(INNER) \
+  INNER(float32)           \
+  INNER(float64)
+
+#define ENUMERIC_TYPES(INNER) \
+  EINTEGER_TYPES(INNER)       \
+  EREAL_TYPES(INNER)
+
 // Cubic root
 #define CBRT(IN_TYPE, OUT_TYPE)                                           \
   FORCE_INLINE                                                            \
@@ -77,6 +94,15 @@ ENUMERIC_TYPES_UNARY(LOG, float64)
 #define LOGL(VALUE) static_cast<gdv_float64>(logl(static_cast<long double>(VALUE)))
 
 ENUMERIC_TYPES_UNARY(LOG10, float64)
+
+// log base 2
+#define LOG2(IN_TYPE, OUT_TYPE)                                           \
+  FORCE_INLINE                                                            \
+  gdv_##OUT_TYPE log2_##IN_TYPE(gdv_##IN_TYPE in) {                       \
+    return static_cast<gdv_float64>(log2l(static_cast<long double>(in))); \
+  }
+
+ENUMERIC_TYPES_UNARY(LOG2, float64)
 
 FORCE_INLINE
 void set_error_for_logbase(int64_t execution_context, double base) {
@@ -213,6 +239,24 @@ ENUMERIC_TYPES_UNARY(RADIANS, float64)
   }
 ENUMERIC_TYPES_UNARY(DEGREES, float64)
 
+// Ceil
+#define CEIL(IN_TYPE)                                                      \
+  FORCE_INLINE                                                             \
+  gdv_##IN_TYPE ceil_##IN_TYPE(gdv_##IN_TYPE in) {                         \
+    return static_cast<gdv_##IN_TYPE>(ceil(static_cast<long double>(in))); \
+  }
+CEIL(float32)
+CEIL(float64)
+
+// Floor
+#define FLOOR(IN_TYPE)                                                      \
+  FORCE_INLINE                                                              \
+  gdv_##IN_TYPE floor_##IN_TYPE(gdv_##IN_TYPE in) {                         \
+    return static_cast<gdv_##IN_TYPE>(floor(static_cast<long double>(in))); \
+  }
+FLOOR(float32)
+FLOOR(float64)
+
 // power
 #define POWER(IN_TYPE1, IN_TYPE2, OUT_TYPE)                                              \
   FORCE_INLINE                                                                           \
@@ -220,6 +264,71 @@ ENUMERIC_TYPES_UNARY(DEGREES, float64)
     return static_cast<gdv_float64>(powl(in1, in2));                                     \
   }
 POWER(float64, float64, float64)
+
+// Sqrt
+#define SQRT(IN_TYPE, OUT_TYPE)                                             \
+  FORCE_INLINE                                                              \
+  gdv_##OUT_TYPE sqrt_##IN_TYPE(gdv_##IN_TYPE in) {                         \
+    return static_cast<gdv_##OUT_TYPE>(sqrt(static_cast<long double>(in))); \
+  }
+ENUMERIC_TYPES_UNARY(SQRT, float64)
+
+// Sign
+#define SIGN(IN_TYPE)                                                               \
+  FORCE_INLINE                                                                      \
+  gdv_##IN_TYPE sign_##IN_TYPE(gdv_##IN_TYPE in) {                                  \
+    if (in == 0.0) return in;                                                       \
+    return static_cast<gdv_##IN_TYPE>(copysign(1.0, static_cast<long double>(in))); \
+  }
+ENUMERIC_TYPES(SIGN)
+
+// Lshift - Left Arithmetical Shift (multiplication by 2)
+// In C/C++ left shift of a negative number is undefined (C++11 standard 5.8.2)
+// Mimic Java/etc. and treat left shift as based on two's complement representation
+// Assumes two's complement machine.
+#define LSHIFT(IN_TYPE, MAX_DIGITS)                                       \
+  FORCE_INLINE                                                            \
+  gdv_##IN_TYPE lshift_##IN_TYPE(gdv_##IN_TYPE in1, gdv_##IN_TYPE in2) {  \
+    if (in2 < 0 || in2 >= (MAX_DIGITS)) {                                 \
+      return in1;                                                         \
+    }                                                                     \
+                                                                          \
+    auto unsigned_in1 = static_cast<gdv_u##IN_TYPE>(in1);                 \
+    auto unsigned_shift_op = static_cast<gdv_u##IN_TYPE>(in2);            \
+                                                                          \
+    return static_cast<gdv_##IN_TYPE>(unsigned_in1 << unsigned_shift_op); \
+  }
+
+// Logical right shift when Arg0 is unsigned
+// Arithmetic otherwise (this is implementation-defined but GCC and MSVC document this
+// as arithmetic right shift)
+// https://gcc.gnu.org/onlinedocs/gcc/Integers-implementation.html#Integers-implementation
+// https://docs.microsoft.com/en-us/cpp/cpp/left-shift-and-right-shift-operators-input-and-output?view=msvc-160
+// Clang doesn't document their behavior.
+#define RSHIFT(IN_TYPE, MAX_DIGITS)                                      \
+  FORCE_INLINE                                                           \
+  gdv_##IN_TYPE rshift_##IN_TYPE(gdv_##IN_TYPE in1, gdv_##IN_TYPE in2) { \
+    if (in2 < 0 || in2 >= (MAX_DIGITS)) {                                \
+      return in1;                                                        \
+    }                                                                    \
+    return in1 >> in2;                                                   \
+  }
+
+LSHIFT(int32, 32)
+LSHIFT(int64, 64)
+RSHIFT(int32, 32)
+RSHIFT(int64, 64)
+RSHIFT(uint32, 32)
+RSHIFT(uint64, 64)
+
+#undef RSHIFT
+#undef LSHIFT
+
+FORCE_INLINE
+gdv_float64 pi() { return static_cast<gdv_float64>(M_PI); }
+
+FORCE_INLINE
+gdv_float64 e() { return static_cast<gdv_float64>(exp(1.0)); }
 
 FORCE_INLINE
 gdv_int32 round_int32(gdv_int32 num) { return num; }
@@ -384,19 +493,61 @@ gdv_int64 get_power_of_10(gdv_int32 exp) {
   return power_of_10[exp];
 }
 
-FORCE_INLINE
-gdv_int64 truncate_int64_int32(gdv_int64 in, gdv_int32 out_scale) {
-  bool overflow = false;
-  arrow::BasicDecimal128 decimal = gandiva::decimalops::FromInt64(in, 38, 0, &overflow);
-  arrow::BasicDecimal128 decimal_with_outscale =
-      gandiva::decimalops::Truncate(gandiva::BasicDecimalScalar128(decimal, 38, 0), 38,
-                                    out_scale, out_scale, &overflow);
-  if (out_scale < 0) {
-    out_scale = 0;
+#define TRUNCATE_INTEGER(TYPE) \
+  FORCE_INLINE                 \
+  gdv_##TYPE truncate_##TYPE(gdv_##TYPE value) { return value; }
+
+#define TRUNCATE_INTEGER_WITH_OUT_SCALE(TYPE)                                         \
+  FORCE_INLINE                                                                        \
+  gdv_##TYPE truncate_##TYPE##_int32(gdv_##TYPE in, gdv_int32 out_scale) {            \
+    bool overflow = false;                                                            \
+    arrow::BasicDecimal128 decimal =                                                  \
+        gandiva::decimalops::FromInt64(static_cast<int64_t>(in), 38, 0, &overflow);   \
+    arrow::BasicDecimal128 decimal_with_outscale =                                    \
+        gandiva::decimalops::Truncate(gandiva::BasicDecimalScalar128(decimal, 38, 0), \
+                                      38, out_scale, out_scale, &overflow);           \
+    if (out_scale < 0) {                                                              \
+      out_scale = 0;                                                                  \
+    }                                                                                 \
+    return static_cast<gdv_##TYPE>(gandiva::decimalops::ToInt64(                      \
+        gandiva::BasicDecimalScalar128(decimal_with_outscale, 38, out_scale),         \
+        &overflow));                                                                  \
   }
-  return gandiva::decimalops::ToInt64(
-      gandiva::BasicDecimalScalar128(decimal_with_outscale, 38, out_scale), &overflow);
-}
+
+#define TRUNCATE_REAL(TYPE) \
+  FORCE_INLINE              \
+  gdv_##TYPE truncate_##TYPE(gdv_##TYPE in) { return truncate_##TYPE##_int32(in, 0); }
+
+#define TRUNCATE_REAL_WITH_OUT_SCALE(TYPE)                                           \
+  FORCE_INLINE                                                                       \
+  gdv_##TYPE truncate_##TYPE##_int32(gdv_##TYPE in, gdv_int32 out_scale) {           \
+    bool overflow = false;                                                           \
+    auto roundType = gandiva::decimalops::RoundType::kRoundTypeTrunc;                \
+    int32_t conversionScale = out_scale >= 0 ? out_scale : 0;                        \
+                                                                                     \
+    arrow::BasicDecimal128 decimal = gandiva::decimalops::FromDouble(                \
+        static_cast<double>(in), 38, conversionScale, &overflow, roundType);         \
+    arrow::BasicDecimal128 decimal_with_outscale = gandiva::decimalops::Truncate(    \
+        gandiva::BasicDecimalScalar128(decimal, 38, conversionScale), 38, out_scale, \
+        out_scale, &overflow);                                                       \
+    if (out_scale < 0) {                                                             \
+      out_scale = 0;                                                                 \
+    }                                                                                \
+                                                                                     \
+    return static_cast<gdv_##TYPE>(gandiva::decimalops::ToDouble(                    \
+        gandiva::BasicDecimalScalar128(decimal_with_outscale, 38, out_scale),        \
+        &overflow));                                                                 \
+  }
+
+ESIGNED_INTEGER_TYPES(TRUNCATE_INTEGER)
+ESIGNED_INTEGER_TYPES(TRUNCATE_INTEGER_WITH_OUT_SCALE)
+EREAL_TYPES(TRUNCATE_REAL_WITH_OUT_SCALE)
+EREAL_TYPES(TRUNCATE_REAL)
+
+#undef TRUNCATE_INTEGER
+#undef TRUNCATE_INTEGER_WITH_OUT_SCALE
+#undef TRUNCATE_REAL
+#undef TRUNCATE_REAL_WITH_OUT_SCALE
 
 FORCE_INLINE
 gdv_float64 get_scale_multiplier(gdv_int32 scale) {

@@ -413,6 +413,13 @@ TEST_F(TestProjector, TestExtendedMath) {
   auto field_cot = arrow::field("cot", arrow::float64());
   auto field_radians = arrow::field("radians", arrow::float64());
   auto field_degrees = arrow::field("degrees", arrow::float64());
+  auto field_abs = arrow::field("abs", arrow::float64());
+  auto field_ceil = arrow::field("ceil", arrow::float64());
+  auto field_floor = arrow::field("floor", arrow::float64());
+  auto field_pi = arrow::field("pi", arrow::float64());
+  auto field_e = arrow::field("euler", arrow::float64());
+  auto field_sqrt = arrow::field("sqrt", arrow::float64());
+  auto field_sign = arrow::field("sign", arrow::float64());
 
   // Build expression
   auto cbrt_expr = TreeExprBuilder::MakeExpression("cbrt", {field0}, field_cbrt);
@@ -436,13 +443,21 @@ TEST_F(TestProjector, TestExtendedMath) {
   auto cot_expr = TreeExprBuilder::MakeExpression("cot", {field0}, field_cot);
   auto radians_expr = TreeExprBuilder::MakeExpression("radians", {field0}, field_radians);
   auto degrees_expr = TreeExprBuilder::MakeExpression("degrees", {field0}, field_degrees);
+  auto abs_expr = TreeExprBuilder::MakeExpression("abs", {field0}, field_abs);
+  auto ceil_expr = TreeExprBuilder::MakeExpression("ceil", {field0}, field_ceil);
+  auto floor_expr = TreeExprBuilder::MakeExpression("floor", {field0}, field_ceil);
+  auto pi_expr = TreeExprBuilder::MakeExpression("pi", {}, field_pi);
+  auto e_expr = TreeExprBuilder::MakeExpression("e", {}, field_e);
+  auto sqrt_expr = TreeExprBuilder::MakeExpression("sqrt", {field1}, field_sqrt);
+  auto sign_expr = TreeExprBuilder::MakeExpression("sign", {field0}, field_sign);
 
   std::shared_ptr<Projector> projector;
   auto status = Projector::Make(
-      schema,
-      {cbrt_expr, exp_expr, log_expr, log10_expr, logb_expr, power_expr, sin_expr,
-       cos_expr, asin_expr, acos_expr, tan_expr, atan_expr, sinh_expr, cosh_expr,
-       tanh_expr, atan2_expr, cot_expr, radians_expr, degrees_expr},
+      schema, {cbrt_expr,    exp_expr,  log_expr,  log10_expr, logb_expr, power_expr,
+               sin_expr,     cos_expr,  asin_expr, acos_expr,  tan_expr,  atan_expr,
+               sinh_expr,    cosh_expr, tanh_expr, atan2_expr, cot_expr,  radians_expr,
+               degrees_expr, abs_expr,  ceil_expr, floor_expr, pi_expr,   e_expr,
+               sqrt_expr,    sign_expr},
       TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok());
 
@@ -475,6 +490,13 @@ TEST_F(TestProjector, TestExtendedMath) {
   std::vector<double> cot_vals;
   std::vector<double> radians_vals;
   std::vector<double> degrees_vals;
+  std::vector<double> abs_vals;
+  std::vector<double> ceil_vals;
+  std::vector<double> floor_vals;
+  std::vector<double> pi_vals;
+  std::vector<double> e_vals;
+  std::vector<double> sqrt_vals;
+  std::vector<double> sign_vals;
   for (int i = 0; i < num_records; i++) {
     cbrt_vals.push_back(static_cast<double>(cbrtl(input0[i])));
     exp_vals.push_back(static_cast<double>(expl(input0[i])));
@@ -495,6 +517,14 @@ TEST_F(TestProjector, TestExtendedMath) {
     cot_vals.push_back(static_cast<double>(tan(M_PI / 2 - input0[i])));
     radians_vals.push_back(static_cast<double>(input0[i] * M_PI / 180.0));
     degrees_vals.push_back(static_cast<double>(input0[i] * 180.0 / M_PI));
+    abs_vals.push_back(static_cast<double>(abs(input0[i])));
+    ceil_vals.push_back(static_cast<double>(ceil(input0[i])));
+    floor_vals.push_back(static_cast<double>(floor(input0[i])));
+    pi_vals.push_back(static_cast<double>(M_PI));
+    e_vals.push_back(static_cast<double>(exp(1.0)));
+    sqrt_vals.push_back(static_cast<double>(sqrt(input1[i])));
+    sign_vals.push_back(
+        static_cast<double>(input0[i] == 0 ? input0[i] : copysign(1.0, input0[i])));
   }
   auto expected_cbrt = MakeArrowArray<arrow::DoubleType, double>(cbrt_vals, validity);
   auto expected_exp = MakeArrowArray<arrow::DoubleType, double>(exp_vals, validity);
@@ -517,6 +547,13 @@ TEST_F(TestProjector, TestExtendedMath) {
       MakeArrowArray<arrow::DoubleType, double>(radians_vals, validity);
   auto expected_degrees =
       MakeArrowArray<arrow::DoubleType, double>(degrees_vals, validity);
+  auto expected_abs = MakeArrowArray<arrow::DoubleType, double>(abs_vals, validity);
+  auto expected_ceil = MakeArrowArray<arrow::DoubleType, double>(ceil_vals, validity);
+  auto expected_floor = MakeArrowArray<arrow::DoubleType, double>(floor_vals, validity);
+  auto expected_pi = MakeArrowArray<arrow::DoubleType, double>(pi_vals, validity);
+  auto expected_e = MakeArrowArray<arrow::DoubleType, double>(e_vals, validity);
+  auto expected_sqrt = MakeArrowArray<arrow::DoubleType, double>(sqrt_vals, validity);
+  auto expected_sign = MakeArrowArray<arrow::DoubleType, double>(sign_vals, validity);
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
 
@@ -546,6 +583,13 @@ TEST_F(TestProjector, TestExtendedMath) {
   EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_cot, outputs.at(16), epsilon);
   EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_radians, outputs.at(17), epsilon);
   EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_degrees, outputs.at(18), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_abs, outputs.at(19), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_ceil, outputs.at(20), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_floor, outputs.at(21), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_pi, outputs.at(22), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_e, outputs.at(23), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_sqrt, outputs.at(24), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_sign, outputs.at(25), epsilon);
 }
 
 TEST_F(TestProjector, TestFloatLessThan) {

@@ -28,6 +28,22 @@ namespace gandiva {
       UNARY_SAFE_NULL_IF_NULL(name, ALIASES, float32, float64), \
       UNARY_SAFE_NULL_IF_NULL(name, ALIASES, float64, float64)
 
+#define MATH_UNARY_OPS_SAME_TYPE_RETURN(name, ALIASES)          \
+  UNARY_SAFE_NULL_IF_NULL(name, ALIASES, int32, int32),         \
+      UNARY_SAFE_NULL_IF_NULL(name, ALIASES, int64, int64),     \
+      UNARY_SAFE_NULL_IF_NULL(name, ALIASES, uint32, uint32),   \
+      UNARY_SAFE_NULL_IF_NULL(name, ALIASES, uint64, uint64),   \
+      UNARY_SAFE_NULL_IF_NULL(name, ALIASES, float32, float32), \
+      UNARY_SAFE_NULL_IF_NULL(name, ALIASES, float64, float64)
+
+#define STUBS_MATH_UNARY_OPS_SAME_TYPE_RETURN(name, ALIASES)          \
+  STUBS_UNARY_SAFE_NULL_IF_NULL(name, ALIASES, int32, int32),         \
+      STUBS_UNARY_SAFE_NULL_IF_NULL(name, ALIASES, int64, int64),     \
+      STUBS_UNARY_SAFE_NULL_IF_NULL(name, ALIASES, uint32, uint32),   \
+      STUBS_UNARY_SAFE_NULL_IF_NULL(name, ALIASES, uint64, uint64),   \
+      STUBS_UNARY_SAFE_NULL_IF_NULL(name, ALIASES, float32, float32), \
+      STUBS_UNARY_SAFE_NULL_IF_NULL(name, ALIASES, float64, float64)
+
 #define MATH_BINARY_UNSAFE(name, ALIASES)                          \
   BINARY_UNSAFE_NULL_IF_NULL(name, ALIASES, int32, float64),       \
       BINARY_UNSAFE_NULL_IF_NULL(name, ALIASES, int64, float64),   \
@@ -61,8 +77,8 @@ namespace gandiva {
 
 std::vector<NativeFunction> GetMathOpsFunctionRegistry() {
   static std::vector<NativeFunction> math_fn_registry_ = {
-      MATH_UNARY_OPS(cbrt, {}), MATH_UNARY_OPS(exp, {}), MATH_UNARY_OPS(log, {}),
-      MATH_UNARY_OPS(log10, {}),
+      MATH_UNARY_OPS(cbrt, {}), MATH_UNARY_OPS(exp, {}), MATH_UNARY_OPS(log, {"ln"}),
+      MATH_UNARY_OPS(log2, {}), MATH_UNARY_OPS(log10, {}),
 
       MATH_BINARY_UNSAFE(log, {}),
 
@@ -86,6 +102,28 @@ std::vector<NativeFunction> GetMathOpsFunctionRegistry() {
       MATH_UNARY_OPS(cot, {}), MATH_UNARY_OPS(radians, {}), MATH_UNARY_OPS(degrees, {}),
       MATH_BINARY_SAFE(atan2, {}),
 
+      // extended functions
+      MATH_UNARY_OPS(sqrt, {}), STUBS_MATH_UNARY_OPS_SAME_TYPE_RETURN(abs, {}),
+      MATH_UNARY_OPS_SAME_TYPE_RETURN(sign, {}),
+      UNARY_SAFE_NULL_IF_NULL(ceil, {}, float32, float32),
+      UNARY_SAFE_NULL_IF_NULL(ceil, {}, float64, float64),
+      UNARY_SAFE_NULL_IF_NULL(floor, {}, float32, float32),
+      UNARY_SAFE_NULL_IF_NULL(floor, {}, float64, float64),
+      UNARY_SAFE_NULL_IF_NULL(lshift, {"shiftleft"}, int32, int32),
+      UNARY_SAFE_NULL_IF_NULL(lshift, {"shiftleft"}, int64, int64),
+      UNARY_SAFE_NULL_IF_NULL(rshift, {"shiftright"}, int32, int32),
+      UNARY_SAFE_NULL_IF_NULL(rshift, {"shiftright"}, int64, int64),
+      UNARY_SAFE_NULL_IF_NULL(rshift, {"shiftrightunsigned"}, uint32, uint32),
+      UNARY_SAFE_NULL_IF_NULL(rshift, {"shiftrightunsigned"}, uint64, uint64),
+      UNARY_SAFE_NULL_IF_NULL(truncate, {"trunc"}, int32, int32),
+      UNARY_SAFE_NULL_IF_NULL(truncate, {"trunc"}, int64, int64),
+      UNARY_SAFE_NULL_IF_NULL(truncate, {"trunc"}, float32, float32),
+      UNARY_SAFE_NULL_IF_NULL(truncate, {"trunc"}, float64, float64),
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(truncate, {"trunc"}, int32, int32, int32),
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(truncate, {"trunc"}, int64, int32, int64),
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(truncate, {"trunc"}, float32, int32, float32),
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(truncate, {"trunc"}, float64, int32, float64),
+
       // decimal functions
       UNARY_SAFE_NULL_IF_NULL(abs, {}, decimal128, decimal128),
       UNARY_SAFE_NULL_IF_NULL(ceil, {}, decimal128, decimal128),
@@ -97,8 +135,8 @@ std::vector<NativeFunction> GetMathOpsFunctionRegistry() {
                                        decimal128),
       BINARY_SYMMETRIC_SAFE_NULL_NEVER_FN(nvl, {}),
 
-      NativeFunction("truncate", {"trunc"}, DataTypeVector{int64(), int32()}, int64(),
-                     kResultNullIfNull, "truncate_int64_int32"),
+      NativeFunction("pi", {}, {}, float64(), kResultNullIfNull, "pi"),
+      NativeFunction("e", {}, {}, float64(), kResultNullIfNull, "e"),
       NativeFunction("random", {"rand"}, DataTypeVector{}, float64(), kResultNullNever,
                      "gdv_fn_random", NativeFunction::kNeedsFunctionHolder),
       NativeFunction("random", {"rand"}, DataTypeVector{int32()}, float64(),

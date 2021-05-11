@@ -488,12 +488,27 @@ static std::array<double, DecimalTypeUtil::kMaxPrecision + 1> kDoubleScaleMultip
       return values;
     })();
 
-BasicDecimal128 FromDouble(double in, int32_t precision, int32_t scale, bool* overflow) {
+BasicDecimal128 FromDouble(double in, int32_t precision, int32_t scale, bool* overflow,
+                           RoundType round_type) {
   // Multiply decimal with the scale
   auto unscaled = in * kDoubleScaleMultipliers[scale];
   DECIMAL_OVERFLOW_IF(std::isnan(unscaled), overflow);
 
-  unscaled = std::round(unscaled);
+  switch (round_type) {
+    case RoundType::kRoundTypeCeil:
+      unscaled = std::ceil(unscaled);
+      break;
+    case RoundType::kRoundTypeFloor:
+      unscaled = std::floor(unscaled);
+      break;
+    case RoundType::kRoundTypeTrunc:
+      unscaled = std::trunc(unscaled);
+      break;
+    case RoundType::kRoundTypeHalfRoundUp:
+    default:
+      unscaled = std::round(unscaled);
+      break;
+  }
 
   // convert scaled double to int128
   int32_t sign = unscaled < 0 ? -1 : 1;
@@ -550,14 +565,6 @@ static BasicDecimal128 ModifyScaleAndPrecision(const BasicDecimalScalar128& x,
     return result;
   }
 }
-
-enum RoundType {
-  kRoundTypeCeil,         // +1 if +ve and trailing value is > 0, else no rounding.
-  kRoundTypeFloor,        // -1 if -ve and trailing value is < 0, else no rounding.
-  kRoundTypeTrunc,        // no rounding, truncate the trailing digits.
-  kRoundTypeHalfRoundUp,  // if +ve and trailing value is >= half of base, +1.
-                          // else if -ve and trailing value is >= half of base, -1.
-};
 
 // Compute the rounding delta for the givven rounding type.
 static int32_t ComputeRoundingDelta(const BasicDecimal128& x, int32_t x_scale,

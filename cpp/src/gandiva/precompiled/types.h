@@ -235,6 +235,11 @@ gdv_float64 log10_int64(gdv_int64);
 gdv_float64 log10_float32(gdv_float32);
 gdv_float64 log10_float64(gdv_float64);
 
+gdv_float64 log2_int32(gdv_int32);
+gdv_float64 log2_int64(gdv_int64);
+gdv_float64 log2_float32(gdv_float32);
+gdv_float64 log2_float64(gdv_float64);
+
 gdv_float64 sin_int32(gdv_int32);
 gdv_float64 sin_int64(gdv_int64);
 gdv_float64 sin_float32(gdv_float32);
@@ -285,6 +290,30 @@ gdv_float64 degrees_int32(gdv_int32);
 gdv_float64 degrees_int64(gdv_int64);
 gdv_float64 degrees_float32(gdv_float32);
 gdv_float64 degrees_float64(gdv_float64);
+
+gdv_int32 sign_int32(gdv_int32);
+gdv_int64 sign_int64(gdv_int64);
+gdv_float32 sign_float32(gdv_float32);
+gdv_float64 sign_float64(gdv_float64);
+gdv_int32 abs_int32(gdv_int32);
+gdv_int64 abs_int64(gdv_int64);
+gdv_float32 abs_float32(gdv_float32);
+gdv_float64 abs_float64(gdv_float64);
+gdv_float32 ceil_float32(gdv_float32);
+gdv_float64 ceil_float64(gdv_float64);
+gdv_float32 floor_float32(gdv_float32);
+gdv_float64 floor_float64(gdv_float64);
+gdv_float64 sqrt_int32(gdv_int32);
+gdv_float64 sqrt_int64(gdv_int64);
+gdv_float64 sqrt_float32(gdv_float32);
+gdv_float64 sqrt_float64(gdv_float64);
+gdv_int32 lshift_int32(gdv_int32, gdv_int32);
+gdv_int64 lshift_int64(gdv_int64, gdv_int64);
+gdv_int32 rshift_int32(gdv_int32, gdv_int32);
+gdv_int64 rshift_int64(gdv_int64, gdv_int64);
+
+gdv_float64 pi();
+gdv_float64 e();
 
 gdv_int32 bitwise_and_int32_int32(gdv_int32 in1, gdv_int32 in2);
 gdv_int64 bitwise_and_int64_int64(gdv_int64 in1, gdv_int64 in2);
@@ -412,7 +441,14 @@ gdv_time32 castTIME_int32(int32_t int_val);
 const char* castVARCHAR_timestamp_int64(int64_t, gdv_timestamp, gdv_int64, gdv_int32*);
 gdv_date64 last_day_from_timestamp(gdv_date64 millis);
 
-gdv_int64 truncate_int64_int32(gdv_int64 in, gdv_int32 out_scale);
+int32_t truncate_int32(int32_t in);
+int64_t truncate_int64(int64_t in);
+float truncate_float32(float in);
+double truncate_float64(double in);
+int32_t truncate_int32_int32(int32_t in, int32_t out_scale);
+int64_t truncate_int64_int32(int64_t in, int32_t out_scale);
+float truncate_float32_int32(float in, int32_t out_scale);
+double truncate_float64_int32(double in, int32_t out_scale);
 
 const char* repeat_utf8_int32(gdv_int64 context, const char* in, gdv_int32 in_len,
                               gdv_int32 repeat_times, gdv_int32* out_len);

@@ -20,6 +20,9 @@
 #include <utf8proc.h>
 
 #include <boost/crc.hpp>
+#include <cmath>
+#include <iostream>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -1165,6 +1168,49 @@ int32_t gdv_fn_cast_intervalyear_utf8_int32(int64_t context_ptr, int64_t holder_
   auto* holder = reinterpret_cast<gandiva::IntervalYearsHolder*>(holder_ptr);
   return (*holder)(context, data, data_len, in1_validity, out_valid);
 }
+
+#define ABS_SIGNED_INTEGER_TYPES(INNER) INNER(int32) INNER(int64)
+#define ABS_UNSIGNED_INTEGER_TYPES(INNER) INNER(uint32) INNER(uint64)
+#define ABS_REAL_TYPES(INNER) INNER(float32) INNER(float64)
+
+// Abs for unsigned types. The function can return an error if occurs an overflow
+#define ABS_FOR_SIGNED_INTEGER(IN_TYPE)                                   \
+  GANDIVA_EXPORT                                                          \
+  gdv_##IN_TYPE gdv_fn_abs_##IN_TYPE(int64_t context, gdv_##IN_TYPE in) { \
+    if (in <= std::numeric_limits<gdv_##IN_TYPE>::min()) {                \
+      std::string error_msg("Overflow in abs execution");                 \
+      gdv_fn_context_set_error_msg(context, error_msg.data());            \
+      return static_cast<gdv_##IN_TYPE>(0);                               \
+    }                                                                     \
+                                                                          \
+    gdv_##IN_TYPE zero = 0;                                               \
+    if (in < zero) {                                                      \
+      gdv_##IN_TYPE minus_one = -1;                                       \
+      return (minus_one * in);                                            \
+    }                                                                     \
+                                                                          \
+    return in;                                                            \
+  }
+
+#define ABS_FOR_REAL_TYPES(IN_TYPE)                                       \
+  GANDIVA_EXPORT                                                          \
+  gdv_##IN_TYPE gdv_fn_abs_##IN_TYPE(int64_t context, gdv_##IN_TYPE in) { \
+    return static_cast<gdv_##IN_TYPE>(fabs(in));                          \
+  }
+
+// Optimization in abs function for unsigned types
+#define ABS_FOR_UNSIGNED_INTEGER(IN_TYPE) \
+  GANDIVA_EXPORT                          \
+  gdv_##IN_TYPE gdv_fn_abs_##IN_TYPE(int64_t context, gdv_##IN_TYPE in) { return in; }
+
+ABS_SIGNED_INTEGER_TYPES(ABS_FOR_SIGNED_INTEGER)
+ABS_UNSIGNED_INTEGER_TYPES(ABS_FOR_UNSIGNED_INTEGER)
+ABS_REAL_TYPES(ABS_FOR_REAL_TYPES)
+
+#undef ABS_SIGNED_INTEGER_TYPES
+#undef ABS_UNSIGNED_INTEGER_TYPES
+#undef ABS_FOR_SIGNED_INTEGER
+#undef ABS_FOR_UNSIGNED_INTEGER
 }
 
 namespace gandiva {
@@ -2309,5 +2355,61 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc(
       "gdv_fn_cast_intervalyear_utf8_int32", types->i32_type() /*return_type*/, args,
       reinterpret_cast<void*>(gdv_fn_cast_intervalyear_utf8_int32));
+
+  // gdv_fn_abs_int32
+  args = {
+      types->i64_type(),  // context
+      types->i32_type(),  // value
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_abs_int32", types->i32_type() /*return_type*/,
+                                  args, reinterpret_cast<void*>(gdv_fn_abs_int32));
+
+  // gdv_fn_abs_int64
+  args = {
+      types->i64_type(),  // context
+      types->i64_type(),  // value
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_abs_int64", types->i64_type() /*return_type*/,
+                                  args, reinterpret_cast<void*>(gdv_fn_abs_int64));
+
+  // gdv_fn_abs_uint32
+  args = {
+      types->i64_type(),  // context
+      types->i32_type(),  // value
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_abs_uint32", types->i32_type() /*return_type*/,
+                                  args, reinterpret_cast<void*>(gdv_fn_abs_uint32));
+
+  // gdv_fn_abs_uint64
+  args = {
+      types->i64_type(),  // context
+      types->i64_type(),  // value
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_abs_uint64", types->i64_type() /*return_type*/,
+                                  args, reinterpret_cast<void*>(gdv_fn_abs_uint64));
+
+  // gdv_fn_abs_float32
+  args = {
+      types->i64_type(),    // context
+      types->float_type(),  // value
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_abs_float32",
+                                  types->float_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_abs_float32));
+
+  // gdv_fn_abs_float64
+  args = {
+      types->i64_type(),     // context
+      types->double_type(),  // value
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_abs_float64",
+                                  types->double_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_abs_float64));
 }
 }  // namespace gandiva

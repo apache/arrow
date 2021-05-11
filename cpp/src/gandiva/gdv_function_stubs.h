@@ -200,4 +200,22 @@ GANDIVA_EXPORT
 const char* gdv_mask_last_n_utf8_int32(int64_t context, const char* data,
                                        int32_t data_len, int32_t n_to_mask,
                                        int32_t* out_len);
+
+GANDIVA_EXPORT
+int32_t gdv_fn_abs_int32(int64_t context, int32_t in);
+
+GANDIVA_EXPORT
+int64_t gdv_fn_abs_int64(int64_t context, int64_t in);
+
+GANDIVA_EXPORT
+uint32_t gdv_fn_abs_uint32(int64_t context, uint32_t in);
+
+GANDIVA_EXPORT
+uint64_t gdv_fn_abs_uint64(int64_t context, uint64_t in);
+
+GANDIVA_EXPORT
+float gdv_fn_abs_float32(int64_t context, float in);
+
+GANDIVA_EXPORT
+double gdv_fn_abs_float64(int64_t context, double in);
 }
