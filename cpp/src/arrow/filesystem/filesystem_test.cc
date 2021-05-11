@@ -278,6 +278,8 @@ class TestMockFSGeneric : public ::testing::Test, public GenericFileSystemTest {
  protected:
   std::shared_ptr<FileSystem> GetEmptyFileSystem() override { return fs_; }
 
+  bool have_file_metadata() const override { return true; }
+
   TimePoint time_;
   std::shared_ptr<FileSystem> fs_;
 };
@@ -456,6 +458,18 @@ TEST_F(TestMockFS, OpenOutputStream) {
   ASSERT_OK(stream->Close());
   CheckDirs({});
   CheckFiles({{"ab", time_, ""}});
+
+  // With metadata
+  using KV = io::StreamMetadata::KeyValue;
+  io::StreamMetadata metadata{std::vector<KV>{{"foo", "bar"}}};
+  ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("cd", metadata));
+  ASSERT_OK(WriteString(stream.get(), "data"));
+  ASSERT_OK(stream->Close());
+  CheckFiles({{"ab", time_, ""}, {"cd", time_, "data"}});
+
+  ASSERT_OK_AND_ASSIGN(auto input, fs_->OpenInputStream("cd"));
+  ASSERT_OK_AND_ASSIGN(auto got_metadata, input->ReadMetadata());
+  ASSERT_EQ(metadata.items, got_metadata.items);
 }
 
 TEST_F(TestMockFS, OpenAppendStream) {

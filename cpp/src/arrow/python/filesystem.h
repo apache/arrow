@@ -59,10 +59,10 @@ class ARROW_PYTHON_EXPORT PyFileSystemVtable {
   std::function<void(PyObject*, const std::string& path,
                      std::shared_ptr<io::RandomAccessFile>* out)>
       open_input_file;
-  std::function<void(PyObject*, const std::string& path,
+  std::function<void(PyObject*, const std::string& path, const io::StreamMetadata&,
                      std::shared_ptr<io::OutputStream>* out)>
       open_output_stream;
-  std::function<void(PyObject*, const std::string& path,
+  std::function<void(PyObject*, const std::string& path, const io::StreamMetadata&,
                      std::shared_ptr<io::OutputStream>* out)>
       open_append_stream;
 
@@ -104,9 +104,9 @@ class ARROW_PYTHON_EXPORT PyFileSystem : public arrow::fs::FileSystem {
   Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
       const std::string& path) override;
   Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
-      const std::string& path) override;
+      const std::string& path, const io::StreamMetadata& metadata = {}) override;
   Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
-      const std::string& path) override;
+      const std::string& path, const io::StreamMetadata& metadata = {}) override;
 
   Result<std::string> NormalizePath(std::string path) override;
 

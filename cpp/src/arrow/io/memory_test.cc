@@ -179,6 +179,14 @@ TEST(TestBufferReader, FromStrings) {
   ASSERT_EQ(0, memcmp(piece->data(), data.data() + 2, 4));
 }
 
+TEST(TestBufferReader, FromNullBuffer) {
+  std::shared_ptr<Buffer> buf;
+  BufferReader reader(buf);
+  ASSERT_OK_AND_EQ(0, reader.GetSize());
+  ASSERT_OK_AND_ASSIGN(auto piece, reader.Read(10));
+  ASSERT_EQ(0, piece->size());
+}
+
 TEST(TestBufferReader, Seeking) {
   std::string data = "data123456";
 

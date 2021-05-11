@@ -476,5 +476,14 @@ Result<std::shared_ptr<Buffer>> BufferedInputStream::DoRead(int64_t nbytes) {
   return impl_->Read(nbytes);
 }
 
+Result<StreamMetadata> BufferedInputStream::ReadMetadata() {
+  return impl_->raw()->ReadMetadata();
+}
+
+Future<StreamMetadata> BufferedInputStream::ReadMetadataAsync(
+    const IOContext& io_context) {
+  return impl_->raw()->ReadMetadataAsync(io_context);
+}
+
 }  // namespace io
 }  // namespace arrow

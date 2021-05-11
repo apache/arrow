@@ -42,6 +42,24 @@ cdef extern from "Python.h":
         char *v, Py_ssize_t len) except NULL
 
 
+cdef object _wrap_stream_metadata(const StreamMetadata& c_metadata):
+    cdef const StreamMetadataKeyValue* kv
+    metadata = {}
+    for i in range(c_metadata.items.size()):
+        kv = &c_metadata.items[i]
+        metadata[frombytes(kv.key)] = frombytes(kv.value)
+    return metadata
+
+
+cdef StreamMetadata _unwrap_stream_metadata(object metadata) except *:
+    cdef StreamMetadata c_metadata
+    c_metadata.items.reserve(len(metadata))
+    for k, v in metadata.items():
+        c_metadata.items.push_back(
+            StreamMetadataKeyValue(tobytes(k), tobytes(v)))
+    return c_metadata
+
+
 def io_thread_count():
     """
     Return the number of threads to use for I/O operations.
@@ -229,6 +247,18 @@ cdef class NativeFile(_Weakrefable):
             size = GetResultValue(handle.get().GetSize())
 
         return size
+
+    def metadata(self):
+        """
+        Return file metadata
+        """
+        cdef StreamMetadata c_metadata
+
+        handle = self.get_input_stream()
+        with nogil:
+            c_metadata = GetResultValue(handle.get().ReadMetadata())
+
+        return _wrap_stream_metadata(c_metadata)
 
     def tell(self):
         """

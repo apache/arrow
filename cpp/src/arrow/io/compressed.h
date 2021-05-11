@@ -89,6 +89,8 @@ class ARROW_EXPORT CompressedInputStream
   // InputStream interface
 
   bool closed() const override;
+  Result<StreamMetadata> ReadMetadata() override;
+  Future<StreamMetadata> ReadMetadataAsync(const IOContext& io_context) override;
 
   /// \brief Return the underlying raw input stream.
   std::shared_ptr<InputStream> raw() const;

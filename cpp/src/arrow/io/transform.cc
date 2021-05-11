@@ -145,5 +145,18 @@ Result<int64_t> TransformInputStream::Tell() const {
   return impl_->pos_;
 }
 
+Result<StreamMetadata> TransformInputStream::ReadMetadata() {
+  RETURN_NOT_OK(impl_->CheckClosed());
+
+  return impl_->wrapped_->ReadMetadata();
+}
+
+Future<StreamMetadata> TransformInputStream::ReadMetadataAsync(
+    const IOContext& io_context) {
+  RETURN_NOT_OK(impl_->CheckClosed());
+
+  return impl_->wrapped_->ReadMetadataAsync(io_context);
+}
+
 }  // namespace io
 }  // namespace arrow

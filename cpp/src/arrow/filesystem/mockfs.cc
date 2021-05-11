@@ -53,6 +53,7 @@ struct File {
   TimePoint mtime;
   std::string name;
   std::shared_ptr<Buffer> data;
+  io::StreamMetadata metadata;
 
   File(TimePoint mtime, std::string name) : mtime(mtime), name(std::move(name)) {}
 
@@ -232,6 +233,17 @@ class MockFSOutputStream : public io::OutputStream {
   bool closed_;
 };
 
+class MockFSInputStream : public io::BufferReader {
+ public:
+  explicit MockFSInputStream(const File& file)
+      : io::BufferReader(file.data), metadata_(file.metadata) {}
+
+  Result<io::StreamMetadata> ReadMetadata() override { return metadata_; }
+
+ protected:
+  io::StreamMetadata metadata_;
+};
+
 }  // namespace
 
 std::ostream& operator<<(std::ostream& os, const MockDirInfo& di) {
@@ -358,8 +370,8 @@ class MockFileSystem::Impl {
     }
   }
 
-  Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(const std::string& path,
-                                                             bool append) {
+  Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
+      const std::string& path, bool append, const io::StreamMetadata& metadata) {
     auto parts = SplitAbstractPath(path);
     RETURN_NOT_OK(ValidateAbstractPathParts(parts));
 
@@ -381,6 +393,7 @@ class MockFileSystem::Impl {
     } else {
       return NotAFile(path);
     }
+    file->metadata = metadata;
     auto ptr = std::make_shared<MockFSOutputStream>(file, pool);
     if (append && file->data) {
       RETURN_NOT_OK(ptr->Write(file->data->data(), file->data->size()));
@@ -399,12 +412,7 @@ class MockFileSystem::Impl {
     if (!entry->is_file()) {
       return NotAFile(path);
     }
-    const auto& file = entry->as_file();
-    if (file.data) {
-      return std::make_shared<io::BufferReader>(file.data);
-    } else {
-      return std::make_shared<io::BufferReader>("");
-    }
+    return std::make_shared<MockFSInputStream>(entry->as_file());
   }
 };
 
@@ -687,17 +695,17 @@ Result<std::shared_ptr<io::RandomAccessFile>> MockFileSystem::OpenInputFile(
 }
 
 Result<std::shared_ptr<io::OutputStream>> MockFileSystem::OpenOutputStream(
-    const std::string& path) {
+    const std::string& path, const io::StreamMetadata& metadata) {
   auto guard = impl_->lock_guard();
 
-  return impl_->OpenOutputStream(path, false /* append */);
+  return impl_->OpenOutputStream(path, /*append=*/false, metadata);
 }
 
 Result<std::shared_ptr<io::OutputStream>> MockFileSystem::OpenAppendStream(
-    const std::string& path) {
+    const std::string& path, const io::StreamMetadata& metadata) {
   auto guard = impl_->lock_guard();
 
-  return impl_->OpenOutputStream(path, true /* append */);
+  return impl_->OpenOutputStream(path, /*append=*/true, metadata);
 }
 
 std::vector<MockDirInfo> MockFileSystem::AllDirs() {

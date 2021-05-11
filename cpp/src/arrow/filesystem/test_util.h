@@ -18,6 +18,7 @@
 #pragma once
 
 #include <chrono>
+#include <ios>
 #include <memory>
 #include <string>
 #include <vector>
@@ -26,6 +27,13 @@
 #include "arrow/testing/visibility.h"
 
 namespace arrow {
+namespace io {
+
+ARROW_TESTING_EXPORT
+std::ostream& operator<<(std::ostream& os, const StreamMetadata::KeyValue& kv);
+
+}  // namespace io
+
 namespace fs {
 
 static constexpr double kTimeSlack = 2.0;  // In seconds
@@ -140,6 +148,8 @@ class ARROW_TESTING_EXPORT GenericFileSystemTest {
   virtual bool have_directory_mtimes() const { return true; }
   // - Whether some directory tree deletion tests may fail randomly
   virtual bool have_flaky_directory_tree_deletion() const { return false; }
+  // - Whether the filesystem stores some metadata along files
+  virtual bool have_file_metadata() const { return false; }
 
   void TestEmpty(FileSystem* fs);
   void TestNormalizePath(FileSystem* fs);

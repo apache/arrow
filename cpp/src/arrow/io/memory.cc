@@ -263,8 +263,8 @@ void FixedSizeBufferWriter::set_memcopy_threshold(int64_t threshold) {
 
 BufferReader::BufferReader(std::shared_ptr<Buffer> buffer)
     : buffer_(std::move(buffer)),
-      data_(buffer_->data()),
-      size_(buffer_->size()),
+      data_(buffer_ ? buffer_->data() : reinterpret_cast<const uint8_t*>("")),
+      size_(buffer_ ? buffer_->size() : 0),
       position_(0),
       is_open_(true) {}
 

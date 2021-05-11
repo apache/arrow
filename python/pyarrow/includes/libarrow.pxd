@@ -1166,6 +1166,16 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
     int GetIOThreadPoolCapacity()
     CStatus SetIOThreadPoolCapacity(int threads)
 
+    cdef cppclass StreamMetadataKeyValue "arrow::io::StreamMetadata::KeyValue":
+        StreamMetadataKeyValue()
+        StreamMetadataKeyValue(c_string key, c_string value)
+
+        c_string key
+        c_string value
+
+    cdef cppclass StreamMetadata:
+        vector[StreamMetadataKeyValue] items
+
     cdef cppclass FileStatistics:
         int64_t size
         ObjectType kind
@@ -1196,7 +1206,7 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
 
     cdef cppclass CInputStream" arrow::io::InputStream"(FileInterface,
                                                         Readable):
-        pass
+        CResult[StreamMetadata] ReadMetadata()
 
     cdef cppclass CRandomAccessFile" arrow::io::RandomAccessFile"(CInputStream,
                                                                   Seekable):

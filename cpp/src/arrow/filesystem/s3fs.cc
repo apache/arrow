@@ -684,6 +684,78 @@ Result<S3Model::GetObjectResult> GetObjectRange(Aws::S3::S3Client* client,
   return OutcomeToResult(client->GetObject(req));
 }
 
+template <typename ObjectResult>
+io::StreamMetadata GetObjectMetadata(const ObjectResult& result) {
+  io::StreamMetadata metadata;
+  using KV = io::StreamMetadata::KeyValue;
+
+  auto push = [&](std::string k, const Aws::String& v) {
+    if (!v.empty()) {
+      metadata.items.push_back(KV{std::move(k), FromAwsString(v).to_string()});
+    }
+  };
+  auto push_datetime = [&](std::string k, const Aws::Utils::DateTime& v) {
+    if (v != Aws::Utils::DateTime(0.0)) {
+      push(std::move(k), v.ToGmtString(Aws::Utils::DateFormat::ISO_8601));
+    }
+  };
+
+  metadata.items.push_back(
+      KV{"Content-Length", std::to_string(result.GetContentLength())});
+  push("Cache-Control", result.GetCacheControl());
+  push("Content-Type", result.GetContentType());
+  push("Content-Language", result.GetContentLanguage());
+  push("ETag", result.GetETag());
+  push("VersionId", result.GetVersionId());
+  push_datetime("Last-Modified", result.GetLastModified());
+  push_datetime("Expires", result.GetExpires());
+  return metadata;
+}
+
+template <typename ObjectRequest>
+struct ObjectMetadataSetter {
+  ObjectRequest* req;
+
+  using Setter = std::function<Status(const std::string& value, ObjectRequest* req)>;
+
+  static std::unordered_map<std::string, Setter> GetSetters() {
+    return {{"Cache-Control", StringSetter(&ObjectRequest::SetCacheControl)},
+            {"Content-Type", StringSetter(&ObjectRequest::SetContentType)},
+            {"Content-Language", StringSetter(&ObjectRequest::SetContentLanguage)},
+            {"Expires", DateTimeSetter(&ObjectRequest::SetExpires)}};
+  }
+
+ private:
+  static Setter StringSetter(void (ObjectRequest::*req_method)(Aws::String&&)) {
+    return [req_method](const std::string& v, ObjectRequest* req) {
+      (req->*req_method)(ToAwsString(v));
+      return Status::OK();
+    };
+  }
+
+  static Setter DateTimeSetter(
+      void (ObjectRequest::*req_method)(Aws::Utils::DateTime&&)) {
+    return [req_method](const std::string& v, ObjectRequest* req) {
+      (req->*req_method)(
+          Aws::Utils::DateTime(v.data(), Aws::Utils::DateFormat::ISO_8601));
+      return Status::OK();
+    };
+  }
+};
+
+template <typename ObjectRequest>
+Status SetObjectMetadata(const io::StreamMetadata& metadata, ObjectRequest* req) {
+  static auto setters = ObjectMetadataSetter<ObjectRequest>::GetSetters();
+
+  for (const auto& kv : metadata.items) {
+    auto it = setters.find(kv.key);
+    if (it != setters.end()) {
+      RETURN_NOT_OK(it->second(kv.value, req));
+    }
+  }
+  return Status::OK();
+}
+
 // A RandomAccessFile that reads from a S3 object
 class ObjectInputFile final : public io::RandomAccessFile {
  public:
@@ -720,6 +792,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
     }
     content_length_ = outcome.GetResult().GetContentLength();
     DCHECK_GE(content_length_, 0);
+    metadata_ = GetObjectMetadata(outcome.GetResult());
     return Status::OK();
   }
 
@@ -741,6 +814,12 @@ class ObjectInputFile final : public io::RandomAccessFile {
   }
 
   // RandomAccessFile APIs
+
+  Result<io::StreamMetadata> ReadMetadata() override { return metadata_; }
+
+  Future<io::StreamMetadata> ReadMetadataAsync(const io::IOContext& io_context) override {
+    return metadata_;
+  }
 
   Status Close() override {
     client_ = nullptr;
@@ -825,6 +904,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
   bool closed_ = false;
   int64_t pos_ = 0;
   int64_t content_length_ = kNoSize;
+  io::StreamMetadata metadata_;
 };
 
 // Minimum size for each part of a multipart upload, except for the last part.
@@ -841,10 +921,11 @@ class ObjectOutputStream final : public io::OutputStream {
  public:
   ObjectOutputStream(std::shared_ptr<Aws::S3::S3Client> client,
                      const io::IOContext& io_context, const S3Path& path,
-                     const S3Options& options)
+                     const S3Options& options, const io::StreamMetadata& metadata)
       : client_(std::move(client)),
         io_context_(io_context),
         path_(path),
+        metadata_(metadata),
         background_writes_(options.background_writes) {}
 
   ~ObjectOutputStream() override {
@@ -858,6 +939,7 @@ class ObjectOutputStream final : public io::OutputStream {
     S3Model::CreateMultipartUploadRequest req;
     req.SetBucket(ToAwsString(path_.bucket));
     req.SetKey(ToAwsString(path_.key));
+    RETURN_NOT_OK(SetObjectMetadata(metadata_, &req));
 
     auto outcome = client_->CreateMultipartUpload(req);
     if (!outcome.IsSuccess()) {
@@ -1127,6 +1209,7 @@ class ObjectOutputStream final : public io::OutputStream {
   std::shared_ptr<Aws::S3::S3Client> client_;
   const io::IOContext io_context_;
   const S3Path path_;
+  const io::StreamMetadata metadata_;
   const bool background_writes_;
 
   Aws::String upload_id_;
@@ -2106,18 +2189,18 @@ Result<std::shared_ptr<io::RandomAccessFile>> S3FileSystem::OpenInputFile(
 }
 
 Result<std::shared_ptr<io::OutputStream>> S3FileSystem::OpenOutputStream(
-    const std::string& s) {
+    const std::string& s, const io::StreamMetadata& metadata) {
   ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
   RETURN_NOT_OK(ValidateFilePath(path));
 
   auto ptr = std::make_shared<ObjectOutputStream>(impl_->client_, io_context(), path,
-                                                  impl_->options());
+                                                  impl_->options(), metadata);
   RETURN_NOT_OK(ptr->Init());
   return ptr;
 }
 
 Result<std::shared_ptr<io::OutputStream>> S3FileSystem::OpenAppendStream(
-    const std::string& path) {
+    const std::string& path, const io::StreamMetadata& metadata) {
   // XXX Investigate UploadPartCopy? Does it work with source == destination?
   // https://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadUploadPartCopy.html
   // (but would need to fall back to GET if the current data is < 5 MB)

@@ -397,6 +397,7 @@ class TestS3FS : public S3TestMixin {
       ASSERT_OK(OutcomeToStatus(client_->PutObject(req)));
       req.SetKey(ToAwsString("somefile"));
       req.SetBody(std::make_shared<std::stringstream>("some data"));
+      req.SetContentType("x-arrow/test");
       ASSERT_OK(OutcomeToStatus(client_->PutObject(req)));
     }
   }
@@ -451,6 +452,16 @@ class TestS3FS : public S3TestMixin {
     ASSERT_OK(stream->Close());
     AssertObjectContents(client_.get(), "bucket", "newfile4", expected);
 
+    // Create new file with metadata
+    using KV = io::StreamMetadata::KeyValue;
+    io::StreamMetadata metadata{
+        {KV{"Content-Type", "x-arrow/test6"}, KV{"Expires", "2016-02-05T20:08:35Z"}}};
+    ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/newfile5", metadata));
+    ASSERT_OK(stream->Close());
+    ASSERT_OK_AND_ASSIGN(auto input, fs_->OpenInputStream("bucket/newfile5"));
+    ASSERT_OK_AND_ASSIGN(auto got_metadata, input->ReadMetadata());
+    ASSERT_THAT(got_metadata.items, testing::IsSupersetOf(metadata.items));
+
     // Overwrite
     ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/newfile1"));
     ASSERT_OK(stream->Write("overwritten data"));
@@ -465,12 +476,12 @@ class TestS3FS : public S3TestMixin {
     // Open file and then lose filesystem reference
     ASSERT_EQ(fs_.use_count(), 1);  // needed for test to work
     std::weak_ptr<S3FileSystem> weak_fs(fs_);
-    ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/newfile5"));
+    ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/newfile6"));
     fs_.reset();
     ASSERT_OK(stream->Write("some other data"));
     ASSERT_OK(stream->Close());
     ASSERT_TRUE(weak_fs.expired());
-    AssertObjectContents(client_.get(), "bucket", "newfile5", "some other data");
+    AssertObjectContents(client_.get(), "bucket", "newfile6", "some other data");
   }
 
   void TestOpenOutputStreamAbort() {
@@ -839,6 +850,18 @@ TEST_F(TestS3FS, OpenInputStream) {
   ASSERT_TRUE(weak_fs.expired());
 }
 
+TEST_F(TestS3FS, OpenInputStreamMetadata) {
+  std::shared_ptr<io::InputStream> stream;
+  io::StreamMetadata metadata;
+
+  ASSERT_OK_AND_ASSIGN(stream, fs_->OpenInputStream("bucket/somefile"));
+  ASSERT_FINISHES_OK_AND_ASSIGN(metadata, stream->ReadMetadataAsync());
+
+  std::vector<io::StreamMetadata::KeyValue> expected_kv{{"Content-Length", "9"},
+                                                        {"Content-Type", "x-arrow/test"}};
+  ASSERT_THAT(metadata.items, testing::IsSupersetOf(expected_kv));
+}
+
 TEST_F(TestS3FS, OpenInputFile) {
   std::shared_ptr<io::RandomAccessFile> file;
   std::shared_ptr<Buffer> buf;
@@ -959,6 +982,7 @@ class TestS3FSGeneric : public S3TestMixin, public GenericFileSystemTest {
     return false;
 #endif
   }
+  bool have_file_metadata() const override { return true; }
 
   S3Options options_;
   std::shared_ptr<S3FileSystem> s3fs_;

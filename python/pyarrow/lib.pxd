@@ -533,6 +533,9 @@ cdef shared_ptr[CKeyValueMetadata] pyarrow_unwrap_metadata(object meta) \
 cdef object pyarrow_wrap_metadata(
     const shared_ptr[const CKeyValueMetadata]& meta)
 
+cdef object _wrap_stream_metadata(const StreamMetadata& c_metadata)
+cdef StreamMetadata _unwrap_stream_metadata(object metadata) except *
+
 #
 # Public Cython API for 3rd party code
 #
