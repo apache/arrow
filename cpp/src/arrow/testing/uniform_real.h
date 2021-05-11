@@ -15,7 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Based on clang libc++: https://github.com/llvm/llvm-project/tree/main/libcxx
+// Random real generation is very slow on Arm if built with clang + libstdc++
+// due to software emulated long double arithmetic.
+// This file ports some random real libs from llvm libc++ library, which are
+// free from long double calculation.
+// It improves performance significantly on both Arm (~100x) and x86 (~8x) in
+// generating random reals when built with clang + gnu libstdc++.
+// Based on: https://github.com/llvm/llvm-project/tree/main/libcxx
 
 #pragma once
 
