@@ -15,19 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <algorithm>
-#include <cmath>
+#include "feather_reader.h"
 
+#include <arrow/array/array_base.h>
+#include <arrow/array/builder_base.h>
+#include <arrow/array/builder_primitive.h>
 #include <arrow/io/file.h>
 #include <arrow/ipc/feather.h>
+#include <arrow/result.h>
 #include <arrow/status.h>
 #include <arrow/table.h>
 #include <arrow/type.h>
-#include <arrow/util/bit-util.h>
-
+#include <arrow/type_traits.h>
+#include <arrow/util/bitmap_visit.h>
 #include <mex.h>
 
-#include "feather_reader.h"
+#include <algorithm>
+#include <cmath>
+
 #include "matlab_traits.h"
 #include "util/handle_status.h"
 #include "util/unicode_conversion.h"
@@ -52,11 +57,12 @@ mxArray* ReadNumericVariableData(const std::shared_ptr<Array>& column) {
   mxArray* variable_data =
       mxCreateNumericMatrix(column->length(), 1, matlab_class_id, mxREAL);
 
-  std::shared_ptr<ArrowArrayType> integer_array =
+  std::shared_ptr<ArrowArrayType> arrow_numeric_array =
       std::static_pointer_cast<ArrowArrayType>(column);
 
   // Get a raw pointer to the Arrow array data.
-  const MatlabType* source = integer_array->raw_values();
+  const MatlabType* source =
+      reinterpret_cast<const MatlabType*>(arrow_numeric_array->values()->data());
 
   // Get a mutable pointer to the MATLAB array data and std::copy the
   // Arrow array data into it.
@@ -121,8 +127,7 @@ void BitUnpackBuffer(const std::shared_ptr<Buffer>& source, int64_t length,
 // writes to a zero-initialized destination buffer.
 // Implements a fast path for the fully-valid and fully-invalid cases.
 // Returns true if the destination buffer was successfully populated.
-bool TryBitUnpackFastPath(const std::shared_ptr<Array>& array,
-                          mxLogical* destination) {
+bool TryBitUnpackFastPath(const std::shared_ptr<Array>& array, mxLogical* destination) {
   const int64_t null_count = array->null_count();
   const int64_t length = array->length();
 
@@ -177,32 +182,34 @@ Status FeatherReader::Open(const std::string& filename,
   *feather_reader = std::shared_ptr<FeatherReader>(new FeatherReader());
 
   // Open file with given filename as a ReadableFile.
-  std::shared_ptr<io::ReadableFile> readable_file(nullptr);
-
-  RETURN_NOT_OK(io::ReadableFile::Open(filename, &readable_file));
+  arrow::Result<std::shared_ptr<io::ReadableFile>> maybe_readable_file =
+      io::ReadableFile::Open(filename);
+  RETURN_NOT_OK(maybe_readable_file);
 
   // TableReader expects a RandomAccessFile.
-  std::shared_ptr<io::RandomAccessFile> random_access_file(readable_file);
+  std::shared_ptr<io::RandomAccessFile> random_access_file{
+      maybe_readable_file.ValueOrDie()};
 
   // Open the Feather file for reading with a TableReader.
-  RETURN_NOT_OK(ipc::feather::TableReader::Open(random_access_file,
-                                                &(*feather_reader)->table_reader_));
+  arrow::Result<std::shared_ptr<ipc::feather::Reader>> maybe_reader =
+      ipc::feather::Reader::Open(random_access_file);
+  RETURN_NOT_OK(maybe_reader);
 
-  // Read the table metadata from the Feather file.
-  (*feather_reader)->num_rows_ = (*feather_reader)->table_reader_->num_rows();
-  (*feather_reader)->num_variables_ = (*feather_reader)->table_reader_->num_columns();
-  (*feather_reader)->description_ =
-      (*feather_reader)->table_reader_->HasDescription()
-          ? (*feather_reader)->table_reader_->GetDescription()
-          : "";
+  // Set the internal reader_ object.
+  (*feather_reader)->reader_ = maybe_reader.ValueOrDie();
+  std::shared_ptr<ipc::feather::Reader> reader = (*feather_reader)->reader_;
 
-  if ((*feather_reader)->num_rows_ > internal::MAX_MATLAB_SIZE ||
-      (*feather_reader)->num_variables_ > internal::MAX_MATLAB_SIZE) {
-    mexErrMsgIdAndTxt("MATLAB:arrow:SizeTooLarge",
-                      "The table size exceeds MATLAB limits: %u x %u",
-                      (*feather_reader)->num_rows_, (*feather_reader)->num_variables_);
+  // Check the feather file version
+  int version = reader->version();
+  if (version == ipc::feather::kFeatherV2Version) {
+    return Status::NotImplemented("Support for Feather V2 has not been implemented.");
+  } else if (version != ipc::feather::kFeatherV1Version) {
+    return Status::Invalid("Unknown Feather format version.");
   }
 
+  // read the table metadata from the Feather file
+  std::shared_ptr<Schema> schema = reader->schema();
+  (*feather_reader)->num_variables_ = schema->num_fields();
   return Status::OK();
 }
 
@@ -225,15 +232,11 @@ mxArray* FeatherReader::ReadMetadata() const {
   mxSetField(metadata, 0, "NumVariables",
              mxCreateDoubleScalar(static_cast<double>(num_variables_)));
 
-  // Set the description.
-  mxSetField(metadata, 0, "Description",
-             util::ConvertUTF8StringToUTF16CharMatrix(description_));
-
   return metadata;
 }
 
 // Read the table variables from the Feather file as a mxArray*.
-mxArray* FeatherReader::ReadVariables() const {
+mxArray* FeatherReader::ReadVariables() {
   const int32_t num_variable_fields = 4;
   const char* fieldnames[] = {"Name", "Type", "Data", "Valid"};
 
@@ -242,16 +245,34 @@ mxArray* FeatherReader::ReadVariables() const {
   mxArray* variables =
       mxCreateStructMatrix(1, num_variables_, num_variable_fields, fieldnames);
 
-  // Read all the table variables in the Feather file into memory.
+  // Read the entire table in the Feather file into memory.
+  std::shared_ptr<arrow::Table> table = nullptr;
+  arrow::Status status = reader_->Read(&table);
+  if (!status.ok()) {
+    mexErrMsgIdAndTxt("MATLAB:arrow:FeatherReader::FailedToReadTable",
+                      "Failed to read arrow::Table from Feather file.");
+  }
+
+  // Set the number of rows
+  num_rows_ = table->num_rows();
+
+  if (num_rows_ > internal::MAX_MATLAB_SIZE ||
+      num_variables_ > internal::MAX_MATLAB_SIZE) {
+    mexErrMsgIdAndTxt("MATLAB:arrow:SizeTooLarge",
+                      "The table size exceeds MATLAB limits: %u x %u", num_rows_,
+                      num_variables_);
+  }
+
+  std::vector<std::string> column_names = table->ColumnNames();
+
   for (int64_t i = 0; i < num_variables_; ++i) {
-    std::shared_ptr<ChunkedArray> column;
-    util::HandleStatus(table_reader_->GetColumn(i, &column));
+    std::shared_ptr<ChunkedArray> column = table->column(i);
     if (column->num_chunks() != 1) {
       mexErrMsgIdAndTxt("MATLAB:arrow:FeatherReader::ReadVariables",
                         "Chunked columns not yet supported");
     }
     std::shared_ptr<Array> chunk = column->chunk(0);
-    const std::string column_name = table_reader_->GetColumnName(i);
+    const std::string column_name = column_names[i];
 
     // set the struct fields data
     mxSetField(variables, i, "Name", internal::ReadVariableName(column_name));
