@@ -169,10 +169,10 @@ RecordBatch$create <- function(..., schema = NULL) {
     arrays <- modify2(
       arrays,
       arr_lens == 1,
-      ~if(.y) MakeArrayFromScalar(Scalar$create(as.vector(.x)), max_array_len) else .x
+      ~if(.y) repeat_value_as_array(.x, max_array_len) else .x
     )
   }
-  
+
   # TODO: should this also assert that they're all Arrays?
   RecordBatch__from_arrays(schema, arrays)
 }
