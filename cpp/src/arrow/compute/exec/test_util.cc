@@ -33,7 +33,6 @@
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/datum.h"
 #include "arrow/record_batch.h"
-#include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/iterator.h"
@@ -144,50 +143,20 @@ struct RecordBatchReaderNode : ExecNode {
 
   const char* kind_name() override { return "RecordBatchReader"; }
 
-  void InputReceived(ExecNode* input, int seq_num, ExecBatch batch) override {}
+  void InputReceived(ExecNode* input, int seq_num, compute::ExecBatch batch) override {}
 
   void ErrorReceived(ExecNode* input, Status error) override {}
 
   void InputFinished(ExecNode* input, int seq_stop) override {}
 
   Status StartProducing() override {
-    if (!stopped_) return Status::OK();
-
+    next_batch_index_ = 0;
     if (!generator_) {
       auto it = MakeIteratorFromReader(reader_);
       ARROW_ASSIGN_OR_RAISE(generator_,
                             MakeBackgroundGenerator(std::move(it), io_executor_));
     }
-
-    next_batch_index_ = 0;
-    stopped_ = false;
-
-    (void)Loop([&] {
-      return io_executor_->Transfer(generator_())
-          .Then(
-              [&](const std::shared_ptr<RecordBatch>& batch) -> ControlFlow<int> {
-                std::unique_lock<std::mutex> lock(mutex_);
-                int batch_index = next_batch_index_++;
-                if (stopped_) return Break(batch_index);
-                if (IsIterationEnd(batch)) return Break(batch_index);
-                lock.unlock();
-
-                for (auto out : outputs_) {
-                  out->InputReceived(this, batch_index, ExecBatch(*batch));
-                }
-                return Continue();
-              },
-              [&](const Status& err) {
-                for (auto out : outputs_) {
-                  out->ErrorReceived(this, err);
-                }
-                return Break(0);
-              });
-    }).Then([&](const util::optional<int>& batch_index) {
-      for (auto out : outputs_) {
-        out->InputFinished(this, *batch_index);
-      }
-    });
+    GenerateOne(std::unique_lock<std::mutex>{mutex_});
     return Status::OK();
   }
 
@@ -198,18 +167,54 @@ struct RecordBatchReaderNode : ExecNode {
   void StopProducing(ExecNode* output) override {
     ASSERT_EQ(output, outputs_[0]);
     std::unique_lock<std::mutex> lock(mutex_);
-    stopped_ = true;
-    lock.unlock();
+    generator_ = nullptr;  // null function
   }
 
   void StopProducing() override { StopProducing(outputs_[0]); }
 
  private:
+  void GenerateOne(std::unique_lock<std::mutex>&& lock) {
+    if (!generator_) {
+      // Stopped
+      return;
+    }
+    auto plan = this->plan()->shared_from_this();
+    auto fut = generator_();
+    const auto batch_index = next_batch_index_++;
+
+    lock.unlock();
+    // TODO we want to transfer always here
+    io_executor_->Transfer(std::move(fut))
+        .AddCallback(
+            [plan, batch_index, this](const Result<std::shared_ptr<RecordBatch>>& res) {
+              std::unique_lock<std::mutex> lock(mutex_);
+              if (!res.ok()) {
+                for (auto out : outputs_) {
+                  out->ErrorReceived(this, res.status());
+                }
+                return;
+              }
+              const auto& batch = *res;
+              if (IsIterationEnd(batch)) {
+                lock.unlock();
+                for (auto out : outputs_) {
+                  out->InputFinished(this, batch_index);
+                }
+              } else {
+                lock.unlock();
+                for (auto out : outputs_) {
+                  out->InputReceived(this, batch_index, compute::ExecBatch(*batch));
+                }
+                lock.lock();
+                GenerateOne(std::move(lock));
+              }
+            });
+  }
+
   std::mutex mutex_;
   const std::shared_ptr<Schema> schema_;
   const std::shared_ptr<RecordBatchReader> reader_;
   RecordBatchGenerator generator_;
-  bool stopped_ = true;
   int next_batch_index_;
 
   Executor* const io_executor_;

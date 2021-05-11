@@ -139,7 +139,7 @@ class ARROW_EXPORT ExecNode {
   ///   and StopProducing()
 
   /// Transfer input batch to ExecNode
-  virtual void InputReceived(ExecNode* input, int seq_num, ExecBatch batch) = 0;
+  virtual void InputReceived(ExecNode* input, int seq_num, compute::ExecBatch batch) = 0;
 
   /// Signal error to ExecNode
   virtual void ErrorReceived(ExecNode* input, Status error) = 0;
