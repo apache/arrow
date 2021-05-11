@@ -1326,20 +1326,23 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp,
       options.type = schema->field(j)->type();
       options.size = vctrs::vec_size(x);
 
-      // maybe short circuit when zero-copy is possible
-      if (arrow::r::can_reuse_memory(x, options.type)) {
-        columns[j] = std::make_shared<arrow::ChunkedArray>(
-            arrow::r::vec_to_arrow__reuse_memory(x));
-      } else {
-        auto converter_result =
-            arrow::MakeConverter<arrow::r::RConverter, arrow::r::RConverterTrait>(
-                options.type, options, gc_memory_pool());
-        if (!converter_result.ok()) {
-          status = converter_result.status();
-          break;
-        }
-        converters[j] = std::move(converter_result.ValueUnsafe());
+      // TODO: do this in parallel, we can't use vec_to_arrow__reuse_memory()
+      //       as is, because it wraps a SEXP with an cpp11:: vector but it should
+      //       be possible to modify it so that we do the work in a task.
+      //
+      // if (arrow::r::can_reuse_memory(x, options.type)) {
+      //   columns[j] = std::make_shared<arrow::ChunkedArray>(
+      //       arrow::r::vec_to_arrow__reuse_memory(x));
+      // } else {
+      auto converter_result =
+          arrow::MakeConverter<arrow::r::RConverter, arrow::r::RConverterTrait>(
+              options.type, options, gc_memory_pool());
+      if (!converter_result.ok()) {
+        status = converter_result.status();
+        break;
       }
+      converters[j] = std::move(converter_result.ValueUnsafe());
+      // }
     }
   }
   StopIfNotOk(status);
