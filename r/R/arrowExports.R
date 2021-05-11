@@ -1300,6 +1300,14 @@ ImportSchema <- function(schema){
     .Call(`_arrow_ImportSchema`, schema)
 }
 
+ImportField <- function(field){
+    .Call(`_arrow_ImportField`, field)
+}
+
+ImportType <- function(type){
+    .Call(`_arrow_ImportType`, type)
+}
+
 allocate_arrow_schema <- function(){
     .Call(`_arrow_allocate_arrow_schema`)
 }
@@ -1318,6 +1326,10 @@ delete_arrow_array <- function(ptr){
 
 ExportType <- function(type, ptr){
     invisible(.Call(`_arrow_ExportType`, type, ptr))
+}
+
+ExportField <- function(field, ptr){
+    invisible(.Call(`_arrow_ExportField`, field, ptr))
 }
 
 ExportSchema <- function(schema, ptr){

@@ -100,3 +100,19 @@ test_that("Table with metadata roundtrip", {
   expect_equal(reticulate::py_to_r(pytab), tab)
   expect_identical(as.data.frame(reticulate::py_to_r(pytab)), example_with_times)
 })
+
+test_that("DataType roundtrip", {
+  skip_if_no_pyarrow()
+  r <- timestamp("ms", timezone = "Asia/Pyongyang")
+  py <- reticulate::r_to_py(r)
+  expect_s3_class(py, "pyarrow.lib.DataType")
+  expect_equal(reticulate::py_to_r(py), r)
+})
+
+test_that("Field roundtrip", {
+  skip_if_no_pyarrow()
+  r <- field("x", time32("s"))
+  py <- reticulate::r_to_py(r)
+  expect_s3_class(py, "pyarrow.lib.Field")
+  expect_equal(reticulate::py_to_r(py), r)
+})

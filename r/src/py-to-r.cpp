@@ -41,6 +41,16 @@ std::shared_ptr<arrow::Schema> ImportSchema(
 }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::Field> ImportField(arrow::r::Pointer<struct ArrowSchema> field) {
+  return ValueOrStop(arrow::ImportField(field));
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::DataType> ImportType(arrow::r::Pointer<struct ArrowSchema> type) {
+  return ValueOrStop(arrow::ImportType(type));
+}
+
+// [[arrow::export]]
 arrow::r::Pointer<struct ArrowSchema> allocate_arrow_schema() { return {}; }
 
 // [[arrow::export]]
@@ -56,6 +66,12 @@ void delete_arrow_array(arrow::r::Pointer<struct ArrowArray> ptr) { ptr.finalize
 void ExportType(const std::shared_ptr<arrow::DataType>& type,
                 arrow::r::Pointer<struct ArrowSchema> ptr) {
   StopIfNotOk(arrow::ExportType(*type, ptr));
+}
+
+// [[arrow::export]]
+void ExportField(const std::shared_ptr<arrow::Field>& field,
+                 arrow::r::Pointer<struct ArrowSchema> ptr) {
+  StopIfNotOk(arrow::ExportField(*field, ptr));
 }
 
 // [[arrow::export]]

@@ -5100,6 +5100,36 @@ extern "C" SEXP _arrow_ImportSchema(SEXP schema_sexp){
 
 // py-to-r.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Field> ImportField(arrow::r::Pointer<struct ArrowSchema> field);
+extern "C" SEXP _arrow_ImportField(SEXP field_sexp){
+BEGIN_CPP11
+	arrow::r::Input<arrow::r::Pointer<struct ArrowSchema>>::type field(field_sexp);
+	return cpp11::as_sexp(ImportField(field));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ImportField(SEXP field_sexp){
+	Rf_error("Cannot call ImportField(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::DataType> ImportType(arrow::r::Pointer<struct ArrowSchema> type);
+extern "C" SEXP _arrow_ImportType(SEXP type_sexp){
+BEGIN_CPP11
+	arrow::r::Input<arrow::r::Pointer<struct ArrowSchema>>::type type(type_sexp);
+	return cpp11::as_sexp(ImportType(type));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ImportType(SEXP type_sexp){
+	Rf_error("Cannot call ImportType(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
 arrow::r::Pointer<struct ArrowSchema> allocate_arrow_schema();
 extern "C" SEXP _arrow_allocate_arrow_schema(){
 BEGIN_CPP11
@@ -5172,6 +5202,23 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_ExportType(SEXP type_sexp, SEXP ptr_sexp){
 	Rf_error("Cannot call ExportType(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void ExportField(const std::shared_ptr<arrow::Field>& field, arrow::r::Pointer<struct ArrowSchema> ptr);
+extern "C" SEXP _arrow_ExportField(SEXP field_sexp, SEXP ptr_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
+	arrow::r::Input<arrow::r::Pointer<struct ArrowSchema>>::type ptr(ptr_sexp);
+	ExportField(field, ptr);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExportField(SEXP field_sexp, SEXP ptr_sexp){
+	Rf_error("Cannot call ExportField(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -7025,11 +7072,14 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ImportArray", (DL_FUNC) &_arrow_ImportArray, 2}, 
 		{ "_arrow_ImportRecordBatch", (DL_FUNC) &_arrow_ImportRecordBatch, 2}, 
 		{ "_arrow_ImportSchema", (DL_FUNC) &_arrow_ImportSchema, 1}, 
+		{ "_arrow_ImportField", (DL_FUNC) &_arrow_ImportField, 1}, 
+		{ "_arrow_ImportType", (DL_FUNC) &_arrow_ImportType, 1}, 
 		{ "_arrow_allocate_arrow_schema", (DL_FUNC) &_arrow_allocate_arrow_schema, 0}, 
 		{ "_arrow_delete_arrow_schema", (DL_FUNC) &_arrow_delete_arrow_schema, 1}, 
 		{ "_arrow_allocate_arrow_array", (DL_FUNC) &_arrow_allocate_arrow_array, 0}, 
 		{ "_arrow_delete_arrow_array", (DL_FUNC) &_arrow_delete_arrow_array, 1}, 
 		{ "_arrow_ExportType", (DL_FUNC) &_arrow_ExportType, 2}, 
+		{ "_arrow_ExportField", (DL_FUNC) &_arrow_ExportField, 2}, 
 		{ "_arrow_ExportSchema", (DL_FUNC) &_arrow_ExportSchema, 2}, 
 		{ "_arrow_ExportArray", (DL_FUNC) &_arrow_ExportArray, 3}, 
 		{ "_arrow_ExportRecordBatch", (DL_FUNC) &_arrow_ExportRecordBatch, 3}, 
