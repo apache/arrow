@@ -87,3 +87,5 @@ popd
 
 # copy the library to distribution
 cp -L  /arrow-dist/lib/libgandiva_jni.so /arrow/dist
+cp -L  /arrow-dist/lib/libarrow_dataset_jni.so /arrow/dist
+cp -L  /arrow-dist/lib/libarrow_orc_jni.so /arrow/dist
