@@ -1622,12 +1622,7 @@ struct ExtractRegex : public ExtractRegexBase {
             checked_cast<BuilderType*>(struct_builder->field_builder(i)));
       }
 
-      auto visit_null = [&]() {
-        for (int i = 0; i < group_count; i++) {
-          RETURN_NOT_OK(field_builders[i]->AppendEmptyValue());
-        }
-        return struct_builder->AppendNull();
-      };
+      auto visit_null = [&]() { return struct_builder->AppendNull(); };
       auto visit_value = [&](util::string_view s) {
         if (Match(s)) {
           for (int i = 0; i < group_count; i++) {
@@ -1635,7 +1630,7 @@ struct ExtractRegex : public ExtractRegexBase {
           }
           return struct_builder->Append();
         } else {
-          return visit_null();
+          return struct_builder->AppendNull();
         }
       };
       const ArrayData& input = *batch[0].array();
