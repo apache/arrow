@@ -60,6 +60,15 @@ write_ipc_stream <- function(x, sink, ...) {
 #' @inheritParams write_feather
 #' @param format one of `c("stream", "file")`, indicating the IPC format to use
 #' @return A `raw` vector containing the bytes of the IPC serialized data.
+#' @examples
+#' # The default format is "stream" so these two lines do the same thing
+#' write_to_raw(mtcars)
+#' write_to_raw(mtcars, format = "stream")
+#' 
+#' write_to_raw(mtcars, format = "file")
+#' 
+#' cars_table <- Table$create(mtcars)
+#' write_to_raw(cars_table)
 #' @export
 write_to_raw <- function(x, format = c("stream", "file")) {
   sink <- BufferOutputStream$create()

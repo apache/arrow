@@ -20,3 +20,13 @@ the data (\code{data.frame}, \code{RecordBatch}, or \code{Table}) they were give
 This function wraps those so that you can serialize data to a buffer and
 access that buffer as a \code{raw} vector in R.
 }
+\examples{
+# The default format is "stream" so these two lines do the same thing
+write_to_raw(mtcars)
+write_to_raw(mtcars, format = "stream")
+
+write_to_raw(mtcars, format = "file")
+
+cars_table <- Table$create(mtcars)
+write_to_raw(cars_table)
+}
