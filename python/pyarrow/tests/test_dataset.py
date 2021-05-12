@@ -343,11 +343,12 @@ def test_scanner(dataset):
     assert scanner.projected_schema == pa.schema([("i64", pa.int64())])
 
     assert isinstance(scanner, ds.Scanner)
+    table = scanner.to_table()
     for batch in scanner.to_batches():
         assert batch.schema == scanner.projected_schema
         assert batch.num_columns == 1
+    assert table == scanner.to_reader().read_all()
 
-    table = scanner.to_table()
     assert table.schema == scanner.projected_schema
     for i in range(table.num_rows):
         indices = pa.array([i])

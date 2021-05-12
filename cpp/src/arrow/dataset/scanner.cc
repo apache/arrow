@@ -164,6 +164,36 @@ Result<int64_t> Scanner::CountRows() {
   return count;
 }
 
+namespace {
+class ScannerRecordBatchReader : public RecordBatchReader {
+ public:
+  explicit ScannerRecordBatchReader(std::shared_ptr<Schema> schema,
+                                    TaggedRecordBatchIterator delegate)
+      : schema_(std::move(schema)), delegate_(std::move(delegate)) {}
+
+  std::shared_ptr<Schema> schema() const override { return schema_; }
+  Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
+    ARROW_ASSIGN_OR_RAISE(auto next, delegate_.Next());
+    if (IsIterationEnd(next)) {
+      *batch = nullptr;
+    } else {
+      *batch = std::move(next.record_batch);
+    }
+    return Status::OK();
+  }
+
+ private:
+  std::shared_ptr<Schema> schema_;
+  TaggedRecordBatchIterator delegate_;
+};
+}  // namespace
+
+Result<std::shared_ptr<RecordBatchReader>> Scanner::ToRecordBatchReader() {
+  ARROW_ASSIGN_OR_RAISE(auto it, ScanBatches());
+  return std::make_shared<ScannerRecordBatchReader>(options()->projected_schema,
+                                                    std::move(it));
+}
+
 struct ScanBatchesState : public std::enable_shared_from_this<ScanBatchesState> {
   explicit ScanBatchesState(ScanTaskIterator scan_task_it,
                             std::shared_ptr<TaskGroup> task_group_)
