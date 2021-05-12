@@ -166,6 +166,28 @@ r_to_py.DataType <- function(x, convert = FALSE) {
   out
 }
 
+py_to_r.pyarrow.lib.RecordBatchReader <- function(x, ...) {
+  stream_ptr <- allocate_arrow_array_stream()
+  on.exit(delete_arrow_array_stream(stream_ptr))
+
+  x$`_export_to_c`(stream_ptr)
+  ImportRecordBatchReader(stream_ptr)
+}
+
+r_to_py.RecordBatchReader <- function(x, convert = FALSE) {
+  stream_ptr <- allocate_arrow_array_stream()
+  on.exit(delete_arrow_array_stream(stream_ptr))
+
+  # Import with convert = FALSE so that `_import_from_c` returns a Python object
+  pa <- reticulate::import("pyarrow", convert = FALSE)
+  ExportRecordBatchReader(x, stream_ptr)
+  # TODO: handle subclasses of RecordBatchReader?
+  out <- pa$RecordBatchReader$`_import_from_c`(stream_ptr)
+  # But set the convert attribute on the return object to the requested value
+  assign("convert", convert, out)
+  out
+}
+
 
 maybe_py_to_r <- function(x) {
   if (inherits(x, "python.builtin.object")) {

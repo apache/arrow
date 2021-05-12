@@ -22,6 +22,26 @@
 #include <arrow/c/bridge.h>
 
 // [[arrow::export]]
+arrow::r::Pointer<struct ArrowSchema> allocate_arrow_schema() { return {}; }
+
+// [[arrow::export]]
+void delete_arrow_schema(arrow::r::Pointer<struct ArrowSchema> ptr) { ptr.finalize(); }
+
+// [[arrow::export]]
+arrow::r::Pointer<struct ArrowArray> allocate_arrow_array() { return {}; }
+
+// [[arrow::export]]
+void delete_arrow_array(arrow::r::Pointer<struct ArrowArray> ptr) { ptr.finalize(); }
+
+// [[arrow::export]]
+arrow::r::Pointer<struct ArrowArrayStream> allocate_arrow_array_stream() { return {}; }
+
+// [[arrow::export]]
+void delete_arrow_array_stream(arrow::r::Pointer<struct ArrowArrayStream> ptr) {
+  ptr.finalize();
+}
+
+// [[arrow::export]]
 std::shared_ptr<arrow::Array> ImportArray(arrow::r::Pointer<struct ArrowArray> array,
                                           arrow::r::Pointer<struct ArrowSchema> schema) {
   return ValueOrStop(arrow::ImportArray(array, schema));
@@ -51,16 +71,10 @@ std::shared_ptr<arrow::DataType> ImportType(arrow::r::Pointer<struct ArrowSchema
 }
 
 // [[arrow::export]]
-arrow::r::Pointer<struct ArrowSchema> allocate_arrow_schema() { return {}; }
-
-// [[arrow::export]]
-void delete_arrow_schema(arrow::r::Pointer<struct ArrowSchema> ptr) { ptr.finalize(); }
-
-// [[arrow::export]]
-arrow::r::Pointer<struct ArrowArray> allocate_arrow_array() { return {}; }
-
-// [[arrow::export]]
-void delete_arrow_array(arrow::r::Pointer<struct ArrowArray> ptr) { ptr.finalize(); }
+std::shared_ptr<arrow::RecordBatchReader> ImportRecordBatchReader(
+    arrow::r::Pointer<struct ArrowArrayStream> stream) {
+  return ValueOrStop(arrow::ImportRecordBatchReader(stream));
+}
 
 // [[arrow::export]]
 void ExportType(const std::shared_ptr<arrow::DataType>& type,
@@ -92,6 +106,12 @@ void ExportRecordBatch(const std::shared_ptr<arrow::RecordBatch>& batch,
                        arrow::r::Pointer<struct ArrowArray> array_ptr,
                        arrow::r::Pointer<struct ArrowSchema> schema_ptr) {
   StopIfNotOk(arrow::ExportRecordBatch(*batch, array_ptr, schema_ptr));
+}
+
+// [[arrow::export]]
+void ExportRecordBatchReader(const std::shared_ptr<arrow::RecordBatchReader>& reader,
+                             arrow::r::Pointer<struct ArrowArrayStream> stream_ptr) {
+  StopIfNotOk(arrow::ExportRecordBatchReader(*batch, stream_ptr));
 }
 
 #endif
