@@ -667,7 +667,8 @@ tasks:
         TEST_DEFAULT: 0
       artifact: "wheels"
 
-  {% for target in ["csharp",
+  {% for target in ["cpp",
+                    "csharp",
                     "go",
                     "integration",
                     "java",
