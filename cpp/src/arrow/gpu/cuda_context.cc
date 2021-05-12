@@ -160,7 +160,8 @@ class CudaContext::Impl {
     return Status::OK();
   }
 
-  Result<std::shared_ptr<CudaIpcMemHandle>> ExportIpcBuffer(void* data, int64_t size) {
+  Result<std::shared_ptr<CudaIpcMemHandle>> ExportIpcBuffer(const void* data,
+                                                            int64_t size) {
     CUipcMemHandle cu_handle;
     if (size > 0) {
       ContextSaver set_temporary(context_);
@@ -538,7 +539,7 @@ Result<std::shared_ptr<CudaBuffer>> CudaContext::View(uint8_t* data, int64_t nby
   return std::make_shared<CudaBuffer>(data, nbytes, this->shared_from_this(), false);
 }
 
-Result<std::shared_ptr<CudaIpcMemHandle>> CudaContext::ExportIpcBuffer(void* data,
+Result<std::shared_ptr<CudaIpcMemHandle>> CudaContext::ExportIpcBuffer(const void* data,
                                                                        int64_t size) {
   return impl_->ExportIpcBuffer(data, size);
 }
