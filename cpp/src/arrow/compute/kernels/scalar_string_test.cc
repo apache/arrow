@@ -91,6 +91,14 @@ TYPED_TEST(TestStringKernels, AsciiLower) {
                    "[\"aaazzæÆ&\", null, \"\", \"bbb\"]");
 }
 
+TYPED_TEST(TestStringKernels, StringReverse) {
+  this->CheckUnary("string_reverse", "[]", this->type(), "[]");
+  this->CheckUnary("string_reverse", "[\"abcd\", null, \"\", \"bbb\"]", this->type(),
+                   "[\"dcba\", null, \"\", \"bbb\"]");
+//  this->CheckUnary("string_reverse", "[\"aAazZæÆ&\", null, \"\", \"bbb\"]", this->type(),
+//                   "[\"&ÆæZzaAa\", null, \"\", \"bbb\"]");
+}
+
 TEST(TestStringKernels, LARGE_MEMORY_TEST(Utf8Upper32bitGrowth)) {
   // 0x7fff * 0xffff is the max a 32 bit string array can hold
   // since the utf8_upper kernel can grow it by 3/2, the max we should accept is is
