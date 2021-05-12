@@ -46,7 +46,7 @@ public class JdbcToArrowOptionalColumnsTest extends AbstractJdbcToArrowTest {
   };
 
   /**
-   * Constructor which populate table object for each test iteration.
+   * Constructor which populates the table object for each test iteration.
    *
    * @param table Table object
    */
@@ -64,7 +64,7 @@ public class JdbcToArrowOptionalColumnsTest extends AbstractJdbcToArrowTest {
    */
   @Parameterized.Parameters
   public static Collection<Object[]> getTestData() throws SQLException, ClassNotFoundException, IOException {
-    return Arrays.asList(prepareTestData(testFiles, JdbcToArrowNullTest.class));
+    return Arrays.asList(prepareTestData(testFiles, JdbcToArrowOptionalColumnsTest.class));
   }
 
   /**
