@@ -100,8 +100,7 @@ class SimpleRecordBatch : public RecordBatch {
     }
 
     ARROW_ASSIGN_OR_RAISE(auto new_schema, schema_->AddField(i, field));
-
-    return RecordBatch::Make(new_schema, num_rows_,
+    return RecordBatch::Make(std::move(new_schema), num_rows_,
                              internal::AddVectorElement(columns_, i, column->data()));
   }
 
@@ -123,21 +122,20 @@ class SimpleRecordBatch : public RecordBatch {
     }
 
     ARROW_ASSIGN_OR_RAISE(auto new_schema, schema_->SetField(i, field));
-    return RecordBatch::Make(new_schema, num_rows_,
+    return RecordBatch::Make(std::move(new_schema), num_rows_,
                              internal::ReplaceVectorElement(columns_, i, column->data()));
   }
 
   Result<std::shared_ptr<RecordBatch>> RemoveColumn(int i) const override {
     ARROW_ASSIGN_OR_RAISE(auto new_schema, schema_->RemoveField(i));
-
-    return RecordBatch::Make(new_schema, num_rows_,
+    return RecordBatch::Make(std::move(new_schema), num_rows_,
                              internal::DeleteVectorElement(columns_, i));
   }
 
   std::shared_ptr<RecordBatch> ReplaceSchemaMetadata(
       const std::shared_ptr<const KeyValueMetadata>& metadata) const override {
     auto new_schema = schema_->WithMetadata(metadata);
-    return RecordBatch::Make(new_schema, num_rows_, columns_);
+    return RecordBatch::Make(std::move(new_schema), num_rows_, columns_);
   }
 
   std::shared_ptr<RecordBatch> Slice(int64_t offset, int64_t length) const override {
@@ -271,7 +269,7 @@ Result<std::shared_ptr<RecordBatch>> RecordBatch::SelectColumns(
 
   auto new_schema =
       std::make_shared<arrow::Schema>(std::move(fields), schema()->metadata());
-  return RecordBatch::Make(new_schema, num_rows(), std::move(columns));
+  return RecordBatch::Make(std::move(new_schema), num_rows(), std::move(columns));
 }
 
 std::shared_ptr<RecordBatch> RecordBatch::Slice(int64_t offset) const {
