@@ -822,7 +822,7 @@ TEST(TestTime, TestMonthsBetween) {
   }
 }
 
-TEST(TestTime, castVarcharTimestamp) {
+TEST(TestTime, TestCastVarcharTimestamp) {
   ExecutionContext context;
   int64_t context_ptr = reinterpret_cast<int64_t>(&context);
   gdv_int32 out_len;
@@ -839,6 +839,163 @@ TEST(TestTime, castVarcharTimestamp) {
   ts = StringToTimestamp("2-5-1 00:00:04");
   out = castVARCHAR_timestamp_int64(context_ptr, ts, 24L, &out_len);
   EXPECT_EQ(std::string(out, out_len), "0002-05-01 00:00:04.000");
+}
+
+TEST(TestTime, TestCastVarcharDate) {
+  ExecutionContext context;
+  auto context_ptr = reinterpret_cast<int64_t>(&context);
+  int32_t out_len;
+  int64_t date = StringToTimestamp("2000-05-01 00:00:00");
+  const char* out = castVARCHAR_date_int64(context_ptr, date, 10L, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "2000-05-01");
+
+  out = castVARCHAR_date_int64(context_ptr, date, 4L, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "2000");
+
+  out = castVARCHAR_date_int64(context_ptr, date, 0L, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "");
+
+  out = castVARCHAR_date_int64(context_ptr, date, -1L, &out_len);
+  EXPECT_TRUE(context.has_error());
+  EXPECT_EQ(std::string(out, out_len), "");
+
+  context.Reset();
+
+  date = StringToTimestamp("2-5-1 00:00:00");
+  out = castVARCHAR_date_int64(context_ptr, date, 10L, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "0002-05-01");
+}
+
+TEST(TestTime, TestCastVarcharTime) {
+  ExecutionContext context;
+  auto context_ptr = reinterpret_cast<int64_t>(&context);
+  int32_t out_len;
+
+  int32_t millis = ExtractTime(0, 0, 0, 0);
+  const char* out = castVARCHAR_time_int64(context_ptr, millis, 12L, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "00:00:00.000");
+
+  millis = ExtractTime(15, 30, 30, 30);
+  out = castVARCHAR_time_int64(context_ptr, millis, 12L, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "15:30:30.030");
+
+  millis = ExtractTime(23, 59, 59, 999);
+  out = castVARCHAR_time_int64(context_ptr, millis, 12L, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "23:59:59.999");
+
+  millis = ExtractTime(23, 59, 59, 999);
+  out = castVARCHAR_time_int64(context_ptr, millis, 20L, &out_len);
+  EXPECT_EQ(out_len, 12);
+  EXPECT_EQ(std::string(out, out_len), "23:59:59.999");
+
+  out = castVARCHAR_time_int64(context_ptr, millis, 4L, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "23:5");
+
+  out = castVARCHAR_time_int64(context_ptr, millis, 0L, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "");
+
+  out = castVARCHAR_time_int64(context_ptr, millis, -1L, &out_len);
+  EXPECT_TRUE(context.has_error());
+  EXPECT_EQ(std::string(out, out_len), "");
+
+  context.Reset();
+}
+
+TEST(TestTime, TestCastVARCHARFromIntervalDay) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = 0;
+
+  int64_t interval_day = ExtractIntervalDay(1, 1, 1, 1, 1);
+  const char* out_str =
+      castVARCHAR_intervalday_int64(ctx_ptr, interval_day, 20, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "1 day 01:01:01.001");
+  EXPECT_FALSE(ctx.has_error());
+
+  interval_day = ExtractIntervalDay(0, 0, 0, 0, 1);
+  out_str = castVARCHAR_intervalday_int64(ctx_ptr, interval_day, 20, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "0 days 00:00:00.001");
+  EXPECT_FALSE(ctx.has_error());
+
+  // Truncate the response
+  interval_day = ExtractIntervalDay(0, 0, 0, 0, 1);
+  out_str = castVARCHAR_intervalday_int64(ctx_ptr, interval_day, 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "0 da");
+  EXPECT_FALSE(ctx.has_error());
+
+  // Truncate the response
+  interval_day = ExtractIntervalDay(0, 0, 0, 0, 1);
+  out_str = castVARCHAR_intervalday_int64(ctx_ptr, interval_day, 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  // Invalid size
+  interval_day = ExtractIntervalDay(23, 23, 59, 42, 123);
+  out_str = castVARCHAR_intervalday_int64(ctx_ptr, interval_day, -1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_TRUE(ctx.has_error());
+
+  ctx.Reset();
+
+  interval_day = ExtractIntervalDay(23, 12, 59, 42, 123);
+  out_str = castVARCHAR_intervalday_int64(ctx_ptr, interval_day, 30, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "23 days 12:59:42.123");
+  EXPECT_FALSE(ctx.has_error());
+}
+
+TEST(TestTime, TestCastVARCHARFromIntervalYear) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = 0;
+
+  int64_t interval_year = ExtractIntervalYear(1, 1);
+  const char* out_str =
+      castVARCHAR_intervalyear_int64(ctx_ptr, interval_year, 20, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "1 year 1 month");
+  EXPECT_FALSE(ctx.has_error());
+
+  interval_year = ExtractIntervalYear(0, 1);
+  out_str = castVARCHAR_intervalyear_int64(ctx_ptr, interval_year, 20, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "0 years 1 month");
+  EXPECT_FALSE(ctx.has_error());
+
+  // Truncate the response
+  interval_year = ExtractIntervalYear(0, 1);
+  out_str = castVARCHAR_intervalyear_int64(ctx_ptr, interval_year, 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "0 ye");
+  EXPECT_FALSE(ctx.has_error());
+
+  // Truncate the response
+  interval_year = ExtractIntervalYear(0, 1);
+  out_str = castVARCHAR_intervalyear_int64(ctx_ptr, interval_year, 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  // Invalid size
+  interval_year = ExtractIntervalYear(23, 12);
+  out_str = castVARCHAR_intervalyear_int64(ctx_ptr, interval_year, -1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_TRUE(ctx.has_error());
+
+  ctx.Reset();
+
+  // Use negative numbers
+  interval_year = ExtractIntervalYear(-23, -12);
+  out_str = castVARCHAR_intervalyear_int64(ctx_ptr, interval_year, 30, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "-23 years -12 months");
+  EXPECT_FALSE(ctx.has_error());
+
+  // Test with positive numbers
+  interval_year = ExtractIntervalYear(23, 12);
+  out_str = castVARCHAR_intervalyear_int64(ctx_ptr, interval_year, 30, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "23 years 12 months");
+  EXPECT_FALSE(ctx.has_error());
+
+  // Test with 13 months convert to years
+  interval_year = ExtractIntervalYear(23, 13);
+  out_str = castVARCHAR_intervalyear_int64(ctx_ptr, interval_year, 30, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "24 years 1 month");
+  EXPECT_FALSE(ctx.has_error());
 }
 
 TEST(TestTime, TestCastTimestampToDate) {

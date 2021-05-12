@@ -147,6 +147,7 @@ double gdv_fn_castFLOAT8_utf8(int64_t context, const char* data, int32_t data_le
 GANDIVA_EXPORT
 const char* gdv_fn_castVARCHAR_int32_int64(int64_t context, int32_t value, int64_t len,
                                            int32_t* out_len);
+
 GANDIVA_EXPORT
 const char* gdv_fn_castVARCHAR_date64_int64(int64_t context, gdv_date64 value,
                                             int64_t len, int32_t* out_len);

@@ -21,6 +21,7 @@
 #include <limits>
 
 #include "gandiva/execution_context.h"
+#include "gandiva/precompiled/testing.h"
 #include "gandiva/precompiled/types.h"
 
 namespace gandiva {

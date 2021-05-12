@@ -28,3 +28,5 @@
 #define MILLIS_TO_HOUR(millis) ((millis) / MILLIS_IN_HOUR)
 #define MILLIS_TO_DAY(millis) ((millis) / MILLIS_IN_DAY)
 #define MILLIS_TO_WEEK(millis) ((millis) / MILLIS_IN_WEEK)
+
+#define MONTHS_IN_YEAR (12)

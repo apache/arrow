@@ -964,6 +964,243 @@ const char* castVARCHAR_timestamp_int64(gdv_int64 context, gdv_timestamp in,
   return ret;
 }
 
+const char* castVARCHAR_date_int64(int64_t context, int64_t date, int64_t length,
+                                   int32_t* out_len) {
+  if (length <= 0) {
+    if (length < 0) {
+      gdv_fn_context_set_error_msg(context, "Length of output string cannot be negative");
+    }
+    *out_len = 0;
+    return "";
+  }
+
+  int64_t year = extractYear_date64(date);
+  int64_t month = extractMonth_date64(date);
+  int64_t day = extractDay_date64(date);
+
+  static const int kDateStringLen = 10;
+  const int char_buffer_length = kDateStringLen + 1;  // snprintf adds \0
+  char char_buffer[char_buffer_length];
+
+  // yyyy-MM-dd
+  int res = snprintf(char_buffer, char_buffer_length,
+                     "%04" PRId64 "-%02" PRId64 "-%02" PRId64, year, month, day);
+  if (res < 0) {
+    gdv_fn_context_set_error_msg(context, "Could not format the date");
+    return "";
+  }
+
+  *out_len = static_cast<int32_t>(length);
+  if (*out_len > kDateStringLen) {
+    *out_len = kDateStringLen;
+  }
+
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  memcpy(ret, char_buffer, *out_len);
+  return ret;
+}
+
+const char* castVARCHAR_time_int64(int64_t context, int32_t millis_in_day, int64_t length,
+                                   int32_t* out_len) {
+  if (length <= 0) {
+    if (length < 0) {
+      gdv_fn_context_set_error_msg(context, "Length of output string cannot be negative");
+    }
+    *out_len = 0;
+    return "";
+  }
+
+  int64_t hour = extractHour_time32(millis_in_day);
+  int64_t minute = extractMinute_time32(millis_in_day);
+  int64_t second = extractSecond_time32(millis_in_day);
+  int64_t millis = millis_in_day % MILLIS_IN_SEC;
+
+  static const int kTimeStringLen = 12;
+  const int char_buffer_length = kTimeStringLen + 1;  // snprintf adds \0
+  char char_buffer[char_buffer_length];
+
+  // HH:MM:SS.SSS
+  int res = snprintf(char_buffer, char_buffer_length,
+                     "%02" PRId64 ":%02" PRId64 ":%02" PRId64 ".%03" PRId64, hour, minute,
+                     second, millis);
+  if (res < 0) {
+    gdv_fn_context_set_error_msg(context, "Could not format the time");
+    return "";
+  }
+
+  *out_len = static_cast<int32_t>(length);
+  if (*out_len > kTimeStringLen) {
+    *out_len = kTimeStringLen;
+  }
+
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  memcpy(ret, char_buffer, *out_len);
+  return ret;
+}
+
+static inline int32_t gdv_fn_get_num_digit_int32(int32_t number) {
+  int32_t num_digits = 1;
+
+  if (number < 0) {
+    num_digits += 1;
+    number *= -1;
+  }
+
+  while (number >= 10) {
+    number = number / 10;
+    num_digits += 1;
+  }
+
+  return num_digits;
+}
+
+FORCE_INLINE
+const char* castVARCHAR_intervalday_int64(int64_t context, int64_t value, int64_t len,
+                                          int32_t* out_len) {
+  if (len < 0) {
+    gdv_fn_context_set_error_msg(context, "Buffer length can not be negative");
+    *out_len = 0;
+    return "";
+  }
+
+  if (len == 0) {
+    *out_len = 0;
+    return "";
+  }
+
+  auto days = static_cast<int32_t>(value & 0x00000000FFFFFFFF);
+  auto millis = static_cast<int32_t>((value & 0xFFFFFFFF00000000) >> 32);
+
+  int32_t hours = millis / MILLIS_IN_HOUR;
+  millis = millis % MILLIS_IN_HOUR;
+
+  int32_t minutes = millis / MILLIS_IN_MIN;
+  millis = millis % MILLIS_IN_MIN;
+
+  int32_t seconds = millis / MILLIS_IN_SEC;
+  millis = millis % MILLIS_IN_SEC;
+
+  // The number of characters to represent the time format HH:MM:SS.SSS
+  int32_t num_digits = 12;
+
+  const char* day_string;
+  if (abs(days) == 1) {
+    day_string = " day ";
+    num_digits += gdv_fn_get_num_digit_int32(days);
+    num_digits += 5;
+  } else {
+    day_string = " days ";
+    num_digits += gdv_fn_get_num_digit_int32(days);
+    num_digits += 6;
+  }
+
+  *out_len = static_cast<int32_t>(len);
+  if (*out_len > num_digits) {
+    *out_len = num_digits;
+  }
+
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory");
+    *out_len = 0;
+    return "";
+  }
+
+  int32_t index = snprintf(ret, *out_len + 1,
+                           "%" PRId32 "%s%02" PRId32 ":%02" PRId32 ":%02" PRId32 ".%03d",
+                           days, day_string, hours, minutes, seconds, millis);
+
+  if (index < 0) {
+    gdv_fn_context_set_error_msg(context, "Could not format the millis_in_day");
+    *out_len = 0;
+    return "";
+  }
+
+  return ret;
+}
+
+FORCE_INLINE
+const char* castVARCHAR_intervalyear_int64(int64_t context, int64_t value, int64_t len,
+                                           int32_t* out_len) {
+  if (len < 0) {
+    gdv_fn_context_set_error_msg(context, "Buffer length can not be negative");
+    *out_len = 0;
+    return "";
+  }
+
+  if (len == 0) {
+    *out_len = 0;
+    return "";
+  }
+
+  auto years = static_cast<int32_t>(value & 0x00000000FFFFFFFF);
+  auto months = static_cast<int32_t>((value & 0xFFFFFFFF00000000) >> 32);
+
+  if (abs(months) > 12) {
+    years += months / MONTHS_IN_YEAR;
+    months = months % MONTHS_IN_YEAR;
+  }
+
+  int32_t num_digits = 0;
+
+  const char* year_string;
+  if (abs(years) == 1) {
+    year_string = " year ";
+    num_digits += gdv_fn_get_num_digit_int32(years);
+    num_digits += 6;
+  } else {
+    year_string = " years ";
+    num_digits += gdv_fn_get_num_digit_int32(years);
+    num_digits += 7;
+  }
+
+  const char* month_string;
+  if (abs(months) == 1) {
+    month_string = " month";
+    num_digits += gdv_fn_get_num_digit_int32(months);
+    num_digits += 6;
+  } else {
+    month_string = " months";
+    num_digits += gdv_fn_get_num_digit_int32(months);
+    num_digits += 7;
+  }
+
+  *out_len = static_cast<int32_t>(len);
+  if (*out_len > num_digits) {
+    *out_len = num_digits;
+  }
+
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory");
+    *out_len = 0;
+    return "";
+  }
+
+  int32_t index =
+      snprintf(ret, *out_len + 1, "%d%s%d%s", years, year_string, months, month_string);
+
+  if (index < 0) {
+    gdv_fn_context_set_error_msg(context, "Could not format the millis_in_day");
+    *out_len = 0;
+    return "";
+  }
+
+  return ret;
+}
+
 #define IS_NULL(TYPE) \
   FORCE_INLINE        \
   bool isnull_##TYPE(gdv_##TYPE in, gdv_boolean is_valid) { return !is_valid; }

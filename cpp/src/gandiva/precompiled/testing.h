@@ -17,15 +17,15 @@
 
 #pragma once
 
+#include <gtest/gtest.h>
+
 #include <ctime>
 #include <string>
 
-#include <gtest/gtest.h>
-
 #include "arrow/util/logging.h"
 #include "arrow/util/value_parsing.h"
-
 #include "gandiva/date_utils.h"
+#include "gandiva/precompiled/time_constants.h"
 #include "gandiva/precompiled/types.h"
 
 namespace gandiva {
@@ -38,6 +38,31 @@ static inline gdv_timestamp StringToTimestamp(const std::string& s) {
   DCHECK(success);
   ARROW_UNUSED(success);
   return out * 1000;
+}
+
+static inline int32_t ExtractTime(int32_t hour, int32_t minute, int32_t seconds,
+                                  int32_t millis) {
+  DCHECK(hour < 24 && hour >= 0);
+  DCHECK(minute < 60 && minute >= 0);
+  DCHECK(seconds < 60 && seconds >= 0);
+  DCHECK(millis < 1000 && millis >= 0);
+
+  int32_t total_millis = (hour * MILLIS_IN_HOUR) + (minute * MILLIS_IN_MIN) +
+                         (seconds * MILLIS_IN_SEC) + millis;
+
+  return total_millis;
+}
+
+static inline int64_t ExtractIntervalDay(int64_t days, int64_t hours, int64_t minutes,
+                                         int64_t seconds, int64_t millis) {
+  int64_t total_millis = (hours * MILLIS_IN_HOUR) + (minutes * MILLIS_IN_MIN) +
+                         (seconds * MILLIS_IN_SEC) + millis;
+
+  return ((total_millis & 0x00000000FFFFFFFF) << 32) | (days & 0x00000000FFFFFFFF);
+}
+
+static inline int64_t ExtractIntervalYear(int64_t years, int64_t months) {
+  return ((months & 0x00000000FFFFFFFF) << 32) | (years & 0x00000000FFFFFFFF);
 }
 
 }  // namespace gandiva
