@@ -30,7 +30,7 @@ jobs:
           git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
           if [ $CROSSBOW_USE_COMMIT_ID = true ]; then git -C arrow checkout {{ arrow.head }}; else git -C arrow checkout FETCH_HEAD; fi
           git -C arrow submodule update --init --recursive
-      - name: Build Gandiva
+      - name: Build C++ Libs
         run: |
           python3 -VV
           cd arrow
@@ -43,13 +43,15 @@ jobs:
         env:
           OS_NAME: "linux"
           CHECK_SHARED_DEPENDENCIES: true
+      - name: Compress into single artifact
+        run: tar -cvzf arrow-shared-libs-linux.tar.gz arrow/dist/
       - name: Upload Artifacts
         uses: actions/upload-artifact@v2
         with:
           name: ubuntu-shared-lib
-          path: arrow/dist/libgandiva_jni.so
+          path: arrow-shared-libs-linux.tar.gz
   build-cpp-macos:
-    name: Build C++ Gandiva Libs MacOS
+    name: Build C++ Libs MacOS
     runs-on: macos-latest
     steps:
       - name: Checkout Arrow
@@ -70,11 +72,13 @@ jobs:
           OS_NAME: "osx"
           CHECK_SHARED_DEPENDENCIES: true
           MACOSX_DEPLOYMENT_TARGET: "10.11"
+      - name: Compress into single artifact
+        run: tar -cvzf arrow-shared-libs-macos.tar.gz arrow/dist/
       - name: Upload Artifacts
         uses: actions/upload-artifact@v2
         with:
           name: macos-shared-lib
-          path: arrow/dist/libgandiva_jni.dylib
+          path: tar -cvzf arrow-shared-libs-macos.tar.gz
   package-jar:
     name: Build Gandiva Jar
     runs-on: macos-latest
@@ -91,12 +95,14 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: ubuntu-shared-lib
-          path: arrow/dist
       - name: Download MacOS Gandiva Library
         uses: actions/download-artifact@v2
         with:
           name: macos-shared-lib
-          path: arrow/dist
+      - name: Descompress artifacts
+        run: | 
+          tar -xvzf arrow-shared-libs-macos.tar.gz
+          tar -Xvzf arrow-shared-libs-linux.tar.gz
       - name: Build Gandiva Jar
         run: |
           cd arrow

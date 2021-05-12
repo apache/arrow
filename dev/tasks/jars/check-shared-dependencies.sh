@@ -23,36 +23,51 @@ CPP_BUILD_DIR=$GITHUB_WORKSPACE/arrow/dist/
 
 if [[ $OS_NAME == "linux" ]]; then
   SO_DEP=ldd
+  
   GANDIVA_LIB="$CPP_BUILD_DIR"libgandiva_jni.so
+  DATASET_LIB="$CPP_BUILD_DIR"libarrow_dataset_jni.so
+  ORC_LIB="$CPP_BUILD_DIR"libarrow_orc_jni.so
+  
   WHITELIST=(linux-vdso libz librt libdl libpthread libstdc++ libm libgcc_s libc ld-linux-x86-64)
 else
   SO_DEP="otool -L"
+
   GANDIVA_LIB="$CPP_BUILD_DIR"libgandiva_jni.dylib
+  DATASET_LIB="$CPP_BUILD_DIR"libarrow_dataset_jni.dylib
+  ORC_LIB="$CPP_BUILD_DIR"libarrow_orc_jni.dylib
+
   WHITELIST=(libgandiva_jni libz libncurses libSystem libc++)
 fi
 
-# print the shared library dependencies
-$SO_DEP "$GANDIVA_LIB" | tee dependencies_temp_file.txt 
+LIBRARIES=($GANDIVA_LIB $ORC_LIB $DATASET_LIB)
 
-if [[ $CHECK_SHARED_DEPENDENCIES ]] ; then
-  # exit if any shared library not in whitelisted set is found
-  echo "Checking shared dependencies"
+for library in "${LIBRARIES[@]}"
+do
+  # print the shared library dependencies
+  $SO_DEP "$library" | tee dependencies_temp_file.txt 
 
-  awk '{print $1}' dependencies_temp_file.txt | \
-  while read -r line
-  do
-    found=false
-    
-    for item in "${WHITELIST[@]}"
+  if [[ $CHECK_SHARED_DEPENDENCIES ]] ; then
+    # exit if any shared library not in whitelisted set is found
+    echo "Checking shared dependencies"
+
+    awk '{print $1}' dependencies_temp_file.txt | \
+    while read -r line
     do
-    if [[ "$line" == *"$item"* ]] ; then
+      found=false
+    
+      for item in "${WHITELIST[@]}"
+      do
+      if [[ "$line" == *"$item"* ]] ; then
         found=true
-    fi
+      fi
     done
 
     if [[ "$found" == false ]] ; then
-      echo "Unexpected shared dependency found $line"
+      echo "Unexpected shared dependency found in $library : $line"
       exit 1
     fi
-  done
-fi
+    done
+  fi
+
+  rm dependencies_temp_file.txt
+done

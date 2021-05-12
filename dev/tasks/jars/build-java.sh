@@ -23,12 +23,14 @@ CPP_BUILD_DIR=$GITHUB_WORKSPACE/arrow/dist/
 
 pushd java
   # build the entire project
-  mvn clean install -q -DskipTests -P arrow-jni -Darrow.cpp.build.dir=$CPP_BUILD_DIR
-  # test only gandiva
-  mvn test -q -P arrow-jni -pl gandiva -Dgandiva.cpp.build.dir=$CPP_BUILD_DIR
+  mvn clean install -DskipTests -P arrow-jni -Darrow.cpp.build.dir=$CPP_BUILD_DIR
+  # test jars that have cpp dependencies
+  mvn test -P arrow-jni -pl adapter/orc,gandiva,dataset -Dgandiva.cpp.build.dir=$CPP_BUILD_DIR
 
   if [[ $COPY_JAR_TO_DISTRIBUTION_FOLDER ]] ; then
-    # copy the jars to distribution folder
+    # copy the jars that has cpp dependencies to distribution folder
     find gandiva/target/ -name "*.jar" -not -name "*tests*" -exec cp  {} $CPP_BUILD_DIR \;
+    find adapter/orc/target/ -name "*.jar" -not -name "*tests*" -exec cp  {} $CPP_BUILD_DIR \;
+    find dataset/target/ -name "*.jar" -not -name "*tests*" -exec cp  {} $CPP_BUILD_DIR \;
   fi
 popd
