@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/api_aggregate.h"
-
 #include <functional>
 #include <memory>
 #include <string>
@@ -24,7 +22,13 @@
 #include <vector>
 
 #include "arrow/buffer_builder.h"
+#include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/api_vector.h"
+#include "arrow/compute/exec/key_compare.h"
+#include "arrow/compute/exec/key_encode.h"
+#include "arrow/compute/exec/key_hash.h"
+#include "arrow/compute/exec/key_map.h"
+#include "arrow/compute/exec/util.h"
 #include "arrow/compute/exec_internal.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
@@ -33,6 +37,7 @@
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/cpu_info.h"
 #include "arrow/util/make_unique.h"
 #include "arrow/visitor_inline.h"
 
@@ -434,6 +439,292 @@ struct GrouperImpl : Grouper {
   std::vector<uint8_t> key_bytes_;
   uint32_t num_groups_ = 0;
   std::vector<std::unique_ptr<KeyEncoder>> encoders_;
+};
+
+struct GrouperFastImpl : Grouper {
+  static bool CanUse(const std::vector<ValueDescr>& keys) {
+    for (size_t i = 0; i < keys.size(); ++i) {
+      const auto& key = keys[i].type;
+      if (is_large_binary_like(key->id())) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  static Result<std::unique_ptr<GrouperFastImpl>> Make(
+      const std::vector<ValueDescr>& keys, ExecContext* ctx) {
+    auto impl = ::arrow::internal::make_unique<GrouperFastImpl>();
+    impl->ctx_ = ctx;
+
+    RETURN_NOT_OK(impl->temp_stack_.Init(ctx->memory_pool(), 64 * minibatch_size_max_));
+    impl->encode_ctx_.cpu_info = arrow::internal::CpuInfo::GetInstance();
+    impl->encode_ctx_.stack = &impl->temp_stack_;
+
+    auto num_columns = keys.size();
+    impl->col_metadata_.resize(num_columns);
+    impl->key_types_.resize(num_columns);
+    impl->dictionaries_.resize(num_columns);
+    for (size_t icol = 0; icol < num_columns; ++icol) {
+      const auto& key = keys[icol].type;
+      if (key->id() == Type::DICTIONARY) {
+        auto bit_width = checked_cast<const FixedWidthType&>(*key).bit_width();
+        ARROW_DCHECK(bit_width % 8 == 0);
+        impl->col_metadata_[icol] =
+            arrow::compute::KeyEncoder::KeyColumnMetadata(true, bit_width / 8);
+      } else if (key->id() == Type::BOOL) {
+        impl->col_metadata_[icol] =
+            arrow::compute::KeyEncoder::KeyColumnMetadata(true, 0);
+      } else if (is_fixed_width(key->id())) {
+        impl->col_metadata_[icol] = arrow::compute::KeyEncoder::KeyColumnMetadata(
+            true, checked_cast<const FixedWidthType&>(*key).bit_width() / 8);
+      } else if (is_binary_like(key->id())) {
+        impl->col_metadata_[icol] =
+            arrow::compute::KeyEncoder::KeyColumnMetadata(false, sizeof(uint32_t));
+      } else {
+        return Status::NotImplemented("Keys of type ", *key);
+      }
+      impl->key_types_[icol] = key;
+    }
+
+    impl->encoder_.Init(impl->col_metadata_, &impl->encode_ctx_,
+                        /* row_alignment = */ sizeof(uint64_t),
+                        /* string_alignment = */ sizeof(uint64_t));
+    RETURN_NOT_OK(impl->rows_.Init(ctx->memory_pool(), impl->encoder_.row_metadata()));
+    RETURN_NOT_OK(
+        impl->rows_minibatch_.Init(ctx->memory_pool(), impl->encoder_.row_metadata()));
+    impl->minibatch_size_ = impl->minibatch_size_min_;
+    GrouperFastImpl* impl_ptr = impl.get();
+    auto equal_func = [impl_ptr](
+                          int num_keys_to_compare, const uint16_t* selection_may_be_null,
+                          const uint32_t* group_ids, uint32_t* out_num_keys_mismatch,
+                          uint16_t* out_selection_mismatch) {
+      arrow::compute::KeyCompare::CompareRows(
+          num_keys_to_compare, selection_may_be_null, group_ids, &impl_ptr->encode_ctx_,
+          out_num_keys_mismatch, out_selection_mismatch, impl_ptr->rows_minibatch_,
+          impl_ptr->rows_);
+    };
+    auto append_func = [impl_ptr](int num_keys, const uint16_t* selection) {
+      return impl_ptr->rows_.AppendSelectionFrom(impl_ptr->rows_minibatch_, num_keys,
+                                                 selection);
+    };
+    RETURN_NOT_OK(impl->map_.init(impl->encode_ctx_.cpu_info, ctx->memory_pool(),
+                                  impl->encode_ctx_.stack, impl->log_minibatch_max_,
+                                  equal_func, append_func));
+    impl->cols_.resize(num_columns);
+    constexpr int padding_for_SIMD = 32;
+    impl->minibatch_hashes_.resize(impl->minibatch_size_max_ +
+                                   padding_for_SIMD / sizeof(uint32_t));
+
+    return std::move(impl);
+  }
+
+  ~GrouperFastImpl() { map_.cleanup(); }
+
+  Result<Datum> Consume(const ExecBatch& batch) override {
+    int64_t num_rows = batch.length;
+    int num_columns = batch.num_values();
+
+    // Process dictionaries
+    for (int icol = 0; icol < num_columns; ++icol) {
+      if (key_types_[icol]->id() == Type::DICTIONARY) {
+        auto data = batch[icol].array();
+        auto dict = MakeArray(data->dictionary);
+        if (dictionaries_[icol]) {
+          if (!dictionaries_[icol]->Equals(dict)) {
+            // TODO(bkietz) unify if necessary. For now, just error if any batch's
+            // dictionary differs from the first we saw for this key
+            return Status::NotImplemented("Unifying differing dictionaries");
+          }
+        } else {
+          dictionaries_[icol] = std::move(dict);
+        }
+      }
+    }
+
+    std::shared_ptr<arrow::Buffer> group_ids;
+    ARROW_ASSIGN_OR_RAISE(
+        group_ids, AllocateBuffer(sizeof(uint32_t) * num_rows, ctx_->memory_pool()));
+
+    for (int icol = 0; icol < num_columns; ++icol) {
+      const uint8_t* non_nulls = nullptr;
+      if (batch[icol].array()->buffers[0] != NULLPTR) {
+        non_nulls = batch[icol].array()->buffers[0]->data();
+      }
+      const uint8_t* fixedlen = batch[icol].array()->buffers[1]->data();
+      const uint8_t* varlen = nullptr;
+      if (!col_metadata_[icol].is_fixed_length) {
+        varlen = batch[icol].array()->buffers[2]->data();
+      }
+
+      cols_[icol] = arrow::compute::KeyEncoder::KeyColumnArray(
+          col_metadata_[icol], num_rows, non_nulls, fixedlen, varlen);
+    }
+
+    // Split into smaller mini-batches
+    //
+    for (uint32_t start_row = 0; start_row < num_rows;) {
+      uint32_t batch_size_next = std::min(static_cast<uint32_t>(minibatch_size_),
+                                          static_cast<uint32_t>(num_rows) - start_row);
+
+      // Encode
+      rows_minibatch_.Clean();
+      RETURN_NOT_OK(encoder_.PrepareOutputForEncode(start_row, batch_size_next,
+                                                    &rows_minibatch_, cols_));
+      encoder_.Encode(start_row, batch_size_next, &rows_minibatch_, cols_);
+
+      // Compute hash
+      if (encoder_.row_metadata().is_fixed_length) {
+        Hashing::hash_fixed(encode_ctx_.cpu_info, batch_size_next,
+                            encoder_.row_metadata().fixed_length, rows_minibatch_.data(1),
+                            minibatch_hashes_.data());
+      } else {
+        auto hash_temp_buf =
+            util::TempVectorHolder<uint32_t>(&temp_stack_, 4 * batch_size_next);
+        Hashing::hash_varlen(encode_ctx_.cpu_info, batch_size_next,
+                             rows_minibatch_.offsets(), rows_minibatch_.data(2),
+                             hash_temp_buf.mutable_data(), minibatch_hashes_.data());
+      }
+
+      // Map
+      RETURN_NOT_OK(
+          map_.map(batch_size_next, minibatch_hashes_.data(),
+                   reinterpret_cast<uint32_t*>(group_ids->mutable_data()) + start_row));
+
+      start_row += batch_size_next;
+
+      if (minibatch_size_ * 2 <= minibatch_size_max_) {
+        minibatch_size_ *= 2;
+      }
+    }
+
+    return Datum(UInt32Array(batch.length, std::move(group_ids)));
+  }
+
+  uint32_t num_groups() const override { return static_cast<uint32_t>(rows_.length()); }
+
+  Result<ExecBatch> GetUniques() override {
+    auto num_columns = static_cast<uint32_t>(col_metadata_.size());
+    int64_t num_groups = rows_.length();
+
+    std::vector<std::shared_ptr<Buffer>> non_null_bufs(num_columns);
+    std::vector<std::shared_ptr<Buffer>> fixedlen_bufs(num_columns);
+    std::vector<std::shared_ptr<Buffer>> varlen_bufs(num_columns);
+
+    constexpr int padding_bits = 64;
+    constexpr int padding_for_SIMD = 32;
+    for (size_t i = 0; i < num_columns; ++i) {
+      ARROW_ASSIGN_OR_RAISE(non_null_bufs[i], AllocateBitmap(num_groups + padding_bits,
+                                                             ctx_->memory_pool()));
+      if (col_metadata_[i].is_fixed_length) {
+        if (col_metadata_[i].fixed_length == 0) {
+          ARROW_ASSIGN_OR_RAISE(
+              fixedlen_bufs[i],
+              AllocateBitmap(num_groups + padding_bits, ctx_->memory_pool()));
+        } else {
+          ARROW_ASSIGN_OR_RAISE(
+              fixedlen_bufs[i],
+              AllocateBuffer(
+                  num_groups * col_metadata_[i].fixed_length + padding_for_SIMD,
+                  ctx_->memory_pool()));
+        }
+      } else {
+        ARROW_ASSIGN_OR_RAISE(
+            fixedlen_bufs[i],
+            AllocateBuffer((num_groups + 1) * sizeof(uint32_t) + padding_for_SIMD,
+                           ctx_->memory_pool()));
+      }
+      cols_[i] = arrow::compute::KeyEncoder::KeyColumnArray(
+          col_metadata_[i], num_groups, non_null_bufs[i]->mutable_data(),
+          fixedlen_bufs[i]->mutable_data(), nullptr);
+    }
+
+    for (int64_t start_row = 0; start_row < num_groups;) {
+      int64_t batch_size_next =
+          std::min(num_groups - start_row, static_cast<int64_t>(minibatch_size_max_));
+      encoder_.DecodeFixedLengthBuffers(start_row, start_row, batch_size_next, rows_,
+                                        &cols_);
+      start_row += batch_size_next;
+    }
+
+    if (!rows_.metadata().is_fixed_length) {
+      for (size_t i = 0; i < num_columns; ++i) {
+        if (!col_metadata_[i].is_fixed_length) {
+          auto varlen_size =
+              reinterpret_cast<const uint32_t*>(fixedlen_bufs[i]->data())[num_groups];
+          ARROW_ASSIGN_OR_RAISE(
+              varlen_bufs[i],
+              AllocateBuffer(varlen_size + padding_for_SIMD, ctx_->memory_pool()));
+          cols_[i] = arrow::compute::KeyEncoder::KeyColumnArray(
+              col_metadata_[i], num_groups, non_null_bufs[i]->mutable_data(),
+              fixedlen_bufs[i]->mutable_data(), varlen_bufs[i]->mutable_data());
+        }
+      }
+
+      for (int64_t start_row = 0; start_row < num_groups;) {
+        int64_t batch_size_next =
+            std::min(num_groups - start_row, static_cast<int64_t>(minibatch_size_max_));
+        encoder_.DecodeVaryingLengthBuffers(start_row, start_row, batch_size_next, rows_,
+                                            &cols_);
+        start_row += batch_size_next;
+      }
+    }
+
+    ExecBatch out({}, num_groups);
+    out.values.resize(num_columns);
+    for (size_t i = 0; i < num_columns; ++i) {
+      auto valid_count = arrow::internal::CountSetBits(
+          non_null_bufs[i]->data(), /*offset=*/0, static_cast<int64_t>(num_groups));
+      int null_count = static_cast<int>(num_groups) - static_cast<int>(valid_count);
+
+      if (col_metadata_[i].is_fixed_length) {
+        out.values[i] = ArrayData::Make(
+            key_types_[i], num_groups,
+            {std::move(non_null_bufs[i]), std::move(fixedlen_bufs[i])}, null_count);
+      } else {
+        out.values[i] =
+            ArrayData::Make(key_types_[i], num_groups,
+                            {std::move(non_null_bufs[i]), std::move(fixedlen_bufs[i]),
+                             std::move(varlen_bufs[i])},
+                            null_count);
+      }
+    }
+
+    // Process dictionaries
+    for (size_t icol = 0; icol < num_columns; ++icol) {
+      if (key_types_[icol]->id() == Type::DICTIONARY) {
+        if (dictionaries_[icol]) {
+          out.values[icol].array()->dictionary = dictionaries_[icol]->data();
+        } else {
+          ARROW_ASSIGN_OR_RAISE(auto dict, MakeArrayOfNull(key_types_[icol], 0));
+          out.values[icol].array()->dictionary = dict->data();
+        }
+      }
+    }
+
+    return out;
+  }
+
+  static constexpr int log_minibatch_max_ = 10;
+  static constexpr int minibatch_size_max_ = 1 << log_minibatch_max_;
+  static constexpr int minibatch_size_min_ = 128;
+  int minibatch_size_;
+
+  ExecContext* ctx_;
+  arrow::util::TempVectorStack temp_stack_;
+  arrow::compute::KeyEncoder::KeyEncoderContext encode_ctx_;
+
+  std::vector<std::shared_ptr<arrow::DataType>> key_types_;
+  std::vector<arrow::compute::KeyEncoder::KeyColumnMetadata> col_metadata_;
+  std::vector<arrow::compute::KeyEncoder::KeyColumnArray> cols_;
+  std::vector<uint32_t> minibatch_hashes_;
+
+  std::vector<std::shared_ptr<Array>> dictionaries_;
+
+  arrow::compute::KeyEncoder::KeyRowArray rows_;
+  arrow::compute::KeyEncoder::KeyRowArray rows_minibatch_;
+  arrow::compute::KeyEncoder encoder_;
+  arrow::compute::SwissTable map_;
 };
 
 /// C++ abstract base class for the HashAggregateKernel interface.
@@ -884,6 +1175,9 @@ Result<FieldVector> ResolveKernels(
 
 Result<std::unique_ptr<Grouper>> Grouper::Make(const std::vector<ValueDescr>& descrs,
                                                ExecContext* ctx) {
+  if (GrouperFastImpl::CanUse(descrs)) {
+    return GrouperFastImpl::Make(descrs, ctx);
+  }
   return GrouperImpl::Make(descrs, ctx);
 }
 

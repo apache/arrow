@@ -15,14 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gtest/gtest.h>
+
 #include <algorithm>
 #include <limits>
 #include <memory>
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
-
-#include <gtest/gtest.h>
 
 #include "arrow/array.h"
 #include "arrow/chunked_array.h"
@@ -182,10 +182,52 @@ struct TestGrouper {
     ExpectConsume(*ExecBatch::Make(key_batch), expected);
   }
 
+  void AssertEquivalentIds(const Datum& expected, const Datum& actual) {
+    auto left = expected.make_array();
+    auto right = actual.make_array();
+    ASSERT_EQ(left->length(), right->length()) << "#ids unequal";
+    int64_t num_ids = left->length();
+    auto left_data = left->data();
+    auto right_data = right->data();
+    const uint32_t* left_ids =
+        reinterpret_cast<const uint32_t*>(left_data->buffers[1]->data());
+    const uint32_t* right_ids =
+        reinterpret_cast<const uint32_t*>(right_data->buffers[1]->data());
+    uint32_t max_left_id = 0;
+    uint32_t max_right_id = 0;
+    for (int64_t i = 0; i < num_ids; ++i) {
+      if (left_ids[i] > max_left_id) {
+        max_left_id = left_ids[i];
+      }
+      if (right_ids[i] > max_right_id) {
+        max_right_id = right_ids[i];
+      }
+    }
+    std::vector<bool> right_to_left_present(max_right_id + 1, false);
+    std::vector<bool> left_to_right_present(max_left_id + 1, false);
+    std::vector<uint32_t> right_to_left(max_right_id + 1);
+    std::vector<uint32_t> left_to_right(max_left_id + 1);
+    for (int64_t i = 0; i < num_ids; ++i) {
+      uint32_t left_id = left_ids[i];
+      uint32_t right_id = right_ids[i];
+      if (!left_to_right_present[left_id]) {
+        left_to_right[left_id] = right_id;
+        left_to_right_present[left_id] = true;
+      }
+      if (!right_to_left_present[right_id]) {
+        right_to_left[right_id] = left_id;
+        right_to_left_present[right_id] = true;
+      }
+      ASSERT_EQ(left_id, right_to_left[right_id]);
+      ASSERT_EQ(right_id, left_to_right[left_id]);
+    }
+  }
+
   void ExpectConsume(const ExecBatch& key_batch, Datum expected) {
     Datum ids;
     ConsumeAndValidate(key_batch, &ids);
-    AssertDatumsEqual(expected, ids, /*verbose=*/true);
+    AssertEquivalentIds(expected, ids);
+    // AssertDatumsEqual(expected, ids, /*verbose=*/true);
   }
 
   void ConsumeAndValidate(const ExecBatch& key_batch, Datum* ids = nullptr) {
