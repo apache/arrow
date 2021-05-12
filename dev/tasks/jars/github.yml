@@ -78,7 +78,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: macos-shared-lib
-          path: tar -cvzf arrow-shared-libs-macos.tar.gz
+          path: arrow-shared-libs-macos.tar.gz
   package-jar:
     name: Build Jar Files
     runs-on: macos-latest
@@ -102,7 +102,7 @@ jobs:
       - name: Descompress artifacts
         run: | 
           tar -xvzf arrow-shared-libs-macos.tar.gz
-          tar -Xvzf arrow-shared-libs-linux.tar.gz
+          tar -xvzf arrow-shared-libs-linux.tar.gz
       - name: Build Jar
         run: |
           cd arrow
