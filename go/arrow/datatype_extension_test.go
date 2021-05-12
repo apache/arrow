@@ -34,8 +34,8 @@ func (BadExtensionType) Name() string                             { return "bad"
 func (BadExtensionType) StorageType() arrow.DataType              { return arrow.Null }
 func (BadExtensionType) ExtensionEquals(arrow.ExtensionType) bool { return false }
 func (BadExtensionType) ExtensionName() string                    { return "bad" }
-func (BadExtensionType) Serialize() []byte                        { return nil }
-func (BadExtensionType) Deserialize(_ arrow.DataType, _ []byte) (arrow.ExtensionType, error) {
+func (BadExtensionType) Serialize() string                        { return "" }
+func (BadExtensionType) Deserialize(_ arrow.DataType, _ string) (arrow.ExtensionType, error) {
 	return nil, nil
 }
 

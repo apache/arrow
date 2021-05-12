@@ -52,11 +52,11 @@ func (UUIDType) ArrayType() reflect.Type { return reflect.TypeOf(UUIDArray{}) }
 func (UUIDType) ExtensionName() string { return "uuid" }
 
 // Serialize returns "uuid-serialized" for testing proper metadata passing
-func (UUIDType) Serialize() []byte { return []byte("uuid-serialized") }
+func (UUIDType) Serialize() string { return "uuid-serialized" }
 
 // Deserialize expects storageType to be FixedSizeBinaryType{ByteWidth: 16} and the data to be
 // "uuid-serialized" in order to correctly create a UuidType for testing deserialize.
-func (UUIDType) Deserialize(storageType arrow.DataType, data []byte) (arrow.ExtensionType, error) {
+func (UUIDType) Deserialize(storageType arrow.DataType, data string) (arrow.ExtensionType, error) {
 	if string(data) != "uuid-serialized" {
 		return nil, xerrors.Errorf("type identifier did not match: '%s'", string(data))
 	}
@@ -115,14 +115,14 @@ func (Parametric1Type) ExtensionName() string { return "parametric-type-1" }
 func (Parametric1Type) ArrayType() reflect.Type { return reflect.TypeOf(Parametric1Array{}) }
 
 // Serialize returns the param as 4 little endian bytes
-func (p *Parametric1Type) Serialize() []byte {
+func (p *Parametric1Type) Serialize() string {
 	var buf [4]byte
 	binary.LittleEndian.PutUint32(buf[:], uint32(p.param))
-	return buf[:]
+	return string(buf[:])
 }
 
 // Deserialize requires storage to be an int32 type and data should be a 4 byte little endian int32 value
-func (Parametric1Type) Deserialize(storage arrow.DataType, data []byte) (arrow.ExtensionType, error) {
+func (Parametric1Type) Deserialize(storage arrow.DataType, data string) (arrow.ExtensionType, error) {
 	if len(data) != 4 {
 		return nil, xerrors.Errorf("parametric1type: invalid serialized data size: %d", len(data))
 	}
@@ -131,7 +131,7 @@ func (Parametric1Type) Deserialize(storage arrow.DataType, data []byte) (arrow.E
 		return nil, xerrors.New("parametric1type: must have int32 as underlying storage type")
 	}
 
-	return &Parametric1Type{arrow.ExtensionBase{Storage: arrow.PrimitiveTypes.Int32}, int32(binary.LittleEndian.Uint32(data))}, nil
+	return &Parametric1Type{arrow.ExtensionBase{Storage: arrow.PrimitiveTypes.Int32}, int32(binary.LittleEndian.Uint32([]byte(data)))}, nil
 }
 
 // a parametric type where the extension name is different for each
@@ -170,14 +170,14 @@ func (p *Parametric2Type) ExtensionName() string {
 func (Parametric2Type) ArrayType() reflect.Type { return reflect.TypeOf(Parametric2Array{}) }
 
 // Serialize returns the param as a 4 byte little endian slice
-func (p *Parametric2Type) Serialize() []byte {
+func (p *Parametric2Type) Serialize() string {
 	var buf [4]byte
 	binary.LittleEndian.PutUint32(buf[:], uint32(p.param))
-	return buf[:]
+	return string(buf[:])
 }
 
 // Deserialize expects storage to be int32 type and data must be a 4 byte little endian slice.
-func (Parametric2Type) Deserialize(storage arrow.DataType, data []byte) (arrow.ExtensionType, error) {
+func (Parametric2Type) Deserialize(storage arrow.DataType, data string) (arrow.ExtensionType, error) {
 	if len(data) != 4 {
 		return nil, xerrors.Errorf("parametric1type: invalid serialized data size: %d", len(data))
 	}
@@ -186,7 +186,7 @@ func (Parametric2Type) Deserialize(storage arrow.DataType, data []byte) (arrow.E
 		return nil, xerrors.New("parametric1type: must have int32 as underlying storage type")
 	}
 
-	return &Parametric2Type{arrow.ExtensionBase{Storage: arrow.PrimitiveTypes.Int32}, int32(binary.LittleEndian.Uint32(data))}, nil
+	return &Parametric2Type{arrow.ExtensionBase{Storage: arrow.PrimitiveTypes.Int32}, int32(binary.LittleEndian.Uint32([]byte(data)))}, nil
 }
 
 // ExtStructArray is a struct array type for testing an extension type with non-primitive storage
@@ -224,11 +224,11 @@ func (ExtStructType) ExtensionEquals(other arrow.ExtensionType) bool {
 func (ExtStructType) ArrayType() reflect.Type { return reflect.TypeOf(ExtStructArray{}) }
 
 // Serialize just returns "ext-struct-type-unique-code" to test metadata passing in IPC
-func (ExtStructType) Serialize() []byte { return []byte("ext-struct-type-unique-code") }
+func (ExtStructType) Serialize() string { return "ext-struct-type-unique-code" }
 
 // Deserialize ignores the passed in storage datatype and only checks the serialized data byte slice
 // returning the correct type if it matches "ext-struct-type-unique-code".
-func (ExtStructType) Deserialize(_ arrow.DataType, serialized []byte) (arrow.ExtensionType, error) {
+func (ExtStructType) Deserialize(_ arrow.DataType, serialized string) (arrow.ExtensionType, error) {
 	if string(serialized) != "ext-struct-type-unique-code" {
 		return nil, xerrors.New("type identifier did not match")
 	}

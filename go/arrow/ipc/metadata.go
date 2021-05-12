@@ -526,12 +526,12 @@ func typeFromFB(field *flatbuf.Field, children []arrow.Field, md *arrow.Metadata
 		}
 
 		var (
-			data    []byte
+			data    string
 			dataIdx int
 		)
 
 		if dataIdx = md.FindKey(ExtensionMetadataKeyName); dataIdx >= 0 {
-			data = []byte(md.Values()[dataIdx])
+			data = md.Values()[dataIdx]
 		}
 
 		dt, err = extType.Deserialize(dt, data)

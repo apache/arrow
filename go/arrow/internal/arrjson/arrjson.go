@@ -445,9 +445,9 @@ func (f *FieldWrapper) UnmarshalJSON(data []byte) error {
 			return nil
 		}
 
-		var extData []byte
+		var extData string
 		if extDataIdx > -1 {
-			extData = []byte(mdvals[extDataIdx])
+			extData = mdvals[extDataIdx]
 			// if both extension type and extension type metadata exist
 			// filter out both keys
 			newkeys := make([]string, 0, len(mdkeys)-2)
