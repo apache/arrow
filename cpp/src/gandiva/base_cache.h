@@ -56,14 +56,14 @@ class BaseCache {
   size_t cache_capacity_{};
 };
 
-// internal  class to handle values with costs
-template <class ValueType>
-class ValueObject {
+template <typename ValueType>
+class ValueCacheObject {
  public:
-  explicit ValueObject(ValueType module, uint64_t cost) : module(module), cost(cost) {}
-  ValueObject<ValueType>() {};
+  explicit ValueCacheObject(ValueType module, uint64_t cost) : module(module), cost(cost) {}
+  ValueCacheObject() {};
   ValueType module;
   uint64_t cost;
-  bool operator<(const ValueObject& other) const { return this->cost < other.cost; }
- };
+  bool operator<(const ValueCacheObject& other) const { return this->cost < other.cost; }
+};
+
 }  // namespace gandiva

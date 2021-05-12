@@ -192,7 +192,9 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   // Instantiate the projector with the completely built llvm generator
   *projector = std::shared_ptr<Projector>(
       new Projector(std::move(llvm_gen), schema, output_fields, configuration));
-  cache.PutModule(cache_key, *projector, elapsed);
+  ValueCacheObject<std::shared_ptr<Projector>> value_cache =
+      *std::make_unique<ValueCacheObject<std::shared_ptr<Projector>>>(*projector, elapsed);
+  cache.PutModule(cache_key, value_cache);
 
   return Status::OK();
 }

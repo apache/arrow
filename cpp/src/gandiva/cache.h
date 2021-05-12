@@ -38,38 +38,29 @@ template <class KeyType, typename ValueType>
 class Cache {
  public:
   explicit Cache(size_t capacity) {
-    this->cache_ = std::make_unique<LruCache<KeyType, ValueObject>>(capacity);
+    this->cache_ =
+        std::make_unique<LruCache<KeyType, ValueCacheObject<ValueType>>>(capacity);
     LogCacheSize(capacity);
   }
 
   Cache() : Cache(GetCapacity()) {}
 
   ValueType GetModule(KeyType cache_key) {
-    arrow::util::optional<ValueObject> result;
+    arrow::util::optional<ValueCacheObject<ValueType>> result;
     mtx_.lock();
     result = (*cache_).get(cache_key);
     mtx_.unlock();
     return result != arrow::util::nullopt ? (*result).module : nullptr;
   }
 
-  void PutModule(KeyType cache_key, ValueType module, uint64_t priority) {
-    // Define value_to_order if the cache being used considers it, otherwise define 0
+  void PutModule(KeyType cache_key, ValueCacheObject<ValueType> valueCacheObject) {
     mtx_.lock();
-    ValueObject value = *std::make_unique<ValueObject>(module, priority);
-    (*cache_).insert(cache_key, value);
+    (*cache_).insert(cache_key, valueCacheObject);
     mtx_.unlock();
   }
 
  private:
-  class ValueObject {
-   public:
-    explicit ValueObject(ValueType module, uint64_t cost) : module(module), cost(cost) {}
-    ValueObject() {};
-    ValueType module;
-    uint64_t cost;
-    bool operator<(const ValueObject& other) const { return this->cost < other.cost; }
-  };
-  std::unique_ptr<BaseCache<KeyType, ValueObject>> cache_;
+  std::unique_ptr<BaseCache<KeyType, ValueCacheObject<ValueType>>> cache_;
   std::mutex mtx_;
 };
 }  // namespace gandiva
