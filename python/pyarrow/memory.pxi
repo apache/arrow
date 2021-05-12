@@ -38,12 +38,14 @@ cdef class MemoryPool(_Weakrefable):
 
     def release_unused(self):
         """
-        Attempts to return to the OS any memory being held onto by an allocator.
-        This function should not be called except potentially for benchmarking
-        or debugging as it could be expensive and detrimental to performance.
+        Attempt to return to the OS any memory being held onto by the pool.
 
-        This is best effort and may not have any effect on some memory pools or
-        in some situations (e.g. fragmentation)
+        This function should not be called except potentially for
+        benchmarking or debugging as it could be expensive and detrimental to
+        performance.
+
+        This is best effort and may not have any effect on some memory pools
+        or in some situations (e.g. fragmentation).
         """
         cdef CMemoryPool* pool = c_get_memory_pool()
         with nogil:

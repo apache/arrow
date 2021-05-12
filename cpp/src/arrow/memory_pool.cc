@@ -35,7 +35,7 @@
 #include "arrow/util/optional.h"
 #include "arrow/util/string.h"
 
-#ifdef __GLIBCXX__
+#ifdef __GLIBC__
 #include <malloc.h>
 #endif
 
@@ -259,7 +259,7 @@ class SystemAllocator {
   }
 
   static void ReleaseUnused() {
-#ifdef __GLIBCXX__
+#ifdef __GLIBC__
     // The return value of malloc_trim is not an error but to inform
     // you if memory was actually released or not, which we do not care about here
     ARROW_UNUSED(malloc_trim(0));
