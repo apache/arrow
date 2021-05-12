@@ -112,6 +112,10 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      kResultNullIfNull, "castVARCHAR_decimal128_int64",
                      NativeFunction::kNeedsContext),
 
+      NativeFunction("castVARCHAR", {}, DataTypeVector{day_time_interval(), int64()},
+                     utf8(), kResultNullIfNull, "castVARCHAR_intervalday",
+                     NativeFunction::kNeedsContext),
+
       NativeFunction("like", {}, DataTypeVector{utf8(), utf8()}, boolean(),
                      kResultNullIfNull, "gdv_fn_like_utf8_utf8",
                      NativeFunction::kNeedsFunctionHolder),

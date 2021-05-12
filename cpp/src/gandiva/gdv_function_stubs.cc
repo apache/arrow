@@ -28,6 +28,7 @@
 #include "gandiva/hash_utils.h"
 #include "gandiva/in_holder.h"
 #include "gandiva/like_holder.h"
+#include "gandiva/precompiled/time_constants.h"
 #include "gandiva/precompiled/types.h"
 #include "gandiva/random_generator_holder.h"
 #include "gandiva/to_date_holder.h"

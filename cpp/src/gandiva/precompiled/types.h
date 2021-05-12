@@ -253,6 +253,10 @@ gdv_timestamp castTIMESTAMP_int64(gdv_int64);
 gdv_date64 castDATE_timestamp(gdv_timestamp);
 gdv_time32 castTIME_timestamp(gdv_timestamp timestamp_in_millis);
 const char* castVARCHAR_timestamp_int64(int64_t, gdv_timestamp, gdv_int64, gdv_int32*);
+
+const char* castVARCHAR_date_int64(int64_t context, int64_t date, int64_t length,
+                                   int32_t* out_len);
+
 gdv_date64 last_day_from_timestamp(gdv_date64 millis);
 
 gdv_int64 truncate_int64_int32(gdv_int64 in, gdv_int32 out_scale);
@@ -453,5 +457,8 @@ int64_t castBIGINT_utf8(int64_t context, const char* data, int32_t len);
 float castFLOAT4_utf8(int64_t context, const char* data, int32_t len);
 
 double castFLOAT8_utf8(int64_t context, const char* data, int32_t len);
+
+const char* castVARCHAR_intervalday(int64_t context, int64_t value, int32_t len,
+                                    int32_t* out_len);
 
 }  // extern "C"

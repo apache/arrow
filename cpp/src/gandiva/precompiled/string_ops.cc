@@ -17,12 +17,13 @@
 
 // String functions
 #include "arrow/util/value_parsing.h"
+#include "gandiva/precompiled/time_constants.h"
 extern "C" {
 
-#include <limits.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <climits>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
 #include "./types.h"
 
@@ -1517,6 +1518,81 @@ const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_le
     }
   }
   *out_len = j;
+  return ret;
+}
+
+static inline int32_t gdv_fn_get_num_digit_int32(int32_t number) {
+  int32_t num_digits = 1;
+
+  if (number < 0) {
+    num_digits += 1;
+    number *= -1;
+  }
+
+  while (number >= 10) {
+    number = number / 10;
+    num_digits += 1;
+  }
+
+  return num_digits;
+}
+
+FORCE_INLINE
+const char* castVARCHAR_intervalday(int64_t context, int64_t value, int32_t len,
+                                    int32_t* out_len) {
+  if (len < 0) {
+    gdv_fn_context_set_error_msg(context, "Buffer length can not be negative");
+    *out_len = 0;
+    return "";
+  }
+
+  if (len == 0) {
+    *out_len = 0;
+    return "";
+  }
+
+  auto days = static_cast<int32_t>(value & 0x00000000FFFFFFFF);
+  auto millis = static_cast<int32_t>((value & 0xFFFFFFFF00000000) >> 32);
+
+  int32_t hours = millis / MILLIS_IN_HOUR;
+  millis = millis % MILLIS_IN_HOUR;
+
+  int32_t minutes = millis / MILLIS_IN_MIN;
+  millis = millis % MILLIS_IN_MIN;
+
+  int32_t seconds = millis / MILLIS_IN_SEC;
+  millis = millis % MILLIS_IN_SEC;
+
+  int32_t num_digits = 0;
+  num_digits += gdv_fn_get_num_digit_int32(hours);
+  num_digits += gdv_fn_get_num_digit_int32(minutes);
+  num_digits += gdv_fn_get_num_digit_int32(seconds);
+  num_digits += gdv_fn_get_num_digit_int32(millis);
+
+  const char* day_string;
+  if (abs(days) == 1) {
+    day_string = " day ";
+    num_digits += gdv_fn_get_num_digit_int32(days);
+    num_digits += 5;
+  } else {
+    day_string = " days ";
+    num_digits += gdv_fn_get_num_digit_int32(days);
+    num_digits += 6;
+  }
+
+  num_digits += 3;
+  *out_len = len < num_digits ? len : num_digits;
+
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory");
+    *out_len = 0;
+    return "";
+  }
+
+  snprintf(ret, *out_len + 1, "%d%s%d:%d:%d.%d", days, day_string, hours, minutes,
+           seconds, millis);
+
   return ret;
 }
 

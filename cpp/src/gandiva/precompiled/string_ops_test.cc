@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>
 
 #include "gandiva/execution_context.h"
+#include "gandiva/precompiled/testing.h"
 #include "gandiva/precompiled/types.h"
 
 namespace gandiva {
@@ -1086,6 +1087,54 @@ TEST(TestStringOps, TestSplitPart) {
 
   out_str = split_part(ctx_ptr, "ç†ååçåå†", 18, "†", 3, 2, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "ååçåå");
+}
+
+TEST(TestStringOps, TestCastVARCHARFromIntervalDay) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = 0;
+
+  int64_t interval_day = ExtractIntervalDay(1, 1, 1, 1, 1);
+  const char* out_str = castVARCHAR_intervalday(ctx_ptr, interval_day, 20, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "1 day 1:1:1.1");
+  EXPECT_FALSE(ctx.has_error());
+
+  interval_day = ExtractIntervalDay(0, 0, 0, 0, 1);
+  out_str = castVARCHAR_intervalday(ctx_ptr, interval_day, 20, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "0 days 0:0:0.1");
+  EXPECT_FALSE(ctx.has_error());
+
+  // Truncate the response
+  interval_day = ExtractIntervalDay(0, 0, 0, 0, 1);
+  out_str = castVARCHAR_intervalday(ctx_ptr, interval_day, 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "0 da");
+  EXPECT_FALSE(ctx.has_error());
+
+  // Truncate the response
+  interval_day = ExtractIntervalDay(0, 0, 0, 0, 1);
+  out_str = castVARCHAR_intervalday(ctx_ptr, interval_day, 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  // Invalid size
+  interval_day = ExtractIntervalDay(23, 23, 59, 42, 123);
+  out_str = castVARCHAR_intervalday(ctx_ptr, interval_day, -1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_TRUE(ctx.has_error());
+
+  ctx.Reset();
+
+  // Use negative numbers
+  interval_day = ExtractIntervalDay(-23, -12, -59, -42, -123);
+  out_str = castVARCHAR_intervalday(ctx_ptr, interval_day, 30, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "-23 days -12:-59:-42.-123");
+  EXPECT_FALSE(ctx.has_error());
+
+  // Test with positive numbers
+  interval_day = ExtractIntervalDay(23, 12, 59, 42, 123);
+  out_str = castVARCHAR_intervalday(ctx_ptr, interval_day, 30, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "23 days 12:59:42.123");
+  EXPECT_FALSE(ctx.has_error());
 }
 
 }  // namespace gandiva
