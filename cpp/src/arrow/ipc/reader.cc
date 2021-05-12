@@ -518,7 +518,7 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
                             arrow::internal::SwapEndianArrayData(filtered_columns[i]));
     }
   }
-  return RecordBatch::Make(filtered_schema, metadata->length(),
+  return RecordBatch::Make(std::move(filtered_schema), metadata->length(),
                            std::move(filtered_columns));
 }
 
