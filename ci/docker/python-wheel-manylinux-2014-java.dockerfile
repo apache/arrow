@@ -17,7 +17,8 @@
 ARG base
 FROM ${base}
 
-RUN vcpkg install --clean-after-build llvm
+# Install the libaries required by the Gandiva to run
+RUN vcpkg install --clean-after-build llvm boost-system
 
 # Install dependencies
 ARG java=1.8.0
