@@ -21,6 +21,10 @@ set -e
 
 set -x
 
+export ARROW_TEST_DATA="$GITHUB_WORKSPACE/arrow/testing/data"
+export PARQUET_TEST_DATA="$GITHUB_WORKSPACE/arrow/cpp/submodules/parquet-testing/data"
+export AWS_EC2_METADATA_DISABLED=TRUE
+
 # Builds arrow + gandiva and tests the same.
 pushd cpp
   mkdir build
