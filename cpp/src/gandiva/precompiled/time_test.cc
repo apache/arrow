@@ -824,17 +824,17 @@ TEST(TestTime, TestToTimeNumeric) {
 
   // tests with fractional part
   // input timestamp in seconds: 1970-01-01 01:00:01.500
-  expected_output = 3601500;  // 3600.5 seconds
+  expected_output = 3601500;  // 3601.5 seconds
   EXPECT_EQ(expected_output, to_time_float32(3601.500f));
   EXPECT_EQ(expected_output, to_time_float64(3601.500));
 
   // input timestamp in seconds: 1970-01-01 01:00:01.600
-  expected_output = 3601600;  // 3600.6 seconds
+  expected_output = 3601600;  // 3601.6 seconds
   EXPECT_EQ(expected_output, to_time_float32(3601.600f));
   EXPECT_EQ(expected_output, to_time_float64(3601.600));
 
   // input timestamp in seconds: 1970-01-01 01:00:01.400
-  expected_output = 3601400;  // 3600.4 seconds
+  expected_output = 3601400;  // 3601.4 seconds
   EXPECT_EQ(expected_output, to_time_float32(3601.400f));
   EXPECT_EQ(expected_output, to_time_float64(3601.400));
 }
