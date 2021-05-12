@@ -36,7 +36,7 @@ else
   DATASET_LIB="$CPP_BUILD_DIR"libarrow_dataset_jni.dylib
   ORC_LIB="$CPP_BUILD_DIR"libarrow_orc_jni.dylib
 
-  WHITELIST=(libgandiva_jni libz libncurses libSystem libc++)
+  WHITELIST=(libgandiva_jni libarrow_orc_jni libarrow_dataset_jni libz libncurses libSystem libc++)
 fi
 
 LIBRARIES=($GANDIVA_LIB $ORC_LIB $DATASET_LIB)
