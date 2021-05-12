@@ -28,13 +28,13 @@ void Hashing::avalanche_avx2(uint32_t num_keys, uint32_t* hashes) {
   constexpr int unroll = 8;
   ARROW_DCHECK(num_keys % unroll == 0);
   for (uint32_t i = 0; i < num_keys / unroll; ++i) {
-    __m256i hash = _mm256_loadu_si256(((const __m256i*)hashes) + i);
+    __m256i hash = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(hashes) + i);
     hash = _mm256_xor_si256(hash, _mm256_srli_epi32(hash, 15));
     hash = _mm256_mullo_epi32(hash, _mm256_set1_epi32(PRIME32_2));
     hash = _mm256_xor_si256(hash, _mm256_srli_epi32(hash, 13));
     hash = _mm256_mullo_epi32(hash, _mm256_set1_epi32(PRIME32_3));
     hash = _mm256_xor_si256(hash, _mm256_srli_epi32(hash, 16));
-    _mm256_storeu_si256(((__m256i*)hashes) + i, hash);
+    _mm256_storeu_si256((reinterpret_cast<__m256i*>(hashes)) + i, hash);
   }
 }
 
@@ -76,11 +76,10 @@ void Hashing::helper_stripes_avx2(uint32_t num_keys, uint32_t key_length,
         static_cast<uint32_t>((static_cast<uint64_t>(PRIME32_1) + PRIME32_2) &
                               0xffffffff),
         PRIME32_2, 0, static_cast<uint32_t>(-static_cast<int32_t>(PRIME32_1)));
-    const __m128i* key0 = reinterpret_cast<const __m128i*>(keys + key_length * 2 * i);
-    const __m128i* key1 =
-        reinterpret_cast<const __m128i*>(keys + key_length * 2 * i + key_length);
+    auto key0 = reinterpret_cast<const __m128i*>(keys + key_length * 2 * i);
+    auto key1 = reinterpret_cast<const __m128i*>(keys + key_length * 2 * i + key_length);
     for (uint32_t stripe = 0; stripe < num_stripes - 1; ++stripe) {
-      __m256i key_stripe =
+      auto key_stripe =
           _mm256_inserti128_si256(_mm256_castsi128_si256(_mm_loadu_si128(key0 + stripe)),
                                   _mm_loadu_si128(key1 + stripe), 1);
       acc = _mm256_add_epi32(
@@ -88,7 +87,7 @@ void Hashing::helper_stripes_avx2(uint32_t num_keys, uint32_t key_length,
       acc = _mm256_or_si256(_mm256_slli_epi32(acc, 13), _mm256_srli_epi32(acc, 32 - 13));
       acc = _mm256_mullo_epi32(acc, _mm256_set1_epi32(PRIME32_1));
     }
-    __m256i key_stripe = _mm256_inserti128_si256(
+    auto key_stripe = _mm256_inserti128_si256(
         _mm256_castsi128_si256(_mm_loadu_si128(key0 + num_stripes - 1)),
         _mm_loadu_si128(key1 + num_stripes - 1), 1);
     key_stripe = _mm256_and_si256(key_stripe, mask_last_stripe);
@@ -105,6 +104,7 @@ void Hashing::helper_tails_avx2(uint32_t num_keys, uint32_t key_length,
                                 const uint8_t* keys, uint32_t* hash) {
   constexpr int unroll = 8;
   ARROW_DCHECK(num_keys % unroll == 0);
+  auto keys_i64 = reinterpret_cast<const int64_t>(keys);
 
   // Process between 1 and 8 last bytes of each key, starting from 16B boundary.
   // The caller needs to make sure that there are no more than 8 bytes to process after
@@ -118,17 +118,15 @@ void Hashing::helper_tails_avx2(uint32_t num_keys, uint32_t key_length,
   __m256i offset_incr = _mm256_set1_epi32(key_length * 8);
 
   for (uint32_t i = 0; i < num_keys / unroll; ++i) {
-    __m256i v1 =
-        _mm256_i32gather_epi64((const long long*)keys, _mm256_castsi256_si128(offset), 1);
-    __m256i v2 = _mm256_i32gather_epi64((const long long*)keys,
-                                        _mm256_extracti128_si256(offset, 1), 1);
+    auto v1 = _mm256_i32gather_epi64(keys_i64, _mm256_castsi256_si128(offset), 1);
+    auto v2 = _mm256_i32gather_epi64(keys_i64, _mm256_extracti128_si256(offset, 1), 1);
     v1 = _mm256_and_si256(v1, mask);
     v2 = _mm256_and_si256(v2, mask);
     v1 = _mm256_permutevar8x32_epi32(v1, _mm256_setr_epi32(0, 2, 4, 6, 1, 3, 5, 7));
     v2 = _mm256_permutevar8x32_epi32(v2, _mm256_setr_epi32(0, 2, 4, 6, 1, 3, 5, 7));
-    __m256i x1 = _mm256_permute2x128_si256(v1, v2, 0x20);
-    __m256i x2 = _mm256_permute2x128_si256(v1, v2, 0x31);
-    __m256i acc = _mm256_loadu_si256(((const __m256i*)hash) + i);
+    auto x1 = _mm256_permute2x128_si256(v1, v2, 0x20);
+    auto x2 = _mm256_permute2x128_si256(v1, v2, 0x31);
+    __m256i acc = _mm256_loadu_si256((reinterpret_cast<const __m256i*>(hash)) + i);
 
     acc = _mm256_add_epi32(acc, _mm256_mullo_epi32(x1, _mm256_set1_epi32(PRIME32_3)));
     acc = _mm256_or_si256(_mm256_slli_epi32(acc, 17), _mm256_srli_epi32(acc, 32 - 17));
@@ -138,7 +136,7 @@ void Hashing::helper_tails_avx2(uint32_t num_keys, uint32_t key_length,
     acc = _mm256_or_si256(_mm256_slli_epi32(acc, 17), _mm256_srli_epi32(acc, 32 - 17));
     acc = _mm256_mullo_epi32(acc, _mm256_set1_epi32(PRIME32_4));
 
-    _mm256_storeu_si256(((__m256i*)hash) + i, acc);
+    _mm256_storeu_si256((reinterpret_cast<__m256i*>(hash)) + i, acc);
 
     offset = _mm256_add_epi32(offset, offset_incr);
   }

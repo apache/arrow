@@ -35,13 +35,14 @@ uint32_t KeyCompare::CompareFixedLength_UpTo8B_avx2(
 
   constexpr uint32_t unroll = 4;
   for (uint32_t i = 0; i < num_rows / unroll; ++i) {
-    __m256i key_left =
-        _mm256_i64gather_epi64((const long long*)rows_left, offset_left, 1);
+    auto key_left = _mm256_i64gather_epi64(reinterpret_cast<const int64_t*>(rows_left),
+                                           offset_left, 1);
     offset_left = _mm256_add_epi64(offset_left, offset_left_incr);
     __m128i offset_right =
         _mm_loadu_si128(reinterpret_cast<const __m128i*>(left_to_right_map) + i);
     offset_right = _mm_mullo_epi32(offset_right, _mm_set1_epi32(length));
-    __m256i key_right =
+
+    auto key_right =
         _mm256_i32gather_epi64((const long long*)rows_right, offset_right, 1);
     uint32_t cmp = _mm256_movemask_epi8(_mm256_cmpeq_epi64(
         _mm256_and_si256(key_left, mask), _mm256_and_si256(key_right, mask)));
@@ -68,12 +69,12 @@ uint32_t KeyCompare::CompareFixedLength_UpTo16B_avx2(
 
   constexpr uint32_t unroll = 2;
   for (uint32_t i = 0; i < num_rows / unroll; ++i) {
-    __m256i key_left = _mm256_inserti128_si256(
+    auto key_left = _mm256_inserti128_si256(
         _mm256_castsi128_si256(
             _mm_loadu_si128(reinterpret_cast<const __m128i*>(key_left_ptr))),
         _mm_loadu_si128(reinterpret_cast<const __m128i*>(key_left_ptr + length)), 1);
     key_left_ptr += length * 2;
-    __m256i key_right = _mm256_inserti128_si256(
+    auto key_right = _mm256_inserti128_si256(
         _mm256_castsi128_si256(_mm_loadu_si128(reinterpret_cast<const __m128i*>(
             rows_right + length * left_to_right_map[2 * i]))),
         _mm_loadu_si128(reinterpret_cast<const __m128i*>(
@@ -151,10 +152,8 @@ void KeyCompare::CompareVaryingLength_avx2(
     uint32_t length_left = offsets_left[irow_left + 1] - begin_left;
     uint32_t length_right = offsets_right[irow_right + 1] - begin_right;
     uint32_t length = std::min(length_left, length_right);
-    const __m256i* key_left_ptr =
-        reinterpret_cast<const __m256i*>(rows_left + begin_left);
-    const __m256i* key_right_ptr =
-        reinterpret_cast<const __m256i*>(rows_right + begin_right);
+    auto key_left_ptr = reinterpret_cast<const __m256i*>(rows_left + begin_left);
+    auto key_right_ptr = reinterpret_cast<const __m256i*>(rows_right + begin_right);
     __m256i result_or = _mm256_setzero_si256();
     int32_t i;
     // length can be zero

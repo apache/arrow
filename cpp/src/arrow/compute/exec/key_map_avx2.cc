@@ -69,10 +69,10 @@ void SwissTable::lookup_1_avx2_x8(const int num_hashes, const uint32_t* hashes,
     __m256i vstamp_A = _mm256_and_si256(vstamp, _mm256_set1_epi64x(0xffffffff));
     __m256i voffset_B = _mm256_srli_epi64(vblock_offset, 32);
     __m256i vstamp_B = _mm256_srli_epi64(vstamp, 32);
-    __m256i vblock_A =
-        _mm256_i64gather_epi64(reinterpret_cast<const long long*>(blocks_), voffset_A, 1);
-    __m256i vblock_B =
-        _mm256_i64gather_epi64(reinterpret_cast<const long long*>(blocks_), voffset_B, 1);
+
+    auto blocks_i64 = reinterpret_cast<const int64_t*>(blocks_);
+    auto vblock_A = _mm256_i64gather_epi64(blocks_i64, voffset_A, 1);
+    auto vblock_B = _mm256_i64gather_epi64(blocks_i64, voffset_B, 1);
     __m256i vblock_highbits_A =
         _mm256_cmpeq_epi8(vblock_A, _mm256_set1_epi8(static_cast<unsigned char>(0x80)));
     __m256i vblock_highbits_B =
