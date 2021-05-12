@@ -1,7 +1,7 @@
 {
   "name": "arrow",
   "version-string": "5.0.0-SNAPSHOT",
-  "builtin-baseline": "",
+  "builtin-baseline": "6a274ad4b370b3b729d3af6227f57257ec708b43",
   "dependencies": [
     "abseil",
     {
