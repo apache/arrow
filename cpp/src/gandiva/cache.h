@@ -34,23 +34,15 @@ int GetCapacity();
 GANDIVA_EXPORT
 void LogCacheSize(size_t capacity);
 
-GANDIVA_EXPORT
-int GetCacheTypeToUse();
-
 template <class KeyType, typename ValueType>
 class Cache {
  public:
-  explicit Cache(size_t capacity, int cache_type_to_use) {
-    if (cache_type_to_use == 0) {
-      this->cache_ =
-          std::make_unique<GreedyDualSizeCache<KeyType, ValueObject>>(capacity);
-    } else {
-      this->cache_ = std::make_unique<LruCache<KeyType, ValueObject>>(capacity);
-    }
+  explicit Cache(size_t capacity) {
+    this->cache_ = std::make_unique<LruCache<KeyType, ValueObject>>(capacity);
     LogCacheSize(capacity);
   }
 
-  Cache() : Cache(GetCapacity(), GetCacheTypeToUse()) {}
+  Cache() : Cache(GetCapacity()) {}
 
   ValueType GetModule(KeyType cache_key) {
     arrow::util::optional<ValueObject> result;
