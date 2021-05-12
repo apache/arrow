@@ -474,6 +474,11 @@ class ARROW_FLIGHT_EXPORT MetadataRecordBatchReader {
   virtual Status ReadAll(std::shared_ptr<Table>* table);
 };
 
+/// \brief Convert a MetadataRecordBatchReader to a regular RecordBatchReader.
+ARROW_FLIGHT_EXPORT
+arrow::Result<std::shared_ptr<RecordBatchReader>> MakeRecordBatchReader(
+    std::shared_ptr<MetadataRecordBatchReader> reader);
+
 /// \brief An interface to write IPC payloads with metadata.
 class ARROW_FLIGHT_EXPORT MetadataRecordBatchWriter : public ipc::RecordBatchWriter {
  public:

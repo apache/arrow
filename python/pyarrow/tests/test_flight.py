@@ -857,6 +857,10 @@ def test_flight_do_get_ints():
         data = client.do_get(flight.Ticket(b'ints')).read_all()
         assert data.equals(table)
 
+        # Also test via RecordBatchReader interface
+        data = client.do_get(flight.Ticket(b'ints')).to_reader().read_all()
+        assert data.equals(table)
+
     with pytest.raises(flight.FlightServerError,
                        match="expected IpcWriteOptions, got <class 'int'>"):
         with ConstantFlightServer(options=42) as server:
