@@ -69,6 +69,14 @@ class SimpleRecordBatch : public RecordBatch {
     boxed_columns_.resize(schema_->num_fields());
   }
 
+  const std::vector<std::shared_ptr<Array>>& columns() const override {
+    for (int i = 0; i < num_columns(); ++i) {
+      // Force all columns to be boxed
+      column(i);
+    }
+    return boxed_columns_;
+  }
+
   std::shared_ptr<Array> column(int i) const override {
     std::shared_ptr<Array> result = internal::atomic_load(&boxed_columns_[i]);
     if (!result) {
@@ -80,7 +88,7 @@ class SimpleRecordBatch : public RecordBatch {
 
   std::shared_ptr<ArrayData> column_data(int i) const override { return columns_[i]; }
 
-  ArrayDataVector column_data() const override { return columns_; }
+  const ArrayDataVector& column_data() const override { return columns_; }
 
   Result<std::shared_ptr<RecordBatch>> AddColumn(
       int i, const std::shared_ptr<Field>& field,
@@ -203,14 +211,6 @@ Result<std::shared_ptr<StructArray>> RecordBatch::ToStructArray() const {
                                        /*null_bitmap=*/nullptr,
                                        /*null_count=*/0,
                                        /*offset=*/0);
-}
-
-std::vector<std::shared_ptr<Array>> RecordBatch::columns() const {
-  std::vector<std::shared_ptr<Array>> children(num_columns());
-  for (int i = 0; i < num_columns(); ++i) {
-    children[i] = column(i);
-  }
-  return children;
 }
 
 const std::string& RecordBatch::column_name(int i) const {

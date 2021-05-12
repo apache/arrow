@@ -92,6 +92,10 @@ class SimpleTable : public Table {
 
   std::shared_ptr<ChunkedArray> column(int i) const override { return columns_[i]; }
 
+  const std::vector<std::shared_ptr<ChunkedArray>>& columns() const override {
+    return columns_;
+  }
+
   std::shared_ptr<Table> Slice(int64_t offset, int64_t length) const override {
     auto sliced = columns_;
     int64_t num_rows = length;
@@ -241,14 +245,6 @@ class SimpleTable : public Table {
 };
 
 Table::Table() : num_rows_(0) {}
-
-std::vector<std::shared_ptr<ChunkedArray>> Table::columns() const {
-  std::vector<std::shared_ptr<ChunkedArray>> result;
-  for (int i = 0; i < this->num_columns(); ++i) {
-    result.emplace_back(this->column(i));
-  }
-  return result;
-}
 
 std::vector<std::shared_ptr<Field>> Table::fields() const {
   std::vector<std::shared_ptr<Field>> result;
