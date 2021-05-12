@@ -17,9 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
-
-set -x
+set -ex
 
 export ARROW_TEST_DATA="$GITHUB_WORKSPACE/arrow/testing/data"
 export PARQUET_TEST_DATA="$GITHUB_WORKSPACE/arrow/cpp/submodules/parquet-testing/data"

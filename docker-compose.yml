@@ -123,7 +123,8 @@ x-hierarchy:
   - impala
   - postgres
   - python-wheel-manylinux-2010
-  - python-wheel-manylinux-2014
+  - python-wheel-manylinux-2014:
+    - python-wheel-manylinux-2014-java
   - python-wheel-manylinux-test-imports
   - python-wheel-manylinux-test-unittests
   - python-wheel-windows-vs2017
@@ -813,6 +814,24 @@ services:
         source: .
         target: "C:/arrow"
     command: arrow\\ci\\scripts\\python_wheel_windows_test.bat
+  
+  python-wheel-manylinux-2014-java:
+    # Docker image 
+    image: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014-java-vcpkg-${VCPKG}
+    build:
+      args:
+        base: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014-vcpkg-${VCPKG}
+        java: 1.8.0
+      context: .
+      dockerfile: ci/docker/python-wheel-manylinux-2014-java.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014-java-vcpkg-${VCPKG}
+    environment:
+      <<: *ccache
+    volumes:
+      - .:/arrow:delegated
+      - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux2014-ccache:/ccache:delegated
+    command: /arrow/ci/scripts/python_wheel_manylinux_java_build.sh
 
   ##############################  Integration #################################
 

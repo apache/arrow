@@ -1,4 +1,3 @@
-#!/bin/bash -ex
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,21 +14,13 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+ARG base
+FROM ${base}
 
-NCORES=$(($(grep -c ^processor /proc/cpuinfo) + 1))
-export LZ4_VERSION="1.9.2"
-export PREFIX="/usr/local"
-export CFLAGS="${CFLAGS} -O3 -fPIC"
-export LDFLAGS="${LDFLAGS} -Wl,-rpath,${PREFIX}/lib -L${PREFIX}/lib"
+RUN vcpkg install --clean-after-build llvm
 
-curl -sL "https://github.com/lz4/lz4/archive/v${LZ4_VERSION}.tar.gz" -o lz4-${LZ4_VERSION}.tar.gz
-tar xf lz4-${LZ4_VERSION}.tar.gz
-pushd lz4-${LZ4_VERSION}
+# Install dependencies
+ARG java=1.8.0
+RUN yum install -y java-$java-openjdk-devel && yum clean all
 
-make -j$NCORES PREFIX=${PREFIX} CFLAGS="${CFLAGS}"
-make install PREFIX=${PREFIX}
-popd
-
-rm -rf lz4-${LZ4_VERSION}.tar.gz lz4-${LZ4_VERSION}
-# We don't want to link against shared libs
-rm -rf ${PREFIX}/lib/liblz4.so*
+ENV JAVA_HOME=/usr/lib/jvm/java-$java-openjdk/

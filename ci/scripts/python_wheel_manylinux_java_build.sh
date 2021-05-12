@@ -17,17 +17,41 @@
 # specific language governing permissions and limitations
 # under the License.
 
-source /multibuild/manylinux_utils.sh
-
 # Quit on failure
 set -e
 
-PYTHON_VERSION=3.7
 CPYTHON_PATH="$(cpython_path ${PYTHON_VERSION})"
 PYTHON_INTERPRETER="${CPYTHON_PATH}/bin/python"
 PIP="${CPYTHON_PATH}/bin/pip"
-
 ARROW_BUILD_DIR=/tmp/arrow-build
+
+echo "=== (${PYTHON_VERSION}) Clear output directories and leftovers ==="
+# Clear output directories and leftovers
+rm -rf /tmp/arrow-build
+rm -rf /arrow-dist
+
+echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
+: ${ARROW_DATASET:=ON}
+: ${ARROW_GANDIVA:=ON}
+: ${ARROW_GANDIVA_JAVA:=ON}
+: ${ARROW_FILESYSTEM:=ON}
+: ${ARROW_JEMALLOC:=ON}
+: ${ARROW_RPATH_ORIGIN:=ON}
+: ${ARROW_ORC:=ON}
+: ${ARROW_PARQUET:=ON}
+: ${ARROW_PLASMA:=ON}
+: ${ARROW_PLASMA_JAVA_CLIENT:=ON}
+: ${ARROW_PYTHON:=OFF}
+: ${ARROW_JNI:=ON}
+: ${ARROW_BUILD_TESTS:=ON}
+: ${CMAKE_BUILD_TYPE:=Release}
+: ${CMAKE_UNITY_BUILD:=ON}
+: ${CMAKE_GENERATOR:=Ninja}
+: ${VCPKG_FEATURE_FLAGS:=-manifests}
+: ${VCPKG_TARGET_TRIPLET:=${VCPKG_DEFAULT_TRIPLET:-x64-linux-static-${CMAKE_BUILD_TYPE}}}
+: ${PYTHON_VERSION:=3.7}
+: ${GANDIVA_CXX_FLAGS:=-isystem;/opt/rh/devtoolset-9/root/usr/include/c++/9;-isystem;/opt/rh/devtoolset-9/root/usr/include/c++/9/x86_64-redhat-linux;-isystem;-lpthread}
+
 mkdir -p "${ARROW_BUILD_DIR}"
 pushd "${ARROW_BUILD_DIR}"
   PATH="${CPYTHON_PATH}/bin:${PATH}"
@@ -35,12 +59,11 @@ pushd "${ARROW_BUILD_DIR}"
   export PARQUET_TEST_DATA="/arrow/cpp/submodules/parquet-testing/data"
   export AWS_EC2_METADATA_DISABLED=TRUE
 
-  cmake -DCMAKE_BUILD_TYPE=Release \
-      -DARROW_DEPENDENCY_SOURCE="SYSTEM" \
-      -DZLIB_ROOT=/usr/local \
+  cmake -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
+      -DARROW_DEPENDENCY_SOURCE="VCPKG" \
       -DCMAKE_INSTALL_PREFIX=/arrow-dist \
       -DCMAKE_INSTALL_LIBDIR=lib \
-      -DARROW_BUILD_TESTS=ON \
+      -DARROW_BUILD_TESTS=${ARROW_BUILD_TESTS} \
       -DARROW_BUILD_SHARED=ON \
       -DARROW_BOOST_USE_SHARED=OFF \
       -DARROW_PROTOBUF_USE_SHARED=OFF \
@@ -53,37 +76,35 @@ pushd "${ARROW_BUILD_DIR}"
       -DARROW_THRIFT_USE_SHARED=OFF \
       -DARROW_UTF8PROC_USE_SHARED=OFF \
       -DARROW_ZSTD_USE_SHARED=OFF \
-      -DARROW_GANDIVA_PC_CXX_FLAGS="-isystem;/opt/rh/devtoolset-9/root/usr/include/c++/9;-isystem;/opt/rh/devtoolset-9/root/usr/include/c++/9/x86_64-redhat-linux;-isystem;-lpthread" \
-      -DARROW_JEMALLOC=ON \
-      -DARROW_RPATH_ORIGIN=ON \
-      -DARROW_PYTHON=OFF \
-      -DARROW_PARQUET=ON \
-      -DARROW_DATASET=ON \
-      -DARROW_FILESYSTEM=ON \
+      -DARROW_GANDIVA_PC_CXX_FLAGS=${GANDIVA_CXX_FLAGS} \
+      -DARROW_JEMALLOC=${ARROW_JEMALLOC} \
+      -DARROW_RPATH_ORIGIN=${ARROW_RPATH_ORIGIN} \
+      -DARROW_PYTHON=${ARROW_PYTHON} \
+      -DARROW_PARQUET=${ARROW_PARQUET} \
+      -DARROW_DATASET=${ARROW_DATASET} \
+      -DARROW_FILESYSTEM=${ARROW_FILESYSTEM} \
       -DPARQUET_REQUIRE_ENCRYPTION=OFF \
       -DPARQUET_BUILD_EXAMPLES=OFF \
       -DPARQUET_BUILD_EXECUTABLES=OFF \
       -DPythonInterp_FIND_VERSION=${PYTHON_VERSION} \
-      -DARROW_GANDIVA=ON \
-      -DARROW_GANDIVA_JAVA=ON \
-      -DARROW_GANDIVA_JAVA7=ON \
-      -DARROW_ORC=ON \
-      -DARROW_JNI=ON \
-      -DARROW_PLASMA=ON \
-      -DARROW_PLASMA_JAVA_CLIENT=ON \
-      -DBoost_NAMESPACE=arrow_boost \
+      -DARROW_GANDIVA=${ARROW_GANDIVA} \
+      -DARROW_GANDIVA_JAVA=${ARROW_GANDIVA_JAVA} \
+      -DARROW_ORC=${ARROW_ORC} \
+      -DARROW_JNI=${ARROW_JNI} \
+      -DARROW_PLASMA=${ARROW_PLASMA} \
+      -DARROW_PLASMA_JAVA_CLIENT=${ARROW_PLASMA_JAVA_CLIENT} \
       -Dgflags_SOURCE=BUNDLED \
       -DRapidJSON_SOURCE=BUNDLED \
       -DRE2_SOURCE=BUNDLED \
       -DARROW_BUILD_UTILITIES=OFF \
-      -DBoost_NAMESPACE=arrow_boost \
-      -DBOOST_ROOT=/arrow_boost_dist \
+      -DVCPKG_MANIFEST_MODE=OFF \
+      -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET} \
       -GNinja /arrow/cpp
   ninja install
   CTEST_OUTPUT_ON_FAILURE=1 ninja test
 popd
 
-# copy the library to distribution
+echo "=== (${PYTHON_VERSION}) Copying libraries to the distribution folder ==="
 cp -L  /arrow-dist/lib/libgandiva_jni.so /arrow/dist
 cp -L  /arrow-dist/lib/libarrow_dataset_jni.so /arrow/dist
 cp -L  /arrow-dist/lib/libarrow_orc_jni.so /arrow/dist
