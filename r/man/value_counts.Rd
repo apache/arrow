@@ -16,3 +16,7 @@ A \code{StructArray} containing "values" (same type as \code{x}) and "counts"
 \description{
 This function tabulates the values in the array and returns a table of counts.
 }
+\examples{
+cyl_vals <- Array$create(mtcars$cyl)
+value_counts(cyl_vals)
+}

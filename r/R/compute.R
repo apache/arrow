@@ -264,6 +264,9 @@ is_in.ArrowDatum <- function(x, table, ...) {
 #' @param x `Array` or `ChunkedArray`
 #' @return A `StructArray` containing "values" (same type as `x`) and "counts"
 #' `Int64`.
+#' @examples
+#' cyl_vals <- Array$create(mtcars$cyl)
+#' value_counts(cyl_vals)
 #' @export
 value_counts <- function(x) {
   call_function("value_counts", x)
