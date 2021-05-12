@@ -36,5 +36,8 @@
     "utf8proc",
     "zlib",
     "zstd"
+  ],
+  "overrides": [
+    { "name": "gtest", "version": "1.10.0" }
   ]
 }
