@@ -1254,6 +1254,96 @@ std::shared_ptr<arrow::Array> vec_to_arrow(SEXP x,
   return ValueOrStop(converter->ToArray());
 }
 
+// TODO: most of this is very similar to MakeSimpleArray, just adapted to
+//       leverage concurrency. Maybe some refactoring needed.
+template <typename RVector, typename Type>
+bool vector_from_r_memory_impl(SEXP x, const std::shared_ptr<DataType>& type,
+                               std::vector<std::shared_ptr<arrow::ChunkedArray>>& columns,
+                               int j, RTasks& tasks) {
+  RVector vec(x);
+  using value_type = typename arrow::TypeTraits<Type>::ArrayType::value_type;
+  auto buffer = std::make_shared<RBuffer<RVector>>(vec);
+
+  tasks.Append(true, [buffer, x, &columns, j]() {
+    std::vector<std::shared_ptr<Buffer>> buffers{nullptr, buffer};
+
+    auto n = XLENGTH(x);
+    auto p_x_start = reinterpret_cast<const value_type*>(DATAPTR_RO(x));
+    auto p_x_end = p_x_start + n;
+
+    int null_count = 0;
+    auto first_na = std::find_if(p_x_start, p_x_end, is_NA<value_type>);
+
+    if (first_na < p_x_end) {
+      auto null_bitmap =
+          ValueOrStop(AllocateBuffer(BitUtil::BytesForBits(n), gc_memory_pool()));
+      internal::FirstTimeBitmapWriter bitmap_writer(null_bitmap->mutable_data(), 0, n);
+
+      // first loop to clear all the bits before the first NA
+      auto k = std::distance(p_x_start, first_na);
+      int i = 0;
+      for (; i < k; i++, bitmap_writer.Next()) {
+        bitmap_writer.Set();
+      }
+
+      auto p_vec = first_na;
+      // then finish
+      for (; i < n; i++, bitmap_writer.Next(), ++p_vec) {
+        if (is_NA<value_type>(*p_vec)) {
+          bitmap_writer.Clear();
+          null_count++;
+        } else {
+          bitmap_writer.Set();
+        }
+      }
+
+      bitmap_writer.Finish();
+      buffers[0] = std::move(null_bitmap);
+    }
+
+    auto data = ArrayData::Make(std::make_shared<Type>(), n, std::move(buffers),
+                                null_count, 0 /*offset*/);
+    auto array = std::make_shared<typename TypeTraits<Type>::ArrayType>(data);
+    columns[j] = std::make_shared<arrow::ChunkedArray>(array);
+
+    return Status::OK();
+  });
+
+  return true;
+}
+
+bool vector_from_r_memory(SEXP x, const std::shared_ptr<DataType>& type,
+                          std::vector<std::shared_ptr<arrow::ChunkedArray>>& columns,
+                          int j, RTasks& tasks) {
+  if (ALTREP(x)) return false;
+
+  switch (type->id()) {
+    case Type::INT32:
+      return TYPEOF(x) == INTSXP && !OBJECT(x) &&
+             vector_from_r_memory_impl<cpp11::integers, Int32Type>(x, type, columns, j,
+                                                                   tasks);
+
+    case Type::DOUBLE:
+      return TYPEOF(x) == REALSXP && !OBJECT(x) &&
+             vector_from_r_memory_impl<cpp11::doubles, DoubleType>(x, type, columns, j,
+                                                                   tasks);
+
+    case Type::UINT8:
+      return TYPEOF(x) == RAWSXP && !OBJECT(x) &&
+             vector_from_r_memory_impl<cpp11::raws, UInt8Type>(x, type, columns, j,
+                                                               tasks);
+
+    case Type::INT64:
+      return TYPEOF(x) == REALSXP && Rf_inherits(x, "integer64") &&
+             vector_from_r_memory_impl<cpp11::doubles, Int64Type>(x, type, columns, j,
+                                                                  tasks);
+    default:
+      break;
+  }
+
+  return false;
+}
+
 }  // namespace r
 }  // namespace arrow
 
@@ -1326,14 +1416,12 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp,
       options.type = schema->field(j)->type();
       options.size = vctrs::vec_size(x);
 
-      // TODO: do this in parallel, we can't use vec_to_arrow__reuse_memory()
-      //       as is, because it wraps a SEXP with an cpp11:: vector but it should
-      //       be possible to modify it so that we do the work in a task.
-      //
-      // if (arrow::r::can_reuse_memory(x, options.type)) {
-      //   columns[j] = std::make_shared<arrow::ChunkedArray>(
-      //       arrow::r::vec_to_arrow__reuse_memory(x));
-      // } else {
+      // first try to add a task to do a zero copy in parallel
+      if (arrow::r::vector_from_r_memory(x, options.type, columns, j, tasks)) {
+        continue;
+      }
+
+      // if unsuccessful: use RConverter api
       auto converter_result =
           arrow::MakeConverter<arrow::r::RConverter, arrow::r::RConverterTrait>(
               options.type, options, gc_memory_pool());
@@ -1342,7 +1430,6 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp,
         break;
       }
       converters[j] = std::move(converter_result.ValueUnsafe());
-      // }
     }
   }
   StopIfNotOk(status);
