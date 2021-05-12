@@ -45,7 +45,7 @@ jobs:
           ulimit -c unlimited -S
           set -e
           archery docker build python-wheel-manylinux-2014-java
-          archery run build python-wheel-manylinux-2014-java
+          archery docker run build python-wheel-manylinux-2014-java
           dev/tasks/jars/check-shared-dependencies.sh
         env:
           OS_NAME: "linux"
