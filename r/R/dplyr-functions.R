@@ -74,13 +74,13 @@ nse_funcs$between <- function(x, left, right) {
 
 # as.* type casting functions
 # as.factor() is mapped in expression.R
-nse_funcs$as.character = function(x) {
+nse_funcs$as.character <- function(x) {
   Expression$create("cast", x, options = cast_options(to_type = string()))
 }
-nse_funcs$as.double = function(x) {
+nse_funcs$as.double <- function(x) {
   Expression$create("cast", x, options = cast_options(to_type = float64()))
 }
-nse_funcs$as.integer = function(x) {
+nse_funcs$as.integer <- function(x) {
   Expression$create(
     "cast",
     x,
@@ -91,7 +91,7 @@ nse_funcs$as.integer = function(x) {
     )
   )
 }
-nse_funcs$as.integer64 = function(x) {
+nse_funcs$as.integer64 <- function(x) {
   Expression$create(
     "cast",
     x,
@@ -102,15 +102,15 @@ nse_funcs$as.integer64 = function(x) {
     )
   )
 }
-nse_funcs$as.logical = function(x) {
+nse_funcs$as.logical <- function(x) {
   Expression$create("cast", x, options = cast_options(to_type = boolean()))
 }
-nse_funcs$as.numeric = function(x) {
+nse_funcs$as.numeric <- function(x) {
   Expression$create("cast", x, options = cast_options(to_type = float64()))
 }
 
 # String functions
-nse_funcs$nchar = function(x, type = "chars", allowNA = FALSE, keepNA = NA) {
+nse_funcs$nchar <- function(x, type = "chars", allowNA = FALSE, keepNA = NA) {
   if (allowNA) {
     arrow_not_supported("allowNA = TRUE")
   }
@@ -128,7 +128,7 @@ nse_funcs$nchar = function(x, type = "chars", allowNA = FALSE, keepNA = NA) {
   }
 }
 
-nse_funcs$str_trim = function(string, side = c("both", "left", "right")) {
+nse_funcs$str_trim <- function(string, side = c("both", "left", "right")) {
   side <- match.arg(side)
   trim_fun <- switch(side,
     left = "utf8_ltrim_whitespace",
