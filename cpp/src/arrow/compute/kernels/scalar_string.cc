@@ -266,6 +266,22 @@ void EnsureLookupTablesFilled() {}
 
 #endif  // ARROW_WITH_UTF8PROC
 
+template <typename Type>
+struct StringReverse : StringTransform<Type, StringReverse<Type>> {
+  using Base = StringTransform<Type, StringReverse<Type>>;
+  using offset_type = typename Base::offset_type;
+
+  bool Transform(const uint8_t* input, offset_type input_string_ncodeunits,
+                 uint8_t* output, offset_type* output_written) {
+    std::reverse_copy(input, input + input_string_ncodeunits, output);
+    // todo: this is not needed for reverse. may be change StringTransform struct to
+    // handle 2 cases. 1. for same size string transform and 2. variable size string
+    // transform
+    *output_written = input_string_ncodeunits;
+    return true;
+  }
+};
+
 using TransformFunc = std::function<void(const uint8_t*, int64_t, uint8_t*)>;
 
 // Transform a buffer of offsets to one which begins with 0 and has same
@@ -2317,6 +2333,10 @@ const FunctionDoc utf8_lower_doc(
     "Transform input to lowercase",
     ("For each string in `strings`, return a lowercase version."), {"strings"});
 
+const FunctionDoc string_reverse_doc(
+    "Reverse input ", ("For each string in `strings`, return a reversed version."),
+    {"strings"});
+
 }  // namespace
 
 void RegisterScalarStringAscii(FunctionRegistry* registry) {
@@ -2332,6 +2352,8 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
                                                    &ascii_ltrim_whitespace_doc);
   MakeUnaryStringBatchKernel<AsciiRTrimWhitespace>("ascii_rtrim_whitespace", registry,
                                                    &ascii_rtrim_whitespace_doc);
+  MakeUnaryStringBatchKernel<StringReverse>("string_reverse", registry,
+                                            &string_reverse_doc);
   MakeUnaryStringBatchKernelWithState<AsciiTrim>("ascii_trim", registry,
                                                  &ascii_lower_doc);
   MakeUnaryStringBatchKernelWithState<AsciiLTrim>("ascii_ltrim", registry,
