@@ -20,9 +20,6 @@
 # Quit on failure
 set -e
 
-CPYTHON_PATH="$(cpython_path ${PYTHON_VERSION})"
-PYTHON_INTERPRETER="${CPYTHON_PATH}/bin/python"
-PIP="${CPYTHON_PATH}/bin/pip"
 ARROW_BUILD_DIR=/tmp/arrow-build
 
 echo "=== (${PYTHON_VERSION}) Clear output directories and leftovers ==="
@@ -54,7 +51,6 @@ echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 
 mkdir -p "${ARROW_BUILD_DIR}"
 pushd "${ARROW_BUILD_DIR}"
-  PATH="${CPYTHON_PATH}/bin:${PATH}"
   export ARROW_TEST_DATA="/arrow/testing/data"
   export PARQUET_TEST_DATA="/arrow/cpp/submodules/parquet-testing/data"
   export AWS_EC2_METADATA_DISABLED=TRUE
@@ -86,7 +82,8 @@ pushd "${ARROW_BUILD_DIR}"
       -DPARQUET_REQUIRE_ENCRYPTION=OFF \
       -DPARQUET_BUILD_EXAMPLES=OFF \
       -DPARQUET_BUILD_EXECUTABLES=OFF \
-      -DPythonInterp_FIND_VERSION=${PYTHON_VERSION} \
+      -DPythonInterp_FIND_VERSION=ON \
+      -DPythonInterp_FIND_VERSION_MAJOR=3 \
       -DARROW_GANDIVA=${ARROW_GANDIVA} \
       -DARROW_GANDIVA_JAVA=${ARROW_GANDIVA_JAVA} \
       -DARROW_ORC=${ARROW_ORC} \
