@@ -39,7 +39,7 @@ class Cache {
  public:
   explicit Cache(size_t capacity) {
     this->cache_ =
-        std::make_unique<LruCache<KeyType, ValueCacheObject<ValueType>>>(capacity);
+        std::make_unique<LruCache<KeyType, ValueType>>(capacity);
     LogCacheSize(capacity);
   }
 
@@ -60,7 +60,7 @@ class Cache {
   }
 
  private:
-  std::unique_ptr<BaseCache<KeyType, ValueCacheObject<ValueType>>> cache_;
+  std::unique_ptr<BaseCache<KeyType, ValueType>> cache_;
   std::mutex mtx_;
 };
 }  // namespace gandiva

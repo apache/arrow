@@ -24,6 +24,18 @@
 #include "arrow/util/optional.h"
 
 namespace gandiva {
+
+// Defines a base value object supported on the cache that may contain properties
+template <typename ValueType>
+class ValueCacheObject {
+ public:
+  explicit ValueCacheObject(ValueType module, uint64_t cost) : module(module), cost(cost) {}
+  ValueCacheObject() {};
+  ValueType module;
+  uint64_t cost;
+  bool operator<(const ValueCacheObject& other) const { return this->cost < other.cost; }
+};
+
 // A base cache class which defines the main methods that should be implemented
 // to expose a different cache with different policies.
 template <class Key, class Value>
@@ -43,9 +55,9 @@ class BaseCache {
 
   virtual bool contains(const Key& key) = 0;
 
-  virtual void insert(const Key& key, const Value& value) = 0;
+  virtual void insert(const Key& key, const ValueCacheObject<Value>& value) = 0;
 
-  virtual arrow::util::optional<Value> get(const Key& key) = 0;
+  virtual arrow::util::optional<ValueCacheObject<Value>> get(const Key& key) = 0;
 
   virtual void clear() = 0;
 
@@ -54,16 +66,6 @@ class BaseCache {
 
  protected:
   size_t cache_capacity_{};
-};
-
-template <typename ValueType>
-class ValueCacheObject {
- public:
-  explicit ValueCacheObject(ValueType module, uint64_t cost) : module(module), cost(cost) {}
-  ValueCacheObject() {};
-  ValueType module;
-  uint64_t cost;
-  bool operator<(const ValueCacheObject& other) const { return this->cost < other.cost; }
 };
 
 }  // namespace gandiva

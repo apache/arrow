@@ -55,8 +55,10 @@ class GreedyDualSizeCache : public BaseCache<Key, Value> {
     }
   };
   // a map from 'key' to a pair of Value and a pointer to the priority value
-  using map_type = std::unordered_map<
-      Key, std::pair<Value, typename std::set<PriorityItem>::iterator>, hasher>;
+  using map_type = std::unordered_map<Key,
+                                      std::pair<ValueCacheObject<Value>,
+                                      typename std::set<PriorityItem>::iterator>,
+                                      hasher>;
 
   explicit GreedyDualSizeCache(size_t capacity) : BaseCache<Key, Value>(capacity) {
     this->inflation_cost_ = 0;
@@ -74,11 +76,7 @@ class GreedyDualSizeCache : public BaseCache<Key, Value> {
 
   bool contains(const Key& key) override { return map_.find(key) != map_.end(); }
 
-  void insert(const Key& key, const Value& value) override {
-    insert(key, value, 0);
-  }
-
-  void insert(const Key& key, const Value& value, const uint64_t priority) {
+  void insert(const Key& key, const ValueCacheObject<Value>& value) override {
     typename map_type::iterator i = map_.find(key);
     // check if element is not in the cache to add it
     if (i == map_.end()) {
@@ -90,13 +88,13 @@ class GreedyDualSizeCache : public BaseCache<Key, Value> {
 
       // insert the new item
       auto iter = this->priority_set_.insert(
-          PriorityItem(priority + this->inflation_cost_, priority, key));
+          PriorityItem(value.cost + this->inflation_cost_, value.cost, key));
       // save on map the value and the priority item iterator position
       map_[key] = std::make_pair(value, iter.first);
     }
   }
 
-  arrow::util::optional<Value> get(const Key& key) override {
+  arrow::util::optional<ValueCacheObject<Value>> get(const Key& key) override {
     // lookup value in the cache
     typename map_type::iterator value_for_key = map_.find(key);
     if (value_for_key == map_.end()) {

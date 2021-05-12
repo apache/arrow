@@ -38,8 +38,8 @@ class LruCache : public BaseCache<Key, Value> {
     }
   };
   using map_type =
-      std::unordered_map<Key, std::pair<Value, typename std::list<Key>::iterator>,
-                         hasher>;
+      std::unordered_map<Key, std::pair<ValueCacheObject<Value>,
+                         typename std::list<Key>::iterator>, hasher>;
 
   explicit LruCache(size_t capacity) : BaseCache<Key, Value>(capacity) {}
 
@@ -55,7 +55,7 @@ class LruCache : public BaseCache<Key, Value> {
 
   bool contains(const Key& key) override { return map_.find(key) != map_.end(); }
 
-  void insert(const Key& key, const Value& value) override {
+  void insert(const Key& key, const ValueCacheObject<Value>& value) override {
     typename map_type::iterator i = map_.find(key);
     if (i == map_.end()) {
       // insert item into the cache, but first check if it is full
@@ -70,7 +70,7 @@ class LruCache : public BaseCache<Key, Value> {
     }
   }
 
-  arrow::util::optional<Value> get(const Key& key) override {
+  arrow::util::optional<ValueCacheObject<Value>> get(const Key& key) override {
     // lookup value in the cache
     typename map_type::iterator value_for_key = map_.find(key);
     if (value_for_key == map_.end()) {
@@ -81,6 +81,7 @@ class LruCache : public BaseCache<Key, Value> {
     // return the value, but first update its place in the most
     // recently used list
     typename std::list<Key>::iterator position_in_lru_list = value_for_key->second.second;
+    const ValueCacheObject<Value>& value = value_for_key->second.first;
     if (position_in_lru_list != lru_list_.begin()) {
       // move item to the front of the most recently used list
       lru_list_.erase(position_in_lru_list);
@@ -88,16 +89,9 @@ class LruCache : public BaseCache<Key, Value> {
 
       // update iterator in map
       position_in_lru_list = lru_list_.begin();
-      const Value& value = value_for_key->second.first;
       map_[key] = std::make_pair(value, position_in_lru_list);
-
-      // return the value
-      return value;
-    } else {
-      // the item is already at the front of the most recently
-      // used list so just return it
-      return value_for_key->second.first;
     }
+    return value;
   }
 
   void clear() override {
