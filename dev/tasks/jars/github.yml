@@ -21,7 +21,7 @@
 
 jobs:
   build-cpp-ubuntu:
-    name: Build C++ Gandiva Libs Ubuntu
+    name: Build C++ Libs Ubuntu
     runs-on: ubuntu-18.04
     steps:
       - name: Checkout Arrow
@@ -38,8 +38,8 @@ jobs:
           export CC="gcc-4.9" CXX="g++-4.9"
           ulimit -c unlimited -S
           set -e
-          docker run -v $PWD:/arrow anthonysimbiose/arrow-linux:dependencies /arrow/dev/tasks/gandiva-jars/build-cpp-linux.sh
-          dev/tasks/gandiva-jars/check-shared-dependencies.sh
+          docker run -v $PWD:/arrow anthonysimbiose/arrow-linux:dependencies /arrow/dev/tasks/jars/build-cpp-linux.sh
+          dev/tasks/jars/check-shared-dependencies.sh
         env:
           OS_NAME: "linux"
           CHECK_SHARED_DEPENDENCIES: true
@@ -60,14 +60,14 @@ jobs:
           git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
           if [ $CROSSBOW_USE_COMMIT_ID = true ]; then git -C arrow checkout {{ arrow.head }}; else git -C arrow checkout FETCH_HEAD; fi
           git -C arrow submodule update --init --recursive
-      - name: Build Gandiva
+      - name: Build C++ Libs
         run: |
           cd arrow
           mkdir -p dist
           export ARROW_TEST_DATA=$PWD/testing/data
           set -e
-          dev/tasks/gandiva-jars/build-cpp-osx.sh
-          dev/tasks/gandiva-jars/check-shared-dependencies.sh
+          dev/tasks/jars/build-cpp-osx.sh
+          dev/tasks/jars/check-shared-dependencies.sh
         env:
           OS_NAME: "osx"
           CHECK_SHARED_DEPENDENCIES: true
@@ -80,7 +80,7 @@ jobs:
           name: macos-shared-lib
           path: tar -cvzf arrow-shared-libs-macos.tar.gz
   package-jar:
-    name: Build Gandiva Jar
+    name: Build Jar Files
     runs-on: macos-latest
     needs: [build-cpp-macos, build-cpp-ubuntu]
     steps:
@@ -91,11 +91,11 @@ jobs:
           if [ $CROSSBOW_USE_COMMIT_ID = true ]; then git -C arrow checkout {{ arrow.head }}; else git -C arrow checkout FETCH_HEAD; fi
           git -C arrow submodule update --init --recursive
           mkdir -p arrow/dist
-      - name: Download Linux Gandiva Library
+      - name: Download Linux C++ Libraries
         uses: actions/download-artifact@v2
         with:
           name: ubuntu-shared-lib
-      - name: Download MacOS Gandiva Library
+      - name: Download MacOS C++ Library
         uses: actions/download-artifact@v2
         with:
           name: macos-shared-lib
@@ -103,12 +103,12 @@ jobs:
         run: | 
           tar -xvzf arrow-shared-libs-macos.tar.gz
           tar -Xvzf arrow-shared-libs-linux.tar.gz
-      - name: Build Gandiva Jar
+      - name: Build Jar
         run: |
           cd arrow
           export ARROW_TEST_DATA=$PWD/testing/data
           set -e
-          dev/tasks/gandiva-jars/build-java.sh
+          dev/tasks/jars/build-java.sh
         env:
           OS_NAME: "osx"
           COPY_JAR_TO_DISTRIBUTION_FOLDER: true
