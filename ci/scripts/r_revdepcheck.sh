@@ -47,7 +47,10 @@ export TEST_R_WITH_ARROW=$TEST_R_WITH_ARROW
 # to retrieve metadata. Disable this so that S3FileSystem tests run faster.
 export AWS_EC2_METADATA_DISABLED=TRUE
 
-SCRIPT="remotes::install_github('r-lib/revdepcheck')
+SCRIPT="
+    # We can't use RSPM binaries because we need source packages
+    options('repos' = 'https://packagemanager.rstudio.com/all/latest')
+    remotes::install_github('r-lib/revdepcheck')
     revdepcheck::revdep_check(
     quiet = FALSE,
     timeout = as.difftime(90, units = 'mins'),
@@ -57,8 +60,9 @@ SCRIPT="remotes::install_github('r-lib/revdepcheck')
         LIBARROW_DOWNLOAD = TRUE,
         LIBARROW_MINIMAL = FALSE,
         revdepcheck::revdep_env_vars()
-    )
-    )"
+    ))
+    revdepcheck::revdep_report(all = TRUE)
+    "
 
 echo "$SCRIPT" | ${R_BIN} --no-save
 
