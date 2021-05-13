@@ -812,42 +812,45 @@ class RPrimitiveConverter<T, enable_if_string_like<T>>
   using OffsetType = typename T::offset_type;
 
   Status Extend(SEXP x, int64_t size) override {
-    int64_t start = 0;
     RVectorType rtype = GetVectorType(x);
     if (rtype != STRING) {
       return Status::Invalid("Expecting a character vector");
     }
-    cpp11::strings s(arrow::r::utf8_strings(x));
-    RETURN_NOT_OK(this->primitive_builder_->Reserve(s.size()));
-    auto it = s.begin() + start;
-
-    // we know all the R strings are utf8 already, so we can get
-    // a definite size and then use UnsafeAppend*()
-    int64_t total_length = 0;
-    for (R_xlen_t i = 0; i < size; i++, ++it) {
-      cpp11::r_string si = *it;
-      total_length += cpp11::is_na(si) ? 0 : si.size();
-    }
-    RETURN_NOT_OK(this->primitive_builder_->ReserveData(total_length));
-
-    // append
-    it = s.begin() + start;
-    for (R_xlen_t i = 0; i < size; i++, ++it) {
-      cpp11::r_string si = *it;
-      if (si == NA_STRING) {
-        this->primitive_builder_->UnsafeAppendNull();
-      } else {
-        this->primitive_builder_->UnsafeAppend(CHAR(si), si.size());
-      }
-    }
-
-    return Status::OK();
+    return UnsafeAppendUtf8Strings(arrow::r::utf8_strings(x), size);
   }
 
   void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
     auto task = [this, values, size]() { return this->Extend(values, size); };
     // TODO: refine this., e.g. extract setup from Extend()
     tasks.Append(false, std::move(task));
+  }
+
+ private:
+  Status UnsafeAppendUtf8Strings(const cpp11::strings& s, int64_t size) {
+    RETURN_NOT_OK(this->primitive_builder_->Reserve(s.size()));
+    const SEXP* p_strings = reinterpret_cast<const SEXP*>(DATAPTR_RO(s));
+
+    // we know all the R strings are utf8 already, so we can get
+    // a definite size and then use UnsafeAppend*()
+    int64_t total_length = 0;
+    for (R_xlen_t i = 0; i < size; i++, ++p_strings) {
+      SEXP si = *p_strings;
+      total_length += si == NA_STRING ? 0 : LENGTH(si);
+    }
+    RETURN_NOT_OK(this->primitive_builder_->ReserveData(total_length));
+
+    // append
+    p_strings = reinterpret_cast<const SEXP*>(DATAPTR_RO(s));
+    for (R_xlen_t i = 0; i < size; i++, ++p_strings) {
+      SEXP si = *p_strings;
+      if (si == NA_STRING) {
+        this->primitive_builder_->UnsafeAppendNull();
+      } else {
+        this->primitive_builder_->UnsafeAppend(CHAR(si), LENGTH(si));
+      }
+    }
+
+    return Status::OK();
   }
 };
 
