@@ -671,7 +671,7 @@ def test_struct_from_arrays():
     arrays = [a, b, c]
     fields = [fa, fb, fc]
     # With mask
-    mask = pa.array([False, True, True])
+    mask = pa.array([True, False, False])
     arr = pa.StructArray.from_arrays(arrays, fields=fields, mask=mask)
     assert arr.to_pylist() == [None] + expected_list[1:]
 
@@ -953,6 +953,24 @@ def test_fixed_size_list_from_arrays():
         # length of values not multiple of 5
         pa.FixedSizeListArray.from_arrays(values, 5)
 
+
+def test_variable_list_from_arrays():
+    values = pa.array([1, 2, 3, 4], pa.int64())
+    offsets = pa.array([0, 2, 4])
+    result = pa.ListArray.from_arrays(offsets, values)
+    assert result.to_pylist() == [[1, 2], [3, 4]]
+    assert result.type.equals(pa.list_(pa.int64()))
+
+    offsets = pa.array([0, None, 2, 4])
+    result = pa.ListArray.from_arrays(offsets, values)
+    assert result.to_pylist() == [[1, 2], None, [3, 4]]
+
+    # raise if offset out of bounds
+    with pytest.raises(ValueError):
+        pa.ListArray.from_arrays(pa.array([-1, 2, 4]), values)
+
+    with pytest.raises(ValueError):
+        pa.ListArray.from_arrays(pa.array([0, 2, 5]), values)
 
 def test_union_from_dense():
     binary = pa.array([b'a', b'b', b'c', b'd'], type='binary')

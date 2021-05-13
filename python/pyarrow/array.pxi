@@ -1593,6 +1593,39 @@ cdef class ListArray(BaseListArray):
         Returns
         -------
         list_array : ListArray
+
+        Examples
+        --------
+        >>> values = pa.array([1, 2, 3, 4])
+        >>> offsets = pa.array([0, 2, 4])
+        >>> pa.ListArray.from_arrays(offsets, values)
+        <pyarrow.lib.ListArray object at 0x7fbde226bf40>
+        [
+          [
+            0,
+            1
+          ],
+          [
+            2,
+            3
+          ]
+        ]
+
+        # nulls in the offsets array become null lists
+        >>> offsets = pa.array([0, None, 2, 4])
+        >>> pa.ListArray.from_arrays(offsets, values)
+        <pyarrow.lib.ListArray object at 0x7fbde226bf40>
+        [
+          [
+            0,
+            1
+          ],
+          null,
+          [
+            2,
+            3
+          ]
+        ]
         """
         cdef:
             Array _offsets, _values
@@ -2153,7 +2186,7 @@ cdef class StructArray(Array):
         return [pyarrow_wrap_array(arr) for arr in arrays]
 
     @staticmethod
-    def from_arrays(arrays, names=None, fields=None, mask=None):
+    def from_arrays(arrays, names=None, fields=None, mask=None, memory_pool=None):
         """
         Construct StructArray from collection of arrays representing
         each field in the struct.
@@ -2168,7 +2201,9 @@ cdef class StructArray(Array):
         fields : List[Field] (optional)
             Field instances for each struct child.
         mask : pyarrow.Array[bool] (optional)
-            Indicate which values are null (False) or not null (True).
+            Indicate which values are null (True) or not null (False).
+        memory_pool : MemoryPool (optional)
+            For memory allocations, if required, otherwise uses default pool.
 
         Returns
         -------
@@ -2199,7 +2234,8 @@ cdef class StructArray(Array):
                 raise ValueError('Mask must be a pyarray.Array of type bool')
             if mask.null_count != 0:
                 raise ValueError('Mask must not contain nulls')
-            c_mask = pyarrow_unwrap_buffer(mask.buffers()[1])
+            inverted_mask = _pc().invert(mask, memory_pool=memory_pool)
+            c_mask = pyarrow_unwrap_buffer(inverted_mask.buffers()[1])
         else:
             raise ValueError('Mask must be a pyarray.Array of type bool')
 
