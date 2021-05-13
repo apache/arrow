@@ -27,7 +27,6 @@ import pickle
 import shutil
 import signal
 import string
-import sys
 import tempfile
 import threading
 import time
@@ -41,6 +40,7 @@ import pyarrow as pa
 from pyarrow.csv import (
     open_csv, read_csv, ReadOptions, ParseOptions, ConvertOptions, ISO8601,
     write_csv, WriteOptions)
+from pyarrow.tests import util
 
 
 def generate_col_names():
@@ -918,17 +918,8 @@ class BaseTestCSVRead:
         if (threading.current_thread().ident !=
                 threading.main_thread().ident):
             pytest.skip("test only works from main Python thread")
-
-        if sys.version_info >= (3, 8):
-            raise_signal = signal.raise_signal
-        elif os.name == 'nt':
-            # On Windows, os.kill() doesn't actually send a signal,
-            # it just terminates the process with the given exit code.
-            pytest.skip("test requires Python 3.8+ on Windows")
-        else:
-            # On Unix, emulate raise_signal() with os.kill().
-            def raise_signal(signum):
-                os.kill(os.getpid(), signum)
+        # Skips test if not available
+        raise_signal = util.get_raise_signal()
 
         # Make the interruptible workload large enough to not finish
         # before the interrupt comes, even in release mode on fast machines
