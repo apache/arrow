@@ -924,7 +924,7 @@ class AsyncThreadedTableReader
         internal::TaskGroup::MakeThreaded(cpu_executor_, io_context_.stop_token());
 
     auto self = shared_from_this();
-    return ProcessFirstBuffer().Then([self](std::shared_ptr<Buffer> first_buffer) {
+    return ProcessFirstBuffer().Then([self](const std::shared_ptr<Buffer>& first_buffer) {
       auto block_generator = ThreadedBlockReader::MakeAsyncIterator(
           self->buffer_generator_, MakeChunker(self->parse_options_),
           std::move(first_buffer));
@@ -949,12 +949,12 @@ class AsyncThreadedTableReader
       };
 
       return VisitAsyncGenerator(std::move(block_generator), block_visitor)
-          .Then([self](...) -> Future<> {
+          .Then([self]() -> Future<> {
             // By this point we've added all top level tasks so it is safe to call
             // FinishAsync
             return self->task_group_->FinishAsync();
           })
-          .Then([self](...) -> Result<std::shared_ptr<Table>> {
+          .Then([self]() -> Result<std::shared_ptr<Table>> {
             // Finish conversion, create schema and table
             return self->MakeTable();
           });

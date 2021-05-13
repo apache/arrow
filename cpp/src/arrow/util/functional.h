@@ -67,6 +67,16 @@ struct call_traits {
   static typename std::tuple_element<I, std::tuple<A...>>::type argument_type_impl(
       R (F::*)(A...) &&);
 
+  template <typename F, typename R, typename... A>
+  static std::integral_constant<int, sizeof...(A)> argument_count_impl(R (F::*)(A...));
+
+  template <typename F, typename R, typename... A>
+  static std::integral_constant<int, sizeof...(A)> argument_count_impl(R (F::*)(A...)
+                                                                           const);
+
+  template <typename F, typename R, typename... A>
+  static std::integral_constant<int, sizeof...(A)> argument_count_impl(R (F::*)(A...) &&);
+
   /// bool constant indicating whether F is a callable with more than one possible
   /// signature. Will be true_type for objects which define multiple operator() or which
   /// define a template operator()
@@ -85,6 +95,9 @@ struct call_traits {
   /// extracted via call_traits::argument_type<Index, F>
   template <std::size_t I, typename F>
   using argument_type = decltype(argument_type_impl<I>(&std::decay<F>::type::operator()));
+
+  template <typename F>
+  using argument_count = decltype(argument_count_impl(&std::decay<F>::type::operator()));
 
   template <typename F>
   using return_type = decltype(return_type_impl(&std::decay<F>::type::operator()));

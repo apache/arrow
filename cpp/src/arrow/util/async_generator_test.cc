@@ -380,7 +380,7 @@ TEST(TestAsyncUtil, MapReentrant) {
   Future<> can_proceed = Future<>::Make();
   std::function<Future<TestStr>(const TestInt&)> mapper = [&](const TestInt& in) {
     map_tasks_running.fetch_add(1);
-    return can_proceed.Then([in](...) { return TestStr(std::to_string(in.value)); });
+    return can_proceed.Then([in]() { return TestStr(std::to_string(in.value)); });
   };
   auto mapped = MakeMappedGenerator(std::move(source), mapper);
 
@@ -466,7 +466,7 @@ TEST_P(FromFutureFixture, Basic) {
   auto source = Future<std::vector<TestInt>>::MakeFinished(RangeVector(3));
   if (IsSlow()) {
     source = SleepABitAsync().Then(
-        [](...) -> Result<std::vector<TestInt>> { return RangeVector(3); });
+        []() -> Result<std::vector<TestInt>> { return RangeVector(3); });
   }
   auto slow = IsSlow();
   auto to_gen = source.Then([slow](const std::vector<TestInt>& vec) {

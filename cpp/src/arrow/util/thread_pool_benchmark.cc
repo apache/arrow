@@ -136,7 +136,7 @@ static void ThreadPoolSubmit(benchmark::State& state) {  // NOLINT non-const ref
 
     for (int32_t i = 0; i < nspawns; ++i) {
       // Pass the task by reference to avoid copying it around
-      (void)DeferNotOk(pool->Submit(std::ref(workload))).Then([&](...) {
+      (void)DeferNotOk(pool->Submit(std::ref(workload))).Then([&]() {
         n_finished.fetch_add(1);
       });
     }

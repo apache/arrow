@@ -1308,7 +1308,7 @@ class BackgroundGenerator {
         // If the task is still cleaning up we need to wait for it to finish before
         // restarting.  We also want to block the consumer until we've restarted the
         // reader to avoid multiple restarts
-        return task_finished.Then([state, next](...) {
+        return task_finished.Then([state, next]() {
           // This may appear dangerous (recursive mutex) but we should be guaranteed the
           // outer guard has been released by this point.  We know...
           // * task_finished is not already finished (it would be invalid in that case)

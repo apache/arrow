@@ -266,12 +266,12 @@ TEST(FutureSyncTest, Empty) {
     // MarkFinished(Status)
     auto fut = Future<>::Make();
     AssertNotFinished(fut);
-    fut.MarkFinished(Status::OK());
+    fut.MarkFinished();
     AssertSuccessful(fut);
   }
   {
     // MakeFinished(Status)
-    auto fut = Future<>::MakeFinished(Status::OK());
+    auto fut = Future<>::MakeFinished();
     AssertSuccessful(fut);
     fut = Future<>::MakeFinished(Status::IOError("xxx"));
     AssertFailed(fut);
@@ -396,13 +396,13 @@ TEST(FutureRefTest, HeadRemoved) {
   {
     auto fut = std::make_shared<Future<>>(Future<>::Make());
     ref = fut->impl_;
-    ref2 = std::make_shared<Future<>>(fut->Then([](...) {}));
+    ref2 = std::make_shared<Future<>>(fut->Then([]() {}));
   }
   ASSERT_TRUE(ref.expired());
 
   {
     auto fut = Future<>::Make();
-    ref2 = std::make_shared<Future<>>(fut.Then([&](...) {
+    ref2 = std::make_shared<Future<>>(fut.Then([&]() {
       auto intermediate = Future<>::Make();
       ref = intermediate.impl_;
       return intermediate;
@@ -566,7 +566,7 @@ TEST(FutureCompletionTest, Void) {
     // Swallow failure by catching in on_failure
     auto fut = Future<>::Make();
     Status status_seen = Status::OK();
-    auto fut2 = fut.Then([](...) {},
+    auto fut2 = fut.Then([]() {},
                          [&status_seen](const Status& s) {
                            status_seen = s;
                            return Status::OK();
@@ -623,7 +623,7 @@ TEST(FutureCompletionTest, NonVoid) {
   {
     // From void
     auto fut = Future<>::Make();
-    auto fut2 = fut.Then([](...) { return 42; });
+    auto fut2 = fut.Then([]() { return 42; });
     fut.MarkFinished();
     AssertSuccessful(fut2);
     auto result = *fut2.result();
@@ -699,7 +699,7 @@ TEST(FutureCompletionTest, FutureNonVoid) {
     // From void
     auto fut = Future<>::Make();
     auto innerFut = Future<std::string>::Make();
-    auto fut2 = fut.Then([&innerFut](...) { return innerFut; });
+    auto fut2 = fut.Then([&innerFut]() { return innerFut; });
     fut.MarkFinished();
     AssertNotFinished(fut2);
     innerFut.MarkFinished("hello");
@@ -713,7 +713,7 @@ TEST(FutureCompletionTest, FutureNonVoid) {
     auto innerFut = Future<std::string>::Make();
     auto was_cb_run = false;
     auto fut2 = fut.Then(
-        [&innerFut, &was_cb_run](...) {
+        [&innerFut, &was_cb_run]() {
           was_cb_run = true;
           return Result<Future<std::string>>(innerFut);
         },
@@ -843,7 +843,7 @@ TEST(FutureCompletionTest, Result) {
   {
     // From void
     auto fut = Future<>::Make();
-    auto fut2 = fut.Then([](...) { return Result<int>(42); });
+    auto fut2 = fut.Then([]() { return Result<int>(42); });
     fut.MarkFinished();
     AssertSuccessful(fut2);
     auto result = *fut2.result();
@@ -854,7 +854,7 @@ TEST(FutureCompletionTest, Result) {
     auto fut = Future<>::Make();
     auto was_cb_run = false;
     auto fut2 = fut.Then(
-        [&was_cb_run](...) {
+        [&was_cb_run]() {
           was_cb_run = true;
           return Result<int>(42);
         },
@@ -935,7 +935,7 @@ TEST(FutureCompletionTest, FutureVoid) {
     // From void
     auto fut = Future<>::Make();
     auto innerFut = Future<>::Make();
-    auto fut2 = fut.Then([&innerFut](...) { return innerFut; });
+    auto fut2 = fut.Then([&innerFut]() { return innerFut; });
     fut.MarkFinished();
     AssertNotFinished(fut2);
     innerFut.MarkFinished();
@@ -945,7 +945,7 @@ TEST(FutureCompletionTest, FutureVoid) {
     // Propagate failure by returning failure
     auto fut = Future<>::Make();
     auto innerFut = Future<>::Make();
-    auto fut2 = fut.Then([&innerFut](...) { return innerFut; },
+    auto fut2 = fut.Then([&innerFut]() { return innerFut; },
                          [](const Status& s) { return Future<>::MakeFinished(s); });
     fut.MarkFinished(Status::IOError("xxx"));
     AssertFailed(fut2);
@@ -1077,7 +1077,7 @@ TEST(FutureLoopTest, Sync) {
 
 TEST(FutureLoopTest, EmptyBreakValue) {
   Future<> none_fut =
-      Loop([&] { return Future<>::MakeFinished().Then([&](...) { return Break(); }); });
+      Loop([&] { return Future<>::MakeFinished().Then([&]() { return Break(); }); });
   AssertSuccessful(none_fut);
 }
 
@@ -1172,7 +1172,7 @@ class MoveTrackingCallable {
     return *this;
   }
 
-  Status operator()(...) {
+  Status operator()() {
     // std::cout << "TRIGGER" << std::endl;
     if (valid_) {
       return Status::OK();
@@ -1194,7 +1194,7 @@ TEST(FutureCompletionTest, ReuseCallback) {
     continuation = fut.Then(callback);
   }
 
-  fut.MarkFinished(Status::OK());
+  fut.MarkFinished();
 
   ASSERT_TRUE(continuation.is_finished());
   if (continuation.is_finished()) {

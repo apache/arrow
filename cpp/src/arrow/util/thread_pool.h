@@ -217,7 +217,8 @@ class ARROW_EXPORT SerialExecutor : public Executor {
   template <typename T = internal::Empty, typename FT = Future<T>,
             typename FTSync = typename FT::SyncType>
   static FTSync RunInSerialExecutor(TopLevelTask<T> initial_task) {
-    return SerialExecutor().Run<T>(std::move(initial_task)).to_sync();
+    Future<T> fut = SerialExecutor().Run<T>(std::move(initial_task));
+    return FutureToSync(fut);
   }
 
  private:
@@ -333,7 +334,8 @@ template <typename Fut, typename ValueType = typename Fut::ValueType>
 typename Fut::SyncType RunSynchronously(FnOnce<Fut(Executor*)> get_future,
                                         bool use_threads) {
   if (use_threads) {
-    return std::move(get_future)(GetCpuThreadPool()).to_sync();
+    auto fut = std::move(get_future)(GetCpuThreadPool());
+    return FutureToSync(fut);
   } else {
     return SerialExecutor::RunInSerialExecutor<ValueType>(std::move(get_future));
   }

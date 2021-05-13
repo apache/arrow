@@ -366,7 +366,7 @@ Future<> AllComplete(const std::vector<Future<>>& futures) {
         return;
       }
       if (state->n_remaining.fetch_sub(1) != 1) return;
-      out.MarkFinished(Status::OK());
+      out.MarkFinished();
     });
   }
   return out;
