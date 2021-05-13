@@ -85,6 +85,10 @@ call_function <- function(function_name, ..., args = list(...), options = empty_
 #' @param pattern Optional regular expression to filter the function list
 #' @param ... Additional parameters passed to `grep()`
 #' @return A character vector of available Arrow C++ function names
+#' @examples
+#' list_compute_function() 
+#' list_compute_functions(pattern = "^UTF8", ignore.case = TRUE)
+#' list_compute_functions(pattern = "^is", invert = TRUE)
 #' @export
 list_compute_functions <- function(pattern = NULL, ...) {
   funcs <- compute__GetFunctionNames()
@@ -229,6 +233,28 @@ all.ArrowDatum <- function(..., na.rm = FALSE){
 #' as `x` with the (0-based) indexes into `table`. `is_in()` returns a
 #' `boolean`-type `Array` of the same length as `x` with values indicating
 #' per element of `x` it it is present in `table`.
+#' @examples
+#' cars_tbl <- Table$create(name = rownames(mtcars), mtcars)
+#' 
+#' # note that the returned value is 0-indexed
+#' match_arrow(Array$create("Mazda RX4 Wag"), cars_tbl$name)
+#'
+#' is_in(Array$create("Mazda RX4 Wag"), cars_tbl$name)
+#' 
+#' # Although there are multiple matches, you are returned the index of the first 
+#' # match, as with the base R equivalent
+#' match(4, mtcars$cyl)
+#' match_arrow(Array$create(4), cars_tbl$cyl)
+#' 
+#' # If you specify a vector or Array, you get the indices of the first matches
+#' match(c(4, 6, 8), mtcars$cyl)
+#' match_arrow(Array$create(c(4, 6, 8)), cars_tbl$cyl)
+#' 
+#' is_in(4, mtcars$cyl)
+#' is_in(Array$create(4), cars_tbl$cyl)
+#' 
+#' is_in(c(4, 6, 8), mtcars$cyl)
+#' is_in(Array$create(c(4, 6, 8)), cars_tbl$cyl)
 #' @export
 match_arrow <- function(x, table, ...) UseMethod("match_arrow")
 

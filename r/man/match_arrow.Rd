@@ -26,3 +26,26 @@ per element of \code{x} it it is present in \code{table}.
 \code{base::match()} is not a generic, so we can't just define Arrow methods for
 it. This function exposes the analogous functions in the Arrow C++ library.
 }
+\examples{
+cars_tbl <- Table$create(name = rownames(mtcars), mtcars)
+
+# note that the returned value is 0-indexed
+match_arrow(Array$create("Mazda RX4 Wag"), cars_tbl$name)
+
+is_in(Array$create("Mazda RX4 Wag"), cars_tbl$name)
+
+# Although there are multiple matches, you are returned the index of the first 
+# match, as with the base R equivalent
+match(4, mtcars$cyl)
+match_arrow(Array$create(4), cars_tbl$cyl)
+
+# If you specify a vector or Array, you get the indices of the first matches
+match(c(4, 6, 8), mtcars$cyl)
+match_arrow(Array$create(c(4, 6, 8)), cars_tbl$cyl)
+
+is_in(4, mtcars$cyl)
+is_in(Array$create(4), cars_tbl$cyl)
+
+is_in(c(4, 6, 8), mtcars$cyl)
+is_in(Array$create(c(4, 6, 8)), cars_tbl$cyl)
+}
