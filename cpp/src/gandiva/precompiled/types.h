@@ -543,8 +543,4 @@ float castFLOAT4_utf8(int64_t context, const char* data, int32_t len);
 
 double castFLOAT8_utf8(int64_t context, const char* data, int32_t len);
 
-int32_t castINT_varbinary(gdv_int64 context, const char* in, int32_t in_len);
-
-int64_t castBIGINT_varbinary(gdv_int64 context, const char* in, int32_t in_len);
-
 }  // extern "C"
