@@ -70,7 +70,7 @@ SCRIPT="
 
     # Go through the summary and fail if any of the statuses include -
     summary <- revdepcheck::revdep_summary()
-    failed <- lapply(summary, function(check) grepl('-', check$status))
+    failed <- lapply(summary, function(check) grepl('-', check[['status']]))
 
     if (any(unlist(failed))) {
       quit(status = 1)
