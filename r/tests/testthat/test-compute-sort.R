@@ -138,28 +138,21 @@ test_that("sort(vector), sort(Array), sort(ChunkedArray) give equivalent results
 })
 
 test_that("Table$SortIndices()", {
+  x <- Table$create(tbl)
   expect_identical(
-    {
-      x <- tbl %>% Table$create()
-      x$Take(x$SortIndices("chr")) %>% pull(chr)
-    },
+    as.vector(x$Take(x$SortIndices("chr"))$chr),
     sort(tbl$chr, na.last = TRUE)
   )
   expect_identical(
-    {
-      x <- tbl %>% Table$create()
-      x$Take(x$SortIndices(c("int", "dbl"), c(FALSE, FALSE))) %>% collect()
-    },
+    as.data.frame(x$Take(x$SortIndices(c("int", "dbl"), c(FALSE, FALSE)))),
     tbl %>% arrange(int, dbl)
   )
 })
 
 test_that("RecordBatch$SortIndices()", {
+  x <- record_batch(tbl)
   expect_identical(
-    {
-      x <- tbl %>% record_batch()
-      x$Take(x$SortIndices(c("chr", "int", "dbl"), TRUE)) %>% collect()
-    },
+    as.data.frame(x$Take(x$SortIndices(c("chr", "int", "dbl"), TRUE))),
     tbl %>% arrange(desc(chr), desc(int), desc(dbl))
   )
 })

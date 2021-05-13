@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+skip_if_not_available("dataset")
+
 library(dplyr)
 library(stringr)
 
