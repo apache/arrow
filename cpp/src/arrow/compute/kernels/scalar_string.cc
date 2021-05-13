@@ -267,16 +267,47 @@ void EnsureLookupTablesFilled() {}
 #endif  // ARROW_WITH_UTF8PROC
 
 template <typename Type>
-struct StringReverse : StringTransform<Type, StringReverse<Type>> {
-  using Base = StringTransform<Type, StringReverse<Type>>;
+struct AsciiReverse : StringTransform<Type, AsciiReverse<Type>> {
+  using Base = StringTransform<Type, AsciiReverse<Type>>;
   using offset_type = typename Base::offset_type;
 
   bool Transform(const uint8_t* input, offset_type input_string_ncodeunits,
                  uint8_t* output, offset_type* output_written) {
-    std::reverse_copy(input, input + input_string_ncodeunits, output);
+    uint8_t failure = 0;
+    for (offset_type i = 0; i < input_string_ncodeunits; i++) {
+      failure |= input[i] & 0x80;  // if a utf8 char is found, report to failure
+      output[input_string_ncodeunits - i - 1] = input[i];
+    }
+    //    std::reverse_copy(input, input + input_string_ncodeunits, output);
     // todo: this is not needed for reverse. may be change StringTransform struct to
     // handle 2 cases. 1. for same size string transform and 2. variable size string
     // transform
+    *output_written = input_string_ncodeunits;
+    return failure == 0;
+  }
+};
+
+// todo move to a proper place
+/**
+ * UTF8 codeunit size can be determined by looking at the first 4 bits of BYTE1
+ */
+const std::array<uint8_t, 16> UTF8_BYTE_SIZE_LUT{1, 1, 1, 1, 1, 1, 1, 1,
+                                                 0, 0, 0, 0, 2, 2, 3, 4};
+
+template <typename Type>
+struct Utf8Reverse : StringTransform<Type, Utf8Reverse<Type>> {
+  using Base = StringTransform<Type, Utf8Reverse<Type>>;
+  using offset_type = typename Base::offset_type;
+
+  bool Transform(const uint8_t* input, offset_type input_string_ncodeunits,
+                 uint8_t* output, offset_type* output_written) {
+    offset_type i = 0;
+    while (i < input_string_ncodeunits) {
+      uint8_t offset = UTF8_BYTE_SIZE_LUT[input[i] >> 4];
+      std::copy(input + i, input + (i + offset),
+                output + (input_string_ncodeunits - i - offset));
+      i += offset;
+    }
     *output_written = input_string_ncodeunits;
     return true;
   }
@@ -2333,9 +2364,13 @@ const FunctionDoc utf8_lower_doc(
     "Transform input to lowercase",
     ("For each string in `strings`, return a lowercase version."), {"strings"});
 
-const FunctionDoc string_reverse_doc(
-    "Reverse input ", ("For each string in `strings`, return a reversed version."),
-    {"strings"});
+const FunctionDoc ascii_reverse_doc(
+    "Reverse ascii input",
+    ("For each ascii string in `strings`, return a reversed version."), {"strings"});
+
+const FunctionDoc utf8_reverse_doc(
+    "Reverse utf8 input",
+    ("For each utf8 string in `strings`, return a reversed version."), {"strings"});
 
 }  // namespace
 
@@ -2352,8 +2387,8 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
                                                    &ascii_ltrim_whitespace_doc);
   MakeUnaryStringBatchKernel<AsciiRTrimWhitespace>("ascii_rtrim_whitespace", registry,
                                                    &ascii_rtrim_whitespace_doc);
-  MakeUnaryStringBatchKernel<StringReverse>("string_reverse", registry,
-                                            &string_reverse_doc);
+  MakeUnaryStringBatchKernel<AsciiReverse>("ascii_reverse", registry, &ascii_reverse_doc);
+  MakeUnaryStringBatchKernel<Utf8Reverse>("utf8_reverse", registry, &utf8_reverse_doc);
   MakeUnaryStringBatchKernelWithState<AsciiTrim>("ascii_trim", registry,
                                                  &ascii_lower_doc);
   MakeUnaryStringBatchKernelWithState<AsciiLTrim>("ascii_ltrim", registry,
