@@ -106,3 +106,19 @@ mkdir -p "${build_dir}"
 cp -L  ${build_dir}/lib/libgandiva_jni.so ${distribution_dir}
 cp -L  ${build_dir}/lib/libarrow_dataset_jni.so ${distribution_dir}
 cp -L  ${build_dir}/lib/libarrow_orc_jni.so ${distribution_dir}
+
+echo "=== (${PYTHON_VERSION}) Checking shared dependencies for libraries ==="
+source $arrow_dir/ci/scripts/java_bundled_jars_check_dependencies.sh
+SO_DEP=ldd
+
+GANDIVA_LIB=$distribution_dir/libgandiva_jni.so
+DATASET_LIB=$distribution_dir/libarrow_dataset_jni.so
+ORC_LIB=$distribution_dir/libarrow_orc_jni.so
+LIBRARIES=($GANDIVA_LIB $ORC_LIB $DATASET_LIB)
+
+WHITELIST=(linux-vdso libz librt libdl libpthread libstdc++ libm libgcc_s libc ld-linux-x86-64)
+
+for library in "${LIBRARIES[@]}"
+do
+  check_dynamic_dependencies $SO_DEP $library "${WHITELIST[@]}"  
+done

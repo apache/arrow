@@ -73,3 +73,19 @@ pushd "${build_dir}"
   cp -L ${build_dir}/lib/libarrow_dataset_jni.dylib ${distribution_dir}
   cp -L ${build_dir}/lib/libarrow_orc_jni.dylib ${distribution_dir}
 popd
+
+#Check if any libraries contains an unwhitelisted shared dependency
+source $arrow_dir/ci/scripts/java_bundled_jars_check_dependencies.sh
+SO_DEP="otool -L"
+
+GANDIVA_LIB=$distribution_dir/libgandiva_jni.dylib
+DATASET_LIB=$distribution_dir/libarrow_dataset_jni.dylib
+ORC_LIB=$distribution_dir/libarrow_orc_jni.dylib
+LIBRARIES=($GANDIVA_LIB $ORC_LIB $DATASET_LIB)
+
+WHITELIST=(libgandiva_jni libarrow_orc_jni libarrow_dataset_jni libz libncurses libSystem libc++)
+
+for library in "${LIBRARIES[@]}"
+do
+  check_dynamic_dependencies $SO_DEP $library "${WHITELIST[@]}"  
+done

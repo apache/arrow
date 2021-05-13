@@ -46,10 +46,6 @@ jobs:
           set -e
           archery docker build java-bundled-jars
           archery docker run java-bundled-jars
-          dev/tasks/jars/check-shared-dependencies.sh
-        env:
-          OS_NAME: "linux"
-          CHECK_SHARED_DEPENDENCIES: true
       - name: Compress into single artifact
         run: tar -cvzf arrow-shared-libs-linux.tar.gz arrow/dist/
       - name: Upload Artifacts
@@ -71,10 +67,7 @@ jobs:
         run: |
           set -e
           arrow/ci/scripts/java_bundled_jars_macos_build.sh $ARROW_DIR $ARROW_DIR/cpp-build $ARROW_DIR/dist 
-          dev/tasks/jars/check-shared-dependencies.sh
         env:
-          OS_NAME: "osx"
-          CHECK_SHARED_DEPENDENCIES: true
           MACOSX_DEPLOYMENT_TARGET: "10.11"
           ARROW_DIR: {{ '${{ github.workspace }} ' }}/arrow
       - name: Compress into single artifact
@@ -114,7 +107,6 @@ jobs:
           set -e
           ci/scripts/java_bundled_jars_java_build.sh $ARROW_DIR $ARROW_DIR/dist/ true
         env:
-          OS_NAME: "osx"
           ARROW_DIR: {{ '${{ github.workspace }} ' }}/arrow
   
       {{ macros.github_upload_releases("arrow/dist/*.jar")|indent }}
