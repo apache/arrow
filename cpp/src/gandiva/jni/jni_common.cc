@@ -730,7 +730,7 @@ Status JavaResizableBuffer::Resize(const int64_t new_size, bool shrink_to_fit) {
   jlong ret_capacity = env_->GetLongField(ret, vector_expander_ret_capacity_);
   DCHECK_GE(ret_capacity, new_size);
 
-  data_ = mutable_data_ = reinterpret_cast<uint8_t*>(ret_address);
+  data_ = reinterpret_cast<uint8_t*>(ret_address);
   size_ = new_size;
   capacity_ = ret_capacity;
   return Status::OK();
