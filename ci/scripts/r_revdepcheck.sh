@@ -49,7 +49,7 @@ export AWS_EC2_METADATA_DISABLED=TRUE
 
 SCRIPT="
     # We can't use RSPM binaries because we need source packages
-    options('repos' = 'https://packagemanager.rstudio.com/all/latest')
+    options('repos' = c(CRAN = 'https://packagemanager.rstudio.com/all/latest'))
     remotes::install_github('r-lib/revdepcheck')
     revdepcheck::revdep_check(
     quiet = FALSE,

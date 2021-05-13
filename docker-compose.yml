@@ -1119,7 +1119,7 @@ services:
     command: >
       /bin/bash -c "
         # cpp building dependencies
-        apt install -y cmake ninja-build pkg-config
+        apt install -y cmake
 
         # system dependencies needed for arrow's reverse dependencies
         apt install -y libxml2-dev \
@@ -1131,8 +1131,8 @@ services:
           libpq-dev \
           coinor-libsymphony-dev \
           coinor-libcgl-dev \
-          coinor-symphony
-        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+          coinor-symphony \
+          libzmq3-dev
         /arrow/ci/scripts/r_revdepcheck.sh /arrow"
 
 
