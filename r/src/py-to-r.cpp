@@ -111,7 +111,7 @@ void ExportRecordBatch(const std::shared_ptr<arrow::RecordBatch>& batch,
 // [[arrow::export]]
 void ExportRecordBatchReader(const std::shared_ptr<arrow::RecordBatchReader>& reader,
                              arrow::r::Pointer<struct ArrowArrayStream> stream_ptr) {
-  StopIfNotOk(arrow::ExportRecordBatchReader(*batch, stream_ptr));
+  StopIfNotOk(arrow::ExportRecordBatchReader(*reader, stream_ptr));
 }
 
 #endif
