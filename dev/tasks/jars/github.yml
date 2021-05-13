@@ -44,8 +44,8 @@ jobs:
           export CC="gcc-4.9" CXX="g++-4.9"
           ulimit -c unlimited -S
           set -e
-          archery docker build python-wheel-manylinux-2014-java
-          archery docker run python-wheel-manylinux-2014-java
+          archery docker build java-bundled-jars
+          archery docker run java-bundled-jars
           dev/tasks/jars/check-shared-dependencies.sh
         env:
           OS_NAME: "linux"

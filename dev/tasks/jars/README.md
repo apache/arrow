@@ -25,5 +25,5 @@ in the jars at the end, so the file can be used on both systems.
 
 ## Linux Docker Image
 To compile the C++ libraries in Linux, a docker image is used. 
-It is created used the **ci/docker/python-wheel-manylinux-2014-java.dockerfile** file. 
+It is created used the **ci/docker/java-bundled-jars.dockerfile** file. 
 If it is necessary to add any new dependency, you need to change that file.
