@@ -816,22 +816,26 @@ class RPrimitiveConverter<T, enable_if_string_like<T>>
     if (rtype != STRING) {
       return Status::Invalid("Expecting a character vector");
     }
-    // this is fine for now because a converter only ever calls Extend()
-    // but we'll have to find some other way
-    utf8_strings_ = arrow::r::utf8_strings(x);
-    return UnsafeAppendUtf8Strings(utf8_strings_, size);
+    return UnsafeAppendUtf8Strings(to_utf8(x), size);
   }
 
   void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
-    // this is fine for now because a converter only ever calls DelayedExtend()
-    // but we'll have to find some other way
-    utf8_strings_ = arrow::r::utf8_strings(values);
+    // convert to utf8 on the main thread
+    SEXP x = to_utf8(values);
 
-    tasks.Append(false,
-                 [this, size]() { return this->Extend(this->utf8_strings_, size); });
+    // but then do the bulk of the work in parallel
+    tasks.Append(true, [this, x, size]() { return UnsafeAppendUtf8Strings(x, size); });
   }
 
  private:
+  // convert x to utf8 strings and cache so that
+  // the result can be used in parallel (in DelayedExtend)
+  SEXP to_utf8(SEXP x) {
+    SEXP utf8 = arrow::r::utf8_strings(x);
+    utf8_vectors_.push_back(utf8);
+    return utf8;
+  }
+
   Status UnsafeAppendUtf8Strings(SEXP s, int64_t size) {
     RETURN_NOT_OK(this->primitive_builder_->Reserve(XLENGTH(s)));
     const SEXP* p_strings = reinterpret_cast<const SEXP*>(DATAPTR_RO(s));
@@ -860,7 +864,7 @@ class RPrimitiveConverter<T, enable_if_string_like<T>>
   }
 
  private:
-  cpp11::strings utf8_strings_;
+  cpp11::writable::list utf8_vectors_;
 };
 
 template <typename T>
@@ -1412,14 +1416,6 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp,
 
   auto flatten_lst = arrow::r::FlattenDots(lst, num_fields);
   std::vector<std::unique_ptr<arrow::r::RConverter>> converters(num_fields);
-
-  // convert strings to utf8
-  for (size_t j = 0; j < num_fields; j++) {
-    SEXP x = flatten_lst[j];
-    if (TYPEOF(x) == STRSXP) {
-      flatten_lst[j] = arrow::r::utf8_strings(flatten_lst[j]);
-    }
-  }
 
   // init converters
   for (int j = 0; j < num_fields && status.ok(); j++) {
