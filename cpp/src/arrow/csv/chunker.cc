@@ -235,6 +235,39 @@ class LexingBoundaryFinder : public BoundaryFinder {
     return Status::OK();
   }
 
+  Status FindNth(util::string_view partial, util::string_view block, uint64_t count,
+                 int64_t* out_pos, uint64_t* num_found) override {
+    Lexer<quoting, escaping> lexer(options_);
+    uint64_t found = 0;
+    const char* data = block.data();
+    const char* const data_end = block.data() + block.size();
+
+    const char* line_end;
+    if (partial.size()) {
+      line_end = lexer.ReadLine(partial.data(), partial.data() + partial.size());
+      DCHECK_EQ(line_end, nullptr);  // Otherwise `partial` is a whole CSV line
+    }
+
+    for (; data < data_end && found < count; ++found) {
+      line_end = lexer.ReadLine(data, data_end);
+      if (line_end == nullptr) {
+        // Cannot read any further
+        break;
+      }
+      DCHECK_GT(line_end, data);
+      data = line_end;
+    }
+
+    if (data == block.data()) {
+      // No complete CSV line
+      *out_pos = kNoDelimiterFound;
+    } else {
+      *out_pos = static_cast<int64_t>(data - block.data());
+    }
+    *num_found = found;
+    return Status::OK();
+  }
+
  protected:
   ParseOptions options_;
 };
