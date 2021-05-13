@@ -1204,7 +1204,7 @@ std::vector<int> GetFieldIdsDfs(const ::arrow::FieldVector& fields) {
   return field_ids;
 }
 
-TEST_F(TestConvertRoundTrip, GroupIdDfsIfNotSpecified) {
+TEST_F(TestConvertRoundTrip, GroupIdMissingIfNotSpecified) {
   std::vector<std::shared_ptr<Field>> arrow_fields;
   arrow_fields.push_back(::arrow::field("simple", ::arrow::int32(), false));
   /// { "nested": { "outer": { "inner" }, "sibling" }
@@ -1217,9 +1217,8 @@ TEST_F(TestConvertRoundTrip, GroupIdDfsIfNotSpecified) {
 
   ASSERT_OK(ConvertSchema(arrow_fields));
   auto field_ids = GetFieldIdsDfs(result_schema_->fields());
-  auto field_id_counter = 1;
   for (int actual_id : field_ids) {
-    ASSERT_EQ(actual_id, field_id_counter++);
+    ASSERT_EQ(actual_id, -1);
   }
 }
 
@@ -1242,7 +1241,7 @@ TEST_F(TestConvertRoundTrip, GroupIdPreserveExisting) {
 
   ASSERT_OK(ConvertSchema(arrow_fields));
   auto field_ids = GetFieldIdsDfs(result_schema_->fields());
-  auto expected_field_ids = std::vector<int>{2, 1, 3, 4, 17};
+  auto expected_field_ids = std::vector<int>{2, -1, -1, -1, 17};
   ASSERT_EQ(field_ids, expected_field_ids);
 }
 

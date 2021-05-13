@@ -233,28 +233,36 @@ static Status GetTimestampMetadata(const ::arrow::TimestampType& type,
 }
 
 static constexpr char FIELD_ID_KEY[] = "PARQUET:field_id";
-static constexpr int NO_FIELD_ID = -1;
 
 std::shared_ptr<::arrow::KeyValueMetadata> FieldIdMetadata(int field_id) {
-  return ::arrow::key_value_metadata({FIELD_ID_KEY}, {std::to_string(field_id)});
+  if (field_id >= 0) {
+    return ::arrow::key_value_metadata({FIELD_ID_KEY}, {std::to_string(field_id)});
+  } else {
+    return nullptr;
+  }
 }
 
 int FieldIdFromMetadata(
     const std::shared_ptr<const ::arrow::KeyValueMetadata>& metadata) {
   if (!metadata) {
-    return NO_FIELD_ID;
+    return -1;
   }
   int key = metadata->FindKey(FIELD_ID_KEY);
   if (key < 0) {
-    return NO_FIELD_ID;
+    return -1;
   }
   std::string field_id_str = metadata->value(key);
   int field_id;
   if (::arrow::internal::ParseValue<::arrow::Int32Type>(
           field_id_str.c_str(), field_id_str.length(), &field_id)) {
+    if (field_id < 0) {
+      // Thrift should convert any negative value to null but normalize to -1 here in case
+      // we later check this in logic.
+      return -1;
+    }
     return field_id;
   } else {
-    return NO_FIELD_ID;
+    return -1;
   }
 }
 

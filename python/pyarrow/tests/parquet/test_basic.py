@@ -392,6 +392,17 @@ def test_sanitized_spark_field_names():
     expected_name = 'prohib______'
     assert result.schema[0].name == expected_name
 
+def test_field_id():
+    a0 = pa.array([0])
+    a1 = pa.array([1])
+    f0 = pa.field('arr', pa.int32(), metadata={b'PARQUET:field_id': b'17'})
+    f1 = pa.field('arr', pa.int32())
+    table = pa.Table.from_arrays([a0, a1], schema=pa.schema([f0, f1]))
+
+    result = _roundtrip_table(table)
+
+    assert result.schema[0].metadata[b'PARQUET:field_id'] == b'17'
+    assert result.schema[1].metadata is None
 
 @pytest.mark.pandas
 @parametrize_legacy_dataset
