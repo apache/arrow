@@ -66,10 +66,11 @@ jobs:
       - name: Build C++ Libs
         run: |
           set -e
-          arrow/ci/scripts/java_bundled_jars_macos_build.sh $ARROW_DIR $ARROW_DIR/cpp-build $ARROW_DIR/dist 
+          arrow/ci/scripts/java_bundled_jars_macos_build.sh $GITHUB_WORKSPACE/arrow \
+            $GITHUB_WORKSPACE/arrow/cpp-build \
+            $GITHUB_WORKSPACE/arrow/dist
         env:
           MACOSX_DEPLOYMENT_TARGET: "10.11"
-          ARROW_DIR: {{ '${{ github.workspace }} ' }}/arrow
       - name: Compress into single artifact
         run: tar -cvzf arrow-shared-libs-macos.tar.gz arrow/dist/
       - name: Upload Artifacts
@@ -103,10 +104,9 @@ jobs:
           tar -xvzf arrow-shared-libs-linux.tar.gz
       - name: Build Jar
         run: |
-          cd arrow
           set -e
-          ci/scripts/java_bundled_jars_java_build.sh $ARROW_DIR $ARROW_DIR/dist/ true
-        env:
-          ARROW_DIR: {{ '${{ github.workspace }} ' }}/arrow
-  
+          arrow/ci/scripts/java_bundled_jars_java_build.sh $GITHUB_WORKSPACE/arrow \
+            $GITHUB_WORKSPACE/arrow/dist \
+            true
+          
       {{ macros.github_upload_releases("arrow/dist/*.jar")|indent }}

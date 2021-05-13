@@ -63,7 +63,7 @@ pushd "${build_dir}"
         -DCMAKE_INSTALL_PREFIX=${build_dir} \
         -DCMAKE_INSTALL_LIBDIR=lib"
 
-  cmake $CMAKE_FLAGS ..
+  cmake $CMAKE_FLAGS $source_dir
   make -j4
   ctest
 
