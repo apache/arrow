@@ -61,6 +61,13 @@ cdef class ReadOptions(_Weakrefable):
     skip_rows: int, optional (default 0)
         The number of rows to skip before the column names (if any)
         and the CSV data.
+    skip_rows_after_names: int, optional (default 0)
+        Number of csv rows to skip after the column names.
+        The number can be larger than the number of rows in one
+        block and empty rows are counted.
+        If skip_rows is also specified that skip occurs first
+        then the column names are read if configured to do so
+        then this skip is applied.
     column_names: list, optional
         The column names of the target table.  If empty, fall back on
         `autogenerate_column_names`.
@@ -83,7 +90,7 @@ cdef class ReadOptions(_Weakrefable):
 
     def __init__(self, *, use_threads=None, block_size=None, skip_rows=None,
                  column_names=None, autogenerate_column_names=None,
-                 encoding='utf8'):
+                 encoding='utf8', skip_rows_after_names=None):
         if use_threads is not None:
             self.use_threads = use_threads
         if block_size is not None:
@@ -96,6 +103,8 @@ cdef class ReadOptions(_Weakrefable):
             self.autogenerate_column_names= autogenerate_column_names
         # Python-specific option
         self.encoding = encoding
+        if skip_rows_after_names is not None:
+            self.skip_rows_after_names = skip_rows_after_names
 
     @property
     def use_threads(self):
@@ -126,6 +135,7 @@ cdef class ReadOptions(_Weakrefable):
         """
         The number of rows to skip before the column names (if any)
         and the CSV data.
+        See skip_rows_after_names for interaction description
         """
         return deref(self.options).skip_rows
 
@@ -161,6 +171,22 @@ cdef class ReadOptions(_Weakrefable):
     def autogenerate_column_names(self, value):
         deref(self.options).autogenerate_column_names = value
 
+    @property
+    def skip_rows_after_names(self):
+        """
+        Number of csv rows to skip after the column names.
+        The number can be larger than the number of rows in one
+        block and empty rows are counted.
+        If skip_rows is also specified that skip occurs first
+        then the column names are read if configured to do so
+        then this skip is applied.
+        """
+        return deref(self.options).skip_rows_after_names
+
+    @skip_rows_after_names.setter
+    def skip_rows_after_names(self, value):
+        deref(self.options).skip_rows_after_names = value
+
     def equals(self, ReadOptions other):
         return (
             self.use_threads == other.use_threads and
@@ -169,7 +195,8 @@ cdef class ReadOptions(_Weakrefable):
             self.column_names == other.column_names and
             self.autogenerate_column_names ==
             other.autogenerate_column_names and
-            self.encoding == other.encoding
+            self.encoding == other.encoding and
+            self.skip_rows_after_names == other.skip_rows_after_names
         )
 
     @staticmethod
@@ -182,12 +209,12 @@ cdef class ReadOptions(_Weakrefable):
     def __getstate__(self):
         return (self.use_threads, self.block_size, self.skip_rows,
                 self.column_names, self.autogenerate_column_names,
-                self.encoding)
+                self.encoding, self.skip_rows_after_names)
 
     def __setstate__(self, state):
         (self.use_threads, self.block_size, self.skip_rows,
          self.column_names, self.autogenerate_column_names,
-         self.encoding) = state
+         self.encoding, self.skip_rows_after_names) = state
 
     def __eq__(self, other):
         try:
