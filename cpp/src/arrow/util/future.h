@@ -80,12 +80,6 @@ template <typename Source, typename Dest, bool SourceEmpty = Source::is_empty,
 struct MarkNextFinished {};
 
 template <typename Source, typename Dest>
-struct MarkNextFinished<Source, Dest, true, false> {
-  void operator()(const Status& status) && { next.MarkFinished(status); }
-  Dest next;
-};
-
-template <typename Source, typename Dest>
 struct MarkNextFinished<Source, Dest, true, true> {
   void operator()(const Status& status) && {
     next.MarkFinished(internal::Empty::ToResult(status));
