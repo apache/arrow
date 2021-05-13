@@ -289,7 +289,7 @@ struct AsciiReverse : StringTransform<Type, AsciiReverse<Type>> {
 
 // todo move to a proper place
 /**
- * UTF8 codeunit size can be determined by looking at the first 4 bits of BYTE1
+ * UTF8 codeunit size can be determined by looking at the leading 4 bits of BYTE1
  */
 const std::array<uint8_t, 16> UTF8_BYTE_SIZE_LUT{1, 1, 1, 1, 1, 1, 1, 1,
                                                  0, 0, 0, 0, 2, 2, 3, 4};
@@ -303,7 +303,7 @@ struct Utf8Reverse : StringTransform<Type, Utf8Reverse<Type>> {
                  uint8_t* output, offset_type* output_written) {
     offset_type i = 0;
     while (i < input_string_ncodeunits) {
-      uint8_t offset = UTF8_BYTE_SIZE_LUT[input[i] >> 4];
+      uint8_t offset = UTF8_BYTE_SIZE_LUT[input[i] >> 4]; // right shift leading 4 bits
       std::copy(input + i, input + (i + offset),
                 output + (input_string_ncodeunits - i - offset));
       i += offset;

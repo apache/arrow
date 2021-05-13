@@ -97,8 +97,7 @@ TYPED_TEST(TestStringKernels, AsciiReverse) {
                    "[\"dcba\", null, \"\", \"bbb\"]");
 
   Datum input = ArrayFromJSON(this->type(), "[\"aAazZæÆ&\", null, \"\", \"bbb\"]");
-  FunctionOptions options{};
-  ASSERT_NOT_OK(CallFunction("ascii_reverse", {input}, &options));
+  ASSERT_NOT_OK(CallFunction("ascii_reverse", {input}));
 }
 
 TYPED_TEST(TestStringKernels, Utf8Reverse) {
