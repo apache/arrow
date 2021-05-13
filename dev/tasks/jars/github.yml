@@ -69,16 +69,14 @@ jobs:
           git -C arrow submodule update --init --recursive
       - name: Build C++ Libs
         run: |
-          cd arrow
-          mkdir -p dist
-          export ARROW_TEST_DATA=$PWD/testing/data
           set -e
-          dev/tasks/jars/build-cpp-osx.sh
+          arrow/ci/scripts/java_bundled_jars_macos_build.sh $ARROW_DIR $ARROW_DIR/cpp-build $ARROW_DIR/dist 
           dev/tasks/jars/check-shared-dependencies.sh
         env:
           OS_NAME: "osx"
           CHECK_SHARED_DEPENDENCIES: true
           MACOSX_DEPLOYMENT_TARGET: "10.11"
+          ARROW_DIR: {{ '${{ github.workspace }} ' }}/arrow
       - name: Compress into single artifact
         run: tar -cvzf arrow-shared-libs-macos.tar.gz arrow/dist/
       - name: Upload Artifacts
@@ -113,11 +111,10 @@ jobs:
       - name: Build Jar
         run: |
           cd arrow
-          export ARROW_TEST_DATA=$PWD/testing/data
           set -e
-          dev/tasks/jars/build-java.sh
+          ci/scripts/java_bundled_jars_java_build.sh $ARROW_DIR $ARROW_DIR/dist/ true
         env:
           OS_NAME: "osx"
-          COPY_JAR_TO_DISTRIBUTION_FOLDER: true
+          ARROW_DIR: {{ '${{ github.workspace }} ' }}/arrow
   
       {{ macros.github_upload_releases("arrow/dist/*.jar")|indent }}

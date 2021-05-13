@@ -20,12 +20,15 @@
 # Quit on failure
 set -e
 
-ARROW_BUILD_DIR=/tmp/arrow-build
+arrow_dir=${1}
+build_dir=${2}
+# The directory where the final binaries will be stored when scripts finish
+distribution_dir=${3}
+source_dir=${arrow_dir}/cpp
 
 echo "=== (${PYTHON_VERSION}) Clear output directories and leftovers ==="
 # Clear output directories and leftovers
-rm -rf /tmp/arrow-build
-rm -rf /arrow-dist
+rm -rf ${build_dir}
 
 echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${ARROW_DATASET:=ON}
@@ -49,15 +52,15 @@ echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${PYTHON_VERSION:=3.7}
 : ${GANDIVA_CXX_FLAGS:=-isystem;/opt/rh/devtoolset-9/root/usr/include/c++/9;-isystem;/opt/rh/devtoolset-9/root/usr/include/c++/9/x86_64-redhat-linux;-isystem;-lpthread}
 
-mkdir -p "${ARROW_BUILD_DIR}"
-pushd "${ARROW_BUILD_DIR}"
-  export ARROW_TEST_DATA="/arrow/testing/data"
-  export PARQUET_TEST_DATA="/arrow/cpp/submodules/parquet-testing/data"
+mkdir -p "${build_dir}"
+pushd "${build_dir}"
+  export ARROW_TEST_DATA="${arrow_dir}/testing/data"
+  export PARQUET_TEST_DATA="${source_dir}/submodules/parquet-testing/data"
   export AWS_EC2_METADATA_DISABLED=TRUE
 
   cmake -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
       -DARROW_DEPENDENCY_SOURCE="VCPKG" \
-      -DCMAKE_INSTALL_PREFIX=/arrow-dist \
+      -DCMAKE_INSTALL_PREFIX=${build_dir} \
       -DCMAKE_INSTALL_LIBDIR=lib \
       -DARROW_BUILD_TESTS=${ARROW_BUILD_TESTS} \
       -DARROW_BUILD_SHARED=ON \
@@ -93,12 +96,13 @@ pushd "${ARROW_BUILD_DIR}"
       -DARROW_BUILD_UTILITIES=OFF \
       -DVCPKG_MANIFEST_MODE=OFF \
       -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET} \
-      -GNinja /arrow/cpp
+      -GNinja ${source_dir}
   ninja install
   CTEST_OUTPUT_ON_FAILURE=1 ninja test
 popd
 
 echo "=== (${PYTHON_VERSION}) Copying libraries to the distribution folder ==="
-cp -L  /arrow-dist/lib/libgandiva_jni.so /arrow/dist
-cp -L  /arrow-dist/lib/libarrow_dataset_jni.so /arrow/dist
-cp -L  /arrow-dist/lib/libarrow_orc_jni.so /arrow/dist
+mkdir -p "${build_dir}"
+cp -L  ${build_dir}/lib/libgandiva_jni.so ${distribution_dir}
+cp -L  ${build_dir}/lib/libarrow_dataset_jni.so ${distribution_dir}
+cp -L  ${build_dir}/lib/libarrow_orc_jni.so ${distribution_dir}
