@@ -22,7 +22,6 @@
 from cython.operator cimport dereference as deref
 from libcpp.vector cimport vector as std_vector
 from libcpp.utility cimport move
-from libcpp.memory cimport const_pointer_cast
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport (check_status, _Weakrefable,
@@ -81,7 +80,6 @@ cdef class ORCReader(_Weakrefable):
     def schema(self):
         """
         The arrow schema for this file.
-
         Returns
         -------
         schema : pyarrow.Schema
@@ -107,14 +105,14 @@ cdef class ORCReader(_Weakrefable):
             int64_t stripe
             std_vector[int] indices
 
-        stripe=n
+        stripe = n
 
         if include_indices is None:
             with nogil:
                 (check_status(deref(self.reader)
                               .ReadStripe(stripe, &sp_record_batch)))
         else:
-            indices=include_indices
+            indices = include_indices
             with nogil:
                 (check_status(deref(self.reader)
                               .ReadStripe(stripe, indices, &sp_record_batch)))
@@ -130,7 +128,7 @@ cdef class ORCReader(_Weakrefable):
             with nogil:
                 check_status(deref(self.reader).Read(&sp_table))
         else:
-            indices=include_indices
+            indices = include_indices
             with nogil:
                 check_status(deref(self.reader).Read(indices, &sp_table))
 
@@ -143,16 +141,16 @@ cdef class ORCWriter(_Weakrefable):
         shared_ptr[COutputStream] rd_handle
 
     def open(self, object source):
-        self.source=source
+        self.source = source
         get_writer(source, &self.rd_handle)
         with nogil:
-            self.writer=move(GetResultValue[unique_ptr[ORCFileWriter]](
+            self.writer = move(GetResultValue[unique_ptr[ORCFileWriter]](
                 ORCFileWriter.Open(self.rd_handle.get())))
 
     def write(self, Table table):
         cdef:
             shared_ptr[CTable] sp_table
-        sp_table=pyarrow_unwrap_table(table)
+        sp_table = pyarrow_unwrap_table(table)
         with nogil:
             check_status(deref(self.writer).Write(deref(sp_table)))
 

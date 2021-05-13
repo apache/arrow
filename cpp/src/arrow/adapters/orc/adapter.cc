@@ -230,7 +230,7 @@ class ORCFileReader::Impl {
   }
 
   Result<std::shared_ptr<const KeyValueMetadata>> ReadMetadata() {
-    std::list<std::string> keys = reader_->getMetadataKeys();
+    const std::list<std::string> keys = reader_->getMetadataKeys();
     auto metadata = std::make_shared<KeyValueMetadata>();
     for (const auto& key : keys) {
       metadata->Append(key, reader_->getMetadataValue(key));
