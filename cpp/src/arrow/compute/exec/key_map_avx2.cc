@@ -24,7 +24,7 @@ namespace compute {
 
 #if defined(ARROW_HAVE_AVX2)
 
-// TODO: Why it is OK to round up number of rows internally:
+// Why it is OK to round up number of rows internally:
 // All of the buffers: hashes, out_match_bitvector, out_group_ids, out_next_slot_ids
 // are temporary buffers of group id mapping.
 // Temporary buffers are buffers that live only within the boundaries of a single
@@ -34,7 +34,7 @@ namespace compute {
 // fail, since any random data is a valid hash for the purpose of lookup.
 //
 // This is more or less translation of equivalent scalar code, adjusted for a different
-// instruction set (missing lzcnt for instance).
+// instruction set (e.g. missing leading zero count instruction).
 //
 void SwissTable::lookup_1_avx2_x8(const int num_hashes, const uint32_t* hashes,
                                   uint8_t* out_match_bitvector, uint32_t* out_group_ids,
@@ -219,7 +219,8 @@ void SwissTable::lookup_1_avx2_x32(const int num_hashes, const uint32_t* hashes,
                                    uint32_t* out_next_slot_ids) {
   constexpr int unroll = 32;
 
-  // TODO: consider adding the support for 5
+  // There is a limit on the number of input blocks,
+  // because we want to store all their data in a set of AVX2 registers.
   ARROW_DCHECK(log_blocks_ <= 4);
 
   // Remember that block bytes and group id bytes are in opposite orders in memory of hash

@@ -27,17 +27,6 @@
 namespace arrow {
 namespace compute {
 
-//
-// 0 byte - 7 bucket | 1. byte - 6 bucket | ...
-// ---------------------------------------------------
-// |     Empty bit*   |    Empty bit       |
-// ---------------------------------------------------
-// |   7-bit hash    |    7-bit hash      |
-// ---------------------------------------------------
-// * Empty bucket has value 0x80. Non-empty bucket has highest bit set to 0.
-// ** The order of bytes is reversed - highest byte represents 0th bucket.
-// No other part of data structure uses this reversed order.
-//
 class SwissTable {
  public:
   SwissTable() = default;
@@ -96,9 +85,12 @@ class SwissTable {
   inline void insert(uint8_t* block_base, uint64_t slot_id, uint32_t hash, uint8_t stamp,
                      uint32_t group_id);
 
-  //
+  inline uint32_t num_groups_for_resize() const;
+
+  inline uint64_t wrap_global_slot_id(uint64_t global_slot_id);
+
   // First hash table access
-  // Find first match in the first block.
+  // Find first match in the start block if exists.
   // Possible cases:
   // 1. Stamp match in a block
   // 2. No stamp match in a block, no empty buckets in a block
@@ -150,9 +142,18 @@ class SwissTable {
   uint32_t num_inserted_ = 0;
 
   // Data for blocks.
-  // Each block has 8x of one byte stamp slots, followed by 8x of bit packed group ids.
-  // In 8B stamp word, the order of bytes is reversed. Group ids are in normal order.
-  // There is 64B padding at the end.
+  // Each block has 8 status bytes for 8 slots, followed by 8 bit packed group ids for
+  // these slots. In 8B status word, the order of bytes is reversed. Group ids are in
+  // normal order. There is 64B padding at the end.
+  //
+  // 0 byte - 7 bucket | 1. byte - 6 bucket | ...
+  // ---------------------------------------------------
+  // |     Empty bit*   |    Empty bit       |
+  // ---------------------------------------------------
+  // |   7-bit hash    |    7-bit hash      |
+  // ---------------------------------------------------
+  // * Empty bucket has value 0x80. Non-empty bucket has highest bit set to 0.
+  //
   uint8_t* blocks_;
 
   // Array of hashes of values inserted into slots.
