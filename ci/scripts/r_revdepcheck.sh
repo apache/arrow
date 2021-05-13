@@ -67,6 +67,16 @@ SCRIPT="
         revdepcheck::revdep_env_vars()
     ))
     revdepcheck::revdep_report(all = TRUE)
+
+    # Go through the summary and fail if any of the statuses include `-`
+    summary <- revdepcheck::revdep_summary()
+    failed <- lapply(summary, function(check) {
+      grepl('-', check$status)
+    })
+
+    if (any(unlist(failed))) {
+      quit(status = 1)
+    }
     "
 
 echo "$SCRIPT" | ${R_BIN} --no-save
