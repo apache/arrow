@@ -861,5 +861,15 @@ TEST(CacheOptions, Basics) {
   check(CacheOptions::MakeFromNetworkMetrics(5, 500, .75, 5), 2.5, 5);
 }
 
+TEST(IOThreadPool, Capacity) {
+  // Simple sanity check
+  auto pool = internal::GetIOThreadPool();
+  int capacity = pool->GetCapacity();
+  ASSERT_GT(capacity, 0);
+  ASSERT_EQ(GetIOThreadPoolCapacity(), capacity);
+  ASSERT_OK(SetIOThreadPoolCapacity(capacity + 1));
+  ASSERT_EQ(GetIOThreadPoolCapacity(), capacity + 1);
+}
+
 }  // namespace io
 }  // namespace arrow
