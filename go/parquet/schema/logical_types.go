@@ -620,9 +620,17 @@ func NewTimestampLogicalTypeForce(isAdjustedToUTC bool, unit TimeUnitType) Logic
 // into a year, month, day, hour, minute, second, and subsecond
 type TimestampLogicalType struct {
 	baseLogicalType
-	typ            *format.TimestampType
+	typ *format.TimestampType
+	// forceConverted denotes whether or not the resulting serialized
+	// type when writing to parquet will be written as the legacy
+	// ConvertedType TIMESTAMP_MICROS/TIMESTAMP_MILLIS (true)
+	// or if it will write the proper current Logical Types (false, default)
 	forceConverted bool
-	fromConverted  bool
+	// fromConverted denotes if the timestamp type was created by
+	// translating a legacy converted type of TIMESTAMP_MILLIS or
+	// TIMESTAMP_MICROS rather than by using the current logical
+	// types. Default is false.
+	fromConverted bool
 }
 
 func (t TimestampLogicalType) IsFromConvertedType() bool {
