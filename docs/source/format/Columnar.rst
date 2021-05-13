@@ -1018,7 +1018,7 @@ the stream format. At the end of the file, we write a *footer*
 containing a redundant copy of the schema (which is a part of the
 streaming format) plus memory offsets and sizes for each of the data
 blocks in the file. This enables random access any record batch in the
-file. See ``File.fbs`` for the precise details of the file footer.
+file. See `File.fbs`_ for the precise details of the file footer.
 
 Schematically we have: ::
 
@@ -1208,6 +1208,7 @@ the Arrow spec.
 .. _Flatbuffers protocol definition files: https://github.com/apache/arrow/tree/master/format
 .. _Schema.fbs: https://github.com/apache/arrow/blob/master/format/Schema.fbs
 .. _Message.fbs: https://github.com/apache/arrow/blob/master/format/Message.fbs
+.. _File.fbs: https://github.com/apache/arrow/blob/master/format/File.fbs
 .. _least-significant bit (LSB) numbering: https://en.wikipedia.org/wiki/Bit_numbering
 .. _Intel performance guide: https://software.intel.com/en-us/articles/practical-intel-avx-optimization-on-2nd-generation-intel-core-processors
 .. _Endianness: https://en.wikipedia.org/wiki/Endianness
