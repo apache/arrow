@@ -462,7 +462,7 @@ class Future {
       WeakFuture<T> weak_self;
       OnComplete on_complete;
     };
-    Future<T>::impl_->AddCallback(Callback{WeakFuture<T>(*this), std::move(on_complete)});
+    impl_->AddCallback(Callback{WeakFuture<T>(*this), std::move(on_complete)});
   }
 
   /// Overload for callbacks accepting a Status
@@ -501,7 +501,7 @@ class Future {
       WeakFuture<T> weak_self;
       OnComplete on_complete;
     };
-    return Future<T>::impl_->TryAddCallback([this, &callback_factory]() {
+    return impl_->TryAddCallback([this, &callback_factory]() {
       return Callback{WeakFuture<T>(*this), callback_factory()};
     });
   }
