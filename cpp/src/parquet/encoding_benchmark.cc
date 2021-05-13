@@ -372,18 +372,18 @@ BENCHMARK(BM_ByteStreamSplitEncode_Float_Scalar)->Range(MIN_RANGE, MAX_RANGE);
 BENCHMARK(BM_ByteStreamSplitEncode_Double_Scalar)->Range(MIN_RANGE, MAX_RANGE);
 
 #if defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_NEON)
-static void BM_ByteStreamSplitDecode_Float_128bit(benchmark::State& state) {
+static void BM_ByteStreamSplitDecode_Float_SIMD128(benchmark::State& state) {
   BM_ByteStreamSplitDecode<float>(
-      state, ::arrow::util::internal::ByteStreamSplitDecode128bit<float>);
+      state, ::arrow::util::internal::ByteStreamSplitDecodeSIMD128<float>);
 }
 
-static void BM_ByteStreamSplitDecode_Double_128bit(benchmark::State& state) {
+static void BM_ByteStreamSplitDecode_Double_SIMD128(benchmark::State& state) {
   BM_ByteStreamSplitDecode<double>(
-      state, ::arrow::util::internal::ByteStreamSplitDecode128bit<double>);
+      state, ::arrow::util::internal::ByteStreamSplitDecodeSIMD128<double>);
 }
 
-BENCHMARK(BM_ByteStreamSplitDecode_Float_128bit)->Range(MIN_RANGE, MAX_RANGE);
-BENCHMARK(BM_ByteStreamSplitDecode_Double_128bit)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_ByteStreamSplitDecode_Float_SIMD128)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_ByteStreamSplitDecode_Double_SIMD128)->Range(MIN_RANGE, MAX_RANGE);
 #endif
 
 #if defined(ARROW_HAVE_SSE4_2)

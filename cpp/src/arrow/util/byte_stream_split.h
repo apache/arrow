@@ -40,16 +40,16 @@ namespace internal {
 
 #ifdef ARROW_HAVE_SIMD_DECODE_SPLIT
 template <typename T>
-void ByteStreamSplitDecode128bit(const uint8_t* data, int64_t num_values, int64_t stride,
-                                 T* out) {
-  using simd_batch = xsimd::batch<int8_t, 16>;
-  constexpr size_t dTypeSize128bits = sizeof(int8_t) * 16;
+void ByteStreamSplitDecodeSIMD128(const uint8_t* data, int64_t num_values, int64_t stride,
+                                  T* out) {
+  using simd_batch = xsimd::batch<uint8_t, 16>;
+  constexpr size_t kBatchSize = sizeof(uint8_t) * 16;
   constexpr size_t kNumStreams = sizeof(T);
   static_assert(kNumStreams == 4U || kNumStreams == 8U, "Invalid number of streams.");
   constexpr size_t kNumStreamsLog2 = (kNumStreams == 8U ? 3U : 2U);
 
   const int64_t size = num_values * sizeof(T);
-  constexpr int64_t kBlockSize = dTypeSize128bits * kNumStreams;
+  constexpr int64_t kBlockSize = kBatchSize * kNumStreams;
   const int64_t num_blocks = size / kBlockSize;
   uint8_t* output_data = reinterpret_cast<uint8_t*>(out);
 
@@ -76,9 +76,8 @@ void ByteStreamSplitDecode128bit(const uint8_t* data, int64_t num_values, int64_
 
   for (int64_t i = 0; i < num_blocks; ++i) {
     for (size_t j = 0; j < kNumStreams; ++j) {
-      stage[0][j] = simd_batch(
-          reinterpret_cast<const int8_t*>(&data[i * dTypeSize128bits + j * stride]),
-          xsimd::unaligned_mode());
+      stage[0][j] =
+          simd_batch(&data[i * kBatchSize + j * stride], xsimd::unaligned_mode());
     }
     for (size_t step = 0; step < kNumStreamsLog2; ++step) {
       for (size_t j = 0; j < kNumStreamsHalf; ++j) {
@@ -89,16 +88,15 @@ void ByteStreamSplitDecode128bit(const uint8_t* data, int64_t num_values, int64_
       }
     }
     for (size_t j = 0; j < kNumStreams; ++j) {
-      xsimd::store_simd<int8_t, int8_t>(
-          reinterpret_cast<int8_t*>(
-              &output_data[(i * kNumStreams + j) * dTypeSize128bits]),
-          stage[kNumStreamsLog2][j], xsimd::unaligned_mode());
+      xsimd::store_simd<typename simd_batch::value_type, typename simd_batch::value_type>(
+          &output_data[(i * kNumStreams + j) * kBatchSize], stage[kNumStreamsLog2][j],
+          xsimd::unaligned_mode());
     }
   }
 }
 #endif  // ARROW_HAVE_SIMD_DECODE_SPLIT
 
-#if defined(ARROW_HAVE_SSE4_2)
+#if defined(ARROW_HAVE_SIMD_ENCODE_SPLIT)
 template <typename T>
 void ByteStreamSplitEncodeSse2(const uint8_t* raw_values, const size_t num_values,
                                uint8_t* output_buffer_raw) {
@@ -184,7 +182,7 @@ void ByteStreamSplitEncodeSse2(const uint8_t* raw_values, const size_t num_value
     }
   }
 }
-#endif  // ARROW_HAVE_SSE4_2
+#endif  // ARROW_HAVE_SIMD_ENCODE_SPLIT
 
 #if defined(ARROW_HAVE_AVX2)
 template <typename T>
@@ -197,7 +195,7 @@ void ByteStreamSplitDecodeAvx2(const uint8_t* data, int64_t num_values, int64_t 
   const int64_t size = num_values * sizeof(T);
   constexpr int64_t kBlockSize = sizeof(__m256i) * kNumStreams;
   if (size < kBlockSize)  // Back to SSE for small size
-    return ByteStreamSplitDecode128bit(data, num_values, stride, out);
+    return ByteStreamSplitDecodeSIMD128(data, num_values, stride, out);
   const int64_t num_blocks = size / kBlockSize;
   uint8_t* output_data = reinterpret_cast<uint8_t*>(out);
 
@@ -566,7 +564,7 @@ void inline ByteStreamSplitDecodeSimd(const uint8_t* data, int64_t num_values,
 #elif defined(ARROW_HAVE_AVX2)
   return ByteStreamSplitDecodeAvx2(data, num_values, stride, out);
 #elif defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_NEON)
-  return ByteStreamSplitDecode128bit(data, num_values, stride, out);
+  return ByteStreamSplitDecodeSIMD128(data, num_values, stride, out);
 #else
 #error "ByteStreamSplitDecodeSimd not implemented"
 #endif
