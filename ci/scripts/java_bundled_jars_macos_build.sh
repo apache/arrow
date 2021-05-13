@@ -65,6 +65,7 @@ pushd "${build_dir}"
 
   cmake $CMAKE_FLAGS $source_dir
   make -j4
+  make install
   ctest
 
   # Copy all generated libraries to the distribution folder

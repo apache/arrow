@@ -831,7 +831,8 @@ services:
     volumes:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux2014-ccache:/ccache:delegated
-    command: /arrow/ci/scripts/java_bundled_jars_manylinux_build.sh /arrow /build /arrow/dist
+    command: 
+      [/arrow/ci/scripts/java_bundled_jars_manylinux_build.sh /arrow /build /arrow/dist]
 
   ##############################  Integration #################################
 

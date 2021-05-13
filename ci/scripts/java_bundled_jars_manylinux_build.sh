@@ -102,7 +102,7 @@ pushd "${build_dir}"
 popd
 
 echo "=== (${PYTHON_VERSION}) Copying libraries to the distribution folder ==="
-mkdir -p "${build_dir}"
+mkdir -p "${distribution_dir}"
 cp -L  ${build_dir}/lib/libgandiva_jni.so ${distribution_dir}
 cp -L  ${build_dir}/lib/libarrow_dataset_jni.so ${distribution_dir}
 cp -L  ${build_dir}/lib/libarrow_orc_jni.so ${distribution_dir}
