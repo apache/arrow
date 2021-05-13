@@ -47,7 +47,7 @@ with_language <- function(lang, expr) {
   Sys.setenv(LANGUAGE = lang)
   on.exit({
     Sys.setenv(LANGUAGE = old)
-    dplyr_functions$i18ized_error_pattern <<- NULL
+    .cache$i18ized_error_pattern <<- NULL
   })
   if (!identical(before, i18ize_error_messages())) {
     skip(paste("This OS either does not support changing languages to", lang, "or it caches translations"))
