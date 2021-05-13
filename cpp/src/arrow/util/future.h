@@ -557,8 +557,10 @@ class Future {
   template <typename OnSuccess, typename OnFailure,
             typename ContinuedFuture =
                 detail::ContinueFuture::ForSignature<OnSuccess && (const T&)>>
-  typename std::enable_if<!detail::has_no_args<OnSuccess>::value, ContinuedFuture>::type
-  Then(OnSuccess on_success, OnFailure on_failure) const {
+  ContinuedFuture Then(
+      OnSuccess on_success, OnFailure on_failure,
+      typename std::enable_if<!detail::has_no_args<OnSuccess>::value>::type* =
+          nullptr) const {
     static_assert(
         std::is_same<detail::ContinueFuture::ForSignature<OnFailure && (const Status&)>,
                      ContinuedFuture>::value,
@@ -599,8 +601,10 @@ class Future {
   template <
       typename OnSuccess, typename OnFailure,
       typename ContinuedFuture = detail::ContinueFuture::ForSignature<OnSuccess && ()>>
-  typename std::enable_if<detail::has_no_args<OnSuccess>::value, ContinuedFuture>::type
-  Then(OnSuccess on_success, OnFailure on_failure) const {
+  ContinuedFuture Then(
+      OnSuccess on_success, OnFailure on_failure,
+      typename std::enable_if<detail::has_no_args<OnSuccess>::value>::type* =
+          nullptr) const {
     static_assert(
         std::is_same<detail::ContinueFuture::ForSignature<OnFailure && (const Status&)>,
                      ContinuedFuture>::value,
