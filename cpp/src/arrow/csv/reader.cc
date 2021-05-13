@@ -254,17 +254,6 @@ class ThreadedBlockReader : public BlockReader {
  public:
   using BlockReader::BlockReader;
 
-  static Iterator<CSVBlock> MakeIterator(
-      Iterator<std::shared_ptr<Buffer>> buffer_iterator, std::unique_ptr<Chunker> chunker,
-      std::shared_ptr<Buffer> first_buffer) {
-    auto block_reader =
-        std::make_shared<ThreadedBlockReader>(std::move(chunker), first_buffer);
-    // Wrap shared pointer in callable
-    Transformer<std::shared_ptr<Buffer>, CSVBlock> block_reader_fn =
-        [block_reader](std::shared_ptr<Buffer> next) { return (*block_reader)(next); };
-    return MakeTransformedIterator(std::move(buffer_iterator), block_reader_fn);
-  }
-
   static AsyncGenerator<CSVBlock> MakeAsyncIterator(
       AsyncGenerator<std::shared_ptr<Buffer>> buffer_generator,
       std::unique_ptr<Chunker> chunker, std::shared_ptr<Buffer> first_buffer) {
