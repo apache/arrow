@@ -18,7 +18,17 @@ ARG base
 FROM ${base}
 
 # Install the libaries required by the Gandiva to run
-RUN vcpkg install --clean-after-build llvm boost-system
+RUN vcpkg install --clean-after-build \
+        llvm \
+        boost-system \
+        boost-date-time \
+        boost-regex \
+        boost-predef \
+        boost-algorithm \
+        boost-locale \
+        boost-format \
+        boost-variant \
+        boost-multiprecision
 
 # Install dependencies
 ARG java=1.8.0
