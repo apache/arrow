@@ -77,6 +77,7 @@ With `vcpkg <https://github.com/Microsoft/vcpkg>`_:
    cd arrow
    vcpkg install \
      --x-manifest-root cpp \
+     --feature-flags=versions \
      --clean-after-build
 
 On MSYS2:
@@ -294,7 +295,7 @@ the build system how to resolve each dependency. There are a few options:
   have this feature
 * ``CONDA``: Use ``$CONDA_PREFIX`` as alternative ``SYSTEM`` PATH
 * ``VCPKG``: Find dependencies installed by vcpkg, and if not found, run
-  ``vpckg install`` to install them
+  ``vcpkg install`` to install them
 * ``BREW``: Use Homebrew default paths as an alternative ``SYSTEM`` path
 
 The default method is ``AUTO`` unless you are developing within an active conda
