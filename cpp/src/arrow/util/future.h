@@ -47,14 +47,15 @@ struct is_future<Future<T>> : std::true_type {};
 template <typename Signature>
 using result_of_t = typename std::result_of<Signature>::type;
 
+// Helper to find the synchronous counterpart for a Future
 template <typename T>
 struct SyncType {
-  using value = Result<T>;
+  using type = Result<T>;
 };
 
 template <>
 struct SyncType<internal::Empty> {
-  using value = Status;
+  using type = Status;
 };
 
 template <typename Fn>
@@ -62,31 +63,25 @@ using first_arg_is_status =
     std::is_same<typename std::decay<internal::call_traits::argument_type<0, Fn>>::type,
                  Status>;
 
-// template <typename Fn>
-// using has_no_args =
-//     std::is_same<std::decay<internal::call_traits::argument_count<Fn>>::value, 0>;
+template <typename Fn>
+struct has_no_args {
+  static constexpr bool value = internal::call_traits::argument_count<Fn>::value == 0;
+};
 
-template <typename Source, typename Dest>
-typename std::enable_if<Source::is_empty>::type Propagate(Source* source, Dest dest) {
-  struct MarkNextFinished {
-    void operator()(const Status& status) && { next.MarkFinished(status); }
-    Dest next;
-  };
-  source->AddCallback(MarkNextFinished{std::move(dest)});
-}
-
+/// Creates a callback that can be added to a future to mark a `dest` future finished
 template <typename Source, typename Dest, bool SourceEmpty = Source::is_empty,
           bool DestEmpty = Dest::is_empty>
 struct MarkNextFinished {};
 
+/// If the source and dest are both empty we can pass on the status
 template <typename Source, typename Dest>
 struct MarkNextFinished<Source, Dest, true, true> {
-  void operator()(const Status& status) && {
-    next.MarkFinished(internal::Empty::ToResult(status));
-  }
+  void operator()(const Status& status) && { next.MarkFinished(status); }
   Dest next;
 };
 
+/// If the source is not empty but the dest is then we can take the
+/// status out of the result
 template <typename Source, typename Dest>
 struct MarkNextFinished<Source, Dest, false, true> {
   void operator()(const Result<typename Source::ValueType>& res) && {
@@ -95,6 +90,7 @@ struct MarkNextFinished<Source, Dest, false, true> {
   Dest next;
 };
 
+/// If neither are empty we pass on the result
 template <typename Source, typename Dest>
 struct MarkNextFinished<Source, Dest, false, false> {
   void operator()(const Result<typename Source::ValueType>& res) && {
@@ -103,6 +99,7 @@ struct MarkNextFinished<Source, Dest, false, false> {
   Dest next;
 };
 
+/// Helper that contains information about how to apply a continuation
 struct ContinueFuture {
   template <typename Return>
   struct ForReturnImpl;
@@ -113,6 +110,7 @@ struct ContinueFuture {
   template <typename Signature>
   using ForSignature = ForReturn<result_of_t<Signature>>;
 
+  // If the callback returns void then we return Future<> that always finishes OK.
   template <typename ContinueFunc, typename... Args,
             typename ContinueResult = result_of_t<ContinueFunc && (Args && ...)>,
             typename NextFuture = ForReturn<ContinueResult>>
@@ -122,27 +120,29 @@ struct ContinueFuture {
     next.MarkFinished();
   }
 
+  /// If the callback returns a non-future then we return Future<T>
+  /// and mark the future finished with the callback result.  It will get promoted
+  /// to Result<T> as part of MarkFinished if it isn't already.
+  ///
+  /// If the callback returns Status and we return Future<> then also send the callback
+  /// result as-is to the destination future.
   template <typename ContinueFunc, typename... Args,
             typename ContinueResult = result_of_t<ContinueFunc && (Args && ...)>,
             typename NextFuture = ForReturn<ContinueResult>>
-  typename std::enable_if<!std::is_void<ContinueResult>::value &&
-                          !is_future<ContinueResult>::value && !NextFuture::is_empty &&
-                          !std::is_same<ContinueResult, Status>::value>::type
+  typename std::enable_if<
+      !std::is_void<ContinueResult>::value && !is_future<ContinueResult>::value &&
+      (!NextFuture::is_empty || std::is_same<ContinueResult, Status>::value)>::type
   operator()(NextFuture next, ContinueFunc&& f, Args&&... a) const {
     next.MarkFinished(std::forward<ContinueFunc>(f)(std::forward<Args>(a)...));
   }
 
-  template <typename ContinueFunc, typename... Args,
-            typename ContinueResult = result_of_t<ContinueFunc && (Args && ...)>,
-            typename NextFuture = ForReturn<ContinueResult>>
-  typename std::enable_if<!std::is_void<ContinueResult>::value &&
-                          !is_future<ContinueResult>::value && NextFuture::is_empty &&
-                          std::is_same<ContinueResult, Status>::value>::type
-  operator()(NextFuture next, ContinueFunc&& f, Args&&... a) const {
-    next.MarkFinished(internal::Empty::ToResult(
-        std::forward<ContinueFunc>(f)(std::forward<Args>(a)...)));
-  }
-
+  /// If the callback returns a Result and the next future is Future<> then we mark
+  /// the future finished with the callback result.
+  ///
+  /// It may seem odd that the next future is Future<> when the callback returns a
+  /// result but this can occur if the OnFailure callback returns a result while the
+  /// OnSuccess callback is void/Status (e.g. you would get this calling the one-arg
+  /// version of Then with an OnSuccess callback that returns void)
   template <typename ContinueFunc, typename... Args,
             typename ContinueResult = result_of_t<ContinueFunc && (Args && ...)>,
             typename NextFuture = ForReturn<ContinueResult>>
@@ -153,6 +153,9 @@ struct ContinueFuture {
     next.MarkFinished(std::forward<ContinueFunc>(f)(std::forward<Args>(a)...).status());
   }
 
+  /// If the callback returns a Future<T> then we return Future<T>.  We create a new
+  /// future and add a callback to the future given to us by the user that forwards the
+  /// result to the future we just created
   template <typename ContinueFunc, typename... Args,
             typename ContinueResult = result_of_t<ContinueFunc && (Args && ...)>,
             typename NextFuture = ForReturn<ContinueResult>>
@@ -165,6 +168,8 @@ struct ContinueFuture {
   }
 };
 
+/// Helper struct which tells us what kind of Future gets returned from `Then` based on
+/// the return type of the OnSuccess callback
 template <>
 struct ContinueFuture::ForReturnImpl<void> {
   using type = Future<>;
@@ -307,7 +312,7 @@ template <typename T>
 class Future {
  public:
   using ValueType = T;
-  using SyncType = typename detail::SyncType<T>::value;
+  using SyncType = typename detail::SyncType<T>::type;
   static constexpr bool is_empty = std::is_same<T, internal::Empty>::value;
   // The default constructor creates an invalid Future.  Use Future::Make()
   // for a valid Future.  This constructor is mostly for the convenience
@@ -336,16 +341,32 @@ class Future {
     return IsFutureFinished(impl_->state());
   }
 
-  /// \brief Wait for the Future to complete and return its Status
-  const Status& status() const {
-    Wait();
-    return GetResult()->status();
-  }
-
   /// \brief Wait for the Future to complete and return its Result
   const Result<ValueType>& result() const& {
     Wait();
     return *GetResult();
+  }
+
+  /// \brief Returns an rvalue to the result.  This method is potentially unsafe
+  ///
+  /// The future is not the unique owner of the result, copies of a future will
+  /// also point to the same result.  You must make sure that no other copies
+  /// of the future exist.  Attempts to add callbacks after you move the result
+  /// will result in undefined behavior.
+  Result<ValueType>&& MoveResult() {
+    Wait();
+    return std::move(*GetResult());
+  }
+
+  /// \brief Wait for the Future to complete and return its Status
+  const Status& status() const { return result().status(); }
+
+  /// \brief Future<T> is convertible to Future<>, which views only the
+  /// Status of the original. Marking the returned Future Finished is not supported.
+  explicit operator Future<>() const {
+    Future<> status_future;
+    status_future.impl_ = impl_;
+    return status_future;
   }
 
   /// \brief Wait for the Future to complete
@@ -369,33 +390,35 @@ class Future {
     return impl_->Wait(seconds);
   }
 
-  /// \brief Returns an rvalue to the result.  This method is potentially unsafe
-  ///
-  /// The future is not the unique owner of the result, copies of a future will
-  /// also point to the same result.  You must make sure that no other copies
-  /// of the future exist.  Attempts to add callbacks after you move the result
-  /// will result in undefined behavior.
-  Result<ValueType>&& MoveResult() {
-    Future<T>::Wait();
-    return std::move(*Future<T>::GetResult());
-  }
-
   // Producer API
 
   /// \brief Producer API: mark Future finished
   ///
   /// The Future's result is set to `res`.
-  void MarkFinished(Result<T> res) { Future<T>::DoMarkFinished(std::move(res)); }
+  void MarkFinished(Result<ValueType> res) { DoMarkFinished(std::move(res)); }
 
+  /// \brief Mark a Future<> completed with the provided Status.
   template <typename E = ValueType, typename = typename std::enable_if<
                                         std::is_same<E, internal::Empty>::value>::type>
   void MarkFinished(Status s = Status::OK()) {
     return DoMarkFinished(E::ToResult(std::move(s)));
   }
 
+  /// \brief Producer API: instantiate a valid Future
+  ///
+  /// The Future's state is initialized with PENDING.  If you are creating a future with
+  /// this method you must ensure that future is eventually completed (with success or
+  /// failure).  Creating a future, returning it, and never completing the future can lead
+  /// to memory leaks (for example, see Loop).
+  static Future Make() {
+    Future fut;
+    fut.impl_ = FutureImpl::Make();
+    return fut;
+  }
+
   /// \brief Producer API: instantiate a finished Future
-  static Future<T> MakeFinished(Result<T> res) {
-    Future<T> fut;
+  static Future<ValueType> MakeFinished(Result<ValueType> res) {
+    Future<ValueType> fut;
     fut.InitializeFromResult(std::move(res));
     return fut;
   }
@@ -410,7 +433,7 @@ class Future {
   /// \brief Consumer API: Register a callback to run when this future completes
   ///
   /// The callback should receive the result of the future (const Result<T>&)
-  /// For a void or statusy future the callback should receive the status
+  /// For a void or statusy future this should be (const Status&)
   ///
   /// There is no guarantee to the order in which callbacks will run.  In
   /// particular, callbacks added while the future is being marked complete
@@ -423,7 +446,7 @@ class Future {
   ///
   /// {
   ///     auto fut = Future<>::Make();
-  ///     fut.AddCallback([fut](...) {});
+  ///     fut.AddCallback([fut]() {});
   /// }
   ///
   /// In this example `fut` falls out of scope but is not destroyed because it holds a
@@ -534,8 +557,7 @@ class Future {
   template <typename OnSuccess, typename OnFailure,
             typename ContinuedFuture =
                 detail::ContinueFuture::ForSignature<OnSuccess && (const T&)>>
-  typename std::enable_if<internal::call_traits::argument_count<OnSuccess>::value != 0,
-                          ContinuedFuture>::type
+  typename std::enable_if<!detail::has_no_args<OnSuccess>::value, ContinuedFuture>::type
   Then(OnSuccess on_success, OnFailure on_failure) const {
     static_assert(
         std::is_same<detail::ContinueFuture::ForSignature<OnFailure && (const Status&)>,
@@ -577,8 +599,7 @@ class Future {
   template <
       typename OnSuccess, typename OnFailure,
       typename ContinuedFuture = detail::ContinueFuture::ForSignature<OnSuccess && ()>>
-  typename std::enable_if<internal::call_traits::argument_count<OnSuccess>::value == 0,
-                          ContinuedFuture>::type
+  typename std::enable_if<detail::has_no_args<OnSuccess>::value, ContinuedFuture>::type
   Then(OnSuccess on_success, OnFailure on_failure) const {
     static_assert(
         std::is_same<detail::ContinueFuture::ForSignature<OnFailure && (const Status&)>,
@@ -612,51 +633,29 @@ class Future {
   }
 
   /// \brief Overload without OnFailure. Failures will be passed through unchanged.
-  ///        T value passed to callback as const ref.  Not valid for Future<>
   template <typename OnSuccess,
             typename ContinuedFuture =
                 detail::ContinueFuture::ForSignature<OnSuccess && (const T&)>,
             typename E = ValueType>
-  typename std::enable_if<internal::call_traits::argument_count<OnSuccess>::value != 0,
-                          ContinuedFuture>::type
+  typename std::enable_if<!detail::has_no_args<OnSuccess>::value, ContinuedFuture>::type
   Then(OnSuccess&& on_success) const {
     return Then(std::forward<OnSuccess>(on_success), [](const Status& s) {
       return Result<typename ContinuedFuture::ValueType>(s);
     });
   }
 
-  /// \brief Overload without OnFailure. Failures will be passed through unchanged.
-  ///        T value passed to callback as const ref.  Not valid for Future<>
+  /// \brief Statusy overload without OnFailure
   template <
       typename OnSuccess,
       typename ContinuedFuture = detail::ContinueFuture::ForSignature<OnSuccess && ()>,
       typename E = ValueType>
-  typename std::enable_if<internal::call_traits::argument_count<OnSuccess>::value == 0,
-                          ContinuedFuture>::type
+  typename std::enable_if<detail::has_no_args<OnSuccess>::value, ContinuedFuture>::type
   Then(OnSuccess&& on_success) const {
     static_assert(std::is_same<internal::Empty, ValueType>::value,
                   "Then callback OnSuccess must receive const T&");
     return Then(std::forward<OnSuccess>(on_success), [](const Status& s) {
       return Result<typename ContinuedFuture::ValueType>(s);
     });
-  }
-
-  /// \brief Producer API: instantiate a valid Future
-  ///
-  /// The Future's state is initialized with PENDING.  If you are creating a future with
-  /// this method you must ensure that future is eventually completed (with success or
-  /// failure).  Creating a future, returning it, and never completing the future can lead
-  /// to memory leaks (for example, see Loop).
-  static Future Make() {
-    Future fut;
-    fut.impl_ = FutureImpl::Make();
-    return fut;
-  }
-
-  explicit operator Future<>() const {
-    Future<> status_future;
-    status_future.impl_ = Future<T>::impl_;
-    return status_future;
   }
 
   /// \brief Implicit constructor to create a finished future from a value
@@ -726,6 +725,7 @@ class Future {
 
   friend class FutureWaiter;
   friend struct detail::ContinueFuture;
+
   template <typename U>
   friend class Future;
   friend class WeakFuture<T>;
@@ -872,21 +872,14 @@ util::optional<T> Break(T break_value = {}) {
 template <typename T = internal::Empty>
 using ControlFlow = util::optional<T>;
 
-template <typename T>
-void ForwardControlResult(const Result<ControlFlow<T>>& result, Future<T> sink) {
-  sink.MarkFinished(**result);
-}
-template <>
-inline void ForwardControlResult(const Result<ControlFlow<>>& result, Future<> sink) {
-  sink.MarkFinished();
-}
-
 /// \brief Loop through an asynchronous sequence
 ///
 /// \param[in] iterate A generator of Future<ControlFlow<BreakValue>>. On completion
 /// of each yielded future the resulting ControlFlow will be examined. A Break will
-/// terminate the loop, while a Continue will re-invoke `iterate`. \return A future
-/// which will complete when a Future returned by iterate completes with a Break
+/// terminate the loop, while a Continue will re-invoke `iterate`.
+///
+/// \return A future which will complete when a Future returned by iterate completes with
+/// a Break
 template <typename Iterate,
           typename Control = typename detail::result_of_t<Iterate()>::ValueType,
           typename BreakValueType = typename Control::value_type>
@@ -898,7 +891,7 @@ Future<BreakValueType> Loop(Iterate iterate) {
         return true;
       }
       if (control_res->has_value()) {
-        ForwardControlResult(control_res, std::move(break_fut));
+        break_fut.MarkFinished(**control_res);
         return true;
       }
       return false;
