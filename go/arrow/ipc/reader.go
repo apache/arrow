@@ -58,10 +58,11 @@ func NewReaderFromMessageReader(r MessageReader, opts ...Option) (*Reader, error
 	}
 
 	rr := &Reader{
-		r:     r,
-		types: make(dictTypeMap),
-		memo:  newMemo(),
-		mem:   cfg.alloc,
+		r:        r,
+		refCount: 1,
+		types:    make(dictTypeMap),
+		memo:     newMemo(),
+		mem:      cfg.alloc,
 	}
 
 	err := rr.readSchema(cfg.schema)

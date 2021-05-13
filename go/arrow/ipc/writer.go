@@ -316,6 +316,15 @@ func (w *recordEncoder) visit(p *Payload, arr array.Interface) error {
 		return errBigArray
 	}
 
+	if arr.DataType().ID() == arrow.EXTENSION {
+		arr := arr.(array.ExtensionArray)
+		err := w.visit(p, arr.Storage())
+		if err != nil {
+			return xerrors.Errorf("failed visiting storage of for array %T: %w", arr, err)
+		}
+		return nil
+	}
+
 	// add all common elements
 	w.fields = append(w.fields, fieldMetadata{
 		Len:    int64(arr.Len()),
