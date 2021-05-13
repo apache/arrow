@@ -149,11 +149,12 @@ void TraverseDots(cpp11::list dots, int num_fields, Lambda lambda) {
   }
 }
 
-inline std::vector<SEXP> FlattenDots(cpp11::list dots, int num_fields) {
+inline cpp11::writable::list FlattenDots(cpp11::list dots, int num_fields) {
   std::vector<SEXP> out(num_fields);
   auto set = [&](int j, SEXP x, cpp11::r_string) { out[j] = x; };
   TraverseDots(dots, num_fields, set);
-  return out;
+
+  return cpp11::writable::list(out.begin(), out.end());
 }
 
 arrow::Status InferSchemaFromDots(SEXP lst, SEXP schema_sxp, int num_fields,

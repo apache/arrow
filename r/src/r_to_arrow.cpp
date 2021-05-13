@@ -816,18 +816,24 @@ class RPrimitiveConverter<T, enable_if_string_like<T>>
     if (rtype != STRING) {
       return Status::Invalid("Expecting a character vector");
     }
-    return UnsafeAppendUtf8Strings(arrow::r::utf8_strings(x), size);
+    // this is fine for now because a converter only ever calls Extend()
+    // but we'll have to find some other way
+    utf8_strings_ = arrow::r::utf8_strings(x);
+    return UnsafeAppendUtf8Strings(utf8_strings_, size);
   }
 
   void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
-    auto task = [this, values, size]() { return this->Extend(values, size); };
-    // TODO: refine this., e.g. extract setup from Extend()
-    tasks.Append(false, std::move(task));
+    // this is fine for now because a converter only ever calls DelayedExtend()
+    // but we'll have to find some other way
+    utf8_strings_ = arrow::r::utf8_strings(values);
+
+    tasks.Append(false,
+                 [this, size]() { return this->Extend(this->utf8_strings_, size); });
   }
 
  private:
-  Status UnsafeAppendUtf8Strings(const cpp11::strings& s, int64_t size) {
-    RETURN_NOT_OK(this->primitive_builder_->Reserve(s.size()));
+  Status UnsafeAppendUtf8Strings(SEXP s, int64_t size) {
+    RETURN_NOT_OK(this->primitive_builder_->Reserve(XLENGTH(s)));
     const SEXP* p_strings = reinterpret_cast<const SEXP*>(DATAPTR_RO(s));
 
     // we know all the R strings are utf8 already, so we can get
@@ -852,6 +858,9 @@ class RPrimitiveConverter<T, enable_if_string_like<T>>
 
     return Status::OK();
   }
+
+ private:
+  cpp11::strings utf8_strings_;
 };
 
 template <typename T>
@@ -1403,6 +1412,14 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp,
 
   auto flatten_lst = arrow::r::FlattenDots(lst, num_fields);
   std::vector<std::unique_ptr<arrow::r::RConverter>> converters(num_fields);
+
+  // convert strings to utf8
+  for (size_t j = 0; j < num_fields; j++) {
+    SEXP x = flatten_lst[j];
+    if (TYPEOF(x) == STRSXP) {
+      flatten_lst[j] = arrow::r::utf8_strings(flatten_lst[j]);
+    }
+  }
 
   // init converters
   for (int j = 0; j < num_fields && status.ok(); j++) {
