@@ -171,6 +171,7 @@ class Lexer {
     goto FieldStart;
 
   LineEnd:
+    state_ = FIELD_START;
     return data;
 
   AbortLine:
