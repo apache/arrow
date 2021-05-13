@@ -1288,6 +1288,30 @@ parquet___arrow___FileReader__GetSchema <- function(reader){
     .Call(`_arrow_parquet___arrow___FileReader__GetSchema`, reader)
 }
 
+allocate_arrow_schema <- function(){
+    .Call(`_arrow_allocate_arrow_schema`)
+}
+
+delete_arrow_schema <- function(ptr){
+    invisible(.Call(`_arrow_delete_arrow_schema`, ptr))
+}
+
+allocate_arrow_array <- function(){
+    .Call(`_arrow_allocate_arrow_array`)
+}
+
+delete_arrow_array <- function(ptr){
+    invisible(.Call(`_arrow_delete_arrow_array`, ptr))
+}
+
+allocate_arrow_array_stream <- function(){
+    .Call(`_arrow_allocate_arrow_array_stream`)
+}
+
+delete_arrow_array_stream <- function(ptr){
+    invisible(.Call(`_arrow_delete_arrow_array_stream`, ptr))
+}
+
 ImportArray <- function(array, schema){
     .Call(`_arrow_ImportArray`, array, schema)
 }
@@ -1308,20 +1332,8 @@ ImportType <- function(type){
     .Call(`_arrow_ImportType`, type)
 }
 
-allocate_arrow_schema <- function(){
-    .Call(`_arrow_allocate_arrow_schema`)
-}
-
-delete_arrow_schema <- function(ptr){
-    invisible(.Call(`_arrow_delete_arrow_schema`, ptr))
-}
-
-allocate_arrow_array <- function(){
-    .Call(`_arrow_allocate_arrow_array`)
-}
-
-delete_arrow_array <- function(ptr){
-    invisible(.Call(`_arrow_delete_arrow_array`, ptr))
+ImportRecordBatchReader <- function(stream){
+    .Call(`_arrow_ImportRecordBatchReader`, stream)
 }
 
 ExportType <- function(type, ptr){
@@ -1342,6 +1354,10 @@ ExportArray <- function(array, array_ptr, schema_ptr){
 
 ExportRecordBatch <- function(batch, array_ptr, schema_ptr){
     invisible(.Call(`_arrow_ExportRecordBatch`, batch, array_ptr, schema_ptr))
+}
+
+ExportRecordBatchReader <- function(reader, stream_ptr){
+    invisible(.Call(`_arrow_ExportRecordBatchReader`, reader, stream_ptr))
 }
 
 vec_to_arrow <- function(x, s_type){

@@ -5053,6 +5053,96 @@ extern "C" SEXP _arrow_parquet___arrow___FileReader__GetSchema(SEXP reader_sexp)
 
 // py-to-r.cpp
 #if defined(ARROW_R_WITH_ARROW)
+arrow::r::Pointer<struct ArrowSchema> allocate_arrow_schema();
+extern "C" SEXP _arrow_allocate_arrow_schema(){
+BEGIN_CPP11
+	return cpp11::as_sexp(allocate_arrow_schema());
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_allocate_arrow_schema(){
+	Rf_error("Cannot call allocate_arrow_schema(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void delete_arrow_schema(arrow::r::Pointer<struct ArrowSchema> ptr);
+extern "C" SEXP _arrow_delete_arrow_schema(SEXP ptr_sexp){
+BEGIN_CPP11
+	arrow::r::Input<arrow::r::Pointer<struct ArrowSchema>>::type ptr(ptr_sexp);
+	delete_arrow_schema(ptr);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_delete_arrow_schema(SEXP ptr_sexp){
+	Rf_error("Cannot call delete_arrow_schema(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+arrow::r::Pointer<struct ArrowArray> allocate_arrow_array();
+extern "C" SEXP _arrow_allocate_arrow_array(){
+BEGIN_CPP11
+	return cpp11::as_sexp(allocate_arrow_array());
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_allocate_arrow_array(){
+	Rf_error("Cannot call allocate_arrow_array(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void delete_arrow_array(arrow::r::Pointer<struct ArrowArray> ptr);
+extern "C" SEXP _arrow_delete_arrow_array(SEXP ptr_sexp){
+BEGIN_CPP11
+	arrow::r::Input<arrow::r::Pointer<struct ArrowArray>>::type ptr(ptr_sexp);
+	delete_arrow_array(ptr);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_delete_arrow_array(SEXP ptr_sexp){
+	Rf_error("Cannot call delete_arrow_array(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+arrow::r::Pointer<struct ArrowArrayStream> allocate_arrow_array_stream();
+extern "C" SEXP _arrow_allocate_arrow_array_stream(){
+BEGIN_CPP11
+	return cpp11::as_sexp(allocate_arrow_array_stream());
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_allocate_arrow_array_stream(){
+	Rf_error("Cannot call allocate_arrow_array_stream(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void delete_arrow_array_stream(arrow::r::Pointer<struct ArrowArrayStream> ptr);
+extern "C" SEXP _arrow_delete_arrow_array_stream(SEXP ptr_sexp){
+BEGIN_CPP11
+	arrow::r::Input<arrow::r::Pointer<struct ArrowArrayStream>>::type ptr(ptr_sexp);
+	delete_arrow_array_stream(ptr);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_delete_arrow_array_stream(SEXP ptr_sexp){
+	Rf_error("Cannot call delete_arrow_array_stream(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Array> ImportArray(arrow::r::Pointer<struct ArrowArray> array, arrow::r::Pointer<struct ArrowSchema> schema);
 extern "C" SEXP _arrow_ImportArray(SEXP array_sexp, SEXP schema_sexp){
 BEGIN_CPP11
@@ -5130,61 +5220,16 @@ extern "C" SEXP _arrow_ImportType(SEXP type_sexp){
 
 // py-to-r.cpp
 #if defined(ARROW_R_WITH_ARROW)
-arrow::r::Pointer<struct ArrowSchema> allocate_arrow_schema();
-extern "C" SEXP _arrow_allocate_arrow_schema(){
+std::shared_ptr<arrow::RecordBatchReader> ImportRecordBatchReader(arrow::r::Pointer<struct ArrowArrayStream> stream);
+extern "C" SEXP _arrow_ImportRecordBatchReader(SEXP stream_sexp){
 BEGIN_CPP11
-	return cpp11::as_sexp(allocate_arrow_schema());
+	arrow::r::Input<arrow::r::Pointer<struct ArrowArrayStream>>::type stream(stream_sexp);
+	return cpp11::as_sexp(ImportRecordBatchReader(stream));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_allocate_arrow_schema(){
-	Rf_error("Cannot call allocate_arrow_schema(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// py-to-r.cpp
-#if defined(ARROW_R_WITH_ARROW)
-void delete_arrow_schema(arrow::r::Pointer<struct ArrowSchema> ptr);
-extern "C" SEXP _arrow_delete_arrow_schema(SEXP ptr_sexp){
-BEGIN_CPP11
-	arrow::r::Input<arrow::r::Pointer<struct ArrowSchema>>::type ptr(ptr_sexp);
-	delete_arrow_schema(ptr);
-	return R_NilValue;
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_delete_arrow_schema(SEXP ptr_sexp){
-	Rf_error("Cannot call delete_arrow_schema(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// py-to-r.cpp
-#if defined(ARROW_R_WITH_ARROW)
-arrow::r::Pointer<struct ArrowArray> allocate_arrow_array();
-extern "C" SEXP _arrow_allocate_arrow_array(){
-BEGIN_CPP11
-	return cpp11::as_sexp(allocate_arrow_array());
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_allocate_arrow_array(){
-	Rf_error("Cannot call allocate_arrow_array(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// py-to-r.cpp
-#if defined(ARROW_R_WITH_ARROW)
-void delete_arrow_array(arrow::r::Pointer<struct ArrowArray> ptr);
-extern "C" SEXP _arrow_delete_arrow_array(SEXP ptr_sexp){
-BEGIN_CPP11
-	arrow::r::Input<arrow::r::Pointer<struct ArrowArray>>::type ptr(ptr_sexp);
-	delete_arrow_array(ptr);
-	return R_NilValue;
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_delete_arrow_array(SEXP ptr_sexp){
-	Rf_error("Cannot call delete_arrow_array(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+extern "C" SEXP _arrow_ImportRecordBatchReader(SEXP stream_sexp){
+	Rf_error("Cannot call ImportRecordBatchReader(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5272,6 +5317,23 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_ExportRecordBatch(SEXP batch_sexp, SEXP array_ptr_sexp, SEXP schema_ptr_sexp){
 	Rf_error("Cannot call ExportRecordBatch(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void ExportRecordBatchReader(const std::shared_ptr<arrow::RecordBatchReader>& reader, arrow::r::Pointer<struct ArrowArrayStream> stream_ptr);
+extern "C" SEXP _arrow_ExportRecordBatchReader(SEXP reader_sexp, SEXP stream_ptr_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatchReader>&>::type reader(reader_sexp);
+	arrow::r::Input<arrow::r::Pointer<struct ArrowArrayStream>>::type stream_ptr(stream_ptr_sexp);
+	ExportRecordBatchReader(reader, stream_ptr);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExportRecordBatchReader(SEXP reader_sexp, SEXP stream_ptr_sexp){
+	Rf_error("Cannot call ExportRecordBatchReader(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -7069,20 +7131,24 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_parquet___arrow___FileWriter__Close", (DL_FUNC) &_arrow_parquet___arrow___FileWriter__Close, 1}, 
 		{ "_arrow_parquet___arrow___WriteTable", (DL_FUNC) &_arrow_parquet___arrow___WriteTable, 4}, 
 		{ "_arrow_parquet___arrow___FileReader__GetSchema", (DL_FUNC) &_arrow_parquet___arrow___FileReader__GetSchema, 1}, 
+		{ "_arrow_allocate_arrow_schema", (DL_FUNC) &_arrow_allocate_arrow_schema, 0}, 
+		{ "_arrow_delete_arrow_schema", (DL_FUNC) &_arrow_delete_arrow_schema, 1}, 
+		{ "_arrow_allocate_arrow_array", (DL_FUNC) &_arrow_allocate_arrow_array, 0}, 
+		{ "_arrow_delete_arrow_array", (DL_FUNC) &_arrow_delete_arrow_array, 1}, 
+		{ "_arrow_allocate_arrow_array_stream", (DL_FUNC) &_arrow_allocate_arrow_array_stream, 0}, 
+		{ "_arrow_delete_arrow_array_stream", (DL_FUNC) &_arrow_delete_arrow_array_stream, 1}, 
 		{ "_arrow_ImportArray", (DL_FUNC) &_arrow_ImportArray, 2}, 
 		{ "_arrow_ImportRecordBatch", (DL_FUNC) &_arrow_ImportRecordBatch, 2}, 
 		{ "_arrow_ImportSchema", (DL_FUNC) &_arrow_ImportSchema, 1}, 
 		{ "_arrow_ImportField", (DL_FUNC) &_arrow_ImportField, 1}, 
 		{ "_arrow_ImportType", (DL_FUNC) &_arrow_ImportType, 1}, 
-		{ "_arrow_allocate_arrow_schema", (DL_FUNC) &_arrow_allocate_arrow_schema, 0}, 
-		{ "_arrow_delete_arrow_schema", (DL_FUNC) &_arrow_delete_arrow_schema, 1}, 
-		{ "_arrow_allocate_arrow_array", (DL_FUNC) &_arrow_allocate_arrow_array, 0}, 
-		{ "_arrow_delete_arrow_array", (DL_FUNC) &_arrow_delete_arrow_array, 1}, 
+		{ "_arrow_ImportRecordBatchReader", (DL_FUNC) &_arrow_ImportRecordBatchReader, 1}, 
 		{ "_arrow_ExportType", (DL_FUNC) &_arrow_ExportType, 2}, 
 		{ "_arrow_ExportField", (DL_FUNC) &_arrow_ExportField, 2}, 
 		{ "_arrow_ExportSchema", (DL_FUNC) &_arrow_ExportSchema, 2}, 
 		{ "_arrow_ExportArray", (DL_FUNC) &_arrow_ExportArray, 3}, 
 		{ "_arrow_ExportRecordBatch", (DL_FUNC) &_arrow_ExportRecordBatch, 3}, 
+		{ "_arrow_ExportRecordBatchReader", (DL_FUNC) &_arrow_ExportRecordBatchReader, 2}, 
 		{ "_arrow_vec_to_arrow", (DL_FUNC) &_arrow_vec_to_arrow, 2}, 
 		{ "_arrow_DictionaryArray__FromArrays", (DL_FUNC) &_arrow_DictionaryArray__FromArrays, 3}, 
 		{ "_arrow_RecordBatch__num_columns", (DL_FUNC) &_arrow_RecordBatch__num_columns, 1}, 
