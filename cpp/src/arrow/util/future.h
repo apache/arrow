@@ -560,7 +560,7 @@ class Future {
   ContinuedFuture Then(
       OnSuccess on_success, OnFailure on_failure,
       typename std::enable_if<!detail::has_no_args<OnSuccess>::value>::type* =
-          nullptr) const {
+          NULLPTR) const {
     static_assert(
         std::is_same<detail::ContinueFuture::ForSignature<OnFailure && (const Status&)>,
                      ContinuedFuture>::value,
@@ -604,7 +604,7 @@ class Future {
   ContinuedFuture Then(
       OnSuccess on_success, OnFailure on_failure,
       typename std::enable_if<detail::has_no_args<OnSuccess>::value>::type* =
-          nullptr) const {
+          NULLPTR) const {
     static_assert(
         std::is_same<detail::ContinueFuture::ForSignature<OnFailure && (const Status&)>,
                      ContinuedFuture>::value,
