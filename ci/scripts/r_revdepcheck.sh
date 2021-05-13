@@ -51,9 +51,14 @@ SCRIPT="
     # We can't use RSPM binaries because we need source packages
     options('repos' = c(CRAN = 'https://packagemanager.rstudio.com/all/latest'))
     remotes::install_github('r-lib/revdepcheck')
+
+    # zoo is needed by RcisTarget tests, though only listed in enhances so not installed by revdepcheck
+    install.packages('zoo')
+
+    # actually run revdepcheck
     revdepcheck::revdep_check(
     quiet = FALSE,
-    timeout = as.difftime(90, units = 'mins'),
+    timeout = as.difftime(120, units = 'mins'),
     num_workers = 4,
     env = c(
         ARROW_R_DEV = '$ARROW_R_DEV',
