@@ -29,6 +29,16 @@ export type BindFunc = (batch: RecordBatch) => void;
 /** @ignore */
 export type NextFunc = (idx: number, batch: RecordBatch) => void;
 
+/**
+ * `DataFrame` extends {@link Table} with support for predicate filtering.
+ *
+ * You can construct `DataFrames` like tables or convert a `Table` to a `DataFrame`
+ * with the constructor.
+ *
+ * ```ts
+ * const df = new DataFrame(table);
+ * ```
+ */
 export class DataFrame<T extends { [key: string]: DataType } = any> extends Table<T> {
     public filter(predicate: Predicate): FilteredDataFrame<T> {
         return new FilteredDataFrame<T>(this.chunks, predicate);
