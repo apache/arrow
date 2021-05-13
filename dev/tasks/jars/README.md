@@ -24,5 +24,6 @@ The Arrow C++ libraries are compiled both on MacOS and Linux distributions, with
 in the jars at the end, so the file can be used on both systems.
 
 ## Linux Docker Image
-To compile the C++ libraries in Linux, a docker image is used. It is created used the **Dockerfile** inside this repository and the scripts in
-the **docker-scripts** folder. If it is necessary to update the docker image, change that Dockerfile, follow [these steps](https://docs.docker.com/docker-hub/repos/) to build and upload the docker image in the hub repository and update the docker name and tag inside the **github.yml** file.
+To compile the C++ libraries in Linux, a docker image is used. 
+It is created used the **ci/docker/python-wheel-manylinux-2014-java.dockerfile** file. 
+If it is necessary to add any new dependency, you need to change that file.
