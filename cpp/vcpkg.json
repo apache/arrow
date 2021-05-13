@@ -1,7 +1,6 @@
 {
   "name": "arrow",
   "version-string": "5.0.0-SNAPSHOT",
-  "builtin-baseline": "6a274ad4b370b3b729d3af6227f57257ec708b43",
   "dependencies": [
     "abseil",
     {
@@ -40,5 +39,6 @@
   ],
   "overrides": [
     { "name": "gtest", "version": "1.10.0" }
-  ]
+  ],
+  "builtin-baseline": "a267ab118c09f56f3dae96c9a4b3410820ad2f0b"
 }
