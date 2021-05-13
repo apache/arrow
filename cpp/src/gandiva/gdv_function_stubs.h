@@ -159,6 +159,12 @@ const char* gdv_fn_initcap_utf8(int64_t context, const char* data, int32_t data_
                                 int32_t* out_len);
 
 GANDIVA_EXPORT
+int32_t gdv_fn_castINT_varbinary(gdv_int64 context, const char* in, int32_t in_len);
+
+GANDIVA_EXPORT
+int64_t gdv_fn_castBIGINT_varbinary(gdv_int64 context, const char* in, int32_t in_len);
+
+GANDIVA_EXPORT
 float gdv_fn_castFLOAT4_varbinary(gdv_int64 context, const char* in, int32_t in_len);
 
 GANDIVA_EXPORT

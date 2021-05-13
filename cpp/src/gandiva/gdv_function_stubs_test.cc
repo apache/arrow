@@ -623,6 +623,7 @@ TEST(TestGdvFnStubs, TestInitCap) {
                   "unexpected byte \\e0 encountered while decoding utf8 string"));
   ctx.Reset();
 }
+
 TEST(TestGdvFnStubs, TestCastVarbinaryINT) {
   gandiva::ExecutionContext ctx;
 
@@ -631,6 +632,7 @@ TEST(TestGdvFnStubs, TestCastVarbinaryINT) {
   EXPECT_EQ(gdv_fn_castINT_varbinary(ctx_ptr, "-45", 3), -45);
   EXPECT_EQ(gdv_fn_castINT_varbinary(ctx_ptr, "0", 1), 0);
   EXPECT_EQ(gdv_fn_castINT_varbinary(ctx_ptr, "2147483647", 10), 2147483647);
+  EXPECT_EQ(gdv_fn_castINT_varbinary(ctx_ptr, "\x32\x33", 2), 23);
   EXPECT_EQ(gdv_fn_castINT_varbinary(ctx_ptr, "02147483647", 11), 2147483647);
   EXPECT_EQ(gdv_fn_castINT_varbinary(ctx_ptr, "-2147483648", 11), -2147483648LL);
   EXPECT_EQ(gdv_fn_castINT_varbinary(ctx_ptr, "-02147483648", 12), -2147483648LL);
@@ -684,6 +686,10 @@ TEST(TestGdvFnStubs, TestCastVarbinaryBIGINT) {
             -9223372036854775807LL - 1);
   EXPECT_EQ(gdv_fn_castBIGINT_varbinary(ctx_ptr, " 12 ", 4), 12);
 
+  EXPECT_EQ(gdv_fn_castBIGINT_varbinary(ctx_ptr,
+                                        "\x39\x39\x39\x39\x39\x39\x39\x39\x39\x39", 10),
+            9999999999LL);
+
   gdv_fn_castBIGINT_varbinary(ctx_ptr, "9223372036854775808", 19);
   EXPECT_THAT(
       ctx.get_error(),
@@ -726,6 +732,7 @@ TEST(TestGdvFnStubs, TestCastVarbinaryFloat4) {
   EXPECT_EQ(gdv_fn_castFLOAT4_varbinary(ctx_ptr, "0", 1), 0.0f);
   EXPECT_EQ(gdv_fn_castFLOAT4_varbinary(ctx_ptr, "5", 1), 5.0f);
   EXPECT_EQ(gdv_fn_castFLOAT4_varbinary(ctx_ptr, " 3.4 ", 5), 3.4f);
+  EXPECT_EQ(gdv_fn_castFLOAT4_varbinary(ctx_ptr, " \x33\x2E\x34 ", 5), 3.4f);
 
   gdv_fn_castFLOAT4_varbinary(ctx_ptr, "", 0);
   EXPECT_THAT(ctx.get_error(),
@@ -746,7 +753,7 @@ TEST(TestGdvFnStubs, TestCastVarbinaryFloat8) {
   EXPECT_EQ(gdv_fn_castFLOAT8_varbinary(ctx_ptr, "-45.34", 6), -45.34);
   EXPECT_EQ(gdv_fn_castFLOAT8_varbinary(ctx_ptr, "0", 1), 0.0);
   EXPECT_EQ(gdv_fn_castFLOAT8_varbinary(ctx_ptr, "5", 1), 5.0);
-  EXPECT_EQ(gdv_fn_castFLOAT8_varbinary(ctx_ptr, " 3.4 ", 5), 3.4);
+  EXPECT_EQ(gdv_fn_castFLOAT8_varbinary(ctx_ptr, " \x33\x2E\x34 ", 5), 3.4);
 
   gdv_fn_castFLOAT8_varbinary(ctx_ptr, "", 0);
   EXPECT_THAT(ctx.get_error(),
@@ -756,55 +763,6 @@ TEST(TestGdvFnStubs, TestCastVarbinaryFloat8) {
   gdv_fn_castFLOAT8_varbinary(ctx_ptr, "e", 1);
   EXPECT_THAT(ctx.get_error(),
               ::testing::HasSubstr("Failed to cast the string e to double"));
-  ctx.Reset();
-}
-
-TEST(TestGdvFnStubs, TestCastFLOAT4Varbinary) {
-  gandiva::ExecutionContext ctx;
-  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
-
-  EXPECT_EQ(gdv_fn_castFLOAT4_varbinary(ctx_ptr, "-FFF.3", 6), -65523);
-  EXPECT_FALSE(ctx.has_error());
-  ctx.Reset();
-
-  EXPECT_EQ(gdv_fn_castFLOAT4_varbinary(ctx_ptr, "FFF3", 4), 65523);
-  EXPECT_FALSE(ctx.has_error());
-  ctx.Reset();
-
-  EXPECT_EQ(gdv_fn_castFLOAT4_varbinary(ctx_ptr, "-7FFFFFFFFFFFFFFF", 17), INT64_MIN + 1);
-  EXPECT_FALSE(ctx.has_error());
-  ctx.Reset();
-
-  EXPECT_EQ(gdv_fn_castFLOAT4_varbinary(ctx_ptr, "7FFFFFFFFFFFFFFF", 16), INT64_MAX);
-  EXPECT_FALSE(ctx.has_error());
-  ctx.Reset();
-
-  EXPECT_EQ(gdv_fn_castFLOAT4_varbinary(ctx_ptr, "0", 1), 0);
-  EXPECT_FALSE(ctx.has_error());
-  ctx.Reset();
-
-  EXPECT_EQ(gdv_fn_castFLOAT4_varbinary(ctx_ptr, "-0", 2), 0);
-  EXPECT_FALSE(ctx.has_error());
-  ctx.Reset();
-
-  gdv_fn_castFLOAT4_varbinary(ctx_ptr, "", 0);
-  EXPECT_STREQ(ctx.get_error().c_str(), "Can't cast an empty string.");
-  ctx.Reset();
-
-  gdv_fn_castFLOAT4_varbinary(ctx_ptr, "-", 1);
-  EXPECT_STREQ(ctx.get_error().c_str(), "Can't cast hexadecimal with only a minus sign.");
-  ctx.Reset();
-
-  gdv_fn_castFLOAT4_varbinary(ctx_ptr, "8FFFFFFFFFFFFFFF", 16);
-  EXPECT_STREQ(ctx.get_error().c_str(), "Integer overflow.");
-  ctx.Reset();
-
-  gdv_fn_castFLOAT4_varbinary(ctx_ptr, "-8FFFFFFFFFFFFFFF", 17);
-  EXPECT_STREQ(ctx.get_error().c_str(), "Integer overflow.");
-  ctx.Reset();
-
-  gdv_fn_castFLOAT4_varbinary(ctx_ptr, "-8FFFFFGF", 8);
-  EXPECT_STREQ(ctx.get_error().c_str(), "The hexadecimal given has invalid characters.");
   ctx.Reset();
 }
 
