@@ -42,6 +42,23 @@ cdef extern from "Python.h":
         char *v, Py_ssize_t len) except NULL
 
 
+def io_thread_count():
+    """
+    Return the number of threads to use for I/O operations.
+
+    The number of threads is set to a fixed value at startup. It can
+    be modified at runtime by calling :func:`set_io_thread_count()`.
+    """
+    return GetIOThreadPoolCapacity()
+
+
+def set_io_thread_count(int count):
+    """Set the number of threads to use for I/O operations."""
+    if count < 1:
+        raise ValueError("IO thread count must be strictly positive")
+    check_status(SetIOThreadPoolCapacity(count))
+
+
 cdef class NativeFile(_Weakrefable):
     """
     The base class for all Arrow streams.
