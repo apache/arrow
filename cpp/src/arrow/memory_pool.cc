@@ -35,6 +35,10 @@
 #include "arrow/util/optional.h"
 #include "arrow/util/string.h"
 
+#ifdef __GLIBC__
+#include <malloc.h>
+#endif
+
 #ifdef ARROW_JEMALLOC
 // Needed to support jemalloc 3 and 4
 #define JEMALLOC_MANGLE
@@ -253,6 +257,14 @@ class SystemAllocator {
 #endif
     }
   }
+
+  static void ReleaseUnused() {
+#ifdef __GLIBC__
+    // The return value of malloc_trim is not an error but to inform
+    // you if memory was actually released or not, which we do not care about here
+    ARROW_UNUSED(malloc_trim(0));
+#endif
+  }
 };
 
 #ifdef ARROW_JEMALLOC
@@ -300,6 +312,10 @@ class JemallocAllocator {
       dallocx(ptr, MALLOCX_ALIGN(kAlignment));
     }
   }
+
+  static void ReleaseUnused() {
+    mallctl("arena." ARROW_STRINGIFY(MALLCTL_ARENAS_ALL) ".purge", NULL, NULL, NULL, 0);
+  }
 };
 
 #endif  // defined(ARROW_JEMALLOC)
@@ -321,6 +337,8 @@ class MimallocAllocator {
     }
     return Status::OK();
   }
+
+  static void ReleaseUnused() { mi_collect(true); }
 
   static Status ReallocateAligned(int64_t old_size, int64_t new_size, uint8_t** ptr) {
     uint8_t* previous_ptr = *ptr;
@@ -427,6 +445,8 @@ class BaseMemoryPoolImpl : public MemoryPool {
 
     stats_.UpdateAllocatedBytes(-size);
   }
+
+  void ReleaseUnused() override { Allocator::ReleaseUnused(); }
 
   int64_t bytes_allocated() const override { return stats_.bytes_allocated(); }
 

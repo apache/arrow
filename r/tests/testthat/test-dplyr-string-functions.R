@@ -52,7 +52,7 @@ skip_if_not_available("re2")
 test_that("grepl", {
   df <- tibble(x = c("Foo", "bar"))
 
-  for(fixed in c(TRUE, FALSE)) {
+  for (fixed in c(TRUE, FALSE)) {
 
     expect_dplyr_equal(
       input %>%
@@ -150,7 +150,7 @@ test_that("str_detect", {
 test_that("sub and gsub", {
   df <- tibble(x = c("Foo", "bar"))
 
-  for(fixed in c(TRUE, FALSE)) {
+  for (fixed in c(TRUE, FALSE)) {
 
     expect_dplyr_equal(
       input %>%
@@ -208,10 +208,25 @@ test_that("str_replace and str_replace_all", {
 
   expect_dplyr_equal(
     input %>%
+      transmute(x = str_replace_all(x, "^F", "baz")) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
       transmute(x = str_replace_all(x, regex("^F"), "baz")) %>%
       collect(),
     df
   )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = str_replace(x, "^F[a-z]{2}", "baz")) %>%
+      collect(),
+    df
+  )
+
   expect_dplyr_equal(
     input %>%
       transmute(x = str_replace(x, regex("^f[A-Z]{2}", ignore_case = TRUE), "baz")) %>%
@@ -239,7 +254,193 @@ test_that("str_replace and str_replace_all", {
 
 })
 
-test_that("backreferences in pattern", {
+test_that("strsplit and str_split", {
+
+  df <- tibble(x = c("Foo and bar", "baz and qux and quux"))
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = strsplit(x, "and")) %>%
+      collect(),
+    df
+  )
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = strsplit(x, "and.*", fixed = TRUE)) %>%
+      collect(),
+    df
+  )
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = str_split(x, "and")) %>%
+      collect(),
+    df
+  )
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = str_split(x, "and", n = 2)) %>%
+      collect(),
+    df
+  )
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = str_split(x, fixed("and"), n = 2)) %>%
+      collect(),
+    df
+  )
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = str_split(x, regex("and"), n = 2)) %>%
+      collect(),
+    df
+  )
+
+})
+
+test_that("arrow_*_split_whitespace functions", {
+
+  # use only ASCII whitespace characters
+  df_ascii <- tibble(x = c("Foo\nand bar", "baz\tand qux and quux"))
+
+  # use only non-ASCII whitespace characters
+  df_utf8 <- tibble(x = c("Foo\u00A0and\u2000bar", "baz\u2006and\u1680qux\u3000and\u2008quux"))
+
+  df_split <- tibble(x = list(c("Foo", "and", "bar"), c("baz", "and", "qux", "and", "quux")))
+
+  # use default option values
+  expect_equivalent(
+    df_ascii %>%
+      Table$create() %>%
+      mutate(x = arrow_ascii_split_whitespace(x)) %>%
+      collect(),
+    df_split
+  )
+  expect_equivalent(
+    df_utf8 %>%
+      Table$create() %>%
+      mutate(x = arrow_utf8_split_whitespace(x)) %>%
+      collect(),
+    df_split
+  )
+
+  # specify non-default option values
+  expect_equivalent(
+    df_ascii %>%
+      Table$create() %>%
+      mutate(
+        x = arrow_ascii_split_whitespace(x, options = list(max_splits = 1, reverse = TRUE))
+      ) %>%
+      collect(),
+    tibble(x = list(c("Foo\nand", "bar"), c("baz\tand qux and", "quux")))
+  )
+  expect_equivalent(
+    df_utf8 %>%
+      Table$create() %>%
+      mutate(
+        x = arrow_utf8_split_whitespace(x, options = list(max_splits = 1, reverse = TRUE))
+      ) %>%
+      collect(),
+    tibble(x = list(c("Foo\u00A0and", "bar"), c("baz\u2006and\u1680qux\u3000and", "quux")))
+  )
+
+})
+
+test_that("errors and warnings in string splitting", {
+  df <- tibble(x = c("Foo and bar", "baz and qux and quux"))
+
+  # These conditions generate an error, but abandon_ship() catches the error,
+  # issues a warning, and pulls the data into R
+  expect_warning(
+    df %>%
+      Table$create() %>%
+      mutate(x = strsplit(x, "and.*", fixed = FALSE)) %>%
+      collect(),
+    regexp = "not supported"
+  )
+  expect_warning(
+    df %>%
+      Table$create() %>%
+      mutate(x = str_split(x, "and.?")) %>%
+      collect()
+  )
+  expect_warning(
+    df %>%
+      Table$create() %>%
+      mutate(x = str_split(x, regex("and.?"), n = 2)) %>%
+      collect(),
+    regexp = "not supported"
+  )
+  expect_warning(
+    df %>%
+      Table$create() %>%
+      mutate(x = str_split(x, fixed("and", ignore_case = TRUE))) %>%
+      collect(),
+    "not supported"
+  )
+  expect_warning(
+    df %>%
+      Table$create() %>%
+      mutate(x = str_split(x, coll("and.?"))) %>%
+      collect(),
+    regexp = "not supported"
+  )
+  expect_warning(
+    df %>%
+      Table$create() %>%
+      mutate(x = str_split(x, boundary(type = "word"))) %>%
+      collect(),
+    regexp = "not supported"
+  )
+  expect_warning(
+    df %>%
+      Table$create() %>%
+      mutate(x = str_split(x, "and", n = 0)) %>%
+      collect(),
+    regexp = "not supported"
+  )
+
+  # This condition generates a warning
+  expect_warning(
+    df %>%
+      Table$create() %>%
+      mutate(x = str_split(x, fixed("and"), simplify = TRUE)) %>%
+      collect(),
+    "ignored"
+  )
+
+})
+
+test_that("errors and warnings in string detection and replacement", {
+  df <- tibble(x = c("Foo", "bar"))
+
+  # These conditions generate an error, but abandon_ship() catches the error,
+  # issues a warning, and pulls the data into R
+  expect_warning(
+    df %>%
+      Table$create() %>%
+      filter(str_detect(x, boundary(type = "character"))) %>%
+      collect(),
+    regexp = "not implemented"
+  )
+  expect_warning(
+    df %>%
+      Table$create() %>%
+      mutate(x = str_replace_all(x, coll("o", locale = "en"), "ó")) %>%
+      collect(),
+    regexp = "not supported"
+  )
+
+  # This condition generates a warning
+  expect_warning(
+    df %>%
+      Table$create() %>%
+      transmute(x = str_replace_all(x, regex("o", multiline = TRUE), "u")),
+    "Ignoring pattern modifier argument not supported in Arrow: \"multiline\""
+  )
+
+})
+
+test_that("backreferences in pattern in string detection", {
   skip("RE2 does not support backreferences in pattern (https://github.com/google/re2/issues/101)")
   df <- tibble(x = c("Foo", "bar"))
 
@@ -251,7 +452,7 @@ test_that("backreferences in pattern", {
   )
 })
 
-test_that("backreferences (substitutions) in replacement", {
+test_that("backreferences (substitutions) in string replacement", {
   df <- tibble(x = c("Foo", "bar"))
 
   expect_dplyr_equal(
@@ -267,6 +468,12 @@ test_that("backreferences (substitutions) in replacement", {
   )
   expect_dplyr_equal(
     input %>%
+      transmute(x = str_replace(x, "^(\\w)o(.*)", "\\1\\2p")) %>%
+      collect(),
+    df
+  )
+  expect_dplyr_equal(
+    input %>%
       transmute(x = str_replace(x, regex("^(\\w)o(.*)", ignore_case = TRUE), "\\1\\2p")) %>%
       collect(),
     df
@@ -279,7 +486,7 @@ test_that("backreferences (substitutions) in replacement", {
   )
 })
 
-test_that("edge cases", {
+test_that("edge cases in string detection and replacement", {
 
   # in case-insensitive fixed match/replace, test that "\\E" in the search
   # string and backslashes in the replacement string are interpreted literally.
@@ -315,33 +522,4 @@ test_that("edge cases", {
     tibble(x = c("ABC"))
   )
 
-})
-
-test_that("errors and warnings", {
-  df <- tibble(x = c("Foo", "bar"))
-
-  # These conditions generate an error, but abandon_ship() catches the error,
-  # issues a warning, and pulls the data into R
-  expect_warning(
-    df %>%
-      Table$create() %>%
-      filter(str_detect(x, boundary(type = "character"))) %>%
-      collect(),
-    "not implemented"
-  )
-  expect_warning(
-    df %>%
-      Table$create() %>%
-      mutate(x = str_replace_all(x, coll("o", locale = "en"), "ó")) %>%
-      collect(),
-    "not supported"
-  )
-
-  # This condition generates a warning
-  expect_warning(
-    df %>%
-      Table$create() %>%
-      transmute(x = str_replace_all(x, regex("o", multiline = TRUE), "u")),
-    "Ignoring pattern modifier argument not supported in Arrow: \"multiline\""
-  )
 })

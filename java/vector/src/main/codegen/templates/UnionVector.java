@@ -95,6 +95,7 @@ public class UnionVector implements FieldVector {
 
   private StructVector structVector;
   private ListVector listVector;
+  private MapVector mapVector;
 
   private FieldReader reader;
 
@@ -317,6 +318,31 @@ public class UnionVector implements FieldVector {
       }
     }
     return listVector;
+  }
+
+  public MapVector getMap() {
+    if (mapVector == null) {
+      throw new IllegalArgumentException("No map present. Provide ArrowType argument to create a new vector");
+    }
+    return mapVector;
+  }
+
+  public MapVector getMap(ArrowType arrowType) {
+    return getMap(null, arrowType);
+  }
+
+  public MapVector getMap(String name, ArrowType arrowType) {
+    if (mapVector == null) {
+      int vectorCount = internalStruct.size();
+      mapVector = addOrGet(name, MinorType.MAP, arrowType, MapVector.class);
+      if (internalStruct.size() > vectorCount) {
+        mapVector.allocateNew();
+        if (callBack != null) {
+          callBack.doWork();
+        }
+      }
+    }
+    return mapVector;
   }
 
   public int getTypeValue(int index) {
@@ -647,6 +673,8 @@ public class UnionVector implements FieldVector {
           return getStruct();
         case LIST:
           return getList();
+        case MAP:
+          return getMap(name, arrowType);
         default:
           throw new UnsupportedOperationException("Cannot support type: " + MinorType.values()[typeId]);
       }

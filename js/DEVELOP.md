@@ -70,6 +70,10 @@ To run tests directly on the sources without bundling, use the `src` target (e.g
 
 Uses [lerna](https://github.com/lerna/lerna) to publish each build target to npm with [conventional](https://conventionalcommits.org/) [changelogs](https://github.com/conventional-changelog/conventional-changelog/tree/master/packages/conventional-changelog-cli).
 
+# Running the Performance Benchmarks
+
+First, compile the bundles with `yarn build` and generate perf data with `yarn create:perfdata`. Then you can run the benchmarks with `yarn perf`. You can change the target you want to test by changing the imports in `perf/index.js`.
+
 # Updating the Arrow format flatbuffers generated code
 
 1. Once generated, the flatbuffers format code needs to be adjusted for our build scripts (assumes `gnu-sed`):

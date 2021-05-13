@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.complex.impl.NullableStructWriterFactory;
 import org.apache.arrow.vector.types.Types;
 
@@ -39,6 +40,7 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
   UnionVector data;
   private StructWriter structWriter;
   private UnionListWriter listWriter;
+  private UnionMapWriter mapWriter;
   private List<BaseWriter> writers = new java.util.ArrayList<>();
   private final NullableStructWriterFactory nullableStructWriterFactory;
 
@@ -82,6 +84,37 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
     getListWriter().endList();
   }
 
+  @Override
+  public void startMap() {
+    getMapWriter().startMap();
+    data.setType(idx(), MinorType.MAP);
+  }
+
+  @Override
+  public void endMap() {
+    getMapWriter().endMap();
+  }
+
+  @Override
+  public void startEntry() {
+    getMapWriter().startEntry();
+  }
+
+  @Override
+  public MapWriter key() {
+    return getMapWriter().key();
+  }
+
+  @Override
+  public MapWriter value() {
+    return getMapWriter().value();
+  }
+
+  @Override
+  public void endEntry() {
+    getMapWriter().endEntry();
+  }
+
   private StructWriter getStructWriter() {
     if (structWriter == null) {
       structWriter = nullableStructWriterFactory.build(data.getStruct());
@@ -110,6 +143,29 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
     return getListWriter();
   }
 
+  private MapWriter getMapWriter() {
+    if (mapWriter == null) {
+      mapWriter = new UnionMapWriter(data.getMap(new ArrowType.Map(false)));
+      mapWriter.setPosition(idx());
+      writers.add(mapWriter);
+    }
+    return mapWriter;
+  }
+
+  private MapWriter getMapWriter(ArrowType arrowType) {
+    if (mapWriter == null) {
+      mapWriter = new UnionMapWriter(data.getMap(arrowType));
+      mapWriter.setPosition(idx());
+      writers.add(mapWriter);
+    }
+    return mapWriter;
+  }
+
+  public MapWriter asMap(ArrowType arrowType) {
+    data.setType(idx(), MinorType.MAP);
+    return getMapWriter(arrowType);
+  }
+
   BaseWriter getWriter(MinorType minorType) {
     return getWriter(minorType, null);
   }
@@ -120,6 +176,8 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
       return getStructWriter();
     case LIST:
       return getListWriter();
+    case MAP:
+      return getMapWriter(arrowType);
     <#list vv.types as type>
       <#list type.minor as minor>
         <#assign name = minor.class?cap_first />
@@ -219,6 +277,34 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
     data.setType(idx(), MinorType.STRUCT);
     getStructWriter().setPosition(idx());
     return getStructWriter().struct(name);
+  }
+
+  @Override
+  public MapWriter map() {
+    data.setType(idx(), MinorType.MAP);
+    getListWriter().setPosition(idx());
+    return getListWriter().map();
+  }
+
+  @Override
+  public MapWriter map(boolean keysSorted) {
+    data.setType(idx(), MinorType.MAP);
+    getListWriter().setPosition(idx());
+    return getListWriter().map(keysSorted);
+  }
+
+  @Override
+  public MapWriter map(String name) {
+    data.setType(idx(), MinorType.MAP);
+    getStructWriter().setPosition(idx());
+    return getStructWriter().map(name);
+  }
+
+  @Override
+  public MapWriter map(String name, boolean keysSorted) {
+    data.setType(idx(), MinorType.MAP);
+    getStructWriter().setPosition(idx());
+    return getStructWriter().map(name, keysSorted);
   }
 
   <#list vv.types as type><#list type.minor as minor>

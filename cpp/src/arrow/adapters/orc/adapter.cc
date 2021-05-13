@@ -252,8 +252,21 @@ class ORCFileReader::Impl {
       std::string name = type.getFieldName(child);
       fields.push_back(field(name, elemtype));
     }
+<<<<<<< HEAD
     ARROW_ASSIGN_OR_RAISE(auto metadata, ReadMetadata());
-    *out = std::make_shared<Schema>(fields, metadata);
+    *out = std::make_shared<Schema>(std::move(fields), std::move(metadata));
+=======
+    std::list<std::string> keys = reader_->getMetadataKeys();
+    std::shared_ptr<KeyValueMetadata> metadata;
+    if (!keys.empty()) {
+      metadata = std::make_shared<KeyValueMetadata>();
+      for (auto it = keys.begin(); it != keys.end(); ++it) {
+        metadata->Append(*it, reader_->getMetadataValue(*it));
+      }
+    }
+
+    *out = std::make_shared<Schema>(std::move(fields), std::move(metadata));
+>>>>>>> upstream/master
     return Status::OK();
   }
 

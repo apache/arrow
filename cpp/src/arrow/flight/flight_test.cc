@@ -427,12 +427,20 @@ class TestFlightClient : public ::testing::Test {
     std::unique_ptr<FlightStreamReader> stream;
     ASSERT_OK(client_->DoGet(ticket, &stream));
 
+    std::unique_ptr<FlightStreamReader> stream2;
+    ASSERT_OK(client_->DoGet(ticket, &stream2));
+    ASSERT_OK_AND_ASSIGN(auto reader, MakeRecordBatchReader(std::move(stream2)));
+
     FlightStreamChunk chunk;
+    std::shared_ptr<RecordBatch> batch;
     for (int i = 0; i < num_batches; ++i) {
       ASSERT_OK(stream->Next(&chunk));
+      ASSERT_OK(reader->ReadNext(&batch));
       ASSERT_NE(nullptr, chunk.data);
+      ASSERT_NE(nullptr, batch);
 #if !defined(__MINGW32__)
       ASSERT_BATCHES_EQUAL(*expected_batches[i], *chunk.data);
+      ASSERT_BATCHES_EQUAL(*expected_batches[i], *batch);
 #else
       // In MINGW32, the following code does not have the reproducibility at the LSB
       // even when this is called twice with the same seed.
@@ -444,12 +452,15 @@ class TestFlightClient : public ::testing::Test {
       //                 [&dist, &rng] { return static_cast<ValueType>(dist(rng)); });
       //   /* data[1] = 0x40852cdfe23d3976 or 0x40852cdfe23d3975 */
       ASSERT_BATCHES_APPROX_EQUAL(*expected_batches[i], *chunk.data);
+      ASSERT_BATCHES_APPROX_EQUAL(*expected_batches[i], *batch);
 #endif
     }
 
     // Stream exhausted
     ASSERT_OK(stream->Next(&chunk));
+    ASSERT_OK(reader->ReadNext(&batch));
     ASSERT_EQ(nullptr, chunk.data);
+    ASSERT_EQ(nullptr, batch);
   }
 
  protected:

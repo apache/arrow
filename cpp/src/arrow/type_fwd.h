@@ -81,6 +81,7 @@ class RecordBatchReader;
 class Table;
 
 struct Datum;
+struct ValueDescr;
 
 using ChunkedArrayVector = std::vector<std::shared_ptr<ChunkedArray>>;
 using RecordBatchVector = std::vector<std::shared_ptr<RecordBatch>>;

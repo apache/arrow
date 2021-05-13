@@ -223,6 +223,26 @@ N/A
   EXPECT_EQ(*actual, Schema({field("f64", float64())}));
 }
 
+TEST_P(TestCsvFileFormat, InspectWithCustomConvertOptions) {
+  // Regression test for ARROW-12083
+  auto source = GetFileSource(R"(actually_string
+1.0
+
+N/A
+2)");
+  auto defaults = std::make_shared<CsvFragmentScanOptions>();
+  format_->default_fragment_scan_options = defaults;
+
+  ASSERT_OK_AND_ASSIGN(auto actual, format_->Inspect(*source.get()));
+  // Default type inferred
+  EXPECT_EQ(*actual, Schema({field("actually_string", float64())}));
+
+  // Override the inferred type
+  defaults->convert_options.column_types["actually_string"] = utf8();
+  ASSERT_OK_AND_ASSIGN(actual, format_->Inspect(*source.get()));
+  EXPECT_EQ(*actual, Schema({field("actually_string", utf8())}));
+}
+
 TEST_P(TestCsvFileFormat, IsSupported) {
   TestIsSupported();
   bool supported;

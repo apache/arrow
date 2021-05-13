@@ -557,7 +557,7 @@ class DictionarySerializer : public RecordBatchSerializer {
   Status Assemble(const std::shared_ptr<Array>& dictionary) {
     // Make a dummy record batch. A bit tedious as we have to make a schema
     auto schema = arrow::schema({arrow::field("dictionary", dictionary->type())});
-    auto batch = RecordBatch::Make(schema, dictionary->length(), {dictionary});
+    auto batch = RecordBatch::Make(std::move(schema), dictionary->length(), {dictionary});
     return RecordBatchSerializer::Assemble(*batch);
   }
 

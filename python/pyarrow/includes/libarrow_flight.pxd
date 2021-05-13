@@ -151,6 +151,10 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CStatus Next(CFlightStreamChunk* out)
         CStatus ReadAll(shared_ptr[CTable]* table)
 
+    CResult[shared_ptr[CRecordBatchReader]] MakeRecordBatchReader\
+        " arrow::flight::MakeRecordBatchReader"(
+            shared_ptr[CMetadataRecordBatchReader])
+
     cdef cppclass CMetadataRecordBatchWriter \
             " arrow::flight::MetadataRecordBatchWriter"(CRecordBatchWriter):
         CStatus Begin(shared_ptr[CSchema] schema,

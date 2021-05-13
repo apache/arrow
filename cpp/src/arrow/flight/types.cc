@@ -284,6 +284,42 @@ Status MetadataRecordBatchWriter::Begin(const std::shared_ptr<Schema>& schema) {
   return Begin(schema, ipc::IpcWriteOptions::Defaults());
 }
 
+namespace {
+class MetadataRecordBatchReaderAdapter : public RecordBatchReader {
+ public:
+  explicit MetadataRecordBatchReaderAdapter(
+      std::shared_ptr<Schema> schema, std::shared_ptr<MetadataRecordBatchReader> delegate)
+      : schema_(std::move(schema)), delegate_(std::move(delegate)) {}
+  std::shared_ptr<Schema> schema() const override { return schema_; }
+  Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
+    FlightStreamChunk next;
+    while (true) {
+      RETURN_NOT_OK(delegate_->Next(&next));
+      if (!next.data && !next.app_metadata) {
+        // EOS
+        *batch = nullptr;
+        return Status::OK();
+      } else if (next.data) {
+        *batch = std::move(next.data);
+        return Status::OK();
+      }
+      // Got metadata, but no data (which is valid) - read the next message
+    }
+  }
+
+ private:
+  std::shared_ptr<Schema> schema_;
+  std::shared_ptr<MetadataRecordBatchReader> delegate_;
+};
+};  // namespace
+
+arrow::Result<std::shared_ptr<RecordBatchReader>> MakeRecordBatchReader(
+    std::shared_ptr<MetadataRecordBatchReader> reader) {
+  ARROW_ASSIGN_OR_RAISE(auto schema, reader->GetSchema());
+  return std::make_shared<MetadataRecordBatchReaderAdapter>(std::move(schema),
+                                                            std::move(reader));
+}
+
 SimpleFlightListing::SimpleFlightListing(const std::vector<FlightInfo>& flights)
     : position_(0), flights_(flights) {}
 

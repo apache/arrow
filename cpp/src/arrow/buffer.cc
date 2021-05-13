@@ -175,14 +175,15 @@ MutableBuffer::MutableBuffer(const std::shared_ptr<Buffer>& parent, const int64_
 // Pool buffer and allocation
 
 /// A Buffer whose lifetime is tied to a particular MemoryPool
-class PoolBuffer : public ResizableBuffer {
+class PoolBuffer final : public ResizableBuffer {
  public:
   explicit PoolBuffer(std::shared_ptr<MemoryManager> mm, MemoryPool* pool)
       : ResizableBuffer(nullptr, 0, std::move(mm)), pool_(pool) {}
 
   ~PoolBuffer() override {
-    if (mutable_data_ != nullptr) {
-      pool_->Free(mutable_data_, capacity_);
+    uint8_t* ptr = mutable_data();
+    if (ptr) {
+      pool_->Free(ptr, capacity_);
     }
   }
 
@@ -190,16 +191,15 @@ class PoolBuffer : public ResizableBuffer {
     if (capacity < 0) {
       return Status::Invalid("Negative buffer capacity: ", capacity);
     }
-    if (!mutable_data_ || capacity > capacity_) {
-      uint8_t* new_data;
+    uint8_t* ptr = mutable_data();
+    if (!ptr || capacity > capacity_) {
       int64_t new_capacity = BitUtil::RoundUpToMultipleOf64(capacity);
-      if (mutable_data_) {
-        RETURN_NOT_OK(pool_->Reallocate(capacity_, new_capacity, &mutable_data_));
+      if (ptr) {
+        RETURN_NOT_OK(pool_->Reallocate(capacity_, new_capacity, &ptr));
       } else {
-        RETURN_NOT_OK(pool_->Allocate(new_capacity, &new_data));
-        mutable_data_ = new_data;
+        RETURN_NOT_OK(pool_->Allocate(new_capacity, &ptr));
       }
-      data_ = mutable_data_;
+      data_ = ptr;
       capacity_ = new_capacity;
     }
     return Status::OK();
@@ -209,14 +209,15 @@ class PoolBuffer : public ResizableBuffer {
     if (ARROW_PREDICT_FALSE(new_size < 0)) {
       return Status::Invalid("Negative buffer resize: ", new_size);
     }
-    if (mutable_data_ && shrink_to_fit && new_size <= size_) {
+    uint8_t* ptr = mutable_data();
+    if (ptr && shrink_to_fit && new_size <= size_) {
       // Buffer is non-null and is not growing, so shrink to the requested size without
       // excess space.
       int64_t new_capacity = BitUtil::RoundUpToMultipleOf64(new_size);
       if (capacity_ != new_capacity) {
         // Buffer hasn't got yet the requested size.
-        RETURN_NOT_OK(pool_->Reallocate(capacity_, new_capacity, &mutable_data_));
-        data_ = mutable_data_;
+        RETURN_NOT_OK(pool_->Reallocate(capacity_, new_capacity, &ptr));
+        data_ = ptr;
         capacity_ = new_capacity;
       }
     } else {
