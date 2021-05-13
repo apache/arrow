@@ -823,20 +823,20 @@ TEST(TestTime, TestToTimeNumeric) {
   EXPECT_EQ(expected_output, to_time_float64(1577836801.000));
 
   // tests with fractional part
+  // input timestamp in seconds: 1970-01-01 00:00:01.500
+  expected_output = 1500;  // 1.5 seconds
+  EXPECT_EQ(expected_output, to_time_float32(1.500f));
+  EXPECT_EQ(expected_output, to_time_float64(1.500));
+
+  // input timestamp in seconds: 1970-01-01 00:01:01.500
+  expected_output = 61500;  // 61.5 seconds
+  EXPECT_EQ(expected_output, to_time_float32(61.500f));
+  EXPECT_EQ(expected_output, to_time_float64(61.500));
+
   // input timestamp in seconds: 1970-01-01 01:00:01.500
   expected_output = 3601500;  // 3601.5 seconds
   EXPECT_EQ(expected_output, to_time_float32(3601.500f));
   EXPECT_EQ(expected_output, to_time_float64(3601.500));
-
-  // input timestamp in seconds: 1970-01-01 01:00:01.600
-  expected_output = 3601600;  // 3601.6 seconds
-  EXPECT_EQ(expected_output, to_time_float32(3601.600f));
-  EXPECT_EQ(expected_output, to_time_float64(3601.600));
-
-  // input timestamp in seconds: 1970-01-01 01:00:01.400
-  expected_output = 3601400;  // 3601.4 seconds
-  EXPECT_EQ(expected_output, to_time_float32(3601.400f));
-  EXPECT_EQ(expected_output, to_time_float64(3601.400));
 }
 
 }  // namespace gandiva
