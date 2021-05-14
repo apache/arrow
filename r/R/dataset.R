@@ -117,8 +117,19 @@ open_dataset <- function(sources,
     return(dataset___UnionDataset__create(sources, schema))
   }
   factory <- DatasetFactory$create(sources, partitioning = partitioning, ...)
-  # Default is _not_ to inspect/unify schemas
-  factory$Finish(schema, isTRUE(unify_schemas))
+  
+  tryCatch(
+    # Default is _not_ to inspect/unify schemas
+    factory$Finish(schema, isTRUE(unify_schemas)),
+    error = function (e) {
+      msg <- conditionMessage(e)
+      if(grep("Parquet magic bytes not found in footer", msg)){
+        stop("Looks like these are not parquet files, did you mean to specify a 'format'?", call. = FALSE)
+      } else {
+        stop(e)
+      }
+    }
+  )
 }
 
 #' Multi-file datasets
