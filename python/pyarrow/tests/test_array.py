@@ -972,6 +972,7 @@ def test_variable_list_from_arrays():
     with pytest.raises(ValueError):
         pa.ListArray.from_arrays(pa.array([0, 2, 5]), values)
 
+
 def test_union_from_dense():
     binary = pa.array([b'a', b'b', b'c', b'd'], type='binary')
     int64 = pa.array([1, 2, 3], type='int64')

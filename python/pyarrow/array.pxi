@@ -2231,13 +2231,13 @@ cdef class StructArray(Array):
             c_mask = shared_ptr[CBuffer]()
         elif isinstance(mask, Array):
             if mask.type != bool_():
-                raise ValueError('Mask must be a pyarray.Array of type bool')
+                raise ValueError('Mask must be a pyarrow.Array of type bool')
             if mask.null_count != 0:
                 raise ValueError('Mask must not contain nulls')
             inverted_mask = _pc().invert(mask, memory_pool=memory_pool)
             c_mask = pyarrow_unwrap_buffer(inverted_mask.buffers()[1])
         else:
-            raise ValueError('Mask must be a pyarray.Array of type bool')
+            raise ValueError('Mask must be a pyarrow.Array of type bool')
 
         arrays = [asarray(x) for x in arrays]
         for arr in arrays:
