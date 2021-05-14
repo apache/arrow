@@ -48,6 +48,12 @@ jobs:
       - name: Fetch Submodules and Tags
         shell: bash
         run: cd arrow && ci/scripts/util_checkout.sh
+      - name: Cache crancache and revdeps directory
+        uses: actions/cache@v2
+        with:
+          path: |
+            /arrow/r/revdep
+            /arrow/.crancache
       - name: Docker Pull
         shell: bash
         run: cd arrow && docker-compose pull --ignore-pull-failures r
@@ -57,6 +63,18 @@ jobs:
       - name: Docker Run
         shell: bash
         run: cd arrow && docker-compose run r-revdepcheck
+      - name: revdepcheck CRAN report
+        if: always()
+        shell: bash
+        run: cat arrow/r/revdep/cran.md
+      - name: revdepcheck failures
+        if: always()
+        shell: bash
+        run: cat arrow/r/revdep/failures.md
+      - name: revdepcheck problems
+        if: always()
+        shell: bash
+        run: cat arrow/r/revdep/problems.md
       - name: Save the revdep output
         if: always()
         uses: actions/upload-artifact@v2

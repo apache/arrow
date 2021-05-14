@@ -47,6 +47,9 @@ export TEST_R_WITH_ARROW=$TEST_R_WITH_ARROW
 # to retrieve metadata. Disable this so that S3FileSystem tests run faster.
 export AWS_EC2_METADATA_DISABLED=TRUE
 
+# Set crancache dir so we can cache it
+export CRANCACHE_DIR="/arrow/.crancache"
+
 SCRIPT="
     # We can't use RSPM binaries because we need source packages
     options('repos' = c(CRAN = 'https://packagemanager.rstudio.com/all/latest'))
