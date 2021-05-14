@@ -45,6 +45,8 @@ throws an ``ArrowInvalid`` exception when overflow is detected.
 .. autosummary::
    :toctree: ../generated/
 
+   abs
+   abs_checked
    add
    add_checked
    divide
