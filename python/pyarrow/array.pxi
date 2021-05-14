@@ -2230,7 +2230,7 @@ cdef class StructArray(Array):
         if mask is None:
             c_mask = shared_ptr[CBuffer]()
         elif isinstance(mask, Array):
-            if mask.type != bool_():
+            if mask.type.id != Type_BOOL:
                 raise ValueError('Mask must be a pyarrow.Array of type bool')
             if mask.null_count != 0:
                 raise ValueError('Mask must not contain nulls')
