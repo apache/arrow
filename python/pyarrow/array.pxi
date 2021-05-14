@@ -2186,7 +2186,8 @@ cdef class StructArray(Array):
         return [pyarrow_wrap_array(arr) for arr in arrays]
 
     @staticmethod
-    def from_arrays(arrays, names=None, fields=None, mask=None, memory_pool=None):
+    def from_arrays(arrays, names=None, fields=None, mask=None,
+                    memory_pool=None):
         """
         Construct StructArray from collection of arrays representing
         each field in the struct.
