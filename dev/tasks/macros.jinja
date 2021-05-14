@@ -87,7 +87,7 @@ on:
       {% endfor %}
     {% endif %}
     env:
-      CROSSBOW_GITHUB_TOKEN: {{ '${{ secrets.GITHUB_TOKEN }}' }}
+      CROSSBOW_GITHUB_TOKEN: {{ '${{ secrets.CROSSBOW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}' }}
 {% endmacro %}
 
 {%- macro github_upload_gemfury(pattern) -%}
