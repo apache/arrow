@@ -121,6 +121,39 @@ nse_funcs$as.numeric <- function(x) {
   Expression$create("cast", x, options = cast_options(to_type = float64()))
 }
 
+# is.* type functions
+nse_funcs$is.character <- function(x) {
+  x$type_id() %in% Type[c("STRING", "LARGE_STRING")]
+}
+
+nse_funcs$is.numeric <- function(x) {
+  x$type_id() %in% c(2:12, 23:24)
+}
+
+nse_funcs$is.double <- function(x) {
+  x$type_id() %in% Type["DOUBLE"]
+}
+
+nse_funcs$is.integer <- function(x) {
+  x$type_id() %in% c(2:9)
+}
+
+nse_funcs$is.integer64 <- function(x) {
+  x$type_id() %in% Type[c("UINT64", "INT64")]
+}
+
+nse_funcs$is.logical <- function(x) {
+  x$type_id() %in% Type["BOOL"]
+}
+
+nse_funcs$is.factor <- function(x) {
+  x$type_id() == Type["DICTIONARY"]
+}
+
+nse_funcs$is.list <- function(x) {
+  x$type_id() %in% Type[c("LIST", "FIXED_SIZE_LIST", "LARGE_LIST")]
+}
+
 # String functions
 nse_funcs$nchar <- function(x, type = "chars", allowNA = FALSE, keepNA = NA) {
   if (allowNA) {
