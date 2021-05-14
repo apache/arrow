@@ -1332,7 +1332,7 @@ struct ReplaceSubString {
 
     if (batch[0].kind() == Datum::ARRAY) {
       // We already know how many strings we have, so we can use Reserve/UnsafeAppend
-      RETURN_NOT_OK(offset_builder.Reserve(batch[0].array()->length));
+      RETURN_NOT_OK(offset_builder.Reserve(batch[0].array()->length + 1));
       offset_builder.UnsafeAppend(0);  // offsets start at 0
 
       const ArrayData& input = *batch[0].array();
