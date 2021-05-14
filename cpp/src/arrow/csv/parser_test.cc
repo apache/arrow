@@ -20,6 +20,7 @@
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "arrow/csv/options.h"
@@ -635,6 +636,47 @@ TEST(BlockParser, QuotedEscape) {
     BlockParser parser(options);
     AssertParseOk(parser, csv);
     AssertColumnsEq(parser, {{"a\"b"}, {"c"}}, {{true}, {false}} /* quoted */);
+  }
+}
+
+TEST(BlockParser, RowNumberAppendedToError) {
+  auto options = ParseOptions::Defaults();
+  auto csv = "a,b,c\nd,e,f\ng,h,i\n";
+  {
+    BlockParser parser(options, -1, 0);
+    ASSERT_NO_FATAL_FAILURE(AssertParseOk(parser, csv));
+    int row = 0;
+    auto status = parser.VisitColumn(
+        0, [row](const uint8_t* data, uint32_t size, bool quoted) mutable -> Status {
+          return ++row == 2 ? Status::Invalid("Bad value") : Status::OK();
+        });
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("Row #1: Bad value"),
+                                    status);
+  }
+
+  {
+    BlockParser parser(options, -1, 100);
+    ASSERT_NO_FATAL_FAILURE(AssertParseOk(parser, csv));
+    int row = 0;
+    auto status = parser.VisitColumn(
+        0, [row](const uint8_t* data, uint32_t size, bool quoted) mutable -> Status {
+          return ++row == 3 ? Status::Invalid("Bad value") : Status::OK();
+        });
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("Row #102: Bad value"),
+                                    status);
+  }
+
+  // No first row specified should not append row information
+  {
+    BlockParser parser(options, -1, -1);
+    ASSERT_NO_FATAL_FAILURE(AssertParseOk(parser, csv));
+    int row = 0;
+    auto status = parser.VisitColumn(
+        0, [row](const uint8_t* data, uint32_t size, bool quoted) mutable -> Status {
+          return ++row == 3 ? Status::Invalid("Bad value") : Status::OK();
+        });
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::Not(testing::HasSubstr("Row")),
+                                    status);
   }
 }
 

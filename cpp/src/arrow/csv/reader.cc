@@ -352,7 +352,8 @@ class ReaderMixin {
 
     if (read_options_.column_names.empty()) {
       // Parse one row (either to read column names or to know the number of columns)
-      BlockParser parser(io_context_.pool(), parse_options_, num_csv_cols_, num_rows_, 1);
+      BlockParser parser(io_context_.pool(), parse_options_, num_csv_cols_,
+                         num_rows_seen_, 1);
       uint32_t parsed_size = 0;
       RETURN_NOT_OK(parser.Parse(
           util::string_view(reinterpret_cast<const char*>(data), data_end - data),
@@ -473,8 +474,8 @@ class ReaderMixin {
                             const std::shared_ptr<Buffer>& block, int64_t block_index,
                             bool is_final) {
     static constexpr int32_t max_num_rows = std::numeric_limits<int32_t>::max();
-    auto parser = std::make_shared<BlockParser>(io_context_.pool(), parse_options_,
-                                                num_csv_cols_, num_rows_, max_num_rows);
+    auto parser = std::make_shared<BlockParser>(
+        io_context_.pool(), parse_options_, num_csv_cols_, num_rows_seen_, max_num_rows);
 
     std::shared_ptr<Buffer> straddling;
     std::vector<util::string_view> views;
@@ -900,10 +901,10 @@ class AsyncThreadedTableReader
                            std::shared_ptr<io::InputStream> input,
                            const ReadOptions& read_options,
                            const ParseOptions& parse_options,
-                           const ConvertOptions& convert_options,
-                           Executor* cpu_executor)
+                           const ConvertOptions& convert_options, Executor* cpu_executor)
+      // Count rows is currently not supported during parallel read
       : BaseTableReader(std::move(io_context), input, read_options, parse_options,
-                        convert_options, false),
+                        convert_options, /*count_rows=*/false),
         cpu_executor_(cpu_executor) {}
 
   ~AsyncThreadedTableReader() override {
@@ -1005,7 +1006,8 @@ Result<std::shared_ptr<TableReader>> MakeTableReader(
         io_context, input, read_options, parse_options, convert_options, cpu_executor);
   } else {
     reader = std::make_shared<SerialTableReader>(io_context, input, read_options,
-                                                 parse_options, convert_options, true);
+                                                 parse_options, convert_options,
+                                                 /*count_rows=*/true);
   }
   RETURN_NOT_OK(reader->Init());
   return reader;
@@ -1017,7 +1019,8 @@ Future<std::shared_ptr<StreamingReader>> MakeStreamingReader(
     const ParseOptions& parse_options, const ConvertOptions& convert_options) {
   std::shared_ptr<BaseStreamingReader> reader;
   reader = std::make_shared<SerialStreamingReader>(
-      io_context, cpu_executor, input, read_options, parse_options, convert_options, true);
+      io_context, cpu_executor, input, read_options, parse_options, convert_options,
+      /*count_rows=*/true);
   return reader->Init();
 }
 

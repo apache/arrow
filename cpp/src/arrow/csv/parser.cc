@@ -192,6 +192,8 @@ class BlockParserImpl {
 
   const DataBatch& parsed_batch() const { return batch_; }
 
+  int64_t first_row_num() const { return first_row_; }
+
   template <typename SpecializedOptions, typename ValueDescWriter, typename DataWriter>
   Status ParseLine(ValueDescWriter* values_writer, DataWriter* parsed_writer,
                    const char* data, const char* data_end, bool is_final,
@@ -546,6 +548,8 @@ Status BlockParser::ParseFinal(util::string_view data, uint32_t* out_size) {
 }
 
 const DataBatch& BlockParser::parsed_batch() const { return impl_->parsed_batch(); }
+
+int64_t BlockParser::first_row_num() const { return impl_->first_row_num(); }
 
 int32_t SkipRows(const uint8_t* data, uint32_t size, int32_t num_rows,
                  const uint8_t** out_data) {
