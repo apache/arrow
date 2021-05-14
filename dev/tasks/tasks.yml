@@ -44,9 +44,6 @@ groups:
     - debian-*-arm64
     - ubuntu-*-arm64
 
-  gandiva:
-    - gandiva-*
-
   homebrew:
     - homebrew-*
 
@@ -55,6 +52,7 @@ groups:
     - centos-*
     - conda-*
     - debian-*
+    - jars
     - nuget
     - python-sdist
     - ubuntu-*
@@ -127,7 +125,7 @@ groups:
     - ubuntu-*
     - centos-*
     - conda-*
-    - gandiva-*
+    - jars
     # List the homebrews explicitly because we don't care about running homebrew-cpp-autobrew
     - homebrew-cpp
     - homebrew-r-autobrew
@@ -621,13 +619,16 @@ tasks:
     ci: github
     template: r/github.macos.autobrew.yml
 
-  ############################## Gandiva Tasks ################################
+  ############################## Arrow JAR's ##################################
 
-  gandiva-jar:
+  jars:
+    # Build jar's that contains cpp libraries dependencies
     ci: github
-    template: gandiva-jars/github.yml
+    template: jars/github.yml
     artifacts:
       - arrow-gandiva-{no_rc_version}-SNAPSHOT.jar
+      - arrow-orc-{no_rc_version}-SNAPSHOT.jar
+      - arrow-dataset-{no_rc_version}-SNAPSHOT.jar
 
   ############################## NuGet packages ###############################
 
