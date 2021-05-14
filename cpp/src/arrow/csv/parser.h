@@ -134,9 +134,9 @@ constexpr int32_t kMaxParserNumRows = 100000;
 class ARROW_EXPORT BlockParser {
  public:
   explicit BlockParser(ParseOptions options, int32_t num_cols = -1,
-                       int32_t max_num_rows = kMaxParserNumRows);
+                       int64_t first_row = -1, int32_t max_num_rows = kMaxParserNumRows);
   explicit BlockParser(MemoryPool* pool, ParseOptions options, int32_t num_cols = -1,
-                       int32_t max_num_rows = kMaxParserNumRows);
+                       int64_t first_row = -1, int32_t max_num_rows = kMaxParserNumRows);
   ~BlockParser();
 
   /// \brief Parse a block of data

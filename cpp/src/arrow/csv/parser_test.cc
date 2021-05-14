@@ -295,7 +295,7 @@ TEST(BlockParser, Newlines) {
 
 TEST(BlockParser, MaxNumRows) {
   auto csv = MakeCSVData({"a\n", "b\n", "c\n", "d\n"});
-  BlockParser parser(ParseOptions::Defaults(), -1, 3 /* max_num_rows */);
+  BlockParser parser(ParseOptions::Defaults(), -1, 0, 3 /* max_num_rows */);
 
   AssertParsePartial(parser, csv, 6);
   AssertColumnsEq(parser, {{"a", "b", "c"}});
@@ -536,22 +536,37 @@ TEST(BlockParser, QuotesSpecial) {
 TEST(BlockParser, MismatchingNumColumns) {
   uint32_t out_size;
   {
-    BlockParser parser(ParseOptions::Defaults());
+    BlockParser parser(ParseOptions::Defaults(), -1, 0 /* first_row */);
     auto csv = MakeCSVData({"a,b\nc\n"});
     Status st = Parse(parser, csv, &out_size);
-    ASSERT_RAISES(Invalid, st);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid,
+        testing::HasSubstr("CSV parse error: Row #1: Expected 2 columns, got 1: c"), st);
   }
   {
-    BlockParser parser(ParseOptions::Defaults(), 2 /* num_cols */);
+    BlockParser parser(ParseOptions::Defaults(), 2 /* num_cols */, 0 /* first_row */);
     auto csv = MakeCSVData({"a\n"});
     Status st = Parse(parser, csv, &out_size);
-    ASSERT_RAISES(Invalid, st);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid,
+        testing::HasSubstr("CSV parse error: Row #0: Expected 2 columns, got 1: a"), st);
   }
   {
-    BlockParser parser(ParseOptions::Defaults(), 2 /* num_cols */);
+    BlockParser parser(ParseOptions::Defaults(), 2 /* num_cols */, 50 /* first_row */);
     auto csv = MakeCSVData({"a,b,c\n"});
     Status st = Parse(parser, csv, &out_size);
-    ASSERT_RAISES(Invalid, st);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid,
+        testing::HasSubstr("CSV parse error: Row #50: Expected 2 columns, got 3: a,b,c"),
+        st);
+  }
+  // No row number
+  {
+    BlockParser parser(ParseOptions::Defaults(), 2 /* num_cols */, -1);
+    auto csv = MakeCSVData({"a\n"});
+    Status st = Parse(parser, csv, &out_size);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, testing::HasSubstr("CSV parse error: Expected 2 columns, got 1: a"), st);
   }
 }
 

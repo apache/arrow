@@ -319,11 +319,12 @@ class ReaderMixin {
  public:
   ReaderMixin(io::IOContext io_context, std::shared_ptr<io::InputStream> input,
               const ReadOptions& read_options, const ParseOptions& parse_options,
-              const ConvertOptions& convert_options)
+              const ConvertOptions& convert_options, bool count_rows)
       : io_context_(std::move(io_context)),
         read_options_(read_options),
         parse_options_(parse_options),
         convert_options_(convert_options),
+        num_rows_seen_(count_rows ? 1 : -1),
         input_(std::move(input)) {}
 
  protected:
@@ -344,11 +345,14 @@ class ReaderMixin {
             " rows from CSV file, "
             "either file is too short or header is larger than block size");
       }
+      if (num_rows_seen_ >= 0) {
+        num_rows_seen_ = num_skipped_rows;
+      }
     }
 
     if (read_options_.column_names.empty()) {
       // Parse one row (either to read column names or to know the number of columns)
-      BlockParser parser(io_context_.pool(), parse_options_, num_csv_cols_, 1);
+      BlockParser parser(io_context_.pool(), parse_options_, num_csv_cols_, num_rows_, 1);
       uint32_t parsed_size = 0;
       RETURN_NOT_OK(parser.Parse(
           util::string_view(reinterpret_cast<const char*>(data), data_end - data),
@@ -374,6 +378,9 @@ class ReaderMixin {
         DCHECK_EQ(static_cast<size_t>(parser.num_cols()), column_names_.size());
         // Skip parsed header row
         data += parsed_size;
+        if (num_rows_seen_ >= 0) {
+          ++num_rows_seen_;
+        }
       }
     } else {
       column_names_ = read_options_.column_names;
@@ -467,7 +474,7 @@ class ReaderMixin {
                             bool is_final) {
     static constexpr int32_t max_num_rows = std::numeric_limits<int32_t>::max();
     auto parser = std::make_shared<BlockParser>(io_context_.pool(), parse_options_,
-                                                num_csv_cols_, max_num_rows);
+                                                num_csv_cols_, num_rows_, max_num_rows);
 
     std::shared_ptr<Buffer> straddling;
     std::vector<util::string_view> views;
@@ -490,6 +497,9 @@ class ReaderMixin {
     } else {
       RETURN_NOT_OK(parser->Parse(views, &parsed_size));
     }
+    if (num_rows_seen_ >= 0) {
+      num_rows_seen_ += parser->num_rows();
+    }
     return ParseResult{std::move(parser), static_cast<int64_t>(parsed_size)};
   }
 
@@ -500,6 +510,8 @@ class ReaderMixin {
 
   // Number of columns in the CSV file
   int32_t num_csv_cols_ = -1;
+  // Number of rows seen in the csv. -1 indicates row counting is disabled
+  int64_t num_rows_seen_;
   // Column names in the CSV file
   std::vector<std::string> column_names_;
   ConversionSchema conversion_schema_;
@@ -588,9 +600,9 @@ class BaseStreamingReader : public ReaderMixin, public csv::StreamingReader {
   BaseStreamingReader(io::IOContext io_context, Executor* cpu_executor,
                       std::shared_ptr<io::InputStream> input,
                       const ReadOptions& read_options, const ParseOptions& parse_options,
-                      const ConvertOptions& convert_options)
+                      const ConvertOptions& convert_options, bool count_rows)
       : ReaderMixin(io_context, std::move(input), read_options, parse_options,
-                    convert_options),
+                    convert_options, count_rows),
         cpu_executor_(cpu_executor) {}
 
   virtual Future<std::shared_ptr<csv::StreamingReader>> Init() = 0;
@@ -888,9 +900,10 @@ class AsyncThreadedTableReader
                            std::shared_ptr<io::InputStream> input,
                            const ReadOptions& read_options,
                            const ParseOptions& parse_options,
-                           const ConvertOptions& convert_options, Executor* cpu_executor)
+                           const ConvertOptions& convert_options,
+                           Executor* cpu_executor)
       : BaseTableReader(std::move(io_context), input, read_options, parse_options,
-                        convert_options),
+                        convert_options, false),
         cpu_executor_(cpu_executor) {}
 
   ~AsyncThreadedTableReader() override {
@@ -992,7 +1005,7 @@ Result<std::shared_ptr<TableReader>> MakeTableReader(
         io_context, input, read_options, parse_options, convert_options, cpu_executor);
   } else {
     reader = std::make_shared<SerialTableReader>(io_context, input, read_options,
-                                                 parse_options, convert_options);
+                                                 parse_options, convert_options, true);
   }
   RETURN_NOT_OK(reader->Init());
   return reader;
@@ -1004,7 +1017,7 @@ Future<std::shared_ptr<StreamingReader>> MakeStreamingReader(
     const ParseOptions& parse_options, const ConvertOptions& convert_options) {
   std::shared_ptr<BaseStreamingReader> reader;
   reader = std::make_shared<SerialStreamingReader>(
-      io_context, cpu_executor, input, read_options, parse_options, convert_options);
+      io_context, cpu_executor, input, read_options, parse_options, convert_options, true);
   return reader->Init();
 }
 

@@ -51,7 +51,7 @@ Result<std::unordered_set<std::string>> GetColumnNames(
     const csv::ParseOptions& parse_options, util::string_view first_block,
     MemoryPool* pool) {
   uint32_t parsed_size = 0;
-  csv::BlockParser parser(pool, parse_options, /*num_cols=*/-1,
+  csv::BlockParser parser(pool, parse_options, /*num_cols=*/-1, /*first_row=*/1,
                           /*max_num_rows=*/1);
 
   RETURN_NOT_OK(parser.Parse(util::string_view{first_block}, &parsed_size));
