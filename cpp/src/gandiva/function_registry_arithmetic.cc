@@ -29,13 +29,13 @@ namespace gandiva {
 #define BINARY_RELATIONAL_BOOL_DATE_FN(name, ALIASES) \
   NUMERIC_DATE_TYPES(BINARY_RELATIONAL_SAFE_NULL_IF_NULL, name, ALIASES)
 
-#define UNARY_CAST_TO_FLOAT64(name) UNARY_SAFE_NULL_IF_NULL(castFLOAT8, {}, name, float64)
+#define UNARY_CAST_TO_FLOAT64(type) UNARY_SAFE_NULL_IF_NULL(castFLOAT8, {}, type, float64)
 
-#define UNARY_CAST_TO_FLOAT32(name) UNARY_SAFE_NULL_IF_NULL(castFLOAT4, {}, name, float32)
+#define UNARY_CAST_TO_FLOAT32(type) UNARY_SAFE_NULL_IF_NULL(castFLOAT4, {}, type, float32)
 
-#define UNARY_CAST_TO_INT32(name) UNARY_SAFE_NULL_IF_NULL(castINT, {}, name, int32)
+#define UNARY_CAST_TO_INT32(type) UNARY_SAFE_NULL_IF_NULL(castINT, {}, type, int32)
 
-#define UNARY_CAST_TO_INT64(name) UNARY_SAFE_NULL_IF_NULL(castBIGINT, {}, name, int64)
+#define UNARY_CAST_TO_INT64(type) UNARY_SAFE_NULL_IF_NULL(castBIGINT, {}, type, int64)
 
 std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
   static std::vector<NativeFunction> arithmetic_fn_registry_ = {
