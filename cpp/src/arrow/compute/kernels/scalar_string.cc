@@ -279,19 +279,21 @@ struct AsciiReverse : StringTransform<Type, AsciiReverse<Type>> {
       utf8_char_found |= input[i] & 0x80;
       output[input_string_ncodeunits - i - 1] = input[i];
     }
-    //    todo: finalize if L278 check is required or not. If not required,
-    //    simply use the following
-    //    std::reverse_copy(input, input + input_string_ncodeunits, output);
     *output_written = input_string_ncodeunits;
     return utf8_char_found == 0;
   }
 };
 
 /*
- * UTF8 codeunit size can be determined by looking at the leading 4 bits of BYTE1
+ * size of a valid UTF8 can be determined by looking at leading 4 bits of BYTE1
+ * UTF8_BYTE_SIZE_LUT[0..7] --> pure ascii chars --> 1B length
+ * UTF8_BYTE_SIZE_LUT[8..11] --> internal bytes --> 1B length
+ * UTF8_BYTE_SIZE_LUT[12,13] --> 2B long UTF8 chars
+ * UTF8_BYTE_SIZE_LUT[14] --> 3B long UTF8 chars
+ * UTF8_BYTE_SIZE_LUT[15] --> 4B long UTF8 chars
  */
 const std::array<uint8_t, 16> UTF8_BYTE_SIZE_LUT{1, 1, 1, 1, 1, 1, 1, 1,
-                                                 0, 0, 0, 0, 2, 2, 3, 4};
+                                                 1, 1, 1, 1, 2, 2, 3, 4};
 
 template <typename Type>
 struct Utf8Reverse : StringTransform<Type, Utf8Reverse<Type>> {
@@ -302,9 +304,9 @@ struct Utf8Reverse : StringTransform<Type, Utf8Reverse<Type>> {
                  uint8_t* output, offset_type* output_written) {
     offset_type i = 0;
     while (i < input_string_ncodeunits) {
-      uint8_t offset = UTF8_BYTE_SIZE_LUT[input[i] >> 4];  // right shift leading 4 bits
-      std::copy(input + i, input + (i + offset),
-                output + (input_string_ncodeunits - i - offset));
+      uint8_t offset = UTF8_BYTE_SIZE_LUT[input[i] >> 4];
+      offset_type stride = std::min(i + offset, input_string_ncodeunits);
+      std::copy(input + i, input + stride, output + input_string_ncodeunits - stride);
       i += offset;
     }
     *output_written = input_string_ncodeunits;
