@@ -54,7 +54,7 @@ jobs:
           path: |
             /arrow/r/revdep
             /arrow/.crancache
-        key: {{ "${{ hashFiles('/arrow/cpp/vcpkg.json') }}" }}
+          key: {{ "${{ hashFiles('/arrow/cpp/vcpkg.json') }}" }}
       - name: Docker Pull
         shell: bash
         run: cd arrow && docker-compose pull --ignore-pull-failures r
