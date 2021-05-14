@@ -81,7 +81,7 @@ jobs:
       - name: Build Jar
         run: |
           set -e
-          arrow/ci/scripts/java_bundled_jars_java_build.sh \
+          arrow/ci/scripts/java_jni_build.sh \
             $GITHUB_WORKSPACE/arrow \
             $GITHUB_WORKSPACE/arrow/dist \
       {{ macros.github_upload_releases("arrow/dist/*.jar")|indent }}
