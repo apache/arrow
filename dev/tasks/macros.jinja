@@ -118,7 +118,7 @@ on:
       versionSpec: '3.8'
   - script: pip install -e arrow/dev/archery[crossbow]
     displayName: Install Crossbow
-  - script: |
+  - bash: |
       archery crossbow \
         --queue-path $(pwd) \
         --queue-remote {{ queue_remote_url }} \
