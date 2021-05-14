@@ -96,7 +96,7 @@ TYPED_TEST(TestStringKernels, AsciiReverse) {
   this->CheckUnary("ascii_reverse", R"(["abcd", null, "", "bbb"])", this->type(),
                    R"(["dcba", null, "", "bbb"])");
 
-  Datum input = ArrayFromJSON(this->type(), "[\"aAazZæÆ&\", null, \"\", \"bbb\"]");
+  Datum input = ArrayFromJSON(this->type(), R"(["aAazZæÆ&", null, "", "bbb"])");
   ASSERT_NOT_OK(CallFunction("ascii_reverse", {input}));
 }
 
@@ -104,10 +104,10 @@ TYPED_TEST(TestStringKernels, Utf8Reverse) {
   this->CheckUnary("utf8_reverse", "[]", this->type(), "[]");
   this->CheckUnary("utf8_reverse", R"(["abcd", null, "", "bbb"])", this->type(),
                    R"(["dcba", null, "", "bbb"])");
-  this->CheckUnary("utf8_reverse", "[\"aAazZæÆ&\", null, \"\", \"bbb\"]", this->type(),
-                   "[\"&ÆæZzaAa\", null, \"\", \"bbb\"]");
-  this->CheckUnary("utf8_reverse", "[\"ɑɽⱤæÆ&\", null, \"\", \"bbb\"]", this->type(),
-                   "[\"&ÆæⱤɽɑ\", null, \"\", \"bbb\"]");
+  this->CheckUnary("utf8_reverse", R"(["aAazZæÆ&", null, "", "bbb"])", this->type(),
+                   R"(["&ÆæZzaAa", null, "", "bbb"])";
+  this->CheckUnary("utf8_reverse", R"(["ɑɽⱤæÆ&", null, "", "bbb"])", this->type(),
+                   R"(["&ÆæⱤɽɑ", null, "", "bbb"])");
 }
 
 TEST(TestStringKernels, LARGE_MEMORY_TEST(Utf8Upper32bitGrowth)) {
