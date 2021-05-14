@@ -93,19 +93,13 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
       NativeFunction("castBIGINT", {}, DataTypeVector{day_time_interval()}, int64(),
                      kResultNullIfNull, "castBIGINT_daytimeinterval"),
 
-      NativeFunction("castINT", {}, DataTypeVector{month_interval()}, int32(),
-                     kResultNullIfNull, "castINT_year_interval",
+      NativeFunction("castINT", {"castNULLABLEINT"}, DataTypeVector{month_interval()},
+                     int32(), kResultNullIfNull, "castINT_year_interval",
                      NativeFunction::kCanReturnErrors),
 
-      NativeFunction("castBIGINT", {}, DataTypeVector{month_interval()}, int64(),
-                     kResultNullIfNull, "castBIGINT_year_interval",
-                     NativeFunction::kCanReturnErrors),
-
-      NativeFunction("castNULLABLEINT", {}, DataTypeVector{month_interval()}, int32(),
-                     kResultNullIfNull, "castNULLABLEINT_yearinterval"),
-
-      NativeFunction("castNULLABLEBIGINT", {}, DataTypeVector{month_interval()}, int64(),
-                     kResultNullIfNull, "castNULLABLEBIGINT_yearinterval"),
+      NativeFunction("castBIGINT", {"castNULLABLEBIGINT"},
+                     DataTypeVector{month_interval()}, int64(), kResultNullIfNull,
+                     "castBIGINT_year_interval", NativeFunction::kCanReturnErrors),
 
       NativeFunction("castNULLABLEINTERVALYEAR", {"castINTERVALYEAR"},
                      DataTypeVector{int32()}, month_interval(), kResultNullIfNull,

@@ -885,30 +885,6 @@ TEST(TestTime, TestCastIntYearInterval) {
   EXPECT_EQ(castBIGINT_year_interval(-23), -1);
 }
 
-TEST(TestTime, TestCastNullableYearIntervalToInt) {
-  // Test castNULLABLEINT for interval year
-  EXPECT_EQ(castNULLABLEINT_yearinterval(1), 0);
-  EXPECT_EQ(castNULLABLEINT_yearinterval(12), 1);
-  EXPECT_EQ(castNULLABLEINT_yearinterval(55), 4);
-  EXPECT_EQ(castNULLABLEINT_yearinterval(1201), 100);
-  EXPECT_EQ(castNULLABLEINT_yearinterval(-1), 0);
-  EXPECT_EQ(castNULLABLEINT_yearinterval(-12), -1);
-  EXPECT_EQ(castNULLABLEINT_yearinterval(-55), -4);
-  EXPECT_EQ(castNULLABLEINT_yearinterval(-1201), -100);
-  EXPECT_EQ(castNULLABLEINT_yearinterval(12), 1);
-
-  // Test castNULLABLEBIGINT for interval year
-  EXPECT_EQ(castNULLABLEBIGINT_yearinterval(1), 0);
-  EXPECT_EQ(castNULLABLEBIGINT_yearinterval(12), 1);
-  EXPECT_EQ(castNULLABLEBIGINT_yearinterval(55), 4);
-  EXPECT_EQ(castNULLABLEBIGINT_yearinterval(1201), 100);
-  EXPECT_EQ(castNULLABLEBIGINT_yearinterval(-1), 0);
-  EXPECT_EQ(castNULLABLEBIGINT_yearinterval(-12), -1);
-  EXPECT_EQ(castNULLABLEBIGINT_yearinterval(-55), -4);
-  EXPECT_EQ(castNULLABLEBIGINT_yearinterval(-1201), -100);
-  EXPECT_EQ(castNULLABLEBIGINT_yearinterval(12), 1);
-}
-
 TEST(TestTime, TestCastNullableInterval) {
   ExecutionContext context;
   auto context_ptr = reinterpret_cast<int64_t>(&context);

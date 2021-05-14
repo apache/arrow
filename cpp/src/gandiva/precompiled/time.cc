@@ -869,15 +869,6 @@ NUMERIC_TYPES(TO_TIME)
 CAST_INT_YEAR_INTERVAL(castBIGINT, int64)
 CAST_INT_YEAR_INTERVAL(castINT, int32)
 
-#define CAST_NULLABLE_YEAR_INTERVAL(NAME, OUT_TYPE)                        \
-  FORCE_INLINE                                                             \
-  gdv_##OUT_TYPE castNULLABLE##NAME##_yearinterval(gdv_year_interval in) { \
-    return static_cast<gdv_##OUT_TYPE>(in / 12);                           \
-  }
-
-CAST_NULLABLE_YEAR_INTERVAL(BIGINT, int64)
-CAST_NULLABLE_YEAR_INTERVAL(INT, int32)
-
 #define CAST_NULLABLE_INTERVAL_DAY(TYPE)                                \
   FORCE_INLINE                                                          \
   gdv_day_time_interval castNULLABLEINTERVALDAY_##TYPE(gdv_##TYPE in) { \
