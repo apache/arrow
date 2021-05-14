@@ -789,9 +789,7 @@ def integration(with_all=False, random_seed=12345, **args):
               default='-', required=True)
 @click.option('--arrow-token', envvar='ARROW_GITHUB_TOKEN',
               help='OAuth token for responding comment in the arrow repo')
-@click.option('--crossbow-token', '-ct', envvar='CROSSBOW_GITHUB_TOKEN',
-              help='OAuth token for pushing to the crossow repository')
-def trigger_bot(event_name, event_payload, arrow_token, crossbow_token):
+def trigger_bot(event_name, event_payload, arrow_token):
     from .bot import CommentBot, actions
 
     event_payload = json.loads(event_payload.read())
