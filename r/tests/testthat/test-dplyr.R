@@ -343,21 +343,22 @@ test_that("relocate", {
 })
 
 test_that("relocate with selection helpers", {
+  df <- tibble(a = 1, b = 1, c = 1, d = "a", e = "a", f = "a")
   expect_dplyr_equal(
     input %>% relocate(any_of(c("a", "e", "i", "o", "u"))) %>% collect(),
     df
   )
-  expect_error(
-    df %>% Table$create() %>% relocate(where(is.character)),
-    "Unsupported selection helper"
+  expect_dplyr_equal(
+    input %>% relocate(where(is.character)) %>% collect(),
+    df
   )
-  expect_error(
-    df %>% Table$create() %>% relocate(a, b, c, .after = where(is.character)),
-    "Unsupported selection helper"
+  expect_dplyr_equal(
+    input %>% relocate(a, b, c, .after = where(is.character)) %>% collect(),
+    df
   )
-  expect_error(
-    df %>% Table$create() %>% relocate(d, e, f, .before = where(is.numeric)),
-    "Unsupported selection helper"
+  expect_dplyr_equal(
+    input %>% relocate(d, e, f, .before = where(is.numeric)) %>% collect(),
+    df
   )
 })
 
