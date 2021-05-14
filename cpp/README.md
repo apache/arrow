@@ -19,7 +19,7 @@
 
 # Apache Arrow C++
 
-This directory contains the code and build system for the Arrow C++ libraries,
+This is a directory containing the 'code' and the 'build system' for the Arrow C++ libraries,
 as well as for the C++ libraries for Apache Parquet.
 
 ## Installation
