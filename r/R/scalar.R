@@ -56,6 +56,7 @@ Scalar <- R6Class("Scalar",
   # TODO: document the methods
   public = list(
     ToString = function() Scalar__ToString(self),
+    type_id = function() Scalar__type(self)$id,
     as_vector = function() Scalar__as_vector(self),
     as_array = function() MakeArrayFromScalar(self),
     Equals = function(other, ...) {
