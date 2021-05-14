@@ -524,6 +524,85 @@ test_that("is.finite(), is.infinite(), is.nan()", {
   )
 })
 
+test_that("type checks with as.*()", {
+  library(bit64)
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        chr_is_chr = is.character(chr),
+        chr_is_dbl = is.double(chr),
+        chr_is_fct = is.factor(chr),
+        chr_is_int = is.integer(chr),
+        chr_is_i64 = is.integer64(chr),
+        chr_is_lst = is.list(chr),
+        chr_is_lgl = is.logical(chr),
+        chr_is_num = is.numeric(chr),
+        dbl_is_chr = is.character(dbl),
+        dbl_is_dbl = is.double(dbl),
+        dbl_is_fct = is.factor(dbl),
+        dbl_is_int = is.integer(dbl),
+        dbl_is_i64 = is.integer64(dbl),
+        dbl_is_lst = is.list(dbl),
+        dbl_is_lgl = is.logical(dbl),
+        dbl_is_num = is.numeric(dbl),
+        fct_is_chr = is.character(fct),
+        fct_is_dbl = is.double(fct),
+        fct_is_fct = is.factor(fct),
+        fct_is_int = is.integer(fct),
+        fct_is_i64 = is.integer64(fct),
+        fct_is_lst = is.list(fct),
+        fct_is_lgl = is.logical(fct),
+        fct_is_num = is.numeric(fct),
+        int_is_chr = is.character(int),
+        int_is_dbl = is.double(int),
+        int_is_fct = is.factor(int),
+        int_is_int = is.integer(int),
+        int_is_i64 = is.integer64(int),
+        int_is_lst = is.list(int),
+        int_is_lgl = is.logical(int),
+        int_is_num = is.numeric(int),
+        lgl_is_chr = is.character(lgl),
+        lgl_is_dbl = is.double(lgl),
+        lgl_is_fct = is.factor(lgl),
+        lgl_is_int = is.integer(lgl),
+        lgl_is_i64 = is.integer64(lgl),
+        lgl_is_lst = is.list(lgl),
+        lgl_is_lgl = is.logical(lgl),
+        lgl_is_num = is.numeric(lgl)
+      ) %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        i64_is_chr = is.character(i64),
+        # TODO: investigate why this is not matching when testthat runs it
+        #i64_is_dbl = is.double(i64),
+        i64_is_fct = is.factor(i64),
+        # we want Arrow to return TRUE, but bit64 returns FALSE
+        #i64_is_int = is.integer(i64),
+        i64_is_i64 = is.integer64(i64),
+        i64_is_lst = is.list(i64),
+        i64_is_lgl = is.logical(i64),
+        i64_is_num = is.numeric(i64),
+        lst_is_chr = is.character(lst),
+        lst_is_dbl = is.double(lst),
+        lst_is_fct = is.factor(lst),
+        lst_is_int = is.integer(lst),
+        lst_is_i64 = is.integer64(lst),
+        lst_is_lst = is.list(lst),
+        lst_is_lgl = is.logical(lst),
+        lst_is_num = is.numeric(lst)
+      ) %>%
+      collect(),
+    tibble(
+      i64 = as.integer64(1:3),
+      lst = list(c("a", "b"), c("d", "e"), c("f", "g"))
+    )
+  )
+})
+
 test_that("as.factor()/dictionary_encode()", {
   skip("ARROW-12632: ExecuteScalarExpression cannot Execute non-scalar expression {x=dictionary_encode(x, {NON-REPRESENTABLE OPTIONS})}")
   df1 <- tibble(x = c("C", "D", "B", NA, "D", "B", "S", "A", "B", "Z", "B"))
