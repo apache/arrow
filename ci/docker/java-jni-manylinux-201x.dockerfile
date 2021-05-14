@@ -14,6 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+
 ARG base
 FROM ${base}
 
@@ -30,8 +31,7 @@ RUN vcpkg install --clean-after-build \
         boost-variant \
         boost-multiprecision
 
-# Install dependencies
+# Install Java
 ARG java=1.8.0
 RUN yum install -y java-$java-openjdk-devel && yum clean all
-
 ENV JAVA_HOME=/usr/lib/jvm/java-$java-openjdk/
