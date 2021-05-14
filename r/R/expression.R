@@ -83,6 +83,7 @@ Expression <- R6Class("Expression", inherit = ArrowObject,
       }
       compute___expr__type(self, self$schema)
     },
+    type_id = function() self$type()$id,
     cast = function(to_type, safe = TRUE, ...) {
       opts <- list(
         to_type = to_type,
