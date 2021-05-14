@@ -81,9 +81,20 @@
   handle_error(future_name.status());                                                \
   EXPECT_OK_AND_ASSIGN(lhs, future_name.result());
 
+#define EXPECT_FINISHES(expr)   \
+  do {                          \
+    EXPECT_FINISHES_IMPL(expr); \
+  } while (0)
+
 #define EXPECT_FINISHES_OK_AND_ASSIGN(lhs, rexpr) \
   ON_FINISH_ASSIGN_OR_HANDLE_ERROR_IMPL(          \
       ARROW_EXPECT_OK, ARROW_ASSIGN_OR_RAISE_NAME(_fut, __COUNTER__), lhs, rexpr);
+
+#define EXPECT_FINISHES_OK_AND_EQ(expected, expr)        \
+  do {                                                   \
+    EXPECT_FINISHES_OK_AND_ASSIGN(auto _actual, (expr)); \
+    EXPECT_EQ(expected, _actual);                        \
+  } while (0)
 
 namespace arrow {
 

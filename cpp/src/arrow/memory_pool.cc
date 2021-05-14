@@ -18,9 +18,10 @@
 #include "arrow/memory_pool.h"
 
 #include <algorithm>  // IWYU pragma: keep
-#include <cstdlib>    // IWYU pragma: keep
-#include <cstring>    // IWYU pragma: keep
-#include <iostream>   // IWYU pragma: keep
+#include <atomic>
+#include <cstdlib>   // IWYU pragma: keep
+#include <cstring>   // IWYU pragma: keep
+#include <iostream>  // IWYU pragma: keep
 #include <limits>
 #include <memory>
 
@@ -28,12 +29,16 @@
 #include <stdlib.h>
 #endif
 
+#include "arrow/buffer.h"
+#include "arrow/io/util_internal.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"  // IWYU pragma: keep
 #include "arrow/util/optional.h"
 #include "arrow/util/string.h"
+#include "arrow/util/thread_pool.h"
 
 #ifdef __GLIBC__
 #include <malloc.h>
@@ -494,19 +499,27 @@ std::unique_ptr<MemoryPool> MemoryPool::CreateDefault() {
   }
 }
 
-static SystemMemoryPool system_pool;
+static struct GlobalState {
+  ~GlobalState() { finalizing.store(true, std::memory_order_relaxed); }
+
+  bool is_finalizing() const { return finalizing.load(std::memory_order_relaxed); }
+
+  std::atomic<bool> finalizing{false};  // constructed first, destroyed last
+
+  SystemMemoryPool system_pool;
 #ifdef ARROW_JEMALLOC
-static JemallocMemoryPool jemalloc_pool;
+  JemallocMemoryPool jemalloc_pool;
 #endif
 #ifdef ARROW_MIMALLOC
-static MimallocMemoryPool mimalloc_pool;
+  MimallocMemoryPool mimalloc_pool;
 #endif
+} global_state;
 
-MemoryPool* system_memory_pool() { return &system_pool; }
+MemoryPool* system_memory_pool() { return &global_state.system_pool; }
 
 Status jemalloc_memory_pool(MemoryPool** out) {
 #ifdef ARROW_JEMALLOC
-  *out = &jemalloc_pool;
+  *out = &global_state.jemalloc_pool;
   return Status::OK();
 #else
   return Status::NotImplemented("This Arrow build does not enable jemalloc");
@@ -515,7 +528,7 @@ Status jemalloc_memory_pool(MemoryPool** out) {
 
 Status mimalloc_memory_pool(MemoryPool** out) {
 #ifdef ARROW_MIMALLOC
-  *out = &mimalloc_pool;
+  *out = &global_state.mimalloc_pool;
   return Status::OK();
 #else
   return Status::NotImplemented("This Arrow build does not enable mimalloc");
@@ -526,14 +539,14 @@ MemoryPool* default_memory_pool() {
   auto backend = DefaultBackend();
   switch (backend) {
     case MemoryPoolBackend::System:
-      return &system_pool;
+      return &global_state.system_pool;
 #ifdef ARROW_JEMALLOC
     case MemoryPoolBackend::Jemalloc:
-      return &jemalloc_pool;
+      return &global_state.jemalloc_pool;
 #endif
 #ifdef ARROW_MIMALLOC
     case MemoryPoolBackend::Mimalloc:
-      return &mimalloc_pool;
+      return &global_state.mimalloc_pool;
 #endif
     default:
       ARROW_LOG(FATAL) << "Internal error: cannot create default memory pool";
@@ -667,6 +680,118 @@ std::vector<std::string> SupportedMemoryBackendNames() {
     supported.push_back(backend.name);
   }
   return supported;
+}
+
+// -----------------------------------------------------------------------
+// Pool buffer and allocation
+
+/// A Buffer whose lifetime is tied to a particular MemoryPool
+class PoolBuffer final : public ResizableBuffer {
+ public:
+  explicit PoolBuffer(std::shared_ptr<MemoryManager> mm, MemoryPool* pool)
+      : ResizableBuffer(nullptr, 0, std::move(mm)), pool_(pool) {}
+
+  ~PoolBuffer() override {
+    // Avoid calling pool_->Free if the global pools are destroyed
+    // (XXX this will not work with user-defined pools)
+
+    // This can happen if a Future is destructing on one thread while or
+    // after memory pools are destructed on the main thread (as there is
+    // no guarantee of destructor order between thread/memory pools)
+    uint8_t* ptr = mutable_data();
+    if (ptr && !global_state.is_finalizing()) {
+      pool_->Free(ptr, capacity_);
+    }
+  }
+
+  Status Reserve(const int64_t capacity) override {
+    if (capacity < 0) {
+      return Status::Invalid("Negative buffer capacity: ", capacity);
+    }
+    uint8_t* ptr = mutable_data();
+    if (!ptr || capacity > capacity_) {
+      int64_t new_capacity = BitUtil::RoundUpToMultipleOf64(capacity);
+      if (ptr) {
+        RETURN_NOT_OK(pool_->Reallocate(capacity_, new_capacity, &ptr));
+      } else {
+        RETURN_NOT_OK(pool_->Allocate(new_capacity, &ptr));
+      }
+      data_ = ptr;
+      capacity_ = new_capacity;
+    }
+    return Status::OK();
+  }
+
+  Status Resize(const int64_t new_size, bool shrink_to_fit = true) override {
+    if (ARROW_PREDICT_FALSE(new_size < 0)) {
+      return Status::Invalid("Negative buffer resize: ", new_size);
+    }
+    uint8_t* ptr = mutable_data();
+    if (ptr && shrink_to_fit && new_size <= size_) {
+      // Buffer is non-null and is not growing, so shrink to the requested size without
+      // excess space.
+      int64_t new_capacity = BitUtil::RoundUpToMultipleOf64(new_size);
+      if (capacity_ != new_capacity) {
+        // Buffer hasn't got yet the requested size.
+        RETURN_NOT_OK(pool_->Reallocate(capacity_, new_capacity, &ptr));
+        data_ = ptr;
+        capacity_ = new_capacity;
+      }
+    } else {
+      RETURN_NOT_OK(Reserve(new_size));
+    }
+    size_ = new_size;
+
+    return Status::OK();
+  }
+
+  static std::shared_ptr<PoolBuffer> MakeShared(MemoryPool* pool) {
+    std::shared_ptr<MemoryManager> mm;
+    if (pool == nullptr) {
+      pool = default_memory_pool();
+      mm = default_cpu_memory_manager();
+    } else {
+      mm = CPUDevice::memory_manager(pool);
+    }
+    return std::make_shared<PoolBuffer>(std::move(mm), pool);
+  }
+
+  static std::unique_ptr<PoolBuffer> MakeUnique(MemoryPool* pool) {
+    std::shared_ptr<MemoryManager> mm;
+    if (pool == nullptr) {
+      pool = default_memory_pool();
+      mm = default_cpu_memory_manager();
+    } else {
+      mm = CPUDevice::memory_manager(pool);
+    }
+    return std::unique_ptr<PoolBuffer>(new PoolBuffer(std::move(mm), pool));
+  }
+
+ private:
+  MemoryPool* pool_;
+};
+
+namespace {
+// A utility that does most of the work of the `AllocateBuffer` and
+// `AllocateResizableBuffer` methods. The argument `buffer` should be a smart pointer to
+// a PoolBuffer.
+template <typename BufferPtr, typename PoolBufferPtr>
+inline Result<BufferPtr> ResizePoolBuffer(PoolBufferPtr&& buffer, const int64_t size) {
+  RETURN_NOT_OK(buffer->Resize(size));
+  buffer->ZeroPadding();
+  return std::move(buffer);
+}
+
+}  // namespace
+
+Result<std::unique_ptr<Buffer>> AllocateBuffer(const int64_t size, MemoryPool* pool) {
+  return ResizePoolBuffer<std::unique_ptr<Buffer>>(PoolBuffer::MakeUnique(pool), size);
+}
+
+Result<std::unique_ptr<ResizableBuffer>> AllocateResizableBuffer(const int64_t size,
+                                                                 MemoryPool* pool) {
+  return ResizePoolBuffer<std::unique_ptr<ResizableBuffer>>(PoolBuffer::MakeUnique(pool),
+                                                            size);
 }
 
 }  // namespace arrow
