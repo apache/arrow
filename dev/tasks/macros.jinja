@@ -118,7 +118,7 @@ on:
       versionSpec: '3.8'
   - script: pip install -e arrow/dev/archery[crossbow]
     displayName: Install Crossbow
-  - bash: |
+  - script: |
       archery crossbow \
         --queue-path $(pwd) \
         --queue-remote {{ queue_remote_url }} \
@@ -126,10 +126,10 @@ on:
         --sha {{ task.branch }} \
         --tag {{ task.tag }} \
       {% if pattern is string %}
-        --pattern '{{ pattern }}'
+        --pattern "{{ pattern }}"
       {% elif pattern is iterable %}
         {% for p in pattern %}
-        --pattern '{{ p }}' {{ "\\" if not loop.last else "" }}
+        --pattern "{{ p }}" {{ "\\" if not loop.last else "" }}
         {% endfor %}
       {% endif %}
     env:
