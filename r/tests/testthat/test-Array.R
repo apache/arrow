@@ -291,6 +291,17 @@ test_that("Timezone handling in Arrow roundtrip (ARROW-3543)", {
   expect_identical(read_feather(feather_file), df)
 })
 
+test_that("strptime", {
+  # array of strings
+  time_strings <- Array$create(c("2018-10-07 19:04:05", NA))
+  # array of timestamps (doesn't work if tz="" is added!)
+  timestamps <- Array$create(c(as.POSIXct("2018-10-07 19:04:05"), NA))
+  # array of parsed timestamps
+  parsed_timestamps <- strptime_arrow(time_strings, format = "%Y-%m-%d %H:%M:%S", unit = TimeUnit$MICRO)
+
+  expect_equal(timestamps, parsed_timestamps)
+})
+
 test_that("array supports integer64", {
   x <- bit64::as.integer64(1:10) + MAX_INT
   expect_array_roundtrip(x, int64())

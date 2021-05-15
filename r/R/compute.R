@@ -297,3 +297,8 @@ cast_options <- function(safe = TRUE, ...) {
   )
   modifyList(opts, list(...))
 }
+
+strptime_arrow <- function(..., format, unit){
+  a <- collect_arrays_from_dots(list(...))
+  call_function("strptime", a, options = list(format=format, unit=unit))
+}
