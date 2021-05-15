@@ -53,8 +53,8 @@ jobs:
         with:
           key: {{ "cache-${{ hashFiles('/arrow/cpp/vcpkg.json') }}" }}
           path: |
-            /arrow/r/revdep
-            /arrow/.crancache
+            arrow/r/revdep
+            arrow/.crancache
       - name: Docker Pull
         shell: bash
         run: cd arrow && docker-compose pull --ignore-pull-failures r
