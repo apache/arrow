@@ -111,6 +111,7 @@ test_that("Power", {
 test_that("Dates casting", {
   a <- Array$create(c(Sys.Date() + 1:4, NA_integer_))
 
-  skip("autocasting should happen in compute kernels; R workaround fails on this ARROW-8919")
+  skip("ARROW-11090 (date/datetime arithmetic)")
+  # Error: NotImplemented: Function add_checked has no kernel matching input types (array[date32[day]], scalar[double])
   expect_equal(a + 2, Array$create(c((Sys.Date() + 1:4 ) + 2), NA_integer_))
 })

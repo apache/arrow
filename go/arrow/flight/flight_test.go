@@ -374,3 +374,35 @@ func TestFlightWithAppMetadata(t *testing.T) {
 		idx++
 	}
 }
+
+type flightErrorReturn struct {}
+
+func (f *flightErrorReturn) DoGet(_ *flight.Ticket, _ flight.FlightService_DoGetServer) error {
+	return status.Error(codes.NotFound, "nofound")
+}
+
+func TestReaderError(t *testing.T) {
+	f := &flightErrorReturn{}
+	s := flight.NewFlightServer(nil)
+	s.RegisterFlightService(&flight.FlightServiceService{DoGet: f.DoGet})
+	s.Init("localhost:0")
+
+	go s.Serve()
+	defer s.Shutdown()
+
+	client, err := flight.NewFlightClient(s.Addr().String(), nil, grpc.WithInsecure())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+
+	fdata, err := client.DoGet(context.Background(), &flight.Ticket{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = flight.NewRecordReader(fdata)
+	if err == nil {
+		t.Fatal("should have errored")
+	}
+}

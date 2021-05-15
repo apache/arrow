@@ -27,7 +27,7 @@ func TestTypeEqual(t *testing.T) {
 		checkMetadata bool
 	}{
 		{
-			nil, nil, false, false,
+			nil, nil, true, false,
 		},
 		{
 			nil, PrimitiveTypes.Uint8, false, false,
@@ -69,25 +69,25 @@ func TestTypeEqual(t *testing.T) {
 			&TimestampType{Unit: Second, TimeZone: "UTC"}, &TimestampType{Unit: Nanosecond, TimeZone: "CET"}, false, false,
 		},
 		{
-			&ListType{PrimitiveTypes.Uint64}, &ListType{PrimitiveTypes.Uint64}, true, false,
+			&ListType{elem: PrimitiveTypes.Uint64}, &ListType{elem: PrimitiveTypes.Uint64}, true, false,
 		},
 		{
-			&ListType{PrimitiveTypes.Uint64}, &ListType{PrimitiveTypes.Uint32}, false, false,
+			&ListType{elem: PrimitiveTypes.Uint64}, &ListType{elem: PrimitiveTypes.Uint32}, false, false,
 		},
 		{
-			&ListType{&Time32Type{Unit: Millisecond}}, &ListType{&Time32Type{Unit: Millisecond}}, true, false,
+			&ListType{elem: &Time32Type{Unit: Millisecond}}, &ListType{elem: &Time32Type{Unit: Millisecond}}, true, false,
 		},
 		{
-			&ListType{&Time32Type{Unit: Millisecond}}, &ListType{&Time32Type{Unit: Second}}, false, false,
+			&ListType{elem: &Time32Type{Unit: Millisecond}}, &ListType{elem: &Time32Type{Unit: Second}}, false, false,
 		},
 		{
-			&ListType{&ListType{PrimitiveTypes.Uint16}}, &ListType{&ListType{PrimitiveTypes.Uint16}}, true, false,
+			&ListType{elem: &ListType{elem: PrimitiveTypes.Uint16}}, &ListType{elem: &ListType{elem: PrimitiveTypes.Uint16}}, true, false,
 		},
 		{
-			&ListType{&ListType{PrimitiveTypes.Uint16}}, &ListType{&ListType{PrimitiveTypes.Uint8}}, false, false,
+			&ListType{elem: &ListType{elem: PrimitiveTypes.Uint16}}, &ListType{elem: &ListType{elem: PrimitiveTypes.Uint8}}, false, false,
 		},
 		{
-			&ListType{&ListType{&ListType{PrimitiveTypes.Uint16}}}, &ListType{&ListType{PrimitiveTypes.Uint8}}, false, false,
+			&ListType{elem: &ListType{elem: &ListType{elem: PrimitiveTypes.Uint16}}}, &ListType{elem: &ListType{elem: PrimitiveTypes.Uint8}}, false, false,
 		},
 		{
 			&StructType{
@@ -222,7 +222,7 @@ func TestTypeEqual(t *testing.T) {
 					Field{Name: "f2", Type: PrimitiveTypes.Float32, Nullable: false},
 				},
 				index: map[string]int{"f1": 0, "f2": 1},
-				meta:  MetadataFrom(map[string]string{"k1": "v1"}),
+				meta:  MetadataFrom(map[string]string{"k1": "v1", "k2": "v2"}),
 			},
 			&StructType{
 				fields: []Field{
@@ -230,7 +230,7 @@ func TestTypeEqual(t *testing.T) {
 					Field{Name: "f2", Type: PrimitiveTypes.Float32, Nullable: false},
 				},
 				index: map[string]int{"f1": 0, "f2": 1},
-				meta:  MetadataFrom(map[string]string{"k1": "v1"}),
+				meta:  MetadataFrom(map[string]string{"k2": "v2", "k1": "v1"}),
 			},
 			true, true,
 		},

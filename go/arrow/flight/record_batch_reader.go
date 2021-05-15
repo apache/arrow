@@ -45,9 +45,11 @@ type dataMessageReader struct {
 func (d *dataMessageReader) Message() (*ipc.Message, error) {
 	fd, err := d.rdr.Recv()
 	if err != nil {
-		// clear the previous message in the error case
-		d.msg.Release()
-		d.msg = nil
+		if d.msg != nil {
+			// clear the previous message in the error case
+			d.msg.Release()
+			d.msg = nil
+		}
 		d.lastAppMetadata = nil
 		return nil, err
 	}
@@ -68,8 +70,8 @@ func (d *dataMessageReader) Release() {
 		if d.msg != nil {
 			d.msg.Release()
 			d.msg = nil
-			d.lastAppMetadata = nil
 		}
+		d.lastAppMetadata = nil
 	}
 }
 

@@ -874,6 +874,16 @@ cdef class _MetadataRecordBatchReader(_Weakrefable, _ReadPandasMixin):
 
         return chunk
 
+    def to_reader(self):
+        """Convert this reader into a regular RecordBatchReader.
+
+        This may fail if the schema cannot be read from the remote end.
+        """
+        cdef RecordBatchReader reader
+        reader = RecordBatchReader.__new__(RecordBatchReader)
+        reader.reader = GetResultValue(MakeRecordBatchReader(self.reader))
+        return reader
+
 
 cdef class MetadataRecordBatchReader(_MetadataRecordBatchReader):
     """The virtual base class for readers for Flight streams."""

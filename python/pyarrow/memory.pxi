@@ -36,6 +36,21 @@ cdef class MemoryPool(_Weakrefable):
     cdef void init(self, CMemoryPool* pool):
         self.pool = pool
 
+    def release_unused(self):
+        """
+        Attempt to return to the OS any memory being held onto by the pool.
+
+        This function should not be called except potentially for
+        benchmarking or debugging as it could be expensive and detrimental to
+        performance.
+
+        This is best effort and may not have any effect on some memory pools
+        or in some situations (e.g. fragmentation).
+        """
+        cdef CMemoryPool* pool = c_get_memory_pool()
+        with nogil:
+            pool.ReleaseUnused()
+
     def bytes_allocated(self):
         """
         Return the number of bytes that are currently allocated from this

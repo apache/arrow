@@ -1,5 +1,3 @@
-#!/bin/bash
-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -16,34 +14,24 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+ARG base
+FROM ${base}
 
-set -e
+# Install the libaries required by the Gandiva to run
+RUN vcpkg install --clean-after-build \
+        llvm \
+        boost-system \
+        boost-date-time \
+        boost-regex \
+        boost-predef \
+        boost-algorithm \
+        boost-locale \
+        boost-format \
+        boost-variant \
+        boost-multiprecision
 
-set -x
+# Install dependencies
+ARG java=1.8.0
+RUN yum install -y java-$java-openjdk-devel && yum clean all
 
-# Builds arrow + gandiva and tests the same.
-pushd cpp
-  mkdir build
-  pushd build
-    CMAKE_FLAGS="-DCMAKE_BUILD_TYPE=Release \
-          -DARROW_GANDIVA=ON \
-          -DARROW_GANDIVA_JAVA=ON \
-          -DARROW_GANDIVA_STATIC_LIBSTDCPP=ON \
-          -DARROW_BUILD_TESTS=ON \
-          -DARROW_BUILD_UTILITIES=OFF \
-          -DPARQUET_BUILD_ENCRYPTION=OFF \
-          -DARROW_PARQUET=OFF \
-          -DARROW_FILESYSTEM=OFF \
-          -DARROW_DATASET=OFF \
-          -DARROW_BOOST_USE_SHARED=OFF \
-          -DARROW_PROTOBUF_USE_SHARED=OFF \
-          -DARROW_GFLAGS_USE_SHARED=OFF \
-          -DARROW_OPENSSL_USE_SHARED=OFF"
-
-    cmake $CMAKE_FLAGS ..
-    make -j4
-    ctest
-
-    cp -L release/libgandiva_jni.dylib $GITHUB_WORKSPACE/arrow/dist
-  popd
-popd
+ENV JAVA_HOME=/usr/lib/jvm/java-$java-openjdk/

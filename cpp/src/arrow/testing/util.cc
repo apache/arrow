@@ -55,7 +55,7 @@ uint64_t random_seed() {
 void random_null_bytes(int64_t n, double pct_null, uint8_t* null_bytes) {
   const int random_seed = 0;
   pcg32_fast gen(random_seed);
-  std::uniform_real_distribution<double> d(0.0, 1.0);
+  ::arrow::random::uniform_real_distribution<double> d(0.0, 1.0);
   std::generate(null_bytes, null_bytes + n,
                 [&d, &gen, &pct_null] { return d(gen) > pct_null; });
 }
@@ -63,7 +63,7 @@ void random_null_bytes(int64_t n, double pct_null, uint8_t* null_bytes) {
 void random_is_valid(int64_t n, double pct_null, std::vector<bool>* is_valid,
                      int random_seed) {
   pcg32_fast gen(random_seed);
-  std::uniform_real_distribution<double> d(0.0, 1.0);
+  ::arrow::random::uniform_real_distribution<double> d(0.0, 1.0);
   is_valid->resize(n, false);
   std::generate(is_valid->begin(), is_valid->end(),
                 [&d, &gen, &pct_null] { return d(gen) > pct_null; });

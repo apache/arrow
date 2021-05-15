@@ -27,6 +27,7 @@ struct FileMode {
 };
 
 struct IOContext;
+struct CacheOptions;
 
 /// EXPERIMENTAL: convenience global singleton for default IOContext settings
 ARROW_EXPORT

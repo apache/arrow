@@ -2928,6 +2928,13 @@ cdef class Scanner(_Weakrefable):
             result = self.scanner.CountRows()
         return GetResultValue(result)
 
+    def to_reader(self):
+        """Consume this scanner as a RecordBatchReader."""
+        cdef RecordBatchReader reader
+        reader = RecordBatchReader.__new__(RecordBatchReader)
+        reader.reader = GetResultValue(self.scanner.ToRecordBatchReader())
+        return reader
+
 
 def _get_partition_keys(Expression partition_expression):
     """

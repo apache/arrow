@@ -156,6 +156,7 @@ def test_respond_with_usage(load_fixture, responses):
 
 @pytest.mark.parametrize(('command', 'reaction'), [
     ('@ursabot build', '+1'),
+    ('@ursabot build\nwith a comment', '+1'),
     ('@ursabot listen', '-1'),
 ])
 def test_issue_comment_with_commands(load_fixture, responses, command,
@@ -199,3 +200,16 @@ def test_issue_comment_with_commands(load_fixture, responses, command,
 
     post = responses.calls[3]
     assert json.loads(post.request.body) == {'content': reaction}
+
+
+def test_issue_comment_with_commands_bot_not_first(load_fixture, responses):
+    # when the @-mention is not first, this is a no-op
+    handler = Mock()
+
+    payload = load_fixture('event-issue-comment-build-command.json')
+    payload["comment"]["body"] = 'with a comment\n@ursabot build'
+
+    bot = CommentBot(name='ursabot', token='', handler=handler)
+    bot.handle('issue_comment', payload)
+
+    handler.assert_not_called()

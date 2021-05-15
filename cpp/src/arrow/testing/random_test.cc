@@ -23,6 +23,7 @@
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/pcg_random.h"
 
 namespace arrow {
 
@@ -349,6 +350,77 @@ TEST(RandomList, Basics) {
       null_count += array->IsNull(i);
     }
     ASSERT_EQ(null_count, array->data()->null_count);
+  }
+}
+
+template <typename T>
+class UniformRealTest : public ::testing::Test {
+ protected:
+  void VerifyDist(int seed, T a, T b) {
+    pcg32_fast rng(seed);
+    ::arrow::random::uniform_real_distribution<T> dist(a, b);
+
+    const int kCount = 5000;
+    T min = std::numeric_limits<T>::max();
+    T max = std::numeric_limits<T>::lowest();
+    double sum = 0;
+    double square_sum = 0;
+    for (int i = 0; i < kCount; ++i) {
+      const T v = dist(rng);
+      min = std::min(min, v);
+      max = std::max(max, v);
+      sum += v;
+      square_sum += static_cast<double>(v) * v;
+    }
+
+    ASSERT_GE(min, a);
+    ASSERT_LT(max, b);
+
+    // verify E(X), E(X^2) is near theory
+    const double E_X = (a + b) / 2.0;
+    const double E_X2 = 1.0 / 12 * (a - b) * (a - b) + E_X * E_X;
+    ASSERT_NEAR(sum / kCount, E_X, std::abs(E_X) * 0.02);
+    ASSERT_NEAR(square_sum / kCount, E_X2, E_X2 * 0.02);
+  }
+};
+
+using RealCTypes = ::testing::Types<float, double>;
+TYPED_TEST_SUITE(UniformRealTest, RealCTypes);
+
+TYPED_TEST(UniformRealTest, Basic) {
+  int seed = 42;
+  this->VerifyDist(seed++, 0, 1);
+  this->VerifyDist(seed++, -3, 1);
+  this->VerifyDist(seed++, -123456, 654321);
+}
+
+TEST(BernoulliTest, Basic) {
+  int seed = 42;
+
+  // count #trues (values less than p), p = 0 ~ 1
+  auto count = [&seed](double p, int total) {
+    pcg32_fast rng(seed++);
+    ::arrow::random::bernoulli_distribution dist(p);
+    int cnt = 0;
+    for (int i = 0; i < total; ++i) {
+      cnt += dist(rng);
+    }
+    return cnt;
+  };
+
+  ASSERT_EQ(count(0, 1000), 0);
+  ASSERT_EQ(count(1, 1000), 1000);
+
+  // verify #trues is near p*total
+  auto verify = [&count](double p, int total, double dev) {
+    const int cnt = count(p, total);
+    const int min = std::max(0, static_cast<int>(total * p * (1 - dev)));
+    const int max = std::min(total, static_cast<int>(total * p * (1 + dev)));
+    ASSERT_TRUE(cnt >= min && cnt <= max);
+  };
+
+  for (double p = 0.1; p < 0.95; p += 0.1) {
+    verify(p, 5000, 0.1);
   }
 }
 
