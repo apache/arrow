@@ -42,7 +42,7 @@ const packageJSONFields = [
 ];
 
 const metadataFiles = [`LICENSE.txt`, `NOTICE.txt`, `README.md`].map((filename) => {
-    let err = false, prefixes = [`./`, `../`];
+    let prefixes = [`./`, `../`];
     let p = prefixes.find((prefix) => {
         try {
             fs.statSync(path.resolve(path.join(prefix, filename)));
@@ -64,14 +64,6 @@ const gCCLanguageNames = {
  es2018: `ECMASCRIPT_2018`,
  es2019: `ECMASCRIPT_2019`,
  esnext: `ECMASCRIPT_NEXT`
-};
-
-const UMDSourceTargets = {
-    es5: `es5`,
- es2015: `es2015`,
- es2016: `es2016`,
- es2017: `es2017`,
- esnext: `esnext`
 };
 
 function taskName(target, format) {
@@ -126,7 +118,6 @@ function observableFromStreams(...streams) {
 }
 
 function* combinations(_targets, _modules) {
-
     const targets = known(knownTargets, _targets || [`all`]);
     const modules = known(knownModules, _modules || [`all`]);
 
@@ -185,11 +176,9 @@ const esmRequire = require(`esm`)(module, {
 });
 
 module.exports = {
-
     mainExport, npmPkgName, npmOrgName, metadataFiles, packageJSONFields,
 
-    knownTargets, knownModules, tasksToSkipPerTargetOrFormat,
-    gCCLanguageNames, UMDSourceTargets,
+    knownTargets, knownModules, tasksToSkipPerTargetOrFormat, gCCLanguageNames,
 
     taskName, packageName, tsconfigName, targetDir, combinations, observableFromStreams,
     publicModulePaths, esmRequire, shouldRunInChildProcess, spawnGulpCommandInChildProcess
