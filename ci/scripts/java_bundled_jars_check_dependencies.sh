@@ -19,40 +19,34 @@
 
 set -e
 
-CPP_BUILD_DIR=$GITHUB_WORKSPACE/arrow/dist/
+function check_dynamic_dependencies(){
+  local so_dep=$1
+  local library=$2
+  shift 2
+  local whitelist=("$@")
 
-if [[ $OS_NAME == "linux" ]]; then
-  SO_DEP=ldd
-  GANDIVA_LIB="$CPP_BUILD_DIR"libgandiva_jni.so
-  WHITELIST=(linux-vdso libz librt libdl libpthread libstdc++ libm libgcc_s libc ld-linux-x86-64)
-else
-  SO_DEP="otool -L"
-  GANDIVA_LIB="$CPP_BUILD_DIR"libgandiva_jni.dylib
-  WHITELIST=(libgandiva_jni libz libncurses libSystem libc++)
-fi
+  # print the shared library dependencies
+  $so_dep "$library" | tee dependencies_temp_file.txt 
 
-# print the shared library dependencies
-$SO_DEP "$GANDIVA_LIB" | tee dependencies_temp_file.txt 
-
-if [[ $CHECK_SHARED_DEPENDENCIES ]] ; then
   # exit if any shared library not in whitelisted set is found
   echo "Checking shared dependencies"
-
   awk '{print $1}' dependencies_temp_file.txt | \
   while read -r line
   do
     found=false
-    
-    for item in "${WHITELIST[@]}"
+  
+    for item in "${whitelist[@]}"
     do
     if [[ "$line" == *"$item"* ]] ; then
-        found=true
-    fi
-    done
-
-    if [[ "$found" == false ]] ; then
-      echo "Unexpected shared dependency found $line"
-      exit 1
+      found=true
     fi
   done
-fi
+
+  if [[ "$found" == false ]] ; then
+    echo "Unexpected shared dependency found in $library : $line"
+    exit 1
+  fi
+  done
+
+  rm dependencies_temp_file.txt
+}

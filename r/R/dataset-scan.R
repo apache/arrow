@@ -162,16 +162,12 @@ ScannerBuilder <- R6Class("ScannerBuilder", inherit = ArrowObject,
       # cols is either a character vector or a named list of Expressions
       if (is.character(cols)) {
         dataset___ScannerBuilder__ProjectNames(self, cols)
+      } else if (length(cols) == 0) {
+        # Empty projection
+        dataset___ScannerBuilder__ProjectNames(self, character(0))
       } else {
-        # If we have expressions, but they all turn out to be field_refs,
-        # we can still call the simple method
-        field_names <- get_field_names(cols)
-        if (all(nzchar(field_names))) {
-          dataset___ScannerBuilder__ProjectNames(self, field_names)
-        } else {
-          # Else, we are projecting/mutating
-          dataset___ScannerBuilder__ProjectExprs(self, cols, names(cols))
-        }
+        # List of Expressions
+        dataset___ScannerBuilder__ProjectExprs(self, cols, names(cols))
       }
       self
     },

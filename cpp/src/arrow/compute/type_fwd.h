@@ -29,6 +29,7 @@ struct FunctionOptions;
 
 struct CastOptions;
 
+struct ExecBatch;
 class ExecContext;
 class KernelContext;
 

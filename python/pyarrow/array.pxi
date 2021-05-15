@@ -1593,6 +1593,39 @@ cdef class ListArray(BaseListArray):
         Returns
         -------
         list_array : ListArray
+
+        Examples
+        --------
+        >>> values = pa.array([1, 2, 3, 4])
+        >>> offsets = pa.array([0, 2, 4])
+        >>> pa.ListArray.from_arrays(offsets, values)
+        <pyarrow.lib.ListArray object at 0x7fbde226bf40>
+        [
+          [
+            0,
+            1
+          ],
+          [
+            2,
+            3
+          ]
+        ]
+
+        # nulls in the offsets array become null lists
+        >>> offsets = pa.array([0, None, 2, 4])
+        >>> pa.ListArray.from_arrays(offsets, values)
+        <pyarrow.lib.ListArray object at 0x7fbde226bf40>
+        [
+          [
+            0,
+            1
+          ],
+          null,
+          [
+            2,
+            3
+          ]
+        ]
         """
         cdef:
             Array _offsets, _values
@@ -2153,7 +2186,8 @@ cdef class StructArray(Array):
         return [pyarrow_wrap_array(arr) for arr in arrays]
 
     @staticmethod
-    def from_arrays(arrays, names=None, fields=None):
+    def from_arrays(arrays, names=None, fields=None, mask=None,
+                    memory_pool=None):
         """
         Construct StructArray from collection of arrays representing
         each field in the struct.
@@ -2167,6 +2201,10 @@ cdef class StructArray(Array):
             Field names for each struct child.
         fields : List[Field] (optional)
             Field instances for each struct child.
+        mask : pyarrow.Array[bool] (optional)
+            Indicate which values are null (True) or not null (False).
+        memory_pool : MemoryPool (optional)
+            For memory allocations, if required, otherwise uses default pool.
 
         Returns
         -------
@@ -2174,6 +2212,7 @@ cdef class StructArray(Array):
         """
         cdef:
             shared_ptr[CArray] c_array
+            shared_ptr[CBuffer] c_mask
             vector[shared_ptr[CArray]] c_arrays
             vector[c_string] c_names
             vector[shared_ptr[CField]] c_fields
@@ -2188,6 +2227,18 @@ cdef class StructArray(Array):
             raise ValueError('Must pass either names or fields')
         if names is not None and fields is not None:
             raise ValueError('Must pass either names or fields, not both')
+
+        if mask is None:
+            c_mask = shared_ptr[CBuffer]()
+        elif isinstance(mask, Array):
+            if mask.type.id != Type_BOOL:
+                raise ValueError('Mask must be a pyarrow.Array of type bool')
+            if mask.null_count != 0:
+                raise ValueError('Mask must not contain nulls')
+            inverted_mask = _pc().invert(mask, memory_pool=memory_pool)
+            c_mask = pyarrow_unwrap_buffer(inverted_mask.buffers()[1])
+        else:
+            raise ValueError('Mask must be a pyarrow.Array of type bool')
 
         arrays = [asarray(x) for x in arrays]
         for arr in arrays:
@@ -2215,10 +2266,10 @@ cdef class StructArray(Array):
             # XXX Cannot pass "nullptr" for a shared_ptr<T> argument:
             # https://github.com/cython/cython/issues/3020
             c_result = CStructArray.MakeFromFieldNames(
-                c_arrays, c_names, shared_ptr[CBuffer](), -1, 0)
+                c_arrays, c_names, c_mask, -1, 0)
         else:
             c_result = CStructArray.MakeFromFields(
-                c_arrays, c_fields, shared_ptr[CBuffer](), -1, 0)
+                c_arrays, c_fields, c_mask, -1, 0)
         cdef Array result = pyarrow_wrap_array(GetResultValue(c_result))
         result.validate()
         return result

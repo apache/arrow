@@ -573,7 +573,7 @@ class BaseTableReader : public ReaderMixin, public csv::TableReader {
       fields.push_back(::arrow::field(column.name, array->type()));
       columns.emplace_back(std::move(array));
     }
-    return Table::Make(schema(fields), columns);
+    return Table::Make(schema(std::move(fields)), std::move(columns));
   }
 
   // Column builders for target Table (in ConversionSchema order)

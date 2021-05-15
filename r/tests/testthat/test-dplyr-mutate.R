@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+skip_if_not_available("dataset")
+
 library(dplyr)
 library(stringr)
 
@@ -116,6 +118,7 @@ test_that("nchar() arguments", {
       collect(),
     tbl
   )
+  # This tests the whole abandon_ship() machinery
   expect_warning(
     expect_dplyr_equal(
       input %>%
@@ -128,7 +131,8 @@ test_that("nchar() arguments", {
         collect(),
       tbl
     ),
-    "not supported"
+    'In nchar(verses, type = "bytes", allowNA = TRUE), allowNA = TRUE not supported by Arrow; pulling data into R',
+    fixed = TRUE
   )
 })
 
@@ -173,7 +177,6 @@ test_that("mutate with reassigning same name", {
 })
 
 test_that("mutate with single value for recycling", {
-  skip("Not implemented (ARROW-11705")
   expect_dplyr_equal(
     input %>%
       select(int, padded_strings) %>%
@@ -338,31 +341,31 @@ test_that("handle bad expressions", {
   })
 })
 
+test_that("Can't just add a vector column with mutate()", {
+  expect_warning(
+    expect_equal(
+      Table$create(tbl) %>%
+        select(int) %>%
+        mutate(again = 1:10),
+      tibble::tibble(int = tbl$int, again = 1:10)
+    ),
+    "In again = 1:10, only values of size one are recycled; pulling data into R"
+  )
+})
+
 test_that("print a mutated table", {
   expect_output(
     Table$create(tbl) %>%
       select(int) %>%
       mutate(twice = int * 2) %>%
       print(),
-'Table (query)
+'InMemoryDataset (query)
 int: int32
-twice: expr
+twice: double (multiply_checked(int, 2))
 
 See $.data for the source Arrow object',
-  fixed = TRUE)
-
-  # Handling non-expressions/edge cases
-  expect_output(
-    Table$create(tbl) %>%
-      select(int) %>%
-      mutate(again = 1:10) %>%
-      print(),
-'Table (query)
-int: int32
-again: expr
-
-See $.data for the source Arrow object',
-  fixed = TRUE)
+    fixed = TRUE
+  )
 })
 
 test_that("mutate and write_dataset", {

@@ -252,7 +252,7 @@ class ORCFileReader::Impl {
       }
     }
 
-    *out = std::make_shared<Schema>(fields, metadata);
+    *out = std::make_shared<Schema>(std::move(fields), std::move(metadata));
     return Status::OK();
   }
 

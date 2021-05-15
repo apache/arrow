@@ -16,14 +16,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-# Updating manylinux for Gandiva Jar Build.
+# Jars.
 
-Do the following to update arrow manylinux docker image for building Gandiva Jars
+This directory is responsible to generate the jar files for the Arrow components that depend on C++ shared libraries to execute.
 
-- Install java in the manylinux image.
-- To do above, update Dockerfile-x86_64_base under python/manylinux1 to install java.
-- Please note only upto java7 is available in CentOS5, so install java7 in the base.
-- Export JAVA_HOME environment variable.
-- Then update build_boost.sh under python/manylinux1/scripts to build boost statically.
+The Arrow C++ libraries are compiled both on MacOS and Linux distributions, with their dependencies linked statically, and they are added
+in the jars at the end, so the file can be used on both systems.
 
-Please look at https://github.com/praveenbingo/arrow/tree/buildGandivaDocker that already has these changes.
+## Linux Docker Image
+To compile the C++ libraries in Linux, a docker image is used. 
+It is created used the **ci/docker/java-bundled-jars.dockerfile** file. 
+If it is necessary to add any new dependency, you need to change that file.

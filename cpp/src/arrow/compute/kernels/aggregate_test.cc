@@ -1054,11 +1054,7 @@ ModeResult<ArrowType> NaiveMode(const Array& array) {
 }
 
 template <typename ArrowType, typename CTYPE = typename ArrowType::c_type>
-void CheckModeWithRange(CTYPE range_min, CTYPE range_max) {
-  auto rand = random::RandomArrayGenerator(0x5487655);
-  // 32K items (>= counting mode cutoff) within range, 10% null
-  auto array = rand.Numeric<ArrowType>(32 * 1024, range_min, range_max, 0.1);
-
+void VerifyMode(const std::shared_ptr<Array>& array) {
   auto expected = NaiveMode<ArrowType>(*array);
   ASSERT_OK_AND_ASSIGN(Datum out, Mode(array));
   ASSERT_OK(out.make_array()->ValidateFull());
@@ -1072,6 +1068,31 @@ void CheckModeWithRange(CTYPE range_min, CTYPE range_max) {
   ASSERT_EQ(out_counts[0], expected.count);
 }
 
+template <typename ArrowType, typename CTYPE = typename ArrowType::c_type>
+void CheckModeWithRange(CTYPE range_min, CTYPE range_max) {
+  auto rand = random::RandomArrayGenerator(0x5487655);
+  // 32K items (>= counting mode cutoff) within range, 10% null
+  auto array = rand.Numeric<ArrowType>(32 * 1024, range_min, range_max, 0.1);
+  VerifyMode<ArrowType>(array);
+}
+
+template <typename ArrowType, typename CTYPE = typename ArrowType::c_type>
+void CheckModeWithRangeSliced(CTYPE range_min, CTYPE range_max) {
+  auto rand = random::RandomArrayGenerator(0x5487655);
+  auto array = rand.Numeric<ArrowType>(32 * 1024, range_min, range_max, 0.1);
+
+  const int64_t array_size = array->length();
+  const std::vector<std::array<int64_t, 2>> offset_size{
+      {0, 40},
+      {array_size - 40, 40},
+      {array_size / 3, array_size / 6},
+      {array_size * 9 / 10, array_size / 10},
+  };
+  for (const auto& os : offset_size) {
+    VerifyMode<ArrowType>(array->Slice(os[0], os[1]));
+  }
+}
+
 TEST_F(TestInt32ModeKernel, SmallValueRange) {
   // Small value range => should exercise counter-based Mode implementation
   CheckModeWithRange<ArrowType>(-100, 100);
@@ -1080,6 +1101,11 @@ TEST_F(TestInt32ModeKernel, SmallValueRange) {
 TEST_F(TestInt32ModeKernel, LargeValueRange) {
   // Large value range => should exercise sorter-based Mode implementation
   CheckModeWithRange<ArrowType>(-10000000, 10000000);
+}
+
+TEST_F(TestInt32ModeKernel, Sliced) {
+  CheckModeWithRangeSliced<ArrowType>(-100, 100);
+  CheckModeWithRangeSliced<ArrowType>(-10000000, 10000000);
 }
 
 //
@@ -1580,7 +1606,10 @@ TEST_F(TestInt64QuantileKernel, Int64) {
 #undef O
 
 #ifndef __MINGW32__
-class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<DoubleType> {
+template <typename ArrowType>
+class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {
+  using CType = typename ArrowType::c_type;
+
  public:
   void CheckQuantiles(int64_t array_size, int64_t num_quantiles) {
     std::shared_ptr<Array> array;
@@ -1589,17 +1618,77 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<DoubleType> 
     GenerateTestData(array_size, num_quantiles, -100, 200, &array, &quantiles);
 
     this->AssertQuantilesAre(array, QuantileOptions{quantiles},
-                             NaiveQuantile(*array, quantiles, interpolations_));
+                             NaiveQuantile(array, quantiles, this->interpolations_));
+  }
+
+  void CheckQuantilesSliced(int64_t array_size, int64_t num_quantiles) {
+    std::shared_ptr<Array> array;
+    std::vector<double> quantiles;
+    GenerateTestData(array_size, num_quantiles, -100, 200, &array, &quantiles);
+
+    const std::vector<std::array<int64_t, 2>> offset_size{
+        {0, array_size - 1},
+        {1, array_size - 1},
+        {array_size / 3, array_size / 2},
+        {array_size * 9 / 10, array_size / 10},
+    };
+    for (const auto& os : offset_size) {
+      auto sliced = array->Slice(os[0], os[1]);
+      this->AssertQuantilesAre(sliced, QuantileOptions{quantiles},
+                               NaiveQuantile(sliced, quantiles, this->interpolations_));
+    }
   }
 
   void CheckTDigests(const std::vector<int>& chunk_sizes, int64_t num_quantiles) {
+    std::shared_ptr<ChunkedArray> chunked;
+    std::vector<double> quantiles;
+    GenerateChunked(chunk_sizes, num_quantiles, &chunked, &quantiles);
+
+    VerifyTDigest(chunked, quantiles);
+  }
+
+  void CheckTDigestsSliced(const std::vector<int>& chunk_sizes, int64_t num_quantiles) {
+    std::shared_ptr<ChunkedArray> chunked;
+    std::vector<double> quantiles;
+    GenerateChunked(chunk_sizes, num_quantiles, &chunked, &quantiles);
+
+    const int64_t size = chunked->length();
+    const std::vector<std::array<int64_t, 2>> offset_size{
+        {0, size - 1},
+        {1, size - 1},
+        {size / 3, size / 2},
+        {size * 9 / 10, size / 10},
+    };
+    for (const auto& os : offset_size) {
+      VerifyTDigest(chunked->Slice(os[0], os[1]), quantiles);
+    }
+  }
+
+ private:
+  void GenerateTestData(int64_t array_size, int64_t num_quantiles, int min, int max,
+                        std::shared_ptr<Array>* array, std::vector<double>* quantiles) {
+    auto rand = random::RandomArrayGenerator(0x5487658);
+    if (is_floating_type<ArrowType>::value) {
+      *array = rand.Float64(array_size, min, max, /*null_prob=*/0.1, /*nan_prob=*/0.2);
+    } else {
+      *array = rand.Int64(array_size, min, max, /*null_prob=*/0.1);
+    }
+
+    random_real(num_quantiles, 0x5487658, 0.0, 1.0, quantiles);
+    // make sure to exercise 0 and 1 quantiles
+    *std::min_element(quantiles->begin(), quantiles->end()) = 0;
+    *std::max_element(quantiles->begin(), quantiles->end()) = 1;
+  }
+
+  void GenerateChunked(const std::vector<int>& chunk_sizes, int64_t num_quantiles,
+                       std::shared_ptr<ChunkedArray>* chunked,
+                       std::vector<double>* quantiles) {
     int total_size = 0;
     for (int size : chunk_sizes) {
       total_size += size;
     }
     std::shared_ptr<Array> array;
-    std::vector<double> quantiles;
-    GenerateTestData(total_size, num_quantiles, 100, 123456789, &array, &quantiles);
+    GenerateTestData(total_size, num_quantiles, 100, 123456789, &array, quantiles);
 
     total_size = 0;
     ArrayVector array_vector;
@@ -1607,8 +1696,11 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<DoubleType> 
       array_vector.emplace_back(array->Slice(total_size, size));
       total_size += size;
     }
-    auto chunked = *ChunkedArray::Make(array_vector);
+    *chunked = ChunkedArray::Make(array_vector).ValueOrDie();
+  }
 
+  void VerifyTDigest(const std::shared_ptr<ChunkedArray>& chunked,
+                     std::vector<double>& quantiles) {
     TDigestOptions options(quantiles);
     ASSERT_OK_AND_ASSIGN(Datum out, TDigest(chunked, options));
     const auto& out_array = out.make_array();
@@ -1619,7 +1711,7 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<DoubleType> 
 
     // linear interpolated exact quantile as reference
     std::vector<std::vector<Datum>> exact =
-        NaiveQuantile(*array, quantiles, {QuantileOptions::LINEAR});
+        NaiveQuantile(*chunked, quantiles, {QuantileOptions::LINEAR});
     const double* approx = out_array->data()->GetValues<double>(1);
     for (size_t i = 0; i < quantiles.size(); ++i) {
       const auto& exact_scalar = checked_pointer_cast<DoubleScalar>(exact[i][0].scalar());
@@ -1628,29 +1720,26 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<DoubleType> 
     }
   }
 
- private:
-  void GenerateTestData(int64_t array_size, int64_t num_quantiles, int min, int max,
-                        std::shared_ptr<Array>* array, std::vector<double>* quantiles) {
-    auto rand = random::RandomArrayGenerator(0x5487658);
-    *array = rand.Float64(array_size, min, max, /*null_prob=*/0.1, /*nan_prob=*/0.2);
-
-    random_real(num_quantiles, 0x5487658, 0.0, 1.0, quantiles);
-    // make sure to exercise 0 and 1 quantiles
-    *std::min_element(quantiles->begin(), quantiles->end()) = 0;
-    *std::max_element(quantiles->begin(), quantiles->end()) = 1;
+  std::vector<std::vector<Datum>> NaiveQuantile(
+      const std::shared_ptr<Array>& array, const std::vector<double>& quantiles,
+      const std::vector<enum QuantileOptions::Interpolation>& interpolations) {
+    return NaiveQuantile(ChunkedArray(array), quantiles, interpolations);
   }
 
   std::vector<std::vector<Datum>> NaiveQuantile(
-      const Array& array, const std::vector<double>& quantiles,
+      const ChunkedArray& chunked, const std::vector<double>& quantiles,
       const std::vector<enum QuantileOptions::Interpolation>& interpolations) {
-    // copy and sort input array
-    std::vector<double> input(array.length() - array.null_count());
-    const double* values = array.data()->GetValues<double>(1);
-    const auto bitmap = array.null_bitmap_data();
+    // copy and sort input chunked array
     int64_t index = 0;
-    for (int64_t i = 0; i < array.length(); ++i) {
-      if (BitUtil::GetBit(bitmap, i) && !std::isnan(values[i])) {
-        input[index++] = values[i];
+    std::vector<CType> input(chunked.length() - chunked.null_count());
+    for (const auto& array : chunked.chunks()) {
+      const CType* values = array->data()->GetValues<CType>(1);
+      const auto bitmap = array->null_bitmap_data();
+      for (int64_t i = 0; i < array->length(); ++i) {
+        if ((!bitmap || BitUtil::GetBit(bitmap, array->data()->offset + i)) &&
+            !std::isnan(static_cast<double>(values[i]))) {
+          input[index++] = values[i];
+        }
       }
     }
     input.resize(index);
@@ -1667,7 +1756,7 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<DoubleType> 
     return output;
   }
 
-  Datum GetQuantile(const std::vector<double>& input, double q,
+  Datum GetQuantile(const std::vector<CType>& input, double q,
                     enum QuantileOptions::Interpolation interp) {
     const double index = (input.size() - 1) * q;
     const uint64_t lower_index = static_cast<uint64_t>(index);
@@ -1688,14 +1777,14 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<DoubleType> 
         }
       case QuantileOptions::LINEAR:
         if (fraction == 0) {
-          return Datum(input[lower_index]);
+          return Datum(input[lower_index] * 1.0);
         } else {
           return Datum(fraction * input[lower_index + 1] +
                        (1 - fraction) * input[lower_index]);
         }
       case QuantileOptions::MIDPOINT:
         if (fraction == 0) {
-          return Datum(input[lower_index]);
+          return Datum(input[lower_index] * 1.0);
         } else {
           return Datum(input[lower_index] / 2.0 + input[lower_index + 1] / 2.0);
         }
@@ -1705,23 +1794,41 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<DoubleType> 
   }
 };
 
-TEST_F(TestRandomQuantileKernel, Normal) {
+class TestRandomInt64QuantileKernel : public TestRandomQuantileKernel<Int64Type> {};
+
+TEST_F(TestRandomInt64QuantileKernel, Normal) {
   // exercise copy and sort approach: size < 65536
   this->CheckQuantiles(/*array_size=*/10000, /*num_quantiles=*/100);
 }
 
-TEST_F(TestRandomQuantileKernel, Overlapped) {
+TEST_F(TestRandomInt64QuantileKernel, Overlapped) {
   // much more quantiles than array size => many overlaps
   this->CheckQuantiles(/*array_size=*/999, /*num_quantiles=*/9999);
 }
 
-TEST_F(TestRandomQuantileKernel, Histogram) {
+TEST_F(TestRandomInt64QuantileKernel, Histogram) {
   // exercise histogram approach: size >= 65536, range <= 65536
   this->CheckQuantiles(/*array_size=*/80000, /*num_quantiles=*/100);
 }
 
-TEST_F(TestRandomQuantileKernel, TDigest) {
+TEST_F(TestRandomInt64QuantileKernel, Sliced) {
+  this->CheckQuantilesSliced(1000, 10);   // sort
+  this->CheckQuantilesSliced(66000, 10);  // count
+}
+
+class TestRandomFloatQuantileKernel : public TestRandomQuantileKernel<DoubleType> {};
+
+TEST_F(TestRandomFloatQuantileKernel, Exact) {
+  this->CheckQuantiles(/*array_size=*/1000, /*num_quantiles=*/100);
+}
+
+TEST_F(TestRandomFloatQuantileKernel, TDigest) {
   this->CheckTDigests(/*chunk_sizes=*/{12345, 6789, 8765, 4321}, /*num_quantiles=*/100);
+}
+
+TEST_F(TestRandomFloatQuantileKernel, Sliced) {
+  this->CheckQuantilesSliced(1000, 10);
+  this->CheckTDigestsSliced({200, 600}, 10);
 }
 #endif
 

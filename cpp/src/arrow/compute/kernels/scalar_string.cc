@@ -1332,7 +1332,7 @@ struct ReplaceSubString {
 
     if (batch[0].kind() == Datum::ARRAY) {
       // We already know how many strings we have, so we can use Reserve/UnsafeAppend
-      RETURN_NOT_OK(offset_builder.Reserve(batch[0].array()->length));
+      RETURN_NOT_OK(offset_builder.Reserve(batch[0].array()->length + 1));
       offset_builder.UnsafeAppend(0);  // offsets start at 0
 
       const ArrayData& input = *batch[0].array();
@@ -1635,12 +1635,7 @@ struct ExtractRegex : public ExtractRegexBase {
             checked_cast<BuilderType*>(struct_builder->field_builder(i)));
       }
 
-      auto visit_null = [&]() {
-        for (int i = 0; i < group_count; i++) {
-          RETURN_NOT_OK(field_builders[i]->AppendEmptyValue());
-        }
-        return struct_builder->AppendNull();
-      };
+      auto visit_null = [&]() { return struct_builder->AppendNull(); };
       auto visit_value = [&](util::string_view s) {
         if (Match(s)) {
           for (int i = 0; i < group_count; i++) {
@@ -1648,7 +1643,7 @@ struct ExtractRegex : public ExtractRegexBase {
           }
           return struct_builder->Append();
         } else {
-          return visit_null();
+          return struct_builder->AppendNull();
         }
       };
       const ArrayData& input = *batch[0].array();

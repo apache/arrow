@@ -134,6 +134,7 @@ of Arrow and run the command:
    vcpkg install ^
      --triplet x64-windows ^
      --x-manifest-root cpp  ^
+     --feature-flags=versions ^
      --clean-after-build
 
 On Windows, vcpkg builds dynamic link libraries by default. Use the triplet

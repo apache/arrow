@@ -19,16 +19,23 @@
 
 set -e
 
-CPP_BUILD_DIR=$GITHUB_WORKSPACE/arrow/dist/
+arrow_dir=${1}
+cpp_build_dir=${2}
+copy_jar_to_distribution_folder=${3:-true}
+java_dir=${arrow_dir}/java
 
-pushd java
+export ARROW_TEST_DATA=${arrow_dir}/testing/data
+
+pushd $java_dir
   # build the entire project
-  mvn clean install -q -DskipTests -P arrow-jni -Darrow.cpp.build.dir=$CPP_BUILD_DIR
-  # test only gandiva
-  mvn test -q -P arrow-jni -pl gandiva -Dgandiva.cpp.build.dir=$CPP_BUILD_DIR
+  mvn clean install -DskipTests -P arrow-jni -Darrow.cpp.build.dir=$cpp_build_dir
+  # test jars that have cpp dependencies
+  mvn test -P arrow-jni -pl adapter/orc,gandiva,dataset -Dgandiva.cpp.build.dir=$cpp_build_dir
 
-  if [[ $COPY_JAR_TO_DISTRIBUTION_FOLDER ]] ; then
-    # copy the jars to distribution folder
-    find gandiva/target/ -name "*.jar" -not -name "*tests*" -exec cp  {} $CPP_BUILD_DIR \;
+  if [[ $copy_jar_to_distribution_folder ]] ; then
+    # copy the jars that has cpp dependencies to distribution folder
+    find gandiva/target/ -name "*.jar" -not -name "*tests*" -exec cp  {} $cpp_build_dir \;
+    find adapter/orc/target/ -name "*.jar" -not -name "*tests*" -exec cp  {} $cpp_build_dir \;
+    find dataset/target/ -name "*.jar" -not -name "*tests*" -exec cp  {} $cpp_build_dir \;
   fi
 popd

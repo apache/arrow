@@ -457,6 +457,23 @@ TEST_P(TestScanner, CountRowsWithMetadata) {
                                   scanner->CountRows());
 }
 
+TEST_P(TestScanner, ToRecordBatchReader) {
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
+  std::vector<std::shared_ptr<RecordBatch>> batches{
+      static_cast<std::size_t>(GetParam().num_batches * GetParam().num_child_datasets),
+      batch};
+
+  ASSERT_OK_AND_ASSIGN(auto expected, Table::FromRecordBatches(batches));
+
+  std::shared_ptr<Table> actual;
+  auto scanner = MakeScanner(batch);
+  ASSERT_OK_AND_ASSIGN(auto reader, scanner->ToRecordBatchReader());
+  scanner.reset();
+  ASSERT_OK(reader->ReadAll(&actual));
+  AssertTablesEqual(*expected, *actual);
+}
+
 class FailingFragment : public InMemoryFragment {
  public:
   using InMemoryFragment::InMemoryFragment;

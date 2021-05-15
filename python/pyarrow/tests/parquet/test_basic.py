@@ -23,7 +23,7 @@ import pytest
 
 import pyarrow as pa
 from pyarrow import fs
-from pyarrow.filesystem import LocalFileSystem
+from pyarrow.filesystem import LocalFileSystem, FileSystem
 from pyarrow.tests import util
 from pyarrow.tests.parquet.common import (_check_roundtrip, _roundtrip_table,
                                           parametrize_legacy_dataset)
@@ -234,6 +234,25 @@ def test_multiple_path_types(tempdir, use_legacy_dataset):
     table_read = _read_table(path, use_legacy_dataset=use_legacy_dataset)
     df_read = table_read.to_pandas()
     tm.assert_frame_equal(df, df_read)
+
+
+@parametrize_legacy_dataset
+def test_fspath(tempdir, use_legacy_dataset):
+    # ARROW-12472 support __fspath__ objects without using str()
+    path = tempdir / "test.parquet"
+    table = pa.table({"a": [1, 2, 3]})
+    _write_table(table, path)
+
+    fs_protocol_obj = util.FSProtocolClass(path)
+
+    result = _read_table(
+        fs_protocol_obj, use_legacy_dataset=use_legacy_dataset
+    )
+    assert result.equals(table)
+
+    # combined with non-local filesystem raises
+    with pytest.raises(TypeError):
+        _read_table(fs_protocol_obj, filesystem=FileSystem())
 
 
 @pytest.mark.dataset
