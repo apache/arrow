@@ -528,6 +528,10 @@ dataset___Scanner__ScanBatches <- function(scanner){
     .Call(`_arrow_dataset___Scanner__ScanBatches`, scanner)
 }
 
+dataset___Scanner__ToRecordBatchReader <- function(scanner){
+    .Call(`_arrow_dataset___Scanner__ToRecordBatchReader`, scanner)
+}
+
 dataset___Scanner__head <- function(scanner, n){
     .Call(`_arrow_dataset___Scanner__head`, scanner, n)
 }
@@ -1456,12 +1460,16 @@ RecordBatchReader__ReadNext <- function(reader){
     .Call(`_arrow_RecordBatchReader__ReadNext`, reader)
 }
 
-ipc___RecordBatchStreamReader__Open <- function(stream){
-    .Call(`_arrow_ipc___RecordBatchStreamReader__Open`, stream)
+RecordBatchReader__batches <- function(reader){
+    .Call(`_arrow_RecordBatchReader__batches`, reader)
 }
 
-ipc___RecordBatchStreamReader__batches <- function(reader){
-    .Call(`_arrow_ipc___RecordBatchStreamReader__batches`, reader)
+Table__from_RecordBatchReader <- function(reader){
+    .Call(`_arrow_Table__from_RecordBatchReader`, reader)
+}
+
+ipc___RecordBatchStreamReader__Open <- function(stream){
+    .Call(`_arrow_ipc___RecordBatchStreamReader__Open`, stream)
 }
 
 ipc___RecordBatchFileReader__schema <- function(reader){
@@ -1478,10 +1486,6 @@ ipc___RecordBatchFileReader__ReadRecordBatch <- function(reader, i){
 
 ipc___RecordBatchFileReader__Open <- function(file){
     .Call(`_arrow_ipc___RecordBatchFileReader__Open`, file)
-}
-
-Table__from_RecordBatchReader <- function(reader){
-    .Call(`_arrow_Table__from_RecordBatchReader`, reader)
 }
 
 Table__from_RecordBatchFileReader <- function(reader){

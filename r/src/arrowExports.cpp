@@ -2080,6 +2080,21 @@ extern "C" SEXP _arrow_dataset___Scanner__ScanBatches(SEXP scanner_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
+std::shared_ptr<arrow::RecordBatchReader> dataset___Scanner__ToRecordBatchReader(const std::shared_ptr<ds::Scanner>& scanner);
+extern "C" SEXP _arrow_dataset___Scanner__ToRecordBatchReader(SEXP scanner_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<ds::Scanner>&>::type scanner(scanner_sexp);
+	return cpp11::as_sexp(dataset___Scanner__ToRecordBatchReader(scanner));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_dataset___Scanner__ToRecordBatchReader(SEXP scanner_sexp){
+	Rf_error("Cannot call dataset___Scanner__ToRecordBatchReader(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_DATASET)
 std::shared_ptr<arrow::Table> dataset___Scanner__head(const std::shared_ptr<ds::Scanner>& scanner, int n);
 extern "C" SEXP _arrow_dataset___Scanner__head(SEXP scanner_sexp, SEXP n_sexp){
 BEGIN_CPP11
@@ -5722,6 +5737,36 @@ extern "C" SEXP _arrow_RecordBatchReader__ReadNext(SEXP reader_sexp){
 
 // recordbatchreader.cpp
 #if defined(ARROW_R_WITH_ARROW)
+cpp11::list RecordBatchReader__batches(const std::shared_ptr<arrow::RecordBatchReader>& reader);
+extern "C" SEXP _arrow_RecordBatchReader__batches(SEXP reader_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatchReader>&>::type reader(reader_sexp);
+	return cpp11::as_sexp(RecordBatchReader__batches(reader));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_RecordBatchReader__batches(SEXP reader_sexp){
+	Rf_error("Cannot call RecordBatchReader__batches(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// recordbatchreader.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Table> Table__from_RecordBatchReader(const std::shared_ptr<arrow::RecordBatchReader>& reader);
+extern "C" SEXP _arrow_Table__from_RecordBatchReader(SEXP reader_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatchReader>&>::type reader(reader_sexp);
+	return cpp11::as_sexp(Table__from_RecordBatchReader(reader));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_Table__from_RecordBatchReader(SEXP reader_sexp){
+	Rf_error("Cannot call Table__from_RecordBatchReader(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// recordbatchreader.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::ipc::RecordBatchStreamReader> ipc___RecordBatchStreamReader__Open(const std::shared_ptr<arrow::io::InputStream>& stream);
 extern "C" SEXP _arrow_ipc___RecordBatchStreamReader__Open(SEXP stream_sexp){
 BEGIN_CPP11
@@ -5732,21 +5777,6 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_ipc___RecordBatchStreamReader__Open(SEXP stream_sexp){
 	Rf_error("Cannot call ipc___RecordBatchStreamReader__Open(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// recordbatchreader.cpp
-#if defined(ARROW_R_WITH_ARROW)
-cpp11::list ipc___RecordBatchStreamReader__batches(const std::shared_ptr<arrow::ipc::RecordBatchStreamReader>& reader);
-extern "C" SEXP _arrow_ipc___RecordBatchStreamReader__batches(SEXP reader_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<arrow::ipc::RecordBatchStreamReader>&>::type reader(reader_sexp);
-	return cpp11::as_sexp(ipc___RecordBatchStreamReader__batches(reader));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_ipc___RecordBatchStreamReader__batches(SEXP reader_sexp){
-	Rf_error("Cannot call ipc___RecordBatchStreamReader__batches(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5808,21 +5838,6 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_ipc___RecordBatchFileReader__Open(SEXP file_sexp){
 	Rf_error("Cannot call ipc___RecordBatchFileReader__Open(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// recordbatchreader.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Table> Table__from_RecordBatchReader(const std::shared_ptr<arrow::RecordBatchReader>& reader);
-extern "C" SEXP _arrow_Table__from_RecordBatchReader(SEXP reader_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<arrow::RecordBatchReader>&>::type reader(reader_sexp);
-	return cpp11::as_sexp(Table__from_RecordBatchReader(reader));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_Table__from_RecordBatchReader(SEXP reader_sexp){
-	Rf_error("Cannot call Table__from_RecordBatchReader(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -6941,6 +6956,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___ScannerBuilder__Finish", (DL_FUNC) &_arrow_dataset___ScannerBuilder__Finish, 1}, 
 		{ "_arrow_dataset___Scanner__ToTable", (DL_FUNC) &_arrow_dataset___Scanner__ToTable, 1}, 
 		{ "_arrow_dataset___Scanner__ScanBatches", (DL_FUNC) &_arrow_dataset___Scanner__ScanBatches, 1}, 
+		{ "_arrow_dataset___Scanner__ToRecordBatchReader", (DL_FUNC) &_arrow_dataset___Scanner__ToRecordBatchReader, 1}, 
 		{ "_arrow_dataset___Scanner__head", (DL_FUNC) &_arrow_dataset___Scanner__head, 2}, 
 		{ "_arrow_dataset___Scanner__schema", (DL_FUNC) &_arrow_dataset___Scanner__schema, 1}, 
 		{ "_arrow_dataset___ScanTask__get_batches", (DL_FUNC) &_arrow_dataset___ScanTask__get_batches, 1}, 
@@ -7173,13 +7189,13 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_RecordBatch__from_arrays", (DL_FUNC) &_arrow_RecordBatch__from_arrays, 2}, 
 		{ "_arrow_RecordBatchReader__schema", (DL_FUNC) &_arrow_RecordBatchReader__schema, 1}, 
 		{ "_arrow_RecordBatchReader__ReadNext", (DL_FUNC) &_arrow_RecordBatchReader__ReadNext, 1}, 
+		{ "_arrow_RecordBatchReader__batches", (DL_FUNC) &_arrow_RecordBatchReader__batches, 1}, 
+		{ "_arrow_Table__from_RecordBatchReader", (DL_FUNC) &_arrow_Table__from_RecordBatchReader, 1}, 
 		{ "_arrow_ipc___RecordBatchStreamReader__Open", (DL_FUNC) &_arrow_ipc___RecordBatchStreamReader__Open, 1}, 
-		{ "_arrow_ipc___RecordBatchStreamReader__batches", (DL_FUNC) &_arrow_ipc___RecordBatchStreamReader__batches, 1}, 
 		{ "_arrow_ipc___RecordBatchFileReader__schema", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__schema, 1}, 
 		{ "_arrow_ipc___RecordBatchFileReader__num_record_batches", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__num_record_batches, 1}, 
 		{ "_arrow_ipc___RecordBatchFileReader__ReadRecordBatch", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__ReadRecordBatch, 2}, 
 		{ "_arrow_ipc___RecordBatchFileReader__Open", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__Open, 1}, 
-		{ "_arrow_Table__from_RecordBatchReader", (DL_FUNC) &_arrow_Table__from_RecordBatchReader, 1}, 
 		{ "_arrow_Table__from_RecordBatchFileReader", (DL_FUNC) &_arrow_Table__from_RecordBatchFileReader, 1}, 
 		{ "_arrow_ipc___RecordBatchFileReader__batches", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__batches, 1}, 
 		{ "_arrow_ipc___RecordBatchWriter__WriteRecordBatch", (DL_FUNC) &_arrow_ipc___RecordBatchWriter__WriteRecordBatch, 2}, 

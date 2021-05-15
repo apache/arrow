@@ -436,6 +436,12 @@ cpp11::list dataset___Scanner__ScanBatches(const std::shared_ptr<ds::Scanner>& s
 }
 
 // [[dataset::export]]
+std::shared_ptr<arrow::RecordBatchReader> dataset___Scanner__ToRecordBatchReader(
+    const std::shared_ptr<ds::Scanner>& scanner) {
+  return ValueOrStop(scanner->ToRecordBatchReader());
+}
+
+// [[dataset::export]]
 std::shared_ptr<arrow::Table> dataset___Scanner__head(
     const std::shared_ptr<ds::Scanner>& scanner, int n) {
   // TODO: make this a full Slice with offset > 0

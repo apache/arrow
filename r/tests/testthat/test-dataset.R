@@ -1036,6 +1036,21 @@ test_that("Scanner$ScanBatches", {
   expect_equivalent(as.data.frame(table), rbind(df1, df2))
 })
 
+test_that("Scanner$ToRecordBatchReader()", {
+  ds <- open_dataset(dataset_dir, partitioning = "part")
+  scan <- ds %>%
+    filter(part == 1) %>%
+    select(int, lgl) %>%
+    filter(int > 6) %>%
+    Scanner$create()
+  reader <- scan$ToRecordBatchReader()
+  expect_r6_class(reader, "RecordBatchReader")
+  expect_identical(
+    as.data.frame(reader$read_table()),
+    df1[df1$int > 6, c("int", "lgl")]
+  )
+})
+
 expect_scan_result <- function(ds, schm) {
   sb <- ds$NewScan()
   expect_r6_class(sb, "ScannerBuilder")
