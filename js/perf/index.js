@@ -19,230 +19,194 @@
 // const { predicate, Table, RecordBatchReader } = require('../targets/es5/umd');
 // const { predicate, Table, RecordBatchReader } = require('../targets/es5/cjs');
 // const { predicate, Table, RecordBatchReader } = require('../targets/es2015/umd');
-const { predicate, Table, RecordBatchReader } = require('../targets/es2015/cjs');
+const { predicate, Table, DataFrame, RecordBatchReader } = require('../targets/es2015/cjs');
+const kleur = require('kleur');
 const { col } = predicate;
 
-const Benchmark = require('benchmark');
+const b = require('benny');
 
-const suites = [];
-
-for (let { name, buffers } of require('./table_config')) {
-    const parseSuiteName = `Parse "${name}"`;
-    const sliceSuiteName = `Slice "${name}" vectors`;
-    const iterateSuiteName = `Iterate "${name}" vectors`;
-    const getByIndexSuiteName = `Get "${name}" values by index`;
-    const sliceToArraySuiteName = `Slice toArray "${name}" vectors`;
-    suites.push(createTestSuite(parseSuiteName, createFromTableTest(name, buffers)));
-    suites.push(createTestSuite(parseSuiteName, createReadBatchesTest(name, buffers)));
-    const table = Table.from(buffers), schema = table.schema;
-    suites.push(...schema.fields.map((f, i) => createTestSuite(getByIndexSuiteName, createGetByIndexTest(table.getColumnAt(i), f.name))));
-    suites.push(...schema.fields.map((f, i) => createTestSuite(iterateSuiteName, createIterateTest(table.getColumnAt(i), f.name))));
-    suites.push(...schema.fields.map((f, i) => createTestSuite(sliceToArraySuiteName, createSliceToArrayTest(table.getColumnAt(i), f.name))));
-    suites.push(...schema.fields.map((f, i) => createTestSuite(sliceSuiteName, createSliceTest(table.getColumnAt(i), f.name))));
+const formatter = new Intl.NumberFormat();
+function formatNumber(number, precision) {
+    const rounded = number > precision * 10 ? Math.round(number) : parseFloat((number).toPrecision(precision));
+    return formatter.format(rounded)
 }
 
-for (let {name, buffers, countBys, counts} of require('./table_config')) {
-    const table = Table.from(buffers);
-
-    const tableIterateSuiteName = `Table Iterate "${name}"`;
-    const dfCountBySuiteName = `DataFrame Count By "${name}"`;
-    const dfFilterCountSuiteName = `DataFrame Filter-Scan Count "${name}"`;
-    const dfDirectCountSuiteName = `DataFrame Direct Count "${name}"`;
-    const dfFilterIterSuiteName = `DataFrame Filter-Iterate "${name}"`;
-
-    suites.push(createTestSuite(tableIterateSuiteName, createTableIterateTest(table)));
-    suites.push(...countBys.map((countBy) => createTestSuite(dfCountBySuiteName, createDataFrameCountByTest(table, countBy))));
-    suites.push(...counts.map(({ col, test, value }) => createTestSuite(dfFilterCountSuiteName, createDataFrameFilterCountTest(table, col, test, value))));
-    suites.push(...counts.map(({ col, test, value }) => createTestSuite(dfDirectCountSuiteName, createDataFrameDirectCountTest(table, col, test, value))));
-    suites.push(...counts.map(({ col, test, value }) => createTestSuite(dfFilterIterSuiteName, createDataFrameFilterIterateTest(table, col, test, value))));
+function cycle(result, _summary) {
+    const duration = result.details.median * 1000;
+    console.log(
+        `${kleur.cyan(result.name)} ${formatNumber(result.ops, 3)} ops/s ±${result.margin.toPrecision(2)}%, ${formatNumber(duration, 2)} ms, ${kleur.gray(result.samples + ' samples')}`,
+    );
 }
 
-console.log('Running apache-arrow performance tests...\n');
+for (const { name, buffers } of require('./table_config')) {
+    b.suite(
+        `Parse "${name}"`,
 
-run();
+        b.add(`Table.from`, () => {
+            Table.from(buffers);
+        }),
 
-function run() {
-    const suite = suites.shift();
-    suite && suite.on('complete', function() {
-        console.log(suite.name + ':\n' + this.map(function(x) {
-            const str = x.toString();
-            const meanMsPerOp = Math.round(x.stats.mean * 100000)/100;
-            const sliceOf60FPS = Math.round((meanMsPerOp / (1000/60)) * 100000)/1000;
-            return `${str}\n   avg: ${meanMsPerOp}ms\n   ${sliceOf60FPS}% of a frame @ 60FPS ${x.suffix || ''}`;
-        }).join('\n') + '\n');
-        if (suites.length > 0) {
-            setTimeout(run, 1000);
-        }
-    })
-    .run({ async: true });
-}
+        b.add(`readBatches`, () => {
+            for (recordBatch of RecordBatchReader.from(buffers)) {}
+        }),
 
-function createTestSuite(name, test) {
-    return new Benchmark.Suite(name, { async: true }).add(test);
-}
+        b.cycle(cycle)
+    )
 
-function createFromTableTest(name, buffers) {
-    let table;
-    return {
-        async: true,
-        name: `Table.from\n`,
-        fn() { table = Table.from(buffers); }
-    };
-}
+    const table = Table.from(buffers)
+    const schema = table.schema;
 
-function createReadBatchesTest(name, buffers) {
-    let recordBatch;
-    return {
-        async: true,
-        name: `readBatches\n`,
-        fn() { for (recordBatch of RecordBatchReader.from(buffers)) {} }
-    };
-}
-
-function createSliceTest(vector, name) {
-    let xs;
-    return {
-        async: true,
-        name: `name: '${name}', length: ${vector.length}, type: ${vector.type}\n`,
-        fn() { xs = vector.slice(); }
-    };
-}
-
-function createSliceToArrayTest(vector, name) {
-    let xs;
-    return {
-        async: true,
-        name: `name: '${name}', length: ${vector.length}, type: ${vector.type}\n`,
-        fn() { xs = vector.slice().toArray(); }
-    };
-}
-
-function createIterateTest(vector, name) {
-    let value;
-    return {
-        async: true,
-        name: `name: '${name}', length: ${vector.length}, type: ${vector.type}\n`,
-        fn() { for (value of vector) {} }
-    };
-}
-
-function createGetByIndexTest(vector, name) {
-    let value;
-    return {
-        async: true,
-        name: `name: '${name}', length: ${vector.length}, type: ${vector.type}\n`,
-        fn() {
-            for (let i = -1, n = vector.length; ++i < n;) {
-                value = vector.get(i);
-            }
-        }
-    };
-}
-
-function createTableIterateTest(table) {
-    let value;
-    return {
-        async: true,
-        name: `length: ${table.length}\n`,
-        fn() { for (value of table) {} }
-    };
-}
-
-function createDataFrameDirectCountTest(table, column, test, value) {
-    let sum, colidx = table.schema.fields.findIndex((c)=>c.name === column), op;
-
-    if (test == 'gt') {
-        op = () => {
-            sum = 0;
-            let batches = table.chunks;
-            let numBatches = batches.length;
-            for (let batchIndex = -1; ++batchIndex < numBatches;) {
-                // load batches
-                const batch = batches[batchIndex];
-                const vector = batch.getChildAt(colidx);
-                // yield all indices
-                for (let index = -1, length = batch.length; ++index < length;) {
-                    sum += (vector.get(index) >= value);
+    const suites = [{
+            name: `Get "${name}" values by index`,
+            fn(vector) {
+                for (let i = -1, n = vector.length; ++i < n;) {
+                    value = vector.get(i);
                 }
             }
-            return sum;
-        }
-    } else if (test == 'eq') {
-        op = () => {
-            sum = 0;
-            let batches = table.chunks;
-            let numBatches = batches.length;
-            for (let batchIndex = -1; ++batchIndex < numBatches;) {
-                // load batches
-                const batch = batches[batchIndex];
-                const vector = batch.getChildAt(colidx);
-                // yield all indices
-                for (let index = -1, length = batch.length; ++index < length;) {
-                    sum += (vector.get(index) === value);
+        }, {
+            name: `Iterate "${name}" vectors`,
+            fn(vector) { for (value of vector) {} }
+        }, {
+            name: `Slice toArray "${name}" vectors`,
+            fn(vector) { xs = vector.slice().toArray(); }
+        }, {
+            name: `Slice "${name}" vectors`,
+            fn(vector) { xs = vector.slice(); }
+        }];
+
+    for (const {name, fn} of suites) {
+        b.suite(
+            name,
+
+            ...schema.fields.map((f, i) => {
+                const vector = table.getColumnAt(i);
+                return b.add(`name: '${f.name}', length: ${formatNumber(vector.length)}, type: ${vector.type}`, () => {
+                    fn(vector)
+                })
+            }),
+
+            b.cycle(cycle),
+        )
+    }
+}
+
+
+for (const { name, buffers, countBys, counts } of require('./table_config')) {
+    const df = DataFrame.from(buffers);
+
+    b.suite(
+        `DataFrame Iterate "${name}"`,
+
+        b.add(`length: ${formatNumber(df.length)}`, () => {
+            for (value of df) {}
+        }),
+
+        b.cycle(cycle),
+    )
+
+    b.suite(
+        `DataFrame Count By "${name}"`,
+
+        ...countBys.map((column) => b.add(
+            `name: '${column}', length: ${formatNumber(df.length)}, type: ${df.schema.fields.find((c)=> c.name === column).type}`,
+            () => df.countBy(column)
+        )),
+
+        b.cycle(cycle),
+    )
+
+    b.suite(
+        `DataFrame Filter-Scan Count "${name}"`,
+
+        ...counts.map(({ column, test, value }) => b.add(
+            `name: '${column}', length: ${formatNumber(df.length)}, type: ${df.schema.fields.find((c)=> c.name === column).type}, test: ${test}, value: ${value}`,
+            () => {
+                let filteredDf;
+                if (test == 'gt') {
+                    filteredDf = df.filter(col(column).gt(value));
+                } else if (test == 'eq') {
+                    filteredDf = df.filter(col(column).eq(value));
+                } else {
+                    throw new Error(`Unrecognized test "${test}"`);
+                }
+
+                return () => filteredDf.count();
+            }
+        )),
+
+        b.cycle(cycle),
+    )
+
+    b.suite(
+        `DataFrame Filter-Iterate "${name}"`,
+
+        ...counts.map(({ column, test, value }) => b.add(
+            `name: '${column}', length: ${formatNumber(df.length)}, type: ${df.schema.fields.find((c)=> c.name === column).type}, test: ${test}, value: ${value}`,
+            () => {
+                let filteredDf;
+                if (test == 'gt') {
+                    filteredDf = df.filter(col(column).gt(value));
+                } else if (test == 'eq') {
+                    filteredDf = df.filter(col(column).eq(value));
+                } else {
+                    throw new Error(`Unrecognized test "${test}"`);
+                }
+
+                return () => {
+                    for (value of filteredDf) {}
                 }
             }
-            return sum;
-        }
-    } else {
-        throw new Error(`Unrecognized test "${test}"`);
-    }
+        )),
 
-    return {
-        async: true,
-        name: `name: '${column}', length: ${table.length}, type: ${table.getColumnAt(colidx).type}, test: ${test}, value: ${value}\n`,
-        fn: op
-    };
+        b.cycle(cycle),
+    )
+
+    b.suite(
+        `DataFrame Direct Count "${name}"`,
+
+        ...counts.map(({ column, test, value }) => b.add(
+            `name: '${column}', length: ${formatNumber(df.length)}, type: ${df.schema.fields.find((c)=> c.name === column).type}, test: ${test}, value: ${value}`,
+            () => {
+                let colidx = df.schema.fields.findIndex((c)=> c.name === column);
+
+                if (test == 'gt') {
+                    return () => {
+                        sum = 0;
+                        let batches = df.chunks;
+                        let numBatches = batches.length;
+                        for (let batchIndex = -1; ++batchIndex < numBatches;) {
+                            // load batches
+                            const batch = batches[batchIndex];
+                            const vector = batch.getChildAt(colidx);
+                            // yield all indices
+                            for (let index = -1, length = batch.length; ++index < length;) {
+                                sum += (vector.get(index) >= value);
+                            }
+                        }
+                        return sum;
+                    }
+                } else if (test == 'eq') {
+                    return () => {
+                        sum = 0;
+                        let batches = df.chunks;
+                        let numBatches = batches.length;
+                        for (let batchIndex = -1; ++batchIndex < numBatches;) {
+                            // load batches
+                            const batch = batches[batchIndex];
+                            const vector = batch.getChildAt(colidx);
+                            // yield all indices
+                            for (let index = -1, length = batch.length; ++index < length;) {
+                                sum += (vector.get(index) === value);
+                            }
+                        }
+                        return sum;
+                    }
+                } else {
+                    throw new Error(`Unrecognized test "${test}"`);
+                }
+            }
+        )),
+
+        b.cycle(cycle),
+    )
 }
-
-function createDataFrameCountByTest(table, column) {
-    let colidx = table.schema.fields.findIndex((c)=> c.name === column);
-
-    return {
-        async: true,
-        name: `name: '${column}', length: ${table.length}, type: ${table.getColumnAt(colidx).type}\n`,
-        fn() {
-            table.countBy(column);
-        }
-    };
-}
-
-function createDataFrameFilterCountTest(table, column, test, value) {
-    let colidx = table.schema.fields.findIndex((c)=> c.name === column);
-    let df;
-
-    if (test == 'gt') {
-        df = table.filter(col(column).gt(value));
-    } else if (test == 'eq') {
-        df = table.filter(col(column).eq(value));
-    } else {
-        throw new Error(`Unrecognized test "${test}"`);
-    }
-
-    return {
-        async: true,
-        name: `name: '${column}', length: ${table.length}, type: ${table.getColumnAt(colidx).type}, test: ${test}, value: ${value}\n`,
-        fn() {
-            df.count();
-        }
-    };
-}
-
-function createDataFrameFilterIterateTest(table, column, test, value) {
-    let colidx = table.schema.fields.findIndex((c)=> c.name === column);
-    let df;
-
-    if (test == 'gt') {
-        df = table.filter(col(column).gt(value));
-    } else if (test == 'eq') {
-        df = table.filter(col(column).eq(value));
-    } else {
-        throw new Error(`Unrecognized test "${test}"`);
-    }
-
-    return {
-        async: true,
-        name: `name: '${column}', length: ${table.length}, type: ${table.getColumnAt(colidx).type}, test: ${test}, value: ${value}\n`,
-        fn() { for (value of df) {} }
-    };
-}
-

@@ -27,9 +27,9 @@ const countBys = {
 }
 const counts = {
     tracks: [
-        {col: 'lat',    test: 'gt', value: 0        },
-        {col: 'lng',    test: 'gt', value: 0        },
-        {col: 'origin', test: 'eq', value: 'Seattle'},
+        {column: 'lat',    test: 'gt', value: 0        },
+        {column: 'lng',    test: 'gt', value: 0        },
+        {column: 'origin', test: 'eq', value: 'Seattle'},
     ]
 }
 
