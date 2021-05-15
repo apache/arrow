@@ -15,28 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
+// Implementation of casting to dictionary type
 
-#include <memory>
-#include <vector>
-
-#include "arrow/compute/cast.h"                      // IWYU pragma: keep
-#include "arrow/compute/kernel.h"                    // IWYU pragma: keep
-#include "arrow/compute/kernels/codegen_internal.h"  // IWYU pragma: keep
+#include "arrow/array/builder_primitive.h"
+#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/scalar_cast_internal.h"
+#include "arrow/compute/kernels/util_internal.h"
+#include "arrow/util/int_util.h"
 
 namespace arrow {
+
+using internal::CheckIntegersInRange;
+
 namespace compute {
-namespace internal {
+namespace internal 
 
-using CastState = OptionsWrapper<CastOptions>;
-
-// See kernels/scalar_cast_*.cc for these
-std::vector<std::shared_ptr<CastFunction>> GetBooleanCasts();
-std::vector<std::shared_ptr<CastFunction>> GetNumericCasts();
-std::vector<std::shared_ptr<CastFunction>> GetTemporalCasts();
-std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts();
-std::vector<std::shared_ptr<CastFunction>> GetNestedCasts();
-std::vector<std::shared_ptr<CastFunction>> GetDictionaryCasts();
+Status CastDictionaryIndices(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+return Status::OK();
+}
 
 }  // namespace internal
 }  // namespace compute

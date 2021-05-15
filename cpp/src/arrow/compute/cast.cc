@@ -55,6 +55,7 @@ void InitCastTable() {
   AddCastFunctions(GetNestedCasts());
   AddCastFunctions(GetNumericCasts());
   AddCastFunctions(GetTemporalCasts());
+  AddCastFunctions(GetDictionaryCasts());
 }
 
 void EnsureInitCastTable() { std::call_once(cast_table_initialized, InitCastTable); }
