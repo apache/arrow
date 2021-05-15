@@ -211,7 +211,7 @@ Full list of broader Apache Arrow [committers](https://arrow.apache.org/committe
 
 Full list of broader Apache Arrow [projects & organizations](https://arrow.apache.org/powered_by/).
 
-## Open Source Projects that support Arrow
+## Open Source Projects
 
 * [Apache Arrow](https://arrow.apache.org) -- Parent project for Powering Columnar In-Memory Analytics, including affiliated open source projects
 * [Perspective](https://github.com/jpmorganchase/perspective) -- Perspective is a streaming data visualization engine by J.P. Morgan for JavaScript for building real-time & user-configurable analytics entirely in the browser.
