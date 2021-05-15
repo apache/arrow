@@ -45,7 +45,7 @@ function cycle(result, _summary) {
     );
 }
 
-for (const { name, buffers } of require('./table_config')) {
+for (const { name, buffers } of require('./config')) {
     b.suite(
         `Parse "${name}"`,
 
@@ -98,7 +98,7 @@ for (const { name, buffers } of require('./table_config')) {
 }
 
 
-for (const { name, buffers, countBys, counts } of require('./table_config')) {
+for (const { name, buffers, countBys, counts } of require('./config')) {
     const df = DataFrame.from(buffers);
 
     b.suite(

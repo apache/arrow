@@ -20,11 +20,29 @@ const path = require('path');
 const glob = require('glob');
 
 const config = [];
-const filenames = glob.sync(path.resolve(__dirname, `../test/data/cpp/stream`, `*.arrow`));
+const filenames = glob.sync(path.resolve(__dirname, `../test/data/tables/`, `*.arrow`));
+
+const countBys = {
+    tracks: ['origin', 'destination']
+}
+const counts = {
+    tracks: [
+        {column: 'lat',    test: 'gt', value: 0        },
+        {column: 'lng',    test: 'gt', value: 0        },
+        {column: 'origin', test: 'eq', value: 'Seattle'},
+    ]
+}
 
 for (const filename of filenames) {
     const { name } = path.parse(filename);
-    config.push({ name, buffers: [fs.readFileSync(filename)] });
+    if (name in counts) {
+        config.push({
+            name,
+            buffers: [fs.readFileSync(filename)],
+            countBys: countBys[name],
+            counts: counts[name],
+        });
+    }
 }
 
 module.exports = config;
