@@ -74,13 +74,6 @@ cdef class S3FileSystem(FileSystem):
         Whether to connect anonymously if access_key and secret_key are None.
         If true, will not attempt to look up credentials using standard AWS
         configuration methods.
-    use_web_identity: boolean, default False
-        Whether to connect using an assumed role authenticated using
-        a web identity token. The required settings are derived from
-        environment variables such as AWS_ROLE_ARN,
-        AWS_WEB_IDENTITY_TOKEN_FILE and AWS_ROLE_SESSION_NAME.
-        If true, will not attempt to look up credentials using other
-        AWS configuration methods.
     role_arn: str, default None
         AWS Role ARN.  If provided instead of access_key and secret_key,
         temporary credentials will be fetched by assuming this role.
@@ -120,10 +113,10 @@ cdef class S3FileSystem(FileSystem):
         CS3FileSystem* s3fs
 
     def __init__(self, *, access_key=None, secret_key=None, session_token=None,
-                 bint anonymous=False, bint use_web_identity=False,
-                 region=None, scheme=None, endpoint_override=None,
-                 bint background_writes=True, role_arn=None, session_name=None,
-                 external_id=None, load_frequency=900, proxy_options=None):
+                 bint anonymous=False, region=None, scheme=None,
+                 endpoint_override=None, bint background_writes=True,
+                 role_arn=None, session_name=None, external_id=None,
+                 load_frequency=900, proxy_options=None):
         cdef:
             CS3Options options
             shared_ptr[CS3FileSystem] wrapped
@@ -159,11 +152,6 @@ cdef class S3FileSystem(FileSystem):
                 raise ValueError(
                     'Cannot provide role_arn with access_key and secret_key')
 
-            if use_web_identity:
-                raise ValueError(
-                    'Cannot pass use_web_identity=True with access_key '
-                    'and secret key.')
-
             if session_token is None:
                 session_token = ""
 
@@ -177,16 +165,8 @@ cdef class S3FileSystem(FileSystem):
                 raise ValueError(
                     'Cannot provide role_arn with anonymous=True')
 
-            if use_web_identity:
-                raise ValueError(
-                    'Cannot pass both use_web_identity=True and '
-                    'anonymous=True')
-
             options = CS3Options.Anonymous()
         elif role_arn:
-            if use_web_identity:
-                raise ValueError(
-                    'Cannot provide role_arn with use_web_identity=True')
 
             options = CS3Options.FromAssumeRole(
                 tobytes(role_arn),
@@ -194,8 +174,6 @@ cdef class S3FileSystem(FileSystem):
                 tobytes(external_id),
                 load_frequency
             )
-        elif use_web_identity:
-            options = CS3Options.FromAssumeRoleWithWebIdentity()
         else:
             options = CS3Options.Defaults()
 
@@ -261,8 +239,6 @@ cdef class S3FileSystem(FileSystem):
                 session_token=session_token,
                 anonymous=(opts.credentials_kind ==
                            CS3CredentialsKind_Anonymous),
-                use_web_identity=(opts.credentials_kind ==
-                                  CS3CredentialsKind_WebIdentity),
                 region=frombytes(opts.region),
                 scheme=frombytes(opts.scheme),
                 endpoint_override=frombytes(opts.endpoint_override),
