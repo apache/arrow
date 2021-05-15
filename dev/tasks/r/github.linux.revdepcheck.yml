@@ -51,7 +51,7 @@ jobs:
       - name: Cache crancache and revdeps directory
         uses: actions/cache@v2
         with:
-          key: {{ "cache-${{ hashFiles('/arrow/cpp/vcpkg.json') }}" }}
+          key: {{ "cache-${{ hashFiles('arrow/cpp/vcpkg.json') }}" }}
           path: |
             arrow/r/revdep
             arrow/.crancache
