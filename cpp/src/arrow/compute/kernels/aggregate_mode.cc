@@ -206,7 +206,7 @@ struct SortModer {
     const int64_t in_length = datum.length() - datum.null_count();
     if (in_length > 0) {
       in_buffer.resize(in_length);
-      CopyNonNullValues<sizeof(CType)>(datum, in_buffer.data());
+      CopyNonNullValues(datum, in_buffer.data());
 
       // drop nan
       if (is_floating_type<T>::value) {

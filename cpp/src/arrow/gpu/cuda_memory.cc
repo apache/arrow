@@ -102,7 +102,6 @@ CudaBuffer::CudaBuffer(uint8_t* data, int64_t size,
                        bool is_ipc)
     : Buffer(data, size), context_(context), own_data_(own_data), is_ipc_(is_ipc) {
   is_mutable_ = true;
-  mutable_data_ = data;
   SetMemoryManager(context_->memory_manager());
 }
 
@@ -118,7 +117,7 @@ Status CudaBuffer::Close() {
     if (is_ipc_) {
       return context_->CloseIpcBuffer(this);
     } else {
-      return context_->Free(mutable_data_, size_);
+      return context_->Free(const_cast<uint8_t*>(data_), size_);
     }
   }
   return Status::OK();
@@ -130,10 +129,7 @@ CudaBuffer::CudaBuffer(const std::shared_ptr<CudaBuffer>& parent, const int64_t 
       context_(parent->context()),
       own_data_(false),
       is_ipc_(false) {
-  if (parent->is_mutable()) {
-    is_mutable_ = true;
-    mutable_data_ = const_cast<uint8_t*>(data_);
-  }
+  is_mutable_ = parent->is_mutable();
 }
 
 Result<std::shared_ptr<CudaBuffer>> CudaBuffer::FromBuffer(
@@ -171,7 +167,7 @@ Status CudaBuffer::CopyFromHost(const int64_t position, const void* data,
   if (nbytes > size_ - position) {
     return Status::Invalid("Copy would overflow buffer");
   }
-  return context_->CopyHostToDevice(mutable_data_ + position, data, nbytes);
+  return context_->CopyHostToDevice(const_cast<uint8_t*>(data_) + position, data, nbytes);
 }
 
 Status CudaBuffer::CopyFromDevice(const int64_t position, const void* data,
@@ -179,7 +175,8 @@ Status CudaBuffer::CopyFromDevice(const int64_t position, const void* data,
   if (nbytes > size_ - position) {
     return Status::Invalid("Copy would overflow buffer");
   }
-  return context_->CopyDeviceToDevice(mutable_data_ + position, data, nbytes);
+  return context_->CopyDeviceToDevice(const_cast<uint8_t*>(data_) + position, data,
+                                      nbytes);
 }
 
 Status CudaBuffer::CopyFromAnotherDevice(const std::shared_ptr<CudaContext>& src_ctx,
@@ -188,15 +185,15 @@ Status CudaBuffer::CopyFromAnotherDevice(const std::shared_ptr<CudaContext>& src
   if (nbytes > size_ - position) {
     return Status::Invalid("Copy would overflow buffer");
   }
-  return src_ctx->CopyDeviceToAnotherDevice(context_, mutable_data_ + position, data,
-                                            nbytes);
+  return src_ctx->CopyDeviceToAnotherDevice(
+      context_, const_cast<uint8_t*>(data_) + position, data, nbytes);
 }
 
 Result<std::shared_ptr<CudaIpcMemHandle>> CudaBuffer::ExportForIpc() {
   if (is_ipc_) {
     return Status::Invalid("Buffer has already been exported for IPC");
   }
-  ARROW_ASSIGN_OR_RAISE(auto handle, context_->ExportIpcBuffer(mutable_data_, size_));
+  ARROW_ASSIGN_OR_RAISE(auto handle, context_->ExportIpcBuffer(data_, size_));
   own_data_ = false;
   return handle;
 }
@@ -204,7 +201,7 @@ Result<std::shared_ptr<CudaIpcMemHandle>> CudaBuffer::ExportForIpc() {
 CudaHostBuffer::~CudaHostBuffer() {
   auto maybe_manager = CudaDeviceManager::Instance();
   ARROW_CHECK_OK(maybe_manager.status());
-  ARROW_CHECK_OK((*maybe_manager)->FreeHost(mutable_data_, size_));
+  ARROW_CHECK_OK((*maybe_manager)->FreeHost(const_cast<uint8_t*>(data_), size_));
 }
 
 Result<uintptr_t> CudaHostBuffer::GetDeviceAddress(

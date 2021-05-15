@@ -262,17 +262,16 @@ class Variant : detail::VariantImpl<Variant<T...>, T...>,
 
   Variant(const Variant& other) = default;
   Variant& operator=(const Variant& other) = default;
-
-  using Impl::Impl;
-  using Impl::operator=;
-
-  Variant(Variant&& other) noexcept { other.move_to(this); }
-
   Variant& operator=(Variant&& other) noexcept {
     this->destroy();
     other.move_to(this);
     return *this;
   }
+
+  using Impl::Impl;
+  using Impl::operator=;
+
+  Variant(Variant&& other) noexcept { other.move_to(this); }
 
   ~Variant() {
     static_assert(offsetof(Variant, data_) == 0, "(void*)&Variant::data_ == (void*)this");

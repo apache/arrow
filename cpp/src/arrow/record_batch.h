@@ -90,7 +90,7 @@ class ARROW_EXPORT RecordBatch {
   const std::shared_ptr<Schema>& schema() const { return schema_; }
 
   /// \brief Retrieve all columns at once
-  std::vector<std::shared_ptr<Array>> columns() const;
+  virtual const std::vector<std::shared_ptr<Array>>& columns() const = 0;
 
   /// \brief Retrieve an array from the record batch
   /// \param[in] i field index, does not boundscheck
@@ -108,7 +108,7 @@ class ARROW_EXPORT RecordBatch {
   virtual std::shared_ptr<ArrayData> column_data(int i) const = 0;
 
   /// \brief Retrieve all arrays' internal data from the record batch.
-  virtual ArrayDataVector column_data() const = 0;
+  virtual const ArrayDataVector& column_data() const = 0;
 
   /// \brief Add column to the record batch, producing a new RecordBatch
   ///

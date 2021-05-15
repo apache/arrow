@@ -217,17 +217,12 @@ setup_tempdir() {
 
 setup_miniconda() {
   # Setup short-lived miniconda for Python and integration tests
-  if [ "$(uname)" == "Darwin" ]; then
-    if [ "$(uname -m)" == "arm64" ]; then
-	MINICONDA_URL=https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-MacOSX-arm64.sh
-    else
-        MINICONDA_URL=https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
-    fi
-  elif [ "$(uname)" == "Linux" ] && [ "$(uname -m)" == "aarch64" ]; then
-    MINICONDA_URL=https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-aarch64.sh
-  else
-    MINICONDA_URL=https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+  OS="$(uname)"
+  if [ "${OS}" == "Darwin" ]; then
+    OS=MacOSX
   fi
+  ARCH="$(uname -m)"
+  MINICONDA_URL="https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-${OS}-${ARCH}.sh"
 
   MINICONDA=$PWD/test-miniconda
 

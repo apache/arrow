@@ -68,4 +68,12 @@ std::string compute___expr__ToString(const std::shared_ptr<compute::Expression>&
   return x->ToString();
 }
 
+// [[arrow::export]]
+std::shared_ptr<arrow::DataType> compute___expr__type(
+    const std::shared_ptr<compute::Expression>& x,
+    const std::shared_ptr<arrow::Schema>& schema) {
+  auto bound = ValueOrStop(x->Bind(*schema));
+  return bound.type();
+}
+
 #endif

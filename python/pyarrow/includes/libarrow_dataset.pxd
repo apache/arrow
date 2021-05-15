@@ -115,6 +115,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CResult[shared_ptr[CTable]] Head(int64_t num_rows)
         CResult[int64_t] CountRows()
         CResult[CFragmentIterator] GetFragments()
+        CResult[shared_ptr[CRecordBatchReader]] ToRecordBatchReader()
         const shared_ptr[CScanOptions]& options()
 
     cdef cppclass CScannerBuilder "arrow::dataset::ScannerBuilder":

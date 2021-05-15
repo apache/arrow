@@ -499,6 +499,14 @@ TYPED_TEST(TestStringKernels, ReplaceSubstringRegex) {
   ReplaceSubstringOptions options_regex2{"(a.a)", "aba\\1"};
   this->CheckUnary("replace_substring_regex", R"(["aaaaaa"])", this->type(),
                    R"(["abaaaaabaaaa"])", &options_regex2);
+
+  // ARROW-12774
+  ReplaceSubstringOptions options_regex3{"X", "Y"};
+  this->CheckUnary("replace_substring_regex",
+                   R"(["A","A","A","A","A","A","A","A","A","A","A","A","A","A","A","A"])",
+                   this->type(),
+                   R"(["A","A","A","A","A","A","A","A","A","A","A","A","A","A","A","A"])",
+                   &options_regex3);
 }
 
 TYPED_TEST(TestStringKernels, ReplaceSubstringRegexLimited) {
@@ -538,6 +546,10 @@ TYPED_TEST(TestStringKernels, ExtractRegex) {
   this->CheckUnary(
       "extract_regex", R"(["a1", "b2", "c3", null])", type,
       R"([{"letter": "a", "digit": "1"}, {"letter": "b", "digit": "2"}, null, null])",
+      &options);
+  this->CheckUnary(
+      "extract_regex", R"(["a1", "c3", null, "b2"])", type,
+      R"([{"letter": "a", "digit": "1"}, null, null, {"letter": "b", "digit": "2"}])",
       &options);
   this->CheckUnary("extract_regex", R"(["a1", "b2"])", type,
                    R"([{"letter": "a", "digit": "1"}, {"letter": "b", "digit": "2"}])",

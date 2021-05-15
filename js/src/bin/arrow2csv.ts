@@ -147,7 +147,7 @@ function batchesToString(state: ToStringState, schema: Schema) {
         },
         transform(batch: RecordBatch, _enc: string, cb: (error?: Error, data?: any) => void) {
 
-            batch = !(state.schema && state.schema.length) ? batch : batch.select(...state.schema);
+            batch = !state.schema?.length ? batch : batch.select(...state.schema);
 
             if (state.closed) { return cb(undefined, null); }
 

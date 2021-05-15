@@ -28,7 +28,7 @@ import pytest
 import pyarrow as pa
 import pyarrow.csv
 import pyarrow.fs as fs
-from pyarrow.tests.util import change_cwd, _filesystem_uri
+from pyarrow.tests.util import change_cwd, _filesystem_uri, FSProtocolClass
 
 try:
     import pandas as pd
@@ -343,11 +343,12 @@ def test_scanner(dataset):
     assert scanner.projected_schema == pa.schema([("i64", pa.int64())])
 
     assert isinstance(scanner, ds.Scanner)
+    table = scanner.to_table()
     for batch in scanner.to_batches():
         assert batch.schema == scanner.projected_schema
         assert batch.num_columns == 1
+    assert table == scanner.to_reader().read_all()
 
-    table = scanner.to_table()
     assert table.schema == scanner.projected_schema
     for i in range(table.num_rows):
         indices = pa.array([i])
@@ -1569,6 +1570,26 @@ def test_open_dataset_list_of_files(tempdir):
         assert dataset.schema.equals(table.schema)
         result = dataset.to_table()
         assert result.equals(table)
+
+
+@pytest.mark.parquet
+def test_open_dataset_filesystem_fspath(tempdir):
+    # single file
+    table, path = _create_single_file(tempdir)
+
+    fspath = FSProtocolClass(path)
+
+    # filesystem inferred from path
+    dataset1 = ds.dataset(fspath)
+    assert dataset1.schema.equals(table.schema)
+
+    # filesystem specified
+    dataset2 = ds.dataset(fspath, filesystem=fs.LocalFileSystem())
+    assert dataset2.schema.equals(table.schema)
+
+    # passing different filesystem
+    with pytest.raises(TypeError):
+        ds.dataset(fspath, filesystem=fs._MockFileSystem())
 
 
 def test_construct_from_single_file(tempdir):

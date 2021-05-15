@@ -396,8 +396,11 @@ def write_js_test_json(directory):
     datagen.generate_nested_case().write(
         os.path.join(directory, 'nested.json')
     )
-    datagen.generate_decimal_case().write(
+    datagen.generate_decimal128_case().write(
         os.path.join(directory, 'decimal.json')
+    )
+    datagen.generate_decimal256_case().write(
+        os.path.join(directory, 'decimal256.json')
     )
     datagen.generate_datetime_case().write(
         os.path.join(directory, 'datetime.json')

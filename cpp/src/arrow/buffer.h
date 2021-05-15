@@ -56,23 +56,13 @@ class ARROW_EXPORT Buffer {
   ///
   /// \note The passed memory must be kept alive through some other means
   Buffer(const uint8_t* data, int64_t size)
-      : is_mutable_(false),
-        is_cpu_(true),
-        data_(data),
-        mutable_data_(NULLPTR),
-        size_(size),
-        capacity_(size) {
+      : is_mutable_(false), is_cpu_(true), data_(data), size_(size), capacity_(size) {
     SetMemoryManager(default_cpu_memory_manager());
   }
 
   Buffer(const uint8_t* data, int64_t size, std::shared_ptr<MemoryManager> mm,
          std::shared_ptr<Buffer> parent = NULLPTR)
-      : is_mutable_(false),
-        data_(data),
-        mutable_data_(NULLPTR),
-        size_(size),
-        capacity_(size),
-        parent_(parent) {
+      : is_mutable_(false), data_(data), size_(size), capacity_(size), parent_(parent) {
     SetMemoryManager(std::move(mm));
   }
 
@@ -131,7 +121,7 @@ class ARROW_EXPORT Buffer {
 #endif
     // A zero-capacity buffer can have a null data pointer
     if (capacity_ != 0) {
-      memset(mutable_data_ + size_, 0, static_cast<size_t>(capacity_ - size_));
+      memset(mutable_data() + size_, 0, static_cast<size_t>(capacity_ - size_));
     }
   }
 
@@ -205,7 +195,8 @@ class ARROW_EXPORT Buffer {
     CheckCPU();
     CheckMutable();
 #endif
-    return ARROW_PREDICT_TRUE(is_cpu_) ? mutable_data_ : NULLPTR;
+    return ARROW_PREDICT_TRUE(is_cpu_ && is_mutable_) ? const_cast<uint8_t*>(data_)
+                                                      : NULLPTR;
   }
 
   /// \brief Return the device address of the buffer's data
@@ -219,7 +210,7 @@ class ARROW_EXPORT Buffer {
 #ifndef NDEBUG
     CheckMutable();
 #endif
-    return reinterpret_cast<uintptr_t>(mutable_data_);
+    return ARROW_PREDICT_TRUE(is_mutable_) ? reinterpret_cast<uintptr_t>(data_) : 0;
   }
 
   /// \brief Return the buffer's size in bytes
@@ -289,7 +280,6 @@ class ARROW_EXPORT Buffer {
   bool is_mutable_;
   bool is_cpu_;
   const uint8_t* data_;
-  uint8_t* mutable_data_;
   int64_t size_;
   int64_t capacity_;
 
@@ -389,13 +379,11 @@ Result<std::shared_ptr<Buffer>> SliceMutableBufferSafe(
 class ARROW_EXPORT MutableBuffer : public Buffer {
  public:
   MutableBuffer(uint8_t* data, const int64_t size) : Buffer(data, size) {
-    mutable_data_ = data;
     is_mutable_ = true;
   }
 
   MutableBuffer(uint8_t* data, const int64_t size, std::shared_ptr<MemoryManager> mm)
       : Buffer(data, size, std::move(mm)) {
-    mutable_data_ = data;
     is_mutable_ = true;
   }
 

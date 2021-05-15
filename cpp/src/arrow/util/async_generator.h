@@ -1220,34 +1220,6 @@ AsyncGenerator<T> MakeTransferredGenerator(AsyncGenerator<T> source,
                                            internal::Executor* executor) {
   return TransferringGenerator<T>(std::move(source), executor);
 }
-/// \see MakeIteratorGenerator
-template <typename T>
-class IteratorGenerator {
- public:
-  explicit IteratorGenerator(Iterator<T> it) : it_(std::move(it)) {}
-
-  Future<T> operator()() { return Future<T>::MakeFinished(it_.Next()); }
-
- private:
-  Iterator<T> it_;
-};
-
-/// \brief Constructs a generator that yields futures from an iterator.
-///
-/// Note: Do not use this if you can avoid it.  This blocks in an async
-/// context which is a bad idea.  If you're converting sync-I/O to async
-/// then use MakeBackgroundGenerator.  Otherwise, convert the underlying
-/// source to async.  This function is only around until we can conver the
-/// remaining table readers to async.  Once all uses of this generator have
-/// been removed it should be removed(ARROW-11909).
-///
-/// This generator is not async-reentrant
-///
-/// This generator will not queue
-template <typename T>
-AsyncGenerator<T> MakeIteratorGenerator(Iterator<T> it) {
-  return IteratorGenerator<T>(std::move(it));
-}
 
 /// \see MakeBackgroundGenerator
 template <typename T>

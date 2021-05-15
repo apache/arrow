@@ -180,7 +180,7 @@ class ReaderV1 : public Reader {
           GetDataType(col->values(), col->metadata_type(), col->metadata(), &type));
       fields.push_back(::arrow::field(col->name()->str(), type));
     }
-    schema_ = ::arrow::schema(fields);
+    schema_ = ::arrow::schema(std::move(fields));
     return Status::OK();
   }
 
@@ -343,7 +343,7 @@ class ReaderV1 : public Reader {
       columns.emplace_back();
       RETURN_NOT_OK(GetColumn(i, &columns.back()));
     }
-    *out = Table::Make(this->schema(), columns, this->num_rows());
+    *out = Table::Make(this->schema(), std::move(columns), this->num_rows());
     return Status::OK();
   }
 
@@ -360,7 +360,8 @@ class ReaderV1 : public Reader {
       RETURN_NOT_OK(GetColumn(field_index, &columns.back()));
       fields.push_back(my_schema->field(field_index));
     }
-    *out = Table::Make(::arrow::schema(fields), columns, this->num_rows());
+    *out = Table::Make(::arrow::schema(std::move(fields)), std::move(columns),
+                       this->num_rows());
     return Status::OK();
   }
 
@@ -379,7 +380,8 @@ class ReaderV1 : public Reader {
       RETURN_NOT_OK(GetColumn(field_index, &columns.back()));
       fields.push_back(sch->field(field_index));
     }
-    *out = Table::Make(::arrow::schema(fields), columns, this->num_rows());
+    *out = Table::Make(::arrow::schema(std::move(fields)), std::move(columns),
+                       this->num_rows());
     return Status::OK();
   }
 
