@@ -27,12 +27,8 @@ namespace internal {
 using arrow_vendored::date::days;
 using arrow_vendored::date::floor;
 using arrow_vendored::date::hh_mm_ss;
-using arrow_vendored::date::local_days;
-using arrow_vendored::date::locate_zone;
-using arrow_vendored::date::make_zoned;
 using arrow_vendored::date::sys_days;
 using arrow_vendored::date::sys_time;
-using arrow_vendored::date::time_zone;
 using arrow_vendored::date::trunc;
 using arrow_vendored::date::weekday;
 using arrow_vendored::date::weeks;
@@ -49,13 +45,9 @@ using arrow_vendored::date::literals::thu;
 
 template <typename Duration>
 struct year {
-  inline const int32_t operator()(const int64_t data) const {
+  inline int32_t operator()(const int64_t data) const {
     return static_cast<const int32_t>(
         year_month_day(floor<days>(sys_time<Duration>(Duration{data}))).year());
-  }
-  inline const int32_t operator()(const int64_t data, const time_zone* tz) const {
-    auto zt = make_zoned(tz, sys_time<Duration>(Duration{data})).get_sys_time();
-    return static_cast<const int32_t>(year_month_day(floor<days>(zt)).year());
   }
 };
 
@@ -64,13 +56,9 @@ struct year {
 
 template <typename Duration>
 struct month {
-  inline const uint32_t operator()(const int64_t data) const {
+  inline uint32_t operator()(const int64_t data) const {
     return static_cast<const uint32_t>(
         year_month_day(floor<days>(sys_time<Duration>(Duration{data}))).month());
-  }
-  inline const uint32_t operator()(const int64_t data, const time_zone* tz) const {
-    auto zt = make_zoned(tz, sys_time<Duration>(Duration{data})).get_sys_time();
-    return static_cast<const uint32_t>(year_month_day(floor<days>(zt)).month());
   }
 };
 
@@ -79,13 +67,9 @@ struct month {
 
 template <typename Duration>
 struct day {
-  inline const uint32_t operator()(const int64_t data) const {
+  inline uint32_t operator()(const int64_t data) const {
     return static_cast<const uint32_t>(
         year_month_day(floor<days>(sys_time<Duration>(Duration{data}))).day());
-  }
-  inline const uint32_t operator()(const int64_t data, const time_zone* tz) const {
-    auto zt = make_zoned(tz, sys_time<Duration>(Duration{data})).get_sys_time();
-    return static_cast<const uint32_t>(year_month_day(floor<days>(zt)).day());
   }
 };
 
@@ -94,13 +78,9 @@ struct day {
 
 template <typename Duration>
 struct day_of_week {
-  inline const uint8_t operator()(const int64_t data) const {
+  inline uint8_t operator()(const int64_t data) const {
     return weekday(year_month_day(floor<days>(sys_time<Duration>(Duration{data}))))
         .iso_encoding();
-  }
-  inline const uint8_t operator()(const int64_t data, const time_zone* tz) const {
-    auto zt = make_zoned(tz, sys_time<Duration>(Duration{data})).get_sys_time();
-    return weekday(year_month_day(floor<days>(zt))).iso_encoding();
   }
 };
 
@@ -109,38 +89,21 @@ struct day_of_week {
 
 template <typename Duration>
 struct day_of_year {
-  inline const uint16_t operator()(const int64_t data) const {
+  inline uint16_t operator()(const int64_t data) const {
     const auto sd = sys_days{floor<days>(Duration{data})};
-    const auto y = year_month_day(sd).year();
-    return (sd - sys_days(y / jan / 0)).count();
-  }
-  inline const uint16_t operator()(const int64_t data, const time_zone* tz) const {
-    auto zt = make_zoned(tz, sys_time<Duration>(Duration{data})).get_sys_time();
-    auto ld = year_month_day(floor<days>(zt));
-    return (local_days(ld) - local_days(ld.year() / jan / 1) + days{1}).count();
+    return (sd - sys_days(year_month_day(sd).year() / jan / 0)).count();
   }
 };
 
 // ----------------------------------------------------------------------
 // Extract week from timestamp
 
+// Based on
+// https://github.com/HowardHinnant/date/blob/6e921e1b1d21e84a5c82416ba7ecd98e33a436d0/include/date/iso_week.h#L1503
 template <typename Duration>
 struct week {
-  // Based on
-  // https://github.com/HowardHinnant/date/blob/6e921e1b1d21e84a5c82416ba7ecd98e33a436d0/include/date/iso_week.h#L1503
-  inline const uint8_t operator()(const int64_t data) const {
+  inline uint8_t operator()(const int64_t data) const {
     const auto dp = sys_days{floor<days>(Duration{data})};
-    auto y = year_month_day{dp + days{3}}.year();
-    auto start = sys_days((y - years{1}) / dec / thu[last]) + (mon - thu);
-    if (dp < start) {
-      --y;
-      start = sys_days((y - years{1}) / dec / thu[last]) + (mon - thu);
-    }
-    return trunc<weeks>(dp - start).count() + 1;
-  }
-  inline const uint8_t operator()(const int64_t data, const time_zone* tz) const {
-    const auto dp = sys_days{
-        floor<days>(make_zoned(tz, sys_time<Duration>(Duration{data})).get_sys_time())};
     auto y = year_month_day{dp + days{3}}.year();
     auto start = sys_days((y - years{1}) / dec / thu[last]) + (mon - thu);
     if (dp < start) {
@@ -156,13 +119,8 @@ struct week {
 
 template <typename Duration>
 struct quarter {
-  inline const uint32_t operator()(const int64_t data) const {
+  inline uint32_t operator()(const int64_t data) const {
     const auto ymd = year_month_day(floor<days>(sys_time<Duration>(Duration{data})));
-    return (static_cast<const uint32_t>(ymd.month()) - 1) / 3 + 1;
-  }
-  inline const uint32_t operator()(const int64_t data, const time_zone* tz) const {
-    auto zt = make_zoned(tz, sys_time<Duration>(Duration{data})).get_sys_time();
-    const auto ymd = year_month_day(floor<days>(zt));
     return (static_cast<const uint32_t>(ymd.month()) - 1) / 3 + 1;
   }
 };
@@ -174,14 +132,8 @@ template <typename Duration>
 struct hour {
   inline uint8_t operator()(const int64_t data) const {
     Duration t = Duration{data};
-    return hh_mm_ss<Duration>(t - floor<days>(t)).hours().count();
-  }
-  inline uint8_t operator()(const int64_t data, const time_zone* tz) const {
-    const auto z = sys_time<Duration>(Duration{data});
-    const auto l = make_zoned(tz, z).get_local_time();
-    return hh_mm_ss<Duration>(std::chrono::duration_cast<Duration>(l - floor<days>(l)))
-        .hours()
-        .count();
+    return static_cast<const uint8_t>(
+        hh_mm_ss<Duration>(t - floor<days>(t)).hours().count());
   }
 };
 
@@ -192,14 +144,8 @@ template <typename Duration>
 struct minute {
   inline uint8_t operator()(const int64_t data) const {
     Duration t = Duration{data};
-    return hh_mm_ss<Duration>(t - floor<days>(t)).minutes().count();
-  }
-  inline uint8_t operator()(const int64_t data, const time_zone* tz) const {
-    const auto z = sys_time<Duration>(Duration{data});
-    const auto l = make_zoned(tz, z).get_local_time();
-    return hh_mm_ss<Duration>(std::chrono::duration_cast<Duration>(l - floor<days>(l)))
-        .minutes()
-        .count();
+    return static_cast<const uint8_t>(
+        hh_mm_ss<Duration>(t - floor<days>(t)).minutes().count());
   }
 };
 
@@ -210,14 +156,8 @@ template <typename Duration>
 struct second {
   inline uint8_t operator()(const int64_t data) const {
     Duration t = Duration{data};
-    return hh_mm_ss<Duration>(t - floor<days>(t)).seconds().count();
-  }
-  inline uint8_t operator()(const int64_t data, const time_zone* tz) const {
-    const auto z = sys_time<Duration>(Duration{data});
-    const auto l = make_zoned(tz, z).get_local_time();
-    return hh_mm_ss<Duration>(std::chrono::duration_cast<Duration>(l - floor<days>(l)))
-        .seconds()
-        .count();
+    return static_cast<const uint8_t>(
+        hh_mm_ss<Duration>(t - floor<days>(t)).seconds().count());
   }
 };
 
@@ -229,13 +169,6 @@ struct millisecond {
   inline uint16_t operator()(const int64_t data) const {
     Duration t = Duration{data};
     return std::chrono::duration_cast<std::chrono::milliseconds>(t - floor<days>(t))
-               .count() %
-           1000;
-  }
-  inline uint16_t operator()(const int64_t data, const time_zone* tz) const {
-    const auto z = sys_time<Duration>(Duration{data});
-    const auto l = make_zoned(tz, z).get_local_time();
-    return std::chrono::duration_cast<std::chrono::milliseconds>(l - floor<days>(l))
                .count() %
            1000;
   }
@@ -252,13 +185,6 @@ struct microsecond {
                .count() %
            1000;
   }
-  inline uint16_t operator()(const int64_t data, const time_zone* tz) const {
-    const auto z = sys_time<Duration>(Duration{data});
-    const auto l = make_zoned(tz, z).get_local_time();
-    return std::chrono::duration_cast<std::chrono::microseconds>(l - floor<days>(l))
-               .count() %
-           1000;
-  }
 };
 
 // ----------------------------------------------------------------------
@@ -272,18 +198,11 @@ struct nanosecond {
                .count() %
            1000;
   }
-  inline uint16_t operator()(const int64_t data, const time_zone* tz) const {
-    const auto z = sys_time<Duration>(Duration{data});
-    const auto l = make_zoned(tz, z).get_local_time();
-    return std::chrono::duration_cast<std::chrono::nanoseconds>(l - floor<days>(l))
-               .count() %
-           1000;
-  }
 };
 
 template <template <typename...> class Op>
 struct TimeUnitCaster {
-  TimeUnitCaster(const std::shared_ptr<const arrow::DataType> type) {
+  explicit TimeUnitCaster(const std::shared_ptr<const arrow::DataType> type) {
     const auto ts_type = std::static_pointer_cast<const TimestampType>(type);
 
     unit_ = ts_type->unit();
@@ -313,33 +232,11 @@ struct TimeUnitCaster {
         }
       }
     } else {
-      static const time_zone* tz = locate_zone(timezone);
-      switch (unit_) {
-        case TimeUnit::SECOND: {
-          auto func = Op<std::chrono::seconds>();
-          cast_func_ = [&func](const int64_t data) { return func(data, tz); };
-          break;
-        }
-        case TimeUnit::MILLI: {
-          auto func = Op<std::chrono::milliseconds>();
-          cast_func_ = [&func](const int64_t data) { return func(data, tz); };
-          break;
-        }
-        case TimeUnit::MICRO: {
-          auto func = Op<std::chrono::microseconds>();
-          cast_func_ = [&func](const int64_t data) { return func(data, tz); };
-          break;
-        }
-        case TimeUnit::NANO: {
-          auto func = Op<std::chrono::nanoseconds>();
-          cast_func_ = [&func](const int64_t data) { return func(data, tz); };
-          break;
-        }
-      }
+      ARROW_LOG(FATAL) << "Timezone aware timestamp processing not yet implemented.";
     }
   }
 
-  unsigned operator()(const int64_t data) const { return cast_func_(data); };
+  unsigned operator()(const int64_t data) const { return cast_func_(data); }
 
   std::function<int(const int64_t)> cast_func_;
   TimeUnit::type unit_;
@@ -355,7 +252,7 @@ struct GenericKernel {
   }
 
   static Status Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
-    auto in_data = in.GetValues<uint64_t>(1);
+    auto in_data = in.GetValues<int64_t>(1);
     auto out_data = out->GetMutableValues<OutType>(1);
     const auto caster = TimeUnitCaster<Op>(in.type);
     for (int64_t i = 0; i < in.length; i++) {
