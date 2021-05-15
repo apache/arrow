@@ -20,14 +20,10 @@ import {
     TextEncoder as TextEncoderPolyfill,
 } from 'text-encoding-utf-8';
 
+const decoder = new (typeof TextDecoder !== 'undefined' ? TextDecoder : TextDecoderPolyfill)('utf-8');
 /** @ignore */
-export const decodeUtf8 = ((TextDecoder) => {
-    const decoder = new TextDecoder('utf-8');
-    return (buffer?: ArrayBuffer | ArrayBufferView) => decoder.decode(buffer);
-})(typeof TextDecoder !== 'undefined' ? TextDecoder : TextDecoderPolyfill);
+export const decodeUtf8 = (buffer?: ArrayBuffer | ArrayBufferView) => decoder.decode(buffer);
 
+const encoder = new (typeof TextEncoder !== 'undefined' ? TextEncoder : TextEncoderPolyfill)();
 /** @ignore */
-export const encodeUtf8 = ((TextEncoder) => {
-    const encoder = new TextEncoder();
-    return (value?: string) => encoder.encode(value);
-})(typeof TextEncoder !== 'undefined' ? TextEncoder : TextEncoderPolyfill);
+export const encodeUtf8 = (value?: string) => encoder.encode(value);
