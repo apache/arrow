@@ -66,7 +66,7 @@ class IterableReadable<T extends Uint8Array | any> extends Readable {
             }
             if (!this.push(r.value) || size <= 0) { break; }
         }
-        if ((r && r.done || !this.readable) && (this.push(null) || true)) {
+        if ((r?.done || !this.readable) && (this.push(null) || true)) {
             it.return && it.return();
         }
         return !this.readable;
@@ -105,7 +105,7 @@ class AsyncIterableReadable<T extends Uint8Array | any> extends Readable {
             }
             if (!this.push(r.value) || size <= 0) { break; }
         }
-        if ((r && r.done || !this.readable) && (this.push(null) || true)) {
+        if ((r?.done || !this.readable) && (this.push(null) || true)) {
             it.return && it.return();
         }
         return !this.readable;

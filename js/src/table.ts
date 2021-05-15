@@ -185,7 +185,7 @@ export class Table<T extends { [key: string]: DataType } = any>
 
         const chunks = selectArgs<RecordBatch<T>>(RecordBatch, args);
 
-        if (!schema && !(schema = chunks[0] && chunks[0].schema)) {
+        if (!schema && !(schema = chunks[0]?.schema)) {
             throw new TypeError('Table must be initialized with a Schema or at least one RecordBatch');
         }
 

@@ -29,14 +29,14 @@ Object.defineProperty(Object, Symbol.hasInstance, {
     writable: true,
     configurable: true,
     value(inst: any) {
-        return inst && inst.constructor && inst.constructor.name === 'Object';
+        return inst?.constructor && inst.constructor.name === 'Object';
     }
 });
 Object.defineProperty(ArrayBuffer, Symbol.hasInstance, {
     writable: true,
     configurable: true,
     value(inst: any) {
-        return inst && inst.constructor && inst.constructor.name === 'ArrayBuffer';
+        return inst?.constructor && inst.constructor.name === 'ArrayBuffer';
     }
 });
 
