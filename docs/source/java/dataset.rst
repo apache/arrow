@@ -23,8 +23,8 @@ Dataset
 
     Experimental: The Java module ``dataset`` is currently under early development. API might be changed in each release of Apache Arrow until it gets mature.
 
-Dataset is an universal layer in Apache Arrow for querying data in different formats or in different paritioning strategies. Usually the data to be queried is
-supposed to be located from a traditional filesystem, but Dataset API is not designed only for querying files but can be extended to serve all possible datasources
+Dataset is an universal layer in Apache Arrow for querying data in different formats or in different paritionning strategies. Usually the data to be queried is
+supposed to be located from a traditional file system, but Dataset API is not designed only for querying files but can be extended to serve all possible data sources
 such as from inter-process communication or from other network locations, etc. 
 
 Getting Started
@@ -55,7 +55,7 @@ Below shows a simplest example of using Dataset to query a Parquet file in Java:
 .. note::
     ``ArrowRecordBatch`` is a low-level composite Arrow data exchange format that doesn't provide API to read typed data from it directly. It's recommended
     to use utilities ``VectorLoader`` to load it into a schema aware container ``VectorSchemaRoot`` by which user could be able to access decoded data
-    conviniently in Java.
+    conveniently in Java.
 
 .. seealso::
    Load record batches with :doc:`VectorSchemaRoot <vector_schema_root>`.
@@ -83,7 +83,7 @@ For some of the data format that is compatible with a user-defined schema, user 
     Schema schema = createUserSchema()
     Dataset dataset = factory.finish(schema);
 
-Otherwise when the non-parameter method ``DatasetFactory#inspect()`` is called, schema will be infered automatically from data source. The same as the result of
+Otherwise when the non-parameter method ``DatasetFactory#inspect()`` is called, schema will be inferred automatically from data source. The same as the result of
 ``DatasetFactory#inspect()``.
 
 Also, if projector is specified during scanning (see next section :ref:`Projection`), the actual schema of output data can be got within method ``Scanner::schema()``:
@@ -116,7 +116,7 @@ This way all column will be emitted during scanning.
 Read data from HDFS
 ===========
 
-``FileSystemDataset`` supports reading data from non-local file systems. HDFS support is included in the offical Apache Arrow Java package releases and
+``FileSystemDataset`` supports reading data from non-local file systems. HDFS support is included in the official Apache Arrow Java package releases and
 can be used directly without re-building the source code.
 To access HDFS data using Dataset API, pass a general HDFS URI to ``FilesSystemDatasetFactory``:
 
@@ -167,7 +167,7 @@ be thrown during scanning.
 
 .. note::
     The default instance ``NativeMemoryPool.getDefaultMemoryPool()`` does nothing on buffer allocation/deallocation. It's OK to use it in
-    the case of POC or testing, but for production use in complexier enviroment, it's recommened to manage memory by using a listenable memory pool.
+    the case of POC or testing, but for production use in complex environment, it's recommended to manage memory by using a listenable memory pool.
     
 .. note::
     The ``BufferAllocator`` instance passed to ``FileSystemDatasetFactory``'s constructor is also aware of the overall memory usage of the produced
@@ -175,7 +175,7 @@ be thrown during scanning.
 
 Native Object Resource Management
 ===========
-As another result of relying JNI, all components related to ``FileSystemDataset`` should be closed mannually to release the corresponding native
+As another result of relying JNI, all components related to ``FileSystemDataset`` should be closed manually to release the corresponding native
 objects after using. For example:
 
 .. code-block:: Java
