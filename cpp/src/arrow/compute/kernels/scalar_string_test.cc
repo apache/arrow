@@ -499,6 +499,14 @@ TYPED_TEST(TestStringKernels, ReplaceSubstringRegex) {
   ReplaceSubstringOptions options_regex2{"(a.a)", "aba\\1"};
   this->CheckUnary("replace_substring_regex", R"(["aaaaaa"])", this->type(),
                    R"(["abaaaaabaaaa"])", &options_regex2);
+
+  // ARROW-12774
+  ReplaceSubstringOptions options_regex3{"X", "Y"};
+  this->CheckUnary("replace_substring_regex",
+                   R"(["A","A","A","A","A","A","A","A","A","A","A","A","A","A","A","A"])",
+                   this->type(),
+                   R"(["A","A","A","A","A","A","A","A","A","A","A","A","A","A","A","A"])",
+                   &options_regex3);
 }
 
 TYPED_TEST(TestStringKernels, ReplaceSubstringRegexLimited) {
