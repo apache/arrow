@@ -52,6 +52,7 @@ jobs:
         uses: actions/cache@v2
         with:
           key: {{ "cache-${{ hashFiles('arrow/cpp/vcpkg.json') }}" }}
+          restore-keys: "cache-"
           path: |
             arrow/r/revdep
             arrow/.crancache
