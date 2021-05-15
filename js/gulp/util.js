@@ -74,24 +74,6 @@ const UMDSourceTargets = {
  esnext: `esnext`
 };
 
-// ES7+ keywords Terser shouldn't mangle
-// Hardcoded here since some are from ES7+, others are
-// only defined in interfaces, so difficult to get by reflection.
-const ESKeywords = [
-    // PropertyDescriptors
-    `configurable`, `enumerable`,
-    // IteratorResult, Symbol.asyncIterator
-    `done`, `value`, `Symbol.asyncIterator`, `asyncIterator`,
-    // AsyncObserver
-    `values`, `hasError`, `hasCompleted`,`errorValue`, `closed`,
-    // Observable/Subscription/Scheduler
-    `next`, `error`, `complete`, `subscribe`, `unsubscribe`, `isUnsubscribed`,
-    // EventTarget
-    `addListener`, `removeListener`, `addEventListener`, `removeEventListener`,
-    // Arrow properties
-    `low`, `high`, `data`, `index`, `field`, `columns`, 'numCols', 'numRows', `values`, `valueOffsets`, `nullBitmap`, `subarray`
-];
-
 function taskName(target, format) {
     return !format ? target : `${target}:${format}`;
 }
@@ -210,5 +192,5 @@ module.exports = {
     gCCLanguageNames, UMDSourceTargets,
 
     taskName, packageName, tsconfigName, targetDir, combinations, observableFromStreams,
-    ESKeywords, publicModulePaths, esmRequire, shouldRunInChildProcess, spawnGulpCommandInChildProcess
+    publicModulePaths, esmRequire, shouldRunInChildProcess, spawnGulpCommandInChildProcess
 };
