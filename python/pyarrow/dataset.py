@@ -784,5 +784,5 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
 
     _filesystemdataset_write(
         scanner, base_dir, basename_template, filesystem, partitioning,
-        file_options, use_threads, use_async
+        file_options, use_threads, use_async, max_partitions
     )
