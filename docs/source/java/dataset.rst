@@ -96,7 +96,7 @@ Also, if projector is specified during scanning (see next section :ref:`Projecti
 Projection
 ===========
 
-User can specify projections in ScanOptions. For ``FileSystemDataset``, only column projection is allowed for now. Which means, only column names
+User can specify projections in ScanOptions. For ``FileSystemDataset``, only column projection is allowed for now, which means, only column names
 in the projection list will be accepted. For example:
 
 .. code-block:: Java
@@ -130,11 +130,11 @@ To access HDFS data using Dataset API, pass a general HDFS URI to ``FilesSystemD
 Native Memory Management
 ===========
 
-To gain better performance and reducing code complexity, Java ``FileSystemDataset`` internally relys on C++ ``arrow::dataset::FileSystemDataset`` via JNI.
-As a result, All Arrow data read from ``FileSystemDataset`` is supposed to be allocated off the JVM heap. To manage this part of memory, An utility class
+To gain better performance and reduce code complexity, Java ``FileSystemDataset`` internally relys on C++ ``arrow::dataset::FileSystemDataset`` via JNI.
+As a result, all Arrow data read from ``FileSystemDataset`` is supposed to be allocated off the JVM heap. To manage this part of memory, An utility class
 ``NativeMemoryPool`` is provided to users.
 
-As a basic example, by using a listenable ``NativeMemoryPool``, User can pass a listener hooking on C++ buffer allocation/deallocation:
+As a basic example, by using a listenable ``NativeMemoryPool``, user can pass a listener hooking on C++ buffer allocation/deallocation:
 
 .. code-block:: Java
 
