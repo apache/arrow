@@ -193,7 +193,7 @@ export function validateVector<T extends DataType>(vals: (T['TValue'] | null)[],
         // debugger;
         // vec.get(i);
         throw new Error([
-            `${(vec as any).VectorName}[${i}]: ${e && e.stack || e}`,
+            `${(vec as any).VectorName}[${i}]: ${e?.stack || e}`,
             `nulls: [${nullVals.join(', ')}]`,
             `values: [${vals.join(', ')}]`,
         ].join('\n'));

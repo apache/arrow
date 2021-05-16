@@ -19,7 +19,6 @@ const {
     targetDir,
     mainExport,
     UMDSourceTargets,
-    terserLanguageNames,
     shouldRunInChildProcess,
     spawnGulpCommandInChildProcess,
 } = require('./util');
@@ -64,7 +63,7 @@ const minifyTask = ((cache, commonConfig) => memoizeTask(cache, function minifyJ
             minimizer: [
                 new TerserPlugin({
                     terserOptions: {
-                        ecma: terserLanguageNames[target],
+                        ecma: target,
                         output: { comments: false },
                         compress: { unsafe: true }
                     },

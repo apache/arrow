@@ -50,7 +50,7 @@ const closureTask = ((cache) => memoizeTask(cache, async function closure(target
     const exportedImports = publicModulePaths(srcAbsolute).reduce((entries, publicModulePath) => [
         ...entries, {
             publicModulePath,
-            exports_: getPublicExportedNames(esmRequire(publicModulePath, { warnings: false }))
+            exports_: getPublicExportedNames(esmRequire(publicModulePath))
         }
     ], []);
 

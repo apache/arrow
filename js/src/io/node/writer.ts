@@ -40,12 +40,12 @@ class RecordBatchWriterDuplex<T extends { [key: string]: DataType } = any> exten
     }
     _final(cb?: CB) {
         const writer = this._writer;
-        writer && writer.close();
+        writer?.close();
         cb && cb();
     }
     _write(x: any, _: string, cb: CB) {
         const writer = this._writer;
-        writer && writer.write(x);
+        writer?.write(x);
         cb && cb();
         return true;
     }
@@ -68,7 +68,7 @@ class RecordBatchWriterDuplex<T extends { [key: string]: DataType } = any> exten
             }
             if (!this.push(r.value) || size <= 0) { break; }
         }
-        if ((r && r.done || !this.readable)) {
+        if ((r?.done || !this.readable)) {
             this.push(null);
             await reader.cancel();
         }

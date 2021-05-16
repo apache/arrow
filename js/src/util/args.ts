@@ -186,7 +186,7 @@ function _selectFieldArgs<T extends { [key: string]: DataType }>(vals: any[], re
             ({ [idx]: field = idx } = keys);
             if (val instanceof DataType && (values[++valueIndex] = val)) {
                 fields[++fieldIndex] = Field.new(field, val as DataType, true) as Field<T[keyof T]>;
-            } else if (val && val.type && (values[++valueIndex] = val)) {
+            } else if (val?.type && (values[++valueIndex] = val)) {
                 val instanceof Data && (values[valueIndex] = val = Vector.new(val) as Vector);
                 fields[++fieldIndex] = Field.new(field, val.type, true) as Field<T[keyof T]>;
             }
