@@ -31,15 +31,15 @@ test_that("install_pyarrow", {
   reticulate::use_virtualenv("arrow-test")
 })
 
+skip_if_no_pyarrow()
+
 test_that("Array from Python", {
-  skip_if_no_pyarrow()
   pa <- reticulate::import("pyarrow")
   py <- pa$array(c(1, 2, 3))
   expect_equal(py, Array$create(c(1, 2, 3)))
 })
 
 test_that("Array to Python", {
-  skip_if_no_pyarrow()
   pa <- reticulate::import("pyarrow", convert = FALSE)
   r <- Array$create(c(1, 2, 3))
   py <- pa$concat_arrays(list(r))
@@ -48,7 +48,6 @@ test_that("Array to Python", {
 })
 
 test_that("RecordBatch to/from Python", {
-  skip_if_no_pyarrow()
   pa <- reticulate::import("pyarrow", convert = FALSE)
   batch <- record_batch(col1 = c(1, 2, 3), col2 = letters[1:3])
   py <- reticulate::r_to_py(batch)
@@ -57,7 +56,6 @@ test_that("RecordBatch to/from Python", {
 })
 
 test_that("Table and ChunkedArray from Python", {
-  skip_if_no_pyarrow()
   pa <- reticulate::import("pyarrow", convert = FALSE)
   batch <- record_batch(col1 = c(1, 2, 3), col2 = letters[1:3])
   tab <- Table$create(batch, batch)
@@ -70,7 +68,6 @@ test_that("Table and ChunkedArray from Python", {
 })
 
 test_that("Table and ChunkedArray to Python", {
-  skip_if_no_pyarrow()
   batch <- record_batch(col1 = c(1, 2, 3), col2 = letters[1:3])
   tab <- Table$create(batch, batch)
 
@@ -84,7 +81,6 @@ test_that("Table and ChunkedArray to Python", {
 })
 
 test_that("RecordBatch with metadata roundtrip", {
-  skip_if_no_pyarrow()
   batch <- RecordBatch$create(example_with_times)
   pybatch <- reticulate::r_to_py(batch)
   expect_s3_class(pybatch, "pyarrow.lib.RecordBatch")
@@ -93,7 +89,6 @@ test_that("RecordBatch with metadata roundtrip", {
 })
 
 test_that("Table with metadata roundtrip", {
-  skip_if_no_pyarrow()
   tab <- Table$create(example_with_times)
   pytab <- reticulate::r_to_py(tab)
   expect_s3_class(pytab, "pyarrow.lib.Table")
@@ -102,7 +97,6 @@ test_that("Table with metadata roundtrip", {
 })
 
 test_that("DataType roundtrip", {
-  skip_if_no_pyarrow()
   r <- timestamp("ms", timezone = "Asia/Pyongyang")
   py <- reticulate::r_to_py(r)
   expect_s3_class(py, "pyarrow.lib.DataType")
@@ -111,7 +105,6 @@ test_that("DataType roundtrip", {
 
 test_that("Field roundtrip", {
   skip("TODO in pyarrow: 'pyarrow.lib.Field' has no attribute '_import_from_c'")
-  skip_if_no_pyarrow()
   r <- field("x", time32("s"))
   py <- reticulate::r_to_py(r)
   expect_s3_class(py, "pyarrow.lib.Field")

@@ -19,6 +19,12 @@
 
 # arrow 4.0.0.9000
 
+* `write_csv_arrow()` to write Arrow data to CSV
+* Bindings and support for more Arrow C++ Compute functions: `strsplit()` and `str_split()`, `na.omit()` et al., `any()`/`all()`,
+* `arrow_info()` now includes details on the C++ build, such as compiler version
+* `dplyr` queries on `Table` and `RecordBatch` now use the same expression internals as `Dataset` (via `InMemoryDataset`). Among other (mostly internal) benefits that come with this, the print method for `arrow_dplyr_query` now includes the expression and the resulting type of columns derived by `mutate()`.
+* Added bindings for the remainder of C data interface: Type, Field, and RecordBatchReader (from the experimental C stream interface). These also have `reticulate::py_to_r()` and `r_to_py()` methods. Along with the addition of the `Scanner$ToRecordBatchReader()` method, you can now build up a Dataset query in R and pass the resulting stream of batches to another tool in process.
+
 # arrow 4.0.0.1
 
  * The mimalloc memory allocator is the default memory allocator when using a static source build of the package on Linux. This is because it has better behavior under valgrind than jemalloc does. A full-featured build (installed with `LIBARROW_MINIMAL=false`) includes both jemalloc and mimalloc, and it has still has jemalloc as default, though this is configurable at runtime with the `ARROW_DEFAULT_MEMORY_POOL` environment variable.
