@@ -19,6 +19,7 @@
 #include <memory>
 
 #include "arrow/api.h"
+#include "arrow/compute/exec/expression.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/file_parquet.h"
 #include "arrow/dataset/rados_utils.h"
@@ -120,8 +121,8 @@ class RandomAccessObject : public arrow::io::RandomAccessFile {
 };
 
 static arrow::Status ScanParquetObject(cls_method_context_t hctx,
-                                       arrow::dataset::Expression filter,
-                                       arrow::dataset::Expression partition_expression,
+                                       arrow::compute::Expression filter,
+                                       arrow::compute::Expression partition_expression,
                                        std::shared_ptr<arrow::Schema> projection_schema,
                                        std::shared_ptr<arrow::Schema> dataset_schema,
                                        std::shared_ptr<arrow::Table>& t,
@@ -131,20 +132,21 @@ static arrow::Status ScanParquetObject(cls_method_context_t hctx,
   arrow::dataset::FileSource source(file);
 
   auto format = std::make_shared<arrow::dataset::ParquetFileFormat>();
-  arrow::dataset::ParquetFileFormat::ReaderOptions reader_options{};
-  reader_options.enable_parallel_column_conversion = true;
-  format->reader_options = reader_options;
+
+  auto fragment_scan_options =
+      std::make_shared<arrow::dataset::ParquetFragmentScanOptions>();
+  fragment_scan_options->enable_parallel_column_conversion = true;
 
   ARROW_ASSIGN_OR_RAISE(auto fragment,
                         format->MakeFragment(source, partition_expression));
-
-  auto ctx = std::make_shared<arrow::dataset::ScanContext>();
+  auto options = std::make_shared<arrow::dataset::ScanOptions>();
   auto builder =
-      std::make_shared<arrow::dataset::ScannerBuilder>(dataset_schema, fragment, ctx);
+      std::make_shared<arrow::dataset::ScannerBuilder>(dataset_schema, fragment, options);
 
   ARROW_RETURN_NOT_OK(builder->Filter(filter));
   ARROW_RETURN_NOT_OK(builder->Project(projection_schema->field_names()));
   ARROW_RETURN_NOT_OK(builder->UseThreads(false));
+  ARROW_RETURN_NOT_OK(builder->FragmentScanOptions(fragment_scan_options));
 
   ARROW_ASSIGN_OR_RAISE(auto scanner, builder->Finish());
   ARROW_ASSIGN_OR_RAISE(auto table, scanner->ToTable());
@@ -158,8 +160,8 @@ static arrow::Status ScanParquetObject(cls_method_context_t hctx,
 static int scan_op(cls_method_context_t hctx, ceph::bufferlist* in,
                    ceph::bufferlist* out) {
   // the components required to construct a ParquetFragment.
-  arrow::dataset::Expression filter;
-  arrow::dataset::Expression partition_expression;
+  arrow::compute::Expression filter;
+  arrow::compute::Expression partition_expression;
   std::shared_ptr<arrow::Schema> projection_schema;
   std::shared_ptr<arrow::Schema> dataset_schema;
   int64_t file_size;

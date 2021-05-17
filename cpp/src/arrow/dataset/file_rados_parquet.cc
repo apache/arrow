@@ -17,8 +17,8 @@
 #include "arrow/dataset/file_rados_parquet.h"
 
 #include "arrow/api.h"
+#include "arrow/compute/exec/expression.h"
 #include "arrow/dataset/dataset_internal.h"
-#include "arrow/dataset/expression.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/path_util.h"
@@ -35,14 +35,13 @@ namespace dataset {
 class RadosParquetScanTask : public ScanTask {
  public:
   RadosParquetScanTask(std::shared_ptr<ScanOptions> options,
-                       std::shared_ptr<ScanContext> context, FileSource source,
+                       std::shared_ptr<Fragment> fragment, FileSource source,
                        std::shared_ptr<DirectObjectAccess> doa)
-      : ScanTask(std::move(options), std::move(context)),
+      : ScanTask(std::move(options), std::move(fragment)),
         source_(std::move(source)),
         doa_(std::move(doa)) {}
 
   Result<RecordBatchIterator> Execute() override {
-    ceph::bufferlist* in = new ceph::bufferlist();
     ceph::bufferlist* out = new ceph::bufferlist();
 
     Status s;
@@ -52,11 +51,12 @@ class RadosParquetScanTask : public ScanTask {
       return Status::Invalid(s.message());
     }
 
+    ceph::bufferlist in;
     ARROW_RETURN_NOT_OK(SerializeScanRequestToBufferlist(
-        options_->filter, options_->partition_expression, options_->projector.schema(),
-        options_->dataset_schema, st.st_size, *in));
+        options_->filter, options_->partition_expression, options_->projected_schema,
+        options_->dataset_schema, st.st_size, in));
 
-    s = doa_->Exec(st.st_ino, "scan_op", *in, *out);
+    s = doa_->Exec(st.st_ino, "scan_op", in, *out);
     if (!s.ok()) {
       return Status::ExecutionError(s.message());
     }
@@ -66,9 +66,9 @@ class RadosParquetScanTask : public ScanTask {
     auto buffer_reader = std::make_shared<io::BufferReader>(buffer);
     auto options = ipc::IpcReadOptions::Defaults();
     options.use_threads = false;
-    ARROW_ASSIGN_OR_RAISE(auto rb_reader,
-                          arrow::ipc::RecordBatchStreamReader::Open(buffer_reader, options));
-    return IteratorFromReader(rb_reader);
+    ARROW_ASSIGN_OR_RAISE(auto rb_reader, arrow::ipc::RecordBatchStreamReader::Open(
+                                              buffer_reader, options));
+    return MakeIteratorFromReader(rb_reader);
   }
 
  protected:
@@ -96,13 +96,13 @@ Result<std::shared_ptr<Schema>> RadosParquetFileFormat::Inspect(
 }
 
 Result<ScanTaskIterator> RadosParquetFileFormat::ScanFile(
-    std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext> context,
-    FileFragment* file) const {
+    const std::shared_ptr<ScanOptions>& options,
+    const std::shared_ptr<FileFragment>& file) const {
   std::shared_ptr<ScanOptions> options_ = std::make_shared<ScanOptions>(*options);
   options_->partition_expression = file->partition_expression();
   options_->dataset_schema = file->dataset_schema();
   ScanTaskVector v{std::make_shared<RadosParquetScanTask>(
-      std::move(options_), std::move(context), file->source(), std::move(doa_))};
+      std::move(options_), std::move(file), file->source(), std::move(doa_))};
   return MakeVectorIterator(v);
 }
 
