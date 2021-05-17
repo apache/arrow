@@ -15,11 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
 #include <cmath>
 #include <limits>
 
 #include "arrow/compute/kernels/common.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/decimal.h"
 #include "arrow/util/int_util_internal.h"
 #include "arrow/util/macros.h"
 
@@ -62,6 +64,11 @@ using enable_if_integer =
 template <typename T>
 using enable_if_floating_point = enable_if_t<std::is_floating_point<T>::value, T>;
 
+template <typename T>
+using enable_if_decimal =
+    enable_if_t<std::is_same<Decimal128, T>::value || std::is_same<Decimal256, T>::value,
+                T>;
+
 template <typename T, typename Unsigned = typename std::make_unsigned<T>::type>
 constexpr Unsigned to_unsigned(T signed_) {
   return static_cast<Unsigned>(signed_);
@@ -81,6 +88,12 @@ struct AbsoluteValue {
   template <typename T, typename Arg>
   static constexpr enable_if_signed_integer<T> Call(KernelContext*, T arg, Status* st) {
     return (arg < 0) ? arrow::internal::SafeSignedNegate(arg) : arg;
+  }
+
+  template <typename T, typename Arg>
+  static enable_if_decimal<T> Call(KernelContext*, T arg, Status* st) {
+    *st = Status::NotImplemented("NYI");
+    return T();
   }
 };
 
@@ -106,6 +119,12 @@ struct AbsoluteValueChecked {
     static_assert(std::is_same<T, Arg>::value, "");
     return std::fabs(arg);
   }
+
+  template <typename T, typename Arg>
+  static enable_if_decimal<T> Call(KernelContext*, Arg arg, Status* st) {
+    *st = Status::NotImplemented("NYI");
+    return T();
+  }
 };
 
 struct Add {
@@ -126,11 +145,16 @@ struct Add {
                                                     Status*) {
     return arrow::internal::SafeSignedAdd(left, right);
   }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_decimal<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
+    return left + right;
+  }
 };
 
 struct AddChecked {
   template <typename T, typename Arg0, typename Arg1>
-  enable_if_integer<T> Call(KernelContext*, Arg0 left, Arg1 right, Status* st) {
+  static enable_if_integer<T> Call(KernelContext*, Arg0 left, Arg1 right, Status* st) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     T result = 0;
     if (ARROW_PREDICT_FALSE(AddWithOverflow(left, right, &result))) {
@@ -140,8 +164,14 @@ struct AddChecked {
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  enable_if_floating_point<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
+  static enable_if_floating_point<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                          Status*) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
+    return left + right;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_decimal<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
     return left + right;
   }
 };
@@ -164,11 +194,16 @@ struct Subtract {
                                                     Status*) {
     return arrow::internal::SafeSignedSubtract(left, right);
   }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_decimal<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
+    return left + (-right);
+  }
 };
 
 struct SubtractChecked {
   template <typename T, typename Arg0, typename Arg1>
-  enable_if_integer<T> Call(KernelContext*, Arg0 left, Arg1 right, Status* st) {
+  static enable_if_integer<T> Call(KernelContext*, Arg0 left, Arg1 right, Status* st) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     T result = 0;
     if (ARROW_PREDICT_FALSE(SubtractWithOverflow(left, right, &result))) {
@@ -178,9 +213,15 @@ struct SubtractChecked {
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  enable_if_floating_point<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
+  static enable_if_floating_point<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                          Status*) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     return left - right;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_decimal<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
+    return left + (-right);
   }
 };
 
@@ -224,11 +265,16 @@ struct Multiply {
   static constexpr uint16_t Call(KernelContext*, uint16_t left, uint16_t right, Status*) {
     return static_cast<uint32_t>(left) * static_cast<uint32_t>(right);
   }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_decimal<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
+    return left * right;
+  }
 };
 
 struct MultiplyChecked {
   template <typename T, typename Arg0, typename Arg1>
-  enable_if_integer<T> Call(KernelContext*, Arg0 left, Arg1 right, Status* st) {
+  static enable_if_integer<T> Call(KernelContext*, Arg0 left, Arg1 right, Status* st) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     T result = 0;
     if (ARROW_PREDICT_FALSE(MultiplyWithOverflow(left, right, &result))) {
@@ -238,8 +284,14 @@ struct MultiplyChecked {
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  enable_if_floating_point<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
+  static enable_if_floating_point<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                          Status*) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
+    return left * right;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_decimal<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
     return left * right;
   }
 };
@@ -262,6 +314,16 @@ struct Divide {
       }
     }
     return result;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_decimal<T> Call(KernelContext*, Arg0 left, Arg1 right, Status* st) {
+    if (right == Arg1()) {
+      *st = Status::Invalid("Divide by zero");
+      return T();
+    } else {
+      return left / right;
+    }
   }
 };
 
@@ -290,6 +352,16 @@ struct DivideChecked {
     }
     return left / right;
   }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_decimal<T> Call(KernelContext*, Arg0 left, Arg1 right, Status* st) {
+    if (right == Arg1()) {
+      *st = Status::Invalid("Divide by zero");
+      return T();
+    } else {
+      return left / right;
+    }
+  }
 };
 
 struct Negate {
@@ -304,8 +376,14 @@ struct Negate {
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_signed_integer<T> Call(KernelContext*, Arg arg, Status* st) {
+  static constexpr enable_if_signed_integer<T> Call(KernelContext*, Arg arg, Status*) {
     return arrow::internal::SafeSignedNegate(arg);
+  }
+
+  template <typename T, typename Arg>
+  static enable_if_decimal<T> Call(KernelContext*, Arg arg, Status* st) {
+    *st = Status::NotImplemented("NYI");
+    return T();
   }
 };
 
@@ -332,6 +410,12 @@ struct NegateChecked {
   static constexpr enable_if_floating_point<T> Call(KernelContext*, Arg arg, Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
     return -arg;
+  }
+
+  template <typename T, typename Arg>
+  static enable_if_decimal<T> Call(KernelContext*, Arg arg, Status* st) {
+    *st = Status::NotImplemented("NYI");
+    return T();
   }
 };
 
@@ -360,6 +444,12 @@ struct Power {
   template <typename T>
   static enable_if_floating_point<T> Call(KernelContext*, T base, T exp, Status*) {
     return std::pow(base, exp);
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_decimal<T> Call(KernelContext*, Arg0 base, Arg1 exp, Status* st) {
+    *st = Status::NotImplemented("NYI");
+    return T();
   }
 };
 
@@ -395,6 +485,12 @@ struct PowerChecked {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     return std::pow(base, exp);
   }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_decimal<T> Call(KernelContext*, Arg0 base, Arg1 exp, Status* st) {
+    *st = Status::NotImplemented("NYI");
+    return T();
+  }
 };
 
 // Generate a kernel given an arithmetic functor
@@ -428,11 +524,68 @@ ArrayKernelExec ArithmeticExecFromOp(detail::GetTypeId get_id) {
   }
 }
 
+// calculate output precision/scale and args rescaling per operation type
+Result<std::shared_ptr<DataType>> GetDecimalBinaryOutput(
+    const std::string& op, const std::vector<ValueDescr>& values,
+    std::vector<std::shared_ptr<DataType>>* replaced = nullptr) {
+  const auto& left_type = checked_pointer_cast<DecimalType>(values[0].type);
+  const auto& right_type = checked_pointer_cast<DecimalType>(values[1].type);
+
+  const int32_t p1 = left_type->precision(), s1 = left_type->scale();
+  const int32_t p2 = right_type->precision(), s2 = right_type->scale();
+  if (s1 < 0 || s2 < 0) {
+    return Status::NotImplemented("Decimals with negative scales not supported");
+  }
+
+  int32_t out_prec, out_scale;
+  int32_t left_scaleup = 0, right_scaleup = 0;
+
+  // decimal upscaling behaviour references amazon redshift
+  // https://docs.aws.amazon.com/redshift/latest/dg/r_numeric_computations201.html
+  if (op.find("add") == 0 || op.find("subtract") == 0) {
+    out_scale = std::max(s1, s2);
+    out_prec = std::max(p1 - s1, p2 - s2) + 1 + out_scale;
+    left_scaleup = out_scale - s1;
+    right_scaleup = out_scale - s2;
+  } else if (op.find("multiply") == 0) {
+    out_scale = s1 + s2;
+    out_prec = p1 + p2 + 1;
+  } else if (op.find("divide") == 0) {
+    out_scale = std::max(4, s1 + p2 - s2 + 1);
+    out_prec = p1 - s1 + s2 + out_scale;  // >= p1 + p2 + 1
+    left_scaleup = out_prec - p1;
+  } else {
+    return Status::Invalid("Invalid decimal operation: ", op);
+  }
+
+  const auto id = left_type->id();
+  auto make = [id](int32_t precision, int32_t scale) {
+    if (id == Type::DECIMAL128) {
+      return Decimal128Type::Make(precision, scale);
+    } else {
+      return Decimal256Type::Make(precision, scale);
+    }
+  };
+
+  if (replaced) {
+    replaced->resize(2);
+    ARROW_ASSIGN_OR_RAISE((*replaced)[0], make(p1 + left_scaleup, s1 + left_scaleup));
+    ARROW_ASSIGN_OR_RAISE((*replaced)[1], make(p2 + right_scaleup, s2 + right_scaleup));
+  }
+
+  return make(out_prec, out_scale);
+}
+
 struct ArithmeticFunction : ScalarFunction {
   using ScalarFunction::ScalarFunction;
 
   Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
     RETURN_NOT_OK(CheckArity(*values));
+
+    const auto type_id = (*values)[0].type->id();
+    if (type_id == Type::DECIMAL128 || type_id == Type::DECIMAL256) {
+      return DispatchDecimal(values);
+    }
 
     using arrow::compute::detail::DispatchExactImpl;
     if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
@@ -451,7 +604,44 @@ struct ArithmeticFunction : ScalarFunction {
     if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
     return arrow::compute::detail::NoMatchingKernel(this, *values);
   }
+
+  Result<const Kernel*> DispatchDecimal(std::vector<ValueDescr>* values) const {
+    if (values->size() == 2) {
+      std::vector<std::shared_ptr<DataType>> replaced;
+      RETURN_NOT_OK(GetDecimalBinaryOutput(name(), *values, &replaced));
+      (*values)[0].type = std::move(replaced[0]);
+      (*values)[1].type = std::move(replaced[1]);
+    }
+
+    using arrow::compute::detail::DispatchExactImpl;
+    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
+    return arrow::compute::detail::NoMatchingKernel(this, *values);
+  }
 };
+
+// resolve decimal operation output type
+struct DecimalBinaryOutputResolver {
+  std::string func_name;
+
+  DecimalBinaryOutputResolver(std::string func_name) : func_name(std::move(func_name)) {}
+
+  Result<ValueDescr> operator()(KernelContext*, const std::vector<ValueDescr>& args) {
+    ARROW_ASSIGN_OR_RAISE(auto out_type, GetDecimalBinaryOutput(func_name, args));
+    return ValueDescr(std::move(out_type));
+  }
+};
+
+template <typename Op>
+void AddDecimalBinaryKernels(const std::string& name,
+                             std::shared_ptr<ArithmeticFunction>* func) {
+  auto out_type = OutputType(DecimalBinaryOutputResolver(name));
+  auto in_type128 = InputType(Type::DECIMAL128);
+  auto in_type256 = InputType(Type::DECIMAL256);
+  auto exec128 = ScalarBinaryNotNullEqualTypes<Decimal128Type, Decimal128Type, Op>::Exec;
+  auto exec256 = ScalarBinaryNotNullEqualTypes<Decimal256Type, Decimal256Type, Op>::Exec;
+  DCHECK_OK((*func)->AddKernel({in_type128, in_type128}, out_type, exec128));
+  DCHECK_OK((*func)->AddKernel({in_type256, in_type256}, out_type, exec256));
+}
 
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeArithmeticFunction(std::string name,
@@ -461,6 +651,8 @@ std::shared_ptr<ScalarFunction> MakeArithmeticFunction(std::string name,
     auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
   }
+  AddDecimalBinaryKernels<Op>(name, &func);
+
   return func;
 }
 
@@ -474,6 +666,8 @@ std::shared_ptr<ScalarFunction> MakeArithmeticFunctionNotNull(std::string name,
     auto exec = ArithmeticExecFromOp<ScalarBinaryNotNullEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
   }
+  AddDecimalBinaryKernels<Op>(name, &func);
+
   return func;
 }
 

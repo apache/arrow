@@ -169,6 +169,22 @@ void CheckScalar(std::string func_name, const DatumVector& inputs,
   }
 }
 
+void CheckScalar(std::string func_name, const std::vector<Datum>& inputs,
+                 const Datum& expected, const FunctionOptions* options) {
+  ASSERT_OK_AND_ASSIGN(Datum out, CallFunction(func_name, inputs, options));
+  ASSERT_EQ(out.kind(), expected.kind());
+  if (out.kind() == Datum::ARRAY) {
+    std::shared_ptr<Array> actual = out.make_array();
+    ASSERT_OK(actual->ValidateFull());
+    AssertArraysEqual(*expected.make_array(), *actual, /*verbose=*/true);
+  } else if (out.kind() == Datum::SCALAR) {
+    std::shared_ptr<Scalar> actual = out.scalar();
+    AssertScalarsEqual(*expected.scalar(), *actual, /*verbose=*/true);
+  } else {
+    ASSERT_EQ(out, expected);
+  }
+}
+
 void CheckScalarUnary(std::string func_name, std::shared_ptr<Array> input,
                       std::shared_ptr<Array> expected, const FunctionOptions* options) {
   ArrayVector input_vector = {input};
