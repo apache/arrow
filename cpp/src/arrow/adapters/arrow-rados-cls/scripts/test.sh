@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 #
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -17,13 +17,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
+set -x
 
-apt update
-apt install -y ceph-fuse
-
-source_dir=${1}/cpp
-build_dir=${2}/cpp
+build_dir=cpp/debug
 test_dir=${build_dir}/test-cluster
 
 pushd ${build_dir}
@@ -78,8 +74,9 @@ chdir = ""
 osd data = ${OSD_DATA}
 osd journal = ${OSD_DATA}.journal
 osd journal size = 100
-osd objectstore = bluestore
+osd objectstore =  memstore
 osd class load list = *
+debug osd = 20
 EOF
 
     OSD_ID=$(ceph osd create)
@@ -91,8 +88,8 @@ EOF
     MDS_DATA=${TEST_DIR}/mds
     mkdir -p $MDS_DATA
 
-    ceph osd pool create cephfs_data 64
-    ceph osd pool create cephfs_metadata 64
+    ceph osd pool create cephfs_data 16
+    ceph osd pool create cephfs_metadata 16
     ceph fs new cephfs cephfs_metadata cephfs_data
 
     ceph-mds --id a
@@ -105,13 +102,14 @@ EOF
 
     # copy the CLS libs to the appropriate locations.
     mkdir -p /usr/lib/x86_64-linux-gnu/rados-classes/
-    mkdir -p /usr/lib/aarch64-linux-gnu/rados-classes/
     cp debug/libcls_arrow* /usr/lib/x86_64-linux-gnu/rados-classes/
-    cp debug/libcls_arrow* /usr/lib/aarch64-linux-gnu/rados-classes/
+    systemctl restart ceph-osd.target
 
     # mount a ceph filesystem to /mnt/cephfs in the user-space using ceph-fuse
+    fusermount -uz /mnt/cephfs
+    rm -rf /mnt/cephfs
     mkdir -p /mnt/cephfs
-    ceph-fuse --id client.admin -m 127.0.0.1:6789  --client_fs cephfs /mnt/cephfs
+    ceph-fuse /mnt/cephfs
     sleep 5
 
     # download an example dataset and copy into the mounted dir
@@ -119,11 +117,14 @@ EOF
     wget https://raw.githubusercontent.com/JayjeetAtGithub/zips/main/nyc.zip # try to get this dataset into the source tree
     unzip nyc.zip
     cp -r nyc /mnt/cephfs/
-    sleep 15
+    sleep 5
+    
+    ceph -s
+    sleep 2
 
-    # run the end-to-end C++ tests
+    # run the tests
     TESTS=debug/arrow-cls-cls-arrow-test
     if [ -f "$TESTS" ]; then
-        debug/arrow-cls-cls-arrow-test
+       debug/arrow-cls-cls-arrow-test
     fi
 popd

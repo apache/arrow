@@ -171,7 +171,7 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
 
   /// \brief Create a FileFragment for a FileSource.
   Result<std::shared_ptr<FileFragment>> MakeFragment(
-      FileSource source, Expression partition_expression, int flag,
+      FileSource source, compute::Expression partition_expression, int flag,
       std::shared_ptr<Schema> dataset_schema);
 
   Result<std::shared_ptr<FileFragment>> MakeFragment(
@@ -207,7 +207,8 @@ class ARROW_DS_EXPORT FileFragment : public Fragment {
 
  protected:
   FileFragment(FileSource source, std::shared_ptr<FileFormat> format,
-               compute::Expression partition_expression, std::shared_ptr<Schema> physical_schema,
+               compute::Expression partition_expression,
+               std::shared_ptr<Schema> physical_schema,
                std::shared_ptr<Schema> dataset_schema)
       : Fragment(std::move(partition_expression), std::move(physical_schema)),
         source_(std::move(source)),

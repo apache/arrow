@@ -841,7 +841,7 @@ cdef class FileFormat(_Weakrefable):
         self.init(sp)
         return self
 
-    cdef inline shared_ptr[CFileFormat] unwrap(self) nogil:
+    cdef inline shared_ptr[CFileFormat] unwrap(self):
         return self.wrapped
 
     def inspect(self, file, filesystem=None):
@@ -1199,9 +1199,6 @@ class RowGroupInfo:
 
 cdef class FragmentScanOptions(_Weakrefable):
     """Scan options specific to a particular fragment and scan operation."""
-
-    cdef:
-        shared_ptr[CFragmentScanOptions] wrapped
 
     def __init__(self):
         _forbid_instantiation(self.__class__)

@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 #
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -19,5 +19,18 @@
 
 set -ex
 
-apt update
-apt install -y ceph-common ceph-osd ceph-mon ceph-mgr ceph-mds
+cd cpp/
+
+if [ ! -d "debug" ]; then
+
+mkdir -p debug
+cd debug/
+cmake -DCMAKE_BUILD_TYPE=Debug -DARROW_CLS=ON -DARROW_PARQUET=ON -DARROW_WITH_SNAPPY=ON -DARROW_WITH_ZLIB=ON -DARROW_BUILD_EXAMPLES=ON -DPARQUET_BUILD_EXAMPLES=ON -DARROW_PYTHON=ON -DARROW_DATASET=ON -DARROW_CSV=ON -DARROW_WITH_LZ4=ON -DARROW_WITH_ZSTD=ON -DARROW_BUILD_TESTS=ON ..
+
+else
+
+cd debug/
+
+fi
+
+make -j4 install

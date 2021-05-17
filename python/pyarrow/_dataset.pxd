@@ -38,13 +38,6 @@ from pyarrow._parquet cimport (
 )
 
 cdef class Dataset(_Weakrefable):
-    """
-    Collection of data fragments and potentially child datasets.
-    Arrow Datasets allow you to query against data that has been split across
-    multiple files. This sharding of data may indicate partitioning, which
-    can accelerate queries that only touch some partitions (files).
-    """
-
     cdef:
         shared_ptr[CDataset] wrapped
         CDataset* dataset
@@ -57,8 +50,17 @@ cdef class Dataset(_Weakrefable):
     cdef shared_ptr[CDataset] unwrap(self) nogil
 
 
-cdef class FileFormat(_Weakrefable):
+cdef class FragmentScanOptions(_Weakrefable):
+    cdef:
+        shared_ptr[CFragmentScanOptions] wrapped
 
+    cdef void init(self, const shared_ptr[CFragmentScanOptions]& sp)
+
+    @staticmethod
+    cdef wrap(const shared_ptr[CFragmentScanOptions]& sp)
+
+
+cdef class FileFormat(_Weakrefable):
     cdef:
         shared_ptr[CFileFormat] wrapped
         CFileFormat* format
@@ -68,4 +70,6 @@ cdef class FileFormat(_Weakrefable):
     @staticmethod
     cdef wrap(const shared_ptr[CFileFormat]& sp)
 
-    cdef inline shared_ptr[CFileFormat] unwrap(self) nogil
+    cdef inline shared_ptr[CFileFormat] unwrap(self)
+
+    cdef _set_default_fragment_scan_options(self, FragmentScanOptions options)

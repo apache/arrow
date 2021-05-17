@@ -186,7 +186,6 @@ before_install:
     if [ "${arrow_ci_affected}" = "no" ]; then
       travis_terminate 0
     fi
-
 install:
   - sudo -H pip3 install --upgrade pip
   - sudo -H pip3 install 'docker-compose>=1.27.0'
@@ -198,7 +197,6 @@ script:
       ${DOCKER_RUN_ARGS} \
       --volume ${PWD}/build:/build \
       ${DOCKER_IMAGE_ID}
-
 after_success:
   - |
     if [ "${TRAVIS_EVENT_TYPE}" = "push" -a \
