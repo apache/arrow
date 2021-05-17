@@ -23,7 +23,7 @@ Dataset
 
     Experimental: The Java module ``dataset`` is currently under early development. API might be changed in each release of Apache Arrow until it gets mature.
 
-Dataset is an universal layer in Apache Arrow for querying data in different formats or in different paritionning strategies. Usually the data to be queried is
+Dataset is an universal layer in Apache Arrow for querying data in different formats or in different paritioning strategies. Usually the data to be queried is
 supposed to be located from a traditional file system, however Arrow Dataset is not designed only for querying files but can be extended to serve all possible data sources
 such as from inter-process communication or from other network locations, etc. 
 
@@ -111,7 +111,7 @@ If no projection is needed, specify an empty String array ``new String[0]`` in S
     String[] projection = new String[0];
     ScanOptions options = new ScanOptions(projection, 100);
     
-This way all column will be emitted during scanning.
+This way all columns will be emitted during scanning.
 
 Read data from HDFS
 ===========
