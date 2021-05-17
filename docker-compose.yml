@@ -712,6 +712,7 @@ services:
     volumes: *ubuntu-volumes
     command: >
       /bin/bash -c "
+        apt remove -y git &&
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_sdist_test.sh /arrow"
 
