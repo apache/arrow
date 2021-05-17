@@ -43,7 +43,7 @@ export PYARROW_WITH_DATASET=${ARROW_DATASET:-OFF}
 # apt purge -y pkg-config
 
 # ARROW-12619
-if [ command -v COMMAND &> /dev/null ]; then
+if command -v git &> /dev/null; then
   echo "Git exists, remove it from PATH before executing this script."
   exit 1
 fi
