@@ -133,7 +133,7 @@ class TestRunSynchronously : public testing::TestWithParam<bool> {
   }
 
   Status RunVoid(FnOnce<Future<>(Executor*)> top_level_task) {
-    return RunSynchronouslyVoid(std::move(top_level_task), UseThreads());
+    return RunSynchronously(std::move(top_level_task), UseThreads());
   }
 
   void TestContinueAfterExternal(bool transfer_to_main_thread) {
@@ -141,7 +141,7 @@ class TestRunSynchronously : public testing::TestWithParam<bool> {
     EXPECT_OK_AND_ASSIGN(auto external_pool, ThreadPool::Make(1));
     auto top_level_task = [&](Executor* executor) {
       struct Callback {
-        Status operator()(...) {
+        Status operator()() {
           *continuation_ran = true;
           return Status::OK();
         }
@@ -166,7 +166,7 @@ TEST_P(TestRunSynchronously, SimpleRun) {
   auto task = [&](Executor* executor) {
     EXPECT_NE(executor, nullptr);
     task_ran = true;
-    return Future<>::MakeFinished(Status::OK());
+    return Future<>::MakeFinished();
   };
   ASSERT_OK(RunVoid(std::move(task)));
   EXPECT_TRUE(task_ran);
@@ -189,11 +189,7 @@ TEST_P(TestRunSynchronously, SpawnMoreNested) {
   auto top_level_task = [&](Executor* executor) -> Future<> {
     auto fut_a = DeferNotOk(executor->Submit([&] { nested_ran++; }));
     auto fut_b = DeferNotOk(executor->Submit([&] { nested_ran++; }));
-    return AllComplete({fut_a, fut_b})
-        .Then([&](const Result<arrow::detail::Empty>& result) {
-          nested_ran++;
-          return result;
-        });
+    return AllComplete({fut_a, fut_b}).Then([&]() { nested_ran++; });
   };
   ASSERT_OK(RunVoid(std::move(top_level_task)));
   EXPECT_EQ(nested_ran, 3);

@@ -37,10 +37,10 @@ class Result;
 
 class Status;
 
-namespace detail {
+namespace internal {
 struct Empty;
-}
-template <typename T = detail::Empty>
+}  // namespace internal
+template <typename T = internal::Empty>
 class Future;
 
 namespace util {

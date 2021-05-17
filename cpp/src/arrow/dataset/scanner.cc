@@ -698,11 +698,10 @@ struct AsyncTableAssemblyState {
 };
 
 Status AsyncScanner::Scan(std::function<Status(TaggedRecordBatch)> visitor) {
-  return internal::RunSynchronouslyVoid(
-      [this, &visitor](Executor* executor) {
-        return VisitBatchesAsync(visitor, executor);
-      },
-      scan_options_->use_threads);
+  auto top_level_task = [this, &visitor](Executor* executor) {
+    return VisitBatchesAsync(visitor, executor);
+  };
+  return internal::RunSynchronously<Future<>>(top_level_task, scan_options_->use_threads);
 }
 
 Future<> AsyncScanner::VisitBatchesAsync(std::function<Status(TaggedRecordBatch)> visitor,
@@ -729,10 +728,9 @@ Future<std::shared_ptr<Table>> AsyncScanner::ToTableAsync(
   auto table_building_gen = MakeMappedGenerator<EnumeratedRecordBatch>(
       positioned_batch_gen, table_building_task);
 
-  return DiscardAllFromAsyncGenerator(table_building_gen)
-      .Then([state, scan_options](const detail::Empty&) {
-        return Table::FromRecordBatches(scan_options->projected_schema, state->Finish());
-      });
+  return DiscardAllFromAsyncGenerator(table_building_gen).Then([state, scan_options]() {
+    return Table::FromRecordBatches(scan_options->projected_schema, state->Finish());
+  });
 }
 
 Result<int64_t> AsyncScanner::CountRows() {

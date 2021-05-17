@@ -110,8 +110,8 @@ static void RunInSerialExecutor(benchmark::State& state) {  // NOLINT non-const 
   Workload workload(workload_size);
 
   for (auto _ : state) {
-    ABORT_NOT_OK(SerialExecutor::RunInSerialExecutor<arrow::detail::Empty>(
-        [&](internal::Executor* executor) {
+    ABORT_NOT_OK(
+        SerialExecutor::RunInSerialExecutor<Future<>>([&](internal::Executor* executor) {
           return DeferNotOk(executor->Submit(std::ref(workload)));
         }));
   }
@@ -136,7 +136,7 @@ static void ThreadPoolSubmit(benchmark::State& state) {  // NOLINT non-const ref
 
     for (int32_t i = 0; i < nspawns; ++i) {
       // Pass the task by reference to avoid copying it around
-      (void)DeferNotOk(pool->Submit(std::ref(workload))).Then([&](...) {
+      (void)DeferNotOk(pool->Submit(std::ref(workload))).Then([&]() {
         n_finished.fetch_add(1);
       });
     }
