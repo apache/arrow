@@ -2982,8 +2982,6 @@ def _filesystemdataset_write(
     FileSystem filesystem not None,
     Partitioning partitioning not None,
     FileWriteOptions file_options not None,
-    bint use_threads,
-    bint use_async,
     int max_partitions,
 ):
     """
