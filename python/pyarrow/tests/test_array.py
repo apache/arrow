@@ -413,6 +413,9 @@ def test_array_slice():
     with pytest.raises(IndexError):
         arr.slice(-1)
 
+    with pytest.raises(ValueError):
+        arr.slice(2, -1)
+
     # Test slice notation
     assert arr[2:].equals(arr.slice(2))
     assert arr[2:5].equals(arr.slice(2, 3))
@@ -421,7 +424,11 @@ def test_array_slice():
     n = len(arr)
     for start in range(-n * 2, n * 2):
         for stop in range(-n * 2, n * 2):
-            assert arr[start:stop].to_pylist() == arr.to_pylist()[start:stop]
+            res = arr[start:stop]
+            res.validate()
+            expected = arr.to_pylist()[start:stop]
+            assert res.to_pylist() == expected
+            assert res.to_numpy().tolist() == expected
 
 
 def test_array_slice_negative_step():
