@@ -141,16 +141,13 @@ attr(is_writable_table, "fail") <- function(call, env){
 
 #' Take an object of length 1 and repeat it.
 #' 
-#' @param object Object to be repeated - vector, `Scalar`, `Array`, or `ChunkedArray`
+#' @param object Object of length 1 to be repeated - vector, `Scalar`, `Array`, or `ChunkedArray`
 #' @param n Number of repetitions
 #' 
 #' @return `Array` of length `n`
 #' 
 #' @keywords internal
 repeat_value_as_array <- function(object, n) {
-  if (length(object) != 1) {
-    stop("Object to be repeated must be of length 1")
-  }
   if (inherits(object, "ChunkedArray")) {
     return(MakeArrayFromScalar(Scalar$create(object$chunks[[1]]), n))
   }
