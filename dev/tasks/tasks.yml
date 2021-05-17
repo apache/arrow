@@ -125,7 +125,7 @@ groups:
     - ubuntu-*
     - centos-*
     - conda-*
-    - jars
+    - java-jars
     # List the homebrews explicitly because we don't care about running homebrew-cpp-autobrew
     - homebrew-cpp
     - homebrew-r-autobrew
