@@ -127,7 +127,6 @@ class TestPrimitiveNode : public ::testing::Test {
   std::string name_;
   const PrimitiveNode* prim_node_;
 
-  int field_id_;
   std::unique_ptr<Node> node_;
 };
 
@@ -168,17 +167,16 @@ TEST_F(TestPrimitiveNode, Attrs) {
 }
 
 TEST_F(TestPrimitiveNode, FromParquet) {
-  SchemaElement elt =
-      NewPrimitive(name_, FieldRepetitionType::OPTIONAL, Type::INT32, field_id_);
+  SchemaElement elt = NewPrimitive(name_, FieldRepetitionType::OPTIONAL, Type::INT32);
   ASSERT_NO_FATAL_FAILURE(Convert(&elt));
   ASSERT_EQ(name_, prim_node_->name());
-  ASSERT_EQ(field_id_, prim_node_->field_id());
+  ASSERT_EQ(-1, prim_node_->field_id());
   ASSERT_EQ(Repetition::OPTIONAL, prim_node_->repetition());
   ASSERT_EQ(Type::INT32, prim_node_->physical_type());
   ASSERT_EQ(ConvertedType::NONE, prim_node_->converted_type());
 
   // Test a logical type
-  elt = NewPrimitive(name_, FieldRepetitionType::REQUIRED, Type::BYTE_ARRAY, field_id_);
+  elt = NewPrimitive(name_, FieldRepetitionType::REQUIRED, Type::BYTE_ARRAY);
   elt.__set_converted_type(format::ConvertedType::UTF8);
 
   ASSERT_NO_FATAL_FAILURE(Convert(&elt));
@@ -187,20 +185,18 @@ TEST_F(TestPrimitiveNode, FromParquet) {
   ASSERT_EQ(ConvertedType::UTF8, prim_node_->converted_type());
 
   // FIXED_LEN_BYTE_ARRAY
-  elt = NewPrimitive(name_, FieldRepetitionType::OPTIONAL, Type::FIXED_LEN_BYTE_ARRAY,
-                     field_id_);
+  elt = NewPrimitive(name_, FieldRepetitionType::OPTIONAL, Type::FIXED_LEN_BYTE_ARRAY);
   elt.__set_type_length(16);
 
   ASSERT_NO_FATAL_FAILURE(Convert(&elt));
   ASSERT_EQ(name_, prim_node_->name());
-  ASSERT_EQ(field_id_, prim_node_->field_id());
+  ASSERT_EQ(-1, prim_node_->field_id());
   ASSERT_EQ(Repetition::OPTIONAL, prim_node_->repetition());
   ASSERT_EQ(Type::FIXED_LEN_BYTE_ARRAY, prim_node_->physical_type());
   ASSERT_EQ(16, prim_node_->type_length());
 
   // format::ConvertedType::Decimal
-  elt = NewPrimitive(name_, FieldRepetitionType::OPTIONAL, Type::FIXED_LEN_BYTE_ARRAY,
-                     field_id_);
+  elt = NewPrimitive(name_, FieldRepetitionType::OPTIONAL, Type::FIXED_LEN_BYTE_ARRAY);
   elt.__set_converted_type(format::ConvertedType::DECIMAL);
   elt.__set_type_length(6);
   elt.__set_scale(2);
