@@ -27,11 +27,11 @@
 #' ```
 #' data <- Array$create(x)$data()
 #'
-#' data$type()
-#' data$length()
-#' data$null_count()
-#' data$offset()
-#' data$buffers()
+#' data$type
+#' data$length
+#' data$null_count
+#' data$offset
+#' data$buffers
 #' ```
 #'
 #' @section Methods:
