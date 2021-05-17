@@ -70,8 +70,7 @@ cmake \
   ${arrow_dir}/cpp
 cmake --build . --target install
 
-# should conditionally test
-if [ $ARROW_BUILD_TESTS = "ON" ]; then
+if [ "${ARROW_BUILD_TESTS}" == "something" ]; then
   ctest
 fi
 
@@ -79,9 +78,9 @@ popd
 
 echo "=== Copying libraries to the distribution folder ==="
 mkdir -p "${dist_dir}"
-cp -L ${build_dir}/lib/libgandiva_jni.so ${dist_dir}
-cp -L ${build_dir}/lib/libarrow_dataset_jni.so ${dist_dir}
-cp -L ${build_dir}/lib/libarrow_orc_jni.so ${dist_dir}
+cp -L ${build_dir}/lib/libgandiva_jni.dylib ${dist_dir}
+cp -L ${build_dir}/lib/libarrow_dataset_jni.dylib ${dist_dir}
+cp -L ${build_dir}/lib/libarrow_orc_jni.dylib ${dist_dir}
 
 echo "=== Checking shared dependencies for libraries ==="
 

@@ -28,13 +28,31 @@ export ARROW_TEST_DATA=${arrow_dir}/testing/data
 pushd $java_dir
 
 # build the entire project
-mvn clean install -DskipTests -P arrow-jni -Darrow.cpp.build.dir=$cpp_build_dir
-# test jars that have cpp dependencies
-mvn test -P arrow-jni -pl adapter/orc,gandiva,dataset -Dgandiva.cpp.build.dir=$cpp_build_dir
+mvn clean install -P arrow-jni -Darrow.cpp.build.dir=$cpp_build_dir
 
-# copy the jars that has cpp dependencies to distribution folder
-find gandiva/target/ -name "*.jar" -not -name "*tests*" -exec cp {} $cpp_build_dir \;
-find adapter/orc/target/ -name "*.jar" -not -name "*tests*" -exec cp {} $cpp_build_dir \;
-find dataset/target/ -name "*.jar" -not -name "*tests*" -exec cp {} $cpp_build_dir \;
+MODULES=(
+  adapter/avro
+  adapter/jdbc
+  adapter/orc
+  algorithm
+  compression
+  dataset
+  flight/flight-core
+  flight/flight-grpc
+  format
+  gandiva
+  memory/memory-core
+  memory/memory-netty
+  memory/memory-unsafe
+  performance
+  plasma
+  tools
+  vector
+)
+
+# copy all jars to distribution folder, excluding the unit tests
+for module in "${MODULES[@]}"; do
+  find $module/target/ -name "*.jar" -not -name "*tests*" -not -name "*benchmarks*" -exec cp  {} $cpp_build_dir \;
+done
 
 popd
