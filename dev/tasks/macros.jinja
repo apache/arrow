@@ -80,10 +80,10 @@ on:
       --sha {{ task.branch }} \
       --tag {{ task.tag }} \
     {% if pattern is string %}
-      --pattern "{{ pattern }}"
+      "{{ pattern }}"
     {% elif pattern is iterable %}
       {% for p in pattern %}
-      --pattern "{{ p }}" {{ "\\" if not loop.last else "" }}
+      "{{ p }}" {{ "\\" if not loop.last else "" }}
       {% endfor %}
     {% endif %}
     env:
@@ -119,8 +119,6 @@ on:
   - script: pip install -e arrow/dev/archery[crossbow]
     displayName: Install Crossbow
   - bash: |
-      # disable wildcard expansion
-      set -o noglob
       archery crossbow \
         --queue-path $(pwd) \
         --queue-remote {{ queue_remote_url }} \
@@ -128,10 +126,10 @@ on:
         --sha {{ task.branch }} \
         --tag {{ task.tag }} \
       {% if pattern is string %}
-        --pattern '{{ pattern }}'
+        "{{ pattern }}"
       {% elif pattern is iterable %}
         {% for p in pattern %}
-        --pattern '{{ p }}' {{ "\\" if not loop.last else "" }}
+        "{{ p }}" {{ "\\" if not loop.last else "" }}
         {% endfor %}
       {% endif %}
     env:
@@ -181,10 +179,10 @@ on:
       --sha {{ task.branch }} \
       --tag {{ task.tag }} \
     {% if pattern is string %}
-      --pattern "{{ pattern }}"
+      "{{ pattern }}"
     {% elif pattern is iterable %}
       {% for p in pattern %}
-      --pattern "{{ p }}" {{ "\\" if not loop.last else "" }}
+      "{{ p }}" {{ "\\" if not loop.last else "" }}
       {% endfor %}
     {% endif %}
 {% endmacro %}
