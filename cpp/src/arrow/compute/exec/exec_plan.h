@@ -23,6 +23,7 @@
 
 #include "arrow/compute/type_fwd.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -48,8 +49,11 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
   ExecNode* AddNode(std::unique_ptr<ExecNode> node);
 
   template <typename Node, typename... Args>
-  ExecNode* EmplaceNode(Args&&... args) {
-    return AddNode(std::unique_ptr<Node>(new Node{std::forward<Args>(args)...}));
+  Node* EmplaceNode(Args&&... args) {
+    auto node = std::unique_ptr<Node>(new Node{std::forward<Args>(args)...});
+    auto out = node.get();
+    AddNode(std::move(node));
+    return out;
   }
 
   /// The initial inputs
@@ -57,15 +61,6 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
 
   /// The final outputs
   const NodeVector& sinks() const;
-
-  // XXX API question:
-  // There are clearly two phases in the ExecPlan lifecycle:
-  // - one construction phase where AddNode() and ExecNode::AddInput() is called
-  //   (with optional validation at the end)
-  // - one execution phase where the nodes are topo-sorted and then started
-  //
-  // => Should we separate out those APIs? e.g. have a ExecPlanBuilder
-  // for the first phase.
 
   Status Validate();
 
@@ -91,14 +86,11 @@ class ARROW_EXPORT ExecNode {
   virtual const char* kind_name() = 0;
 
   // The number of inputs/outputs expected by this node
-  int num_inputs() const { return static_cast<int>(input_descrs_.size()); }
+  int num_inputs() const { return static_cast<int>(inputs_.size()); }
   int num_outputs() const { return num_outputs_; }
 
   /// This node's predecessors in the exec plan
   const NodeVector& inputs() const { return inputs_; }
-
-  /// The datatypes accepted by this node for each input
-  const std::vector<BatchDescr>& input_descrs() const { return input_descrs_; }
 
   /// \brief Labels identifying the function of each input.
   ///
@@ -119,11 +111,6 @@ class ARROW_EXPORT ExecNode {
   /// There is no guarantee that this value is non-empty or unique.
   const std::string& label() const { return label_; }
 
-  void AddInput(ExecNode* input) {
-    inputs_.push_back(input);
-    input->outputs_.push_back(this);
-  }
-
   Status Validate() const;
 
   /// Upstream API:
@@ -139,7 +126,7 @@ class ARROW_EXPORT ExecNode {
   ///   and StopProducing()
 
   /// Transfer input batch to ExecNode
-  virtual void InputReceived(ExecNode* input, int seq_num, compute::ExecBatch batch) = 0;
+  virtual void InputReceived(ExecNode* input, int seq_num, ExecBatch batch) = 0;
 
   /// Signal error to ExecNode
   virtual void ErrorReceived(ExecNode* input, Status error) = 0;
@@ -225,22 +212,37 @@ class ARROW_EXPORT ExecNode {
   virtual void StopProducing() = 0;
 
  protected:
-  ExecNode(ExecPlan* plan, std::string label, std::vector<BatchDescr> input_descrs,
+  ExecNode(ExecPlan* plan, std::string label, NodeVector inputs,
            std::vector<std::string> input_labels, BatchDescr output_descr,
            int num_outputs);
 
   ExecPlan* plan_;
-
   std::string label_;
 
-  std::vector<BatchDescr> input_descrs_;
-  std::vector<std::string> input_labels_;
   NodeVector inputs_;
+  std::vector<std::string> input_labels_;
 
   BatchDescr output_descr_;
   int num_outputs_;
   NodeVector outputs_;
 };
+
+/// \brief Adapt an AsyncGenerator<ExecBatch> as a source node
+ARROW_EXPORT
+ExecNode* MakeSourceNode(ExecPlan* plan, std::string label,
+                         ExecNode::BatchDescr output_descr,
+                         AsyncGenerator<util::optional<ExecBatch>>);
+
+/// \brief Add a sink node which forwards to an AsyncGenerator<ExecBatch>
+ARROW_EXPORT
+AsyncGenerator<util::optional<ExecBatch>> MakeSinkNode(ExecNode* input,
+                                                       std::string label);
+
+/// \brief Make a node which excludes some rows from batches passed through it
+///
+/// filter Expression must be bound; no field references will be looked up by name
+ARROW_EXPORT
+ExecNode* MakeFilterNode(ExecNode* input, std::string label, Expression filter);
 
 }  // namespace compute
 }  // namespace arrow

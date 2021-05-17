@@ -21,6 +21,7 @@
 #include <memory>
 
 #include "arrow/compute/exec/exec_plan.h"
+#include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/test_util.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/future_util.h"
@@ -51,30 +52,22 @@ TEST(ExecPlanConstruction, Empty) {
 
 TEST(ExecPlanConstruction, SingleNode) {
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-  auto node = MakeDummyNode(plan.get(), "dummy", /*num_inputs=*/0, /*num_outputs=*/0);
+  auto node = MakeDummyNode(plan.get(), "dummy", /*inputs=*/{}, /*num_outputs=*/0);
   ASSERT_OK(plan->Validate());
   ASSERT_THAT(plan->sources(), ::testing::ElementsAre(node));
   ASSERT_THAT(plan->sinks(), ::testing::ElementsAre(node));
 
   ASSERT_OK_AND_ASSIGN(plan, ExecPlan::Make());
-  node = MakeDummyNode(plan.get(), "dummy", /*num_inputs=*/1, /*num_outputs=*/0);
-  // Input not bound
-  ASSERT_RAISES(Invalid, plan->Validate());
-
-  ASSERT_OK_AND_ASSIGN(plan, ExecPlan::Make());
-  node = MakeDummyNode(plan.get(), "dummy", /*num_inputs=*/0, /*num_outputs=*/1);
+  node = MakeDummyNode(plan.get(), "dummy", /*inputs=*/{}, /*num_outputs=*/1);
   // Output not bound
   ASSERT_RAISES(Invalid, plan->Validate());
 }
 
 TEST(ExecPlanConstruction, SourceSink) {
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-  auto source = MakeDummyNode(plan.get(), "source", /*num_inputs=*/0, /*num_outputs=*/1);
-  auto sink = MakeDummyNode(plan.get(), "sink", /*num_inputs=*/1, /*num_outputs=*/0);
-  // Input / output not bound
-  ASSERT_RAISES(Invalid, plan->Validate());
+  auto source = MakeDummyNode(plan.get(), "source", /*inputs=*/{}, /*num_outputs=*/1);
+  auto sink = MakeDummyNode(plan.get(), "sink", /*inputs=*/{source}, /*num_outputs=*/0);
 
-  sink->AddInput(source);
   ASSERT_OK(plan->Validate());
   EXPECT_THAT(plan->sources(), ::testing::ElementsAre(source));
   EXPECT_THAT(plan->sinks(), ::testing::ElementsAre(sink));
@@ -83,33 +76,21 @@ TEST(ExecPlanConstruction, SourceSink) {
 TEST(ExecPlanConstruction, MultipleNode) {
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
 
-  auto source1 =
-      MakeDummyNode(plan.get(), "source1", /*num_inputs=*/0, /*num_outputs=*/2);
+  auto source1 = MakeDummyNode(plan.get(), "source1", /*inputs=*/{}, /*num_outputs=*/2);
 
-  auto source2 =
-      MakeDummyNode(plan.get(), "source2", /*num_inputs=*/0, /*num_outputs=*/1);
+  auto source2 = MakeDummyNode(plan.get(), "source2", /*inputs=*/{}, /*num_outputs=*/1);
 
   auto process1 =
-      MakeDummyNode(plan.get(), "process1", /*num_inputs=*/1, /*num_outputs=*/2);
+      MakeDummyNode(plan.get(), "process1", /*inputs=*/{source1}, /*num_outputs=*/2);
 
-  auto process2 =
-      MakeDummyNode(plan.get(), "process1", /*num_inputs=*/2, /*num_outputs=*/1);
+  auto process2 = MakeDummyNode(plan.get(), "process1", /*inputs=*/{source1, source2},
+                                /*num_outputs=*/1);
 
   auto process3 =
-      MakeDummyNode(plan.get(), "process3", /*num_inputs=*/3, /*num_outputs=*/1);
+      MakeDummyNode(plan.get(), "process3", /*inputs=*/{process1, process2, process1},
+                    /*num_outputs=*/1);
 
-  auto sink = MakeDummyNode(plan.get(), "sink", /*num_inputs=*/1, /*num_outputs=*/0);
-
-  sink->AddInput(process3);
-
-  process3->AddInput(process1);
-  process3->AddInput(process2);
-  process3->AddInput(process1);
-
-  process2->AddInput(source1);
-  process2->AddInput(source2);
-
-  process1->AddInput(source1);
+  auto sink = MakeDummyNode(plan.get(), "sink", /*inputs=*/{process3}, /*num_outputs=*/0);
 
   ASSERT_OK(plan->Validate());
   ASSERT_THAT(plan->sources(), ::testing::ElementsAre(source1, source2));
@@ -135,30 +116,27 @@ TEST(ExecPlan, DummyStartProducing) {
   StartStopTracker t;
 
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-  auto source1 = MakeDummyNode(plan.get(), "source1", /*num_inputs=*/0, /*num_outputs=*/2,
+
+  auto source1 = MakeDummyNode(plan.get(), "source1", /*inputs=*/{}, /*num_outputs=*/2,
                                t.start_producing_func(), t.stop_producing_func());
-  auto source2 = MakeDummyNode(plan.get(), "source2", /*num_inputs=*/0, /*num_outputs=*/1,
+
+  auto source2 = MakeDummyNode(plan.get(), "source2", /*inputs=*/{}, /*num_outputs=*/1,
                                t.start_producing_func(), t.stop_producing_func());
+
   auto process1 =
-      MakeDummyNode(plan.get(), "process1", /*num_inputs=*/1, /*num_outputs=*/2,
+      MakeDummyNode(plan.get(), "process1", /*inputs=*/{source1}, /*num_outputs=*/2,
                     t.start_producing_func(), t.stop_producing_func());
+
   auto process2 =
-      MakeDummyNode(plan.get(), "process2", /*num_inputs=*/2, /*num_outputs=*/1,
-                    t.start_producing_func(), t.stop_producing_func());
+      MakeDummyNode(plan.get(), "process2", /*inputs=*/{process1, source2},
+                    /*num_outputs=*/1, t.start_producing_func(), t.stop_producing_func());
+
   auto process3 =
-      MakeDummyNode(plan.get(), "process3", /*num_inputs=*/3, /*num_outputs=*/1,
-                    t.start_producing_func(), t.stop_producing_func());
+      MakeDummyNode(plan.get(), "process3", /*inputs=*/{process1, source1, process2},
+                    /*num_outputs=*/1, t.start_producing_func(), t.stop_producing_func());
 
-  auto sink = MakeDummyNode(plan.get(), "sink", /*num_inputs=*/1, /*num_outputs=*/0,
-                            t.start_producing_func(), t.stop_producing_func());
-
-  process1->AddInput(source1);
-  process2->AddInput(process1);
-  process2->AddInput(source2);
-  process3->AddInput(process1);
-  process3->AddInput(source1);
-  process3->AddInput(process2);
-  sink->AddInput(process3);
+  MakeDummyNode(plan.get(), "sink", /*inputs=*/{process3}, /*num_outputs=*/0,
+                t.start_producing_func(), t.stop_producing_func());
 
   ASSERT_OK(plan->Validate());
   ASSERT_EQ(t.started.size(), 0);
@@ -171,63 +149,32 @@ TEST(ExecPlan, DummyStartProducing) {
   ASSERT_EQ(t.stopped.size(), 0);
 }
 
-TEST(ExecPlan, DummyStartProducingCycle) {
-  // A trivial cycle
-  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-  auto node = MakeDummyNode(plan.get(), "dummy", /*num_inputs=*/1, /*num_outputs=*/1);
-  node->AddInput(node);
-  ASSERT_OK(plan->Validate());
-  ASSERT_RAISES(Invalid, plan->StartProducing());
-
-  // A less trivial one
-  ASSERT_OK_AND_ASSIGN(plan, ExecPlan::Make());
-  auto source = MakeDummyNode(plan.get(), "source", /*num_inputs=*/0, /*num_outputs=*/1);
-  auto process1 =
-      MakeDummyNode(plan.get(), "process1", /*num_inputs=*/2, /*num_outputs=*/2);
-  auto process2 =
-      MakeDummyNode(plan.get(), "process2", /*num_inputs=*/1, /*num_outputs=*/1);
-  auto process3 =
-      MakeDummyNode(plan.get(), "process3", /*num_inputs=*/2, /*num_outputs=*/2);
-  auto sink = MakeDummyNode(plan.get(), "sink", /*num_inputs=*/1, /*num_outputs=*/0);
-
-  process1->AddInput(source);
-  process2->AddInput(process1);
-  process3->AddInput(process2);
-  process3->AddInput(process1);
-  process1->AddInput(process3);
-  sink->AddInput(process3);
-
-  ASSERT_OK(plan->Validate());
-  ASSERT_RAISES(Invalid, plan->StartProducing());
-}
-
 TEST(ExecPlan, DummyStartProducingError) {
   StartStopTracker t;
 
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-  auto source1 = MakeDummyNode(plan.get(), "source1", /*num_inputs=*/0, /*num_outputs=*/2,
-                               t.start_producing_func(Status::NotImplemented("zzz")),
-                               t.stop_producing_func());
-  auto source2 = MakeDummyNode(plan.get(), "source2", /*num_inputs=*/0, /*num_outputs=*/1,
-                               t.start_producing_func(), t.stop_producing_func());
+  auto source1 = MakeDummyNode(
+      plan.get(), "source1", /*num_inputs=*/{}, /*num_outputs=*/2,
+      t.start_producing_func(Status::NotImplemented("zzz")), t.stop_producing_func());
+
+  auto source2 =
+      MakeDummyNode(plan.get(), "source2", /*num_inputs=*/{}, /*num_outputs=*/1,
+                    t.start_producing_func(), t.stop_producing_func());
+
   auto process1 = MakeDummyNode(
-      plan.get(), "process1", /*num_inputs=*/1, /*num_outputs=*/2,
+      plan.get(), "process1", /*num_inputs=*/{source1}, /*num_outputs=*/2,
       t.start_producing_func(Status::IOError("xxx")), t.stop_producing_func());
+
   auto process2 =
-      MakeDummyNode(plan.get(), "process2", /*num_inputs=*/2, /*num_outputs=*/1,
-                    t.start_producing_func(), t.stop_producing_func());
-  process1->AddInput(source1);
-  process2->AddInput(process1);
-  process2->AddInput(source2);
+      MakeDummyNode(plan.get(), "process2", /*num_inputs=*/{process1, source2},
+                    /*num_outputs=*/1, t.start_producing_func(), t.stop_producing_func());
+
   auto process3 =
-      MakeDummyNode(plan.get(), "process3", /*num_inputs=*/3, /*num_outputs=*/1,
-                    t.start_producing_func(), t.stop_producing_func());
-  process3->AddInput(process1);
-  process3->AddInput(source1);
-  process3->AddInput(process2);
-  auto sink = MakeDummyNode(plan.get(), "sink", /*num_inputs=*/1, /*num_outputs=*/0,
-                            t.start_producing_func(), t.stop_producing_func());
-  sink->AddInput(process3);
+      MakeDummyNode(plan.get(), "process3", /*num_inputs=*/{process1, source1, process2},
+                    /*num_outputs=*/1, t.start_producing_func(), t.stop_producing_func());
+
+  MakeDummyNode(plan.get(), "sink", /*num_inputs=*/{process3}, /*num_outputs=*/0,
+                t.start_producing_func(), t.stop_producing_func());
 
   ASSERT_OK(plan->Validate());
   ASSERT_EQ(t.started.size(), 0);
@@ -268,15 +215,12 @@ class SlowRecordBatchReader : public RecordBatchReader {
 
 static Result<RecordBatchGenerator> MakeSlowRecordBatchGenerator(
     RecordBatchVector batches, std::shared_ptr<Schema> schema) {
-  auto gen = MakeVectorGenerator(batches);
   // TODO move this into testing/async_generator_util.h?
-  auto delayed_gen = MakeMappedGenerator<std::shared_ptr<RecordBatch>>(
-      std::move(gen), [](const std::shared_ptr<RecordBatch>& batch) {
-        auto fut = Future<std::shared_ptr<RecordBatch>>::Make();
-        SleepABitAsync().AddCallback(
-            [fut, batch](const Status& status) mutable { fut.MarkFinished(batch); });
-        return fut;
-      });
+  auto delayed_gen =
+      MakeMappedGenerator(MakeVectorGenerator(std::move(batches)),
+                          [](const std::shared_ptr<RecordBatch>& batch) {
+                            return SleepABitAsync().Then([=] { return batch; });
+                          });
   // Adding readahead implicitly adds parallelism by pulling reentrantly from
   // the delayed generator
   return MakeReadaheadGenerator(std::move(delayed_gen), /*max_readahead=*/64);
@@ -305,36 +249,33 @@ class TestExecPlanExecution : public ::testing::Test {
   };
 
   Result<CollectorPlan> MakeSourceSink(std::shared_ptr<RecordBatchReader> reader,
-                                       const std::shared_ptr<Schema>& schema) {
+                                       std::shared_ptr<Schema> schema) {
     ARROW_ASSIGN_OR_RAISE(auto plan, ExecPlan::Make());
     auto source =
         MakeRecordBatchReaderNode(plan.get(), "source", reader, io_executor_.get());
-    auto sink = MakeRecordBatchCollectNode(plan.get(), "sink", schema);
-    sink->AddInput(source);
+    auto sink = MakeRecordBatchCollectNode(plan.get(), "sink", source, std::move(schema));
     return CollectorPlan{plan, sink};
   }
 
   Result<CollectorPlan> MakeSourceSink(RecordBatchGenerator generator,
-                                       const std::shared_ptr<Schema>& schema) {
+                                       std::shared_ptr<Schema> schema) {
     ARROW_ASSIGN_OR_RAISE(auto plan, ExecPlan::Make());
     auto source = MakeRecordBatchReaderNode(plan.get(), "source", schema, generator,
                                             io_executor_.get());
-    auto sink = MakeRecordBatchCollectNode(plan.get(), "sink", schema);
-    sink->AddInput(source);
+    auto sink = MakeRecordBatchCollectNode(plan.get(), "sink", source, std::move(schema));
     return CollectorPlan{plan, sink};
   }
 
   Result<CollectorPlan> MakeSourceSink(const RecordBatchVector& batches,
-                                       const std::shared_ptr<Schema>& schema) {
+                                       std::shared_ptr<Schema> schema) {
     ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchReader::Make(batches, schema));
-    return MakeSourceSink(std::move(reader), schema);
+    return MakeSourceSink(std::move(reader), std::move(schema));
   }
 
   Result<RecordBatchVector> StartAndCollect(ExecPlan* plan,
                                             RecordBatchCollectNode* sink) {
     RETURN_NOT_OK(plan->StartProducing());
-    auto fut = CollectAsyncGenerator(sink->generator());
-    return fut.result();
+    return CollectAsyncGenerator(sink->generator()).result();
   }
 
   template <typename RecordBatchReaderFactory>
@@ -373,6 +314,8 @@ class TestExecPlanExecution : public ::testing::Test {
   std::shared_ptr<Executor> io_executor_;
 };
 
+// FIXME Test "collecting" an error
+
 TEST_F(TestExecPlanExecution, SourceSink) { TestSourceSink(RecordBatchReader::Make); }
 
 TEST_F(TestExecPlanExecution, SlowSourceSink) {
@@ -394,6 +337,38 @@ TEST_F(TestExecPlanExecution, StressSlowSourceSink) {
 
 TEST_F(TestExecPlanExecution, StressSlowSourceSinkParallel) {
   TestStressSourceSink(/*num_batches=*/300, MakeSlowRecordBatchGenerator);
+}
+
+TEST_F(TestExecPlanExecution, SourceFilterSink) {
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+
+  const auto schema = ::arrow::schema({field("a", int32()), field("b", boolean())});
+  RecordBatchVector batches{
+      RecordBatchFromJSON(schema, R"([{"a": null, "b": true},
+                                      {"a": 4,    "b": false}])"),
+      RecordBatchFromJSON(schema, R"([{"a": 5,    "b": null},
+                                      {"a": 6,    "b": false},
+                                      {"a": 7,    "b": false}])"),
+  };
+
+  ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchReader::Make(std::move(batches), schema));
+
+  auto source =
+      MakeRecordBatchReaderNode(plan.get(), "source", reader, io_executor_.get());
+
+  ASSERT_OK_AND_ASSIGN(auto predicate, equal(field_ref("a"), literal(6)).Bind(*schema));
+
+  auto filter = MakeFilterNode(source, "filter", predicate);
+
+  auto sink = MakeRecordBatchCollectNode(plan.get(), "sink", filter, schema);
+
+  ASSERT_OK_AND_ASSIGN(auto got_batches, StartAndCollect(plan.get(), sink));
+  AssertBatchesEqual(
+      {
+          RecordBatchFromJSON(schema, R"([])"),
+          RecordBatchFromJSON(schema, R"([{"a": 6,    "b": false}])"),
+      },
+      got_batches);
 }
 
 }  // namespace compute

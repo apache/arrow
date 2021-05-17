@@ -51,7 +51,7 @@ AsyncGenerator<T> FailsAt(AsyncGenerator<T> src, int failing_index) {
 
 template <typename T>
 AsyncGenerator<T> SlowdownABit(AsyncGenerator<T> source) {
-  return MakeMappedGenerator<T, T>(std::move(source), [](const T& res) -> Future<T> {
+  return MakeMappedGenerator(std::move(source), [](const T& res) {
     return SleepABitAsync().Then([res]() { return res; });
   });
 }

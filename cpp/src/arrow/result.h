@@ -496,9 +496,9 @@ inline Status GenericToStatus(Result<T>&& res) {
 
 }  // namespace internal
 
-template <typename T>
-Result<T> ToResult(T t) {
-  return Result<T>(std::move(t));
+template <typename T, typename R = typename EnsureResult<T>::type>
+R ToResult(T t) {
+  return R(std::move(t));
 }
 
 template <typename T>

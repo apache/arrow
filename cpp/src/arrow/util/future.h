@@ -36,6 +36,9 @@
 
 namespace arrow {
 
+template <typename>
+struct EnsureFuture;
+
 namespace detail {
 
 template <typename>
@@ -975,5 +978,20 @@ Future<BreakValueType> Loop(Iterate iterate) {
 
   return break_fut;
 }
+
+template <typename T>
+struct EnsureFuture {
+  using type = Future<T>;
+};
+
+template <typename T>
+struct EnsureFuture<Result<T>> {
+  using type = Future<T>;
+};
+
+template <typename T>
+struct EnsureFuture<Future<T>> {
+  using type = Future<T>;
+};
 
 }  // namespace arrow

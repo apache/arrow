@@ -53,7 +53,7 @@ Expression::Expression(Parameter parameter)
 Expression literal(Datum lit) { return Expression(std::move(lit)); }
 
 Expression field_ref(FieldRef ref) {
-  return Expression(Expression::Parameter{std::move(ref), {}});
+  return Expression(Expression::Parameter{std::move(ref), {}, {}});
 }
 
 Expression call(std::string function, std::vector<Expression> arguments,
@@ -62,13 +62,22 @@ Expression call(std::string function, std::vector<Expression> arguments,
   call.function_name = std::move(function);
   call.arguments = std::move(arguments);
   call.options = std::move(options);
+
+  call.hash = std::hash<std::string>{}(call.function_name);
+  for (const auto& arg : call.arguments) {
+    call.hash ^= arg.hash();
+  }
   return Expression(std::move(call));
 }
 
 const Datum* Expression::literal() const { return util::get_if<Datum>(impl_.get()); }
 
+const Expression::Parameter* Expression::parameter() const {
+  return util::get_if<Parameter>(impl_.get());
+}
+
 const FieldRef* Expression::field_ref() const {
-  if (auto parameter = util::get_if<Parameter>(impl_.get())) {
+  if (auto parameter = this->parameter()) {
     return &parameter->ref;
   }
   return nullptr;
@@ -85,7 +94,7 @@ ValueDescr Expression::descr() const {
     return lit->descr();
   }
 
-  if (auto parameter = util::get_if<Parameter>(impl_.get())) {
+  if (auto parameter = this->parameter()) {
     return parameter->descr;
   }
 
@@ -235,21 +244,7 @@ size_t Expression::hash() const {
     return ref->hash();
   }
 
-  auto call = CallNotNull(*this);
-  if (call->hash != nullptr) {
-    return call->hash->load();
-  }
-
-  size_t out = std::hash<std::string>{}(call->function_name);
-  for (const auto& arg : call->arguments) {
-    out ^= arg.hash();
-  }
-
-  std::shared_ptr<std::atomic<size_t>> expected = nullptr;
-  ::arrow::internal::atomic_compare_exchange_strong(
-      &const_cast<Call*>(call)->hash, &expected,
-      std::make_shared<std::atomic<size_t>>(out));
-  return out;
+  return CallNotNull(*this)->hash;
 }
 
 bool Expression::IsBound() const {
@@ -383,45 +378,6 @@ Result<Expression> BindNonRecursive(Expression::Call call, bool insert_implicit_
   return Expression(std::move(call));
 }
 
-struct FieldPathGetDatumImpl {
-  template <typename T, typename = decltype(FieldPath{}.Get(std::declval<const T&>()))>
-  Result<Datum> operator()(const std::shared_ptr<T>& ptr) {
-    return path_.Get(*ptr).template As<Datum>();
-  }
-
-  template <typename T>
-  Result<Datum> operator()(const T&) {
-    return Status::NotImplemented("FieldPath::Get() into Datum ", datum_.ToString());
-  }
-
-  const Datum& datum_;
-  const FieldPath& path_;
-};
-
-inline Result<Datum> GetDatumField(const FieldRef& ref, const Datum& input) {
-  Datum field;
-
-  FieldPath match;
-  if (auto type = input.type()) {
-    ARROW_ASSIGN_OR_RAISE(match, ref.FindOneOrNone(*type));
-  } else if (auto schema = input.schema()) {
-    ARROW_ASSIGN_OR_RAISE(match, ref.FindOneOrNone(*schema));
-  } else {
-    return Status::NotImplemented("retrieving fields from datum ", input.ToString());
-  }
-
-  if (!match.empty()) {
-    ARROW_ASSIGN_OR_RAISE(field,
-                          util::visit(FieldPathGetDatumImpl{input, match}, input.value));
-  }
-
-  if (field == Datum{}) {
-    return Datum(std::make_shared<NullScalar>());
-  }
-
-  return field;
-}
-
 }  // namespace
 
 Result<Expression> Expression::Bind(ValueDescr in,
@@ -434,9 +390,18 @@ Result<Expression> Expression::Bind(ValueDescr in,
   if (literal()) return *this;
 
   if (auto ref = field_ref()) {
-    ARROW_ASSIGN_OR_RAISE(auto field, ref->GetOneOrNone(*in.type));
-    auto descr = field ? ValueDescr{field->type(), in.shape} : ValueDescr::Scalar(null());
-    return Expression{Parameter{*ref, std::move(descr)}};
+    if (ref->IsNested()) {
+      return Status::NotImplemented("nested field references");
+    }
+
+    ARROW_ASSIGN_OR_RAISE(auto path, ref->FindOne(*in.type));
+
+    auto bound = *parameter();
+    bound.index = path[0];
+    ARROW_ASSIGN_OR_RAISE(auto field, path.Get(*in.type));
+    bound.descr.type = field->type();
+    bound.descr.shape = in.shape;
+    return Expression{std::move(bound)};
   }
 
   auto call = *CallNotNull(*this);
@@ -452,7 +417,67 @@ Result<Expression> Expression::Bind(const Schema& in_schema,
   return Bind(ValueDescr::Array(struct_(in_schema.fields())), exec_context);
 }
 
-Result<Datum> ExecuteScalarExpression(const Expression& expr, const Datum& input,
+Result<ExecBatch> MakeExecBatch(const Schema& full_schema, const Datum& partial) {
+  ExecBatch out;
+
+  if (partial.kind() == Datum::RECORD_BATCH) {
+    const auto& partial_batch = *partial.record_batch();
+    out.length = partial_batch.num_rows();
+
+    for (const auto& field : full_schema.fields()) {
+      ARROW_ASSIGN_OR_RAISE(auto column,
+                            FieldRef(field->name()).GetOneOrNone(partial_batch));
+
+      if (column) {
+        if (!column->type()->Equals(field->type())) {
+          // Referenced field was present but didn't have the expected type.
+          // This *should* be handled by readers, and will just be an error in the future.
+          ARROW_ASSIGN_OR_RAISE(
+              auto converted,
+              compute::Cast(column, field->type(), compute::CastOptions::Safe()));
+          column = converted.make_array();
+        }
+        out.values.emplace_back(std::move(column));
+      } else {
+        out.values.emplace_back(MakeNullScalar(field->type()));
+      }
+    }
+    return out;
+  }
+
+  // wasteful but useful for testing:
+  if (partial.type()->id() == Type::STRUCT) {
+    if (partial.is_array()) {
+      ARROW_ASSIGN_OR_RAISE(auto partial_batch,
+                            RecordBatch::FromStructArray(partial.make_array()));
+
+      return MakeExecBatch(full_schema, partial_batch);
+    }
+
+    if (partial.is_scalar()) {
+      ARROW_ASSIGN_OR_RAISE(auto partial_array,
+                            MakeArrayFromScalar(*partial.scalar(), 1));
+      ARROW_ASSIGN_OR_RAISE(auto out, MakeExecBatch(full_schema, partial_array));
+
+      for (Datum& value : out.values) {
+        if (value.is_scalar()) continue;
+        ARROW_ASSIGN_OR_RAISE(value, value.make_array()->GetScalar(0));
+      }
+      return out;
+    }
+  }
+
+  return Status::NotImplemented("MakeExecBatch from ", PrintDatum(partial));
+}
+
+Result<Datum> ExecuteScalarExpression(const Expression& expr, const Schema& full_schema,
+                                      const Datum& partial_input,
+                                      compute::ExecContext* exec_context) {
+  ARROW_ASSIGN_OR_RAISE(auto input, MakeExecBatch(full_schema, partial_input));
+  return ExecuteScalarExpression(expr, input, exec_context);
+}
+
+Result<Datum> ExecuteScalarExpression(const Expression& expr, const ExecBatch& input,
                                       compute::ExecContext* exec_context) {
   if (exec_context == nullptr) {
     compute::ExecContext exec_context;
@@ -470,15 +495,16 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const Datum& input
 
   if (auto lit = expr.literal()) return *lit;
 
-  if (auto ref = expr.field_ref()) {
-    ARROW_ASSIGN_OR_RAISE(Datum field, GetDatumField(*ref, input));
+  if (auto param = expr.parameter()) {
+    if (param->descr.type->id() == Type::NA) {
+      return MakeNullScalar(null());
+    }
 
-    if (field.descr() != expr.descr()) {
-      // Refernced field was present but didn't have the expected type.
-      // Should we just error here? For now, pay dispatch cost and just cast.
-      ARROW_ASSIGN_OR_RAISE(
-          field,
-          compute::Cast(field, expr.type(), compute::CastOptions::Safe(), exec_context));
+    const Datum& field = input[param->index];
+    if (!field.type()->Equals(param->descr.type)) {
+      return Status::Invalid("Referenced field ", expr.ToString(), " was ",
+                             field.type()->ToString(), " but should have been ",
+                             param->descr.type->ToString());
     }
 
     return field;
@@ -555,6 +581,22 @@ std::vector<FieldRef> FieldsInExpression(const Expression& expr) {
   return fields;
 }
 
+std::vector<int> ParametersInExpression(const Expression& expr) {
+  if (expr.literal()) return {};
+
+  if (auto parameter = expr.parameter()) {
+    return {parameter->index};
+  }
+
+  std::vector<int> indices;
+  for (const Expression& arg : CallNotNull(expr)->arguments) {
+    auto argument_indices = ParametersInExpression(arg);
+    std::move(argument_indices.begin(), argument_indices.end(),
+              std::back_inserter(indices));
+  }
+  return indices;
+}
+
 bool ExpressionHasFieldRefs(const Expression& expr) {
   if (expr.literal()) return false;
 
@@ -574,7 +616,7 @@ Result<Expression> FoldConstants(Expression expr) {
         if (std::all_of(call->arguments.begin(), call->arguments.end(),
                         [](const Expression& argument) { return argument.literal(); })) {
           // all arguments are literal; we can evaluate this subexpression *now*
-          static const Datum ignored_input = Datum{};
+          static const ExecBatch ignored_input = ExecBatch{};
           ARROW_ASSIGN_OR_RAISE(Datum constant,
                                 ExecuteScalarExpression(expr, ignored_input));
 
@@ -1143,14 +1185,6 @@ Expression or_(const std::vector<Expression>& operands) {
 }
 
 Expression not_(Expression operand) { return call("invert", {std::move(operand)}); }
-
-Expression operator&&(Expression lhs, Expression rhs) {
-  return and_(std::move(lhs), std::move(rhs));
-}
-
-Expression operator||(Expression lhs, Expression rhs) {
-  return or_(std::move(lhs), std::move(rhs));
-}
 
 }  // namespace compute
 }  // namespace arrow

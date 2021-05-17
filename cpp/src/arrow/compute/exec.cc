@@ -69,6 +69,16 @@ ExecBatch::ExecBatch(const RecordBatch& batch)
   std::move(columns.begin(), columns.end(), values.begin());
 }
 
+ExecBatch ExecBatch::Slice(int64_t offset, int64_t length) const {
+  ExecBatch out = *this;
+  for (auto& value : out.values) {
+    if (value.is_scalar()) continue;
+    value = value.array()->Slice(offset, length);
+  }
+  out.length = length;
+  return out;
+}
+
 Result<ExecBatch> ExecBatch::Make(std::vector<Datum> values) {
   if (values.empty()) {
     return Status::Invalid("Cannot infer ExecBatch length without at least one value");
@@ -77,9 +87,6 @@ Result<ExecBatch> ExecBatch::Make(std::vector<Datum> values) {
   int64_t length = -1;
   for (const auto& value : values) {
     if (value.is_scalar()) {
-      if (length == -1) {
-        length = 1;
-      }
       continue;
     }
 
@@ -94,8 +101,13 @@ Result<ExecBatch> ExecBatch::Make(std::vector<Datum> values) {
     }
   }
 
+  if (length == -1) {
+    length = 1;
+  }
+
   return ExecBatch(std::move(values), length);
 }
+
 namespace {
 
 Result<std::shared_ptr<Buffer>> AllocateDataBuffer(KernelContext* ctx, int64_t length,

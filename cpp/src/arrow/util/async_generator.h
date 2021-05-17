@@ -259,43 +259,27 @@ class MappingGenerator {
 /// Note: Errors returned from the `map` function will be propagated
 ///
 /// If the source generator is async-reentrant then this generator will be also
-template <typename T, typename V>
-AsyncGenerator<V> MakeMappedGenerator(AsyncGenerator<T> source_generator,
-                                      std::function<Result<V>(const T&)> map) {
-  std::function<Future<V>(const T&)> future_map = [map](const T& val) -> Future<V> {
-    return Future<V>::MakeFinished(map(val));
-  };
-  return MappingGenerator<T, V>(std::move(source_generator), std::move(future_map));
-}
-template <typename T, typename V>
-AsyncGenerator<V> MakeMappedGenerator(AsyncGenerator<T> source_generator,
-                                      std::function<V(const T&)> map) {
-  std::function<Future<V>(const T&)> maybe_future_map = [map](const T& val) -> Future<V> {
-    return Future<V>::MakeFinished(map(val));
-  };
-  return MappingGenerator<T, V>(std::move(source_generator), std::move(maybe_future_map));
-}
-template <typename T, typename V>
-AsyncGenerator<V> MakeMappedGenerator(AsyncGenerator<T> source_generator,
-                                      std::function<Future<V>(const T&)> map) {
-  return MappingGenerator<T, V>(std::move(source_generator), std::move(map));
-}
-
-template <typename V, typename T, typename MapFunc>
-AsyncGenerator<V> MakeMappedGenerator(AsyncGenerator<T> source_generator, MapFunc map) {
+template <typename T, typename MapFn,
+          typename Mapped = detail::result_of_t<MapFn(const T&)>,
+          typename V = typename EnsureFuture<Mapped>::type::ValueType>
+AsyncGenerator<V> MakeMappedGenerator(AsyncGenerator<T> source_generator, MapFn map) {
   struct MapCallback {
-    MapFunc map;
+    MapFn map_;
 
-    Future<V> operator()(const T& val) { return EnsureFuture(map(val)); }
+    Future<V> operator()(const T& val) { return EnsureFuture(map_(val)); }
 
-    Future<V> EnsureFuture(Result<V> val) {
-      return Future<V>::MakeFinished(std::move(val));
+    Future<V> EnsureFuture(V mapped) {
+      return Future<V>::MakeFinished(std::move(mapped));
     }
-    Future<V> EnsureFuture(V val) { return Future<V>::MakeFinished(std::move(val)); }
-    Future<V> EnsureFuture(Future<V> val) { return val; }
+
+    Future<V> EnsureFuture(Result<V> mapped) {
+      return Future<V>::MakeFinished(std::move(mapped));
+    }
+
+    Future<V> EnsureFuture(Future<V> mapped) { return mapped; }
   };
-  std::function<Future<V>(const T&)> map_fn = MapCallback{map};
-  return MappingGenerator<T, V>(std::move(source_generator), map_fn);
+
+  return MappingGenerator<T, V>(std::move(source_generator), MapCallback{std::move(map)});
 }
 
 /// \see MakeSequencingGenerator
@@ -308,30 +292,28 @@ class SequencingGenerator {
                                        std::move(is_next), std::move(initial_value))) {}
 
   Future<T> operator()() {
-    {
-      auto guard = state_->mutex.Lock();
-      // We can send a result immediately if the top of the queue is either an
-      // error or the next item
-      if (!state_->queue.empty() &&
-          (!state_->queue.top().ok() ||
-           state_->is_next(state_->previous_value, *state_->queue.top()))) {
-        auto result = std::move(state_->queue.top());
-        if (result.ok()) {
-          state_->previous_value = *result;
-        }
-        state_->queue.pop();
-        return Future<T>::MakeFinished(result);
+    auto guard = state_->mutex.Lock();
+    // We can send a result immediately if the top of the queue is either an
+    // error or the next item
+    if (!state_->queue.empty() &&
+        (!state_->queue.top().ok() ||
+         state_->is_next(state_->previous_value, *state_->queue.top()))) {
+      auto result = std::move(state_->queue.top());
+      if (result.ok()) {
+        state_->previous_value = *result;
       }
-      if (state_->finished) {
-        return AsyncGeneratorEnd<T>();
-      }
-      // The next item is not in the queue so we will need to wait
-      auto new_waiting_fut = Future<T>::Make();
-      state_->waiting_future = new_waiting_fut;
-      guard.Unlock();
-      state_->source().AddCallback(Callback{state_});
-      return new_waiting_fut;
+      state_->queue.pop();
+      return Future<T>::MakeFinished(result);
     }
+    if (state_->finished) {
+      return AsyncGeneratorEnd<T>();
+    }
+    // The next item is not in the queue so we will need to wait
+    auto new_waiting_fut = Future<T>::Make();
+    state_->waiting_future = new_waiting_fut;
+    guard.Unlock();
+    state_->source().AddCallback(Callback{state_});
+    return new_waiting_fut;
   }
 
  private:
@@ -365,11 +347,8 @@ class SequencingGenerator {
     util::Mutex mutex;
   };
 
-  class Callback {
-   public:
-    explicit Callback(std::shared_ptr<State> state) : state_(std::move(state)) {}
-
-    void operator()(const Result<T> result) {
+  struct Callback {
+    void operator()(const Result<T>& result) {
       Future<T> to_deliver;
       bool finished;
       {
@@ -412,7 +391,6 @@ class SequencingGenerator {
       }
     }
 
-   private:
     const std::shared_ptr<State> state_;
   };
 
@@ -1150,17 +1128,17 @@ class EnumeratingGenerator {
   Future<Enumerated<T>> operator()() {
     if (state_->finished) {
       return AsyncGeneratorEnd<Enumerated<T>>();
-    } else {
-      auto state = state_;
-      return state->source().Then([state](const T& next) {
-        auto finished = IsIterationEnd<T>(next);
-        auto prev = Enumerated<T>{state->prev_value, state->prev_index, finished};
-        state->prev_value = next;
-        state->prev_index++;
-        state->finished = finished;
-        return prev;
-      });
     }
+
+    auto state = state_;
+    return state->source().Then([state](const T& next) {
+      auto finished = IsIterationEnd<T>(next);
+      auto prev = Enumerated<T>{state->prev_value, state->prev_index, finished};
+      state->prev_value = next;
+      state->prev_index++;
+      state->finished = finished;
+      return prev;
+    });
   }
 
  private:
@@ -1247,27 +1225,27 @@ class BackgroundGenerator {
 
   Future<T> operator()() {
     auto guard = state_->mutex.Lock();
-    Future<T> waiting_future;
-    if (state_->queue.empty()) {
-      if (state_->finished) {
-        return AsyncGeneratorEnd<T>();
-      } else {
-        waiting_future = Future<T>::Make();
-        state_->waiting_future = waiting_future;
-      }
-    } else {
+    if (!state_->queue.empty()) {
       auto next = Future<T>::MakeFinished(std::move(state_->queue.front()));
       state_->queue.pop();
+
       if (state_->NeedsRestart()) {
         return state_->RestartTask(state_, std::move(guard), std::move(next));
       }
       return next;
     }
+
+    if (state_->finished) {
+      return AsyncGeneratorEnd<T>();
+    }
+
+    state_->waiting_future = Future<T>::Make();
+
     // This should only trigger the very first time this method is called
     if (state_->NeedsRestart()) {
-      return state_->RestartTask(state_, std::move(guard), std::move(waiting_future));
+      return state_->RestartTask(state_, std::move(guard), *state_->waiting_future);
     }
-    return waiting_future;
+    return *state_->waiting_future;
   }
 
  protected:
@@ -1298,22 +1276,23 @@ class BackgroundGenerator {
       // task_finished future for it
       state->task_finished = Future<>::Make();
       state->reading = true;
+
       auto spawn_status = io_executor->Spawn(
           [state]() { BackgroundGenerator::WorkerTask(std::move(state)); });
-      if (!spawn_status.ok()) {
-        // If we can't spawn a new task then send an error to the consumer (either via a
-        // waiting future or the queue) and mark ourselves finished
-        state->finished = true;
-        state->task_finished = Future<>();
-        if (waiting_future.has_value()) {
-          auto to_deliver = std::move(waiting_future.value());
-          waiting_future.reset();
-          guard.Unlock();
-          to_deliver.MarkFinished(spawn_status);
-        } else {
-          ClearQueue();
-          queue.push(spawn_status);
-        }
+      if (spawn_status.ok()) return;
+
+      // If we can't spawn a new task then send an error to the consumer (either via a
+      // waiting future or the queue) and mark ourselves finished
+      state->finished = true;
+      state->task_finished = Future<>();
+      if (waiting_future.has_value()) {
+        auto to_deliver = std::move(waiting_future.value());
+        waiting_future.reset();
+        guard.Unlock();
+        to_deliver.MarkFinished(spawn_status);
+      } else {
+        ClearQueue();
+        queue.push(spawn_status);
       }
     }
 
@@ -1404,7 +1383,7 @@ class BackgroundGenerator {
           break;
         }
 
-        if (!next.ok() || IsIterationEnd<T>(*next)) {
+        if (IsIterationEnd(next)) {
           // Terminal item.  Mark finished to true, send this last item, and quit
           state->finished = true;
           if (!next.ok()) {
@@ -1431,7 +1410,7 @@ class BackgroundGenerator {
       // callbacks off of this thread so we can continue looping.  Still, best not to
       // rely on that
       if (waiting_future.is_valid()) {
-        waiting_future.MarkFinished(next);
+        waiting_future.MarkFinished(std::move(next));
       }
     }
     // Once we've sent our last item we can notify any waiters that we are done and so

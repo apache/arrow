@@ -166,6 +166,56 @@ TEST(ExpressionUtils, StripOrderPreservingCasts) {
   Expect(cast(field_ref("i32"), uint64()), no_change);
 }
 
+TEST(ExpressionUtils, MakeExecBatch) {
+  auto Expect = [](std::shared_ptr<RecordBatch> partial_batch) {
+    SCOPED_TRACE(partial_batch->ToString());
+    ASSERT_OK_AND_ASSIGN(auto batch, MakeExecBatch(*kBoringSchema, partial_batch));
+
+    ASSERT_EQ(batch.num_values(), kBoringSchema->num_fields());
+    for (int i = 0; i < kBoringSchema->num_fields(); ++i) {
+      const auto& field = *kBoringSchema->field(i);
+
+      SCOPED_TRACE("Field#" + std::to_string(i) + " " + field.ToString());
+
+      EXPECT_TRUE(batch[i].type()->Equals(field.type()))
+          << "Incorrect type " << batch[i].type()->ToString();
+
+      ASSERT_OK_AND_ASSIGN(auto col, FieldRef(field.name()).GetOneOrNone(*partial_batch));
+
+      if (batch[i].is_scalar()) {
+        EXPECT_FALSE(batch[i].scalar()->is_valid)
+            << "Non-null placeholder scalar was injected";
+
+        EXPECT_EQ(col, nullptr)
+            << "Placeholder scalar overwrote column " << col->ToString();
+      } else {
+        AssertDatumsEqual(col, batch[i]);
+      }
+    }
+  };
+
+  auto GetField = [](std::string name) { return kBoringSchema->GetFieldByName(name); };
+
+  constexpr int64_t kNumRows = 3;
+  auto i32 = ArrayFromJSON(int32(), "[1, 2, 3]");
+  auto f32 = ArrayFromJSON(float32(), "[1.5, 2.25, 3.125]");
+
+  // empty
+  Expect(RecordBatchFromJSON(kBoringSchema, "[]"));
+
+  // subset
+  Expect(RecordBatch::Make(schema({GetField("i32"), GetField("f32")}), kNumRows,
+                           {i32, f32}));
+
+  // flipped subset
+  Expect(RecordBatch::Make(schema({GetField("f32"), GetField("i32")}), kNumRows,
+                           {f32, i32}));
+
+  auto duplicated_names =
+      RecordBatch::Make(schema({GetField("i32"), GetField("i32")}), kNumRows, {i32, i32});
+  ASSERT_RAISES(Invalid, MakeExecBatch(*kBoringSchema, duplicated_names));
+}
+
 TEST(Expression, ToString) {
   EXPECT_EQ(field_ref("alpha").ToString(), "alpha");
 
@@ -445,21 +495,18 @@ TEST(Expression, BindFieldRef) {
   ExpectBindsTo(field_ref("i32"), no_change, &expr);
   EXPECT_EQ(expr.descr(), ValueDescr::Array(int32()));
 
-  // if the field is not found, a null scalar will be emitted
-  ExpectBindsTo(field_ref("no such field"), no_change, &expr);
-  EXPECT_EQ(expr.descr(), ValueDescr::Scalar(null()));
+  // if the field is not found, an error will be raised
+  ASSERT_RAISES(Invalid, field_ref("no such field").Bind(*kBoringSchema));
 
   // referencing a field by name is not supported if that name is not unique
   // in the input schema
   ASSERT_RAISES(Invalid, field_ref("alpha").Bind(Schema(
                              {field("alpha", int32()), field("alpha", float32())})));
 
-  // referencing nested fields is supported
-  ASSERT_OK_AND_ASSIGN(expr,
-                       field_ref(FieldRef("a", "b"))
-                           .Bind(Schema({field("a", struct_({field("b", int32())}))})));
-  EXPECT_TRUE(expr.IsBound());
-  EXPECT_EQ(expr.descr(), ValueDescr::Array(int32()));
+  // referencing nested fields is not supported
+  ASSERT_RAISES(NotImplemented,
+                field_ref(FieldRef("a", "b"))
+                    .Bind(Schema({field("a", struct_({field("b", int32())}))})));
 }
 
 TEST(Expression, BindCall) {
@@ -525,7 +572,8 @@ TEST(Expression, ExecuteFieldRef) {
     auto expr = field_ref(ref);
 
     ASSERT_OK_AND_ASSIGN(expr, expr.Bind(in.descr()));
-    ASSERT_OK_AND_ASSIGN(Datum actual, ExecuteScalarExpression(expr, in));
+    ASSERT_OK_AND_ASSIGN(Datum actual,
+                         ExecuteScalarExpression(expr, Schema(in.type()->fields()), in));
 
     AssertDatumsEqual(actual, expected, /*verbose=*/true);
   };
@@ -537,38 +585,44 @@ TEST(Expression, ExecuteFieldRef) {
   ])"),
               ArrayFromJSON(float64(), R"([6.125, 0.0, -1])"));
 
-  // more nested:
-  ExpectRefIs(FieldRef{"a", "a"},
-              ArrayFromJSON(struct_({field("a", struct_({field("a", float64())}))}), R"([
-    {"a": {"a": 6.125}},
-    {"a": {"a": 0.0}},
-    {"a": {"a": -1}}
+  ExpectRefIs("a",
+              ArrayFromJSON(struct_({
+                                field("a", float64()),
+                                field("b", float64()),
+                            }),
+                            R"([
+    {"a": 6.125, "b": 7.5},
+    {"a": 0.0,   "b": 2.125},
+    {"a": -1,    "b": 4.0}
   ])"),
               ArrayFromJSON(float64(), R"([6.125, 0.0, -1])"));
 
-  // absent fields are resolved as a null scalar:
-  ExpectRefIs(FieldRef{"b"}, ArrayFromJSON(struct_({field("a", float64())}), R"([
-    {"a": 6.125},
-    {"a": 0.0},
-    {"a": -1}
+  ExpectRefIs("b",
+              ArrayFromJSON(struct_({
+                                field("a", float64()),
+                                field("b", float64()),
+                            }),
+                            R"([
+    {"a": 6.125, "b": 7.5},
+    {"a": 0.0,   "b": 2.125},
+    {"a": -1,    "b": 4.0}
   ])"),
-              MakeNullScalar(null()));
-
-  // XXX this *should* fail in Bind but for now it will just error in
-  // ExecuteScalarExpression
-  ASSERT_OK_AND_ASSIGN(auto list_item, field_ref("item").Bind(list(int32())));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      NotImplemented, HasSubstr("non-struct array"),
-      ExecuteScalarExpression(list_item,
-                              ArrayFromJSON(list(int32()), "[[1,2], [], null, [5]]")));
+              ArrayFromJSON(float64(), R"([7.5, 2.125, 4.0])"));
 }
 
 Result<Datum> NaiveExecuteScalarExpression(const Expression& expr, const Datum& input) {
-  auto call = expr.call();
-  if (call == nullptr) {
-    // already tested execution of field_ref, execution of literal is trivial
-    return ExecuteScalarExpression(expr, input);
+  if (auto lit = expr.literal()) {
+    return *lit;
   }
+
+  if (auto ref = expr.field_ref()) {
+    if (input.type()) {
+      return ref->GetOneOrNone(*input.make_array());
+    }
+    return ref->GetOneOrNone(*input.record_batch());
+  }
+
+  auto call = CallNotNull(expr);
 
   std::vector<Datum> arguments(call->arguments.size());
   for (size_t i = 0; i < arguments.size(); ++i) {
@@ -587,13 +641,16 @@ Result<Datum> NaiveExecuteScalarExpression(const Expression& expr, const Datum& 
 }
 
 void ExpectExecute(Expression expr, Datum in, Datum* actual_out = NULLPTR) {
+  std::shared_ptr<Schema> schm;
   if (in.is_value()) {
     ASSERT_OK_AND_ASSIGN(expr, expr.Bind(in.descr()));
+    schm = schema(in.type()->fields());
   } else {
     ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*in.schema()));
+    schm = in.schema();
   }
 
-  ASSERT_OK_AND_ASSIGN(Datum actual, ExecuteScalarExpression(expr, in));
+  ASSERT_OK_AND_ASSIGN(Datum actual, ExecuteScalarExpression(expr, *schm, in));
 
   ASSERT_OK_AND_ASSIGN(Datum expected, NaiveExecuteScalarExpression(expr, in));
 
@@ -653,9 +710,9 @@ TEST(Expression, ExecuteDictionaryTransparent) {
   ASSERT_OK_AND_ASSIGN(
       expr, SimplifyWithGuarantee(expr, equal(field_ref("dict_str"), literal("eh"))));
 
-  ASSERT_OK_AND_ASSIGN(
-      auto res,
-      ExecuteScalarExpression(expr, ArrayFromJSON(struct_({field("i32", int32())}), R"([
+  ASSERT_OK_AND_ASSIGN(auto res, ExecuteScalarExpression(
+                                     expr, *kBoringSchema,
+                                     ArrayFromJSON(struct_({field("i32", int32())}), R"([
     {"i32": 0},
     {"i32": 1},
     {"i32": 2}
@@ -841,7 +898,7 @@ TEST(Expression, ReplaceFieldsWithKnownValues) {
   // NB: known_values will be cast
   ExpectReplacesTo(field_ref("i32"), {{"i32", Datum("3")}}, literal(3));
 
-  ExpectReplacesTo(field_ref("b"), i32_is_3, field_ref("b"));
+  ExpectReplacesTo(field_ref("f32"), i32_is_3, field_ref("f32"));
 
   ExpectReplacesTo(equal(field_ref("i32"), literal(1)), i32_is_3,
                    equal(literal(3), literal(1)));
@@ -1082,7 +1139,8 @@ TEST(Expression, SingleComparisonGuarantees) {
                               {"i32"}));
 
         ASSERT_OK_AND_ASSIGN(filter, filter.Bind(*kBoringSchema));
-        ASSERT_OK_AND_ASSIGN(Datum evaluated, ExecuteScalarExpression(filter, input));
+        ASSERT_OK_AND_ASSIGN(Datum evaluated,
+                             ExecuteScalarExpression(filter, *kBoringSchema, input));
 
         // ensure that the simplified filter is as simplified as it could be
         // (this is always possible for single comparisons)
@@ -1193,7 +1251,8 @@ TEST(Expression, Filter) {
     auto expected_mask = batch->column(0);
 
     ASSERT_OK_AND_ASSIGN(filter, filter.Bind(*kBoringSchema));
-    ASSERT_OK_AND_ASSIGN(Datum mask, ExecuteScalarExpression(filter, batch));
+    ASSERT_OK_AND_ASSIGN(Datum mask,
+                         ExecuteScalarExpression(filter, *kBoringSchema, batch));
 
     AssertDatumsEqual(expected_mask, mask);
   };
@@ -1286,7 +1345,8 @@ TEST(Projection, AugmentWithNull) {
 
   auto ExpectProject = [&](Expression proj, Datum expected) {
     ASSERT_OK_AND_ASSIGN(proj, proj.Bind(*kBoringSchema));
-    ASSERT_OK_AND_ASSIGN(auto actual, ExecuteScalarExpression(proj, input));
+    ASSERT_OK_AND_ASSIGN(auto actual,
+                         ExecuteScalarExpression(proj, *kBoringSchema, input));
     AssertDatumsEqual(Datum(expected), actual);
   };
 
@@ -1316,7 +1376,8 @@ TEST(Projection, AugmentWithKnownValues) {
                                       Expression guarantee) {
     ASSERT_OK_AND_ASSIGN(proj, proj.Bind(*kBoringSchema));
     ASSERT_OK_AND_ASSIGN(proj, SimplifyWithGuarantee(proj, guarantee));
-    ASSERT_OK_AND_ASSIGN(auto actual, ExecuteScalarExpression(proj, input));
+    ASSERT_OK_AND_ASSIGN(auto actual,
+                         ExecuteScalarExpression(proj, *kBoringSchema, input));
     AssertDatumsEqual(Datum(expected), actual);
   };
 

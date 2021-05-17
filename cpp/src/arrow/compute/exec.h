@@ -206,6 +206,8 @@ struct ARROW_EXPORT ExecBatch {
   /// \brief A convenience for the number of values / arguments.
   int num_values() const { return static_cast<int>(values.size()); }
 
+  ExecBatch Slice(int64_t offset, int64_t length) const;
+
   /// \brief A convenience for returning the ValueDescr objects (types and
   /// shapes) from the batch.
   std::vector<ValueDescr> GetDescriptors() const {

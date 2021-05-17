@@ -547,8 +547,8 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
 
   // Scan the fragment through the scanner.
   RecordBatchIterator Batches(std::shared_ptr<Fragment> fragment) {
-    EXPECT_OK_AND_ASSIGN(auto schema, fragment->ReadPhysicalSchema());
-    auto dataset = std::make_shared<FragmentDataset>(schema, FragmentVector{fragment});
+    auto dataset = std::make_shared<FragmentDataset>(opts_->dataset_schema,
+                                                     FragmentVector{fragment});
     ScannerBuilder builder(dataset, opts_);
     ARROW_EXPECT_OK(builder.UseAsync(GetParam().use_async));
     ARROW_EXPECT_OK(builder.UseThreads(GetParam().use_threads));
@@ -761,12 +761,11 @@ class JSONRecordBatchFileFormat : public FileFormat {
     ARROW_ASSIGN_OR_RAISE(auto file, fragment->source().Open());
     ARROW_ASSIGN_OR_RAISE(int64_t size, file->GetSize());
     ARROW_ASSIGN_OR_RAISE(auto buffer, file->Read(size));
-
-    util::string_view view{*buffer};
-
     ARROW_ASSIGN_OR_RAISE(auto schema, Inspect(fragment->source()));
-    std::shared_ptr<RecordBatch> batch = RecordBatchFromJSON(schema, view);
-    return ScanTaskIteratorFromRecordBatch({batch}, std::move(options));
+
+    RecordBatchVector batches{RecordBatchFromJSON(schema, util::string_view{*buffer})};
+    return std::make_shared<InMemoryFragment>(std::move(schema), std::move(batches))
+        ->Scan(std::move(options));
   }
 
   Result<std::shared_ptr<FileWriter>> MakeWriter(
@@ -1052,7 +1051,7 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
     ASSERT_OK_AND_ASSIGN(dataset_, factory->Finish());
 
     scan_options_ = std::make_shared<ScanOptions>();
-    scan_options_->dataset_schema = source_schema_;
+    scan_options_->dataset_schema = dataset_->schema();
     ASSERT_OK(SetProjection(scan_options_.get(), source_schema_->field_names()));
   }
 
