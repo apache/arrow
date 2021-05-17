@@ -142,6 +142,11 @@ struct StringTransform {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     return Derived().Execute(ctx, batch, out);
   }
+
+  static Status InvalidStatus() {
+    return Status::Invalid("Invalid UTF8 sequence in input");
+  }
+
   Status Execute(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     if (batch[0].kind() == Datum::ARRAY) {
       const ArrayData& input = *batch[0].array();
@@ -173,7 +178,7 @@ struct StringTransform {
         if (ARROW_PREDICT_FALSE(!static_cast<Derived&>(*this).Transform(
                 input_string, input_string_ncodeunits, output_str + output_ncodeunits,
                 &encoded_nbytes))) {
-          return Status::Invalid("Invalid UTF8 sequence in input");
+          return Derived::InvalidStatus();
         }
         output_ncodeunits += encoded_nbytes;
         output_string_offsets[i + 1] = output_ncodeunits;
@@ -199,7 +204,7 @@ struct StringTransform {
         if (ARROW_PREDICT_FALSE(!static_cast<Derived&>(*this).Transform(
                 input.value->data(), data_nbytes, value_buffer->mutable_data(),
                 &encoded_nbytes))) {
-          return Status::Invalid("Invalid UTF8 sequence in input");
+          return Derived::InvalidStatus();
         }
         RETURN_NOT_OK(value_buffer->Resize(encoded_nbytes, /*shrink_to_fit=*/true));
       }
@@ -282,6 +287,8 @@ struct AsciiReverse : StringTransform<Type, AsciiReverse<Type>> {
     *output_written = input_string_ncodeunits;
     return utf8_char_found == 0;
   }
+
+  static Status InvalidStatus() { return Status::Invalid("Non-ascii sequence in input"); }
 };
 
 /*
@@ -2353,7 +2360,7 @@ const FunctionDoc ascii_upper_doc(
 const FunctionDoc ascii_lower_doc(
     "Transform ASCII input to lowercase",
     ("For each string in `strings`, return a lowercase version.\n\n"
-     "This function assumes the input is fully ASCII.  It it may contain\n"
+     "This function assumes the input is fully ASCII.  If it may contain\n"
      "non-ASCII characters, use \"utf8_lower\" instead."),
     {"strings"});
 
@@ -2366,12 +2373,19 @@ const FunctionDoc utf8_lower_doc(
     ("For each string in `strings`, return a lowercase version."), {"strings"});
 
 const FunctionDoc ascii_reverse_doc(
-    "Reverse ascii input",
-    ("For each ascii string in `strings`, return a reversed version."), {"strings"});
+    "Reverse ASCII input",
+    ("For each ASCII string in `strings`, return a reversed version.\n\n"
+     "This function assumes the input is fully ASCII.  If it may contain\n"
+     "non-ASCII characters, use \"utf8_reverse\" instead."),
+    {"strings"});
 
 const FunctionDoc utf8_reverse_doc(
     "Reverse utf8 input",
-    ("For each utf8 string in `strings`, return a reversed version."), {"strings"});
+    ("For each utf8 string in `strings`, return a reversed version.\n\n"
+     "This function works on UTF8 codepoint level. As a consequence, if the input \n"
+     "contains combining UTF8 character sequences/ 'graphemes', they would also \n"
+     "be reversed."),
+    {"strings"});
 
 }  // namespace
 

@@ -97,7 +97,8 @@ TYPED_TEST(TestStringKernels, AsciiReverse) {
                    R"(["dcba", null, "", "bbb"])");
 
   Datum invalid_input = ArrayFromJSON(this->type(), R"(["aAazZæÆ&", null, "", "bbb"])");
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("Invalid UTF8 sequence"),
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  testing::HasSubstr("Non-ascii sequence in input"),
                                   CallFunction("ascii_reverse", {invalid_input}));
 }
 
