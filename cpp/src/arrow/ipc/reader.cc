@@ -1134,15 +1134,14 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     footer_offset_ = footer_offset;
     auto cpu_executor = ::arrow::internal::GetCpuThreadPool();
     auto self = std::dynamic_pointer_cast<RecordBatchFileReaderImpl>(shared_from_this());
-    return ReadFooterAsync(cpu_executor)
-        .Then([self, options](const detail::Empty&) -> Status {
-          // Get the schema and record any observed dictionaries
-          RETURN_NOT_OK(UnpackSchemaMessage(
-              self->footer_->schema(), options, &self->dictionary_memo_, &self->schema_,
-              &self->out_schema_, &self->field_inclusion_mask_, &self->swap_endian_));
-          ++self->stats_.num_messages;
-          return Status::OK();
-        });
+    return ReadFooterAsync(cpu_executor).Then([self, options]() -> Status {
+      // Get the schema and record any observed dictionaries
+      RETURN_NOT_OK(UnpackSchemaMessage(
+          self->footer_->schema(), options, &self->dictionary_memo_, &self->schema_,
+          &self->out_schema_, &self->field_inclusion_mask_, &self->swap_endian_));
+      ++self->stats_.num_messages;
+      return Status::OK();
+    });
   }
 
   std::shared_ptr<Schema> schema() const override { return out_schema_; }
@@ -1348,16 +1347,14 @@ Future<std::shared_ptr<RecordBatchFileReader>> RecordBatchFileReader::OpenAsync(
     const IpcReadOptions& options) {
   auto result = std::make_shared<RecordBatchFileReaderImpl>();
   return result->OpenAsync(file, footer_offset, options)
-      .Then(
-          [=](...) -> Result<std::shared_ptr<RecordBatchFileReader>> { return result; });
+      .Then([=]() -> Result<std::shared_ptr<RecordBatchFileReader>> { return result; });
 }
 
 Future<std::shared_ptr<RecordBatchFileReader>> RecordBatchFileReader::OpenAsync(
     io::RandomAccessFile* file, int64_t footer_offset, const IpcReadOptions& options) {
   auto result = std::make_shared<RecordBatchFileReaderImpl>();
   return result->OpenAsync(file, footer_offset, options)
-      .Then(
-          [=](...) -> Result<std::shared_ptr<RecordBatchFileReader>> { return result; });
+      .Then([=]() -> Result<std::shared_ptr<RecordBatchFileReader>> { return result; });
 }
 
 Future<IpcFileRecordBatchGenerator::Item> IpcFileRecordBatchGenerator::operator()() {
@@ -1385,8 +1382,7 @@ Future<IpcFileRecordBatchGenerator::Item> IpcFileRecordBatchGenerator::operator(
   }
   auto block = FileBlockFromFlatbuffer(state->footer_->recordBatches()->Get(index_++));
   auto read_message = ReadBlock(block);
-  auto read_messages = read_dictionaries_.Then(
-      [read_message](const detail::Empty&) { return read_message; });
+  auto read_messages = read_dictionaries_.Then([read_message]() { return read_message; });
   // Force transfer. This may be wasteful in some cases, but ensures we get off the
   // I/O threads as soon as possible, and ensures we don't decode record batches
   // synchronously in the case that the message read has already finished.
@@ -1410,8 +1406,7 @@ Future<std::shared_ptr<Message>> IpcFileRecordBatchGenerator::ReadBlock(
     io::ReadRange range{block.offset, block.metadata_length + block.body_length};
     auto pool = state_->options_.memory_pool;
     return cached_source->WaitFor({range}).Then(
-        [cached_source, pool,
-         range](const detail::Empty&) -> Result<std::shared_ptr<Message>> {
+        [cached_source, pool, range]() -> Result<std::shared_ptr<Message>> {
           ARROW_ASSIGN_OR_RAISE(auto buffer, cached_source->Read(range));
           io::BufferReader stream(std::move(buffer));
           return ReadMessage(&stream, pool);
