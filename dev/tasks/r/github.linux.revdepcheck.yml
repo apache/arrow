@@ -48,11 +48,12 @@ jobs:
       - name: Fetch Submodules and Tags
         shell: bash
         run: cd arrow && ci/scripts/util_checkout.sh
+      # The cache will not be found unless there is a run that was cached
+      # on the main branch first.
       - name: Cache crancache and revdeps directory
         uses: actions/cache@v2
         with:
-          key: {{ "cache-${{ hashFiles('arrow/cpp/vcpkg.json') }}" }}
-          restore-keys: "cache-"
+          key: {{ "r-revdep-cache-${{ hashFiles('arrow/cpp/vcpkg.json') }}" }}
           path: |
             arrow/r/revdep
             arrow/.crancache
