@@ -95,7 +95,7 @@ na_array$IsNull(5)
 na_array$IsValid(5)
 na_array$null_count
 
-# zero-copy slicing; the offset of the new Array is the index passed to $Slice
+# zero-copy slicing; the offset of the new Array will be the same as the index passed to $Slice
 new_array <- na_array$Slice(5)
 new_array$offset
 

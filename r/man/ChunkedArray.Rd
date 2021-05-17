@@ -58,20 +58,18 @@ within the array's internal data. This can be an expensive check, potentially \c
 class_scores <- chunked_array(c(87, 88, 89), c(94, 93, 92), c(71, 72, 73))
 class_scores$num_chunks
 
-# When slicing from a chunked_array, chunks are preserved
+# When taking a Slice from a chunked_array, chunks are preserved
 class_scores$Slice(2,length = 5)
 
-# You can combine Take and SortIndices to return an ordered ChunkedArray with
-#  1 chunk containing all values, ordered.
+# You can combine Take and SortIndices to return a ChunkedArray with 1 chunk 
+ containing all values, ordered.
 class_scores$Take(class_scores$SortIndices(descending = TRUE))
 
 # If you pass a list into chunked_array, you get a list of length 1
 list_scores <- chunked_array(list(c(9.9, 9.6, 9.5), c(8.2,8.3,8.4), c(10.0, 9.9, 9.8)))
 list_scores$num_chunks
 
-# Although R lists can be of mixed types, ChunkedArrays contain objects of a 
-# single type. When constructing a ChunkedArray, the first chunk is used to 
-# infer type.
+# When constructing a ChunkedArray, the first chunk is used to infer type.
 doubles <- chunked_array(c(1, 2, 3), c(5L, 6L, 7L))
 doubles$type
 }
