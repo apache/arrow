@@ -1383,6 +1383,7 @@ def test_write_to_dataset_with_partitions_and_custom_filenames(
     assert sorted(expected_basenames) == sorted(output_basenames)
 
 
+@pytest.mark.dataset
 @pytest.mark.pandas
 def test_write_to_dataset_filesystem(tempdir):
     df = pd.DataFrame({'A': [1, 2, 3]})
