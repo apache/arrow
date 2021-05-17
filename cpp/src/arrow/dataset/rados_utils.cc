@@ -48,13 +48,14 @@ Status CharToInt64(char* buffer, int64_t& num) {
   return Status::OK();
 }
 
-Status SerializeScanRequestToBufferlist(Expression filter, Expression part_expr,
+Status SerializeScanRequestToBufferlist(compute::Expression filter,
+                                        compute::Expression part_expr,
                                         std::shared_ptr<Schema> projection_schema,
                                         std::shared_ptr<Schema> dataset_schema,
                                         int64_t file_size, ceph::bufferlist& bl) {
   // serialize the filter expression's and the schema's.
-  ARROW_ASSIGN_OR_RAISE(auto filter_buffer, Serialize(filter));
-  ARROW_ASSIGN_OR_RAISE(auto part_expr_buffer, Serialize(part_expr));
+  ARROW_ASSIGN_OR_RAISE(auto filter_buffer, compute::Serialize(filter));
+  ARROW_ASSIGN_OR_RAISE(auto part_expr_buffer, compute::Serialize(part_expr));
   ARROW_ASSIGN_OR_RAISE(auto projection_schema_buffer,
                         ipc::SerializeSchema(*projection_schema));
   ARROW_ASSIGN_OR_RAISE(auto dataset_schema_buffer,
@@ -108,7 +109,8 @@ Status SerializeScanRequestToBufferlist(Expression filter, Expression part_expr,
   return Status::OK();
 }
 
-Status DeserializeScanRequestFromBufferlist(Expression* filter, Expression* part_expr,
+Status DeserializeScanRequestFromBufferlist(compute::Expression* filter,
+                                            compute::Expression* part_expr,
                                             std::shared_ptr<Schema>* projection_schema,
                                             std::shared_ptr<Schema>* dataset_schema,
                                             int64_t& file_size, ceph::bufferlist& bl) {
@@ -148,13 +150,13 @@ Status DeserializeScanRequestFromBufferlist(Expression* filter, Expression* part
   ARROW_RETURN_NOT_OK(CharToInt64(file_size_buffer, size));
   file_size = size;
 
-  ARROW_ASSIGN_OR_RAISE(auto filter_, Deserialize(std::make_shared<Buffer>(
+  ARROW_ASSIGN_OR_RAISE(auto filter_, compute::Deserialize(std::make_shared<Buffer>(
                                           (uint8_t*)filter_buffer, filter_size)));
   *filter = filter_;
 
-  ARROW_ASSIGN_OR_RAISE(
-      auto part_expr_,
-      Deserialize(std::make_shared<Buffer>((uint8_t*)part_expr_buffer, part_expr_size)));
+  ARROW_ASSIGN_OR_RAISE(auto part_expr_,
+                        compute::Deserialize(std::make_shared<Buffer>(
+                            (uint8_t*)part_expr_buffer, part_expr_size)));
   *part_expr = part_expr_;
 
   ipc::DictionaryMemo empty_memo;
@@ -188,7 +190,8 @@ Status SerializeTableToBufferlist(std::shared_ptr<Table>& table, ceph::bufferlis
 
   ipc::IpcWriteOptions options = ipc::IpcWriteOptions::Defaults();
   ARROW_ASSIGN_OR_RAISE(
-    options.codec, util::Codec::Create(Compression::LZ4_FRAME, std::numeric_limits<int>::min()));
+      options.codec,
+      util::Codec::Create(Compression::LZ4_FRAME, std::numeric_limits<int>::min()));
   ARROW_ASSIGN_OR_RAISE(
       auto writer, ipc::MakeStreamWriter(buffer_output_stream, table->schema(), options));
 

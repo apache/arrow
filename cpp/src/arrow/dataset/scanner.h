@@ -104,10 +104,7 @@ struct ARROW_DS_EXPORT ScanOptions {
   /// Note: The IOContext executor will be ignored if use_threads is set to false
   io::IOContext io_context;
   // Partition expression
-  Expression partition_expression = literal(true);
-
-  // Schema to which record batches will be reconciled
-  const std::shared_ptr<Schema>& schema() const { return projector.schema(); }
+  compute::Expression partition_expression = compute::literal(true);
 
   /// If true the scanner will scan in parallel
   ///
@@ -142,8 +139,6 @@ struct ARROW_DS_EXPORT ScanOptions {
 
   // Return a threaded or serial TaskGroup according to use_threads.
   std::shared_ptr<internal::TaskGroup> TaskGroup() const;
-  // The discovered Schema of the dataset.
-  std::shared_ptr<Schema> dataset_schema;
 };
 
 /// \brief Read record batches from a range of a single data fragment. A
