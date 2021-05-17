@@ -112,6 +112,28 @@ N/A
   ASSERT_EQ(row_count, 3);
 }
 
+TEST_P(TestCsvFileFormat, ScanRecordBatchReaderSchema) {
+  // Regression test for ARROW-12603
+  auto source = GetFileSource(R"(f64,str
+1.0,2.0
+N/A,3.0
+2,foo)");
+  SetSchema({field("f64", float64()), field("str", utf8())});
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+  auto fragment_scan_options = std::make_shared<CsvFragmentScanOptions>();
+  // Force a small buffer size so type inference gets it wrong
+  fragment_scan_options->read_options.block_size = 20;
+  opts_->fragment_scan_options = fragment_scan_options;
+  ASSERT_OK(SetProjection(opts_.get(), {"f64"}));
+
+  int64_t row_count = 0;
+  for (auto maybe_batch : Batches(fragment.get())) {
+    ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+    row_count += batch->num_rows();
+  }
+  ASSERT_EQ(row_count, 3);
+}
+
 TEST_P(TestCsvFileFormat, CustomConvertOptions) {
   auto source = GetFileSource(R"(str
 foo
