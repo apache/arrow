@@ -525,12 +525,8 @@ def _move_shared_libs_unix(build_prefix, build_lib, lib_name):
 default_version = '5.0.0-SNAPSHOT'
 if (not os.path.exists('../.git') and
         not os.environ.get('SETUPTOOLS_SCM_PRETEND_VERSION')):
-    if os.path.exists('PKG-INFO'):
-        # We're probably in a Python sdist, setuptools_scm will handle fine
-        pass
-    else:
-        os.environ['SETUPTOOLS_SCM_PRETEND_VERSION'] = \
-            default_version.replace('-SNAPSHOT', 'a0')
+    os.environ['SETUPTOOLS_SCM_PRETEND_VERSION'] = \
+        default_version.replace('-SNAPSHOT', 'a0')
 
 
 # See https://github.com/pypa/setuptools_scm#configuration-parameters
