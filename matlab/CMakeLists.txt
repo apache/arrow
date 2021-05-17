@@ -39,33 +39,42 @@ find_package(Arrow REQUIRED)
 find_package(Matlab REQUIRED)
 
 # Construct the absolute path to featherread's source files
-set(featherread_sources featherreadmex.cc feather_reader.cc
-                        util/handle_status.cc util/unicode_conversion.cc)
+set(featherread_sources featherreadmex.cc feather_reader.cc util/handle_status.cc
+                        util/unicode_conversion.cc)
 list(TRANSFORM featherread_sources PREPEND ${CMAKE_SOURCE_DIR}/src/)
 
 # Build featherreadmex MEX binary
 matlab_add_mex(R2018a
-               NAME featherreadmex
-               SRC ${featherread_sources}
-               LINK_TO arrow_shared)
+               NAME
+               featherreadmex
+               SRC
+               ${featherread_sources}
+               LINK_TO
+               arrow_shared)
 
 # Construct the absolute path to featherwrite's source files
-set(featherwrite_sources featherwritemex.cc feather_writer.cc
-                        util/handle_status.cc util/unicode_conversion.cc)
+set(featherwrite_sources featherwritemex.cc feather_writer.cc util/handle_status.cc
+                         util/unicode_conversion.cc)
 list(TRANSFORM featherwrite_sources PREPEND ${CMAKE_SOURCE_DIR}/src/)
-
 
 # Build featherwritemex MEX binary
 matlab_add_mex(R2018a
-               NAME featherwritemex
-               SRC ${featherwrite_sources}
-               LINK_TO arrow_shared)
+               NAME
+               featherwritemex
+               SRC
+               ${featherwrite_sources}
+               LINK_TO
+               arrow_shared)
 
 # Ensure the MEX binaries are placed in the src directory on all platforms
-if (WIN32)
-    set_target_properties(featherreadmex PROPERTIES RUNTIME_OUTPUT_DIRECTORY $<1:${CMAKE_SOURCE_DIR}/src>)
-    set_target_properties(featherwritemex PROPERTIES RUNTIME_OUTPUT_DIRECTORY $<1:${CMAKE_SOURCE_DIR}/src>)
+if(WIN32)
+  set_target_properties(featherreadmex
+                        PROPERTIES RUNTIME_OUTPUT_DIRECTORY $<1:${CMAKE_SOURCE_DIR}/src>)
+  set_target_properties(featherwritemex
+                        PROPERTIES RUNTIME_OUTPUT_DIRECTORY $<1:${CMAKE_SOURCE_DIR}/src>)
 else()
-    set_target_properties(featherreadmex PROPERTIES LIBRARY_OUTPUT_DIRECTORY $<1:${CMAKE_SOURCE_DIR}/src>)
-    set_target_properties(featherwritemex PROPERTIES LIBRARY_OUTPUT_DIRECTORY $<1:${CMAKE_SOURCE_DIR}/src>)
+  set_target_properties(featherreadmex
+                        PROPERTIES LIBRARY_OUTPUT_DIRECTORY $<1:${CMAKE_SOURCE_DIR}/src>)
+  set_target_properties(featherwritemex
+                        PROPERTIES LIBRARY_OUTPUT_DIRECTORY $<1:${CMAKE_SOURCE_DIR}/src>)
 endif()
