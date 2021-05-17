@@ -2080,6 +2080,21 @@ extern "C" SEXP _arrow_dataset___Scanner__ScanBatches(SEXP scanner_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
+std::shared_ptr<arrow::RecordBatchReader> dataset___Scanner__ToRecordBatchReader(const std::shared_ptr<ds::Scanner>& scanner);
+extern "C" SEXP _arrow_dataset___Scanner__ToRecordBatchReader(SEXP scanner_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<ds::Scanner>&>::type scanner(scanner_sexp);
+	return cpp11::as_sexp(dataset___Scanner__ToRecordBatchReader(scanner));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_dataset___Scanner__ToRecordBatchReader(SEXP scanner_sexp){
+	Rf_error("Cannot call dataset___Scanner__ToRecordBatchReader(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_DATASET)
 std::shared_ptr<arrow::Table> dataset___Scanner__head(const std::shared_ptr<ds::Scanner>& scanner, int n);
 extern "C" SEXP _arrow_dataset___Scanner__head(SEXP scanner_sexp, SEXP n_sexp){
 BEGIN_CPP11
@@ -5053,53 +5068,6 @@ extern "C" SEXP _arrow_parquet___arrow___FileReader__GetSchema(SEXP reader_sexp)
 
 // py-to-r.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Array> ImportArray(arrow::r::Pointer<struct ArrowArray> array, arrow::r::Pointer<struct ArrowSchema> schema);
-extern "C" SEXP _arrow_ImportArray(SEXP array_sexp, SEXP schema_sexp){
-BEGIN_CPP11
-	arrow::r::Input<arrow::r::Pointer<struct ArrowArray>>::type array(array_sexp);
-	arrow::r::Input<arrow::r::Pointer<struct ArrowSchema>>::type schema(schema_sexp);
-	return cpp11::as_sexp(ImportArray(array, schema));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_ImportArray(SEXP array_sexp, SEXP schema_sexp){
-	Rf_error("Cannot call ImportArray(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// py-to-r.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::RecordBatch> ImportRecordBatch(arrow::r::Pointer<struct ArrowArray> array, arrow::r::Pointer<struct ArrowSchema> schema);
-extern "C" SEXP _arrow_ImportRecordBatch(SEXP array_sexp, SEXP schema_sexp){
-BEGIN_CPP11
-	arrow::r::Input<arrow::r::Pointer<struct ArrowArray>>::type array(array_sexp);
-	arrow::r::Input<arrow::r::Pointer<struct ArrowSchema>>::type schema(schema_sexp);
-	return cpp11::as_sexp(ImportRecordBatch(array, schema));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_ImportRecordBatch(SEXP array_sexp, SEXP schema_sexp){
-	Rf_error("Cannot call ImportRecordBatch(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// py-to-r.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Schema> ImportSchema(arrow::r::Pointer<struct ArrowSchema> schema);
-extern "C" SEXP _arrow_ImportSchema(SEXP schema_sexp){
-BEGIN_CPP11
-	arrow::r::Input<arrow::r::Pointer<struct ArrowSchema>>::type schema(schema_sexp);
-	return cpp11::as_sexp(ImportSchema(schema));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_ImportSchema(SEXP schema_sexp){
-	Rf_error("Cannot call ImportSchema(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// py-to-r.cpp
-#if defined(ARROW_R_WITH_ARROW)
 arrow::r::Pointer<struct ArrowSchema> allocate_arrow_schema();
 extern "C" SEXP _arrow_allocate_arrow_schema(){
 BEGIN_CPP11
@@ -5160,6 +5128,128 @@ extern "C" SEXP _arrow_delete_arrow_array(SEXP ptr_sexp){
 
 // py-to-r.cpp
 #if defined(ARROW_R_WITH_ARROW)
+arrow::r::Pointer<struct ArrowArrayStream> allocate_arrow_array_stream();
+extern "C" SEXP _arrow_allocate_arrow_array_stream(){
+BEGIN_CPP11
+	return cpp11::as_sexp(allocate_arrow_array_stream());
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_allocate_arrow_array_stream(){
+	Rf_error("Cannot call allocate_arrow_array_stream(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void delete_arrow_array_stream(arrow::r::Pointer<struct ArrowArrayStream> ptr);
+extern "C" SEXP _arrow_delete_arrow_array_stream(SEXP ptr_sexp){
+BEGIN_CPP11
+	arrow::r::Input<arrow::r::Pointer<struct ArrowArrayStream>>::type ptr(ptr_sexp);
+	delete_arrow_array_stream(ptr);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_delete_arrow_array_stream(SEXP ptr_sexp){
+	Rf_error("Cannot call delete_arrow_array_stream(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Array> ImportArray(arrow::r::Pointer<struct ArrowArray> array, arrow::r::Pointer<struct ArrowSchema> schema);
+extern "C" SEXP _arrow_ImportArray(SEXP array_sexp, SEXP schema_sexp){
+BEGIN_CPP11
+	arrow::r::Input<arrow::r::Pointer<struct ArrowArray>>::type array(array_sexp);
+	arrow::r::Input<arrow::r::Pointer<struct ArrowSchema>>::type schema(schema_sexp);
+	return cpp11::as_sexp(ImportArray(array, schema));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ImportArray(SEXP array_sexp, SEXP schema_sexp){
+	Rf_error("Cannot call ImportArray(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::RecordBatch> ImportRecordBatch(arrow::r::Pointer<struct ArrowArray> array, arrow::r::Pointer<struct ArrowSchema> schema);
+extern "C" SEXP _arrow_ImportRecordBatch(SEXP array_sexp, SEXP schema_sexp){
+BEGIN_CPP11
+	arrow::r::Input<arrow::r::Pointer<struct ArrowArray>>::type array(array_sexp);
+	arrow::r::Input<arrow::r::Pointer<struct ArrowSchema>>::type schema(schema_sexp);
+	return cpp11::as_sexp(ImportRecordBatch(array, schema));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ImportRecordBatch(SEXP array_sexp, SEXP schema_sexp){
+	Rf_error("Cannot call ImportRecordBatch(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Schema> ImportSchema(arrow::r::Pointer<struct ArrowSchema> schema);
+extern "C" SEXP _arrow_ImportSchema(SEXP schema_sexp){
+BEGIN_CPP11
+	arrow::r::Input<arrow::r::Pointer<struct ArrowSchema>>::type schema(schema_sexp);
+	return cpp11::as_sexp(ImportSchema(schema));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ImportSchema(SEXP schema_sexp){
+	Rf_error("Cannot call ImportSchema(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Field> ImportField(arrow::r::Pointer<struct ArrowSchema> field);
+extern "C" SEXP _arrow_ImportField(SEXP field_sexp){
+BEGIN_CPP11
+	arrow::r::Input<arrow::r::Pointer<struct ArrowSchema>>::type field(field_sexp);
+	return cpp11::as_sexp(ImportField(field));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ImportField(SEXP field_sexp){
+	Rf_error("Cannot call ImportField(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::DataType> ImportType(arrow::r::Pointer<struct ArrowSchema> type);
+extern "C" SEXP _arrow_ImportType(SEXP type_sexp){
+BEGIN_CPP11
+	arrow::r::Input<arrow::r::Pointer<struct ArrowSchema>>::type type(type_sexp);
+	return cpp11::as_sexp(ImportType(type));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ImportType(SEXP type_sexp){
+	Rf_error("Cannot call ImportType(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::RecordBatchReader> ImportRecordBatchReader(arrow::r::Pointer<struct ArrowArrayStream> stream);
+extern "C" SEXP _arrow_ImportRecordBatchReader(SEXP stream_sexp){
+BEGIN_CPP11
+	arrow::r::Input<arrow::r::Pointer<struct ArrowArrayStream>>::type stream(stream_sexp);
+	return cpp11::as_sexp(ImportRecordBatchReader(stream));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ImportRecordBatchReader(SEXP stream_sexp){
+	Rf_error("Cannot call ImportRecordBatchReader(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
 void ExportType(const std::shared_ptr<arrow::DataType>& type, arrow::r::Pointer<struct ArrowSchema> ptr);
 extern "C" SEXP _arrow_ExportType(SEXP type_sexp, SEXP ptr_sexp){
 BEGIN_CPP11
@@ -5172,6 +5262,23 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_ExportType(SEXP type_sexp, SEXP ptr_sexp){
 	Rf_error("Cannot call ExportType(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void ExportField(const std::shared_ptr<arrow::Field>& field, arrow::r::Pointer<struct ArrowSchema> ptr);
+extern "C" SEXP _arrow_ExportField(SEXP field_sexp, SEXP ptr_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
+	arrow::r::Input<arrow::r::Pointer<struct ArrowSchema>>::type ptr(ptr_sexp);
+	ExportField(field, ptr);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExportField(SEXP field_sexp, SEXP ptr_sexp){
+	Rf_error("Cannot call ExportField(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5225,6 +5332,23 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_ExportRecordBatch(SEXP batch_sexp, SEXP array_ptr_sexp, SEXP schema_ptr_sexp){
 	Rf_error("Cannot call ExportRecordBatch(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void ExportRecordBatchReader(const std::shared_ptr<arrow::RecordBatchReader>& reader, arrow::r::Pointer<struct ArrowArrayStream> stream_ptr);
+extern "C" SEXP _arrow_ExportRecordBatchReader(SEXP reader_sexp, SEXP stream_ptr_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatchReader>&>::type reader(reader_sexp);
+	arrow::r::Input<arrow::r::Pointer<struct ArrowArrayStream>>::type stream_ptr(stream_ptr_sexp);
+	ExportRecordBatchReader(reader, stream_ptr);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExportRecordBatchReader(SEXP reader_sexp, SEXP stream_ptr_sexp){
+	Rf_error("Cannot call ExportRecordBatchReader(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5613,6 +5737,36 @@ extern "C" SEXP _arrow_RecordBatchReader__ReadNext(SEXP reader_sexp){
 
 // recordbatchreader.cpp
 #if defined(ARROW_R_WITH_ARROW)
+cpp11::list RecordBatchReader__batches(const std::shared_ptr<arrow::RecordBatchReader>& reader);
+extern "C" SEXP _arrow_RecordBatchReader__batches(SEXP reader_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatchReader>&>::type reader(reader_sexp);
+	return cpp11::as_sexp(RecordBatchReader__batches(reader));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_RecordBatchReader__batches(SEXP reader_sexp){
+	Rf_error("Cannot call RecordBatchReader__batches(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// recordbatchreader.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Table> Table__from_RecordBatchReader(const std::shared_ptr<arrow::RecordBatchReader>& reader);
+extern "C" SEXP _arrow_Table__from_RecordBatchReader(SEXP reader_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatchReader>&>::type reader(reader_sexp);
+	return cpp11::as_sexp(Table__from_RecordBatchReader(reader));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_Table__from_RecordBatchReader(SEXP reader_sexp){
+	Rf_error("Cannot call Table__from_RecordBatchReader(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// recordbatchreader.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::ipc::RecordBatchStreamReader> ipc___RecordBatchStreamReader__Open(const std::shared_ptr<arrow::io::InputStream>& stream);
 extern "C" SEXP _arrow_ipc___RecordBatchStreamReader__Open(SEXP stream_sexp){
 BEGIN_CPP11
@@ -5623,21 +5777,6 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_ipc___RecordBatchStreamReader__Open(SEXP stream_sexp){
 	Rf_error("Cannot call ipc___RecordBatchStreamReader__Open(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// recordbatchreader.cpp
-#if defined(ARROW_R_WITH_ARROW)
-cpp11::list ipc___RecordBatchStreamReader__batches(const std::shared_ptr<arrow::ipc::RecordBatchStreamReader>& reader);
-extern "C" SEXP _arrow_ipc___RecordBatchStreamReader__batches(SEXP reader_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<arrow::ipc::RecordBatchStreamReader>&>::type reader(reader_sexp);
-	return cpp11::as_sexp(ipc___RecordBatchStreamReader__batches(reader));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_ipc___RecordBatchStreamReader__batches(SEXP reader_sexp){
-	Rf_error("Cannot call ipc___RecordBatchStreamReader__batches(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5699,21 +5838,6 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_ipc___RecordBatchFileReader__Open(SEXP file_sexp){
 	Rf_error("Cannot call ipc___RecordBatchFileReader__Open(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// recordbatchreader.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Table> Table__from_RecordBatchReader(const std::shared_ptr<arrow::RecordBatchReader>& reader);
-extern "C" SEXP _arrow_Table__from_RecordBatchReader(SEXP reader_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<arrow::RecordBatchReader>&>::type reader(reader_sexp);
-	return cpp11::as_sexp(Table__from_RecordBatchReader(reader));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_Table__from_RecordBatchReader(SEXP reader_sexp){
-	Rf_error("Cannot call Table__from_RecordBatchReader(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -6832,6 +6956,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___ScannerBuilder__Finish", (DL_FUNC) &_arrow_dataset___ScannerBuilder__Finish, 1}, 
 		{ "_arrow_dataset___Scanner__ToTable", (DL_FUNC) &_arrow_dataset___Scanner__ToTable, 1}, 
 		{ "_arrow_dataset___Scanner__ScanBatches", (DL_FUNC) &_arrow_dataset___Scanner__ScanBatches, 1}, 
+		{ "_arrow_dataset___Scanner__ToRecordBatchReader", (DL_FUNC) &_arrow_dataset___Scanner__ToRecordBatchReader, 1}, 
 		{ "_arrow_dataset___Scanner__head", (DL_FUNC) &_arrow_dataset___Scanner__head, 2}, 
 		{ "_arrow_dataset___Scanner__schema", (DL_FUNC) &_arrow_dataset___Scanner__schema, 1}, 
 		{ "_arrow_dataset___ScanTask__get_batches", (DL_FUNC) &_arrow_dataset___ScanTask__get_batches, 1}, 
@@ -7022,17 +7147,24 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_parquet___arrow___FileWriter__Close", (DL_FUNC) &_arrow_parquet___arrow___FileWriter__Close, 1}, 
 		{ "_arrow_parquet___arrow___WriteTable", (DL_FUNC) &_arrow_parquet___arrow___WriteTable, 4}, 
 		{ "_arrow_parquet___arrow___FileReader__GetSchema", (DL_FUNC) &_arrow_parquet___arrow___FileReader__GetSchema, 1}, 
-		{ "_arrow_ImportArray", (DL_FUNC) &_arrow_ImportArray, 2}, 
-		{ "_arrow_ImportRecordBatch", (DL_FUNC) &_arrow_ImportRecordBatch, 2}, 
-		{ "_arrow_ImportSchema", (DL_FUNC) &_arrow_ImportSchema, 1}, 
 		{ "_arrow_allocate_arrow_schema", (DL_FUNC) &_arrow_allocate_arrow_schema, 0}, 
 		{ "_arrow_delete_arrow_schema", (DL_FUNC) &_arrow_delete_arrow_schema, 1}, 
 		{ "_arrow_allocate_arrow_array", (DL_FUNC) &_arrow_allocate_arrow_array, 0}, 
 		{ "_arrow_delete_arrow_array", (DL_FUNC) &_arrow_delete_arrow_array, 1}, 
+		{ "_arrow_allocate_arrow_array_stream", (DL_FUNC) &_arrow_allocate_arrow_array_stream, 0}, 
+		{ "_arrow_delete_arrow_array_stream", (DL_FUNC) &_arrow_delete_arrow_array_stream, 1}, 
+		{ "_arrow_ImportArray", (DL_FUNC) &_arrow_ImportArray, 2}, 
+		{ "_arrow_ImportRecordBatch", (DL_FUNC) &_arrow_ImportRecordBatch, 2}, 
+		{ "_arrow_ImportSchema", (DL_FUNC) &_arrow_ImportSchema, 1}, 
+		{ "_arrow_ImportField", (DL_FUNC) &_arrow_ImportField, 1}, 
+		{ "_arrow_ImportType", (DL_FUNC) &_arrow_ImportType, 1}, 
+		{ "_arrow_ImportRecordBatchReader", (DL_FUNC) &_arrow_ImportRecordBatchReader, 1}, 
 		{ "_arrow_ExportType", (DL_FUNC) &_arrow_ExportType, 2}, 
+		{ "_arrow_ExportField", (DL_FUNC) &_arrow_ExportField, 2}, 
 		{ "_arrow_ExportSchema", (DL_FUNC) &_arrow_ExportSchema, 2}, 
 		{ "_arrow_ExportArray", (DL_FUNC) &_arrow_ExportArray, 3}, 
 		{ "_arrow_ExportRecordBatch", (DL_FUNC) &_arrow_ExportRecordBatch, 3}, 
+		{ "_arrow_ExportRecordBatchReader", (DL_FUNC) &_arrow_ExportRecordBatchReader, 2}, 
 		{ "_arrow_vec_to_arrow", (DL_FUNC) &_arrow_vec_to_arrow, 2}, 
 		{ "_arrow_DictionaryArray__FromArrays", (DL_FUNC) &_arrow_DictionaryArray__FromArrays, 3}, 
 		{ "_arrow_RecordBatch__num_columns", (DL_FUNC) &_arrow_RecordBatch__num_columns, 1}, 
@@ -7057,13 +7189,13 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_RecordBatch__from_arrays", (DL_FUNC) &_arrow_RecordBatch__from_arrays, 2}, 
 		{ "_arrow_RecordBatchReader__schema", (DL_FUNC) &_arrow_RecordBatchReader__schema, 1}, 
 		{ "_arrow_RecordBatchReader__ReadNext", (DL_FUNC) &_arrow_RecordBatchReader__ReadNext, 1}, 
+		{ "_arrow_RecordBatchReader__batches", (DL_FUNC) &_arrow_RecordBatchReader__batches, 1}, 
+		{ "_arrow_Table__from_RecordBatchReader", (DL_FUNC) &_arrow_Table__from_RecordBatchReader, 1}, 
 		{ "_arrow_ipc___RecordBatchStreamReader__Open", (DL_FUNC) &_arrow_ipc___RecordBatchStreamReader__Open, 1}, 
-		{ "_arrow_ipc___RecordBatchStreamReader__batches", (DL_FUNC) &_arrow_ipc___RecordBatchStreamReader__batches, 1}, 
 		{ "_arrow_ipc___RecordBatchFileReader__schema", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__schema, 1}, 
 		{ "_arrow_ipc___RecordBatchFileReader__num_record_batches", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__num_record_batches, 1}, 
 		{ "_arrow_ipc___RecordBatchFileReader__ReadRecordBatch", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__ReadRecordBatch, 2}, 
 		{ "_arrow_ipc___RecordBatchFileReader__Open", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__Open, 1}, 
-		{ "_arrow_Table__from_RecordBatchReader", (DL_FUNC) &_arrow_Table__from_RecordBatchReader, 1}, 
 		{ "_arrow_Table__from_RecordBatchFileReader", (DL_FUNC) &_arrow_Table__from_RecordBatchFileReader, 1}, 
 		{ "_arrow_ipc___RecordBatchFileReader__batches", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__batches, 1}, 
 		{ "_arrow_ipc___RecordBatchWriter__WriteRecordBatch", (DL_FUNC) &_arrow_ipc___RecordBatchWriter__WriteRecordBatch, 2}, 

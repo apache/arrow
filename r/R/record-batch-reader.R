@@ -94,9 +94,9 @@
 #' }
 RecordBatchReader <- R6Class("RecordBatchReader", inherit = ArrowObject,
   public = list(
-    read_next_batch = function() {
-      RecordBatchReader__ReadNext(self)
-    }
+    read_next_batch = function() RecordBatchReader__ReadNext(self),
+    batches = function() RecordBatchReader__batches(self),
+    read_table = function() Table__from_RecordBatchReader(self)
   ),
   active = list(
     schema = function() RecordBatchReader__schema(self)
@@ -107,12 +107,7 @@ RecordBatchReader <- R6Class("RecordBatchReader", inherit = ArrowObject,
 #' @usage NULL
 #' @format NULL
 #' @export
-RecordBatchStreamReader <- R6Class("RecordBatchStreamReader", inherit = RecordBatchReader,
-  public = list(
-    batches = function() ipc___RecordBatchStreamReader__batches(self),
-    read_table = function() Table__from_RecordBatchReader(self)
-  )
-)
+RecordBatchStreamReader <- R6Class("RecordBatchStreamReader", inherit = RecordBatchReader)
 RecordBatchStreamReader$create <- function(stream) {
   if (inherits(stream, c("raw", "Buffer"))) {
     # TODO: deprecate this because it doesn't close the connection to the Buffer
