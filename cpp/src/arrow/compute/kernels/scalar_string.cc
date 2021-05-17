@@ -288,7 +288,7 @@ struct AsciiReverse : StringTransform<Type, AsciiReverse<Type>> {
     return utf8_char_found == 0;
   }
 
-  static Status InvalidStatus() { return Status::Invalid("Non-ascii sequence in input"); }
+  static Status InvalidStatus() { return Status::Invalid("Non-ASCII sequence in input"); }
 };
 
 /*
@@ -2382,9 +2382,9 @@ const FunctionDoc ascii_reverse_doc(
 const FunctionDoc utf8_reverse_doc(
     "Reverse utf8 input",
     ("For each utf8 string in `strings`, return a reversed version.\n\n"
-     "This function works on UTF8 codepoint level. As a consequence, if the input \n"
-     "contains combining UTF8 character sequences/ 'graphemes', they would also \n"
-     "be reversed."),
+     "This function operates on codepoints/UTF-8 code units, not grapheme\n"
+     "clusters. Hence, it will not correctly reverse grapheme clusters\n"
+     "composed of multiple codepoints."),
     {"strings"});
 
 }  // namespace

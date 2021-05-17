@@ -483,10 +483,9 @@ String transforms
 * \(7) Each UTF8-encoded character in the input is converted to lowercase or
   uppercase.
 
-* \(8) UTF8-encoded input is reversed to the output. If malformed-UTF8 characters 
-  are present, the Output would be undefined (but the size of Output buffers would
-  be preserved). If combined UTF8 characters are available (ex: graphems, glyphs), 
-  they would also be reversed. 
+* \(8) Each UTF8-encoded code unit is written in reverse order to the output.
+  If the input is not valid UTF8, then the output is undefined (but the size of output
+  buffers will be preserved).
 
 
 String trimming
