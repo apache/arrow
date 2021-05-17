@@ -1184,6 +1184,9 @@ class TestConvertRoundTrip : public ::testing::Test {
 };
 
 int GetFieldId(const ::arrow::Field& field) {
+  if (field.metadata() == nullptr) {
+    return -1;
+  }
   auto maybe_field = field.metadata()->Get("PARQUET:field_id");
   if (!maybe_field.ok()) {
     return -1;
