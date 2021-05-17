@@ -144,8 +144,10 @@ String Transforms
    :toctree: ../generated/
 
    ascii_lower
+   ascii_reverse
    ascii_upper
    utf8_lower
+   utf8_reverse
    utf8_upper
 
 Containment tests
