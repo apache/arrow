@@ -117,3 +117,26 @@ test_that("Field roundtrip", {
   expect_s3_class(py, "pyarrow.lib.Field")
   expect_equal(reticulate::py_to_r(py), r)
 })
+
+test_that("RecordBatchReader to python", {
+  library(dplyr)
+
+  tab <- Table$create(example_data)
+  scan <- tab %>%
+    select(int, lgl) %>%
+    filter(int > 6) %>%
+    Scanner$create()
+  reader <- scan$ToRecordBatchReader()
+  pyreader <- reticulate::r_to_py(reader)
+  expect_s3_class(pyreader, "pyarrow.lib.RecordBatchReader")
+  pytab <- pyreader$read_all()
+  expect_s3_class(pytab, "pyarrow.lib.Table")
+  back_to_r <- reticulate::py_to_r(pytab)
+  expect_r6_class(back_to_r, "Table")
+  expect_identical(
+    as.data.frame(back_to_r),
+    example_data %>%
+      select(int, lgl) %>%
+      filter(int > 6)
+  )
+})

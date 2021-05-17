@@ -42,7 +42,8 @@
   }
   s3_register("dplyr::tbl_vars", "arrow_dplyr_query")
 
-  for (cl in c("Array", "RecordBatch", "ChunkedArray", "Table", "Schema")) {
+  for (cl in c("Array", "RecordBatch", "ChunkedArray", "Table", "Schema",
+               "Field", "DataType", "RecordBatchReader")) {
     s3_register("reticulate::py_to_r", paste0("pyarrow.lib.", cl))
     s3_register("reticulate::r_to_py", cl)
   }
