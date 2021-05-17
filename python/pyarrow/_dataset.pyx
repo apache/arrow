@@ -394,7 +394,7 @@ cdef class Dataset(_Weakrefable):
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
         use_async : bool, default False
-            If enabled, the an async scanner will be used that should offer
+            If enabled, an async scanner will be used that should offer
             better performance with high-latency/highly-parallel filesystems
             (e.g. S3)
 
@@ -2728,7 +2728,7 @@ cdef class Scanner(_Weakrefable):
         If enabled, then maximum parallelism will be used determined by
         the number of available CPU cores.
     use_async : bool, default False
-        If enabled, the an async scanner will be used that should offer
+        If enabled, an async scanner will be used that should offer
         better performance with high-latency/highly-parallel filesystems
         (e.g. S3)
     memory_pool : MemoryPool, default None

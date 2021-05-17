@@ -726,7 +726,7 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
         Write files in parallel. If enabled, then maximum parallelism will be
         used determined by the number of available CPU cores.
     use_async : bool, default False
-        If enabled, the an async scanner will be used that should offer
+        If enabled, an async scanner will be used that should offer
         better performance with high-latency/highly-parallel filesystems
         (e.g. S3)
     max_partitions : int, default 1024
