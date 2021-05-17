@@ -1118,23 +1118,7 @@ services:
       ARROW_R_DEV: "true"
     volumes: *ubuntu-volumes
     command: >
-      /bin/bash -c "
-        # cpp building dependencies
-        apt install -y cmake
-
-        # system dependencies needed for arrow's reverse dependencies
-        apt install -y libxml2-dev \
-          libfontconfig1-dev \
-          libcairo2-dev \
-          libglpk-dev \
-          libmariadb-dev \
-          unixodbc-dev \
-          libpq-dev \
-          coinor-libsymphony-dev \
-          coinor-libcgl-dev \
-          coinor-symphony \
-          libzmq3-dev
-        /arrow/ci/scripts/r_revdepcheck.sh /arrow"
+      /bin/bash -c "/arrow/ci/scripts/r_revdepcheck.sh /arrow"
 
 
 
