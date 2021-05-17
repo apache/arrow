@@ -713,6 +713,7 @@ services:
     volumes: *ubuntu-volumes
     command: >
       /bin/bash -c "
+        apt remove -y git &&
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_sdist_test.sh /arrow"
 
@@ -814,9 +815,9 @@ services:
         source: .
         target: "C:/arrow"
     command: arrow\\ci\\scripts\\python_wheel_windows_test.bat
-  
+
   java-bundled-jars:
-    # Docker image 
+    # Docker image
     image: ${REPO}:${ARCH}-java-bundled-jars-vcpkg-${VCPKG}
     build:
       args:
@@ -831,7 +832,7 @@ services:
     volumes:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux2014-ccache:/ccache:delegated
-    command: 
+    command:
       [/arrow/ci/scripts/java_bundled_jars_manylinux_build.sh /arrow /build /arrow/dist]
 
   ##############################  Integration #################################
