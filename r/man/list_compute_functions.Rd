@@ -38,7 +38,7 @@ be called directly on Arrow objects, as well as some tidyverse-flavored versions
 available inside \code{dplyr} verbs.
 }
 \examples{
-list_compute_function() 
+list_compute_functions() 
 list_compute_functions(pattern = "^UTF8", ignore.case = TRUE)
 list_compute_functions(pattern = "^is", invert = TRUE)
 }
