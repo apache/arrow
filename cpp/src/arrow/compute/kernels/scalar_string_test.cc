@@ -470,6 +470,24 @@ TYPED_TEST(TestStringKernels, MatchLikeEscaping) {
 }
 #endif
 
+TYPED_TEST(TestStringKernels, FindSubstring) {
+  MatchSubstringOptions options{"ab"};
+  this->CheckUnary("find_substring", "[]", int64(), "[]", &options);
+  this->CheckUnary("find_substring", R"(["abc", "acb", "cab", null, "bac"])", int64(),
+                   "[0, -1, 1, null, -1]", &options);
+
+  MatchSubstringOptions options_repeated{"abab"};
+  this->CheckUnary("find_substring", R"(["abab", "ab", "cababc", null, "bac"])", int64(),
+                   "[0, -1, 1, null, -1]", &options_repeated);
+
+  MatchSubstringOptions options_double_char{"aab"};
+  this->CheckUnary("find_substring", R"(["aacb", "aab", "ab", "aaab"])", int64(),
+                   "[-1, 0, -1, 1]", &options_double_char);
+  MatchSubstringOptions options_double_char_2{"bbcaa"};
+  this->CheckUnary("find_substring", R"(["abcbaabbbcaabccabaab"])", int64(), "[7]",
+                   &options_double_char_2);
+}
+
 TYPED_TEST(TestStringKernels, SplitBasics) {
   SplitPatternOptions options{" "};
   // basics

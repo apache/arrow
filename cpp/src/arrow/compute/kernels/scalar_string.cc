@@ -488,21 +488,25 @@ struct PlainSubstringMatcher {
     }
   }
 
-  bool Match(util::string_view current) const {
+  int64_t Find(util::string_view current) const {
     // Phase 2: Find the prefix in the data
     const auto pattern_length = options_.pattern.size();
     int64_t pattern_pos = 0;
+    int64_t pos = 0;
     for (const auto c : current) {
       while ((pattern_pos >= 0) && (options_.pattern[pattern_pos] != c)) {
         pattern_pos = prefix_table[pattern_pos];
       }
       pattern_pos++;
       if (static_cast<size_t>(pattern_pos) == pattern_length) {
-        return true;
+        return pos + 1 - pattern_length;
       }
+      pos++;
     }
-    return false;
+    return -1;
   }
+
+  bool Match(util::string_view current) const { return Find(current) >= 0; }
 };
 
 const FunctionDoc match_substring_doc(
@@ -662,6 +666,43 @@ void AddMatchSubstring(FunctionRegistry* registry) {
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 #endif
+}
+
+// Substring find - lfind/index/etc.
+
+struct FindSubstring {
+  const PlainSubstringMatcher matcher_;
+
+  explicit FindSubstring(PlainSubstringMatcher matcher) : matcher_(std::move(matcher)) {}
+
+  template <typename... Ignored>
+  int64_t Call(KernelContext*, util::string_view val, Status*) const {
+    return matcher_.Find(val);
+  }
+};
+
+template <typename InputType>
+Status FindSubstringExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  applicator::ScalarUnaryNotNullStateful<Int64Type, InputType, FindSubstring> kernel{
+      FindSubstring(PlainSubstringMatcher(MatchSubstringState::Get(ctx)))};
+  return kernel.Exec(ctx, batch, out);
+}
+
+const FunctionDoc find_substring_doc(
+    "Find first occurrence of substring",
+    ("For each string in `strings`, emit the index of the first occurrence of the given "
+     "pattern, or -1 if not found.\n"
+     "Null inputs emit null. The pattern must be given in MatchSubstringOptions."),
+    {"strings"}, "MatchSubstringOptions");
+
+void AddFindSubstring(FunctionRegistry* registry) {
+  auto func = std::make_shared<ScalarFunction>("find_substring", Arity::Unary(),
+                                               &find_substring_doc);
+  DCHECK_OK(func->AddKernel({utf8()}, int64(), FindSubstringExec<StringType>,
+                            MatchSubstringState::Init));
+  DCHECK_OK(func->AddKernel({large_utf8()}, int64(), FindSubstringExec<LargeStringType>,
+                            MatchSubstringState::Init));
+  DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
 // IsAlpha/Digit etc
@@ -2626,6 +2667,7 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   AddBinaryLength(registry);
   AddUtf8Length(registry);
   AddMatchSubstring(registry);
+  AddFindSubstring(registry);
   MakeUnaryStringBatchKernelWithState<ReplaceSubStringPlain>(
       "replace_substring", registry, &replace_substring_doc,
       MemAllocation::NO_PREALLOCATE);
