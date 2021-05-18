@@ -1507,7 +1507,7 @@ test_that("Collecting zero columns from a dataset doesn't return entire dataset"
 test_that("Error if no format specified and files are not parquet", {
   skip_if_not_available("parquet")
   expect_error(
-    ds <- open_dataset(csv_dir, partitioning = "part"),
-    regexp = "Looks like these are not parquet files, did you mean to specify a 'format'?"
+    open_dataset(csv_dir, partitioning = "part"),
+    regexp = "Did you mean to specify a 'format'?"
   )
 })

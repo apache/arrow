@@ -110,3 +110,12 @@ handle_embedded_nul_error <- function(e) {
   }
   stop(e)
 }
+
+handle_parquet_io_error <- function(e) {
+  msg <- conditionMessage(e)
+  if (grepl("Parquet magic bytes not found in footer", msg)) {
+    e$message <- paste0(msg, "\nDid you mean to specify a 'format'?")
+  }
+  stop(e)
+}
+
