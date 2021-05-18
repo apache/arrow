@@ -31,10 +31,10 @@ namespace compute {
 //
 class Hashing {
  public:
-  static void hash_fixed(const arrow::internal::CpuInfo* cpu_info, uint32_t num_keys,
+  static void hash_fixed(int64_t hardware_flags, uint32_t num_keys,
                          uint32_t length_key, const uint8_t* keys, uint32_t* hashes);
 
-  static void hash_varlen(const arrow::internal::CpuInfo* cpu_info, uint32_t num_rows,
+  static void hash_varlen(int64_t hardware_flags, uint32_t num_rows,
                           const uint32_t* offsets, const uint8_t* concatenated_keys,
                           uint32_t* temp_buffer,  // Needs to hold 4 x 32-bit per row
                           uint32_t* hashes);
@@ -51,7 +51,7 @@ class Hashing {
 #if defined(ARROW_HAVE_AVX2)
   static void avalanche_avx2(uint32_t num_keys, uint32_t* hashes);
 #endif
-  static void avalanche(const arrow::internal::CpuInfo* cpu_info, uint32_t num_keys,
+  static void avalanche(int64_t hardware_flags, uint32_t num_keys,
                         uint32_t* hashes);
 
   // Accumulator combine
@@ -75,9 +75,9 @@ class Hashing {
   static void helper_tails_avx2(uint32_t num_keys, uint32_t key_length,
                                 const uint8_t* keys, uint32_t* hash);
 #endif
-  static void helper_stripes(const arrow::internal::CpuInfo* cpu_info, uint32_t num_keys,
+  static void helper_stripes(int64_t hardware_flags, uint32_t num_keys,
                              uint32_t key_length, const uint8_t* keys, uint32_t* hash);
-  static void helper_tails(const arrow::internal::CpuInfo* cpu_info, uint32_t num_keys,
+  static void helper_tails(int64_t hardware_flags, uint32_t num_keys,
                            uint32_t key_length, const uint8_t* keys, uint32_t* hash);
 
   static void hash_varlen_helper(uint32_t length, const uint8_t* key, uint32_t* acc);

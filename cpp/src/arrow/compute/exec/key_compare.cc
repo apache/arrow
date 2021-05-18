@@ -71,17 +71,17 @@ void KeyCompare::CompareRows(uint32_t num_rows_to_compare,
                        rows_left.null_masks(), rows_right.null_masks());
   }
 
-  util::BitUtil::bytes_to_bits(ctx->cpu_info, num_rows_to_compare, match_bytevector,
+  util::BitUtil::bytes_to_bits(ctx->hardware_flags, num_rows_to_compare, match_bytevector,
                                match_bitvector);
   if (sel_left_maybe_null) {
     int out_num_rows_int;
-    util::BitUtil::bits_filter_indexes(0, ctx->cpu_info, num_rows_to_compare,
+    util::BitUtil::bits_filter_indexes(0, ctx->hardware_flags, num_rows_to_compare,
                                        match_bitvector, sel_left_maybe_null,
                                        &out_num_rows_int, out_sel_left_maybe_same);
     *out_num_rows = out_num_rows_int;
   } else {
     int out_num_rows_int;
-    util::BitUtil::bits_to_indexes(0, ctx->cpu_info, num_rows_to_compare, match_bitvector,
+    util::BitUtil::bits_to_indexes(0, ctx->hardware_flags, num_rows_to_compare, match_bitvector,
                                    &out_num_rows_int, out_sel_left_maybe_same);
     *out_num_rows = out_num_rows_int;
   }

@@ -38,7 +38,7 @@ class SwissTable {
                          uint16_t* out_selection_mismatch)>;
   using AppendImpl = std::function<Status(int num_keys, const uint16_t* selection)>;
 
-  Status init(const arrow::internal::CpuInfo* cpu_info, MemoryPool* pool,
+  Status init(int64_t hardware_flags, MemoryPool* pool,
               util::TempVectorStack* temp_stack, int log_minibatch, EqualImpl equal_impl,
               AppendImpl append_impl);
   void cleanup();
@@ -161,13 +161,12 @@ class SwissTable {
   // There is 64B padding at the end.
   uint32_t* hashes_;
 
+  int64_t hardware_flags_;
   MemoryPool* pool_;
   util::TempVectorStack* temp_stack_;
 
   EqualImpl equal_impl_;
   AppendImpl append_impl_;
-
-  const arrow::internal::CpuInfo* cpu_info_;
 };
 
 }  // namespace compute

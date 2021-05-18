@@ -266,7 +266,7 @@ bool KeyEncoder::KeyRowArray::has_any_nulls(const KeyEncoderContext* ctx) const 
   if (num_rows_for_has_any_nulls_ < num_rows_) {
     auto size_per_row = metadata().null_masks_bytes_per_row;
     has_any_nulls_ = !util::BitUtil::are_all_bytes_zero(
-        ctx->cpu_info, null_masks() + size_per_row * num_rows_for_has_any_nulls_,
+        ctx->hardware_flags, null_masks() + size_per_row * num_rows_for_has_any_nulls_,
         static_cast<uint32_t>(size_per_row * (num_rows_ - num_rows_for_has_any_nulls_)));
     num_rows_for_has_any_nulls_ = num_rows_;
   }
@@ -360,7 +360,7 @@ void KeyEncoder::TransformBoolean::PreEncode(const KeyColumnArray& input,
   constexpr int buffer_index = 1;
   ARROW_DCHECK(input.data(buffer_index) != nullptr);
   ARROW_DCHECK(output->mutable_data(buffer_index) != nullptr);
-  util::BitUtil::bits_to_bytes(ctx->cpu_info, static_cast<int>(input.length()),
+  util::BitUtil::bits_to_bytes(ctx->hardware_flags, static_cast<int>(input.length()),
                                input.data(buffer_index),
                                output->mutable_data(buffer_index));
 }
@@ -377,7 +377,7 @@ void KeyEncoder::TransformBoolean::PostDecode(const KeyColumnArray& input,
   ARROW_DCHECK(input.data(buffer_index) != nullptr);
   ARROW_DCHECK(output->mutable_data(buffer_index) != nullptr);
 
-  util::BitUtil::bytes_to_bits(ctx->cpu_info, static_cast<int>(input.length()),
+  util::BitUtil::bytes_to_bits(ctx->hardware_flags, static_cast<int>(input.length()),
                                input.data(buffer_index),
                                output->mutable_data(buffer_index));
 }
@@ -745,7 +745,7 @@ void KeyEncoder::EncoderBinary::ColumnMemsetNullsImp(
 
   // Bit vector to index vector of null positions
   int num_selected;
-  util::BitUtil::bits_to_indexes(0, ctx->cpu_info, static_cast<int>(col.length()),
+  util::BitUtil::bits_to_indexes(0, ctx->hardware_flags, static_cast<int>(col.length()),
                                  col.data(0), &num_selected, temp_vector);
 
   for (int i = 0; i < num_selected; ++i) {
@@ -1255,7 +1255,7 @@ void KeyEncoder::EncoderNulls::Encode(KeyRowArray* rows,
     }
     int num_selected;
     util::BitUtil::bits_to_indexes(
-        0, ctx->cpu_info, num_rows, non_nulls, &num_selected,
+        0, ctx->hardware_flags, num_rows, non_nulls, &num_selected,
         reinterpret_cast<uint16_t*>(temp_vector_16bit->mutable_data(1)));
     for (int i = 0; i < num_selected; ++i) {
       uint16_t row_id = reinterpret_cast<const uint16_t*>(temp_vector_16bit->data(1))[i];

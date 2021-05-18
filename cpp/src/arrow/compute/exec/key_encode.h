@@ -43,9 +43,9 @@ class KeyEncoder {
  public:
   struct KeyEncoderContext {
     bool has_avx2() const {
-      return cpu_info->IsSupported(arrow::internal::CpuInfo::AVX2);
+      return (hardware_flags & arrow::internal::CpuInfo::AVX2) > 0;
     }
-    const arrow::internal::CpuInfo* cpu_info;
+    int hardware_flags;
     util::TempVectorStack* stack;
   };
 

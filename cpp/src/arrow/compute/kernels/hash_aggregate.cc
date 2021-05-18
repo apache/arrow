@@ -458,7 +458,7 @@ struct GrouperFastImpl : Grouper {
     impl->ctx_ = ctx;
 
     RETURN_NOT_OK(impl->temp_stack_.Init(ctx->memory_pool(), 64 * minibatch_size_max_));
-    impl->encode_ctx_.cpu_info = arrow::internal::CpuInfo::GetInstance();
+    impl->encode_ctx_.hardware_flags = arrow::internal::CpuInfo::GetInstance()->hardware_flags();
     impl->encode_ctx_.stack = &impl->temp_stack_;
 
     auto num_columns = keys.size();
@@ -508,7 +508,7 @@ struct GrouperFastImpl : Grouper {
       return impl_ptr->rows_.AppendSelectionFrom(impl_ptr->rows_minibatch_, num_keys,
                                                  selection);
     };
-    RETURN_NOT_OK(impl->map_.init(impl->encode_ctx_.cpu_info, ctx->memory_pool(),
+    RETURN_NOT_OK(impl->map_.init(impl->encode_ctx_.hardware_flags, ctx->memory_pool(),
                                   impl->encode_ctx_.stack, impl->log_minibatch_max_,
                                   equal_func, append_func));
     impl->cols_.resize(num_columns);
@@ -575,13 +575,13 @@ struct GrouperFastImpl : Grouper {
 
       // Compute hash
       if (encoder_.row_metadata().is_fixed_length) {
-        Hashing::hash_fixed(encode_ctx_.cpu_info, batch_size_next,
+        Hashing::hash_fixed(encode_ctx_.hardware_flags, batch_size_next,
                             encoder_.row_metadata().fixed_length, rows_minibatch_.data(1),
                             minibatch_hashes_.data());
       } else {
         auto hash_temp_buf =
             util::TempVectorHolder<uint32_t>(&temp_stack_, 4 * batch_size_next);
-        Hashing::hash_varlen(encode_ctx_.cpu_info, batch_size_next,
+        Hashing::hash_varlen(encode_ctx_.hardware_flags, batch_size_next,
                              rows_minibatch_.offsets(), rows_minibatch_.data(2),
                              hash_temp_buf.mutable_data(), minibatch_hashes_.data());
       }

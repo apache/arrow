@@ -44,11 +44,11 @@ inline uint32_t Hashing::avalanche_helper(uint32_t acc) {
   return acc;
 }
 
-void Hashing::avalanche(const arrow::internal::CpuInfo* cpu_info, uint32_t num_keys,
+void Hashing::avalanche(int64_t hardware_flags, uint32_t num_keys,
                         uint32_t* hashes) {
   uint32_t processed = 0;
 #if defined(ARROW_HAVE_AVX2)
-  if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX2)) {
+  if (hardware_flags & arrow::internal::CpuInfo::AVX2) {
     int tail = num_keys % 8;
     avalanche_avx2(num_keys - tail, hashes);
     processed = num_keys - tail;
@@ -100,11 +100,11 @@ inline void Hashing::helper_stripe(uint32_t offset, uint64_t mask_hi, const uint
   acc4 = ROTL(acc4, 13) * PRIME32_1;
 }
 
-void Hashing::helper_stripes(const arrow::internal::CpuInfo* cpu_info, uint32_t num_keys,
+void Hashing::helper_stripes(int64_t hardware_flags, uint32_t num_keys,
                              uint32_t key_length, const uint8_t* keys, uint32_t* hash) {
   uint32_t processed = 0;
 #if defined(ARROW_HAVE_AVX2)
-  if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX2)) {
+  if (hardware_flags & arrow::internal::CpuInfo::AVX2) {
     int tail = num_keys % 2;
     helper_stripes_avx2(num_keys - tail, key_length, keys, hash);
     processed = num_keys - tail;
@@ -149,11 +149,11 @@ inline uint32_t Hashing::helper_tail(uint32_t offset, uint64_t mask, const uint8
   return acc;
 }
 
-void Hashing::helper_tails(const arrow::internal::CpuInfo* cpu_info, uint32_t num_keys,
+void Hashing::helper_tails(int64_t hardware_flags, uint32_t num_keys,
                            uint32_t key_length, const uint8_t* keys, uint32_t* hash) {
   uint32_t processed = 0;
 #if defined(ARROW_HAVE_AVX2)
-  if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX2)) {
+  if (hardware_flags & arrow::internal::CpuInfo::AVX2) {
     int tail = num_keys % 8;
     helper_tails_avx2(num_keys - tail, key_length, keys, hash);
     processed = num_keys - tail;
@@ -168,7 +168,7 @@ void Hashing::helper_tails(const arrow::internal::CpuInfo* cpu_info, uint32_t nu
   }
 }
 
-void Hashing::hash_fixed(const arrow::internal::CpuInfo* cpu_info, uint32_t num_keys,
+void Hashing::hash_fixed(int64_t hardware_flags, uint32_t num_keys,
                          uint32_t length_key, const uint8_t* keys, uint32_t* hashes) {
   ARROW_DCHECK(length_key > 0);
 
@@ -176,11 +176,11 @@ void Hashing::hash_fixed(const arrow::internal::CpuInfo* cpu_info, uint32_t num_
     helper_8B(length_key, num_keys, keys, hashes);
     return;
   }
-  helper_stripes(cpu_info, num_keys, length_key, keys, hashes);
+  helper_stripes(hardware_flags, num_keys, length_key, keys, hashes);
   if ((length_key % 16) > 0 && (length_key % 16) <= 8) {
-    helper_tails(cpu_info, num_keys, length_key, keys, hashes);
+    helper_tails(hardware_flags, num_keys, length_key, keys, hashes);
   }
-  avalanche(cpu_info, num_keys, hashes);
+  avalanche(hardware_flags, num_keys, hashes);
 }
 
 void Hashing::hash_varlen_helper(uint32_t length, const uint8_t* key, uint32_t* acc) {
@@ -216,12 +216,12 @@ void Hashing::hash_varlen_helper(uint32_t length, const uint8_t* key, uint32_t* 
   }
 }
 
-void Hashing::hash_varlen(const arrow::internal::CpuInfo* cpu_info, uint32_t num_rows,
+void Hashing::hash_varlen(int64_t hardware_flags, uint32_t num_rows,
                           const uint32_t* offsets, const uint8_t* concatenated_keys,
                           uint32_t* temp_buffer,  // Needs to hold 4 x 32-bit per row
                           uint32_t* hashes) {
 #if defined(ARROW_HAVE_AVX2)
-  if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX2)) {
+  if (hardware_flags & arrow::internal::CpuInfo::AVX2) {
     hash_varlen_avx2(num_rows, offsets, concatenated_keys, temp_buffer, hashes);
   } else {
 #endif
@@ -237,7 +237,7 @@ void Hashing::hash_varlen(const arrow::internal::CpuInfo* cpu_info, uint32_t num
       hash_varlen_helper(length, concatenated_keys + offsets[i], acc);
       hashes[i] = combine_accumulators(acc[0], acc[1], acc[2], acc[3]);
     }
-    avalanche(cpu_info, num_rows, hashes);
+    avalanche(hardware_flags, num_rows, hashes);
 #if defined(ARROW_HAVE_AVX2)
   }
 #endif

@@ -351,7 +351,7 @@ Status SwissTable::map(const int num_keys, const uint32_t* hashes,
   // Optimistically use simplified lookup involving only a start block to find
   // a single group id candidate for every input.
 #if defined(ARROW_HAVE_AVX2)
-  if (cpu_info_->IsSupported(arrow::internal::CpuInfo::AVX2)) {
+  if (hardware_flags_ & arrow::internal::CpuInfo::AVX2) {
     if (log_blocks_ <= 4) {
       int tail = num_keys % 32;
       int delta = num_keys - tail;
@@ -388,7 +388,7 @@ Status SwissTable::map(const int num_keys, const uint32_t* hashes,
     auto ids_cmp_buf = util::TempVectorHolder<uint16_t>(temp_stack_, num_keys);
     uint16_t* ids_cmp = ids_cmp_buf.mutable_data();
     int num_ids_result;
-    util::BitUtil::bits_split_indexes(cpu_info_, num_keys, match_bitvector,
+    util::BitUtil::bits_split_indexes(hardware_flags_, num_keys, match_bitvector,
                                       &num_ids_result, ids, ids_cmp);
     num_ids = num_ids_result;
     uint32_t num_not_equal;
@@ -545,10 +545,10 @@ Status SwissTable::grow_double() {
   return Status::OK();
 }
 
-Status SwissTable::init(const arrow::internal::CpuInfo* cpu_info, MemoryPool* pool,
+Status SwissTable::init(int64_t hardware_flags, MemoryPool* pool,
                         util::TempVectorStack* temp_stack, int log_minibatch,
                         EqualImpl equal_impl, AppendImpl append_impl) {
-  cpu_info_ = cpu_info;
+  hardware_flags_ = hardware_flags;
   pool_ = pool;
   temp_stack_ = temp_stack;
   log_minibatch_ = log_minibatch;
