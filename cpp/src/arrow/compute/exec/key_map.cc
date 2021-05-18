@@ -108,7 +108,7 @@ inline uint64_t SwissTable::extract_group_id(const uint8_t* block_ptr, int slot,
   // Group id values for all 8 slots in the block are bit-packed and follow the status
   // bytes. We assume here that the number of bits is rounded up to 8, 16, 32 or 64. In
   // that case we can extract group id using aligned 64-bit word access.
-  int num_groupid_bits = arrow::BitUtil::PopCount(group_id_mask);
+  int num_groupid_bits = ARROW_POPCOUNT64(group_id_mask);
   ARROW_DCHECK(num_groupid_bits == 8 || num_groupid_bits == 16 ||
                num_groupid_bits == 32 || num_groupid_bits == 64);
 
@@ -191,7 +191,7 @@ void SwissTable::lookup_1(const uint16_t* selection, const int num_keys,
 // How many groups we can keep in the hash table without the need for resizing.
 // When we reach this limit, we need to break processing of any further rows and resize.
 //
-uint32_t SwissTable::num_groups_for_resize() const {
+uint64_t SwissTable::num_groups_for_resize() const {
   // Resize small hash tables when 50% full (up to 12KB).
   // Resize large hash tables when 75% full.
   constexpr int log_blocks_small_ = 9;
@@ -215,7 +215,7 @@ uint64_t SwissTable::wrap_global_slot_id(uint64_t global_slot_id) {
 Status SwissTable::lookup_2(const uint32_t* hashes, uint32_t* inout_num_selected,
                             uint16_t* inout_selection, bool* out_need_resize,
                             uint32_t* out_group_ids, uint32_t* inout_next_slot_ids) {
-  uint32_t num_groups_limit = num_groups_for_resize();
+  auto num_groups_limit = num_groups_for_resize();
   ARROW_DCHECK(num_inserted_ < num_groups_limit);
 
   // Temporary arrays are of limited size.

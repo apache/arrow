@@ -42,8 +42,8 @@ uint32_t KeyCompare::CompareFixedLength_UpTo8B_avx2(
         _mm_loadu_si128(reinterpret_cast<const __m128i*>(left_to_right_map) + i);
     offset_right = _mm_mullo_epi32(offset_right, _mm_set1_epi32(length));
 
-    auto key_right =
-        _mm256_i32gather_epi64((const long long*)rows_right, offset_right, 1);
+    auto key_right = _mm256_i32gather_epi64(reinterpret_cast<const int64_t*>(rows_right),
+                                            offset_right, 1);
     uint32_t cmp = _mm256_movemask_epi8(_mm256_cmpeq_epi64(
         _mm256_and_si256(key_left, mask), _mm256_and_si256(key_right, mask)));
     reinterpret_cast<uint32_t*>(match_bytevector)[i] &= cmp;

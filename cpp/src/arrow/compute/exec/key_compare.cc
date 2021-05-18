@@ -81,8 +81,9 @@ void KeyCompare::CompareRows(uint32_t num_rows_to_compare,
     *out_num_rows = out_num_rows_int;
   } else {
     int out_num_rows_int;
-    util::BitUtil::bits_to_indexes(0, ctx->hardware_flags, num_rows_to_compare, match_bitvector,
-                                   &out_num_rows_int, out_sel_left_maybe_same);
+    util::BitUtil::bits_to_indexes(0, ctx->hardware_flags, num_rows_to_compare,
+                                   match_bitvector, &out_num_rows_int,
+                                   out_sel_left_maybe_same);
     *out_num_rows = out_num_rows_int;
   }
 }

@@ -106,17 +106,15 @@ class BitUtil {
                               const int num_bits, const uint8_t* bits, int* num_indexes,
                               uint16_t* indexes);
 
-  static void bits_filter_indexes(int bit_to_search,
-                                  int64_t hardware_flags,
+  static void bits_filter_indexes(int bit_to_search, int64_t hardware_flags,
                                   const int num_bits, const uint8_t* bits,
                                   const uint16_t* input_indexes, int* num_indexes,
                                   uint16_t* indexes);
 
   // Input and output indexes may be pointing to the same data (in-place filtering).
-  static void bits_split_indexes(int64_t hardware_flags,
-                                 const int num_bits, const uint8_t* bits,
-                                 int* num_indexes_bit0, uint16_t* indexes_bit0,
-                                 uint16_t* indexes_bit1);
+  static void bits_split_indexes(int64_t hardware_flags, const int num_bits,
+                                 const uint8_t* bits, int* num_indexes_bit0,
+                                 uint16_t* indexes_bit0, uint16_t* indexes_bit1);
 
   // Bit 1 is replaced with byte 0xFF.
   static void bits_to_bytes(int64_t hardware_flags, const int num_bits,
@@ -125,8 +123,8 @@ class BitUtil {
   static void bytes_to_bits(int64_t hardware_flags, const int num_bits,
                             const uint8_t* bytes, uint8_t* bits);
 
-  static bool are_all_bytes_zero(int64_t hardware_flags,
-                                 const uint8_t* bytes, uint32_t num_bytes);
+  static bool are_all_bytes_zero(int64_t hardware_flags, const uint8_t* bytes,
+                                 uint32_t num_bytes);
 
  private:
   inline static void bits_to_indexes_helper(uint64_t word, uint16_t base_index,
@@ -135,10 +133,9 @@ class BitUtil {
                                                 const uint16_t* input_indexes,
                                                 int* num_indexes, uint16_t* indexes);
   template <int bit_to_search, bool filter_input_indexes>
-  static void bits_to_indexes_internal(int64_t hardware_flags,
-                                       const int num_bits, const uint8_t* bits,
-                                       const uint16_t* input_indexes, int* num_indexes,
-                                       uint16_t* indexes);
+  static void bits_to_indexes_internal(int64_t hardware_flags, const int num_bits,
+                                       const uint8_t* bits, const uint16_t* input_indexes,
+                                       int* num_indexes, uint16_t* indexes);
   static void bits_to_bytes_internal(const int num_bits, const uint8_t* bits,
                                      uint8_t* bytes);
   static void bytes_to_bits_internal(const int num_bits, const uint8_t* bytes,

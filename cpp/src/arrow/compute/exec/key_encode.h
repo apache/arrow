@@ -45,7 +45,7 @@ class KeyEncoder {
     bool has_avx2() const {
       return (hardware_flags & arrow::internal::CpuInfo::AVX2) > 0;
     }
-    int hardware_flags;
+    int64_t hardware_flags;
     util::TempVectorStack* stack;
   };
 

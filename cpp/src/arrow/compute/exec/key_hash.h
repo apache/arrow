@@ -17,7 +17,9 @@
 
 #pragma once
 
+#if defined(ARROW_HAVE_AVX2)
 #include <immintrin.h>
+#endif
 
 #include <cstdint>
 
@@ -31,8 +33,8 @@ namespace compute {
 //
 class Hashing {
  public:
-  static void hash_fixed(int64_t hardware_flags, uint32_t num_keys,
-                         uint32_t length_key, const uint8_t* keys, uint32_t* hashes);
+  static void hash_fixed(int64_t hardware_flags, uint32_t num_keys, uint32_t length_key,
+                         const uint8_t* keys, uint32_t* hashes);
 
   static void hash_varlen(int64_t hardware_flags, uint32_t num_rows,
                           const uint32_t* offsets, const uint8_t* concatenated_keys,
@@ -51,8 +53,7 @@ class Hashing {
 #if defined(ARROW_HAVE_AVX2)
   static void avalanche_avx2(uint32_t num_keys, uint32_t* hashes);
 #endif
-  static void avalanche(int64_t hardware_flags, uint32_t num_keys,
-                        uint32_t* hashes);
+  static void avalanche(int64_t hardware_flags, uint32_t num_keys, uint32_t* hashes);
 
   // Accumulator combine
   static inline uint32_t combine_accumulators(const uint32_t acc1, const uint32_t acc2,
@@ -77,8 +78,8 @@ class Hashing {
 #endif
   static void helper_stripes(int64_t hardware_flags, uint32_t num_keys,
                              uint32_t key_length, const uint8_t* keys, uint32_t* hash);
-  static void helper_tails(int64_t hardware_flags, uint32_t num_keys,
-                           uint32_t key_length, const uint8_t* keys, uint32_t* hash);
+  static void helper_tails(int64_t hardware_flags, uint32_t num_keys, uint32_t key_length,
+                           const uint8_t* keys, uint32_t* hash);
 
   static void hash_varlen_helper(uint32_t length, const uint8_t* key, uint32_t* acc);
 #if defined(ARROW_HAVE_AVX2)

@@ -458,7 +458,8 @@ struct GrouperFastImpl : Grouper {
     impl->ctx_ = ctx;
 
     RETURN_NOT_OK(impl->temp_stack_.Init(ctx->memory_pool(), 64 * minibatch_size_max_));
-    impl->encode_ctx_.hardware_flags = arrow::internal::CpuInfo::GetInstance()->hardware_flags();
+    impl->encode_ctx_.hardware_flags =
+        arrow::internal::CpuInfo::GetInstance()->hardware_flags();
     impl->encode_ctx_.stack = &impl->temp_stack_;
 
     auto num_columns = keys.size();
