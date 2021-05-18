@@ -38,9 +38,8 @@ class SwissTable {
                          uint16_t* out_selection_mismatch)>;
   using AppendImpl = std::function<Status(int num_keys, const uint16_t* selection)>;
 
-  Status init(int64_t hardware_flags, MemoryPool* pool,
-              util::TempVectorStack* temp_stack, int log_minibatch, EqualImpl equal_impl,
-              AppendImpl append_impl);
+  Status init(int64_t hardware_flags, MemoryPool* pool, util::TempVectorStack* temp_stack,
+              int log_minibatch, EqualImpl equal_impl, AppendImpl append_impl);
   void cleanup();
 
   Status map(const int ckeys, const uint32_t* hashes, uint32_t* outgroupids);
@@ -85,7 +84,7 @@ class SwissTable {
   inline void insert(uint8_t* block_base, uint64_t slot_id, uint32_t hash, uint8_t stamp,
                      uint32_t group_id);
 
-  inline uint32_t num_groups_for_resize() const;
+  inline uint64_t num_groups_for_resize() const;
 
   inline uint64_t wrap_global_slot_id(uint64_t global_slot_id);
 

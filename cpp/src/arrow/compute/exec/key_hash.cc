@@ -19,18 +19,10 @@
 
 #include <memory.h>
 
+#include <algorithm>
 #include <cstdint>
 
 #include "arrow/compute/exec/util.h"
-
-#ifdef _MSC_VER
-#include <intrin.h>
-#else
-#include <x86intrin.h>
-#endif
-#include <immintrin.h>
-
-#include <algorithm>
 
 namespace arrow {
 namespace compute {
@@ -44,8 +36,7 @@ inline uint32_t Hashing::avalanche_helper(uint32_t acc) {
   return acc;
 }
 
-void Hashing::avalanche(int64_t hardware_flags, uint32_t num_keys,
-                        uint32_t* hashes) {
+void Hashing::avalanche(int64_t hardware_flags, uint32_t num_keys, uint32_t* hashes) {
   uint32_t processed = 0;
 #if defined(ARROW_HAVE_AVX2)
   if (hardware_flags & arrow::internal::CpuInfo::AVX2) {
@@ -149,8 +140,8 @@ inline uint32_t Hashing::helper_tail(uint32_t offset, uint64_t mask, const uint8
   return acc;
 }
 
-void Hashing::helper_tails(int64_t hardware_flags, uint32_t num_keys,
-                           uint32_t key_length, const uint8_t* keys, uint32_t* hash) {
+void Hashing::helper_tails(int64_t hardware_flags, uint32_t num_keys, uint32_t key_length,
+                           const uint8_t* keys, uint32_t* hash) {
   uint32_t processed = 0;
 #if defined(ARROW_HAVE_AVX2)
   if (hardware_flags & arrow::internal::CpuInfo::AVX2) {
@@ -168,8 +159,8 @@ void Hashing::helper_tails(int64_t hardware_flags, uint32_t num_keys,
   }
 }
 
-void Hashing::hash_fixed(int64_t hardware_flags, uint32_t num_keys,
-                         uint32_t length_key, const uint8_t* keys, uint32_t* hashes) {
+void Hashing::hash_fixed(int64_t hardware_flags, uint32_t num_keys, uint32_t length_key,
+                         const uint8_t* keys, uint32_t* hashes) {
   ARROW_DCHECK(length_key > 0);
 
   if (length_key <= 8) {
