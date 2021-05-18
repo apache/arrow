@@ -19,7 +19,7 @@ infer the arrow Array type from an R vector
 type(1:10)
 type(1L:10L)
 type(c(1,1.5,2))
-type(c("A", "B", "C")
+type(c("A", "B", "C"))
 type(mtcars)
 type(Sys.Date())
 }

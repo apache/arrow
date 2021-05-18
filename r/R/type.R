@@ -61,7 +61,7 @@ FLOAT_TYPES <- c("float16", "float32", "float64", "halffloat", "float", "double"
 #' type(1:10)
 #' type(1L:10L)
 #' type(c(1,1.5,2))
-#' type(c("A", "B", "C")
+#' type(c("A", "B", "C"))
 #' type(mtcars)
 #' type(Sys.Date())
 #' @export
