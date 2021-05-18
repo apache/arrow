@@ -17,7 +17,6 @@
 
 #include "arrow/compute/exec/key_map.h"
 
-#include <immintrin.h>
 #include <memory.h>
 
 #include <algorithm>
