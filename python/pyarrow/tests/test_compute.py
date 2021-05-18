@@ -349,6 +349,22 @@ def test_split_whitespace_ascii():
     assert expected.equals(result)
 
 
+def test_split_pattern_regex():
+    arr = pa.array(["-foo---bar--", "---foo---b"])
+    result = pc.split_pattern_regex(arr, pattern="-+")
+    expected = pa.array([["", "foo", "bar", ""], ["", "foo", "b"]])
+    assert expected.equals(result)
+
+    result = pc.split_pattern_regex(arr, pattern="-+", max_splits=1)
+    expected = pa.array([["", "foo---bar--"], ["", "foo---b"]])
+    assert expected.equals(result)
+
+    with pytest.raises(NotImplementedError,
+                       match="Cannot split in reverse with regex"):
+        result = pc.split_pattern_regex(
+            arr, pattern="---", max_splits=1, reverse=True)
+
+
 def test_min_max():
     # An example generated function wrapper with possible options
     data = [4, 5, 6, None, 1]

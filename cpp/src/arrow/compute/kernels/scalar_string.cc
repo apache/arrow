@@ -1004,17 +1004,17 @@ struct SplitBaseTransform {
     return Status::OK();
   }
 
-  static Status CheckOptions(const Options& options) { return Status::OK(); }
-
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     Options options = State::Get(ctx);
     Derived splitter(options);  // we make an instance to reuse the parts vectors
+    RETURN_NOT_OK(splitter.CheckOptions());
     return splitter.Split(ctx, batch, out);
   }
 
+  Status CheckOptions() { return Status::OK(); }
+
   Status Split(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     EnsureLookupTablesFilled();  // only needed for unicode
-    RETURN_NOT_OK(Derived::CheckOptions(options));
 
     if (batch[0].kind() == Datum::ARRAY) {
       const ArrayData& input = *batch[0].array();
@@ -1080,8 +1080,8 @@ struct SplitPatternTransform : SplitBaseTransform<Type, ListType, SplitPatternOp
   using string_offset_type = typename Type::offset_type;
   using Base::Base;
 
-  static Status CheckOptions(const SplitPatternOptions& options) {
-    if (options.pattern.length() == 0) {
+  Status CheckOptions() {
+    if (Base::options.pattern.length() == 0) {
       return Status::Invalid("Empty separator");
     }
     return Status::OK();
@@ -1300,11 +1300,89 @@ void AddSplitWhitespaceUTF8(FunctionRegistry* registry) {
 }
 #endif
 
+#ifdef ARROW_WITH_RE2
+template <typename Type, typename ListType>
+struct SplitRegexTransform : SplitBaseTransform<Type, ListType, SplitPatternOptions,
+                                                SplitRegexTransform<Type, ListType>> {
+  using Base = SplitBaseTransform<Type, ListType, SplitPatternOptions,
+                                  SplitRegexTransform<Type, ListType>>;
+  using ArrayType = typename TypeTraits<Type>::ArrayType;
+  using string_offset_type = typename Type::offset_type;
+  using ScalarType = typename TypeTraits<Type>::ScalarType;
+
+  const RE2 regex_split;
+
+  explicit SplitRegexTransform(SplitPatternOptions options)
+      : Base(options), regex_split(MakePattern(options)) {}
+
+  static std::string MakePattern(const SplitPatternOptions& options) {
+    // RE2 does *not* give you the full match! Must wrap the regex in a capture group
+    // There is FindAndConsume, but it would give only the end of the separator
+    std::string pattern = "(";
+    pattern.reserve(options.pattern.size() + 1);
+    pattern += options.pattern;
+    pattern += ')';
+    return pattern;
+  }
+
+  Status CheckOptions() {
+    if (Base::options.reverse) {
+      return Status::NotImplemented("Cannot split in reverse with regex");
+    }
+    return RegexStatus(regex_split);
+  }
+
+  bool Find(const uint8_t* begin, const uint8_t* end, const uint8_t** separator_begin,
+            const uint8_t** separator_end, const SplitOptions& options) {
+    re2::StringPiece piece(reinterpret_cast<const char*>(begin),
+                           std::distance(begin, end));
+    // "StringPiece is mutated to point to matched piece"
+    re2::StringPiece result;
+    if (!re2::RE2::PartialMatch(piece, regex_split, &result)) {
+      return false;
+    }
+    *separator_begin = reinterpret_cast<const uint8_t*>(result.data());
+    *separator_end = reinterpret_cast<const uint8_t*>(result.data() + result.size());
+    return true;
+  }
+  bool FindReverse(const uint8_t* begin, const uint8_t* end,
+                   const uint8_t** separator_begin, const uint8_t** separator_end,
+                   const SplitOptions& options) {
+    // Not easily supportable, unfortunately
+    return false;
+  }
+};
+
+const FunctionDoc split_pattern_regex_doc(
+    "Split string according to regex pattern",
+    ("Split each string according to the regex `pattern` defined in\n"
+     "SplitPatternOptions.  The output for each string input is a list\n"
+     "of strings.\n"
+     "\n"
+     "The maximum number of splits and direction of splitting\n"
+     "(forward, reverse) can optionally be defined in SplitPatternOptions."),
+    {"strings"}, "SplitPatternOptions");
+
+void AddSplitRegex(FunctionRegistry* registry) {
+  auto func = std::make_shared<ScalarFunction>("split_pattern_regex", Arity::Unary(),
+                                               &split_pattern_regex_doc);
+  using t32 = SplitRegexTransform<StringType, ListType>;
+  using t64 = SplitRegexTransform<LargeStringType, ListType>;
+  DCHECK_OK(func->AddKernel({utf8()}, {list(utf8())}, t32::Exec, t32::State::Init));
+  DCHECK_OK(
+      func->AddKernel({large_utf8()}, {list(large_utf8())}, t64::Exec, t64::State::Init));
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+}
+#endif
+
 void AddSplit(FunctionRegistry* registry) {
   AddSplitPattern(registry);
   AddSplitWhitespaceAscii(registry);
 #ifdef ARROW_WITH_UTF8PROC
   AddSplitWhitespaceUTF8(registry);
+#endif
+#ifdef ARROW_WITH_RE2
+  AddSplitRegex(registry);
 #endif
 }
 

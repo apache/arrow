@@ -568,18 +568,23 @@ when a positive ``max_splits`` is given.
 +==========================+============+=========================+===================+==================================+=========+
 | split_pattern            | Unary      | String-like             | List-like         | :struct:`SplitPatternOptions`    | \(1)    |
 +--------------------------+------------+-------------------------+-------------------+----------------------------------+---------+
-| utf8_split_whitespace    | Unary      | String-like             | List-like         | :struct:`SplitOptions`           | \(2)    |
+| split_pattern_regex      | Unary      | String-like             | List-like         | :struct:`SplitPatternOptions`    | \(2)    |
 +--------------------------+------------+-------------------------+-------------------+----------------------------------+---------+
-| ascii_split_whitespace   | Unary      | String-like             | List-like         | :struct:`SplitOptions`           | \(3)    |
+| utf8_split_whitespace    | Unary      | String-like             | List-like         | :struct:`SplitOptions`           | \(3)    |
++--------------------------+------------+-------------------------+-------------------+----------------------------------+---------+
+| ascii_split_whitespace   | Unary      | String-like             | List-like         | :struct:`SplitOptions`           | \(4)    |
 +--------------------------+------------+-------------------------+-------------------+----------------------------------+---------+
 
 * \(1) The string is split when an exact pattern is found (the pattern itself
   is not included in the output).
 
-* \(2) A non-zero length sequence of Unicode defined whitespace codepoints
+* \(1) The string is split when a regex match is found (the matched
+  substring itself is not included in the output).
+
+* \(3) A non-zero length sequence of Unicode defined whitespace codepoints
   is seen as separator.
 
-* \(3) A non-zero length sequence of ASCII defined whitespace bytes
+* \(4) A non-zero length sequence of ASCII defined whitespace bytes
   (``'\t'``, ``'\n'``, ``'\v'``, ``'\f'``, ``'\r'``  and ``' '``) is seen
   as separator.
 

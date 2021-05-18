@@ -201,17 +201,7 @@ nse_funcs$strsplit <- function(x,
                                useBytes = FALSE) {
   assert_that(is.string(split))
 
-  # The Arrow C++ library does not support splitting a string by a regular
-  # expression pattern (ARROW-12608) but the default behavior of
-  # base::strsplit() is to interpret the split pattern as a regex
-  # (fixed = FALSE). R users commonly pass non-regex split patterns to
-  # strsplit() without bothering to set fixed = TRUE. It would be annoying if
-  # that didn't work here. So: if fixed = FALSE, let's check the split pattern
-  # to see if it is a regex (if it contains any regex metacharacters). If not,
-  # then allow to proceed.
-  if (!fixed && contains_regex(split)) {
-    arrow_not_supported("Regular expression matching in strsplit()")
-  }
+  arrow_fun <- ifelse(fixed, "split_pattern", "split_pattern_regex")
   # warn when the user specifies both fixed = TRUE and perl = TRUE, for
   # consistency with the behavior of base::strsplit()
   if (fixed && perl) {
@@ -221,7 +211,7 @@ nse_funcs$strsplit <- function(x,
   # regardless of the value of perl, for consistency with the behavior of
   # base::strsplit()
   Expression$create(
-    "split_pattern",
+    arrow_fun,
     x,
     options = list(pattern = split, reverse = FALSE, max_splits = -1L)
   )
@@ -229,9 +219,7 @@ nse_funcs$strsplit <- function(x,
 
 nse_funcs$str_split <- function(string, pattern, n = Inf, simplify = FALSE) {
   opts <- get_stringr_pattern_options(enexpr(pattern))
-  if (!opts$fixed && contains_regex(opts$pattern)) {
-    arrow_not_supported("Regular expression matching in str_split()")
-  }
+  arrow_fun <- ifelse(opts$fixed, "split_pattern", "split_pattern_regex")
   if (opts$ignore_case) {
     arrow_not_supported("Case-insensitive string splitting")
   }
@@ -249,7 +237,7 @@ nse_funcs$str_split <- function(string, pattern, n = Inf, simplify = FALSE) {
   # str_split() controls the maximum number of pieces to return. So we must
   # subtract 1 from n to get max_splits.
   Expression$create(
-    "split_pattern",
+    arrow_fun,
     string,
     options = list(
       pattern =
