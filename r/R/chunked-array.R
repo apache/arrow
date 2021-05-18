@@ -66,7 +66,7 @@
 #' class_scores$Slice(2,length = 5)
 #' 
 #' # You can combine Take and SortIndices to return a ChunkedArray with 1 chunk 
-#'  # containing all values, ordered.
+#' # containing all values, ordered.
 #' class_scores$Take(class_scores$SortIndices(descending = TRUE))
 #' 
 #' # If you pass a list into chunked_array, you get a list of length 1
