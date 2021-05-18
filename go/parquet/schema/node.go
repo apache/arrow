@@ -260,7 +260,8 @@ func NewPrimitiveNodeConverted(name string, repetition parquet.Repetition, typ p
 	return n, nil
 }
 
-func PrimitiveNodeFromThrift(elem *format.SchemaElement, fieldID int32) (*PrimitiveNode, error) {
+func PrimitiveNodeFromThrift(elem *format.SchemaElement) (*PrimitiveNode, error) {
+	fieldID := int32(-1)
 	if elem.IsSetFieldID() {
 		fieldID = elem.GetFieldID()
 	}
@@ -464,7 +465,8 @@ func MustPrimitive(n Node, err error) *PrimitiveNode {
 	return n.(*PrimitiveNode)
 }
 
-func GroupNodeFromThrift(elem *format.SchemaElement, fields FieldList, id int32) (*GroupNode, error) {
+func GroupNodeFromThrift(elem *format.SchemaElement, fields FieldList) (*GroupNode, error) {
+	id := int32(-1)
 	if elem.IsSetFieldID() {
 		id = elem.GetFieldID()
 	}

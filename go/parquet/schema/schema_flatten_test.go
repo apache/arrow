@@ -130,7 +130,7 @@ func TestInvalidConvertedTypeInDeserialize(t *testing.T) {
 	// corrupt it
 	intermediary.LogicalType.STRING = nil
 	assert.Panics(t, func() {
-		PrimitiveNodeFromThrift(intermediary, 1)
+		PrimitiveNodeFromThrift(intermediary)
 	})
 }
 
@@ -141,7 +141,7 @@ func TestInvalidTimeUnitInTimeLogical(t *testing.T) {
 	// corrupt it
 	intermediary.LogicalType.TIME.Unit.NANOS = nil
 	assert.Panics(t, func() {
-		PrimitiveNodeFromThrift(intermediary, 1)
+		PrimitiveNodeFromThrift(intermediary)
 	})
 }
 
@@ -152,6 +152,6 @@ func TestInvalidTimeUnitInTimestampLogical(t *testing.T) {
 	// corrupt it
 	intermediary.LogicalType.TIMESTAMP.Unit.NANOS = nil
 	assert.Panics(t, func() {
-		PrimitiveNodeFromThrift(intermediary, 1)
+		PrimitiveNodeFromThrift(intermediary)
 	})
 }

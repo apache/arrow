@@ -70,14 +70,13 @@ func FromParquet(elems []*format.SchemaElement) (Node, error) {
 			return nil, xerrors.New("parquet: schema had multiple nodes but root had no children")
 		}
 		// parquet file with no columns
-		return GroupNodeFromThrift(elems[0], []Node{}, 0)
+		return GroupNodeFromThrift(elems[0], []Node{})
 	}
 
 	// We don't check that the root node is repeated since this is not
 	// consistently set by implementations
 	var (
 		pos      = 0
-		curID    = 0
 		nextNode func() (Node, error)
 	)
 
@@ -88,11 +87,9 @@ func FromParquet(elems []*format.SchemaElement) (Node, error) {
 
 		elem := elems[pos]
 		pos++
-		fieldID := int32(curID)
-		curID++
 
 		if elem.GetNumChildren() == 0 {
-			return PrimitiveNodeFromThrift(elem, fieldID)
+			return PrimitiveNodeFromThrift(elem)
 		}
 
 		fields := make([]Node, 0, elem.GetNumChildren())
@@ -104,7 +101,7 @@ func FromParquet(elems []*format.SchemaElement) (Node, error) {
 			fields = append(fields, n)
 		}
 
-		return GroupNodeFromThrift(elem, fields, fieldID)
+		return GroupNodeFromThrift(elem, fields)
 	}
 
 	return nextNode()

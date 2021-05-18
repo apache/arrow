@@ -493,19 +493,19 @@ func TestLogicalTypeSerializationRoundTrip(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			n := MustPrimitive(NewPrimitiveNodeLogical("something" /* name */, parquet.Repetitions.Required, tt.logical, tt.physical, tt.len, -1 /* fieldID */))
 			elem := n.toThrift()
-			recover := MustPrimitive(PrimitiveNodeFromThrift(elem, -1))
+			recover := MustPrimitive(PrimitiveNodeFromThrift(elem))
 			assert.True(t, n.Equals(recover))
 		})
 	}
 
 	n := MustGroup(NewGroupNodeLogical("map" /* name */, parquet.Repetitions.Required, []Node{}, MapLogicalType{}, -1 /* fieldID */))
 	elem := n.toThrift()
-	recover := MustGroup(GroupNodeFromThrift(elem, []Node{}, -1))
+	recover := MustGroup(GroupNodeFromThrift(elem, []Node{}))
 	assert.True(t, recover.Equals(n))
 
 	n = MustGroup(NewGroupNodeLogical("list" /* name */, parquet.Repetitions.Required, []Node{}, ListLogicalType{}, -1 /* fieldID */))
 	elem = n.toThrift()
-	recover = MustGroup(GroupNodeFromThrift(elem, []Node{}, -1))
+	recover = MustGroup(GroupNodeFromThrift(elem, []Node{}))
 	assert.True(t, recover.Equals(n))
 }
 

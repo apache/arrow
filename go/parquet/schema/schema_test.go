@@ -83,7 +83,7 @@ func (p *PrimitiveNodeTestSuite) SetupTest() {
 }
 
 func (p *PrimitiveNodeTestSuite) convert(elt *format.SchemaElement) {
-	p.node = schema.MustPrimitive(schema.PrimitiveNodeFromThrift(elt, p.fieldID))
+	p.node = schema.MustPrimitive(schema.PrimitiveNodeFromThrift(elt))
 	p.IsType(&schema.PrimitiveNode{}, p.node)
 }
 
