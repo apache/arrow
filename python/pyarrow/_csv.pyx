@@ -487,6 +487,9 @@ cdef class ConvertOptions(_Weakrefable):
         """
         Explicitly map column names to column types.
         """
+        cdef:
+            pair[c_string,shared_ptr[CDataType]] item
+
         d = {frombytes(item.first): pyarrow_wrap_data_type(item.second)
              for item in self.options.column_types}
         return d

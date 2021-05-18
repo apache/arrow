@@ -347,7 +347,8 @@ cdef class Dataset(_Weakrefable):
         """
         cdef:
             CExpression c_filter
-            CFragmentIterator c_iterator
+            CFragmentIterator c_fragments
+            CResult[shared_ptr[CFragment]] maybe_fragment
 
         if filter is None:
             c_fragments = move(GetResultValue(self.dataset.GetFragments()))
