@@ -86,7 +86,7 @@ call_function <- function(function_name, ..., args = list(...), options = empty_
 #' @param ... Additional parameters passed to `grep()`
 #' @return A character vector of available Arrow C++ function names
 #' @examples
-#' list_compute_function() 
+#' list_compute_functions() 
 #' list_compute_functions(pattern = "^UTF8", ignore.case = TRUE)
 #' list_compute_functions(pattern = "^is", invert = TRUE)
 #' @export
