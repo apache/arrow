@@ -7,7 +7,7 @@
 repeat_value_as_array(object, n)
 }
 \arguments{
-\item{object}{Object to be repeated - vector, \code{Scalar}, \code{Array}, or \code{ChunkedArray}}
+\item{object}{Object of length 1 to be repeated - vector, \code{Scalar}, \code{Array}, or \code{ChunkedArray}}
 
 \item{n}{Number of repetitions}
 }

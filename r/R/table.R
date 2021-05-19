@@ -174,13 +174,8 @@ Table$create <- function(..., schema = NULL) {
   }
 
   # If any arrays are length 1, recycle them  
-  arr_lens <- lengths(dots)
+  dots <- recycle_scalars(dots)
 
-  if (length(dots) > 1 && any(arr_lens == 1) && !all(arr_lens==1)) {
-    max_array_len <- max(arr_lens)
-      dots[arr_lens == 1] <- lapply(dots[arr_lens == 1], repeat_value_as_array, max_array_len)
-  }
-  
   if (all_record_batches(dots)) {
     Table__from_record_batches(dots, schema)
   } else {

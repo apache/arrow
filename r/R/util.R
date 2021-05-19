@@ -153,3 +153,21 @@ repeat_value_as_array <- function(object, n) {
   }
   return(MakeArrayFromScalar(Scalar$create(object), n))
 }
+
+#' Recycle scalar values in a list of arrays
+#' 
+#' @param arrays List of arrays
+#' @return List of arrays with any vector/Scalar/Array/ChunkedArray values of length 1 recycled 
+#' @keywords internal
+recycle_scalars <- function(arrays){
+  # Get lengths of items in arrays
+  is_df <- map_lgl(arrays, ~inherits(.x, "data.frame"))
+  arr_lens <- lengths(arrays)
+  arr_lens[is_df] <- map_int(arrays[is_df], nrow)
+  
+  if (length(arrays) > 1 && any(arr_lens == 1) && !all(arr_lens==1)) {
+    max_array_len <- max(arr_lens)
+    arrays[arr_lens == 1 & !is_df] <- lapply(arrays[arr_lens == 1 & !is_df], repeat_value_as_array, max_array_len)
+  }
+  arrays
+}
