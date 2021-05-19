@@ -2119,7 +2119,7 @@ def test_open_dataset_from_uri_s3(s3_example_simple, dataset_reader):
 
 @pytest.mark.parquet
 @pytest.mark.s3  # still needed to create the data
-def test_open_dataset_from_uri_s3_fsspec(s3_example_simple, dataset_reader):
+def test_open_dataset_from_uri_s3_fsspec(s3_example_simple):
     table, path, _, _, host, port, access_key, secret_key = s3_example_simple
     s3fs = pytest.importorskip("s3fs")
 
@@ -2135,18 +2135,17 @@ def test_open_dataset_from_uri_s3_fsspec(s3_example_simple, dataset_reader):
 
     # passing as fsspec filesystem
     dataset = ds.dataset(path, format="parquet", filesystem=fs)
-    assert dataset_reader.to_table(dataset).equals(table)
+    assert dataset.to_table().equals(table)
 
     # directly passing the fsspec-handler
     fs = PyFileSystem(FSSpecHandler(fs))
     dataset = ds.dataset(path, format="parquet", filesystem=fs)
-    assert dataset_reader.to_table(dataset).equals(table)
+    assert dataset.to_table().equals(table)
 
 
 @pytest.mark.parquet
 @pytest.mark.s3
-def test_open_dataset_from_s3_with_filesystem_uri(s3_connection, s3_server,
-                                                  dataset_reader):
+def test_open_dataset_from_s3_with_filesystem_uri(s3_connection, s3_server):
     from pyarrow.fs import FileSystem
     import pyarrow.parquet as pq
 
@@ -2168,7 +2167,7 @@ def test_open_dataset_from_s3_with_filesystem_uri(s3_connection, s3_server,
 
     # full string URI
     dataset = ds.dataset(uri, format="parquet")
-    assert dataset_reader.to_table(dataset).equals(table)
+    assert dataset.to_table().equals(table)
 
     # passing filesystem as an uri
     template = (
@@ -2187,7 +2186,7 @@ def test_open_dataset_from_s3_with_filesystem_uri(s3_connection, s3_server,
     for prefix, path in cases:
         uri = template.format(prefix)
         dataset = ds.dataset(path, filesystem=uri, format="parquet")
-        assert dataset_reader.to_table(dataset).equals(table)
+        assert dataset.to_table().equals(table)
 
     with pytest.raises(pa.ArrowInvalid, match='Missing bucket name'):
         uri = template.format('/')

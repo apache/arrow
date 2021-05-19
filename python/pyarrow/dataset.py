@@ -774,7 +774,7 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
     filesystem, base_dir = _resolve_filesystem_and_path(base_dir, filesystem)
 
     if isinstance(data, Dataset):
-        scanner = data.scanner(use_threads=use_threads)
+        scanner = data.scanner(use_threads=use_threads, use_async=use_async)
     else:
         # scanner was passed directly by the user, in which case a schema
         # cannot be passed
@@ -784,5 +784,5 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
 
     _filesystemdataset_write(
         scanner, base_dir, basename_template, filesystem, partitioning,
-        file_options, use_threads, use_async, max_partitions
+        file_options, max_partitions
     )
