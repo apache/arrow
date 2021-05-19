@@ -71,10 +71,14 @@ Scanner$create <- function(dataset,
                            projection = NULL,
                            filter = TRUE,
                            use_threads = option_use_threads(),
-                           use_async = FALSE,
+                           use_async = NULL,
                            batch_size = NULL,
                            fragment_scan_options = NULL,
                            ...) {
+  if (is.null(use_async)) {
+    use_async = getOption("arrow.use_async", FALSE)
+  }
+
   if (inherits(dataset, "arrow_dplyr_query")) {
     if (inherits(dataset$.data, "ArrowTabular")) {
       # To handle mutate() on Table/RecordBatch, we need to collect(as_data_frame=FALSE) now
@@ -189,7 +193,7 @@ ScannerBuilder <- R6Class("ScannerBuilder", inherit = ArrowObject,
       dataset___ScannerBuilder__UseThreads(self, threads)
       self
     },
-    UseAsync = function(use_async = FALSE) {
+    UseAsync = function(use_async = TRUE) {
       dataset___ScannerBuilder__UseAsync(self, use_async)
       self
     },
