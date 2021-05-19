@@ -1078,7 +1078,10 @@ class TestIndexKernel : public ::testing::Test {
 };
 
 template <typename ArrowType>
-class TestNumericIndexKernel : public TestIndexKernel<ArrowType> {};
+class TestNumericIndexKernel : public TestIndexKernel<ArrowType> {
+ public:
+  using CType = typename TypeTraits<ArrowType>::CType;
+};
 TYPED_TEST_SUITE(TestNumericIndexKernel, NumericArrowTypes);
 TYPED_TEST(TestNumericIndexKernel, Basics) {
   std::vector<std::string> chunked_input0 = {"[]", "[0]"};
@@ -1087,8 +1090,10 @@ TYPED_TEST(TestNumericIndexKernel, Basics) {
   std::vector<std::string> chunked_input3 = {"[1, 1, 1]", "[1, 1]"};
   std::vector<std::string> chunked_input4 = {"[1, 1, 1]", "[1, 1]", "[0]"};
 
-  auto value = std::make_shared<typename TestFixture::ScalarType>(0);
-  auto null_value = std::make_shared<typename TestFixture::ScalarType>(0);
+  auto value = std::make_shared<typename TestFixture::ScalarType>(
+      static_cast<typename TestFixture::CType>(0));
+  auto null_value = std::make_shared<typename TestFixture::ScalarType>(
+      static_cast<typename TestFixture::CType>(0));
   null_value->is_valid = false;
 
   this->AssertIndexIs("[]", value, -1);
@@ -1107,11 +1112,12 @@ TYPED_TEST(TestNumericIndexKernel, Basics) {
 TYPED_TEST(TestNumericIndexKernel, Random) {
   constexpr auto kChunks = 4;
   auto rand = random::RandomArrayGenerator(0x5487655);
-  auto value = std::make_shared<typename TestFixture::ScalarType>(0);
+  auto value = std::make_shared<typename TestFixture::ScalarType>(
+      static_cast<typename TestFixture::CType>(0));
 
   // Test chunked array sizes from 32 to 2048
   for (size_t i = 3; i <= 9; i += 2) {
-    const int64_t chunk_length = 1UL << i;
+    const int64_t chunk_length = static_cast<int64_t>(1) << i;
     ArrayVector chunks;
     for (int i = 0; i < kChunks; i++) {
       chunks.push_back(
@@ -1125,7 +1131,8 @@ TYPED_TEST(TestNumericIndexKernel, Random) {
       auto typed_chunk = arrow::internal::checked_pointer_cast<
           typename TypeTraits<TypeParam>::ArrayType>(chunk);
       for (auto value : *typed_chunk) {
-        if (value.has_value() && value.value() == 0) {
+        if (value.has_value() &&
+            value.value() == static_cast<typename TestFixture::CType>(0)) {
           expected = index;
           break;
         }
