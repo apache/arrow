@@ -18,7 +18,7 @@
 [package]
 name = "datafusion-examples"
 description = "DataFusion usage examples"
-version = "4.0.0"
+version = "4.0.1"
 homepage = "https://github.com/apache/arrow"
 repository = "https://github.com/apache/arrow"
 authors = ["Apache Arrow <dev@arrow.apache.org>"]
