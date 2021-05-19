@@ -90,7 +90,11 @@ jobs:
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
-          archery docker run -e ARROW_FLIGHT=ON ubuntu-ruby
+          archery docker run \
+            -e ARROW_FLIGHT=ON \
+            -e Protobuf_SOURCE=BUNDLED \
+            -e gRPC_SOURCE=BUNDLED \
+            ubuntu-ruby
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
