@@ -1045,6 +1045,153 @@ TEST_F(TestAllKernel, Basics) {
 }
 
 //
+// Index
+//
+
+template <typename ArrowType>
+class TestIndexKernel : public ::testing::Test {
+ public:
+  using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
+  void AssertIndexIs(const Datum& array, const std::shared_ptr<ScalarType>& value,
+                     int64_t expected) {
+    IndexOptions options(value);
+    ASSERT_OK_AND_ASSIGN(Datum out, Index(array, options));
+    const Int64Scalar& out_index = out.scalar_as<Int64Scalar>();
+    ASSERT_EQ(out_index.value, expected);
+  }
+
+  void AssertIndexIs(const std::string& json, const std::shared_ptr<ScalarType>& value,
+                     int64_t expected) {
+    SCOPED_TRACE("Value: " + value->ToString());
+    SCOPED_TRACE("Input: " + json);
+    auto array = ArrayFromJSON(type_singleton(), json);
+    AssertIndexIs(array, value, expected);
+  }
+
+  void AssertIndexIs(const std::vector<std::string>& json,
+                     const std::shared_ptr<ScalarType>& value, int64_t expected) {
+    auto array = ChunkedArrayFromJSON(type_singleton(), json);
+    AssertIndexIs(array, value, expected);
+  }
+
+  std::shared_ptr<DataType> type_singleton() { return std::make_shared<ArrowType>(); }
+};
+
+template <typename ArrowType>
+class TestNumericIndexKernel : public TestIndexKernel<ArrowType> {};
+TYPED_TEST_SUITE(TestNumericIndexKernel, NumericArrowTypes);
+TYPED_TEST(TestNumericIndexKernel, Basics) {
+  std::vector<std::string> chunked_input0 = {"[]", "[0]"};
+  std::vector<std::string> chunked_input1 = {"[1, 0, null]", "[0, 0]"};
+  std::vector<std::string> chunked_input2 = {"[1, 1, 1]", "[1, 0]", "[0, 1]"};
+  std::vector<std::string> chunked_input3 = {"[1, 1, 1]", "[1, 1]"};
+  std::vector<std::string> chunked_input4 = {"[1, 1, 1]", "[1, 1]", "[0]"};
+
+  auto value = std::make_shared<typename TestFixture::ScalarType>(0);
+  auto null_value = std::make_shared<typename TestFixture::ScalarType>(0);
+  null_value->is_valid = false;
+
+  this->AssertIndexIs("[]", value, -1);
+  this->AssertIndexIs("[0]", value, 0);
+  this->AssertIndexIs("[1, 2, 3, 4]", value, -1);
+  this->AssertIndexIs("[1, 2, 3, 4, 0]", value, 4);
+  this->AssertIndexIs("[null, null, null]", value, -1);
+  this->AssertIndexIs("[null, null, null]", null_value, -1);
+  this->AssertIndexIs("[0, null, null]", null_value, -1);
+  this->AssertIndexIs(chunked_input0, value, 0);
+  this->AssertIndexIs(chunked_input1, value, 1);
+  this->AssertIndexIs(chunked_input2, value, 4);
+  this->AssertIndexIs(chunked_input3, value, -1);
+  this->AssertIndexIs(chunked_input4, value, 5);
+}
+TYPED_TEST(TestNumericIndexKernel, Random) {
+  constexpr auto kChunks = 4;
+  auto rand = random::RandomArrayGenerator(0x5487655);
+  auto value = std::make_shared<typename TestFixture::ScalarType>(0);
+
+  // Test chunked array sizes from 32 to 2048
+  for (size_t i = 3; i <= 9; i += 2) {
+    const int64_t chunk_length = 1UL << i;
+    ArrayVector chunks;
+    for (int i = 0; i < kChunks; i++) {
+      chunks.push_back(
+          rand.ArrayOf(this->type_singleton(), chunk_length, /*null_probability=*/0.1));
+    }
+    ChunkedArray chunked_array(std::move(chunks));
+
+    int64_t expected = -1;
+    int64_t index = 0;
+    for (auto chunk : chunked_array.chunks()) {
+      auto typed_chunk = arrow::internal::checked_pointer_cast<
+          typename TypeTraits<TypeParam>::ArrayType>(chunk);
+      for (auto value : *typed_chunk) {
+        if (value.has_value() && value.value() == 0) {
+          expected = index;
+          break;
+        }
+        index++;
+      }
+      if (expected >= 0) break;
+    }
+
+    this->AssertIndexIs(Datum(chunked_array), value, expected);
+  }
+}
+
+template <typename ArrowType>
+class TestDateTimeIndexKernel : public TestIndexKernel<ArrowType> {};
+TYPED_TEST_SUITE(TestDateTimeIndexKernel, TemporalArrowTypes);
+TYPED_TEST(TestDateTimeIndexKernel, Basics) {
+  auto type = this->type_singleton();
+  auto value = std::make_shared<typename TestFixture::ScalarType>(42, type);
+  auto null_value = std::make_shared<typename TestFixture::ScalarType>(42, type);
+  null_value->is_valid = false;
+
+  this->AssertIndexIs("[]", value, -1);
+  this->AssertIndexIs("[42]", value, 0);
+  this->AssertIndexIs("[84, 84, 84, 84]", value, -1);
+  this->AssertIndexIs("[84, 84, 84, 84, 42]", value, 4);
+  this->AssertIndexIs("[null, null, null]", value, -1);
+  this->AssertIndexIs("[null, null, null]", null_value, -1);
+  this->AssertIndexIs("[42, null, null]", null_value, -1);
+}
+
+template <typename ArrowType>
+class TestBooleanIndexKernel : public TestIndexKernel<ArrowType> {};
+TYPED_TEST_SUITE(TestBooleanIndexKernel, ::testing::Types<BooleanType>);
+TYPED_TEST(TestBooleanIndexKernel, Basics) {
+  auto value = std::make_shared<typename TestFixture::ScalarType>(true);
+  auto null_value = std::make_shared<typename TestFixture::ScalarType>(true);
+  null_value->is_valid = false;
+
+  this->AssertIndexIs("[]", value, -1);
+  this->AssertIndexIs("[true]", value, 0);
+  this->AssertIndexIs("[false, false, false, false]", value, -1);
+  this->AssertIndexIs("[false, false, false, false, true]", value, 4);
+  this->AssertIndexIs("[null, null, null]", value, -1);
+  this->AssertIndexIs("[null, null, null]", null_value, -1);
+  this->AssertIndexIs("[true, null, null]", null_value, -1);
+}
+
+template <typename ArrowType>
+class TestStringIndexKernel : public TestIndexKernel<ArrowType> {};
+TYPED_TEST_SUITE(TestStringIndexKernel, BinaryTypes);
+TYPED_TEST(TestStringIndexKernel, Basics) {
+  auto buffer = Buffer::FromString("foo");
+  auto value = std::make_shared<typename TestFixture::ScalarType>(buffer);
+  auto null_value = std::make_shared<typename TestFixture::ScalarType>(buffer);
+  null_value->is_valid = false;
+
+  this->AssertIndexIs(R"([])", value, -1);
+  this->AssertIndexIs(R"(["foo"])", value, 0);
+  this->AssertIndexIs(R"(["bar", "bar", "bar", "bar"])", value, -1);
+  this->AssertIndexIs(R"(["bar", "bar", "bar", "bar", "foo"])", value, 4);
+  this->AssertIndexIs(R"([null, null, null])", value, -1);
+  this->AssertIndexIs(R"([null, null, null])", null_value, -1);
+  this->AssertIndexIs(R"(["foo", null, null])", null_value, -1);
+}
+
+//
 // Mode
 //
 

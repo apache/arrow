@@ -34,6 +34,7 @@ from pyarrow._compute import (  # noqa
     DictionaryEncodeOptions,
     ExtractRegexOptions,
     FilterOptions,
+    IndexOptions,
     MatchSubstringOptions,
     ModeOptions,
     ScalarAggregateOptions,
@@ -433,6 +434,40 @@ def filter(data, mask, null_selection_behavior='drop'):
     """
     options = FilterOptions(null_selection_behavior)
     return call_function('filter', [data, mask], options)
+
+
+def index(data, value, start=None, end=None, *, memory_pool=None):
+    """
+    Find the index of the first occurrence of a given value.
+
+    Parameters
+    ----------
+    data : Array or ChunkedArray
+    value : Scalar-like object
+    start : int, optional
+    end : int, optional
+
+    Returns
+    -------
+    index : the index, or -1 if not found
+    """
+    if start is not None:
+        if end is not None:
+            data = data.slice(start, end - start)
+        else:
+            data = data.slice(start)
+    elif end is not None:
+        data = data.slice(0, end)
+
+    if not isinstance(value, pa.Scalar):
+        value = pa.scalar(value, type=data.type)
+    elif data.type != value.type:
+        value = pa.scalar(value.as_py(), type=data.type)
+    options = IndexOptions(value=value)
+    result = call_function('index', [data], options, memory_pool)
+    if start is not None and result.as_py() >= 0:
+        result = pa.scalar(result.as_py() + start, type=pa.int64())
+    return result
 
 
 def take(data, indices, *, boundscheck=True, memory_pool=None):

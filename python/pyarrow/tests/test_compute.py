@@ -1114,6 +1114,20 @@ def test_count():
         pc.count(arr, min_count='zzz')
 
 
+def test_index():
+    arr = pa.array([0, 1, None, 3, 4], type=pa.int64())
+    assert pc.index(arr, pa.scalar(0)).as_py() == 0
+    assert pc.index(arr, pa.scalar(2, type=pa.int8())).as_py() == -1
+    assert pc.index(arr, 4).as_py() == 4
+    assert arr.index(3, start=2).as_py() == 3
+    assert arr.index(None).as_py() == -1
+
+    arr = pa.chunked_array([[1, 2], [1, 3]], type=pa.int64())
+    assert arr.index(1).as_py() == 0
+    assert arr.index(1, start=2).as_py() == 2
+    assert arr.index(1, start=1, end=2).as_py() == -1
+
+
 def test_partition_nth():
     data = list(range(100, 140))
     random.shuffle(data)

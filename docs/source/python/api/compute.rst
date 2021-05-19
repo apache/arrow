@@ -28,6 +28,7 @@ Aggregations
    :toctree: ../generated/
 
    count
+   index
    mean
    min_max
    mode

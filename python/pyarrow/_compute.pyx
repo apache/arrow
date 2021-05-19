@@ -841,6 +841,32 @@ class ScalarAggregateOptions(_ScalarAggregateOptions):
         self._set_options(skip_nulls, min_count)
 
 
+cdef class _IndexOptions(FunctionOptions):
+    cdef:
+        unique_ptr[CIndexOptions] index_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.index_options.get()
+
+    def _set_options(self, Scalar scalar):
+        self.index_options.reset(
+            new CIndexOptions(pyarrow_unwrap_scalar(scalar)))
+
+
+class IndexOptions(_IndexOptions):
+    """
+    Options for the index kernel.
+
+    Parameters
+    ----------
+    value : Scalar
+        The value to search for.
+    """
+
+    def __init__(self, value):
+        self._set_options(value)
+
+
 cdef class _ModeOptions(FunctionOptions):
     cdef:
         unique_ptr[CModeOptions] mode_options

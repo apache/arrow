@@ -1122,6 +1122,14 @@ cdef class Array(_PandasConvertible):
         """
         return _pc().filter(self, mask, null_selection_behavior)
 
+    def index(self, value, start=None, end=None, *, memory_pool=None):
+        """
+        Find the first index of a value.
+
+        See pyarrow.compute.index for full usage.
+        """
+        return _pc().index(self, value, start, end, memory_pool=memory_pool)
+
     def _to_pandas(self, options, **kwargs):
         return _array_like_to_pandas(self, options)
 

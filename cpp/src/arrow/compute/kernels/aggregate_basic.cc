@@ -225,6 +225,65 @@ Result<std::unique_ptr<KernelState>> AllInit(KernelContext*, const KernelInitArg
   return ::arrow::internal::make_unique<BooleanAllImpl>();
 }
 
+// ----------------------------------------------------------------------
+// Index implementation
+
+struct IndexImpl : public ScalarAggregator {
+  explicit IndexImpl(IndexOptions options, int64_t seen, int64_t index)
+      : options(std::move(options)), seen{seen}, index{index} {}
+
+  Status Consume(KernelContext* ctx, const ExecBatch& batch) override {
+    // short-circuit
+    if (index >= 0 || !options.value->is_valid) {
+      return Status::OK();
+    }
+
+    const auto& data = *batch[0].array();
+    seen = data.length;
+    ARROW_ASSIGN_OR_RAISE(
+        auto result, CallFunction("equal", {data, options.value}, ctx->exec_context()));
+    const auto found = result.array_as<BooleanArray>();
+    // TODO: could be done with CountLeadingZeros adjusting for alignment/null bitmap
+    for (int64_t i = 0; i < found->length(); i++) {
+      if (found->IsValid(i) && found->Value(i)) {
+        index = i;
+        break;
+      }
+    }
+    return Status::OK();
+  }
+
+  Status MergeFrom(KernelContext*, KernelState&& src) override {
+    const auto& other = checked_cast<const IndexImpl&>(src);
+    if (index < 0 && other.index >= 0) {
+      index = seen + other.index;
+    }
+    seen += other.seen;
+    return Status::OK();
+  }
+
+  Status Finalize(KernelContext*, Datum* out) override {
+    out->value = std::make_shared<Int64Scalar>(index >= 0 ? index : -1);
+    return Status::OK();
+  }
+
+  const IndexOptions options;
+  int64_t seen = 0;
+  int64_t index = -1;
+};
+
+Result<std::unique_ptr<KernelState>> IndexInit(KernelContext* ctx,
+                                               const KernelInitArgs& args) {
+  int64_t seen = 0;
+  int64_t index = -1;
+  if (auto state = static_cast<IndexImpl*>(ctx->state())) {
+    seen = state->seen;
+    index = state->index;
+  }
+  return ::arrow::internal::make_unique<IndexImpl>(
+      static_cast<const IndexOptions&>(*args.options), seen, index);
+}
+
 void AddBasicAggKernels(KernelInit init,
                         const std::vector<std::shared_ptr<DataType>>& types,
                         std::shared_ptr<DataType> out_ty, ScalarAggregateFunction* func,
@@ -289,6 +348,12 @@ const FunctionDoc any_doc{"Test whether any element in a boolean array evaluates
 const FunctionDoc all_doc{"Test whether all elements in a boolean array evaluate to true",
                           ("Null values are ignored."),
                           {"array"}};
+
+const FunctionDoc index_doc{"Find the index of the first occurrence of a given value",
+                            ("The result is always computed as an int64_t, regardless\n"
+                             "of the offset type of the input array."),
+                            {"array"},
+                            "IndexOptions"};
 
 }  // namespace
 
@@ -373,6 +438,16 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   // all
   func = std::make_shared<ScalarAggregateFunction>("all", Arity::Unary(), &all_doc);
   aggregate::AddBasicAggKernels(aggregate::AllInit, {boolean()}, boolean(), func.get());
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+
+  // index
+  func = std::make_shared<ScalarAggregateFunction>("index", Arity::Unary(), &index_doc);
+  aggregate::AddBasicAggKernels(aggregate::IndexInit, BaseBinaryTypes(), int64(),
+                                func.get());
+  aggregate::AddBasicAggKernels(aggregate::IndexInit, PrimitiveTypes(), int64(),
+                                func.get());
+  aggregate::AddBasicAggKernels(aggregate::IndexInit, TemporalTypes(), int64(),
+                                func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
