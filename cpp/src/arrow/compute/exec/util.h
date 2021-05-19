@@ -39,6 +39,14 @@
 namespace arrow {
 namespace util {
 
+// Some platforms typedef int64_t as long int instead of long long int,
+// which breaks the _mm256_i64gather_epi64 and _mm256_i32gather_epi64 intrinsics
+// which need long long.
+// We use the cast to the type below in these intrinsics to make the code
+// compile in all cases.
+//
+using int64_for_gather_t = const long long int;  // NOLINT runtime-int
+
 /// Storage used to allocate temporary vectors of a batch size.
 /// Temporary vectors should resemble allocating temporary variables on the stack
 /// but in the context of vectorized processing where we need to store a vector of

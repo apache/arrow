@@ -104,7 +104,7 @@ void Hashing::helper_tails_avx2(uint32_t num_keys, uint32_t key_length,
                                 const uint8_t* keys, uint32_t* hash) {
   constexpr int unroll = 8;
   ARROW_DCHECK(num_keys % unroll == 0);
-  auto keys_i64 = reinterpret_cast<const int64_t*>(keys);
+  auto keys_i64 = reinterpret_cast<arrow::util::int64_for_gather_t*>(keys);
 
   // Process between 1 and 8 last bytes of each key, starting from 16B boundary.
   // The caller needs to make sure that there are no more than 8 bytes to process after

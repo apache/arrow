@@ -443,6 +443,7 @@ struct GrouperImpl : Grouper {
 
 struct GrouperFastImpl : Grouper {
   static bool CanUse(const std::vector<ValueDescr>& keys) {
+#if ARROW_LITTLE_ENDIAN
     for (size_t i = 0; i < keys.size(); ++i) {
       const auto& key = keys[i].type;
       if (is_large_binary_like(key->id())) {
@@ -450,6 +451,9 @@ struct GrouperFastImpl : Grouper {
       }
     }
     return true;
+#else
+    return false;
+#endif
   }
 
   static Result<std::unique_ptr<GrouperFastImpl>> Make(
