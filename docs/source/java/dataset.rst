@@ -35,7 +35,7 @@ Below shows a simplest example of using Dataset to query a Parquet file in Java:
 .. code-block:: Java
 
     // read data from file /opt/example.parquet
-    String uri = "file:///opt/example.parquet";
+    String uri = "file:/opt/example.parquet";
     BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
     DatasetFactory factory = new FileSystemDatasetFactory(allocator, NativeMemoryPool.getDefault(),
         FileFormat.PARQUET, uri);
@@ -68,7 +68,7 @@ Schema of the data to be queried can be inspected via method ``DatasetFactory#in
 .. code-block:: Java
 
     // read data from local file /opt/example.parquet
-    String uri = "file:///opt/example.parquet";
+    String uri = "file:/opt/example.parquet";
     BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
     DatasetFactory factory = new FileSystemDatasetFactory(allocator, NativeMemoryPool.getDefault(),
         FileFormat.PARQUET, uri);
