@@ -106,8 +106,8 @@ TYPED_TEST(TestStringKernels, Utf8Reverse) {
   this->CheckUnary("utf8_reverse", "[]", this->type(), "[]");
   this->CheckUnary("utf8_reverse", R"(["abcd", null, "", "bbb"])", this->type(),
                    R"(["dcba", null, "", "bbb"])");
-  this->CheckUnary("utf8_reverse", R"(["aAazZæÆ&", null, "", "bbb", "ɑɽⱤæÆ"])", this->type(),
-                   R"(["&ÆæZzaAa", null, "", "bbb", "ÆæⱤɽɑ"])");
+  this->CheckUnary("utf8_reverse", R"(["aAazZæÆ&", null, "", "bbb", "ɑɽⱤæÆ"])",
+                   this->type(), R"(["&ÆæZzaAa", null, "", "bbb", "ÆæⱤɽɑ"])");
 
   // inputs with malformed utf8 chars would produce garbage output, but the end result
   // would produce arrays with same lengths. Hence checking offset buffer equality
