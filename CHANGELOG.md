@@ -1,4 +1,34 @@
 
+# Apache Arrow 4.0.1 (2021-05-19)
+
+## Bug Fixes
+
+* [ARROW-12568](https://issues.apache.org/jira/browse/ARROW-12568) - [Python][C++] Segfault when casting a sliced ListArray of int64 in v4.0.0
+* [ARROW-12601](https://issues.apache.org/jira/browse/ARROW-12601) - [R][Packaging] Fix pkg-config check in r/configure
+* [ARROW-12603](https://issues.apache.org/jira/browse/ARROW-12603) - [R] open\_dataset ignoring provided schema when using select
+* [ARROW-12604](https://issues.apache.org/jira/browse/ARROW-12604) - [R][Packaging] Dataset, Parquet off in autobrew and CRAN Mac builds
+* [ARROW-12617](https://issues.apache.org/jira/browse/ARROW-12617) - [Python] pyarrow.orc.write\_table signature reverses that of pyarrow.parquet.write\_table
+* [ARROW-12622](https://issues.apache.org/jira/browse/ARROW-12622) - [Python] Segfault when reading CSV inside Flight server
+* [ARROW-12642](https://issues.apache.org/jira/browse/ARROW-12642) - [R] LIBARROW\_MINIMAL, LIBARROW\_DOWNLOAD, NOT\_CRAN env vars should not be case-sensitive
+* [ARROW-12663](https://issues.apache.org/jira/browse/ARROW-12663) - [C++] segfault when arrow header is compiled with nvcc 11.2
+* [ARROW-12670](https://issues.apache.org/jira/browse/ARROW-12670) - [C++] extract\_regex gives bizarre behavior after nulls or non-matches
+* [ARROW-12746](https://issues.apache.org/jira/browse/ARROW-12746) - [Go][Flight] Client Auth handler overwrites outgoing metadata
+* [ARROW-12769](https://issues.apache.org/jira/browse/ARROW-12769) - [Python] Negative out of range slices yield invalid arrays
+* [ARROW-12774](https://issues.apache.org/jira/browse/ARROW-12774) - [C++][Compute] replace\_substring\_regex() creates invalid arrays =\> crash
+* [ARROW-12776](https://issues.apache.org/jira/browse/ARROW-12776) - [Archery][Integration] Fix decimal case generation in write\_js\_test\_json
+
+
+## New Features and Improvements
+
+* [ARROW-11926](https://issues.apache.org/jira/browse/ARROW-11926) - [R] Pass on the new UCRT CRAN windows builds
+* [ARROW-12520](https://issues.apache.org/jira/browse/ARROW-12520) - [R] Minor docs updates
+* [ARROW-12571](https://issues.apache.org/jira/browse/ARROW-12571) - [R][CI] Run nightly R with valgrind
+* [ARROW-12578](https://issues.apache.org/jira/browse/ARROW-12578) - [JS] Simplify UTF8 handling in NodeJS
+* [ARROW-12619](https://issues.apache.org/jira/browse/ARROW-12619) - [Python] pyarrow sdist should not require git
+* [ARROW-12806](https://issues.apache.org/jira/browse/ARROW-12806) - [Python] test\_write\_to\_dataset\_filesystem missing a dataset mark
+
+
+
 # Apache Arrow 4.0.0 (2021-04-21)
 
 ## Bug Fixes
