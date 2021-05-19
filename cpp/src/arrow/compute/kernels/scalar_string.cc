@@ -542,7 +542,7 @@ std::string MakeLikeRegex(const MatchSubstringOptions& options) {
 }
 
 // A LIKE pattern matching this regex can be translated into a substring search.
-static RE2 kLikePatternIsSubstringMatch("%+([^%_])*%+");
+static RE2 kLikePatternIsSubstringMatch("%+([^%_]*)%+");
 
 // Evaluate a SQL-like LIKE pattern by translating it to a regexp or
 // substring search as appropriate. See what Apache Impala does:

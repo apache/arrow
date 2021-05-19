@@ -390,28 +390,30 @@ TYPED_TEST(TestStringKernels, MatchSubstringRegexInvalid) {
 }
 
 TYPED_TEST(TestStringKernels, MatchLike) {
-  auto inputs = R"(["foo", "bar", "foobar", "barfoo", "\nfoo", "foo\n", null])";
+  auto inputs = R"(["foo", "bar", "foobar", "barfoo", "o", "\nfoo", "foo\n", null])";
 
   MatchSubstringOptions prefix_match{"foo%"};
   this->CheckUnary("match_like", "[]", boolean(), "[]", &prefix_match);
   this->CheckUnary("match_like", inputs, boolean(),
-                   "[true, false, true, false, false, true, null]", &prefix_match);
+                   "[true, false, true, false, false, false, true, null]", &prefix_match);
 
   MatchSubstringOptions suffix_match{"%foo"};
   this->CheckUnary("match_like", inputs, boolean(),
-                   "[true, false, false, true, true, false, null]", &suffix_match);
+                   "[true, false, false, true, false, true, false, null]", &suffix_match);
 
   MatchSubstringOptions substring_match{"%foo%"};
   this->CheckUnary("match_like", inputs, boolean(),
-                   "[true, false, true, true, true, true, null]", &substring_match);
+                   "[true, false, true, true, false, true, true, null]",
+                   &substring_match);
 
   MatchSubstringOptions trivial_match{"%%"};
   this->CheckUnary("match_like", inputs, boolean(),
-                   "[true, true, true, true, true, true, null]", &trivial_match);
+                   "[true, true, true, true, true, true, true, null]", &trivial_match);
 
   MatchSubstringOptions regex_match{"foo%bar"};
   this->CheckUnary("match_like", inputs, boolean(),
-                   "[false, false, true, false, false, false, null]", &regex_match);
+                   "[false, false, true, false, false, false, false, null]",
+                   &regex_match);
 }
 
 TYPED_TEST(TestStringKernels, MatchLikeEscaping) {
