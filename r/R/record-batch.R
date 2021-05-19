@@ -161,12 +161,16 @@ RecordBatch$create <- function(..., schema = NULL) {
     out <- RecordBatch__from_arrays(schema, arrays)
     return(dplyr::group_by(out, !!!dplyr::groups(arrays[[1]])))
   }
-
-  # If any arrays are length 1, recycle them  
+  
+  # If any arrays are length 1, recycle them
+  # Get lengths of items in arrays
+  is_df <- map_lgl(arrays, ~inherits(.x, "data.frame"))
   arr_lens <- lengths(arrays)
+  arr_lens[is_df] <- map_int(arrays[is_df], nrow)
+
   if (length(arrays) > 1 && any(arr_lens == 1) && !all(arr_lens==1)) {
     max_array_len <- max(arr_lens)
-    arrays[arr_lens == 1] <- lapply(arrays[arr_lens == 1], repeat_value_as_array, max_array_len)
+    arrays[arr_lens == 1 && !is_df] <- lapply(arrays[arr_lens == 1 && !is_df], repeat_value_as_array, max_array_len)
   }
 
   # TODO: should this also assert that they're all Arrays?

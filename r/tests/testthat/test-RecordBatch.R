@@ -443,8 +443,16 @@ test_that("record_batch() scalar recycling with Scalars, Arrays, and ChunkedArra
 test_that("record_batch() no recycling with tibbles", {
   expect_error(
     record_batch(
-      tibble::tibble(a = 1:10, b = 5),
+      tibble::tibble(a = 1:10),
       tibble::tibble(a = 1, b = 5)
+    ),
+    regexp = "All arrays must have the same length"
+  )
+  
+  expect_error(
+    record_batch(
+      tibble::tibble(a = 1:10),
+      tibble::tibble(a = 1)
     ),
     regexp = "All arrays must have the same length"
   )
@@ -462,7 +470,7 @@ test_that("RecordBatch$Equals", {
 test_that("RecordBatch$Equals(check_metadata)", {
   df <- tibble::tibble(x = 1:2, y = c("a", "b"))
   rb1 <- record_batch(df)
-  rb2 <- record_batch(df, schema = rb1$schema$WithMetadata(list(some="metadata")))
+  rb2 <- record_batch(df, schema = rb1$schema$WithMetadata(list(some = "metadata")))
 
   expect_r6_class(rb1, "RecordBatch")
   expect_r6_class(rb2, "RecordBatch")
