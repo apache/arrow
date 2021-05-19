@@ -20,13 +20,29 @@ class TestScalarAggregateOptions < Test::Unit::TestCase
     @options = Arrow::ScalarAggregateOptions.new
   end
 
-  def test_default_skip_nulls?
-    assert do
-      @options.skip_nulls?
+  sub_test_case("skip_nulls") do
+    def test_default
+      assert do
+        @options.skip_nulls?
+      end
+    end
+
+    def test_accessor
+      @options.skip_nulls = false
+      assert do
+        not @options.skip_nulls?
+      end
     end
   end
 
-  def test_default_min_count
-    assert_equal(1, @options.min_count)
+  sub_test_case("min_count") do
+    def test_default
+      assert_equal(1, @options.min_count)
+    end
+
+    def test_accessor
+      @options.min_count = 0
+      assert_equal(0, @options.min_count)
+    end
   end
 end

@@ -695,7 +695,7 @@ garrow_scalar_aggregate_options_set_property(GObject *object,
     priv->options.skip_nulls = g_value_get_boolean(value);
     break;
   case PROP_MIN_COUNT:
-    priv->options.skip_nulls = g_value_get_uint(value);
+    priv->options.min_count = g_value_get_uint(value);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -3087,17 +3087,20 @@ garrow_cast_options_get_raw(GArrowCastOptions *cast_options)
 }
 
 GArrowScalarAggregateOptions *
-garrow_scalar_aggregate_options_new_raw(arrow::compute::ScalarAggregateOptions *arrow_scalar_aggregate_options)
+garrow_scalar_aggregate_options_new_raw(
+  arrow::compute::ScalarAggregateOptions *arrow_scalar_aggregate_options)
 {
   auto scalar_aggregate_options =
     g_object_new(GARROW_TYPE_SCALAR_AGGREGATE_OPTIONS,
-                 "skip_nulls", arrow_scalar_aggregate_options->skip_nulls,
+                 "skip-nulls", arrow_scalar_aggregate_options->skip_nulls,
+                 "min-count", arrow_scalar_aggregate_options->min_count,
                  NULL);
   return GARROW_SCALAR_AGGREGATE_OPTIONS(scalar_aggregate_options);
 }
 
 arrow::compute::ScalarAggregateOptions *
-garrow_scalar_aggregate_options_get_raw(GArrowScalarAggregateOptions *scalar_aggregate_options)
+garrow_scalar_aggregate_options_get_raw(
+  GArrowScalarAggregateOptions *scalar_aggregate_options)
 {
   auto priv = GARROW_SCALAR_AGGREGATE_OPTIONS_GET_PRIVATE(scalar_aggregate_options);
   return &(priv->options);
