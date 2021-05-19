@@ -507,6 +507,14 @@ test_that("Table$create() no recycling with tibbles", {
     ),
     regexp = "All columns must have the same length"
   )
+  
+  expect_error(
+    Table$create(
+      tibble::tibble(a = 1:10, b = 5),
+      tibble::tibble(a = 1)
+    ),
+    regexp = "All columns must have the same length"
+  )
 })
 
 test_that("ARROW-11769 - grouping preserved in table creation", {
