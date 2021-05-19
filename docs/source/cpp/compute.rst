@@ -546,7 +546,8 @@ Containment tests
   :member:`MatchSubstringOptions::pattern` fully matches the
   corresponding input element. That is, ``%`` will match any number of
   characters, ``_`` will match exactly one character, and any other
-  character matches itself.
+  character matches itself. To match a literal percent sign or
+  underscore, precede the character with a backslash.
 
 * \(2) Output is true iff :member:`MatchSubstringOptions::pattern`
   is a substring of the corresponding input element.

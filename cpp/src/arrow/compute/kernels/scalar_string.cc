@@ -577,8 +577,11 @@ struct MatchLike {
 const FunctionDoc match_like_doc(
     "Match strings against SQL-style LIKE pattern",
     ("For each string in `strings`, emit true iff it fully matches a given pattern "
-     "at any position.\n"
-     "Null inputs emit null.  The pattern must be given in MatchSubstringOptions."),
+     "at any position. That is, '%' will match any number of characters, '_' will "
+     "match exactly one character, and any other character matches itself. To "
+     "match a literal '%', '_', or '\\', precede the character with a backslash.\n"
+     "Null inputs emit null.  The pattern must be given in MatchSubstringOptions.\n"
+     "To match a literal"),
     {"strings"}, "MatchSubstringOptions");
 
 #endif

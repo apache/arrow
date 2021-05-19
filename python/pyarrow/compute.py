@@ -300,7 +300,8 @@ def match_like(array, pattern):
     pattern : str
         SQL-style LIKE pattern. '%' will match any number of
         characters, '_' will match exactly one character, and all
-        other characters match themselves.
+        other characters match themselves. To match a literal percent
+        sign or underscore, precede the character with a backslash.
 
     Returns
     -------
