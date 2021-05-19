@@ -297,6 +297,13 @@ class PrepareTest < Test::Unit::TestCase
                      ],
                    },
                    {
+                     path: "ruby/red-arrow-flight/lib/arrow-flight/version.rb",
+                     hunks: [
+                       ["-  VERSION = \"#{@snapshot_version}\"",
+                        "+  VERSION = \"#{@release_version}\""],
+                     ],
+                   },
+                   {
                      path: "ruby/red-arrow/lib/arrow/version.rb",
                      hunks: [
                        ["-  VERSION = \"#{@snapshot_version}\"",

@@ -15,9 +15,21 @@
 # specific language governing permissions and limitations
 # under the License.
 
-/.yardoc/
-/Gemfile.lock
-/doc/reference/
-/ext/arrow/Makefile
-/ext/arrow/mkmf.log
-/pkg/
+module ArrowFlight
+  class ClientOptions
+    class << self
+      def try_convert(value)
+        case value
+        when Hash
+          options = new
+          value.each do |name, value|
+            options.__send__("#{name}=", value)
+          end
+          options
+        else
+          nil
+        end
+      end
+    end
+  end
+end

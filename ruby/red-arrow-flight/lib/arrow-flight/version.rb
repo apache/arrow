@@ -15,9 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-/.yardoc/
-/Gemfile.lock
-/doc/reference/
-/ext/arrow/Makefile
-/ext/arrow/mkmf.log
-/pkg/
+module ArrowFlight
+  VERSION = "5.0.0-SNAPSHOT"
+
+  module Version
+    numbers, TAG = VERSION.split("-")
+    MAJOR, MINOR, MICRO = numbers.split(".").collect(&:to_i)
+    STRING = VERSION
+  end
+end

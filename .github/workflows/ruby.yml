@@ -90,7 +90,7 @@ jobs:
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
-          archery docker run ubuntu-ruby
+          archery docker run -e ARROW_FLIGHT=ON ubuntu-ruby
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
@@ -106,6 +106,7 @@ jobs:
       fail-fast: false
     env:
       ARROW_BUILD_TESTS: OFF
+      ARROW_FLIGHT: ON
       ARROW_GANDIVA: ON
       ARROW_GLIB_DEVELOPMENT_MODE: true
       ARROW_GLIB_GTK_DOC: true
@@ -185,7 +186,6 @@ jobs:
       ARROW_BUILD_STATIC: OFF
       ARROW_BUILD_TESTS: OFF
       ARROW_BUILD_TYPE: release
-      ARROW_DATASET: ON
       ARROW_FLIGHT: ON
       ARROW_GANDIVA: ON
       ARROW_HDFS: OFF

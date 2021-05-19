@@ -15,9 +15,27 @@
 # specific language governing permissions and limitations
 # under the License.
 
-/.yardoc/
-/Gemfile.lock
-/doc/reference/
-/ext/arrow/Makefile
-/ext/arrow/mkmf.log
-/pkg/
+module ArrowFlight
+  class ServerOptions
+    class << self
+      def try_convert(value)
+        case value
+        when Location
+          new(value)
+        when Hash
+          return nil unless value.key?(:location)
+          options = new(value[:location])
+          value.each do |name, value|
+            next if name == :location
+            options.__send__("#{name}=", value)
+          end
+          options
+        else
+          value = Location.try_convert(value)
+          return nil if value.nil?
+          try_convert(value)
+        end
+      end
+    end
+  end
+end

@@ -15,9 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-/.yardoc/
-/Gemfile.lock
-/doc/reference/
-/ext/arrow/Makefile
-/ext/arrow/mkmf.log
-/pkg/
+module Helper
+  class FlightServer < ArrowFlight::Server
+    type_register
+  end
+end

@@ -15,9 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-/.yardoc/
-/Gemfile.lock
-/doc/reference/
-/ext/arrow/Makefile
-/ext/arrow/mkmf.log
-/pkg/
+require "arrow"
+
+require "arrow-flight/version"
+
+require "arrow-flight/loader"
+
+module ArrowFlight
+  class Error < StandardError
+  end
+
+  Loader.load
+end

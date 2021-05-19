@@ -15,9 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-/.yardoc/
-/Gemfile.lock
-/doc/reference/
-/ext/arrow/Makefile
-/ext/arrow/mkmf.log
-/pkg/
+class TestLocation < Test::Unit::TestCase
+  sub_test_case(".try_convert") do
+    def test_string
+      location = ArrowFlight::Location.try_convert("grpc://127.0.0.1:2929")
+      assert_equal("grpc://127.0.0.1:2929",
+                   location.to_s)
+    end
+  end
+end

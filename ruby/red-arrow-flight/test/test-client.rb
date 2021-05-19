@@ -15,9 +15,21 @@
 # specific language governing permissions and limitations
 # under the License.
 
-/.yardoc/
-/Gemfile.lock
-/doc/reference/
-/ext/arrow/Makefile
-/ext/arrow/mkmf.log
-/pkg/
+class TestClient < Test::Unit::TestCase
+  def setup
+    @server = Helper::Server.new
+    @server.listen("grpc://127.0.0.1:0")
+    @location = "grpc://127.0.0.1:#{@server.port}"
+  end
+
+  def shutdown
+    @server.shutdow
+  end
+
+  def test_connect
+    # TODO: Add tests that use other methods and remove this.
+    assert_nothing_raised do
+      ArrowFlight::Client.new(@location)
+    end
+  end
+end

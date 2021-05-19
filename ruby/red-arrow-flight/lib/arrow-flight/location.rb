@@ -15,9 +15,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
-/.yardoc/
-/Gemfile.lock
-/doc/reference/
-/ext/arrow/Makefile
-/ext/arrow/mkmf.log
-/pkg/
+module ArrowFlight
+  class Location
+    class << self
+      def try_convert(value)
+        case value
+        when String
+          new(value)
+        else
+          nil
+        end
+      end
+    end
+  end
+end

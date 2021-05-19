@@ -15,9 +15,27 @@
 # specific language governing permissions and limitations
 # under the License.
 
-/.yardoc/
-/Gemfile.lock
-/doc/reference/
-/ext/arrow/Makefile
-/ext/arrow/mkmf.log
-/pkg/
+class TestFlightClient < Test::Unit::TestCase
+  def setup
+    @server = nil
+    omit("Arrow Flight is required") unless defined?(ArrowFlight)
+    @server = Helper::FlightServer.new
+    host = "127.0.0.1"
+    location = ArrowFlight::Location.new("grpc://#{host}:0")
+    options = ArrowFlight::ServerOptions.new(location)
+    @server.listen(options)
+    @location = ArrowFlight::Location.new("grpc://#{host}:#{@server.port}")
+  end
+
+  def shutdown
+    return if @server.nil?
+    @server.shutdown
+  end
+
+  def test_connect
+    # TODO: Add tests that use other methods and remove this.
+    assert_nothing_raised do
+      ArrowFlight::Client.new(@location)
+    end
+  end
+end

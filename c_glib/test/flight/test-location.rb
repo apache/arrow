@@ -15,9 +15,26 @@
 # specific language governing permissions and limitations
 # under the License.
 
-/.yardoc/
-/Gemfile.lock
-/doc/reference/
-/ext/arrow/Makefile
-/ext/arrow/mkmf.log
-/pkg/
+class TestFlightLocation < Test::Unit::TestCase
+  def setup
+    omit("Arrow Flight is required") unless defined?(ArrowFlight)
+  end
+
+  def test_to_s
+    location = ArrowFlight::Location.new("grpc://127.0.0.1:2929")
+    assert_equal("grpc://127.0.0.1:2929", location.to_s)
+  end
+
+  def test_scheme
+    location = ArrowFlight::Location.new("grpc://127.0.0.1:2929")
+    assert_equal("grpc", location.scheme)
+  end
+
+  def test_equal
+    location1 = ArrowFlight::Location.new("grpc://127.0.0.1:2929")
+    location2 = ArrowFlight::Location.new("grpc://127.0.0.1:2929")
+    assert do
+      location1 == location2
+    end
+  end
+end

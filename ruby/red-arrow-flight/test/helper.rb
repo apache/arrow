@@ -15,9 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-/.yardoc/
-/Gemfile.lock
-/doc/reference/
-/ext/arrow/Makefile
-/ext/arrow/mkmf.log
-/pkg/
+require "arrow-flight"
+
+require "test-unit"
+
+require_relative "helper/server"

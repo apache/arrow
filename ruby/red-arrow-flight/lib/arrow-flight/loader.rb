@@ -15,9 +15,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
-/.yardoc/
-/Gemfile.lock
-/doc/reference/
-/ext/arrow/Makefile
-/ext/arrow/mkmf.log
-/pkg/
+module ArrowFlight
+  class Loader < GObjectIntrospection::Loader
+    class << self
+      def load
+        super("ArrowFlight", ArrowFlight)
+      end
+    end
+
+    private
+    def post_load(repository, namespace)
+      require_libraries
+    end
+
+    def require_libraries
+      require "arrow-flight/call-options"
+      require "arrow-flight/client-options"
+      require "arrow-flight/location"
+      require "arrow-flight/server-options"
+    end
+  end
+end
