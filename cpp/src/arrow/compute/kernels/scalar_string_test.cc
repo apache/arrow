@@ -436,6 +436,10 @@ TYPED_TEST(TestStringKernels, MatchLikeEscaping) {
   MatchSubstringOptions special_chars{"!@#$^&*()[]{}.?"};
   this->CheckUnary("match_like", R"(["!@#$^&*()[]{}.?"])", boolean(), "[true]",
                    &special_chars);
+
+  MatchSubstringOptions escape_sequences{"\n\t%"};
+  this->CheckUnary("match_like", R"(["\n\tfoo\t", "\n\t", "\n"])", boolean(),
+                   "[true, true, false]", &escape_sequences);
 }
 #endif
 
