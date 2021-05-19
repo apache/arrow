@@ -94,6 +94,9 @@ else
 fi
 
 %changelog
+* Wed May 19 2021 Jorge C. Leitao <jorgecarleitao@gmail.com> - 4.0.1-1
+- New upstream release.
+
 * Wed Apr 21 2021 Krisztián Szűcs <szucs.krisztian@gmail.com> - 4.0.0-1
 - New upstream release.
 
