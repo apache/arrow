@@ -578,7 +578,7 @@ when a positive ``max_splits`` is given.
 * \(1) The string is split when an exact pattern is found (the pattern itself
   is not included in the output).
 
-* \(1) The string is split when a regex match is found (the matched
+* \(2) The string is split when a regex match is found (the matched
   substring itself is not included in the output).
 
 * \(3) A non-zero length sequence of Unicode defined whitespace codepoints

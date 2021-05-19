@@ -1319,7 +1319,7 @@ struct SplitRegexTransform : SplitBaseTransform<Type, ListType, SplitPatternOpti
     // RE2 does *not* give you the full match! Must wrap the regex in a capture group
     // There is FindAndConsume, but it would give only the end of the separator
     std::string pattern = "(";
-    pattern.reserve(options.pattern.size() + 1);
+    pattern.reserve(options.pattern.size() + 2);
     pattern += options.pattern;
     pattern += ')';
     return pattern;
