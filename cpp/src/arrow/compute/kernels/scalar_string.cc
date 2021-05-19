@@ -677,7 +677,7 @@ struct FindSubstring {
 
   template <typename OutValue, typename... Ignored>
   OutValue Call(KernelContext*, util::string_view val, Status*) const {
-    return matcher_.Find(val);
+    return static_cast<OutValue>(matcher_.Find(val));
   }
 };
 
