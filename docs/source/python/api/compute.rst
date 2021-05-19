@@ -169,6 +169,7 @@ Containment tests
 .. autosummary::
    :toctree: ../generated/
 
+   find_substring
    index_in
    is_in
    match_like

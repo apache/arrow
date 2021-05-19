@@ -675,15 +675,16 @@ struct FindSubstring {
 
   explicit FindSubstring(PlainSubstringMatcher matcher) : matcher_(std::move(matcher)) {}
 
-  template <typename... Ignored>
-  int64_t Call(KernelContext*, util::string_view val, Status*) const {
+  template <typename OutValue, typename... Ignored>
+  OutValue Call(KernelContext*, util::string_view val, Status*) const {
     return matcher_.Find(val);
   }
 };
 
 template <typename InputType>
 Status FindSubstringExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  applicator::ScalarUnaryNotNullStateful<Int64Type, InputType, FindSubstring> kernel{
+  using offset_type = typename TypeTraits<InputType>::OffsetType;
+  applicator::ScalarUnaryNotNullStateful<offset_type, InputType, FindSubstring> kernel{
       FindSubstring(PlainSubstringMatcher(MatchSubstringState::Get(ctx)))};
   return kernel.Exec(ctx, batch, out);
 }
@@ -698,7 +699,11 @@ const FunctionDoc find_substring_doc(
 void AddFindSubstring(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("find_substring", Arity::Unary(),
                                                &find_substring_doc);
-  DCHECK_OK(func->AddKernel({utf8()}, int64(), FindSubstringExec<StringType>,
+  DCHECK_OK(func->AddKernel({binary()}, int32(), FindSubstringExec<BinaryType>,
+                            MatchSubstringState::Init));
+  DCHECK_OK(func->AddKernel({utf8()}, int32(), FindSubstringExec<StringType>,
+                            MatchSubstringState::Init));
+  DCHECK_OK(func->AddKernel({large_binary()}, int64(), FindSubstringExec<LargeBinaryType>,
                             MatchSubstringState::Init));
   DCHECK_OK(func->AddKernel({large_utf8()}, int64(), FindSubstringExec<LargeStringType>,
                             MatchSubstringState::Init));

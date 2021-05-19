@@ -541,34 +541,36 @@ These functions trim off characters on both sides (trim), or the left (ltrim) or
 Containment tests
 ~~~~~~~~~~~~~~~~~
 
-+---------------------------+------------+------------------------------------+---------------+----------------------------------------+
-| Function name             | Arity      | Input types                        | Output type   | Options class                          |
-+===========================+============+====================================+===============+========================================+
-| find_substring            | Unary      | String-like                        | Int64 (1)     | :struct:`MatchSubstringOptions`        |
-+---------------------------+------------+------------------------------------+---------------+----------------------------------------+
-| match_like                | Unary      | String-like                        | Boolean (2)   | :struct:`MatchSubstringOptions`        |
-+---------------------------+------------+------------------------------------+---------------+----------------------------------------+
-| match_substring           | Unary      | String-like                        | Boolean (3)   | :struct:`MatchSubstringOptions`        |
-+---------------------------+------------+------------------------------------+---------------+----------------------------------------+
-| match_substring_regex     | Unary      | String-like                        | Boolean (4)   | :struct:`MatchSubstringOptions`        |
-+---------------------------+------------+------------------------------------+---------------+----------------------------------------+
-| index_in                  | Unary      | Boolean, Null, Numeric, Temporal,  | Int32 (5)     | :struct:`SetLookupOptions`             |
-|                           |            | Binary- and String-like            |               |                                        |
-+---------------------------+------------+------------------------------------+---------------+----------------------------------------+
-| is_in                     | Unary      | Boolean, Null, Numeric, Temporal,  | Boolean (6)   | :struct:`SetLookupOptions`             |
-|                           |            | Binary- and String-like            |               |                                        |
-+---------------------------+------------+------------------------------------+---------------+----------------------------------------+
++---------------------------+------------+------------------------------------+--------------------+----------------------------------------+
+| Function name             | Arity      | Input types                        | Output type        | Options class                          |
++===========================+============+====================================+====================+========================================+
+| find_substring            | Unary      | String-like                        | Int32 or Int64 (1) | :struct:`MatchSubstringOptions`        |
++---------------------------+------------+------------------------------------+--------------------+----------------------------------------+
+| match_like                | Unary      | String-like                        | Boolean (2)        | :struct:`MatchSubstringOptions`        |
++---------------------------+------------+------------------------------------+--------------------+----------------------------------------+
+| match_substring           | Unary      | String-like                        | Boolean (3)        | :struct:`MatchSubstringOptions`        |
++---------------------------+------------+------------------------------------+--------------------+----------------------------------------+
+| match_substring_regex     | Unary      | String-like                        | Boolean (4)        | :struct:`MatchSubstringOptions`        |
++---------------------------+------------+------------------------------------+--------------------+----------------------------------------+
+| index_in                  | Unary      | Boolean, Null, Numeric, Temporal,  | Int32 (5)          | :struct:`SetLookupOptions`             |
+|                           |            | Binary- and String-like            |                    |                                        |
++---------------------------+------------+------------------------------------+--------------------+----------------------------------------+
+| is_in                     | Unary      | Boolean, Null, Numeric, Temporal,  | Boolean (6)        | :struct:`SetLookupOptions`             |
+|                           |            | Binary- and String-like            |                    |                                        |
++---------------------------+------------+------------------------------------+--------------------+----------------------------------------+
 
-* \(1) Output is true iff the SQL-style LIKE pattern
+
+* \(1) Output is the index of the first occurrence of
+  :member:`MatchSubstringOptions::pattern` in the corresponding input
+  string, otherwise -1. Output type is Int32 for Binary/String, Int64
+  for LargeBinary/LargeString.
+
+* \(2) Output is true iff the SQL-style LIKE pattern
   :member:`MatchSubstringOptions::pattern` fully matches the
   corresponding input element. That is, ``%`` will match any number of
   characters, ``_`` will match exactly one character, and any other
   character matches itself. To match a literal percent sign or
   underscore, precede the character with a backslash.
-
-* \(2) Output is the index of the first occurrence of
-  :member:`MatchSubstringOptions::pattern` in the corresponding input
-  string, otherwise -1.
 
 * \(3) Output is true iff :member:`MatchSubstringOptions::pattern`
   is a substring of the corresponding input element.
