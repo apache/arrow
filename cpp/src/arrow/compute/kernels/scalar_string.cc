@@ -580,8 +580,7 @@ const FunctionDoc match_like_doc(
      "at any position. That is, '%' will match any number of characters, '_' will "
      "match exactly one character, and any other character matches itself. To "
      "match a literal '%', '_', or '\\', precede the character with a backslash.\n"
-     "Null inputs emit null.  The pattern must be given in MatchSubstringOptions.\n"
-     "To match a literal"),
+     "Null inputs emit null.  The pattern must be given in MatchSubstringOptions."),
     {"strings"}, "MatchSubstringOptions");
 
 #endif
