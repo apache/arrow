@@ -92,6 +92,10 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      kResultNullIfNull, "castVARCHAR_utf8_int64",
                      NativeFunction::kNeedsContext),
 
+      NativeFunction("castVARCHAR", {}, DataTypeVector{binary(), int64()}, utf8(),
+                     kResultNullIfNull, "castVARCHAR_binary_int64",
+                     NativeFunction::kNeedsContext),
+
       NativeFunction("castVARCHAR", {}, DataTypeVector{int32(), int64()}, utf8(),
                      kResultNullIfNull, "gdv_fn_castVARCHAR_int32_int64",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),

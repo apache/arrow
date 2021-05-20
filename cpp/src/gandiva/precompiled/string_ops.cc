@@ -534,88 +534,96 @@ const char* castVARCHAR_bool_int64(gdv_int64 context, gdv_boolean value,
 }
 
 // Truncates the string to given length
-FORCE_INLINE
-const char* castVARCHAR_utf8_int64(gdv_int64 context, const char* data,
-                                   gdv_int32 data_len, int64_t out_len,
-                                   int32_t* out_length) {
-  int32_t len = static_cast<int32_t>(out_len);
-
-  if (len < 0) {
-    gdv_fn_context_set_error_msg(context, "Output buffer length can't be negative");
-    *out_length = 0;
-    return "";
+#define CAST_VARCHAR_FROM_VARLEN_TYPE(TYPE)                                            \
+  FORCE_INLINE                                                                         \
+  const char* castVARCHAR_##TYPE##_int64(gdv_int64 context, const char* data,          \
+                                         gdv_int32 data_len, int64_t out_len,          \
+                                         int32_t* out_length) {                        \
+    int32_t len = static_cast<int32_t>(out_len);                                       \
+                                                                                       \
+    if (len < 0) {                                                                     \
+      gdv_fn_context_set_error_msg(context, "Output buffer length can't be negative"); \
+      *out_length = 0;                                                                 \
+      return "";                                                                       \
+    }                                                                                  \
+                                                                                       \
+    if (len >= data_len || len == 0) {                                                 \
+      *out_length = data_len;                                                          \
+      return data;                                                                     \
+    }                                                                                  \
+                                                                                       \
+    int32_t remaining = len;                                                           \
+    int32_t index = 0;                                                                 \
+    bool is_multibyte = false;                                                         \
+    do {                                                                               \
+      /* In utf8, MSB of a single byte unicode char is always 0,                       \
+       * whereas for a multibyte character the MSB of each byte is 1.                  \
+       * So for a single byte char, a bitwise-and with x80 (10000000) will be 0        \
+       * and it won't be 0 for bytes of a multibyte char.                              \
+       */                                                                              \
+      char* data_ptr = const_cast<char*>(data);                                        \
+                                                                                       \
+      /* advance byte by byte till the 8-byte boundary then advance 8 bytes */         \
+      auto num_bytes = reinterpret_cast<uintptr_t>(data_ptr) & 0x07;                   \
+      num_bytes = (8 - num_bytes) & 0x07;                                              \
+      while (num_bytes > 0) {                                                          \
+        uint8_t* ptr = reinterpret_cast<uint8_t*>(data_ptr + index);                   \
+        if ((*ptr & 0x80) != 0) {                                                      \
+          is_multibyte = true;                                                         \
+          break;                                                                       \
+        }                                                                              \
+        index++;                                                                       \
+        remaining--;                                                                   \
+        num_bytes--;                                                                   \
+      }                                                                                \
+      if (is_multibyte) break;                                                         \
+      while (remaining >= 8) {                                                         \
+        uint64_t* ptr = reinterpret_cast<uint64_t*>(data_ptr + index);                 \
+        if ((*ptr & 0x8080808080808080) != 0) {                                        \
+          is_multibyte = true;                                                         \
+          break;                                                                       \
+        }                                                                              \
+        index += 8;                                                                    \
+        remaining -= 8;                                                                \
+      }                                                                                \
+      if (is_multibyte) break;                                                         \
+      if (remaining >= 4) {                                                            \
+        uint32_t* ptr = reinterpret_cast<uint32_t*>(data_ptr + index);                 \
+        if ((*ptr & 0x80808080) != 0) break;                                           \
+        index += 4;                                                                    \
+        remaining -= 4;                                                                \
+      }                                                                                \
+      while (remaining > 0) {                                                          \
+        uint8_t* ptr = reinterpret_cast<uint8_t*>(data_ptr + index);                   \
+        if ((*ptr & 0x80) != 0) {                                                      \
+          is_multibyte = true;                                                         \
+          break;                                                                       \
+        }                                                                              \
+        index++;                                                                       \
+        remaining--;                                                                   \
+      }                                                                                \
+      if (is_multibyte) break;                                                         \
+      /* reached here; all are single byte characters */                               \
+      *out_length = len;                                                               \
+      return data;                                                                     \
+    } while (false);                                                                   \
+                                                                                       \
+    /* detected multibyte utf8 characters; slow path */                                \
+    int32_t byte_pos =                                                                 \
+        utf8_byte_pos(context, data + index, data_len - index, len - index);           \
+    if (byte_pos < 0) {                                                                \
+      *out_length = 0;                                                                 \
+      return "";                                                                       \
+    }                                                                                  \
+                                                                                       \
+    *out_length = index + byte_pos;                                                    \
+    return data;                                                                       \
   }
 
-  if (len >= data_len || len == 0) {
-    *out_length = data_len;
-    return data;
-  }
+CAST_VARCHAR_FROM_VARLEN_TYPE(utf8)
+CAST_VARCHAR_FROM_VARLEN_TYPE(binary)
 
-  int32_t remaining = len;
-  int32_t index = 0;
-  bool is_multibyte = false;
-  do {
-    // In utf8, MSB of a single byte unicode char is always 0,
-    // whereas for a multibyte character the MSB of each byte is 1.
-    // So for a single byte char, a bitwise-and with x80 (10000000) will be 0
-    // and it won't be 0 for bytes of a multibyte char
-    char* data_ptr = const_cast<char*>(data);
-
-    // we advance byte by byte till the 8 byte boundary then advance 8 bytes at a time
-    auto num_bytes = reinterpret_cast<uintptr_t>(data_ptr) & 0x07;
-    num_bytes = (8 - num_bytes) & 0x07;
-    while (num_bytes > 0) {
-      uint8_t* ptr = reinterpret_cast<uint8_t*>(data_ptr + index);
-      if ((*ptr & 0x80) != 0) {
-        is_multibyte = true;
-        break;
-      }
-      index++;
-      remaining--;
-      num_bytes--;
-    }
-    if (is_multibyte) break;
-    while (remaining >= 8) {
-      uint64_t* ptr = reinterpret_cast<uint64_t*>(data_ptr + index);
-      if ((*ptr & 0x8080808080808080) != 0) {
-        is_multibyte = true;
-        break;
-      }
-      index += 8;
-      remaining -= 8;
-    }
-    if (is_multibyte) break;
-    if (remaining >= 4) {
-      uint32_t* ptr = reinterpret_cast<uint32_t*>(data_ptr + index);
-      if ((*ptr & 0x80808080) != 0) break;
-      index += 4;
-      remaining -= 4;
-    }
-    while (remaining > 0) {
-      uint8_t* ptr = reinterpret_cast<uint8_t*>(data_ptr + index);
-      if ((*ptr & 0x80) != 0) {
-        is_multibyte = true;
-        break;
-      }
-      index++;
-      remaining--;
-    }
-    if (is_multibyte) break;
-    // reached here; all are single byte characters
-    *out_length = len;
-    return data;
-  } while (false);
-
-  // detected multibyte utf8 characters; slow path
-  int32_t byte_pos = utf8_byte_pos(context, data + index, data_len - index, len - index);
-  if (byte_pos < 0) {
-    *out_length = 0;
-    return "";
-  }
-
-  *out_length = index + byte_pos;
-  return data;
-}
+#undef CAST_VARCHAR_FROM_VARLEN_TYPE
 
 #define IS_NULL(NAME, TYPE)                                                \
   FORCE_INLINE                                                             \
@@ -1519,5 +1527,4 @@ const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_le
   *out_len = j;
   return ret;
 }
-
 }  // extern "C"

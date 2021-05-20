@@ -369,6 +369,10 @@ const char* concatOperator_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8(
     gdv_int32 in8_len, const char* in9, gdv_int32 in9_len, const char* in10,
     gdv_int32 in10_len, gdv_int32* out_len);
 
+const char* castVARCHAR_binary_int64(gdv_int64 context, const char* data,
+                                     gdv_int32 data_len, int64_t out_len,
+                                     int32_t* out_length);
+
 const char* castVARCHAR_utf8_int64(gdv_int64 context, const char* data,
                                    gdv_int32 data_len, int64_t out_len,
                                    int32_t* out_length);

@@ -200,12 +200,136 @@ TEST(TestStringOps, TestCastBoolToVarchar) {
   ctx.Reset();
 }
 
-TEST(TestStringOps, TestCastVarhcar) {
+TEST(TestStringOps, TestCastVarchar) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
   gdv_int32 out_len = 0;
 
-  const char* out_str = castVARCHAR_utf8_int64(ctx_ptr, "asdf", 4, 1, &out_len);
+  // BINARY TESTS
+  const char* out_str = castVARCHAR_binary_int64(ctx_ptr, "asdf", 4, 1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "a");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_binary_int64(ctx_ptr, "asdf", 4, 6, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "asdf");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_binary_int64(ctx_ptr, "asdf", 4, 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "asd");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_binary_int64(ctx_ptr, "asdf", 4, 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "asdf");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_binary_int64(ctx_ptr, "asdf", 4, 5, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "asdf");
+  EXPECT_FALSE(ctx.has_error());
+
+  // do not truncate if output length is 0
+  out_str = castVARCHAR_binary_int64(ctx_ptr, "asdf", 4, 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "asdf");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_binary_int64(ctx_ptr, "", 0, 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_binary_int64(ctx_ptr, "çåå†", 9, 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "çåå");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_binary_int64(ctx_ptr, "çåå†", 9, 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "çåå†");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_binary_int64(ctx_ptr, "çåå†", 9, 5, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "çåå†");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_binary_int64(ctx_ptr, "çåå†", 9, 10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "çåå†");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_binary_int64(ctx_ptr, "çåå†", 9, 6, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "çåå†");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_binary_int64(ctx_ptr, "abc", 3, -1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Output buffer length can't be negative"));
+  ctx.Reset();
+
+  std::string z("aa\xc3");
+  out_str = castVARCHAR_binary_int64(ctx_ptr, z.data(), static_cast<int>(z.length()), 2,
+                                     &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "aa");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_binary_int64(ctx_ptr, "1234567812341234", 16, 16, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "1234567812341234");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_binary_int64(ctx_ptr, "1234567812341234", 16, 15, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "123456781234123");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_binary_int64(ctx_ptr, "1234567812341234", 16, 12, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "123456781234");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_binary_int64(ctx_ptr, "1234567812341234", 16, 8, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "12345678");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_binary_int64(ctx_ptr, "1234567812341234", 16, 7, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "1234567");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_binary_int64(ctx_ptr, "1234567812341234", 16, 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "1234");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_binary_int64(ctx_ptr, "1234567812341234", 16, 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "123");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_binary_int64(ctx_ptr, "1234567812çåå†123456", 25, 16, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "1234567812çåå†12");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_binary_int64(ctx_ptr, "123456781234çåå†1234", 25, 15, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "123456781234çåå");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_binary_int64(ctx_ptr, "12çåå†34567812123456", 25, 16, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "12çåå†3456781212");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_binary_int64(ctx_ptr, "çåå†1234567812123456", 25, 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "çåå†");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_binary_int64(ctx_ptr, "çåå†1234567812123456", 25, 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "çåå");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_binary_int64(ctx_ptr, "123456781234çåå†", 21, 40, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "123456781234çåå†");
+  EXPECT_FALSE(ctx.has_error());
+
+  std::string f("123456781234çåå\xc3");
+  out_str = castVARCHAR_binary_int64(ctx_ptr, f.data(), static_cast<int32_t>(f.length()),
+                                     16, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr(
+                  "unexpected byte \\c3 encountered while decoding utf8 string"));
+  ctx.Reset();
+
+  // UTF8 TESTS
+  out_str = castVARCHAR_utf8_int64(ctx_ptr, "asdf", 4, 1, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "a");
   EXPECT_FALSE(ctx.has_error());
 
@@ -255,6 +379,7 @@ TEST(TestStringOps, TestCastVarhcar) {
   EXPECT_FALSE(ctx.has_error());
 
   out_str = castVARCHAR_utf8_int64(ctx_ptr, "abc", 3, -1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
   EXPECT_THAT(ctx.get_error(),
               ::testing::HasSubstr("Output buffer length can't be negative"));
   ctx.Reset();
@@ -317,8 +442,8 @@ TEST(TestStringOps, TestCastVarhcar) {
   EXPECT_EQ(std::string(out_str, out_len), "123456781234çåå†");
   EXPECT_FALSE(ctx.has_error());
 
-  std::string f("123456781234çåå\xc3");
-  out_str = castVARCHAR_utf8_int64(ctx_ptr, f.data(), static_cast<int32_t>(f.length()),
+  std::string y("123456781234çåå\xc3");
+  out_str = castVARCHAR_utf8_int64(ctx_ptr, y.data(), static_cast<int32_t>(y.length()),
                                    16, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "");
   EXPECT_THAT(ctx.get_error(),
