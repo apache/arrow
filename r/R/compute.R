@@ -236,22 +236,25 @@ all.ArrowDatum <- function(..., na.rm = FALSE){
 #' @examples
 #' # note that the returned value is 0-indexed
 #' cars_tbl <- Table$create(name = rownames(mtcars), mtcars)
-#' match_arrow(Array$create("Mazda RX4 Wag"), cars_tbl$name)
+#' match_arrow(Scalar$create("Mazda RX4 Wag"), cars_tbl$name)
 #'
 #' is_in(Array$create("Mazda RX4 Wag"), cars_tbl$name)
 #' 
 #' # Although there are multiple matches, you are returned the index of the first 
 #' # match, as with the base R equivalent
 #' match(4, mtcars$cyl) # 1-indexed
-#' match_arrow(Array$create(4), cars_tbl$cyl) # 0-indexed
+#' match_arrow(Scalar$create(4), cars_tbl$cyl) # 0-indexed
 #' 
-#' # If you specify a vector or Array, you get the indices of the first matches
+#' # If `x` contains multiple values, you are returned the indices of the first 
+#' # match for each value.
 #' match(c(4, 6, 8), mtcars$cyl)
 #' match_arrow(Array$create(c(4, 6, 8)), cars_tbl$cyl)
 #' 
-#' # If x is a vector, returns a vector; if x is an Array, returns an Array
+#' # Return type matches type of `x`
 #' is_in(c(4, 6, 8), mtcars$cyl) # returns vector
+#' is_in(Scalar$create(4), mtcars$cyl) # returns Scalar
 #' is_in(Array$create(c(4, 6, 8)), cars_tbl$cyl) # returns Array
+#' is_in(ChunkedArray$create(c(4, 6), 8), cars_tbl$cyl) # returns ChunkedArray
 #' @export
 match_arrow <- function(x, table, ...) UseMethod("match_arrow")
 
