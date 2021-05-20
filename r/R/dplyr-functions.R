@@ -127,7 +127,9 @@ nse_funcs$is.character <- function(x) {
 }
 
 nse_funcs$is.numeric <- function(x) {
-  x$type_id() %in% c(2:12, 23:24)
+  x$type_id() %in% Type[c("UINT8", "INT8", "UINT16", "INT16", "UINT32", "INT32",
+                          "UINT64", "INT64", "HALF_FLOAT", "FLOAT", "DOUBLE",
+                          "DECIMAL", "DECIMAL256")]
 }
 
 nse_funcs$is.double <- function(x) {
@@ -135,7 +137,8 @@ nse_funcs$is.double <- function(x) {
 }
 
 nse_funcs$is.integer <- function(x) {
-  x$type_id() %in% c(2:9)
+  x$type_id() %in% Type[c("UINT8", "INT8", "UINT16", "INT16", "UINT32", "INT32",
+                          "UINT64", "INT64")]
 }
 
 nse_funcs$is.integer64 <- function(x) {
