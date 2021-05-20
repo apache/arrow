@@ -87,7 +87,7 @@ arrow_mask <- function(.data) {
   }
 
   # Assign the schema to the expressions
-  map(.data$selected_columns, ~.$schema <- .data$.data$schema)
+  map(.data$selected_columns, ~(.$schema <- .data$.data$schema))
 
   # Add the column references and make the mask
   out <- new_data_mask(
