@@ -85,8 +85,7 @@
 #' @rdname array
 #' @name array
 #' @examples
-#' vals <- 1:10
-#' my_array <- Array$create(vals)
+#' my_array <- Array$create(1:10)
 #' my_array$type
 #' my_array$cast(int8())
 #' 
