@@ -17,6 +17,13 @@
 
 import * as Arrow from '../src/Arrow.dom';
 
+// from https://stackoverflow.com/a/19303725/214950
+let seed = 1;
+function random() {
+    const x = Math.sin(seed++) * 10000;
+    return x - Math.floor(x);
+}
+
 console.time('Prepare Data');
 
 const LENGTH = 100000;
@@ -27,17 +34,17 @@ const values = Arrow.Utf8Vector.from(['Charlottesville', 'New York', 'San Franci
 const batches = Array.from({length: NUM_BATCHES}).map(() => {
     const lat = Float32Array.from(
         { length: LENGTH },
-        () => ((Math.random() - 0.5) * 2 * 90));
+        () => ((random() - 0.5) * 2 * 90));
     const lng = Float32Array.from(
         { length: LENGTH },
-        () => ((Math.random() - 0.5) * 2 * 90));
+        () => ((random() - 0.5) * 2 * 90));
 
     const origin = Uint8Array.from(
         { length: LENGTH },
-        () => (Math.random() * 6));
+        () => (random() * 6));
     const destination = Uint8Array.from(
         { length: LENGTH },
-        () => (Math.random() * 6));
+        () => (random() * 6));
 
     const originType = new Arrow.Dictionary(values.type, new Arrow.Int8, 0, false);
     const destinationType = new Arrow.Dictionary(values.type, new Arrow.Int8, 0, false);
