@@ -128,6 +128,7 @@ docker_run \
   ./runner.sh \
   rake \
     "${rake_tasks[@]}" \
+    ARTIFACTORY_API_KEY="${ARTIFACTORY_API_KEY}" \
     APT_TARGETS=$(IFS=,; echo "${apt_targets[*]}") \
     ARTIFACTS_DIR="${tmp_dir}/artifacts" \
     RC=${rc} \
