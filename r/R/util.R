@@ -149,9 +149,9 @@ attr(is_writable_table, "fail") <- function(call, env){
 #' @keywords internal
 repeat_value_as_array <- function(object, n) {
   if (inherits(object, "ChunkedArray")) {
-    return(MakeArrayFromScalar(Scalar$create(object$chunks[[1]]), n))
+    return(Scalar$create(object$chunks[[1]])$as_array(n))
   }
-  return(MakeArrayFromScalar(Scalar$create(object), n))
+  return(Scalar$create(object)$as_array(n))
 }
 
 #' Recycle scalar values in a list of arrays
