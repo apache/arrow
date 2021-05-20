@@ -21,7 +21,7 @@
 // import * as Arrow from '../targets/es2015/umd';
 // import * as Arrow from '../targets/es2015/cjs';
 
-import * as Arrow from '..';
+import * as Arrow from '../src/Arrow';
 
 import config from './config';
 import b from 'benny';
@@ -63,6 +63,10 @@ for (const { name, ipc, df } of config) {
 
         b.add(`readBatches`, () => {
             for (const _recordBatch of RecordBatchReader.from(ipc)) {}
+        }),
+
+        b.add(`serialize`, () => {
+            df.serialize();
         }),
 
         b.cycle(cycle)

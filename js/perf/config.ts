@@ -39,16 +39,18 @@ const batches = Array.from({length: NUM_BATCHES}).map(() => {
         { length: LENGTH },
         () => (Math.random() * 6));
 
+    const originType = new Arrow.Dictionary(values.type, new Arrow.Int8, 0, false);
+    const destinationType = new Arrow.Dictionary(values.type, new Arrow.Int8, 0, false);
+
     return Arrow.RecordBatch.new({
         'lat': Arrow.Float32Vector.from(lat),
         'lng': Arrow.Float32Vector.from(lng),
-        'origin': Arrow.DictionaryVector.from(values, new Arrow.Int8(), origin),
-        'destination': Arrow.DictionaryVector.from(values, new Arrow.Int8(), destination),
+        'origin': Arrow.Vector.new(Arrow.Data.Dictionary(originType, 0, origin.length, 0, null, origin, values)),
+        'destination': Arrow.Vector.new(Arrow.Data.Dictionary(destinationType, 0, destination.length, 0, null, destination, values)),
     });
 });
 
-const {schema} = batches[0];
-const tracks = new Arrow.DataFrame(schema, batches);
+const tracks = new Arrow.Table(batches[0].schema, batches);
 
 console.timeEnd('Prepare Data');
 
