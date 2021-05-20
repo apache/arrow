@@ -1070,7 +1070,9 @@ class TestIndexKernel : public ::testing::Test {
 
   void AssertIndexIs(const std::vector<std::string>& json,
                      const std::shared_ptr<ScalarType>& value, int64_t expected) {
+    SCOPED_TRACE("Value: " + value->ToString());
     auto array = ChunkedArrayFromJSON(type_singleton(), json);
+    SCOPED_TRACE("Input: " + array->ToString());
     AssertIndexIs(array, value, expected);
   }
 
