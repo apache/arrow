@@ -354,6 +354,24 @@ class InExprDex<int64_t> : public InExprDexBase<int64_t> {
 };
 
 template <>
+class InExprDex<float> : public InExprDexBase<float> {
+ public:
+  InExprDex(const ValueValidityPairVector& args, const std::unordered_set<float>& values)
+      : InExprDexBase(args, values) {
+    runtime_function_ = "gdv_fn_in_expr_lookup_float";
+  }
+};
+
+template <>
+class InExprDex<double> : public InExprDexBase<double> {
+ public:
+  InExprDex(const ValueValidityPairVector& args, const std::unordered_set<double>& values)
+      : InExprDexBase(args, values) {
+    runtime_function_ = "gdv_fn_in_expr_lookup_double";
+  }
+};
+
+template <>
 class InExprDex<gandiva::DecimalScalar128>
     : public InExprDexBase<gandiva::DecimalScalar128> {
  public:
