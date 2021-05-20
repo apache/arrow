@@ -139,7 +139,7 @@ nse_funcs$is.integer <- function(x) {
 }
 
 nse_funcs$is.integer64 <- function(x) {
-  x$type_id() %in% Type[c("UINT64", "INT64")]
+  x$type_id() %in% Type["INT64"]
 }
 
 nse_funcs$is.logical <- function(x) {
