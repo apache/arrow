@@ -10,16 +10,16 @@ match_arrow(x, table, ...)
 is_in(x, table, ...)
 }
 \arguments{
-\item{x}{\code{Array} or \code{ChunkedArray}}
+\item{x}{\code{Scalar}, \code{Array} or \code{ChunkedArray}}
 
-\item{table}{\code{Array}, \code{ChunkedArray}, or R vector lookup table.}
+\item{table}{\code{Scalar}, Array\verb{, }ChunkedArray`, or R vector lookup table.}
 
 \item{...}{additional arguments, ignored}
 }
 \value{
-\code{match_arrow()} returns an \code{int32}-type \code{Array} of the same length
-as \code{x} with the (0-based) indexes into \code{table}. \code{is_in()} returns a
-\code{boolean}-type \code{Array} of the same length as \code{x} with values indicating
+\code{match_arrow()} returns an \code{int32}-type Arrow object of the same length
+and type as \code{x} with the (0-based) indexes into \code{table}. \code{is_in()} returns a
+\code{boolean}-type Arrow object of the same length and type as \code{x} with values indicating
 per element of \code{x} it it is present in \code{table}.
 }
 \description{

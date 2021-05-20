@@ -83,8 +83,7 @@ within the array's internal data. This can be an expensive check, potentially \c
 }
 
 \examples{
-vals <- 1:10
-my_array <- Array$create(vals)
+my_array <- Array$create(1:10)
 my_array$type
 my_array$cast(int8())
 

@@ -226,12 +226,12 @@ all.ArrowDatum <- function(..., na.rm = FALSE){
 #' `base::match()` is not a generic, so we can't just define Arrow methods for
 #' it. This function exposes the analogous functions in the Arrow C++ library.
 #'
-#' @param x `Array` or `ChunkedArray`
-#' @param table `Array`, `ChunkedArray`, or R vector lookup table.
+#' @param x `Scalar`, `Array` or `ChunkedArray`
+#' @param table `Scalar`, Array`, `ChunkedArray`, or R vector lookup table.
 #' @param ... additional arguments, ignored
-#' @return `match_arrow()` returns an `int32`-type `Array` of the same length
-#' as `x` with the (0-based) indexes into `table`. `is_in()` returns a
-#' `boolean`-type `Array` of the same length as `x` with values indicating
+#' @return `match_arrow()` returns an `int32`-type Arrow object of the same length
+#' and type as `x` with the (0-based) indexes into `table`. `is_in()` returns a
+#' `boolean`-type Arrow object of the same length and type as `x` with values indicating
 #' per element of `x` it it is present in `table`.
 #' @examples
 #' # note that the returned value is 0-indexed
