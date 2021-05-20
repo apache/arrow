@@ -95,13 +95,13 @@ list_compute_functions <- function(pattern = NULL, ...) {
 }
 
 #' @export
-sum.ArrowDatum <- function(..., na.rm = FALSE, na.min_count = 0) {
-  scalar_aggregate("sum", ..., na.rm = na.rm, na.min_count = na.min_count)
+sum.ArrowDatum <- function(..., na.rm = FALSE) {
+  scalar_aggregate("sum", ..., na.rm = na.rm)
 }
 
 #' @export
-mean.ArrowDatum <- function(..., na.rm = FALSE, na.min_count = 0) {
-  scalar_aggregate("mean", ..., na.rm = na.rm, na.min_count = na.min_count)
+mean.ArrowDatum <- function(..., na.rm = FALSE) {
+  scalar_aggregate("mean", ..., na.rm = na.rm)
 }
 
 #' @export
@@ -116,11 +116,17 @@ max.ArrowDatum <- function(..., na.rm = FALSE) {
 
 scalar_aggregate <- function(FUN, ..., na.rm = FALSE, na.min_count = 0) {
   a <- collect_arrays_from_dots(list(...))
-  if (FUN %in% c("mean", "sum") && !na.rm) {
-    na.min_count = length(a)
+  if (!na.rm) {
+    # When not removing null values, we require all values to be not null and 
+    # return null otherwise. We do that by setting minimum count of non-null 
+    # option values to the full array length.
+    na.min_count <- length(a)
   }
   if (FUN == "min_max" && na.rm && a$null_count == length(a)) {
-    Array$create(data.frame(min=Inf, max=-Inf))
+    Array$create(data.frame(min = Inf, max = -Inf))
+    # If na.rm == TRUE and all values in array are NA, R returns
+    # Inf/-Inf, which are type double. Since Arrow is type-stable
+    # and does not do that, we handle this special case here.
   } else {
     call_function(FUN, a, options = list(na.rm = na.rm, na.min_count = na.min_count))
   }
