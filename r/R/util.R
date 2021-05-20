@@ -161,9 +161,7 @@ repeat_value_as_array <- function(object, n) {
 #' @keywords internal
 recycle_scalars <- function(arrays){
   # Get lengths of items in arrays
-  is_df <- map_lgl(arrays, ~inherits(.x, "data.frame"))
-  arr_lens <- lengths(arrays)
-  arr_lens[is_df] <- map_int(arrays[is_df], nrow)
+  arr_lens <- map_int(arrays, NROW)
   
   if (length(arrays) > 1 && any(arr_lens == 1) && !all(arr_lens==1)) {
     max_array_len <- max(arr_lens)
