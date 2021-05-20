@@ -272,6 +272,13 @@ def test_variance():
     assert pc.variance(data, ddof=1).as_py() == 6.0
 
 
+def test_match_like():
+    arr = pa.array(["ab", "ba%", "ba", "ca%d", None])
+    result = pc.match_like(arr, r"_a\%%")
+    expected = pa.array([False, True, False, True, None])
+    assert expected.equals(result)
+
+
 def test_match_substring():
     arr = pa.array(["ab", "abc", "ba", None])
     result = pc.match_substring(arr, "ab")

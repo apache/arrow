@@ -533,28 +533,37 @@ Containment tests
 +---------------------------+------------+------------------------------------+---------------+----------------------------------------+
 | Function name             | Arity      | Input types                        | Output type   | Options class                          |
 +===========================+============+====================================+===============+========================================+
-| match_substring           | Unary      | String-like                        | Boolean (1)   | :struct:`MatchSubstringOptions`        |
+| match_like                | Unary      | String-like                        | Boolean (1)   | :struct:`MatchSubstringOptions`        |
 +---------------------------+------------+------------------------------------+---------------+----------------------------------------+
-| match_substring_regex     | Unary      | String-like                        | Boolean (2)   | :struct:`MatchSubstringOptions`        |
+| match_substring           | Unary      | String-like                        | Boolean (2)   | :struct:`MatchSubstringOptions`        |
 +---------------------------+------------+------------------------------------+---------------+----------------------------------------+
-| index_in                  | Unary      | Boolean, Null, Numeric, Temporal,  | Int32 (3)     | :struct:`SetLookupOptions`             |
+| match_substring_regex     | Unary      | String-like                        | Boolean (3)   | :struct:`MatchSubstringOptions`        |
++---------------------------+------------+------------------------------------+---------------+----------------------------------------+
+| index_in                  | Unary      | Boolean, Null, Numeric, Temporal,  | Int32 (4)     | :struct:`SetLookupOptions`             |
 |                           |            | Binary- and String-like            |               |                                        |
 +---------------------------+------------+------------------------------------+---------------+----------------------------------------+
-| is_in                     | Unary      | Boolean, Null, Numeric, Temporal,  | Boolean (4)   | :struct:`SetLookupOptions`             |
+| is_in                     | Unary      | Boolean, Null, Numeric, Temporal,  | Boolean (5)   | :struct:`SetLookupOptions`             |
 |                           |            | Binary- and String-like            |               |                                        |
 +---------------------------+------------+------------------------------------+---------------+----------------------------------------+
 
-* \(1) Output is true iff :member:`MatchSubstringOptions::pattern`
-  is a substring of the corresponding input element.
+* \(1) Output is true iff the SQL-style LIKE pattern
+  :member:`MatchSubstringOptions::pattern` fully matches the
+  corresponding input element. That is, ``%`` will match any number of
+  characters, ``_`` will match exactly one character, and any other
+  character matches itself. To match a literal percent sign or
+  underscore, precede the character with a backslash.
 
 * \(2) Output is true iff :member:`MatchSubstringOptions::pattern`
+  is a substring of the corresponding input element.
+
+* \(3) Output is true iff :member:`MatchSubstringOptions::pattern`
   matches the corresponding input element at any position.
 
-* \(3) Output is the index of the corresponding input element in
+* \(4) Output is the index of the corresponding input element in
   :member:`SetLookupOptions::value_set`, if found there.  Otherwise,
   output is null.
 
-* \(4) Output is true iff the corresponding input element is equal to one
+* \(5) Output is true iff the corresponding input element is equal to one
   of the elements in :member:`SetLookupOptions::value_set`.
 
 

@@ -289,6 +289,29 @@ def cast(arr, target_type, safe=True):
     return call_function("cast", [arr], options)
 
 
+def match_like(array, pattern):
+    """
+    Test if the SQL-style LIKE pattern *pattern* matches a value of a
+    string array.
+
+    Parameters
+    ----------
+    array : pyarrow.Array or pyarrow.ChunkedArray
+    pattern : str
+        SQL-style LIKE pattern. '%' will match any number of
+        characters, '_' will match exactly one character, and all
+        other characters match themselves. To match a literal percent
+        sign or underscore, precede the character with a backslash.
+
+    Returns
+    -------
+    result : pyarrow.Array or pyarrow.ChunkedArray
+
+    """
+    return call_function("match_like", [array],
+                         MatchSubstringOptions(pattern))
+
+
 def match_substring(array, pattern):
     """
     Test if substring *pattern* is contained within a value of a string array.

@@ -158,6 +158,7 @@ Containment tests
 
    index_in
    is_in
+   match_like
    match_substring
    match_substring_regex
 

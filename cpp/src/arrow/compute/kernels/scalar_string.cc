@@ -494,6 +494,95 @@ const FunctionDoc match_substring_regex_doc(
      "position.\n"
      "Null inputs emit null.  The pattern must be given in MatchSubstringOptions."),
     {"strings"}, "MatchSubstringOptions");
+
+// SQL LIKE match
+
+/// Convert a SQL-style LIKE pattern (using '%' and '_') into a regex pattern
+std::string MakeLikeRegex(const MatchSubstringOptions& options) {
+  // Allow . to match \n
+  std::string like_pattern = "(?s:^";
+  like_pattern.reserve(options.pattern.size() + 7);
+  bool escaped = false;
+  for (const char c : options.pattern) {
+    if (!escaped && c == '%') {
+      like_pattern.append(".*");
+    } else if (!escaped && c == '_') {
+      like_pattern.append(".");
+    } else if (!escaped && c == '\\') {
+      escaped = true;
+    } else {
+      switch (c) {
+        case '.':
+        case '?':
+        case '+':
+        case '*':
+        case '^':
+        case '$':
+        case '\\':
+        case '[':
+        case '{':
+        case '(':
+        case ')':
+        case '|': {
+          like_pattern.push_back('\\');
+          like_pattern.push_back(c);
+          escaped = false;
+          break;
+        }
+        default: {
+          like_pattern.push_back(c);
+          escaped = false;
+          break;
+        }
+      }
+    }
+  }
+  like_pattern.append("$)");
+  return like_pattern;
+}
+
+// A LIKE pattern matching this regex can be translated into a substring search.
+static RE2 kLikePatternIsSubstringMatch("%+([^%_]*)%+");
+
+// Evaluate a SQL-like LIKE pattern by translating it to a regexp or
+// substring search as appropriate. See what Apache Impala does:
+// https://github.com/apache/impala/blob/9c38568657d62b6f6d7b10aa1c721ba843374dd8/be/src/exprs/like-predicate.cc
+// Note that Impala optimizes more cases (e.g. prefix match) but we
+// don't have kernels for those.
+template <typename StringType>
+struct MatchLike {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    auto original_options = MatchSubstringState::Get(ctx);
+    auto original_state = ctx->state();
+
+    Status status;
+    std::string pattern;
+    if (re2::RE2::FullMatch(original_options.pattern, kLikePatternIsSubstringMatch,
+                            &pattern)) {
+      MatchSubstringOptions converted_options{pattern};
+      MatchSubstringState converted_state(converted_options);
+      ctx->SetState(&converted_state);
+      status = MatchSubstring<StringType, PlainSubstringMatcher>::Exec(ctx, batch, out);
+    } else {
+      MatchSubstringOptions converted_options{MakeLikeRegex(original_options)};
+      MatchSubstringState converted_state(converted_options);
+      ctx->SetState(&converted_state);
+      status = MatchSubstring<StringType, RegexSubstringMatcher>::Exec(ctx, batch, out);
+    }
+    ctx->SetState(original_state);
+    return status;
+  }
+};
+
+const FunctionDoc match_like_doc(
+    "Match strings against SQL-style LIKE pattern",
+    ("For each string in `strings`, emit true iff it fully matches a given pattern "
+     "at any position. That is, '%' will match any number of characters, '_' will "
+     "match exactly one character, and any other character matches itself. To "
+     "match a literal '%', '_', or '\\', precede the character with a backslash.\n"
+     "Null inputs emit null.  The pattern must be given in MatchSubstringOptions."),
+    {"strings"}, "MatchSubstringOptions");
+
 #endif
 
 void AddMatchSubstring(FunctionRegistry* registry) {
@@ -513,6 +602,16 @@ void AddMatchSubstring(FunctionRegistry* registry) {
                                                  &match_substring_regex_doc);
     auto exec_32 = MatchSubstring<StringType, RegexSubstringMatcher>::Exec;
     auto exec_64 = MatchSubstring<LargeStringType, RegexSubstringMatcher>::Exec;
+    DCHECK_OK(func->AddKernel({utf8()}, boolean(), exec_32, MatchSubstringState::Init));
+    DCHECK_OK(
+        func->AddKernel({large_utf8()}, boolean(), exec_64, MatchSubstringState::Init));
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+  {
+    auto func =
+        std::make_shared<ScalarFunction>("match_like", Arity::Unary(), &match_like_doc);
+    auto exec_32 = MatchLike<StringType>::Exec;
+    auto exec_64 = MatchLike<LargeStringType>::Exec;
     DCHECK_OK(func->AddKernel({utf8()}, boolean(), exec_32, MatchSubstringState::Init));
     DCHECK_OK(
         func->AddKernel({large_utf8()}, boolean(), exec_64, MatchSubstringState::Init));

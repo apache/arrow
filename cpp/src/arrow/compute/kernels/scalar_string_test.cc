@@ -388,6 +388,61 @@ TYPED_TEST(TestStringKernels, MatchSubstringRegexInvalid) {
       Invalid, ::testing::HasSubstr("Invalid regular expression: missing ]"),
       CallFunction("match_substring_regex", {input}, &options));
 }
+
+TYPED_TEST(TestStringKernels, MatchLike) {
+  auto inputs = R"(["foo", "bar", "foobar", "barfoo", "o", "\nfoo", "foo\n", null])";
+
+  MatchSubstringOptions prefix_match{"foo%"};
+  this->CheckUnary("match_like", "[]", boolean(), "[]", &prefix_match);
+  this->CheckUnary("match_like", inputs, boolean(),
+                   "[true, false, true, false, false, false, true, null]", &prefix_match);
+
+  MatchSubstringOptions suffix_match{"%foo"};
+  this->CheckUnary("match_like", inputs, boolean(),
+                   "[true, false, false, true, false, true, false, null]", &suffix_match);
+
+  MatchSubstringOptions substring_match{"%foo%"};
+  this->CheckUnary("match_like", inputs, boolean(),
+                   "[true, false, true, true, false, true, true, null]",
+                   &substring_match);
+
+  MatchSubstringOptions trivial_match{"%%"};
+  this->CheckUnary("match_like", inputs, boolean(),
+                   "[true, true, true, true, true, true, true, null]", &trivial_match);
+
+  MatchSubstringOptions regex_match{"foo%bar"};
+  this->CheckUnary("match_like", inputs, boolean(),
+                   "[false, false, true, false, false, false, false, null]",
+                   &regex_match);
+}
+
+TYPED_TEST(TestStringKernels, MatchLikeEscaping) {
+  auto inputs = R"(["%%foo", "_bar", "({", "\\baz"])";
+
+  MatchSubstringOptions escape_percent{"\\%%"};
+  this->CheckUnary("match_like", inputs, boolean(), "[true, false, false, false]",
+                   &escape_percent);
+
+  MatchSubstringOptions escape_underscore{"\\____"};
+  this->CheckUnary("match_like", inputs, boolean(), "[false, true, false, false]",
+                   &escape_underscore);
+
+  MatchSubstringOptions escape_regex{"(%"};
+  this->CheckUnary("match_like", inputs, boolean(), "[false, false, true, false]",
+                   &escape_regex);
+
+  MatchSubstringOptions escape_escape{"\\\\%"};
+  this->CheckUnary("match_like", inputs, boolean(), "[false, false, false, true]",
+                   &escape_escape);
+
+  MatchSubstringOptions special_chars{"!@#$^&*()[]{}.?"};
+  this->CheckUnary("match_like", R"(["!@#$^&*()[]{}.?"])", boolean(), "[true]",
+                   &special_chars);
+
+  MatchSubstringOptions escape_sequences{"\n\t%"};
+  this->CheckUnary("match_like", R"(["\n\tfoo\t", "\n\t", "\n"])", boolean(),
+                   "[true, true, false]", &escape_sequences);
+}
 #endif
 
 TYPED_TEST(TestStringKernels, SplitBasics) {
