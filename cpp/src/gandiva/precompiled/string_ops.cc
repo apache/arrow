@@ -19,10 +19,11 @@
 #include "arrow/util/value_parsing.h"
 extern "C" {
 
-#include <limits.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <algorithm>
+#include <climits>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
 #include "./types.h"
 
@@ -1316,6 +1317,214 @@ const char* convert_replace_invalid_fromUTF8_binary(int64_t context, const char*
     memcpy(ret + out_byte_counter, text_in + out_byte_counter, valid_bytes_to_cpy);
   }
   return ret;
+}
+
+// The function reverse a char array in-place
+static inline void reverse_char_buf(char* buf, int32_t len) {
+  char temp;
+
+  for (int32_t i = 0; i < len / 2; i++) {
+    int32_t pos_swp = len - (1 + i);
+    temp = buf[pos_swp];
+    buf[pos_swp] = buf[i];
+    buf[i] = temp;
+  }
+}
+
+// Converts a double variable to binary
+FORCE_INLINE
+const char* convert_toDOUBLE(int64_t context, double value, int32_t* out_len) {
+  *out_len = sizeof(value);
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context,
+                                 "Could not allocate memory for the output string");
+
+    *out_len = 0;
+    return "";
+  }
+
+  memcpy(ret, &value, *out_len);
+
+  return ret;
+}
+
+FORCE_INLINE
+const char* convert_toDOUBLE_be(int64_t context, double value, int32_t* out_len) {
+  // The function behaves like convert_toDOUBLE, but always return the result
+  // in big endian format
+  char* ret = const_cast<char*>(convert_toDOUBLE(context, value, out_len));
+
+#if ARROW_LITTLE_ENDIAN
+  reverse_char_buf(ret, *out_len);
+#endif
+
+  return ret;
+}
+
+// Converts a float variable to binary
+FORCE_INLINE
+const char* convert_toFLOAT(int64_t context, float value, int32_t* out_len) {
+  *out_len = sizeof(value);
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context,
+                                 "Could not allocate memory for the output string");
+
+    *out_len = 0;
+    return "";
+  }
+
+  memcpy(ret, &value, *out_len);
+
+  return ret;
+}
+
+FORCE_INLINE
+const char* convert_toFLOAT_be(int64_t context, float value, int32_t* out_len) {
+  // The function behaves like convert_toFLOAT, but always return the result
+  // in big endian format
+  char* ret = const_cast<char*>(convert_toFLOAT(context, value, out_len));
+
+#if ARROW_LITTLE_ENDIAN
+  reverse_char_buf(ret, *out_len);
+#endif
+
+  return ret;
+}
+
+// Converts a bigint(int with 64 bits) variable to binary
+FORCE_INLINE
+const char* convert_toBIGINT(int64_t context, int64_t value, int32_t* out_len) {
+  *out_len = sizeof(value);
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context,
+                                 "Could not allocate memory for the output string");
+
+    *out_len = 0;
+    return "";
+  }
+
+  memcpy(ret, &value, *out_len);
+
+  return ret;
+}
+
+FORCE_INLINE
+const char* convert_toBIGINT_be(int64_t context, int64_t value, int32_t* out_len) {
+  // The function behaves like convert_toBIGINT, but always return the result
+  // in big endian format
+  char* ret = const_cast<char*>(convert_toBIGINT(context, value, out_len));
+
+#if ARROW_LITTLE_ENDIAN
+  reverse_char_buf(ret, *out_len);
+#endif
+
+  return ret;
+}
+
+// Converts an integer(with 32 bits) variable to binary
+FORCE_INLINE
+const char* convert_toINT(int64_t context, int32_t value, int32_t* out_len) {
+  *out_len = sizeof(value);
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context,
+                                 "Could not allocate memory for the output string");
+
+    *out_len = 0;
+    return "";
+  }
+
+  memcpy(ret, &value, *out_len);
+
+  return ret;
+}
+
+FORCE_INLINE
+const char* convert_toINT_be(int64_t context, int32_t value, int32_t* out_len) {
+  // The function behaves like convert_toINT, but always return the result
+  // in big endian format
+  char* ret = const_cast<char*>(convert_toINT(context, value, out_len));
+
+#if ARROW_LITTLE_ENDIAN
+  reverse_char_buf(ret, *out_len);
+#endif
+
+  return ret;
+}
+
+// Converts a boolean variable to binary
+FORCE_INLINE
+const char* convert_toBOOLEAN(int64_t context, bool value, int32_t* out_len) {
+  *out_len = sizeof(value);
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context,
+                                 "Could not allocate memory for the output string");
+
+    *out_len = 0;
+    return "";
+  }
+
+  memcpy(ret, &value, *out_len);
+
+  return ret;
+}
+
+// Converts a time variable to binary
+FORCE_INLINE
+const char* convert_toTIME_EPOCH(int64_t context, int32_t value, int32_t* out_len) {
+  return convert_toINT(context, value, out_len);
+}
+
+FORCE_INLINE
+const char* convert_toTIME_EPOCH_be(int64_t context, int32_t value, int32_t* out_len) {
+  // The function behaves as convert_toTIME_EPOCH, but
+  // returns the bytes in big endian format
+  return convert_toINT_be(context, value, out_len);
+}
+
+// Converts a timestamp variable to binary
+FORCE_INLINE
+const char* convert_toTIMESTAMP_EPOCH(int64_t context, int64_t timestamp,
+                                      int32_t* out_len) {
+  return convert_toBIGINT(context, timestamp, out_len);
+}
+
+FORCE_INLINE
+const char* convert_toTIMESTAMP_EPOCH_be(int64_t context, int64_t timestamp,
+                                         int32_t* out_len) {
+  // The function behaves as convert_toTIMESTAMP_EPOCH, but
+  // returns the bytes in big endian format
+  return convert_toBIGINT_be(context, timestamp, out_len);
+}
+
+// Converts a date variable to binary
+FORCE_INLINE
+const char* convert_toDATE_EPOCH(int64_t context, int64_t date, int32_t* out_len) {
+  return convert_toBIGINT(context, date, out_len);
+}
+
+FORCE_INLINE
+const char* convert_toDATE_EPOCH_be(int64_t context, int64_t date, int32_t* out_len) {
+  // The function behaves as convert_toDATE_EPOCH, but
+  // returns the bytes in big endian format
+  return convert_toBIGINT_be(context, date, out_len);
+}
+
+// Converts a string variable to binary
+FORCE_INLINE
+const char* convert_toUTF8(int64_t context, const char* value, int32_t value_len,
+                           int32_t* out_len) {
+  *out_len = value_len;
+  return value;
 }
 
 // Search for a string within another string
