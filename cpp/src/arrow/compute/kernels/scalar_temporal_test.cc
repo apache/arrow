@@ -41,42 +41,30 @@ TEST(ScalarTemporalTest, TestSimpleTemporalComponentExtraction) {
   auto day = "[1, 29, 1, 18]";
   auto day_of_week = "[4, 2, 1, 3]";
   auto day_of_year = "[1, 60, 1, 138]";
-  auto week = "[1, 9, 1, 20]";
+  auto iso_week = "[1, 9, 1, 20]";
   auto quarter = "[1, 1, 1, 2]";
   auto hour = "[0, 23, 1, 3]";
   auto minute = "[0, 23, 59, 33]";
-  auto second = "[59, 23, 20, 20]";
+  auto second = "[59.123456789, 23.999999999, 20.001001001, 20.0]";
   auto millisecond = "[123, 999, 1, 0]";
   auto microsecond = "[456, 999, 1, 0]";
   auto nanosecond = "[789, 999, 1, 0]";
+  auto subsecond = "[123456789, 999999999, 1001001, 0]";
 
   CheckScalarUnary("year", unit, times, int64(), year);
   CheckScalarUnary("month", unit, times, int64(), month);
   CheckScalarUnary("day", unit, times, int64(), day);
   CheckScalarUnary("day_of_week", unit, times, int64(), day_of_week);
   CheckScalarUnary("day_of_year", unit, times, int64(), day_of_year);
-  CheckScalarUnary("week", unit, times, int64(), week);
+  CheckScalarUnary("iso_week", unit, times, int64(), iso_week);
   CheckScalarUnary("quarter", unit, times, int64(), quarter);
   CheckScalarUnary("hour", unit, times, int64(), hour);
   CheckScalarUnary("minute", unit, times, int64(), minute);
-  CheckScalarUnary("second", unit, times, int64(), second);
+  CheckScalarUnary("second", unit, times, float64(), second);
   CheckScalarUnary("millisecond", unit, times, int64(), millisecond);
   CheckScalarUnary("microsecond", unit, times, int64(), microsecond);
   CheckScalarUnary("nanosecond", unit, times, int64(), nanosecond);
-
-  //  CheckScalarUnary("year", unit, times, int32(), year);
-  //  CheckScalarUnary("month", unit, times, uint32(), month);
-  //  CheckScalarUnary("day", unit, times, uint32(), day);
-  //  CheckScalarUnary("day_of_week", unit, times, uint8(), day_of_week);
-  //  CheckScalarUnary("day_of_year", unit, times, uint16(), day_of_year);
-  //  CheckScalarUnary("week", unit, times, uint8(), week);
-  //  CheckScalarUnary("quarter", unit, times, uint32(), quarter);
-  //  CheckScalarUnary("hour", unit, times, uint8(), hour);
-  //  CheckScalarUnary("minute", unit, times, uint8(), minute);
-  //  CheckScalarUnary("second", unit, times, uint8(), second);
-  //  CheckScalarUnary("millisecond", unit, times, uint16(), millisecond);
-  //  CheckScalarUnary("microsecond", unit, times, uint16(), microsecond);
-  //  CheckScalarUnary("nanosecond", unit, times, uint16(), nanosecond);
+  CheckScalarUnary("subsecond", unit, times, int64(), subsecond);
 }
 }  // namespace compute
 }  // namespace arrow

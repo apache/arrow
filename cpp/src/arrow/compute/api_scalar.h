@@ -554,15 +554,15 @@ Result<Datum> Month(const Datum& values, ExecContext* ctx = NULLPTR);
 ARROW_EXPORT
 Result<Datum> Day(const Datum& values, ExecContext* ctx = NULLPTR);
 
-/// \brief Week returns week of year value for each element of `values`
+/// \brief ISOWeek returns ISO week of year value for each element of `values`
 ///
-/// \param[in] values input to extract week of year from
+/// \param[in] values input to extract ISO week of year from
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
 /// \since 4.0.0
 /// \note API not yet finalized
-ARROW_EXPORT Result<Datum> Week(const Datum& values, ExecContext* ctx = NULLPTR);
+ARROW_EXPORT Result<Datum> ISOWeek(const Datum& values, ExecContext* ctx = NULLPTR);
 
 /// \brief Quarter returns quarter of year value for each element of `values`
 ///
@@ -660,6 +660,17 @@ Result<Datum> Microsecond(const Datum& values, ExecContext* ctx = NULLPTR);
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> Nanosecond(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief Subsecond returns subsecond time fraction since last second for each element of
+/// `values`
+///
+/// \param[in] values input to extract subsecond from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 4.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> Subsecond(const Datum& values, ExecContext* ctx = NULLPTR);
 
 }  // namespace compute
 }  // namespace arrow

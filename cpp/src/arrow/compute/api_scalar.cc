@@ -178,7 +178,7 @@ Result<Datum> IfElse(const Datum& cond, const Datum& if_true, const Datum& if_fa
 SCALAR_EAGER_UNARY(Year, "year")
 SCALAR_EAGER_UNARY(Month, "month")
 SCALAR_EAGER_UNARY(Day, "day")
-SCALAR_EAGER_UNARY(Week, "week")
+SCALAR_EAGER_UNARY(ISOWeek, "iso_week")
 SCALAR_EAGER_UNARY(Quarter, "quarter")
 SCALAR_EAGER_UNARY(DayOfYear, "day_of_year")
 SCALAR_EAGER_UNARY(DayOfWeek, "day_of_week")
@@ -188,6 +188,7 @@ SCALAR_EAGER_UNARY(Second, "second")
 SCALAR_EAGER_UNARY(Millisecond, "millisecond")
 SCALAR_EAGER_UNARY(Microsecond, "microsecond")
 SCALAR_EAGER_UNARY(Nanosecond, "nanosecond")
+SCALAR_EAGER_UNARY(Subsecond, "subsecond")
 
 }  // namespace compute
 }  // namespace arrow
