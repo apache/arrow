@@ -40,6 +40,7 @@ G_BEGIN_DECLS
 
 typedef struct GAFlightServerOptionsPrivate_ {
   arrow::flight::FlightServerOptions options;
+  GAFlightLocation *location;
 } GAFlightServerOptionsPrivate;
 
 enum {
@@ -54,6 +55,19 @@ G_DEFINE_TYPE_WITH_PRIVATE(GAFlightServerOptions,
   static_cast<GAFlightServerOptionsPrivate *>(          \
     gaflight_server_options_get_instance_private(       \
       GAFLIGHT_SERVER_OPTIONS(obj)))
+
+static void
+gaflight_server_options_dispose(GObject *object)
+{
+  auto priv = GAFLIGHT_SERVER_OPTIONS_GET_PRIVATE(object);
+
+  if (priv->location) {
+    g_object_unref(priv->location);
+    priv->location = NULL;
+  }
+
+  G_OBJECT_CLASS(gaflight_server_options_parent_class)->dispose(object);
+}
 
 static void
 gaflight_server_options_finalize(GObject *object)
@@ -76,10 +90,28 @@ gaflight_server_options_set_property(GObject *object,
   switch (prop_id) {
   case PROP_LOCATION:
     {
-      auto location = GAFLIGHT_LOCATION(g_value_get_object(value));
-      auto flight_location = gaflight_location_get_raw(location);
+      priv->location = GAFLIGHT_LOCATION(g_value_dup_object(value));
+      auto flight_location = gaflight_location_get_raw(priv->location);
       new(&(priv->options)) arrow::flight::FlightServerOptions(*flight_location);
     }
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+gaflight_server_options_get_property(GObject *object,
+                                     guint prop_id,
+                                     GValue *value,
+                                     GParamSpec *pspec)
+{
+  auto priv = GAFLIGHT_SERVER_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_LOCATION:
+    g_value_set_object(value, priv->location);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -97,15 +129,17 @@ gaflight_server_options_class_init(GAFlightServerOptionsClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
+  gobject_class->dispose = gaflight_server_options_dispose;
   gobject_class->finalize = gaflight_server_options_finalize;
   gobject_class->set_property = gaflight_server_options_set_property;
+  gobject_class->get_property = gaflight_server_options_get_property;
 
   GParamSpec *spec;
   spec = g_param_spec_object("location",
                              "Location",
                              "The location to be listened",
                              GAFLIGHT_TYPE_LOCATION,
-                             static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                             static_cast<GParamFlags>(G_PARAM_READWRITE |
                                                       G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_LOCATION, spec);
 }
