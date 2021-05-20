@@ -16,6 +16,7 @@
 // under the License.
 
 #include <cmath>
+#include <limits>
 
 #include "arrow/compute/kernels/common.h"
 #include "arrow/type_traits.h"
@@ -65,6 +66,47 @@ template <typename T, typename Unsigned = typename std::make_unsigned<T>::type>
 constexpr Unsigned to_unsigned(T signed_) {
   return static_cast<Unsigned>(signed_);
 }
+
+struct AbsoluteValue {
+  template <typename T, typename Arg>
+  static constexpr enable_if_floating_point<T> Call(KernelContext*, T arg, Status*) {
+    return std::fabs(arg);
+  }
+
+  template <typename T, typename Arg>
+  static constexpr enable_if_unsigned_integer<T> Call(KernelContext*, T arg, Status*) {
+    return arg;
+  }
+
+  template <typename T, typename Arg>
+  static constexpr enable_if_signed_integer<T> Call(KernelContext*, T arg, Status* st) {
+    return (arg < 0) ? arrow::internal::SafeSignedNegate(arg) : arg;
+  }
+};
+
+struct AbsoluteValueChecked {
+  template <typename T, typename Arg>
+  static enable_if_signed_integer<T> Call(KernelContext*, Arg arg, Status* st) {
+    static_assert(std::is_same<T, Arg>::value, "");
+    if (arg == std::numeric_limits<Arg>::min()) {
+      *st = Status::Invalid("overflow");
+      return arg;
+    }
+    return std::abs(arg);
+  }
+
+  template <typename T, typename Arg>
+  static enable_if_unsigned_integer<T> Call(KernelContext* ctx, Arg arg, Status* st) {
+    static_assert(std::is_same<T, Arg>::value, "");
+    return arg;
+  }
+
+  template <typename T, typename Arg>
+  static constexpr enable_if_floating_point<T> Call(KernelContext*, Arg arg, Status* st) {
+    static_assert(std::is_same<T, Arg>::value, "");
+    return std::fabs(arg);
+  }
+};
 
 struct Add {
   template <typename T>
@@ -446,6 +488,19 @@ std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunction(std::string name,
   return func;
 }
 
+// Like MakeUnaryArithmeticFunction, but for arithmetic ops that need to run
+// only on non-null output.
+template <typename Op>
+std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionNotNull(
+    std::string name, const FunctionDoc* doc) {
+  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), doc);
+  for (const auto& ty : NumericTypes()) {
+    auto exec = ArithmeticExecFromOp<ScalarUnaryNotNull, Op>(ty);
+    DCHECK_OK(func->AddKernel({ty}, ty, exec));
+  }
+  return func;
+}
+
 // Like MakeUnaryArithmeticFunction, but for signed arithmetic ops that need to run
 // only on non-null output.
 template <typename Op>
@@ -460,6 +515,19 @@ std::shared_ptr<ScalarFunction> MakeUnarySignedArithmeticFunctionNotNull(
   }
   return func;
 }
+
+const FunctionDoc absolute_value_doc{
+    "Calculate the absolute value of the argument element-wise",
+    ("Results will wrap around on integer overflow.\n"
+     "Use function \"abs_checked\" if you want overflow\n"
+     "to return an error."),
+    {"x"}};
+
+const FunctionDoc absolute_value_checked_doc{
+    "Calculate the absolute value of the argument element-wise",
+    ("This function returns an error on overflow.  For a variant that\n"
+     "doesn't fail on overflow, use function \"abs\"."),
+    {"x"}};
 
 const FunctionDoc add_doc{"Add the arguments element-wise",
                           ("Results will wrap around on integer overflow.\n"
@@ -537,6 +605,16 @@ const FunctionDoc pow_checked_doc{
 }  // namespace
 
 void RegisterScalarArithmetic(FunctionRegistry* registry) {
+  // ----------------------------------------------------------------------
+  auto absolute_value =
+      MakeUnaryArithmeticFunction<AbsoluteValue>("abs", &absolute_value_doc);
+  DCHECK_OK(registry->AddFunction(std::move(absolute_value)));
+
+  // ----------------------------------------------------------------------
+  auto absolute_value_checked = MakeUnaryArithmeticFunctionNotNull<AbsoluteValueChecked>(
+      "abs_checked", &absolute_value_checked_doc);
+  DCHECK_OK(registry->AddFunction(std::move(absolute_value_checked)));
+
   // ----------------------------------------------------------------------
   auto add = MakeArithmeticFunction<Add>("add", &add_doc);
   DCHECK_OK(registry->AddFunction(std::move(add)));

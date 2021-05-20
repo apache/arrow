@@ -63,7 +63,7 @@ OPS_WITH_OVERFLOW(DivideWithOverflow, div)
 #undef OP_WITH_OVERFLOW
 #undef OPS_WITH_OVERFLOW
 
-// Define functions NegateWithOverflow with the signature `bool(T u, T* out)`
+// Define function NegateWithOverflow with the signature `bool(T u, T* out)`
 // where T is a signed integer type.  On overflow, these functions return true.
 // Otherwise, false is returned and `out` is updated with the result of the
 // operation.
