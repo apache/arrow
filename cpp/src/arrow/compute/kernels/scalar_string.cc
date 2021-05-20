@@ -291,16 +291,6 @@ struct AsciiReverse : StringTransform<Type, AsciiReverse<Type>> {
   static Status InvalidStatus() { return Status::Invalid("Non-ASCII sequence in input"); }
 };
 
-/*
- * size of a valid UTF8 can be determined by looking at leading 4 bits of BYTE1
- * UTF8_BYTE_SIZE_LUT[0..7] --> pure ascii chars --> 1B length
- * UTF8_BYTE_SIZE_LUT[8..11] --> internal bytes --> 1B length
- * UTF8_BYTE_SIZE_LUT[12,13] --> 2B long UTF8 chars
- * UTF8_BYTE_SIZE_LUT[14] --> 3B long UTF8 chars
- * UTF8_BYTE_SIZE_LUT[15] --> 4B long UTF8 chars
- */
-const std::array<uint8_t, 16> UTF8_BYTE_SIZE_LUT{1, 1, 1, 1, 1, 1, 1, 1,
-                                                 1, 1, 1, 1, 2, 2, 3, 4};
 
 template <typename Type>
 struct Utf8Reverse : StringTransform<Type, Utf8Reverse<Type>> {
@@ -311,7 +301,7 @@ struct Utf8Reverse : StringTransform<Type, Utf8Reverse<Type>> {
                  uint8_t* output, offset_type* output_written) {
     offset_type i = 0;
     while (i < input_string_ncodeunits) {
-      uint8_t offset = UTF8_BYTE_SIZE_LUT[input[i] >> 4];
+      uint8_t offset = util::ValidUtf8CodepointByteSize(input + i);
       offset_type stride = std::min(i + offset, input_string_ncodeunits);
       std::copy(input + i, input + stride, output + input_string_ncodeunits - stride);
       i += offset;
