@@ -581,9 +581,7 @@ type TypedArrayConstructor =
 
 const rand = Math.random.bind(Math);
 const randomBytes = (length: number) => fillRandom(Uint8Array, length);
-const randomString = ((opts) =>
-    (length: number) => randomatic('?', length, opts)
-)({ chars: `abcdefghijklmnopqrstuvwxyz0123456789_` });
+const randomString = (length: number) => randomatic('?', length, { chars: `abcdefghijklmnopqrstuvwxyz0123456789_` });
 
 const memoize = (fn: () => any) => ((x?: any) => () => x || (x = fn()))();
 

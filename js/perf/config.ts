@@ -15,34 +15,23 @@
 // specific language governing permissions and limitations
 // under the License.
 
-const fs = require('fs');
-const path = require('path');
-const glob = require('glob');
+import {readFileSync} from 'fs';
+import {resolve, parse} from 'path';
+import {sync} from 'glob';
 
-const config = [];
-const filenames = glob.sync(path.resolve(__dirname, `../test/data/tables/`, `*.arrow`));
+const filenames = sync(resolve(__dirname, `../test/data/tables/`, `*.arrow`));
 
-const countBys = {
-    tracks: ['origin', 'destination']
-}
-const counts = {
-    tracks: [
-        {column: 'lat',    test: 'gt', value: 0        },
-        {column: 'lng',    test: 'gt', value: 0        },
-        {column: 'origin', test: 'eq', value: 'Seattle'},
-    ]
-}
+export default filenames.map(filename => {
+    const { name } = parse(filename);
+    return {
+        name,
+        buffers: [readFileSync(filename)],
+        countBys: ['origin', 'destination'],
+        counts: [
+            {column: 'lat',    test: 'gt' as 'gt' | 'eq', value: 0        },
+            {column: 'lng',    test: 'gt' as 'gt' | 'eq', value: 0        },
+            {column: 'origin', test: 'eq' as 'gt' | 'eq', value: 'Seattle'},
+        ],
+    };
+});
 
-for (const filename of filenames) {
-    const { name } = path.parse(filename);
-    if (name in counts) {
-        config.push({
-            name,
-            buffers: [fs.readFileSync(filename)],
-            countBys: countBys[name],
-            counts: counts[name],
-        });
-    }
-}
-
-module.exports = config;
