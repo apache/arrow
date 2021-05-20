@@ -228,9 +228,15 @@ Result<std::unique_ptr<KernelState>> AllInit(KernelContext*, const KernelInitArg
 // ----------------------------------------------------------------------
 // Index implementation
 
+template <typename ArgType>
 struct IndexImpl : public ScalarAggregator {
-  explicit IndexImpl(IndexOptions options, int64_t seen, int64_t index)
-      : options(std::move(options)), seen{seen}, index{index} {}
+  explicit IndexImpl(IndexOptions options, KernelState* raw_state)
+      : options(std::move(options)), seen(0), index(-1) {
+    if (auto state = static_cast<IndexImpl<ArgType>*>(raw_state)) {
+      seen = state->seen;
+      index = state->index;
+    }
+  }
 
   Status Consume(KernelContext* ctx, const ExecBatch& batch) override {
     // short-circuit
@@ -238,14 +244,17 @@ struct IndexImpl : public ScalarAggregator {
       return Status::OK();
     }
 
-    const auto& data = *batch[0].array();
-    seen = data.length;
-    ARROW_ASSIGN_OR_RAISE(
-        auto result, CallFunction("equal", {data, options.value}, ctx->exec_context()));
-    const auto found = result.array_as<BooleanArray>();
-    // TODO: could be done with CountLeadingZeros adjusting for alignment/null bitmap
-    for (int64_t i = 0; i < found->length(); i++) {
-      if (found->IsValid(i) && found->Value(i)) {
+    auto input = batch[0].array();
+    seen = input->length;
+    internal::ArrayIterator<ArgType> it(*input);
+    auto desired = internal::UnboxScalar<ArgType>::Unbox(*options.value);
+    const bool is_valid = !input->MayHaveNulls();
+    const uint8_t* null_bitmap_data =
+        input->GetValuesSafe<uint8_t>(0, /*absolute_offset=*/0);
+    for (int64_t i = 0; i < input->length; i++) {
+      auto val = it();  // Advances iterator
+      if ((is_valid || BitUtil::GetBit(null_bitmap_data, i + input->offset)) &&
+          val == desired) {
         index = i;
         break;
       }
@@ -272,17 +281,66 @@ struct IndexImpl : public ScalarAggregator {
   int64_t index = -1;
 };
 
-Result<std::unique_ptr<KernelState>> IndexInit(KernelContext* ctx,
-                                               const KernelInitArgs& args) {
-  int64_t seen = 0;
-  int64_t index = -1;
-  if (auto state = static_cast<IndexImpl*>(ctx->state())) {
-    seen = state->seen;
-    index = state->index;
+struct IndexInit {
+  std::unique_ptr<KernelState> state;
+  KernelContext* ctx;
+  const IndexOptions& options;
+  const DataType& type;
+
+  IndexInit(KernelContext* ctx, const IndexOptions& options, const DataType& type)
+      : ctx(ctx), options(options), type(type) {}
+
+  Status Visit(const DataType& type) {
+    return Status::NotImplemented("Index kernel not implemented for ", type.ToString());
   }
-  return ::arrow::internal::make_unique<IndexImpl>(
-      static_cast<const IndexOptions&>(*args.options), seen, index);
-}
+
+  Status Visit(const BooleanType&) {
+    state.reset(new IndexImpl<BooleanType>(options, ctx->state()));
+    return Status::OK();
+  }
+
+  template <typename Type>
+  enable_if_number<Type, Status> Visit(const Type&) {
+    state.reset(new IndexImpl<Type>(options, ctx->state()));
+    return Status::OK();
+  }
+
+  template <typename Type>
+  enable_if_base_binary<Type, Status> Visit(const Type&) {
+    state.reset(new IndexImpl<Type>(options, ctx->state()));
+    return Status::OK();
+  }
+
+  template <typename Type>
+  enable_if_date<Type, Status> Visit(const Type&) {
+    state.reset(new IndexImpl<Type>(options, ctx->state()));
+    return Status::OK();
+  }
+
+  template <typename Type>
+  enable_if_time<Type, Status> Visit(const Type&) {
+    state.reset(new IndexImpl<Type>(options, ctx->state()));
+    return Status::OK();
+  }
+
+  template <typename Type>
+  enable_if_timestamp<Type, Status> Visit(const Type&) {
+    state.reset(new IndexImpl<Type>(options, ctx->state()));
+    return Status::OK();
+  }
+
+  Result<std::unique_ptr<KernelState>> Create() {
+    RETURN_NOT_OK(VisitTypeInline(type, this));
+    return std::move(state);
+  }
+
+  static Result<std::unique_ptr<KernelState>> Init(KernelContext* ctx,
+                                                   const KernelInitArgs& args) {
+    IndexInit visitor(ctx, static_cast<const IndexOptions&>(*args.options),
+                      *args.inputs[0].type);
+    return visitor.Create();
+  }
+};
 
 void AddBasicAggKernels(KernelInit init,
                         const std::vector<std::shared_ptr<DataType>>& types,
@@ -442,11 +500,11 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
 
   // index
   func = std::make_shared<ScalarAggregateFunction>("index", Arity::Unary(), &index_doc);
-  aggregate::AddBasicAggKernels(aggregate::IndexInit, BaseBinaryTypes(), int64(),
+  aggregate::AddBasicAggKernels(aggregate::IndexInit::Init, BaseBinaryTypes(), int64(),
                                 func.get());
-  aggregate::AddBasicAggKernels(aggregate::IndexInit, PrimitiveTypes(), int64(),
+  aggregate::AddBasicAggKernels(aggregate::IndexInit::Init, PrimitiveTypes(), int64(),
                                 func.get());
-  aggregate::AddBasicAggKernels(aggregate::IndexInit, TemporalTypes(), int64(),
+  aggregate::AddBasicAggKernels(aggregate::IndexInit::Init, TemporalTypes(), int64(),
                                 func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
