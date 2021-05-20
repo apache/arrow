@@ -43,10 +43,13 @@ struct ArithmeticOptions : public FunctionOptions {
 };
 
 struct ARROW_EXPORT MatchSubstringOptions : public FunctionOptions {
-  explicit MatchSubstringOptions(std::string pattern) : pattern(std::move(pattern)) {}
+  explicit MatchSubstringOptions(std::string pattern, bool ignore_case = false)
+      : pattern(std::move(pattern)), ignore_case(ignore_case) {}
 
   /// The exact substring (or regex, depending on kernel) to look for inside input values.
   std::string pattern;
+  /// Whether to perform a case-insensitive match.
+  bool ignore_case = false;
 };
 
 struct ARROW_EXPORT SplitOptions : public FunctionOptions {

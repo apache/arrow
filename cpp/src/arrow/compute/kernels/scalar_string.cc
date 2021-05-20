@@ -433,33 +433,6 @@ void StringBoolTransform(KernelContext* ctx, const ExecBatch& batch,
 
 using MatchSubstringState = OptionsWrapper<MatchSubstringOptions>;
 
-template <typename Type, typename Matcher>
-struct MatchSubstring {
-  using offset_type = typename Type::offset_type;
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    // TODO Cache matcher across invocations (for regex compilation)
-    ARROW_ASSIGN_OR_RAISE(auto matcher, Matcher::Make(MatchSubstringState::Get(ctx)));
-    StringBoolTransform<Type>(
-        ctx, batch,
-        [&matcher](const void* raw_offsets, const uint8_t* data, int64_t length,
-                   int64_t output_offset, uint8_t* output) {
-          const offset_type* offsets = reinterpret_cast<const offset_type*>(raw_offsets);
-          FirstTimeBitmapWriter bitmap_writer(output, output_offset, length);
-          for (int64_t i = 0; i < length; ++i) {
-            const char* current_data = reinterpret_cast<const char*>(data + offsets[i]);
-            int64_t current_length = offsets[i + 1] - offsets[i];
-            if (matcher->Match(util::string_view(current_data, current_length))) {
-              bitmap_writer.Set();
-            }
-            bitmap_writer.Next();
-          }
-          bitmap_writer.Finish();
-        },
-        out);
-    return Status::OK();
-  }
-};
-
 // This is an implementation of the Knuth-Morris-Pratt algorithm
 struct PlainSubstringMatcher {
   const MatchSubstringOptions& options_;
@@ -467,6 +440,8 @@ struct PlainSubstringMatcher {
 
   static Result<std::unique_ptr<PlainSubstringMatcher>> Make(
       const MatchSubstringOptions& options) {
+    // Should be handled by partial template specialization below
+    DCHECK(!options.ignore_case);
     return ::arrow::internal::make_unique<PlainSubstringMatcher>(options);
   }
 
@@ -509,38 +484,109 @@ struct PlainSubstringMatcher {
   bool Match(util::string_view current) const { return Find(current) >= 0; }
 };
 
-const FunctionDoc match_substring_doc(
-    "Match strings against literal pattern",
-    ("For each string in `strings`, emit true iff it contains a given pattern.\n"
-     "Null inputs emit null.  The pattern must be given in MatchSubstringOptions."),
-    {"strings"}, "MatchSubstringOptions");
-
 #ifdef ARROW_WITH_RE2
 struct RegexSubstringMatcher {
   const MatchSubstringOptions& options_;
   const RE2 regex_match_;
 
   static Result<std::unique_ptr<RegexSubstringMatcher>> Make(
-      const MatchSubstringOptions& options) {
-    auto matcher = ::arrow::internal::make_unique<RegexSubstringMatcher>(options);
+      const MatchSubstringOptions& options, bool literal = false) {
+    auto matcher =
+        ::arrow::internal::make_unique<RegexSubstringMatcher>(options, literal);
     RETURN_NOT_OK(RegexStatus(matcher->regex_match_));
     return std::move(matcher);
   }
 
-  explicit RegexSubstringMatcher(const MatchSubstringOptions& options)
-      : options_(options), regex_match_(options_.pattern, RE2::Quiet) {}
+  explicit RegexSubstringMatcher(const MatchSubstringOptions& options,
+                                 bool literal = false)
+      : options_(options),
+        regex_match_(options_.pattern, MakeRE2Options(options, literal)) {}
 
   bool Match(util::string_view current) const {
     auto piece = re2::StringPiece(current.data(), current.length());
     return re2::RE2::PartialMatch(piece, regex_match_);
   }
+
+  static RE2::RE2::Options MakeRE2Options(const MatchSubstringOptions& options,
+                                          bool literal) {
+    RE2::RE2::Options re2_options(RE2::Quiet);
+    re2_options.set_case_sensitive(!options.ignore_case);
+    re2_options.set_literal(literal);
+    return re2_options;
+  }
+};
+#endif
+
+template <typename Type, typename Matcher>
+struct MatchSubstringImpl {
+  using offset_type = typename Type::offset_type;
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out,
+                     const Matcher* matcher) {
+    StringBoolTransform<Type>(
+        ctx, batch,
+        [&matcher](const void* raw_offsets, const uint8_t* data, int64_t length,
+                   int64_t output_offset, uint8_t* output) {
+          const offset_type* offsets = reinterpret_cast<const offset_type*>(raw_offsets);
+          FirstTimeBitmapWriter bitmap_writer(output, output_offset, length);
+          for (int64_t i = 0; i < length; ++i) {
+            const char* current_data = reinterpret_cast<const char*>(data + offsets[i]);
+            int64_t current_length = offsets[i + 1] - offsets[i];
+            if (matcher->Match(util::string_view(current_data, current_length))) {
+              bitmap_writer.Set();
+            }
+            bitmap_writer.Next();
+          }
+          bitmap_writer.Finish();
+        },
+        out);
+    return Status::OK();
+  }
 };
 
+template <typename Type, typename Matcher>
+struct MatchSubstring {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    // TODO Cache matcher across invocations (for regex compilation)
+    ARROW_ASSIGN_OR_RAISE(auto matcher, Matcher::Make(MatchSubstringState::Get(ctx)));
+    return MatchSubstringImpl<Type, Matcher>::Exec(ctx, batch, out, matcher.get());
+  }
+};
+
+template <typename Type>
+struct MatchSubstring<Type, PlainSubstringMatcher> {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    auto options = MatchSubstringState::Get(ctx);
+    if (options.ignore_case) {
+#ifdef ARROW_WITH_RE2
+      ARROW_ASSIGN_OR_RAISE(auto matcher,
+                            RegexSubstringMatcher::Make(options, /*literal=*/true));
+      return MatchSubstringImpl<Type, RegexSubstringMatcher>::Exec(ctx, batch, out,
+                                                                   matcher.get());
+#else
+      return Status::NotImplemented("ignore_case requires RE2");
+#endif
+    }
+    ARROW_ASSIGN_OR_RAISE(auto matcher, PlainSubstringMatcher::Make(options));
+    return MatchSubstringImpl<Type, PlainSubstringMatcher>::Exec(ctx, batch, out,
+                                                                 matcher.get());
+  }
+};
+
+const FunctionDoc match_substring_doc(
+    "Match strings against literal pattern",
+    ("For each string in `strings`, emit true iff it contains a given pattern.\n"
+     "Null inputs emit null.  The pattern must be given in MatchSubstringOptions. "
+     "If ignore_case is set, only simple case folding is performed."),
+    {"strings"}, "MatchSubstringOptions");
+
+#ifdef ARROW_WITH_RE2
 const FunctionDoc match_substring_regex_doc(
     "Match strings against regex pattern",
     ("For each string in `strings`, emit true iff it matches a given pattern at any "
      "position.\n"
-     "Null inputs emit null.  The pattern must be given in MatchSubstringOptions."),
+     "Null inputs emit null.  The pattern must be given in MatchSubstringOptions. "
+     "If ignore_case is set, only simple case folding is performed."),
     {"strings"}, "MatchSubstringOptions");
 
 // SQL LIKE match
@@ -605,14 +651,16 @@ struct MatchLike {
 
     Status status;
     std::string pattern;
-    if (re2::RE2::FullMatch(original_options.pattern, kLikePatternIsSubstringMatch,
+    if (!original_options.ignore_case &&
+        re2::RE2::FullMatch(original_options.pattern, kLikePatternIsSubstringMatch,
                             &pattern)) {
-      MatchSubstringOptions converted_options{pattern};
+      MatchSubstringOptions converted_options{pattern, original_options.ignore_case};
       MatchSubstringState converted_state(converted_options);
       ctx->SetState(&converted_state);
       status = MatchSubstring<StringType, PlainSubstringMatcher>::Exec(ctx, batch, out);
     } else {
-      MatchSubstringOptions converted_options{MakeLikeRegex(original_options)};
+      MatchSubstringOptions converted_options{MakeLikeRegex(original_options),
+                                              original_options.ignore_case};
       MatchSubstringState converted_state(converted_options);
       ctx->SetState(&converted_state);
       status = MatchSubstring<StringType, RegexSubstringMatcher>::Exec(ctx, batch, out);

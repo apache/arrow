@@ -226,11 +226,11 @@ nse_funcs$str_trim <- function(string, side = c("both", "left", "right")) {
 }
 
 nse_funcs$grepl <- function(pattern, x, ignore.case = FALSE, fixed = FALSE) {
-  arrow_fun <- ifelse(fixed && !ignore.case, "match_substring", "match_substring_regex")
+  arrow_fun <- ifelse(fixed, "match_substring", "match_substring_regex")
   Expression$create(
     arrow_fun,
     x,
-    options = list(pattern = format_string_pattern(pattern, ignore.case, fixed))
+    options = list(pattern = pattern, ignore_case = ignore.case)
   )
 }
 

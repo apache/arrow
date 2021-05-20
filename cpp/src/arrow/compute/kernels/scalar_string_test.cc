@@ -377,8 +377,8 @@ TYPED_TEST(TestStringKernels, IsUpperAscii) {
 TYPED_TEST(TestStringKernels, MatchSubstring) {
   MatchSubstringOptions options{"ab"};
   this->CheckUnary("match_substring", "[]", boolean(), "[]", &options);
-  this->CheckUnary("match_substring", R"(["abc", "acb", "cab", null, "bac"])", boolean(),
-                   "[true, false, true, null, false]", &options);
+  this->CheckUnary("match_substring", R"(["abc", "acb", "cab", null, "bac", "AB"])",
+                   boolean(), "[true, false, true, null, false, false]", &options);
 
   MatchSubstringOptions options_repeated{"abab"};
   this->CheckUnary("match_substring", R"(["abab", "ab", "cababc", null, "bac"])",
@@ -394,11 +394,28 @@ TYPED_TEST(TestStringKernels, MatchSubstring) {
 }
 
 #ifdef ARROW_WITH_RE2
+TYPED_TEST(TestStringKernels, MatchSubstringIgnoreCase) {
+  MatchSubstringOptions options_insensitive{"aé(", /*ignore_case=*/true};
+  this->CheckUnary("match_substring", R"(["abc", "aEb", "baÉ(", "aé(", "ae(", "Aé("])",
+                   boolean(), "[false, false, true, true, false, true]",
+                   &options_insensitive);
+}
+#else
+TYPED_TEST(TestStringKernels, MatchSubstringIgnoreCase) {
+  Datum input = ArrayFromJSON(this->type(), R"(["a"])");
+  MatchSubstringOptions options{"a", /*ignore_case=*/true};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
+                                  ::testing::HasSubstr("ignore_case requires RE2"),
+                                  CallFunction("match_substring", {input}, &options));
+}
+#endif
+
+#ifdef ARROW_WITH_RE2
 TYPED_TEST(TestStringKernels, MatchSubstringRegex) {
   MatchSubstringOptions options{"ab"};
   this->CheckUnary("match_substring_regex", "[]", boolean(), "[]", &options);
-  this->CheckUnary("match_substring_regex", R"(["abc", "acb", "cab", null, "bac"])",
-                   boolean(), "[true, false, true, null, false]", &options);
+  this->CheckUnary("match_substring_regex", R"(["abc", "acb", "cab", null, "bac", "AB"])",
+                   boolean(), "[true, false, true, null, false, false]", &options);
   MatchSubstringOptions options_repeated{"(ab){2}"};
   this->CheckUnary("match_substring_regex", R"(["abab", "ab", "cababc", null, "bac"])",
                    boolean(), "[true, false, true, null, false]", &options_repeated);
@@ -411,6 +428,10 @@ TYPED_TEST(TestStringKernels, MatchSubstringRegex) {
   MatchSubstringOptions options_plus{"a+b"};
   this->CheckUnary("match_substring_regex", R"(["aacb", "aab", "dab", "caaab", "b", ""])",
                    boolean(), "[false, true, true, true, false, false]", &options_plus);
+  MatchSubstringOptions options_insensitive{"ab|é", /*ignore_case=*/true};
+  this->CheckUnary("match_substring_regex", R"(["abc", "acb", "É", null, "bac", "AB"])",
+                   boolean(), "[true, false, true, null, false, true]",
+                   &options_insensitive);
 
   // Unicode character semantics
   // "\pL" means: unicode category "letter"
@@ -458,6 +479,15 @@ TYPED_TEST(TestStringKernels, MatchLike) {
   this->CheckUnary("match_like", inputs, boolean(),
                    "[false, false, true, false, false, false, false, null]",
                    &regex_match);
+
+  // ignore_case means this still gets mapped to a regex search
+  MatchSubstringOptions insensitive_substring{"%é%", /*ignore_case=*/true};
+  this->CheckUnary("match_like", R"(["é", "fooÉbar", "e"])", boolean(),
+                   "[true, true, false]", &insensitive_substring);
+
+  MatchSubstringOptions insensitive_regex{"_é%", /*ignore_case=*/true};
+  this->CheckUnary("match_like", R"(["éfoo", "aÉfoo", "e"])", boolean(),
+                   "[false, true, false]", &insensitive_regex);
 }
 
 TYPED_TEST(TestStringKernels, MatchLikeEscaping) {

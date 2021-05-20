@@ -657,14 +657,14 @@ cdef class _MatchSubstringOptions(FunctionOptions):
     cdef const CFunctionOptions* get_options(self) except NULL:
         return self.match_substring_options.get()
 
-    def _set_options(self, pattern):
+    def _set_options(self, pattern, bint ignore_case):
         self.match_substring_options.reset(
-            new CMatchSubstringOptions(tobytes(pattern)))
+            new CMatchSubstringOptions(tobytes(pattern), ignore_case))
 
 
 class MatchSubstringOptions(_MatchSubstringOptions):
-    def __init__(self, pattern):
-        self._set_options(pattern)
+    def __init__(self, pattern, bint ignore_case=False):
+        self._set_options(pattern, ignore_case)
 
 
 cdef class _TrimOptions(FunctionOptions):
