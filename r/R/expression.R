@@ -76,14 +76,14 @@ Expression <- R6Class("Expression", inherit = ArrowObject,
   public = list(
     ToString = function() compute___expr__ToString(self),
     schema = NULL,
-    bind = function(schema) self$schema <- schema,
-    type = function() {
-      if (is.null(self$schema)) {
-        stop("Must bind() expression to a schema before returning its type", call. = FALSE)
-      }
-      compute___expr__type(self, self$schema)
+    type = function(schema = self$schema) {
+      assert_that(!is.null(schema))
+      compute___expr__type(self, schema)
     },
-    type_id = function() self$type()$id,
+    type_id = function(schema = self$schema) {
+      assert_that(!is.null(schema))
+      compute___expr__type_id(self, schema)
+    },
     cast = function(to_type, safe = TRUE, ...) {
       opts <- list(
         to_type = to_type,

@@ -49,18 +49,11 @@ test_that("C++ expressions", {
     fixed = TRUE
   )
   expect_type_equal(
-    {
-      f$bind(schema(f = float64()))
-      f$type()
-    },
+    f$type(schema(f = float64())),
     float64()
   )
   expect_type_equal(
-    {
-      f_gt_4 <- f > 4
-      f_gt_4$bind(schema(f = float64()))
-      f_gt_4$type()
-    },
+    (f > 4)$type(schema(f = float64())),
     bool()
   )
   # Interprets that as a list type

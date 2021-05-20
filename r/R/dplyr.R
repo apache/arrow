@@ -78,9 +78,8 @@ print.arrow_dplyr_query <- function(x, ...) {
     } else {
       # Expression, so get its type and append the expression.
       # Need to bind the expression to the schema before finding its type.
-      expr$bind(schm)
       paste0(
-        expr$type()$ToString(),
+        expr$type(schm)$ToString(),
         " (", expr$ToString(), ")"
       )
     }
