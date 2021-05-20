@@ -165,7 +165,7 @@ recycle_scalars <- function(arrays){
   
   if (length(arrays) > 1 && any(arr_lens == 1) && !all(arr_lens==1)) {
     max_array_len <- max(arr_lens)
-    arrays[arr_lens == 1 & !is_df] <- lapply(arrays[arr_lens == 1 & !is_df], repeat_value_as_array, max_array_len)
+    arrays[arr_lens == 1] <- lapply(arrays[arr_lens == 1], repeat_value_as_array, max_array_len)
   }
   arrays
 }
