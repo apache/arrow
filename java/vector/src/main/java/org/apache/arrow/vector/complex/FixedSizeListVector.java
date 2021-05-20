@@ -445,7 +445,7 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
   }
 
   @Override
-  public Object getObject(int index) {
+  public List<?> getObject(int index) {
     if (isSet(index) == 0) {
       return null;
     }
