@@ -65,6 +65,9 @@ BuildRequires:	boost%{boost_version}-devel
 %endif
 BuildRequires:	brotli-devel
 BuildRequires:	bzip2-devel
+%if %{use_flight}
+BuildRequires:	c-ares-devel
+%endif
 BuildRequires:	cmake%{cmake_version}
 %if %{use_s3}
 BuildRequires:	curl-devel
@@ -218,6 +221,9 @@ License:	Apache-2.0
 Requires:	%{name}-libs = %{version}-%{release}
 Requires:	brotli-devel
 Requires:	bzip2-devel
+%if %{use_flight}
+Requires:	c-ares-devel
+%endif
 Requires:	libzstd-devel
 Requires:	lz4-devel
 Requires:	openssl-devel
@@ -252,7 +258,7 @@ Libraries and header files for Apache Arrow C++.
 %{_libdir}/cmake/arrow/FindBrotli.cmake
 %{_libdir}/cmake/arrow/FindLz4.cmake
 %{_libdir}/cmake/arrow/FindSnappy.cmake
-%if %{have_flight}
+%if %{use_flight}
 %{_libdir}/cmake/arrow/Findc-aresAlt.cmake
 %endif
 %if %{have_re2}
@@ -310,6 +316,9 @@ Libraries and header files for Apache Arrow dataset.
 Summary:	C++ library for fast data transport.
 License:	Apache-2.0
 Requires:	%{name}-libs = %{version}-%{release}
+%if %{use_flight}
+Requires:	c-ares
+%endif
 Requires:	openssl
 
 %description flight-libs
