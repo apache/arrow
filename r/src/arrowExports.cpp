@@ -7165,15 +7165,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ExportSchema", (DL_FUNC) &_arrow_ExportSchema, 2}, 
 		{ "_arrow_ExportArray", (DL_FUNC) &_arrow_ExportArray, 3}, 
 		{ "_arrow_ExportRecordBatch", (DL_FUNC) &_arrow_ExportRecordBatch, 3}, 
-<<<<<<< HEAD
-<<<<<<< HEAD
 		{ "_arrow_ExportRecordBatchReader", (DL_FUNC) &_arrow_ExportRecordBatchReader, 2}, 
-=======
-		{ "_arrow_Table__from_dots", (DL_FUNC) &_arrow_Table__from_dots, 2}, 
->>>>>>> e8b766472 (towards a parallel Table__from_dots())
-=======
 		{ "_arrow_Table__from_dots", (DL_FUNC) &_arrow_Table__from_dots, 3}, 
->>>>>>> f2ef4f637 (trickle down options.use_threads())
 		{ "_arrow_vec_to_arrow", (DL_FUNC) &_arrow_vec_to_arrow, 2}, 
 		{ "_arrow_DictionaryArray__FromArrays", (DL_FUNC) &_arrow_DictionaryArray__FromArrays, 3}, 
 		{ "_arrow_RecordBatch__num_columns", (DL_FUNC) &_arrow_RecordBatch__num_columns, 1}, 
