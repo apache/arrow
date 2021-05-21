@@ -142,6 +142,11 @@ struct StringTransform {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     return Derived().Execute(ctx, batch, out);
   }
+
+  static Status InvalidStatus() {
+    return Status::Invalid("Invalid UTF8 sequence in input");
+  }
+
   Status Execute(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     if (batch[0].kind() == Datum::ARRAY) {
       const ArrayData& input = *batch[0].array();
@@ -173,7 +178,7 @@ struct StringTransform {
         if (ARROW_PREDICT_FALSE(!static_cast<Derived&>(*this).Transform(
                 input_string, input_string_ncodeunits, output_str + output_ncodeunits,
                 &encoded_nbytes))) {
-          return Status::Invalid("Invalid UTF8 sequence in input");
+          return Derived::InvalidStatus();
         }
         output_ncodeunits += encoded_nbytes;
         output_string_offsets[i + 1] = output_ncodeunits;
@@ -199,7 +204,7 @@ struct StringTransform {
         if (ARROW_PREDICT_FALSE(!static_cast<Derived&>(*this).Transform(
                 input.value->data(), data_nbytes, value_buffer->mutable_data(),
                 &encoded_nbytes))) {
-          return Status::Invalid("Invalid UTF8 sequence in input");
+          return Derived::InvalidStatus();
         }
         RETURN_NOT_OK(value_buffer->Resize(encoded_nbytes, /*shrink_to_fit=*/true));
       }
@@ -265,6 +270,45 @@ struct UTF8Lower : StringTransformCodepoint<Type, UTF8Lower<Type>> {
 void EnsureLookupTablesFilled() {}
 
 #endif  // ARROW_WITH_UTF8PROC
+
+template <typename Type>
+struct AsciiReverse : StringTransform<Type, AsciiReverse<Type>> {
+  using Base = StringTransform<Type, AsciiReverse<Type>>;
+  using offset_type = typename Base::offset_type;
+
+  bool Transform(const uint8_t* input, offset_type input_string_ncodeunits,
+                 uint8_t* output, offset_type* output_written) {
+    uint8_t utf8_char_found = 0;
+    for (offset_type i = 0; i < input_string_ncodeunits; i++) {
+      // if a utf8 char is found, report to utf8_char_found
+      utf8_char_found |= input[i] & 0x80;
+      output[input_string_ncodeunits - i - 1] = input[i];
+    }
+    *output_written = input_string_ncodeunits;
+    return utf8_char_found == 0;
+  }
+
+  static Status InvalidStatus() { return Status::Invalid("Non-ASCII sequence in input"); }
+};
+
+template <typename Type>
+struct Utf8Reverse : StringTransform<Type, Utf8Reverse<Type>> {
+  using Base = StringTransform<Type, Utf8Reverse<Type>>;
+  using offset_type = typename Base::offset_type;
+
+  bool Transform(const uint8_t* input, offset_type input_string_ncodeunits,
+                 uint8_t* output, offset_type* output_written) {
+    offset_type i = 0;
+    while (i < input_string_ncodeunits) {
+      uint8_t offset = util::ValidUtf8CodepointByteSize(input + i);
+      offset_type stride = std::min(i + offset, input_string_ncodeunits);
+      std::copy(input + i, input + stride, output + input_string_ncodeunits - stride);
+      i += offset;
+    }
+    *output_written = input_string_ncodeunits;
+    return true;
+  }
+};
 
 using TransformFunc = std::function<void(const uint8_t*, int64_t, uint8_t*)>;
 
@@ -2482,7 +2526,7 @@ const FunctionDoc ascii_upper_doc(
 const FunctionDoc ascii_lower_doc(
     "Transform ASCII input to lowercase",
     ("For each string in `strings`, return a lowercase version.\n\n"
-     "This function assumes the input is fully ASCII.  It it may contain\n"
+     "This function assumes the input is fully ASCII.  If it may contain\n"
      "non-ASCII characters, use \"utf8_lower\" instead."),
     {"strings"});
 
@@ -2493,6 +2537,21 @@ const FunctionDoc utf8_upper_doc(
 const FunctionDoc utf8_lower_doc(
     "Transform input to lowercase",
     ("For each string in `strings`, return a lowercase version."), {"strings"});
+
+const FunctionDoc ascii_reverse_doc(
+    "Reverse ASCII input",
+    ("For each ASCII string in `strings`, return a reversed version.\n\n"
+     "This function assumes the input is fully ASCII.  If it may contain\n"
+     "non-ASCII characters, use \"utf8_reverse\" instead."),
+    {"strings"});
+
+const FunctionDoc utf8_reverse_doc(
+    "Reverse utf8 input",
+    ("For each utf8 string in `strings`, return a reversed version.\n\n"
+     "This function operates on codepoints/UTF-8 code units, not grapheme\n"
+     "clusters. Hence, it will not correctly reverse grapheme clusters\n"
+     "composed of multiple codepoints."),
+    {"strings"});
 
 }  // namespace
 
@@ -2509,6 +2568,8 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
                                                    &ascii_ltrim_whitespace_doc);
   MakeUnaryStringBatchKernel<AsciiRTrimWhitespace>("ascii_rtrim_whitespace", registry,
                                                    &ascii_rtrim_whitespace_doc);
+  MakeUnaryStringBatchKernel<AsciiReverse>("ascii_reverse", registry, &ascii_reverse_doc);
+  MakeUnaryStringBatchKernel<Utf8Reverse>("utf8_reverse", registry, &utf8_reverse_doc);
   MakeUnaryStringBatchKernelWithState<AsciiTrim>("ascii_trim", registry,
                                                  &ascii_lower_doc);
   MakeUnaryStringBatchKernelWithState<AsciiLTrim>("ascii_ltrim", registry,

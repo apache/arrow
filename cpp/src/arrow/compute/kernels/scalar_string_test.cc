@@ -91,6 +91,31 @@ TYPED_TEST(TestStringKernels, AsciiLower) {
                    "[\"aaazzæÆ&\", null, \"\", \"bbb\"]");
 }
 
+TYPED_TEST(TestStringKernels, AsciiReverse) {
+  this->CheckUnary("ascii_reverse", "[]", this->type(), "[]");
+  this->CheckUnary("ascii_reverse", R"(["abcd", null, "", "bbb"])", this->type(),
+                   R"(["dcba", null, "", "bbb"])");
+
+  Datum invalid_input = ArrayFromJSON(this->type(), R"(["aAazZæÆ&", null, "", "bbb"])");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  testing::HasSubstr("Non-ASCII sequence in input"),
+                                  CallFunction("ascii_reverse", {invalid_input}));
+}
+
+TYPED_TEST(TestStringKernels, Utf8Reverse) {
+  this->CheckUnary("utf8_reverse", "[]", this->type(), "[]");
+  this->CheckUnary("utf8_reverse", R"(["abcd", null, "", "bbb"])", this->type(),
+                   R"(["dcba", null, "", "bbb"])");
+  this->CheckUnary("utf8_reverse", R"(["aAazZæÆ&", null, "", "bbb", "ɑɽⱤæÆ"])",
+                   this->type(), R"(["&ÆæZzaAa", null, "", "bbb", "ÆæⱤɽɑ"])");
+
+  // inputs with malformed utf8 chars would produce garbage output, but the end result
+  // would produce arrays with same lengths. Hence checking offset buffer equality
+  auto malformed_input = ArrayFromJSON(this->type(), "[\"ɑ\xFFɑa\", \"ɽ\xe1\xbdɽa\"]");
+  const Result<Datum>& res = CallFunction("utf8_reverse", {malformed_input});
+  ASSERT_TRUE(res->array()->buffers[1]->Equals(*malformed_input->data()->buffers[1]));
+}
+
 TEST(TestStringKernels, LARGE_MEMORY_TEST(Utf8Upper32bitGrowth)) {
   // 0x7fff * 0xffff is the max a 32 bit string array can hold
   // since the utf8_upper kernel can grow it by 3/2, the max we should accept is is
