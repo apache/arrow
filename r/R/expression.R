@@ -20,11 +20,9 @@
 .unary_function_map <- list(
   "!" = "invert",
   "as.factor" = "dictionary_encode",
-  "is.infinite" = "is_inf",
   "is.na" = "is_null",
   "is.nan" = "is_nan",
-  # nchar is defined in dplyr.R because it is more complex
-  # "nchar" = "utf8_length",
+  # nchar is defined in dplyr-functions.R
   "tolower" = "utf8_lower",
   "toupper" = "utf8_upper",
   # stringr spellings of those
