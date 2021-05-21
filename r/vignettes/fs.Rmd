@@ -128,3 +128,36 @@ s3://minioadmin:minioadmin@?scheme=http&endpoint_override=localhost%3A9000
 
 Among other applications, this can be useful for testing out code locally before
 running on a remote S3 bucket.
+
+If you are using any Amazon S3 Compliant Storage Provider, such as AWS, Alibaba, 
+Ceph, DigitalOcean, Dreamhost, IBM COS, Minio, or others, you can connect with
+read-only access to it with `arrow` using `S3FileSystem` like this:
+
+```r
+minio <- S3FileSystem$create(
+  scheme = "http",
+  endpoint_override = "nyc-taxi.sfo3.digitaloceanspaces.com"
+)
+```
+
+In this case, this would connect to an S3 bucket on 
+[DigitalOcean Spaces](https://www.digitalocean.com/products/spaces/).
+
+If you have write access to the bucket, you would need to provide both an access
+key and a secret, where one possibility is to call the environment variables
+that contain the actual values:
+
+```r
+minio <- S3FileSystem$create(
+  access_key = Sys.getenv("AWS_ACCESS_KEY_ID"),
+  secret_key = Sys.getenv("AWS_SECRET_ACCESS_KEY"),
+  scheme = "http",
+  endpoint_override = "nyc-taxi.sfo3.digitaloceanspaces.com"
+)
+```
+
+With the `minio` object created, now you can read feather files from the bucket:
+
+```r
+june2009 <- read_parquet(minio$path("2009/06/data.parquet"))
+```
