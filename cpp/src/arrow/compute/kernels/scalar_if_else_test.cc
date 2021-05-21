@@ -60,9 +60,8 @@ using PrimitiveTypes = ::testing::Types<Int8Type, UInt8Type, Int16Type, UInt16Ty
 TYPED_TEST_SUITE(TestIfElsePrimitive, PrimitiveTypes);
 
 TYPED_TEST(TestIfElsePrimitive, IfElseFixedSize) {
-  //  using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
   auto type = TypeTraits<TypeParam>::type_singleton();
-  //  auto scalar = std::make_shared<ScalarType>(static_cast<T>(5));
+
   // No Nulls
   CheckIfElseOutputArray(type, "[]", "[]", "[]", "[]");
 
@@ -74,6 +73,52 @@ TYPED_TEST(TestIfElsePrimitive, IfElseFixedSize) {
 
   CheckIfElseOutputArray(type, "[true, true, true, false]", "[1, 2, null, null]",
                          "[null, 6, 7, null]", "[1, 2, null, null]", false);
+
+  using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
+  random::RandomArrayGenerator rand(/*seed=*/0);
+  int64_t len = 1000;
+  auto cond = std::static_pointer_cast<BooleanArray>(
+      rand.ArrayOf(boolean(), len, /*null_probability=*/0.01));
+  auto left = std::static_pointer_cast<ArrayType>(
+      rand.ArrayOf(type, len, /*null_probability=*/0.01));
+  auto right = std::static_pointer_cast<ArrayType>(
+      rand.ArrayOf(type, len, /*null_probability=*/0.01));
+
+  typename TypeTraits<TypeParam>::BuilderType builder;
+
+  for (int64_t i = 0; i < len; ++i) {
+    if (!cond->IsValid(i) || (cond->Value(i) && !left->IsValid(i)) ||
+        (!cond->Value(i) && !right->IsValid(i))) {
+      ASSERT_OK(builder.AppendNull());
+      continue;
+    }
+
+    if (cond->Value(i)) {
+      ASSERT_OK(builder.Append(left->Value(i)));
+    } else {
+      ASSERT_OK(builder.Append(right->Value(i)));
+    }
+  }
+  ASSERT_OK_AND_ASSIGN(auto expected_data, builder.Finish());
+
+  CheckIfElseOutputArray(cond, left, right, expected_data, false);
+}
+
+TEST_F(TestIfElseKernel, IfElseBoolean) {
+  auto type = boolean();
+  // No Nulls
+  CheckIfElseOutputArray(type, "[]", "[]", "[]", "[]");
+
+  CheckIfElseOutputArray(type, "[true, true, true, false]",
+                         "[false, false, false, false]", "[true, true, true, true]",
+                         "[false, false, false, true]");
+
+  CheckIfElseOutputArray(type, "[true, true, null, false]",
+                         "[false, false, false, false]", "[true, true, true, true]",
+                         "[false, false, null, true]", false);
+
+  CheckIfElseOutputArray(type, "[true, true, true, false]", "[true, false, null, null]",
+                         "[null, false, true, null]", "[true, false, null, null]", false);
 
   random::RandomArrayGenerator rand(/*seed=*/0);
   int64_t len = 1000;
@@ -103,52 +148,10 @@ TYPED_TEST(TestIfElsePrimitive, IfElseFixedSize) {
   CheckIfElseOutputArray(cond, left, right, expected_data, false);
 }
 
-TEST_F(TestIfElseKernel, IfElseBoolean) {
-  //  using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
-  //  auto scalar = std::make_shared<ScalarType>(static_cast<T>(5));
-  auto type = boolean();
-  // No Nulls
-  CheckIfElseOutputArray(type, "[]", "[]", "[]", "[]");
-
-  CheckIfElseOutputArray(type, "[true, true, true, false]",
-                         "[false, false, false, false]", "[true, true, true, true]",
-                         "[false, false, false, true]");
-
-  CheckIfElseOutputArray(type, "[true, true, null, false]",
-                         "[false, false, false, false]", "[true, true, true, true]",
-                         "[false, false, null, true]", false);
-
-  CheckIfElseOutputArray(type, "[true, true, true, false]", "[true, false, null, null]",
-                         "[null, false, true, null]", "[true, false, null, null]", false);
-
-//  using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
-//  random::RandomArrayGenerator rand(/*seed=*/0);
-//  int64_t len = 1000;
-//  auto cond = std::static_pointer_cast<BooleanArray>(
-//      rand.ArrayOf(boolean(), len, /*null_probability=*/0.01));
-//  auto left = std::static_pointer_cast<ArrayType>(
-//      rand.ArrayOf(type, len, /*null_probability=*/0.01));
-//  auto right = std::static_pointer_cast<ArrayType>(
-//      rand.ArrayOf(type, len, /*null_probability=*/0.01));
-//
-//  typename TypeTraits<TypeParam>::BuilderType builder;
-//
-//  for (int64_t i = 0; i < len; ++i) {
-//    if (!cond->IsValid(i) || (cond->Value(i) && !left->IsValid(i)) ||
-//        (!cond->Value(i) && !right->IsValid(i))) {
-//      ASSERT_OK(builder.AppendNull());
-//      continue;
-//    }
-//
-//    if (cond->Value(i)) {
-//      ASSERT_OK(builder.Append(left->Value(i)));
-//    } else {
-//      ASSERT_OK(builder.Append(right->Value(i)));
-//    }
-//  }
-//  ASSERT_OK_AND_ASSIGN(auto expected_data, builder.Finish());
-//
-//  CheckIfElseOutputArray(cond, left, right, expected_data, false);
+TEST_F(TestIfElseKernel, IfElseNull) {
+  CheckIfElseOutputArray(null(), "[null, null, null, null]", "[null, null, null, null]",
+                         "[null, null, null, null]", "[null, null, null, null]",
+                         /*all_valid=*/false);
 }
 
 }  // namespace compute
