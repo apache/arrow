@@ -88,6 +88,54 @@ TEST_F(TestBooleanValidityKernels, ScalarIsNull) {
   CheckScalarUnary("is_null", MakeNullScalar(float64()), MakeScalar(true));
 }
 
+TEST_F(TestFloatValidityKernels, FloatArrayIsFinite) {
+  // All Inf
+  CheckScalarUnary("is_finite", ArrayFromJSON(float32(), "[Inf, -Inf, Inf, -Inf, Inf]"),
+                   ArrayFromJSON(boolean(), "[false, false, false, false, false]"));
+  // No Inf
+  CheckScalarUnary("is_finite",
+                   ArrayFromJSON(float32(), "[0.0, 1.0, 2.0, 3.0, NaN, null]"),
+                   ArrayFromJSON(boolean(), "[true, true, true, true, false, null]"));
+  // Some Inf
+  CheckScalarUnary("is_finite",
+                   ArrayFromJSON(float32(), "[0.0, Inf, 2.0, -Inf, NaN, null]"),
+                   ArrayFromJSON(boolean(), "[true, false, true, false, false, null]"));
+}
+
+TEST_F(TestDoubleValidityKernels, DoubleArrayIsFinite) {
+  // All Inf
+  CheckScalarUnary("is_finite", ArrayFromJSON(float64(), "[Inf, -Inf, Inf, -Inf, Inf]"),
+                   ArrayFromJSON(boolean(), "[false, false, false, false, false]"));
+  // No Inf
+  CheckScalarUnary("is_finite",
+                   ArrayFromJSON(float64(), "[0.0, 1.0, 2.0, 3.0, NaN, null]"),
+                   ArrayFromJSON(boolean(), "[true, true, true, true, false, null]"));
+  // Some Inf
+  CheckScalarUnary("is_finite",
+                   ArrayFromJSON(float64(), "[0.0, Inf, 2.0, -Inf, NaN, null]"),
+                   ArrayFromJSON(boolean(), "[true, false, true, false, false, null]"));
+}
+
+TEST_F(TestFloatValidityKernels, FloatScalarIsFinite) {
+  CheckScalarUnary("is_finite", MakeNullScalar(float32()), MakeNullScalar(boolean()));
+  CheckScalarUnary("is_finite", MakeScalar(42.0f), MakeScalar(true));
+  CheckScalarUnary("is_finite", MakeScalar(std::nanf("")), MakeScalar(false));
+  CheckScalarUnary("is_finite", MakeScalar(std::numeric_limits<float>::infinity()),
+                   MakeScalar(false));
+  CheckScalarUnary("is_finite", MakeScalar(-std::numeric_limits<float>::infinity()),
+                   MakeScalar(false));
+}
+
+TEST_F(TestDoubleValidityKernels, DoubleScalarIsFinite) {
+  CheckScalarUnary("is_finite", MakeNullScalar(float64()), MakeNullScalar(boolean()));
+  CheckScalarUnary("is_finite", MakeScalar(42.0), MakeScalar(true));
+  CheckScalarUnary("is_finite", MakeScalar(std::nan("")), MakeScalar(false));
+  CheckScalarUnary("is_finite", MakeScalar(std::numeric_limits<double>::infinity()),
+                   MakeScalar(false));
+  CheckScalarUnary("is_finite", MakeScalar(-std::numeric_limits<double>::infinity()),
+                   MakeScalar(false));
+}
+
 TEST_F(TestFloatValidityKernels, FloatArrayIsInf) {
   // All Inf
   CheckScalarUnary("is_inf", ArrayFromJSON(float32(), "[Inf, -Inf, Inf, -Inf, Inf]"),

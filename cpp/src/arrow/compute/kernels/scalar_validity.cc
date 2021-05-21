@@ -60,6 +60,13 @@ struct IsValidOperator {
   }
 };
 
+struct IsFiniteOperator {
+  template <typename OutType, typename InType>
+  static constexpr OutType Call(KernelContext*, const InType& value, Status*) {
+    return std::isfinite(value);
+  }
+};
+
 struct IsInfOperator {
   template <typename OutType, typename InType>
   static constexpr OutType Call(KernelContext*, const InType& value, Status*) {
@@ -114,6 +121,16 @@ template <typename InType, typename Op>
 void AddFloatValidityKernel(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
   DCHECK_OK(func->AddKernel({ty}, boolean(),
                             applicator::ScalarUnary<BooleanType, InType, Op>::Exec));
+}
+
+std::shared_ptr<ScalarFunction> MakeIsFiniteFunction(std::string name,
+                                                     const FunctionDoc* doc) {
+  auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
+
+  AddFloatValidityKernel<FloatType, IsFiniteOperator>(float32(), func.get());
+  AddFloatValidityKernel<DoubleType, IsFiniteOperator>(float64(), func.get());
+
+  return func;
 }
 
 std::shared_ptr<ScalarFunction> MakeIsInfFunction(std::string name,
@@ -175,9 +192,15 @@ const FunctionDoc is_valid_doc(
     "Return true if non-null",
     ("For each input value, emit true iff the value is valid (non-null)."), {"values"});
 
+const FunctionDoc is_finite_doc(
+    "Return true if value is finite",
+    ("For each input value, emit true iff the value is finite (not NaN, inf, or -inf)."),
+    {"values"});
+
 const FunctionDoc is_inf_doc(
     "Return true if infinity",
-    ("For each input value, emit true iff the value is inf or -inf."), {"values"});
+    ("For each input value, emit true iff the value is infinite (inf or -inf)."),
+    {"values"});
 
 const FunctionDoc is_null_doc("Return true if null",
                               ("For each input value, emit true iff the value is null."),
@@ -197,6 +220,7 @@ void RegisterScalarValidity(FunctionRegistry* registry) {
                registry, MemAllocation::PREALLOCATE,
                /*can_write_into_slices=*/true);
 
+  DCHECK_OK(registry->AddFunction(MakeIsFiniteFunction("is_finite", &is_finite_doc)));
   DCHECK_OK(registry->AddFunction(MakeIsInfFunction("is_inf", &is_inf_doc)));
   DCHECK_OK(registry->AddFunction(MakeIsNanFunction("is_nan", &is_nan_doc)));
 }
