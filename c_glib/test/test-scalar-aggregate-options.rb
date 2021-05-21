@@ -15,19 +15,34 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestCount < Test::Unit::TestCase
-  include Helper::Buildable
-  include Helper::Omittable
+class TestScalarAggregateOptions < Test::Unit::TestCase
+  def setup
+    @options = Arrow::ScalarAggregateOptions.new
+  end
 
   sub_test_case("skip_nulls") do
     def test_default
-      assert_equal(2, build_int32_array([1, nil, 3]).count)
+      assert do
+        @options.skip_nulls?
+      end
     end
 
-    def test_false
-      options = Arrow::ScalarAggregateOptions.new
-      options.skip_nulls = false
-      assert_equal(1, build_int32_array([1, nil, 3]).count(options))
+    def test_accessor
+      @options.skip_nulls = false
+      assert do
+        not @options.skip_nulls?
+      end
+    end
+  end
+
+  sub_test_case("min_count") do
+    def test_default
+      assert_equal(1, @options.min_count)
+    end
+
+    def test_accessor
+      @options.min_count = 0
+      assert_equal(0, @options.min_count)
     end
   end
 end

@@ -206,6 +206,14 @@ def test_sum_array(arrow_type):
     assert arr.sum().as_py() == 10
     assert pc.sum(arr).as_py() == 10
 
+    arr = pa.array([1, 2, 3, 4, None], type=arrow_type)
+    assert arr.sum().as_py() == 10
+    assert pc.sum(arr).as_py() == 10
+
+    arr = pa.array([None], type=arrow_type)
+    assert arr.sum().as_py() is None  # noqa: E711
+    assert pc.sum(arr).as_py() is None  # noqa: E711
+
     arr = pa.array([], type=arrow_type)
     assert arr.sum().as_py() is None  # noqa: E711
 
@@ -361,24 +369,24 @@ def test_min_max():
     data = [4, 5, 6, None, 1]
     s = pc.min_max(data)
     assert s.as_py() == {'min': 1, 'max': 6}
-    s = pc.min_max(data, options=pc.MinMaxOptions())
+    s = pc.min_max(data, options=pc.ScalarAggregateOptions())
     assert s.as_py() == {'min': 1, 'max': 6}
-    s = pc.min_max(data, options=pc.MinMaxOptions(null_handling='skip'))
+    s = pc.min_max(data, options=pc.ScalarAggregateOptions(skip_nulls=True))
     assert s.as_py() == {'min': 1, 'max': 6}
-    s = pc.min_max(data, options=pc.MinMaxOptions(null_handling='emit_null'))
+    s = pc.min_max(data, options=pc.ScalarAggregateOptions(skip_nulls=False))
     assert s.as_py() == {'min': None, 'max': None}
 
     # Options as dict of kwargs
-    s = pc.min_max(data, options={'null_handling': 'emit_null'})
+    s = pc.min_max(data, options={'skip_nulls': False})
     assert s.as_py() == {'min': None, 'max': None}
     # Options as named functions arguments
-    s = pc.min_max(data, null_handling='emit_null')
+    s = pc.min_max(data, skip_nulls=False)
     assert s.as_py() == {'min': None, 'max': None}
 
     # Both options and named arguments
     with pytest.raises(TypeError):
-        s = pc.min_max(data, options=pc.MinMaxOptions(),
-                       null_handling='emit_null')
+        s = pc.min_max(
+            data, options=pc.ScalarAggregateOptions(), skip_nulls=False)
 
     # Wrong options type
     options = pc.TakeOptions()
@@ -434,7 +442,7 @@ def test_generated_docstrings():
         Compute the minimum and maximum values of a numeric array.
 
         Null values are ignored by default.
-        This can be changed through MinMaxOptions.
+        This can be changed through ScalarAggregateOptions.
 
         Parameters
         ----------
@@ -442,10 +450,10 @@ def test_generated_docstrings():
             Argument to compute function
         memory_pool : pyarrow.MemoryPool, optional
             If not passed, will allocate memory from the default memory pool.
-        options : pyarrow.compute.MinMaxOptions, optional
+        options : pyarrow.compute.ScalarAggregateOptions, optional
             Parameters altering compute function semantics
         **kwargs : optional
-            Parameters for MinMaxOptions constructor.  Either `options`
+            Parameters for ScalarAggregateOptions constructor. Either `options`
             or `**kwargs` can be passed, but not both at the same time.
         """)
     assert pc.add.__doc__ == textwrap.dedent("""\
@@ -1099,11 +1107,11 @@ def test_strptime():
 def test_count():
     arr = pa.array([1, 2, 3, None, None])
     assert pc.count(arr).as_py() == 3
-    assert pc.count(arr, count_mode='count_non_null').as_py() == 3
-    assert pc.count(arr, count_mode='count_null').as_py() == 2
+    assert pc.count(arr, skip_nulls=True).as_py() == 3
+    assert pc.count(arr, skip_nulls=False).as_py() == 2
 
-    with pytest.raises(ValueError, match="'zzz' is not a valid count_mode"):
-        pc.count(arr, count_mode='zzz')
+    with pytest.raises(TypeError, match="an integer is required"):
+        pc.count(arr, min_count='zzz')
 
 
 def test_partition_nth():

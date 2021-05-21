@@ -609,7 +609,7 @@ TEST(GroupBy, CountAndSum) {
     [null,  3]
   ])");
 
-  CountOptions count_options;
+  ScalarAggregateOptions count_options;
   ASSERT_OK_AND_ASSIGN(
       Datum aggregated_and_grouped,
       internal::GroupBy(
@@ -701,18 +701,16 @@ TEST(GroupBy, ConcreteCaseWithValidateGroupBy) {
     [null,  "gama"]
   ])");
 
-  CountOptions count_non_null{CountOptions::COUNT_NON_NULL},
-      count_null{CountOptions::COUNT_NULL};
-
-  MinMaxOptions emit_null{MinMaxOptions::EMIT_NULL};
+  ScalarAggregateOptions keepna{false, 1};
+  ScalarAggregateOptions skipna{true, 1};
 
   using internal::Aggregate;
   for (auto agg : {
            Aggregate{"hash_sum", nullptr},
-           Aggregate{"hash_count", &count_non_null},
-           Aggregate{"hash_count", &count_null},
+           Aggregate{"hash_count", &skipna},
+           Aggregate{"hash_count", &keepna},
            Aggregate{"hash_min_max", nullptr},
-           Aggregate{"hash_min_max", &emit_null},
+           Aggregate{"hash_min_max", &keepna},
        }) {
     SCOPED_TRACE(agg.function);
     ValidateGroupBy({agg}, {batch->GetColumnByName("argument")},
@@ -729,13 +727,12 @@ TEST(GroupBy, CountNull) {
     [3.0, "gama"]
   ])");
 
-  CountOptions count_non_null{CountOptions::COUNT_NON_NULL},
-      count_null{CountOptions::COUNT_NULL};
+  ScalarAggregateOptions keepna{false}, skipna{true};
 
   using internal::Aggregate;
   for (auto agg : {
-           Aggregate{"hash_count", &count_non_null},
-           Aggregate{"hash_count", &count_null},
+           Aggregate{"hash_count", &keepna},
+           Aggregate{"hash_count", &skipna},
        }) {
     SCOPED_TRACE(agg.function);
     ValidateGroupBy({agg}, {batch->GetColumnByName("argument")},

@@ -95,10 +95,14 @@ list_compute_functions <- function(pattern = NULL, ...) {
 }
 
 #' @export
-sum.ArrowDatum <- function(..., na.rm = FALSE) scalar_aggregate("sum", ..., na.rm = na.rm)
+sum.ArrowDatum <- function(..., na.rm = FALSE) {
+  scalar_aggregate("sum", ..., na.rm = na.rm)
+}
 
 #' @export
-mean.ArrowDatum <- function(..., na.rm = FALSE) scalar_aggregate("mean", ..., na.rm = na.rm)
+mean.ArrowDatum <- function(..., na.rm = FALSE) {
+  scalar_aggregate("mean", ..., na.rm = na.rm)
+}
 
 #' @export
 min.ArrowDatum <- function(..., na.rm = FALSE) {
@@ -110,15 +114,22 @@ max.ArrowDatum <- function(..., na.rm = FALSE) {
   scalar_aggregate("min_max", ..., na.rm = na.rm)$GetFieldByName("max")
 }
 
-scalar_aggregate <- function(FUN, ..., na.rm = FALSE) {
+scalar_aggregate <- function(FUN, ..., na.rm = FALSE, na.min_count = 0) {
   a <- collect_arrays_from_dots(list(...))
-  if (!na.rm && a$null_count > 0 && (FUN %in% c("mean", "sum"))) {
-    # Arrow sum/mean function always drops NAs so handle that here
-    # https://issues.apache.org/jira/browse/ARROW-9054
-    return(Scalar$create(NA_real_))
+  if (!na.rm) {
+    # When not removing null values, we require all values to be not null and 
+    # return null otherwise. We do that by setting minimum count of non-null 
+    # option values to the full array length.
+    na.min_count <- length(a)
   }
-
-  call_function(FUN, a, options = list(na.rm = na.rm))
+  if (FUN == "min_max" && na.rm && a$null_count == length(a)) {
+    Array$create(data.frame(min = Inf, max = -Inf))
+    # If na.rm == TRUE and all values in array are NA, R returns
+    # Inf/-Inf, which are type double. Since Arrow is type-stable
+    # and does not do that, we handle this special case here.
+  } else {
+    call_function(FUN, a, options = list(na.rm = na.rm, na.min_count = na.min_count))
+  }
 }
 
 collect_arrays_from_dots <- function(dots) {
