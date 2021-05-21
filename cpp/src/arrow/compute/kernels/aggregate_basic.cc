@@ -230,6 +230,8 @@ Result<std::unique_ptr<KernelState>> AllInit(KernelContext*, const KernelInitArg
 
 template <typename ArgType>
 struct IndexImpl : public ScalarAggregator {
+  using ArgValue = typename internal::GetViewType<ArgType>::T;
+
   explicit IndexImpl(IndexOptions options, KernelState* raw_state)
       : options(std::move(options)), seen(0), index(-1) {
     if (auto state = static_cast<IndexImpl<ArgType>*>(raw_state)) {
@@ -246,19 +248,25 @@ struct IndexImpl : public ScalarAggregator {
 
     auto input = batch[0].array();
     seen = input->length;
-    internal::ArrayIterator<ArgType> it(*input);
-    auto desired = internal::UnboxScalar<ArgType>::Unbox(*options.value);
-    const bool is_valid = !input->MayHaveNulls();
-    const uint8_t* null_bitmap_data =
-        input->GetValuesSafe<uint8_t>(0, /*absolute_offset=*/0);
-    for (int64_t i = 0; i < input->length; i++) {
-      auto val = it();  // Advances iterator
-      if ((is_valid || BitUtil::GetBit(null_bitmap_data, i + input->offset)) &&
-          val == desired) {
-        index = i;
-        break;
-      }
-    }
+    const ArgValue desired = internal::UnboxScalar<ArgType>::Unbox(*options.value);
+    int64_t i = 0;
+
+    ARROW_UNUSED(internal::VisitArrayValuesInline<ArgType>(
+        *input,
+        [&](ArgValue v) -> Status {
+          if (v == desired) {
+            index = i;
+            return Status::Cancelled("Found");
+          } else {
+            ++i;
+            return Status::OK();
+          }
+        },
+        [&]() -> Status {
+          ++i;
+          return Status::OK();
+        }));
+
     return Status::OK();
   }
 
