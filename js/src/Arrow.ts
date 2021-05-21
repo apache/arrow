@@ -53,31 +53,9 @@ export {
 
 export { Table } from './table';
 export { Column } from './column';
+export { Vector } from './vector';
 export { Visitor } from './visitor';
 export { Schema, Field } from './schema';
-export {
-    Vector,
-    BaseVector,
-    BinaryVector,
-    BoolVector,
-    Chunked,
-    DateVector, DateDayVector, DateMillisecondVector,
-    DecimalVector,
-    DictionaryVector,
-    FixedSizeBinaryVector,
-    FixedSizeListVector,
-    FloatVector, Float16Vector, Float32Vector, Float64Vector,
-    IntervalVector, IntervalDayTimeVector, IntervalYearMonthVector,
-    IntVector, Int8Vector, Int16Vector, Int32Vector, Int64Vector, Uint8Vector, Uint16Vector, Uint32Vector, Uint64Vector,
-    ListVector,
-    MapVector,
-    NullVector,
-    StructVector,
-    TimestampVector, TimestampSecondVector, TimestampMillisecondVector, TimestampMicrosecondVector, TimestampNanosecondVector,
-    TimeVector, TimeSecondVector, TimeMillisecondVector, TimeMicrosecondVector, TimeNanosecondVector,
-    UnionVector, DenseUnionVector, SparseUnionVector,
-    Utf8Vector,
-} from './vector/index';
 
 export {
     Builder,
