@@ -1460,9 +1460,8 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp,
     finish_tasks.Append(true, [&columns, j, &converters]() {
       auto& converter = converters[j];
       if (converter != nullptr) {
-        auto maybe_array = converter->ToArray();
-        RETURN_NOT_OK(maybe_array.status());
-        columns[j] = std::make_shared<arrow::ChunkedArray>(maybe_array.ValueUnsafe());
+        ARROW_ASSIGN_OR_RAISE(auto array, converter->ToArray());
+        columns[j] = std::make_shared<arrow::ChunkedArray>(array);
       }
       return arrow::Status::OK();
     });
