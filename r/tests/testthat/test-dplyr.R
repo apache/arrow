@@ -529,19 +529,47 @@ test_that("type checks with is()", {
   expect_equal(
     Table$create(
         i32 = Array$create(1, int32()),
+        dec = Array$create(pi)$cast(decimal(3, 2)),
         f64 = Array$create(1.1, float64()),
         str = Array$create("a", arrow::string())
       ) %>% transmute(
         i32_is_i32 = is(i32, int32()),
+        i32_is_dec = is(i32, decimal(3, 2)),
         i32_is_i64 = is(i32, float64()),
         i32_is_str = is(i32, arrow::string()),
+        dec_is_i32 = is(dec, int32()),
+        dec_is_dec = is(dec, decimal(3, 2)),
+        dec_is_i64 = is(dec, float64()),
+        dec_is_str = is(dec, arrow::string()),
         f64_is_i32 = is(f64, int32()),
+        f64_is_dec = is(f64, decimal(3, 2)),
         f64_is_i64 = is(f64, float64()),
         f64_is_str = is(f64, arrow::string()),
         str_is_i32 = is(str, int32()),
+        str_is_dec = is(str, decimal(3, 2)),
         str_is_i64 = is(str, float64()),
         str_is_str = is(str, arrow::string())
       ) %>%
+      collect() %>% t() %>% as.vector(),
+    c(TRUE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, TRUE,
+      FALSE, FALSE, FALSE, FALSE, TRUE)
+  )
+  expect_equal(
+    Table$create(
+      i32 = Array$create(1, int32()),
+      f64 = Array$create(1.1, float64()),
+      str = Array$create("a", arrow::string())
+    ) %>% transmute(
+      i32_is_i32 = is(i32, "int32"),
+      i32_is_i64 = is(i32, "double"),
+      i32_is_str = is(i32, "string"),
+      f64_is_i32 = is(f64, "int32"),
+      f64_is_i64 = is(f64, "double"),
+      f64_is_str = is(f64, "string"),
+      str_is_i32 = is(str, "int32"),
+      str_is_i64 = is(str, "double"),
+      str_is_str = is(str, "string")
+    ) %>%
       collect() %>% t() %>% as.vector(),
     c(TRUE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, TRUE)
   )

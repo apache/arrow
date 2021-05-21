@@ -58,7 +58,11 @@ nse_funcs$cast <- function(x, target_type, safe = TRUE, ...) {
 }
 
 nse_funcs$is <- function(object, class2) {
-  object$type() == as_type(class2)
+  if (is.character(class2)) {
+    object$type()$ToString() == class2
+  } else {
+    object$type() == as_type(class2)
+  }
 }
 
 nse_funcs$dictionary_encode <- function(x,
