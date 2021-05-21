@@ -88,10 +88,8 @@ HivePartitioning$create <- function(schm, null_fallback = NULL) {
 #' which is what Hive uses.
 #' @return A [HivePartitioning][Partitioning], or a `HivePartitioningFactory` if
 #' calling `hive_partition()` with no arguments.
-#' @examples
-#' \dontrun{
+#' @examplesIf arrow_with_dataset()
 #' hive_partition(year = int16(), month = int8())
-#' }
 #' @export
 hive_partition <- function(..., null_fallback = NULL) {
   schm <- schema(...)
