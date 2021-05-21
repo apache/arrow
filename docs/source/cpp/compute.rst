@@ -665,6 +665,54 @@ String component extraction
   e.g. 'letter' and 'digit' for the regular expression
   ``(?P<letter>[ab])(?P<digit>\\d)``.
 
+Temporal component extraction
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+These functions extract datetime components (year, month, day, etc) from timestamp type.
+Note: timezone information is currently ignored if present.
+
++--------------------+------------+-------------------+-----------------+--------+
+| Function name      | Arity      | Input types       | Output type     | Notes  |
++====================+============+===================+=================+========+
+| year               | Unary      | Temporal          | Numeric         |        |
++--------------------+------------+-------------------+-----------------+--------+
+| month              | Unary      | Temporal          | Numeric         |        |
++--------------------+------------+-------------------+-----------------+--------+
+| day                | Unary      | Temporal          | Numeric         |        |
++--------------------+------------+-------------------+-----------------+--------+
+| day_of_week        | Unary      | Temporal          | Numeric         |        |
++--------------------+------------+-------------------+-----------------+--------+
+| day_of_year        | Unary      | Temporal          | Numeric         |        |
++--------------------+------------+-------------------+-----------------+--------+
+| iso_year           | Unary      | Temporal          | Numeric         | \(1)   |
++--------------------+------------+-------------------+-----------------+--------+
+| iso_week           | Unary      | Temporal          | Numeric         | \(1)   |
++--------------------+------------+-------------------+-----------------+--------+
+| iso_calendar       | Unary      | Temporal          | Scalar Struct   | \(2)   |
++--------------------+------------+-------------------+-----------------+--------+
+| quarter            | Unary      | Temporal          | Numeric         |        |
++--------------------+------------+-------------------+-----------------+--------+
+| hour               | Unary      | Temporal          | Numeric         |        |
++--------------------+------------+-------------------+-----------------+--------+
+| minute             | Unary      | Temporal          | Numeric         |        |
++--------------------+------------+-------------------+-----------------+--------+
+| second             | Unary      | Temporal          | Numeric         |        |
++--------------------+------------+-------------------+-----------------+--------+
+| millisecond        | Unary      | Temporal          | Numeric         |        |
++--------------------+------------+-------------------+-----------------+--------+
+| microsecond        | Unary      | Temporal          | Numeric         |        |
++--------------------+------------+-------------------+-----------------+--------+
+| nanosecond         | Unary      | Temporal          | Numeric         |        |
++--------------------+------------+-------------------+-----------------+--------+
+| subsecond          | Unary      | Temporal          | Numeric         |        |
++--------------------+------------+-------------------+-----------------+--------+
+
+* \(1) The ISO 8601 definition for week 01 is the week with the first Thursday
+  of the Gregorian year (i.e. of January) in it.
+  .. _Wikipedia ISO Week date: https://en.wikipedia.org/wiki/ISO_week_date#First_week
+
+* \(2) Struct with fields ISO year, ISO week number, and weekday.
+
 
 String joining
 ~~~~~~~~~~~~~~

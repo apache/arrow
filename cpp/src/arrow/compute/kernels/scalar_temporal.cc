@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/builder.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/util/time.h"
 #include "arrow/vendored/datetime.h"
@@ -47,8 +48,8 @@ template <typename Duration>
 struct Year {
   template <typename T, typename Arg>
   static T Call(KernelContext*, Arg arg, Status*) {
-    return static_cast<const int32_t>(
-        year_month_day(floor<days>(sys_time<Duration>(Duration{arg}))).year());
+    return static_cast<T>(static_cast<const int32_t>(
+        year_month_day(floor<days>(sys_time<Duration>(Duration{arg}))).year()));
   }
 };
 
@@ -59,8 +60,8 @@ template <typename Duration>
 struct Month {
   template <typename T, typename Arg>
   static T Call(KernelContext*, Arg arg, Status*) {
-    return static_cast<const uint32_t>(
-        year_month_day(floor<days>(sys_time<Duration>(Duration{arg}))).month());
+    return static_cast<T>(static_cast<const uint32_t>(
+        year_month_day(floor<days>(sys_time<Duration>(Duration{arg}))).month()));
   }
 };
 
@@ -83,8 +84,9 @@ template <typename Duration>
 struct DayOfWeek {
   template <typename T, typename Arg>
   static T Call(KernelContext*, Arg arg, Status*) {
-    return weekday(year_month_day(floor<days>(sys_time<Duration>(Duration{arg}))))
-        .iso_encoding();
+    return static_cast<T>(
+        weekday(year_month_day(floor<days>(sys_time<Duration>(Duration{arg}))))
+            .iso_encoding());
   }
 };
 
@@ -96,7 +98,19 @@ struct DayOfYear {
   template <typename T, typename Arg>
   static T Call(KernelContext*, Arg arg, Status*) {
     const auto sd = sys_days{floor<days>(Duration{arg})};
-    return (sd - sys_days(year_month_day(sd).year() / jan / 0)).count();
+    return static_cast<T>((sd - sys_days(year_month_day(sd).year() / jan / 0)).count());
+  }
+};
+
+// ----------------------------------------------------------------------
+// Extract ISO Year values from timestamp
+
+template <typename Duration>
+struct ISOYear {
+  template <typename T, typename Arg>
+  static T Call(KernelContext*, Arg arg, Status*) {
+    return static_cast<T>(static_cast<const int32_t>(
+        year_month_day{sys_days{floor<days>(Duration{arg})} + days{3}}.year()));
   }
 };
 
@@ -116,7 +130,81 @@ struct ISOWeek {
       --y;
       start = sys_days((y - years{1}) / dec / thu[last]) + (mon - thu);
     }
-    return trunc<weeks>(dp - start).count() + 1;
+    return static_cast<T>(trunc<weeks>(dp - start).count() + 1);
+  }
+};
+
+// ----------------------------------------------------------------------
+// Extract ISO calendar values from timestamp
+
+const std::shared_ptr<DataType> iso_calendar_type = struct_(
+    {field("iso_year", int64()), field("iso_week", int64()), field("weekday", int64())});
+
+template <typename Duration>
+struct ISOCalendar {
+  static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
+    using ScalarType = typename TypeTraits<Int64Type>::ScalarType;
+
+    const auto& in_val = internal::UnboxScalar<const TimestampType>::Unbox(in);
+    const auto dp = sys_days{floor<days>(Duration{in_val})};
+    const auto ymd = year_month_day(dp);
+    auto y = year_month_day{dp + days{3}}.year();
+    auto start = sys_days((y - years{1}) / dec / thu[last]) + (mon - thu);
+    if (dp < start) {
+      --y;
+      start = sys_days((y - years{1}) / dec / thu[last]) + (mon - thu);
+    }
+
+    std::vector<std::shared_ptr<Scalar>> values = {
+        std::make_shared<ScalarType>(
+            static_cast<int64_t>(static_cast<int32_t>(ymd.year()))),
+        std::make_shared<ScalarType>(
+            static_cast<int64_t>(trunc<weeks>(dp - start).count() + 1)),
+        std::make_shared<ScalarType>(static_cast<int64_t>(weekday(ymd).iso_encoding()))};
+    *checked_cast<StructScalar*>(out) =
+        StructScalar(std::move(values), iso_calendar_type);
+    return Status::OK();
+  }
+
+  static Status Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
+    using BuilderType = typename TypeTraits<Int64Type>::BuilderType;
+
+    std::unique_ptr<ArrayBuilder> array_builder;
+    RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), iso_calendar_type, &array_builder));
+    StructBuilder* struct_builder = checked_cast<StructBuilder*>(array_builder.get());
+
+    std::vector<BuilderType*> field_builders;
+    field_builders.reserve(3);
+    for (int i = 0; i < 3; i++) {
+      field_builders.push_back(
+          checked_cast<BuilderType*>(struct_builder->field_builder(i)));
+    }
+    auto visit_null = [&]() { return struct_builder->AppendNull(); };
+    auto visit_value = [&](int64_t arg) {
+      const auto dp = sys_days{floor<days>(Duration{arg})};
+      const auto ymd = year_month_day(dp);
+      auto y = year_month_day{dp + days{3}}.year();
+      auto start = sys_days((y - years{1}) / dec / thu[last]) + (mon - thu);
+      if (dp < start) {
+        --y;
+        start = sys_days((y - years{1}) / dec / thu[last]) + (mon - thu);
+      }
+
+      RETURN_NOT_OK(field_builders[0]->Append(static_cast<int32_t>(ymd.year())));
+      RETURN_NOT_OK(field_builders[1]->Append(static_cast<int64_t>(
+          static_cast<int32_t>(trunc<weeks>(dp - start).count() + 1))));
+      RETURN_NOT_OK(
+          field_builders[2]->Append(static_cast<int64_t>(weekday(ymd).iso_encoding())));
+
+      return struct_builder->Append();
+    };
+    RETURN_NOT_OK(VisitArrayDataInline<Int64Type>(in, visit_value, visit_null));
+
+    std::shared_ptr<Array> out_array;
+    RETURN_NOT_OK(struct_builder->Finish(&out_array));
+    *out = *std::move(out_array->data());
+
+    return Status::OK();
   }
 };
 
@@ -128,7 +216,7 @@ struct Quarter {
   template <typename T, typename Arg>
   static T Call(KernelContext*, Arg arg, Status*) {
     const auto ymd = year_month_day(floor<days>(sys_time<Duration>(Duration{arg})));
-    return (static_cast<const uint32_t>(ymd.month()) - 1) / 3 + 1;
+    return static_cast<T>((static_cast<const uint32_t>(ymd.month()) - 1) / 3 + 1);
   }
 };
 
@@ -140,7 +228,7 @@ struct Hour {
   template <typename T, typename Arg>
   static T Call(KernelContext*, Arg arg, Status*) {
     Duration t = Duration{arg};
-    return (t - floor<days>(t)) / std::chrono::hours(1);
+    return static_cast<T>((t - floor<days>(t)) / std::chrono::hours(1));
   }
 };
 
@@ -152,7 +240,7 @@ struct Minute {
   template <typename T, typename Arg>
   static T Call(KernelContext*, Arg arg, Status*) {
     Duration t = Duration{arg};
-    return (t - floor<std::chrono::hours>(t)) / std::chrono::minutes(1);
+    return static_cast<T>((t - floor<std::chrono::hours>(t)) / std::chrono::minutes(1));
   }
 };
 
@@ -177,7 +265,8 @@ struct Subsecond {
   template <typename T, typename Arg>
   static T Call(KernelContext*, Arg arg, Status*) {
     Duration t = Duration{arg};
-    return (t - floor<std::chrono::seconds>(t)) / std::chrono::nanoseconds(1);
+    return static_cast<T>((t - floor<std::chrono::seconds>(t)) /
+                          std::chrono::nanoseconds(1));
   }
 };
 
@@ -189,7 +278,8 @@ struct Millisecond {
   template <typename T, typename Arg>
   static T Call(KernelContext*, Arg arg, Status*) {
     Duration t = Duration{arg};
-    return ((t - floor<std::chrono::seconds>(t)) / std::chrono::milliseconds(1)) % 1000;
+    return static_cast<T>(
+        ((t - floor<std::chrono::seconds>(t)) / std::chrono::milliseconds(1)) % 1000);
   }
 };
 
@@ -201,7 +291,8 @@ struct Microsecond {
   template <typename T, typename Arg>
   static T Call(KernelContext*, Arg arg, Status*) {
     Duration t = Duration{arg};
-    return ((t - floor<std::chrono::seconds>(t)) / std::chrono::microseconds(1)) % 1000;
+    return static_cast<T>(
+        ((t - floor<std::chrono::seconds>(t)) / std::chrono::microseconds(1)) % 1000);
   }
 };
 
@@ -213,7 +304,8 @@ struct Nanosecond {
   template <typename T, typename Arg>
   static T Call(KernelContext*, Arg arg, Status*) {
     Duration t = Duration{arg};
-    return ((t - floor<std::chrono::seconds>(t)) / std::chrono::nanoseconds(1)) % 1000;
+    return static_cast<T>(
+        ((t - floor<std::chrono::seconds>(t)) / std::chrono::nanoseconds(1)) % 1000);
   }
 };
 
@@ -290,7 +382,9 @@ const FunctionDoc month_doc{"Extract month values", "", {"values"}};
 const FunctionDoc day_doc{"Extract day values", "", {"values"}};
 const FunctionDoc day_of_week_doc{"Extract day of week values", "", {"values"}};
 const FunctionDoc day_of_year_doc{"Extract day of year values", "", {"values"}};
+const FunctionDoc iso_year_doc{"Extract ISO year values", "", {"values"}};
 const FunctionDoc iso_week_doc{"Extract ISO week values", "", {"values"}};
+const FunctionDoc iso_calendar_doc{"Extract ISO calendar values", "", {"values"}};
 const FunctionDoc quarter_doc{"Extract quarter values", "", {"values"}};
 const FunctionDoc hour_doc{"Extract hour values", "", {"values"}};
 const FunctionDoc minute_doc{"Extract minute values", "", {"values"}};
@@ -329,9 +423,56 @@ void RegisterScalarTemporal(FunctionRegistry* registry) {
                                                      kUnsignedIntegerTypes16);
   DCHECK_OK(registry->AddFunction(std::move(day_of_year)));
 
+  auto iso_year =
+      MakeTemporalFunction<ISOYear>("iso_year", &iso_year_doc, kSignedIntegerTypes);
+  DCHECK_OK(registry->AddFunction(std::move(iso_year)));
+
   auto iso_week =
       MakeTemporalFunction<ISOWeek>("iso_week", &iso_week_doc, kUnsignedIntegerTypes8);
   DCHECK_OK(registry->AddFunction(std::move(iso_week)));
+
+  auto iso_calendar_func =
+      std::make_shared<ScalarFunction>("iso_calendar", Arity::Unary(), &iso_calendar_doc);
+  auto out_ty = struct_({field("iso_year", int64()), field("iso_week", int64()),
+                         field("weekday", int64())});
+
+  for (auto unit : AllTimeUnits()) {
+    switch (unit) {
+      case TimeUnit::SECOND: {
+        auto iso_calendar_exec =
+            applicator::SimpleUnary<ISOCalendar<std::chrono::seconds>>;
+        DCHECK_OK(iso_calendar_func->AddKernel({{match::TimestampTypeUnit(unit)}},
+                                               ValueDescr::Array(out_ty),
+                                               std::move(iso_calendar_exec)));
+        break;
+      }
+      case TimeUnit::MILLI: {
+        auto iso_calendar_exec =
+            applicator::SimpleUnary<ISOCalendar<std::chrono::milliseconds>>;
+        DCHECK_OK(iso_calendar_func->AddKernel({{match::TimestampTypeUnit(unit)}},
+                                               ValueDescr::Array(out_ty),
+                                               std::move(iso_calendar_exec)));
+        break;
+      }
+      case TimeUnit::MICRO: {
+        auto iso_calendar_exec =
+            applicator::SimpleUnary<ISOCalendar<std::chrono::microseconds>>;
+        DCHECK_OK(iso_calendar_func->AddKernel({{match::TimestampTypeUnit(unit)}},
+                                               ValueDescr::Array(out_ty),
+                                               std::move(iso_calendar_exec)));
+        break;
+      }
+      case TimeUnit::NANO: {
+        auto iso_calendar_exec =
+            applicator::SimpleUnary<ISOCalendar<std::chrono::nanoseconds>>;
+        DCHECK_OK(iso_calendar_func->AddKernel({{match::TimestampTypeUnit(unit)}},
+                                               ValueDescr::Array(out_ty),
+                                               std::move(iso_calendar_exec)));
+        break;
+      }
+    }
+  }
+  DCHECK_OK(registry->AddFunction(std::move(iso_calendar_func)));
 
   auto quarter =
       MakeTemporalFunction<Quarter>("quarter", &quarter_doc, kUnsignedIntegerTypes32);
