@@ -504,6 +504,10 @@ dataset___ScannerBuilder__UseThreads <- function(sb, threads){
     invisible(.Call(`_arrow_dataset___ScannerBuilder__UseThreads`, sb, threads))
 }
 
+dataset___ScannerBuilder__UseAsync <- function(sb, use_async){
+    invisible(.Call(`_arrow_dataset___ScannerBuilder__UseAsync`, sb, use_async))
+}
+
 dataset___ScannerBuilder__BatchSize <- function(sb, batch_size){
     invisible(.Call(`_arrow_dataset___ScannerBuilder__BatchSize`, sb, batch_size))
 }

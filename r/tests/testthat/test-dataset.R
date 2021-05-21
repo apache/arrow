@@ -1034,6 +1034,13 @@ test_that("Scanner$ScanBatches", {
   batches <- ds$NewScan()$Finish()$ScanBatches()
   table <- Table$create(!!!batches)
   expect_equivalent(as.data.frame(table), rbind(df1, df2))
+
+  # use_async will always use the thread pool (even if it only uses
+  # one thread) and RTools 3.5 on Windows doesn't support this
+  skip_on_os("windows")
+  batches <- ds$NewScan()$UseAsync(TRUE)$Finish()$ScanBatches()
+  table <- Table$create(!!!batches)
+  expect_equivalent(as.data.frame(table), rbind(df1, df2))
 })
 
 test_that("Scanner$ToRecordBatchReader()", {

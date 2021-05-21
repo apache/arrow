@@ -394,6 +394,12 @@ void dataset___ScannerBuilder__UseThreads(const std::shared_ptr<ds::ScannerBuild
 }
 
 // [[dataset::export]]
+void dataset___ScannerBuilder__UseAsync(const std::shared_ptr<ds::ScannerBuilder>& sb,
+                                        bool use_async) {
+  StopIfNotOk(sb->UseAsync(use_async));
+}
+
+// [[dataset::export]]
 void dataset___ScannerBuilder__BatchSize(const std::shared_ptr<ds::ScannerBuilder>& sb,
                                          int64_t batch_size) {
   StopIfNotOk(sb->BatchSize(batch_size));
