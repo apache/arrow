@@ -15,3 +15,6 @@ to look in the \verb{inst/} directory for included modules.}
 \description{
 Load a Python Flight server
 }
+\examples{
+\dontrun{load_flight_server("demo_flight_server")}
+}
