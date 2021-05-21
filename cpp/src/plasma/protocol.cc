@@ -849,7 +849,11 @@ Status ReadMetricsReply(const uint8_t* data, size_t size, PlasmaMetrics* metrics
   DCHECK(data);
   auto message = flatbuffers::GetRoot<fb::PlasmaMetricsReply>(data);
   DCHECK(VerifyFlatbuffer(message, data, size));
-  memcpy(metrics, message->metrics(), sizeof(PlasmaMetrics));
+  const plasma::flatbuf::PlasmaMetricsSpec* metrics_ = message->metrics();
+  metrics->share_mem_total = metrics_->share_mem_total();
+  metrics->share_mem_used = metrics_->share_mem_used();
+  metrics->external_total = metrics_->external_total();
+  metrics->external_used = metrics_->external_used();
   return Status::OK();
 }
 
