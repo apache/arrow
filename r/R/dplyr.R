@@ -76,8 +76,7 @@ print.arrow_dplyr_query <- function(x, ...) {
       # Just a field_ref, so look up in the schema
       schm$GetFieldByName(name)$type$ToString()
     } else {
-      # Expression, so get its type and append the expression.
-      # Need to bind the expression to the schema before finding its type.
+      # Expression, so get its type and append the expression
       paste0(
         expr$type(schm)$ToString(),
         " (", expr$ToString(), ")"

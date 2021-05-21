@@ -77,9 +77,8 @@ std::shared_ptr<arrow::DataType> compute___expr__type(
 }
 
 // [[arrow::export]]
-arrow::Type::type compute___expr__type_id(
-    const std::shared_ptr<compute::Expression>& x,
-    const std::shared_ptr<arrow::Schema>& schema) {
+arrow::Type::type compute___expr__type_id(const std::shared_ptr<compute::Expression>& x,
+                                          const std::shared_ptr<arrow::Schema>& schema) {
   auto bound = ValueOrStop(x->Bind(*schema));
   return bound.type()->id();
 }
