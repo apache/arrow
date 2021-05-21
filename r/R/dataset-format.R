@@ -53,7 +53,7 @@
 #' It returns the appropriate subclass of `FileFormat` (e.g. `ParquetFileFormat`)
 #' @rdname FileFormat
 #' @name FileFormat
-#' @examplesIf arrow_available()
+#' @examplesIf arrow_with_dataset()
 #' ## Semi-colon delimited files
 #' # Set up directory for examples
 #' tf <- tempfile()
