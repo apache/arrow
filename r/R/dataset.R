@@ -69,7 +69,7 @@
 #' @export
 #' @seealso `vignette("dataset", package = "arrow")`
 #' @include arrow-package.R
-#' @examplesIf arrow_available()
+#' @examplesIf arrow_with_dataset()
 #' # Set up directory for examples
 #' tf <- tempfile()
 #' dir.create(tf)

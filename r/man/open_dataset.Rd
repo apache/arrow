@@ -75,7 +75,7 @@ can accelerate queries that only touch some partitions (files). Call
 \code{Dataset}, then use \code{dplyr} methods to query it.
 }
 \examples{
-\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (arrow_with_dataset()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 # Set up directory for examples
 tf <- tempfile()
 dir.create(tf)
