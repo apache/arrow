@@ -20,7 +20,6 @@ import { Vector } from '../vector';
 import { DataType } from '../type';
 import { Data, Buffers } from '../data';
 import { Schema, Field } from '../schema';
-import { Chunked } from '../vector/chunked';
 import { RecordBatch } from '../recordbatch';
 
 const noopBuf = new Uint8Array(0);
@@ -29,38 +28,13 @@ const nullBufs = (bitmapLength: number) => <unknown> [
 ] as Buffers<any>;
 
 /** @ignore */
-export function ensureSameLengthData<T extends { [key: string]: DataType } = any>(
-    schema: Schema<T>,
-    chunks: Data<T[keyof T]>[],
-    batchLength = chunks.reduce((l, c) => Math.max(l, c.length), 0)
-) {
-    let data: Data<T[keyof T]>;
-    let field: Field<T[keyof T]>;
-    let i = -1;
-    const n = chunks.length;
-    const fields = [...schema.fields];
-    const batchData = [] as Data<T[keyof T]>[];
-    const bitmapLength = ((batchLength + 63) & ~63) >> 3;
-    while (++i < n) {
-        if ((data = chunks[i]) && data.length === batchLength) {
-            batchData[i] = data;
-        } else {
-            (field = fields[i]).nullable || (fields[i] = fields[i].clone({ nullable: true }) as Field<T[keyof T]>);
-            batchData[i] = data ? data._changeLengthAndBackfillNullBitmap(batchLength)
-                : Data.new(field.type, 0, batchLength, batchLength, nullBufs(bitmapLength)) as Data<T[keyof T]>;
-        }
-    }
-    return [new Schema<T>(fields), batchLength, batchData] as [Schema<T>, number, Data<T[keyof T]>[]];
-}
-
-/** @ignore */
 export function distributeColumnsIntoRecordBatches<T extends { [key: string]: DataType } = any>(columns: Column<T[keyof T]>[]): [Schema<T>, RecordBatch<T>[]] {
     return distributeVectorsIntoRecordBatches<T>(new Schema<T>(columns.map(({ field }) => field)), columns);
 }
 
 /** @ignore */
 export function distributeVectorsIntoRecordBatches<T extends { [key: string]: DataType } = any>(schema: Schema<T>, vecs: (Vector<T[keyof T]> | Chunked<T[keyof T]>)[]): [Schema<T>, RecordBatch<T>[]] {
-    return uniformlyDistributeChunksAcrossRecordBatches<T>(schema, vecs.map((v) => v instanceof Chunked ? v.chunks.map((c) => c.data) : [v.data]));
+    return uniformlyDistributeChunksAcrossRecordBatches<T>(schema, vecs.map((v) => v.chunks));
 }
 
 /** @ignore */
@@ -73,19 +47,19 @@ function uniformlyDistributeChunksAcrossRecordBatches<T extends { [key: string]:
     let numBatches = 0, batchLength = 0;
     let i = -1;
     const numColumns = columns.length;
-    let child: Data<T[keyof T]>, childData: Data<T[keyof T]>[] = [];
+    let child: Data<T[keyof T]>, children: Data<T[keyof T]>[] = [];
 
     while (memo.numBatches-- > 0) {
 
         for (batchLength = Number.POSITIVE_INFINITY, i = -1; ++i < numColumns;) {
-            childData[i] = child = columns[i].shift()!;
+            children[i] = child = columns[i].shift()!;
             batchLength = Math.min(batchLength, child ? child.length : batchLength);
         }
 
         if (isFinite(batchLength)) {
-            childData = distributeChildData(fields, batchLength, childData, columns, memo);
+            children = distributechildren(fields, batchLength, children, columns, memo);
             if (batchLength > 0) {
-                batchArgs[numBatches++] = [batchLength, childData.slice()];
+                batchArgs[numBatches++] = [batchLength, children.slice()];
             }
         }
     }
@@ -96,26 +70,26 @@ function uniformlyDistributeChunksAcrossRecordBatches<T extends { [key: string]:
 }
 
 /** @ignore */
-function distributeChildData<T extends { [key: string]: DataType } = any>(fields: Field<T[keyof T]>[], batchLength: number, childData: Data<T[keyof T]>[], columns: Data<T[keyof T]>[][], memo: { numBatches: number }) {
+function distributechildren<T extends { [key: string]: DataType } = any>(fields: Field<T[keyof T]>[], batchLength: number, children: Data<T[keyof T]>[], columns: Data<T[keyof T]>[][], memo: { numBatches: number }) {
     let data: Data<T[keyof T]>;
     let field: Field<T[keyof T]>;
     let length = 0, i = -1;
     const n = columns.length;
     const bitmapLength = ((batchLength + 63) & ~63) >> 3;
     while (++i < n) {
-        if ((data = childData[i]) && ((length = data.length) >= batchLength)) {
+        if ((data = children[i]) && ((length = data.length) >= batchLength)) {
             if (length === batchLength) {
-                childData[i] = data;
+                children[i] = data;
             } else {
-                childData[i] = data.slice(0, batchLength);
+                children[i] = data.slice(0, batchLength);
                 data = data.slice(batchLength, length - batchLength);
                 memo.numBatches = Math.max(memo.numBatches, columns[i].unshift(data));
             }
         } else {
             (field = fields[i]).nullable || (fields[i] = field.clone({ nullable: true }) as Field<T[keyof T]>);
-            childData[i] = data ? data._changeLengthAndBackfillNullBitmap(batchLength)
+            children[i] = data ? data._changeLengthAndBackfillNullBitmap(batchLength)
                 : Data.new(field.type, 0, batchLength, batchLength, nullBufs(bitmapLength)) as Data<T[keyof T]>;
         }
     }
-    return childData;
+    return children;
 }
