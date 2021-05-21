@@ -133,7 +133,7 @@ nse_funcs$is.numeric <- function(x) {
 }
 
 nse_funcs$is.double <- function(x) {
-  x$type_id() %in% Type["DOUBLE"]
+  x$type_id() == Type["DOUBLE"]
 }
 
 nse_funcs$is.integer <- function(x) {
@@ -142,11 +142,11 @@ nse_funcs$is.integer <- function(x) {
 }
 
 nse_funcs$is.integer64 <- function(x) {
-  x$type_id() %in% Type["INT64"]
+  x$type_id() == Type["INT64"]
 }
 
 nse_funcs$is.logical <- function(x) {
-  x$type_id() %in% Type["BOOL"]
+  x$type_id() == Type["BOOL"]
 }
 
 nse_funcs$is.factor <- function(x) {
