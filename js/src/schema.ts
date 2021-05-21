@@ -23,7 +23,7 @@ export class Schema<T extends { [key: string]: DataType } = any> {
     public readonly metadata: Map<string, string>;
     public readonly dictionaries: Map<number, DataType>;
 
-    constructor(fields: Field[] = [],
+    constructor(fields: Field<T[keyof T]>[] = [],
                 metadata?: Map<string, string> | null,
                 dictionaries?: Map<number, DataType> | null) {
         this.fields = (fields || []) as Field<T[keyof T]>[];
@@ -40,10 +40,12 @@ export class Schema<T extends { [key: string]: DataType } = any> {
 
     public select<K extends keyof T = any>(...columnNames: K[]) {
         const names = columnNames.reduce((xs, x) => (xs[x] = true) && xs, Object.create(null));
-        return new Schema<{ [P in K]: T[P] }>(this.fields.filter((f) => names[f.name]), this.metadata);
+        const fields = this.fields.filter((f) => names[f.name]) as Field<T[K]>[];
+        return new Schema<{ [P in K]: T[P] }>(fields, this.metadata);
     }
     public selectAt<K extends T[keyof T] = any>(...columnIndices: number[]) {
-        return new Schema<{ [key: string]: K }>(columnIndices.map((i) => this.fields[i]).filter(Boolean), this.metadata);
+        const fields = columnIndices.map((i) => this.fields[i]).filter(Boolean) as Field<K>[];
+        return new Schema<{ [key: string]: K }>(fields, this.metadata);
     }
 
     public assign<R extends { [key: string]: DataType } = any>(schema: Schema<R>): Schema<T & R>;
@@ -72,6 +74,17 @@ export class Schema<T extends { [key: string]: DataType } = any> {
             new Map([...this.dictionaries, ...newDictionaries])
         );
     }
+
+    // Initialize this static property via an IIFE so bundlers don't tree-shake
+    // out this logic, but also so we're still compliant with `"sideEffects": false`
+    protected static [Symbol.toStringTag] = ((proto: Schema) => {
+        // Add these here so they're picked up by the externs creator
+        // in the build, and closure-compiler doesn't minify them away
+        (proto as any).fields = null;
+        (proto as any).metadata = null;
+        (proto as any).dictionaries = null;
+        return 'Schema';
+    })(Schema.prototype);
 }
 
 export class Field<T extends DataType = any> {
@@ -114,6 +127,18 @@ export class Field<T extends DataType = any> {
             : ({name = this.name, type = this.type, nullable = this.nullable, metadata = this.metadata} = args[0]);
         return Field.new<R>(name, type, nullable, metadata);
     }
+
+    // Initialize this static property via an IIFE so bundlers don't tree-shake
+    // out this logic, but also so we're still compliant with `"sideEffects": false`
+    protected static [Symbol.toStringTag] = ((proto: Field) => {
+        // Add these here so they're picked up by the externs creator
+        // in the build, and closure-compiler doesn't minify them away
+        (proto as any).type = null;
+        (proto as any).name = null;
+        (proto as any).nullable = null;
+        (proto as any).metadata = null;
+        return 'Field';
+    })(Field.prototype);
 }
 
 /** @ignore */
@@ -141,14 +166,3 @@ function generateDictionaryMap(fields: Field[], dictionaries = new Map<number, D
 
     return dictionaries;
 }
-
-// Add these here so they're picked up by the externs creator
-// in the build, and closure-compiler doesn't minify them away
-(Schema.prototype as any).fields = null;
-(Schema.prototype as any).metadata = null;
-(Schema.prototype as any).dictionaries = null;
-
-(Field.prototype as any).type = null;
-(Field.prototype as any).name = null;
-(Field.prototype as any).nullable = null;
-(Field.prototype as any).metadata = null;

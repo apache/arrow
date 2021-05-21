@@ -90,9 +90,9 @@ export type ArrayBufferViewInput = ArrayBufferView | ArrayBufferLike | ArrayBuff
           ReadableStreamReadResult<ArrayBufferView | ArrayBufferLike | ArrayBufferView | Iterable<number> | ArrayLike<number> | ByteBuffer | string | null | undefined> ;
 
 /** @ignore */
-export function toArrayBufferView<T extends TypedArray>(ArrayBufferViewCtor: TypedArrayConstructor<T>, input: ArrayBufferViewInput): T;
-export function toArrayBufferView<T extends BigIntArray>(ArrayBufferViewCtor: BigIntArrayConstructor<T>, input: ArrayBufferViewInput): T;
-export function toArrayBufferView(ArrayBufferViewCtor: any, input: ArrayBufferViewInput) {
+export function toArrayBufferView<
+    T extends TypedArrayConstructor<any> | BigIntArrayConstructor<any>
+>(ArrayBufferViewCtor: any, input: ArrayBufferViewInput): InstanceType<T> {
 
     let value: any = isIteratorResult(input) ? input.value : input;
 
