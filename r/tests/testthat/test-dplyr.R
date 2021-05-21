@@ -525,7 +525,29 @@ test_that("is.finite(), is.infinite(), is.nan()", {
   )
 })
 
-test_that("type checks with as.*()", {
+test_that("type checks with is()", {
+  expect_equal(
+    Table$create(
+        i32 = Array$create(1, int32()),
+        f64 = Array$create(1.1, float64()),
+        str = Array$create("a", arrow::string())
+      ) %>% transmute(
+        i32_is_i32 = is(i32, int32()),
+        i32_is_i64 = is(i32, float64()),
+        i32_is_str = is(i32, arrow::string()),
+        f64_is_i32 = is(f64, int32()),
+        f64_is_i64 = is(f64, float64()),
+        f64_is_str = is(f64, arrow::string()),
+        str_is_i32 = is(str, int32()),
+        str_is_i64 = is(str, float64()),
+        str_is_str = is(str, arrow::string())
+      ) %>%
+      collect() %>% t() %>% as.vector(),
+    c(TRUE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, TRUE)
+  )
+})
+
+test_that("type checks with is.*()", {
   library(bit64)
   expect_dplyr_equal(
     input %>%
@@ -601,6 +623,37 @@ test_that("type checks with as.*()", {
       i64 = as.integer64(1:3),
       lst = list(c("a", "b"), c("d", "e"), c("f", "g"))
     )
+  )
+})
+
+test_that("type checks with is_*()", {
+  library(rlang)
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        chr_is_chr = is_character(chr),
+        chr_is_dbl = is_double(chr),
+        chr_is_int = is_integer(chr),
+        chr_is_lst = is_list(chr),
+        chr_is_lgl = is_logical(chr),
+        dbl_is_chr = is_character(dbl),
+        dbl_is_dbl = is_double(dbl),
+        dbl_is_int = is_integer(dbl),
+        dbl_is_lst = is_list(dbl),
+        dbl_is_lgl = is_logical(dbl),
+        int_is_chr = is_character(int),
+        int_is_dbl = is_double(int),
+        int_is_int = is_integer(int),
+        int_is_lst = is_list(int),
+        int_is_lgl = is_logical(int),
+        lgl_is_chr = is_character(lgl),
+        lgl_is_dbl = is_double(lgl),
+        lgl_is_int = is_integer(lgl),
+        lgl_is_lst = is_list(lgl),
+        lgl_is_lgl = is_logical(lgl)
+      ) %>%
+      collect(),
+    tbl
   )
 })
 
