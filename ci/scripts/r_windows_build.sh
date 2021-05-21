@@ -43,6 +43,7 @@ else
 
   pacman --noconfirm -Syy
   RWINLIB_LIB_DIR="lib"
+  export MINGW_ARCH="mingw32 mingw64 ucrt64"
 fi
 
 cp $ARROW_HOME/ci/scripts/PKGBUILD .
@@ -64,7 +65,7 @@ MSYS_LIB_DIR="/c/rtools40"
 ls $MSYS_LIB_DIR/mingw64/lib/
 ls $MSYS_LIB_DIR/mingw32/lib/
 
-# Untar the two builds we made
+# Untar the three builds we made
 ls *.xz | xargs -n 1 tar -xJf
 mkdir -p $DST_DIR
 # Grab the headers from one, either one is fine
@@ -93,6 +94,14 @@ cp $MSYS_LIB_DIR/mingw32/lib/lib{thrift,snappy}.a $DST_DIR/${RWINLIB_LIB_DIR}/i3
 # These are from https://dl.bintray.com/rtools/mingw{32,64}/
 cp $MSYS_LIB_DIR/mingw64/lib/lib{zstd,lz4,crypto,utf8proc,re2,aws*}.a $DST_DIR/lib/x64
 cp $MSYS_LIB_DIR/mingw32/lib/lib{zstd,lz4,crypto,utf8proc,re2,aws*}.a $DST_DIR/lib/i386
+
+# Do the same also for ucrt64
+if [ "$RTOOLS_VERSION" != "35" ]; then
+ls $MSYS_LIB_DIR/ucrt64/lib/
+mkdir -p $DST_DIR/lib/x64-ucrt
+mv ucrt64/lib/*.a $DST_DIR/${RWINLIB_LIB_DIR}/x64-ucrt
+cp $MSYS_LIB_DIR/ucrt64/lib/lib{zstd,lz4,crypto,utf8proc,re2,aws*}.a $DST_DIR/lib/x64-ucrt
+fi
 
 # Create build artifact
 zip -r ${DST_DIR}.zip $DST_DIR
