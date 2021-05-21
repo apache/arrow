@@ -527,6 +527,34 @@ TYPED_TEST(TestStringKernels, SplitWhitespaceUTF8Reverse) {
                    &options_max);
 }
 
+#ifdef ARROW_WITH_RE2
+TYPED_TEST(TestStringKernels, SplitRegex) {
+  SplitPatternOptions options{"a+|b"};
+
+  this->CheckUnary(
+      "split_pattern_regex", R"(["aaaab", "foob", "foo bar", "foo", "AaaaBaaaC", null])",
+      list(this->type()),
+      R"([["", "", ""], ["foo", ""], ["foo ", "", "r"], ["foo"], ["A", "B", "C"], null])",
+      &options);
+
+  options.max_splits = 1;
+  this->CheckUnary(
+      "split_pattern_regex", R"(["aaaab", "foob", "foo bar", "foo", "AaaaBaaaC", null])",
+      list(this->type()),
+      R"([["", "b"], ["foo", ""], ["foo ", "ar"], ["foo"], ["A", "BaaaC"], null])",
+      &options);
+}
+
+TYPED_TEST(TestStringKernels, SplitRegexReverse) {
+  SplitPatternOptions options{"a+|b", /*max_splits=*/1, /*reverse=*/true};
+  Datum input = ArrayFromJSON(this->type(), R"(["a"])");
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      NotImplemented, ::testing::HasSubstr("Cannot split in reverse with regex"),
+      CallFunction("split_pattern_regex", {input}, &options));
+}
+#endif
+
 TYPED_TEST(TestStringKernels, ReplaceSubstring) {
   ReplaceSubstringOptions options{"foo", "bazz"};
   this->CheckUnary("replace_substring", R"(["foo", "this foo that foo", null])",

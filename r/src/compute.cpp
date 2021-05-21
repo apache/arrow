@@ -234,7 +234,7 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
                                      max_replacements);
   }
 
-  if (func_name == "split_pattern") {
+  if (func_name == "split_pattern" || func_name == "split_pattern_regex") {
     using Options = arrow::compute::SplitPatternOptions;
     int64_t max_splits = -1;
     if (!Rf_isNull(options["max_splits"])) {

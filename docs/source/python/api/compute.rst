@@ -139,6 +139,17 @@ a byte-by-byte basis.
 
    string_is_ascii
 
+String Splitting
+----------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   split_pattern
+   split_pattern_regex
+   ascii_split_whitespace
+   utf8_split_whitespace
+
 String Transforms
 -----------------
 
