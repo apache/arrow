@@ -816,28 +816,18 @@ class RPrimitiveConverter<T, enable_if_string_like<T>>
     if (rtype != STRING) {
       return Status::Invalid("Expecting a character vector");
     }
-    return UnsafeAppendUtf8Strings(to_utf8(x), size);
+    return UnsafeAppendUtf8Strings(arrow::r::utf8_strings(x), size);
   }
 
   void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
-    // convert to utf8 on the main thread
-    SEXP x = to_utf8(values);
-
-    // but then do the bulk of the work in parallel
-    tasks.Append(true, [this, x, size]() { return UnsafeAppendUtf8Strings(x, size); });
+    auto task = [this, values, size]() { return this->Extend(values, size); };
+    // TODO: refine this., e.g. extract setup from Extend()
+    tasks.Append(false, std::move(task));
   }
 
  private:
-  // convert x to utf8 strings and cache so that
-  // the result can be used in parallel (in DelayedExtend)
-  SEXP to_utf8(SEXP x) {
-    SEXP utf8 = arrow::r::utf8_strings(x);
-    utf8_vectors_.push_back(utf8);
-    return utf8;
-  }
-
-  Status UnsafeAppendUtf8Strings(SEXP s, int64_t size) {
-    RETURN_NOT_OK(this->primitive_builder_->Reserve(XLENGTH(s)));
+  Status UnsafeAppendUtf8Strings(const cpp11::strings& s, int64_t size) {
+    RETURN_NOT_OK(this->primitive_builder_->Reserve(s.size()));
     const SEXP* p_strings = reinterpret_cast<const SEXP*>(DATAPTR_RO(s));
 
     // we know all the R strings are utf8 already, so we can get
@@ -862,9 +852,6 @@ class RPrimitiveConverter<T, enable_if_string_like<T>>
 
     return Status::OK();
   }
-
- private:
-  cpp11::writable::list utf8_vectors_;
 };
 
 template <typename T>
@@ -1448,25 +1435,40 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp,
       converters[j] = std::move(converter_result.ValueUnsafe());
     }
   }
-  StopIfNotOk(status);
 
-  for (int j = 0; j < num_fields; j++) {
-    auto& converter = converters[j];
-    if (converter != nullptr) {
-      converter->DelayedExtend(flatten_lst[j], converter->options().size, tasks);
+  // if the previous loop didn't break early, spawn
+  // tasks to Extend, maybe in parallel
+  if (status.ok()) {
+    for (int j = 0; j < num_fields; j++) {
+      auto& converter = converters[j];
+      if (converter != nullptr) {
+        converter->DelayedExtend(flatten_lst[j], converter->options().size, tasks);
+      }
     }
   }
 
+  // in any case, this needs to wait until all tasks are finished
   status &= tasks.Finish();
 
+  // nothing is running in parallel here, so we have an opportunity to stop
+  StopIfNotOk(status);
+
+  // then finally convert to chunked arrays in parallel
+  arrow::r::RTasks finish_tasks(use_threads);
+
   for (int j = 0; j < num_fields; j++) {
-    auto& converter = converters[j];
-    if (converter != nullptr) {
-      auto maybe_array = converter->ToArray();
-      StopIfNotOk(maybe_array.status());
-      columns[j] = std::make_shared<arrow::ChunkedArray>(maybe_array.ValueUnsafe());
-    }
+    finish_tasks.Append(true, [&columns, j, &converters]() {
+      auto& converter = converters[j];
+      if (converter != nullptr) {
+        auto maybe_array = converter->ToArray();
+        RETURN_NOT_OK(maybe_array.status());
+        columns[j] = std::make_shared<arrow::ChunkedArray>(maybe_array.ValueUnsafe());
+      }
+      return arrow::Status::OK();
+    });
   }
+  status &= finish_tasks.Finish();
+  StopIfNotOk(status);
 
   status &= check_consistent_column_length(columns);
   StopIfNotOk(status);
