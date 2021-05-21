@@ -28,6 +28,7 @@ RUN \
     boost-devel \
     brotli-devel \
     bzip2-devel \
+    c-ares-devel \
     ccache \
     clang \
     cmake \

@@ -427,9 +427,12 @@ test_js() {
 test_ruby() {
   pushd ruby
 
-  local modules="red-arrow red-plasma red-parquet"
+  local modules="red-arrow red-arrow-dataset red-plasma red-parquet"
   if [ "${ARROW_CUDA}" = "ON" ]; then
     modules="${modules} red-arrow-cuda"
+  fi
+  if [ "${ARROW_FLIGHT}" = "ON" ]; then
+    modules="${modules} red-arrow-flight"
   fi
   if [ "${ARROW_GANDIVA}" = "ON" ]; then
     modules="${modules} red-gandiva"
