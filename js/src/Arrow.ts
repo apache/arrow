@@ -52,7 +52,6 @@ export {
 } from './type';
 
 export { Table } from './table';
-export { Column } from './column';
 export { Vector } from './vector';
 export { Visitor } from './visitor';
 export { Schema, Field } from './schema';
