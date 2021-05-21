@@ -58,7 +58,16 @@ nse_funcs$cast <- function(x, target_type, safe = TRUE, ...) {
 }
 
 nse_funcs$is <- function(object, class2) {
+  assert_that(is.string(class2) || inherits(class2, "DataType"))
   if (is.character(class2)) {
+    class2 <- switch(class2,
+      "utf8" = "string",
+      "float16" = "halffloat",
+      "float32" = "float",
+      "boolean" = "bool",
+      "float64" = "double",
+      class2
+    )
     object$type()$ToString() == class2
   } else {
     object$type() == as_type(class2)

@@ -526,6 +526,7 @@ test_that("is.finite(), is.infinite(), is.nan()", {
 })
 
 test_that("type checks with is()", {
+  # with class2=DataType
   expect_equal(
     Table$create(
         i32 = Array$create(1, int32()),
@@ -554,24 +555,65 @@ test_that("type checks with is()", {
     c(TRUE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, TRUE,
       FALSE, FALSE, FALSE, FALSE, TRUE)
   )
+  # with class2=string
   expect_equal(
     Table$create(
-      i32 = Array$create(1, int32()),
-      f64 = Array$create(1.1, float64()),
-      str = Array$create("a", arrow::string())
-    ) %>% transmute(
-      i32_is_i32 = is(i32, "int32"),
-      i32_is_i64 = is(i32, "double"),
-      i32_is_str = is(i32, "string"),
-      f64_is_i32 = is(f64, "int32"),
-      f64_is_i64 = is(f64, "double"),
-      f64_is_str = is(f64, "string"),
-      str_is_i32 = is(str, "int32"),
-      str_is_i64 = is(str, "double"),
-      str_is_str = is(str, "string")
-    ) %>%
+        i32 = Array$create(1, int32()),
+        f64 = Array$create(1.1, float64()),
+        str = Array$create("a", arrow::string())
+      ) %>% transmute(
+        i32_is_i32 = is(i32, "int32"),
+        i32_is_i64 = is(i32, "double"),
+        i32_is_str = is(i32, "string"),
+        f64_is_i32 = is(f64, "int32"),
+        f64_is_i64 = is(f64, "double"),
+        f64_is_str = is(f64, "string"),
+        str_is_i32 = is(str, "int32"),
+        str_is_i64 = is(str, "double"),
+        str_is_str = is(str, "string")
+      ) %>%
       collect() %>% t() %>% as.vector(),
     c(TRUE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, TRUE)
+  )
+  # with class2=string alias
+  expect_equal(
+    Table$create(
+        f16 = Array$create(NA_real_, halffloat()),
+        f32 = Array$create(1.1, float()),
+        f64 = Array$create(2.2, float64()),
+        lgl = Array$create(TRUE, bool()),
+        str = Array$create("a", arrow::string())
+      ) %>% transmute(
+        f16_is_f16 = is(f16, "float16"),
+        f16_is_f32 = is(f16, "float32"),
+        f16_is_f64 = is(f16, "float64"),
+        f16_is_lgl = is(f16, "boolean"),
+        f16_is_str = is(f16, "utf8"),
+        f32_is_f16 = is(f32, "float16"),
+        f32_is_f32 = is(f32, "float32"),
+        f32_is_f64 = is(f32, "float64"),
+        f32_is_lgl = is(f32, "boolean"),
+        f32_is_str = is(f32, "utf8"),
+        f64_is_f16 = is(f64, "float16"),
+        f64_is_f32 = is(f64, "float32"),
+        f64_is_f64 = is(f64, "float64"),
+        f64_is_lgl = is(f64, "boolean"),
+        f64_is_str = is(f64, "utf8"),
+        lgl_is_f16 = is(lgl, "float16"),
+        lgl_is_f32 = is(lgl, "float32"),
+        lgl_is_f64 = is(lgl, "float64"),
+        lgl_is_lgl = is(lgl, "boolean"),
+        lgl_is_str = is(lgl, "utf8"),
+        str_is_f16 = is(str, "float16"),
+        str_is_f32 = is(str, "float32"),
+        str_is_f64 = is(str, "float64"),
+        str_is_lgl = is(str, "boolean"),
+        str_is_str = is(str, "utf8")
+      ) %>%
+      collect() %>% t() %>% as.vector(),
+    c(TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE,
+      FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE,
+      FALSE, FALSE, TRUE)
   )
 })
 
