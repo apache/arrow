@@ -57,6 +57,9 @@ export { Vector } from './vector';
 export { Visitor } from './visitor';
 export { Schema, Field } from './schema';
 
+export { MapRow } from './row/map';
+export { StructRow } from './row/struct';
+
 export {
     Builder,
     BinaryBuilder,
