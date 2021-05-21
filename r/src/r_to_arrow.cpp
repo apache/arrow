@@ -56,9 +56,11 @@ class RTasks {
 
   explicit RTasks(bool use_threads)
       : use_threads_(use_threads),
-        parallel_tasks_(use_threads ? arrow::internal::TaskGroup::MakeThreaded(
-                                          arrow::internal::GetCpuThreadPool())
-                                    : nullptr) {}
+        stop_source_(),
+        parallel_tasks_(
+            use_threads ? arrow::internal::TaskGroup::MakeThreaded(
+                              arrow::internal::GetCpuThreadPool(), stop_source_.token())
+                        : nullptr) {}
 
   // This Finish() method must never be called from a thread pool thread
   // as this would deadlock.
@@ -73,7 +75,6 @@ class RTasks {
     // run the delayed tasks now
     for (auto& task : delayed_serial_tasks_) {
       status &= std::move(task)();
-      if (!status.ok()) break;
     }
 
     // then wait for the parallel tasks to finish
@@ -85,16 +86,42 @@ class RTasks {
   }
 
   void Append(bool parallel, Task&& task) {
+    StoppingTask stopping_task(stop_source_, std::move(task));
     if (parallel && use_threads_) {
-      parallel_tasks_->Append(std::move(task));
+      parallel_tasks_->Append(std::move(stopping_task));
     } else {
-      delayed_serial_tasks_.push_back(std::move(task));
+      delayed_serial_tasks_.push_back(std::move(stopping_task));
     }
   }
 
   bool use_threads_;
+  StopSource stop_source_;
   std::shared_ptr<arrow::internal::TaskGroup> parallel_tasks_;
   std::vector<Task> delayed_serial_tasks_;
+
+ private:
+  class StoppingTask {
+   public:
+    StoppingTask(StopSource stop_source, Task&& task) : task_(std::move(task)) {}
+
+    Status operator()() {
+      Status status;
+      StopToken token = stop_source_.token();
+      if (token.IsStopRequested()) {
+        status &= token.Poll();
+      } else {
+        Status status = std::move(task_)();
+        if (!status.ok()) {
+          stop_source_.RequestStop();
+        }
+      }
+      return status;
+    }
+
+   private:
+    StopSource stop_source_;
+    Task task_;
+  };
 };
 
 struct RConversionOptions {
