@@ -291,7 +291,6 @@ struct AsciiReverse : StringTransform<Type, AsciiReverse<Type>> {
   static Status InvalidStatus() { return Status::Invalid("Non-ASCII sequence in input"); }
 };
 
-
 template <typename Type>
 struct Utf8Reverse : StringTransform<Type, Utf8Reverse<Type>> {
   using Base = StringTransform<Type, Utf8Reverse<Type>>;
