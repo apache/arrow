@@ -75,6 +75,7 @@ can accelerate queries that only touch some partitions (files). Call
 \code{Dataset}, then use \code{dplyr} methods to query it.
 }
 \examples{
+\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 # Set up directory for examples
 tf <- tempfile()
 dir.create(tf)
@@ -98,6 +99,7 @@ write_csv_arrow(mtcars[11:20,], file.path(tf, "file2.csv"))
 \dontrun{open_dataset(c(file.path(tf, "file1.csv"), file.path(tf, "file2.csv")))}
 # This is the correct way to open a dataset containing CSVs
 open_dataset(c(file.path(tf, "file1.csv"), file.path(tf, "file2.csv")), format = "csv") 
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{vignette("dataset", package = "arrow")}
