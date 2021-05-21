@@ -49,11 +49,11 @@ Status promote_nulls(KernelContext* ctx, const ArrayData& cond, const ArrayData&
   }
 
   if (left.MayHaveNulls()) {
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> temp_buf, ctx->AllocateBitmap(len));
     // tmp_buf = left.val && cond.data
-    arrow::internal::BitmapAnd(left.buffers[0]->data(), left.offset,
-                               cond.buffers[1]->data(), cond.offset, len, 0,
-                               temp_buf->mutable_data());
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> temp_buf,
+                          arrow::internal::BitmapAnd(
+                              ctx->memory_pool(), left.buffers[0]->data(), left.offset,
+                              cond.buffers[1]->data(), cond.offset, len, 0));
     // out_validity = cond.data && left.val || ~cond.data && right.val
     arrow::internal::BitmapOr(out_validity->data(), 0, temp_buf->data(), 0, len, 0,
                               out_validity->mutable_data());
@@ -82,9 +82,7 @@ struct IfElseFunctor<Type, swap, enable_if_t<is_number_type<Type>::value>> {
     ARROW_RETURN_NOT_OK(promote_nulls(ctx, cond, left, right, out));
 
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
-                          arrow::internal::CopyBitmap(ctx->memory_pool(), )
-
-                              ctx->Allocate(cond.length * sizeof(T)));
+                          ctx->Allocate(cond.length * sizeof(T)));
     T* out_values = reinterpret_cast<T*>(out_buf->mutable_data());
 
     // copy right data to out_buff
@@ -139,39 +137,20 @@ struct IfElseFunctor<Type, swap, enable_if_t<is_boolean_type<Type>::value>> {
                      const ArrayData& right, ArrayData* out) {
     ARROW_RETURN_NOT_OK(promote_nulls(ctx, cond, left, right, out));
 
+    // out_buff = right & ~cond
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
-                          ctx->AllocateBitmap(cond.length));
-    uint8_t* out_values = out_buf->mutable_data();
+                          arrow::internal::BitmapAndNot(
+                              ctx->memory_pool(), right.buffers[1]->data(), right.offset,
+                              cond.buffers[1]->data(), cond.offset, cond.length, 0));
 
-    // copy right data to out_buff
-    const T* right_data = right.GetValues<T>(1);
-    std::memcpy(out_values, right_data, right.length * sizeof(T));
+    // out_buff = left & cond
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> temp_buf,
+                          arrow::internal::BitmapAnd(
+                              ctx->memory_pool(), left.buffers[1]->data(), left.offset,
+                              cond.buffers[1]->data(), cond.offset, cond.length, 0));
 
-    const auto* cond_data = cond.buffers[1]->data();  // this is a BoolArray
-    BitBlockCounter bit_counter(cond_data, cond.offset, cond.length);
-
-    // selectively copy values from left data
-    const T* left_data = left.GetValues<T>(1);
-    int64_t offset = cond.offset;
-
-    // todo this can be improved by intrinsics. ex: _mm*_mask_store_e* (vmovdqa*)
-    while (offset < cond.offset + cond.length) {
-      const BitBlockCount& block = bit_counter.NextWord();
-      if (block.AllSet()) {  // all from left
-        std::memcpy(out_values, left_data, block.length * sizeof(T));
-      } else if (block.popcount) {  // selectively copy from left
-        for (int64_t i = 0; i < block.length; ++i) {
-          if (BitUtil::GetBit(cond_data, offset + i)) {
-            out_values[i] = left_data[i];
-          }
-        }
-      }
-
-      offset += block.length;
-      out_values += block.length;
-      left_data += block.length;
-    }
-
+    arrow::internal::BitmapOr(out_buf->data(), 0, temp_buf->data(), 0, cond.length, 0,
+                              out_buf->mutable_data());
     out->buffers[1] = std::move(out_buf);
     return Status::OK();
   }
@@ -185,24 +164,6 @@ struct IfElseFunctor<Type, swap, enable_if_t<is_boolean_type<Type>::value>> {
   static Status Call(KernelContext* ctx, const Scalar& cond, const Scalar& left,
                      const Scalar& right, Scalar* out) {
     // todo impl
-    return Status::OK();
-  }
-};
-
-template <typename Type, bool swap>
-struct IfElseFunctor<Type, swap, enable_if_t<is_boolean_type<Type>::value>> {
-  static Status Call(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
-                     const ArrayData& right, ArrayData* out) {
-    return Status::OK();
-  }
-
-  static Status Call(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
-                     const Scalar& right, ArrayData* out) {
-    return Status::OK();
-  }
-
-  static Status Call(KernelContext* ctx, const Scalar& cond, const Scalar& left,
-                     const Scalar& right, Scalar* out) {
     return Status::OK();
   }
 };
@@ -310,6 +271,7 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
 
   AddPrimitiveKernels(func, NumericTypes());
   AddPrimitiveKernels(func, TemporalTypes());
+  AddPrimitiveKernels(func, {boolean()});
   // todo add temporal, boolean, null and binary kernels
 
   DCHECK_OK(registry->AddFunction(std::move(func)));
