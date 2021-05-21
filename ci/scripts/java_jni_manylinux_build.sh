@@ -43,10 +43,8 @@ echo "=== Building Arrow C++ libraries ==="
 : ${ARROW_BUILD_TESTS:=ON}
 : ${CMAKE_BUILD_TYPE:=Release}
 : ${CMAKE_UNITY_BUILD:=ON}
-: ${CMAKE_GENERATOR:=Ninja}
 : ${VCPKG_FEATURE_FLAGS:=-manifests}
 : ${VCPKG_TARGET_TRIPLET:=${VCPKG_DEFAULT_TRIPLET:-x64-linux-static-${CMAKE_BUILD_TYPE}}}
-: ${PYTHON_VERSION:=3.7}
 : ${GANDIVA_CXX_FLAGS:=-isystem;/opt/rh/devtoolset-9/root/usr/include/c++/9;-isystem;/opt/rh/devtoolset-9/root/usr/include/c++/9/x86_64-redhat-linux;-isystem;-lpthread}
 
 export ARROW_TEST_DATA="${arrow_dir}/testing/data"
@@ -88,6 +86,7 @@ cmake \
   -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
   -DCMAKE_INSTALL_LIBDIR=lib \
   -DCMAKE_INSTALL_PREFIX=${build_dir} \
+  -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD} \
   -DPARQUET_BUILD_EXAMPLES=OFF \
   -DPARQUET_BUILD_EXECUTABLES=OFF \
   -DPARQUET_REQUIRE_ENCRYPTION=OFF \
