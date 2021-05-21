@@ -172,6 +172,8 @@ template <typename Type, bool swap>
 struct IfElseFunctor<Type, swap, enable_if_t<is_null_type<Type>::value>> {
   static Status Call(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
                      const ArrayData& right, ArrayData* out) {
+    // Nothing preallocated, so we assign left into the output
+    *out = left;
     return Status::OK();
   }
 
@@ -248,6 +250,7 @@ void AddPrimitiveKernels(const std::shared_ptr<ScalarFunction>& scalar_function,
                          const std::vector<std::shared_ptr<DataType>>& types) {
   for (auto&& type : types) {
     auto exec = internal::GenerateTypeAgnosticPrimitive<ResolveExec>(*type);
+    // cond array needs to be boolean always
     ScalarKernel kernel({boolean(), type, type}, type, exec);
     kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
     kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
@@ -271,8 +274,8 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
 
   AddPrimitiveKernels(func, NumericTypes());
   AddPrimitiveKernels(func, TemporalTypes());
-  AddPrimitiveKernels(func, {boolean()});
-  // todo add temporal, boolean, null and binary kernels
+  AddPrimitiveKernels(func, {boolean(), null()});
+  // todo add binary kernels
 
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
