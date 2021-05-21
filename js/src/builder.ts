@@ -355,7 +355,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
      * Commit all the values that have been written to their underlying
      * ArrayBuffers, including any child Builders if applicable, and reset
      * the internal `Builder` state.
-     * @returns A `Data<T>` of the buffers and childData representing the values written.
+     * @returns A `Data<T>` of the buffers and children representing the values written.
      */
     public flush() {
 
