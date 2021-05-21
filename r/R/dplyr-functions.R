@@ -57,6 +57,10 @@ nse_funcs$cast <- function(x, target_type, safe = TRUE, ...) {
   Expression$create("cast", x, options = opts)
 }
 
+nse_funcs$is <- function(x, type) {
+  x$type() == as_type(type)
+}
+
 nse_funcs$dictionary_encode <- function(x,
                                         null_encoding_behavior = c("mask", "encode")) {
   behavior <- toupper(match.arg(null_encoding_behavior))
@@ -125,36 +129,49 @@ nse_funcs$as.numeric <- function(x) {
 nse_funcs$is.character <- function(x) {
   x$type_id() %in% Type[c("STRING", "LARGE_STRING")]
 }
-
 nse_funcs$is.numeric <- function(x) {
   x$type_id() %in% Type[c("UINT8", "INT8", "UINT16", "INT16", "UINT32", "INT32",
                           "UINT64", "INT64", "HALF_FLOAT", "FLOAT", "DOUBLE",
                           "DECIMAL", "DECIMAL256")]
 }
-
 nse_funcs$is.double <- function(x) {
   x$type_id() == Type["DOUBLE"]
 }
-
 nse_funcs$is.integer <- function(x) {
   x$type_id() %in% Type[c("UINT8", "INT8", "UINT16", "INT16", "UINT32", "INT32",
                           "UINT64", "INT64")]
 }
-
 nse_funcs$is.integer64 <- function(x) {
   x$type_id() == Type["INT64"]
 }
-
 nse_funcs$is.logical <- function(x) {
   x$type_id() == Type["BOOL"]
 }
-
 nse_funcs$is.factor <- function(x) {
   x$type_id() == Type["DICTIONARY"]
 }
-
 nse_funcs$is.list <- function(x) {
   x$type_id() %in% Type[c("LIST", "FIXED_SIZE_LIST", "LARGE_LIST")]
+}
+
+# rlang::is_* type functions
+nse_funcs$is_character <- function(x, n = NULL) {
+  nse_funcs$is.character(x) && (is.null(n) || length(x) == n)
+}
+nse_funcs$is_double <- function(x, n = NULL, finite = NULL) {
+  nse_funcs$is.double(x) &&
+    (is.null(n) || length(x) == n) &&
+    (is.null(finite) ||
+       (finite && as.vector(!any(is_in(x, c(NA_real_, Inf,-Inf, NaN))))))
+}
+nse_funcs$is_integer <- function(x, n = NULL) {
+  nse_funcs$is.integer(x) && (is.null(n) || length(x) == n)
+}
+nse_funcs$is_list <- function(x, n = NULL) {
+  nse_funcs$is.list(x) && (is.null(n) || length(x) == n)
+}
+nse_funcs$is_logical <- function(x, n = NULL) {
+  nse_funcs$is.logical(x) && (is.null(n) || length(x) == n)
 }
 
 # String functions
