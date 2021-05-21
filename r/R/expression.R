@@ -20,6 +20,7 @@
 .unary_function_map <- list(
   "!" = "invert",
   "as.factor" = "dictionary_encode",
+  "is.infinite" = "is_inf",
   "is.na" = "is_null",
   "is.nan" = "is_nan",
   # nchar is defined in dplyr.R because it is more complex

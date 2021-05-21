@@ -33,6 +33,12 @@ ArrowDatum <- R6Class("ArrowDatum", inherit = ArrowObject,
 length.ArrowDatum <- function(x) x$length()
 
 #' @export
+is.finite.ArrowDatum <- function(x) !call_function("is_inf", x)
+
+#' @export
+is.infinite.ArrowDatum <- function(x) call_function("is_inf", x)
+
+#' @export
 is.na.ArrowDatum <- function(x) call_function("is_null", x)
 
 #' @export
