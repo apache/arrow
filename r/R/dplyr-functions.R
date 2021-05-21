@@ -57,8 +57,8 @@ nse_funcs$cast <- function(x, target_type, safe = TRUE, ...) {
   Expression$create("cast", x, options = opts)
 }
 
-nse_funcs$is <- function(x, type) {
-  x$type() == as_type(type)
+nse_funcs$is <- function(object, class2) {
+  object$type() == as_type(class2)
 }
 
 nse_funcs$dictionary_encode <- function(x,
