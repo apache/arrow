@@ -694,6 +694,8 @@ def test_fragment_scan_options_pickling():
             convert_options=pa.csv.ConvertOptions(strings_can_be_null=True)),
         ds.CsvFragmentScanOptions(
             read_options=pa.csv.ReadOptions(block_size=2**16)),
+        ds.IpcFragmentScanOptions(),
+        ds.IpcFragmentScanOptions(pre_buffer=True),
         ds.ParquetFragmentScanOptions(buffer_size=4096),
         ds.ParquetFragmentScanOptions(pre_buffer=True),
     ]
@@ -2699,6 +2701,15 @@ def test_feather_format(tempdir, dataset_reader):
     assert result.column_names == ["b", "a"]
     result = dataset_reader.to_table(dataset, columns=["a", "a"])
     assert result.column_names == ["a", "a"]
+
+    dataset = ds.dataset(basedir, format="feather")
+    options = ds.IpcFragmentScanOptions(pre_buffer=True)
+    result = dataset.to_table(fragment_scan_options=options)
+    assert result.equals(table)
+
+    dataset = ds.dataset(basedir, format=ds.IpcFileFormat(pre_buffer=True))
+    result = dataset.to_table()
+    assert result.equals(table)
 
     # error with Feather v1 files
     write_feather(table, str(basedir / "data1.feather"), version=1)

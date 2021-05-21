@@ -1204,6 +1204,7 @@ cdef class FragmentScanOptions(_Weakrefable):
 
         classes = {
             'csv': CsvFragmentScanOptions,
+            'ipc': IpcFragmentScanOptions,
             'parquet': ParquetFragmentScanOptions,
         }
 
@@ -1722,8 +1723,29 @@ cdef class IpcFileWriteOptions(FileWriteOptions):
 
 cdef class IpcFileFormat(FileFormat):
 
-    def __init__(self):
+    def __init__(self, default_fragment_scan_options=None, **kwargs):
+        if default_fragment_scan_options and kwargs:
+            raise ValueError(f'If `default_fragment_scan_options` is given, '
+                             f'cannot specify {", ".join(sorted(kwargs))}')
+        if default_fragment_scan_options is None:
+            default_fragment_scan_options = IpcFragmentScanOptions(**kwargs)
+        elif isinstance(default_fragment_scan_options, dict):
+            default_fragment_scan_options = IpcFragmentScanOptions(
+                **default_fragment_scan_options)
+        elif not isinstance(default_fragment_scan_options,
+                            IpcFragmentScanOptions):
+            raise TypeError('`default_fragment_scan_options` must be either a '
+                            'dictionary or an instance of '
+                            'IpcFragmentScanOptions')
+
         self.init(shared_ptr[CFileFormat](new CIpcFileFormat()))
+        self.default_fragment_scan_options = default_fragment_scan_options
+
+    cdef _set_default_fragment_scan_options(self, FragmentScanOptions options):
+        if options.type_name == 'ipc':
+            self.format.default_fragment_scan_options = options.wrapped
+        else:
+            super()._set_default_fragment_scan_options(options)
 
     def equals(self, IpcFileFormat other):
         return True
@@ -1734,6 +1756,51 @@ cdef class IpcFileFormat(FileFormat):
 
     def __reduce__(self):
         return IpcFileFormat, tuple()
+
+
+cdef class IpcFragmentScanOptions(FragmentScanOptions):
+    """Scan-specific options for IPC/Feather fragments.
+
+    Parameters
+    ----------
+    pre_buffer : bool, default False
+        If enabled, pre-buffer the raw IPC data instead of issuing one
+        read per record batch. This can improve performance on high-latency
+        filesystems.
+    """
+
+    cdef:
+        CIpcFragmentScanOptions* parquet_options
+
+    # Avoid mistakingly creating attributes
+    __slots__ = ()
+
+    def __init__(self, bint pre_buffer=False):
+        self.init(shared_ptr[CFragmentScanOptions](
+            new CIpcFragmentScanOptions()))
+        self.pre_buffer = pre_buffer
+
+    cdef void init(self, const shared_ptr[CFragmentScanOptions]& sp):
+        FragmentScanOptions.init(self, sp)
+        self.parquet_options = <CIpcFragmentScanOptions*> sp.get()
+
+    @property
+    def pre_buffer(self):
+        return self.parquet_options.cache_options.get() != NULL
+
+    @pre_buffer.setter
+    def pre_buffer(self, bint pre_buffer):
+        if pre_buffer:
+            self.parquet_options.cache_options.reset(
+                new CCacheOptions(CCacheOptions.LazyDefaults()))
+        else:
+            self.parquet_options.cache_options.reset()
+
+    def equals(self, IpcFragmentScanOptions other):
+        return self.pre_buffer == other.pre_buffer
+
+    def __reduce__(self):
+        return IpcFragmentScanOptions, (self.pre_buffer,)
 
 
 cdef class CsvFileFormat(FileFormat):

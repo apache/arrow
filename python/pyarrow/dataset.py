@@ -37,6 +37,7 @@ from pyarrow._dataset import (  # noqa
     HivePartitioning,
     IpcFileFormat,
     IpcFileWriteOptions,
+    IpcFragmentScanOptions,
     InMemoryDataset,
     ParquetDatasetFactory,
     ParquetFactoryOptions,

@@ -1385,6 +1385,12 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         void set_memcopy_blocksize(int64_t blocksize)
         void set_memcopy_threshold(int64_t threshold)
 
+    cdef cppclass CCacheOptions" arrow::io::CacheOptions":
+        CCacheOptions(CCacheOptions)
+
+        @staticmethod
+        CCacheOptions LazyDefaults()
+
 
 cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
     enum MessageType" arrow::ipc::MessageType":
