@@ -55,47 +55,44 @@
 #' `NULL`) when using Hive-style partitioning. See [hive_partition()].
 #' @return The input `dataset`, invisibly
 #' @examples
-#' # We start by creating temporary directories.
-#' one_part_dir <- tempfile()
-#' two_part_dir <- tempfile()
-#' 
-#' # We can write datasets partitioned by the values in a column (here: "cyl").
+#' # You can write datasets partitioned by the values in a column (here: "cyl").
 #' # This creates a structure of the form cyl=X/part-Z.parquet.
-#' write_dataset(mtcars, one_part_dir, partitioning = "cyl")
+#' one_level_tree<- tempdir()
+#' write_dataset(mtcars, one_level_tree, partitioning = "cyl")
+#' list.files(one_level_tree, recursive = TRUE)
 #'
-#' # We can also partition by the values in multiple columns.
+#' # You can also partition by the values in multiple columns
+#' # (here: "cyl" and "gear").
 #' # This creates a structure of the form cyl=X/gear=Y/part-Z.parquet.
-#' write_dataset(mtcars, two_part_dir, partitioning = c("cyl", "gear"))
+#' two_levels_tree <- tempdir()
+#' write_dataset(mtcars, two_levels_tree, partitioning = c("cyl", "gear"))
+#' list.files(two_levels_tree, recursive = TRUE)
 #'
 #' # In the two previous examples we would have:
 #' # X = \{4,6,8\}, the number of cylinders.
 #' # Y = \{3,4,5\}, the number of forward gears.
 #' # Z = \{0,1,2\}, the number of saved parts, starting from 0.
-#' 
-#' # And we can check what we just saved.
-#' list.files(one_part_dir, recursive = TRUE)
-#' list.files(two_part_dir, recursive = TRUE)
 #'
-#' # We can do the same as the previous call with two variables combining both
-#' # arrow and dplyr, so the example is just a repetition with different steps.
-#' # We shall do it exactly as above and then with a slight change to the
-#' # output.
+#' # You can obtain the same result as as the previous examples by combining
+#' # both arrow and dplyr.
 #'
 #' if(requireNamespace("dplyr", quietly = TRUE)) {
 #'  d <- mtcars %>% group_by(cyl, gear)
 #'
 #'  # Write a structure cyl=X/gear=Y/part-Z.parquet.
-#'  two_part_dir_2 <- tempfile()
-#'  d %>% write_dataset(two_part_dir_2)
-#'  list.files(two_part_dir_2, recursive = TRUE)
+#'  two_levels_tree_2 <- tempfile()
+#'  d %>% write_dataset(two_levels_tree_2)
+#'  list.files(two_levels_tree_2, recursive = TRUE)
+#' }
 #'
-#'  # We can also turn off the Hive-style directory naming where the column name
-#'  # is included with the value for each directory with `hive_style = FALSE`.
+#' # And you can also turn off the Hive-style directory naming where the column
+#' # name is included with the values by using `hive_style = FALSE`.
 #'
+#' if(requireNamespace("dplyr", quietly = TRUE)) {
 #'  # Write a structure X/Y/part-Z.parquet.
-#'  two_part_dir_3 <- tempfile()
-#'  d %>% write_dataset(two_part_dir_3, hive_style = FALSE)
-#'  list.files(two_part_dir_3, recursive = TRUE)
+#'  two_levels_tree_3 <- tempfile()
+#'  d %>% write_dataset(two_levels_tree_3, hive_style = FALSE)
+#'  list.files(two_levels_tree_3, recursive = TRUE)
 #' }
 #' @export
 write_dataset <- function(dataset,
