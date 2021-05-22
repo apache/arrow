@@ -72,8 +72,6 @@ const closureTask = ((cache) => memoizeTask(cache, async function closure(target
                 /* external libs first */
                 `node_modules/flatbuffers/package.json`,
                 `node_modules/flatbuffers/js/flatbuffers.mjs`,
-                `node_modules/text-encoding-utf-8/package.json`,
-                `node_modules/text-encoding-utf-8/src/encoding.js`,
                 `${src}/**/*.js` /* <-- then source globs */
             ], { base: `./` }),
             sourcemaps.init(),

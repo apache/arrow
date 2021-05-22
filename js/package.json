@@ -55,13 +55,11 @@
   "dependencies": {
     "@types/flatbuffers": "^1.10.0",
     "@types/node": "^15.0.2",
-    "@types/text-encoding-utf-8": "^1.0.1",
     "command-line-args": "5.1.1",
     "command-line-usage": "6.1.1",
     "flatbuffers": "1.12.0",
     "json-bignum": "^0.0.3",
     "pad-left": "^2.1.0",
-    "text-encoding-utf-8": "^1.0.2",
     "tslib": "^2.2.0"
   },
   "devDependencies": {
