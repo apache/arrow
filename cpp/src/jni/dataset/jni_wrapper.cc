@@ -156,82 +156,6 @@ class DisposableScannerAdaptor {
   }
 };
 
-/// \brief Simple scan task implementation that is constructed directly
-/// from a record batch iterator (and its corresponding fragment).
-class SimpleIteratorTask : public arrow::dataset::ScanTask {
- public:
-  SimpleIteratorTask(std::shared_ptr<arrow::dataset::ScanOptions> options,
-                     std::shared_ptr<arrow::dataset::Fragment> fragment,
-                     arrow::RecordBatchIterator itr)
-      : ScanTask(options, fragment) {
-    this->itr_ = std::move(itr);
-  }
-
-  static arrow::Result<std::shared_ptr<SimpleIteratorTask>> Make(
-      arrow::RecordBatchIterator itr,
-      std::shared_ptr<arrow::dataset::ScanOptions> options,
-      std::shared_ptr<arrow::dataset::Fragment> fragment) {
-    return std::make_shared<SimpleIteratorTask>(options, fragment, std::move(itr));
-  }
-
-  arrow::Result<arrow::RecordBatchIterator> Execute() override {
-    if (used_) {
-      return arrow::Status::Invalid(
-          "SimpleIteratorFragment is disposable and"
-          "already scanned");
-    }
-    used_ = true;
-    return std::move(itr_);
-  }
-
- private:
-  arrow::RecordBatchIterator itr_;
-  bool used_ = false;
-};
-
-/// \brief Simple fragment implementation that is constructed directly
-/// from a record batch iterator.
-class SimpleIteratorFragment : public arrow::dataset::Fragment {
- public:
-  explicit SimpleIteratorFragment(arrow::RecordBatchIterator itr)
-      : arrow::dataset::Fragment() {
-    itr_ = std::move(itr);
-  }
-
-  static arrow::Result<std::shared_ptr<SimpleIteratorFragment>> Make(
-      arrow::RecordBatchIterator itr) {
-    return std::make_shared<SimpleIteratorFragment>(std::move(itr));
-  }
-
-  arrow::Result<arrow::RecordBatchGenerator> ScanBatchesAsync(
-      const std::shared_ptr<arrow::dataset::ScanOptions>& options) override {
-    return arrow::Status::NotImplemented("Aysnc scan not supported");
-  }
-
-  arrow::Result<arrow::dataset::ScanTaskIterator> Scan(
-      std::shared_ptr<arrow::dataset::ScanOptions> options) override {
-    if (used_) {
-      return arrow::Status::Invalid(
-          "SimpleIteratorFragment is disposable and"
-          "already scanned");
-    }
-    used_ = true;
-    ARROW_ASSIGN_OR_RAISE(
-        auto task, SimpleIteratorTask::Make(std::move(itr_), options, shared_from_this()))
-    return arrow::MakeVectorIterator<std::shared_ptr<arrow::dataset::ScanTask>>({task});
-  }
-
-  std::string type_name() const override { return "simple_iterator"; }
-
-  arrow::Result<std::shared_ptr<arrow::Schema>> ReadPhysicalSchemaImpl() override {
-    return arrow::Status::NotImplemented("No physical schema is readable");
-  }
-
- private:
-  arrow::RecordBatchIterator itr_;
-  bool used_ = false;
-};
-
 arrow::Result<std::shared_ptr<arrow::RecordBatch>> FromBytes(
     JNIEnv* env, std::shared_ptr<arrow::Schema> schema, jbyteArray bytes) {
   ARROW_ASSIGN_OR_RAISE(
@@ -266,14 +190,14 @@ arrow::Result<std::shared_ptr<arrow::dataset::Scanner>> MakeJavaDatasetScanner(
         return batch;
       });
 
-  ARROW_ASSIGN_OR_RAISE(auto fragment, SimpleIteratorFragment::Make(std::move(itr)))
-
-  arrow::dataset::ScannerBuilder scanner_builder(
-      std::move(schema), fragment, std::make_shared<arrow::dataset::ScanOptions>());
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::RecordBatchReader> reader,
+                        arrow::RecordBatchReader::Make(std::move(itr), schema))
+  std::shared_ptr<arrow::dataset::ScannerBuilder> scanner_builder =
+      arrow::dataset::ScannerBuilder::FromRecordBatchReader(reader);
   // Use default memory pool is enough as native allocation is ideally
   // not being called during scanning Java-based fragments.
-  RETURN_NOT_OK(scanner_builder.Pool(arrow::default_memory_pool()));
-  return scanner_builder.Finish();
+  RETURN_NOT_OK(scanner_builder->Pool(arrow::default_memory_pool()));
+  return scanner_builder->Finish();
 }
 
 }  // namespace

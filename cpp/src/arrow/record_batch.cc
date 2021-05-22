@@ -364,4 +364,9 @@ Result<std::shared_ptr<RecordBatchReader>> RecordBatchReader::Make(
   return std::make_shared<SimpleRecordBatchReader>(std::move(batches), schema);
 }
 
+Result<std::shared_ptr<RecordBatchReader>> RecordBatchReader::Make(
+    Iterator<std::shared_ptr<RecordBatch>> itr, std::shared_ptr<Schema> schema) {
+  return std::make_shared<SimpleRecordBatchReader>(std::move(itr), schema);
+}
+
 }  // namespace arrow
