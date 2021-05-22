@@ -334,6 +334,10 @@ if(ARROW_BUILD_BENCHMARKS
   set(ARROW_TESTING ON)
 endif()
 
+if(ARROW_DATASET_JNI)
+  set(ARROW_JSON ON)
+endif()
+
 if(ARROW_GANDIVA)
   set(ARROW_WITH_RE2 ON)
 endif()

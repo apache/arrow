@@ -472,6 +472,8 @@ if(ARROW_JSON)
        json/chunked_builder.cc
        json/chunker.cc
        json/converter.cc
+       json/array_parser.cc
+       json/array_writer.cc
        json/object_parser.cc
        json/object_writer.cc
        json/parser.cc

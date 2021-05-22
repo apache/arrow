@@ -30,23 +30,33 @@ namespace arrow {
 namespace dataset {
 namespace jni {
 
+Status CheckException(JNIEnv* env);
+
 jclass CreateGlobalClassReference(JNIEnv* env, const char* class_name);
 
-arrow::Result<jmethodID> GetMethodID(JNIEnv* env, jclass this_class, const char* name,
-                                     const char* sig);
+Result<jmethodID> GetMethodID(JNIEnv* env, jclass this_class, const char* name,
+                              const char* sig);
 
-arrow::Result<jmethodID> GetStaticMethodID(JNIEnv* env, jclass this_class,
-                                           const char* name, const char* sig);
+Result<jmethodID> GetStaticMethodID(JNIEnv* env, jclass this_class, const char* name,
+                                    const char* sig);
 
 std::string JStringToCString(JNIEnv* env, jstring string);
 
 std::vector<std::string> ToStringVector(JNIEnv* env, jobjectArray& str_array);
 
-arrow::Result<jbyteArray> ToSchemaByteArray(JNIEnv* env,
-                                            std::shared_ptr<arrow::Schema> schema);
+Result<jbyteArray> ToSchemaByteArray(JNIEnv* env, std::shared_ptr<Schema> schema);
 
-arrow::Result<std::shared_ptr<arrow::Schema>> FromSchemaByteArray(JNIEnv* env,
-                                                                  jbyteArray schemaBytes);
+Result<std::shared_ptr<Schema>> FromSchemaByteArray(JNIEnv* env, jbyteArray schema_bytes);
+
+/// \brief Serialize arrow::RecordBatch to jbyteArray (Java byte array byte[]). For
+/// letting Java code manage lifecycles of buffers in the input batch, shared pointer IDs
+/// pointing to the buffers are serialized into buffer metadata.
+Result<jbyteArray> SerializeUnsafeFromNative(JNIEnv* env,
+                                             const std::shared_ptr<RecordBatch>& batch);
+
+/// \brief Deserialize jbyteArray (Java byte array byte[]) to arrow::RecordBatch.
+Result<std::shared_ptr<RecordBatch>> DeserializeUnsafeFromJava(
+    JNIEnv* env, std::shared_ptr<Schema> schema, jbyteArray byte_array);
 
 /// \brief Create a new shared_ptr on heap from shared_ptr t to prevent
 /// the managed object from being garbage-collected.
@@ -86,8 +96,8 @@ class ReservationListener {
  public:
   virtual ~ReservationListener() = default;
 
-  virtual arrow::Status OnReservation(int64_t size) = 0;
-  virtual arrow::Status OnRelease(int64_t size) = 0;
+  virtual Status OnReservation(int64_t size) = 0;
+  virtual Status OnRelease(int64_t size) = 0;
 
  protected:
   ReservationListener() = default;
@@ -98,7 +108,7 @@ class ReservationListener {
 /// have to be subject to another "virtual" resource manager, which just tracks or
 /// limits number of bytes of application's overall memory usage. The underlying
 /// memory pool will still be responsible for actual malloc/free operations.
-class ReservationListenableMemoryPool : public arrow::MemoryPool {
+class ReservationListenableMemoryPool : public MemoryPool {
  public:
   /// \brief Constructor.
   ///
@@ -111,9 +121,9 @@ class ReservationListenableMemoryPool : public arrow::MemoryPool {
 
   ~ReservationListenableMemoryPool();
 
-  arrow::Status Allocate(int64_t size, uint8_t** out) override;
+  Status Allocate(int64_t size, uint8_t** out) override;
 
-  arrow::Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) override;
+  Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) override;
 
   void Free(uint8_t* buffer, int64_t size) override;
 

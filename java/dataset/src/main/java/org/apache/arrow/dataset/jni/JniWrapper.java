@@ -52,7 +52,7 @@ public class JniWrapper {
    * Create Dataset from a DatasetFactory and get the native pointer of the Dataset.
    *
    * @param datasetFactoryId the native pointer of the arrow::dataset::DatasetFactory instance.
-   * @param schema the predefined schema of the resulting Dataset.
+   * @param schema           the predefined schema of the resulting Dataset.
    * @return the native pointer of the arrow::dataset::Dataset instance.
    */
   public native long createDataset(long datasetFactoryId, byte[] schema);
@@ -66,9 +66,11 @@ public class JniWrapper {
 
   /**
    * Create Scanner from a Dataset and get the native pointer of the Dataset.
-   * @param datasetId the native pointer of the arrow::dataset::Dataset instance.
-   * @param columns desired column names. Columns not in this list will not be emitted when performing scan operation.
-   * @param batchSize batch size of scanned record batches.
+   *
+   * @param datasetId  the native pointer of the arrow::dataset::Dataset instance.
+   * @param columns    desired column names. Columns not in this list will not be emitted when performing scan
+   *                   operation.
+   * @param batchSize  batch size of scanned record batches.
    * @param memoryPool identifier of memory pool used in the native scanner.
    * @return the native pointer of the arrow::dataset::Scanner instance.
    */
@@ -85,21 +87,41 @@ public class JniWrapper {
 
   /**
    * Release the Scanner by destroying its reference held by JNI wrapper.
+   *
    * @param scannerId the native pointer of the arrow::dataset::Scanner instance.
    */
   public native void closeScanner(long scannerId);
 
   /**
    * Read next record batch from the specified scanner.
+   *
    * @param scannerId the native pointer of the arrow::dataset::Scanner instance.
-   * @return an instance of {@link NativeRecordBatchHandle} describing the overall layout of the native record batch.
+   * @return a flatbuffers-serialized
+   *     {@link org.apache.arrow.flatbuf.Message} describing
+   *     the overall layout of the native record batch.
    */
-  public native NativeRecordBatchHandle nextRecordBatch(long scannerId);
+  public native byte[] nextRecordBatch(long scannerId);
 
   /**
    * Release the Buffer by destroying its reference held by JNI wrapper.
+   *
    * @param bufferId the native pointer of the arrow::Buffer instance.
    */
   public native void releaseBuffer(long bufferId);
 
+  /**
+   * Visible for testing: Read input record batch that is serialized unsafely using
+   * {@link UnsafeRecordBatchSerializer}, then re-export it into bytes using C++
+   * serialization facility.
+   *
+   * Used only in round-trip testing for {@link UnsafeRecordBatchSerializer}.
+   *
+   * @param schema serialized record batch schema
+   * @param recordBatch serialized record batch buffer data
+   *
+   * @return output record batch data which was re-serialized from C++ code
+   *
+   * @see UnsafeRecordBatchSerializer
+   */
+  public native byte[] reexportUnsafeSerializedBatch(byte[] schema, byte[] recordBatch);
 }

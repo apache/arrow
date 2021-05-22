@@ -36,14 +36,8 @@ jclass illegal_access_exception_class;
 jclass illegal_argument_exception_class;
 jclass runtime_exception_class;
 
-jclass record_batch_handle_class;
-jclass record_batch_handle_field_class;
-jclass record_batch_handle_buffer_class;
 jclass java_reservation_listener_class;
 
-jmethodID record_batch_handle_constructor;
-jmethodID record_batch_handle_field_constructor;
-jmethodID record_batch_handle_buffer_constructor;
 jmethodID reserve_memory_method;
 jmethodID unreserve_memory_method;
 
@@ -99,11 +93,7 @@ class ReserveFromJava : public arrow::dataset::jni::ReservationListener {
       return arrow::Status::Invalid("JNIEnv was not attached to current thread");
     }
     env->CallObjectMethod(java_reservation_listener_, reserve_memory_method, size);
-    if (env->ExceptionCheck()) {
-      env->ExceptionDescribe();
-      env->ExceptionClear();
-      return arrow::Status::Invalid("Error calling Java side reservation listener");
-    }
+    RETURN_NOT_OK(arrow::dataset::jni::CheckException(env));
     return arrow::Status::OK();
   }
 
@@ -113,11 +103,7 @@ class ReserveFromJava : public arrow::dataset::jni::ReservationListener {
       return arrow::Status::Invalid("JNIEnv was not attached to current thread");
     }
     env->CallObjectMethod(java_reservation_listener_, unreserve_memory_method, size);
-    if (env->ExceptionCheck()) {
-      env->ExceptionDescribe();
-      env->ExceptionClear();
-      return arrow::Status::Invalid("Error calling Java side reservation listener");
-    }
+    RETURN_NOT_OK(arrow::dataset::jni::CheckException(env));
     return arrow::Status::OK();
   }
 
@@ -205,33 +191,10 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
   runtime_exception_class =
       CreateGlobalClassReference(env, "Ljava/lang/RuntimeException;");
 
-  record_batch_handle_class =
-      CreateGlobalClassReference(env,
-                                 "Lorg/apache/arrow/"
-                                 "dataset/jni/NativeRecordBatchHandle;");
-  record_batch_handle_field_class =
-      CreateGlobalClassReference(env,
-                                 "Lorg/apache/arrow/"
-                                 "dataset/jni/NativeRecordBatchHandle$Field;");
-  record_batch_handle_buffer_class =
-      CreateGlobalClassReference(env,
-                                 "Lorg/apache/arrow/"
-                                 "dataset/jni/NativeRecordBatchHandle$Buffer;");
   java_reservation_listener_class =
       CreateGlobalClassReference(env,
                                  "Lorg/apache/arrow/"
                                  "dataset/jni/ReservationListener;");
-
-  record_batch_handle_constructor =
-      JniGetOrThrow(GetMethodID(env, record_batch_handle_class, "<init>",
-                                "(J[Lorg/apache/arrow/dataset/"
-                                "jni/NativeRecordBatchHandle$Field;"
-                                "[Lorg/apache/arrow/dataset/"
-                                "jni/NativeRecordBatchHandle$Buffer;)V"));
-  record_batch_handle_field_constructor =
-      JniGetOrThrow(GetMethodID(env, record_batch_handle_field_class, "<init>", "(JJ)V"));
-  record_batch_handle_buffer_constructor = JniGetOrThrow(
-      GetMethodID(env, record_batch_handle_buffer_class, "<init>", "(JJJJ)V"));
   reserve_memory_method =
       JniGetOrThrow(GetMethodID(env, java_reservation_listener_class, "reserve", "(J)V"));
   unreserve_memory_method = JniGetOrThrow(
@@ -249,9 +212,6 @@ void JNI_OnUnload(JavaVM* vm, void* reserved) {
   env->DeleteGlobalRef(illegal_access_exception_class);
   env->DeleteGlobalRef(illegal_argument_exception_class);
   env->DeleteGlobalRef(runtime_exception_class);
-  env->DeleteGlobalRef(record_batch_handle_class);
-  env->DeleteGlobalRef(record_batch_handle_field_class);
-  env->DeleteGlobalRef(record_batch_handle_buffer_class);
   env->DeleteGlobalRef(java_reservation_listener_class);
 
   default_memory_pool_id = -1L;
@@ -458,9 +418,9 @@ Java_org_apache_arrow_dataset_jni_JniWrapper_getSchemaFromScanner(JNIEnv* env, j
 /*
  * Class:     org_apache_arrow_dataset_jni_JniWrapper
  * Method:    nextRecordBatch
- * Signature: (J)Lorg/apache/arrow/dataset/jni/NativeRecordBatchHandle;
+ * Signature: (J)[B
  */
-JNIEXPORT jobject JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_nextRecordBatch(
+JNIEXPORT jbyteArray JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_nextRecordBatch(
     JNIEnv* env, jobject, jlong scanner_id) {
   JNI_METHOD_START
   std::shared_ptr<DisposableScannerAdaptor> scanner_adaptor =
@@ -471,46 +431,7 @@ JNIEXPORT jobject JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_nextRecor
   if (record_batch == nullptr) {
     return nullptr;  // stream ended
   }
-  std::shared_ptr<arrow::Schema> schema = record_batch->schema();
-  jobjectArray field_array =
-      env->NewObjectArray(schema->num_fields(), record_batch_handle_field_class, nullptr);
-
-  std::vector<std::shared_ptr<arrow::Buffer>> buffers;
-  for (int i = 0; i < schema->num_fields(); ++i) {
-    auto column = record_batch->column(i);
-    auto dataArray = column->data();
-    jobject field = env->NewObject(record_batch_handle_field_class,
-                                   record_batch_handle_field_constructor,
-                                   column->length(), column->null_count());
-    env->SetObjectArrayElement(field_array, i, field);
-
-    for (auto& buffer : dataArray->buffers) {
-      buffers.push_back(buffer);
-    }
-  }
-
-  jobjectArray buffer_array =
-      env->NewObjectArray(buffers.size(), record_batch_handle_buffer_class, nullptr);
-
-  for (size_t j = 0; j < buffers.size(); ++j) {
-    auto buffer = buffers[j];
-    uint8_t* data = nullptr;
-    int64_t size = 0;
-    int64_t capacity = 0;
-    if (buffer != nullptr) {
-      data = (uint8_t*)buffer->data();
-      size = buffer->size();
-      capacity = buffer->capacity();
-    }
-    jobject buffer_handle = env->NewObject(record_batch_handle_buffer_class,
-                                           record_batch_handle_buffer_constructor,
-                                           CreateNativeRef(buffer), data, size, capacity);
-    env->SetObjectArrayElement(buffer_array, j, buffer_handle);
-  }
-
-  jobject ret = env->NewObject(record_batch_handle_class, record_batch_handle_constructor,
-                               record_batch->num_rows(), field_array, buffer_array);
-  return ret;
+  return JniGetOrThrow(arrow::dataset::jni::SerializeUnsafeFromNative(env, record_batch));
   JNI_METHOD_END(nullptr)
 }
 
@@ -524,6 +445,38 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_releaseBuffe
   JNI_METHOD_START
   ReleaseNativeRef<arrow::Buffer>(id);
   JNI_METHOD_END()
+}
+
+/*
+ * Class:     org_apache_arrow_dataset_file_JniWrapper
+ * Method:    newJniGlobalReference
+ * Signature: (Ljava/lang/Object;)J
+ */
+JNIEXPORT jlong JNICALL
+Java_org_apache_arrow_dataset_file_JniWrapper_newJniGlobalReference(JNIEnv* env, jobject,
+                                                                    jobject referent) {
+  JNI_METHOD_START
+  return reinterpret_cast<jlong>(env->NewGlobalRef(referent));
+  JNI_METHOD_END(-1L)
+}
+
+/*
+ * Class:     org_apache_arrow_dataset_file_JniWrapper
+ * Method:    newJniMethodReference
+ * Signature: (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)J
+ */
+JNIEXPORT jlong JNICALL
+Java_org_apache_arrow_dataset_file_JniWrapper_newJniMethodReference(JNIEnv* env, jobject,
+                                                                    jstring class_sig,
+                                                                    jstring method_name,
+                                                                    jstring method_sig) {
+  JNI_METHOD_START
+  jclass clazz = env->FindClass(JStringToCString(env, class_sig).data());
+  jmethodID jmethod_id =
+      env->GetMethodID(clazz, JStringToCString(env, method_name).data(),
+                       JStringToCString(env, method_sig).data());
+  return reinterpret_cast<jlong>(jmethod_id);
+  JNI_METHOD_END(-1L)
 }
 
 /*
@@ -543,4 +496,20 @@ Java_org_apache_arrow_dataset_file_JniWrapper_makeFileSystemDatasetFactory(
           JStringToCString(env, uri), file_format, options));
   return CreateNativeRef(d);
   JNI_METHOD_END(-1L)
+}
+
+/*
+ * Class:     org_apache_arrow_dataset_jni_JniWrapper
+ * Method:    reexportUnsafeSerializedBatch
+ * Signature: ([B[B)[B
+ */
+JNIEXPORT jbyteArray JNICALL
+Java_org_apache_arrow_dataset_jni_JniWrapper_reexportUnsafeSerializedBatch(
+    JNIEnv* env, jobject, jbyteArray schema_bytes, jbyteArray batch_bytes) {
+  JNI_METHOD_START
+  auto schema = JniGetOrThrow(FromSchemaByteArray(env, schema_bytes));
+  auto batch = JniGetOrThrow(
+      arrow::dataset::jni::DeserializeUnsafeFromJava(env, schema, batch_bytes));
+  return JniGetOrThrow(arrow::dataset::jni::SerializeUnsafeFromNative(env, batch));
+  JNI_METHOD_END(nullptr)
 }

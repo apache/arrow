@@ -18,23 +18,15 @@
 package org.apache.arrow.dataset.jni;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.stream.Collectors;
 
 import org.apache.arrow.dataset.scanner.ScanTask;
 import org.apache.arrow.dataset.scanner.Scanner;
-import org.apache.arrow.memory.ArrowBuf;
-import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.BufferLedger;
-import org.apache.arrow.memory.NativeUnderlyingMemory;
-import org.apache.arrow.memory.util.LargeMemoryUtil;
-import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.SchemaUtility;
@@ -81,39 +73,21 @@ public class NativeScanner implements Scanner {
         if (peek != null) {
           return true;
         }
-        final NativeRecordBatchHandle handle;
+        final byte[] bytes;
         readLock.lock();
         try {
           if (closed) {
             throw new NativeInstanceReleasedException();
           }
-          handle = JniWrapper.get().nextRecordBatch(scannerId);
+          bytes = JniWrapper.get().nextRecordBatch(scannerId);
         } finally {
           readLock.unlock();
         }
-        if (handle == null) {
+        if (bytes == null) {
           return false;
         }
-        final ArrayList<ArrowBuf> buffers = new ArrayList<>();
-        for (NativeRecordBatchHandle.Buffer buffer : handle.getBuffers()) {
-          final BufferAllocator allocator = context.getAllocator();
-          final int size = LargeMemoryUtil.checkedCastToInt(buffer.size);
-          final NativeUnderlyingMemory am = NativeUnderlyingMemory.create(allocator,
-              size, buffer.nativeInstanceId, buffer.memoryAddress);
-          BufferLedger ledger = am.associate(allocator);
-          ArrowBuf buf = new ArrowBuf(ledger, null, size, buffer.memoryAddress);
-          buffers.add(buf);
-        }
-
-        try {
-          final int numRows = LargeMemoryUtil.checkedCastToInt(handle.getNumRows());
-          peek = new ArrowRecordBatch(numRows, handle.getFields().stream()
-              .map(field -> new ArrowFieldNode(field.length, field.nullCount))
-              .collect(Collectors.toList()), buffers);
-          return true;
-        } finally {
-          buffers.forEach(buffer -> buffer.getReferenceManager().release());
-        }
+        peek = UnsafeRecordBatchSerializer.deserializeUnsafe(context.getAllocator(), bytes);
+        return true;
       }
 
       @Override

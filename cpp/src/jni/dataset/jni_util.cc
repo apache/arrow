@@ -17,17 +17,27 @@
 
 #include "jni/dataset/jni_util.h"
 
+#include "arrow/ipc/metadata_internal.h"
+#include "arrow/json/array_parser.h"
+#include "arrow/json/array_writer.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 
+#include <memory>
 #include <mutex>
 
+#include <flatbuffers/flatbuffers.h>
+
 namespace arrow {
+
+namespace flatbuf = org::apache::arrow::flatbuf;
+
 namespace dataset {
 namespace jni {
 
 class ReservationListenableMemoryPool::Impl {
  public:
-  explicit Impl(arrow::MemoryPool* pool, std::shared_ptr<ReservationListener> listener,
+  explicit Impl(MemoryPool* pool, std::shared_ptr<ReservationListener> listener,
                 int64_t block_size)
       : pool_(pool),
         listener_(listener),
@@ -35,17 +45,17 @@ class ReservationListenableMemoryPool::Impl {
         blocks_reserved_(0),
         bytes_reserved_(0) {}
 
-  arrow::Status Allocate(int64_t size, uint8_t** out) {
+  Status Allocate(int64_t size, uint8_t** out) {
     RETURN_NOT_OK(UpdateReservation(size));
-    arrow::Status error = pool_->Allocate(size, out);
+    Status error = pool_->Allocate(size, out);
     if (!error.ok()) {
       RETURN_NOT_OK(UpdateReservation(-size));
       return error;
     }
-    return arrow::Status::OK();
+    return Status::OK();
   }
 
-  arrow::Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) {
+  Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) {
     bool reserved = false;
     int64_t diff = new_size - old_size;
     if (new_size >= old_size) {
@@ -54,7 +64,7 @@ class ReservationListenableMemoryPool::Impl {
       RETURN_NOT_OK(UpdateReservation(diff));
       reserved = true;
     }
-    arrow::Status error = pool_->Reallocate(old_size, new_size, ptr);
+    Status error = pool_->Reallocate(old_size, new_size, ptr);
     if (!error.ok()) {
       if (reserved) {
         // roll back reservations on error
@@ -66,13 +76,13 @@ class ReservationListenableMemoryPool::Impl {
       // otherwise (e.g. new_size < old_size), make updates after calling underlying pool
       RETURN_NOT_OK(UpdateReservation(diff));
     }
-    return arrow::Status::OK();
+    return Status::OK();
   }
 
   void Free(uint8_t* buffer, int64_t size) {
     pool_->Free(buffer, size);
     // FIXME: See ARROW-11143, currently method ::Free doesn't allow Status return
-    arrow::Status s = UpdateReservation(-size);
+    Status s = UpdateReservation(-size);
     if (!s.ok()) {
       ARROW_LOG(FATAL) << "Failed to update reservation while freeing bytes: "
                        << s.message();
@@ -80,17 +90,17 @@ class ReservationListenableMemoryPool::Impl {
     }
   }
 
-  arrow::Status UpdateReservation(int64_t diff) {
+  Status UpdateReservation(int64_t diff) {
     int64_t granted = Reserve(diff);
     if (granted == 0) {
-      return arrow::Status::OK();
+      return Status::OK();
     }
     if (granted < 0) {
       RETURN_NOT_OK(listener_->OnRelease(-granted));
-      return arrow::Status::OK();
+      return Status::OK();
     }
     RETURN_NOT_OK(listener_->OnReservation(granted));
-    return arrow::Status::OK();
+    return Status::OK();
   }
 
   int64_t Reserve(int64_t diff) {
@@ -117,7 +127,7 @@ class ReservationListenableMemoryPool::Impl {
   std::shared_ptr<ReservationListener> get_listener() { return listener_; }
 
  private:
-  arrow::MemoryPool* pool_;
+  MemoryPool* pool_;
   std::shared_ptr<ReservationListener> listener_;
   int64_t block_size_;
   int64_t blocks_reserved_;
@@ -125,18 +135,40 @@ class ReservationListenableMemoryPool::Impl {
   std::mutex mutex_;
 };
 
+/// \brief Buffer implementation that binds to a
+/// Java buffer reference. Java buffer's release
+/// method will be called once when being destructed.
+class JavaAllocatedBuffer : public Buffer {
+ public:
+  JavaAllocatedBuffer(JNIEnv* env, jobject cleaner_ref, jmethodID cleaner_method_ref,
+                      uint8_t* buffer, int32_t len)
+      : Buffer(buffer, len),
+        env_(env),
+        cleaner_ref_(cleaner_ref),
+        cleaner_method_ref_(cleaner_method_ref) {}
+
+  ~JavaAllocatedBuffer() override {
+    env_->CallVoidMethod(cleaner_ref_, cleaner_method_ref_);
+    env_->DeleteGlobalRef(cleaner_ref_);
+  }
+
+ private:
+  JNIEnv* env_;
+  jobject cleaner_ref_;
+  jmethodID cleaner_method_ref_;
+};
+
 ReservationListenableMemoryPool::ReservationListenableMemoryPool(
     MemoryPool* pool, std::shared_ptr<ReservationListener> listener, int64_t block_size) {
   impl_.reset(new Impl(pool, listener, block_size));
 }
 
-arrow::Status ReservationListenableMemoryPool::Allocate(int64_t size, uint8_t** out) {
+Status ReservationListenableMemoryPool::Allocate(int64_t size, uint8_t** out) {
   return impl_->Allocate(size, out);
 }
 
-arrow::Status ReservationListenableMemoryPool::Reallocate(int64_t old_size,
-                                                          int64_t new_size,
-                                                          uint8_t** ptr) {
+Status ReservationListenableMemoryPool::Reallocate(int64_t old_size, int64_t new_size,
+                                                   uint8_t** ptr) {
   return impl_->Reallocate(old_size, new_size, ptr);
 }
 
@@ -162,6 +194,15 @@ std::shared_ptr<ReservationListener> ReservationListenableMemoryPool::get_listen
 
 ReservationListenableMemoryPool::~ReservationListenableMemoryPool() {}
 
+Status CheckException(JNIEnv* env) {
+  if (env->ExceptionCheck()) {
+    env->ExceptionDescribe();
+    env->ExceptionClear();
+    return Status::Invalid("Error during calling Java code from native code");
+  }
+  return Status::OK();
+}
+
 jclass CreateGlobalClassReference(JNIEnv* env, const char* class_name) {
   jclass local_class = env->FindClass(class_name);
   jclass global_class = (jclass)env->NewGlobalRef(local_class);
@@ -169,24 +210,24 @@ jclass CreateGlobalClassReference(JNIEnv* env, const char* class_name) {
   return global_class;
 }
 
-arrow::Result<jmethodID> GetMethodID(JNIEnv* env, jclass this_class, const char* name,
-                                     const char* sig) {
+Result<jmethodID> GetMethodID(JNIEnv* env, jclass this_class, const char* name,
+                              const char* sig) {
   jmethodID ret = env->GetMethodID(this_class, name, sig);
   if (ret == nullptr) {
     std::string error_message = "Unable to find method " + std::string(name) +
                                 " within signature" + std::string(sig);
-    return arrow::Status::Invalid(error_message);
+    return Status::Invalid(error_message);
   }
   return ret;
 }
 
-arrow::Result<jmethodID> GetStaticMethodID(JNIEnv* env, jclass this_class,
-                                           const char* name, const char* sig) {
+Result<jmethodID> GetStaticMethodID(JNIEnv* env, jclass this_class, const char* name,
+                                    const char* sig) {
   jmethodID ret = env->GetStaticMethodID(this_class, name, sig);
   if (ret == nullptr) {
     std::string error_message = "Unable to find static method " + std::string(name) +
                                 " within signature" + std::string(sig);
-    return arrow::Status::Invalid(error_message);
+    return Status::Invalid(error_message);
   }
   return ret;
 }
@@ -211,11 +252,9 @@ std::vector<std::string> ToStringVector(JNIEnv* env, jobjectArray& str_array) {
   return vector;
 }
 
-arrow::Result<jbyteArray> ToSchemaByteArray(JNIEnv* env,
-                                            std::shared_ptr<arrow::Schema> schema) {
-  ARROW_ASSIGN_OR_RAISE(
-      std::shared_ptr<arrow::Buffer> buffer,
-      arrow::ipc::SerializeSchema(*schema, arrow::default_memory_pool()))
+Result<jbyteArray> ToSchemaByteArray(JNIEnv* env, std::shared_ptr<Schema> schema) {
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> buffer,
+                        ipc::SerializeSchema(*schema, default_memory_pool()))
 
   jbyteArray out = env->NewByteArray(buffer->size());
   auto src = reinterpret_cast<const jbyte*>(buffer->data());
@@ -223,18 +262,186 @@ arrow::Result<jbyteArray> ToSchemaByteArray(JNIEnv* env,
   return out;
 }
 
-arrow::Result<std::shared_ptr<arrow::Schema>> FromSchemaByteArray(
-    JNIEnv* env, jbyteArray schemaBytes) {
-  arrow::ipc::DictionaryMemo in_memo;
-  int schemaBytes_len = env->GetArrayLength(schemaBytes);
-  jbyte* schemaBytes_data = env->GetByteArrayElements(schemaBytes, nullptr);
-  auto serialized_schema = std::make_shared<arrow::Buffer>(
+Result<std::shared_ptr<Schema>> FromSchemaByteArray(JNIEnv* env, jbyteArray schema_bytes) {
+  ipc::DictionaryMemo in_memo;
+  int schemaBytes_len = env->GetArrayLength(schema_bytes);
+  jbyte* schemaBytes_data = env->GetByteArrayElements(schema_bytes, nullptr);
+  auto serialized_schema = std::make_shared<Buffer>(
       reinterpret_cast<uint8_t*>(schemaBytes_data), schemaBytes_len);
-  arrow::io::BufferReader buf_reader(serialized_schema);
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Schema> schema,
-                        arrow::ipc::ReadSchema(&buf_reader, &in_memo))
-  env->ReleaseByteArrayElements(schemaBytes, schemaBytes_data, JNI_ABORT);
+  io::BufferReader buf_reader(serialized_schema);
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Schema> schema,
+                        ipc::ReadSchema(&buf_reader, &in_memo))
+  env->ReleaseByteArrayElements(schema_bytes, schemaBytes_data, JNI_ABORT);
   return schema;
+}
+
+Status SetMetadataForSingleField(std::shared_ptr<ArrayData> array_data,
+                                 std::vector<ipc::internal::FieldMetadata>& node_metas,
+                                 std::vector<ipc::internal::BufferMetadata>& buffer_metas,
+                                 arrow::json::internal::ArrayWriter& buffer_refs) {
+  node_metas.push_back({array_data->length, array_data->null_count, 0L});
+
+  for (size_t i = 0; i < array_data->buffers.size(); i++) {
+    auto buffer = array_data->buffers.at(i);
+    uint8_t* data = nullptr;
+    int64_t size = 0;
+    if (buffer != nullptr) {
+      data = (uint8_t*)buffer->data();
+      size = buffer->size();
+    }
+    ipc::internal::BufferMetadata buffer_metadata{};
+    buffer_metadata.offset = reinterpret_cast<int64_t>(data);
+    buffer_metadata.length = size;
+    buffer_metas.push_back(buffer_metadata);
+
+    // store buffer refs into custom metadata
+    jlong ref = CreateNativeRef(buffer);
+    buffer_refs.AppendInt64(ref);
+  }
+
+  auto children_data = array_data->child_data;
+  for (const auto& child_data : children_data) {
+    RETURN_NOT_OK(
+        SetMetadataForSingleField(child_data, node_metas, buffer_metas, buffer_refs));
+  }
+  return Status::OK();
+}
+
+Result<std::shared_ptr<Buffer>> SerializeMetadata(const RecordBatch& batch,
+                                                  const ipc::IpcWriteOptions& options) {
+  std::vector<ipc::internal::FieldMetadata> nodes;
+  std::vector<ipc::internal::BufferMetadata> buffers;
+  std::shared_ptr<KeyValueMetadata> custom_metadata =
+      std::make_shared<KeyValueMetadata>();
+  arrow::json::internal::ArrayWriter buffer_refs;
+  for (const auto& column : batch.columns()) {
+    auto array_data = column->data();
+    RETURN_NOT_OK(SetMetadataForSingleField(array_data, nodes, buffers, buffer_refs));
+  }
+  custom_metadata->Append("NATIVE_BUFFER_REFS", buffer_refs.Serialize());
+  std::shared_ptr<Buffer> meta_buffer;
+  RETURN_NOT_OK(ipc::internal::WriteRecordBatchMessage(
+      batch.num_rows(), 0L, custom_metadata, nodes, buffers, options, &meta_buffer));
+  // no message body is needed for JNI serialization/deserialization
+  int32_t message_length = -1;
+  ARROW_ASSIGN_OR_RAISE(auto stream, io::BufferOutputStream::Create(1024L));
+  RETURN_NOT_OK(ipc::WriteMessage(*meta_buffer, options, stream.get(), &message_length));
+  return stream->Finish();
+}
+
+Result<jbyteArray> SerializeUnsafeFromNative(JNIEnv* env,
+                                             const std::shared_ptr<RecordBatch>& batch) {
+  ARROW_ASSIGN_OR_RAISE(auto meta_buffer,
+                        SerializeMetadata(*batch, ipc::IpcWriteOptions::Defaults()));
+
+  jbyteArray ret = env->NewByteArray(meta_buffer->size());
+  auto src = reinterpret_cast<const jbyte*>(meta_buffer->data());
+  env->SetByteArrayRegion(ret, 0, meta_buffer->size(), src);
+  return ret;
+}
+
+Result<std::shared_ptr<ArrayData>> MakeArrayData(
+    JNIEnv* env, const flatbuf::RecordBatch& batch_meta,
+    const arrow::json::internal::ArrayParser& cleaner_object_refs,
+    const arrow::json::internal::ArrayParser& cleaner_method_refs,
+    const std::shared_ptr<DataType>& type, int32_t* field_offset,
+    int32_t* buffer_offset) {
+  const org::apache::arrow::flatbuf::FieldNode* field =
+      batch_meta.nodes()->Get((*field_offset)++);
+  int32_t own_buffer_size = static_cast<int32_t>(type->layout().buffers.size());
+  std::vector<std::shared_ptr<Buffer>> buffers;
+  for (int32_t i = *buffer_offset; i < *buffer_offset + own_buffer_size; i++) {
+    const org::apache::arrow::flatbuf::Buffer* java_managed_buffer =
+        batch_meta.buffers()->Get(i);
+    ARROW_ASSIGN_OR_RAISE(const int64_t& cleaner_object_ref_int64,
+                          cleaner_object_refs.GetInt64(i))
+    ARROW_ASSIGN_OR_RAISE(const int64_t& cleaner_method_ref_int64,
+                          cleaner_method_refs.GetInt64(i))
+    auto buffer = std::make_shared<JavaAllocatedBuffer>(
+        env, reinterpret_cast<jobject>(cleaner_object_ref_int64),
+        reinterpret_cast<jmethodID>(cleaner_method_ref_int64),
+        reinterpret_cast<uint8_t*>(java_managed_buffer->offset()),
+        java_managed_buffer->length());
+    buffers.push_back(buffer);
+  }
+  (*buffer_offset) += own_buffer_size;
+  if (type->num_fields() == 0) {
+    return ArrayData::Make(type, field->length(), buffers, field->null_count());
+  }
+  std::vector<std::shared_ptr<ArrayData>> children_array_data;
+  for (const auto& child_field : type->fields()) {
+    ARROW_ASSIGN_OR_RAISE(
+        auto child_array_data,
+        MakeArrayData(env, batch_meta, cleaner_object_refs, cleaner_method_refs,
+                      child_field->type(), field_offset, buffer_offset))
+    children_array_data.push_back(child_array_data);
+  }
+  return ArrayData::Make(type, field->length(), buffers, children_array_data,
+                         field->null_count());
+}
+
+Result<std::shared_ptr<RecordBatch>> DeserializeUnsafeFromJava(
+    JNIEnv* env, std::shared_ptr<Schema> schema, jbyteArray byte_array) {
+  int bytes_len = env->GetArrayLength(byte_array);
+  jbyte* byte_data = env->GetByteArrayElements(byte_array, nullptr);
+  io::BufferReader meta_reader(reinterpret_cast<const uint8_t*>(byte_data),
+                               static_cast<int64_t>(bytes_len));
+  ARROW_ASSIGN_OR_RAISE(auto meta_message, ipc::ReadMessage(&meta_reader))
+  auto meta_buffer = meta_message->metadata();
+  auto custom_metadata = meta_message->custom_metadata();
+  const flatbuf::Message* flat_meta = nullptr;
+  RETURN_NOT_OK(
+      ipc::internal::VerifyMessage(meta_buffer->data(), meta_buffer->size(), &flat_meta));
+  auto batch_meta = flat_meta->header_as_RecordBatch();
+
+  // Record batch serialized from java should have two ref IDs per buffer: cleaner object
+  // ref and cleaner method ref. The refs are originally of 64bit integer type and stored
+  // in json arrays
+  if (custom_metadata->size() != 2) {
+    return Status::SerializationError("RecordBatch metadata not found");
+  }
+
+  ARROW_ASSIGN_OR_RAISE(std::string cleaner_object_refs_string,
+                        custom_metadata->Get("JAVA_BUFFER_CO_REFS"))
+  ARROW_ASSIGN_OR_RAISE(std::string cleaner_method_refs_string,
+                        custom_metadata->Get("JAVA_BUFFER_CM_REFS"))
+  arrow::json::internal::ArrayParser cleaner_object_refs;
+  RETURN_NOT_OK(cleaner_object_refs.Parse(cleaner_object_refs_string));
+  arrow::json::internal::ArrayParser cleaner_method_refs;
+  RETURN_NOT_OK(cleaner_method_refs.Parse(cleaner_method_refs_string));
+
+  if (cleaner_object_refs.Length() !=
+          static_cast<int32_t>(batch_meta->buffers()->size()) ||
+      cleaner_method_refs.Length() !=
+          static_cast<int32_t>(batch_meta->buffers()->size())) {
+    return Status::SerializationError(
+        "Buffer count mismatch between metadata and Java managed refs");
+  }
+
+  std::vector<std::shared_ptr<ArrayData>> columns_array_data;
+  int32_t field_offset = 0;
+  int32_t buffer_offset = 0;
+  for (int32_t i = 0; i < schema->num_fields(); i++) {
+    auto field = schema->field(i);
+    ARROW_ASSIGN_OR_RAISE(
+        auto column_array_data,
+        MakeArrayData(env, *batch_meta, cleaner_object_refs, cleaner_method_refs,
+                      field->type(), &field_offset, &buffer_offset))
+    columns_array_data.push_back(column_array_data);
+  }
+  if (field_offset != static_cast<int32_t>(batch_meta->nodes()->size())) {
+    return Status::SerializationError(
+        "Deserialization failed: Field count is not "
+        "as expected based on type layout");
+  }
+  if (buffer_offset != static_cast<int32_t>(batch_meta->buffers()->size())) {
+    return Status::SerializationError(
+        "Deserialization failed: Buffer count is not "
+        "as expected based on type layout");
+  }
+  int64_t length = batch_meta->length();
+  env->ReleaseByteArrayElements(byte_array, byte_data, JNI_ABORT);
+  return RecordBatch::Make(schema, length, columns_array_data);
 }
 
 }  // namespace jni

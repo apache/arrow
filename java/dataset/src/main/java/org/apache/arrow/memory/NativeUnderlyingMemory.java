@@ -25,7 +25,7 @@ import org.apache.arrow.dataset.jni.JniWrapper;
 public class NativeUnderlyingMemory extends AllocationManager {
 
   private final int size;
-  private final long nativeInstanceId;
+  private final long nativeBufferId;
   private final long address;
 
   /**
@@ -33,12 +33,12 @@ public class NativeUnderlyingMemory extends AllocationManager {
    *
    * @param accountingAllocator The accounting allocator instance
    * @param size Size of underlying memory (in bytes)
-   * @param nativeInstanceId ID of the native instance
+   * @param nativeBufferId ID of the native instance
    */
-  NativeUnderlyingMemory(BufferAllocator accountingAllocator, int size, long nativeInstanceId, long address) {
+  NativeUnderlyingMemory(BufferAllocator accountingAllocator, int size, long nativeBufferId, long address) {
     super(accountingAllocator);
     this.size = size;
-    this.nativeInstanceId = nativeInstanceId;
+    this.nativeBufferId = nativeBufferId;
     this.address = address;
     // pre-allocate bytes on accounting allocator
     final AllocationListener listener = accountingAllocator.getListener();
@@ -55,9 +55,9 @@ public class NativeUnderlyingMemory extends AllocationManager {
   /**
    * Alias to constructor.
    */
-  public static NativeUnderlyingMemory create(BufferAllocator bufferAllocator, int size, long nativeInstanceId,
+  public static NativeUnderlyingMemory create(BufferAllocator bufferAllocator, int size, long nativeBufferId,
       long address) {
-    return new NativeUnderlyingMemory(bufferAllocator, size, nativeInstanceId, address);
+    return new NativeUnderlyingMemory(bufferAllocator, size, nativeBufferId, address);
   }
 
   public BufferLedger associate(BufferAllocator allocator) {
@@ -66,7 +66,7 @@ public class NativeUnderlyingMemory extends AllocationManager {
 
   @Override
   protected void release0() {
-    JniWrapper.get().releaseBuffer(nativeInstanceId);
+    JniWrapper.get().releaseBuffer(nativeBufferId);
   }
 
   @Override
