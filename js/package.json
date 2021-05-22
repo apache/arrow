@@ -11,7 +11,7 @@
     "build": "cross-env NODE_NO_WARNINGS=1 gulp build",
     "clean": "cross-env NODE_NO_WARNINGS=1 gulp clean",
     "debug": "cross-env NODE_NO_WARNINGS=1 gulp debug",
-    "perf": "node ./perf/index.js",
+    "perf": "ts-node-transpile-only ./perf/index.ts",
     "test:integration": "node ./bin/integration.js --mode validate",
     "create:perfdata": "python ./test/data/tables/generate.py ./test/data/tables/tracks.arrow",
     "release": "./npm-release.sh",
