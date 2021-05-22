@@ -54,7 +54,7 @@ abstract class Row<K extends PropertyKey = any, V = any> implements Map<K, V> {
 
     public get(key: K) {
         let val = undefined;
-        if (key !== null && key !== undefined) {
+        if (key != null) {
             const ktoi = this[kKeyToIdx] || (this[kKeyToIdx] = new Map());
             let idx = ktoi.get(key);
             if (idx !== undefined) {
@@ -70,7 +70,7 @@ abstract class Row<K extends PropertyKey = any, V = any> implements Map<K, V> {
     }
 
     public set(key: K, val: V) {
-        if (key !== null && key !== undefined) {
+        if (key != null) {
             const ktoi = this[kKeyToIdx] || (this[kKeyToIdx] = new Map());
             let idx = ktoi.get(key);
             if (idx === undefined) {
