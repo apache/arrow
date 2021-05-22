@@ -716,6 +716,7 @@
         <module>adapter/orc</module>
         <module>gandiva</module>
         <module>dataset</module>
+        <module>c</module>
       </modules>
     </profile>
 
