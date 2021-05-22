@@ -74,6 +74,9 @@ public class NativeScannerAdaptorImpl implements NativeScannerAdaptor, AutoClose
         return;
       }
       currentTask.close();
+      if (currentBatchIterator == null) {
+        return;
+      }
       currentBatchIterator.close();
     }
 

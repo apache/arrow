@@ -194,13 +194,24 @@ std::shared_ptr<ReservationListener> ReservationListenableMemoryPool::get_listen
 
 ReservationListenableMemoryPool::~ReservationListenableMemoryPool() {}
 
-Status CheckException(JNIEnv* env) {
-  if (env->ExceptionCheck()) {
-    env->ExceptionDescribe();
-    env->ExceptionClear();
-    return Status::Invalid("Error during calling Java code from native code");
-  }
-  return Status::OK();
+class JNIErrorDetail : public StatusDetail {
+ public:
+  explicit JNIErrorDetail(jthrowable t, std::string message)
+      : t_(t), message_(std::move(message)) {}
+
+  const char* type_id() const override { return "arrow::dataset::jni::JNIErrorDetail"; }
+
+  std::string ToString() const override { return message_; }
+  jthrowable cause() const { return t_; }
+
+ protected:
+  jthrowable t_;
+  std::string message_;
+};
+
+std::shared_ptr<StatusDetail> MakeJNIErrorDetail(jthrowable t,
+                                                 const std::string& message) {
+  return std::make_shared<JNIErrorDetail>(t, message);
 }
 
 jclass CreateGlobalClassReference(JNIEnv* env, const char* class_name) {

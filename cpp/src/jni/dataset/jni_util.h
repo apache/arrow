@@ -30,8 +30,6 @@ namespace arrow {
 namespace dataset {
 namespace jni {
 
-Status CheckException(JNIEnv* env);
-
 jclass CreateGlobalClassReference(JNIEnv* env, const char* class_name);
 
 Result<jmethodID> GetMethodID(JNIEnv* env, jclass this_class, const char* name,
@@ -47,6 +45,15 @@ std::vector<std::string> ToStringVector(JNIEnv* env, jobjectArray& str_array);
 Result<jbyteArray> ToSchemaByteArray(JNIEnv* env, std::shared_ptr<Schema> schema);
 
 Result<std::shared_ptr<Schema>> FromSchemaByteArray(JNIEnv* env, jbyteArray schema_bytes);
+
+std::shared_ptr<StatusDetail> MakeJNIErrorDetail(jthrowable t,
+                                                 const std::string& message);
+
+template <typename... Args>
+Status JNIError(jthrowable t, const std::string& describe) {
+  return Status::FromDetailAndArgs(StatusCode::Invalid, MakeJNIErrorDetail(t, describe),
+                                   describe);
+}
 
 /// \brief Serialize arrow::RecordBatch to jbyteArray (Java byte array byte[]). For
 /// letting Java code manage lifecycles of buffers in the input batch, shared pointer IDs

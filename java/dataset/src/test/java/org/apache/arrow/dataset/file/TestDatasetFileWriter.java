@@ -22,6 +22,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.channels.Channels;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -32,12 +33,14 @@ import org.apache.arrow.dataset.ParquetWriteSupport;
 import org.apache.arrow.dataset.TestDataset;
 import org.apache.arrow.dataset.jni.NativeMemoryPool;
 import org.apache.arrow.dataset.scanner.ScanOptions;
+import org.apache.arrow.dataset.scanner.ScanTask;
 import org.apache.arrow.dataset.scanner.Scanner;
 import org.apache.arrow.dataset.source.Dataset;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.ipc.WriteChannel;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
+import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.commons.io.FileUtils;
 import org.junit.Assert;
 import org.junit.ClassRule;
@@ -97,6 +100,38 @@ public class TestDatasetFileWriter extends TestDataset {
     } finally {
       AutoCloseables.close(factory, scanner, dataset);
     }
+  }
+
+  @Test(expected = java.lang.RuntimeException.class)
+  public void testScanErrorHandling() throws Exception {
+    DatasetFileWriter.write(new Scanner() {
+      @Override
+      public Iterable<? extends ScanTask> scan() {
+        return Collections.singletonList(new ScanTask() {
+          @Override
+          public BatchIterator execute() {
+            // this error is supposed to be firstly investigated in native code, then thrown back to Java.
+            throw new RuntimeException("ERROR");
+          }
+
+          @Override
+          public void close() throws Exception {
+            // do nothing
+          }
+        });
+      }
+
+      @Override
+      public Schema schema() {
+        return new Schema(Collections.emptyList());
+      }
+
+      @Override
+      public void close() throws Exception {
+        // do nothing
+      }
+
+    }, FileFormat.PARQUET, "file:/DUMMY/");
   }
 
   private void assertParquetFileEquals(String expectedURI, String actualURI) throws Exception {

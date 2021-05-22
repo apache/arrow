@@ -36,6 +36,7 @@ namespace {
 jclass illegal_access_exception_class;
 jclass illegal_argument_exception_class;
 jclass runtime_exception_class;
+jclass throwable_class;
 
 jclass serialized_record_batch_iterator_class;
 jclass java_reservation_listener_class;
@@ -44,6 +45,8 @@ jmethodID serialized_record_batch_iterator_hasNext;
 jmethodID serialized_record_batch_iterator_next;
 jmethodID reserve_memory_method;
 jmethodID unreserve_memory_method;
+jmethodID throwable_getMessage;
+jmethodID throwable_toString;
 
 jlong default_memory_pool_id = -1L;
 
@@ -74,6 +77,17 @@ void JniAssertOkOrThrow(arrow::Status status) {
 
 void JniThrow(std::string message) { ThrowPendingException(message); }
 
+arrow::Status CheckException(JNIEnv* env) {
+  if (env->ExceptionCheck()) {
+    jthrowable t = env->ExceptionOccurred();
+    env->ExceptionClear();
+    auto jdescribe = (jstring)env->CallObjectMethod(t, throwable_toString);
+    std::string describe = arrow::dataset::jni::JStringToCString(env, jdescribe);
+    return arrow::dataset::jni::JNIError(t, describe);
+  }
+  return arrow::Status::OK();
+}
+
 arrow::Result<std::shared_ptr<arrow::dataset::FileFormat>> GetFileFormat(
     jint file_format_id) {
   switch (file_format_id) {
@@ -97,7 +111,7 @@ class ReserveFromJava : public arrow::dataset::jni::ReservationListener {
       return arrow::Status::Invalid("JNIEnv was not attached to current thread");
     }
     env->CallObjectMethod(java_reservation_listener_, reserve_memory_method, size);
-    RETURN_NOT_OK(arrow::dataset::jni::CheckException(env));
+    RETURN_NOT_OK(CheckException(env));
     return arrow::Status::OK();
   }
 
@@ -107,7 +121,7 @@ class ReserveFromJava : public arrow::dataset::jni::ReservationListener {
       return arrow::Status::Invalid("JNIEnv was not attached to current thread");
     }
     env->CallObjectMethod(java_reservation_listener_, unreserve_memory_method, size);
-    RETURN_NOT_OK(arrow::dataset::jni::CheckException(env));
+    RETURN_NOT_OK(CheckException(env));
     return arrow::Status::OK();
   }
 
@@ -185,7 +199,7 @@ arrow::Result<std::shared_ptr<arrow::dataset::Scanner>> MakeJavaDatasetScanner(
         }
         auto bytes = (jbyteArray)env->CallObjectMethod(
             java_serialized_record_batch_iterator, serialized_record_batch_iterator_next);
-        RETURN_NOT_OK(arrow::dataset::jni::CheckException(env));
+        RETURN_NOT_OK(CheckException(env));
         ARROW_ASSIGN_OR_RAISE(auto batch, FromBytes(env, schema, bytes));
         return batch;
       });
@@ -238,6 +252,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
       CreateGlobalClassReference(env, "Ljava/lang/IllegalArgumentException;");
   runtime_exception_class =
       CreateGlobalClassReference(env, "Ljava/lang/RuntimeException;");
+  throwable_class = CreateGlobalClassReference(env, "Ljava/lang/Throwable;");
 
   serialized_record_batch_iterator_class =
       CreateGlobalClassReference(env,
@@ -256,6 +271,10 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
       JniGetOrThrow(GetMethodID(env, java_reservation_listener_class, "reserve", "(J)V"));
   unreserve_memory_method = JniGetOrThrow(
       GetMethodID(env, java_reservation_listener_class, "unreserve", "(J)V"));
+  throwable_getMessage = JniGetOrThrow(
+      GetMethodID(env, throwable_class, "getMessage", "()Ljava/lang/String;"));
+  throwable_toString = JniGetOrThrow(
+      GetMethodID(env, throwable_class, "toString", "()Ljava/lang/String;"));
 
   default_memory_pool_id = reinterpret_cast<jlong>(arrow::default_memory_pool());
 
@@ -269,6 +288,7 @@ void JNI_OnUnload(JavaVM* vm, void* reserved) {
   env->DeleteGlobalRef(illegal_access_exception_class);
   env->DeleteGlobalRef(illegal_argument_exception_class);
   env->DeleteGlobalRef(runtime_exception_class);
+  env->DeleteGlobalRef(throwable_class);
   env->DeleteGlobalRef(serialized_record_batch_iterator_class);
   env->DeleteGlobalRef(java_reservation_listener_class);
 
