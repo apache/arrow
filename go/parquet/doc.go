@@ -29,8 +29,8 @@
 //   go get -u github.com/apache/arrow/go/parquet
 //
 // In addition, two cli utilities are provided:
-// 	go install github.factset.com/mtopol/parquet-go/cmd/parquet_reader
-// 	go install github.factset.com/mtopol/parquet-go/cmd/parquet_schema
+// 	go install github.com/apache/arrow/go/parquet/cmd/parquet_reader
+// 	go install github.com/apache/arrow/go/parquet/cmd/parquet_schema
 //
 // Modules
 //

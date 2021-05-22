@@ -1,0 +1,18 @@
+[
+  {
+    "Name": "Int32",
+    "name": "int32"
+  },
+  {
+    "Name": "Int64",
+    "name": "int64"
+  },
+  {
+    "Name": "Float32",
+    "name": "float32"
+  },
+  {
+    "Name": "Float64",
+    "name": "float64"
+  }
+]
