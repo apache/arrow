@@ -203,9 +203,8 @@ If you think we missed a compilation target and it's a blocker for adoption, ple
 ### Supported Browsers and Platforms
 
 The bundles we compile support moderns browser released in the last 5 years. This includes supported versions of
-Firefox, Chrome, Edge, and Safari. We also support maintained versions of Node.
-We do not actively support Internet Explorer.
-Apache Arrow also works on [supported versions of Node](https://nodejs.org/en/about/releases/).
+Firefox, Chrome, Edge, and Safari. We do not actively support Internet Explorer.
+Apache Arrow also works on [maintained versions of Node](https://nodejs.org/en/about/releases/).
 
 # People
 
