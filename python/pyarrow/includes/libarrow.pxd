@@ -1883,6 +1883,10 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CModeOptions(int64_t n)
         int64_t n
 
+    cdef cppclass CIndexOptions \
+            "arrow::compute::IndexOptions"(CFunctionOptions):
+        CIndexOptions(shared_ptr[CScalar] value)
+
     cdef cppclass CPartitionNthOptions \
             "arrow::compute::PartitionNthOptions"(CFunctionOptions):
         CPartitionNthOptions(int64_t pivot)

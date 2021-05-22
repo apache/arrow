@@ -126,6 +126,13 @@ struct ARROW_EXPORT TDigestOptions : public FunctionOptions {
   uint32_t buffer_size;
 };
 
+/// \brief Control Index kernel behavior
+struct ARROW_EXPORT IndexOptions : public FunctionOptions {
+  explicit IndexOptions(std::shared_ptr<Scalar> value) : value{std::move(value)} {}
+
+  std::shared_ptr<Scalar> value;
+};
+
 /// @}
 
 /// \brief Count non-null (or null) values in an array.
@@ -292,6 +299,18 @@ ARROW_EXPORT
 Result<Datum> TDigest(const Datum& value,
                       const TDigestOptions& options = TDigestOptions::Defaults(),
                       ExecContext* ctx = NULLPTR);
+
+/// \brief Find the first index of a value in an array.
+///
+/// \param[in] value The array to search.
+/// \param[in] options The array to search for. See IndexOoptions.
+/// \param[in] ctx the function execution context, optional
+/// \return out a Scalar containing the index (or -1 if not found).
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Index(const Datum& value, IndexOptions options, ExecContext* ctx = NULLPTR);
 
 namespace internal {
 

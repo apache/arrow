@@ -225,6 +225,131 @@ Result<std::unique_ptr<KernelState>> AllInit(KernelContext*, const KernelInitArg
   return ::arrow::internal::make_unique<BooleanAllImpl>();
 }
 
+// ----------------------------------------------------------------------
+// Index implementation
+
+template <typename ArgType>
+struct IndexImpl : public ScalarAggregator {
+  using ArgValue = typename internal::GetViewType<ArgType>::T;
+
+  explicit IndexImpl(IndexOptions options, KernelState* raw_state)
+      : options(std::move(options)), seen(0), index(-1) {
+    if (auto state = static_cast<IndexImpl<ArgType>*>(raw_state)) {
+      seen = state->seen;
+      index = state->index;
+    }
+  }
+
+  Status Consume(KernelContext* ctx, const ExecBatch& batch) override {
+    // short-circuit
+    if (index >= 0 || !options.value->is_valid) {
+      return Status::OK();
+    }
+
+    auto input = batch[0].array();
+    seen = input->length;
+    const ArgValue desired = internal::UnboxScalar<ArgType>::Unbox(*options.value);
+    int64_t i = 0;
+
+    ARROW_UNUSED(internal::VisitArrayValuesInline<ArgType>(
+        *input,
+        [&](ArgValue v) -> Status {
+          if (v == desired) {
+            index = i;
+            return Status::Cancelled("Found");
+          } else {
+            ++i;
+            return Status::OK();
+          }
+        },
+        [&]() -> Status {
+          ++i;
+          return Status::OK();
+        }));
+
+    return Status::OK();
+  }
+
+  Status MergeFrom(KernelContext*, KernelState&& src) override {
+    const auto& other = checked_cast<const IndexImpl&>(src);
+    if (index < 0 && other.index >= 0) {
+      index = seen + other.index;
+    }
+    seen += other.seen;
+    return Status::OK();
+  }
+
+  Status Finalize(KernelContext*, Datum* out) override {
+    out->value = std::make_shared<Int64Scalar>(index >= 0 ? index : -1);
+    return Status::OK();
+  }
+
+  const IndexOptions options;
+  int64_t seen = 0;
+  int64_t index = -1;
+};
+
+struct IndexInit {
+  std::unique_ptr<KernelState> state;
+  KernelContext* ctx;
+  const IndexOptions& options;
+  const DataType& type;
+
+  IndexInit(KernelContext* ctx, const IndexOptions& options, const DataType& type)
+      : ctx(ctx), options(options), type(type) {}
+
+  Status Visit(const DataType& type) {
+    return Status::NotImplemented("Index kernel not implemented for ", type.ToString());
+  }
+
+  Status Visit(const BooleanType&) {
+    state.reset(new IndexImpl<BooleanType>(options, ctx->state()));
+    return Status::OK();
+  }
+
+  template <typename Type>
+  enable_if_number<Type, Status> Visit(const Type&) {
+    state.reset(new IndexImpl<Type>(options, ctx->state()));
+    return Status::OK();
+  }
+
+  template <typename Type>
+  enable_if_base_binary<Type, Status> Visit(const Type&) {
+    state.reset(new IndexImpl<Type>(options, ctx->state()));
+    return Status::OK();
+  }
+
+  template <typename Type>
+  enable_if_date<Type, Status> Visit(const Type&) {
+    state.reset(new IndexImpl<Type>(options, ctx->state()));
+    return Status::OK();
+  }
+
+  template <typename Type>
+  enable_if_time<Type, Status> Visit(const Type&) {
+    state.reset(new IndexImpl<Type>(options, ctx->state()));
+    return Status::OK();
+  }
+
+  template <typename Type>
+  enable_if_timestamp<Type, Status> Visit(const Type&) {
+    state.reset(new IndexImpl<Type>(options, ctx->state()));
+    return Status::OK();
+  }
+
+  Result<std::unique_ptr<KernelState>> Create() {
+    RETURN_NOT_OK(VisitTypeInline(type, this));
+    return std::move(state);
+  }
+
+  static Result<std::unique_ptr<KernelState>> Init(KernelContext* ctx,
+                                                   const KernelInitArgs& args) {
+    IndexInit visitor(ctx, static_cast<const IndexOptions&>(*args.options),
+                      *args.inputs[0].type);
+    return visitor.Create();
+  }
+};
+
 void AddBasicAggKernels(KernelInit init,
                         const std::vector<std::shared_ptr<DataType>>& types,
                         std::shared_ptr<DataType> out_ty, ScalarAggregateFunction* func,
@@ -289,6 +414,12 @@ const FunctionDoc any_doc{"Test whether any element in a boolean array evaluates
 const FunctionDoc all_doc{"Test whether all elements in a boolean array evaluate to true",
                           ("Null values are ignored."),
                           {"array"}};
+
+const FunctionDoc index_doc{"Find the index of the first occurrence of a given value",
+                            ("The result is always computed as an int64_t, regardless\n"
+                             "of the offset type of the input array."),
+                            {"array"},
+                            "IndexOptions"};
 
 }  // namespace
 
@@ -373,6 +504,16 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   // all
   func = std::make_shared<ScalarAggregateFunction>("all", Arity::Unary(), &all_doc);
   aggregate::AddBasicAggKernels(aggregate::AllInit, {boolean()}, boolean(), func.get());
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+
+  // index
+  func = std::make_shared<ScalarAggregateFunction>("index", Arity::Unary(), &index_doc);
+  aggregate::AddBasicAggKernels(aggregate::IndexInit::Init, BaseBinaryTypes(), int64(),
+                                func.get());
+  aggregate::AddBasicAggKernels(aggregate::IndexInit::Init, PrimitiveTypes(), int64(),
+                                func.get());
+  aggregate::AddBasicAggKernels(aggregate::IndexInit::Init, TemporalTypes(), int64(),
+                                func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
