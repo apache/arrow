@@ -280,6 +280,28 @@ def test_variance():
     assert pc.variance(data, ddof=1).as_py() == 6.0
 
 
+def test_find_substring():
+    arr = pa.array(["ab", "cab", "ba", None])
+    result = pc.find_substring(arr, "ab")
+    expected = pa.array([0, 1, -1, None], type=pa.int32())
+    assert expected.equals(result)
+
+    arr = pa.array(["ab", "cab", "ba", None], type=pa.large_string())
+    result = pc.find_substring(arr, "ab")
+    expected = pa.array([0, 1, -1, None], type=pa.int64())
+    assert expected.equals(result)
+
+    arr = pa.array([b"ab", b"cab", b"ba", None])
+    result = pc.find_substring(arr, b"ab")
+    expected = pa.array([0, 1, -1, None], type=pa.int32())
+    assert expected.equals(result)
+
+    arr = pa.array([b"ab", b"cab", b"ba", None], type=pa.large_binary())
+    result = pc.find_substring(arr, b"ab")
+    expected = pa.array([0, 1, -1, None], type=pa.int64())
+    assert expected.equals(result)
+
+
 def test_match_like():
     arr = pa.array(["ab", "ba%", "ba", "ca%d", None])
     result = pc.match_like(arr, r"_a\%%")

@@ -462,7 +462,7 @@ String transforms
 * \(1) Each ASCII character in the input is converted to lowercase or
   uppercase.  Non-ASCII characters are left untouched.
 
-* \(2) ASCII input is reversed to the output. If non-ASCII characters 
+* \(2) ASCII input is reversed to the output. If non-ASCII characters
   are present, ``Invalid`` :class:`Status` will be returned.
 
 * \(3) Output is the physical length in bytes of each input element.  Output
@@ -482,7 +482,7 @@ String transforms
   pattern contains groups, backreferencing can be used.
 
 * \(6) Output is the number of characters (not bytes) of each input element.
-  Output type is Int32 for String, Int64 for LargeString. 
+  Output type is Int32 for String, Int64 for LargeString.
 
 * \(7) Each UTF8-encoded character in the input is converted to lowercase or
   uppercase.
@@ -541,40 +541,48 @@ These functions trim off characters on both sides (trim), or the left (ltrim) or
 Containment tests
 ~~~~~~~~~~~~~~~~~
 
-+---------------------------+------------+------------------------------------+---------------+----------------------------------------+
-| Function name             | Arity      | Input types                        | Output type   | Options class                          |
-+===========================+============+====================================+===============+========================================+
-| match_like                | Unary      | String-like                        | Boolean (1)   | :struct:`MatchSubstringOptions`        |
-+---------------------------+------------+------------------------------------+---------------+----------------------------------------+
-| match_substring           | Unary      | String-like                        | Boolean (2)   | :struct:`MatchSubstringOptions`        |
-+---------------------------+------------+------------------------------------+---------------+----------------------------------------+
-| match_substring_regex     | Unary      | String-like                        | Boolean (3)   | :struct:`MatchSubstringOptions`        |
-+---------------------------+------------+------------------------------------+---------------+----------------------------------------+
-| index_in                  | Unary      | Boolean, Null, Numeric, Temporal,  | Int32 (4)     | :struct:`SetLookupOptions`             |
-|                           |            | Binary- and String-like            |               |                                        |
-+---------------------------+------------+------------------------------------+---------------+----------------------------------------+
-| is_in                     | Unary      | Boolean, Null, Numeric, Temporal,  | Boolean (5)   | :struct:`SetLookupOptions`             |
-|                           |            | Binary- and String-like            |               |                                        |
-+---------------------------+------------+------------------------------------+---------------+----------------------------------------+
++---------------------------+------------+------------------------------------+--------------------+----------------------------------------+
+| Function name             | Arity      | Input types                        | Output type        | Options class                          |
++===========================+============+====================================+====================+========================================+
+| find_substring            | Unary      | String-like                        | Int32 or Int64 (1) | :struct:`MatchSubstringOptions`        |
++---------------------------+------------+------------------------------------+--------------------+----------------------------------------+
+| match_like                | Unary      | String-like                        | Boolean (2)        | :struct:`MatchSubstringOptions`        |
++---------------------------+------------+------------------------------------+--------------------+----------------------------------------+
+| match_substring           | Unary      | String-like                        | Boolean (3)        | :struct:`MatchSubstringOptions`        |
++---------------------------+------------+------------------------------------+--------------------+----------------------------------------+
+| match_substring_regex     | Unary      | String-like                        | Boolean (4)        | :struct:`MatchSubstringOptions`        |
++---------------------------+------------+------------------------------------+--------------------+----------------------------------------+
+| index_in                  | Unary      | Boolean, Null, Numeric, Temporal,  | Int32 (5)          | :struct:`SetLookupOptions`             |
+|                           |            | Binary- and String-like            |                    |                                        |
++---------------------------+------------+------------------------------------+--------------------+----------------------------------------+
+| is_in                     | Unary      | Boolean, Null, Numeric, Temporal,  | Boolean (6)        | :struct:`SetLookupOptions`             |
+|                           |            | Binary- and String-like            |                    |                                        |
++---------------------------+------------+------------------------------------+--------------------+----------------------------------------+
 
-* \(1) Output is true iff the SQL-style LIKE pattern
+
+* \(1) Output is the index of the first occurrence of
+  :member:`MatchSubstringOptions::pattern` in the corresponding input
+  string, otherwise -1. Output type is Int32 for Binary/String, Int64
+  for LargeBinary/LargeString.
+
+* \(2) Output is true iff the SQL-style LIKE pattern
   :member:`MatchSubstringOptions::pattern` fully matches the
   corresponding input element. That is, ``%`` will match any number of
   characters, ``_`` will match exactly one character, and any other
   character matches itself. To match a literal percent sign or
   underscore, precede the character with a backslash.
 
-* \(2) Output is true iff :member:`MatchSubstringOptions::pattern`
+* \(3) Output is true iff :member:`MatchSubstringOptions::pattern`
   is a substring of the corresponding input element.
 
-* \(3) Output is true iff :member:`MatchSubstringOptions::pattern`
+* \(4) Output is true iff :member:`MatchSubstringOptions::pattern`
   matches the corresponding input element at any position.
 
-* \(4) Output is the index of the corresponding input element in
+* \(5) Output is the index of the corresponding input element in
   :member:`SetLookupOptions::value_set`, if found there.  Otherwise,
   output is null.
 
-* \(5) Output is true iff the corresponding input element is equal to one
+* \(6) Output is true iff the corresponding input element is equal to one
   of the elements in :member:`SetLookupOptions::value_set`.
 
 
@@ -878,4 +886,3 @@ Structural transforms
 * \(2) For each value in the list child array, the index at which it is found
   in the list array is appended to the output.  Nulls in the parent list array
   are discarded.
-
