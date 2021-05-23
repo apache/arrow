@@ -43,25 +43,3 @@ archery docker run ubuntu-cpp-cls
 export UBUNTU=20.04
 archery docker run ubuntu-python-cls
 ```
-
-# Setting up development environemnt on bare-metal
-
-1. Clone the repository.
-```bash
-git clone --branch rados-dataset-dev https://github.com/uccross/arrow
-```
-
-2. Run the [`prepare.sh`](../scripts/prepare.sh), [`build.sh`](../scripts/build.sh) and [`test.sh`](../scripts/test.sh) scripts from the repository root.
-```bash
-cd arrow/
-
-# copy the scripts to the repository root
-cp -r cpp/src/arrow/adapters/arrow-rados-cls/scripts/* .
-
-# install the required packages
-./prepare.sh 
-
-# run build.sh and test.sh iteratively
-./build.sh
-./test.sh
-```

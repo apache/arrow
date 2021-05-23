@@ -17,7 +17,30 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
+set -eu
 
 apt update
-apt install -y python3 python3-pip python3-venv python3-numpy cmake libradospp-dev rados-objclass-dev ceph-osd ceph-mon ceph-common ceph-mgr ceph-mds ceph-fuse
+apt install -y attr
+
+# usage:
+# ./deploy_data.sh [source] [destination] [count] [stripeunit]
+
+source=${1}
+destination=${2}
+count=${3}
+stripe=${4}
+
+for ((i=1 ; i<=${count} ; i++)); do
+    touch ${destination}.${i}
+    setfattr -n ceph.file.layout.object_size -v ${stripe} ${destination}.${i}
+    echo "copying ${source} to ${destination}.${i}"
+    cp ${source} ${destination}.${i}
+done
+
+sleep 2
+
+# For 4MB: 4194304 object size
+# For 8MB: 8388608 object size
+# For 16MB:  16777216 object size
+# For 32MB:  33554432 object size
+# For 64MB:  67108864 object size

@@ -42,7 +42,7 @@ class RadosParquetScanTask : public ScanTask {
         doa_(std::move(doa)) {}
 
   Result<RecordBatchIterator> Execute() override {
-    ceph::bufferlist* out = new ceph::bufferlist();
+    ceph::bufferlist out;
 
     Status s;
     struct stat st {};
@@ -56,19 +56,21 @@ class RadosParquetScanTask : public ScanTask {
         options_->filter, options_->partition_expression, options_->projected_schema,
         options_->dataset_schema, st.st_size, in));
 
-    s = doa_->Exec(st.st_ino, "scan_op", in, *out);
+    s = doa_->Exec(st.st_ino, "scan_op", in, out);
     if (!s.ok()) {
       return Status::ExecutionError(s.message());
     }
 
     RecordBatchVector batches;
-    auto buffer = std::make_shared<Buffer>((uint8_t*)out->c_str(), out->length());
+    auto buffer = std::make_shared<Buffer>((uint8_t*)out.c_str(), out.length());
     auto buffer_reader = std::make_shared<io::BufferReader>(buffer);
     auto options = ipc::IpcReadOptions::Defaults();
     options.use_threads = false;
     ARROW_ASSIGN_OR_RAISE(auto rb_reader, arrow::ipc::RecordBatchStreamReader::Open(
                                               buffer_reader, options));
-    return MakeIteratorFromReader(rb_reader);
+    RecordBatchVector rbatches;
+    rb_reader->ReadAll(&rbatches);
+    return MakeVectorIterator(rbatches);
   }
 
  protected:
