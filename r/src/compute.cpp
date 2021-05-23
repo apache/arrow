@@ -236,8 +236,9 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
 
   if (func_name == "strptime") {
     using Options = arrow::compute::StrptimeOptions;
-    return std::make_shared<Options>(cpp11::as_cpp<std::string>(options["format"]),
-                                     cpp11::as_cpp<arrow::TimeUnit::type>(options["unit"]));
+    return std::make_shared<Options>(
+        cpp11::as_cpp<std::string>(options["format"]),
+        cpp11::as_cpp<arrow::TimeUnit::type>(options["unit"]));
   }
 
   if (func_name == "split_pattern" || func_name == "split_pattern_regex") {

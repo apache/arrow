@@ -493,3 +493,74 @@ test_that("edge cases in string detection and replacement", {
     tibble(x = c("ABC"))
   )
 })
+
+test_that("strptime", {
+
+  t_string <- tibble(x = c("2018-10-07 19:04:05", NA))
+  t_stamp <- tibble(x = c(lubridate::ymd_hms("2018-10-07 19:04:05"), NA))
+  t_stampPDT <- tibble(x = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "PDT"), NA))
+
+  expect_equivalent(
+    t_string %>%
+      Table$create() %>%
+      mutate(
+        x = strptime(x)
+      ) %>%
+      collect(),
+    t_stamp
+  )
+
+  expect_equivalent(
+    t_string %>%
+      Table$create() %>%
+      mutate(
+        x = strptime(x, format = "%Y-%m-%d %H:%M:%S")
+      ) %>%
+      collect(),
+    t_stamp
+  )
+
+  expect_equivalent(
+    t_string %>%
+      Table$create() %>%
+      mutate(
+        x = strptime(x, format = "%Y-%m-%d %H:%M:%S", unit = TimeUnit$NANO)
+      ) %>%
+      collect(),
+    t_stamp
+  )
+
+  expect_equivalent(
+    t_string %>%
+      Table$create() %>%
+      mutate(
+        x = strptime(x, format = "%Y-%m-%d %H:%M:%S", unit = "s")
+      ) %>%
+      collect(),
+    t_stamp
+  )
+
+  expect_equivalent(
+    t_string %>%
+      Table$create() %>%
+     mutate(
+        x = strptime(x, format = "%Y-%m-%d %H:%M:%S", tz="PDT")
+      ) %>%
+     collect(),
+    t_stamp
+  )
+
+  tstring <- tibble(x = c("08-05-2008", NA))
+  tstamp <- tibble(x = c(lubridate::mdy("08/05/2008"), NA))
+
+  expect_equivalent(
+    tstring %>%
+      Table$create() %>%
+      mutate(
+        x = strptime(x, format = "%m-%d-%Y")
+      ) %>%
+      collect(),
+    tstamp
+  )
+
+})
