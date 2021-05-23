@@ -19,24 +19,22 @@
 
 # Installing SkyhookDM
 
-1. If you don't already have a Ceph cluster, please follow [this](https://blog.risingstack.com/ceph-storage-deployment-vm/) guide to create one. 
+1. If you don't already have a Ceph cluster, please follow [this](https://blog.risingstack.com/ceph-storage-deployment-vm/) guide to create one. You may also run [this](../scripts/deploy_ceph.sh) script for a 3 OSD Ceph cluster and a CephFS mount.
 
-2. Create and mount CephFS at some path, for example `/mnt/cephfs`.
+2. Build and install SkyhookDM and [PyArrow](https://pypi.org/project/pyarrow/) (with Rados Parquet extensions) using [this](../scripts/deploy_skyhook.sh) script.
 
-**NOTE:**: You may also run [this](../scripts/deploy_ceph.sh) script for a 3 OSD Ceph cluster and a CephFS mount.
-
-3. Build and install SkyhookDM and [PyArrow](https://pypi.org/project/pyarrow/) (with Rados Parquet extensions) using [this](../scripts/deploy_skyhook.sh) script.
-
-4. Update your Ceph configuration file with this line.
+3. Update your Ceph configuration file with this line and restart the OSDs to reload the changes.
 ```
 osd class load list = *
 ```
 
-5. Restart the Ceph OSDs to reload the changes.
-
 # Interacting with SkyhookDM
 
-1. Write some [Parquet](https://parquet.apache.org/) files in the CephFS mount.
+1. Write some [Parquet](https://parquet.apache.org/) files in the CephFS mount. We need to use the [`deploy_data.sh`](../scripts/deploy_data.sh) script to write Parquet files to CephFS for use in SkyhookDM. For example,
+```bash
+./deploy_data.sh myfile.parquet /mnt/cephfs/myfile.parquet 100 67108864
+```
+Running this command would write 100 Parquet files in the format `myfile.parquet.N` in the `/mnt/cephfs` directory with an object size of 64MB.
 
 2. Write a client script and get started with querying datasets in SkyhookDM. An example script is given below.
 ```python
