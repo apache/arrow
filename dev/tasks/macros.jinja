@@ -80,10 +80,10 @@ on:
       --sha {{ task.branch }} \
       --tag {{ task.tag }} \
     {% if pattern is string %}
-      --pattern "{{ pattern }}"
+      "{{ pattern }}"
     {% elif pattern is iterable %}
       {% for p in pattern %}
-      --pattern "{{ p }}" {{ "\\" if not loop.last else "" }}
+      "{{ p }}" {{ "\\" if not loop.last else "" }}
       {% endfor %}
     {% endif %}
     env:
@@ -126,10 +126,10 @@ on:
         --sha {{ task.branch }} \
         --tag {{ task.tag }} \
       {% if pattern is string %}
-        --pattern "{{ pattern }}"
+        "{{ pattern }}"
       {% elif pattern is iterable %}
         {% for p in pattern %}
-        --pattern "{{ p }}" {{ "" if not loop.last else "" }}
+        "{{ p }}" {{ "\\" if not loop.last else "" }}
         {% endfor %}
       {% endif %}
     env:
@@ -179,10 +179,10 @@ on:
       --sha {{ task.branch }} \
       --tag {{ task.tag }} \
     {% if pattern is string %}
-      --pattern "{{ pattern }}"
+      "{{ pattern }}"
     {% elif pattern is iterable %}
       {% for p in pattern %}
-      --pattern "{{ p }}" {{ "\\" if not loop.last else "" }}
+      "{{ p }}" {{ "\\" if not loop.last else "" }}
       {% endfor %}
     {% endif %}
 {% endmacro %}

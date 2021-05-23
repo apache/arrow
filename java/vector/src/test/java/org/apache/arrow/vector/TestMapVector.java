@@ -342,15 +342,15 @@ public class TestMapVector {
       offset = offsetBuffer.getInt(index * MapVector.OFFSET_WIDTH);
       assertEquals(Integer.toString(0), Integer.toString(offset));
 
-      result = (Map<?, ?>) dataVector.getObject(offset);
+      result = dataVector.getObject(offset);
       assertEquals(10L, getResultKey(result));
       assertEquals(1.0, getResultValue(result));
       offset++;
-      result = (Map<?, ?>) dataVector.getObject(offset);
+      result = dataVector.getObject(offset);
       assertEquals(11L, getResultKey(result));
       assertEquals(1.1, getResultValue(result));
       offset++;
-      result = (Map<?, ?>) dataVector.getObject(offset);
+      result = dataVector.getObject(offset);
       assertEquals(12L, getResultKey(result));
       assertEquals(1.2, getResultValue(result));
 
@@ -360,11 +360,11 @@ public class TestMapVector {
       offset = offsetBuffer.getInt(index * MapVector.OFFSET_WIDTH);
       assertEquals(Integer.toString(3), Integer.toString(offset));
 
-      result = (Map<?, ?>) dataVector.getObject(offset);
+      result = dataVector.getObject(offset);
       assertEquals(13L, getResultKey(result));
       assertEquals(1.3, getResultValue(result));
       offset++;
-      result = (Map<?, ?>) dataVector.getObject(offset);
+      result = dataVector.getObject(offset);
       assertEquals(14L, getResultKey(result));
       assertEquals(1.4, getResultValue(result));
 
@@ -374,19 +374,19 @@ public class TestMapVector {
       offset = offsetBuffer.getInt(index * MapVector.OFFSET_WIDTH);
       assertEquals(Integer.toString(5), Integer.toString(offset));
 
-      result = (Map<?, ?>) dataVector.getObject(offset);
+      result = dataVector.getObject(offset);
       assertEquals(15L, getResultKey(result));
       assertEquals(1.5, getResultValue(result));
       offset++;
-      result = (Map<?, ?>) dataVector.getObject(offset);
+      result = dataVector.getObject(offset);
       assertEquals(16L, getResultKey(result));
       assertEquals(1.6, getResultValue(result));
       offset++;
-      result = (Map<?, ?>) dataVector.getObject(offset);
+      result = dataVector.getObject(offset);
       assertEquals(17L, getResultKey(result));
       assertEquals(1.7, getResultValue(result));
       offset++;
-      result = (Map<?, ?>) dataVector.getObject(offset);
+      result = dataVector.getObject(offset);
       assertEquals(18L, getResultKey(result));
       assertEquals(1.8, getResultValue(result));
 
@@ -396,7 +396,7 @@ public class TestMapVector {
       offset = offsetBuffer.getInt(index * MapVector.OFFSET_WIDTH);
       assertEquals(Integer.toString(9), Integer.toString(offset));
 
-      result = (Map<?, ?>) dataVector.getObject(offset);
+      result = dataVector.getObject(offset);
       assertEquals(19L, getResultKey(result));
       assertEquals(1.9, getResultValue(result));
 
@@ -406,19 +406,19 @@ public class TestMapVector {
       offset = offsetBuffer.getInt(index * MapVector.OFFSET_WIDTH);
       assertEquals(Integer.toString(10), Integer.toString(offset));
 
-      result = (Map<?, ?>) dataVector.getObject(offset);
+      result = dataVector.getObject(offset);
       assertEquals(20L, getResultKey(result));
       assertEquals(2.0, getResultValue(result));
       offset++;
-      result = (Map<?, ?>) dataVector.getObject(offset);
+      result = dataVector.getObject(offset);
       assertEquals(21L, getResultKey(result));
       assertEquals(2.1, getResultValue(result));
       offset++;
-      result = (Map<?, ?>) dataVector.getObject(offset);
+      result = dataVector.getObject(offset);
       assertEquals(22L, getResultKey(result));
       assertEquals(2.2, getResultValue(result));
       offset++;
-      result = (Map<?, ?>) dataVector.getObject(offset);
+      result = dataVector.getObject(offset);
       assertEquals(23L, getResultKey(result));
       assertEquals(2.3, getResultValue(result));
 

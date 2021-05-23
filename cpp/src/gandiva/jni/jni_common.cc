@@ -380,6 +380,22 @@ NodePtr ProtoTypeToInNode(const types::InNode& node) {
     return TreeExprBuilder::MakeInExpressionDecimal(field, decimal_values);
   }
 
+  if (node.has_floatvalues()) {
+    std::unordered_set<float> float_values;
+    for (int i = 0; i < node.floatvalues().floatvalues_size(); i++) {
+      float_values.insert(node.floatvalues().floatvalues(i).value());
+    }
+    return TreeExprBuilder::MakeInExpressionFloat(field, float_values);
+  }
+
+  if (node.has_doublevalues()) {
+    std::unordered_set<double> double_values;
+    for (int i = 0; i < node.doublevalues().doublevalues_size(); i++) {
+      double_values.insert(node.doublevalues().doublevalues(i).value());
+    }
+    return TreeExprBuilder::MakeInExpressionDouble(field, double_values);
+  }
+
   if (node.has_stringvalues()) {
     std::unordered_set<std::string> stringvalues;
     for (int i = 0; i < node.stringvalues().stringvalues_size(); i++) {

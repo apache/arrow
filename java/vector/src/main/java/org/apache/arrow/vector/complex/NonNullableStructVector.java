@@ -315,7 +315,7 @@ public class NonNullableStructVector extends AbstractStructVector {
   }
 
   @Override
-  public Object getObject(int index) {
+  public Map<String, ?> getObject(int index) {
     Map<String, Object> vv = new JsonStringHashMap<>();
     for (String child : getChildFieldNames()) {
       ValueVector v = getChild(child);

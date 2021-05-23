@@ -74,6 +74,25 @@ TYPED_TEST(TestBinaryKernels, BinaryLength) {
                    this->offset_type(), "[3, null, 10, 0, 1]");
 }
 
+TYPED_TEST(TestBinaryKernels, FindSubstring) {
+  MatchSubstringOptions options{"ab"};
+  this->CheckUnary("find_substring", "[]", this->offset_type(), "[]", &options);
+  this->CheckUnary("find_substring", R"(["abc", "acb", "cab", null, "bac"])",
+                   this->offset_type(), "[0, -1, 1, null, -1]", &options);
+
+  MatchSubstringOptions options_repeated{"abab"};
+  this->CheckUnary("find_substring", R"(["abab", "ab", "cababc", null, "bac"])",
+                   this->offset_type(), "[0, -1, 1, null, -1]", &options_repeated);
+
+  MatchSubstringOptions options_double_char{"aab"};
+  this->CheckUnary("find_substring", R"(["aacb", "aab", "ab", "aaab"])",
+                   this->offset_type(), "[-1, 0, -1, 1]", &options_double_char);
+
+  MatchSubstringOptions options_double_char_2{"bbcaa"};
+  this->CheckUnary("find_substring", R"(["abcbaabbbcaabccabaab"])", this->offset_type(),
+                   "[7]", &options_double_char_2);
+}
+
 template <typename TestType>
 class TestStringKernels : public BaseTestStringKernels<TestType> {};
 
@@ -89,6 +108,31 @@ TYPED_TEST(TestStringKernels, AsciiLower) {
   this->CheckUnary("ascii_lower", "[]", this->type(), "[]");
   this->CheckUnary("ascii_lower", "[\"aAazZæÆ&\", null, \"\", \"BBB\"]", this->type(),
                    "[\"aaazzæÆ&\", null, \"\", \"bbb\"]");
+}
+
+TYPED_TEST(TestStringKernels, AsciiReverse) {
+  this->CheckUnary("ascii_reverse", "[]", this->type(), "[]");
+  this->CheckUnary("ascii_reverse", R"(["abcd", null, "", "bbb"])", this->type(),
+                   R"(["dcba", null, "", "bbb"])");
+
+  Datum invalid_input = ArrayFromJSON(this->type(), R"(["aAazZæÆ&", null, "", "bbb"])");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  testing::HasSubstr("Non-ASCII sequence in input"),
+                                  CallFunction("ascii_reverse", {invalid_input}));
+}
+
+TYPED_TEST(TestStringKernels, Utf8Reverse) {
+  this->CheckUnary("utf8_reverse", "[]", this->type(), "[]");
+  this->CheckUnary("utf8_reverse", R"(["abcd", null, "", "bbb"])", this->type(),
+                   R"(["dcba", null, "", "bbb"])");
+  this->CheckUnary("utf8_reverse", R"(["aAazZæÆ&", null, "", "bbb", "ɑɽⱤæÆ"])",
+                   this->type(), R"(["&ÆæZzaAa", null, "", "bbb", "ÆæⱤɽɑ"])");
+
+  // inputs with malformed utf8 chars would produce garbage output, but the end result
+  // would produce arrays with same lengths. Hence checking offset buffer equality
+  auto malformed_input = ArrayFromJSON(this->type(), "[\"ɑ\xFFɑa\", \"ɽ\xe1\xbdɽa\"]");
+  const Result<Datum>& res = CallFunction("utf8_reverse", {malformed_input});
+  ASSERT_TRUE(res->array()->buffers[1]->Equals(*malformed_input->data()->buffers[1]));
 }
 
 TEST(TestStringKernels, LARGE_MEMORY_TEST(Utf8Upper32bitGrowth)) {
@@ -388,7 +432,81 @@ TYPED_TEST(TestStringKernels, MatchSubstringRegexInvalid) {
       Invalid, ::testing::HasSubstr("Invalid regular expression: missing ]"),
       CallFunction("match_substring_regex", {input}, &options));
 }
+
+TYPED_TEST(TestStringKernels, MatchLike) {
+  auto inputs = R"(["foo", "bar", "foobar", "barfoo", "o", "\nfoo", "foo\n", null])";
+
+  MatchSubstringOptions prefix_match{"foo%"};
+  this->CheckUnary("match_like", "[]", boolean(), "[]", &prefix_match);
+  this->CheckUnary("match_like", inputs, boolean(),
+                   "[true, false, true, false, false, false, true, null]", &prefix_match);
+
+  MatchSubstringOptions suffix_match{"%foo"};
+  this->CheckUnary("match_like", inputs, boolean(),
+                   "[true, false, false, true, false, true, false, null]", &suffix_match);
+
+  MatchSubstringOptions substring_match{"%foo%"};
+  this->CheckUnary("match_like", inputs, boolean(),
+                   "[true, false, true, true, false, true, true, null]",
+                   &substring_match);
+
+  MatchSubstringOptions trivial_match{"%%"};
+  this->CheckUnary("match_like", inputs, boolean(),
+                   "[true, true, true, true, true, true, true, null]", &trivial_match);
+
+  MatchSubstringOptions regex_match{"foo%bar"};
+  this->CheckUnary("match_like", inputs, boolean(),
+                   "[false, false, true, false, false, false, false, null]",
+                   &regex_match);
+}
+
+TYPED_TEST(TestStringKernels, MatchLikeEscaping) {
+  auto inputs = R"(["%%foo", "_bar", "({", "\\baz"])";
+
+  MatchSubstringOptions escape_percent{"\\%%"};
+  this->CheckUnary("match_like", inputs, boolean(), "[true, false, false, false]",
+                   &escape_percent);
+
+  MatchSubstringOptions escape_underscore{"\\____"};
+  this->CheckUnary("match_like", inputs, boolean(), "[false, true, false, false]",
+                   &escape_underscore);
+
+  MatchSubstringOptions escape_regex{"(%"};
+  this->CheckUnary("match_like", inputs, boolean(), "[false, false, true, false]",
+                   &escape_regex);
+
+  MatchSubstringOptions escape_escape{"\\\\%"};
+  this->CheckUnary("match_like", inputs, boolean(), "[false, false, false, true]",
+                   &escape_escape);
+
+  MatchSubstringOptions special_chars{"!@#$^&*()[]{}.?"};
+  this->CheckUnary("match_like", R"(["!@#$^&*()[]{}.?"])", boolean(), "[true]",
+                   &special_chars);
+
+  MatchSubstringOptions escape_sequences{"\n\t%"};
+  this->CheckUnary("match_like", R"(["\n\tfoo\t", "\n\t", "\n"])", boolean(),
+                   "[true, true, false]", &escape_sequences);
+}
 #endif
+
+TYPED_TEST(TestStringKernels, FindSubstring) {
+  MatchSubstringOptions options{"ab"};
+  this->CheckUnary("find_substring", "[]", this->offset_type(), "[]", &options);
+  this->CheckUnary("find_substring", R"(["abc", "acb", "cab", null, "bac"])",
+                   this->offset_type(), "[0, -1, 1, null, -1]", &options);
+
+  MatchSubstringOptions options_repeated{"abab"};
+  this->CheckUnary("find_substring", R"(["abab", "ab", "cababc", null, "bac"])",
+                   this->offset_type(), "[0, -1, 1, null, -1]", &options_repeated);
+
+  MatchSubstringOptions options_double_char{"aab"};
+  this->CheckUnary("find_substring", R"(["aacb", "aab", "ab", "aaab"])",
+                   this->offset_type(), "[-1, 0, -1, 1]", &options_double_char);
+
+  MatchSubstringOptions options_double_char_2{"bbcaa"};
+  this->CheckUnary("find_substring", R"(["abcbaabbbcaabccabaab"])", this->offset_type(),
+                   "[7]", &options_double_char_2);
+}
 
 TYPED_TEST(TestStringKernels, SplitBasics) {
   SplitPatternOptions options{" "};
@@ -471,6 +589,34 @@ TYPED_TEST(TestStringKernels, SplitWhitespaceUTF8Reverse) {
                    "[[\"foo\", \"bar\"], [\"foo\xe2\x80\x88  bar\", \"ba\"]]",
                    &options_max);
 }
+
+#ifdef ARROW_WITH_RE2
+TYPED_TEST(TestStringKernels, SplitRegex) {
+  SplitPatternOptions options{"a+|b"};
+
+  this->CheckUnary(
+      "split_pattern_regex", R"(["aaaab", "foob", "foo bar", "foo", "AaaaBaaaC", null])",
+      list(this->type()),
+      R"([["", "", ""], ["foo", ""], ["foo ", "", "r"], ["foo"], ["A", "B", "C"], null])",
+      &options);
+
+  options.max_splits = 1;
+  this->CheckUnary(
+      "split_pattern_regex", R"(["aaaab", "foob", "foo bar", "foo", "AaaaBaaaC", null])",
+      list(this->type()),
+      R"([["", "b"], ["foo", ""], ["foo ", "ar"], ["foo"], ["A", "BaaaC"], null])",
+      &options);
+}
+
+TYPED_TEST(TestStringKernels, SplitRegexReverse) {
+  SplitPatternOptions options{"a+|b", /*max_splits=*/1, /*reverse=*/true};
+  Datum input = ArrayFromJSON(this->type(), R"(["a"])");
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      NotImplemented, ::testing::HasSubstr("Cannot split in reverse with regex"),
+      CallFunction("split_pattern_regex", {input}, &options));
+}
+#endif
 
 TYPED_TEST(TestStringKernels, ReplaceSubstring) {
   ReplaceSubstringOptions options{"foo", "bazz"};

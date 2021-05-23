@@ -273,6 +273,12 @@ test_that("strsplit and str_split", {
   )
   expect_dplyr_equal(
     input %>%
+      mutate(x = strsplit(x, " +and +")) %>%
+      collect(),
+    df
+  )
+  expect_dplyr_equal(
+    input %>%
       mutate(x = str_split(x, "and")) %>%
       collect(),
     df
@@ -295,7 +301,12 @@ test_that("strsplit and str_split", {
       collect(),
     df
   )
-
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = str_split(x, "Foo|bar", n = 2)) %>%
+      collect(),
+    df
+  )
 })
 
 test_that("arrow_*_split_whitespace functions", {
@@ -352,21 +363,6 @@ test_that("errors and warnings in string splitting", {
   # so here we can just call the functions directly
 
   x <- Expression$field_ref("x")
-  expect_error(
-    nse_funcs$strsplit(x, "and.*", fixed = FALSE),
-    'Regular expression matching in strsplit() not supported by Arrow',
-    fixed = TRUE
-  )
-  expect_error(
-    nse_funcs$str_split(x, "and.?"),
-    'Regular expression matching in str_split() not supported by Arrow',
-    fixed = TRUE
-  )
-  expect_error(
-    nse_funcs$str_split(x, regex("and.*")),
-    'Regular expression matching in str_split() not supported by Arrow',
-    fixed = TRUE
-  )
   expect_error(
     nse_funcs$str_split(x, fixed("and", ignore_case = TRUE)),
     "Case-insensitive string splitting not supported by Arrow"

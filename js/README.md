@@ -200,6 +200,12 @@ The JS community is a diverse group with a varied list of target environments an
 
 If you think we missed a compilation target and it's a blocker for adoption, please open an issue.
 
+### Supported Browsers and Platforms
+
+The bundles we compile support moderns browser released in the last 5 years. This includes supported versions of
+Firefox, Chrome, Edge, and Safari. We do not actively support Internet Explorer.
+Apache Arrow also works on [maintained versions of Node](https://nodejs.org/en/about/releases/).
+
 # People
 
 Full list of broader Apache Arrow [committers](https://arrow.apache.org/committers/).

@@ -205,7 +205,6 @@ test_that("max.ChunkedArray", {
 })
 
 test_that("Edge cases", {
-  skip("ARROW-9054")
   a <- Array$create(NA)
   for (type in c(int32(), float64(), bool())) {
     expect_equal(as.vector(sum(a$cast(type), na.rm = TRUE)), sum(NA, na.rm = TRUE))

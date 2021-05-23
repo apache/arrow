@@ -171,11 +171,12 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     return out;
   }
 
-  if (func_name == "min_max") {
-    using Options = arrow::compute::MinMaxOptions;
+  if (func_name == "min_max" || func_name == "sum" || func_name == "mean" ||
+      func_name == "count") {
+    using Options = arrow::compute::ScalarAggregateOptions;
     auto out = std::make_shared<Options>(Options::Defaults());
-    out->null_handling =
-        cpp11::as_cpp<bool>(options["na.rm"]) ? Options::SKIP : Options::EMIT_NULL;
+    out->min_count = cpp11::as_cpp<int>(options["na.min_count"]);
+    out->skip_nulls = cpp11::as_cpp<bool>(options["na.rm"]);
     return out;
   }
 
@@ -233,7 +234,7 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
                                      max_replacements);
   }
 
-  if (func_name == "split_pattern") {
+  if (func_name == "split_pattern" || func_name == "split_pattern_regex") {
     using Options = arrow::compute::SplitPatternOptions;
     int64_t max_splits = -1;
     if (!Rf_isNull(options["max_splits"])) {
