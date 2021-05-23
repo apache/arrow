@@ -28,7 +28,7 @@ import b from 'benny';
 import { CaseResult, Summary } from 'benny/lib/internal/common-types';
 import kleur from 'kleur';
 
-const { predicate, Table, DataFrame, RecordBatchReader } = Arrow;
+const { predicate, Table, RecordBatchReader } = Arrow;
 const { col } = predicate;
 
 
@@ -53,23 +53,26 @@ function cycle(result: CaseResult, _summary: Summary) {
     );
 }
 
-for (const { name, buffers } of config) {
+for (const { name, ipc, df } of config) {
     b.suite(
         `Parse "${name}"`,
 
         b.add(`Table.from`, () => {
-            Table.from(buffers);
+            Table.from(ipc);
         }),
 
         b.add(`readBatches`, () => {
-            for (const _recordBatch of RecordBatchReader.from(buffers)) {}
+            for (const _recordBatch of RecordBatchReader.from(ipc)) {}
+        }),
+
+        b.add(`serialize`, () => {
+            df.serialize();
         }),
 
         b.cycle(cycle)
     );
 
-    const table = Table.from(buffers);
-    const schema = table.schema;
+    const schema = df.schema;
 
     const suites = [{
             name: `Get "${name}" values by index`,
@@ -94,7 +97,7 @@ for (const { name, buffers } of config) {
             name,
 
             ...schema.fields.map((f, i) => {
-                const vector = table.getColumnAt(i)!;
+                const vector = df.getColumnAt(i)!;
                 return b.add(`name: '${f.name}', length: ${formatNumber(vector.length)}, type: ${vector.type}`, () => {
                     fn(vector);
                 });
@@ -106,9 +109,7 @@ for (const { name, buffers } of config) {
 }
 
 
-for (const { name, buffers, countBys, counts } of config) {
-    const df = DataFrame.from(buffers);
-
+for (const { name, df, countBys, counts } of config) {
     b.suite(
         `DataFrame Iterate "${name}"`,
 

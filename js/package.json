@@ -13,7 +13,6 @@
     "debug": "cross-env NODE_NO_WARNINGS=1 gulp debug",
     "perf": "ts-node-transpile-only ./perf/index.ts",
     "test:integration": "node ./bin/integration.js --mode validate",
-    "create:perfdata": "python ./test/data/tables/generate.py ./test/data/tables/tracks.arrow",
     "release": "./npm-release.sh",
     "clean:all": "run-p clean clean:testdata",
     "clean:testdata": "gulp clean:testdata",

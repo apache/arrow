@@ -15,23 +15,62 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import {readFileSync} from 'fs';
-import {resolve, parse} from 'path';
-import {sync} from 'glob';
+import * as Arrow from '../src/Arrow.dom';
 
-const filenames = sync(resolve(__dirname, `../test/data/tables/`, `*.arrow`));
+// from https://stackoverflow.com/a/19303725/214950
+let seed = 1;
+function random() {
+    const x = Math.sin(seed++) * 10000;
+    return x - Math.floor(x);
+}
 
-export default filenames.map(filename => {
-    const { name } = parse(filename);
-    return {
-        name,
-        buffers: [readFileSync(filename)],
+console.time('Prepare Data');
+
+const LENGTH = 100000;
+const NUM_BATCHES = 10;
+
+const values = Arrow.Utf8Vector.from(['Charlottesville', 'New York', 'San Francisco', 'Seattle', 'Terre Haute', 'Washington, DC']);
+
+const batches = Array.from({length: NUM_BATCHES}).map(() => {
+    const lat = Float32Array.from(
+        { length: LENGTH },
+        () => ((random() - 0.5) * 2 * 90));
+    const lng = Float32Array.from(
+        { length: LENGTH },
+        () => ((random() - 0.5) * 2 * 90));
+
+    const origin = Uint8Array.from(
+        { length: LENGTH },
+        () => (random() * 6));
+    const destination = Uint8Array.from(
+        { length: LENGTH },
+        () => (random() * 6));
+
+    const originType = new Arrow.Dictionary(values.type, new Arrow.Int8, 0, false);
+    const destinationType = new Arrow.Dictionary(values.type, new Arrow.Int8, 0, false);
+
+    return Arrow.RecordBatch.new({
+        'lat': Arrow.Float32Vector.from(lat),
+        'lng': Arrow.Float32Vector.from(lng),
+        'origin': Arrow.Vector.new(Arrow.Data.Dictionary(originType, 0, origin.length, 0, null, origin, values)),
+        'destination': Arrow.Vector.new(Arrow.Data.Dictionary(destinationType, 0, destination.length, 0, null, destination, values)),
+    });
+});
+
+const tracks = new Arrow.Table(batches[0].schema, batches);
+
+console.timeEnd('Prepare Data');
+
+export default [
+    {
+        name: 'tracks',
+        df: tracks,
+        ipc: tracks.serialize(),
         countBys: ['origin', 'destination'],
         counts: [
             {column: 'lat',    test: 'gt' as 'gt' | 'eq', value: 0        },
             {column: 'lng',    test: 'gt' as 'gt' | 'eq', value: 0        },
             {column: 'origin', test: 'eq' as 'gt' | 'eq', value: 'Seattle'},
         ],
-    };
-});
-
+    }
+];
