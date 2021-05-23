@@ -18,8 +18,7 @@
 -->
 # <img src="https://iris-hep.org/assets/logos/skyhookdmLogoJeff.png" width="64" valign="middle" alt="Skyhook"/> SkyhookDM-Arrow
 
-Apache Arrow provides a [`Dataset API`](https://arrow.apache.org/docs/cpp/api/dataset.html), which acts as an abstraction over a collection of files in different storage backend like S3 and HDFS. It supports different file formats like CSV and Parquet through the [`FileFormat`](https://arrow.apache.org/docs/cpp/api/dataset.html#_CPPv4N5arrow7dataset10FileFormatE) API. In SkyhookDM, since we require to pushdown
-compute operations into the Storage backend, we created a new file format on top of Parquet, namely a `RadosParquetFileFormat` which besides providing the benefits of Parquet, allows pushing down filter and projection operations into the storage backend to minimize data moved through the network.
+Apache Arrow provides a [`Dataset`](https://arrow.apache.org/docs/cpp/api/dataset.html) API, which acts as an abstraction over a collection of files in different storage backends like S3 and HDFS. It supports different file formats like CSV and Parquet through the [`FileFormat`](https://arrow.apache.org/docs/cpp/api/dataset.html#_CPPv4N5arrow7dataset10FileFormatE) API. In SkyhookDM, we create a new file format called `RadosParquetFileFormat` on top of `ParquetFileFormat`, which besides providing all the features of Parquet allows offloading file fragment scan operations into the storage backend. Offloading scan operations increases the query performance many folds, provides better scalability, and results in less network traffic. The architecture of SkyhookDM is described [here](./docs/architecture.md).
 
 # Getting Started
 
