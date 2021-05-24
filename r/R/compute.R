@@ -241,13 +241,11 @@ all.ArrowDatum <- function(..., na.rm = FALSE){
 #' `boolean`-type `Array` of the same length as `x` with values indicating
 #' per element of `x` it it is present in `table`.
 #' @export
-match_arrow <- function(x, table, ...) UseMethod("match_arrow")
-
-#' @export
-match_arrow.default <- function(x, table, ...) match(x, table, ...)
-
-#' @export
-match_arrow.ArrowDatum <- function(x, table, ...) {
+match_arrow <- function(x, table, ...)  {
+  if (!inherits(x, "ArrowDatum")) {
+    x <- Array$create(x)
+  }
+  
   if (!inherits(table, c("Array", "ChunkedArray"))) {
     table <- Array$create(table)
   }
@@ -256,13 +254,12 @@ match_arrow.ArrowDatum <- function(x, table, ...) {
 
 #' @rdname match_arrow
 #' @export
-is_in <- function(x, table, ...) UseMethod("is_in")
-
-#' @export
-is_in.default <- function(x, table, ...) x %in% table
-
-#' @export
-is_in.ArrowDatum <- function(x, table, ...) {
+is_in <- function(x, table, ...) {
+  
+  if (!inherits(x, "ArrowDatum")) {
+    x <- Array$create(x)
+  }
+  
   if (!inherits(table, c("Array", "DictionaryArray", "ChunkedArray"))) {
     table <- Array$create(table)
   }

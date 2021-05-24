@@ -342,6 +342,29 @@ test_that("match_arrow", {
 
   ca <- ChunkedArray$create(c(1, 4, 3, 1, 1, 3, 4))
   expect_equal(match_arrow(ca, tab), ChunkedArray$create(c(3L, 0L, 1L, 3L, 3L, 1L, 0L)))
+  
+  sc <- Scalar$create(3)
+  expect_equal(match_arrow(sc, tab), Scalar$create(1L))
+  
+  vec <-  c(1,2)
+  expect_equal(match_arrow(vec, tab), Array$create(c(3L, 2L)))
+  
+})
+
+test_that("is_in", {
+  a <- Array$create(c(9, 4, 3))
+  tab <- c(4, 3, 2, 1)
+  expect_equal(is_in(a, tab), Array$create(c(FALSE, TRUE, TRUE)))
+  
+  ca <- ChunkedArray$create(c(9, 4, 3))
+  expect_equal(is_in(ca, tab), ChunkedArray$create(c(FALSE, TRUE, TRUE)))
+  
+  sc <- Scalar$create(3)
+  expect_equal(is_in(sc, tab), Scalar$create(TRUE))
+  
+  vec <-  c(1,9)
+  expect_equal(is_in(vec, tab), Array$create(c(TRUE, FALSE)))
+  
 })
 
 test_that("value_counts", {
