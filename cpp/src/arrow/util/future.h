@@ -536,7 +536,7 @@ class Future {
       OnComplete on_complete;
     };
     return impl_->TryAddCallback(
-        [this, &callback_factory]() { return Callback{callback_factory()}; }, opts);
+        [&callback_factory]() { return Callback{callback_factory()}; }, opts);
   }
 
   template <typename CallbackFactory,
@@ -553,7 +553,7 @@ class Future {
     };
 
     return impl_->TryAddCallback(
-        [this, &callback_factory]() { return Callback{callback_factory()}; }, opts);
+        [&callback_factory]() { return Callback{callback_factory()}; }, opts);
   }
 
   /// \brief Consumer API: Register a continuation to run when this future completes
