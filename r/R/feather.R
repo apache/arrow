@@ -103,9 +103,8 @@ write_feather <- function(x,
   if (is.data.frame(x) || inherits(x, "RecordBatch")) {
     x <- Table$create(x)
   }
-  if(!inherits(x, "ArrowTabular")){
-    stop(paste0("Cannot write Feather file. 'x' must be an object of class 'data.frame', 'RecordBatch', or 'Table', not '", class(x)[1]), "'")
-  }
+  
+  check_tabular(x, "Feather file")
 
   if (!inherits(sink, "OutputStream")) {
     sink <- make_output_stream(sink)

@@ -44,9 +44,7 @@ write_ipc_stream <- function(x, sink, ...) {
   if (is.data.frame(x)) {
     x <- Table$create(x)
   }
-  if(!inherits(x, "ArrowTabular")){
-    stop(paste("Cannot write IPC stream. 'x' must be an object of class 'data.frame', 'RecordBatch', or 'Table', not '", class(x)[1]), "'")
-  }
+  check_tabular(x, "IPC stream")
   if (!inherits(sink, "OutputStream")) {
     sink <- make_output_stream(sink)
     on.exit(sink$close())
