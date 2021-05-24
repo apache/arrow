@@ -52,7 +52,7 @@ groups:
     - centos-*
     - conda-*
     - debian-*
-    - jars
+    - java-jars
     - nuget
     - python-sdist
     - ubuntu-*
@@ -125,7 +125,7 @@ groups:
     - ubuntu-*
     - centos-*
     - conda-*
-    - jars
+    - java-jars
     # List the homebrews explicitly because we don't care about running homebrew-cpp-autobrew
     - homebrew-cpp
     - homebrew-r-autobrew
@@ -630,11 +630,12 @@ tasks:
 
   ############################## Arrow JAR's ##################################
 
-  jars:
+  java-jars:
     # Build jar's that contains cpp libraries dependencies
     ci: github
-    template: jars/github.yml
+    template: java-jars/github.yml
     artifacts:
+      #TODO(kszucs): need to list the rest of the jars here
       - arrow-gandiva-{no_rc_version}-SNAPSHOT.jar
       - arrow-orc-{no_rc_version}-SNAPSHOT.jar
       - arrow-dataset-{no_rc_version}-SNAPSHOT.jar
