@@ -613,7 +613,7 @@ struct ScalarMinMax {
     // All arguments are scalar
     OutValue value{};
     bool valid = false;
-    for (const auto arg : batch.values) {
+    for (const auto& arg : batch.values) {
       const auto& scalar = *arg.scalar();
       if (!scalar.is_valid) {
         if (options.skip_nulls) continue;
@@ -654,7 +654,7 @@ struct ScalarMinMax {
 
     // At least one array, two or more arguments
     int64_t length = 0;
-    for (const auto arg : batch.values) {
+    for (const auto& arg : batch.values) {
       if (arg.is_array()) {
         length = arg.array()->length;
         break;
@@ -664,7 +664,7 @@ struct ScalarMinMax {
     if (!options.skip_nulls) {
       // We can precompute the validity buffer in this case
       // If output will be all null, just return
-      for (auto arg : batch.values) {
+      for (const auto& arg : batch.values) {
         if (arg.is_scalar() && !arg.scalar()->is_valid) {
           ARROW_ASSIGN_OR_RAISE(
               auto array, MakeArrayFromScalar(*arg.scalar(), length, ctx->memory_pool()));
@@ -678,7 +678,7 @@ struct ScalarMinMax {
       // AND together the validity buffers of all arrays
       ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(length));
       bool first = true;
-      for (auto arg : batch.values) {
+      for (const auto& arg : batch.values) {
         if (!arg.is_array()) continue;
         auto arr = arg.array();
         if (!arr->buffers[0]) continue;
