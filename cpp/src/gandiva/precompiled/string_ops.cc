@@ -502,6 +502,8 @@ gdv_boolean compare_lower_strings(const char* base_str, gdv_int32 base_str_len,
   return false;
 }
 
+// Try to cast the received string ('0', '1', 'true', 'false'), ignoring leading
+// and trailing spaces, also ignoring lower and upper case.
 FORCE_INLINE
 gdv_boolean castBIT_utf8(gdv_int64 context, const char* data, gdv_int32 data_len) {
   if (data_len <= 0) {
@@ -521,6 +523,7 @@ gdv_boolean castBIT_utf8(gdv_int64 context, const char* data, gdv_int32 data_len
   trimmed_len = end - start + 1;
   const char* trimmed_data = data + start;
 
+  // compare received string with the valid bool string values '1', '0', 'true', 'false'
   if (trimmed_len == 1) {
     // case for '0' and '1' value
     if (trimmed_data[0] == '1') return true;
