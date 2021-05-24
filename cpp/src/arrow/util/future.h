@@ -202,6 +202,28 @@ enum class FutureState : int8_t { PENDING, SUCCESS, FAILURE };
 
 inline bool IsFutureFinished(FutureState state) { return state != FutureState::PENDING; }
 
+/// \brief Describes whether the callback should be scheduled or run synchronously
+enum ShouldSchedule {
+  /// Always run the callback synchronously (the default)
+  NEVER = 0,
+  /// Schedule a new task only if the future is not finished when the
+  /// callback is added
+  IF_UNFINISHED = 1,
+  /// Always schedule the callback as a new task
+  ALWAYS = 2
+};
+
+/// \brief Options that control how a continuation is run
+struct CallbackOptions {
+  /// Describes whether the callback should be run synchronously or scheduled
+  ShouldSchedule should_schedule = ShouldSchedule::NEVER;
+  /// If the callback is scheduled then this is the executor it should be scheduled
+  /// on.  If this is NULL then should_schedule must be NEVER
+  internal::Executor* executor = NULL;
+
+  static CallbackOptions Defaults() { return CallbackOptions(); }
+};
+
 // Untyped private implementation
 class ARROW_EXPORT FutureImpl {
  public:
@@ -220,8 +242,9 @@ class ARROW_EXPORT FutureImpl {
   bool Wait(double seconds);
 
   using Callback = internal::FnOnce<void()>;
-  void AddCallback(Callback callback);
-  bool TryAddCallback(const std::function<Callback()>& callback_factory);
+  void AddCallback(Callback callback, CallbackOptions opts);
+  bool TryAddCallback(const std::function<Callback()>& callback_factory,
+                      CallbackOptions opts);
 
   // Waiter API
   inline FutureState SetWaiter(FutureWaiter* w, int future_num);
@@ -234,7 +257,11 @@ class ARROW_EXPORT FutureImpl {
   using Storage = std::unique_ptr<void, void (*)(void*)>;
   Storage result_{NULLPTR, NULLPTR};
 
-  std::vector<Callback> callbacks_;
+  struct CallbackRecord {
+    Callback callback;
+    CallbackOptions options;
+  };
+  std::vector<CallbackRecord> callbacks_;
 };
 
 // An object that waits on multiple futures at once.  Only one waiter
@@ -453,7 +480,8 @@ class Future {
   /// cyclic reference to itself through the callback.
   template <typename OnComplete>
   typename std::enable_if<!detail::first_arg_is_status<OnComplete>::value>::type
-  AddCallback(OnComplete on_complete) const {
+  AddCallback(OnComplete on_complete,
+              CallbackOptions opts = CallbackOptions::Defaults()) const {
     // We know impl_ will not be dangling when invoking callbacks because at least one
     // thread will be waiting for MarkFinished to return. Thus it's safe to keep a
     // weak reference to impl_ here
@@ -462,13 +490,14 @@ class Future {
       WeakFuture<T> weak_self;
       OnComplete on_complete;
     };
-    impl_->AddCallback(Callback{WeakFuture<T>(*this), std::move(on_complete)});
+    impl_->AddCallback(Callback{WeakFuture<T>(*this), std::move(on_complete)}, opts);
   }
 
   /// Overload for callbacks accepting a Status
   template <typename OnComplete>
   typename std::enable_if<detail::first_arg_is_status<OnComplete>::value>::type
-  AddCallback(OnComplete on_complete) const {
+  AddCallback(OnComplete on_complete,
+              CallbackOptions opts = CallbackOptions::Defaults()) const {
     static_assert(std::is_same<internal::Empty, ValueType>::value,
                   "Callbacks for Future<> should accept Status and not Result");
     struct Callback {
@@ -476,7 +505,7 @@ class Future {
       WeakFuture<T> weak_self;
       OnComplete on_complete;
     };
-    impl_->AddCallback(Callback{WeakFuture<T>(*this), std::move(on_complete)});
+    impl_->AddCallback(Callback{WeakFuture<T>(*this), std::move(on_complete)}, opts);
   }
 
   /// \brief Overload of AddCallback that will return false instead of running
@@ -495,30 +524,36 @@ class Future {
   template <typename CallbackFactory,
             typename OnComplete = detail::result_of_t<CallbackFactory()>>
   typename std::enable_if<!detail::first_arg_is_status<OnComplete>::value, bool>::type
-  TryAddCallback(const CallbackFactory& callback_factory) const {
+  TryAddCallback(const CallbackFactory& callback_factory,
+                 CallbackOptions opts = CallbackOptions::Defaults()) const {
     struct Callback {
       void operator()() && { std::move(on_complete)(weak_self.get().result()); }
       WeakFuture<T> weak_self;
       OnComplete on_complete;
     };
-    return impl_->TryAddCallback([this, &callback_factory]() {
-      return Callback{WeakFuture<T>(*this), callback_factory()};
-    });
+    return impl_->TryAddCallback(
+        [this, &callback_factory]() {
+          return Callback{WeakFuture<T>(*this), callback_factory()};
+        },
+        opts);
   }
 
   template <typename CallbackFactory,
             typename OnComplete = detail::result_of_t<CallbackFactory()>>
   typename std::enable_if<detail::first_arg_is_status<OnComplete>::value, bool>::type
-  TryAddCallback(const CallbackFactory& callback_factory) const {
+  TryAddCallback(const CallbackFactory& callback_factory,
+                 CallbackOptions opts = CallbackOptions::Defaults()) const {
     struct Callback {
       void operator()() && { std::move(on_complete)(weak_self.get().status()); }
       WeakFuture<T> weak_self;
       OnComplete on_complete;
     };
 
-    return impl_->TryAddCallback([this, &callback_factory]() {
-      return Callback{WeakFuture<T>(*this), callback_factory()};
-    });
+    return impl_->TryAddCallback(
+        [this, &callback_factory]() {
+          return Callback{WeakFuture<T>(*this), callback_factory()};
+        },
+        opts);
   }
 
   /// \brief Consumer API: Register a continuation to run when this future completes

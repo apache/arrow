@@ -19,6 +19,7 @@
 
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/iterator.h"
+#include "arrow/util/thread_pool.h"
 
 namespace arrow {
 
@@ -84,5 +85,19 @@ inline void AssertIteratorExhausted(Iterator<T>& it) {
 }
 
 Transformer<TestInt, TestStr> MakeFilter(std::function<bool(TestInt&)> filter);
+
+class MockExecutor : public internal::Executor {
+ public:
+  int GetCapacity() override { return 0; }
+
+  Status SpawnReal(internal::TaskHints hints, internal::FnOnce<void()> task, StopToken,
+                   StopCallback&&) override {
+    spawn_count++;
+    std::move(task)();
+    return Status::OK();
+  }
+
+  int spawn_count = 0;
+};
 
 }  // namespace arrow

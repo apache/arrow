@@ -35,6 +35,7 @@
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/test_common.h"
 #include "arrow/util/thread_pool.h"
 
 namespace arrow {
@@ -949,6 +950,59 @@ TEST(FutureCompletionTest, FutureVoid) {
                          [](const Status& s) { return Future<>::MakeFinished(s); });
     fut.MarkFinished(Status::IOError("xxx"));
     AssertFailed(fut2);
+  }
+}
+
+class FutureSchedulingTest : public testing::Test {
+ public:
+  internal::Executor* executor() { return mock_executor.get(); }
+  int spawn_count() { return mock_executor->spawn_count; }
+
+  std::function<void(const Status&)> callback = [](const Status&) {};
+  std::shared_ptr<MockExecutor> mock_executor = std::make_shared<MockExecutor>();
+};
+
+TEST_F(FutureSchedulingTest, ScheduleAlways) {
+  CallbackOptions options;
+  options.should_schedule = ShouldSchedule::ALWAYS;
+  options.executor = executor();
+  // Successful future
+  {
+    auto fut = Future<>::Make();
+    fut.AddCallback(callback, options);
+    fut.MarkFinished();
+    fut.AddCallback(callback, options);
+    ASSERT_EQ(2, spawn_count());
+  }
+  // Failing future
+  {
+    auto fut = Future<>::Make();
+    fut.AddCallback(callback, options);
+    fut.MarkFinished(Status::Invalid("XYZ"));
+    fut.AddCallback(callback, options);
+    ASSERT_EQ(4, spawn_count());
+  }
+}
+
+TEST_F(FutureSchedulingTest, ScheduleIfUnfinished) {
+  CallbackOptions options;
+  options.should_schedule = ShouldSchedule::IF_UNFINISHED;
+  options.executor = executor();
+  // Successful future
+  {
+    auto fut = Future<>::Make();
+    fut.AddCallback(callback, options);
+    fut.MarkFinished();
+    fut.AddCallback(callback, options);
+    ASSERT_EQ(1, spawn_count());
+  }
+  // Failing future
+  {
+    auto fut = Future<>::Make();
+    fut.AddCallback(callback, options);
+    fut.MarkFinished(Status::Invalid("XYZ"));
+    fut.AddCallback(callback, options);
+    ASSERT_EQ(2, spawn_count());
   }
 }
 
