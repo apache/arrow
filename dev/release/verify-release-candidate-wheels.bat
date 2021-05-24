@@ -45,6 +45,10 @@ pushd arrow
 git submodule update --init
 popd
 
+python arrow\dev\release\download_rc_binaries.py %ARROW_VERSION% %RC_NUMBER% ^
+    --package_type python ^
+    --regex=".*win_amd64.*" || EXIT /B 1
+
 call deactivate
 
 set ARROW_TEST_DATA=%cd%\arrow\testing\data
@@ -86,19 +90,14 @@ call activate %CONDA_ENV_PATH%
 
 set WHEEL_FILENAME=pyarrow-%ARROW_VERSION%-cp%PY_VERSION_NO_PERIOD%-cp%PY_VERSION_NO_PERIOD%%ABI_TAG%-win_amd64.whl
 
-@rem Requires GNU Wget for Windows
-wget --no-check-certificate -O %WHEEL_FILENAME% https://apache.jfrog.io/artifactory/arrow/download_file?file_path=python-rc%%2F%ARROW_VERSION%-rc%RC_NUMBER%%%2F%WHEEL_FILENAME% || EXIT /B 1
-
 pip install %WHEEL_FILENAME% || EXIT /B 1
-
-pip install -r arrow/python/requirements-test.txt || EXIT /B 1
-
-py.test %CONDA_ENV_PATH%\Lib\site-packages\pyarrow --pdb -v || EXIT /B 1
-
 python -c "import pyarrow" || EXIT /B 1
 python -c "import pyarrow.parquet" || EXIT /B 1
 python -c "import pyarrow.flight" || EXIT /B 1
 python -c "import pyarrow.dataset" || EXIT /B 1
+
+pip install -r arrow\python\requirements-test.txt || EXIT /B 1
+pytest %CONDA_ENV_PATH%\Lib\site-packages\pyarrow --pdb -v || EXIT /B 1
 
 :done
 
