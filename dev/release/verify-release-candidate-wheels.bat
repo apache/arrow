@@ -91,7 +91,7 @@ call activate %CONDA_ENV_PATH%
 
 set WHEEL_FILENAME=pyarrow-%ARROW_VERSION%-cp%PY_VERSION_NO_PERIOD%-cp%PY_VERSION_NO_PERIOD%%ABI_TAG%-win_amd64.whl
 
-pip install %WHEEL_FILENAME% || EXIT /B 1
+pip install python-rc\%ARROW_VERSION%-rc%RC_NUMBER%\%WHEEL_FILENAME% || EXIT /B 1
 python -c "import pyarrow" || EXIT /B 1
 python -c "import pyarrow.parquet" || EXIT /B 1
 python -c "import pyarrow.flight" || EXIT /B 1
