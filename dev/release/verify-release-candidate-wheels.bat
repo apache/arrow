@@ -45,6 +45,9 @@ pushd arrow
 git submodule update --init
 popd
 
+set ARROW_VERSION=%1
+set RC_NUMBER=%2
+
 python arrow\dev\release\download_rc_binaries.py %ARROW_VERSION% %RC_NUMBER% ^
     --package_type python ^
     --regex=".*win_amd64.*" || EXIT /B 1
@@ -53,13 +56,13 @@ call deactivate
 
 set ARROW_TEST_DATA=%cd%\arrow\testing\data
 
-CALL :verify_wheel 3.6 %1 %2 m
+CALL :verify_wheel 3.6 m
 if errorlevel 1 GOTO error
 
-CALL :verify_wheel 3.7 %1 %2 m
+CALL :verify_wheel 3.7 m
 if errorlevel 1 GOTO error
 
-CALL :verify_wheel 3.8 %1 %2
+CALL :verify_wheel 3.8
 if errorlevel 1 GOTO error
 
 :done
@@ -77,9 +80,7 @@ EXIT /B 1
 :verify_wheel
 
 set PY_VERSION=%1
-set ARROW_VERSION=%2
-set RC_NUMBER=%3
-set ABI_TAG=%4
+set ABI_TAG=%2
 set PY_VERSION_NO_PERIOD=%PY_VERSION:.=%
 
 set CONDA_ENV_PATH=%_VERIFICATION_DIR%\_verify-wheel-%PY_VERSION%
