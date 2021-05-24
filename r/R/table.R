@@ -184,3 +184,6 @@ Table$create <- function(..., schema = NULL) {
 
 #' @export
 names.Table <- function(x) x$ColumnNames()
+
+#' @export
+length.Table <- function(x) x$num_columns
