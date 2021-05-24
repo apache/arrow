@@ -75,6 +75,14 @@ they return ``null``.
    less_equal
    not_equal
 
+These functions take any number of arguments of a numeric or temporal type.
+
+.. autosummary::
+   :toctree: ../generated/
+
+   maximum
+   minimum
+
 Logical Functions
 -----------------
 

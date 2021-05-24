@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -312,6 +313,88 @@ class TestBinaryArithmeticUnsigned : public TestBinaryArithmeticIntegral<T> {};
 template <typename T>
 class TestBinaryArithmeticFloating : public TestBinaryArithmetic<T> {};
 
+template <typename T>
+class TestVarArgsArithmetic : public TestBase {
+ protected:
+  static std::shared_ptr<DataType> type_singleton() {
+    return TypeTraits<T>::type_singleton();
+  }
+
+  using VarArgsFunction = std::function<Result<Datum>(const std::vector<Datum>&,
+                                                      MinMaxOptions, ExecContext*)>;
+
+  Datum scalar(const std::string& value) {
+    return ScalarFromJSON(type_singleton(), value);
+  }
+
+  Datum array(const std::string& value) { return ArrayFromJSON(type_singleton(), value); }
+
+  Datum Eval(VarArgsFunction func, const std::vector<Datum>& args) {
+    EXPECT_OK_AND_ASSIGN(auto actual, func(args, min_max_options_, nullptr));
+    if (actual.is_array()) {
+      auto arr = actual.make_array();
+      ARROW_EXPECT_OK(arr->ValidateFull());
+    }
+    return actual;
+  }
+
+  void AssertNullScalar(VarArgsFunction func, const std::vector<Datum>& args) {
+    auto datum = this->Eval(func, args);
+    ASSERT_TRUE(datum.is_scalar());
+    ASSERT_FALSE(datum.scalar()->is_valid);
+  }
+
+  void Assert(VarArgsFunction func, Datum expected, const std::vector<Datum>& args) {
+    std::stringstream ss;
+    ss << "Inputs:";
+    for (const auto& arg : args) {
+      ss << ' ';
+      if (arg.is_scalar())
+        ss << arg.scalar()->ToString();
+      else if (arg.is_array())
+        ss << arg.make_array()->ToString();
+      else
+        ss << arg.ToString();
+    }
+    SCOPED_TRACE(ss.str());
+
+    auto actual = Eval(func, args);
+    AssertDatumsApproxEqual(expected, actual, /*verbose=*/true, equal_options_);
+  }
+
+  void SetNansEqual(bool value = true) {
+    this->equal_options_ = equal_options_.nans_equal(value);
+  }
+
+  EqualOptions equal_options_ = EqualOptions::Defaults();
+  MinMaxOptions min_max_options_;
+};
+
+template <typename T>
+class TestVarArgsArithmeticNumeric : public TestVarArgsArithmetic<T> {};
+
+template <typename T>
+class TestVarArgsArithmeticFloating : public TestVarArgsArithmetic<T> {};
+
+template <typename T>
+class TestVarArgsArithmeticParametricTemporal : public TestVarArgsArithmetic<T> {
+ protected:
+  static std::shared_ptr<DataType> type_singleton() {
+    // Time32 requires second/milli, Time64 requires nano/micro
+    if (TypeTraits<T>::bytes_required(1) == 4) {
+      return std::make_shared<T>(TimeUnit::type::SECOND);
+    } else {
+      return std::make_shared<T>(TimeUnit::type::NANO);
+    }
+  }
+
+  Datum scalar(const std::string& value) {
+    return ScalarFromJSON(type_singleton(), value);
+  }
+
+  Datum array(const std::string& value) { return ArrayFromJSON(type_singleton(), value); }
+};
+
 // InputType - OutputType pairs
 using IntegralTypes = testing::Types<Int8Type, Int16Type, Int32Type, Int64Type, UInt8Type,
                                      UInt16Type, UInt32Type, UInt64Type>;
@@ -324,6 +407,12 @@ using UnsignedIntegerTypes =
 // TODO(kszucs): add half-float
 using FloatingTypes = testing::Types<FloatType, DoubleType>;
 
+using NumericBasedTypes =
+    ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
+                     Int32Type, Int64Type, FloatType, DoubleType, Date32Type, Date64Type>;
+
+using ParametricTemporalTypes = ::testing::Types<TimestampType, Time32Type, Time64Type>;
+
 TYPED_TEST_SUITE(TestUnaryArithmeticIntegral, IntegralTypes);
 TYPED_TEST_SUITE(TestUnaryArithmeticSigned, SignedIntegerTypes);
 TYPED_TEST_SUITE(TestUnaryArithmeticUnsigned, UnsignedIntegerTypes);
@@ -333,6 +422,10 @@ TYPED_TEST_SUITE(TestBinaryArithmeticIntegral, IntegralTypes);
 TYPED_TEST_SUITE(TestBinaryArithmeticSigned, SignedIntegerTypes);
 TYPED_TEST_SUITE(TestBinaryArithmeticUnsigned, UnsignedIntegerTypes);
 TYPED_TEST_SUITE(TestBinaryArithmeticFloating, FloatingTypes);
+
+TYPED_TEST_SUITE(TestVarArgsArithmeticNumeric, NumericBasedTypes);
+TYPED_TEST_SUITE(TestVarArgsArithmeticFloating, FloatingTypes);
+TYPED_TEST_SUITE(TestVarArgsArithmeticParametricTemporal, ParametricTemporalTypes);
 
 TYPED_TEST(TestBinaryArithmeticIntegral, Add) {
   for (auto check_overflow : {false, true}) {
@@ -1159,6 +1252,212 @@ TYPED_TEST(TestUnaryArithmeticFloating, AbsoluteValue) {
     this->AssertUnaryOp(AbsoluteValue, min, max);
     this->AssertUnaryOp(AbsoluteValue, max, max);
   }
+}
+
+TYPED_TEST(TestVarArgsArithmeticNumeric, Minimum) {
+  this->AssertNullScalar(Minimum, {});
+  this->AssertNullScalar(Minimum, {this->scalar("null"), this->scalar("null")});
+
+  this->Assert(Minimum, this->scalar("0"), {this->scalar("0")});
+  this->Assert(Minimum, this->scalar("0"),
+               {this->scalar("2"), this->scalar("0"), this->scalar("1")});
+  this->Assert(
+      Minimum, this->scalar("0"),
+      {this->scalar("2"), this->scalar("0"), this->scalar("1"), this->scalar("null")});
+  this->Assert(Minimum, this->scalar("1"),
+               {this->scalar("null"), this->scalar("null"), this->scalar("1"),
+                this->scalar("null")});
+
+  this->Assert(Minimum, (this->array("[]")), {this->array("[]")});
+  this->Assert(Minimum, this->array("[1, 2, 3, null]"), {this->array("[1, 2, 3, null]")});
+
+  this->Assert(Minimum, this->array("[1, 2, 2, 2]"),
+               {this->array("[1, 2, 3, 4]"), this->scalar("2")});
+  this->Assert(Minimum, this->array("[1, 2, 2, 2]"),
+               {this->array("[1, null, 3, 4]"), this->scalar("2")});
+  this->Assert(Minimum, this->array("[1, 2, 2, 2]"),
+               {this->array("[1, null, 3, 4]"), this->scalar("2"), this->scalar("4")});
+  this->Assert(Minimum, this->array("[1, 2, 2, 2]"),
+               {this->array("[1, null, 3, 4]"), this->scalar("null"), this->scalar("2")});
+
+  this->Assert(Minimum, this->array("[1, 2, 2, 2]"),
+               {this->array("[1, 2, 3, 4]"), this->array("[2, 2, 2, 2]")});
+  this->Assert(Minimum, this->array("[1, 2, 2, 2]"),
+               {this->array("[1, 2, 3, 4]"), this->array("[2, null, 2, 2]")});
+  this->Assert(Minimum, this->array("[1, 2, 2, 2]"),
+               {this->array("[1, null, 3, 4]"), this->array("[2, 2, 2, 2]")});
+
+  this->Assert(Minimum, this->array("[1, 2, null, 6]"),
+               {this->array("[1, 2, null, null]"), this->array("[4, null, null, 6]")});
+  this->Assert(Minimum, this->array("[1, 2, null, 6]"),
+               {this->array("[4, null, null, 6]"), this->array("[1, 2, null, null]")});
+  this->Assert(Minimum, this->array("[1, 2, 3, 4]"),
+               {this->array("[1, 2, 3, 4]"), this->array("[null, null, null, null]")});
+  this->Assert(Minimum, this->array("[1, 2, 3, 4]"),
+               {this->array("[null, null, null, null]"), this->array("[1, 2, 3, 4]")});
+
+  this->Assert(Minimum, this->array("[1, 1, 1, 1]"),
+               {this->scalar("1"), this->array("[1, 2, 3, 4]")});
+  this->Assert(Minimum, this->array("[1, 1, 1, 1]"),
+               {this->scalar("1"), this->array("[null, null, null, null]")});
+  this->Assert(Minimum, this->array("[1, 1, 1, 1]"),
+               {this->scalar("null"), this->array("[1, 1, 1, 1]")});
+  this->Assert(Minimum, this->array("[null, null, null, null]"),
+               {this->scalar("null"), this->array("[null, null, null, null]")});
+
+  // Test null handling
+  this->min_max_options_.skip_nulls = false;
+  this->AssertNullScalar(Minimum, {this->scalar("null"), this->scalar("null")});
+  this->AssertNullScalar(Minimum, {this->scalar("0"), this->scalar("null")});
+
+  this->Assert(Minimum, this->array("[1, null, 2, 2]"),
+               {this->array("[1, null, 3, 4]"), this->scalar("2"), this->scalar("4")});
+  this->Assert(Minimum, this->array("[null, null, null, null]"),
+               {this->array("[1, null, 3, 4]"), this->scalar("null"), this->scalar("2")});
+  this->Assert(Minimum, this->array("[1, null, 2, 2]"),
+               {this->array("[1, 2, 3, 4]"), this->array("[2, null, 2, 2]")});
+
+  this->Assert(Minimum, this->array("[null, null, null, null]"),
+               {this->scalar("1"), this->array("[null, null, null, null]")});
+  this->Assert(Minimum, this->array("[null, null, null, null]"),
+               {this->scalar("null"), this->array("[1, 1, 1, 1]")});
+}
+
+TYPED_TEST(TestVarArgsArithmeticFloating, Minimum) {
+  this->SetNansEqual();
+  this->Assert(Maximum, this->scalar("0"), {this->scalar("0"), this->scalar("NaN")});
+  this->Assert(Maximum, this->scalar("0"), {this->scalar("NaN"), this->scalar("0")});
+  this->Assert(Maximum, this->scalar("Inf"), {this->scalar("Inf"), this->scalar("NaN")});
+  this->Assert(Maximum, this->scalar("Inf"), {this->scalar("NaN"), this->scalar("Inf")});
+  this->Assert(Maximum, this->scalar("-Inf"),
+               {this->scalar("-Inf"), this->scalar("NaN")});
+  this->Assert(Maximum, this->scalar("-Inf"),
+               {this->scalar("NaN"), this->scalar("-Inf")});
+  this->Assert(Maximum, this->scalar("NaN"), {this->scalar("NaN"), this->scalar("null")});
+  this->Assert(Minimum, this->scalar("0"), {this->scalar("0"), this->scalar("Inf")});
+  this->Assert(Minimum, this->scalar("-Inf"), {this->scalar("0"), this->scalar("-Inf")});
+}
+
+TYPED_TEST(TestVarArgsArithmeticParametricTemporal, Minimum) {
+  // Temporal kernel is implemented with numeric kernel underneath
+  this->AssertNullScalar(Minimum, {});
+  this->AssertNullScalar(Minimum, {this->scalar("null"), this->scalar("null")});
+
+  this->Assert(Minimum, this->scalar("0"), {this->scalar("0")});
+  this->Assert(Minimum, this->scalar("0"), {this->scalar("2"), this->scalar("0")});
+  this->Assert(Minimum, this->scalar("0"), {this->scalar("0"), this->scalar("null")});
+
+  this->Assert(Minimum, (this->array("[]")), {this->array("[]")});
+  this->Assert(Minimum, this->array("[1, 2, 3, null]"), {this->array("[1, 2, 3, null]")});
+
+  this->Assert(Minimum, this->array("[1, 2, 2, 2]"),
+               {this->array("[1, null, 3, 4]"), this->scalar("null"), this->scalar("2")});
+
+  this->Assert(Minimum, this->array("[1, 2, 3, 2]"),
+               {this->array("[1, null, 3, 4]"), this->array("[2, 2, null, 2]")});
+}
+
+TYPED_TEST(TestVarArgsArithmeticNumeric, Maximum) {
+  this->AssertNullScalar(Maximum, {});
+  this->AssertNullScalar(Maximum, {this->scalar("null"), this->scalar("null")});
+
+  this->Assert(Maximum, this->scalar("0"), {this->scalar("0")});
+  this->Assert(Maximum, this->scalar("2"),
+               {this->scalar("2"), this->scalar("0"), this->scalar("1")});
+  this->Assert(
+      Maximum, this->scalar("2"),
+      {this->scalar("2"), this->scalar("0"), this->scalar("1"), this->scalar("null")});
+  this->Assert(Maximum, this->scalar("1"),
+               {this->scalar("null"), this->scalar("null"), this->scalar("1"),
+                this->scalar("null")});
+
+  this->Assert(Maximum, (this->array("[]")), {this->array("[]")});
+  this->Assert(Maximum, this->array("[1, 2, 3, null]"), {this->array("[1, 2, 3, null]")});
+
+  this->Assert(Maximum, this->array("[2, 2, 3, 4]"),
+               {this->array("[1, 2, 3, 4]"), this->scalar("2")});
+  this->Assert(Maximum, this->array("[2, 2, 3, 4]"),
+               {this->array("[1, null, 3, 4]"), this->scalar("2")});
+  this->Assert(Maximum, this->array("[4, 4, 4, 4]"),
+               {this->array("[1, null, 3, 4]"), this->scalar("2"), this->scalar("4")});
+  this->Assert(Maximum, this->array("[2, 2, 3, 4]"),
+               {this->array("[1, null, 3, 4]"), this->scalar("null"), this->scalar("2")});
+
+  this->Assert(Maximum, this->array("[2, 2, 3, 4]"),
+               {this->array("[1, 2, 3, 4]"), this->array("[2, 2, 2, 2]")});
+  this->Assert(Maximum, this->array("[2, 2, 3, 4]"),
+               {this->array("[1, 2, 3, 4]"), this->array("[2, null, 2, 2]")});
+  this->Assert(Maximum, this->array("[2, 2, 3, 4]"),
+               {this->array("[1, null, 3, 4]"), this->array("[2, 2, 2, 2]")});
+
+  this->Assert(Maximum, this->array("[4, 2, null, 6]"),
+               {this->array("[1, 2, null, null]"), this->array("[4, null, null, 6]")});
+  this->Assert(Maximum, this->array("[4, 2, null, 6]"),
+               {this->array("[4, null, null, 6]"), this->array("[1, 2, null, null]")});
+  this->Assert(Maximum, this->array("[1, 2, 3, 4]"),
+               {this->array("[1, 2, 3, 4]"), this->array("[null, null, null, null]")});
+  this->Assert(Maximum, this->array("[1, 2, 3, 4]"),
+               {this->array("[null, null, null, null]"), this->array("[1, 2, 3, 4]")});
+
+  this->Assert(Maximum, this->array("[1, 2, 3, 4]"),
+               {this->scalar("1"), this->array("[1, 2, 3, 4]")});
+  this->Assert(Maximum, this->array("[1, 1, 1, 1]"),
+               {this->scalar("1"), this->array("[null, null, null, null]")});
+  this->Assert(Maximum, this->array("[1, 1, 1, 1]"),
+               {this->scalar("null"), this->array("[1, 1, 1, 1]")});
+  this->Assert(Maximum, this->array("[null, null, null, null]"),
+               {this->scalar("null"), this->array("[null, null, null, null]")});
+
+  // Test null handling
+  this->min_max_options_.skip_nulls = false;
+  this->AssertNullScalar(Maximum, {this->scalar("null"), this->scalar("null")});
+  this->AssertNullScalar(Maximum, {this->scalar("0"), this->scalar("null")});
+
+  this->Assert(Maximum, this->array("[4, null, 4, 4]"),
+               {this->array("[1, null, 3, 4]"), this->scalar("2"), this->scalar("4")});
+  this->Assert(Maximum, this->array("[null, null, null, null]"),
+               {this->array("[1, null, 3, 4]"), this->scalar("null"), this->scalar("2")});
+  this->Assert(Maximum, this->array("[2, null, 3, 4]"),
+               {this->array("[1, 2, 3, 4]"), this->array("[2, null, 2, 2]")});
+
+  this->Assert(Maximum, this->array("[null, null, null, null]"),
+               {this->scalar("1"), this->array("[null, null, null, null]")});
+  this->Assert(Maximum, this->array("[null, null, null, null]"),
+               {this->scalar("null"), this->array("[1, 1, 1, 1]")});
+}
+
+TYPED_TEST(TestVarArgsArithmeticFloating, Maximum) {
+  this->SetNansEqual();
+  this->Assert(Maximum, this->scalar("0"), {this->scalar("0"), this->scalar("NaN")});
+  this->Assert(Maximum, this->scalar("0"), {this->scalar("NaN"), this->scalar("0")});
+  this->Assert(Maximum, this->scalar("Inf"), {this->scalar("Inf"), this->scalar("NaN")});
+  this->Assert(Maximum, this->scalar("Inf"), {this->scalar("NaN"), this->scalar("Inf")});
+  this->Assert(Maximum, this->scalar("-Inf"),
+               {this->scalar("-Inf"), this->scalar("NaN")});
+  this->Assert(Maximum, this->scalar("-Inf"),
+               {this->scalar("NaN"), this->scalar("-Inf")});
+  this->Assert(Maximum, this->scalar("NaN"), {this->scalar("NaN"), this->scalar("null")});
+  this->Assert(Maximum, this->scalar("Inf"), {this->scalar("0"), this->scalar("Inf")});
+  this->Assert(Maximum, this->scalar("0"), {this->scalar("0"), this->scalar("-Inf")});
+}
+
+TYPED_TEST(TestVarArgsArithmeticParametricTemporal, Maximum) {
+  // Temporal kernel is implemented with numeric kernel underneath
+  this->AssertNullScalar(Maximum, {});
+  this->AssertNullScalar(Maximum, {this->scalar("null"), this->scalar("null")});
+
+  this->Assert(Maximum, this->scalar("0"), {this->scalar("0")});
+  this->Assert(Maximum, this->scalar("2"), {this->scalar("2"), this->scalar("0")});
+  this->Assert(Maximum, this->scalar("0"), {this->scalar("0"), this->scalar("null")});
+
+  this->Assert(Maximum, (this->array("[]")), {this->array("[]")});
+  this->Assert(Maximum, this->array("[1, 2, 3, null]"), {this->array("[1, 2, 3, null]")});
+
+  this->Assert(Maximum, this->array("[2, 2, 3, 4]"),
+               {this->array("[1, null, 3, 4]"), this->scalar("null"), this->scalar("2")});
+
+  this->Assert(Maximum, this->array("[2, 2, 3, 4]"),
+               {this->array("[1, null, 3, 4]"), this->array("[2, 2, null, 2]")});
 }
 
 }  // namespace compute

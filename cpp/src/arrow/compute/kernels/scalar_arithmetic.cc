@@ -18,8 +18,10 @@
 #include <cmath>
 #include <limits>
 
+#include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/bitmap_ops.h"
 #include "arrow/util/int_util_internal.h"
 #include "arrow/util/macros.h"
 
@@ -397,6 +399,30 @@ struct PowerChecked {
   }
 };
 
+struct Minimum {
+  template <typename T>
+  static enable_if_floating_point<T> Call(T left, T right) {
+    return std::fmin(left, right);
+  }
+
+  template <typename T>
+  static enable_if_integer<T> Call(T left, T right) {
+    return std::min(left, right);
+  }
+};
+
+struct Maximum {
+  template <typename T>
+  static enable_if_floating_point<T> Call(T left, T right) {
+    return std::fmax(left, right);
+  }
+
+  template <typename T>
+  static enable_if_integer<T> Call(T left, T right) {
+    return std::max(left, right);
+  }
+};
+
 // Generate a kernel given an arithmetic functor
 template <template <typename... Args> class KernelGenerator, typename Op>
 ArrayKernelExec ArithmeticExecFromOp(detail::GetTypeId get_id) {
@@ -428,6 +454,45 @@ ArrayKernelExec ArithmeticExecFromOp(detail::GetTypeId get_id) {
   }
 }
 
+template <template <typename... Args> class KernelGenerator, typename Op>
+ArrayKernelExec MinMaxExecFromOp(detail::GetTypeId get_id) {
+  switch (get_id.id) {
+    case Type::INT8:
+      return KernelGenerator<Int8Type, Int8Type, Op>::Exec;
+    case Type::UINT8:
+      return KernelGenerator<UInt8Type, UInt8Type, Op>::Exec;
+    case Type::INT16:
+      return KernelGenerator<Int16Type, Int16Type, Op>::Exec;
+    case Type::UINT16:
+      return KernelGenerator<UInt16Type, UInt16Type, Op>::Exec;
+    case Type::INT32:
+      return KernelGenerator<Int32Type, Int32Type, Op>::Exec;
+    case Type::DATE32:
+      return KernelGenerator<Date32Type, Date32Type, Op>::Exec;
+    case Type::TIME32:
+      return KernelGenerator<Time32Type, Time32Type, Op>::Exec;
+    case Type::UINT32:
+      return KernelGenerator<UInt32Type, UInt32Type, Op>::Exec;
+    case Type::INT64:
+      return KernelGenerator<Int64Type, Int64Type, Op>::Exec;
+    case Type::TIMESTAMP:
+      return KernelGenerator<TimestampType, TimestampType, Op>::Exec;
+    case Type::DATE64:
+      return KernelGenerator<Date64Type, Date64Type, Op>::Exec;
+    case Type::TIME64:
+      return KernelGenerator<Time64Type, Time64Type, Op>::Exec;
+    case Type::UINT64:
+      return KernelGenerator<UInt64Type, UInt64Type, Op>::Exec;
+    case Type::FLOAT:
+      return KernelGenerator<FloatType, FloatType, Op>::Exec;
+    case Type::DOUBLE:
+      return KernelGenerator<DoubleType, DoubleType, Op>::Exec;
+    default:
+      DCHECK(false);
+      return ExecFail;
+  }
+}
+
 struct ArithmeticFunction : ScalarFunction {
   using ScalarFunction::ScalarFunction;
 
@@ -446,6 +511,26 @@ struct ArithmeticFunction : ScalarFunction {
       if (auto type = CommonNumeric(*values)) {
         ReplaceTypes(type, values);
       }
+    }
+
+    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
+    return arrow::compute::detail::NoMatchingKernel(this, *values);
+  }
+};
+
+struct ArithmeticVarArgsFunction : ScalarFunction {
+  using ScalarFunction::ScalarFunction;
+
+  Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
+    RETURN_NOT_OK(CheckArity(*values));
+
+    using arrow::compute::detail::DispatchExactImpl;
+    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
+
+    EnsureDictionaryDecoded(values);
+
+    if (auto type = CommonNumeric(*values)) {
+      ReplaceTypes(type, values);
     }
 
     if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
@@ -512,6 +597,203 @@ std::shared_ptr<ScalarFunction> MakeUnarySignedArithmeticFunctionNotNull(
       auto exec = ArithmeticExecFromOp<ScalarUnaryNotNull, Op>(ty);
       DCHECK_OK(func->AddKernel({ty}, ty, exec));
     }
+  }
+  return func;
+}
+
+using MinMaxState = OptionsWrapper<MinMaxOptions>;
+
+// Implement a variadic scalar min/max kernel.
+template <typename OutType, typename Arg0Type, typename Op>
+struct ScalarMinMax {
+  using OutValue = typename GetOutputType<OutType>::T;
+
+  static void ExecScalar(const ExecBatch& batch, const MinMaxOptions& options,
+                         Datum* out) {
+    // All arguments are scalar
+    OutValue value{};
+    bool valid = false;
+    for (const auto arg : batch.values) {
+      const auto& scalar = *arg.scalar();
+      if (!scalar.is_valid) {
+        if (options.skip_nulls) continue;
+        out->scalar()->is_valid = false;
+        return;
+      }
+      if (!valid) {
+        value = UnboxScalar<OutType>::Unbox(scalar);
+        valid = true;
+      } else {
+        value = Op::Call(value, UnboxScalar<OutType>::Unbox(scalar));
+      }
+    }
+    out->scalar()->is_valid = valid;
+    if (valid) {
+      BoxScalar<OutType>::Box(value, out->scalar().get());
+    }
+  }
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const MinMaxOptions& options = MinMaxState::Get(ctx);
+    const auto descrs = batch.GetDescriptors();
+    const bool all_scalar =
+        std::all_of(batch.values.begin(), batch.values.end(),
+                    [](const Datum& d) { return d.descr().shape == ValueDescr::SCALAR; });
+    if (all_scalar) {
+      ExecScalar(batch, options, out);
+      return Status::OK();
+    }
+
+    ArrayData* output = out->mutable_array();
+
+    // Exactly one array (output = input)
+    if (batch.values.size() == 1) {
+      *output = *batch[0].array();
+      return Status::OK();
+    }
+
+    // At least one array, two or more arguments
+    int64_t length = 0;
+    for (const auto arg : batch.values) {
+      if (arg.is_array()) {
+        length = arg.array()->length;
+        break;
+      }
+    }
+
+    if (!options.skip_nulls) {
+      // We can precompute the validity buffer in this case
+      // If output will be all null, just return
+      for (auto arg : batch.values) {
+        if (arg.is_scalar() && !arg.scalar()->is_valid) {
+          ARROW_ASSIGN_OR_RAISE(
+              auto array, MakeArrayFromScalar(*arg.scalar(), length, ctx->memory_pool()));
+          *output = *array->data();
+          return Status::OK();
+        } else if (arg.is_array() && arg.array()->null_count == length) {
+          *output = *arg.array();
+          return Status::OK();
+        }
+      }
+      // AND together the validity buffers of all arrays
+      ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(length));
+      bool first = true;
+      for (auto arg : batch.values) {
+        if (!arg.is_array()) continue;
+        auto arr = arg.array();
+        if (!arr->buffers[0]) continue;
+        if (first) {
+          ::arrow::internal::CopyBitmap(arr->buffers[0]->data(), arr->offset, length,
+                                        output->buffers[0]->mutable_data(),
+                                        /*dest_offset=*/0);
+          first = false;
+        } else {
+          ::arrow::internal::BitmapAnd(
+              output->buffers[0]->data(), /*left_offset=*/0, arr->buffers[0]->data(),
+              arr->offset, length, /*out_offset=*/0, output->buffers[0]->mutable_data());
+        }
+      }
+    }
+
+    if (batch.values[0].is_scalar()) {
+      // Promote to output array
+      ARROW_ASSIGN_OR_RAISE(auto array, MakeArrayFromScalar(*batch.values[0].scalar(),
+                                                            length, ctx->memory_pool()));
+      *output = *array->data();
+      if (!batch.values[0].scalar()->is_valid) {
+        // MakeArrayFromScalar reuses the same buffer for null/data in
+        // this case, allocate a real one since we'll be writing to it
+        ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(length));
+        ::arrow::internal::BitmapXor(output->buffers[0]->data(), /*left_offset=*/0,
+                                     output->buffers[0]->data(), /*right_offset=*/0,
+                                     length, /*out_offset=*/0,
+                                     output->buffers[0]->mutable_data());
+      }
+    } else {
+      // Copy to output array
+      const ArrayData& input = *batch.values[0].array();
+      ARROW_ASSIGN_OR_RAISE(output->buffers[1], ctx->Allocate(length * sizeof(OutValue)));
+      if (options.skip_nulls && input.buffers[0]) {
+        ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(length));
+        ::arrow::internal::CopyBitmap(input.buffers[0]->data(), input.offset, length,
+                                      output->buffers[0]->mutable_data(),
+                                      /*dest_offset=*/0);
+      }
+      // This won't work for nested or variable-sized types
+      std::memcpy(output->buffers[1]->mutable_data(),
+                  input.buffers[1]->data() + (input.offset * sizeof(OutValue)),
+                  length * sizeof(OutValue));
+    }
+
+    for (size_t i = 1; i < batch.values.size(); i++) {
+      OutputArrayWriter<OutType> writer(out->mutable_array());
+      if (batch.values[i].is_scalar()) {
+        auto scalar = batch.values[i].scalar();
+        if (!scalar->is_valid) continue;
+        auto value = UnboxScalar<OutType>::Unbox(*scalar);
+        VisitArrayValuesInline<OutType>(
+            *out->array(), [&](OutValue u) { writer.Write(Op::Call(u, value)); },
+            [&]() { writer.Write(value); });
+        if (options.skip_nulls && output->buffers[0]) output->buffers[0] = nullptr;
+      } else {
+        const ArrayData& arr = *batch.values[i].array();
+        ArrayIterator<OutType> out_it(*output);
+        int64_t index = 0;
+        VisitArrayValuesInline<OutType>(
+            arr,
+            [&](OutValue value) {
+              auto u = out_it();
+              if (!output->buffers[0] ||
+                  BitUtil::GetBit(output->buffers[0]->data(), index)) {
+                writer.Write(Op::Call(u, value));
+              } else {
+                writer.Write(value);
+              }
+              index++;
+            },
+            [&]() {
+              // RHS is null, preserve the LHS
+              writer.values++;
+              index++;
+              out_it();
+            });
+        // When not skipping nulls, we pre-compute the validity buffer
+        if (options.skip_nulls && output->buffers[0]) {
+          if (arr.buffers[0]) {
+            ::arrow::internal::BitmapOr(
+                output->buffers[0]->data(), /*left_offset=*/0, arr.buffers[0]->data(),
+                /*right_offset=*/arr.offset, length, /*out_offset=*/0,
+                output->buffers[0]->mutable_data());
+          } else {
+            output->buffers[0] = nullptr;
+          }
+        }
+      }
+    }
+    output->null_count = -1;
+    return Status::OK();
+  }
+};
+
+template <typename Op>
+std::shared_ptr<ScalarFunction> MakeScalarMinMax(std::string name,
+                                                 const FunctionDoc* doc) {
+  auto func = std::make_shared<ArithmeticVarArgsFunction>(name, Arity::VarArgs(), doc);
+  for (const auto& ty : NumericTypes()) {
+    auto exec = MinMaxExecFromOp<ScalarMinMax, Op>(ty);
+    ScalarKernel kernel{KernelSignature::Make({ty}, ty, /*is_varargs=*/true), exec,
+                        MinMaxState::Init};
+    kernel.null_handling = NullHandling::type::COMPUTED_NO_PREALLOCATE;
+    kernel.mem_allocation = MemAllocation::type::NO_PREALLOCATE;
+    DCHECK_OK(func->AddKernel(std::move(kernel)));
+  }
+  for (const auto& ty : TemporalTypes()) {
+    auto exec = MinMaxExecFromOp<ScalarMinMax, Op>(ty);
+    ScalarKernel kernel{KernelSignature::Make({ty}, ty, /*is_varargs=*/true), exec,
+                        MinMaxState::Init};
+    kernel.null_handling = NullHandling::type::COMPUTED_NO_PREALLOCATE;
+    kernel.mem_allocation = MemAllocation::type::NO_PREALLOCATE;
+    DCHECK_OK(func->AddKernel(std::move(kernel)));
   }
   return func;
 }
@@ -602,6 +884,20 @@ const FunctionDoc pow_checked_doc{
     ("An error is returned when integer to negative integer power is encountered,\n"
      "or integer overflow is encountered."),
     {"base", "exponent"}};
+
+const FunctionDoc minimum_doc{
+    "Find the element-wise minimum value",
+    ("Nulls will be ignored (default) or propagated. "
+     "NaN will be taken over null, but not over any valid float."),
+    {"*args"},
+    "MinMaxOptions"};
+
+const FunctionDoc maximum_doc{
+    "Find the element-wise maximum value",
+    ("Nulls will be ignored (default) or propagated. "
+     "NaN will be taken over null, but not over any valid float."),
+    {"*args"},
+    "MinMaxOptions"};
 }  // namespace
 
 void RegisterScalarArithmetic(FunctionRegistry* registry) {
@@ -677,6 +973,13 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   auto power_checked =
       MakeArithmeticFunctionNotNull<PowerChecked>("power_checked", &pow_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(power_checked)));
+
+  // ----------------------------------------------------------------------
+  auto minimum = MakeScalarMinMax<Minimum>("minimum", &minimum_doc);
+  DCHECK_OK(registry->AddFunction(std::move(minimum)));
+
+  auto maximum = MakeScalarMinMax<Maximum>("maximum", &maximum_doc);
+  DCHECK_OK(registry->AddFunction(std::move(maximum)));
 }
 
 }  // namespace internal

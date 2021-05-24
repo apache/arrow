@@ -42,6 +42,11 @@ struct ArithmeticOptions : public FunctionOptions {
   bool check_overflow;
 };
 
+struct ARROW_EXPORT MinMaxOptions : public FunctionOptions {
+  MinMaxOptions() : skip_nulls(true) {}
+  bool skip_nulls;
+};
+
 struct ARROW_EXPORT MatchSubstringOptions : public FunctionOptions {
   explicit MatchSubstringOptions(std::string pattern, bool ignore_case = false)
       : pattern(std::move(pattern)), ignore_case(ignore_case) {}
@@ -252,6 +257,24 @@ ARROW_EXPORT
 Result<Datum> Power(const Datum& left, const Datum& right,
                     ArithmeticOptions options = ArithmeticOptions(),
                     ExecContext* ctx = NULLPTR);
+
+/// \brief
+///
+/// \param[in] args
+/// \param[in] ctx the function execution context, optional
+/// \return
+ARROW_EXPORT
+Result<Datum> Maximum(const std::vector<Datum>& args, MinMaxOptions options = {},
+                      ExecContext* ctx = NULLPTR);
+
+/// \brief
+///
+/// \param[in] args
+/// \param[in] ctx the function execution context, optional
+/// \return
+ARROW_EXPORT
+Result<Datum> Minimum(const std::vector<Datum>& args, MinMaxOptions options = {},
+                      ExecContext* ctx = NULLPTR);
 
 /// \brief Compare a numeric array with a scalar.
 ///
