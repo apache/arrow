@@ -175,7 +175,7 @@ be thrown during scanning.
 
 Native Object Resource Management
 ===========
-As another result of relying JNI, all components related to ``FileSystemDataset`` should be closed manually to release the corresponding native
+As another result of relying on JNI, all components related to ``FileSystemDataset`` should be closed manually to release the corresponding native
 objects after using. For example:
 
 .. code-block:: Java
