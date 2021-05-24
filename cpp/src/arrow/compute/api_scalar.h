@@ -258,20 +258,24 @@ Result<Datum> Power(const Datum& left, const Datum& right,
                     ArithmeticOptions options = ArithmeticOptions(),
                     ExecContext* ctx = NULLPTR);
 
-/// \brief
+/// \brief Find the element-wise maximum of any number of arrays or scalars.
+/// Array values must be the same length.
 ///
-/// \param[in] args
+/// \param[in] args arrays or scalars to operate on.
+/// \param[in] options options for handling nulls, optional
 /// \param[in] ctx the function execution context, optional
-/// \return
+/// \return the element-wise maximum
 ARROW_EXPORT
 Result<Datum> Maximum(const std::vector<Datum>& args, MinMaxOptions options = {},
                       ExecContext* ctx = NULLPTR);
 
-/// \brief
+/// \brief Find the element-wise minimum of any number of arrays or scalars.
+/// Array values must be the same length.
 ///
-/// \param[in] args
+/// \param[in] args arrays or scalars to operate on.
+/// \param[in] options options for handling nulls, optional
 /// \param[in] ctx the function execution context, optional
-/// \return
+/// \return the element-wise minimum
 ARROW_EXPORT
 Result<Datum> Minimum(const std::vector<Datum>& args, MinMaxOptions options = {},
                       ExecContext* ctx = NULLPTR);
