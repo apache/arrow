@@ -1193,7 +1193,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     Field c1 = Field.nullable("c1", int32);
 
     TreeNode inExpr =
-        TreeBuilder.makeInExpressionInt32(TreeBuilder.makeField(c1), Sets.newHashSet(1, 2, 3, 4, 5, 15, 16));
+            TreeBuilder.makeInExpressionInt32(TreeBuilder.makeField(c1), Sets.newHashSet(1, 2, 3, 4, 5, 15, 16));
     ExpressionTree expr = TreeBuilder.makeExpression(inExpr, Field.nullable("result", boolType));
     Schema schema = new Schema(Lists.newArrayList(c1));
     Projector eval = Projector.make(schema, Lists.newArrayList(expr));
@@ -1208,10 +1208,10 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
     ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 0);
     ArrowRecordBatch batch =
-        new ArrowRecordBatch(
-            numRows,
-            Lists.newArrayList(fieldNode, fieldNode),
-            Lists.newArrayList(c1Validity, c1Data, c2Validity));
+            new ArrowRecordBatch(
+                    numRows,
+                    Lists.newArrayList(fieldNode, fieldNode),
+                    Lists.newArrayList(c1Validity, c1Data, c2Validity));
 
     BitVector bitVector = new BitVector(EMPTY_SCHEMA_PATH, allocator);
     bitVector.allocateNew(numRows);
@@ -1220,10 +1220,10 @@ public class ProjectorTest extends BaseEvaluatorTest {
     output.add(bitVector);
     eval.evaluate(batch, output);
 
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 5; i++) {
       assertTrue(bitVector.getObject(i).booleanValue());
     }
-    for (int i = 4; i < 16; i++) {
+    for (int i = 5; i < 16; i++) {
       assertFalse(bitVector.getObject(i).booleanValue());
     }
 
@@ -1252,9 +1252,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     Schema schema = new Schema(Lists.newArrayList(c1));
     Projector eval = Projector.make(schema, Lists.newArrayList(expr));
 
-    // Create a row-batch with some sample data to look for
     int numRows = 16;
-    // Only the first 8 values will be valid.
     byte[] validity = new byte[]{(byte) 255, 0};
     String[] c1Values =
             new String[]{"1", "2", "3", "4", "-0.0", "6", "7", "8", "9", "10", "11", "12", "13", "14",
@@ -1278,11 +1276,10 @@ public class ProjectorTest extends BaseEvaluatorTest {
     output.add(bitVector);
     eval.evaluate(batch, output);
 
-    // The first four values in the vector must match the expression, but not the other ones.
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 5; i++) {
       assertTrue(bitVector.getObject(i).booleanValue());
     }
-    for (int i = 4; i < 16; i++) {
+    for (int i = 5; i < 16; i++) {
       assertFalse(bitVector.getObject(i).booleanValue());
     }
 
@@ -1328,11 +1325,11 @@ public class ProjectorTest extends BaseEvaluatorTest {
     output.add(bitVector);
     eval.evaluate(batch, output);
 
-    // The first five values in the vector must match the expression, but not the other ones.
-    for (int i = 1; i < 5; i++) {
+    // The first four values in the vector must match the expression, but not the other ones.
+    for (int i = 0; i < 4; i++) {
       assertTrue(bitVector.getObject(i).booleanValue());
     }
-    for (int i = 5; i < 16; i++) {
+    for (int i = 4; i < 16; i++) {
       assertFalse(bitVector.getObject(i).booleanValue());
     }
 
