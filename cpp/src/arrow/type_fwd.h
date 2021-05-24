@@ -253,6 +253,12 @@ class DayTimeIntervalArray;
 class DayTimeIntervalBuilder;
 struct DayTimeIntervalScalar;
 
+class MonthDayNanoIntervalType;
+class MonthDayNanoIntervalArray;
+class MonthDayNanoIntervalBuilder;
+struct MonthDayNanoIntervalScalar;
+
+
 class DurationType;
 using DurationArray = NumericArray<DurationType>;
 using DurationBuilder = NumericBuilder<DurationType>;
@@ -394,8 +400,12 @@ struct Type {
     /// Like LIST, but with 64-bit offsets
     LARGE_LIST,
 
+    /// Calendar interval type with three fields.
+    INTERVAL_MONTH_DAY_NANO,
+
     // Leave this at the end
     MAX_ID
+
   };
 };
 
@@ -510,6 +520,9 @@ std::shared_ptr<DataType> ARROW_EXPORT day_time_interval();
 
 /// \brief Return a MonthIntervalType instance
 std::shared_ptr<DataType> ARROW_EXPORT month_interval();
+
+/// \brief Return a MonthDayNanoType instance
+std::shared_ptr<DataType> ARROW_EXPORT month_day_nano_interval();
 
 /// \brief Create a TimestampType instance from its unit
 ARROW_EXPORT
