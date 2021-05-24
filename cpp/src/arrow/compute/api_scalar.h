@@ -464,7 +464,7 @@ Result<Datum> FillNull(const Datum& values, const Datum& fill_value,
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> IfElse(const Datum& cond, const Datum& left, const Datum& right,
-                      ExecContext* ctx = NULLPTR);
+                     ExecContext* ctx = NULLPTR);
 
 }  // namespace compute
 }  // namespace arrow
