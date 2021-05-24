@@ -25,7 +25,7 @@ tbl <- example_data
 tbl$verses <- verses[[1]]
 # c(" a ", "  b  ", "   c   ", ...) increasing padding
 # nchar =   3  5  7  9 11 13 15 17 19 21
-tbl$padded_strings <- stringr::str_pad(letters[1:10], width = 2*(1:10)+1, side = "both")
+tbl$padded_strings <- stringr::str_pad(letters[1:10], width = 2*(1:10) + 1, side = "both")
 
 test_that("basic select/filter/collect", {
   batch <- record_batch(tbl)
@@ -67,6 +67,14 @@ chr: string
 See $.data for the source Arrow object',
   fixed = TRUE
   )
+  
+  expect_error(
+    record_batch(tbl, tbl) %>%
+      filter(int > 0) %>%
+      print(),
+    regexp = "Cannot retrieve field with name"
+  )
+  
 })
 
 test_that("summarize", {

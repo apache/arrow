@@ -95,13 +95,7 @@ Schema <- R6Class("Schema",
       fields
     },
     field = function(i) Schema__field(self, i),
-    GetFieldByName = function(x) {
-      field <- Schema__GetFieldByName(self, x)
-      if(is.null(field)){
-        stop(paste0("Cannot retrieve field with name: ", x,  "\n  Is this field name used more than once in your data?"))
-      }
-      field
-    },
+    GetFieldByName = function(x) Schema__GetFieldByName(self, x),
     AddField = function(i, field) {
       assert_is(field, "Field")
       Schema__AddField(self, i, field)

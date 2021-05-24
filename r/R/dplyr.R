@@ -74,7 +74,12 @@ print.arrow_dplyr_query <- function(x, ...) {
     name <- expr$field_name
     if (nzchar(name)) {
       # Just a field_ref, so look up in the schema
-      schm$GetFieldByName(name)$type$ToString()
+      field_name <- schm$GetFieldByName(name)
+      if (is.null(field_name)) {
+        stop(paste0("Cannot retrieve field with name: ", name, 
+                    "\n  Is this field name used more than once in your data?"))
+      }
+      field_name$type$ToString()
     } else {
       # Expression, so get its type and append the expression
       paste0(
