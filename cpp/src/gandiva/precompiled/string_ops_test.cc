@@ -264,8 +264,7 @@ TEST(TestStringOps, TestCastVarcharToBool) {
 
   EXPECT_EQ(castBIT_utf8(ctx_ptr, "test", 4), false);
   EXPECT_TRUE(ctx.has_error());
-  EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Invalid value for boolean"));
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Invalid value for boolean"));
   ctx.Reset();
 }
 

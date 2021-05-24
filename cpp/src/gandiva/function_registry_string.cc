@@ -76,8 +76,7 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
       NativeFunction("castBIT", {"castBOOLEAN"}, DataTypeVector{utf8()}, boolean(),
-                     kResultNullIfNull, "castBIT_utf8",
-                     NativeFunction::kNeedsContext),
+                     kResultNullIfNull, "castBIT_utf8", NativeFunction::kNeedsContext),
 
       NativeFunction("castINT", {}, DataTypeVector{utf8()}, int32(), kResultNullIfNull,
                      "gdv_fn_castINT_utf8",
