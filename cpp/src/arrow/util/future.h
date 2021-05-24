@@ -225,7 +225,7 @@ struct CallbackOptions {
 };
 
 // Untyped private implementation
-class ARROW_EXPORT FutureImpl {
+class ARROW_EXPORT FutureImpl : public std::enable_shared_from_this<FutureImpl> {
  public:
   FutureImpl();
   virtual ~FutureImpl() = default;
@@ -241,7 +241,7 @@ class ARROW_EXPORT FutureImpl {
   void Wait();
   bool Wait(double seconds);
 
-  using Callback = internal::FnOnce<void()>;
+  using Callback = internal::FnOnce<void(const FutureImpl& impl)>;
   void AddCallback(Callback callback, CallbackOptions opts);
   bool TryAddCallback(const std::function<Callback()>& callback_factory,
                       CallbackOptions opts);
@@ -486,11 +486,12 @@ class Future {
     // thread will be waiting for MarkFinished to return. Thus it's safe to keep a
     // weak reference to impl_ here
     struct Callback {
-      void operator()() && { std::move(on_complete)(weak_self.get().result()); }
-      WeakFuture<T> weak_self;
+      void operator()(const FutureImpl& impl) && {
+        std::move(on_complete)(*static_cast<Result<ValueType>*>(impl.result_.get()));
+      }
       OnComplete on_complete;
     };
-    impl_->AddCallback(Callback{WeakFuture<T>(*this), std::move(on_complete)}, opts);
+    impl_->AddCallback(Callback{std::move(on_complete)}, opts);
   }
 
   /// Overload for callbacks accepting a Status
@@ -501,11 +502,13 @@ class Future {
     static_assert(std::is_same<internal::Empty, ValueType>::value,
                   "Callbacks for Future<> should accept Status and not Result");
     struct Callback {
-      void operator()() && { std::move(on_complete)(weak_self.get().status()); }
-      WeakFuture<T> weak_self;
+      void operator()(const FutureImpl& impl) && {
+        std::move(on_complete)(
+            static_cast<Result<ValueType>*>(impl.result_.get())->status());
+      }
       OnComplete on_complete;
     };
-    impl_->AddCallback(Callback{WeakFuture<T>(*this), std::move(on_complete)}, opts);
+    impl_->AddCallback(Callback{std::move(on_complete)}, opts);
   }
 
   /// \brief Overload of AddCallback that will return false instead of running
@@ -527,15 +530,13 @@ class Future {
   TryAddCallback(const CallbackFactory& callback_factory,
                  CallbackOptions opts = CallbackOptions::Defaults()) const {
     struct Callback {
-      void operator()() && { std::move(on_complete)(weak_self.get().result()); }
-      WeakFuture<T> weak_self;
+      void operator()(const FutureImpl& impl) && {
+        std::move(on_complete)(*static_cast<Result<ValueType>*>(impl.result_.get()));
+      }
       OnComplete on_complete;
     };
     return impl_->TryAddCallback(
-        [this, &callback_factory]() {
-          return Callback{WeakFuture<T>(*this), callback_factory()};
-        },
-        opts);
+        [this, &callback_factory]() { return Callback{callback_factory()}; }, opts);
   }
 
   template <typename CallbackFactory,
@@ -544,16 +545,15 @@ class Future {
   TryAddCallback(const CallbackFactory& callback_factory,
                  CallbackOptions opts = CallbackOptions::Defaults()) const {
     struct Callback {
-      void operator()() && { std::move(on_complete)(weak_self.get().status()); }
-      WeakFuture<T> weak_self;
+      void operator()(const FutureImpl& impl) && {
+        std::move(on_complete)(
+            static_cast<Result<ValueType>*>(impl.result_.get())->status());
+      }
       OnComplete on_complete;
     };
 
     return impl_->TryAddCallback(
-        [this, &callback_factory]() {
-          return Callback{WeakFuture<T>(*this), callback_factory()};
-        },
-        opts);
+        [this, &callback_factory]() { return Callback{callback_factory()}; }, opts);
   }
 
   /// \brief Consumer API: Register a continuation to run when this future completes

@@ -388,10 +388,8 @@ TEST(FutureRefTest, TailRemoved) {
 
 TEST(FutureRefTest, HeadRemoved) {
   // Keeping the tail of the future chain should not keep the entire chain alive.  If no
-  // one has a reference to the head then there is no need to keep it, nothing will finish
-  // it.  In theory the intermediate futures could be finished by some external process
-  // but that would be highly unusual and bad practice so in reality this would just be a
-  // reference to a future that will never complete which is ok.
+  // one has a reference to the head then the future is abandoned.  TODO (ARROW-12207):
+  // detect abandonment.
   std::weak_ptr<FutureImpl> ref;
   std::shared_ptr<Future<>> ref2;
   {
@@ -1004,6 +1002,32 @@ TEST_F(FutureSchedulingTest, ScheduleIfUnfinished) {
     fut.AddCallback(callback, options);
     ASSERT_EQ(2, spawn_count());
   }
+}
+
+class DelayedExecutor : public internal::Executor {
+ public:
+  int GetCapacity() override { return 0; }
+
+  Status SpawnReal(internal::TaskHints hints, internal::FnOnce<void()> task, StopToken,
+                   StopCallback&&) override {
+    captured_task = std::move(task);
+    return Status::OK();
+  }
+
+  internal::FnOnce<void()> captured_task;
+};
+
+TEST_F(FutureSchedulingTest, ScheduleAlwaysKeepsFutureAliveUntilCallback) {
+  CallbackOptions options;
+  options.should_schedule = ShouldSchedule::ALWAYS;
+  DelayedExecutor delayed;
+  options.executor = &delayed;
+  {
+    auto fut = Future<int>::Make();
+    fut.AddCallback([](const Result<int> val) { ASSERT_EQ(7, *val); }, options);
+    fut.MarkFinished(7);
+  }
+  std::move(delayed.captured_task)();
 }
 
 TEST(FutureAllTest, Empty) {

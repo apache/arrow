@@ -279,10 +279,18 @@ class ConcreteFutureImpl : public FutureImpl {
 
   void RunOrScheduleCallback(CallbackRecord& callback_record, bool from_unfinished) {
     if (ShouldSchedule(callback_record, from_unfinished)) {
-      DCHECK_OK(
-          callback_record.options.executor->Spawn(std::move(callback_record.callback)));
+      // Need to make a copy of this to keep it alive until the callback has a chance
+      // to be scheduled.
+      struct CallbackTask {
+        void operator()() { std::move(callback)(*self); }
+
+        Callback callback;
+        std::shared_ptr<FutureImpl> self;
+      };
+      CallbackTask task{std::move(callback_record.callback), shared_from_this()};
+      DCHECK_OK(callback_record.options.executor->Spawn(std::move(task)));
     } else {
-      std::move(callback_record.callback)();
+      std::move(callback_record.callback)(*this);
     }
   }
 
