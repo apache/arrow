@@ -152,8 +152,13 @@ write_parquet <- function(x,
                           properties = NULL,
                           arrow_properties = NULL) {
   x_out <- x
-  if (!inherits(x, "Table")) {
+  
+  if (is.data.frame(x) || inherits(x, "RecordBatch")) {
     x <- Table$create(x)
+  }
+  
+  if(!inherits(x, "ArrowTabular")){
+    stop(paste0("Cannot write to Parquet. 'x' must be an object of class 'data.frame', 'RecordBatch', or 'Table', not '", class(x)[1]), "'")
   }
 
   if (!inherits(sink, "OutputStream")) {
