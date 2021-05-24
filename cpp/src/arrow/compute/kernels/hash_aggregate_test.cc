@@ -34,6 +34,7 @@
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/compute/registry.h"
+#include "arrow/table.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
@@ -761,5 +762,55 @@ TEST(GroupBy, RandomArraySum) {
   }
 }
 
+TEST(GroupBy, WithChunkedArray) {
+  auto table =
+      TableFromJSON(schema({field("argument", float64()), field("key", int64())}),
+                    {R"([{"argument": 1.0,   "key": 1},
+                         {"argument": null,  "key": 1}
+                        ])",
+                     R"([{"argument": 0.0,   "key": 2},
+                         {"argument": null,  "key": 3},
+                         {"argument": 4.0,   "key": null},
+                         {"argument": 3.25,  "key": 1},
+                         {"argument": 0.125, "key": 2},
+                         {"argument": -0.25, "key": 2},
+                         {"argument": 0.75,  "key": null},
+                         {"argument": null,  "key": 3}
+                        ])"});
+  CountOptions count_options;
+  ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                       internal::GroupBy(
+                           {
+                               table->GetColumnByName("argument"),
+                               table->GetColumnByName("argument"),
+                               table->GetColumnByName("argument"),
+                           },
+                           {
+                               table->GetColumnByName("key"),
+                           },
+                           {
+                               {"hash_count", &count_options},
+                               {"hash_sum", nullptr},
+                               {"hash_min_max", nullptr},
+                           }));
+
+  AssertDatumsEqual(ArrayFromJSON(struct_({
+                                      field("hash_count", int64()),
+                                      field("hash_sum", float64()),
+                                      field("hash_min_max", struct_({
+                                                                field("min", float64()),
+                                                                field("max", float64()),
+                                                            })),
+                                      field("key_0", int64()),
+                                  }),
+                                  R"([
+    [2, 4.25,   {"min": 1.0,   "max": 3.25},  1],
+    [3, -0.125, {"min": -0.25, "max": 0.125}, 2],
+    [0, null,   {"min": null,  "max": null},  3],
+    [2, 4.75,   {"min": 0.75,  "max": 4.0},   null]
+  ])"),
+                    aggregated_and_grouped,
+                    /*verbose=*/true);
+}
 }  // namespace compute
 }  // namespace arrow

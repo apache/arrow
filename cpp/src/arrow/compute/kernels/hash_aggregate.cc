@@ -768,7 +768,7 @@ struct GroupedCountImpl : public GroupedAggregator {
   }
 
   Status Consume(const ExecBatch& batch) override {
-    RETURN_NOT_OK(MaybeReserve(counts_.length(), batch, [&](int64_t added_groups) {
+    RETURN_NOT_OK(MaybeReserve(num_groups_, batch, [&](int64_t added_groups) {
       num_groups_ += added_groups;
       return counts_.Append(added_groups * sizeof(int64_t), 0);
     }));
