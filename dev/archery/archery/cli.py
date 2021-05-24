@@ -1258,7 +1258,7 @@ def _mock_compose_calls(compose):
 @click.option(
     "--dry-run/--execute",
     default=False,
-    help="Display the docker-compose commands instead of executing " "them.",
+    help="Display the docker-compose commands instead of executing them.",
 )
 @click.pass_obj
 def docker_compose(obj, src, dry_run):
@@ -1292,31 +1292,37 @@ def docker_compose(obj, src, dry_run):
     default=False,
     is_flag=True,
     envvar="ARCHERY_USE_DOCKER_CLI",
-    help="Use docker CLI directly for building instead of calling "
-    "docker-compose. This may help to reuse cached layers.",
+    help=(
+        "Use docker CLI directly for building instead of calling "
+        "docker-compose. This may help to reuse cached layers."
+    ),
 )
 @click.option(
     "--using-docker-buildx",
     default=False,
     is_flag=True,
     envvar="ARCHERY_USE_DOCKER_BUILDX",
-    help="Use buildx with docker CLI directly for building instead "
-    "of calling docker-compose or the plain docker build "
-    "command. This option makes the build cache reusable "
-    "across hosts.",
+    help=(
+        "Use buildx with docker CLI directly for building instead of calling "
+        "docker-compose or the plain docker build command. This option makes "
+        "the build cache reusable across hosts."
+    ),
 )
 @click.option(
     "--use-cache/--no-cache",
     default=True,
-    help="Whether to use cache when building the image and its "
-    "ancestor images",
+    help=(
+        "Whether to use cache when building the image and its ancestor images"
+    ),
 )
 @click.option(
     "--use-leaf-cache/--no-leaf-cache",
     default=True,
-    help="Whether to use cache when building only the (leaf) image "
-    "passed as the argument. To disable caching for both the "
-    "image and its ancestors use --no-cache option.",
+    help=(
+        "Whether to use cache when building only the (leaf) image passed as "
+        "the argument. To disable caching for both the image and its "
+        "ancestors use --no-cache option."
+    ),
 )
 @click.pass_obj
 def docker_compose_build(
@@ -1394,31 +1400,37 @@ def docker_compose_build(
     default=False,
     is_flag=True,
     envvar="ARCHERY_USE_DOCKER_CLI",
-    help="Use docker CLI directly for building instead of calling "
-    "docker-compose. This may help to reuse cached layers.",
+    help=(
+        "Use docker CLI directly for building instead of calling "
+        "docker-compose. This may help to reuse cached layers."
+    ),
 )
 @click.option(
     "--using-docker-buildx",
     default=False,
     is_flag=True,
     envvar="ARCHERY_USE_DOCKER_BUILDX",
-    help="Use buildx with docker CLI directly for building instead "
-    "of calling docker-compose or the plain docker build "
-    "command. This option makes the build cache reusable "
-    "across hosts.",
+    help=(
+        "Use buildx with docker CLI directly for building instead of calling "
+        "docker-compose or the plain docker build command. This option makes "
+        "the build cache reusable across hosts."
+    ),
 )
 @click.option(
     "--use-cache/--no-cache",
     default=True,
-    help="Whether to use cache when building the image and its "
-    "ancestor images",
+    help=(
+        "Whether to use cache when building the image and its ancestor images"
+    ),
 )
 @click.option(
     "--use-leaf-cache/--no-leaf-cache",
     default=True,
-    help="Whether to use cache when building only the (leaf) image "
-    "passed as the argument. To disable caching for both the "
-    "image and its ancestors use --no-cache option.",
+    help=(
+        "Whether to use cache when building only the (leaf) image passed as "
+        "the argument. To disable caching for both the image and its "
+        "ancestors use --no-cache option."
+    ),
 )
 @click.option(
     "--volume", "-v", multiple=True, help="Set volume within the container"
@@ -1440,7 +1452,8 @@ def docker_compose_run(
     use_leaf_cache,
     volume,
 ):
-    """Execute docker-compose builds.
+    """
+    Execute docker-compose builds.
 
     To see the available builds run `archery docker images`.
 
@@ -1528,8 +1541,10 @@ def docker_compose_run(
     "--using-docker-cli",
     default=False,
     is_flag=True,
-    help="Use docker CLI directly for building instead of calling "
-    "docker-compose. This may help to reuse cached layers.",
+    help=(
+        "Use docker CLI directly for building instead of calling "
+        "docker-compose. This may help to reuse cached layers."
+    ),
 )
 @click.pass_obj
 def docker_compose_push(obj, image, user, password, using_docker_cli):
@@ -1600,7 +1615,9 @@ def release_changelog():
 @click.argument("version")
 @click.pass_obj
 def release_changelog_add(obj, version):
-    """Prepend the changelog with the current release"""
+    """
+    Prepend the changelog with the current release.
+    """
     from .release import Release
 
     jira, repo = obj["jira"], obj["repo"]
@@ -1625,7 +1642,9 @@ def release_changelog_add(obj, version):
 @click.argument("output", type=click.File("w", encoding="utf8"), default="-")
 @click.pass_obj
 def release_changelog_generate(obj, version, output):
-    """Generate the changelog of a specific release."""
+    """
+    Generate the changelog of a specific release.
+    """
     from .release import Release
 
     jira, repo = obj["jira"], obj["repo"]
@@ -1640,7 +1659,9 @@ def release_changelog_generate(obj, version, output):
 @release_changelog.command("regenerate")
 @click.pass_obj
 def release_changelog_regenerate(obj):
-    """Regeneretate the whole CHANGELOG.md file"""
+    """
+    Regeneretate the whole CHANGELOG.md file.
+    """
     from .release import Release
 
     jira, repo = obj["jira"], obj["repo"]
@@ -1706,19 +1727,30 @@ def linking(obj):
 
 @linking.command("check-dependencies")
 @click.argument("paths", nargs=-1)
-@click.option("--allow", "-a", "allowed", multiple=True,
-              help="Name of the allowed libraries")
-@click.option("--disallow", "-d", "disallowed", multiple=True,
-              help="Name of the disallowed libraries")
+@click.option(
+    "--allow",
+    "-a",
+    "allowed",
+    multiple=True,
+    help="Name of the allowed libraries",
+)
+@click.option(
+    "--disallow",
+    "-d",
+    "disallowed",
+    multiple=True,
+    help="Name of the disallowed libraries",
+)
 @click.pass_obj
 def linking_check_dependencies(obj, allowed, disallowed, paths):
-    from .linking import check_dynamic_library_dependencies, DependencyError
+    from .linking import DependencyError, check_dynamic_library_dependencies
 
     allowed, disallowed = set(allowed), set(disallowed)
     try:
         for path in map(pathlib.Path, paths):
-            check_dynamic_library_dependencies(path, allowed=allowed,
-                                               disallowed=disallowed)
+            check_dynamic_library_dependencies(
+                path, allowed=allowed, disallowed=disallowed
+            )
     except DependencyError as e:
         raise click.ClickException(str(e))
 

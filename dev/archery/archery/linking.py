@@ -20,7 +20,6 @@ import subprocess
 
 from .utils.command import Command
 
-
 _ldd = Command("ldd")
 _otool = Command("otool")
 
@@ -30,7 +29,6 @@ class DependencyError(Exception):
 
 
 class DynamicLibrary:
-
     def __init__(self, path):
         self.path = path
 
