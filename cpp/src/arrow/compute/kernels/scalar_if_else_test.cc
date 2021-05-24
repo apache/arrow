@@ -56,7 +56,6 @@ using PrimitiveTypes = ::testing::Types<Int8Type, UInt8Type, Int16Type, UInt16Ty
                                         Int32Type, UInt32Type, Int64Type, UInt64Type,
                                         FloatType, DoubleType, Date32Type, Date64Type>;
 
-
 TYPED_TEST_SUITE(TestIfElsePrimitive, PrimitiveTypes);
 
 TYPED_TEST(TestIfElsePrimitive, IfElseFixedSize) {

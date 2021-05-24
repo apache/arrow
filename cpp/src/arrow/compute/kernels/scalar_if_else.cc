@@ -31,8 +31,8 @@ namespace {
 
 // nulls will be promoted as follows
 // cond.val && (cond.data && left.val || ~cond.data && right.val)
-Status promote_nulls(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
-                     const ArrayData& right, ArrayData* output) {
+Status PromoteNulls(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
+                    const ArrayData& right, ArrayData* output) {
   if (!cond.MayHaveNulls() && !left.MayHaveNulls() && !right.MayHaveNulls()) {
     return Status::OK();  // no nulls to handle
   }
@@ -74,12 +74,14 @@ template <typename Type, bool swap = false, typename Enable = void>
 struct IfElseFunctor {};
 
 template <typename Type, bool swap>
-struct IfElseFunctor<Type, swap, enable_if_t<is_number_type<Type>::value>> {
+struct IfElseFunctor<
+    Type, swap,
+    enable_if_t<is_number_type<Type>::value | is_temporal_type<Type>::value>> {
   using T = typename TypeTraits<Type>::CType;
 
   static Status Call(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
                      const ArrayData& right, ArrayData* out) {
-    ARROW_RETURN_NOT_OK(promote_nulls(ctx, cond, left, right, out));
+    ARROW_RETURN_NOT_OK(PromoteNulls(ctx, cond, left, right, out));
 
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
                           ctx->Allocate(cond.length * sizeof(T)));
@@ -132,10 +134,10 @@ struct IfElseFunctor<Type, swap, enable_if_t<is_number_type<Type>::value>> {
 };
 
 template <typename Type, bool swap>
-struct IfElseFunctor<Type, swap, enable_if_t<is_boolean_type<Type>::value>> {
+struct IfElseFunctor<Type, swap, enable_if_boolean<Type>> {
   static Status Call(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
                      const ArrayData& right, ArrayData* out) {
-    ARROW_RETURN_NOT_OK(promote_nulls(ctx, cond, left, right, out));
+    ARROW_RETURN_NOT_OK(PromoteNulls(ctx, cond, left, right, out));
 
     // out_buff = right & ~cond
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
@@ -169,7 +171,7 @@ struct IfElseFunctor<Type, swap, enable_if_t<is_boolean_type<Type>::value>> {
 };
 
 template <typename Type, bool swap>
-struct IfElseFunctor<Type, swap, enable_if_t<is_null_type<Type>::value>> {
+struct IfElseFunctor<Type, swap, enable_if_null<Type>> {
   static Status Call(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
                      const ArrayData& right, ArrayData* out) {
     // Nothing preallocated, so we assign left into the output
@@ -191,8 +193,6 @@ struct IfElseFunctor<Type, swap, enable_if_t<is_null_type<Type>::value>> {
 template <typename Type>
 struct ResolveExec {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    if (batch.length == 0) return Status::OK();
-
     if (batch[0].kind() == Datum::ARRAY) {
       if (batch[1].kind() == Datum::ARRAY) {
         if (batch[2].kind() == Datum::ARRAY) {  // AAA
@@ -246,8 +246,8 @@ struct ResolveExec {
   }
 };
 
-void AddPrimitiveKernels(const std::shared_ptr<ScalarFunction>& scalar_function,
-                         const std::vector<std::shared_ptr<DataType>>& types) {
+void AddPrimitiveIfElseKernels(const std::shared_ptr<ScalarFunction>& scalar_function,
+                               const std::vector<std::shared_ptr<DataType>>& types) {
   for (auto&& type : types) {
     auto exec = internal::GenerateTypeAgnosticPrimitive<ResolveExec>(*type);
     // cond array needs to be boolean always
@@ -272,9 +272,9 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
 
   auto func = std::make_shared<ScalarFunction>("if_else", Arity::Ternary(), &if_else_doc);
 
-  AddPrimitiveKernels(func, NumericTypes());
-  AddPrimitiveKernels(func, TemporalTypes());
-  AddPrimitiveKernels(func, {boolean(), null()});
+  AddPrimitiveIfElseKernels(func, NumericTypes());
+  AddPrimitiveIfElseKernels(func, TemporalTypes());
+  AddPrimitiveIfElseKernels(func, {boolean(), null()});
   // todo add binary kernels
 
   DCHECK_OK(registry->AddFunction(std::move(func)));
