@@ -777,7 +777,7 @@ TEST(GroupBy, WithChunkedArray) {
                          {"argument": 0.75,  "key": null},
                          {"argument": null,  "key": 3}
                         ])"});
-  CountOptions count_options;
+  ScalarAggregateOptions count_options;
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
                        internal::GroupBy(
                            {
