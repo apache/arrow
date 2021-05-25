@@ -106,7 +106,7 @@ test_that("write_feather option error handling", {
 test_that("write_feather with invalid input type", {
   expect_error(
     write_feather(Array$create(1:5), feather_file),
-    regexp = "Cannot write to Feather file. 'x' must be an object of class 'data.frame', 'RecordBatch', or 'Table', not 'Array'"
+    regexp = "`x` must be an object of class 'data.frame', 'RecordBatch', or 'Table', not 'Array'"
   )
 })
 

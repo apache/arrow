@@ -111,8 +111,17 @@ handle_embedded_nul_error <- function(e) {
   stop(e)
 }
 
-check_tabular <- function(x, format){
-  if(!inherits(x, "ArrowTabular")){
-    stop(paste0("Cannot write to ", format, ". 'x' must be an object of class 'data.frame', 'RecordBatch', or 'Table', not '", class(x)[1], "'"))
+check_tabular <- function(x, format) {
+  if (!inherits(x, "ArrowTabular")) {
+    abort(
+      c(
+        paste0("Cannot write to ", format, "."),
+        x = paste0(
+          "`x` must be an object of class 'data.frame', 'RecordBatch', or 'Table', not '",
+          class(x)[1],
+          "'"
+        )
+      )
+    )
   }
 }

@@ -317,7 +317,7 @@ test_that("Write a CSV file with different batch sizes", {
 test_that("Write a CSV file with invalid input type", {
   expect_error(
     write_csv_arrow(Array$create(1:5), csv_file),
-    regexp = "Cannot write to CSV. 'x' must be an object of class 'data.frame', 'RecordBatch', or 'Table', not 'Array'"
+    regexp = "`x` must be an object of class 'data.frame', 'RecordBatch', or 'Table', not 'Array'"
     )
 })
 
