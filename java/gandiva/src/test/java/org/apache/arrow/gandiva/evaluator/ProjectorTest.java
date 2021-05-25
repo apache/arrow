@@ -73,7 +73,13 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
   List<ArrowBuf> varBufs(String[] strings, Charset charset) {
     ArrowBuf offsetsBuffer = allocator.buffer((strings.length + 1) * 4);
-    ArrowBuf dataBuffer = allocator.buffer(strings.length * 8);
+    
+    long dataBufferSize = 0L;
+    for (String string : strings) {
+      dataBufferSize += string.getBytes(charset).length;
+    }
+
+    ArrowBuf dataBuffer = allocator.buffer(dataBufferSize);
 
     int startOffset = 0;
     for (int i = 0; i < strings.length; i++) {
@@ -2284,4 +2290,68 @@ public class ProjectorTest extends BaseEvaluatorTest {
     releaseValueVectors(output);
   }
 
+  @Test
+  public void testInitCap() throws Exception {
+
+    Field x = Field.nullable("x", new ArrowType.Utf8());
+
+    Field retType = Field.nullable("c", new ArrowType.Utf8());
+
+    TreeNode cond =
+            TreeBuilder.makeFunction(
+                    "initcap",
+                    Lists.newArrayList(TreeBuilder.makeField(x)),
+                    new ArrowType.Utf8());
+    ExpressionTree expr = TreeBuilder.makeExpression(cond, retType);
+    Schema schema = new Schema(Lists.newArrayList(x));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
+
+    int numRows = 5;
+    byte[] validity = new byte[]{(byte) 15, 0};
+    String[] valuesX = new String[]{
+        "  øhpqršvñ  \n\n",
+        "möbelträgerfüße   \nmöbelträgerfüße",
+        "ÂbĆDËFgh\néll",
+        "citroën CaR",
+        "kjk"
+    };
+
+    String[] expected = new String[]{
+        "  Øhpqršvñ  \n\n",
+        "Möbelträgerfüße   \nMöbelträgerfüße",
+        "ÂbĆDËFgh\nÉll",
+        "Citroën CaR",
+        null
+    };
+
+    ArrowBuf validityX = buf(validity);
+    List<ArrowBuf> dataBufsX = stringBufs(valuesX);
+
+    ArrowRecordBatch batch =
+            new ArrowRecordBatch(
+                    numRows,
+                    Lists.newArrayList(new ArrowFieldNode(numRows, 0)),
+                    Lists.newArrayList(validityX, dataBufsX.get(0), dataBufsX.get(1)));
+
+    // allocate data for output vector.
+    VarCharVector outVector = new VarCharVector(EMPTY_SCHEMA_PATH, allocator);
+    outVector.allocateNew(numRows * 100, numRows);
+
+    // evaluate expression
+    List<ValueVector> output = new ArrayList<>();
+    output.add(outVector);
+    eval.evaluate(batch, output);
+    eval.close();
+
+    // match expected output.
+    for (int i = 0; i < numRows - 1; i++) {
+      assertFalse("Expect none value equals null", outVector.isNull(i));
+      assertEquals(expected[i], new String(outVector.get(i)));
+    }
+
+    assertTrue("Last value must be null", outVector.isNull(numRows - 1));
+
+    releaseRecordBatch(batch);
+    releaseValueVectors(output);
+  }
 }

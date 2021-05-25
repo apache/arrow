@@ -17,6 +17,7 @@
 
 // String functions
 #include "arrow/util/value_parsing.h"
+
 extern "C" {
 
 #include <algorithm>
@@ -220,66 +221,6 @@ gdv_int32 utf8_byte_pos(gdv_int64 context, const char* str, gdv_int32 str_len,
 UTF8_LENGTH(char_length, utf8)
 UTF8_LENGTH(length, utf8)
 UTF8_LENGTH(lengthUtf8, binary)
-
-// Convert a utf8 sequence to upper case.
-// TODO : This handles only ascii characters.
-FORCE_INLINE
-const char* upper_utf8(gdv_int64 context, const char* data, gdv_int32 data_len,
-                       int32_t* out_len) {
-  if (data_len == 0) {
-    *out_len = 0;
-    return "";
-  }
-
-  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, data_len));
-  if (ret == nullptr) {
-    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
-    *out_len = 0;
-    return "";
-  }
-  for (gdv_int32 i = 0; i < data_len; ++i) {
-    char cur = data[i];
-
-    // 'A- - 'Z' : 0x41 - 0x5a
-    // 'a' - 'z' : 0x61 - 0x7a
-    if (cur >= 0x61 && cur <= 0x7a) {
-      cur = static_cast<char>(cur - 0x20);
-    }
-    ret[i] = cur;
-  }
-  *out_len = data_len;
-  return ret;
-}
-
-// Convert a utf8 sequence to lower case.
-// TODO : This handles only ascii characters.
-FORCE_INLINE
-const char* lower_utf8(gdv_int64 context, const char* data, gdv_int32 data_len,
-                       int32_t* out_len) {
-  if (data_len == 0) {
-    *out_len = 0;
-    return "";
-  }
-
-  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, data_len));
-  if (ret == nullptr) {
-    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
-    *out_len = 0;
-    return "";
-  }
-  for (gdv_int32 i = 0; i < data_len; ++i) {
-    char cur = data[i];
-
-    // 'A' - 'Z' : 0x41 - 0x5a
-    // 'a' - 'z' : 0x61 - 0x7a
-    if (cur >= 0x41 && cur <= 0x5a) {
-      cur = static_cast<char>(cur + 0x20);
-    }
-    ret[i] = cur;
-  }
-  *out_len = data_len;
-  return ret;
-}
 
 // Reverse a utf8 sequence
 FORCE_INLINE
