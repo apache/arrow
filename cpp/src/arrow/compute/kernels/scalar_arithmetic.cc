@@ -20,8 +20,10 @@
 #include <limits>
 #include <utility>
 
+#include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/compute/kernels/util_internal.h"
+#include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/int_util_internal.h"
@@ -1057,36 +1059,36 @@ void AddDecimalBinaryKernels(const std::string& name,
 }
 
 // Generate a kernel given an arithmetic functor
-template <template <typename... Args> class KernelGenerator, typename Op>
-ArrayKernelExec ArithmeticExecFromOpFixedOutType(detail::GetTypeId get_id) {
+template <template <typename... Args> class KernelGenerator, typename Type0,
+          typename... Args>
+ArrayKernelExec GenerateArithmeticFixedOutType(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::INT8:
-      return KernelGenerator<Int8Type, Int8Type, Op>::Exec;
+      return KernelGenerator<Type0, Int8Type, Args...>::Exec;
     case Type::UINT8:
-      return KernelGenerator<Int8Type, UInt8Type, Op>::Exec;
+      return KernelGenerator<Type0, UInt8Type, Args...>::Exec;
     case Type::INT16:
-      return KernelGenerator<Int8Type, Int16Type, Op>::Exec;
+      return KernelGenerator<Type0, Int16Type, Args...>::Exec;
     case Type::UINT16:
-      return KernelGenerator<Int8Type, UInt16Type, Op>::Exec;
+      return KernelGenerator<Type0, UInt16Type, Args...>::Exec;
     case Type::INT32:
-      return KernelGenerator<Int8Type, Int32Type, Op>::Exec;
+      return KernelGenerator<Type0, Int32Type, Args...>::Exec;
     case Type::UINT32:
-      return KernelGenerator<Int8Type, UInt32Type, Op>::Exec;
+      return KernelGenerator<Type0, UInt32Type, Args...>::Exec;
     case Type::INT64:
     case Type::TIMESTAMP:
-      return KernelGenerator<Int8Type, Int64Type, Op>::Exec;
+      return KernelGenerator<Type0, Int64Type, Args...>::Exec;
     case Type::UINT64:
-      return KernelGenerator<Int8Type, UInt64Type, Op>::Exec;
+      return KernelGenerator<Type0, UInt64Type, Args...>::Exec;
     case Type::FLOAT:
-      return KernelGenerator<Int8Type, FloatType, Op>::Exec;
+      return KernelGenerator<Type0, FloatType, Args...>::Exec;
     case Type::DOUBLE:
-      return KernelGenerator<Int8Type, DoubleType, Op>::Exec;
+      return KernelGenerator<Type0, DoubleType, Args...>::Exec;
     default:
       DCHECK(false);
       return ExecFail;
   }
 }
-
 struct ArithmeticFunction : ScalarFunction {
   using ScalarFunction::ScalarFunction;
 
@@ -1200,11 +1202,11 @@ std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunction(std::string name,
 template <typename Op, typename OutType>
 std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionFixedOutType(
     std::string name, const FunctionDoc* doc) {
+  auto out_ty = TypeTraits<OutType>::type_singleton();
   auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), doc);
   for (const auto& ty : NumericTypes()) {
-    auto exec = ArithmeticExecFromOpFixedOutType<ScalarUnary, Op>(ty);
-    // NOTE[EPM] How to use OutType to get intX()?
-    DCHECK_OK(func->AddKernel({ty}, int8(), exec));
+    auto exec = GenerateArithmeticFixedOutType<ScalarUnary, OutType, Op>(ty);
+    DCHECK_OK(func->AddKernel({ty}, out_ty, exec));
   }
   return func;
 }
@@ -1670,7 +1672,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(power_checked)));
 
   // ----------------------------------------------------------------------
-  auto sign = MakeUnaryArithmeticFunctionFixedOutType<Sign, int8_t>("sign", &sign_doc);
+  auto sign = MakeUnaryArithmeticFunctionFixedOutType<Sign, Int8Type>("sign", &sign_doc);
   DCHECK_OK(registry->AddFunction(std::move(sign)));
 
   // ----------------------------------------------------------------------
