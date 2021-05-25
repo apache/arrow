@@ -433,40 +433,38 @@ void RegisterScalarTemporal(FunctionRegistry* registry) {
 
   auto iso_calendar_func =
       std::make_shared<ScalarFunction>("iso_calendar", Arity::Unary(), &iso_calendar_doc);
-  auto out_ty = struct_({field("iso_year", int64()), field("iso_week", int64()),
-                         field("weekday", int64())});
+
+  auto out_type = struct_({field("iso_year", int64()), field("iso_week", int64()),
+                           field("weekday", int64())});
+  OutputType out_ty(out_type);
 
   for (auto unit : AllTimeUnits()) {
     switch (unit) {
       case TimeUnit::SECOND: {
         auto iso_calendar_exec =
             applicator::SimpleUnary<ISOCalendar<std::chrono::seconds>>;
-        DCHECK_OK(iso_calendar_func->AddKernel({{match::TimestampTypeUnit(unit)}},
-                                               ValueDescr::Array(out_ty),
+        DCHECK_OK(iso_calendar_func->AddKernel({match::TimestampTypeUnit(unit)}, out_ty,
                                                std::move(iso_calendar_exec)));
         break;
       }
       case TimeUnit::MILLI: {
         auto iso_calendar_exec =
             applicator::SimpleUnary<ISOCalendar<std::chrono::milliseconds>>;
-        DCHECK_OK(iso_calendar_func->AddKernel({{match::TimestampTypeUnit(unit)}},
-                                               ValueDescr::Array(out_ty),
+        DCHECK_OK(iso_calendar_func->AddKernel({match::TimestampTypeUnit(unit)}, out_ty,
                                                std::move(iso_calendar_exec)));
         break;
       }
       case TimeUnit::MICRO: {
         auto iso_calendar_exec =
             applicator::SimpleUnary<ISOCalendar<std::chrono::microseconds>>;
-        DCHECK_OK(iso_calendar_func->AddKernel({{match::TimestampTypeUnit(unit)}},
-                                               ValueDescr::Array(out_ty),
+        DCHECK_OK(iso_calendar_func->AddKernel({match::TimestampTypeUnit(unit)}, out_ty,
                                                std::move(iso_calendar_exec)));
         break;
       }
       case TimeUnit::NANO: {
         auto iso_calendar_exec =
             applicator::SimpleUnary<ISOCalendar<std::chrono::nanoseconds>>;
-        DCHECK_OK(iso_calendar_func->AddKernel({{match::TimestampTypeUnit(unit)}},
-                                               ValueDescr::Array(out_ty),
+        DCHECK_OK(iso_calendar_func->AddKernel({match::TimestampTypeUnit(unit)}, out_ty,
                                                std::move(iso_calendar_exec)));
         break;
       }
