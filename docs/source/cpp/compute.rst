@@ -289,6 +289,8 @@ an ``Invalid`` :class:`Status` when overflow is detected.
 +------------------+--------+----------------+----------------+-------+
 | power_checked    | Binary | Numeric        | Numeric        |       |
 +------------------+--------+----------------+----------------+-------+
+| sign             | Unary  | Numeric        | Int8           | \(2)  |
++------------------+--------+----------------+----------------+-------+
 | subtract         | Binary | Numeric        | Numeric        | \(1)  |
 +------------------+--------+----------------+----------------+-------+
 | subtract_checked | Binary | Numeric        | Numeric        | \(1)  |
@@ -314,6 +316,9 @@ an ``Invalid`` :class:`Status` when overflow is detected.
   precision of `divide` is at least the sum of precisions of both operands with
   enough scale kept. Error is returned if the result precision is beyond the
   decimal value range.
+
+* \(2) Output is an integral representing the signedness of the input.
+  For nonzero inputs, output is any of (-1,1) and 0 for zero input.
 
 Bit-wise functions
 ~~~~~~~~~~~~~~~~~~

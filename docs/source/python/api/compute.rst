@@ -54,14 +54,15 @@ throws an ``ArrowInvalid`` exception when overflow is detected.
    divide_checked
    multiply
    multiply_checked
-   subtract
-   subtract_checked
    power
    power_checked
    shift_left
    shift_left_checked
    shift_right
    shift_right_checked
+   sign
+   subtract
+   subtract_checked
 
 Bit-wise operations do not offer (or need) a checked variant.
 
