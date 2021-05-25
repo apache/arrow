@@ -202,6 +202,3 @@ record_batch <- RecordBatch$create
 
 #' @export
 names.RecordBatch <- function(x) x$names()
-
-#' @export
-length.RecordBatch <- function(x) x$num_columns
