@@ -57,7 +57,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        r: ["3.6"]
+        r: ["4.0"]
         ubuntu: [18.04]
     env:
       R: ${{ matrix.r }}
@@ -116,7 +116,7 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - { org: "rstudio", image: "r-base", tag: "4.0-centos7" }
+          - { org: "rstudio", image: "r-base", tag: "4.1-centos7" }
           - { org: "rhub", image: "debian-gcc-devel", tag: "latest" }
     env:
       R_ORG: ${{ matrix.config.org }}
