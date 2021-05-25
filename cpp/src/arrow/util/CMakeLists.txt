@@ -74,7 +74,8 @@ add_arrow_test(threading-utility-test
                cancel_test.cc
                future_test.cc
                task_group_test.cc
-               thread_pool_test.cc)
+               thread_pool_test.cc
+               ws_thread_pool_test.cc)
 
 add_arrow_benchmark(bit_block_counter_benchmark)
 add_arrow_benchmark(bit_util_benchmark)
