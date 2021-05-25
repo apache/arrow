@@ -118,6 +118,33 @@ bool ChunkedArray::Equals(const std::shared_ptr<ChunkedArray>& other) const {
   return Equals(*other.get());
 }
 
+bool ChunkedArray::ApproxEquals(const ChunkedArray& other,
+                                const EqualOptions& equal_options) const {
+  if (length_ != other.length()) {
+    return false;
+  }
+  if (null_count_ != other.null_count()) {
+    return false;
+  }
+  // We cannot toggle check_metadata here yet, so we don't check it
+  if (!type_->Equals(*other.type_, /*check_metadata=*/false)) {
+    return false;
+  }
+
+  // Check contents of the underlying arrays. This checks for equality of
+  // the underlying data independently of the chunk size.
+  return internal::ApplyBinaryChunked(
+             *this, other,
+             [&](const Array& left_piece, const Array& right_piece,
+                 int64_t ARROW_ARG_UNUSED(position)) {
+               if (!left_piece.ApproxEquals(right_piece, equal_options)) {
+                 return Status::Invalid("Unequal piece");
+               }
+               return Status::OK();
+             })
+      .ok();
+}
+
 std::shared_ptr<ChunkedArray> ChunkedArray::Slice(int64_t offset, int64_t length) const {
   ARROW_CHECK_LE(offset, length_) << "Slice offset greater than array length";
   bool offset_equals_length = offset == length_;
