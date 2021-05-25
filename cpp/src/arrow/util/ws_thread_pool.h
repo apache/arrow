@@ -24,11 +24,7 @@
 namespace arrow {
 namespace internal {
 
-struct Task {
-  FnOnce<void()> callable;
-  StopToken stop_token;
-  Executor::StopCallback stop_callback;
-};
+using Task = ThreadPool::Task;
 
 /// An implementation of a Chase-Lev deque as described in
 /// https://www.dre.vanderbilt.edu/~schmidt/PDF/work-stealing-dequeue.pdf

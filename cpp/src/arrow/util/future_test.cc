@@ -39,6 +39,7 @@
 
 namespace arrow {
 
+using internal::SimpleThreadPool;
 using internal::ThreadPool;
 
 int ToInt(int x) { return x; }
@@ -104,7 +105,7 @@ template <typename T>
 class SimpleExecutor {
  public:
   explicit SimpleExecutor(int nfutures)
-      : pool_(ThreadPool::Make(/*threads=*/4).ValueOrDie()) {
+      : pool_(SimpleThreadPool::Make(/*threads=*/4).ValueOrDie()) {
     for (int i = 0; i < nfutures; ++i) {
       futures_.push_back(Future<T>::Make());
     }
