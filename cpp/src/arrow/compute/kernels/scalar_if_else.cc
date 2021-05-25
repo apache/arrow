@@ -19,21 +19,168 @@
 #include <arrow/util/bit_block_counter.h>
 #include <arrow/util/bitmap_ops.h>
 
+#include "arrow/util/bitmap.h"
 #include "codegen_internal.h"
 
 namespace arrow {
 using internal::BitBlockCount;
 using internal::BitBlockCounter;
+using internal::Bitmap;
 
 namespace compute {
 
 namespace {
 
+// cond.val && (cond.data && left.val || ~cond.data && right.val)
+enum IEBitmapIndex { C_VALID, C_DATA, L_VALID, R_VALID };
+
+Status PromoteNullsNew1(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
+                        const ArrayData& right, ArrayData* output) {
+  uint8_t flag =
+      !right.MayHaveNulls() * 4 + !left.MayHaveNulls() * 2 + !cond.MayHaveNulls();
+
+  Bitmap bitmaps[4];
+  bitmaps[C_VALID] = {cond.buffers[0], cond.offset, cond.length};
+  bitmaps[C_DATA] = {cond.buffers[1], cond.offset, cond.length};
+  bitmaps[L_VALID] = {left.buffers[0], left.offset, left.length};
+  bitmaps[R_VALID] = {right.buffers[0], right.offset, right.length};
+
+  uint64_t* out_validity = nullptr;
+  if (flag < 6) {
+    // there will be a validity buffer in the output
+    ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(cond.length));
+    out_validity = output->GetMutableValues<uint64_t>(0);
+  }
+
+  // cond.val && (cond.data && left.val || ~cond.data && right.val)
+  int64_t i = 0;
+  switch (flag) {
+    case 7:  // RLC = 111
+      break;
+    case 6:  // RLC = 110
+      output->buffers[0] = cond.buffers[0];
+      break;
+    case 5:  // RLC = 101
+      Bitmap::VisitWords({bitmaps[C_DATA], bitmaps[L_VALID]},
+                         [&](std::array<uint64_t, 2> words) {
+                           out_validity[i] = (words[0] & words[1]) | ~words[0];
+                           i++;
+                         });
+      break;
+    case 4:  // RLC = 100
+      Bitmap::VisitWords({bitmaps[C_VALID], bitmaps[C_DATA], bitmaps[L_VALID]},
+                         [&](std::array<uint64_t, 3> words) {
+                           out_validity[i] =
+                               words[0] & ((words[1] & words[2]) | ~words[1]);
+                           i++;
+                         });
+      break;
+    case 3:  // RLC = 011
+      Bitmap::VisitWords({bitmaps[C_DATA], bitmaps[R_VALID]},
+                         [&](std::array<uint64_t, 2> words) {
+                           out_validity[i] = words[0] | (~words[0] & words[1]);
+                           i++;
+                         });
+      break;
+    case 2:  // RLC = 010
+      Bitmap::VisitWords({bitmaps[C_VALID], bitmaps[C_DATA], bitmaps[R_VALID]},
+                         [&](std::array<uint64_t, 3> words) {
+                           out_validity[i] =
+                               words[0] & (words[1] | (~words[1] & words[2]));
+                           i++;
+                         });
+      break;
+    case 1:  // RLC = 001
+      Bitmap::VisitWords({bitmaps[C_DATA], bitmaps[L_VALID], bitmaps[R_VALID]},
+                         [&](std::array<uint64_t, 3> words) {
+                           out_validity[i] =
+                               (words[0] & words[1]) | (~words[0] & words[2]);
+                           i++;
+                         });
+      break;
+    case 0:  // RLC = 000
+      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
+        out_validity[i] = words[0] & ((words[1] & words[2]) | (~words[1] & words[3]));
+        i++;
+      });
+      break;
+  }
+  return Status::OK();
+}
+
+/*Status PromoteNullsNew(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
+                       const ArrayData& right, ArrayData* output) {
+  if (!cond.MayHaveNulls() && !left.MayHaveNulls() && !right.MayHaveNulls()) {
+    return Status::OK();  // no nulls to handle
+  }
+
+  // there will be a validity buffer in the output
+  ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(cond.length));
+  auto out_validity = output->GetMutableValues<uint64_t>(0);
+
+  Bitmap bitmaps[4];
+  bitmaps[C_VALID] = {cond.buffers[0], cond.offset, cond.length};
+  bitmaps[C_DATA] = {cond.buffers[1], cond.offset, cond.length};
+  bitmaps[L_VALID] = {left.buffers[0], left.offset, left.length};
+  bitmaps[R_VALID] = {right.buffers[0], right.offset, right.length};
+
+  uint8_t flag =
+      (cond.null_count == 0) * 4 + (left.null_count == 0) * 2 + (right.null_count == 0);
+
+  int64_t i = 0;
+  switch (flag) {
+    case 0:  // all have nulls
+      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
+        out_validity[i] = words[0] & ((words[1] & words[2]) | (~words[1] & words[3]));
+        i++;
+      });
+      break;
+    case 1:  // right all valid
+      Bitmap::VisitWords({bitmaps[C_VALID], bitmaps[C_DATA], bitmaps[L_VALID]},
+                         [&](std::array<uint64_t, 3> words) {
+                           out_validity[i] =
+                               words[0] & ((words[1] & words[2]) | ~words[1]);
+                           i++;
+                         });
+      break;
+    case 2:  // left all valid
+      Bitmap::VisitWords({bitmaps[C_VALID], bitmaps[C_DATA], bitmaps[R_VALID]},
+                         [&](std::array<uint64_t, 3> words) {
+                           out_validity[i] =
+                               words[0] & (words[1] | (~words[1] & words[2]));
+                           i++;
+                         });
+      break;
+    case 3:  // left, right all valid
+      *ou break;
+
+    case 7:  // all valid. nothing to do
+      return Status::OK();
+  }
+
+  if (cond.null_count == 0) {
+  }
+
+  if (right.null_count == 0) {
+    Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
+      apply(words[C_VALID], words[C_DATA], words[L_VALID], ~uint64_t(0));
+    });
+    return Status::OK();
+  }
+
+  DCHECK(left.null_count != 0 && right.null_count != 0);
+  Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
+    apply(words[C_VALID], words[C_DATA], words[L_VALID], words[R_VALID]);
+  });
+
+  return Status::OK();
+}*/
+
 // nulls will be promoted as follows:
 // cond.val && (cond.data && left.val || ~cond.data && right.val)
-// Note: we have to work on ArrayData. Otherwise we won't be able to handle array offsets
-// AAA
-Status PromoteNulls(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
+// Note: we have to work on ArrayData. Otherwise we won't be able to handle array
+// offsets AAA
+/*Status PromoteNulls(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
                     const ArrayData& right, ArrayData* output) {
   if (!cond.MayHaveNulls() && !left.MayHaveNulls() && !right.MayHaveNulls()) {
     return Status::OK();  // no nulls to handle
@@ -76,7 +223,7 @@ Status PromoteNulls(KernelContext* ctx, const ArrayData& cond, const ArrayData& 
   output->buffers[0] = std::move(out_validity);
   output->GetNullCount();  // update null count
   return Status::OK();
-}
+}*/
 
 // cond.val && (cond.data && left.val || ~cond.data && right.val)
 // ASA and AAS
@@ -115,7 +262,7 @@ Status PromoteNulls(KernelContext* ctx, const ArrayData& cond, const Scalar& lef
   output->GetNullCount();  // update null count
   return Status::OK();
 }
-
+/*
 // cond.val && (cond.data && left.val || ~cond.data && right.val)
 // ASS
 Status PromoteNulls(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
@@ -151,7 +298,7 @@ Status PromoteNulls(KernelContext* ctx, const ArrayData& cond, const Scalar& lef
   output->buffers[0] = std::move(out_validity);
   output->GetNullCount();  // update null count
   return Status::OK();
-}
+}*/
 
 // todo: this could be dangerous because the inverted arraydata buffer[1] may not be
 //  available outside Exec's scope
@@ -185,7 +332,7 @@ struct IfElseFunctor<
   //  AAA
   static Status Call(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
                      const ArrayData& right, ArrayData* out) {
-    ARROW_RETURN_NOT_OK(PromoteNulls(ctx, cond, left, right, out));
+    ARROW_RETURN_NOT_OK(PromoteNullsNew1(ctx, cond, left, right, out));
 
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
                           ctx->Allocate(cond.length * sizeof(T)));
@@ -268,41 +415,41 @@ struct IfElseFunctor<
   // ASS
   static Status Call(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
                      const Scalar& right, ArrayData* out) {
-/*    ARROW_RETURN_NOT_OK(PromoteNulls(ctx, cond, left, right, out));
+    /*    ARROW_RETURN_NOT_OK(PromoteNulls(ctx, cond, left, right, out));
 
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
-                          ctx->Allocate(cond.length * sizeof(T)));
-    T* out_values = reinterpret_cast<T*>(out_buf->mutable_data());
+        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
+                              ctx->Allocate(cond.length * sizeof(T)));
+        T* out_values = reinterpret_cast<T*>(out_buf->mutable_data());
 
-    // copy right data to out_buff
-    const T* right_data = right.GetValues<T>(1);
-    std::memcpy(out_values, right_data, right.length * sizeof(T));
+        // copy right data to out_buff
+        const T* right_data = right.GetValues<T>(1);
+        std::memcpy(out_values, right_data, right.length * sizeof(T));
 
-    const auto* cond_data = cond.buffers[1]->data();  // this is a BoolArray
-    BitBlockCounter bit_counter(cond_data, cond.offset, cond.length);
+        const auto* cond_data = cond.buffers[1]->data();  // this is a BoolArray
+        BitBlockCounter bit_counter(cond_data, cond.offset, cond.length);
 
-    // selectively copy values from left data
-    T left_data = internal::UnboxScalar<Type>::Unbox(left);
-    int64_t offset = cond.offset;
+        // selectively copy values from left data
+        T left_data = internal::UnboxScalar<Type>::Unbox(left);
+        int64_t offset = cond.offset;
 
-    // todo this can be improved by intrinsics. ex: _mm*_mask_store_e* (vmovdqa*)
-    while (offset < cond.offset + cond.length) {
-      const BitBlockCount& block = bit_counter.NextWord();
-      if (block.AllSet()) {  // all from left
-        std::fill(out_values, out_values + block.length, left_data);
-      } else if (block.popcount) {  // selectively copy from left
-        for (int64_t i = 0; i < block.length; ++i) {
-          if (BitUtil::GetBit(cond_data, offset + i)) {
-            out_values[i] = left_data;
+        // todo this can be improved by intrinsics. ex: _mm*_mask_store_e* (vmovdqa*)
+        while (offset < cond.offset + cond.length) {
+          const BitBlockCount& block = bit_counter.NextWord();
+          if (block.AllSet()) {  // all from left
+            std::fill(out_values, out_values + block.length, left_data);
+          } else if (block.popcount) {  // selectively copy from left
+            for (int64_t i = 0; i < block.length; ++i) {
+              if (BitUtil::GetBit(cond_data, offset + i)) {
+                out_values[i] = left_data;
+              }
+            }
           }
+
+          offset += block.length;
+          out_values += block.length;
         }
-      }
 
-      offset += block.length;
-      out_values += block.length;
-    }
-
-    out->buffers[1] = std::move(out_buf);*/
+        out->buffers[1] = std::move(out_buf);*/
     return Status::OK();
   }
 };
@@ -312,7 +459,7 @@ struct IfElseFunctor<Type, enable_if_boolean<Type>> {
   // AAA
   static Status Call(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
                      const ArrayData& right, ArrayData* out) {
-    ARROW_RETURN_NOT_OK(PromoteNulls(ctx, cond, left, right, out));
+    ARROW_RETURN_NOT_OK(PromoteNullsNew1(ctx, cond, left, right, out));
 
     // out_buff = right & ~cond
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
