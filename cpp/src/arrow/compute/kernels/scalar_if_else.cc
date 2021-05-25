@@ -29,11 +29,10 @@ namespace compute {
 
 namespace {
 
-/*
- * nulls will be promoted as follows
- *
- * cond.val && (cond.data && left.val || ~cond.data && right.val)
- */
+// nulls will be promoted as follows:
+// cond.val && (cond.data && left.val || ~cond.data && right.val)
+// Note: we have to work on ArrayData. Otherwise we won't be able to handle array offsets
+// AAA
 Status PromoteNulls(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
                     const ArrayData& right, ArrayData* output) {
   if (!cond.MayHaveNulls() && !left.MayHaveNulls() && !right.MayHaveNulls()) {
@@ -41,7 +40,7 @@ Status PromoteNulls(KernelContext* ctx, const ArrayData& cond, const ArrayData& 
   }
   const int64_t len = cond.length;
 
-  // out_validity = ~cond.data
+  // out_validity = ~cond.data --> mask right values
   ARROW_ASSIGN_OR_RAISE(
       std::shared_ptr<Buffer> out_validity,
       arrow::internal::InvertBitmap(ctx->memory_pool(), cond.buffers[1]->data(),
@@ -80,6 +79,7 @@ Status PromoteNulls(KernelContext* ctx, const ArrayData& cond, const ArrayData& 
 }
 
 // cond.val && (cond.data && left.val || ~cond.data && right.val)
+// ASA and AAS
 Status PromoteNulls(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
                     const ArrayData& right, ArrayData* output) {
   if (!cond.MayHaveNulls() && left.is_valid && !right.MayHaveNulls()) {
@@ -92,20 +92,57 @@ Status PromoteNulls(KernelContext* ctx, const ArrayData& cond, const Scalar& lef
       std::shared_ptr<Buffer> out_validity,
       arrow::internal::InvertBitmap(ctx->memory_pool(), cond.buffers[1]->data(),
                                     cond.offset, len));
-
+  // out_validity = ~cond.data && right.val
   if (right.MayHaveNulls()) {  // out_validity = right.val && ~cond.data
     arrow::internal::BitmapAnd(right.buffers[0]->data(), right.offset,
                                out_validity->data(), 0, len, 0,
                                out_validity->mutable_data());
   }
 
-  // out_validity = cond.data || ~cond.data && right.val
+  // out_validity = cond.data && left.val || ~cond.data && right.val
   if (left.is_valid) {
     arrow::internal::BitmapOr(out_validity->data(), 0, cond.buffers[1]->data(),
                               cond.offset, len, 0, out_validity->mutable_data());
   }
 
-  // out_validity = cond.val && (cond.data || ~cond.data && right.val)
+  // out_validity = cond.val && (cond.data && left.val || ~cond.data && right.val)
+  if (cond.MayHaveNulls()) {
+    ::arrow::internal::BitmapAnd(out_validity->data(), 0, cond.buffers[0]->data(),
+                                 cond.offset, len, 0, out_validity->mutable_data());
+  }
+
+  output->buffers[0] = std::move(out_validity);
+  output->GetNullCount();  // update null count
+  return Status::OK();
+}
+
+// cond.val && (cond.data && left.val || ~cond.data && right.val)
+// ASS
+Status PromoteNulls(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
+                    const Scalar& right, ArrayData* output) {
+  if (!cond.MayHaveNulls() && left.is_valid && right.is_valid) {
+    return Status::OK();  // no nulls to handle
+  }
+  const int64_t len = cond.length;
+
+  std::shared_ptr<Buffer> out_validity;
+  if (right.is_valid) {
+    // out_validity = ~cond.data
+    ARROW_ASSIGN_OR_RAISE(
+        out_validity, arrow::internal::InvertBitmap(
+                          ctx->memory_pool(), cond.buffers[1]->data(), cond.offset, len));
+  } else {
+    // out_validity = [0...]
+    ARROW_ASSIGN_OR_RAISE(out_validity, ctx->AllocateBitmap(len));
+  }
+
+  // out_validity = cond.data && left.val || ~cond.data && right.val
+  if (left.is_valid) {
+    arrow::internal::BitmapOr(out_validity->data(), 0, cond.buffers[1]->data(),
+                              cond.offset, len, 0, out_validity->mutable_data());
+  }
+
+  // out_validity = cond.val && (cond.data && left.val || ~cond.data && right.val)
   if (cond.MayHaveNulls()) {
     ::arrow::internal::BitmapAnd(out_validity->data(), 0, cond.buffers[0]->data(),
                                  cond.offset, len, 0, out_validity->mutable_data());
@@ -120,6 +157,7 @@ Status PromoteNulls(KernelContext* ctx, const ArrayData& cond, const Scalar& lef
 //  available outside Exec's scope
 Status InvertBoolArrayData(KernelContext* ctx, const ArrayData& input,
                            ArrayData* output) {
+  // null buffer
   if (input.MayHaveNulls()) {
     output->buffers.emplace_back(
         SliceBuffer(input.buffers[0], input.offset, input.length));
@@ -127,6 +165,7 @@ Status InvertBoolArrayData(KernelContext* ctx, const ArrayData& input,
     output->buffers.push_back(NULLPTR);
   }
 
+  // data buffer
   ARROW_ASSIGN_OR_RAISE(
       std::shared_ptr<Buffer> inv_data,
       arrow::internal::InvertBitmap(ctx->memory_pool(), input.buffers[1]->data(),
@@ -229,29 +268,41 @@ struct IfElseFunctor<
   // ASS
   static Status Call(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
                      const Scalar& right, ArrayData* out) {
-    // todo impl
-    return Status::OK();
-  }
+/*    ARROW_RETURN_NOT_OK(PromoteNulls(ctx, cond, left, right, out));
 
-  //  SAA
-  static Status Call(KernelContext* ctx, const Scalar& cond, const ArrayData& left,
-                     const ArrayData& right, ArrayData* out) {
-    *out = dynamic_cast<const BooleanScalar&>(cond).value ? left : right;
-    return Status::OK();
-  }
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
+                          ctx->Allocate(cond.length * sizeof(T)));
+    T* out_values = reinterpret_cast<T*>(out_buf->mutable_data());
 
-  // SSA and SAS
-  template <bool swap = false>
-  static Status Call(KernelContext* ctx, const Scalar& cond, const Scalar& left,
-                     const ArrayData& right, ArrayData* out) {
-    // todo impl
-    return Status::OK();
-  }
+    // copy right data to out_buff
+    const T* right_data = right.GetValues<T>(1);
+    std::memcpy(out_values, right_data, right.length * sizeof(T));
 
-  // SSS
-  static Status Call(KernelContext* ctx, const Scalar& cond, const Scalar& left,
-                     const Scalar& right, Scalar* out) {
-    // todo impl
+    const auto* cond_data = cond.buffers[1]->data();  // this is a BoolArray
+    BitBlockCounter bit_counter(cond_data, cond.offset, cond.length);
+
+    // selectively copy values from left data
+    T left_data = internal::UnboxScalar<Type>::Unbox(left);
+    int64_t offset = cond.offset;
+
+    // todo this can be improved by intrinsics. ex: _mm*_mask_store_e* (vmovdqa*)
+    while (offset < cond.offset + cond.length) {
+      const BitBlockCount& block = bit_counter.NextWord();
+      if (block.AllSet()) {  // all from left
+        std::fill(out_values, out_values + block.length, left_data);
+      } else if (block.popcount) {  // selectively copy from left
+        for (int64_t i = 0; i < block.length; ++i) {
+          if (BitUtil::GetBit(cond_data, offset + i)) {
+            out_values[i] = left_data;
+          }
+        }
+      }
+
+      offset += block.length;
+      out_values += block.length;
+    }
+
+    out->buffers[1] = std::move(out_buf);*/
     return Status::OK();
   }
 };
@@ -309,27 +360,6 @@ struct IfElseFunctor<Type, enable_if_boolean<Type>> {
     // todo impl
     return Status::OK();
   }
-
-  // SAS and SSA
-  static Status Call(KernelContext* ctx, const Scalar& cond, const ArrayData& left,
-                     const ArrayData& right, ArrayData* out) {
-    // todo impl
-    return Status::OK();
-  }
-
-  // SAS and SSA
-  static Status Call(KernelContext* ctx, const Scalar& cond, const Scalar& left,
-                     const ArrayData& right, ArrayData* out) {
-    // todo impl
-    return Status::OK();
-  }
-
-  // SSS
-  static Status Call(KernelContext* ctx, const Scalar& cond, const Scalar& left,
-                     const Scalar& right, Scalar* out) {
-    // todo impl
-    return Status::OK();
-  }
 };
 
 template <typename Type>
@@ -356,72 +386,60 @@ struct IfElseFunctor<Type, enable_if_null<Type>> {
   // ASS
   static Status Call(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
                      const Scalar& right, ArrayData* out) {
-    // todo: this could be dangerous if cond is created by calling InvertBoolArrayData
-    //  because the inverted array may not be available outside Exec's scope
     return ReturnCopy(cond, out);
-  }
-
-  // SAA
-  static Status Call(KernelContext* ctx, const Scalar& cond, const ArrayData& left,
-                     const ArrayData& right, ArrayData* out) {
-    return ReturnCopy(left, out);
-  }
-
-  // SSA and SAS
-  static Status Call(KernelContext* ctx, const Scalar& cond, const Scalar& left,
-                     const ArrayData& right, ArrayData* out) {
-    return ReturnCopy(right, out);
-  }
-
-  // SSS
-  static Status Call(KernelContext* ctx, const Scalar& cond, const Scalar& left,
-                     const Scalar& right, Scalar* out) {
-    return ReturnCopy(left, out);
   }
 };
 
 template <typename Type>
 struct ResolveIfElseExec {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    if (batch[0].kind() == Datum::ARRAY) {
-      if (batch[1].kind() == Datum::ARRAY) {
-        if (batch[2].kind() == Datum::ARRAY) {  // AAA
-          return IfElseFunctor<Type>::Call(ctx, *batch[0].array(), *batch[1].array(),
-                                           *batch[2].array(), out->mutable_array());
-        } else {  // AAS
-          ArrayData inv_cond;
-          RETURN_NOT_OK(InvertBoolArrayData(ctx, *batch[0].array(), &inv_cond));
-          return IfElseFunctor<Type>::Call(ctx, inv_cond, *batch[2].scalar(),
-                                           *batch[1].array(), out->mutable_array());
+    // cond is scalar
+    if (batch[0].is_scalar()) {
+      const auto& cond = batch[0].scalar_as<BooleanScalar>();
+
+      if (batch[1].is_scalar() && batch[2].is_scalar()) {
+        if (cond.is_valid) {
+          *out = cond.value ? batch[1].scalar() : batch[2].scalar();
+        } else {
+          *out = MakeNullScalar(batch[1].type());
         }
-      } else {
-        if (batch[2].kind() == Datum::ARRAY) {  // ASA
-          return IfElseFunctor<Type>::Call(ctx, *batch[0].array(), *batch[1].scalar(),
-                                           *batch[2].array(), out->mutable_array());
-        } else {  // ASS
-          return IfElseFunctor<Type>::Call(ctx, *batch[0].array(), *batch[1].scalar(),
-                                           *batch[2].scalar(), out->mutable_array());
+      } else {  // either left or right is an array. output is always an array
+        int64_t bcast_size = std::max(batch[1].length(), batch[2].length());
+        if (cond.is_valid) {
+          const auto& valid_data = cond.value ? batch[1] : batch[2];
+          if (valid_data.is_array()) {
+            *out = valid_data;
+          } else {  // valid data is a scalar that needs to be broadcasted
+            ARROW_ASSIGN_OR_RAISE(*out,
+                                  MakeArrayFromScalar(*valid_data.scalar(), bcast_size,
+                                                      ctx->memory_pool()));
+          }
+        } else {  // cond is null. create null array
+          ARROW_ASSIGN_OR_RAISE(
+              *out, MakeArrayOfNull(batch[1].type(), bcast_size, ctx->memory_pool()))
         }
       }
+      return Status::OK();
+    }
+
+    // cond is array. Use functors to sort things out
+    if (batch[1].kind() == Datum::ARRAY) {
+      if (batch[2].kind() == Datum::ARRAY) {  // AAA
+        return IfElseFunctor<Type>::Call(ctx, *batch[0].array(), *batch[1].array(),
+                                         *batch[2].array(), out->mutable_array());
+      } else {  // AAS
+        ArrayData inv_cond;
+        RETURN_NOT_OK(InvertBoolArrayData(ctx, *batch[0].array(), &inv_cond));
+        return IfElseFunctor<Type>::Call(ctx, inv_cond, *batch[2].scalar(),
+                                         *batch[1].array(), out->mutable_array());
+      }
     } else {
-      if (batch[1].kind() == Datum::ARRAY) {
-        if (batch[2].kind() == Datum::ARRAY) {  // SAA
-          return IfElseFunctor<Type>::Call(ctx, *batch[0].scalar(), *batch[1].array(),
-                                           *batch[2].array(), out->mutable_array());
-        } else {  // SAS
-          ArrayData inv_cond;
-          RETURN_NOT_OK(InvertBoolArrayData(ctx, *batch[0].array(), &inv_cond));
-          return IfElseFunctor<Type>::Call(ctx, inv_cond, *batch[2].scalar(),
-                                           *batch[1].array(), out->mutable_array());
-        }
-      } else {
-        if (batch[2].kind() == Datum::ARRAY) {  // SSA
-          return IfElseFunctor<Type>::Call(ctx, *batch[0].scalar(), *batch[1].scalar(),
-                                           *batch[2].array(), out->mutable_array());
-        } else {  // SSS
-          return IfElseFunctor<Type>::Call(ctx, *batch[0].scalar(), *batch[1].scalar(),
-                                           *batch[2].scalar(), out->scalar().get());
-        }
+      if (batch[2].kind() == Datum::ARRAY) {  // ASA
+        return IfElseFunctor<Type>::Call(ctx, *batch[0].array(), *batch[1].scalar(),
+                                         *batch[2].array(), out->mutable_array());
+      } else {  // ASS
+        return IfElseFunctor<Type>::Call(ctx, *batch[0].array(), *batch[1].scalar(),
+                                         *batch[2].scalar(), out->mutable_array());
       }
     }
   }
