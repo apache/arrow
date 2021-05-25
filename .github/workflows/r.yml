@@ -57,7 +57,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        r: ["4.0", "4.1"]
+        r: ["4.0"]
         ubuntu: [18.04]
     env:
       R: ${{ matrix.r }}
