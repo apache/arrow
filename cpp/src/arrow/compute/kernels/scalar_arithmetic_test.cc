@@ -330,7 +330,8 @@ class TestVarArgsArithmetic : public TestBase {
   Datum array(const std::string& value) { return ArrayFromJSON(type_singleton(), value); }
 
   Datum Eval(VarArgsFunction func, const std::vector<Datum>& args) {
-    EXPECT_OK_AND_ASSIGN(auto actual, func(args, min_max_options_, nullptr));
+    EXPECT_OK_AND_ASSIGN(auto actual,
+                         func(args, element_wise_aggregate_options_, nullptr));
     if (actual.is_array()) {
       auto arr = actual.make_array();
       ARROW_EXPECT_OK(arr->ValidateFull());
@@ -367,7 +368,7 @@ class TestVarArgsArithmetic : public TestBase {
   }
 
   EqualOptions equal_options_ = EqualOptions::Defaults();
-  ElementWiseAggregateOptions min_max_options_;
+  ElementWiseAggregateOptions element_wise_aggregate_options_;
 };
 
 template <typename T>
@@ -1306,7 +1307,7 @@ TYPED_TEST(TestVarArgsArithmeticNumeric, Minimum) {
                {this->scalar("null"), this->array("[null, null, null, null]")});
 
   // Test null handling
-  this->min_max_options_.skip_nulls = false;
+  this->element_wise_aggregate_options_.skip_nulls = false;
   this->AssertNullScalar(Minimum, {this->scalar("null"), this->scalar("null")});
   this->AssertNullScalar(Minimum, {this->scalar("0"), this->scalar("null")});
 
@@ -1409,7 +1410,7 @@ TYPED_TEST(TestVarArgsArithmeticNumeric, Maximum) {
                {this->scalar("null"), this->array("[null, null, null, null]")});
 
   // Test null handling
-  this->min_max_options_.skip_nulls = false;
+  this->element_wise_aggregate_options_.skip_nulls = false;
   this->AssertNullScalar(Maximum, {this->scalar("null"), this->scalar("null")});
   this->AssertNullScalar(Maximum, {this->scalar("0"), this->scalar("null")});
 

@@ -599,65 +599,54 @@ struct ScalarMinMax {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const ElementWiseAggregateOptions& options = MinMaxState::Get(ctx);
     const auto descrs = batch.GetDescriptors();
-    bool all_scalar = true;
-    bool any_scalar = false;
-    size_t first_array_index = batch.values.size();
-    for (size_t i = 0; i < batch.values.size(); i++) {
-      const auto& datum = batch.values[i];
-      all_scalar &= datum.descr().shape == ValueDescr::SCALAR;
-      any_scalar |= datum.descr().shape == ValueDescr::SCALAR;
-      if (first_array_index >= batch.values.size() &&
-          datum.descr().shape == ValueDescr::ARRAY) {
-        first_array_index = i;
-      }
-    }
-    if (all_scalar) {
+    const size_t scalar_count =
+        static_cast<size_t>(std::count_if(batch.values.begin(), batch.values.end(),
+                                          [](const Datum& d) { return d.is_scalar(); }));
+    if (scalar_count == batch.values.size()) {
       ExecScalar(batch, options, out->scalar().get());
       return Status::OK();
     }
 
     ArrayData* output = out->mutable_array();
 
-    // Exactly one array (output = input)
-    if (batch.values.size() == 1) {
-      *output = *batch[0].array();
-      return Status::OK();
+    // At least one array, two or more arguments
+    ArrayDataVector arrays;
+    for (const auto& arg : batch.values) {
+      if (!arg.is_array()) continue;
+      arrays.push_back(arg.array());
     }
 
-    // At least one array, two or more arguments
-    DCHECK_GE(first_array_index, 0);
-    DCHECK_LT(first_array_index, batch.values.size());
-    DCHECK(batch.values[first_array_index].is_array());
-    if (any_scalar) {
+    if (scalar_count > 0) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> temp_scalar,
                             MakeScalar(out->type(), 0));
       ExecScalar(batch, options, temp_scalar.get());
-      if (options.skip_nulls || temp_scalar->is_valid) {
+      if (temp_scalar->is_valid) {
         // Promote to output array
         ARROW_ASSIGN_OR_RAISE(auto array, MakeArrayFromScalar(*temp_scalar, batch.length,
                                                               ctx->memory_pool()));
-        *output = *array->data();
-        if (!temp_scalar->is_valid) {
-          // MakeArrayFromScalar reuses the same buffer for null/data in
-          // this case, allocate a real one since we'll be writing to it
-          ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(batch.length));
-          ::arrow::internal::BitmapXor(output->buffers[0]->data(), /*left_offset=*/0,
-                                       output->buffers[0]->data(), /*right_offset=*/0,
-                                       batch.length, /*out_offset=*/0,
-                                       output->buffers[0]->mutable_data());
-        }
-      } else {
+        arrays.push_back(array->data());
+      } else if (!options.skip_nulls) {
         // Abort early
         ARROW_ASSIGN_OR_RAISE(auto array, MakeArrayFromScalar(*temp_scalar, batch.length,
                                                               ctx->memory_pool()));
         *output = *array->data();
         return Status::OK();
       }
+    }
+
+    // Exactly one array to consider (output = input)
+    if (arrays.size() == 1) {
+      *output = *arrays[0];
+      return Status::OK();
+    }
+
+    // Two or more arrays to consider
+    if (scalar_count > 0) {
+      // We allocated the last array from a scalar: recycle it as the output
+      *output = *arrays.back();
     } else {
-      // Copy first array argument to output array
-      const ArrayData& input = *batch.values[first_array_index].array();
-      ARROW_ASSIGN_OR_RAISE(output->buffers[1],
-                            ctx->Allocate(batch.length * sizeof(OutValue)));
+      // Copy last array argument to output array
+      const ArrayData& input = *arrays.back();
       if (options.skip_nulls && input.buffers[0]) {
         // Don't copy the bitmap if !options.skip_nulls since we'll precompute it later
         ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(batch.length));
@@ -666,6 +655,8 @@ struct ScalarMinMax {
                                       /*dest_offset=*/0);
       }
       // This won't work for nested or variable-sized types
+      ARROW_ASSIGN_OR_RAISE(output->buffers[1],
+                            ctx->Allocate(batch.length * sizeof(OutValue)));
       std::memcpy(output->buffers[1]->mutable_data(),
                   input.buffers[1]->data() + (input.offset * sizeof(OutValue)),
                   batch.length * sizeof(OutValue));
@@ -676,9 +667,7 @@ struct ScalarMinMax {
       // AND together the validity buffers of all arrays
       ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(batch.length));
       bool first = true;
-      for (const auto& arg : batch.values) {
-        if (!arg.is_array()) continue;
-        auto arr = arg.array();
+      for (const auto& arr : arrays) {
         if (!arr->buffers[0]) continue;
         if (first) {
           ::arrow::internal::CopyBitmap(arr->buffers[0]->data(), arr->offset,
@@ -693,15 +682,14 @@ struct ScalarMinMax {
         }
       }
     }
-    const size_t start_at = any_scalar ? first_array_index : (first_array_index + 1);
-    for (size_t i = start_at; i < batch.values.size(); i++) {
-      if (!batch.values[i].is_array()) continue;
+    arrays.pop_back();
+
+    for (const auto& array : arrays) {
       OutputArrayWriter<OutType> writer(out->mutable_array());
-      const ArrayData& arr = *batch.values[i].array();
       ArrayIterator<OutType> out_it(*output);
       int64_t index = 0;
       VisitArrayValuesInline<OutType>(
-          arr,
+          *array,
           [&](OutValue value) {
             auto u = out_it();
             if (!output->buffers[0] ||
@@ -718,12 +706,12 @@ struct ScalarMinMax {
             index++;
             out_it();
           });
-      // When not skipping nulls, we pre-compute the validity buffer
+      // When skipping nulls, we incrementally compute the validity buffer
       if (options.skip_nulls && output->buffers[0]) {
-        if (arr.buffers[0]) {
+        if (array->buffers[0]) {
           ::arrow::internal::BitmapOr(
-              output->buffers[0]->data(), /*left_offset=*/0, arr.buffers[0]->data(),
-              /*right_offset=*/arr.offset, batch.length, /*out_offset=*/0,
+              output->buffers[0]->data(), /*left_offset=*/0, array->buffers[0]->data(),
+              /*right_offset=*/array->offset, batch.length, /*out_offset=*/0,
               output->buffers[0]->mutable_data());
         } else {
           output->buffers[0] = nullptr;
