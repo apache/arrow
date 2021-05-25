@@ -238,3 +238,6 @@ ToString_tabular <- function(x, ...) {
   dims <- sprintf("%s rows x %s columns", nrow(x), ncol(x))
   paste(c(dims, sch), collapse = "\n")
 }
+
+#' @export
+length.ArrowTabular <- function(x) x$num_columns
