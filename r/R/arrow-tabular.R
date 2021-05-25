@@ -239,6 +239,5 @@ ToString_tabular <- function(x, ...) {
   paste(c(dims, sch), collapse = "\n")
 }
 
-
 #' @export
 length.ArrowTabular <- function(x) x$num_columns
