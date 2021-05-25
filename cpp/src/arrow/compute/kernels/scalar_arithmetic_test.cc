@@ -320,8 +320,8 @@ class TestVarArgsArithmetic : public TestBase {
     return TypeTraits<T>::type_singleton();
   }
 
-  using VarArgsFunction = std::function<Result<Datum>(const std::vector<Datum>&,
-                                                      MinMaxOptions, ExecContext*)>;
+  using VarArgsFunction = std::function<Result<Datum>(
+      const std::vector<Datum>&, ElementWiseAggregateOptions, ExecContext*)>;
 
   Datum scalar(const std::string& value) {
     return ScalarFromJSON(type_singleton(), value);
@@ -367,7 +367,7 @@ class TestVarArgsArithmetic : public TestBase {
   }
 
   EqualOptions equal_options_ = EqualOptions::Defaults();
-  MinMaxOptions min_max_options_;
+  ElementWiseAggregateOptions min_max_options_;
 };
 
 template <typename T>

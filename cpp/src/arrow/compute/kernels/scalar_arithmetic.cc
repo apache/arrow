@@ -601,15 +601,15 @@ std::shared_ptr<ScalarFunction> MakeUnarySignedArithmeticFunctionNotNull(
   return func;
 }
 
-using MinMaxState = OptionsWrapper<MinMaxOptions>;
+using MinMaxState = OptionsWrapper<ElementWiseAggregateOptions>;
 
 // Implement a variadic scalar min/max kernel.
 template <typename OutType, typename Arg0Type, typename Op>
 struct ScalarMinMax {
   using OutValue = typename GetOutputType<OutType>::T;
 
-  static void ExecScalar(const ExecBatch& batch, const MinMaxOptions& options,
-                         Datum* out) {
+  static void ExecScalar(const ExecBatch& batch,
+                         const ElementWiseAggregateOptions& options, Datum* out) {
     // All arguments are scalar
     OutValue value{};
     bool valid = false;
@@ -634,7 +634,7 @@ struct ScalarMinMax {
   }
 
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    const MinMaxOptions& options = MinMaxState::Get(ctx);
+    const ElementWiseAggregateOptions& options = MinMaxState::Get(ctx);
     const auto descrs = batch.GetDescriptors();
     const bool all_scalar =
         std::all_of(batch.values.begin(), batch.values.end(),
@@ -890,14 +890,14 @@ const FunctionDoc minimum_doc{
     ("Nulls will be ignored (default) or propagated. "
      "NaN will be taken over null, but not over any valid float."),
     {"*args"},
-    "MinMaxOptions"};
+    "ElementWiseAggregateOptions"};
 
 const FunctionDoc maximum_doc{
     "Find the element-wise maximum value",
     ("Nulls will be ignored (default) or propagated. "
      "NaN will be taken over null, but not over any valid float."),
     {"*args"},
-    "MinMaxOptions"};
+    "ElementWiseAggregateOptions"};
 }  // namespace
 
 void RegisterScalarArithmetic(FunctionRegistry* registry) {

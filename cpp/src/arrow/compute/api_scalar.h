@@ -42,8 +42,8 @@ struct ArithmeticOptions : public FunctionOptions {
   bool check_overflow;
 };
 
-struct ARROW_EXPORT MinMaxOptions : public FunctionOptions {
-  MinMaxOptions() : skip_nulls(true) {}
+struct ARROW_EXPORT ElementWiseAggregateOptions : public FunctionOptions {
+  ElementWiseAggregateOptions() : skip_nulls(true) {}
   bool skip_nulls;
 };
 
@@ -266,7 +266,8 @@ Result<Datum> Power(const Datum& left, const Datum& right,
 /// \param[in] ctx the function execution context, optional
 /// \return the element-wise maximum
 ARROW_EXPORT
-Result<Datum> Maximum(const std::vector<Datum>& args, MinMaxOptions options = {},
+Result<Datum> Maximum(const std::vector<Datum>& args,
+                      ElementWiseAggregateOptions options = {},
                       ExecContext* ctx = NULLPTR);
 
 /// \brief Find the element-wise minimum of any number of arrays or scalars.
@@ -277,7 +278,8 @@ Result<Datum> Maximum(const std::vector<Datum>& args, MinMaxOptions options = {}
 /// \param[in] ctx the function execution context, optional
 /// \return the element-wise minimum
 ARROW_EXPORT
-Result<Datum> Minimum(const std::vector<Datum>& args, MinMaxOptions options = {},
+Result<Datum> Minimum(const std::vector<Datum>& args,
+                      ElementWiseAggregateOptions options = {},
                       ExecContext* ctx = NULLPTR);
 
 /// \brief Compare a numeric array with a scalar.
