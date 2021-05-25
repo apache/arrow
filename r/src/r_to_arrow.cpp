@@ -94,6 +94,16 @@ class RTasks {
     }
   }
 
+  void Reset() {
+    delayed_serial_tasks_.clear();
+
+    stop_source_.Reset();
+    if (use_threads_) {
+      parallel_tasks_ = arrow::internal::TaskGroup::MakeThreaded(
+          arrow::internal::GetCpuThreadPool(), stop_source_.token());
+    }
+  }
+
   bool use_threads_;
   StopSource stop_source_;
   std::shared_ptr<arrow::internal::TaskGroup> parallel_tasks_;
@@ -1424,6 +1434,8 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp,
     arrow::r::TraverseDots(lst, num_fields, check_name);
   }
 
+  // must be careful to avoid R stop() until the tasks
+  // are finished, i.e. after tasks.Finish()
   arrow::r::RTasks tasks(use_threads);
 
   arrow::Status status = arrow::Status::OK();
@@ -1481,10 +1493,10 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp,
   StopIfNotOk(status);
 
   // then finally convert to chunked arrays in parallel
-  arrow::r::RTasks finish_tasks(use_threads);
+  tasks.Reset();
 
   for (int j = 0; j < num_fields; j++) {
-    finish_tasks.Append(true, [&columns, j, &converters]() {
+    tasks.Append(true, [&columns, j, &converters]() {
       auto& converter = converters[j];
       if (converter != nullptr) {
         ARROW_ASSIGN_OR_RAISE(auto array, converter->ToArray());
@@ -1493,7 +1505,7 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp,
       return arrow::Status::OK();
     });
   }
-  status &= finish_tasks.Finish();
+  status &= tasks.Finish();
   StopIfNotOk(status);
 
   status &= check_consistent_column_length(columns);
