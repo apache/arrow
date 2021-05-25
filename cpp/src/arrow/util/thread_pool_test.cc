@@ -21,10 +21,12 @@
 #endif
 
 #include <algorithm>
+#include <condition_variable>
 #include <cstdio>
 #include <cstdlib>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
@@ -141,7 +143,7 @@ class TestRunSynchronously : public testing::TestWithParam<bool> {
 
   void TestContinueAfterExternal(bool transfer_to_main_thread) {
     bool continuation_ran = false;
-    EXPECT_OK_AND_ASSIGN(auto external_pool, ThreadPool::Make(1));
+    EXPECT_OK_AND_ASSIGN(auto external_pool, SimpleThreadPool::Make(1));
     auto top_level_task = [&](Executor* executor) {
       struct Callback {
         Status operator()() {
@@ -305,7 +307,7 @@ class TestThreadPool : public ::testing::Test {
   std::shared_ptr<ThreadPool> MakeThreadPool() { return MakeThreadPool(4); }
 
   std::shared_ptr<ThreadPool> MakeThreadPool(int threads) {
-    return *ThreadPool::Make(threads);
+    return *SimpleThreadPool::Make(threads);
   }
 
   void DoSpawnAdds(ThreadPool* pool, int nadds, AddTaskFunc add_func,
@@ -450,6 +452,42 @@ TEST_F(TestThreadPool, QuickShutdown) {
     add_tester.CheckNotAllComputed();
   }
   add_tester.CheckNotAllComputed();
+}
+
+TEST_F(TestThreadPool, DestroyWithoutShutdown) {
+  std::mutex mx;
+  std::condition_variable cv;
+  std::weak_ptr<ThreadPool> weak_pool;
+  bool ready = false;
+  bool completed = false;
+  {
+    auto pool = this->MakeThreadPool(1);
+    weak_pool = pool;
+    // Simulate Windows
+    pool->shutdown_on_destroy_ = false;
+
+    ASSERT_OK(pool->Spawn([&mx, &cv, &completed, &ready] {
+      std::unique_lock<std::mutex> lock(mx);
+      ready = true;
+      cv.notify_one();
+      cv.wait(lock);
+      completed = true;
+    }));
+  }
+
+  std::unique_lock<std::mutex> lock(mx);
+  cv.wait(lock, [&ready] { return ready; });
+  // Thread pool has shut down, now we unblock the task
+  cv.notify_one();
+  lock.unlock();
+
+  // The worker thread should be able to keep the thread pool alive by itself
+  ASSERT_FALSE(weak_pool.expired());
+  // Need to shutdown for test purposes to ensure the thread is joined and that the worker
+  // finishes
+  ASSERT_OK(weak_pool.lock()->Shutdown(false));
+
+  ASSERT_TRUE(completed);
 }
 
 TEST_F(TestThreadPool, SetCapacity) {

@@ -22,10 +22,12 @@
 #endif
 
 #include <cstdint>
+#include <deque>
+#include <list>
 #include <memory>
-#include <queue>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #include "arrow/result.h"
 #include "arrow/status.h"
@@ -275,31 +277,43 @@ class ARROW_EXPORT SerialExecutor : public Executor {
   void MarkFinished();
 };
 
-/// An Executor implementation spawning tasks in FIFO manner on a fixed-size
-/// pool of worker threads.
+class ThreadPool;
+
+/// In order to avoid ThreadPool from depending directly on std::thread (mainly to reduce
+/// compile times) we create a base interface for a thread object.
+class Thread {
+ public:
+  virtual ~Thread();
+  virtual void Join() = 0;
+  virtual bool IsCurrentThread() const = 0;
+  virtual void ResetAfterFork() = 0;
+};
+
+/// An executor implementation which spawns tasks across a fixed-size pool of worker
+/// threads.
 ///
 /// Note: Any sort of nested parallelism will deadlock this executor.  Blocking waits are
 /// fine but if one task needs to wait for another task it must be expressed as an
 /// asynchronous continuation.
 class ARROW_EXPORT ThreadPool : public Executor {
  public:
-  // Construct a thread pool with the given number of worker threads
-  static Result<std::shared_ptr<ThreadPool>> Make(int threads);
+  struct Task {
+    FnOnce<void()> callable;
+    StopToken stop_token;
+    Executor::StopCallback stop_callback;
+  };
 
-  // Like Make(), but takes care that the returned ThreadPool is compatible
-  // with destruction late at process exit.
-  static Result<std::shared_ptr<ThreadPool>> MakeEternal(int threads);
+  using ThreadIt = std::list<std::shared_ptr<Thread>>::iterator;
 
-  // Destroy thread pool; the pool will first be shut down
-  ~ThreadPool() override;
+  virtual ~ThreadPool();
+
+  // -------------- Management API -------------
+  // These methods must all be guarded with ProtectAgainstFork
 
   // Return the desired number of worker threads.
   // The actual number of workers may lag a bit before being adjusted to
   // match this value.
   int GetCapacity() override;
-
-  // Return the number of tasks either running or in the queue.
-  int GetNumTasks();
 
   // Dynamically change the number of worker threads.
   //
@@ -321,9 +335,46 @@ class ARROW_EXPORT ThreadPool : public Executor {
   // tasks are finished.
   Status Shutdown(bool wait = true);
 
-  struct State;
+  // ------------- Statistics API ---------------
+
+  /// The current number of tasks either currently running or in the queue to run
+  uint64_t NumTasksRunningOrQueued() const;
+  /// A guess at the maximum number of tasks running or queued at any one point
+  uint64_t MaxTasksQueued() const;
+  /// The total number of tasks that have been submitted over the lifetime of the pool
+  uint64_t TotalTasksQueued() const;
+
+  // ------------- Children API -----------------
+
+  /// Called by children when a worker thread completes a task
+  void RecordFinishedTask();
+  /// True if the thread pool is shutting down, should only be checked if a thread has
+  /// no tasks to work on.  This allows us to ensure we drain the task queue before
+  /// shutting down the pool.
+  ///
+  /// Once this returns true a thread must not call it (or ShouldWorkerQuitNow) again
+  bool ShouldWorkerQuit(ThreadIt* thread_it);
+  /// True if the thread is no longer needed (e.g. excess capacity) or if a quick shutdown
+  /// has been requested.  Should be checked frequently as threads can quit with remaining
+  /// work if this is true
+  ///
+  /// Once this returns true a thread must not call it (or ShouldWorkerQuit) again
+  bool ShouldWorkerQuitNow(ThreadIt* thread_it);
+  /// Should be called first by a worker thread as soon as it starts up.  Until this call
+  /// finishes `thread_it` will not have a valid value
+  void WaitForReady();
+  /// Called by a child implementation when new work arrives that should wake up idle
+  /// threads.  This will notify one worker waiting on WaitForWork.  Generally called
+  /// in DoSubmitTask but might be called less often if a child implementation wants
+  /// to
+  void NotifyIdleWorker();
+  /// Called by a worker thread that is ready to wait for work to arrive
+  void WaitForWork();
+
+  struct Control;
 
  protected:
+  FRIEND_TEST(TestThreadPool, DestroyWithoutShutdown);
   FRIEND_TEST(TestThreadPool, SetCapacity);
   FRIEND_TEST(TestGlobalThreadPool, Capacity);
   friend ARROW_EXPORT ThreadPool* GetCpuThreadPool();
@@ -333,23 +384,88 @@ class ARROW_EXPORT ThreadPool : public Executor {
   Status SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken,
                    StopCallback&&) override;
 
+  /// Called on the child process after a fork.  After a fork all threads will have ceased
+  /// running in the child process.  This method should clean up the thread pool state and
+  /// restart any previously running threads.
+  ///
+  /// The behavior is somewhat ill-defined if tasks are running when the fork happened.
+  /// For more details see ARROW-12879
+  virtual void ResetAfterFork();
+
+  /// Launches a worker thread
+  virtual std::shared_ptr<Thread> LaunchWorker(ThreadIt thread_it) = 0;
+  /// Adds a task to the task queue(s)
+  virtual void DoSubmitTask(TaskHints hints, Task task) = 0;
+  /// Should return true only if there is no work to be done
+  virtual bool Empty() = 0;
   // Collect finished worker threads, making sure the OS threads have exited
   void CollectFinishedWorkersUnlocked();
   // Launch a given number of additional workers
   void LaunchWorkersUnlocked(int threads);
+  // Marks a thread finished and removes it from the workers list
+  void MarkThreadFinishedUnlocked(ThreadIt* thread_it);
   // Get the current actual capacity
-  int GetActualCapacity();
+  int GetActualCapacity() const;
+  // Get the amount of threads we could still launch based on capacity and # of tasks
+  int GetAdditionalThreadsNeeded() const;
   // Reinitialize the thread pool if the pid changed
   void ProtectAgainstFork();
+  void RecordTaskSubmitted();
 
   static std::shared_ptr<ThreadPool> MakeCpuThreadPool();
 
-  std::shared_ptr<State> sp_state_;
-  State* state_;
+  std::atomic<uint64_t> num_tasks_running_;
+  std::atomic<uint64_t> total_tasks_;
+  std::atomic<uint64_t> max_tasks_;
+
+  std::list<std::shared_ptr<Thread>> workers_;
+  // Trashcan for finished threads
+  std::vector<std::shared_ptr<Thread>> finished_workers_;
+  // Desired number of threads
+  int desired_capacity_ = 0;
+
+  // Are we shutting down?
+  bool please_shutdown_ = false;
+  bool quick_shutdown_ = false;
+
   bool shutdown_on_destroy_;
+  // Contains mutexes and condition variables which cannot be in the header
+  Control* control_;
 #ifndef _WIN32
   pid_t pid_;
 #endif
+};
+
+/// A ThreadPool implementation which uses one lock-protected task queue which
+/// the workers all share.
+class ARROW_EXPORT SimpleThreadPool
+    : public ThreadPool,
+      public std::enable_shared_from_this<SimpleThreadPool> {
+ public:
+  // Construct a thread pool with the given number of worker threads
+  static Result<std::shared_ptr<ThreadPool>> Make(int threads);
+
+  // Like Make(), but takes care that the returned ThreadPool is compatible
+  // with destruction late at process exit.
+  static Result<std::shared_ptr<ThreadPool>> MakeEternal(int threads);
+
+  // Destroy thread pool; the pool will first be shut down
+  ~SimpleThreadPool() override;
+
+ protected:
+  SimpleThreadPool();
+  void ResetAfterFork() override;
+  std::shared_ptr<Thread> LaunchWorker(ThreadIt thread_it) override;
+  static void WorkerLoop(std::shared_ptr<SimpleThreadPool> thread_pool, ThreadIt self);
+
+  void DoSubmitTask(TaskHints hints, Task task) override;
+  util::optional<Task> PopTask();
+  bool Empty() override;
+
+  std::deque<Task> pending_tasks_;
+  // Store task count separately so we can quickly check if pending_tasks_ is empty
+  // without grabbing the lock
+  std::atomic<std::size_t> task_count_;
 };
 
 // Return the process-global thread pool for CPU-bound tasks.

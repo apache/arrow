@@ -44,8 +44,8 @@ namespace arrow {
 
 using internal::checked_pointer_cast;
 using internal::Executor;
+using internal::SimpleThreadPool;
 using internal::TaskHints;
-using internal::ThreadPool;
 
 namespace io {
 
@@ -353,7 +353,7 @@ void SharedExclusiveChecker::UnlockExclusive() {}
 #endif
 
 static std::shared_ptr<ThreadPool> MakeIOThreadPool() {
-  auto maybe_pool = ThreadPool::MakeEternal(/*threads=*/8);
+  auto maybe_pool = SimpleThreadPool::MakeEternal(/*threads=*/8);
   if (!maybe_pool.ok()) {
     maybe_pool.status().Abort("Failed to create global IO thread pool");
   }
