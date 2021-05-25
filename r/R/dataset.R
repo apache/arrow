@@ -120,7 +120,10 @@ open_dataset <- function(sources,
   tryCatch(
     # Default is _not_ to inspect/unify schemas
     factory$Finish(schema, isTRUE(unify_schemas)),
-    error = handle_parquet_io_error
+    error = function(e){
+      args <- list2(...)
+      handle_parquet_io_error(e, args$format)
+    }
   )
 }
 
