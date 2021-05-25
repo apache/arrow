@@ -20,7 +20,7 @@ import {
     predicate,
     Data, Schema, Field, Table, RecordBatch, Column,
     Vector, Int32Vector, Float32Vector, Utf8Vector, DictionaryVector,
-    Struct, Float32, Int32, Dictionary, Utf8, Int8, Type
+    Struct, Float32, Int32, Dictionary, Utf8, Int8
 } from '../Arrow';
 import { arange } from './utils';
 
