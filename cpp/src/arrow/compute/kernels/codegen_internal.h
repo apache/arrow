@@ -303,8 +303,12 @@ struct BoxScalar;
 template <typename Type>
 struct BoxScalar<Type, enable_if_has_c_type<Type>> {
   using T = typename GetOutputType<Type>::T;
-  using ScalarType = typename TypeTraits<Type>::ScalarType;
-  static void Box(T val, Scalar* out) { checked_cast<ScalarType*>(out)->value = val; }
+  static void Box(T val, Scalar* out) {
+    // Enables BoxScalar<Int64Type> to work on a (for example) Time64Scalar
+    T* mutable_data = reinterpret_cast<T*>(
+        checked_cast<::arrow::internal::PrimitiveScalarBase*>(out)->mutable_data());
+    *mutable_data = val;
+  }
 };
 
 template <typename Type>
@@ -1087,6 +1091,41 @@ ArrayKernelExec GeneratePhysicalInteger(detail::GetTypeId get_id) {
       return Generator<Type0, UInt32Type, Args...>::Exec;
     case Type::UINT64:
       return Generator<Type0, UInt64Type, Args...>::Exec;
+    default:
+      DCHECK(false);
+      return ExecFail;
+  }
+}
+
+template <template <typename... Args> class Generator, typename... Args>
+ArrayKernelExec GeneratePhysicalNumeric(detail::GetTypeId get_id) {
+  switch (get_id.id) {
+    case Type::INT8:
+      return Generator<Int8Type, Args...>::Exec;
+    case Type::INT16:
+      return Generator<Int16Type, Args...>::Exec;
+    case Type::INT32:
+    case Type::DATE32:
+    case Type::TIME32:
+      return Generator<Int32Type, Args...>::Exec;
+    case Type::INT64:
+    case Type::DATE64:
+    case Type::TIMESTAMP:
+    case Type::TIME64:
+    case Type::DURATION:
+      return Generator<Int64Type, Args...>::Exec;
+    case Type::UINT8:
+      return Generator<UInt8Type, Args...>::Exec;
+    case Type::UINT16:
+      return Generator<UInt16Type, Args...>::Exec;
+    case Type::UINT32:
+      return Generator<UInt32Type, Args...>::Exec;
+    case Type::UINT64:
+      return Generator<UInt64Type, Args...>::Exec;
+    case Type::FLOAT:
+      return Generator<FloatType, Args...>::Exec;
+    case Type::DOUBLE:
+      return Generator<DoubleType, Args...>::Exec;
     default:
       DCHECK(false);
       return ExecFail;

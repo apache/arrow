@@ -454,45 +454,6 @@ ArrayKernelExec ArithmeticExecFromOp(detail::GetTypeId get_id) {
   }
 }
 
-template <template <typename... Args> class KernelGenerator, typename Op>
-ArrayKernelExec MinMaxExecFromOp(detail::GetTypeId get_id) {
-  switch (get_id.id) {
-    case Type::INT8:
-      return KernelGenerator<Int8Type, Int8Type, Op>::Exec;
-    case Type::UINT8:
-      return KernelGenerator<UInt8Type, UInt8Type, Op>::Exec;
-    case Type::INT16:
-      return KernelGenerator<Int16Type, Int16Type, Op>::Exec;
-    case Type::UINT16:
-      return KernelGenerator<UInt16Type, UInt16Type, Op>::Exec;
-    case Type::INT32:
-      return KernelGenerator<Int32Type, Int32Type, Op>::Exec;
-    case Type::DATE32:
-      return KernelGenerator<Date32Type, Date32Type, Op>::Exec;
-    case Type::TIME32:
-      return KernelGenerator<Time32Type, Time32Type, Op>::Exec;
-    case Type::UINT32:
-      return KernelGenerator<UInt32Type, UInt32Type, Op>::Exec;
-    case Type::INT64:
-      return KernelGenerator<Int64Type, Int64Type, Op>::Exec;
-    case Type::TIMESTAMP:
-      return KernelGenerator<TimestampType, TimestampType, Op>::Exec;
-    case Type::DATE64:
-      return KernelGenerator<Date64Type, Date64Type, Op>::Exec;
-    case Type::TIME64:
-      return KernelGenerator<Time64Type, Time64Type, Op>::Exec;
-    case Type::UINT64:
-      return KernelGenerator<UInt64Type, UInt64Type, Op>::Exec;
-    case Type::FLOAT:
-      return KernelGenerator<FloatType, FloatType, Op>::Exec;
-    case Type::DOUBLE:
-      return KernelGenerator<DoubleType, DoubleType, Op>::Exec;
-    default:
-      DCHECK(false);
-      return ExecFail;
-  }
-}
-
 struct ArithmeticFunction : ScalarFunction {
   using ScalarFunction::ScalarFunction;
 
@@ -604,20 +565,22 @@ std::shared_ptr<ScalarFunction> MakeUnarySignedArithmeticFunctionNotNull(
 using MinMaxState = OptionsWrapper<ElementWiseAggregateOptions>;
 
 // Implement a variadic scalar min/max kernel.
-template <typename OutType, typename Arg0Type, typename Op>
+template <typename OutType, typename Op>
 struct ScalarMinMax {
   using OutValue = typename GetOutputType<OutType>::T;
 
   static void ExecScalar(const ExecBatch& batch,
-                         const ElementWiseAggregateOptions& options, Datum* out) {
+                         const ElementWiseAggregateOptions& options, Scalar* out) {
     // All arguments are scalar
     OutValue value{};
     bool valid = false;
     for (const auto& arg : batch.values) {
+      // Ignore non-scalar arguments so we can use it in the mixed-scalar-and-array case
+      if (!arg.is_scalar()) continue;
       const auto& scalar = *arg.scalar();
       if (!scalar.is_valid) {
         if (options.skip_nulls) continue;
-        out->scalar()->is_valid = false;
+        out->is_valid = false;
         return;
       }
       if (!valid) {
@@ -627,20 +590,29 @@ struct ScalarMinMax {
         value = Op::Call(value, UnboxScalar<OutType>::Unbox(scalar));
       }
     }
-    out->scalar()->is_valid = valid;
+    out->is_valid = valid;
     if (valid) {
-      BoxScalar<OutType>::Box(value, out->scalar().get());
+      BoxScalar<OutType>::Box(value, out);
     }
   }
 
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const ElementWiseAggregateOptions& options = MinMaxState::Get(ctx);
     const auto descrs = batch.GetDescriptors();
-    const bool all_scalar =
-        std::all_of(batch.values.begin(), batch.values.end(),
-                    [](const Datum& d) { return d.descr().shape == ValueDescr::SCALAR; });
+    bool all_scalar = true;
+    bool any_scalar = false;
+    size_t first_array_index = batch.values.size();
+    for (size_t i = 0; i < batch.values.size(); i++) {
+      const auto& datum = batch.values[i];
+      all_scalar &= datum.descr().shape == ValueDescr::SCALAR;
+      any_scalar |= datum.descr().shape == ValueDescr::SCALAR;
+      if (first_array_index >= batch.values.size() &&
+          datum.descr().shape == ValueDescr::ARRAY) {
+        first_array_index = i;
+      }
+    }
     if (all_scalar) {
-      ExecScalar(batch, options, out);
+      ExecScalar(batch, options, out->scalar().get());
       return Status::OK();
     }
 
@@ -653,120 +625,108 @@ struct ScalarMinMax {
     }
 
     // At least one array, two or more arguments
-    int64_t length = 0;
-    for (const auto& arg : batch.values) {
-      if (arg.is_array()) {
-        length = arg.array()->length;
-        break;
+    DCHECK_GE(first_array_index, 0);
+    DCHECK_LT(first_array_index, batch.values.size());
+    DCHECK(batch.values[first_array_index].is_array());
+    if (any_scalar) {
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> temp_scalar,
+                            MakeScalar(out->type(), 0));
+      ExecScalar(batch, options, temp_scalar.get());
+      if (options.skip_nulls || temp_scalar->is_valid) {
+        // Promote to output array
+        ARROW_ASSIGN_OR_RAISE(auto array, MakeArrayFromScalar(*temp_scalar, batch.length,
+                                                              ctx->memory_pool()));
+        *output = *array->data();
+        if (!temp_scalar->is_valid) {
+          // MakeArrayFromScalar reuses the same buffer for null/data in
+          // this case, allocate a real one since we'll be writing to it
+          ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(batch.length));
+          ::arrow::internal::BitmapXor(output->buffers[0]->data(), /*left_offset=*/0,
+                                       output->buffers[0]->data(), /*right_offset=*/0,
+                                       batch.length, /*out_offset=*/0,
+                                       output->buffers[0]->mutable_data());
+        }
+      } else {
+        // Abort early
+        ARROW_ASSIGN_OR_RAISE(auto array, MakeArrayFromScalar(*temp_scalar, batch.length,
+                                                              ctx->memory_pool()));
+        *output = *array->data();
+        return Status::OK();
       }
+    } else {
+      // Copy first array argument to output array
+      const ArrayData& input = *batch.values[first_array_index].array();
+      ARROW_ASSIGN_OR_RAISE(output->buffers[1],
+                            ctx->Allocate(batch.length * sizeof(OutValue)));
+      if (options.skip_nulls && input.buffers[0]) {
+        // Don't copy the bitmap if !options.skip_nulls since we'll precompute it later
+        ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(batch.length));
+        ::arrow::internal::CopyBitmap(input.buffers[0]->data(), input.offset,
+                                      batch.length, output->buffers[0]->mutable_data(),
+                                      /*dest_offset=*/0);
+      }
+      // This won't work for nested or variable-sized types
+      std::memcpy(output->buffers[1]->mutable_data(),
+                  input.buffers[1]->data() + (input.offset * sizeof(OutValue)),
+                  batch.length * sizeof(OutValue));
     }
 
     if (!options.skip_nulls) {
       // We can precompute the validity buffer in this case
-      // If output will be all null, just return
-      for (const auto& arg : batch.values) {
-        if (arg.is_scalar() && !arg.scalar()->is_valid) {
-          ARROW_ASSIGN_OR_RAISE(
-              auto array, MakeArrayFromScalar(*arg.scalar(), length, ctx->memory_pool()));
-          *output = *array->data();
-          return Status::OK();
-        } else if (arg.is_array() && arg.array()->null_count == length) {
-          *output = *arg.array();
-          return Status::OK();
-        }
-      }
       // AND together the validity buffers of all arrays
-      ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(length));
+      ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(batch.length));
       bool first = true;
       for (const auto& arg : batch.values) {
         if (!arg.is_array()) continue;
         auto arr = arg.array();
         if (!arr->buffers[0]) continue;
         if (first) {
-          ::arrow::internal::CopyBitmap(arr->buffers[0]->data(), arr->offset, length,
-                                        output->buffers[0]->mutable_data(),
+          ::arrow::internal::CopyBitmap(arr->buffers[0]->data(), arr->offset,
+                                        batch.length, output->buffers[0]->mutable_data(),
                                         /*dest_offset=*/0);
           first = false;
         } else {
-          ::arrow::internal::BitmapAnd(
-              output->buffers[0]->data(), /*left_offset=*/0, arr->buffers[0]->data(),
-              arr->offset, length, /*out_offset=*/0, output->buffers[0]->mutable_data());
+          ::arrow::internal::BitmapAnd(output->buffers[0]->data(), /*left_offset=*/0,
+                                       arr->buffers[0]->data(), arr->offset, batch.length,
+                                       /*out_offset=*/0,
+                                       output->buffers[0]->mutable_data());
         }
       }
     }
-
-    if (batch.values[0].is_scalar()) {
-      // Promote to output array
-      ARROW_ASSIGN_OR_RAISE(auto array, MakeArrayFromScalar(*batch.values[0].scalar(),
-                                                            length, ctx->memory_pool()));
-      *output = *array->data();
-      if (!batch.values[0].scalar()->is_valid) {
-        // MakeArrayFromScalar reuses the same buffer for null/data in
-        // this case, allocate a real one since we'll be writing to it
-        ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(length));
-        ::arrow::internal::BitmapXor(output->buffers[0]->data(), /*left_offset=*/0,
-                                     output->buffers[0]->data(), /*right_offset=*/0,
-                                     length, /*out_offset=*/0,
-                                     output->buffers[0]->mutable_data());
-      }
-    } else {
-      // Copy to output array
-      const ArrayData& input = *batch.values[0].array();
-      ARROW_ASSIGN_OR_RAISE(output->buffers[1], ctx->Allocate(length * sizeof(OutValue)));
-      if (options.skip_nulls && input.buffers[0]) {
-        ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(length));
-        ::arrow::internal::CopyBitmap(input.buffers[0]->data(), input.offset, length,
-                                      output->buffers[0]->mutable_data(),
-                                      /*dest_offset=*/0);
-      }
-      // This won't work for nested or variable-sized types
-      std::memcpy(output->buffers[1]->mutable_data(),
-                  input.buffers[1]->data() + (input.offset * sizeof(OutValue)),
-                  length * sizeof(OutValue));
-    }
-
-    for (size_t i = 1; i < batch.values.size(); i++) {
+    const size_t start_at = any_scalar ? first_array_index : (first_array_index + 1);
+    for (size_t i = start_at; i < batch.values.size(); i++) {
+      if (!batch.values[i].is_array()) continue;
       OutputArrayWriter<OutType> writer(out->mutable_array());
-      if (batch.values[i].is_scalar()) {
-        auto scalar = batch.values[i].scalar();
-        if (!scalar->is_valid) continue;
-        auto value = UnboxScalar<OutType>::Unbox(*scalar);
-        VisitArrayValuesInline<OutType>(
-            *out->array(), [&](OutValue u) { writer.Write(Op::Call(u, value)); },
-            [&]() { writer.Write(value); });
-        if (options.skip_nulls && output->buffers[0]) output->buffers[0] = nullptr;
-      } else {
-        const ArrayData& arr = *batch.values[i].array();
-        ArrayIterator<OutType> out_it(*output);
-        int64_t index = 0;
-        VisitArrayValuesInline<OutType>(
-            arr,
-            [&](OutValue value) {
-              auto u = out_it();
-              if (!output->buffers[0] ||
-                  BitUtil::GetBit(output->buffers[0]->data(), index)) {
-                writer.Write(Op::Call(u, value));
-              } else {
-                writer.Write(value);
-              }
-              index++;
-            },
-            [&]() {
-              // RHS is null, preserve the LHS
-              writer.values++;
-              index++;
-              out_it();
-            });
-        // When not skipping nulls, we pre-compute the validity buffer
-        if (options.skip_nulls && output->buffers[0]) {
-          if (arr.buffers[0]) {
-            ::arrow::internal::BitmapOr(
-                output->buffers[0]->data(), /*left_offset=*/0, arr.buffers[0]->data(),
-                /*right_offset=*/arr.offset, length, /*out_offset=*/0,
-                output->buffers[0]->mutable_data());
-          } else {
-            output->buffers[0] = nullptr;
-          }
+      const ArrayData& arr = *batch.values[i].array();
+      ArrayIterator<OutType> out_it(*output);
+      int64_t index = 0;
+      VisitArrayValuesInline<OutType>(
+          arr,
+          [&](OutValue value) {
+            auto u = out_it();
+            if (!output->buffers[0] ||
+                BitUtil::GetBit(output->buffers[0]->data(), index)) {
+              writer.Write(Op::Call(u, value));
+            } else {
+              writer.Write(value);
+            }
+            index++;
+          },
+          [&]() {
+            // RHS is null, preserve the LHS
+            writer.values++;
+            index++;
+            out_it();
+          });
+      // When not skipping nulls, we pre-compute the validity buffer
+      if (options.skip_nulls && output->buffers[0]) {
+        if (arr.buffers[0]) {
+          ::arrow::internal::BitmapOr(
+              output->buffers[0]->data(), /*left_offset=*/0, arr.buffers[0]->data(),
+              /*right_offset=*/arr.offset, batch.length, /*out_offset=*/0,
+              output->buffers[0]->mutable_data());
+        } else {
+          output->buffers[0] = nullptr;
         }
       }
     }
@@ -780,7 +740,7 @@ std::shared_ptr<ScalarFunction> MakeScalarMinMax(std::string name,
                                                  const FunctionDoc* doc) {
   auto func = std::make_shared<ArithmeticVarArgsFunction>(name, Arity::VarArgs(), doc);
   for (const auto& ty : NumericTypes()) {
-    auto exec = MinMaxExecFromOp<ScalarMinMax, Op>(ty);
+    auto exec = GeneratePhysicalNumeric<ScalarMinMax, Op>(ty);
     ScalarKernel kernel{KernelSignature::Make({ty}, ty, /*is_varargs=*/true), exec,
                         MinMaxState::Init};
     kernel.null_handling = NullHandling::type::COMPUTED_NO_PREALLOCATE;
@@ -788,7 +748,7 @@ std::shared_ptr<ScalarFunction> MakeScalarMinMax(std::string name,
     DCHECK_OK(func->AddKernel(std::move(kernel)));
   }
   for (const auto& ty : TemporalTypes()) {
-    auto exec = MinMaxExecFromOp<ScalarMinMax, Op>(ty);
+    auto exec = GeneratePhysicalNumeric<ScalarMinMax, Op>(ty);
     ScalarKernel kernel{KernelSignature::Make({ty}, ty, /*is_varargs=*/true), exec,
                         MinMaxState::Init};
     kernel.null_handling = NullHandling::type::COMPUTED_NO_PREALLOCATE;
