@@ -493,6 +493,9 @@ struct ArithmeticVarArgsFunction : ScalarFunction {
     if (auto type = CommonNumeric(*values)) {
       ReplaceTypes(type, values);
     }
+    if (auto type = CommonTimestamp(*values)) {
+      ReplaceTypes(type, values);
+    }
 
     if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
     return arrow::compute::detail::NoMatchingKernel(this, *values);

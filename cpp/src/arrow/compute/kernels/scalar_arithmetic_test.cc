@@ -1461,5 +1461,36 @@ TYPED_TEST(TestVarArgsArithmeticParametricTemporal, Maximum) {
                {this->array("[1, null, 3, 4]"), this->array("[2, 2, null, 2]")});
 }
 
+TEST(TestMaximumMinimum, CommonTimestamp) {
+  {
+    auto t1 = std::make_shared<TimestampType>(TimeUnit::SECOND);
+    auto t2 = std::make_shared<TimestampType>(TimeUnit::MILLI);
+    auto expected = MakeScalar(t2, 1000).ValueOrDie();
+    ASSERT_OK_AND_ASSIGN(auto actual,
+                         Minimum({Datum(MakeScalar(t1, 1).ValueOrDie()),
+                                  Datum(MakeScalar(t2, 12000).ValueOrDie())}));
+    AssertScalarsEqual(*expected, *actual.scalar(), /*verbose=*/true);
+  }
+  {
+    auto t1 = std::make_shared<Date32Type>();
+    auto t2 = std::make_shared<TimestampType>(TimeUnit::SECOND);
+    auto expected = MakeScalar(t2, 86401).ValueOrDie();
+    ASSERT_OK_AND_ASSIGN(auto actual,
+                         Maximum({Datum(MakeScalar(t1, 1).ValueOrDie()),
+                                  Datum(MakeScalar(t2, 86401).ValueOrDie())}));
+    AssertScalarsEqual(*expected, *actual.scalar(), /*verbose=*/true);
+  }
+  {
+    auto t1 = std::make_shared<Date32Type>();
+    auto t2 = std::make_shared<Date64Type>();
+    auto t3 = std::make_shared<TimestampType>(TimeUnit::SECOND);
+    auto expected = MakeScalar(t3, 86400).ValueOrDie();
+    ASSERT_OK_AND_ASSIGN(auto actual,
+                         Minimum({Datum(MakeScalar(t1, 1).ValueOrDie()),
+                                  Datum(MakeScalar(t2, 2 * 86400000).ValueOrDie())}));
+    AssertScalarsEqual(*expected, *actual.scalar(), /*verbose=*/true);
+  }
+}
+
 }  // namespace compute
 }  // namespace arrow
