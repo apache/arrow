@@ -58,7 +58,7 @@ jobs:
       fail-fast: false
       matrix:
         r: ["4.0"]
-        ubuntu: [18.04]
+        ubuntu: [20.04]
     env:
       R: ${{ matrix.r }}
       UBUNTU: ${{ matrix.ubuntu }}
@@ -209,17 +209,10 @@ jobs:
           path: ccache
           key: r-${{ matrix.rtools }}-ccache-mingw-${{ hashFiles('cpp/**') }}
           restore-keys: r-${{ matrix.rtools }}-ccache-mingw-
-      # We use the makepkg-mingw setup that is included in rtools40 even when
-      # we use the rtools35 compilers, so we always install R 4.0/Rtools40
       - uses: r-lib/actions/setup-r@master
         with:
           rtools-version: 40
           r-version: "4.1"
-          Ncpus: 2
-      - uses: r-lib/actions/setup-r@master
-        with:
-          rtools-version: 40
-          r-version: "4.0"
           Ncpus: 2
       - name: Build Arrow C++
         shell: bash
