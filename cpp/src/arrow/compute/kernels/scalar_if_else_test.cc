@@ -64,14 +64,27 @@ TYPED_TEST(TestIfElsePrimitive, IfElseFixedSize) {
   // No Nulls
   CheckIfElseOutputArray(type, "[]", "[]", "[]", "[]");
 
+  // RLC = 111
   CheckIfElseOutputArray(type, "[true, true, true, false]", "[1, 2, 3, 4]",
                          "[5, 6, 7, 8]", "[1, 2, 3, 8]");
-
+  // RLC = 110
   CheckIfElseOutputArray(type, "[true, true, null, false]", "[1, 2, 3, 4]",
                          "[5, 6, 7, 8]", "[1, 2, null, 8]", false);
-
+  // RLC = 100
+  CheckIfElseOutputArray(type, "[true, true, null, false]", "[1, null, 3, 4]",
+                         "[5, 6, 7, 8]", "[1, null, null, 8]", false);
+  // RLC = 011
+  CheckIfElseOutputArray(type, "[true, true, true, false]", "[1, 2, 3, 4]",
+                         "[5, 6, 7, null]", "[1, 2, 3, null]", false);
+  // RLC = 010
+  CheckIfElseOutputArray(type, "[null, true, true, false]", "[1, 2, 3, 4]",
+                         "[5, 6, 7, null]", "[null, 2, 3, null]", false);
+  // RLC = 001
   CheckIfElseOutputArray(type, "[true, true, true, false]", "[1, 2, null, null]",
                          "[null, 6, 7, null]", "[1, 2, null, null]", false);
+  // RLC = 000
+  CheckIfElseOutputArray(type, "[null, true, true, false]", "[1, 2, null, null]",
+                         "[null, 6, 7, null]", "[null, 2, null, null]", false);
 
   using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
   random::RandomArrayGenerator rand(/*seed=*/0);

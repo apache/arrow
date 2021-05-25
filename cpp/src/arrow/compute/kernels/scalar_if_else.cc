@@ -31,7 +31,7 @@ namespace compute {
 
 namespace {
 
-// cond.val && (cond.data && left.val || ~cond.data && right.val)
+// cond.valid && (cond.data && left.valid || ~cond.data && right.valid)
 enum IEBitmapIndex { C_VALID, C_DATA, L_VALID, R_VALID };
 
 Status PromoteNullsNew1(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
@@ -52,7 +52,7 @@ Status PromoteNullsNew1(KernelContext* ctx, const ArrayData& cond, const ArrayDa
     out_validity = output->GetMutableValues<uint64_t>(0);
   }
 
-  // cond.val && (cond.data && left.val || ~cond.data && right.val)
+  // cond.valid && (cond.data && left.valid || ~cond.data && right.valid)
   int64_t i = 0;
   switch (flag) {
     case 7:  // RLC = 111
@@ -177,7 +177,7 @@ Status PromoteNullsNew1(KernelContext* ctx, const ArrayData& cond, const ArrayDa
 }*/
 
 // nulls will be promoted as follows:
-// cond.val && (cond.data && left.val || ~cond.data && right.val)
+// cond.valid && (cond.data && left.valid || ~cond.data && right.valid)
 // Note: we have to work on ArrayData. Otherwise we won't be able to handle array
 // offsets AAA
 /*Status PromoteNulls(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
@@ -193,7 +193,7 @@ Status PromoteNullsNew1(KernelContext* ctx, const ArrayData& cond, const ArrayDa
       arrow::internal::InvertBitmap(ctx->memory_pool(), cond.buffers[1]->data(),
                                     cond.offset, len));
 
-  if (right.MayHaveNulls()) {  // out_validity = right.val && ~cond.data
+  if (right.MayHaveNulls()) {  // out_validity = right.valid && ~cond.data
     arrow::internal::BitmapAnd(right.buffers[0]->data(), right.offset,
                                out_validity->data(), 0, len, 0,
                                out_validity->mutable_data());
@@ -201,7 +201,7 @@ Status PromoteNullsNew1(KernelContext* ctx, const ArrayData& cond, const ArrayDa
 
   std::shared_ptr<Buffer> tmp_buf;
   if (left.MayHaveNulls()) {
-    // tmp_buf = left.val && cond.data
+    // tmp_buf = left.valid && cond.data
     ARROW_ASSIGN_OR_RAISE(
         tmp_buf, arrow::internal::BitmapAnd(ctx->memory_pool(), left.buffers[0]->data(),
                                             left.offset, cond.buffers[1]->data(),
@@ -210,12 +210,12 @@ Status PromoteNullsNew1(KernelContext* ctx, const ArrayData& cond, const ArrayDa
     tmp_buf = SliceBuffer(cond.buffers[1], cond.offset, cond.length);
   }
 
-  // out_validity = cond.data && left.val || ~cond.data && right.val
+  // out_validity = cond.data && left.valid || ~cond.data && right.valid
   arrow::internal::BitmapOr(out_validity->data(), 0, tmp_buf->data(), 0, len, 0,
                             out_validity->mutable_data());
 
   if (cond.MayHaveNulls()) {
-    // out_validity = cond.val && (cond.data && left.val || ~cond.data && right.val)
+    // out_validity = cond.valid && (cond.data && left.valid || ~cond.data && right.valid)
     ::arrow::internal::BitmapAnd(out_validity->data(), 0, cond.buffers[0]->data(),
                                  cond.offset, len, 0, out_validity->mutable_data());
   }
@@ -225,7 +225,7 @@ Status PromoteNullsNew1(KernelContext* ctx, const ArrayData& cond, const ArrayDa
   return Status::OK();
 }*/
 
-// cond.val && (cond.data && left.val || ~cond.data && right.val)
+// cond.valid && (cond.data && left.valid || ~cond.data && right.valid)
 // ASA and AAS
 Status PromoteNulls(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
                     const ArrayData& right, ArrayData* output) {
@@ -239,20 +239,20 @@ Status PromoteNulls(KernelContext* ctx, const ArrayData& cond, const Scalar& lef
       std::shared_ptr<Buffer> out_validity,
       arrow::internal::InvertBitmap(ctx->memory_pool(), cond.buffers[1]->data(),
                                     cond.offset, len));
-  // out_validity = ~cond.data && right.val
-  if (right.MayHaveNulls()) {  // out_validity = right.val && ~cond.data
+  // out_validity = ~cond.data && right.valid
+  if (right.MayHaveNulls()) {  // out_validity = right.valid && ~cond.data
     arrow::internal::BitmapAnd(right.buffers[0]->data(), right.offset,
                                out_validity->data(), 0, len, 0,
                                out_validity->mutable_data());
   }
 
-  // out_validity = cond.data && left.val || ~cond.data && right.val
+  // out_validity = cond.data && left.valid || ~cond.data && right.valid
   if (left.is_valid) {
     arrow::internal::BitmapOr(out_validity->data(), 0, cond.buffers[1]->data(),
                               cond.offset, len, 0, out_validity->mutable_data());
   }
 
-  // out_validity = cond.val && (cond.data && left.val || ~cond.data && right.val)
+  // out_validity = cond.valid && (cond.data && left.valid || ~cond.data && right.valid)
   if (cond.MayHaveNulls()) {
     ::arrow::internal::BitmapAnd(out_validity->data(), 0, cond.buffers[0]->data(),
                                  cond.offset, len, 0, out_validity->mutable_data());
@@ -263,7 +263,7 @@ Status PromoteNulls(KernelContext* ctx, const ArrayData& cond, const Scalar& lef
   return Status::OK();
 }
 /*
-// cond.val && (cond.data && left.val || ~cond.data && right.val)
+// cond.valid && (cond.data && left.valid || ~cond.data && right.valid)
 // ASS
 Status PromoteNulls(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
                     const Scalar& right, ArrayData* output) {
@@ -283,13 +283,13 @@ Status PromoteNulls(KernelContext* ctx, const ArrayData& cond, const Scalar& lef
     ARROW_ASSIGN_OR_RAISE(out_validity, ctx->AllocateBitmap(len));
   }
 
-  // out_validity = cond.data && left.val || ~cond.data && right.val
+  // out_validity = cond.data && left.valid || ~cond.data && right.valid
   if (left.is_valid) {
     arrow::internal::BitmapOr(out_validity->data(), 0, cond.buffers[1]->data(),
                               cond.offset, len, 0, out_validity->mutable_data());
   }
 
-  // out_validity = cond.val && (cond.data && left.val || ~cond.data && right.val)
+  // out_validity = cond.valid && (cond.data && left.valid || ~cond.data && right.valid)
   if (cond.MayHaveNulls()) {
     ::arrow::internal::BitmapAnd(out_validity->data(), 0, cond.buffers[0]->data(),
                                  cond.offset, len, 0, out_validity->mutable_data());
