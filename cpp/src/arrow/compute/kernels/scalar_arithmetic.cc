@@ -462,6 +462,29 @@ struct PowerChecked {
   }
 };
 
+struct Sign {
+  template <typename T, typename Arg,
+            enable_if_t<std::is_floating_point<Arg>::value, bool> = true>
+  static constexpr int8_t Call(KernelContext*, Arg arg, Status*) {
+    return std::signbit(arg) ? -1 : 1;
+  }
+
+  template <typename T, typename Arg,
+            enable_if_t<std::is_unsigned<Arg>::value, bool> = true>
+  static constexpr int8_t Call(KernelContext*, Arg arg, Status*) {
+    return arg ? 1 : 0;
+  }
+
+  template <typename T, typename Arg,
+            enable_if_t<std::is_integral<Arg>::value && std::is_signed<Arg>::value,
+                        bool> = true>
+  static int8_t Call(KernelContext*, Arg arg, Status*) {
+    if (arg > 0) return 1;
+    if (arg < 0) return -1;
+    return 0;
+  }
+};
+
 // Bitwise operations
 
 struct BitWiseNot {
@@ -1033,6 +1056,37 @@ void AddDecimalBinaryKernels(const std::string& name,
   DCHECK_OK((*func)->AddKernel({in_type256, in_type256}, out_type, exec256));
 }
 
+// Generate a kernel given an arithmetic functor
+template <template <typename... Args> class KernelGenerator, typename Op>
+ArrayKernelExec ArithmeticExecFromOpFixedOutType(detail::GetTypeId get_id) {
+  switch (get_id.id) {
+    case Type::INT8:
+      return KernelGenerator<Int8Type, Int8Type, Op>::Exec;
+    case Type::UINT8:
+      return KernelGenerator<Int8Type, UInt8Type, Op>::Exec;
+    case Type::INT16:
+      return KernelGenerator<Int8Type, Int16Type, Op>::Exec;
+    case Type::UINT16:
+      return KernelGenerator<Int8Type, UInt16Type, Op>::Exec;
+    case Type::INT32:
+      return KernelGenerator<Int8Type, Int32Type, Op>::Exec;
+    case Type::UINT32:
+      return KernelGenerator<Int8Type, UInt32Type, Op>::Exec;
+    case Type::INT64:
+    case Type::TIMESTAMP:
+      return KernelGenerator<Int8Type, Int64Type, Op>::Exec;
+    case Type::UINT64:
+      return KernelGenerator<Int8Type, UInt64Type, Op>::Exec;
+    case Type::FLOAT:
+      return KernelGenerator<Int8Type, FloatType, Op>::Exec;
+    case Type::DOUBLE:
+      return KernelGenerator<Int8Type, DoubleType, Op>::Exec;
+    default:
+      DCHECK(false);
+      return ExecFail;
+  }
+}
+
 struct ArithmeticFunction : ScalarFunction {
   using ScalarFunction::ScalarFunction;
 
@@ -1138,6 +1192,19 @@ std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunction(std::string name,
   for (const auto& ty : NumericTypes()) {
     auto exec = ArithmeticExecFromOp<ScalarUnary, Op>(ty);
     DCHECK_OK(func->AddKernel({ty}, ty, exec));
+  }
+  return func;
+}
+
+// Like MakeUnaryArithmeticFunction, but with a fixed output type.
+template <typename Op, typename OutType>
+std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionFixedOutType(
+    std::string name, const FunctionDoc* doc) {
+  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), doc);
+  for (const auto& ty : NumericTypes()) {
+    auto exec = ArithmeticExecFromOpFixedOutType<ScalarUnary, Op>(ty);
+    // NOTE[EPM] How to use OutType to get intX()?
+    DCHECK_OK(func->AddKernel({ty}, int8(), exec));
   }
   return func;
 }
@@ -1317,6 +1384,11 @@ const FunctionDoc pow_checked_doc{
     ("An error is returned when integer to negative integer power is encountered,\n"
      "or integer overflow is encountered."),
     {"base", "exponent"}};
+
+const FunctionDoc sign_doc{"Get the sign value of the argument element-wise",
+                           ("Floating-point variants always return (-1,1).\n"
+                            "Integral variants can result in any of (-1,0,1).\n"),
+                           {"x"}};
 
 const FunctionDoc bit_wise_not_doc{
     "Bit-wise negate the arguments element-wise", ("Null values return null."), {"x"}};
@@ -1578,6 +1650,10 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   auto power_checked =
       MakeArithmeticFunctionNotNull<PowerChecked>("power_checked", &pow_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(power_checked)));
+
+  // ----------------------------------------------------------------------
+  auto sign = MakeUnaryArithmeticFunctionFixedOutType<Sign, int8_t>("sign", &sign_doc);
+  DCHECK_OK(registry->AddFunction(std::move(sign)));
 
   // ----------------------------------------------------------------------
   // Bitwise functions

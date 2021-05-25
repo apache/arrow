@@ -330,6 +330,7 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
 
 SCALAR_ARITHMETIC_UNARY(AbsoluteValue, "abs", "abs_checked")
 SCALAR_ARITHMETIC_UNARY(Negate, "negate", "negate_checked")
+SCALAR_EAGER_UNARY(Sign, "sign")
 SCALAR_ARITHMETIC_UNARY(Sin, "sin", "sin_checked")
 SCALAR_ARITHMETIC_UNARY(Cos, "cos", "cos_checked")
 SCALAR_ARITHMETIC_UNARY(Asin, "asin", "asin_checked")
