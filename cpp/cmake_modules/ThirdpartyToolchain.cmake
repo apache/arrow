@@ -2548,6 +2548,7 @@ macro(build_grpc)
       gRPC::upb
       gRPC::address_sorting
       ${ABSL_LIBRARIES}
+      re2::re2
       c-ares::cares
       ZLIB::ZLIB
       Threads::Threads)
