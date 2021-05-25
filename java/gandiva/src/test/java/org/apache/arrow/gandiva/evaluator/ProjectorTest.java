@@ -1220,10 +1220,10 @@ public class ProjectorTest extends BaseEvaluatorTest {
     output.add(bitVector);
     eval.evaluate(batch, output);
 
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 5; i++) {
       assertTrue(bitVector.getObject(i).booleanValue());
     }
-    for (int i = 4; i < 16; i++) {
+    for (int i = 5; i < 16; i++) {
       assertFalse(bitVector.getObject(i).booleanValue());
     }
 
@@ -1245,31 +1245,29 @@ public class ProjectorTest extends BaseEvaluatorTest {
     decimalSet.add(new BigDecimal(Long.MAX_VALUE));
     decimalSet.add(new BigDecimal(Long.MIN_VALUE));
     TreeNode inExpr =
-            TreeBuilder.makeInExpressionDecimal(TreeBuilder.makeField(c1),
-                    decimalSet, precision, scale);
+        TreeBuilder.makeInExpressionDecimal(TreeBuilder.makeField(c1),
+            decimalSet, precision, scale);
     ExpressionTree expr = TreeBuilder.makeExpression(inExpr,
-            Field.nullable("result", boolType));
+        Field.nullable("result", boolType));
     Schema schema = new Schema(Lists.newArrayList(c1));
     Projector eval = Projector.make(schema, Lists.newArrayList(expr));
 
-    // Create a row-batch with some sample data to look for
     int numRows = 16;
-    // Only the first 8 values will be valid.
     byte[] validity = new byte[]{(byte) 255, 0};
     String[] c1Values =
-            new String[]{"1", "2", "3", "4", "-0.0", "6", "7", "8", "9", "10", "11", "12", "13", "14",
-                    String.valueOf(Long.MAX_VALUE),
-                    String.valueOf(Long.MIN_VALUE)};
+        new String[]{"1", "2", "3", "4", "-0.0", "6", "7", "8", "9", "10", "11", "12", "13", "14",
+            String.valueOf(Long.MAX_VALUE),
+            String.valueOf(Long.MIN_VALUE)};
 
     DecimalVector c1Data = decimalVector(c1Values, precision, scale);
     ArrowBuf c1Validity = buf(validity);
 
     ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 0);
     ArrowRecordBatch batch =
-            new ArrowRecordBatch(
-                    numRows,
-                    Lists.newArrayList(fieldNode, fieldNode),
-                    Lists.newArrayList(c1Validity, c1Data.getDataBuffer(), c1Data.getValidityBuffer()));
+        new ArrowRecordBatch(
+            numRows,
+            Lists.newArrayList(fieldNode, fieldNode),
+            Lists.newArrayList(c1Validity, c1Data.getDataBuffer(), c1Data.getValidityBuffer()));
 
     BitVector bitVector = new BitVector(EMPTY_SCHEMA_PATH, allocator);
     bitVector.allocateNew(numRows);
@@ -1278,11 +1276,10 @@ public class ProjectorTest extends BaseEvaluatorTest {
     output.add(bitVector);
     eval.evaluate(batch, output);
 
-    // The first four values in the vector must match the expression, but not the other ones.
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 5; i++) {
       assertTrue(bitVector.getObject(i).booleanValue());
     }
-    for (int i = 4; i < 16; i++) {
+    for (int i = 5; i < 16; i++) {
       assertFalse(bitVector.getObject(i).booleanValue());
     }
 
@@ -1296,9 +1293,9 @@ public class ProjectorTest extends BaseEvaluatorTest {
     Field c1 = Field.nullable("c1", float64);
 
     TreeNode inExpr =
-            TreeBuilder.makeInExpressionDouble(TreeBuilder.makeField(c1),
-                    Sets.newHashSet(1.0, -0.0, 3.0, 4.0, Double.NaN,
-                            Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY));
+        TreeBuilder.makeInExpressionDouble(TreeBuilder.makeField(c1),
+            Sets.newHashSet(1.0, -0.0, 3.0, 4.0, Double.NaN,
+                Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY));
     ExpressionTree expr = TreeBuilder.makeExpression(inExpr, Field.nullable("result", boolType));
     Schema schema = new Schema(Lists.newArrayList(c1));
     Projector eval = Projector.make(schema, Lists.newArrayList(expr));
@@ -1307,8 +1304,8 @@ public class ProjectorTest extends BaseEvaluatorTest {
     int numRows = 16;
     // Only the first 8 values will be valid.
     byte[] validity = new byte[]{(byte) 255, 0};
-    double[] c1Values = new double[]{1, -0.0, Double.NEGATIVE_INFINITY , Double.POSITIVE_INFINITY, Double.NaN,
-        6, 7, 8, 9, 10, 11, 12, 13, 14, 4 , 3};
+    double[] c1Values = new double[]{1, -0.0, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, Double.NaN,
+        6, 7, 8, 9, 10, 11, 12, 13, 14, 4, 3};
 
     ArrowBuf c1Validity = buf(validity);
     ArrowBuf c1Data = doubleBuf(c1Values);
@@ -1316,10 +1313,10 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
     ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 0);
     ArrowRecordBatch batch =
-            new ArrowRecordBatch(
-                    numRows,
-                    Lists.newArrayList(fieldNode, fieldNode),
-                    Lists.newArrayList(c1Validity, c1Data, c2Validity));
+        new ArrowRecordBatch(
+            numRows,
+            Lists.newArrayList(fieldNode, fieldNode),
+            Lists.newArrayList(c1Validity, c1Data, c2Validity));
 
     BitVector bitVector = new BitVector(EMPTY_SCHEMA_PATH, allocator);
     bitVector.allocateNew(numRows);
@@ -1328,11 +1325,11 @@ public class ProjectorTest extends BaseEvaluatorTest {
     output.add(bitVector);
     eval.evaluate(batch, output);
 
-    // The first five values in the vector must match the expression, but not the other ones.
-    for (int i = 1; i < 5; i++) {
+    // The first four values in the vector must match the expression, but not the other ones.
+    for (int i = 0; i < 4; i++) {
       assertTrue(bitVector.getObject(i).booleanValue());
     }
-    for (int i = 5; i < 16; i++) {
+    for (int i = 4; i < 16; i++) {
       assertFalse(bitVector.getObject(i).booleanValue());
     }
 
