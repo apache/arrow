@@ -34,8 +34,8 @@ namespace {
 // cond.valid && (cond.data && left.valid || ~cond.data && right.valid)
 enum IEBitmapIndex { C_VALID, C_DATA, L_VALID, R_VALID };
 
-Status PromoteNullsNew1(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
-                        const Scalar& right, ArrayData* output) {
+Status PromoteNullsVisitor(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
+                           const Scalar& right, ArrayData* output) {
   uint8_t flag = right.is_valid * 4 + left.is_valid * 2 + !cond.MayHaveNulls();
 
   if (flag < 6 && flag != 3) {
@@ -83,8 +83,9 @@ Status PromoteNullsNew1(KernelContext* ctx, const ArrayData& cond, const Scalar&
   return Status::OK();
 }
 
-Status PromoteNullsNew1(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
-                        const Scalar& right, ArrayData* output) {
+Status PromoteNullsVisitor(KernelContext* ctx, const ArrayData& cond,
+                           const ArrayData& left, const Scalar& right,
+                           ArrayData* output) {
   uint8_t flag = right.is_valid * 4 + !left.MayHaveNulls() * 2 + !cond.MayHaveNulls();
 
   Bitmap bitmaps[3];
@@ -152,8 +153,9 @@ Status PromoteNullsNew1(KernelContext* ctx, const ArrayData& cond, const ArrayDa
   return Status::OK();
 }
 
-Status PromoteNullsNew1(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
-                        const ArrayData& right, ArrayData* output) {
+Status PromoteNullsVisitor(KernelContext* ctx, const ArrayData& cond,
+                           const ArrayData& left, const ArrayData& right,
+                           ArrayData* output) {
   uint8_t flag =
       !right.MayHaveNulls() * 4 + !left.MayHaveNulls() * 2 + !cond.MayHaveNulls();
 
@@ -454,7 +456,7 @@ struct IfElseFunctor<
   //  AAA
   static Status Call(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
                      const ArrayData& right, ArrayData* out) {
-    ARROW_RETURN_NOT_OK(PromoteNullsNew1(ctx, cond, left, right, out));
+    ARROW_RETURN_NOT_OK(PromoteNullsVisitor(ctx, cond, left, right, out));
 
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
                           ctx->Allocate(cond.length * sizeof(T)));
@@ -497,7 +499,7 @@ struct IfElseFunctor<
   static Status Call(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
                      const ArrayData& right, ArrayData* out) {
     // todo change this! scalar and array is swapped just for compilation
-    ARROW_RETURN_NOT_OK(PromoteNullsNew1(ctx, cond, right, left, out));
+    ARROW_RETURN_NOT_OK(PromoteNullsVisitor(ctx, cond, right, left, out));
 
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
                           ctx->Allocate(cond.length * sizeof(T)));
@@ -538,7 +540,7 @@ struct IfElseFunctor<
   // ASS
   static Status Call(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
                      const Scalar& right, ArrayData* out) {
-    ARROW_RETURN_NOT_OK(PromoteNullsNew1(ctx, cond, left, right, out));
+    ARROW_RETURN_NOT_OK(PromoteNullsVisitor(ctx, cond, left, right, out));
     /*
             ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
                                   ctx->Allocate(cond.length * sizeof(T)));
@@ -582,7 +584,7 @@ struct IfElseFunctor<Type, enable_if_boolean<Type>> {
   // AAA
   static Status Call(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
                      const ArrayData& right, ArrayData* out) {
-    ARROW_RETURN_NOT_OK(PromoteNullsNew1(ctx, cond, left, right, out));
+    ARROW_RETURN_NOT_OK(PromoteNullsVisitor(ctx, cond, left, right, out));
 
     // out_buff = right & ~cond
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
