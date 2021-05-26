@@ -1594,7 +1594,7 @@ const char* convert_toUTF8(int64_t context, const char* value, int32_t value_len
 // Same as "locate(substr, str)", except for the reverse order of the arguments.
 FORCE_INLINE
 gdv_int32 strpos_utf8_utf8(gdv_int64 context, const char* str, gdv_int32 str_len,
-                            const char* sub_str, gdv_int32 sub_str_len) {
+                           const char* sub_str, gdv_int32 sub_str_len) {
   return locate_utf8_utf8_int32(context, sub_str, sub_str_len, str, str_len, 1);
 }
 
