@@ -1243,10 +1243,7 @@ const char* convert_replace_invalid_fromUTF8_binary(int64_t context, const char*
                                                     const char* char_to_replace,
                                                     int32_t char_to_replace_len,
                                                     int32_t* out_len) {
-  if (char_to_replace_len == 0) {
-    *out_len = text_len;
-    return text_in;
-  } else if (char_to_replace_len != 1) {
+  if (char_to_replace_len > 1) {
     gdv_fn_context_set_error_msg(context, "Replacement of multiple bytes not supported");
     *out_len = 0;
     return "";
@@ -1262,6 +1259,7 @@ const char* convert_replace_invalid_fromUTF8_binary(int64_t context, const char*
   }
   int32_t valid_bytes_to_cpy = 0;
   int32_t out_byte_counter = 0;
+  int32_t in_byte_counter = 0;
   int32_t char_len;
   // scan the base text from left to right and increment the start pointer till
   // looking for invalid chars to substitute
@@ -1273,9 +1271,15 @@ const char* convert_replace_invalid_fromUTF8_binary(int64_t context, const char*
       // define char_len = 1 to increase text_index by 1 (as ASCII char fits in 1 byte)
       char_len = 1;
       // first copy the valid bytes until now and then replace the invalid character
-      memcpy(ret + out_byte_counter, text_in + out_byte_counter, valid_bytes_to_cpy);
-      ret[out_byte_counter + valid_bytes_to_cpy] = char_to_replace[0];
-      out_byte_counter += valid_bytes_to_cpy + char_len;
+      memcpy(ret + out_byte_counter, text_in + in_byte_counter, valid_bytes_to_cpy);
+      // if the replacement char is empty, the invalid char should be ignored
+      if (char_to_replace_len == 0) {
+        out_byte_counter += valid_bytes_to_cpy;
+      } else {
+        ret[out_byte_counter + valid_bytes_to_cpy] = char_to_replace[0];
+        out_byte_counter += valid_bytes_to_cpy + char_len;
+      }
+      in_byte_counter += valid_bytes_to_cpy + char_len;
       valid_bytes_to_cpy = 0;
       continue;
     }
@@ -1285,8 +1289,10 @@ const char* convert_replace_invalid_fromUTF8_binary(int64_t context, const char*
   if (out_byte_counter == 0) return text_in;
   // if there are still valid bytes to copy, do it
   if (valid_bytes_to_cpy != 0) {
-    memcpy(ret + out_byte_counter, text_in + out_byte_counter, valid_bytes_to_cpy);
+    memcpy(ret + out_byte_counter, text_in + in_byte_counter, valid_bytes_to_cpy);
   }
+  // the out length will be the out bytes copied + the missing end bytes copied
+  *out_len = valid_bytes_to_cpy + out_byte_counter;
   return ret;
 }
 
