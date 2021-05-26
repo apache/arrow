@@ -76,8 +76,10 @@ print.arrow_dplyr_query <- function(x, ...) {
       # Just a field_ref, so look up in the schema
       field_name <- schm$GetFieldByName(name)
       if (is.null(field_name)) {
-        stop(paste0("Cannot retrieve field with name: ", name, 
-                    "\n  Is this field name used more than once in your data?"))
+        abort(
+          c("Cannot retrieve field", x = paste0("Field with name `", name, "` could not be retrieved"), i =  "Is this field name used more than once in your data?"))
+        )
+        stop(
       }
       field_name$type$ToString()
     } else {
