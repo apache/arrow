@@ -35,6 +35,77 @@ namespace {
 enum IEBitmapIndex { C_VALID, C_DATA, L_VALID, R_VALID };
 
 Status PromoteNullsNew1(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
+                        const Scalar& right, ArrayData* output) {
+  uint8_t flag = right.is_valid * 4 + !left.MayHaveNulls() * 2 + !cond.MayHaveNulls();
+
+  Bitmap bitmaps[3];
+  bitmaps[C_VALID] = {cond.buffers[0], cond.offset, cond.length};
+  bitmaps[C_DATA] = {cond.buffers[1], cond.offset, cond.length};
+  bitmaps[L_VALID] = {left.buffers[0], left.offset, left.length};
+
+  uint64_t* out_validity = nullptr;
+  if (flag < 6) {
+    // there will be a validity buffer in the output
+    ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(cond.length));
+    out_validity = output->GetMutableValues<uint64_t>(0);
+  }
+
+  // cond.valid && (cond.data && left.valid || ~cond.data && right.valid)
+  int64_t i = 0;
+  switch (flag) {
+    case 7:  // RLC = 111
+      break;
+    case 6:  // RLC = 110
+      output->buffers[0] = SliceBuffer(cond.buffers[0], cond.offset, cond.length);
+      break;
+    case 5:  // RLC = 101
+      Bitmap::VisitWords({bitmaps[C_DATA], bitmaps[L_VALID]},
+                         [&](std::array<uint64_t, 2> words) {
+                           auto c_data = words[0], l_valid = words[1];
+                           out_validity[i] = (c_data & l_valid) | ~c_data;
+                           i++;
+                         });
+      break;
+    case 4:  // RLC = 100
+      Bitmap::VisitWords({bitmaps[C_VALID], bitmaps[C_DATA], bitmaps[L_VALID]},
+                         [&](std::array<uint64_t, 3> words) {
+                           auto c_valid = words[0], c_data = words[1], l_valid = words[2];
+                           out_validity[i] = c_valid & ((c_data & l_valid) | ~c_data);
+                           i++;
+                         });
+      break;
+    case 3:  // RLC = 011
+      // only cond.data is passed
+      output->buffers[0] = SliceBuffer(cond.buffers[1], cond.offset, cond.length);
+      break;
+    case 2:  // RLC = 010
+      Bitmap::VisitWords({bitmaps[C_VALID], bitmaps[C_DATA]},
+                         [&](std::array<uint64_t, 2> words) {
+                           auto c_valid = words[0], c_data = words[1];
+                           out_validity[i] = c_valid & c_data;
+                           i++;
+                         });
+      break;
+    case 1:  // RLC = 001
+      Bitmap::VisitWords({bitmaps[C_DATA], bitmaps[L_VALID]},
+                         [&](std::array<uint64_t, 2> words) {
+                           auto c_data = words[0], l_valid = words[1];
+                           out_validity[i] = (c_data & l_valid);
+                           i++;
+                         });
+      break;
+    case 0:  // RLC = 000
+      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 3> words) {
+        auto c_valid = words[0], c_data = words[1], l_valid = words[2];
+        out_validity[i] = c_valid & c_data & l_valid;
+        i++;
+      });
+      break;
+  }
+  return Status::OK();
+}
+
+Status PromoteNullsNew1(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
                         const ArrayData& right, ArrayData* output) {
   uint8_t flag =
       !right.MayHaveNulls() * 4 + !left.MayHaveNulls() * 2 + !cond.MayHaveNulls();
@@ -58,49 +129,53 @@ Status PromoteNullsNew1(KernelContext* ctx, const ArrayData& cond, const ArrayDa
     case 7:  // RLC = 111
       break;
     case 6:  // RLC = 110
-      output->buffers[0] = cond.buffers[0];
+      output->buffers[0] = SliceBuffer(cond.buffers[0], cond.offset, cond.length);
       break;
     case 5:  // RLC = 101
       Bitmap::VisitWords({bitmaps[C_DATA], bitmaps[L_VALID]},
                          [&](std::array<uint64_t, 2> words) {
-                           out_validity[i] = (words[0] & words[1]) | ~words[0];
+                           auto c_data = words[0], l_valid = words[1];
+                           out_validity[i] = (c_data & l_valid) | ~c_data;
                            i++;
                          });
       break;
     case 4:  // RLC = 100
       Bitmap::VisitWords({bitmaps[C_VALID], bitmaps[C_DATA], bitmaps[L_VALID]},
                          [&](std::array<uint64_t, 3> words) {
-                           out_validity[i] =
-                               words[0] & ((words[1] & words[2]) | ~words[1]);
+                           auto c_valid = words[0], c_data = words[1], l_valid = words[2];
+                           out_validity[i] = c_valid & ((c_data & l_valid) | ~c_data);
                            i++;
                          });
       break;
     case 3:  // RLC = 011
       Bitmap::VisitWords({bitmaps[C_DATA], bitmaps[R_VALID]},
                          [&](std::array<uint64_t, 2> words) {
-                           out_validity[i] = words[0] | (~words[0] & words[1]);
+                           auto c_data = words[0], r_valid = words[1];
+                           out_validity[i] = c_data | (~c_data & r_valid);
                            i++;
                          });
       break;
     case 2:  // RLC = 010
       Bitmap::VisitWords({bitmaps[C_VALID], bitmaps[C_DATA], bitmaps[R_VALID]},
                          [&](std::array<uint64_t, 3> words) {
-                           out_validity[i] =
-                               words[0] & (words[1] | (~words[1] & words[2]));
+                           auto c_valid = words[0], c_data = words[1], r_valid = words[2];
+                           out_validity[i] = c_valid & (c_data | (~c_data & r_valid));
                            i++;
                          });
       break;
     case 1:  // RLC = 001
       Bitmap::VisitWords({bitmaps[C_DATA], bitmaps[L_VALID], bitmaps[R_VALID]},
                          [&](std::array<uint64_t, 3> words) {
-                           out_validity[i] =
-                               (words[0] & words[1]) | (~words[0] & words[2]);
+                           auto c_data = words[0], l_valid = words[1], r_valid = words[2];
+                           out_validity[i] = (c_data & l_valid) | (~c_data & r_valid);
                            i++;
                          });
       break;
     case 0:  // RLC = 000
       Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
-        out_validity[i] = words[0] & ((words[1] & words[2]) | (~words[1] & words[3]));
+        auto c_valid = words[0], c_data = words[1], l_valid = words[2],
+             r_valid = words[3];
+        out_validity[i] = c_valid & ((c_data & l_valid) | (~c_data & r_valid));
         i++;
       });
       break;
@@ -374,7 +449,8 @@ struct IfElseFunctor<
   // ASA and AAS
   static Status Call(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
                      const ArrayData& right, ArrayData* out) {
-    ARROW_RETURN_NOT_OK(PromoteNulls(ctx, cond, left, right, out));
+    // todo change this! scalar and array is swapped just for compilation
+    ARROW_RETURN_NOT_OK(PromoteNullsNew1(ctx, cond, right, left, out));
 
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
                           ctx->Allocate(cond.length * sizeof(T)));
