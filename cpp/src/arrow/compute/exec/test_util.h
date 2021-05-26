@@ -26,6 +26,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/testing/visibility.h"
 #include "arrow/util/async_generator.h"
+#include "arrow/util/string_view.h"
 #include "arrow/util/type_fwd.h"
 
 namespace arrow {
@@ -54,18 +55,8 @@ ExecNode* MakeRecordBatchReaderNode(ExecPlan* plan, std::string label,
                                     RecordBatchGenerator generator,
                                     ::arrow::internal::Executor* io_executor);
 
-class RecordBatchCollectNode : public ExecNode {
- public:
-  virtual RecordBatchGenerator generator() = 0;
-
- protected:
-  using ExecNode::ExecNode;
-};
-
-ARROW_TESTING_EXPORT
-RecordBatchCollectNode* MakeRecordBatchCollectNode(ExecPlan* plan, std::string label,
-                                                   ExecNode* input,
-                                                   std::shared_ptr<Schema> schema);
+ARROW_TESTING_EXPORT void AssertBatchesEqual(const ExecBatch& expected,
+                                             const ExecBatch& actual);
 
 }  // namespace compute
 }  // namespace arrow

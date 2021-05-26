@@ -201,22 +201,23 @@ Status ExecNode::Validate() const {
   return Status::OK();
 }
 
-struct GeneratorNode : ExecNode {
-  GeneratorNode(ExecPlan* plan, std::string label, ExecNode::BatchDescr output_descr,
-                AsyncGenerator<util::optional<ExecBatch>> generator)
+struct SourceNode : ExecNode {
+  SourceNode(ExecPlan* plan, std::string label, ExecNode::BatchDescr output_descr,
+             AsyncGenerator<util::optional<ExecBatch>> generator)
       : ExecNode(plan, std::move(label), {}, {}, std::move(output_descr),
                  /*num_outputs=*/1),
         generator_(std::move(generator)) {}
 
-  const char* kind_name() override { return "GeneratorNode"; }
+  const char* kind_name() override { return "SourceNode"; }
 
-  void InputReceived(ExecNode*, int, compute::ExecBatch) override { DCHECK(false); }
-  void ErrorReceived(ExecNode*, Status) override { DCHECK(false); }
-  void InputFinished(ExecNode*, int) override { DCHECK(false); }
+  static void NoInputs() { DCHECK(false) << "no inputs; this should never be called"; }
+  void InputReceived(ExecNode*, int, ExecBatch) override { NoInputs(); }
+  void ErrorReceived(ExecNode*, Status) override { NoInputs(); }
+  void InputFinished(ExecNode*, int) override { NoInputs(); }
 
   Status StartProducing() override {
     if (finished_) {
-      return Status::Invalid("Restarted GeneratorNode '", label(), "'");
+      return Status::Invalid("Restarted SourceNode '", label(), "'");
     }
 
     auto gen = std::move(generator_);
@@ -283,8 +284,8 @@ struct GeneratorNode : ExecNode {
 ExecNode* MakeSourceNode(ExecPlan* plan, std::string label,
                          ExecNode::BatchDescr output_descr,
                          AsyncGenerator<util::optional<ExecBatch>> generator) {
-  return plan->EmplaceNode<GeneratorNode>(plan, std::move(label), std::move(output_descr),
-                                          std::move(generator));
+  return plan->EmplaceNode<SourceNode>(plan, std::move(label), std::move(output_descr),
+                                       std::move(generator));
 }
 
 struct FilterNode : ExecNode {
@@ -483,7 +484,11 @@ struct SinkNode : ExecNode {
 };
 
 AsyncGenerator<util::optional<ExecBatch>> MakeSinkNode(ExecNode* input,
-                                                       std::string label);
+                                                       std::string label) {
+  AsyncGenerator<util::optional<ExecBatch>> out;
+  (void)input->plan()->EmplaceNode<SinkNode>(input, std::move(label), &out);
+  return out;
+}
 
 }  // namespace compute
 }  // namespace arrow

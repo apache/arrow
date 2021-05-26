@@ -20,6 +20,7 @@
 #include <functional>
 #include <memory>
 
+#include "arrow/compute/exec.h"
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/test_util.h"
@@ -29,6 +30,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/thread_pool.h"
+#include "arrow/util/vector.h"
 
 namespace arrow {
 
@@ -41,6 +43,22 @@ void AssertBatchesEqual(const RecordBatchVector& expected,
   ASSERT_EQ(expected.size(), actual.size());
   for (size_t i = 0; i < expected.size(); ++i) {
     AssertBatchesEqual(*expected[i], *actual[i]);
+  }
+}
+
+void AssertBatchesEqual(const std::vector<util::optional<ExecBatch>>& expected,
+                        const std::vector<util::optional<ExecBatch>>& actual) {
+  ASSERT_EQ(expected.size(), actual.size());
+  for (size_t i = 0; i < expected.size(); ++i) {
+    AssertBatchesEqual(*expected[i], *actual[i]);
+  }
+}
+
+void AssertBatchesEqual(const RecordBatchVector& expected,
+                        const std::vector<util::optional<ExecBatch>>& actual) {
+  ASSERT_EQ(expected.size(), actual.size());
+  for (size_t i = 0; i < expected.size(); ++i) {
+    AssertBatchesEqual(ExecBatch(*expected[i]), *actual[i]);
   }
 }
 
@@ -243,43 +261,26 @@ class TestExecPlanExecution : public ::testing::Test {
     return batches;
   }
 
-  struct CollectorPlan {
-    std::shared_ptr<ExecPlan> plan;
-    RecordBatchCollectNode* sink;
-  };
-
-  Result<CollectorPlan> MakeSourceSink(std::shared_ptr<RecordBatchReader> reader,
-                                       std::shared_ptr<Schema> schema) {
-    ARROW_ASSIGN_OR_RAISE(auto plan, ExecPlan::Make());
-    auto source =
-        MakeRecordBatchReaderNode(plan.get(), "source", reader, io_executor_.get());
-    auto sink = MakeRecordBatchCollectNode(plan.get(), "sink", source, std::move(schema));
-    return CollectorPlan{plan, sink};
-  }
-
-  Result<CollectorPlan> MakeSourceSink(RecordBatchGenerator generator,
-                                       std::shared_ptr<Schema> schema) {
-    ARROW_ASSIGN_OR_RAISE(auto plan, ExecPlan::Make());
-    auto source = MakeRecordBatchReaderNode(plan.get(), "source", schema, generator,
-                                            io_executor_.get());
-    auto sink = MakeRecordBatchCollectNode(plan.get(), "sink", source, std::move(schema));
-    return CollectorPlan{plan, sink};
-  }
-
-  Result<CollectorPlan> MakeSourceSink(const RecordBatchVector& batches,
-                                       std::shared_ptr<Schema> schema) {
-    ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchReader::Make(batches, schema));
-    return MakeSourceSink(std::move(reader), std::move(schema));
-  }
-
-  Result<RecordBatchVector> StartAndCollect(ExecPlan* plan,
-                                            RecordBatchCollectNode* sink) {
+  Result<std::vector<util::optional<ExecBatch>>> StartAndCollect(
+      ExecPlan* plan, AsyncGenerator<util::optional<ExecBatch>> gen) {
+    RETURN_NOT_OK(plan->Validate());
     RETURN_NOT_OK(plan->StartProducing());
-    return CollectAsyncGenerator(sink->generator()).result();
+    return CollectAsyncGenerator(gen).result();
+  }
+
+  ExecNode* MakeSource(ExecPlan* plan, std::shared_ptr<RecordBatchReader> reader,
+                       std::shared_ptr<Schema> schema) {
+    return MakeRecordBatchReaderNode(plan, "source", reader, io_executor_.get());
+  }
+
+  ExecNode* MakeSource(ExecPlan* plan, RecordBatchGenerator generator,
+                       std::shared_ptr<Schema> schema) {
+    return MakeRecordBatchReaderNode(plan, "source", schema, generator,
+                                     io_executor_.get());
   }
 
   template <typename RecordBatchReaderFactory>
-  void TestSourceSink(RecordBatchReaderFactory reader_factory) {
+  void TestSourceSink(RecordBatchReaderFactory factory) {
     auto schema = ::arrow::schema({field("a", int32()), field("b", boolean())});
     RecordBatchVector batches{
         RecordBatchFromJSON(schema, R"([{"a": null, "b": true},
@@ -289,24 +290,27 @@ class TestExecPlanExecution : public ::testing::Test {
                                         {"a": 7,    "b": false}])"),
     };
 
-    ASSERT_OK_AND_ASSIGN(auto reader, reader_factory(batches, schema));
-    ASSERT_OK_AND_ASSIGN(auto cp, MakeSourceSink(reader, schema));
-    ASSERT_OK(cp.plan->Validate());
+    ASSERT_OK_AND_ASSIGN(auto reader_or_gen, factory(batches, schema));
 
-    ASSERT_OK_AND_ASSIGN(auto got_batches, StartAndCollect(cp.plan.get(), cp.sink));
+    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+    auto source = MakeSource(plan.get(), reader_or_gen, schema);
+    auto sink_gen = MakeSinkNode(source, "sink");
+
+    ASSERT_OK_AND_ASSIGN(auto got_batches, StartAndCollect(plan.get(), sink_gen));
     AssertBatchesEqual(batches, got_batches);
   }
 
   template <typename RecordBatchReaderFactory>
-  void TestStressSourceSink(int num_batches, RecordBatchReaderFactory batch_factory) {
+  void TestStressSourceSink(int num_batches, RecordBatchReaderFactory factory) {
     auto schema = ::arrow::schema({field("a", int32()), field("b", boolean())});
     auto batches = MakeRandomBatches(schema, num_batches);
 
-    ASSERT_OK_AND_ASSIGN(auto reader, batch_factory(batches, schema));
-    ASSERT_OK_AND_ASSIGN(auto cp, MakeSourceSink(reader, schema));
-    ASSERT_OK(cp.plan->Validate());
+    ASSERT_OK_AND_ASSIGN(auto reader_or_gen, factory(batches, schema));
+    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+    auto source = MakeSource(plan.get(), reader_or_gen, schema);
+    auto sink_gen = MakeSinkNode(source, "sink");
 
-    ASSERT_OK_AND_ASSIGN(auto got_batches, StartAndCollect(cp.plan.get(), cp.sink));
+    ASSERT_OK_AND_ASSIGN(auto got_batches, StartAndCollect(plan.get(), sink_gen));
     AssertBatchesEqual(batches, got_batches);
   }
 
@@ -360,9 +364,11 @@ TEST_F(TestExecPlanExecution, SourceFilterSink) {
 
   auto filter = MakeFilterNode(source, "filter", predicate);
 
-  auto sink = MakeRecordBatchCollectNode(plan.get(), "sink", filter, schema);
+  auto sink_gen = MakeSinkNode(filter, "sink");
 
-  ASSERT_OK_AND_ASSIGN(auto got_batches, StartAndCollect(plan.get(), sink));
+  ASSERT_OK_AND_ASSIGN(auto got_batches, StartAndCollect(plan.get(), sink_gen));
+
+  ASSERT_EQ(got_batches.size(), 2);
   AssertBatchesEqual(
       {
           RecordBatchFromJSON(schema, R"([])"),
