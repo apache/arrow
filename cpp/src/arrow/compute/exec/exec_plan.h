@@ -244,5 +244,12 @@ AsyncGenerator<util::optional<ExecBatch>> MakeSinkNode(ExecNode* input,
 ARROW_EXPORT
 ExecNode* MakeFilterNode(ExecNode* input, std::string label, Expression filter);
 
+/// \brief Make a node which executes expressions on input batches, producing new batches.
+///
+/// Expressions must be bound; no field references will be looked up by name
+ARROW_EXPORT
+ExecNode* MakeProjectNode(ExecNode* input, std::string label,
+                          std::vector<Expression> exprs);
+
 }  // namespace compute
 }  // namespace arrow

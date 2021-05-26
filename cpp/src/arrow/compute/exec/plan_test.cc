@@ -377,5 +377,49 @@ TEST_F(TestExecPlanExecution, SourceFilterSink) {
       got_batches);
 }
 
+TEST_F(TestExecPlanExecution, SourceProjectSink) {
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+
+  const auto schema = ::arrow::schema({field("a", int32()), field("b", boolean())});
+  RecordBatchVector batches{
+      RecordBatchFromJSON(schema, R"([{"a": null, "b": true},
+                                      {"a": 4,    "b": false}])"),
+      RecordBatchFromJSON(schema, R"([{"a": 5,    "b": null},
+                                      {"a": 6,    "b": false},
+                                      {"a": 7,    "b": false}])"),
+  };
+
+  ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchReader::Make(std::move(batches), schema));
+
+  auto source =
+      MakeRecordBatchReaderNode(plan.get(), "source", reader, io_executor_.get());
+
+  std::vector<Expression> exprs{
+      not_(field_ref("b")),
+      call("add", {field_ref("a"), literal(1)}),
+  };
+  for (auto& expr : exprs) {
+    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*schema));
+  }
+
+  auto projection = MakeProjectNode(source, "project", exprs);
+
+  auto sink_gen = MakeSinkNode(projection, "sink");
+
+  ASSERT_OK_AND_ASSIGN(auto got_batches, StartAndCollect(plan.get(), sink_gen));
+
+  auto out_schema = ::arrow::schema({field("!b", boolean()), field("a + 1", int32())});
+  ASSERT_EQ(got_batches.size(), 2);
+  AssertBatchesEqual(
+      {
+          RecordBatchFromJSON(out_schema, R"([{"!b": false, "a + 1": null},
+                                              {"!b": true,  "a + 1": 5}])"),
+          RecordBatchFromJSON(out_schema, R"([{"!b": null,  "a + 1": 6},
+                                              {"!b": true,  "a + 1": 7},
+                                              {"!b": true,  "a + 1": 8}])"),
+      },
+      got_batches);
+}
+
 }  // namespace compute
 }  // namespace arrow

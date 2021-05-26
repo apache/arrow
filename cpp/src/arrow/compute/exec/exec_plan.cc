@@ -368,6 +368,75 @@ ExecNode* MakeFilterNode(ExecNode* input, std::string label, Expression filter) 
                                                 std::move(filter));
 }
 
+struct ProjectNode : ExecNode {
+  ProjectNode(ExecNode* input, std::string label, std::vector<Expression> exprs)
+      : ExecNode(input->plan(), std::move(label), {input}, {"target"},
+                 /*output_descr=*/{input->output_descr()},
+                 /*num_outputs=*/1),
+        exprs_(std::move(exprs)) {}
+
+  const char* kind_name() override { return "ProjectNode"; }
+
+  Result<ExecBatch> DoProject(const ExecBatch& target) {
+    // XXX get a non-default exec context
+    std::vector<Datum> values{exprs_.size()};
+    for (size_t i = 0; i < exprs_.size(); ++i) {
+      ARROW_ASSIGN_OR_RAISE(values[i], ExecuteScalarExpression(exprs_[i], target));
+    }
+    return ExecBatch::Make(std::move(values));
+  }
+
+  void InputReceived(ExecNode* input, int seq, ExecBatch batch) override {
+    DCHECK_EQ(input, inputs_[0]);
+
+    auto maybe_filtered = DoProject(std::move(batch));
+    if (!maybe_filtered.ok()) {
+      outputs_[0]->ErrorReceived(this, maybe_filtered.status());
+      inputs_[0]->StopProducing(this);
+      return;
+    }
+
+    outputs_[0]->InputReceived(this, seq, maybe_filtered.MoveValueUnsafe());
+  }
+
+  void ErrorReceived(ExecNode* input, Status error) override {
+    DCHECK_EQ(input, inputs_[0]);
+    outputs_[0]->ErrorReceived(this, std::move(error));
+    inputs_[0]->StopProducing(this);
+  }
+
+  void InputFinished(ExecNode* input, int seq) override {
+    DCHECK_EQ(input, inputs_[0]);
+    outputs_[0]->InputFinished(this, seq);
+    inputs_[0]->StopProducing(this);
+  }
+
+  Status StartProducing() override {
+    // XXX validate inputs_[0]->output_descr() against filter_
+    return Status::OK();
+  }
+
+  void PauseProducing(ExecNode* output) override {}
+
+  void ResumeProducing(ExecNode* output) override {}
+
+  void StopProducing(ExecNode* output) override {
+    DCHECK_EQ(output, outputs_[0]);
+    inputs_[0]->StopProducing(this);
+  }
+
+  void StopProducing() override { StopProducing(outputs_[0]); }
+
+ private:
+  std::vector<Expression> exprs_;
+};
+
+ExecNode* MakeProjectNode(ExecNode* input, std::string label,
+                          std::vector<Expression> exprs) {
+  return input->plan()->EmplaceNode<ProjectNode>(input, std::move(label),
+                                                 std::move(exprs));
+}
+
 struct SinkNode : ExecNode {
   SinkNode(ExecNode* input, std::string label,
            AsyncGenerator<util::optional<ExecBatch>>* generator)
