@@ -79,7 +79,6 @@ print.arrow_dplyr_query <- function(x, ...) {
         abort(
           c("Cannot retrieve field", x = paste0("Field with name `", name, "` could not be retrieved"), i =  "Is this field name used more than once in your data?"))
         )
-        stop(
       }
       field_name$type$ToString()
     } else {
