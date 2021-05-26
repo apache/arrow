@@ -44,8 +44,7 @@ NOT_CRAN=`echo $NOT_CRAN | tr '[:upper:]' '[:lower:]'`
 
 VERSION=`grep '^Version' DESCRIPTION | sed s/Version:\ //`
 UNAME=`uname -s`
-DISTID=`lsb_release -i`
-echo "$DISTID"
+DISTID=`lsb_release -i -s`
 
 # generate code
 if [ "$ARROW_R_DEV" = "true" ] && [ -f "data-raw/codegen.R" ]; then
