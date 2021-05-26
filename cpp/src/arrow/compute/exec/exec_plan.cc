@@ -215,10 +215,49 @@ struct GeneratorNode : ExecNode {
   void InputFinished(ExecNode*, int) override { DCHECK(false); }
 
   Status StartProducing() override {
-    if (!generator_) {
+    if (finished_) {
       return Status::Invalid("Restarted GeneratorNode '", label(), "'");
     }
-    GenerateOne(std::unique_lock<std::mutex>{mutex_});
+
+    auto gen = std::move(generator_);
+
+    /// XXX should we wait on this future anywhere? In StopProducing() maybe?
+    auto done_fut =
+        Loop([gen, this] {
+          std::unique_lock<std::mutex> lock(mutex_);
+          int seq = next_batch_index_++;
+          lock.unlock();
+
+          return gen().Then(
+              [=](const util::optional<ExecBatch>& batch) -> ControlFlow<int> {
+                std::unique_lock<std::mutex> lock(mutex_);
+                if (!batch || finished_) {
+                  finished_ = true;
+                  return Break(seq);
+                }
+                lock.unlock();
+
+                outputs_[0]->InputReceived(this, seq, *batch);
+                return Continue();
+              },
+              [=](const Status& error) -> ControlFlow<int> {
+                std::unique_lock<std::mutex> lock(mutex_);
+                if (!finished_) {
+                  finished_ = true;
+                  lock.unlock();
+                  // unless we were already finished, push the error to our output
+                  // XXX is this correct? Is it reasonable for a consumer to ignore errors
+                  // from a finished producer?
+                  outputs_[0]->ErrorReceived(this, error);
+                }
+                return Break(seq);
+              });
+        }).Then([&](int seq) {
+          /// XXX this is probably redundant: do we always call InputFinished after
+          /// ErrorReceived or will ErrorRecieved be sufficient?
+          outputs_[0]->InputFinished(this, seq);
+        });
+
     return Status::OK();
   }
 
@@ -229,53 +268,16 @@ struct GeneratorNode : ExecNode {
   void StopProducing(ExecNode* output) override {
     DCHECK_EQ(output, outputs_[0]);
     std::unique_lock<std::mutex> lock(mutex_);
-    generator_ = nullptr;  // null function
+    finished_ = true;
   }
 
   void StopProducing() override { StopProducing(outputs_[0]); }
 
  private:
-  void GenerateOne(std::unique_lock<std::mutex>&& lock) {
-    if (!generator_) {
-      // Stopped
-      return;
-    }
-
-    auto fut = generator_();
-    const auto batch_index = next_batch_index_++;
-
-    lock.unlock();
-    fut.AddCallback([batch_index, this](const Result<util::optional<ExecBatch>>& res) {
-      std::unique_lock<std::mutex> lock(mutex_);
-      if (!res.ok()) {
-        for (auto out : outputs_) {
-          out->ErrorReceived(this, res.status());
-        }
-        return;
-      }
-
-      const auto& batch = *res;
-      if (IsIterationEnd(batch)) {
-        lock.unlock();
-        for (auto out : outputs_) {
-          out->InputFinished(this, batch_index);
-        }
-        return;
-      }
-
-      lock.unlock();
-      for (auto out : outputs_) {
-        out->InputReceived(this, batch_index, compute::ExecBatch(*batch));
-      }
-      lock.lock();
-
-      GenerateOne(std::move(lock));
-    });
-  }
-
   std::mutex mutex_;
+  bool finished_{false};
+  int next_batch_index_{0};
   AsyncGenerator<util::optional<ExecBatch>> generator_;
-  int next_batch_index_ = 0;
 };
 
 ExecNode* MakeSourceNode(ExecPlan* plan, std::string label,
@@ -340,7 +342,10 @@ struct FilterNode : ExecNode {
     inputs_[0]->StopProducing(this);
   }
 
-  Status StartProducing() override { return Status::OK(); }
+  Status StartProducing() override {
+    // XXX validate inputs_[0]->output_descr() against filter_
+    return Status::OK();
+  }
 
   void PauseProducing(ExecNode* output) override {}
 
