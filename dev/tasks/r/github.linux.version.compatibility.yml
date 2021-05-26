@@ -91,8 +91,8 @@ jobs:
           git -C arrow checkout FETCH_HEAD
           git -C arrow submodule update --init --recursive
       - uses: r-lib/actions/setup-r@v1
-         with:
-           r-version: {{ '${{ matrix.config.r }}' }}
+        with:
+          r-version: {{ '${{ matrix.config.r }}' }}
       - name: Install old Arrow
         run: |
           install.packages(c("remotes", "testthat"))
