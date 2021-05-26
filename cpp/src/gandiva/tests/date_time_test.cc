@@ -16,8 +16,9 @@
 // under the License.
 
 #include <gtest/gtest.h>
-#include <math.h>
-#include <time.h>
+
+#include <cmath>
+#include <ctime>
 
 #include "arrow/memory_pool.h"
 #include "gandiva/precompiled/time_constants.h"
@@ -549,6 +550,56 @@ TEST_F(TestProjector, TestMonthsBetween) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(0));
 }
 
+TEST_F(TestProjector, TestCastTimestampFromInt64) {
+  auto f0 = field("f0", arrow::int64());
+  auto schema = arrow::schema({f0});
+
+  // output fields
+  auto output = field("out", arrow::timestamp(arrow::TimeUnit::MILLI));
+
+  auto casttimestamp_expr =
+      TreeExprBuilder::MakeExpression("castTIMESTAMP", {f0}, output);
+
+  std::shared_ptr<Projector> projector;
+  auto status =
+      Projector::Make(schema, {casttimestamp_expr}, TestConfiguration(), &projector);
+  std::cout << status.message();
+  ASSERT_TRUE(status.ok());
+
+  time_t epoch = Epoch();
+
+  int num_records = 5;
+  auto validity = {true, true, true, true, true};
+  std::vector<int64_t> f0_data = {MillisSince(epoch, 2016, 2, 3, 8, 20, 10, 34),
+                                  MillisSince(epoch, 2016, 2, 29, 23, 59, 59, 59),
+                                  MillisSince(epoch, 2016, 1, 30, 1, 15, 20, 0),
+                                  MillisSince(epoch, 2017, 2, 3, 23, 15, 20, 0),
+                                  MillisSince(epoch, 1970, 12, 30, 22, 50, 11, 0)};
+
+  auto array0 = MakeArrowArrayInt64(f0_data, validity);
+
+  std::vector<int64_t> f0_output_data = {MillisSince(epoch, 2016, 2, 3, 8, 20, 10, 34),
+                                         MillisSince(epoch, 2016, 2, 29, 23, 59, 59, 59),
+                                         MillisSince(epoch, 2016, 1, 30, 1, 15, 20, 0),
+                                         MillisSince(epoch, 2017, 2, 3, 23, 15, 20, 0),
+                                         MillisSince(epoch, 1970, 12, 30, 22, 50, 11, 0)};
+
+  // expected output
+  auto exp_output = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
+      timestamp(arrow::TimeUnit::MILLI), f0_output_data, validity);
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(0));
+}
+
 TEST_F(TestProjector, TestLastDay) {
   auto f0 = field("f0", arrow::date64());
   auto schema = arrow::schema({f0});
@@ -598,5 +649,4 @@ TEST_F(TestProjector, TestLastDay) {
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(0));
 }
-
 }  // namespace gandiva
