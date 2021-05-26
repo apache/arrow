@@ -77,7 +77,7 @@ print.arrow_dplyr_query <- function(x, ...) {
       field_name <- schm$GetFieldByName(name)
       if (is.null(field_name)) {
         abort(
-          c("Cannot retrieve field", x = paste0("Field with name `", name, "` could not be retrieved"), i =  "Is this field name used more than once in your data?"))
+          c("Cannot retrieve field", x = paste0("Field with name `", name, "` could not be retrieved"), i =  "Is this field name used more than once in your data?")
         )
       }
       field_name$type$ToString()
