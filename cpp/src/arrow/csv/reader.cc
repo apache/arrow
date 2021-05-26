@@ -324,7 +324,8 @@ class ReaderMixin {
         read_options_(read_options),
         parse_options_(parse_options),
         convert_options_(convert_options),
-        num_rows_seen_(count_rows ? 1 : -1),
+        count_rows_(count_rows),
+        num_rows_seen_(count_rows_ ? 1 : -1),
         input_(std::move(input)) {}
 
  protected:
@@ -345,7 +346,7 @@ class ReaderMixin {
             " rows from CSV file, "
             "either file is too short or header is larger than block size");
       }
-      if (num_rows_seen_ >= 0) {
+      if (count_rows_) {
         num_rows_seen_ = num_skipped_rows;
       }
     }
@@ -379,7 +380,7 @@ class ReaderMixin {
         DCHECK_EQ(static_cast<size_t>(parser.num_cols()), column_names_.size());
         // Skip parsed header row
         data += parsed_size;
-        if (num_rows_seen_ >= 0) {
+        if (count_rows_) {
           ++num_rows_seen_;
         }
       }
@@ -498,7 +499,7 @@ class ReaderMixin {
     } else {
       RETURN_NOT_OK(parser->Parse(views, &parsed_size));
     }
-    if (num_rows_seen_ >= 0) {
+    if (count_rows_) {
       num_rows_seen_ += parser->num_rows();
     }
     return ParseResult{std::move(parser), static_cast<int64_t>(parsed_size)};
@@ -511,7 +512,9 @@ class ReaderMixin {
 
   // Number of columns in the CSV file
   int32_t num_csv_cols_ = -1;
-  // Number of rows seen in the csv. -1 indicates row counting is disabled
+  // Whether num_rows_seen_ tracks the number of rows seen in the CSV being parsed
+  bool count_rows_;
+  // Number of rows seen in the csv. Not used if count_rows is false
   int64_t num_rows_seen_;
   // Column names in the CSV file
   std::vector<std::string> column_names_;
