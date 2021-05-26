@@ -44,6 +44,7 @@ NOT_CRAN=`echo $NOT_CRAN | tr '[:upper:]' '[:lower:]'`
 
 VERSION=`grep '^Version' DESCRIPTION | sed s/Version:\ //`
 UNAME=`uname -s`
+DISTID=`lsb_release -i`
 
 # generate code
 if [ "$ARROW_R_DEV" = "true" ] && [ -f "data-raw/codegen.R" ]; then
@@ -184,6 +185,11 @@ else
       fi
     fi
   fi
+fi
+
+# If on Raspberry Pi, need to manually link against latomic
+if [ "$DISTID" = "Raspbian" ]; then
+  PKG_CFLAGS="$PKG_CFLAGS -DARROW_CXXFLAGS=-latomic"
 fi
 
 # If libarrow uses the old GLIBCXX ABI, so we have to use it too
