@@ -252,33 +252,37 @@ class ArrowMessage implements AutoCloseable {
   }
 
   private static ArrowMessage frame(BufferAllocator allocator, final InputStream stream) {
-
     try {
       FlightDescriptor descriptor = null;
       MessageMetadataResult header = null;
       ArrowBuf body = null;
       ArrowBuf appMetadata = null;
       while (stream.available() > 0) {
-        int tag = readRawVarint32(stream, true);
+        int firstByte = stream.read();
+        if (firstByte < 0) {
+          // When using gRPC compression, EOF may not be reported by the InflaterInputStream
+          // until another read has been performed.
+          break;
+        }
+        int tag = CodedInputStream.readRawVarint32(firstByte, stream);
 
         switch (tag) {
-
           case DESCRIPTOR_TAG: {
-            int size = readRawVarint32(stream, false);
+            int size = readRawVarint32(stream);
             byte[] bytes = new byte[size];
             ByteStreams.readFully(stream, bytes);
             descriptor = FlightDescriptor.parseFrom(bytes);
             break;
           }
           case HEADER_TAG: {
-            int size = readRawVarint32(stream, false);
+            int size = readRawVarint32(stream);
             byte[] bytes = new byte[size];
             ByteStreams.readFully(stream, bytes);
             header = MessageMetadataResult.create(ByteBuffer.wrap(bytes), size);
             break;
           }
           case APP_METADATA_TAG: {
-            int size = readRawVarint32(stream, false);
+            int size = readRawVarint32(stream);
             appMetadata = allocator.buffer(size);
             GetReadableBuffer.readIntoBuffer(stream, appMetadata, size, FAST_PATH);
             break;
@@ -289,7 +293,7 @@ class ArrowMessage implements AutoCloseable {
               body.getReferenceManager().release();
               body = null;
             }
-            int size = readRawVarint32(stream, false);
+            int size = readRawVarint32(stream);
             body = allocator.buffer(size);
             GetReadableBuffer.readIntoBuffer(stream, body, size, FAST_PATH);
             break;
@@ -333,24 +337,10 @@ class ArrowMessage implements AutoCloseable {
 
   }
 
-  /**
-   * Read a varint32 from the stream.
-   *
-   * <p>When using gRPC compression, EOF may not be reported by the InflaterInputStream until another read has
-   * been performed. This method checks {@link InputStream#available()} after reading the first byte in order
-   * to handle this case.
-   *
-   * @param is InputStream
-   * @param ignoreEOF If false, throw Exception after reaching EOF, otherwise just ignore it and return -1.
-   * @return -1 if EOF reached, else the varint32 value.
-   * @throws IOException if an error occurred while reading the stream.
-   */
-  private static int readRawVarint32(InputStream is, boolean ignoreEOF) throws IOException {
+  private static int readRawVarint32(InputStream is) throws IOException {
     int firstByte = is.read();
     if (firstByte >= 0) {
       return CodedInputStream.readRawVarint32(firstByte, is);
-    } else if (ignoreEOF) {
-      return firstByte;
     } else {
       throw new IOException("It should not reach EOF here.");
     }
