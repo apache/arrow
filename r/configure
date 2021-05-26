@@ -188,7 +188,7 @@ else
 fi
 
 # If on Raspberry Pi, need to manually link against latomic
-if [ "$DISTID" = "Raspbian" ]; then
+if [ "$DISTID" = "raspbian" ]; then
   PKG_CFLAGS="$PKG_CFLAGS -DARROW_CXXFLAGS=-latomic"
 fi
 
