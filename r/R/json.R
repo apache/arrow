@@ -25,8 +25,7 @@
 #'
 #' @return A `data.frame`, or a Table if `as_data_frame = FALSE`.
 #' @export
-#' @examples
-#' \donttest{
+#' @examplesIf arrow_available()
 #'   tf <- tempfile()
 #'   on.exit(unlink(tf))
 #'   writeLines('
@@ -35,7 +34,6 @@
 #'     { "hello": 0.0, "world": true, "yo": null }
 #'   ', tf, useBytes=TRUE)
 #'   df <- read_json_arrow(tf)
-#' }
 read_json_arrow <- function(file,
                             col_select = NULL,
                             as_data_frame = TRUE,

@@ -77,14 +77,12 @@
 #'
 #' @rdname Schema
 #' @name Schema
-#' @examples
-#' \donttest{
+#' @examplesIf arrow_available()
 #' df <- data.frame(col1 = 2:4, col2 = c(0.1, 0.3, 0.5))
 #' tab1 <- Table$create(df)
 #' tab1$schema
 #' tab2 <- Table$create(df, schema = schema(col1 = int8(), col2 = float32()))
 #' tab2$schema
-#' }
 #' @export
 Schema <- R6Class("Schema",
   inherit = ArrowObject,

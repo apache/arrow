@@ -31,15 +31,13 @@
 #' 0-based integers (consistent with C++).
 #' @return An `Array`, `ChunkedArray`, `Scalar`, `RecordBatch`, or `Table`, whatever the compute function results in.
 #' @seealso [Arrow C++ documentation](https://arrow.apache.org/docs/cpp/compute.html) for the functions and their respective options.
-#' @examples
-#' \donttest{
+#' @examplesIf arrow_available()
 #' a <- Array$create(c(1L, 2L, 3L, NA, 5L))
 #' s <- Scalar$create(4L)
 #' call_function("fill_null", a, s)
 #'
 #' a <- Array$create(rnorm(10000))
 #' call_function("quantile", a, options = list(q = seq(0, 1, 0.25)))
-#' }
 #' @export
 #' @include array.R
 #' @include chunked-array.R
