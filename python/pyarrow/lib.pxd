@@ -528,13 +528,10 @@ cpdef DataType ensure_type(object type, bint allow_none=*)
 
 # Exceptions may be raised when converting dict values, so need to
 # check exception state on return
-cdef shared_ptr[CKeyValueMetadata] pyarrow_unwrap_metadata(object meta) \
-    except *
+cdef shared_ptr[const CKeyValueMetadata] pyarrow_unwrap_metadata(
+    object meta) except *
 cdef object pyarrow_wrap_metadata(
     const shared_ptr[const CKeyValueMetadata]& meta)
-
-cdef object _wrap_stream_metadata(const StreamMetadata& c_metadata)
-cdef StreamMetadata _unwrap_stream_metadata(object metadata) except *
 
 #
 # Public Cython API for 3rd party code

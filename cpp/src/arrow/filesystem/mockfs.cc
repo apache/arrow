@@ -53,7 +53,7 @@ struct File {
   TimePoint mtime;
   std::string name;
   std::shared_ptr<Buffer> data;
-  io::StreamMetadata metadata;
+  std::shared_ptr<const KeyValueMetadata> metadata;
 
   File(TimePoint mtime, std::string name) : mtime(mtime), name(std::move(name)) {}
 
@@ -238,10 +238,12 @@ class MockFSInputStream : public io::BufferReader {
   explicit MockFSInputStream(const File& file)
       : io::BufferReader(file.data), metadata_(file.metadata) {}
 
-  Result<io::StreamMetadata> ReadMetadata() override { return metadata_; }
+  Result<std::shared_ptr<const KeyValueMetadata>> ReadMetadata() override {
+    return metadata_;
+  }
 
  protected:
-  io::StreamMetadata metadata_;
+  std::shared_ptr<const KeyValueMetadata> metadata_;
 };
 
 }  // namespace
@@ -371,7 +373,8 @@ class MockFileSystem::Impl {
   }
 
   Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
-      const std::string& path, bool append, const io::StreamMetadata& metadata) {
+      const std::string& path, bool append,
+      const std::shared_ptr<const KeyValueMetadata>& metadata) {
     auto parts = SplitAbstractPath(path);
     RETURN_NOT_OK(ValidateAbstractPathParts(parts));
 
@@ -695,14 +698,14 @@ Result<std::shared_ptr<io::RandomAccessFile>> MockFileSystem::OpenInputFile(
 }
 
 Result<std::shared_ptr<io::OutputStream>> MockFileSystem::OpenOutputStream(
-    const std::string& path, const io::StreamMetadata& metadata) {
+    const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
   auto guard = impl_->lock_guard();
 
   return impl_->OpenOutputStream(path, /*append=*/false, metadata);
 }
 
 Result<std::shared_ptr<io::OutputStream>> MockFileSystem::OpenAppendStream(
-    const std::string& path, const io::StreamMetadata& metadata) {
+    const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
   auto guard = impl_->lock_guard();
 
   return impl_->OpenOutputStream(path, /*append=*/true, metadata);

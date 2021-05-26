@@ -77,6 +77,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
@@ -453,14 +454,15 @@ class TestS3FS : public S3TestMixin {
     AssertObjectContents(client_.get(), "bucket", "newfile4", expected);
 
     // Create new file with metadata
-    using KV = io::StreamMetadata::KeyValue;
-    io::StreamMetadata metadata{
-        {KV{"Content-Type", "x-arrow/test6"}, KV{"Expires", "2016-02-05T20:08:35Z"}}};
+    auto metadata = KeyValueMetadata::Make({"Content-Type", "Expires"},
+                                           {"x-arrow/test6", "2016-02-05T20:08:35Z"});
     ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/newfile5", metadata));
     ASSERT_OK(stream->Close());
     ASSERT_OK_AND_ASSIGN(auto input, fs_->OpenInputStream("bucket/newfile5"));
     ASSERT_OK_AND_ASSIGN(auto got_metadata, input->ReadMetadata());
-    ASSERT_THAT(got_metadata.items, testing::IsSupersetOf(metadata.items));
+    ASSERT_NE(got_metadata, nullptr);
+    ASSERT_THAT(got_metadata->sorted_pairs(),
+                testing::IsSupersetOf(metadata->sorted_pairs()));
 
     // Overwrite
     ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/newfile1"));
@@ -852,14 +854,15 @@ TEST_F(TestS3FS, OpenInputStream) {
 
 TEST_F(TestS3FS, OpenInputStreamMetadata) {
   std::shared_ptr<io::InputStream> stream;
-  io::StreamMetadata metadata;
+  std::shared_ptr<const KeyValueMetadata> metadata;
 
   ASSERT_OK_AND_ASSIGN(stream, fs_->OpenInputStream("bucket/somefile"));
   ASSERT_FINISHES_OK_AND_ASSIGN(metadata, stream->ReadMetadataAsync());
 
-  std::vector<io::StreamMetadata::KeyValue> expected_kv{{"Content-Length", "9"},
-                                                        {"Content-Type", "x-arrow/test"}};
-  ASSERT_THAT(metadata.items, testing::IsSupersetOf(expected_kv));
+  std::vector<std::pair<std::string, std::string>> expected_kv{
+      {"Content-Length", "9"}, {"Content-Type", "x-arrow/test"}};
+  ASSERT_NE(metadata, nullptr);
+  ASSERT_THAT(metadata->sorted_pairs(), testing::IsSupersetOf(expected_kv));
 }
 
 TEST_F(TestS3FS, OpenInputFile) {

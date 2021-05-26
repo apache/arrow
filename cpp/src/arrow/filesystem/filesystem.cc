@@ -234,12 +234,12 @@ Future<std::shared_ptr<io::RandomAccessFile>> FileSystem::OpenInputFileAsync(
 
 Result<std::shared_ptr<io::OutputStream>> FileSystem::OpenOutputStream(
     const std::string& path) {
-  return OpenOutputStream(path, io::StreamMetadata{});
+  return OpenOutputStream(path, std::shared_ptr<const KeyValueMetadata>{});
 }
 
 Result<std::shared_ptr<io::OutputStream>> FileSystem::OpenAppendStream(
     const std::string& path) {
-  return OpenAppendStream(path, io::StreamMetadata{});
+  return OpenAppendStream(path, std::shared_ptr<const KeyValueMetadata>{});
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -457,14 +457,14 @@ Future<std::shared_ptr<io::RandomAccessFile>> SubTreeFileSystem::OpenInputFileAs
 }
 
 Result<std::shared_ptr<io::OutputStream>> SubTreeFileSystem::OpenOutputStream(
-    const std::string& path, const io::StreamMetadata& metadata) {
+    const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
   auto s = path;
   RETURN_NOT_OK(PrependBaseNonEmpty(&s));
   return base_fs_->OpenOutputStream(s, metadata);
 }
 
 Result<std::shared_ptr<io::OutputStream>> SubTreeFileSystem::OpenAppendStream(
-    const std::string& path, const io::StreamMetadata& metadata) {
+    const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
   auto s = path;
   RETURN_NOT_OK(PrependBaseNonEmpty(&s));
   return base_fs_->OpenAppendStream(s, metadata);
@@ -565,14 +565,14 @@ Result<std::shared_ptr<io::RandomAccessFile>> SlowFileSystem::OpenInputFile(
 }
 
 Result<std::shared_ptr<io::OutputStream>> SlowFileSystem::OpenOutputStream(
-    const std::string& path, const io::StreamMetadata& metadata) {
+    const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
   latencies_->Sleep();
   // XXX Should we have a SlowOutputStream that waits on Flush() and Close()?
   return base_fs_->OpenOutputStream(path, metadata);
 }
 
 Result<std::shared_ptr<io::OutputStream>> SlowFileSystem::OpenAppendStream(
-    const std::string& path, const io::StreamMetadata& metadata) {
+    const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
   latencies_->Sleep();
   return base_fs_->OpenAppendStream(path, metadata);
 }

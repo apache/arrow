@@ -78,6 +78,7 @@
 #include "arrow/util/atomic_shared_ptr.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
 #include "arrow/util/task_group.h"
@@ -685,13 +686,13 @@ Result<S3Model::GetObjectResult> GetObjectRange(Aws::S3::S3Client* client,
 }
 
 template <typename ObjectResult>
-io::StreamMetadata GetObjectMetadata(const ObjectResult& result) {
-  io::StreamMetadata metadata;
-  using KV = io::StreamMetadata::KeyValue;
+std::shared_ptr<const KeyValueMetadata> GetObjectMetadata(const ObjectResult& result) {
+  std::vector<std::string> keys, values;
 
   auto push = [&](std::string k, const Aws::String& v) {
     if (!v.empty()) {
-      metadata.items.push_back(KV{std::move(k), FromAwsString(v).to_string()});
+      keys.push_back(std::move(k));
+      values.push_back(FromAwsString(v).to_string());
     }
   };
   auto push_datetime = [&](std::string k, const Aws::Utils::DateTime& v) {
@@ -700,8 +701,9 @@ io::StreamMetadata GetObjectMetadata(const ObjectResult& result) {
     }
   };
 
-  metadata.items.push_back(
-      KV{"Content-Length", std::to_string(result.GetContentLength())});
+  keys.push_back("Content-Length");
+  values.push_back(std::to_string(result.GetContentLength()));
+
   push("Cache-Control", result.GetCacheControl());
   push("Content-Type", result.GetContentType());
   push("Content-Language", result.GetContentLanguage());
@@ -709,7 +711,7 @@ io::StreamMetadata GetObjectMetadata(const ObjectResult& result) {
   push("VersionId", result.GetVersionId());
   push_datetime("Last-Modified", result.GetLastModified());
   push_datetime("Expires", result.GetExpires());
-  return metadata;
+  return std::make_shared<const KeyValueMetadata>(std::move(keys), std::move(values));
 }
 
 template <typename ObjectRequest>
@@ -744,13 +746,19 @@ struct ObjectMetadataSetter {
 };
 
 template <typename ObjectRequest>
-Status SetObjectMetadata(const io::StreamMetadata& metadata, ObjectRequest* req) {
+Status SetObjectMetadata(const std::shared_ptr<const KeyValueMetadata>& metadata,
+                         ObjectRequest* req) {
   static auto setters = ObjectMetadataSetter<ObjectRequest>::GetSetters();
 
-  for (const auto& kv : metadata.items) {
-    auto it = setters.find(kv.key);
-    if (it != setters.end()) {
-      RETURN_NOT_OK(it->second(kv.value, req));
+  if (metadata) {
+    const auto& keys = metadata->keys();
+    const auto& values = metadata->values();
+
+    for (size_t i = 0; i < keys.size(); ++i) {
+      auto it = setters.find(keys[i]);
+      if (it != setters.end()) {
+        RETURN_NOT_OK(it->second(values[i], req));
+      }
     }
   }
   return Status::OK();
@@ -815,9 +823,12 @@ class ObjectInputFile final : public io::RandomAccessFile {
 
   // RandomAccessFile APIs
 
-  Result<io::StreamMetadata> ReadMetadata() override { return metadata_; }
+  Result<std::shared_ptr<const KeyValueMetadata>> ReadMetadata() override {
+    return metadata_;
+  }
 
-  Future<io::StreamMetadata> ReadMetadataAsync(const io::IOContext& io_context) override {
+  Future<std::shared_ptr<const KeyValueMetadata>> ReadMetadataAsync(
+      const io::IOContext& io_context) override {
     return metadata_;
   }
 
@@ -904,7 +915,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
   bool closed_ = false;
   int64_t pos_ = 0;
   int64_t content_length_ = kNoSize;
-  io::StreamMetadata metadata_;
+  std::shared_ptr<const KeyValueMetadata> metadata_;
 };
 
 // Minimum size for each part of a multipart upload, except for the last part.
@@ -921,7 +932,8 @@ class ObjectOutputStream final : public io::OutputStream {
  public:
   ObjectOutputStream(std::shared_ptr<Aws::S3::S3Client> client,
                      const io::IOContext& io_context, const S3Path& path,
-                     const S3Options& options, const io::StreamMetadata& metadata)
+                     const S3Options& options,
+                     const std::shared_ptr<const KeyValueMetadata>& metadata)
       : client_(std::move(client)),
         io_context_(io_context),
         path_(path),
@@ -1209,7 +1221,7 @@ class ObjectOutputStream final : public io::OutputStream {
   std::shared_ptr<Aws::S3::S3Client> client_;
   const io::IOContext io_context_;
   const S3Path path_;
-  const io::StreamMetadata metadata_;
+  const std::shared_ptr<const KeyValueMetadata> metadata_;
   const bool background_writes_;
 
   Aws::String upload_id_;
@@ -2189,7 +2201,7 @@ Result<std::shared_ptr<io::RandomAccessFile>> S3FileSystem::OpenInputFile(
 }
 
 Result<std::shared_ptr<io::OutputStream>> S3FileSystem::OpenOutputStream(
-    const std::string& s, const io::StreamMetadata& metadata) {
+    const std::string& s, const std::shared_ptr<const KeyValueMetadata>& metadata) {
   ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
   RETURN_NOT_OK(ValidateFilePath(path));
 
@@ -2200,7 +2212,7 @@ Result<std::shared_ptr<io::OutputStream>> S3FileSystem::OpenOutputStream(
 }
 
 Result<std::shared_ptr<io::OutputStream>> S3FileSystem::OpenAppendStream(
-    const std::string& path, const io::StreamMetadata& metadata) {
+    const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
   // XXX Investigate UploadPartCopy? Does it work with source == destination?
   // https://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadUploadPartCopy.html
   // (but would need to fall back to GET if the current data is < 5 MB)

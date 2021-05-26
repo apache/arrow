@@ -476,11 +476,11 @@ Result<std::shared_ptr<Buffer>> BufferedInputStream::DoRead(int64_t nbytes) {
   return impl_->Read(nbytes);
 }
 
-Result<StreamMetadata> BufferedInputStream::ReadMetadata() {
+Result<std::shared_ptr<const KeyValueMetadata>> BufferedInputStream::ReadMetadata() {
   return impl_->raw()->ReadMetadata();
 }
 
-Future<StreamMetadata> BufferedInputStream::ReadMetadataAsync(
+Future<std::shared_ptr<const KeyValueMetadata>> BufferedInputStream::ReadMetadataAsync(
     const IOContext& io_context) {
   return impl_->raw()->ReadMetadataAsync(io_context);
 }

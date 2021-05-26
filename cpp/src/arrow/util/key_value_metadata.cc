@@ -70,6 +70,11 @@ KeyValueMetadata::KeyValueMetadata(std::vector<std::string> keys,
   ARROW_CHECK_EQ(keys.size(), values.size());
 }
 
+std::shared_ptr<KeyValueMetadata> KeyValueMetadata::Make(
+    std::vector<std::string> keys, std::vector<std::string> values) {
+  return std::make_shared<KeyValueMetadata>(std::move(keys), std::move(values));
+}
+
 void KeyValueMetadata::ToUnorderedMap(
     std::unordered_map<std::string, std::string>* out) const {
   DCHECK_NE(out, nullptr);

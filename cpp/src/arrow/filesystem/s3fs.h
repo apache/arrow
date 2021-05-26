@@ -214,10 +214,12 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
   /// It is recommended to enable background_writes unless you prefer
   /// implementing your own background execution strategy.
   Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
-      const std::string& path, const io::StreamMetadata& metadata = {}) override;
+      const std::string& path,
+      const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
 
   Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
-      const std::string& path, const io::StreamMetadata& metadata = {}) override;
+      const std::string& path,
+      const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
 
   /// Create a S3FileSystem instance from the given options.
   static Result<std::shared_ptr<S3FileSystem>> Make(

@@ -107,16 +107,19 @@ Result<util::string_view> InputStream::Peek(int64_t ARROW_ARG_UNUSED(nbytes)) {
 
 bool InputStream::supports_zero_copy() const { return false; }
 
-Result<StreamMetadata> InputStream::ReadMetadata() { return StreamMetadata{}; }
+Result<std::shared_ptr<const KeyValueMetadata>> InputStream::ReadMetadata() {
+  return std::shared_ptr<const KeyValueMetadata>{};
+}
 
 // Default ReadMetadataAsync() implementation: simply issue the read on the context's
 // executor
-Future<StreamMetadata> InputStream::ReadMetadataAsync(const IOContext& ctx) {
+Future<std::shared_ptr<const KeyValueMetadata>> InputStream::ReadMetadataAsync(
+    const IOContext& ctx) {
   auto self = shared_from_this();
   return DeferNotOk(internal::SubmitIO(ctx, [self] { return self->ReadMetadata(); }));
 }
 
-Future<StreamMetadata> InputStream::ReadMetadataAsync() {
+Future<std::shared_ptr<const KeyValueMetadata>> InputStream::ReadMetadataAsync() {
   return ReadMetadataAsync(io_context());
 }
 

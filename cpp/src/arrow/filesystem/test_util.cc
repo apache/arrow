@@ -33,19 +33,12 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/future.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/vector.h"
 
 using ::testing::ElementsAre;
 
 namespace arrow {
-namespace io {
-
-std::ostream& operator<<(std::ostream& os, const StreamMetadata::KeyValue& kv) {
-  return os << "<key='" << kv.key << "' value='" << kv.value << "'>";
-}
-
-}  // namespace io
-
 namespace fs {
 
 namespace {
@@ -861,23 +854,21 @@ void GenericFileSystemTest::TestOpenOutputStream(FileSystem* fs) {
   ASSERT_RAISES(Invalid, stream->Write("x"));  // Stream is closed
 
   // Storing metadata along file
-  using KV = io::StreamMetadata::KeyValue;
-  io::StreamMetadata metadata{
-      {KV{"Content-Type", "x-arrow/filesystem-test"}, KV{"Content-Language", "fr_FR"}}};
+  auto metadata = KeyValueMetadata::Make({"Content-Type", "Content-Language"},
+                                         {"x-arrow/filesystem-test", "fr_FR"});
   ASSERT_OK_AND_ASSIGN(stream, fs->OpenOutputStream("jkl", metadata));
   ASSERT_OK(stream->Write("data"));
   ASSERT_OK(stream->Close());
   ASSERT_OK_AND_ASSIGN(auto input, fs->OpenInputStream("jkl"));
   ASSERT_OK_AND_ASSIGN(auto got_metadata, input->ReadMetadata());
   if (have_file_metadata()) {
-    ASSERT_GE(got_metadata.items.size(), 2);
-    // XXX using a GMock matcher here produces link errors
-    auto found = std::find_if(got_metadata.items.begin(), got_metadata.items.end(),
-                              [](const KV& kv) { return kv.key == "Content-Type"; });
-    ASSERT_NE(found, got_metadata.items.end());
-    ASSERT_EQ(found->value, "x-arrow/filesystem-test");
+    ASSERT_NE(got_metadata, nullptr);
+    ASSERT_GE(got_metadata->size(), 2);
+    ASSERT_OK_AND_EQ("x-arrow/filesystem-test", got_metadata->Get("Content-Type"));
   } else {
-    ASSERT_TRUE(got_metadata.items.empty());
+    if (got_metadata) {
+      ASSERT_EQ(got_metadata->size(), 0);
+    }
   }
 
   if (!allow_write_file_over_dir()) {
@@ -921,9 +912,8 @@ void GenericFileSystemTest::TestOpenInputStream(FileSystem* fs) {
 
   std::shared_ptr<io::InputStream> stream;
   std::shared_ptr<Buffer> buffer;
-  io::StreamMetadata metadata;
   ASSERT_OK_AND_ASSIGN(stream, fs->OpenInputStream("AB/abc"));
-  ASSERT_OK_AND_ASSIGN(metadata, stream->ReadMetadata());
+  ASSERT_OK_AND_ASSIGN(auto metadata, stream->ReadMetadata());
   // XXX we cannot really test anything more about metadata...
   ASSERT_OK_AND_ASSIGN(buffer, stream->Read(4));
   AssertBufferEqual(*buffer, "some");
@@ -978,7 +968,7 @@ void GenericFileSystemTest::TestOpenInputStreamAsync(FileSystem* fs) {
 
   std::shared_ptr<io::InputStream> stream;
   std::shared_ptr<Buffer> buffer;
-  io::StreamMetadata metadata;
+  std::shared_ptr<const KeyValueMetadata> metadata;
   ASSERT_FINISHES_OK_AND_ASSIGN(stream, fs->OpenInputStreamAsync("AB/abc"));
   ASSERT_FINISHES_OK_AND_ASSIGN(metadata, stream->ReadMetadataAsync());
   ASSERT_OK_AND_ASSIGN(buffer, stream->Read(4));

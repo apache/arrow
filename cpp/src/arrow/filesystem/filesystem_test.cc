@@ -28,6 +28,7 @@
 #include "arrow/filesystem/test_util.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
 namespace fs {
@@ -460,8 +461,7 @@ TEST_F(TestMockFS, OpenOutputStream) {
   CheckFiles({{"ab", time_, ""}});
 
   // With metadata
-  using KV = io::StreamMetadata::KeyValue;
-  io::StreamMetadata metadata{std::vector<KV>{{"foo", "bar"}}};
+  auto metadata = KeyValueMetadata::Make({"some key"}, {"some value"});
   ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("cd", metadata));
   ASSERT_OK(WriteString(stream.get(), "data"));
   ASSERT_OK(stream->Close());
@@ -469,7 +469,8 @@ TEST_F(TestMockFS, OpenOutputStream) {
 
   ASSERT_OK_AND_ASSIGN(auto input, fs_->OpenInputStream("cd"));
   ASSERT_OK_AND_ASSIGN(auto got_metadata, input->ReadMetadata());
-  ASSERT_EQ(metadata.items, got_metadata.items);
+  ASSERT_NE(got_metadata, nullptr);
+  ASSERT_TRUE(got_metadata->Equals(*metadata));
 }
 
 TEST_F(TestMockFS, OpenAppendStream) {

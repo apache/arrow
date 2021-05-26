@@ -661,10 +661,10 @@ cdef class FileSystem(_Weakrefable):
             c_string pathstr = _path_as_bytes(path)
             NativeFile stream = NativeFile()
             shared_ptr[COutputStream] out_handle
-            StreamMetadata c_metadata
+            shared_ptr[const CKeyValueMetadata] c_metadata
 
         if metadata is not None:
-            c_metadata = _unwrap_stream_metadata(metadata)
+            c_metadata = pyarrow_unwrap_metadata(KeyValueMetadata(metadata))
 
         with nogil:
             out_handle = GetResultValue(
@@ -711,10 +711,10 @@ cdef class FileSystem(_Weakrefable):
             c_string pathstr = _path_as_bytes(path)
             NativeFile stream = NativeFile()
             shared_ptr[COutputStream] out_handle
-            StreamMetadata c_metadata
+            shared_ptr[const CKeyValueMetadata] c_metadata
 
         if metadata is not None:
-            c_metadata = _unwrap_stream_metadata(metadata)
+            c_metadata = pyarrow_unwrap_metadata(KeyValueMetadata(metadata))
 
         with nogil:
             out_handle = GetResultValue(
@@ -1089,21 +1089,23 @@ cdef void _cb_open_input_file(handler, const c_string& path,
                         "a PyArrow file")
     out[0] = (<NativeFile> stream).get_random_access_file()
 
-cdef void _cb_open_output_stream(handler, const c_string& path,
-                                 const StreamMetadata& metadata,
-                                 shared_ptr[COutputStream]* out) except *:
-    stream = handler.open_output_stream(frombytes(path),
-                                        _wrap_stream_metadata(metadata))
+cdef void _cb_open_output_stream(
+        handler, const c_string& path,
+        const shared_ptr[const CKeyValueMetadata]& metadata,
+        shared_ptr[COutputStream]* out) except *:
+    stream = handler.open_output_stream(
+        frombytes(path), pyarrow_wrap_metadata(metadata))
     if not isinstance(stream, NativeFile):
         raise TypeError("open_output_stream should have returned "
                         "a PyArrow file")
     out[0] = (<NativeFile> stream).get_output_stream()
 
-cdef void _cb_open_append_stream(handler, const c_string& path,
-                                 const StreamMetadata& metadata,
-                                 shared_ptr[COutputStream]* out) except *:
-    stream = handler.open_append_stream(frombytes(path),
-                                        _wrap_stream_metadata(metadata))
+cdef void _cb_open_append_stream(
+        handler, const c_string& path,
+        const shared_ptr[const CKeyValueMetadata]& metadata,
+        shared_ptr[COutputStream]* out) except *:
+    stream = handler.open_append_stream(
+        frombytes(path), pyarrow_wrap_metadata(metadata))
     if not isinstance(stream, NativeFile):
         raise TypeError("open_append_stream should have returned "
                         "a PyArrow file")

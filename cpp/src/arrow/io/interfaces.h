@@ -49,26 +49,6 @@ struct ReadRange {
   }
 };
 
-struct StreamMetadata {
-  struct KeyValue {
-    std::string key;
-    std::string value;
-
-    KeyValue() = default;
-    KeyValue(std::string key, std::string value)
-        : key(std::move(key)), value(std::move(value)) {}
-
-    friend bool operator==(const KeyValue& left, const KeyValue& right) {
-      return (left.key == right.key && left.value == right.value);
-    }
-    friend bool operator!=(const KeyValue& left, const KeyValue& right) {
-      return !(left == right);
-    }
-  };
-
-  std::vector<KeyValue> items;
-};
-
 /// EXPERIMENTAL: options provider for IO tasks
 ///
 /// Includes an Executor (which will be used to execute asynchronous reads),
@@ -250,12 +230,14 @@ class ARROW_EXPORT InputStream : virtual public FileInterface,
   /// \brief Read and return stream metadata
   ///
   /// If the stream implementation doesn't support metadata, empty metadata
-  /// is returned.
-  virtual Result<StreamMetadata> ReadMetadata();
+  /// is returned.  Note that it is allowed to return a null pointer rather
+  /// than an allocated empty metadata.
+  virtual Result<std::shared_ptr<const KeyValueMetadata>> ReadMetadata();
 
   /// \brief Read stream metadata asynchronously
-  virtual Future<StreamMetadata> ReadMetadataAsync(const IOContext& io_context);
-  Future<StreamMetadata> ReadMetadataAsync();
+  virtual Future<std::shared_ptr<const KeyValueMetadata>> ReadMetadataAsync(
+      const IOContext& io_context);
+  Future<std::shared_ptr<const KeyValueMetadata>> ReadMetadataAsync();
 
  protected:
   InputStream() = default;

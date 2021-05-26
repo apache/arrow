@@ -981,7 +981,7 @@ def test_open_output_stream_metadata(fs, pathfn):
 
     if fs.type_name == 's3' or 'mock' in fs.type_name:
         for k, v in metadata.items():
-            assert got_metadata[k] == v
+            assert got_metadata[k] == v.encode()
     else:
         assert got_metadata == {}
 
@@ -1515,10 +1515,10 @@ def test_s3_real_aws():
     with fs.open_input_stream('ursa-labs-taxi-data/2019/06/data.parquet') as f:
         md = f.metadata()
         assert 'Content-Type' in md
-        assert md['Last-Modified'] == '2020-01-17T16:26:28Z'
+        assert md['Last-Modified'] == b'2020-01-17T16:26:28Z'
         # For some reason, the header value is quoted
         # (both with AWS and Minio)
-        assert md['ETag'] == '"f1efd5d76cb82861e1542117bfa52b90-8"'
+        assert md['ETag'] == b'"f1efd5d76cb82861e1542117bfa52b90-8"'
 
 
 @pytest.mark.s3

@@ -18,7 +18,6 @@
 #pragma once
 
 #include <chrono>
-#include <iosfwd>
 #include <memory>
 #include <string>
 #include <vector>
@@ -27,13 +26,6 @@
 #include "arrow/testing/visibility.h"
 
 namespace arrow {
-namespace io {
-
-ARROW_TESTING_EXPORT
-std::ostream& operator<<(std::ostream& os, const StreamMetadata::KeyValue& kv);
-
-}  // namespace io
-
 namespace fs {
 
 static constexpr double kTimeSlack = 2.0;  // In seconds
