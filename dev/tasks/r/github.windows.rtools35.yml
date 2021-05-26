@@ -69,7 +69,7 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ccache
-          key: r-35-ccache-mingw-${{ hashFiles('cpp/**') }}
+          key: r-35-ccache-mingw-{{ "${{ hashFiles('cpp/**') }}" }}
           restore-keys: r-35-ccache-mingw-
         - uses: r-lib/actions/setup-r@master
         with:
