@@ -48,4 +48,12 @@ void SetCpuThreadPoolCapacity(int threads) {
   StopIfNotOk(arrow::SetCpuThreadPoolCapacity(threads));
 }
 
+// [[arrow::export]]
+int GetIOThreadPoolCapacity() { return arrow::GetCpuThreadPoolCapacity(); }
+
+// [[arrow::export]]
+void SetIOThreadPoolCapacity(int threads) {
+  StopIfNotOk(arrow::SetCpuThreadPoolCapacity(threads));
+}
+
 #endif

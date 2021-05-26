@@ -6759,6 +6759,36 @@ extern "C" SEXP _arrow_SetCpuThreadPoolCapacity(SEXP threads_sexp){
 }
 #endif
 
+// threadpool.cpp
+#if defined(ARROW_R_WITH_ARROW)
+int GetIOThreadPoolCapacity();
+extern "C" SEXP _arrow_GetIOThreadPoolCapacity(){
+BEGIN_CPP11
+	return cpp11::as_sexp(GetIOThreadPoolCapacity());
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_GetIOThreadPoolCapacity(){
+	Rf_error("Cannot call GetIOThreadPoolCapacity(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// threadpool.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void SetIOThreadPoolCapacity(int threads);
+extern "C" SEXP _arrow_SetIOThreadPoolCapacity(SEXP threads_sexp){
+BEGIN_CPP11
+	arrow::r::Input<int>::type threads(threads_sexp);
+	SetIOThreadPoolCapacity(threads);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_SetIOThreadPoolCapacity(SEXP threads_sexp){
+	Rf_error("Cannot call SetIOThreadPoolCapacity(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // type_infer.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> Array__infer_type(SEXP x);
@@ -7271,6 +7301,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Table__from_dots", (DL_FUNC) &_arrow_Table__from_dots, 2}, 
 		{ "_arrow_GetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_GetCpuThreadPoolCapacity, 0}, 
 		{ "_arrow_SetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_SetCpuThreadPoolCapacity, 1}, 
+		{ "_arrow_GetIOThreadPoolCapacity", (DL_FUNC) &_arrow_GetIOThreadPoolCapacity, 0}, 
+		{ "_arrow_SetIOThreadPoolCapacity", (DL_FUNC) &_arrow_SetIOThreadPoolCapacity, 1}, 
 		{ "_arrow_Array__infer_type", (DL_FUNC) &_arrow_Array__infer_type, 1}, 
 		{ "_arrow_Table__Reset", (DL_FUNC) &_arrow_Table__Reset, 1}, 
 		{ "_arrow_RecordBatch__Reset", (DL_FUNC) &_arrow_RecordBatch__Reset, 1}, 

@@ -1720,6 +1720,14 @@ SetCpuThreadPoolCapacity <- function(threads){
     invisible(.Call(`_arrow_SetCpuThreadPoolCapacity`, threads))
 }
 
+GetIOThreadPoolCapacity <- function(){
+    .Call(`_arrow_GetIOThreadPoolCapacity`)
+}
+
+SetIOThreadPoolCapacity <- function(threads){
+    invisible(.Call(`_arrow_SetIOThreadPoolCapacity`, threads))
+}
+
 Array__infer_type <- function(x){
     .Call(`_arrow_Array__infer_type`, x)
 }

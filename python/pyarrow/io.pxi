@@ -42,6 +42,46 @@ cdef extern from "Python.h":
         char *v, Py_ssize_t len) except NULL
 
 
+def io_thread_count():
+    """
+    Return the number of threads to use for I/O operations.
+
+    Many operations, such as scanning a dataset, will implicitly make
+    use of this pool. The number of threads is set to a fixed value at
+    startup. It can be modified at runtime by calling
+    :func:`set_io_thread_count()`.
+
+    See Also
+    --------
+    set_io_thread_count : Modify the size of this pool.
+    cpu_count : The analogous function for the CPU thread pool.
+    """
+    return GetIOThreadPoolCapacity()
+
+
+def set_io_thread_count(int count):
+    """
+    Set the number of threads to use for I/O operations.
+
+    Many operations, such as scanning a dataset, will implicitly make
+    use of this pool.
+
+    Parameters
+    ----------
+    count : int
+        The max number of threads that may be used for I/O.
+        Must be positive.
+
+    See Also
+    --------
+    io_thread_count : Get the size of this pool.
+    set_cpu_count : The analogous function for the CPU thread pool.
+    """
+    if count < 1:
+        raise ValueError("IO thread count must be strictly positive")
+    check_status(SetIOThreadPoolCapacity(count))
+
+
 cdef class NativeFile(_Weakrefable):
     """
     The base class for all Arrow streams.

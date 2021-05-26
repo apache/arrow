@@ -1163,6 +1163,8 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         CIOContext(CMemoryPool*, CStopToken)
 
     CIOContext c_default_io_context "arrow::io::default_io_context"()
+    int GetIOThreadPoolCapacity()
+    CStatus SetIOThreadPoolCapacity(int threads)
 
     cdef cppclass FileStatistics:
         int64_t size
