@@ -761,6 +761,32 @@ ScannerBuilder::ScannerBuilder(std::shared_ptr<Schema> schema,
   DCHECK_OK(Filter(scan_options_->filter));
 }
 
+Result<compute::ExecNode*> ScannerBuilder::MakeScanNode(compute::ExecPlan* plan) {
+  ARROW_ASSIGN_OR_RAISE(auto scanner, Finish());
+
+  ARROW_ASSIGN_OR_RAISE(auto unordered_gen, scanner->ScanBatchesUnorderedAsync());
+
+  auto schema = scanner->options()->projected_schema;
+
+  auto gen = MakeMappedGenerator(
+      std::move(unordered_gen),
+      [schema](const EnumeratedRecordBatch& partial)
+          -> Result<util::optional<compute::ExecBatch>> {
+        // FIXME the batches are still being fully filtered/projected. Need to add an
+        // option to skip wrapping with FilterAndProjectScanTask
+        ARROW_ASSIGN_OR_RAISE(
+            util::optional<compute::ExecBatch> batch,
+            compute::MakeExecBatch(*schema, partial.record_batch.value));
+        return batch;
+      });
+
+  std::vector<ValueDescr> output_descr;
+  for (const auto& field : schema->fields()) {
+    output_descr.push_back(ValueDescr::Array(field->type()));
+  }
+  return MakeSourceNode(plan, "dataset_scan", output_descr, std::move(gen));
+}
+
 namespace {
 class OneShotScanTask : public ScanTask {
  public:

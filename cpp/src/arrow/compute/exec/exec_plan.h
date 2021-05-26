@@ -212,7 +212,7 @@ class ARROW_EXPORT ExecNode {
   virtual void StopProducing() = 0;
 
  protected:
-  ExecNode(ExecPlan* plan, std::string label, NodeVector inputs,
+  ExecNode(ExecPlan*, std::string label, NodeVector inputs,
            std::vector<std::string> input_labels, BatchDescr output_descr,
            int num_outputs);
 
@@ -229,8 +229,7 @@ class ARROW_EXPORT ExecNode {
 
 /// \brief Adapt an AsyncGenerator<ExecBatch> as a source node
 ARROW_EXPORT
-ExecNode* MakeSourceNode(ExecPlan* plan, std::string label,
-                         ExecNode::BatchDescr output_descr,
+ExecNode* MakeSourceNode(ExecPlan*, std::string label, ExecNode::BatchDescr output_descr,
                          AsyncGenerator<util::optional<ExecBatch>>);
 
 /// \brief Add a sink node which forwards to an AsyncGenerator<ExecBatch>

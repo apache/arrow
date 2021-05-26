@@ -25,6 +25,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/projector.h"
@@ -397,6 +398,11 @@ class ARROW_DS_EXPORT ScannerBuilder {
 
   /// \brief Return the constructed now-immutable Scanner object
   Result<std::shared_ptr<Scanner>> Finish();
+
+  /// \brief Construct a source ExecNode which yields batches from a dataset scan.
+  ///
+  /// Does not construct associated filter or project nodes
+  Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan*);
 
   const std::shared_ptr<Schema>& schema() const;
   const std::shared_ptr<Schema>& projected_schema() const;
