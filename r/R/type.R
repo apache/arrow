@@ -428,6 +428,24 @@ as_type <- function(type, name = "type") {
   type
 }
 
+canonical_type_str <- function(type_str) {
+  # canonicalizes data type strings, converting aliases to match the strings
+  # returned by DataType$ToString()
+  # TODO: handle string representations of parameterized data types  (such as
+  # "decimal128(3,1)") and format them to exactly match what is returned
+  # by DataType$ToString()
+  # TODO: error on unrecognized data type strings
+  assert_that(is.string(type_str))
+  switch(type_str,
+    "utf8" = "string",
+    "float16" = "halffloat",
+    "float32" = "float",
+    "boolean" = "bool",
+    "float64" = "double",
+    type_str
+  )
+}
+
 # vctrs support -----------------------------------------------------------
 str_dup <- function(x, times) {
   paste0(rep(x, times = times), collapse = "")

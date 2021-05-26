@@ -106,3 +106,11 @@ test_that("Masked data type functions still work", {
   rm(type)
 
 })
+
+test_that("Type alias strings are correctly canonicalized", {
+  expect_equal(canonical_type_str("utf8"), utf8()$ToString())
+  expect_equal(canonical_type_str("float16"), float16()$ToString())
+  expect_equal(canonical_type_str("float32"), float32()$ToString())
+  expect_equal(canonical_type_str("boolean"), boolean()$ToString())
+  expect_equal(canonical_type_str("float64"), float64()$ToString())
+})
