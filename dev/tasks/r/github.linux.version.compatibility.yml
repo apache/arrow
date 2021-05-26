@@ -80,7 +80,6 @@ jobs:
           - "2.0.0"
           - "1.0.1"
     env:
-      RSPM: "https://packagemanager.rstudio.com/cran/__linux__/focal/latest"
       ARROW_R_DEV: "TRUE"
       RSPM: "https://packagemanager.rstudio.com/cran/__linux__/focal/latest"
       OLD_ARROW_VERSION: {{ '${{ matrix.old_arrow_version }}' }}
