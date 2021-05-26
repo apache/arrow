@@ -16,8 +16,7 @@
 // under the License.
 
 import {
-    generateRandomTables,
-    // generateDictionaryTables
+    generateRandomTables
 } from '../../../data/tables';
 
 import {

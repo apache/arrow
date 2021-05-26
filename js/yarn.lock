@@ -1590,6 +1590,13 @@
   resolved "https://registry.yarnpkg.com/@types/minimist/-/minimist-1.2.1.tgz#283f669ff76d7b8260df8ab7a4262cc83d988256"
   integrity sha512-fZQQafSREFyuZcdWFAExYjBiCL7AUCdgsk80iO0q4yihYYdcIiH28CcuPTGFgLOCC8RlW49GSQxdHwZP+I7CNg==
 
+"@types/multistream@2.1.1":
+  version "2.1.1"
+  resolved "https://registry.yarnpkg.com/@types/multistream/-/multistream-2.1.1.tgz#4badd2440ee3570594ea552420fe2e29ebe512bd"
+  integrity sha512-PqavtNFnMyXRZS5vuW16wMOKeJUCD5PIGHdNBHzF5Urjncsij90hRQ82Wcy9+uSdnmrR2Gfao6xoJVq1wAWzbA==
+  dependencies:
+    "@types/node" "*"
+
 "@types/node@*", "@types/node@^15.6.1":
   version "15.6.1"
   resolved "https://registry.yarnpkg.com/@types/node/-/node-15.6.1.tgz#32d43390d5c62c5b6ec486a9bc9c59544de39a08"
@@ -1639,7 +1646,7 @@
   dependencies:
     "@types/yargs-parser" "*"
 
-"@typescript-eslint/eslint-plugin@^4.25.0":
+"@typescript-eslint/eslint-plugin@4.25.0":
   version "4.25.0"
   resolved "https://registry.yarnpkg.com/@typescript-eslint/eslint-plugin/-/eslint-plugin-4.25.0.tgz#d82657b6ab4caa4c3f888ff923175fadc2f31f2a"
   integrity sha512-Qfs3dWkTMKkKwt78xp2O/KZQB8MPS1UQ5D3YW2s6LQWBE1074BE+Rym+b1pXZIX3M3fSvPUDaCvZLKV2ylVYYQ==
@@ -1665,7 +1672,7 @@
     eslint-scope "^5.0.0"
     eslint-utils "^2.0.0"
 
-"@typescript-eslint/parser@^4.25.0":
+"@typescript-eslint/parser@4.25.0":
   version "4.25.0"
   resolved "https://registry.yarnpkg.com/@typescript-eslint/parser/-/parser-4.25.0.tgz#6b2cb6285aa3d55bfb263c650739091b0f19aceb"
   integrity sha512-OZFa1SKyEJpAhDx8FcbWyX+vLwh7OEtzoo2iQaeWwxucyfbi0mT4DijbOSsTgPKzGHr6GrF2V5p/CEpUH/VBxg==
@@ -3062,7 +3069,7 @@ cp-file@^7.0.0:
     nested-error-stacks "^2.0.0"
     p-event "^4.1.0"
 
-cpy@^8.1.2:
+cpy@8.1.2:
   version "8.1.2"
   resolved "https://registry.yarnpkg.com/cpy/-/cpy-8.1.2.tgz#e339ea54797ad23f8e3919a5cffd37bfc3f25935"
   integrity sha512-dmC4mUesv0OYH2kNFEidtf/skUwv4zePmGeepjyyJ0qTo5+8KhA1o99oIAwVVLzQMAeDJml74d6wPPKb6EZUTg==
@@ -3082,7 +3089,7 @@ create-require@^1.1.0:
   resolved "https://registry.yarnpkg.com/create-require/-/create-require-1.1.1.tgz#c1d7e8f1e5f6cfc9ff65f9cd352d37348756c333"
   integrity sha512-dcKFX3jn0MpIaXjisoRvexIJVEKzaq7z2rZKxf+MSr9TkdmHmsU4m2lcLojrj/FHl8mk5VxMmYA+ftRkP/3oKQ==
 
-cross-env@^7.0.3:
+cross-env@7.0.3:
   version "7.0.3"
   resolved "https://registry.yarnpkg.com/cross-env/-/cross-env-7.0.3.tgz#865264b29677dc015ba8418918965dd232fc54cf"
   integrity sha512-+/HKd6EgcQCJGh2PSjZuUitQBQynKor4wrFbRg4DtAgS1aWO+gU52xpH7M9ScGgXSYmAVS9bIJ8EzuaGw0oNAw==
@@ -3635,7 +3642,7 @@ escodegen@^2.0.0:
   optionalDependencies:
     source-map "~0.6.1"
 
-eslint-plugin-jest@^24.3.6:
+eslint-plugin-jest@24.3.6:
   version "24.3.6"
   resolved "https://registry.yarnpkg.com/eslint-plugin-jest/-/eslint-plugin-jest-24.3.6.tgz#5f0ca019183c3188c5ad3af8e80b41de6c8e9173"
   integrity sha512-WOVH4TIaBLIeCX576rLcOgjNXqP+jNlCiEmRgFTfQtJ52DpwnIQKAVGlGPAN7CZ33bW6eNfHD6s8ZbEUTQubJg==
@@ -3667,7 +3674,7 @@ eslint-visitor-keys@^2.0.0:
   resolved "https://registry.yarnpkg.com/eslint-visitor-keys/-/eslint-visitor-keys-2.1.0.tgz#f65328259305927392c938ed44eb0a5c9b2bd303"
   integrity sha512-0rSmRBzXgDzIsD6mGdJgevzgezI534Cer5L/vyMX0kHzT/jiB43jRhd9YUlMGYLQy2zprNmoT8qasCGtY+QaKw==
 
-eslint@^7.27.0:
+eslint@7.27.0:
   version "7.27.0"
   resolved "https://registry.yarnpkg.com/eslint/-/eslint-7.27.0.tgz#665a1506d8f95655c9274d84bd78f7166b07e9c7"
   integrity sha512-JZuR6La2ZF0UD384lcbnd0Cgg6QJjiCwhMD6eU4h/VGPcVGwawNNzKU41tgokGXnfjOOyI6QIffthhJTPzzuRA==
