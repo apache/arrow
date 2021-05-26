@@ -188,7 +188,7 @@ else
 fi
 
 # If on Raspberry Pi, need to manually link against latomic
-if [ "$DISTID" = "raspbian" ]; then
+if grep raspbian /etc/os-release >/dev/null 2>&1; then
   PKG_CFLAGS="$PKG_CFLAGS -DARROW_CXXFLAGS=-latomic"
 fi
 
