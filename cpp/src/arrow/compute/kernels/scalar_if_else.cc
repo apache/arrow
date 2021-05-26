@@ -34,6 +34,55 @@ namespace {
 // cond.valid && (cond.data && left.valid || ~cond.data && right.valid)
 enum IEBitmapIndex { C_VALID, C_DATA, L_VALID, R_VALID };
 
+Status PromoteNullsNew1(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
+                        const Scalar& right, ArrayData* output) {
+  uint8_t flag = right.is_valid * 4 + left.is_valid * 2 + !cond.MayHaveNulls();
+
+  if (flag < 6 && flag != 3) {
+    // there will be a validity buffer in the output
+    ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(cond.length));
+  }
+
+  // cond.valid && (cond.data && left.valid || ~cond.data && right.valid)
+  int64_t i = 0;
+  switch (flag) {
+    case 7:  // RLC = 111
+      break;
+    case 6:  // RLC = 110
+      // out_valid = c_valid
+      output->buffers[0] = SliceBuffer(cond.buffers[0], cond.offset, cond.length);
+      break;
+    case 5:  // RLC = 101
+      // out_valid = ~cond.data
+      arrow::internal::InvertBitmap(cond.buffers[1]->data(), cond.offset, cond.length,
+                                    output->buffers[0]->mutable_data(), 0);
+      break;
+    case 4:  // RLC = 100
+      // out_valid = c_valid & ~cond.data
+      arrow::internal::BitmapAndNot(cond.buffers[0]->data(), cond.offset,
+                                    cond.buffers[1]->data(), cond.offset, cond.length, 0,
+                                    output->buffers[0]->mutable_data());
+      break;
+    case 3:  // RLC = 011
+      // out_valid = cond.data
+      output->buffers[0] = SliceBuffer(cond.buffers[1], cond.offset, cond.length);
+      break;
+    case 2:  // RLC = 010
+      // out_valid = cond.valid & cond.data
+      arrow::internal::BitmapAnd(cond.buffers[0]->data(), cond.offset,
+                                 cond.buffers[1]->data(), cond.offset, cond.length, 0,
+                                 output->buffers[0]->mutable_data());
+      break;
+    case 1:  // RLC = 001
+      // out_valid = 0 --> nothing to do; but requires out_valid to be a all-zero buffer
+      break;
+    case 0:  // RLC = 000
+      // out_valid = 0 --> nothing to do; but requires out_valid to be a all-zero buffer
+      break;
+  }
+  return Status::OK();
+}
+
 Status PromoteNullsNew1(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
                         const Scalar& right, ArrayData* output) {
   uint8_t flag = right.is_valid * 4 + !left.MayHaveNulls() * 2 + !cond.MayHaveNulls();
@@ -44,7 +93,7 @@ Status PromoteNullsNew1(KernelContext* ctx, const ArrayData& cond, const ArrayDa
   bitmaps[L_VALID] = {left.buffers[0], left.offset, left.length};
 
   uint64_t* out_validity = nullptr;
-  if (flag < 6) {
+  if (flag < 6 && flag != 3) {
     // there will be a validity buffer in the output
     ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(cond.length));
     out_validity = output->GetMutableValues<uint64_t>(0);
@@ -79,12 +128,10 @@ Status PromoteNullsNew1(KernelContext* ctx, const ArrayData& cond, const ArrayDa
       output->buffers[0] = SliceBuffer(cond.buffers[1], cond.offset, cond.length);
       break;
     case 2:  // RLC = 010
-      Bitmap::VisitWords({bitmaps[C_VALID], bitmaps[C_DATA]},
-                         [&](std::array<uint64_t, 2> words) {
-                           auto c_valid = words[0], c_data = words[1];
-                           out_validity[i] = c_valid & c_data;
-                           i++;
-                         });
+      // out_valid = cond.valid & cond.data
+      arrow::internal::BitmapAnd(cond.buffers[0]->data(), cond.offset,
+                                 cond.buffers[1]->data(), cond.offset, cond.length, 0,
+                                 output->buffers[0]->mutable_data());
       break;
     case 1:  // RLC = 001
       Bitmap::VisitWords({bitmaps[C_DATA], bitmaps[L_VALID]},
@@ -491,41 +538,41 @@ struct IfElseFunctor<
   // ASS
   static Status Call(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
                      const Scalar& right, ArrayData* out) {
-    /*    ARROW_RETURN_NOT_OK(PromoteNulls(ctx, cond, left, right, out));
+    ARROW_RETURN_NOT_OK(PromoteNullsNew1(ctx, cond, left, right, out));
+    /*
+            ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
+                                  ctx->Allocate(cond.length * sizeof(T)));
+            T* out_values = reinterpret_cast<T*>(out_buf->mutable_data());
 
-        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
-                              ctx->Allocate(cond.length * sizeof(T)));
-        T* out_values = reinterpret_cast<T*>(out_buf->mutable_data());
+            // copy right data to out_buff
+            const T* right_data = right.GetValues<T>(1);
+            std::memcpy(out_values, right_data, right.length * sizeof(T));
 
-        // copy right data to out_buff
-        const T* right_data = right.GetValues<T>(1);
-        std::memcpy(out_values, right_data, right.length * sizeof(T));
+            const auto* cond_data = cond.buffers[1]->data();  // this is a BoolArray
+            BitBlockCounter bit_counter(cond_data, cond.offset, cond.length);
 
-        const auto* cond_data = cond.buffers[1]->data();  // this is a BoolArray
-        BitBlockCounter bit_counter(cond_data, cond.offset, cond.length);
+            // selectively copy values from left data
+            T left_data = internal::UnboxScalar<Type>::Unbox(left);
+            int64_t offset = cond.offset;
 
-        // selectively copy values from left data
-        T left_data = internal::UnboxScalar<Type>::Unbox(left);
-        int64_t offset = cond.offset;
-
-        // todo this can be improved by intrinsics. ex: _mm*_mask_store_e* (vmovdqa*)
-        while (offset < cond.offset + cond.length) {
-          const BitBlockCount& block = bit_counter.NextWord();
-          if (block.AllSet()) {  // all from left
-            std::fill(out_values, out_values + block.length, left_data);
-          } else if (block.popcount) {  // selectively copy from left
-            for (int64_t i = 0; i < block.length; ++i) {
-              if (BitUtil::GetBit(cond_data, offset + i)) {
-                out_values[i] = left_data;
+            // todo this can be improved by intrinsics. ex: _mm*_mask_store_e* (vmovdqa*)
+            while (offset < cond.offset + cond.length) {
+              const BitBlockCount& block = bit_counter.NextWord();
+              if (block.AllSet()) {  // all from left
+                std::fill(out_values, out_values + block.length, left_data);
+              } else if (block.popcount) {  // selectively copy from left
+                for (int64_t i = 0; i < block.length; ++i) {
+                  if (BitUtil::GetBit(cond_data, offset + i)) {
+                    out_values[i] = left_data;
+                  }
+                }
               }
+
+              offset += block.length;
+              out_values += block.length;
             }
-          }
 
-          offset += block.length;
-          out_values += block.length;
-        }
-
-        out->buffers[1] = std::move(out_buf);*/
+            out->buffers[1] = std::move(out_buf);*/
     return Status::OK();
   }
 };
