@@ -72,7 +72,7 @@ See $.data for the source Arrow object',
     record_batch(tbl, tbl) %>%
       filter(int > 0) %>%
       print(),
-    regexp = "Cannot retrieve field with name"
+    regexp = "Field with name `int` could not be retrieved"
   )
   
 })
