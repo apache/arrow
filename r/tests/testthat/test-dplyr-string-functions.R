@@ -507,7 +507,8 @@ test_that("strptime", {
         x = strptime(x)
       ) %>%
       collect(),
-    t_stamp
+    t_stamp,
+    check.tzone = FALSE
   )
 
   expect_equivalent(
@@ -517,7 +518,8 @@ test_that("strptime", {
         x = strptime(x, format = "%Y-%m-%d %H:%M:%S")
       ) %>%
       collect(),
-    t_stamp
+    t_stamp,
+    check.tzone = FALSE
   )
 
   expect_equivalent(
@@ -527,7 +529,8 @@ test_that("strptime", {
         x = strptime(x, format = "%Y-%m-%d %H:%M:%S", unit = TimeUnit$NANO)
       ) %>%
       collect(),
-    t_stamp
+    t_stamp,
+    check.tzone = FALSE
   )
 
   expect_equivalent(
@@ -537,21 +540,24 @@ test_that("strptime", {
         x = strptime(x, format = "%Y-%m-%d %H:%M:%S", unit = "s")
       ) %>%
       collect(),
-    t_stamp
+    t_stamp,
+    check.tzone = FALSE
   )
 
   expect_equivalent(
     t_string %>%
       Table$create() %>%
-     mutate(
+      mutate(
         x = strptime(x, format = "%Y-%m-%d %H:%M:%S", tz="PDT")
       ) %>%
-     collect(),
-    t_stamp
+      collect(),
+    t_stamp,
+    check.tzone = FALSE
   )
 
   tstring <- tibble(x = c("08-05-2008", NA))
   tstamp <- tibble(x = c(lubridate::mdy("08/05/2008"), NA))
+  tstamp[[1]] <- as.POSIXct(tstamp[[1]])
 
   expect_equivalent(
     tstring %>%
@@ -560,7 +566,8 @@ test_that("strptime", {
         x = strptime(x, format = "%m-%d-%Y")
       ) %>%
       collect(),
-    tstamp
+    tstamp,
+    check.tzone = FALSE
   )
 
 })
