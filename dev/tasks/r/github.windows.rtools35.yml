@@ -1,0 +1,111 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+# NOTE: must set "Crossbow" as name to have the badge links working in the
+# github comment reports!
+
+
+
+# NOTE: must set "Crossbow" as name to have the badge links working in the
+# github comment reports!
+name: Crossbow
+
+on:
+  push:
+    branches:
+      - "*-github-*"
+
+jobs:
+  windows-rtools35:
+  name: "AMD64 Windows R 3.6 RTools 35"
+    runs-on: windows-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+    env:
+      TEST_R_WITH_ARROW: "TRUE"
+      ARROW_R_CXXFLAGS: "-Werror"
+      _R_CHECK_TESTS_NLINES_: 0
+    steps:
+      - run: git config --global core.autocrlf false
+      - name: Checkout Arrow
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+      - name: Make R tests verbose
+        # If you get a segfault/mysterious test Execution halted,
+        # make this `true` to see where it dies.
+        if: false
+        shell: cmd
+        run: |
+          cd r/tests
+        sed -i.bak -E -e 's/"arrow"/"arrow", reporter = "location"/' testthat.R
+        rm -f testthat.R.bak
+      - name: Setup ccache
+        shell: bash
+        run: |
+          ci/scripts/ccache_setup.sh
+        echo "CCACHE_DIR=$(cygpath --absolute --windows ccache)" >> $GITHUB_ENV
+        # We must enable actions/cache before r-lib/actions/setup-r to ensure
+        # using system tar instead of tar provided by Rtools.
+        # We can use tar provided by Rtools when we drop support for Rtools 3.5.
+        # Because Rtools 4.0 or later has zstd. actions/cache requires zstd
+        # when tar is GNU tar.
+      - name: Cache ccache
+        uses: actions/cache@v2
+        with:
+          path: ccache
+        key: r-35-ccache-mingw-${{ hashFiles('cpp/**') }}
+        restore-keys: r-35-ccache-mingw-
+        - uses: r-lib/actions/setup-r@master
+        with:
+          rtools-version: 35
+        r-version: "3.6"
+        Ncpus: 2
+      - name: Build Arrow C++
+        shell: bash
+        env:
+          RTOOLS_VERSION: 35
+        run: ci/scripts/r_windows_build.sh
+      - uses: actions/upload-artifact@v1
+        with:
+          name: Rtools 35 Arrow C++
+          path: libarrow.zip
+      - name: Install R package dependencies
+        shell: Rscript {0}
+        run: |
+          options(pkgType="win.binary")
+        install.packages(c("remotes", "rcmdcheck"))
+        remotes::install_deps("r", dependencies = TRUE)
+      - name: Check
+        shell: Rscript {0}
+        run: |
+          Sys.setenv(
+            RWINLIB_LOCAL = file.path(Sys.getenv("GITHUB_WORKSPACE"), "libarrow.zip"),
+            MAKEFLAGS = paste0("-j", parallel::detectCores())
+          )
+        rcmdcheck::rcmdcheck("r",
+                             build_args = '--no-build-vignettes',
+                             args = c('--no-manual', '--as-cran', '--ignore-vignettes', '--run-donttest'),
+                             error_on = 'warning',
+                             check_dir = 'check',
+                             timeout = 3600
+        )
+      - name: Dump install logs
+        shell: cmd
+        run: cat check/arrow.Rcheck/00install.out
+        if: always()
