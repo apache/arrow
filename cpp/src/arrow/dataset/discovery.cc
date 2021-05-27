@@ -160,7 +160,8 @@ bool StartsWithAnyOf(const std::string& path, const std::vector<std::string>& pr
   auto parts = fs::internal::SplitAbstractPath(path);
   return std::any_of(parts.cbegin(), parts.cend(), [&](util::string_view part) {
     return std::any_of(prefixes.cbegin(), prefixes.cend(), [&](util::string_view prefix) {
-      return util::string_view(part).starts_with(prefix);
+      auto v = util::string_view(part);
+      return v.length() >= prefix.length() && v.substr(0, prefix.length()) == prefix;
     });
   });
 }

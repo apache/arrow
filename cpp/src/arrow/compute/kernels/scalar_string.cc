@@ -1979,8 +1979,11 @@ struct PlainSubStringReplacer {
       : options_(options) {}
 
   Status ReplaceString(util::string_view s, TypedBufferBuilder<uint8_t>* builder) const {
-    const char* i = s.begin();
-    const char* end = s.end();
+    if (s.empty()) {
+      return Status::OK();
+    }
+    const char* i = s.data();
+    const char* end = s.data() + s.length();
     int64_t max_replacements = options_.max_replacements;
     while ((i < end) && (max_replacements != 0)) {
       const char* pos =
@@ -2041,8 +2044,12 @@ struct RegexSubStringReplacer {
   Status ReplaceString(util::string_view s, TypedBufferBuilder<uint8_t>* builder) const {
     re2::StringPiece replacement(options_.replacement);
 
+    if (s.empty()) {
+      return Status::OK();
+    }
+
     if (options_.max_replacements == -1) {
-      std::string s_copy(s.to_string());
+      std::string s_copy(s);
       re2::RE2::GlobalReplace(&s_copy, regex_replacement_, replacement);
       return builder->Append(reinterpret_cast<const uint8_t*>(s_copy.data()),
                              s_copy.length());
@@ -2051,8 +2058,8 @@ struct RegexSubStringReplacer {
     // Since RE2 does not have the concept of max_replacements, we have to do some work
     // ourselves.
     // We might do this faster similar to RE2::GlobalReplace using Match and Rewrite
-    const char* i = s.begin();
-    const char* end = s.end();
+    const char* i = s.data();
+    const char* end = s.data() + s.length();
     re2::StringPiece piece(s.data(), s.length());
 
     int64_t max_replacements = options_.max_replacements;

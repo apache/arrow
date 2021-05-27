@@ -67,44 +67,26 @@ constexpr Unsigned to_unsigned(T signed_) {
   return static_cast<Unsigned>(signed_);
 }
 
+template <bool Checked>
 struct AbsoluteValue {
   template <typename T, typename Arg>
-  static constexpr enable_if_floating_point<T> Call(KernelContext*, T arg, Status*) {
-    return std::fabs(arg);
-  }
-
-  template <typename T, typename Arg>
-  static constexpr enable_if_unsigned_integer<T> Call(KernelContext*, T arg, Status*) {
-    return arg;
-  }
-
-  template <typename T, typename Arg>
-  static constexpr enable_if_signed_integer<T> Call(KernelContext*, T arg, Status* st) {
-    return (arg < 0) ? arrow::internal::SafeSignedNegate(arg) : arg;
-  }
-};
-
-struct AbsoluteValueChecked {
-  template <typename T, typename Arg>
-  static enable_if_signed_integer<T> Call(KernelContext*, Arg arg, Status* st) {
-    static_assert(std::is_same<T, Arg>::value, "");
-    if (arg == std::numeric_limits<Arg>::min()) {
-      *st = Status::Invalid("overflow");
+  static constexpr T Call(KernelContext*, T arg, Status* st) {
+    if constexpr (std::is_floating_point<T>::value) {
+      return std::fabs(arg);
+    } else if constexpr (std::is_signed<T>::value) {
+      if constexpr (Checked) {
+        if (ARROW_PREDICT_FALSE(arg == std::numeric_limits<T>::min())) {
+          *st = Status::Invalid("overflow");
+          return arg;
+        }
+        return std::abs(arg);
+      } else {
+        // Unchecked
+        return (arg < 0) ? arrow::internal::SafeSignedNegate(arg) : arg;
+      }
+    } else {
       return arg;
     }
-    return std::abs(arg);
-  }
-
-  template <typename T, typename Arg>
-  static enable_if_unsigned_integer<T> Call(KernelContext* ctx, Arg arg, Status* st) {
-    static_assert(std::is_same<T, Arg>::value, "");
-    return arg;
-  }
-
-  template <typename T, typename Arg>
-  static constexpr enable_if_floating_point<T> Call(KernelContext*, Arg arg, Status* st) {
-    static_assert(std::is_same<T, Arg>::value, "");
-    return std::fabs(arg);
   }
 };
 
@@ -606,13 +588,14 @@ const FunctionDoc pow_checked_doc{
 
 void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // ----------------------------------------------------------------------
-  auto absolute_value =
-      MakeUnaryArithmeticFunction<AbsoluteValue>("abs", &absolute_value_doc);
+  auto absolute_value = MakeUnaryArithmeticFunction<AbsoluteValue</*Checked=*/false>>(
+      "abs", &absolute_value_doc);
   DCHECK_OK(registry->AddFunction(std::move(absolute_value)));
 
   // ----------------------------------------------------------------------
-  auto absolute_value_checked = MakeUnaryArithmeticFunctionNotNull<AbsoluteValueChecked>(
-      "abs_checked", &absolute_value_checked_doc);
+  auto absolute_value_checked =
+      MakeUnaryArithmeticFunctionNotNull<AbsoluteValue</*Checked=*/true>>(
+          "abs_checked", &absolute_value_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(absolute_value_checked)));
 
   // ----------------------------------------------------------------------

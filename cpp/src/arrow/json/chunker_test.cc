@@ -148,16 +148,20 @@ void AssertChunkingBlockSize(Chunker& chunker, std::shared_ptr<Buffer> buf,
   ASSERT_EQ(total_count, expected_count);
 }
 
+bool StartsWith(util::string_view a, util::string_view b) {
+  return a.length() >= b.length() && a.substr(0, b.length()) == b;
+}
+
 void AssertStraddledChunking(Chunker& chunker, const std::shared_ptr<Buffer>& buf) {
   auto first_half = SliceBuffer(buf, 0, buf->size() / 2);
   auto second_half = SliceBuffer(buf, buf->size() / 2);
   AssertChunking(chunker, first_half, 1);
   std::shared_ptr<Buffer> first_whole, partial;
   ASSERT_OK(chunker.Process(first_half, &first_whole, &partial));
-  ASSERT_TRUE(string_view(*first_half).starts_with(string_view(*first_whole)));
+  ASSERT_TRUE(StartsWith(string_view(*first_half), string_view(*first_whole)));
   std::shared_ptr<Buffer> completion, rest;
   ASSERT_OK(chunker.ProcessWithPartial(partial, second_half, &completion, &rest));
-  ASSERT_TRUE(string_view(*second_half).starts_with(string_view(*completion)));
+  ASSERT_TRUE(StartsWith(string_view(*second_half), string_view(*completion)));
   std::shared_ptr<Buffer> straddling;
   ASSERT_OK_AND_ASSIGN(straddling, ConcatenateBuffers({partial, completion}));
   auto length = ConsumeWholeObject(&straddling);

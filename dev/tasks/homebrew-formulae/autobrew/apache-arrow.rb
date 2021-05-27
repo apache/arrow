@@ -39,7 +39,7 @@ class ApacheArrow < Formula
   depends_on "zstd"
 
   def install
-    ENV.cxx11
+    ENV.cxx17
     args = %W[
       -DARROW_BUILD_SHARED=OFF
       -DARROW_BUILD_UTILITIES=ON
@@ -82,7 +82,7 @@ class ApacheArrow < Formula
         return 0;
       }
     EOS
-    system ENV.cxx, "test.cpp", "-std=c++11", "-I#{include}", "-L#{lib}", "-larrow", "-o", "test"
+    system ENV.cxx, "test.cpp", "-std=c++17", "-I#{include}", "-L#{lib}", "-larrow", "-o", "test"
     system "./test"
   end
 end

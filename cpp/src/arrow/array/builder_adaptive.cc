@@ -61,24 +61,20 @@ Status AdaptiveIntBuilderBase::Resize(int64_t capacity) {
 }
 
 template <typename new_type, typename old_type>
-typename std::enable_if<sizeof(old_type) >= sizeof(new_type), Status>::type
-AdaptiveIntBuilderBase::ExpandIntSizeInternal() {
-  return Status::OK();
-}
+Status AdaptiveIntBuilderBase::ExpandIntSizeInternal() {
+  if constexpr (sizeof(old_type) >= sizeof(new_type)) {
+    return Status::OK();
+  } else {
+    int_size_ = sizeof(new_type);
+    RETURN_NOT_OK(Resize(data_->size() / sizeof(old_type)));
 
-template <typename new_type, typename old_type>
-typename std::enable_if<(sizeof(old_type) < sizeof(new_type)), Status>::type
-AdaptiveIntBuilderBase::ExpandIntSizeInternal() {
-  int_size_ = sizeof(new_type);
-  RETURN_NOT_OK(Resize(data_->size() / sizeof(old_type)));
-
-  const old_type* src = reinterpret_cast<old_type*>(raw_data_);
-  new_type* dst = reinterpret_cast<new_type*>(raw_data_);
-  // By doing the backward copy, we ensure that no element is overridden during
-  // the copy process while the copy stays in-place.
-  std::copy_backward(src, src + length_, dst + length_);
-
-  return Status::OK();
+    const old_type* src = reinterpret_cast<old_type*>(raw_data_);
+    new_type* dst = reinterpret_cast<new_type*>(raw_data_);
+    // By doing the backward copy, we ensure that no element is overridden during
+    // the copy process while the copy stays in-place.
+    std::copy_backward(src, src + length_, dst + length_);
+    return Status::OK();
+  }
 }
 
 std::shared_ptr<DataType> AdaptiveUIntBuilder::type() const {

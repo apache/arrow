@@ -310,10 +310,6 @@ build_libarrow <- function(src_dir, dst_dir) {
   options(.arrow.cleanup = c(getOption(".arrow.cleanup"), build_dir))
 
   R_CMD_config <- function(var) {
-    if (getRversion() < 3.4) {
-      # var names were called CXX1X instead of CXX11
-      var <- sub("^CXX11", "CXX1X", var)
-    }
     # tools::Rcmd introduced R 3.3
     tools::Rcmd(paste("config", var), stdout = TRUE)
   }
@@ -324,8 +320,8 @@ build_libarrow <- function(src_dir, dst_dir) {
     CMAKE = cmake,
     # Make sure we build with the same compiler settings that R is using
     CC = R_CMD_config("CC"),
-    CXX = paste(R_CMD_config("CXX11"), R_CMD_config("CXX11STD")),
-    # CXXFLAGS = R_CMD_config("CXX11FLAGS"), # We don't want the same debug symbols
+    CXX = paste(R_CMD_config("CXX17"), R_CMD_config("CXX17STD")),
+    # CXXFLAGS = R_CMD_config("CXX17FLAGS"), # We don't want the same debug symbols
     LDFLAGS = R_CMD_config("LDFLAGS")
   )
   env_vars <- paste0(names(env_var_list), '="', env_var_list, '"', collapse = " ")

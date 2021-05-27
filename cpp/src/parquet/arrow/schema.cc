@@ -486,7 +486,10 @@ Status PopulateLeaf(int column_index, const std::shared_ptr<Field>& field,
 //   even for single child elements.
 bool HasStructListName(const GroupNode& node) {
   ::arrow::util::string_view name{node.name()};
-  return name == "array" || name.ends_with("_tuple");
+  constexpr ::arrow::util::string_view kTupleSuffix = "_tuple";
+  return name == "array" ||
+         (name.length() >= kTupleSuffix.length() &&
+          name.substr(name.length() - kTupleSuffix.length()) == kTupleSuffix);
 }
 
 Status GroupToStruct(const GroupNode& node, LevelInfo current_levels,

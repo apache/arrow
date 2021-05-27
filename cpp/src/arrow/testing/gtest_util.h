@@ -24,6 +24,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -603,18 +604,13 @@ class ARROW_TESTING_EXPORT GatingTask {
 
 }  // namespace arrow
 
-namespace nonstd {
-namespace sv_lite {
+namespace std {
 
 // Without this hint, GTest will print string_views as a container of char
 template <class Char, class Traits = std::char_traits<Char>>
 void PrintTo(const basic_string_view<Char, Traits>& view, std::ostream* os) {
   *os << view;
 }
-
-}  // namespace sv_lite
-
-namespace optional_lite {
 
 template <typename T>
 void PrintTo(const optional<T>& opt, std::ostream* os) {
@@ -629,5 +625,4 @@ void PrintTo(const optional<T>& opt, std::ostream* os) {
 
 inline void PrintTo(const decltype(nullopt)&, std::ostream* os) { *os << "nullopt"; }
 
-}  // namespace optional_lite
-}  // namespace nonstd
+}  // namespace std

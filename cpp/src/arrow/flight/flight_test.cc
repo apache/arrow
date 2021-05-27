@@ -857,7 +857,7 @@ std::string FindKeyValPrefixInCallHeaders(const CallHeaders& incoming_headers,
   if (iter == incoming_headers.end()) {
     return "";
   }
-  const std::string val = iter->second.to_string();
+  const std::string val(iter->second);
   if (val.size() > prefix.length()) {
     if (std::equal(val.begin(), val.begin() + prefix.length(), prefix.begin(),
                    char_compare)) {

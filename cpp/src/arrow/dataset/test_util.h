@@ -1203,7 +1203,7 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
       }
 
       auto expected_struct = ArrayFromJSON(struct_(expected_physical_schema_->fields()),
-                                           {file_contents->second});
+                                           util::string_view{file_contents->second});
 
       AssertArraysEqual(*expected_struct, *actual_struct, /*verbose=*/true);
     }

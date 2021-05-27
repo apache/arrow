@@ -155,6 +155,10 @@ Result<std::string> MakeAbstractPathRelative(const std::string& base,
   return std::string(RemoveLeadingSlash(p));
 }
 
+static bool StartsWith(util::string_view a, util::string_view b) {
+  return a.length() >= b.length() && a.substr(0, b.length()) == b;
+}
+
 bool IsAncestorOf(util::string_view ancestor, util::string_view descendant) {
   ancestor = RemoveTrailingSlash(ancestor);
   if (ancestor == "") {
@@ -163,7 +167,7 @@ bool IsAncestorOf(util::string_view ancestor, util::string_view descendant) {
   }
 
   descendant = RemoveTrailingSlash(descendant);
-  if (!descendant.starts_with(ancestor)) {
+  if (!StartsWith(descendant, ancestor)) {
     // an ancestor path is a prefix of descendant paths
     return false;
   }
@@ -176,7 +180,7 @@ bool IsAncestorOf(util::string_view ancestor, util::string_view descendant) {
   }
 
   // "/hello/w" is not an ancestor of "/hello/world"
-  return descendant.starts_with(std::string{kSep});
+  return StartsWith(descendant, std::string{kSep});
 }
 
 util::optional<util::string_view> RemoveAncestor(util::string_view ancestor,

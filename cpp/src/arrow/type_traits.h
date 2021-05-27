@@ -790,7 +790,7 @@ template <typename T, typename R = void>
 using enable_if_physical_floating_point =
     enable_if_t<is_physical_floating_type<T>::value, R>;
 
-static inline bool is_integer(Type::type type_id) {
+static constexpr inline bool is_integer(Type::type type_id) {
   switch (type_id) {
     case Type::UINT8:
     case Type::INT8:
@@ -807,7 +807,7 @@ static inline bool is_integer(Type::type type_id) {
   return false;
 }
 
-static inline bool is_signed_integer(Type::type type_id) {
+static constexpr inline bool is_signed_integer(Type::type type_id) {
   switch (type_id) {
     case Type::INT8:
     case Type::INT16:
@@ -820,7 +820,7 @@ static inline bool is_signed_integer(Type::type type_id) {
   return false;
 }
 
-static inline bool is_unsigned_integer(Type::type type_id) {
+static constexpr inline bool is_unsigned_integer(Type::type type_id) {
   switch (type_id) {
     case Type::UINT8:
     case Type::UINT16:
@@ -833,7 +833,7 @@ static inline bool is_unsigned_integer(Type::type type_id) {
   return false;
 }
 
-static inline bool is_floating(Type::type type_id) {
+static constexpr inline bool is_floating(Type::type type_id) {
   switch (type_id) {
     case Type::HALF_FLOAT:
     case Type::FLOAT:
@@ -845,7 +845,7 @@ static inline bool is_floating(Type::type type_id) {
   return false;
 }
 
-static inline bool is_primitive(Type::type type_id) {
+static constexpr inline bool is_primitive(Type::type type_id) {
   switch (type_id) {
     case Type::BOOL:
     case Type::UINT8:
@@ -874,7 +874,7 @@ static inline bool is_primitive(Type::type type_id) {
   return false;
 }
 
-static inline bool is_base_binary_like(Type::type type_id) {
+static constexpr inline bool is_base_binary_like(Type::type type_id) {
   switch (type_id) {
     case Type::BINARY:
     case Type::LARGE_BINARY:
@@ -887,7 +887,7 @@ static inline bool is_base_binary_like(Type::type type_id) {
   return false;
 }
 
-static inline bool is_binary_like(Type::type type_id) {
+static constexpr inline bool is_binary_like(Type::type type_id) {
   switch (type_id) {
     case Type::BINARY:
     case Type::STRING:
@@ -898,7 +898,7 @@ static inline bool is_binary_like(Type::type type_id) {
   return false;
 }
 
-static inline bool is_large_binary_like(Type::type type_id) {
+static constexpr inline bool is_large_binary_like(Type::type type_id) {
   switch (type_id) {
     case Type::LARGE_BINARY:
     case Type::LARGE_STRING:
@@ -909,11 +909,11 @@ static inline bool is_large_binary_like(Type::type type_id) {
   return false;
 }
 
-static inline bool is_dictionary(Type::type type_id) {
+static constexpr inline bool is_dictionary(Type::type type_id) {
   return type_id == Type::DICTIONARY;
 }
 
-static inline bool is_fixed_size_binary(Type::type type_id) {
+static constexpr inline bool is_fixed_size_binary(Type::type type_id) {
   switch (type_id) {
     case Type::DECIMAL128:
     case Type::DECIMAL256:
@@ -925,11 +925,11 @@ static inline bool is_fixed_size_binary(Type::type type_id) {
   return false;
 }
 
-static inline bool is_fixed_width(Type::type type_id) {
+static constexpr inline bool is_fixed_width(Type::type type_id) {
   return is_primitive(type_id) || is_dictionary(type_id) || is_fixed_size_binary(type_id);
 }
 
-static inline int bit_width(Type::type type_id) {
+static constexpr inline int bit_width(Type::type type_id) {
   switch (type_id) {
     case Type::BOOL:
       return 1;
@@ -975,7 +975,7 @@ static inline int bit_width(Type::type type_id) {
   return 0;
 }
 
-static inline bool is_nested(Type::type type_id) {
+static constexpr inline bool is_nested(Type::type type_id) {
   switch (type_id) {
     case Type::LIST:
     case Type::LARGE_LIST:
@@ -991,7 +991,7 @@ static inline bool is_nested(Type::type type_id) {
   return false;
 }
 
-static inline int offset_bit_width(Type::type type_id) {
+static constexpr inline int offset_bit_width(Type::type type_id) {
   switch (type_id) {
     case Type::STRING:
     case Type::BINARY:

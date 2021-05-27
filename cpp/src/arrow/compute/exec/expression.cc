@@ -146,7 +146,8 @@ std::string Expression::ToString() const {
   }
 
   constexpr util::string_view kleene = "_kleene";
-  if (util::string_view{call->function_name}.ends_with(kleene)) {
+  auto v = util::string_view{call->function_name};
+  if (v.length() >= kleene.length() && v.substr(v.length() - kleene.length()) == kleene) {
     auto op = call->function_name.substr(0, call->function_name.size() - kleene.size());
     return binary(std::move(op));
   }

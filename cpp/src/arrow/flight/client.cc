@@ -347,23 +347,23 @@ class GrpcClientInterceptorAdapterFactory
 
     FlightMethod flight_method = FlightMethod::Invalid;
     util::string_view method(info->method());
-    if (method.ends_with("/Handshake")) {
+    if (EndsWith(method, "/Handshake")) {
       flight_method = FlightMethod::Handshake;
-    } else if (method.ends_with("/ListFlights")) {
+    } else if (EndsWith(method, "/ListFlights")) {
       flight_method = FlightMethod::ListFlights;
-    } else if (method.ends_with("/GetFlightInfo")) {
+    } else if (EndsWith(method, "/GetFlightInfo")) {
       flight_method = FlightMethod::GetFlightInfo;
-    } else if (method.ends_with("/GetSchema")) {
+    } else if (EndsWith(method, "/GetSchema")) {
       flight_method = FlightMethod::GetSchema;
-    } else if (method.ends_with("/DoGet")) {
+    } else if (EndsWith(method, "/DoGet")) {
       flight_method = FlightMethod::DoGet;
-    } else if (method.ends_with("/DoPut")) {
+    } else if (EndsWith(method, "/DoPut")) {
       flight_method = FlightMethod::DoPut;
-    } else if (method.ends_with("/DoExchange")) {
+    } else if (EndsWith(method, "/DoExchange")) {
       flight_method = FlightMethod::DoExchange;
-    } else if (method.ends_with("/DoAction")) {
+    } else if (EndsWith(method, "/DoAction")) {
       flight_method = FlightMethod::DoAction;
-    } else if (method.ends_with("/ListActions")) {
+    } else if (EndsWith(method, "/ListActions")) {
       flight_method = FlightMethod::ListActions;
     } else {
       DCHECK(false) << "Unknown Flight method: " << info->method();
@@ -381,6 +381,10 @@ class GrpcClientInterceptorAdapterFactory
   }
 
  private:
+  static bool EndsWith(util::string_view a, util::string_view b) {
+    return a.length() >= b.length() && a.substr(a.length() - b.length()) == b;
+  }
+
   std::vector<std::shared_ptr<ClientMiddlewareFactory>> middleware_;
 };
 

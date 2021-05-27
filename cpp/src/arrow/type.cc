@@ -1093,7 +1093,7 @@ Result<FieldRef> FieldRef::FromDotPath(const std::string& dot_path_arg) {
 
       if (dot_path[segment_end] != '\\') {
         // segment_end points to a subscript for a new FieldRef
-        name.append(dot_path.begin(), segment_end);
+        name.append(dot_path.data(), segment_end);
         dot_path = dot_path.substr(segment_end);
         break;
       }
@@ -1106,7 +1106,7 @@ Result<FieldRef> FieldRef::FromDotPath(const std::string& dot_path_arg) {
       }
 
       // append all characters before backslash, then the character which follows it
-      name.append(dot_path.begin(), segment_end);
+      name.append(dot_path.data(), segment_end);
       name.push_back(dot_path[segment_end + 1]);
       dot_path = dot_path.substr(segment_end + 2);
     }

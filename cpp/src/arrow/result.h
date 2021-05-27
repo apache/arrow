@@ -34,15 +34,6 @@ struct EnsureResult;
 
 namespace internal {
 
-#if __cplusplus >= 201703L
-using std::launder;
-#else
-template <class T>
-constexpr T* launder(T* p) noexcept {
-  return p;
-}
-#endif
-
 ARROW_EXPORT void DieWithMessage(const std::string& msg);
 
 ARROW_EXPORT void InvalidValueOrDie(const Status& st);
@@ -426,16 +417,14 @@ class ARROW_MUST_USE_TYPE Result : public util::EqualityComparable<Result<T>> {
   }
 
   const T& ValueUnsafe() const& {
-    return *internal::launder(reinterpret_cast<const T*>(&data_));
+    return *std::launder(reinterpret_cast<const T*>(&data_));
   }
 
-  T& ValueUnsafe() & { return *internal::launder(reinterpret_cast<T*>(&data_)); }
+  T& ValueUnsafe() & { return *std::launder(reinterpret_cast<T*>(&data_)); }
 
   T ValueUnsafe() && { return MoveValueUnsafe(); }
 
-  T MoveValueUnsafe() {
-    return std::move(*internal::launder(reinterpret_cast<T*>(&data_)));
-  }
+  T MoveValueUnsafe() { return std::move(*std::launder(reinterpret_cast<T*>(&data_))); }
 
  private:
   Status status_;  // pointer-sized
@@ -450,7 +439,9 @@ class ARROW_MUST_USE_TYPE Result : public util::EqualityComparable<Result<T>> {
     if (ARROW_PREDICT_TRUE(status_.ok())) {
       static_assert(offsetof(Result<T>, status_) == 0,
                     "Status is guaranteed to be at the start of Result<>");
-      internal::launder(reinterpret_cast<const T*>(&data_))->~T();
+      auto ptr = std::launder(reinterpret_cast<const T*>(&data_));
+      ptr->~T();
+      ARROW_UNUSED(ptr);  // for MSVC
     }
   }
 };

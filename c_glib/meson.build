@@ -20,7 +20,7 @@
 project('arrow-glib', 'c', 'cpp',
         license: 'Apache-2.0',
         default_options: [
-          'cpp_std=c++11',
+          'cpp_std=c++17',
         ])
 
 version = '5.0.0-SNAPSHOT'

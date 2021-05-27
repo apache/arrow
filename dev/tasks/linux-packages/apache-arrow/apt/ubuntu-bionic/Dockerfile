@@ -72,7 +72,7 @@ RUN \
    echo "Name: re2" && \
    echo "Description: RE2 is a fast, safe, thread-friendly regular expression engine." && \
    echo "Version: 0.0.0" && \
-   echo "Cflags: -std=c++11 -pthread -I\${includedir}" && \
+   echo "Cflags: -std=c++17 -pthread -I\${includedir}" && \
    echo "Libs: -pthread -L\${libdir} -lre2") | \
     tee "/usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)/pkgconfig/re2.pc" && \
   if apt list | grep '^nvidia-cuda-toolkit/'; then \

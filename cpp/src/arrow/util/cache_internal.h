@@ -73,9 +73,7 @@ class LruCache {
   template <typename K, typename V>
   std::pair<bool, Value*> Replace(K&& key, V&& value) {
     // Try to insert temporary iterator
-    auto pair = map_.emplace(std::forward<K>(key), ListIt{});
-    const auto it = pair.first;
-    const bool inserted = pair.second;
+    const auto [it, inserted] = map_.try_emplace(std::forward<K>(key), ListIt{});
     if (inserted) {
       // Inserted => push item at front of the list, and update iterator
       items_.push_front(Item{&it->first, std::forward<V>(value)});
@@ -174,22 +172,17 @@ template <template <typename...> class Cache, template <typename...> class Memoi
           typename RetType = typename Memoizer::RetType>
 static std::function<RetType(const Key&)> Memoize(Func&& func, int32_t cache_capacity) {
   // std::function<> requires copy constructibility
-  struct {
-    RetType operator()(const Key& key) const { return (*memoized_)(key); }
-    std::shared_ptr<Memoizer> memoized_;
-  } shared_memoized = {
-      std::make_shared<Memoizer>(std::forward<Func>(func), cache_capacity)};
-
-  return shared_memoized;
+  auto memoized = std::make_shared<Memoizer>(std::forward<Func>(func), cache_capacity);
+  return [memoized = std::move(memoized)](const Key& key) -> RetType {
+    return (*memoized)(key);
+  };
 }
 
 }  // namespace detail
 
 // Apply a LRU memoization cache to a callable.
 template <typename Func>
-static auto MemoizeLru(Func&& func, int32_t cache_capacity)
-    -> decltype(detail::Memoize<LruCache, detail::ThreadSafeMemoizer>(
-        std::forward<Func>(func), cache_capacity)) {
+static auto MemoizeLru(Func&& func, int32_t cache_capacity) -> auto {
   return detail::Memoize<LruCache, detail::ThreadSafeMemoizer>(std::forward<Func>(func),
                                                                cache_capacity);
 }
@@ -199,9 +192,7 @@ static auto MemoizeLru(Func&& func, int32_t cache_capacity)
 // A recommended usage is to declare per-thread caches using `thread_local`
 // (see cache_benchmark.cc).
 template <typename Func>
-static auto MemoizeLruThreadUnsafe(Func&& func, int32_t cache_capacity)
-    -> decltype(detail::Memoize<LruCache, detail::ThreadUnsafeMemoizer>(
-        std::forward<Func>(func), cache_capacity)) {
+static auto MemoizeLruThreadUnsafe(Func&& func, int32_t cache_capacity) -> auto {
   return detail::Memoize<LruCache, detail::ThreadUnsafeMemoizer>(std::forward<Func>(func),
                                                                  cache_capacity);
 }

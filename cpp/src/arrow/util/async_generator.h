@@ -77,8 +77,8 @@ template <typename T>
 Future<> VisitAsyncGenerator(AsyncGenerator<T> generator,
                              std::function<Status(T)> visitor) {
   struct LoopBody {
-    struct Callback {
-      Result<ControlFlow<>> operator()(const T& result) {
+    Future<ControlFlow<>> operator()() {
+      auto callback = [visitor = visitor](const T& result) -> Result<ControlFlow<>> {
         if (IsIterationEnd(result)) {
           return Break();
         } else {
@@ -89,13 +89,7 @@ Future<> VisitAsyncGenerator(AsyncGenerator<T> generator,
             return visited;
           }
         }
-      }
-
-      std::function<Status(T)> visitor;
-    };
-
-    Future<ControlFlow<>> operator()() {
-      Callback callback{visitor};
+      };
       auto next = generator();
       return next.Then(std::move(callback));
     }
@@ -121,15 +115,15 @@ Future<std::vector<T>> CollectAsyncGenerator(AsyncGenerator<T> generator) {
   struct LoopBody {
     Future<ControlFlow<std::vector<T>>> operator()() {
       auto next = generator_();
-      auto vec = vec_;
-      return next.Then([vec](const T& result) -> Result<ControlFlow<std::vector<T>>> {
-        if (IsIterationEnd(result)) {
-          return Break(*vec);
-        } else {
-          vec->push_back(result);
-          return Continue();
-        }
-      });
+      return next.Then(
+          [vec = vec_](const T& result) -> Result<ControlFlow<std::vector<T>>> {
+            if (IsIterationEnd(result)) {
+              return Break(*vec);
+            } else {
+              vec->push_back(result);
+              return Continue();
+            }
+          });
     }
     AsyncGenerator<T> generator_;
     std::shared_ptr<std::vector<T>> vec_;

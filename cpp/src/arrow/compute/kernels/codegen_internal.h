@@ -603,107 +603,97 @@ struct ScalarUnaryNotNullStateful {
   Op op;
   explicit ScalarUnaryNotNullStateful(Op op) : op(std::move(op)) {}
 
-  // NOTE: In ArrayExec<Type>, Type is really OutputType
+  Status ArrayExecNotImplemented(KernelContext* ctx, const ArrayData& batch, Datum* out) {
+    ARROW_LOG(FATAL) << "Missing ArrayExec specialization for output type "
+                     << out->type();
+    return Status::NotImplemented("NYI");
+  }
 
-  template <typename Type, typename Enable = void>
-  struct ArrayExec {
-    static Status Exec(const ThisType& functor, KernelContext* ctx,
-                       const ExecBatch& batch, Datum* out) {
-      ARROW_LOG(FATAL) << "Missing ArrayExec specialization for output type "
-                       << out->type();
-      return Status::NotImplemented("NYI");
-    }
-  };
+  Status ArrayExecPrimitive(KernelContext* ctx, const ArrayData& arg0, Datum* out) {
+    Status st = Status::OK();
+    ArrayData* out_arr = out->mutable_array();
+    auto out_data = out_arr->GetMutableValues<OutValue>(1);
+    VisitArrayValuesInline<Arg0Type>(
+        arg0,
+        [&](Arg0Value v) {
+          *out_data++ = op.template Call<OutValue, Arg0Value>(ctx, v, &st);
+        },
+        [&]() {
+          // null
+          ++out_data;
+        });
+    return st;
+  }
 
-  template <typename Type>
-  struct ArrayExec<
-      Type, enable_if_t<has_c_type<Type>::value && !is_boolean_type<Type>::value>> {
-    static Status Exec(const ThisType& functor, KernelContext* ctx, const ArrayData& arg0,
-                       Datum* out) {
-      Status st = Status::OK();
-      ArrayData* out_arr = out->mutable_array();
-      auto out_data = out_arr->GetMutableValues<OutValue>(1);
-      VisitArrayValuesInline<Arg0Type>(
-          arg0,
-          [&](Arg0Value v) {
-            *out_data++ = functor.op.template Call<OutValue, Arg0Value>(ctx, v, &st);
-          },
-          [&]() {
-            // null
-            ++out_data;
-          });
-      return st;
+  Status ArrayExecBinary(KernelContext* ctx, const ArrayData& arg0, Datum* out) {
+    // NOTE: This code is not currently used by any kernels and has
+    // suboptimal performance because it's recomputing the validity bitmap
+    // that is already computed by the kernel execution layer. Consider
+    // writing a lower-level "output adapter" for base binary types.
+    typename TypeTraits<OutType>::BuilderType builder;
+    Status st = Status::OK();
+    RETURN_NOT_OK(VisitArrayValuesInline<Arg0Type>(
+        arg0, [&](Arg0Value v) { return builder.Append(op.Call(ctx, v, &st)); },
+        [&]() { return builder.AppendNull(); }));
+    if (st.ok()) {
+      std::shared_ptr<ArrayData> result;
+      RETURN_NOT_OK(builder.FinishInternal(&result));
+      out->value = std::move(result);
     }
-  };
+    return st;
+  }
 
-  template <typename Type>
-  struct ArrayExec<Type, enable_if_base_binary<Type>> {
-    static Status Exec(const ThisType& functor, KernelContext* ctx, const ArrayData& arg0,
-                       Datum* out) {
-      // NOTE: This code is not currently used by any kernels and has
-      // suboptimal performance because it's recomputing the validity bitmap
-      // that is already computed by the kernel execution layer. Consider
-      // writing a lower-level "output adapter" for base binary types.
-      typename TypeTraits<Type>::BuilderType builder;
-      Status st = Status::OK();
-      RETURN_NOT_OK(VisitArrayValuesInline<Arg0Type>(
-          arg0, [&](Arg0Value v) { return builder.Append(functor.op.Call(ctx, v, &st)); },
-          [&]() { return builder.AppendNull(); }));
-      if (st.ok()) {
-        std::shared_ptr<ArrayData> result;
-        RETURN_NOT_OK(builder.FinishInternal(&result));
-        out->value = std::move(result);
-      }
-      return st;
-    }
-  };
+  Status ArrayExecBoolean(KernelContext* ctx, const ArrayData& arg0, Datum* out) {
+    Status st = Status::OK();
+    ArrayData* out_arr = out->mutable_array();
+    FirstTimeBitmapWriter out_writer(out_arr->buffers[1]->mutable_data(), out_arr->offset,
+                                     out_arr->length);
+    VisitArrayValuesInline<Arg0Type>(
+        arg0,
+        [&](Arg0Value v) {
+          if (op.template Call<OutValue, Arg0Value>(ctx, v, &st)) {
+            out_writer.Set();
+          }
+          out_writer.Next();
+        },
+        [&]() {
+          // null
+          out_writer.Clear();
+          out_writer.Next();
+        });
+    out_writer.Finish();
+    return st;
+  }
 
-  template <typename Type>
-  struct ArrayExec<Type, enable_if_t<is_boolean_type<Type>::value>> {
-    static Status Exec(const ThisType& functor, KernelContext* ctx, const ArrayData& arg0,
-                       Datum* out) {
-      Status st = Status::OK();
-      ArrayData* out_arr = out->mutable_array();
-      FirstTimeBitmapWriter out_writer(out_arr->buffers[1]->mutable_data(),
-                                       out_arr->offset, out_arr->length);
-      VisitArrayValuesInline<Arg0Type>(
-          arg0,
-          [&](Arg0Value v) {
-            if (functor.op.template Call<OutValue, Arg0Value>(ctx, v, &st)) {
-              out_writer.Set();
-            }
-            out_writer.Next();
-          },
-          [&]() {
-            // null
-            out_writer.Clear();
-            out_writer.Next();
-          });
-      out_writer.Finish();
-      return st;
-    }
-  };
+  Status ArrayExecDecimal(KernelContext* ctx, const ArrayData& arg0, Datum* out) {
+    Status st = Status::OK();
+    ArrayData* out_arr = out->mutable_array();
+    // Decimal128 data buffers are not safely reinterpret_cast-able on big-endian
+    using endian_agnostic =
+        std::array<uint8_t, sizeof(typename TypeTraits<OutType>::ScalarType::ValueType)>;
+    auto out_data = out_arr->GetMutableValues<endian_agnostic>(1);
+    VisitArrayValuesInline<Arg0Type>(
+        arg0,
+        [&](Arg0Value v) {
+          op.template Call<OutValue, Arg0Value>(ctx, v, &st).ToBytes(out_data++->data());
+        },
+        [&]() { ++out_data; });
+    return st;
+  }
 
-  template <typename Type>
-  struct ArrayExec<Type, enable_if_decimal<Type>> {
-    static Status Exec(const ThisType& functor, KernelContext* ctx, const ArrayData& arg0,
-                       Datum* out) {
-      Status st = Status::OK();
-      ArrayData* out_arr = out->mutable_array();
-      // Decimal128 data buffers are not safely reinterpret_cast-able on big-endian
-      using endian_agnostic =
-          std::array<uint8_t, sizeof(typename TypeTraits<Type>::ScalarType::ValueType)>;
-      auto out_data = out_arr->GetMutableValues<endian_agnostic>(1);
-      VisitArrayValuesInline<Arg0Type>(
-          arg0,
-          [&](Arg0Value v) {
-            functor.op.template Call<OutValue, Arg0Value>(ctx, v, &st)
-                .ToBytes(out_data++->data());
-          },
-          [&]() { ++out_data; });
-      return st;
+  Status Array(KernelContext* ctx, const ArrayData& arg0, Datum* out) {
+    if constexpr (is_decimal_type<OutType>::value) {
+      return ArrayExecDecimal(ctx, arg0, out);
+    } else if constexpr (is_boolean_type<OutType>::value) {
+      return ArrayExecBoolean(ctx, arg0, out);
+    } else if constexpr (is_base_binary_type<OutType>::value) {
+      return ArrayExecBinary(ctx, arg0, out);
+    } else if constexpr (has_c_type<OutType>::value) {
+      return ArrayExecPrimitive(ctx, arg0, out);
+    } else {
+      return ArrayExecNotImplemented(ctx, arg0, out);
     }
-  };
+  }
 
   Status Scalar(KernelContext* ctx, const Scalar& arg0, Datum* out) {
     Status st = Status::OK();
@@ -718,7 +708,7 @@ struct ScalarUnaryNotNullStateful {
 
   Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     if (batch[0].kind() == Datum::ARRAY) {
-      return ArrayExec<OutType>::Exec(*this, ctx, *batch[0].array(), out);
+      return Array(ctx, *batch[0].array(), out);
     } else {
       return Scalar(ctx, *batch[0].scalar(), out);
     }

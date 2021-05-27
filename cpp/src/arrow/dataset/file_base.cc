@@ -65,7 +65,6 @@ Result<std::shared_ptr<io::InputStream>> FileSource::OpenCompressed(
   if (!compression.has_value()) {
     // Guess compression from file extension
     auto extension = fs::internal::GetAbstractPathExtension(path());
-    util::string_view file_path(path());
     if (extension == "gz") {
       actual_compression = Compression::type::GZIP;
     } else {
