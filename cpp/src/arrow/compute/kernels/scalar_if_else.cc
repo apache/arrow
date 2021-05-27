@@ -20,7 +20,7 @@
 #include <arrow/util/bitmap.h>
 #include <arrow/util/bitmap_ops.h>
 
-#include "codegen_internal.h"
+#include "arrow/compute/kernels/codegen_internal.h"
 
 namespace arrow {
 using internal::BitBlockCount;
@@ -699,14 +699,63 @@ struct IfElseFunctor<Type, enable_if_boolean<Type>> {
   // AAS
   static Status Call(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
                      const Scalar& right, ArrayData* out) {
-    // todo impl
+    ARROW_RETURN_NOT_OK(PromoteNullsVisitor(ctx, cond, left, right, out));
+
+    // out_buff = left & cond
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
+                          arrow::internal::BitmapAnd(
+                              ctx->memory_pool(), left.buffers[1]->data(), left.offset,
+                              cond.buffers[1]->data(), cond.offset, cond.length, 0));
+
+    bool right_data = internal::UnboxScalar<BooleanType>::Unbox(right);
+
+    // out_buff = left & cond | right & ~cond
+    if (right_data) {
+      ARROW_ASSIGN_OR_RAISE(
+          std::shared_ptr<Buffer> tmp_buf,
+          arrow::internal::InvertBitmap(ctx->memory_pool(), cond.buffers[1]->data(),
+                                        cond.offset, cond.length));
+      arrow::internal::BitmapOr(tmp_buf->data(), 0, out_buf->data(), 0, cond.length, 0,
+                                out_buf->mutable_data());
+    }
+
+    out->buffers[1] = std::move(out_buf);
     return Status::OK();
   }
 
   // ASS
   static Status Call(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
                      const Scalar& right, ArrayData* out) {
-    // todo impl
+    ARROW_RETURN_NOT_OK(PromoteNullsVisitor(ctx, cond, left, right, out));
+
+    bool left_data = internal::UnboxScalar<BooleanType>::Unbox(left);
+    bool right_data = internal::UnboxScalar<BooleanType>::Unbox(right);
+
+    // out_buf = left & cond | right & ~cond
+    std::shared_ptr<Buffer> out_buf = nullptr;
+    if (left_data) {
+      if (right_data) {
+        // out_buf = ones
+        ARROW_ASSIGN_OR_RAISE(out_buf, ctx->AllocateBitmap(cond.length));
+        // filling with UINT8_MAX upto the buffer's size (in bytes)
+        std::fill(out_buf->mutable_data(), out_buf->mutable_data() + out_buf->size(),
+                  UINT8_MAX);
+      } else {
+        // out_buf = cond
+        out_buf = SliceBuffer(cond.buffers[1], cond.offset, cond.length);
+      }
+    } else {
+      if (right_data) {
+        // out_buf = ~cond
+        ARROW_ASSIGN_OR_RAISE(out_buf, arrow::internal::InvertBitmap(
+                                           ctx->memory_pool(), cond.buffers[1]->data(),
+                                           cond.offset, cond.length))
+      } else {
+        // out_buf = zeros
+        ARROW_ASSIGN_OR_RAISE(out_buf, ctx->AllocateBitmap(cond.length));
+      }
+    }
+    out->buffers[1] = std::move(out_buf);
     return Status::OK();
   }
 };
