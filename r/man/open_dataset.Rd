@@ -60,7 +60,7 @@ should be few \code{Dataset}s in the list and their \code{Schema}s are already i
 memory).}
 
 \item{format}{A \link{FileFormat} object, or a string identifier of the format of
-the files in \code{x}. This argument is ignored when \code{sources} is a Dataset object.
+the files in \code{x}. This argument is ignored when \code{sources} is a list of \code{Dataset} objects.
 Currently supported values:
 \itemize{
 \item "parquet"

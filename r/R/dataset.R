@@ -61,7 +61,7 @@
 #' should be few `Dataset`s in the list and their `Schema`s are already in
 #' memory).
 #' @param format A [FileFormat] object, or a string identifier of the format of
-#' the files in `x`. This argument is ignored when `sources` is a Dataset object.
+#' the files in `x`. This argument is ignored when `sources` is a list of `Dataset` objects.
 #' Currently supported values:
 #' * "parquet"
 #' * "ipc"/"arrow"/"feather", all aliases for each other; for Feather, note that
