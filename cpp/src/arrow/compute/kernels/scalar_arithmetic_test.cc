@@ -2066,8 +2066,8 @@ TYPED_TEST(TestUnaryArithmeticFloating, Sign) {
   // Arrays with NaNs
   this->AssertUnaryOp(Sign, "[NaN]", ArrayFromJSON(int8(), "[1]"));
   // Min/max
-  // this->AssertUnaryOp(Sign, ArrayFromJSON(this->type_singleton(), MakeArray(min, max)),
-  //                     ArrayFromJSON(int8(), "[-1, 1]"));
+  this->AssertUnaryOp(Sign, ArrayFromJSON(this->type_singleton(), MakeArray(min, max)),
+                      ArrayFromJSON(int8(), "[-1, 1]"));
 
   // auto arg = ArrayFromJSON(this->type_singleton(), MakeArray(-1, min, max, 1));
   // arg = TweakValidityBit(arg, 1, false);

@@ -1108,6 +1108,7 @@ ArrayKernelExec GenerateArithmeticFixedOutType(detail::GetTypeId get_id) {
       return ExecFail;
   }
 }
+
 struct ArithmeticFunction : ScalarFunction {
   using ScalarFunction::ScalarFunction;
 
