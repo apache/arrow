@@ -28,6 +28,7 @@
 #include <vector>
 
 #include "arrow/array/data.h"
+#include "arrow/compute/exec/expression.h"
 #include "arrow/datum.h"
 #include "arrow/memory_pool.h"
 #include "arrow/result.h"
@@ -185,6 +186,9 @@ struct ARROW_EXPORT ExecBatch {
   /// the selection vector [0, 1, 3]. When the selection vector is set,
   /// ExecBatch::length is equal to the length of this array.
   std::shared_ptr<SelectionVector> selection_vector;
+
+  /// A predicate Expression guaranteed to evaluate to true for all rows in this batch.
+  Expression guarantee = literal(true);
 
   /// The semantic length of the ExecBatch. When the values are all scalars,
   /// the length should be set to 1, otherwise the length is taken from the

@@ -409,7 +409,6 @@ class ARROW_DS_EXPORT ScannerBuilder {
 
  private:
   std::shared_ptr<Dataset> dataset_;
-  std::shared_ptr<Fragment> fragment_;
   std::shared_ptr<ScanOptions> scan_options_ = std::make_shared<ScanOptions>();
 };
 

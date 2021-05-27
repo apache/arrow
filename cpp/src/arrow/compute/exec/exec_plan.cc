@@ -227,6 +227,9 @@ struct SourceNode : ExecNode {
         Loop([gen, this] {
           std::unique_lock<std::mutex> lock(mutex_);
           int seq = next_batch_index_++;
+          if (finished_) {
+            return Future<ControlFlow<int>>::MakeFinished(Break(seq));
+          }
           lock.unlock();
 
           return gen().Then(
@@ -298,8 +301,11 @@ struct FilterNode : ExecNode {
   const char* kind_name() override { return "FilterNode"; }
 
   Result<ExecBatch> DoFilter(const ExecBatch& target) {
+    ARROW_ASSIGN_OR_RAISE(Expression simplified_filter,
+                          SimplifyWithGuarantee(filter_, target.guarantee));
+
     // XXX get a non-default exec context
-    ARROW_ASSIGN_OR_RAISE(Datum mask, ExecuteScalarExpression(filter_, target));
+    ARROW_ASSIGN_OR_RAISE(Datum mask, ExecuteScalarExpression(simplified_filter, target));
 
     if (mask.is_scalar()) {
       const auto& mask_scalar = mask.scalar_as<BooleanScalar>();
@@ -328,6 +334,7 @@ struct FilterNode : ExecNode {
       return;
     }
 
+    maybe_filtered->guarantee = batch.guarantee;
     outputs_[0]->InputReceived(this, seq, maybe_filtered.MoveValueUnsafe());
   }
 
@@ -381,7 +388,10 @@ struct ProjectNode : ExecNode {
     // XXX get a non-default exec context
     std::vector<Datum> values{exprs_.size()};
     for (size_t i = 0; i < exprs_.size(); ++i) {
-      ARROW_ASSIGN_OR_RAISE(values[i], ExecuteScalarExpression(exprs_[i], target));
+      ARROW_ASSIGN_OR_RAISE(Expression simplified_expr,
+                            SimplifyWithGuarantee(exprs_[i], target.guarantee));
+
+      ARROW_ASSIGN_OR_RAISE(values[i], ExecuteScalarExpression(simplified_expr, target));
     }
     return ExecBatch::Make(std::move(values));
   }
@@ -389,14 +399,15 @@ struct ProjectNode : ExecNode {
   void InputReceived(ExecNode* input, int seq, ExecBatch batch) override {
     DCHECK_EQ(input, inputs_[0]);
 
-    auto maybe_filtered = DoProject(std::move(batch));
-    if (!maybe_filtered.ok()) {
-      outputs_[0]->ErrorReceived(this, maybe_filtered.status());
+    auto maybe_projected = DoProject(std::move(batch));
+    if (!maybe_projected.ok()) {
+      outputs_[0]->ErrorReceived(this, maybe_projected.status());
       inputs_[0]->StopProducing(this);
       return;
     }
 
-    outputs_[0]->InputReceived(this, seq, maybe_filtered.MoveValueUnsafe());
+    maybe_projected->guarantee = batch.guarantee;
+    outputs_[0]->InputReceived(this, seq, maybe_projected.MoveValueUnsafe());
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {

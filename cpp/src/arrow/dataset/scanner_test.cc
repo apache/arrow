@@ -1087,5 +1087,200 @@ TEST(ScanOptions, TestMaterializedFields) {
   EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i64", "i32"));
 }
 
+TEST(ScanNode, Trivial) {
+  ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
+
+  const auto schema = ::arrow::schema({field("a", int32()), field("b", boolean())});
+  RecordBatchVector batches{
+      RecordBatchFromJSON(schema, R"([{"a": null, "b": true},
+                                      {"a": 4,    "b": false}])"),
+      RecordBatchFromJSON(schema, R"([{"a": 5,    "b": null},
+                                      {"a": 6,    "b": false},
+                                      {"a": 7,    "b": false}])"),
+  };
+
+  auto dataset = std::make_shared<InMemoryDataset>(schema, batches);
+
+  ScannerBuilder scanner_builder(dataset);
+  ASSERT_OK(scanner_builder.UseAsync(true));
+  ASSERT_OK_AND_ASSIGN(auto scan, scanner_builder.MakeScanNode(plan.get()));
+  auto sink_gen = MakeSinkNode(scan, "sink");
+  ASSERT_OK(plan->Validate());
+  ASSERT_OK(plan->StartProducing());
+
+  auto got_batches_fut = CollectAsyncGenerator(sink_gen);
+  ASSERT_OK_AND_ASSIGN(auto got_batches, got_batches_fut.result());
+
+  ASSERT_EQ(got_batches.size(), batches.size());
+  for (size_t i = 0; i < batches.size(); ++i) {
+    SCOPED_TRACE("Batch " + std::to_string(i));
+    const compute::ExecBatch& actual = *got_batches[i];
+    const RecordBatch& expected = *batches[i];
+    AssertDatumsEqual(expected.GetColumnByName("a"), actual[0], /*verbose=*/true);
+    AssertDatumsEqual(expected.GetColumnByName("b"), actual[1], /*verbose=*/true);
+    // InMemoryDataset(RecordBatchVector) produces a fragment wrapping each batch
+    AssertDatumsEqual(Datum(int(i)), actual[2], /*verbose=*/true);
+    AssertDatumsEqual(Datum(0), actual[3], /*verbose=*/true);
+  }
+}
+
+TEST(ScanNode, FilteredOnVirtualColumn) {
+  ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
+
+  const auto dataset_schema = ::arrow::schema({
+      field("a", int32()),
+      field("b", boolean()),
+      field("c", int32()),
+  });
+  const auto physical_schema = SchemaFromColumnNames(dataset_schema, {"a", "b"});
+  RecordBatchVector batches{
+      RecordBatchFromJSON(physical_schema, R"([{"a": null, "b": true},
+                                               {"a": 4,    "b": false}])"),
+      RecordBatchFromJSON(physical_schema, R"([{"a": 5,    "b": null},
+                                               {"a": 6,    "b": false},
+                                               {"a": 7,    "b": false}])"),
+  };
+
+  auto dataset = std::make_shared<FragmentDataset>(
+      dataset_schema,
+      FragmentVector{
+          std::make_shared<InMemoryFragment>(physical_schema, batches,
+                                             equal(field_ref("c"), literal(23))),
+          std::make_shared<InMemoryFragment>(physical_schema, batches,
+                                             equal(field_ref("c"), literal(47))),
+      });
+
+  ScannerBuilder scanner_builder(dataset);
+  ASSERT_OK(scanner_builder.UseAsync(true));
+  ASSERT_OK(scanner_builder.Filter(greater(field_ref("c"), literal(30))));
+  ASSERT_OK_AND_ASSIGN(auto scan, scanner_builder.MakeScanNode(plan.get()));
+  auto sink_gen = MakeSinkNode(scan, "sink");
+  ASSERT_OK(plan->Validate());
+  ASSERT_OK(plan->StartProducing());
+
+  auto got_batches_fut = CollectAsyncGenerator(sink_gen);
+  ASSERT_OK_AND_ASSIGN(auto got_batches, got_batches_fut.result());
+
+  ASSERT_EQ(got_batches.size(), 2);
+  for (size_t i = 0; i < batches.size(); ++i) {
+    const compute::ExecBatch& actual = *got_batches[i];
+    const RecordBatch& expected = *batches[i];
+    AssertDatumsEqual(expected.GetColumnByName("a"), actual[0], /*verbose=*/true);
+    AssertDatumsEqual(expected.GetColumnByName("b"), actual[1], /*verbose=*/true);
+
+    // Note: placeholder for partition field "c"
+    AssertDatumsEqual(Datum(std::make_shared<Int32Scalar>()), actual[2],
+                      /*verbose=*/true);
+
+    // Only one fragment in this scan, its index is 0
+    AssertDatumsEqual(Datum(0), actual[3], /*verbose=*/true);
+    AssertDatumsEqual(Datum(int(i)), actual[4], /*verbose=*/true);
+
+    EXPECT_EQ(actual.guarantee, equal(field_ref("c"), literal(47)));
+  }
+}
+
+TEST(ScanNode, FilteredOnPhysicalColumn) {
+  ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
+
+  const auto dataset_schema = ::arrow::schema({
+      field("a", int32()),
+      field("b", boolean()),
+      field("c", int32()),
+  });
+  const auto physical_schema = SchemaFromColumnNames(dataset_schema, {"a", "b"});
+  RecordBatchVector batches{
+      RecordBatchFromJSON(physical_schema, R"([{"a": null, "b": true},
+                                               {"a": 4,    "b": false}])"),
+      RecordBatchFromJSON(physical_schema, R"([{"a": 5,    "b": null},
+                                               {"a": 6,    "b": false},
+                                               {"a": 7,    "b": false}])"),
+  };
+
+  auto dataset = std::make_shared<FragmentDataset>(
+      dataset_schema,
+      FragmentVector{
+          std::make_shared<InMemoryFragment>(physical_schema, batches,
+                                             equal(field_ref("c"), literal(23))),
+          std::make_shared<InMemoryFragment>(physical_schema, batches,
+                                             equal(field_ref("c"), literal(47))),
+      });
+
+  ScannerBuilder scanner_builder(dataset);
+  ASSERT_OK(scanner_builder.UseAsync(true));
+  ASSERT_OK(scanner_builder.Filter(greater(field_ref("a"), literal(4))));
+  ASSERT_OK_AND_ASSIGN(auto scan, scanner_builder.MakeScanNode(plan.get()));
+  auto sink_gen = MakeSinkNode(scan, "sink");
+  ASSERT_OK(plan->Validate());
+  ASSERT_OK(plan->StartProducing());
+
+  auto got_batches_fut = CollectAsyncGenerator(sink_gen);
+  ASSERT_OK_AND_ASSIGN(auto got_batches, got_batches_fut.result());
+
+  // no filtering is performed by ScanNode: all batches will be yielded whole
+  ASSERT_EQ(got_batches.size(), batches.size() * 2);
+  for (size_t i = 0; i < got_batches.size(); ++i) {
+    const compute::ExecBatch& actual = *got_batches[i];
+    const RecordBatch& expected = *batches[i % 2];
+    AssertDatumsEqual(expected.GetColumnByName("a"), actual[0], /*verbose=*/true);
+    AssertDatumsEqual(expected.GetColumnByName("b"), actual[1], /*verbose=*/true);
+    AssertDatumsEqual(Datum(std::make_shared<Int32Scalar>()), actual[2],
+                      /*verbose=*/true);
+
+    AssertDatumsEqual(Datum(int(i / 2)), actual[3], /*verbose=*/true);
+    AssertDatumsEqual(Datum(int(i % 2)), actual[4], /*verbose=*/true);
+
+    EXPECT_EQ(actual.guarantee, equal(field_ref("c"), literal(i / 2 ? 47 : 23))) << i;
+  }
+}
+
+TEST(ScanNode, ProjectPhysicalColumn) {
+  ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
+
+  const auto dataset_schema = ::arrow::schema({
+      field("a", int32()),
+      field("b", boolean()),
+      field("c", int32()),
+  });
+  const auto physical_schema = SchemaFromColumnNames(dataset_schema, {"a", "b"});
+  RecordBatchVector batches{
+      RecordBatchFromJSON(physical_schema, R"([{"a": null, "b": true},
+                                               {"a": 4,    "b": false}])"),
+      RecordBatchFromJSON(physical_schema, R"([{"a": 5,    "b": null},
+                                               {"a": 6,    "b": false},
+                                               {"a": 7,    "b": false}])"),
+  };
+
+  auto dataset = std::make_shared<FragmentDataset>(
+      dataset_schema,
+      FragmentVector{
+          std::make_shared<InMemoryFragment>(physical_schema, batches,
+                                             equal(field_ref("c"), literal(23))),
+          std::make_shared<InMemoryFragment>(physical_schema, batches,
+                                             equal(field_ref("c"), literal(47))),
+      });
+
+  ScannerBuilder scanner_builder(dataset);
+  ASSERT_OK(scanner_builder.UseAsync(true));
+  ASSERT_OK_AND_ASSIGN(auto scan, scanner_builder.MakeScanNode(plan.get()));
+  auto project = compute::MakeProjectNode(
+      scan, "project", {field_ref("c").Bind(*dataset_schema).ValueOrDie()});
+  auto sink_gen = MakeSinkNode(project, "sink");
+  ASSERT_OK(plan->Validate());
+  ASSERT_OK(plan->StartProducing());
+
+  auto got_batches_fut = CollectAsyncGenerator(sink_gen);
+  ASSERT_OK_AND_ASSIGN(auto got_batches, got_batches_fut.result());
+
+  // no filtering is performed by ScanNode: all batches will be yielded whole
+  ASSERT_EQ(got_batches.size(), batches.size() * 2);
+  for (size_t i = 0; i < got_batches.size(); ++i) {
+    const compute::ExecBatch& actual = *got_batches[i];
+    Datum expected(i / 2 ? 47 : 23);
+    AssertDatumsEqual(expected, actual[0], /*verbose=*/true);
+    EXPECT_EQ(actual.guarantee, equal(field_ref("c"), literal(expected))) << i;
+  }
+}
+
 }  // namespace dataset
 }  // namespace arrow

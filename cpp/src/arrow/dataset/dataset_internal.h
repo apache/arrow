@@ -204,5 +204,35 @@ arrow::Result<std::shared_ptr<T>> GetFragmentScanOptions(
   return internal::checked_pointer_cast<T>(source);
 }
 
+class FragmentDataset : public Dataset {
+ public:
+  FragmentDataset(std::shared_ptr<Schema> schema, FragmentVector fragments)
+      : Dataset(std::move(schema)), fragments_(std::move(fragments)) {}
+
+  std::string type_name() const override { return "fragment"; }
+
+  Result<std::shared_ptr<Dataset>> ReplaceSchema(
+      std::shared_ptr<Schema> schema) const override {
+    return std::make_shared<FragmentDataset>(std::move(schema), fragments_);
+  }
+
+ protected:
+  Result<FragmentIterator> GetFragmentsImpl(compute::Expression predicate) override {
+    // TODO(ARROW-12891) Provide subtree pruning for any vector of fragments
+    FragmentVector fragments;
+    for (const auto& fragment : fragments_) {
+      ARROW_ASSIGN_OR_RAISE(
+          auto simplified_filter,
+          compute::SimplifyWithGuarantee(predicate, fragment->partition_expression()));
+
+      if (simplified_filter.IsSatisfiable()) {
+        fragments.push_back(fragment);
+      }
+    }
+    return MakeVectorIterator(std::move(fragments));
+  }
+  FragmentVector fragments_;
+};
+
 }  // namespace dataset
 }  // namespace arrow
