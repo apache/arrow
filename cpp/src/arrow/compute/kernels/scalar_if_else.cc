@@ -17,9 +17,9 @@
 
 #include <arrow/compute/api.h>
 #include <arrow/util/bit_block_counter.h>
+#include <arrow/util/bitmap.h>
 #include <arrow/util/bitmap_ops.h>
 
-#include "arrow/util/bitmap.h"
 #include "codegen_internal.h"
 
 namespace arrow {
