@@ -62,6 +62,7 @@ def _schema_to_indices(schema):
 class ORCFile:
     """
     Reader interface for a single ORC file
+
     Parameters
     ----------
     source : str or pyarrow.io.NativeFile
@@ -117,6 +118,7 @@ class ORCFile:
 
     def read_stripe(self, n, columns=None):
         """Read a single stripe from the file.
+
         Parameters
         ----------
         n : int
@@ -125,6 +127,7 @@ class ORCFile:
             If not None, only these columns will be read from the stripe. A
             column name may be a prefix of a nested field, e.g. 'a' will select
             'a.b', 'a.c', and 'a.d.e'
+
         Returns
         -------
         pyarrow.lib.RecordBatch
@@ -135,12 +138,14 @@ class ORCFile:
 
     def read(self, columns=None):
         """Read the whole file.
+
         Parameters
         ----------
         columns : list
             If not None, only these columns will be read from the file. A
             column name may be a prefix of a nested field, e.g. 'a' will select
             'a.b', 'a.c', and 'a.d.e'
+
         Returns
         -------
         pyarrow.lib.Table
@@ -153,6 +158,7 @@ class ORCFile:
 class ORCWriter:
     """
     Writer interface for a single ORC file
+
     Parameters
     ----------
     where : str or pyarrow.io.NativeFile
@@ -169,6 +175,7 @@ class ORCWriter:
         """
         Write the table into an ORC file. The schema of the table must
         be equal to the schema used when opening the ORC file.
+
         Parameters
         ----------
         schema : pyarrow.lib.Table
@@ -186,6 +193,7 @@ class ORCWriter:
 def write_table(table, where):
     """
     Write a table into an ORC file
+
     Parameters
     ----------
     table : pyarrow.lib.Table

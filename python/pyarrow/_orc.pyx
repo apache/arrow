@@ -80,6 +80,7 @@ cdef class ORCReader(_Weakrefable):
     def schema(self):
         """
         The arrow schema for this file.
+
         Returns
         -------
         schema : pyarrow.Schema

@@ -50,8 +50,7 @@ class ARROW_EXPORT ORCFileReader {
 
   /// \brief Return the metadata read from the ORC file
   ///
-  /// \return The returned KeyValueMetadata object containing the ORC metadata or Status
-  /// if error occurs
+  /// \return A KeyValueMetadata object containing the ORC metadata
   Result<std::shared_ptr<const KeyValueMetadata>> ReadMetadata();
 
   /// \brief Return the schema read from the ORC file
