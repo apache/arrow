@@ -86,7 +86,7 @@ if defined need_vcvarsall (
 @rem
 @rem Use clcache for faster builds
 @rem
-pip install -q clcache-alt || exit /B
+conda install -q -y -c conda-forge clcache || exit /B
 @rem Limit cache size to 500 MB
 clcache -M 500000000
 clcache -c
