@@ -43,6 +43,10 @@ namespace arrow {
 ///
 /// Start a new RowGroup or Chunk with NewRowGroup.
 /// Write column-by-column the whole column chunk.
+///
+/// If PARQUET:field_id is present as a metadata key on a field, and the corresponding
+/// value is a nonnegative integer, then it will be used as the field_id in the parquet
+/// file.
 class PARQUET_EXPORT FileWriter {
  public:
   static ::arrow::Status Make(MemoryPool* pool, std::unique_ptr<ParquetFileWriter> writer,
