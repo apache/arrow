@@ -68,13 +68,6 @@ See $.data for the source Arrow object',
   fixed = TRUE
   )
   
-  expect_error(
-    record_batch(tbl, tbl) %>%
-      filter(int > 0) %>%
-      print(),
-    regexp = "Field with name `int` could not be retrieved"
-  )
-  
 })
 
 test_that("summarize", {
@@ -897,3 +890,12 @@ test_that("bad explicit type conversions with as.*()", {
   )
 
 })
+
+test_that("No duplicate field names are allowed in an arrow_dplyr_query", {
+  expect_error(
+    Table$create(tbl, tbl) %>%
+      filter(int > 0),
+    regexp = "The following field names were found more than once in the data: int, dbl, dbl2, lgl, false, chr, fct, verses, padded_strings"
+  )
+})
+

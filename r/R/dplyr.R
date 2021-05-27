@@ -31,6 +31,18 @@ arrow_dplyr_query <- function(.data) {
     return(.data)
   }
 
+  # Evaluating expressions on a dataset with duplicated fieldnames will error
+  if (anyDuplicated(names(.data))) {
+    abort(c(
+      "Duplicated field names",
+      x = paste0(
+        "The following field names were found more than once in the data: ",
+        paste(names(.data)[duplicated(names(.data))], collapse = ", ")
+      ),
+      i =  "All field names must be unique"
+    ))
+  }
+  
   structure(
     list(
       .data = if (inherits(.data, "Dataset")) {
@@ -74,13 +86,7 @@ print.arrow_dplyr_query <- function(x, ...) {
     name <- expr$field_name
     if (nzchar(name)) {
       # Just a field_ref, so look up in the schema
-      field_name <- schm$GetFieldByName(name)
-      if (is.null(field_name)) {
-        abort(
-          c("Cannot retrieve field", x = paste0("Field with name `", name, "` could not be retrieved"), i =  "Is this field name used more than once in your data?")
-        )
-      }
-      field_name$type$ToString()
+      schm$GetFieldByName(name)$type$ToString()
     } else {
       # Expression, so get its type and append the expression
       paste0(
