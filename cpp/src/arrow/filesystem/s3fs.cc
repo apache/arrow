@@ -687,12 +687,11 @@ Result<S3Model::GetObjectResult> GetObjectRange(Aws::S3::S3Client* client,
 
 template <typename ObjectResult>
 std::shared_ptr<const KeyValueMetadata> GetObjectMetadata(const ObjectResult& result) {
-  std::vector<std::string> keys, values;
+  auto md = std::make_shared<KeyValueMetadata>();
 
   auto push = [&](std::string k, const Aws::String& v) {
     if (!v.empty()) {
-      keys.push_back(std::move(k));
-      values.push_back(FromAwsString(v).to_string());
+      md->Append(std::move(k), FromAwsString(v).to_string());
     }
   };
   auto push_datetime = [&](std::string k, const Aws::Utils::DateTime& v) {
@@ -701,9 +700,7 @@ std::shared_ptr<const KeyValueMetadata> GetObjectMetadata(const ObjectResult& re
     }
   };
 
-  keys.push_back("Content-Length");
-  values.push_back(std::to_string(result.GetContentLength()));
-
+  md->Append("Content-Length", std::to_string(result.GetContentLength()));
   push("Cache-Control", result.GetCacheControl());
   push("Content-Type", result.GetContentType());
   push("Content-Language", result.GetContentLanguage());
@@ -711,13 +708,11 @@ std::shared_ptr<const KeyValueMetadata> GetObjectMetadata(const ObjectResult& re
   push("VersionId", result.GetVersionId());
   push_datetime("Last-Modified", result.GetLastModified());
   push_datetime("Expires", result.GetExpires());
-  return std::make_shared<const KeyValueMetadata>(std::move(keys), std::move(values));
+  return md;
 }
 
 template <typename ObjectRequest>
 struct ObjectMetadataSetter {
-  ObjectRequest* req;
-
   using Setter = std::function<Status(const std::string& value, ObjectRequest* req)>;
 
   static std::unordered_map<std::string, Setter> GetSetters() {
