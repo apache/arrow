@@ -466,7 +466,7 @@ Result<Datum> FillNull(const Datum& values, const Datum& fill_value,
                        ExecContext* ctx = NULLPTR);
 
 /// \brief IfElse returns elements chosen from `left` or `right`
-/// depending on `cond`. `Null` values would be promoted to the result
+/// depending on `cond`. `null` values would be promoted to the result
 ///
 /// \param[in] cond `BooleanArray` condition array
 /// \param[in] left scalar/ Array
@@ -475,7 +475,7 @@ Result<Datum> FillNull(const Datum& values, const Datum& fill_value,
 ///
 /// \return the resulting datum
 ///
-/// \since x.x.x
+/// \since 5.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> IfElse(const Datum& cond, const Datum& left, const Datum& right,

@@ -79,7 +79,7 @@ Status PromoteNullsVisitor(KernelContext* ctx, const ArrayData& cond, const Scal
     case COND_ALL_VALID:  // = 1
       // out_valid = 0 --> nothing to do; but requires out_valid to be a all-zero buffer
       break;
-    case 0:  // RLC = 000
+    case 0:
       // out_valid = 0 --> nothing to do; but requires out_valid to be a all-zero buffer
       break;
   }
@@ -117,40 +117,40 @@ Status PromoteNullsVisitor(KernelContext* ctx, const ArrayData& cond,
   // selected argument
   // ie. cond.valid & (cond.data & left.valid | ~cond.data & right.valid)
   switch (flag) {
-    case COND_ALL_VALID | LEFT_ALL_VALID | RIGHT_ALL_VALID:  // RLC = 111
+    case COND_ALL_VALID | LEFT_ALL_VALID | RIGHT_ALL_VALID:
       break;
-    case LEFT_ALL_VALID | RIGHT_ALL_VALID:  // RLC = 110
+    case LEFT_ALL_VALID | RIGHT_ALL_VALID:
       output->buffers[0] = SliceBuffer(cond.buffers[0], cond.offset, cond.length);
       break;
-    case COND_ALL_VALID | RIGHT_ALL_VALID:  // RLC = 101
+    case COND_ALL_VALID | RIGHT_ALL_VALID:
       // bitmaps[C_VALID] might be null; override to make it safe for Visit()
       bitmaps[C_VALID] = bitmaps[C_DATA];
       Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 3> words) {
         apply(UINT64_MAX, words[C_DATA], words[L_VALID], UINT64_MAX);
       });
       break;
-    case RIGHT_ALL_VALID:  // RLC = 100
+    case RIGHT_ALL_VALID:
       Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 3> words) {
         apply(words[C_VALID], words[C_DATA], words[L_VALID], UINT64_MAX);
       });
       break;
-    case COND_ALL_VALID | LEFT_ALL_VALID:  // RLC = 011
+    case COND_ALL_VALID | LEFT_ALL_VALID:
       // only cond.data is passed
       output->buffers[0] = SliceBuffer(cond.buffers[1], cond.offset, cond.length);
       break;
-    case LEFT_ALL_VALID:  // RLC = 010
+    case LEFT_ALL_VALID:
       // out_valid = cond.valid & cond.data
       arrow::internal::BitmapAnd(cond.buffers[0]->data(), cond.offset,
                                  cond.buffers[1]->data(), cond.offset, cond.length, 0,
                                  output->buffers[0]->mutable_data());
       break;
-    case COND_ALL_VALID:  // RLC = 001
+    case COND_ALL_VALID:
       // out_valid = cond.data & left.valid
       arrow::internal::BitmapAnd(cond.buffers[1]->data(), cond.offset,
                                  left.buffers[0]->data(), left.offset, cond.length, 0,
                                  output->buffers[0]->mutable_data());
       break;
-    case 0:  // RLC = 000
+    case 0:
       Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 3> words) {
         apply(words[C_VALID], words[C_DATA], words[L_VALID], 0);
       });
@@ -192,41 +192,41 @@ Status PromoteNullsVisitor(KernelContext* ctx, const ArrayData& cond, const Scal
   // selected argument
   // ie. cond.valid & (cond.data & left.valid | ~cond.data & right.valid)
   switch (flag) {
-    case COND_ALL_VALID | LEFT_ALL_VALID | RIGHT_ALL_VALID:  // RLC = 111
+    case COND_ALL_VALID | LEFT_ALL_VALID | RIGHT_ALL_VALID:
       break;
-    case LEFT_ALL_VALID | RIGHT_ALL_VALID:  // RLC = 110
+    case LEFT_ALL_VALID | RIGHT_ALL_VALID:
       output->buffers[0] = SliceBuffer(cond.buffers[0], cond.offset, cond.length);
       break;
-    case COND_ALL_VALID | RIGHT_ALL_VALID:  // RLC = 101
+    case COND_ALL_VALID | RIGHT_ALL_VALID:
       // out_valid = ~cond.data
       arrow::internal::InvertBitmap(cond.buffers[1]->data(), cond.offset, cond.length,
                                     output->buffers[0]->mutable_data(), 0);
       break;
-    case RIGHT_ALL_VALID:  // RLC = 100
+    case RIGHT_ALL_VALID:
       // out_valid = c_valid & ~cond.data
       arrow::internal::BitmapAndNot(cond.buffers[0]->data(), cond.offset,
                                     cond.buffers[1]->data(), cond.offset, cond.length, 0,
                                     output->buffers[0]->mutable_data());
       break;
-    case COND_ALL_VALID | LEFT_ALL_VALID:  // RLC = 011
+    case COND_ALL_VALID | LEFT_ALL_VALID:
       // bitmaps[C_VALID] might be null; override to make it safe for Visit()
       bitmaps[C_VALID] = bitmaps[C_DATA];
       Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 3> words) {
         apply(UINT64_MAX, words[C_DATA], UINT64_MAX, words[R_VALID]);
       });
       break;
-    case LEFT_ALL_VALID:  // RLC = 010
+    case LEFT_ALL_VALID:
       Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 3> words) {
         apply(words[C_VALID], words[C_DATA], UINT64_MAX, words[R_VALID]);
       });
       break;
-    case COND_ALL_VALID:  // RLC = 001
+    case COND_ALL_VALID:
       // out_valid =  ~cond.data & right.valid
       arrow::internal::BitmapAndNot(right.buffers[0]->data(), right.offset,
                                     cond.buffers[1]->data(), cond.offset, cond.length, 0,
                                     output->buffers[0]->mutable_data());
       break;
-    case 0:  // RLC = 000
+    case 0:
       Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 3> words) {
         apply(words[C_VALID], words[C_DATA], 0, words[R_VALID]);
       });
@@ -271,12 +271,12 @@ Status PromoteNullsVisitor(KernelContext* ctx, const ArrayData& cond,
   // selected argument
   // ie. cond.valid & (cond.data & left.valid | ~cond.data & right.valid)
   switch (flag) {
-    case COND_ALL_VALID | LEFT_ALL_VALID | RIGHT_ALL_VALID:  // RLC = 111
+    case COND_ALL_VALID | LEFT_ALL_VALID | RIGHT_ALL_VALID:
       break;
-    case LEFT_ALL_VALID | RIGHT_ALL_VALID:  // RLC = 110
+    case LEFT_ALL_VALID | RIGHT_ALL_VALID:
       output->buffers[0] = SliceBuffer(cond.buffers[0], cond.offset, cond.length);
       break;
-    case COND_ALL_VALID | RIGHT_ALL_VALID:  // RLC = 101
+    case COND_ALL_VALID | RIGHT_ALL_VALID:
       // bitmaps[C_VALID], bitmaps[R_VALID] might be null; override to make it safe for
       // Visit()
       bitmaps[C_VALID] = bitmaps[C_DATA];
@@ -285,14 +285,14 @@ Status PromoteNullsVisitor(KernelContext* ctx, const ArrayData& cond,
         apply(UINT64_MAX, words[C_DATA], words[L_VALID], UINT64_MAX);
       });
       break;
-    case RIGHT_ALL_VALID:  // RLC = 100
+    case RIGHT_ALL_VALID:
       // bitmaps[R_VALID] might be null; override to make it safe for Visit()
       bitmaps[R_VALID] = bitmaps[C_DATA];
       Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
         apply(words[C_VALID], words[C_DATA], words[L_VALID], UINT64_MAX);
       });
       break;
-    case COND_ALL_VALID | LEFT_ALL_VALID:  // RLC = 011
+    case COND_ALL_VALID | LEFT_ALL_VALID:
       // bitmaps[C_VALID], bitmaps[L_VALID] might be null; override to make it safe for
       // Visit()
       bitmaps[C_VALID] = bitmaps[C_DATA];
@@ -301,21 +301,21 @@ Status PromoteNullsVisitor(KernelContext* ctx, const ArrayData& cond,
         apply(UINT64_MAX, words[C_DATA], UINT64_MAX, words[R_VALID]);
       });
       break;
-    case LEFT_ALL_VALID:  // RLC = 010
+    case LEFT_ALL_VALID:
       // bitmaps[L_VALID] might be null; override to make it safe for Visit()
       bitmaps[L_VALID] = bitmaps[C_DATA];
       Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
         apply(words[C_VALID], words[C_DATA], UINT64_MAX, words[R_VALID]);
       });
       break;
-    case COND_ALL_VALID:  // RLC = 001
+    case COND_ALL_VALID:
       // bitmaps[C_VALID] might be null; override to make it safe for Visit()
       bitmaps[C_VALID] = bitmaps[C_DATA];
       Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
         apply(UINT64_MAX, words[C_DATA], words[L_VALID], words[R_VALID]);
       });
       break;
-    case 0:  // RLC = 000
+    case 0:
       Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
         apply(words[C_VALID], words[C_DATA], words[L_VALID], words[R_VALID]);
       });
