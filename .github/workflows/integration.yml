@@ -42,7 +42,7 @@ on:
       - 'format/**'
 
 concurrency:
-  group: ${{ github.ref }}
+  group: ${{ github.repository }}-${{ github.ref }}-${{ github.job }}
   cancel-in-progress: true
 
 env:

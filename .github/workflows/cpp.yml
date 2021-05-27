@@ -38,7 +38,7 @@ on:
       - 'format/Flight.proto'
 
 concurrency:
-  group: ${{ github.head_ref }}
+  group: ${{ github.repository }}-${{ github.ref }}-${{ github.job }}
   cancel-in-progress: true
 
 env:
