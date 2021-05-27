@@ -71,8 +71,8 @@ cdef class ORCReader(_Weakrefable):
             shared_ptr[const CKeyValueMetadata] sp_arrow_metadata
 
         with nogil:
-            sp_arrow_metadata = GetResultValue(
-                deref(self.reader).ReadMetadata()
+            check_status(
+                deref(self.reader).ReadMetadata(&sp_arrow_metadata)
             )
 
         return pyarrow_wrap_metadata(sp_arrow_metadata)

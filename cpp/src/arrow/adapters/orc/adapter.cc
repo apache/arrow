@@ -238,6 +238,10 @@ class ORCFileReader::Impl {
     return std::const_pointer_cast<const KeyValueMetadata>(metadata);
   }
 
+  Status ReadMetadata(std::shared_ptr<const KeyValueMetadata>* metadata) {
+    return ReadMetadata().Value(metadata);
+  }
+
   Status GetArrowSchema(const liborc::Type& type, std::shared_ptr<Schema>* out) {
     if (type.getKind() != liborc::STRUCT) {
       return Status::NotImplemented(

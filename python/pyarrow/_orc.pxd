@@ -39,7 +39,9 @@ cdef extern from "arrow/adapters/orc/adapter.h" \
                      CMemoryPool* pool,
                      unique_ptr[ORCFileReader]* reader)
 
-        CResult[shared_ptr[const CKeyValueMetadata]] ReadMetadata()
+        # Cython fails builds with the Result-returning variant
+        # See ARROW-12899
+        CStatus ReadMetadata(shared_ptr[const CKeyValueMetadata]* out)
 
         CStatus ReadSchema(shared_ptr[CSchema]* out)
 

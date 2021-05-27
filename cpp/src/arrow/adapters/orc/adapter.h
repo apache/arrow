@@ -52,6 +52,8 @@ class ARROW_EXPORT ORCFileReader {
   ///
   /// \return A KeyValueMetadata object containing the ORC metadata
   Result<std::shared_ptr<const KeyValueMetadata>> ReadMetadata();
+  // Status-returning variant for Cython (ARROW-12899)
+  Status ReadMetadata(std::shared_ptr<const KeyValueMetadata>* metadata);
 
   /// \brief Return the schema read from the ORC file
   ///
