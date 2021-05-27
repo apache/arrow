@@ -113,8 +113,11 @@ handle_embedded_nul_error <- function(e) {
 
 handle_parquet_io_error <- function(e, format) {
   msg <- conditionMessage(e)
-  if (grepl("Parquet magic bytes not found in footer", msg) && is.null(format)) {
-      e$message <- paste0(msg, "\nDid you mean to specify a 'format' other than the default (parquet)?")
+  if (grepl("Parquet magic bytes not found in footer", msg)) {
+    abort(c(
+      msg, 
+      i = "Did you mean to specify a 'format' other than the default (parquet)?"
+    ))
   }
   stop(e)
 }

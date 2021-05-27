@@ -60,6 +60,18 @@
 #' be slow) but `TRUE` when `sources` is a list of `Dataset`s (because there
 #' should be few `Dataset`s in the list and their `Schema`s are already in
 #' memory).
+#' @param format A [FileFormat] object, or a string identifier of the format of
+#' the files in `x`. This argument is ignored when `sources` is a Dataset object.
+#' Currently supported values:
+#' * "parquet"
+#' * "ipc"/"arrow"/"feather", all aliases for each other; for Feather, note that
+#'   only version 2 files are supported
+#' * "csv"/"text", aliases for the same thing (because comma is the default
+#'   delimiter for text files
+#' * "tsv", equivalent to passing `format = "text", delimiter = "\t"`
+#'
+#' Default is "parquet", unless a `delimiter` is also specified, in which case
+#' it is assumed to be "text".
 #' @param ... additional arguments passed to `dataset_factory()` when `sources`
 #' is a directory path/URI or vector of file paths/URIs, otherwise ignored.
 #' These may include `format` to indicate the file format, or other
@@ -97,6 +109,7 @@ open_dataset <- function(sources,
                          schema = NULL,
                          partitioning = hive_partition(),
                          unify_schemas = NULL,
+                         format = c("parquet", "arrow", "ipc", "feather", "csv", "tsv", "text"),
                          ...) {
   if (is_list_of(sources, "Dataset")) {
     if (is.null(schema)) {
@@ -116,13 +129,12 @@ open_dataset <- function(sources,
     })
     return(dataset___UnionDataset__create(sources, schema))
   }
-  factory <- DatasetFactory$create(sources, partitioning = partitioning, ...)
+  factory <- DatasetFactory$create(sources, partitioning = partitioning, format = format, ...)
   tryCatch(
     # Default is _not_ to inspect/unify schemas
     factory$Finish(schema, isTRUE(unify_schemas)),
     error = function(e){
-      args <- list2(...)
-      handle_parquet_io_error(e, args$format)
+      handle_parquet_io_error(e, format)
     }
   )
 }
