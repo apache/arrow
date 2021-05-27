@@ -265,7 +265,6 @@ class PARQUET_EXPORT PrimitiveNode : public Node {
 
 class PARQUET_EXPORT GroupNode : public Node {
  public:
-  // The field_id here is the default to use if it is not set in the SchemaElement
   static std::unique_ptr<Node> FromParquet(const void* opaque_element,
                                            NodeVector fields = {});
 
