@@ -23,24 +23,20 @@
 
 2. Build and install SkyhookDM and [PyArrow](https://pypi.org/project/pyarrow/) (with Rados Parquet extensions) using [this](../scripts/deploy_skyhook.sh) script.
 
-3. Update your Ceph configuration file with this line and restart the OSDs to reload the changes.
+3. Update your Ceph configuration file with the line below and restart the OSD daemons to load the arrow CLS libraries.
 ```
-osd class load list = *
+osd class load list = arrow
 ```
 
 # Interacting with SkyhookDM
 
-1. Write some [Parquet](https://parquet.apache.org/) files in the CephFS mount. We need to use the [`deploy_data.sh`](../scripts/deploy_data.sh) script to write Parquet files to CephFS for use in SkyhookDM. For example,
-```bash
-./deploy_data.sh myfile.parquet /mnt/cephfs/myfile.parquet 100 67108864
-```
-Running this command would write 100 Parquet files in the format `myfile.parquet.N` in the `/mnt/cephfs` directory with an object size of 64MB.
+1. Write some [Parquet](https://parquet.apache.org/) files in the CephFS mount by splitting them up into files of size `128 MB` or less. This is achieved by using the [`SplittedParquetWriter`](../../../../../../python/pyarrow/rados.py) API. An example script to split up Parquet files into SkyhookDM compatible files can be found [here](../scripts/splitter.py).
 
 2. Write a client script and get started with querying datasets in SkyhookDM. An example script is given below.
 ```python
 import pyarrow.dataset as ds
 
 format_ = ds.RadosParquetFileFormat("/path/to/cephconfig", "cephfs-data-pool-name")
-dataset_ = ds.dataset("file:///mnt/cephfs/dataset", format=format_)
+dataset_ = ds.dataset("file:///path/to/dataset", format=format_)
 print(dataset_.to_table())
 ```

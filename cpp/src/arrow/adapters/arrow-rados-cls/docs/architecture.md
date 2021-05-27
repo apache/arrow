@@ -32,7 +32,7 @@ The goal of SkyhookDM is to allow users to transparently grow and shrink their d
 
 # Lifetime of a Dataset Scan in SkyhookDM
 
-* **Write Path:** Datasets containing Parquet files or a directory heirarchy of Parquet files are written to a CephFS mount. While writing, each Parquet file is splitted into several smaller Parquet files of size `<= 128 MB`. We configure the stripe unit in CephFS to be 128 MB to ensure a `1:1 mapping` between a file and an object. The file layout is shown in the figure below. The reason behing choosing 128 MB as the stripe size is because Ceph doesn't perform well with objects any larger than 128 MB. Also, some of our performance experiments have shown most optimal performance with 128 MB Parquet files. Once the Parquet files are written to CephFS, they are ready to be scanned via the `RadosParquetFileFormat`. 
+* **Write Path:** Datasets containing Parquet files or a directory heirarchy of Parquet files are written to a CephFS mount. While writing, each Parquet file is splitted into several smaller Parquet files of size `<= 128 MB` by the `SplittedParquetWriter`. We configure the stripe unit in CephFS to be 128 MB to ensure a `1:1 mapping` between a file and an object. The file layout is shown in the figure below. The reason behing choosing 128 MB as the stripe size is because Ceph doesn't perform well with objects any larger than 128 MB. Also, some of our performance experiments have shown most optimal performance with 128 MB Parquet files. Once the Parquet files are written to CephFS, they are ready to be scanned via the `RadosParquetFileFormat`.
 
 <p align="center">
 <img src="./images/filelayout.png" width="80%">
