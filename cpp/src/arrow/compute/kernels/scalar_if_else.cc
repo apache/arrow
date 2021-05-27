@@ -16,6 +16,7 @@
 // under the License.
 
 #include <arrow/compute/api.h>
+#include <arrow/compute/util_internal.h>
 #include <arrow/util/bit_block_counter.h>
 #include <arrow/util/bitmap.h>
 #include <arrow/util/bitmap_ops.h>
@@ -738,8 +739,7 @@ struct IfElseFunctor<Type, enable_if_boolean<Type>> {
         // out_buf = ones
         ARROW_ASSIGN_OR_RAISE(out_buf, ctx->AllocateBitmap(cond.length));
         // filling with UINT8_MAX upto the buffer's size (in bytes)
-        std::fill(out_buf->mutable_data(), out_buf->mutable_data() + out_buf->size(),
-                  UINT8_MAX);
+        arrow::compute::internal::SetMemory<UINT8_MAX>(out_buf.get());
       } else {
         // out_buf = cond
         out_buf = SliceBuffer(cond.buffers[1], cond.offset, cond.length);

@@ -27,6 +27,11 @@ static inline void ZeroMemory(Buffer* buffer) {
   std::memset(buffer->mutable_data(), 0, buffer->size());
 }
 
+template <uint8_t ch>
+static inline void SetMemory(Buffer* buffer) {
+  std::memset(buffer->mutable_data(), ch, buffer->size());
+}
+
 }  // namespace internal
 }  // namespace compute
 }  // namespace arrow
