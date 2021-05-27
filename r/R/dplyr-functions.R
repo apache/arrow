@@ -72,6 +72,18 @@ nse_funcs$between <- function(x, left, right) {
   x >= left & x <= right
 }
 
+nse_funcs$is.finite <- function(x) {
+  is_fin <- Expression$create("is_finite", x)
+  # for compatibility with base::is.finite(), return FALSE for NA_real_
+  is_fin & !nse_funcs$is.na(is_fin)
+}
+
+nse_funcs$is.infinite <- function(x) {
+  is_inf <- Expression$create("is_inf", x)
+  # for compatibility with base::is.infinite(), return FALSE for NA_real_
+  is_inf & !nse_funcs$is.na(is_inf)
+}
+
 # as.* type casting functions
 # as.factor() is mapped in expression.R
 nse_funcs$as.character <- function(x) {

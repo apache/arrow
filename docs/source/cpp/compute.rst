@@ -648,31 +648,40 @@ Structural transforms
 +==========================+============+================================================+=====================+=========+
 | fill_null                | Binary     | Boolean, Null, Numeric, Temporal, String-like  | Input type          | \(1)    |
 +--------------------------+------------+------------------------------------------------+---------------------+---------+
-| is_nan                   | Unary      | Float, Double                                  | Boolean             | \(2)    |
+| is_finite                | Unary      | Float, Double                                  | Boolean             | \(2)    |
 +--------------------------+------------+------------------------------------------------+---------------------+---------+
-| is_null                  | Unary      | Any                                            | Boolean             | \(3)    |
+| is_inf                   | Unary      | Float, Double                                  | Boolean             | \(3)    |
 +--------------------------+------------+------------------------------------------------+---------------------+---------+
-| is_valid                 | Unary      | Any                                            | Boolean             | \(4)    |
+| is_nan                   | Unary      | Float, Double                                  | Boolean             | \(4)    |
 +--------------------------+------------+------------------------------------------------+---------------------+---------+
-| list_value_length        | Unary      | List-like                                      | Int32 or Int64      | \(5)    |
+| is_null                  | Unary      | Any                                            | Boolean             | \(5)    |
 +--------------------------+------------+------------------------------------------------+---------------------+---------+
-| project                  | Varargs    | Any                                            | Struct              | \(6)    |
+| is_valid                 | Unary      | Any                                            | Boolean             | \(6)    |
++--------------------------+------------+------------------------------------------------+---------------------+---------+
+| list_value_length        | Unary      | List-like                                      | Int32 or Int64      | \(7)    |
++--------------------------+------------+------------------------------------------------+---------------------+---------+
+| project                  | Varargs    | Any                                            | Struct              | \(8)    |
 +--------------------------+------------+------------------------------------------------+---------------------+---------+
 
 * \(1) First input must be an array, second input a scalar of the same type.
   Output is an array of the same type as the inputs, and with the same values
   as the first input, except for nulls replaced with the second input value.
 
-* \(2) Output is true iff the corresponding input element is NaN.
+* \(2) Output is true iff the corresponding input element is finite (not Infinity,
+  -Infinity, or NaN).
 
-* \(3) Output is true iff the corresponding input element is null.
+* \(3) Output is true iff the corresponding input element is Infinity/-Infinity.
 
-* \(4) Output is true iff the corresponding input element is non-null.
+* \(4) Output is true iff the corresponding input element is NaN.
 
-* \(5) Each output element is the length of the corresponding input element
+* \(5) Output is true iff the corresponding input element is null.
+
+* \(6) Output is true iff the corresponding input element is non-null.
+
+* \(7) Each output element is the length of the corresponding input element
   (null if input is null).  Output type is Int32 for List, Int64 for LargeList.
 
-* \(6) The output struct's field types are the types of its arguments. The
+* \(8) The output struct's field types are the types of its arguments. The
   field names are specified using an instance of :struct:`ProjectOptions`.
   The output shape will be scalar if all inputs are scalar, otherwise any
   scalars will be broadcast to arrays.

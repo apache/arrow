@@ -26,7 +26,7 @@ expect_scalar_roundtrip <- function(x, type) {
     # Should this be? Missing if all elements are missing?
     # expect_identical(is.na(s), all(is.na(x)))
   } else {
-    expect_identical(is.na(s), is.na(x))
+    expect_identical(as.vector(is.na(s)), is.na(x))
     # MakeArrayFromScalar not implemented for list types
     expect_equal(as.vector(s), x)
   }

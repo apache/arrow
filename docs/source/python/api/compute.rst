@@ -222,6 +222,9 @@ Structural Transforms
 
    binary_length
    fill_null
+   is_finite
+   is_inf
+   is_nan
    is_null
    is_valid
    list_value_length

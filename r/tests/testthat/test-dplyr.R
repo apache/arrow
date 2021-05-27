@@ -503,6 +503,27 @@ test_that("explicit type conversions with as.*()", {
   )
 })
 
+test_that("is.finite(), is.infinite(), is.nan()", {
+  df <- tibble(x =c(-4.94065645841246544e-324, 1.79769313486231570e+308, 0,
+                    NA_real_, NaN, Inf, -Inf))
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        is_fin = is.finite(x),
+        is_inf = is.infinite(x)
+      ) %>% collect(),
+    df
+  )
+  skip("is.nan() evaluates to NA on NA values (ARROW-12850)")
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        is_nan = is.nan(x)
+      ) %>% collect(),
+    df
+  )
+})
+
 test_that("as.factor()/dictionary_encode()", {
   skip("ARROW-12632: ExecuteScalarExpression cannot Execute non-scalar expression {x=dictionary_encode(x, {NON-REPRESENTABLE OPTIONS})}")
   df1 <- tibble(x = c("C", "D", "B", NA, "D", "B", "S", "A", "B", "Z", "B"))
