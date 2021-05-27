@@ -70,7 +70,7 @@
 #' class_scores$Take(class_scores$SortIndices(descending = TRUE))
 #' 
 #' # If you pass a list into chunked_array, you get a list of length 1
-#' list_scores <- chunked_array(list(c(9.9, 9.6, 9.5), c(8.2,8.3,8.4), c(10.0, 9.9, 9.8)))
+#' list_scores <- chunked_array(list(c(9.9, 9.6, 9.5), c(8.2, 8.3, 8.4), c(10.0, 9.9, 9.8)))
 #' list_scores$num_chunks
 #' 
 #' # When constructing a ChunkedArray, the first chunk is used to infer type.
