@@ -26,7 +26,7 @@ Because fields are named in the path segments, order of fields passed to
 \code{hive_partition()} does not matter.
 }
 \examples{
-\dontrun{
+\dontshow{if (arrow_with_dataset()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 hive_partition(year = int16(), month = int8())
-}
+\dontshow{\}) # examplesIf}
 }

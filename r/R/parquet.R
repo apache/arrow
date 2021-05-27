@@ -26,14 +26,12 @@
 #'
 #' @return A [arrow::Table][Table], or a `data.frame` if `as_data_frame` is
 #' `TRUE` (the default).
-#' @examples
-#' \dontrun{
+#' @examplesIf arrow_with_parquet()
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
 #' write_parquet(mtcars, tf)
 #' df <- read_parquet(tf, col_select = starts_with("d"))
 #' head(df)
-#' }
 #' @export
 read_parquet <- function(file,
                          col_select = NULL,
@@ -127,8 +125,7 @@ read_parquet <- function(file,
 #'
 #' @return the input `x` invisibly.
 #'
-#' @examples
-#' \dontrun{
+#' @examplesIf arrow_with_parquet()
 #' tf1 <- tempfile(fileext = ".parquet")
 #' write_parquet(data.frame(x = 1:5), tf1)
 #'
@@ -136,7 +133,6 @@ read_parquet <- function(file,
 #' if (codec_is_available("gzip")) {
 #'   tf2 <- tempfile(fileext = ".gz.parquet")
 #'   write_parquet(data.frame(x = 1:5), tf2, compression = "gzip", compression_level = 5)
-#' }
 #' }
 #' @export
 write_parquet <- function(x,
@@ -454,8 +450,7 @@ ParquetFileWriter$create <- function(schema,
 #' - `$num_row_groups`: number of row groups.
 #'
 #' @export
-#' @examples
-#' \dontrun{
+#' @examplesIf arrow_with_parquet()
 #' f <- system.file("v0.7.1.parquet", package="arrow")
 #' pq <- ParquetFileReader$create(f)
 #' pq$GetSchema()
@@ -463,7 +458,6 @@ ParquetFileWriter$create <- function(schema,
 #'   # This file has compressed data columns
 #'   tab <- pq$ReadTable()
 #'   tab$schema
-#' }
 #' }
 #' @include arrow-package.R
 ParquetFileReader <- R6Class("ParquetFileReader",

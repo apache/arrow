@@ -129,8 +129,7 @@
 #'
 #' @return A `data.frame`, or a Table if `as_data_frame = FALSE`.
 #' @export
-#' @examples
-#' \donttest{
+#' @examplesIf arrow_available()
 #'   tf <- tempfile()
 #'   on.exit(unlink(tf))
 #'   write.csv(mtcars, file = tf)
@@ -138,7 +137,6 @@
 #'   dim(df)
 #'   # Can select columns
 #'   df <- read_csv_arrow(tf, col_select = starts_with("d"))
-#' }
 read_delim_arrow <- function(file,
                              delim = ",",
                              quote = '"',
@@ -615,12 +613,10 @@ readr_to_csv_convert_options <- function(na,
 #' @return The input `x`, invisibly. Note that if `sink` is an [OutputStream],
 #' the stream will be left open.
 #' @export
-#' @examples
-#' \donttest{
+#' @examplesIf arrow_available()
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
 #' write_csv_arrow(mtcars, tf)
-#' }
 #' @include arrow-package.R
 write_csv_arrow <- function(x,
                             sink,

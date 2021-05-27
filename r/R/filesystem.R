@@ -476,15 +476,13 @@ SubTreeFileSystem$create <- function(base_path, base_fs = NULL) {
 #' copying but may help accommodate high latency FileSystems.
 #' @return Nothing: called for side effects in the file system
 #' @export
-#' @examples
-#' \dontrun{
+#' @examplesIf FALSE
 #' # Copy an S3 bucket's files to a local directory:
 #' copy_files("s3://your-bucket-name", "local-directory")
 #' # Using a FileSystem object
 #' copy_files(s3_bucket("your-bucket-name"), "local-directory")
 #' # Or go the other way, from local to S3
 #' copy_files("local-directory", s3_bucket("your-bucket-name"))
-#' }
 copy_files <- function(from, to, chunk_size = 1024L * 1024L) {
   from <- get_path_and_filesystem(from)
   to <- get_path_and_filesystem(to)

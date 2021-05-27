@@ -206,7 +206,7 @@ to idenfity column names, you'll need to add \code{skip = 1} to skip that row.
 }
 
 \examples{
-\donttest{
+\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
   tf <- tempfile()
   on.exit(unlink(tf))
   write.csv(mtcars, file = tf)
@@ -214,5 +214,5 @@ to idenfity column names, you'll need to add \code{skip = 1} to skip that row.
   dim(df)
   # Can select columns
   df <- read_csv_arrow(tf, col_select = starts_with("d"))
-}
+\dontshow{\}) # examplesIf}
 }

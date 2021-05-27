@@ -186,13 +186,11 @@ NestedType <- R6Class("NestedType", inherit = DataType)
 #' @return An Arrow type object inheriting from DataType.
 #' @export
 #' @seealso [dictionary()] for creating a dictionary (factor-like) type.
-#' @examples
-#' \donttest{
+#' @examplesIf arrow_available()
 #' bool()
 #' struct(a = int32(), b = double())
 #' timestamp("ms", timezone = "CEST")
 #' time64("ns")
-#' }
 int8 <- function() Int8__initialize()
 
 #' @rdname data-type
