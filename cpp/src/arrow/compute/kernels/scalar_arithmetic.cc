@@ -468,6 +468,27 @@ struct Sign {
   template <typename T, typename Arg,
             enable_if_t<std::is_floating_point<Arg>::value, bool> = true>
   static constexpr int8_t Call(KernelContext*, Arg arg, Status*) {
+    return (arg == 0) ? 0 : (std::signbit(arg) ? -1 : 1);
+  }
+
+  template <typename T, typename Arg,
+            enable_if_t<std::is_unsigned<Arg>::value, bool> = true>
+  static constexpr int8_t Call(KernelContext*, Arg arg, Status*) {
+    return arg ? 1 : 0;
+  }
+
+  template <typename T, typename Arg,
+            enable_if_t<std::is_integral<Arg>::value && std::is_signed<Arg>::value,
+                        bool> = true>
+  static constexpr int8_t Call(KernelContext*, Arg arg, Status*) {
+    return (arg > 0) ? 1 : ((arg < 0) ? -1 : 0);
+  }
+};
+
+struct SignWithSignedZero : Sign {
+  template <typename T, typename Arg,
+            enable_if_t<std::is_floating_point<Arg>::value, bool> = true>
+  static constexpr int8_t Call(KernelContext*, Arg arg, Status*) {
     return std::signbit(arg) ? -1 : 1;
   }
 
@@ -480,10 +501,8 @@ struct Sign {
   template <typename T, typename Arg,
             enable_if_t<std::is_integral<Arg>::value && std::is_signed<Arg>::value,
                         bool> = true>
-  static int8_t Call(KernelContext*, Arg arg, Status*) {
-    if (arg > 0) return 1;
-    if (arg < 0) return -1;
-    return 0;
+  static constexpr int8_t Call(KernelContext*, Arg arg, Status*) {
+    return (arg > 0) ? 1 : ((arg < 0) ? -1 : 0);
   }
 };
 

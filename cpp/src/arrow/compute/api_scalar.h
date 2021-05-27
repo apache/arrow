@@ -41,7 +41,6 @@ class ARROW_EXPORT ArithmeticOptions : public FunctionOptions {
  public:
   explicit ArithmeticOptions(bool check_overflow = false);
   constexpr static char const kTypeName[] = "ArithmeticOptions";
-  bool check_overflow;
 };
 
 class ARROW_EXPORT ElementWiseAggregateOptions : public FunctionOptions {
@@ -517,6 +516,7 @@ Result<Datum> MinElementWise(
 /// is null the result will be null.
 ///
 /// \param[in] arg the value to extract sign from
+/// \param[in] options arithmetic options (signed zero handling), optional
 /// \param[in] ctx the function execution context, optional
 /// \return the elementwise sign function
 ARROW_EXPORT
