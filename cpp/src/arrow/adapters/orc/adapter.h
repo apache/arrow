@@ -48,6 +48,11 @@ class ARROW_EXPORT ORCFileReader {
   static Status Open(const std::shared_ptr<io::RandomAccessFile>& file, MemoryPool* pool,
                      std::unique_ptr<ORCFileReader>* reader);
 
+  /// \brief Return the metadata read from the ORC file
+  ///
+  /// \return A KeyValueMetadata object containing the ORC metadata
+  Result<std::shared_ptr<const KeyValueMetadata>> ReadMetadata();
+
   /// \brief Return the schema read from the ORC file
   ///
   /// \param[out] out the returned Schema object
