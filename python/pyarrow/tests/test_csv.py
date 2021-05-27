@@ -52,11 +52,12 @@ def generate_col_names():
             yield first + second
 
 
-def make_random_csv(num_cols=2, num_rows=10, linesep='\r\n'):
+def make_random_csv(num_cols=2, num_rows=10, linesep='\r\n', write_names=True):
     arr = np.random.RandomState(42).randint(0, 1000, size=(num_cols, num_rows))
-    col_names = list(itertools.islice(generate_col_names(), num_cols))
     csv = io.StringIO()
-    csv.write(",".join(col_names))
+    col_names = list(itertools.islice(generate_col_names(), num_cols))
+    if write_names:
+        csv.write(",".join(col_names))
     csv.write(linesep)
     for row in arr.T:
         csv.write(",".join(map(str, row)))
@@ -973,6 +974,71 @@ class TestSerialCSVRead(BaseTestCSVRead, unittest.TestCase):
         table = read_csv(*args, **kwargs)
         table.validate(full=validate_full)
         return table
+
+    def test_row_numbers_in_errors(self):
+        """ Row numbers are only correctly counted in serial reads """
+        csv, _ = make_random_csv(4, 100, write_names=True)
+
+        read_options = ReadOptions()
+        read_options.block_size = len(csv) / 3
+        convert_options = ConvertOptions()
+        convert_options.column_types = {"a": pa.int32(), "d": pa.int32()}
+
+        # Test without skip_rows and column names in the csv
+        csv_bad_columns = csv + b"1,2\r\n"
+        with pytest.raises(pa.ArrowInvalid,
+                           match="Row #102: Expected 4 columns, got 2"):
+            self.read_bytes(csv_bad_columns, read_options=read_options,
+                            convert_options=convert_options)
+
+        csv_bad_type = csv + b"a,b,c,d\r\n"
+        message = ("In CSV column #0: Row #102: " +
+                   "CSV conversion error to int32: invalid value 'a'")
+        with pytest.raises(pa.ArrowInvalid, match=message):
+            self.read_bytes(csv_bad_type, read_options=read_options,
+                            convert_options=convert_options)
+
+        long_row = (b"this is a long row" * 15) + b",3\r\n"
+        csv_bad_columns_long = csv + long_row
+        message = ("Row #102: Expected 4 columns, got 2: " +
+                   long_row[0:96].decode("utf-8") + " ...")
+        with pytest.raises(pa.ArrowInvalid, match=message):
+            self.read_bytes(csv_bad_columns_long, read_options=read_options,
+                            convert_options=convert_options)
+
+        # Test without skip_rows and column names not in the csv
+        csv, _ = make_random_csv(4, 100, write_names=False)
+        read_options.column_names = ["a", "b", "c", "d"]
+        csv_bad_columns = csv + b"1,2\r\n"
+        with pytest.raises(pa.ArrowInvalid,
+                           match="Row #101: Expected 4 columns, got 2"):
+            self.read_bytes(csv_bad_columns, read_options=read_options,
+                            convert_options=convert_options)
+
+        csv_bad_columns_long = csv + long_row
+        message = ("Row #101: Expected 4 columns, got 2: " +
+                   long_row[0:96].decode("utf-8") + " ...")
+        with pytest.raises(pa.ArrowInvalid, match=message):
+            self.read_bytes(csv_bad_columns_long, read_options=read_options,
+                            convert_options=convert_options)
+
+        csv_bad_type = csv + b"a,b,c,d\r\n"
+        message = ("In CSV column #0: Row #101: " +
+                   "CSV conversion error to int32: invalid value 'a'")
+        with pytest.raises(pa.ArrowInvalid, match=message):
+            self.read_bytes(csv_bad_type, read_options=read_options,
+                            convert_options=convert_options)
+
+        # Test with skip_rows and column names not in the csv
+        read_options.skip_rows = 23
+        with pytest.raises(pa.ArrowInvalid,
+                           match="Row #101: Expected 4 columns, got 2"):
+            self.read_bytes(csv_bad_columns, read_options=read_options,
+                            convert_options=convert_options)
+
+        with pytest.raises(pa.ArrowInvalid, match=message):
+            self.read_bytes(csv_bad_type, read_options=read_options,
+                            convert_options=convert_options)
 
 
 class TestParallelCSVRead(BaseTestCSVRead, unittest.TestCase):

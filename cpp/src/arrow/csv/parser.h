@@ -63,19 +63,26 @@ class ARROW_EXPORT DataBatch {
   uint32_t num_bytes() const { return parsed_size_; }
 
   template <typename Visitor>
-  Status VisitColumn(int32_t col_index, Visitor&& visit) const {
+  Status VisitColumn(int32_t col_index, int64_t first_row, Visitor&& visit) const {
     using detail::ParsedValueDesc;
 
+    int64_t row = first_row;
     for (size_t buf_index = 0; buf_index < values_buffers_.size(); ++buf_index) {
       const auto& values_buffer = values_buffers_[buf_index];
       const auto values = reinterpret_cast<const ParsedValueDesc*>(values_buffer->data());
       const auto max_pos =
           static_cast<int32_t>(values_buffer->size() / sizeof(ParsedValueDesc)) - 1;
-      for (int32_t pos = col_index; pos < max_pos; pos += num_cols_) {
+      for (int32_t pos = col_index; pos < max_pos; pos += num_cols_, ++row) {
         auto start = values[pos].offset;
         auto stop = values[pos + 1].offset;
         auto quoted = values[pos + 1].quoted;
-        ARROW_RETURN_NOT_OK(visit(parsed_ + start, stop - start, quoted));
+        Status status = visit(parsed_ + start, stop - start, quoted);
+        if (ARROW_PREDICT_FALSE(!status.ok())) {
+          if (first_row >= 0) {
+            status = status.WithMessage("Row #", row, ": ", status.message());
+          }
+          ARROW_RETURN_NOT_OK(status);
+        }
       }
     }
     return Status::OK();
@@ -134,9 +141,9 @@ constexpr int32_t kMaxParserNumRows = 100000;
 class ARROW_EXPORT BlockParser {
  public:
   explicit BlockParser(ParseOptions options, int32_t num_cols = -1,
-                       int32_t max_num_rows = kMaxParserNumRows);
+                       int64_t first_row = -1, int32_t max_num_rows = kMaxParserNumRows);
   explicit BlockParser(MemoryPool* pool, ParseOptions options, int32_t num_cols = -1,
-                       int32_t max_num_rows = kMaxParserNumRows);
+                       int64_t first_row = -1, int32_t max_num_rows = kMaxParserNumRows);
   ~BlockParser();
 
   /// \brief Parse a block of data
@@ -167,6 +174,8 @@ class ARROW_EXPORT BlockParser {
   int32_t num_cols() const { return parsed_batch().num_cols(); }
   /// \brief Return the total size in bytes of parsed data
   uint32_t num_bytes() const { return parsed_batch().num_bytes(); }
+  /// \brief Return the row number of the first row in the block or -1 if unsupported
+  int64_t first_row_num() const;
 
   /// \brief Visit parsed values in a column
   ///
@@ -174,7 +183,8 @@ class ARROW_EXPORT BlockParser {
   /// Status(const uint8_t* data, uint32_t size, bool quoted)
   template <typename Visitor>
   Status VisitColumn(int32_t col_index, Visitor&& visit) const {
-    return parsed_batch().VisitColumn(col_index, std::forward<Visitor>(visit));
+    return parsed_batch().VisitColumn(col_index, first_row_num(),
+                                      std::forward<Visitor>(visit));
   }
 
   template <typename Visitor>
