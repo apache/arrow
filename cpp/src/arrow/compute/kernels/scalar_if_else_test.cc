@@ -24,15 +24,19 @@
 namespace arrow {
 namespace compute {
 
-void CheckIfElseOutputArray(const Datum& cond, const Datum& left, const Datum& right,
-                            const Datum& expected) {
+void CheckIfElseOutput(const Datum& cond, const Datum& left, const Datum& right,
+                       const Datum& expected) {
   ASSERT_OK_AND_ASSIGN(Datum datum_out, IfElse(cond, left, right));
-  std::shared_ptr<Array> result = datum_out.make_array();
-  ASSERT_OK(result->ValidateFull());
-  std::shared_ptr<Array> expected_ = expected.make_array();
-  AssertArraysEqual(*expected.make_array(), *result, /*verbose=*/true);
-
-  ASSERT_EQ(result->data()->null_count, expected_->data()->null_count);
+  if (datum_out.is_array()) {
+    std::shared_ptr<Array> result = datum_out.make_array();
+    ASSERT_OK(result->ValidateFull());
+    std::shared_ptr<Array> expected_ = expected.make_array();
+    AssertArraysEqual(*expected_, *result, /*verbose=*/true);
+  } else {  // expecting scalar
+    const std::shared_ptr<Scalar>& result = datum_out.scalar();
+    const std::shared_ptr<Scalar>& expected_ = expected.scalar();
+    AssertScalarsEqual(*expected_, *result, /*verbose=*/true);
+  }
 }
 
 void CheckIfElseOutputAAA(const std::shared_ptr<DataType>& type, const std::string& cond,
@@ -42,7 +46,7 @@ void CheckIfElseOutputAAA(const std::shared_ptr<DataType>& type, const std::stri
   const std::shared_ptr<Array>& left_ = ArrayFromJSON(type, left);
   const std::shared_ptr<Array>& right_ = ArrayFromJSON(type, right);
   const std::shared_ptr<Array>& expected_ = ArrayFromJSON(type, expected);
-  CheckIfElseOutputArray(cond_, left_, right_, expected_);
+  CheckIfElseOutput(cond_, left_, right_, expected_);
 }
 
 void CheckIfElseOutputAAS(const std::shared_ptr<DataType>& type, const std::string& cond,
@@ -51,7 +55,7 @@ void CheckIfElseOutputAAS(const std::shared_ptr<DataType>& type, const std::stri
   const std::shared_ptr<Array>& cond_ = ArrayFromJSON(boolean(), cond);
   const std::shared_ptr<Array>& left_ = ArrayFromJSON(type, left);
   const std::shared_ptr<Array>& expected_ = ArrayFromJSON(type, expected);
-  CheckIfElseOutputArray(cond_, left_, right, expected_);
+  CheckIfElseOutput(cond_, left_, right, expected_);
 }
 
 void CheckIfElseOutputASA(const std::shared_ptr<DataType>& type, const std::string& cond,
@@ -60,7 +64,7 @@ void CheckIfElseOutputASA(const std::shared_ptr<DataType>& type, const std::stri
   const std::shared_ptr<Array>& cond_ = ArrayFromJSON(boolean(), cond);
   const std::shared_ptr<Array>& right_ = ArrayFromJSON(type, right);
   const std::shared_ptr<Array>& expected_ = ArrayFromJSON(type, expected);
-  CheckIfElseOutputArray(cond_, left, right_, expected_);
+  CheckIfElseOutput(cond_, left, right_, expected_);
 }
 
 void CheckIfElseOutputASS(const std::shared_ptr<DataType>& type, const std::string& cond,
@@ -69,7 +73,34 @@ void CheckIfElseOutputASS(const std::shared_ptr<DataType>& type, const std::stri
                           const std::string& expected) {
   const std::shared_ptr<Array>& cond_ = ArrayFromJSON(boolean(), cond);
   const std::shared_ptr<Array>& expected_ = ArrayFromJSON(type, expected);
-  CheckIfElseOutputArray(cond_, left, right, expected_);
+  CheckIfElseOutput(cond_, left, right, expected_);
+}
+
+void CheckIfElseOutputSAA(const std::shared_ptr<DataType>& type,
+                          const std::shared_ptr<Scalar>& cond, const std::string& left,
+                          const std::string& right, const std::string& expected) {
+  const std::shared_ptr<Array>& left_ = ArrayFromJSON(type, left);
+  const std::shared_ptr<Array>& right_ = ArrayFromJSON(type, right);
+  const std::shared_ptr<Array>& expected_ = ArrayFromJSON(type, expected);
+  CheckIfElseOutput(cond, left_, right_, expected_);
+}
+
+void CheckIfElseOutputSAS(const std::shared_ptr<DataType>& type,
+                          const std::shared_ptr<Scalar>& cond, const std::string& left,
+                          const std::shared_ptr<Scalar>& right,
+                          const std::string& expected) {
+  const std::shared_ptr<Array>& left_ = ArrayFromJSON(type, left);
+  const std::shared_ptr<Array>& expected_ = ArrayFromJSON(type, expected);
+  CheckIfElseOutput(cond, left_, right, expected_);
+}
+
+void CheckIfElseOutputSSA(const std::shared_ptr<DataType>& type,
+                          const std::shared_ptr<Scalar>& cond,
+                          const std::shared_ptr<Scalar>& left, const std::string& right,
+                          const std::string& expected) {
+  const std::shared_ptr<Array>& right_ = ArrayFromJSON(type, right);
+  const std::shared_ptr<Array>& expected_ = ArrayFromJSON(type, expected);
+  CheckIfElseOutput(cond, left, right_, expected_);
 }
 
 class TestIfElseKernel : public ::testing::Test {};
@@ -113,7 +144,7 @@ TYPED_TEST(TestIfElsePrimitive, IfElseFixedSizeRand) {
   }
   ASSERT_OK_AND_ASSIGN(auto expected_data, builder.Finish());
 
-  CheckIfElseOutputArray(cond, left, right, expected_data);
+  CheckIfElseOutput(cond, left, right, expected_data);
 }
 
 /*
@@ -244,6 +275,112 @@ TYPED_TEST(TestIfElsePrimitive, IfElseFixedSize) {
   // CLR = 000
   CheckIfElseOutputASS(type, "[true, true, null, false]", null_scalar, null_scalar,
                        "[null, null, null, null]");
+
+  // -------- Cond - Scalar, Left- Array, Right - Array ---------
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Scalar> bool_true, MakeScalar(boolean(), true));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Scalar> bool_false, MakeScalar(boolean(), false));
+  std::shared_ptr<Scalar> bool_null = MakeNullScalar(boolean());
+
+  // empty
+  CheckIfElseOutputSAA(type, bool_true, "[]", "[]", "[]");
+  // CLR = 111
+  CheckIfElseOutputSAA(type, bool_true, "[1, 2, 3, 4]", "[5, 6, 7, 8]", "[1, 2, 3, 4]");
+  // CLR = 011
+  CheckIfElseOutputSAA(type, bool_null, "[1, 2, 3, 4]", "[5, 6, 7, 8]",
+                       "[null, null, null, null]");
+  // CLR = 101
+  CheckIfElseOutputSAA(type, bool_false, "[1, null, 3, 4]", "[5, 6, 7, 8]",
+                       "[5, 6, 7, 8]");
+  // CLR = 001
+  CheckIfElseOutputSAA(type, bool_null, "[1, null, 3, 4]", "[5, 6, 7, 8]",
+                       "[null, null, null, null]");
+  // CLR = 110
+  CheckIfElseOutputSAA(type, bool_false, "[1, 2, 3, 4]", "[5, 6, 7, null]",
+                       "[5, 6, 7, null]");
+  // CLR = 010
+  CheckIfElseOutputSAA(type, bool_null, "[1, 2, 3, 4]", "[5, 6, 7, null]",
+                       "[null, null, null, null]");
+  // CLR = 100
+  CheckIfElseOutputSAA(type, bool_true, "[1, 2, null, null]", "[null, 6, 7, null]",
+                       "[1, 2, null, null]");
+  // CLR = 000
+  CheckIfElseOutputSAA(type, bool_null, "[1, 2, null, null]", "[null, 6, 7, null]",
+                       "[null, null, null, null]");
+
+  // -------- Cond - Scalar, Left- Array, Right - Scalar ---------
+  // empty
+  CheckIfElseOutputSAS(type, bool_true, "[]", valid_scalar, "[]");
+
+  // CLR = 111
+  CheckIfElseOutputSAS(type, bool_true, "[1, 2, 3, 4]", valid_scalar, "[1, 2, 3, 4]");
+  // CLR = 011
+  CheckIfElseOutputSAS(type, bool_null, "[1, 2, 3, 4]", valid_scalar,
+                       "[null, null, null, null]");
+  // CLR = 101
+  CheckIfElseOutputSAS(type, bool_false, "[1, null, 3, 4]", valid_scalar,
+                       "[100, 100, 100, 100]");
+  // CLR = 001
+  CheckIfElseOutputSAS(type, bool_null, "[1, null, 3, 4]", valid_scalar,
+                       "[null, null, null, null]");
+  // CLR = 110
+  CheckIfElseOutputSAS(type, bool_true, "[1, 2, 3, 4]", null_scalar, "[1, 2, 3, 4]");
+  // CLR = 010
+  CheckIfElseOutputSAS(type, bool_null, "[1, 2, 3, 4]", null_scalar,
+                       "[null, null, null, null]");
+  // CLR = 100
+  CheckIfElseOutputSAS(type, bool_false, "[1, 2, null, null]", null_scalar,
+                       "[null, null, null, null]");
+  // CLR = 000
+  CheckIfElseOutputSAS(type, bool_null, "[1, 2, null, null]", null_scalar,
+                       "[null, null, null, null]");
+
+  // -------- Cond - Scalar, Left- Scalar, Right - Array ---------
+  // empty
+  CheckIfElseOutputSSA(type, bool_true, valid_scalar, "[]", "[]");
+
+  // CLR = 111
+  CheckIfElseOutputSSA(type, bool_true, valid_scalar, "[1, 2, 3, 4]",
+                       "[100, 100, 100, 100]");
+  // CLR = 011
+  CheckIfElseOutputSSA(type, bool_null, valid_scalar, "[1, 2, 3, 4]",
+                       "[null, null, null, null]");
+  // CLR = 110
+  CheckIfElseOutputSSA(type, bool_false, valid_scalar, "[1, null, 3, null]",
+                       "[1, null, 3, null]");
+  // CLR = 010
+  CheckIfElseOutputSSA(type, bool_null, valid_scalar, "[1, null, 3, null]",
+                       "[null, null, null, null]");
+  // CLR = 101
+  CheckIfElseOutputSSA(type, bool_true, null_scalar, "[1, 2, 3, 4]",
+                       "[null, null, null, null]");
+  // CLR = 001
+  CheckIfElseOutputSSA(type, bool_null, null_scalar, "[1, 2, 3, 4]",
+                       "[null, null, null, null]");
+  // CLR = 100
+  CheckIfElseOutputSSA(type, bool_false, null_scalar, "[1, 2, null, 4]",
+                       "[1, 2, null, 4]");
+  // CLR = 000
+  CheckIfElseOutputSSA(type, bool_null, null_scalar, "[1, 2, null, 4]",
+                       "[null, null, null, null]");
+
+  // -------- Cond - Scalar, Left- Scalar, Right - Scalar ---------
+
+  // CLR = 111
+  CheckIfElseOutput(bool_false, valid_scalar, valid_scalar1, valid_scalar1);
+  // CLR = 011
+  CheckIfElseOutput(bool_null, valid_scalar, valid_scalar1, null_scalar);
+  // CLR = 110
+  CheckIfElseOutput(bool_true, valid_scalar, null_scalar, valid_scalar);
+  // CLR = 010
+  CheckIfElseOutput(bool_null, valid_scalar, null_scalar, null_scalar);
+  // CLR = 101
+  CheckIfElseOutput(bool_false, null_scalar, valid_scalar1, valid_scalar1);
+  // CLR = 001
+  CheckIfElseOutput(bool_null, null_scalar, valid_scalar1, null_scalar);
+  // CLR = 100
+  CheckIfElseOutput(bool_true, null_scalar, null_scalar, null_scalar);
+  // CLR = 000
+  CheckIfElseOutput(bool_null, null_scalar, null_scalar, null_scalar);
 }
 
 TEST_F(TestIfElseKernel, IfElseBoolean) {
@@ -259,7 +396,10 @@ TEST_F(TestIfElseKernel, IfElseBoolean) {
 
   CheckIfElseOutputAAA(type, "[true, true, true, false]", "[true, false, null, null]",
                        "[null, false, true, null]", "[true, false, null, null]");
+}
 
+TYPED_TEST(TestIfElsePrimitive, IfElseBooleanRand) {
+  auto type = boolean();
   random::RandomArrayGenerator rand(/*seed=*/0);
   int64_t len = 1000;
   auto cond = std::static_pointer_cast<BooleanArray>(
@@ -285,7 +425,7 @@ TEST_F(TestIfElseKernel, IfElseBoolean) {
   }
   ASSERT_OK_AND_ASSIGN(auto expected_data, builder.Finish());
 
-  CheckIfElseOutputArray(cond, left, right, expected_data);
+  CheckIfElseOutput(cond, left, right, expected_data);
 }
 
 TEST_F(TestIfElseKernel, IfElseNull) {

@@ -324,152 +324,6 @@ Status PromoteNullsVisitor(KernelContext* ctx, const ArrayData& cond,
   return Status::OK();
 }
 
-// nulls will be promoted as follows:
-// cond.valid && (cond.data && left.valid || ~cond.data && right.valid)
-// Note: we have to work on ArrayData. Otherwise we won't be able to handle array
-// offsets AAA
-/*Status PromoteNulls(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
-                    const ArrayData& right, ArrayData* output) {
-  if (!cond.MayHaveNulls() && !left.MayHaveNulls() && !right.MayHaveNulls()) {
-    return Status::OK();  // no nulls to handle
-  }
-  const int64_t len = cond.length;
-
-  // out_validity = ~cond.data --> mask right values
-  ARROW_ASSIGN_OR_RAISE(
-      std::shared_ptr<Buffer> out_validity,
-      arrow::internal::InvertBitmap(ctx->memory_pool(), cond.buffers[1]->data(),
-                                    cond.offset, len));
-
-  if (right.MayHaveNulls()) {  // out_validity = right.valid && ~cond.data
-    arrow::internal::BitmapAnd(right.buffers[0]->data(), right.offset,
-                               out_validity->data(), 0, len, 0,
-                               out_validity->mutable_data());
-  }
-
-  std::shared_ptr<Buffer> tmp_buf;
-  if (left.MayHaveNulls()) {
-    // tmp_buf = left.valid && cond.data
-    ARROW_ASSIGN_OR_RAISE(
-        tmp_buf, arrow::internal::BitmapAnd(ctx->memory_pool(), left.buffers[0]->data(),
-                                            left.offset, cond.buffers[1]->data(),
-                                            cond.offset, len, 0));
-  } else {  // if left all valid --> tmp_buf = cond.data (zero copy slice)
-    tmp_buf = SliceBuffer(cond.buffers[1], cond.offset, cond.length);
-  }
-
-  // out_validity = cond.data && left.valid || ~cond.data && right.valid
-  arrow::internal::BitmapOr(out_validity->data(), 0, tmp_buf->data(), 0, len, 0,
-                            out_validity->mutable_data());
-
-  if (cond.MayHaveNulls()) {
-    // out_validity = cond.valid && (cond.data && left.valid || ~cond.data && right.valid)
-    ::arrow::internal::BitmapAnd(out_validity->data(), 0, cond.buffers[0]->data(),
-                                 cond.offset, len, 0, out_validity->mutable_data());
-  }
-
-  output->buffers[0] = std::move(out_validity);
-  output->GetNullCount();  // update null count
-  return Status::OK();
-}
-
-// cond.valid && (cond.data && left.valid || ~cond.data && right.valid)
-// ASA and AAS
-Status PromoteNulls(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
-                    const ArrayData& right, ArrayData* output) {
-  if (!cond.MayHaveNulls() && left.is_valid && !right.MayHaveNulls()) {
-    return Status::OK();  // no nulls to handle
-  }
-  const int64_t len = cond.length;
-
-  // out_validity = ~cond.data
-  ARROW_ASSIGN_OR_RAISE(
-      std::shared_ptr<Buffer> out_validity,
-      arrow::internal::InvertBitmap(ctx->memory_pool(), cond.buffers[1]->data(),
-                                    cond.offset, len));
-  // out_validity = ~cond.data && right.valid
-  if (right.MayHaveNulls()) {  // out_validity = right.valid && ~cond.data
-    arrow::internal::BitmapAnd(right.buffers[0]->data(), right.offset,
-                               out_validity->data(), 0, len, 0,
-                               out_validity->mutable_data());
-  }
-
-  // out_validity = cond.data && left.valid || ~cond.data && right.valid
-  if (left.is_valid) {
-    arrow::internal::BitmapOr(out_validity->data(), 0, cond.buffers[1]->data(),
-                              cond.offset, len, 0, out_validity->mutable_data());
-  }
-
-  // out_validity = cond.valid && (cond.data && left.valid || ~cond.data && right.valid)
-  if (cond.MayHaveNulls()) {
-    ::arrow::internal::BitmapAnd(out_validity->data(), 0, cond.buffers[0]->data(),
-                                 cond.offset, len, 0, out_validity->mutable_data());
-  }
-
-  output->buffers[0] = std::move(out_validity);
-  output->GetNullCount();  // update null count
-  return Status::OK();
-}
-
-// cond.valid && (cond.data && left.valid || ~cond.data && right.valid)
-// ASS
-Status PromoteNulls(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
-                    const Scalar& right, ArrayData* output) {
-  if (!cond.MayHaveNulls() && left.is_valid && right.is_valid) {
-    return Status::OK();  // no nulls to handle
-  }
-  const int64_t len = cond.length;
-
-  std::shared_ptr<Buffer> out_validity;
-  if (right.is_valid) {
-    // out_validity = ~cond.data
-    ARROW_ASSIGN_OR_RAISE(
-        out_validity, arrow::internal::InvertBitmap(
-                          ctx->memory_pool(), cond.buffers[1]->data(), cond.offset, len));
-  } else {
-    // out_validity = [0...]
-    ARROW_ASSIGN_OR_RAISE(out_validity, ctx->AllocateBitmap(len));
-  }
-
-  // out_validity = cond.data && left.valid || ~cond.data && right.valid
-  if (left.is_valid) {
-    arrow::internal::BitmapOr(out_validity->data(), 0, cond.buffers[1]->data(),
-                              cond.offset, len, 0, out_validity->mutable_data());
-  }
-
-  // out_validity = cond.valid && (cond.data && left.valid || ~cond.data && right.valid)
-  if (cond.MayHaveNulls()) {
-    ::arrow::internal::BitmapAnd(out_validity->data(), 0, cond.buffers[0]->data(),
-                                 cond.offset, len, 0, out_validity->mutable_data());
-  }
-
-  output->buffers[0] = std::move(out_validity);
-  output->GetNullCount();  // update null count
-  return Status::OK();
-}
-
-// todo: this could be dangerous because the inverted arraydata buffer[1] may not be
-//  available outside Exec's scope
-Status InvertBoolArrayData(KernelContext* ctx, const ArrayData& input,
-                           ArrayData* output) {
-  // null buffer
-  if (input.MayHaveNulls()) {
-    output->buffers.emplace_back(
-        SliceBuffer(input.buffers[0], input.offset, input.length));
-  } else {
-    output->buffers.push_back(NULLPTR);
-  }
-
-  // data buffer
-  ARROW_ASSIGN_OR_RAISE(
-      std::shared_ptr<Buffer> inv_data,
-      arrow::internal::InvertBitmap(ctx->memory_pool(), input.buffers[1]->data(),
-                                    input.offset, input.length));
-  output->buffers.emplace_back(std::move(inv_data));
-  return Status::OK();
-}
- */
-
 template <typename Type, typename Enable = void>
 struct IfElseFunctor {};
 
@@ -795,7 +649,6 @@ struct ResolveIfElseExec {
     // cond is scalar
     if (batch[0].is_scalar()) {
       const auto& cond = batch[0].scalar_as<BooleanScalar>();
-
       if (batch[1].is_scalar() && batch[2].is_scalar()) {
         if (cond.is_valid) {
           *out = cond.value ? batch[1].scalar() : batch[2].scalar();
@@ -803,7 +656,8 @@ struct ResolveIfElseExec {
           *out = MakeNullScalar(batch[1].type());
         }
       } else {  // either left or right is an array. output is always an array
-        int64_t bcast_size = std::max(batch[1].length(), batch[2].length());
+        // output size is the size of the array arg
+        int64_t bcast_size = batch[1].is_array() ? batch[1].length() : batch[2].length();
         if (cond.is_valid) {
           const auto& valid_data = cond.value ? batch[1] : batch[2];
           if (valid_data.is_array()) {
