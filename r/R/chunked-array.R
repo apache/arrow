@@ -63,7 +63,7 @@
 #' class_scores$num_chunks
 #' 
 #' # When taking a Slice from a chunked_array, chunks are preserved
-#' class_scores$Slice(2,length = 5)
+#' class_scores$Slice(2, length = 5)
 #' 
 #' # You can combine Take and SortIndices to return a ChunkedArray with 1 chunk 
 #' # containing all values, ordered.
