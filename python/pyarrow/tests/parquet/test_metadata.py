@@ -320,30 +320,29 @@ def test_field_id_metadata():
     pf = pq.ParquetFile(pa.BufferReader(contents))
     schema = pf.schema_arrow
 
-    field_name = b'PARQUET:field_id'
-    assert schema[0].metadata[field_name] == b'1'
+    assert schema[0].metadata[field_id] == b'1'
     assert schema[0].metadata[b'other'] == b'abc'
 
     list_field = schema[1]
-    assert list_field.metadata[field_name] == b'11'
+    assert list_field.metadata[field_id] == b'11'
 
     list_item_field = list_field.type.value_field
-    assert list_item_field.metadata[field_name] == b'10'
+    assert list_item_field.metadata[field_id] == b'10'
 
     struct_field = schema[2]
-    assert struct_field.metadata[field_name] == b'102'
+    assert struct_field.metadata[field_id] == b'102'
 
     struct_middle_field = struct_field.type[0]
-    assert struct_middle_field.metadata[field_name] == b'101'
+    assert struct_middle_field.metadata[field_id] == b'101'
 
     struct_inner_field = struct_middle_field.type[0]
-    assert struct_inner_field.metadata[field_name] == b'100'
+    assert struct_inner_field.metadata[field_id] == b'100'
 
     assert schema[3].metadata is None
     # Invalid input is passed through (ok) but does not
     # have field_id in parquet (not tested)
-    assert schema[4].metadata[field_name] == b'xyz'
-    assert schema[5].metadata[field_name] == b'-1000'
+    assert schema[4].metadata[field_id] == b'xyz'
+    assert schema[5].metadata[field_id] == b'-1000'
 
 
 @pytest.mark.pandas
