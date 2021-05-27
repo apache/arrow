@@ -124,4 +124,5 @@ check_tabular <- function(x, format) {
       )
     )
   }
+  invisible(x)
 }
