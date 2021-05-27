@@ -339,11 +339,7 @@ class ArrowMessage implements AutoCloseable {
 
   private static int readRawVarint32(InputStream is) throws IOException {
     int firstByte = is.read();
-    if (firstByte >= 0) {
-      return CodedInputStream.readRawVarint32(firstByte, is);
-    } else {
-      throw new IOException("It should not reach EOF here.");
-    }
+    return CodedInputStream.readRawVarint32(firstByte, is);
   }
 
   /**
