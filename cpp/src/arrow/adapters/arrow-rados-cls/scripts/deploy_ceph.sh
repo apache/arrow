@@ -35,7 +35,7 @@ cd /tmp/deployment/
 
 ceph-deploy new node{1..3}
 
-ceph-deploy install --release octopus node{1..3}
+ceph-deploy install --release octopus node{1..4}
 
 ceph-deploy mon create-initial
 
@@ -49,22 +49,21 @@ osd class load list = *
 osd op threads = 8
 EOF
 
-ceph-deploy --overwrite-conf config push node{1..3}
+ceph-deploy --overwrite-conf config push node{1..4}
 
 cp ceph.conf /etc/ceph/ceph.conf
 cp ceph.client.admin.keyring  /etc/ceph/ceph.client.admin.keyring
 ceph -s
 
-for i in {1..3}; do
+for i in {1..4}; do
     scp /tmp/deployment/ceph.bootstrap-osd.keyring node${i}:/etc/ceph/ceph.keyring
     scp /tmp/deployment/ceph.bootstrap-osd.keyring node${i}:/var/lib/ceph/bootstrap-osd/ceph.keyring
     ceph-deploy osd create --data /dev/nvme0n1p4 node${i}
 done
 
 ceph-deploy mds create node1
-ceph osd pool create cephfs_data 16
-ceph osd pool create cephfs_metadata 16
-ceph osd pool create device_health_metrics 16
+ceph osd pool create cephfs_data 128
+ceph osd pool create cephfs_metadata 128
 
 ceph fs new cephfs cephfs_metadata cephfs_data
 mkdir -p /mnt/cephfs

@@ -23,14 +23,14 @@ apt update
 apt install -y attr
 
 # usage:
-# ./data.sh [source] [destination] [count] [stripeunit]
+# ./deploy_data.sh [source] [destination] [count] [stripeunit]
 
 source=${1}
 destination=${2}
 count=${3}
 stripe=${4}
 
-for ((i=0 ; i<=${count} ; i++)); do
+for ((i=1 ; i<=${count} ; i++)); do
     touch ${destination}.${i}
     setfattr -n ceph.file.layout.object_size -v ${stripe} ${destination}.${i}
     echo "copying ${source} to ${destination}.${i}"
