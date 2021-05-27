@@ -711,8 +711,12 @@ void AddPrimitiveIfElseKernels(const std::shared_ptr<ScalarFunction>& scalar_fun
 
 }  // namespace
 
-// todo fill this
-const FunctionDoc if_else_doc{"<fill this>", ("`<fill this>"), {"cond", "left", "right"}};
+const FunctionDoc if_else_doc{"Choose values based on a condition",
+                              ("`cond` must be a Boolean scalar/ array. \n`left` or "
+                               "`right` must be of the same type scalar/ array.\n"
+                               "`null` values in `cond` will be promoted to the"
+                               " output."),
+                              {"cond", "left", "right"}};
 
 namespace internal {
 

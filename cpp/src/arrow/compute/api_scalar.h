@@ -468,9 +468,9 @@ Result<Datum> FillNull(const Datum& values, const Datum& fill_value,
 /// \brief IfElse returns elements chosen from `left` or `right`
 /// depending on `cond`. `null` values would be promoted to the result
 ///
-/// \param[in] cond `BooleanArray` condition array
-/// \param[in] left scalar/ Array
-/// \param[in] right scalar/ Array
+/// \param[in] cond `Boolean` condition Scalar/ Array
+/// \param[in] left Scalar/ Array
+/// \param[in] right Scalar/ Array
 /// \param[in] ctx the function execution context, optional
 ///
 /// \return the resulting datum
