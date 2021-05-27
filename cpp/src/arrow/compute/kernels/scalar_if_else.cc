@@ -38,7 +38,9 @@ enum { COND_ALL_VALID = 1, LEFT_ALL_VALID = 2, RIGHT_ALL_VALID = 4 };
 // ie. cond.valid & (cond.data & left.valid | ~cond.data & right.valid)
 Status PromoteNullsVisitor(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
                            const Scalar& right, ArrayData* output) {
-  uint8_t flag = right.is_valid * 4 + left.is_valid * 2 + !cond.MayHaveNulls();
+  uint8_t flag = right.is_valid * RIGHT_ALL_VALID |
+                        left.is_valid * LEFT_ALL_VALID |
+                         !cond.MayHaveNulls() * COND_ALL_VALID;
 
   if (flag < 6 && flag != 3) {
     // there will be a validity buffer in the output
