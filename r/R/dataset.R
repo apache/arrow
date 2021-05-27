@@ -69,6 +69,30 @@
 #' @export
 #' @seealso `vignette("dataset", package = "arrow")`
 #' @include arrow-package.R
+#' @examplesIf arrow_with_dataset()
+#' # Set up directory for examples
+#' tf <- tempfile()
+#' dir.create(tf)
+#' on.exit(unlink(tf))
+#' \dontrun{
+#' write_parquet(mtcars[1:10,], file.path(tf, "file1.parquet"))
+#' write_parquet(mtcars[11:20,], file.path(tf, "file2.parquet"))
+#' write_parquet(mtcars[21:32,], file.path(tf, "file3.parquet"))
+#' 
+#' # You can specify a directory containing the files for your dataset and
+#' # open_dataset will scan all files in your directory.
+#' open_dataset(tf)
+#' 
+#' # You can also supply a vector of paths
+#' open_dataset(c(file.path(tf, "file3.parquet"), file.path(tf, "file2.parquet")))
+#' }
+#' ## You must specify the file format if using a format other than parquet.
+#' write_csv_arrow(mtcars[1:10,], file.path(tf, "file1.csv"))
+#' write_csv_arrow(mtcars[11:20,], file.path(tf, "file2.csv"))
+#' # This line will results in errors when you try to work with the data
+#' \dontrun{open_dataset(c(file.path(tf, "file1.csv"), file.path(tf, "file2.csv")))}
+#' # This is the correct way to open a dataset containing CSVs
+#' open_dataset(c(file.path(tf, "file1.csv"), file.path(tf, "file2.csv")), format = "csv") 
 open_dataset <- function(sources,
                          schema = NULL,
                          partitioning = hive_partition(),

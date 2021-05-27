@@ -53,6 +53,18 @@
 #' It returns the appropriate subclass of `FileFormat` (e.g. `ParquetFileFormat`)
 #' @rdname FileFormat
 #' @name FileFormat
+#' @examplesIf arrow_with_dataset()
+#' ## Semi-colon delimited files
+#' # Set up directory for examples
+#' tf <- tempfile()
+#' dir.create(tf)
+#' on.exit(unlink(tf))
+#' write.table(mtcars, file.path(tf, "file1.txt"), sep = ";", row.names = FALSE)
+#' 
+#' # Create FileFormat object
+#' format <- FileFormat$create(format = "text", delimiter = ";")
+#' 
+#' open_dataset(tf, format = format)
 #' @export
 FileFormat <- R6Class("FileFormat", inherit = ArrowObject,
   active = list(

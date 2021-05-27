@@ -18,3 +18,6 @@ Support for compression libraries depends on the build-time settings of
 the Arrow C++ library. This function lets you know which are available for
 use.
 }
+\examples{
+codec_is_available("gzip")
+}
