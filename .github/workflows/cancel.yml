@@ -23,95 +23,95 @@ on:
     workflows: ['Dev']
     types: ['requested']
 
-jobs:
-  cancel-stale-workflow-runs:
-    name: "Cancel stale workflow runs"
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      # Unfortunately, we need to define a separate cancellation step for
-      # each workflow where we want to cancel stale runs.
-      - uses: potiuk/cancel-workflow-runs@master
-        name: "Cancel stale C++ runs"
-        with:
-          cancelMode: allDuplicates
-          token: ${{ secrets.GITHUB_TOKEN }}
-          workflowFileName: cpp.yml
-          skipEventTypes: '["push", "schedule"]'
-      - uses: potiuk/cancel-workflow-runs@master
-        name: "Cancel stale C# runs"
-        with:
-          cancelMode: allDuplicates
-          token: ${{ secrets.GITHUB_TOKEN }}
-          workflowFileName: csharp.yml
-          skipEventTypes: '["push", "schedule"]'
-      - uses: potiuk/cancel-workflow-runs@master
-        name: "Cancel stale Dev runs"
-        with:
-          cancelMode: allDuplicates
-          token: ${{ secrets.GITHUB_TOKEN }}
-          workflowFileName: dev.yml
-          skipEventTypes: '["push", "schedule"]'
-      - uses: potiuk/cancel-workflow-runs@master
-        name: "Cancel stale Go runs"
-        with:
-          cancelMode: allDuplicates
-          token: ${{ secrets.GITHUB_TOKEN }}
-          workflowFileName: go.yml
-          skipEventTypes: '["push", "schedule"]'
-      - uses: potiuk/cancel-workflow-runs@master
-        name: "Cancel stale Integration runs"
-        with:
-          cancelMode: allDuplicates
-          token: ${{ secrets.GITHUB_TOKEN }}
-          workflowFileName: integration.yml
-          skipEventTypes: '["push", "schedule"]'
-      - uses: potiuk/cancel-workflow-runs@master
-        name: "Cancel stale Java JNI runs"
-        with:
-          cancelMode: allDuplicates
-          token: ${{ secrets.GITHUB_TOKEN }}
-          workflowFileName: java_jni.yml
-          skipEventTypes: '["push", "schedule"]'
-      - uses: potiuk/cancel-workflow-runs@master
-        name: "Cancel stale Java runs"
-        with:
-          cancelMode: allDuplicates
-          token: ${{ secrets.GITHUB_TOKEN }}
-          workflowFileName: java.yml
-          skipEventTypes: '["push", "schedule"]'
-      - uses: potiuk/cancel-workflow-runs@master
-        name: "Cancel stale JS runs"
-        with:
-          cancelMode: allDuplicates
-          token: ${{ secrets.GITHUB_TOKEN }}
-          workflowFileName: js.yml
-          skipEventTypes: '["push", "schedule"]'
-      - uses: potiuk/cancel-workflow-runs@master
-        name: "Cancel stale Julia runs"
-        with:
-          cancelMode: allDuplicates
-          token: ${{ secrets.GITHUB_TOKEN }}
-          workflowFileName: julia.yml
-          skipEventTypes: '["push", "schedule"]'
-      - uses: potiuk/cancel-workflow-runs@master
-        name: "Cancel stale Python runs"
-        with:
-          cancelMode: allDuplicates
-          token: ${{ secrets.GITHUB_TOKEN }}
-          workflowFileName: python.yml
-          skipEventTypes: '["push", "schedule"]'
-      - uses: potiuk/cancel-workflow-runs@master
-        name: "Cancel stale R runs"
-        with:
-          cancelMode: allDuplicates
-          token: ${{ secrets.GITHUB_TOKEN }}
-          workflowFileName: r.yml
-          skipEventTypes: '["push", "schedule"]'
-      - uses: potiuk/cancel-workflow-runs@master
-        name: "Cancel stale Ruby runs"
-        with:
-          cancelMode: allDuplicates
-          token: ${{ secrets.GITHUB_TOKEN }}
-          workflowFileName: ruby.yml
-          skipEventTypes: '["push", "schedule"]'
+#jobs:
+  #cancel-stale-workflow-runs:
+    #name: "Cancel stale workflow runs"
+    #runs-on: ubuntu-latest
+    #timeout-minutes: 15
+    #steps:
+      ## Unfortunately, we need to define a separate cancellation step for
+      ## each workflow where we want to cancel stale runs.
+      #- uses: potiuk/cancel-workflow-runs@master
+        #name: "Cancel stale C++ runs"
+        #with:
+          #cancelMode: allDuplicates
+          #token: ${{ secrets.GITHUB_TOKEN }}
+          #workflowFileName: cpp.yml
+          #skipEventTypes: '["push", "schedule"]'
+      #- uses: potiuk/cancel-workflow-runs@master
+        #name: "Cancel stale C# runs"
+        #with:
+          #cancelMode: allDuplicates
+          #token: ${{ secrets.GITHUB_TOKEN }}
+          #workflowFileName: csharp.yml
+          #skipEventTypes: '["push", "schedule"]'
+      #- uses: potiuk/cancel-workflow-runs@master
+        #name: "Cancel stale Dev runs"
+        #with:
+          #cancelMode: allDuplicates
+          #token: ${{ secrets.GITHUB_TOKEN }}
+          #workflowFileName: dev.yml
+          #skipEventTypes: '["push", "schedule"]'
+      #- uses: potiuk/cancel-workflow-runs@master
+        #name: "Cancel stale Go runs"
+        #with:
+          #cancelMode: allDuplicates
+          #token: ${{ secrets.GITHUB_TOKEN }}
+          #workflowFileName: go.yml
+          #skipEventTypes: '["push", "schedule"]'
+      #- uses: potiuk/cancel-workflow-runs@master
+        #name: "Cancel stale Integration runs"
+        #with:
+          #cancelMode: allDuplicates
+          #token: ${{ secrets.GITHUB_TOKEN }}
+          #workflowFileName: integration.yml
+          #skipEventTypes: '["push", "schedule"]'
+      #- uses: potiuk/cancel-workflow-runs@master
+        #name: "Cancel stale Java JNI runs"
+        #with:
+          #cancelMode: allDuplicates
+          #token: ${{ secrets.GITHUB_TOKEN }}
+          #workflowFileName: java_jni.yml
+          #skipEventTypes: '["push", "schedule"]'
+      #- uses: potiuk/cancel-workflow-runs@master
+        #name: "Cancel stale Java runs"
+        #with:
+          #cancelMode: allDuplicates
+          #token: ${{ secrets.GITHUB_TOKEN }}
+          #workflowFileName: java.yml
+          #skipEventTypes: '["push", "schedule"]'
+      #- uses: potiuk/cancel-workflow-runs@master
+        #name: "Cancel stale JS runs"
+        #with:
+          #cancelMode: allDuplicates
+          #token: ${{ secrets.GITHUB_TOKEN }}
+          #workflowFileName: js.yml
+          #skipEventTypes: '["push", "schedule"]'
+      #- uses: potiuk/cancel-workflow-runs@master
+        #name: "Cancel stale Julia runs"
+        #with:
+          #cancelMode: allDuplicates
+          #token: ${{ secrets.GITHUB_TOKEN }}
+          #workflowFileName: julia.yml
+          #skipEventTypes: '["push", "schedule"]'
+      #- uses: potiuk/cancel-workflow-runs@master
+        #name: "Cancel stale Python runs"
+        #with:
+          #cancelMode: allDuplicates
+          #token: ${{ secrets.GITHUB_TOKEN }}
+          #workflowFileName: python.yml
+          #skipEventTypes: '["push", "schedule"]'
+      #- uses: potiuk/cancel-workflow-runs@master
+        #name: "Cancel stale R runs"
+        #with:
+          #cancelMode: allDuplicates
+          #token: ${{ secrets.GITHUB_TOKEN }}
+          #workflowFileName: r.yml
+          #skipEventTypes: '["push", "schedule"]'
+      #- uses: potiuk/cancel-workflow-runs@master
+        #name: "Cancel stale Ruby runs"
+        #with:
+          #cancelMode: allDuplicates
+          #token: ${{ secrets.GITHUB_TOKEN }}
+          #workflowFileName: ruby.yml
+          #skipEventTypes: '["push", "schedule"]'
