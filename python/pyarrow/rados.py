@@ -16,61 +16,56 @@
 # under the License.
 
 import os
-import pyarrow as pa
+import uuid
+import time
 import pyarrow.parquet as pq
+import multiprocessing as mp
+from concurrent.futures import ThreadPoolExecutor
 
 
 class SplittedParquetWriter(object):
-    def __init__(self, source_path, destination_path, chunksize):
-        self.source_path = source_path
-        self.destination_path = destination_path
+    def __init__(self, filename, destination, chunksize=128*1024*1024):
+        self.filename = filename
+        self.destination = destination
         self.chunksize = chunksize
-        self.file = pq.ParquetFile(source_path)
-        self._schema = self.file.schema_arrow
-        self._fileno = -1
 
-    def __del__(self):
-        self.close()
+    def round(self, num):
+        num_str = str(int(num))
+        result_str = ""
+        result_str += num_str[0]
+        for i in range(len(num_str) - 1):
+            result_str += "0"
+        return int(result_str)
 
-    def _create_new_file(self):
-        self._fileno += 1
-        _fd = open(os.path.join(
-            self.destination_path, f"file.{self._fileno}.parquet"), "wb")
-        return _fd
+    def write_file(self, filename, table):
+        pq.write_table(
+            table, filename,
+            row_group_size=table.num_rows, compression=None
+        )
 
-    def _open_new_file(self):
-        self._current_fd = self._create_new_file()
-        self._current_sink = pa.PythonFile(self._current_fd, mode="w")
-        self._current_writer = pq.ParquetWriter(
-            self._current_sink, self._schema)
-
-    def _close_current_file(self):
-        self._current_writer.close()
-        self._current_sink.close()
-        self._current_fd.close()
+    def estimate_rows(self):
+        self.table = pq.read_table(self.filename)
+        disk_size = os.stat(self.filename).st_size
+        inmemory_table_size = self.table.nbytes
+        inmemory_row_size = inmemory_table_size/self.table.num_rows
+        compression_ratio = inmemory_table_size/disk_size
+        required_inmemory_table_size = self.chunksize * compression_ratio
+        required_rows_per_file = required_inmemory_table_size/inmemory_row_size
+        return self.table.num_rows, self.round(required_rows_per_file)
 
     def write(self):
-        self._open_new_file()
-        for batch in self.file.iter_batches():  # default batch_size=64k
-            table = pa.Table.from_batches([batch])
-            self._current_writer.write_table(table)
-            if self._current_sink.tell() < self.chunksize:
-                continue
-            else:
-                self._close_current_file()
-                self._open_new_file()
-
-        self._close_current_file()
-
-    def close(self):
-        num_files_written = self._fileno + 1
-        for i in range(num_files_written):
-            table = pq.read_table(f"file.{i}.parquet")
-            pq.write_table(
-                table,
-                where=f"file.{i}.parquet",
-                row_group_size=table.num_rows
-            )
-
-        self._fileno = -1
-        return num_files_written
+        os.makedirs(self.destination, exist_ok=True)
+        s_time = time.time()
+        total_rows, rows_per_file = self.estimate_rows()
+        i = 0
+        with ThreadPoolExecutor(max_workers=mp.cpu_count()) as executor:
+            while i < total_rows:
+                executor.submit(
+                    self.write_file,
+                    os.path.join(
+                        self.destination, f"{uuid.uuid4().hex}.parquet"),
+                    self.table.slice(i, rows_per_file)
+                )
+                i += rows_per_file
+        e_time = time.time()
+        print(f"Finished writing in {e_time - s_time} seconds")

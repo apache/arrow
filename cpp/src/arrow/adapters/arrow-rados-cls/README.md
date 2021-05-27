@@ -51,7 +51,7 @@ docker-compose run --service-ports ubuntu-cls-demo
 
 * Minimal overhead in requirements: 
     1) Requires CephFS to be mounted. 
-    2) Requires using the `SplittedParquetWriter` API to write arrow Tables.
+    2) Requires using the [`SplittedParquetWriter`](../../../../../python/pyarrow/rados.py) API to write arrow Tables.
 
 * Built on top of latest Ceph v15.2.x.
 

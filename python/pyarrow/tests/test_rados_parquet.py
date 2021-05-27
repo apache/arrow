@@ -111,15 +111,15 @@ def test_splitted_parquet_writer():
     os.system("wget "
               "https://raw.githubusercontent.com/"
               "JayjeetAtGithub/zips/main/largefile.parquet")
-    chunksize = 4 * 1000000  # 4MB
-    writer = SplittedParquetWriter("largefile.parquet", os.getcwd(), chunksize)
+    chunksize = 4 * 1024 * 1024  # 4MB
+    writer = SplittedParquetWriter("largefile.parquet", 'mydataset', chunksize)
     writer.write()
-    num_files_written = writer.close()
-    assert num_files_written == 5
+    assert len(os.listdir('mydataset')) == 8
 
     original_file_rows = pq.read_table('largefile.parquet').num_rows
     splitted_files_rows = 0
-    for i in range(num_files_written):
-        splitted_files_rows += pq.read_metadata(f"file.{i}.parquet").num_rows
+    files = os.listdir('mydataset')
+    for file in files:
+        splitted_files_rows += pq.read_metadata(f"mydataset/{file}").num_rows
 
     assert splitted_files_rows == original_file_rows
