@@ -378,43 +378,50 @@ Result<Expression> BindNonRecursive(Expression::Call call, bool insert_implicit_
   return Expression(std::move(call));
 }
 
-}  // namespace
-
-Result<Expression> Expression::Bind(ValueDescr in,
-                                    compute::ExecContext* exec_context) const {
+template <typename TypeOrSchema>
+Result<Expression> BindImpl(Expression expr, const TypeOrSchema& in,
+                            ValueDescr::Shape shape, compute::ExecContext* exec_context) {
   if (exec_context == nullptr) {
     compute::ExecContext exec_context;
-    return Bind(std::move(in), &exec_context);
+    return BindImpl(std::move(expr), in, shape, &exec_context);
   }
 
-  if (literal()) return *this;
+  if (expr.literal()) return expr;
 
-  if (auto ref = field_ref()) {
+  if (auto ref = expr.field_ref()) {
     if (ref->IsNested()) {
       return Status::NotImplemented("nested field references");
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto path, ref->FindOne(*in.type));
+    ARROW_ASSIGN_OR_RAISE(auto path, ref->FindOne(in));
 
-    auto bound = *parameter();
+    auto bound = *expr.parameter();
     bound.index = path[0];
-    ARROW_ASSIGN_OR_RAISE(auto field, path.Get(*in.type));
+    ARROW_ASSIGN_OR_RAISE(auto field, path.Get(in));
     bound.descr.type = field->type();
-    bound.descr.shape = in.shape;
+    bound.descr.shape = shape;
     return Expression{std::move(bound)};
   }
 
-  auto call = *CallNotNull(*this);
+  auto call = *CallNotNull(expr);
   for (auto& argument : call.arguments) {
-    ARROW_ASSIGN_OR_RAISE(argument, argument.Bind(in, exec_context));
+    ARROW_ASSIGN_OR_RAISE(argument,
+                          BindImpl(std::move(argument), in, shape, exec_context));
   }
   return BindNonRecursive(std::move(call),
                           /*insert_implicit_casts=*/true, exec_context);
 }
 
+}  // namespace
+
+Result<Expression> Expression::Bind(const ValueDescr& in,
+                                    compute::ExecContext* exec_context) const {
+  return BindImpl(*this, *in.type, in.shape, exec_context);
+}
+
 Result<Expression> Expression::Bind(const Schema& in_schema,
                                     compute::ExecContext* exec_context) const {
-  return Bind(ValueDescr::Array(struct_(in_schema.fields())), exec_context);
+  return BindImpl(*this, in_schema, ValueDescr::ARRAY, exec_context);
 }
 
 Result<ExecBatch> MakeExecBatch(const Schema& full_schema, const Datum& partial) {
