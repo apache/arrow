@@ -401,6 +401,7 @@ if(ARROW_COMPUTE)
        compute/kernels/util_internal.cc
        compute/kernels/vector_hash.cc
        compute/kernels/vector_nested.cc
+       compute/kernels/vector_replace.cc
        compute/kernels/vector_selection.cc
        compute/kernels/vector_sort.cc
        compute/exec/key_hash.cc

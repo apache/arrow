@@ -1090,6 +1090,22 @@ Associative transforms
   Each output element corresponds to a unique value in the input, along
   with the number of times this value has appeared.
 
+Replacements
+~~~~~~~~~~~~
+
+These functions create a copy of the first input with some elements
+replaced, based on the remaining inputs.
+
++-------------------+------------+-----------------------+--------------+--------------+--------------+-------+
+| Function name     | Arity      | Input type 1          | Input type 2 | Input type 3 | Output type  | Notes |
++===================+============+=======================+==============+==============+==============+=======+
+| replace_with_mask | Ternary    | Fixed-width or binary | Boolean      | Input type 1 | Input type 1 | \(1)  |
++-------------------+------------+-----------------------+--------------+--------------+--------------+-------+
+
+* \(1) Each element in input 1 for which the corresponding Boolean in input 2
+  is true is replaced with the next value from input 3. A null in input 2
+  results in a corresponding null in the output.
+
 Selections
 ~~~~~~~~~~
 

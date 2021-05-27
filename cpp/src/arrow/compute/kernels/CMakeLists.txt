@@ -48,6 +48,7 @@ add_arrow_compute_test(vector_test
                        SOURCES
                        vector_hash_test.cc
                        vector_nested_test.cc
+                       vector_replace_test.cc
                        vector_selection_test.cc
                        vector_sort_test.cc
                        test_util.cc)
