@@ -16,12 +16,11 @@
 // under the License.
 
 #include <arrow/compute/api.h>
+#include <arrow/compute/kernels/codegen_internal.h>
 #include <arrow/compute/util_internal.h>
 #include <arrow/util/bit_block_counter.h>
 #include <arrow/util/bitmap.h>
 #include <arrow/util/bitmap_ops.h>
-
-#include "arrow/compute/kernels/codegen_internal.h"
 
 namespace arrow {
 using internal::BitBlockCount;
@@ -712,12 +711,8 @@ struct IfElseFunctor<Type, enable_if_boolean<Type>> {
 
     // out_buff = left & cond | right & ~cond
     if (right_data) {
-      ARROW_ASSIGN_OR_RAISE(
-          std::shared_ptr<Buffer> tmp_buf,
-          arrow::internal::InvertBitmap(ctx->memory_pool(), cond.buffers[1]->data(),
-                                        cond.offset, cond.length));
-      arrow::internal::BitmapOr(tmp_buf->data(), 0, out_buf->data(), 0, cond.length, 0,
-                                out_buf->mutable_data());
+      arrow::internal::BitmapOrNot(out_buf->data(), 0, cond.buffers[1]->data(),
+                                   cond.offset, cond.length, 0, out_buf->mutable_data());
     }
 
     out->buffers[1] = std::move(out_buf);

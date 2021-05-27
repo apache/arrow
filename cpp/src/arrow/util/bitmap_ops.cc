@@ -583,5 +583,23 @@ void BitmapAndNot(const uint8_t* left, int64_t left_offset, const uint8_t* right
   BitmapOp<AndNotOp>(left, left_offset, right, right_offset, length, out_offset, out);
 }
 
+template <typename T>
+struct OrNotOp {
+  constexpr T operator()(const T& l, const T& r) const { return l | ~r; }
+};
+
+Result<std::shared_ptr<Buffer>> BitmapOrNot(MemoryPool* pool, const uint8_t* left,
+                                            int64_t left_offset, const uint8_t* right,
+                                            int64_t right_offset, int64_t length,
+                                            int64_t out_offset) {
+  return BitmapOp<OrNotOp>(pool, left, left_offset, right, right_offset, length,
+                           out_offset);
+}
+
+void BitmapOrNot(const uint8_t* left, int64_t left_offset, const uint8_t* right,
+                 int64_t right_offset, int64_t length, int64_t out_offset, uint8_t* out) {
+  BitmapOp<OrNotOp>(left, left_offset, right, right_offset, length, out_offset, out);
+}
+
 }  // namespace internal
 }  // namespace arrow
