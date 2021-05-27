@@ -83,6 +83,10 @@ call_function <- function(function_name, ..., args = list(...), options = empty_
 #' @param pattern Optional regular expression to filter the function list
 #' @param ... Additional parameters passed to `grep()`
 #' @return A character vector of available Arrow C++ function names
+#' @examples
+#' list_compute_functions() 
+#' list_compute_functions(pattern = "^UTF8", ignore.case = TRUE)
+#' list_compute_functions(pattern = "^is", invert = TRUE)
 #' @export
 list_compute_functions <- function(pattern = NULL, ...) {
   funcs <- compute__GetFunctionNames()
@@ -231,13 +235,35 @@ all.ArrowDatum <- function(..., na.rm = FALSE){
 #' `base::match()` is not a generic, so we can't just define Arrow methods for
 #' it. This function exposes the analogous functions in the Arrow C++ library.
 #'
-#' @param x `Array` or `ChunkedArray`
-#' @param table `Array`, `ChunkedArray`, or R vector lookup table.
+#' @param x `Scalar`, `Array` or `ChunkedArray`
+#' @param table `Scalar`, Array`, `ChunkedArray`, or R vector lookup table.
 #' @param ... additional arguments, ignored
-#' @return `match_arrow()` returns an `int32`-type `Array` of the same length
-#' as `x` with the (0-based) indexes into `table`. `is_in()` returns a
-#' `boolean`-type `Array` of the same length as `x` with values indicating
+#' @return `match_arrow()` returns an `int32`-type Arrow object of the same length
+#' and type as `x` with the (0-based) indexes into `table`. `is_in()` returns a
+#' `boolean`-type Arrow object of the same length and type as `x` with values indicating
 #' per element of `x` it it is present in `table`.
+#' @examples
+#' # note that the returned value is 0-indexed
+#' cars_tbl <- Table$create(name = rownames(mtcars), mtcars)
+#' match_arrow(Scalar$create("Mazda RX4 Wag"), cars_tbl$name)
+#'
+#' is_in(Array$create("Mazda RX4 Wag"), cars_tbl$name)
+#' 
+#' # Although there are multiple matches, you are returned the index of the first 
+#' # match, as with the base R equivalent
+#' match(4, mtcars$cyl) # 1-indexed
+#' match_arrow(Scalar$create(4), cars_tbl$cyl) # 0-indexed
+#' 
+#' # If `x` contains multiple values, you are returned the indices of the first 
+#' # match for each value.
+#' match(c(4, 6, 8), mtcars$cyl)
+#' match_arrow(Array$create(c(4, 6, 8)), cars_tbl$cyl)
+#' 
+#' # Return type matches type of `x`
+#' is_in(c(4, 6, 8), mtcars$cyl) # returns vector
+#' is_in(Scalar$create(4), mtcars$cyl) # returns Scalar
+#' is_in(Array$create(c(4, 6, 8)), cars_tbl$cyl) # returns Array
+#' is_in(ChunkedArray$create(c(4, 6), 8), cars_tbl$cyl) # returns ChunkedArray
 #' @export
 match_arrow <- function(x, table, ...) UseMethod("match_arrow")
 
@@ -273,6 +299,9 @@ is_in.ArrowDatum <- function(x, table, ...) {
 #' @param x `Array` or `ChunkedArray`
 #' @return A `StructArray` containing "values" (same type as `x`) and "counts"
 #' `Int64`.
+#' @examples
+#' cyl_vals <- Array$create(mtcars$cyl)
+#' value_counts(cyl_vals)
 #' @export
 value_counts <- function(x) {
   call_function("value_counts", x)
