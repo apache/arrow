@@ -476,13 +476,14 @@ test_that("Table$create() with different length columns", {
 })
 
 test_that("ARROW-11769 - grouping preserved in table creation", {
-  
+  skip_if_not_available("dataset")
+
   tbl <- tibble::tibble(
     int = 1:10,
     fct = factor(rep(c("A", "B"), 5)),
     fct2 = factor(rep(c("C", "D"), each = 5)),
   )
-  
+
   expect_identical(
     tbl %>%
       dplyr::group_by(fct, fct2) %>%
@@ -490,5 +491,19 @@ test_that("ARROW-11769 - grouping preserved in table creation", {
       dplyr::group_vars(),
     c("fct", "fct2")
   )
+
+})
+
+test_that("ARROW-12729 - length returns number of columns in Table", {
+
+  tbl <- tibble::tibble(
+    int = 1:10,
+    fct = factor(rep(c("A", "B"), 5)),
+    fct2 = factor(rep(c("C", "D"), each = 5)),
+  )
+  
+  tab <- Table$create(!!!tbl)
+  
+  expect_identical(length(tab), 3L)
   
 })

@@ -18,7 +18,6 @@ package arrow
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 )
 
@@ -26,6 +25,7 @@ import (
 // a variable-size sequence of values, all having the same relative type.
 type ListType struct {
 	elem DataType // DataType of the list's elements
+	Meta Metadata
 }
 
 // ListOf returns the list type with element type t.
@@ -192,7 +192,17 @@ type Field struct {
 func (f Field) HasMetadata() bool { return f.Metadata.Len() != 0 }
 
 func (f Field) Equal(o Field) bool {
-	return reflect.DeepEqual(f, o)
+	switch {
+	case f.Name != o.Name:
+		return false
+	case f.Nullable != o.Nullable:
+		return false
+	case !TypeEqual(f.Type, o.Type, CheckMetadata()):
+		return false
+	case !f.Metadata.Equal(o.Metadata):
+		return false
+	}
+	return true
 }
 
 func (f Field) String() string {

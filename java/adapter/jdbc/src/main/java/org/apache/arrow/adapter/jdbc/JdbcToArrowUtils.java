@@ -155,7 +155,8 @@ public class JdbcToArrowUtils {
 
       final ArrowType arrowType = config.getJdbcToArrowTypeConverter().apply(new JdbcFieldInfo(rsmd, i));
       if (arrowType != null) {
-        final FieldType fieldType = new FieldType(true, arrowType, /* dictionary encoding */ null, metadata);
+        final FieldType fieldType = new FieldType(
+                isColumnNullable(rsmd, i), arrowType, /* dictionary encoding */ null, metadata);
 
         List<Field> children = null;
         if (arrowType.getTypeID() == ArrowType.List.TYPE_TYPE) {
@@ -219,7 +220,11 @@ public class JdbcToArrowUtils {
   }
 
   static boolean isColumnNullable(ResultSet resultSet, int index) throws SQLException {
-    int nullableValue = resultSet.getMetaData().isNullable(index);
+    return isColumnNullable(resultSet.getMetaData(), index);
+  }
+
+  static boolean isColumnNullable(ResultSetMetaData resultSetMetadata, int index) throws SQLException {
+    int nullableValue = resultSetMetadata.isNullable(index);
     return nullableValue == ResultSetMetaData.columnNullable ||
         nullableValue == ResultSetMetaData.columnNullableUnknown;
   }

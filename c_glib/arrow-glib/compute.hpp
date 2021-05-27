@@ -46,10 +46,12 @@ garrow_function_get_raw(GArrowFunction *function);
 GArrowCastOptions *garrow_cast_options_new_raw(arrow::compute::CastOptions *arrow_cast_options);
 arrow::compute::CastOptions *garrow_cast_options_get_raw(GArrowCastOptions *cast_options);
 
-GArrowCountOptions *
-garrow_count_options_new_raw(arrow::compute::CountOptions *arrow_count_options);
-arrow::compute::CountOptions *
-garrow_count_options_get_raw(GArrowCountOptions *count_options);
+GArrowScalarAggregateOptions *
+garrow_scalar_aggregate_options_new_raw(
+  arrow::compute::ScalarAggregateOptions *arrow_scalar_aggregate_options);
+arrow::compute::ScalarAggregateOptions *
+garrow_scalar_aggregate_options_get_raw(
+  GArrowScalarAggregateOptions *scalar_aggregate_options);
 
 arrow::compute::FilterOptions *
 garrow_filter_options_get_raw(GArrowFilterOptions *filter_options);

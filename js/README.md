@@ -147,47 +147,6 @@ for (let i = -1, n = column.length; ++i < n;) {
 }
 ```
 
-### Usage with MapD Core
-
-```js
-import MapD from 'rxjs-mapd';
-import { Table } from 'apache-arrow';
-
-const port = 9091;
-const host = `localhost`;
-const db = `mapd`;
-const user = `mapd`;
-const password = `HyperInteractive`;
-
-MapD.open(host, port)
-  .connect(db, user, password)
-  .flatMap((session) =>
-    // queryDF returns Arrow buffers
-    session.queryDF(`
-      SELECT origin_city
-      FROM flights
-      WHERE dest_city ILIKE 'dallas'
-      LIMIT 5`
-    ).disconnect()
-  )
-  .map(([schema, records]) =>
-    // Create Arrow Table from results
-    Table.from([schema, records]))
-  .map((table) =>
-    // Stringify the table to CSV with row numbers
-    table.toString({ index: true }))
-  .subscribe((csvStr) =>
-    console.log(csvStr));
-/*
-Index,   origin_city
-    0, Oklahoma City
-    1, Oklahoma City
-    2, Oklahoma City
-    3,   San Antonio
-    4,   San Antonio
-*/
-```
-
 # Getting involved
 
 See [DEVELOP.md](DEVELOP.md)
@@ -241,6 +200,12 @@ The JS community is a diverse group with a varied list of target environments an
 
 If you think we missed a compilation target and it's a blocker for adoption, please open an issue.
 
+### Supported Browsers and Platforms
+
+The bundles we compile support moderns browser released in the last 5 years. This includes supported versions of
+Firefox, Chrome, Edge, and Safari. We do not actively support Internet Explorer.
+Apache Arrow also works on [maintained versions of Node](https://nodejs.org/en/about/releases/).
+
 # People
 
 Full list of broader Apache Arrow [committers](https://arrow.apache.org/committers/).
@@ -255,15 +220,11 @@ Full list of broader Apache Arrow [projects & organizations](https://arrow.apach
 ## Open Source Projects
 
 * [Apache Arrow](https://arrow.apache.org) -- Parent project for Powering Columnar In-Memory Analytics, including affiliated open source projects
-* [rxjs-mapd](https://github.com/graphistry/rxjs-mapd) -- A MapD Core node-driver that returns query results as Arrow columns
 * [Perspective](https://github.com/jpmorganchase/perspective) -- Perspective is a streaming data visualization engine by J.P. Morgan for JavaScript for building real-time & user-configurable analytics entirely in the browser.
 * [Falcon](https://github.com/uwdata/falcon) is a visualization tool for linked interactions across multiple aggregate visualizations of millions or billions of records.
-
-## Companies & Organizations
-
-* [CCRi](https://www.ccri.com/) -- Commonwealth Computer Research Inc, or CCRi, is a Central Virginia based data science and software engineering company
-* [GOAI](https://gpuopenanalytics.com/) -- GPU Open Analytics Initiative standardizes on Arrow as part of creating common data frameworks that enable developers and statistical researchers to accelerate data science on GPUs
-* [Graphistry, Inc.](https://www.graphistry.com/) - An end-to-end GPU accelerated visual investigation platform used by teams for security, anti-fraud, and related investigations. Graphistry uses Arrow in its NodeJS GPU backend and client libraries, and is an early contributing member to GOAI and Arrow\[JS\] working to bring these technologies to the enterprise.
+* [Vega](https://github.com/vega) is an ecosystem of tools for interactive visualizations on the web. The Vega team implemented an [Arrow loader](https://github.com/vega/vega-loader-arrow).
+* [Arquero](https://github.com/uwdata/arquero) is a library for query processing and transformation of array-backed data tables.
+* [OmniSci](https://github.com/omnisci/mapd-connector) is a GPU database. Its JavaScript connector returns Arrow dataframes.
 
 # License
 

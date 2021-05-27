@@ -33,6 +33,20 @@ ArrowDatum <- R6Class("ArrowDatum", inherit = ArrowObject,
 length.ArrowDatum <- function(x) x$length()
 
 #' @export
+is.finite.ArrowDatum <- function(x) {
+  is_fin <- call_function("is_finite", x)
+  # for compatibility with base::is.finite(), return FALSE for NA_real_
+  is_fin & !is.na(is_fin)
+}
+
+#' @export
+is.infinite.ArrowDatum <- function(x) {
+  is_inf <- call_function("is_inf", x)
+  # for compatibility with base::is.infinite(), return FALSE for NA_real_
+  is_inf & !is.na(is_inf)
+}
+
+#' @export
 is.na.ArrowDatum <- function(x) call_function("is_null", x)
 
 #' @export
@@ -44,6 +58,73 @@ as.vector.ArrowDatum <- function(x, mode) {
     x$as_vector(),
     error = handle_embedded_nul_error
   )
+}
+
+#' @export
+Ops.ArrowDatum <- function(e1, e2) {
+  if (.Generic == "!") {
+    eval_array_expression(.Generic, e1)
+  } else if (.Generic %in% names(.array_function_map)) {
+    eval_array_expression(.Generic, e1, e2)
+  } else {
+    stop(paste0("Unsupported operation on `", class(e1)[1L], "` : "), .Generic, call. = FALSE)
+  }
+}
+
+# Wrapper around call_function that:
+# (1) maps R function names to Arrow C++ compute ("/" --> "divide_checked")
+# (2) wraps R input args as Array or Scalar
+eval_array_expression <- function(FUN,
+                                  ...,
+                                  args = list(...),
+                                  options = empty_named_list()) {
+  if (FUN == "-" && length(args) == 1L) {
+    if (inherits(args[[1]], "ArrowObject")) {
+      return(eval_array_expression("negate_checked", args[[1]]))
+    } else {
+      return(-args[[1]])
+    }
+  }
+  args <- lapply(args, .wrap_arrow, FUN)
+
+  # In Arrow, "divide" is one function, which does integer division on
+  # integer inputs and floating-point division on floats
+  if (FUN == "/") {
+    # TODO: omg so many ways it's wrong to assume these types
+    args <- map(args, ~.$cast(float64()))
+  } else if (FUN == "%/%") {
+    # In R, integer division works like floor(float division)
+    out <- eval_array_expression("/", args = args, options = options)
+    return(out$cast(int32(), allow_float_truncate = TRUE))
+  } else if (FUN == "%%") {
+    # {e1 - e2 * ( e1 %/% e2 )}
+    # ^^^ form doesn't work because Ops.Array evaluates eagerly,
+    # but we can build that up
+    quotient <- eval_array_expression("%/%", args = args)
+    base <- eval_array_expression("*", quotient, args[[2]])
+    # this cast is to ensure that the result of this and e1 are the same
+    # (autocasting only applies to scalars)
+    base <- base$cast(args[[1]]$type)
+    return(eval_array_expression("-", args[[1]], base))
+  }
+
+  call_function(
+    .array_function_map[[FUN]] %||% FUN,
+    args = args,
+    options = options
+  )
+}
+
+.wrap_arrow <- function(arg, fun) {
+  if (!inherits(arg, "ArrowObject")) {
+    # TODO: Array$create if lengths are equal?
+    if (fun == "%in%") {
+      arg <- Array$create(arg)
+    } else {
+      arg <- Scalar$create(arg)
+    }
+  }
+  arg
 }
 
 #' @export
@@ -66,10 +147,6 @@ filter_rows <- function(x, i, keep_na = TRUE, ...) {
   # General purpose function for [ row subsetting with R semantics
   # Based on the input for `i`, calls x$Filter, x$Slice, or x$Take
   nrows <- x$num_rows %||% x$length() # Depends on whether Array or Table-like
-  if (inherits(i, "array_expression")) {
-    # Evaluate it
-    i <- eval_array_expression(i)
-  }
   if (is.logical(i)) {
     if (isTRUE(i)) {
       # Shortcut without doing any work

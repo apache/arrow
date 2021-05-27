@@ -85,7 +85,7 @@ jobs:
       - name: Install Dependencies
         shell: bash
         run: |
-          pip install cython setuptools pytest jira
+          pip install cython setuptools six pytest jira
       - name: Run Release Test
         shell: bash
         run: |

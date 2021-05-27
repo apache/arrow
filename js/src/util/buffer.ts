@@ -177,7 +177,7 @@ export async function* toArrayBufferViewAsyncIterator<T extends TypedArray>(Arra
         yield* pump((function*(it: Iterator<any>) {
             let r: IteratorResult<any> = <any> null;
             do {
-                r = it.next(yield r && r.value);
+                r = it.next(yield r?.value);
             } while (!r.done);
         })(source[Symbol.iterator]()));
     };

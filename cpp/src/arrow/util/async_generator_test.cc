@@ -52,8 +52,7 @@ AsyncGenerator<T> FailsAt(AsyncGenerator<T> src, int failing_index) {
 template <typename T>
 AsyncGenerator<T> SlowdownABit(AsyncGenerator<T> source) {
   return MakeMappedGenerator<T, T>(std::move(source), [](const T& res) -> Future<T> {
-    return SleepABitAsync().Then(
-        [res](const Result<detail::Empty>& empty) { return res; });
+    return SleepABitAsync().Then([res]() { return res; });
   });
 }
 
@@ -164,7 +163,7 @@ class ReentrantChecker {
     std::atomic<bool> valid;
   };
   struct Callback {
-    Future<T> operator()(const Result<T>& result) {
+    Future<T> operator()(const T& result) {
       state_->generated_unfinished_future.store(false);
       return result;
     }
@@ -362,9 +361,7 @@ TEST(TestAsyncUtil, MapAsync) {
   std::vector<TestInt> input = {1, 2, 3};
   auto generator = AsyncVectorIt(input);
   std::function<Future<TestStr>(const TestInt&)> mapper = [](const TestInt& in) {
-    return SleepAsync(1e-3).Then([in](const Result<detail::Empty>& empty) {
-      return TestStr(std::to_string(in.value));
-    });
+    return SleepAsync(1e-3).Then([in]() { return TestStr(std::to_string(in.value)); });
   };
   auto mapped = MakeMappedGenerator(std::move(generator), mapper);
   std::vector<TestStr> expected{"1", "2", "3"};
@@ -383,7 +380,7 @@ TEST(TestAsyncUtil, MapReentrant) {
   Future<> can_proceed = Future<>::Make();
   std::function<Future<TestStr>(const TestInt&)> mapper = [&](const TestInt& in) {
     map_tasks_running.fetch_add(1);
-    return can_proceed.Then([in](...) { return TestStr(std::to_string(in.value)); });
+    return can_proceed.Then([in]() { return TestStr(std::to_string(in.value)); });
   };
   auto mapped = MakeMappedGenerator(std::move(source), mapper);
 
@@ -469,7 +466,7 @@ TEST_P(FromFutureFixture, Basic) {
   auto source = Future<std::vector<TestInt>>::MakeFinished(RangeVector(3));
   if (IsSlow()) {
     source = SleepABitAsync().Then(
-        [](...) -> Result<std::vector<TestInt>> { return RangeVector(3); });
+        []() -> Result<std::vector<TestInt>> { return RangeVector(3); });
   }
   auto slow = IsSlow();
   auto to_gen = source.Then([slow](const std::vector<TestInt>& vec) {
@@ -651,7 +648,7 @@ TEST(TestAsyncUtil, MakeTransferredGenerator) {
       MakeTransferredGenerator<TestInt>(std::move(slow_generator), thread_pool.get());
 
   auto current_thread_id = std::this_thread::get_id();
-  auto fut = transferred().Then([&current_thread_id](const Result<TestInt>& result) {
+  auto fut = transferred().Then([&current_thread_id](const TestInt&) {
     ASSERT_NE(current_thread_id, std::this_thread::get_id());
   });
 
@@ -1009,8 +1006,8 @@ TEST(TestAsyncUtil, SerialReadaheadStressFailing) {
     AsyncGenerator<TestInt> it = BackgroundAsyncVectorIt(RangeVector(NITEMS));
     AsyncGenerator<TestInt> fails_at_ten = [&it]() {
       auto next = it();
-      return next.Then([](const Result<TestInt>& item) -> Result<TestInt> {
-        if (item->value >= 10) {
+      return next.Then([](const TestInt& item) -> Result<TestInt> {
+        if (item.value >= 10) {
           return Status::Invalid("XYZ");
         } else {
           return item;

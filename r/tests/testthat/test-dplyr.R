@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+skip_if_not_available("dataset")
+
 library(dplyr)
 library(stringr)
 
@@ -57,11 +59,11 @@ test_that("Print method", {
       filter(int < 5) %>%
       select(int, chr) %>%
       print(),
-'RecordBatch (query)
+'InMemoryDataset (query)
 int: int32
 chr: string
 
-* Filter: and(and(greater(dbl, 2), or(equal(chr, "d"), equal(chr, "f"))), less(int, 5))
+* Filter: (((dbl > 2) and ((chr == "d") or (chr == "f"))) and (int < 5))
 See $.data for the source Arrow object',
   fixed = TRUE
   )
@@ -187,7 +189,8 @@ test_that("collect(as_data_frame=FALSE)", {
     filter(int > 5) %>%
     collect(as_data_frame = FALSE)
 
-  expect_r6_class(b2, "RecordBatch")
+  # collect(as_data_frame = FALSE) always returns Table now
+  expect_r6_class(b2, "Table")
   expected <- tbl[tbl$int > 5 & !is.na(tbl$int), c("int", "chr")]
   expect_equal(as.data.frame(b2), expected)
 
@@ -195,7 +198,7 @@ test_that("collect(as_data_frame=FALSE)", {
     select(int, strng = chr) %>%
     filter(int > 5) %>%
     collect(as_data_frame = FALSE)
-  expect_r6_class(b3, "RecordBatch")
+  expect_r6_class(b3, "Table")
   expect_equal(as.data.frame(b3), set_names(expected, c("int", "strng")))
 
   b4 <- batch %>%
@@ -217,14 +220,14 @@ test_that("compute()", {
 
   b1 <- batch %>% compute()
 
-  expect_is(b1, "RecordBatch")
+  expect_r6_class(b1, "RecordBatch")
 
   b2 <- batch %>%
     select(int, chr) %>%
     filter(int > 5) %>%
     compute()
 
-  expect_is(b2, "RecordBatch")
+  expect_r6_class(b2, "Table")
   expected <- tbl[tbl$int > 5 & !is.na(tbl$int), c("int", "chr")]
   expect_equal(as.data.frame(b2), expected)
 
@@ -232,7 +235,7 @@ test_that("compute()", {
     select(int, strng = chr) %>%
     filter(int > 5) %>%
     compute()
-  expect_is(b3, "RecordBatch")
+  expect_r6_class(b3, "Table")
   expect_equal(as.data.frame(b3), set_names(expected, c("int", "strng")))
 
   b4 <- batch %>%
@@ -240,7 +243,7 @@ test_that("compute()", {
     filter(int > 5) %>%
     group_by(int) %>%
     compute()
-  expect_is(b4, "arrow_dplyr_query")
+  expect_s3_class(b4, "arrow_dplyr_query")
   expect_equal(
     as.data.frame(b4),
     expected %>%
@@ -257,7 +260,7 @@ test_that("head", {
     filter(int > 5) %>%
     head(2)
 
-  expect_r6_class(b2, "RecordBatch")
+  expect_r6_class(b2, "Table")
   expected <- tbl[tbl$int > 5 & !is.na(tbl$int), c("int", "chr")][1:2, ]
   expect_equal(as.data.frame(b2), expected)
 
@@ -265,7 +268,7 @@ test_that("head", {
     select(int, strng = chr) %>%
     filter(int > 5) %>%
     head(2)
-  expect_r6_class(b3, "RecordBatch")
+  expect_r6_class(b3, "Table")
   expect_equal(as.data.frame(b3), set_names(expected, c("int", "strng")))
 
   b4 <- batch %>%
@@ -290,7 +293,7 @@ test_that("tail", {
     filter(int > 5) %>%
     tail(2)
 
-  expect_r6_class(b2, "RecordBatch")
+  expect_r6_class(b2, "Table")
   expected <- tail(tbl[tbl$int > 5 & !is.na(tbl$int), c("int", "chr")], 2)
   expect_equal(as.data.frame(b2), expected)
 
@@ -298,7 +301,7 @@ test_that("tail", {
     select(int, strng = chr) %>%
     filter(int > 5) %>%
     tail(2)
-  expect_r6_class(b3, "RecordBatch")
+  expect_r6_class(b3, "Table")
   expect_equal(as.data.frame(b3), set_names(expected, c("int", "strng")))
 
   b4 <- batch %>%
@@ -500,7 +503,29 @@ test_that("explicit type conversions with as.*()", {
   )
 })
 
+test_that("is.finite(), is.infinite(), is.nan()", {
+  df <- tibble(x =c(-4.94065645841246544e-324, 1.79769313486231570e+308, 0,
+                    NA_real_, NaN, Inf, -Inf))
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        is_fin = is.finite(x),
+        is_inf = is.infinite(x)
+      ) %>% collect(),
+    df
+  )
+  skip("is.nan() evaluates to NA on NA values (ARROW-12850)")
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        is_nan = is.nan(x)
+      ) %>% collect(),
+    df
+  )
+})
+
 test_that("as.factor()/dictionary_encode()", {
+  skip("ARROW-12632: ExecuteScalarExpression cannot Execute non-scalar expression {x=dictionary_encode(x, {NON-REPRESENTABLE OPTIONS})}")
   df1 <- tibble(x = c("C", "D", "B", NA, "D", "B", "S", "A", "B", "Z", "B"))
   df2 <- tibble(x = c(5, 5, 5, NA, 2, 3, 6, 8))
 

@@ -17,12 +17,14 @@
 
 // String functions
 #include "arrow/util/value_parsing.h"
+
 extern "C" {
 
-#include <limits.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <algorithm>
+#include <climits>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
 #include "./types.h"
 
@@ -219,66 +221,6 @@ gdv_int32 utf8_byte_pos(gdv_int64 context, const char* str, gdv_int32 str_len,
 UTF8_LENGTH(char_length, utf8)
 UTF8_LENGTH(length, utf8)
 UTF8_LENGTH(lengthUtf8, binary)
-
-// Convert a utf8 sequence to upper case.
-// TODO : This handles only ascii characters.
-FORCE_INLINE
-const char* upper_utf8(gdv_int64 context, const char* data, gdv_int32 data_len,
-                       int32_t* out_len) {
-  if (data_len == 0) {
-    *out_len = 0;
-    return "";
-  }
-
-  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, data_len));
-  if (ret == nullptr) {
-    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
-    *out_len = 0;
-    return "";
-  }
-  for (gdv_int32 i = 0; i < data_len; ++i) {
-    char cur = data[i];
-
-    // 'A- - 'Z' : 0x41 - 0x5a
-    // 'a' - 'z' : 0x61 - 0x7a
-    if (cur >= 0x61 && cur <= 0x7a) {
-      cur = static_cast<char>(cur - 0x20);
-    }
-    ret[i] = cur;
-  }
-  *out_len = data_len;
-  return ret;
-}
-
-// Convert a utf8 sequence to lower case.
-// TODO : This handles only ascii characters.
-FORCE_INLINE
-const char* lower_utf8(gdv_int64 context, const char* data, gdv_int32 data_len,
-                       int32_t* out_len) {
-  if (data_len == 0) {
-    *out_len = 0;
-    return "";
-  }
-
-  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, data_len));
-  if (ret == nullptr) {
-    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
-    *out_len = 0;
-    return "";
-  }
-  for (gdv_int32 i = 0; i < data_len; ++i) {
-    char cur = data[i];
-
-    // 'A' - 'Z' : 0x41 - 0x5a
-    // 'a' - 'z' : 0x61 - 0x7a
-    if (cur >= 0x41 && cur <= 0x5a) {
-      cur = static_cast<char>(cur + 0x20);
-    }
-    ret[i] = cur;
-  }
-  *out_len = data_len;
-  return ret;
-}
 
 // Reverse a utf8 sequence
 FORCE_INLINE
@@ -534,88 +476,96 @@ const char* castVARCHAR_bool_int64(gdv_int64 context, gdv_boolean value,
 }
 
 // Truncates the string to given length
-FORCE_INLINE
-const char* castVARCHAR_utf8_int64(gdv_int64 context, const char* data,
-                                   gdv_int32 data_len, int64_t out_len,
-                                   int32_t* out_length) {
-  int32_t len = static_cast<int32_t>(out_len);
-
-  if (len < 0) {
-    gdv_fn_context_set_error_msg(context, "Output buffer length can't be negative");
-    *out_length = 0;
-    return "";
+#define CAST_VARCHAR_FROM_VARLEN_TYPE(TYPE)                                            \
+  FORCE_INLINE                                                                         \
+  const char* castVARCHAR_##TYPE##_int64(gdv_int64 context, const char* data,          \
+                                         gdv_int32 data_len, int64_t out_len,          \
+                                         int32_t* out_length) {                        \
+    int32_t len = static_cast<int32_t>(out_len);                                       \
+                                                                                       \
+    if (len < 0) {                                                                     \
+      gdv_fn_context_set_error_msg(context, "Output buffer length can't be negative"); \
+      *out_length = 0;                                                                 \
+      return "";                                                                       \
+    }                                                                                  \
+                                                                                       \
+    if (len >= data_len || len == 0) {                                                 \
+      *out_length = data_len;                                                          \
+      return data;                                                                     \
+    }                                                                                  \
+                                                                                       \
+    int32_t remaining = len;                                                           \
+    int32_t index = 0;                                                                 \
+    bool is_multibyte = false;                                                         \
+    do {                                                                               \
+      /* In utf8, MSB of a single byte unicode char is always 0,                       \
+       * whereas for a multibyte character the MSB of each byte is 1.                  \
+       * So for a single byte char, a bitwise-and with x80 (10000000) will be 0        \
+       * and it won't be 0 for bytes of a multibyte char.                              \
+       */                                                                              \
+      char* data_ptr = const_cast<char*>(data);                                        \
+                                                                                       \
+      /* advance byte by byte till the 8-byte boundary then advance 8 bytes */         \
+      auto num_bytes = reinterpret_cast<uintptr_t>(data_ptr) & 0x07;                   \
+      num_bytes = (8 - num_bytes) & 0x07;                                              \
+      while (num_bytes > 0) {                                                          \
+        uint8_t* ptr = reinterpret_cast<uint8_t*>(data_ptr + index);                   \
+        if ((*ptr & 0x80) != 0) {                                                      \
+          is_multibyte = true;                                                         \
+          break;                                                                       \
+        }                                                                              \
+        index++;                                                                       \
+        remaining--;                                                                   \
+        num_bytes--;                                                                   \
+      }                                                                                \
+      if (is_multibyte) break;                                                         \
+      while (remaining >= 8) {                                                         \
+        uint64_t* ptr = reinterpret_cast<uint64_t*>(data_ptr + index);                 \
+        if ((*ptr & 0x8080808080808080) != 0) {                                        \
+          is_multibyte = true;                                                         \
+          break;                                                                       \
+        }                                                                              \
+        index += 8;                                                                    \
+        remaining -= 8;                                                                \
+      }                                                                                \
+      if (is_multibyte) break;                                                         \
+      if (remaining >= 4) {                                                            \
+        uint32_t* ptr = reinterpret_cast<uint32_t*>(data_ptr + index);                 \
+        if ((*ptr & 0x80808080) != 0) break;                                           \
+        index += 4;                                                                    \
+        remaining -= 4;                                                                \
+      }                                                                                \
+      while (remaining > 0) {                                                          \
+        uint8_t* ptr = reinterpret_cast<uint8_t*>(data_ptr + index);                   \
+        if ((*ptr & 0x80) != 0) {                                                      \
+          is_multibyte = true;                                                         \
+          break;                                                                       \
+        }                                                                              \
+        index++;                                                                       \
+        remaining--;                                                                   \
+      }                                                                                \
+      if (is_multibyte) break;                                                         \
+      /* reached here; all are single byte characters */                               \
+      *out_length = len;                                                               \
+      return data;                                                                     \
+    } while (false);                                                                   \
+                                                                                       \
+    /* detected multibyte utf8 characters; slow path */                                \
+    int32_t byte_pos =                                                                 \
+        utf8_byte_pos(context, data + index, data_len - index, len - index);           \
+    if (byte_pos < 0) {                                                                \
+      *out_length = 0;                                                                 \
+      return "";                                                                       \
+    }                                                                                  \
+                                                                                       \
+    *out_length = index + byte_pos;                                                    \
+    return data;                                                                       \
   }
 
-  if (len >= data_len || len == 0) {
-    *out_length = data_len;
-    return data;
-  }
+CAST_VARCHAR_FROM_VARLEN_TYPE(utf8)
+CAST_VARCHAR_FROM_VARLEN_TYPE(binary)
 
-  int32_t remaining = len;
-  int32_t index = 0;
-  bool is_multibyte = false;
-  do {
-    // In utf8, MSB of a single byte unicode char is always 0,
-    // whereas for a multibyte character the MSB of each byte is 1.
-    // So for a single byte char, a bitwise-and with x80 (10000000) will be 0
-    // and it won't be 0 for bytes of a multibyte char
-    char* data_ptr = const_cast<char*>(data);
-
-    // we advance byte by byte till the 8 byte boundary then advance 8 bytes at a time
-    auto num_bytes = reinterpret_cast<uintptr_t>(data_ptr) & 0x07;
-    num_bytes = (8 - num_bytes) & 0x07;
-    while (num_bytes > 0) {
-      uint8_t* ptr = reinterpret_cast<uint8_t*>(data_ptr + index);
-      if ((*ptr & 0x80) != 0) {
-        is_multibyte = true;
-        break;
-      }
-      index++;
-      remaining--;
-      num_bytes--;
-    }
-    if (is_multibyte) break;
-    while (remaining >= 8) {
-      uint64_t* ptr = reinterpret_cast<uint64_t*>(data_ptr + index);
-      if ((*ptr & 0x8080808080808080) != 0) {
-        is_multibyte = true;
-        break;
-      }
-      index += 8;
-      remaining -= 8;
-    }
-    if (is_multibyte) break;
-    if (remaining >= 4) {
-      uint32_t* ptr = reinterpret_cast<uint32_t*>(data_ptr + index);
-      if ((*ptr & 0x80808080) != 0) break;
-      index += 4;
-      remaining -= 4;
-    }
-    while (remaining > 0) {
-      uint8_t* ptr = reinterpret_cast<uint8_t*>(data_ptr + index);
-      if ((*ptr & 0x80) != 0) {
-        is_multibyte = true;
-        break;
-      }
-      index++;
-      remaining--;
-    }
-    if (is_multibyte) break;
-    // reached here; all are single byte characters
-    *out_length = len;
-    return data;
-  } while (false);
-
-  // detected multibyte utf8 characters; slow path
-  int32_t byte_pos = utf8_byte_pos(context, data + index, data_len - index, len - index);
-  if (byte_pos < 0) {
-    *out_length = 0;
-    return "";
-  }
-
-  *out_length = index + byte_pos;
-  return data;
-}
+#undef CAST_VARCHAR_FROM_VARLEN_TYPE
 
 #define IS_NULL(NAME, TYPE)                                                \
   FORCE_INLINE                                                             \
@@ -1310,6 +1260,214 @@ const char* convert_replace_invalid_fromUTF8_binary(int64_t context, const char*
   return ret;
 }
 
+// The function reverse a char array in-place
+static inline void reverse_char_buf(char* buf, int32_t len) {
+  char temp;
+
+  for (int32_t i = 0; i < len / 2; i++) {
+    int32_t pos_swp = len - (1 + i);
+    temp = buf[pos_swp];
+    buf[pos_swp] = buf[i];
+    buf[i] = temp;
+  }
+}
+
+// Converts a double variable to binary
+FORCE_INLINE
+const char* convert_toDOUBLE(int64_t context, double value, int32_t* out_len) {
+  *out_len = sizeof(value);
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context,
+                                 "Could not allocate memory for the output string");
+
+    *out_len = 0;
+    return "";
+  }
+
+  memcpy(ret, &value, *out_len);
+
+  return ret;
+}
+
+FORCE_INLINE
+const char* convert_toDOUBLE_be(int64_t context, double value, int32_t* out_len) {
+  // The function behaves like convert_toDOUBLE, but always return the result
+  // in big endian format
+  char* ret = const_cast<char*>(convert_toDOUBLE(context, value, out_len));
+
+#if ARROW_LITTLE_ENDIAN
+  reverse_char_buf(ret, *out_len);
+#endif
+
+  return ret;
+}
+
+// Converts a float variable to binary
+FORCE_INLINE
+const char* convert_toFLOAT(int64_t context, float value, int32_t* out_len) {
+  *out_len = sizeof(value);
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context,
+                                 "Could not allocate memory for the output string");
+
+    *out_len = 0;
+    return "";
+  }
+
+  memcpy(ret, &value, *out_len);
+
+  return ret;
+}
+
+FORCE_INLINE
+const char* convert_toFLOAT_be(int64_t context, float value, int32_t* out_len) {
+  // The function behaves like convert_toFLOAT, but always return the result
+  // in big endian format
+  char* ret = const_cast<char*>(convert_toFLOAT(context, value, out_len));
+
+#if ARROW_LITTLE_ENDIAN
+  reverse_char_buf(ret, *out_len);
+#endif
+
+  return ret;
+}
+
+// Converts a bigint(int with 64 bits) variable to binary
+FORCE_INLINE
+const char* convert_toBIGINT(int64_t context, int64_t value, int32_t* out_len) {
+  *out_len = sizeof(value);
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context,
+                                 "Could not allocate memory for the output string");
+
+    *out_len = 0;
+    return "";
+  }
+
+  memcpy(ret, &value, *out_len);
+
+  return ret;
+}
+
+FORCE_INLINE
+const char* convert_toBIGINT_be(int64_t context, int64_t value, int32_t* out_len) {
+  // The function behaves like convert_toBIGINT, but always return the result
+  // in big endian format
+  char* ret = const_cast<char*>(convert_toBIGINT(context, value, out_len));
+
+#if ARROW_LITTLE_ENDIAN
+  reverse_char_buf(ret, *out_len);
+#endif
+
+  return ret;
+}
+
+// Converts an integer(with 32 bits) variable to binary
+FORCE_INLINE
+const char* convert_toINT(int64_t context, int32_t value, int32_t* out_len) {
+  *out_len = sizeof(value);
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context,
+                                 "Could not allocate memory for the output string");
+
+    *out_len = 0;
+    return "";
+  }
+
+  memcpy(ret, &value, *out_len);
+
+  return ret;
+}
+
+FORCE_INLINE
+const char* convert_toINT_be(int64_t context, int32_t value, int32_t* out_len) {
+  // The function behaves like convert_toINT, but always return the result
+  // in big endian format
+  char* ret = const_cast<char*>(convert_toINT(context, value, out_len));
+
+#if ARROW_LITTLE_ENDIAN
+  reverse_char_buf(ret, *out_len);
+#endif
+
+  return ret;
+}
+
+// Converts a boolean variable to binary
+FORCE_INLINE
+const char* convert_toBOOLEAN(int64_t context, bool value, int32_t* out_len) {
+  *out_len = sizeof(value);
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context,
+                                 "Could not allocate memory for the output string");
+
+    *out_len = 0;
+    return "";
+  }
+
+  memcpy(ret, &value, *out_len);
+
+  return ret;
+}
+
+// Converts a time variable to binary
+FORCE_INLINE
+const char* convert_toTIME_EPOCH(int64_t context, int32_t value, int32_t* out_len) {
+  return convert_toINT(context, value, out_len);
+}
+
+FORCE_INLINE
+const char* convert_toTIME_EPOCH_be(int64_t context, int32_t value, int32_t* out_len) {
+  // The function behaves as convert_toTIME_EPOCH, but
+  // returns the bytes in big endian format
+  return convert_toINT_be(context, value, out_len);
+}
+
+// Converts a timestamp variable to binary
+FORCE_INLINE
+const char* convert_toTIMESTAMP_EPOCH(int64_t context, int64_t timestamp,
+                                      int32_t* out_len) {
+  return convert_toBIGINT(context, timestamp, out_len);
+}
+
+FORCE_INLINE
+const char* convert_toTIMESTAMP_EPOCH_be(int64_t context, int64_t timestamp,
+                                         int32_t* out_len) {
+  // The function behaves as convert_toTIMESTAMP_EPOCH, but
+  // returns the bytes in big endian format
+  return convert_toBIGINT_be(context, timestamp, out_len);
+}
+
+// Converts a date variable to binary
+FORCE_INLINE
+const char* convert_toDATE_EPOCH(int64_t context, int64_t date, int32_t* out_len) {
+  return convert_toBIGINT(context, date, out_len);
+}
+
+FORCE_INLINE
+const char* convert_toDATE_EPOCH_be(int64_t context, int64_t date, int32_t* out_len) {
+  // The function behaves as convert_toDATE_EPOCH, but
+  // returns the bytes in big endian format
+  return convert_toBIGINT_be(context, date, out_len);
+}
+
+// Converts a string variable to binary
+FORCE_INLINE
+const char* convert_toUTF8(int64_t context, const char* value, int32_t value_len,
+                           int32_t* out_len) {
+  *out_len = value_len;
+  return value;
+}
+
 // Search for a string within another string
 FORCE_INLINE
 gdv_int32 locate_utf8_utf8(gdv_int64 context, const char* sub_str, gdv_int32 sub_str_len,
@@ -1519,5 +1677,4 @@ const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_le
   *out_len = j;
   return ret;
 }
-
 }  // extern "C"

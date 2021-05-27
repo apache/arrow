@@ -29,6 +29,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.function.ToIntBiFunction;
 
@@ -51,8 +52,6 @@ import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.FieldType;
-import org.apache.arrow.vector.util.JsonStringArrayList;
-import org.apache.arrow.vector.util.JsonStringHashMap;
 import org.apache.arrow.vector.util.Text;
 import org.junit.After;
 import org.junit.Before;
@@ -654,17 +653,17 @@ public class TestDictionaryVector {
         assertEquals(ListVector.class, encoded.getClass());
 
         assertEquals(6, encoded.getValueCount());
-        int[] realValue1 = convertListToIntArray((JsonStringArrayList) encoded.getObject(0));
+        int[] realValue1 = convertListToIntArray(encoded.getObject(0));
         assertTrue(Arrays.equals(new int[] {0, 1}, realValue1));
-        int[] realValue2 = convertListToIntArray((JsonStringArrayList) encoded.getObject(1));
+        int[] realValue2 = convertListToIntArray(encoded.getObject(1));
         assertTrue(Arrays.equals(new int[] {0, 1}, realValue2));
-        int[] realValue3 = convertListToIntArray((JsonStringArrayList) encoded.getObject(2));
+        int[] realValue3 = convertListToIntArray(encoded.getObject(2));
         assertTrue(Arrays.equals(new int[] {0, 1}, realValue3));
-        int[] realValue4 = convertListToIntArray((JsonStringArrayList) encoded.getObject(3));
+        int[] realValue4 = convertListToIntArray(encoded.getObject(3));
         assertTrue(Arrays.equals(new int[] {2, 3, 4}, realValue4));
-        int[] realValue5 = convertListToIntArray((JsonStringArrayList) encoded.getObject(4));
+        int[] realValue5 = convertListToIntArray(encoded.getObject(4));
         assertTrue(Arrays.equals(new int[] {2, 3, 4}, realValue5));
-        int[] realValue6 = convertListToIntArray((JsonStringArrayList) encoded.getObject(5));
+        int[] realValue6 = convertListToIntArray(encoded.getObject(5));
         assertTrue(Arrays.equals(new int[] {0, 1}, realValue6));
 
         // now run through the decoder and verify we get the original back
@@ -732,13 +731,13 @@ public class TestDictionaryVector {
         assertEquals(FixedSizeListVector.class, encoded.getClass());
 
         assertEquals(4, encoded.getValueCount());
-        int[] realValue1 = convertListToIntArray((JsonStringArrayList) encoded.getObject(0));
+        int[] realValue1 = convertListToIntArray(encoded.getObject(0));
         assertTrue(Arrays.equals(new int[] {0, 1}, realValue1));
-        int[] realValue2 = convertListToIntArray((JsonStringArrayList) encoded.getObject(1));
+        int[] realValue2 = convertListToIntArray(encoded.getObject(1));
         assertTrue(Arrays.equals(new int[] {0, 1}, realValue2));
-        int[] realValue3 = convertListToIntArray((JsonStringArrayList) encoded.getObject(2));
+        int[] realValue3 = convertListToIntArray(encoded.getObject(2));
         assertTrue(Arrays.equals(new int[] {2, 3}, realValue3));
-        int[] realValue4 = convertListToIntArray((JsonStringArrayList) encoded.getObject(3));
+        int[] realValue4 = convertListToIntArray(encoded.getObject(3));
         assertTrue(Arrays.equals(new int[] {0, 1}, realValue4));
 
         // now run through the decoder and verify we get the original back
@@ -799,15 +798,15 @@ public class TestDictionaryVector {
         assertEquals(StructVector.class, encoded.getClass());
 
         assertEquals(5, encoded.getValueCount());
-        Object[] realValue1 = convertMapValuesToArray((JsonStringHashMap) encoded.getObject(0));
+        Object[] realValue1 = convertMapValuesToArray(encoded.getObject(0));
         assertTrue(Arrays.equals(new Object[] {0, 1}, realValue1));
-        Object[] realValue2 = convertMapValuesToArray((JsonStringHashMap) encoded.getObject(1));
+        Object[] realValue2 = convertMapValuesToArray(encoded.getObject(1));
         assertTrue(Arrays.equals(new Object[] {1, 2}, realValue2));
-        Object[] realValue3 = convertMapValuesToArray((JsonStringHashMap) encoded.getObject(2));
+        Object[] realValue3 = convertMapValuesToArray(encoded.getObject(2));
         assertTrue(Arrays.equals(new Object[] {2, 0}, realValue3));
-        Object[] realValue4 = convertMapValuesToArray((JsonStringHashMap) encoded.getObject(3));
+        Object[] realValue4 = convertMapValuesToArray(encoded.getObject(3));
         assertTrue(Arrays.equals(new Object[] {0, 0}, realValue4));
-        Object[] realValue5 = convertMapValuesToArray((JsonStringHashMap) encoded.getObject(4));
+        Object[] realValue5 = convertMapValuesToArray(encoded.getObject(4));
         assertTrue(Arrays.equals(new Object[] {3, 0}, realValue5));
 
         // now run through the decoder and verify we get the original back
@@ -856,15 +855,15 @@ public class TestDictionaryVector {
         assertEquals(StructVector.class, encoded.getClass());
 
         assertEquals(5, encoded.getValueCount());
-        Object[] realValue1 = convertMapValuesToArray((JsonStringHashMap) encoded.getObject(0));
+        Object[] realValue1 = convertMapValuesToArray(encoded.getObject(0));
         assertTrue(Arrays.equals(new Object[] {0, new Text("baz")}, realValue1));
-        Object[] realValue2 = convertMapValuesToArray((JsonStringHashMap) encoded.getObject(1));
+        Object[] realValue2 = convertMapValuesToArray(encoded.getObject(1));
         assertTrue(Arrays.equals(new Object[] {1, new Text("bar")}, realValue2));
-        Object[] realValue3 = convertMapValuesToArray((JsonStringHashMap) encoded.getObject(2));
+        Object[] realValue3 = convertMapValuesToArray(encoded.getObject(2));
         assertTrue(Arrays.equals(new Object[] {2, new Text("foo")}, realValue3));
-        Object[] realValue4 = convertMapValuesToArray((JsonStringHashMap) encoded.getObject(3));
+        Object[] realValue4 = convertMapValuesToArray(encoded.getObject(3));
         assertTrue(Arrays.equals(new Object[] {0, new Text("foo")}, realValue4));
-        Object[] realValue5 = convertMapValuesToArray((JsonStringHashMap) encoded.getObject(4));
+        Object[] realValue5 = convertMapValuesToArray(encoded.getObject(4));
         assertTrue(Arrays.equals(new Object[] {3, new Text("foo")}, realValue5));
 
         // now run through the decoder and verify we get the original back
@@ -982,7 +981,7 @@ public class TestDictionaryVector {
     }
   }
 
-  private int[] convertListToIntArray(JsonStringArrayList list) {
+  private int[] convertListToIntArray(List list) {
     int[] values = new int[list.size()];
     for (int i = 0; i < list.size(); i++) {
       values[i] = (int) list.get(i);
@@ -990,7 +989,7 @@ public class TestDictionaryVector {
     return values;
   }
 
-  private Object[] convertMapValuesToArray(JsonStringHashMap map) {
+  private Object[] convertMapValuesToArray(Map map) {
     Object[] values = new Object[map.size()];
     Iterator valueIterator = map.values().iterator();
     for (int i = 0; i < map.size(); i++) {

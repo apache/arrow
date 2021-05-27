@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstdint>
+
 #include "gandiva/gdv_function_stubs.h"
 
 // Use the same names as in arrow data types. Makes it easy to write pre-processor macros.
@@ -369,12 +370,13 @@ const char* concatOperator_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8(
     gdv_int32 in8_len, const char* in9, gdv_int32 in9_len, const char* in10,
     gdv_int32 in10_len, gdv_int32* out_len);
 
+const char* castVARCHAR_binary_int64(gdv_int64 context, const char* data,
+                                     gdv_int32 data_len, int64_t out_len,
+                                     int32_t* out_length);
+
 const char* castVARCHAR_utf8_int64(gdv_int64 context, const char* data,
                                    gdv_int32 data_len, int64_t out_len,
                                    int32_t* out_length);
-
-const char* lower_utf8(gdv_int64 context, const char* data, gdv_int32 data_len,
-                       int32_t* out_length);
 
 const char* reverse_utf8(gdv_int64 context, const char* data, gdv_int32 data_len,
                          int32_t* out_len);
@@ -423,6 +425,40 @@ const char* convert_replace_invalid_fromUTF8_binary(int64_t context, const char*
                                                     const char* char_to_replace,
                                                     int32_t char_to_replace_len,
                                                     int32_t* out_len);
+
+const char* convert_toDOUBLE(int64_t context, double value, int32_t* out_len);
+
+const char* convert_toDOUBLE_be(int64_t context, double value, int32_t* out_len);
+
+const char* convert_toFLOAT(int64_t context, float value, int32_t* out_len);
+
+const char* convert_toFLOAT_be(int64_t context, float value, int32_t* out_len);
+
+const char* convert_toBIGINT(int64_t context, int64_t value, int32_t* out_len);
+
+const char* convert_toBIGINT_be(int64_t context, int64_t value, int32_t* out_len);
+
+const char* convert_toINT(int64_t context, int32_t value, int32_t* out_len);
+
+const char* convert_toINT_be(int64_t context, int32_t value, int32_t* out_len);
+
+const char* convert_toBOOLEAN(int64_t context, bool value, int32_t* out_len);
+
+const char* convert_toTIME_EPOCH(int64_t context, int32_t value, int32_t* out_len);
+
+const char* convert_toTIME_EPOCH_be(int64_t context, int32_t value, int32_t* out_len);
+
+const char* convert_toTIMESTAMP_EPOCH(int64_t context, int64_t timestamp,
+                                      int32_t* out_len);
+const char* convert_toTIMESTAMP_EPOCH_be(int64_t context, int64_t timestamp,
+                                         int32_t* out_len);
+
+const char* convert_toDATE_EPOCH(int64_t context, int64_t date, int32_t* out_len);
+
+const char* convert_toDATE_EPOCH_be(int64_t context, int64_t date, int32_t* out_len);
+
+const char* convert_toUTF8(int64_t context, const char* value, int32_t value_len,
+                           int32_t* out_len);
 
 const char* split_part(gdv_int64 context, const char* text, gdv_int32 text_len,
                        const char* splitter, gdv_int32 split_len, gdv_int32 index,

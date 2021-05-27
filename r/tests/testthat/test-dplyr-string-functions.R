@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+skip_if_not_available("dataset")
 skip_if_not_available("utf8proc")
 
 library(dplyr)
@@ -272,6 +273,12 @@ test_that("strsplit and str_split", {
   )
   expect_dplyr_equal(
     input %>%
+      mutate(x = strsplit(x, " +and +")) %>%
+      collect(),
+    df
+  )
+  expect_dplyr_equal(
+    input %>%
       mutate(x = str_split(x, "and")) %>%
       collect(),
     df
@@ -294,7 +301,12 @@ test_that("strsplit and str_split", {
       collect(),
     df
   )
-
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = str_split(x, "Foo|bar", n = 2)) %>%
+      collect(),
+    df
+  )
 })
 
 test_that("arrow_*_split_whitespace functions", {
@@ -342,99 +354,58 @@ test_that("arrow_*_split_whitespace functions", {
       collect(),
     tibble(x = list(c("Foo\u00A0and", "bar"), c("baz\u2006and\u1680qux\u3000and", "quux")))
   )
-
 })
 
 test_that("errors and warnings in string splitting", {
-  df <- tibble(x = c("Foo and bar", "baz and qux and quux"))
-
   # These conditions generate an error, but abandon_ship() catches the error,
-  # issues a warning, and pulls the data into R
-  expect_warning(
-    df %>%
-      Table$create() %>%
-      mutate(x = strsplit(x, "and.*", fixed = FALSE)) %>%
-      collect(),
-    regexp = "not supported"
+  # issues a warning, and pulls the data into R (if computing on InMemoryDataset)
+  # Elsewhere we test that abandon_ship() works,
+  # so here we can just call the functions directly
+
+  x <- Expression$field_ref("x")
+  expect_error(
+    nse_funcs$str_split(x, fixed("and", ignore_case = TRUE)),
+    "Case-insensitive string splitting not supported by Arrow"
   )
-  expect_warning(
-    df %>%
-      Table$create() %>%
-      mutate(x = str_split(x, "and.?")) %>%
-      collect()
+  expect_error(
+    nse_funcs$str_split(x, coll("and.?")),
+    "Pattern modifier `coll()` not supported by Arrow",
+    fixed = TRUE
   )
-  expect_warning(
-    df %>%
-      Table$create() %>%
-      mutate(x = str_split(x, regex("and.?"), n = 2)) %>%
-      collect(),
-    regexp = "not supported"
+  expect_error(
+    nse_funcs$str_split(x, boundary(type = "word")),
+    "Pattern modifier `boundary()` not supported by Arrow",
+    fixed = TRUE
   )
-  expect_warning(
-    df %>%
-      Table$create() %>%
-      mutate(x = str_split(x, fixed("and", ignore_case = TRUE))) %>%
-      collect(),
-    "not supported"
-  )
-  expect_warning(
-    df %>%
-      Table$create() %>%
-      mutate(x = str_split(x, coll("and.?"))) %>%
-      collect(),
-    regexp = "not supported"
-  )
-  expect_warning(
-    df %>%
-      Table$create() %>%
-      mutate(x = str_split(x, boundary(type = "word"))) %>%
-      collect(),
-    regexp = "not supported"
-  )
-  expect_warning(
-    df %>%
-      Table$create() %>%
-      mutate(x = str_split(x, "and", n = 0)) %>%
-      collect(),
-    regexp = "not supported"
+  expect_error(
+    nse_funcs$str_split(x, "and", n = 0),
+    "Splitting strings into zero parts not supported by Arrow"
   )
 
   # This condition generates a warning
   expect_warning(
-    df %>%
-      Table$create() %>%
-      mutate(x = str_split(x, fixed("and"), simplify = TRUE)) %>%
-      collect(),
-    "ignored"
+    nse_funcs$str_split(x, fixed("and"), simplify = TRUE),
+    "Argument 'simplify = TRUE' will be ignored"
   )
-
 })
 
 test_that("errors and warnings in string detection and replacement", {
-  df <- tibble(x = c("Foo", "bar"))
+  x <- Expression$field_ref("x")
 
-  # These conditions generate an error, but abandon_ship() catches the error,
-  # issues a warning, and pulls the data into R
-  expect_warning(
-    df %>%
-      Table$create() %>%
-      filter(str_detect(x, boundary(type = "character"))) %>%
-      collect(),
-    regexp = "not implemented"
+  expect_error(
+    nse_funcs$str_detect(x, boundary(type = "character")),
+    "Pattern modifier `boundary()` not supported by Arrow",
+    fixed = TRUE
   )
-  expect_warning(
-    df %>%
-      Table$create() %>%
-      mutate(x = str_replace_all(x, coll("o", locale = "en"), "ó")) %>%
-      collect(),
-    regexp = "not supported"
+  expect_error(
+    nse_funcs$str_replace_all(x, coll("o", locale = "en"), "ó"),
+    "Pattern modifier `coll()` not supported by Arrow",
+    fixed = TRUE
   )
 
   # This condition generates a warning
   expect_warning(
-    df %>%
-      Table$create() %>%
-      transmute(x = str_replace_all(x, regex("o", multiline = TRUE), "u")),
+    nse_funcs$str_replace_all(x, regex("o", multiline = TRUE), "u"),
     "Ignoring pattern modifier argument not supported in Arrow: \"multiline\""
   )
 
@@ -521,5 +492,4 @@ test_that("edge cases in string detection and replacement", {
       collect(),
     tibble(x = c("ABC"))
   )
-
 })

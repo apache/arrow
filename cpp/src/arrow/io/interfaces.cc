@@ -29,6 +29,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/io/concurrency.h"
+#include "arrow/io/type_fwd.h"
 #include "arrow/io/util_internal.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
@@ -52,6 +53,12 @@ IOContext::IOContext(MemoryPool* pool, StopToken stop_token)
     : IOContext(pool, internal::GetIOThreadPool(), std::move(stop_token)) {}
 
 const IOContext& default_io_context() { return g_default_io_context; }
+
+int GetIOThreadPoolCapacity() { return internal::GetIOThreadPool()->GetCapacity(); }
+
+Status SetIOThreadPoolCapacity(int threads) {
+  return internal::GetIOThreadPool()->SetCapacity(threads);
+}
 
 FileInterface::~FileInterface() = default;
 

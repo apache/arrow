@@ -274,9 +274,7 @@ static Result<RecordBatchGenerator> MakeSlowRecordBatchGenerator(
       std::move(gen), [](const std::shared_ptr<RecordBatch>& batch) {
         auto fut = Future<std::shared_ptr<RecordBatch>>::Make();
         SleepABitAsync().AddCallback(
-            [fut, batch](const Result<::arrow::detail::Empty>&) mutable {
-              fut.MarkFinished(batch);
-            });
+            [fut, batch](const Status& status) mutable { fut.MarkFinished(batch); });
         return fut;
       });
   // Adding readahead implicitly adds parallelism by pulling reentrantly from

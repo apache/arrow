@@ -206,6 +206,14 @@ def test_sum_array(arrow_type):
     assert arr.sum().as_py() == 10
     assert pc.sum(arr).as_py() == 10
 
+    arr = pa.array([1, 2, 3, 4, None], type=arrow_type)
+    assert arr.sum().as_py() == 10
+    assert pc.sum(arr).as_py() == 10
+
+    arr = pa.array([None], type=arrow_type)
+    assert arr.sum().as_py() is None  # noqa: E711
+    assert pc.sum(arr).as_py() is None  # noqa: E711
+
     arr = pa.array([], type=arrow_type)
     assert arr.sum().as_py() is None  # noqa: E711
 
@@ -270,6 +278,35 @@ def test_variance():
     assert pc.variance(data).as_py() == 5.25
     assert pc.variance(data, ddof=0).as_py() == 5.25
     assert pc.variance(data, ddof=1).as_py() == 6.0
+
+
+def test_find_substring():
+    arr = pa.array(["ab", "cab", "ba", None])
+    result = pc.find_substring(arr, "ab")
+    expected = pa.array([0, 1, -1, None], type=pa.int32())
+    assert expected.equals(result)
+
+    arr = pa.array(["ab", "cab", "ba", None], type=pa.large_string())
+    result = pc.find_substring(arr, "ab")
+    expected = pa.array([0, 1, -1, None], type=pa.int64())
+    assert expected.equals(result)
+
+    arr = pa.array([b"ab", b"cab", b"ba", None])
+    result = pc.find_substring(arr, b"ab")
+    expected = pa.array([0, 1, -1, None], type=pa.int32())
+    assert expected.equals(result)
+
+    arr = pa.array([b"ab", b"cab", b"ba", None], type=pa.large_binary())
+    result = pc.find_substring(arr, b"ab")
+    expected = pa.array([0, 1, -1, None], type=pa.int64())
+    assert expected.equals(result)
+
+
+def test_match_like():
+    arr = pa.array(["ab", "ba%", "ba", "ca%d", None])
+    result = pc.match_like(arr, r"_a\%%")
+    expected = pa.array([False, True, False, True, None])
+    assert expected.equals(result)
 
 
 def test_match_substring():
@@ -349,29 +386,45 @@ def test_split_whitespace_ascii():
     assert expected.equals(result)
 
 
+def test_split_pattern_regex():
+    arr = pa.array(["-foo---bar--", "---foo---b"])
+    result = pc.split_pattern_regex(arr, pattern="-+")
+    expected = pa.array([["", "foo", "bar", ""], ["", "foo", "b"]])
+    assert expected.equals(result)
+
+    result = pc.split_pattern_regex(arr, pattern="-+", max_splits=1)
+    expected = pa.array([["", "foo---bar--"], ["", "foo---b"]])
+    assert expected.equals(result)
+
+    with pytest.raises(NotImplementedError,
+                       match="Cannot split in reverse with regex"):
+        result = pc.split_pattern_regex(
+            arr, pattern="---", max_splits=1, reverse=True)
+
+
 def test_min_max():
     # An example generated function wrapper with possible options
     data = [4, 5, 6, None, 1]
     s = pc.min_max(data)
     assert s.as_py() == {'min': 1, 'max': 6}
-    s = pc.min_max(data, options=pc.MinMaxOptions())
+    s = pc.min_max(data, options=pc.ScalarAggregateOptions())
     assert s.as_py() == {'min': 1, 'max': 6}
-    s = pc.min_max(data, options=pc.MinMaxOptions(null_handling='skip'))
+    s = pc.min_max(data, options=pc.ScalarAggregateOptions(skip_nulls=True))
     assert s.as_py() == {'min': 1, 'max': 6}
-    s = pc.min_max(data, options=pc.MinMaxOptions(null_handling='emit_null'))
+    s = pc.min_max(data, options=pc.ScalarAggregateOptions(skip_nulls=False))
     assert s.as_py() == {'min': None, 'max': None}
 
     # Options as dict of kwargs
-    s = pc.min_max(data, options={'null_handling': 'emit_null'})
+    s = pc.min_max(data, options={'skip_nulls': False})
     assert s.as_py() == {'min': None, 'max': None}
     # Options as named functions arguments
-    s = pc.min_max(data, null_handling='emit_null')
+    s = pc.min_max(data, skip_nulls=False)
     assert s.as_py() == {'min': None, 'max': None}
 
     # Both options and named arguments
     with pytest.raises(TypeError):
-        s = pc.min_max(data, options=pc.MinMaxOptions(),
-                       null_handling='emit_null')
+        s = pc.min_max(
+            data, options=pc.ScalarAggregateOptions(), skip_nulls=False)
 
     # Wrong options type
     options = pc.TakeOptions()
@@ -427,7 +480,7 @@ def test_generated_docstrings():
         Compute the minimum and maximum values of a numeric array.
 
         Null values are ignored by default.
-        This can be changed through MinMaxOptions.
+        This can be changed through ScalarAggregateOptions.
 
         Parameters
         ----------
@@ -435,10 +488,10 @@ def test_generated_docstrings():
             Argument to compute function
         memory_pool : pyarrow.MemoryPool, optional
             If not passed, will allocate memory from the default memory pool.
-        options : pyarrow.compute.MinMaxOptions, optional
+        options : pyarrow.compute.ScalarAggregateOptions, optional
             Parameters altering compute function semantics
         **kwargs : optional
-            Parameters for MinMaxOptions constructor.  Either `options`
+            Parameters for ScalarAggregateOptions constructor. Either `options`
             or `**kwargs` can be passed, but not both at the same time.
         """)
     assert pc.add.__doc__ == textwrap.dedent("""\
@@ -1092,11 +1145,25 @@ def test_strptime():
 def test_count():
     arr = pa.array([1, 2, 3, None, None])
     assert pc.count(arr).as_py() == 3
-    assert pc.count(arr, count_mode='count_non_null').as_py() == 3
-    assert pc.count(arr, count_mode='count_null').as_py() == 2
+    assert pc.count(arr, skip_nulls=True).as_py() == 3
+    assert pc.count(arr, skip_nulls=False).as_py() == 2
 
-    with pytest.raises(ValueError, match="'zzz' is not a valid count_mode"):
-        pc.count(arr, count_mode='zzz')
+    with pytest.raises(TypeError, match="an integer is required"):
+        pc.count(arr, min_count='zzz')
+
+
+def test_index():
+    arr = pa.array([0, 1, None, 3, 4], type=pa.int64())
+    assert pc.index(arr, pa.scalar(0)).as_py() == 0
+    assert pc.index(arr, pa.scalar(2, type=pa.int8())).as_py() == -1
+    assert pc.index(arr, 4).as_py() == 4
+    assert arr.index(3, start=2).as_py() == 3
+    assert arr.index(None).as_py() == -1
+
+    arr = pa.chunked_array([[1, 2], [1, 3]], type=pa.int64())
+    assert arr.index(1).as_py() == 0
+    assert arr.index(1, start=2).as_py() == 2
+    assert arr.index(1, start=1, end=2).as_py() == -1
 
 
 def test_partition_nth():

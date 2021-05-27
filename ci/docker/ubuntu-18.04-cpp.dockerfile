@@ -69,6 +69,7 @@ RUN apt-get update -y -q && \
         libboost-system-dev \
         libbrotli-dev \
         libbz2-dev \
+        libc-ares-dev \
         libcurl4-openssl-dev \
         libgflags-dev \
         libgoogle-glog-dev \

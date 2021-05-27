@@ -37,7 +37,6 @@ import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
-import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
 import org.junit.Assert;
@@ -293,11 +292,11 @@ public class TestFixedSizeListVector {
 
       assertEquals(3, vector1.getValueCount());
 
-      int[] realValue1 = convertListToIntArray((JsonStringArrayList) vector1.getObject(0));
+      int[] realValue1 = convertListToIntArray(vector1.getObject(0));
       assertTrue(Arrays.equals(values1, realValue1));
-      int[] realValue2 = convertListToIntArray((JsonStringArrayList) vector1.getObject(1));
+      int[] realValue2 = convertListToIntArray(vector1.getObject(1));
       assertTrue(Arrays.equals(values2, realValue2));
-      int[] realValue3 = convertListToIntArray((JsonStringArrayList) vector1.getObject(2));
+      int[] realValue3 = convertListToIntArray(vector1.getObject(2));
       assertTrue(Arrays.equals(values3, realValue3));
     }
   }
@@ -366,9 +365,9 @@ public class TestFixedSizeListVector {
       writer1.setValueCount(3);
 
       assertEquals(3, vector1.getValueCount());
-      int[] realValue1 = convertListToIntArray((JsonStringArrayList) vector1.getObject(0));
+      int[] realValue1 = convertListToIntArray(vector1.getObject(0));
       assertTrue(Arrays.equals(values1, realValue1));
-      int[] realValue2 = convertListToIntArray((JsonStringArrayList) vector1.getObject(1));
+      int[] realValue2 = convertListToIntArray(vector1.getObject(1));
       assertTrue(Arrays.equals(values2, realValue2));
     }
   }
@@ -395,9 +394,9 @@ public class TestFixedSizeListVector {
       FixedSizeListVector targetVector = (FixedSizeListVector) transferPair.getTo();
 
       assertEquals(2, targetVector.getValueCount());
-      int[] realValue1 = convertListToIntArray((JsonStringArrayList) targetVector.getObject(0));
+      int[] realValue1 = convertListToIntArray(targetVector.getObject(0));
       assertTrue(Arrays.equals(values1, realValue1));
-      int[] realValue2 = convertListToIntArray((JsonStringArrayList) targetVector.getObject(1));
+      int[] realValue2 = convertListToIntArray(targetVector.getObject(1));
       assertTrue(Arrays.equals(values2, realValue2));
 
       targetVector.clear();
@@ -425,12 +424,12 @@ public class TestFixedSizeListVector {
 
       assertEquals(4, vector1.getValueCount());
 
-      int[] realValue1 = convertListToIntArray((JsonStringArrayList) vector1.getObject(0));
+      int[] realValue1 = convertListToIntArray(vector1.getObject(0));
       assertArrayEquals(values1, realValue1);
-      int[] realValue2 = convertListToIntArray((JsonStringArrayList) vector1.getObject(1));
+      int[] realValue2 = convertListToIntArray(vector1.getObject(1));
       assertArrayEquals(values2, realValue2);
       assertNull(vector1.getObject(2));
-      int[] realValue4 = convertListToIntArray((JsonStringArrayList) vector1.getObject(3));
+      int[] realValue4 = convertListToIntArray(vector1.getObject(3));
       assertArrayEquals(values4, realValue4);
     }
   }
@@ -456,18 +455,18 @@ public class TestFixedSizeListVector {
 
       assertEquals(4, vector1.getValueCount());
 
-      List realValue1 = (JsonStringArrayList) vector1.getObject(0);
+      List realValue1 = vector1.getObject(0);
       assertEquals(values1, realValue1);
-      List realValue2 = (JsonStringArrayList) vector1.getObject(1);
+      List realValue2 = vector1.getObject(1);
       assertEquals(values2, realValue2);
-      List realValue3 = (JsonStringArrayList) vector1.getObject(2);
+      List realValue3 = vector1.getObject(2);
       assertEquals(values3, realValue3);
-      List realValue4 = (JsonStringArrayList) vector1.getObject(3);
+      List realValue4 = vector1.getObject(3);
       assertEquals(values4, realValue4);
     }
   }
 
-  private int[] convertListToIntArray(JsonStringArrayList list) {
+  private int[] convertListToIntArray(List list) {
     int[] values = new int[list.size()];
     for (int i = 0; i < list.size(); i++) {
       values[i] = (int) list.get(i);

@@ -21,13 +21,23 @@
 #include <tuple>
 #include <type_traits>
 
+#include "arrow/result.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {
 namespace internal {
 
+struct Empty {
+  static Result<Empty> ToResult(Status s) {
+    if (ARROW_PREDICT_TRUE(s.ok())) {
+      return Empty{};
+    }
+    return s;
+  }
+};
+
 /// Helper struct for examining lambdas and other callables.
-/// TODO(bkietz) support function pointers
+/// TODO(ARROW-12655) support function pointers
 struct call_traits {
  public:
   template <typename R, typename... A>
@@ -57,6 +67,16 @@ struct call_traits {
   static typename std::tuple_element<I, std::tuple<A...>>::type argument_type_impl(
       R (F::*)(A...) &&);
 
+  template <typename F, typename R, typename... A>
+  static std::integral_constant<int, sizeof...(A)> argument_count_impl(R (F::*)(A...));
+
+  template <typename F, typename R, typename... A>
+  static std::integral_constant<int, sizeof...(A)> argument_count_impl(R (F::*)(A...)
+                                                                           const);
+
+  template <typename F, typename R, typename... A>
+  static std::integral_constant<int, sizeof...(A)> argument_count_impl(R (F::*)(A...) &&);
+
   /// bool constant indicating whether F is a callable with more than one possible
   /// signature. Will be true_type for objects which define multiple operator() or which
   /// define a template operator()
@@ -77,11 +97,21 @@ struct call_traits {
   using argument_type = decltype(argument_type_impl<I>(&std::decay<F>::type::operator()));
 
   template <typename F>
+  using argument_count = decltype(argument_count_impl(&std::decay<F>::type::operator()));
+
+  template <typename F>
   using return_type = decltype(return_type_impl(&std::decay<F>::type::operator()));
 
   template <typename F, typename T, typename RT = T>
   using enable_if_return =
       typename std::enable_if<std::is_same<return_type<F>, T>::value, RT>;
+
+  template <typename T, typename R = void>
+  using enable_if_empty = typename std::enable_if<std::is_same<T, Empty>::value, R>::type;
+
+  template <typename T, typename R = void>
+  using enable_if_not_empty =
+      typename std::enable_if<!std::is_same<T, Empty>::value, R>::type;
 };
 
 /// A type erased callable object which may only be invoked once.

@@ -504,6 +504,10 @@ dataset___ScannerBuilder__UseThreads <- function(sb, threads){
     invisible(.Call(`_arrow_dataset___ScannerBuilder__UseThreads`, sb, threads))
 }
 
+dataset___ScannerBuilder__UseAsync <- function(sb, use_async){
+    invisible(.Call(`_arrow_dataset___ScannerBuilder__UseAsync`, sb, use_async))
+}
+
 dataset___ScannerBuilder__BatchSize <- function(sb, batch_size){
     invisible(.Call(`_arrow_dataset___ScannerBuilder__BatchSize`, sb, batch_size))
 }
@@ -526,6 +530,10 @@ dataset___Scanner__ToTable <- function(scanner){
 
 dataset___Scanner__ScanBatches <- function(scanner){
     .Call(`_arrow_dataset___Scanner__ScanBatches`, scanner)
+}
+
+dataset___Scanner__ToRecordBatchReader <- function(scanner){
+    .Call(`_arrow_dataset___Scanner__ToRecordBatchReader`, scanner)
 }
 
 dataset___Scanner__head <- function(scanner, n){
@@ -798,6 +806,10 @@ compute___expr__scalar <- function(x){
 
 compute___expr__ToString <- function(x){
     .Call(`_arrow_compute___expr__ToString`, x)
+}
+
+compute___expr__type <- function(x, schema){
+    .Call(`_arrow_compute___expr__type`, x, schema)
 }
 
 ipc___WriteFeather__Table <- function(stream, table, version, chunk_size, compression, compression_level){
@@ -1284,18 +1296,6 @@ parquet___arrow___FileReader__GetSchema <- function(reader){
     .Call(`_arrow_parquet___arrow___FileReader__GetSchema`, reader)
 }
 
-ImportArray <- function(array, schema){
-    .Call(`_arrow_ImportArray`, array, schema)
-}
-
-ImportRecordBatch <- function(array, schema){
-    .Call(`_arrow_ImportRecordBatch`, array, schema)
-}
-
-ImportSchema <- function(schema){
-    .Call(`_arrow_ImportSchema`, schema)
-}
-
 allocate_arrow_schema <- function(){
     .Call(`_arrow_allocate_arrow_schema`)
 }
@@ -1312,8 +1312,44 @@ delete_arrow_array <- function(ptr){
     invisible(.Call(`_arrow_delete_arrow_array`, ptr))
 }
 
+allocate_arrow_array_stream <- function(){
+    .Call(`_arrow_allocate_arrow_array_stream`)
+}
+
+delete_arrow_array_stream <- function(ptr){
+    invisible(.Call(`_arrow_delete_arrow_array_stream`, ptr))
+}
+
+ImportArray <- function(array, schema){
+    .Call(`_arrow_ImportArray`, array, schema)
+}
+
+ImportRecordBatch <- function(array, schema){
+    .Call(`_arrow_ImportRecordBatch`, array, schema)
+}
+
+ImportSchema <- function(schema){
+    .Call(`_arrow_ImportSchema`, schema)
+}
+
+ImportField <- function(field){
+    .Call(`_arrow_ImportField`, field)
+}
+
+ImportType <- function(type){
+    .Call(`_arrow_ImportType`, type)
+}
+
+ImportRecordBatchReader <- function(stream){
+    .Call(`_arrow_ImportRecordBatchReader`, stream)
+}
+
 ExportType <- function(type, ptr){
     invisible(.Call(`_arrow_ExportType`, type, ptr))
+}
+
+ExportField <- function(field, ptr){
+    invisible(.Call(`_arrow_ExportField`, field, ptr))
 }
 
 ExportSchema <- function(schema, ptr){
@@ -1326,6 +1362,10 @@ ExportArray <- function(array, array_ptr, schema_ptr){
 
 ExportRecordBatch <- function(batch, array_ptr, schema_ptr){
     invisible(.Call(`_arrow_ExportRecordBatch`, batch, array_ptr, schema_ptr))
+}
+
+ExportRecordBatchReader <- function(reader, stream_ptr){
+    invisible(.Call(`_arrow_ExportRecordBatchReader`, reader, stream_ptr))
 }
 
 vec_to_arrow <- function(x, s_type){
@@ -1424,12 +1464,16 @@ RecordBatchReader__ReadNext <- function(reader){
     .Call(`_arrow_RecordBatchReader__ReadNext`, reader)
 }
 
-ipc___RecordBatchStreamReader__Open <- function(stream){
-    .Call(`_arrow_ipc___RecordBatchStreamReader__Open`, stream)
+RecordBatchReader__batches <- function(reader){
+    .Call(`_arrow_RecordBatchReader__batches`, reader)
 }
 
-ipc___RecordBatchStreamReader__batches <- function(reader){
-    .Call(`_arrow_ipc___RecordBatchStreamReader__batches`, reader)
+Table__from_RecordBatchReader <- function(reader){
+    .Call(`_arrow_Table__from_RecordBatchReader`, reader)
+}
+
+ipc___RecordBatchStreamReader__Open <- function(stream){
+    .Call(`_arrow_ipc___RecordBatchStreamReader__Open`, stream)
 }
 
 ipc___RecordBatchFileReader__schema <- function(reader){
@@ -1446,10 +1490,6 @@ ipc___RecordBatchFileReader__ReadRecordBatch <- function(reader, i){
 
 ipc___RecordBatchFileReader__Open <- function(file){
     .Call(`_arrow_ipc___RecordBatchFileReader__Open`, file)
-}
-
-Table__from_RecordBatchReader <- function(reader){
-    .Call(`_arrow_Table__from_RecordBatchReader`, reader)
 }
 
 Table__from_RecordBatchFileReader <- function(reader){
@@ -1678,6 +1718,14 @@ GetCpuThreadPoolCapacity <- function(){
 
 SetCpuThreadPoolCapacity <- function(threads){
     invisible(.Call(`_arrow_SetCpuThreadPoolCapacity`, threads))
+}
+
+GetIOThreadPoolCapacity <- function(){
+    .Call(`_arrow_GetIOThreadPoolCapacity`)
+}
+
+SetIOThreadPoolCapacity <- function(threads){
+    invisible(.Call(`_arrow_SetIOThreadPoolCapacity`, threads))
 }
 
 Array__infer_type <- function(x){

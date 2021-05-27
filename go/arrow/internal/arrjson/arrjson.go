@@ -19,6 +19,7 @@
 package arrjson // import "github.com/apache/arrow/go/arrow/internal/arrjson"
 
 import (
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"math/big"
@@ -29,12 +30,57 @@ import (
 	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/decimal128"
 	"github.com/apache/arrow/go/arrow/float16"
+	"github.com/apache/arrow/go/arrow/ipc"
 	"github.com/apache/arrow/go/arrow/memory"
 	"golang.org/x/xerrors"
 )
 
 type Schema struct {
-	Fields []FieldWrapper `json:"fields"`
+	Fields    []FieldWrapper `json:"fields"`
+	arrowMeta arrow.Metadata `json:"-"`
+	Metadata  []metaKV       `json:"metadata,omitempty"`
+}
+
+func (s Schema) MarshalJSON() ([]byte, error) {
+	if s.arrowMeta.Len() > 0 {
+		s.Metadata = make([]metaKV, 0, s.arrowMeta.Len())
+		keys := s.arrowMeta.Keys()
+		vals := s.arrowMeta.Values()
+		for i := range keys {
+			s.Metadata = append(s.Metadata, metaKV{Key: keys[i], Value: vals[i]})
+		}
+	}
+	type alias Schema
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	err := enc.Encode(alias(s))
+	return buf.Bytes(), err
+}
+
+func (s *Schema) UnmarshalJSON(data []byte) error {
+	type Alias Schema
+	aux := &struct {
+		*Alias
+	}{Alias: (*Alias)(s)}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	var (
+		mdkeys = make([]string, 0)
+		mdvals = make([]string, 0)
+	)
+
+	for _, kv := range s.Metadata {
+		mdkeys = append(mdkeys, kv.Key)
+		mdvals = append(mdvals, kv.Value)
+	}
+
+	if len(s.Metadata) > 0 {
+		s.arrowMeta = arrow.NewMetadata(mdkeys, mdvals)
+	}
+	return nil
 }
 
 // FieldWrapper gets used in order to hook into the JSON marshalling and
@@ -52,12 +98,37 @@ type Field struct {
 	// leave this as a json RawMessage in order to partially unmarshal as needed
 	// during marshal/unmarshal time so we can determine what the structure is
 	// actually expected to be.
-	Type     json.RawMessage `json:"type"`
-	Nullable bool            `json:"nullable"`
-	Children []FieldWrapper  `json:"children"`
+	Type      json.RawMessage `json:"type"`
+	Nullable  bool            `json:"nullable"`
+	Children  []FieldWrapper  `json:"children"`
+	arrowMeta arrow.Metadata  `json:"-"`
+	Metadata  []metaKV        `json:"metadata,omitempty"`
+}
+
+type metaKV struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
 }
 
 func (f FieldWrapper) MarshalJSON() ([]byte, error) {
+	// for extension types, add the extension type metadata appropriately
+	// and then marshal as normal for the storage type.
+	if f.arrowType.ID() == arrow.EXTENSION {
+		exType := f.arrowType.(arrow.ExtensionType)
+
+		mdkeys := append(f.arrowMeta.Keys(), ipc.ExtensionTypeKeyName)
+		mdvals := append(f.arrowMeta.Values(), exType.ExtensionName())
+
+		serializedData := exType.Serialize()
+		if len(serializedData) > 0 {
+			mdkeys = append(mdkeys, ipc.ExtensionMetadataKeyName)
+			mdvals = append(mdvals, string(serializedData))
+		}
+
+		f.arrowMeta = arrow.NewMetadata(mdkeys, mdvals)
+		f.arrowType = exType.StorageType()
+	}
+
 	var typ interface{}
 	switch dt := f.arrowType.(type) {
 	case *arrow.NullType:
@@ -154,7 +225,20 @@ func (f FieldWrapper) MarshalJSON() ([]byte, error) {
 	if f.Type, err = json.Marshal(typ); err != nil {
 		return nil, err
 	}
-	return json.Marshal(f.Field)
+
+	// if we have metadata then add the key/value pairs to the json
+	if f.arrowMeta.Len() > 0 {
+		f.Metadata = make([]metaKV, 0, f.arrowMeta.Len())
+		for i := 0; i < f.arrowMeta.Len(); i++ {
+			f.Metadata = append(f.Metadata, metaKV{Key: f.arrowMeta.Keys()[i], Value: f.arrowMeta.Values()[i]})
+		}
+	}
+
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	err = enc.Encode(f.Field)
+	return buf.Bytes(), err
 }
 
 func (f *FieldWrapper) UnmarshalJSON(data []byte) error {
@@ -268,6 +352,8 @@ func (f *FieldWrapper) UnmarshalJSON(data []byte) error {
 		}
 	case "list":
 		f.arrowType = arrow.ListOf(f.Children[0].arrowType)
+		f.arrowType.(*arrow.ListType).Meta = f.Children[0].arrowMeta
+
 	case "map":
 		t := mapJSON{}
 		if err := json.Unmarshal(f.Type, &t); err != nil {
@@ -323,10 +409,71 @@ func (f *FieldWrapper) UnmarshalJSON(data []byte) error {
 		}
 		f.arrowType = &arrow.Decimal128Type{Precision: int32(t.Precision), Scale: int32(t.Scale)}
 	}
-	if f.arrowType != nil {
-		return nil
+
+	if f.arrowType == nil {
+		return xerrors.Errorf("unhandled type unmarshalling from json: %s", tmp.Name)
 	}
-	return xerrors.Errorf("unhandled type unmarshalling from json: %s", tmp.Name)
+
+	var err error
+	if len(f.Metadata) > 0 { // unmarshal the key/value metadata pairs
+		var (
+			mdkeys         = make([]string, 0, len(f.Metadata))
+			mdvals         = make([]string, 0, len(f.Metadata))
+			extKeyIdx  int = -1
+			extDataIdx int = -1
+		)
+
+		for i, kv := range f.Metadata {
+			switch kv.Key {
+			case ipc.ExtensionTypeKeyName:
+				extKeyIdx = i
+			case ipc.ExtensionMetadataKeyName:
+				extDataIdx = i
+			}
+			mdkeys = append(mdkeys, kv.Key)
+			mdvals = append(mdvals, kv.Value)
+		}
+
+		if extKeyIdx == -1 { // no extension metadata just create the metadata
+			f.arrowMeta = arrow.NewMetadata(mdkeys, mdvals)
+			return nil
+		}
+
+		extType := arrow.GetExtensionType(mdvals[extKeyIdx])
+		if extType == nil { // unregistered extension type, just keep the metadata
+			f.arrowMeta = arrow.NewMetadata(mdkeys, mdvals)
+			return nil
+		}
+
+		var extData string
+		if extDataIdx > -1 {
+			extData = mdvals[extDataIdx]
+			// if both extension type and extension type metadata exist
+			// filter out both keys
+			newkeys := make([]string, 0, len(mdkeys)-2)
+			newvals := make([]string, 0, len(mdvals)-2)
+			for i := range mdkeys {
+				if i != extKeyIdx && i != extDataIdx {
+					newkeys = append(newkeys, mdkeys[i])
+					newvals = append(newvals, mdvals[i])
+				}
+			}
+			mdkeys = newkeys
+			mdvals = newvals
+		} else {
+			// if only extension type key is present, we can simplify filtering it out
+			mdkeys = append(mdkeys[:extKeyIdx], mdkeys[extKeyIdx+1:]...)
+			mdvals = append(mdvals[:extKeyIdx], mdvals[extKeyIdx+1:]...)
+		}
+
+		if f.arrowType, err = extType.Deserialize(f.arrowType, extData); err != nil {
+			return err
+		}
+
+		f.arrowMeta = arrow.NewMetadata(mdkeys, mdvals)
+	}
+
+	return err
 }
 
 // the structs below represent various configurations of the Type
@@ -380,12 +527,13 @@ type mapJSON struct {
 
 func schemaToJSON(schema *arrow.Schema) Schema {
 	return Schema{
-		Fields: fieldsToJSON(schema.Fields()),
+		Fields:    fieldsToJSON(schema.Fields()),
+		arrowMeta: schema.Metadata(),
 	}
 }
 
 func schemaFromJSON(schema Schema) *arrow.Schema {
-	return arrow.NewSchema(fieldsFromJSON(schema.Fields), nil)
+	return arrow.NewSchema(fieldsFromJSON(schema.Fields), &schema.arrowMeta)
 }
 
 func fieldsToJSON(fields []arrow.Field) []FieldWrapper {
@@ -396,10 +544,11 @@ func fieldsToJSON(fields []arrow.Field) []FieldWrapper {
 			arrowType: f.Type,
 			Nullable:  f.Nullable,
 			Children:  []FieldWrapper{},
+			arrowMeta: f.Metadata,
 		}}
 		switch dt := f.Type.(type) {
 		case *arrow.ListType:
-			o[i].Children = fieldsToJSON([]arrow.Field{{Name: "item", Type: dt.Elem(), Nullable: f.Nullable}})
+			o[i].Children = fieldsToJSON([]arrow.Field{{Name: "item", Type: dt.Elem(), Nullable: f.Nullable, Metadata: dt.Meta}})
 		case *arrow.FixedSizeListType:
 			o[i].Children = fieldsToJSON([]arrow.Field{{Name: "item", Type: dt.Elem(), Nullable: f.Nullable}})
 		case *arrow.StructType:
@@ -424,6 +573,7 @@ func fieldFromJSON(f Field) arrow.Field {
 		Name:     f.Name,
 		Type:     f.arrowType,
 		Nullable: f.Nullable,
+		Metadata: f.arrowMeta,
 	}
 }
 
@@ -760,6 +910,11 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) array.Int
 		bldr.AppendValues(data, valids)
 		return bldr.NewArray()
 
+	case arrow.ExtensionType:
+		storage := arrayFromJSON(mem, dt.StorageType(), arr)
+		defer storage.Release()
+		return array.NewExtensionArrayWithStorage(dt, storage)
+
 	default:
 		panic(xerrors.Errorf("unknown data type %v %T", dt, dt))
 	}
@@ -1020,6 +1175,9 @@ func arrayToJSON(field arrow.Field, arr array.Interface) Array {
 			Data:   decimal128ToJSON(arr),
 			Valids: validsToJSON(arr),
 		}
+
+	case array.ExtensionArray:
+		return arrayToJSON(field, arr.Storage())
 
 	default:
 		panic(xerrors.Errorf("unknown array type %T", arr))

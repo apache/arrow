@@ -57,6 +57,8 @@ jobs:
           pkgs <- installed.packages()[, "Package"]
           sessioninfo::session_info(pkgs, include_base = TRUE)
         shell: Rscript {0}
+      - name: Remove system gfortran so that brew can install gcc successfully
+        run: rm -f /usr/local/bin/gfortran
       - name: Write the install script
         env:
           RUN_DEVDOCS: TRUE
@@ -65,7 +67,7 @@ jobs:
           DEVDOCS_SYSTEM_INSTALL: {{ "${{contains(matrix.system-install, 'true')}}" }}
           DEVDOCS_PRIOR_SYSTEM_INSTALL: {{ "${{contains(matrix.system-install, 'old')}}" }}
         run: |
-          # This isn't actually rendering the docs, but will save arrow/r/vignettes/script.sh 
+          # This isn't actually rendering the docs, but will save arrow/r/vignettes/script.sh
           # which can be sourced to install arrow.
           rmarkdown::render("arrow/r/vignettes/developing.Rmd")
         shell: Rscript {0}

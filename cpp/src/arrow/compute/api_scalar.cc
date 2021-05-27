@@ -47,6 +47,7 @@ namespace compute {
     return CallFunction(func_name, {arg}, ctx);                                        \
   }
 
+SCALAR_ARITHMETIC_UNARY(AbsoluteValue, "abs", "abs_checked")
 SCALAR_ARITHMETIC_UNARY(Negate, "negate", "negate_checked")
 
 #define SCALAR_ARITHMETIC_BINARY(NAME, REGISTRY_NAME, REGISTRY_CHECKED_NAME)           \

@@ -86,12 +86,12 @@ if defined need_vcvarsall (
 @rem
 @rem Use clcache for faster builds
 @rem
-pip install -q git+https://github.com/frerich/clcache.git
+pip install -q clcache-alt || exit /B
 @rem Limit cache size to 500 MB
 clcache -M 500000000
 clcache -c
 clcache -s
-powershell.exe -Command "Start-Process clcache-server"
+powershell.exe -Command "Start-Process clcache-server" || exit /B
 
 @rem
 @rem Download Minio somewhere on PATH, for unit tests

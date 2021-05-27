@@ -637,7 +637,7 @@ Future<> SleepAsync(double seconds) {
   auto out = Future<>::Make();
   std::thread([out, seconds]() mutable {
     SleepFor(seconds);
-    out.MarkFinished(Status::OK());
+    out.MarkFinished();
   }).detach();
   return out;
 }
@@ -646,7 +646,7 @@ Future<> SleepABitAsync() {
   auto out = Future<>::Make();
   std::thread([out]() mutable {
     SleepABit();
-    out.MarkFinished(Status::OK());
+    out.MarkFinished();
   }).detach();
   return out;
 }

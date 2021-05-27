@@ -85,16 +85,23 @@ class TestPartitioning : public ::testing::Test {
                        const std::vector<compute::Expression>& expected_expressions) {
     ASSERT_OK_AND_ASSIGN(auto partition_results, partitioning->Partition(full_batch));
     std::shared_ptr<RecordBatch> rest = full_batch;
+
     ASSERT_EQ(partition_results.batches.size(), expected_batches.size());
-    auto max_index = std::min(partition_results.batches.size(), expected_batches.size());
-    for (std::size_t partition_index = 0; partition_index < max_index;
-         partition_index++) {
-      std::shared_ptr<RecordBatch> actual_batch =
-          partition_results.batches[partition_index];
-      AssertBatchesEqual(*expected_batches[partition_index], *actual_batch);
-      compute::Expression actual_expression =
-          partition_results.expressions[partition_index];
-      ASSERT_EQ(expected_expressions[partition_index], actual_expression);
+
+    for (size_t i = 0; i < partition_results.batches.size(); i++) {
+      std::shared_ptr<RecordBatch> actual_batch = partition_results.batches[i];
+      compute::Expression actual_expression = partition_results.expressions[i];
+
+      auto expected_expression = std::find(expected_expressions.begin(),
+                                           expected_expressions.end(), actual_expression);
+      ASSERT_NE(expected_expression, expected_expressions.end())
+          << "Unexpected partition expr " << actual_expression.ToString();
+
+      auto expected_batch =
+          expected_batches[expected_expression - expected_expressions.begin()];
+
+      SCOPED_TRACE("Batch for " + expected_expression->ToString());
+      AssertBatchesEqual(*expected_batch, *actual_batch);
     }
   }
 

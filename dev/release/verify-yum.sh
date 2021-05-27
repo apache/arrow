@@ -154,7 +154,8 @@ else
 fi
 
 if [ "${have_flight}" = "yes" ]; then
-  ${install_command} --enablerepo=epel arrow-flight-devel-${package_version}
+  ${install_command} --enablerepo=epel arrow-flight-glib-devel-${package_version}
+  ${install_command} --enablerepo=epel arrow-flight-glib-doc-${package_version}
 fi
 
 if [ "${have_gandiva}" = "yes" ]; then

@@ -547,7 +547,7 @@ class RecordBatchFileReaderImpl<T extends { [key: string]: DataType } = any> ext
         const block = this._footer && this._footer.getRecordBatch(index);
         if (block && this._handle.seek(block.offset)) {
             const message = this._reader.readMessage(MessageHeader.RecordBatch);
-            if (message && message.isRecordBatch()) {
+            if (message?.isRecordBatch()) {
                 const header = message.header();
                 const buffer = this._reader.readMessageBody(message.bodyLength);
                 const recordBatch = this._loadRecordBatch(header, buffer);
@@ -560,7 +560,7 @@ class RecordBatchFileReaderImpl<T extends { [key: string]: DataType } = any> ext
         const block = this._footer && this._footer.getDictionaryBatch(index);
         if (block && this._handle.seek(block.offset)) {
             const message = this._reader.readMessage(MessageHeader.DictionaryBatch);
-            if (message && message.isDictionaryBatch()) {
+            if (message?.isDictionaryBatch()) {
                 const header = message.header();
                 const buffer = this._reader.readMessageBody(message.bodyLength);
                 const vector = this._loadDictionaryBatch(header, buffer);
@@ -621,7 +621,7 @@ class AsyncRecordBatchFileReaderImpl<T extends { [key: string]: DataType } = any
         const block = this._footer && this._footer.getRecordBatch(index);
         if (block && (await this._handle.seek(block.offset))) {
             const message = await this._reader.readMessage(MessageHeader.RecordBatch);
-            if (message && message.isRecordBatch()) {
+            if (message?.isRecordBatch()) {
                 const header = message.header();
                 const buffer = await this._reader.readMessageBody(message.bodyLength);
                 const recordBatch = this._loadRecordBatch(header, buffer);
@@ -634,7 +634,7 @@ class AsyncRecordBatchFileReaderImpl<T extends { [key: string]: DataType } = any
         const block = this._footer && this._footer.getDictionaryBatch(index);
         if (block && (await this._handle.seek(block.offset))) {
             const message = await this._reader.readMessage(MessageHeader.DictionaryBatch);
-            if (message && message.isDictionaryBatch()) {
+            if (message?.isDictionaryBatch()) {
                 const header = message.header();
                 const buffer = await this._reader.readMessageBody(message.bodyLength);
                 const vector = this._loadDictionaryBatch(header, buffer);

@@ -17,7 +17,7 @@
 
 #' @importFrom stats quantile median na.omit na.exclude na.pass na.fail
 #' @importFrom R6 R6Class
-#' @importFrom purrr as_mapper map map2 map_chr map_dfr map_int map_lgl keep
+#' @importFrom purrr as_mapper map map2 map_chr map2_chr map_dfr map_int map_lgl keep
 #' @importFrom assertthat assert_that is.string
 #' @importFrom rlang list2 %||% is_false abort dots_n warn enquo quo_is_null enquos is_integerish quos eval_tidy new_data_mask syms env new_environment env_bind as_label set_names exec is_bare_character quo_get_expr quo_set_expr .data seq2 is_quosure enexpr enexprs expr
 #' @importFrom tidyselect vars_pull vars_rename vars_select eval_select
@@ -42,15 +42,26 @@
   }
   s3_register("dplyr::tbl_vars", "arrow_dplyr_query")
 
-  for (cl in c("Array", "RecordBatch", "ChunkedArray", "Table", "Schema")) {
+  for (cl in c("Array", "RecordBatch", "ChunkedArray", "Table", "Schema",
+               "Field", "DataType", "RecordBatchReader")) {
     s3_register("reticulate::py_to_r", paste0("pyarrow.lib.", cl))
     s3_register("reticulate::r_to_py", cl)
   }
 
   # Create these once, at package build time
   if (arrow_available()) {
-    dplyr_functions$dataset <- build_function_list(build_dataset_expression)
-    dplyr_functions$array <- build_function_list(build_array_expression)
+    # Also include all available Arrow Compute functions,
+    # namespaced as arrow_fun.
+    # We can't do this at install time because list_compute_functions() may error
+    all_arrow_funs <- list_compute_functions()
+    arrow_funcs <- set_names(
+      lapply(all_arrow_funs, function(fun) {
+        force(fun)
+        function(...) build_expr(fun, ...)
+      }),
+      paste0("arrow_", all_arrow_funs)
+    )
+    .cache$functions <- c(nse_funcs, arrow_funcs)
   }
   invisible()
 }

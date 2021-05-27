@@ -394,6 +394,12 @@ void dataset___ScannerBuilder__UseThreads(const std::shared_ptr<ds::ScannerBuild
 }
 
 // [[dataset::export]]
+void dataset___ScannerBuilder__UseAsync(const std::shared_ptr<ds::ScannerBuilder>& sb,
+                                        bool use_async) {
+  StopIfNotOk(sb->UseAsync(use_async));
+}
+
+// [[dataset::export]]
 void dataset___ScannerBuilder__BatchSize(const std::shared_ptr<ds::ScannerBuilder>& sb,
                                          int64_t batch_size) {
   StopIfNotOk(sb->BatchSize(batch_size));
@@ -433,6 +439,12 @@ cpp11::list dataset___Scanner__ScanBatches(const std::shared_ptr<ds::Scanner>& s
     return arrow::Status::OK();
   }));
   return arrow::r::to_r_list(batches);
+}
+
+// [[dataset::export]]
+std::shared_ptr<arrow::RecordBatchReader> dataset___Scanner__ToRecordBatchReader(
+    const std::shared_ptr<ds::Scanner>& scanner) {
+  return ValueOrStop(scanner->ToRecordBatchReader());
 }
 
 // [[dataset::export]]

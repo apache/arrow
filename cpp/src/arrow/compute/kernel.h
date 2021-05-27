@@ -52,7 +52,7 @@ struct ARROW_EXPORT KernelState {
 /// \brief Context/state for the execution of a particular kernel.
 class ARROW_EXPORT KernelContext {
  public:
-  explicit KernelContext(ExecContext* exec_ctx) : exec_ctx_(exec_ctx) {}
+  explicit KernelContext(ExecContext* exec_ctx) : exec_ctx_(exec_ctx), state_() {}
 
   /// \brief Allocate buffer from the context's memory pool. The contents are
   /// not initialized.

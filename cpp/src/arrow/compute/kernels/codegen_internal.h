@@ -349,7 +349,7 @@ template <typename T, typename VisitFunc, typename NullFunc>
 static typename arrow::internal::call_traits::enable_if_return<VisitFunc, Status>::type
 VisitArrayValuesInline(const ArrayData& arr, VisitFunc&& valid_func,
                        NullFunc&& null_func) {
-  VisitArrayDataInline<T>(
+  return VisitArrayDataInline<T>(
       arr,
       [&](typename GetViewType<T>::PhysicalType v) {
         return valid_func(GetViewType<T>::LogicalValue(std::move(v)));

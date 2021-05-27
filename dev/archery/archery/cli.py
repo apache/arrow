@@ -1152,6 +1152,34 @@ def release_cherry_pick(obj, version, dry_run, recreate):
         click.echo('git cherry-pick {}'.format(commit.hexsha))
 
 
+@archery.group("linking")
+@click.pass_obj
+def linking(obj):
+    """
+    Quick and dirty utilities for checking library linkage.
+    """
+    pass
+
+
+@linking.command("check-dependencies")
+@click.argument("paths", nargs=-1)
+@click.option("--allow", "-a", "allowed", multiple=True,
+              help="Name of the allowed libraries")
+@click.option("--disallow", "-d", "disallowed", multiple=True,
+              help="Name of the disallowed libraries")
+@click.pass_obj
+def linking_check_dependencies(obj, allowed, disallowed, paths):
+    from .linking import check_dynamic_library_dependencies, DependencyError
+
+    allowed, disallowed = set(allowed), set(disallowed)
+    try:
+        for path in map(pathlib.Path, paths):
+            check_dynamic_library_dependencies(path, allowed=allowed,
+                                               disallowed=disallowed)
+    except DependencyError as e:
+        raise click.ClickException(str(e))
+
+
 try:
     from .crossbow.cli import crossbow  # noqa
 except ImportError as exc:

@@ -20,6 +20,8 @@ It takes the following arguments:
 \item \code{filter}: A \code{Expression} to filter the scanned rows by, or \code{TRUE} (default)
 to keep all rows.
 \item \code{use_threads}: logical: should scanning use multithreading? Default \code{TRUE}
+\item \code{use_async}: logical: should the async scanner (performs better on
+high-latency/highly parallel filesystems like S3) be used? Default \code{FALSE}
 \item \code{...}: Additional arguments, currently ignored
 }
 }
@@ -34,6 +36,7 @@ by \code{cols}, a character vector of column names
 \item \verb{$UseThreads(threads)}: logical: should the scan use multithreading?
 The method's default input is \code{TRUE}, but you must call the method to enable
 multithreading because the scanner default is \code{FALSE}.
+\item \verb{$UseAsync(use_async)}: logical: should the async scanner be used?
 \item \verb{$BatchSize(batch_size)}: integer: Maximum row count of scanned record
 batches, default is 32K. If scanned record batches are overflowing memory
 then this method can be called to reduce their size.

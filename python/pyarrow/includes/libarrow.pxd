@@ -1163,6 +1163,8 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         CIOContext(CMemoryPool*, CStopToken)
 
     CIOContext c_default_io_context "arrow::io::default_io_context"()
+    int GetIOThreadPoolCapacity()
+    CStatus SetIOThreadPoolCapacity(int threads)
 
     cdef cppclass FileStatistics:
         int64_t size
@@ -1872,34 +1874,20 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CVarianceOptions(int ddof)
         int ddof
 
-    enum CMinMaxMode \
-            "arrow::compute::MinMaxOptions::Mode":
-        CMinMaxMode_SKIP \
-            "arrow::compute::MinMaxOptions::SKIP"
-        CMinMaxMode_EMIT_NULL \
-            "arrow::compute::MinMaxOptions::EMIT_NULL"
-
-    cdef cppclass CMinMaxOptions \
-            "arrow::compute::MinMaxOptions"(CFunctionOptions):
-        CMinMaxOptions(CMinMaxMode null_handling)
-        CMinMaxMode null_handling
+    cdef cppclass CScalarAggregateOptions \
+            "arrow::compute::ScalarAggregateOptions"(CFunctionOptions):
+        CScalarAggregateOptions(c_bool skip_nulls, int64_t min_count)
+        c_bool skip_nulls
+        int64_t min_count
 
     cdef cppclass CModeOptions \
             "arrow::compute::ModeOptions"(CFunctionOptions):
         CModeOptions(int64_t n)
         int64_t n
 
-    enum CCountMode \
-            "arrow::compute::CountOptions::Mode":
-        CCountMode_COUNT_NON_NULL \
-            "arrow::compute::CountOptions::COUNT_NON_NULL"
-        CCountMode_COUNT_NULL \
-            "arrow::compute::CountOptions::COUNT_NULL"
-
-    cdef cppclass CCountOptions \
-            "arrow::compute::CountOptions"(CFunctionOptions):
-        CCountOptions(CCountMode count_mode)
-        CCountMode count_mode
+    cdef cppclass CIndexOptions \
+            "arrow::compute::IndexOptions"(CFunctionOptions):
+        CIndexOptions(shared_ptr[CScalar] value)
 
     cdef cppclass CPartitionNthOptions \
             "arrow::compute::PartitionNthOptions"(CFunctionOptions):
