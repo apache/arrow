@@ -95,6 +95,24 @@ inline Status VisitTypeInline(const DataType& type, VISITOR* visitor) {
 
 #undef TYPE_VISIT_INLINE
 
+#define TYPE_VISIT_INLINE(TYPE_CLASS)      \
+  case TYPE_CLASS##Type::type_id:          \
+    return std::forward<VISITOR>(visitor)( \
+        internal::checked_cast<const TYPE_CLASS##Type&>(type));
+
+template <typename VISITOR>
+inline auto VisitType(const DataType& type, VISITOR&& visitor)
+    -> decltype(std::forward<VISITOR>(visitor)(type)) {
+  switch (type.id()) {
+    ARROW_GENERATE_FOR_ALL_TYPES(TYPE_VISIT_INLINE);
+    default:
+      break;
+  }
+  return std::forward<VISITOR>(visitor)(type);
+}
+
+#undef TYPE_VISIT_INLINE
+
 #define TYPE_ID_VISIT_INLINE(TYPE_CLASS)            \
   case TYPE_CLASS##Type::type_id: {                 \
     const TYPE_CLASS##Type* concrete_ptr = nullptr; \

@@ -239,47 +239,27 @@ class QuotedColumnPopulator : public ColumnPopulator {
   std::vector<bool> row_needs_escaping_;
 };
 
-struct PopulatorFactory {
-  template <typename TypeClass>
-  enable_if_t<is_base_binary_type<TypeClass>::value ||
-                  std::is_same<FixedSizeBinaryType, TypeClass>::value,
-              Status>
-  Visit(const TypeClass& type) {
-    populator = new QuotedColumnPopulator(pool, end_char);
-    return Status::OK();
-  }
+std::unique_ptr<ColumnPopulator> MakePopulator(const DataType& type, char end_char,
+                                               MemoryPool* pool) {
+  return VisitType(type, [&](const auto& type) -> std::unique_ptr<ColumnPopulator> {
+    using Type = std::decay_t<decltype(type)>;
 
-  template <typename TypeClass>
-  enable_if_dictionary<TypeClass, Status> Visit(const TypeClass& type) {
-    return VisitTypeInline(*type.value_type(), this);
-  }
+    if constexpr (is_primitive_ctype<Type>::value || is_decimal_type<Type>::value ||
+                  is_null_type<Type>::value || is_temporal_type<Type>::value) {
+      return std::make_unique<UnquotedColumnPopulator>(pool, end_char);
+    }
 
-  template <typename TypeClass>
-  enable_if_t<is_nested_type<TypeClass>::value || is_extension_type<TypeClass>::value,
-              Status>
-  Visit(const TypeClass& type) {
-    return Status::Invalid("Unsupported Type:", type.ToString());
-  }
+    if constexpr (is_base_binary_type<Type>::value ||
+                  std::is_same<Type, FixedSizeBinaryType>::value) {
+      return std::make_unique<QuotedColumnPopulator>(pool, end_char);
+    }
 
-  template <typename TypeClass>
-  enable_if_t<is_primitive_ctype<TypeClass>::value || is_decimal_type<TypeClass>::value ||
-                  is_null_type<TypeClass>::value || is_temporal_type<TypeClass>::value,
-              Status>
-  Visit(const TypeClass& type) {
-    populator = new UnquotedColumnPopulator(pool, end_char);
-    return Status::OK();
-  }
+    if constexpr (std::is_same<Type, DictionaryType>::value) {
+      return MakePopulator(*type.value_type(), end_char, pool);
+    }
 
-  char end_char;
-  MemoryPool* pool;
-  ColumnPopulator* populator;
-};
-
-Result<std::unique_ptr<ColumnPopulator>> MakePopulator(const Field& field, char end_char,
-                                                       MemoryPool* pool) {
-  PopulatorFactory factory{end_char, pool, nullptr};
-  RETURN_NOT_OK(VisitTypeInline(*field.type(), &factory));
-  return std::unique_ptr<ColumnPopulator>(factory.populator);
+    return nullptr;
+  });
 }
 
 class CSVConverter {
@@ -289,8 +269,11 @@ class CSVConverter {
     std::vector<std::unique_ptr<ColumnPopulator>> populators(schema->num_fields());
     for (int col = 0; col < schema->num_fields(); col++) {
       char end_char = col < schema->num_fields() - 1 ? ',' : '\n';
-      ASSIGN_OR_RAISE(populators[col],
-                      MakePopulator(*schema->field(col), end_char, pool));
+      populators[col] = MakePopulator(*schema->field(col)->type(), end_char, pool);
+      if (populators[col] == nullptr) {
+        return Status::Invalid("Unsupported Type: ",
+                               schema->field(col)->type()->ToString());
+      }
     }
     return std::unique_ptr<CSVConverter>(
         new CSVConverter(std::move(schema), std::move(populators), pool));
