@@ -46,6 +46,14 @@ class BitmapWriter {
 
   void Clear() { current_byte_ &= bit_mask_ ^ 0xFF; }
 
+  void SetTo(bool value) {
+    if (value) {
+      Set();
+    } else {
+      Clear();
+    }
+  }
+
   void Next() {
     bit_mask_ = static_cast<uint8_t>(bit_mask_ << 1);
     ++position_;
@@ -149,6 +157,10 @@ class FirstTimeBitmapWriter {
   void Set() { current_byte_ |= bit_mask_; }
 
   void Clear() {}
+
+  void SetTo(bool value) {
+    if (value) Set();
+  }
 
   void Next() {
     bit_mask_ = static_cast<uint8_t>(bit_mask_ << 1);

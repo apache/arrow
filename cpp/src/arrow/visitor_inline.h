@@ -339,14 +339,14 @@ struct ArrayDataInlineVisitor<T, enable_if_fixed_size_binary<T>> {
 // - for binary, string and fixed-size binary arrays, a `util::string_view`
 
 template <typename T, typename ValidFunc, typename NullFunc>
-typename internal::call_traits::enable_if_return<ValidFunc, Status>::type
+typename internal::call_traits::enable_if_return<NullFunc, Status>::type
 VisitArrayDataInline(const ArrayData& arr, ValidFunc&& valid_func, NullFunc&& null_func) {
   return internal::ArrayDataInlineVisitor<T>::VisitStatus(
       arr, std::forward<ValidFunc>(valid_func), std::forward<NullFunc>(null_func));
 }
 
 template <typename T, typename ValidFunc, typename NullFunc>
-typename internal::call_traits::enable_if_return<ValidFunc, void>::type
+typename internal::call_traits::enable_if_return<NullFunc, void>::type
 VisitArrayDataInline(const ArrayData& arr, ValidFunc&& valid_func, NullFunc&& null_func) {
   return internal::ArrayDataInlineVisitor<T>::VisitVoid(
       arr, std::forward<ValidFunc>(valid_func), std::forward<NullFunc>(null_func));
@@ -402,7 +402,7 @@ inline Status VisitScalarInline(const Scalar& scalar, VISITOR* visitor) {
 // The `NullFunc` should have the same return type as `ValidFunc`.
 
 template <typename ValidFunc, typename NullFunc>
-typename internal::call_traits::enable_if_return<ValidFunc, Status>::type
+typename internal::call_traits::enable_if_return<NullFunc, Status>::type
 VisitNullBitmapInline(const uint8_t* valid_bits, int64_t valid_bits_offset,
                       int64_t num_values, int64_t null_count, ValidFunc&& valid_func,
                       NullFunc&& null_func) {
@@ -435,7 +435,7 @@ VisitNullBitmapInline(const uint8_t* valid_bits, int64_t valid_bits_offset,
 }
 
 template <typename ValidFunc, typename NullFunc>
-typename internal::call_traits::enable_if_return<ValidFunc, void>::type
+typename internal::call_traits::enable_if_return<NullFunc, void>::type
 VisitNullBitmapInline(const uint8_t* valid_bits, int64_t valid_bits_offset,
                       int64_t num_values, int64_t null_count, ValidFunc&& valid_func,
                       NullFunc&& null_func) {

@@ -35,11 +35,16 @@ namespace compute {
 namespace internal {
 namespace {
 
+struct SetLookupStateBase : public KernelState {
+  virtual Status Init(const SetLookupOptions& options) = 0;
+};
+
 template <typename Type>
-struct SetLookupState : public KernelState {
+struct SetLookupState : public SetLookupStateBase {
+  using TypeClass = Type;
   explicit SetLookupState(MemoryPool* pool) : lookup_table(pool, 0) {}
 
-  Status Init(const SetLookupOptions& options) {
+  Status Init(const SetLookupOptions& options) override {
     if (options.value_set.kind() == Datum::ARRAY) {
       const ArrayData& value_set = *options.value_set.array();
       memo_index_to_value_index.reserve(value_set.length);
@@ -63,9 +68,8 @@ struct SetLookupState : public KernelState {
 
   Status AddArrayValueSet(const SetLookupOptions& options, const ArrayData& data,
                           int64_t start_index = 0) {
-    using T = typename GetViewType<Type>::T;
     int32_t index = static_cast<int32_t>(start_index);
-    auto visit_valid = [&](T v) {
+    auto visit_valid = [&](auto v) {
       const auto memo_size = static_cast<int32_t>(memo_index_to_value_index.size());
       int32_t unused_memo_index;
       auto on_found = [&](int32_t memo_index) { DCHECK_LT(memo_index, memo_size); };
@@ -102,7 +106,8 @@ struct SetLookupState : public KernelState {
 };
 
 template <>
-struct SetLookupState<NullType> : public KernelState {
+struct SetLookupState<NullType> : public SetLookupStateBase {
+  using TypeClass = NullType;
   explicit SetLookupState(MemoryPool*) {}
 
   Status Init(const SetLookupOptions& options) {
@@ -113,81 +118,47 @@ struct SetLookupState<NullType> : public KernelState {
   bool value_set_has_null;
 };
 
-// TODO: Put this concept somewhere reusable
-template <int width>
-struct UnsignedIntType;
+template <typename V,
+          typename Ret = std::result_of_t<const V&(SetLookupState<NullType>*)>>
+Ret VisitSetLookupState(const DataType& type, KernelState* state, const V& visitor) {
+  return VisitType(type, [&](const auto& type) -> Ret {
+    using Type = std::decay_t<decltype(type)>;
 
-template <>
-struct UnsignedIntType<1> {
-  using Type = UInt8Type;
-};
-
-template <>
-struct UnsignedIntType<2> {
-  using Type = UInt16Type;
-};
-
-template <>
-struct UnsignedIntType<4> {
-  using Type = UInt32Type;
-};
-
-template <>
-struct UnsignedIntType<8> {
-  using Type = UInt64Type;
-};
-
-// Constructing the type requires a type parameter
-struct InitStateVisitor {
-  KernelContext* ctx;
-  SetLookupOptions options;
-  const std::shared_ptr<DataType>& arg_type;
-  std::unique_ptr<KernelState> result;
-
-  InitStateVisitor(KernelContext* ctx, const KernelInitArgs& args)
-      : ctx(ctx),
-        options(*checked_cast<const SetLookupOptions*>(args.options)),
-        arg_type(args.inputs[0].type) {}
-
-  template <typename Type>
-  Status Init() {
-    using StateType = SetLookupState<Type>;
-    result.reset(new StateType(ctx->exec_context()->memory_pool()));
-    return static_cast<StateType*>(result.get())->Init(options);
-  }
-
-  Status Visit(const DataType&) { return Init<NullType>(); }
-
-  template <typename Type>
-  enable_if_boolean<Type, Status> Visit(const Type&) {
-    return Init<BooleanType>();
-  }
-
-  template <typename Type>
-  enable_if_t<has_c_type<Type>::value && !is_boolean_type<Type>::value, Status> Visit(
-      const Type&) {
-    return Init<typename UnsignedIntType<sizeof(typename Type::c_type)>::Type>();
-  }
-
-  template <typename Type>
-  enable_if_base_binary<Type, Status> Visit(const Type&) {
-    return Init<typename Type::PhysicalType>();
-  }
-
-  // Handle Decimal128Type, FixedSizeBinaryType
-  Status Visit(const FixedSizeBinaryType& type) { return Init<FixedSizeBinaryType>(); }
-
-  Result<std::unique_ptr<KernelState>> GetResult() {
-    if (!options.value_set.type()->Equals(arg_type)) {
-      ARROW_ASSIGN_OR_RAISE(
-          options.value_set,
-          Cast(options.value_set, CastOptions::Safe(arg_type), ctx->exec_context()));
+    if constexpr (is_null_type<Type>::value) {
+      return visitor(checked_cast<SetLookupState<NullType>*>(state));
     }
 
-    RETURN_NOT_OK(VisitTypeInline(*arg_type, this));
-    return std::move(result);
-  }
-};
+    if constexpr (is_boolean_type<Type>::value) {
+      return visitor(checked_cast<SetLookupState<BooleanType>*>(state));
+    }
+
+    if constexpr (has_c_type<Type>::value) {
+      switch (sizeof(typename Type::c_type)) {
+        case sizeof(uint8_t):
+          return visitor(checked_cast<SetLookupState<UInt8Type>*>(state));
+        case sizeof(uint16_t):
+          return visitor(checked_cast<SetLookupState<UInt16Type>*>(state));
+        case sizeof(uint32_t):
+          return visitor(checked_cast<SetLookupState<UInt32Type>*>(state));
+        case sizeof(uint64_t):
+          return visitor(checked_cast<SetLookupState<UInt64Type>*>(state));
+        default:
+          break;
+      }
+    }
+
+    if constexpr (is_base_binary_type<Type>::value) {
+      return visitor(checked_cast<SetLookupState<typename Type::PhysicalType>*>(state));
+    }
+
+    if constexpr (is_fixed_size_binary_type<Type>::value) {
+      return visitor(checked_cast<SetLookupState<FixedSizeBinaryType>*>(state));
+    }
+
+    DCHECK(false) << "Unsupported argument type";
+    return {};
+  });
+}
 
 Result<std::unique_ptr<KernelState>> InitSetLookup(KernelContext* ctx,
                                                    const KernelInitArgs& args) {
@@ -196,182 +167,114 @@ Result<std::unique_ptr<KernelState>> InitSetLookup(KernelContext* ctx,
         "Attempted to call a set lookup function without SetLookupOptions");
   }
 
-  return InitStateVisitor{ctx, args}.GetResult();
+  const auto& arg_type = args.inputs[0].type;
+
+  auto state = VisitSetLookupState(
+      *arg_type, nullptr, [&](auto state) -> std::unique_ptr<SetLookupStateBase> {
+        using State = std::remove_pointer_t<decltype(state)>;
+        return std::make_unique<State>(ctx->memory_pool());
+      });
+
+  const auto& options = checked_cast<const SetLookupOptions&>(*args.options);
+
+  if (options.value_set.type()->Equals(arg_type)) {
+    RETURN_NOT_OK(state->Init(options));
+  } else {
+    auto cast_options = options;
+    ARROW_ASSIGN_OR_RAISE(
+        cast_options.value_set,
+        Cast(options.value_set, CastOptions::Safe(arg_type), ctx->exec_context()));
+    RETURN_NOT_OK(state->Init(cast_options));
+  }
+  return std::move(state);
 }
 
-struct IndexInVisitor {
-  KernelContext* ctx;
-  const ArrayData& data;
-  Datum* out;
-  Int32Builder builder;
+Status ExecIndexIn(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  const auto& data = *batch[0].array();
 
-  IndexInVisitor(KernelContext* ctx, const ArrayData& data, Datum* out)
-      : ctx(ctx), data(data), out(out), builder(ctx->exec_context()->memory_pool()) {}
+  Int32Builder builder(ctx->memory_pool());
 
-  Status Visit(const DataType& type) {
-    DCHECK_EQ(type.id(), Type::NA);
-    const auto& state = checked_cast<const SetLookupState<NullType>&>(*ctx->state());
-    if (data.length != 0) {
+  return VisitSetLookupState(*data.type, ctx->state(), [&](auto state) {
+    using State = std::remove_pointer_t<decltype(state)>;
+    using Type = typename State::TypeClass;
+
+    if constexpr (is_null_type<Type>::value) {
       // skip_nulls is honored for consistency with other types
-      if (state.value_set_has_null) {
-        RETURN_NOT_OK(this->builder.Reserve(data.length));
+      if (state->value_set_has_null) {
+        RETURN_NOT_OK(builder.Resize(data.length));
         for (int64_t i = 0; i < data.length; ++i) {
-          this->builder.UnsafeAppend(0);
+          builder.UnsafeAppend(0);
         }
       } else {
-        RETURN_NOT_OK(this->builder.AppendNulls(data.length));
+        RETURN_NOT_OK(builder.AppendNulls(data.length));
       }
+    } else {
+      RETURN_NOT_OK(builder.Resize(data.length));
+
+      VisitArrayDataInline<Type>(
+          data,
+          [&](auto v) {
+            int32_t index = state->lookup_table.Get(v);
+            if (index != -1) {
+              // matching needle; output index from value_set
+              builder.UnsafeAppend(state->memo_index_to_value_index[index]);
+            } else {
+              // no matching needle; output null
+              builder.UnsafeAppendNull();
+            }
+          },
+          [&]() {
+            if (state->null_index != -1) {
+              // value_set included null
+              builder.UnsafeAppend(state->null_index);
+            } else {
+              // value_set does not include null; output null
+              builder.UnsafeAppendNull();
+            }
+          });
     }
-    return Status::OK();
-  }
 
-  template <typename Type>
-  Status ProcessIndexIn() {
-    using T = typename GetViewType<Type>::T;
-
-    const auto& state = checked_cast<const SetLookupState<Type>&>(*ctx->state());
-
-    RETURN_NOT_OK(this->builder.Reserve(data.length));
-    VisitArrayDataInline<Type>(
-        data,
-        [&](T v) {
-          int32_t index = state.lookup_table.Get(v);
-          if (index != -1) {
-            // matching needle; output index from value_set
-            this->builder.UnsafeAppend(state.memo_index_to_value_index[index]);
-          } else {
-            // no matching needle; output null
-            this->builder.UnsafeAppendNull();
-          }
-        },
-        [&]() {
-          if (state.null_index != -1) {
-            // value_set included null
-            this->builder.UnsafeAppend(state.null_index);
-          } else {
-            // value_set does not include null; output null
-            this->builder.UnsafeAppendNull();
-          }
-        });
-    return Status::OK();
-  }
-
-  template <typename Type>
-  enable_if_boolean<Type, Status> Visit(const Type&) {
-    return ProcessIndexIn<BooleanType>();
-  }
-
-  template <typename Type>
-  enable_if_t<has_c_type<Type>::value && !is_boolean_type<Type>::value, Status> Visit(
-      const Type&) {
-    return ProcessIndexIn<
-        typename UnsignedIntType<sizeof(typename Type::c_type)>::Type>();
-  }
-
-  template <typename Type>
-  enable_if_base_binary<Type, Status> Visit(const Type&) {
-    return ProcessIndexIn<typename Type::PhysicalType>();
-  }
-
-  // Handle Decimal128Type, FixedSizeBinaryType
-  Status Visit(const FixedSizeBinaryType& type) {
-    return ProcessIndexIn<FixedSizeBinaryType>();
-  }
-
-  Status Execute() {
-    Status s = VisitTypeInline(*data.type, this);
-    if (!s.ok()) {
-      return s;
-    }
     std::shared_ptr<ArrayData> out_data;
-    RETURN_NOT_OK(this->builder.FinishInternal(&out_data));
+    RETURN_NOT_OK(builder.FinishInternal(&out_data));
     out->value = std::move(out_data);
     return Status::OK();
-  }
-};
-
-Status ExecIndexIn(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  return IndexInVisitor(ctx, *batch[0].array(), out).Execute();
+  });
 }
 
 // ----------------------------------------------------------------------
 
 // IsIn writes the results into a preallocated boolean data bitmap
-struct IsInVisitor {
-  KernelContext* ctx;
-  const ArrayData& data;
-  Datum* out;
-
-  IsInVisitor(KernelContext* ctx, const ArrayData& data, Datum* out)
-      : ctx(ctx), data(data), out(out) {}
-
-  Status Visit(const DataType& type) {
-    DCHECK_EQ(type.id(), Type::NA);
-    const auto& state = checked_cast<const SetLookupState<NullType>&>(*ctx->state());
-    ArrayData* output = out->mutable_array();
-    // skip_nulls is honored for consistency with other types
-    BitUtil::SetBitsTo(output->buffers[1]->mutable_data(), output->offset, output->length,
-                       state.value_set_has_null);
-    return Status::OK();
-  }
-
-  template <typename Type>
-  Status ProcessIsIn() {
-    using T = typename GetViewType<Type>::T;
-    const auto& state = checked_cast<const SetLookupState<Type>&>(*ctx->state());
-    ArrayData* output = out->mutable_array();
-
-    FirstTimeBitmapWriter writer(output->buffers[1]->mutable_data(), output->offset,
-                                 output->length);
-
-    VisitArrayDataInline<Type>(
-        this->data,
-        [&](T v) {
-          if (state.lookup_table.Get(v) != -1) {
-            writer.Set();
-          } else {
-            writer.Clear();
-          }
-          writer.Next();
-        },
-        [&]() {
-          if (state.null_index != -1) {
-            writer.Set();
-          } else {
-            writer.Clear();
-          }
-          writer.Next();
-        });
-    writer.Finish();
-    return Status::OK();
-  }
-
-  template <typename Type>
-  enable_if_boolean<Type, Status> Visit(const Type&) {
-    return ProcessIsIn<BooleanType>();
-  }
-
-  template <typename Type>
-  enable_if_t<has_c_type<Type>::value && !is_boolean_type<Type>::value, Status> Visit(
-      const Type&) {
-    return ProcessIsIn<typename UnsignedIntType<sizeof(typename Type::c_type)>::Type>();
-  }
-
-  template <typename Type>
-  enable_if_base_binary<Type, Status> Visit(const Type&) {
-    return ProcessIsIn<typename Type::PhysicalType>();
-  }
-
-  // Handle Decimal128Type, FixedSizeBinaryType
-  Status Visit(const FixedSizeBinaryType& type) {
-    return ProcessIsIn<FixedSizeBinaryType>();
-  }
-
-  Status Execute() { return VisitTypeInline(*data.type, this); }
-};
-
 Status ExecIsIn(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  return IsInVisitor(ctx, *batch[0].array(), out).Execute();
+  const auto& data = *batch[0].array();
+  ArrayData* output = out->mutable_array();
+
+  return VisitSetLookupState(*data.type, ctx->state(), [&](auto state) {
+    using State = std::remove_pointer_t<decltype(state)>;
+    using Type = typename State::TypeClass;
+
+    if constexpr (is_null_type<Type>::value) {
+      // skip_nulls is honored for consistency with other types
+      BitUtil::SetBitsTo(output->buffers[1]->mutable_data(), output->offset,
+                         output->length, state->value_set_has_null);
+      return Status::OK();
+    } else {
+      FirstTimeBitmapWriter writer(output->buffers[1]->mutable_data(), output->offset,
+                                   output->length);
+
+      VisitArrayDataInline<Type>(
+          data,
+          [&](auto v) {
+            writer.SetTo(state->lookup_table.Get(v) != -1);
+            writer.Next();
+          },
+          [&]() {
+            writer.SetTo(state->null_index != -1);
+            writer.Next();
+          });
+      writer.Finish();
+      return Status::OK();
+    }
+  });
 }
 
 // Unary set lookup kernels available for the following input types
