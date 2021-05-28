@@ -17,7 +17,7 @@
   under the License.
 -->
 
-# arrow 4.0.0.9000
+# arrow 4.0.1.9000
 
 * `write_csv_arrow()` to write Arrow data to CSV
 * Bindings and support for more Arrow C++ Compute functions: `strsplit()` and `str_split()`, `na.omit()` et al., `any()`/`all()`,
@@ -25,6 +25,10 @@
 * `dplyr` queries on `Table` and `RecordBatch` now use the same expression internals as `Dataset` (via `InMemoryDataset`). Among other (mostly internal) benefits that come with this, the print method for `arrow_dplyr_query` now includes the expression and the resulting type of columns derived by `mutate()`.
 * Added bindings for the remainder of C data interface: Type, Field, and RecordBatchReader (from the experimental C stream interface). These also have `reticulate::py_to_r()` and `r_to_py()` methods. Along with the addition of the `Scanner$ToRecordBatchReader()` method, you can now build up a Dataset query in R and pass the resulting stream of batches to another tool in process.
 * `match_arrow` now converts `x` into an `Array` if it is not a `Scalar`, `Array` or `ChunkedArray` and no longer dispatches `base::match()`.
+
+# arrow 4.0.1
+
+* Resolved a few bugs in new string compute kernels (ARROW-12774, ARROW-12670)
 
 # arrow 4.0.0.1
 
