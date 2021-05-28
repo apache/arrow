@@ -39,8 +39,7 @@ arrow_dplyr_query <- function(.data) {
       x = paste0(
         "The following field names were found more than once in the data: ",
         oxford_paste(names(.data)[dupes])
-      ),
-      i =  "All field names must be unique"
+      )
     ))
   }
   
