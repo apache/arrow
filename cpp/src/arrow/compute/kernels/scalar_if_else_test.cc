@@ -147,276 +147,304 @@ TYPED_TEST(TestIfElsePrimitive, IfElseFixedSizeRand) {
   CheckIfElseOutput(cond, left, right, expected_data);
 }
 
-#define IF_ELSE_TEST_GEN(type, l0, l1, l2, l3, r0, r1, r2, r3, valid, valid1)            \
-  do {                                                                                   \
-    /* -------- All arrays --------- */                                                  \
-    /* empty */                                                                          \
-    CheckIfElseOutputAAA((type), "[]", "[]", "[]", "[]");                                \
-    /* CLR = 111 */                                                                      \
-    CheckIfElseOutputAAA(                                                                \
-        (type), "[true, true, true, false]", "[" #l0 ", " #l1 ", " #l2 ", " #l3 "]",     \
-        "[" #r0 ", " #r1 ", " #r2 ", " #r3 "]", "[" #l0 ", " #l1 ", " #l2 ", " #r3 "]"); \
-    /* CLR = 011 */                                                                      \
-    CheckIfElseOutputAAA(                                                                \
-        (type), "[true, true, null, false]", "[" #l0 ", " #l1 ", " #l2 ", " #l3 "]",     \
-        "[" #r0 ", " #r1 ", " #r2 ", " #r3 "]", "[" #l0 ", " #l1 ", null, " #r3 "]");    \
-    /* CLR = 101 */                                                                      \
-    CheckIfElseOutputAAA(                                                                \
-        (type), "[true, true, true, false]", "[" #l0 ", null, " #l2 ", " #l3 "]",        \
-        "[" #r0 ", " #r1 ", " #r2 ", " #r3 "]", "[" #l0 ", null, " #l2 ", " #r3 "]");    \
-    /* CLR = 001 */                                                                      \
-    CheckIfElseOutputAAA(                                                                \
-        (type), "[true, true, null, false]", "[" #l0 ", null, " #l2 ", " #l3 "]",        \
-        "[" #r0 ", " #r1 ", " #r2 ", " #r3 "]", "[" #l0 ", null, null, " #r3 "]");       \
-    /* CLR = 110 */                                                                      \
-    CheckIfElseOutputAAA(                                                                \
-        (type), "[true, true, true, false]", "[" #l0 ", " #l1 ", " #l2 ", " #l3 "]",     \
-        "[" #r0 ", " #r1 ", " #r2 ", null]", "[" #l0 ", " #l1 ", " #l2 ", null]");       \
-    /* CLR = 010 */                                                                      \
-    CheckIfElseOutputAAA(                                                                \
-        (type), "[null, true, true, false]", "[" #l0 ", " #l1 ", " #l2 ", " #l3 "]",     \
-        "[" #r0 ", " #r1 ", " #r2 ", null]", "[null, " #l1 ", " #l2 ", null]");          \
-    /* CLR = 100 */                                                                      \
-    CheckIfElseOutputAAA(                                                                \
-        (type), "[true, true, true, false]", "[" #l0 ", " #l1 ", null, null]",           \
-        "[null, " #r1 ", " #r2 ", null]", "[" #l0 ", " #l1 ", null, null]");             \
-    /* CLR = 000 */                                                                      \
-    CheckIfElseOutputAAA(                                                                \
-        (type), "[null, true, true, false]", "[" #l0 ", " #l1 ", null, null]",           \
-        "[null, " #r1 ", " #r2 ", null]", "[null, " #l1 ", null, null]");                \
-                                                                                         \
-    /* -------- Cond - Array, Left- Array, Right - Scalar --------- */                   \
-    auto valid_scalar = MakeScalar((type), (valid)).ValueOrDie();                        \
-    auto valid_scalar1 = MakeScalar((type), (valid1)).ValueOrDie();                      \
-    std::shared_ptr<Scalar> null_scalar = MakeNullScalar(type);                          \
-                                                                                         \
-    /* empty */                                                                          \
-    CheckIfElseOutputAAS((type), "[]", "[]", valid_scalar, "[]");                        \
-                                                                                         \
-    /* CLR = 111 */                                                                      \
-    CheckIfElseOutputAAS((type), "[true, true, true, false]",                            \
-                         "[" #l0 ", " #l1 ", " #l2 ", " #l3 "]", valid_scalar,           \
-                         "[" #l0 ", " #l1 ", " #l2 ", " #valid "]");                     \
-    /* CLR = 011 */                                                                      \
-    CheckIfElseOutputAAS((type), "[true, true, null, false]",                            \
-                         "[" #l0 ", " #l1 ", " #l2 ", " #l3 "]", valid_scalar,           \
-                         "[" #l0 ", " #l1 ", null, " #valid "]");                        \
-    /* CLR = 101 */                                                                      \
-    CheckIfElseOutputAAS((type), "[true, true, true, false]",                            \
-                         "[" #l0 ", null, " #l2 ", " #l3 "]", valid_scalar,              \
-                         "[" #l0 ", null, " #l2 ", " #valid "]");                        \
-    /* CLR = 001 */                                                                      \
-    CheckIfElseOutputAAS((type), "[true, true, null, false]",                            \
-                         "[" #l0 ", null, " #l2 ", " #l3 "]", valid_scalar,              \
-                         "[" #l0 ", null, null, " #valid "]");                           \
-    /* CLR = 110 */                                                                      \
-    CheckIfElseOutputAAS((type), "[true, true, true, false]",                            \
-                         "[" #l0 ", " #l1 ", " #l2 ", " #l3 "]", null_scalar,            \
-                         "[" #l0 ", " #l1 ", " #l2 ", null]");                           \
-    /* CLR = 010 */                                                                      \
-    CheckIfElseOutputAAS((type), "[null, true, true, false]",                            \
-                         "[" #l0 ", " #l1 ", " #l2 ", " #l3 "]", null_scalar,            \
-                         "[null, " #l1 ", " #l2 ", null]");                              \
-    /* CLR = 100 */                                                                      \
-    CheckIfElseOutputAAS((type), "[true, true, true, false]",                            \
-                         "[" #l0 ", " #l1 ", null, null]", null_scalar,                  \
-                         "[" #l0 ", " #l1 ", null, null]");                              \
-    /* CLR = 000 */                                                                      \
-    CheckIfElseOutputAAS((type), "[null, true, true, false]",                            \
-                         "[" #l0 ", " #l1 ", null, null]", null_scalar,                  \
-                         "[null, " #l1 ", null, null]");                                 \
-                                                                                         \
-    /* -------- Cond - Array, Left- Scalar, Right - Array --------- */                   \
-    /* empty */                                                                          \
-    CheckIfElseOutputASA((type), "[]", valid_scalar, "[]", "[]");                        \
-                                                                                         \
-    /* CLR = 111 */                                                                      \
-    CheckIfElseOutputASA((type), "[true, true, true, false]", valid_scalar,              \
-                         "[" #l0 ", " #l1 ", " #l2 ", " #l3 "]",                         \
-                         "[" #valid ", " #valid ", " #valid ", " #l3 "]");               \
-    /* CLR = 011 */                                                                      \
-    CheckIfElseOutputASA((type), "[true, true, null, false]", valid_scalar,              \
-                         "[" #l0 ", " #l1 ", " #l2 ", " #l3 "]",                         \
-                         "[" #valid ", " #valid ", null, " #l3 "]");                     \
-    /* CLR = 110 */                                                                      \
-    CheckIfElseOutputASA((type), "[true, true, true, false]", valid_scalar,              \
-                         "[" #l0 ", null, " #l2 ", null]",                               \
-                         "[" #valid ", " #valid ", " #valid ", null]");                  \
-    /* CLR = 010 */                                                                      \
-    CheckIfElseOutputASA((type), "[true, true, null, false]", valid_scalar,              \
-                         "[" #l0 ", null, " #l2 ", null]",                               \
-                         "[" #valid ", " #valid ", null, null]");                        \
-    /* CLR = 101 */                                                                      \
-    CheckIfElseOutputASA((type), "[true, true, true, false]", null_scalar,               \
-                         "[" #l0 ", " #l1 ", " #l2 ", " #l3 "]",                         \
-                         "[null, null, null, " #l3 "]");                                 \
-    /* CLR = 001 */                                                                      \
-    CheckIfElseOutputASA((type), "[null, true, true, false]", null_scalar,               \
-                         "[" #l0 ", " #l1 ", " #l2 ", " #l3 "]",                         \
-                         "[null, null, null, " #l3 "]");                                 \
-    /* CLR = 100 */                                                                      \
-    CheckIfElseOutputASA((type), "[true, true, true, false]", null_scalar,               \
-                         "[" #l0 ", " #l1 ", null, " #l3 "]",                            \
-                         "[null, null, null, " #l3 "]");                                 \
-    /* CLR = 000 */                                                                      \
-    CheckIfElseOutputASA((type), "[true, true, null, false]", null_scalar,               \
-                         "[" #l0 ", " #l1 ", null, " #l3 "]",                            \
-                         "[null, null, null, " #l3 "]");                                 \
-                                                                                         \
-    /* -------- Cond - Array, Left- Scalar, Right - Scalar --------- */                  \
-    /* empty */                                                                          \
-    CheckIfElseOutputASS((type), "[]", valid_scalar, valid_scalar1, "[]");               \
-                                                                                         \
-    /* CLR = 111 */                                                                      \
-    CheckIfElseOutputASS((type), "[true, true, true, false]", valid_scalar,              \
-                         valid_scalar1,                                                  \
-                         "[" #valid ", " #valid ", " #valid ", " #valid1 "]");           \
-    /* CLR = 011 */                                                                      \
-    CheckIfElseOutputASS((type), "[true, true, null, false]", valid_scalar,              \
-                         valid_scalar1, "[" #valid ", " #valid ", null, " #valid1 "]");  \
-    /* CLR = 010 */                                                                      \
-    CheckIfElseOutputASS((type), "[true, true, null, false]", valid_scalar, null_scalar, \
-                         "[" #valid ", " #valid ", null, null]");                        \
-    /* CLR = 110 */                                                                      \
-    CheckIfElseOutputASS((type), "[true, true, true, false]", valid_scalar, null_scalar, \
-                         "[" #valid ", " #valid ", " #valid ", null]");                  \
-    /* CLR = 101 */                                                                      \
-    CheckIfElseOutputASS((type), "[true, true, true, false]", null_scalar,               \
-                         valid_scalar1, "[null, null, null, " #valid1 "]");              \
-    /* CLR = 001 */                                                                      \
-    CheckIfElseOutputASS((type), "[null, true, true, false]", null_scalar,               \
-                         valid_scalar1, "[null, null, null, " #valid1 "]");              \
-    /* CLR = 100 */                                                                      \
-    CheckIfElseOutputASS((type), "[true, true, true, false]", null_scalar, null_scalar,  \
-                         "[null, null, null, null]");                                    \
-    /* CLR = 000 */                                                                      \
-    CheckIfElseOutputASS((type), "[true, true, null, false]", null_scalar, null_scalar,  \
-                         "[null, null, null, null]");                                    \
-                                                                                         \
-    /* -------- Cond - Scalar, Left- Array, Right - Array --------- */                   \
-    auto bool_true = MakeScalar(boolean(), true).ValueOrDie();                           \
-    auto bool_false = MakeScalar(boolean(), false).ValueOrDie();                         \
-    std::shared_ptr<Scalar> bool_null = MakeNullScalar(boolean());                       \
-                                                                                         \
-    /* empty */                                                                          \
-    CheckIfElseOutputSAA((type), bool_true, "[]", "[]", "[]");                           \
-    /* CLR = 111 */                                                                      \
-    CheckIfElseOutputSAA((type), bool_true, "[" #l0 ", " #l1 ", " #l2 ", " #l3 "]",      \
-                         "[" #r0 ", " #r1 ", " #r2 ", " #r3 "]",                         \
-                         "[" #l0 ", " #l1 ", " #l2 ", " #l3 "]");                        \
-    /* CLR = 011 */                                                                      \
-    CheckIfElseOutputSAA((type), bool_null, "[" #l0 ", " #l1 ", " #l2 ", " #l3 "]",      \
-                         "[" #r0 ", " #r1 ", " #r2 ", " #r3 "]",                         \
-                         "[null, null, null, null]");                                    \
-    /* CLR = 101 */                                                                      \
-    CheckIfElseOutputSAA((type), bool_false, "[" #l0 ", null, " #l2 ", " #l3 "]",        \
-                         "[" #r0 ", " #r1 ", " #r2 ", " #r3 "]",                         \
-                         "[" #r0 ", " #r1 ", " #r2 ", " #r3 "]");                        \
-    /* CLR = 001 */                                                                      \
-    CheckIfElseOutputSAA((type), bool_null, "[" #l0 ", null, " #l2 ", " #l3 "]",         \
-                         "[" #r0 ", " #r1 ", " #r2 ", " #r3 "]",                         \
-                         "[null, null, null, null]");                                    \
-    /* CLR = 110 */                                                                      \
-    CheckIfElseOutputSAA((type), bool_false, "[" #l0 ", " #l1 ", " #l2 ", " #l3 "]",     \
-                         "[" #r0 ", " #r1 ", " #r2 ", null]",                            \
-                         "[" #r0 ", " #r1 ", " #r2 ", null]");                           \
-    /* CLR = 010 */                                                                      \
-    CheckIfElseOutputSAA((type), bool_null, "[" #l0 ", " #l1 ", " #l2 ", " #l3 "]",      \
-                         "[" #r0 ", " #r1 ", " #r2 ", null]",                            \
-                         "[null, null, null, null]");                                    \
-    /* CLR = 100 */                                                                      \
-    CheckIfElseOutputSAA((type), bool_true, "[" #l0 ", " #l1 ", null, null]",            \
-                         "[null, " #r1 ", " #r2 ", null]",                               \
-                         "[" #l0 ", " #l1 ", null, null]");                              \
-    /* CLR = 000 */                                                                      \
-    CheckIfElseOutputSAA((type), bool_null, "[" #l0 ", " #l1 ", null, null]",            \
-                         "[null, " #r1 ", " #r2 ", null]", "[null, null, null, null]");  \
-                                                                                         \
-    /* -------- Cond - Scalar, Left- Array, Right - Scalar --------- */                  \
-    /* empty */                                                                          \
-    CheckIfElseOutputSAS((type), bool_true, "[]", valid_scalar, "[]");                   \
-                                                                                         \
-    /* CLR = 111 */                                                                      \
-    CheckIfElseOutputSAS((type), bool_true, "[" #l0 ", " #l1 ", " #l2 ", " #l3 "]",      \
-                         valid_scalar, "[" #l0 ", " #l1 ", " #l2 ", " #l3 "]");          \
-    /* CLR = 011 */                                                                      \
-    CheckIfElseOutputSAS((type), bool_null, "[" #l0 ", " #l1 ", " #l2 ", " #l3 "]",      \
-                         valid_scalar, "[null, null, null, null]");                      \
-    /* CLR = 101 */                                                                      \
-    CheckIfElseOutputSAS((type), bool_false, "[" #l0 ", null, " #l2 ", " #l3 "]",        \
-                         valid_scalar,                                                   \
-                         "[" #valid ", " #valid ", " #valid ", " #valid "]");            \
-    /* CLR = 001 */                                                                      \
-    CheckIfElseOutputSAS((type), bool_null, "[" #l0 ", null, " #l2 ", " #l3 "]",         \
-                         valid_scalar, "[null, null, null, null]");                      \
-    /* CLR = 110 */                                                                      \
-    CheckIfElseOutputSAS((type), bool_true, "[" #l0 ", " #l1 ", " #l2 ", " #l3 "]",      \
-                         null_scalar, "[" #l0 ", " #l1 ", " #l2 ", " #l3 "]");           \
-    /* CLR = 010 */                                                                      \
-    CheckIfElseOutputSAS((type), bool_null, "[" #l0 ", " #l1 ", " #l2 ", " #l3 "]",      \
-                         null_scalar, "[null, null, null, null]");                       \
-    /* CLR = 100 */                                                                      \
-    CheckIfElseOutputSAS((type), bool_false, "[" #l0 ", " #l1 ", null, null]",           \
-                         null_scalar, "[null, null, null, null]");                       \
-    /* CLR = 000 */                                                                      \
-    CheckIfElseOutputSAS((type), bool_null, "[" #l0 ", " #l1 ", null, null]",            \
-                         null_scalar, "[null, null, null, null]");                       \
-                                                                                         \
-    /* -------- Cond - Scalar, Left- Scalar, Right - Array --------- */                  \
-    /* empty */                                                                          \
-    CheckIfElseOutputSSA((type), bool_true, valid_scalar, "[]", "[]");                   \
-                                                                                         \
-    /* CLR = 111 */                                                                      \
-    CheckIfElseOutputSSA((type), bool_true, valid_scalar,                                \
-                         "[" #l0 ", " #l1 ", " #l2 ", " #l3 "]",                         \
-                         "[" #valid ", " #valid ", " #valid ", " #valid "]");            \
-    /* CLR = 011 */                                                                      \
-    CheckIfElseOutputSSA((type), bool_null, valid_scalar,                                \
-                         "[" #l0 ", " #l1 ", " #l2 ", " #l3 "]",                         \
-                         "[null, null, null, null]");                                    \
-    /* CLR = 110 */                                                                      \
-    CheckIfElseOutputSSA((type), bool_false, valid_scalar,                               \
-                         "[" #l0 ", null, " #l2 ", null]",                               \
-                         "[" #l0 ", null, " #l2 ", null]");                              \
-    /* CLR = 010 */                                                                      \
-    CheckIfElseOutputSSA((type), bool_null, valid_scalar,                                \
-                         "[" #l0 ", null, " #l2 ", null]", "[null, null, null, null]");  \
-    /* CLR = 101 */                                                                      \
-    CheckIfElseOutputSSA((type), bool_true, null_scalar,                                 \
-                         "[" #l0 ", " #l1 ", " #l2 ", " #l3 "]",                         \
-                         "[null, null, null, null]");                                    \
-    /* CLR = 001 */                                                                      \
-    CheckIfElseOutputSSA((type), bool_null, null_scalar,                                 \
-                         "[" #l0 ", " #l1 ", " #l2 ", " #l3 "]",                         \
-                         "[null, null, null, null]");                                    \
-    /* CLR = 100 */                                                                      \
-    CheckIfElseOutputSSA((type), bool_false, null_scalar,                                \
-                         "[" #l0 ", " #l1 ", null, " #l3 "]",                            \
-                         "[" #l0 ", " #l1 ", null, " #l3 "]");                           \
-    /* CLR = 000 */                                                                      \
-    CheckIfElseOutputSSA((type), bool_null, null_scalar,                                 \
-                         "[" #l0 ", " #l1 ", null, " #l3 "]",                            \
-                         "[null, null, null, null]");                                    \
-                                                                                         \
-    /* -------- Cond - Scalar, Left- Scalar, Right - Scalar --------- */                 \
-                                                                                         \
-    /* CLR = 111 */                                                                      \
-    CheckIfElseOutput(bool_false, valid_scalar, valid_scalar1, valid_scalar1);           \
-    /* CLR = 011 */                                                                      \
-    CheckIfElseOutput(bool_null, valid_scalar, valid_scalar1, null_scalar);              \
-    /* CLR = 110 */                                                                      \
-    CheckIfElseOutput(bool_true, valid_scalar, null_scalar, valid_scalar);               \
-    /* CLR = 010 */                                                                      \
-    CheckIfElseOutput(bool_null, valid_scalar, null_scalar, null_scalar);                \
-    /* CLR = 101 */                                                                      \
-    CheckIfElseOutput(bool_false, null_scalar, valid_scalar1, valid_scalar1);            \
-    /* CLR = 001 */                                                                      \
-    CheckIfElseOutput(bool_null, null_scalar, valid_scalar1, null_scalar);               \
-    /* CLR = 100 */                                                                      \
-    CheckIfElseOutput(bool_true, null_scalar, null_scalar, null_scalar);                 \
-    /* CLR = 000 */                                                                      \
-    CheckIfElseOutput(bool_null, null_scalar, null_scalar, null_scalar);                 \
-  } while (0)
+template <typename T>
+void DoIfElseTest(const std::shared_ptr<DataType>& type, const std::array<T, 4>& left,
+                  const std::array<T, 4>& right, const std::array<T, 2>& valid_scalars) {
+  std::array<std::string, 4> l, r;
+  std::array<std::string, 2> v;
+
+  auto to_string = [](const T& i) { return std::to_string(i); };
+  std::transform(left.begin(), left.end(), l.begin(), to_string);
+  std::transform(right.begin(), right.end(), r.begin(), to_string);
+  std::transform(valid_scalars.begin(), valid_scalars.end(), v.begin(), to_string);
+
+  /* -------- All arrays --------- */
+  /* empty */
+  CheckIfElseOutputAAA(type, "[]", "[]", "[]", "[]");
+  /* CLR = 111 */
+  CheckIfElseOutputAAA(type, "[true, true, true, false]",
+                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
+                       "[" + r[0] + ", " + r[1] + ", " + r[2] + ", " + r[3] + "]",
+                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + r[3] + "]");
+  /* CLR = 011 */
+  CheckIfElseOutputAAA(type, "[true, true, null, false]",
+                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
+                       "[" + r[0] + ", " + r[1] + ", " + r[2] + ", " + r[3] + "]",
+                       "[" + l[0] + ", " + l[1] + ", null, " + r[3] + "]");
+  /* CLR = 101 */
+  CheckIfElseOutputAAA(type, "[true, true, true, false]",
+                       "[" + l[0] + ", null, " + l[2] + ", " + l[3] + "]",
+                       "[" + r[0] + ", " + r[1] + ", " + r[2] + ", " + r[3] + "]",
+                       "[" + l[0] + ", null, " + l[2] + ", " + r[3] + "]");
+  /* CLR = 001 */
+  CheckIfElseOutputAAA(type, "[true, true, null, false]",
+                       "[" + l[0] + ", null, " + l[2] + ", " + l[3] + "]",
+                       "[" + r[0] + ", " + r[1] + ", " + r[2] + ", " + r[3] + "]",
+                       "[" + l[0] + ", null, null, " + r[3] + "]");
+  /* CLR = 110 */
+  CheckIfElseOutputAAA(type, "[true, true, true, false]",
+                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
+                       "[" + r[0] + ", " + r[1] + ", " + r[2] + ", null]",
+                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", null]");
+  /* CLR = 010 */
+  CheckIfElseOutputAAA(type, "[null, true, true, false]",
+                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
+                       "[" + r[0] + ", " + r[1] + ", " + r[2] + ", null]",
+                       "[null, " + l[1] + ", " + l[2] + ", null]");
+  /* CLR = 100 */
+  CheckIfElseOutputAAA(type, "[true, true, true, false]",
+                       "[" + l[0] + ", " + l[1] + ", null, null]",
+                       "[null, " + r[1] + ", " + r[2] + ", null]",
+                       "[" + l[0] + ", " + l[1] + ", null, null]");
+  /* CLR = 000 */
+  CheckIfElseOutputAAA(
+      type, "[null, true, true, false]", "[" + l[0] + ", " + l[1] + ", null, null]",
+      "[null, " + r[1] + ", " + r[2] + ", null]", "[null, " + l[1] + ", null, null]");
+
+  /* -------- Cond - Array, Left- Array, Right - Scalar --------- */
+  ASSERT_OK_AND_ASSIGN(auto valid_scalar, MakeScalar(type, valid_scalars[0]));
+  ASSERT_OK_AND_ASSIGN(auto valid_scalar1, MakeScalar(type, valid_scalars[1]));
+  auto null_scalar = MakeNullScalar(type);
+
+  /* empty */
+  //  CheckIfElseOutputAAS(type, "[]", "[]", valid_scalar, "[]");
+
+  /* CLR = 111 */
+  CheckIfElseOutputAAS(type, "[true, true, true, false]",
+                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
+                       valid_scalar,
+                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + v[0] + "]");
+  /* CLR = 011 */
+  CheckIfElseOutputAAS(type, "[true, true, null, false]",
+                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
+                       valid_scalar, "[" + l[0] + ", " + l[1] + ", null, " + v[0] + "]");
+  /* CLR = 101 */
+  CheckIfElseOutputAAS(type, "[true, true, true, false]",
+                       "[" + l[0] + ", null, " + l[2] + ", " + l[3] + "]", valid_scalar,
+                       "[" + l[0] + ", null, " + l[2] + ", " + v[0] + "]");
+  /* CLR = 001 */
+  CheckIfElseOutputAAS(type, "[true, true, null, false]",
+                       "[" + l[0] + ", null, " + l[2] + ", " + l[3] + "]", valid_scalar,
+                       "[" + l[0] + ", null, null, " + v[0] + "]");
+  /* CLR = 110 */
+  CheckIfElseOutputAAS(type, "[true, true, true, false]",
+                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
+                       null_scalar, "[" + l[0] + ", " + l[1] + ", " + l[2] + ", null]");
+  /* CLR = 010 */
+  CheckIfElseOutputAAS(type, "[null, true, true, false]",
+                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
+                       null_scalar, "[null, " + l[1] + ", " + l[2] + ", null]");
+  /* CLR = 100 */
+  CheckIfElseOutputAAS(type, "[true, true, true, false]",
+                       "[" + l[0] + ", " + l[1] + ", null, null]", null_scalar,
+                       "[" + l[0] + ", " + l[1] + ", null, null]");
+  /* CLR = 000 */
+  CheckIfElseOutputAAS(type, "[null, true, true, false]",
+                       "[" + l[0] + ", " + l[1] + ", null, null]", null_scalar,
+                       "[null, " + l[1] + ", null, null]");
+
+  /* -------- Cond - Array, Left- Scalar, Right - Array --------- */
+  /* empty */
+  CheckIfElseOutputASA(type, "[]", valid_scalar, "[]", "[]");
+
+  /* CLR = 111 */
+  CheckIfElseOutputASA(type, "[true, true, true, false]", valid_scalar,
+                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
+                       "[" + v[0] + ", " + v[0] + ", " + v[0] + ", " + l[3] + "]");
+  /* CLR = 011 */
+  CheckIfElseOutputASA(type, "[true, true, null, false]", valid_scalar,
+                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
+                       "[" + v[0] + ", " + v[0] + ", null, " + l[3] + "]");
+  /* CLR = 110 */
+  CheckIfElseOutputASA(type, "[true, true, true, false]", valid_scalar,
+                       "[" + l[0] + ", null, " + l[2] + ", null]",
+                       "[" + v[0] + ", " + v[0] + ", " + v[0] + ", null]");
+  /* CLR = 010 */
+  CheckIfElseOutputASA(type, "[true, true, null, false]", valid_scalar,
+                       "[" + l[0] + ", null, " + l[2] + ", null]",
+                       "[" + v[0] + ", " + v[0] + ", null, null]");
+  /* CLR = 101 */
+  CheckIfElseOutputASA(type, "[true, true, true, false]", null_scalar,
+                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
+                       "[null, null, null, " + l[3] + "]");
+  /* CLR = 001 */
+  CheckIfElseOutputASA(type, "[null, true, true, false]", null_scalar,
+                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
+                       "[null, null, null, " + l[3] + "]");
+  /* CLR = 100 */
+  CheckIfElseOutputASA(type, "[true, true, true, false]", null_scalar,
+                       "[" + l[0] + ", " + l[1] + ", null, " + l[3] + "]",
+                       "[null, null, null, " + l[3] + "]");
+  /* CLR = 000 */
+  CheckIfElseOutputASA(type, "[true, true, null, false]", null_scalar,
+                       "[" + l[0] + ", " + l[1] + ", null, " + l[3] + "]",
+                       "[null, null, null, " + l[3] + "]");
+
+  /* -------- Cond - Array, Left- Scalar, Right - Scalar --------- */
+  /* empty */
+  CheckIfElseOutputASS(type, "[]", valid_scalar, valid_scalar1, "[]");
+
+  /* CLR = 111 */
+  CheckIfElseOutputASS(type, "[true, true, true, false]", valid_scalar, valid_scalar1,
+                       "[" + v[0] + ", " + v[0] + ", " + v[0] + ", " + v[1] + "]");
+  /* CLR = 011 */
+  CheckIfElseOutputASS(type, "[true, true, null, false]", valid_scalar, valid_scalar1,
+                       "[" + v[0] + ", " + v[0] + ", null, " + v[1] + "]");
+  /* CLR = 010 */
+  CheckIfElseOutputASS(type, "[true, true, null, false]", valid_scalar, null_scalar,
+                       "[" + v[0] + ", " + v[0] + ", null, null]");
+  /* CLR = 110 */
+  CheckIfElseOutputASS(type, "[true, true, true, false]", valid_scalar, null_scalar,
+                       "[" + v[0] + ", " + v[0] + ", " + v[0] + ", null]");
+  /* CLR = 101 */
+  CheckIfElseOutputASS(type, "[true, true, true, false]", null_scalar, valid_scalar1,
+                       "[null, null, null, " + v[1] + "]");
+  /* CLR = 001 */
+  CheckIfElseOutputASS(type, "[null, true, true, false]", null_scalar, valid_scalar1,
+                       "[null, null, null, " + v[1] + "]");
+  /* CLR = 100 */
+  CheckIfElseOutputASS(type, "[true, true, true, false]", null_scalar, null_scalar,
+                       "[null, null, null, null]");
+  /* CLR = 000 */
+  CheckIfElseOutputASS(type, "[true, true, null, false]", null_scalar, null_scalar,
+                       "[null, null, null, null]");
+
+  /* -------- Cond - Scalar, Left- Array, Right - Array --------- */
+  ASSERT_OK_AND_ASSIGN(auto bool_true, MakeScalar(boolean(), true));
+  ASSERT_OK_AND_ASSIGN(auto bool_false, MakeScalar(boolean(), false));
+  auto bool_null = MakeNullScalar(boolean());
+
+  /* empty */
+  CheckIfElseOutputSAA(type, bool_true, "[]", "[]", "[]");
+  /* CLR = 111 */
+  CheckIfElseOutputSAA(type, bool_true,
+                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
+                       "[" + r[0] + ", " + r[1] + ", " + r[2] + ", " + r[3] + "]",
+                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]");
+  /* CLR = 011 */
+  CheckIfElseOutputSAA(type, bool_null,
+                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
+                       "[" + r[0] + ", " + r[1] + ", " + r[2] + ", " + r[3] + "]",
+                       "[null, null, null, null]");
+  /* CLR = 101 */
+  CheckIfElseOutputSAA(type, bool_false,
+                       "[" + l[0] + ", null, " + l[2] + ", " + l[3] + "]",
+                       "[" + r[0] + ", " + r[1] + ", " + r[2] + ", " + r[3] + "]",
+                       "[" + r[0] + ", " + r[1] + ", " + r[2] + ", " + r[3] + "]");
+  /* CLR = 001 */
+  CheckIfElseOutputSAA(type, bool_null,
+                       "[" + l[0] + ", null, " + l[2] + ", " + l[3] + "]",
+                       "[" + r[0] + ", " + r[1] + ", " + r[2] + ", " + r[3] + "]",
+                       "[null, null, null, null]");
+  /* CLR = 110 */
+  CheckIfElseOutputSAA(type, bool_false,
+                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
+                       "[" + r[0] + ", " + r[1] + ", " + r[2] + ", null]",
+                       "[" + r[0] + ", " + r[1] + ", " + r[2] + ", null]");
+  /* CLR = 010 */
+  CheckIfElseOutputSAA(
+      type, bool_null, "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
+      "[" + r[0] + ", " + r[1] + ", " + r[2] + ", null]", "[null, null, null, null]");
+  /* CLR = 100 */
+  CheckIfElseOutputSAA(type, bool_true, "[" + l[0] + ", " + l[1] + ", null, null]",
+                       "[null, " + r[1] + ", " + r[2] + ", null]",
+                       "[" + l[0] + ", " + l[1] + ", null, null]");
+  /* CLR = 000 */
+  CheckIfElseOutputSAA(type, bool_null, "[" + l[0] + ", " + l[1] + ", null, null]",
+                       "[null, " + r[1] + ", " + r[2] + ", null]",
+                       "[null, null, null, null]");
+
+  /* -------- Cond - Scalar, Left- Array, Right - Scalar --------- */
+  /* empty */
+  CheckIfElseOutputSAS(type, bool_true, "[]", valid_scalar, "[]");
+
+  /* CLR = 111 */
+  CheckIfElseOutputSAS(
+      type, bool_true, "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
+      valid_scalar, "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]");
+  /* CLR = 011 */
+  CheckIfElseOutputSAS(type, bool_null,
+                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
+                       valid_scalar, "[null, null, null, null]");
+  /* CLR = 101 */
+  CheckIfElseOutputSAS(type, bool_false,
+                       "[" + l[0] + ", null, " + l[2] + ", " + l[3] + "]", valid_scalar,
+                       "[" + v[0] + ", " + v[0] + ", " + v[0] + ", " + v[0] + "]");
+  /* CLR = 001 */
+  CheckIfElseOutputSAS(type, bool_null,
+                       "[" + l[0] + ", null, " + l[2] + ", " + l[3] + "]", valid_scalar,
+                       "[null, null, null, null]");
+  /* CLR = 110 */
+  CheckIfElseOutputSAS(
+      type, bool_true, "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
+      null_scalar, "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]");
+  /* CLR = 010 */
+  CheckIfElseOutputSAS(type, bool_null,
+                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
+                       null_scalar, "[null, null, null, null]");
+  /* CLR = 100 */
+  CheckIfElseOutputSAS(type, bool_false, "[" + l[0] + ", " + l[1] + ", null, null]",
+                       null_scalar, "[null, null, null, null]");
+  /* CLR = 000 */
+  CheckIfElseOutputSAS(type, bool_null, "[" + l[0] + ", " + l[1] + ", null, null]",
+                       null_scalar, "[null, null, null, null]");
+
+  /* -------- Cond - Scalar, Left- Scalar, Right - Array --------- */
+  /* empty */
+  CheckIfElseOutputSSA(type, bool_true, valid_scalar, "[]", "[]");
+
+  /* CLR = 111 */
+  CheckIfElseOutputSSA(type, bool_true, valid_scalar,
+                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
+                       "[" + v[0] + ", " + v[0] + ", " + v[0] + ", " + v[0] + "]");
+  /* CLR = 011 */
+  CheckIfElseOutputSSA(type, bool_null, valid_scalar,
+                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
+                       "[null, null, null, null]");
+  /* CLR = 110 */
+  CheckIfElseOutputSSA(type, bool_false, valid_scalar,
+                       "[" + l[0] + ", null, " + l[2] + ", null]",
+                       "[" + l[0] + ", null, " + l[2] + ", null]");
+  /* CLR = 010 */
+  CheckIfElseOutputSSA(type, bool_null, valid_scalar,
+                       "[" + l[0] + ", null, " + l[2] + ", null]",
+                       "[null, null, null, null]");
+  /* CLR = 101 */
+  CheckIfElseOutputSSA(type, bool_true, null_scalar,
+                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
+                       "[null, null, null, null]");
+  /* CLR = 001 */
+  CheckIfElseOutputSSA(type, bool_null, null_scalar,
+                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
+                       "[null, null, null, null]");
+  /* CLR = 100 */
+  CheckIfElseOutputSSA(type, bool_false, null_scalar,
+                       "[" + l[0] + ", " + l[1] + ", null, " + l[3] + "]",
+                       "[" + l[0] + ", " + l[1] + ", null, " + l[3] + "]");
+  /* CLR = 000 */
+  CheckIfElseOutputSSA(type, bool_null, null_scalar,
+                       "[" + l[0] + ", " + l[1] + ", null, " + l[3] + "]",
+                       "[null, null, null, null]");
+
+  /* -------- Cond - Scalar, Left- Scalar, Right - Scalar --------- */
+
+  /* CLR = 111 */
+  CheckIfElseOutput(bool_false, valid_scalar, valid_scalar1, valid_scalar1);
+  /* CLR = 011 */
+  CheckIfElseOutput(bool_null, valid_scalar, valid_scalar1, null_scalar);
+  /* CLR = 110 */
+  CheckIfElseOutput(bool_true, valid_scalar, null_scalar, valid_scalar);
+  /* CLR = 010 */
+  CheckIfElseOutput(bool_null, valid_scalar, null_scalar, null_scalar);
+  /* CLR = 101 */
+  CheckIfElseOutput(bool_false, null_scalar, valid_scalar1, valid_scalar1);
+  /* CLR = 001 */
+  CheckIfElseOutput(bool_null, null_scalar, valid_scalar1, null_scalar);
+  /* CLR = 100 */
+  CheckIfElseOutput(bool_true, null_scalar, null_scalar, null_scalar);
+  /* CLR = 000 */
+  CheckIfElseOutput(bool_null, null_scalar, null_scalar, null_scalar);
+}
 
 /*
  * Legend:
@@ -425,14 +453,16 @@ TYPED_TEST(TestIfElsePrimitive, IfElseFixedSizeRand) {
  */
 TYPED_TEST(TestIfElsePrimitive, IfElseFixedSize) {
   auto type = TypeTraits<TypeParam>::type_singleton();
+  using T = typename TypeTraits<TypeParam>::CType;
 
-  IF_ELSE_TEST_GEN(type, 1, 2, 3, 4, 5, 6, 7, 8, 100, 111);
+  DoIfElseTest<T>(type, {1, 2, 3, 4}, {5, 6, 7, 8}, {100, 111});
 }
 
 TEST_F(TestIfElseKernel, IfElseBoolean) {
   auto type = boolean();
 
-  IF_ELSE_TEST_GEN(type, false, false, false, false, true, true, true, true, false, true);
+  DoIfElseTest<bool>(type, {false, false, false, false}, {true, true, true, true},
+                     {false, true});
 }
 
 TYPED_TEST(TestIfElsePrimitive, IfElseBooleanRand) {
