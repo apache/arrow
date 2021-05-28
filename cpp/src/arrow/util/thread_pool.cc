@@ -120,6 +120,7 @@ struct ThreadPool::State {
 
   std::mutex mutex_;
   std::condition_variable cv_;
+  std::condition_variable cv_idle_;
   std::condition_variable cv_shutdown_;
 
   std::list<std::thread> workers_;
@@ -188,6 +189,7 @@ static void WorkerLoop(std::shared_ptr<ThreadPool::State> state,
     if (state->please_shutdown_ || should_secede()) {
       break;
     }
+    state->cv_idle_.notify_one();
     // Wait for next wakeup
     state->cv_.wait(lock);
   }
@@ -311,6 +313,12 @@ Status ThreadPool::Shutdown(bool wait) {
   }
   CollectFinishedWorkersUnlocked();
   return Status::OK();
+}
+
+void ThreadPool::WaitForIdle() {
+  ProtectAgainstFork();
+  std::unique_lock<std::mutex> lock(state_->mutex_);
+  state_->cv_idle_.wait(lock, [this] { return state_->tasks_queued_or_running_ == 0; });
 }
 
 void ThreadPool::CollectFinishedWorkersUnlocked() {

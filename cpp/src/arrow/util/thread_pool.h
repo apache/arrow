@@ -288,6 +288,10 @@ class ARROW_EXPORT ThreadPool : public Executor {
   // tasks are finished.
   Status Shutdown(bool wait = true);
 
+  // Waits for the thread pool to reach a quiet state where all workers are
+  // idle.  Currently used for thread pool benchmarking purposes.
+  void WaitForIdle();
+
   struct State;
 
  protected:

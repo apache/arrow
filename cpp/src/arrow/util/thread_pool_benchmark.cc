@@ -103,6 +103,52 @@ static void ThreadPoolSpawn(benchmark::State& state) {  // NOLINT non-const refe
   state.SetItemsProcessed(state.iterations() * nspawns);
 }
 
+// The ThreadPoolSpawn benchmark submits all tasks from a single outside thread.  This
+// ends up causing a worst-case scenario for the current simple thread pool.  All threads
+// compete over the task queue mutex trying to grab the next thread off the queue and the
+// result is a large amount of contention.
+//
+// By spreading out the scheduling across multiple threads we can help reduce that
+// contention.  This benchmark demonstrates the ideal case where we are able to perfectly
+// partition the scheduling across the available threads.
+//
+// Both situations could be encountered (the thread pool can't choose how it is used) but
+// by having both benchmarks we can express the importance of distributed scheduling.
+static void ThreadPoolIdealSpawn(benchmark::State& state) {  // NOLINT non-const reference
+  const auto nthreads = static_cast<int>(state.range(0));
+  const auto workload_size = static_cast<int32_t>(state.range(1));
+
+  Workload workload(workload_size);
+
+  // Spawn enough tasks to make the pool start up overhead negligible
+  const int32_t nspawns = 200000000 / workload_size + 1;
+  const int32_t nspawns_per_thread = nspawns / nthreads;
+
+  for (auto _ : state) {
+    state.PauseTiming();
+    std::shared_ptr<ThreadPool> pool;
+    pool = *ThreadPool::Make(nthreads);
+    state.ResumeTiming();
+
+    for (int32_t i = 0; i < nthreads; ++i) {
+      // Pass the task by reference to avoid copying it around
+      ABORT_NOT_OK(pool->Spawn([&pool, &workload, nspawns_per_thread] {
+        for (int32_t j = 0; j < nspawns_per_thread; j++) {
+          ABORT_NOT_OK(pool->Spawn(std::ref(workload)));
+        }
+      }));
+    }
+
+    // Wait for all tasks to finish
+    pool->WaitForIdle();
+    ABORT_NOT_OK(pool->Shutdown(true /* wait */));
+    state.PauseTiming();
+    pool.reset();
+    state.ResumeTiming();
+  }
+  state.SetItemsProcessed(state.iterations() * nspawns);
+}
+
 // Benchmark SerialExecutor::RunInSerialExecutor
 static void RunInSerialExecutor(benchmark::State& state) {  // NOLINT non-const reference
   const auto workload_size = static_cast<int32_t>(state.range(0));
@@ -241,6 +287,7 @@ BENCHMARK(ReferenceWorkloadCost)->Apply(WorkloadCost_Customize);
 BENCHMARK(SerialTaskGroup)->Apply(WorkloadCost_Customize);
 BENCHMARK(RunInSerialExecutor)->Apply(WorkloadCost_Customize);
 BENCHMARK(ThreadPoolSpawn)->Apply(ThreadPoolSpawn_Customize);
+BENCHMARK(ThreadPoolIdealSpawn)->Apply(ThreadPoolSpawn_Customize);
 BENCHMARK(ThreadedTaskGroup)->Apply(ThreadPoolSpawn_Customize);
 BENCHMARK(ThreadPoolSubmit)->Apply(ThreadPoolSpawn_Customize);
 
