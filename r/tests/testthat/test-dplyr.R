@@ -525,7 +525,7 @@ test_that("is.finite(), is.infinite(), is.nan()", {
   )
 })
 
-test_that("type checks with is()", {
+test_that("type checks with is() giving Arrow types", {
   # with class2=DataType
   expect_equal(
     Table$create(
@@ -614,6 +614,78 @@ test_that("type checks with is()", {
     c(TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE,
       FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE,
       FALSE, FALSE, TRUE)
+  )
+})
+
+test_that("type checks with is() giving R types", {
+  library(bit64)
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        chr_is_chr = is(chr, "character"),
+        chr_is_fct = is(chr, "factor"),
+        chr_is_int = is(chr, "integer"),
+        chr_is_i64 = is(chr, "integer64"),
+        chr_is_lst = is(chr, "list"),
+        chr_is_lgl = is(chr, "logical"),
+        chr_is_num = is(chr, "numeric"),
+        dbl_is_chr = is(dbl, "character"),
+        dbl_is_fct = is(dbl, "factor"),
+        dbl_is_int = is(dbl, "integer"),
+        dbl_is_i64 = is(dbl, "integer64"),
+        dbl_is_lst = is(dbl, "list"),
+        dbl_is_lgl = is(dbl, "logical"),
+        dbl_is_num = is(dbl, "numeric"),
+        fct_is_chr = is(fct, "character"),
+        fct_is_fct = is(fct, "factor"),
+        fct_is_int = is(fct, "integer"),
+        fct_is_i64 = is(fct, "integer64"),
+        fct_is_lst = is(fct, "list"),
+        fct_is_lgl = is(fct, "logical"),
+        fct_is_num = is(fct, "numeric"),
+        int_is_chr = is(int, "character"),
+        int_is_fct = is(int, "factor"),
+        int_is_int = is(int, "integer"),
+        int_is_i64 = is(int, "integer64"),
+        int_is_lst = is(int, "list"),
+        int_is_lgl = is(int, "logical"),
+        int_is_num = is(int, "numeric"),
+        lgl_is_chr = is(lgl, "character"),
+        lgl_is_fct = is(lgl, "factor"),
+        lgl_is_int = is(lgl, "integer"),
+        lgl_is_i64 = is(lgl, "integer64"),
+        lgl_is_lst = is(lgl, "list"),
+        lgl_is_lgl = is(lgl, "logical"),
+        lgl_is_num = is(lgl, "numeric")
+      ) %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        i64_is_chr = is(i64, "character"),
+        i64_is_fct = is(i64, "factor"),
+        # we want Arrow to return TRUE, but bit64 returns FALSE
+        #i64_is_int = is(i64, "integer"),
+        i64_is_i64 = is(i64, "integer64"),
+        i64_is_lst = is(i64, "list"),
+        i64_is_lgl = is(i64, "logical"),
+        # we want Arrow to return TRUE, but bit64 returns FALSE
+        #i64_is_num = is(i64, "numeric"),
+        lst_is_chr = is(lst, "character"),
+        lst_is_fct = is(lst, "factor"),
+        lst_is_int = is(lst, "integer"),
+        lst_is_i64 = is(lst, "integer64"),
+        lst_is_lst = is(lst, "list"),
+        lst_is_lgl = is(lst, "logical"),
+        lst_is_num = is(lst, "numeric")
+      ) %>%
+      collect(),
+    tibble(
+      i64 = as.integer64(1:3),
+      lst = list(c("a", "b"), c("d", "e"), c("f", "g"))
+    )
   )
 })
 
