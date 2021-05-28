@@ -351,7 +351,7 @@ nse_funcs$strptime <- function(x, format = "%Y-%m-%d %H:%M:%S", tz = NULL, unit 
     arrow_not_supported("Time zone argument")
   }
 
-  t_unit <- make_valid_time_unit(unit,c("s" = TimeUnit$SECOND, "ms" = TimeUnit$MILLI, "us" = TimeUnit$MICRO, "ns" = TimeUnit$NANO))
+  unit <- make_valid_time_unit(unit, c(valid_time64_units, valid_time32_units))
 
   Expression$create("strptime", 
                      x, 

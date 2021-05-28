@@ -526,7 +526,7 @@ test_that("strptime", {
     t_string %>%
       Table$create() %>%
       mutate(
-        x = strptime(x, format = "%Y-%m-%d %H:%M:%S", unit = TimeUnit$NANO)
+        x = strptime(x, format = "%Y-%m-%d %H:%M:%S", unit = "ns")
       ) %>%
       collect(),
     t_stamp,
