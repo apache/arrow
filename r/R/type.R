@@ -429,20 +429,51 @@ as_type <- function(type, name = "type") {
 }
 
 canonical_type_str <- function(type_str) {
-  # canonicalizes data type strings, converting aliases to match the strings
-  # returned by DataType$ToString()
-  # TODO: handle string representations of parameterized data types  (such as
-  # "decimal128(3,1)") and format them to exactly match what is returned
-  # by DataType$ToString()
-  # TODO: error on unrecognized data type strings
+  # canonicalizes data type strings, converting data type function names and
+  # aliases to match the strings returned by DataType$ToString()
   assert_that(is.string(type_str))
+  if (grepl("[([<]", type_str)) {
+    stop("Cannot interpret string representations of data types that have parameters", call. = FALSE)
+  }
   switch(type_str,
-    "utf8" = "string",
-    "float16" = "halffloat",
-    "float32" = "float",
-    "boolean" = "bool",
-    "float64" = "double",
-    type_str
+    int8 = "int8",
+    int16 = "int16",
+    int32 = "int32",
+    int64 = "int64",
+    uint8 = "uint8",
+    uint16 = "uint16",
+    uint32 = "uint32",
+    uint64 = "uint64",
+    float16 = "halffloat",
+    halffloat = "halffloat",
+    float32 = "float",
+    float = "float",
+    float64 = "double",
+    double = "double",
+    boolean = "bool",
+    bool = "bool",
+    utf8 = "string",
+    large_utf8 = "large_string",
+    large_string = "large_string",
+    binary = "binary",
+    large_binary = "large_binary",
+    fixed_size_binary = "fixed_size_binary",
+    string = "string",
+    date32 = "date32",
+    date64 = "date64",
+    time32 = "time32",
+    time64 = "time64",
+    null = "null",
+    timestamp = "timestamp",
+    decimal = "decimal128",
+    struct = "struct",
+    list_of = "list",
+    list = "list",
+    large_list_of = "large_list",
+    large_list = "large_list",
+    fixed_size_list_of = "fixed_size_list",
+    fixed_size_list = "fixed_size_list",
+    stop("Unrecognized string representation of data type", call. = FALSE)
   )
 }
 
