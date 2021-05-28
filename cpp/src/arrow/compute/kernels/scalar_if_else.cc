@@ -31,83 +31,50 @@ namespace compute {
 
 namespace {
 
-enum { COND_ALL_VALID = 1, LEFT_ALL_VALID = 2, RIGHT_ALL_VALID = 4 };
+util::optional<uint64_t> GetConstantValidityWord(const Datum& data) {
+  if (data.is_scalar()) {
+    return data.scalar()->is_valid ? ~uint64_t(0) : uint64_t(0);
+  }
+
+  if (data.array()->null_count == data.array()->length) return uint64_t(0);
+
+  if (!data.array()->MayHaveNulls()) return ~uint64_t(0);
+
+  // no constant validity word available
+  return {};
+}
+
+inline Bitmap GetBitmap(const Datum& datum, int i) {
+  if (datum.is_scalar()) return {};
+  const ArrayData& a = *datum.array();
+  return Bitmap{a.buffers[i], a.offset, a.length};
+}
 
 // if the condition is null then output is null otherwise we take validity from the
 // selected argument
 // ie. cond.valid & (cond.data & left.valid | ~cond.data & right.valid)
-Status PromoteNullsVisitor(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
-                           const Scalar& right, ArrayData* output) {
-  uint8_t flag = right.is_valid * RIGHT_ALL_VALID |
-                        left.is_valid * LEFT_ALL_VALID |
-                         !cond.MayHaveNulls() * COND_ALL_VALID;
+Status PromoteNullsVisitor(KernelContext* ctx, const Datum& cond_d, const Datum& left_d,
+                           const Datum& right_d, ArrayData* output) {
+  auto cond_const = GetConstantValidityWord(cond_d);
+  auto left_const = GetConstantValidityWord(left_d);
+  auto right_const = GetConstantValidityWord(right_d);
 
-  if (flag < 6 && flag != 3) {
-    // there will be a validity buffer in the output
-    ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(cond.length));
-  }
+  enum { COND_CONST = 1, LEFT_CONST = 2, RIGHT_CONST = 4 };
+  auto flag = COND_CONST * cond_const.has_value() | LEFT_CONST * left_const.has_value() |
+              RIGHT_CONST * right_const.has_value();
 
-  // if the condition is null then output is null otherwise we take validity from the
-  // selected argument
-  // ie. cond.valid & (cond.data & left.valid | ~cond.data & right.valid)
-  switch (flag) {
-    case COND_ALL_VALID | LEFT_ALL_VALID | RIGHT_ALL_VALID:  // = 7
-      break;
-    case LEFT_ALL_VALID | RIGHT_ALL_VALID:  // = 6
-      // out_valid = c_valid
-      output->buffers[0] = SliceBuffer(cond.buffers[0], cond.offset, cond.length);
-      break;
-    case COND_ALL_VALID | RIGHT_ALL_VALID:  // = 5
-      // out_valid = ~cond.data
-      arrow::internal::InvertBitmap(cond.buffers[1]->data(), cond.offset, cond.length,
-                                    output->buffers[0]->mutable_data(), 0);
-      break;
-    case RIGHT_ALL_VALID:  // = 4
-      // out_valid = c_valid & ~cond.data
-      arrow::internal::BitmapAndNot(cond.buffers[0]->data(), cond.offset,
-                                    cond.buffers[1]->data(), cond.offset, cond.length, 0,
-                                    output->buffers[0]->mutable_data());
-      break;
-    case COND_ALL_VALID | LEFT_ALL_VALID:  // = 3
-      // out_valid = cond.data
-      output->buffers[0] = SliceBuffer(cond.buffers[1], cond.offset, cond.length);
-      break;
-    case LEFT_ALL_VALID:  // = 2
-      // out_valid = cond.valid & cond.data
-      arrow::internal::BitmapAnd(cond.buffers[0]->data(), cond.offset,
-                                 cond.buffers[1]->data(), cond.offset, cond.length, 0,
-                                 output->buffers[0]->mutable_data());
-      break;
-    case COND_ALL_VALID:  // = 1
-      // out_valid = 0 --> nothing to do; but requires out_valid to be a all-zero buffer
-      break;
-    case 0:
-      // out_valid = 0 --> nothing to do; but requires out_valid to be a all-zero buffer
-      break;
-  }
-  return Status::OK();
-}
-
-Status PromoteNullsVisitor(KernelContext* ctx, const ArrayData& cond,
-                           const ArrayData& left, const Scalar& right,
-                           ArrayData* output) {
-  uint8_t flag = right.is_valid * 4 + !left.MayHaveNulls() * 2 + !cond.MayHaveNulls();
-
-  enum { C_VALID, C_DATA, L_VALID };
-
-  Bitmap bitmaps[3];
-  bitmaps[C_VALID] = {cond.buffers[0], cond.offset, cond.length};
-  bitmaps[C_DATA] = {cond.buffers[1], cond.offset, cond.length};
-  bitmaps[L_VALID] = {left.buffers[0], left.offset, left.length};
-
-  uint64_t* out_validity = nullptr;
-  if (flag < 6 && flag != 3) {
-    // there will be a validity buffer in the output
-    ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(cond.length));
-    out_validity = output->GetMutableValues<uint64_t>(0);
-  }
+  const ArrayData& cond = *cond_d.array();
+  // cond.data will always be available
+  Bitmap cond_data{cond.buffers[1], cond.offset, cond.length};
+  Bitmap cond_valid{cond.buffers[0], cond.offset, cond.length};
+  Bitmap left_valid = GetBitmap(left_d, 0);
+  Bitmap right_valid = GetBitmap(right_d, 0);
+  // sometimes Bitmaps will be ignored, in which case we replace access to them with
+  // duplicated (probably elided) access to cond_data
+  const Bitmap& _ = cond_data;
 
   // lambda function that will be used inside the visitor
+  uint64_t* out_validity = nullptr;
   int64_t i = 0;
   auto apply = [&](uint64_t c_valid, uint64_t c_data, uint64_t l_valid,
                    uint64_t r_valid) {
@@ -118,209 +85,84 @@ Status PromoteNullsVisitor(KernelContext* ctx, const ArrayData& cond,
   // if the condition is null then output is null otherwise we take validity from the
   // selected argument
   // ie. cond.valid & (cond.data & left.valid | ~cond.data & right.valid)
+
+  // In the following cases, we dont need to allocate out_valid bitmap
   switch (flag) {
-    case COND_ALL_VALID | LEFT_ALL_VALID | RIGHT_ALL_VALID:
-      break;
-    case LEFT_ALL_VALID | RIGHT_ALL_VALID:
-      output->buffers[0] = SliceBuffer(cond.buffers[0], cond.offset, cond.length);
-      break;
-    case COND_ALL_VALID | RIGHT_ALL_VALID:
-      // bitmaps[C_VALID] might be null; override to make it safe for Visit()
-      bitmaps[C_VALID] = bitmaps[C_DATA];
-      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 3> words) {
-        apply(UINT64_MAX, words[C_DATA], words[L_VALID], UINT64_MAX);
-      });
-      break;
-    case RIGHT_ALL_VALID:
-      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 3> words) {
-        apply(words[C_VALID], words[C_DATA], words[L_VALID], UINT64_MAX);
-      });
-      break;
-    case COND_ALL_VALID | LEFT_ALL_VALID:
-      // only cond.data is passed
-      output->buffers[0] = SliceBuffer(cond.buffers[1], cond.offset, cond.length);
-      break;
-    case LEFT_ALL_VALID:
-      // out_valid = cond.valid & cond.data
-      arrow::internal::BitmapAnd(cond.buffers[0]->data(), cond.offset,
-                                 cond.buffers[1]->data(), cond.offset, cond.length, 0,
-                                 output->buffers[0]->mutable_data());
-      break;
-    case COND_ALL_VALID:
-      // out_valid = cond.data & left.valid
-      arrow::internal::BitmapAnd(cond.buffers[1]->data(), cond.offset,
-                                 left.buffers[0]->data(), left.offset, cond.length, 0,
-                                 output->buffers[0]->mutable_data());
-      break;
-    case 0:
-      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 3> words) {
-        apply(words[C_VALID], words[C_DATA], words[L_VALID], 0);
-      });
-      break;
-  }
-  return Status::OK();
-}
-
-// if the condition is null then output is null otherwise we take validity from the
-// selected argument
-// ie. cond.valid & (cond.data & left.valid | ~cond.data & right.valid)
-Status PromoteNullsVisitor(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
-                           const ArrayData& right, ArrayData* output) {
-  uint8_t flag = !right.MayHaveNulls() * 4 + left.is_valid * 2 + !cond.MayHaveNulls();
-
-  enum { C_VALID, C_DATA, R_VALID };
-
-  Bitmap bitmaps[3];
-  bitmaps[C_VALID] = {cond.buffers[0], cond.offset, cond.length};
-  bitmaps[C_DATA] = {cond.buffers[1], cond.offset, cond.length};
-  bitmaps[R_VALID] = {right.buffers[0], right.offset, right.length};
-
-  uint64_t* out_validity = nullptr;
-  if (flag < 6) {
-    // there will be a validity buffer in the output
-    ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(cond.length));
-    out_validity = output->GetMutableValues<uint64_t>(0);
+    case COND_CONST | LEFT_CONST | RIGHT_CONST:
+      // if cond & left & right all ones, then output is all valid --> out_valid = nullptr
+      if ((*cond_const & *left_const & *right_const) == UINT64_MAX) {
+        return Status::OK();
+      }
+    case LEFT_CONST | RIGHT_CONST:
+      // if both left and right are valid, no need to calculate out_valid bitmap. Pass
+      // cond validity buffer
+      if ((*left_const & *right_const) == UINT64_MAX) {
+        output->buffers[0] = SliceBuffer(cond.buffers[0], cond.offset, cond.length);
+        return Status::OK();
+      }
   }
 
-  // lambda function that will be used inside the visitor
-  int64_t i = 0;
-  auto apply = [&](uint64_t c_valid, uint64_t c_data, uint64_t l_valid,
-                   uint64_t r_valid) {
-    out_validity[i] = c_valid & ((c_data & l_valid) | (~c_data & r_valid));
-    i++;
-  };
-
-  // if the condition is null then output is null otherwise we take validity from the
-  // selected argument
-  // ie. cond.valid & (cond.data & left.valid | ~cond.data & right.valid)
-  switch (flag) {
-    case COND_ALL_VALID | LEFT_ALL_VALID | RIGHT_ALL_VALID:
-      break;
-    case LEFT_ALL_VALID | RIGHT_ALL_VALID:
-      output->buffers[0] = SliceBuffer(cond.buffers[0], cond.offset, cond.length);
-      break;
-    case COND_ALL_VALID | RIGHT_ALL_VALID:
-      // out_valid = ~cond.data
-      arrow::internal::InvertBitmap(cond.buffers[1]->data(), cond.offset, cond.length,
-                                    output->buffers[0]->mutable_data(), 0);
-      break;
-    case RIGHT_ALL_VALID:
-      // out_valid = c_valid & ~cond.data
-      arrow::internal::BitmapAndNot(cond.buffers[0]->data(), cond.offset,
-                                    cond.buffers[1]->data(), cond.offset, cond.length, 0,
-                                    output->buffers[0]->mutable_data());
-      break;
-    case COND_ALL_VALID | LEFT_ALL_VALID:
-      // bitmaps[C_VALID] might be null; override to make it safe for Visit()
-      bitmaps[C_VALID] = bitmaps[C_DATA];
-      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 3> words) {
-        apply(UINT64_MAX, words[C_DATA], UINT64_MAX, words[R_VALID]);
-      });
-      break;
-    case LEFT_ALL_VALID:
-      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 3> words) {
-        apply(words[C_VALID], words[C_DATA], UINT64_MAX, words[R_VALID]);
-      });
-      break;
-    case COND_ALL_VALID:
-      // out_valid =  ~cond.data & right.valid
-      arrow::internal::BitmapAndNot(right.buffers[0]->data(), right.offset,
-                                    cond.buffers[1]->data(), cond.offset, cond.length, 0,
-                                    output->buffers[0]->mutable_data());
-      break;
-    case 0:
-      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 3> words) {
-        apply(words[C_VALID], words[C_DATA], 0, words[R_VALID]);
-      });
-      break;
-  }
-  return Status::OK();
-}
-
-// if the condition is null then output is null otherwise we take validity from the
-// selected argument
-// ie. cond.valid & (cond.data & left.valid | ~cond.data & right.valid)
-Status PromoteNullsVisitor(KernelContext* ctx, const ArrayData& cond,
-                           const ArrayData& left, const ArrayData& right,
-                           ArrayData* output) {
-  uint8_t flag =
-      !right.MayHaveNulls() * 4 + !left.MayHaveNulls() * 2 + !cond.MayHaveNulls();
+  // following cases requires a separate out_valid buffer
+  ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(cond.length));
+  out_validity = output->GetMutableValues<uint64_t>(0);
 
   enum { C_VALID, C_DATA, L_VALID, R_VALID };
 
-  Bitmap bitmaps[4];
-  bitmaps[C_VALID] = {cond.buffers[0], cond.offset, cond.length};
-  bitmaps[C_DATA] = {cond.buffers[1], cond.offset, cond.length};
-  bitmaps[L_VALID] = {left.buffers[0], left.offset, left.length};
-  bitmaps[R_VALID] = {right.buffers[0], right.offset, right.length};
-
-  uint64_t* out_validity = nullptr;
-  if (flag < 6) {
-    // there will be a validity buffer in the output
-    ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(cond.length));
-    out_validity = output->GetMutableValues<uint64_t>(0);
-  }
-
-  // lambda function that will be used inside the visitor
-  int64_t i = 0;
-  auto apply = [&](uint64_t c_valid, uint64_t c_data, uint64_t l_valid,
-                   uint64_t r_valid) {
-    out_validity[i] = c_valid & ((c_data & l_valid) | (~c_data & r_valid));
-    i++;
-  };
-
-  // if the condition is null then output is null otherwise we take validity from the
-  // selected argument
-  // ie. cond.valid & (cond.data & left.valid | ~cond.data & right.valid)
   switch (flag) {
-    case COND_ALL_VALID | LEFT_ALL_VALID | RIGHT_ALL_VALID:
+    case COND_CONST | LEFT_CONST | RIGHT_CONST:
+      Bitmap::VisitWords({_, cond_data, _, _}, [&](std::array<uint64_t, 4> words) {
+        apply(*cond_const, words[C_DATA], *left_const, *right_const);
+      });
       break;
-    case LEFT_ALL_VALID | RIGHT_ALL_VALID:
-      output->buffers[0] = SliceBuffer(cond.buffers[0], cond.offset, cond.length);
+    case LEFT_CONST | RIGHT_CONST:
+      Bitmap::VisitWords(
+          {cond_valid, cond_data, _, _}, [&](std::array<uint64_t, 4> words) {
+            apply(words[C_VALID], words[C_DATA], *left_const, *right_const);
+          });
       break;
-    case COND_ALL_VALID | RIGHT_ALL_VALID:
+    case COND_CONST | RIGHT_CONST:
       // bitmaps[C_VALID], bitmaps[R_VALID] might be null; override to make it safe for
       // Visit()
-      bitmaps[C_VALID] = bitmaps[C_DATA];
-      bitmaps[R_VALID] = bitmaps[C_DATA];
-      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
-        apply(UINT64_MAX, words[C_DATA], words[L_VALID], UINT64_MAX);
-      });
+      Bitmap::VisitWords(
+          {_, cond_data, left_valid, _}, [&](std::array<uint64_t, 4> words) {
+            apply(*cond_const, words[C_DATA], words[L_VALID], *right_const);
+          });
       break;
-    case RIGHT_ALL_VALID:
+    case RIGHT_CONST:
       // bitmaps[R_VALID] might be null; override to make it safe for Visit()
-      bitmaps[R_VALID] = bitmaps[C_DATA];
-      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
-        apply(words[C_VALID], words[C_DATA], words[L_VALID], UINT64_MAX);
-      });
+      Bitmap::VisitWords(
+          {cond_valid, cond_data, left_valid, _}, [&](std::array<uint64_t, 4> words) {
+            apply(words[C_VALID], words[C_DATA], words[L_VALID], *right_const);
+          });
       break;
-    case COND_ALL_VALID | LEFT_ALL_VALID:
+    case COND_CONST | LEFT_CONST:
       // bitmaps[C_VALID], bitmaps[L_VALID] might be null; override to make it safe for
       // Visit()
-      bitmaps[C_VALID] = bitmaps[C_DATA];
-      bitmaps[L_VALID] = bitmaps[C_DATA];
-      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
-        apply(UINT64_MAX, words[C_DATA], UINT64_MAX, words[R_VALID]);
-      });
+      Bitmap::VisitWords({_, cond_data, _, right_valid},
+                         [&](std::array<uint64_t, 4> words) {
+                           apply(*cond_const, words[C_DATA], *left_const, words[R_VALID]);
+                         });
       break;
-    case LEFT_ALL_VALID:
+    case LEFT_CONST:
       // bitmaps[L_VALID] might be null; override to make it safe for Visit()
-      bitmaps[L_VALID] = bitmaps[C_DATA];
-      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
-        apply(words[C_VALID], words[C_DATA], UINT64_MAX, words[R_VALID]);
-      });
+      Bitmap::VisitWords(
+          {cond_valid, cond_data, _, right_valid}, [&](std::array<uint64_t, 4> words) {
+            apply(words[C_VALID], words[C_DATA], *left_const, words[R_VALID]);
+          });
       break;
-    case COND_ALL_VALID:
+    case COND_CONST:
       // bitmaps[C_VALID] might be null; override to make it safe for Visit()
-      bitmaps[C_VALID] = bitmaps[C_DATA];
-      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
-        apply(UINT64_MAX, words[C_DATA], words[L_VALID], words[R_VALID]);
-      });
+      Bitmap::VisitWords(
+          {_, cond_data, left_valid, right_valid}, [&](std::array<uint64_t, 4> words) {
+            apply(*cond_const, words[C_DATA], words[L_VALID], words[R_VALID]);
+          });
       break;
     case 0:
-      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
-        apply(words[C_VALID], words[C_DATA], words[L_VALID], words[R_VALID]);
-      });
+      Bitmap::VisitWords({cond_valid, cond_data, left_valid, right_valid},
+                         [&](std::array<uint64_t, 4> words) {
+                           apply(words[C_VALID], words[C_DATA], words[L_VALID],
+                                 words[R_VALID]);
+                         });
       break;
   }
   return Status::OK();
@@ -341,8 +183,6 @@ struct IfElseFunctor<Type, enable_if_number<Type>> {
   //  AAA
   static Status Call(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
                      const ArrayData& right, ArrayData* out) {
-    ARROW_RETURN_NOT_OK(PromoteNullsVisitor(ctx, cond, left, right, out));
-
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
                           ctx->Allocate(cond.length * sizeof(T)));
     T* out_values = reinterpret_cast<T*>(out_buf->mutable_data());
@@ -383,8 +223,6 @@ struct IfElseFunctor<Type, enable_if_number<Type>> {
   // ASA
   static Status Call(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
                      const ArrayData& right, ArrayData* out) {
-    ARROW_RETURN_NOT_OK(PromoteNullsVisitor(ctx, cond, left, right, out));
-
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
                           ctx->Allocate(cond.length * sizeof(T)));
     T* out_values = reinterpret_cast<T*>(out_buf->mutable_data());
@@ -424,8 +262,6 @@ struct IfElseFunctor<Type, enable_if_number<Type>> {
   // AAS
   static Status Call(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
                      const Scalar& right, ArrayData* out) {
-    ARROW_RETURN_NOT_OK(PromoteNullsVisitor(ctx, cond, left, right, out));
-
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
                           ctx->Allocate(cond.length * sizeof(T)));
     T* out_values = reinterpret_cast<T*>(out_buf->mutable_data());
@@ -466,8 +302,6 @@ struct IfElseFunctor<Type, enable_if_number<Type>> {
   // ASS
   static Status Call(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
                      const Scalar& right, ArrayData* out) {
-    ARROW_RETURN_NOT_OK(PromoteNullsVisitor(ctx, cond, left, right, out));
-
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
                           ctx->Allocate(cond.length * sizeof(T)));
     T* out_values = reinterpret_cast<T*>(out_buf->mutable_data());
@@ -510,8 +344,6 @@ struct IfElseFunctor<Type, enable_if_boolean<Type>> {
   // AAA
   static Status Call(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
                      const ArrayData& right, ArrayData* out) {
-    ARROW_RETURN_NOT_OK(PromoteNullsVisitor(ctx, cond, left, right, out));
-
     // out_buff = right & ~cond
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
                           arrow::internal::BitmapAndNot(
@@ -533,8 +365,6 @@ struct IfElseFunctor<Type, enable_if_boolean<Type>> {
   // ASA
   static Status Call(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
                      const ArrayData& right, ArrayData* out) {
-    ARROW_RETURN_NOT_OK(PromoteNullsVisitor(ctx, cond, left, right, out));
-
     // out_buff = right & ~cond
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
                           arrow::internal::BitmapAndNot(
@@ -555,8 +385,6 @@ struct IfElseFunctor<Type, enable_if_boolean<Type>> {
   // AAS
   static Status Call(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
                      const Scalar& right, ArrayData* out) {
-    ARROW_RETURN_NOT_OK(PromoteNullsVisitor(ctx, cond, left, right, out));
-
     // out_buff = left & cond
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
                           arrow::internal::BitmapAnd(
@@ -578,8 +406,6 @@ struct IfElseFunctor<Type, enable_if_boolean<Type>> {
   // ASS
   static Status Call(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
                      const Scalar& right, ArrayData* out) {
-    ARROW_RETURN_NOT_OK(PromoteNullsVisitor(ctx, cond, left, right, out));
-
     bool left_data = internal::UnboxScalar<BooleanType>::Unbox(left);
     bool right_data = internal::UnboxScalar<BooleanType>::Unbox(right);
 
@@ -657,9 +483,10 @@ struct ResolveIfElseExec {
         } else {
           *out = MakeNullScalar(batch[1].type());
         }
+        return Status::OK();
       } else {  // either left or right is an array. output is always an array
         // output size is the size of the array arg
-        int64_t bcast_size = batch[1].is_array() ? batch[1].length() : batch[2].length();
+        auto bcast_size = batch.length;
         if (cond.is_valid) {
           const auto& valid_data = cond.value ? batch[1] : batch[2];
           if (valid_data.is_array()) {
@@ -673,11 +500,14 @@ struct ResolveIfElseExec {
           ARROW_ASSIGN_OR_RAISE(
               *out, MakeArrayOfNull(batch[1].type(), bcast_size, ctx->memory_pool()))
         }
+        return Status::OK();
       }
-      return Status::OK();
     }
 
     // cond is array. Use functors to sort things out
+    ARROW_RETURN_NOT_OK(
+        PromoteNullsVisitor(ctx, batch[0], batch[1], batch[2], out->mutable_array()));
+
     if (batch[1].kind() == Datum::ARRAY) {
       if (batch[2].kind() == Datum::ARRAY) {  // AAA
         return IfElseFunctor<Type>::Call(ctx, *batch[0].array(), *batch[1].array(),
