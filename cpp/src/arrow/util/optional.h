@@ -17,19 +17,15 @@
 
 #pragma once
 
-#define optional_CONFIG_SELECT_OPTIONAL optional_OPTIONAL_NONSTD
-
-#include "arrow/vendored/optional.hpp"  // IWYU pragma: export
+#include <optional>
 
 namespace arrow {
 namespace util {
 
-template <typename T>
-using optional = nonstd::optional<T>;
-
-using nonstd::bad_optional_access;
-using nonstd::make_optional;
-using nonstd::nullopt;
+using ::std::bad_optional_access;
+using ::std::make_optional;
+using ::std::nullopt;
+using ::std::optional;
 
 }  // namespace util
 }  // namespace arrow

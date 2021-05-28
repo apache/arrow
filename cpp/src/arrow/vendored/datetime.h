@@ -17,6 +17,9 @@
 
 #pragma once
 
+// Avoid use of deprecated std::uncaught_exception
+#define HAS_UNCAUGHT_EXCEPTIONS 1
+
 #include "arrow/vendored/datetime/date.h"  // IWYU pragma: export
 #include "arrow/vendored/datetime/tz.h"    // IWYU pragma: export
 

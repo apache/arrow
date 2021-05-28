@@ -18,7 +18,7 @@
 #pragma once
 
 // TODO(wesm): IR compilation does not have any include directories set
-#include "../../arrow/vendored/datetime/date.h"
+#include "../../arrow/vendored/datetime.h"
 
 // A point of time measured in millis since epoch.
 class EpochTimePoint {

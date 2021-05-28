@@ -24,12 +24,10 @@
 namespace arrow {
 namespace util {
 
+using ::std::basic_string_view;
 using ::std::string_view;
 
-template <class Char, class Traits = ::std::char_traits<Char>>
-using basic_string_view = ::std::basic_string_view<Char, Traits>;
-
-using bytes_view = basic_string_view<uint8_t>;
+using bytes_view = ::std::basic_string_view<uint8_t>;
 
 }  // namespace util
 }  // namespace arrow

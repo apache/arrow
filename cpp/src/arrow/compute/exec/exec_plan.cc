@@ -17,6 +17,7 @@
 
 #include "arrow/compute/exec/exec_plan.h"
 
+#include <algorithm>
 #include <unordered_set>
 
 #include "arrow/datum.h"

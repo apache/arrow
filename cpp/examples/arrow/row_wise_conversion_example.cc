@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cassert>
 #include <cstdint>
 #include <iostream>
 #include <vector>
@@ -138,10 +139,8 @@ arrow::Status ColumnarTableToVector(const std::shared_ptr<arrow::Table>& table,
   // arrays, this cannot be done for the accompanying bitmap as often the slicing
   // border would be inside a byte.
 
-  auto ids =
-      std::static_pointer_cast<arrow::Int64Array>(table->column(0)->chunk(0));
-  auto costs =
-      std::static_pointer_cast<arrow::DoubleArray>(table->column(1)->chunk(0));
+  auto ids = std::static_pointer_cast<arrow::Int64Array>(table->column(0)->chunk(0));
+  auto costs = std::static_pointer_cast<arrow::DoubleArray>(table->column(1)->chunk(0));
   auto cost_components =
       std::static_pointer_cast<arrow::ListArray>(table->column(2)->chunk(0));
   auto cost_components_values =

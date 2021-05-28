@@ -128,6 +128,11 @@ if(ARROW_BUILD_TESTS)
                  decimal_ops.cc
                  ../decimal_type_util.cc
                  ../decimal_xlarge.cc)
+  set_source_files_properties(../../arrow/vendored/datetime/tz.cpp
+                              PROPERTIES
+                              COMPILE_DEFINITIONS
+                              # Avoid use of deprecated std::uncaught_exception
+                              "HAS_UNCAUGHT_EXCEPTIONS=1")
   target_include_directories(gandiva-precompiled-test PRIVATE ${CMAKE_SOURCE_DIR}/src)
   target_link_libraries(gandiva-precompiled-test PRIVATE ${ARROW_TEST_LINK_LIBS})
   target_compile_definitions(gandiva-precompiled-test
