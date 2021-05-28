@@ -91,8 +91,8 @@ EOF
     MDS_DATA=${TEST_DIR}/mds
     mkdir -p $MDS_DATA
 
-    ceph osd pool create cephfs_data 64
-    ceph osd pool create cephfs_metadata 64
+    ceph osd pool create cephfs_data 32
+    ceph osd pool create cephfs_metadata 32
     ceph fs new cephfs cephfs_metadata cephfs_data
 
     ceph-mds --id a

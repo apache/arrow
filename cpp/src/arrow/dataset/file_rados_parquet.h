@@ -50,30 +50,29 @@ namespace dataset {
 
 class ARROW_DS_EXPORT RadosCluster {
  public:
-  explicit RadosCluster(std::string ceph_config_path_, std::string data_pool_,
-                        std::string user_name_, std::string cluster_name_)
-      : data_pool(data_pool_),
-        user_name(user_name_),
-        cluster_name(cluster_name_),
-        ceph_config_path(ceph_config_path_),
-        flags(0),
-        cls_name("arrow"),
-        rados(new RadosWrapper()),
-        ioCtx(new IoCtxWrapper()) {}
+  struct RadosConnectionCtx {
+    std::string ceph_config_path;
+    std::string data_pool;
+    std::string user_name;
+    std::string cluster_name;
+    std::string cls_name;
+  };
+  explicit RadosCluster(RadosConnectionCtx& ctx)
+      : ctx(ctx), rados(new RadosWrapper()), ioCtx(new IoCtxWrapper()) {}
 
   ~RadosCluster() { Shutdown(); }
 
   Status Connect() {
-    if (rados->init2(user_name.c_str(), cluster_name.c_str(), flags))
+    if (rados->init2(ctx.user_name.c_str(), ctx.cluster_name.c_str(), 0))
       return Status::Invalid("librados::init2 returned non-zero exit code.");
 
-    if (rados->conf_read_file(ceph_config_path.c_str()))
+    if (rados->conf_read_file(ctx.ceph_config_path.c_str()))
       return Status::Invalid("librados::conf_read_file returned non-zero exit code.");
 
     if (rados->connect())
       return Status::Invalid("librados::connect returned non-zero exit code.");
 
-    if (rados->ioctx_create(data_pool.c_str(), ioCtx))
+    if (rados->ioctx_create(ctx.data_pool.c_str(), ioCtx))
       return Status::Invalid("librados::ioctx_create returned non-zero exit code.");
 
     return Status::OK();
@@ -84,13 +83,7 @@ class ARROW_DS_EXPORT RadosCluster {
     return Status::OK();
   }
 
-  std::string data_pool;
-  std::string user_name;
-  std::string cluster_name;
-  std::string ceph_config_path;
-  uint64_t flags;
-  std::string cls_name;
-
+  RadosConnectionCtx ctx;
   RadosInterface* rados;
   IoCtxInterface* ioCtx;
 };
@@ -114,7 +107,7 @@ class ARROW_DS_EXPORT DirectObjectAccess {
     ss << std::hex << inode;
     std::string oid(ss.str() + ".00000000");
 
-    if (cluster_->ioCtx->exec(oid.c_str(), cluster_->cls_name.c_str(), fn.c_str(), in,
+    if (cluster_->ioCtx->exec(oid.c_str(), cluster_->ctx.cls_name.c_str(), fn.c_str(), in,
                               out)) {
       return Status::ExecutionError("librados::exec returned non-zero exit code.");
     }
