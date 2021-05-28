@@ -2746,6 +2746,19 @@ def test_binary_array_masked():
     assert ([b'aaa', b'bbb', b'ccc']*10) == arrow_array.to_pylist()
 
 
+def test_binary_array_strided():
+    # Masked
+    nparray = np.array([b"ab", b"cd", b"ef"])
+    arrow_array = pa.array(nparray[::2], pa.binary(2),
+                           mask=np.array([False, False]))
+    assert [b"ab", b"ef"] == arrow_array.to_pylist()
+
+    # Unmasked
+    nparray = np.array([b"ab", b"cd", b"ef"])
+    arrow_array = pa.array(nparray[::2], pa.binary(2))
+    assert [b"ab", b"ef"] == arrow_array.to_pylist()
+
+
 def test_array_invalid_mask_raises():
     # ARROW-10742
     cases = [
