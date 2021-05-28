@@ -20,6 +20,7 @@
 #include <cstdint>
 
 #include "arrow/util/bit_util.h"
+#include "arrow/util/memory.h"
 
 namespace arrow {
 namespace internal {
@@ -27,7 +28,7 @@ namespace internal {
 #if ARROW_LITTLE_ENDIAN
 
 BitRunReader::BitRunReader(const uint8_t* bitmap, int64_t start_offset, int64_t length)
-    : bitmap_(bitmap + (start_offset / 8)),
+    : bitmap_(EnsureNotNull(bitmap) + (start_offset / 8)),
       position_(start_offset % 8),
       length_(position_ + length) {
   if (ARROW_PREDICT_FALSE(length == 0)) {

@@ -24,6 +24,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/memory.h"
 
 namespace arrow {
 namespace internal {
@@ -76,7 +77,7 @@ class BitmapReader {
 class BitmapUInt64Reader {
  public:
   BitmapUInt64Reader(const uint8_t* bitmap, int64_t start_offset, int64_t length)
-      : bitmap_(bitmap + start_offset / 8),
+      : bitmap_(EnsureNotNull(bitmap) + start_offset / 8),
         num_carry_bits_(8 - start_offset % 8),
         length_(length),
         remaining_length_(length_) {

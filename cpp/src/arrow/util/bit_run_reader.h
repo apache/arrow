@@ -26,6 +26,7 @@
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/memory.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -197,7 +198,7 @@ class BaseSetBitRunReader {
   /// \param[in] length number of bits to copy
   ARROW_NOINLINE
   BaseSetBitRunReader(const uint8_t* bitmap, int64_t start_offset, int64_t length)
-      : bitmap_(bitmap),
+      : bitmap_(EnsureNotNull(bitmap)),
         length_(length),
         remaining_(length_),
         current_word_(0),

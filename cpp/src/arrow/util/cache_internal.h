@@ -182,7 +182,7 @@ static std::function<RetType(const Key&)> Memoize(Func&& func, int32_t cache_cap
 
 // Apply a LRU memoization cache to a callable.
 template <typename Func>
-static auto MemoizeLru(Func&& func, int32_t cache_capacity) -> auto {
+static auto MemoizeLru(Func&& func, int32_t cache_capacity) {
   return detail::Memoize<LruCache, detail::ThreadSafeMemoizer>(std::forward<Func>(func),
                                                                cache_capacity);
 }
@@ -192,7 +192,7 @@ static auto MemoizeLru(Func&& func, int32_t cache_capacity) -> auto {
 // A recommended usage is to declare per-thread caches using `thread_local`
 // (see cache_benchmark.cc).
 template <typename Func>
-static auto MemoizeLruThreadUnsafe(Func&& func, int32_t cache_capacity) -> auto {
+static auto MemoizeLruThreadUnsafe(Func&& func, int32_t cache_capacity) {
   return detail::Memoize<LruCache, detail::ThreadUnsafeMemoizer>(std::forward<Func>(func),
                                                                  cache_capacity);
 }

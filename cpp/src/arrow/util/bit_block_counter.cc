@@ -23,6 +23,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/memory.h"
 
 namespace arrow {
 namespace internal {
@@ -35,13 +36,6 @@ BitBlockCount BitBlockCounter::GetBlockSlow(int64_t block_size) noexcept {
   // case, the first time the run length will be a multiple of 8 by construction
   bitmap_ += run_length / 8;
   return {run_length, popcount};
-}
-
-// Prevent pointer arithmetic on nullptr, which is undefined behavior even if the pointer
-// is never dereferenced.
-inline const uint8_t* EnsureNotNull(const uint8_t* ptr) {
-  static const uint8_t byte{};
-  return ptr == nullptr ? &byte : ptr;
 }
 
 OptionalBitBlockCounter::OptionalBitBlockCounter(const uint8_t* validity_bitmap,
