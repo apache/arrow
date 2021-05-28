@@ -162,22 +162,24 @@ nse_funcs$is.list <- function(x) {
 
 # rlang::is_* type functions
 nse_funcs$is_character <- function(x, n = NULL) {
-  nse_funcs$is.character(x) && (is.null(n) || length(x) == n)
+  assert_that(is.null(n))
+  nse_funcs$is.character(x)
 }
 nse_funcs$is_double <- function(x, n = NULL, finite = NULL) {
-  nse_funcs$is.double(x) &&
-    (is.null(n) || length(x) == n) &&
-    (is.null(finite) ||
-       (finite && as.vector(!any(is_in(x, c(NA_real_, Inf,-Inf, NaN))))))
+  assert_that(is.null(n) && is.null(finite))
+  nse_funcs$is.double(x)
 }
 nse_funcs$is_integer <- function(x, n = NULL) {
-  nse_funcs$is.integer(x) && (is.null(n) || length(x) == n)
+  assert_that(is.null(n))
+  nse_funcs$is.integer(x)
 }
 nse_funcs$is_list <- function(x, n = NULL) {
-  nse_funcs$is.list(x) && (is.null(n) || length(x) == n)
+  assert_that(is.null(n))
+  nse_funcs$is.list(x)
 }
 nse_funcs$is_logical <- function(x, n = NULL) {
-  nse_funcs$is.logical(x) && (is.null(n) || length(x) == n)
+  assert_that(is.null(n))
+  nse_funcs$is.logical(x)
 }
 
 # String functions
