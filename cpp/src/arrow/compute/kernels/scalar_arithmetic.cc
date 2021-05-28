@@ -492,8 +492,7 @@ struct ArithmeticVarArgsFunction : ScalarFunction {
 
     if (auto type = CommonNumeric(*values)) {
       ReplaceTypes(type, values);
-    }
-    if (auto type = CommonTimestamp(*values)) {
+    } else if (auto type = CommonTimestamp(*values)) {
       ReplaceTypes(type, values);
     }
 
@@ -619,6 +618,7 @@ struct ScalarMinMax {
       arrays.push_back(arg.array());
     }
 
+    bool can_recycle = false;
     if (scalar_count > 0) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> temp_scalar,
                             MakeScalar(out->type(), 0));
@@ -628,6 +628,7 @@ struct ScalarMinMax {
         ARROW_ASSIGN_OR_RAISE(auto array, MakeArrayFromScalar(*temp_scalar, batch.length,
                                                               ctx->memory_pool()));
         arrays.push_back(array->data());
+        can_recycle = true;
       } else if (!options.skip_nulls) {
         // Abort early
         ARROW_ASSIGN_OR_RAISE(auto array, MakeArrayFromScalar(*temp_scalar, batch.length,
@@ -644,11 +645,11 @@ struct ScalarMinMax {
     }
 
     // Two or more arrays to consider
-    if (scalar_count > 0) {
+    if (can_recycle) {
       // We allocated the last array from a scalar: recycle it as the output
       *output = *arrays.back();
     } else {
-      // Copy last array argument to output array
+      // Copy last array to output array
       const ArrayData& input = *arrays.back();
       if (options.skip_nulls && input.buffers[0]) {
         // Don't copy the bitmap if !options.skip_nulls since we'll precompute it later
@@ -668,15 +669,13 @@ struct ScalarMinMax {
     if (!options.skip_nulls) {
       // We can precompute the validity buffer in this case
       // AND together the validity buffers of all arrays
-      ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(batch.length));
-      bool first = true;
       for (const auto& arr : arrays) {
-        if (!arr->buffers[0]) continue;
-        if (first) {
+        if (!arr->MayHaveNulls()) continue;
+        if (!output->buffers[0]) {
+          ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(batch.length));
           ::arrow::internal::CopyBitmap(arr->buffers[0]->data(), arr->offset,
                                         batch.length, output->buffers[0]->mutable_data(),
                                         /*dest_offset=*/0);
-          first = false;
         } else {
           ::arrow::internal::BitmapAnd(output->buffers[0]->data(), /*left_offset=*/0,
                                        arr->buffers[0]->data(), arr->offset, batch.length,
@@ -721,7 +720,7 @@ struct ScalarMinMax {
         }
       }
     }
-    output->null_count = -1;
+    output->null_count = output->buffers[0] ? -1 : 0;
     return Status::OK();
   }
 };

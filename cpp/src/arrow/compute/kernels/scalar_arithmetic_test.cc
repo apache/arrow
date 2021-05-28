@@ -17,7 +17,6 @@
 
 #include <algorithm>
 #include <memory>
-#include <sstream>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -323,6 +322,8 @@ class TestVarArgsArithmetic : public TestBase {
   using VarArgsFunction = std::function<Result<Datum>(
       const std::vector<Datum>&, ElementWiseAggregateOptions, ExecContext*)>;
 
+  void SetUp() override { equal_options_ = equal_options_.nans_equal(true); }
+
   Datum scalar(const std::string& value) {
     return ScalarFromJSON(type_singleton(), value);
   }
@@ -346,25 +347,8 @@ class TestVarArgsArithmetic : public TestBase {
   }
 
   void Assert(VarArgsFunction func, Datum expected, const std::vector<Datum>& args) {
-    std::stringstream ss;
-    ss << "Inputs:";
-    for (const auto& arg : args) {
-      ss << ' ';
-      if (arg.is_scalar())
-        ss << arg.scalar()->ToString();
-      else if (arg.is_array())
-        ss << arg.make_array()->ToString();
-      else
-        ss << arg.ToString();
-    }
-    SCOPED_TRACE(ss.str());
-
     auto actual = Eval(func, args);
     AssertDatumsApproxEqual(expected, actual, /*verbose=*/true, equal_options_);
-  }
-
-  void SetNansEqual(bool value = true) {
-    this->equal_options_ = equal_options_.nans_equal(value);
   }
 
   EqualOptions equal_options_ = EqualOptions::Defaults();
@@ -1325,16 +1309,21 @@ TYPED_TEST(TestVarArgsArithmeticNumeric, Minimum) {
 }
 
 TYPED_TEST(TestVarArgsArithmeticFloating, Minimum) {
-  this->SetNansEqual();
-  this->Assert(Maximum, this->scalar("0"), {this->scalar("0"), this->scalar("NaN")});
-  this->Assert(Maximum, this->scalar("0"), {this->scalar("NaN"), this->scalar("0")});
-  this->Assert(Maximum, this->scalar("Inf"), {this->scalar("Inf"), this->scalar("NaN")});
-  this->Assert(Maximum, this->scalar("Inf"), {this->scalar("NaN"), this->scalar("Inf")});
-  this->Assert(Maximum, this->scalar("-Inf"),
+  this->Assert(Minimum, this->scalar("-0.0"),
+               {this->scalar("0.0"), this->scalar("-0.0")});
+  this->Assert(Minimum, this->scalar("-0.0"),
+               {this->scalar("1.0"), this->scalar("-0.0"), this->scalar("0.0")});
+  this->Assert(Minimum, this->scalar("-1.0"),
+               {this->scalar("-1.0"), this->scalar("-0.0")});
+  this->Assert(Minimum, this->scalar("0"), {this->scalar("0"), this->scalar("NaN")});
+  this->Assert(Minimum, this->scalar("0"), {this->scalar("NaN"), this->scalar("0")});
+  this->Assert(Minimum, this->scalar("Inf"), {this->scalar("Inf"), this->scalar("NaN")});
+  this->Assert(Minimum, this->scalar("Inf"), {this->scalar("NaN"), this->scalar("Inf")});
+  this->Assert(Minimum, this->scalar("-Inf"),
                {this->scalar("-Inf"), this->scalar("NaN")});
-  this->Assert(Maximum, this->scalar("-Inf"),
+  this->Assert(Minimum, this->scalar("-Inf"),
                {this->scalar("NaN"), this->scalar("-Inf")});
-  this->Assert(Maximum, this->scalar("NaN"), {this->scalar("NaN"), this->scalar("null")});
+  this->Assert(Minimum, this->scalar("NaN"), {this->scalar("NaN"), this->scalar("null")});
   this->Assert(Minimum, this->scalar("0"), {this->scalar("0"), this->scalar("Inf")});
   this->Assert(Minimum, this->scalar("-Inf"), {this->scalar("0"), this->scalar("-Inf")});
 }
@@ -1428,7 +1417,11 @@ TYPED_TEST(TestVarArgsArithmeticNumeric, Maximum) {
 }
 
 TYPED_TEST(TestVarArgsArithmeticFloating, Maximum) {
-  this->SetNansEqual();
+  this->Assert(Maximum, this->scalar("0.0"), {this->scalar("0.0"), this->scalar("-0.0")});
+  this->Assert(Maximum, this->scalar("1.0"),
+               {this->scalar("1.0"), this->scalar("-0.0"), this->scalar("0.0")});
+  this->Assert(Maximum, this->scalar("-0.0"),
+               {this->scalar("-1.0"), this->scalar("-0.0")});
   this->Assert(Maximum, this->scalar("0"), {this->scalar("0"), this->scalar("NaN")});
   this->Assert(Maximum, this->scalar("0"), {this->scalar("NaN"), this->scalar("0")});
   this->Assert(Maximum, this->scalar("Inf"), {this->scalar("Inf"), this->scalar("NaN")});

@@ -315,11 +315,11 @@ will be cast to the :ref:`common numeric type <common-numeric-type>` before
 comparison) or of temporal types. If any input is dictionary encoded it will be
 expanded for the purposes of comparison.
 
-+--------------------------+------------+---------------------------------------------+---------------------+-------+
-| Function names           | Arity      | Input types                                 | Output type         | Notes |
-+==========================+============+=============================================+=====================+=======+
-| maximum, minimum         | Varargs    | Numeric and Temporal                        | Numeric or Temporal | \(1)  |
-+--------------------------+------------+---------------------------------------------+---------------------+-------+
++--------------------------+------------+---------------------------------------------+---------------------+---------------------------------------+-------+
+| Function names           | Arity      | Input types                                 | Output type         | Options class                         | Notes |
++==========================+============+=============================================+=====================+=======================================+=======+
+| maximum, minimum         | Varargs    | Numeric and Temporal                        | Numeric or Temporal | :struct:`ElementWiseAggregateOptions` | \(1)  |
++--------------------------+------------+---------------------------------------------+---------------------+---------------------------------------+-------+
 
 * \(1) By default, nulls are skipped (but the kernel can be configured to propagate nulls).
   For floating point values, NaN will be taken over null but not over any other value.
