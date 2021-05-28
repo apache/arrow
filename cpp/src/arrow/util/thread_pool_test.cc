@@ -29,6 +29,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <type_traits>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -38,6 +39,7 @@
 #include "arrow/util/io_util.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/thread_pool.h"
+#include "arrow/util/ws_thread_pool.h"
 
 namespace arrow {
 namespace internal {
@@ -258,6 +260,7 @@ TEST_P(TestRunSynchronously, PropagatedError) {
 INSTANTIATE_TEST_SUITE_P(TestRunSynchronously, TestRunSynchronously,
                          ::testing::Values(false, true));
 
+template <typename ThreadPoolType>
 class TestThreadPool : public ::testing::Test {
  public:
   void TearDown() override {
@@ -268,7 +271,7 @@ class TestThreadPool : public ::testing::Test {
   std::shared_ptr<ThreadPool> MakeThreadPool() { return MakeThreadPool(4); }
 
   std::shared_ptr<ThreadPool> MakeThreadPool(int threads) {
-    return *SimpleThreadPool::Make(threads);
+    return *ThreadPoolType::Make(threads);
   }
 
   void DoSpawnAdds(ThreadPool* pool, int nadds, AddTaskFunc add_func,
@@ -339,7 +342,10 @@ class TestThreadPool : public ::testing::Test {
   }
 };
 
-TEST_F(TestThreadPool, ConstructDestruct) {
+using ThreadPoolTypes = ::testing::Types<SimpleThreadPool, WorkStealingThreadPool>;
+TYPED_TEST_SUITE(TestThreadPool, ThreadPoolTypes);
+
+TYPED_TEST(TestThreadPool, ConstructDestruct) {
   // Stress shutdown-at-destruction logic
   for (int threads : {1, 2, 3, 8, 32, 70}) {
     auto pool = this->MakeThreadPool(threads);
@@ -348,63 +354,76 @@ TEST_F(TestThreadPool, ConstructDestruct) {
 
 // Correctness and stress tests using Spawn() and Shutdown()
 
-TEST_F(TestThreadPool, Spawn) {
+TYPED_TEST(TestThreadPool, Spawn) {
   auto pool = this->MakeThreadPool(3);
-  SpawnAdds(pool.get(), 7, task_add<int>);
+  this->SpawnAdds(pool.get(), 7, task_add<int>);
 }
 
-TEST_F(TestThreadPool, StressSpawn) {
+TYPED_TEST(TestThreadPool, StressSpawn) {
   auto pool = this->MakeThreadPool(30);
-  SpawnAdds(pool.get(), 1000, task_add<int>);
+  this->SpawnAdds(pool.get(), 1000, task_add<int>);
 }
 
-TEST_F(TestThreadPool, StressSpawnThreaded) {
+TYPED_TEST(TestThreadPool, StressSpawnThreaded) {
   auto pool = this->MakeThreadPool(30);
-  SpawnAddsThreaded(pool.get(), 20, 100, task_add<int>);
+  if (std::is_same<TypeParam, WorkStealingThreadPool>::value) {
+    GTEST_SKIP();
+  }
+  this->SpawnAddsThreaded(pool.get(), 20, 100, task_add<int>);
 }
 
-TEST_F(TestThreadPool, SpawnSlow) {
+TYPED_TEST(TestThreadPool, SpawnSlow) {
   // This checks that Shutdown() waits for all tasks to finish
   auto pool = this->MakeThreadPool(2);
-  SpawnAdds(pool.get(), 7, task_slow_add<int>{/*seconds=*/0.02});
+  this->SpawnAdds(pool.get(), 7, task_slow_add<int>{/*seconds=*/0.02});
 }
 
-TEST_F(TestThreadPool, StressSpawnSlow) {
+TYPED_TEST(TestThreadPool, StressSpawnSlow) {
   auto pool = this->MakeThreadPool(30);
-  SpawnAdds(pool.get(), 1000, task_slow_add<int>{/*seconds=*/0.002});
+  this->SpawnAdds(pool.get(), 1000, task_slow_add<int>{/*seconds=*/0.002});
 }
 
-TEST_F(TestThreadPool, StressSpawnSlowThreaded) {
+TYPED_TEST(TestThreadPool, StressSpawnSlowThreaded) {
   auto pool = this->MakeThreadPool(30);
-  SpawnAddsThreaded(pool.get(), 20, 100, task_slow_add<int>{/*seconds=*/0.002});
+  if (std::is_same<TypeParam, WorkStealingThreadPool>::value) {
+    GTEST_SKIP();
+  }
+  this->SpawnAddsThreaded(pool.get(), 20, 100, task_slow_add<int>{/*seconds=*/0.002});
 }
 
-TEST_F(TestThreadPool, SpawnWithStopToken) {
+TYPED_TEST(TestThreadPool, SpawnWithStopToken) {
   StopSource stop_source;
   auto pool = this->MakeThreadPool(3);
-  SpawnAdds(pool.get(), 7, task_add<int>, stop_source.token());
+  this->SpawnAdds(pool.get(), 7, task_add<int>, stop_source.token());
 }
 
-TEST_F(TestThreadPool, StressSpawnThreadedWithStopToken) {
+TYPED_TEST(TestThreadPool, StressSpawnThreadedWithStopToken) {
   StopSource stop_source;
   auto pool = this->MakeThreadPool(30);
-  SpawnAddsThreaded(pool.get(), 20, 100, task_add<int>, stop_source.token());
+  if (std::is_same<TypeParam, WorkStealingThreadPool>::value) {
+    GTEST_SKIP();
+  }
+  this->SpawnAddsThreaded(pool.get(), 20, 100, task_add<int>, stop_source.token());
 }
 
-TEST_F(TestThreadPool, SpawnWithStopTokenCancelled) {
+TYPED_TEST(TestThreadPool, SpawnWithStopTokenCancelled) {
   StopSource stop_source;
   auto pool = this->MakeThreadPool(3);
-  SpawnAddsAndCancel(pool.get(), 100, task_slow_add<int>{/*seconds=*/0.02}, &stop_source);
+  this->SpawnAddsAndCancel(pool.get(), 100, task_slow_add<int>{/*seconds=*/0.02},
+                           &stop_source);
 }
 
-TEST_F(TestThreadPool, StressSpawnThreadedWithStopTokenCancelled) {
+TYPED_TEST(TestThreadPool, StressSpawnThreadedWithStopTokenCancelled) {
   StopSource stop_source;
   auto pool = this->MakeThreadPool(30);
-  SpawnAddsThreadedAndCancel(pool.get(), 20, 100, task_slow_add<int>{/*seconds=*/0.02},
-                             &stop_source);
+  if (std::is_same<TypeParam, WorkStealingThreadPool>::value) {
+    GTEST_SKIP();
+  }
+  this->SpawnAddsThreadedAndCancel(pool.get(), 20, 100,
+                                   task_slow_add<int>{/*seconds=*/0.02}, &stop_source);
 }
 
-TEST_F(TestThreadPool, QuickShutdown) {
+TYPED_TEST(TestThreadPool, QuickShutdown) {
   AddTester add_tester(100);
   {
     auto pool = this->MakeThreadPool(3);
@@ -415,7 +434,7 @@ TEST_F(TestThreadPool, QuickShutdown) {
   add_tester.CheckNotAllComputed();
 }
 
-TEST_F(TestThreadPool, DestroyWithoutShutdown) {
+TYPED_TEST(TestThreadPool, DestroyWithoutShutdown) {
   std::mutex mx;
   std::condition_variable cv;
   std::weak_ptr<ThreadPool> weak_pool;
@@ -446,12 +465,15 @@ TEST_F(TestThreadPool, DestroyWithoutShutdown) {
   ASSERT_FALSE(weak_pool.expired());
   // Need to shutdown for test purposes to ensure the thread is joined and that the worker
   // finishes
-  weak_pool.lock()->Shutdown(false);
+  ASSERT_OK(weak_pool.lock()->Shutdown(false));
 
   ASSERT_TRUE(completed);
 }
 
-TEST_F(TestThreadPool, SetCapacity) {
+TYPED_TEST(TestThreadPool, SetCapacity) {
+  if (std::is_same<TypeParam, WorkStealingThreadPool>::value) {
+    GTEST_SKIP();
+  }
   auto pool = this->MakeThreadPool(5);
 
   // Thread spawning is on-demand
@@ -515,7 +537,7 @@ TEST_F(TestThreadPool, SetCapacity) {
 
 // Test Submit() functionality
 
-TEST_F(TestThreadPool, Submit) {
+TYPED_TEST(TestThreadPool, Submit) {
   auto pool = this->MakeThreadPool(3);
   {
     ASSERT_OK_AND_ASSIGN(Future<int> fut, pool->Submit(add<int>, 4, 5));
@@ -546,7 +568,7 @@ TEST_F(TestThreadPool, Submit) {
   }
 }
 
-TEST_F(TestThreadPool, SubmitWithStopToken) {
+TYPED_TEST(TestThreadPool, SubmitWithStopToken) {
   auto pool = this->MakeThreadPool(3);
   {
     StopSource stop_source;
@@ -557,7 +579,7 @@ TEST_F(TestThreadPool, SubmitWithStopToken) {
   }
 }
 
-TEST_F(TestThreadPool, SubmitWithStopTokenCancelled) {
+TYPED_TEST(TestThreadPool, SubmitWithStopTokenCancelled) {
   auto pool = this->MakeThreadPool(3);
   {
     const int n_futures = 100;
@@ -592,7 +614,10 @@ TEST_F(TestThreadPool, SubmitWithStopTokenCancelled) {
 
 #if !(defined(_WIN32) || defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER) || \
       defined(THREAD_SANITIZER))
-TEST_F(TestThreadPool, ForkSafety) {
+TYPED_TEST(TestThreadPool, ForkSafety) {
+  if (std::is_same<TypeParam, WorkStealingThreadPool>::value) {
+    GTEST_SKIP();
+  }
   pid_t child_pid;
   int child_status;
 

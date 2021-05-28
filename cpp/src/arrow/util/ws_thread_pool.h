@@ -16,6 +16,8 @@
 // under the License.
 
 #include <cstddef>
+#include <list>
+#include <vector>
 
 #include "arrow/util/cancel.h"
 #include "arrow/util/functional.h"
@@ -23,8 +25,6 @@
 
 namespace arrow {
 namespace internal {
-
-using Task = ThreadPool::Task;
 
 /// An implementation of a Chase-Lev deque as described in
 /// https://www.dre.vanderbilt.edu/~schmidt/PDF/work-stealing-dequeue.pdf
@@ -50,6 +50,8 @@ using Task = ThreadPool::Task;
 ///   implementation throws it in a garbage buffer to be destroyed later at destruction
 ///   time
 
+constexpr std::size_t kDefaultWorkQueueSize = 512;
+
 class ResizableRingBuffer {
  public:
   /// Creates a ring buffer with a fixed capacity
@@ -58,9 +60,9 @@ class ResizableRingBuffer {
   /// Size of the buffer
   std::size_t size() const;
   /// Gets an item from the buffer
-  Task* Get(std::size_t i);
+  ThreadPool::Task* Get(std::size_t i);
   /// Inserts an item into the buffer
-  void Put(std::size_t i, Task* task);
+  void Put(std::size_t i, ThreadPool::Task* task);
   /// Creates a new buffer with 2x the capacity, needs to know where top and
   /// bottom are to copy into the new buffer in the correct order.
   ResizableRingBuffer Resize(std::size_t bottom, std::size_t top);
@@ -70,14 +72,14 @@ class ResizableRingBuffer {
   // The original paper has to regularly do (i % size).  Since size is always a power
   // of 2 we can do this more efficiently with (i & (size - 1)).   mask_ is size_ - 1
   std::size_t mask_;
-  std::vector<std::atomic<Task*>> arr_;
+  std::vector<std::atomic<ThreadPool::Task*>> arr_;
 };
 
 class WorkQueue {
  public:
   /// Creates a work queue with a given initial capacity, the queue can grow beyond this
   /// capacity if needed
-  WorkQueue(std::size_t initial_capacity);
+  WorkQueue(std::size_t initial_capacity = kDefaultWorkQueueSize);
   ~WorkQueue();
 
   bool Empty() const;
@@ -86,12 +88,14 @@ class WorkQueue {
 
   /// Adds an item to the bottom of the stack
   /// NB: Must only be called by the owning thread
-  void Push(Task* task);
+  void Push(ThreadPool::Task* task);
   /// Pulls an item off the bottom of the stack
   /// NB: Must only be called by the owning thread
-  Task* Pop();
+  ThreadPool::Task* Pop();
   /// Steals an item off the top of the stack
-  Task* Steal();
+  ThreadPool::Task* Steal();
+  /// Clears the queue, not safe to call concurrently with any other methods
+  void Clear();
 
  private:
   std::atomic<std::size_t> top_;
@@ -102,6 +106,39 @@ class WorkQueue {
   // here and delete them at the end.  Each resize doubles the queue so this shouldn't
   // happen all that often.
   std::vector<ResizableRingBuffer*> to_delete_;
+};
+
+class ARROW_EXPORT WorkStealingThreadPool
+    : public ThreadPool,
+      public std::enable_shared_from_this<WorkStealingThreadPool> {
+ public:
+  using QueueIt = std::list<WorkQueue>::iterator;
+  // Construct a thread pool with the given number of worker threads
+  static Result<std::shared_ptr<ThreadPool>> Make(int threads);
+
+  // Like Make(), but takes care that the returned ThreadPool is compatible
+  // with destruction late at process exit.
+  static Result<std::shared_ptr<ThreadPool>> MakeEternal(int threads);
+
+  // Destroy thread pool; the pool will first be shut down
+  ~WorkStealingThreadPool() override;
+
+ protected:
+  WorkStealingThreadPool(int capacity);
+  void ResetAfterFork() override;
+  bool Empty() override;
+  std::shared_ptr<Thread> LaunchWorker(Control* control, ThreadIt thread_it) override;
+  static void WorkerLoop(std::shared_ptr<WorkStealingThreadPool> thread_pool,
+                         Control* tp_control, ThreadIt thread_it, int thread_index);
+
+  void DoSubmitTask(TaskHints hints, ThreadPool::Task task) override;
+
+  // Tasks submitted from outside the work stealing thread pool go here
+  WorkQueue unaffiliated_queue_;
+  // Each thread also has its own queue of tasks
+  std::vector<WorkQueue> task_queues_;
+  std::atomic<std::size_t> next_thread_index_;
+  std::atomic<int> searching_;
 };
 
 }  // namespace internal

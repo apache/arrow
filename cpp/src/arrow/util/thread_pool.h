@@ -248,6 +248,7 @@ class ARROW_EXPORT SerialExecutor : public Executor {
 /// compile times) we create a base interface for a thread object.
 class Thread {
  public:
+  virtual ~Thread();
   virtual void Join() = 0;
   virtual bool IsCurrentThread() const = 0;
   virtual void ResetAfterFork() = 0;
@@ -318,7 +319,7 @@ class ARROW_EXPORT ThreadPool : public Executor {
   ///
   /// If this function returns true then the thread will have been removed from the
   /// workers queue.
-  bool ShouldWorkerQuitUnlocked(const ThreadIt& thread_it);
+  bool ShouldWorkerQuit(const ThreadIt& thread_it);
   /// True if the thread is no longer needed (e.g. excess capacity) or if a quick shutdown
   /// has been requested.  Should be checked frequently as threads can quit with remaining
   /// work if this is true
@@ -328,12 +329,17 @@ class ARROW_EXPORT ThreadPool : public Executor {
   ///
   /// If this function returns true then the thread will have been removed from the
   /// workers queue.
-  bool ShouldWorkerQuitNowUnlocked(const ThreadIt& thread_it, bool* stopped);
+  bool ShouldWorkerQuitNow(const ThreadIt& thread_it, bool* stopped);
+  void NotifyWorkerStarted();
+  void NotifyIdleWorker();
+  void WaitForWork();
 
   struct Control;
 
  protected:
+  template <typename T>
   FRIEND_TEST(TestThreadPool, DestroyWithoutShutdown);
+  template <typename T>
   FRIEND_TEST(TestThreadPool, SetCapacity);
   FRIEND_TEST(TestGlobalThreadPool, Capacity);
   friend ARROW_EXPORT ThreadPool* GetCpuThreadPool();
@@ -355,6 +361,9 @@ class ARROW_EXPORT ThreadPool : public Executor {
   virtual std::shared_ptr<Thread> LaunchWorker(Control* control, ThreadIt thread_it) = 0;
   /// Adds a task to the task queue(s)
   virtual void DoSubmitTask(TaskHints hints, Task task) = 0;
+  /// Should return true only if there is no work to be done (and any additional work)
+  /// will call NotifyIdleWorker
+  virtual bool Empty() = 0;
 
   // Collect finished worker threads, making sure the OS threads have exited
   void CollectFinishedWorkersUnlocked();
@@ -415,9 +424,14 @@ class ARROW_EXPORT SimpleThreadPool
   static void WorkerLoop(std::shared_ptr<SimpleThreadPool> thread_pool, Control* control,
                          ThreadIt thread_it);
 
-  void DoSubmitTask(TaskHints hints, Task task);
+  void DoSubmitTask(TaskHints hints, Task task) override;
+  util::optional<Task> PopTask();
+  bool Empty() override;
 
   std::deque<Task> pending_tasks_;
+  // Store task count separately so we can quickly check if pending_tasks_ is empty
+  // without grabbing the lock
+  std::atomic<std::size_t> task_count_;
 };
 
 // Return the process-global thread pool for CPU-bound tasks.

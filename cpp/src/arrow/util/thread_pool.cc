@@ -102,6 +102,8 @@ void SerialExecutor::RunLoop() {
   }
 }
 
+Thread::~Thread() = default;
+
 struct ThreadPool::Control {
   std::mutex mx;
   // Condition variable that workers wait on when there is no work to do.  This should be
@@ -164,13 +166,12 @@ uint64_t ThreadPool::TotalTasksQueued() const {
 // have been lost so we capture a shared_ptr
 void SimpleThreadPool::WorkerLoop(std::shared_ptr<SimpleThreadPool> thread_pool,
                                   Control* control, ThreadIt thread_it) {
-  // We could use a dedicated mutex for the simple thread pool's task queue but
-  // the existing one isn't used that much so it should be ok.
+  // Grab the lock briefly to ensure that the caller is finished setting us up
   std::unique_lock<std::mutex> lock(control->mx);
-
   // thread_it is our reference to the thread object's position in the worker list, needed
-  // for notifying the pool when finished
+  // for notifying the pool when finished.
   DCHECK((*thread_it)->IsCurrentThread());
+  lock.unlock();
 
   while (true) {
     // By the time this thread is started, some tasks may have been pushed
@@ -179,25 +180,23 @@ void SimpleThreadPool::WorkerLoop(std::shared_ptr<SimpleThreadPool> thread_pool,
 
     bool stopped = false;
     // Execute pending tasks if any
-    while (!thread_pool->pending_tasks_.empty() &&
+    while (!thread_pool->Empty() &&
            // We check this opportunistically at each loop iteration since
            // it releases the lock below.
-           !thread_pool->ShouldWorkerQuitNowUnlocked(thread_it, &stopped)) {
-      DCHECK_GE(thread_pool->NumTasksRunningOrQueued(), 0);
-      {
-        Task task = std::move(thread_pool->pending_tasks_.front());
-        thread_pool->pending_tasks_.pop_front();
-        StopToken* stop_token = &task.stop_token;
-        lock.unlock();
-        if (!stop_token->IsStopRequested()) {
-          std::move(task.callable)();
-        } else {
-          if (task.stop_callback) {
-            std::move(task.stop_callback)(stop_token->Poll());
-          }
+           !thread_pool->ShouldWorkerQuitNow(thread_it, &stopped)) {
+      util::optional<Task> maybe_task = thread_pool->PopTask();
+      // It's possible the last task was taken while we waited on the lock
+      if (!maybe_task.has_value()) {
+        break;
+      }
+      auto task = *std::move(maybe_task);
+      StopToken* stop_token = &task.stop_token;
+      if (!stop_token->IsStopRequested()) {
+        std::move(task.callable)();
+      } else {
+        if (task.stop_callback) {
+          std::move(task.stop_callback)(stop_token->Poll());
         }
-        ARROW_UNUSED(std::move(task));  // release resources before waiting for lock
-        lock.lock();
       }
       thread_pool->RecordFinishedTask();
     }
@@ -206,25 +205,12 @@ void SimpleThreadPool::WorkerLoop(std::shared_ptr<SimpleThreadPool> thread_pool,
       break;
     }
     // Now either the queue is empty *or* a quick shutdown was requested
-    if (thread_pool->ShouldWorkerQuitUnlocked(thread_it)) {
+    if (thread_pool->ShouldWorkerQuit(thread_it)) {
       break;
     }
-    // Wait for next wakeup
-    control->cv_idle_workers.wait(lock);
+    thread_pool->WaitForWork();
   }
   DCHECK_GE(thread_pool->NumTasksRunningOrQueued(), 0);
-
-  // We're done.  Move our thread object to the trashcan of finished
-  // workers.  This has two motivations:
-  // 1) the thread object doesn't get destroyed before this function finishes
-  //    (but we could call thread::detach() instead)
-  // 2) we can explicitly join() the trashcan threads to make sure all OS threads
-  //    are exited before the ThreadPool is destroyed.  Otherwise subtle
-  //    timing conditions can lead to false positives with Valgrind.
-  if (thread_pool->please_shutdown_) {
-    // Notify the function waiting in Shutdown().
-    control->cv_shutdown.notify_one();
-  }
 }
 
 ThreadPool::ThreadPool()
@@ -318,10 +304,11 @@ Status ThreadPool::Shutdown(bool wait) {
   control_->cv_idle_workers.notify_all();
   control_->cv_shutdown.wait(lock, [this] { return workers_.empty(); });
   DCHECK(workers_.empty());
+  CollectFinishedWorkersUnlocked();
   if (!quick_shutdown_) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
     DCHECK_EQ(NumTasksRunningOrQueued(), 0);
   }
-  CollectFinishedWorkersUnlocked();
   return Status::OK();
 }
 
@@ -333,21 +320,44 @@ void ThreadPool::CollectFinishedWorkersUnlocked() {
   finished_workers_.clear();
 }
 
-bool ThreadPool::ShouldWorkerQuitUnlocked(const ThreadIt& thread_it) {
-  if (please_shutdown_) {
+bool ThreadPool::ShouldWorkerQuit(const ThreadIt& thread_it) {
+  // This is called relatively infrequently (when the thread is about to sleep)
+  // so there isn't much harm in grabbing the lock
+  std::lock_guard<std::mutex> lock(control_->mx);
+  if (please_shutdown_ && Empty()) {
     finished_workers_.push_back(std::move(*thread_it));
     workers_.erase(thread_it);
+    control_->cv_shutdown.notify_one();
     return true;
   }
   return false;
 }
 
-bool ThreadPool::ShouldWorkerQuitNowUnlocked(const ThreadIt& thread_it, bool* stopped) {
+bool ThreadPool::ShouldWorkerQuitNow(const ThreadIt& thread_it, bool* stopped) {
+  // This should be a relatively rare event but we want to call it often so only
+  // grab the lock if it looks true and then double-check after
   if (quick_shutdown_ || desired_capacity_ < static_cast<int>(workers_.size())) {
-    finished_workers_.push_back(std::move(*thread_it));
-    workers_.erase(thread_it);
-    *stopped = true;
-    return true;
+    std::lock_guard<std::mutex> lock(control_->mx);
+    // We're done.  Move our thread object to the trashcan of finished
+    // workers.  This has two motivations:
+    // 1) the thread object doesn't get destroyed before this function finishes
+    //    (but we could call thread::detach() instead)
+    // 2) we can explicitly join() the trashcan threads to make sure all OS threads
+    //    are exited before the ThreadPool is destroyed.  Otherwise subtle
+    //    timing conditions can lead to false positives with Valgrind.
+    //    std::lock_guard<std::mutex> lock(control_->mx);
+    if (quick_shutdown_ || desired_capacity_ < static_cast<int>(workers_.size())) {
+      finished_workers_.push_back(std::move(*thread_it));
+      workers_.erase(thread_it);
+      *stopped = true;
+      if (please_shutdown_) {
+        // Notify the function waiting in Shutdown().
+        control_->cv_shutdown.notify_one();
+      }
+      return true;
+    } else {
+      return false;
+    }
   }
   return false;
 }
@@ -355,6 +365,7 @@ bool ThreadPool::ShouldWorkerQuitNowUnlocked(const ThreadIt& thread_it, bool* st
 void ThreadPool::LaunchWorkersUnlocked(int threads) {
   for (int i = 0; i < threads; i++) {
     workers_.emplace_back();
+    DCHECK_LE(static_cast<int>(workers_.size()), desired_capacity_);
     auto it = --(workers_.end());
     *it = LaunchWorker(control_, it);
   }
@@ -385,7 +396,7 @@ Status ThreadPool::SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken sto
       std::lock_guard<std::mutex> lock(control_->mx);
       // We avoided locking on the hot path unless we needed to so we have to double
       // check to ensure we still have spare capacity
-      if (GetAdditionalThreadsNeeded() > 0) {
+      if (!please_shutdown_ && GetAdditionalThreadsNeeded() > 0) {
         // We can still spin up more workers so spin up a new worker
         LaunchWorkersUnlocked(/*threads=*/1);
       }
@@ -394,6 +405,19 @@ Status ThreadPool::SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken sto
     DoSubmitTask(std::move(hints), std::move(task_wrapper));
   }
   return Status::OK();
+}
+
+void ThreadPool::NotifyWorkerStarted() {
+  // Grab the lock (at least briefly) when the thread starts, to make sure the launching
+  // task is finished before we start work.
+  std::lock_guard<std::mutex> lock(control_->mx);
+}
+
+void ThreadPool::NotifyIdleWorker() { control_->cv_idle_workers.notify_one(); }
+
+void ThreadPool::WaitForWork() {
+  std::unique_lock<std::mutex> lock(control_->mx);
+  control_->cv_idle_workers.wait(lock, [this] { return !Empty() || please_shutdown_; });
 }
 
 Result<std::shared_ptr<ThreadPool>> SimpleThreadPool::Make(int threads) {
@@ -414,7 +438,7 @@ Result<std::shared_ptr<ThreadPool>> SimpleThreadPool::MakeEternal(int threads) {
 }
 
 SimpleThreadPool::~SimpleThreadPool() = default;
-SimpleThreadPool::SimpleThreadPool() = default;
+SimpleThreadPool::SimpleThreadPool() : ThreadPool(), task_count_(0) {}
 
 void SimpleThreadPool::ResetAfterFork() {
   ThreadPool::ResetAfterFork();
@@ -424,8 +448,26 @@ void SimpleThreadPool::ResetAfterFork() {
 void SimpleThreadPool::DoSubmitTask(TaskHints hints, Task task) {
   std::unique_lock<std::mutex> lock(control_->mx);
   pending_tasks_.push_back(std::move(task));
+  task_count_.fetch_add(1, std::memory_order_release);
   lock.unlock();
   control_->cv_idle_workers.notify_one();
+}
+
+util::optional<ThreadPool::Task> SimpleThreadPool::PopTask() {
+  std::lock_guard<std::mutex> lock(control_->mx);
+  if (pending_tasks_.empty()) {
+    return util::nullopt;
+  }
+  // Not a big deal if workers think there are tasks when there aren't so don't
+  // impose memory order here.
+  task_count_.fetch_sub(1, std::memory_order_relaxed);
+  Task task = std::move(pending_tasks_.front());
+  pending_tasks_.pop_front();
+  return std::move(task);
+}
+
+bool SimpleThreadPool::Empty() {
+  return task_count_.load(std::memory_order_acquire) == 0;
 }
 
 struct StlThread : public Thread {

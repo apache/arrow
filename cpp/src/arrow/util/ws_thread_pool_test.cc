@@ -28,6 +28,8 @@
 namespace arrow {
 namespace internal {
 
+using Task = ThreadPool::Task;
+
 class WorkStealingTest : public ::testing::Test {
  protected:
   template <int Size>
@@ -67,7 +69,7 @@ class WorkStealingTest : public ::testing::Test {
 
     Task MakeTask(int index) {
       bool* finished_flag = finished.data() + index;
-      FnOnce<void()> cb = [finished_flag, index] { *finished_flag = true; };
+      FnOnce<void()> cb = [finished_flag] { *finished_flag = true; };
       return Task{std::move(cb), StopToken::Unstoppable(), {}};
     }
 
@@ -230,9 +232,8 @@ TEST_P(WorkQueueStressTest, PopSteal) {
     std::atomic<int> tasks_consumed(0);
     // The logic for the consumers is the same. The only difference is if they call
     // pop or steal.
-    auto consume_factory = [&work_queue, &tasks,
-                            &tasks_consumed](std::function<Task*()> consume_fn) {
-      return [&work_queue, &tasks, &tasks_consumed, consume_fn] {
+    auto consume_factory = [&tasks, &tasks_consumed](std::function<Task*()> consume_fn) {
+      return [&tasks, &tasks_consumed, consume_fn] {
         while (true) {
           auto next_task = consume_fn();
           if (next_task) {
@@ -322,6 +323,38 @@ TEST_P(WorkQueueStressTest, PopAddSteal) {
 
 INSTANTIATE_TEST_SUITE_P(TestWorkQueueStress, WorkQueueStressTest,
                          ::testing::Values(false, true));
+
+TEST(WorkStealingThreadPool, StealsProperlyFromOutside) {
+  constexpr int NTHREADS = 4;
+  ASSERT_OK_AND_ASSIGN(auto thread_pool, WorkStealingThreadPool::Make(NTHREADS));
+
+  auto gating_task = GatingTask::Make();
+  for (int i = 0; i < NTHREADS; i++) {
+    thread_pool->Submit(gating_task->Task());
+  }
+
+  ASSERT_OK(gating_task->WaitForRunning(4));
+  ASSERT_OK(gating_task->Unlock());
+  ASSERT_OK(thread_pool->Shutdown());
+}
+
+TEST(WorkStealingThreadPool, StealsProperlyFromInside) {
+  constexpr int NTHREADS = 4;
+  ASSERT_OK_AND_ASSIGN(auto thread_pool, WorkStealingThreadPool::Make(NTHREADS));
+
+  auto gating_task = GatingTask::Make();
+  thread_pool->Submit([&gating_task, &thread_pool] {
+    // The WS loop will want to run its own tasks but can't because they are gating so the
+    // other threads should be able to steal
+    for (int i = 0; i < NTHREADS; i++) {
+      thread_pool->Submit(gating_task->Task());
+    }
+  });
+
+  ASSERT_OK(gating_task->WaitForRunning(4));
+  ASSERT_OK(gating_task->Unlock());
+  ASSERT_OK(thread_pool->Shutdown());
+}
 
 }  // namespace internal
 }  // namespace arrow
