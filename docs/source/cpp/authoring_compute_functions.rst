@@ -119,7 +119,9 @@ A function that dispatches to other functions and does not contain its own kerne
 Kernels
 -------
 
-Kernels are defined as `structs` with the same name as the compute function's API. These `structs` contain static *Call* methods representing the unique implementation for each argument signature. Apache Arrow conforms to SFINAE and aliased-template conditionals to generalize kernel implementations for different argument types. Also, kernel implementations can have the *constexpr* specifier if applicable.
+Kernels are simple ``structs`` containing only function pointers (the "methods" of the kernel) and attribute flags. Each function kind corresponds to a class of Kernel with methods representing each stage of the function's execution. For example, :struct:`ScalarKernel` includes (optionally) :member:`ScalarKernel::init` to initialize any state necessary for execution and :member:`ScalarKernel::exec` to perform the computation.
+
+Since many kernels are closely related in operation and differ only in their input types, it's frequently useful to leverage c++'s powerful template system to efficiently generate kernels' methods. For example, the "add" compute function accepts all numeric types and its kernels' methods are instantiations of the same function template.
 
 Function options
 ----------------
