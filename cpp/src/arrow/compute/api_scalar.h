@@ -266,9 +266,9 @@ Result<Datum> Power(const Datum& left, const Datum& right,
 /// \param[in] ctx the function execution context, optional
 /// \return the element-wise maximum
 ARROW_EXPORT
-Result<Datum> Maximum(const std::vector<Datum>& args,
-                      ElementWiseAggregateOptions options = {},
-                      ExecContext* ctx = NULLPTR);
+Result<Datum> ElementWiseMax(const std::vector<Datum>& args,
+                             ElementWiseAggregateOptions options = {},
+                             ExecContext* ctx = NULLPTR);
 
 /// \brief Find the element-wise minimum of any number of arrays or scalars.
 /// Array values must be the same length.
@@ -278,9 +278,9 @@ Result<Datum> Maximum(const std::vector<Datum>& args,
 /// \param[in] ctx the function execution context, optional
 /// \return the element-wise minimum
 ARROW_EXPORT
-Result<Datum> Minimum(const std::vector<Datum>& args,
-                      ElementWiseAggregateOptions options = {},
-                      ExecContext* ctx = NULLPTR);
+Result<Datum> ElementWiseMin(const std::vector<Datum>& args,
+                             ElementWiseAggregateOptions options = {},
+                             ExecContext* ctx = NULLPTR);
 
 /// \brief Compare a numeric array with a scalar.
 ///

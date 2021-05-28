@@ -63,14 +63,14 @@ SCALAR_ARITHMETIC_BINARY(Multiply, "multiply", "multiply_checked")
 SCALAR_ARITHMETIC_BINARY(Divide, "divide", "divide_checked")
 SCALAR_ARITHMETIC_BINARY(Power, "power", "power_checked")
 
-Result<Datum> Maximum(const std::vector<Datum>& args, ElementWiseAggregateOptions options,
-                      ExecContext* ctx) {
-  return CallFunction("maximum", args, &options, ctx);
+Result<Datum> ElementWiseMax(const std::vector<Datum>& args,
+                             ElementWiseAggregateOptions options, ExecContext* ctx) {
+  return CallFunction("element_wise_max", args, &options, ctx);
 }
 
-Result<Datum> Minimum(const std::vector<Datum>& args, ElementWiseAggregateOptions options,
-                      ExecContext* ctx) {
-  return CallFunction("minimum", args, &options, ctx);
+Result<Datum> ElementWiseMin(const std::vector<Datum>& args,
+                             ElementWiseAggregateOptions options, ExecContext* ctx) {
+  return CallFunction("element_wise_min", args, &options, ctx);
 }
 
 // ----------------------------------------------------------------------

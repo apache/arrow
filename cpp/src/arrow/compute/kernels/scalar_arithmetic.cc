@@ -835,14 +835,14 @@ const FunctionDoc pow_checked_doc{
      "or integer overflow is encountered."),
     {"base", "exponent"}};
 
-const FunctionDoc minimum_doc{
+const FunctionDoc element_wise_min_doc{
     "Find the element-wise minimum value",
     ("Nulls will be ignored (default) or propagated. "
      "NaN will be taken over null, but not over any valid float."),
     {"*args"},
     "ElementWiseAggregateOptions"};
 
-const FunctionDoc maximum_doc{
+const FunctionDoc element_wise_max_doc{
     "Find the element-wise maximum value",
     ("Nulls will be ignored (default) or propagated. "
      "NaN will be taken over null, but not over any valid float."),
@@ -925,11 +925,13 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(power_checked)));
 
   // ----------------------------------------------------------------------
-  auto minimum = MakeScalarMinMax<Minimum>("minimum", &minimum_doc);
-  DCHECK_OK(registry->AddFunction(std::move(minimum)));
+  auto element_wise_min =
+      MakeScalarMinMax<Minimum>("element_wise_min", &element_wise_min_doc);
+  DCHECK_OK(registry->AddFunction(std::move(element_wise_min)));
 
-  auto maximum = MakeScalarMinMax<Maximum>("maximum", &maximum_doc);
-  DCHECK_OK(registry->AddFunction(std::move(maximum)));
+  auto element_wise_max =
+      MakeScalarMinMax<Maximum>("element_wise_max", &element_wise_max_doc);
+  DCHECK_OK(registry->AddFunction(std::move(element_wise_max)));
 }
 
 }  // namespace internal
