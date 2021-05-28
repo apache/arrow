@@ -32,12 +32,13 @@ arrow_dplyr_query <- function(.data) {
   }
 
   # Evaluating expressions on a dataset with duplicated fieldnames will error
-  if (anyDuplicated(names(.data))) {
+  dupes <- duplicated(names(.data))
+  if (any(dupes)) {
     abort(c(
       "Duplicated field names",
       x = paste0(
         "The following field names were found more than once in the data: ",
-        paste(names(.data)[duplicated(names(.data))], collapse = ", ")
+        oxford_paste(names(.data)[dupes])
       ),
       i =  "All field names must be unique"
     ))
