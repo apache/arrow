@@ -19,6 +19,9 @@
 
 set -eu
 
+# usage:
+# ./deploy_skyhook.sh [startnode] [endnode] [skyhook-branch]
+
 SNODE=$1
 ENODE=$2
 BRANCH=$3

@@ -28,6 +28,8 @@
 osd class load list = arrow
 ```
 
+4. You can also deploy Prometheus and Grafana for monitoring your cluster by following [this](https://github.com/JayjeetAtGithub/prometheus-on-baremetal) guide.
+
 # Interacting with SkyhookDM
 
 1. Write some [Parquet](https://parquet.apache.org/) files in the CephFS mount by splitting them up into files of size `128 MB` or less. This is achieved by using the [`SplittedParquetWriter`](../../../../../../python/pyarrow/rados.py) API. An example script to split up Parquet files into SkyhookDM compatible files can be found [here](../scripts/splitter.py).

@@ -64,6 +64,7 @@ done
 ceph-deploy mds create node1
 ceph osd pool create cephfs_data 128
 ceph osd pool create cephfs_metadata 128
+ceph osd pool set cephfs_data pg_autoscale_mode off
 
 ceph fs new cephfs cephfs_metadata cephfs_data
 mkdir -p /mnt/cephfs
