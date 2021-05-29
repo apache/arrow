@@ -25,7 +25,6 @@
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/file_rados_parquet.h"
-#include "arrow/dataset/rados_utils.h"
 #include "arrow/filesystem/api.h"
 #include "arrow/io/api.h"
 #include "arrow/ipc/api.h"
@@ -103,7 +102,47 @@ std::shared_ptr<arrow::dataset::Scanner> GetScannerFromDataset(
   return scanner_builder->Finish().ValueOrDie();
 }
 
-TEST(TestClsSDK, SimpleQuery) {
+TEST(TestArrowRadosCLS, SelectEntireDataset) {
+  std::string path;
+  auto fs = GetFileSystemFromUri("file:///mnt/cephfs/nyc", &path);
+  std::vector<std::string> columns;
+
+  auto format = GetParquetFormat();
+  auto dataset = GetDatasetFromPath(fs, format, path);
+  auto scanner =
+      GetScannerFromDataset(dataset, columns, arrow::compute::literal(true), true);
+  auto table_parquet = scanner->ToTable().ValueOrDie();
+
+  format = GetRadosParquetFormat();
+  dataset = GetDatasetFromPath(fs, format, path);
+  scanner = GetScannerFromDataset(dataset, columns, arrow::compute::literal(true), true);
+  auto table_rados_parquet = scanner->ToTable().ValueOrDie();
+
+  ASSERT_EQ(table_parquet->Equals(*table_rados_parquet), 1);
+  ASSERT_EQ(table_parquet->num_rows(), table_rados_parquet->num_rows());
+}
+
+TEST(TestArrowRadosCLS, SelectFewRows) {
+  std::string path;
+  auto fs = GetFileSystemFromUri("file:///mnt/cephfs/nyc", &path);
+  std::vector<std::string> columns;
+  auto filter = arrow::compute::greater(arrow::compute::field_ref("payment_type"),
+                                        arrow::compute::literal(2));
+  auto format = GetParquetFormat();
+  auto dataset = GetDatasetFromPath(fs, format, path);
+  auto scanner = GetScannerFromDataset(dataset, columns, filter, true);
+  auto table_parquet = scanner->ToTable().ValueOrDie();
+
+  format = GetRadosParquetFormat();
+  dataset = GetDatasetFromPath(fs, format, path);
+  scanner = GetScannerFromDataset(dataset, columns, filter, true);
+  auto table_rados_parquet = scanner->ToTable().ValueOrDie();
+
+  ASSERT_EQ(table_parquet->Equals(*table_rados_parquet), 1);
+  ASSERT_EQ(table_parquet->num_rows(), table_rados_parquet->num_rows());
+}
+
+TEST(TestArrowRadosCLS, SelectFewColumns) {
   std::string path;
   auto fs = GetFileSystemFromUri("file:///mnt/cephfs/nyc", &path);
   std::vector<std::string> columns = {"fare_amount", "total_amount"};
@@ -111,19 +150,19 @@ TEST(TestClsSDK, SimpleQuery) {
   auto format = GetParquetFormat();
   auto dataset = GetDatasetFromPath(fs, format, path);
   auto scanner =
-      GetScannerFromDataset(dataset, columns, arrow::compute::literal(true), false);
+      GetScannerFromDataset(dataset, columns, arrow::compute::literal(true), true);
   auto table_parquet = scanner->ToTable().ValueOrDie();
 
   format = GetRadosParquetFormat();
   dataset = GetDatasetFromPath(fs, format, path);
-  scanner = GetScannerFromDataset(dataset, columns, arrow::compute::literal(true), false);
+  scanner = GetScannerFromDataset(dataset, columns, arrow::compute::literal(true), true);
   auto table_rados_parquet = scanner->ToTable().ValueOrDie();
 
   ASSERT_EQ(table_parquet->Equals(*table_rados_parquet), 1);
   ASSERT_EQ(table_parquet->num_rows(), table_rados_parquet->num_rows());
 }
 
-TEST(TestClsSDK, QueryOnPartitionKey) {
+TEST(TestArrowRadosCLS, SelectRowsAndColumnsOnPartitionKey) {
   std::string path;
   auto fs = GetFileSystemFromUri("file:///mnt/cephfs/nyc", &path);
   std::vector<std::string> columns = {"fare_amount", "VendorID", "payment_type"};
@@ -132,19 +171,19 @@ TEST(TestClsSDK, QueryOnPartitionKey) {
 
   auto format = GetParquetFormat();
   auto dataset = GetDatasetFromPath(fs, format, path);
-  auto scanner = GetScannerFromDataset(dataset, columns, filter, false);
+  auto scanner = GetScannerFromDataset(dataset, columns, filter, true);
   auto table_parquet = scanner->ToTable().ValueOrDie();
 
   format = GetRadosParquetFormat();
   dataset = GetDatasetFromPath(fs, format, path);
-  scanner = GetScannerFromDataset(dataset, columns, filter, false);
+  scanner = GetScannerFromDataset(dataset, columns, filter, true);
   auto table_rados_parquet = scanner->ToTable().ValueOrDie();
 
   ASSERT_EQ(table_parquet->Equals(*table_rados_parquet), 1);
   ASSERT_EQ(table_parquet->num_rows(), table_rados_parquet->num_rows());
 }
 
-TEST(TestClsSDK, QueryOnlyOnPartitionKey) {
+TEST(TestArrowRadosCLS, SelectRowsAndColumnsOnlyOnPartitionKey) {
   std::string path;
   auto fs = GetFileSystemFromUri("file:///mnt/cephfs/nyc", &path);
   std::vector<std::string> columns = {"total_amount", "VendorID", "payment_type"};
@@ -161,7 +200,7 @@ TEST(TestClsSDK, QueryOnlyOnPartitionKey) {
 
   format = GetRadosParquetFormat();
   dataset = GetDatasetFromPath(fs, format, path);
-  scanner = GetScannerFromDataset(dataset, columns, filter, false);
+  scanner = GetScannerFromDataset(dataset, columns, filter, true);
   auto table_rados_parquet = scanner->ToTable().ValueOrDie();
 
   ASSERT_EQ(table_parquet->Equals(*table_rados_parquet), 1);

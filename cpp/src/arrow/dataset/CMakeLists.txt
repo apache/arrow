@@ -39,7 +39,6 @@ if(ARROW_RADOS)
   set(ARROW_DATASET_LINK_SHARED ${ARROW_DATASET_LINK_SHARED} ${LIBRADOS_LIBRARIES})
 
   set(ARROW_DATASET_SRCS ${ARROW_DATASET_SRCS} file_rados_parquet.cc)
-  set(ARROW_DATASET_SRCS ${ARROW_DATASET_SRCS} rados_utils.cc)
   set(ARROW_DATASET_SRCS ${ARROW_DATASET_SRCS} rados.cc)
 endif()
 
@@ -130,6 +129,10 @@ endif()
 
 if(ARROW_PARQUET)
   add_arrow_dataset_test(file_parquet_test)
+endif()
+
+if(ARROW_RADOS)
+  add_arrow_dataset_test(file_rados_parquet_test)
 endif()
 
 if(ARROW_BUILD_BENCHMARKS)

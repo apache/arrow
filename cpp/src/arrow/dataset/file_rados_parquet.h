@@ -32,18 +32,24 @@
 #include <vector>
 
 #include "arrow/api.h"
+#include "arrow/compute/exec/expression.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/file_parquet.h"
 #include "arrow/dataset/rados.h"
-#include "arrow/dataset/rados_utils.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/filesystem/api.h"
 #include "arrow/filesystem/path_util.h"
+#include "arrow/io/api.h"
+#include "arrow/ipc/api.h"
 #include "arrow/util/iterator.h"
+#include "arrow/util/macros.h"
+
+#include "parquet/arrow/writer.h"
+#include "parquet/exception.h"
 
 namespace arrow {
 namespace dataset {
@@ -154,6 +160,20 @@ class ARROW_DS_EXPORT RadosParquetFileFormat : public ParquetFileFormat {
  protected:
   std::shared_ptr<DirectObjectAccess> doa_;
 };
+
+ARROW_DS_EXPORT Status SerializeScanRequest(std::shared_ptr<ScanOptions>& options,
+                                            int64_t& file_size, ceph::bufferlist& bl);
+
+ARROW_DS_EXPORT Status DeserializeScanRequest(compute::Expression* filter,
+                                              compute::Expression* partition,
+                                              std::shared_ptr<Schema>* projected_schema,
+                                              std::shared_ptr<Schema>* dataset_schema,
+                                              int64_t& file_size, ceph::bufferlist& bl);
+
+ARROW_DS_EXPORT Status SerializeTable(std::shared_ptr<Table>& table,
+                                      ceph::bufferlist& bl);
+
+ARROW_DS_EXPORT Status DeserializeTable(RecordBatchVector& batches, ceph::bufferlist& bl);
 
 }  // namespace dataset
 }  // namespace arrow
