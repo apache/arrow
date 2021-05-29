@@ -42,8 +42,6 @@ class RadosParquetScanTask : public ScanTask {
         doa_(std::move(doa)) {}
 
   Result<RecordBatchIterator> Execute() override {
-    ceph::bufferlist out;
-
     Status s;
     struct stat st {};
     s = doa_->Stat(source_.path(), st);
@@ -52,17 +50,16 @@ class RadosParquetScanTask : public ScanTask {
     }
 
     ceph::bufferlist in;
-    ARROW_RETURN_NOT_OK(SerializeScanRequestToBufferlist(
-        options_->filter, options_->partition_expression, options_->projected_schema,
-        options_->dataset_schema, st.st_size, in));
+    ARROW_RETURN_NOT_OK(SerializeScanRequestToBufferlist(options_, st.st_size, in));
 
-    s = doa_->Exec(st.st_ino, "scan_op", in, out);
+    ceph::bufferlist result;
+    s = doa_->Exec(st.st_ino, "scan_op", in, result);
     if (!s.ok()) {
       return Status::ExecutionError(s.message());
     }
 
     RecordBatchVector batches;
-    auto buffer = std::make_shared<Buffer>((uint8_t*)out.c_str(), out.length());
+    auto buffer = std::make_shared<Buffer>((uint8_t*)result.c_str(), result.length());
     auto buffer_reader = std::make_shared<io::BufferReader>(buffer);
     auto options = ipc::IpcReadOptions::Defaults();
     options.use_threads = false;

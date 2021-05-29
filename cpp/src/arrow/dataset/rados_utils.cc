@@ -48,18 +48,16 @@ Status CharToInt64(char* buffer, int64_t& num) {
   return Status::OK();
 }
 
-Status SerializeScanRequestToBufferlist(compute::Expression filter,
-                                        compute::Expression part_expr,
-                                        std::shared_ptr<Schema> projection_schema,
-                                        std::shared_ptr<Schema> dataset_schema,
+Status SerializeScanRequestToBufferlist(std::shared_ptr<ScanOptions> options,
                                         int64_t file_size, ceph::bufferlist& bl) {
   // serialize the filter expression's and the schema's.
-  ARROW_ASSIGN_OR_RAISE(auto filter_buffer, compute::Serialize(filter));
-  ARROW_ASSIGN_OR_RAISE(auto part_expr_buffer, compute::Serialize(part_expr));
+  ARROW_ASSIGN_OR_RAISE(auto filter_buffer, compute::Serialize(options->filter));
+  ARROW_ASSIGN_OR_RAISE(auto part_expr_buffer,
+                        compute::Serialize(options->partition_expression));
   ARROW_ASSIGN_OR_RAISE(auto projection_schema_buffer,
-                        ipc::SerializeSchema(*projection_schema));
+                        ipc::SerializeSchema(*options->projected_schema));
   ARROW_ASSIGN_OR_RAISE(auto dataset_schema_buffer,
-                        ipc::SerializeSchema(*dataset_schema));
+                        ipc::SerializeSchema(*options->dataset_schema));
 
   // convert filter Expression size to buffer.
   char* filter_size_buffer = new char[8];
