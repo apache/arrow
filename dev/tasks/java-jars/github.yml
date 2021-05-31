@@ -98,4 +98,5 @@ jobs:
           arrow/ci/scripts/java_jni_build.sh \
             $GITHUB_WORKSPACE/arrow \
             $GITHUB_WORKSPACE/arrow/java/dist \
+            $GITHUB_WORKSPACE/arrow/java/dist
       {{ macros.github_upload_releases("arrow/java/dist/*.jar")|indent }}
