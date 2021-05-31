@@ -500,5 +500,13 @@ TEST_F(TestIfElseKernel, IfElseNull) {
                        "[null, null, null, null]", "[null, null, null, null]");
 }
 
+TEST_F(TestIfElseKernel, IfElseWithOffset) {
+  auto cond = ArrayFromJSON(boolean(), "[null, true, false]")->Slice(1, 2);
+  auto left = ArrayFromJSON(int64(), "[10, 11]");
+  auto right = ArrayFromJSON(int64(), "[1, 2]");
+  auto expected = ArrayFromJSON(int64(), "[10, 2]");
+  CheckIfElseOutput(cond, left, right, expected);
+}
+
 }  // namespace compute
 }  // namespace arrow

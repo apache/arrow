@@ -82,10 +82,7 @@ Status PromoteNullsVisitor(KernelContext* ctx, const Datum& cond_d, const Datum&
     i++;
   };
 
-  // if the condition is null then output is null otherwise we take validity from the
-  // selected argument
-  // ie. cond.valid & (cond.data & left.valid | ~cond.data & right.valid)
-
+  // cond.valid & (cond.data & left.valid | ~cond.data & right.valid)
   // In the following cases, we dont need to allocate out_valid bitmap
   switch (flag) {
     case COND_CONST | LEFT_CONST | RIGHT_CONST:
@@ -97,7 +94,15 @@ Status PromoteNullsVisitor(KernelContext* ctx, const Datum& cond_d, const Datum&
       // if both left and right are valid, no need to calculate out_valid bitmap. Pass
       // cond validity buffer
       if ((*left_const & *right_const) == UINT64_MAX) {
-        output->buffers[0] = SliceBuffer(cond.buffers[0], cond.offset, cond.length);
+        // if there's an offset, copy bitmap (cannot slice a bitmap)
+        if (cond.offset) {
+          ARROW_ASSIGN_OR_RAISE(
+              output->buffers[0],
+              arrow::internal::CopyBitmap(ctx->memory_pool(), cond.buffers[0]->data(),
+                                          cond.offset, cond.length));
+        } else {  // just copy assign cond validity buffer
+          output->buffers[0] = cond.buffers[0];
+        }
         return Status::OK();
       }
   }
