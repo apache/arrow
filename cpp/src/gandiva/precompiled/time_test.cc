@@ -424,6 +424,15 @@ TEST(TestTime, TimeStampAdd) {
   EXPECT_EQ(add_date64_int64(StringToTimestamp("2000-02-27 00:00:00"), 4),
             StringToTimestamp("2000-03-02 00:00:00"));
 
+  EXPECT_EQ(
+      add_year_month_interval_timestamp(StringToTimestamp("2000-02-27 00:00:00"), 4),
+      StringToTimestamp("2000-06-27 00:00:00"));
+
+  EXPECT_EQ(add_day_time_interval_timestamp(StringToTimestamp("2000-02-27 00:00:00"), 4),
+            StringToTimestamp("2000-03-02 00:00:00"));
+
+  EXPECT_EQ(add_day_time_interval_time32(MILLIS_IN_DAY - 1, 1), MILLIS_IN_DAY - 1);
+
   // date_sub
   EXPECT_EQ(date_sub_timestamp_int32(StringToTimestamp("2000-05-01 00:00:00"), 7),
             StringToTimestamp("2000-04-24 00:00:00"));
@@ -439,6 +448,16 @@ TEST(TestTime, TimeStampAdd) {
 
   EXPECT_EQ(date_diff_timestamp_int64(StringToTimestamp("2000-02-29 00:00:00"), 365),
             StringToTimestamp("1999-03-01 00:00:00"));
+
+  EXPECT_EQ(
+      subtract_year_month_interval_timestamp(StringToTimestamp("2000-02-27 00:00:00"), 4),
+      StringToTimestamp("1999-10-27 00:00:00"));
+
+  EXPECT_EQ(
+      subtract_day_time_interval_timestamp(StringToTimestamp("2000-02-27 00:00:00"), 4),
+      StringToTimestamp("2000-02-23 00:00:00"));
+
+  EXPECT_EQ(subtract_day_time_interval_time32(MILLIS_IN_DAY - 1, 1), MILLIS_IN_DAY - 1);
 }
 
 // test cases from http://www.staff.science.uu.nl/~gent0113/calendar/isocalendar.htm
