@@ -431,7 +431,10 @@ TEST(TestTime, TimeStampAdd) {
   EXPECT_EQ(add_day_time_interval_timestamp(StringToTimestamp("2000-02-27 00:00:00"), 4),
             StringToTimestamp("2000-03-02 00:00:00"));
 
-  EXPECT_EQ(add_day_time_interval_time32(MILLIS_IN_DAY - 1, 1), MILLIS_IN_DAY - 1);
+  // 77309411328000001 represents 1 day and 5 hours of interval to be add.
+  EXPECT_EQ(add_day_time_interval_time32(MILLIS_IN_DAY - 10 * MILLIS_IN_HOUR,
+                                         77309411328000001),
+            MILLIS_IN_DAY - 5 * MILLIS_IN_HOUR);
 
   // date_sub
   EXPECT_EQ(date_sub_timestamp_int32(StringToTimestamp("2000-05-01 00:00:00"), 7),
@@ -457,7 +460,10 @@ TEST(TestTime, TimeStampAdd) {
       subtract_day_time_interval_timestamp(StringToTimestamp("2000-02-27 00:00:00"), 4),
       StringToTimestamp("2000-02-23 00:00:00"));
 
-  EXPECT_EQ(subtract_day_time_interval_time32(MILLIS_IN_DAY - 1, 1), MILLIS_IN_DAY - 1);
+  // 77309411328000001 represents 1 day and 5 hours of interval to be add.
+  EXPECT_EQ(subtract_day_time_interval_time32(MILLIS_IN_DAY - 10 * MILLIS_IN_HOUR,
+                                              77309411328000001),
+            MILLIS_IN_DAY - 15 * MILLIS_IN_HOUR);
 }
 
 // test cases from http://www.staff.science.uu.nl/~gent0113/calendar/isocalendar.htm
