@@ -183,6 +183,59 @@ TIMESTAMP_DIFF(timestamp)
     return millis + TO_MILLIS * static_cast<gdv_##TYPE>(count);          \
   }
 
+#define ADD_DAY_TIME_INTERVAL_TO_TIMESTAMP(TYPE, NAME, TO_MILLIS)              \
+  FORCE_INLINE                                                                 \
+  gdv_timestamp NAME##_day_time_interval_##TYPE(gdv_##TYPE millis,             \
+                                                gdv_day_time_interval count) { \
+    gdv_int64 day_interval_days = extractDay_daytimeinterval(count);           \
+    gdv_int64 day_interval_millis = extractMillis_daytimeinterval(count);      \
+    return static_cast<gdv_timestamp>(millis) +                                \
+           (day_interval_millis * TO_MILLIS + day_interval_millis);            \
+  }
+
+#define SUB_DAY_TIME_INTERVAL_TO_TIMESTAMP(TYPE, NAME, TO_MILLIS)              \
+  FORCE_INLINE                                                                 \
+  gdv_timestamp NAME##_day_time_interval_##TYPE(gdv_##TYPE millis,             \
+                                                gdv_day_time_interval count) { \
+    gdv_int64 day_interval_days = extractDay_daytimeinterval(count);           \
+    gdv_int64 day_interval_millis = extractMillis_daytimeinterval(count);      \
+    return static_cast<gdv_timestamp>(millis) -                                \
+           (day_interval_millis * TO_MILLIS + day_interval_millis);            \
+  }
+
+#define ADD_DAY_TIME_INTERVAL_TO_TIME(TYPE)                                  \
+  FORCE_INLINE                                                               \
+  gdv_time32 add_day_time_interval_##TYPE(gdv_##TYPE millis,                 \
+                                          gdv_day_time_interval count) {     \
+    millis += static_cast<gdv_##TYPE>(extractMillis_daytimeinterval(count)); \
+    return millis % MILLIS_IN_DAY;                                           \
+  }
+
+#define SUB_DAY_TIME_INTERVAL_TO_TIME(TYPE)                                   \
+  FORCE_INLINE                                                                \
+  gdv_time32 subtract_day_time_interval_##TYPE(gdv_##TYPE millis,             \
+                                               gdv_day_time_interval count) { \
+    millis -= static_cast<gdv_##TYPE>(extractMillis_daytimeinterval(count));  \
+    return millis % MILLIS_IN_DAY;                                            \
+  }
+
+#define ADD_YEAR_MONTH_INTERVAL_TO_TIMESTAMP(TYPE)                              \
+  FORCE_INLINE                                                                  \
+  gdv_timestamp add_year_month_interval_##TYPE(gdv_##TYPE millis,               \
+                                               gdv_year_month_interval count) { \
+    EpochTimePoint tp(millis);                                                  \
+    tp.AddMonths(count);                                                        \
+    return static_cast<gdv_timestamp>(tp.MillisSinceEpoch());                   \
+  }
+
+#define SUB_YEAR_MONTH_INTERVAL_TO_TIMESTAMP(TYPE)                                   \
+  FORCE_INLINE                                                                       \
+  gdv_timestamp subtract_year_month_interval_##TYPE(gdv_##TYPE millis,               \
+                                                    gdv_year_month_interval count) { \
+    EpochTimePoint tp(millis);                                                       \
+    tp.AddMonths(-1 * count);                                                        \
+    return static_cast<gdv_timestamp>(tp.MillisSinceEpoch());                        \
+  }
 #define ADD_TIMESTAMP_TO_INT32_MONTH_UNITS(TYPE, NAME, N_MONTHS)                \
   FORCE_INLINE                                                                  \
   gdv_##TYPE NAME##_##TYPE##_int32(gdv_##TYPE millis, gdv_int32 count) {        \
@@ -279,5 +332,19 @@ ADD_TIMESTAMP_TO_INT64_FIXED_UNITS(date64, date_add, MILLIS_IN_DAY)
 ADD_TIMESTAMP_TO_INT64_FIXED_UNITS(date64, add, MILLIS_IN_DAY)
 ADD_TIMESTAMP_TO_INT64_FIXED_UNITS(timestamp, date_add, MILLIS_IN_DAY)
 ADD_TIMESTAMP_TO_INT64_FIXED_UNITS(timestamp, add, MILLIS_IN_DAY)
+
+// add timestamp to day time interval
+ADD_DAY_TIME_INTERVAL_TO_TIMESTAMP(date64, add, MILLIS_IN_DAY)
+ADD_DAY_TIME_INTERVAL_TO_TIMESTAMP(timestamp, add, MILLIS_IN_DAY)
+ADD_YEAR_MONTH_INTERVAL_TO_TIMESTAMP(timestamp)
+ADD_YEAR_MONTH_INTERVAL_TO_TIMESTAMP(date64)
+ADD_DAY_TIME_INTERVAL_TO_TIME(time32)
+
+// subtract timestamp to day time interval
+SUB_DAY_TIME_INTERVAL_TO_TIMESTAMP(date64, subtract, MILLIS_IN_DAY)
+SUB_DAY_TIME_INTERVAL_TO_TIMESTAMP(timestamp, subtract, MILLIS_IN_DAY)
+SUB_YEAR_MONTH_INTERVAL_TO_TIMESTAMP(timestamp)
+SUB_YEAR_MONTH_INTERVAL_TO_TIMESTAMP(date64)
+SUB_DAY_TIME_INTERVAL_TO_TIME(time32)
 
 }  // extern "C"

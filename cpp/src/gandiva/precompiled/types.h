@@ -40,6 +40,7 @@ using gdv_timestamp = int64_t;
 using gdv_utf8 = char*;
 using gdv_binary = char*;
 using gdv_day_time_interval = int64_t;
+using gdv_year_month_interval = int32_t;
 
 #ifdef GANDIVA_UNIT_TEST
 // unit tests may be compiled without O2, so inlining may not happen.
@@ -785,5 +786,38 @@ const char* elt_int32_utf8_utf8_utf8_utf8_utf8(
 
 int32_t instr_utf8(const char* string, int32_t string_len, const char* substring,
                    int32_t substring_len);
+
+gdv_int64 extractMillis_daytimeinterval(gdv_day_time_interval in);
+
+gdv_int64 extractDay_daytimeinterval(gdv_day_time_interval in);
+
+gdv_timestamp add_day_time_interval_date64(gdv_date64 millis,
+                                           gdv_day_time_interval count);
+
+gdv_timestamp add_day_time_interval_timestamp(gdv_timestamp millis,
+                                              gdv_day_time_interval count);
+
+gdv_timestamp add_year_month_interval_date64(gdv_date64 millis,
+                                             gdv_year_month_interval count);
+
+gdv_timestamp add_year_month_interval_timestamp(gdv_timestamp millis,
+                                                gdv_year_month_interval count);
+
+gdv_time32 add_day_time_interval_time32(gdv_time32 millis, gdv_day_time_interval count);
+
+gdv_timestamp subtract_day_time_interval_date64(gdv_date64 millis,
+                                                gdv_day_time_interval count);
+
+gdv_timestamp subtract_day_time_interval_timestamp(gdv_timestamp millis,
+                                                   gdv_day_time_interval count);
+
+gdv_timestamp subtract_year_month_interval_date64(gdv_date64 millis,
+                                                  gdv_year_month_interval count);
+
+gdv_timestamp subtract_year_month_interval_timestamp(gdv_timestamp millis,
+                                                     gdv_year_month_interval count);
+
+gdv_time32 subtract_day_time_interval_time32(gdv_time32 millis,
+                                             gdv_day_time_interval count);
 
 }  // extern "C"
