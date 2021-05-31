@@ -29,6 +29,10 @@ on:
       - 'ci/scripts/csharp_*'
       - 'csharp/**'
 
+concurrency:
+  group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}
+  cancel-in-progress: true
+
 jobs:
 
   ubuntu:
