@@ -39,70 +39,6 @@ void CheckIfElseOutput(const Datum& cond, const Datum& left, const Datum& right,
   }
 }
 
-void CheckIfElseOutputAAA(const std::shared_ptr<DataType>& type, const std::string& cond,
-                          const std::string& left, const std::string& right,
-                          const std::string& expected) {
-  const std::shared_ptr<Array>& cond_ = ArrayFromJSON(boolean(), cond);
-  const std::shared_ptr<Array>& left_ = ArrayFromJSON(type, left);
-  const std::shared_ptr<Array>& right_ = ArrayFromJSON(type, right);
-  const std::shared_ptr<Array>& expected_ = ArrayFromJSON(type, expected);
-  CheckIfElseOutput(cond_, left_, right_, expected_);
-}
-
-void CheckIfElseOutputAAS(const std::shared_ptr<DataType>& type, const std::string& cond,
-                          const std::string& left, const std::shared_ptr<Scalar>& right,
-                          const std::string& expected) {
-  const std::shared_ptr<Array>& cond_ = ArrayFromJSON(boolean(), cond);
-  const std::shared_ptr<Array>& left_ = ArrayFromJSON(type, left);
-  const std::shared_ptr<Array>& expected_ = ArrayFromJSON(type, expected);
-  CheckIfElseOutput(cond_, left_, right, expected_);
-}
-
-void CheckIfElseOutputASA(const std::shared_ptr<DataType>& type, const std::string& cond,
-                          const std::shared_ptr<Scalar>& left, const std::string& right,
-                          const std::string& expected) {
-  const std::shared_ptr<Array>& cond_ = ArrayFromJSON(boolean(), cond);
-  const std::shared_ptr<Array>& right_ = ArrayFromJSON(type, right);
-  const std::shared_ptr<Array>& expected_ = ArrayFromJSON(type, expected);
-  CheckIfElseOutput(cond_, left, right_, expected_);
-}
-
-void CheckIfElseOutputASS(const std::shared_ptr<DataType>& type, const std::string& cond,
-                          const std::shared_ptr<Scalar>& left,
-                          const std::shared_ptr<Scalar>& right,
-                          const std::string& expected) {
-  const std::shared_ptr<Array>& cond_ = ArrayFromJSON(boolean(), cond);
-  const std::shared_ptr<Array>& expected_ = ArrayFromJSON(type, expected);
-  CheckIfElseOutput(cond_, left, right, expected_);
-}
-
-void CheckIfElseOutputSAA(const std::shared_ptr<DataType>& type,
-                          const std::shared_ptr<Scalar>& cond, const std::string& left,
-                          const std::string& right, const std::string& expected) {
-  const std::shared_ptr<Array>& left_ = ArrayFromJSON(type, left);
-  const std::shared_ptr<Array>& right_ = ArrayFromJSON(type, right);
-  const std::shared_ptr<Array>& expected_ = ArrayFromJSON(type, expected);
-  CheckIfElseOutput(cond, left_, right_, expected_);
-}
-
-void CheckIfElseOutputSAS(const std::shared_ptr<DataType>& type,
-                          const std::shared_ptr<Scalar>& cond, const std::string& left,
-                          const std::shared_ptr<Scalar>& right,
-                          const std::string& expected) {
-  const std::shared_ptr<Array>& left_ = ArrayFromJSON(type, left);
-  const std::shared_ptr<Array>& expected_ = ArrayFromJSON(type, expected);
-  CheckIfElseOutput(cond, left_, right, expected_);
-}
-
-void CheckIfElseOutputSSA(const std::shared_ptr<DataType>& type,
-                          const std::shared_ptr<Scalar>& cond,
-                          const std::shared_ptr<Scalar>& left, const std::string& right,
-                          const std::string& expected) {
-  const std::shared_ptr<Array>& right_ = ArrayFromJSON(type, right);
-  const std::shared_ptr<Array>& expected_ = ArrayFromJSON(type, expected);
-  CheckIfElseOutput(cond, left, right_, expected_);
-}
-
 class TestIfElseKernel : public ::testing::Test {};
 
 template <typename Type>
@@ -147,322 +83,139 @@ TYPED_TEST(TestIfElsePrimitive, IfElseFixedSizeRand) {
   CheckIfElseOutput(cond, left, right, expected_data);
 }
 
-template <typename T>
-void DoIfElseTest(const std::shared_ptr<DataType>& type, const std::array<T, 4>& left,
-                  const std::array<T, 4>& right, const std::array<T, 2>& valid_scalars) {
-  std::array<std::string, 4> l, r;
-  std::array<std::string, 2> v;
+template <typename Type>
+struct DatumWrapper {
+  using CType = typename TypeTraits<Type>::CType;
+  using ArrayType = typename TypeTraits<Type>::ArrayType;
+  using ScalarType = typename TypeTraits<Type>::ScalarType;
 
-  auto to_string = [](const T& i) { return std::to_string(i); };
-  std::transform(left.begin(), left.end(), l.begin(), to_string);
-  std::transform(right.begin(), right.end(), r.begin(), to_string);
-  std::transform(valid_scalars.begin(), valid_scalars.end(), v.begin(), to_string);
+  util::Variant<std::shared_ptr<ScalarType>, std::shared_ptr<ArrayType>> datum;
+  bool is_scalar;
 
-  /* -------- All arrays --------- */
-  /* empty */
-  CheckIfElseOutputAAA(type, "[]", "[]", "[]", "[]");
-  /* CLR = 111 */
-  CheckIfElseOutputAAA(type, "[true, true, true, false]",
-                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
-                       "[" + r[0] + ", " + r[1] + ", " + r[2] + ", " + r[3] + "]",
-                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + r[3] + "]");
-  /* CLR = 011 */
-  CheckIfElseOutputAAA(type, "[true, true, null, false]",
-                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
-                       "[" + r[0] + ", " + r[1] + ", " + r[2] + ", " + r[3] + "]",
-                       "[" + l[0] + ", " + l[1] + ", null, " + r[3] + "]");
-  /* CLR = 101 */
-  CheckIfElseOutputAAA(type, "[true, true, true, false]",
-                       "[" + l[0] + ", null, " + l[2] + ", " + l[3] + "]",
-                       "[" + r[0] + ", " + r[1] + ", " + r[2] + ", " + r[3] + "]",
-                       "[" + l[0] + ", null, " + l[2] + ", " + r[3] + "]");
-  /* CLR = 001 */
-  CheckIfElseOutputAAA(type, "[true, true, null, false]",
-                       "[" + l[0] + ", null, " + l[2] + ", " + l[3] + "]",
-                       "[" + r[0] + ", " + r[1] + ", " + r[2] + ", " + r[3] + "]",
-                       "[" + l[0] + ", null, null, " + r[3] + "]");
-  /* CLR = 110 */
-  CheckIfElseOutputAAA(type, "[true, true, true, false]",
-                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
-                       "[" + r[0] + ", " + r[1] + ", " + r[2] + ", null]",
-                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", null]");
-  /* CLR = 010 */
-  CheckIfElseOutputAAA(type, "[null, true, true, false]",
-                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
-                       "[" + r[0] + ", " + r[1] + ", " + r[2] + ", null]",
-                       "[null, " + l[1] + ", " + l[2] + ", null]");
-  /* CLR = 100 */
-  CheckIfElseOutputAAA(type, "[true, true, true, false]",
-                       "[" + l[0] + ", " + l[1] + ", null, null]",
-                       "[null, " + r[1] + ", " + r[2] + ", null]",
-                       "[" + l[0] + ", " + l[1] + ", null, null]");
-  /* CLR = 000 */
-  CheckIfElseOutputAAA(
-      type, "[null, true, true, false]", "[" + l[0] + ", " + l[1] + ", null, null]",
-      "[null, " + r[1] + ", " + r[2] + ", null]", "[null, " + l[1] + ", null, null]");
+  explicit DatumWrapper(const Datum& datum_) : is_scalar(datum_.is_scalar()) {
+    if (is_scalar) {
+      datum = std::move(std::static_pointer_cast<ScalarType>(datum_.scalar()));
+    } else {
+      datum = std::move(std::static_pointer_cast<ArrayType>(datum_.make_array()));
+    }
+  }
 
-  /* -------- Cond - Array, Left- Array, Right - Scalar --------- */
-  ASSERT_OK_AND_ASSIGN(auto valid_scalar, MakeScalar(type, valid_scalars[0]));
-  ASSERT_OK_AND_ASSIGN(auto valid_scalar1, MakeScalar(type, valid_scalars[1]));
-  auto null_scalar = MakeNullScalar(type);
+  bool IsValid(int64_t i) const {
+    return is_scalar ? util::get<std::shared_ptr<ScalarType>>(datum)->is_valid
+                     : util::get<std::shared_ptr<ArrayType>>(datum)->IsValid(i);
+  }
 
-  /* empty */
-  //  CheckIfElseOutputAAS(type, "[]", "[]", valid_scalar, "[]");
+  CType Value(int64_t i) const {
+    return is_scalar ? util::get<std::shared_ptr<ScalarType>>(datum)->value
+                     : util::get<std::shared_ptr<ArrayType>>(datum)->Value(i);
+  }
+};
 
-  /* CLR = 111 */
-  CheckIfElseOutputAAS(type, "[true, true, true, false]",
-                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
-                       valid_scalar,
-                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + v[0] + "]");
-  /* CLR = 011 */
-  CheckIfElseOutputAAS(type, "[true, true, null, false]",
-                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
-                       valid_scalar, "[" + l[0] + ", " + l[1] + ", null, " + v[0] + "]");
-  /* CLR = 101 */
-  CheckIfElseOutputAAS(type, "[true, true, true, false]",
-                       "[" + l[0] + ", null, " + l[2] + ", " + l[3] + "]", valid_scalar,
-                       "[" + l[0] + ", null, " + l[2] + ", " + v[0] + "]");
-  /* CLR = 001 */
-  CheckIfElseOutputAAS(type, "[true, true, null, false]",
-                       "[" + l[0] + ", null, " + l[2] + ", " + l[3] + "]", valid_scalar,
-                       "[" + l[0] + ", null, null, " + v[0] + "]");
-  /* CLR = 110 */
-  CheckIfElseOutputAAS(type, "[true, true, true, false]",
-                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
-                       null_scalar, "[" + l[0] + ", " + l[1] + ", " + l[2] + ", null]");
-  /* CLR = 010 */
-  CheckIfElseOutputAAS(type, "[null, true, true, false]",
-                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
-                       null_scalar, "[null, " + l[1] + ", " + l[2] + ", null]");
-  /* CLR = 100 */
-  CheckIfElseOutputAAS(type, "[true, true, true, false]",
-                       "[" + l[0] + ", " + l[1] + ", null, null]", null_scalar,
-                       "[" + l[0] + ", " + l[1] + ", null, null]");
-  /* CLR = 000 */
-  CheckIfElseOutputAAS(type, "[null, true, true, false]",
-                       "[" + l[0] + ", " + l[1] + ", null, null]", null_scalar,
-                       "[null, " + l[1] + ", null, null]");
+template <typename Type>
+void GenerateExpected(const Datum& cond, const Datum& left, const Datum& right,
+                      Datum* out) {
+  int64_t len = cond.is_array()    ? cond.length()
+                : left.is_array()  ? left.length()
+                : right.is_array() ? right.length()
+                                   : 1;
 
-  /* -------- Cond - Array, Left- Scalar, Right - Array --------- */
-  /* empty */
-  CheckIfElseOutputASA(type, "[]", valid_scalar, "[]", "[]");
+  DatumWrapper<BooleanType> cond_(cond);
+  DatumWrapper<Type> left_(left);
+  DatumWrapper<Type> right_(right);
 
-  /* CLR = 111 */
-  CheckIfElseOutputASA(type, "[true, true, true, false]", valid_scalar,
-                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
-                       "[" + v[0] + ", " + v[0] + ", " + v[0] + ", " + l[3] + "]");
-  /* CLR = 011 */
-  CheckIfElseOutputASA(type, "[true, true, null, false]", valid_scalar,
-                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
-                       "[" + v[0] + ", " + v[0] + ", null, " + l[3] + "]");
-  /* CLR = 110 */
-  CheckIfElseOutputASA(type, "[true, true, true, false]", valid_scalar,
-                       "[" + l[0] + ", null, " + l[2] + ", null]",
-                       "[" + v[0] + ", " + v[0] + ", " + v[0] + ", null]");
-  /* CLR = 010 */
-  CheckIfElseOutputASA(type, "[true, true, null, false]", valid_scalar,
-                       "[" + l[0] + ", null, " + l[2] + ", null]",
-                       "[" + v[0] + ", " + v[0] + ", null, null]");
-  /* CLR = 101 */
-  CheckIfElseOutputASA(type, "[true, true, true, false]", null_scalar,
-                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
-                       "[null, null, null, " + l[3] + "]");
-  /* CLR = 001 */
-  CheckIfElseOutputASA(type, "[null, true, true, false]", null_scalar,
-                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
-                       "[null, null, null, " + l[3] + "]");
-  /* CLR = 100 */
-  CheckIfElseOutputASA(type, "[true, true, true, false]", null_scalar,
-                       "[" + l[0] + ", " + l[1] + ", null, " + l[3] + "]",
-                       "[null, null, null, " + l[3] + "]");
-  /* CLR = 000 */
-  CheckIfElseOutputASA(type, "[true, true, null, false]", null_scalar,
-                       "[" + l[0] + ", " + l[1] + ", null, " + l[3] + "]",
-                       "[null, null, null, " + l[3] + "]");
+  int64_t i = 0;
 
-  /* -------- Cond - Array, Left- Scalar, Right - Scalar --------- */
-  /* empty */
-  CheckIfElseOutputASS(type, "[]", valid_scalar, valid_scalar1, "[]");
+  // if all scalars
+  if (cond.is_scalar() && left.is_scalar() && right.is_scalar()) {
+    if (!cond_.IsValid(i) || (cond_.Value(i) && !left_.IsValid(i)) ||
+        (!cond_.Value(i) && !right_.IsValid(i))) {
+      *out = MakeNullScalar(left.type());
+      return;
+    }
 
-  /* CLR = 111 */
-  CheckIfElseOutputASS(type, "[true, true, true, false]", valid_scalar, valid_scalar1,
-                       "[" + v[0] + ", " + v[0] + ", " + v[0] + ", " + v[1] + "]");
-  /* CLR = 011 */
-  CheckIfElseOutputASS(type, "[true, true, null, false]", valid_scalar, valid_scalar1,
-                       "[" + v[0] + ", " + v[0] + ", null, " + v[1] + "]");
-  /* CLR = 010 */
-  CheckIfElseOutputASS(type, "[true, true, null, false]", valid_scalar, null_scalar,
-                       "[" + v[0] + ", " + v[0] + ", null, null]");
-  /* CLR = 110 */
-  CheckIfElseOutputASS(type, "[true, true, true, false]", valid_scalar, null_scalar,
-                       "[" + v[0] + ", " + v[0] + ", " + v[0] + ", null]");
-  /* CLR = 101 */
-  CheckIfElseOutputASS(type, "[true, true, true, false]", null_scalar, valid_scalar1,
-                       "[null, null, null, " + v[1] + "]");
-  /* CLR = 001 */
-  CheckIfElseOutputASS(type, "[null, true, true, false]", null_scalar, valid_scalar1,
-                       "[null, null, null, " + v[1] + "]");
-  /* CLR = 100 */
-  CheckIfElseOutputASS(type, "[true, true, true, false]", null_scalar, null_scalar,
-                       "[null, null, null, null]");
-  /* CLR = 000 */
-  CheckIfElseOutputASS(type, "[true, true, null, false]", null_scalar, null_scalar,
-                       "[null, null, null, null]");
+    if (cond_.Value(i)) {
+      *out = left;
+      return;
+    } else {
+      *out = right;
+      return;
+    }
+  }
 
-  /* -------- Cond - Scalar, Left- Array, Right - Array --------- */
-  ASSERT_OK_AND_ASSIGN(auto bool_true, MakeScalar(boolean(), true));
-  ASSERT_OK_AND_ASSIGN(auto bool_false, MakeScalar(boolean(), false));
-  auto bool_null = MakeNullScalar(boolean());
+  typename TypeTraits<Type>::BuilderType builder;
 
-  /* empty */
-  CheckIfElseOutputSAA(type, bool_true, "[]", "[]", "[]");
-  /* CLR = 111 */
-  CheckIfElseOutputSAA(type, bool_true,
-                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
-                       "[" + r[0] + ", " + r[1] + ", " + r[2] + ", " + r[3] + "]",
-                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]");
-  /* CLR = 011 */
-  CheckIfElseOutputSAA(type, bool_null,
-                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
-                       "[" + r[0] + ", " + r[1] + ", " + r[2] + ", " + r[3] + "]",
-                       "[null, null, null, null]");
-  /* CLR = 101 */
-  CheckIfElseOutputSAA(type, bool_false,
-                       "[" + l[0] + ", null, " + l[2] + ", " + l[3] + "]",
-                       "[" + r[0] + ", " + r[1] + ", " + r[2] + ", " + r[3] + "]",
-                       "[" + r[0] + ", " + r[1] + ", " + r[2] + ", " + r[3] + "]");
-  /* CLR = 001 */
-  CheckIfElseOutputSAA(type, bool_null,
-                       "[" + l[0] + ", null, " + l[2] + ", " + l[3] + "]",
-                       "[" + r[0] + ", " + r[1] + ", " + r[2] + ", " + r[3] + "]",
-                       "[null, null, null, null]");
-  /* CLR = 110 */
-  CheckIfElseOutputSAA(type, bool_false,
-                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
-                       "[" + r[0] + ", " + r[1] + ", " + r[2] + ", null]",
-                       "[" + r[0] + ", " + r[1] + ", " + r[2] + ", null]");
-  /* CLR = 010 */
-  CheckIfElseOutputSAA(
-      type, bool_null, "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
-      "[" + r[0] + ", " + r[1] + ", " + r[2] + ", null]", "[null, null, null, null]");
-  /* CLR = 100 */
-  CheckIfElseOutputSAA(type, bool_true, "[" + l[0] + ", " + l[1] + ", null, null]",
-                       "[null, " + r[1] + ", " + r[2] + ", null]",
-                       "[" + l[0] + ", " + l[1] + ", null, null]");
-  /* CLR = 000 */
-  CheckIfElseOutputSAA(type, bool_null, "[" + l[0] + ", " + l[1] + ", null, null]",
-                       "[null, " + r[1] + ", " + r[2] + ", null]",
-                       "[null, null, null, null]");
+  for (; i < len; ++i) {
+    if (!cond_.IsValid(i) || (cond_.Value(i) && !left_.IsValid(i)) ||
+        (!cond_.Value(i) && !right_.IsValid(i))) {
+      ASSERT_OK(builder.AppendNull());
+      continue;
+    }
 
-  /* -------- Cond - Scalar, Left- Array, Right - Scalar --------- */
-  /* empty */
-  CheckIfElseOutputSAS(type, bool_true, "[]", valid_scalar, "[]");
+    if (cond_.Value(i)) {
+      ASSERT_OK(builder.Append(left_.Value(i)));
+    } else {
+      ASSERT_OK(builder.Append(right_.Value(i)));
+    }
+  }
+  ASSERT_OK_AND_ASSIGN(auto expected_data, builder.Finish());
 
-  /* CLR = 111 */
-  CheckIfElseOutputSAS(
-      type, bool_true, "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
-      valid_scalar, "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]");
-  /* CLR = 011 */
-  CheckIfElseOutputSAS(type, bool_null,
-                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
-                       valid_scalar, "[null, null, null, null]");
-  /* CLR = 101 */
-  CheckIfElseOutputSAS(type, bool_false,
-                       "[" + l[0] + ", null, " + l[2] + ", " + l[3] + "]", valid_scalar,
-                       "[" + v[0] + ", " + v[0] + ", " + v[0] + ", " + v[0] + "]");
-  /* CLR = 001 */
-  CheckIfElseOutputSAS(type, bool_null,
-                       "[" + l[0] + ", null, " + l[2] + ", " + l[3] + "]", valid_scalar,
-                       "[null, null, null, null]");
-  /* CLR = 110 */
-  CheckIfElseOutputSAS(
-      type, bool_true, "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
-      null_scalar, "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]");
-  /* CLR = 010 */
-  CheckIfElseOutputSAS(type, bool_null,
-                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
-                       null_scalar, "[null, null, null, null]");
-  /* CLR = 100 */
-  CheckIfElseOutputSAS(type, bool_false, "[" + l[0] + ", " + l[1] + ", null, null]",
-                       null_scalar, "[null, null, null, null]");
-  /* CLR = 000 */
-  CheckIfElseOutputSAS(type, bool_null, "[" + l[0] + ", " + l[1] + ", null, null]",
-                       null_scalar, "[null, null, null, null]");
-
-  /* -------- Cond - Scalar, Left- Scalar, Right - Array --------- */
-  /* empty */
-  CheckIfElseOutputSSA(type, bool_true, valid_scalar, "[]", "[]");
-
-  /* CLR = 111 */
-  CheckIfElseOutputSSA(type, bool_true, valid_scalar,
-                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
-                       "[" + v[0] + ", " + v[0] + ", " + v[0] + ", " + v[0] + "]");
-  /* CLR = 011 */
-  CheckIfElseOutputSSA(type, bool_null, valid_scalar,
-                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
-                       "[null, null, null, null]");
-  /* CLR = 110 */
-  CheckIfElseOutputSSA(type, bool_false, valid_scalar,
-                       "[" + l[0] + ", null, " + l[2] + ", null]",
-                       "[" + l[0] + ", null, " + l[2] + ", null]");
-  /* CLR = 010 */
-  CheckIfElseOutputSSA(type, bool_null, valid_scalar,
-                       "[" + l[0] + ", null, " + l[2] + ", null]",
-                       "[null, null, null, null]");
-  /* CLR = 101 */
-  CheckIfElseOutputSSA(type, bool_true, null_scalar,
-                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
-                       "[null, null, null, null]");
-  /* CLR = 001 */
-  CheckIfElseOutputSSA(type, bool_null, null_scalar,
-                       "[" + l[0] + ", " + l[1] + ", " + l[2] + ", " + l[3] + "]",
-                       "[null, null, null, null]");
-  /* CLR = 100 */
-  CheckIfElseOutputSSA(type, bool_false, null_scalar,
-                       "[" + l[0] + ", " + l[1] + ", null, " + l[3] + "]",
-                       "[" + l[0] + ", " + l[1] + ", null, " + l[3] + "]");
-  /* CLR = 000 */
-  CheckIfElseOutputSSA(type, bool_null, null_scalar,
-                       "[" + l[0] + ", " + l[1] + ", null, " + l[3] + "]",
-                       "[null, null, null, null]");
-
-  /* -------- Cond - Scalar, Left- Scalar, Right - Scalar --------- */
-
-  /* CLR = 111 */
-  CheckIfElseOutput(bool_false, valid_scalar, valid_scalar1, valid_scalar1);
-  /* CLR = 011 */
-  CheckIfElseOutput(bool_null, valid_scalar, valid_scalar1, null_scalar);
-  /* CLR = 110 */
-  CheckIfElseOutput(bool_true, valid_scalar, null_scalar, valid_scalar);
-  /* CLR = 010 */
-  CheckIfElseOutput(bool_null, valid_scalar, null_scalar, null_scalar);
-  /* CLR = 101 */
-  CheckIfElseOutput(bool_false, null_scalar, valid_scalar1, valid_scalar1);
-  /* CLR = 001 */
-  CheckIfElseOutput(bool_null, null_scalar, valid_scalar1, null_scalar);
-  /* CLR = 100 */
-  CheckIfElseOutput(bool_true, null_scalar, null_scalar, null_scalar);
-  /* CLR = 000 */
-  CheckIfElseOutput(bool_null, null_scalar, null_scalar, null_scalar);
+  *out = expected_data;
 }
 
-/*
- * Legend:
- * C - Cond, L - Left, R - Right
- * 1 - All valid (or valid scalar), 0 - Could have nulls (or invalid scalar)
- */
-TYPED_TEST(TestIfElsePrimitive, IfElseFixedSize) {
+TYPED_TEST(TestIfElsePrimitive, IfElseFixedSizeGen) {
   auto type = TypeTraits<TypeParam>::type_singleton();
-  using T = typename TypeTraits<TypeParam>::CType;
 
-  DoIfElseTest<T>(type, {1, 2, 3, 4}, {5, 6, 7, 8}, {100, 111});
+  std::vector<Datum> cond_datums{ArrayFromJSON(boolean(), "[true, true, true, false]"),
+                                 ArrayFromJSON(boolean(), "[true, null, true, false]"),
+                                 MakeScalar(boolean(), true).ValueOrDie(),
+                                 MakeNullScalar(boolean())};
+
+  std::vector<Datum> left_datums{
+      ArrayFromJSON(type, "[1, 2, 3, 4]"), ArrayFromJSON(type, "[1, 2, null, 4]"),
+      MakeScalar(type, 100).ValueOrDie(), MakeNullScalar(type)};
+
+  std::vector<Datum> right_datums{
+      ArrayFromJSON(type, "[5, 6, 7, 8]"), ArrayFromJSON(type, "[5, 6, 7, null]"),
+      MakeScalar(type, 111).ValueOrDie(), MakeNullScalar(type)};
+
+  for (auto&& cond : cond_datums) {
+    for (auto&& left : left_datums) {
+      for (auto&& right : right_datums) {
+        Datum exp;
+        GenerateExpected<TypeParam>(cond, left, right, &exp);
+        CheckIfElseOutput(cond, left, right, exp);
+      }
+    }
+  }
 }
 
-TEST_F(TestIfElseKernel, IfElseBoolean) {
+TEST_F(TestIfElseKernel, IfElseBooleanGen) {
   auto type = boolean();
 
-  DoIfElseTest<bool>(type, {false, false, false, false}, {true, true, true, true},
-                     {false, true});
+  std::vector<Datum> cond_datums{ArrayFromJSON(boolean(), "[true, true, true, false]"),
+                                 ArrayFromJSON(boolean(), "[true, true, null, false]"),
+                                 MakeScalar(boolean(), true).ValueOrDie(),
+                                 MakeNullScalar(boolean())};
+
+  std::vector<Datum> left_datums{ArrayFromJSON(type, "[false, false, false, false]"),
+                                 ArrayFromJSON(type, "[false, false, null, false]"),
+                                 MakeScalar(type, false).ValueOrDie(),
+                                 MakeNullScalar(type)};
+
+  std::vector<Datum> right_datums{ArrayFromJSON(type, "[true, true, true, true]"),
+                                  ArrayFromJSON(type, "[true, true, true, null]"),
+                                  MakeScalar(type, true).ValueOrDie(),
+                                  MakeNullScalar(type)};
+
+  for (auto&& cond : cond_datums) {
+    for (auto&& left : left_datums) {
+      for (auto&& right : right_datums) {
+        Datum exp;
+        GenerateExpected<BooleanType>(cond, left, right, &exp);
+        CheckIfElseOutput(cond, left, right, exp);
+      }
+    }
+  }
 }
 
 TYPED_TEST(TestIfElsePrimitive, IfElseBooleanRand) {
@@ -496,8 +249,10 @@ TYPED_TEST(TestIfElsePrimitive, IfElseBooleanRand) {
 }
 
 TEST_F(TestIfElseKernel, IfElseNull) {
-  CheckIfElseOutputAAA(null(), "[null, null, null, null]", "[null, null, null, null]",
-                       "[null, null, null, null]", "[null, null, null, null]");
+  CheckIfElseOutput(ArrayFromJSON(boolean(), "[null, null, null, null]"),
+                    ArrayFromJSON(null(), "[null, null, null, null]"),
+                    ArrayFromJSON(null(), "[null, null, null, null]"),
+                    ArrayFromJSON(null(), "[null, null, null, null]"));
 }
 
 TEST_F(TestIfElseKernel, IfElseWithOffset) {
