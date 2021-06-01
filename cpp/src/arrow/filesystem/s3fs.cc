@@ -40,6 +40,7 @@
 #include <aws/core/Region.h>
 #include <aws/core/auth/AWSCredentials.h>
 #include <aws/core/auth/AWSCredentialsProviderChain.h>
+#include <aws/core/auth/STSCredentialsProvider.h>
 #include <aws/core/client/RetryStrategy.h>
 #include <aws/core/http/HttpResponse.h>
 #include <aws/core/utils/logging/ConsoleLogSystem.h>
@@ -205,10 +206,12 @@ bool S3ProxyOptions::Equals(const S3ProxyOptions& other) const {
 void S3Options::ConfigureDefaultCredentials() {
   credentials_provider =
       std::make_shared<Aws::Auth::DefaultAWSCredentialsProviderChain>();
+  credentials_kind = S3CredentialsKind::Default;
 }
 
 void S3Options::ConfigureAnonymousCredentials() {
   credentials_provider = std::make_shared<Aws::Auth::AnonymousAWSCredentialsProvider>();
+  credentials_kind = S3CredentialsKind::Anonymous;
 }
 
 void S3Options::ConfigureAccessKey(const std::string& access_key,
@@ -216,6 +219,7 @@ void S3Options::ConfigureAccessKey(const std::string& access_key,
                                    const std::string& session_token) {
   credentials_provider = std::make_shared<Aws::Auth::SimpleAWSCredentialsProvider>(
       ToAwsString(access_key), ToAwsString(secret_key), ToAwsString(session_token));
+  credentials_kind = S3CredentialsKind::Explicit;
 }
 
 void S3Options::ConfigureAssumeRoleCredentials(
@@ -225,6 +229,16 @@ void S3Options::ConfigureAssumeRoleCredentials(
   credentials_provider = std::make_shared<Aws::Auth::STSAssumeRoleCredentialsProvider>(
       ToAwsString(role_arn), ToAwsString(session_name), ToAwsString(external_id),
       load_frequency, stsClient);
+  credentials_kind = S3CredentialsKind::Role;
+}
+
+void S3Options::ConfigureAssumeRoleWithWebIdentityCredentials() {
+  // The AWS SDK uses environment variables AWS_DEFAULT_REGION,
+  // AWS_ROLE_ARN, AWS_WEB_IDENTITY_TOKEN_FILE and AWS_ROLE_SESSION_NAME
+  // to configure the required credentials
+  credentials_provider =
+      std::make_shared<Aws::Auth::STSAssumeRoleWebIdentityCredentialsProvider>();
+  credentials_kind = S3CredentialsKind::WebIdentity;
 }
 
 std::string S3Options::GetAccessKey() const {
@@ -273,6 +287,12 @@ S3Options S3Options::FromAssumeRole(
   options.load_frequency = load_frequency;
   options.ConfigureAssumeRoleCredentials(role_arn, session_name, external_id,
                                          load_frequency, stsClient);
+  return options;
+}
+
+S3Options S3Options::FromAssumeRoleWithWebIdentity() {
+  S3Options options;
+  options.ConfigureAssumeRoleWithWebIdentityCredentials();
   return options;
 }
 
@@ -344,6 +364,7 @@ Result<S3Options> S3Options::FromUri(const std::string& uri_string,
 bool S3Options::Equals(const S3Options& other) const {
   return (region == other.region && endpoint_override == other.endpoint_override &&
           scheme == other.scheme && background_writes == other.background_writes &&
+          credentials_kind == other.credentials_kind &&
           proxy_options.Equals(other.proxy_options) &&
           GetAccessKey() == other.GetAccessKey() &&
           GetSecretKey() == other.GetSecretKey() &&

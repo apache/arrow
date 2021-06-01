@@ -113,7 +113,7 @@ cdef class S3FileSystem(FileSystem):
         CS3FileSystem* s3fs
 
     def __init__(self, *, access_key=None, secret_key=None, session_token=None,
-                 anonymous=False, region=None, scheme=None,
+                 bint anonymous=False, region=None, scheme=None,
                  endpoint_override=None, bint background_writes=True,
                  role_arn=None, session_name=None, external_id=None,
                  load_frequency=900, proxy_options=None):
@@ -161,8 +161,13 @@ cdef class S3FileSystem(FileSystem):
                 tobytes(session_token)
             )
         elif anonymous:
+            if role_arn:
+                raise ValueError(
+                    'Cannot provide role_arn with anonymous=True')
+
             options = CS3Options.Anonymous()
-        elif role_arn is not None:
+        elif role_arn:
+
             options = CS3Options.FromAssumeRole(
                 tobytes(role_arn),
                 tobytes(session_name),
@@ -216,28 +221,28 @@ cdef class S3FileSystem(FileSystem):
     def __reduce__(self):
         cdef CS3Options opts = self.s3fs.options()
 
-        role_arn = frombytes(opts.role_arn)
-
-        # if role_arn is set, we should not re-use temporary credentials
-        # but instead recreate a new assume role session
-        if role_arn:
-            access_key = None
-            secret_key = None
-            session_token = None
-        else:
+        # if creds were explicitly provided, then use them
+        # else obtain them as they were last time.
+        if opts.credentials_kind == CS3CredentialsKind_Explicit:
             access_key = frombytes(opts.GetAccessKey())
             secret_key = frombytes(opts.GetSecretKey())
             session_token = frombytes(opts.GetSessionToken())
+        else:
+            access_key = None
+            secret_key = None
+            session_token = None
 
         return (
             S3FileSystem._reconstruct, (dict(
                 access_key=access_key,
                 secret_key=secret_key,
                 session_token=session_token,
+                anonymous=(opts.credentials_kind ==
+                           CS3CredentialsKind_Anonymous),
                 region=frombytes(opts.region),
                 scheme=frombytes(opts.scheme),
                 endpoint_override=frombytes(opts.endpoint_override),
-                role_arn=role_arn,
+                role_arn=frombytes(opts.role_arn),
                 session_name=frombytes(opts.session_name),
                 external_id=frombytes(opts.external_id),
                 load_frequency=opts.load_frequency,

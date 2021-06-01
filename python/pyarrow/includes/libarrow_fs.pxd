@@ -137,6 +137,14 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         CResult[CS3ProxyOptions] FromUriString "FromUri"(
             const c_string& uri_string)
 
+    ctypedef enum CS3CredentialsKind "arrow::fs::S3CredentialsKind":
+        CS3CredentialsKind_Anonymous "arrow::fs::S3CredentialsKind::Anonymous"
+        CS3CredentialsKind_Default "arrow::fs::S3CredentialsKind::Default"
+        CS3CredentialsKind_Explicit "arrow::fs::S3CredentialsKind::Explicit"
+        CS3CredentialsKind_Role "arrow::fs::S3CredentialsKind::Role"
+        CS3CredentialsKind_WebIdentity \
+            "arrow::fs::S3CredentialsKind::WebIdentity"
+
     cdef cppclass CS3Options "arrow::fs::S3Options":
         c_string region
         c_string endpoint_override
@@ -147,6 +155,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         c_string external_id
         int load_frequency
         CS3ProxyOptions proxy_options
+        CS3CredentialsKind credentials_kind
         void ConfigureDefaultCredentials()
         void ConfigureAccessKey(const c_string& access_key,
                                 const c_string& secret_key,
