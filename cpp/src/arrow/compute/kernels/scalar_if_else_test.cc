@@ -83,141 +83,147 @@ TYPED_TEST(TestIfElsePrimitive, IfElseFixedSizeRand) {
   CheckIfElseOutput(cond, left, right, expected_data);
 }
 
-template <typename Type>
-struct DatumWrapper {
-  using CType = typename TypeTraits<Type>::CType;
-  using ArrayType = typename TypeTraits<Type>::ArrayType;
-  using ScalarType = typename TypeTraits<Type>::ScalarType;
+void CheckWithDifferentShapes(const std::shared_ptr<Array>& cond,
+                              const std::shared_ptr<Array>& left,
+                              const std::shared_ptr<Array>& right,
+                              const std::shared_ptr<Array>& expected) {
+  // this will check for whole arrays, every scalar at i'th index and slicing (offset)
+  CheckScalar("if_else", {cond, left, right}, expected);
 
-  util::Variant<std::shared_ptr<ScalarType>, std::shared_ptr<ArrayType>> datum;
-  bool is_scalar;
+  auto len = left->length();
 
-  explicit DatumWrapper(const Datum& datum_) : is_scalar(datum_.is_scalar()) {
-    if (is_scalar) {
-      datum = std::move(std::static_pointer_cast<ScalarType>(datum_.scalar()));
-    } else {
-      datum = std::move(std::static_pointer_cast<ArrayType>(datum_.make_array()));
+  enum { COND_SCALAR = 1, LEFT_SCALAR = 2, RIGHT_SCALAR = 4 };
+  for (int mask = 0; mask < (COND_SCALAR | LEFT_SCALAR | RIGHT_SCALAR); ++mask) {
+    for (int64_t cond_idx = 0; cond_idx < len; ++cond_idx) {
+      Datum cond_in, cond_bcast;
+      if (mask & COND_SCALAR) {
+        ASSERT_OK_AND_ASSIGN(cond_in, cond->GetScalar(cond_idx));
+        ASSERT_OK_AND_ASSIGN(cond_bcast, MakeArrayFromScalar(*cond_in.scalar(), len));
+      } else {
+        cond_in = cond_bcast = cond;
+      }
+
+      for (int64_t left_idx = 0; left_idx < len; ++left_idx) {
+        Datum left_in, left_bcast;
+        if (mask & LEFT_SCALAR) {
+          ASSERT_OK_AND_ASSIGN(left_in, left->GetScalar(left_idx).As<Datum>());
+          ASSERT_OK_AND_ASSIGN(left_bcast, MakeArrayFromScalar(*left_in.scalar(), len));
+        } else {
+          left_in = left_bcast = left;
+        }
+
+        for (int64_t right_idx = 0; right_idx < len; ++right_idx) {
+          Datum right_in, right_bcast;
+          if (mask & RIGHT_SCALAR) {
+            ASSERT_OK_AND_ASSIGN(right_in, right->GetScalar(right_idx));
+            ASSERT_OK_AND_ASSIGN(right_bcast,
+                                 MakeArrayFromScalar(*right_in.scalar(), len));
+          } else {
+            right_in = right_bcast = right;
+          }
+
+          ASSERT_OK_AND_ASSIGN(auto exp, IfElse(cond_bcast, left_bcast, right_bcast));
+          ASSERT_OK_AND_ASSIGN(auto actual, IfElse(cond_in, left_in, right_in));
+          AssertDatumsEqual(exp, actual, /*verbose=*/true);
+
+          if (right_in.is_array()) break;
+        }
+        if (left_in.is_array()) break;
+      }
+      if (cond_in.is_array()) break;
     }
-  }
-
-  bool IsValid(int64_t i) const {
-    return is_scalar ? util::get<std::shared_ptr<ScalarType>>(datum)->is_valid
-                     : util::get<std::shared_ptr<ArrayType>>(datum)->IsValid(i);
-  }
-
-  CType Value(int64_t i) const {
-    return is_scalar ? util::get<std::shared_ptr<ScalarType>>(datum)->value
-                     : util::get<std::shared_ptr<ArrayType>>(datum)->Value(i);
-  }
-};
-
-template <typename Type>
-void GenerateExpected(const Datum& cond, const Datum& left, const Datum& right,
-                      Datum* out) {
-  int64_t len = cond.is_array() ? cond.length()
-                                : left.is_array() ? left.length()
-                                                  : right.is_array() ? right.length() : 1;
-
-  DatumWrapper<BooleanType> cond_(cond);
-  DatumWrapper<Type> left_(left);
-  DatumWrapper<Type> right_(right);
-
-  int64_t i = 0;
-
-  // if all scalars
-  if (cond.is_scalar() && left.is_scalar() && right.is_scalar()) {
-    if (!cond_.IsValid(i) || (cond_.Value(i) && !left_.IsValid(i)) ||
-        (!cond_.Value(i) && !right_.IsValid(i))) {
-      *out = MakeNullScalar(left.type());
-      return;
-    }
-
-    if (cond_.Value(i)) {
-      *out = left;
-      return;
-    } else {
-      *out = right;
-      return;
-    }
-  }
-
-  typename TypeTraits<Type>::BuilderType builder;
-
-  for (; i < len; ++i) {
-    if (!cond_.IsValid(i) || (cond_.Value(i) && !left_.IsValid(i)) ||
-        (!cond_.Value(i) && !right_.IsValid(i))) {
-      ASSERT_OK(builder.AppendNull());
-      continue;
-    }
-
-    if (cond_.Value(i)) {
-      ASSERT_OK(builder.Append(left_.Value(i)));
-    } else {
-      ASSERT_OK(builder.Append(right_.Value(i)));
-    }
-  }
-  ASSERT_OK_AND_ASSIGN(auto expected_data, builder.Finish());
-
-  *out = expected_data;
+  }  // for (mask)
 }
 
-TYPED_TEST(TestIfElsePrimitive, IfElseFixedSizeGen) {
+TYPED_TEST(TestIfElsePrimitive, IfElseFixedSize) {
   auto type = TypeTraits<TypeParam>::type_singleton();
 
-  std::vector<Datum> cond_datums{ArrayFromJSON(boolean(), "[true, true, true, false]"),
-                                 ArrayFromJSON(boolean(), "[true, null, true, false]"),
-                                 MakeScalar(boolean(), true).ValueOrDie(),
-                                 MakeNullScalar(boolean())};
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[true, true, true, false]"),
+                           ArrayFromJSON(type, "[1, 2, 3, 4]"),
+                           ArrayFromJSON(type, "[5, 6, 7, 8]"),
+                           ArrayFromJSON(type, "[1, 2, 3, 8]"));
 
-  std::vector<Datum> left_datums{
-      ArrayFromJSON(type, "[1, 2, 3, 4]"), ArrayFromJSON(type, "[1, 2, null, 4]"),
-      MakeScalar(type, 100).ValueOrDie(), MakeNullScalar(type)};
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[true, true, true, false]"),
+                           ArrayFromJSON(type, "[1, 2, 3, 4]"),
+                           ArrayFromJSON(type, "[5, 6, 7, null]"),
+                           ArrayFromJSON(type, "[1, 2, 3, null]"));
 
-  std::vector<Datum> right_datums{
-      ArrayFromJSON(type, "[5, 6, 7, 8]"), ArrayFromJSON(type, "[5, 6, 7, null]"),
-      MakeScalar(type, 111).ValueOrDie(), MakeNullScalar(type)};
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[true, true, true, false]"),
+                           ArrayFromJSON(type, "[1, 2, null, 4]"),
+                           ArrayFromJSON(type, "[5, 6, 7, null]"),
+                           ArrayFromJSON(type, "[1, 2, null, null]"));
 
-  for (auto&& cond : cond_datums) {
-    for (auto&& left : left_datums) {
-      for (auto&& right : right_datums) {
-        Datum exp;
-        GenerateExpected<TypeParam>(cond, left, right, &exp);
-        CheckIfElseOutput(cond, left, right, exp);
-      }
-    }
-  }
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[true, true, true, false]"),
+                           ArrayFromJSON(type, "[1, 2, null, 4]"),
+                           ArrayFromJSON(type, "[5, 6, 7, 8]"),
+                           ArrayFromJSON(type, "[1, 2, null, 8]"));
+
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[null, true, true, false]"),
+                           ArrayFromJSON(type, "[1, 2, null, 4]"),
+                           ArrayFromJSON(type, "[5, 6, 7, 8]"),
+                           ArrayFromJSON(type, "[null, 2, null, 8]"));
+
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[null, true, true, false]"),
+                           ArrayFromJSON(type, "[1, 2, null, 4]"),
+                           ArrayFromJSON(type, "[5, 6, 7, null]"),
+                           ArrayFromJSON(type, "[null, 2, null, null]"));
+
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[null, true, true, false]"),
+                           ArrayFromJSON(type, "[1, 2, 3, 4]"),
+                           ArrayFromJSON(type, "[5, 6, 7, null]"),
+                           ArrayFromJSON(type, "[null, 2, 3, null]"));
+
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[null, true, true, false]"),
+                           ArrayFromJSON(type, "[1, 2, 3, 4]"),
+                           ArrayFromJSON(type, "[5, 6, 7, 8]"),
+                           ArrayFromJSON(type, "[null, 2, 3, 8]"));
 }
 
-TEST_F(TestIfElseKernel, IfElseBooleanGen) {
+TEST_F(TestIfElseKernel, IfElseBoolean) {
   auto type = boolean();
 
-  std::vector<Datum> cond_datums{ArrayFromJSON(boolean(), "[true, true, true, false]"),
-                                 ArrayFromJSON(boolean(), "[true, true, null, false]"),
-                                 MakeScalar(boolean(), true).ValueOrDie(),
-                                 MakeNullScalar(boolean())};
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[true, true, true, false]"),
+                           ArrayFromJSON(type, "[false, false, false, false]"),
+                           ArrayFromJSON(type, "[true, true, true, true]"),
+                           ArrayFromJSON(type, "[false, false, false, true]"));
 
-  std::vector<Datum> left_datums{ArrayFromJSON(type, "[false, false, false, false]"),
-                                 ArrayFromJSON(type, "[false, false, null, false]"),
-                                 MakeScalar(type, false).ValueOrDie(),
-                                 MakeNullScalar(type)};
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[true, true, true, false]"),
+                           ArrayFromJSON(type, "[false, false, false, false]"),
+                           ArrayFromJSON(type, "[true, true, true, null]"),
+                           ArrayFromJSON(type, "[false, false, false, null]"));
 
-  std::vector<Datum> right_datums{ArrayFromJSON(type, "[true, true, true, true]"),
-                                  ArrayFromJSON(type, "[true, true, true, null]"),
-                                  MakeScalar(type, true).ValueOrDie(),
-                                  MakeNullScalar(type)};
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[true, true, true, false]"),
+                           ArrayFromJSON(type, "[false, false, null, false]"),
+                           ArrayFromJSON(type, "[true, true, true, null]"),
+                           ArrayFromJSON(type, "[false, false, null, null]"));
 
-  for (auto&& cond : cond_datums) {
-    for (auto&& left : left_datums) {
-      for (auto&& right : right_datums) {
-        Datum exp;
-        GenerateExpected<BooleanType>(cond, left, right, &exp);
-        CheckIfElseOutput(cond, left, right, exp);
-      }
-    }
-  }
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[true, true, true, false]"),
+                           ArrayFromJSON(type, "[false, false, null, false]"),
+                           ArrayFromJSON(type, "[true, true, true, true]"),
+                           ArrayFromJSON(type, "[false, false, null, true]"));
+
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[null, true, true, false]"),
+                           ArrayFromJSON(type, "[false, false, null, false]"),
+                           ArrayFromJSON(type, "[true, true, true, true]"),
+                           ArrayFromJSON(type, "[null, false, null, true]"));
+
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[null, true, true, false]"),
+                           ArrayFromJSON(type, "[false, false, null, false]"),
+                           ArrayFromJSON(type, "[true, true, true, null]"),
+                           ArrayFromJSON(type, "[null, false, null, null]"));
+
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[null, true, true, false]"),
+                           ArrayFromJSON(type, "[false, false, false, false]"),
+                           ArrayFromJSON(type, "[true, true, true, null]"),
+                           ArrayFromJSON(type, "[null, false, false, null]"));
+
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[null, true, true, false]"),
+                           ArrayFromJSON(type, "[false, false, false, false]"),
+                           ArrayFromJSON(type, "[true, true, true, true]"),
+                           ArrayFromJSON(type, "[null, false, false, true]"));
 }
 
-TYPED_TEST(TestIfElsePrimitive, IfElseBooleanRand) {
+TEST_F(TestIfElseKernel, IfElseBooleanRand) {
   auto type = boolean();
   random::RandomArrayGenerator rand(/*seed=*/0);
   int64_t len = 1000;

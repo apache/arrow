@@ -70,6 +70,8 @@ ScalarVector GetScalars(const ArrayVector& inputs, int64_t index) {
   return scalars;
 }
 
+}  // namespace
+
 void CheckScalar(std::string func_name, const ScalarVector& inputs,
                  std::shared_ptr<Scalar> expected, const FunctionOptions* options) {
   ASSERT_OK_AND_ASSIGN(Datum out, CallFunction(func_name, GetDatums(inputs), options));
@@ -139,8 +141,6 @@ void CheckScalar(std::string func_name, const ArrayVector& inputs,
     AssertDatumsEqual(std::make_shared<ChunkedArray>(expected_chunks), out);
   }
 }
-
-}  // namespace
 
 void CheckScalarUnary(std::string func_name, std::shared_ptr<Array> input,
                       std::shared_ptr<Array> expected, const FunctionOptions* options) {
