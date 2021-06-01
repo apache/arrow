@@ -707,9 +707,9 @@ Note: timezone information is currently ignored if present.
 | subsecond          | Unary      | Temporal          | Numeric         |        |
 +--------------------+------------+-------------------+-----------------+--------+
 
-* \(1) The ISO 8601 definition for week 01 is the week with the first Thursday
+* \(1) The `ISO 8601 week date definition`_ for week 01 is the week with the first Thursday
   of the Gregorian year (i.e. of January) in it.
-  .. _Wikipedia ISO Week date: https://en.wikipedia.org/wiki/ISO_week_date#First_week
+.. _ISO 8601 week date definition: https://en.wikipedia.org/wiki/ISO_week_date#First_week
 
 * \(2) Struct with fields ISO year, ISO week number, and weekday.
 

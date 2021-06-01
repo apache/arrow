@@ -521,7 +521,7 @@ ARROW_EXPORT
 Result<Datum> IfElse(const Datum& cond, const Datum& left, const Datum& right,
                      ExecContext* ctx = NULLPTR);
 
-/// \brief Year returns year value for each element of `values`
+/// \brief Year returns year for each element of `values`
 ///
 /// \param[in] values input to extract year from
 /// \param[in] ctx the function execution context, optional
@@ -532,7 +532,8 @@ Result<Datum> IfElse(const Datum& cond, const Datum& left, const Datum& right,
 ARROW_EXPORT
 Result<Datum> Year(const Datum& values, ExecContext* ctx = NULLPTR);
 
-/// \brief Month returns month value for each element of `values`
+/// \brief Month returns month for each element of `values`.
+/// Month is encoded as January=1, December=12
 ///
 /// \param[in] values input to extract month from
 /// \param[in] ctx the function execution context, optional
@@ -543,7 +544,7 @@ Result<Datum> Year(const Datum& values, ExecContext* ctx = NULLPTR);
 ARROW_EXPORT
 Result<Datum> Month(const Datum& values, ExecContext* ctx = NULLPTR);
 
-/// \brief Day returns day value for each element of `values`
+/// \brief Day returns day number for each element of `values`
 ///
 /// \param[in] values input to extract day from
 /// \param[in] ctx the function execution context, optional
@@ -554,9 +555,10 @@ Result<Datum> Month(const Datum& values, ExecContext* ctx = NULLPTR);
 ARROW_EXPORT
 Result<Datum> Day(const Datum& values, ExecContext* ctx = NULLPTR);
 
-/// \brief DayOfWeek returns day of the week value for each element of `values`
+/// \brief DayOfWeek returns number of the day of the week value for each  element of
+/// `values`. Week begins starts on Monday denoted by 0 and ends on Sunday denoted by 6.
 ///
-/// \param[in] values input to extract dat of the week from
+/// \param[in] values input to extract number of the day of the week from
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
@@ -564,9 +566,10 @@ Result<Datum> Day(const Datum& values, ExecContext* ctx = NULLPTR);
 /// \note API not yet finalized
 ARROW_EXPORT Result<Datum> DayOfWeek(const Datum& values, ExecContext* ctx = NULLPTR);
 
-/// \brief DayOfYear returns day of year value for each element of `values`
+/// \brief DayOfYear returns number of day of the year for each element of `values`.
+/// January 1st maps to day number 1, February 1st to 32, etc.
 ///
-/// \param[in] values input to extract day of year from
+/// \param[in] values input to extract number of day of the year from
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
@@ -574,7 +577,8 @@ ARROW_EXPORT Result<Datum> DayOfWeek(const Datum& values, ExecContext* ctx = NUL
 /// \note API not yet finalized
 ARROW_EXPORT Result<Datum> DayOfYear(const Datum& values, ExecContext* ctx = NULLPTR);
 
-/// \brief ISOYear returns ISO year value for each element of `values`
+/// \brief ISOYear returns ISO year value for each element of `values`.
+/// The last week of an ISO year has the years last Thursday in it.
 ///
 /// \param[in] values input to extract ISO year from
 /// \param[in] ctx the function execution context, optional
@@ -585,7 +589,9 @@ ARROW_EXPORT Result<Datum> DayOfYear(const Datum& values, ExecContext* ctx = NUL
 ARROW_EXPORT
 Result<Datum> ISOYear(const Datum& values, ExecContext* ctx = NULLPTR);
 
-/// \brief ISOWeek returns ISO week of year value for each element of `values`
+/// \brief ISOWeek returns ISO week of year value for each element of `values`.
+/// The last week of an ISO year has the years last Thursday in it.
+/// Week of the year starts with 1 and can run up to 53.
 ///
 /// \param[in] values input to extract ISO week of year from
 /// \param[in] ctx the function execution context, optional
@@ -595,7 +601,7 @@ Result<Datum> ISOYear(const Datum& values, ExecContext* ctx = NULLPTR);
 /// \note API not yet finalized
 ARROW_EXPORT Result<Datum> ISOWeek(const Datum& values, ExecContext* ctx = NULLPTR);
 
-/// \brief ISOCalendar returns a (year, ISO week, weekday) struct for each element of
+/// \brief ISOCalendar returns a (ISO year, ISO week, weekday) struct for each element of
 /// `values`
 ///
 /// \param[in] values input to ISO calendar struct from
@@ -606,7 +612,8 @@ ARROW_EXPORT Result<Datum> ISOWeek(const Datum& values, ExecContext* ctx = NULLP
 /// \note API not yet finalized
 ARROW_EXPORT Result<Datum> ISOCalendar(const Datum& values, ExecContext* ctx = NULLPTR);
 
-/// \brief Quarter returns quarter of year value for each element of `values`
+/// \brief Quarter returns the quarter of year value for each element of `values`
+/// First quarter maps to 1 and forth quarter maps to 4.
 ///
 /// \param[in] values input to extract quarter of year from
 /// \param[in] ctx the function execution context, optional

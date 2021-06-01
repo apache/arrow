@@ -23,14 +23,14 @@
 namespace arrow {
 
 namespace compute {
+
 namespace internal {
 
-using applicator::ScalarUnaryNotNull;
-using applicator::SimpleUnary;
+namespace {
+
 using arrow_vendored::date::days;
 using arrow_vendored::date::floor;
 using arrow_vendored::date::hh_mm_ss;
-using arrow_vendored::date::sys_days;
 using arrow_vendored::date::sys_time;
 using arrow_vendored::date::trunc;
 using arrow_vendored::date::weekday;
@@ -42,12 +42,14 @@ using arrow_vendored::date::literals::jan;
 using arrow_vendored::date::literals::last;
 using arrow_vendored::date::literals::mon;
 using arrow_vendored::date::literals::thu;
+using internal::applicator::ScalarUnaryNotNull;
+using internal::applicator::SimpleUnary;
 
 // Based on ScalarUnaryNotNullStateful. Adds timezone awareness.
 template <typename OutType, typename Op>
 struct ScalarUnaryStatefulTemporal {
   using ThisType = ScalarUnaryStatefulTemporal<OutType, Op>;
-  using OutValue = typename GetOutputType<OutType>::T;
+  using OutValue = typename internal::GetOutputType<OutType>::T;
 
   Op op;
   explicit ScalarUnaryStatefulTemporal(Op op) : op(std::move(op)) {}
@@ -57,13 +59,13 @@ struct ScalarUnaryStatefulTemporal {
     static Status Exec(const ThisType& functor, KernelContext* ctx, const ArrayData& arg0,
                        Datum* out) {
       const std::string timezone =
-          std::static_pointer_cast<const TimestampType>(arg0.type)->timezone();
+          checked_pointer_cast<const TimestampType>(arg0.type)->timezone();
       Status st = Status::OK();
       ArrayData* out_arr = out->mutable_array();
       auto out_data = out_arr->GetMutableValues<OutValue>(1);
 
       if (timezone.empty()) {
-        VisitArrayValuesInline<Int64Type>(
+        internal::VisitArrayValuesInline<Int64Type>(
             arg0,
             [&](int64_t v) {
               *out_data++ = functor.op.template Call<OutValue>(ctx, v, &st);
@@ -82,13 +84,13 @@ struct ScalarUnaryStatefulTemporal {
 
   Status Scalar(KernelContext* ctx, const Scalar& arg0, Datum* out) {
     const std::string timezone =
-        std::static_pointer_cast<const TimestampType>(arg0.type)->timezone();
+        checked_pointer_cast<const TimestampType>(arg0.type)->timezone();
     Status st = Status::OK();
     if (timezone.empty()) {
       if (arg0.is_valid) {
-        int64_t arg0_val = UnboxScalar<Int64Type>::Unbox(arg0);
-        BoxScalar<OutType>::Box(this->op.template Call<OutValue>(ctx, arg0_val, &st),
-                                out->scalar().get());
+        int64_t arg0_val = internal::UnboxScalar<Int64Type>::Unbox(arg0);
+        internal::BoxScalar<OutType>::Box(
+            this->op.template Call<OutValue>(ctx, arg0_val, &st), out->scalar().get());
       }
     } else {
       st = Status::Invalid("Timezone aware timestamps not supported. Timezone found: ",
@@ -108,7 +110,7 @@ struct ScalarUnaryStatefulTemporal {
 
 template <typename OutType, typename Op>
 struct ScalarUnaryTemporal {
-  using OutValue = typename GetOutputType<OutType>::T;
+  using OutValue = typename internal::GetOutputType<OutType>::T;
 
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     // Seed kernel with dummy state
@@ -173,8 +175,9 @@ template <typename Duration>
 struct DayOfYear {
   template <typename T>
   static T Call(KernelContext*, int64_t arg, Status*) {
-    const auto sd = sys_days{floor<days>(Duration{arg})};
-    return static_cast<T>((sd - sys_days(year_month_day(sd).year() / jan / 0)).count());
+    const auto t = floor<days>(sys_time<Duration>(Duration{arg}));
+    return static_cast<T>(
+        (t - sys_time<days>(year_month_day(t).year() / jan / 0)).count());
   }
 };
 
@@ -186,7 +189,7 @@ struct ISOYear {
   template <typename T>
   static T Call(KernelContext*, int64_t arg, Status*) {
     return static_cast<T>(static_cast<const int32_t>(
-        year_month_day{sys_days{floor<days>(Duration{arg})} + days{3}}.year()));
+        year_month_day{floor<days>(sys_time<Duration>(Duration{arg})) + days{3}}.year()));
   }
 };
 
@@ -199,19 +202,19 @@ template <typename Duration>
 struct ISOWeek {
   template <typename T>
   static T Call(KernelContext*, int64_t arg, Status*) {
-    const auto dp = sys_days{floor<days>(Duration{arg})};
-    auto y = year_month_day{dp + days{3}}.year();
-    auto start = sys_days((y - years{1}) / dec / thu[last]) + (mon - thu);
-    if (dp < start) {
+    const auto t = floor<days>(sys_time<Duration>(Duration{arg}));
+    auto y = year_month_day{t + days{3}}.year();
+    auto start = sys_time<days>((y - years{1}) / dec / thu[last]) + (mon - thu);
+    if (t < start) {
       --y;
-      start = sys_days((y - years{1}) / dec / thu[last]) + (mon - thu);
+      start = sys_time<days>((y - years{1}) / dec / thu[last]) + (mon - thu);
     }
-    return static_cast<T>(trunc<weeks>(dp - start).count() + 1);
+    return static_cast<T>(trunc<weeks>(t - start).count() + 1);
   }
 };
 
 // ----------------------------------------------------------------------
-// Extract day of quarter from timestamp
+// Extract quarter from timestamp
 
 template <typename Duration>
 struct Quarter {
@@ -311,6 +314,21 @@ struct Nanosecond {
   }
 };
 
+template <typename Duration, typename T>
+inline std::vector<T> get_iso_calendar(int64_t arg) {
+  const auto t = floor<days>(sys_time<Duration>(Duration{arg}));
+  const auto ymd = year_month_day(t);
+  auto y = year_month_day{t + days{3}}.year();
+  auto start = sys_time<days>((y - years{1}) / dec / thu[last]) + (mon - thu);
+  if (t < start) {
+    --y;
+    start = sys_time<days>((y - years{1}) / dec / thu[last]) + (mon - thu);
+  }
+  return {static_cast<T>(static_cast<int32_t>(ymd.year())),
+          static_cast<T>(trunc<weeks>(t - start).count() + 1),
+          static_cast<T>(weekday(ymd).iso_encoding())};
+}
+
 // ----------------------------------------------------------------------
 // Extract ISO calendar values from timestamp
 
@@ -323,35 +341,26 @@ struct ISOCalendar {
     const auto& out_type = TypeTraits<OutType>::type_singleton();
 
     const std::string timezone =
-        std::static_pointer_cast<const TimestampType>(in.type)->timezone();
+        checked_pointer_cast<const TimestampType>(in.type)->timezone();
     if (!timezone.empty()) {
       return Status::Invalid("Timezone aware timestamps not supported. Timezone found: ",
                              timezone);
     }
 
-    if (!in.is_valid) {
-      out->is_valid = false;
-    } else {
+    if (in.is_valid) {
       const std::shared_ptr<DataType> iso_calendar_type =
           struct_({field("iso_year", out_type), field("iso_week", out_type),
-                   field("weekday", out_type)});
-
+                   field("day_of_week", out_type)});
       const auto& in_val = internal::UnboxScalar<const TimestampType>::Unbox(in);
-      const auto dp = sys_days{floor<days>(Duration{in_val})};
-      const auto ymd = year_month_day(dp);
-      auto y = year_month_day{dp + days{3}}.year();
-      auto start = sys_days((y - years{1}) / dec / thu[last]) + (mon - thu);
-      if (dp < start) {
-        --y;
-        start = sys_days((y - years{1}) / dec / thu[last]) + (mon - thu);
-      }
+      const auto iso_calendar = get_iso_calendar<Duration, T>(in_val);
 
       std::vector<std::shared_ptr<Scalar>> values = {
-          std::make_shared<ScalarType>(static_cast<T>(static_cast<int32_t>(ymd.year()))),
-          std::make_shared<ScalarType>(
-              static_cast<T>(trunc<weeks>(dp - start).count() + 1)),
-          std::make_shared<ScalarType>(static_cast<T>(weekday(ymd).iso_encoding()))};
+          std::make_shared<ScalarType>(iso_calendar[0]),
+          std::make_shared<ScalarType>(iso_calendar[1]),
+          std::make_shared<ScalarType>(iso_calendar[2])};
       *checked_cast<StructScalar*>(out) = StructScalar(values, iso_calendar_type);
+    } else {
+      out->is_valid = false;
     }
     return Status::OK();
   }
@@ -361,7 +370,7 @@ struct ISOCalendar {
     const auto& out_type = TypeTraits<OutType>::type_singleton();
 
     const std::string timezone =
-        std::static_pointer_cast<const TimestampType>(in.type)->timezone();
+        checked_pointer_cast<const TimestampType>(in.type)->timezone();
     if (!timezone.empty()) {
       return Status::Invalid("Timezone aware timestamps not supported. Timezone found: ",
                              timezone);
@@ -369,36 +378,26 @@ struct ISOCalendar {
 
     const std::shared_ptr<DataType> iso_calendar_type =
         struct_({field("iso_year", out_type), field("iso_week", out_type),
-                 field("weekday", out_type)});
+                 field("day_of_week", out_type)});
 
     std::unique_ptr<ArrayBuilder> array_builder;
     RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), iso_calendar_type, &array_builder));
     StructBuilder* struct_builder = checked_cast<StructBuilder*>(array_builder.get());
+    RETURN_NOT_OK(struct_builder->Reserve(in.length));
 
     std::vector<BuilderType*> field_builders;
     field_builders.reserve(3);
     for (int i = 0; i < 3; i++) {
       field_builders.push_back(
           checked_cast<BuilderType*>(struct_builder->field_builder(i)));
+      RETURN_NOT_OK(field_builders[i]->Reserve(1));
     }
     auto visit_null = [&]() { return struct_builder->AppendNull(); };
     auto visit_value = [&](int64_t arg) {
-      const auto dp = sys_days{floor<days>(Duration{arg})};
-      const auto ymd = year_month_day(dp);
-      auto y = year_month_day{dp + days{3}}.year();
-      auto start = sys_days((y - years{1}) / dec / thu[last]) + (mon - thu);
-      if (dp < start) {
-        --y;
-        start = sys_days((y - years{1}) / dec / thu[last]) + (mon - thu);
-      }
-
-      RETURN_NOT_OK(
-          field_builders[0]->Append(static_cast<T>(static_cast<int32_t>(ymd.year()))));
-      RETURN_NOT_OK(field_builders[1]->Append(
-          static_cast<T>(trunc<weeks>(dp - start).count() + 1)));
-      RETURN_NOT_OK(
-          field_builders[2]->Append(static_cast<T>(weekday(ymd).iso_encoding())));
-
+      const auto iso_calendar = get_iso_calendar<Duration, T>(arg);
+      field_builders[0]->UnsafeAppend(iso_calendar[0]);
+      field_builders[1]->UnsafeAppend(iso_calendar[1]);
+      field_builders[2]->UnsafeAppend(iso_calendar[2]);
       return struct_builder->Append();
     };
     RETURN_NOT_OK(VisitArrayDataInline<OutType>(in, visit_value, visit_null));
@@ -414,7 +413,7 @@ struct ISOCalendar {
 // Generate a kernel given an arithmetic functor
 template <template <typename... Args> class KernelGenerator,
           template <typename... Args> class Op, typename Duration>
-ArrayKernelExec ExecFromOp(detail::GetTypeId get_id) {
+ArrayKernelExec ExecFromOp(internal::detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::INT8:
       return KernelGenerator<Int8Type, Op<Duration>>::Exec;
@@ -439,7 +438,7 @@ ArrayKernelExec ExecFromOp(detail::GetTypeId get_id) {
       return KernelGenerator<DoubleType, Op<Duration>>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return internal::ExecFail;
   }
 }
 
@@ -450,7 +449,7 @@ std::shared_ptr<ScalarFunction> MakeTemporalFunction(
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
 
   for (auto ty : types) {
-    for (auto unit : AllTimeUnits()) {
+    for (auto unit : internal::AllTimeUnits()) {
       ArrayKernelExec exec;
       switch (unit) {
         case TimeUnit::SECOND: {
@@ -476,7 +475,7 @@ std::shared_ptr<ScalarFunction> MakeTemporalFunction(
 
 // Generate a kernel given an arithmetic functor
 template <template <typename... Args> class Op, typename Duration>
-ArrayKernelExec SimpleUnaryFromOp(detail::GetTypeId get_id) {
+ArrayKernelExec SimpleUnaryFromOp(internal::detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::INT32:
       return SimpleUnary<Op<Duration, Int32Type>>;
@@ -484,7 +483,7 @@ ArrayKernelExec SimpleUnaryFromOp(detail::GetTypeId get_id) {
       return SimpleUnary<Op<Duration, Int64Type>>;
     default:
       DCHECK(false);
-      return ExecFail;
+      return internal::ExecFail;
   }
 }
 
@@ -495,7 +494,7 @@ std::shared_ptr<ScalarFunction> MakeSimpleUnaryTemporalFunction(
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
 
   for (auto ty : types) {
-    for (auto unit : AllTimeUnits()) {
+    for (auto unit : internal::AllTimeUnits()) {
       ArrayKernelExec exec;
       switch (unit) {
         case TimeUnit::SECOND: {
@@ -511,8 +510,8 @@ std::shared_ptr<ScalarFunction> MakeSimpleUnaryTemporalFunction(
           exec = SimpleUnaryFromOp<Op, std::chrono::nanoseconds>(ty);
         }
       }
-      auto output_type =
-          struct_({field("iso_year", ty), field("iso_week", ty), field("weekday", ty)});
+      auto output_type = struct_(
+          {field("iso_year", ty), field("iso_week", ty), field("day_of_week", ty)});
       ScalarKernel kernel =
           ScalarKernel({match::TimestampTypeUnit(unit)}, OutputType(output_type), exec);
       DCHECK_OK(func->AddKernel(kernel));
@@ -537,6 +536,8 @@ const FunctionDoc millisecond_doc{"Extract millisecond values", "", {"values"}};
 const FunctionDoc microsecond_doc{"Extract microsecond values", "", {"values"}};
 const FunctionDoc nanosecond_doc{"Extract nanosecond values", "", {"values"}};
 const FunctionDoc subsecond_doc{"Extract subsecond values", "", {"values"}};
+
+}  // namespace
 
 void RegisterScalarTemporal(FunctionRegistry* registry) {
   static std::vector<std::shared_ptr<DataType>> kUnsignedFloatTypes8 = {
