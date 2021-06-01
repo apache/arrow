@@ -339,7 +339,7 @@ contains_regex <- function(string) {
   grepl("[.\\|()[{^$*+?]", string)
 }
 
-nse_funcs$strptime <- function(x, format = "%Y-%m-%d %H:%M:%S", tz = NULL, unit = 1L) {
+nse_funcs$strptime <- function(x, format = "%Y-%m-%d %H:%M:%S", tz = NULL, unit = "ms") {
   # Arrow uses unit for time parsing, strptime() does not.
   # Arrow has no default option for strptime (format, unit),
   # we suggest following format = "%Y-%m-%d %H:%M:%S", unit = MILLI/1L/"ms",
@@ -351,11 +351,9 @@ nse_funcs$strptime <- function(x, format = "%Y-%m-%d %H:%M:%S", tz = NULL, unit 
     arrow_not_supported("Time zone argument")
   }
 
-  t_unit <- make_valid_time_unit(unit,c("s" = TimeUnit$SECOND, "ms" = TimeUnit$MILLI, "us" = TimeUnit$MICRO, "ns" = TimeUnit$NANO))
+  unit <- make_valid_time_unit(unit, c(valid_time64_units, valid_time32_units))
 
   Expression$create("strptime", 
                      x, 
-                     options = list(
-                      format = format, 
-                      unit = t_unit))
+                     options = list(format = format, unit = unit))
 }
