@@ -73,9 +73,9 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         CResult[shared_ptr[CRandomAccessFile]] OpenInputFile(
             const c_string& path)
         CResult[shared_ptr[COutputStream]] OpenOutputStream(
-            const c_string& path)
+            const c_string& path, const shared_ptr[const CKeyValueMetadata]&)
         CResult[shared_ptr[COutputStream]] OpenAppendStream(
-            const c_string& path)
+            const c_string& path, const shared_ptr[const CKeyValueMetadata]&)
         c_bool Equals(const CFileSystem& other)
         c_bool Equals(shared_ptr[CFileSystem] other)
 
@@ -234,8 +234,9 @@ ctypedef void CallbackOpenInputStream(object, const c_string&,
                                       shared_ptr[CInputStream]*)
 ctypedef void CallbackOpenInputFile(object, const c_string&,
                                     shared_ptr[CRandomAccessFile]*)
-ctypedef void CallbackOpenOutputStream(object, const c_string&,
-                                       shared_ptr[COutputStream]*)
+ctypedef void CallbackOpenOutputStream(
+    object, const c_string&, const shared_ptr[const CKeyValueMetadata]&,
+    shared_ptr[COutputStream]*)
 ctypedef void CallbackNormalizePath(object, const c_string&, c_string*)
 
 cdef extern from "arrow/python/filesystem.h" namespace "arrow::py::fs" nogil:
