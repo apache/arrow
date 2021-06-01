@@ -45,7 +45,7 @@ bool SharedPtrEquals(const std::shared_ptr<T>& left, const std::shared_ptr<T>& r
 // nonsense value which can be safely added to.
 inline const uint8_t* EnsureNotNull(const uint8_t* ptr) {
   static const uint8_t byte{};
-  return ptr == nullptr ? &byte : ptr;
+  return ptr == NULLPTR ? &byte : ptr;
 }
 
 }  // namespace internal
