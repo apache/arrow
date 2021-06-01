@@ -1310,30 +1310,32 @@ TYPED_TEST(TestVarArgsArithmeticNumeric, ElementWiseMin) {
 }
 
 TYPED_TEST(TestVarArgsArithmeticFloating, ElementWiseMin) {
-  this->Assert(ElementWiseMin, this->scalar("-0.0"),
-               {this->scalar("0.0"), this->scalar("-0.0")});
-  this->Assert(ElementWiseMin, this->scalar("-0.0"),
-               {this->scalar("1.0"), this->scalar("-0.0"), this->scalar("0.0")});
-  this->Assert(ElementWiseMin, this->scalar("-1.0"),
-               {this->scalar("-1.0"), this->scalar("-0.0")});
-  this->Assert(ElementWiseMin, this->scalar("0"),
-               {this->scalar("0"), this->scalar("NaN")});
-  this->Assert(ElementWiseMin, this->scalar("0"),
-               {this->scalar("NaN"), this->scalar("0")});
-  this->Assert(ElementWiseMin, this->scalar("Inf"),
-               {this->scalar("Inf"), this->scalar("NaN")});
-  this->Assert(ElementWiseMin, this->scalar("Inf"),
-               {this->scalar("NaN"), this->scalar("Inf")});
-  this->Assert(ElementWiseMin, this->scalar("-Inf"),
-               {this->scalar("-Inf"), this->scalar("NaN")});
-  this->Assert(ElementWiseMin, this->scalar("-Inf"),
-               {this->scalar("NaN"), this->scalar("-Inf")});
-  this->Assert(ElementWiseMin, this->scalar("NaN"),
-               {this->scalar("NaN"), this->scalar("null")});
-  this->Assert(ElementWiseMin, this->scalar("0"),
-               {this->scalar("0"), this->scalar("Inf")});
-  this->Assert(ElementWiseMin, this->scalar("-Inf"),
-               {this->scalar("0"), this->scalar("-Inf")});
+  auto Check = [this](const std::string& expected,
+                      const std::vector<std::string>& inputs) {
+    std::vector<Datum> args;
+    for (const auto input : inputs) {
+      args.emplace_back(this->scalar(input));
+    }
+    this->Assert(ElementWiseMin, this->scalar(expected), args);
+
+    args.clear();
+    for (const auto input : inputs) {
+      args.emplace_back(this->array("[" + input + "]"));
+    }
+    this->Assert(ElementWiseMin, this->array("[" + expected + "]"), args);
+  };
+  Check("-0.0", {"0.0", "-0.0"});
+  Check("-0.0", {"1.0", "-0.0", "0.0"});
+  Check("-1.0", {"-1.0", "-0.0"});
+  Check("0", {"0", "NaN"});
+  Check("0", {"NaN", "0"});
+  Check("Inf", {"Inf", "NaN"});
+  Check("Inf", {"NaN", "Inf"});
+  Check("-Inf", {"-Inf", "NaN"});
+  Check("-Inf", {"NaN", "-Inf"});
+  Check("NaN", {"NaN", "null"});
+  Check("0", {"0", "Inf"});
+  Check("-Inf", {"0", "-Inf"});
 }
 
 TYPED_TEST(TestVarArgsArithmeticParametricTemporal, ElementWiseMin) {
@@ -1428,30 +1430,32 @@ TYPED_TEST(TestVarArgsArithmeticNumeric, ElementWiseMax) {
 }
 
 TYPED_TEST(TestVarArgsArithmeticFloating, ElementWiseMax) {
-  this->Assert(ElementWiseMax, this->scalar("0.0"),
-               {this->scalar("0.0"), this->scalar("-0.0")});
-  this->Assert(ElementWiseMax, this->scalar("1.0"),
-               {this->scalar("1.0"), this->scalar("-0.0"), this->scalar("0.0")});
-  this->Assert(ElementWiseMax, this->scalar("-0.0"),
-               {this->scalar("-1.0"), this->scalar("-0.0")});
-  this->Assert(ElementWiseMax, this->scalar("0"),
-               {this->scalar("0"), this->scalar("NaN")});
-  this->Assert(ElementWiseMax, this->scalar("0"),
-               {this->scalar("NaN"), this->scalar("0")});
-  this->Assert(ElementWiseMax, this->scalar("Inf"),
-               {this->scalar("Inf"), this->scalar("NaN")});
-  this->Assert(ElementWiseMax, this->scalar("Inf"),
-               {this->scalar("NaN"), this->scalar("Inf")});
-  this->Assert(ElementWiseMax, this->scalar("-Inf"),
-               {this->scalar("-Inf"), this->scalar("NaN")});
-  this->Assert(ElementWiseMax, this->scalar("-Inf"),
-               {this->scalar("NaN"), this->scalar("-Inf")});
-  this->Assert(ElementWiseMax, this->scalar("NaN"),
-               {this->scalar("NaN"), this->scalar("null")});
-  this->Assert(ElementWiseMax, this->scalar("Inf"),
-               {this->scalar("0"), this->scalar("Inf")});
-  this->Assert(ElementWiseMax, this->scalar("0"),
-               {this->scalar("0"), this->scalar("-Inf")});
+  auto Check = [this](const std::string& expected,
+                      const std::vector<std::string>& inputs) {
+    std::vector<Datum> args;
+    for (const auto input : inputs) {
+      args.emplace_back(this->scalar(input));
+    }
+    this->Assert(ElementWiseMax, this->scalar(expected), args);
+
+    args.clear();
+    for (const auto input : inputs) {
+      args.emplace_back(this->array("[" + input + "]"));
+    }
+    this->Assert(ElementWiseMax, this->array("[" + expected + "]"), args);
+  };
+  Check("0.0", {"0.0", "-0.0"});
+  Check("1.0", {"1.0", "-0.0", "0.0"});
+  Check("-0.0", {"-1.0", "-0.0"});
+  Check("0", {"0", "NaN"});
+  Check("0", {"NaN", "0"});
+  Check("Inf", {"Inf", "NaN"});
+  Check("Inf", {"NaN", "Inf"});
+  Check("-Inf", {"-Inf", "NaN"});
+  Check("-Inf", {"NaN", "-Inf"});
+  Check("NaN", {"NaN", "null"});
+  Check("Inf", {"0", "Inf"});
+  Check("0", {"0", "-Inf"});
 }
 
 TYPED_TEST(TestVarArgsArithmeticParametricTemporal, ElementWiseMax) {

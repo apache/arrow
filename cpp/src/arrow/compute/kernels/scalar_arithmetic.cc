@@ -409,6 +409,16 @@ struct Minimum {
   static enable_if_integer<T> Call(T left, T right) {
     return std::min(left, right);
   }
+
+  template <typename T>
+  static constexpr enable_if_floating_point<T> antiextreme() {
+    return std::nan("");
+  }
+
+  template <typename T>
+  static constexpr enable_if_integer<T> antiextreme() {
+    return std::numeric_limits<T>::max();
+  }
 };
 
 struct Maximum {
@@ -420,6 +430,16 @@ struct Maximum {
   template <typename T>
   static enable_if_integer<T> Call(T left, T right) {
     return std::max(left, right);
+  }
+
+  template <typename T>
+  static constexpr enable_if_floating_point<T> antiextreme() {
+    return std::nan("");
+  }
+
+  template <typename T>
+  static constexpr enable_if_integer<T> antiextreme() {
+    return std::numeric_limits<T>::min();
   }
 };
 
@@ -618,17 +638,16 @@ struct ScalarMinMax {
       arrays.push_back(arg.array());
     }
 
-    bool can_recycle = false;
+    bool initialize_output = true;
     if (scalar_count > 0) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> temp_scalar,
                             MakeScalar(out->type(), 0));
       ExecScalar(batch, options, temp_scalar.get());
       if (temp_scalar->is_valid) {
-        // Promote to output array
-        ARROW_ASSIGN_OR_RAISE(auto array, MakeArrayFromScalar(*temp_scalar, batch.length,
-                                                              ctx->memory_pool()));
-        arrays.push_back(array->data());
-        can_recycle = true;
+        const auto value = UnboxScalar<OutType>::Unbox(*temp_scalar);
+        initialize_output = false;
+        OutValue* out = output->GetMutableValues<OutValue>(1);
+        std::fill(out, out + batch.length, value);
       } else if (!options.skip_nulls) {
         // Abort early
         ARROW_ASSIGN_OR_RAISE(auto array, MakeArrayFromScalar(*temp_scalar, batch.length,
@@ -638,36 +657,35 @@ struct ScalarMinMax {
       }
     }
 
-    // Exactly one array to consider (output = input)
-    if (arrays.size() == 1) {
-      *output = *arrays[0];
-      return Status::OK();
+    if (initialize_output) {
+      OutValue* out = output->GetMutableValues<OutValue>(1);
+      std::fill(out, out + batch.length, Op::template antiextreme<OutValue>());
     }
 
-    // Two or more arrays to consider
-    if (can_recycle) {
-      // We allocated the last array from a scalar: recycle it as the output
-      *output = *arrays.back();
-    } else {
-      // Copy last array to output array
-      const ArrayData& input = *arrays.back();
-      if (options.skip_nulls && input.buffers[0]) {
-        // Don't copy the bitmap if !options.skip_nulls since we'll precompute it later
-        ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(batch.length));
-        ::arrow::internal::CopyBitmap(input.buffers[0]->data(), input.offset,
-                                      batch.length, output->buffers[0]->mutable_data(),
-                                      /*dest_offset=*/0);
+    // Precompute the validity buffer
+    if (options.skip_nulls && initialize_output) {
+      // OR together the validity buffers of all arrays
+      if (std::all_of(arrays.begin(), arrays.end(),
+                      [](const std::shared_ptr<ArrayData>& arr) {
+                        return arr->MayHaveNulls();
+                      })) {
+        for (const auto& arr : arrays) {
+          if (!arr->MayHaveNulls()) continue;
+          if (!output->buffers[0]) {
+            ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(batch.length));
+            ::arrow::internal::CopyBitmap(arr->buffers[0]->data(), arr->offset,
+                                          batch.length,
+                                          output->buffers[0]->mutable_data(),
+                                          /*dest_offset=*/0);
+          } else {
+            ::arrow::internal::BitmapOr(
+                output->buffers[0]->data(), /*left_offset=*/0, arr->buffers[0]->data(),
+                arr->offset, batch.length,
+                /*out_offset=*/0, output->buffers[0]->mutable_data());
+          }
+        }
       }
-      // This won't work for nested or variable-sized types
-      ARROW_ASSIGN_OR_RAISE(output->buffers[1],
-                            ctx->Allocate(batch.length * sizeof(OutValue)));
-      std::memcpy(output->buffers[1]->mutable_data(),
-                  input.buffers[1]->data() + (input.offset * sizeof(OutValue)),
-                  batch.length * sizeof(OutValue));
-    }
-
-    if (!options.skip_nulls) {
-      // We can precompute the validity buffer in this case
+    } else if (!options.skip_nulls) {
       // AND together the validity buffers of all arrays
       for (const auto& arr : arrays) {
         if (!arr->MayHaveNulls()) continue;
@@ -684,7 +702,6 @@ struct ScalarMinMax {
         }
       }
     }
-    arrays.pop_back();
 
     for (const auto& array : arrays) {
       OutputArrayWriter<OutType> writer(out->mutable_array());
@@ -708,17 +725,6 @@ struct ScalarMinMax {
             index++;
             out_it();
           });
-      // When skipping nulls, we incrementally compute the validity buffer
-      if (options.skip_nulls && output->buffers[0]) {
-        if (array->buffers[0]) {
-          ::arrow::internal::BitmapOr(
-              output->buffers[0]->data(), /*left_offset=*/0, array->buffers[0]->data(),
-              /*right_offset=*/array->offset, batch.length, /*out_offset=*/0,
-              output->buffers[0]->mutable_data());
-        } else {
-          output->buffers[0] = nullptr;
-        }
-      }
     }
     output->null_count = output->buffers[0] ? -1 : 0;
     return Status::OK();
@@ -734,7 +740,7 @@ std::shared_ptr<ScalarFunction> MakeScalarMinMax(std::string name,
     ScalarKernel kernel{KernelSignature::Make({ty}, ty, /*is_varargs=*/true), exec,
                         MinMaxState::Init};
     kernel.null_handling = NullHandling::type::COMPUTED_NO_PREALLOCATE;
-    kernel.mem_allocation = MemAllocation::type::NO_PREALLOCATE;
+    kernel.mem_allocation = MemAllocation::type::PREALLOCATE;
     DCHECK_OK(func->AddKernel(std::move(kernel)));
   }
   for (const auto& ty : TemporalTypes()) {
@@ -742,7 +748,7 @@ std::shared_ptr<ScalarFunction> MakeScalarMinMax(std::string name,
     ScalarKernel kernel{KernelSignature::Make({ty}, ty, /*is_varargs=*/true), exec,
                         MinMaxState::Init};
     kernel.null_handling = NullHandling::type::COMPUTED_NO_PREALLOCATE;
-    kernel.mem_allocation = MemAllocation::type::NO_PREALLOCATE;
+    kernel.mem_allocation = MemAllocation::type::PREALLOCATE;
     DCHECK_OK(func->AddKernel(std::move(kernel)));
   }
   return func;
