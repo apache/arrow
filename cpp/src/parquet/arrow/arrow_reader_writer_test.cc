@@ -2370,6 +2370,9 @@ TEST(TestArrowReadWrite, GetRecordBatchGenerator) {
     ASSERT_EQ(batch3, nullptr);
     check_batches(batch1, num_columns, row_group_size);
     check_batches(batch2, num_columns, row_group_size);
+    ASSERT_OK_AND_ASSIGN(auto actual, ::arrow::Table::FromRecordBatches(
+                                          batch1->schema(), {batch1, batch2}));
+    AssertTablesEqual(*table, *actual, /*same_chunk_layout=*/false);
   }
   {
     // No columns case

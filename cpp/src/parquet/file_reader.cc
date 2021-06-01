@@ -432,19 +432,16 @@ class SerializedFile : public ParquetFileReader::Contents {
       return source_->ReadAsync(metadata_start, metadata_len)
           .Then([=](const std::shared_ptr<::arrow::Buffer>& metadata_buffer) {
             // Continue and read the file footer
-            return ParseMetaDataAsync(std::move(footer_buffer), metadata_buffer,
-                                      footer_read_size, metadata_len,
-                                      is_encrypted_footer);
+            return ParseMetaDataFinal(metadata_buffer, metadata_len, is_encrypted_footer);
           });
     }
-    return ParseMetaDataAsync(std::move(footer_buffer), std::move(metadata_buffer),
-                              footer_read_size, metadata_len, is_encrypted_footer);
+    return ParseMetaDataFinal(std::move(metadata_buffer), metadata_len,
+                              is_encrypted_footer);
   }
 
   // Continuation
-  ::arrow::Status ParseMetaDataAsync(std::shared_ptr<::arrow::Buffer> footer_buffer,
-                                     std::shared_ptr<::arrow::Buffer> metadata_buffer,
-                                     int64_t footer_read_size, uint32_t metadata_len,
+  ::arrow::Status ParseMetaDataFinal(std::shared_ptr<::arrow::Buffer> metadata_buffer,
+                                     uint32_t metadata_len,
                                      const bool is_encrypted_footer) {
     BEGIN_PARQUET_CATCH_EXCEPTIONS
     const uint32_t read_metadata_len =
@@ -477,7 +474,7 @@ class SerializedFile : public ParquetFileReader::Contents {
 
   std::shared_ptr<InternalFileDecryptor> file_decryptor_;
 
-  // \return The true length of the metadata
+  // \return The true length of the metadata in bytes
   uint32_t ParseUnencryptedFileMetadata(const std::shared_ptr<Buffer>& footer_buffer,
                                         const uint32_t metadata_len);
 

@@ -326,7 +326,7 @@ class FileReaderImpl : public FileReader {
   GetRecordBatchGenerator(std::shared_ptr<FileReader> reader,
                           const std::vector<int> row_group_indices,
                           const std::vector<int> column_indices,
-                          ::arrow::internal::Executor* executor) override;
+                          ::arrow::internal::Executor* cpu_executor) override;
 
   int num_columns() const { return reader_->metadata()->num_columns(); }
 
@@ -988,10 +988,10 @@ class RowGroupGenerator {
       ::arrow::AsyncGenerator<std::shared_ptr<::arrow::RecordBatch>>;
 
   explicit RowGroupGenerator(std::shared_ptr<FileReaderImpl> arrow_reader,
-                             ::arrow::internal::Executor* executor,
+                             ::arrow::internal::Executor* cpu_executor,
                              std::vector<int> row_groups, std::vector<int> column_indices)
       : arrow_reader_(std::move(arrow_reader)),
-        executor_(executor),
+        cpu_executor_(cpu_executor),
         row_groups_(std::move(row_groups)),
         column_indices_(std::move(column_indices)),
         index_(0) {}
@@ -1004,10 +1004,11 @@ class RowGroupGenerator {
     std::vector<int> column_indices = column_indices_;
     auto reader = arrow_reader_;
     if (!reader->properties().pre_buffer()) {
-      return SubmitRead(executor_, reader, row_group, column_indices);
+      return SubmitRead(cpu_executor_, reader, row_group, column_indices);
     }
     auto ready = reader->parquet_reader()->WhenBuffered({row_group}, column_indices);
-    if (executor_) ready = executor_->Transfer(ready);
+    // TODO(ARROW-12916): always transfer here
+    if (cpu_executor_) ready = cpu_executor_->Transfer(ready);
     return ready.Then([=]() -> ::arrow::Result<RecordBatchGenerator> {
       return ReadOneRowGroup(reader, row_group, column_indices);
     });
@@ -1020,15 +1021,15 @@ class RowGroupGenerator {
   // generator piggybacks on ReadRangeCache. The lazy ReadRangeCache can be used for
   // async I/O without forcing readahead.
   static ::arrow::Future<RecordBatchGenerator> SubmitRead(
-      ::arrow::internal::Executor* executor, std::shared_ptr<FileReaderImpl> self,
+      ::arrow::internal::Executor* cpu_executor, std::shared_ptr<FileReaderImpl> self,
       const int row_group, const std::vector<int>& column_indices) {
-    if (!executor) {
+    if (!cpu_executor) {
       return Future<RecordBatchGenerator>::MakeFinished(
           ReadOneRowGroup(self, row_group, column_indices));
     }
     // If we have an executor, then force transfer (even if I/O was complete)
     return ::arrow::DeferNotOk(
-        executor->Submit(ReadOneRowGroup, self, row_group, column_indices));
+        cpu_executor->Submit(ReadOneRowGroup, self, row_group, column_indices));
   }
 
   static ::arrow::Result<RecordBatchGenerator> ReadOneRowGroup(
@@ -1051,7 +1052,7 @@ class RowGroupGenerator {
   }
 
   std::shared_ptr<FileReaderImpl> arrow_reader_;
-  ::arrow::internal::Executor* executor_;
+  ::arrow::internal::Executor* cpu_executor_;
   std::vector<int> row_groups_;
   std::vector<int> column_indices_;
   size_t index_;
@@ -1061,7 +1062,7 @@ class RowGroupGenerator {
 FileReaderImpl::GetRecordBatchGenerator(std::shared_ptr<FileReader> reader,
                                         const std::vector<int> row_group_indices,
                                         const std::vector<int> column_indices,
-                                        ::arrow::internal::Executor* executor) {
+                                        ::arrow::internal::Executor* cpu_executor) {
   RETURN_NOT_OK(BoundsCheck(row_group_indices, column_indices));
   if (reader_properties_.pre_buffer()) {
     BEGIN_PARQUET_CATCH_EXCEPTIONS
@@ -1069,11 +1070,10 @@ FileReaderImpl::GetRecordBatchGenerator(std::shared_ptr<FileReader> reader,
                        reader_properties_.cache_options());
     END_PARQUET_CATCH_EXCEPTIONS
   }
-  ::arrow::AsyncGenerator<::arrow::AsyncGenerator<std::shared_ptr<::arrow::RecordBatch>>>
-      row_group_generator = RowGroupGenerator(
-          ::arrow::internal::checked_pointer_cast<FileReaderImpl>(reader), executor,
-          row_group_indices, column_indices);
-  return ::arrow::MakeConcatenatedGenerator(row_group_generator);
+  ::arrow::AsyncGenerator<RowGroupGenerator::RecordBatchGenerator> row_group_generator =
+      RowGroupGenerator(::arrow::internal::checked_pointer_cast<FileReaderImpl>(reader),
+                        cpu_executor, row_group_indices, column_indices);
+  return ::arrow::MakeConcatenatedGenerator(std::move(row_group_generator));
 }
 
 Status FileReaderImpl::GetColumn(int i, FileColumnIteratorFactory iterator_factory,

@@ -22,7 +22,6 @@
 #include <vector>
 
 #include "arrow/util/async_generator.h"
-#include "arrow/util/optional.h"
 #include "parquet/file_reader.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
@@ -191,7 +190,7 @@ class PARQUET_EXPORT FileReader {
   GetRecordBatchGenerator(std::shared_ptr<FileReader> reader,
                           const std::vector<int> row_group_indices,
                           const std::vector<int> column_indices,
-                          ::arrow::internal::Executor* executor = NULLPTR) = 0;
+                          ::arrow::internal::Executor* cpu_executor = NULLPTR) = 0;
 
   ::arrow::Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
                                        const std::vector<int>& column_indices,
