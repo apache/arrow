@@ -19,8 +19,10 @@
 
 set -eu
 
-# usage:
-# ./deploy_skyhook.sh [startnode] [endnode] [skyhook-branch]
+if [[ $# -lt 3 ]] ; then
+    echo "./deploy_skyhook.sh [startnode] [endnode] [skyhook-branch]"
+    exit 1
+fi
 
 SNODE=$1
 ENODE=$2
