@@ -260,9 +260,7 @@ set(ARROW_C_SRCS
     vendored/uriparser/UriResolve.c
     vendored/uriparser/UriShorten.c)
 
-set_source_files_properties(vendored/datetime/tz.cpp
-                            PROPERTIES
-                            COMPILE_DEFINITIONS
+set_source_files_properties(vendored/datetime/tz.cpp PROPERTIES COMPILE_DEFINITIONS
                             # Avoid use of deprecated std::uncaught_exception
                             "HAS_UNCAUGHT_EXCEPTIONS=1"
                             SKIP_PRECOMPILE_HEADERS

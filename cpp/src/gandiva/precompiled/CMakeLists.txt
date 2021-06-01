@@ -128,8 +128,7 @@ if(ARROW_BUILD_TESTS)
                  decimal_ops.cc
                  ../decimal_type_util.cc
                  ../decimal_xlarge.cc)
-  set_source_files_properties(../../arrow/vendored/datetime/tz.cpp
-                              PROPERTIES
+  set_source_files_properties(../../arrow/vendored/datetime/tz.cpp PROPERTIES
                               COMPILE_DEFINITIONS
                               # Avoid use of deprecated std::uncaught_exception
                               "HAS_UNCAUGHT_EXCEPTIONS=1")
