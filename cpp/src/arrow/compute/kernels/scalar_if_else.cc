@@ -504,9 +504,9 @@ struct ResolveIfElseExec {
         *out = valid_data;
       } else {
         // valid data is a scalar that needs to be broadcasted
-        ARROW_ASSIGN_OR_RAISE(*out,
-                              MakeArrayFromScalar(*valid_data.scalar(), batch.length,
-                                                  ctx->memory_pool()));
+        ARROW_ASSIGN_OR_RAISE(
+            *out,
+            MakeArrayFromScalar(*valid_data.scalar(), batch.length, ctx->memory_pool()));
       }
       return Status::OK();
     }
