@@ -949,7 +949,7 @@ tasks:
         UBUNTU: "20.10"
       run: ubuntu-docs
 
-  test-ubuntu-20.04-docs:
+  test-ubuntu-default-docs:
     ci: azure
     template: docker-tests/azure.linux.yml
     params:
