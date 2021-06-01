@@ -984,11 +984,11 @@ struct SchemaImporter {
     if (prec_scale.size() != 2 && prec_scale.size() != 3) {
       return f_parser_.Invalid();
     }
-    if (prec_scale[0] <= 0 || prec_scale[1] <= 0) {
+    if (prec_scale[0] <= 0) {
       return f_parser_.Invalid();
     }
     if (prec_scale.size() == 2 || prec_scale[2] == 128) {
-      type_ = decimal(prec_scale[0], prec_scale[1]);
+      type_ = decimal128(prec_scale[0], prec_scale[1]);
     } else if (prec_scale[2] == 256) {
       type_ = decimal256(prec_scale[0], prec_scale[1]);
     } else {
