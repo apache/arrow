@@ -490,24 +490,25 @@ struct ResolveIfElseExec {
           *out = MakeNullScalar(batch[1].type());
         }
         return Status::OK();
-      } else {  // either left or right is an array. output is always an array
-        // output size is the size of the array arg
-        auto bcast_size = batch.length;
-        if (cond.is_valid) {
-          const auto& valid_data = cond.value ? batch[1] : batch[2];
-          if (valid_data.is_array()) {
-            *out = valid_data;
-          } else {  // valid data is a scalar that needs to be broadcasted
-            ARROW_ASSIGN_OR_RAISE(*out,
-                                  MakeArrayFromScalar(*valid_data.scalar(), bcast_size,
-                                                      ctx->memory_pool()));
-          }
-        } else {  // cond is null. create null array
-          ARROW_ASSIGN_OR_RAISE(
-              *out, MakeArrayOfNull(batch[1].type(), bcast_size, ctx->memory_pool()))
-        }
+      }
+      // either left or right is an array. Output is always an array
+      if (!cond.is_valid) {
+        // cond is null; just create a null array
+        ARROW_ASSIGN_OR_RAISE(
+            *out, MakeArrayOfNull(batch[1].type(), bcast_size, ctx->memory_pool()))
         return Status::OK();
       }
+
+      const auto& valid_data = cond.value ? batch[1] : batch[2];
+      if (valid_data.is_array()) {
+        *out = valid_data;
+      } else {
+        // valid data is a scalar that needs to be broadcasted
+        ARROW_ASSIGN_OR_RAISE(*out,
+                              MakeArrayFromScalar(*valid_data.scalar(), batch.length,
+                                                  ctx->memory_pool()));
+      }
+      return Status::OK();
     }
 
     // cond is array. Use functors to sort things out
