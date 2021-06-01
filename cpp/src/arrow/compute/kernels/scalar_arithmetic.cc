@@ -411,7 +411,12 @@ struct Minimum {
   }
 
   template <typename T>
-  static constexpr enable_if_floating_point<T> antiextreme() {
+  static constexpr enable_if_t<std::is_same<float, T>::value, T> antiextreme() {
+    return std::nanf("");
+  }
+
+  template <typename T>
+  static constexpr enable_if_t<std::is_same<double, T>::value, T> antiextreme() {
     return std::nan("");
   }
 
@@ -433,7 +438,12 @@ struct Maximum {
   }
 
   template <typename T>
-  static constexpr enable_if_floating_point<T> antiextreme() {
+  static constexpr enable_if_t<std::is_same<float, T>::value, T> antiextreme() {
+    return std::nanf("");
+  }
+
+  template <typename T>
+  static constexpr enable_if_t<std::is_same<double, T>::value, T> antiextreme() {
     return std::nan("");
   }
 
