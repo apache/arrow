@@ -31,14 +31,17 @@ namespace compute {
 
 namespace {
 
+constexpr uint64_t kAllNull = 0;
+constexpr uint64_t kAllValid = ~kAllNull;
+
 util::optional<uint64_t> GetConstantValidityWord(const Datum& data) {
   if (data.is_scalar()) {
-    return data.scalar()->is_valid ? ~uint64_t(0) : uint64_t(0);
+    return data.scalar()->is_valid ? kAllValid : kAllNull;
   }
 
-  if (data.array()->null_count == data.array()->length) return uint64_t(0);
+  if (data.array()->null_count == data.array()->length) return kAllNull;
 
-  if (!data.array()->MayHaveNulls()) return ~uint64_t(0);
+  if (!data.array()->MayHaveNulls()) return kAllValid;
 
   // no constant validity word available
   return {};
@@ -84,27 +87,25 @@ Status PromoteNullsVisitor(KernelContext* ctx, const Datum& cond_d, const Datum&
 
   // cond.valid & (cond.data & left.valid | ~cond.data & right.valid)
   // In the following cases, we dont need to allocate out_valid bitmap
-  switch (flag) {
-    case COND_CONST | LEFT_CONST | RIGHT_CONST:
-      // if cond & left & right all ones, then output is all valid --> out_valid = nullptr
-      if ((*cond_const & *left_const & *right_const) == UINT64_MAX) {
-        return Status::OK();
-      }
-    case LEFT_CONST | RIGHT_CONST:
-      // if both left and right are valid, no need to calculate out_valid bitmap. Pass
-      // cond validity buffer
-      if ((*left_const & *right_const) == UINT64_MAX) {
-        // if there's an offset, copy bitmap (cannot slice a bitmap)
-        if (cond.offset) {
-          ARROW_ASSIGN_OR_RAISE(
-              output->buffers[0],
-              arrow::internal::CopyBitmap(ctx->memory_pool(), cond.buffers[0]->data(),
-                                          cond.offset, cond.length));
-        } else {  // just copy assign cond validity buffer
-          output->buffers[0] = cond.buffers[0];
-        }
-        return Status::OK();
-      }
+
+  // if cond & left & right all ones, then output is all valid --> out_valid = nullptr
+  if (cond_const == kAllValid && left_const == kAllValid && right_const == kAllValid) {
+    return Status::OK();
+  }
+
+  if (left_const == kAllValid && right_const == kAllValid) {
+    // if both left and right are valid, no need to calculate out_valid bitmap. Pass
+    // cond validity buffer
+    // if there's an offset, copy bitmap (cannot slice a bitmap)
+    if (cond.offset) {
+      ARROW_ASSIGN_OR_RAISE(
+          output->buffers[0],
+          arrow::internal::CopyBitmap(ctx->memory_pool(), cond.buffers[0]->data(),
+                                      cond.offset, cond.length));
+    } else {  // just copy assign cond validity buffer
+      output->buffers[0] = cond.buffers[0];
+    }
+    return Status::OK();
   }
 
   // following cases requires a separate out_valid buffer
