@@ -98,16 +98,14 @@ Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
 }
 
 Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
-    FileSource source, compute::Expression partition_expression, int flag,
-    std::shared_ptr<Schema> dataset_schema) {
-  if (type_name() == "rados-parquet") {
-    /// don't create a parquet file fragment, just create a FileFragment..
-    return std::shared_ptr<FileFragment>(new FileFragment(
-        std::move(source), shared_from_this(), std::move(partition_expression), nullptr,
-        std::move(dataset_schema)));
+    FileSource source, compute::Expression partition_expression, bool is_dataset_schema,
+    std::shared_ptr<Schema> schema) {
+  if (is_dataset_schema) {
+    return std::shared_ptr<FileFragment>(
+        new FileFragment(std::move(source), shared_from_this(),
+                         std::move(partition_expression), nullptr, std::move(schema)));
   } else {
-    /// whereas here it creates a ParquetFileFragment
-    return MakeFragment(std::move(source), std::move(partition_expression), nullptr);
+    return MakeFragment(std::move(source), std::move(partition_expression), schema);
   }
 }
 
