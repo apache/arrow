@@ -18,10 +18,11 @@
 #pragma once
 
 #include <cstdint>
+// N.B. we don't include async_generator.h as it's relatively heavy
+#include <functional>
 #include <memory>
 #include <vector>
 
-#include "arrow/util/async_generator.h"
 #include "parquet/file_reader.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
@@ -186,7 +187,8 @@ class PARQUET_EXPORT FileReader {
   ///
   /// \returns error Result if either row_group_indices or column_indices contains an
   ///     invalid index
-  virtual ::arrow::Result<::arrow::AsyncGenerator<std::shared_ptr<::arrow::RecordBatch>>>
+  virtual ::arrow::Result<
+      std::function<::arrow::Future<std::shared_ptr<::arrow::RecordBatch>>()>>
   GetRecordBatchGenerator(std::shared_ptr<FileReader> reader,
                           const std::vector<int> row_group_indices,
                           const std::vector<int> column_indices,
