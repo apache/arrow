@@ -155,8 +155,9 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
           NativeFunction::kNeedsContext | NativeFunction::kNeedsFunctionHolder |
               NativeFunction::kCanReturnErrors),
 
-      NativeFunction("convertTimezone", {}, DataTypeVector{utf8(), utf8(), timestamp()}, timestamp(),
-                     kResultNullIfNull, "convertTimezone"),
+      NativeFunction("convert_timezone", {}, DataTypeVector{utf8(), utf8(), timestamp()},
+                     timestamp(), kResultNullIfNull, "gdv_fn_convert_timezone",
+                     NativeFunction::kNeedsFunctionHolder),
 
       DATE_TYPES(LAST_DAY_SAFE_NULL_IF_NULL, last_day, {}),
       BASE_NUMERIC_TYPES(TO_TIME_SAFE_NULL_IF_NULL, to_time, {}),

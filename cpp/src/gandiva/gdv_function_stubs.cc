@@ -32,6 +32,7 @@
 #include "arrow/util/value_parsing.h"
 
 #include "gandiva/encrypt_utils.h"
+#include "gandiva/convert_timezone_holder.h"
 #include "gandiva/engine.h"
 #include "gandiva/exported_funcs.h"
 #include "gandiva/formatting_utils.h"
@@ -181,6 +182,18 @@ bool gdv_fn_in_expr_lookup_utf8(int64_t ptr, const char* data, int data_len,
   gandiva::InHolder<std::string>* holder =
       reinterpret_cast<gandiva::InHolder<std::string>*>(ptr);
   return holder->HasValue(arrow::util::string_view(data, data_len));
+}
+
+int64_t gdv_fn_convert_timezone(int64_t ptr, const char* src_tz, int src_tz_len,
+                                const char* dst_tz, int dst_tz_len, int64_t src_millis,
+                                bool validity) {
+  if (!validity) {
+    return NULL;
+  }
+  gandiva::ConvertTimezoneHolder* holder =
+      reinterpret_cast<gandiva::ConvertTimezoneHolder*>(ptr);
+
+  return holder->convert(src_millis);
 }
 
 int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
@@ -1173,6 +1186,20 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   std::vector<llvm::Type*> args;
   auto types = engine->types();
 
+  // gdv_fn_convert_timezone
+  args = {
+      types->i64_type(),     // int64_t convert timezone holder ptr
+      types->i8_ptr_type(),  // const char* src_tz
+      types->i32_type(),     // int src_tz_len
+      types->i8_ptr_type(),  // const char* dst_tz
+      types->i32_type(),     // int dst_tz_len
+      types->i64_type(),     // int64_t timestamp value
+      types->i1_type()       // bool validity
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_convert_timezone",
+                                  types->i64_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_convert_timezone));
   // gdv_fn_castVARBINARY_int32
   args = {
       types->i64_type(),     // context

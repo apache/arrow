@@ -82,35 +82,4 @@ int gdv_fn_time_with_zone(int* time_fields, const char* zone, int zone_len,
   return 0;
 }
 
-int gdv_fn_utctime_to_zone(int* time_fields, const char* zone, int zone_len,
-                          int64_t* ret_time) {
-  using arrow_vendored::date::day;
-  using arrow_vendored::date::sys_days;
-  using arrow_vendored::date::locate_zone;
-  using arrow_vendored::date::month;
-  using arrow_vendored::date::time_zone;
-  using arrow_vendored::date::year;
-  using std::chrono::hours;
-  using std::chrono::milliseconds;
-  using std::chrono::minutes;
-  using std::chrono::seconds;
-
-  using gandiva::TimeFields;
-  try {
-    const time_zone* tz = locate_zone(std::string(zone, zone_len));
-    *ret_time = tz->to_local(sys_days(year(time_fields[TimeFields::kYear]) /
-                                      month(time_fields[TimeFields::kMonth]) /
-                                      day(time_fields[TimeFields::kDay])) +
-                           hours(time_fields[TimeFields::kHours]) +
-                           minutes(time_fields[TimeFields::kMinutes]) +
-                           seconds(time_fields[TimeFields::kSeconds]))
-        .time_since_epoch()
-        .count();
-  } catch (...) {
-    return EINVAL;
-  }
-
-  return 0;
-}
-
 }  // extern "C"

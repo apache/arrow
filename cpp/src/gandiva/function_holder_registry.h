@@ -23,6 +23,7 @@
 #include <unordered_map>
 
 #include "arrow/status.h"
+#include "gandiva/convert_timezone_holder.h"
 #include "gandiva/function_holder.h"
 #include "gandiva/interval_holder.h"
 #include "gandiva/like_holder.h"
@@ -64,7 +65,8 @@ class FunctionHolderRegistry {
     static map_type maker_map = {{"like", LAMBDA_MAKER(LikeHolder)},
                                  {"ilike", LAMBDA_MAKER(LikeHolder)},
                                  {"to_date", LAMBDA_MAKER(ToDateHolder)},
-                                 {"random", LAMBDA_MAKER(RandomGeneratorHolder)},
+                                 {"convert_timezone", LAMBDA_MAKER(ConvertTimezoneHolder)},
+        {"random", LAMBDA_MAKER(RandomGeneratorHolder)},
                                  {"rand", LAMBDA_MAKER(RandomGeneratorHolder)},
                                  {"regexp_replace", LAMBDA_MAKER(ReplaceHolder)},
                                  {"castintervalday", LAMBDA_MAKER(IntervalDaysHolder)},
