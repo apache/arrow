@@ -40,6 +40,7 @@ RUN apt-get update -y && \
     add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu '$(lsb_release -cs)'-cran'$(echo "${r}" | tr -d . | tr 6 5)'/' && \
     apt-get install -y \
         r-base=${r}* \
+        r-recommended=${r}* \
         # system libs needed by core R packages
         libxml2-dev \
         libgit2-dev \
