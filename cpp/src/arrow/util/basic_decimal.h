@@ -55,9 +55,9 @@ class ARROW_EXPORT BasicDecimal128 {
   template <typename T,
             typename = typename std::enable_if<
                 std::is_integral<T>::value && (sizeof(T) <= sizeof(uint64_t)), T>::type>
-  constexpr BasicDecimal128(T value) noexcept
-      : BasicDecimal128(value >= T{0} ? 0 : -1, static_cast<uint64_t>(value)) {  // NOLINT
-  }
+  constexpr BasicDecimal128(T value) noexcept  // NOLINT runtime/explicit
+      : BasicDecimal128(value >= static_cast<T>(0) ? 0 : -1,
+                        static_cast<uint64_t>(value)) {}
 
   /// \brief Create a BasicDecimal128 from an array of bytes. Bytes are assumed to be in
   /// native-endian byte order.
@@ -193,7 +193,8 @@ class ARROW_EXPORT BasicDecimal256 {
   static constexpr int bit_width = 256;
 
   /// \brief Create a BasicDecimal256 from the two's complement representation.
-  constexpr BasicDecimal256(const std::array<uint64_t, 4>& little_endian_array) noexcept
+  constexpr BasicDecimal256(  // NOLINT runtime/explicit
+      const std::array<uint64_t, 4>& little_endian_array) noexcept
       : little_endian_array_(little_endian_array) {}
 
   /// \brief Empty constructor creates a BasicDecimal256 with a value of 0.
@@ -203,11 +204,12 @@ class ARROW_EXPORT BasicDecimal256 {
   template <typename T,
             typename = typename std::enable_if<
                 std::is_integral<T>::value && (sizeof(T) <= sizeof(uint64_t)), T>::type>
-  constexpr BasicDecimal256(T value) noexcept
+  constexpr BasicDecimal256(T value) noexcept  // NOLINT runtime/explicit
       : little_endian_array_({static_cast<uint64_t>(value), extend(value), extend(value),
                               extend(value)}) {}
 
-  constexpr BasicDecimal256(const BasicDecimal128& value) noexcept
+  constexpr BasicDecimal256(  // NOLINT runtime/explicit
+      const BasicDecimal128& value) noexcept
       : little_endian_array_({value.low_bits(), static_cast<uint64_t>(value.high_bits()),
                               extend(value.high_bits()), extend(value.high_bits())}) {}
 
