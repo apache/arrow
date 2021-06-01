@@ -713,7 +713,7 @@ std::shared_ptr<const KeyValueMetadata> GetObjectMetadata(const ObjectResult& re
 
   auto push = [&](std::string k, const Aws::String& v) {
     if (!v.empty()) {
-      md->Append(std::move(k), FromAwsString(v).to_string());
+      md->Append(std::move(k), {v.data(), v.length()});
     }
   };
   auto push_datetime = [&](std::string k, const Aws::Utils::DateTime& v) {

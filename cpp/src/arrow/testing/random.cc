@@ -451,7 +451,7 @@ std::shared_ptr<Array> OffsetsFromLengthsArray(OffsetArrayType* lengths,
       reinterpret_cast<typename OffsetArrayType::value_type*>(buffers[1]->mutable_data());
   data[0] = 0;
   int index = 1;
-  for (const auto& length : *lengths) {
+  for (auto length : *lengths) {
     if (length.has_value()) {
       arrow::BitUtil::SetBit(null_bitmap, index);
       data[index] = data[index - 1] + *length;
@@ -720,7 +720,7 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
         Numeric<CTypeTraits<ARRAY_TYPE::TypeClass::offset_type>::ArrowType>(         \
             length, min_length, max_length, null_probability));                      \
     int64_t values_length = 0;                                                       \
-    for (const auto& length : *lengths) {                                            \
+    for (auto length : *lengths) {                                                   \
       if (length.has_value()) values_length += *length;                              \
     }                                                                                \
     const auto force_empty_nulls =                                                   \
