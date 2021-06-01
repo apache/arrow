@@ -1145,11 +1145,11 @@ Future<std::shared_ptr<StreamingReader>> StreamingReader::MakeAsync(
                              parse_options, convert_options);
 }
 
-Future<int64_t> CountRows(io::IOContext io_context,
-                          std::shared_ptr<io::InputStream> input,
-                          const ReadOptions& read_options,
-                          const ParseOptions& parse_options) {
-  auto cpu_executor = internal::GetCpuThreadPool();
+Future<int64_t> CountRowsAsync(io::IOContext io_context,
+                               std::shared_ptr<io::InputStream> input,
+                               internal::Executor* cpu_executor,
+                               const ReadOptions& read_options,
+                               const ParseOptions& parse_options) {
   auto counter = std::make_shared<CSVRowCounter>(
       io_context, cpu_executor, std::move(input), read_options, parse_options);
   return counter->Count();

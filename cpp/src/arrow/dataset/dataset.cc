@@ -53,7 +53,7 @@ Result<std::shared_ptr<Schema>> Fragment::ReadPhysicalSchema() {
 }
 
 Future<util::optional<int64_t>> Fragment::CountRows(compute::Expression,
-                                                    std::shared_ptr<ScanOptions>) {
+                                                    const std::shared_ptr<ScanOptions>&) {
   return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
 }
 
@@ -150,7 +150,7 @@ Result<RecordBatchGenerator> InMemoryFragment::ScanBatchesAsync(
 }
 
 Future<util::optional<int64_t>> InMemoryFragment::CountRows(
-    compute::Expression predicate, std::shared_ptr<ScanOptions> options) {
+    compute::Expression predicate, const std::shared_ptr<ScanOptions>& options) {
   if (ExpressionHasFieldRefs(predicate)) {
     return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
   }

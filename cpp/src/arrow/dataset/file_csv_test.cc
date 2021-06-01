@@ -51,7 +51,8 @@ class CsvFormatHelper {
 
   static std::shared_ptr<CsvFileFormat> MakeFormat() {
     auto format = std::make_shared<CsvFileFormat>();
-    // Required for CountRows
+    // Required for CountRows (since the test generates data with nulls that get written
+    // as empty lines)
     format->parse_options.ignore_empty_lines = false;
     return format;
   }
