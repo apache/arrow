@@ -101,7 +101,7 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
 
   Future<util::optional<int64_t>> CountRows(
       const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
-      std::shared_ptr<ScanOptions> options) override;
+      const std::shared_ptr<ScanOptions>& options) override;
 
   using FileFormat::MakeFragment;
 

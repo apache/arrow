@@ -1027,6 +1027,70 @@ Future<std::shared_ptr<StreamingReader>> MakeStreamingReader(
   return reader->Init();
 }
 
+/////////////////////////////////////////////////////////////////////////
+// Row count implementation
+
+class CSVRowCounter : public ReaderMixin,
+                      public std::enable_shared_from_this<CSVRowCounter> {
+ public:
+  CSVRowCounter(io::IOContext io_context, Executor* cpu_executor,
+                std::shared_ptr<io::InputStream> input, const ReadOptions& read_options,
+                const ParseOptions& parse_options)
+      : ReaderMixin(io_context, std::move(input), read_options, parse_options,
+                    ConvertOptions::Defaults(), /*count_rows=*/true),
+        cpu_executor_(cpu_executor),
+        row_count_(0) {}
+
+  Future<int64_t> Count() {
+    auto self = shared_from_this();
+    return Init(self).Then([self]() { return self->DoCount(self); });
+  }
+
+ private:
+  Future<> Init(const std::shared_ptr<CSVRowCounter>& self) {
+    ARROW_ASSIGN_OR_RAISE(auto istream_it,
+                          io::MakeInputStreamIterator(input_, read_options_.block_size));
+    // TODO Consider exposing readahead as a read option (ARROW-12090)
+    ARROW_ASSIGN_OR_RAISE(auto bg_it, MakeBackgroundGenerator(std::move(istream_it),
+                                                              io_context_.executor()));
+    auto transferred_it = MakeTransferredGenerator(bg_it, cpu_executor_);
+    auto buffer_generator = CSVBufferIterator::MakeAsync(std::move(transferred_it));
+
+    return buffer_generator().Then([self, buffer_generator](
+                                       std::shared_ptr<Buffer> first_buffer) {
+      if (!first_buffer) {
+        return Status::Invalid("Empty CSV file");
+      }
+      RETURN_NOT_OK(self->ProcessHeader(first_buffer, &first_buffer));
+      self->block_generator_ = SerialBlockReader::MakeAsyncIterator(
+          buffer_generator, MakeChunker(self->parse_options_), std::move(first_buffer));
+      return Status::OK();
+    });
+  }
+
+  Future<int64_t> DoCount(const std::shared_ptr<CSVRowCounter>& self) {
+    // We must return a value instead of Status/Future<> to work with MakeMappedGenerator,
+    // and we must use a type with a valid end value to work with IterationEnd.
+    std::function<Result<util::optional<int64_t>>(const CSVBlock&)> count_cb =
+        [self](const CSVBlock& maybe_block) -> Result<util::optional<int64_t>> {
+      ARROW_ASSIGN_OR_RAISE(
+          auto parser,
+          self->Parse(maybe_block.partial, maybe_block.completion, maybe_block.buffer,
+                      maybe_block.block_index, maybe_block.is_final));
+      RETURN_NOT_OK(maybe_block.consume_bytes(parser.parsed_bytes));
+      self->row_count_ += parser.parser->num_rows();
+      return parser.parser->num_rows();
+    };
+    auto count_gen = MakeMappedGenerator(block_generator_, std::move(count_cb));
+    return DiscardAllFromAsyncGenerator(count_gen).Then(
+        [self]() { return self->row_count_; });
+  }
+
+  Executor* cpu_executor_;
+  AsyncGenerator<CSVBlock> block_generator_;
+  int64_t row_count_;
+};
+
 }  // namespace
 
 /////////////////////////////////////////////////////////////////////////
@@ -1079,6 +1143,16 @@ Future<std::shared_ptr<StreamingReader>> StreamingReader::MakeAsync(
     const ParseOptions& parse_options, const ConvertOptions& convert_options) {
   return MakeStreamingReader(io_context, std::move(input), cpu_executor, read_options,
                              parse_options, convert_options);
+}
+
+Future<int64_t> CountRowsAsync(io::IOContext io_context,
+                               std::shared_ptr<io::InputStream> input,
+                               internal::Executor* cpu_executor,
+                               const ReadOptions& read_options,
+                               const ParseOptions& parse_options) {
+  auto counter = std::make_shared<CSVRowCounter>(
+      io_context, cpu_executor, std::move(input), read_options, parse_options);
+  return counter->Count();
 }
 
 }  // namespace csv
