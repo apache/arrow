@@ -105,6 +105,11 @@ An important point is that if the input source supports zero-copy reads
 (e.g. like a memory map, or ``pyarrow.BufferReader``), then the returned
 batches are also zero-copy and do not allocate any new memory on read.
 
+All stream objects have a ``close`` method. In the above example 
+:func:`~pyarrow.BufferOutputStream.getvalue` both closes and returns the buffer.
+If the return object is not needed, call the relevent ``close`` method
+after you are finished using the object to avoid data corruption issues.
+
 Writing and Reading Random Access Files
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
