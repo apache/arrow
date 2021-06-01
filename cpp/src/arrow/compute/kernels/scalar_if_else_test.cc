@@ -114,10 +114,9 @@ struct DatumWrapper {
 template <typename Type>
 void GenerateExpected(const Datum& cond, const Datum& left, const Datum& right,
                       Datum* out) {
-  int64_t len = cond.is_array()    ? cond.length()
-                : left.is_array()  ? left.length()
-                : right.is_array() ? right.length()
-                                   : 1;
+  int64_t len = cond.is_array() ? cond.length()
+                                : left.is_array() ? left.length()
+                                                  : right.is_array() ? right.length() : 1;
 
   DatumWrapper<BooleanType> cond_(cond);
   DatumWrapper<Type> left_(left);
