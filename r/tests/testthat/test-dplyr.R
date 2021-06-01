@@ -895,7 +895,7 @@ test_that("No duplicate field names are allowed in an arrow_dplyr_query", {
   expect_error(
     Table$create(tbl, tbl) %>%
       filter(int > 0),
-    regexp = "The following field names were found more than once in the data: int, dbl, dbl2, lgl, false, chr, fct, verses, padded_strings"
+    regexp = 'The following field names were found more than once in the data: "int", "dbl", "dbl2", "lgl", "false", "chr", "fct", "verses", and "padded_strings"'
   )
 })
 
