@@ -1424,7 +1424,7 @@ def test_partitioning_factory_dictionary(mockfs, infer_dictionary):
         assert inferred_schema.field('key').type == pa.string()
 
 
-def test_partitioning_factory_url_decode():
+def test_partitioning_factory_segment_encoding():
     mockfs = fs._MockFileSystem()
     format = ds.IpcFileFormat()
     schema = pa.schema([("i64", pa.int64())])
@@ -1458,7 +1458,7 @@ def test_partitioning_factory_url_decode():
     assert actual[0][0].as_py() == 1620086400
 
     options.partitioning_factory = ds.DirectoryPartitioning.discover(
-        ["date", "string"], url_decode_segments=False)
+        ["date", "string"], segment_encoding="none")
     factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
     fragments = list(factory.finish().get_fragments())
     assert fragments[0].partition_expression.equals(
@@ -1466,7 +1466,7 @@ def test_partitioning_factory_url_decode():
         (ds.field("string") == "%24"))
 
     options.partitioning = ds.DirectoryPartitioning(
-        string_partition_schema, url_decode_segments=False)
+        string_partition_schema, segment_encoding="none")
     factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
     fragments = list(factory.finish().get_fragments())
     assert fragments[0].partition_expression.equals(
@@ -1474,7 +1474,7 @@ def test_partitioning_factory_url_decode():
         (ds.field("string") == "%24"))
 
     options.partitioning_factory = ds.DirectoryPartitioning.discover(
-        schema=partition_schema, url_decode_segments=False)
+        schema=partition_schema, segment_encoding="none")
     factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
     with pytest.raises(pa.ArrowInvalid,
                        match="Could not cast segments for partition field"):
@@ -1494,7 +1494,7 @@ def test_partitioning_factory_url_decode():
     assert actual[0][0].as_py() == 1620086400
 
     options.partitioning_factory = ds.HivePartitioning.discover(
-        url_decode_segments=False)
+        segment_encoding="none")
     factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
     fragments = list(factory.finish().get_fragments())
     assert fragments[0].partition_expression.equals(
@@ -1502,7 +1502,7 @@ def test_partitioning_factory_url_decode():
         (ds.field("string") == "%24"))
 
     options.partitioning = ds.HivePartitioning(
-        string_partition_schema, url_decode_segments=False)
+        string_partition_schema, segment_encoding="none")
     factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
     fragments = list(factory.finish().get_fragments())
     assert fragments[0].partition_expression.equals(
@@ -1510,7 +1510,7 @@ def test_partitioning_factory_url_decode():
         (ds.field("string") == "%24"))
 
     options.partitioning_factory = ds.HivePartitioning.discover(
-        schema=partition_schema, url_decode_segments=False)
+        schema=partition_schema, segment_encoding="none")
     factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
     with pytest.raises(pa.ArrowInvalid,
                        match="Could not cast segments for partition field"):

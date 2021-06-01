@@ -20,6 +20,7 @@
 #pragma once
 
 #include <functional>
+#include <iosfwd>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -89,11 +90,22 @@ class ARROW_DS_EXPORT Partitioning {
   std::shared_ptr<Schema> schema_;
 };
 
+/// \brief The encoding of partition segments.
+enum class SegmentEncoding : int8_t {
+  /// No encoding.
+  None = 0,
+  /// Segment values are URL-encoded.
+  Url = 1,
+};
+
+ARROW_EXPORT
+std::ostream& operator<<(std::ostream& os, SegmentEncoding segment_encoding);
+
 /// \brief Options for key-value based partitioning (hive/directory).
 struct ARROW_DS_EXPORT KeyValuePartitioningOptions {
-  /// After splitting a path into components, URL-decode the path components
-  /// before parsing.
-  bool url_decode_segments = true;
+  /// After splitting a path into components, decode the path components
+  /// before parsing according to this scheme.
+  SegmentEncoding segment_encoding = SegmentEncoding::Url;
 };
 
 /// \brief Options for inferring a partitioning.
@@ -107,9 +119,9 @@ struct ARROW_DS_EXPORT PartitioningFactoryOptions {
   /// will only check discovered fields against the schema and update internal
   /// state (such as dictionaries).
   std::shared_ptr<Schema> schema;
-  /// After splitting a path into components, URL-decode the path components
-  /// before parsing.
-  bool url_decode_segments = true;
+  /// After splitting a path into components, decode the path components
+  /// before parsing according to this scheme.
+  SegmentEncoding segment_encoding = SegmentEncoding::Url;
 
   KeyValuePartitioningOptions AsPartitioningOptions() const;
 };
@@ -192,9 +204,9 @@ class ARROW_DS_EXPORT DirectoryPartitioning : public KeyValuePartitioning {
  public:
   /// If a field in schema is of dictionary type, the corresponding element of
   /// dictionaries must be contain the dictionary of values for that field.
-  explicit DirectoryPartitioning(
-      std::shared_ptr<Schema> schema, ArrayVector dictionaries = {},
-      KeyValuePartitioningOptions options = KeyValuePartitioningOptions());
+  explicit DirectoryPartitioning(std::shared_ptr<Schema> schema,
+                                 ArrayVector dictionaries = {},
+                                 KeyValuePartitioningOptions options = {});
 
   std::string type_name() const override { return "schema"; }
 

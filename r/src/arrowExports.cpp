@@ -1856,65 +1856,65 @@ extern "C" SEXP _arrow_dataset___ParquetFragmentScanOptions__Make(SEXP use_buffe
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
-std::shared_ptr<ds::DirectoryPartitioning> dataset___DirectoryPartitioning(const std::shared_ptr<arrow::Schema>& schm, bool url_decode_segments);
-extern "C" SEXP _arrow_dataset___DirectoryPartitioning(SEXP schm_sexp, SEXP url_decode_segments_sexp){
+std::shared_ptr<ds::DirectoryPartitioning> dataset___DirectoryPartitioning(const std::shared_ptr<arrow::Schema>& schm, const std::string& segment_encoding);
+extern "C" SEXP _arrow_dataset___DirectoryPartitioning(SEXP schm_sexp, SEXP segment_encoding_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schm(schm_sexp);
-	arrow::r::Input<bool>::type url_decode_segments(url_decode_segments_sexp);
-	return cpp11::as_sexp(dataset___DirectoryPartitioning(schm, url_decode_segments));
+	arrow::r::Input<const std::string&>::type segment_encoding(segment_encoding_sexp);
+	return cpp11::as_sexp(dataset___DirectoryPartitioning(schm, segment_encoding));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___DirectoryPartitioning(SEXP schm_sexp, SEXP url_decode_segments_sexp){
+extern "C" SEXP _arrow_dataset___DirectoryPartitioning(SEXP schm_sexp, SEXP segment_encoding_sexp){
 	Rf_error("Cannot call dataset___DirectoryPartitioning(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
-std::shared_ptr<ds::PartitioningFactory> dataset___DirectoryPartitioning__MakeFactory(const std::vector<std::string>& field_names, bool url_decode_segments);
-extern "C" SEXP _arrow_dataset___DirectoryPartitioning__MakeFactory(SEXP field_names_sexp, SEXP url_decode_segments_sexp){
+std::shared_ptr<ds::PartitioningFactory> dataset___DirectoryPartitioning__MakeFactory(const std::vector<std::string>& field_names, const std::string& segment_encoding);
+extern "C" SEXP _arrow_dataset___DirectoryPartitioning__MakeFactory(SEXP field_names_sexp, SEXP segment_encoding_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::vector<std::string>&>::type field_names(field_names_sexp);
-	arrow::r::Input<bool>::type url_decode_segments(url_decode_segments_sexp);
-	return cpp11::as_sexp(dataset___DirectoryPartitioning__MakeFactory(field_names, url_decode_segments));
+	arrow::r::Input<const std::string&>::type segment_encoding(segment_encoding_sexp);
+	return cpp11::as_sexp(dataset___DirectoryPartitioning__MakeFactory(field_names, segment_encoding));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___DirectoryPartitioning__MakeFactory(SEXP field_names_sexp, SEXP url_decode_segments_sexp){
+extern "C" SEXP _arrow_dataset___DirectoryPartitioning__MakeFactory(SEXP field_names_sexp, SEXP segment_encoding_sexp){
 	Rf_error("Cannot call dataset___DirectoryPartitioning__MakeFactory(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
-std::shared_ptr<ds::HivePartitioning> dataset___HivePartitioning(const std::shared_ptr<arrow::Schema>& schm, const std::string& null_fallback, bool url_decode_segments);
-extern "C" SEXP _arrow_dataset___HivePartitioning(SEXP schm_sexp, SEXP null_fallback_sexp, SEXP url_decode_segments_sexp){
+std::shared_ptr<ds::HivePartitioning> dataset___HivePartitioning(const std::shared_ptr<arrow::Schema>& schm, const std::string& null_fallback, const std::string& segment_encoding);
+extern "C" SEXP _arrow_dataset___HivePartitioning(SEXP schm_sexp, SEXP null_fallback_sexp, SEXP segment_encoding_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schm(schm_sexp);
 	arrow::r::Input<const std::string&>::type null_fallback(null_fallback_sexp);
-	arrow::r::Input<bool>::type url_decode_segments(url_decode_segments_sexp);
-	return cpp11::as_sexp(dataset___HivePartitioning(schm, null_fallback, url_decode_segments));
+	arrow::r::Input<const std::string&>::type segment_encoding(segment_encoding_sexp);
+	return cpp11::as_sexp(dataset___HivePartitioning(schm, null_fallback, segment_encoding));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___HivePartitioning(SEXP schm_sexp, SEXP null_fallback_sexp, SEXP url_decode_segments_sexp){
+extern "C" SEXP _arrow_dataset___HivePartitioning(SEXP schm_sexp, SEXP null_fallback_sexp, SEXP segment_encoding_sexp){
 	Rf_error("Cannot call dataset___HivePartitioning(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
-std::shared_ptr<ds::PartitioningFactory> dataset___HivePartitioning__MakeFactory(const std::string& null_fallback, bool url_decode_segments);
-extern "C" SEXP _arrow_dataset___HivePartitioning__MakeFactory(SEXP null_fallback_sexp, SEXP url_decode_segments_sexp){
+std::shared_ptr<ds::PartitioningFactory> dataset___HivePartitioning__MakeFactory(const std::string& null_fallback, const std::string& segment_encoding);
+extern "C" SEXP _arrow_dataset___HivePartitioning__MakeFactory(SEXP null_fallback_sexp, SEXP segment_encoding_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::string&>::type null_fallback(null_fallback_sexp);
-	arrow::r::Input<bool>::type url_decode_segments(url_decode_segments_sexp);
-	return cpp11::as_sexp(dataset___HivePartitioning__MakeFactory(null_fallback, url_decode_segments));
+	arrow::r::Input<const std::string&>::type segment_encoding(segment_encoding_sexp);
+	return cpp11::as_sexp(dataset___HivePartitioning__MakeFactory(null_fallback, segment_encoding));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___HivePartitioning__MakeFactory(SEXP null_fallback_sexp, SEXP url_decode_segments_sexp){
+extern "C" SEXP _arrow_dataset___HivePartitioning__MakeFactory(SEXP null_fallback_sexp, SEXP segment_encoding_sexp){
 	Rf_error("Cannot call dataset___HivePartitioning__MakeFactory(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif

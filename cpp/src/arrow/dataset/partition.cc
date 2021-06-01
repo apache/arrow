@@ -172,6 +172,21 @@ Result<Partitioning::PartitionedBatches> KeyValuePartitioning::Partition(
   return out;
 }
 
+std::ostream& operator<<(std::ostream& os, SegmentEncoding segment_encoding) {
+  switch (segment_encoding) {
+    case SegmentEncoding::None:
+      os << "SegmentEncoding::None";
+      break;
+    case SegmentEncoding::Url:
+      os << "SegmentEncoding::Url";
+      break;
+    default:
+      os << "(invalid SegmentEncoding " << static_cast<int8_t>(segment_encoding) << ")";
+      break;
+  }
+  return os;
+}
+
 Result<compute::Expression> KeyValuePartitioning::ConvertKey(const Key& key) const {
   ARROW_ASSIGN_OR_RAISE(auto match, FieldRef(key.name).FindOneOrNone(*schema_));
   if (match.empty()) {
@@ -278,7 +293,7 @@ DirectoryPartitioning::DirectoryPartitioning(std::shared_ptr<Schema> schema,
                                              ArrayVector dictionaries,
                                              KeyValuePartitioningOptions options)
     : KeyValuePartitioning(std::move(schema), std::move(dictionaries), options) {
-  if (options.url_decode_segments) {
+  if (options.segment_encoding != SegmentEncoding::None) {
     util::InitializeUTF8();
   }
 }
@@ -291,11 +306,18 @@ Result<std::vector<KeyValuePartitioning::Key>> DirectoryPartitioning::ParseKeys(
   for (auto&& segment : fs::internal::SplitAbstractPath(path)) {
     if (i >= schema_->num_fields()) break;
 
-    if (options_.url_decode_segments) {
-      ARROW_ASSIGN_OR_RAISE(auto decoded, SafeUriUnescape(segment));
-      keys.push_back({schema_->field(i++)->name(), std::move(decoded)});
-    } else {
-      keys.push_back({schema_->field(i++)->name(), std::move(segment)});
+    switch (options_.segment_encoding) {
+      case SegmentEncoding::None:
+        keys.push_back({schema_->field(i++)->name(), std::move(segment)});
+        break;
+      case SegmentEncoding::Url: {
+        ARROW_ASSIGN_OR_RAISE(auto decoded, SafeUriUnescape(segment));
+        keys.push_back({schema_->field(i++)->name(), std::move(decoded)});
+        break;
+      }
+      default:
+        return Status::NotImplemented("Unknown segment encoding: ",
+                                      options_.segment_encoding);
     }
   }
 
@@ -339,14 +361,14 @@ Result<std::string> DirectoryPartitioning::FormatValues(
 
 KeyValuePartitioningOptions PartitioningFactoryOptions::AsPartitioningOptions() const {
   KeyValuePartitioningOptions options;
-  options.url_decode_segments = url_decode_segments;
+  options.segment_encoding = segment_encoding;
   return options;
 }
 
 HivePartitioningOptions HivePartitioningFactoryOptions::AsHivePartitioningOptions()
     const {
   HivePartitioningOptions options;
-  options.url_decode_segments = url_decode_segments;
+  options.segment_encoding = segment_encoding;
   options.null_fallback = null_fallback;
   return options;
 }
@@ -473,7 +495,7 @@ class DirectoryPartitioningFactory : public KeyValuePartitioningFactory {
                                PartitioningFactoryOptions options)
       : KeyValuePartitioningFactory(options), field_names_(std::move(field_names)) {
     Reset();
-    if (options.url_decode_segments) {
+    if (options.segment_encoding != SegmentEncoding::None) {
       util::InitializeUTF8();
     }
   }
@@ -487,11 +509,18 @@ class DirectoryPartitioningFactory : public KeyValuePartitioningFactory {
       for (auto&& segment : fs::internal::SplitAbstractPath(path)) {
         if (field_index == field_names_.size()) break;
 
-        if (options_.url_decode_segments) {
-          ARROW_ASSIGN_OR_RAISE(auto decoded, SafeUriUnescape(segment));
-          RETURN_NOT_OK(InsertRepr(static_cast<int>(field_index++), decoded));
-        } else {
-          RETURN_NOT_OK(InsertRepr(static_cast<int>(field_index++), segment));
+        switch (options_.segment_encoding) {
+          case SegmentEncoding::None:
+            RETURN_NOT_OK(InsertRepr(static_cast<int>(field_index++), segment));
+            break;
+          case SegmentEncoding::Url: {
+            ARROW_ASSIGN_OR_RAISE(auto decoded, SafeUriUnescape(segment));
+            RETURN_NOT_OK(InsertRepr(static_cast<int>(field_index++), decoded));
+            break;
+          }
+          default:
+            return Status::NotImplemented("Unknown segment encoding: ",
+                                          options_.segment_encoding);
         }
       }
     }
@@ -543,14 +572,20 @@ Result<util::optional<KeyValuePartitioning::Key>> HivePartitioning::ParseKey(
 
   auto name = segment.substr(0, name_end);
   std::string value;
-  if (options.url_decode_segments) {
-    // Static method, so we have no better place for it
-    util::InitializeUTF8();
-    auto raw_value =
-        util::string_view(segment.data() + name_end + 1, segment.size() - name_end - 1);
-    ARROW_ASSIGN_OR_RAISE(value, SafeUriUnescape(raw_value));
-  } else {
-    value = segment.substr(name_end + 1);
+  switch (options.segment_encoding) {
+    case SegmentEncoding::None:
+      value = segment.substr(name_end + 1);
+      break;
+    case SegmentEncoding::Url: {
+      // Static method, so we have no better place for it
+      util::InitializeUTF8();
+      auto raw_value = util::string_view(segment).substr(name_end + 1);
+      ARROW_ASSIGN_OR_RAISE(value, SafeUriUnescape(raw_value));
+      break;
+    }
+    default:
+      return Status::NotImplemented("Unknown segment encoding: ",
+                                    options.segment_encoding);
   }
 
   if (value == options.null_fallback) {

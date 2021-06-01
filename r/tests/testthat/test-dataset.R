@@ -1127,7 +1127,7 @@ test_that("URL-decoding with directory partitioning", {
 
   partitioning <- DirectoryPartitioning$create(
     schema(date = timestamp(unit = "s"), string = utf8()),
-    url_decode_segments = FALSE)
+    segment_encoding = "none")
   factory <- FileSystemDatasetFactory$create(
     fs, selector, NULL, fmt, partitioning = partitioning)
   schm <- factory$Inspect()
@@ -1149,7 +1149,7 @@ test_that("URL-decoding with directory partitioning", {
   )
 
   partitioning_factory <- DirectoryPartitioningFactory$create(
-    c("date", "string"), url_decode_segments = FALSE)
+    c("date", "string"), segment_encoding = "none")
   factory <- FileSystemDatasetFactory$create(
     fs, selector, NULL, fmt, partitioning_factory)
   schm <- factory$Inspect()
@@ -1180,7 +1180,7 @@ test_that("URL-decoding with hive partitioning", {
   expect_scan_result(ds, schm)
 
   partitioning <- hive_partition(
-    date = timestamp(unit = "s"), string = utf8(), url_decode_segments = FALSE)
+    date = timestamp(unit = "s"), string = utf8(), segment_encoding = "none")
   factory <- FileSystemDatasetFactory$create(
     fs, selector, NULL, fmt, partitioning = partitioning)
   expect_error(factory$Finish(schm), "Invalid: error parsing")
@@ -1199,7 +1199,7 @@ test_that("URL-decoding with hive partitioning", {
     df1 %>% select(int) %>% collect()
   )
 
-  partitioning_factory <- hive_partition(url_decode_segments = FALSE)
+  partitioning_factory <- hive_partition(segment_encoding = "none")
   factory <- FileSystemDatasetFactory$create(
     fs, selector, NULL, fmt, partitioning_factory)
   schm <- factory$Inspect()

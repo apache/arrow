@@ -333,40 +333,50 @@ dataset___ParquetFragmentScanOptions__Make(bool use_buffered_stream, int64_t buf
 
 // DirectoryPartitioning, HivePartitioning
 
+ds::SegmentEncoding GetSegmentEncoding(const std::string& segment_encoding) {
+  if (segment_encoding == "none") {
+    return ds::SegmentEncoding::None;
+  } else if (segment_encoding == "url") {
+    return ds::SegmentEncoding::Url;
+  }
+  cpp11::stop("invalid segment encoding: " + segment_encoding);
+  return ds::SegmentEncoding::None;
+}
+
 // [[dataset::export]]
 std::shared_ptr<ds::DirectoryPartitioning> dataset___DirectoryPartitioning(
-    const std::shared_ptr<arrow::Schema>& schm, bool url_decode_segments) {
+    const std::shared_ptr<arrow::Schema>& schm, const std::string& segment_encoding) {
   ds::KeyValuePartitioningOptions options;
-  options.url_decode_segments = url_decode_segments;
+  options.segment_encoding = GetSegmentEncoding(segment_encoding);
   std::vector<std::shared_ptr<arrow::Array>> dictionaries;
   return std::make_shared<ds::DirectoryPartitioning>(schm, dictionaries, options);
 }
 
 // [[dataset::export]]
 std::shared_ptr<ds::PartitioningFactory> dataset___DirectoryPartitioning__MakeFactory(
-    const std::vector<std::string>& field_names, bool url_decode_segments) {
+    const std::vector<std::string>& field_names, const std::string& segment_encoding) {
   ds::PartitioningFactoryOptions options;
-  options.url_decode_segments = url_decode_segments;
+  options.segment_encoding = GetSegmentEncoding(segment_encoding);
   return ds::DirectoryPartitioning::MakeFactory(field_names, options);
 }
 
 // [[dataset::export]]
 std::shared_ptr<ds::HivePartitioning> dataset___HivePartitioning(
     const std::shared_ptr<arrow::Schema>& schm, const std::string& null_fallback,
-    bool url_decode_segments) {
+    const std::string& segment_encoding) {
   ds::HivePartitioningOptions options;
   options.null_fallback = null_fallback;
-  options.url_decode_segments = url_decode_segments;
+  options.segment_encoding = GetSegmentEncoding(segment_encoding);
   std::vector<std::shared_ptr<arrow::Array>> dictionaries;
   return std::make_shared<ds::HivePartitioning>(schm, dictionaries, options);
 }
 
 // [[dataset::export]]
 std::shared_ptr<ds::PartitioningFactory> dataset___HivePartitioning__MakeFactory(
-    const std::string& null_fallback, bool url_decode_segments) {
+    const std::string& null_fallback, const std::string& segment_encoding) {
   ds::HivePartitioningFactoryOptions options;
   options.null_fallback = null_fallback;
-  options.url_decode_segments = url_decode_segments;
+  options.segment_encoding = GetSegmentEncoding(segment_encoding);
   return ds::HivePartitioning::MakeFactory(options);
 }
 

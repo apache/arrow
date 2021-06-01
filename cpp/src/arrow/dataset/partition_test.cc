@@ -581,7 +581,7 @@ TEST_F(TestPartitioning, UrlEncodedDirectory) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("was not valid UTF-8"),
                                   partitioning_->Parse({"/%AF/%BF/%CF"}));
 
-  options.url_decode_segments = false;
+  options.segment_encoding = SegmentEncoding::None;
   options.schema =
       schema({field("date", utf8()), field("time", utf8()), field("str", utf8())});
   factory_ = DirectoryPartitioning::MakeFactory(options.schema->field_names(), options);
@@ -631,7 +631,7 @@ TEST_F(TestPartitioning, UrlEncodedHive) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("was not valid UTF-8"),
                                   partitioning_->Parse({"/date=%AF/time=%BF/str=%CF"}));
 
-  options.url_decode_segments = false;
+  options.segment_encoding = SegmentEncoding::None;
   options.schema =
       schema({field("date", utf8()), field("time", utf8()), field("str", utf8())});
   factory_ = HivePartitioning::MakeFactory(options);

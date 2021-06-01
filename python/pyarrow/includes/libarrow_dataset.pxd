@@ -305,27 +305,31 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CResult[CExpression] Parse(const c_string & path) const
         const shared_ptr[CSchema] & schema()
 
+    enum SegmentEncoding" arrow::dataset::SegmentEncoding":
+        SegmentEncoding_NONE" arrow::dataset::SegmentEncoding::None"
+        SegmentEncoding_URL" arrow::dataset::SegmentEncoding::Url"
+
     cdef cppclass CKeyValuePartitioningOptions \
             "arrow::dataset::KeyValuePartitioningOptions":
-        c_bool url_decode_segments
+        SegmentEncoding segment_encoding
 
     cdef cppclass CHivePartitioningOptions \
             "arrow::dataset::HivePartitioningOptions":
-        c_bool url_decode_segments
+        SegmentEncoding segment_encoding
         c_string null_fallback
 
     cdef cppclass CPartitioningFactoryOptions \
             "arrow::dataset::PartitioningFactoryOptions":
         c_bool infer_dictionary
         shared_ptr[CSchema] schema
-        c_bool url_decode_segments
+        SegmentEncoding segment_encoding
 
     cdef cppclass CHivePartitioningFactoryOptions \
             "arrow::dataset::HivePartitioningFactoryOptions":
         c_bool infer_dictionary
         c_string null_fallback
         shared_ptr[CSchema] schema
-        c_bool url_decode_segments
+        SegmentEncoding segment_encoding
 
     cdef cppclass CPartitioningFactory "arrow::dataset::PartitioningFactory":
         pass
