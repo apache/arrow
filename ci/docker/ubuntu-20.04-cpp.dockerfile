@@ -75,6 +75,7 @@ RUN apt-get update -y -q && \
         libcurl4-openssl-dev \
         libgflags-dev \
         libgoogle-glog-dev \
+        libgrpc++-dev \
         liblz4-dev \
         libprotobuf-dev \
         libprotoc-dev \
@@ -88,6 +89,7 @@ RUN apt-get update -y -q && \
         ninja-build \
         pkg-config \
         protobuf-compiler \
+        protobuf-compiler-grpc \
         rapidjson-dev \
         tzdata \
         wget && \
@@ -129,8 +131,10 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_WITH_ZSTD=ON \
     AWSSDK_SOURCE=BUNDLED \
     GTest_SOURCE=BUNDLED \
+    gRPC_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     PARQUET_BUILD_EXAMPLES=ON \
     PARQUET_BUILD_EXECUTABLES=ON \
     PATH=/usr/lib/ccache/:$PATH \
-    PYTHON=python3
+    PYTHON=python3 \
+    Protobuf_SOURCE=BUNDLED
