@@ -129,11 +129,7 @@ open_dataset <- function(sources,
     })
     return(dataset___UnionDataset__create(sources, schema))
   }
-  if (is.character(format)) {
-    format <- FileFormat$create(match.arg(format), ...)
-  } else {
-    assert_is(format, "FileFormat")
-  }
+  
   factory <- DatasetFactory$create(sources, partitioning = partitioning, format = format, ...)
   tryCatch(
     # Default is _not_ to inspect/unify schemas
