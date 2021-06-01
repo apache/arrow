@@ -495,7 +495,7 @@ struct ResolveIfElseExec {
       if (!cond.is_valid) {
         // cond is null; just create a null array
         ARROW_ASSIGN_OR_RAISE(
-            *out, MakeArrayOfNull(batch[1].type(), bcast_size, ctx->memory_pool()))
+            *out, MakeArrayOfNull(batch[1].type(), batch.length, ctx->memory_pool()))
         return Status::OK();
       }
 
