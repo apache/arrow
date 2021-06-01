@@ -1783,8 +1783,9 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CMatchSubstringOptions \
             "arrow::compute::MatchSubstringOptions"(CFunctionOptions):
-        CMatchSubstringOptions(c_string pattern)
+        CMatchSubstringOptions(c_string pattern, c_bool ignore_case)
         c_string pattern
+        c_bool ignore_case
 
     cdef cppclass CTrimOptions \
             "arrow::compute::TrimOptions"(CFunctionOptions):

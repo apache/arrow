@@ -308,6 +308,14 @@ def test_match_like():
     expected = pa.array([False, True, False, True, None])
     assert expected.equals(result)
 
+    arr = pa.array(["aB", "bA%", "ba", "ca%d", None])
+    result = pc.match_like(arr, r"_a\%%", ignore_case=True)
+    expected = pa.array([False, True, False, True, None])
+    assert expected.equals(result)
+    result = pc.match_like(arr, r"_a\%%", ignore_case=False)
+    expected = pa.array([False, False, False, True, None])
+    assert expected.equals(result)
+
 
 def test_match_substring():
     arr = pa.array(["ab", "abc", "ba", None])
@@ -315,11 +323,27 @@ def test_match_substring():
     expected = pa.array([True, True, False, None])
     assert expected.equals(result)
 
+    arr = pa.array(["áB", "Ábc", "ba", None])
+    result = pc.match_substring(arr, "áb", ignore_case=True)
+    expected = pa.array([True, True, False, None])
+    assert expected.equals(result)
+    result = pc.match_substring(arr, "áb", ignore_case=False)
+    expected = pa.array([False, False, False, None])
+    assert expected.equals(result)
+
 
 def test_match_substring_regex():
     arr = pa.array(["ab", "abc", "ba", "c", None])
     result = pc.match_substring_regex(arr, "^a?b")
     expected = pa.array([True, True, True, False, None])
+    assert expected.equals(result)
+
+    arr = pa.array(["aB", "Abc", "BA", "c", None])
+    result = pc.match_substring_regex(arr, "^a?b", ignore_case=True)
+    expected = pa.array([True, True, True, False, None])
+    assert expected.equals(result)
+    result = pc.match_substring_regex(arr, "^a?b", ignore_case=False)
+    expected = pa.array([False, False, False, False, None])
     assert expected.equals(result)
 
 

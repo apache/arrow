@@ -220,7 +220,12 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
 
   if (func_name == "match_substring" || func_name == "match_substring_regex") {
     using Options = arrow::compute::MatchSubstringOptions;
-    return std::make_shared<Options>(cpp11::as_cpp<std::string>(options["pattern"]));
+    bool ignore_case = false;
+    if (!Rf_isNull(options["ignore_case"])) {
+      ignore_case = cpp11::as_cpp<bool>(options["ignore_case"]);
+    }
+    return std::make_shared<Options>(cpp11::as_cpp<std::string>(options["pattern"]),
+                                     ignore_case);
   }
 
   if (func_name == "replace_substring" || func_name == "replace_substring_regex") {
