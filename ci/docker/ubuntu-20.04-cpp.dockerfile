@@ -136,5 +136,5 @@ ENV ARROW_BUILD_TESTS=ON \
     PARQUET_BUILD_EXAMPLES=ON \
     PARQUET_BUILD_EXECUTABLES=ON \
     PATH=/usr/lib/ccache/:$PATH \
-    PYTHON=python3 \
-    Protobuf_SOURCE=BUNDLED
+    Protobuf_SOURCE=BUNDLED \
+    PYTHON=python3
