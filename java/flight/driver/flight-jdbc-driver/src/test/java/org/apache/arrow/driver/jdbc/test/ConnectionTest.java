@@ -39,10 +39,6 @@ public class ConnectionTest {
   @SuppressWarnings("unused")
   private String badUrl; // TODO Test cases with this later.
 
-  private ConnectionTest() {
-    // Prevent instantiation.
-  }
-
   /**
    * Setup for all tests.
    *
