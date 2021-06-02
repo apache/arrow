@@ -24,7 +24,6 @@ import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.Map;
 import java.util.Properties;
 import org.apache.arrow.util.Preconditions;
 import org.apache.calcite.avatica.AvaticaConnection;
@@ -57,7 +56,8 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
       }
 
       String[] args = getUrlsArgs(url);
-      info.putAll(Map.of("host", args[0], "port", args[1]));
+      info.put("host", args[0]);
+      info.put("port", args[1]);
 
       try {
         connection = new ArrowFlightConnection(this, factory, url, info);
