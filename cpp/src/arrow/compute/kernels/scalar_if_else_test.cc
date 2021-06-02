@@ -96,12 +96,15 @@ void CheckWithDifferentShapes(const std::shared_ptr<Array>& cond,
   for (int mask = 0; mask < (COND_SCALAR | LEFT_SCALAR | RIGHT_SCALAR); ++mask) {
     for (int64_t cond_idx = 0; cond_idx < len; ++cond_idx) {
       Datum cond_in, cond_bcast;
+      std::string trace_msg = "Cond";
       if (mask & COND_SCALAR) {
         ASSERT_OK_AND_ASSIGN(cond_in, cond->GetScalar(cond_idx));
         ASSERT_OK_AND_ASSIGN(cond_bcast, MakeArrayFromScalar(*cond_in.scalar(), len));
+        trace_msg += "@" + std::to_string(cond_idx) + "=" + cond_in.scalar()->ToString();
       } else {
         cond_in = cond_bcast = cond;
       }
+      SCOPED_TRACE(trace_msg);
 
       for (int64_t left_idx = 0; left_idx < len; ++left_idx) {
         Datum left_in, left_bcast;
