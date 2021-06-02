@@ -293,9 +293,7 @@ DirectoryPartitioning::DirectoryPartitioning(std::shared_ptr<Schema> schema,
                                              ArrayVector dictionaries,
                                              KeyValuePartitioningOptions options)
     : KeyValuePartitioning(std::move(schema), std::move(dictionaries), options) {
-  if (options.segment_encoding != SegmentEncoding::None) {
-    util::InitializeUTF8();
-  }
+  util::InitializeUTF8();
 }
 
 Result<std::vector<KeyValuePartitioning::Key>> DirectoryPartitioning::ParseKeys(
@@ -307,9 +305,13 @@ Result<std::vector<KeyValuePartitioning::Key>> DirectoryPartitioning::ParseKeys(
     if (i >= schema_->num_fields()) break;
 
     switch (options_.segment_encoding) {
-      case SegmentEncoding::None:
+      case SegmentEncoding::None: {
+        if (ARROW_PREDICT_FALSE(!util::ValidateUTF8(segment))) {
+          return Status::Invalid("Partition segment was not valid UTF-8: ", segment);
+        }
         keys.push_back({schema_->field(i++)->name(), std::move(segment)});
         break;
+      }
       case SegmentEncoding::Uri: {
         ARROW_ASSIGN_OR_RAISE(auto decoded, SafeUriUnescape(segment));
         keys.push_back({schema_->field(i++)->name(), std::move(decoded)});
@@ -495,9 +497,7 @@ class DirectoryPartitioningFactory : public KeyValuePartitioningFactory {
                                PartitioningFactoryOptions options)
       : KeyValuePartitioningFactory(options), field_names_(std::move(field_names)) {
     Reset();
-    if (options.segment_encoding != SegmentEncoding::None) {
-      util::InitializeUTF8();
-    }
+    util::InitializeUTF8();
   }
 
   std::string type_name() const override { return "schema"; }
@@ -510,9 +510,13 @@ class DirectoryPartitioningFactory : public KeyValuePartitioningFactory {
         if (field_index == field_names_.size()) break;
 
         switch (options_.segment_encoding) {
-          case SegmentEncoding::None:
+          case SegmentEncoding::None: {
+            if (ARROW_PREDICT_FALSE(!util::ValidateUTF8(segment))) {
+              return Status::Invalid("Partition segment was not valid UTF-8: ", segment);
+            }
             RETURN_NOT_OK(InsertRepr(static_cast<int>(field_index++), segment));
             break;
+          }
           case SegmentEncoding::Uri: {
             ARROW_ASSIGN_OR_RAISE(auto decoded, SafeUriUnescape(segment));
             RETURN_NOT_OK(InsertRepr(static_cast<int>(field_index++), decoded));
@@ -570,15 +574,20 @@ Result<util::optional<KeyValuePartitioning::Key>> HivePartitioning::ParseKey(
     return util::nullopt;
   }
 
+  // Static method, so we have no better place for it
+  util::InitializeUTF8();
+
   auto name = segment.substr(0, name_end);
   std::string value;
   switch (options.segment_encoding) {
-    case SegmentEncoding::None:
+    case SegmentEncoding::None: {
       value = segment.substr(name_end + 1);
+      if (ARROW_PREDICT_FALSE(!util::ValidateUTF8(value))) {
+        return Status::Invalid("Partition segment was not valid UTF-8: ", value);
+      }
       break;
+    }
     case SegmentEncoding::Uri: {
-      // Static method, so we have no better place for it
-      util::InitializeUTF8();
       auto raw_value = util::string_view(segment).substr(name_end + 1);
       ARROW_ASSIGN_OR_RAISE(value, SafeUriUnescape(raw_value));
       break;

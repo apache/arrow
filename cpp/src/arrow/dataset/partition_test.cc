@@ -646,6 +646,13 @@ TEST_F(TestPartitioning, UrlEncodedHive) {
               and_({equal(field_ref("date"), literal("2021-05-04 00%3A00%3A00")),
                     equal(field_ref("time"), literal("2021-05-04 07%3A27%3A00")),
                     equal(field_ref("str"), literal("%24"))}));
+
+  // Invalid UTF-8
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("was not valid UTF-8"),
+                                  factory_->Inspect({"/date=\xAF/time=\xBF/str=\xCF"}));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("was not valid UTF-8"),
+      partitioning_->Parse({"/date=\xAF/time=\xBF/str=\xCF"}));
 }
 
 TEST_F(TestPartitioning, EtlThenHive) {
