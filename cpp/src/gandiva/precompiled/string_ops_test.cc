@@ -42,6 +42,17 @@ TEST(TestStringOps, TestCompare) {
   EXPECT_GT(mem_compare(left, 7, right, 5), 0);
 }
 
+TEST(TestStringOps, TestAscii) {
+  // ASCII
+  EXPECT_EQ(ascii_utf8("ABC", 3), 65);
+  EXPECT_EQ(ascii_utf8("abc", 3), 97);
+  EXPECT_EQ(ascii_utf8("Hello World!", 12), 72);
+  EXPECT_EQ(ascii_utf8("This is us", 10), 84);
+  EXPECT_EQ(ascii_utf8("", 0), 0);
+  EXPECT_EQ(ascii_utf8("123", 3), 49);
+  EXPECT_EQ(ascii_utf8("999", 3), 57);
+}
+
 TEST(TestStringOps, TestBeginsEnds) {
   // starts_with
   EXPECT_TRUE(starts_with_utf8_utf8("hello sir", 9, "hello", 5));
