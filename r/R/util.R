@@ -116,5 +116,11 @@ is_writable_table <- function(x) {
 }
 
 attr(is_writable_table, "fail") <- function(call, env){
-  paste0(deparse(call$x)," must be an object of class 'data.frame', 'RecordBatch', or 'Table'.")
+  paste0(
+    deparse(call$x),
+    " must be an object of class 'data.frame', 'RecordBatch', or 'Table', not '",
+    class(env[[deparse(call$x)]])[[1]], 
+    "'."
+  )
 }
+
