@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.driver.jdbc;
+package org.apache.arrow.driver.jdbc.test;
 
 import static org.junit.Assert.assertFalse;
 
@@ -23,6 +23,8 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Properties;
+
+import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver;
 import org.apache.arrow.flight.FlightRuntimeException;
 import org.junit.Before;
 import org.junit.Test;
