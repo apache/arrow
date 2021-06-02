@@ -49,6 +49,7 @@ class GANDIVA_EXPORT Configuration {
   bool target_host_cpu() const { return target_host_cpu_; }
 
   void set_optimize(bool optimize) { optimize_ = optimize; }
+  void set_compile(bool compile) { compile_ = compile; }
   void target_host_cpu(bool target_host_cpu) { target_host_cpu_ = target_host_cpu; }
 
  private:

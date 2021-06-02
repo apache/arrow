@@ -46,6 +46,7 @@
 #include <llvm/Analysis/TargetTransformInfo.h>
 #include <llvm/Bitcode/BitcodeReader.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
+#include <llvm/ExecutionEngine/Interpreter.h>
 #include <llvm/ExecutionEngine/MCJIT.h>
 #include <llvm/IR/DataLayout.h>
 #include <llvm/IR/IRBuilder.h>
@@ -153,7 +154,9 @@ Status Engine::Make(const std::shared_ptr<Configuration>& conf,
 
   llvm::EngineBuilder engine_builder(std::move(module));
 
-  engine_builder.setEngineKind(llvm::EngineKind::JIT)
+  auto engine_kind =
+      conf->compile() ? llvm::EngineKind::JIT : llvm::EngineKind::Interpreter;
+  engine_builder.setEngineKind(engine_kind)
       .setOptLevel(opt_level)
       .setErrorStr(&builder_error);
 

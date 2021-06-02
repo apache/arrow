@@ -15,10 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "gandiva/engine.h"
-
 #include <gtest/gtest.h>
+
 #include <functional>
+
+#include "gandiva/engine.h"
 #include "gandiva/llvm_types.h"
 #include "gandiva/tests/test_util.h"
 
@@ -98,7 +99,9 @@ class TestEngine : public ::testing::Test {
     return fn;
   }
 
-  void BuildEngine() { ASSERT_OK(Engine::Make(TestConfiguration(), &engine)); }
+  void BuildEngine(std::shared_ptr<Configuration>& conf) {
+    ASSERT_OK(Engine::Make(conf, &engine));
+  }
 
   std::unique_ptr<Engine> engine;
   std::shared_ptr<Configuration> configuration = TestConfiguration();
@@ -106,7 +109,7 @@ class TestEngine : public ::testing::Test {
 
 TEST_F(TestEngine, TestAddUnoptimised) {
   configuration->set_optimize(false);
-  BuildEngine();
+  BuildEngine(configuration);
 
   llvm::Function* ir_func = BuildVecAdd(engine.get());
   ASSERT_OK(engine->FinalizeModule());
@@ -118,7 +121,7 @@ TEST_F(TestEngine, TestAddUnoptimised) {
 
 TEST_F(TestEngine, TestAddOptimised) {
   configuration->set_optimize(true);
-  BuildEngine();
+  BuildEngine(configuration);
 
   llvm::Function* ir_func = BuildVecAdd(engine.get());
   ASSERT_OK(engine->FinalizeModule());
@@ -128,4 +131,15 @@ TEST_F(TestEngine, TestAddOptimised) {
   EXPECT_EQ(add_func(my_array, 5), 17);
 }
 
+TEST_F(TestEngine, TestAddInterpreted) {
+  configuration->set_compile(false);
+  BuildEngine(configuration);
+
+  llvm::Function* ir_func = BuildVecAdd(engine.get());
+  ASSERT_OK(engine->FinalizeModule());
+  auto add_func = reinterpret_cast<add_vector_func_t>(engine->CompiledFunction(ir_func));
+
+  int64_t my_array[] = {1, 3, -5, 8, 10};
+  EXPECT_EQ(add_func(my_array, 5), 17);
+}
 }  // namespace gandiva
