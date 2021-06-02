@@ -994,4 +994,28 @@ struct EnsureFuture<Future<T>> {
   using type = Future<T>;
 };
 
+template <>
+struct EnsureFuture<Status> {
+  using type = Future<>;
+};
+
+inline Future<> ToFuture(Status status) {
+  return Future<>::MakeFinished(std::move(status));
+}
+
+template <typename T>
+Future<T> ToFuture(T value) {
+  return Future<T>::MakeFinished(std::move(value));
+}
+
+template <typename T>
+Future<T> ToFuture(Result<T> maybe_value) {
+  return Future<T>::MakeFinished(std::move(maybe_value));
+}
+
+template <typename T>
+Future<T> ToFuture(Future<T> fut) {
+  return std::move(fut);
+}
+
 }  // namespace arrow

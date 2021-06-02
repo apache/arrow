@@ -266,17 +266,7 @@ AsyncGenerator<V> MakeMappedGenerator(AsyncGenerator<T> source_generator, MapFn 
   struct MapCallback {
     MapFn map_;
 
-    Future<V> operator()(const T& val) { return EnsureFuture(map_(val)); }
-
-    Future<V> EnsureFuture(V mapped) {
-      return Future<V>::MakeFinished(std::move(mapped));
-    }
-
-    Future<V> EnsureFuture(Result<V> mapped) {
-      return Future<V>::MakeFinished(std::move(mapped));
-    }
-
-    Future<V> EnsureFuture(Future<V> mapped) { return mapped; }
+    Future<V> operator()(const T& val) { return ToFuture(map_(val)); }
   };
 
   return MappingGenerator<T, V>(std::move(source_generator), MapCallback{std::move(map)});

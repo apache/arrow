@@ -212,7 +212,7 @@ class ARROW_EXPORT ExecNode {
   virtual void StopProducing() = 0;
 
  protected:
-  ExecNode(ExecPlan*, std::string label, NodeVector inputs,
+  ExecNode(ExecPlan* plan, std::string label, NodeVector inputs,
            std::vector<std::string> input_labels, BatchDescr output_descr,
            int num_outputs);
 
@@ -241,12 +241,17 @@ AsyncGenerator<Enumerated<ExecBatch>> MakeSinkNode(ExecNode* input, std::string 
 
 /// \brief Make a node which excludes some rows from batches passed through it
 ///
-/// filter Expression must be bound; no field references will be looked up by name
+/// The filter Expression will be evaluated against each batch which is pushed to
+/// this node. Any rows for which the filter does not evaluate to `true` will be excluded
+/// in the batch emitted by this node. Filter Expression must be bound; no field
+/// references will be looked up by name
 ARROW_EXPORT
 ExecNode* MakeFilterNode(ExecNode* input, std::string label, Expression filter);
 
 /// \brief Make a node which executes expressions on input batches, producing new batches.
 ///
+/// Each expression will be evaluated against each batch which is pushed to
+/// this node to produce a corresponding output column.
 /// Expressions must be bound; no field references will be looked up by name
 ARROW_EXPORT
 ExecNode* MakeProjectNode(ExecNode* input, std::string label,

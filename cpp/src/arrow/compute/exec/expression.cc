@@ -588,22 +588,6 @@ std::vector<FieldRef> FieldsInExpression(const Expression& expr) {
   return fields;
 }
 
-std::vector<int> ParametersInExpression(const Expression& expr) {
-  if (expr.literal()) return {};
-
-  if (auto parameter = expr.parameter()) {
-    return {parameter->index};
-  }
-
-  std::vector<int> indices;
-  for (const Expression& arg : CallNotNull(expr)->arguments) {
-    auto argument_indices = ParametersInExpression(arg);
-    std::move(argument_indices.begin(), argument_indices.end(),
-              std::back_inserter(indices));
-  }
-  return indices;
-}
-
 bool ExpressionHasFieldRefs(const Expression& expr) {
   if (expr.literal()) return false;
 

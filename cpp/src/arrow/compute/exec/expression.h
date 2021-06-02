@@ -161,10 +161,6 @@ Expression call(std::string function, std::vector<Expression> arguments,
 ARROW_EXPORT
 std::vector<FieldRef> FieldsInExpression(const Expression&);
 
-/// Assemble parameter indices referenced by an Expression at any depth.
-ARROW_EXPORT
-std::vector<int> ParametersInExpression(const Expression&);
-
 /// Check if the expression references any fields.
 ARROW_EXPORT
 bool ExpressionHasFieldRefs(const Expression&);
@@ -215,9 +211,9 @@ Result<Expression> SimplifyWithGuarantee(Expression,
 
 // Execution
 
-/// Ensure that a RecordBatch (which may have missing or incorrectly ordered columns)
-/// precisely matches the schema. This is necessary when executing Expressions
-/// since we look up fields by index. Missing fields will be replaced with null scalars.
+/// Create an ExecBatch suitable for passing to ExecuteScalarExpression() from a
+/// RecordBatch which may have missing or incorrectly ordered columns.
+/// Missing fields will be replaced with null scalars.
 ARROW_EXPORT Result<ExecBatch> MakeExecBatch(const Schema& full_schema,
                                              const Datum& partial);
 
