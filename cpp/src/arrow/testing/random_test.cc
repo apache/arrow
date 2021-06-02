@@ -181,7 +181,7 @@ TEST(TypeSpecificTests, BoolTrueProbability) {
   AssertTypeEqual(field->type(), base_array->type());
   auto array = internal::checked_pointer_cast<BooleanArray>(base_array);
   ASSERT_OK(array->ValidateFull());
-  for (const auto& value : *array) {
+  for (auto value : *array) {
     ASSERT_TRUE(!value.has_value() || *value);
   }
 }
@@ -203,7 +203,7 @@ TEST(TypeSpecificTests, Float32Nan) {
   AssertTypeEqual(field->type(), base_array->type());
   auto array = internal::checked_pointer_cast<NumericArray<FloatType>>(base_array);
   ASSERT_OK(array->ValidateFull());
-  for (const auto& value : *array) {
+  for (auto value : *array) {
     ASSERT_TRUE(!value.has_value() || std::isnan(*value));
   }
 }
@@ -215,7 +215,7 @@ TEST(TypeSpecificTests, Float64Nan) {
   AssertTypeEqual(field->type(), base_array->type());
   auto array = internal::checked_pointer_cast<NumericArray<DoubleType>>(base_array);
   ASSERT_OK(array->ValidateFull());
-  for (const auto& value : *array) {
+  for (auto value : *array) {
     ASSERT_TRUE(!value.has_value() || std::isnan(*value));
   }
 }
