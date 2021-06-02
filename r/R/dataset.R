@@ -81,12 +81,11 @@
 #' @export
 #' @seealso `vignette("dataset", package = "arrow")`
 #' @include arrow-package.R
-#' @examplesIf arrow_with_dataset()
+#' @examplesIf arrow_with_dataset() & arrow_with_parquet() 
 #' # Set up directory for examples
 #' tf <- tempfile()
 #' dir.create(tf)
 #' on.exit(unlink(tf))
-#' \dontrun{
 #' 
 #' data <- dplyr::group_by(mtcars, cyl)
 #' write_dataset(data, tf)
@@ -97,7 +96,7 @@
 #' 
 #' # You can also supply a vector of paths
 #' open_dataset(c(file.path(tf, "cyl=4/part-1.parquet"), file.path(tf,"cyl=8/part-2.parquet")))
-#' }
+#'
 #' ## You must specify the file format if using a format other than parquet.
 #' tf2 <- tempfile()
 #' dir.create(tf2)
