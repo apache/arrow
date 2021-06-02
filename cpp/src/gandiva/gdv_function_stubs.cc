@@ -188,7 +188,7 @@ int64_t gdv_fn_convert_timezone(int64_t ptr, const char* src_tz, int src_tz_len,
                                 const char* dst_tz, int dst_tz_len, int64_t src_millis,
                                 bool validity) {
   if (!validity) {
-    return NULL;
+    return 0;
   }
   gandiva::ConvertTimezoneHolder* holder =
       reinterpret_cast<gandiva::ConvertTimezoneHolder*>(ptr);
