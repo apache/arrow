@@ -134,8 +134,8 @@ func initdata(t reflect.Type, drawbuf, decodebuf []byte, nvals, repeats int, hea
 
 		return draws[:nvals*repeats], decode[:nvals*repeats]
 	case reflect.TypeOf(parquet.ByteArray{}):
-		draws := parquet.ByteArrayTraits.CastFromBytes(drawbuf)
-		decode := parquet.ByteArrayTraits.CastFromBytes(decodebuf)
+		draws := make([]parquet.ByteArray, nvals*repeats)
+		decode := make([]parquet.ByteArray, nvals*repeats)
 		testutils.InitValues(draws[:nvals], heap)
 
 		for j := 1; j < repeats; j++ {
@@ -146,8 +146,8 @@ func initdata(t reflect.Type, drawbuf, decodebuf []byte, nvals, repeats int, hea
 
 		return draws[:nvals*repeats], decode[:nvals*repeats]
 	case reflect.TypeOf(parquet.FixedLenByteArray{}):
-		draws := parquet.FixedLenByteArrayTraits.CastFromBytes(drawbuf)
-		decode := parquet.FixedLenByteArrayTraits.CastFromBytes(decodebuf)
+		draws := make([]parquet.FixedLenByteArray, nvals*repeats)
+		decode := make([]parquet.FixedLenByteArray, nvals*repeats)
 		testutils.InitValues(draws[:nvals], heap)
 
 		for j := 1; j < repeats; j++ {
@@ -358,16 +358,16 @@ func (b *BaseEncodingTestSuite) TestBasicRoundTrip() {
 	b.checkRoundTrip(parquet.Encodings.Plain)
 }
 
-// func (b *BaseEncodingTestSuite) TestDeltaEncodingRoundTrip() {
-// 	b.initData(10000, 1)
+func (b *BaseEncodingTestSuite) TestDeltaEncodingRoundTrip() {
+	b.initData(10000, 1)
 
-// 	switch b.typ {
-// 	case reflect.TypeOf(int32(0)), reflect.TypeOf(int64(0)):
-// 		b.checkRoundTrip(parquet.Encodings.DeltaBinaryPacked)
-// 	default:
-// 		b.Panics(func() { b.checkRoundTrip(parquet.Encodings.DeltaBinaryPacked) })
-// 	}
-// }
+	switch b.typ {
+	case reflect.TypeOf(int32(0)), reflect.TypeOf(int64(0)):
+		b.checkRoundTrip(parquet.Encodings.DeltaBinaryPacked)
+	default:
+		b.Panics(func() { b.checkRoundTrip(parquet.Encodings.DeltaBinaryPacked) })
+	}
+}
 
 func (b *BaseEncodingTestSuite) TestDeltaLengthByteArrayRoundTrip() {
 	b.initData(10000, 1)
@@ -380,16 +380,16 @@ func (b *BaseEncodingTestSuite) TestDeltaLengthByteArrayRoundTrip() {
 	}
 }
 
-// func (b *BaseEncodingTestSuite) TestDeltaByteArrayRoundTrip() {
-// 	b.initData(10000, 1)
+func (b *BaseEncodingTestSuite) TestDeltaByteArrayRoundTrip() {
+	b.initData(10000, 1)
 
-// 	switch b.typ {
-// 	case reflect.TypeOf(parquet.ByteArray{}):
-// 		b.checkRoundTrip(parquet.Encodings.DeltaByteArray)
-// 	default:
-// 		b.Panics(func() { b.checkRoundTrip(parquet.Encodings.DeltaLengthByteArray) })
-// 	}
-// }
+	switch b.typ {
+	case reflect.TypeOf(parquet.ByteArray{}):
+		b.checkRoundTrip(parquet.Encodings.DeltaByteArray)
+	default:
+		b.Panics(func() { b.checkRoundTrip(parquet.Encodings.DeltaLengthByteArray) })
+	}
+}
 
 func (b *BaseEncodingTestSuite) TestSpacedRoundTrip() {
 	exec := func(vals, repeats int, validBitsOffset int64, nullProb float64) {
@@ -407,7 +407,7 @@ func (b *BaseEncodingTestSuite) TestSpacedRoundTrip() {
 					b.checkRoundTripSpaced(parquet.Encodings.DeltaBinaryPacked, validBits, validBitsOffset)
 				case reflect.TypeOf(parquet.ByteArray{}):
 					b.checkRoundTripSpaced(parquet.Encodings.DeltaLengthByteArray, validBits, validBitsOffset)
-					// b.checkRoundTripSpaced(parquet.Encodings.DeltaByteArray, validBits, validBitsOffset)
+					b.checkRoundTripSpaced(parquet.Encodings.DeltaByteArray, validBits, validBitsOffset)
 				}
 			}
 		})
