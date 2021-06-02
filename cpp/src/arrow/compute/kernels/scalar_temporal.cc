@@ -183,6 +183,10 @@ struct DayOfYear {
 
 // ----------------------------------------------------------------------
 // Extract ISO Year values from timestamp
+//
+// First week of an ISO year has the majority (4 or more) of it's days in January.
+// To convert gregorian year to ISO year we add three days to gregorian date and
+// take the gregorian year of resulting date as ISO year.
 
 template <typename Duration>
 struct ISOYear {
@@ -196,6 +200,7 @@ struct ISOYear {
 // ----------------------------------------------------------------------
 // Extract ISO week from timestamp
 
+// First week of an ISO year has the majority (4 or more) of it's days in January.
 // Based on
 // https://github.com/HowardHinnant/date/blob/6e921e1b1d21e84a5c82416ba7ecd98e33a436d0/include/date/iso_week.h#L1503
 template <typename Duration>
@@ -520,22 +525,93 @@ std::shared_ptr<ScalarFunction> MakeSimpleUnaryTemporalFunction(
   return func;
 }
 
-const FunctionDoc year_doc{"Extract year values", "", {"values"}};
-const FunctionDoc month_doc{"Extract month values", "", {"values"}};
-const FunctionDoc day_doc{"Extract day values", "", {"values"}};
-const FunctionDoc day_of_week_doc{"Extract day of week values", "", {"values"}};
-const FunctionDoc day_of_year_doc{"Extract day of year values", "", {"values"}};
-const FunctionDoc iso_year_doc{"Extract ISO year values", "", {"values"}};
-const FunctionDoc iso_week_doc{"Extract ISO week values", "", {"values"}};
-const FunctionDoc iso_calendar_doc{"Extract ISO calendar values", "", {"values"}};
-const FunctionDoc quarter_doc{"Extract quarter values", "", {"values"}};
-const FunctionDoc hour_doc{"Extract hour values", "", {"values"}};
-const FunctionDoc minute_doc{"Extract minute values", "", {"values"}};
-const FunctionDoc second_doc{"Extract second values", "", {"values"}};
-const FunctionDoc millisecond_doc{"Extract millisecond values", "", {"values"}};
-const FunctionDoc microsecond_doc{"Extract microsecond values", "", {"values"}};
-const FunctionDoc nanosecond_doc{"Extract nanosecond values", "", {"values"}};
-const FunctionDoc subsecond_doc{"Extract subsecond values", "", {"values"}};
+const FunctionDoc year_doc{
+    "Extract year from timestamp",
+    "Returns an error if timestamp has a defined timezone. Null values return null.",
+    {"values"}};
+
+const FunctionDoc month_doc{
+    "Extract month number",
+    ("Month is encoded as January=1, December=12.\n"
+     "Returns an error if timestamp has a defined timezone. Null values return null."),
+    {"values"}};
+
+const FunctionDoc day_doc{
+    "Extract day number",
+    "Returns an error if timestamp has a defined timezone. Null values return null.",
+    {"values"}};
+
+const FunctionDoc day_of_week_doc{
+    "Extract day of the week number",
+    ("Week starts on Monday denoted by 0 and ends on Sunday denoted by 6.\n"
+     "Returns an error if timestamp has a defined timezone. Null values return null."),
+    {"values"}};
+
+const FunctionDoc day_of_year_doc{
+    "Extract number of day of year",
+    ("January 1st maps to day number 1, February 1st to 32, etc.\n"
+     "Returns an error if timestamp has a defined timezone. Null values return null."),
+    {"values"}};
+
+const FunctionDoc iso_year_doc{
+    "Extract ISO year number",
+    ("First week of an ISO year has the majority (4 or more) of it's days in January."
+     "Returns an error if timestamp has a defined timezone. Null values return null."),
+    {"values"}};
+
+const FunctionDoc iso_week_doc{
+    "Extract ISO week of year number",
+    ("First ISO week has the majority (4 or more) of it's days in January.\n"
+     "Week of the year starts with 1 and can run up to 53.\n"
+     "Returns an error if timestamp has a defined timezone. Null values return null."),
+    {"values"}};
+
+const FunctionDoc iso_calendar_doc{
+    "Extract (ISO year, ISO week, day of week) struct",
+    "Returns an error if timestamp has a defined timezone. Null values return null.",
+    {"values"}};
+
+const FunctionDoc quarter_doc{
+    "Extract quarter of year number",
+    ("First quarter maps to 1 and forth quarter maps to 4.\n"
+     "Returns an error if timestamp has a defined timezone. Null values return null."),
+    {"values"}};
+
+const FunctionDoc hour_doc{
+    "Extract hour values",
+    "Returns an error if timestamp has a defined timezone. Null values return null.",
+    {"values"}};
+
+const FunctionDoc minute_doc{
+    "Extract minute values",
+    "Returns an error if timestamp has a defined timezone. Null values return null.",
+    {"values"}};
+
+const FunctionDoc second_doc{
+    "Extract second values",
+    "Returns an error if timestamp has a defined timezone. Null values return null.",
+    {"values"}};
+
+const FunctionDoc millisecond_doc{
+    "Extract millisecond values",
+    "Returns an error if timestamp has a defined timezone. Null values return null.",
+    {"values"}};
+
+const FunctionDoc microsecond_doc{
+    "Extract microsecond values",
+    "Returns an error if timestamp has a defined timezone. Null values return null.",
+    {"values"}};
+
+const FunctionDoc nanosecond_doc{
+    "Extract nanosecond values",
+    "Returns an error if timestamp has a defined timezone. Null values return null.",
+    {"values"}};
+
+const FunctionDoc subsecond_doc{
+    "Extract subsecond values",
+    "Returns an error if timestamp has a defined timezone. Null values return null.",
+    {"values"}};
+
 
 }  // namespace
 

@@ -680,15 +680,15 @@ Note: timezone information is currently ignored if present.
 +--------------------+------------+-------------------+-----------------+--------+
 | day                | Unary      | Temporal          | Numeric         |        |
 +--------------------+------------+-------------------+-----------------+--------+
-| day_of_week        | Unary      | Temporal          | Numeric         |        |
+| day_of_week        | Unary      | Temporal          | Numeric         | \(1)   |
 +--------------------+------------+-------------------+-----------------+--------+
 | day_of_year        | Unary      | Temporal          | Numeric         |        |
 +--------------------+------------+-------------------+-----------------+--------+
-| iso_year           | Unary      | Temporal          | Numeric         | \(1)   |
+| iso_year           | Unary      | Temporal          | Numeric         | \(2)   |
 +--------------------+------------+-------------------+-----------------+--------+
-| iso_week           | Unary      | Temporal          | Numeric         | \(1)   |
+| iso_week           | Unary      | Temporal          | Numeric         | \(2)   |
 +--------------------+------------+-------------------+-----------------+--------+
-| iso_calendar       | Unary      | Temporal          | Scalar Struct   | \(2)   |
+| iso_calendar       | Unary      | Temporal          | Scalar Struct   | \(3)   |
 +--------------------+------------+-------------------+-----------------+--------+
 | quarter            | Unary      | Temporal          | Numeric         |        |
 +--------------------+------------+-------------------+-----------------+--------+
@@ -707,11 +707,13 @@ Note: timezone information is currently ignored if present.
 | subsecond          | Unary      | Temporal          | Numeric         |        |
 +--------------------+------------+-------------------+-----------------+--------+
 
-* \(1) The `ISO 8601 week date definition`_ for week 01 is the week with the first Thursday
-  of the Gregorian year (i.e. of January) in it.
+* \(1) Outputs the number of the day of the week. Week begins on Monday and is denoted
+  by 0 and ends on Sunday denoted by 6.
+* \(2) First ISO week has the majority (4 or more) of it's days in January. ISO year
+  starts with the first ISO week.
+  See `ISO 8601 week date definition`_ for more details.
+* \(3) Output is a ``{"iso_year": output type, "iso_week": output type, "day_of_week":  output type}`` Struct.
 .. _ISO 8601 week date definition: https://en.wikipedia.org/wiki/ISO_week_date#First_week
-
-* \(2) Struct with fields ISO year, ISO week number, and weekday.
 
 
 String joining
