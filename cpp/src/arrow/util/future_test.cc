@@ -962,7 +962,7 @@ class FutureSchedulingTest : public testing::Test {
 
 TEST_F(FutureSchedulingTest, ScheduleAlways) {
   CallbackOptions options;
-  options.should_schedule = ShouldSchedule::ALWAYS;
+  options.should_schedule = ShouldSchedule::Always;
   options.executor = executor();
   // Successful future
   {
@@ -984,7 +984,7 @@ TEST_F(FutureSchedulingTest, ScheduleAlways) {
 
 TEST_F(FutureSchedulingTest, ScheduleIfUnfinished) {
   CallbackOptions options;
-  options.should_schedule = ShouldSchedule::IF_UNFINISHED;
+  options.should_schedule = ShouldSchedule::IfUnfinished;
   options.executor = executor();
   // Successful future
   {
@@ -1019,7 +1019,7 @@ class DelayedExecutor : public internal::Executor {
 
 TEST_F(FutureSchedulingTest, ScheduleAlwaysKeepsFutureAliveUntilCallback) {
   CallbackOptions options;
-  options.should_schedule = ShouldSchedule::ALWAYS;
+  options.should_schedule = ShouldSchedule::Always;
   DelayedExecutor delayed;
   options.executor = &delayed;
   {

@@ -113,7 +113,7 @@ class ARROW_EXPORT Executor {
     auto transferred = Future<T>::Make();
     if (always_transfer) {
       CallbackOptions callback_options = CallbackOptions::Defaults();
-      callback_options.should_schedule = ShouldSchedule::ALWAYS;
+      callback_options.should_schedule = ShouldSchedule::Always;
       callback_options.executor = this;
       auto sync_callback = [transferred](const FTSync& result) mutable {
         transferred.MarkFinished(result);
@@ -122,7 +122,7 @@ class ARROW_EXPORT Executor {
       return transferred;
     }
 
-    // We could use AddCallback's ShouldSchedule::IF_UNFINISHED but we can save a bit of
+    // We could use AddCallback's ShouldSchedule::IfUnfinished but we can save a bit of
     // work by doing the test here.
     auto callback = [this, transferred](const FTSync& result) mutable {
       auto spawn_status =

@@ -202,23 +202,23 @@ enum class FutureState : int8_t { PENDING, SUCCESS, FAILURE };
 
 inline bool IsFutureFinished(FutureState state) { return state != FutureState::PENDING; }
 
-/// \brief Describes whether the callback should be scheduled or run synchronously
+/// \brief Describe whether the callback should be scheduled or run synchronously
 enum ShouldSchedule {
   /// Always run the callback synchronously (the default)
-  NEVER = 0,
+  Never = 0,
   /// Schedule a new task only if the future is not finished when the
   /// callback is added
-  IF_UNFINISHED = 1,
+  IfUnfinished = 1,
   /// Always schedule the callback as a new task
-  ALWAYS = 2
+  Always = 2
 };
 
 /// \brief Options that control how a continuation is run
 struct CallbackOptions {
   /// Describes whether the callback should be run synchronously or scheduled
-  ShouldSchedule should_schedule = ShouldSchedule::NEVER;
+  ShouldSchedule should_schedule = ShouldSchedule::Never;
   /// If the callback is scheduled then this is the executor it should be scheduled
-  /// on.  If this is NULL then should_schedule must be NEVER
+  /// on.  If this is NULL then should_schedule must be Never
   internal::Executor* executor = NULL;
 
   static CallbackOptions Defaults() { return CallbackOptions(); }

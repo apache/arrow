@@ -233,8 +233,8 @@ class ConcreteFutureImpl : public FutureImpl {
   void DoMarkFailed() { DoMarkFinishedOrFailed(FutureState::FAILURE); }
 
   void CheckOptions(const CallbackOptions& opts) {
-    if (opts.should_schedule != ShouldSchedule::NEVER) {
-      DCHECK_NE(opts.executor, NULL)
+    if (opts.should_schedule != ShouldSchedule::Never) {
+      DCHECK_NE(opts.executor, nullptr)
           << "An executor must be specified when adding a callback that might schedule";
     }
   }
@@ -245,7 +245,7 @@ class ConcreteFutureImpl : public FutureImpl {
     CallbackRecord callback_record{std::move(callback), opts};
     if (IsFutureFinished(state_)) {
       lock.unlock();
-      RunOrScheduleCallback(callback_record, /*from_unfinished=*/false);
+      RunOrScheduleCallback(std::move(callback_record), /*from_unfinished=*/false);
     } else {
       callbacks_.push_back(std::move(callback_record));
     }
@@ -265,11 +265,11 @@ class ConcreteFutureImpl : public FutureImpl {
 
   bool ShouldSchedule(const CallbackRecord& callback_record, bool from_unfinished) {
     switch (callback_record.options.should_schedule) {
-      case ShouldSchedule::NEVER:
+      case ShouldSchedule::Never:
         return false;
-      case ShouldSchedule::ALWAYS:
+      case ShouldSchedule::Always:
         return true;
-      case ShouldSchedule::IF_UNFINISHED:
+      case ShouldSchedule::IfUnfinished:
         return from_unfinished;
       default:
         DCHECK(false) << "Unrecognized ShouldSchedule option";
@@ -277,16 +277,16 @@ class ConcreteFutureImpl : public FutureImpl {
     }
   }
 
-  void RunOrScheduleCallback(CallbackRecord& callback_record, bool from_unfinished) {
+  void RunOrScheduleCallback(CallbackRecord&& callback_record, bool from_unfinished) {
     if (ShouldSchedule(callback_record, from_unfinished)) {
-      // Need to make a copy of this to keep it alive until the callback has a chance
-      // to be scheduled.
       struct CallbackTask {
         void operator()() { std::move(callback)(*self); }
 
         Callback callback;
         std::shared_ptr<FutureImpl> self;
       };
+      // Need to make a copy of `this` via `shared_from_this` to keep it alive until the
+      // callback has a chance to be scheduled.
       CallbackTask task{std::move(callback_record.callback), shared_from_this()};
       DCHECK_OK(callback_record.options.executor->Spawn(std::move(task)));
     } else {
@@ -316,7 +316,7 @@ class ConcreteFutureImpl : public FutureImpl {
     // In fact, it is important not to hold the locks because the callback
     // may be slow or do its own locking on other resources
     for (auto& callback_record : callbacks_) {
-      RunOrScheduleCallback(callback_record, /*from_unfinished=*/true);
+      RunOrScheduleCallback(std::move(callback_record), /*from_unfinished=*/true);
     }
     callbacks_.clear();
   }
