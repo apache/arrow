@@ -62,6 +62,7 @@
 #include <aws/s3/model/HeadObjectRequest.h>
 #include <aws/s3/model/ListBucketsResult.h>
 #include <aws/s3/model/ListObjectsV2Request.h>
+#include <aws/s3/model/ObjectCannedACL.h>
 #include <aws/s3/model/PutObjectRequest.h>
 #include <aws/s3/model/UploadPartRequest.h>
 
@@ -729,6 +730,8 @@ std::shared_ptr<const KeyValueMetadata> GetObjectMetadata(const ObjectResult& re
   push("VersionId", result.GetVersionId());
   push_datetime("Last-Modified", result.GetLastModified());
   push_datetime("Expires", result.GetExpires());
+  // NOTE the "canned ACL" isn't available for reading (one can get an expanded
+  // ACL using a separate GetObjectAcl request)
   return md;
 }
 
@@ -737,7 +740,8 @@ struct ObjectMetadataSetter {
   using Setter = std::function<Status(const std::string& value, ObjectRequest* req)>;
 
   static std::unordered_map<std::string, Setter> GetSetters() {
-    return {{"Cache-Control", StringSetter(&ObjectRequest::SetCacheControl)},
+    return {{"ACL", CannedACLSetter()},
+            {"Cache-Control", StringSetter(&ObjectRequest::SetCacheControl)},
             {"Content-Type", StringSetter(&ObjectRequest::SetContentType)},
             {"Content-Language", StringSetter(&ObjectRequest::SetContentLanguage)},
             {"Expires", DateTimeSetter(&ObjectRequest::SetExpires)}};
@@ -758,6 +762,27 @@ struct ObjectMetadataSetter {
           Aws::Utils::DateTime(v.data(), Aws::Utils::DateFormat::ISO_8601));
       return Status::OK();
     };
+  }
+
+  static Setter CannedACLSetter() {
+    return [](const std::string& v, ObjectRequest* req) {
+      ARROW_ASSIGN_OR_RAISE(auto acl, ParseACL(v));
+      req->SetACL(acl);
+      return Status::OK();
+    };
+  }
+
+  static Result<S3Model::ObjectCannedACL> ParseACL(const std::string& v) {
+    if (v.empty()) {
+      return S3Model::ObjectCannedACL::NOT_SET;
+    }
+    auto acl = S3Model::ObjectCannedACLMapper::GetObjectCannedACLForName(ToAwsString(v));
+    if (acl == S3Model::ObjectCannedACL::NOT_SET) {
+      // XXX This actually never happens, as the AWS SDK dynamically
+      // expands the enum range using Aws::GetEnumOverflowContainer()
+      return Status::Invalid("Invalid S3 canned ACL: '", v, "'");
+    }
+    return acl;
   }
 };
 
