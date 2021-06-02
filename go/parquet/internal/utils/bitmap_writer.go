@@ -96,6 +96,9 @@ type BitmapWriter interface {
 	Finish()
 	// AppendWord takes nbits from word which should be an LSB bitmap and appends them to the bitmap.
 	AppendWord(word uint64, nbits int64)
+	// AppendBools appends the bit representation of the bools slice, returning the number
+	// of bools that were able to fit in the remaining length of the bitmapwriter.
+	AppendBools(in []bool) int
 	// Pos is the current position that will be written next
 	Pos() int64
 	// Reset allows reusing the bitmapwriter by resetting Pos to start with length as
@@ -140,7 +143,7 @@ func (b *bitmapWriter) Reset(start, length int64) {
 
 func (b *bitmapWriter) Pos() int64 { return b.pos }
 func (b *bitmapWriter) Set()       { b.curByte |= b.bitMask }
-func (b *bitmapWriter) Clear()     { b.curByte &= b.bitMask ^ 0xFF }
+func (b *bitmapWriter) Clear()     { b.curByte &= ^b.bitMask }
 
 func (b *bitmapWriter) Next() {
 	b.bitMask = b.bitMask << 1
@@ -153,6 +156,30 @@ func (b *bitmapWriter) Next() {
 			b.curByte = b.buf[int(b.byteOffset)]
 		}
 	}
+}
+
+func (b *bitmapWriter) AppendBools(in []bool) int {
+	space := Min(bitutil.BytesForBits(b.length-b.pos), int64(len(in)))
+
+	// location that the first byte needs to be written to for appending
+	appslice := b.buf[int(b.byteOffset):]
+	// update everything but curByte
+	bitOffset := bits.TrailingZeros32(uint32(b.bitMask))
+	appslice[0] = b.curByte
+	for i, b := range in[:space] {
+		if b {
+			bitutil.SetBit(appslice, i)
+		} else {
+			bitutil.ClearBit(appslice, i)
+		}
+	}
+
+	b.pos += space
+	b.bitMask = bitutil.BitMask[(int64(bitOffset)+space)%8]
+	b.byteOffset += (int64(bitOffset) + space) / 8
+	b.curByte = appslice[len(appslice)-1]
+
+	return int(space)
 }
 
 func (b *bitmapWriter) Finish() {
@@ -265,6 +292,10 @@ func (bw *firstTimeBitmapWriter) Next() {
 		bw.byteOffset++
 		bw.curByte = 0
 	}
+}
+
+func (b *firstTimeBitmapWriter) AppendBools(in []bool) int {
+	panic("Append Bools not yet implemented for firstTimeBitmapWriter")
 }
 
 func (bw *firstTimeBitmapWriter) Finish() {

@@ -20,6 +20,7 @@ import (
 	"github.com/apache/arrow/go/arrow/bitutil"
 	"github.com/apache/arrow/go/parquet"
 	"github.com/apache/arrow/go/parquet/internal/utils"
+	"golang.org/x/xerrors"
 )
 
 // PlainBooleanDecoder is for the Plain Encoding type, there is no
@@ -42,15 +43,19 @@ func (PlainBooleanDecoder) Type() parquet.Type {
 func (dec *PlainBooleanDecoder) Decode(out []bool) (int, error) {
 	max := utils.MinInt(len(out), dec.nvals)
 
+	unalignedExtract := func(start, end, curBitOffset int) int {
+		i := start
+		for ; curBitOffset < end; i, curBitOffset = i+1, curBitOffset+1 {
+			out[i] = (dec.data[0] & byte(1<<curBitOffset)) != 0
+		}
+		return i // return the number of bits we extracted
+	}
+
 	// if we aren't at a byte boundary, then get bools until we hit
 	// a byte boundary with the bit offset.
 	i := 0
-	for dec.bitOffset != 0 && dec.bitOffset < 8 && i < max {
-		out[i] = (dec.data[0] & byte(1<<dec.bitOffset)) != 0
-		dec.bitOffset++
-		i++
-	}
-	if dec.bitOffset == 8 {
+	if dec.bitOffset != 0 {
+		i = unalignedExtract(0, 8, dec.bitOffset)
 		dec.bitOffset = 0
 	}
 
@@ -72,9 +77,7 @@ func (dec *PlainBooleanDecoder) Decode(out []bool) (int, error) {
 	}
 
 	// grab any trailing bits now that we've got our aligned bytes.
-	for ; dec.bitOffset < (bitsRemain - batch); dec.bitOffset++ {
-		out[dec.bitOffset] = (dec.data[0] & byte(1<<dec.bitOffset)) != 0
-	}
+	dec.bitOffset += unalignedExtract(dec.bitOffset, bitsRemain-batch, dec.bitOffset)
 
 	dec.nvals -= max
 	return max, nil
@@ -90,7 +93,7 @@ func (dec *PlainBooleanDecoder) DecodeSpaced(out []bool, nullCount int, validBit
 			return 0, err
 		}
 		if valuesRead != toRead {
-			panic("parquet: number of values / definition levels read did not match")
+			return valuesRead, xerrors.New("parquet: boolean decoder: number of values / definition levels read did not match")
 		}
 		return spacedExpand(out, nullCount, validBits, validBitsOffset), nil
 	}

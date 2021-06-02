@@ -22,13 +22,16 @@ import (
 	"github.com/apache/arrow/go/parquet/internal/utils"
 )
 
-const boolBufSize = 1024
+const (
+	boolBufSize = 1024
+	boolsInBuf  = boolBufSize * 8
+)
 
 // PlainBooleanEncoder encodes bools as a bitmap as per the Plain Encoding
 type PlainBooleanEncoder struct {
 	encoder
-	nbits      int
 	bitsBuffer []byte
+	wr         utils.BitmapWriter
 }
 
 // Type for the PlainBooleanEncoder is parquet.Types.Boolean
@@ -41,47 +44,17 @@ func (enc *PlainBooleanEncoder) Put(in []bool) {
 	if enc.bitsBuffer == nil {
 		enc.bitsBuffer = make([]byte, boolBufSize)
 	}
-
-	bitOffset := 0
-	// first check if we are in the middle of a byte due to previous
-	// encoding of data and finish out that byte's bits.
-	if enc.nbits > 0 {
-		bitsToWrite := utils.MinInt(enc.nbits, len(in))
-		beg := (boolBufSize * 8) - enc.nbits
-		for i, val := range in[:bitsToWrite] {
-			bitmask := uint8(1 << uint((beg+i)%8))
-			if val {
-				enc.bitsBuffer[(beg+i)/8] |= bitmask
-			} else {
-				enc.bitsBuffer[(beg+i)/8] &= bitmask ^ 0xFF
-			}
-		}
-		enc.nbits -= bitsToWrite
-		bitOffset = bitsToWrite
-		if enc.nbits == 0 {
-			enc.append(enc.bitsBuffer)
-		}
+	if enc.wr == nil {
+		enc.wr = utils.NewBitmapWriter(enc.bitsBuffer, 0, boolsInBuf)
 	}
 
-	// now that we're aligned, write the rest of our bits
-	bitsRemain := len(in) - bitOffset
-	for bitOffset < len(in) {
-		enc.nbits = boolBufSize * 8
-		bitsToWrite := utils.MinInt(bitsRemain, enc.nbits)
-		for i, val := range in[bitOffset : bitOffset+bitsToWrite] {
-			bitmask := uint8(1 << uint(i%8))
-			if val {
-				enc.bitsBuffer[i/8] |= bitmask
-			} else {
-				enc.bitsBuffer[i/8] &= bitmask ^ 0xFF
-			}
-		}
-		bitOffset += bitsToWrite
-		enc.nbits -= bitsToWrite
-		bitsRemain -= bitsToWrite
-		if enc.nbits == 0 {
-			enc.append(enc.bitsBuffer)
-		}
+	n := enc.wr.AppendBools(in)
+	for n < len(in) {
+		enc.wr.Finish()
+		enc.append(enc.bitsBuffer)
+		enc.wr.Reset(0, boolsInBuf)
+		in = in[n:]
+		n = enc.wr.AppendBools(in)
 	}
 }
 
@@ -96,16 +69,15 @@ func (enc *PlainBooleanEncoder) PutSpaced(in []bool, validBits []byte, validBits
 // EstimatedDataEncodedSize returns the current number of bytes that have
 // been buffered so far
 func (enc *PlainBooleanEncoder) EstimatedDataEncodedSize() int64 {
-	return int64(enc.sink.Len() + (boolBufSize * 8) - enc.nbits)
+	return int64(enc.sink.Len() + int(bitutil.BytesForBits(enc.wr.Pos())))
 }
 
 // FlushValues returns the buffered data, the responsibility is on the caller
 // to release the buffer memory
 func (enc *PlainBooleanEncoder) FlushValues() Buffer {
-	if enc.nbits > 0 {
-		toFlush := (boolBufSize * 8) - enc.nbits
+	if enc.wr.Pos() > 0 {
+		toFlush := int(enc.wr.Pos())
 		enc.append(enc.bitsBuffer[:bitutil.BytesForBits(int64(toFlush))])
-		enc.nbits = boolBufSize * 8
 	}
 
 	return enc.sink.Finish()
