@@ -104,7 +104,7 @@ write_feather <- function(x,
     x <- Table$create(x)
   }
   
-  check_tabular(x, "Feather file")
+  assert_that(is_writable_table(x))
 
   if (!inherits(sink, "OutputStream")) {
     sink <- make_output_stream(sink)

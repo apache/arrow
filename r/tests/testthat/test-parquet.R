@@ -107,9 +107,10 @@ test_that("write_parquet() accepts RecordBatch too", {
 })
 
 test_that("write_parquet() with invalid input type", {
+  bad_input <- Array$create(1:5)
   expect_error(
-    write_parquet(Array$create(1:5), tempfile()),
-    regexp = "`x` must be an object of class 'data.frame', 'RecordBatch', or 'Table', not 'Array'"
+    write_parquet(bad_input, tempfile()),
+    regexp = "bad_input is not an object of class 'data.frame', 'RecordBatch', or 'Table'"
   )
 })
 

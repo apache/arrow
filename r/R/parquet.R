@@ -157,7 +157,7 @@ write_parquet <- function(x,
     x <- Table$create(x)
   }
   
-  check_tabular(x, "Parquet")
+  assert_that(is_writable_table(x))
 
   if (!inherits(sink, "OutputStream")) {
     sink <- make_output_stream(sink)
