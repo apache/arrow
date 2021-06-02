@@ -98,7 +98,7 @@ enum class SegmentEncoding : int8_t {
   Uri = 1,
 };
 
-ARROW_EXPORT
+ARROW_DS_EXPORT
 std::ostream& operator<<(std::ostream& os, SegmentEncoding segment_encoding);
 
 /// \brief Options for key-value based partitioning (hive/directory).
