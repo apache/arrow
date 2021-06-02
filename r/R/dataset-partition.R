@@ -64,7 +64,7 @@ Partitioning <- R6Class("Partitioning", inherit = ArrowObject)
 #' @rdname Partitioning
 #' @export
 DirectoryPartitioning <- R6Class("DirectoryPartitioning", inherit = Partitioning)
-DirectoryPartitioning$create <- function(schm, segment_encoding = "url") {
+DirectoryPartitioning$create <- function(schm, segment_encoding = "uri") {
   dataset___DirectoryPartitioning(schm, segment_encoding = segment_encoding)
 }
 
@@ -73,7 +73,7 @@ DirectoryPartitioning$create <- function(schm, segment_encoding = "url") {
 #' @rdname Partitioning
 #' @export
 HivePartitioning <- R6Class("HivePartitioning", inherit = Partitioning)
-HivePartitioning$create <- function(schm, null_fallback = NULL, segment_encoding = "url") {
+HivePartitioning$create <- function(schm, null_fallback = NULL, segment_encoding = "uri") {
   dataset___HivePartitioning(schm,
                              null_fallback = null_fallback_or_default(null_fallback),
                              segment_encoding = segment_encoding)
@@ -91,13 +91,13 @@ HivePartitioning$create <- function(schm, null_fallback = NULL, segment_encoding
 #' in partition columns. Default is `"__HIVE_DEFAULT_PARTITION__"`,
 #' which is what Hive uses.
 #' @param segment_encoding Decode partition segments after splitting paths.
-#' Default is `"url"` (URL-decode segments). May also be `"none"` (leave as-is).
+#' Default is `"uri"` (URI-decode segments). May also be `"none"` (leave as-is).
 #' @return A [HivePartitioning][Partitioning], or a `HivePartitioningFactory` if
 #' calling `hive_partition()` with no arguments.
 #' @examplesIf arrow_with_dataset()
 #' hive_partition(year = int16(), month = int8())
 #' @export
-hive_partition <- function(..., null_fallback = NULL, segment_encoding = "url") {
+hive_partition <- function(..., null_fallback = NULL, segment_encoding = "uri") {
   schm <- schema(...)
   if (length(schm) == 0) {
     HivePartitioningFactory$create(null_fallback, segment_encoding)
@@ -113,7 +113,7 @@ PartitioningFactory <- R6Class("PartitioningFactory", inherit = ArrowObject)
 #' @rdname Partitioning
 #' @export
 DirectoryPartitioningFactory <- R6Class("DirectoryPartitioningFactory ", inherit = PartitioningFactory)
-DirectoryPartitioningFactory$create <- function(field_names, segment_encoding = "url") {
+DirectoryPartitioningFactory$create <- function(field_names, segment_encoding = "uri") {
   dataset___DirectoryPartitioning__MakeFactory(field_names, segment_encoding)
 }
 
@@ -122,7 +122,7 @@ DirectoryPartitioningFactory$create <- function(field_names, segment_encoding = 
 #' @rdname Partitioning
 #' @export
 HivePartitioningFactory <- R6Class("HivePartitioningFactory", inherit = PartitioningFactory)
-HivePartitioningFactory$create <- function(null_fallback = NULL, segment_encoding = "url") {
+HivePartitioningFactory$create <- function(null_fallback = NULL, segment_encoding = "uri") {
   dataset___HivePartitioning__MakeFactory(null_fallback_or_default(null_fallback), segment_encoding)
 }
 

@@ -95,7 +95,7 @@ enum class SegmentEncoding : int8_t {
   /// No encoding.
   None = 0,
   /// Segment values are URL-encoded.
-  Url = 1,
+  Uri = 1,
 };
 
 ARROW_EXPORT
@@ -105,7 +105,7 @@ std::ostream& operator<<(std::ostream& os, SegmentEncoding segment_encoding);
 struct ARROW_DS_EXPORT KeyValuePartitioningOptions {
   /// After splitting a path into components, decode the path components
   /// before parsing according to this scheme.
-  SegmentEncoding segment_encoding = SegmentEncoding::Url;
+  SegmentEncoding segment_encoding = SegmentEncoding::Uri;
 };
 
 /// \brief Options for inferring a partitioning.
@@ -121,7 +121,7 @@ struct ARROW_DS_EXPORT PartitioningFactoryOptions {
   std::shared_ptr<Schema> schema;
   /// After splitting a path into components, decode the path components
   /// before parsing according to this scheme.
-  SegmentEncoding segment_encoding = SegmentEncoding::Url;
+  SegmentEncoding segment_encoding = SegmentEncoding::Uri;
 
   KeyValuePartitioningOptions AsPartitioningOptions() const;
 };

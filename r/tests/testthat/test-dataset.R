@@ -1108,7 +1108,7 @@ test_that("Assembling a Dataset manually and getting a Table", {
   expect_scan_result(ds, schm)
 })
 
-test_that("URL-decoding with directory partitioning", {
+test_that("URI-decoding with directory partitioning", {
   root <- make_temp_dir()
   fmt <- FileFormat$create("feather")
   fs <- LocalFileSystem$create()
@@ -1163,7 +1163,7 @@ test_that("URL-decoding with directory partitioning", {
   )
 })
 
-test_that("URL-decoding with hive partitioning", {
+test_that("URI-decoding with hive partitioning", {
   root <- make_temp_dir()
   fmt <- FileFormat$create("feather")
   fs <- LocalFileSystem$create()

@@ -307,7 +307,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     enum SegmentEncoding" arrow::dataset::SegmentEncoding":
         SegmentEncoding_NONE" arrow::dataset::SegmentEncoding::None"
-        SegmentEncoding_URL" arrow::dataset::SegmentEncoding::Url"
+        SegmentEncoding_URI" arrow::dataset::SegmentEncoding::Uri"
 
     cdef cppclass CKeyValuePartitioningOptions \
             "arrow::dataset::KeyValuePartitioningOptions":

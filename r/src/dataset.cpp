@@ -336,8 +336,8 @@ dataset___ParquetFragmentScanOptions__Make(bool use_buffered_stream, int64_t buf
 ds::SegmentEncoding GetSegmentEncoding(const std::string& segment_encoding) {
   if (segment_encoding == "none") {
     return ds::SegmentEncoding::None;
-  } else if (segment_encoding == "url") {
-    return ds::SegmentEncoding::Url;
+  } else if (segment_encoding == "uri") {
+    return ds::SegmentEncoding::Uri;
   }
   cpp11::stop("invalid segment encoding: " + segment_encoding);
   return ds::SegmentEncoding::None;

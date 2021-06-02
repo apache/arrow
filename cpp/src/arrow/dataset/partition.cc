@@ -177,8 +177,8 @@ std::ostream& operator<<(std::ostream& os, SegmentEncoding segment_encoding) {
     case SegmentEncoding::None:
       os << "SegmentEncoding::None";
       break;
-    case SegmentEncoding::Url:
-      os << "SegmentEncoding::Url";
+    case SegmentEncoding::Uri:
+      os << "SegmentEncoding::Uri";
       break;
     default:
       os << "(invalid SegmentEncoding " << static_cast<int8_t>(segment_encoding) << ")";
@@ -310,7 +310,7 @@ Result<std::vector<KeyValuePartitioning::Key>> DirectoryPartitioning::ParseKeys(
       case SegmentEncoding::None:
         keys.push_back({schema_->field(i++)->name(), std::move(segment)});
         break;
-      case SegmentEncoding::Url: {
+      case SegmentEncoding::Uri: {
         ARROW_ASSIGN_OR_RAISE(auto decoded, SafeUriUnescape(segment));
         keys.push_back({schema_->field(i++)->name(), std::move(decoded)});
         break;
@@ -513,7 +513,7 @@ class DirectoryPartitioningFactory : public KeyValuePartitioningFactory {
           case SegmentEncoding::None:
             RETURN_NOT_OK(InsertRepr(static_cast<int>(field_index++), segment));
             break;
-          case SegmentEncoding::Url: {
+          case SegmentEncoding::Uri: {
             ARROW_ASSIGN_OR_RAISE(auto decoded, SafeUriUnescape(segment));
             RETURN_NOT_OK(InsertRepr(static_cast<int>(field_index++), decoded));
             break;
@@ -576,7 +576,7 @@ Result<util::optional<KeyValuePartitioning::Key>> HivePartitioning::ParseKey(
     case SegmentEncoding::None:
       value = segment.substr(name_end + 1);
       break;
-    case SegmentEncoding::Url: {
+    case SegmentEncoding::Uri: {
       // Static method, so we have no better place for it
       util::InitializeUTF8();
       auto raw_value = util::string_view(segment).substr(name_end + 1);

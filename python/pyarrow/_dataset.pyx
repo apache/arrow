@@ -88,8 +88,8 @@ cdef CFileSource _make_file_source(object file, FileSystem filesystem=None):
 cdef SegmentEncoding _get_segment_encoding(str segment_encoding):
     if segment_encoding == "none":
         return SegmentEncoding_NONE
-    elif segment_encoding == "url":
-        return SegmentEncoding_URL
+    elif segment_encoding == "uri":
+        return SegmentEncoding_URI
     raise ValueError(f"Unknown segment encoding: {segment_encoding}")
 
 
@@ -1938,9 +1938,9 @@ cdef class DirectoryPartitioning(Partitioning):
         corresponding entry of `dictionaries` must be an array containing
         every value which may be taken by the corresponding column or an
         error will be raised in parsing.
-    segment_encoding : str, default "url"
+    segment_encoding : str, default "uri"
         After splitting paths into segments, decode the segments. Valid
-        values are "url" (URL-decode segments) and "none" (leave as-is).
+        values are "uri" (URI-decode segments) and "none" (leave as-is).
 
     Returns
     -------
@@ -1959,7 +1959,7 @@ cdef class DirectoryPartitioning(Partitioning):
         CDirectoryPartitioning* directory_partitioning
 
     def __init__(self, Schema schema not None, dictionaries=None,
-                 segment_encoding="url"):
+                 segment_encoding="uri"):
         cdef:
             shared_ptr[CDirectoryPartitioning] c_partitioning
             CKeyValuePartitioningOptions c_options
@@ -1979,7 +1979,7 @@ cdef class DirectoryPartitioning(Partitioning):
     @staticmethod
     def discover(field_names=None, infer_dictionary=False,
                  max_partition_dictionary_size=0,
-                 schema=None, segment_encoding="url"):
+                 schema=None, segment_encoding="uri"):
         """
         Discover a DirectoryPartitioning.
 
@@ -2002,9 +2002,9 @@ cdef class DirectoryPartitioning(Partitioning):
             Use this schema instead of inferring a schema from partition
             values. Partition values will be validated against this schema
             before accumulation into the Partitioning's dictionary.
-        segment_encoding : str, default "url"
+        segment_encoding : str, default "uri"
             After splitting paths into segments, decode the segments. Valid
-            values are "url" (URL-decode segments) and "none" (leave as-is).
+            values are "uri" (URI-decode segments) and "none" (leave as-is).
 
         Returns
         -------
@@ -2065,9 +2065,9 @@ cdef class HivePartitioning(Partitioning):
         error will be raised in parsing.
     null_fallback : str, default "__HIVE_DEFAULT_PARTITION__"
         If any field is None then this fallback will be used as a label
-    segment_encoding : str, default "url"
+    segment_encoding : str, default "uri"
         After splitting paths into segments, decode the segments. Valid
-        values are "url" (URL-decode segments) and "none" (leave as-is).
+        values are "uri" (URI-decode segments) and "none" (leave as-is).
 
     Returns
     -------
@@ -2090,7 +2090,7 @@ cdef class HivePartitioning(Partitioning):
                  Schema schema not None,
                  dictionaries=None,
                  null_fallback="__HIVE_DEFAULT_PARTITION__",
-                 segment_encoding="url"):
+                 segment_encoding="uri"):
 
         cdef:
             shared_ptr[CHivePartitioning] c_partitioning
@@ -2115,7 +2115,7 @@ cdef class HivePartitioning(Partitioning):
                  max_partition_dictionary_size=0,
                  null_fallback="__HIVE_DEFAULT_PARTITION__",
                  schema=None,
-                 segment_encoding="url"):
+                 segment_encoding="uri"):
         """
         Discover a HivePartitioning.
 
@@ -2139,9 +2139,9 @@ cdef class HivePartitioning(Partitioning):
             Use this schema instead of inferring a schema from partition
             values. Partition values will be validated against this schema
             before accumulation into the Partitioning's dictionary.
-        segment_encoding : str, default "url"
+        segment_encoding : str, default "uri"
             After splitting paths into segments, decode the segments. Valid
-            values are "url" (URL-decode segments) and "none" (leave as-is).
+            values are "uri" (URI-decode segments) and "none" (leave as-is).
 
         Returns
         -------
