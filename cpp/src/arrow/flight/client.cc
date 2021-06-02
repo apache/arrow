@@ -93,6 +93,14 @@ std::shared_ptr<FlightWriteSizeStatusDetail> FlightWriteSizeStatusDetail::Unwrap
 
 FlightClientOptions FlightClientOptions::Defaults() { return FlightClientOptions(); }
 
+Status FlightStreamReader::ReadAll(std::shared_ptr<Table>* table,
+                                   const StopToken& stop_token) {
+  std::vector<std::shared_ptr<RecordBatch>> batches;
+  RETURN_NOT_OK(ReadAll(&batches, stop_token));
+  ARROW_ASSIGN_OR_RAISE(auto schema, GetSchema());
+  return Table::FromRecordBatches(schema, std::move(batches)).Value(table);
+}
+
 struct ClientRpc {
   grpc::ClientContext context;
 
@@ -575,12 +583,7 @@ class GrpcStreamReader : public FlightStreamReader {
   Status ReadAll(std::shared_ptr<Table>* table) override {
     return ReadAll(table, stop_token_);
   }
-  Status ReadAll(std::shared_ptr<Table>* table, const StopToken& stop_token) override {
-    std::vector<std::shared_ptr<RecordBatch>> batches;
-    RETURN_NOT_OK(ReadAll(&batches, stop_token));
-    ARROW_ASSIGN_OR_RAISE(auto schema, GetSchema());
-    return Table::FromRecordBatches(schema, std::move(batches)).Value(table);
-  }
+  using FlightStreamReader::ReadAll;
   void Cancel() override { rpc_->context.TryCancel(); }
 
  private:

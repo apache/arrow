@@ -1828,7 +1828,6 @@ class CancelFlightServer(FlightServerBase):
         rb = pa.RecordBatch.from_arrays([], schema=schema)
         writer.begin(schema)
         while not context.is_cancelled():
-            # TODO: writing schema.empty_table() here hangs/fails
             writer.write_batch(rb)
             time.sleep(0.5)
 
@@ -1857,11 +1856,10 @@ def test_interrupt():
         except KeyboardInterrupt:
             # In case KeyboardInterrupt didn't interrupt read_all
             # above, at least prevent it from stopping the test suite
-            # pytest.fail("KeyboardInterrupt didn't interrupt Flight read_all")
-            raise
+            pytest.fail("KeyboardInterrupt didn't interrupt Flight read_all")
         e = exc_info.value.__context__
-        assert isinstance(e, pa.ArrowCancelled) or isinstance(
-            e, pa.ArrowCancelled)
+        assert isinstance(e, pa.ArrowCancelled) or \
+            isinstance(e, KeyboardInterrupt)
 
     with CancelFlightServer() as server:
         client = FlightClient(("localhost", server.port))

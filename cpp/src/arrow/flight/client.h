@@ -138,7 +138,7 @@ class ARROW_FLIGHT_EXPORT FlightStreamReader : public MetadataRecordBatchReader 
   virtual Status ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches,
                          const StopToken& stop_token) = 0;
   /// \brief Consume entire stream as a Table
-  virtual Status ReadAll(std::shared_ptr<Table>* table, const StopToken& stop_token) = 0;
+  Status ReadAll(std::shared_ptr<Table>* table, const StopToken& stop_token);
 };
 
 // Silence warning
