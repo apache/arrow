@@ -464,6 +464,12 @@ class TestS3FS : public S3TestMixin {
     ASSERT_THAT(got_metadata->sorted_pairs(),
                 testing::IsSupersetOf(metadata->sorted_pairs()));
 
+    // Create new file with valid canned ACL
+    // XXX: no easy way of testing the ACL actually gets set
+    metadata = KeyValueMetadata::Make({"ACL"}, {"authenticated-read"});
+    ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/newfile6", metadata));
+    ASSERT_OK(stream->Close());
+
     // Overwrite
     ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/newfile1"));
     ASSERT_OK(stream->Write("overwritten data"));
@@ -478,12 +484,12 @@ class TestS3FS : public S3TestMixin {
     // Open file and then lose filesystem reference
     ASSERT_EQ(fs_.use_count(), 1);  // needed for test to work
     std::weak_ptr<S3FileSystem> weak_fs(fs_);
-    ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/newfile6"));
+    ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/newfile99"));
     fs_.reset();
     ASSERT_OK(stream->Write("some other data"));
     ASSERT_OK(stream->Close());
     ASSERT_TRUE(weak_fs.expired());
-    AssertObjectContents(client_.get(), "bucket", "newfile6", "some other data");
+    AssertObjectContents(client_.get(), "bucket", "newfile99", "some other data");
   }
 
   void TestOpenOutputStreamAbort() {
