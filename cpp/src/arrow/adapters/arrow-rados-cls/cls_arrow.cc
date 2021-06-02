@@ -141,7 +141,6 @@ static arrow::Status ScanParquetObject(cls_method_context_t hctx,
 
   auto fragment_scan_options =
       std::make_shared<arrow::dataset::ParquetFragmentScanOptions>();
-  fragment_scan_options->enable_parallel_column_conversion = true;
 
   ARROW_ASSIGN_OR_RAISE(auto fragment,
                         format->MakeFragment(source, partition_expression));

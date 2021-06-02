@@ -93,7 +93,7 @@ ceph-deploy mds create $MDS_LIST
 
 echo "[9] creating pools for deploying CephFS"
 ceph osd pool create cephfs_data 128
-ceph osd pool create cephfs_metadata 128
+ceph osd pool create cephfs_metadata 16
 ceph osd pool set cephfs_data pg_autoscale_mode off
 
 echo "[9] deploying CephFS"

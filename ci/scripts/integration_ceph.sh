@@ -102,7 +102,7 @@ ceph --version
 ceph status
 
 apt update
-apt install -y ceph-fuse
+apt install -y ceph-fuse attr
 
 pushd ${ARROW_BUILD_DIR}
     # create the rados-classes, if not there already
