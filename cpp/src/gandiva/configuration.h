@@ -34,14 +34,18 @@ class GANDIVA_EXPORT Configuration {
  public:
   friend class ConfigurationBuilder;
 
-  Configuration() : optimize_(true), target_host_cpu_(true) {}
-  explicit Configuration(bool optimize) : optimize_(optimize), target_host_cpu_(true) {}
+  Configuration() : optimize_(true), compile_(true), target_host_cpu_(true) {}
+  explicit Configuration(bool optimize)
+      : optimize_(optimize), compile_(true), target_host_cpu_(true) {}
+  Configuration(bool optimize, bool compile)
+      : optimize_(optimize), compile_(compile), target_host_cpu_(true) {}
 
   std::size_t Hash() const;
   bool operator==(const Configuration& other) const;
   bool operator!=(const Configuration& other) const;
 
   bool optimize() const { return optimize_; }
+  bool compile() const { return compile_; }
   bool target_host_cpu() const { return target_host_cpu_; }
 
   void set_optimize(bool optimize) { optimize_ = optimize; }
@@ -49,6 +53,7 @@ class GANDIVA_EXPORT Configuration {
 
  private:
   bool optimize_;        /* optimise the generated llvm IR */
+  bool compile_;         /* compile the llvm IR or run it in interpreted mode */
   bool target_host_cpu_; /* set the mcpu flag to host cpu while compiling llvm ir */
 };
 
@@ -65,6 +70,11 @@ class GANDIVA_EXPORT ConfigurationBuilder {
 
   std::shared_ptr<Configuration> build(bool optimize) {
     std::shared_ptr<Configuration> configuration(new Configuration(optimize));
+    return configuration;
+  }
+
+  std::shared_ptr<Configuration> build(bool optimize, bool compile) {
+    std::shared_ptr<Configuration> configuration(new Configuration(optimize, compile));
     return configuration;
   }
 
