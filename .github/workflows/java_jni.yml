@@ -54,8 +54,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        jdk: [8]
-        maven: [3.5.2]
+        jdk: [11]
+        maven: [3.8.1]
     env:
       JDK: ${{ matrix.jdk }}
       MAVEN: ${{ matrix.maven }}

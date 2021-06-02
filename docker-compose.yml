@@ -1195,17 +1195,10 @@ services:
     # Usage:
     #   docker-compose build debian-java
     #   docker-compose run debian-java
-    image: ${REPO}:${ARCH}-debian-9-java-${JDK}-maven-${MAVEN}
-    build:
-      context: .
-      dockerfile: ci/docker/debian-9-java.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-debian-9-java-${JDK}-maven-${MAVEN}
-      args:
-        arch: ${ARCH}
-        jdk: ${JDK}
-        maven: ${MAVEN}
+    image: ${ARCH}/maven:${MAVEN}-jdk-${JDK}
     shm_size: *shm-size
+    environment:
+      ARROW_JAVA_SHADE_FLATBUFS: "ON"
     volumes: &java-volumes
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}maven-cache:/root/.m2:delegated
@@ -1220,18 +1213,22 @@ services:
     #   docker-compose build debian-java
     #   docker-compose build debian-java-jni
     #   docker-compose run debian-java-jni
-    image: ${REPO}:${ARCH}-debian-9-java-jni
+    image: ${REPO}:${ARCH}-java-${JDK}-maven-${MAVEN}-jni
     build:
       context: .
       dockerfile: ci/docker/linux-apt-jni.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-debian-9-java-jni
+        - ${REPO}:${ARCH}-java-${JDK}-maven-${MAVEN}-jni
       args:
-        base: ${REPO}:${ARCH}-debian-9-java-${JDK}-maven-${MAVEN}
+        # The base image's distro is debian, but the debian version depends
+        # on the maven and jdk versions (for older images it should be 9 for
+        # newer ones it should be 10).
+        base: ${ARCH}/maven:${MAVEN}-jdk-${JDK}
         llvm: ${LLVM}
     shm_size: *shm-size
     environment:
       <<: *ccache
+      ARROW_JAVA_SHADE_FLATBUFS: "ON"
     volumes:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}maven-cache:/root/.m2:delegated
