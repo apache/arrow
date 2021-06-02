@@ -47,14 +47,14 @@ env:
 jobs:
 
   docker:
-    name: AMD64 Debian 9 Java JNI (Gandiva, Plasma, ORC, Dataset)
+    name: AMD64 Debian 10 Java JNI (Gandiva, Plasma, ORC, Dataset)
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
-        jdk: [11]
+        jdk: [8]
         maven: [3.8.1]
     env:
       JDK: ${{ matrix.jdk }}
