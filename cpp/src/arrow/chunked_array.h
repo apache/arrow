@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/compare.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
@@ -136,6 +137,9 @@ class ARROW_EXPORT ChunkedArray {
   bool Equals(const ChunkedArray& other) const;
   /// \brief Determine if two chunked arrays are equal.
   bool Equals(const std::shared_ptr<ChunkedArray>& other) const;
+  /// \brief Determine if two chunked arrays approximately equal
+  bool ApproxEquals(const ChunkedArray& other,
+                    const EqualOptions& = EqualOptions::Defaults()) const;
 
   /// \return PrettyPrint representation suitable for debugging
   std::string ToString() const;
