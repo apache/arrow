@@ -319,7 +319,7 @@ test_that("Write a CSV file with invalid input type", {
   bad_input <- Array$create(1:5)
   expect_error(
     write_csv_arrow(bad_input, csv_file),
-    regexp = "bad_input is not an object of class 'data.frame', 'RecordBatch', or 'Table'"
+    regexp = "bad_input must be an object of class 'data.frame', 'RecordBatch', or 'Table'"
     )
 })
 

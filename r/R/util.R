@@ -116,5 +116,5 @@ is_writable_table <- function(x) {
 }
 
 attr(is_writable_table, "fail") <- function(call, env){
-  paste0(eval(substitute(substitute(y, env), list(y = call$x)))," is not an object of class 'data.frame', 'RecordBatch', or 'Table'.")
+  paste0(eval(substitute(substitute(y, env), list(y = call$x)))," must be an object of class 'data.frame', 'RecordBatch', or 'Table'.")
 }
