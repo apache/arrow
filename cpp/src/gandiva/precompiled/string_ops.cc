@@ -1193,7 +1193,7 @@ const char* concatOperator_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8(
   return ret;
 }
 
-//Returns the numeric value of the first character of str.
+// Returns the numeric value of the first character of str.
 GANDIVA_EXPORT
 gdv_int32 ascii_utf8(const char* data, gdv_int32 data_len) {
   if (data_len == 0) {

@@ -657,8 +657,8 @@ TEST_F(TestUtf8, TestAscii) {
   auto array0 = MakeArrowArrayUtf8({"ABC", "", "abc", "Hello World", "123", "999"},
                                    {true, true, true, true, true, true});
   // expected output
-  auto exp_asc = MakeArrowArrayInt32({65, 0, 97, 72, 49, 57},
-                                     {true, true, true, true, true, true});
+  auto exp_asc =
+      MakeArrowArrayInt32({65, 0, 97, 72, 49, 57}, {true, true, true, true, true, true});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
