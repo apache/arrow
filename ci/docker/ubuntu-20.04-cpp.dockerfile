@@ -75,7 +75,6 @@ RUN apt-get update -y -q && \
         libcurl4-openssl-dev \
         libgflags-dev \
         libgoogle-glog-dev \
-        libgrpc++-dev \
         liblz4-dev \
         libprotobuf-dev \
         libprotoc-dev \
@@ -89,7 +88,6 @@ RUN apt-get update -y -q && \
         ninja-build \
         pkg-config \
         protobuf-compiler \
-        protobuf-compiler-grpc \
         rapidjson-dev \
         tzdata \
         wget && \
