@@ -347,7 +347,6 @@ struct FilterNode : ExecNode {
   void InputFinished(ExecNode* input, int seq) override {
     DCHECK_EQ(input, inputs_[0]);
     outputs_[0]->InputFinished(this, seq);
-    inputs_[0]->StopProducing(this);
   }
 
   Status StartProducing() override {
@@ -419,7 +418,6 @@ struct ProjectNode : ExecNode {
   void InputFinished(ExecNode* input, int seq) override {
     DCHECK_EQ(input, inputs_[0]);
     outputs_[0]->InputFinished(this, seq);
-    inputs_[0]->StopProducing(this);
   }
 
   Status StartProducing() override {
@@ -450,14 +448,14 @@ ExecNode* MakeProjectNode(ExecNode* input, std::string label,
 
 struct SinkNode : ExecNode {
   SinkNode(ExecNode* input, std::string label,
-           AsyncGenerator<util::optional<ExecBatch>>* generator)
+           AsyncGenerator<Enumerated<ExecBatch>>* generator)
       : ExecNode(input->plan(), std::move(label), {input}, {"collected"}, {},
                  /*num_outputs=*/0),
         producer_(MakeProducer(generator)) {}
 
-  static PushGenerator<util::optional<ExecBatch>>::Producer MakeProducer(
-      AsyncGenerator<util::optional<ExecBatch>>* out_gen) {
-    PushGenerator<util::optional<ExecBatch>> gen;
+  static PushGenerator<Enumerated<ExecBatch>>::Producer MakeProducer(
+      AsyncGenerator<Enumerated<ExecBatch>>* out_gen) {
+    PushGenerator<Enumerated<ExecBatch>> gen;
     auto out = gen.producer();
     *out_gen = std::move(gen);
     return out;
@@ -478,54 +476,27 @@ struct SinkNode : ExecNode {
     StopProducingUnlocked();
   }
 
-  void InputReceived(ExecNode* input, int seq_num, ExecBatch exec_batch) override {
+  void InputReceived(ExecNode* input, int seq_num, ExecBatch batch) override {
+    DCHECK_EQ(input, inputs_[0]);
+
     std::unique_lock<std::mutex> lock(mutex_);
     if (stopped_) return;
 
-    // TODO would be nice to factor this out in a ReorderQueue
-    if (seq_num <= static_cast<int>(received_batches_.size())) {
-      received_batches_.resize(seq_num + 1);
-      emitted_.resize(seq_num + 1, false);
-    }
-    received_batches_[seq_num] = std::move(exec_batch);
     ++num_received_;
-
-    if (seq_num != num_emitted_) {
-      // Cannot emit yet as there is a hole at `num_emitted_`
-      DCHECK_GT(seq_num, num_emitted_);
-      return;
-    }
-
     if (num_received_ == emit_stop_) {
       StopProducingUnlocked();
     }
 
-    // Emit batches in order as far as possible
-    // First collect these batches, then unlock before producing.
-    const auto seq_start = seq_num;
-    while (seq_num < static_cast<int>(emitted_.size()) && !emitted_[seq_num]) {
-      emitted_[seq_num] = true;
-      ++seq_num;
+    if (emit_stop_ != -1) {
+      DCHECK_LE(seq_num, emit_stop_);
     }
-    DCHECK_GT(seq_num, seq_start);
-    // By moving the values now, we make sure another thread won't emit the same values
-    // below
-    std::vector<ExecBatch> to_emit(
-        std::make_move_iterator(received_batches_.begin() + seq_start),
-        std::make_move_iterator(received_batches_.begin() + seq_num));
-
     lock.unlock();
-    for (auto&& batch : to_emit) {
-      producer_.Push(std::move(batch));
-    }
-    lock.lock();
 
-    DCHECK_EQ(seq_start, num_emitted_);  // num_emitted_ wasn't bumped in the meantime
-    num_emitted_ = seq_num;
+    producer_.Push(Enumerated<ExecBatch>{std::move(batch), seq_num, false});
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {
-    // XXX do we care about properly sequencing the error?
+    DCHECK_EQ(input, inputs_[0]);
     producer_.Push(std::move(error));
     std::unique_lock<std::mutex> lock(mutex_);
     StopProducingUnlocked();
@@ -533,11 +504,8 @@ struct SinkNode : ExecNode {
 
   void InputFinished(ExecNode* input, int seq_stop) override {
     std::unique_lock<std::mutex> lock(mutex_);
-    DCHECK_GE(seq_stop, static_cast<int>(received_batches_.size()));
-    received_batches_.reserve(seq_stop);
     emit_stop_ = seq_stop;
     if (emit_stop_ == num_received_) {
-      DCHECK_EQ(emit_stop_, num_emitted_);
       StopProducingUnlocked();
     }
   }
@@ -552,20 +520,16 @@ struct SinkNode : ExecNode {
   }
 
   std::mutex mutex_;
-  std::vector<ExecBatch> received_batches_;
-  std::vector<bool> emitted_;
 
   int num_received_ = 0;
-  int num_emitted_ = 0;
   int emit_stop_ = -1;
   bool stopped_ = false;
 
-  PushGenerator<util::optional<ExecBatch>>::Producer producer_;
+  PushGenerator<Enumerated<ExecBatch>>::Producer producer_;
 };
 
-AsyncGenerator<util::optional<ExecBatch>> MakeSinkNode(ExecNode* input,
-                                                       std::string label) {
-  AsyncGenerator<util::optional<ExecBatch>> out;
+AsyncGenerator<Enumerated<ExecBatch>> MakeSinkNode(ExecNode* input, std::string label) {
+  AsyncGenerator<Enumerated<ExecBatch>> out;
   (void)input->plan()->EmplaceNode<SinkNode>(input, std::move(label), &out);
   return out;
 }

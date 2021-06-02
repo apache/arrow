@@ -67,12 +67,6 @@ bool IsIterationEnd(const T& val) {
 }
 
 template <typename T>
-bool IsIterationEnd(const Result<T>& maybe_val) {
-  if (!maybe_val.ok()) return true;
-  return IsIterationEnd(*maybe_val);
-}
-
-template <typename T>
 struct IterationTraits<util::optional<T>> {
   /// \brief by default when iterating through a sequence of optional,
   /// nullopt indicates the end of iteration.

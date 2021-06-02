@@ -1114,7 +1114,7 @@ struct Enumerated {
 
 template <typename T>
 struct IterationTraits<Enumerated<T>> {
-  static Enumerated<T> End() { return Enumerated<T>{IterationEnd<T>(), -1, false}; }
+  static Enumerated<T> End() { return Enumerated<T>{T{}, -1, false}; }
   static bool IsEnd(const Enumerated<T>& val) { return val.index < 0; }
 };
 
@@ -1383,7 +1383,7 @@ class BackgroundGenerator {
           break;
         }
 
-        if (IsIterationEnd(next)) {
+        if (!next.ok() || IsIterationEnd<T>(*next)) {
           // Terminal item.  Mark finished to true, send this last item, and quit
           state->finished = true;
           if (!next.ok()) {

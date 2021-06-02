@@ -233,9 +233,11 @@ ExecNode* MakeSourceNode(ExecPlan*, std::string label, ExecNode::BatchDescr outp
                          AsyncGenerator<util::optional<ExecBatch>>);
 
 /// \brief Add a sink node which forwards to an AsyncGenerator<ExecBatch>
+///
+/// Emitted batches will not be ordered; instead they will be tagged with the `seq` at
+/// which they were received.
 ARROW_EXPORT
-AsyncGenerator<util::optional<ExecBatch>> MakeSinkNode(ExecNode* input,
-                                                       std::string label);
+AsyncGenerator<Enumerated<ExecBatch>> MakeSinkNode(ExecNode* input, std::string label);
 
 /// \brief Make a node which excludes some rows from batches passed through it
 ///

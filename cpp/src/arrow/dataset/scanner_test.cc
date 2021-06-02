@@ -34,6 +34,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/range.h"
+#include "arrow/util/vector.h"
 
 using testing::ElementsAre;
 using testing::IsEmpty;
@@ -1087,6 +1088,22 @@ TEST(ScanOptions, TestMaterializedFields) {
   EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i64", "i32"));
 }
 
+static Result<std::vector<compute::ExecBatch>> StartAndCollect(
+    compute::ExecPlan* plan, AsyncGenerator<Enumerated<compute::ExecBatch>> gen) {
+  RETURN_NOT_OK(plan->Validate());
+  RETURN_NOT_OK(plan->StartProducing());
+
+  auto maybe_collected = CollectAsyncGenerator(gen).result();
+  ARROW_ASSIGN_OR_RAISE(auto collected, maybe_collected);
+
+  std::sort(collected.begin(), collected.end(),
+            [](const Enumerated<compute::ExecBatch>& l,
+               const Enumerated<compute::ExecBatch>& r) { return l.index < r.index; });
+  return internal::MapVector(
+      [](Enumerated<compute::ExecBatch> batch) { return std::move(batch.value); },
+      collected);
+}
+
 TEST(ScanNode, Trivial) {
   ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
 
@@ -1105,16 +1122,12 @@ TEST(ScanNode, Trivial) {
   ASSERT_OK(scanner_builder.UseAsync(true));
   ASSERT_OK_AND_ASSIGN(auto scan, scanner_builder.MakeScanNode(plan.get()));
   auto sink_gen = MakeSinkNode(scan, "sink");
-  ASSERT_OK(plan->Validate());
-  ASSERT_OK(plan->StartProducing());
-
-  auto got_batches_fut = CollectAsyncGenerator(sink_gen);
-  ASSERT_OK_AND_ASSIGN(auto got_batches, got_batches_fut.result());
+  ASSERT_OK_AND_ASSIGN(auto got_batches, StartAndCollect(plan.get(), sink_gen));
 
   ASSERT_EQ(got_batches.size(), batches.size());
   for (size_t i = 0; i < batches.size(); ++i) {
     SCOPED_TRACE("Batch " + std::to_string(i));
-    const compute::ExecBatch& actual = *got_batches[i];
+    const compute::ExecBatch& actual = got_batches[i];
     const RecordBatch& expected = *batches[i];
     AssertDatumsEqual(expected.GetColumnByName("a"), actual[0], /*verbose=*/true);
     AssertDatumsEqual(expected.GetColumnByName("b"), actual[1], /*verbose=*/true);
@@ -1155,15 +1168,11 @@ TEST(ScanNode, FilteredOnVirtualColumn) {
   ASSERT_OK(scanner_builder.Filter(greater(field_ref("c"), literal(30))));
   ASSERT_OK_AND_ASSIGN(auto scan, scanner_builder.MakeScanNode(plan.get()));
   auto sink_gen = MakeSinkNode(scan, "sink");
-  ASSERT_OK(plan->Validate());
-  ASSERT_OK(plan->StartProducing());
-
-  auto got_batches_fut = CollectAsyncGenerator(sink_gen);
-  ASSERT_OK_AND_ASSIGN(auto got_batches, got_batches_fut.result());
+  ASSERT_OK_AND_ASSIGN(auto got_batches, StartAndCollect(plan.get(), sink_gen));
 
   ASSERT_EQ(got_batches.size(), 2);
   for (size_t i = 0; i < batches.size(); ++i) {
-    const compute::ExecBatch& actual = *got_batches[i];
+    const compute::ExecBatch& actual = got_batches[i];
     const RecordBatch& expected = *batches[i];
     AssertDatumsEqual(expected.GetColumnByName("a"), actual[0], /*verbose=*/true);
     AssertDatumsEqual(expected.GetColumnByName("b"), actual[1], /*verbose=*/true);
@@ -1211,16 +1220,12 @@ TEST(ScanNode, FilteredOnPhysicalColumn) {
   ASSERT_OK(scanner_builder.Filter(greater(field_ref("a"), literal(4))));
   ASSERT_OK_AND_ASSIGN(auto scan, scanner_builder.MakeScanNode(plan.get()));
   auto sink_gen = MakeSinkNode(scan, "sink");
-  ASSERT_OK(plan->Validate());
-  ASSERT_OK(plan->StartProducing());
-
-  auto got_batches_fut = CollectAsyncGenerator(sink_gen);
-  ASSERT_OK_AND_ASSIGN(auto got_batches, got_batches_fut.result());
+  ASSERT_OK_AND_ASSIGN(auto got_batches, StartAndCollect(plan.get(), sink_gen));
 
   // no filtering is performed by ScanNode: all batches will be yielded whole
   ASSERT_EQ(got_batches.size(), batches.size() * 2);
   for (size_t i = 0; i < got_batches.size(); ++i) {
-    const compute::ExecBatch& actual = *got_batches[i];
+    const compute::ExecBatch& actual = got_batches[i];
     const RecordBatch& expected = *batches[i % 2];
     AssertDatumsEqual(expected.GetColumnByName("a"), actual[0], /*verbose=*/true);
     AssertDatumsEqual(expected.GetColumnByName("b"), actual[1], /*verbose=*/true);
@@ -1266,16 +1271,12 @@ TEST(ScanNode, ProjectPhysicalColumn) {
   auto project = compute::MakeProjectNode(
       scan, "project", {field_ref("c").Bind(*dataset_schema).ValueOrDie()});
   auto sink_gen = MakeSinkNode(project, "sink");
-  ASSERT_OK(plan->Validate());
-  ASSERT_OK(plan->StartProducing());
-
-  auto got_batches_fut = CollectAsyncGenerator(sink_gen);
-  ASSERT_OK_AND_ASSIGN(auto got_batches, got_batches_fut.result());
+  ASSERT_OK_AND_ASSIGN(auto got_batches, StartAndCollect(plan.get(), sink_gen));
 
   // no filtering is performed by ScanNode: all batches will be yielded whole
   ASSERT_EQ(got_batches.size(), batches.size() * 2);
   for (size_t i = 0; i < got_batches.size(); ++i) {
-    const compute::ExecBatch& actual = *got_batches[i];
+    const compute::ExecBatch& actual = got_batches[i];
     Datum expected(i / 2 ? 47 : 23);
     AssertDatumsEqual(expected, actual[0], /*verbose=*/true);
     EXPECT_EQ(actual.guarantee, equal(field_ref("c"), literal(expected))) << i;

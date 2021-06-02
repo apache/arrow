@@ -62,6 +62,14 @@ void AssertBatchesEqual(const RecordBatchVector& expected,
   }
 }
 
+void AssertBatchesEqual(const RecordBatchVector& expected,
+                        const std::vector<ExecBatch>& actual) {
+  ASSERT_EQ(expected.size(), actual.size());
+  for (size_t i = 0; i < expected.size(); ++i) {
+    AssertBatchesEqual(ExecBatch(*expected[i]), actual[i]);
+  }
+}
+
 TEST(ExecPlanConstruction, Empty) {
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
 
@@ -266,6 +274,22 @@ class TestExecPlanExecution : public ::testing::Test {
     RETURN_NOT_OK(plan->Validate());
     RETURN_NOT_OK(plan->StartProducing());
     return CollectAsyncGenerator(gen).result();
+  }
+
+  Result<std::vector<ExecBatch>> StartAndCollect(
+      ExecPlan* plan, AsyncGenerator<Enumerated<ExecBatch>> gen) {
+    RETURN_NOT_OK(plan->Validate());
+    RETURN_NOT_OK(plan->StartProducing());
+
+    auto maybe_collected = CollectAsyncGenerator(gen).result();
+    ARROW_ASSIGN_OR_RAISE(auto collected, maybe_collected);
+
+    std::sort(collected.begin(), collected.end(),
+              [](const Enumerated<ExecBatch>& l, const Enumerated<ExecBatch>& r) {
+                return l.index < r.index;
+              });
+    return internal::MapVector(
+        [](Enumerated<ExecBatch> batch) { return std::move(batch.value); }, collected);
   }
 
   ExecNode* MakeSource(ExecPlan* plan, std::shared_ptr<RecordBatchReader> reader,
