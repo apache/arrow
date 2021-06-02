@@ -112,7 +112,7 @@ public final class ArrowFlightConnection extends AvaticaConnection {
     UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(
         info.getProperty("user"), info.getProperty("pass"));
 
-    if (info.getProperty("useTls").equalsIgnoreCase("true")) {
+    if (info.getProperty("useTls") != null && info.getProperty("useTls").equalsIgnoreCase("true")) {
       client = ArrowFlightClient.getEncryptedClient(allocator, address,
           credentials, info.getProperty("keyStorePath"),
           info.getProperty("keyStorePass"));
