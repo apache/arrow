@@ -19,28 +19,36 @@
 
 set -eu
 
+if [[ $# -lt 4 ]] ; then
+    echo "./deploy_data.sh [source] [destination] [count] [stripeunit]"
+    echo " Use the below chart to find the stripunit you need to use: "
+    echo " "
+    echo "For 4MB files: 4194304"
+    echo "For 8MB files: 8388608"
+    echo "For 16MB files: 16777216"
+    echo "For 32MB files: 33554432"
+    echo "For 64MB files: 67108864"
+    echo "For 128MB files: 134217728"
+    exit 1
+fi
+
 apt update
 apt install -y attr
-
-# usage:
-# ./deploy_data.sh [source] [destination] [count] [stripeunit]
 
 source=${1}
 destination=${2}
 count=${3}
 stripe=${4}
 
+mkdir -p ${destination}
+
 for ((i=1 ; i<=${count} ; i++)); do
-    touch ${destination}.${i}
-    setfattr -n ceph.file.layout.object_size -v ${stripe} ${destination}.${i}
-    echo "copying ${source} to ${destination}.${i}"
-    cp ${source} ${destination}.${i}
+    uuid=$(uuidgen)
+    filename=${destination}/${uuid}
+    touch ${filename}
+    setfattr -n ceph.file.layout.object_size -v ${stripe} ${filename}
+    echo "copying ${source} to ${filename}"
+    cp ${source} ${filename}
 done
 
 sleep 2
-
-# For 4MB: 4194304 object size
-# For 8MB: 8388608 object size
-# For 16MB:  16777216 object size
-# For 32MB:  33554432 object size
-# For 64MB:  67108864 object size
