@@ -695,7 +695,6 @@
     <module>algorithm</module>
     <module>adapter/avro</module>
     <module>compression</module>
-      <module>driver/jdbc</module>
   </modules>
 
   <profiles>
