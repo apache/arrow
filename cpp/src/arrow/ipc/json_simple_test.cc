@@ -1358,8 +1358,8 @@ TEST(TestScalarFromJSON, Basics) {
   AssertJSONScalar<BooleanType, bool>(boolean(), "null", false, false);
   AssertJSONScalar<BooleanType, bool>(boolean(), "0", true, false);
   AssertJSONScalar<BooleanType, bool>(boolean(), "1", true, true);
-  AssertJSONScalar<DoubleType, bool>(float64(), "1.0", true, 1.0);
-  AssertJSONScalar<DoubleType, bool>(float64(), "-0.0", true, -0.0);
+  AssertJSONScalar<DoubleType>(float64(), "1.0", true, 1.0);
+  AssertJSONScalar<DoubleType>(float64(), "-0.0", true, -0.0);
   ASSERT_OK(ScalarFromJSON(float64(), "NaN", &scalar));
   ASSERT_TRUE(std::isnan(checked_cast<DoubleScalar&>(*scalar).value));
   ASSERT_OK(ScalarFromJSON(float64(), "Inf", &scalar));
