@@ -1313,13 +1313,13 @@ TYPED_TEST(TestVarArgsArithmeticFloating, ElementWiseMin) {
   auto Check = [this](const std::string& expected,
                       const std::vector<std::string>& inputs) {
     std::vector<Datum> args;
-    for (const auto input : inputs) {
+    for (const auto& input : inputs) {
       args.emplace_back(this->scalar(input));
     }
     this->Assert(ElementWiseMin, this->scalar(expected), args);
 
     args.clear();
-    for (const auto input : inputs) {
+    for (const auto& input : inputs) {
       args.emplace_back(this->array("[" + input + "]"));
     }
     this->Assert(ElementWiseMin, this->array("[" + expected + "]"), args);
@@ -1433,13 +1433,13 @@ TYPED_TEST(TestVarArgsArithmeticFloating, ElementWiseMax) {
   auto Check = [this](const std::string& expected,
                       const std::vector<std::string>& inputs) {
     std::vector<Datum> args;
-    for (const auto input : inputs) {
+    for (const auto& input : inputs) {
       args.emplace_back(this->scalar(input));
     }
     this->Assert(ElementWiseMax, this->scalar(expected), args);
 
     args.clear();
-    for (const auto input : inputs) {
+    for (const auto& input : inputs) {
       args.emplace_back(this->array("[" + input + "]"));
     }
     this->Assert(ElementWiseMax, this->array("[" + expected + "]"), args);
