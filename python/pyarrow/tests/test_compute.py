@@ -1078,6 +1078,11 @@ def test_fill_null():
     expected = pa.array([b'a', b'bb', b'ccc'], type=pa.large_binary())
     assert result.equals(expected)
 
+    arr = pa.array(['a', 'bb', None])
+    result = arr.fill_null(None)
+    expected = pa.array(['a', 'bb', None])
+    assert result.equals(expected)
+
 
 @pytest.mark.parametrize('arrow_type', numerical_arrow_types)
 def test_fill_null_array(arrow_type):
