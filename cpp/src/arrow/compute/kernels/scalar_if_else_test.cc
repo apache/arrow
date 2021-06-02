@@ -96,34 +96,42 @@ void CheckWithDifferentShapes(const std::shared_ptr<Array>& cond,
   for (int mask = 0; mask < (COND_SCALAR | LEFT_SCALAR | RIGHT_SCALAR); ++mask) {
     for (int64_t cond_idx = 0; cond_idx < len; ++cond_idx) {
       Datum cond_in, cond_bcast;
-      std::string trace_msg = "Cond";
+      std::string trace_cond = "Cond";
       if (mask & COND_SCALAR) {
         ASSERT_OK_AND_ASSIGN(cond_in, cond->GetScalar(cond_idx));
         ASSERT_OK_AND_ASSIGN(cond_bcast, MakeArrayFromScalar(*cond_in.scalar(), len));
-        trace_msg += "@" + std::to_string(cond_idx) + "=" + cond_in.scalar()->ToString();
+        trace_cond += "@" + std::to_string(cond_idx) + "=" + cond_in.scalar()->ToString();
       } else {
         cond_in = cond_bcast = cond;
       }
-      SCOPED_TRACE(trace_msg);
+      SCOPED_TRACE(trace_cond);
 
       for (int64_t left_idx = 0; left_idx < len; ++left_idx) {
         Datum left_in, left_bcast;
+        std::string trace_left = "Left";
         if (mask & LEFT_SCALAR) {
           ASSERT_OK_AND_ASSIGN(left_in, left->GetScalar(left_idx).As<Datum>());
           ASSERT_OK_AND_ASSIGN(left_bcast, MakeArrayFromScalar(*left_in.scalar(), len));
+          trace_cond +=
+              "@" + std::to_string(left_idx) + "=" + left_in.scalar()->ToString();
         } else {
           left_in = left_bcast = left;
         }
+        SCOPED_TRACE(trace_left);
 
         for (int64_t right_idx = 0; right_idx < len; ++right_idx) {
           Datum right_in, right_bcast;
+          std::string trace_right = "Right";
           if (mask & RIGHT_SCALAR) {
             ASSERT_OK_AND_ASSIGN(right_in, right->GetScalar(right_idx));
             ASSERT_OK_AND_ASSIGN(right_bcast,
                                  MakeArrayFromScalar(*right_in.scalar(), len));
+            trace_right +=
+                "@" + std::to_string(right_idx) + "=" + right_in.scalar()->ToString();
           } else {
             right_in = right_bcast = right;
           }
+          SCOPED_TRACE(trace_right);
 
           ASSERT_OK_AND_ASSIGN(auto exp, IfElse(cond_bcast, left_bcast, right_bcast));
           ASSERT_OK_AND_ASSIGN(auto actual, IfElse(cond_in, left_in, right_in));
