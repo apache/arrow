@@ -44,7 +44,7 @@ class GANDIVA_EXPORT Configuration {
   bool operator==(const Configuration& other) const;
   bool operator!=(const Configuration& other) const;
 
-  bool optimize() const { return optimize_; }
+  bool optimize() const { return compile_ && optimize_; }
   bool compile() const { return compile_; }
   bool target_host_cpu() const { return target_host_cpu_; }
 

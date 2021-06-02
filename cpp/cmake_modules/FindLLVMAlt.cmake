@@ -39,6 +39,7 @@ if(LLVM_FOUND)
   llvm_map_components_to_libnames(LLVM_LIBS
                                   core
                                   mcjit
+                                  interpreter
                                   native
                                   ipo
                                   bitreader
