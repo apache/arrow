@@ -492,6 +492,42 @@ struct PlainSubstringMatcher {
   bool Match(util::string_view current) const { return Find(current) >= 0; }
 };
 
+struct PlainStartsWithMatcher {
+  const MatchSubstringOptions& options_;
+
+  explicit PlainStartsWithMatcher(const MatchSubstringOptions& options)
+      : options_(options) {}
+
+  static Result<std::unique_ptr<PlainStartsWithMatcher>> Make(
+      const MatchSubstringOptions& options) {
+    // Should be handled by partial template specialization below
+    DCHECK(!options.ignore_case);
+    return ::arrow::internal::make_unique<PlainStartsWithMatcher>(options);
+  }
+
+  bool Match(util::string_view current) const {
+    return current.starts_with(options_.pattern);
+  }
+};
+
+struct PlainEndsWithMatcher {
+  const MatchSubstringOptions& options_;
+
+  explicit PlainEndsWithMatcher(const MatchSubstringOptions& options)
+      : options_(options) {}
+
+  static Result<std::unique_ptr<PlainEndsWithMatcher>> Make(
+      const MatchSubstringOptions& options) {
+    // Should be handled by partial template specialization below
+    DCHECK(!options.ignore_case);
+    return ::arrow::internal::make_unique<PlainEndsWithMatcher>(options);
+  }
+
+  bool Match(util::string_view current) const {
+    return current.ends_with(options_.pattern);
+  }
+};
+
 #ifdef ARROW_WITH_RE2
 struct RegexSubstringMatcher {
   const MatchSubstringOptions& options_;
@@ -581,9 +617,65 @@ struct MatchSubstring<Type, PlainSubstringMatcher> {
   }
 };
 
+template <typename Type>
+struct MatchSubstring<Type, PlainStartsWithMatcher> {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    auto options = MatchSubstringState::Get(ctx);
+    if (options.ignore_case) {
+#ifdef ARROW_WITH_RE2
+      MatchSubstringOptions converted_options = options;
+      converted_options.pattern = "^" + RE2::QuoteMeta(options.pattern);
+      ARROW_ASSIGN_OR_RAISE(auto matcher, RegexSubstringMatcher::Make(converted_options));
+      return MatchSubstringImpl<Type, RegexSubstringMatcher>::Exec(ctx, batch, out,
+                                                                   matcher.get());
+#else
+      return Status::NotImplemented("ignore_case requires RE2");
+#endif
+    }
+    ARROW_ASSIGN_OR_RAISE(auto matcher, PlainStartsWithMatcher::Make(options));
+    return MatchSubstringImpl<Type, PlainStartsWithMatcher>::Exec(ctx, batch, out,
+                                                                  matcher.get());
+  }
+};
+
+template <typename Type>
+struct MatchSubstring<Type, PlainEndsWithMatcher> {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    auto options = MatchSubstringState::Get(ctx);
+    if (options.ignore_case) {
+#ifdef ARROW_WITH_RE2
+      MatchSubstringOptions converted_options = options;
+      converted_options.pattern = RE2::QuoteMeta(options.pattern) + "$";
+      ARROW_ASSIGN_OR_RAISE(auto matcher, RegexSubstringMatcher::Make(converted_options));
+      return MatchSubstringImpl<Type, RegexSubstringMatcher>::Exec(ctx, batch, out,
+                                                                   matcher.get());
+#else
+      return Status::NotImplemented("ignore_case requires RE2");
+#endif
+    }
+    ARROW_ASSIGN_OR_RAISE(auto matcher, PlainEndsWithMatcher::Make(options));
+    return MatchSubstringImpl<Type, PlainEndsWithMatcher>::Exec(ctx, batch, out,
+                                                                matcher.get());
+  }
+};
+
 const FunctionDoc match_substring_doc(
     "Match strings against literal pattern",
     ("For each string in `strings`, emit true iff it contains a given pattern.\n"
+     "Null inputs emit null.  The pattern must be given in MatchSubstringOptions. "
+     "If ignore_case is set, only simple case folding is performed."),
+    {"strings"}, "MatchSubstringOptions");
+
+const FunctionDoc starts_with_doc(
+    "Check if strings start with a pattern",
+    ("For each string in `strings`, emit true iff it starts with a given pattern.\n"
+     "Null inputs emit null.  The pattern must be given in MatchSubstringOptions. "
+     "If ignore_case is set, only simple case folding is performed."),
+    {"strings"}, "MatchSubstringOptions");
+
+const FunctionDoc ends_with_doc(
+    "Check if strings end with a pattern",
+    ("For each string in `strings`, emit true iff it ends with a given pattern.\n"
      "Null inputs emit null.  The pattern must be given in MatchSubstringOptions. "
      "If ignore_case is set, only simple case folding is performed."),
     {"strings"}, "MatchSubstringOptions");
@@ -643,36 +735,23 @@ std::string MakeLikeRegex(const MatchSubstringOptions& options) {
   return like_pattern;
 }
 
-// A LIKE pattern matching this regex can be translated into a substring search.
-static RE2 kLikePatternIsSubstringMatch("%+([^%_]*)%+");
-
 // Evaluate a SQL-like LIKE pattern by translating it to a regexp or
 // substring search as appropriate. See what Apache Impala does:
 // https://github.com/apache/impala/blob/9c38568657d62b6f6d7b10aa1c721ba843374dd8/be/src/exprs/like-predicate.cc
-// Note that Impala optimizes more cases (e.g. prefix match) but we
-// don't have kernels for those.
+// Note we don't optimize regex matches to substring matches like Impala does (see the
+// MatchLikeEscaping test)
 template <typename StringType>
 struct MatchLike {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     auto original_options = MatchSubstringState::Get(ctx);
     auto original_state = ctx->state();
 
-    Status status;
-    std::string pattern;
-    if (!original_options.ignore_case &&
-        re2::RE2::FullMatch(original_options.pattern, kLikePatternIsSubstringMatch,
-                            &pattern)) {
-      MatchSubstringOptions converted_options{pattern, original_options.ignore_case};
-      MatchSubstringState converted_state(converted_options);
-      ctx->SetState(&converted_state);
-      status = MatchSubstring<StringType, PlainSubstringMatcher>::Exec(ctx, batch, out);
-    } else {
-      MatchSubstringOptions converted_options{MakeLikeRegex(original_options),
-                                              original_options.ignore_case};
-      MatchSubstringState converted_state(converted_options);
-      ctx->SetState(&converted_state);
-      status = MatchSubstring<StringType, RegexSubstringMatcher>::Exec(ctx, batch, out);
-    }
+    MatchSubstringOptions converted_options{MakeLikeRegex(original_options),
+                                            original_options.ignore_case};
+    MatchSubstringState converted_state(converted_options);
+    ctx->SetState(&converted_state);
+    auto status =
+        MatchSubstring<StringType, RegexSubstringMatcher>::Exec(ctx, batch, out);
     ctx->SetState(original_state);
     return status;
   }
@@ -695,6 +774,26 @@ void AddMatchSubstring(FunctionRegistry* registry) {
                                                  &match_substring_doc);
     auto exec_32 = MatchSubstring<StringType, PlainSubstringMatcher>::Exec;
     auto exec_64 = MatchSubstring<LargeStringType, PlainSubstringMatcher>::Exec;
+    DCHECK_OK(func->AddKernel({utf8()}, boolean(), exec_32, MatchSubstringState::Init));
+    DCHECK_OK(
+        func->AddKernel({large_utf8()}, boolean(), exec_64, MatchSubstringState::Init));
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+  {
+    auto func = std::make_shared<ScalarFunction>("starts_with", Arity::Unary(),
+                                                 &match_substring_doc);
+    auto exec_32 = MatchSubstring<StringType, PlainStartsWithMatcher>::Exec;
+    auto exec_64 = MatchSubstring<LargeStringType, PlainStartsWithMatcher>::Exec;
+    DCHECK_OK(func->AddKernel({utf8()}, boolean(), exec_32, MatchSubstringState::Init));
+    DCHECK_OK(
+        func->AddKernel({large_utf8()}, boolean(), exec_64, MatchSubstringState::Init));
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+  {
+    auto func = std::make_shared<ScalarFunction>("ends_with", Arity::Unary(),
+                                                 &match_substring_doc);
+    auto exec_32 = MatchSubstring<StringType, PlainEndsWithMatcher>::Exec;
+    auto exec_64 = MatchSubstring<LargeStringType, PlainEndsWithMatcher>::Exec;
     DCHECK_OK(func->AddKernel({utf8()}, boolean(), exec_32, MatchSubstringState::Init));
     DCHECK_OK(
         func->AddKernel({large_utf8()}, boolean(), exec_64, MatchSubstringState::Init));
