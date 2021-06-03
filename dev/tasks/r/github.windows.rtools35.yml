@@ -66,11 +66,11 @@ jobs:
           path: ccache
           key: r-35-ccache-mingw-{{ "${{ hashFiles('cpp/**') }}" }}
           restore-keys: r-35-ccache-mingw-
-        - uses: r-lib/actions/setup-r@master
-        with:
-          rtools-version: 35
-          r-version: "3.6"
-          Ncpus: 2
+      - uses: r-lib/actions/setup-r@master
+      with:
+        rtools-version: 35
+        r-version: "3.6"
+        Ncpus: 2
       - name: Build Arrow C++
         shell: bash
         env:
