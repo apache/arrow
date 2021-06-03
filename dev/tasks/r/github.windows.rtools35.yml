@@ -17,11 +17,6 @@
 
 # NOTE: must set "Crossbow" as name to have the badge links working in the
 # github comment reports!
-
-
-
-# NOTE: must set "Crossbow" as name to have the badge links working in the
-# github comment reports!
 name: Crossbow
 
 on:
@@ -43,9 +38,9 @@ jobs:
     steps:
       - run: git config --global core.autocrlf false
       - name: Checkout Arrow
-      uses: actions/checkout@v2
-      with:
-        fetch-depth: 0
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
       - name: Make R tests verbose
         # If you get a segfault/mysterious test Execution halted,
         # make this `true` to see where it dies.
@@ -53,8 +48,8 @@ jobs:
         shell: cmd
         run: |
           cd r/tests
-        sed -i.bak -E -e 's/"arrow"/"arrow", reporter = "location"/' testthat.R
-        rm -f testthat.R.bak
+          sed -i.bak -E -e 's/"arrow"/"arrow", reporter = "location"/' testthat.R
+          rm -f testthat.R.bak
       - name: Setup ccache
         shell: bash
         run: |
@@ -89,8 +84,8 @@ jobs:
         shell: Rscript {0}
         run: |
           options(pkgType="win.binary")
-        install.packages(c("remotes", "rcmdcheck"))
-        remotes::install_deps("r", dependencies = TRUE)
+          install.packages(c("remotes", "rcmdcheck"))
+          remotes::install_deps("r", dependencies = TRUE)
       - name: Check
         shell: Rscript {0}
         run: |
@@ -98,13 +93,13 @@ jobs:
             RWINLIB_LOCAL = file.path(Sys.getenv("GITHUB_WORKSPACE"), "libarrow.zip"),
             MAKEFLAGS = paste0("-j", parallel::detectCores())
           )
-        rcmdcheck::rcmdcheck("r",
-                             build_args = '--no-build-vignettes',
-                             args = c('--no-manual', '--as-cran', '--ignore-vignettes', '--run-donttest'),
-                             error_on = 'warning',
-                             check_dir = 'check',
-                             timeout = 3600
-        )
+          rcmdcheck::rcmdcheck("r",
+                               build_args = '--no-build-vignettes',
+                               args = c('--no-manual', '--as-cran', '--ignore-vignettes', '--run-donttest'),
+                               error_on = 'warning',
+                               check_dir = 'check',
+                               timeout = 3600
+          )
       - name: Dump install logs
         shell: cmd
         run: cat check/arrow.Rcheck/00install.out
