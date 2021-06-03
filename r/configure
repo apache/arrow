@@ -197,8 +197,17 @@ fi
 
 # Test configuration
 CXXCPP="`${R_HOME}/bin/R CMD config CXX17` -E"
-CXX17FLAGS=`"${R_HOME}"/bin/R CMD config CXX17FLAGS`
-CXX17STD=`"${R_HOME}"/bin/R CMD config CXX17STD`
+if [ $? -eq 0 ]; then
+  # Great, CXX17 exists for this version of R (current);
+  # now let's set the other two variables
+  CXX17FLAGS=`"${R_HOME}"/bin/R CMD config CXX17FLAGS`
+  CXX17STD=`"${R_HOME}"/bin/R CMD config CXX17STD`
+else
+  # For compatibility with R < 3.4, when these were called CXX1X
+  CXXCPP="`${R_HOME}/bin/R CMD config CXX1X` -E"
+  CXX17FLAGS=`"${R_HOME}"/bin/R CMD config CXX1XFLAGS`
+  CXX17STD=`"${R_HOME}"/bin/R CMD config CXX1XSTD`
+fi
 CPPFLAGS=`"${R_HOME}"/bin/R CMD config CPPFLAGS`
 TEST_CMD="${CXXCPP} ${CPPFLAGS} ${PKG_CFLAGS} ${CXX17FLAGS} ${CXX17STD} -xc++ -"
 echo "#include $PKG_TEST_HEADER" | ${TEST_CMD} >/dev/null 2>&1
