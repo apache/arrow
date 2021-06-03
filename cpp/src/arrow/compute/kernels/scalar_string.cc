@@ -138,7 +138,10 @@ struct StringTransform {
   using offset_type = typename Type::offset_type;
   using ArrayType = typename TypeTraits<Type>::ArrayType;
 
-  static int64_t MaxCodeunits(offset_type input_ncodeunits) { return input_ncodeunits; }
+  virtual int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) {
+    return input_ncodeunits;
+  }
+
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     return Derived().Execute(ctx, batch, out);
   }
@@ -156,7 +159,8 @@ struct StringTransform {
       offset_type input_ncodeunits = input_boxed.total_values_length();
       offset_type input_nstrings = static_cast<offset_type>(input.length);
 
-      int64_t output_ncodeunits_max = Derived::MaxCodeunits(input_ncodeunits);
+      const int64_t output_ncodeunits_max =
+          MaxCodeunits(input_nstrings, input_ncodeunits);
       if (output_ncodeunits_max > std::numeric_limits<offset_type>::max()) {
         return Status::CapacityError(
             "Result might not fit in a 32bit utf8 array, convert to large_utf8");
@@ -183,35 +187,36 @@ struct StringTransform {
         output_ncodeunits += encoded_nbytes;
         output_string_offsets[i + 1] = output_ncodeunits;
       }
+      DCHECK_LE(output_ncodeunits, output_ncodeunits_max);
 
       // Trim the codepoint buffer, since we allocated too much
-      RETURN_NOT_OK(values_buffer->Resize(output_ncodeunits, /*shrink_to_fit=*/true));
+      return values_buffer->Resize(output_ncodeunits, /*shrink_to_fit=*/true);
     } else {
+      DCHECK_EQ(batch[0].kind(), Datum::SCALAR);
       const auto& input = checked_cast<const BaseBinaryScalar&>(*batch[0].scalar());
-      auto result = checked_pointer_cast<BaseBinaryScalar>(MakeNullScalar(out->type()));
-      if (input.is_valid) {
-        result->is_valid = true;
-        offset_type data_nbytes = static_cast<offset_type>(input.value->size());
-
-        int64_t output_ncodeunits_max = Derived::MaxCodeunits(data_nbytes);
-        if (output_ncodeunits_max > std::numeric_limits<offset_type>::max()) {
-          return Status::CapacityError(
-              "Result might not fit in a 32bit utf8 array, convert to large_utf8");
-        }
-        ARROW_ASSIGN_OR_RAISE(auto value_buffer, ctx->Allocate(output_ncodeunits_max));
-        result->value = value_buffer;
-        offset_type encoded_nbytes = 0;
-        if (ARROW_PREDICT_FALSE(!static_cast<Derived&>(*this).Transform(
-                input.value->data(), data_nbytes, value_buffer->mutable_data(),
-                &encoded_nbytes))) {
-          return Derived::InvalidStatus();
-        }
-        RETURN_NOT_OK(value_buffer->Resize(encoded_nbytes, /*shrink_to_fit=*/true));
+      if (!input.is_valid) {
+        return Status::OK();
       }
-      out->value = result;
-    }
+      auto* result = checked_cast<BaseBinaryScalar*>(out->scalar().get());
+      result->is_valid = true;
+      offset_type data_nbytes = static_cast<offset_type>(input.value->size());
 
-    return Status::OK();
+      int64_t output_ncodeunits_max = MaxCodeunits(1, data_nbytes);
+      if (output_ncodeunits_max > std::numeric_limits<offset_type>::max()) {
+        return Status::CapacityError(
+            "Result might not fit in a 32bit utf8 array, convert to large_utf8");
+      }
+      ARROW_ASSIGN_OR_RAISE(auto value_buffer, ctx->Allocate(output_ncodeunits_max));
+      result->value = value_buffer;
+      offset_type encoded_nbytes = 0;
+      if (ARROW_PREDICT_FALSE(!static_cast<Derived&>(*this).Transform(
+              input.value->data(), data_nbytes, value_buffer->mutable_data(),
+              &encoded_nbytes))) {
+        return Derived::InvalidStatus();
+      }
+      DCHECK_LE(encoded_nbytes, output_ncodeunits_max);
+      return value_buffer->Resize(encoded_nbytes, /*shrink_to_fit=*/true);
+    }
   }
 };
 
@@ -234,7 +239,8 @@ struct StringTransformCodepoint : StringTransform<Type, Derived> {
     *output_written = static_cast<offset_type>(output - output_start);
     return true;
   }
-  static int64_t MaxCodeunits(offset_type input_ncodeunits) {
+
+  int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) override {
     // Section 5.18 of the Unicode spec claim that the number of codepoints for case
     // mapping can grow by a factor of 3. This means grow by a factor of 3 in bytes
     // However, since we don't support all casings (SpecialCasing.txt) the growth
@@ -243,6 +249,7 @@ struct StringTransformCodepoint : StringTransform<Type, Derived> {
     // two code units (even) can grow to 3 code units.
     return static_cast<int64_t>(input_ncodeunits) * 3 / 2;
   }
+
   Status Execute(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     EnsureLookupTablesFilled();
     return Base::Execute(ctx, batch, out);
@@ -765,21 +772,17 @@ struct SliceBase : StringTransform<Type, Derived> {
   using Base = StringTransform<Type, Derived>;
   using offset_type = typename Base::offset_type;
   using State = OptionsWrapper<SliceOptions>;
+
   SliceOptions options;
 
   explicit SliceBase(SliceOptions options) : options(options) {}
 
-  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     SliceOptions options = State::Get(ctx);
     if (options.step == 0) {
-      ctx->SetStatus(Status::Invalid("Slice step cannot be zero"));
-      return;
+      return Status::Invalid("Slice step cannot be zero");
     }
-    Derived(options).Execute(ctx, batch, out);
-  }
-
-  void Execute(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    Base::Execute(ctx, batch, out);
+    return Derived(options).Execute(ctx, batch, out);
   }
 };
 
@@ -915,11 +918,27 @@ bool SliceCodeunitsTransform(const uint8_t* input, int64_t input_string_ncodeuni
   }
 }
 
+#undef PROPAGATE_FALSE
+
 template <typename Type>
 struct SliceCodeunits : SliceBase<Type, SliceCodeunits<Type>> {
   using Base = SliceBase<Type, SliceCodeunits<Type>>;
   using offset_type = typename Base::offset_type;
   using Base::Base;
+
+  int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) override {
+    const SliceOptions& opt = this->options;
+    if ((opt.start >= 0) != (opt.stop >= 0)) {
+      // If start and stop don't have the same sign, we can't guess an upper bound
+      // on the resulting slice lengths, so return a worst case estimate.
+      return input_ncodeunits;
+    }
+    int64_t max_slice_codepoints = (opt.stop - opt.start + opt.step - 1) / opt.step;
+    // The maximum UTF8 byte size of a codepoint is 4
+    return std::min(input_ncodeunits,
+                    4 * ninputs * std::max<int64_t>(0, max_slice_codepoints));
+  }
+
   bool Transform(const uint8_t* input, offset_type input_string_ncodeunits,
                  uint8_t* output, offset_type* output_written) {
     int64_t output_written_64;

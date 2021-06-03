@@ -850,6 +850,11 @@ TYPED_TEST(TestStringKernels, SliceCodeunitsBasic) {
       Invalid,
       testing::HasSubstr("Attempted to initialize KernelState from null FunctionOptions"),
       CallFunction("utf8_slice_codeunits", {input}));
+
+  SliceOptions options_invalid{2, 4, 0};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("Slice step cannot be zero"),
+      CallFunction("utf8_slice_codeunits", {input}, &options_invalid));
 }
 
 TYPED_TEST(TestStringKernels, SliceCodeunitsPosPos) {
