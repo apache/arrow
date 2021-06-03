@@ -666,7 +666,8 @@ This function does the inverse of string splitting.
 
 * \(1) The first input must be an array, while the second can be a scalar or array.
   Each list of values in the first input is joined using each second input
-  as separator.
+  as separator.  If there is null element in an input list, the corresponding
+  output will be null.
 
 
 Slicing

@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <functional>
+
 #include "benchmark/benchmark.h"
 
 #include "arrow/compute/api_scalar.h"
@@ -22,8 +24,12 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/benchmark_util.h"
+#include "arrow/util/checked_cast.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace compute {
 
 constexpr auto kSeed = 0x94378165;
@@ -104,6 +110,41 @@ static void TrimManyUtf8(benchmark::State& state) {
 }
 #endif
 
+using SeparatorFactory = std::function<Datum(int64_t n, double null_probability)>;
+
+static void BinaryJoin(benchmark::State& state, SeparatorFactory make_separator) {
+  const int64_t n_strings = 10000;
+  const int64_t n_lists = 1000;
+  const double null_probability = 0.02;
+
+  random::RandomArrayGenerator rng(kSeed);
+
+  auto strings =
+      rng.String(n_strings, /*min_length=*/5, /*max_length=*/20, null_probability);
+  auto lists = rng.List(*strings, n_lists, null_probability, /*force_empty_nulls=*/true);
+  auto separator = make_separator(n_lists, null_probability);
+
+  for (auto _ : state) {
+    ABORT_NOT_OK(CallFunction("binary_join", {lists, separator}));
+  }
+  state.SetBytesProcessed(
+      state.iterations() *
+      checked_cast<const StringArray&>(*strings).total_values_length());
+}
+
+static void BinaryJoinArrayScalar(benchmark::State& state) {
+  BinaryJoin(state, [](int64_t n, double null_probability) -> Datum {
+    return ScalarFromJSON(utf8(), R"("--")");
+  });
+}
+
+static void BinaryJoinArrayArray(benchmark::State& state) {
+  BinaryJoin(state, [](int64_t n, double null_probability) -> Datum {
+    random::RandomArrayGenerator rng(kSeed + 1);
+    return rng.String(n, /*min_length=*/0, /*max_length=*/4, null_probability);
+  });
+}
+
 BENCHMARK(AsciiLower);
 BENCHMARK(AsciiUpper);
 BENCHMARK(IsAlphaNumericAscii);
@@ -118,6 +159,9 @@ BENCHMARK(IsAlphaNumericUnicode);
 BENCHMARK(TrimSingleUtf8);
 BENCHMARK(TrimManyUtf8);
 #endif
+
+BENCHMARK(BinaryJoinArrayScalar);
+BENCHMARK(BinaryJoinArrayArray);
 
 }  // namespace compute
 }  // namespace arrow

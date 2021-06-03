@@ -77,23 +77,21 @@ class BaseBinaryBuilder : public ArrayBuilder {
     return Append(value.data(), static_cast<offset_type>(value.size()));
   }
 
-  /// AppendCurrent does not add a new offset
-  Status AppendCurrent(const uint8_t* value, offset_type length) {
+  /// Append to the last appended value
+  ///
+  /// Unlike Append, this does not create a new offset.
+  Status AppendToCurrent(const uint8_t* value, offset_type length) {
     // Safety check for UBSAN.
     if (ARROW_PREDICT_TRUE(length > 0)) {
       ARROW_RETURN_NOT_OK(ValidateOverflow(length));
       ARROW_RETURN_NOT_OK(value_data_builder_.Append(value, length));
     }
-
     return Status::OK();
   }
 
-  Status AppendCurrent(const char* value, offset_type length) {
-    return AppendCurrent(reinterpret_cast<const uint8_t*>(value), length);
-  }
-
-  Status AppendCurrent(util::string_view value) {
-    return AppendCurrent(value.data(), static_cast<offset_type>(value.size()));
+  Status AppendToCurrent(util::string_view value) {
+    return AppendToCurrent(reinterpret_cast<const uint8_t*>(value.data()),
+                           static_cast<offset_type>(value.size()));
   }
 
   Status AppendNulls(int64_t length) final {
@@ -152,10 +150,26 @@ class BaseBinaryBuilder : public ArrayBuilder {
     UnsafeAppend(value.data(), static_cast<offset_type>(value.size()));
   }
 
+  /// Like AppendToCurrent, but do not check capacity
+  void UnsafeAppendToCurrent(const uint8_t* value, offset_type length) {
+    value_data_builder_.UnsafeAppend(value, length);
+  }
+
+  void UnsafeAppendToCurrent(util::string_view value) {
+    UnsafeAppendToCurrent(reinterpret_cast<const uint8_t*>(value.data()),
+                          static_cast<offset_type>(value.size()));
+  }
+
   void UnsafeAppendNull() {
     const int64_t num_bytes = value_data_builder_.length();
     offsets_builder_.UnsafeAppend(static_cast<offset_type>(num_bytes));
     UnsafeAppendToBitmap(false);
+  }
+
+  void UnsafeAppendEmptyValue() {
+    const int64_t num_bytes = value_data_builder_.length();
+    offsets_builder_.UnsafeAppend(static_cast<offset_type>(num_bytes));
+    UnsafeAppendToBitmap(true);
   }
 
   /// \brief Append a sequence of strings in one shot.
