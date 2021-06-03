@@ -16,8 +16,7 @@
 // under the License.
 
 import {
-    generateRandomTables,
-    // generateDictionaryTables
+    generateRandomTables
 } from '../../../data/tables';
 
 import {
@@ -37,8 +36,8 @@ import { validateRecordBatchAsyncIterator } from '../validate';
 
     const { Readable, PassThrough } = require('stream');
     const { parse: bignumJSONParse } = require('json-bignum');
-    const concatStream = ((multistream) => (...xs: any[]) =>
-        new Readable().wrap(multistream(...xs))
+    const concatStream = ((MultiStream) => (...xs: any[]) =>
+        new Readable().wrap(new MultiStream(...xs))
     )(require('multistream'));
 
     for (const table of generateRandomTables([10, 20, 30])) {
