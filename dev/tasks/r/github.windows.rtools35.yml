@@ -91,12 +91,11 @@ jobs:
         - name: Check
           shell: Rscript {0}
           run: |
-            setwd("arrow")
             Sys.setenv(
-              RWINLIB_LOCAL = file.path(Sys.getenv("GITHUB_WORKSPACE"), "libarrow.zip"),
+              RWINLIB_LOCAL = file.path(Sys.getenv("GITHUB_WORKSPACE"), "arrow", "libarrow.zip"),
               MAKEFLAGS = paste0("-j", parallel::detectCores())
             )
-            rcmdcheck::rcmdcheck("r",
+            rcmdcheck::rcmdcheck("arrow/r",
                                 build_args = '--no-build-vignettes',
                                 args = c('--no-manual', '--as-cran', '--ignore-vignettes', '--run-donttest'),
                                 error_on = 'warning',
