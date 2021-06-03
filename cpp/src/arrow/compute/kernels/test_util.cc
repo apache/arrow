@@ -215,6 +215,12 @@ void CheckScalarBinary(std::string func_name, std::shared_ptr<Array> left_input,
   CheckScalar(std::move(func_name), {left_input, right_input}, expected, options);
 }
 
+void CheckScalarBinary(std::string func_name, std::shared_ptr<Scalar> left_input,
+                       std::shared_ptr<Array> right_input,
+                       std::shared_ptr<Array> expected, const FunctionOptions* options) {
+  CheckScalar(std::move(func_name), {left_input, right_input}, expected, options);
+}
+
 void CheckDispatchBest(std::string func_name, std::vector<ValueDescr> original_values,
                        std::vector<ValueDescr> expected_equivalent_values) {
   ASSERT_OK_AND_ASSIGN(auto function, GetFunctionRegistry()->GetFunction(func_name));

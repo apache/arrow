@@ -782,6 +782,7 @@ TYPED_TEST(TestStringKernels, StrptimeDoesNotProvideDefaultOptions) {
 }
 
 TYPED_TEST(TestStringKernels, BinaryJoin) {
+  // Scalar separator
   auto separator = this->scalar("--");
   std::string list_json =
       R"([["a", "bb", "ccc"], [], null, ["dd"], ["eee", null], ["ff", ""]])";
@@ -799,6 +800,7 @@ TYPED_TEST(TestStringKernels, BinaryJoin) {
   CheckScalarBinary("binary_join", ArrayFromJSON(large_list(this->type()), list_json),
                     separator_null, expected);
 
+  // Array list, Array separator
   auto separators =
       ArrayFromJSON(this->type(), R"(["1", "2", "3", "4", "5", "6", null])");
   list_json =
@@ -808,6 +810,21 @@ TYPED_TEST(TestStringKernels, BinaryJoin) {
   CheckScalarBinary("binary_join", ArrayFromJSON(list(this->type()), list_json),
                     separators, expected);
   CheckScalarBinary("binary_join", ArrayFromJSON(large_list(this->type()), list_json),
+                    separators, expected);
+
+  // Scalar list, Array separator
+  separators = ArrayFromJSON(this->type(), R"(["1", "", null])");
+  list_json = R"(["a", "bb", "ccc"])";
+  expected = ArrayFromJSON(this->type(), R"(["a1bb1ccc", "abbccc", null])");
+  CheckScalarBinary("binary_join", ScalarFromJSON(list(this->type()), list_json),
+                    separators, expected);
+  CheckScalarBinary("binary_join", ScalarFromJSON(large_list(this->type()), list_json),
+                    separators, expected);
+  list_json = R"(["a", "bb", null])";
+  expected = ArrayFromJSON(this->type(), R"([null, null, null])");
+  CheckScalarBinary("binary_join", ScalarFromJSON(list(this->type()), list_json),
+                    separators, expected);
+  CheckScalarBinary("binary_join", ScalarFromJSON(large_list(this->type()), list_json),
                     separators, expected);
 }
 
