@@ -355,6 +355,13 @@ Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
         std::shared_ptr<parquet::FileMetaData> metadata = reader->metadata();
         auto arrow_properties = MakeArrowReaderProperties(*self, *metadata);
         arrow_properties.set_batch_size(options->batch_size);
+        // Must be set here since the sync ScanTask handles pre-buffering itself
+        arrow_properties.set_pre_buffer(
+            parquet_scan_options->arrow_reader_properties->pre_buffer());
+        arrow_properties.set_cache_options(
+            parquet_scan_options->arrow_reader_properties->cache_options());
+        arrow_properties.set_io_context(
+            parquet_scan_options->arrow_reader_properties->io_context());
         // TODO: ARROW-12597 will let us enable parallel conversion
         if (!options->use_threads) {
           arrow_properties.set_use_threads(
@@ -462,16 +469,6 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
         auto parquet_scan_options,
         GetFragmentScanOptions<ParquetFragmentScanOptions>(
             kParquetTypeName, options.get(), default_fragment_scan_options));
-    if (parquet_scan_options->arrow_reader_properties->pre_buffer()) {
-      BEGIN_PARQUET_CATCH_EXCEPTIONS
-      // Ignore the future here - don't wait for pre-buffering (the generator itself will
-      // wait as necessary)
-      auto io_context = parquet_scan_options->arrow_reader_properties->io_context();
-      auto cache_options = parquet_scan_options->arrow_reader_properties->cache_options();
-      ARROW_UNUSED(reader->parquet_reader()->PreBuffer(row_groups, column_projection,
-                                                       io_context, cache_options));
-      END_PARQUET_CATCH_EXCEPTIONS
-    }
     ARROW_ASSIGN_OR_RAISE(auto generator, reader->GetRecordBatchGenerator(
                                               reader, row_groups, column_projection,
                                               internal::GetCpuThreadPool()));
