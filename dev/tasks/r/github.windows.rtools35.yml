@@ -87,7 +87,7 @@ jobs:
           run: |
             options(pkgType="win.binary")
             install.packages(c("remotes", "rcmdcheck"))
-            remotes::install_deps("r", dependencies = TRUE)
+            remotes::install_deps("arrow/r", dependencies = TRUE)
         - name: Check
           shell: Rscript {0}
           run: |
