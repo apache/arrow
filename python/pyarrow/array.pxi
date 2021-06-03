@@ -836,6 +836,12 @@ cdef class Array(_PandasConvertible):
             result = GetResultValue(self.ap.View(type.sp_type))
         return pyarrow_wrap_array(result)
 
+    def sum(self):
+        """
+        Sum the values in a numerical array.
+        """
+        return _pc().call_function('sum', [self])
+
     def unique(self):
         """
         Compute distinct elements in array.
