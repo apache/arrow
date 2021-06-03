@@ -2637,12 +2637,12 @@ void AddUtf8Length(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
-template <typename Type>
+template <typename BinaryType, typename ListType>
 struct BinaryJoin {
-  using ArrayType = typename TypeTraits<Type>::ArrayType;
-  using ListArrayType = ListArray;
-  using offset_type = typename Type::offset_type;
-  using BuilderType = typename TypeTraits<Type>::BuilderType;
+  using ArrayType = typename TypeTraits<BinaryType>::ArrayType;
+  using ListArrayType = typename TypeTraits<ListType>::ArrayType;
+  using ListScalarType = typename TypeTraits<ListType>::ScalarType;
+  using BuilderType = typename TypeTraits<BinaryType>::BuilderType;
 
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     if (batch[0].kind() == Datum::SCALAR) {
@@ -2664,7 +2664,7 @@ struct BinaryJoin {
   // Scalar, scalar -> scalar
   static Status ExecScalarScalar(KernelContext* ctx, const Scalar& left,
                                  const Scalar& right, Datum* out) {
-    const auto& list = checked_cast<const ListScalar&>(left);
+    const auto& list = checked_cast<const ListScalarType&>(left);
     const auto& separator_scalar = checked_cast<const BaseBinaryScalar&>(right);
     if (!list.is_valid || !separator_scalar.is_valid) {
       return Status::OK();
@@ -2674,7 +2674,7 @@ struct BinaryJoin {
     TypedBufferBuilder<uint8_t> builder(ctx->memory_pool());
     auto Append = [&](util::string_view value) {
       return builder.Append(reinterpret_cast<const uint8_t*>(value.data()),
-                            static_cast<offset_type>(value.size()));
+                            static_cast<int64_t>(value.size()));
     };
 
     const auto& strings = checked_cast<const ArrayType&>(*list.value);
@@ -2830,19 +2830,25 @@ const FunctionDoc binary_join_doc(
      "Any null input and any null `list` element emits a null output.\n"),
     {"list", "separator"});
 
+template <typename ListType>
+void AddBinaryJoinForListType(ScalarFunction* func) {
+  for (const std::shared_ptr<DataType>& ty : BaseBinaryTypes()) {
+    auto exec = GenerateTypeAgnosticVarBinaryBase<BinaryJoin, ListType>(*ty);
+    auto list_ty = std::make_shared<ListType>(ty);
+    DCHECK_OK(
+        func->AddKernel({InputType::Array(list_ty), InputType::Scalar(ty)}, ty, exec));
+    DCHECK_OK(
+        func->AddKernel({InputType::Array(list_ty), InputType::Array(ty)}, ty, exec));
+    DCHECK_OK(
+        func->AddKernel({InputType::Scalar(list_ty), InputType::Scalar(ty)}, ty, exec));
+  }
+}
+
 void AddBinaryJoin(FunctionRegistry* registry) {
   auto func =
       std::make_shared<ScalarFunction>("binary_join", Arity::Binary(), &binary_join_doc);
-  for (const std::shared_ptr<DataType>& ty : BaseBinaryTypes()) {
-    auto exec = GenerateTypeAgnosticVarBinaryBase<BinaryJoin>(*ty);
-    // TODO add large_list inputs
-    DCHECK_OK(
-        func->AddKernel({InputType::Array(list(ty)), InputType::Scalar(ty)}, ty, exec));
-    DCHECK_OK(
-        func->AddKernel({InputType::Array(list(ty)), InputType::Array(ty)}, ty, exec));
-    DCHECK_OK(
-        func->AddKernel({InputType::Scalar(list(ty)), InputType::Scalar(ty)}, ty, exec));
-  }
+  AddBinaryJoinForListType<ListType>(func.get());
+  AddBinaryJoinForListType<LargeListType>(func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 

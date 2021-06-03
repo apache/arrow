@@ -783,25 +783,32 @@ TYPED_TEST(TestStringKernels, StrptimeDoesNotProvideDefaultOptions) {
 
 TYPED_TEST(TestStringKernels, BinaryJoin) {
   auto separator = this->scalar("--");
-  auto list_input = ArrayFromJSON(
-      list(this->type()),
-      R"([["a", "bb", "ccc"], [], null, ["dd"], ["eee", null], ["ff", ""]])");
+  std::string list_json =
+      R"([["a", "bb", "ccc"], [], null, ["dd"], ["eee", null], ["ff", ""]])";
   auto expected =
       ArrayFromJSON(this->type(), R"(["a--bb--ccc", "", null, "dd", null, "ff--"])");
-  CheckScalarBinary("binary_join", list_input, separator, expected);
+  CheckScalarBinary("binary_join", ArrayFromJSON(list(this->type()), list_json),
+                    separator, expected);
+  CheckScalarBinary("binary_join", ArrayFromJSON(large_list(this->type()), list_json),
+                    separator, expected);
 
   auto separator_null = MakeNullScalar(this->type());
   expected = ArrayFromJSON(this->type(), R"([null, null, null, null, null, null])");
-  CheckScalarBinary("binary_join", list_input, separator_null, expected);
+  CheckScalarBinary("binary_join", ArrayFromJSON(list(this->type()), list_json),
+                    separator_null, expected);
+  CheckScalarBinary("binary_join", ArrayFromJSON(large_list(this->type()), list_json),
+                    separator_null, expected);
 
   auto separators =
       ArrayFromJSON(this->type(), R"(["1", "2", "3", "4", "5", "6", null])");
-  list_input = ArrayFromJSON(
-      list(this->type()),
-      R"([["a", "bb", "ccc"], [], null, ["dd"], ["eee", null], ["ff", ""], ["hh", "ii"]])");
+  list_json =
+      R"([["a", "bb", "ccc"], [], null, ["dd"], ["eee", null], ["ff", ""], ["hh", "ii"]])";
   expected =
       ArrayFromJSON(this->type(), R"(["a1bb1ccc", "", null, "dd", null, "ff6", null])");
-  CheckScalarBinary("binary_join", list_input, separators, expected);
+  CheckScalarBinary("binary_join", ArrayFromJSON(list(this->type()), list_json),
+                    separators, expected);
+  CheckScalarBinary("binary_join", ArrayFromJSON(large_list(this->type()), list_json),
+                    separators, expected);
 }
 
 #ifdef ARROW_WITH_UTF8PROC
