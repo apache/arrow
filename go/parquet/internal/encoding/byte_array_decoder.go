@@ -37,7 +37,7 @@ func (PlainByteArrayDecoder) Type() parquet.Type {
 }
 
 // Decode will populate the slice of bytearrays in full or until the number
-// of values is emptied.
+// of values is consumed.
 //
 // Returns the number of values that were decoded.
 func (pbad *PlainByteArrayDecoder) Decode(out []parquet.ByteArray) (int, error) {
