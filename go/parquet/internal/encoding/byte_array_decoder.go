@@ -27,6 +27,10 @@ import (
 // PlainByteArrayDecoder decodes a data chunk for bytearrays according to
 // the plain encoding. The byte arrays will use slices to reference the
 // data rather than copying it.
+//
+// The parquet spec defines Plain encoding for ByteArrays as a 4 byte little
+// endian integer containing the length of the bytearray followed by that many
+// bytes being the raw data of the byte array.
 type PlainByteArrayDecoder struct {
 	decoder
 }
@@ -50,18 +54,18 @@ func (pbad *PlainByteArrayDecoder) Decode(out []parquet.ByteArray) (int, error) 
 			return i, xerrors.New("parquet: eof reading bytearray")
 		}
 
-		// the first 4 bytes are a little endian uint32 length
-		nbytes := int32(binary.LittleEndian.Uint32(pbad.data[:4]))
-		if nbytes < 0 {
+		// the first 4 bytes are a little endian int32 length
+		byteLen := int32(binary.LittleEndian.Uint32(pbad.data[:4]))
+		if byteLen < 0 {
 			return i, xerrors.New("parquet: invalid BYTE_ARRAY value")
 		}
 
-		if int64(len(pbad.data)) < int64(nbytes)+4 {
+		if int64(len(pbad.data)) < int64(byteLen)+4 {
 			return i, xerrors.New("parquet: eof reading bytearray")
 		}
 
-		out[i] = pbad.data[4 : nbytes+4]
-		pbad.data = pbad.data[nbytes+4:]
+		out[i] = pbad.data[4 : byteLen+4]
+		pbad.data = pbad.data[byteLen+4:]
 	}
 
 	pbad.nvals -= max
