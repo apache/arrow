@@ -390,8 +390,7 @@ Result<std::shared_ptr<Buffer>> CopyBitmap(MemoryPool* pool, const uint8_t* data
 }
 
 Result<std::shared_ptr<Buffer>> InvertBitmap(MemoryPool* pool, const uint8_t* data,
-                                             int64_t offset, int64_t length,
-                                             std::shared_ptr<Buffer>* out) {
+                                             int64_t offset, int64_t length) {
   return TransferBitmap<TransferMode::Invert>(pool, data, offset, length);
 }
 

@@ -35,14 +35,24 @@ using detail::ParsedValueDesc;
 
 namespace {
 
-Status ParseError(const char* message) {
-  return Status::Invalid("CSV parse error: ", message);
+template <typename... Args>
+Status ParseError(Args&&... args) {
+  return Status::Invalid("CSV parse error: ", std::forward<Args>(args)...);
 }
 
-Status MismatchingColumns(int32_t expected, int32_t actual) {
-  char s[50];
-  snprintf(s, sizeof(s), "Expected %d columns, got %d", expected, actual);
-  return ParseError(s);
+Status MismatchingColumns(int32_t expected, int32_t actual, int64_t row_num,
+                          util::string_view row) {
+  std::string ellipse;
+  if (row.length() > 100) {
+    row = row.substr(0, 96);
+    ellipse = " ...";
+  }
+  if (row_num < 0) {
+    return ParseError("Expected ", expected, " columns, got ", actual, ": ", row,
+                      ellipse);
+  }
+  return ParseError("Row #", row_num, ": Expected ", expected, " columns, got ", actual,
+                    ": ", row, ellipse);
 }
 
 inline bool IsControlChar(uint8_t c) { return c < ' '; }
@@ -173,10 +183,16 @@ class PresizedValueDescWriter : public ValueDescWriter<PresizedValueDescWriter> 
 class BlockParserImpl {
  public:
   BlockParserImpl(MemoryPool* pool, ParseOptions options, int32_t num_cols,
-                  int32_t max_num_rows)
-      : pool_(pool), options_(options), max_num_rows_(max_num_rows), batch_(num_cols) {}
+                  int64_t first_row, int32_t max_num_rows)
+      : pool_(pool),
+        options_(options),
+        first_row_(first_row),
+        max_num_rows_(max_num_rows),
+        batch_(num_cols) {}
 
   const DataBatch& parsed_batch() const { return batch_; }
+
+  int64_t first_row_num() const { return first_row_; }
 
   template <typename SpecializedOptions, typename ValueDescWriter, typename DataWriter>
   Status ParseLine(ValueDescWriter* values_writer, DataWriter* parsed_writer,
@@ -184,6 +200,7 @@ class BlockParserImpl {
                    const char** out_data) {
     int32_t num_cols = 0;
     char c;
+    const auto start = data;
 
     DCHECK_GT(data_end, data);
 
@@ -299,7 +316,17 @@ class BlockParserImpl {
       if (batch_.num_cols_ == -1) {
         batch_.num_cols_ = num_cols;
       } else {
-        return MismatchingColumns(batch_.num_cols_, num_cols);
+        // Find the end of the line without newline or carriage return
+        auto end = data;
+        if (*(end - 1) == '\n') {
+          --end;
+        }
+        if (*(end - 1) == '\r') {
+          --end;
+        }
+        return MismatchingColumns(batch_.num_cols_, num_cols,
+                                  first_row_ < 0 ? -1 : first_row_ + batch_.num_rows_,
+                                  util::string_view(start, end - start));
       }
     }
     ++batch_.num_rows_;
@@ -481,6 +508,7 @@ class BlockParserImpl {
  protected:
   MemoryPool* pool_;
   const ParseOptions options_;
+  const int64_t first_row_;
   // The maximum number of rows to parse from a block
   int32_t max_num_rows_;
 
@@ -490,12 +518,14 @@ class BlockParserImpl {
   DataBatch batch_;
 };
 
-BlockParser::BlockParser(ParseOptions options, int32_t num_cols, int32_t max_num_rows)
-    : BlockParser(default_memory_pool(), options, num_cols, max_num_rows) {}
+BlockParser::BlockParser(ParseOptions options, int32_t num_cols, int64_t first_row,
+                         int32_t max_num_rows)
+    : BlockParser(default_memory_pool(), options, num_cols, first_row, max_num_rows) {}
 
 BlockParser::BlockParser(MemoryPool* pool, ParseOptions options, int32_t num_cols,
-                         int32_t max_num_rows)
-    : impl_(new BlockParserImpl(pool, std::move(options), num_cols, max_num_rows)) {}
+                         int64_t first_row, int32_t max_num_rows)
+    : impl_(new BlockParserImpl(pool, std::move(options), num_cols, first_row,
+                                max_num_rows)) {}
 
 BlockParser::~BlockParser() {}
 
@@ -518,6 +548,8 @@ Status BlockParser::ParseFinal(util::string_view data, uint32_t* out_size) {
 }
 
 const DataBatch& BlockParser::parsed_batch() const { return impl_->parsed_batch(); }
+
+int64_t BlockParser::first_row_num() const { return impl_->first_row_num(); }
 
 int32_t SkipRows(const uint8_t* data, uint32_t size, int32_t num_rows,
                  const uint8_t** out_data) {

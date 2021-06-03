@@ -53,7 +53,7 @@ Result<std::shared_ptr<Schema>> Fragment::ReadPhysicalSchema() {
 }
 
 Future<util::optional<int64_t>> Fragment::CountRows(compute::Expression,
-                                                    std::shared_ptr<ScanOptions>) {
+                                                    const std::shared_ptr<ScanOptions>&) {
   return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
 }
 
@@ -147,6 +147,18 @@ Result<RecordBatchGenerator> InMemoryFragment::ScanBatchesAsync(
   };
   return Generator(internal::checked_pointer_cast<InMemoryFragment>(shared_from_this()),
                    options->batch_size);
+}
+
+Future<util::optional<int64_t>> InMemoryFragment::CountRows(
+    compute::Expression predicate, const std::shared_ptr<ScanOptions>& options) {
+  if (ExpressionHasFieldRefs(predicate)) {
+    return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
+  }
+  int64_t total = 0;
+  for (const auto& batch : record_batches_) {
+    total += batch->num_rows();
+  }
+  return Future<util::optional<int64_t>>::MakeFinished(total);
 }
 
 Dataset::Dataset(std::shared_ptr<Schema> schema, compute::Expression partition_expression)

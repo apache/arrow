@@ -29,9 +29,11 @@
 
 #include "arrow/buffer.h"
 #include "arrow/io/concurrency.h"
+#include "arrow/io/type_fwd.h"
 #include "arrow/io/util_internal.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
@@ -40,6 +42,7 @@
 
 namespace arrow {
 
+using internal::checked_pointer_cast;
 using internal::Executor;
 using internal::TaskHints;
 using internal::ThreadPool;
@@ -52,6 +55,12 @@ IOContext::IOContext(MemoryPool* pool, StopToken stop_token)
     : IOContext(pool, internal::GetIOThreadPool(), std::move(stop_token)) {}
 
 const IOContext& default_io_context() { return g_default_io_context; }
+
+int GetIOThreadPoolCapacity() { return internal::GetIOThreadPool()->GetCapacity(); }
+
+Status SetIOThreadPoolCapacity(int threads) {
+  return internal::GetIOThreadPool()->SetCapacity(threads);
+}
 
 FileInterface::~FileInterface() = default;
 
@@ -98,6 +107,22 @@ Result<util::string_view> InputStream::Peek(int64_t ARROW_ARG_UNUSED(nbytes)) {
 
 bool InputStream::supports_zero_copy() const { return false; }
 
+Result<std::shared_ptr<const KeyValueMetadata>> InputStream::ReadMetadata() {
+  return std::shared_ptr<const KeyValueMetadata>{};
+}
+
+// Default ReadMetadataAsync() implementation: simply issue the read on the context's
+// executor
+Future<std::shared_ptr<const KeyValueMetadata>> InputStream::ReadMetadataAsync(
+    const IOContext& ctx) {
+  auto self = shared_from_this();
+  return DeferNotOk(internal::SubmitIO(ctx, [self] { return self->ReadMetadata(); }));
+}
+
+Future<std::shared_ptr<const KeyValueMetadata>> InputStream::ReadMetadataAsync() {
+  return ReadMetadataAsync(io_context());
+}
+
 Result<Iterator<std::shared_ptr<Buffer>>> MakeInputStreamIterator(
     std::shared_ptr<InputStream> stream, int64_t block_size) {
   if (stream->closed()) {
@@ -132,10 +157,7 @@ Result<std::shared_ptr<Buffer>> RandomAccessFile::ReadAt(int64_t position,
 Future<std::shared_ptr<Buffer>> RandomAccessFile::ReadAsync(const IOContext& ctx,
                                                             int64_t position,
                                                             int64_t nbytes) {
-  auto self = shared_from_this();
-  TaskHints hints;
-  hints.io_size = nbytes;
-  hints.external_id = ctx.external_id();
+  auto self = checked_pointer_cast<RandomAccessFile>(shared_from_this());
   return DeferNotOk(internal::SubmitIO(
       ctx, [self, position, nbytes] { return self->ReadAt(position, nbytes); }));
 }

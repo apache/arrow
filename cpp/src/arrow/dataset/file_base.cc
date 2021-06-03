@@ -86,7 +86,7 @@ Result<std::shared_ptr<io::InputStream>> FileSource::OpenCompressed(
 
 Future<util::optional<int64_t>> FileFormat::CountRows(
     const std::shared_ptr<FileFragment>&, compute::Expression,
-    std::shared_ptr<ScanOptions>) {
+    const std::shared_ptr<ScanOptions>&) {
   return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
 }
 
@@ -176,14 +176,14 @@ Result<RecordBatchGenerator> FileFragment::ScanBatchesAsync(
 }
 
 Future<util::optional<int64_t>> FileFragment::CountRows(
-    compute::Expression predicate, std::shared_ptr<ScanOptions> options) {
+    compute::Expression predicate, const std::shared_ptr<ScanOptions>& options) {
   ARROW_ASSIGN_OR_RAISE(predicate, compute::SimplifyWithGuarantee(std::move(predicate),
                                                                   partition_expression_));
   if (!predicate.IsSatisfiable()) {
     return Future<util::optional<int64_t>>::MakeFinished(0);
   }
   auto self = internal::checked_pointer_cast<FileFragment>(shared_from_this());
-  return format()->CountRows(self, std::move(predicate), std::move(options));
+  return format()->CountRows(self, std::move(predicate), options);
 }
 
 struct FileSystemDataset::FragmentSubtrees {
@@ -508,11 +508,11 @@ Status WriteInternal(const ScanOptions& scan_options, WriteState& state,
           [&](std::shared_ptr<RecordBatch> batch) {
             return WriteNextBatch(state, scan_task->fragment(), std::move(batch));
           };
-      return internal::SerialExecutor::RunInSerialExecutor<detail::Empty>(
-                 [&](internal::Executor* executor) {
-                   return scan_task->SafeVisit(executor, visitor);
-                 })
-          .status();
+      return internal::RunSynchronously<Future<>>(
+          [&](internal::Executor* executor) {
+            return scan_task->SafeVisit(executor, visitor);
+          },
+          /*use_threads=*/false);
     });
   }
   return task_group->Finish();

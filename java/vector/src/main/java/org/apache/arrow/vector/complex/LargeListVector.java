@@ -822,7 +822,7 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
    * @return Object at given position
    */
   @Override
-  public Object getObject(int index) {
+  public List<?> getObject(int index) {
     if (isSet(index) == 0) {
       return null;
     }

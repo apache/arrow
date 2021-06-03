@@ -28,6 +28,7 @@ Aggregations
    :toctree: ../generated/
 
    count
+   index
    mean
    min_max
    mode
@@ -45,6 +46,8 @@ throws an ``ArrowInvalid`` exception when overflow is detected.
 .. autosummary::
    :toctree: ../generated/
 
+   abs
+   abs_checked
    add
    add_checked
    divide
@@ -137,6 +140,17 @@ a byte-by-byte basis.
 
    string_is_ascii
 
+String Splitting
+----------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   split_pattern
+   split_pattern_regex
+   ascii_split_whitespace
+   utf8_split_whitespace
+
 String Transforms
 -----------------
 
@@ -144,8 +158,10 @@ String Transforms
    :toctree: ../generated/
 
    ascii_lower
+   ascii_reverse
    ascii_upper
    utf8_lower
+   utf8_reverse
    utf8_upper
 
 Containment tests
@@ -154,8 +170,10 @@ Containment tests
 .. autosummary::
    :toctree: ../generated/
 
+   find_substring
    index_in
    is_in
+   match_like
    match_substring
    match_substring_regex
 
@@ -204,6 +222,9 @@ Structural Transforms
 
    binary_length
    fill_null
+   is_finite
+   is_inf
+   is_nan
    is_null
    is_valid
    list_value_length

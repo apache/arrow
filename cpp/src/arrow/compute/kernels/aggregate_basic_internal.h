@@ -78,7 +78,7 @@ struct SumImpl : public ScalarAggregator {
   }
 
   Status Finalize(KernelContext*, Datum* out) override {
-    if (this->count == 0) {
+    if (this->count < options.min_count) {
       out->value = std::make_shared<OutputType>();
     } else {
       out->value = MakeScalar(this->sum);
@@ -88,12 +88,13 @@ struct SumImpl : public ScalarAggregator {
 
   size_t count = 0;
   typename SumType::c_type sum = 0;
+  ScalarAggregateOptions options;
 };
 
 template <typename ArrowType, SimdLevel::type SimdLevel>
 struct MeanImpl : public SumImpl<ArrowType, SimdLevel> {
   Status Finalize(KernelContext*, Datum* out) override {
-    if (this->count == 0) {
+    if (this->count < options.min_count) {
       out->value = std::make_shared<DoubleScalar>();
     } else {
       const double mean = static_cast<double>(this->sum) / this->count;
@@ -101,6 +102,7 @@ struct MeanImpl : public SumImpl<ArrowType, SimdLevel> {
     }
     return Status::OK();
   }
+  ScalarAggregateOptions options;
 };
 
 template <template <typename> class KernelClass>
@@ -108,8 +110,11 @@ struct SumLikeInit {
   std::unique_ptr<KernelState> state;
   KernelContext* ctx;
   const DataType& type;
+  const ScalarAggregateOptions& options;
 
-  SumLikeInit(KernelContext* ctx, const DataType& type) : ctx(ctx), type(type) {}
+  SumLikeInit(KernelContext* ctx, const DataType& type,
+              const ScalarAggregateOptions& options)
+      : ctx(ctx), type(type), options(options) {}
 
   Status Visit(const DataType&) { return Status::NotImplemented("No sum implemented"); }
 
@@ -118,13 +123,13 @@ struct SumLikeInit {
   }
 
   Status Visit(const BooleanType&) {
-    state.reset(new KernelClass<BooleanType>());
+    state.reset(new KernelClass<BooleanType>(options));
     return Status::OK();
   }
 
   template <typename Type>
   enable_if_number<Type, Status> Visit(const Type&) {
-    state.reset(new KernelClass<Type>());
+    state.reset(new KernelClass<Type>(options));
     return Status::OK();
   }
 
@@ -218,7 +223,8 @@ struct MinMaxImpl : public ScalarAggregator {
   using ThisType = MinMaxImpl<ArrowType, SimdLevel>;
   using StateType = MinMaxState<ArrowType, SimdLevel>;
 
-  MinMaxImpl(const std::shared_ptr<DataType>& out_type, const MinMaxOptions& options)
+  MinMaxImpl(const std::shared_ptr<DataType>& out_type,
+             const ScalarAggregateOptions& options)
       : out_type(out_type), options(options) {}
 
   Status Consume(KernelContext*, const ExecBatch& batch) override {
@@ -230,7 +236,7 @@ struct MinMaxImpl : public ScalarAggregator {
     local.has_nulls = null_count > 0;
     local.has_values = (arr.length() - null_count) > 0;
 
-    if (local.has_nulls && options.null_handling == MinMaxOptions::EMIT_NULL) {
+    if (local.has_nulls && !options.skip_nulls) {
       this->state = local;
       return Status::OK();
     }
@@ -256,8 +262,7 @@ struct MinMaxImpl : public ScalarAggregator {
     using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
 
     std::vector<std::shared_ptr<Scalar>> values;
-    if (!state.has_values ||
-        (state.has_nulls && options.null_handling == MinMaxOptions::EMIT_NULL)) {
+    if (!state.has_values || (state.has_nulls && !options.skip_nulls)) {
       // (null, null)
       values = {std::make_shared<ScalarType>(), std::make_shared<ScalarType>()};
     } else {
@@ -269,7 +274,7 @@ struct MinMaxImpl : public ScalarAggregator {
   }
 
   std::shared_ptr<DataType> out_type;
-  MinMaxOptions options;
+  ScalarAggregateOptions options;
   MinMaxState<ArrowType, SimdLevel> state;
 
  private:
@@ -348,7 +353,7 @@ struct BooleanMinMaxImpl : public MinMaxImpl<BooleanType, SimdLevel> {
 
     local.has_nulls = null_count > 0;
     local.has_values = valid_count > 0;
-    if (local.has_nulls && options.null_handling == MinMaxOptions::EMIT_NULL) {
+    if (local.has_nulls && !options.skip_nulls) {
       this->state = local;
       return Status::OK();
     }
@@ -369,10 +374,11 @@ struct MinMaxInitState {
   KernelContext* ctx;
   const DataType& in_type;
   const std::shared_ptr<DataType>& out_type;
-  const MinMaxOptions& options;
+  const ScalarAggregateOptions& options;
 
   MinMaxInitState(KernelContext* ctx, const DataType& in_type,
-                  const std::shared_ptr<DataType>& out_type, const MinMaxOptions& options)
+                  const std::shared_ptr<DataType>& out_type,
+                  const ScalarAggregateOptions& options)
       : ctx(ctx), in_type(in_type), out_type(out_type), options(options) {}
 
   Status Visit(const DataType&) {

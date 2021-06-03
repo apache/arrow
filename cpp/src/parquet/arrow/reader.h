@@ -65,6 +65,9 @@ class RowGroupReader;
 /// `FileReader::RowGroup(i)->Column(j)->Read` and receive an `arrow::Column`
 /// instance.
 ///
+/// The parquet format supports an optional integer field_id which can be assigned
+/// to a field.  Arrow will convert these field IDs to a metadata key named
+/// PARQUET:field_id on the appropriate field.
 // TODO(wesm): nested data does not always make sense with this user
 // interface unless you are only reading a single leaf node from a branch of
 // a table. For example:

@@ -7,3 +7,30 @@
 \description{
 A \code{Scalar} holds a single value of an Arrow type.
 }
+\section{Methods}{
+
+\verb{$ToString()}: convert to a string
+\verb{$as_vector()}: convert to an R vector
+\verb{$as_array()}: convert to an Arrow \code{Array}
+\verb{$Equals(other)}: is this Scalar equal to \code{other}
+\verb{$ApproxEquals(other)}: is this Scalar approximately equal to \code{other}
+\verb{$is_valid}: is this Scalar valid
+\verb{$null_count}: number of invalid values - 1 or 0
+\verb{$type}: Scalar type
+}
+
+\examples{
+Scalar$create(pi)
+Scalar$create(404)
+# If you pass a vector into Scalar$create, you get a list containing your items
+Scalar$create(c(1, 2, 3))
+
+# Comparisons
+my_scalar <- Scalar$create(99)
+my_scalar$ApproxEquals(Scalar$create(99.00001)) # FALSE
+my_scalar$ApproxEquals(Scalar$create(99.000009)) # TRUE
+my_scalar$Equals(Scalar$create(99.000009)) # FALSE
+my_scalar$Equals(Scalar$create(99L)) # FALSE (types don't match)
+
+my_scalar$ToString()
+}

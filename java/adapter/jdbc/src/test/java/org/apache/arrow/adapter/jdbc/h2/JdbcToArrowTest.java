@@ -109,7 +109,7 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
   private static final String[] testFiles = {"h2/test1_all_datatypes_h2.yml"};
 
   /**
-   * Constructor which populate table object for each test iteration.
+   * Constructor which populates the table object for each test iteration.
    *
    * @param table Table object
    */

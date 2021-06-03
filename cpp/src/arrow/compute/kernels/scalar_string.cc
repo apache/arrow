@@ -142,6 +142,11 @@ struct StringTransform {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     return Derived().Execute(ctx, batch, out);
   }
+
+  static Status InvalidStatus() {
+    return Status::Invalid("Invalid UTF8 sequence in input");
+  }
+
   Status Execute(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     if (batch[0].kind() == Datum::ARRAY) {
       const ArrayData& input = *batch[0].array();
@@ -173,7 +178,7 @@ struct StringTransform {
         if (ARROW_PREDICT_FALSE(!static_cast<Derived&>(*this).Transform(
                 input_string, input_string_ncodeunits, output_str + output_ncodeunits,
                 &encoded_nbytes))) {
-          return Status::Invalid("Invalid UTF8 sequence in input");
+          return Derived::InvalidStatus();
         }
         output_ncodeunits += encoded_nbytes;
         output_string_offsets[i + 1] = output_ncodeunits;
@@ -199,7 +204,7 @@ struct StringTransform {
         if (ARROW_PREDICT_FALSE(!static_cast<Derived&>(*this).Transform(
                 input.value->data(), data_nbytes, value_buffer->mutable_data(),
                 &encoded_nbytes))) {
-          return Status::Invalid("Invalid UTF8 sequence in input");
+          return Derived::InvalidStatus();
         }
         RETURN_NOT_OK(value_buffer->Resize(encoded_nbytes, /*shrink_to_fit=*/true));
       }
@@ -265,6 +270,45 @@ struct UTF8Lower : StringTransformCodepoint<Type, UTF8Lower<Type>> {
 void EnsureLookupTablesFilled() {}
 
 #endif  // ARROW_WITH_UTF8PROC
+
+template <typename Type>
+struct AsciiReverse : StringTransform<Type, AsciiReverse<Type>> {
+  using Base = StringTransform<Type, AsciiReverse<Type>>;
+  using offset_type = typename Base::offset_type;
+
+  bool Transform(const uint8_t* input, offset_type input_string_ncodeunits,
+                 uint8_t* output, offset_type* output_written) {
+    uint8_t utf8_char_found = 0;
+    for (offset_type i = 0; i < input_string_ncodeunits; i++) {
+      // if a utf8 char is found, report to utf8_char_found
+      utf8_char_found |= input[i] & 0x80;
+      output[input_string_ncodeunits - i - 1] = input[i];
+    }
+    *output_written = input_string_ncodeunits;
+    return utf8_char_found == 0;
+  }
+
+  static Status InvalidStatus() { return Status::Invalid("Non-ASCII sequence in input"); }
+};
+
+template <typename Type>
+struct Utf8Reverse : StringTransform<Type, Utf8Reverse<Type>> {
+  using Base = StringTransform<Type, Utf8Reverse<Type>>;
+  using offset_type = typename Base::offset_type;
+
+  bool Transform(const uint8_t* input, offset_type input_string_ncodeunits,
+                 uint8_t* output, offset_type* output_written) {
+    offset_type i = 0;
+    while (i < input_string_ncodeunits) {
+      uint8_t offset = util::ValidUtf8CodepointByteSize(input + i);
+      offset_type stride = std::min(i + offset, input_string_ncodeunits);
+      std::copy(input + i, input + stride, output + input_string_ncodeunits - stride);
+      i += offset;
+    }
+    *output_written = input_string_ncodeunits;
+    return true;
+  }
+};
 
 using TransformFunc = std::function<void(const uint8_t*, int64_t, uint8_t*)>;
 
@@ -389,33 +433,6 @@ void StringBoolTransform(KernelContext* ctx, const ExecBatch& batch,
 
 using MatchSubstringState = OptionsWrapper<MatchSubstringOptions>;
 
-template <typename Type, typename Matcher>
-struct MatchSubstring {
-  using offset_type = typename Type::offset_type;
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    // TODO Cache matcher across invocations (for regex compilation)
-    ARROW_ASSIGN_OR_RAISE(auto matcher, Matcher::Make(MatchSubstringState::Get(ctx)));
-    StringBoolTransform<Type>(
-        ctx, batch,
-        [&matcher](const void* raw_offsets, const uint8_t* data, int64_t length,
-                   int64_t output_offset, uint8_t* output) {
-          const offset_type* offsets = reinterpret_cast<const offset_type*>(raw_offsets);
-          FirstTimeBitmapWriter bitmap_writer(output, output_offset, length);
-          for (int64_t i = 0; i < length; ++i) {
-            const char* current_data = reinterpret_cast<const char*>(data + offsets[i]);
-            int64_t current_length = offsets[i + 1] - offsets[i];
-            if (matcher->Match(util::string_view(current_data, current_length))) {
-              bitmap_writer.Set();
-            }
-            bitmap_writer.Next();
-          }
-          bitmap_writer.Finish();
-        },
-        out);
-    return Status::OK();
-  }
-};
-
 // This is an implementation of the Knuth-Morris-Pratt algorithm
 struct PlainSubstringMatcher {
   const MatchSubstringOptions& options_;
@@ -423,6 +440,8 @@ struct PlainSubstringMatcher {
 
   static Result<std::unique_ptr<PlainSubstringMatcher>> Make(
       const MatchSubstringOptions& options) {
+    // Should be handled by partial template specialization below
+    DCHECK(!options.ignore_case);
     return ::arrow::internal::make_unique<PlainSubstringMatcher>(options);
   }
 
@@ -444,28 +463,26 @@ struct PlainSubstringMatcher {
     }
   }
 
-  bool Match(util::string_view current) const {
+  int64_t Find(util::string_view current) const {
     // Phase 2: Find the prefix in the data
     const auto pattern_length = options_.pattern.size();
     int64_t pattern_pos = 0;
+    int64_t pos = 0;
     for (const auto c : current) {
       while ((pattern_pos >= 0) && (options_.pattern[pattern_pos] != c)) {
         pattern_pos = prefix_table[pattern_pos];
       }
       pattern_pos++;
       if (static_cast<size_t>(pattern_pos) == pattern_length) {
-        return true;
+        return pos + 1 - pattern_length;
       }
+      pos++;
     }
-    return false;
+    return -1;
   }
-};
 
-const FunctionDoc match_substring_doc(
-    "Match strings against literal pattern",
-    ("For each string in `strings`, emit true iff it contains a given pattern.\n"
-     "Null inputs emit null.  The pattern must be given in MatchSubstringOptions."),
-    {"strings"}, "MatchSubstringOptions");
+  bool Match(util::string_view current) const { return Find(current) >= 0; }
+};
 
 #ifdef ARROW_WITH_RE2
 struct RegexSubstringMatcher {
@@ -473,27 +490,195 @@ struct RegexSubstringMatcher {
   const RE2 regex_match_;
 
   static Result<std::unique_ptr<RegexSubstringMatcher>> Make(
-      const MatchSubstringOptions& options) {
-    auto matcher = ::arrow::internal::make_unique<RegexSubstringMatcher>(options);
+      const MatchSubstringOptions& options, bool literal = false) {
+    auto matcher =
+        ::arrow::internal::make_unique<RegexSubstringMatcher>(options, literal);
     RETURN_NOT_OK(RegexStatus(matcher->regex_match_));
     return std::move(matcher);
   }
 
-  explicit RegexSubstringMatcher(const MatchSubstringOptions& options)
-      : options_(options), regex_match_(options_.pattern, RE2::Quiet) {}
+  explicit RegexSubstringMatcher(const MatchSubstringOptions& options,
+                                 bool literal = false)
+      : options_(options),
+        regex_match_(options_.pattern, MakeRE2Options(options, literal)) {}
 
   bool Match(util::string_view current) const {
     auto piece = re2::StringPiece(current.data(), current.length());
     return re2::RE2::PartialMatch(piece, regex_match_);
   }
+
+  static RE2::RE2::Options MakeRE2Options(const MatchSubstringOptions& options,
+                                          bool literal) {
+    RE2::RE2::Options re2_options(RE2::Quiet);
+    re2_options.set_case_sensitive(!options.ignore_case);
+    re2_options.set_literal(literal);
+    return re2_options;
+  }
+};
+#endif
+
+template <typename Type, typename Matcher>
+struct MatchSubstringImpl {
+  using offset_type = typename Type::offset_type;
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out,
+                     const Matcher* matcher) {
+    StringBoolTransform<Type>(
+        ctx, batch,
+        [&matcher](const void* raw_offsets, const uint8_t* data, int64_t length,
+                   int64_t output_offset, uint8_t* output) {
+          const offset_type* offsets = reinterpret_cast<const offset_type*>(raw_offsets);
+          FirstTimeBitmapWriter bitmap_writer(output, output_offset, length);
+          for (int64_t i = 0; i < length; ++i) {
+            const char* current_data = reinterpret_cast<const char*>(data + offsets[i]);
+            int64_t current_length = offsets[i + 1] - offsets[i];
+            if (matcher->Match(util::string_view(current_data, current_length))) {
+              bitmap_writer.Set();
+            }
+            bitmap_writer.Next();
+          }
+          bitmap_writer.Finish();
+        },
+        out);
+    return Status::OK();
+  }
 };
 
+template <typename Type, typename Matcher>
+struct MatchSubstring {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    // TODO Cache matcher across invocations (for regex compilation)
+    ARROW_ASSIGN_OR_RAISE(auto matcher, Matcher::Make(MatchSubstringState::Get(ctx)));
+    return MatchSubstringImpl<Type, Matcher>::Exec(ctx, batch, out, matcher.get());
+  }
+};
+
+template <typename Type>
+struct MatchSubstring<Type, PlainSubstringMatcher> {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    auto options = MatchSubstringState::Get(ctx);
+    if (options.ignore_case) {
+#ifdef ARROW_WITH_RE2
+      ARROW_ASSIGN_OR_RAISE(auto matcher,
+                            RegexSubstringMatcher::Make(options, /*literal=*/true));
+      return MatchSubstringImpl<Type, RegexSubstringMatcher>::Exec(ctx, batch, out,
+                                                                   matcher.get());
+#else
+      return Status::NotImplemented("ignore_case requires RE2");
+#endif
+    }
+    ARROW_ASSIGN_OR_RAISE(auto matcher, PlainSubstringMatcher::Make(options));
+    return MatchSubstringImpl<Type, PlainSubstringMatcher>::Exec(ctx, batch, out,
+                                                                 matcher.get());
+  }
+};
+
+const FunctionDoc match_substring_doc(
+    "Match strings against literal pattern",
+    ("For each string in `strings`, emit true iff it contains a given pattern.\n"
+     "Null inputs emit null.  The pattern must be given in MatchSubstringOptions. "
+     "If ignore_case is set, only simple case folding is performed."),
+    {"strings"}, "MatchSubstringOptions");
+
+#ifdef ARROW_WITH_RE2
 const FunctionDoc match_substring_regex_doc(
     "Match strings against regex pattern",
     ("For each string in `strings`, emit true iff it matches a given pattern at any "
      "position.\n"
+     "Null inputs emit null.  The pattern must be given in MatchSubstringOptions. "
+     "If ignore_case is set, only simple case folding is performed."),
+    {"strings"}, "MatchSubstringOptions");
+
+// SQL LIKE match
+
+/// Convert a SQL-style LIKE pattern (using '%' and '_') into a regex pattern
+std::string MakeLikeRegex(const MatchSubstringOptions& options) {
+  // Allow . to match \n
+  std::string like_pattern = "(?s:^";
+  like_pattern.reserve(options.pattern.size() + 7);
+  bool escaped = false;
+  for (const char c : options.pattern) {
+    if (!escaped && c == '%') {
+      like_pattern.append(".*");
+    } else if (!escaped && c == '_') {
+      like_pattern.append(".");
+    } else if (!escaped && c == '\\') {
+      escaped = true;
+    } else {
+      switch (c) {
+        case '.':
+        case '?':
+        case '+':
+        case '*':
+        case '^':
+        case '$':
+        case '\\':
+        case '[':
+        case '{':
+        case '(':
+        case ')':
+        case '|': {
+          like_pattern.push_back('\\');
+          like_pattern.push_back(c);
+          escaped = false;
+          break;
+        }
+        default: {
+          like_pattern.push_back(c);
+          escaped = false;
+          break;
+        }
+      }
+    }
+  }
+  like_pattern.append("$)");
+  return like_pattern;
+}
+
+// A LIKE pattern matching this regex can be translated into a substring search.
+static RE2 kLikePatternIsSubstringMatch("%+([^%_]*)%+");
+
+// Evaluate a SQL-like LIKE pattern by translating it to a regexp or
+// substring search as appropriate. See what Apache Impala does:
+// https://github.com/apache/impala/blob/9c38568657d62b6f6d7b10aa1c721ba843374dd8/be/src/exprs/like-predicate.cc
+// Note that Impala optimizes more cases (e.g. prefix match) but we
+// don't have kernels for those.
+template <typename StringType>
+struct MatchLike {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    auto original_options = MatchSubstringState::Get(ctx);
+    auto original_state = ctx->state();
+
+    Status status;
+    std::string pattern;
+    if (!original_options.ignore_case &&
+        re2::RE2::FullMatch(original_options.pattern, kLikePatternIsSubstringMatch,
+                            &pattern)) {
+      MatchSubstringOptions converted_options{pattern, original_options.ignore_case};
+      MatchSubstringState converted_state(converted_options);
+      ctx->SetState(&converted_state);
+      status = MatchSubstring<StringType, PlainSubstringMatcher>::Exec(ctx, batch, out);
+    } else {
+      MatchSubstringOptions converted_options{MakeLikeRegex(original_options),
+                                              original_options.ignore_case};
+      MatchSubstringState converted_state(converted_options);
+      ctx->SetState(&converted_state);
+      status = MatchSubstring<StringType, RegexSubstringMatcher>::Exec(ctx, batch, out);
+    }
+    ctx->SetState(original_state);
+    return status;
+  }
+};
+
+const FunctionDoc match_like_doc(
+    "Match strings against SQL-style LIKE pattern",
+    ("For each string in `strings`, emit true iff it fully matches a given pattern "
+     "at any position. That is, '%' will match any number of characters, '_' will "
+     "match exactly one character, and any other character matches itself. To "
+     "match a literal '%', '_', or '\\', precede the character with a backslash.\n"
      "Null inputs emit null.  The pattern must be given in MatchSubstringOptions."),
     {"strings"}, "MatchSubstringOptions");
+
 #endif
 
 void AddMatchSubstring(FunctionRegistry* registry) {
@@ -518,7 +703,59 @@ void AddMatchSubstring(FunctionRegistry* registry) {
         func->AddKernel({large_utf8()}, boolean(), exec_64, MatchSubstringState::Init));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
+  {
+    auto func =
+        std::make_shared<ScalarFunction>("match_like", Arity::Unary(), &match_like_doc);
+    auto exec_32 = MatchLike<StringType>::Exec;
+    auto exec_64 = MatchLike<LargeStringType>::Exec;
+    DCHECK_OK(func->AddKernel({utf8()}, boolean(), exec_32, MatchSubstringState::Init));
+    DCHECK_OK(
+        func->AddKernel({large_utf8()}, boolean(), exec_64, MatchSubstringState::Init));
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
 #endif
+}
+
+// Substring find - lfind/index/etc.
+
+struct FindSubstring {
+  const PlainSubstringMatcher matcher_;
+
+  explicit FindSubstring(PlainSubstringMatcher matcher) : matcher_(std::move(matcher)) {}
+
+  template <typename OutValue, typename... Ignored>
+  OutValue Call(KernelContext*, util::string_view val, Status*) const {
+    return static_cast<OutValue>(matcher_.Find(val));
+  }
+};
+
+template <typename InputType>
+Status FindSubstringExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  using offset_type = typename TypeTraits<InputType>::OffsetType;
+  applicator::ScalarUnaryNotNullStateful<offset_type, InputType, FindSubstring> kernel{
+      FindSubstring(PlainSubstringMatcher(MatchSubstringState::Get(ctx)))};
+  return kernel.Exec(ctx, batch, out);
+}
+
+const FunctionDoc find_substring_doc(
+    "Find first occurrence of substring",
+    ("For each string in `strings`, emit the index of the first occurrence of the given "
+     "pattern, or -1 if not found.\n"
+     "Null inputs emit null. The pattern must be given in MatchSubstringOptions."),
+    {"strings"}, "MatchSubstringOptions");
+
+void AddFindSubstring(FunctionRegistry* registry) {
+  auto func = std::make_shared<ScalarFunction>("find_substring", Arity::Unary(),
+                                               &find_substring_doc);
+  DCHECK_OK(func->AddKernel({binary()}, int32(), FindSubstringExec<BinaryType>,
+                            MatchSubstringState::Init));
+  DCHECK_OK(func->AddKernel({utf8()}, int32(), FindSubstringExec<StringType>,
+                            MatchSubstringState::Init));
+  DCHECK_OK(func->AddKernel({large_binary()}, int64(), FindSubstringExec<LargeBinaryType>,
+                            MatchSubstringState::Init));
+  DCHECK_OK(func->AddKernel({large_utf8()}, int64(), FindSubstringExec<LargeStringType>,
+                            MatchSubstringState::Init));
+  DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
 // IsAlpha/Digit etc
@@ -1004,17 +1241,17 @@ struct SplitBaseTransform {
     return Status::OK();
   }
 
-  static Status CheckOptions(const Options& options) { return Status::OK(); }
-
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     Options options = State::Get(ctx);
     Derived splitter(options);  // we make an instance to reuse the parts vectors
+    RETURN_NOT_OK(splitter.CheckOptions());
     return splitter.Split(ctx, batch, out);
   }
 
+  Status CheckOptions() { return Status::OK(); }
+
   Status Split(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     EnsureLookupTablesFilled();  // only needed for unicode
-    RETURN_NOT_OK(Derived::CheckOptions(options));
 
     if (batch[0].kind() == Datum::ARRAY) {
       const ArrayData& input = *batch[0].array();
@@ -1080,8 +1317,8 @@ struct SplitPatternTransform : SplitBaseTransform<Type, ListType, SplitPatternOp
   using string_offset_type = typename Type::offset_type;
   using Base::Base;
 
-  static Status CheckOptions(const SplitPatternOptions& options) {
-    if (options.pattern.length() == 0) {
+  Status CheckOptions() {
+    if (Base::options.pattern.length() == 0) {
       return Status::Invalid("Empty separator");
     }
     return Status::OK();
@@ -1300,11 +1537,89 @@ void AddSplitWhitespaceUTF8(FunctionRegistry* registry) {
 }
 #endif
 
+#ifdef ARROW_WITH_RE2
+template <typename Type, typename ListType>
+struct SplitRegexTransform : SplitBaseTransform<Type, ListType, SplitPatternOptions,
+                                                SplitRegexTransform<Type, ListType>> {
+  using Base = SplitBaseTransform<Type, ListType, SplitPatternOptions,
+                                  SplitRegexTransform<Type, ListType>>;
+  using ArrayType = typename TypeTraits<Type>::ArrayType;
+  using string_offset_type = typename Type::offset_type;
+  using ScalarType = typename TypeTraits<Type>::ScalarType;
+
+  const RE2 regex_split;
+
+  explicit SplitRegexTransform(SplitPatternOptions options)
+      : Base(options), regex_split(MakePattern(options)) {}
+
+  static std::string MakePattern(const SplitPatternOptions& options) {
+    // RE2 does *not* give you the full match! Must wrap the regex in a capture group
+    // There is FindAndConsume, but it would give only the end of the separator
+    std::string pattern = "(";
+    pattern.reserve(options.pattern.size() + 2);
+    pattern += options.pattern;
+    pattern += ')';
+    return pattern;
+  }
+
+  Status CheckOptions() {
+    if (Base::options.reverse) {
+      return Status::NotImplemented("Cannot split in reverse with regex");
+    }
+    return RegexStatus(regex_split);
+  }
+
+  bool Find(const uint8_t* begin, const uint8_t* end, const uint8_t** separator_begin,
+            const uint8_t** separator_end, const SplitOptions& options) {
+    re2::StringPiece piece(reinterpret_cast<const char*>(begin),
+                           std::distance(begin, end));
+    // "StringPiece is mutated to point to matched piece"
+    re2::StringPiece result;
+    if (!re2::RE2::PartialMatch(piece, regex_split, &result)) {
+      return false;
+    }
+    *separator_begin = reinterpret_cast<const uint8_t*>(result.data());
+    *separator_end = reinterpret_cast<const uint8_t*>(result.data() + result.size());
+    return true;
+  }
+  bool FindReverse(const uint8_t* begin, const uint8_t* end,
+                   const uint8_t** separator_begin, const uint8_t** separator_end,
+                   const SplitOptions& options) {
+    // Not easily supportable, unfortunately
+    return false;
+  }
+};
+
+const FunctionDoc split_pattern_regex_doc(
+    "Split string according to regex pattern",
+    ("Split each string according to the regex `pattern` defined in\n"
+     "SplitPatternOptions.  The output for each string input is a list\n"
+     "of strings.\n"
+     "\n"
+     "The maximum number of splits and direction of splitting\n"
+     "(forward, reverse) can optionally be defined in SplitPatternOptions."),
+    {"strings"}, "SplitPatternOptions");
+
+void AddSplitRegex(FunctionRegistry* registry) {
+  auto func = std::make_shared<ScalarFunction>("split_pattern_regex", Arity::Unary(),
+                                               &split_pattern_regex_doc);
+  using t32 = SplitRegexTransform<StringType, ListType>;
+  using t64 = SplitRegexTransform<LargeStringType, ListType>;
+  DCHECK_OK(func->AddKernel({utf8()}, {list(utf8())}, t32::Exec, t32::State::Init));
+  DCHECK_OK(
+      func->AddKernel({large_utf8()}, {list(large_utf8())}, t64::Exec, t64::State::Init));
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+}
+#endif
+
 void AddSplit(FunctionRegistry* registry) {
   AddSplitPattern(registry);
   AddSplitWhitespaceAscii(registry);
 #ifdef ARROW_WITH_UTF8PROC
   AddSplitWhitespaceUTF8(registry);
+#endif
+#ifdef ARROW_WITH_RE2
+  AddSplitRegex(registry);
 #endif
 }
 
@@ -2305,7 +2620,7 @@ const FunctionDoc ascii_upper_doc(
 const FunctionDoc ascii_lower_doc(
     "Transform ASCII input to lowercase",
     ("For each string in `strings`, return a lowercase version.\n\n"
-     "This function assumes the input is fully ASCII.  It it may contain\n"
+     "This function assumes the input is fully ASCII.  If it may contain\n"
      "non-ASCII characters, use \"utf8_lower\" instead."),
     {"strings"});
 
@@ -2316,6 +2631,21 @@ const FunctionDoc utf8_upper_doc(
 const FunctionDoc utf8_lower_doc(
     "Transform input to lowercase",
     ("For each string in `strings`, return a lowercase version."), {"strings"});
+
+const FunctionDoc ascii_reverse_doc(
+    "Reverse ASCII input",
+    ("For each ASCII string in `strings`, return a reversed version.\n\n"
+     "This function assumes the input is fully ASCII.  If it may contain\n"
+     "non-ASCII characters, use \"utf8_reverse\" instead."),
+    {"strings"});
+
+const FunctionDoc utf8_reverse_doc(
+    "Reverse utf8 input",
+    ("For each utf8 string in `strings`, return a reversed version.\n\n"
+     "This function operates on codepoints/UTF-8 code units, not grapheme\n"
+     "clusters. Hence, it will not correctly reverse grapheme clusters\n"
+     "composed of multiple codepoints."),
+    {"strings"});
 
 }  // namespace
 
@@ -2332,6 +2662,8 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
                                                    &ascii_ltrim_whitespace_doc);
   MakeUnaryStringBatchKernel<AsciiRTrimWhitespace>("ascii_rtrim_whitespace", registry,
                                                    &ascii_rtrim_whitespace_doc);
+  MakeUnaryStringBatchKernel<AsciiReverse>("ascii_reverse", registry, &ascii_reverse_doc);
+  MakeUnaryStringBatchKernel<Utf8Reverse>("utf8_reverse", registry, &utf8_reverse_doc);
   MakeUnaryStringBatchKernelWithState<AsciiTrim>("ascii_trim", registry,
                                                  &ascii_lower_doc);
   MakeUnaryStringBatchKernelWithState<AsciiLTrim>("ascii_ltrim", registry,
@@ -2388,6 +2720,7 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   AddBinaryLength(registry);
   AddUtf8Length(registry);
   AddMatchSubstring(registry);
+  AddFindSubstring(registry);
   MakeUnaryStringBatchKernelWithState<ReplaceSubStringPlain>(
       "replace_substring", registry, &replace_substring_doc,
       MemAllocation::NO_PREALLOCATE);

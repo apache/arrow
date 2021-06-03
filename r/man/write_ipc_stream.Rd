@@ -31,6 +31,11 @@ with some nonstandard behavior, is deprecated. You should explicitly choose
 the function that will write the desired IPC format (stream or file) since
 either can be written to a file or \code{OutputStream}.
 }
+\examples{
+tf <- tempfile()
+on.exit(unlink(tf))
+write_ipc_stream(mtcars, tf)
+}
 \seealso{
 \code{\link[=write_feather]{write_feather()}} for writing IPC files. \code{\link[=write_to_raw]{write_to_raw()}} to
 serialize data to a buffer.

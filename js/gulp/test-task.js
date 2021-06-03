@@ -29,7 +29,7 @@ const asyncDone = promisify(require('async-done'));
 const exec = promisify(require('child_process').exec);
 const parseXML = promisify(require('xml2js').parseString);
 
-const jestArgv = [];
+const jestArgv = [`--reporters=jest-silent-reporter`];
 argv.verbose && jestArgv.push(`--verbose`);
 argv.coverage
     ? jestArgv.push(`-c`, `jest.coverage.config.js`, `--coverage`, `-i`)

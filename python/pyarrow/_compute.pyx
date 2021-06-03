@@ -657,14 +657,14 @@ cdef class _MatchSubstringOptions(FunctionOptions):
     cdef const CFunctionOptions* get_options(self) except NULL:
         return self.match_substring_options.get()
 
-    def _set_options(self, pattern):
+    def _set_options(self, pattern, bint ignore_case):
         self.match_substring_options.reset(
-            new CMatchSubstringOptions(tobytes(pattern)))
+            new CMatchSubstringOptions(tobytes(pattern), ignore_case))
 
 
 class MatchSubstringOptions(_MatchSubstringOptions):
-    def __init__(self, pattern):
-        self._set_options(pattern)
+    def __init__(self, pattern, bint ignore_case=False):
+        self._set_options(pattern, ignore_case)
 
 
 cdef class _TrimOptions(FunctionOptions):
@@ -824,54 +824,47 @@ class ProjectOptions(_ProjectOptions):
         self._set_options(field_names)
 
 
-cdef class _MinMaxOptions(FunctionOptions):
+cdef class _ScalarAggregateOptions(FunctionOptions):
     cdef:
-        unique_ptr[CMinMaxOptions] min_max_options
+        unique_ptr[CScalarAggregateOptions] scalar_aggregate_options
 
     cdef const CFunctionOptions* get_options(self) except NULL:
-        return self.min_max_options.get()
+        return self.scalar_aggregate_options.get()
 
-    def _set_options(self, null_handling):
-        if null_handling == 'skip':
-            self.min_max_options.reset(
-                new CMinMaxOptions(CMinMaxMode_SKIP))
-        elif null_handling == 'emit_null':
-            self.min_max_options.reset(
-                new CMinMaxOptions(CMinMaxMode_EMIT_NULL))
-        else:
-            raise ValueError(
-                '{!r} is not a valid null_handling'
-                .format(null_handling))
+    def _set_options(self, skip_nulls, min_count):
+        self.scalar_aggregate_options.reset(
+            new CScalarAggregateOptions(skip_nulls, min_count))
 
 
-class MinMaxOptions(_MinMaxOptions):
-    def __init__(self, null_handling='skip'):
-        self._set_options(null_handling)
+class ScalarAggregateOptions(_ScalarAggregateOptions):
+    def __init__(self, skip_nulls=True, min_count=1):
+        self._set_options(skip_nulls, min_count)
 
 
-cdef class _CountOptions(FunctionOptions):
+cdef class _IndexOptions(FunctionOptions):
     cdef:
-        unique_ptr[CCountOptions] count_options
+        unique_ptr[CIndexOptions] index_options
 
     cdef const CFunctionOptions* get_options(self) except NULL:
-        return self.count_options.get()
+        return self.index_options.get()
 
-    def _set_options(self, count_mode):
-        if count_mode == 'count_null':
-            self.count_options.reset(
-                new CCountOptions(CCountMode_COUNT_NULL))
-        elif count_mode == 'count_non_null':
-            self.count_options.reset(
-                new CCountOptions(CCountMode_COUNT_NON_NULL))
-        else:
-            raise ValueError(
-                '{!r} is not a valid count_mode'
-                .format(count_mode))
+    def _set_options(self, Scalar scalar):
+        self.index_options.reset(
+            new CIndexOptions(pyarrow_unwrap_scalar(scalar)))
 
 
-class CountOptions(_CountOptions):
-    def __init__(self, count_mode='count_non_null'):
-        self._set_options(count_mode)
+class IndexOptions(_IndexOptions):
+    """
+    Options for the index kernel.
+
+    Parameters
+    ----------
+    value : Scalar
+        The value to search for.
+    """
+
+    def __init__(self, value):
+        self._set_options(value)
 
 
 cdef class _ModeOptions(FunctionOptions):

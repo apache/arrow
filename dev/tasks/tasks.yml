@@ -52,7 +52,7 @@ groups:
     - centos-*
     - conda-*
     - debian-*
-    - jars
+    - java-jars
     - nuget
     - python-sdist
     - ubuntu-*
@@ -125,7 +125,7 @@ groups:
     - ubuntu-*
     - centos-*
     - conda-*
-    - jars
+    - java-jars
     # List the homebrews explicitly because we don't care about running homebrew-cpp-autobrew
     - homebrew-cpp
     - homebrew-r-autobrew
@@ -429,6 +429,7 @@ tasks:
     {% endif %}
       - gir1.2-arrow-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-arrow-dataset-1.0_{no_rc_version}-1_[a-z0-9]+.deb
+      - gir1.2-arrow-flight-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-gandiva-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
@@ -440,6 +441,10 @@ tasks:
       - libarrow-dataset500_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight-glib500-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-flight-glib500_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight500-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-flight500_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
@@ -535,6 +540,10 @@ tasks:
       - arrow-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       {% if target == "centos-8" %}
       - arrow-flight-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+      - arrow-flight-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+      - arrow-flight-glib-doc-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+      - arrow-flight-glib-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+      - arrow-flight-glib-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow-flight-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow-flight-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       {% endif %}
@@ -621,11 +630,12 @@ tasks:
 
   ############################## Arrow JAR's ##################################
 
-  jars:
+  java-jars:
     # Build jar's that contains cpp libraries dependencies
     ci: github
-    template: jars/github.yml
+    template: java-jars/github.yml
     artifacts:
+      #TODO(kszucs): need to list the rest of the jars here
       - arrow-gandiva-{no_rc_version}-SNAPSHOT.jar
       - arrow-orc-{no_rc_version}-SNAPSHOT.jar
       - arrow-dataset-{no_rc_version}-SNAPSHOT.jar
@@ -919,6 +929,10 @@ tasks:
         UBUNTU: 18.04
       run: ubuntu-r-sanitizer
 
+  revdep-r-check:
+    ci: github
+    template: r/github.linux.revdepcheck.yml
+
   test-debian-10-go-1.15:
     ci: azure
     template: docker-tests/azure.linux.yml
@@ -933,6 +947,12 @@ tasks:
     params:
       env:
         UBUNTU: "20.10"
+      run: ubuntu-docs
+
+  test-ubuntu-default-docs:
+    ci: azure
+    template: docker-tests/azure.linux.yml
+    params:
       run: ubuntu-docs
 
   ############################## vcpkg tests ##################################

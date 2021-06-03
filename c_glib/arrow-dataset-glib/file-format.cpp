@@ -37,7 +37,7 @@ G_BEGIN_DECLS
  *
  * #GADParquetFileFormat is a class for Parquet file format.
  *
- * * Since: 3.0.0
+ * Since: 3.0.0
  */
 
 typedef struct GADFileFormatPrivate_ {

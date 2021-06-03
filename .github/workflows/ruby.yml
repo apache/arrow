@@ -43,6 +43,10 @@ on:
       - 'cpp/**'
       - 'ruby/**'
 
+concurrency:
+  group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}
+  cancel-in-progress: true
+
 env:
   DOCKER_VOLUME_PREFIX: ".docker/"
   ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
@@ -59,7 +63,6 @@ jobs:
       fail-fast: false
       matrix:
         ubuntu:
-          - 18.04
           - 20.04
     env:
       UBUNTU: ${{ matrix.ubuntu }}
@@ -90,7 +93,11 @@ jobs:
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
-          archery docker run ubuntu-ruby
+          archery docker run \
+            -e ARROW_FLIGHT=ON \
+            -e Protobuf_SOURCE=BUNDLED \
+            -e gRPC_SOURCE=BUNDLED \
+            ubuntu-ruby
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
@@ -106,6 +113,7 @@ jobs:
       fail-fast: false
     env:
       ARROW_BUILD_TESTS: OFF
+      ARROW_FLIGHT: ON
       ARROW_GANDIVA: ON
       ARROW_GLIB_DEVELOPMENT_MODE: true
       ARROW_GLIB_GTK_DOC: true
@@ -132,7 +140,6 @@ jobs:
         run: |
           rm -f /usr/local/bin/2to3
           brew update --preinstall
-          brew unlink gcc@8 gcc@9
           brew bundle --file=cpp/Brewfile
           brew bundle --file=c_glib/Brewfile
       - name: Install Ruby Dependencies
@@ -186,7 +193,6 @@ jobs:
       ARROW_BUILD_STATIC: OFF
       ARROW_BUILD_TESTS: OFF
       ARROW_BUILD_TYPE: release
-      ARROW_DATASET: ON
       ARROW_FLIGHT: ON
       ARROW_GANDIVA: ON
       ARROW_HDFS: OFF

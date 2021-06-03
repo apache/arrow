@@ -102,10 +102,10 @@ class ARROW_EXPORT Executor {
   // The continuations of that future should run on the CPU thread pool keeping
   // CPU heavy work off the I/O thread pool.  So the I/O task should transfer
   // the future to the CPU executor before returning.
-  template <typename T>
+  template <typename T, typename FT = Future<T>, typename FTSync = typename FT::SyncType>
   Future<T> Transfer(Future<T> future) {
     auto transferred = Future<T>::Make();
-    auto callback = [this, transferred](const Result<T>& result) mutable {
+    auto callback = [this, transferred](const FTSync& result) mutable {
       auto spawn_status =
           Spawn([transferred, result]() mutable { transferred.MarkFinished(result); });
       if (!spawn_status.ok()) {
@@ -197,7 +197,7 @@ class ARROW_EXPORT Executor {
 /// asynchronous continuation.
 class ARROW_EXPORT SerialExecutor : public Executor {
  public:
-  template <typename T = ::arrow::detail::Empty>
+  template <typename T = ::arrow::internal::Empty>
   using TopLevelTask = internal::FnOnce<Future<T>(Executor*)>;
 
   ~SerialExecutor();
@@ -214,9 +214,11 @@ class ARROW_EXPORT SerialExecutor : public Executor {
   /// RunSynchronously/RunSerially which delegates the responsiblity onto a Future
   /// producer's existing responsibility to always mark a future finished (which can
   /// someday be aided by ARROW-12207).
-  template <typename T>
-  static Result<T> RunInSerialExecutor(TopLevelTask<T> initial_task) {
-    return SerialExecutor().Run<T>(std::move(initial_task));
+  template <typename T = internal::Empty, typename FT = Future<T>,
+            typename FTSync = typename FT::SyncType>
+  static FTSync RunInSerialExecutor(TopLevelTask<T> initial_task) {
+    Future<T> fut = SerialExecutor().Run<T>(std::move(initial_task));
+    return FutureToSync(fut);
   }
 
  private:
@@ -226,15 +228,15 @@ class ARROW_EXPORT SerialExecutor : public Executor {
   struct State;
   std::shared_ptr<State> state_;
 
-  template <typename T>
-  Result<T> Run(TopLevelTask<T> initial_task) {
+  template <typename T, typename FTSync = typename Future<T>::SyncType>
+  Future<T> Run(TopLevelTask<T> initial_task) {
     auto final_fut = std::move(initial_task)(this);
     if (final_fut.is_finished()) {
-      return final_fut.result();
+      return final_fut;
     }
-    final_fut.AddCallback([this](const Result<T>&) { MarkFinished(); });
+    final_fut.AddCallback([this](const FTSync&) { MarkFinished(); });
     RunLoop();
-    return final_fut.result();
+    return final_fut;
   }
   void RunLoop();
   void MarkFinished();
@@ -328,16 +330,16 @@ ARROW_EXPORT ThreadPool* GetCpuThreadPool();
 /// `get_future` is called (from this thread) with the chosen executor and must
 /// return a future that will eventually finish. This function returns once the
 /// future has finished.
-template <typename T>
-Result<T> RunSynchronously(FnOnce<Future<T>(Executor*)> get_future, bool use_threads) {
+template <typename Fut, typename ValueType = typename Fut::ValueType>
+typename Fut::SyncType RunSynchronously(FnOnce<Fut(Executor*)> get_future,
+                                        bool use_threads) {
   if (use_threads) {
-    return std::move(get_future)(GetCpuThreadPool()).result();
+    auto fut = std::move(get_future)(GetCpuThreadPool());
+    return FutureToSync(fut);
   } else {
-    return SerialExecutor::RunInSerialExecutor<T>(std::move(get_future));
+    return SerialExecutor::RunInSerialExecutor<ValueType>(std::move(get_future));
   }
 }
 
-ARROW_EXPORT Status RunSynchronouslyVoid(
-    FnOnce<Future<arrow::detail::Empty>(Executor*)> get_future, bool use_threads);
 }  // namespace internal
 }  // namespace arrow

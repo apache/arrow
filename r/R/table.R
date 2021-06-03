@@ -85,8 +85,7 @@
 #' - `$columns`: Returns a list of `ChunkedArray`s
 #' @rdname Table
 #' @name Table
-#' @examples
-#' \donttest{
+#' @examplesIf arrow_available()
 #' tab <- Table$create(name = rownames(mtcars), mtcars)
 #' dim(tab)
 #' dim(head(tab))
@@ -94,7 +93,6 @@
 #' tab$mpg
 #' tab[["cyl"]]
 #' as.data.frame(tab[4:8, c("gear", "hp", "wt")])
-#' }
 #' @export
 Table <- R6Class("Table", inherit = ArrowTabular,
   public = list(
@@ -168,17 +166,17 @@ Table$create <- function(..., schema = NULL) {
     names(dots) <- rep_len("", length(dots))
   }
   stopifnot(length(dots) > 0)
-  
+
   # Preserve any grouping
   if (length(dots) == 1 && inherits(dots[[1]], "grouped_df")) {
-    out <- Table__from_dots(dots, schema)
+    out <- Table__from_dots(dots, schema, option_use_threads())
     return(dplyr::group_by(out, !!!dplyr::groups(dots[[1]])))
   }
-  
+
   if (all_record_batches(dots)) {
     Table__from_record_batches(dots, schema)
   } else {
-    Table__from_dots(dots, schema)
+    Table__from_dots(dots, schema, option_use_threads())
   }
 }
 

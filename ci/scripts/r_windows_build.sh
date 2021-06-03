@@ -26,11 +26,6 @@ export ARROW_HOME="$(cd "${ARROW_HOME}" && pwd)"
 if [ "$RTOOLS_VERSION" = "35" ]; then
   # Use rtools-backports if building with rtools35
   curl https://raw.githubusercontent.com/r-windows/rtools-backports/master/pacman.conf > /etc/pacman.conf
-  # Update keys: https://www.msys2.org/news/#2020-06-29-new-packagers
-  msys2_repo_base_url=https://repo.msys2.org/msys
-  curl -OSsL "${msys2_repo_base_url}/x86_64/msys2-keyring-r21.b39fb11-1-any.pkg.tar.xz"
-  pacman -U --noconfirm msys2-keyring-r21.b39fb11-1-any.pkg.tar.xz && rm msys2-keyring-r21.b39fb11-1-any.pkg.tar.xz
-  pacman --noconfirm -Scc
   pacman --noconfirm -Syy
   # lib-4.9.3 is for libraries compiled with gcc 4.9 (Rtools 3.5)
   RWINLIB_LIB_DIR="lib-4.9.3"
@@ -43,6 +38,7 @@ else
 
   pacman --noconfirm -Syy
   RWINLIB_LIB_DIR="lib"
+  export MINGW_ARCH="mingw32 mingw64 ucrt64"
 fi
 
 cp $ARROW_HOME/ci/scripts/PKGBUILD .
@@ -64,7 +60,7 @@ MSYS_LIB_DIR="/c/rtools40"
 ls $MSYS_LIB_DIR/mingw64/lib/
 ls $MSYS_LIB_DIR/mingw32/lib/
 
-# Untar the two builds we made
+# Untar the three builds we made
 ls *.xz | xargs -n 1 tar -xJf
 mkdir -p $DST_DIR
 # Grab the headers from one, either one is fine
@@ -93,6 +89,14 @@ cp $MSYS_LIB_DIR/mingw32/lib/lib{thrift,snappy}.a $DST_DIR/${RWINLIB_LIB_DIR}/i3
 # These are from https://dl.bintray.com/rtools/mingw{32,64}/
 cp $MSYS_LIB_DIR/mingw64/lib/lib{zstd,lz4,crypto,utf8proc,re2,aws*}.a $DST_DIR/lib/x64
 cp $MSYS_LIB_DIR/mingw32/lib/lib{zstd,lz4,crypto,utf8proc,re2,aws*}.a $DST_DIR/lib/i386
+
+# Do the same also for ucrt64
+if [ "$RTOOLS_VERSION" != "35" ]; then
+ls $MSYS_LIB_DIR/ucrt64/lib/
+mkdir -p $DST_DIR/lib/x64-ucrt
+mv ucrt64/lib/*.a $DST_DIR/${RWINLIB_LIB_DIR}/x64-ucrt
+cp $MSYS_LIB_DIR/ucrt64/lib/lib{zstd,lz4,crypto,utf8proc,re2,aws*}.a $DST_DIR/lib/x64-ucrt
+fi
 
 # Create build artifact
 zip -r ${DST_DIR}.zip $DST_DIR

@@ -493,3 +493,17 @@ test_that("ARROW-11769 - grouping preserved in table creation", {
   )
 
 })
+
+test_that("ARROW-12729 - length returns number of columns in Table", {
+
+  tbl <- tibble::tibble(
+    int = 1:10,
+    fct = factor(rep(c("A", "B"), 5)),
+    fct2 = factor(rep(c("C", "D"), each = 5)),
+  )
+  
+  tab <- Table$create(!!!tbl)
+  
+  expect_identical(length(tab), 3L)
+  
+})

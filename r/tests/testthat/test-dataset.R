@@ -352,7 +352,10 @@ test_that("CSV dataset", {
   expect_r6_class(ds$format, "CsvFileFormat")
   expect_r6_class(ds$filesystem, "LocalFileSystem")
   expect_identical(names(ds), c(names(df1), "part"))
-  expect_identical(dim(ds), c(20L, 7L))
+  if (getRversion() >= "4.0.0") {
+    # CountRows segfaults on RTools35/R 3.6, so don't test it there
+    expect_identical(dim(ds), c(20L, 7L))
+  }
   expect_equivalent(
     ds %>%
       select(string = chr, integer = int, part) %>%
@@ -1034,6 +1037,28 @@ test_that("Scanner$ScanBatches", {
   batches <- ds$NewScan()$Finish()$ScanBatches()
   table <- Table$create(!!!batches)
   expect_equivalent(as.data.frame(table), rbind(df1, df2))
+
+  # use_async will always use the thread pool (even if it only uses
+  # one thread) and RTools 3.5 on Windows doesn't support this
+  skip_on_os("windows")
+  batches <- ds$NewScan()$UseAsync(TRUE)$Finish()$ScanBatches()
+  table <- Table$create(!!!batches)
+  expect_equivalent(as.data.frame(table), rbind(df1, df2))
+})
+
+test_that("Scanner$ToRecordBatchReader()", {
+  ds <- open_dataset(dataset_dir, partitioning = "part")
+  scan <- ds %>%
+    filter(part == 1) %>%
+    select(int, lgl) %>%
+    filter(int > 6) %>%
+    Scanner$create()
+  reader <- scan$ToRecordBatchReader()
+  expect_r6_class(reader, "RecordBatchReader")
+  expect_identical(
+    as.data.frame(reader$read_table()),
+    df1[df1$int > 6, c("int", "lgl")]
+  )
 })
 
 expect_scan_result <- function(ds, schm) {

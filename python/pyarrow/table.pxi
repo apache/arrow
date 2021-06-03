@@ -382,6 +382,14 @@ cdef class ChunkedArray(_PandasConvertible):
         """
         return _pc().filter(self, mask, null_selection_behavior)
 
+    def index(self, value, start=None, end=None, *, memory_pool=None):
+        """
+        Find the first index of a value.
+
+        See pyarrow.compute.index for full usage.
+        """
+        return _pc().index(self, value, start, end, memory_pool=memory_pool)
+
     def take(self, object indices):
         """
         Select values from a chunked array. See pyarrow.compute.take for full

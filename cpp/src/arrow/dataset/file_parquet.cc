@@ -392,7 +392,7 @@ Result<ScanTaskIterator> ParquetFileFormat::ScanFile(
 
 Future<util::optional<int64_t>> ParquetFileFormat::CountRows(
     const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
-    std::shared_ptr<ScanOptions> options) {
+    const std::shared_ptr<ScanOptions>& options) {
   auto parquet_file = internal::checked_pointer_cast<ParquetFileFragment>(file);
   if (parquet_file->metadata()) {
     ARROW_ASSIGN_OR_RAISE(auto maybe_count,

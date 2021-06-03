@@ -43,10 +43,13 @@ struct ArithmeticOptions : public FunctionOptions {
 };
 
 struct ARROW_EXPORT MatchSubstringOptions : public FunctionOptions {
-  explicit MatchSubstringOptions(std::string pattern) : pattern(std::move(pattern)) {}
+  explicit MatchSubstringOptions(std::string pattern, bool ignore_case = false)
+      : pattern(std::move(pattern)), ignore_case(ignore_case) {}
 
   /// The exact substring (or regex, depending on kernel) to look for inside input values.
   std::string pattern;
+  /// Whether to perform a case-insensitive match.
+  bool ignore_case = false;
 };
 
 struct ARROW_EXPORT SplitOptions : public FunctionOptions {
@@ -159,6 +162,18 @@ struct ARROW_EXPORT ProjectOptions : public FunctionOptions {
 };
 
 /// @}
+
+/// \brief Get the absolute value of a value. Array values can be of arbitrary
+/// length. If argument is null the result will be null.
+///
+/// \param[in] arg the value transformed
+/// \param[in] options arithmetic options (overflow handling), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise absolute value
+ARROW_EXPORT
+Result<Datum> AbsoluteValue(const Datum& arg,
+                            ArithmeticOptions options = ArithmeticOptions(),
+                            ExecContext* ctx = NULLPTR);
 
 /// \brief Add two values together. Array values must be the same length. If
 /// either addend is null the result will be null.

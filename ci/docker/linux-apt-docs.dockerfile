@@ -51,6 +51,7 @@ RUN apt-get update -y && \
         nvidia-cuda-toolkit \
         openjdk-${jdk}-jdk-headless \
         pandoc \
+        r-recommended=${r}* \
         r-base=${r}* \
         rsync \
         ruby-dev \

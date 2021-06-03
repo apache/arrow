@@ -59,11 +59,16 @@ relocate.arrow_dplyr_query <- function(.data, ..., .before = NULL, .after = NULL
   # The code in this function is adapted from the code in dplyr::relocate.data.frame
   # at https://github.com/tidyverse/dplyr/blob/master/R/relocate.R
   # TODO: revisit this after https://github.com/tidyverse/dplyr/issues/5829
-  check_select_helpers(c(enexprs(...), enexpr(.before), enexpr(.after)))
 
   .data <- arrow_dplyr_query(.data)
 
-  to_move <- eval_select(expr(c(...)), .data$selected_columns)
+  # Assign the schema to the expressions
+  map(.data$selected_columns, ~(.$schema <- .data$.data$schema))
+
+  # Create a mask for evaluating expressions in tidyselect helpers
+  mask <- new_environment(.cache$functions, parent = caller_env())
+
+  to_move <- eval_select(substitute(c(...)), .data$selected_columns, mask)
 
   .before <- enquo(.before)
   .after <- enquo(.after)
@@ -73,12 +78,12 @@ relocate.arrow_dplyr_query <- function(.data, ..., .before = NULL, .after = NULL
   if (has_before && has_after) {
     abort("Must supply only one of `.before` and `.after`.")
   } else if (has_before) {
-    where <- min(unname(eval_select(.before, .data$selected_columns)))
+    where <- min(unname(eval_select(quo_get_expr(.before), .data$selected_columns, mask)))
     if (!where %in% to_move) {
       to_move <- c(to_move, where)
     }
   } else if (has_after) {
-    where <- max(unname(eval_select(.after, .data$selected_columns)))
+    where <- max(unname(eval_select(quo_get_expr(.after), .data$selected_columns, mask)))
     if (!where %in% to_move) {
       to_move <- c(where, to_move)
     }

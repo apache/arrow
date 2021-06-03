@@ -16,6 +16,7 @@
 # under the License.
 
 /.yardoc/
+/Gemfile.lock
 /doc/reference/
 /ext/arrow/Makefile
 /ext/arrow/mkmf.log

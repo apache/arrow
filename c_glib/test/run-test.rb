@@ -52,6 +52,11 @@ rescue GObjectIntrospection::RepositoryError::TypelibNotFound
 end
 
 begin
+  ArrowFlight = GI.load("ArrowFlight")
+rescue GObjectIntrospection::RepositoryError::TypelibNotFound
+end
+
+begin
   Gandiva = GI.load("Gandiva")
 rescue GObjectIntrospection::RepositoryError::TypelibNotFound
 end
@@ -76,5 +81,8 @@ require_relative "helper/data-type"
 require_relative "helper/fixture"
 require_relative "helper/omittable"
 require_relative "helper/plasma-store"
+if defined?(ArrowFlight)
+  require_relative "helper/flight-server"
+end
 
 exit(Test::Unit::AutoRunner.run(true, test_dir.to_s))

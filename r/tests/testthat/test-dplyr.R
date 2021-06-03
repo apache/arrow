@@ -25,7 +25,7 @@ tbl <- example_data
 tbl$verses <- verses[[1]]
 # c(" a ", "  b  ", "   c   ", ...) increasing padding
 # nchar =   3  5  7  9 11 13 15 17 19 21
-tbl$padded_strings <- stringr::str_pad(letters[1:10], width = 2*(1:10)+1, side = "both")
+tbl$padded_strings <- stringr::str_pad(letters[1:10], width = 2*(1:10) + 1, side = "both")
 
 test_that("basic select/filter/collect", {
   batch <- record_batch(tbl)
@@ -67,6 +67,7 @@ chr: string
 See $.data for the source Arrow object',
   fixed = TRUE
   )
+  
 })
 
 test_that("summarize", {
@@ -343,21 +344,22 @@ test_that("relocate", {
 })
 
 test_that("relocate with selection helpers", {
+  df <- tibble(a = 1, b = 1, c = 1, d = "a", e = "a", f = "a")
   expect_dplyr_equal(
     input %>% relocate(any_of(c("a", "e", "i", "o", "u"))) %>% collect(),
     df
   )
-  expect_error(
-    df %>% Table$create() %>% relocate(where(is.character)),
-    "Unsupported selection helper"
+  expect_dplyr_equal(
+    input %>% relocate(where(is.character)) %>% collect(),
+    df
   )
-  expect_error(
-    df %>% Table$create() %>% relocate(a, b, c, .after = where(is.character)),
-    "Unsupported selection helper"
+  expect_dplyr_equal(
+    input %>% relocate(a, b, c, .after = where(is.character)) %>% collect(),
+    df
   )
-  expect_error(
-    df %>% Table$create() %>% relocate(d, e, f, .before = where(is.numeric)),
-    "Unsupported selection helper"
+  expect_dplyr_equal(
+    input %>% relocate(d, e, f, .before = where(is.numeric)) %>% collect(),
+    df
   )
 })
 
@@ -503,6 +505,301 @@ test_that("explicit type conversions with as.*()", {
   )
 })
 
+test_that("is.finite(), is.infinite(), is.nan()", {
+  df <- tibble(x =c(-4.94065645841246544e-324, 1.79769313486231570e+308, 0,
+                    NA_real_, NaN, Inf, -Inf))
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        is_fin = is.finite(x),
+        is_inf = is.infinite(x)
+      ) %>% collect(),
+    df
+  )
+  skip("is.nan() evaluates to NA on NA values (ARROW-12850)")
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        is_nan = is.nan(x)
+      ) %>% collect(),
+    df
+  )
+})
+
+test_that("type checks with is() giving Arrow types", {
+  # with class2=DataType
+  expect_equal(
+    Table$create(
+        i32 = Array$create(1, int32()),
+        dec = Array$create(pi)$cast(decimal(3, 2)),
+        f64 = Array$create(1.1, float64()),
+        str = Array$create("a", arrow::string())
+      ) %>% transmute(
+        i32_is_i32 = is(i32, int32()),
+        i32_is_dec = is(i32, decimal(3, 2)),
+        i32_is_i64 = is(i32, float64()),
+        i32_is_str = is(i32, arrow::string()),
+        dec_is_i32 = is(dec, int32()),
+        dec_is_dec = is(dec, decimal(3, 2)),
+        dec_is_i64 = is(dec, float64()),
+        dec_is_str = is(dec, arrow::string()),
+        f64_is_i32 = is(f64, int32()),
+        f64_is_dec = is(f64, decimal(3, 2)),
+        f64_is_i64 = is(f64, float64()),
+        f64_is_str = is(f64, arrow::string()),
+        str_is_i32 = is(str, int32()),
+        str_is_dec = is(str, decimal(3, 2)),
+        str_is_i64 = is(str, float64()),
+        str_is_str = is(str, arrow::string())
+      ) %>%
+      collect() %>% t() %>% as.vector(),
+    c(TRUE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, TRUE,
+      FALSE, FALSE, FALSE, FALSE, TRUE)
+  )
+  # with class2=string
+  expect_equal(
+    Table$create(
+        i32 = Array$create(1, int32()),
+        f64 = Array$create(1.1, float64()),
+        str = Array$create("a", arrow::string())
+      ) %>% transmute(
+        i32_is_i32 = is(i32, "int32"),
+        i32_is_i64 = is(i32, "double"),
+        i32_is_str = is(i32, "string"),
+        f64_is_i32 = is(f64, "int32"),
+        f64_is_i64 = is(f64, "double"),
+        f64_is_str = is(f64, "string"),
+        str_is_i32 = is(str, "int32"),
+        str_is_i64 = is(str, "double"),
+        str_is_str = is(str, "string")
+      ) %>%
+      collect() %>% t() %>% as.vector(),
+    c(TRUE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, TRUE)
+  )
+  # with class2=string alias
+  expect_equal(
+    Table$create(
+        f16 = Array$create(NA_real_, halffloat()),
+        f32 = Array$create(1.1, float()),
+        f64 = Array$create(2.2, float64()),
+        lgl = Array$create(TRUE, bool()),
+        str = Array$create("a", arrow::string())
+      ) %>% transmute(
+        f16_is_f16 = is(f16, "float16"),
+        f16_is_f32 = is(f16, "float32"),
+        f16_is_f64 = is(f16, "float64"),
+        f16_is_lgl = is(f16, "boolean"),
+        f16_is_str = is(f16, "utf8"),
+        f32_is_f16 = is(f32, "float16"),
+        f32_is_f32 = is(f32, "float32"),
+        f32_is_f64 = is(f32, "float64"),
+        f32_is_lgl = is(f32, "boolean"),
+        f32_is_str = is(f32, "utf8"),
+        f64_is_f16 = is(f64, "float16"),
+        f64_is_f32 = is(f64, "float32"),
+        f64_is_f64 = is(f64, "float64"),
+        f64_is_lgl = is(f64, "boolean"),
+        f64_is_str = is(f64, "utf8"),
+        lgl_is_f16 = is(lgl, "float16"),
+        lgl_is_f32 = is(lgl, "float32"),
+        lgl_is_f64 = is(lgl, "float64"),
+        lgl_is_lgl = is(lgl, "boolean"),
+        lgl_is_str = is(lgl, "utf8"),
+        str_is_f16 = is(str, "float16"),
+        str_is_f32 = is(str, "float32"),
+        str_is_f64 = is(str, "float64"),
+        str_is_lgl = is(str, "boolean"),
+        str_is_str = is(str, "utf8")
+      ) %>%
+      collect() %>% t() %>% as.vector(),
+    c(TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE,
+      FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE,
+      FALSE, FALSE, TRUE)
+  )
+})
+
+test_that("type checks with is() giving R types", {
+  library(bit64)
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        chr_is_chr = is(chr, "character"),
+        chr_is_fct = is(chr, "factor"),
+        chr_is_int = is(chr, "integer"),
+        chr_is_i64 = is(chr, "integer64"),
+        chr_is_lst = is(chr, "list"),
+        chr_is_lgl = is(chr, "logical"),
+        chr_is_num = is(chr, "numeric"),
+        dbl_is_chr = is(dbl, "character"),
+        dbl_is_fct = is(dbl, "factor"),
+        dbl_is_int = is(dbl, "integer"),
+        dbl_is_i64 = is(dbl, "integer64"),
+        dbl_is_lst = is(dbl, "list"),
+        dbl_is_lgl = is(dbl, "logical"),
+        dbl_is_num = is(dbl, "numeric"),
+        fct_is_chr = is(fct, "character"),
+        fct_is_fct = is(fct, "factor"),
+        fct_is_int = is(fct, "integer"),
+        fct_is_i64 = is(fct, "integer64"),
+        fct_is_lst = is(fct, "list"),
+        fct_is_lgl = is(fct, "logical"),
+        fct_is_num = is(fct, "numeric"),
+        int_is_chr = is(int, "character"),
+        int_is_fct = is(int, "factor"),
+        int_is_int = is(int, "integer"),
+        int_is_i64 = is(int, "integer64"),
+        int_is_lst = is(int, "list"),
+        int_is_lgl = is(int, "logical"),
+        int_is_num = is(int, "numeric"),
+        lgl_is_chr = is(lgl, "character"),
+        lgl_is_fct = is(lgl, "factor"),
+        lgl_is_int = is(lgl, "integer"),
+        lgl_is_i64 = is(lgl, "integer64"),
+        lgl_is_lst = is(lgl, "list"),
+        lgl_is_lgl = is(lgl, "logical"),
+        lgl_is_num = is(lgl, "numeric")
+      ) %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        i64_is_chr = is(i64, "character"),
+        i64_is_fct = is(i64, "factor"),
+        # we want Arrow to return TRUE, but bit64 returns FALSE
+        #i64_is_int = is(i64, "integer"),
+        i64_is_i64 = is(i64, "integer64"),
+        i64_is_lst = is(i64, "list"),
+        i64_is_lgl = is(i64, "logical"),
+        # we want Arrow to return TRUE, but bit64 returns FALSE
+        #i64_is_num = is(i64, "numeric"),
+        lst_is_chr = is(lst, "character"),
+        lst_is_fct = is(lst, "factor"),
+        lst_is_int = is(lst, "integer"),
+        lst_is_i64 = is(lst, "integer64"),
+        lst_is_lst = is(lst, "list"),
+        lst_is_lgl = is(lst, "logical"),
+        lst_is_num = is(lst, "numeric")
+      ) %>%
+      collect(),
+    tibble(
+      i64 = as.integer64(1:3),
+      lst = list(c("a", "b"), c("d", "e"), c("f", "g"))
+    )
+  )
+})
+
+test_that("type checks with is.*()", {
+  library(bit64)
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        chr_is_chr = is.character(chr),
+        chr_is_dbl = is.double(chr),
+        chr_is_fct = is.factor(chr),
+        chr_is_int = is.integer(chr),
+        chr_is_i64 = is.integer64(chr),
+        chr_is_lst = is.list(chr),
+        chr_is_lgl = is.logical(chr),
+        chr_is_num = is.numeric(chr),
+        dbl_is_chr = is.character(dbl),
+        dbl_is_dbl = is.double(dbl),
+        dbl_is_fct = is.factor(dbl),
+        dbl_is_int = is.integer(dbl),
+        dbl_is_i64 = is.integer64(dbl),
+        dbl_is_lst = is.list(dbl),
+        dbl_is_lgl = is.logical(dbl),
+        dbl_is_num = is.numeric(dbl),
+        fct_is_chr = is.character(fct),
+        fct_is_dbl = is.double(fct),
+        fct_is_fct = is.factor(fct),
+        fct_is_int = is.integer(fct),
+        fct_is_i64 = is.integer64(fct),
+        fct_is_lst = is.list(fct),
+        fct_is_lgl = is.logical(fct),
+        fct_is_num = is.numeric(fct),
+        int_is_chr = is.character(int),
+        int_is_dbl = is.double(int),
+        int_is_fct = is.factor(int),
+        int_is_int = is.integer(int),
+        int_is_i64 = is.integer64(int),
+        int_is_lst = is.list(int),
+        int_is_lgl = is.logical(int),
+        int_is_num = is.numeric(int),
+        lgl_is_chr = is.character(lgl),
+        lgl_is_dbl = is.double(lgl),
+        lgl_is_fct = is.factor(lgl),
+        lgl_is_int = is.integer(lgl),
+        lgl_is_i64 = is.integer64(lgl),
+        lgl_is_lst = is.list(lgl),
+        lgl_is_lgl = is.logical(lgl),
+        lgl_is_num = is.numeric(lgl)
+      ) %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        i64_is_chr = is.character(i64),
+        # TODO: investigate why this is not matching when testthat runs it
+        #i64_is_dbl = is.double(i64),
+        i64_is_fct = is.factor(i64),
+        # we want Arrow to return TRUE, but bit64 returns FALSE
+        #i64_is_int = is.integer(i64),
+        i64_is_i64 = is.integer64(i64),
+        i64_is_lst = is.list(i64),
+        i64_is_lgl = is.logical(i64),
+        i64_is_num = is.numeric(i64),
+        lst_is_chr = is.character(lst),
+        lst_is_dbl = is.double(lst),
+        lst_is_fct = is.factor(lst),
+        lst_is_int = is.integer(lst),
+        lst_is_i64 = is.integer64(lst),
+        lst_is_lst = is.list(lst),
+        lst_is_lgl = is.logical(lst),
+        lst_is_num = is.numeric(lst)
+      ) %>%
+      collect(),
+    tibble(
+      i64 = as.integer64(1:3),
+      lst = list(c("a", "b"), c("d", "e"), c("f", "g"))
+    )
+  )
+})
+
+test_that("type checks with is_*()", {
+  library(rlang)
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        chr_is_chr = is_character(chr),
+        chr_is_dbl = is_double(chr),
+        chr_is_int = is_integer(chr),
+        chr_is_lst = is_list(chr),
+        chr_is_lgl = is_logical(chr),
+        dbl_is_chr = is_character(dbl),
+        dbl_is_dbl = is_double(dbl),
+        dbl_is_int = is_integer(dbl),
+        dbl_is_lst = is_list(dbl),
+        dbl_is_lgl = is_logical(dbl),
+        int_is_chr = is_character(int),
+        int_is_dbl = is_double(int),
+        int_is_int = is_integer(int),
+        int_is_lst = is_list(int),
+        int_is_lgl = is_logical(int),
+        lgl_is_chr = is_character(lgl),
+        lgl_is_dbl = is_double(lgl),
+        lgl_is_int = is_integer(lgl),
+        lgl_is_lst = is_list(lgl),
+        lgl_is_lgl = is_logical(lgl)
+      ) %>%
+      collect(),
+    tbl
+  )
+})
+
 test_that("as.factor()/dictionary_encode()", {
   skip("ARROW-12632: ExecuteScalarExpression cannot Execute non-scalar expression {x=dictionary_encode(x, {NON-REPRESENTABLE OPTIONS})}")
   df1 <- tibble(x = c("C", "D", "B", NA, "D", "B", "S", "A", "B", "Z", "B"))
@@ -593,3 +890,12 @@ test_that("bad explicit type conversions with as.*()", {
   )
 
 })
+
+test_that("No duplicate field names are allowed in an arrow_dplyr_query", {
+  expect_error(
+    Table$create(tbl, tbl) %>%
+      filter(int > 0),
+    regexp = 'The following field names were found more than once in the data: "int", "dbl", "dbl2", "lgl", "false", "chr", "fct", "verses", and "padded_strings"'
+  )
+})
+

@@ -179,6 +179,14 @@ TEST(TestBufferReader, FromStrings) {
   ASSERT_EQ(0, memcmp(piece->data(), data.data() + 2, 4));
 }
 
+TEST(TestBufferReader, FromNullBuffer) {
+  std::shared_ptr<Buffer> buf;
+  BufferReader reader(buf);
+  ASSERT_OK_AND_EQ(0, reader.GetSize());
+  ASSERT_OK_AND_ASSIGN(auto piece, reader.Read(10));
+  ASSERT_EQ(0, piece->size());
+}
+
 TEST(TestBufferReader, Seeking) {
   std::string data = "data123456";
 
@@ -779,8 +787,8 @@ TEST(RangeReadCache, Concurrency) {
       ASSERT_OK(cache.Cache(ranges));
       std::vector<Future<std::shared_ptr<Buffer>>> futures;
       for (const auto& range : ranges) {
-        futures.push_back(cache.WaitFor({range}).Then(
-            [&cache, range](const detail::Empty&) { return cache.Read(range); }));
+        futures.push_back(
+            cache.WaitFor({range}).Then([&cache, range]() { return cache.Read(range); }));
       }
       for (auto fut : futures) {
         ASSERT_FINISHES_OK(fut);
@@ -859,6 +867,16 @@ TEST(CacheOptions, Basics) {
   // TTFB = 5 ms, BW = 500 MiB/s, BW_utilization = 75%, max_ideal_request_size = 5 MiB,
   // we expect the range_size_limit to be capped at 5 MiB.
   check(CacheOptions::MakeFromNetworkMetrics(5, 500, .75, 5), 2.5, 5);
+}
+
+TEST(IOThreadPool, Capacity) {
+  // Simple sanity check
+  auto pool = internal::GetIOThreadPool();
+  int capacity = pool->GetCapacity();
+  ASSERT_GT(capacity, 0);
+  ASSERT_EQ(GetIOThreadPoolCapacity(), capacity);
+  ASSERT_OK(SetIOThreadPoolCapacity(capacity + 1));
+  ASSERT_EQ(GetIOThreadPoolCapacity(), capacity + 1);
 }
 
 }  // namespace io

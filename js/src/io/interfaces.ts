@@ -174,6 +174,6 @@ export class AsyncQueue<TReadable = Uint8Array, TWritable = TReadable> extends R
         if (this._closedPromiseResolve) {
             return true;
         }
-        throw new Error(`${this} is closed`);
+        throw new Error(`AsyncQueue is closed`);
     }
 }

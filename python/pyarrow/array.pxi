@@ -537,7 +537,8 @@ def _normalize_slice(object arrow_obj, slice key):
         indices = np.arange(start, stop, step)
         return arrow_obj.take(indices)
     else:
-        return arrow_obj.slice(start, stop - start)
+        length = max(stop - start, 0)
+        return arrow_obj.slice(start, length)
 
 
 cdef Py_ssize_t _normalize_index(Py_ssize_t index,
@@ -1103,6 +1104,8 @@ cdef class Array(_PandasConvertible):
         if length is None:
             result = self.ap.Slice(offset)
         else:
+            if length < 0:
+                raise ValueError('Length must be non-negative')
             result = self.ap.Slice(offset, length)
 
         return pyarrow_wrap_array(result)
@@ -1118,6 +1121,14 @@ cdef class Array(_PandasConvertible):
         Select values from an array. See pyarrow.compute.filter for full usage.
         """
         return _pc().filter(self, mask, null_selection_behavior)
+
+    def index(self, value, start=None, end=None, *, memory_pool=None):
+        """
+        Find the first index of a value.
+
+        See pyarrow.compute.index for full usage.
+        """
+        return _pc().index(self, value, start, end, memory_pool=memory_pool)
 
     def _to_pandas(self, options, **kwargs):
         return _array_like_to_pandas(self, options)

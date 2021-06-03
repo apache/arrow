@@ -291,10 +291,27 @@ def test_parquet_write_disable_statistics(tempdir):
 
 def test_field_id_metadata():
     # ARROW-7080
-    table = pa.table([pa.array([1], type='int32'),
-                      pa.array([[]], type=pa.list_(pa.int32())),
-                      pa.array([b'boo'], type='binary')],
-                     ['f0', 'f1', 'f2'])
+    field_id = b'PARQUET:field_id'
+    inner = pa.field('inner', pa.int32(), metadata={field_id: b'100'})
+    middle = pa.field('middle', pa.struct(
+        [inner]), metadata={field_id: b'101'})
+    fields = [
+        pa.field('basic', pa.int32(), metadata={
+                 b'other': b'abc', field_id: b'1'}),
+        pa.field(
+            'list',
+            pa.list_(pa.field('list-inner', pa.int32(),
+                              metadata={field_id: b'10'})),
+            metadata={field_id: b'11'}),
+        pa.field('struct', pa.struct([middle]), metadata={field_id: b'102'}),
+        pa.field('no-metadata', pa.int32()),
+        pa.field('non-integral-field-id', pa.int32(),
+                 metadata={field_id: b'xyz'}),
+        pa.field('negative-field-id', pa.int32(),
+                 metadata={field_id: b'-1000'})
+    ]
+    arrs = [[] for _ in fields]
+    table = pa.table(arrs, schema=pa.schema(fields))
 
     bio = pa.BufferOutputStream()
     pq.write_table(table, bio)
@@ -303,28 +320,29 @@ def test_field_id_metadata():
     pf = pq.ParquetFile(pa.BufferReader(contents))
     schema = pf.schema_arrow
 
-    # Expected Parquet schema for reference
-    #
-    # required group field_id=0 schema {
-    #   optional int32 field_id=1 f0;
-    #   optional group field_id=2 f1 (List) {
-    #     repeated group field_id=3 list {
-    #       optional int32 field_id=4 item;
-    #     }
-    #   }
-    #   optional binary field_id=5 f2;
-    # }
-
-    field_name = b'PARQUET:field_id'
-    assert schema[0].metadata[field_name] == b'1'
+    assert schema[0].metadata[field_id] == b'1'
+    assert schema[0].metadata[b'other'] == b'abc'
 
     list_field = schema[1]
-    assert list_field.metadata[field_name] == b'2'
+    assert list_field.metadata[field_id] == b'11'
 
     list_item_field = list_field.type.value_field
-    assert list_item_field.metadata[field_name] == b'4'
+    assert list_item_field.metadata[field_id] == b'10'
 
-    assert schema[2].metadata[field_name] == b'5'
+    struct_field = schema[2]
+    assert struct_field.metadata[field_id] == b'102'
+
+    struct_middle_field = struct_field.type[0]
+    assert struct_middle_field.metadata[field_id] == b'101'
+
+    struct_inner_field = struct_middle_field.type[0]
+    assert struct_inner_field.metadata[field_id] == b'100'
+
+    assert schema[3].metadata is None
+    # Invalid input is passed through (ok) but does not
+    # have field_id in parquet (not tested)
+    assert schema[4].metadata[field_id] == b'xyz'
+    assert schema[5].metadata[field_id] == b'-1000'
 
 
 @pytest.mark.pandas

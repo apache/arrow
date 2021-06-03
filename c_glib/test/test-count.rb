@@ -19,27 +19,14 @@ class TestCount < Test::Unit::TestCase
   include Helper::Buildable
   include Helper::Omittable
 
-  sub_test_case("CountOptions") do
-    def test_default_mode
-      assert_equal(Arrow::CountMode::ALL,
-                   Arrow::CountOptions.new.mode)
-    end
-  end
-
-  sub_test_case("mode") do
+  sub_test_case("skip_nulls") do
     def test_default
       assert_equal(2, build_int32_array([1, nil, 3]).count)
     end
 
-    def test_all
-      options = Arrow::CountOptions.new
-      options.mode = :all
-      assert_equal(2, build_int32_array([1, nil, 3]).count(options))
-    end
-
-    def test_null
-      options = Arrow::CountOptions.new
-      options.mode = :null
+    def test_false
+      options = Arrow::ScalarAggregateOptions.new
+      options.skip_nulls = false
       assert_equal(1, build_int32_array([1, nil, 3]).count(options))
     end
   end

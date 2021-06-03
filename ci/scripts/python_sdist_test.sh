@@ -42,10 +42,16 @@ export PYARROW_WITH_DATASET=${ARROW_DATASET:-OFF}
 # unset ARROW_HOME
 # apt purge -y pkg-config
 
+# ARROW-12619
+if command -v git &> /dev/null; then
+  echo "Git exists, remove it from PATH before executing this script."
+  exit 1
+fi
+
 if [ -n "${PYARROW_VERSION:-}" ]; then
   sdist="${arrow_dir}/python/dist/pyarrow-${PYARROW_VERSION}.tar.gz"
 else
-  sdist=$(ls "${arrow_dir}/python/dist/pyarrow-*.tar.gz" | sort -r | head -n1)
+  sdist=$(ls ${arrow_dir}/python/dist/pyarrow-*.tar.gz | sort -r | head -n1)
 fi
 ${PYTHON:-python} -m pip install ${sdist}
 
