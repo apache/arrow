@@ -71,7 +71,7 @@ jobs:
           shell: bash
           env:
             RTOOLS_VERSION: 35
-          run: arrow/ci/scripts/r_windows_build.sh
+          run: cd arrow && arrow/ci/scripts/r_windows_build.sh
         - uses: actions/upload-artifact@v1
           with:
             name: Rtools 35 Arrow C++
