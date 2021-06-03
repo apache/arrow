@@ -91,11 +91,12 @@ jobs:
         - name: Check
           shell: Rscript {0}
           run: |
+            setwd("arrow")
             Sys.setenv(
               RWINLIB_LOCAL = file.path(Sys.getenv("GITHUB_WORKSPACE"), "libarrow.zip"),
               MAKEFLAGS = paste0("-j", parallel::detectCores())
             )
-            rcmdcheck::rcmdcheck("arrow/r",
+            rcmdcheck::rcmdcheck("r",
                                 build_args = '--no-build-vignettes',
                                 args = c('--no-manual', '--as-cran', '--ignore-vignettes', '--run-donttest'),
                                 error_on = 'warning',
@@ -104,5 +105,5 @@ jobs:
             )
         - name: Dump install logs
           shell: cmd
-          run: cat check/arrow.Rcheck/00install.out
+          run: cat arrow/check/arrow.Rcheck/00install.out
           if: always()
