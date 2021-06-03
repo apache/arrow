@@ -16,6 +16,7 @@
 // under the License.
 
 #include <gtest/gtest.h>
+#include <llvm/ExecutionEngine/GenericValue.h>
 
 #include <functional>
 
@@ -137,10 +138,14 @@ TEST_F(TestEngine, TestAddInterpreted) {
 
   llvm::Function* ir_func = BuildVecAdd(engine.get());
   ASSERT_OK(engine->FinalizeModule());
-  void* res = engine->CompiledFunction(ir_func);
-  auto add_func = reinterpret_cast<add_vector_func_t>(res);
+  llvm::ExecutionEngine& execution_engine = engine->execution_engine();
 
   int64_t my_array[] = {1, 3, -5, 8, 10};
-  EXPECT_EQ(add_func(my_array, 5), 17);
+  std::vector<llvm::GenericValue> arguments(2);
+  arguments[0].PointerVal = my_array;
+  arguments[1].IntVal = llvm::APInt(32, 5);
+
+  const llvm::GenericValue& result = execution_engine.runFunction(ir_func, arguments);
+  EXPECT_EQ(result.IntVal, 17);
 }
 }  // namespace gandiva

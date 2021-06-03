@@ -67,6 +67,8 @@ class GANDIVA_EXPORT Engine {
   /// Return the generated IR for the module.
   std::string DumpIR();
 
+  llvm::ExecutionEngine& execution_engine() { return *execution_engine_; }
+
  private:
   Engine(const std::shared_ptr<Configuration>& conf,
          std::unique_ptr<llvm::LLVMContext> ctx,
@@ -76,8 +78,6 @@ class GANDIVA_EXPORT Engine {
   Status Init();
 
   static void InitOnce();
-
-  llvm::ExecutionEngine& execution_engine() { return *execution_engine_; }
 
   /// load pre-compiled IR modules from precompiled_bitcode.cc and merge them into
   /// the main module.
