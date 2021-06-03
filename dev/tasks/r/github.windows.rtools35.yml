@@ -81,7 +81,7 @@ jobs:
         - uses: actions/upload-artifact@v1
           with:
             name: Rtools 35 Arrow C++
-            path: libarrow.zip
+            path: arrow/libarrow.zip
         - name: Install R package dependencies
           shell: Rscript {0}
           run: |
