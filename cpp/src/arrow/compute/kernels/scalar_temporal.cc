@@ -46,9 +46,9 @@ using internal::applicator::ScalarUnaryNotNull;
 using internal::applicator::SimpleUnary;
 
 // Based on ScalarUnaryNotNullStateful. Adds timezone awareness.
-template <typename OutType, typename Op>
+template <typename Op, typename OutType>
 struct ScalarUnaryStatefulTemporal {
-  using ThisType = ScalarUnaryStatefulTemporal<OutType, Op>;
+  using ThisType = ScalarUnaryStatefulTemporal<Op, OutType>;
   using OutValue = typename internal::GetOutputType<OutType>::T;
 
   Op op;
@@ -108,13 +108,13 @@ struct ScalarUnaryStatefulTemporal {
   }
 };
 
-template <typename OutType, typename Op>
+template <typename Op, typename OutType>
 struct ScalarUnaryTemporal {
   using OutValue = typename internal::GetOutputType<OutType>::T;
 
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     // Seed kernel with dummy state
-    ScalarUnaryStatefulTemporal<OutType, Op> kernel({});
+    ScalarUnaryStatefulTemporal<Op, OutType> kernel({});
     return kernel.Exec(ctx, batch, out);
   }
 };
@@ -319,8 +319,8 @@ struct Nanosecond {
   }
 };
 
-template <typename Duration, typename T>
-inline std::vector<T> get_iso_calendar(int64_t arg) {
+template <typename Duration>
+inline std::vector<int64_t> get_iso_calendar(int64_t arg) {
   const auto t = floor<days>(sys_time<Duration>(Duration{arg}));
   const auto ymd = year_month_day(t);
   auto y = year_month_day{t + days{3}}.year();
@@ -329,22 +329,17 @@ inline std::vector<T> get_iso_calendar(int64_t arg) {
     --y;
     start = sys_time<days>((y - years{1}) / dec / thu[last]) + (mon - thu);
   }
-  return {static_cast<T>(static_cast<int32_t>(ymd.year())),
-          static_cast<T>(trunc<weeks>(t - start).count() + 1),
-          static_cast<T>(weekday(ymd).iso_encoding())};
+  return {static_cast<int64_t>(static_cast<int32_t>(ymd.year())),
+          static_cast<int64_t>(trunc<weeks>(t - start).count() + 1),
+          static_cast<int64_t>(weekday(ymd).iso_encoding())};
 }
 
 // ----------------------------------------------------------------------
 // Extract ISO calendar values from timestamp
 
-template <typename Duration, typename OutType>
+template <typename Duration>
 struct ISOCalendar {
-  using T = typename OutType::c_type;
-
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
-    using ScalarType = typename TypeTraits<OutType>::ScalarType;
-    const auto& out_type = TypeTraits<OutType>::type_singleton();
-
     const std::string timezone =
         checked_pointer_cast<const TimestampType>(in.type)->timezone();
     if (!timezone.empty()) {
@@ -354,15 +349,15 @@ struct ISOCalendar {
 
     if (in.is_valid) {
       const std::shared_ptr<DataType> iso_calendar_type =
-          struct_({field("iso_year", out_type), field("iso_week", out_type),
-                   field("day_of_week", out_type)});
+          struct_({field("iso_year", int64()), field("iso_week", int64()),
+                   field("day_of_week", int64())});
       const auto& in_val = internal::UnboxScalar<const TimestampType>::Unbox(in);
-      const auto iso_calendar = get_iso_calendar<Duration, T>(in_val);
+      const auto iso_calendar = get_iso_calendar<Duration>(in_val);
 
       std::vector<std::shared_ptr<Scalar>> values = {
-          std::make_shared<ScalarType>(iso_calendar[0]),
-          std::make_shared<ScalarType>(iso_calendar[1]),
-          std::make_shared<ScalarType>(iso_calendar[2])};
+          std::make_shared<Int64Scalar>(iso_calendar[0]),
+          std::make_shared<Int64Scalar>(iso_calendar[1]),
+          std::make_shared<Int64Scalar>(iso_calendar[2])};
       *checked_cast<StructScalar*>(out) = StructScalar(values, iso_calendar_type);
     } else {
       out->is_valid = false;
@@ -371,19 +366,16 @@ struct ISOCalendar {
   }
 
   static Status Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
-    using BuilderType = typename TypeTraits<OutType>::BuilderType;
-    const auto& out_type = TypeTraits<OutType>::type_singleton();
-
+    using BuilderType = typename TypeTraits<Int64Type>::BuilderType;
     const std::string timezone =
         checked_pointer_cast<const TimestampType>(in.type)->timezone();
     if (!timezone.empty()) {
       return Status::Invalid("Timezone aware timestamps not supported. Timezone found: ",
                              timezone);
     }
-
     const std::shared_ptr<DataType> iso_calendar_type =
-        struct_({field("iso_year", out_type), field("iso_week", out_type),
-                 field("day_of_week", out_type)});
+        struct_({field("iso_year", int64()), field("iso_week", int64()),
+                 field("day_of_week", int64())});
 
     std::unique_ptr<ArrayBuilder> array_builder;
     RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), iso_calendar_type, &array_builder));
@@ -399,13 +391,13 @@ struct ISOCalendar {
     }
     auto visit_null = [&]() { return struct_builder->AppendNull(); };
     auto visit_value = [&](int64_t arg) {
-      const auto iso_calendar = get_iso_calendar<Duration, T>(arg);
+      const auto iso_calendar = get_iso_calendar<Duration>(arg);
       field_builders[0]->UnsafeAppend(iso_calendar[0]);
       field_builders[1]->UnsafeAppend(iso_calendar[1]);
       field_builders[2]->UnsafeAppend(iso_calendar[2]);
       return struct_builder->Append();
     };
-    RETURN_NOT_OK(VisitArrayDataInline<OutType>(in, visit_value, visit_null));
+    RETURN_NOT_OK(VisitArrayDataInline<Int64Type>(in, visit_value, visit_null));
 
     std::shared_ptr<Array> out_array;
     RETURN_NOT_OK(struct_builder->Finish(&out_array));
@@ -415,111 +407,64 @@ struct ISOCalendar {
   }
 };
 
-// Generate a kernel given an arithmetic functor
-template <template <typename... Args> class KernelGenerator,
-          template <typename... Args> class Op, typename Duration>
-ArrayKernelExec ExecFromOp(internal::detail::GetTypeId get_id) {
-  switch (get_id.id) {
-    case Type::INT8:
-      return KernelGenerator<Int8Type, Op<Duration>>::Exec;
-    case Type::UINT8:
-      return KernelGenerator<UInt8Type, Op<Duration>>::Exec;
-    case Type::INT16:
-      return KernelGenerator<Int16Type, Op<Duration>>::Exec;
-    case Type::UINT16:
-      return KernelGenerator<UInt16Type, Op<Duration>>::Exec;
-    case Type::INT32:
-      return KernelGenerator<Int32Type, Op<Duration>>::Exec;
-    case Type::UINT32:
-      return KernelGenerator<UInt32Type, Op<Duration>>::Exec;
-    case Type::INT64:
-    case Type::TIMESTAMP:
-      return KernelGenerator<Int64Type, Op<Duration>>::Exec;
-    case Type::UINT64:
-      return KernelGenerator<UInt64Type, Op<Duration>>::Exec;
-    case Type::FLOAT:
-      return KernelGenerator<FloatType, Op<Duration>>::Exec;
-    case Type::DOUBLE:
-      return KernelGenerator<DoubleType, Op<Duration>>::Exec;
-    default:
-      DCHECK(false);
-      return internal::ExecFail;
-  }
-}
-
-template <template <typename...> class Op>
-std::shared_ptr<ScalarFunction> MakeTemporalFunction(
-    std::string name, const FunctionDoc* doc,
-    std::vector<std::shared_ptr<DataType>> types) {
+template <template <typename...> class Op, typename OutType>
+std::shared_ptr<ScalarFunction> MakeTemporal(std::string name, const FunctionDoc* doc) {
+  const auto& out_type = TypeTraits<OutType>::type_singleton();
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
 
-  for (auto ty : types) {
-    for (auto unit : internal::AllTimeUnits()) {
-      ArrayKernelExec exec;
-      switch (unit) {
-        case TimeUnit::SECOND: {
-          exec = ExecFromOp<ScalarUnaryTemporal, Op, std::chrono::seconds>(ty);
-        }
-        case TimeUnit::MILLI: {
-          exec = ExecFromOp<ScalarUnaryTemporal, Op, std::chrono::milliseconds>(ty);
-        }
-        case TimeUnit::MICRO: {
-          exec = ExecFromOp<ScalarUnaryTemporal, Op, std::chrono::microseconds>(ty);
-        }
-        case TimeUnit::NANO: {
-          exec = ExecFromOp<ScalarUnaryTemporal, Op, std::chrono::nanoseconds>(ty);
-        }
+  for (auto unit : internal::AllTimeUnits()) {
+    InputType in_type(match::TimestampTypeUnit(unit));
+    switch (unit) {
+      case TimeUnit::SECOND: {
+        auto exec = ScalarUnaryTemporal<Op<std::chrono::seconds>, OutType>::Exec;
+        DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec)));
       }
-      ScalarKernel kernel =
-          ScalarKernel({match::TimestampTypeUnit(unit)}, OutputType(ty), exec);
-      DCHECK_OK(func->AddKernel(kernel));
+      case TimeUnit::MILLI: {
+        auto exec = ScalarUnaryTemporal<Op<std::chrono::milliseconds>, OutType>::Exec;
+        DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec)));
+      }
+      case TimeUnit::MICRO: {
+        auto exec = ScalarUnaryTemporal<Op<std::chrono::microseconds>, OutType>::Exec;
+        DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec)));
+      }
+      case TimeUnit::NANO: {
+        auto exec = ScalarUnaryTemporal<Op<std::chrono::nanoseconds>, OutType>::Exec;
+        DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec)));
+      }
     }
   }
   return func;
 }
 
-// Generate a kernel given an arithmetic functor
-template <template <typename... Args> class Op, typename Duration>
-ArrayKernelExec SimpleUnaryFromOp(internal::detail::GetTypeId get_id) {
-  switch (get_id.id) {
-    case Type::INT32:
-      return SimpleUnary<Op<Duration, Int32Type>>;
-    case Type::INT64:
-      return SimpleUnary<Op<Duration, Int64Type>>;
-    default:
-      DCHECK(false);
-      return internal::ExecFail;
-  }
-}
-
 template <template <typename...> class Op>
-std::shared_ptr<ScalarFunction> MakeSimpleUnaryTemporalFunction(
-    std::string name, const FunctionDoc* doc,
-    std::vector<std::shared_ptr<DataType>> types) {
+std::shared_ptr<ScalarFunction> MakeSimpleTemporal(std::string name,
+                                                   const FunctionDoc* doc) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
+  auto output_type = struct_({field("iso_year", int64()), field("iso_week", int64()),
+                              field("day_of_week", int64())});
 
-  for (auto ty : types) {
-    for (auto unit : internal::AllTimeUnits()) {
-      ArrayKernelExec exec;
-      switch (unit) {
-        case TimeUnit::SECOND: {
-          exec = SimpleUnaryFromOp<Op, std::chrono::seconds>(ty);
-        }
-        case TimeUnit::MILLI: {
-          exec = SimpleUnaryFromOp<Op, std::chrono::milliseconds>(ty);
-        }
-        case TimeUnit::MICRO: {
-          exec = SimpleUnaryFromOp<Op, std::chrono::microseconds>(ty);
-        }
-        case TimeUnit::NANO: {
-          exec = SimpleUnaryFromOp<Op, std::chrono::nanoseconds>(ty);
-        }
+  for (auto unit : internal::AllTimeUnits()) {
+    switch (unit) {
+      case TimeUnit::SECOND: {
+        auto exec = SimpleUnary<Op<std::chrono::seconds>>;
+        DCHECK_OK(func->AddKernel({match::TimestampTypeUnit(unit)},
+                                  OutputType(output_type), std::move(exec)));
       }
-      auto output_type = struct_(
-          {field("iso_year", ty), field("iso_week", ty), field("day_of_week", ty)});
-      ScalarKernel kernel =
-          ScalarKernel({match::TimestampTypeUnit(unit)}, OutputType(output_type), exec);
-      DCHECK_OK(func->AddKernel(kernel));
+      case TimeUnit::MILLI: {
+        auto exec = SimpleUnary<Op<std::chrono::milliseconds>>;
+        DCHECK_OK(func->AddKernel({match::TimestampTypeUnit(unit)},
+                                  OutputType(output_type), std::move(exec)));
+      }
+      case TimeUnit::MICRO: {
+        auto exec = SimpleUnary<Op<std::chrono::microseconds>>;
+        DCHECK_OK(func->AddKernel({match::TimestampTypeUnit(unit)},
+                                  OutputType(output_type), std::move(exec)));
+      }
+      case TimeUnit::NANO: {
+        auto exec = SimpleUnary<Op<std::chrono::nanoseconds>>;
+        DCHECK_OK(func->AddKernel({match::TimestampTypeUnit(unit)},
+                                  OutputType(output_type), std::move(exec)));
+      }
     }
   }
   return func;
@@ -612,77 +557,57 @@ const FunctionDoc subsecond_doc{
     "Returns an error if timestamp has a defined timezone. Null values return null.",
     {"values"}};
 
-
 }  // namespace
 
 void RegisterScalarTemporal(FunctionRegistry* registry) {
-  static std::vector<std::shared_ptr<DataType>> kUnsignedFloatTypes8 = {
-      uint8(), int8(),   uint16(), int16(),   uint32(),
-      int32(), uint64(), int64(),  float32(), float64()};
-  static std::vector<std::shared_ptr<DataType>> kUnsignedIntegerTypes8 = {
-      uint8(), int8(), uint16(), int16(), uint32(), int32(), uint64(), int64()};
-  static std::vector<std::shared_ptr<DataType>> kUnsignedIntegerTypes16 = {
-      uint16(), int16(), uint32(), int32(), uint64(), int64()};
-  static std::vector<std::shared_ptr<DataType>> kUnsignedIntegerTypes32 = {
-      uint32(), int32(), uint64(), int64()};
-  static std::vector<std::shared_ptr<DataType>> kSignedIntegerTypes = {int32(), int64()};
-
-  auto year = MakeTemporalFunction<Year>("year", &year_doc, kSignedIntegerTypes);
+  auto year = MakeTemporal<Year, Int64Type>("year", &year_doc);
   DCHECK_OK(registry->AddFunction(std::move(year)));
 
-  auto month = MakeTemporalFunction<Month>("month", &year_doc, kUnsignedIntegerTypes32);
+  auto month = MakeTemporal<Month, Int64Type>("month", &year_doc);
   DCHECK_OK(registry->AddFunction(std::move(month)));
 
-  auto day = MakeTemporalFunction<Day>("day", &year_doc, kUnsignedIntegerTypes32);
+  auto day = MakeTemporal<Day, Int64Type>("day", &year_doc);
   DCHECK_OK(registry->AddFunction(std::move(day)));
 
-  auto day_of_week = MakeTemporalFunction<DayOfWeek>("day_of_week", &day_of_week_doc,
-                                                     kUnsignedIntegerTypes8);
+  auto day_of_week = MakeTemporal<DayOfWeek, Int64Type>("day_of_week", &day_of_week_doc);
   DCHECK_OK(registry->AddFunction(std::move(day_of_week)));
 
-  auto day_of_year = MakeTemporalFunction<DayOfYear>("day_of_year", &day_of_year_doc,
-                                                     kUnsignedIntegerTypes16);
+  auto day_of_year = MakeTemporal<DayOfYear, Int64Type>("day_of_year", &day_of_year_doc);
   DCHECK_OK(registry->AddFunction(std::move(day_of_year)));
 
-  auto iso_year =
-      MakeTemporalFunction<ISOYear>("iso_year", &iso_year_doc, kSignedIntegerTypes);
+  auto iso_year = MakeTemporal<ISOYear, Int64Type>("iso_year", &iso_year_doc);
   DCHECK_OK(registry->AddFunction(std::move(iso_year)));
 
-  auto iso_week =
-      MakeTemporalFunction<ISOWeek>("iso_week", &iso_week_doc, kUnsignedIntegerTypes8);
+  auto iso_week = MakeTemporal<ISOWeek, Int64Type>("iso_week", &iso_week_doc);
   DCHECK_OK(registry->AddFunction(std::move(iso_week)));
 
-  auto iso_calendar = MakeSimpleUnaryTemporalFunction<ISOCalendar>(
-      "iso_calendar", &iso_calendar_doc, kSignedIntegerTypes);
+  auto iso_calendar = MakeSimpleTemporal<ISOCalendar>("iso_calendar", &iso_calendar_doc);
   DCHECK_OK(registry->AddFunction(std::move(iso_calendar)));
 
-  auto quarter =
-      MakeTemporalFunction<Quarter>("quarter", &quarter_doc, kUnsignedIntegerTypes32);
+  auto quarter = MakeTemporal<Quarter, Int64Type>("quarter", &quarter_doc);
   DCHECK_OK(registry->AddFunction(std::move(quarter)));
 
-  auto hour = MakeTemporalFunction<Hour>("hour", &hour_doc, kUnsignedIntegerTypes8);
+  auto hour = MakeTemporal<Hour, Int64Type>("hour", &hour_doc);
   DCHECK_OK(registry->AddFunction(std::move(hour)));
 
-  auto minute =
-      MakeTemporalFunction<Minute>("minute", &minute_doc, kUnsignedIntegerTypes8);
+  auto minute = MakeTemporal<Minute, Int64Type>("minute", &minute_doc);
   DCHECK_OK(registry->AddFunction(std::move(minute)));
 
-  auto second = MakeTemporalFunction<Second>("second", &second_doc, kUnsignedFloatTypes8);
+  auto second = MakeTemporal<Second, DoubleType>("second", &second_doc);
   DCHECK_OK(registry->AddFunction(std::move(second)));
 
-  auto millisecond = MakeTemporalFunction<Millisecond>("millisecond", &millisecond_doc,
-                                                       kUnsignedIntegerTypes16);
+  auto millisecond =
+      MakeTemporal<Millisecond, Int64Type>("millisecond", &millisecond_doc);
   DCHECK_OK(registry->AddFunction(std::move(millisecond)));
 
-  auto microsecond = MakeTemporalFunction<Microsecond>("microsecond", &microsecond_doc,
-                                                       kUnsignedIntegerTypes16);
+  auto microsecond =
+      MakeTemporal<Microsecond, Int64Type>("microsecond", &microsecond_doc);
   DCHECK_OK(registry->AddFunction(std::move(microsecond)));
 
-  auto nanosecond = MakeTemporalFunction<Nanosecond>("nanosecond", &nanosecond_doc,
-                                                     kUnsignedIntegerTypes16);
+  auto nanosecond = MakeTemporal<Nanosecond, Int64Type>("nanosecond", &nanosecond_doc);
   DCHECK_OK(registry->AddFunction(std::move(nanosecond)));
-  auto subsecond = MakeTemporalFunction<Subsecond>("subsecond", &subsecond_doc,
-                                                   kUnsignedIntegerTypes16);
+
+  auto subsecond = MakeTemporal<Subsecond, Int64Type>("subsecond", &subsecond_doc);
   DCHECK_OK(registry->AddFunction(std::move(subsecond)));
 }
 
