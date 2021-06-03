@@ -347,7 +347,7 @@ class ReaderMixin {
             "either file is too short or header is larger than block size");
       }
       if (count_rows_) {
-        num_rows_seen_ = num_skipped_rows;
+        num_rows_seen_ += num_skipped_rows;
       }
     }
 
