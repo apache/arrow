@@ -92,6 +92,8 @@ def test_cython_api(tmpdir):
         # Create setup.py file
         if os.name == 'posix':
             compiler_opts = ['-std=c++17']
+        elif os.name == 'nt':
+            compiler_opts = ['/std:c++17']
         else:
             compiler_opts = []
         setup_code = setup_template.format(pyx_file=pyx_file,
