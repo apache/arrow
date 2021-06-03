@@ -58,7 +58,7 @@ def make_random_csv(num_cols=2, num_rows=10, linesep='\r\n', write_names=True):
     col_names = list(itertools.islice(generate_col_names(), num_cols))
     if write_names:
         csv.write(",".join(col_names))
-    csv.write(linesep)
+        csv.write(linesep)
     for row in arr.T:
         csv.write(",".join(map(str, row)))
         csv.write(linesep)
