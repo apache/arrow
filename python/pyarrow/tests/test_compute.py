@@ -213,10 +213,12 @@ def test_sum_array(arrow_type):
     arr = pa.array([None], type=arrow_type)
     assert arr.sum().as_py() is None  # noqa: E711
     assert pc.sum(arr).as_py() is None  # noqa: E711
+    assert arr.sum(min_count=0).as_py() == 0
     assert pc.sum(arr, min_count=0).as_py() == 0
 
     arr = pa.array([], type=arrow_type)
     assert arr.sum().as_py() is None  # noqa: E711
+    assert arr.sum(min_count=0).as_py() == 0
     assert pc.sum(arr, min_count=0).as_py() == 0
 
 

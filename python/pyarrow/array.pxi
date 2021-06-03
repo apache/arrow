@@ -836,11 +836,12 @@ cdef class Array(_PandasConvertible):
             result = GetResultValue(self.ap.View(type.sp_type))
         return pyarrow_wrap_array(result)
 
-    def sum(self):
+    def sum(self, **kwargs):
         """
         Sum the values in a numerical array.
         """
-        return _pc().call_function('sum', [self])
+        options = _pc().ScalarAggregateOptions(**kwargs)
+        return _pc().call_function('sum', [self], options)
 
     def unique(self):
         """
