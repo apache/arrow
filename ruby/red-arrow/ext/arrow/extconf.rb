@@ -25,6 +25,8 @@ if arrow_pkg_config_path
   ENV["PKG_CONFIG_PATH"] = pkg_config_paths.join(File::PATH_SEPARATOR)
 end
 
+$CXXFLAGS += " -std=c++17 "
+
 unless required_pkg_config_package([
                                      "arrow",
                                      Arrow::Version::MAJOR,
