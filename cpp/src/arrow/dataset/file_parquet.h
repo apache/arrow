@@ -234,7 +234,11 @@ class ARROW_DS_EXPORT ParquetFileWriteOptions : public FileWriteOptions {
   /// \brief Parquet Arrow writer properties.
   std::shared_ptr<parquet::ArrowWriterProperties> arrow_writer_properties;
 
-  using FileWriteOptions::FileWriteOptions;
+ protected:
+  explicit ParquetFileWriteOptions(std::shared_ptr<FileFormat> format)
+      : FileWriteOptions(std::move(format)) {}
+
+  friend class ParquetFileFormat;
 };
 
 class ARROW_DS_EXPORT ParquetFileWriter : public FileWriter {
