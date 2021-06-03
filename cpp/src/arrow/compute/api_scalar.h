@@ -465,5 +465,21 @@ ARROW_EXPORT
 Result<Datum> FillNull(const Datum& values, const Datum& fill_value,
                        ExecContext* ctx = NULLPTR);
 
+/// \brief IfElse returns elements chosen from `left` or `right`
+/// depending on `cond`. `null` values in `cond` will be promoted to the result
+///
+/// \param[in] cond `Boolean` condition Scalar/ Array
+/// \param[in] left Scalar/ Array
+/// \param[in] right Scalar/ Array
+/// \param[in] ctx the function execution context, optional
+///
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> IfElse(const Datum& cond, const Datum& left, const Datum& right,
+                     ExecContext* ctx = NULLPTR);
+
 }  // namespace compute
 }  // namespace arrow

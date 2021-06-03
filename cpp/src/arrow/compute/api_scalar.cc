@@ -157,5 +157,10 @@ Result<Datum> FillNull(const Datum& values, const Datum& fill_value, ExecContext
   return CallFunction("fill_null", {values, fill_value}, ctx);
 }
 
+Result<Datum> IfElse(const Datum& cond, const Datum& if_true, const Datum& if_false,
+                     ExecContext* ctx) {
+  return CallFunction("if_else", {cond, if_true, if_false}, ctx);
+}
+
 }  // namespace compute
 }  // namespace arrow

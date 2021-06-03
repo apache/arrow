@@ -222,6 +222,7 @@ Structural Transforms
 
    binary_length
    fill_null
+   if_else
    is_finite
    is_inf
    is_nan

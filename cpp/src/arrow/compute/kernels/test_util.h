@@ -19,13 +19,14 @@
 
 // IWYU pragma: begin_exports
 
+#include <gmock/gmock.h>
+
 #include <memory>
 #include <string>
 #include <vector>
 
-#include <gmock/gmock.h>
-
 #include "arrow/array.h"
+#include "arrow/compute/kernel.h"
 #include "arrow/datum.h"
 #include "arrow/memory_pool.h"
 #include "arrow/pretty_print.h"
@@ -33,8 +34,6 @@
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
-
-#include "arrow/compute/kernel.h"
 
 // IWYU pragma: end_exports
 
@@ -89,6 +88,14 @@ struct DatumEqual<Type, enable_if_integer<Type>> {
     }
   }
 };
+
+void CheckScalar(std::string func_name, const ScalarVector& inputs,
+                 std::shared_ptr<Scalar> expected,
+                 const FunctionOptions* options = nullptr);
+
+void CheckScalar(std::string func_name, const ArrayVector& inputs,
+                 std::shared_ptr<Array> expected,
+                 const FunctionOptions* options = nullptr);
 
 void CheckScalarUnary(std::string func_name, std::shared_ptr<DataType> in_ty,
                       std::string json_input, std::shared_ptr<DataType> out_ty,
