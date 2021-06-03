@@ -64,7 +64,7 @@ func (pbad *PlainByteArrayDecoder) Decode(out []parquet.ByteArray) (int, error) 
 			return i, xerrors.New("parquet: eof reading bytearray")
 		}
 
-		out[i] = pbad.data[4 : byteLen+4]
+		out[i] = pbad.data[4 : byteLen+4 : byteLen+4]
 		pbad.data = pbad.data[byteLen+4:]
 	}
 
