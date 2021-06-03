@@ -735,23 +735,52 @@ std::string MakeLikeRegex(const MatchSubstringOptions& options) {
   return like_pattern;
 }
 
+// A LIKE pattern matching this regex can be translated into a substring search.
+static RE2 kLikePatternIsSubstringMatch(R"(%+([^%_]*[^\\%_])?%+)");
+// A LIKE pattern matching this regex can be translated into a prefix search.
+static RE2 kLikePatternIsStartsWith(R"(([^%_]*[^\\%_])?%+)");
+// A LIKE pattern matching this regex can be translated into a suffix search.
+static RE2 kLikePatternIsEndsWith(R"(%+([^%_]*))");
+
 // Evaluate a SQL-like LIKE pattern by translating it to a regexp or
 // substring search as appropriate. See what Apache Impala does:
 // https://github.com/apache/impala/blob/9c38568657d62b6f6d7b10aa1c721ba843374dd8/be/src/exprs/like-predicate.cc
-// Note we don't optimize regex matches to substring matches like Impala does (see the
-// MatchLikeEscaping test)
 template <typename StringType>
 struct MatchLike {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     auto original_options = MatchSubstringState::Get(ctx);
     auto original_state = ctx->state();
 
-    MatchSubstringOptions converted_options{MakeLikeRegex(original_options),
-                                            original_options.ignore_case};
-    MatchSubstringState converted_state(converted_options);
-    ctx->SetState(&converted_state);
-    auto status =
-        MatchSubstring<StringType, RegexSubstringMatcher>::Exec(ctx, batch, out);
+    Status status;
+    std::string pattern;
+    if (!original_options.ignore_case &&
+        re2::RE2::FullMatch(original_options.pattern, kLikePatternIsSubstringMatch,
+                            &pattern)) {
+      MatchSubstringOptions converted_options{pattern, original_options.ignore_case};
+      MatchSubstringState converted_state(converted_options);
+      ctx->SetState(&converted_state);
+      status = MatchSubstring<StringType, PlainSubstringMatcher>::Exec(ctx, batch, out);
+    } else if (!original_options.ignore_case &&
+               re2::RE2::FullMatch(original_options.pattern, kLikePatternIsStartsWith,
+                                   &pattern)) {
+      MatchSubstringOptions converted_options{pattern, original_options.ignore_case};
+      MatchSubstringState converted_state(converted_options);
+      ctx->SetState(&converted_state);
+      status = MatchSubstring<StringType, PlainStartsWithMatcher>::Exec(ctx, batch, out);
+    } else if (!original_options.ignore_case &&
+               re2::RE2::FullMatch(original_options.pattern, kLikePatternIsEndsWith,
+                                   &pattern)) {
+      MatchSubstringOptions converted_options{pattern, original_options.ignore_case};
+      MatchSubstringState converted_state(converted_options);
+      ctx->SetState(&converted_state);
+      status = MatchSubstring<StringType, PlainEndsWithMatcher>::Exec(ctx, batch, out);
+    } else {
+      MatchSubstringOptions converted_options{MakeLikeRegex(original_options),
+                                              original_options.ignore_case};
+      MatchSubstringState converted_state(converted_options);
+      ctx->SetState(&converted_state);
+      status = MatchSubstring<StringType, RegexSubstringMatcher>::Exec(ctx, batch, out);
+    }
     ctx->SetState(original_state);
     return status;
   }
