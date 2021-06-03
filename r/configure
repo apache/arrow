@@ -196,6 +196,7 @@ if [ "$ARROW_R_CXXFLAGS" ]; then
 fi
 
 # Test configuration
+CXXCPP="`${R_HOME}/bin/R CMD config CXX17` -E"
 CXX17FLAGS=`"${R_HOME}"/bin/R CMD config CXX17FLAGS`
 CXX17STD=`"${R_HOME}"/bin/R CMD config CXX17STD`
 CPPFLAGS=`"${R_HOME}"/bin/R CMD config CPPFLAGS`
