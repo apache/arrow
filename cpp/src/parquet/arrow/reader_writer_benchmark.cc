@@ -35,6 +35,7 @@
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/logging.h"
 
