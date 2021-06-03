@@ -1877,9 +1877,9 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CScalarAggregateOptions \
             "arrow::compute::ScalarAggregateOptions"(CFunctionOptions):
-        CScalarAggregateOptions(c_bool skip_nulls, int64_t min_count)
+        CScalarAggregateOptions(c_bool skip_nulls, uint32_t min_count)
         c_bool skip_nulls
-        int64_t min_count
+        uint32_t min_count
 
     cdef cppclass CModeOptions \
             "arrow::compute::ModeOptions"(CFunctionOptions):
