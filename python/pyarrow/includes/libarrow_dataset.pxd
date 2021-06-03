@@ -305,31 +305,35 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CResult[CExpression] Parse(const c_string & path) const
         const shared_ptr[CSchema] & schema()
 
-    enum SegmentEncoding" arrow::dataset::SegmentEncoding":
-        SegmentEncoding_NONE" arrow::dataset::SegmentEncoding::None"
-        SegmentEncoding_URI" arrow::dataset::SegmentEncoding::Uri"
+    cdef cppclass CSegmentEncoding" arrow::dataset::SegmentEncoding":
+        pass
+
+    CSegmentEncoding CSegmentEncodingNone\
+        " arrow::dataset::SegmentEncoding::None"
+    CSegmentEncoding CSegmentEncodingUri\
+        " arrow::dataset::SegmentEncoding::Uri"
 
     cdef cppclass CKeyValuePartitioningOptions \
             "arrow::dataset::KeyValuePartitioningOptions":
-        SegmentEncoding segment_encoding
+        CSegmentEncoding segment_encoding
 
     cdef cppclass CHivePartitioningOptions \
             "arrow::dataset::HivePartitioningOptions":
-        SegmentEncoding segment_encoding
+        CSegmentEncoding segment_encoding
         c_string null_fallback
 
     cdef cppclass CPartitioningFactoryOptions \
             "arrow::dataset::PartitioningFactoryOptions":
         c_bool infer_dictionary
         shared_ptr[CSchema] schema
-        SegmentEncoding segment_encoding
+        CSegmentEncoding segment_encoding
 
     cdef cppclass CHivePartitioningFactoryOptions \
             "arrow::dataset::HivePartitioningFactoryOptions":
         c_bool infer_dictionary
         c_string null_fallback
         shared_ptr[CSchema] schema
-        SegmentEncoding segment_encoding
+        CSegmentEncoding segment_encoding
 
     cdef cppclass CPartitioningFactory "arrow::dataset::PartitioningFactory":
         pass

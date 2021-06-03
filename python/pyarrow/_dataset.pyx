@@ -85,11 +85,11 @@ cdef CFileSource _make_file_source(object file, FileSystem filesystem=None):
     return c_source
 
 
-cdef SegmentEncoding _get_segment_encoding(str segment_encoding):
+cdef CSegmentEncoding _get_segment_encoding(str segment_encoding):
     if segment_encoding == "none":
-        return SegmentEncoding_NONE
+        return CSegmentEncodingNone
     elif segment_encoding == "uri":
-        return SegmentEncoding_URI
+        return CSegmentEncodingUri
     raise ValueError(f"Unknown segment encoding: {segment_encoding}")
 
 
