@@ -941,6 +941,7 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
                          uint8_t*, uint8_t*)>;
 
   using ResizeImpl = std::function<Status(BufferBuilder*, int64_t)>;
+  using BitmapResizeImpl = std::function<Status(TypedBufferBuilder<bool>*, int64_t)>;
 
   template <typename CType>
   static ResizeImpl MakeResizeImpl(CType anti_extreme) {
@@ -949,6 +950,15 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
       TypedBufferBuilder<CType> typed_builder(std::move(*builder));
       RETURN_NOT_OK(typed_builder.Append(added_groups, anti_extreme));
       *builder = std::move(*typed_builder.bytes_builder());
+      return Status::OK();
+    };
+  }
+
+  template <typename CType>
+  static BitmapResizeImpl MakeResizeImplForBitmap(CType anti_extreme) {
+    // resize a bitmap buffer, storing the correct anti extreme
+    return [anti_extreme](TypedBufferBuilder<bool>* builder, int64_t added_groups) {
+      RETURN_NOT_OK(builder->Append(added_groups, anti_extreme));
       return Status::OK();
     };
   }
@@ -1000,8 +1010,8 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
 
     mins_ = BufferBuilder(ctx->memory_pool());
     maxes_ = BufferBuilder(ctx->memory_pool());
-    has_values_ = BufferBuilder(ctx->memory_pool());
-    has_nulls_ = BufferBuilder(ctx->memory_pool());
+    has_values_ = TypedBufferBuilder<bool>(ctx->memory_pool());
+    has_nulls_ = TypedBufferBuilder<bool>(ctx->memory_pool());
 
     GetImpl get_impl;
     RETURN_NOT_OK(VisitTypeInline(*input_type, &get_impl));
@@ -1009,7 +1019,7 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
     consume_impl_ = std::move(get_impl.consume_impl);
     resize_min_impl_ = std::move(get_impl.resize_min_impl);
     resize_max_impl_ = std::move(get_impl.resize_max_impl);
-    resize_bitmap_impl_ = MakeResizeImpl(false);
+    resize_bitmap_impl_ = MakeResizeImplForBitmap(false);
 
     return Status::OK();
   }
@@ -1056,10 +1066,12 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
   }
 
   int64_t num_groups_;
-  BufferBuilder mins_, maxes_, has_values_, has_nulls_;
+  BufferBuilder mins_, maxes_;
+  TypedBufferBuilder<bool> has_values_, has_nulls_;
   std::shared_ptr<DataType> type_;
   ConsumeImpl consume_impl_;
-  ResizeImpl resize_min_impl_, resize_max_impl_, resize_bitmap_impl_;
+  ResizeImpl resize_min_impl_, resize_max_impl_;
+  BitmapResizeImpl resize_bitmap_impl_;
   ScalarAggregateOptions options_;
 };
 
