@@ -31,7 +31,7 @@ on:
 
 jobs:
   windows-rtools35:
-    name: "AMD64 Windows R 3.6 RTools 35"
+    - name: "AMD64 Windows R 3.6 RTools 35"
       runs-on: windows-latest
       timeout-minutes: 60
       strategy:
