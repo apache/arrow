@@ -55,11 +55,11 @@ jobs:
         run: |
           ci/scripts/ccache_setup.sh
           echo "CCACHE_DIR=$(cygpath --absolute --windows ccache)" >> $GITHUB_ENV
-          # We must enable actions/cache before r-lib/actions/setup-r to ensure
-          # using system tar instead of tar provided by Rtools.
-          # We can use tar provided by Rtools when we drop support for Rtools 3.5.
-          # Because Rtools 4.0 or later has zstd. actions/cache requires zstd
-          # when tar is GNU tar.
+        # We must enable actions/cache before r-lib/actions/setup-r to ensure
+        # using system tar instead of tar provided by Rtools.
+        # We can use tar provided by Rtools when we drop support for Rtools 3.5.
+        # Because Rtools 4.0 or later has zstd. actions/cache requires zstd
+        # when tar is GNU tar.
       - name: Cache ccache
         uses: actions/cache@v2
         with:
