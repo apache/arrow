@@ -94,13 +94,15 @@ jobs:
             MAKEFLAGS = paste0("-j", parallel::detectCores())
           )
           rcmdcheck::rcmdcheck("r",
-                               build_args = '--no-build-vignettes',
-                               args = c('--no-manual', '--as-cran', '--ignore-vignettes', '--run-donttest'),
-                               error_on = 'warning',
-                               check_dir = 'check',
-                               timeout = 3600
+             build_args = '--no-build-vignettes',
+             args = c('--no-manual', '--as-cran', '--ignore-vignettes', '--run-donttest'),
+             error_on = 'warning',
+             check_dir = 'check',
+             timeout = 3600
           )
       - name: Dump install logs
         shell: cmd
         run: cat check/arrow.Rcheck/00install.out
         if: always()
+        
+        
