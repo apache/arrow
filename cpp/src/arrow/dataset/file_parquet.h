@@ -222,7 +222,8 @@ class ARROW_DS_EXPORT ParquetFragmentScanOptions : public FragmentScanOptions {
   /// EXPERIMENTAL: Parallelize conversion across columns. This option is ignored if a
   /// scan is already parallelized across input files to avoid thread contention. This
   /// option will be removed after support is added for simultaneous parallelization
-  /// across files and columns.
+  /// across files and columns. Only affects the threaded reader; the async reader
+  /// will parallelize across columns if use_threads is enabled.
   bool enable_parallel_column_conversion = false;
 };
 

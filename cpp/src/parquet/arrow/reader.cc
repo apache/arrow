@@ -298,9 +298,9 @@ class FileReaderImpl : public FileReader {
   Status DecodeRowGroups(const std::vector<int>& row_groups,
                          const std::vector<int>& indices, std::shared_ptr<Table>* table);
   // Async equivalent helper for the generator reader.
-  Future<std::shared_ptr<Table>> DecodeRowGroups(std::shared_ptr<FileReaderImpl> self,
-                                                 const std::vector<int>& row_groups,
-                                                 const std::vector<int>& column_indices);
+  Future<std::shared_ptr<Table>> DecodeRowGroups(
+      std::shared_ptr<FileReaderImpl> self, const std::vector<int>& row_groups,
+      const std::vector<int>& column_indices, ::arrow::internal::Executor* cpu_executor);
 
   Status ReadRowGroups(const std::vector<int>& row_groups,
                        std::shared_ptr<Table>* table) override {
@@ -1014,7 +1014,7 @@ class RowGroupGenerator {
     // TODO(ARROW-12916): always transfer here
     if (cpu_executor_) ready = cpu_executor_->Transfer(ready);
     return ready.Then([=]() -> ::arrow::Future<RecordBatchGenerator> {
-      return ReadOneRowGroup(reader, row_group, column_indices);
+      return ReadOneRowGroup(cpu_executor_, reader, row_group, column_indices);
     });
   }
 
@@ -1027,15 +1027,19 @@ class RowGroupGenerator {
   static ::arrow::Future<RecordBatchGenerator> SubmitRead(
       ::arrow::internal::Executor* cpu_executor, std::shared_ptr<FileReaderImpl> self,
       const int row_group, const std::vector<int>& column_indices) {
-    // TODO: cpu_executor needs to get passed all the way through
-    return ReadOneRowGroup(self, row_group, column_indices);
+    if (!cpu_executor) {
+      return ReadOneRowGroup(cpu_executor, self, row_group, column_indices);
+    }
+    // If we have an executor, then force transfer (even if I/O was complete)
+    return ::arrow::DeferNotOk(cpu_executor->Submit(ReadOneRowGroup, cpu_executor, self,
+                                                    row_group, column_indices));
   }
 
   static ::arrow::Future<RecordBatchGenerator> ReadOneRowGroup(
-      std::shared_ptr<FileReaderImpl> self, const int row_group,
-      const std::vector<int>& column_indices) {
+      ::arrow::internal::Executor* cpu_executor, std::shared_ptr<FileReaderImpl> self,
+      const int row_group, const std::vector<int>& column_indices) {
     // Skips bound checks/pre-buffering, since we've done that already
-    return self->DecodeRowGroups(self, {row_group}, column_indices)
+    return self->DecodeRowGroups(self, {row_group}, column_indices, cpu_executor)
         .Then([](const std::shared_ptr<Table>& table)
                   -> ::arrow::Result<RecordBatchGenerator> {
           auto table_reader = std::make_shared<::arrow::TableBatchReader>(*table);
@@ -1137,11 +1141,13 @@ Status FileReaderImpl::DecodeRowGroups(const std::vector<int>& row_groups,
 
 Future<std::shared_ptr<Table>> FileReaderImpl::DecodeRowGroups(
     std::shared_ptr<FileReaderImpl> self, const std::vector<int>& row_groups,
-    const std::vector<int>& column_indices) {
+    const std::vector<int>& column_indices, ::arrow::internal::Executor* cpu_executor) {
   std::vector<std::shared_ptr<ColumnReaderImpl>> readers;
   std::shared_ptr<::arrow::Schema> result_schema;
   RETURN_NOT_OK(GetFieldReaders(column_indices, row_groups, &readers, &result_schema));
 
+  // OptionalParallelForAsync requires an executor
+  if (!cpu_executor) cpu_executor = ::arrow::internal::GetCpuThreadPool();
   return ::arrow::internal::OptionalParallelForAsync(
              reader_properties_.use_threads(), std::move(readers),
              [row_groups, self](int i, std::shared_ptr<ColumnReaderImpl> reader)
@@ -1150,7 +1156,8 @@ Future<std::shared_ptr<Table>> FileReaderImpl::DecodeRowGroups(
                RETURN_NOT_OK(self->ReadColumn(static_cast<int>(i), row_groups,
                                               reader.get(), &column));
                return column;
-             })
+             },
+             cpu_executor)
       .Then([result_schema, row_groups, self](const ::arrow::ChunkedArrayVector& columns)
                 -> ::arrow::Result<std::shared_ptr<Table>> {
         int64_t num_rows = 0;
