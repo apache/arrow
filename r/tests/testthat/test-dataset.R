@@ -1511,4 +1511,10 @@ test_that("Error if no format specified and files are not parquet", {
     "Did you mean to specify a 'format' other than the default (parquet)?",
     fixed = TRUE
   )
+  expect_failure(
+    expect_error(
+      open_dataset(csv_dir, partitioning = "part", format = "parquet"),
+      "Did you mean to specify a 'format'"
+    )
+  )
 })
