@@ -106,6 +106,27 @@
 #' \dontrun{open_dataset(tf2)}
 #' # This line will work
 #' open_dataset(tf2, format = "ipc") 
+#' 
+#' ## You can specify file partitioning to include it as a field in your dataset
+#' # Create a temporary directory and write example dataset
+#' tf3 <- tempfile()
+#' dir.create(tf3)
+#' on.exit(unlink(tf3))
+#' write_dataset(airquality, tf3, partitioning = c("Month", "Day"), hive_style = FALSE)
+#' 
+#' # View files - you can see the partitioning means that files have been written 
+#' # to folders based on Month/Day values
+#' list.files(tf3, recursive = TRUE)
+#' 
+#' # With no partitioning specified, dataset contains all files but doesn't include
+#' # directory names as field names
+#' open_dataset(tf3)
+#' 
+#' # Create a Schema which specifies the field names for the folders, in order
+#' md_schema <- schema(Month = int8(), Day = int8())
+#' 
+#' # Now that partitioning has been specified, your dataset contains columns for Month and Day
+#' open_dataset(tf3, partitioning = md_schema)
 open_dataset <- function(sources,
                          schema = NULL,
                          partitioning = hive_partition(),
