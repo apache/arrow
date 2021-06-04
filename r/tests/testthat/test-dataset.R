@@ -1508,6 +1508,7 @@ test_that("Error if no format specified and files are not parquet", {
   skip_if_not_available("parquet")
   expect_error(
     open_dataset(csv_dir, partitioning = "part"),
-    regexp = "Did you mean to specify a 'format'? other than the default (parquet)?"
+    "Did you mean to specify a 'format' other than the default (parquet)?",
+    fixed = TRUE
   )
 })
