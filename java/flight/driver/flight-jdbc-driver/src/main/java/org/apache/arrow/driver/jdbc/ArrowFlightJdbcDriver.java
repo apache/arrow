@@ -25,6 +25,7 @@ import java.security.cert.CertificateException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Properties;
+
 import org.apache.arrow.util.Preconditions;
 import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.DriverVersion;
@@ -61,9 +62,9 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
 
       try {
         connection = new ArrowFlightConnection(this, factory, url, info);
-      } catch (KeyStoreException | NoSuchAlgorithmException
-          | CertificateException | IOException | NumberFormatException
-          | URISyntaxException e) {
+      } catch (KeyStoreException | NoSuchAlgorithmException |
+              CertificateException | IOException | NumberFormatException |
+              URISyntaxException e) {
         e.printStackTrace();
       }
     }
@@ -94,7 +95,7 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
    *          The url to parse.
    * @return the parsed arguments.
    */
-  private final String[] getUrlsArgs(String url) {
+  private String[] getUrlsArgs(String url) {
     assert Preconditions.checkNotNull(url).startsWith(getConnectStringPrefix());
     return url.substring(getConnectStringPrefix().length()).split(":");
   }

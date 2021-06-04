@@ -19,6 +19,7 @@ package org.apache.arrow.driver.jdbc;
 
 import java.sql.Connection;
 import java.util.List;
+
 import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.MetaImpl;
 import org.apache.calcite.avatica.MissingResultsException;
@@ -125,7 +126,7 @@ public class ArrowFlightMetaImpl extends MetaImpl {
     return null;
   }
 
-  private final void setDefaultConnectionProperties() {
+  private void setDefaultConnectionProperties() {
     connProps.setAutoCommit(false).setReadOnly(false)
         .setTransactionIsolation(Connection.TRANSACTION_NONE);
     connProps.setDirty(false);
