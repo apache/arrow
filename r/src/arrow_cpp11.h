@@ -141,7 +141,6 @@ struct data {
   static SEXP classes_ordered;
 
   static SEXP names_metadata;
-  static SEXP empty_raw;
 };
 
 struct ns {
