@@ -18,14 +18,29 @@
 package org.apache.arrow.driver.jdbc.test;
 
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Properties;
 
+import com.google.common.base.Strings;
+import org.apache.arrow.driver.jdbc.ArrowFlightClient;
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver;
+import org.apache.arrow.flight.CallStatus;
+import org.apache.arrow.flight.FlightProducer;
 import org.apache.arrow.flight.FlightRuntimeException;
+import org.apache.arrow.flight.FlightServer;
+import org.apache.arrow.flight.auth2.BasicCallHeaderAuthenticator;
+import org.apache.arrow.flight.auth2.CallHeaderAuthenticator;
+import org.apache.arrow.flight.auth2.GeneratedBearerTokenAuthenticator;
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.RootAllocator;
+import org.apache.calcite.avatica.org.apache.http.auth.UsernamePasswordCredentials;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -63,51 +78,61 @@ public class ConnectionTest {
     this.serverUrl = CONNECTION_PREFIX + LOCALHOST + ":"  + this.server.getPort();
 
     Class.forName("org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver");
-    goodUrl = "jdbc:arrow-flight://localhost:32010";
-    badUrl = "jdbc:mysql://localhost:3306"; // Not from Arrow Flight.
   }
 
   /**
    * Checks if an unencrypted connection can be established successfully when
-   * the provided arguments are valid.
+   * the provided valid credentials.
    *
-   * @throws ClassNotFoundException
-   *           when the class can not be loaded.
-   * @throws SQLException
-   *           on error.
+   * @throws SQLException on error.
    */
   @Test
-  public void testUnencryptedConnectionShouldOpenSuccessfullyWhenProvidedWithGoodArgs()
-      throws SQLException {
+  public void testUnencryptedConnectionShouldOpenSuccessfullyWhenProvidedValidCredentials()
+          throws SQLException {
     Properties properties = new Properties();
 
-    // Insert good (valid) args here.
-    properties.put("user", "flight");
-    properties.put("pass", "flight123");
-
-    // Attempt to establish a connection to the Arrow Flight server.
-    Connection connection = DriverManager.getConnection(goodUrl, properties);
+    properties.put("user", USERNAME_1);
+    properties.put("pass", PASSWORD_1);
+    Connection connection = DriverManager.getConnection(serverUrl, properties);
     assertFalse(connection.isClosed());
-    connection.close();
+  }
+
+  /**
+   * Try to instantiate a basic FlightClient.
+   *
+   * @throws URISyntaxException on error.
+   */
+  @Test
+  public void testGetBasicClient() throws URISyntaxException {
+    URI address = new URI("jdbc",
+            USERNAME_1+ ":" + PASSWORD_1,
+            LOCALHOST, this.server.getPort(),
+            null, null, null);
+
+    UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(
+            USERNAME_1, PASSWORD_1);
+
+    ArrowFlightClient client = ArrowFlightClient.getBasicClient(allocator, address, credentials, null);
+
+    assertNotNull(client);
   }
 
   /**
    * Check if an unencrypted connection throws an exception when provided with
-   * bad arguments for properties.
+   * invalid credentials.
    *
    * @throws SQLException
    *           The exception expected to be thrown.
    */
   @Test(expected = FlightRuntimeException.class)
-  public void testUnencryptedConnectionShouldThrowExceptionWhenProvidedWithBadArgs()
-      throws SQLException {
+  public void testUnencryptedConnectionShouldThrowExceptionWhenProvidedWithInvalidCredentials()
+          throws SQLException {
 
     Properties properties = new Properties();
 
-    properties.put("user", "_baduser");
-    properties.put("pass", "_badpass");
-
-    DriverManager.getConnection(goodUrl, properties);
+    properties.put("user", USERNAME_INVALID);
+    properties.put("pass", PASSWORD_INVALID);
+    DriverManager.getConnection(serverUrl, properties);
   }
 
   /**
