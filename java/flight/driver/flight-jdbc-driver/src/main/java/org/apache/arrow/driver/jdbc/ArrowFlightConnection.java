@@ -43,8 +43,6 @@ public final class ArrowFlightConnection extends AvaticaConnection {
   private static final BufferAllocator allocator = new RootAllocator(
       Integer.MAX_VALUE);
 
-  // TODO Use this later to run queries.
-  @SuppressWarnings("unused")
   private ArrowFlightClient client;
 
   private final Map<Integer, ArrowFlightStatement> statementMap = new HashMap<>();
@@ -55,6 +53,15 @@ public final class ArrowFlightConnection extends AvaticaConnection {
       IOException, NumberFormatException, URISyntaxException {
     super(driver, factory, url, info);
     loadClient();
+  }
+
+  /**
+   * Gets the Flight Client.
+   *
+   * @return the {@link ArrowFlightClient} wrapped by this.
+   */
+  protected ArrowFlightClient getClient() {
+    return client;
   }
 
   /**

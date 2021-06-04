@@ -61,14 +61,30 @@ public final class ArrowFlightClient {
 
   private final FlightClient client;
 
-  // TODO This will be used later in order to run queries.
-  @SuppressWarnings("unused")
   private final CredentialCallOption properties;
 
   private ArrowFlightClient(FlightClient client,
       CredentialCallOption properties) {
     this.client = client;
     this.properties = properties;
+  }
+
+  /**
+   * Gets the Arrow Flight Client.
+   *
+   * @return the {@link FlightClient} wrapped by this.
+   */
+  protected FlightClient getClient() {
+    return client;
+  }
+
+  /**
+   * Gets the bearer token for the client wrapped by this.
+   *
+   * @return the {@link CredentialCallOption} of this client.
+   */
+  protected CredentialCallOption getProperties() {
+    return properties;
   }
 
   /**
