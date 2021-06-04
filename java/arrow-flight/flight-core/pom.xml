@@ -233,8 +233,8 @@
           <execution>
             <id>src</id>
             <configuration>
-              <protoSourceRoot>${basedir}/../../../format/</protoSourceRoot>
-              <outputDirectory>${project.build.directory}/generated-sources/protobuf</outputDirectory>
+              <protoSourceRoot>../../../format</protoSourceRoot>
+              <outputDirectory>target/generated-sources/protobuf</outputDirectory>
             </configuration>
             <goals>
               <goal>compile</goal>
@@ -244,7 +244,7 @@
           <execution>
             <id>test</id>
             <configuration>
-              <protoSourceRoot>${basedir}/src/test/protobuf</protoSourceRoot>
+              <protoSourceRoot>src/test/protobuf</protoSourceRoot>
               <outputDirectory>${project.build.directory}/generated-test-sources//protobuf</outputDirectory>
             </configuration>
             <goals>
