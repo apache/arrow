@@ -34,10 +34,15 @@ import org.junit.Test;
  */
 public class ConnectionTest {
 
-  private String goodUrl;
-
-  @SuppressWarnings("unused")
-  private String badUrl; // TODO Test cases with this later.
+  private BufferAllocator allocator;
+  private FlightServer server;
+  private static final String CONNECTION_PREFIX = "jdbc:arrow-flight://";
+  public static final String LOCALHOST = "localhost";
+  private static final String USERNAME_1 = "flight1";
+  private static final String PASSWORD_1 = "woohoo1";
+  private static final String USERNAME_INVALID = "bad";
+  private static final String PASSWORD_INVALID = "wrong";
+  private static String serverUrl;
 
   /**
    * Setup for all tests.
@@ -46,7 +51,17 @@ public class ConnectionTest {
    *           If the {@link ArrowFlightJdbcDriver} cannot be loaded.
    */
   @Before
-  public void setUp() throws ClassNotFoundException {
+  public void setUp() throws ClassNotFoundException, IOException {
+    allocator = new RootAllocator(Long.MAX_VALUE);
+    final FlightProducer flightProducer = FlightTestUtils.getFlightProducer();
+    this.server = FlightTestUtils.getStartedServer((location -> FlightServer
+            .builder(allocator, location, flightProducer)
+            .headerAuthenticator(new GeneratedBearerTokenAuthenticator(
+                    new BasicCallHeaderAuthenticator(this::validate)))
+            .build()
+    ));
+    this.serverUrl = CONNECTION_PREFIX + LOCALHOST + ":"  + this.server.getPort();
+
     Class.forName("org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver");
     goodUrl = "jdbc:arrow-flight://localhost:32010";
     badUrl = "jdbc:mysql://localhost:3306"; // Not from Arrow Flight.
