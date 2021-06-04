@@ -73,7 +73,6 @@ SEXP data::classes_arrow_fixed_size_list = precious(cpp11::writable::strings(
     {"arrow_fixed_size_list", "vctrs_list_of", "vctrs_vctr", "list"}));
 
 SEXP data::names_metadata = precious(cpp11::writable::strings({"attributes", "columns"}));
-SEXP data::empty_raw = precious(Rf_allocVector(RAWSXP, 0));
 
 SEXP ns::arrow = precious(r_namespace("arrow"));
 
