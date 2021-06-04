@@ -43,7 +43,8 @@ struct ArithmeticOptions : public FunctionOptions {
 };
 
 struct ARROW_EXPORT ElementWiseAggregateOptions : public FunctionOptions {
-  ElementWiseAggregateOptions() : skip_nulls(true) {}
+  explicit ElementWiseAggregateOptions(bool skip_nulls = true) : skip_nulls(skip_nulls) {}
+  static ElementWiseAggregateOptions Defaults() { return ElementWiseAggregateOptions{}; }
   bool skip_nulls;
 };
 
@@ -266,9 +267,10 @@ Result<Datum> Power(const Datum& left, const Datum& right,
 /// \param[in] ctx the function execution context, optional
 /// \return the element-wise maximum
 ARROW_EXPORT
-Result<Datum> ElementWiseMax(const std::vector<Datum>& args,
-                             ElementWiseAggregateOptions options = {},
-                             ExecContext* ctx = NULLPTR);
+Result<Datum> ElementWiseMax(
+    const std::vector<Datum>& args,
+    ElementWiseAggregateOptions options = ElementWiseAggregateOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
 
 /// \brief Find the element-wise minimum of any number of arrays or scalars.
 /// Array values must be the same length.
@@ -278,9 +280,10 @@ Result<Datum> ElementWiseMax(const std::vector<Datum>& args,
 /// \param[in] ctx the function execution context, optional
 /// \return the element-wise minimum
 ARROW_EXPORT
-Result<Datum> ElementWiseMin(const std::vector<Datum>& args,
-                             ElementWiseAggregateOptions options = {},
-                             ExecContext* ctx = NULLPTR);
+Result<Datum> ElementWiseMin(
+    const std::vector<Datum>& args,
+    ElementWiseAggregateOptions options = ElementWiseAggregateOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
 
 /// \brief Compare a numeric array with a scalar.
 ///

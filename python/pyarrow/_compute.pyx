@@ -650,6 +650,23 @@ class CastOptions(_CastOptions):
         return self
 
 
+cdef class _ElementWiseAggregateOptions(FunctionOptions):
+    cdef:
+        unique_ptr[CElementWiseAggregateOptions] element_wise_aggregate_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.element_wise_aggregate_options.get()
+
+    def _set_options(self, bint skip_nulls):
+        self.element_wise_aggregate_options.reset(
+            new CElementWiseAggregateOptions(skip_nulls))
+
+
+class ElementWiseAggregateOptions(_ElementWiseAggregateOptions):
+    def __init__(self, bint skip_nulls=True):
+        self._set_options(skip_nulls)
+
+
 cdef class _MatchSubstringOptions(FunctionOptions):
     cdef:
         unique_ptr[CMatchSubstringOptions] match_substring_options
