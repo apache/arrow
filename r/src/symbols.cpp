@@ -36,7 +36,9 @@ SEXP symbols::create = Rf_install("create");
 
 // persistently protect `x` and return it
 SEXP precious(SEXP x) {
+  PROTECT(x);
   R_PreserveObject(x);
+  UNPROTECT(1);
   return x;
 }
 
