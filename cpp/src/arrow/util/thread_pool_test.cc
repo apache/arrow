@@ -32,6 +32,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/status.h"
+#include "arrow/testing/executor_util.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/io_util.h"
@@ -288,7 +289,7 @@ TEST_F(TransferTest, TransferAlways) {
   {
     Future<> fut = Future<>::Make();
     fut.MarkFinished();
-    auto transferred = executor()->Transfer(fut, /*always_transfer=*/true);
+    auto transferred = executor()->TransferAlways(fut);
     ASSERT_FINISHES_OK(transferred);
     ASSERT_EQ(1, spawn_count());
   }

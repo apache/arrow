@@ -245,7 +245,7 @@ class ConcreteFutureImpl : public FutureImpl {
     CallbackRecord callback_record{std::move(callback), opts};
     if (IsFutureFinished(state_)) {
       lock.unlock();
-      RunOrScheduleCallback(std::move(callback_record), /*from_unfinished=*/false);
+      RunOrScheduleCallback(std::move(callback_record), /*in_add_callback=*/true);
     } else {
       callbacks_.push_back(std::move(callback_record));
     }
@@ -263,30 +263,29 @@ class ConcreteFutureImpl : public FutureImpl {
     }
   }
 
-  bool ShouldSchedule(const CallbackRecord& callback_record, bool from_unfinished) {
+  bool ShouldSchedule(const CallbackRecord& callback_record, bool in_add_callback) {
     switch (callback_record.options.should_schedule) {
       case ShouldSchedule::Never:
         return false;
       case ShouldSchedule::Always:
         return true;
       case ShouldSchedule::IfUnfinished:
-        return from_unfinished;
+        return !in_add_callback;
       default:
         DCHECK(false) << "Unrecognized ShouldSchedule option";
         return false;
     }
   }
 
-  void RunOrScheduleCallback(CallbackRecord&& callback_record, bool from_unfinished) {
-    if (ShouldSchedule(callback_record, from_unfinished)) {
+  void RunOrScheduleCallback(CallbackRecord&& callback_record, bool in_add_callback) {
+    if (ShouldSchedule(callback_record, in_add_callback)) {
       struct CallbackTask {
         void operator()() { std::move(callback)(*self); }
 
         Callback callback;
         std::shared_ptr<FutureImpl> self;
       };
-      // Need to make a copy of `this` via `shared_from_this` to keep it alive until the
-      // callback has a chance to be scheduled.
+      // Need to keep `this` alive until the callback has a chance to be scheduled.
       CallbackTask task{std::move(callback_record.callback), shared_from_this()};
       DCHECK_OK(callback_record.options.executor->Spawn(std::move(task)));
     } else {
@@ -316,7 +315,7 @@ class ConcreteFutureImpl : public FutureImpl {
     // In fact, it is important not to hold the locks because the callback
     // may be slow or do its own locking on other resources
     for (auto& callback_record : callbacks_) {
-      RunOrScheduleCallback(std::move(callback_record), /*from_unfinished=*/true);
+      RunOrScheduleCallback(std::move(callback_record), /*in_add_callback=*/false);
     }
     callbacks_.clear();
   }

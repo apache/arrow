@@ -215,7 +215,7 @@ enum ShouldSchedule {
 
 /// \brief Options that control how a continuation is run
 struct CallbackOptions {
-  /// Describes whether the callback should be run synchronously or scheduled
+  /// Describe whether the callback should be run synchronously or scheduled
   ShouldSchedule should_schedule = ShouldSchedule::Never;
   /// If the callback is scheduled then this is the executor it should be scheduled
   /// on.  If this is NULL then should_schedule must be Never
@@ -240,6 +240,10 @@ class ARROW_EXPORT FutureImpl : public std::enable_shared_from_this<FutureImpl> 
   void MarkFailed();
   void Wait();
   bool Wait(double seconds);
+  template <typename ValueType>
+  Result<ValueType>* CastResult() const {
+    return static_cast<Result<ValueType>*>(result_.get());
+  }
 
   using Callback = internal::FnOnce<void(const FutureImpl& impl)>;
   void AddCallback(Callback callback, CallbackOptions opts);
@@ -487,7 +491,7 @@ class Future {
     // weak reference to impl_ here
     struct Callback {
       void operator()(const FutureImpl& impl) && {
-        std::move(on_complete)(*static_cast<Result<ValueType>*>(impl.result_.get()));
+        std::move(on_complete)(*impl.CastResult<ValueType>());
       }
       OnComplete on_complete;
     };
@@ -503,8 +507,7 @@ class Future {
                   "Callbacks for Future<> should accept Status and not Result");
     struct Callback {
       void operator()(const FutureImpl& impl) && {
-        std::move(on_complete)(
-            static_cast<Result<ValueType>*>(impl.result_.get())->status());
+        std::move(on_complete)(impl.CastResult<ValueType>()->status());
       }
       OnComplete on_complete;
     };
@@ -731,9 +734,7 @@ class Future {
 
   void Initialize() { impl_ = FutureImpl::Make(); }
 
-  Result<ValueType>* GetResult() const {
-    return static_cast<Result<ValueType>*>(impl_->result_.get());
-  }
+  Result<ValueType>* GetResult() const { return impl_->CastResult<ValueType>(); }
 
   void SetResult(Result<ValueType> res) {
     impl_->result_ = {new Result<ValueType>(std::move(res)),

@@ -27,11 +27,13 @@
 #include <random>
 #include <string>
 #include <thread>
+#include <unordered_set>
 #include <vector>
 
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
+#include "arrow/testing/executor_util.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/logging.h"
@@ -954,11 +956,47 @@ TEST(FutureCompletionTest, FutureVoid) {
 class FutureSchedulingTest : public testing::Test {
  public:
   internal::Executor* executor() { return mock_executor.get(); }
-  int spawn_count() { return mock_executor->spawn_count; }
+  int spawn_count() { return mock_executor->captured_tasks.size(); }
+  void AssertRunSynchronously(const std::vector<int>& ids) { AssertIds(ids, true); }
+  void AssertScheduled(const std::vector<int>& ids) { AssertIds(ids, false); }
+  void AssertIds(const std::vector<int>& ids, bool should_be_synchronous) {
+    for (auto id : ids) {
+      ASSERT_EQ(should_be_synchronous, callbacks_run_synchronously.find(id) !=
+                                           callbacks_run_synchronously.end());
+    }
+  }
 
-  std::function<void(const Status&)> callback = [](const Status&) {};
-  std::shared_ptr<MockExecutor> mock_executor = std::make_shared<MockExecutor>();
+  std::function<void(const Status&)> callback(int id) {
+    return [this, id](const Status&) { callbacks_run_synchronously.insert(id); };
+  }
+
+  std::shared_ptr<DelayedExecutor> mock_executor = std::make_shared<DelayedExecutor>();
+  std::unordered_set<int> callbacks_run_synchronously;
 };
+
+TEST_F(FutureSchedulingTest, ScheduleNever) {
+  CallbackOptions options;
+  options.should_schedule = ShouldSchedule::Never;
+  options.executor = executor();
+  // Successful future
+  {
+    auto fut = Future<>::Make();
+    fut.AddCallback(callback(1), options);
+    fut.MarkFinished();
+    fut.AddCallback(callback(2), options);
+    ASSERT_EQ(0, spawn_count());
+    AssertRunSynchronously({1, 2});
+  }
+  // Failing future
+  {
+    auto fut = Future<>::Make();
+    fut.AddCallback(callback(3), options);
+    fut.MarkFinished(Status::Invalid("XYZ"));
+    fut.AddCallback(callback(4), options);
+    ASSERT_EQ(0, spawn_count());
+    AssertRunSynchronously({3, 4});
+  }
+}
 
 TEST_F(FutureSchedulingTest, ScheduleAlways) {
   CallbackOptions options;
@@ -967,18 +1005,20 @@ TEST_F(FutureSchedulingTest, ScheduleAlways) {
   // Successful future
   {
     auto fut = Future<>::Make();
-    fut.AddCallback(callback, options);
+    fut.AddCallback(callback(1), options);
     fut.MarkFinished();
-    fut.AddCallback(callback, options);
+    fut.AddCallback(callback(2), options);
     ASSERT_EQ(2, spawn_count());
+    AssertScheduled({1, 2});
   }
   // Failing future
   {
     auto fut = Future<>::Make();
-    fut.AddCallback(callback, options);
+    fut.AddCallback(callback(3), options);
     fut.MarkFinished(Status::Invalid("XYZ"));
-    fut.AddCallback(callback, options);
+    fut.AddCallback(callback(4), options);
     ASSERT_EQ(4, spawn_count());
+    AssertScheduled({3, 4});
   }
 }
 
@@ -989,45 +1029,35 @@ TEST_F(FutureSchedulingTest, ScheduleIfUnfinished) {
   // Successful future
   {
     auto fut = Future<>::Make();
-    fut.AddCallback(callback, options);
+    fut.AddCallback(callback(1), options);
     fut.MarkFinished();
-    fut.AddCallback(callback, options);
+    fut.AddCallback(callback(2), options);
     ASSERT_EQ(1, spawn_count());
+    AssertRunSynchronously({2});
+    AssertScheduled({1});
   }
   // Failing future
   {
     auto fut = Future<>::Make();
-    fut.AddCallback(callback, options);
+    fut.AddCallback(callback(3), options);
     fut.MarkFinished(Status::Invalid("XYZ"));
-    fut.AddCallback(callback, options);
+    fut.AddCallback(callback(4), options);
     ASSERT_EQ(2, spawn_count());
+    AssertRunSynchronously({4});
+    AssertScheduled({3});
   }
 }
-
-class DelayedExecutor : public internal::Executor {
- public:
-  int GetCapacity() override { return 0; }
-
-  Status SpawnReal(internal::TaskHints hints, internal::FnOnce<void()> task, StopToken,
-                   StopCallback&&) override {
-    captured_task = std::move(task);
-    return Status::OK();
-  }
-
-  internal::FnOnce<void()> captured_task;
-};
 
 TEST_F(FutureSchedulingTest, ScheduleAlwaysKeepsFutureAliveUntilCallback) {
   CallbackOptions options;
   options.should_schedule = ShouldSchedule::Always;
-  DelayedExecutor delayed;
-  options.executor = &delayed;
+  options.executor = executor();
   {
     auto fut = Future<int>::Make();
     fut.AddCallback([](const Result<int> val) { ASSERT_EQ(7, *val); }, options);
     fut.MarkFinished(7);
   }
-  std::move(delayed.captured_task)();
+  std::move(mock_executor->captured_tasks[0])();
 }
 
 TEST(FutureAllTest, Empty) {
