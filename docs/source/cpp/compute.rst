@@ -669,43 +669,43 @@ Temporal component extraction
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These functions extract datetime components (year, month, day, etc) from timestamp type.
-Note: timezone information is currently ignored if present.
+Note: this is currently not supported for timestamps with timezone information.
 
-+--------------------+------------+-------------------+-----------------+--------+
-| Function name      | Arity      | Input types       | Output type     | Notes  |
-+====================+============+===================+=================+========+
-| year               | Unary      | Temporal          | Numeric         |        |
-+--------------------+------------+-------------------+-----------------+--------+
-| month              | Unary      | Temporal          | Numeric         |        |
-+--------------------+------------+-------------------+-----------------+--------+
-| day                | Unary      | Temporal          | Numeric         |        |
-+--------------------+------------+-------------------+-----------------+--------+
-| day_of_week        | Unary      | Temporal          | Numeric         | \(1)   |
-+--------------------+------------+-------------------+-----------------+--------+
-| day_of_year        | Unary      | Temporal          | Numeric         |        |
-+--------------------+------------+-------------------+-----------------+--------+
-| iso_year           | Unary      | Temporal          | Numeric         | \(2)   |
-+--------------------+------------+-------------------+-----------------+--------+
-| iso_week           | Unary      | Temporal          | Numeric         | \(2)   |
-+--------------------+------------+-------------------+-----------------+--------+
-| iso_calendar       | Unary      | Temporal          | Scalar Struct   | \(3)   |
-+--------------------+------------+-------------------+-----------------+--------+
-| quarter            | Unary      | Temporal          | Numeric         |        |
-+--------------------+------------+-------------------+-----------------+--------+
-| hour               | Unary      | Temporal          | Numeric         |        |
-+--------------------+------------+-------------------+-----------------+--------+
-| minute             | Unary      | Temporal          | Numeric         |        |
-+--------------------+------------+-------------------+-----------------+--------+
-| second             | Unary      | Temporal          | Numeric         |        |
-+--------------------+------------+-------------------+-----------------+--------+
-| millisecond        | Unary      | Temporal          | Numeric         |        |
-+--------------------+------------+-------------------+-----------------+--------+
-| microsecond        | Unary      | Temporal          | Numeric         |        |
-+--------------------+------------+-------------------+-----------------+--------+
-| nanosecond         | Unary      | Temporal          | Numeric         |        |
-+--------------------+------------+-------------------+-----------------+--------+
-| subsecond          | Unary      | Temporal          | Numeric         |        |
-+--------------------+------------+-------------------+-----------------+--------+
++--------------------+------------+-------------------+---------------+--------+
+| Function name      | Arity      | Input types       | Output type   | Notes  |
++====================+============+===================+===============+========+
+| year               | Unary      | Temporal          | Int64         |        |
++--------------------+------------+-------------------+---------------+--------+
+| month              | Unary      | Temporal          | Int64         |        |
++--------------------+------------+-------------------+---------------+--------+
+| day                | Unary      | Temporal          | Int64         |        |
++--------------------+------------+-------------------+---------------+--------+
+| day_of_week        | Unary      | Temporal          | Int64         | \(1)   |
++--------------------+------------+-------------------+---------------+--------+
+| day_of_year        | Unary      | Temporal          | Int64         |        |
++--------------------+------------+-------------------+---------------+--------+
+| iso_year           | Unary      | Temporal          | Int64         | \(2)   |
++--------------------+------------+-------------------+---------------+--------+
+| iso_week           | Unary      | Temporal          | Int64         | \(2)   |
++--------------------+------------+-------------------+---------------+--------+
+| iso_calendar       | Unary      | Temporal          | Scalar Struct | \(3)   |
++--------------------+------------+-------------------+---------------+--------+
+| quarter            | Unary      | Temporal          | Int64         |        |
++--------------------+------------+-------------------+---------------+--------+
+| hour               | Unary      | Temporal          | Int64         |        |
++--------------------+------------+-------------------+---------------+--------+
+| minute             | Unary      | Temporal          | Int64         |        |
++--------------------+------------+-------------------+---------------+--------+
+| second             | Unary      | Temporal          | Int64         |        |
++--------------------+------------+-------------------+---------------+--------+
+| millisecond        | Unary      | Temporal          | Int64         |        |
++--------------------+------------+-------------------+---------------+--------+
+| microsecond        | Unary      | Temporal          | Int64         |        |
++--------------------+------------+-------------------+---------------+--------+
+| nanosecond         | Unary      | Temporal          | Int64         |        |
++--------------------+------------+-------------------+---------------+--------+
+| subsecond          | Unary      | Temporal          | Double        |        |
++--------------------+------------+-------------------+---------------+--------+
 
 * \(1) Outputs the number of the day of the week. Week begins on Monday and is denoted
   by 0 and ends on Sunday denoted by 6.
@@ -713,6 +713,7 @@ Note: timezone information is currently ignored if present.
   starts with the first ISO week.
   See `ISO 8601 week date definition`_ for more details.
 * \(3) Output is a ``{"iso_year": output type, "iso_week": output type, "day_of_week":  output type}`` Struct.
+
 .. _ISO 8601 week date definition: https://en.wikipedia.org/wiki/ISO_week_date#First_week
 
 

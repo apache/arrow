@@ -527,7 +527,7 @@ Result<Datum> IfElse(const Datum& cond, const Datum& left, const Datum& right,
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
-/// \since 4.0.0
+/// \since 5.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> Year(const Datum& values, ExecContext* ctx = NULLPTR);
@@ -539,7 +539,7 @@ Result<Datum> Year(const Datum& values, ExecContext* ctx = NULLPTR);
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
-/// \since 4.0.0
+/// \since 5.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> Month(const Datum& values, ExecContext* ctx = NULLPTR);
@@ -550,7 +550,7 @@ Result<Datum> Month(const Datum& values, ExecContext* ctx = NULLPTR);
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
-/// \since 4.0.0
+/// \since 5.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> Day(const Datum& values, ExecContext* ctx = NULLPTR);
@@ -562,7 +562,7 @@ Result<Datum> Day(const Datum& values, ExecContext* ctx = NULLPTR);
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
-/// \since 4.0.0
+/// \since 5.0.0
 /// \note API not yet finalized
 ARROW_EXPORT Result<Datum> DayOfWeek(const Datum& values, ExecContext* ctx = NULLPTR);
 
@@ -573,7 +573,7 @@ ARROW_EXPORT Result<Datum> DayOfWeek(const Datum& values, ExecContext* ctx = NUL
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
-/// \since 4.0.0
+/// \since 5.0.0
 /// \note API not yet finalized
 ARROW_EXPORT Result<Datum> DayOfYear(const Datum& values, ExecContext* ctx = NULLPTR);
 
@@ -584,31 +584,31 @@ ARROW_EXPORT Result<Datum> DayOfYear(const Datum& values, ExecContext* ctx = NUL
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
-/// \since 4.0.0
+/// \since 5.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> ISOYear(const Datum& values, ExecContext* ctx = NULLPTR);
 
 /// \brief ISOWeek returns ISO week of year number for each element of `values`.
-/// First ISO week has the majority (4 or more) of it's days in January.
+/// First ISO week has the majority (4 or more) of its days in January.
 /// Week of the year starts with 1 and can run up to 53.
 ///
 /// \param[in] values input to extract ISO week of year from
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
-/// \since 4.0.0
+/// \since 5.0.0
 /// \note API not yet finalized
 ARROW_EXPORT Result<Datum> ISOWeek(const Datum& values, ExecContext* ctx = NULLPTR);
 
-/// \brief ISOCalendar returns a (ISO year, ISO week, weekday) struct for each element of
-/// `values`
+/// \brief ISOCalendar returns a (ISO year, ISO week, Day of week) struct for each element
+/// of `values`
 ///
 /// \param[in] values input to ISO calendar struct from
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
-/// \since 4.0.0
+/// \since 5.0.0
 /// \note API not yet finalized
 ARROW_EXPORT Result<Datum> ISOCalendar(const Datum& values, ExecContext* ctx = NULLPTR);
 
@@ -619,7 +619,7 @@ ARROW_EXPORT Result<Datum> ISOCalendar(const Datum& values, ExecContext* ctx = N
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
-/// \since 4.0.0
+/// \since 5.0.0
 /// \note API not yet finalized
 ARROW_EXPORT Result<Datum> Quarter(const Datum& values, ExecContext* ctx = NULLPTR);
 
@@ -629,7 +629,7 @@ ARROW_EXPORT Result<Datum> Quarter(const Datum& values, ExecContext* ctx = NULLP
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
-/// \since 4.0.0
+/// \since 5.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> Hour(const Datum& values, ExecContext* ctx = NULLPTR);
@@ -640,7 +640,7 @@ Result<Datum> Hour(const Datum& values, ExecContext* ctx = NULLPTR);
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
-/// \since 4.0.0
+/// \since 5.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> Minute(const Datum& values, ExecContext* ctx = NULLPTR);
@@ -651,52 +651,55 @@ Result<Datum> Minute(const Datum& values, ExecContext* ctx = NULLPTR);
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
-/// \since 4.0.0
+/// \since 5.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> Second(const Datum& values, ExecContext* ctx = NULLPTR);
 
-/// \brief Millisecond returns milliseconds value for each element of `values`
+/// \brief Millisecond returns number of milliseconds since the last full second
+/// for each element of `values`
 ///
 /// \param[in] values input to extract milliseconds from
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
-/// \since 4.0.0
+/// \since 5.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> Millisecond(const Datum& values, ExecContext* ctx = NULLPTR);
 
-/// \brief Microsecond returns microseconds value for each element of `values`
+/// \brief Microsecond returns number of microseconds since the last full millisecond
+/// for each element of `values`
 ///
 /// \param[in] values input to extract microseconds from
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
-/// \since 4.0.0
+/// \since 5.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> Microsecond(const Datum& values, ExecContext* ctx = NULLPTR);
 
-/// \brief Nanosecond returns nanoseconds value for each element of `values`
+/// \brief Nanosecond returns number of nanoseconds since the last full millisecond
+/// for each element of `values`
 ///
 /// \param[in] values input to extract nanoseconds from
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
-/// \since 4.0.0
+/// \since 5.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> Nanosecond(const Datum& values, ExecContext* ctx = NULLPTR);
 
-/// \brief Subsecond returns subsecond time fraction since last second as a float for each element of
-/// `values`
+/// \brief Subsecond returns the fraction of second elapsed since last full second
+/// as a float for each element of `values`
 ///
 /// \param[in] values input to extract subsecond from
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
-/// \since 4.0.0
+/// \since 5.0.0
 /// \note API not yet finalized
 ARROW_EXPORT Result<Datum> Subsecond(const Datum& values, ExecContext* ctx = NULLPTR);
 
