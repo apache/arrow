@@ -32,7 +32,6 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.Preconditions;
 import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.AvaticaFactory;
-import org.apache.calcite.avatica.UnregisteredDriver;
 import org.apache.calcite.avatica.org.apache.http.auth.UsernamePasswordCredentials;
 
 /**
@@ -47,8 +46,8 @@ public final class ArrowFlightConnection extends AvaticaConnection {
 
   private final Map<Integer, ArrowFlightStatement> statementMap = new HashMap<>();
 
-  public ArrowFlightConnection(UnregisteredDriver driver,
-      AvaticaFactory factory, String url, Properties info)
+  public ArrowFlightConnection(ArrowFlightJdbcDriver driver,
+      ArrowFlightFactory factory, String url, Properties info)
       throws KeyStoreException, NoSuchAlgorithmException, CertificateException,
       IOException, NumberFormatException, URISyntaxException {
     super(driver, factory, url, info);
