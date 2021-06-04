@@ -417,7 +417,11 @@ struct ScalarMinMax {
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeScalarMinMax(std::string name,
                                                  const FunctionDoc* doc) {
-  auto func = std::make_shared<VarArgsCompareFunction>(name, Arity::VarArgs(), doc);
+  static auto default_element_wise_aggregate_options =
+      ElementWiseAggregateOptions::Defaults();
+
+  auto func = std::make_shared<VarArgsCompareFunction>(
+      name, Arity::VarArgs(), doc, &default_element_wise_aggregate_options);
   for (const auto& ty : NumericTypes()) {
     auto exec = GeneratePhysicalNumeric<ScalarMinMax, Op>(ty);
     ScalarKernel kernel{KernelSignature::Make({ty}, ty, /*is_varargs=*/true), exec,

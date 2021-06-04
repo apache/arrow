@@ -1781,6 +1781,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     CFunctionRegistry* GetFunctionRegistry()
 
+    cdef cppclass CElementWiseAggregateOptions \
+            "arrow::compute::ElementWiseAggregateOptions"(CFunctionOptions):
+        CElementWiseAggregateOptions(c_bool skip_nulls)
+        c_bool skip_nulls
+
     cdef cppclass CMatchSubstringOptions \
             "arrow::compute::MatchSubstringOptions"(CFunctionOptions):
         CMatchSubstringOptions(c_string pattern, c_bool ignore_case)
