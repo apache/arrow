@@ -106,6 +106,14 @@ test_that("write_parquet() accepts RecordBatch too", {
   expect_equivalent(tab, Table$create(batch))
 })
 
+test_that("write_parquet() with invalid input type", {
+  bad_input <- Array$create(1:5)
+  expect_error(
+    write_parquet(bad_input, tempfile()),
+    regexp = "x must be an object of class 'data.frame', 'RecordBatch', or 'Table', not 'Array'."
+  )
+})
+
 test_that("write_parquet() can truncate timestamps", {
   tab <- Table$create(x1 = as.POSIXct("2020/06/03 18:00:00", tz = "UTC"))
   expect_type_equal(tab$x1, timestamp("us", "UTC"))

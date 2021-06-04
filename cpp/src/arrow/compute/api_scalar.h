@@ -42,6 +42,11 @@ struct ArithmeticOptions : public FunctionOptions {
   bool check_overflow;
 };
 
+struct ARROW_EXPORT ElementWiseAggregateOptions : public FunctionOptions {
+  ElementWiseAggregateOptions() : skip_nulls(true) {}
+  bool skip_nulls;
+};
+
 struct ARROW_EXPORT MatchSubstringOptions : public FunctionOptions {
   explicit MatchSubstringOptions(std::string pattern, bool ignore_case = false)
       : pattern(std::move(pattern)), ignore_case(ignore_case) {}
@@ -252,6 +257,30 @@ ARROW_EXPORT
 Result<Datum> Power(const Datum& left, const Datum& right,
                     ArithmeticOptions options = ArithmeticOptions(),
                     ExecContext* ctx = NULLPTR);
+
+/// \brief Find the element-wise maximum of any number of arrays or scalars.
+/// Array values must be the same length.
+///
+/// \param[in] args arrays or scalars to operate on.
+/// \param[in] options options for handling nulls, optional
+/// \param[in] ctx the function execution context, optional
+/// \return the element-wise maximum
+ARROW_EXPORT
+Result<Datum> ElementWiseMax(const std::vector<Datum>& args,
+                             ElementWiseAggregateOptions options = {},
+                             ExecContext* ctx = NULLPTR);
+
+/// \brief Find the element-wise minimum of any number of arrays or scalars.
+/// Array values must be the same length.
+///
+/// \param[in] args arrays or scalars to operate on.
+/// \param[in] options options for handling nulls, optional
+/// \param[in] ctx the function execution context, optional
+/// \return the element-wise minimum
+ARROW_EXPORT
+Result<Datum> ElementWiseMin(const std::vector<Datum>& args,
+                             ElementWiseAggregateOptions options = {},
+                             ExecContext* ctx = NULLPTR);
 
 /// \brief Compare a numeric array with a scalar.
 ///
@@ -464,6 +493,22 @@ Result<Datum> IsNan(const Datum& values, ExecContext* ctx = NULLPTR);
 ARROW_EXPORT
 Result<Datum> FillNull(const Datum& values, const Datum& fill_value,
                        ExecContext* ctx = NULLPTR);
+
+/// \brief IfElse returns elements chosen from `left` or `right`
+/// depending on `cond`. `null` values in `cond` will be promoted to the result
+///
+/// \param[in] cond `Boolean` condition Scalar/ Array
+/// \param[in] left Scalar/ Array
+/// \param[in] right Scalar/ Array
+/// \param[in] ctx the function execution context, optional
+///
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> IfElse(const Datum& cond, const Datum& left, const Datum& right,
+                     ExecContext* ctx = NULLPTR);
 
 }  // namespace compute
 }  // namespace arrow

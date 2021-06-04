@@ -44,6 +44,7 @@ write_ipc_stream <- function(x, sink, ...) {
   if (is.data.frame(x)) {
     x <- Table$create(x)
   }
+  assert_that(is_writable_table(x))
   if (!inherits(sink, "OutputStream")) {
     sink <- make_output_stream(sink)
     on.exit(sink$close())

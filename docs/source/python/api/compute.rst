@@ -75,6 +75,14 @@ they return ``null``.
    less_equal
    not_equal
 
+These functions take any number of arguments of a numeric or temporal type.
+
+.. autosummary::
+   :toctree: ../generated/
+
+   element_wise_max
+   element_wise_min
+
 Logical Functions
 -----------------
 
@@ -222,6 +230,7 @@ Structural Transforms
 
    binary_length
    fill_null
+   if_else
    is_finite
    is_inf
    is_nan

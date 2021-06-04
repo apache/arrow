@@ -162,7 +162,6 @@ struct FillNullFunctor<Type, enable_if_t<is_base_binary_type<Type>::value>> {
     const ArrayData& input = *batch[0].array();
     const auto& fill_value_scalar =
         checked_cast<const BaseBinaryScalar&>(*batch[1].scalar());
-    util::string_view fill_value(*fill_value_scalar.value);
     ArrayData* output = out->mutable_array();
 
     // Ensure the kernel is configured properly to have no validity bitmap /
@@ -172,6 +171,7 @@ struct FillNullFunctor<Type, enable_if_t<is_base_binary_type<Type>::value>> {
     const int64_t null_count = input.GetNullCount();
 
     if (null_count > 0 && fill_value_scalar.is_valid) {
+      util::string_view fill_value(*fill_value_scalar.value);
       BuilderType builder(input.type, ctx->memory_pool());
       RETURN_NOT_OK(builder.ReserveData(input.buffers[2]->size() +
                                         fill_value.length() * null_count));

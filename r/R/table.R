@@ -166,17 +166,17 @@ Table$create <- function(..., schema = NULL) {
     names(dots) <- rep_len("", length(dots))
   }
   stopifnot(length(dots) > 0)
-  
+
   # Preserve any grouping
   if (length(dots) == 1 && inherits(dots[[1]], "grouped_df")) {
-    out <- Table__from_dots(dots, schema)
+    out <- Table__from_dots(dots, schema, option_use_threads())
     return(dplyr::group_by(out, !!!dplyr::groups(dots[[1]])))
   }
-  
+
   if (all_record_batches(dots)) {
     Table__from_record_batches(dots, schema)
   } else {
-    Table__from_dots(dots, schema)
+    Table__from_dots(dots, schema, option_use_threads())
   }
 }
 

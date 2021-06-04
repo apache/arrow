@@ -31,7 +31,7 @@ test_that("type() infers from R type", {
   expect_type_equal(type(1:10), int32())
   expect_type_equal(type(1), float64())
   expect_type_equal(type(TRUE), boolean())
-  expect_type_equal(type(raw()), int8())
+  expect_type_equal(type(raw()), uint8())
   expect_type_equal(type(""), utf8())
   expect_type_equal(
     type(example_data$fct),

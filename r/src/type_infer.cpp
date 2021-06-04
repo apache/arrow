@@ -179,7 +179,7 @@ std::shared_ptr<arrow::DataType> InferArrowType(SEXP x) {
     case REALSXP:
       return InferArrowTypeFromVector<REALSXP>(x);
     case RAWSXP:
-      return int8();
+      return uint8();
     case STRSXP:
       return InferArrowTypeFromVector<STRSXP>(x);
     case VECSXP:

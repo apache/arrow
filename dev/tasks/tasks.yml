@@ -949,6 +949,12 @@ tasks:
         UBUNTU: "20.10"
       run: ubuntu-docs
 
+  test-ubuntu-default-docs:
+    ci: azure
+    template: docker-tests/azure.linux.yml
+    params:
+      run: ubuntu-docs
+
   ############################## vcpkg tests ##################################
 
   test-build-vcpkg-win:
