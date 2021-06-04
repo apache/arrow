@@ -32,6 +32,32 @@
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>org.apache.arrow</groupId>
+            <artifactId>flight-core</artifactId>
+            <version>4.0.1</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-transport-native-unix-common</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-transport-native-kqueue</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-transport-native-epoll</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.code.findbugs</groupId>
+            <artifactId>jsr305</artifactId>
+            <version>3.0.2</version>
+        </dependency>
+
         <!-- https://mvnrepository.com/artifact/org.apache.arrow/arrow-memory-core -->
         <dependency>
             <groupId>org.apache.arrow</groupId>
@@ -53,12 +79,6 @@
             <artifactId>arrow-vector</artifactId>
             <version>${project.version}</version>
             <classifier>${arrow.vector.classifier}</classifier>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.arrow</groupId>
-            <artifactId>flight-core</artifactId>
-            <version>${project.version}</version>
         </dependency>
 
         <dependency>
