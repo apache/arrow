@@ -847,6 +847,10 @@ tasks:
         UBUNTU: 18.04
       run: ubuntu-r-valgrind
 
+  test-r-linux-rchk:
+    ci: github
+    template: r/github.linux.rchk.yml
+
   test-r-linux-as-cran:
     ci: github
     template: r/github.linux.cran.yml
