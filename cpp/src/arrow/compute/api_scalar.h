@@ -613,7 +613,7 @@ ARROW_EXPORT Result<Datum> ISOWeek(const Datum& values, ExecContext* ctx = NULLP
 ARROW_EXPORT Result<Datum> ISOCalendar(const Datum& values, ExecContext* ctx = NULLPTR);
 
 /// \brief Quarter returns the quarter of year number for each element of `values`
-/// First quarter maps to 1 and forth quarter maps to 4.
+/// First quarter maps to 1 and fourth quarter maps to 4.
 ///
 /// \param[in] values input to extract quarter of year from
 /// \param[in] ctx the function execution context, optional
@@ -689,7 +689,7 @@ Result<Datum> Microsecond(const Datum& values, ExecContext* ctx = NULLPTR);
 ARROW_EXPORT
 Result<Datum> Nanosecond(const Datum& values, ExecContext* ctx = NULLPTR);
 
-/// \brief Subsecond returns subsecond time fraction since last second for each element of
+/// \brief Subsecond returns subsecond time fraction since last second as a float for each element of
 /// `values`
 ///
 /// \param[in] values input to extract subsecond from
