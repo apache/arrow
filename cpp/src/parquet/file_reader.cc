@@ -30,6 +30,7 @@
 #include "arrow/io/memory.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
+#include "arrow/util/int_util_internal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
 #include "parquet/column_reader.h"
@@ -43,6 +44,8 @@
 #include "parquet/properties.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
+
+using arrow::internal::AddWithOverflow;
 
 namespace parquet {
 
@@ -103,13 +106,18 @@ const RowGroupMetaData* RowGroupReader::metadata() const { return contents_->met
   }
 
   int64_t col_length = column_metadata->total_compressed_size();
+  int64_t col_end;
+  if (AddWithOverflow(col_start, col_length, &col_end) || col_end > source_size) {
+    throw ParquetException("Invalid column metadata (corrupt file?)");
+  }
+
   // PARQUET-816 workaround for old files created by older parquet-mr
   const ApplicationVersion& version = file_metadata->writer_version();
   if (version.VersionLt(ApplicationVersion::PARQUET_816_FIXED_VERSION())) {
     // The Parquet MR writer had a bug in 1.2.8 and below where it didn't include the
     // dictionary page header size in total_compressed_size and total_uncompressed_size
     // (see IMPALA-694). We add padding to compensate.
-    int64_t bytes_remaining = source_size - (col_start + col_length);
+    int64_t bytes_remaining = source_size - col_end;
     int64_t padding = std::min<int64_t>(kMaxDictHeaderSize, bytes_remaining);
     col_length += padding;
   }
