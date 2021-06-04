@@ -9,6 +9,7 @@ open_dataset(
   schema = NULL,
   partitioning = hive_partition(),
   unify_schemas = NULL,
+  format = c("parquet", "arrow", "ipc", "feather", "csv", "tsv", "text"),
   ...
 )
 }
@@ -57,6 +58,21 @@ vector of file paths/URIs (because there may be many files and scanning may
 be slow) but \code{TRUE} when \code{sources} is a list of \code{Dataset}s (because there
 should be few \code{Dataset}s in the list and their \code{Schema}s are already in
 memory).}
+
+\item{format}{A \link{FileFormat} object, or a string identifier of the format of
+the files in \code{x}. This argument is ignored when \code{sources} is a list of \code{Dataset} objects.
+Currently supported values:
+\itemize{
+\item "parquet"
+\item "ipc"/"arrow"/"feather", all aliases for each other; for Feather, note that
+only version 2 files are supported
+\item "csv"/"text", aliases for the same thing (because comma is the default
+delimiter for text files
+\item "tsv", equivalent to passing \verb{format = "text", delimiter = "\\t"}
+}
+
+Default is "parquet", unless a \code{delimiter} is also specified, in which case
+it is assumed to be "text".}
 
 \item{...}{additional arguments passed to \code{dataset_factory()} when \code{sources}
 is a directory path/URI or vector of file paths/URIs, otherwise ignored.

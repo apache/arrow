@@ -111,6 +111,19 @@ handle_embedded_nul_error <- function(e) {
   stop(e)
 }
 
+handle_parquet_io_error <- function(e, format) {
+  msg <- conditionMessage(e)
+  if (grepl("Parquet magic bytes not found in footer", msg) && length(format) > 1 && is_character(format)) {
+    # If length(format) > 1, that means it is (almost certainly) the default/not specified value
+    # so let the user know that they should specify the actual (not parquet) format
+    abort(c(
+      msg, 
+      i = "Did you mean to specify a 'format' other than the default (parquet)?"
+    ))
+  }
+  stop(e)
+}
+
 is_writable_table <- function(x) {
   inherits(x, c("data.frame", "ArrowTabular"))
 }
