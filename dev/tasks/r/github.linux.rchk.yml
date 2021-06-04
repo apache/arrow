@@ -68,6 +68,7 @@ jobs:
         run: |
           if [ $(grep -c "Suspicious call" rchk.out) -gt 0 ] || [ $(grep -c "\[UP\]" rchk.out) -gt 0 ] || [ $(grep -c "\[PB\]" rchk.out) -gt 0 ]; then
             echo "Found rchk errors"
+            cat rchk.out
             exit 1
           fi
         if: always()
