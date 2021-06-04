@@ -80,49 +80,7 @@ TYPED_TEST(TestBinaryKernels, BinaryLength) {
                    this->offset_type(), "[3, null, 10, 0, 1]");
 }
 
-TYPED_TEST(TestBinaryKernels, FindSubstring) {
-  MatchSubstringOptions options{"ab"};
-  this->CheckUnary("find_substring", "[]", this->offset_type(), "[]", &options);
-  this->CheckUnary("find_substring", R"(["abc", "acb", "cab", null, "bac"])",
-                   this->offset_type(), "[0, -1, 1, null, -1]", &options);
-
-  MatchSubstringOptions options_repeated{"abab"};
-  this->CheckUnary("find_substring", R"(["abab", "ab", "cababc", null, "bac"])",
-                   this->offset_type(), "[0, -1, 1, null, -1]", &options_repeated);
-
-  MatchSubstringOptions options_double_char{"aab"};
-  this->CheckUnary("find_substring", R"(["aacb", "aab", "ab", "aaab"])",
-                   this->offset_type(), "[-1, 0, -1, 1]", &options_double_char);
-
-  MatchSubstringOptions options_double_char_2{"bbcaa"};
-  this->CheckUnary("find_substring", R"(["abcbaabbbcaabccabaab"])", this->offset_type(),
-                   "[7]", &options_double_char_2);
-
-  MatchSubstringOptions options_empty{""};
-  this->CheckUnary("find_substring", R"(["", "a", null])", this->offset_type(),
-                   "[0, 0, null]", &options_empty);
-}
-
-TYPED_TEST(TestBinaryKernels, CountSubstring) {
-  MatchSubstringOptions options{"aba"};
-  this->CheckUnary("count_substring", "[]", this->offset_type(), "[]", &options);
-  this->CheckUnary(
-      "count_substring",
-      R"(["", null, "ab", "aba", "baba", "ababa", "abaaba", "babacaba", "ABA"])",
-      this->offset_type(), "[0, null, 0, 1, 1, 1, 2, 2, 0]", &options);
-
-  MatchSubstringOptions options_empty{""};
-  this->CheckUnary("count_substring", R"(["", null, "abc"])", this->offset_type(),
-                   "[1, null, 4]", &options_empty);
-
-  MatchSubstringOptions options_repeated{"aaa"};
-  this->CheckUnary("count_substring", R"(["", "aaaa", "aaaaa", "aaaaaa", "aaá"])",
-                   this->offset_type(), "[0, 1, 1, 2, 0]", &options_repeated);
-
-  // TODO: case-insensitive
-}
-
-TYPED_TEST(TestBinaryKernels, AsciiReplaceSlice) {
+TYPED_TEST(TestBinaryKernels, BinaryReplaceSlice) {
   ReplaceSliceOptions options{0, 1, "XX"};
   this->CheckUnary("binary_replace_slice", "[]", this->type(), "[]", &options);
   this->CheckUnary("binary_replace_slice", R"([null, "", "a", "ab", "abc"])",
@@ -171,6 +129,105 @@ TYPED_TEST(TestBinaryKernels, AsciiReplaceSlice) {
                    R"([null, "XX", "XXa", "XXab", "XXabc", "aXXbcd", "abXXcde"])",
                    &options_neg_flip);
 }
+
+TYPED_TEST(TestBinaryKernels, FindSubstring) {
+  MatchSubstringOptions options{"ab"};
+  this->CheckUnary("find_substring", "[]", this->offset_type(), "[]", &options);
+  this->CheckUnary("find_substring", R"(["abc", "acb", "cab", null, "bac"])",
+                   this->offset_type(), "[0, -1, 1, null, -1]", &options);
+
+  MatchSubstringOptions options_repeated{"abab"};
+  this->CheckUnary("find_substring", R"(["abab", "ab", "cababc", null, "bac"])",
+                   this->offset_type(), "[0, -1, 1, null, -1]", &options_repeated);
+
+  MatchSubstringOptions options_double_char{"aab"};
+  this->CheckUnary("find_substring", R"(["aacb", "aab", "ab", "aaab"])",
+                   this->offset_type(), "[-1, 0, -1, 1]", &options_double_char);
+
+  MatchSubstringOptions options_double_char_2{"bbcaa"};
+  this->CheckUnary("find_substring", R"(["abcbaabbbcaabccabaab"])", this->offset_type(),
+                   "[7]", &options_double_char_2);
+
+  MatchSubstringOptions options_empty{""};
+  this->CheckUnary("find_substring", R"(["", "a", null])", this->offset_type(),
+                   "[0, 0, null]", &options_empty);
+}
+
+TYPED_TEST(TestBinaryKernels, CountSubstring) {
+  MatchSubstringOptions options{"aba"};
+  this->CheckUnary("count_substring", "[]", this->offset_type(), "[]", &options);
+  this->CheckUnary(
+      "count_substring",
+      R"(["", null, "ab", "aba", "baba", "ababa", "abaaba", "babacaba", "ABA"])",
+      this->offset_type(), "[0, null, 0, 1, 1, 1, 2, 2, 0]", &options);
+
+  MatchSubstringOptions options_empty{""};
+  this->CheckUnary("count_substring", R"(["", null, "abc"])", this->offset_type(),
+                   "[1, null, 4]", &options_empty);
+
+  MatchSubstringOptions options_repeated{"aaa"};
+  this->CheckUnary("count_substring", R"(["", "aaaa", "aaaaa", "aaaaaa", "aaá"])",
+                   this->offset_type(), "[0, 1, 1, 2, 0]", &options_repeated);
+}
+
+#ifdef ARROW_WITH_RE2
+TYPED_TEST(TestBinaryKernels, CountSubstringRegex) {
+  MatchSubstringOptions options{"aba"};
+  this->CheckUnary("count_substring_regex", "[]", this->offset_type(), "[]", &options);
+  this->CheckUnary(
+      "count_substring",
+      R"(["", null, "ab", "aba", "baba", "ababa", "abaaba", "babacaba", "ABA"])",
+      this->offset_type(), "[0, null, 0, 1, 1, 1, 2, 2, 0]", &options);
+
+  MatchSubstringOptions options_empty{""};
+  this->CheckUnary("count_substring_regex", R"(["", null, "abc"])", this->offset_type(),
+                   "[1, null, 4]", &options_empty);
+
+  MatchSubstringOptions options_as{"a+"};
+  this->CheckUnary("count_substring_regex", R"(["", "bacaaadaaaa", "c", "AAA"])",
+                   this->offset_type(), "[0, 3, 0, 0]", &options_as);
+
+  MatchSubstringOptions options_empty_match{"a*"};
+  this->CheckUnary("count_substring_regex", R"(["", "bacaaadaaaa", "c", "AAA"])",
+                   // 7 is because it matches at |b|a|c|aaa|d|aaaa|
+                   this->offset_type(), "[1, 7, 2, 4]", &options_empty_match);
+
+  MatchSubstringOptions options_repeated{"aaa"};
+  this->CheckUnary("count_substring", R"(["", "aaaa", "aaaaa", "aaaaaa", "aaá"])",
+                   this->offset_type(), "[0, 1, 1, 2, 0]", &options_repeated);
+}
+
+TYPED_TEST(TestBinaryKernels, CountSubstringIgnoreCase) {
+  MatchSubstringOptions options{"aba", /*ignore_case=*/true};
+  this->CheckUnary("count_substring", "[]", this->offset_type(), "[]", &options);
+  this->CheckUnary(
+      "count_substring",
+      R"(["", null, "ab", "aBa", "bAbA", "aBaBa", "abaAbA", "babacaba", "ABA"])",
+      this->offset_type(), "[0, null, 0, 1, 1, 1, 2, 2, 1]", &options);
+
+  MatchSubstringOptions options_empty{"", /*ignore_case=*/true};
+  this->CheckUnary("count_substring", R"(["", null, "abc"])", this->offset_type(),
+                   "[1, null, 4]", &options_empty);
+}
+
+TYPED_TEST(TestBinaryKernels, CountSubstringRegexIgnoreCase) {
+  MatchSubstringOptions options_as{"a+", /*ignore_case=*/true};
+  this->CheckUnary("count_substring_regex", R"(["", "bacAaAdaAaA", "c", "AAA"])",
+                   this->offset_type(), "[0, 3, 0, 1]", &options_as);
+
+  MatchSubstringOptions options_empty_match{"a*", /*ignore_case=*/true};
+  this->CheckUnary("count_substring_regex", R"(["", "bacAaAdaAaA", "c", "AAA"])",
+                   this->offset_type(), "[1, 7, 2, 2]", &options_empty_match);
+}
+#else
+TYPED_TEST(TestBinaryKernels, CountSubstringIgnoreCase) {
+  Datum input = ArrayFromJSON(this->type(), R"(["a"])");
+  MatchSubstringOptions options{"a", /*ignore_case=*/true};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
+                                  ::testing::HasSubstr("ignore_case requires RE2"),
+                                  CallFunction("count_substring", {input}, &options));
+}
+#endif
 
 template <typename TestType>
 class TestStringKernels : public BaseTestStringKernels<TestType> {};

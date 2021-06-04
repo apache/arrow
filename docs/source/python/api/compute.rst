@@ -185,6 +185,7 @@ Containment tests
    :toctree: ../generated/
 
    count_substring
+   count_substring_regex
    ends_with
    find_substring
    index_in

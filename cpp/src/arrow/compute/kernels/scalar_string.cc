@@ -980,13 +980,70 @@ struct CountSubstring {
   }
 };
 
+#ifdef ARROW_WITH_RE2
+struct CountSubstringRegex {
+  std::unique_ptr<RE2> regex_match_;
+
+  explicit CountSubstringRegex(const MatchSubstringOptions& options, bool literal = false)
+      : regex_match_(new RE2(options.pattern,
+                             RegexSubstringMatcher::MakeRE2Options(options, literal))) {}
+
+  static Result<CountSubstringRegex> Make(const MatchSubstringOptions& options,
+                                          bool literal = false) {
+    CountSubstringRegex counter(options, literal);
+    RETURN_NOT_OK(RegexStatus(*counter.regex_match_));
+    return std::move(counter);
+  }
+
+  template <typename OutValue, typename... Ignored>
+  OutValue Call(KernelContext*, util::string_view val, Status*) const {
+    OutValue count = 0;
+    re2::StringPiece input(val.data(), val.size());
+    auto last_size = input.size();
+    while (re2::RE2::FindAndConsume(&input, *regex_match_)) {
+      count++;
+      if (last_size == input.size()) {
+        // 0-length match
+        if (input.size() > 0) {
+          input.remove_prefix(1);
+        } else {
+          break;
+        }
+      }
+      last_size = input.size();
+    }
+    return count;
+  }
+};
+
+template <typename InputType>
+struct CountSubstringRegexExec {
+  using OffsetType = typename TypeTraits<InputType>::OffsetType;
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const MatchSubstringOptions& options = MatchSubstringState::Get(ctx);
+    ARROW_ASSIGN_OR_RAISE(auto counter, CountSubstringRegex::Make(options));
+    applicator::ScalarUnaryNotNullStateful<OffsetType, InputType, CountSubstringRegex>
+        kernel{std::move(counter)};
+    return kernel.Exec(ctx, batch, out);
+  }
+};
+#endif
+
 template <typename InputType>
 struct CountSubstringExec {
   using OffsetType = typename TypeTraits<InputType>::OffsetType;
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const MatchSubstringOptions& options = MatchSubstringState::Get(ctx);
     if (options.ignore_case) {
-      return Status::NotImplemented("count_substring with ignore_case");
+#ifdef ARROW_WITH_RE2
+      ARROW_ASSIGN_OR_RAISE(auto counter,
+                            CountSubstringRegex::Make(options, /*literal=*/true));
+      applicator::ScalarUnaryNotNullStateful<OffsetType, InputType, CountSubstringRegex>
+          kernel{std::move(counter)};
+      return kernel.Exec(ctx, batch, out);
+#else
+      return Status::NotImplemented("ignore_case requires RE2");
+#endif
     }
     applicator::ScalarUnaryNotNullStateful<OffsetType, InputType, CountSubstring> kernel{
         CountSubstring(PlainSubstringMatcher(options))};
@@ -1001,21 +1058,51 @@ const FunctionDoc count_substring_doc(
      "Null inputs emit null. The pattern must be given in MatchSubstringOptions."),
     {"strings"}, "MatchSubstringOptions");
 
+#ifdef ARROW_WITH_RE2
+const FunctionDoc count_substring_regex_doc(
+    "Count occurrences of substring",
+    ("For each string in `strings`, emit the number of occurrences of the given "
+     "regex pattern.\n"
+     "Null inputs emit null. The pattern must be given in MatchSubstringOptions."),
+    {"strings"}, "MatchSubstringOptions");
+#endif
+
 void AddCountSubstring(FunctionRegistry* registry) {
-  auto func = std::make_shared<ScalarFunction>("count_substring", Arity::Unary(),
-                                               &count_substring_doc);
-  for (const auto& ty : BaseBinaryTypes()) {
-    std::shared_ptr<DataType> offset_type;
-    if (ty->id() == Type::type::LARGE_BINARY || ty->id() == Type::type::LARGE_STRING) {
-      offset_type = int64();
-    } else {
-      offset_type = int32();
+  {
+    auto func = std::make_shared<ScalarFunction>("count_substring", Arity::Unary(),
+                                                 &count_substring_doc);
+    for (const auto& ty : BaseBinaryTypes()) {
+      std::shared_ptr<DataType> offset_type;
+      if (ty->id() == Type::type::LARGE_BINARY || ty->id() == Type::type::LARGE_STRING) {
+        offset_type = int64();
+      } else {
+        offset_type = int32();
+      }
+      DCHECK_OK(func->AddKernel({ty}, offset_type,
+                                GenerateTypeAgnosticVarBinaryBase<CountSubstringExec>(ty),
+                                MatchSubstringState::Init));
     }
-    DCHECK_OK(func->AddKernel({ty}, offset_type,
-                              GenerateTypeAgnosticVarBinaryBase<CountSubstringExec>(ty),
-                              MatchSubstringState::Init));
+    DCHECK_OK(registry->AddFunction(std::move(func)));
   }
-  DCHECK_OK(registry->AddFunction(std::move(func)));
+#ifdef ARROW_WITH_RE2
+  {
+    auto func = std::make_shared<ScalarFunction>("count_substring_regex", Arity::Unary(),
+                                                 &count_substring_regex_doc);
+    for (const auto& ty : BaseBinaryTypes()) {
+      std::shared_ptr<DataType> offset_type;
+      if (ty->id() == Type::type::LARGE_BINARY || ty->id() == Type::type::LARGE_STRING) {
+        offset_type = int64();
+      } else {
+        offset_type = int32();
+      }
+      DCHECK_OK(
+          func->AddKernel({ty}, offset_type,
+                          GenerateTypeAgnosticVarBinaryBase<CountSubstringRegexExec>(ty),
+                          MatchSubstringState::Init));
+    }
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+#endif
 }
 
 // Slicing
