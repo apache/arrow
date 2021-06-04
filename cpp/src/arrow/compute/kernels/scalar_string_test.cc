@@ -91,6 +91,10 @@ TYPED_TEST(TestBinaryKernels, FindSubstring) {
   MatchSubstringOptions options_double_char_2{"bbcaa"};
   this->CheckUnary("find_substring", R"(["abcbaabbbcaabccabaab"])", this->offset_type(),
                    "[7]", &options_double_char_2);
+
+  MatchSubstringOptions options_empty{""};
+  this->CheckUnary("find_substring", R"(["", "a", null])", this->offset_type(),
+                   "[0, 0, null]", &options_empty);
 }
 
 template <typename TestType>
@@ -391,6 +395,12 @@ TYPED_TEST(TestStringKernels, MatchSubstring) {
   MatchSubstringOptions options_double_char_2{"bbcaa"};
   this->CheckUnary("match_substring", R"(["abcbaabbbcaabccabaab"])", boolean(), "[true]",
                    &options_double_char_2);
+
+  MatchSubstringOptions options_empty{""};
+  this->CheckUnary("match_substring", "[]", boolean(), "[]", &options);
+  this->CheckUnary("match_substring", R"(["abc", "acb", "cab", null, "bac", "AB", ""])",
+                   boolean(), "[true, true, true, null, true, true, true]",
+                   &options_empty);
 }
 
 #ifdef ARROW_WITH_RE2
