@@ -221,6 +221,49 @@ TEST_F(TestUtf8, TestLike) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
+TEST_F(TestUtf8, TestLikeWithEscape) {
+  // schema for input fields
+  auto field_a = field("a", utf8());
+  auto schema = arrow::schema({field_a});
+
+  // output fields
+  auto res = field("res", boolean());
+
+  // build expressions.
+  // like(literal(s), a, '\')
+
+  auto node_a = TreeExprBuilder::MakeField(field_a);
+  auto literal_s = TreeExprBuilder::MakeStringLiteral("%pa\\%rk%");
+  auto escape_char = TreeExprBuilder::MakeStringLiteral("\\");
+  auto is_like =
+      TreeExprBuilder::MakeFunction("like", {node_a, literal_s, escape_char}, boolean());
+  auto expr = TreeExprBuilder::MakeExpression(is_like, res);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto array_a = MakeArrowArrayUtf8(
+      {"park", "spa%rkle", "bright spa%rk and fire", "spark"}, {true, true, true, true});
+
+  // expected output
+  auto exp = MakeArrowArrayBool({false, true, true, false}, {true, true, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
+}
+
 TEST_F(TestUtf8, TestBeginsEnds) {
   // schema for input fields
   auto field_a = field("a", utf8());
