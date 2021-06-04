@@ -32,6 +32,7 @@ jobs:
       fail-fast: false
     env:
       ARROW_R_DEV: "FALSE"
+      RSPM: "https://packagemanager.rstudio.com/cran/__linux__/focal/latest"
     steps:
       - name: Checkout Arrow
         run: |
@@ -56,16 +57,20 @@ jobs:
           mv arrow_*.tar.gz packages
       - name: rchk
         run: |
-          docker run -v `pwd`/packages:/rchk/packages kalibera/rchk:latest /rchk/packages/arrow_*.tar.gz
-      - name: Dump install logs
-        run: cat arrow/r/check/arrow.Rcheck/00install.out
+          docker run -v `pwd`/packages:/rchk/packages kalibera/rchk:latest /rchk/packages/arrow_*.tar.gz |& tee rchk.out
+      - name: Confirm that rchk has no errors
+        run: |
+          # Suspicious call, [UP], and [PB] are all of the error types currently at
+          # https://github.com/kalibera/cran-checks/tree/master/rchk/results
+          # though this might not be exhaustive, there does not appear to be a way to have rchk return an error code
+          # CRAN also will remove some of the outputs (especially those related to Rcpp and strptime, e.g.
+          # ERROR: too many states (abstraction error?))
+          # https://github.com/kalibera/rchk
+          if [ $(grep -c "Suspicious call" $1) -gt 0 ] || [ $(grep -c "\[UP\]" $1) -gt 0 ] || [ $(grep -c "\[PB\]" $1) -gt 0 ]; then
+            echo "Found rchk errors"
+            exit 1
+          fi
         if: always()
-      - name: Dump test logs
-        run: cat arrow/r/check/arrow.Rcheck/tests/testthat.Rout*
+      - name: Dump rchk output logs
+        run: cat rchk.out
         if: always()
-      - name: Save the test output
-        if: always()
-        uses: actions/upload-artifact@v2
-        with:
-          name: test-output
-          path: arrow/r/check/arrow.Rcheck/tests/testthat.Rout*
