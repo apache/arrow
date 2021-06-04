@@ -373,21 +373,6 @@ def match_substring_regex(array, pattern, *, ignore_case=False):
                          MatchSubstringOptions(pattern, ignore_case))
 
 
-def sum(array):
-    """
-    Sum the values in a numerical (chunked) array.
-
-    Parameters
-    ----------
-    array : pyarrow.Array or pyarrow.ChunkedArray
-
-    Returns
-    -------
-    sum : pyarrow.Scalar
-    """
-    return call_function('sum', [array])
-
-
 def mode(array, n=1):
     """
     Return top-n most common values and number of times they occur in a passed
