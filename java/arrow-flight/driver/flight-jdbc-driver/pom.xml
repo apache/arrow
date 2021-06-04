@@ -26,11 +26,6 @@
     <description>(Contrib/Experimental)A library for querying data using a JDBC driver for Arrow Flight.</description>
     <url>http://maven.apache.org</url>
 
-    <properties>
-        <maven.compiler.source>8</maven.compiler.source>
-        <maven.compiler.target>8</maven.compiler.target>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>org.apache.arrow</groupId>
