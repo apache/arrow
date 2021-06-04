@@ -425,3 +425,20 @@ get_stringr_pattern_options <- function(pattern) {
 contains_regex <- function(string) {
   grepl("[.\\|()[{^$*+?]", string)
 }
+
+nse_funcs$strptime <- function(x, format = "%Y-%m-%d %H:%M:%S", tz = NULL, unit = "ms") {
+  # Arrow uses unit for time parsing, strptime() does not.
+  # Arrow has no default option for strptime (format, unit),
+  # we suggest following format = "%Y-%m-%d %H:%M:%S", unit = MILLI/1L/"ms",
+  # (ARROW-12809)
+
+  # ParseTimestampStrptime currently ignores the timezone information (ARROW-12820).
+  # Stop if tz is provided.
+  if (is.character(tz)) {
+    arrow_not_supported("Time zone argument")
+  }
+
+  unit <- make_valid_time_unit(unit, c(valid_time64_units, valid_time32_units))
+
+  Expression$create("strptime", x, options = list(format = format, unit = unit))
+}
