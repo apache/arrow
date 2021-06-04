@@ -26,7 +26,7 @@ import (
 )
 
 // PlainByteArrayEncoder encodes byte arrays according to the spec for Plain encoding
-// by encoding the length as a uint32 followed by the bytes of the value.
+// by encoding the length as a int32 followed by the bytes of the value.
 type PlainByteArrayEncoder struct {
 	encoder
 }
