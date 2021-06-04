@@ -353,7 +353,5 @@ nse_funcs$strptime <- function(x, format = "%Y-%m-%d %H:%M:%S", tz = NULL, unit 
 
   unit <- make_valid_time_unit(unit, c(valid_time64_units, valid_time32_units))
 
-  Expression$create("strptime", 
-                     x, 
-                     options = list(format = format, unit = unit))
+  Expression$create("strptime", x, options = list(format = format, unit = unit))
 }
