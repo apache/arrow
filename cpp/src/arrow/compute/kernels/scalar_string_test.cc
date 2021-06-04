@@ -97,6 +97,21 @@ TYPED_TEST(TestBinaryKernels, FindSubstring) {
                    "[0, 0, null]", &options_empty);
 }
 
+TYPED_TEST(TestBinaryKernels, CountSubstring) {
+  MatchSubstringOptions options{"aba"};
+  this->CheckUnary("count_substring", "[]", this->offset_type(), "[]", &options);
+  this->CheckUnary(
+      "count_substring",
+      R"(["", null, "ab", "aba", "baba", "ababa", "abaaba", "babacaba", "ABA"])",
+      this->offset_type(), "[0, null, 0, 1, 1, 1, 2, 2, 0]", &options);
+
+  MatchSubstringOptions options_empty{""};
+  this->CheckUnary("count_substring", R"(["", null, "abc"])", this->offset_type(),
+                   "[1, null, 4]", &options_empty);
+
+  // TODO: case-insensitive
+}
+
 template <typename TestType>
 class TestStringKernels : public BaseTestStringKernels<TestType> {};
 
