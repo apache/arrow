@@ -103,7 +103,8 @@ write_feather <- function(x,
   if (is.data.frame(x) || inherits(x, "RecordBatch")) {
     x <- Table$create(x)
   }
-  assert_is(x, "Table")
+  
+  assert_that(is_writable_table(x))
 
   if (!inherits(sink, "OutputStream")) {
     sink <- make_output_stream(sink)
