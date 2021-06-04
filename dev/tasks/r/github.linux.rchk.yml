@@ -59,14 +59,14 @@ jobs:
         run: |
           docker run -v `pwd`/packages:/rchk/packages kalibera/rchk:latest /rchk/packages/arrow_*.tar.gz |& tee rchk.out
       - name: Confirm that rchk has no errors
+        # Suspicious call, [UP], and [PB] are all of the error types currently at
+        # https://github.com/kalibera/cran-checks/tree/master/rchk/results
+        # though this might not be exhaustive, there does not appear to be a way to have rchk return an error code
+        # CRAN also will remove some of the outputs (especially those related to Rcpp and strptime, e.g.
+        # ERROR: too many states (abstraction error?))
+        # https://github.com/kalibera/rchk
         run: |
-          # Suspicious call, [UP], and [PB] are all of the error types currently at
-          # https://github.com/kalibera/cran-checks/tree/master/rchk/results
-          # though this might not be exhaustive, there does not appear to be a way to have rchk return an error code
-          # CRAN also will remove some of the outputs (especially those related to Rcpp and strptime, e.g.
-          # ERROR: too many states (abstraction error?))
-          # https://github.com/kalibera/rchk
-          if [ $(grep -c "Suspicious call" $1) -gt 0 ] || [ $(grep -c "\[UP\]" $1) -gt 0 ] || [ $(grep -c "\[PB\]" $1) -gt 0 ]; then
+          if [ $(grep -c "Suspicious call" rchk.out) -gt 0 ] || [ $(grep -c "\[UP\]" rchk.out) -gt 0 ] || [ $(grep -c "\[PB\]" rchk.out) -gt 0 ]; then
             echo "Found rchk errors"
             exit 1
           fi
