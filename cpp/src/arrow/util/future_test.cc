@@ -956,7 +956,7 @@ TEST(FutureCompletionTest, FutureVoid) {
 class FutureSchedulingTest : public testing::Test {
  public:
   internal::Executor* executor() { return mock_executor.get(); }
-  int spawn_count() { return mock_executor->captured_tasks.size(); }
+  int spawn_count() { return static_cast<int>(mock_executor->captured_tasks.size()); }
   void AssertRunSynchronously(const std::vector<int>& ids) { AssertIds(ids, true); }
   void AssertScheduled(const std::vector<int>& ids) { AssertIds(ids, false); }
   void AssertIds(const std::vector<int>& ids, bool should_be_synchronous) {

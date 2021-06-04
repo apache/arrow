@@ -203,7 +203,7 @@ enum class FutureState : int8_t { PENDING, SUCCESS, FAILURE };
 inline bool IsFutureFinished(FutureState state) { return state != FutureState::PENDING; }
 
 /// \brief Describe whether the callback should be scheduled or run synchronously
-enum ShouldSchedule {
+enum class ShouldSchedule {
   /// Always run the callback synchronously (the default)
   Never = 0,
   /// Schedule a new task only if the future is not finished when the
