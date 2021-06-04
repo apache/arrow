@@ -35,12 +35,12 @@ type PlainByteArrayEncoder struct {
 func (enc *PlainByteArrayEncoder) PutByteArray(val parquet.ByteArray) {
 	inc := val.Len() + arrow.Uint32SizeBytes
 	enc.sink.Reserve(inc)
-	vlen := uint32(val.Len())
+	vlen := toLEFunc(uint32(val.Len()))
 	enc.sink.UnsafeWrite((*(*[4]byte)(unsafe.Pointer(&vlen)))[:])
 	enc.sink.UnsafeWrite(val)
 }
 
-// Put writes out all of the values in this slice to the buffer
+// Put writes out all of the values in this slice to the encoding sink
 func (enc *PlainByteArrayEncoder) Put(in []parquet.ByteArray) {
 	for _, val := range in {
 		enc.PutByteArray(val)
