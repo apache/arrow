@@ -192,6 +192,18 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
 
     cdef c_string FormatStatValue(ParquetType parquet_type, c_string val)
 
+    enum ParquetCipher" parquet::ParquetCipher::type":
+        ParquetCipher_AES_GCM_V1" parquet::ParquetCipher::AES_GCM_V1"
+        ParquetCipher_AES_GCM_CTR_V1" parquet::ParquetCipher::AES_GCM_CTR_V1"
+
+    struct AadMetadata:
+        c_string aad_prefix
+        c_string aad_file_unique
+        c_bool supply_aad_prefix
+
+    struct EncryptionAlgorithm:
+        ParquetCipher algorithm
+        AadMetadata aad
 
 cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
     cdef cppclass ColumnReader:
@@ -283,10 +295,16 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         ParquetFLBA min()
         ParquetFLBA max()
 
+    cdef cppclass CColumnCryptoMetaData" parquet::ColumnCryptoMetaData":
+        shared_ptr[ColumnPath] path_in_schema() const
+        c_bool encrypted_with_footer_key() const
+        const c_string& key_metadata() const
+
     cdef cppclass CColumnChunkMetaData" parquet::ColumnChunkMetaData":
         int64_t file_offset() const
         const c_string& file_path() const
 
+        c_bool is_metadata_set() const
         ParquetType type() const
         int64_t num_values() const
         shared_ptr[ColumnPath] path_in_schema() const
@@ -302,6 +320,7 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         int64_t index_page_offset() const
         int64_t total_compressed_size() const
         int64_t total_uncompressed_size() const
+        unique_ptr[CColumnCryptoMetaData] crypto_metadata() const
 
     cdef cppclass CRowGroupMetaData" parquet::RowGroupMetaData":
         c_bool Equals(const CRowGroupMetaData&) const
@@ -328,6 +347,10 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         shared_ptr[const CKeyValueMetadata] key_value_metadata() const
         void WriteTo(COutputStream* dst) const
 
+        inline c_bool is_encryption_algorithm_set() const
+        inline EncryptionAlgorithm encryption_algorithm() const
+        inline const c_string& footer_signing_key_metadata() const
+
     cdef shared_ptr[CFileMetaData] CFileMetaData_Make \
         " parquet::FileMetaData::Make"(const void* serialized_metadata,
                                        uint32_t* metadata_len)
@@ -338,6 +361,10 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         void disable_buffered_stream()
         void set_buffer_size(int64_t buf_size)
         int64_t buffer_size() const
+        void file_decryption_properties(shared_ptr[CFileDecryptionProperties]
+                                        decryption)
+        shared_ptr[CFileDecryptionProperties] file_decryption_properties() \
+            const
 
     CReaderProperties default_reader_properties()
 
@@ -369,6 +396,9 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* compression_level(int compression_level)
             Builder* compression_level(const c_string& path,
                                        int compression_level)
+            Builder* encryption(
+                shared_ptr[CFileEncryptionProperties]
+                file_encryption_properties)
             Builder* disable_dictionary()
             Builder* enable_dictionary()
             Builder* enable_dictionary(const c_string& path)
@@ -506,7 +536,8 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     compression_level=*,
     use_byte_stream_split=*,
     column_encoding=*,
-    data_page_version=*) except *
+    data_page_version=*,
+    encryption_properties=*) except *
 
 
 cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
@@ -558,3 +589,110 @@ cdef class Statistics(_Weakrefable):
                      ColumnChunkMetaData parent):
         self.statistics = statistics
         self.parent = parent
+
+cdef extern from "parquet/exception.h" namespace "parquet" nogil:
+    cdef cppclass ParquetException:
+        pass
+
+cdef extern from "parquet/encryption/encryption.h" namespace "parquet" nogil:
+    cdef cppclass CFileDecryptionProperties\
+            " parquet::FileDecryptionProperties":
+        pass
+
+    cdef cppclass CFileEncryptionProperties\
+            " parquet::FileEncryptionProperties":
+        pass
+
+cdef extern from "parquet/encryption/kms_client.h" \
+        namespace "parquet::encryption" nogil:
+    cdef cppclass CKmsClient" parquet::encryption::KmsClient":
+        c_string WrapKey(const c_string& key_bytes,
+                         const c_string& master_key_identifier) except +
+        c_string UnwrapKey(const c_string& wrapped_key,
+                           const c_string& master_key_identifier) except +
+
+    cdef cppclass CKeyAccessToken" parquet::encryption::KeyAccessToken":
+        CKeyAccessToken(const c_string value)
+        void Refresh(const c_string& new_value)
+        const c_string& value() const
+
+    cdef cppclass CKmsConnectionConfig \
+            " parquet::encryption::KmsConnectionConfig":
+        CKmsConnectionConfig()
+        c_string kms_instance_id
+        c_string kms_instance_url
+        shared_ptr[CKeyAccessToken] refreshable_key_access_token
+        unordered_map[c_string, c_string] custom_kms_conf
+
+# Callbacks for implementing Python kms clients
+# Use typedef to emulate syntax for std::function<void(..)>
+ctypedef void CallbackWrapKey(
+    object, const c_string&, const c_string&, c_string*)
+ctypedef void CallbackUnwrapKey(
+    object, const c_string&, const c_string&, c_string*)
+
+cdef extern from "parquet/encryption/kms_client_factory.h" \
+        namespace "parquet::encryption" nogil:
+    cdef cppclass CKmsClientFactory" parquet::encryption::KmsClientFactory":
+        shared_ptr[CKmsClient] CreateKmsClient(
+            const CKmsConnectionConfig& kms_connection_config) except +
+
+# Callbacks for implementing Python kms client factories
+# Use typedef to emulate syntax for std::function<void(..)>
+ctypedef void CallbackCreateKmsClient(
+    object,
+    const CKmsConnectionConfig&, shared_ptr[CKmsClient]*)
+
+cdef extern from "arrow/python/parquet_encryption.h" \
+        namespace "arrow::py::parquet::encryption" nogil:
+    cdef cppclass CPyKmsClientVtable \
+            " arrow::py::parquet::encryption::PyKmsClientVtable":
+        CPyKmsClientVtable()
+        function[CallbackWrapKey] wrap_key
+        function[CallbackUnwrapKey] unwrap_key
+
+    cdef cppclass CPyKmsClient\
+            " arrow::py::parquet::encryption::PyKmsClient"(CKmsClient):
+        CPyKmsClient(object handler, CPyKmsClientVtable vtable)
+
+    cdef cppclass CPyKmsClientFactoryVtable\
+            " arrow::py::parquet::encryption::PyKmsClientFactoryVtable":
+        CPyKmsClientFactoryVtable()
+        function[CallbackCreateKmsClient] create_kms_client
+
+    cdef cppclass CPyKmsClientFactory\
+            " arrow::py::parquet::encryption::PyKmsClientFactory"(
+                CKmsClientFactory):
+        CPyKmsClientFactory(object handler, CPyKmsClientFactoryVtable vtable)
+
+cdef extern from "parquet/encryption/crypto_factory.h" \
+        namespace "parquet::encryption" nogil:
+    cdef cppclass CEncryptionConfiguration\
+            " parquet::encryption::EncryptionConfiguration":
+        CEncryptionConfiguration(const c_string& footer_key) except +
+        c_string footer_key
+        c_string column_keys
+        c_bool uniform_encryption
+        ParquetCipher encryption_algorithm
+        c_bool plaintext_footer
+        c_bool double_wrapping
+        double cache_lifetime_seconds
+        c_bool internal_key_material
+        int32_t data_key_length_bits
+
+    cdef cppclass CDecryptionConfiguration\
+            " parquet::encryption::DecryptionConfiguration":
+        CDecryptionConfiguration() except +
+        double cache_lifetime_seconds
+
+    cdef cppclass CCryptoFactory" parquet::encryption::CryptoFactory":
+        void RegisterKmsClientFactory(
+            shared_ptr[CKmsClientFactory] kms_client_factory) except +
+        shared_ptr[CFileEncryptionProperties] GetFileEncryptionProperties(
+            const CKmsConnectionConfig& kms_connection_config,
+            const CEncryptionConfiguration& encryption_config) except +*
+        shared_ptr[CFileDecryptionProperties] GetFileDecryptionProperties(
+            const CKmsConnectionConfig& kms_connection_config,
+            const CDecryptionConfiguration& decryption_config) except +*
+        void RemoveCacheEntriesForToken(const c_string& access_token) except +
+        void RemoveCacheEntriesForAllTokens() except +

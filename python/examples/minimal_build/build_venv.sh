@@ -54,6 +54,7 @@ cmake -GNinja \
       -DARROW_WITH_SNAPPY=ON \
       -DARROW_WITH_BROTLI=ON \
       -DARROW_PARQUET=ON \
+      -DPARQUET_REQUIRE_ENCRYPTION=ON \
       -DARROW_PYTHON=ON \
       $ARROW_ROOT/cpp
 
