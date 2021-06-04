@@ -578,7 +578,7 @@ ARROW_EXPORT Result<Datum> DayOfWeek(const Datum& values, ExecContext* ctx = NUL
 ARROW_EXPORT Result<Datum> DayOfYear(const Datum& values, ExecContext* ctx = NULLPTR);
 
 /// \brief ISOYear returns ISO year number for each element of `values`.
-/// First week of an ISO year has the majority (4 or more) of it's days in January.
+/// First week of an ISO year has the majority (4 or more) of its days in January.
 ///
 /// \param[in] values input to extract ISO year from
 /// \param[in] ctx the function execution context, optional
