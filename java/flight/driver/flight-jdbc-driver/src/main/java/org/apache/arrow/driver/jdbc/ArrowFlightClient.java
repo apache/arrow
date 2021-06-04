@@ -33,7 +33,9 @@ import java.security.cert.CertificateException;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
+
 import javax.annotation.Nullable;
+
 import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightDescriptor;
@@ -279,7 +281,7 @@ public final class ArrowFlightClient {
    * @return {@link CredentialCallOption} encapsulating the bearer token to use
    *         in subsequent requests.
    */
-  public static final CredentialCallOption getAuthenticate(FlightClient client,
+  public static CredentialCallOption getAuthenticate(FlightClient client,
       String user, String pass,
       ClientIncomingAuthHeaderMiddleware.Factory factory,
       HeaderCallOption clientProperties) {
@@ -309,7 +311,7 @@ public final class ArrowFlightClient {
    * @throws Exception
    *           If there was an error looking up the private key or certificates.
    */
-  public static final InputStream getCertificateStream(String keyStorePath,
+  public static InputStream getCertificateStream(String keyStorePath,
       String keyStorePass) throws KeyStoreException, NoSuchAlgorithmException,
       CertificateException, IOException {
 
@@ -333,7 +335,7 @@ public final class ArrowFlightClient {
     throw new RuntimeException("Keystore did not have a private key.");
   }
 
-  private static final InputStream toInputStream(Certificate certificate)
+  private static InputStream toInputStream(Certificate certificate)
       throws IOException {
 
     try (final StringWriter writer = new StringWriter();

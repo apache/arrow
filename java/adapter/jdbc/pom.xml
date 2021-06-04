@@ -59,12 +59,6 @@
         </dependency>
 
         <dependency>
-            <groupId>org.apache.arrow</groupId>
-            <artifactId>flight-core</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
             <groupId>com.fasterxml.jackson.dataformat</groupId>
             <artifactId>jackson-dataformat-yaml</artifactId>
             <version>${dep.jackson.version}</version>
