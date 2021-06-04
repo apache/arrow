@@ -399,6 +399,16 @@ FloatingPointType::Precision DoubleType::precision() const {
   return FloatingPointType::DOUBLE;
 }
 
+ComplexType::Precision ComplexFloatType::precision() const {
+  return ComplexType::SINGLE;
+}
+
+ComplexType::Precision ComplexDoubleType::precision() const {
+  return ComplexType::DOUBLE;
+}
+
+
+
 std::string ListType::ToString() const {
   std::stringstream s;
   s << "list<" << value_field()->ToString() << ">";

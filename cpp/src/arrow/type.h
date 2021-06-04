@@ -19,6 +19,7 @@
 
 #include <atomic>
 #include <climits>
+#include <complex>
 #include <cstdint>
 #include <iosfwd>
 #include <limits>
@@ -227,6 +228,13 @@ class ARROW_EXPORT FloatingPointType : public NumberType {
   using NumberType::NumberType;
   enum Precision { HALF, SINGLE, DOUBLE };
   virtual Precision precision() const = 0;
+};
+
+class ARROW_EXPORT ComplexType : public NumberType {
+  public:
+    using NumberType::NumberType;
+    enum Precision { HALF, SINGLE, DOUBLE };
+    virtual Precision precision() const = 0;
 };
 
 /// \brief Base class for all parametric data types
@@ -548,6 +556,30 @@ class ARROW_EXPORT DoubleType
  protected:
   std::string ComputeFingerprint() const override;
 };
+
+
+/// Concrete type class for 32-bit complex floating-point data (C "float complex")
+class ARROW_EXPORT ComplexFloatType
+    : public detail::CTypeImpl<ComplexFloatType, ComplexType, Type::COMPLEX_FLOAT, std::complex<float>> {
+ public:
+  Precision precision() const override;
+  static constexpr const char* type_name() { return "complexfloat"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
+};
+
+/// Concrete type class for 64-bit complex floating-point data (C "double complex")
+class ARROW_EXPORT ComplexDoubleType
+    : public detail::CTypeImpl<ComplexDoubleType, ComplexType, Type::COMPLEX_DOUBLE, std::complex<double>> {
+ public:
+  Precision precision() const override;
+  static constexpr const char* type_name() { return "complexdouble"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
+};
+
 
 /// \brief Base class for all variable-size list data types
 class ARROW_EXPORT BaseListType : public NestedType {
