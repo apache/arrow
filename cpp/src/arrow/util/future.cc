@@ -263,7 +263,8 @@ class ConcreteFutureImpl : public FutureImpl {
     }
   }
 
-  bool ShouldSchedule(const CallbackRecord& callback_record, bool in_add_callback) {
+  bool ShouldScheduleCallback(const CallbackRecord& callback_record,
+                              bool in_add_callback) {
     switch (callback_record.options.should_schedule) {
       case ShouldSchedule::Never:
         return false;
@@ -278,7 +279,7 @@ class ConcreteFutureImpl : public FutureImpl {
   }
 
   void RunOrScheduleCallback(CallbackRecord&& callback_record, bool in_add_callback) {
-    if (ShouldSchedule(callback_record, in_add_callback)) {
+    if (ShouldScheduleCallback(callback_record, in_add_callback)) {
       struct CallbackTask {
         void operator()() { std::move(callback)(*self); }
 
