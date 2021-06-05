@@ -459,7 +459,7 @@ bool SimpleThreadPool::Empty() {
 }
 
 struct StlThread : public Thread {
-  StlThread(std::thread* thread) : thread(thread) {}
+  explicit StlThread(std::thread* thread) : thread(thread) {}
   ~StlThread() {
     if (thread) {
       delete thread;
