@@ -331,9 +331,9 @@ bool ThreadPool::ShouldWorkerQuitNow(ThreadIt* thread_it) {
   // This method is called often but returns true very rarely so we only grab
   // the mutex if it looks like we are going to be quitting.  As a result we need
   // to do a bit of a double-check
-  if (quick_shutdown_ || desired_capacity_ < workers_.size()) {
+  if (quick_shutdown_ || desired_capacity_ < GetActualCapacity()) {
     std::lock_guard<std::mutex> lock(control_->mx);
-    if (quick_shutdown_ || desired_capacity_ < workers_.size()) {
+    if (quick_shutdown_ || desired_capacity_ < GetActualCapacity()) {
       MarkThreadFinishedUnlocked(thread_it);
       return true;
     } else {

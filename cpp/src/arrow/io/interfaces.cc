@@ -46,6 +46,7 @@ using internal::checked_pointer_cast;
 using internal::Executor;
 using internal::SimpleThreadPool;
 using internal::TaskHints;
+using internal::ThreadPool;
 
 namespace io {
 
