@@ -84,7 +84,7 @@
 #'
 #' @rdname array
 #' @name array
-#' @examples
+#' @examplesIf arrow_available()
 #' my_array <- Array$create(1:10)
 #' my_array$type
 #' my_array$cast(int8())

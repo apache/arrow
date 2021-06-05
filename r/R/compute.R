@@ -242,7 +242,7 @@ all.ArrowDatum <- function(..., na.rm = FALSE){
 #' and type as `x` with the (0-based) indexes into `table`. `is_in()` returns a
 #' `boolean`-type Arrow object of the same length and type as `x` with values indicating
 #' per element of `x` it it is present in `table`.
-#' @examples
+#' @examplesIf arrow_available()
 #' # note that the returned value is 0-indexed
 #' cars_tbl <- Table$create(name = rownames(mtcars), mtcars)
 #' match_arrow(Scalar$create("Mazda RX4 Wag"), cars_tbl$name)
@@ -296,7 +296,7 @@ is_in <- function(x, table, ...) {
 #' @param x `Array` or `ChunkedArray`
 #' @return A `StructArray` containing "values" (same type as `x`) and "counts"
 #' `Int64`.
-#' @examples
+#' @examplesIf arrow_available()
 #' cyl_vals <- Array$create(mtcars$cyl)
 #' value_counts(cyl_vals)
 #' @export

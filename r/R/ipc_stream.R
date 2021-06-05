@@ -35,7 +35,7 @@
 #' serialize data to a buffer.
 #' [RecordBatchWriter] for a lower-level interface.
 #' @export
-#' @examples 
+#' @examplesIf arrow_available() 
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
 #' write_ipc_stream(mtcars, tf)
@@ -65,7 +65,7 @@ write_ipc_stream <- function(x, sink, ...) {
 #' @inheritParams write_feather
 #' @param format one of `c("stream", "file")`, indicating the IPC format to use
 #' @return A `raw` vector containing the bytes of the IPC serialized data.
-#' @examples
+#' @examplesIf arrow_available()
 #' # The default format is "stream"
 #' write_to_raw(mtcars)
 #' write_to_raw(mtcars, format = "file")

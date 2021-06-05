@@ -57,7 +57,7 @@ FLOAT_TYPES <- c("float16", "float32", "float64", "halffloat", "float", "double"
 #' @param x an R vector
 #'
 #' @return an arrow logical type
-#' @examples
+#' @examplesIf arrow_available()
 #' type(1:10)
 #' type(1L:10L)
 #' type(c(1, 1.5, 2))
