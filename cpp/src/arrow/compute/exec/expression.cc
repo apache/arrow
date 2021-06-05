@@ -616,7 +616,7 @@ std::vector<FieldRef> FieldsInExpression(const Expression& expr) {
 bool ExpressionHasFieldRefs(const Expression& expr) {
   if (expr.literal()) return false;
 
-  if (auto ref = expr.field_ref()) return true;
+  if (expr.field_ref()) return true;
 
   for (const Expression& arg : CallNotNull(expr)->arguments) {
     if (ExpressionHasFieldRefs(arg)) return true;
