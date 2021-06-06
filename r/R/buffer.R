@@ -32,7 +32,7 @@
 #'
 #' @rdname buffer
 #' @name buffer
-#' @examples
+#' @examplesIf arrow_available()
 #' my_buffer <- buffer(c(1, 2, 3, 4))
 #' my_buffer$is_mutable
 #' my_buffer$ZeroPadding()
