@@ -145,9 +145,10 @@ struct ARROW_EXPORT IndexOptions : public FunctionOptions {
 /// \since 1.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> Count(const Datum& datum,
-                    ScalarAggregateOptions options = ScalarAggregateOptions::Defaults(),
-                    ExecContext* ctx = NULLPTR);
+Result<Datum> Count(
+    const Datum& datum,
+    const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
 
 /// \brief Compute the mean of a numeric array.
 ///

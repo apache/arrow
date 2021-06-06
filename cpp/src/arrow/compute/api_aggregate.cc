@@ -25,7 +25,7 @@ namespace compute {
 // ----------------------------------------------------------------------
 // Scalar aggregates
 
-Result<Datum> Count(const Datum& value, ScalarAggregateOptions options,
+Result<Datum> Count(const Datum& value, const ScalarAggregateOptions& options,
                     ExecContext* ctx) {
   return CallFunction("count", {value}, &options, ctx);
 }
