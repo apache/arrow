@@ -38,8 +38,6 @@ import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.auth2.BasicCallHeaderAuthenticator;
 import org.apache.arrow.flight.auth2.CallHeaderAuthenticator;
 import org.apache.arrow.flight.auth2.GeneratedBearerTokenAuthenticator;
-import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.RootAllocator;
 import org.apache.calcite.avatica.org.apache.http.auth.UsernamePasswordCredentials;
 import org.junit.Before;
 import org.junit.Test;
@@ -49,14 +47,7 @@ import org.junit.Test;
  */
 public class ConnectionTest {
 
-  private BufferAllocator allocator;
   private FlightServer server;
-  private static final String CONNECTION_PREFIX = "jdbc:arrow-flight://";
-  public static final String LOCALHOST = "localhost";
-  private static final String USERNAME_1 = "flight1";
-  private static final String PASSWORD_1 = "woohoo1";
-  private static final String USERNAME_INVALID = "bad";
-  private static final String PASSWORD_INVALID = "wrong";
   private static String serverUrl;
 
   /**

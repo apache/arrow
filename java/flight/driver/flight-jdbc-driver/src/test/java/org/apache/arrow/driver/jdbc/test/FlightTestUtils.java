@@ -18,11 +18,42 @@ public class FlightTestUtils {
 
     private static final Random RANDOM = new Random();
 
-    public static final String LOCALHOST = "localhost";
+    private static final String LOCALHOST = "localhost";
     private static final String USERNAME_1 = "flight1";
+    private static final String PASSWORD_1 = "woohoo1";
+    private static final String USERNAME_INVALID = "bad";
+    private static final String PASSWORD_INVALID = "wrong";
     private static final String USERNAME_2 = "flight2";
-    private static final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+    private static final BufferAllocator ALLOCATOR = new RootAllocator(Long.MAX_VALUE);
+    private static final String CONNECTION_PREFIX = "jdbc:arrow-flight://";
 
+    public static String getConnectionPrefix() {
+        return CONNECTION_PREFIX;
+    }
+
+    public static String getUsername1() {
+        return USERNAME_1;
+    }
+
+    public static String getPassword1() {
+        return PASSWORD_1;
+    }
+
+    public static String getUsernameInvalid() {
+        return USERNAME_INVALID;
+    }
+
+    public static String getPasswordInvalid() {
+        return PASSWORD_INVALID;
+    }
+
+    public static String getLocalhost() {
+        return LOCALHOST;
+    }
+
+    public static BufferAllocator getAllocator() {
+        return ALLOCATOR;
+    }
 
     /**
      * Returns a a FlightServer (actually anything that is startable)
