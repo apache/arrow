@@ -74,6 +74,12 @@ bool in_expr_lookup_utf8(int64_t ptr, const char* data, int data_len, bool in_va
 int gdv_fn_time_with_zone(int* time_fields, const char* zone, int zone_len,
                           int64_t* ret_time);
 
+const char* gdv_fn_base64_encode_utf8(int64_t context, const char* in, int32_t in_len,
+                                      int32_t* out_len);
+
+const char* gdv_fn_base64_decode_utf8(int64_t context, const char* in, int32_t in_len,
+                                      int32_t* out_len);
+
 GANDIVA_EXPORT
 const char* gdv_fn_castVARBINARY_int32_int64(int64_t context, gdv_int32 value,
                                              int64_t out_len, int32_t* out_length);

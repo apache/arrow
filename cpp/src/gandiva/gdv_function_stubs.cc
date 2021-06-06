@@ -25,6 +25,7 @@
 #include "arrow/util/formatting.h"
 #include "arrow/util/utf8.h"
 #include "arrow/util/value_parsing.h"
+#include "arrow/util/base64.h"
 #include "gandiva/engine.h"
 #include "gandiva/exported_funcs.h"
 #include "gandiva/formatting_utils.h"
@@ -305,6 +306,59 @@ char* gdv_fn_dec_to_string(int64_t context, int64_t x_high, uint64_t x_low,
     return nullptr;
   }
   memcpy(ret, dec_str.data(), *dec_str_len);
+  return ret;
+}
+
+const char* gdv_fn_base64_encode_utf8(int64_t context, const char* in, int32_t in_len,
+                                      int32_t* out_len) {
+  if (in_len < 0) {
+    gdv_fn_context_set_error_msg(context, "Buffer length can not be negative");
+    *out_len = 0;
+    return "";
+  }
+  if (in_len == 0) {
+    *out_len = 0;
+    return "";
+  }
+  // use arrow method to encode base64 string
+  std::string encoded_str = arrow::util::base64_encode(
+      reinterpret_cast<const unsigned char *>(in), in_len);
+  *out_len = static_cast<int32_t>(encoded_str.length());
+  // allocate memory for response
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(
+      context, static_cast<int32_t>(*out_len)));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory");
+    *out_len = 0;
+    return "";
+  }
+  memcpy(ret, encoded_str.data(), *out_len);
+  return ret;
+}
+
+const char* gdv_fn_base64_decode_utf8(int64_t context, const char* in, int32_t in_len,
+                                      int32_t* out_len) {
+  if (in_len < 0) {
+    gdv_fn_context_set_error_msg(context, "Buffer length can not be negative");
+    *out_len = 0;
+    return "";
+  }
+  if (in_len == 0) {
+    *out_len = 0;
+    return "";
+  }
+  // use arrow method to encode base64 string
+  std::string decoded_str = arrow::util::base64_decode(in);
+  *out_len = static_cast<int32_t>(decoded_str.length());
+  // allocate memory for response
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(
+      context, static_cast<int32_t>(*out_len)));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory");
+    *out_len = 0;
+    return "";
+  }
+  memcpy(ret, decoded_str.data(), *out_len);
   return ret;
 }
 
