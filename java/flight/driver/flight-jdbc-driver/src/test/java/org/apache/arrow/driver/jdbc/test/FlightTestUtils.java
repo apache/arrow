@@ -115,7 +115,7 @@ public class FlightTestUtils {
                 }
                 final Schema pojoSchema = new Schema(ImmutableList.of(Field.nullable("a",
                         Types.MinorType.BIGINT.getType())));
-                try (VectorSchemaRoot root = VectorSchemaRoot.create(pojoSchema, allocator)) {
+                try (VectorSchemaRoot root = VectorSchemaRoot.create(pojoSchema, ALLOCATOR)) {
                     listener.start(root);
                     root.allocateNew();
                     root.setRowCount(4095);
@@ -124,5 +124,38 @@ public class FlightTestUtils {
                 }
             }
         };
+    }
+
+
+    /**
+     * Get the Path from the Files to be used in the encrypted test of Flight.
+     *
+     * @return the Path from the Files with certificates and keys.
+     */
+    static Path getFlightTestDataRoot() {
+        // #TODO Change this way to get Path
+        return Paths.get("/home/jose/Documents/Dremio/arrow/testing/data/").resolve("flight");
+    }
+
+    /**
+     * Create CertKeyPair object with the certificates and keys.
+     *
+     * @return A list with CertKeyPair.
+     */
+    public static List<CertKeyPair> exampleTlsCerts() {
+        final Path root = getFlightTestDataRoot();
+        return Arrays.asList(new CertKeyPair(root.resolve("cert0.pem").toFile(), root.resolve("cert0.pkcs1").toFile()),
+                new CertKeyPair(root.resolve("cert1.pem").toFile(), root.resolve("cert1.pkcs1").toFile()));
+    }
+
+    public static class CertKeyPair {
+
+        public final File cert;
+        public final File key;
+
+        public CertKeyPair(File cert, File key) {
+            this.cert = cert;
+            this.key = key;
+        }
     }
 }
