@@ -9,9 +9,11 @@ import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 
-import java.io.IOException;
+import java.io.*;
 import java.lang.reflect.InvocationTargetException;
-import java.util.Random;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.*;
 import java.util.function.Function;
 
 public class FlightTestUtils {
@@ -56,7 +58,7 @@ public class FlightTestUtils {
     }
 
     /**
-     * Returns a a FlightServer (actually anything that is startable)
+     * Return a a FlightServer (actually anything that is startable)
      * that has been started bound to a random port.
      */
     public static <T> T getStartedServer(Function<Location, T> newServerFromLocation) throws IOException {
@@ -88,6 +90,11 @@ public class FlightTestUtils {
         return server;
     }
 
+    /**
+     * Get a Flight Producer.
+     *
+     * @return NoOpFlightProducer.
+     */
     public static FlightProducer getFlightProducer() {
         return new NoOpFlightProducer() {
             @Override
