@@ -347,7 +347,7 @@ const char* gdv_fn_base64_decode_utf8(int64_t context, const char* in, int32_t i
     *out_len = 0;
     return "";
   }
-  // use arrow method to encode base64 string
+  // use arrow method to decode base64 string
   std::string decoded_str = arrow::util::base64_decode(in);
   *out_len = static_cast<int32_t>(decoded_str.length());
   // allocate memory for response
@@ -1460,6 +1460,30 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("gdv_fn_sha256_decimal128",
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_sha256_decimal128));
+
+  // gdv_fn_base64_encode_utf8
+  args = {
+      types->i64_type(),      // context
+      types->i8_ptr_type(),   // in
+      types->i32_type(),      // in_len
+      types->i32_ptr_type(),  // out_len
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_base64_encode_utf8",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_base64_encode_utf8));
+
+  // gdv_fn_base64_decode_utf8
+  args = {
+      types->i64_type(),      // context
+      types->i8_ptr_type(),   // in
+      types->i32_type(),      // in_len
+      types->i32_ptr_type(),  // out_len
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_base64_decode_utf8",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_base64_decode_utf8));
 
   // gdv_fn_upper_utf8
   args = {
