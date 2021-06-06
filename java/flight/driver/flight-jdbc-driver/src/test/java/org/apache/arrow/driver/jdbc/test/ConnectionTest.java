@@ -58,17 +58,37 @@ public class ConnectionTest {
    */
   @Before
   public void setUp() throws ClassNotFoundException, IOException {
-    allocator = new RootAllocator(Long.MAX_VALUE);
     final FlightProducer flightProducer = FlightTestUtils.getFlightProducer();
     this.server = FlightTestUtils.getStartedServer((location -> FlightServer
-            .builder(allocator, location, flightProducer)
+            .builder(FlightTestUtils.getAllocator(), location, flightProducer)
             .headerAuthenticator(new GeneratedBearerTokenAuthenticator(
                     new BasicCallHeaderAuthenticator(this::validate)))
             .build()
     ));
-    this.serverUrl = CONNECTION_PREFIX + LOCALHOST + ":"  + this.server.getPort();
+    this.serverUrl = FlightTestUtils.getConnectionPrefix() + FlightTestUtils.getLocalhost() +
+            ":"  + this.server.getPort();
 
     Class.forName("org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver");
+  }
+
+  /**
+   * Validate the user's credential on a FlightServer.
+   *
+   * @param username flight server username.
+   * @param password flight server password.
+   * @return the result of validation.
+   */
+  private CallHeaderAuthenticator.AuthResult validate(String username, String password) {
+    if (Strings.isNullOrEmpty(username)) {
+      throw CallStatus.UNAUTHENTICATED.withDescription("Credentials not supplied.").toRuntimeException();
+    }
+    final String identity;
+    if (FlightTestUtils.getUsername1().equals(username) && FlightTestUtils.getPassword1().equals(password)) {
+      identity = FlightTestUtils.getUsername1();
+    } else {
+      throw CallStatus.UNAUTHENTICATED.withDescription("Username or password is invalid.").toRuntimeException();
+    }
+    return () -> identity;
   }
 
   /**
@@ -82,8 +102,8 @@ public class ConnectionTest {
           throws SQLException {
     Properties properties = new Properties();
 
-    properties.put("user", USERNAME_1);
-    properties.put("pass", PASSWORD_1);
+    properties.put("user", FlightTestUtils.getUsername1());
+    properties.put("pass", FlightTestUtils.getPassword1());
     Connection connection = DriverManager.getConnection(serverUrl, properties);
     assertFalse(connection.isClosed());
   }
@@ -96,14 +116,15 @@ public class ConnectionTest {
   @Test
   public void testGetBasicClient() throws URISyntaxException {
     URI address = new URI("jdbc",
-            USERNAME_1+ ":" + PASSWORD_1,
-            LOCALHOST, this.server.getPort(),
+            FlightTestUtils.getUsername1()+ ":" + FlightTestUtils.getPassword1(),
+            FlightTestUtils.getLocalhost(), this.server.getPort(),
             null, null, null);
 
     UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(
-            USERNAME_1, PASSWORD_1);
+            FlightTestUtils.getUsername1(), FlightTestUtils.getPassword1());
 
-    ArrowFlightClient client = ArrowFlightClient.getBasicClient(allocator, address, credentials, null);
+    ArrowFlightClient client = ArrowFlightClient.getBasicClient(FlightTestUtils.getAllocator(),
+            address, credentials, null);
 
     assertNotNull(client);
   }
@@ -121,28 +142,8 @@ public class ConnectionTest {
 
     Properties properties = new Properties();
 
-    properties.put("user", USERNAME_INVALID);
-    properties.put("pass", PASSWORD_INVALID);
+    properties.put("user", FlightTestUtils.getUsernameInvalid());
+    properties.put("pass", FlightTestUtils.getPasswordInvalid());
     DriverManager.getConnection(serverUrl, properties);
-  }
-
-  /**
-   * Validate the user's credential on a FlightServer.
-   *
-   * @param username flight server username.
-   * @param password flight server password.
-   * @return the result of validation.
-   */
-  private CallHeaderAuthenticator.AuthResult validate(String username, String password) {
-    if (Strings.isNullOrEmpty(username)) {
-      throw CallStatus.UNAUTHENTICATED.withDescription("Credentials not supplied.").toRuntimeException();
-    }
-    final String identity;
-    if (USERNAME_1.equals(username) && PASSWORD_1.equals(password)) {
-      identity = USERNAME_1;
-    } else {
-      throw CallStatus.UNAUTHENTICATED.withDescription("Username or password is invalid.").toRuntimeException();
-    }
-    return () -> identity;
   }
 }
