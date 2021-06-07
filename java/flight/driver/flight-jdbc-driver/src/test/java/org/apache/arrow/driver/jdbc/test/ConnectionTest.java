@@ -28,7 +28,6 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Properties;
 
-import com.google.common.base.Strings;
 import org.apache.arrow.driver.jdbc.ArrowFlightClient;
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver;
 import org.apache.arrow.flight.CallStatus;
@@ -41,6 +40,8 @@ import org.apache.arrow.flight.auth2.GeneratedBearerTokenAuthenticator;
 import org.apache.calcite.avatica.org.apache.http.auth.UsernamePasswordCredentials;
 import org.junit.Before;
 import org.junit.Test;
+
+import com.google.common.base.Strings;
 
 /**
  * Tests for {@link Connection}.
@@ -66,7 +67,7 @@ public class ConnectionTest {
             .build()
     ));
     this.serverUrl = FlightTestUtils.getConnectionPrefix() + FlightTestUtils.getLocalhost() +
-            ":"  + this.server.getPort();
+            ":" + this.server.getPort();
 
     Class.forName("org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver");
   }
@@ -116,7 +117,7 @@ public class ConnectionTest {
   @Test
   public void testGetBasicClient() throws URISyntaxException {
     URI address = new URI("jdbc",
-            FlightTestUtils.getUsername1()+ ":" + FlightTestUtils.getPassword1(),
+            FlightTestUtils.getUsername1() + ":" + FlightTestUtils.getPassword1(),
             FlightTestUtils.getLocalhost(), this.server.getPort(),
             null, null, null);
 
