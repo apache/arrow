@@ -1639,6 +1639,98 @@ const char* split_part(gdv_int64 context, const char* text, gdv_int32 text_len,
   return "";
 }
 
+// Returns the x leftmost characters of a given string. Cases:
+//     LEFT("TestString", 10) => "TestString"
+//     LEFT("TestString", 3) => "Tes"
+//     LEFT("TestString", -3) => "TestStr"
+FORCE_INLINE
+const char* left_utf8_int32(gdv_int64 context, const char* text, gdv_int32 text_len,
+                            gdv_int32 number, gdv_int32* out_len) {
+  // returns the 'number' left most characters of a given text
+  if (text_len == 0 || number == 0) {
+    *out_len = 0;
+    return "";
+  }
+
+  // iterate over the utf8 string validating each character
+  int char_len;
+  int char_count = 0;
+  int byte_index = 0;
+  for (int i = 0; i < text_len; i += char_len) {
+    char_len = utf8_char_length(text[i]);
+    if (char_len == 0 || i + char_len > text_len) {  // invalid byte or incomplete glyph
+      set_error_for_invalid_utf(context, text[i]);
+      *out_len = 0;
+      return "";
+    }
+    for (int j = 1; j < char_len; ++j) {
+      if ((text[i + j] & 0xC0) != 0x80) {  // bytes following head-byte of glyph
+        set_error_for_invalid_utf(context, text[i + j]);
+        *out_len = 0;
+        return "";
+      }
+    }
+    byte_index += char_len;
+    ++char_count;
+    // Define the rules to stop the iteration over the string
+    // case where left('abc', 5) -> 'abc'
+    if (number > 0 && char_count == number) break;
+    // case where left('abc', -5) ==> ''
+    if (number < 0 && char_count == number + text_len) break;
+  }
+
+  *out_len = byte_index;
+  return text;
+}
+
+// Returns the x rightmost characters of a given string. Cases:
+//     RIGHT("TestString", 10) => "TestString"
+//     RIGHT("TestString", 3) => "ing"
+//     RIGHT("TestString", -3) => "tString"
+FORCE_INLINE
+const char* right_utf8_int32(gdv_int64 context, const char* text, gdv_int32 text_len,
+                             gdv_int32 number, gdv_int32* out_len) {
+  // returns the 'number' left most characters of a given text
+  if (text_len == 0 || number == 0) {
+    *out_len = 0;
+    return "";
+  }
+
+  // initially counts the number of utf8 characters in the defined text
+  int32_t char_count = utf8_length(context, text, text_len);
+  // char_count is zero if input has invalid utf8 char
+  if (char_count == 0) {
+    *out_len = 0;
+    return "";
+  }
+
+  int32_t start_char_pos;  // the char result start position (inclusive)
+  int32_t end_char_len;    // the char result end position (inclusive)
+  if (number > 0) {
+    // case where right('abc', 5) ==> 'abc' start_char_pos=1.
+    start_char_pos = (char_count > number) ? char_count - number : 0;
+    end_char_len = char_count - start_char_pos;
+  } else {
+    start_char_pos = number * -1;
+    end_char_len = char_count - start_char_pos;
+  }
+
+  // calculate the start byte position and the output length
+  int32_t start_byte_pos = utf8_byte_pos(context, text, text_len, start_char_pos);
+  *out_len = utf8_byte_pos(context, text, text_len, end_char_len);
+
+  // try to allocate memory for the response
+  char* ret =
+      reinterpret_cast<gdv_binary>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+  memcpy(ret, text + start_byte_pos, *out_len);
+  return ret;
+}
+
 FORCE_INLINE
 const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_len,
                           gdv_int32* out_len) {

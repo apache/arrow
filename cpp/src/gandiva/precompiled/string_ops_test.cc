@@ -1104,6 +1104,70 @@ TEST(TestStringOps, TestReplace) {
   ctx.Reset();
 }
 
+TEST(TestStringOps, TestLeftString) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+  const char* out_str;
+
+  out_str = left_utf8_int32(ctx_ptr, "TestString", 10, 10, &out_len);
+  std::string output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "TestString");
+
+  out_str = left_utf8_int32(ctx_ptr, "", 0, 0, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "");
+
+  out_str = left_utf8_int32(ctx_ptr, "", 0, 500, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "");
+
+  out_str = left_utf8_int32(ctx_ptr, "TestString", 10, 3, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "Tes");
+
+  out_str = left_utf8_int32(ctx_ptr, "TestString", 10, -3, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "TestStr");
+
+  // the text length for this string is 10 (each utf8 char is represented by two bytes)
+  out_str = left_utf8_int32(ctx_ptr, "абвгд", 10, 3, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "абв");
+}
+
+TEST(TestStringOps, TestRightString) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+  const char* out_str;
+
+  out_str = right_utf8_int32(ctx_ptr, "TestString", 10, 10, &out_len);
+  std::string output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "TestString");
+
+  out_str = right_utf8_int32(ctx_ptr, "", 0, 0, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "");
+
+  out_str = right_utf8_int32(ctx_ptr, "", 0, 500, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "");
+
+  out_str = right_utf8_int32(ctx_ptr, "TestString", 10, 3, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "ing");
+
+  out_str = right_utf8_int32(ctx_ptr, "TestString", 10, -3, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "tString");
+
+  // the text length for this string is 10 (each utf8 char is represented by two bytes)
+  out_str = right_utf8_int32(ctx_ptr, "абвгд", 10, 3, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "вгд");
+}
+
 TEST(TestStringOps, TestBinaryString) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
