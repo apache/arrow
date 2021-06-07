@@ -561,7 +561,7 @@ struct IfElseFunction : ScalarFunction {
       internal::ReplaceTypes(type, &values_copy);
     }
 
-    std::copy(values_copy.begin(), values_copy.end(), values->begin() + 1);
+    std::move(values_copy.begin(), values_copy.end(), values->begin() + 1);
 
     if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
 
