@@ -376,6 +376,7 @@ Status TransferInt96(RecordReader* reader, MemoryPool* pool,
         case ::arrow::TimeUnit::SECOND:
           *data_ptr++ = Int96GetSeconds(values[i]); break;
       }
+    }
   }
   *out = std::make_shared<TimestampArray>(type, length, std::move(data),
                                           reader->ReleaseIsValid(), reader->null_count());
