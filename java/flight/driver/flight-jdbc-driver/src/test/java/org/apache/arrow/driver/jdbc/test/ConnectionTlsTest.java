@@ -17,15 +17,10 @@
 
 package org.apache.arrow.driver.jdbc.test;
 
-import com.google.common.base.Strings;
-import org.apache.arrow.driver.jdbc.ArrowFlightClient;
-import org.apache.arrow.flight.*;
-import org.apache.arrow.flight.auth2.*;
-import org.apache.calcite.avatica.org.apache.http.auth.UsernamePasswordCredentials;
-import org.junit.Before;
-import org.junit.Test;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 
-import java.io.*;
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.KeyStoreException;
@@ -36,112 +31,120 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Properties;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
+import org.apache.arrow.driver.jdbc.ArrowFlightClient;
+import org.apache.arrow.flight.CallStatus;
+import org.apache.arrow.flight.FlightProducer;
+import org.apache.arrow.flight.FlightServer;
+import org.apache.arrow.flight.auth2.BasicCallHeaderAuthenticator;
+import org.apache.arrow.flight.auth2.CallHeaderAuthenticator;
+import org.apache.arrow.flight.auth2.GeneratedBearerTokenAuthenticator;
+import org.apache.calcite.avatica.org.apache.http.auth.UsernamePasswordCredentials;
+import org.junit.Before;
+import org.junit.Test;
+
+import com.google.common.base.Strings;
 
 
 public class ConnectionTlsTest {
-    private FlightServer tlsServer;
-    private static String serverUrl;
+  private FlightServer tlsServer;
+  private static String serverUrl;
 
+  @Before
+  public void setUp() throws ClassNotFoundException, IOException {
+    final FlightTestUtils.CertKeyPair certKey = FlightTestUtils.exampleTlsCerts().get(0);
 
-    @Before
-    public void setUp() throws ClassNotFoundException, IOException {
-        final FlightTestUtils.CertKeyPair certKey = FlightTestUtils.exampleTlsCerts().get(0);
-
-        final FlightProducer flightProducer = FlightTestUtils.getFlightProducer();
-        this.tlsServer = FlightTestUtils.getStartedServer(
-                (location -> {
-                    try {
-                        return FlightServer
-                                .builder(FlightTestUtils.getAllocator(), location, flightProducer)
-                                .useTls(certKey.cert, certKey.key)
-                                .headerAuthenticator(new GeneratedBearerTokenAuthenticator(
-                                        new BasicCallHeaderAuthenticator(this::validate)))
-                                .build();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                    return null;
-                }
-                ));
-        this.serverUrl = FlightTestUtils.getConnectionPrefix() + FlightTestUtils.getLocalhost() + ":"
-                + this.tlsServer.getPort();
-
-        Class.forName("org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver");
-    }
-
-    /**
-     * Validate the user's credential on a FlightServer.
-     *
-     * @param username flight server username.
-     * @param password flight server password.
-     * @return the result of validation.
-     */
-    private CallHeaderAuthenticator.AuthResult validate(String username, String password) {
-        if (Strings.isNullOrEmpty(username)) {
-            throw CallStatus.UNAUTHENTICATED.withDescription("Credentials not supplied.").toRuntimeException();
+    final FlightProducer flightProducer = FlightTestUtils.getFlightProducer();
+    this.tlsServer = FlightTestUtils.getStartedServer(
+      (location -> {
+        try {
+            return FlightServer
+                    .builder(FlightTestUtils.getAllocator(), location, flightProducer)
+                    .useTls(certKey.cert, certKey.key)
+                    .headerAuthenticator(new GeneratedBearerTokenAuthenticator(
+                            new BasicCallHeaderAuthenticator(this::validate)))
+                    .build();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
-        final String identity;
-        if (FlightTestUtils.getUsername1().equals(username) &&
-                FlightTestUtils.getPassword1().equals(password)) {
-            identity = FlightTestUtils.getUsername1();
-        } else {
-            throw CallStatus.UNAUTHENTICATED.withDescription(
-                    "Username or password is invalid.").toRuntimeException();
-        }
-        return () -> identity;
+        return null;
+      }));
+    this.serverUrl = FlightTestUtils.getConnectionPrefix() + FlightTestUtils.getLocalhost() + ":" +
+            this.tlsServer.getPort();
+
+    Class.forName("org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver");
+  }
+
+  /**
+   * Validate the user's credential on a FlightServer.
+   *
+   * @param username flight server username.
+   * @param password flight server password.
+   * @return the result of validation.
+   */
+  private CallHeaderAuthenticator.AuthResult validate(String username, String password) {
+    if (Strings.isNullOrEmpty(username)) {
+      throw CallStatus.UNAUTHENTICATED.withDescription("Credentials not supplied.").toRuntimeException();
     }
-
-    /**
-     * Try to instantiate an encrypt FlightClient.
-     *
-     * @throws URISyntaxException on error.
-     */
-    @Test
-    public void testGetEncryptedClient() throws URISyntaxException,
-            KeyStoreException, CertificateException, NoSuchAlgorithmException, IOException {
-
-        Properties properties = new Properties();
-
-        properties.put("useTls", "true");
-        properties.put("keyStorePath", "keyStore.jks");
-        properties.put("keyStorePass", "flight");
-
-        URI address = new URI("jdbc",
-                FlightTestUtils.getUsername1()+ ":" + FlightTestUtils.getPassword1(),
-                FlightTestUtils.getLocalhost(), this.tlsServer.getPort(),
-                null, null, null);
-
-        UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(
-                FlightTestUtils.getUsername1(), FlightTestUtils.getPassword1());
-
-        ArrowFlightClient client = ArrowFlightClient.getEncryptedClient(FlightTestUtils.getAllocator(),
-                address, credentials, properties.getProperty("keyStorePath"),
-                properties.getProperty("keyStorePass"));
-
-        assertNotNull(client);
+    final String identity;
+    if (FlightTestUtils.getUsername1().equals(username) &&
+            FlightTestUtils.getPassword1().equals(password)) {
+      identity = FlightTestUtils.getUsername1();
+    } else {
+      throw CallStatus.UNAUTHENTICATED.withDescription(
+              "Username or password is invalid.").toRuntimeException();
     }
+    return () -> identity;
+  }
+
+  /**
+   * Try to instantiate an encrypt FlightClient.
+   *
+   * @throws URISyntaxException on error.
+   */
+  @Test
+  public void testGetEncryptedClient() throws URISyntaxException,
+          KeyStoreException, CertificateException, NoSuchAlgorithmException, IOException {
+
+    Properties properties = new Properties();
+
+    properties.put("useTls", "true");
+    properties.put("keyStorePath", "keyStore.jks");
+    properties.put("keyStorePass", "flight");
+
+    URI address = new URI("jdbc",
+            FlightTestUtils.getUsername1() + ":" + FlightTestUtils.getPassword1(),
+            FlightTestUtils.getLocalhost(), this.tlsServer.getPort(),
+            null, null, null);
+
+    UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(
+            FlightTestUtils.getUsername1(), FlightTestUtils.getPassword1());
+
+    ArrowFlightClient client = ArrowFlightClient.getEncryptedClient(FlightTestUtils.getAllocator(),
+            address, credentials, properties.getProperty("keyStorePath"),
+            properties.getProperty("keyStorePass"));
+
+    assertNotNull(client);
+  }
 
 
-    /**
-     * Check if an encrypted connection can be established successfully when
-     * the provided valid credentials and a valid Keystore.
-     *
-     * @throws SQLException on error.
-     */
-    @Test
-    public void connectTls() throws  SQLException {
-        Properties properties = new Properties();
+  /**
+   * Check if an encrypted connection can be established successfully when
+   * the provided valid credentials and a valid Keystore.
+   *
+   * @throws SQLException on error.
+   */
+  @Test
+  public void connectTls() throws SQLException {
+    Properties properties = new Properties();
 
-        properties.put("user", FlightTestUtils.getUsername1());
-        properties.put("pass", FlightTestUtils.getPassword1());
-        properties.put("useTls", "true");
-        properties.put("keyStorePath", "keyStore.jks");
-        properties.put("keyStorePass", "flight");
+    properties.put("user", FlightTestUtils.getUsername1());
+    properties.put("pass", FlightTestUtils.getPassword1());
+    properties.put("useTls", "true");
+    properties.put("keyStorePath", "keyStore.jks");
+    properties.put("keyStorePass", "flight");
 
-        Connection connection = DriverManager.getConnection(serverUrl, properties);
+    Connection connection = DriverManager.getConnection(serverUrl, properties);
 
-        assertFalse(connection.isClosed());
-    }
+    assertFalse(connection.isClosed());
+  }
 }
