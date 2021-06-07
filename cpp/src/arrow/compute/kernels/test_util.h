@@ -43,6 +43,8 @@ using internal::checked_cast;
 
 namespace compute {
 
+using DatumVector = std::vector<Datum>;
+
 template <typename Type, typename T>
 std::shared_ptr<Array> _MakeArray(const std::shared_ptr<DataType>& type,
                                   const std::vector<T>& values,
@@ -93,7 +95,7 @@ void CheckScalar(std::string func_name, const ScalarVector& inputs,
                  std::shared_ptr<Scalar> expected,
                  const FunctionOptions* options = nullptr);
 
-void CheckScalar(std::string func_name, const ArrayVector& inputs,
+void CheckScalar(std::string func_name, const DatumVector& inputs,
                  std::shared_ptr<Array> expected,
                  const FunctionOptions* options = nullptr);
 

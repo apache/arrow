@@ -2865,8 +2865,8 @@ struct BinaryJoin {
       }
       builder->UnsafeAppend(strings.GetView(j_start));
       for (int64_t j = j_start + 1; j < j_end; ++j) {
-        builder->UnsafeAppendToCurrent(separators.GetView(i));
-        builder->UnsafeAppendToCurrent(strings.GetView(j));
+        builder->UnsafeExtendCurrent(separators.GetView(i));
+        builder->UnsafeExtendCurrent(strings.GetView(j));
       }
     }
 

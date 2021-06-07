@@ -473,7 +473,7 @@ class TestStringBuilder : public TestBuilder {
     CheckStringArray(*result_, strings, is_valid, reps);
   }
 
-  void TestAppendToCurrent() {
+  void TestExtendCurrent() {
     std::vector<std::string> strings = {"", "bbbb", "aaaaa", "", "ccc"};
     std::vector<uint8_t> is_valid = {1, 1, 1, 0, 1};
 
@@ -486,7 +486,7 @@ class TestStringBuilder : public TestBuilder {
           ASSERT_OK(builder_->AppendNull());
         } else if (strings[i].length() > 3) {
           ASSERT_OK(builder_->Append(strings[i].substr(0, 3)));
-          ASSERT_OK(builder_->AppendToCurrent(strings[i].substr(3)));
+          ASSERT_OK(builder_->ExtendCurrent(strings[i].substr(3)));
         } else {
           ASSERT_OK(builder_->Append(strings[i]));
         }
@@ -501,7 +501,7 @@ class TestStringBuilder : public TestBuilder {
     CheckStringArray(*result_, strings, is_valid, reps);
   }
 
-  void TestAppendToCurrentUnsafe() {
+  void TestExtendCurrentUnsafe() {
     std::vector<std::string> strings = {"", "bbbb", "aaaaa", "", "ccc"};
     std::vector<uint8_t> is_valid = {1, 1, 1, 0, 1};
 
@@ -521,7 +521,7 @@ class TestStringBuilder : public TestBuilder {
           builder_->UnsafeAppendNull();
         } else if (strings[i].length() > 3) {
           builder_->UnsafeAppend(strings[i].substr(0, 3));
-          builder_->UnsafeAppendToCurrent(strings[i].substr(3));
+          builder_->UnsafeExtendCurrent(strings[i].substr(3));
         } else {
           builder_->UnsafeAppend(strings[i]);
         }
@@ -672,10 +672,10 @@ TYPED_TEST(TestStringBuilder, TestScalarAppend) { this->TestScalarAppend(); }
 
 TYPED_TEST(TestStringBuilder, TestScalarAppendUnsafe) { this->TestScalarAppendUnsafe(); }
 
-TYPED_TEST(TestStringBuilder, TestAppendToCurrent) { this->TestAppendToCurrent(); }
+TYPED_TEST(TestStringBuilder, TestExtendCurrent) { this->TestExtendCurrent(); }
 
-TYPED_TEST(TestStringBuilder, TestAppendToCurrentUnsafe) {
-  this->TestAppendToCurrentUnsafe();
+TYPED_TEST(TestStringBuilder, TestExtendCurrentUnsafe) {
+  this->TestExtendCurrentUnsafe();
 }
 
 TYPED_TEST(TestStringBuilder, TestVectorAppend) { this->TestVectorAppend(); }

@@ -35,8 +35,6 @@ namespace compute {
 
 namespace {
 
-using DatumVector = std::vector<Datum>;
-
 template <typename T>
 DatumVector GetDatums(const std::vector<T>& inputs) {
   std::vector<Datum> datums;
