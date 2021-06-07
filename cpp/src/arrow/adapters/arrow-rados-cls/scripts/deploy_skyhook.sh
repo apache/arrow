@@ -19,14 +19,15 @@
 
 set -eu
 
-if [[ $# -lt 3 ]] ; then
-    echo "./deploy_skyhook.sh [startnode] [endnode] [skyhook-branch]"
+if [[ $# -lt 2 ]] ; then
+    echo "./deploy_skyhook.sh [nodes] [skyhook-branch]"
     exit 1
 fi
 
-SNODE=$1
-ENODE=$2
-BRANCH=$3
+NODES=$1
+BRANCH=$2
+
+IFS=',' read -ra NODE_LIST <<< "$NODES"; unset IFS
 
 apt update 
 apt install -y python3 python3-pip python3-venv python3-numpy cmake libradospp-dev rados-objclass-dev
@@ -64,11 +65,11 @@ python3 setup.py build_ext --inplace --bundle-arrow-cpp bdist_wheel
 pip3 install --upgrade dist/*.whl
 
 cd /tmp/arrow/cpp/debug/debug
-for ((i=$SNODE; i<=$ENODE; i++)); do
-  scp libcls* node${i}:/usr/lib/rados-classes/
-  scp libarrow* node${i}:/usr/lib/
-  scp libparquet* node${i}:/usr/lib/
-  ssh node${i} systemctl restart ceph-osd.target
+for node in ${NODE_LIST[@]}; do
+  scp libcls* $node:/usr/lib/rados-classes/
+  scp libarrow* $node:/usr/lib/
+  scp libparquet* $node:/usr/lib/
+  ssh $node systemctl restart ceph-osd.target
 done
 
 export LD_LIBRARY_PATH=/usr/local/lib
