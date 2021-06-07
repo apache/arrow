@@ -543,13 +543,9 @@ class PyPrimitiveConverter<T, enable_if_binary<T>>
                                          int64_t offset) override {
     DCHECK_GE(size, offset);
     // See BaseBinaryBuilder::Resize - avoid error in Reserve()
-    ARROW_LOG(WARNING) << "size=" << size << " offset=" << offset
-                       << " limit=" << BaseBinaryBuilder<T>::memory_limit();
     if (size - offset >= BaseBinaryBuilder<T>::memory_limit()) {
       size = offset + BaseBinaryBuilder<T>::memory_limit() - 1;
     }
-    ARROW_LOG(WARNING) << "size=" << size << " offset=" << offset
-                       << " limit=" << BaseBinaryBuilder<T>::memory_limit();
     const auto status = this->Extend(values, size, offset);
     const auto num_converted = this->builder()->length();
     if (ARROW_PREDICT_TRUE(status.ok() ||
