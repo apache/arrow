@@ -128,6 +128,7 @@ ${install_command} \
   ${cmake_package} \
   gcc-c++ \
   git \
+  libarchive \
   make
 mkdir -p build
 cp -a /arrow/cpp/examples/minimal_build build
