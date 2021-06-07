@@ -214,6 +214,7 @@ glue::glue('\n
 'extern "C" void R_init_arrow(DllInfo* dll){
   R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
   R_useDynamicSymbols(dll, FALSE);
+  arrow::r::Init_Altrep_classes(dll);
 }
 \n')
 

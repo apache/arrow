@@ -1271,14 +1271,6 @@ cpp11::writable::list to_dataframe_parallel(
   return tbl;
 }
 
-#if defined(HAS_ALTREP)
-SEXP ArrayVector__as_vector_altrep(const std::shared_ptr<arrow::Array>& array) {
-  // TODO: instead of using ArrayVector__as_vector() create an ALTREP vector
-  //       that is backed by the memory of array
-  return ArrayVector__as_vector(array->length(), array->type(), {array});
-}
-#endif
-
 }  // namespace r
 }  // namespace arrow
 
@@ -1289,9 +1281,8 @@ SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
 #if defined(HAS_ALTREP)
   if (array->null_count() == 0) {
     switch (type->id()) {
-      case arrow::Type::INT32:
       case arrow::Type::DOUBLE:
-        return arrow::r::ArrayVector__as_vector_altrep(array);
+        return arrow::r::Make_array_nonull_dbl_vector(array);
       default:
         break;
     }
