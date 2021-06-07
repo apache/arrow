@@ -138,7 +138,7 @@ public class ConnectionTlsTest {
     Properties properties = new Properties();
 
     properties.put("user", FlightTestUtils.getUsername1());
-    properties.put("pass", FlightTestUtils.getPassword1());
+    properties.put("password", FlightTestUtils.getPassword1());
     properties.put("useTls", "true");
     properties.put("keyStorePath", "keyStore.jks");
     properties.put("keyStorePass", "flight");
