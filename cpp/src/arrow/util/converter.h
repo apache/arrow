@@ -25,6 +25,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
 #include "arrow/visitor_inline.h"
 
@@ -71,7 +72,7 @@ class Converter {
   /// \param[in] offset The offset to start at.
   virtual Result<int64_t> ExtendAsMuchAsPossible(InputType values, int64_t size,
                                                  int64_t offset) {
-    DCHECK_GE(size, offset);
+    ARROW_DCHECK_GE(size, offset);
     ARROW_RETURN_NOT_OK(Extend(values, size, offset));
     return builder()->length();
   }
@@ -83,7 +84,7 @@ class Converter {
 
   virtual Result<int64_t> ExtendMaskedAsMuchAsPossible(InputType values, InputType mask,
                                                        int64_t size, int64_t offset) {
-    DCHECK_GE(size, offset);
+    ARROW_DCHECK_GE(size, offset);
     ARROW_RETURN_NOT_OK(ExtendMasked(values, mask, size, offset));
     return builder()->length();
   }
