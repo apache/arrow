@@ -287,7 +287,7 @@ int ThreadPool::GetCapacity() {
   return desired_capacity_;
 }
 
-int ThreadPool::GetActualCapacity() const { return workers_.size(); }
+int ThreadPool::GetActualCapacity() const { return static_cast<int>(workers_.size()); }
 
 Status ThreadPool::Shutdown(bool wait) {
   ProtectAgainstFork();
