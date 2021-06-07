@@ -506,7 +506,8 @@ struct PlainStartsWithMatcher {
   }
 
   bool Match(util::string_view current) const {
-    return current.starts_with(options_.pattern);
+    // string_view::starts_with is C++20
+    return current.substr(0, options_.pattern.size()) == options_.pattern;
   }
 };
 
@@ -524,7 +525,10 @@ struct PlainEndsWithMatcher {
   }
 
   bool Match(util::string_view current) const {
-    return current.ends_with(options_.pattern);
+    // string_view::ends_with is C++20
+    return current.size() >= options_.pattern.size() &&
+           current.substr(current.size() - options_.pattern.size(),
+                          options_.pattern.size()) == options_.pattern;
   }
 };
 
@@ -667,14 +671,14 @@ const FunctionDoc match_substring_doc(
     {"strings"}, "MatchSubstringOptions");
 
 const FunctionDoc starts_with_doc(
-    "Check if strings start with a pattern",
+    "Check if strings start with a literal pattern",
     ("For each string in `strings`, emit true iff it starts with a given pattern.\n"
      "Null inputs emit null.  The pattern must be given in MatchSubstringOptions. "
      "If ignore_case is set, only simple case folding is performed."),
     {"strings"}, "MatchSubstringOptions");
 
 const FunctionDoc ends_with_doc(
-    "Check if strings end with a pattern",
+    "Check if strings end with a literal pattern",
     ("For each string in `strings`, emit true iff it ends with a given pattern.\n"
      "Null inputs emit null.  The pattern must be given in MatchSubstringOptions. "
      "If ignore_case is set, only simple case folding is performed."),
