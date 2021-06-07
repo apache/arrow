@@ -17,28 +17,42 @@
   under the License.
 -->
 
-# Installing SkyhookDM
+# Installing Ceph and SkyhookDM
 
-1. If you don't already have a Ceph cluster, please follow [this](https://blog.risingstack.com/ceph-storage-deployment-vm/) guide to create one. You may also run [this](../scripts/deploy_ceph.sh) script for a 3 OSD Ceph cluster and a CephFS mount.
-
-2. Build and install SkyhookDM and [PyArrow](https://pypi.org/project/pyarrow/) (with Rados Parquet extensions) using [this](../scripts/deploy_skyhook.sh) script.
-
-3. Update your Ceph configuration file with the line below and restart the OSD daemons to load the arrow CLS libraries.
+1. Execute [this](../scripts/deploy_ceph.sh) script to deploy a Ceph cluster on a set of nodes and to mount CephFS on the client/admin node. For example, on the client node, execute
+```bash
+./deploy_ceph.sh mon1,mon2,mon3 osd1,osd2,osd3 mds1 mgr1
 ```
-osd class load list = arrow
-```
+where mon1, mon2, osd1, etc. are the internal hostnames of the nodes.
 
-4. You can also deploy Prometheus and Grafana for monitoring your cluster by following [this](https://github.com/JayjeetAtGithub/prometheus-on-baremetal) guide.
+2. Build and install the SkyhookDM CLS plugins and PyArrow (with Rados Parquet extensions) using [this](../scripts/deploy_skyhook.sh) script. For example,
+```bash
+./deploy_skyhook.sh osd1,osd2,osd3 arrow-master
+```
+This will build the CLS plugins as shared libraries and deploy them to the OSD nodes.
+
+3. Optionally, we can also deploy Prometheus and Grafana for monitoring the cluster by following [this](https://github.com/JayjeetAtGithub/prometheus-on-baremetal) guide.
 
 # Interacting with SkyhookDM
 
-1. Write some [Parquet](https://parquet.apache.org/) files in the CephFS mount by splitting them up into files of size `128 MB` or less. This is achieved by using the [`SplittedParquetWriter`](../../../../../../python/pyarrow/rados.py) API. An example script to split up Parquet files into SkyhookDM compatible files can be found [here](../scripts/splitter.py).
+1. Download some sample Parquet files to the admin node.
+```bash
+apt update
+apt install git-lfs
+git clone https://github.com/JayjeetAtGithub/datasets
+cd datasets/
+git lfs pull
+``` 
 
-2. Write a client script and get started with querying datasets in SkyhookDM. An example script is given below.
+2. Create and write a sample dataset to the CephFS mount using [this](../scripts/deploy_data.sh) script by replicating the 128MB Parquet file downloaded in Step 1.
+```bash
+./deploy_data.sh datasets/128MB.parquet /mnt/cephfs/dataset 100 134217728
+```
+This will write 100 of ~128MB Parquet files to `/mnt/cephfs/dataset` using a CephFS stripe size of 128MB.
+
+3. Write a client script and get started with querying datasets in SkyhookDM. An example script is given below.
 ```python
 import pyarrow.dataset as ds
-
-format_ = ds.RadosParquetFileFormat("/path/to/cephconfig", "cephfs-data-pool-name")
-dataset_ = ds.dataset("file:///path/to/dataset", format=format_)
-print(dataset_.to_table())
+mydataset = ds.dataset("file:///mnt/cephfs/dataset", format="rados-parquet")
+print(mydataset.to_table())
 ```
