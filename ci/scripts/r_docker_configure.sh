@@ -49,6 +49,15 @@ if [[ "$DEVTOOLSET_VERSION" -gt 0 ]]; then
     yum install -y centos-release-scl
     yum install -y "devtoolset-$DEVTOOLSET_VERSION"
   fi
+
+  # Makeconf may not pick up newer compilers, give it a hacky hint with ~/.R/Makevars
+  mkdir -p ~/.R
+  cat <<! > ~/.R/Makevars
+CXX17 = \${CXX11}
+CXX17FLAGS = \${CXX11FLAGS}
+CXX17PICFLAGS = \${CXX11PICFLAGS}
+CXX17STD = -std=c++17
+!
 fi
 
 # Install openssl for S3 support
