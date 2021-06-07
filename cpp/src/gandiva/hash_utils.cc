@@ -27,7 +27,7 @@ GANDIVA_EXPORT
 const char* gdv_hash_using_sha256(int64_t context, const void* message,
                                   size_t message_length, int32_t* out_length) {
   constexpr int sha256_result_length = 64;
-  return gdv_hash_using_sha(context, message, message_length, EVP_sha256(),
+  return gdv_hash_using_ssl(context, message, message_length, EVP_sha256(),
                             sha256_result_length, out_length);
 }
 
@@ -36,8 +36,16 @@ GANDIVA_EXPORT
 const char* gdv_hash_using_sha1(int64_t context, const void* message,
                                 size_t message_length, int32_t* out_length) {
   constexpr int sha1_result_length = 40;
-  return gdv_hash_using_sha(context, message, message_length, EVP_sha1(),
+  return gdv_hash_using_ssl(context, message, message_length, EVP_sha1(),
                             sha1_result_length, out_length);
+}
+
+GANDIVA_EXPORT
+const char* gdv_hash_using_md5(int64_t context, const void* message,
+                               size_t message_length, int32_t* out_length){
+  constexpr int md5_result_length = 32;
+  return gdv_hash_using_ssl(context, message, message_length, EVP_md5(),
+                            md5_result_length, out_length);
 }
 
 /// \brief Hashes a generic message using SHA algorithm.
@@ -46,7 +54,7 @@ const char* gdv_hash_using_sha1(int64_t context, const void* message,
 /// the hash. The type of the hash is defined by the
 /// \b hash_type \b parameter.
 GANDIVA_EXPORT
-const char* gdv_hash_using_sha(int64_t context, const void* message,
+const char* gdv_hash_using_ssl(int64_t context, const void* message,
                                size_t message_length, const EVP_MD* hash_type,
                                uint32_t result_buf_size, int32_t* out_length) {
   EVP_MD_CTX* md_ctx = EVP_MD_CTX_new();
