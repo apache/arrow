@@ -65,8 +65,8 @@ class ARROW_EXPORT StopToken {
   static StopToken Unstoppable() { return StopToken(); }
 
   // Producer API (the side that gets asked to stopped)
-  Status Poll();
-  bool IsStopRequested();
+  Status Poll() const;
+  bool IsStopRequested() const;
 
  protected:
   std::shared_ptr<StopSourceImpl> impl_;

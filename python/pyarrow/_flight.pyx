@@ -32,7 +32,7 @@ from cython.operator cimport postincrement
 from libcpp cimport bool as c_bool
 
 from pyarrow.lib cimport *
-from pyarrow.lib import ArrowException, ArrowInvalid
+from pyarrow.lib import ArrowException, ArrowInvalid, SignalStopHandler
 from pyarrow.lib import as_buffer, frombytes, tobytes
 from pyarrow.includes.libarrow_flight cimport *
 from pyarrow.ipc import _get_legacy_format_default, _ReadPandasMixin
@@ -897,6 +897,19 @@ cdef class FlightStreamReader(MetadataRecordBatchReader):
         with nogil:
             (<CFlightStreamReader*> self.reader.get()).Cancel()
 
+    def read_all(self):
+        """Read the entire contents of the stream as a Table."""
+        cdef:
+            shared_ptr[CTable] c_table
+            CStopToken stop_token
+        with SignalStopHandler() as stop_handler:
+            stop_token = (<StopToken> stop_handler.stop_token).stop_token
+            with nogil:
+                check_flight_status(
+                    (<CFlightStreamReader*> self.reader.get())
+                    .ReadAllWithStopToken(&c_table, stop_token))
+        return pyarrow_wrap_table(c_table)
+
 
 cdef class MetadataRecordBatchWriter(_CRecordBatchWriter):
     """A RecordBatchWriter that also allows writing application metadata.
@@ -1204,17 +1217,20 @@ cdef class FlightClient(_Weakrefable):
             vector[CActionType] results
             CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
 
-        with nogil:
-            check_flight_status(
-                self.client.get().ListActions(deref(c_options), &results))
+        with SignalStopHandler() as stop_handler:
+            c_options.stop_token = \
+                (<StopToken> stop_handler.stop_token).stop_token
+            with nogil:
+                check_flight_status(
+                    self.client.get().ListActions(deref(c_options), &results))
 
-        result = []
-        for action_type in results:
-            py_action = ActionType(frombytes(action_type.type),
-                                   frombytes(action_type.description))
-            result.append(py_action)
+            result = []
+            for action_type in results:
+                py_action = ActionType(frombytes(action_type.type),
+                                       frombytes(action_type.description))
+                result.append(py_action)
 
-        return result
+            return result
 
     def do_action(self, action, options: FlightCallOptions = None):
         """
@@ -1247,9 +1263,8 @@ cdef class FlightClient(_Weakrefable):
         cdef CAction c_action = Action.unwrap(<Action> action)
         with nogil:
             check_flight_status(
-                self.client.get().DoAction(deref(c_options), c_action,
-                                           &results))
-
+                self.client.get().DoAction(
+                    deref(c_options), c_action, &results))
         while True:
             result = Result.__new__(Result)
             with nogil:
@@ -1270,18 +1285,21 @@ cdef class FlightClient(_Weakrefable):
         if criteria:
             c_criteria.expression = tobytes(criteria)
 
-        with nogil:
-            check_flight_status(
-                self.client.get().ListFlights(deref(c_options),
-                                              c_criteria, &listing))
-
-        while True:
-            result = FlightInfo.__new__(FlightInfo)
+        with SignalStopHandler() as stop_handler:
+            c_options.stop_token = \
+                (<StopToken> stop_handler.stop_token).stop_token
             with nogil:
-                check_flight_status(listing.get().Next(&result.info))
-                if result.info == NULL:
-                    break
-            yield result
+                check_flight_status(
+                    self.client.get().ListFlights(deref(c_options),
+                                                  c_criteria, &listing))
+
+            while True:
+                result = FlightInfo.__new__(FlightInfo)
+                with nogil:
+                    check_flight_status(listing.get().Next(&result.info))
+                    if result.info == NULL:
+                        break
+                yield result
 
     def get_flight_info(self, descriptor: FlightDescriptor,
                         options: FlightCallOptions = None):
@@ -1496,6 +1514,9 @@ cdef class ServerCallContext(_Weakrefable):
         """Get the address of the peer."""
         # Set safe=True as gRPC on Windows sometimes gives garbage bytes
         return frombytes(self.context.peer(), safe=True)
+
+    def is_cancelled(self):
+        return self.context.is_cancelled()
 
     def get_middleware(self, key):
         """
