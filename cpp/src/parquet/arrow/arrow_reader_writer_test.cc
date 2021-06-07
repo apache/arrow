@@ -1671,6 +1671,7 @@ TEST(TestArrowReadWrite, UseDeprecatedInt96) {
   ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*ex_result, *result));
 }
 
+// Test for added functionality in ARROW-12096
 TEST(TestArrowReadWrite, DowncastDeprecatedInt96) {
   using ::arrow::ArrayFromVector;
   using ::arrow::field;
