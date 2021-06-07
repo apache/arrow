@@ -311,7 +311,8 @@ Result<Datum> TDigest(const Datum& value,
 /// \since 5.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> Index(const Datum& value, IndexOptions options, ExecContext* ctx = NULLPTR);
+Result<Datum> Index(const Datum& value, const IndexOptions& options,
+                    ExecContext* ctx = NULLPTR);
 
 namespace internal {
 

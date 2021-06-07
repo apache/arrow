@@ -77,7 +77,7 @@ Result<Datum> TDigest(const Datum& value, const TDigestOptions& options,
   return CallFunction("tdigest", {value}, &options, ctx);
 }
 
-Result<Datum> Index(const Datum& value, IndexOptions options, ExecContext* ctx) {
+Result<Datum> Index(const Datum& value, const IndexOptions& options, ExecContext* ctx) {
   return CallFunction("index", {value}, &options, ctx);
 }
 
