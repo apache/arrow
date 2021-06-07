@@ -217,7 +217,7 @@ ThreadPool::ThreadPool(bool eternal)
   // On Windows, the ThreadPool destructor may be called after non-main threads
   // have been killed by the OS, and hang in a condition variable.
   // On Unix, we want to avoid leak reports by Valgrind.
-  pool->shutdown_on_destroy_ = !eternal;
+  shutdown_on_destroy_ = !eternal;
 #endif
 }
 
