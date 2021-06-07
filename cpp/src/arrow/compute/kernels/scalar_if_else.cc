@@ -549,26 +549,23 @@ struct IfElseFunction : ScalarFunction {
   Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
     RETURN_NOT_OK(CheckArity(*values));
 
-    // if-else 0'th descriptor is bool
-    std::vector<ValueDescr> left_right{(*values)[1], (*values)[2]};
+    // if-else 0'th descriptor is bool, so skip it
+    std::vector<ValueDescr> values_copy(values->begin() + 1, values->end());
 
     using arrow::compute::detail::DispatchExactImpl;
     if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
 
-    //    internal::EnsureDictionaryDecoded(values);
+    internal::EnsureDictionaryDecoded(&values_copy);
+    internal::ReplaceNullWithOtherType(&values_copy);
 
-    if (values->size() == 3) {
-      internal::ReplaceNullWithOtherType(&left_right);
-
-      if (auto type = internal::CommonNumeric(left_right)) {
-        internal::ReplaceTypes(type, &left_right);
-      }
+    if (auto type = internal::CommonNumeric(values_copy)) {
+      internal::ReplaceTypes(type, &values_copy);
     }
 
-    if (auto kernel =
-            DispatchExactImpl(this, {(*values)[0], left_right[0], left_right[1]})) {
-      return kernel;
-    }
+    std::copy(values_copy.begin(), values_copy.end(), values->begin() + 1);
+
+    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
+
     return arrow::compute::detail::NoMatchingKernel(this, *values);
   }
 };
