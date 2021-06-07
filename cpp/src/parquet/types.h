@@ -602,6 +602,49 @@ static inline int64_t Int96GetNanoSeconds(const parquet::Int96& i96) {
   return static_cast<int64_t>(days_since_epoch * kNanosecondsPerDay + nanoseconds);
 }
 
+// ARROW-12096
+static inline int64_t Int96GetMicroSeconds(const parquet::Int96& i96) {
+  // We do the computations in the unsigned domain to avoid unsigned behaviour
+  // on overflow.
+  uint64_t days_since_epoch =
+      i96.value[2] - static_cast<uint64_t>(kJulianToUnixEpochDays);
+  uint64_t nanoseconds = 0;
+  memcpy(&nanoseconds, &i96.value, sizeof(uint64_t));
+
+  uint64_t microseconds = nanoseconds/static_cast<uint64_t>(1000);
+
+  return static_cast<int64_t>(days_since_epoch * kMicrosecondsPerDay + microseconds);
+}
+
+// ARROW-12096
+static inline int64_t Int96GetMilliSeconds(const parquet::Int96& i96) {
+  // We do the computations in the unsigned domain to avoid unsigned behaviour
+  // on overflow.
+  uint64_t days_since_epoch =
+      i96.value[2] - static_cast<uint64_t>(kJulianToUnixEpochDays);
+  uint64_t nanoseconds = 0;
+  memcpy(&nanoseconds, &i96.value, sizeof(uint64_t));
+
+  uint64_t milliseconds = nanoseconds/static_cast<uint64_t>(1000000);
+
+  return static_cast<int64_t>(days_since_epoch * kMillisecondsPerDay + milliseconds);
+}
+
+// ARROW-12096
+static inline int64_t Int96GetSeconds(const parquet::Int96& i96) {
+  // We do the computations in the unsigned domain to avoid unsigned behaviour
+  // on overflow.
+  uint64_t days_since_epoch =
+      i96.value[2] - static_cast<uint64_t>(kJulianToUnixEpochDays);
+  
+  uint64_t nanoseconds = 0;
+  memcpy(&nanoseconds, &i96.value, sizeof(uint64_t));
+
+  uint64_t seconds = nanoseconds/(static_cast<uint64_t>(1000000000));
+
+  return static_cast<int64_t>(days_since_epoch * kSecondsPerDay + seconds);
+}
+
 static inline std::string Int96ToString(const Int96& a) {
   std::ostringstream result;
   std::copy(a.value, a.value + 3, std::ostream_iterator<uint32_t>(result, " "));

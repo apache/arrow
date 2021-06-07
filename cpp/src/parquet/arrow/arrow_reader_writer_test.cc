@@ -1671,6 +1671,89 @@ TEST(TestArrowReadWrite, UseDeprecatedInt96) {
   ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*ex_result, *result));
 }
 
+TEST(TestArrowReadWrite, DowncastDeprecatedInt96) {
+  using ::arrow::ArrayFromVector;
+  using ::arrow::field;
+  using ::arrow::schema;
+
+  std::vector<bool> is_valid = {true, true, true, true};
+
+  auto t_s = ::arrow::timestamp(TimeUnit::SECOND);
+  auto t_ms = ::arrow::timestamp(TimeUnit::MILLI);
+  auto t_us = ::arrow::timestamp(TimeUnit::MICRO);
+  auto t_ns = ::arrow::timestamp(TimeUnit::NANO);
+
+  std::vector<int64_t> s_values = {1489269, 1489269, 1489269, 1489269};
+  std::vector<int64_t> ms_values = {1489269000, 1489269000,
+                                    1489269000, 1489269001};
+  std::vector<int64_t> us_values = {1489269000000, 1489269000000,
+                                    1489269000001, 1489269001000};
+  std::vector<int64_t> ns_values = {1489269000000000LL, 1489269000000001LL,
+                                    1489269000001000LL, 1489269001000000LL};
+
+  std::shared_ptr<Array> a_s, a_ms, a_us, a_ns;
+  ArrayFromVector<::arrow::TimestampType, int64_t>(t_s, is_valid, s_values, &a_s);
+  ArrayFromVector<::arrow::TimestampType, int64_t>(t_ms, is_valid, ms_values, &a_ms);
+  ArrayFromVector<::arrow::TimestampType, int64_t>(t_us, is_valid, us_values, &a_us);
+  ArrayFromVector<::arrow::TimestampType, int64_t>(t_ns, is_valid, ns_values, &a_ns);
+
+  // Create single input table of NS to be written to parquet with INT96
+  auto input_schema = schema({field("f", t_ns)});
+  auto input = Table::Make(input_schema, {a_ns});
+
+  // Create an expected schema for each resulting table (one for each "down sampled" ts)
+  auto ex_schema_s = schema({field("f", t_s)});
+  auto ex_schema_ms = schema({field("f", t_ms)});
+  auto ex_schema_us = schema({field("f", t_us)});
+  
+  // Create tables
+  auto ex_result_s = Table::Make(ex_schema_s, {a_s});
+  auto ex_result_ms = Table::Make(ex_schema_ms, {a_ms});
+  auto ex_result_us = Table::Make(ex_schema_us, {a_us});
+
+  std::shared_ptr<Table> result_s;
+  std::shared_ptr<Table> result_ms;
+  std::shared_ptr<Table> result_us;
+
+  ArrowReaderProperties arrow_reader_prop_s, arrow_reader_prop_ms, arrow_reader_prop_us;
+  arrow_reader_prop_s.set_coerce_int96_timestamp_unit(::arrow::TimeUnit::SECOND);
+  arrow_reader_prop_ms.set_coerce_int96_timestamp_unit(::arrow::TimeUnit::MILLI);
+  arrow_reader_prop_us.set_coerce_int96_timestamp_unit(::arrow::TimeUnit::MICRO);
+
+// SECOND
+  ASSERT_NO_FATAL_FAILURE(DoRoundtrip(
+    input, input->num_rows(), &result_s, default_writer_properties(),
+    ArrowWriterProperties::Builder().enable_deprecated_int96_timestamps()->build(),
+    arrow_reader_prop_s));
+
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertSchemaEqual(*ex_result_s->schema(),
+                                                     *result_s->schema(),
+                                                     /*check_metadata=*/false));
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*ex_result_s, *result_s));
+
+// MILLI
+  ASSERT_NO_FATAL_FAILURE(DoRoundtrip(
+    input, input->num_rows(), &result_ms, default_writer_properties(),
+    ArrowWriterProperties::Builder().enable_deprecated_int96_timestamps()->build(),
+    arrow_reader_prop_ms));
+
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertSchemaEqual(*ex_result_ms->schema(),
+                                                     *result_ms->schema(),
+                                                     /*check_metadata=*/false));
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*ex_result_ms, *result_ms));
+
+  // MICRO
+  ASSERT_NO_FATAL_FAILURE(DoRoundtrip(
+    input, input->num_rows(), &result_us, default_writer_properties(),
+    ArrowWriterProperties::Builder().enable_deprecated_int96_timestamps()->build(),
+    arrow_reader_prop_us));
+
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertSchemaEqual(*ex_result_us->schema(),
+                                                     *result_us->schema(),
+                                                     /*check_metadata=*/false));
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*ex_result_us, *result_us));
+}
+
 TEST(TestArrowReadWrite, CoerceTimestamps) {
   using ::arrow::ArrayFromVector;
   using ::arrow::field;

@@ -181,7 +181,8 @@ Result<std::shared_ptr<ArrowType>> FromInt64(const LogicalType& logical_type) {
 
 Result<std::shared_ptr<ArrowType>> GetArrowType(Type::type physical_type,
                                                 const LogicalType& logical_type,
-                                                int type_length) {
+                                                int type_length,
+                                                const ::arrow::TimeUnit::type& int96_arrow_time_unit) {
   if (logical_type.is_invalid() || logical_type.is_null()) {
     return ::arrow::null();
   }
@@ -194,7 +195,7 @@ Result<std::shared_ptr<ArrowType>> GetArrowType(Type::type physical_type,
     case ParquetType::INT64:
       return FromInt64(logical_type);
     case ParquetType::INT96:
-      return ::arrow::timestamp(::arrow::TimeUnit::NANO);
+      return ::arrow::timestamp(int96_arrow_time_unit);
     case ParquetType::FLOAT:
       return ::arrow::float32();
     case ParquetType::DOUBLE:
@@ -211,14 +212,22 @@ Result<std::shared_ptr<ArrowType>> GetArrowType(Type::type physical_type,
   }
 }
 
+// ARROW-12096 -- Overloading functions with new input (setting default as NANO)
 Result<std::shared_ptr<ArrowType>> GetArrowType(const schema::PrimitiveNode& primitive) {
   return GetArrowType(primitive.physical_type(), *primitive.logical_type(),
-                      primitive.type_length());
+                      primitive.type_length(), ::arrow::TimeUnit::NANO);
 }
 
 Result<std::shared_ptr<ArrowType>> GetArrowType(const ColumnDescriptor& descriptor) {
   return GetArrowType(descriptor.physical_type(), *descriptor.logical_type(),
-                      descriptor.type_length());
+                      descriptor.type_length(), ::arrow::TimeUnit::NANO);
+}
+
+// ARROW-12096 -- Exposing INT96 arrow type definition fromm parquet reader
+Result<std::shared_ptr<ArrowType>> GetArrowType(const schema::PrimitiveNode& primitive,
+                                                const ::arrow::TimeUnit::type& int96_arrow_time_unit) {
+  return GetArrowType(primitive.physical_type(), *primitive.logical_type(),
+                      primitive.type_length(), int96_arrow_time_unit);
 }
 
 }  // namespace arrow
