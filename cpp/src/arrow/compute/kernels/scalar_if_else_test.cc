@@ -271,5 +271,12 @@ TEST_F(TestIfElseKernel, IfElseNull) {
                     ArrayFromJSON(null(), "[null, null, null, null]"));
 }
 
+TEST_F(TestIfElseKernel, IfElseMultiType) {
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[true, true, true, false]"),
+                           ArrayFromJSON(int32(), "[1, 2, 3, 4]"),
+                           ArrayFromJSON(float32(), "[5, 6, 7, 8]"),
+                           ArrayFromJSON(float32(), "[1, 2, 3, 8]"));
+}
+
 }  // namespace compute
 }  // namespace arrow
