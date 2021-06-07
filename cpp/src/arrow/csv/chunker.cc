@@ -235,10 +235,10 @@ class LexingBoundaryFinder : public BoundaryFinder {
     return Status::OK();
   }
 
-  Status FindNth(util::string_view partial, util::string_view block, uint64_t count,
-                 int64_t* out_pos, uint64_t* num_found) override {
+  Status FindNth(util::string_view partial, util::string_view block, int64_t count,
+                 int64_t* out_pos, int64_t* num_found) override {
     Lexer<quoting, escaping> lexer(options_);
-    uint64_t found = 0;
+    int64_t found = 0;
     const char* data = block.data();
     const char* const data_end = block.data() + block.size();
 

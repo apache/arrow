@@ -62,12 +62,13 @@ cdef class ReadOptions(_Weakrefable):
         The number of rows to skip before the column names (if any)
         and the CSV data.
     skip_rows_after_names: int, optional (default 0)
-        Number of csv rows to skip after the column names.
-        The number can be larger than the number of rows in one
-        block and empty rows are counted.
-        If skip_rows is also specified that skip occurs first
-        then the column names are read if configured to do so
-        then this skip is applied.
+        The number of rows to skip after the column names.
+        This number can be larger than the number of rows in one
+        block, and empty rows are counted.
+        The order of application is as follows:
+        - `skip_rows` is applied (if non-zero);
+        - column names aread (unless `column_names` is set);
+        - `skip_rows_after_names` is applied (if non-zero).
     column_names: list, optional
         The column names of the target table.  If empty, fall back on
         `autogenerate_column_names`.
@@ -135,7 +136,7 @@ cdef class ReadOptions(_Weakrefable):
         """
         The number of rows to skip before the column names (if any)
         and the CSV data.
-        See skip_rows_after_names for interaction description
+        See `skip_rows_after_names` for interaction description
         """
         return deref(self.options).skip_rows
 
@@ -174,12 +175,13 @@ cdef class ReadOptions(_Weakrefable):
     @property
     def skip_rows_after_names(self):
         """
-        Number of csv rows to skip after the column names.
-        The number can be larger than the number of rows in one
-        block and empty rows are counted.
-        If skip_rows is also specified that skip occurs first
-        then the column names are read if configured to do so
-        then this skip is applied.
+        The number of rows to skip after the column names.
+        This number can be larger than the number of rows in one
+        block, and empty rows are counted.
+        The order of application is as follows:
+        - `skip_rows` is applied (if non-zero);
+        - column names aread (unless `column_names` is set);
+        - `skip_rows_after_names` is applied (if non-zero).
         """
         return deref(self.options).skip_rows_after_names
 

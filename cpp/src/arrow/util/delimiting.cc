@@ -61,11 +61,11 @@ class NewlineBoundaryFinder : public BoundaryFinder {
     return Status::OK();
   }
 
-  Status FindNth(util::string_view partial, util::string_view block, uint64_t count,
-                 int64_t* out_pos, uint64_t* num_found) override {
+  Status FindNth(util::string_view partial, util::string_view block, int64_t count,
+                 int64_t* out_pos, int64_t* num_found) override {
     DCHECK(partial.find_first_of(newline_delimiters) == util::string_view::npos);
 
-    uint64_t found = 0;
+    int64_t found = 0;
     int64_t pos = kNoDelimiterFound;
 
     auto cur_pos = block.find_first_of(newline_delimiters);
@@ -169,11 +169,11 @@ Status Chunker::ProcessFinal(std::shared_ptr<Buffer> partial,
 }
 
 Status Chunker::ProcessSkip(std::shared_ptr<Buffer> partial,
-                            std::shared_ptr<Buffer> block, bool final, uint64_t* count,
+                            std::shared_ptr<Buffer> block, bool final, int64_t* count,
                             std::shared_ptr<Buffer>* rest) {
   DCHECK_GT(*count, 0);
   int64_t pos;
-  uint64_t num_found;
+  int64_t num_found;
   ARROW_RETURN_NOT_OK(boundary_finder_->FindNth(
       util::string_view(*partial), util::string_view(*block), *count, &pos, &num_found));
   if (pos == BoundaryFinder::kNoDelimiterFound) {

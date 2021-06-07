@@ -167,7 +167,7 @@ namespace {
 class BlockReader {
  public:
   BlockReader(std::unique_ptr<Chunker> chunker, std::shared_ptr<Buffer> first_buffer,
-              uint64_t skip_rows)
+              int64_t skip_rows)
       : chunker_(std::move(chunker)),
         partial_(std::make_shared<Buffer>("")),
         buffer_(std::move(first_buffer)),
@@ -176,7 +176,7 @@ class BlockReader {
  protected:
   std::unique_ptr<Chunker> chunker_;
   std::shared_ptr<Buffer> partial_, buffer_;
-  uint64_t skip_rows_;
+  int64_t skip_rows_;
   int64_t block_index_ = 0;
   // Whether there was a trailing CR at the end of last received buffer
   bool trailing_cr_ = false;
@@ -191,7 +191,7 @@ class SerialBlockReader : public BlockReader {
 
   static Iterator<CSVBlock> MakeIterator(
       Iterator<std::shared_ptr<Buffer>> buffer_iterator, std::unique_ptr<Chunker> chunker,
-      std::shared_ptr<Buffer> first_buffer, uint64_t skip_rows) {
+      std::shared_ptr<Buffer> first_buffer, int64_t skip_rows) {
     auto block_reader =
         std::make_shared<SerialBlockReader>(std::move(chunker), first_buffer, skip_rows);
     // Wrap shared pointer in callable
@@ -205,7 +205,7 @@ class SerialBlockReader : public BlockReader {
   static AsyncGenerator<CSVBlock> MakeAsyncIterator(
       AsyncGenerator<std::shared_ptr<Buffer>> buffer_generator,
       std::unique_ptr<Chunker> chunker, std::shared_ptr<Buffer> first_buffer,
-      uint64_t skip_rows) {
+      int64_t skip_rows) {
     auto block_reader =
         std::make_shared<SerialBlockReader>(std::move(chunker), first_buffer, skip_rows);
     // Wrap shared pointer in callable
@@ -275,7 +275,7 @@ class ThreadedBlockReader : public BlockReader {
   static AsyncGenerator<CSVBlock> MakeAsyncIterator(
       AsyncGenerator<std::shared_ptr<Buffer>> buffer_generator,
       std::unique_ptr<Chunker> chunker, std::shared_ptr<Buffer> first_buffer,
-      uint64_t skip_rows) {
+      int64_t skip_rows) {
     auto block_reader = std::make_shared<ThreadedBlockReader>(std::move(chunker),
                                                               first_buffer, skip_rows);
     // Wrap shared pointer in callable

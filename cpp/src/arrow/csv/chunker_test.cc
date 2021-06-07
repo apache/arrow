@@ -71,10 +71,9 @@ class BaseChunkerTest : public ::testing::TestWithParam<bool> {
 
   void MakeChunker() { chunker_ = ::arrow::csv::MakeChunker(options_); }
 
-  void AssertSkip(const std::string& str, const uint64_t count, const uint64_t rem_count,
-                  const int64_t rest_size) {
+  void AssertSkip(const std::string& str, int64_t count, int64_t rem_count,
+                  int64_t rest_size) {
     MakeChunker();
-
     {
       auto test_count = count;
       auto partial = std::make_shared<Buffer>("");
@@ -84,23 +83,21 @@ class BaseChunkerTest : public ::testing::TestWithParam<bool> {
       ASSERT_OK(chunker_->ProcessSkip(partial, block, true, &test_count, &rest));
       ASSERT_EQ(rem_count, test_count);
       ASSERT_EQ(rest_size, rest->size());
-      ASSERT_TRUE(
-          SliceBuffer(block, block->size() - rest_size, rest_size)->Equals(*rest));
+      AssertBufferEqual(*SliceBuffer(block, block->size() - rest_size), *rest);
     }
-
     {
       auto test_count = count;
       auto split = static_cast<int64_t>(str.find_first_of('\n'));
       auto partial =
           std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(str.data()), split);
-      auto data =
+      auto block =
           std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(str.data() + split),
                                    static_cast<int64_t>(str.size()) - split);
       std::shared_ptr<Buffer> rest;
-      ASSERT_OK(chunker_->ProcessSkip(partial, data, true, &test_count, &rest));
+      ASSERT_OK(chunker_->ProcessSkip(partial, block, true, &test_count, &rest));
       ASSERT_EQ(rem_count, test_count);
       ASSERT_EQ(rest_size, rest->size());
-      ASSERT_TRUE(SliceBuffer(data, data->size() - rest_size, rest_size)->Equals(*rest));
+      AssertBufferEqual(*SliceBuffer(block, block->size() - rest_size), *rest);
     }
   }
 

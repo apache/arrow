@@ -20,7 +20,6 @@
 #include <cstdint>
 #include <memory>
 
-#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string_view.h"
@@ -65,7 +64,7 @@ class ARROW_EXPORT BoundaryFinder {
   ///
   /// The returned `num_found` is the number of delimiters actually found
   virtual Status FindNth(util::string_view partial, util::string_view block,
-                         uint64_t count, int64_t* out_pos, uint64_t* num_found) = 0;
+                         int64_t count, int64_t* out_pos, int64_t* num_found) = 0;
 
   static constexpr int64_t kNoDelimiterFound = -1;
 
@@ -171,7 +170,7 @@ class ARROW_EXPORT Chunker {
   /// \param[in,out] count number of rows that need to be skipped
   /// \param[out] rest subrange of block containing what was not skipped
   Status ProcessSkip(std::shared_ptr<Buffer> partial, std::shared_ptr<Buffer> block,
-                     bool final, uint64_t* count, std::shared_ptr<Buffer>* rest);
+                     bool final, int64_t* count, std::shared_ptr<Buffer>* rest);
 
  protected:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Chunker);
