@@ -304,6 +304,8 @@ TEST_F(TestIfElseKernel, IfElseDispatchBest) {
                     {boolean(), float32(), float32()});
   CheckDispatchBest(name, {boolean(), float64(), int32()},
                     {boolean(), float64(), float64()});
+
+  CheckDispatchBest(name, {null(), uint8(), int8()}, {boolean(), int16(), int16()});
 }
 
 }  // namespace compute

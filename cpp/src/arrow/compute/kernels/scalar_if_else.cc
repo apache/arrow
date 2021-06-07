@@ -552,6 +552,11 @@ struct IfElseFunction : ScalarFunction {
     using arrow::compute::detail::DispatchExactImpl;
     if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
 
+    // if 0th descriptor is null, replace with bool
+    if (values->at(0).type->id() == Type::NA) {
+      values->at(0).type = boolean();
+    }
+
     // if-else 0'th descriptor is bool, so skip it
     std::vector<ValueDescr> values_copy(values->begin() + 1, values->end());
     internal::EnsureDictionaryDecoded(&values_copy);
