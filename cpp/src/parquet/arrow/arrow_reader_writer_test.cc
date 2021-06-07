@@ -1672,7 +1672,7 @@ TEST(TestArrowReadWrite, UseDeprecatedInt96) {
 }
 
 // Test for added functionality in ARROW-12096
-TEST(TestArrowReadWrite, DowncastDeprecatedInt96) {
+TEST(TestArrowReadWrite, DownsampleDeprecatedInt96) {
   using ::arrow::ArrayFromVector;
   using ::arrow::field;
   using ::arrow::schema;
@@ -1684,6 +1684,7 @@ TEST(TestArrowReadWrite, DowncastDeprecatedInt96) {
   auto t_us = ::arrow::timestamp(TimeUnit::MICRO);
   auto t_ns = ::arrow::timestamp(TimeUnit::NANO);
 
+  // Values demonstrate loss of resolution when "down sampling" INT96 to units that are not NS
   std::vector<int64_t> s_values = {1489269, 1489269, 1489269, 1489269};
   std::vector<int64_t> ms_values = {1489269000, 1489269000,
                                     1489269000, 1489269001};
