@@ -577,7 +577,7 @@ std::unique_ptr<ParquetFileReader> OpenBuffer(const std::string& contents) {
 #define EXPECT_THROW_THAT(callable, ex_type, property)   \
   EXPECT_THROW(                                          \
       try { (callable)(); } catch (const ex_type& err) { \
-        EXPECT_THAT(err, property);                      \
+        EXPECT_THAT(err, (property));                    \
         throw;                                           \
       },                                                 \
       ex_type)
@@ -628,6 +628,8 @@ TEST(TestFileReader, TestOpenErrors) {
       IOError, ::testing::HasSubstr("Couldn't deserialize thrift: No more data to read"),
       OpenBufferAsync(std::string("\x00\x00\x00\x00PAR1", 8)));
 }
+
+#undef EXPECT_THROW_THAT
 
 #ifdef ARROW_WITH_LZ4
 struct TestCodecParam {
