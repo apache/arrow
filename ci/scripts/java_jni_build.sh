@@ -31,6 +31,6 @@ pushd ${arrow_dir}/java
 mvn clean install -P arrow-jni -Darrow.cpp.build.dir=$cpp_lib_dir
 
 # copy all jars and pom files to the distribution folder
-find . -name "*.jar" -o -name "*.pom" -exec cp {} $java_dist_dir \;
+find . -name "*.jar" -o -name "*.pom" -exec echo {} \; -exec cp {} $java_dist_dir \;
 
 popd
