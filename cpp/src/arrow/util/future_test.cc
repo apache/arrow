@@ -37,7 +37,6 @@
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/test_common.h"
 #include "arrow/util/thread_pool.h"
 
 namespace arrow {
@@ -956,9 +955,13 @@ TEST(FutureCompletionTest, FutureVoid) {
 class FutureSchedulingTest : public testing::Test {
  public:
   internal::Executor* executor() { return mock_executor.get(); }
+
   int spawn_count() { return static_cast<int>(mock_executor->captured_tasks.size()); }
+
   void AssertRunSynchronously(const std::vector<int>& ids) { AssertIds(ids, true); }
+
   void AssertScheduled(const std::vector<int>& ids) { AssertIds(ids, false); }
+
   void AssertIds(const std::vector<int>& ids, bool should_be_synchronous) {
     for (auto id : ids) {
       ASSERT_EQ(should_be_synchronous, callbacks_run_synchronously.find(id) !=

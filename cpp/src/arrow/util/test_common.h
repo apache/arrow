@@ -21,7 +21,6 @@
 
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/iterator.h"
-#include "arrow/util/thread_pool.h"
 
 namespace arrow {
 
