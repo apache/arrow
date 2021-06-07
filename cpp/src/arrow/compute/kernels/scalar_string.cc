@@ -475,6 +475,7 @@ struct PlainSubstringMatcher {
     const auto pattern_length = options_.pattern.size();
     int64_t pattern_pos = 0;
     int64_t pos = 0;
+    if (pattern_length == 0) return 0;
     for (const auto c : current) {
       while ((pattern_pos >= 0) && (options_.pattern[pattern_pos] != c)) {
         pattern_pos = prefix_table[pattern_pos];
@@ -737,12 +738,14 @@ struct FindSubstring {
 };
 
 template <typename InputType>
-Status FindSubstringExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  using offset_type = typename TypeTraits<InputType>::OffsetType;
-  applicator::ScalarUnaryNotNullStateful<offset_type, InputType, FindSubstring> kernel{
-      FindSubstring(PlainSubstringMatcher(MatchSubstringState::Get(ctx)))};
-  return kernel.Exec(ctx, batch, out);
-}
+struct FindSubstringExec {
+  using OffsetType = typename TypeTraits<InputType>::OffsetType;
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    applicator::ScalarUnaryNotNullStateful<OffsetType, InputType, FindSubstring> kernel{
+        FindSubstring(PlainSubstringMatcher(MatchSubstringState::Get(ctx)))};
+    return kernel.Exec(ctx, batch, out);
+  }
+};
 
 const FunctionDoc find_substring_doc(
     "Find first occurrence of substring",
@@ -754,14 +757,17 @@ const FunctionDoc find_substring_doc(
 void AddFindSubstring(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("find_substring", Arity::Unary(),
                                                &find_substring_doc);
-  DCHECK_OK(func->AddKernel({binary()}, int32(), FindSubstringExec<BinaryType>,
-                            MatchSubstringState::Init));
-  DCHECK_OK(func->AddKernel({utf8()}, int32(), FindSubstringExec<StringType>,
-                            MatchSubstringState::Init));
-  DCHECK_OK(func->AddKernel({large_binary()}, int64(), FindSubstringExec<LargeBinaryType>,
-                            MatchSubstringState::Init));
-  DCHECK_OK(func->AddKernel({large_utf8()}, int64(), FindSubstringExec<LargeStringType>,
-                            MatchSubstringState::Init));
+  for (const auto& ty : BaseBinaryTypes()) {
+    std::shared_ptr<DataType> offset_type;
+    if (ty->id() == Type::type::LARGE_BINARY || ty->id() == Type::type::LARGE_STRING) {
+      offset_type = int64();
+    } else {
+      offset_type = int32();
+    }
+    DCHECK_OK(func->AddKernel({ty}, offset_type,
+                              GenerateTypeAgnosticVarBinaryBase<FindSubstringExec>(ty),
+                              MatchSubstringState::Init));
+  }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
