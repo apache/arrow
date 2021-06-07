@@ -72,7 +72,7 @@ class Converter {
   virtual Result<int64_t> ExtendAsMuchAsPossible(InputType values, int64_t size,
                                                  int64_t offset) {
     DCHECK_GE(size, offset);
-    RETURN_NOT_OK(Extend(values, size, offset));
+    ARROW_RETURN_NOT_OK(Extend(values, size, offset));
     return builder()->length();
   }
 
@@ -84,7 +84,7 @@ class Converter {
   virtual Result<int64_t> ExtendMaskedAsMuchAsPossible(InputType values, InputType mask,
                                                        int64_t size, int64_t offset) {
     DCHECK_GE(size, offset);
-    RETURN_NOT_OK(ExtendMasked(values, mask, size, offset));
+    ARROW_RETURN_NOT_OK(ExtendMasked(values, mask, size, offset));
     return builder()->length();
   }
 
