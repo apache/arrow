@@ -112,12 +112,12 @@ public final class ArrowFlightConnection extends AvaticaConnection {
       IOException, NumberFormatException, URISyntaxException {
 
     URI address = new URI(/* FIXME scheme= */"jdbc",
-        info.getProperty("user") + ":" + info.getProperty("pass"),
+        info.getProperty("user") + ":" + info.getProperty("password"),
         info.getProperty("host"), Integer.parseInt(info.getProperty("port")),
         null, null, null);
 
     UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(
-        info.getProperty("user"), info.getProperty("pass"));
+        info.getProperty("user"), info.getProperty("password"));
 
     if (info.getProperty("useTls") != null && info.getProperty("useTls").equalsIgnoreCase("true")) {
       client = ArrowFlightClient.getEncryptedClient(allocator, address,

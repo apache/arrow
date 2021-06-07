@@ -104,7 +104,7 @@ public class ConnectionTest {
     Properties properties = new Properties();
 
     properties.put("user", FlightTestUtils.getUsername1());
-    properties.put("pass", FlightTestUtils.getPassword1());
+    properties.put("password", FlightTestUtils.getPassword1());
     Connection connection = DriverManager.getConnection(serverUrl, properties);
     assertFalse(connection.isClosed());
   }
@@ -144,7 +144,7 @@ public class ConnectionTest {
     Properties properties = new Properties();
 
     properties.put("user", FlightTestUtils.getUsernameInvalid());
-    properties.put("pass", FlightTestUtils.getPasswordInvalid());
+    properties.put("password", FlightTestUtils.getPasswordInvalid());
     DriverManager.getConnection(serverUrl, properties);
   }
 }
