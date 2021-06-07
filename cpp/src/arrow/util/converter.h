@@ -54,12 +54,38 @@ class Converter {
 
   virtual Status Append(InputType value) { return Status::NotImplemented("Append"); }
 
-  virtual Status Extend(InputType values, int64_t size) {
+  /// \brief Extend the array with values from the input sequence starting at the offset.
+  /// Fails if the array cannot fit all values.
+  /// \param[in] values The input sequence.
+  /// \param[in] size The total length of the input sequence, independent of offset.
+  /// \param[in] offset The offset to start converting from.
+  virtual Status Extend(InputType values, int64_t size, int64_t offset = 0) {
     return Status::NotImplemented("Extend");
   }
 
-  virtual Status ExtendMasked(InputType values, InputType mask, int64_t size) {
+  /// \brief Extend the array with as many values as possible from the
+  /// input sequence starting at the offset.
+  ///
+  /// \param[in] values The input sequence.
+  /// \param[in] size The total length of the input sequence (independent of offset).
+  /// \param[in] offset The offset to start at.
+  virtual Result<int64_t> ExtendAsMuchAsPossible(InputType values, int64_t size,
+                                                 int64_t offset) {
+    DCHECK_GE(size, offset);
+    RETURN_NOT_OK(Extend(values, size, offset));
+    return builder()->length();
+  }
+
+  virtual Status ExtendMasked(InputType values, InputType mask, int64_t size,
+                              int64_t offset = 0) {
     return Status::NotImplemented("ExtendMasked");
+  }
+
+  virtual Result<int64_t> ExtendMaskedAsMuchAsPossible(InputType values, InputType mask,
+                                                       int64_t size, int64_t offset) {
+    DCHECK_GE(size, offset);
+    RETURN_NOT_OK(ExtendMasked(values, mask, size, offset));
+    return builder()->length();
   }
 
   const std::shared_ptr<ArrayBuilder>& builder() const { return builder_; }
@@ -302,32 +328,35 @@ class Chunker {
     return status;
   }
 
-  // we could get bit smarter here since the whole batch of appendable values
-  // will be rejected if a capacity error is raised
   Status Extend(InputType values, int64_t size) {
-    auto status = converter_->Extend(values, size);
-    if (ARROW_PREDICT_FALSE(status.IsCapacityError())) {
-      if (converter_->builder()->length() == 0) {
-        return status;
+    int64_t offset = 0;
+    while (offset < size) {
+      ARROW_ASSIGN_OR_RAISE(const int64_t num_converted,
+                            converter_->ExtendAsMuchAsPossible(values, size, offset));
+      offset += num_converted;
+      length_ += num_converted;
+      if (offset < size) {
+        // Need another chunk, finish up the current one
+        ARROW_RETURN_NOT_OK(FinishChunk());
       }
-      ARROW_RETURN_NOT_OK(FinishChunk());
-      return Extend(values, size);
     }
-    length_ += size;
-    return status;
+    return Status::OK();
   }
 
   Status ExtendMasked(InputType values, InputType mask, int64_t size) {
-    auto status = converter_->ExtendMasked(values, mask, size);
-    if (ARROW_PREDICT_FALSE(status.IsCapacityError())) {
-      if (converter_->builder()->length() == 0) {
-        return status;
+    int64_t offset = 0;
+    while (offset < size) {
+      ARROW_ASSIGN_OR_RAISE(
+          const int64_t num_converted,
+          converter_->ExtendMaskedAsMuchAsPossible(values, mask, size, offset));
+      offset += num_converted;
+      length_ += num_converted;
+      if (offset < size) {
+        // Need another chunk, finish up the current one
+        ARROW_RETURN_NOT_OK(FinishChunk());
       }
-      ARROW_RETURN_NOT_OK(FinishChunk());
-      return ExtendMasked(values, mask, size);
     }
-    length_ += size;
-    return status;
+    return Status::OK();
   }
 
   Status FinishChunk() {

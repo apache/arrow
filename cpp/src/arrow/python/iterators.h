@@ -36,7 +36,7 @@ namespace internal {
 //
 // If keep_going is set to false, the iteration terminates
 template <class VisitorFunc>
-inline Status VisitSequenceGeneric(PyObject* obj, VisitorFunc&& func) {
+inline Status VisitSequenceGeneric(PyObject* obj, int64_t offset, VisitorFunc&& func) {
   // VisitorFunc may set to false to terminate iteration
   bool keep_going = true;
 
@@ -49,7 +49,7 @@ inline Status VisitSequenceGeneric(PyObject* obj, VisitorFunc&& func) {
     if (PyArray_DESCR(arr_obj)->type_num == NPY_OBJECT) {
       // It's an array object, we can fetch object pointers directly
       const Ndarray1DIndexer<PyObject*> objects(arr_obj);
-      for (int64_t i = 0; keep_going && i < objects.size(); ++i) {
+      for (int64_t i = offset; keep_going && i < objects.size(); ++i) {
         RETURN_NOT_OK(func(objects[i], i, &keep_going));
       }
       return Status::OK();
@@ -64,7 +64,7 @@ inline Status VisitSequenceGeneric(PyObject* obj, VisitorFunc&& func) {
     if (PyList_Check(obj) || PyTuple_Check(obj)) {
       // Use fast item access
       const Py_ssize_t size = PySequence_Fast_GET_SIZE(obj);
-      for (Py_ssize_t i = 0; keep_going && i < size; ++i) {
+      for (Py_ssize_t i = offset; keep_going && i < size; ++i) {
         PyObject* value = PySequence_Fast_GET_ITEM(obj, i);
         RETURN_NOT_OK(func(value, static_cast<int64_t>(i), &keep_going));
       }
@@ -72,7 +72,7 @@ inline Status VisitSequenceGeneric(PyObject* obj, VisitorFunc&& func) {
       // Regular sequence: avoid making a potentially large copy
       const Py_ssize_t size = PySequence_Size(obj);
       RETURN_IF_PYERROR();
-      for (Py_ssize_t i = 0; keep_going && i < size; ++i) {
+      for (Py_ssize_t i = offset; keep_going && i < size; ++i) {
         OwnedRef value_ref(PySequence_ITEM(obj, i));
         RETURN_IF_PYERROR();
         RETURN_NOT_OK(func(value_ref.obj(), static_cast<int64_t>(i), &keep_going));
@@ -84,18 +84,29 @@ inline Status VisitSequenceGeneric(PyObject* obj, VisitorFunc&& func) {
   return Status::OK();
 }
 
-// Visit sequence with no null mask
+// Visit sequence with no null mask or offset
 template <class VisitorFunc>
 inline Status VisitSequence(PyObject* obj, VisitorFunc&& func) {
   return VisitSequenceGeneric(
-      obj, [&func](PyObject* value, int64_t i /* unused */, bool* keep_going) {
+      obj, /*offset=*/0,
+      [&func](PyObject* value, int64_t i /* unused */, bool* keep_going) {
         return func(value, keep_going);
       });
 }
 
-/// Visit sequence with null mask
+// Visit sequence with offset but no null mask
 template <class VisitorFunc>
-inline Status VisitSequenceMasked(PyObject* obj, PyObject* mo, VisitorFunc&& func) {
+inline Status VisitSequence(PyObject* obj, int64_t offset, VisitorFunc&& func) {
+  return VisitSequenceGeneric(
+      obj, offset, [&func](PyObject* value, int64_t i /* unused */, bool* keep_going) {
+        return func(value, keep_going);
+      });
+}
+
+/// Visit sequence with null mask and offset
+template <class VisitorFunc>
+inline Status VisitSequenceMasked(PyObject* obj, PyObject* mo, int64_t offset,
+                                  VisitorFunc&& func) {
   if (mo == nullptr || !PyArray_Check(mo)) {
     return Status::Invalid("Null mask must be NumPy array");
   }
@@ -115,12 +126,18 @@ inline Status VisitSequenceMasked(PyObject* obj, PyObject* mo, VisitorFunc&& fun
     Ndarray1DIndexer<uint8_t> mask_values(mask);
 
     return VisitSequenceGeneric(
-        obj, [&func, &mask_values](PyObject* value, int64_t i, bool* keep_going) {
+        obj, offset, [&func, &mask_values](PyObject* value, int64_t i, bool* keep_going) {
           return func(value, mask_values[i], keep_going);
         });
   } else {
     return Status::Invalid("Mask must be boolean dtype");
   }
+}
+
+/// Visit sequence with null mask but no offset
+template <class VisitorFunc>
+inline Status VisitSequenceMasked(PyObject* obj, PyObject* mo, VisitorFunc&& func) {
+  return VisitSequenceMasked(obj, mo, /*offset=*/0, func);
 }
 
 // Like IterateSequence, but accepts any generic iterable (including

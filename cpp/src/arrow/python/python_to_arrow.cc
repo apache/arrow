@@ -392,22 +392,25 @@ class PyValue {
 class PyConverter : public Converter<PyObject*, PyConversionOptions> {
  public:
   // Iterate over the input values and defer the conversion to the Append method
-  Status Extend(PyObject* values, int64_t size) override {
-    /// Ensure we've allocated enough space
-    RETURN_NOT_OK(this->Reserve(size));
+  Status Extend(PyObject* values, int64_t size, int64_t offset = 0) override {
+    DCHECK_GE(size, offset);
+    // Ensure we've allocated enough space
+    RETURN_NOT_OK(this->Reserve(size - offset));
     // Iterate over the items adding each one
-    return internal::VisitSequence(values, [this](PyObject* item, bool* /* unused */) {
-      return this->Append(item);
-    });
+    return internal::VisitSequence(
+        values, offset,
+        [this](PyObject* item, bool* /* unused */) { return this->Append(item); });
   }
 
   // Convert and append a sequence of values masked with a numpy array
-  Status ExtendMasked(PyObject* values, PyObject* mask, int64_t size) override {
-    /// Ensure we've allocated enough space
-    RETURN_NOT_OK(this->Reserve(size));
+  Status ExtendMasked(PyObject* values, PyObject* mask, int64_t size,
+                      int64_t offset = 0) override {
+    DCHECK_GE(size, offset);
+    // Ensure we've allocated enough space
+    RETURN_NOT_OK(this->Reserve(size - offset));
     // Iterate over the items adding each one
     return internal::VisitSequenceMasked(
-        values, mask, [this](PyObject* item, bool is_masked, bool* /* unused */) {
+        values, mask, offset, [this](PyObject* item, bool is_masked, bool* /* unused */) {
           if (is_masked) {
             return this->AppendNull();
           } else {
@@ -536,6 +539,41 @@ class PyPrimitiveConverter<T, enable_if_binary<T>>
     return Status::OK();
   }
 
+  Result<int64_t> ExtendAsMuchAsPossible(PyObject* values, int64_t size,
+                                         int64_t offset) override {
+    DCHECK_GE(size, offset);
+    // See BaseBinaryBuilder::Resize - avoid error in Reserve()
+    ARROW_LOG(WARNING) << "size=" << size << " offset=" << offset
+                       << " limit=" << BaseBinaryBuilder<T>::memory_limit();
+    if (size - offset >= BaseBinaryBuilder<T>::memory_limit()) {
+      size = offset + BaseBinaryBuilder<T>::memory_limit() - 1;
+    }
+    ARROW_LOG(WARNING) << "size=" << size << " offset=" << offset
+                       << " limit=" << BaseBinaryBuilder<T>::memory_limit();
+    const auto status = this->Extend(values, size, offset);
+    const auto num_converted = this->builder()->length();
+    if (ARROW_PREDICT_TRUE(status.ok() ||
+                           (status.IsCapacityError() && num_converted > 0))) {
+      return num_converted;
+    }
+    return status;
+  }
+
+  Result<int64_t> ExtendMaskedAsMuchAsPossible(PyObject* values, PyObject* mask,
+                                               int64_t size, int64_t offset) override {
+    DCHECK_GE(size, offset);
+    if (size - offset >= BaseBinaryBuilder<T>::memory_limit()) {
+      size = offset + BaseBinaryBuilder<T>::memory_limit() - 1;
+    }
+    const auto status = this->ExtendMasked(values, mask, size, offset);
+    const auto num_converted = this->builder()->length();
+    if (ARROW_PREDICT_TRUE(status.ok() ||
+                           (status.IsCapacityError() && num_converted > 0))) {
+      return num_converted;
+    }
+    return status;
+  }
+
  protected:
   // Create a single instance of PyBytesView here to prevent unnecessary object
   // creation/destruction. This significantly improves the conversion performance.
@@ -583,6 +621,37 @@ class PyPrimitiveConverter<T, enable_if_string_like<T>>
                                              static_cast<OffsetType>(view_.size));
     }
     return Status::OK();
+  }
+
+  Result<int64_t> ExtendAsMuchAsPossible(PyObject* values, int64_t size,
+                                         int64_t offset) override {
+    DCHECK_GE(size, offset);
+    // See BaseBinaryBuilder::Resize - avoid error in Reserve()
+    if (size - offset > BaseBinaryBuilder<T>::memory_limit()) {
+      size = offset + BaseBinaryBuilder<T>::memory_limit();
+    }
+    const auto status = this->Extend(values, size, offset);
+    const auto num_converted = this->builder()->length();
+    if (ARROW_PREDICT_TRUE(status.ok() ||
+                           (status.IsCapacityError() && num_converted > 0))) {
+      return num_converted;
+    }
+    return status;
+  }
+
+  Result<int64_t> ExtendMaskedAsMuchAsPossible(PyObject* values, PyObject* mask,
+                                               int64_t size, int64_t offset) override {
+    DCHECK_GE(size, offset);
+    if (size - offset >= BaseBinaryBuilder<T>::memory_limit()) {
+      size = offset + BaseBinaryBuilder<T>::memory_limit() - 1;
+    }
+    const auto status = this->ExtendMasked(values, mask, size, offset);
+    const auto num_converted = this->builder()->length();
+    if (ARROW_PREDICT_TRUE(status.ok() ||
+                           (status.IsCapacityError() && num_converted > 0))) {
+      return num_converted;
+    }
+    return status;
   }
 
   Result<std::shared_ptr<Array>> ToArray() override {
