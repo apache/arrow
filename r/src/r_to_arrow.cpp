@@ -326,7 +326,7 @@ class RConverter : public Converter<SEXP, RConversionOptions> {
  public:
   virtual Status Append(SEXP) { return Status::NotImplemented("Append"); }
 
-  virtual Status Extend(SEXP values, int64_t size) {
+  virtual Status Extend(SEXP values, int64_t size, int64_t offset = 0) {
     return Status::NotImplemented("Extend");
   }
 
@@ -337,7 +337,7 @@ class RConverter : public Converter<SEXP, RConversionOptions> {
     tasks.Append(false, task);
   }
 
-  virtual Status ExtendMasked(SEXP values, SEXP mask, int64_t size) {
+  virtual Status ExtendMasked(SEXP values, SEXP mask, int64_t size, int64_t offset = 0) {
     return Status::NotImplemented("ExtendMasked");
   }
 };
@@ -434,8 +434,8 @@ template <typename T>
 class RPrimitiveConverter<T, enable_if_null<T>>
     : public PrimitiveConverter<T, RConverter> {
  public:
-  Status Extend(SEXP, int64_t size) override {
-    return this->primitive_builder_->AppendNulls(size);
+  Status Extend(SEXP, int64_t size, int64_t offset = 0) override {
+    return this->primitive_builder_->AppendNulls(size - offset);
   }
 };
 
@@ -445,17 +445,17 @@ class RPrimitiveConverter<
     T, enable_if_t<is_integer_type<T>::value || is_floating_type<T>::value>>
     : public PrimitiveConverter<T, RConverter> {
  public:
-  Status Extend(SEXP x, int64_t size) override {
+  Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
     auto rtype = GetVectorType(x);
     switch (rtype) {
       case UINT8:
-        return ExtendDispatch<unsigned char>(x, size);
+        return ExtendDispatch<unsigned char>(x, size, offset);
       case INT32:
-        return ExtendDispatch<int>(x, size);
+        return ExtendDispatch<int>(x, size, offset);
       case FLOAT64:
-        return ExtendDispatch<double>(x, size);
+        return ExtendDispatch<double>(x, size, offset);
       case INT64:
-        return ExtendDispatch<int64_t>(x, size);
+        return ExtendDispatch<int64_t>(x, size, offset);
 
       default:
         break;
@@ -471,14 +471,14 @@ class RPrimitiveConverter<
 
  private:
   template <typename r_value_type>
-  Status ExtendDispatch(SEXP x, int64_t size) {
+  Status ExtendDispatch(SEXP x, int64_t size, int64_t offset) {
     if (ALTREP(x)) {
       // `x` is an ALTREP R vector storing `r_value_type`
       // and that type matches exactly the type of the array this is building
-      return Extend_impl(RVectorIterator_ALTREP<r_value_type>(x, 0), size);
+      return Extend_impl(RVectorIterator_ALTREP<r_value_type>(x, offset), size);
     } else {
       // `x` is not an ALTREP vector so we have direct access to a range of values
-      return Extend_impl(RVectorIterator<r_value_type>(x, 0), size);
+      return Extend_impl(RVectorIterator<r_value_type>(x, offset), size);
     }
   }
 
@@ -514,16 +514,16 @@ template <typename T>
 class RPrimitiveConverter<T, enable_if_t<is_boolean_type<T>::value>>
     : public PrimitiveConverter<T, RConverter> {
  public:
-  Status Extend(SEXP x, int64_t size) override {
+  Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
     auto rtype = GetVectorType(x);
     if (rtype != BOOLEAN) {
       return Status::Invalid("Expecting a logical vector");
     }
 
     if (ALTREP(x)) {
-      return Extend_impl(RVectorIterator_ALTREP<cpp11::r_bool>(x, 0), size);
+      return Extend_impl(RVectorIterator_ALTREP<cpp11::r_bool>(x, offset), size);
     } else {
-      return Extend_impl(RVectorIterator<cpp11::r_bool>(x, 0), size);
+      return Extend_impl(RVectorIterator<cpp11::r_bool>(x, offset), size);
     }
   }
 
@@ -553,16 +553,16 @@ template <typename T>
 class RPrimitiveConverter<T, enable_if_t<is_date_type<T>::value>>
     : public PrimitiveConverter<T, RConverter> {
  public:
-  Status Extend(SEXP x, int64_t size) override {
+  Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
     switch (GetVectorType(x)) {
       case DATE_INT:
-        return AppendRange_Date_dispatch<int>(x, size);
+        return AppendRange_Date_dispatch<int>(x, size, offset);
 
       case DATE_DBL:
-        return AppendRange_Date_dispatch<double>(x, size);
+        return AppendRange_Date_dispatch<double>(x, size, offset);
 
       case POSIXCT:
-        return AppendRange_Posixct_dispatch(x, size);
+        return AppendRange_Posixct_dispatch(x, size, offset);
 
       default:
         break;
@@ -578,11 +578,12 @@ class RPrimitiveConverter<T, enable_if_t<is_date_type<T>::value>>
 
  private:
   template <typename r_value_type>
-  Status AppendRange_Date_dispatch(SEXP x, int64_t size) {
+  Status AppendRange_Date_dispatch(SEXP x, int64_t size, int64_t offset) {
     if (ALTREP(x)) {
-      return AppendRange_Date(RVectorIterator_ALTREP<r_value_type>(x, 0), size);
+      return AppendRange_Date(RVectorIterator_ALTREP<r_value_type>(x, offset),
+                              size - offset);
     } else {
-      return AppendRange_Date(RVectorIterator<r_value_type>(x, 0), size);
+      return AppendRange_Date(RVectorIterator<r_value_type>(x, offset), size - offset);
     }
   }
 
@@ -602,11 +603,12 @@ class RPrimitiveConverter<T, enable_if_t<is_date_type<T>::value>>
     return VisitVector(it, size, append_null, append_value);
   }
 
-  Status AppendRange_Posixct_dispatch(SEXP x, int64_t size) {
+  Status AppendRange_Posixct_dispatch(SEXP x, int64_t size, int64_t offset) {
     if (ALTREP(x)) {
-      return AppendRange_Posixct(RVectorIterator_ALTREP<double>(x, 0), size);
+      return AppendRange_Posixct(RVectorIterator_ALTREP<double>(x, offset),
+                                 size - offset);
     } else {
-      return AppendRange_Posixct(RVectorIterator<double>(x, 0), size);
+      return AppendRange_Posixct(RVectorIterator<double>(x, offset), size - offset);
     }
   }
 
@@ -660,8 +662,8 @@ template <typename T>
 class RPrimitiveConverter<T, enable_if_t<is_time_type<T>::value>>
     : public PrimitiveConverter<T, RConverter> {
  public:
-  Status Extend(SEXP x, int64_t size) override {
-    RETURN_NOT_OK(this->Reserve(size));
+  Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
+    RETURN_NOT_OK(this->Reserve(size - offset));
     auto rtype = GetVectorType(x);
     if (rtype != TIME) {
       return Status::Invalid("Invalid conversion to time");
@@ -699,10 +701,11 @@ class RPrimitiveConverter<T, enable_if_t<is_time_type<T>::value>>
     };
 
     if (ALTREP(x)) {
-      return VisitVector(RVectorIterator_ALTREP<double>(x, 0), size, append_null,
+      return VisitVector(RVectorIterator_ALTREP<double>(x, offset), size, append_null,
                          append_value);
     } else {
-      return VisitVector(RVectorIterator<double>(x, 0), size, append_null, append_value);
+      return VisitVector(RVectorIterator<double>(x, offset), size, append_null,
+                         append_value);
     }
   }
 
@@ -716,8 +719,8 @@ template <typename T>
 class RPrimitiveConverter<T, enable_if_t<is_timestamp_type<T>::value>>
     : public PrimitiveConverter<T, RConverter> {
  public:
-  Status Extend(SEXP x, int64_t size) override {
-    RETURN_NOT_OK(this->Reserve(size));
+  Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
+    RETURN_NOT_OK(this->Reserve(size - offset));
 
     RVectorType rtype = GetVectorType(x);
     if (rtype != POSIXCT) {
@@ -737,10 +740,11 @@ class RPrimitiveConverter<T, enable_if_t<is_timestamp_type<T>::value>>
     };
 
     if (ALTREP(x)) {
-      return VisitVector(RVectorIterator_ALTREP<double>(x, 0), size, append_null,
+      return VisitVector(RVectorIterator_ALTREP<double>(x, offset), size, append_null,
                          append_value);
     } else {
-      return VisitVector(RVectorIterator<double>(x, 0), size, append_null, append_value);
+      return VisitVector(RVectorIterator<double>(x, offset), size, append_null,
+                         append_value);
     }
   }
 
@@ -754,7 +758,7 @@ template <typename T>
 class RPrimitiveConverter<T, enable_if_t<is_decimal_type<T>::value>>
     : public PrimitiveConverter<T, RConverter> {
  public:
-  Status Extend(SEXP x, int64_t size) override {
+  Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
     return Status::NotImplemented("Extend");
   }
 };
@@ -786,8 +790,8 @@ class RPrimitiveConverter<T, enable_if_binary<T>>
  public:
   using OffsetType = typename T::offset_type;
 
-  Status Extend(SEXP x, int64_t size) override {
-    RETURN_NOT_OK(this->Reserve(size));
+  Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
+    RETURN_NOT_OK(this->Reserve(size - offset));
     RETURN_NOT_OK(check_binary(x, size));
 
     auto append_null = [this]() {
@@ -801,7 +805,7 @@ class RPrimitiveConverter<T, enable_if_binary<T>>
       this->primitive_builder_->UnsafeAppend(RAW_RO(raw), static_cast<OffsetType>(n));
       return Status::OK();
     };
-    return VisitVector(RVectorIterator<SEXP>(x, 0), size, append_null, append_value);
+    return VisitVector(RVectorIterator<SEXP>(x, offset), size, append_null, append_value);
   }
 
   void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
@@ -814,8 +818,8 @@ template <typename T>
 class RPrimitiveConverter<T, enable_if_t<std::is_same<T, FixedSizeBinaryType>::value>>
     : public PrimitiveConverter<T, RConverter> {
  public:
-  Status Extend(SEXP x, int64_t size) override {
-    RETURN_NOT_OK(this->Reserve(size));
+  Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
+    RETURN_NOT_OK(this->Reserve(size - offset));
     RETURN_NOT_OK(check_binary(x, size));
 
     auto append_null = [this]() {
@@ -833,7 +837,7 @@ class RPrimitiveConverter<T, enable_if_t<std::is_same<T, FixedSizeBinaryType>::v
       this->primitive_builder_->UnsafeAppend(RAW_RO(raw));
       return Status::OK();
     };
-    return VisitVector(RVectorIterator<SEXP>(x, 0), size, append_null, append_value);
+    return VisitVector(RVectorIterator<SEXP>(x, offset), size, append_null, append_value);
   }
 
   void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
@@ -848,12 +852,12 @@ class RPrimitiveConverter<T, enable_if_string_like<T>>
  public:
   using OffsetType = typename T::offset_type;
 
-  Status Extend(SEXP x, int64_t size) override {
+  Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
     RVectorType rtype = GetVectorType(x);
     if (rtype != STRING) {
       return Status::Invalid("Expecting a character vector");
     }
-    return UnsafeAppendUtf8Strings(arrow::r::utf8_strings(x), size);
+    return UnsafeAppendUtf8Strings(arrow::r::utf8_strings(x), size, offset);
   }
 
   void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
@@ -863,14 +867,14 @@ class RPrimitiveConverter<T, enable_if_string_like<T>>
   }
 
  private:
-  Status UnsafeAppendUtf8Strings(const cpp11::strings& s, int64_t size) {
+  Status UnsafeAppendUtf8Strings(const cpp11::strings& s, int64_t size, int64_t offset) {
     RETURN_NOT_OK(this->primitive_builder_->Reserve(s.size()));
     const SEXP* p_strings = reinterpret_cast<const SEXP*>(DATAPTR_RO(s));
 
     // we know all the R strings are utf8 already, so we can get
     // a definite size and then use UnsafeAppend*()
     int64_t total_length = 0;
-    for (R_xlen_t i = 0; i < size; i++, ++p_strings) {
+    for (R_xlen_t i = offset; i < size; i++, ++p_strings) {
       SEXP si = *p_strings;
       total_length += si == NA_STRING ? 0 : LENGTH(si);
     }
@@ -878,7 +882,7 @@ class RPrimitiveConverter<T, enable_if_string_like<T>>
 
     // append
     p_strings = reinterpret_cast<const SEXP*>(DATAPTR_RO(s));
-    for (R_xlen_t i = 0; i < size; i++, ++p_strings) {
+    for (R_xlen_t i = offset; i < size; i++, ++p_strings) {
       SEXP si = *p_strings;
       if (si == NA_STRING) {
         this->primitive_builder_->UnsafeAppendNull();
@@ -895,7 +899,7 @@ template <typename T>
 class RPrimitiveConverter<T, enable_if_t<is_duration_type<T>::value>>
     : public PrimitiveConverter<T, RConverter> {
  public:
-  Status Extend(SEXP x, int64_t size) override {
+  Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
     // TODO: look in lubridate
     return Status::NotImplemented("Extend");
   }
@@ -911,7 +915,7 @@ template <typename U>
 class RDictionaryConverter<U, enable_if_has_c_type<U>>
     : public DictionaryConverter<U, RConverter> {
  public:
-  Status Extend(SEXP x, int64_t size) override {
+  Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
     return Status::NotImplemented("Extend");
   }
 };
@@ -922,14 +926,14 @@ class RDictionaryConverter<ValueType, enable_if_has_string_view<ValueType>>
  public:
   using BuilderType = DictionaryBuilder<ValueType>;
 
-  Status Extend(SEXP x, int64_t size) override {
-    RETURN_NOT_OK(ExtendSetup(x, size));
-    return ExtendImpl(x, size, GetCharLevels(x));
+  Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
+    RETURN_NOT_OK(ExtendSetup(x, size, offset));
+    return ExtendImpl(x, size, offset, GetCharLevels(x));
   }
 
   void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
     // the setup runs synchronously first
-    Status setup = ExtendSetup(values, size);
+    Status setup = ExtendSetup(values, size, /*offset=*/0);
 
     if (!setup.ok()) {
       // if that fails, propagate the error
@@ -938,7 +942,7 @@ class RDictionaryConverter<ValueType, enable_if_has_string_view<ValueType>>
       auto char_levels = GetCharLevels(values);
 
       tasks.Append(true, [this, values, size, char_levels]() {
-        return this->ExtendImpl(values, size, char_levels);
+        return this->ExtendImpl(values, size, /*offset=*/0, char_levels);
       });
     }
   }
@@ -970,7 +974,7 @@ class RDictionaryConverter<ValueType, enable_if_has_string_view<ValueType>>
     return char_levels;
   }
 
-  Status ExtendSetup(SEXP x, int64_t size) {
+  Status ExtendSetup(SEXP x, int64_t size, int64_t offset) {
     RVectorType rtype = GetVectorType(x);
     if (rtype != FACTOR) {
       return Status::Invalid("invalid R type to convert to dictionary");
@@ -982,17 +986,18 @@ class RDictionaryConverter<ValueType, enable_if_has_string_view<ValueType>>
     RETURN_NOT_OK(this->value_builder_->InsertMemoValues(*memo_array));
 
     // then we can proceed
-    return this->Reserve(size);
+    return this->Reserve(size - offset);
   }
 
-  Status ExtendImpl(SEXP values, int64_t size,
+  Status ExtendImpl(SEXP values, int64_t size, int64_t offset,
                     const std::vector<const char*>& char_levels) {
     auto append_null = [this]() { return this->value_builder_->AppendNull(); };
     auto append_value = [this, &char_levels](int value) {
       return this->value_builder_->Append(char_levels[value - 1]);
     };
 
-    return VisitVector(RVectorIterator<int>(values, 0), size, append_null, append_value);
+    return VisitVector(RVectorIterator<int>(values, offset), size, append_null,
+                       append_value);
   }
 };
 
@@ -1014,7 +1019,7 @@ struct RConverterTrait<T, enable_if_list_like<T>> {
 template <typename T>
 class RListConverter : public ListConverter<T, RConverter, RConverterTrait> {
  public:
-  Status Extend(SEXP x, int64_t size) override {
+  Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
     RETURN_NOT_OK(this->Reserve(size));
 
     RVectorType rtype = GetVectorType(x);
@@ -1034,7 +1039,7 @@ class RListConverter : public ListConverter<T, RConverter, RConverterTrait> {
       return this->value_converter_.get()->Extend(value, n);
     };
 
-    return VisitVector(RVectorIterator<SEXP>(x, 0), size, append_null, append_value);
+    return VisitVector(RVectorIterator<SEXP>(x, offset), size, append_null, append_value);
   }
 
   void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
@@ -1056,12 +1061,12 @@ struct RConverterTrait<StructType> {
 
 class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
  public:
-  Status Extend(SEXP x, int64_t size) override {
-    RETURN_NOT_OK(ExtendSetup(x, size));
+  Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
+    RETURN_NOT_OK(ExtendSetup(x, size, offset));
 
     auto fields = this->struct_type_->fields();
     R_xlen_t n_columns = XLENGTH(x);
-    for (R_xlen_t i = 0; i < n_columns; i++) {
+    for (R_xlen_t i = offset; i < n_columns; i++) {
       auto status = children_[i]->Extend(VECTOR_ELT(x, i), size);
       if (!status.ok()) {
         return Status::Invalid("Problem with column ", (i + 1), " (", fields[i]->name(),
@@ -1074,7 +1079,7 @@ class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
 
   void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
     // the setup runs synchronously first
-    Status setup = ExtendSetup(values, size);
+    Status setup = ExtendSetup(values, size, /*offset=*/0);
 
     if (!setup.ok()) {
       // if that fails, propagate the error
@@ -1095,7 +1100,7 @@ class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
     return StructConverter<RConverter, RConverterTrait>::Init(pool);
   }
 
-  Status ExtendSetup(SEXP x, int64_t size) {
+  Status ExtendSetup(SEXP x, int64_t size, int64_t offset) {
     // check that x is compatible
     R_xlen_t n_columns = XLENGTH(x);
 
@@ -1133,7 +1138,7 @@ class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
       }
     }
 
-    RETURN_NOT_OK(this->Reserve(size));
+    RETURN_NOT_OK(this->Reserve(size - offset));
 
     for (R_xlen_t i = 0; i < size; i++) {
       RETURN_NOT_OK(struct_builder_->Append());
