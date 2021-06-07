@@ -353,7 +353,7 @@ void ThreadPool::MarkThreadFinishedUnlocked(ThreadIt* thread_it) {
 void ThreadPool::LaunchWorkersUnlocked(int threads) {
   for (int i = 0; i < threads; i++) {
     workers_.emplace_back();
-    DCHECK_LE(workers_.size(), desired_capacity_);
+    DCHECK_LE(static_cast<int>(workers_.size()), desired_capacity_);
     auto it = --(workers_.end());
     *it = LaunchWorker(it);
   }
