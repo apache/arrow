@@ -116,7 +116,7 @@ TEST(TestShaHashUtils, TestMD5Numeric) {
   for (auto value : values_to_be_hashed) {
     int out_length;
     const char* md5 =
-      gandiva::gdv_hash_using_md5(ctx_ptr, &value, sizeof(value), &out_length);
+        gandiva::gdv_hash_using_md5(ctx_ptr, &value, sizeof(value), &out_length);
     std::string md5_as_str(md5, out_length);
     EXPECT_EQ(md5_as_str.size(), md5_size);
 
@@ -204,31 +204,29 @@ TEST(TestShaHashUtils, TestMD5Varlen) {
   auto ctx_ptr = reinterpret_cast<int64_t>(&ctx);
 
   std::string first_string =
-    "ði ıntəˈnæʃənəl fəˈnɛtık əsoʊsiˈeıʃnY [ˈʏpsilɔn], Yen [jɛn], Yoga [ˈjoːgɑ]";
+      "ði ıntəˈnæʃənəl fəˈnɛtık əsoʊsiˈeıʃnY [ˈʏpsilɔn], Yen [jɛn], Yoga [ˈjoːgɑ]";
 
   std::string second_string =
-    "ði ıntəˈnæʃənəl fəˈnɛtık əsoʊsiˈeınY [ˈʏpsilɔn], "
-    "Yen [jɛn], Yoga [ˈjoːgɑ] コンニチハ";
+      "ði ıntəˈnæʃənəl fəˈnɛtık əsoʊsiˈeınY [ˈʏpsilɔn], "
+      "Yen [jɛn], Yoga [ˈjoːgɑ] コンニチハ";
 
   // The strings expected hashes are obtained from shell executing the following command:
   // echo -n <output-string> | openssl dgst md5
-  std::string expected_first_result =
-    "a633460644425b44e0e023d6980849cc";
-  std::string expected_second_result =
-    "407983529dba21e95d95951ccffd30c3";
+  std::string expected_first_result = "a633460644425b44e0e023d6980849cc";
+  std::string expected_second_result = "407983529dba21e95d95951ccffd30c3";
 
   // Generate the hashes and compare with expected outputs
   const int md5_size = 32;
   int out_length;
 
   const char* md5_1 = gandiva::gdv_hash_using_md5(ctx_ptr, first_string.c_str(),
-                                                     first_string.size(), &out_length);
+                                                  first_string.size(), &out_length);
   std::string md5_as_str(md5_1, out_length);
   EXPECT_EQ(md5_as_str.size(), md5_size);
   EXPECT_EQ(md5_as_str, expected_first_result);
 
   const char* md5_2 = gandiva::gdv_hash_using_md5(ctx_ptr, second_string.c_str(),
-                                                     second_string.size(), &out_length);
+                                                  second_string.size(), &out_length);
   std::string md5_2_as_str(md5_2, out_length);
   EXPECT_EQ(md5_2_as_str.size(), md5_size);
   EXPECT_EQ(md5_2_as_str, expected_second_result);

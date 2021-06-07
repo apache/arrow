@@ -42,7 +42,7 @@ const char* gdv_hash_using_sha1(int64_t context, const void* message,
 
 GANDIVA_EXPORT
 const char* gdv_hash_using_md5(int64_t context, const void* message,
-                               size_t message_length, int32_t* out_length){
+                               size_t message_length, int32_t* out_length) {
   constexpr int md5_result_length = 32;
   return gdv_hash_using_ssl(context, message, message_length, EVP_md5(),
                             md5_result_length, out_length);
