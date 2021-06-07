@@ -549,12 +549,11 @@ struct IfElseFunction : ScalarFunction {
   Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
     RETURN_NOT_OK(CheckArity(*values));
 
-    // if-else 0'th descriptor is bool, so skip it
-    std::vector<ValueDescr> values_copy(values->begin() + 1, values->end());
-
     using arrow::compute::detail::DispatchExactImpl;
     if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
 
+    // if-else 0'th descriptor is bool, so skip it
+    std::vector<ValueDescr> values_copy(values->begin() + 1, values->end());
     internal::EnsureDictionaryDecoded(&values_copy);
     internal::ReplaceNullWithOtherType(&values_copy);
 
