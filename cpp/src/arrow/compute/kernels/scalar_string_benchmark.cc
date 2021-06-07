@@ -87,6 +87,30 @@ static void TrimManyAscii(benchmark::State& state) {
   UnaryStringBenchmark(state, "ascii_trim", &options);
 }
 
+#ifdef ARROW_WITH_RE2
+static void MatchLike(benchmark::State& state) {
+  MatchSubstringOptions options("ab%ac");
+  UnaryStringBenchmark(state, "match_like", &options);
+}
+
+// MatchLike optimizes the following three into a substring/prefix/suffix search instead
+// of using RE2
+static void MatchLikeSubstring(benchmark::State& state) {
+  MatchSubstringOptions options("%abac%");
+  UnaryStringBenchmark(state, "match_like", &options);
+}
+
+static void MatchLikePrefix(benchmark::State& state) {
+  MatchSubstringOptions options("%abac");
+  UnaryStringBenchmark(state, "match_like", &options);
+}
+
+static void MatchLikeSuffix(benchmark::State& state) {
+  MatchSubstringOptions options("%abac");
+  UnaryStringBenchmark(state, "match_like", &options);
+}
+#endif
+
 #ifdef ARROW_WITH_UTF8PROC
 static void Utf8Upper(benchmark::State& state) {
   UnaryStringBenchmark(state, "utf8_upper");
@@ -152,6 +176,12 @@ BENCHMARK(MatchSubstring);
 BENCHMARK(SplitPattern);
 BENCHMARK(TrimSingleAscii);
 BENCHMARK(TrimManyAscii);
+#ifdef ARROW_WITH_RE2
+BENCHMARK(MatchLike);
+BENCHMARK(MatchLikeSubstring);
+BENCHMARK(MatchLikePrefix);
+BENCHMARK(MatchLikeSuffix);
+#endif
 #ifdef ARROW_WITH_UTF8PROC
 BENCHMARK(Utf8Lower);
 BENCHMARK(Utf8Upper);
