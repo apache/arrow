@@ -638,19 +638,39 @@ when a positive ``max_splits`` is given.
   as separator.
 
 
-String extraction
-~~~~~~~~~~~~~~~~~
+String component extraction
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-+--------------------+------------+------------------------------------+---------------+----------------------------------------+
-| Function name      | Arity      | Input types                        | Output type   | Options class                          |
-+====================+============+====================================+===============+========================================+
-| extract_regex      | Unary      | String-like                        | Struct (1)    | :struct:`ExtractRegexOptions`          |
-+--------------------+------------+------------------------------------+---------------+----------------------------------------+
++--------------------+------------+----------------+---------------+----------------------------------------+
+| Function name      | Arity      | Input types    | Output type   | Options class                          |
++====================+============+================+===============+========================================+
+| extract_regex      | Unary      | String-like    | Struct (1)    | :struct:`ExtractRegexOptions`          |
++--------------------+------------+----------------+---------------+----------------------------------------+
 
 * \(1) Extract substrings defined by a regular expression using the Google RE2
   library.  The output struct field names refer to the named capture groups,
   e.g. 'letter' and 'digit' for the regular expression
   ``(?P<letter>[ab])(?P<digit>\\d)``.
+
+
+Slicing
+~~~~~~~
+
+These function transform each sequence of the array to a subsequence, according
+to start and stop indices, and a non-zero step (defaulting to 1).  Slicing
+semantics follow Python slicing semantics: the start index is inclusive,
+the stop index exclusive; if the step is negative, the sequence is followed
+in reverse order.
+
++--------------------------+------------+----------------+-----------------+--------------------------+---------+
+| Function name            | Arity      | Input types    | Output type     | Options class            | Notes   |
++==========================+============+================+=================+==========================+=========+
+| utf8_slice_codepoints    | Unary      | String-like    | String-like     | :struct:`SliceOptions`   | \(1)    |
++--------------------------+------------+----------------+-----------------+--------------------------+---------+
+
+* \(1) Slice string into a substring defined by (``start``, ``stop``, ``step``)
+  as given by :struct:`SliceOptions` where ``start`` and ``stop`` are measured
+  in codeunits. Null inputs emit null.
 
 
 Structural transforms

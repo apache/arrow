@@ -809,6 +809,118 @@ TYPED_TEST(TestStringKernels, TrimUTF8) {
 }
 #endif
 
+// produce test data with e.g.:
+// repr([k[-3:1] for k in ["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"]]).replace("'", '"')
+
+#ifdef ARROW_WITH_UTF8PROC
+TYPED_TEST(TestStringKernels, SliceCodeunitsBasic) {
+  SliceOptions options{2, 4};
+  this->CheckUnary("utf8_slice_codeunits", R"(["foo", "fo", null, "foo bar"])",
+                   this->type(), R"(["o", "", null, "o "])", &options);
+  SliceOptions options_2{2, 3};
+  // ensure we slice in codeunits, not graphemes
+  // a\u0308 is ä, which is 1 grapheme (character), but two codepoints
+  // \u0308 in utf8 encoding is \xcc\x88
+  this->CheckUnary("utf8_slice_codeunits", R"(["ää", "bä"])", this->type(),
+                   "[\"a\", \"\xcc\x88\"]", &options_2);
+  SliceOptions options_empty_pos{6, 6};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓öõ"])", this->type(), R"(["",
+  ""])",
+                   &options_empty_pos);
+  SliceOptions options_empty_neg{-6, -6};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓öõ"])", this->type(), R"(["",
+  ""])",
+                   &options_empty_neg);
+  SliceOptions options_empty_neg_to_zero{-6, 0};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓öõ"])", this->type(), R"(["", ""])",
+                   &options_empty_neg_to_zero);
+
+  // end is beyond 0, but before start (hence empty)
+  SliceOptions options_edgecase_1{-3, 1};
+  this->CheckUnary("utf8_slice_codeunits", R"(["𝑓öõḍš"])", this->type(), R"([""])",
+                   &options_edgecase_1);
+
+  // this is a safeguard agains an optimization path possible, but actually a tricky case
+  SliceOptions options_edgecase_2{-6, -2};
+  this->CheckUnary("utf8_slice_codeunits", R"(["𝑓öõḍš"])", this->type(), R"(["𝑓öõ"])",
+                   &options_edgecase_2);
+
+  auto input = ArrayFromJSON(this->type(), R"(["𝑓öõḍš"])");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      testing::HasSubstr("Attempted to initialize KernelState from null FunctionOptions"),
+      CallFunction("utf8_slice_codeunits", {input}));
+
+  SliceOptions options_invalid{2, 4, 0};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("Slice step cannot be zero"),
+      CallFunction("utf8_slice_codeunits", {input}, &options_invalid));
+}
+
+TYPED_TEST(TestStringKernels, SliceCodeunitsPosPos) {
+  SliceOptions options{2, 4};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "", "", "õ", "õḍ", "õḍ"])", &options);
+  SliceOptions options_step{1, 5, 2};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "", "ö", "ö", "öḍ", "öḍ"])", &options_step);
+  SliceOptions options_step_neg{5, 1, -2};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "", "", "õ", "ḍ", "šõ"])", &options_step_neg);
+  options_step_neg.stop = 0;
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ","𝑓öõḍš"])",
+                   this->type(), R"(["", "", "ö", "õ", "ḍö", "šõ"])", &options_step_neg);
+}
+
+TYPED_TEST(TestStringKernels, SliceCodeunitsPosNeg) {
+  SliceOptions options{2, -1};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "", "", "", "õ", "õḍ"])", &options);
+  SliceOptions options_step{1, -1, 2};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "f", "fö", "föo", "föod","foodš"])",
+                   this->type(), R"(["", "", "", "ö", "ö", "od"])", &options_step);
+  SliceOptions options_step_neg{3, -4, -2};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ","𝑓öõḍš"])",
+                   this->type(), R"(["", "𝑓", "ö", "õ𝑓", "ḍö", "ḍ"])", &options_step_neg);
+  options_step_neg.stop = -5;
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ","𝑓öõḍš"])",
+                   this->type(), R"(["", "𝑓", "ö", "õ𝑓", "ḍö", "ḍö"])",
+                   &options_step_neg);
+}
+
+TYPED_TEST(TestStringKernels, SliceCodeunitsNegNeg) {
+  SliceOptions options{-2, -1};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "", "𝑓", "ö", "õ", "ḍ"])", &options);
+  SliceOptions options_step{-4, -1, 2};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "", "𝑓", "𝑓", "𝑓õ", "öḍ"])", &options_step);
+  SliceOptions options_step_neg{-1, -3, -2};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "𝑓", "ö", "õ", "ḍ", "š"])", &options_step_neg);
+  options_step_neg.stop = -4;
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "𝑓", "ö", "õ𝑓", "ḍö", "šõ"])",
+                   &options_step_neg);
+}
+
+TYPED_TEST(TestStringKernels, SliceCodeunitsNegPos) {
+  SliceOptions options{-2, 4};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "𝑓", "𝑓ö", "öõ", "õḍ", "ḍ"])", &options);
+  SliceOptions options_step{-4, 4, 2};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "𝑓", "𝑓", "𝑓õ", "𝑓õ", "öḍ"])", &options_step);
+  SliceOptions options_step_neg{-1, 1, -2};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "", "", "õ", "ḍ", "šõ"])", &options_step_neg);
+  options_step_neg.stop = 0;
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "", "ö", "õ", "ḍö", "šõ"])", &options_step_neg);
+}
+
+#endif  // ARROW_WITH_UTF8PROC
+
 TYPED_TEST(TestStringKernels, TrimWhitespaceAscii) {
   // \xe2\x80\x88 is punctuation space
   this->CheckUnary("ascii_trim_whitespace",

@@ -1797,6 +1797,13 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CTrimOptions(c_string characters)
         c_string characters
 
+    cdef cppclass CSliceOptions \
+            "arrow::compute::SliceOptions"(CFunctionOptions):
+        CSliceOptions(int64_t start, int64_t stop, int64_t step)
+        int64_t start
+        int64_t stop
+        int64_t step
+
     cdef cppclass CSplitOptions \
             "arrow::compute::SplitOptions"(CFunctionOptions):
         CSplitOptions(int64_t max_splits, c_bool reverse)

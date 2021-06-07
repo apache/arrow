@@ -370,6 +370,18 @@ def test_trim():
     assert expected.equals(result)
 
 
+def test_slice_compatibility():
+    arr = pa.array(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])
+    for start in range(-6, 6):
+        for stop in range(-6, 6):
+            for step in [-3, -2, -1, 1, 2, 3]:
+                expected = pa.array([k.as_py()[start:stop:step]
+                                     for k in arr])
+                result = pc.utf8_slice_codeunits(
+                    arr, start=start, stop=stop, step=step)
+                assert expected.equals(result)
+
+
 def test_split_pattern():
     arr = pa.array(["-foo---bar--", "---foo---b"])
     result = pc.split_pattern(arr, pattern="---")
