@@ -41,6 +41,8 @@ struct VectorKernel;
 struct KernelState;
 
 class Expression;
+class ExecNode;
+class ExecPlan;
 
 }  // namespace compute
 }  // namespace arrow
