@@ -205,7 +205,7 @@ void SimpleThreadPool::WorkerLoop(std::shared_ptr<SimpleThreadPool> thread_pool,
   DCHECK_GE(thread_pool->NumTasksRunningOrQueued(), 0);
 }
 
-ThreadPool::ThreadPool()
+ThreadPool::ThreadPool(bool eternal)
     : num_tasks_running_(0),
       total_tasks_(0),
       max_tasks_(0),
@@ -213,6 +213,11 @@ ThreadPool::ThreadPool()
       control_(new Control()) {
 #ifndef _WIN32
   pid_ = getpid();
+#else
+  // On Windows, the ThreadPool destructor may be called after non-main threads
+  // have been killed by the OS, and hang in a condition variable.
+  // On Unix, we want to avoid leak reports by Valgrind.
+  pool->shutdown_on_destroy_ = !eternal;
 #endif
 }
 
@@ -415,18 +420,13 @@ Result<std::shared_ptr<ThreadPool>> SimpleThreadPool::Make(int threads) {
 }
 
 Result<std::shared_ptr<ThreadPool>> SimpleThreadPool::MakeEternal(int threads) {
-  ARROW_ASSIGN_OR_RAISE(auto pool, Make(threads));
-  // On Windows, the ThreadPool destructor may be called after non-main threads
-  // have been killed by the OS, and hang in a condition variable.
-  // On Unix, we want to avoid leak reports by Valgrind.
-#ifdef _WIN32
-  pool->shutdown_on_destroy_ = false;
-#endif
+  auto pool = std::shared_ptr<ThreadPool>(new SimpleThreadPool(/*eternal=*/true));
+  RETURN_NOT_OK(pool->SetCapacity(threads));
   return pool;
 }
 
 SimpleThreadPool::~SimpleThreadPool() = default;
-SimpleThreadPool::SimpleThreadPool() : ThreadPool(), task_count_(0) {}
+SimpleThreadPool::SimpleThreadPool(bool eternal) : ThreadPool(eternal), task_count_(0) {}
 
 void SimpleThreadPool::ResetAfterFork() {
   ThreadPool::ResetAfterFork();

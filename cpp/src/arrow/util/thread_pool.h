@@ -379,7 +379,7 @@ class ARROW_EXPORT ThreadPool : public Executor {
   FRIEND_TEST(TestGlobalThreadPool, Capacity);
   friend ARROW_EXPORT ThreadPool* GetCpuThreadPool();
 
-  ThreadPool();
+  ThreadPool(bool eternal = false);
 
   Status SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken,
                    StopCallback&&) override;
@@ -453,7 +453,7 @@ class ARROW_EXPORT SimpleThreadPool
   ~SimpleThreadPool() override;
 
  protected:
-  SimpleThreadPool();
+  SimpleThreadPool(bool eternal = false);
   void ResetAfterFork() override;
   std::shared_ptr<Thread> LaunchWorker(ThreadIt thread_it) override;
   static void WorkerLoop(std::shared_ptr<SimpleThreadPool> thread_pool, ThreadIt self);
