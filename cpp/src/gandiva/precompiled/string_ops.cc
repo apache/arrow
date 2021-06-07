@@ -1214,6 +1214,15 @@ const char* concatOperator_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8(
   return ret;
 }
 
+// Returns the numeric value of the first character of str.
+GANDIVA_EXPORT
+gdv_int32 ascii_utf8(const char* data, gdv_int32 data_len) {
+  if (data_len == 0) {
+    return 0;
+  }
+  return static_cast<gdv_int32>(data[0]);
+}
+
 FORCE_INLINE
 const char* convert_fromUTF8_binary(gdv_int64 context, const char* bin_in, gdv_int32 len,
                                     gdv_int32* out_len) {
