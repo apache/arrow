@@ -40,7 +40,6 @@ RUN \
     glog-devel \
     gobject-introspection-devel \
     gtk-doc \
-    libarchive \
     libzstd-devel \
     llvm-devel \
     llvm-static \
