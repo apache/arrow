@@ -1980,5 +1980,4 @@ const char* byte_substr_binary_int32_int32(gdv_int64 context, const char* text,
   memcpy(ret, text + startPos, *out_len);
   return ret;
 }
-
 }  // extern "C"
