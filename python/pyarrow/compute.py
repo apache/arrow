@@ -291,6 +291,25 @@ def cast(arr, target_type, safe=True):
     return call_function("cast", [arr], options)
 
 
+def count_substring(array, pattern):
+    """
+    Count the occurrences of substring *pattern* in each value of a
+    string array.
+
+    Parameters
+    ----------
+    array : pyarrow.Array or pyarrow.ChunkedArray
+    pattern : str
+        pattern to search for exact matches
+
+    Returns
+    -------
+    result : pyarrow.Array or pyarrow.ChunkedArray
+    """
+    return call_function("count_substring", [array],
+                         MatchSubstringOptions(pattern))
+
+
 def find_substring(array, pattern):
     """
     Find the index of the first occurrence of substring *pattern* in each

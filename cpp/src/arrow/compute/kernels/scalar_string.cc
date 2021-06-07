@@ -741,8 +741,12 @@ template <typename InputType>
 struct FindSubstringExec {
   using OffsetType = typename TypeTraits<InputType>::OffsetType;
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const MatchSubstringOptions& options = MatchSubstringState::Get(ctx);
+    if (options.ignore_case) {
+      return Status::NotImplemented("find_substring with ignore_case");
+    }
     applicator::ScalarUnaryNotNullStateful<OffsetType, InputType, FindSubstring> kernel{
-        FindSubstring(PlainSubstringMatcher(MatchSubstringState::Get(ctx)))};
+        FindSubstring(PlainSubstringMatcher(options))};
     return kernel.Exec(ctx, batch, out);
   }
 };
@@ -766,6 +770,69 @@ void AddFindSubstring(FunctionRegistry* registry) {
     }
     DCHECK_OK(func->AddKernel({ty}, offset_type,
                               GenerateTypeAgnosticVarBinaryBase<FindSubstringExec>(ty),
+                              MatchSubstringState::Init));
+  }
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+}
+
+// Substring count
+
+struct CountSubstring {
+  const PlainSubstringMatcher matcher_;
+
+  explicit CountSubstring(PlainSubstringMatcher matcher) : matcher_(std::move(matcher)) {}
+
+  template <typename OutValue, typename... Ignored>
+  OutValue Call(KernelContext*, util::string_view val, Status*) const {
+    OutValue count = 0;
+    uint64_t start = 0;
+    const auto pattern_size = std::max<uint64_t>(1, matcher_.options_.pattern.size());
+    while (start <= val.size()) {
+      const int64_t index = matcher_.Find(val.substr(start));
+      if (index >= 0) {
+        count++;
+        start += index + pattern_size;
+      } else {
+        break;
+      }
+    }
+    return count;
+  }
+};
+
+template <typename InputType>
+struct CountSubstringExec {
+  using OffsetType = typename TypeTraits<InputType>::OffsetType;
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const MatchSubstringOptions& options = MatchSubstringState::Get(ctx);
+    if (options.ignore_case) {
+      return Status::NotImplemented("count_substring with ignore_case");
+    }
+    applicator::ScalarUnaryNotNullStateful<OffsetType, InputType, CountSubstring> kernel{
+        CountSubstring(PlainSubstringMatcher(options))};
+    return kernel.Exec(ctx, batch, out);
+  }
+};
+
+const FunctionDoc count_substring_doc(
+    "Count occurrences of substring",
+    ("For each string in `strings`, emit the number of occurrences of the given "
+     "pattern.\n"
+     "Null inputs emit null. The pattern must be given in MatchSubstringOptions."),
+    {"strings"}, "MatchSubstringOptions");
+
+void AddCountSubstring(FunctionRegistry* registry) {
+  auto func = std::make_shared<ScalarFunction>("count_substring", Arity::Unary(),
+                                               &count_substring_doc);
+  for (const auto& ty : BaseBinaryTypes()) {
+    std::shared_ptr<DataType> offset_type;
+    if (ty->id() == Type::type::LARGE_BINARY || ty->id() == Type::type::LARGE_STRING) {
+      offset_type = int64();
+    } else {
+      offset_type = int32();
+    }
+    DCHECK_OK(func->AddKernel({ty}, offset_type,
+                              GenerateTypeAgnosticVarBinaryBase<CountSubstringExec>(ty),
                               MatchSubstringState::Init));
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
@@ -3213,6 +3280,7 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   AddUtf8Length(registry);
   AddMatchSubstring(registry);
   AddFindSubstring(registry);
+  AddCountSubstring(registry);
   MakeUnaryStringBatchKernelWithState<ReplaceSubStringPlain>(
       "replace_substring", registry, &replace_substring_doc,
       MemAllocation::NO_PREALLOCATE);
