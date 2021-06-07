@@ -109,6 +109,10 @@ TYPED_TEST(TestBinaryKernels, CountSubstring) {
   this->CheckUnary("count_substring", R"(["", null, "abc"])", this->offset_type(),
                    "[1, null, 4]", &options_empty);
 
+  MatchSubstringOptions options_repeated{"aaa"};
+  this->CheckUnary("count_substring", R"(["", "aaaa", "aaaaa", "aaaaaa", "aaá"])",
+                   this->offset_type(), "[0, 1, 1, 2, 0]", &options_repeated);
+
   // TODO: case-insensitive
 }
 
