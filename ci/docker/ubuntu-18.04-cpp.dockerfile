@@ -79,7 +79,6 @@ RUN apt-get update -y -q && \
         libre2-dev \
         libsnappy-dev \
         libssl-dev \
-        libutf8proc-dev \
         libzstd-dev \
         ninja-build \
         pkg-config \
@@ -97,6 +96,7 @@ RUN apt-get update -y -q && \
 # - libgtest-dev only provide sources
 # - libprotobuf-dev only provide sources
 # - thrift is too old
+# - utf8proc is too old(v2.1.0)
 # - s3 tests would require boost-asio that is included since Boost 1.66.0
 ENV ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
