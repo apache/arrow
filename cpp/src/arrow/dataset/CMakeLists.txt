@@ -53,6 +53,8 @@ add_arrow_lib(arrow_dataset
               ${ARROW_DATASET_SRCS}
               PRECOMPILED_HEADERS
               "$<$<COMPILE_LANGUAGE:CXX>:arrow/dataset/pch.h>"
+              DEPENDENCIES
+              toolchain
               PRIVATE_INCLUDES
               ${ARROW_DATASET_PRIVATE_INCLUDES}
               SHARED_LINK_LIBS
