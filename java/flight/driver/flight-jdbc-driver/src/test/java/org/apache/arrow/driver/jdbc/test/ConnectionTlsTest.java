@@ -23,9 +23,6 @@ import static org.junit.Assert.assertNotNull;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.cert.CertificateException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -44,32 +41,31 @@ import org.junit.Test;
 
 import com.google.common.base.Strings;
 
-
 public class ConnectionTlsTest {
   private FlightServer tlsServer;
   private static String serverUrl;
 
   @Before
   public void setUp() throws ClassNotFoundException, IOException {
-    final FlightTestUtils.CertKeyPair certKey = FlightTestUtils.exampleTlsCerts().get(0);
+    final FlightTestUtils.CertKeyPair certKey = FlightTestUtils
+        .exampleTlsCerts().get(0);
 
     final FlightProducer flightProducer = FlightTestUtils.getFlightProducer();
-    this.tlsServer = FlightTestUtils.getStartedServer(
-      (location -> {
-        try {
-            return FlightServer
-                    .builder(FlightTestUtils.getAllocator(), location, flightProducer)
-                    .useTls(certKey.cert, certKey.key)
-                    .headerAuthenticator(new GeneratedBearerTokenAuthenticator(
-                            new BasicCallHeaderAuthenticator(this::validate)))
-                    .build();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return null;
-      }));
-    this.serverUrl = FlightTestUtils.getConnectionPrefix() + FlightTestUtils.getLocalhost() + ":" +
-            this.tlsServer.getPort();
+    this.tlsServer = FlightTestUtils.getStartedServer((location -> {
+      try {
+        return FlightServer
+            .builder(FlightTestUtils.getAllocator(), location, flightProducer)
+            .useTls(certKey.cert, certKey.key)
+            .headerAuthenticator(new GeneratedBearerTokenAuthenticator(
+                new BasicCallHeaderAuthenticator(this::validate)))
+            .build();
+      } catch (IOException e) {
+        e.printStackTrace();
+      }
+      return null;
+    }));
+    serverUrl = FlightTestUtils.getConnectionPrefix()
+        + FlightTestUtils.getLocalhost() + ":" + this.tlsServer.getPort();
 
     Class.forName("org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver");
   }
@@ -77,21 +73,26 @@ public class ConnectionTlsTest {
   /**
    * Validate the user's credential on a FlightServer.
    *
-   * @param username flight server username.
-   * @param password flight server password.
+   * @param username
+   *          flight server username.
+   * @param password
+   *          flight server password.
    * @return the result of validation.
    */
-  private CallHeaderAuthenticator.AuthResult validate(String username, String password) {
+  private CallHeaderAuthenticator.AuthResult validate(String username,
+      String password) {
     if (Strings.isNullOrEmpty(username)) {
-      throw CallStatus.UNAUTHENTICATED.withDescription("Credentials not supplied.").toRuntimeException();
+      throw CallStatus.UNAUTHENTICATED
+          .withDescription("Credentials not supplied.").toRuntimeException();
     }
     final String identity;
-    if (FlightTestUtils.getUsername1().equals(username) &&
-            FlightTestUtils.getPassword1().equals(password)) {
+    if (FlightTestUtils.getUsername1().equals(username)
+        && FlightTestUtils.getPassword1().equals(password)) {
       identity = FlightTestUtils.getUsername1();
     } else {
-      throw CallStatus.UNAUTHENTICATED.withDescription(
-              "Username or password is invalid.").toRuntimeException();
+      throw CallStatus.UNAUTHENTICATED
+          .withDescription("Username or password is invalid.")
+          .toRuntimeException();
     }
     return () -> identity;
   }
@@ -99,11 +100,12 @@ public class ConnectionTlsTest {
   /**
    * Try to instantiate an encrypt FlightClient.
    *
-   * @throws URISyntaxException on error.
+   * @throws URISyntaxException
+   *           on error.
+   * @throws SQLException
    */
   @Test
-  public void testGetEncryptedClient() throws URISyntaxException,
-          KeyStoreException, CertificateException, NoSuchAlgorithmException, IOException {
+  public void testGetEncryptedClient() throws SQLException, URISyntaxException {
 
     Properties properties = new Properties();
 
@@ -112,26 +114,28 @@ public class ConnectionTlsTest {
     properties.put("keyStorePass", "flight");
 
     URI address = new URI("jdbc",
-            FlightTestUtils.getUsername1() + ":" + FlightTestUtils.getPassword1(),
-            FlightTestUtils.getLocalhost(), this.tlsServer.getPort(),
-            null, null, null);
+        FlightTestUtils.getUsername1() + ":" + FlightTestUtils.getPassword1(),
+        FlightTestUtils.getLocalhost(), this.tlsServer.getPort(), null, null,
+        null);
 
     UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(
-            FlightTestUtils.getUsername1(), FlightTestUtils.getPassword1());
+        FlightTestUtils.getUsername1(), FlightTestUtils.getPassword1());
 
-    ArrowFlightClient client = ArrowFlightClient.getEncryptedClient(FlightTestUtils.getAllocator(),
-            address, credentials, properties.getProperty("keyStorePath"),
-            properties.getProperty("keyStorePass"));
+    ArrowFlightClient client = ArrowFlightClient.getEncryptedClient(
+        FlightTestUtils.getAllocator(), address.getHost(), address.getPort(),
+        null, credentials.getUserName(), credentials.getPassword(),
+        properties.getProperty("keyStorePath"),
+        properties.getProperty("keyStorePass"));
 
     assertNotNull(client);
   }
 
-
   /**
-   * Check if an encrypted connection can be established successfully when
-   * the provided valid credentials and a valid Keystore.
+   * Check if an encrypted connection can be established successfully when the
+   * provided valid credentials and a valid Keystore.
    *
-   * @throws SQLException on error.
+   * @throws SQLException
+   *           on error.
    */
   @Test
   public void connectTls() throws SQLException {

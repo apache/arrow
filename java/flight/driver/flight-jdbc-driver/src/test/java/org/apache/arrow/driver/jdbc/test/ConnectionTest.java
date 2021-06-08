@@ -61,33 +61,40 @@ public class ConnectionTest {
   public void setUp() throws ClassNotFoundException, IOException {
     final FlightProducer flightProducer = FlightTestUtils.getFlightProducer();
     this.server = FlightTestUtils.getStartedServer((location -> FlightServer
-            .builder(FlightTestUtils.getAllocator(), location, flightProducer)
-            .headerAuthenticator(new GeneratedBearerTokenAuthenticator(
-                    new BasicCallHeaderAuthenticator(this::validate)))
-            .build()
-    ));
-    this.serverUrl = FlightTestUtils.getConnectionPrefix() + FlightTestUtils.getLocalhost() +
-            ":" + this.server.getPort();
+        .builder(FlightTestUtils.getAllocator(), location, flightProducer)
+        .headerAuthenticator(new GeneratedBearerTokenAuthenticator(
+            new BasicCallHeaderAuthenticator(this::validate)))
+        .build()));
+    serverUrl = FlightTestUtils.getConnectionPrefix()
+        + FlightTestUtils.getLocalhost() + ":" + this.server.getPort();
 
+    // TODO Double-check this later.
     Class.forName("org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver");
   }
 
   /**
    * Validate the user's credential on a FlightServer.
    *
-   * @param username flight server username.
-   * @param password flight server password.
+   * @param username
+   *          flight server username.
+   * @param password
+   *          flight server password.
    * @return the result of validation.
    */
-  private CallHeaderAuthenticator.AuthResult validate(String username, String password) {
+  private CallHeaderAuthenticator.AuthResult validate(String username,
+      String password) {
     if (Strings.isNullOrEmpty(username)) {
-      throw CallStatus.UNAUTHENTICATED.withDescription("Credentials not supplied.").toRuntimeException();
+      throw CallStatus.UNAUTHENTICATED
+          .withDescription("Credentials not supplied.").toRuntimeException();
     }
     final String identity;
-    if (FlightTestUtils.getUsername1().equals(username) && FlightTestUtils.getPassword1().equals(password)) {
+    if (FlightTestUtils.getUsername1().equals(username)
+        && FlightTestUtils.getPassword1().equals(password)) {
       identity = FlightTestUtils.getUsername1();
     } else {
-      throw CallStatus.UNAUTHENTICATED.withDescription("Username or password is invalid.").toRuntimeException();
+      throw CallStatus.UNAUTHENTICATED
+          .withDescription("Username or password is invalid.")
+          .toRuntimeException();
     }
     return () -> identity;
   }
@@ -96,11 +103,12 @@ public class ConnectionTest {
    * Checks if an unencrypted connection can be established successfully when
    * the provided valid credentials.
    *
-   * @throws SQLException on error.
+   * @throws SQLException
+   *           on error.
    */
   @Test
   public void testUnencryptedConnectionShouldOpenSuccessfullyWhenProvidedValidCredentials()
-          throws SQLException {
+      throws SQLException {
     Properties properties = new Properties();
 
     properties.put("user", FlightTestUtils.getUsername1());
@@ -112,20 +120,22 @@ public class ConnectionTest {
   /**
    * Try to instantiate a basic FlightClient.
    *
-   * @throws URISyntaxException on error.
+   * @throws URISyntaxException
+   *           on error.
    */
   @Test
   public void testGetBasicClient() throws URISyntaxException {
     URI address = new URI("jdbc",
-            FlightTestUtils.getUsername1() + ":" + FlightTestUtils.getPassword1(),
-            FlightTestUtils.getLocalhost(), this.server.getPort(),
-            null, null, null);
+        FlightTestUtils.getUsername1() + ":" + FlightTestUtils.getPassword1(),
+        FlightTestUtils.getLocalhost(), this.server.getPort(), null, null,
+        null);
 
     UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(
-            FlightTestUtils.getUsername1(), FlightTestUtils.getPassword1());
+        FlightTestUtils.getUsername1(), FlightTestUtils.getPassword1());
 
-    ArrowFlightClient client = ArrowFlightClient.getBasicClient(FlightTestUtils.getAllocator(),
-            address, credentials, null);
+    ArrowFlightClient client = ArrowFlightClient.getBasicClient(
+        FlightTestUtils.getAllocator(), address.getHost(), address.getPort(),
+        credentials.getUserName(), credentials.getPassword(), null);
 
     assertNotNull(client);
   }
@@ -139,7 +149,7 @@ public class ConnectionTest {
    */
   @Test(expected = FlightRuntimeException.class)
   public void testUnencryptedConnectionShouldThrowExceptionWhenProvidedWithInvalidCredentials()
-          throws SQLException {
+      throws SQLException {
 
     Properties properties = new Properties();
 
