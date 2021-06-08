@@ -445,6 +445,60 @@ TYPED_TEST(TestStringKernels, MatchSubstringIgnoreCase) {
 }
 #endif
 
+TYPED_TEST(TestStringKernels, MatchStartsWith) {
+  MatchSubstringOptions options{"abab"};
+  this->CheckUnary("starts_with", "[]", boolean(), "[]", &options);
+  this->CheckUnary("starts_with", R"([null, "", "ab", "abab", "$abab", "abab$"])",
+                   boolean(), "[null, false, false, true, false, true]", &options);
+  this->CheckUnary("starts_with", R"(["ABAB", "BABAB", "ABABC", "bAbAb", "aBaBc"])",
+                   boolean(), "[false, false, false, false, false]", &options);
+}
+
+TYPED_TEST(TestStringKernels, MatchEndsWith) {
+  MatchSubstringOptions options{"abab"};
+  this->CheckUnary("ends_with", "[]", boolean(), "[]", &options);
+  this->CheckUnary("ends_with", R"([null, "", "ab", "abab", "$abab", "abab$"])",
+                   boolean(), "[null, false, false, true, true, false]", &options);
+  this->CheckUnary("ends_with", R"(["ABAB", "BABAB", "ABABC", "bAbAb", "aBaBc"])",
+                   boolean(), "[false, false, false, false, false]", &options);
+}
+
+#ifdef ARROW_WITH_RE2
+TYPED_TEST(TestStringKernels, MatchStartsWithIgnoreCase) {
+  MatchSubstringOptions options{"aBAb", /*ignore_case=*/true};
+  this->CheckUnary("starts_with", "[]", boolean(), "[]", &options);
+  this->CheckUnary("starts_with", R"([null, "", "ab", "abab", "$abab", "abab$"])",
+                   boolean(), "[null, false, false, true, false, true]", &options);
+  this->CheckUnary("starts_with", R"(["ABAB", "$ABAB", "ABAB$", "$AbAb", "aBaB$"])",
+                   boolean(), "[true, false, true, false, true]", &options);
+}
+
+TYPED_TEST(TestStringKernels, MatchEndsWithIgnoreCase) {
+  MatchSubstringOptions options{"aBAb", /*ignore_case=*/true};
+  this->CheckUnary("ends_with", "[]", boolean(), "[]", &options);
+  this->CheckUnary("ends_with", R"([null, "", "ab", "abab", "$abab", "abab$"])",
+                   boolean(), "[null, false, false, true, true, false]", &options);
+  this->CheckUnary("ends_with", R"(["ABAB", "$ABAB", "ABAB$", "$AbAb", "aBaB$"])",
+                   boolean(), "[true, true, false, true, false]", &options);
+}
+#else
+TYPED_TEST(TestStringKernels, MatchStartsWithIgnoreCase) {
+  Datum input = ArrayFromJSON(this->type(), R"(["a"])");
+  MatchSubstringOptions options{"a", /*ignore_case=*/true};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
+                                  ::testing::HasSubstr("ignore_case requires RE2"),
+                                  CallFunction("starts_with", {input}, &options));
+}
+
+TYPED_TEST(TestStringKernels, MatchEndsWithIgnoreCase) {
+  Datum input = ArrayFromJSON(this->type(), R"(["a"])");
+  MatchSubstringOptions options{"a", /*ignore_case=*/true};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
+                                  ::testing::HasSubstr("ignore_case requires RE2"),
+                                  CallFunction("ends_with", {input}, &options));
+}
+#endif
+
 #ifdef ARROW_WITH_RE2
 TYPED_TEST(TestStringKernels, MatchSubstringRegex) {
   MatchSubstringOptions options{"ab"};
@@ -528,9 +582,14 @@ TYPED_TEST(TestStringKernels, MatchLike) {
 TYPED_TEST(TestStringKernels, MatchLikeEscaping) {
   auto inputs = R"(["%%foo", "_bar", "({", "\\baz"])";
 
+  // N.B. I believe Impala mistakenly optimizes these into substring searches
   MatchSubstringOptions escape_percent{"\\%%"};
   this->CheckUnary("match_like", inputs, boolean(), "[true, false, false, false]",
                    &escape_percent);
+
+  MatchSubstringOptions not_substring{"%\\%%"};
+  this->CheckUnary("match_like", inputs, boolean(), "[true, false, false, false]",
+                   &not_substring);
 
   MatchSubstringOptions escape_underscore{"\\____"};
   this->CheckUnary("match_like", inputs, boolean(), "[false, true, false, false]",
