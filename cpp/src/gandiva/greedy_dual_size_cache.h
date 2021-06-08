@@ -32,21 +32,23 @@ namespace gandiva {
 // considering the different costs for each entry.
 template <class Key, class Value>
 class GreedyDualSizeCache : public BaseCache<Key, Value> {
- // inner class to define the priority item
- class PriorityItem {
-  public:
-   PriorityItem(uint64_t actual_priority,
-                uint64_t original_priority, Key key) : actual_priority(actual_priority),
-                original_priority(original_priority), cache_key(key) {}
-   // this ensure that the items with low priority stays in the beginning of the queue,
-   // so it can be the one removed by evict operation
-   bool operator<(const PriorityItem& other) const {
-     return this->actual_priority < other.actual_priority;
-   }
-   uint64_t actual_priority;
-   uint64_t original_priority;
-   Key cache_key;
+  // inner class to define the priority item
+  class PriorityItem {
+   public:
+    PriorityItem(uint64_t actual_priority, uint64_t original_priority, Key key)
+        : actual_priority(actual_priority),
+          original_priority(original_priority),
+          cache_key(key) {}
+    // this ensure that the items with low priority stays in the beginning of the queue,
+    // so it can be the one removed by evict operation
+    bool operator<(const PriorityItem& other) const {
+      return this->actual_priority < other.actual_priority;
+    }
+    uint64_t actual_priority;
+    uint64_t original_priority;
+    Key cache_key;
   };
+
  public:
   struct hasher {
     template <typename I>
@@ -55,10 +57,9 @@ class GreedyDualSizeCache : public BaseCache<Key, Value> {
     }
   };
   // a map from 'key' to a pair of Value and a pointer to the priority value
-  using map_type = std::unordered_map<Key,
-                                      std::pair<ValueCacheObject<Value>,
-                                      typename std::set<PriorityItem>::iterator>,
-                                      hasher>;
+  using map_type = std::unordered_map<
+      Key, std::pair<ValueCacheObject<Value>, typename std::set<PriorityItem>::iterator>,
+      hasher>;
 
   explicit GreedyDualSizeCache(size_t capacity) : BaseCache<Key, Value>(capacity) {
     this->inflation_cost_ = 0;
@@ -88,7 +89,8 @@ class GreedyDualSizeCache : public BaseCache<Key, Value> {
 
       // insert the new item
       auto iter = this->priority_set_.insert(
-          PriorityItem(value.cost + this->inflation_cost_, value.cost, key));
+          PriorityItem(value.cost + this->inflation_cost_,
+                       value.cost, key));
       // save on map the value and the priority item iterator position
       map_[key] = std::make_pair(value, iter.first);
     }
@@ -129,7 +131,7 @@ class GreedyDualSizeCache : public BaseCache<Key, Value> {
     priority_set_.erase(i);
   }
 
-private:
+ private:
   map_type map_;
   std::set<PriorityItem> priority_set_;
   int64_t inflation_cost_;

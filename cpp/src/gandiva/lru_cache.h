@@ -37,9 +37,8 @@ class LruCache : public BaseCache<Key, Value> {
       return i.Hash();
     }
   };
-  using map_type =
-      std::unordered_map<Key, std::pair<ValueCacheObject<Value>,
-                         typename std::list<Key>::iterator>, hasher>;
+  using map_type = std::unordered_map<
+      Key, std::pair<ValueCacheObject<Value>, typename std::list<Key>::iterator>, hasher>;
 
   explicit LruCache(size_t capacity) : BaseCache<Key, Value>(capacity) {}
 

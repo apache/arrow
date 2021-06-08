@@ -38,8 +38,7 @@ template <class KeyType, typename ValueType>
 class Cache {
  public:
   explicit Cache(size_t capacity) {
-    this->cache_ =
-        std::make_unique<LruCache<KeyType, ValueType>>(capacity);
+    this->cache_ = std::make_unique<LruCache<KeyType, ValueType>>(capacity);
     LogCacheSize(capacity);
   }
 
