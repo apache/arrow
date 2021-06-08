@@ -954,15 +954,6 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
     };
   }
 
-  template <typename CType>
-  static BitmapResizeImpl MakeResizeImplForBitmap(CType anti_extreme) {
-    // resize a bitmap buffer, storing the correct anti extreme
-    return [anti_extreme](TypedBufferBuilder<bool>* builder, int64_t added_groups) {
-      RETURN_NOT_OK(builder->Append(added_groups, anti_extreme));
-      return Status::OK();
-    };
-  }
-
   struct GetImpl {
     template <typename T, typename CType = typename TypeTraits<T>::CType>
     enable_if_number<T, Status> Visit(const T&) {
@@ -1019,7 +1010,6 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
     consume_impl_ = std::move(get_impl.consume_impl);
     resize_min_impl_ = std::move(get_impl.resize_min_impl);
     resize_max_impl_ = std::move(get_impl.resize_max_impl);
-    resize_bitmap_impl_ = MakeResizeImplForBitmap(false);
 
     return Status::OK();
   }
@@ -1029,8 +1019,8 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
       num_groups_ += added_groups;
       RETURN_NOT_OK(resize_min_impl_(&mins_, added_groups));
       RETURN_NOT_OK(resize_max_impl_(&maxes_, added_groups));
-      RETURN_NOT_OK(resize_bitmap_impl_(&has_values_, added_groups));
-      RETURN_NOT_OK(resize_bitmap_impl_(&has_nulls_, added_groups));
+      RETURN_NOT_OK(has_values_.Append(added_groups, false));
+      RETURN_NOT_OK(has_nulls_.Append(added_groups, false));
       return Status::OK();
     }));
 
@@ -1071,7 +1061,6 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
   std::shared_ptr<DataType> type_;
   ConsumeImpl consume_impl_;
   ResizeImpl resize_min_impl_, resize_max_impl_;
-  BitmapResizeImpl resize_bitmap_impl_;
   ScalarAggregateOptions options_;
 };
 
