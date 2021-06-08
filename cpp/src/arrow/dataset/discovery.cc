@@ -230,8 +230,7 @@ Result<std::vector<std::shared_ptr<Schema>>> FileSystemDatasetFactory::InspectSc
     if (ARROW_PREDICT_FALSE(!result.ok())) {
       return result.status().WithMessage(
           "Error creating dataset. Could not read schema from '", info.path(),
-          "': ", result.status().message(), ". Is this a '", format_->type_name(),
-          "' file?");
+          "': ", result.status().message());
     }
     schemas.push_back(result.MoveValueUnsafe());
   }
