@@ -112,13 +112,13 @@ public final class ArrowFlightConnection extends AvaticaConnection {
     String host, username;
 
     host = (String) info.getOrDefault("host", "localhost");
-    Preconditions.checkArgument(!host.isBlank());
+    Preconditions.checkArgument(!host.strip().equals(""));
 
     int port = (int) info.getOrDefault("port", "32010");
     Preconditions.checkArgument(port > 0);
 
     username = Preconditions.checkNotNull(info.getProperty("user"));
-    Preconditions.checkArgument(!username.isBlank());
+    Preconditions.checkArgument(!username.strip().equals(""));
 
     @Nullable
     String password = info.getProperty("password");
