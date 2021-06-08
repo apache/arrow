@@ -451,60 +451,69 @@ The third set of functions examines string elements on a byte-per-byte basis:
 String transforms
 ~~~~~~~~~~~~~~~~~
 
-+--------------------------+------------+-------------------------+---------------------+-------------------------------------------------+
-| Function name            | Arity      | Input types             | Output type         | Notes   | Options class                         |
-+==========================+============+=========================+=====================+=========+=======================================+
-| ascii_lower              | Unary      | String-like             | String-like         | \(1)    |                                       |
-+--------------------------+------------+-------------------------+---------------------+---------+---------------------------------------+
-| ascii_reverse            | Unary      | String-like             | String-like         | \(2)    |                                       |
-+--------------------------+------------+-------------------------+---------------------+---------+---------------------------------------+
-| ascii_upper              | Unary      | String-like             | String-like         | \(1)    |                                       |
-+--------------------------+------------+-------------------------+---------------------+---------+---------------------------------------+
-| binary_length            | Unary      | Binary- or String-like  | Int32 or Int64      | \(3)    |                                       |
-+--------------------------+------------+-------------------------+---------------------+---------+---------------------------------------+
-| replace_substring        | Unary      | String-like             | String-like         | \(4)    | :struct:`ReplaceSubstringOptions`     |
-+--------------------------+------------+-------------------------+---------------------+---------+---------------------------------------+
-| replace_substring_regex  | Unary      | String-like             | String-like         | \(5)    | :struct:`ReplaceSubstringOptions`     |
-+--------------------------+------------+-------------------------+---------------------+---------+---------------------------------------+
-| utf8_length              | Unary      | String-like             | Int32 or Int64      | \(6)    |                                       |
-+--------------------------+------------+-------------------------+---------------------+---------+---------------------------------------+
-| utf8_lower               | Unary      | String-like             | String-like         | \(7)    |                                       |
-+--------------------------+------------+-------------------------+---------------------+---------+---------------------------------------+
-| utf8_reverse             | Unary      | String-like             | String-like         | \(8)    |                                       |
-+--------------------------+------------+-------------------------+---------------------+---------+---------------------------------------+
-| utf8_upper               | Unary      | String-like             | String-like         | \(7)    |                                       |
-+--------------------------+------------+-------------------------+---------------------+---------+---------------------------------------+
++--------------------------+------------+-------------------------+------------------------+-------------------------------------------------+
+| Function name            | Arity      | Input types             | Output type            | Notes   | Options class                         |
++==========================+============+=========================+========================+=========+=======================================+
+| ascii_lower              | Unary      | String-like             | String-like            | \(1)    |                                       |
++--------------------------+------------+-------------------------+------------------------+---------+---------------------------------------+
+| ascii_replace_slice      | Unary      | String-like             | Binary- or String-like | \(2)    | :struct:`ReplaceSliceOptions`         |
++--------------------------+------------+-------------------------+------------------------+---------+---------------------------------------+
+| ascii_reverse            | Unary      | String-like             | String-like            | \(3)    |                                       |
++--------------------------+------------+-------------------------+------------------------+---------+---------------------------------------+
+| ascii_upper              | Unary      | String-like             | String-like            | \(2)    |                                       |
++--------------------------+------------+-------------------------+------------------------+---------+---------------------------------------+
+| binary_length            | Unary      | Binary- or String-like  | Int32 or Int64         | \(4)    |                                       |
++--------------------------+------------+-------------------------+------------------------+---------+---------------------------------------+
+| replace_substring        | Unary      | String-like             | String-like            | \(5)    | :struct:`ReplaceSubstringOptions`     |
++--------------------------+------------+-------------------------+------------------------+---------+---------------------------------------+
+| replace_substring_regex  | Unary      | String-like             | String-like            | \(6)    | :struct:`ReplaceSubstringOptions`     |
++--------------------------+------------+-------------------------+------------------------+---------+---------------------------------------+
+| utf8_length              | Unary      | String-like             | Int32 or Int64         | \(7)    |                                       |
++--------------------------+------------+-------------------------+------------------------+---------+---------------------------------------+
+| utf8_lower               | Unary      | String-like             | String-like            | \(8)    |                                       |
++--------------------------+------------+-------------------------+------------------------+---------+---------------------------------------+
+| utf8_replace_slice       | Unary      | String-like             | String-like            | \(2)    | :struct:`ReplaceSliceOptions`         |
++--------------------------+------------+-------------------------+------------------------+---------+---------------------------------------+
+| utf8_reverse             | Unary      | String-like             | String-like            | \(9)    |                                       |
++--------------------------+------------+-------------------------+------------------------+---------+---------------------------------------+
+| utf8_upper               | Unary      | String-like             | String-like            | \(8)    |                                       |
++--------------------------+------------+-------------------------+------------------------+---------+---------------------------------------+
 
 
 * \(1) Each ASCII character in the input is converted to lowercase or
   uppercase.  Non-ASCII characters are left untouched.
 
-* \(2) ASCII input is reversed to the output. If non-ASCII characters
+* \(2) Replace the slice of the substring from :member:`ReplaceSliceOptions::start`
+  (inclusive) to :member:`ReplaceSliceOptions::stop` (exclusive) by
+  :member:`ReplaceSubstringOptions::replacement`. The ASCII kernel measures the slice
+  in bytes, while the UTF8 kernel measures the slice in codeunits.
+
+* \(3) ASCII input is reversed to the output. If non-ASCII characters
   are present, ``Invalid`` :class:`Status` will be returned.
 
-* \(3) Output is the physical length in bytes of each input element.  Output
+* \(4) Output is the physical length in bytes of each input element.  Output
   type is Int32 for Binary / String, Int64 for LargeBinary / LargeString.
 
-* \(4) Replace non-overlapping substrings that match to
+* \(5) Replace non-overlapping substrings that match to
   :member:`ReplaceSubstringOptions::pattern` by
   :member:`ReplaceSubstringOptions::replacement`. If
   :member:`ReplaceSubstringOptions::max_replacements` != -1, it determines the
   maximum number of replacements made, counting from the left.
 
-* \(5) Replace non-overlapping substrings that match to the regular expression
+* \(6) Replace non-overlapping substrings that match to the regular expression
   :member:`ReplaceSubstringOptions::pattern` by
   :member:`ReplaceSubstringOptions::replacement`, using the Google RE2 library. If
   :member:`ReplaceSubstringOptions::max_replacements` != -1, it determines the
   maximum number of replacements made, counting from the left. Note that if the
   pattern contains groups, backreferencing can be used.
 
-* \(6) Output is the number of characters (not bytes) of each input element.
+* \(7) Output is the number of characters (not bytes) of each input element.
   Output type is Int32 for String, Int64 for LargeString.
 
-* \(7) Each UTF8-encoded character in the input is converted to lowercase or
+* \(8) Each UTF8-encoded character in the input is converted to lowercase or
   uppercase.
 
-* \(8) Each UTF8-encoded code unit is written in reverse order to the output.
+* \(9) Each UTF8-encoded code unit is written in reverse order to the output.
   If the input is not valid UTF8, then the output is undefined (but the size of output
   buffers will be preserved).
 

@@ -693,6 +693,24 @@ def test_string_py_compat_boolean(function_name, variant):
             assert arrow_func(ar)[0].as_py() == getattr(c, py_name)()
 
 
+def test_replace_slice():
+    arr = pa.array([None, '', 'a', 'ab', 'abc', 'abcd'])
+    res = pc.ascii_replace_slice(arr, start=1, stop=3, replacement='XX')
+    assert res.tolist() == [None, 'XX', 'aXX', 'aXX', 'aXX', 'aXXd']
+    res = pc.ascii_replace_slice(arr, start=-2, stop=3, replacement='XX')
+    assert res.tolist() == [None, 'XX', 'XX', 'XX', 'aXX', 'abXXd']
+    res = pc.ascii_replace_slice(arr, start=-3, stop=-2, replacement='XX')
+    assert res.tolist() == [None, 'XX', 'XXa', 'XXab', 'XXbc', 'aXXcd']
+
+    arr = pa.array([None, '', 'π', 'πb', 'πbθ', 'πbθd'])
+    res = pc.utf8_replace_slice(arr, start=1, stop=3, replacement='χχ')
+    assert res.tolist() == [None, 'χχ', 'πχχ', 'πχχ', 'πχχ', 'πχχd']
+    res = pc.utf8_replace_slice(arr, start=-2, stop=3, replacement='χχ')
+    assert res.tolist() == [None, 'χχ', 'χχ', 'χχ', 'πχχ', 'πbχχd']
+    res = pc.utf8_replace_slice(arr, start=-3, stop=-2, replacement='χχ')
+    assert res.tolist() == [None, 'χχ', 'χχπ', 'χχπb', 'χχbθ', 'πχχθd']
+
+
 def test_replace_plain():
     ar = pa.array(['foo', 'food', None])
     ar = pc.replace_substring(ar, pattern='foo', replacement='bar')

@@ -701,6 +701,24 @@ class TrimOptions(_TrimOptions):
         self._set_options(characters)
 
 
+cdef class _ReplaceSliceOptions(FunctionOptions):
+    cdef:
+        unique_ptr[CReplaceSliceOptions] replace_slice_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.replace_slice_options.get()
+
+    def _set_options(self, start, stop, replacement):
+        self.replace_slice_options.reset(
+            new CReplaceSliceOptions(start, stop, tobytes(replacement))
+        )
+
+
+class ReplaceSliceOptions(_ReplaceSliceOptions):
+    def __init__(self, start, stop, replacement):
+        self._set_options(start, stop, replacement)
+
+
 cdef class _ReplaceSubstringOptions(FunctionOptions):
     cdef:
         unique_ptr[CReplaceSubstringOptions] replace_substring_options

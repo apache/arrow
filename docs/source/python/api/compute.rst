@@ -166,9 +166,15 @@ String Transforms
    :toctree: ../generated/
 
    ascii_lower
+   ascii_replace_slice
    ascii_reverse
    ascii_upper
+   binary_length
+   replace_substring
+   replace_substring_regex
+   utf8_length
    utf8_lower
+   utf8_replace_slice
    utf8_reverse
    utf8_upper
 
