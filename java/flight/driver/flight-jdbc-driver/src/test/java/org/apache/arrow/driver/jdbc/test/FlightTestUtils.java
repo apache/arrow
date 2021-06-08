@@ -35,7 +35,6 @@ import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.NoOpFlightProducer;
 import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -44,57 +43,62 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import com.google.common.collect.ImmutableList;
 
 
-public class FlightTestUtils {
+public final class FlightTestUtils {
 
   private static final Random RANDOM = new Random();
 
-  private static final String LOCALHOST = "localhost";
-  private static final String USERNAME_1 = "flight1";
-  private static final String PASSWORD_1 = "woohoo1";
-  private static final String USERNAME_INVALID = "bad";
-  private static final String PASSWORD_INVALID = "wrong";
-  private static final String USERNAME_2 = "flight2";
-  private static final BufferAllocator ALLOCATOR = new RootAllocator(Long.MAX_VALUE);
-  private static final String CONNECTION_PREFIX = "jdbc:arrow-flight://";
+  private String localhost;
+  private String username1;
+  private String password1;
+  private String usernameInvalid;
+  private String passwordInvalid;
+  private String connectionPrefix;
 
-  public static String getConnectionPrefix() {
-    return CONNECTION_PREFIX;
+  public FlightTestUtils(String localhost, String username1, String password1,
+                         String usernameInvalid, String passwordInvalid) {
+    this.localhost = localhost;
+    this.username1 = username1;
+    this.password1 = password1;
+    this.usernameInvalid = usernameInvalid;
+    this.passwordInvalid = passwordInvalid;
+    this.connectionPrefix = "jdbc:arrow-flight://";
   }
 
-  public static String getUsername1() {
-    return USERNAME_1;
+  public String getConnectionPrefix() {
+    return connectionPrefix;
   }
 
-  public static String getPassword1() {
-    return PASSWORD_1;
+  public String getUsername1() {
+    return username1;
   }
 
-  public static String getUsernameInvalid() {
-    return USERNAME_INVALID;
+  public String getPassword1() {
+    return password1;
   }
 
-  public static String getPasswordInvalid() {
-    return PASSWORD_INVALID;
+  public String getUsernameInvalid() {
+    return usernameInvalid;
   }
 
-  public static String getLocalhost() {
-    return LOCALHOST;
+  public String getPasswordInvalid() {
+    return passwordInvalid;
   }
 
-  public static BufferAllocator getAllocator() {
-    return ALLOCATOR;
+  public String getLocalhost() {
+    return localhost;
   }
+
 
   /**
    * Return a a FlightServer (actually anything that is startable)
    * that has been started bound to a random port.
    */
-  public static <T> T getStartedServer(Function<Location, T> newServerFromLocation) throws IOException {
+  public <T> T getStartedServer(Function<Location, T> newServerFromLocation) throws IOException {
     IOException lastThrown = null;
     T server = null;
     for (int x = 0; x < 3; x++) {
       final int port = 49152 + RANDOM.nextInt(5000);
-      final Location location = Location.forGrpcInsecure(LOCALHOST, port);
+      final Location location = Location.forGrpcInsecure(this.localhost, port);
       lastThrown = null;
       try {
         server = newServerFromLocation.apply(location);
@@ -123,12 +127,12 @@ public class FlightTestUtils {
    *
    * @return NoOpFlightProducer.
    */
-  public static FlightProducer getFlightProducer() {
+  public FlightProducer getFlightProducer(BufferAllocator allocator) {
     return new NoOpFlightProducer() {
       @Override
       public void listFlights(CallContext context, Criteria criteria,
                               StreamListener<FlightInfo> listener) {
-        if (!context.peerIdentity().equals(USERNAME_1) && !context.peerIdentity().equals(USERNAME_2)) {
+        if (!context.peerIdentity().equals(username1)) {
             listener.onError(new IllegalArgumentException("Invalid username"));
             return;
         }
@@ -137,13 +141,13 @@ public class FlightTestUtils {
 
       @Override
       public void getStream(CallContext context, Ticket ticket, ServerStreamListener listener) {
-        if (!context.peerIdentity().equals(USERNAME_1) && !context.peerIdentity().equals(USERNAME_2)) {
+        if (!context.peerIdentity().equals(username1)) {
           listener.error(new IllegalArgumentException("Invalid username"));
           return;
         }
         final Schema pojoSchema = new Schema(ImmutableList.of(Field.nullable("a",
                 Types.MinorType.BIGINT.getType())));
-        try (VectorSchemaRoot root = VectorSchemaRoot.create(pojoSchema, ALLOCATOR)) {
+        try (VectorSchemaRoot root = VectorSchemaRoot.create(pojoSchema, allocator)) {
           listener.start(root);
           root.allocateNew();
           root.setRowCount(4095);
