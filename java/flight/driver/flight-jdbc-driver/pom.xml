@@ -50,7 +50,7 @@
         <dependency>
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>jsr305</artifactId>
-		</dependency>
+        </dependency>
 
         <!-- https://mvnrepository.com/artifact/org.apache.arrow/arrow-memory-core -->
         <dependency>
@@ -84,6 +84,11 @@
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcpkix-jdk15on</artifactId>
         </dependency>
+
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
@@ -93,7 +98,7 @@
                 <artifactId>spotbugs-maven-plugin</artifactId>
                 <configuration>
                     <xmlOutput>true</xmlOutput>
-                    <findbugsXmlOutputDirectory>target/spotbugs</findbugsXmlOutputDirectory>
+                    <xmlOutputDirectory>target/spotbugs</xmlOutputDirectory>
                 </configuration>
                 <executions>
                     <execution>
