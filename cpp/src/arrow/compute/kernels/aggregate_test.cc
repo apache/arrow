@@ -942,21 +942,26 @@ TYPED_TEST(TestRandomNumericMinMaxKernel, RandomArrayMinMax) {
 
 class TestPrimitiveAnyKernel : public ::testing::Test {
  public:
-  void AssertAnyIs(const Datum& array, bool expected) {
-    ASSERT_OK_AND_ASSIGN(Datum out, Any(array));
+  void AssertAnyIs(const Datum& array, const std::shared_ptr<BooleanScalar>& expected,
+                   const ScalarAggregateOptions& options) {
+    ASSERT_OK_AND_ASSIGN(Datum out, Any(array, options, nullptr));
     const BooleanScalar& out_any = out.scalar_as<BooleanScalar>();
-    const auto expected_any = static_cast<const BooleanScalar>(expected);
-    ASSERT_EQ(out_any, expected_any);
+    ASSERT_EQ(out_any, *expected);
   }
 
-  void AssertAnyIs(const std::string& json, bool expected) {
+  void AssertAnyIs(
+      const std::string& json, const std::shared_ptr<BooleanScalar>& expected,
+      const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults()) {
     auto array = ArrayFromJSON(type_singleton(), json);
-    AssertAnyIs(array, expected);
+    AssertAnyIs(array, expected, options);
   }
 
-  void AssertAnyIs(const std::vector<std::string>& json, bool expected) {
+  void AssertAnyIs(
+      const std::vector<std::string>& json,
+      const std::shared_ptr<BooleanScalar>& expected,
+      const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults()) {
     auto array = ChunkedArrayFromJSON(type_singleton(), json);
-    AssertAnyIs(array, expected);
+    AssertAnyIs(array, expected, options);
   }
 
   std::shared_ptr<DataType> type_singleton() {
@@ -967,26 +972,47 @@ class TestPrimitiveAnyKernel : public ::testing::Test {
 class TestAnyKernel : public TestPrimitiveAnyKernel {};
 
 TEST_F(TestAnyKernel, Basics) {
+  auto true_value = std::make_shared<BooleanScalar>(true);
+  auto false_value = std::make_shared<BooleanScalar>(false);
+  auto null_value = std::make_shared<BooleanScalar>();
+  null_value->is_valid = false;
+
   std::vector<std::string> chunked_input0 = {"[]", "[true]"};
   std::vector<std::string> chunked_input1 = {"[true, true, null]", "[true, null]"};
   std::vector<std::string> chunked_input2 = {"[false, false, false]", "[false]"};
   std::vector<std::string> chunked_input3 = {"[false, null]", "[null, false]"};
   std::vector<std::string> chunked_input4 = {"[true, null]", "[null, false]"};
 
-  this->AssertAnyIs("[]", false);
-  this->AssertAnyIs("[false]", false);
-  this->AssertAnyIs("[true, false]", true);
-  this->AssertAnyIs("[null, null, null]", false);
-  this->AssertAnyIs("[false, false, false]", false);
-  this->AssertAnyIs("[false, false, false, null]", false);
-  this->AssertAnyIs("[true, null, true, true]", true);
-  this->AssertAnyIs("[false, null, false, true]", true);
-  this->AssertAnyIs("[true, null, false, true]", true);
-  this->AssertAnyIs(chunked_input0, true);
-  this->AssertAnyIs(chunked_input1, true);
-  this->AssertAnyIs(chunked_input2, false);
-  this->AssertAnyIs(chunked_input3, false);
-  this->AssertAnyIs(chunked_input4, true);
+  this->AssertAnyIs("[]", false_value);
+  this->AssertAnyIs("[false]", false_value);
+  this->AssertAnyIs("[true, false]", true_value);
+  this->AssertAnyIs("[null, null, null]", false_value);
+  this->AssertAnyIs("[false, false, false]", false_value);
+  this->AssertAnyIs("[false, false, false, null]", false_value);
+  this->AssertAnyIs("[true, null, true, true]", true_value);
+  this->AssertAnyIs("[false, null, false, true]", true_value);
+  this->AssertAnyIs("[true, null, false, true]", true_value);
+  this->AssertAnyIs(chunked_input0, true_value);
+  this->AssertAnyIs(chunked_input1, true_value);
+  this->AssertAnyIs(chunked_input2, false_value);
+  this->AssertAnyIs(chunked_input3, false_value);
+  this->AssertAnyIs(chunked_input4, true_value);
+
+  const ScalarAggregateOptions& keep_nulls = ScalarAggregateOptions(/*skip_nulls=*/false);
+  this->AssertAnyIs("[]", false_value, keep_nulls);
+  this->AssertAnyIs("[false]", false_value, keep_nulls);
+  this->AssertAnyIs("[true, false]", true_value, keep_nulls);
+  this->AssertAnyIs("[null, null, null]", null_value, keep_nulls);
+  this->AssertAnyIs("[false, false, false]", false_value, keep_nulls);
+  this->AssertAnyIs("[false, false, false, null]", null_value, keep_nulls);
+  this->AssertAnyIs("[true, null, true, true]", null_value, keep_nulls);
+  this->AssertAnyIs("[false, null, false, true]", null_value, keep_nulls);
+  this->AssertAnyIs("[true, null, false, true]", null_value, keep_nulls);
+  this->AssertAnyIs(chunked_input0, true_value, keep_nulls);
+  this->AssertAnyIs(chunked_input1, null_value, keep_nulls);
+  this->AssertAnyIs(chunked_input2, false_value, keep_nulls);
+  this->AssertAnyIs(chunked_input3, null_value, keep_nulls);
+  this->AssertAnyIs(chunked_input4, null_value, keep_nulls);
 }
 
 //
@@ -995,21 +1021,26 @@ TEST_F(TestAnyKernel, Basics) {
 
 class TestPrimitiveAllKernel : public ::testing::Test {
  public:
-  void AssertAllIs(const Datum& array, bool expected) {
-    ASSERT_OK_AND_ASSIGN(Datum out, All(array));
+  void AssertAllIs(const Datum& array, const std::shared_ptr<BooleanScalar>& expected,
+                   const ScalarAggregateOptions& options) {
+    ASSERT_OK_AND_ASSIGN(Datum out, All(array, options, nullptr));
     const BooleanScalar& out_all = out.scalar_as<BooleanScalar>();
-    const auto expected_all = static_cast<const BooleanScalar>(expected);
-    ASSERT_EQ(out_all, expected_all);
+    ASSERT_EQ(out_all, *expected);
   }
 
-  void AssertAllIs(const std::string& json, bool expected) {
+  void AssertAllIs(
+      const std::string& json, const std::shared_ptr<BooleanScalar>& expected,
+      const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults()) {
     auto array = ArrayFromJSON(type_singleton(), json);
-    AssertAllIs(array, expected);
+    AssertAllIs(array, expected, options);
   }
 
-  void AssertAllIs(const std::vector<std::string>& json, bool expected) {
+  void AssertAllIs(
+      const std::vector<std::string>& json,
+      const std::shared_ptr<BooleanScalar>& expected,
+      const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults()) {
     auto array = ChunkedArrayFromJSON(type_singleton(), json);
-    AssertAllIs(array, expected);
+    AssertAllIs(array, expected, options);
   }
 
   std::shared_ptr<DataType> type_singleton() {
@@ -1020,6 +1051,11 @@ class TestPrimitiveAllKernel : public ::testing::Test {
 class TestAllKernel : public TestPrimitiveAllKernel {};
 
 TEST_F(TestAllKernel, Basics) {
+  auto true_value = std::make_shared<BooleanScalar>(true);
+  auto false_value = std::make_shared<BooleanScalar>(false);
+  auto null_value = std::make_shared<BooleanScalar>();
+  null_value->is_valid = false;
+
   std::vector<std::string> chunked_input0 = {"[]", "[true]"};
   std::vector<std::string> chunked_input1 = {"[true, true, null]", "[true, null]"};
   std::vector<std::string> chunked_input2 = {"[false, false, false]", "[false]"};
@@ -1027,21 +1063,38 @@ TEST_F(TestAllKernel, Basics) {
   std::vector<std::string> chunked_input4 = {"[true, null]", "[null, false]"};
   std::vector<std::string> chunked_input5 = {"[false, null]", "[null, true]"};
 
-  this->AssertAllIs("[]", true);
-  this->AssertAllIs("[false]", false);
-  this->AssertAllIs("[true, false]", false);
-  this->AssertAllIs("[null, null, null]", true);
-  this->AssertAllIs("[false, false, false]", false);
-  this->AssertAllIs("[false, false, false, null]", false);
-  this->AssertAllIs("[true, null, true, true]", true);
-  this->AssertAllIs("[false, null, false, true]", false);
-  this->AssertAllIs("[true, null, false, true]", false);
-  this->AssertAllIs(chunked_input0, true);
-  this->AssertAllIs(chunked_input1, true);
-  this->AssertAllIs(chunked_input2, false);
-  this->AssertAllIs(chunked_input3, false);
-  this->AssertAllIs(chunked_input4, false);
-  this->AssertAllIs(chunked_input5, false);
+  this->AssertAllIs("[]", true_value);
+  this->AssertAllIs("[false]", false_value);
+  this->AssertAllIs("[true, false]", false_value);
+  this->AssertAllIs("[null, null, null]", true_value);
+  this->AssertAllIs("[false, false, false]", false_value);
+  this->AssertAllIs("[false, false, false, null]", false_value);
+  this->AssertAllIs("[true, null, true, true]", true_value);
+  this->AssertAllIs("[false, null, false, true]", false_value);
+  this->AssertAllIs("[true, null, false, true]", false_value);
+  this->AssertAllIs(chunked_input0, true_value);
+  this->AssertAllIs(chunked_input1, true_value);
+  this->AssertAllIs(chunked_input2, false_value);
+  this->AssertAllIs(chunked_input3, false_value);
+  this->AssertAllIs(chunked_input4, false_value);
+  this->AssertAllIs(chunked_input5, false_value);
+
+  const ScalarAggregateOptions keep_nulls = ScalarAggregateOptions(/*skip_nulls=*/false);
+  this->AssertAllIs("[]", true_value, keep_nulls);
+  this->AssertAllIs("[false]", false_value, keep_nulls);
+  this->AssertAllIs("[true, false]", false_value, keep_nulls);
+  this->AssertAllIs("[null, null, null]", null_value, keep_nulls);
+  this->AssertAllIs("[false, false, false]", false_value, keep_nulls);
+  this->AssertAllIs("[false, false, false, null]", null_value, keep_nulls);
+  this->AssertAllIs("[true, null, true, true]", null_value, keep_nulls);
+  this->AssertAllIs("[false, null, false, true]", null_value, keep_nulls);
+  this->AssertAllIs("[true, null, false, true]", null_value, keep_nulls);
+  this->AssertAllIs(chunked_input0, true_value, keep_nulls);
+  this->AssertAllIs(chunked_input1, null_value, keep_nulls);
+  this->AssertAllIs(chunked_input2, false_value, keep_nulls);
+  this->AssertAllIs(chunked_input3, null_value, keep_nulls);
+  this->AssertAllIs(chunked_input4, null_value, keep_nulls);
+  this->AssertAllIs(chunked_input5, null_value, keep_nulls);
 }
 
 //

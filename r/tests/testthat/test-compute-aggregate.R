@@ -393,13 +393,13 @@ test_that("any.Array and any.ChunkedArray", {
 
   data <- c(1:10, NA, NA)
 
-  expect_vector_equal(any(input > 5), data)
+  expect_vector_equal(any(input > 5, na.rm = TRUE), data)
   expect_vector_equal(any(input < 1), data)
   expect_vector_equal(any(input < 1, na.rm = TRUE), data)
 
   data_logical <- c(TRUE, FALSE, TRUE, NA, FALSE)
 
-  expect_vector_equal(any(input), data_logical)
+  expect_vector_equal(any(input, na.rm = TRUE), data_logical)
   expect_vector_equal(any(input, na.rm = TRUE), data_logical)
 
 })
@@ -408,7 +408,8 @@ test_that("all.Array and all.ChunkedArray", {
 
   data <- c(1:10, NA, NA)
 
-  expect_vector_equal(all(input > 5), data)
+  expect_vector_equal(all(input > 5, na.rm = TRUE), data)
+
   expect_vector_equal(all(input < 11), data)
   expect_vector_equal(all(input < 11, na.rm = TRUE), data)
 

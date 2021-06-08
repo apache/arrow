@@ -186,9 +186,9 @@ Aggregations
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 | Function name | Arity | Input types | Output type    | Options class                    | Notes |
 +===============+=======+=============+================+==================================+=======+
-| all           | Unary | Boolean     | Scalar Boolean |                                  |       |
+| all           | Unary | Boolean     | Scalar Boolean | :struct:`ScalarAggregateOptions` |       |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
-| any           | Unary | Boolean     | Scalar Boolean |                                  |       |
+| any           | Unary | Boolean     | Scalar Boolean | :struct:`ScalarAggregateOptions` |       |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 | count         | Unary | Any         | Scalar Int64   | :struct:`ScalarAggregateOptions` |       |
 +---------------+-------+-------------+----------------+----------------------------------+-------+

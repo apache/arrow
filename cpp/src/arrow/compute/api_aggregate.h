@@ -205,30 +205,38 @@ Result<Datum> MinMax(
 /// \brief Test whether any element in a boolean array evaluates to true.
 ///
 /// This function returns true if any of the elements in the array evaluates
-/// to true and false otherwise. Null values are skipped.
+/// to true and false otherwise. Null values are ignored by default.
 ///
 /// \param[in] value input datum, expecting a boolean array
+/// \param[in] options see ScalarAggregateOptions for more information
 /// \param[in] ctx the function execution context, optional
 /// \return resulting datum as a BooleanScalar
 ///
 /// \since 3.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> Any(const Datum& value, ExecContext* ctx = NULLPTR);
+Result<Datum> Any(
+    const Datum& value,
+    const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
 
 /// \brief Test whether all elements in a boolean array evaluate to true.
 ///
 /// This function returns true if all of the elements in the array evaluate
-/// to true and false otherwise. Null values are skipped.
+/// to true and false otherwise. Null values are ignored by default.
 ///
 /// \param[in] value input datum, expecting a boolean array
+/// \param[in] options see ScalarAggregateOptions for more information
 /// \param[in] ctx the function execution context, optional
 /// \return resulting datum as a BooleanScalar
 
 /// \since 3.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> All(const Datum& value, ExecContext* ctx = NULLPTR);
+Result<Datum> All(
+    const Datum& value,
+    const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
 
 /// \brief Calculate the modal (most common) value of a numeric array
 ///
