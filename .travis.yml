@@ -43,7 +43,7 @@ jobs:
   include:
     - name: "C++ on ARM"
       os: linux
-      arch: arm64
+      arch: arm64-graviton2
       env:
         <<: *global_env
         ARCH: arm64v8
