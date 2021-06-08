@@ -505,7 +505,7 @@ test_that("Table$create() no recycling with tibbles", {
       tibble::tibble(a = 1:10, b = 5),
       tibble::tibble(a = 1, b = 5)
     ),
-    regexp = "All columns must have the same length"
+    regexp = "All input tibbles or data.frames must have the same number of rows"
   )
   
   expect_error(
@@ -513,7 +513,7 @@ test_that("Table$create() no recycling with tibbles", {
       tibble::tibble(a = 1:10, b = 5),
       tibble::tibble(a = 1)
     ),
-    regexp = "All columns must have the same length"
+    regexp = "All input tibbles or data.frames must have the same number of rows"
   )
 })
 

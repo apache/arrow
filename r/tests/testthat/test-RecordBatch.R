@@ -446,7 +446,7 @@ test_that("record_batch() no recycling with tibbles", {
       tibble::tibble(a = 1:10),
       tibble::tibble(a = 1, b = 5)
     ),
-    regexp = "All arrays must have the same length"
+    regexp = "All input tibbles or data.frames must have the same number of rows"
   )
   
   expect_error(
@@ -454,7 +454,7 @@ test_that("record_batch() no recycling with tibbles", {
       tibble::tibble(a = 1:10),
       tibble::tibble(a = 1)
     ),
-    regexp = "All arrays must have the same length"
+    regexp = "All input tibbles or data.frames must have the same number of rows"
   )
 })
 

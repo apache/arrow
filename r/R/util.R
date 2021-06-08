@@ -164,6 +164,15 @@ recycle_scalars <- function(arrays){
   arr_lens <- map_int(arrays, NROW)
   
   if (length(arrays) > 1 && any(arr_lens == 1) && !all(arr_lens==1)) {
+    
+    # Recycling not supported for tibbles and data.frames
+    if(all(map_lgl(arrays, ~inherits(.x, "data.frame")))){
+      abort(c(
+          "All input tibbles or data.frames must have the same number of rows",
+          x = paste("Number of rows in inputs:",oxford_paste(map_int(arrays, ~nrow(.x))))
+      ))
+    }
+    
     max_array_len <- max(arr_lens)
     arrays[arr_lens == 1] <- lapply(arrays[arr_lens == 1], repeat_value_as_array, max_array_len)
   }
