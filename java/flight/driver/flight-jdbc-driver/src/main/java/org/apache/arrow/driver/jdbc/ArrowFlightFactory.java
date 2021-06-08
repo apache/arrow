@@ -39,61 +39,60 @@ import org.apache.calcite.avatica.UnregisteredDriver;
  */
 public class ArrowFlightFactory implements AvaticaFactory {
 
-  public ArrowFlightFactory() {
-    // TODO Auto-generated constructor stub
-  }
-
   @Override
   public int getJdbcMajorVersion() {
-    // TODO Auto-generated method stub
-    return 0;
+    return ArrowFlightJdbcDriver.Version.CURRENT
+        .getDriverVersion().majorVersion;
   }
 
   @Override
   public int getJdbcMinorVersion() {
-    // TODO Auto-generated method stub
-    return 0;
+    return ArrowFlightJdbcDriver.Version.CURRENT
+        .getDriverVersion().minorVersion;
   }
 
   @Override
-  public AvaticaConnection newConnection(UnregisteredDriver arg0,
-      AvaticaFactory arg1, String arg2, Properties arg3) throws SQLException {
+  public AvaticaConnection newConnection(UnregisteredDriver driver,
+      AvaticaFactory factory, String url, Properties info) throws SQLException {
     // TODO Auto-generated method stub
     return null;
   }
 
   @Override
   public AvaticaSpecificDatabaseMetaData newDatabaseMetaData(
-      AvaticaConnection arg0) {
+      AvaticaConnection connection) {
     // TODO Auto-generated method stub
     return null;
   }
 
   @Override
-  public AvaticaPreparedStatement newPreparedStatement(AvaticaConnection arg0,
-      StatementHandle arg1, Signature arg2, int arg3, int arg4, int arg5)
+  public AvaticaPreparedStatement newPreparedStatement(
+      AvaticaConnection connection, StatementHandle handle, Signature signature,
+      int resultSetType, int resultSetConcurrency, int resultSetHoldability)
       throws SQLException {
     // TODO Auto-generated method stub
     return null;
   }
 
   @Override
-  public AvaticaResultSet newResultSet(AvaticaStatement arg0, QueryState arg1,
-      Signature arg2, TimeZone arg3, Frame arg4) throws SQLException {
+  public AvaticaResultSet newResultSet(AvaticaStatement statement,
+      QueryState state, Signature signature, TimeZone timeZone,
+      Frame startingFrame) throws SQLException {
     // TODO Auto-generated method stub
     return null;
   }
 
   @Override
-  public ResultSetMetaData newResultSetMetaData(AvaticaStatement arg0,
-      Signature arg1) throws SQLException {
+  public ResultSetMetaData newResultSetMetaData(AvaticaStatement statement,
+      Signature signature) throws SQLException {
     // TODO Auto-generated method stub
     return null;
   }
 
   @Override
-  public AvaticaStatement newStatement(AvaticaConnection arg0,
-      StatementHandle arg1, int arg2, int arg3, int arg4) throws SQLException {
+  public AvaticaStatement newStatement(AvaticaConnection connection,
+      StatementHandle handle, int resultSetType, int resultSetConcurrency,
+      int resultSetHoldability) throws SQLException {
     // TODO Auto-generated method stub
     return null;
   }

@@ -18,28 +18,29 @@
 package org.apache.arrow.driver.jdbc;
 
 import java.io.IOException;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
+import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+
+import javax.annotation.Nullable;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.Preconditions;
 import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.AvaticaFactory;
-import org.apache.calcite.avatica.org.apache.http.auth.UsernamePasswordCredentials;
 
 /**
  * Connection to the Arrow Flight server.
  */
 public final class ArrowFlightConnection extends AvaticaConnection {
 
-  private static final BufferAllocator allocator = new RootAllocator(
+  private final BufferAllocator allocator = new RootAllocator(
       Integer.MAX_VALUE);
 
   private ArrowFlightClient client;
@@ -48,8 +49,7 @@ public final class ArrowFlightConnection extends AvaticaConnection {
 
   public ArrowFlightConnection(ArrowFlightJdbcDriver driver,
       ArrowFlightFactory factory, String url, Properties info)
-      throws KeyStoreException, NoSuchAlgorithmException, CertificateException,
-      IOException, NumberFormatException, URISyntaxException {
+      throws SQLException {
     super(driver, factory, url, info);
     loadClient();
   }
@@ -107,26 +107,57 @@ public final class ArrowFlightConnection extends AvaticaConnection {
    * @throws URISyntaxException
    *           If the URI syntax is invalid.
    */
-  private void loadClient()
-      throws KeyStoreException, NoSuchAlgorithmException, CertificateException,
-      IOException, NumberFormatException, URISyntaxException {
+  private void loadClient() throws SQLException {
 
-    URI address = new URI(/* FIXME scheme= */"jdbc",
-        info.getProperty("user") + ":" + info.getProperty("password"),
-        info.getProperty("host"), Integer.parseInt(info.getProperty("port")),
-        null, null, null);
+    String host, username;
 
-    UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(
-        info.getProperty("user"), info.getProperty("password"));
+    host = (String) info.getOrDefault("host", "localhost");
+    Preconditions.checkArgument(!host.isBlank());
 
-    if (info.getProperty("useTls") != null && info.getProperty("useTls").equalsIgnoreCase("true")) {
-      client = ArrowFlightClient.getEncryptedClient(allocator, address,
-          credentials, info.getProperty("keyStorePath"),
-          info.getProperty("keyStorePass"));
-      return;
+    int port = (int) info.getOrDefault("port", "32010");
+    Preconditions.checkArgument(port > 0);
+
+    username = Preconditions.checkNotNull(info.getProperty("user"));
+    Preconditions.checkArgument(!username.isBlank());
+
+    @Nullable
+    String password = info.getProperty("password");
+
+    boolean useTls = ((String) info.getOrDefault("useTls", "false"))
+        .equalsIgnoreCase("true");
+
+    if (useTls) {
+      String keyStorePath, keyStorePass;
+
+      keyStorePath = info.getProperty("keyStorePath");
+      keyStorePass = info.getProperty("keyStorePass");
+
+      client = ArrowFlightClient.getEncryptedClient(allocator, host, port, null,
+          username, password, keyStorePath, keyStorePass);
     }
 
-    client = ArrowFlightClient.getBasicClient(allocator, address, credentials);
+    client = ArrowFlightClient.getBasicClient(allocator, host, port, username,
+        password, null);
+  }
+
+  @Override
+  public void close() throws SQLException {
+    try {
+      client.close();
+    } catch (Exception e) {
+      throw new SQLException(
+          "Failed to close the connection to the Arrow Flight client: "
+              + e.getMessage());
+    }
+
+    try {
+      allocator.close();
+    } catch (Exception e) {
+      throw new SQLException("Failed to close the resource allocator used "
+          + "by the Arrow Flight client: " + e.getMessage());
+    }
+
+    super.close();
   }
 
 }

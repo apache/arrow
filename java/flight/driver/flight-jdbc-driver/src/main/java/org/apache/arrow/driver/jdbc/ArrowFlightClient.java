@@ -21,7 +21,6 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringWriter;
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -30,6 +29,7 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
@@ -50,23 +50,22 @@ import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.calcite.avatica.org.apache.http.auth.UsernamePasswordCredentials;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 
 /**
  * An adhoc {@link FlightClient} wrapper used to access the client. Allows for
  * the reuse of credentials.
  */
-public final class ArrowFlightClient {
+public final class ArrowFlightClient implements AutoCloseable {
 
   private final FlightClient client;
 
-  private final CredentialCallOption properties;
+  private final CredentialCallOption bearerToken;
 
   private ArrowFlightClient(FlightClient client,
       CredentialCallOption properties) {
     this.client = client;
-    this.properties = properties;
+    this.bearerToken = properties;
   }
 
   /**
@@ -84,7 +83,7 @@ public final class ArrowFlightClient {
    * @return the {@link CredentialCallOption} of this client.
    */
   protected CredentialCallOption getProperties() {
-    return properties;
+    return bearerToken;
   }
 
   /**
@@ -145,10 +144,14 @@ public final class ArrowFlightClient {
    * @param allocator
    *          The buffer allocator to use for the {@code FlightClient} wrapped
    *          by this.
-   * @param address
-   *          The {@link URI} corresponding to the location of the server.
-   * @param credentials
-   *          The username and password to authenticated to the client with.
+   * @param host
+   *          The host to connect to.
+   * @param port
+   *          The port to connect to.
+   * @param username
+   *          The username to connect with.
+   * @param password
+   *          The password to connect with.
    * @param clientProperties
    *          The client properties to set during authentication.
    * @return a new {@code ArrowFlightClient} wrapping a non-encrypted
@@ -156,41 +159,20 @@ public final class ArrowFlightClient {
    *         to the wrapped client.
    */
   public static ArrowFlightClient getBasicClient(BufferAllocator allocator,
-      URI address, UsernamePasswordCredentials credentials,
-      @Nullable HeaderCallOption clientProperties) {
+      String host, int port, String username,
+      @Nullable String password, @Nullable HeaderCallOption clientProperties) {
 
     ClientIncomingAuthHeaderMiddleware.Factory factory =
         new ClientIncomingAuthHeaderMiddleware.Factory(
             new ClientBearerHeaderHandler());
+
     FlightClient flightClient = FlightClient.builder().allocator(allocator)
         .location(
-            Location.forGrpcInsecure(address.getHost(), address.getPort()))
+            Location.forGrpcInsecure(host, port))
         .intercept(factory).build();
-    return new ArrowFlightClient(flightClient,
-        getAuthenticate(flightClient, credentials.getUserName(),
-            credentials.getPassword(), factory, clientProperties));
-  }
 
-  /**
-   * Creates a {@code ArrowFlightClient} wrapping a {@link FlightClient}
-   * connected to the Dremio server without any encryption.
-   *
-   * @param allocator
-   *          The buffer allocator to use for the {@code FlightClient} wrapped
-   *          by this.
-   * @param address
-   *          The {@link URI} corresponding to the location of the server.
-   * @param credentials
-   *          The username and password to authenticated to the client with.
-   * @return a new {@code ArrowFlightClient} wrapping a non-encrypted
-   *         {@code FlightClient}, with a bearer token for subsequent requests
-   *         to the wrapped client.
-   */
-  public static ArrowFlightClient getBasicClient(BufferAllocator allocator,
-      URI address, UsernamePasswordCredentials credentials)
-      throws KeyStoreException, NoSuchAlgorithmException, CertificateException,
-      IOException {
-    return getBasicClient(allocator, address, credentials, null);
+    return new ArrowFlightClient(flightClient, getAuthenticate(flightClient,
+        username, password, factory, clientProperties));
   }
 
   /**
@@ -200,12 +182,16 @@ public final class ArrowFlightClient {
    * @param allocator
    *          The buffer allocator to use for the {@code FlightClient} wrapped
    *          by this.
-   * @param address
-   *          The {@link URI} corresponding to the location of the server.
+   * @param host
+   *          The host to connect to.
+   * @param port
+   *          The port to connect to.
    * @param clientProperties
    *          The client properties to set during authentication.
-   * @param credentials
-   *          The username and password to authenticated to the client with.
+   * @param username
+   *          The username to connect with.
+   * @param password
+   *          The password to connect with.
    * @param keyStorePath
    *          The KeyStore path to use.
    * @param keyStorePass
@@ -225,59 +211,30 @@ public final class ArrowFlightClient {
    *           If an I/O operation fails.
    */
   public static ArrowFlightClient getEncryptedClient(BufferAllocator allocator,
-      URI address, @Nullable HeaderCallOption clientProperties,
-      UsernamePasswordCredentials credentials, String keyStorePath,
-      String keyStorePass) throws KeyStoreException, NoSuchAlgorithmException,
-      CertificateException, IOException {
-    ClientIncomingAuthHeaderMiddleware.Factory factory =
-        new ClientIncomingAuthHeaderMiddleware.Factory(
-            new ClientBearerHeaderHandler());
+      String host, int port,
+      @Nullable HeaderCallOption clientProperties, String username,
+      @Nullable String password, String keyStorePath, String keyStorePass)
+      throws SQLException {
 
-    FlightClient flightClient = FlightClient.builder().allocator(allocator)
-        .location(Location.forGrpcTls(address.getHost(), address.getPort()))
-        .intercept(factory).useTls()
-        .trustedCertificates(getCertificateStream(keyStorePath, keyStorePass))
-        .build();
-    return new ArrowFlightClient(flightClient,
-        getAuthenticate(flightClient, credentials.getUserName(),
-            credentials.getPassword(), factory, clientProperties));
-  }
+    try {
 
-  /**
-   * Creates a {@code ArrowFlightClient} wrapping a {@link FlightClient}
-   * connected to the Dremio server with an encrypted TLS connection.
-   *
-   * @param allocator
-   *          The buffer allocator to use for the {@code FlightClient} wrapped
-   *          by this.
-   * @param address
-   *          The {@link URI} corresponding to the location of the server.
-   * @param credentials
-   *          The username and password to authenticated to the client with.
-   * @param keyStorePath
-   *          The KeyStore path to use.
-   * @param keyStorePass
-   *          The KeyStore password to use.
-   * @return a new {@code ArrowFlightClient} wrapping a non-encrypted
-   *         {@code FlightClient}, with a bearer token for subsequent requests
-   *         to the wrapped client.
-   * @throws KeyStoreException
-   *           If an error occurs while trying to retrieve KeyStore information.
-   * @throws NoSuchAlgorithmException
-   *           If a particular cryptographic algorithm is required but does not
-   *           exist.
-   * @throws CertificateException
-   *           If an error occurs while trying to retrieve certificate
-   *           information.
-   * @throws IOException
-   *           If an I/O operation fails.
-   */
-  public static ArrowFlightClient getEncryptedClient(BufferAllocator allocator,
-      URI address, UsernamePasswordCredentials credentials, String keyStorePath,
-      String keyStorePass) throws KeyStoreException, NoSuchAlgorithmException,
-      CertificateException, IOException {
-    return getEncryptedClient(allocator, address, null, credentials,
-        keyStorePath, keyStorePass);
+      ClientIncomingAuthHeaderMiddleware.Factory factory =
+          new ClientIncomingAuthHeaderMiddleware.Factory(
+              new ClientBearerHeaderHandler());
+
+      FlightClient flightClient = FlightClient.builder().allocator(allocator)
+          .location(
+              Location.forGrpcTls(host, port))
+          .intercept(factory).useTls()
+          .trustedCertificates(getCertificateStream(keyStorePath, keyStorePass))
+          .build();
+
+      return new ArrowFlightClient(flightClient, getAuthenticate(flightClient,
+          username, password, factory, clientProperties));
+    } catch (Exception e) {
+      throw new SQLException(
+          "Failed to create a new Arrow Flight client: " + e.getMessage());
+    }
   }
 
   /**
@@ -298,13 +255,14 @@ public final class ArrowFlightClient {
    *         in subsequent requests.
    */
   public static CredentialCallOption getAuthenticate(FlightClient client,
-      String user, String pass,
+      String username, @Nullable String password,
       ClientIncomingAuthHeaderMiddleware.Factory factory,
-      HeaderCallOption clientProperties) {
+      @Nullable HeaderCallOption clientProperties) {
+
     final List<CallOption> callOptions = new ArrayList<>();
 
-    callOptions.add(
-        new CredentialCallOption(new BasicAuthCredentialWriter(user, pass)));
+    callOptions.add(new CredentialCallOption(
+        new BasicAuthCredentialWriter(username, password)));
 
     if (clientProperties != null) {
       callOptions.add(clientProperties);
@@ -348,7 +306,7 @@ public final class ArrowFlightClient {
       }
     }
 
-    throw new RuntimeException("Keystore did not have a private key.");
+    throw new RuntimeException("Keystore did not have a certificate.");
   }
 
   private static InputStream toInputStream(Certificate certificate)
@@ -361,6 +319,16 @@ public final class ArrowFlightClient {
       pemWriter.flush();
       return new ByteArrayInputStream(
           writer.toString().getBytes(StandardCharsets.UTF_8));
+    }
+  }
+
+  @Override
+  public void close() throws Exception {
+    try {
+      client.close();
+    } catch (Exception e) {
+      throw new IllegalStateException("Failed to close resource "
+          + client.getClass().getSimpleName() + ": " + e.getMessage());
     }
   }
 }

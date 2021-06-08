@@ -17,14 +17,16 @@
 
 package org.apache.arrow.driver.jdbc;
 
-import java.io.IOException;
-import java.net.URISyntaxException;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.cert.CertificateException;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.ArrayDeque;
+import java.util.Arrays;
+import java.util.Deque;
+import java.util.List;
 import java.util.Properties;
+import java.util.stream.Collectors;
+
+import javax.annotation.Nullable;
 
 import org.apache.arrow.util.Preconditions;
 import org.apache.calcite.avatica.AvaticaConnection;
@@ -39,9 +41,6 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
 
   private static final String CONNECT_STRING_PREFIX = "jdbc:arrow-flight://";
 
-  public ArrowFlightJdbcDriver() {
-  }
-
   static {
     (new ArrowFlightJdbcDriver()).register();
   }
@@ -49,27 +48,11 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
   @Override
   public Connection connect(String url, Properties info) throws SQLException {
 
-    ArrowFlightConnection connection = null;
+    String[] args = getUrlsArgs(Preconditions.checkNotNull(url));
 
-    Create: {
-      if (!this.acceptsURL(url)) {
-        break Create;
-      }
+    addToProperties(info, args);
 
-      String[] args = getUrlsArgs(url);
-      info.put("host", args[0]);
-      info.put("port", args[1]);
-
-      try {
-        connection = new ArrowFlightConnection(this, factory, url, info);
-      } catch (KeyStoreException | NoSuchAlgorithmException |
-              CertificateException | IOException | NumberFormatException |
-              URISyntaxException e) {
-        e.printStackTrace();
-      }
-    }
-
-    return connection;
+    return new ArrowFlightConnection(this, factory, url, info);
   }
 
   @Override
@@ -96,8 +79,64 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
    * @return the parsed arguments.
    */
   private String[] getUrlsArgs(String url) {
-    assert Preconditions.checkNotNull(url).startsWith(getConnectStringPrefix());
-    return url.substring(getConnectStringPrefix().length()).split(":");
+    // URL must ALWAYS start with "jdbc:arrow-flight://"
+    assert url.startsWith(getConnectStringPrefix());
+
+    /*
+     * Granted the URL format will always be
+     * "jdbc:arrow-flight://<host>:<port>[/<catalog>]," it should be safe to
+     * split the URL arguments "host," "port[/catalog]" by the colon in between.
+     */
+    Deque<String> args = Arrays
+        .stream(url.substring(getConnectStringPrefix().length()).split(":"))
+        .collect(Collectors.toCollection(ArrayDeque::new));
+
+    /*
+     * If "catalog" is present in the provided URL, it should be alongside the
+     * port. The following lines separate "port" from "catalog," replacing the
+     * last index of the ArrayDeque of arguments with two new values: "port" and
+     * "catalog," separated from each other.
+     */
+    String portAndCatalog = args.pollLast().strip();
+    int indexOfSeparator = portAndCatalog.indexOf('/');
+    boolean hasCatalog = indexOfSeparator != -1;
+
+    /*
+     * Separates "port" and "catalog" in the provided URL. The reason for using
+     * a label is to make the code more readable, preventing an else clause.
+     */
+    SeparatePortFromCatalog: {
+
+      if (hasCatalog) {
+        // Adds "port" and "catalog" to the ArrayDeque of URL arguments.
+        args.addAll(List.of(portAndCatalog.substring(0, indexOfSeparator),
+            portAndCatalog.substring(indexOfSeparator)));
+        break SeparatePortFromCatalog;
+      }
+
+      // If execution reaches this line, the catalog doesn't exist.
+      args.add(portAndCatalog);
+    }
+
+    // Returning the arguments.
+    return args.toArray(new String[args.size()]);
+  }
+
+  private static void addToProperties(Properties info, String... args) {
+    String host = (String) args[0];
+    int port = Integer.parseInt(args[1]);
+
+    @Nullable
+    String catalog = args.length >= 3 ? args[2] : null;
+
+    Preconditions.checkNotNull(info).put("host", host);
+    info.put("port", port);
+
+    if (catalog != null) {
+      Preconditions.checkArgument(catalog.isBlank(),
+          "When provided, catalog cannot be blank!");
+      info.put("catalog", catalog);
+    }
   }
 
   /**
