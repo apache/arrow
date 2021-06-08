@@ -25,34 +25,62 @@
 #include <arrow/array.h>
 #include <arrow/builder.h>
 
-// [[arrow::export]]
-std::shared_ptr<arrow::Array> Test_array_nonull_dbl_vector() {
-  // TODO: maybe there is a simpler way to build this array ?
-  arrow::NumericBuilder<arrow::DoubleType> builder(arrow::float64(),
-                                                   arrow::default_memory_pool());
-  StopIfNotOk(builder.AppendValues({1.0, 2.0, 3.0}));
-  auto array = builder.Finish();
+namespace arrow {
+namespace r {
 
-  return array.ValueUnsafe();
+template <typename Type>
+Status GenerateArray(int64_t size, typename Type::c_type value,
+                     std::shared_ptr<arrow::Array>* out) {
+  NumericBuilder<Type> builder(std::make_shared<Type>(), default_memory_pool());
+  RETURN_NOT_OK(builder.Resize(size));
+  for (int64_t i = 0; i < size; i++) {
+    RETURN_NOT_OK(builder.Append(value));
+  }
+  return builder.Finish(out);
+}
+
+}  // namespace r
+}  // namespace arrow
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Array> Test_array_nonull_dbl_vector(int size) {
+  std::shared_ptr<arrow::Array> out;
+  StopIfNotOk(arrow::r::GenerateArray<arrow::DoubleType>(size, 42.0, &out));
+  return out;
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Array> Test_array_nonull_int_vector(int size) {
+  std::shared_ptr<arrow::Array> out;
+  StopIfNotOk(arrow::r::GenerateArray<arrow::Int32Type>(size, 42, &out));
+  return out;
 }
 
 namespace arrow {
 namespace r {
 
-struct array_nonull_dbl_vector {
-  // altrep object around an Array of type Double with no nulls
+struct array_nonull {
+  // altrep object around an Array with no nulls
   // data1: an external pointer to a shared pointer to the Array
   // data2: not used
 
-  static R_altrep_class_t class_t;
-
-  static SEXP Make(const std::shared_ptr<Array>& array) {
+  static SEXP Make(R_altrep_class_t class_t, const std::shared_ptr<Array>& array) {
     // we don't need the whole r6 object, just an external pointer
     // that retain the array
     cpp11::external_pointer<std::shared_ptr<Array>> xp(new std::shared_ptr<Array>(array));
 
     SEXP res = R_new_altrep(class_t, xp, R_NilValue);
+    MARK_NOT_MUTABLE(res);
+
     return res;
+  }
+
+  static Rboolean Inspect(SEXP x, int pre, int deep, int pvec,
+                          void (*inspect_subtree)(SEXP, int, int, int)) {
+    auto& array = Get(x);
+    Rprintf("std::shared_ptr<arrow::Array, %s, NONULL> (len=%d, ptr=%p)\n",
+            array->type()->ToString().c_str(), array->length(), array.get());
+    return TRUE;
   }
 
   static std::shared_ptr<Array>& Get(SEXP vec) {
@@ -61,46 +89,77 @@ struct array_nonull_dbl_vector {
 
   static R_xlen_t Length(SEXP vec) { return Get(vec)->length(); }
 
-  static Rboolean Inspect(SEXP x, int pre, int deep, int pvec,
-                          void (*inspect_subtree)(SEXP, int, int, int)) {
-    Rprintf("std::shared_ptr<arrow::Array, DOUBLE, NONULL> (len=%d, ptr=%p)\n", Length(x),
-            Get(x).get());
-    return TRUE;
-  }
-
   static const void* Dataptr_or_null(SEXP vec) {
     return reinterpret_cast<const void*>(Get(vec)->data()->buffers[1]->data());
   }
 
-  static void* Dataptr(SEXP vec, Rboolean) {
+  static SEXP Duplicate(SEXP vec, Rboolean) {
+    auto& array = Get(vec);
+    auto size = array->length();
+    bool dbl = array->type_id() == Type::DOUBLE;
+
+    SEXP copy = PROTECT(Rf_allocVector(dbl ? REALSXP : INTSXP, array->length()));
+
+    memcpy(DATAPTR(copy), Dataptr_or_null(vec),
+           dbl ? (size * sizeof(double)) : (size * sizeof(int)));
+
+    UNPROTECT(1);
+    return copy;
+  }
+
+  static void* Dataptr(SEXP vec, Rboolean writeable) {
     return const_cast<void*>(Dataptr_or_null(vec));
   }
 
   // by definition, there are no NA
   static int No_NA(SEXP vec) { return 1; }
 
-  static void Init(DllInfo* dll) {
-    class_t = R_make_altreal_class("array_nonull_dbl_vector", "arrow", dll);
-
+  static void Init(R_altrep_class_t class_t, DllInfo* dll) {
     // altrep
-    R_set_altrep_Length_method(class_t, Length);
-    R_set_altrep_Inspect_method(class_t, Inspect);
+    R_set_altrep_Length_method(class_t, array_nonull::Length);
+    R_set_altrep_Inspect_method(class_t, array_nonull::Inspect);
+    R_set_altrep_Duplicate_method(class_t, array_nonull::Duplicate);
 
     // altvec
-    R_set_altvec_Dataptr_method(class_t, Dataptr);
-    R_set_altvec_Dataptr_or_null_method(class_t, Dataptr_or_null);
+    R_set_altvec_Dataptr_method(class_t, array_nonull::Dataptr);
+    R_set_altvec_Dataptr_or_null_method(class_t, array_nonull::Dataptr_or_null);
+  }
+};
 
-    // altreal
-    R_set_altreal_No_NA_method(class_t, No_NA);
+struct array_nonull_dbl_vector {
+  static R_altrep_class_t class_t;
+
+  static void Init(DllInfo* dll) {
+    class_t = R_make_altreal_class("array_nonull_dbl_vector", "arrow", dll);
+    array_nonull::Init(class_t, dll);
+    R_set_altreal_No_NA_method(class_t, array_nonull::No_NA);
+  }
+};
+
+struct array_nonull_int_vector {
+  static R_altrep_class_t class_t;
+
+  static void Init(DllInfo* dll) {
+    class_t = R_make_altinteger_class("array_nonull_int_vector", "arrow", dll);
+    array_nonull::Init(class_t, dll);
+    R_set_altinteger_No_NA_method(class_t, array_nonull::No_NA);
   }
 };
 
 R_altrep_class_t array_nonull_dbl_vector::class_t;
+R_altrep_class_t array_nonull_int_vector::class_t;
 
-void Init_Altrep_classes(DllInfo* dll) { array_nonull_dbl_vector::Init(dll); }
+void Init_Altrep_classes(DllInfo* dll) {
+  array_nonull_dbl_vector::Init(dll);
+  array_nonull_int_vector::Init(dll);
+}
 
 SEXP Make_array_nonull_dbl_vector(const std::shared_ptr<Array>& array) {
-  return array_nonull_dbl_vector::Make(array);
+  return array_nonull::Make(array_nonull_dbl_vector::class_t, array);
+}
+
+SEXP Make_array_nonull_int_vector(const std::shared_ptr<Array>& array) {
+  return array_nonull::Make(array_nonull_int_vector::class_t, array);
 }
 
 }  // namespace r
@@ -117,6 +176,10 @@ void Init_Altrep_classes(DllInfo* dll) {
 }
 
 SEXP Make_array_nonull_dbl_vector(const std::shared_ptr<Array>& array) {
+  return R_NilValue;
+}
+
+SEXP Make_array_nonull_int_vector(const std::shared_ptr<Array>& array) {
   return R_NilValue;
 }
 

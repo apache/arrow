@@ -1283,6 +1283,9 @@ SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
     switch (type->id()) {
       case arrow::Type::DOUBLE:
         return arrow::r::Make_array_nonull_dbl_vector(array);
+      case arrow::Type::INT32:
+        return arrow::r::Make_array_nonull_int_vector(array);
+
       default:
         break;
     }
