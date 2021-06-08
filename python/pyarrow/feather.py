@@ -236,8 +236,7 @@ def read_table(source, columns=None, memory_map=True):
     -------
     table : pyarrow.Table
     """
-    reader = _feather.FeatherReader()
-    reader.open(source, use_memory_map=memory_map)
+    reader = _feather.FeatherReader(source, use_memory_map=memory_map)
 
     if columns is None:
         return reader.read()
