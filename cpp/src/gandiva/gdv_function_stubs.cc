@@ -22,10 +22,10 @@
 #include <string>
 #include <vector>
 
+#include "arrow/util/base64.h"
 #include "arrow/util/formatting.h"
 #include "arrow/util/utf8.h"
 #include "arrow/util/value_parsing.h"
-#include "arrow/util/base64.h"
 #include "gandiva/engine.h"
 #include "gandiva/exported_funcs.h"
 #include "gandiva/formatting_utils.h"
@@ -321,12 +321,12 @@ const char* gdv_fn_base64_encode_utf8(int64_t context, const char* in, int32_t i
     return "";
   }
   // use arrow method to encode base64 string
-  std::string encoded_str = arrow::util::base64_encode(
-      reinterpret_cast<const unsigned char *>(in), in_len);
+  std::string encoded_str =
+      arrow::util::base64_encode(reinterpret_cast<const unsigned char *>(in), in_len);
   *out_len = static_cast<int32_t>(encoded_str.length());
   // allocate memory for response
-  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(
-      context, static_cast<int32_t>(*out_len)));
+  char* ret = reinterpret_cast<char*>(
+      gdv_fn_context_arena_malloc(context, static_cast<int32_t>(*out_len)));
   if (ret == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory");
     *out_len = 0;
@@ -351,8 +351,8 @@ const char* gdv_fn_base64_decode_utf8(int64_t context, const char* in, int32_t i
   std::string decoded_str = arrow::util::base64_decode(in);
   *out_len = static_cast<int32_t>(decoded_str.length());
   // allocate memory for response
-  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(
-      context, static_cast<int32_t>(*out_len)));
+  char* ret = reinterpret_cast<char*>(
+      gdv_fn_context_arena_malloc(context, static_cast<int32_t>(*out_len)));
   if (ret == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory");
     *out_len = 0;
