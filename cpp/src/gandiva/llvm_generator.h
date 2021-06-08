@@ -23,7 +23,6 @@
 #include <vector>
 
 #include "arrow/util/macros.h"
-
 #include "gandiva/annotator.h"
 #include "gandiva/compiled_expr.h"
 #include "gandiva/configuration.h"
@@ -238,6 +237,22 @@ class GANDIVA_EXPORT LLVMGenerator {
 
   /// Generate the code to print a trace msg with one optional argument (%T)
   void AddTrace(const std::string& msg, llvm::Value* value = NULLPTR);
+
+  /// Executes the expressions according to the engine configurations(JIT or Interpreted)
+  void EvalExpression(std::unique_ptr<CompiledExpr>& compiled_expr,
+                      SelectionVector::Mode mode, EvalBatchPtr& eval_batch,
+                      const uint8_t* selection_buffer, int64_t num_output_rows);
+
+  /// Executes the compiled expression
+  void EvalJitExpression(std::unique_ptr<CompiledExpr>& compiled_expr,
+                         SelectionVector::Mode mode, EvalBatchPtr& eval_batch,
+                         const uint8_t* selection_buffer, int64_t num_output_rows);
+
+  /// Executes the expression if the ExecutionEngine is defined to run in Interpreted mode
+  void EvalInterpretedExpression(std::unique_ptr<CompiledExpr>& compiled_expr,
+                                 SelectionVector::Mode mode, EvalBatchPtr& eval_batch,
+                                 const uint8_t* selection_buffer,
+                                 int64_t num_output_rows);
 
   std::unique_ptr<Engine> engine_;
   std::vector<std::unique_ptr<CompiledExpr>> compiled_exprs_;

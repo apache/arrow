@@ -109,7 +109,7 @@ class TestEngine : public ::testing::Test {
 };
 
 TEST_F(TestEngine, TestAddUnoptimised) {
-  configuration->set_optimize(false);
+  configuration->set_execution_mode(true, false);
   BuildEngine(configuration);
 
   llvm::Function* ir_func = BuildVecAdd(engine.get());
@@ -121,7 +121,7 @@ TEST_F(TestEngine, TestAddUnoptimised) {
 }
 
 TEST_F(TestEngine, TestAddOptimised) {
-  configuration->set_optimize(true);
+  configuration->set_execution_mode(true, true);
   BuildEngine(configuration);
 
   llvm::Function* ir_func = BuildVecAdd(engine.get());
@@ -133,19 +133,19 @@ TEST_F(TestEngine, TestAddOptimised) {
 }
 
 TEST_F(TestEngine, TestAddInterpreted) {
-  configuration->set_compile(false);
+  configuration->set_execution_mode(false, false);
   BuildEngine(configuration);
 
+  // For interpreter engine is not necessary to call the FinalizeModule
   llvm::Function* ir_func = BuildVecAdd(engine.get());
-  ASSERT_OK(engine->FinalizeModule());
-  llvm::ExecutionEngine& execution_engine = engine->execution_engine();
 
   int64_t my_array[] = {1, 3, -5, 8, 10};
   std::vector<llvm::GenericValue> arguments(2);
   arguments[0].PointerVal = my_array;
   arguments[1].IntVal = llvm::APInt(32, 5);
 
-  const llvm::GenericValue& result = execution_engine.runFunction(ir_func, arguments);
+  const llvm::GenericValue& result =
+      engine->ExecuteFunctionInterpreted(ir_func, arguments);
   EXPECT_EQ(result.IntVal, 17);
 }
 }  // namespace gandiva

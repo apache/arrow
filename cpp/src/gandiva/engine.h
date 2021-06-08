@@ -22,9 +22,8 @@
 #include <string>
 #include <vector>
 
-#include "arrow/util/macros.h"
-
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 #include "gandiva/configuration.h"
 #include "gandiva/llvm_includes.h"
 #include "gandiva/llvm_types.h"
@@ -67,7 +66,10 @@ class GANDIVA_EXPORT Engine {
   /// Return the generated IR for the module.
   std::string DumpIR();
 
-  llvm::ExecutionEngine& execution_engine() { return *execution_engine_; }
+  bool IsRunningInterpretedMode();
+
+  llvm::GenericValue ExecuteFunctionInterpreted(llvm::Function* ir_function,
+                                                std::vector<llvm::GenericValue>& args);
 
  private:
   Engine(const std::shared_ptr<Configuration>& conf,
@@ -78,6 +80,8 @@ class GANDIVA_EXPORT Engine {
   Status Init();
 
   static void InitOnce();
+
+  llvm::ExecutionEngine& execution_engine() { return *execution_engine_; }
 
   /// load pre-compiled IR modules from precompiled_bitcode.cc and merge them into
   /// the main module.
@@ -97,7 +101,7 @@ class GANDIVA_EXPORT Engine {
 
   std::vector<std::string> functions_to_compile_;
 
-  bool optimize_ = true;
+  LLVMExecutionMode execution_mode_ = LLVMExecutionMode::JIT_AND_OPTIMIZE;
   bool module_finalized_ = false;
 };
 

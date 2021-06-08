@@ -17,6 +17,8 @@
 
 #include "gandiva/llvm_generator.h"
 
+#include <llvm/ExecutionEngine/GenericValue.h>
+
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -79,11 +81,13 @@ Status LLVMGenerator::Build(const ExpressionVector& exprs, SelectionVector::Mode
   // Compile and inject into the process' memory the generated function.
   ARROW_RETURN_NOT_OK(engine_->FinalizeModule());
 
-  // setup the jit functions for each expression.
-  for (auto& compiled_expr : compiled_exprs_) {
-    auto ir_fn = compiled_expr->GetIRFunction(mode);
-    auto jit_fn = reinterpret_cast<EvalFunc>(engine_->CompiledFunction(ir_fn));
-    compiled_expr->SetJITFunction(selection_vector_mode_, jit_fn);
+  if (!engine_->IsRunningInterpretedMode()) {
+    // setup the jit functions for each expression.
+    for (auto& compiled_expr : compiled_exprs_) {
+      auto ir_fn = compiled_expr->GetIRFunction(mode);
+      auto jit_fn = reinterpret_cast<EvalFunc>(engine_->CompiledFunction(ir_fn));
+      compiled_expr->SetJITFunction(selection_vector_mode_, jit_fn);
+    }
   }
 
   return Status::OK();
@@ -123,10 +127,7 @@ Status LLVMGenerator::Execute(const arrow::RecordBatch& record_batch,
       num_output_rows = selection_vector->GetNumSlots();
     }
 
-    EvalFunc jit_function = compiled_expr->GetJITFunction(mode);
-    jit_function(eval_batch->GetBufferArray(), eval_batch->GetBufferOffsetArray(),
-                 eval_batch->GetLocalBitMapArray(), selection_buffer,
-                 (int64_t)eval_batch->GetExecutionContext(), num_output_rows);
+    EvalExpression(compiled_expr, mode, eval_batch, selection_buffer, num_output_rows);
 
     // check for execution errors
     ARROW_RETURN_IF(
@@ -138,6 +139,47 @@ Status LLVMGenerator::Execute(const arrow::RecordBatch& record_batch,
   }
 
   return Status::OK();
+}
+
+void LLVMGenerator::EvalExpression(std::unique_ptr<CompiledExpr>& compiled_expr,
+                                   SelectionVector::Mode mode, EvalBatchPtr& eval_batch,
+                                   const uint8_t* selection_buffer,
+                                   int64_t num_output_rows) {
+  if (engine_->IsRunningInterpretedMode()) {
+    return EvalInterpretedExpression(compiled_expr, mode, eval_batch, selection_buffer,
+                                     num_output_rows);
+  }
+
+  EvalJitExpression(compiled_expr, mode, eval_batch, selection_buffer, num_output_rows);
+}
+
+void LLVMGenerator::EvalJitExpression(std::unique_ptr<CompiledExpr>& compiled_expr,
+                                      SelectionVector::Mode mode,
+                                      EvalBatchPtr& eval_batch,
+                                      const uint8_t* selection_buffer,
+                                      int64_t num_output_rows) {
+  EvalFunc jit_function = compiled_expr->GetJITFunction(mode);
+  jit_function(eval_batch->GetBufferArray(), eval_batch->GetBufferOffsetArray(),
+               eval_batch->GetLocalBitMapArray(), selection_buffer,
+               (int64_t)eval_batch->GetExecutionContext(), num_output_rows);
+}
+
+void LLVMGenerator::EvalInterpretedExpression(
+    std::unique_ptr<CompiledExpr>& compiled_expr, SelectionVector::Mode mode,
+    EvalBatchPtr& eval_batch, const uint8_t* selection_buffer, int64_t num_output_rows) {
+  llvm::Function* ir_function = compiled_expr->GetIRFunction(mode);
+
+  std::vector<llvm::GenericValue> function_args(6);
+
+  function_args[0].PointerVal = eval_batch->GetBufferArray();
+  function_args[1].PointerVal = eval_batch->GetBufferOffsetArray();
+  function_args[2].PointerVal = eval_batch->GetLocalBitMapArray();
+  function_args[3].PointerVal = const_cast<uint8_t*>(selection_buffer);
+  function_args[4].IntVal =
+      llvm::APInt(64, reinterpret_cast<int64_t>(eval_batch->GetExecutionContext()), true);
+  function_args[5].IntVal = llvm::APInt(64, num_output_rows, true);
+
+  engine_->ExecuteFunctionInterpreted(ir_function, function_args);
 }
 
 llvm::Value* LLVMGenerator::LoadVectorAtIndex(llvm::Value* arg_addrs, int idx,

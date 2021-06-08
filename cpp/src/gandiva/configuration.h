@@ -25,6 +25,8 @@
 
 namespace gandiva {
 
+enum LLVMExecutionMode { JIT_AND_OPTIMIZE, JIT, INTERPRETED };
+
 class ConfigurationBuilder;
 /// \brief runtime config for gandiva
 ///
@@ -34,27 +36,44 @@ class GANDIVA_EXPORT Configuration {
  public:
   friend class ConfigurationBuilder;
 
-  Configuration() : optimize_(true), compile_(true), target_host_cpu_(true) {}
-  explicit Configuration(bool optimize)
-      : optimize_(optimize), compile_(true), target_host_cpu_(true) {}
-  Configuration(bool optimize, bool compile)
-      : optimize_(optimize), compile_(compile), target_host_cpu_(true) {}
+  Configuration()
+      : execution_mode_(LLVMExecutionMode::JIT_AND_OPTIMIZE), target_host_cpu_(true) {}
+
+  explicit Configuration(bool optimize) : target_host_cpu_(true) {
+    set_execution_mode(true, optimize);
+  }
+
+  Configuration(bool optimize, bool compile) : target_host_cpu_(true) {
+    set_execution_mode(compile, optimize);
+  }
 
   std::size_t Hash() const;
   bool operator==(const Configuration& other) const;
   bool operator!=(const Configuration& other) const;
 
-  bool optimize() const { return compile_ && optimize_; }
-  bool compile() const { return compile_; }
+  LLVMExecutionMode execution_mode() const { return execution_mode_; }
+
   bool target_host_cpu() const { return target_host_cpu_; }
 
-  void set_optimize(bool optimize) { optimize_ = optimize; }
-  void set_compile(bool compile) { compile_ = compile; }
+  void set_execution_mode(bool compile, bool optimize) {
+    if (compile) {
+      if (optimize) {
+        execution_mode_ = LLVMExecutionMode::JIT_AND_OPTIMIZE;
+      } else {
+        execution_mode_ = LLVMExecutionMode::JIT;
+      }
+    } else {
+      execution_mode_ = LLVMExecutionMode::INTERPRETED;
+    }
+  }
+
   void target_host_cpu(bool target_host_cpu) { target_host_cpu_ = target_host_cpu; }
 
  private:
-  bool optimize_;        /* optimise the generated llvm IR */
-  bool compile_;         /* compile the llvm IR or run it in interpreted mode */
+  // It represents the mode that the LLVM will be executed inside the program.
+  // The user can choose between a JIT mode, both optimized and non-optimized, or
+  // run the LLVM in Interpreted mode.
+  LLVMExecutionMode execution_mode_;
   bool target_host_cpu_; /* set the mcpu flag to host cpu while compiling llvm ir */
 };
 

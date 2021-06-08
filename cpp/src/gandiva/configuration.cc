@@ -27,14 +27,13 @@ const std::shared_ptr<Configuration> ConfigurationBuilder::default_configuration
 std::size_t Configuration::Hash() const {
   static constexpr size_t kHashSeed = 0;
   size_t result = kHashSeed;
-  arrow::internal::hash_combine(result, static_cast<size_t>(optimize_));
-  arrow::internal::hash_combine(result, static_cast<size_t>(compile_));
+  arrow::internal::hash_combine(result, static_cast<size_t>(execution_mode_));
   arrow::internal::hash_combine(result, static_cast<size_t>(target_host_cpu_));
   return result;
 }
 
 bool Configuration::operator==(const Configuration& other) const {
-  return optimize_ == other.optimize_ && compile_ == other.compile_ &&
+  return execution_mode_ == other.execution_mode_ &&
          target_host_cpu_ == other.target_host_cpu_;
 }
 

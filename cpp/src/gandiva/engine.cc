@@ -46,6 +46,7 @@
 #include <llvm/Analysis/TargetTransformInfo.h>
 #include <llvm/Bitcode/BitcodeReader.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
+#include <llvm/ExecutionEngine/GenericValue.h>
 #include <llvm/ExecutionEngine/Interpreter.h>
 #include <llvm/ExecutionEngine/MCJIT.h>
 #include <llvm/IR/DataLayout.h>
@@ -120,7 +121,7 @@ Engine::Engine(const std::shared_ptr<Configuration>& conf,
       ir_builder_(arrow::internal::make_unique<llvm::IRBuilder<>>(*context_)),
       module_(module),
       types_(*context_),
-      optimize_(conf->optimize()) {}
+      execution_mode_(conf->execution_mode()) {}
 
 Status Engine::Init() {
   // Add mappings for functions that can be accessed from LLVM/IR module.
@@ -144,8 +145,9 @@ Status Engine::Make(const std::shared_ptr<Configuration>& conf,
   // original Module.
   auto module_ptr = module.get();
 
-  auto opt_level =
-      conf->optimize() ? llvm::CodeGenOpt::Aggressive : llvm::CodeGenOpt::None;
+  auto opt_level = conf->execution_mode() == LLVMExecutionMode::JIT_AND_OPTIMIZE
+                       ? llvm::CodeGenOpt::Aggressive
+                       : llvm::CodeGenOpt::None;
 
   // Note that the lifetime of the error string is not captured by the
   // ExecutionEngine but only for the lifetime of the builder. Found by
@@ -154,8 +156,9 @@ Status Engine::Make(const std::shared_ptr<Configuration>& conf,
 
   llvm::EngineBuilder engine_builder(std::move(module));
 
-  auto engine_kind =
-      conf->compile() ? llvm::EngineKind::JIT : llvm::EngineKind::Interpreter;
+  auto engine_kind = conf->execution_mode() == LLVMExecutionMode::INTERPRETED
+                         ? llvm::EngineKind::Interpreter
+                         : llvm::EngineKind::JIT;
   engine_builder.setEngineKind(engine_kind)
       .setOptLevel(opt_level)
       .setErrorStr(&builder_error);
@@ -279,7 +282,7 @@ Status Engine::RemoveUnusedFunctions() {
 Status Engine::FinalizeModule() {
   ARROW_RETURN_NOT_OK(RemoveUnusedFunctions());
 
-  if (optimize_) {
+  if (execution_mode_ == LLVMExecutionMode::JIT_AND_OPTIMIZE) {
     // misc passes to allow for inlining, vectorization, ..
     std::unique_ptr<llvm::legacy::PassManager> pass_manager(
         new llvm::legacy::PassManager());
@@ -307,8 +310,12 @@ Status Engine::FinalizeModule() {
   ARROW_RETURN_IF(llvm::verifyModule(*module_, &llvm::errs()),
                   Status::CodeGenError("Module verification failed after optimizer"));
 
-  // do the compilation
-  execution_engine_->finalizeObject();
+  if (execution_mode_ == LLVMExecutionMode::JIT ||
+      execution_mode_ == LLVMExecutionMode::JIT_AND_OPTIMIZE) {
+    // do the compilation
+    execution_engine_->finalizeObject();
+  }
+
   module_finalized_ = true;
 
   return Status::OK();
@@ -336,6 +343,16 @@ std::string Engine::DumpIR() {
   llvm::raw_string_ostream stream(ir);
   module_->print(stream, nullptr);
   return ir;
+}
+
+bool Engine::IsRunningInterpretedMode() {
+  return execution_mode_ == LLVMExecutionMode::INTERPRETED;
+}
+
+llvm::GenericValue Engine::ExecuteFunctionInterpreted(
+    llvm::Function* ir_function, std::vector<llvm::GenericValue>& args) {
+  DCHECK_EQ(execution_mode_, LLVMExecutionMode::INTERPRETED);
+  return execution_engine_->runFunction(ir_function, args);
 }
 
 }  // namespace gandiva
