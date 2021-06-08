@@ -130,10 +130,10 @@ public final class ArrowFlightConnection extends AvaticaConnection {
 
       client = ArrowFlightClient.getEncryptedClient(allocator, host, port, null,
           username, password, keyStorePath, keyStorePass);
-    }
-
-    client = ArrowFlightClient.getBasicClient(allocator, host, port, username,
+    } else {
+      client = ArrowFlightClient.getBasicClient(allocator, host, port, username,
         password, null);
+    }
   }
 
   @Override

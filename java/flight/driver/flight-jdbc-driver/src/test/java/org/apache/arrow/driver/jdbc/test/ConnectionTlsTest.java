@@ -111,7 +111,7 @@ public class ConnectionTlsTest {
     Properties properties = new Properties();
 
     properties.put("useTls", "true");
-    properties.put("keyStorePath", "src/test/resources/keyStore.jks");
+    properties.put("keyStorePath", "src/test/resources/keys/keyStore.jks");
     properties.put("keyStorePass", "flight");
 
     URI address = new URI("jdbc",
@@ -145,7 +145,7 @@ public class ConnectionTlsTest {
     properties.put("user", FlightTestUtils.getUsername1());
     properties.put("password", FlightTestUtils.getPassword1());
     properties.put("useTls", "true");
-    properties.put("keyStorePath", "src/test/resources/keyStore.jks");
+    properties.put("keyStorePath", "src/test/resources/keys/keyStore.jks");
     properties.put("keyStorePass", "flight");
 
     Connection connection = DriverManager.getConnection(serverUrl, properties);
