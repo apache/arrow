@@ -283,7 +283,7 @@ Result<bool> ParquetFileFormat::IsSupported(const FileSource& source) const {
     ARROW_UNUSED(e);
     return false;
   } catch (const ::parquet::ParquetException& e) {
-    return Status::IOError("Could not open Parquet input source '", source.path(),
+    return Status::IOError("Could not open parquet input source '", source.path(),
                            "': ", e.what());
   }
 
@@ -311,7 +311,7 @@ Result<std::unique_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
   try {
     reader = parquet::ParquetFileReader::Open(std::move(input), std::move(properties));
   } catch (const ::parquet::ParquetException& e) {
-    return Status::IOError("Could not open Parquet input source '", source.path(),
+    return Status::IOError("Could not open parquet input source '", source.path(),
                            "': ", e.what());
   }
 
