@@ -309,8 +309,9 @@ char* gdv_fn_dec_to_string(int64_t context, int64_t x_high, uint64_t x_low,
   return ret;
 }
 
-const char* gdv_fn_base64_encode_utf8(int64_t context, const char* in, int32_t in_len,
-                                      int32_t* out_len) {
+GANDIVA_EXPORT
+const char* gdv_fn_base64_encode_binary(int64_t context, const char* in, int32_t in_len,
+                                        int32_t* out_len) {
   if (in_len < 0) {
     gdv_fn_context_set_error_msg(context, "Buffer length can not be negative");
     *out_len = 0;
@@ -336,6 +337,7 @@ const char* gdv_fn_base64_encode_utf8(int64_t context, const char* in, int32_t i
   return ret;
 }
 
+GANDIVA_EXPORT
 const char* gdv_fn_base64_decode_utf8(int64_t context, const char* in, int32_t in_len,
                                       int32_t* out_len) {
   if (in_len < 0) {
@@ -1469,9 +1471,9 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
       types->i32_ptr_type(),  // out_len
   };
 
-  engine->AddGlobalMappingForFunc("gdv_fn_base64_encode_utf8",
+  engine->AddGlobalMappingForFunc("gdv_fn_base64_encode_binary",
                                   types->i8_ptr_type() /*return_type*/, args,
-                                  reinterpret_cast<void*>(gdv_fn_base64_encode_utf8));
+                                  reinterpret_cast<void*>(gdv_fn_base64_encode_binary));
 
   // gdv_fn_base64_decode_utf8
   args = {
