@@ -306,6 +306,25 @@ class InvalidStreamFlightServer(FlightServerBase):
         return flight.GeneratorStream(self.schema, [table1, table2])
 
 
+class NeverSendsDataFlightServer(FlightServerBase):
+    """A Flight server that never actually yields data."""
+
+    schema = pa.schema([('a', pa.int32())])
+
+    def do_get(self, context, ticket):
+        if ticket.ticket == b'yield_data':
+            # Check that the server handler will ignore empty tables
+            # up to a certain extent
+            data = [
+                self.schema.empty_table(),
+                self.schema.empty_table(),
+                pa.RecordBatch.from_arrays([range(5)], schema=self.schema),
+            ]
+            return flight.GeneratorStream(self.schema, data)
+        return flight.GeneratorStream(
+            self.schema, itertools.repeat(self.schema.empty_table()))
+
+
 class SlowFlightServer(FlightServerBase):
     """A Flight server that delays its responses to test timeouts."""
 
@@ -1870,3 +1889,17 @@ def test_interrupt():
         descriptor = flight.FlightDescriptor.for_command(b"echo")
         writer, reader = client.do_exchange(descriptor)
         test(reader.read_all)
+
+
+def test_never_sends_data():
+    # Regression test for ARROW-12779
+    match = "application server implementation error"
+    with NeverSendsDataFlightServer() as server:
+        client = flight.connect(('localhost', server.port))
+        with pytest.raises(flight.FlightServerError, match=match):
+            client.do_get(flight.Ticket(b'')).read_all()
+
+        # Check that the server handler will ignore empty tables
+        # up to a certain extent
+        table = client.do_get(flight.Ticket(b'yield_data')).read_all()
+        assert table.num_rows == 5
