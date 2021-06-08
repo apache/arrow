@@ -46,7 +46,7 @@ public class ConnectionTlsTest {
   private static String serverUrl;
 
   @Before
-  public void setUp() throws ClassNotFoundException, IOException {
+  public void setUp() throws ClassNotFoundException, IOException, URISyntaxException {
     final FlightTestUtils.CertKeyPair certKey = FlightTestUtils
         .exampleTlsCerts().get(0);
 

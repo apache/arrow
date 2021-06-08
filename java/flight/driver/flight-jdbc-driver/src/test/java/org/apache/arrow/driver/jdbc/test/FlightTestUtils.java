@@ -20,6 +20,7 @@ package org.apache.arrow.driver.jdbc.test;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
+import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
@@ -159,9 +160,8 @@ public class FlightTestUtils {
    *
    * @return the Path from the Files with certificates and keys.
    */
-  static Path getFlightTestDataRoot() {
-    // #TODO Change this way to get Path
-    return Paths.get("/home/jose/Documents/Dremio/arrow/testing/data/").resolve("flight");
+  static Path getFlightTestDataRoot() throws URISyntaxException {
+    return Paths.get(FlightTestUtils.class.getClassLoader().getResource("keys").toURI());
   }
 
   /**
@@ -169,7 +169,7 @@ public class FlightTestUtils {
    *
    * @return A list with CertKeyPair.
    */
-  public static List<CertKeyPair> exampleTlsCerts() {
+  public static List<CertKeyPair> exampleTlsCerts() throws URISyntaxException {
     final Path root = getFlightTestDataRoot();
     return Arrays.asList(new CertKeyPair(root.resolve("cert0.pem").toFile(), root.resolve("cert0.pkcs1").toFile()),
             new CertKeyPair(root.resolve("cert1.pem").toFile(), root.resolve("cert1.pkcs1").toFile()));
