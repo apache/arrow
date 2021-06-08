@@ -322,7 +322,7 @@ Status Engine::FinalizeModule() {
 }
 
 void* Engine::CompiledFunction(llvm::Function* irFunction) {
-  DCHECK(module_finalized_);
+  DCHECK(module_finalized_ && (execution_mode_ != LLVMExecutionMode::INTERPRETED));
   return execution_engine_->getPointerToFunction(irFunction);
 }
 

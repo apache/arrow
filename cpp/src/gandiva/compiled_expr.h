@@ -18,6 +18,7 @@
 #pragma once
 
 #include <vector>
+
 #include "gandiva/llvm_includes.h"
 #include "gandiva/selection_vector.h"
 #include "gandiva/value_validity_pair.h"
@@ -28,7 +29,7 @@ using EvalFunc = int (*)(uint8_t** buffers, int64_t* offsets, uint8_t** local_bi
                          const uint8_t* selection_buffer, int64_t execution_ctx_ptr,
                          int64_t record_count);
 
-/// \brief Tracks the compiled state for one expression.
+/// \brief Tracks the state for one expression.
 class CompiledExpr {
  public:
   CompiledExpr(ValueValidityPairPtr value_validity, FieldDescriptorPtr output)
@@ -65,6 +66,7 @@ class CompiledExpr {
   std::array<llvm::Function*, SelectionVector::kNumModes> ir_functions_;
 
   // JIT functions in the generated code (set after the module is optimised and finalized)
+  // It is used just when the ExecutionEngine is not running in interpreted mode.
   std::array<EvalFunc, SelectionVector::kNumModes> jit_functions_;
 };
 
