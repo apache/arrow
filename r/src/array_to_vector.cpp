@@ -1285,8 +1285,8 @@ SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
         return arrow::r::Make_array_nonull_dbl_vector(array);
       case arrow::Type::INT32:
         return arrow::r::Make_array_nonull_int_vector(array);
-      // case arrow::Type::INT64:
-      //   return arrow::r::Make_array_nonull_int64_vector(array);
+        // case arrow::Type::INT64:
+        //   return arrow::r::Make_array_nonull_int64_vector(array);
 
       default:
         break;
