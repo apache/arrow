@@ -132,11 +132,11 @@ list.files(tf3, recursive = TRUE)
 # directory names as field names
 open_dataset(tf3)
 
-# Create a Schema which specifies the field names for the folders, in order
-md_schema <- schema(Month = int8(), Day = int8())
-
 # Now that partitioning has been specified, your dataset contains columns for Month and Day
-open_dataset(tf3, partitioning = md_schema)
+open_dataset(tf3, partitioning = c("Month", "Day"))
+
+# If you want to specify the data types for your fields, you can pass in a Schema
+open_dataset(tf3, partitioning = schema(Month = int8(), Day = int8()))
 \dontshow{\}) # examplesIf}
 }
 \seealso{
