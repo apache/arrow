@@ -64,8 +64,8 @@ public class ConnectionTlsTest {
       }
       return null;
     }));
-    serverUrl = FlightTestUtils.getConnectionPrefix()
-        + FlightTestUtils.getLocalhost() + ":" + this.tlsServer.getPort();
+    serverUrl = FlightTestUtils.getConnectionPrefix() +
+        FlightTestUtils.getLocalhost() + ":" + this.tlsServer.getPort();
 
     Class.forName("org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver");
   }
@@ -86,8 +86,8 @@ public class ConnectionTlsTest {
           .withDescription("Credentials not supplied.").toRuntimeException();
     }
     final String identity;
-    if (FlightTestUtils.getUsername1().equals(username)
-        && FlightTestUtils.getPassword1().equals(password)) {
+    if (FlightTestUtils.getUsername1().equals(username) && FlightTestUtils
+          .getPassword1().equals(password)) {
       identity = FlightTestUtils.getUsername1();
     } else {
       throw CallStatus.UNAUTHENTICATED
@@ -103,6 +103,7 @@ public class ConnectionTlsTest {
    * @throws URISyntaxException
    *           on error.
    * @throws SQLException
+   *           on error.
    */
   @Test
   public void testGetEncryptedClient() throws SQLException, URISyntaxException {
