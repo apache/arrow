@@ -100,7 +100,8 @@ struct array_nonull {
     auto& array = Get(vec);
 
     int size = array->type_id() == Type::INT32 ? sizeof(int) : sizeof(double);
-    return reinterpret_cast<const void*>(array->data()->buffers[1]->data() + size * array->offset());
+    return reinterpret_cast<const void*>(array->data()->buffers[1]->data() +
+                                         size * array->offset());
   }
 
   static SEXP Duplicate(SEXP vec, Rboolean) {
@@ -181,6 +182,7 @@ R_altrep_class_t array_nonull_int64_vector::class_t;
 void Init_Altrep_classes(DllInfo* dll) {
   array_nonull_dbl_vector::Init(dll);
   array_nonull_int_vector::Init(dll);
+  array_nonull_int64_vector::Init(dll);
 }
 
 SEXP Make_array_nonull_dbl_vector(const std::shared_ptr<Array>& array) {
@@ -192,7 +194,7 @@ SEXP Make_array_nonull_int_vector(const std::shared_ptr<Array>& array) {
 }
 
 SEXP Make_array_nonull_int64_vector(const std::shared_ptr<Array>& array) {
-  return array_nonull::Make(array_nonull_int64_vector::class_t, array);
+  return array_nonull_int64_vector::Make(array);
 }
 
 }  // namespace r
