@@ -23,45 +23,6 @@
 
 #include <R_ext/Altrep.h>
 #include <arrow/array.h>
-#include <arrow/builder.h>
-
-namespace arrow {
-namespace r {
-
-template <typename Type>
-Status GenerateArray(int64_t size, typename Type::c_type value,
-                     std::shared_ptr<arrow::Array>* out) {
-  NumericBuilder<Type> builder(std::make_shared<Type>(), default_memory_pool());
-  RETURN_NOT_OK(builder.Resize(size));
-  for (int64_t i = 0; i < size; i++) {
-    RETURN_NOT_OK(builder.Append(value));
-  }
-  return builder.Finish(out);
-}
-
-}  // namespace r
-}  // namespace arrow
-
-// [[arrow::export]]
-std::shared_ptr<arrow::Array> Test_array_nonull_dbl_vector(int size) {
-  std::shared_ptr<arrow::Array> out;
-  StopIfNotOk(arrow::r::GenerateArray<arrow::DoubleType>(size, 42.0, &out));
-  return out;
-}
-
-// [[arrow::export]]
-std::shared_ptr<arrow::Array> Test_array_nonull_int_vector(int size) {
-  std::shared_ptr<arrow::Array> out;
-  StopIfNotOk(arrow::r::GenerateArray<arrow::Int32Type>(size, 42, &out));
-  return out;
-}
-
-// [[arrow::export]]
-std::shared_ptr<arrow::Array> Test_array_nonull_int64_vector(int size) {
-  std::shared_ptr<arrow::Array> out;
-  StopIfNotOk(arrow::r::GenerateArray<arrow::Int64Type>(size, 42, &out));
-  return out;
-}
 
 namespace arrow {
 namespace r {
@@ -175,8 +136,8 @@ struct array_nonull_int_vector {
   }
 };
 
-R_altrep_class_t array_nonull_dbl_vector::class_t;
 R_altrep_class_t array_nonull_int_vector::class_t;
+R_altrep_class_t array_nonull_dbl_vector::class_t;
 R_altrep_class_t array_nonull_int64_vector::class_t;
 
 void Init_Altrep_classes(DllInfo* dll) {
@@ -226,3 +187,21 @@ SEXP Make_array_nonull_int64_vector(const std::shared_ptr<Array>& array) {
 }  // namespace arrow
 
 #endif
+
+// [[arrow::export]]
+bool is_altrep_int_nonull(SEXP x) {
+#if defined(HAS_ALTREP)
+  return R_altrep_inherits(x, arrow::r::array_nonull_int_vector::class_t);
+#else
+  return false;
+#endif
+}
+
+// [[arrow::export]]
+bool is_altrep_dbl_nonull(SEXP x) {
+#if defined(HAS_ALTREP)
+  return R_altrep_inherits(x, arrow::r::array_nonull_dbl_vector::class_t);
+#else
+  return false;
+#endif
+}

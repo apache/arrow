@@ -6,46 +6,31 @@
 
 // altrep.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Array> Test_array_nonull_dbl_vector(int size);
-extern "C" SEXP _arrow_Test_array_nonull_dbl_vector(SEXP size_sexp){
+bool is_altrep_int_nonull(SEXP x);
+extern "C" SEXP _arrow_is_altrep_int_nonull(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::Input<int>::type size(size_sexp);
-	return cpp11::as_sexp(Test_array_nonull_dbl_vector(size));
+	arrow::r::Input<SEXP>::type x(x_sexp);
+	return cpp11::as_sexp(is_altrep_int_nonull(x));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_Test_array_nonull_dbl_vector(SEXP size_sexp){
-	Rf_error("Cannot call Test_array_nonull_dbl_vector(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+extern "C" SEXP _arrow_is_altrep_int_nonull(SEXP x_sexp){
+	Rf_error("Cannot call is_altrep_int_nonull(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
 // altrep.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Array> Test_array_nonull_int_vector(int size);
-extern "C" SEXP _arrow_Test_array_nonull_int_vector(SEXP size_sexp){
+bool is_altrep_dbl_nonull(SEXP x);
+extern "C" SEXP _arrow_is_altrep_dbl_nonull(SEXP x_sexp){
 BEGIN_CPP11
-	arrow::r::Input<int>::type size(size_sexp);
-	return cpp11::as_sexp(Test_array_nonull_int_vector(size));
+	arrow::r::Input<SEXP>::type x(x_sexp);
+	return cpp11::as_sexp(is_altrep_dbl_nonull(x));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_Test_array_nonull_int_vector(SEXP size_sexp){
-	Rf_error("Cannot call Test_array_nonull_int_vector(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// altrep.cpp
-#if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Array> Test_array_nonull_int64_vector(int size);
-extern "C" SEXP _arrow_Test_array_nonull_int64_vector(SEXP size_sexp){
-BEGIN_CPP11
-	arrow::r::Input<int>::type size(size_sexp);
-	return cpp11::as_sexp(Test_array_nonull_int64_vector(size));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_Test_array_nonull_int64_vector(SEXP size_sexp){
-	Rf_error("Cannot call Test_array_nonull_int64_vector(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+extern "C" SEXP _arrow_is_altrep_dbl_nonull(SEXP x_sexp){
+	Rf_error("Cannot call is_altrep_dbl_nonull(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -6938,9 +6923,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_dataset_available", (DL_FUNC)& _dataset_available, 0 },
 		{ "_parquet_available", (DL_FUNC)& _parquet_available, 0 },
 		{ "_s3_available", (DL_FUNC)& _s3_available, 0 },
-		{ "_arrow_Test_array_nonull_dbl_vector", (DL_FUNC) &_arrow_Test_array_nonull_dbl_vector, 1}, 
-		{ "_arrow_Test_array_nonull_int_vector", (DL_FUNC) &_arrow_Test_array_nonull_int_vector, 1}, 
-		{ "_arrow_Test_array_nonull_int64_vector", (DL_FUNC) &_arrow_Test_array_nonull_int64_vector, 1}, 
+		{ "_arrow_is_altrep_int_nonull", (DL_FUNC) &_arrow_is_altrep_int_nonull, 1}, 
+		{ "_arrow_is_altrep_dbl_nonull", (DL_FUNC) &_arrow_is_altrep_dbl_nonull, 1}, 
 		{ "_arrow_Array__Slice1", (DL_FUNC) &_arrow_Array__Slice1, 2}, 
 		{ "_arrow_Array__Slice2", (DL_FUNC) &_arrow_Array__Slice2, 3}, 
 		{ "_arrow_Array__IsNull", (DL_FUNC) &_arrow_Array__IsNull, 2}, 
