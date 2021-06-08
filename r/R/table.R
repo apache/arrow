@@ -180,12 +180,8 @@ Table$create <- function(..., schema = NULL) {
   if (length(dots) == 1 && inherits(dots[[1]], "grouped_df")) {
     out <- dplyr::group_by(out, !!!dplyr::groups(dots[[1]]))
   }
-  
   out
-  
 }
-
-
 
 #' @export
 names.Table <- function(x) x$ColumnNames()
