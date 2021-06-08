@@ -168,6 +168,7 @@ arrow::Status AddMetadataFromDots(SEXP lst, int num_fields,
 void Init_Altrep_classes(DllInfo* dll);
 SEXP Make_array_nonull_dbl_vector(const std::shared_ptr<Array>& array);
 SEXP Make_array_nonull_int_vector(const std::shared_ptr<Array>& array);
+SEXP Make_array_nonull_int64_vector(const std::shared_ptr<Array>& array);
 
 }  // namespace r
 }  // namespace arrow

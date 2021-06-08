@@ -34,6 +34,21 @@ extern "C" SEXP _arrow_Test_array_nonull_int_vector(SEXP size_sexp){
 }
 #endif
 
+// altrep.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Array> Test_array_nonull_int64_vector(int size);
+extern "C" SEXP _arrow_Test_array_nonull_int64_vector(SEXP size_sexp){
+BEGIN_CPP11
+	arrow::r::Input<int>::type size(size_sexp);
+	return cpp11::as_sexp(Test_array_nonull_int64_vector(size));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_Test_array_nonull_int64_vector(SEXP size_sexp){
+	Rf_error("Cannot call Test_array_nonull_int64_vector(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // array.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Array> Array__Slice1(const std::shared_ptr<arrow::Array>& array, R_xlen_t offset);
@@ -6925,6 +6940,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_s3_available", (DL_FUNC)& _s3_available, 0 },
 		{ "_arrow_Test_array_nonull_dbl_vector", (DL_FUNC) &_arrow_Test_array_nonull_dbl_vector, 1}, 
 		{ "_arrow_Test_array_nonull_int_vector", (DL_FUNC) &_arrow_Test_array_nonull_int_vector, 1}, 
+		{ "_arrow_Test_array_nonull_int64_vector", (DL_FUNC) &_arrow_Test_array_nonull_int64_vector, 1}, 
 		{ "_arrow_Array__Slice1", (DL_FUNC) &_arrow_Array__Slice1, 2}, 
 		{ "_arrow_Array__Slice2", (DL_FUNC) &_arrow_Array__Slice2, 3}, 
 		{ "_arrow_Array__IsNull", (DL_FUNC) &_arrow_Array__IsNull, 2}, 

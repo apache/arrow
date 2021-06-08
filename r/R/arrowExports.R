@@ -8,6 +8,10 @@ Test_array_nonull_int_vector <- function(size){
     .Call(`_arrow_Test_array_nonull_int_vector`, size)
 }
 
+Test_array_nonull_int64_vector <- function(size){
+    .Call(`_arrow_Test_array_nonull_int64_vector`, size)
+}
+
 Array__Slice1 <- function(array, offset){
     .Call(`_arrow_Array__Slice1`, array, offset)
 }
