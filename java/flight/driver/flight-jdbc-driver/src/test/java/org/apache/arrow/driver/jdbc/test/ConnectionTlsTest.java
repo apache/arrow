@@ -35,26 +35,35 @@ import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.auth2.BasicCallHeaderAuthenticator;
 import org.apache.arrow.flight.auth2.CallHeaderAuthenticator;
 import org.apache.arrow.flight.auth2.GeneratedBearerTokenAuthenticator;
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.calcite.avatica.org.apache.http.auth.UsernamePasswordCredentials;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.*;
 
 import com.google.common.base.Strings;
 
 public class ConnectionTlsTest {
   private FlightServer tlsServer;
   private String serverUrl;
+  private BufferAllocator allocator;
+  private FlightTestUtils flightTestUtils;
 
   @Before
   public void setUp() throws ClassNotFoundException, IOException, URISyntaxException {
+    flightTestUtils = new FlightTestUtils("localhost", "flight1",
+            "woho1", "invalid", "wrong");
+
+    allocator = new RootAllocator(Long.MAX_VALUE);
+
     final FlightTestUtils.CertKeyPair certKey = FlightTestUtils
         .exampleTlsCerts().get(0);
 
-    final FlightProducer flightProducer = FlightTestUtils.getFlightProducer();
-    this.tlsServer = FlightTestUtils.getStartedServer((location -> {
+    final FlightProducer flightProducer = flightTestUtils.getFlightProducer(allocator);
+    this.tlsServer = flightTestUtils.getStartedServer((location -> {
       try {
         return FlightServer
-            .builder(FlightTestUtils.getAllocator(), location, flightProducer)
+            .builder(allocator, location, flightProducer)
             .useTls(certKey.cert, certKey.key)
             .headerAuthenticator(new GeneratedBearerTokenAuthenticator(
                 new BasicCallHeaderAuthenticator(this::validate)))
@@ -64,10 +73,15 @@ public class ConnectionTlsTest {
       }
       return null;
     }));
-    serverUrl = FlightTestUtils.getConnectionPrefix() +
-        FlightTestUtils.getLocalhost() + ":" + this.tlsServer.getPort();
+    serverUrl = flightTestUtils.getConnectionPrefix() +
+            flightTestUtils.getLocalhost() + ":" + this.tlsServer.getPort();
 
     Class.forName("org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver");
+  }
+
+  @After
+  public void tearDown() throws Exception {
+    AutoCloseables.close(tlsServer);
   }
 
   /**
@@ -86,9 +100,9 @@ public class ConnectionTlsTest {
           .withDescription("Credentials not supplied.").toRuntimeException();
     }
     final String identity;
-    if (FlightTestUtils.getUsername1().equals(username) && FlightTestUtils
+    if (flightTestUtils.getUsername1().equals(username) && flightTestUtils
           .getPassword1().equals(password)) {
-      identity = FlightTestUtils.getUsername1();
+      identity = flightTestUtils.getUsername1();
     } else {
       throw CallStatus.UNAUTHENTICATED
           .withDescription("Username or password is invalid.")
@@ -115,15 +129,15 @@ public class ConnectionTlsTest {
     properties.put("keyStorePass", "flight");
 
     URI address = new URI("jdbc",
-        FlightTestUtils.getUsername1() + ":" + FlightTestUtils.getPassword1(),
-        FlightTestUtils.getLocalhost(), this.tlsServer.getPort(), null, null,
+            flightTestUtils.getUsername1() + ":" + flightTestUtils.getPassword1(),
+            flightTestUtils.getLocalhost(), this.tlsServer.getPort(), null, null,
         null);
 
     UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(
-        FlightTestUtils.getUsername1(), FlightTestUtils.getPassword1());
+            flightTestUtils.getUsername1(), flightTestUtils.getPassword1());
 
     ArrowFlightClient client = ArrowFlightClient.getEncryptedClient(
-        FlightTestUtils.getAllocator(), address.getHost(), address.getPort(),
+        allocator, address.getHost(), address.getPort(),
         null, credentials.getUserName(), credentials.getPassword(),
         properties.getProperty("keyStorePath"),
         properties.getProperty("keyStorePass"));
@@ -142,8 +156,8 @@ public class ConnectionTlsTest {
   public void connectTls() throws SQLException {
     Properties properties = new Properties();
 
-    properties.put("user", FlightTestUtils.getUsername1());
-    properties.put("password", FlightTestUtils.getPassword1());
+    properties.put("user", flightTestUtils.getUsername1());
+    properties.put("password", flightTestUtils.getPassword1());
     properties.put("useTls", "true");
     properties.put("keyStorePath", "src/test/resources/keys/keyStore.jks");
     properties.put("keyStorePass", "flight");

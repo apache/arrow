@@ -37,8 +37,12 @@ import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.auth2.BasicCallHeaderAuthenticator;
 import org.apache.arrow.flight.auth2.CallHeaderAuthenticator;
 import org.apache.arrow.flight.auth2.GeneratedBearerTokenAuthenticator;
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.calcite.avatica.org.apache.http.auth.UsernamePasswordCredentials;
 import org.junit.Before;
+import org.junit.After;
 import org.junit.Test;
 
 import com.google.common.base.Strings;
@@ -49,7 +53,9 @@ import com.google.common.base.Strings;
 public class ConnectionTest {
 
   private FlightServer server;
-  private static String serverUrl;
+  private String serverUrl;
+  private BufferAllocator allocator;
+  private FlightTestUtils flightTestUtils;
 
   /**
    * Setup for all tests.
@@ -59,17 +65,27 @@ public class ConnectionTest {
    */
   @Before
   public void setUp() throws ClassNotFoundException, IOException {
-    final FlightProducer flightProducer = FlightTestUtils.getFlightProducer();
-    this.server = FlightTestUtils.getStartedServer((location -> FlightServer
-        .builder(FlightTestUtils.getAllocator(), location, flightProducer)
+    allocator = new RootAllocator(Long.MAX_VALUE);
+
+    flightTestUtils = new FlightTestUtils("localhost", "flight1",
+            "woho1", "invalid", "wrong");
+
+    final FlightProducer flightProducer = flightTestUtils.getFlightProducer(allocator);
+    this.server = flightTestUtils.getStartedServer((location -> FlightServer
+        .builder(allocator, location, flightProducer)
         .headerAuthenticator(new GeneratedBearerTokenAuthenticator(
             new BasicCallHeaderAuthenticator(this::validate)))
         .build()));
-    serverUrl = FlightTestUtils.getConnectionPrefix() +
-        FlightTestUtils.getLocalhost() + ":" + this.server.getPort();
+    serverUrl = flightTestUtils.getConnectionPrefix() +
+            flightTestUtils.getLocalhost() + ":" + this.server.getPort();
 
     // TODO Double-check this later.
     Class.forName("org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver");
+  }
+
+  @After
+  public void tearDown() throws Exception {
+    AutoCloseables.close(server);
   }
 
   /**
@@ -88,9 +104,9 @@ public class ConnectionTest {
           .withDescription("Credentials not supplied.").toRuntimeException();
     }
     final String identity;
-    if (FlightTestUtils.getUsername1().equals(username) &&
-          FlightTestUtils.getPassword1().equals(password)) {
-      identity = FlightTestUtils.getUsername1();
+    if (flightTestUtils.getUsername1().equals(username) &&
+            flightTestUtils.getPassword1().equals(password)) {
+      identity = flightTestUtils.getUsername1();
     } else {
       throw CallStatus.UNAUTHENTICATED
           .withDescription("Username or password is invalid.")
@@ -111,8 +127,8 @@ public class ConnectionTest {
       throws SQLException {
     Properties properties = new Properties();
 
-    properties.put("user", FlightTestUtils.getUsername1());
-    properties.put("password", FlightTestUtils.getPassword1());
+    properties.put("user", flightTestUtils.getUsername1());
+    properties.put("password", flightTestUtils.getPassword1());
     Connection connection = DriverManager.getConnection(serverUrl, properties);
     assertFalse(connection.isClosed());
   }
@@ -126,15 +142,15 @@ public class ConnectionTest {
   @Test
   public void testGetBasicClient() throws URISyntaxException {
     URI address = new URI("jdbc",
-        FlightTestUtils.getUsername1() + ":" + FlightTestUtils.getPassword1(),
-        FlightTestUtils.getLocalhost(), this.server.getPort(), null, null,
+            flightTestUtils.getUsername1() + ":" + flightTestUtils.getPassword1(),
+            flightTestUtils.getLocalhost(), this.server.getPort(), null, null,
         null);
 
     UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(
-        FlightTestUtils.getUsername1(), FlightTestUtils.getPassword1());
+            flightTestUtils.getUsername1(), flightTestUtils.getPassword1());
 
     ArrowFlightClient client = ArrowFlightClient.getBasicClient(
-        FlightTestUtils.getAllocator(), address.getHost(), address.getPort(),
+            allocator, address.getHost(), address.getPort(),
         credentials.getUserName(), credentials.getPassword(), null);
 
     assertNotNull(client);
@@ -153,8 +169,8 @@ public class ConnectionTest {
 
     Properties properties = new Properties();
 
-    properties.put("user", FlightTestUtils.getUsernameInvalid());
-    properties.put("password", FlightTestUtils.getPasswordInvalid());
+    properties.put("user", flightTestUtils.getUsernameInvalid());
+    properties.put("password", flightTestUtils.getPasswordInvalid());
     DriverManager.getConnection(serverUrl, properties);
   }
 }
