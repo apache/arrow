@@ -23,8 +23,9 @@
 #include <unordered_set>
 #include <vector>
 
+#include "arrow/compute/exec/forest_internal.h"
+#include "arrow/compute/exec/subtree_internal.h"
 #include "arrow/dataset/dataset_internal.h"
-#include "arrow/dataset/forest_internal.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/dataset/scanner_internal.h"
 #include "arrow/filesystem/filesystem.h"
@@ -188,7 +189,7 @@ Future<util::optional<int64_t>> FileFragment::CountRows(
 
 struct FileSystemDataset::FragmentSubtrees {
   // Forest for skipping fragments based on extracted subtree expressions
-  Forest forest;
+  compute::Forest forest;
   // fragment indices and subtree expressions in forest order
   std::vector<util::Variant<int, compute::Expression>> fragments_and_subtrees;
 };
@@ -243,20 +244,21 @@ std::string FileSystemDataset::ToString() const {
 
 void FileSystemDataset::SetupSubtreePruning() {
   subtrees_ = std::make_shared<FragmentSubtrees>();
-  SubtreeImpl impl;
+  compute::SubtreeImpl impl;
 
   auto encoded = impl.EncodeFragments(fragments_);
 
-  std::sort(encoded.begin(), encoded.end(),
-            [](const SubtreeImpl::Encoded& l, const SubtreeImpl::Encoded& r) {
-              const auto cmp = l.partition_expression.compare(r.partition_expression);
-              if (cmp != 0) {
-                return cmp < 0;
-              }
-              // Equal partition expressions; sort encodings with fragment indices after
-              // encodings without
-              return (l.fragment_index ? 1 : 0) < (r.fragment_index ? 1 : 0);
-            });
+  std::sort(
+      encoded.begin(), encoded.end(),
+      [](const compute::SubtreeImpl::Encoded& l, const compute::SubtreeImpl::Encoded& r) {
+        const auto cmp = l.partition_expression.compare(r.partition_expression);
+        if (cmp != 0) {
+          return cmp < 0;
+        }
+        // Equal partition expressions; sort encodings with fragment indices after
+        // encodings without
+        return (l.fragment_index ? 1 : 0) < (r.fragment_index ? 1 : 0);
+      });
 
   for (const auto& e : encoded) {
     if (e.fragment_index) {
@@ -266,20 +268,21 @@ void FileSystemDataset::SetupSubtreePruning() {
     }
   }
 
-  subtrees_->forest = Forest(static_cast<int>(encoded.size()), [&](int l, int r) {
-    if (encoded[l].fragment_index) {
-      // Fragment: not an ancestor.
-      return false;
-    }
+  subtrees_->forest =
+      compute::Forest(static_cast<int>(encoded.size()), [&](int l, int r) {
+        if (encoded[l].fragment_index) {
+          // Fragment: not an ancestor.
+          return false;
+        }
 
-    const auto& ancestor = encoded[l].partition_expression;
-    const auto& descendant = encoded[r].partition_expression;
+        const auto& ancestor = encoded[l].partition_expression;
+        const auto& descendant = encoded[r].partition_expression;
 
-    if (descendant.size() >= ancestor.size()) {
-      return std::equal(ancestor.begin(), ancestor.end(), descendant.begin());
-    }
-    return false;
-  });
+        if (descendant.size() >= ancestor.size()) {
+          return std::equal(ancestor.begin(), ancestor.end(), descendant.begin());
+        }
+        return false;
+      });
 }
 
 Result<FragmentIterator> FileSystemDataset::GetFragmentsImpl(
@@ -293,7 +296,7 @@ Result<FragmentIterator> FileSystemDataset::GetFragmentsImpl(
 
   std::vector<compute::Expression> predicates{predicate};
   RETURN_NOT_OK(subtrees_->forest.Visit(
-      [&](Forest::Ref ref) -> Result<bool> {
+      [&](compute::Forest::Ref ref) -> Result<bool> {
         if (auto fragment_index =
                 util::get_if<int>(&subtrees_->fragments_and_subtrees[ref.i])) {
           fragment_indices.push_back(*fragment_index);
@@ -312,7 +315,7 @@ Result<FragmentIterator> FileSystemDataset::GetFragmentsImpl(
         predicates.push_back(std::move(simplified));
         return true;
       },
-      [&](Forest::Ref ref) { predicates.pop_back(); }));
+      [&](compute::Forest::Ref ref) { predicates.pop_back(); }));
 
   std::sort(fragment_indices.begin(), fragment_indices.end());
 
