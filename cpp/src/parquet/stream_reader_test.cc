@@ -21,6 +21,7 @@
 #include <gtest/gtest.h>
 
 #include <chrono>
+#include <cstring>
 #include <ctime>
 #include <memory>
 #include <utility>
@@ -59,17 +60,29 @@ struct TestData {
   }
 
   static optional<bool> GetOptBool(const int i) {
-    if (i % 11 == 0) {
-      return nullopt;
+    optional<bool> v;
+#ifdef PARQUET_VALGRIND
+    // Work around "Conditional jump or move depends on uninitialised value" error
+    memset(&v, 0, sizeof(v));
+    v = nullopt;
+#endif
+    if (i % 11 != 0) {
+      v = i % 7 < 3;
     }
-    return i % 7 < 3;
+    return v;
   }
 
   static optional<char> GetOptChar(const int i) {
-    if ((i + 1) % 11 == 1) {
-      return nullopt;
+    optional<char> v;
+#ifdef PARQUET_VALGRIND
+    // Work around "Conditional jump or move depends on uninitialised value" error
+    memset(&v, 0, sizeof(v));
+    v = nullopt;
+#endif
+    if ((i + 1) % 11 != 1) {
+      v = i & 1 ? 'M' : 'F';
     }
-    return i & 1 ? 'M' : 'F';
+    return v;
   }
 
   static optional<std::array<char, 4>> GetOptCharArray(const int i) {
@@ -80,10 +93,16 @@ struct TestData {
   }
 
   static optional<int8_t> GetOptInt8(const int i) {
-    if ((i + 3) % 11 == 1) {
-      return nullopt;
+    optional<int8_t> v;
+#ifdef PARQUET_VALGRIND
+    // Work around "Conditional jump or move depends on uninitialised value" error
+    memset(&v, 0, sizeof(v));
+    v = nullopt;
+#endif
+    if ((i + 3) % 11 != 1) {
+      v = static_cast<int8_t>((i % 256) - 128);
     }
-    return static_cast<int8_t>((i % 256) - 128);
+    return v;
   }
 
   static optional<uint16_t> GetOptUInt16(const int i) {
