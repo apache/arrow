@@ -47,11 +47,15 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
   @Override
   public Connection connect(String url, Properties info) throws SQLException {
 
-    String[] args = getUrlsArgs(Preconditions.checkNotNull(url));
+    try {
+      String[] args = getUrlsArgs(Preconditions.checkNotNull(url));
 
-    addToProperties(info, args);
+      addToProperties(info, args);
 
-    return new ArrowFlightConnection(this, factory, url, info);
+      return new ArrowFlightConnection(this, factory, url, info);
+    } catch (Throwable e) {
+      throw new SQLException("Failed to connect: " + e.getMessage());
+    }
   }
 
   @Override
@@ -69,6 +73,11 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
     return CONNECT_STRING_PREFIX;
   }
 
+  @Override
+  public boolean acceptsURL(String url) throws SQLException {
+    return Preconditions.checkNotNull(url).startsWith(CONNECT_STRING_PREFIX);
+  }
+
   /**
    * Parses the provided url based on the format this driver accepts, retrieving
    * arguments after the {@link #CONNECT_STRING_PREFIX}.
@@ -76,10 +85,12 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
    * @param url
    *          The url to parse.
    * @return the parsed arguments.
+   * @throws SQLException
+   *           If an error occurs while trying to parse the URL.
    */
-  private String[] getUrlsArgs(String url) {
+  private String[] getUrlsArgs(String url) throws SQLException {
     // URL must ALWAYS start with "jdbc:arrow-flight://"
-    assert url.startsWith(getConnectStringPrefix());
+    assert acceptsURL(url);
 
     /*
      * Granted the URL format will always be
