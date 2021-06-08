@@ -225,6 +225,128 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
     return min_offset;
   }
 
+  /// \brief Visit words of bits from each bitmap as array<Word, N>
+  ///
+  /// All bitmaps must have identical length. The first bit in a visited bitmap
+  /// may be offset within the first visited word, but words will otherwise contain
+  /// densely packed bits loaded from the bitmap. That offset within the first word is
+  /// returned.
+  ///
+  /// TODO(bkietz) allow for early termination
+  // NOTE: this function is efficient on 3+ sufficiently large bitmaps.
+  // It also has a large prolog / epilog overhead and should be used
+  // carefully in other cases.
+  // For 2 bitmaps or less, and/or smaller bitmaps, see also VisitTwoBitBlocksVoid
+  // and BitmapUInt64Reader.
+  template <size_t N, typename Visitor,
+            typename Word = typename std::decay<
+                internal::call_traits::argument_type<0, Visitor&&>>::type::value_type>
+  static int64_t VisitWordsNew(const std::array<Bitmap, N>& bitmaps_arg,
+                               Visitor&& visitor, Bitmap* out_bitmap_arg) {
+    constexpr int64_t kBitWidth = sizeof(Word) * 8;
+
+    // local, mutable variables which will be sliced/decremented to represent consumption:
+    std::array<Bitmap, N + 1> bitmaps;
+    std::array<int64_t, N + 1> offsets;
+    int64_t bit_length = BitLength(bitmaps_arg, N+ 1);
+    std::array<View<Word>, N + 1> words;
+
+    for (size_t i = 0; i < N; ++i) {
+      bitmaps[i] = bitmaps_arg[i];
+      offsets[i] = bitmaps[i].template word_offset<Word>();
+      assert(offsets[i] >= 0 && offsets[i] < kBitWidth);
+      words[i] = bitmaps[i].template words<Word>();
+    }
+    bitmaps[N] = *out_bitmap_arg;
+    offsets[N] = bitmaps[N].template word_offset<Word>();
+    assert(offsets[N] >= 0 && offsets[N] < kBitWidth);
+    words[N] = bitmaps[N].template words<Word>();
+
+    auto consume = [&](int64_t consumed_bits) {
+      for (size_t i = 0; i < N; ++i) {
+        bitmaps[i] = bitmaps[i].Slice(consumed_bits, bit_length - consumed_bits);
+        offsets[i] = bitmaps[i].template word_offset<Word>();
+        assert(offsets[i] >= 0 && offsets[i] < kBitWidth);
+        words[i] = bitmaps[i].template words<Word>();
+      }
+      bit_length -= consumed_bits;
+    };
+
+    std::array<Word, N> visited_words;
+    visited_words.fill(0);
+
+    if (bit_length <= kBitWidth * 2) {
+      // bitmaps fit into one or two words so don't bother with optimization
+      while (bit_length > 0) {
+        auto leading_bits = std::min(bit_length, kBitWidth);
+        SafeLoadWords(bitmaps, 0, leading_bits, false, &visited_words);
+        visitor(visited_words);
+        consume(leading_bits);
+      }
+      return 0;
+    }
+
+    int64_t max_offset = *std::max_element(offsets, offsets + N);
+    int64_t min_offset = *std::min_element(offsets, offsets + N);
+    if (max_offset > 0) {
+      // consume leading bits
+      auto leading_bits = kBitWidth - min_offset;
+      SafeLoadWords(bitmaps, 0, leading_bits, true, &visited_words);
+      visitor(visited_words);
+      consume(leading_bits);
+    }
+    assert(*std::min_element(offsets, offsets + N) == 0);
+
+    int64_t whole_word_count = bit_length / kBitWidth;
+    assert(whole_word_count >= 1);
+
+    if (min_offset == max_offset) {
+      // all offsets were identical, all leading bits have been consumed
+      assert(
+          std::all_of(offsets, offsets + N, [](int64_t offset) { return offset == 0; }));
+
+      for (int64_t word_i = 0; word_i < whole_word_count; ++word_i) {
+        for (size_t i = 0; i < N; ++i) {
+          visited_words[i] = words[i][word_i];
+        }
+        visitor(visited_words);
+      }
+      consume(whole_word_count * kBitWidth);
+    } else {
+      // leading bits from potentially incomplete words have been consumed
+
+      // word_i such that words[i][word_i] and words[i][word_i + 1] are lie entirely
+      // within the bitmap for all i
+      for (int64_t word_i = 0; word_i < whole_word_count - 1; ++word_i) {
+        for (size_t i = 0; i < N; ++i) {
+          if (offsets[i] == 0) {
+            visited_words[i] = words[i][word_i];
+          } else {
+            auto words0 = BitUtil::ToLittleEndian(words[i][word_i]);
+            auto words1 = BitUtil::ToLittleEndian(words[i][word_i + 1]);
+            visited_words[i] = BitUtil::FromLittleEndian(
+                (words0 >> offsets[i]) | (words1 << (kBitWidth - offsets[i])));
+          }
+        }
+        visitor(visited_words);
+      }
+      consume((whole_word_count - 1) * kBitWidth);
+
+      SafeLoadWords(bitmaps, 0, kBitWidth, false, &visited_words);
+
+      visitor(visited_words);
+      consume(kBitWidth);
+    }
+
+    // load remaining bits
+    if (bit_length > 0) {
+      SafeLoadWords(bitmaps, 0, bit_length, false, &visited_words);
+      visitor(visited_words);
+    }
+
+    return min_offset;
+  }
+
   const std::shared_ptr<Buffer>& buffer() const { return buffer_; }
 
   /// offset of first bit relative to buffer().data()
