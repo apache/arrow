@@ -322,7 +322,7 @@ const char* gdv_fn_base64_encode_utf8(int64_t context, const char* in, int32_t i
   }
   // use arrow method to encode base64 string
   std::string encoded_str =
-      arrow::util::base64_encode(reinterpret_cast<const unsigned char *>(in), in_len);
+      arrow::util::base64_encode(reinterpret_cast<const unsigned char*>(in), in_len);
   *out_len = static_cast<int32_t>(encoded_str.length());
   // allocate memory for response
   char* ret = reinterpret_cast<char*>(
