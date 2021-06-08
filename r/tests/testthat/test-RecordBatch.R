@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+library(purrr)
 
 test_that("RecordBatch", {
   # Note that we're reusing `tbl` and `batch` throughout the tests in this file
@@ -416,7 +417,6 @@ test_that("record_batch() handles null type (ARROW-7064)", {
 })
 
 test_that("record_batch() scalar recycling", {
-  skip("Not implemented (ARROW-11705)")
   expect_data_frame(
     record_batch(a = 1:10, b = 5),
     tibble::tibble(a = 1:10, b = 5)
@@ -467,8 +467,7 @@ test_that("RecordBatch name assignment", {
 
 test_that("record_batch() with different length arrays", {
   msg <- "All arrays must have the same length"
-  expect_error(record_batch(a=1:5, b = 42), msg)
-  expect_error(record_batch(a=1:5, b = 1:6), msg)
+  expect_error(record_batch(a = 1:5, b = 1:6), msg)
 })
 
 test_that("Handling string data with embedded nuls", {

@@ -173,6 +173,16 @@ Table$create <- function(..., schema = NULL) {
     return(dplyr::group_by(out, !!!dplyr::groups(dots[[1]])))
   }
 
+  # If any arrays are length 1, recycle them  
+  arr_lens <- map(dots, length)
+  if (length(dots) > 1 && any(arr_lens == 1) && !all(arr_lens==1)){
+    dots <- modify2(
+      dots,
+      arr_lens == 1,
+      ~if(.y) rep(.x, max(unlist(arr_lens))) else .x
+    )
+  }
+  
   if (all_record_batches(dots)) {
     Table__from_record_batches(dots, schema)
   } else {

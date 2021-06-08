@@ -145,6 +145,7 @@ RecordBatch <- R6Class("RecordBatch", inherit = ArrowTabular,
 
 RecordBatch$create <- function(..., schema = NULL) {
   arrays <- list2(...)
+
   if (length(arrays) == 1 && inherits(arrays[[1]], c("raw", "Buffer", "InputStream", "Message"))) {
     return(RecordBatch$from_message(arrays[[1]], schema))
   }
@@ -160,6 +161,16 @@ RecordBatch$create <- function(..., schema = NULL) {
   if (length(arrays) == 1 && inherits(arrays[[1]], "grouped_df")) {
     out <- RecordBatch__from_arrays(schema, arrays)
     return(dplyr::group_by(out, !!!dplyr::groups(arrays[[1]])))
+  }
+
+  # If any arrays are length 1, recycle them  
+  arr_lens <- map(arrays, length)
+  if (length(arrays) > 1 && any(arr_lens == 1) && !all(arr_lens==1)){
+    arrays <- modify2(
+      arrays,
+      arr_lens == 1,
+      ~if(.y) rep(.x, max(unlist(arr_lens))) else .x
+    )
   }
   
   # TODO: should this also assert that they're all Arrays?

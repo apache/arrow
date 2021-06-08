@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+library(purrr)
 
 test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
   tbl <- tibble::tibble(
@@ -471,8 +472,14 @@ test_that("Table name assignment", {
 
 test_that("Table$create() with different length columns", {
   msg <- "All columns must have the same length"
-  expect_error(Table$create(a=1:5, b = 42), msg)
   expect_error(Table$create(a=1:5, b = 1:6), msg)
+})
+
+test_that("Table$create() scalar recycling", {
+  expect_data_frame(
+    Table$create(a = 1:10, b = 5),
+    tibble::tibble(a = 1:10, b = 5)
+  )
 })
 
 test_that("ARROW-11769 - grouping preserved in table creation", {
