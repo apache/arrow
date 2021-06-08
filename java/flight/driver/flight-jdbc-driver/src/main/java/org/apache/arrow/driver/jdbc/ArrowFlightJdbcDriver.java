@@ -22,7 +22,6 @@ import java.sql.SQLException;
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Deque;
-import java.util.List;
 import java.util.Properties;
 import java.util.stream.Collectors;
 
@@ -97,7 +96,9 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
      * last index of the ArrayDeque of arguments with two new values: "port" and
      * "catalog," separated from each other.
      */
-    String portAndCatalog = args.pollLast().strip();
+    String portAndCatalog = args.getLast().trim();
+    args.removeLast();
+
     int indexOfSeparator = portAndCatalog.indexOf('/');
     boolean hasCatalog = indexOfSeparator != -1;
 
@@ -109,13 +110,13 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
 
       if (hasCatalog) {
         // Adds "port" and "catalog" to the ArrayDeque of URL arguments.
-        args.addAll(List.of(portAndCatalog.substring(0, indexOfSeparator),
-            portAndCatalog.substring(indexOfSeparator)));
+        args.offer(portAndCatalog.substring(0, indexOfSeparator));
+        args.offer(portAndCatalog.substring(indexOfSeparator));
         break SeparatePortFromCatalog;
       }
 
       // If execution reaches this line, the catalog doesn't exist.
-      args.add(portAndCatalog);
+      args.offer(portAndCatalog);
     }
 
     // Returning the arguments.
@@ -133,7 +134,7 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
     info.put("port", port);
 
     if (catalog != null) {
-      Preconditions.checkArgument(catalog.isBlank(),
+      Preconditions.checkArgument(!catalog.trim().equals(""),
           "When provided, catalog cannot be blank!");
       info.put("catalog", catalog);
     }
