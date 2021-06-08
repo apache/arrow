@@ -243,9 +243,9 @@ public final class ArrowFlightClient implements AutoCloseable {
    *
    * @param client
    *          the FlightClient instance to connect to Arrow Flight.
-   * @param user
+   * @param username
    *          the Arrow Flight server username.
-   * @param pass
+   * @param password
    *          the corresponding Arrow Flight server password
    * @param factory
    *          the factory to create {@link ClientIncomingAuthHeaderMiddleware}.
@@ -327,8 +327,8 @@ public final class ArrowFlightClient implements AutoCloseable {
     try {
       client.close();
     } catch (Exception e) {
-      throw new IllegalStateException("Failed to close resource "
-          + client.getClass().getSimpleName() + ": " + e.getMessage());
+      throw new IllegalStateException("Failed to close resource " +
+          client.getClass().getSimpleName() + ": " + e.getMessage());
     }
   }
 }

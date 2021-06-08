@@ -65,8 +65,8 @@ public class ConnectionTest {
         .headerAuthenticator(new GeneratedBearerTokenAuthenticator(
             new BasicCallHeaderAuthenticator(this::validate)))
         .build()));
-    serverUrl = FlightTestUtils.getConnectionPrefix()
-        + FlightTestUtils.getLocalhost() + ":" + this.server.getPort();
+    serverUrl = FlightTestUtils.getConnectionPrefix() +
+        FlightTestUtils.getLocalhost() + ":" + this.server.getPort();
 
     // TODO Double-check this later.
     Class.forName("org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver");
@@ -88,8 +88,8 @@ public class ConnectionTest {
           .withDescription("Credentials not supplied.").toRuntimeException();
     }
     final String identity;
-    if (FlightTestUtils.getUsername1().equals(username)
-        && FlightTestUtils.getPassword1().equals(password)) {
+    if (FlightTestUtils.getUsername1().equals(username) &&
+          FlightTestUtils.getPassword1().equals(password)) {
       identity = FlightTestUtils.getUsername1();
     } else {
       throw CallStatus.UNAUTHENTICATED
