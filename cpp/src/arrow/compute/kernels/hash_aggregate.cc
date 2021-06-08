@@ -941,7 +941,6 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
                          uint8_t*, uint8_t*)>;
 
   using ResizeImpl = std::function<Status(BufferBuilder*, int64_t)>;
-  using BitmapResizeImpl = std::function<Status(TypedBufferBuilder<bool>*, int64_t)>;
 
   template <typename CType>
   static ResizeImpl MakeResizeImpl(CType anti_extreme) {
