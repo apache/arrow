@@ -43,7 +43,7 @@ import com.google.common.base.Strings;
 
 public class ConnectionTlsTest {
   private FlightServer tlsServer;
-  private static String serverUrl;
+  private String serverUrl;
 
   @Before
   public void setUp() throws ClassNotFoundException, IOException, URISyntaxException {
