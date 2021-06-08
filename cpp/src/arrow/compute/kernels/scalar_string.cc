@@ -739,19 +739,20 @@ std::string MakeLikeRegex(const MatchSubstringOptions& options) {
   return like_pattern;
 }
 
-// A LIKE pattern matching this regex can be translated into a substring search.
-static RE2 kLikePatternIsSubstringMatch(R"(%+([^%_]*[^\\%_])?%+)");
-// A LIKE pattern matching this regex can be translated into a prefix search.
-static RE2 kLikePatternIsStartsWith(R"(([^%_]*[^\\%_])?%+)");
-// A LIKE pattern matching this regex can be translated into a suffix search.
-static RE2 kLikePatternIsEndsWith(R"(%+([^%_]*))");
-
 // Evaluate a SQL-like LIKE pattern by translating it to a regexp or
 // substring search as appropriate. See what Apache Impala does:
 // https://github.com/apache/impala/blob/9c38568657d62b6f6d7b10aa1c721ba843374dd8/be/src/exprs/like-predicate.cc
 template <typename StringType>
 struct MatchLike {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    // NOTE: avoid making those constants global to avoid compiling regexes at startup
+    // A LIKE pattern matching this regex can be translated into a substring search.
+    static const RE2 kLikePatternIsSubstringMatch(R"(%+([^%_]*[^\\%_])?%+)");
+    // A LIKE pattern matching this regex can be translated into a prefix search.
+    static const RE2 kLikePatternIsStartsWith(R"(([^%_]*[^\\%_])?%+)");
+    // A LIKE pattern matching this regex can be translated into a suffix search.
+    static const RE2 kLikePatternIsEndsWith(R"(%+([^%_]*))");
+
     auto original_options = MatchSubstringState::Get(ctx);
     auto original_state = ctx->state();
 

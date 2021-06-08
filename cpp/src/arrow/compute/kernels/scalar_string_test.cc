@@ -465,7 +465,7 @@ TYPED_TEST(TestStringKernels, MatchEndsWith) {
 
 #ifdef ARROW_WITH_RE2
 TYPED_TEST(TestStringKernels, MatchStartsWithIgnoreCase) {
-  MatchSubstringOptions options{"abab", /*ignore_case=*/true};
+  MatchSubstringOptions options{"aBAb", /*ignore_case=*/true};
   this->CheckUnary("starts_with", "[]", boolean(), "[]", &options);
   this->CheckUnary("starts_with", R"([null, "", "ab", "abab", "$abab", "abab$"])",
                    boolean(), "[null, false, false, true, false, true]", &options);
@@ -474,7 +474,7 @@ TYPED_TEST(TestStringKernels, MatchStartsWithIgnoreCase) {
 }
 
 TYPED_TEST(TestStringKernels, MatchEndsWithIgnoreCase) {
-  MatchSubstringOptions options{"abab", /*ignore_case=*/true};
+  MatchSubstringOptions options{"aBAb", /*ignore_case=*/true};
   this->CheckUnary("ends_with", "[]", boolean(), "[]", &options);
   this->CheckUnary("ends_with", R"([null, "", "ab", "abab", "$abab", "abab$"])",
                    boolean(), "[null, false, false, true, true, false]", &options);
