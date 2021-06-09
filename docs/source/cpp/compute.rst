@@ -1083,7 +1083,8 @@ Temporal component extraction
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 These functions extract datetime components (year, month, day, etc) from timestamp type.
-Note: this is currently not supported for timestamps with timezone information.
+Note: supports timestamps with timezone information and will return localized timestamp
+components.
 
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 | Function name      | Arity      | Input types       | Output type   | Options class              | Notes |
