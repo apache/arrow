@@ -17,7 +17,9 @@
 
 package org.apache.arrow.driver.jdbc.test;
 
-import java.io.IOException;
+import static org.junit.Assert.assertArrayEquals;
+
+import java.lang.reflect.Method;
 import java.net.URI;
 import java.sql.Connection;
 import java.sql.Driver;
@@ -121,14 +123,13 @@ public class ArrowFlightJdbcDriverTest {
    * Tests whether the {@link ArrowFlightJdbcDriver} can establish a successful
    * connection to the Arrow Flight client.
    * 
-   * @throws SQLException
+   * @throws Exception
    *           If the connection fails to be established.
-   * @throws IOException 
    */
   @Test
   public void testShouldConnectWhenProvidedWithValidUrl() throws Exception {
     // Get the Arrow Flight JDBC driver by providing a URL with a valid prefix.
-    Driver driver = DriverManager.getDriver(UrlSample.CONFORMING.getPath());
+    Driver driver = new ArrowFlightJdbcDriver();
 
     URI uri = server.getLocation().getUri();
 
@@ -137,6 +138,88 @@ public class ArrowFlightJdbcDriverTest {
         PropertiesSample.CONFORMING.getProperties())) {
       assert connection.isValid(300);
     }
+  }
+
+  /**
+   * Tests whether an exception is thrown upon attempting to connect to a
+   * malformed URI.
+   *
+   * @throws Exception If an error occurs.
+   */
+  @Test(expected = SQLException.class)
+  public void testShouldThrowExceptionWhenAttemptingToConnectToMalformedUrl()
+      throws Exception {
+    Driver driver = new ArrowFlightJdbcDriver();
+    String malformedUri = "yes:??/chainsaw.i=T333";
+    driver.connect(malformedUri, PropertiesSample.UNSUPPORTED.getProperties());
+  }
+
+  /**
+   * Tests whether an exception is thrown upon attempting to connect to a
+   * malformed URI.
+   *
+   * @throws Exception If an error occurs.
+   */
+  @Test(expected = SQLException.class)
+  public void testShouldThrowExceptionWhenAttemptingToConnectToUrlNoPrefix()
+      throws Exception {
+    Driver driver = new ArrowFlightJdbcDriver();
+    String malformedUri = server.getLocation().getUri().toString();
+    driver.connect(malformedUri, PropertiesSample.UNSUPPORTED.getProperties());
+  }
+
+  /**
+   * Tests whether an exception is thrown upon attempting to connect to a
+   * malformed URI.
+   *
+   * @throws Exception If an error occurs.
+   */
+  @Test(expected = SQLException.class)
+  public void testShouldThrowExceptionWhenAttemptingToConnectToUrlNoPort()
+      throws Exception {
+    Driver driver = new ArrowFlightJdbcDriver();
+    String malformedUri = "arrow-jdbc://" +
+        server.getLocation().getUri().getHost();
+    driver.connect(malformedUri, PropertiesSample.UNSUPPORTED.getProperties());
+  }
+
+  /**
+   * Tests whether an exception is thrown upon attempting to connect to a
+   * malformed URI.
+   *
+   * @throws Exception If an error occurs.
+   */
+  @Test(expected = SQLException.class)
+  public void testShouldThrowExceptionWhenAttemptingToConnectToUrlNoHost()
+      throws Exception {
+    Driver driver = new ArrowFlightJdbcDriver();
+
+    String malformedUri = "arrow-jdbc://" +
+        ":" + server.getLocation().getUri().getPort();
+    driver.connect(malformedUri, PropertiesSample.UNSUPPORTED.getProperties());
+  }
+
+  /**
+   * Tests whether an exception is thrown upon attempting to connect to a
+   * malformed URI.
+   *
+   * @throws Exception If an error occurs.
+   */
+  @Test
+  public void testDriverUrlParsingMechanismShouldReturnTheDesiredArgsFromUrl()
+      throws Exception {
+    Driver driver = new ArrowFlightJdbcDriver();
+
+    Method getUrlArgs = driver.getClass()
+        .getDeclaredMethod("getUrlsArgs", String.class);
+
+    getUrlArgs.setAccessible(true);
+
+    String[] parsedArgs = (String[]) getUrlArgs
+        .invoke(driver, "jdbc:arrow-flight://localhost:32010/database");    
+    
+    assertArrayEquals(parsedArgs,
+        new String[] {"localhost", "32010", "database"});
   }
 
   /**
@@ -155,8 +238,8 @@ public class ArrowFlightJdbcDriverTest {
           .withDescription("Credentials not supplied.").toRuntimeException();
     }
     final String identity;
-    if (testUtils.getUsername1().equals(username)
-        && testUtils.getPassword1().equals(password)) {
+    if (testUtils.getUsername1().equals(username) &&
+          testUtils.getPassword1().equals(password)) {
       identity = testUtils.getUsername1();
     } else {
       throw CallStatus.UNAUTHENTICATED

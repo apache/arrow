@@ -101,36 +101,12 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
         .stream(url.substring(getConnectStringPrefix().length()).split(":"))
         .collect(Collectors.toCollection(ArrayDeque::new));
 
-    /*
-     * If "catalog" is present in the provided URL, it should be alongside the
-     * port. The following lines separate "port" from "catalog," replacing the
-     * last index of the ArrayDeque of arguments with two new values: "port" and
-     * "catalog," separated from each other.
-     */
-    String portAndCatalog = args.getLast().trim();
-    args.removeLast();
-
-    int indexOfSeparator = portAndCatalog.indexOf('/');
-    boolean hasCatalog = indexOfSeparator != -1;
-
-    /*
-     * Separates "port" and "catalog" in the provided URL. The reason for using
-     * a label is to make the code more readable, preventing an else clause.
-     */
-    SeparatePortFromCatalog: {
-
-      if (hasCatalog) {
-        // Adds "port" and "catalog" to the ArrayDeque of URL arguments.
-        args.offer(portAndCatalog.substring(0, indexOfSeparator));
-        args.offer(portAndCatalog.substring(indexOfSeparator));
-        break SeparatePortFromCatalog;
-      }
-
-      // If execution reaches this line, the catalog doesn't exist.
-      args.offer(portAndCatalog);
+    if (args.getLast().contains("/")) {
+      String lastArg = args.getLast();
+      args.removeLast();
+      args.addAll(Arrays.asList(lastArg.split("/")));
     }
 
-    // Returning the arguments.
     return args.toArray(new String[args.size()]);
   }
 
