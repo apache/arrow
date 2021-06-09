@@ -17,7 +17,6 @@
 
 package org.apache.arrow.driver.jdbc.test;
 
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 
 import java.net.URISyntaxException;
@@ -82,7 +81,7 @@ public class ConnectionTest {
 
   @After
   public void tearDown() throws Exception {
-    AutoCloseables.close(server);
+    AutoCloseables.close(server, allocator);
   }
 
   /**
@@ -126,8 +125,11 @@ public class ConnectionTest {
 
     properties.put("user", flightTestUtils.getUsername1());
     properties.put("password", flightTestUtils.getPassword1());
-    Connection connection = DriverManager.getConnection(serverUrl, properties);
-    assertFalse(connection.isClosed());
+
+    try (Connection connection = DriverManager
+        .getConnection(serverUrl, properties)) {
+      assert connection.isValid(300);
+    }
   }
 
   /**
@@ -139,12 +141,12 @@ public class ConnectionTest {
   @Test
   public void testGetBasicClientAuthenticatedShouldOpenConnection() throws Exception {
 
-    ArrowFlightClient client = ArrowFlightClient.getBasicClientAuthenticated(
+    try (ArrowFlightClient client = ArrowFlightClient.getBasicClientAuthenticated(
             allocator, flightTestUtils.getLocalhost(), this.server.getPort(),
               flightTestUtils.getUsername1(), flightTestUtils.getPassword1(),
-              null);
-
-    assertNotNull(client);
+              null)) {
+      assertNotNull(client);
+    }
   }
 
   /**
@@ -156,11 +158,11 @@ public class ConnectionTest {
   @Test
   public void testGetBasicClientNoAuthShouldOpenConnection() throws Exception {
 
-    ArrowFlightClient client = ArrowFlightClient.getBasicClientNoAuth(
+    try (ArrowFlightClient client = ArrowFlightClient.getBasicClientNoAuth(
             allocator, flightTestUtils.getLocalhost(), this.server.getPort(),
-              null);
-
-    assertNotNull(client);
+              null)) {
+      assertNotNull(client); 
+    }
   }
 
   /**
@@ -178,6 +180,9 @@ public class ConnectionTest {
 
     properties.put("user", flightTestUtils.getUsernameInvalid());
     properties.put("password", flightTestUtils.getPasswordInvalid());
-    DriverManager.getConnection(serverUrl, properties);
+
+    try (Connection connection = DriverManager.getConnection(serverUrl, properties)) {
+      // Shouldn't reach this.
+    }
   }
 }
