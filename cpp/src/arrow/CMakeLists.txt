@@ -155,6 +155,7 @@ set(ARROW_SRCS
     array/diff.cc
     array/util.cc
     array/validate.cc
+    extensions/complex_type.cc
     builder.cc
     buffer.cc
     chunked_array.cc

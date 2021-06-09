@@ -21,6 +21,7 @@
 #include <datetime.h>
 
 #include <algorithm>
+#include <complex>
 #include <limits>
 #include <sstream>
 #include <string>
@@ -33,6 +34,7 @@
 #include "arrow/array/builder_dict.h"
 #include "arrow/array/builder_nested.h"
 #include "arrow/array/builder_primitive.h"
+#include "arrow/extensions/complex_type.h"
 #include "arrow/chunked_array.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -163,6 +165,21 @@ class PyValue {
     }
     return value;
   }
+
+  static Result<std::complex<double>> Convert(const ComplexType*, const O&, I obj) {
+    std::complex<double> value;
+
+    if (PyComplex_Check(obj)) {
+      value = std::complex<double>(
+          PyComplex_RealAsDouble(obj),
+          PyComplex_ImagAsDouble(obj));
+      RETURN_IF_PYERROR();
+    } else {
+      return internal::InvalidValue(obj, "tried to convert to std::complex<double>");
+    }
+
+    return value;
+  };
 
   static Result<Decimal128> Convert(const Decimal128Type* type, const O&, I obj) {
     Decimal128 value;

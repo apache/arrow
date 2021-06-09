@@ -30,6 +30,8 @@
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
 
+#include "arrow/extensions/complex_type.h"
+
 #include "arrow/python/common.h"
 #include "arrow/python/pyarrow.h"
 #include "arrow/python/type_traits.h"
@@ -84,6 +86,12 @@ Status GetTensorType(PyObject* dtype, std::shared_ptr<DataType>* out) {
     TO_ARROW_TYPE_CASE(FLOAT16, float16);
     TO_ARROW_TYPE_CASE(FLOAT32, float32);
     TO_ARROW_TYPE_CASE(FLOAT64, float64);
+    case NPY_COMPLEX64:
+      *out = complex(float32());
+      break;
+    case NPY_COMPLEX128:
+      *out = complex(float64());
+      break;
     default: {
       return Status::NotImplemented("Unsupported numpy type ", descr->type_num);
     }
@@ -109,6 +117,23 @@ Status GetNumPyType(const DataType& type, int* type_num) {
     NUMPY_TYPE_CASE(HALF_FLOAT, FLOAT16);
     NUMPY_TYPE_CASE(FLOAT, FLOAT32);
     NUMPY_TYPE_CASE(DOUBLE, FLOAT64);
+    case Type::EXTENSION: {
+      const auto * ptr = dynamic_cast<const ComplexType *>(&type);
+
+      if(ptr == nullptr) {
+        // continue into the default branch
+      } else if(ptr->subtype()->Equals(float32())) {
+        *type_num = NPY_COMPLEX64;
+        break;
+      } else if(ptr->subtype()->Equals(float64())) {
+        *type_num = NPY_COMPLEX128;
+        break;
+      } else {
+        return Status::NotImplemented("Unsupported complex tensor type: ", ptr->ToString());
+        break;
+      }
+    }
+
     default: {
       return Status::NotImplemented("Unsupported tensor type: ", type.ToString());
     }
@@ -144,6 +169,8 @@ Status NumPyDtypeToArrow(PyArray_Descr* descr, std::shared_ptr<DataType>* out) {
     TO_ARROW_TYPE_CASE(FLOAT16, float16);
     TO_ARROW_TYPE_CASE(FLOAT32, float32);
     TO_ARROW_TYPE_CASE(FLOAT64, float64);
+    TO_ARROW_TYPE_CASE(COMPLEX64, complex64);
+    TO_ARROW_TYPE_CASE(COMPLEX128, complex128);
     TO_ARROW_TYPE_CASE(STRING, binary);
     TO_ARROW_TYPE_CASE(UNICODE, utf8);
     case NPY_DATETIME: {

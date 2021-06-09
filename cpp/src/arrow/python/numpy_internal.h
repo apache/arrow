@@ -102,6 +102,8 @@ static inline std::string GetNumPyTypeName(int npy_type) {
     TYPE_CASE(FLOAT16, "float16")
     TYPE_CASE(FLOAT32, "float32")
     TYPE_CASE(FLOAT64, "float64")
+    TYPE_CASE(COMPLEX64, "complex64")
+    TYPE_CASE(COMPLEX128, "complex128")
     TYPE_CASE(DATETIME, "datetime64")
     TYPE_CASE(TIMEDELTA, "timedelta64")
     TYPE_CASE(OBJECT, "object")
