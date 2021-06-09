@@ -59,7 +59,8 @@ func (d *deltaBitPackDecoder) bytesRead() int64 {
 
 func (d *deltaBitPackDecoder) Allocator() memory.Allocator { return d.mem }
 
-// SetData sets in the data to be decoded and the expected number of values to decode
+// SetData sets the bytes and the expected number of values to decode
+// into the decoder, updating the decoder and allowing it to be reused.
 func (d *deltaBitPackDecoder) SetData(nvalues int, data []byte) {
 	// set our data into the underlying decoder for the type
 	d.decoder.SetData(nvalues, data)

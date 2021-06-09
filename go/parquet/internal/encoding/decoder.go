@@ -22,6 +22,7 @@ import (
 
 	"github.com/apache/arrow/go/arrow/memory"
 	"github.com/apache/arrow/go/parquet"
+	"github.com/apache/arrow/go/parquet/internal/debug"
 	format "github.com/apache/arrow/go/parquet/internal/gen-go/parquet"
 	"github.com/apache/arrow/go/parquet/internal/utils"
 	"github.com/apache/arrow/go/parquet/schema"
@@ -171,7 +172,8 @@ func spacedExpand(buffer interface{}, nullCount int, validBits []byte, validBits
 		// overwrite any existing data with the correctly spaced data. Any data that happens to be left in the null
 		// slots is fine since it shouldn't matter and saves us work.
 		idxDecode -= int32(run.Length)
-		reflect.Copy(bufferRef.Slice(int(run.Pos), bufferRef.Len()), bufferRef.Slice(int(idxDecode), int(int64(idxDecode)+run.Length)))
+		n := reflect.Copy(bufferRef.Slice(int(run.Pos), bufferRef.Len()), bufferRef.Slice(int(idxDecode), int(int64(idxDecode)+run.Length)))
+		debug.Assert(n == int(run.Length), "reflect.Copy copied incorrect number of elements in spacedExpand")
 	}
 
 	return numValues
