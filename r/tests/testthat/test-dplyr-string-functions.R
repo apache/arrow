@@ -543,19 +543,19 @@ test_that("strptime", {
     check.tzone = FALSE
   )
 
-  tstring <- tibble(x = c("08-05-2008", NA))
-  tstamp <- tibble(x = c(strptime("08-05-2008", format = "%m-%d-%Y"), NA))
-
-  expect_equal(
-    tstring %>%
-      Table$create() %>%
-      mutate(
-        x = strptime(x, format = "%m-%d-%Y")
-      ) %>%
-      collect(),
-    tstamp,
-    check.tzone = FALSE
-  )
+  # tstring <- tibble(x = c("08-05-2008", NA))
+  # tstamp <- tibble(x = c(strptime("08-05-2008", format = "%m-%d-%Y"), NA))
+  #
+  # expect_equal(
+  #   tstring %>%
+  #     Table$create() %>%
+  #     mutate(
+  #       x = strptime(x, format = "%m-%d-%Y")
+  #     ) %>%
+  #     collect(),
+  #   tstamp,
+  #   check.tzone = FALSE
+  # )
 
 })
 
