@@ -308,34 +308,6 @@ char* gdv_fn_dec_to_string(int64_t context, int64_t x_high, uint64_t x_low,
   return ret;
 }
 
-// convert input unsigned long to its binary representation
-void bin(uint64_t n, char* ret, int32_t* position) {
-  if (n > 1) {
-    bin(n / 2, ret, position);
-  }
-  ret[*position] = (n % 2) == 0 ? '0' :  '1';
-  *position += 1;
-}
-
-// returns the binary representation of a given integer (e.g. 928 -> 1110100000)
-#define BIN_INTEGER(IN_TYPE)                                                          \
-  GANDIVA_EXPORT                                                                      \
-  const char* gdv_fn_bin_##IN_TYPE(int64_t context, gdv_##IN_TYPE value,              \
-                                   int32_t * out_len) {                               \
-    *out_len = 0;                                                                     \
-    char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, 64));    \
-    if (ret == nullptr) {                                                             \
-      gdv_fn_context_set_error_msg(context, "Could not allocate memory for output");  \
-      return "";                                                                      \
-    }                                                                                 \
-    /* generate bin representation recursively */                                     \
-    bin(value, ret, out_len);                                                         \
-    return ret;                                                                       \
-  }
-
-BIN_INTEGER(int32)
-BIN_INTEGER(int64)
-
 #define CAST_NUMERIC_FROM_STRING(OUT_TYPE, ARROW_TYPE, TYPE_NAME)                    \
   GANDIVA_EXPORT                                                                     \
   OUT_TYPE gdv_fn_cast##TYPE_NAME##_utf8(int64_t context, const char* data,          \

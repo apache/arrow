@@ -144,10 +144,4 @@ bool gdv_fn_is_codepoint_for_space(uint32_t val);
 GANDIVA_EXPORT
 const char* gdv_fn_initcap_utf8(int64_t context, const char* data, int32_t data_len,
                                 int32_t* out_len);
-
-GANDIVA_EXPORT
-const char* gdv_fn_bin_int32(int64_t context, gdv_int32 value, int32_t * out_len);
-
-GANDIVA_EXPORT
-const char* gdv_fn_bin_int64(int64_t context, gdv_int64 value, int32_t * out_len);
 }

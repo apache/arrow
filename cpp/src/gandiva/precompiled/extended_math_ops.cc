@@ -367,4 +367,31 @@ gdv_float64 get_scale_multiplier(gdv_int32 scale) {
   return power_float64_float64(10.0, scale);
 }
 
+// convert input unsigned long to its binary representation
+void bin(uint64_t n, char* ret, int32_t* position) {
+  if (n > 1) {
+    bin(n / 2, ret, position);
+  }
+  ret[*position] = (n % 2) == 0 ? '0' :  '1';
+  *position += 1;
+}
+
+// returns the binary representation of a given integer (e.g. 928 -> 1110100000)
+#define BIN_INTEGER(IN_TYPE)                                                           \
+  FORCE_INLINE                                                                         \
+  const char* bin_##IN_TYPE(int64_t context, gdv_##IN_TYPE value, int32_t * out_len) { \
+    *out_len = 0;                                                                      \
+    char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, 64));     \
+    if (ret == nullptr) {                                                              \
+      gdv_fn_context_set_error_msg(context, "Could not allocate memory for output");   \
+      return "";                                                                       \
+    }                                                                                  \
+    /* generate bin representation recursively */                                      \
+    bin(value, ret, out_len);                                                          \
+    return ret;                                                                        \
+  }
+
+BIN_INTEGER(int32)
+BIN_INTEGER(int64)
+
 }  // extern "C"
