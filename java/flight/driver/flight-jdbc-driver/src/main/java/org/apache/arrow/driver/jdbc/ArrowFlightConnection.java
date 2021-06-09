@@ -40,8 +40,7 @@ import org.apache.calcite.avatica.AvaticaFactory;
  */
 public final class ArrowFlightConnection extends AvaticaConnection {
 
-  private final BufferAllocator allocator = new RootAllocator(
-      Integer.MAX_VALUE);
+  private BufferAllocator allocator;
 
   private ArrowFlightClient client;
 
@@ -51,6 +50,8 @@ public final class ArrowFlightConnection extends AvaticaConnection {
       ArrowFlightFactory factory, String url, Properties info) throws SQLException {
     super(driver, factory, url, info);
     loadClient();
+    allocator = new RootAllocator(
+        Integer.MAX_VALUE);
   }
 
   /**
