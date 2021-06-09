@@ -178,7 +178,7 @@ class PyValue {
     }
 
     return value;
-  };
+  }
 
   static Result<Decimal128> Convert(const Decimal128Type* type, const O&, I obj) {
     Decimal128 value;
