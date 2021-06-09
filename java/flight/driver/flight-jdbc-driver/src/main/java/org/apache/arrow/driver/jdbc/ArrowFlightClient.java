@@ -50,6 +50,7 @@ import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.calcite.avatica.org.apache.commons.logging.impl.Log4JLogger;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 
 /**
@@ -409,9 +410,9 @@ public final class ArrowFlightClient implements AutoCloseable {
   public void close() throws Exception {
     try {
       client.close();
-    } catch (Exception e) {
-      throw new IllegalStateException("Failed to close resource " +
-          client.getClass().getSimpleName() + ": " + e.getMessage());
+    } catch (InterruptedException e) {
+      System.out.println("[WARNING] Failed to close resource.");
+      e.printStackTrace();
     }
   }
 }
