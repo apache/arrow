@@ -57,22 +57,12 @@ jobs:
         DOCKER_IMAGE_ID: ubuntu-cpp
         # ARROW_USE_GLOG=OFF is needed to avoid build error caused by
         # glog and CMAKE_UNITY_BUILD=ON.
-        #
-        # Disable ARROW_S3 because it often causes "No output has
-        # been received in the last 10m0s, this potentially indicates
-        # a stalled build or something wrong with the build itself."
-        # on Travis CI.
-        #
-        # Limiting CPP_MAKE_PARALLELISM is required to avoid random compiler
-        # crashes.
         DOCKER_RUN_ARGS: >-
           "
           -e ARROW_BUILD_STATIC=OFF
           -e ARROW_ORC=OFF
-          -e ARROW_S3=OFF
           -e ARROW_USE_GLOG=OFF
           -e CMAKE_UNITY_BUILD=ON
-          -e CPP_MAKE_PARALLELISM=4
           "
         # The LLVM's APT repository doesn't provide arm64 binaries.
         # We should use LLVM provided by Ubuntu.
