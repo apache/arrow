@@ -53,7 +53,7 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
       addToProperties(info, args);
 
       return new ArrowFlightConnection(this, factory, url, info);
-    } catch (Throwable e) {
+    } catch (AssertionError e) {
       throw new SQLException("Failed to connect.", e);
     }
   }
