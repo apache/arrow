@@ -17,6 +17,9 @@
 
 package org.apache.arrow.driver.jdbc;
 
+import java.sql.SQLException;
+import java.util.Properties;
+
 import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.AvaticaFactory;
 import org.apache.calcite.avatica.UnregisteredDriver;
@@ -32,14 +35,6 @@ abstract class AbstractFactory implements AvaticaFactory {
   public AbstractFactory(int major, int minor) {
     this.major = major;
     this.minor = minor;
-  }
-
-  public int getMajor() {
-    return major;
-  }
-
-  public int getMinor() {
-    return minor;
   }
 
   @Override
