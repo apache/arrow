@@ -384,7 +384,7 @@ const FunctionDoc count_doc{"Count the number of null / non-null values",
                             "ScalarAggregateOptions"};
 
 const FunctionDoc sum_doc{
-    "Sum values of a numeric array",
+    "Compute the sum of a numeric array",
     ("Null values are ignored by default. Minimum count of non-null\n"
      "values can be set and null is returned if too few are present.\n"
      "This can be changed through ScalarAggregateOptions."),
