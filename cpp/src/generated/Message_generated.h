@@ -6,9 +6,9 @@
 
 #include "flatbuffers/flatbuffers.h"
 
-#include "Schema_generated.h"
-#include "SparseTensor_generated.h"
 #include "Tensor_generated.h"
+#include "SparseTensor_generated.h"
+#include "Schema_generated.h"
 
 namespace org {
 namespace apache {
@@ -179,7 +179,7 @@ bool VerifyMessageHeaderVector(flatbuffers::Verifier &verifier, const flatbuffer
 /// Metadata about a field at some level of a nested type tree (but not
 /// its children).
 ///
-/// For example, a List<Int16> with values [[1, 2, 3], null, [4], [5, 6], null]
+/// For example, a List<Int16> with values `[[1, 2, 3], null, [4], [5, 6], null]`
 /// would have {length: 5, null_count: 2} for its List node, and {length: 6,
 /// null_count: 0} for its Int16 node, as separate FieldNode structs
 FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(8) FieldNode FLATBUFFERS_FINAL_CLASS {
@@ -188,8 +188,9 @@ FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(8) FieldNode FLATBUFFERS_FINAL_CLASS {
   int64_t null_count_;
 
  public:
-  FieldNode() {
-    memset(static_cast<void *>(this), 0, sizeof(FieldNode));
+  FieldNode()
+      : length_(0),
+        null_count_(0) {
   }
   FieldNode(int64_t _length, int64_t _null_count)
       : length_(flatbuffers::EndianScalar(_length)),
@@ -248,7 +249,6 @@ struct BodyCompressionBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  BodyCompressionBuilder &operator=(const BodyCompressionBuilder &);
   flatbuffers::Offset<BodyCompression> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<BodyCompression>(end);
@@ -332,7 +332,6 @@ struct RecordBatchBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  RecordBatchBuilder &operator=(const RecordBatchBuilder &);
   flatbuffers::Offset<RecordBatch> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<RecordBatch>(end);
@@ -422,7 +421,6 @@ struct DictionaryBatchBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  DictionaryBatchBuilder &operator=(const DictionaryBatchBuilder &);
   flatbuffers::Offset<DictionaryBatch> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<DictionaryBatch>(end);
@@ -539,7 +537,6 @@ struct MessageBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  MessageBuilder &operator=(const MessageBuilder &);
   flatbuffers::Offset<Message> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Message>(end);

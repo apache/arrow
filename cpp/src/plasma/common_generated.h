@@ -15,22 +15,14 @@ struct ObjectInfoT;
 
 struct ObjectInfoT : public flatbuffers::NativeTable {
   typedef ObjectInfo TableType;
-  std::string object_id;
-  int64_t data_size;
-  int64_t metadata_size;
-  int32_t ref_count;
-  int64_t create_time;
-  int64_t construct_duration;
-  std::string digest;
-  bool is_deletion;
-  ObjectInfoT()
-      : data_size(0),
-        metadata_size(0),
-        ref_count(0),
-        create_time(0),
-        construct_duration(0),
-        is_deletion(false) {
-  }
+  std::string object_id{};
+  int64_t data_size = 0;
+  int64_t metadata_size = 0;
+  int32_t ref_count = 0;
+  int64_t create_time = 0;
+  int64_t construct_duration = 0;
+  std::string digest{};
+  bool is_deletion = false;
 };
 
 struct ObjectInfo FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
@@ -121,7 +113,6 @@ struct ObjectInfoBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  ObjectInfoBuilder &operator=(const ObjectInfoBuilder &);
   flatbuffers::Offset<ObjectInfo> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<ObjectInfo>(end);
@@ -178,7 +169,7 @@ inline flatbuffers::Offset<ObjectInfo> CreateObjectInfoDirect(
 flatbuffers::Offset<ObjectInfo> CreateObjectInfo(flatbuffers::FlatBufferBuilder &_fbb, const ObjectInfoT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
 inline ObjectInfoT *ObjectInfo::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<plasma::flatbuf::ObjectInfoT> _o = std::unique_ptr<plasma::flatbuf::ObjectInfoT>(new ObjectInfoT());
+  auto _o = std::unique_ptr<ObjectInfoT>(new ObjectInfoT());
   UnPackTo(_o.get(), _resolver);
   return _o.release();
 }

@@ -147,6 +147,10 @@ table FloatingPoint {
   precision: Precision;
 }
 
+table Complex {
+  precision: Precision;
+}
+
 /// Unicode with UTF-8 encoding
 table Utf8 {
 }
@@ -302,6 +306,7 @@ union Type {
   LargeBinary,
   LargeUtf8,
   LargeList,
+  Complex
 }
 
 /// ----------------------------------------------------------------------
