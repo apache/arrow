@@ -25,7 +25,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.Connection;
 import java.sql.DriverManager;
-import java.sql.SQLException;
 import java.util.Properties;
 
 import org.apache.arrow.driver.jdbc.ArrowFlightClient;
@@ -53,7 +52,7 @@ public class ConnectionTlsTest {
   private FlightTestUtils flightTestUtils;
 
   @Before
-  public void setUp() throws ClassNotFoundException, IOException, URISyntaxException {
+  public void setUp() throws Exception {
     flightTestUtils = new FlightTestUtils("localhost", "flight1",
             "woho1", "invalid", "wrong");
 
@@ -115,15 +114,13 @@ public class ConnectionTlsTest {
   }
 
   /**
-   * Try to instantiate an encrypt FlightClient.
+   * Try to instantiate an encrypted FlightClient.
    *
-   * @throws URISyntaxException
-   *           on error.
-   * @throws SQLException
+   * @throws Exception
    *           on error.
    */
   @Test
-  public void testGetEncryptedClient() throws SQLException, URISyntaxException {
+  public void testGetEncryptedClientAuthenticated() throws Exception {
 
     Properties properties = new Properties();
 
@@ -139,11 +136,36 @@ public class ConnectionTlsTest {
     UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(
             flightTestUtils.getUsername1(), flightTestUtils.getPassword1());
 
-    ArrowFlightClient client = ArrowFlightClient.getEncryptedClient(
-        allocator, address.getHost(), address.getPort(),
-        null, credentials.getUserName(), credentials.getPassword(),
-        properties.getProperty("keyStorePath"),
-        properties.getProperty("keyStorePass"));
+    ArrowFlightClient client = ArrowFlightClient
+        .getEncryptedClientAuthenticated(
+          allocator, address.getHost(), address.getPort(),
+          null, credentials.getUserName(), credentials.getPassword(),
+          properties.getProperty("keyStorePath"),
+          properties.getProperty("keyStorePass"));
+
+    assertNotNull(client);
+  }
+
+  /**
+   * Try to instantiate an encrypted FlightClient.
+   *
+   * @throws Exception
+   *           on error.
+   */
+  @Test
+  public void testGetEncryptedClientNoAuth() throws Exception {
+
+    Properties properties = new Properties();
+
+    properties.put("useTls", "true");
+    properties.put("keyStorePath", "src/test/resources/keys/keyStore.jks");
+    properties.put("keyStorePass", "flight");
+
+    ArrowFlightClient client = ArrowFlightClient
+        .getEncryptedClientNoAuth(
+          allocator, flightTestUtils.getLocalhost(), this.tlsServer.getPort(),
+          null, properties.getProperty("keyStorePath"),
+          properties.getProperty("keyStorePass"));
 
     assertNotNull(client);
   }
@@ -152,11 +174,11 @@ public class ConnectionTlsTest {
    * Check if an encrypted connection can be established successfully when the
    * provided valid credentials and a valid Keystore.
    *
-   * @throws SQLException
+   * @throws Exception
    *           on error.
    */
   @Test
-  public void connectTls() throws SQLException {
+  public void connectTls() throws Exception {
     Properties properties = new Properties();
 
     properties.put("user", flightTestUtils.getUsername1());
