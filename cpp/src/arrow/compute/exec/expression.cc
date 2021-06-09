@@ -24,6 +24,7 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec/expression_internal.h"
 #include "arrow/compute/exec_internal.h"
+#include "arrow/compute/function_internal.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
@@ -167,41 +168,14 @@ std::string Expression::ToString() const {
     out += arg.ToString() + ", ";
   }
 
-  if (call->options == nullptr) {
+  if (call->options) {
+    out += call->options->ToString();
+    out.resize(out.size() + 1);
+  } else {
     out.resize(out.size() - 1);
-    out.back() = ')';
-    return out;
   }
-
-  if (auto options = GetSetLookupOptions(*call)) {
-    DCHECK_EQ(options->value_set.kind(), Datum::ARRAY);
-    out += "value_set=" + options->value_set.make_array()->ToString();
-    if (options->skip_nulls) {
-      out += ", skip_nulls";
-    }
-    return out + ")";
-  }
-
-  if (auto options = GetCastOptions(*call)) {
-    if (options->to_type == nullptr) {
-      return out + "to_type=<INVALID NOT PROVIDED>)";
-    }
-    out += "to_type=" + options->to_type->ToString();
-    if (options->allow_int_overflow) out += ", allow_int_overflow";
-    if (options->allow_time_truncate) out += ", allow_time_truncate";
-    if (options->allow_time_overflow) out += ", allow_time_overflow";
-    if (options->allow_decimal_truncate) out += ", allow_decimal_truncate";
-    if (options->allow_float_truncate) out += ", allow_float_truncate";
-    if (options->allow_invalid_utf8) out += ", allow_invalid_utf8";
-    return out + ")";
-  }
-
-  if (auto options = GetStrptimeOptions(*call)) {
-    return out + "format=" + options->format +
-           ", unit=" + arrow::internal::ToString(options->unit) + ")";
-  }
-
-  return out + "{NON-REPRESENTABLE OPTIONS})";
+  out.back() = ')';
+  return out;
 }
 
 void PrintTo(const Expression& expr, std::ostream* os) {
@@ -241,41 +215,9 @@ bool Expression::Equals(const Expression& other) const {
   }
 
   if (call->options == other_call->options) return true;
-
-  if (auto options = GetSetLookupOptions(*call)) {
-    auto other_options = GetSetLookupOptions(*other_call);
-    return options->value_set == other_options->value_set &&
-           options->skip_nulls == other_options->skip_nulls;
+  if (call->options && other_call->options) {
+    return call->options->Equals(other_call->options);
   }
-
-  if (auto options = GetCastOptions(*call)) {
-    auto other_options = GetCastOptions(*other_call);
-    for (auto safety_opt : {
-             &compute::CastOptions::allow_int_overflow,
-             &compute::CastOptions::allow_time_truncate,
-             &compute::CastOptions::allow_time_overflow,
-             &compute::CastOptions::allow_decimal_truncate,
-             &compute::CastOptions::allow_float_truncate,
-             &compute::CastOptions::allow_invalid_utf8,
-         }) {
-      if (options->*safety_opt != other_options->*safety_opt) return false;
-    }
-    return options->to_type->Equals(other_options->to_type);
-  }
-
-  if (auto options = GetProjectOptions(*call)) {
-    auto other_options = GetProjectOptions(*other_call);
-    return options->field_names == other_options->field_names;
-  }
-
-  if (auto options = GetStrptimeOptions(*call)) {
-    auto other_options = GetStrptimeOptions(*other_call);
-    return options->format == other_options->format &&
-           options->unit == other_options->unit;
-  }
-
-  ARROW_LOG(WARNING) << "comparing unknown FunctionOptions for function "
-                     << call->function_name;
   return false;
 }
 
@@ -992,92 +934,6 @@ Result<Expression> SimplifyWithGuarantee(Expression expr,
   return expr;
 }
 
-namespace {
-
-Result<std::shared_ptr<StructScalar>> FunctionOptionsToStructScalar(
-    const Expression::Call& call) {
-  if (call.options == nullptr) {
-    return nullptr;
-  }
-
-  if (auto options = GetSetLookupOptions(call)) {
-    if (!options->value_set.is_array()) {
-      return Status::NotImplemented("chunked value_set");
-    }
-    return StructScalar::Make(
-        {
-            std::make_shared<ListScalar>(options->value_set.make_array()),
-            MakeScalar(options->skip_nulls),
-        },
-        {"value_set", "skip_nulls"});
-  }
-
-  if (auto options = GetCastOptions(call)) {
-    return StructScalar::Make(
-        {
-            MakeNullScalar(options->to_type),
-            MakeScalar(options->allow_int_overflow),
-            MakeScalar(options->allow_time_truncate),
-            MakeScalar(options->allow_time_overflow),
-            MakeScalar(options->allow_decimal_truncate),
-            MakeScalar(options->allow_float_truncate),
-            MakeScalar(options->allow_invalid_utf8),
-        },
-        {
-            "to_type_holder",
-            "allow_int_overflow",
-            "allow_time_truncate",
-            "allow_time_overflow",
-            "allow_decimal_truncate",
-            "allow_float_truncate",
-            "allow_invalid_utf8",
-        });
-  }
-
-  return Status::NotImplemented("conversion of options for ", call.function_name);
-}
-
-Status FunctionOptionsFromStructScalar(const StructScalar* repr, Expression::Call* call) {
-  if (repr == nullptr) {
-    call->options = nullptr;
-    return Status::OK();
-  }
-
-  if (IsSetLookup(call->function_name)) {
-    ARROW_ASSIGN_OR_RAISE(auto value_set, repr->field("value_set"));
-    ARROW_ASSIGN_OR_RAISE(auto skip_nulls, repr->field("skip_nulls"));
-    call->options = std::make_shared<compute::SetLookupOptions>(
-        checked_cast<const ListScalar&>(*value_set).value,
-        checked_cast<const BooleanScalar&>(*skip_nulls).value);
-    return Status::OK();
-  }
-
-  if (call->function_name == "cast") {
-    auto options = std::make_shared<compute::CastOptions>();
-    ARROW_ASSIGN_OR_RAISE(auto to_type_holder, repr->field("to_type_holder"));
-    options->to_type = to_type_holder->type;
-
-    int i = 1;
-    for (bool* opt : {
-             &options->allow_int_overflow,
-             &options->allow_time_truncate,
-             &options->allow_time_overflow,
-             &options->allow_decimal_truncate,
-             &options->allow_float_truncate,
-             &options->allow_invalid_utf8,
-         }) {
-      *opt = checked_cast<const BooleanScalar&>(*repr->value[i++]).value;
-    }
-
-    call->options = std::move(options);
-    return Status::OK();
-  }
-
-  return Status::NotImplemented("conversion of options for ", call->function_name);
-}
-
-}  // namespace
-
 // Serialization is accomplished by converting expressions to KeyValueMetadata and storing
 // this in the schema of a RecordBatch. Embedded arrays and scalars are stored in its
 // columns. Finally, the RecordBatch is written to an IPC file.
@@ -1119,7 +975,8 @@ Result<std::shared_ptr<Buffer>> Serialize(const Expression& expr) {
       }
 
       if (call->options) {
-        ARROW_ASSIGN_OR_RAISE(auto options_scalar, FunctionOptionsToStructScalar(*call));
+        ARROW_ASSIGN_OR_RAISE(auto options_scalar,
+                              internal::FunctionOptionsToStructScalar(*call->options));
         ARROW_ASSIGN_OR_RAISE(auto value, AddScalar(*options_scalar));
         metadata_->Append("options", std::move(value));
       }
@@ -1204,10 +1061,13 @@ Result<Expression> Deserialize(std::shared_ptr<Buffer> buffer) {
       while (metadata().key(index_) != "end") {
         if (metadata().key(index_) == "options") {
           ARROW_ASSIGN_OR_RAISE(auto options_scalar, GetScalar(metadata().value(index_)));
-          auto expr = call(value, std::move(arguments));
-          RETURN_NOT_OK(FunctionOptionsFromStructScalar(
-              checked_cast<const StructScalar*>(options_scalar.get()),
-              const_cast<Expression::Call*>(expr.call())));
+          std::shared_ptr<compute::FunctionOptions> options;
+          if (options_scalar) {
+            ARROW_ASSIGN_OR_RAISE(
+                options, internal::FunctionOptionsFromStructScalar(
+                             checked_cast<const StructScalar&>(*options_scalar)));
+          }
+          auto expr = call(value, std::move(arguments), std::move(options));
           index_ += 2;
           return expr;
         }

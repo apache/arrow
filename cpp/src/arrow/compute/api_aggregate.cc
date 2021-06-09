@@ -18,9 +18,103 @@
 #include "arrow/compute/api_aggregate.h"
 
 #include "arrow/compute/exec.h"
+#include "arrow/compute/function_internal.h"
+#include "arrow/compute/registry.h"
+#include "arrow/compute/util_internal.h"
+#include "arrow/util/checked_cast.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace compute {
+
+// ----------------------------------------------------------------------
+// Function options
+
+using ::arrow::internal::checked_cast;
+
+namespace internal {
+template <>
+struct EnumTraits<QuantileOptions::Interpolation>
+    : BasicEnumTraits<QuantileOptions::Interpolation> {
+  static std::string name() { return "QuantileOptions::Interpolation"; }
+  static std::array<QuantileOptions::Interpolation, 5> values() {
+    return {
+        QuantileOptions::LINEAR,  QuantileOptions::LOWER,    QuantileOptions::HIGHER,
+        QuantileOptions::NEAREST, QuantileOptions::MIDPOINT,
+    };
+  }
+};
+namespace {
+using ::arrow::internal::DataMember;
+static auto kScalarAggregateOptionsType = GetFunctionOptionsType<ScalarAggregateOptions>(
+    DataMember("skip_nulls", &ScalarAggregateOptions::skip_nulls),
+    DataMember("min_count", &ScalarAggregateOptions::min_count));
+static auto kModeOptionsType =
+    GetFunctionOptionsType<ModeOptions>(DataMember("n", &ModeOptions::n));
+static auto kVarianceOptionsType =
+    GetFunctionOptionsType<VarianceOptions>(DataMember("ddof", &VarianceOptions::ddof));
+static auto kQuantileOptionsType = GetFunctionOptionsType<QuantileOptions>(
+    DataMember("q", &QuantileOptions::q),
+    DataMember("interpolation", &QuantileOptions::interpolation));
+static auto kTDigestOptionsType = GetFunctionOptionsType<TDigestOptions>(
+    DataMember("q", &TDigestOptions::q), DataMember("delta", &TDigestOptions::delta),
+    DataMember("buffer_size", &TDigestOptions::buffer_size));
+static auto kIndexOptionsType =
+    GetFunctionOptionsType<IndexOptions>(DataMember("value", &IndexOptions::value));
+}  // namespace
+}  // namespace internal
+
+ScalarAggregateOptions::ScalarAggregateOptions(bool skip_nulls, uint32_t min_count)
+    : FunctionOptions(internal::kScalarAggregateOptionsType),
+      skip_nulls(skip_nulls),
+      min_count(min_count) {}
+constexpr char ScalarAggregateOptions::kTypeName[];
+
+ModeOptions::ModeOptions(int64_t n) : FunctionOptions(internal::kModeOptionsType), n(n) {}
+constexpr char ModeOptions::kTypeName[];
+
+VarianceOptions::VarianceOptions(int ddof)
+    : FunctionOptions(internal::kVarianceOptionsType), ddof(ddof) {}
+constexpr char VarianceOptions::kTypeName[];
+
+QuantileOptions::QuantileOptions(double q, enum Interpolation interpolation)
+    : FunctionOptions(internal::kQuantileOptionsType),
+      q{q},
+      interpolation{interpolation} {}
+QuantileOptions::QuantileOptions(std::vector<double> q, enum Interpolation interpolation)
+    : FunctionOptions(internal::kQuantileOptionsType),
+      q{std::move(q)},
+      interpolation{interpolation} {}
+constexpr char QuantileOptions::kTypeName[];
+
+TDigestOptions::TDigestOptions(double q, uint32_t delta, uint32_t buffer_size)
+    : FunctionOptions(internal::kTDigestOptionsType),
+      q{q},
+      delta{delta},
+      buffer_size{buffer_size} {}
+TDigestOptions::TDigestOptions(std::vector<double> q, uint32_t delta,
+                               uint32_t buffer_size)
+    : FunctionOptions(internal::kTDigestOptionsType),
+      q{std::move(q)},
+      delta{delta},
+      buffer_size{buffer_size} {}
+constexpr char TDigestOptions::kTypeName[];
+
+IndexOptions::IndexOptions(std::shared_ptr<Scalar> value)
+    : FunctionOptions(internal::kIndexOptionsType), value{std::move(value)} {}
+IndexOptions::IndexOptions() : IndexOptions(std::make_shared<NullScalar>()) {}
+constexpr char IndexOptions::kTypeName[];
+
+namespace internal {
+void RegisterAggregateOptions(FunctionRegistry* registry) {
+  DCHECK_OK(registry->AddFunctionOptionsType(kScalarAggregateOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kModeOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kVarianceOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kQuantileOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kTDigestOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kIndexOptionsType));
+}
+}  // namespace internal
 
 // ----------------------------------------------------------------------
 // Scalar aggregates

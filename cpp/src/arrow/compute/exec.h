@@ -44,7 +44,7 @@ class CpuInfo;
 
 namespace compute {
 
-struct FunctionOptions;
+class FunctionOptions;
 class FunctionRegistry;
 
 // It seems like 64K might be a good default chunksize to use for execution

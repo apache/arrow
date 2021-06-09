@@ -27,6 +27,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/compute/exec/expression_internal.h"
+#include "arrow/compute/function_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/testing/gtest_util.h"
 
@@ -184,17 +185,43 @@ TEST(Expression, ToString) {
   auto in_12 = call("index_in", {field_ref("beta")},
                     compute::SetLookupOptions{ArrayFromJSON(int32(), "[1,2]")});
 
-  EXPECT_EQ(in_12.ToString(), "index_in(beta, value_set=[\n  1,\n  2\n])");
+  EXPECT_EQ(in_12.ToString(),
+            "index_in(beta, {value_set=int32:[\n  1,\n  2\n], skip_nulls=false})");
 
   EXPECT_EQ(and_(field_ref("a"), field_ref("b")).ToString(), "(a and b)");
   EXPECT_EQ(or_(field_ref("a"), field_ref("b")).ToString(), "(a or b)");
   EXPECT_EQ(not_(field_ref("a")).ToString(), "invert(a)");
 
-  EXPECT_EQ(cast(field_ref("a"), int32()).ToString(), "cast(a, to_type=int32)");
-  EXPECT_EQ(cast(field_ref("a"), nullptr).ToString(),
-            "cast(a, to_type=<INVALID NOT PROVIDED>)");
+  EXPECT_EQ(
+      cast(field_ref("a"), int32()).ToString(),
+      "cast(a, {to_type=int32, allow_int_overflow=false, allow_time_truncate=false, "
+      "allow_time_overflow=false, allow_decimal_truncate=false, "
+      "allow_float_truncate=false, allow_invalid_utf8=false})");
+  EXPECT_EQ(
+      cast(field_ref("a"), nullptr).ToString(),
+      "cast(a, {to_type=<NULLPTR>, allow_int_overflow=false, allow_time_truncate=false, "
+      "allow_time_overflow=false, allow_decimal_truncate=false, "
+      "allow_float_truncate=false, allow_invalid_utf8=false})");
 
-  struct WidgetifyOptions : compute::FunctionOptions {
+  class WidgetifyOptionsType : public FunctionOptionsType {
+   public:
+    static const FunctionOptionsType* GetInstance() {
+      static std::unique_ptr<FunctionOptionsType> instance(new WidgetifyOptionsType());
+      return instance.get();
+    }
+    const char* type_name() const override { return "widgetify"; }
+    std::string Stringify(const FunctionOptions& options) const override {
+      return type_name();
+    }
+    bool Compare(const FunctionOptions& options,
+                 const FunctionOptions& other) const override {
+      return true;
+    }
+  };
+  class WidgetifyOptions : public compute::FunctionOptions {
+   public:
+    explicit WidgetifyOptions(bool really = true)
+        : FunctionOptions(WidgetifyOptionsType::GetInstance()), really(really) {}
     bool really;
   };
 
@@ -202,7 +229,7 @@ TEST(Expression, ToString) {
   EXPECT_EQ(call("widgetify", {}).ToString(), "widgetif)");
   EXPECT_EQ(
       call("widgetify", {literal(1)}, std::make_shared<WidgetifyOptions>()).ToString(),
-      "widgetify(1, {NON-REPRESENTABLE OPTIONS})");
+      "widgetify(1, widgetify)");
 
   EXPECT_EQ(equal(field_ref("a"), literal(1)).ToString(), "(a == 1)");
   EXPECT_EQ(less(field_ref("a"), literal(2)).ToString(), "(a < 2)");

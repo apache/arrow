@@ -99,6 +99,11 @@ struct PropertyTuple {
     ForEachTupleMember(props_, fn);
   }
 
+  template <template <typename...> class T, typename... Args>
+  struct Apply {
+    typedef T<Args..., Properties...> type;
+  };
+
   static_assert(all_same<typename Properties::Class...>::value,
                 "All properties must be properties of the same class");
 
