@@ -54,7 +54,7 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
 
       return new ArrowFlightConnection(this, factory, url, info);
     } catch (Throwable e) {
-      throw new SQLException("Failed to connect: " + e.getMessage());
+      throw new SQLException("Failed to connect.", e);
     }
   }
 
