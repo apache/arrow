@@ -32,20 +32,22 @@ from pyarrow._compute import (  # noqa
     ArraySortOptions,
     CastOptions,
     DictionaryEncodeOptions,
+    ElementWiseAggregateOptions,
     ExtractRegexOptions,
     FilterOptions,
     IndexOptions,
     MatchSubstringOptions,
     ModeOptions,
-    ScalarAggregateOptions,
-    SplitOptions,
-    SplitPatternOptions,
     PartitionNthOptions,
     ProjectOptions,
     QuantileOptions,
     ReplaceSubstringOptions,
+    ScalarAggregateOptions,
     SetLookupOptions,
+    SliceOptions,
     SortOptions,
+    SplitOptions,
+    SplitPatternOptions,
     StrptimeOptions,
     TakeOptions,
     TDigestOptions,
@@ -289,6 +291,25 @@ def cast(arr, target_type, safe=True):
     return call_function("cast", [arr], options)
 
 
+def count_substring(array, pattern):
+    """
+    Count the occurrences of substring *pattern* in each value of a
+    string array.
+
+    Parameters
+    ----------
+    array : pyarrow.Array or pyarrow.ChunkedArray
+    pattern : str
+        pattern to search for exact matches
+
+    Returns
+    -------
+    result : pyarrow.Array or pyarrow.ChunkedArray
+    """
+    return call_function("count_substring", [array],
+                         MatchSubstringOptions(pattern))
+
+
 def find_substring(array, pattern):
     """
     Find the index of the first occurrence of substring *pattern* in each
@@ -308,7 +329,7 @@ def find_substring(array, pattern):
                          MatchSubstringOptions(pattern))
 
 
-def match_like(array, pattern):
+def match_like(array, pattern, *, ignore_case=False):
     """
     Test if the SQL-style LIKE pattern *pattern* matches a value of a
     string array.
@@ -321,6 +342,8 @@ def match_like(array, pattern):
         characters, '_' will match exactly one character, and all
         other characters match themselves. To match a literal percent
         sign or underscore, precede the character with a backslash.
+    ignore_case : bool, default False
+        Ignore case while searching.
 
     Returns
     -------
@@ -328,10 +351,10 @@ def match_like(array, pattern):
 
     """
     return call_function("match_like", [array],
-                         MatchSubstringOptions(pattern))
+                         MatchSubstringOptions(pattern, ignore_case))
 
 
-def match_substring(array, pattern):
+def match_substring(array, pattern, *, ignore_case=False):
     """
     Test if substring *pattern* is contained within a value of a string array.
 
@@ -340,16 +363,18 @@ def match_substring(array, pattern):
     array : pyarrow.Array or pyarrow.ChunkedArray
     pattern : str
         pattern to search for exact matches
+    ignore_case : bool, default False
+        Ignore case while searching.
 
     Returns
     -------
     result : pyarrow.Array or pyarrow.ChunkedArray
     """
     return call_function("match_substring", [array],
-                         MatchSubstringOptions(pattern))
+                         MatchSubstringOptions(pattern, ignore_case))
 
 
-def match_substring_regex(array, pattern):
+def match_substring_regex(array, pattern, *, ignore_case=False):
     """
     Test if regex *pattern* matches at any position a value of a string array.
 
@@ -358,28 +383,15 @@ def match_substring_regex(array, pattern):
     array : pyarrow.Array or pyarrow.ChunkedArray
     pattern : str
         regex pattern to search
+    ignore_case : bool, default False
+        Ignore case while searching.
 
     Returns
     -------
     result : pyarrow.Array or pyarrow.ChunkedArray
     """
     return call_function("match_substring_regex", [array],
-                         MatchSubstringOptions(pattern))
-
-
-def sum(array):
-    """
-    Sum the values in a numerical (chunked) array.
-
-    Parameters
-    ----------
-    array : pyarrow.Array or pyarrow.ChunkedArray
-
-    Returns
-    -------
-    sum : pyarrow.Scalar
-    """
-    return call_function('sum', [array])
+                         MatchSubstringOptions(pattern, ignore_case))
 
 
 def mode(array, n=1):

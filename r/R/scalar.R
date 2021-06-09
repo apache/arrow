@@ -36,7 +36,7 @@
 #'
 #' @name Scalar
 #' @rdname Scalar
-#' @examples 
+#' @examplesIf arrow_available()
 #' Scalar$create(pi)
 #' Scalar$create(404)
 #' # If you pass a vector into Scalar$create, you get a list containing your items
@@ -56,6 +56,7 @@ Scalar <- R6Class("Scalar",
   # TODO: document the methods
   public = list(
     ToString = function() Scalar__ToString(self),
+    type_id = function() Scalar__type(self)$id,
     as_vector = function() Scalar__as_vector(self),
     as_array = function() MakeArrayFromScalar(self),
     Equals = function(other, ...) {

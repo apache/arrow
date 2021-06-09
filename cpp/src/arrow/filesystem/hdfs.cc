@@ -471,12 +471,12 @@ Result<std::shared_ptr<io::RandomAccessFile>> HadoopFileSystem::OpenInputFile(
 }
 
 Result<std::shared_ptr<io::OutputStream>> HadoopFileSystem::OpenOutputStream(
-    const std::string& path) {
+    const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
   return impl_->OpenOutputStream(path);
 }
 
 Result<std::shared_ptr<io::OutputStream>> HadoopFileSystem::OpenAppendStream(
-    const std::string& path) {
+    const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
   return impl_->OpenAppendStream(path);
 }
 

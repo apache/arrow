@@ -22,7 +22,6 @@
 #include <arrow/csv/reader.h>
 #include <arrow/csv/writer.h>
 #include <arrow/memory_pool.h>
-
 #include <arrow/util/value_parsing.h>
 
 // [[arrow::export]]

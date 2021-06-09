@@ -220,7 +220,12 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
 
   if (func_name == "match_substring" || func_name == "match_substring_regex") {
     using Options = arrow::compute::MatchSubstringOptions;
-    return std::make_shared<Options>(cpp11::as_cpp<std::string>(options["pattern"]));
+    bool ignore_case = false;
+    if (!Rf_isNull(options["ignore_case"])) {
+      ignore_case = cpp11::as_cpp<bool>(options["ignore_case"]);
+    }
+    return std::make_shared<Options>(cpp11::as_cpp<std::string>(options["pattern"]),
+                                     ignore_case);
   }
 
   if (func_name == "replace_substring" || func_name == "replace_substring_regex") {
@@ -232,6 +237,13 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     return std::make_shared<Options>(cpp11::as_cpp<std::string>(options["pattern"]),
                                      cpp11::as_cpp<std::string>(options["replacement"]),
                                      max_replacements);
+  }
+
+  if (func_name == "strptime") {
+    using Options = arrow::compute::StrptimeOptions;
+    return std::make_shared<Options>(
+        cpp11::as_cpp<std::string>(options["format"]),
+        cpp11::as_cpp<arrow::TimeUnit::type>(options["unit"]));
   }
 
   if (func_name == "split_pattern" || func_name == "split_pattern_regex") {

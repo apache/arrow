@@ -62,6 +62,9 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       UNARY_SAFE_NULL_NEVER_BOOL_FN(isnull, {}),
       UNARY_SAFE_NULL_NEVER_BOOL_FN(isnotnull, {}),
 
+      NativeFunction("ascii", {}, DataTypeVector{utf8()}, int32(), kResultNullIfNull,
+                     "ascii_utf8"),
+
       NativeFunction("upper", {}, DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
                      "gdv_fn_upper_utf8", NativeFunction::kNeedsContext),
 
@@ -124,6 +127,10 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      kResultNullIfNull, "gdv_fn_like_utf8_utf8",
                      NativeFunction::kNeedsFunctionHolder),
 
+      NativeFunction("like", {}, DataTypeVector{utf8(), utf8(), utf8()}, boolean(),
+                     kResultNullIfNull, "gdv_fn_like_utf8_utf8_utf8",
+                     NativeFunction::kNeedsFunctionHolder),
+
       NativeFunction("ltrim", {}, DataTypeVector{utf8(), utf8()}, utf8(),
                      kResultNullIfNull, "ltrim_utf8_utf8", NativeFunction::kNeedsContext),
 
@@ -141,6 +148,20 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       NativeFunction("substr", {"substring"}, DataTypeVector{utf8(), int64() /*offset*/},
                      utf8(), kResultNullIfNull, "substr_utf8_int64",
                      NativeFunction::kNeedsContext),
+
+      NativeFunction("lpad", {}, DataTypeVector{utf8(), int32(), utf8()}, utf8(),
+                     kResultNullIfNull, "lpad_utf8_int32_utf8",
+                     NativeFunction::kNeedsContext),
+
+      NativeFunction("lpad", {}, DataTypeVector{utf8(), int32()}, utf8(),
+                     kResultNullIfNull, "lpad_utf8_int32", NativeFunction::kNeedsContext),
+
+      NativeFunction("rpad", {}, DataTypeVector{utf8(), int32(), utf8()}, utf8(),
+                     kResultNullIfNull, "rpad_utf8_int32_utf8",
+                     NativeFunction::kNeedsContext),
+
+      NativeFunction("rpad", {}, DataTypeVector{utf8(), int32()}, utf8(),
+                     kResultNullIfNull, "rpad_utf8_int32", NativeFunction::kNeedsContext),
 
       NativeFunction("concatOperator", {}, DataTypeVector{utf8(), utf8()}, utf8(),
                      kResultNullIfNull, "concatOperator_utf8_utf8",
@@ -304,6 +325,13 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
 
       NativeFunction("binary_string", {}, DataTypeVector{utf8()}, binary(),
                      kResultNullIfNull, "binary_string", NativeFunction::kNeedsContext),
+
+      NativeFunction("left", {}, DataTypeVector{utf8(), int32()}, utf8(),
+                     kResultNullIfNull, "left_utf8_int32", NativeFunction::kNeedsContext),
+
+      NativeFunction("right", {}, DataTypeVector{utf8(), int32()}, utf8(),
+                     kResultNullIfNull, "right_utf8_int32",
+                     NativeFunction::kNeedsContext),
 
       NativeFunction("split_part", {}, DataTypeVector{utf8(), utf8(), int32()}, utf8(),
                      kResultNullIfNull, "split_part",

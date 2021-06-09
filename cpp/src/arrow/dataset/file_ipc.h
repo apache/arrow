@@ -63,7 +63,7 @@ class ARROW_DS_EXPORT IpcFileFormat : public FileFormat {
 
   Future<util::optional<int64_t>> CountRows(
       const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
-      std::shared_ptr<ScanOptions> options) override;
+      const std::shared_ptr<ScanOptions>& options) override;
 
   Result<std::shared_ptr<FileWriter>> MakeWriter(
       std::shared_ptr<io::OutputStream> destination, std::shared_ptr<Schema> schema,

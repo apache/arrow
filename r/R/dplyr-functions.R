@@ -57,6 +57,30 @@ nse_funcs$cast <- function(x, target_type, safe = TRUE, ...) {
   Expression$create("cast", x, options = opts)
 }
 
+nse_funcs$is <- function(object, class2) {
+  if (is.string(class2)) {
+    switch(class2,
+      # for R data types, pass off to is.*() functions
+      character = nse_funcs$is.character(object),
+      numeric = nse_funcs$is.numeric(object),
+      integer = nse_funcs$is.integer(object),
+      integer64 = nse_funcs$is.integer64(object),
+      logical = nse_funcs$is.logical(object),
+      factor = nse_funcs$is.factor(object),
+      list = nse_funcs$is.list(object),
+      # for Arrow data types, compare class2 with object$type()$ToString(),
+      # but first strip off any parameters to only compare the top-level data
+      # type,  and canonicalize class2
+      sub("^([^([<]+).*$", "\\1", object$type()$ToString()) ==
+        canonical_type_str(class2)
+    )
+  } else if (inherits(class2, "DataType")) {
+    object$type() == as_type(class2)
+  } else {
+    stop("Second argument to is() is not a string or DataType", call. = FALSE)
+  }
+}
+
 nse_funcs$dictionary_encode <- function(x,
                                         null_encoding_behavior = c("mask", "encode")) {
   behavior <- toupper(match.arg(null_encoding_behavior))
@@ -121,6 +145,57 @@ nse_funcs$as.numeric <- function(x) {
   Expression$create("cast", x, options = cast_options(to_type = float64()))
 }
 
+# is.* type functions
+nse_funcs$is.character <- function(x) {
+  x$type_id() %in% Type[c("STRING", "LARGE_STRING")]
+}
+nse_funcs$is.numeric <- function(x) {
+  x$type_id() %in% Type[c("UINT8", "INT8", "UINT16", "INT16", "UINT32", "INT32",
+                          "UINT64", "INT64", "HALF_FLOAT", "FLOAT", "DOUBLE",
+                          "DECIMAL", "DECIMAL256")]
+}
+nse_funcs$is.double <- function(x) {
+  x$type_id() == Type["DOUBLE"]
+}
+nse_funcs$is.integer <- function(x) {
+  x$type_id() %in% Type[c("UINT8", "INT8", "UINT16", "INT16", "UINT32", "INT32",
+                          "UINT64", "INT64")]
+}
+nse_funcs$is.integer64 <- function(x) {
+  x$type_id() == Type["INT64"]
+}
+nse_funcs$is.logical <- function(x) {
+  x$type_id() == Type["BOOL"]
+}
+nse_funcs$is.factor <- function(x) {
+  x$type_id() == Type["DICTIONARY"]
+}
+nse_funcs$is.list <- function(x) {
+  x$type_id() %in% Type[c("LIST", "FIXED_SIZE_LIST", "LARGE_LIST")]
+}
+
+# rlang::is_* type functions
+nse_funcs$is_character <- function(x, n = NULL) {
+  assert_that(is.null(n))
+  nse_funcs$is.character(x)
+}
+nse_funcs$is_double <- function(x, n = NULL, finite = NULL) {
+  assert_that(is.null(n) && is.null(finite))
+  nse_funcs$is.double(x)
+}
+nse_funcs$is_integer <- function(x, n = NULL) {
+  assert_that(is.null(n))
+  nse_funcs$is.integer(x)
+}
+nse_funcs$is_list <- function(x, n = NULL) {
+  assert_that(is.null(n))
+  nse_funcs$is.list(x)
+}
+nse_funcs$is_logical <- function(x, n = NULL) {
+  assert_that(is.null(n))
+  nse_funcs$is.logical(x)
+}
+
 # String functions
 nse_funcs$nchar <- function(x, type = "chars", allowNA = FALSE, keepNA = NA) {
   if (allowNA) {
@@ -151,11 +226,11 @@ nse_funcs$str_trim <- function(string, side = c("both", "left", "right")) {
 }
 
 nse_funcs$grepl <- function(pattern, x, ignore.case = FALSE, fixed = FALSE) {
-  arrow_fun <- ifelse(fixed && !ignore.case, "match_substring", "match_substring_regex")
+  arrow_fun <- ifelse(fixed, "match_substring", "match_substring_regex")
   Expression$create(
     arrow_fun,
     x,
-    options = list(pattern = format_string_pattern(pattern, ignore.case, fixed))
+    options = list(pattern = pattern, ignore_case = ignore.case)
   )
 }
 
@@ -349,4 +424,21 @@ get_stringr_pattern_options <- function(pattern) {
 #' @return Logical: does `string` contain regex metacharacters?
 contains_regex <- function(string) {
   grepl("[.\\|()[{^$*+?]", string)
+}
+
+nse_funcs$strptime <- function(x, format = "%Y-%m-%d %H:%M:%S", tz = NULL, unit = "ms") {
+  # Arrow uses unit for time parsing, strptime() does not.
+  # Arrow has no default option for strptime (format, unit),
+  # we suggest following format = "%Y-%m-%d %H:%M:%S", unit = MILLI/1L/"ms",
+  # (ARROW-12809)
+
+  # ParseTimestampStrptime currently ignores the timezone information (ARROW-12820).
+  # Stop if tz is provided.
+  if (is.character(tz)) {
+    arrow_not_supported("Time zone argument")
+  }
+
+  unit <- make_valid_time_unit(unit, c(valid_time64_units, valid_time32_units))
+
+  Expression$create("strptime", x, options = list(format = format, unit = unit))
 }

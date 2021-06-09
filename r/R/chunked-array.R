@@ -57,7 +57,7 @@
 #' @rdname ChunkedArray
 #' @name ChunkedArray
 #' @seealso [Array]
-#' @examples
+#' @examplesIf arrow_available()
 #' # Pass items into chunked_array as separate objects to create chunks
 #' class_scores <- chunked_array(c(87, 88, 89), c(94, 93, 92), c(71, 72, 73))
 #' class_scores$num_chunks
@@ -80,6 +80,7 @@
 ChunkedArray <- R6Class("ChunkedArray", inherit = ArrowDatum,
   public = list(
     length = function() ChunkedArray__length(self),
+    type_id = function() ChunkedArray__type(self)$id,
     chunk = function(i) Array$create(ChunkedArray__chunk(self, i)),
     as_vector = function() ChunkedArray__as_vector(self),
     Slice = function(offset, length = NULL){

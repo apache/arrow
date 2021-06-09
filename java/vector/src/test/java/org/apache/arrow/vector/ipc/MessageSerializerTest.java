@@ -22,6 +22,7 @@ import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -29,6 +30,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.Channels;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -72,8 +74,8 @@ public class MessageSerializerTest {
   @Test
   public void testIntToBytes() {
     byte[] bytes = new byte[4];
-    int[] values = new int[] {1, 15, 1 << 8, 1 << 16, Integer.MAX_VALUE};
-    for (int v: values) {
+    int[] values = new int[]{1, 15, 1 << 8, 1 << 16, Integer.MAX_VALUE};
+    for (int v : values) {
       assertEquals(intToByteRoundtrip(v, bytes), v);
     }
   }
@@ -157,9 +159,9 @@ public class MessageSerializerTest {
 
   @Test
   public void testSerializeRecordBatchV4() throws IOException {
-    byte[] validity = new byte[] {(byte) 255, 0};
+    byte[] validity = new byte[]{(byte) 255, 0};
     // second half is "undefined"
-    byte[] values = new byte[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+    byte[] values = new byte[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
 
     BufferAllocator alloc = new RootAllocator(Long.MAX_VALUE);
     ArrowBuf validityb = buf(alloc, validity);
@@ -181,10 +183,10 @@ public class MessageSerializerTest {
   }
 
   @Test
-  public void testSerializeRecordBatchV5() throws IOException {
-    byte[] validity = new byte[] {(byte) 255, 0};
+  public void testSerializeRecordBatchV5() throws Exception {
+    byte[] validity = new byte[]{(byte) 255, 0};
     // second half is "undefined"
-    byte[] values = new byte[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+    byte[] values = new byte[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
 
     BufferAllocator alloc = new RootAllocator(Long.MAX_VALUE);
     ArrowBuf validityb = buf(alloc, validity);
@@ -197,12 +199,30 @@ public class MessageSerializerTest {
     IpcOption option = new IpcOption(false, MetadataVersion.V5);
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     MessageSerializer.serialize(new WriteChannel(Channels.newChannel(out)), batch, option);
+    validityb.close();
+    valuesb.close();
+    batch.close();
 
-    ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
-    ReadChannel channel = new ReadChannel(Channels.newChannel(in));
-    ArrowMessage deserialized = MessageSerializer.deserializeMessageBatch(channel, alloc);
-    assertEquals(ArrowRecordBatch.class, deserialized.getClass());
-    verifyBatch((ArrowRecordBatch) deserialized, validity, values);
+    {
+      ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
+      ReadChannel channel = new ReadChannel(Channels.newChannel(in));
+      ArrowMessage deserialized = MessageSerializer.deserializeMessageBatch(channel, alloc);
+      assertEquals(ArrowRecordBatch.class, deserialized.getClass());
+      verifyBatch((ArrowRecordBatch) deserialized, validity, values);
+      deserialized.close();
+    }
+
+    {
+      byte[] validBytes = out.toByteArray();
+      byte[] missingBytes = Arrays.copyOfRange(validBytes, /*from=*/0, validBytes.length - 1);
+
+      ByteArrayInputStream in = new ByteArrayInputStream(missingBytes);
+      ReadChannel channel = new ReadChannel(Channels.newChannel(in));
+
+      assertThrows(IOException.class, () -> MessageSerializer.deserializeMessageBatch(channel, alloc));
+    }
+
+    alloc.close();
   }
 
   public static Schema testSchema() {

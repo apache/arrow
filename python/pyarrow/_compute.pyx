@@ -650,6 +650,23 @@ class CastOptions(_CastOptions):
         return self
 
 
+cdef class _ElementWiseAggregateOptions(FunctionOptions):
+    cdef:
+        unique_ptr[CElementWiseAggregateOptions] element_wise_aggregate_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.element_wise_aggregate_options.get()
+
+    def _set_options(self, bint skip_nulls):
+        self.element_wise_aggregate_options.reset(
+            new CElementWiseAggregateOptions(skip_nulls))
+
+
+class ElementWiseAggregateOptions(_ElementWiseAggregateOptions):
+    def __init__(self, bint skip_nulls=True):
+        self._set_options(skip_nulls)
+
+
 cdef class _MatchSubstringOptions(FunctionOptions):
     cdef:
         unique_ptr[CMatchSubstringOptions] match_substring_options
@@ -657,14 +674,14 @@ cdef class _MatchSubstringOptions(FunctionOptions):
     cdef const CFunctionOptions* get_options(self) except NULL:
         return self.match_substring_options.get()
 
-    def _set_options(self, pattern):
+    def _set_options(self, pattern, bint ignore_case):
         self.match_substring_options.reset(
-            new CMatchSubstringOptions(tobytes(pattern)))
+            new CMatchSubstringOptions(tobytes(pattern), ignore_case))
 
 
 class MatchSubstringOptions(_MatchSubstringOptions):
-    def __init__(self, pattern):
-        self._set_options(pattern)
+    def __init__(self, pattern, bint ignore_case=False):
+        self._set_options(pattern, ignore_case)
 
 
 cdef class _TrimOptions(FunctionOptions):
@@ -719,6 +736,23 @@ cdef class _ExtractRegexOptions(FunctionOptions):
 class ExtractRegexOptions(_ExtractRegexOptions):
     def __init__(self, pattern):
         self._set_options(pattern)
+
+
+cdef class _SliceOptions(FunctionOptions):
+    cdef:
+        unique_ptr[CSliceOptions] slice_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.slice_options.get()
+
+    def _set_options(self, start, stop, step):
+        self.slice_options.reset(
+            new CSliceOptions(start, stop, step))
+
+
+class SliceOptions(_SliceOptions):
+    def __init__(self, start, stop, step=1):
+        self._set_options(start, stop, step)
 
 
 cdef class _FilterOptions(FunctionOptions):

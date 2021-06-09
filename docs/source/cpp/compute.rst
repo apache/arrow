@@ -310,6 +310,21 @@ output element is null.
 | less, less_equal         |            |                                             |                     |
 +--------------------------+------------+---------------------------------------------+---------------------+
 
+These functions take any number of inputs of numeric type (in which case they
+will be cast to the :ref:`common numeric type <common-numeric-type>` before
+comparison) or of temporal types. If any input is dictionary encoded it will be
+expanded for the purposes of comparison.
+
++--------------------------+------------+---------------------------------------------+---------------------+---------------------------------------+-------+
+| Function names           | Arity      | Input types                                 | Output type         | Options class                         | Notes |
++==========================+============+=============================================+=====================+=======================================+=======+
+| element_wise_max,        | Varargs    | Numeric and Temporal                        | Numeric or Temporal | :struct:`ElementWiseAggregateOptions` | \(1)  |
+| element_wise_min         |            |                                             |                     |                                       |       |
++--------------------------+------------+---------------------------------------------+---------------------+---------------------------------------+-------+
+
+* \(1) By default, nulls are skipped (but the kernel can be configured to propagate nulls).
+  For floating point values, NaN will be taken over null but not over any other value.
+
 Logical functions
 ~~~~~~~~~~~~~~~~~~
 
@@ -546,47 +561,60 @@ Containment tests
 +---------------------------+------------+------------------------------------+--------------------+----------------------------------------+
 | Function name             | Arity      | Input types                        | Output type        | Options class                          |
 +===========================+============+====================================+====================+========================================+
-| find_substring            | Unary      | String-like                        | Int32 or Int64 (1) | :struct:`MatchSubstringOptions`        |
+| count_substring           | Unary      | String-like                        | Int32 or Int64 (1) | :struct:`MatchSubstringOptions`        |
 +---------------------------+------------+------------------------------------+--------------------+----------------------------------------+
-| match_like                | Unary      | String-like                        | Boolean (2)        | :struct:`MatchSubstringOptions`        |
+| ends_with                 | Unary      | String-like                        | Boolean (2)        | :struct:`MatchSubstringOptions`        |
 +---------------------------+------------+------------------------------------+--------------------+----------------------------------------+
-| match_substring           | Unary      | String-like                        | Boolean (3)        | :struct:`MatchSubstringOptions`        |
+| find_substring            | Unary      | String-like                        | Int32 or Int64 (3) | :struct:`MatchSubstringOptions`        |
 +---------------------------+------------+------------------------------------+--------------------+----------------------------------------+
-| match_substring_regex     | Unary      | String-like                        | Boolean (4)        | :struct:`MatchSubstringOptions`        |
-+---------------------------+------------+------------------------------------+--------------------+----------------------------------------+
-| index_in                  | Unary      | Boolean, Null, Numeric, Temporal,  | Int32 (5)          | :struct:`SetLookupOptions`             |
+| index_in                  | Unary      | Boolean, Null, Numeric, Temporal,  | Int32 (4)          | :struct:`SetLookupOptions`             |
 |                           |            | Binary- and String-like            |                    |                                        |
 +---------------------------+------------+------------------------------------+--------------------+----------------------------------------+
-| is_in                     | Unary      | Boolean, Null, Numeric, Temporal,  | Boolean (6)        | :struct:`SetLookupOptions`             |
+| is_in                     | Unary      | Boolean, Null, Numeric, Temporal,  | Boolean (5)        | :struct:`SetLookupOptions`             |
 |                           |            | Binary- and String-like            |                    |                                        |
++---------------------------+------------+------------------------------------+--------------------+----------------------------------------+
+| match_like                | Unary      | String-like                        | Boolean (6)        | :struct:`MatchSubstringOptions`        |
++---------------------------+------------+------------------------------------+--------------------+----------------------------------------+
+| match_substring           | Unary      | String-like                        | Boolean (7)        | :struct:`MatchSubstringOptions`        |
++---------------------------+------------+------------------------------------+--------------------+----------------------------------------+
+| match_substring_regex     | Unary      | String-like                        | Boolean (8)        | :struct:`MatchSubstringOptions`        |
++---------------------------+------------+------------------------------------+--------------------+----------------------------------------+
+| starts_with               | Unary      | String-like                        | Boolean (2)        | :struct:`MatchSubstringOptions`        |
 +---------------------------+------------+------------------------------------+--------------------+----------------------------------------+
 
 
-* \(1) Output is the index of the first occurrence of
+* \(1) Output is the number of occurrences of
+  :member:`MatchSubstringOptions::pattern` in the corresponding input
+  string. Output type is Int32 for Binary/String, Int64
+  for LargeBinary/LargeString.
+
+* \(2) Output is true iff :member:`MatchSubstringOptions::pattern`
+  is a suffix/prefix of the corresponding input.
+
+* \(3) Output is the index of the first occurrence of
   :member:`MatchSubstringOptions::pattern` in the corresponding input
   string, otherwise -1. Output type is Int32 for Binary/String, Int64
   for LargeBinary/LargeString.
 
-* \(2) Output is true iff the SQL-style LIKE pattern
+* \(4) Output is the index of the corresponding input element in
+  :member:`SetLookupOptions::value_set`, if found there.  Otherwise,
+  output is null.
+
+* \(5) Output is true iff the corresponding input element is equal to one
+  of the elements in :member:`SetLookupOptions::value_set`.
+
+* \(6) Output is true iff the SQL-style LIKE pattern
   :member:`MatchSubstringOptions::pattern` fully matches the
   corresponding input element. That is, ``%`` will match any number of
   characters, ``_`` will match exactly one character, and any other
   character matches itself. To match a literal percent sign or
   underscore, precede the character with a backslash.
 
-* \(3) Output is true iff :member:`MatchSubstringOptions::pattern`
+* \(7) Output is true iff :member:`MatchSubstringOptions::pattern`
   is a substring of the corresponding input element.
 
-* \(4) Output is true iff :member:`MatchSubstringOptions::pattern`
+* \(8) Output is true iff :member:`MatchSubstringOptions::pattern`
   matches the corresponding input element at any position.
-
-* \(5) Output is the index of the corresponding input element in
-  :member:`SetLookupOptions::value_set`, if found there.  Otherwise,
-  output is null.
-
-* \(6) Output is true iff the corresponding input element is equal to one
-  of the elements in :member:`SetLookupOptions::value_set`.
-
 
 String splitting
 ~~~~~~~~~~~~~~~~
@@ -623,19 +651,56 @@ when a positive ``max_splits`` is given.
   as separator.
 
 
-String extraction
-~~~~~~~~~~~~~~~~~
+String component extraction
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-+--------------------+------------+------------------------------------+---------------+----------------------------------------+
-| Function name      | Arity      | Input types                        | Output type   | Options class                          |
-+====================+============+====================================+===============+========================================+
-| extract_regex      | Unary      | String-like                        | Struct (1)    | :struct:`ExtractRegexOptions`          |
-+--------------------+------------+------------------------------------+---------------+----------------------------------------+
++--------------------+------------+----------------+---------------+----------------------------------------+
+| Function name      | Arity      | Input types    | Output type   | Options class                          |
++====================+============+================+===============+========================================+
+| extract_regex      | Unary      | String-like    | Struct (1)    | :struct:`ExtractRegexOptions`          |
++--------------------+------------+----------------+---------------+----------------------------------------+
 
 * \(1) Extract substrings defined by a regular expression using the Google RE2
   library.  The output struct field names refer to the named capture groups,
   e.g. 'letter' and 'digit' for the regular expression
   ``(?P<letter>[ab])(?P<digit>\\d)``.
+
+
+String joining
+~~~~~~~~~~~~~~
+
+This function does the inverse of string splitting.
+
++-----------------+-----------+----------------------+----------------+-------------------+---------+
+| Function name   | Arity     | Input type 1         | Input type 2   | Output type       | Notes   |
++=================+===========+======================+================+===================+=========+
+| binary_join     | Binary    | List of string-like  | String-like    | String-like       | \(1)    |
++-----------------+-----------+----------------------+----------------+-------------------+---------+
+
+* \(1) The first input must be an array, while the second can be a scalar or array.
+  Each list of values in the first input is joined using each second input
+  as separator.  If any input list is null or contains a null, the corresponding
+  output will be null.
+
+
+Slicing
+~~~~~~~
+
+This function transforms each sequence of the array to a subsequence, according
+to start and stop indices, and a non-zero step (defaulting to 1).  Slicing
+semantics follow Python slicing semantics: the start index is inclusive,
+the stop index exclusive; if the step is negative, the sequence is followed
+in reverse order.
+
++--------------------------+------------+----------------+-----------------+--------------------------+---------+
+| Function name            | Arity      | Input types    | Output type     | Options class            | Notes   |
++==========================+============+================+=================+==========================+=========+
+| utf8_slice_codepoints    | Unary      | String-like    | String-like     | :struct:`SliceOptions`   | \(1)    |
++--------------------------+------------+----------------+-----------------+--------------------------+---------+
+
+* \(1) Slice string into a substring defined by (``start``, ``stop``, ``step``)
+  as given by :struct:`SliceOptions` where ``start`` and ``stop`` are measured
+  in codeunits. Null inputs emit null.
 
 
 Structural transforms
@@ -648,40 +713,48 @@ Structural transforms
 +==========================+============+================================================+=====================+=========+
 | fill_null                | Binary     | Boolean, Null, Numeric, Temporal, String-like  | Input type          | \(1)    |
 +--------------------------+------------+------------------------------------------------+---------------------+---------+
-| is_finite                | Unary      | Float, Double                                  | Boolean             | \(2)    |
+| if_else                  | Ternary    | Boolean, Null, Numeric, Temporal               | Input type          + \(2)    |
 +--------------------------+------------+------------------------------------------------+---------------------+---------+
-| is_inf                   | Unary      | Float, Double                                  | Boolean             | \(3)    |
+| is_finite                | Unary      | Float, Double                                  | Boolean             | \(3)    |
 +--------------------------+------------+------------------------------------------------+---------------------+---------+
-| is_nan                   | Unary      | Float, Double                                  | Boolean             | \(4)    |
+| is_inf                   | Unary      | Float, Double                                  | Boolean             | \(4)    |
 +--------------------------+------------+------------------------------------------------+---------------------+---------+
-| is_null                  | Unary      | Any                                            | Boolean             | \(5)    |
+| is_nan                   | Unary      | Float, Double                                  | Boolean             | \(5)    |
 +--------------------------+------------+------------------------------------------------+---------------------+---------+
-| is_valid                 | Unary      | Any                                            | Boolean             | \(6)    |
+| is_null                  | Unary      | Any                                            | Boolean             | \(6)    |
 +--------------------------+------------+------------------------------------------------+---------------------+---------+
-| list_value_length        | Unary      | List-like                                      | Int32 or Int64      | \(7)    |
+| is_valid                 | Unary      | Any                                            | Boolean             | \(7)    |
 +--------------------------+------------+------------------------------------------------+---------------------+---------+
-| project                  | Varargs    | Any                                            | Struct              | \(8)    |
+| list_value_length        | Unary      | List-like                                      | Int32 or Int64      | \(8)    |
++--------------------------+------------+------------------------------------------------+---------------------+---------+
+| project                  | Varargs    | Any                                            | Struct              | \(9)    |
 +--------------------------+------------+------------------------------------------------+---------------------+---------+
 
 * \(1) First input must be an array, second input a scalar of the same type.
   Output is an array of the same type as the inputs, and with the same values
   as the first input, except for nulls replaced with the second input value.
 
-* \(2) Output is true iff the corresponding input element is finite (not Infinity,
+* \(2) First input must be a Boolean scalar or array. Second and third inputs
+  could be scalars or arrays and must be of the same type. Output is an array
+  (or scalar if all inputs are scalar) of the same type as the second/ third
+  input. If the nulls present on the first input, they will be promoted to the
+  output, otherwise nulls will be chosen based on the first input values.
+
+* \(3) Output is true iff the corresponding input element is finite (not Infinity,
   -Infinity, or NaN).
 
-* \(3) Output is true iff the corresponding input element is Infinity/-Infinity.
+* \(4) Output is true iff the corresponding input element is Infinity/-Infinity.
 
-* \(4) Output is true iff the corresponding input element is NaN.
+* \(5) Output is true iff the corresponding input element is NaN.
 
-* \(5) Output is true iff the corresponding input element is null.
+* \(6) Output is true iff the corresponding input element is null.
 
-* \(6) Output is true iff the corresponding input element is non-null.
+* \(7) Output is true iff the corresponding input element is non-null.
 
-* \(7) Each output element is the length of the corresponding input element
+* \(8) Each output element is the length of the corresponding input element
   (null if input is null).  Output type is Int32 for List, Int64 for LargeList.
 
-* \(8) The output struct's field types are the types of its arguments. The
+* \(9) The output struct's field types are the types of its arguments. The
   field names are specified using an instance of :struct:`ProjectOptions`.
   The output shape will be scalar if all inputs are scalar, otherwise any
   scalars will be broadcast to arrays.

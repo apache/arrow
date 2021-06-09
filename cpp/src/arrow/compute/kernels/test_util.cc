@@ -36,7 +36,7 @@ namespace compute {
 namespace {
 
 template <typename T>
-std::vector<Datum> GetDatums(const std::vector<T>& inputs) {
+DatumVector GetDatums(const std::vector<T>& inputs) {
   std::vector<Datum> datums;
   for (const auto& input : inputs) {
     datums.emplace_back(input);
@@ -44,31 +44,41 @@ std::vector<Datum> GetDatums(const std::vector<T>& inputs) {
   return datums;
 }
 
-void CheckScalarNonRecursive(const std::string& func_name, const ArrayVector& inputs,
+void CheckScalarNonRecursive(const std::string& func_name, const DatumVector& inputs,
                              const std::shared_ptr<Array>& expected,
                              const FunctionOptions* options) {
-  ASSERT_OK_AND_ASSIGN(Datum out, CallFunction(func_name, GetDatums(inputs), options));
+  ASSERT_OK_AND_ASSIGN(Datum out, CallFunction(func_name, inputs, options));
   std::shared_ptr<Array> actual = std::move(out).make_array();
   ASSERT_OK(actual->ValidateFull());
   AssertArraysEqual(*expected, *actual, /*verbose=*/true);
 }
 
 template <typename... SliceArgs>
-ArrayVector SliceAll(const ArrayVector& inputs, SliceArgs... slice_args) {
-  ArrayVector sliced;
+DatumVector SliceArrays(const DatumVector& inputs, SliceArgs... slice_args) {
+  DatumVector sliced;
   for (const auto& input : inputs) {
-    sliced.push_back(input->Slice(slice_args...));
+    if (input.is_array()) {
+      sliced.push_back(*input.make_array()->Slice(slice_args...));
+    } else {
+      sliced.push_back(input);
+    }
   }
   return sliced;
 }
 
-ScalarVector GetScalars(const ArrayVector& inputs, int64_t index) {
+ScalarVector GetScalars(const DatumVector& inputs, int64_t index) {
   ScalarVector scalars;
   for (const auto& input : inputs) {
-    scalars.push_back(*input->GetScalar(index));
+    if (input.is_array()) {
+      scalars.push_back(*input.make_array()->GetScalar(index));
+    } else {
+      scalars.push_back(input.scalar());
+    }
   }
   return scalars;
 }
+
+}  // namespace
 
 void CheckScalar(std::string func_name, const ScalarVector& inputs,
                  std::shared_ptr<Scalar> expected, const FunctionOptions* options) {
@@ -91,44 +101,63 @@ void CheckScalar(std::string func_name, const ScalarVector& inputs,
   }
 }
 
-void CheckScalar(std::string func_name, const ArrayVector& inputs,
+void CheckScalar(std::string func_name, const DatumVector& inputs,
                  std::shared_ptr<Array> expected, const FunctionOptions* options) {
   CheckScalarNonRecursive(func_name, inputs, expected, options);
 
+  // check for at least 1 array, and make sure the others are of equal length
+  std::shared_ptr<Array> array;
+  for (const auto& input : inputs) {
+    if (input.is_array()) {
+      if (!array) {
+        array = input.make_array();
+      } else {
+        ASSERT_EQ(input.array()->length, array->length());
+      }
+    }
+  }
+
   // Check all the input scalars, if scalars are implemented
-  if (std::none_of(inputs.begin(), inputs.end(), [](const std::shared_ptr<Array>& array) {
-        return array->type_id() == Type::EXTENSION;
+  if (std::none_of(inputs.begin(), inputs.end(), [](const Datum& datum) {
+        return datum.type()->id() == Type::EXTENSION;
       })) {
-    for (int64_t i = 0; i < inputs[0]->length(); ++i) {
+    // Check all the input scalars
+    for (int64_t i = 0; i < array->length(); ++i) {
       CheckScalar(func_name, GetScalars(inputs, i), *expected->GetScalar(i), options);
     }
   }
 
   // Since it's a scalar function, calling it on sliced inputs should
   // result in the sliced expected output.
-  const auto slice_length = inputs[0]->length() / 3;
+  const auto slice_length = array->length() / 3;
   if (slice_length > 0) {
-    CheckScalarNonRecursive(func_name, SliceAll(inputs, 0, slice_length),
+    CheckScalarNonRecursive(func_name, SliceArrays(inputs, 0, slice_length),
                             expected->Slice(0, slice_length), options);
 
-    CheckScalarNonRecursive(func_name, SliceAll(inputs, slice_length, slice_length),
+    CheckScalarNonRecursive(func_name, SliceArrays(inputs, slice_length, slice_length),
                             expected->Slice(slice_length, slice_length), options);
 
-    CheckScalarNonRecursive(func_name, SliceAll(inputs, 2 * slice_length),
+    CheckScalarNonRecursive(func_name, SliceArrays(inputs, 2 * slice_length),
                             expected->Slice(2 * slice_length), options);
   }
 
   // Should also work with an empty slice
-  CheckScalarNonRecursive(func_name, SliceAll(inputs, 0, 0), expected->Slice(0, 0),
+  CheckScalarNonRecursive(func_name, SliceArrays(inputs, 0, 0), expected->Slice(0, 0),
                           options);
 
   // Ditto with ChunkedArray inputs
   if (slice_length > 0) {
-    std::vector<std::shared_ptr<ChunkedArray>> chunked_inputs;
+    DatumVector chunked_inputs;
     chunked_inputs.reserve(inputs.size());
     for (const auto& input : inputs) {
-      chunked_inputs.push_back(std::make_shared<ChunkedArray>(
-          ArrayVector{input->Slice(0, slice_length), input->Slice(slice_length)}));
+      if (input.is_array()) {
+        auto ar = input.make_array();
+        auto ar_chunked = std::make_shared<ChunkedArray>(
+            ArrayVector{ar->Slice(0, slice_length), ar->Slice(slice_length)});
+        chunked_inputs.push_back(ar_chunked);
+      } else {
+        chunked_inputs.push_back(input.scalar());
+      }
     }
     ArrayVector expected_chunks{expected->Slice(0, slice_length),
                                 expected->Slice(slice_length)};
@@ -140,11 +169,10 @@ void CheckScalar(std::string func_name, const ArrayVector& inputs,
   }
 }
 
-}  // namespace
-
 void CheckScalarUnary(std::string func_name, std::shared_ptr<Array> input,
                       std::shared_ptr<Array> expected, const FunctionOptions* options) {
-  CheckScalar(std::move(func_name), {input}, expected, options);
+  ArrayVector input_vector = {input};
+  CheckScalar(std::move(func_name), GetDatums(input_vector), expected, options);
 }
 
 void CheckScalarUnary(std::string func_name, std::shared_ptr<DataType> in_ty,
@@ -174,6 +202,18 @@ void CheckScalarBinary(std::string func_name, std::shared_ptr<Scalar> left_input
 }
 
 void CheckScalarBinary(std::string func_name, std::shared_ptr<Array> left_input,
+                       std::shared_ptr<Array> right_input,
+                       std::shared_ptr<Array> expected, const FunctionOptions* options) {
+  CheckScalar(std::move(func_name), {left_input, right_input}, expected, options);
+}
+
+void CheckScalarBinary(std::string func_name, std::shared_ptr<Array> left_input,
+                       std::shared_ptr<Scalar> right_input,
+                       std::shared_ptr<Array> expected, const FunctionOptions* options) {
+  CheckScalar(std::move(func_name), {left_input, right_input}, expected, options);
+}
+
+void CheckScalarBinary(std::string func_name, std::shared_ptr<Scalar> left_input,
                        std::shared_ptr<Array> right_input,
                        std::shared_ptr<Array> expected, const FunctionOptions* options) {
   CheckScalar(std::move(func_name), {left_input, right_input}, expected, options);

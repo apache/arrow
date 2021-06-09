@@ -75,7 +75,15 @@
 Expression <- R6Class("Expression", inherit = ArrowObject,
   public = list(
     ToString = function() compute___expr__ToString(self),
-    type = function(schema) compute___expr__type(self, schema),
+    schema = NULL,
+    type = function(schema = self$schema) {
+      assert_that(!is.null(schema))
+      compute___expr__type(self, schema)
+    },
+    type_id = function(schema = self$schema) {
+      assert_that(!is.null(schema))
+      compute___expr__type_id(self, schema)
+    },
     cast = function(to_type, safe = TRUE, ...) {
       opts <- list(
         to_type = to_type,

@@ -145,5 +145,18 @@ Result<int64_t> TransformInputStream::Tell() const {
   return impl_->pos_;
 }
 
+Result<std::shared_ptr<const KeyValueMetadata>> TransformInputStream::ReadMetadata() {
+  RETURN_NOT_OK(impl_->CheckClosed());
+
+  return impl_->wrapped_->ReadMetadata();
+}
+
+Future<std::shared_ptr<const KeyValueMetadata>> TransformInputStream::ReadMetadataAsync(
+    const IOContext& io_context) {
+  RETURN_NOT_OK(impl_->CheckClosed());
+
+  return impl_->wrapped_->ReadMetadataAsync(io_context);
+}
+
 }  // namespace io
 }  // namespace arrow

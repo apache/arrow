@@ -493,3 +493,78 @@ test_that("edge cases in string detection and replacement", {
     tibble(x = c("ABC"))
   )
 })
+
+test_that("strptime", {
+
+  t_string <- tibble(x = c("2018-10-07 19:04:05", NA))
+  t_stamp <- tibble(x = c(lubridate::ymd_hms("2018-10-07 19:04:05"), NA))
+
+  expect_equal(
+    t_string %>%
+      Table$create() %>%
+      mutate(
+        x = strptime(x)
+      ) %>%
+      collect(),
+    t_stamp,
+    check.tzone = FALSE
+  )
+
+  expect_equal(
+    t_string %>%
+      Table$create() %>%
+      mutate(
+        x = strptime(x, format = "%Y-%m-%d %H:%M:%S")
+      ) %>%
+      collect(),
+    t_stamp,
+    check.tzone = FALSE
+  )
+
+  expect_equal(
+    t_string %>%
+      Table$create() %>%
+      mutate(
+        x = strptime(x, format = "%Y-%m-%d %H:%M:%S", unit = "ns")
+      ) %>%
+      collect(),
+    t_stamp,
+    check.tzone = FALSE
+  )
+
+  expect_equal(
+    t_string %>%
+      Table$create() %>%
+      mutate(
+        x = strptime(x, format = "%Y-%m-%d %H:%M:%S", unit = "s")
+      ) %>%
+      collect(),
+    t_stamp,
+    check.tzone = FALSE
+  )
+
+  tstring <- tibble(x = c("08-05-2008", NA))
+  tstamp <- tibble(x = c(strptime("08-05-2008", format = "%m-%d-%Y"), NA))
+
+  expect_equal(
+    tstring %>%
+      Table$create() %>%
+      mutate(
+        x = strptime(x, format = "%m-%d-%Y")
+      ) %>%
+      collect(),
+    tstamp,
+    check.tzone = FALSE
+  )
+
+})
+
+test_that("errors in strptime", {
+  # Error when tz is passed
+
+  x <- Expression$field_ref("x")
+  expect_error(
+    nse_funcs$strptime(x, tz = "PDT"),
+    'Time zone argument not supported by Arrow'
+  )
+})

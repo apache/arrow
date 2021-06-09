@@ -743,4 +743,100 @@ TEST(TestTime, TestLastDay) {
   EXPECT_EQ(StringToTimestamp("2015-12-31 00:00:00"), out);
 }
 
+TEST(TestTime, TestToTimestamp) {
+  auto ts = StringToTimestamp("1970-01-01 00:00:00");
+  EXPECT_EQ(ts, to_timestamp_int32(0));
+  EXPECT_EQ(ts, to_timestamp_int64(0));
+  EXPECT_EQ(ts, to_timestamp_float32(0));
+  EXPECT_EQ(ts, to_timestamp_float64(0));
+
+  ts = StringToTimestamp("1970-01-01 00:00:01");
+  EXPECT_EQ(ts, to_timestamp_int32(1));
+  EXPECT_EQ(ts, to_timestamp_int64(1));
+  EXPECT_EQ(ts, to_timestamp_float32(1));
+  EXPECT_EQ(ts, to_timestamp_float64(1));
+
+  ts = StringToTimestamp("1970-01-01 00:01:00");
+  EXPECT_EQ(ts, to_timestamp_int32(60));
+  EXPECT_EQ(ts, to_timestamp_int64(60));
+  EXPECT_EQ(ts, to_timestamp_float32(60));
+  EXPECT_EQ(ts, to_timestamp_float64(60));
+
+  ts = StringToTimestamp("1970-01-01 01:00:00");
+  EXPECT_EQ(ts, to_timestamp_int32(3600));
+  EXPECT_EQ(ts, to_timestamp_int64(3600));
+  EXPECT_EQ(ts, to_timestamp_float32(3600));
+  EXPECT_EQ(ts, to_timestamp_float64(3600));
+
+  ts = StringToTimestamp("1970-01-02 00:00:00");
+  EXPECT_EQ(ts, to_timestamp_int32(86400));
+  EXPECT_EQ(ts, to_timestamp_int64(86400));
+  EXPECT_EQ(ts, to_timestamp_float32(86400));
+  EXPECT_EQ(ts, to_timestamp_float64(86400));
+
+  // tests with fractional part
+  ts = StringToTimestamp("1970-01-01 00:00:01") + 500;
+  EXPECT_EQ(ts, to_timestamp_float32(1.500f));
+  EXPECT_EQ(ts, to_timestamp_float64(1.500));
+
+  ts = StringToTimestamp("1970-01-01 00:01:01") + 600;
+  EXPECT_EQ(ts, to_timestamp_float32(61.600f));
+  EXPECT_EQ(ts, to_timestamp_float64(61.600));
+
+  ts = StringToTimestamp("1970-01-01 01:00:01") + 400;
+  EXPECT_EQ(ts, to_timestamp_float32(3601.400f));
+  EXPECT_EQ(ts, to_timestamp_float64(3601.400));
+}
+
+TEST(TestTime, TestToTimeNumeric) {
+  // input timestamp in seconds: 1970-01-01 00:00:00
+  int64_t expected_output = 0;  // 0 milliseconds
+  EXPECT_EQ(expected_output, to_time_int32(0));
+  EXPECT_EQ(expected_output, to_time_int64(0));
+  EXPECT_EQ(expected_output, to_time_float32(0.000f));
+  EXPECT_EQ(expected_output, to_time_float64(0.000));
+
+  // input timestamp in seconds: 1970-01-01 00:00:01
+  expected_output = 1000;  // 1 seconds
+  EXPECT_EQ(expected_output, to_time_int32(1));
+  EXPECT_EQ(expected_output, to_time_int64(1));
+  EXPECT_EQ(expected_output, to_time_float32(1.000f));
+  EXPECT_EQ(expected_output, to_time_float64(1.000));
+
+  // input timestamp in seconds: 1970-01-01 01:00:00
+  expected_output = 3600000;  // 3600 seconds
+  EXPECT_EQ(expected_output, to_time_int32(3600));
+  EXPECT_EQ(expected_output, to_time_int64(3600));
+  EXPECT_EQ(expected_output, to_time_float32(3600.000f));
+  EXPECT_EQ(expected_output, to_time_float64(3600.000));
+
+  // input timestamp in seconds: 1970-01-01 23:59:59
+  expected_output = 86399000;  // 86399 seconds
+  EXPECT_EQ(expected_output, to_time_int32(86399));
+  EXPECT_EQ(expected_output, to_time_int64(86399));
+  EXPECT_EQ(expected_output, to_time_float32(86399.000f));
+  EXPECT_EQ(expected_output, to_time_float64(86399.000));
+
+  // input timestamp in seconds: 2020-01-01 00:00:01
+  expected_output = 1000;  // 1 second
+  EXPECT_EQ(expected_output, to_time_int64(1577836801));
+  EXPECT_EQ(expected_output, to_time_float64(1577836801.000));
+
+  // tests with fractional part
+  // input timestamp in seconds: 1970-01-01 00:00:01.500
+  expected_output = 1500;  // 1.5 seconds
+  EXPECT_EQ(expected_output, to_time_float32(1.500f));
+  EXPECT_EQ(expected_output, to_time_float64(1.500));
+
+  // input timestamp in seconds: 1970-01-01 00:01:01.500
+  expected_output = 61500;  // 61.5 seconds
+  EXPECT_EQ(expected_output, to_time_float32(61.500f));
+  EXPECT_EQ(expected_output, to_time_float64(61.500));
+
+  // input timestamp in seconds: 1970-01-01 01:00:01.500
+  expected_output = 3601500;  // 3601.5 seconds
+  EXPECT_EQ(expected_output, to_time_float32(3601.500f));
+  EXPECT_EQ(expected_output, to_time_float64(3601.500));
+}
+
 }  // namespace gandiva

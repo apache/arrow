@@ -299,6 +299,8 @@ class FSSpecHandler(FileSystemHandler):
         # instead of a file
         self.fs.copy(src, dest)
 
+    # TODO can we read/pass metadata (e.g. Content-Type) in the methods below?
+
     def open_input_stream(self, path):
         from pyarrow import PythonFile
 
@@ -315,12 +317,12 @@ class FSSpecHandler(FileSystemHandler):
 
         return PythonFile(self.fs.open(path, mode="rb"), mode="r")
 
-    def open_output_stream(self, path):
+    def open_output_stream(self, path, metadata):
         from pyarrow import PythonFile
 
         return PythonFile(self.fs.open(path, mode="wb"), mode="w")
 
-    def open_append_stream(self, path):
+    def open_append_stream(self, path, metadata):
         from pyarrow import PythonFile
 
         return PythonFile(self.fs.open(path, mode="ab"), mode="w")

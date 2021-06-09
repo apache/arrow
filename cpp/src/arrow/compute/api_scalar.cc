@@ -63,6 +63,16 @@ SCALAR_ARITHMETIC_BINARY(Multiply, "multiply", "multiply_checked")
 SCALAR_ARITHMETIC_BINARY(Divide, "divide", "divide_checked")
 SCALAR_ARITHMETIC_BINARY(Power, "power", "power_checked")
 
+Result<Datum> ElementWiseMax(const std::vector<Datum>& args,
+                             ElementWiseAggregateOptions options, ExecContext* ctx) {
+  return CallFunction("element_wise_max", args, &options, ctx);
+}
+
+Result<Datum> ElementWiseMin(const std::vector<Datum>& args,
+                             ElementWiseAggregateOptions options, ExecContext* ctx) {
+  return CallFunction("element_wise_min", args, &options, ctx);
+}
+
 // ----------------------------------------------------------------------
 // Set-related operations
 
@@ -155,6 +165,11 @@ SCALAR_EAGER_UNARY(IsNan, "is_nan")
 
 Result<Datum> FillNull(const Datum& values, const Datum& fill_value, ExecContext* ctx) {
   return CallFunction("fill_null", {values, fill_value}, ctx);
+}
+
+Result<Datum> IfElse(const Datum& cond, const Datum& if_true, const Datum& if_false,
+                     ExecContext* ctx) {
+  return CallFunction("if_else", {cond, if_true, if_false}, ctx);
 }
 
 }  // namespace compute

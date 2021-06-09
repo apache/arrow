@@ -145,9 +145,10 @@ struct ARROW_EXPORT IndexOptions : public FunctionOptions {
 /// \since 1.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> Count(const Datum& datum,
-                    ScalarAggregateOptions options = ScalarAggregateOptions::Defaults(),
-                    ExecContext* ctx = NULLPTR);
+Result<Datum> Count(
+    const Datum& datum,
+    const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
 
 /// \brief Compute the mean of a numeric array.
 ///
@@ -310,7 +311,8 @@ Result<Datum> TDigest(const Datum& value,
 /// \since 5.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> Index(const Datum& value, IndexOptions options, ExecContext* ctx = NULLPTR);
+Result<Datum> Index(const Datum& value, const IndexOptions& options,
+                    ExecContext* ctx = NULLPTR);
 
 namespace internal {
 

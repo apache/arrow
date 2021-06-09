@@ -352,7 +352,10 @@ test_that("CSV dataset", {
   expect_r6_class(ds$format, "CsvFileFormat")
   expect_r6_class(ds$filesystem, "LocalFileSystem")
   expect_identical(names(ds), c(names(df1), "part"))
-  expect_identical(dim(ds), c(20L, 7L))
+  if (getRversion() >= "4.0.0") {
+    # CountRows segfaults on RTools35/R 3.6, so don't test it there
+    expect_identical(dim(ds), c(20L, 7L))
+  }
   expect_equivalent(
     ds %>%
       select(string = chr, integer = int, part) %>%
@@ -1105,6 +1108,111 @@ test_that("Assembling a Dataset manually and getting a Table", {
   expect_scan_result(ds, schm)
 })
 
+test_that("URI-decoding with directory partitioning", {
+  root <- make_temp_dir()
+  fmt <- FileFormat$create("feather")
+  fs <- LocalFileSystem$create()
+  selector <- FileSelector$create(root, recursive = TRUE)
+  dir1 <- file.path(root, "2021-05-04 00%3A00%3A00", "%24")
+  dir.create(dir1, recursive = TRUE)
+  write_feather(df1, file.path(dir1, "data.feather"))
+
+  partitioning <- DirectoryPartitioning$create(
+    schema(date = timestamp(unit = "s"), string = utf8()))
+  factory <- FileSystemDatasetFactory$create(
+    fs, selector, NULL, fmt, partitioning = partitioning)
+  schm <- factory$Inspect()
+  ds <- factory$Finish(schm)
+  expect_scan_result(ds, schm)
+
+  partitioning <- DirectoryPartitioning$create(
+    schema(date = timestamp(unit = "s"), string = utf8()),
+    segment_encoding = "none")
+  factory <- FileSystemDatasetFactory$create(
+    fs, selector, NULL, fmt, partitioning = partitioning)
+  schm <- factory$Inspect()
+  expect_error(factory$Finish(schm), "Invalid: error parsing")
+
+  partitioning_factory <- DirectoryPartitioningFactory$create(
+    c("date", "string"))
+  factory <- FileSystemDatasetFactory$create(
+    fs, selector, NULL, fmt, partitioning_factory)
+  schm <- factory$Inspect()
+  ds <- factory$Finish(schm)
+  # Can't directly inspect partition expressions, so do it implicitly via scan
+  expect_equal(
+    ds %>%
+      filter(date == "2021-05-04 00:00:00", string == "$") %>%
+      select(int) %>%
+      collect(),
+    df1 %>% select(int) %>% collect()
+  )
+
+  partitioning_factory <- DirectoryPartitioningFactory$create(
+    c("date", "string"), segment_encoding = "none")
+  factory <- FileSystemDatasetFactory$create(
+    fs, selector, NULL, fmt, partitioning_factory)
+  schm <- factory$Inspect()
+  ds <- factory$Finish(schm)
+  expect_equal(
+    ds %>%
+      filter(date == "2021-05-04 00%3A00%3A00", string == "%24") %>%
+      select(int) %>%
+      collect(),
+    df1 %>% select(int) %>% collect()
+  )
+})
+
+test_that("URI-decoding with hive partitioning", {
+  root <- make_temp_dir()
+  fmt <- FileFormat$create("feather")
+  fs <- LocalFileSystem$create()
+  selector <- FileSelector$create(root, recursive = TRUE)
+  dir1 <- file.path(root, "date=2021-05-04 00%3A00%3A00", "string=%24")
+  dir.create(dir1, recursive = TRUE)
+  write_feather(df1, file.path(dir1, "data.feather"))
+
+  partitioning <- hive_partition(
+    date = timestamp(unit = "s"), string = utf8())
+  factory <- FileSystemDatasetFactory$create(
+    fs, selector, NULL, fmt, partitioning = partitioning)
+  ds <- factory$Finish(schm)
+  expect_scan_result(ds, schm)
+
+  partitioning <- hive_partition(
+    date = timestamp(unit = "s"), string = utf8(), segment_encoding = "none")
+  factory <- FileSystemDatasetFactory$create(
+    fs, selector, NULL, fmt, partitioning = partitioning)
+  expect_error(factory$Finish(schm), "Invalid: error parsing")
+
+  partitioning_factory <- hive_partition()
+  factory <- FileSystemDatasetFactory$create(
+    fs, selector, NULL, fmt, partitioning_factory)
+  schm <- factory$Inspect()
+  ds <- factory$Finish(schm)
+  # Can't directly inspect partition expressions, so do it implicitly via scan
+  expect_equal(
+    ds %>%
+      filter(date == "2021-05-04 00:00:00", string == "$") %>%
+      select(int) %>%
+      collect(),
+    df1 %>% select(int) %>% collect()
+  )
+
+  partitioning_factory <- hive_partition(segment_encoding = "none")
+  factory <- FileSystemDatasetFactory$create(
+    fs, selector, NULL, fmt, partitioning_factory)
+  schm <- factory$Inspect()
+  ds <- factory$Finish(schm)
+  expect_equal(
+    ds %>%
+      filter(date == "2021-05-04 00%3A00%3A00", string == "%24") %>%
+      select(int) %>%
+      collect(),
+    df1 %>% select(int) %>% collect()
+  )
+})
+
 test_that("Assembling multiple DatasetFactories with DatasetFactory", {
   skip_if_not_available("parquet")
   factory1 <- dataset_factory(file.path(dataset_dir, 1), format = "parquet")
@@ -1497,5 +1605,21 @@ test_that("Collecting zero columns from a dataset doesn't return entire dataset"
   expect_equal(
     open_dataset(tmp) %>% select() %>% collect() %>% dim(),
     c(32, 0)
+  )
+})
+
+# see https://issues.apache.org/jira/browse/ARROW-12791
+test_that("Error if no format specified and files are not parquet", {
+  skip_if_not_available("parquet")
+  expect_error(
+    open_dataset(csv_dir, partitioning = "part"),
+    "Did you mean to specify a 'format' other than the default (parquet)?",
+    fixed = TRUE
+  )
+  expect_failure(
+    expect_error(
+      open_dataset(csv_dir, partitioning = "part", format = "parquet"),
+      "Did you mean to specify a 'format'"
+    )
   )
 })

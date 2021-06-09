@@ -558,6 +558,103 @@ TEST_F(TestPartitioning, ExistingSchemaHive) {
   AssertInspect({"/a=0/b=1", "/b=2"}, options.schema->fields());
 }
 
+TEST_F(TestPartitioning, UrlEncodedDirectory) {
+  PartitioningFactoryOptions options;
+  auto ts = timestamp(TimeUnit::type::SECOND);
+  options.schema = schema({field("date", ts), field("time", ts), field("str", utf8())});
+  factory_ = DirectoryPartitioning::MakeFactory(options.schema->field_names(), options);
+
+  AssertInspect({"/2021-05-04 00:00:00/2021-05-04 07:27:00/%24",
+                 "/2021-05-04 00%3A00%3A00/2021-05-04 07%3A27%3A00/foo"},
+                options.schema->fields());
+  auto date = std::make_shared<TimestampScalar>(1620086400, ts);
+  auto time = std::make_shared<TimestampScalar>(1620113220, ts);
+  partitioning_ = std::make_shared<DirectoryPartitioning>(options.schema, ArrayVector());
+  AssertParse("/2021-05-04 00%3A00%3A00/2021-05-04 07%3A27%3A00/%24",
+              and_({equal(field_ref("date"), literal(date)),
+                    equal(field_ref("time"), literal(time)),
+                    equal(field_ref("str"), literal("$"))}));
+
+  // Invalid UTF-8
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("was not valid UTF-8"),
+                                  factory_->Inspect({"/%AF/%BF/%CF"}));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("was not valid UTF-8"),
+                                  partitioning_->Parse({"/%AF/%BF/%CF"}));
+
+  options.segment_encoding = SegmentEncoding::None;
+  options.schema =
+      schema({field("date", utf8()), field("time", utf8()), field("str", utf8())});
+  factory_ = DirectoryPartitioning::MakeFactory(options.schema->field_names(), options);
+  AssertInspect({"/2021-05-04 00:00:00/2021-05-04 07:27:00/%E3%81%8F%E3%81%BE",
+                 "/2021-05-04 00%3A00%3A00/2021-05-04 07%3A27%3A00/foo"},
+                options.schema->fields());
+  partitioning_ = std::make_shared<DirectoryPartitioning>(
+      options.schema, ArrayVector(), options.AsPartitioningOptions());
+  AssertParse("/2021-05-04 00%3A00%3A00/2021-05-04 07%3A27%3A00/%24",
+              and_({equal(field_ref("date"), literal("2021-05-04 00%3A00%3A00")),
+                    equal(field_ref("time"), literal("2021-05-04 07%3A27%3A00")),
+                    equal(field_ref("str"), literal("%24"))}));
+}
+
+TEST_F(TestPartitioning, UrlEncodedHive) {
+  HivePartitioningFactoryOptions options;
+  auto ts = timestamp(TimeUnit::type::SECOND);
+  options.schema = schema({field("date", ts), field("time", ts), field("str", utf8())});
+  options.null_fallback = "$";
+  factory_ = HivePartitioning::MakeFactory(options);
+
+  AssertInspect(
+      {"/date=2021-05-04 00:00:00/time=2021-05-04 07:27:00/str=$",
+       "/date=2021-05-04 00:00:00/time=2021-05-04 07:27:00/str=%E3%81%8F%E3%81%BE",
+       "/date=2021-05-04 00%3A00%3A00/time=2021-05-04 07%3A27%3A00/str=%24"},
+      options.schema->fields());
+
+  auto date = std::make_shared<TimestampScalar>(1620086400, ts);
+  auto time = std::make_shared<TimestampScalar>(1620113220, ts);
+  partitioning_ = std::make_shared<HivePartitioning>(options.schema, ArrayVector(),
+                                                     options.AsHivePartitioningOptions());
+  AssertParse("/date=2021-05-04 00:00:00/time=2021-05-04 07:27:00/str=$",
+              and_({equal(field_ref("date"), literal(date)),
+                    equal(field_ref("time"), literal(time)), is_null(field_ref("str"))}));
+  AssertParse("/date=2021-05-04 00:00:00/time=2021-05-04 07:27:00/str=%E3%81%8F%E3%81%BE",
+              and_({equal(field_ref("date"), literal(date)),
+                    equal(field_ref("time"), literal(time)),
+                    equal(field_ref("str"), literal("\xE3\x81\x8F\xE3\x81\xBE"))}));
+  // URL-encoded null fallback value
+  AssertParse("/date=2021-05-04 00%3A00%3A00/time=2021-05-04 07%3A27%3A00/str=%24",
+              and_({equal(field_ref("date"), literal(date)),
+                    equal(field_ref("time"), literal(time)), is_null(field_ref("str"))}));
+
+  // Invalid UTF-8
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("was not valid UTF-8"),
+                                  factory_->Inspect({"/date=%AF/time=%BF/str=%CF"}));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("was not valid UTF-8"),
+                                  partitioning_->Parse({"/date=%AF/time=%BF/str=%CF"}));
+
+  options.segment_encoding = SegmentEncoding::None;
+  options.schema =
+      schema({field("date", utf8()), field("time", utf8()), field("str", utf8())});
+  factory_ = HivePartitioning::MakeFactory(options);
+  AssertInspect(
+      {"/date=2021-05-04 00:00:00/time=2021-05-04 07:27:00/str=$",
+       "/date=2021-05-04 00:00:00/time=2021-05-04 07:27:00/str=%E3%81%8F%E3%81%BE",
+       "/date=2021-05-04 00%3A00%3A00/time=2021-05-04 07%3A27%3A00/str=%24"},
+      options.schema->fields());
+  partitioning_ = std::make_shared<HivePartitioning>(options.schema, ArrayVector(),
+                                                     options.AsHivePartitioningOptions());
+  AssertParse("/date=2021-05-04 00%3A00%3A00/time=2021-05-04 07%3A27%3A00/str=%24",
+              and_({equal(field_ref("date"), literal("2021-05-04 00%3A00%3A00")),
+                    equal(field_ref("time"), literal("2021-05-04 07%3A27%3A00")),
+                    equal(field_ref("str"), literal("%24"))}));
+
+  // Invalid UTF-8
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("was not valid UTF-8"),
+                                  factory_->Inspect({"/date=\xAF/time=\xBF/str=\xCF"}));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("was not valid UTF-8"),
+      partitioning_->Parse({"/date=\xAF/time=\xBF/str=\xCF"}));
+}
+
 TEST_F(TestPartitioning, EtlThenHive) {
   FieldVector etl_fields{field("year", int16()), field("month", int8()),
                          field("day", int8()), field("hour", int8())};
@@ -655,8 +752,9 @@ class RangePartitioning : public Partitioning {
   Result<compute::Expression> Parse(const std::string& path) const override {
     std::vector<compute::Expression> ranges;
 
+    HivePartitioningOptions options;
     for (auto segment : fs::internal::SplitAbstractPath(path)) {
-      auto key = HivePartitioning::ParseKey(segment, "");
+      ARROW_ASSIGN_OR_RAISE(auto key, HivePartitioning::ParseKey(segment, options));
       if (!key) {
         return Status::Invalid("can't parse '", segment, "' as a range");
       }

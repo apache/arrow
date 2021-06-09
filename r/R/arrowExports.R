@@ -472,20 +472,20 @@ dataset___ParquetFragmentScanOptions__Make <- function(use_buffered_stream, buff
     .Call(`_arrow_dataset___ParquetFragmentScanOptions__Make`, use_buffered_stream, buffer_size, pre_buffer)
 }
 
-dataset___DirectoryPartitioning <- function(schm){
-    .Call(`_arrow_dataset___DirectoryPartitioning`, schm)
+dataset___DirectoryPartitioning <- function(schm, segment_encoding){
+    .Call(`_arrow_dataset___DirectoryPartitioning`, schm, segment_encoding)
 }
 
-dataset___DirectoryPartitioning__MakeFactory <- function(field_names){
-    .Call(`_arrow_dataset___DirectoryPartitioning__MakeFactory`, field_names)
+dataset___DirectoryPartitioning__MakeFactory <- function(field_names, segment_encoding){
+    .Call(`_arrow_dataset___DirectoryPartitioning__MakeFactory`, field_names, segment_encoding)
 }
 
-dataset___HivePartitioning <- function(schm, null_fallback){
-    .Call(`_arrow_dataset___HivePartitioning`, schm, null_fallback)
+dataset___HivePartitioning <- function(schm, null_fallback, segment_encoding){
+    .Call(`_arrow_dataset___HivePartitioning`, schm, null_fallback, segment_encoding)
 }
 
-dataset___HivePartitioning__MakeFactory <- function(null_fallback){
-    .Call(`_arrow_dataset___HivePartitioning__MakeFactory`, null_fallback)
+dataset___HivePartitioning__MakeFactory <- function(null_fallback, segment_encoding){
+    .Call(`_arrow_dataset___HivePartitioning__MakeFactory`, null_fallback, segment_encoding)
 }
 
 dataset___ScannerBuilder__ProjectNames <- function(sb, cols){
@@ -810,6 +810,10 @@ compute___expr__ToString <- function(x){
 
 compute___expr__type <- function(x, schema){
     .Call(`_arrow_compute___expr__type`, x, schema)
+}
+
+compute___expr__type_id <- function(x, schema){
+    .Call(`_arrow_compute___expr__type_id`, x, schema)
 }
 
 ipc___WriteFeather__Table <- function(stream, table, version, chunk_size, compression, compression_level){
@@ -1368,6 +1372,10 @@ ExportRecordBatchReader <- function(reader, stream_ptr){
     invisible(.Call(`_arrow_ExportRecordBatchReader`, reader, stream_ptr))
 }
 
+Table__from_dots <- function(lst, schema_sxp, use_threads){
+    .Call(`_arrow_Table__from_dots`, lst, schema_sxp, use_threads)
+}
+
 vec_to_arrow <- function(x, s_type){
     .Call(`_arrow_vec_to_arrow`, x, s_type)
 }
@@ -1706,10 +1714,6 @@ all_record_batches <- function(lst){
 
 Table__from_record_batches <- function(batches, schema_sxp){
     .Call(`_arrow_Table__from_record_batches`, batches, schema_sxp)
-}
-
-Table__from_dots <- function(lst, schema_sxp){
-    .Call(`_arrow_Table__from_dots`, lst, schema_sxp)
 }
 
 GetCpuThreadPoolCapacity <- function(){

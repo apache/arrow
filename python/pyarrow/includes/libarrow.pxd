@@ -1196,7 +1196,7 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
 
     cdef cppclass CInputStream" arrow::io::InputStream"(FileInterface,
                                                         Readable):
-        pass
+        CResult[shared_ptr[const CKeyValueMetadata]] ReadMetadata()
 
     cdef cppclass CRandomAccessFile" arrow::io::RandomAccessFile"(CInputStream,
                                                                   Seekable):
@@ -1617,6 +1617,7 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         c_bool use_threads
         int32_t block_size
         int32_t skip_rows
+        int32_t skip_rows_after_names
         vector[c_string] column_names
         c_bool autogenerate_column_names
 
@@ -1781,15 +1782,28 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     CFunctionRegistry* GetFunctionRegistry()
 
+    cdef cppclass CElementWiseAggregateOptions \
+            "arrow::compute::ElementWiseAggregateOptions"(CFunctionOptions):
+        CElementWiseAggregateOptions(c_bool skip_nulls)
+        c_bool skip_nulls
+
     cdef cppclass CMatchSubstringOptions \
             "arrow::compute::MatchSubstringOptions"(CFunctionOptions):
-        CMatchSubstringOptions(c_string pattern)
+        CMatchSubstringOptions(c_string pattern, c_bool ignore_case)
         c_string pattern
+        c_bool ignore_case
 
     cdef cppclass CTrimOptions \
             "arrow::compute::TrimOptions"(CFunctionOptions):
         CTrimOptions(c_string characters)
         c_string characters
+
+    cdef cppclass CSliceOptions \
+            "arrow::compute::SliceOptions"(CFunctionOptions):
+        CSliceOptions(int64_t start, int64_t stop, int64_t step)
+        int64_t start
+        int64_t stop
+        int64_t step
 
     cdef cppclass CSplitOptions \
             "arrow::compute::SplitOptions"(CFunctionOptions):
@@ -1876,9 +1890,9 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CScalarAggregateOptions \
             "arrow::compute::ScalarAggregateOptions"(CFunctionOptions):
-        CScalarAggregateOptions(c_bool skip_nulls, int64_t min_count)
+        CScalarAggregateOptions(c_bool skip_nulls, uint32_t min_count)
         c_bool skip_nulls
-        int64_t min_count
+        uint32_t min_count
 
     cdef cppclass CModeOptions \
             "arrow::compute::ModeOptions"(CFunctionOptions):

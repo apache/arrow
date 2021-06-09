@@ -138,7 +138,10 @@ struct StringTransform {
   using offset_type = typename Type::offset_type;
   using ArrayType = typename TypeTraits<Type>::ArrayType;
 
-  static int64_t MaxCodeunits(offset_type input_ncodeunits) { return input_ncodeunits; }
+  virtual int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) {
+    return input_ncodeunits;
+  }
+
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     return Derived().Execute(ctx, batch, out);
   }
@@ -156,7 +159,8 @@ struct StringTransform {
       offset_type input_ncodeunits = input_boxed.total_values_length();
       offset_type input_nstrings = static_cast<offset_type>(input.length);
 
-      int64_t output_ncodeunits_max = Derived::MaxCodeunits(input_ncodeunits);
+      const int64_t output_ncodeunits_max =
+          MaxCodeunits(input_nstrings, input_ncodeunits);
       if (output_ncodeunits_max > std::numeric_limits<offset_type>::max()) {
         return Status::CapacityError(
             "Result might not fit in a 32bit utf8 array, convert to large_utf8");
@@ -183,35 +187,36 @@ struct StringTransform {
         output_ncodeunits += encoded_nbytes;
         output_string_offsets[i + 1] = output_ncodeunits;
       }
+      DCHECK_LE(output_ncodeunits, output_ncodeunits_max);
 
       // Trim the codepoint buffer, since we allocated too much
-      RETURN_NOT_OK(values_buffer->Resize(output_ncodeunits, /*shrink_to_fit=*/true));
+      return values_buffer->Resize(output_ncodeunits, /*shrink_to_fit=*/true);
     } else {
+      DCHECK_EQ(batch[0].kind(), Datum::SCALAR);
       const auto& input = checked_cast<const BaseBinaryScalar&>(*batch[0].scalar());
-      auto result = checked_pointer_cast<BaseBinaryScalar>(MakeNullScalar(out->type()));
-      if (input.is_valid) {
-        result->is_valid = true;
-        offset_type data_nbytes = static_cast<offset_type>(input.value->size());
-
-        int64_t output_ncodeunits_max = Derived::MaxCodeunits(data_nbytes);
-        if (output_ncodeunits_max > std::numeric_limits<offset_type>::max()) {
-          return Status::CapacityError(
-              "Result might not fit in a 32bit utf8 array, convert to large_utf8");
-        }
-        ARROW_ASSIGN_OR_RAISE(auto value_buffer, ctx->Allocate(output_ncodeunits_max));
-        result->value = value_buffer;
-        offset_type encoded_nbytes = 0;
-        if (ARROW_PREDICT_FALSE(!static_cast<Derived&>(*this).Transform(
-                input.value->data(), data_nbytes, value_buffer->mutable_data(),
-                &encoded_nbytes))) {
-          return Derived::InvalidStatus();
-        }
-        RETURN_NOT_OK(value_buffer->Resize(encoded_nbytes, /*shrink_to_fit=*/true));
+      if (!input.is_valid) {
+        return Status::OK();
       }
-      out->value = result;
-    }
+      auto* result = checked_cast<BaseBinaryScalar*>(out->scalar().get());
+      result->is_valid = true;
+      offset_type data_nbytes = static_cast<offset_type>(input.value->size());
 
-    return Status::OK();
+      int64_t output_ncodeunits_max = MaxCodeunits(1, data_nbytes);
+      if (output_ncodeunits_max > std::numeric_limits<offset_type>::max()) {
+        return Status::CapacityError(
+            "Result might not fit in a 32bit utf8 array, convert to large_utf8");
+      }
+      ARROW_ASSIGN_OR_RAISE(auto value_buffer, ctx->Allocate(output_ncodeunits_max));
+      result->value = value_buffer;
+      offset_type encoded_nbytes = 0;
+      if (ARROW_PREDICT_FALSE(!static_cast<Derived&>(*this).Transform(
+              input.value->data(), data_nbytes, value_buffer->mutable_data(),
+              &encoded_nbytes))) {
+        return Derived::InvalidStatus();
+      }
+      DCHECK_LE(encoded_nbytes, output_ncodeunits_max);
+      return value_buffer->Resize(encoded_nbytes, /*shrink_to_fit=*/true);
+    }
   }
 };
 
@@ -234,7 +239,8 @@ struct StringTransformCodepoint : StringTransform<Type, Derived> {
     *output_written = static_cast<offset_type>(output - output_start);
     return true;
   }
-  static int64_t MaxCodeunits(offset_type input_ncodeunits) {
+
+  int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) override {
     // Section 5.18 of the Unicode spec claim that the number of codepoints for case
     // mapping can grow by a factor of 3. This means grow by a factor of 3 in bytes
     // However, since we don't support all casings (SpecialCasing.txt) the growth
@@ -243,6 +249,7 @@ struct StringTransformCodepoint : StringTransform<Type, Derived> {
     // two code units (even) can grow to 3 code units.
     return static_cast<int64_t>(input_ncodeunits) * 3 / 2;
   }
+
   Status Execute(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     EnsureLookupTablesFilled();
     return Base::Execute(ctx, batch, out);
@@ -433,33 +440,6 @@ void StringBoolTransform(KernelContext* ctx, const ExecBatch& batch,
 
 using MatchSubstringState = OptionsWrapper<MatchSubstringOptions>;
 
-template <typename Type, typename Matcher>
-struct MatchSubstring {
-  using offset_type = typename Type::offset_type;
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    // TODO Cache matcher across invocations (for regex compilation)
-    ARROW_ASSIGN_OR_RAISE(auto matcher, Matcher::Make(MatchSubstringState::Get(ctx)));
-    StringBoolTransform<Type>(
-        ctx, batch,
-        [&matcher](const void* raw_offsets, const uint8_t* data, int64_t length,
-                   int64_t output_offset, uint8_t* output) {
-          const offset_type* offsets = reinterpret_cast<const offset_type*>(raw_offsets);
-          FirstTimeBitmapWriter bitmap_writer(output, output_offset, length);
-          for (int64_t i = 0; i < length; ++i) {
-            const char* current_data = reinterpret_cast<const char*>(data + offsets[i]);
-            int64_t current_length = offsets[i + 1] - offsets[i];
-            if (matcher->Match(util::string_view(current_data, current_length))) {
-              bitmap_writer.Set();
-            }
-            bitmap_writer.Next();
-          }
-          bitmap_writer.Finish();
-        },
-        out);
-    return Status::OK();
-  }
-};
-
 // This is an implementation of the Knuth-Morris-Pratt algorithm
 struct PlainSubstringMatcher {
   const MatchSubstringOptions& options_;
@@ -467,6 +447,8 @@ struct PlainSubstringMatcher {
 
   static Result<std::unique_ptr<PlainSubstringMatcher>> Make(
       const MatchSubstringOptions& options) {
+    // Should be handled by partial template specialization below
+    DCHECK(!options.ignore_case);
     return ::arrow::internal::make_unique<PlainSubstringMatcher>(options);
   }
 
@@ -493,6 +475,7 @@ struct PlainSubstringMatcher {
     const auto pattern_length = options_.pattern.size();
     int64_t pattern_pos = 0;
     int64_t pos = 0;
+    if (pattern_length == 0) return 0;
     for (const auto c : current) {
       while ((pattern_pos >= 0) && (options_.pattern[pattern_pos] != c)) {
         pattern_pos = prefix_table[pattern_pos];
@@ -509,11 +492,45 @@ struct PlainSubstringMatcher {
   bool Match(util::string_view current) const { return Find(current) >= 0; }
 };
 
-const FunctionDoc match_substring_doc(
-    "Match strings against literal pattern",
-    ("For each string in `strings`, emit true iff it contains a given pattern.\n"
-     "Null inputs emit null.  The pattern must be given in MatchSubstringOptions."),
-    {"strings"}, "MatchSubstringOptions");
+struct PlainStartsWithMatcher {
+  const MatchSubstringOptions& options_;
+
+  explicit PlainStartsWithMatcher(const MatchSubstringOptions& options)
+      : options_(options) {}
+
+  static Result<std::unique_ptr<PlainStartsWithMatcher>> Make(
+      const MatchSubstringOptions& options) {
+    // Should be handled by partial template specialization below
+    DCHECK(!options.ignore_case);
+    return ::arrow::internal::make_unique<PlainStartsWithMatcher>(options);
+  }
+
+  bool Match(util::string_view current) const {
+    // string_view::starts_with is C++20
+    return current.substr(0, options_.pattern.size()) == options_.pattern;
+  }
+};
+
+struct PlainEndsWithMatcher {
+  const MatchSubstringOptions& options_;
+
+  explicit PlainEndsWithMatcher(const MatchSubstringOptions& options)
+      : options_(options) {}
+
+  static Result<std::unique_ptr<PlainEndsWithMatcher>> Make(
+      const MatchSubstringOptions& options) {
+    // Should be handled by partial template specialization below
+    DCHECK(!options.ignore_case);
+    return ::arrow::internal::make_unique<PlainEndsWithMatcher>(options);
+  }
+
+  bool Match(util::string_view current) const {
+    // string_view::ends_with is C++20
+    return current.size() >= options_.pattern.size() &&
+           current.substr(current.size() - options_.pattern.size(),
+                          options_.pattern.size()) == options_.pattern;
+  }
+};
 
 #ifdef ARROW_WITH_RE2
 struct RegexSubstringMatcher {
@@ -521,26 +538,159 @@ struct RegexSubstringMatcher {
   const RE2 regex_match_;
 
   static Result<std::unique_ptr<RegexSubstringMatcher>> Make(
-      const MatchSubstringOptions& options) {
-    auto matcher = ::arrow::internal::make_unique<RegexSubstringMatcher>(options);
+      const MatchSubstringOptions& options, bool literal = false) {
+    auto matcher =
+        ::arrow::internal::make_unique<RegexSubstringMatcher>(options, literal);
     RETURN_NOT_OK(RegexStatus(matcher->regex_match_));
     return std::move(matcher);
   }
 
-  explicit RegexSubstringMatcher(const MatchSubstringOptions& options)
-      : options_(options), regex_match_(options_.pattern, RE2::Quiet) {}
+  explicit RegexSubstringMatcher(const MatchSubstringOptions& options,
+                                 bool literal = false)
+      : options_(options),
+        regex_match_(options_.pattern, MakeRE2Options(options, literal)) {}
 
   bool Match(util::string_view current) const {
     auto piece = re2::StringPiece(current.data(), current.length());
     return re2::RE2::PartialMatch(piece, regex_match_);
   }
+
+  static RE2::RE2::Options MakeRE2Options(const MatchSubstringOptions& options,
+                                          bool literal) {
+    RE2::RE2::Options re2_options(RE2::Quiet);
+    re2_options.set_case_sensitive(!options.ignore_case);
+    re2_options.set_literal(literal);
+    return re2_options;
+  }
+};
+#endif
+
+template <typename Type, typename Matcher>
+struct MatchSubstringImpl {
+  using offset_type = typename Type::offset_type;
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out,
+                     const Matcher* matcher) {
+    StringBoolTransform<Type>(
+        ctx, batch,
+        [&matcher](const void* raw_offsets, const uint8_t* data, int64_t length,
+                   int64_t output_offset, uint8_t* output) {
+          const offset_type* offsets = reinterpret_cast<const offset_type*>(raw_offsets);
+          FirstTimeBitmapWriter bitmap_writer(output, output_offset, length);
+          for (int64_t i = 0; i < length; ++i) {
+            const char* current_data = reinterpret_cast<const char*>(data + offsets[i]);
+            int64_t current_length = offsets[i + 1] - offsets[i];
+            if (matcher->Match(util::string_view(current_data, current_length))) {
+              bitmap_writer.Set();
+            }
+            bitmap_writer.Next();
+          }
+          bitmap_writer.Finish();
+        },
+        out);
+    return Status::OK();
+  }
 };
 
+template <typename Type, typename Matcher>
+struct MatchSubstring {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    // TODO Cache matcher across invocations (for regex compilation)
+    ARROW_ASSIGN_OR_RAISE(auto matcher, Matcher::Make(MatchSubstringState::Get(ctx)));
+    return MatchSubstringImpl<Type, Matcher>::Exec(ctx, batch, out, matcher.get());
+  }
+};
+
+template <typename Type>
+struct MatchSubstring<Type, PlainSubstringMatcher> {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    auto options = MatchSubstringState::Get(ctx);
+    if (options.ignore_case) {
+#ifdef ARROW_WITH_RE2
+      ARROW_ASSIGN_OR_RAISE(auto matcher,
+                            RegexSubstringMatcher::Make(options, /*literal=*/true));
+      return MatchSubstringImpl<Type, RegexSubstringMatcher>::Exec(ctx, batch, out,
+                                                                   matcher.get());
+#else
+      return Status::NotImplemented("ignore_case requires RE2");
+#endif
+    }
+    ARROW_ASSIGN_OR_RAISE(auto matcher, PlainSubstringMatcher::Make(options));
+    return MatchSubstringImpl<Type, PlainSubstringMatcher>::Exec(ctx, batch, out,
+                                                                 matcher.get());
+  }
+};
+
+template <typename Type>
+struct MatchSubstring<Type, PlainStartsWithMatcher> {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    auto options = MatchSubstringState::Get(ctx);
+    if (options.ignore_case) {
+#ifdef ARROW_WITH_RE2
+      MatchSubstringOptions converted_options = options;
+      converted_options.pattern = "^" + RE2::QuoteMeta(options.pattern);
+      ARROW_ASSIGN_OR_RAISE(auto matcher, RegexSubstringMatcher::Make(converted_options));
+      return MatchSubstringImpl<Type, RegexSubstringMatcher>::Exec(ctx, batch, out,
+                                                                   matcher.get());
+#else
+      return Status::NotImplemented("ignore_case requires RE2");
+#endif
+    }
+    ARROW_ASSIGN_OR_RAISE(auto matcher, PlainStartsWithMatcher::Make(options));
+    return MatchSubstringImpl<Type, PlainStartsWithMatcher>::Exec(ctx, batch, out,
+                                                                  matcher.get());
+  }
+};
+
+template <typename Type>
+struct MatchSubstring<Type, PlainEndsWithMatcher> {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    auto options = MatchSubstringState::Get(ctx);
+    if (options.ignore_case) {
+#ifdef ARROW_WITH_RE2
+      MatchSubstringOptions converted_options = options;
+      converted_options.pattern = RE2::QuoteMeta(options.pattern) + "$";
+      ARROW_ASSIGN_OR_RAISE(auto matcher, RegexSubstringMatcher::Make(converted_options));
+      return MatchSubstringImpl<Type, RegexSubstringMatcher>::Exec(ctx, batch, out,
+                                                                   matcher.get());
+#else
+      return Status::NotImplemented("ignore_case requires RE2");
+#endif
+    }
+    ARROW_ASSIGN_OR_RAISE(auto matcher, PlainEndsWithMatcher::Make(options));
+    return MatchSubstringImpl<Type, PlainEndsWithMatcher>::Exec(ctx, batch, out,
+                                                                matcher.get());
+  }
+};
+
+const FunctionDoc match_substring_doc(
+    "Match strings against literal pattern",
+    ("For each string in `strings`, emit true iff it contains a given pattern.\n"
+     "Null inputs emit null.  The pattern must be given in MatchSubstringOptions. "
+     "If ignore_case is set, only simple case folding is performed."),
+    {"strings"}, "MatchSubstringOptions");
+
+const FunctionDoc starts_with_doc(
+    "Check if strings start with a literal pattern",
+    ("For each string in `strings`, emit true iff it starts with a given pattern.\n"
+     "Null inputs emit null.  The pattern must be given in MatchSubstringOptions. "
+     "If ignore_case is set, only simple case folding is performed."),
+    {"strings"}, "MatchSubstringOptions");
+
+const FunctionDoc ends_with_doc(
+    "Check if strings end with a literal pattern",
+    ("For each string in `strings`, emit true iff it ends with a given pattern.\n"
+     "Null inputs emit null.  The pattern must be given in MatchSubstringOptions. "
+     "If ignore_case is set, only simple case folding is performed."),
+    {"strings"}, "MatchSubstringOptions");
+
+#ifdef ARROW_WITH_RE2
 const FunctionDoc match_substring_regex_doc(
     "Match strings against regex pattern",
     ("For each string in `strings`, emit true iff it matches a given pattern at any "
      "position.\n"
-     "Null inputs emit null.  The pattern must be given in MatchSubstringOptions."),
+     "Null inputs emit null.  The pattern must be given in MatchSubstringOptions. "
+     "If ignore_case is set, only simple case folding is performed."),
     {"strings"}, "MatchSubstringOptions");
 
 // SQL LIKE match
@@ -589,30 +739,49 @@ std::string MakeLikeRegex(const MatchSubstringOptions& options) {
   return like_pattern;
 }
 
-// A LIKE pattern matching this regex can be translated into a substring search.
-static RE2 kLikePatternIsSubstringMatch("%+([^%_]*)%+");
-
 // Evaluate a SQL-like LIKE pattern by translating it to a regexp or
 // substring search as appropriate. See what Apache Impala does:
 // https://github.com/apache/impala/blob/9c38568657d62b6f6d7b10aa1c721ba843374dd8/be/src/exprs/like-predicate.cc
-// Note that Impala optimizes more cases (e.g. prefix match) but we
-// don't have kernels for those.
 template <typename StringType>
 struct MatchLike {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    // NOTE: avoid making those constants global to avoid compiling regexes at startup
+    // A LIKE pattern matching this regex can be translated into a substring search.
+    static const RE2 kLikePatternIsSubstringMatch(R"(%+([^%_]*[^\\%_])?%+)");
+    // A LIKE pattern matching this regex can be translated into a prefix search.
+    static const RE2 kLikePatternIsStartsWith(R"(([^%_]*[^\\%_])?%+)");
+    // A LIKE pattern matching this regex can be translated into a suffix search.
+    static const RE2 kLikePatternIsEndsWith(R"(%+([^%_]*))");
+
     auto original_options = MatchSubstringState::Get(ctx);
     auto original_state = ctx->state();
 
     Status status;
     std::string pattern;
-    if (re2::RE2::FullMatch(original_options.pattern, kLikePatternIsSubstringMatch,
+    if (!original_options.ignore_case &&
+        re2::RE2::FullMatch(original_options.pattern, kLikePatternIsSubstringMatch,
                             &pattern)) {
-      MatchSubstringOptions converted_options{pattern};
+      MatchSubstringOptions converted_options{pattern, original_options.ignore_case};
       MatchSubstringState converted_state(converted_options);
       ctx->SetState(&converted_state);
       status = MatchSubstring<StringType, PlainSubstringMatcher>::Exec(ctx, batch, out);
+    } else if (!original_options.ignore_case &&
+               re2::RE2::FullMatch(original_options.pattern, kLikePatternIsStartsWith,
+                                   &pattern)) {
+      MatchSubstringOptions converted_options{pattern, original_options.ignore_case};
+      MatchSubstringState converted_state(converted_options);
+      ctx->SetState(&converted_state);
+      status = MatchSubstring<StringType, PlainStartsWithMatcher>::Exec(ctx, batch, out);
+    } else if (!original_options.ignore_case &&
+               re2::RE2::FullMatch(original_options.pattern, kLikePatternIsEndsWith,
+                                   &pattern)) {
+      MatchSubstringOptions converted_options{pattern, original_options.ignore_case};
+      MatchSubstringState converted_state(converted_options);
+      ctx->SetState(&converted_state);
+      status = MatchSubstring<StringType, PlainEndsWithMatcher>::Exec(ctx, batch, out);
     } else {
-      MatchSubstringOptions converted_options{MakeLikeRegex(original_options)};
+      MatchSubstringOptions converted_options{MakeLikeRegex(original_options),
+                                              original_options.ignore_case};
       MatchSubstringState converted_state(converted_options);
       ctx->SetState(&converted_state);
       status = MatchSubstring<StringType, RegexSubstringMatcher>::Exec(ctx, batch, out);
@@ -639,6 +808,26 @@ void AddMatchSubstring(FunctionRegistry* registry) {
                                                  &match_substring_doc);
     auto exec_32 = MatchSubstring<StringType, PlainSubstringMatcher>::Exec;
     auto exec_64 = MatchSubstring<LargeStringType, PlainSubstringMatcher>::Exec;
+    DCHECK_OK(func->AddKernel({utf8()}, boolean(), exec_32, MatchSubstringState::Init));
+    DCHECK_OK(
+        func->AddKernel({large_utf8()}, boolean(), exec_64, MatchSubstringState::Init));
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+  {
+    auto func = std::make_shared<ScalarFunction>("starts_with", Arity::Unary(),
+                                                 &match_substring_doc);
+    auto exec_32 = MatchSubstring<StringType, PlainStartsWithMatcher>::Exec;
+    auto exec_64 = MatchSubstring<LargeStringType, PlainStartsWithMatcher>::Exec;
+    DCHECK_OK(func->AddKernel({utf8()}, boolean(), exec_32, MatchSubstringState::Init));
+    DCHECK_OK(
+        func->AddKernel({large_utf8()}, boolean(), exec_64, MatchSubstringState::Init));
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+  {
+    auto func = std::make_shared<ScalarFunction>("ends_with", Arity::Unary(),
+                                                 &match_substring_doc);
+    auto exec_32 = MatchSubstring<StringType, PlainEndsWithMatcher>::Exec;
+    auto exec_64 = MatchSubstring<LargeStringType, PlainEndsWithMatcher>::Exec;
     DCHECK_OK(func->AddKernel({utf8()}, boolean(), exec_32, MatchSubstringState::Init));
     DCHECK_OK(
         func->AddKernel({large_utf8()}, boolean(), exec_64, MatchSubstringState::Init));
@@ -682,12 +871,18 @@ struct FindSubstring {
 };
 
 template <typename InputType>
-Status FindSubstringExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  using offset_type = typename TypeTraits<InputType>::OffsetType;
-  applicator::ScalarUnaryNotNullStateful<offset_type, InputType, FindSubstring> kernel{
-      FindSubstring(PlainSubstringMatcher(MatchSubstringState::Get(ctx)))};
-  return kernel.Exec(ctx, batch, out);
-}
+struct FindSubstringExec {
+  using OffsetType = typename TypeTraits<InputType>::OffsetType;
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const MatchSubstringOptions& options = MatchSubstringState::Get(ctx);
+    if (options.ignore_case) {
+      return Status::NotImplemented("find_substring with ignore_case");
+    }
+    applicator::ScalarUnaryNotNullStateful<OffsetType, InputType, FindSubstring> kernel{
+        FindSubstring(PlainSubstringMatcher(options))};
+    return kernel.Exec(ctx, batch, out);
+  }
+};
 
 const FunctionDoc find_substring_doc(
     "Find first occurrence of substring",
@@ -699,17 +894,286 @@ const FunctionDoc find_substring_doc(
 void AddFindSubstring(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("find_substring", Arity::Unary(),
                                                &find_substring_doc);
-  DCHECK_OK(func->AddKernel({binary()}, int32(), FindSubstringExec<BinaryType>,
-                            MatchSubstringState::Init));
-  DCHECK_OK(func->AddKernel({utf8()}, int32(), FindSubstringExec<StringType>,
-                            MatchSubstringState::Init));
-  DCHECK_OK(func->AddKernel({large_binary()}, int64(), FindSubstringExec<LargeBinaryType>,
-                            MatchSubstringState::Init));
-  DCHECK_OK(func->AddKernel({large_utf8()}, int64(), FindSubstringExec<LargeStringType>,
-                            MatchSubstringState::Init));
+  for (const auto& ty : BaseBinaryTypes()) {
+    std::shared_ptr<DataType> offset_type;
+    if (ty->id() == Type::type::LARGE_BINARY || ty->id() == Type::type::LARGE_STRING) {
+      offset_type = int64();
+    } else {
+      offset_type = int32();
+    }
+    DCHECK_OK(func->AddKernel({ty}, offset_type,
+                              GenerateTypeAgnosticVarBinaryBase<FindSubstringExec>(ty),
+                              MatchSubstringState::Init));
+  }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
+// Substring count
+
+struct CountSubstring {
+  const PlainSubstringMatcher matcher_;
+
+  explicit CountSubstring(PlainSubstringMatcher matcher) : matcher_(std::move(matcher)) {}
+
+  template <typename OutValue, typename... Ignored>
+  OutValue Call(KernelContext*, util::string_view val, Status*) const {
+    OutValue count = 0;
+    uint64_t start = 0;
+    const auto pattern_size = std::max<uint64_t>(1, matcher_.options_.pattern.size());
+    while (start <= val.size()) {
+      const int64_t index = matcher_.Find(val.substr(start));
+      if (index >= 0) {
+        count++;
+        start += index + pattern_size;
+      } else {
+        break;
+      }
+    }
+    return count;
+  }
+};
+
+template <typename InputType>
+struct CountSubstringExec {
+  using OffsetType = typename TypeTraits<InputType>::OffsetType;
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const MatchSubstringOptions& options = MatchSubstringState::Get(ctx);
+    if (options.ignore_case) {
+      return Status::NotImplemented("count_substring with ignore_case");
+    }
+    applicator::ScalarUnaryNotNullStateful<OffsetType, InputType, CountSubstring> kernel{
+        CountSubstring(PlainSubstringMatcher(options))};
+    return kernel.Exec(ctx, batch, out);
+  }
+};
+
+const FunctionDoc count_substring_doc(
+    "Count occurrences of substring",
+    ("For each string in `strings`, emit the number of occurrences of the given "
+     "pattern.\n"
+     "Null inputs emit null. The pattern must be given in MatchSubstringOptions."),
+    {"strings"}, "MatchSubstringOptions");
+
+void AddCountSubstring(FunctionRegistry* registry) {
+  auto func = std::make_shared<ScalarFunction>("count_substring", Arity::Unary(),
+                                               &count_substring_doc);
+  for (const auto& ty : BaseBinaryTypes()) {
+    std::shared_ptr<DataType> offset_type;
+    if (ty->id() == Type::type::LARGE_BINARY || ty->id() == Type::type::LARGE_STRING) {
+      offset_type = int64();
+    } else {
+      offset_type = int32();
+    }
+    DCHECK_OK(func->AddKernel({ty}, offset_type,
+                              GenerateTypeAgnosticVarBinaryBase<CountSubstringExec>(ty),
+                              MatchSubstringState::Init));
+  }
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+}
+
+// Slicing
+
+template <typename Type, typename Derived>
+struct SliceBase : StringTransform<Type, Derived> {
+  using Base = StringTransform<Type, Derived>;
+  using offset_type = typename Base::offset_type;
+  using State = OptionsWrapper<SliceOptions>;
+
+  SliceOptions options;
+
+  explicit SliceBase(SliceOptions options) : options(options) {}
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    SliceOptions options = State::Get(ctx);
+    if (options.step == 0) {
+      return Status::Invalid("Slice step cannot be zero");
+    }
+    return Derived(options).Execute(ctx, batch, out);
+  }
+};
+
+#define PROPAGATE_FALSE(expr)         \
+  do {                                \
+    if (ARROW_PREDICT_FALSE(!expr)) { \
+      return false;                   \
+    }                                 \
+  } while (0)
+
+bool SliceCodeunitsTransform(const uint8_t* input, int64_t input_string_ncodeunits,
+                             uint8_t* output, int64_t* output_written,
+                             const SliceOptions& options) {
+  const uint8_t* begin = input;
+  const uint8_t* end = input + input_string_ncodeunits;
+  const uint8_t* begin_sliced = begin;
+  const uint8_t* end_sliced = end;
+
+  if (options.step >= 1) {
+    if (options.start >= 0) {
+      // start counting from the left
+      PROPAGATE_FALSE(
+          arrow::util::UTF8AdvanceCodepoints(begin, end, &begin_sliced, options.start));
+      if (options.stop > options.start) {
+        // continue counting from begin_sliced
+        int64_t length = options.stop - options.start;
+        PROPAGATE_FALSE(
+            arrow::util::UTF8AdvanceCodepoints(begin_sliced, end, &end_sliced, length));
+      } else if (options.stop < 0) {
+        // or from the end (but we will never need to < begin_sliced)
+        PROPAGATE_FALSE(arrow::util::UTF8AdvanceCodepointsReverse(
+            begin_sliced, end, &end_sliced, -options.stop));
+      } else {
+        // zero length slice
+        *output_written = 0;
+        return true;
+      }
+    } else {
+      // start counting from the right
+      PROPAGATE_FALSE(arrow::util::UTF8AdvanceCodepointsReverse(begin, end, &begin_sliced,
+                                                                -options.start));
+      if (options.stop > 0) {
+        // continue counting from the left, we cannot start from begin_sliced because we
+        // don't know how many codepoints are between begin and begin_sliced
+        PROPAGATE_FALSE(
+            arrow::util::UTF8AdvanceCodepoints(begin, end, &end_sliced, options.stop));
+        // and therefore we also needs this
+        if (end_sliced <= begin_sliced) {
+          // zero length slice
+          *output_written = 0;
+          return true;
+        }
+      } else if ((options.stop < 0) && (options.stop > options.start)) {
+        // stop is negative, but larger than start, so we count again from the right
+        // in some cases we can optimize this, depending on the shortest path (from end
+        // or begin_sliced), but begin_sliced and options.start can be 'out of sync',
+        // for instance when start=-100, when the string length is only 10.
+        PROPAGATE_FALSE(arrow::util::UTF8AdvanceCodepointsReverse(
+            begin_sliced, end, &end_sliced, -options.stop));
+      } else {
+        // zero length slice
+        *output_written = 0;
+        return true;
+      }
+    }
+    DCHECK(begin_sliced <= end_sliced);
+    if (options.step == 1) {
+      // fast case, where we simply can finish with a memcpy
+      std::copy(begin_sliced, end_sliced, output);
+      *output_written = end_sliced - begin_sliced;
+    } else {
+      uint8_t* dest = output;
+      const uint8_t* i = begin_sliced;
+
+      while (i < end_sliced) {
+        uint32_t codepoint = 0;
+        // write a single codepoint
+        PROPAGATE_FALSE(arrow::util::UTF8Decode(&i, &codepoint));
+        dest = arrow::util::UTF8Encode(dest, codepoint);
+        // and skip the remainder
+        int64_t skips = options.step - 1;
+        while ((skips--) && (i < end_sliced)) {
+          PROPAGATE_FALSE(arrow::util::UTF8Decode(&i, &codepoint));
+        }
+      }
+      *output_written = dest - output;
+    }
+    return true;
+  } else {  // step < 0
+    // serious +1 -1 kung fu because now begin_slice and end_slice act like reverse
+    // iterators.
+
+    if (options.start >= 0) {
+      // +1 because begin_sliced acts as as the end of a reverse iterator
+      PROPAGATE_FALSE(arrow::util::UTF8AdvanceCodepoints(begin, end, &begin_sliced,
+                                                         options.start + 1));
+      // and make it point at the last codeunit of the previous codeunit
+      begin_sliced--;
+    } else {
+      // -1 because start=-1 means the last codeunit, which is 0 advances
+      PROPAGATE_FALSE(arrow::util::UTF8AdvanceCodepointsReverse(begin, end, &begin_sliced,
+                                                                -options.start - 1));
+      // and make it point at the last codeunit of the previous codeunit
+      begin_sliced--;
+    }
+    // similar to options.start
+    if (options.stop >= 0) {
+      PROPAGATE_FALSE(
+          arrow::util::UTF8AdvanceCodepoints(begin, end, &end_sliced, options.stop + 1));
+      end_sliced--;
+    } else {
+      PROPAGATE_FALSE(arrow::util::UTF8AdvanceCodepointsReverse(begin, end, &end_sliced,
+                                                                -options.stop - 1));
+      end_sliced--;
+    }
+
+    uint8_t* dest = output;
+    const uint8_t* i = begin_sliced;
+
+    while (i > end_sliced) {
+      uint32_t codepoint = 0;
+      // write a single codepoint
+      PROPAGATE_FALSE(arrow::util::UTF8DecodeReverse(&i, &codepoint));
+      dest = arrow::util::UTF8Encode(dest, codepoint);
+      // and skip the remainder
+      int64_t skips = -options.step - 1;
+      while ((skips--) && (i > end_sliced)) {
+        PROPAGATE_FALSE(arrow::util::UTF8DecodeReverse(&i, &codepoint));
+      }
+    }
+    *output_written = dest - output;
+    return true;
+  }
+}
+
+#undef PROPAGATE_FALSE
+
+template <typename Type>
+struct SliceCodeunits : SliceBase<Type, SliceCodeunits<Type>> {
+  using Base = SliceBase<Type, SliceCodeunits<Type>>;
+  using offset_type = typename Base::offset_type;
+  using Base::Base;
+
+  int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) override {
+    const SliceOptions& opt = this->options;
+    if ((opt.start >= 0) != (opt.stop >= 0)) {
+      // If start and stop don't have the same sign, we can't guess an upper bound
+      // on the resulting slice lengths, so return a worst case estimate.
+      return input_ncodeunits;
+    }
+    int64_t max_slice_codepoints = (opt.stop - opt.start + opt.step - 1) / opt.step;
+    // The maximum UTF8 byte size of a codepoint is 4
+    return std::min(input_ncodeunits,
+                    4 * ninputs * std::max<int64_t>(0, max_slice_codepoints));
+  }
+
+  bool Transform(const uint8_t* input, offset_type input_string_ncodeunits,
+                 uint8_t* output, offset_type* output_written) {
+    int64_t output_written_64;
+    bool res = SliceCodeunitsTransform(input, input_string_ncodeunits, output,
+                                       &output_written_64, this->options);
+    *output_written = static_cast<offset_type>(output_written_64);
+    return res;
+  }
+};
+
+const FunctionDoc utf8_slice_codeunits_doc(
+    "Slice string ",
+    ("For each string in `strings`, slice into a substring defined by\n"
+     "`start`, `stop`, `step`) as given by `SliceOptions` where `start` is inclusive\n"
+     "and `stop` is exclusive and are measured in codeunits. If step is negative, the\n"
+     "string will be advanced in reversed order. A `step` of zero is considered an\n"
+     "error.\n"
+     "Null inputs emit null."),
+    {"strings"}, "SliceOptions");
+
+void AddSlice(FunctionRegistry* registry) {
+  auto func = std::make_shared<ScalarFunction>("utf8_slice_codeunits", Arity::Unary(),
+                                               &utf8_slice_codeunits_doc);
+  using t32 = SliceCodeunits<StringType>;
+  using t64 = SliceCodeunits<LargeStringType>;
+  DCHECK_OK(func->AddKernel({utf8()}, utf8(), t32::Exec, t32::State::Init));
+  DCHECK_OK(func->AddKernel({large_utf8()}, large_utf8(), t64::Exec, t64::State::Init));
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+}
 // IsAlpha/Digit etc
 
 #ifdef ARROW_WITH_UTF8PROC
@@ -2379,6 +2843,283 @@ void AddUtf8Length(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
+template <typename BinaryType, typename ListType>
+struct BinaryJoin {
+  using ArrayType = typename TypeTraits<BinaryType>::ArrayType;
+  using ListArrayType = typename TypeTraits<ListType>::ArrayType;
+  using ListScalarType = typename TypeTraits<ListType>::ScalarType;
+  using ListOffsetType = typename ListArrayType::offset_type;
+  using BuilderType = typename TypeTraits<BinaryType>::BuilderType;
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    if (batch[0].kind() == Datum::SCALAR) {
+      if (batch[1].kind() == Datum::SCALAR) {
+        return ExecScalarScalar(ctx, *batch[0].scalar(), *batch[1].scalar(), out);
+      }
+      DCHECK_EQ(batch[1].kind(), Datum::ARRAY);
+      return ExecScalarArray(ctx, *batch[0].scalar(), batch[1].array(), out);
+    }
+    DCHECK_EQ(batch[0].kind(), Datum::ARRAY);
+    if (batch[1].kind() == Datum::SCALAR) {
+      return ExecArrayScalar(ctx, batch[0].array(), *batch[1].scalar(), out);
+    }
+    DCHECK_EQ(batch[1].kind(), Datum::ARRAY);
+    return ExecArrayArray(ctx, batch[0].array(), batch[1].array(), out);
+  }
+
+  struct ListScalarOffsetLookup {
+    const ArrayType& values;
+
+    int64_t GetStart(int64_t i) { return 0; }
+    int64_t GetStop(int64_t i) { return values.length(); }
+    bool IsNull(int64_t i) { return false; }
+  };
+
+  struct ListArrayOffsetLookup {
+    explicit ListArrayOffsetLookup(const ListArrayType& lists)
+        : lists_(lists), offsets_(lists.raw_value_offsets()) {}
+
+    int64_t GetStart(int64_t i) { return offsets_[i]; }
+    int64_t GetStop(int64_t i) { return offsets_[i + 1]; }
+    bool IsNull(int64_t i) { return lists_.IsNull(i); }
+
+   private:
+    const ListArrayType& lists_;
+    const ListOffsetType* offsets_;
+  };
+
+  struct SeparatorScalarLookup {
+    const util::string_view separator;
+
+    bool IsNull(int64_t i) { return false; }
+    util::string_view GetView(int64_t i) { return separator; }
+  };
+
+  struct SeparatorArrayLookup {
+    const ArrayType& separators;
+
+    bool IsNull(int64_t i) { return separators.IsNull(i); }
+    util::string_view GetView(int64_t i) { return separators.GetView(i); }
+  };
+
+  // Scalar, scalar -> scalar
+  static Status ExecScalarScalar(KernelContext* ctx, const Scalar& left,
+                                 const Scalar& right, Datum* out) {
+    const auto& list = checked_cast<const ListScalarType&>(left);
+    const auto& separator_scalar = checked_cast<const BaseBinaryScalar&>(right);
+    if (!list.is_valid || !separator_scalar.is_valid) {
+      return Status::OK();
+    }
+    util::string_view separator(*separator_scalar.value);
+
+    const auto& strings = checked_cast<const ArrayType&>(*list.value);
+    if (strings.null_count() > 0) {
+      out->scalar()->is_valid = false;
+      return Status::OK();
+    }
+
+    TypedBufferBuilder<uint8_t> builder(ctx->memory_pool());
+    auto Append = [&](util::string_view value) {
+      return builder.Append(reinterpret_cast<const uint8_t*>(value.data()),
+                            static_cast<int64_t>(value.size()));
+    };
+    if (strings.length() > 0) {
+      auto data_length =
+          strings.total_values_length() + (strings.length() - 1) * separator.length();
+      RETURN_NOT_OK(builder.Reserve(data_length));
+      RETURN_NOT_OK(Append(strings.GetView(0)));
+      for (int64_t j = 1; j < strings.length(); j++) {
+        RETURN_NOT_OK(Append(separator));
+        RETURN_NOT_OK(Append(strings.GetView(j)));
+      }
+    }
+    auto out_scalar = checked_cast<BaseBinaryScalar*>(out->scalar().get());
+    return builder.Finish(&out_scalar->value);
+  }
+
+  // Scalar, array -> array
+  static Status ExecScalarArray(KernelContext* ctx, const Scalar& left,
+                                const std::shared_ptr<ArrayData>& right, Datum* out) {
+    const auto& list_scalar = checked_cast<const BaseListScalar&>(left);
+    if (!list_scalar.is_valid) {
+      ARROW_ASSIGN_OR_RAISE(
+          auto nulls, MakeArrayOfNull(right->type, right->length, ctx->memory_pool()));
+      *out = *nulls->data();
+      return Status::OK();
+    }
+    const auto& strings = checked_cast<const ArrayType&>(*list_scalar.value);
+    if (strings.null_count() != 0) {
+      ARROW_ASSIGN_OR_RAISE(
+          auto nulls, MakeArrayOfNull(right->type, right->length, ctx->memory_pool()));
+      *out = *nulls->data();
+      return Status::OK();
+    }
+    const ArrayType separators(right);
+
+    BuilderType builder(ctx->memory_pool());
+    RETURN_NOT_OK(builder.Reserve(separators.length()));
+
+    // Presize data to avoid multiple reallocations when joining strings
+    int64_t total_data_length = 0;
+    const int64_t list_length = strings.length();
+    if (list_length) {
+      const int64_t string_length = strings.total_values_length();
+      total_data_length +=
+          string_length * (separators.length() - separators.null_count());
+      for (int64_t i = 0; i < separators.length(); ++i) {
+        if (separators.IsNull(i)) {
+          continue;
+        }
+        total_data_length += (list_length - 1) * separators.value_length(i);
+      }
+    }
+    RETURN_NOT_OK(builder.ReserveData(total_data_length));
+
+    return JoinStrings(separators.length(), strings, ListScalarOffsetLookup{strings},
+                       SeparatorArrayLookup{separators}, &builder, out);
+  }
+
+  // Array, scalar -> array
+  static Status ExecArrayScalar(KernelContext* ctx,
+                                const std::shared_ptr<ArrayData>& left,
+                                const Scalar& right, Datum* out) {
+    const ListArrayType lists(left);
+    const auto& separator_scalar = checked_cast<const BaseBinaryScalar&>(right);
+
+    if (!separator_scalar.is_valid) {
+      ARROW_ASSIGN_OR_RAISE(
+          auto nulls,
+          MakeArrayOfNull(lists.value_type(), lists.length(), ctx->memory_pool()));
+      *out = *nulls->data();
+      return Status::OK();
+    }
+
+    util::string_view separator(*separator_scalar.value);
+    const auto& strings = checked_cast<const ArrayType&>(*lists.values());
+    const auto list_offsets = lists.raw_value_offsets();
+
+    BuilderType builder(ctx->memory_pool());
+    RETURN_NOT_OK(builder.Reserve(lists.length()));
+
+    // Presize data to avoid multiple reallocations when joining strings
+    int64_t total_data_length = strings.total_values_length();
+    for (int64_t i = 0; i < lists.length(); ++i) {
+      const auto start = list_offsets[i], end = list_offsets[i + 1];
+      if (end > start && !ValuesContainNull(strings, start, end)) {
+        total_data_length += (end - start - 1) * separator.length();
+      }
+    }
+    RETURN_NOT_OK(builder.ReserveData(total_data_length));
+
+    return JoinStrings(lists.length(), strings, ListArrayOffsetLookup{lists},
+                       SeparatorScalarLookup{separator}, &builder, out);
+  }
+
+  // Array, array -> array
+  static Status ExecArrayArray(KernelContext* ctx, const std::shared_ptr<ArrayData>& left,
+                               const std::shared_ptr<ArrayData>& right, Datum* out) {
+    const ListArrayType lists(left);
+    const auto& strings = checked_cast<const ArrayType&>(*lists.values());
+    const auto list_offsets = lists.raw_value_offsets();
+    const auto string_offsets = strings.raw_value_offsets();
+    const ArrayType separators(right);
+
+    BuilderType builder(ctx->memory_pool());
+    RETURN_NOT_OK(builder.Reserve(lists.length()));
+
+    // Presize data to avoid multiple reallocations when joining strings
+    int64_t total_data_length = 0;
+    for (int64_t i = 0; i < lists.length(); ++i) {
+      if (separators.IsNull(i)) {
+        continue;
+      }
+      const auto start = list_offsets[i], end = list_offsets[i + 1];
+      if (end > start && !ValuesContainNull(strings, start, end)) {
+        total_data_length += string_offsets[end] - string_offsets[start];
+        total_data_length += (end - start - 1) * separators.value_length(i);
+      }
+    }
+    RETURN_NOT_OK(builder.ReserveData(total_data_length));
+
+    struct SeparatorLookup {
+      const ArrayType& separators;
+
+      bool IsNull(int64_t i) { return separators.IsNull(i); }
+      util::string_view GetView(int64_t i) { return separators.GetView(i); }
+    };
+    return JoinStrings(lists.length(), strings, ListArrayOffsetLookup{lists},
+                       SeparatorArrayLookup{separators}, &builder, out);
+  }
+
+  template <typename ListOffsetLookup, typename SeparatorLookup>
+  static Status JoinStrings(int64_t length, const ArrayType& strings,
+                            ListOffsetLookup&& list_offsets, SeparatorLookup&& separators,
+                            BuilderType* builder, Datum* out) {
+    for (int64_t i = 0; i < length; ++i) {
+      if (list_offsets.IsNull(i) || separators.IsNull(i)) {
+        builder->UnsafeAppendNull();
+        continue;
+      }
+      const auto j_start = list_offsets.GetStart(i), j_end = list_offsets.GetStop(i);
+      if (j_start == j_end) {
+        builder->UnsafeAppendEmptyValue();
+        continue;
+      }
+      if (ValuesContainNull(strings, j_start, j_end)) {
+        builder->UnsafeAppendNull();
+        continue;
+      }
+      builder->UnsafeAppend(strings.GetView(j_start));
+      for (int64_t j = j_start + 1; j < j_end; ++j) {
+        builder->UnsafeExtendCurrent(separators.GetView(i));
+        builder->UnsafeExtendCurrent(strings.GetView(j));
+      }
+    }
+
+    std::shared_ptr<Array> string_array;
+    RETURN_NOT_OK(builder->Finish(&string_array));
+    *out = *string_array->data();
+    // Correct the output type based on the input
+    out->mutable_array()->type = strings.type();
+    return Status::OK();
+  }
+
+  static bool ValuesContainNull(const ArrayType& values, int64_t start, int64_t end) {
+    if (values.null_count() == 0) {
+      return false;
+    }
+    for (int64_t i = start; i < end; ++i) {
+      if (values.IsNull(i)) {
+        return true;
+      }
+    }
+    return false;
+  }
+};
+
+const FunctionDoc binary_join_doc(
+    "Join a list of strings together with a `separator` to form a single string",
+    ("Insert `separator` between `list` elements, and concatenate them.\n"
+     "Any null input and any null `list` element emits a null output.\n"),
+    {"list", "separator"});
+
+template <typename ListType>
+void AddBinaryJoinForListType(ScalarFunction* func) {
+  for (const std::shared_ptr<DataType>& ty : BaseBinaryTypes()) {
+    auto exec = GenerateTypeAgnosticVarBinaryBase<BinaryJoin, ListType>(*ty);
+    auto list_ty = std::make_shared<ListType>(ty);
+    DCHECK_OK(func->AddKernel({InputType(list_ty), InputType(ty)}, ty, exec));
+  }
+}
+
+void AddBinaryJoin(FunctionRegistry* registry) {
+  auto func =
+      std::make_shared<ScalarFunction>("binary_join", Arity::Binary(), &binary_join_doc);
+  AddBinaryJoinForListType<ListType>(func.get());
+  AddBinaryJoinForListType<LargeListType>(func.get());
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+}
+
 template <template <typename> class ExecFunctor>
 void MakeUnaryStringBatchKernel(
     std::string name, FunctionRegistry* registry, const FunctionDoc* doc,
@@ -2668,11 +3409,11 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   AddUnaryStringPredicate<IsUpperUnicode>("utf8_is_upper", registry, &utf8_is_upper_doc);
 #endif
 
-  AddSplit(registry);
   AddBinaryLength(registry);
   AddUtf8Length(registry);
   AddMatchSubstring(registry);
   AddFindSubstring(registry);
+  AddCountSubstring(registry);
   MakeUnaryStringBatchKernelWithState<ReplaceSubStringPlain>(
       "replace_substring", registry, &replace_substring_doc,
       MemAllocation::NO_PREALLOCATE);
@@ -2682,7 +3423,10 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
       MemAllocation::NO_PREALLOCATE);
   AddExtractRegex(registry);
 #endif
+  AddSlice(registry);
+  AddSplit(registry);
   AddStrptime(registry);
+  AddBinaryJoin(registry);
 }
 
 }  // namespace internal

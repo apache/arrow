@@ -36,15 +36,19 @@ SEXP symbols::create = Rf_install("create");
 
 // persistently protect `x` and return it
 SEXP precious(SEXP x) {
+  PROTECT(x);
   R_PreserveObject(x);
+  UNPROTECT(1);
   return x;
 }
 
 // returns the namespace environment for package `name`
-SEXP r_namespace(std::string name) {
+SEXP precious_namespace(std::string name) {
   SEXP s_name = PROTECT(cpp11::writable::strings({name}));
   SEXP ns = R_FindNamespace(s_name);
+  R_PreserveObject(ns);
   UNPROTECT(1);
+
   return ns;
 }
 SEXP data::classes_POSIXct = precious(cpp11::writable::strings({"POSIXct", "POSIXt"}));
@@ -71,9 +75,8 @@ SEXP data::classes_arrow_fixed_size_list = precious(cpp11::writable::strings(
     {"arrow_fixed_size_list", "vctrs_list_of", "vctrs_vctr", "list"}));
 
 SEXP data::names_metadata = precious(cpp11::writable::strings({"attributes", "columns"}));
-SEXP data::empty_raw = precious(Rf_allocVector(RAWSXP, 0));
 
-SEXP ns::arrow = precious(r_namespace("arrow"));
+SEXP ns::arrow = precious_namespace("arrow");
 
 void inspect(SEXP obj) {
   SEXP call_inspect = PROTECT(Rf_lang2(symbols::inspect, obj));

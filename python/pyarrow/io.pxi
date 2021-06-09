@@ -230,6 +230,24 @@ cdef class NativeFile(_Weakrefable):
 
         return size
 
+    def metadata(self):
+        """
+        Return file metadata
+        """
+        cdef:
+            shared_ptr[const CKeyValueMetadata] c_metadata
+
+        handle = self.get_input_stream()
+        with nogil:
+            c_metadata = GetResultValue(handle.get().ReadMetadata())
+
+        metadata = {}
+        if c_metadata.get() != nullptr:
+            for i in range(c_metadata.get().size()):
+                metadata[frombytes(c_metadata.get().key(i))] = \
+                    c_metadata.get().value(i)
+        return metadata
+
     def tell(self):
         """
         Return current stream position

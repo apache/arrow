@@ -86,6 +86,9 @@ arrow_mask <- function(.data) {
     f_env[[f]] <- fail
   }
 
+  # Assign the schema to the expressions
+  map(.data$selected_columns, ~(.$schema <- .data$.data$schema))
+
   # Add the column references and make the mask
   out <- new_data_mask(
     new_environment(.data$selected_columns, parent = f_env),

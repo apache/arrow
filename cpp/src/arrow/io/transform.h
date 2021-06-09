@@ -45,6 +45,10 @@ class ARROW_EXPORT TransformInputStream : public InputStream {
   Result<int64_t> Read(int64_t nbytes, void* out) override;
   Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) override;
 
+  Result<std::shared_ptr<const KeyValueMetadata>> ReadMetadata() override;
+  Future<std::shared_ptr<const KeyValueMetadata>> ReadMetadataAsync(
+      const IOContext& io_context) override;
+
   Result<int64_t> Tell() const override;
 
  protected:
