@@ -118,18 +118,19 @@ Status GetNumPyType(const DataType& type, int* type_num) {
     NUMPY_TYPE_CASE(FLOAT, FLOAT32);
     NUMPY_TYPE_CASE(DOUBLE, FLOAT64);
     case Type::EXTENSION: {
-      const auto * ptr = dynamic_cast<const ComplexType *>(&type);
+      const auto* ptr = dynamic_cast<const ComplexType*>(&type);
 
-      if(ptr == nullptr) {
+      if (ptr == nullptr) {
         // continue into the default branch
-      } else if(ptr->subtype()->Equals(float32())) {
+      } else if (ptr->subtype()->Equals(float32())) {
         *type_num = NPY_COMPLEX64;
         break;
-      } else if(ptr->subtype()->Equals(float64())) {
+      } else if (ptr->subtype()->Equals(float64())) {
         *type_num = NPY_COMPLEX128;
         break;
       } else {
-        return Status::NotImplemented("Unsupported complex tensor type: ", ptr->ToString());
+        return Status::NotImplemented("Unsupported complex tensor type: ",
+                                      ptr->ToString());
         break;
       }
     }

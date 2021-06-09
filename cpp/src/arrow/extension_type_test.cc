@@ -201,7 +201,7 @@ TEST_F(TestExtensionType, ComplexTypeTest) {
   auto type = complex64();
   ASSERT_EQ(type->id(), Type::EXTENSION);
 
-  const auto & ext_type = static_cast<const ExtensionType &>(*type);
+  const auto& ext_type = static_cast<const ExtensionType&>(*type);
   std::string serialized = ext_type.Serialize();
 
   ASSERT_OK_AND_ASSIGN(auto deserialized,
@@ -210,7 +210,7 @@ TEST_F(TestExtensionType, ComplexTypeTest) {
   ASSERT_TRUE(deserialized->Equals(*type));
   ASSERT_FALSE(deserialized->Equals(*fixed_size_list(float32(), 2)));
 
-  //auto type2 = complex(int16());
+  // auto type2 = complex(int16());
 }
 
 TEST_F(TestExtensionType, ExtensionTypeTest) {
