@@ -20,7 +20,6 @@ package org.apache.arrow.driver.jdbc.test;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -39,7 +38,6 @@ import org.apache.arrow.flight.auth2.GeneratedBearerTokenAuthenticator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
-import org.apache.calcite.avatica.org.apache.http.auth.UsernamePasswordCredentials;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -139,18 +137,28 @@ public class ConnectionTest {
    *           on error.
    */
   @Test
-  public void testGetBasicClient() throws Exception {
-    URI address = new URI("jdbc",
-            flightTestUtils.getUsername1() + ":" + flightTestUtils.getPassword1(),
-            flightTestUtils.getLocalhost(), this.server.getPort(), null, null,
-        null);
+  public void testGetBasicClientAuthenticatedShouldOpenConnection() throws Exception {
 
-    UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(
-            flightTestUtils.getUsername1(), flightTestUtils.getPassword1());
+    ArrowFlightClient client = ArrowFlightClient.getBasicClientAuthenticated(
+            allocator, flightTestUtils.getLocalhost(), this.server.getPort(),
+              flightTestUtils.getUsername1(), flightTestUtils.getPassword1(),
+              null);
 
-    ArrowFlightClient client = ArrowFlightClient.getBasicClient(
-            allocator, address.getHost(), address.getPort(),
-        credentials.getUserName(), credentials.getPassword(), null);
+    assertNotNull(client);
+  }
+
+  /**
+   * Try to instantiate a basic FlightClient.
+   *
+   * @throws URISyntaxException
+   *           on error.
+   */
+  @Test
+  public void testGetBasicClientNoAuthShouldOpenConnection() throws Exception {
+
+    ArrowFlightClient client = ArrowFlightClient.getBasicClientNoAuth(
+            allocator, flightTestUtils.getLocalhost(), this.server.getPort(),
+              null);
 
     assertNotNull(client);
   }

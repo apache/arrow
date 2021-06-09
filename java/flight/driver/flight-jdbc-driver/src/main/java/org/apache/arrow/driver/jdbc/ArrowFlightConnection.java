@@ -114,25 +114,44 @@ public final class ArrowFlightConnection extends AvaticaConnection {
     int port = (int) info.getOrDefault("port", "32010");
     Preconditions.checkArgument(port > 0);
 
-    String username = Preconditions.checkNotNull(info.getProperty("user"));
-    Preconditions.checkArgument(!username.trim().equals(""));
+    @Nullable
+    String username = info.getProperty("user");
 
     @Nullable
     String password = info.getProperty("password");
 
     boolean useTls = ((String) info.getOrDefault("useTls", "false"))
         .equalsIgnoreCase("true");
+    
+    boolean authenticate = username != null;
 
-    if (useTls) {
+    CreateClient: {
+
+      if (!useTls) {
+
+        if (authenticate) {
+          client = ArrowFlightClient.getBasicClientAuthenticated(allocator, host,
+              port, username, password, null);
+          break CreateClient;
+        }
+
+        client = ArrowFlightClient.getBasicClientNoAuth(allocator, host, port,
+            null);
+        break CreateClient;
+
+      }
 
       String keyStorePath = info.getProperty("keyStorePath");
       String keyStorePass = info.getProperty("keyStorePass");
 
-      client = ArrowFlightClient.getEncryptedClient(allocator, host, port, null,
-          username, password, keyStorePath, keyStorePass);
-    } else {
-      client = ArrowFlightClient.getBasicClient(allocator, host, port, username,
-        password, null);
+      if (authenticate) {
+        client = ArrowFlightClient.getEncryptedClientAuthenticated(allocator,
+            host, port, null, username, password, keyStorePath, keyStorePass);
+        break CreateClient;
+      }
+
+      client = ArrowFlightClient.getEncryptedClientNoAuth(allocator, host,
+          port, null, keyStorePath, keyStorePass);
     }
   }
 

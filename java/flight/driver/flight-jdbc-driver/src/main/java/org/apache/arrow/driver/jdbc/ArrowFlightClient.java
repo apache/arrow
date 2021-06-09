@@ -158,7 +158,8 @@ public final class ArrowFlightClient implements AutoCloseable {
    *         {@code FlightClient}, with a bearer token for subsequent requests
    *         to the wrapped client.
    */
-  public static ArrowFlightClient getBasicClient(BufferAllocator allocator,
+  public static ArrowFlightClient getBasicClientAuthenticated(
+      BufferAllocator allocator,
       String host, int port, String username,
       @Nullable String password, @Nullable HeaderCallOption clientProperties) {
 
@@ -173,6 +174,34 @@ public final class ArrowFlightClient implements AutoCloseable {
 
     return new ArrowFlightClient(flightClient, getAuthenticate(flightClient,
         username, password, factory, clientProperties));
+  }
+
+  /**
+   * Creates a {@code ArrowFlightClient} wrapping a {@link FlightClient}
+   * connected to the Dremio server without any encryption.
+   *
+   * @param allocator
+   *          The buffer allocator to use for the {@code FlightClient} wrapped
+   *          by this.
+   * @param host
+   *          The host to connect to.
+   * @param port
+   *          The port to connect to.
+   * @param clientProperties
+   *          The client properties to set during authentication.
+   * @return a new {@code ArrowFlightClient} wrapping a non-encrypted
+   *         {@code FlightClient}, with a bearer token for subsequent requests
+   *         to the wrapped client.
+   */
+  public static ArrowFlightClient getBasicClientNoAuth(
+      BufferAllocator allocator,
+      String host, int port, @Nullable HeaderCallOption clientProperties) {
+
+    FlightClient flightClient = FlightClient.builder().allocator(allocator)
+        .location(
+            Location.forGrpcInsecure(host, port)).build();
+
+    return new ArrowFlightClient(flightClient, null);
   }
 
   /**
@@ -210,7 +239,8 @@ public final class ArrowFlightClient implements AutoCloseable {
    * @throws IOException
    *           If an I/O operation fails.
    */
-  public static ArrowFlightClient getEncryptedClient(BufferAllocator allocator,
+  public static ArrowFlightClient getEncryptedClientAuthenticated(
+      BufferAllocator allocator,
       String host, int port,
       @Nullable HeaderCallOption clientProperties, String username,
       @Nullable String password, String keyStorePath, String keyStorePass)
@@ -234,6 +264,59 @@ public final class ArrowFlightClient implements AutoCloseable {
     } catch (Exception e) {
       throw new SQLException(
           "Failed to create a new Arrow Flight client: " + e.getMessage());
+    }
+  }
+
+  /**
+   * Creates a {@code ArrowFlightClient} wrapping a {@link FlightClient}
+   * connected to the Dremio server with an encrypted TLS connection.
+   *
+   * @param allocator
+   *          The buffer allocator to use for the {@code FlightClient} wrapped
+   *          by this.
+   * @param host
+   *          The host to connect to.
+   * @param port
+   *          The port to connect to.
+   * @param clientProperties
+   *          The client properties to set during authentication.
+   * @param keyStorePath
+   *          The KeyStore path to use.
+   * @param keyStorePass
+   *          The KeyStore password to use.
+   * @return a new {@code ArrowFlightClient} wrapping a non-encrypted
+   *         {@code FlightClient}, with a bearer token for subsequent requests
+   *         to the wrapped client.
+   * @throws KeyStoreException
+   *           If an error occurs while trying to retrieve KeyStore information.
+   * @throws NoSuchAlgorithmException
+   *           If a particular cryptographic algorithm is required but does not
+   *           exist.
+   * @throws CertificateException
+   *           If an error occurs while trying to retrieve certificate
+   *           information.
+   * @throws IOException
+   *           If an I/O operation fails.
+   */
+  public static ArrowFlightClient getEncryptedClientNoAuth(
+      BufferAllocator allocator,
+      String host, int port,
+      @Nullable HeaderCallOption clientProperties, String keyStorePath,
+      String keyStorePass)
+      throws SQLException {
+
+    try {
+
+      FlightClient flightClient = FlightClient.builder().allocator(allocator)
+          .location(
+              Location.forGrpcTls(host, port)).useTls()
+          .trustedCertificates(getCertificateStream(keyStorePath, keyStorePass))
+          .build();
+
+      return new ArrowFlightClient(flightClient, null);
+    } catch (Exception e) {
+      throw new SQLException(
+          "Failed to create a new Arrow Flight client.", e);
     }
   }
 
