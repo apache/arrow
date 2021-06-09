@@ -372,7 +372,6 @@ services:
       ARROW_S3: "OFF"
       ARROW_USE_ASAN: "ON"
       ARROW_USE_UBSAN: "ON"
-      ASAN_SYMBOLIZER_PATH: /usr/lib/llvm-12/bin/llvm-symbolizer
       # utf8proc 2.1.0 in Ubuntu Bionic has test failures
       utf8proc_SOURCE: "BUNDLED"
     command: *cpp-command
