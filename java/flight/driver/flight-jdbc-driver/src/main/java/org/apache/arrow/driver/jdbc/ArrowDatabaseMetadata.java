@@ -17,9 +17,14 @@
 
 package org.apache.arrow.driver.jdbc;
 
+import java.sql.DatabaseMetaData;
+
 import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.AvaticaDatabaseMetaData;
 
+/**
+ * Arrow Flight JBCS's implementation of {@link DatabaseMetaData}.
+ */
 public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
   
   protected ArrowDatabaseMetadata(AvaticaConnection connection) {
