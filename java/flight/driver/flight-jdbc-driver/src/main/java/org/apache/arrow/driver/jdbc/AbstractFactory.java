@@ -21,9 +21,10 @@ import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.AvaticaFactory;
 import org.apache.calcite.avatica.UnregisteredDriver;
 
-import java.sql.SQLException;
-import java.util.Properties;
-
+/**
+ * Partial implementation of {@link AvaticaFactory}
+ * (factory for main JDBC objects) for Arrow Flight JDBC's driver.
+ */
 abstract class AbstractFactory implements AvaticaFactory {
   protected final int major;
   protected final int minor;
