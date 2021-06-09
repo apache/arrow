@@ -541,4 +541,73 @@ TEST(TestGdvFnStubs, TestInitCap) {
                   "unexpected byte \\e0 encountered while decoding utf8 string"));
   ctx.Reset();
 }
+
+TEST(TestGdvFnStubs, TestBinRepresentation) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+
+  const char* out_str = gdv_fn_bin_int32(ctx_ptr, 7, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "111");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_bin_int32(ctx_ptr, 28550, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "110111110000110");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_bin_int32(ctx_ptr, -28550, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len),
+            "1111111111111111111111111111111111111111111111111001000001111010");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_bin_int32(ctx_ptr, 58117, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "1110001100000101");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_bin_int32(ctx_ptr, -58117, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len),
+            "1111111111111111111111111111111111111111111111110001110011111011");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_bin_int32(ctx_ptr, INT32_MAX, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "1111111111111111111111111111111");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_bin_int32(ctx_ptr, INT32_MIN, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len),
+            "1111111111111111111111111111111110000000000000000000000000000000");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_bin_int64(ctx_ptr, 7, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "111");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_bin_int64(ctx_ptr, 28550, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "110111110000110");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_bin_int64(ctx_ptr, -28550, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len),
+            "1111111111111111111111111111111111111111111111111001000001111010");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_bin_int64(ctx_ptr, 58117, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "1110001100000101");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_bin_int64(ctx_ptr, -58117, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len),
+            "1111111111111111111111111111111111111111111111110001110011111011");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_bin_int64(ctx_ptr, INT64_MAX, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len),
+            "111111111111111111111111111111111111111111111111111111111111111");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_bin_int64(ctx_ptr, INT64_MIN, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len),
+            "1000000000000000000000000000000000000000000000000000000000000000");
+  EXPECT_FALSE(ctx.has_error());
+}
 }  // namespace gandiva
