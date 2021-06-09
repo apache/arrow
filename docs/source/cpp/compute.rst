@@ -907,7 +907,7 @@ Note: this is currently not supported for timestamps with timezone information.
 * \(2) First ISO week has the majority (4 or more) of it's days in January. ISO year
   starts with the first ISO week.
   See `ISO 8601 week date definition`_ for more details.
-* \(3) Output is a ``{"iso_year": output type, "iso_week": output type, "day_of_week":  output type}`` Struct.
+* \(3) Output is a ``{"iso_year": output type, "iso_week": output type, "iso_day_of_week":  output type}`` Struct.
 
 .. _ISO 8601 week date definition: https://en.wikipedia.org/wiki/ISO_week_date#First_week
 
