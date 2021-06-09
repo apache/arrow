@@ -85,6 +85,14 @@ cdef CFileSource _make_file_source(object file, FileSystem filesystem=None):
     return c_source
 
 
+cdef CSegmentEncoding _get_segment_encoding(str segment_encoding):
+    if segment_encoding == "none":
+        return CSegmentEncodingNone
+    elif segment_encoding == "uri":
+        return CSegmentEncodingUri
+    raise ValueError(f"Unknown segment encoding: {segment_encoding}")
+
+
 cdef class Expression(_Weakrefable):
     """
     A logical expression to be evaluated against some input.
@@ -917,10 +925,10 @@ cdef class Fragment(_Weakrefable):
         """Return the physical schema of this Fragment. This schema can be
         different from the dataset read schema."""
         cdef:
-            shared_ptr[CSchema] c_schema
-
-        c_schema = GetResultValue(self.fragment.ReadPhysicalSchema())
-        return pyarrow_wrap_schema(c_schema)
+            CResult[shared_ptr[CSchema]] maybe_schema
+        with nogil:
+            maybe_schema = self.fragment.ReadPhysicalSchema()
+        return pyarrow_wrap_schema(GetResultValue(maybe_schema))
 
     @property
     def partition_expression(self):
@@ -1930,6 +1938,9 @@ cdef class DirectoryPartitioning(Partitioning):
         corresponding entry of `dictionaries` must be an array containing
         every value which may be taken by the corresponding column or an
         error will be raised in parsing.
+    segment_encoding : str, default "uri"
+        After splitting paths into segments, decode the segments. Valid
+        values are "uri" (URI-decode segments) and "none" (leave as-is).
 
     Returns
     -------
@@ -1947,13 +1958,17 @@ cdef class DirectoryPartitioning(Partitioning):
     cdef:
         CDirectoryPartitioning* directory_partitioning
 
-    def __init__(self, Schema schema not None, dictionaries=None):
+    def __init__(self, Schema schema not None, dictionaries=None,
+                 segment_encoding="uri"):
         cdef:
             shared_ptr[CDirectoryPartitioning] c_partitioning
+            CKeyValuePartitioningOptions c_options
 
+        c_options.segment_encoding = _get_segment_encoding(segment_encoding)
         c_partitioning = make_shared[CDirectoryPartitioning](
             pyarrow_unwrap_schema(schema),
-            _partitioning_dictionaries(schema, dictionaries)
+            _partitioning_dictionaries(schema, dictionaries),
+            c_options,
         )
         self.init(<shared_ptr[CPartitioning]> c_partitioning)
 
@@ -1964,7 +1979,7 @@ cdef class DirectoryPartitioning(Partitioning):
     @staticmethod
     def discover(field_names=None, infer_dictionary=False,
                  max_partition_dictionary_size=0,
-                 schema=None):
+                 schema=None, segment_encoding="uri"):
         """
         Discover a DirectoryPartitioning.
 
@@ -1987,6 +2002,9 @@ cdef class DirectoryPartitioning(Partitioning):
             Use this schema instead of inferring a schema from partition
             values. Partition values will be validated against this schema
             before accumulation into the Partitioning's dictionary.
+        segment_encoding : str, default "uri"
+            After splitting paths into segments, decode the segments. Valid
+            values are "uri" (URI-decode segments) and "none" (leave as-is).
 
         Returns
         -------
@@ -2015,6 +2033,9 @@ cdef class DirectoryPartitioning(Partitioning):
                 "cannot infer field_names")
         else:
             c_field_names = [tobytes(s) for s in field_names]
+
+        c_options.segment_encoding = _get_segment_encoding(segment_encoding)
+
         return PartitioningFactory.wrap(
             CDirectoryPartitioning.MakeFactory(c_field_names, c_options))
 
@@ -2044,6 +2065,9 @@ cdef class HivePartitioning(Partitioning):
         error will be raised in parsing.
     null_fallback : str, default "__HIVE_DEFAULT_PARTITION__"
         If any field is None then this fallback will be used as a label
+    segment_encoding : str, default "uri"
+        After splitting paths into segments, decode the segments. Valid
+        values are "uri" (URI-decode segments) and "none" (leave as-is).
 
     Returns
     -------
@@ -2065,16 +2089,20 @@ cdef class HivePartitioning(Partitioning):
     def __init__(self,
                  Schema schema not None,
                  dictionaries=None,
-                 null_fallback="__HIVE_DEFAULT_PARTITION__"):
+                 null_fallback="__HIVE_DEFAULT_PARTITION__",
+                 segment_encoding="uri"):
 
         cdef:
             shared_ptr[CHivePartitioning] c_partitioning
-            c_string c_null_fallback = tobytes(null_fallback)
+            CHivePartitioningOptions c_options
+
+        c_options.null_fallback = tobytes(null_fallback)
+        c_options.segment_encoding = _get_segment_encoding(segment_encoding)
 
         c_partitioning = make_shared[CHivePartitioning](
             pyarrow_unwrap_schema(schema),
             _partitioning_dictionaries(schema, dictionaries),
-            c_null_fallback
+            c_options,
         )
         self.init(<shared_ptr[CPartitioning]> c_partitioning)
 
@@ -2086,7 +2114,8 @@ cdef class HivePartitioning(Partitioning):
     def discover(infer_dictionary=False,
                  max_partition_dictionary_size=0,
                  null_fallback="__HIVE_DEFAULT_PARTITION__",
-                 schema=None):
+                 schema=None,
+                 segment_encoding="uri"):
         """
         Discover a HivePartitioning.
 
@@ -2110,6 +2139,9 @@ cdef class HivePartitioning(Partitioning):
             Use this schema instead of inferring a schema from partition
             values. Partition values will be validated against this schema
             before accumulation into the Partitioning's dictionary.
+        segment_encoding : str, default "uri"
+            After splitting paths into segments, decode the segments. Valid
+            values are "uri" (URI-decode segments) and "none" (leave as-is).
 
         Returns
         -------
@@ -2132,6 +2164,8 @@ cdef class HivePartitioning(Partitioning):
 
         if schema:
             c_options.schema = pyarrow_unwrap_schema(schema)
+
+        c_options.segment_encoding = _get_segment_encoding(segment_encoding)
 
         return PartitioningFactory.wrap(
             CHivePartitioning.MakeFactory(c_options))

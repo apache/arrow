@@ -33,6 +33,7 @@
 #include "parquet/test_util.h"
 
 namespace parquet {
+class ParquetFileReader;
 namespace encryption {
 namespace test {
 
@@ -106,6 +107,10 @@ class FileDecryptor {
  public:
   void DecryptFile(std::string file_name,
                    std::shared_ptr<FileDecryptionProperties> file_decryption_properties);
+
+ private:
+  void CheckFile(parquet::ParquetFileReader* file_reader,
+                 FileDecryptionProperties* file_decryption_properties);
 };
 
 }  // namespace test

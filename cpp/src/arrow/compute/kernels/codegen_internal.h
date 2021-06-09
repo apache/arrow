@@ -1193,15 +1193,15 @@ ArrayKernelExec GenerateTypeAgnosticPrimitive(detail::GetTypeId get_id) {
 }
 
 // similar to GenerateTypeAgnosticPrimitive, but for variable types
-template <template <typename...> class Generator>
+template <template <typename...> class Generator, typename... Args>
 ArrayKernelExec GenerateTypeAgnosticVarBinaryBase(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::BINARY:
     case Type::STRING:
-      return Generator<BinaryType>::Exec;
+      return Generator<BinaryType, Args...>::Exec;
     case Type::LARGE_BINARY:
     case Type::LARGE_STRING:
-      return Generator<LargeBinaryType>::Exec;
+      return Generator<LargeBinaryType, Args...>::Exec;
     default:
       DCHECK(false);
       return ExecFail;

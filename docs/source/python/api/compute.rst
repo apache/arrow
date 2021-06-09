@@ -40,7 +40,7 @@ Arithmetic Functions
 --------------------
 
 By default these functions do not detect overflow. Each function is also
-available in an overflow-checking variant, suffixed ``_checked``, which 
+available in an overflow-checking variant, suffixed ``_checked``, which
 throws an ``ArrowInvalid`` exception when overflow is detected.
 
 .. autosummary::
@@ -104,11 +104,11 @@ logic variants are provided (suffixed ``_kleene``). See User Guide for details.
 String Predicates
 -----------------
 
-In these functions an empty string emits false in the output. For ASCII 
+In these functions an empty string emits false in the output. For ASCII
 variants (prefixed ``ascii_``) a string element with non-ASCII characters
 emits false in the output.
 
-The first set of functions emit true if the input contains only 
+The first set of functions emit true if the input contains only
 characters of a given class.
 
 .. autosummary::
@@ -140,7 +140,7 @@ in the string element.
    ascii_is_title
    utf8_is_title
 
-The third set of functions examines string elements on 
+The third set of functions examines string elements on
 a byte-by-byte basis.
 
 .. autosummary::
@@ -178,12 +178,15 @@ Containment tests
 .. autosummary::
    :toctree: ../generated/
 
+   count_substring
+   ends_with
    find_substring
    index_in
    is_in
    match_like
    match_substring
    match_substring_regex
+   starts_with
 
 Conversions
 -----------

@@ -32,9 +32,12 @@
 #include <gtest/gtest.h>
 
 #include "arrow/status.h"
+#include "arrow/testing/executor_util.h"
+#include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/test_common.h"
 #include "arrow/util/thread_pool.h"
 
 namespace arrow {
@@ -255,6 +258,42 @@ TEST_P(TestRunSynchronously, PropagatedError) {
 
 INSTANTIATE_TEST_SUITE_P(TestRunSynchronously, TestRunSynchronously,
                          ::testing::Values(false, true));
+
+class TransferTest : public testing::Test {
+ public:
+  internal::Executor* executor() { return mock_executor.get(); }
+  int spawn_count() { return mock_executor->spawn_count; }
+
+  std::function<void(const Status&)> callback = [](const Status&) {};
+  std::shared_ptr<MockExecutor> mock_executor = std::make_shared<MockExecutor>();
+};
+
+TEST_F(TransferTest, DefaultTransferIfNotFinished) {
+  {
+    Future<> fut = Future<>::Make();
+    auto transferred = executor()->Transfer(fut);
+    fut.MarkFinished();
+    ASSERT_FINISHES_OK(transferred);
+    ASSERT_EQ(1, spawn_count());
+  }
+  {
+    Future<> fut = Future<>::Make();
+    fut.MarkFinished();
+    auto transferred = executor()->Transfer(fut);
+    ASSERT_FINISHES_OK(transferred);
+    ASSERT_EQ(1, spawn_count());
+  }
+}
+
+TEST_F(TransferTest, TransferAlways) {
+  {
+    Future<> fut = Future<>::Make();
+    fut.MarkFinished();
+    auto transferred = executor()->TransferAlways(fut);
+    ASSERT_FINISHES_OK(transferred);
+    ASSERT_EQ(1, spawn_count());
+  }
+}
 
 class TestThreadPool : public ::testing::Test {
  public:

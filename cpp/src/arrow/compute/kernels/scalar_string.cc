@@ -475,6 +475,7 @@ struct PlainSubstringMatcher {
     const auto pattern_length = options_.pattern.size();
     int64_t pattern_pos = 0;
     int64_t pos = 0;
+    if (pattern_length == 0) return 0;
     for (const auto c : current) {
       while ((pattern_pos >= 0) && (options_.pattern[pattern_pos] != c)) {
         pattern_pos = prefix_table[pattern_pos];
@@ -489,6 +490,46 @@ struct PlainSubstringMatcher {
   }
 
   bool Match(util::string_view current) const { return Find(current) >= 0; }
+};
+
+struct PlainStartsWithMatcher {
+  const MatchSubstringOptions& options_;
+
+  explicit PlainStartsWithMatcher(const MatchSubstringOptions& options)
+      : options_(options) {}
+
+  static Result<std::unique_ptr<PlainStartsWithMatcher>> Make(
+      const MatchSubstringOptions& options) {
+    // Should be handled by partial template specialization below
+    DCHECK(!options.ignore_case);
+    return ::arrow::internal::make_unique<PlainStartsWithMatcher>(options);
+  }
+
+  bool Match(util::string_view current) const {
+    // string_view::starts_with is C++20
+    return current.substr(0, options_.pattern.size()) == options_.pattern;
+  }
+};
+
+struct PlainEndsWithMatcher {
+  const MatchSubstringOptions& options_;
+
+  explicit PlainEndsWithMatcher(const MatchSubstringOptions& options)
+      : options_(options) {}
+
+  static Result<std::unique_ptr<PlainEndsWithMatcher>> Make(
+      const MatchSubstringOptions& options) {
+    // Should be handled by partial template specialization below
+    DCHECK(!options.ignore_case);
+    return ::arrow::internal::make_unique<PlainEndsWithMatcher>(options);
+  }
+
+  bool Match(util::string_view current) const {
+    // string_view::ends_with is C++20
+    return current.size() >= options_.pattern.size() &&
+           current.substr(current.size() - options_.pattern.size(),
+                          options_.pattern.size()) == options_.pattern;
+  }
 };
 
 #ifdef ARROW_WITH_RE2
@@ -580,9 +621,65 @@ struct MatchSubstring<Type, PlainSubstringMatcher> {
   }
 };
 
+template <typename Type>
+struct MatchSubstring<Type, PlainStartsWithMatcher> {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    auto options = MatchSubstringState::Get(ctx);
+    if (options.ignore_case) {
+#ifdef ARROW_WITH_RE2
+      MatchSubstringOptions converted_options = options;
+      converted_options.pattern = "^" + RE2::QuoteMeta(options.pattern);
+      ARROW_ASSIGN_OR_RAISE(auto matcher, RegexSubstringMatcher::Make(converted_options));
+      return MatchSubstringImpl<Type, RegexSubstringMatcher>::Exec(ctx, batch, out,
+                                                                   matcher.get());
+#else
+      return Status::NotImplemented("ignore_case requires RE2");
+#endif
+    }
+    ARROW_ASSIGN_OR_RAISE(auto matcher, PlainStartsWithMatcher::Make(options));
+    return MatchSubstringImpl<Type, PlainStartsWithMatcher>::Exec(ctx, batch, out,
+                                                                  matcher.get());
+  }
+};
+
+template <typename Type>
+struct MatchSubstring<Type, PlainEndsWithMatcher> {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    auto options = MatchSubstringState::Get(ctx);
+    if (options.ignore_case) {
+#ifdef ARROW_WITH_RE2
+      MatchSubstringOptions converted_options = options;
+      converted_options.pattern = RE2::QuoteMeta(options.pattern) + "$";
+      ARROW_ASSIGN_OR_RAISE(auto matcher, RegexSubstringMatcher::Make(converted_options));
+      return MatchSubstringImpl<Type, RegexSubstringMatcher>::Exec(ctx, batch, out,
+                                                                   matcher.get());
+#else
+      return Status::NotImplemented("ignore_case requires RE2");
+#endif
+    }
+    ARROW_ASSIGN_OR_RAISE(auto matcher, PlainEndsWithMatcher::Make(options));
+    return MatchSubstringImpl<Type, PlainEndsWithMatcher>::Exec(ctx, batch, out,
+                                                                matcher.get());
+  }
+};
+
 const FunctionDoc match_substring_doc(
     "Match strings against literal pattern",
     ("For each string in `strings`, emit true iff it contains a given pattern.\n"
+     "Null inputs emit null.  The pattern must be given in MatchSubstringOptions. "
+     "If ignore_case is set, only simple case folding is performed."),
+    {"strings"}, "MatchSubstringOptions");
+
+const FunctionDoc starts_with_doc(
+    "Check if strings start with a literal pattern",
+    ("For each string in `strings`, emit true iff it starts with a given pattern.\n"
+     "Null inputs emit null.  The pattern must be given in MatchSubstringOptions. "
+     "If ignore_case is set, only simple case folding is performed."),
+    {"strings"}, "MatchSubstringOptions");
+
+const FunctionDoc ends_with_doc(
+    "Check if strings end with a literal pattern",
+    ("For each string in `strings`, emit true iff it ends with a given pattern.\n"
      "Null inputs emit null.  The pattern must be given in MatchSubstringOptions. "
      "If ignore_case is set, only simple case folding is performed."),
     {"strings"}, "MatchSubstringOptions");
@@ -642,17 +739,20 @@ std::string MakeLikeRegex(const MatchSubstringOptions& options) {
   return like_pattern;
 }
 
-// A LIKE pattern matching this regex can be translated into a substring search.
-static RE2 kLikePatternIsSubstringMatch("%+([^%_]*)%+");
-
 // Evaluate a SQL-like LIKE pattern by translating it to a regexp or
 // substring search as appropriate. See what Apache Impala does:
 // https://github.com/apache/impala/blob/9c38568657d62b6f6d7b10aa1c721ba843374dd8/be/src/exprs/like-predicate.cc
-// Note that Impala optimizes more cases (e.g. prefix match) but we
-// don't have kernels for those.
 template <typename StringType>
 struct MatchLike {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    // NOTE: avoid making those constants global to avoid compiling regexes at startup
+    // A LIKE pattern matching this regex can be translated into a substring search.
+    static const RE2 kLikePatternIsSubstringMatch(R"(%+([^%_]*[^\\%_])?%+)");
+    // A LIKE pattern matching this regex can be translated into a prefix search.
+    static const RE2 kLikePatternIsStartsWith(R"(([^%_]*[^\\%_])?%+)");
+    // A LIKE pattern matching this regex can be translated into a suffix search.
+    static const RE2 kLikePatternIsEndsWith(R"(%+([^%_]*))");
+
     auto original_options = MatchSubstringState::Get(ctx);
     auto original_state = ctx->state();
 
@@ -665,6 +765,20 @@ struct MatchLike {
       MatchSubstringState converted_state(converted_options);
       ctx->SetState(&converted_state);
       status = MatchSubstring<StringType, PlainSubstringMatcher>::Exec(ctx, batch, out);
+    } else if (!original_options.ignore_case &&
+               re2::RE2::FullMatch(original_options.pattern, kLikePatternIsStartsWith,
+                                   &pattern)) {
+      MatchSubstringOptions converted_options{pattern, original_options.ignore_case};
+      MatchSubstringState converted_state(converted_options);
+      ctx->SetState(&converted_state);
+      status = MatchSubstring<StringType, PlainStartsWithMatcher>::Exec(ctx, batch, out);
+    } else if (!original_options.ignore_case &&
+               re2::RE2::FullMatch(original_options.pattern, kLikePatternIsEndsWith,
+                                   &pattern)) {
+      MatchSubstringOptions converted_options{pattern, original_options.ignore_case};
+      MatchSubstringState converted_state(converted_options);
+      ctx->SetState(&converted_state);
+      status = MatchSubstring<StringType, PlainEndsWithMatcher>::Exec(ctx, batch, out);
     } else {
       MatchSubstringOptions converted_options{MakeLikeRegex(original_options),
                                               original_options.ignore_case};
@@ -694,6 +808,26 @@ void AddMatchSubstring(FunctionRegistry* registry) {
                                                  &match_substring_doc);
     auto exec_32 = MatchSubstring<StringType, PlainSubstringMatcher>::Exec;
     auto exec_64 = MatchSubstring<LargeStringType, PlainSubstringMatcher>::Exec;
+    DCHECK_OK(func->AddKernel({utf8()}, boolean(), exec_32, MatchSubstringState::Init));
+    DCHECK_OK(
+        func->AddKernel({large_utf8()}, boolean(), exec_64, MatchSubstringState::Init));
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+  {
+    auto func = std::make_shared<ScalarFunction>("starts_with", Arity::Unary(),
+                                                 &match_substring_doc);
+    auto exec_32 = MatchSubstring<StringType, PlainStartsWithMatcher>::Exec;
+    auto exec_64 = MatchSubstring<LargeStringType, PlainStartsWithMatcher>::Exec;
+    DCHECK_OK(func->AddKernel({utf8()}, boolean(), exec_32, MatchSubstringState::Init));
+    DCHECK_OK(
+        func->AddKernel({large_utf8()}, boolean(), exec_64, MatchSubstringState::Init));
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+  {
+    auto func = std::make_shared<ScalarFunction>("ends_with", Arity::Unary(),
+                                                 &match_substring_doc);
+    auto exec_32 = MatchSubstring<StringType, PlainEndsWithMatcher>::Exec;
+    auto exec_64 = MatchSubstring<LargeStringType, PlainEndsWithMatcher>::Exec;
     DCHECK_OK(func->AddKernel({utf8()}, boolean(), exec_32, MatchSubstringState::Init));
     DCHECK_OK(
         func->AddKernel({large_utf8()}, boolean(), exec_64, MatchSubstringState::Init));
@@ -737,12 +871,18 @@ struct FindSubstring {
 };
 
 template <typename InputType>
-Status FindSubstringExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  using offset_type = typename TypeTraits<InputType>::OffsetType;
-  applicator::ScalarUnaryNotNullStateful<offset_type, InputType, FindSubstring> kernel{
-      FindSubstring(PlainSubstringMatcher(MatchSubstringState::Get(ctx)))};
-  return kernel.Exec(ctx, batch, out);
-}
+struct FindSubstringExec {
+  using OffsetType = typename TypeTraits<InputType>::OffsetType;
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const MatchSubstringOptions& options = MatchSubstringState::Get(ctx);
+    if (options.ignore_case) {
+      return Status::NotImplemented("find_substring with ignore_case");
+    }
+    applicator::ScalarUnaryNotNullStateful<OffsetType, InputType, FindSubstring> kernel{
+        FindSubstring(PlainSubstringMatcher(options))};
+    return kernel.Exec(ctx, batch, out);
+  }
+};
 
 const FunctionDoc find_substring_doc(
     "Find first occurrence of substring",
@@ -754,14 +894,80 @@ const FunctionDoc find_substring_doc(
 void AddFindSubstring(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("find_substring", Arity::Unary(),
                                                &find_substring_doc);
-  DCHECK_OK(func->AddKernel({binary()}, int32(), FindSubstringExec<BinaryType>,
-                            MatchSubstringState::Init));
-  DCHECK_OK(func->AddKernel({utf8()}, int32(), FindSubstringExec<StringType>,
-                            MatchSubstringState::Init));
-  DCHECK_OK(func->AddKernel({large_binary()}, int64(), FindSubstringExec<LargeBinaryType>,
-                            MatchSubstringState::Init));
-  DCHECK_OK(func->AddKernel({large_utf8()}, int64(), FindSubstringExec<LargeStringType>,
-                            MatchSubstringState::Init));
+  for (const auto& ty : BaseBinaryTypes()) {
+    std::shared_ptr<DataType> offset_type;
+    if (ty->id() == Type::type::LARGE_BINARY || ty->id() == Type::type::LARGE_STRING) {
+      offset_type = int64();
+    } else {
+      offset_type = int32();
+    }
+    DCHECK_OK(func->AddKernel({ty}, offset_type,
+                              GenerateTypeAgnosticVarBinaryBase<FindSubstringExec>(ty),
+                              MatchSubstringState::Init));
+  }
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+}
+
+// Substring count
+
+struct CountSubstring {
+  const PlainSubstringMatcher matcher_;
+
+  explicit CountSubstring(PlainSubstringMatcher matcher) : matcher_(std::move(matcher)) {}
+
+  template <typename OutValue, typename... Ignored>
+  OutValue Call(KernelContext*, util::string_view val, Status*) const {
+    OutValue count = 0;
+    uint64_t start = 0;
+    const auto pattern_size = std::max<uint64_t>(1, matcher_.options_.pattern.size());
+    while (start <= val.size()) {
+      const int64_t index = matcher_.Find(val.substr(start));
+      if (index >= 0) {
+        count++;
+        start += index + pattern_size;
+      } else {
+        break;
+      }
+    }
+    return count;
+  }
+};
+
+template <typename InputType>
+struct CountSubstringExec {
+  using OffsetType = typename TypeTraits<InputType>::OffsetType;
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const MatchSubstringOptions& options = MatchSubstringState::Get(ctx);
+    if (options.ignore_case) {
+      return Status::NotImplemented("count_substring with ignore_case");
+    }
+    applicator::ScalarUnaryNotNullStateful<OffsetType, InputType, CountSubstring> kernel{
+        CountSubstring(PlainSubstringMatcher(options))};
+    return kernel.Exec(ctx, batch, out);
+  }
+};
+
+const FunctionDoc count_substring_doc(
+    "Count occurrences of substring",
+    ("For each string in `strings`, emit the number of occurrences of the given "
+     "pattern.\n"
+     "Null inputs emit null. The pattern must be given in MatchSubstringOptions."),
+    {"strings"}, "MatchSubstringOptions");
+
+void AddCountSubstring(FunctionRegistry* registry) {
+  auto func = std::make_shared<ScalarFunction>("count_substring", Arity::Unary(),
+                                               &count_substring_doc);
+  for (const auto& ty : BaseBinaryTypes()) {
+    std::shared_ptr<DataType> offset_type;
+    if (ty->id() == Type::type::LARGE_BINARY || ty->id() == Type::type::LARGE_STRING) {
+      offset_type = int64();
+    } else {
+      offset_type = int32();
+    }
+    DCHECK_OK(func->AddKernel({ty}, offset_type,
+                              GenerateTypeAgnosticVarBinaryBase<CountSubstringExec>(ty),
+                              MatchSubstringState::Init));
+  }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
@@ -2637,6 +2843,283 @@ void AddUtf8Length(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
+template <typename BinaryType, typename ListType>
+struct BinaryJoin {
+  using ArrayType = typename TypeTraits<BinaryType>::ArrayType;
+  using ListArrayType = typename TypeTraits<ListType>::ArrayType;
+  using ListScalarType = typename TypeTraits<ListType>::ScalarType;
+  using ListOffsetType = typename ListArrayType::offset_type;
+  using BuilderType = typename TypeTraits<BinaryType>::BuilderType;
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    if (batch[0].kind() == Datum::SCALAR) {
+      if (batch[1].kind() == Datum::SCALAR) {
+        return ExecScalarScalar(ctx, *batch[0].scalar(), *batch[1].scalar(), out);
+      }
+      DCHECK_EQ(batch[1].kind(), Datum::ARRAY);
+      return ExecScalarArray(ctx, *batch[0].scalar(), batch[1].array(), out);
+    }
+    DCHECK_EQ(batch[0].kind(), Datum::ARRAY);
+    if (batch[1].kind() == Datum::SCALAR) {
+      return ExecArrayScalar(ctx, batch[0].array(), *batch[1].scalar(), out);
+    }
+    DCHECK_EQ(batch[1].kind(), Datum::ARRAY);
+    return ExecArrayArray(ctx, batch[0].array(), batch[1].array(), out);
+  }
+
+  struct ListScalarOffsetLookup {
+    const ArrayType& values;
+
+    int64_t GetStart(int64_t i) { return 0; }
+    int64_t GetStop(int64_t i) { return values.length(); }
+    bool IsNull(int64_t i) { return false; }
+  };
+
+  struct ListArrayOffsetLookup {
+    explicit ListArrayOffsetLookup(const ListArrayType& lists)
+        : lists_(lists), offsets_(lists.raw_value_offsets()) {}
+
+    int64_t GetStart(int64_t i) { return offsets_[i]; }
+    int64_t GetStop(int64_t i) { return offsets_[i + 1]; }
+    bool IsNull(int64_t i) { return lists_.IsNull(i); }
+
+   private:
+    const ListArrayType& lists_;
+    const ListOffsetType* offsets_;
+  };
+
+  struct SeparatorScalarLookup {
+    const util::string_view separator;
+
+    bool IsNull(int64_t i) { return false; }
+    util::string_view GetView(int64_t i) { return separator; }
+  };
+
+  struct SeparatorArrayLookup {
+    const ArrayType& separators;
+
+    bool IsNull(int64_t i) { return separators.IsNull(i); }
+    util::string_view GetView(int64_t i) { return separators.GetView(i); }
+  };
+
+  // Scalar, scalar -> scalar
+  static Status ExecScalarScalar(KernelContext* ctx, const Scalar& left,
+                                 const Scalar& right, Datum* out) {
+    const auto& list = checked_cast<const ListScalarType&>(left);
+    const auto& separator_scalar = checked_cast<const BaseBinaryScalar&>(right);
+    if (!list.is_valid || !separator_scalar.is_valid) {
+      return Status::OK();
+    }
+    util::string_view separator(*separator_scalar.value);
+
+    const auto& strings = checked_cast<const ArrayType&>(*list.value);
+    if (strings.null_count() > 0) {
+      out->scalar()->is_valid = false;
+      return Status::OK();
+    }
+
+    TypedBufferBuilder<uint8_t> builder(ctx->memory_pool());
+    auto Append = [&](util::string_view value) {
+      return builder.Append(reinterpret_cast<const uint8_t*>(value.data()),
+                            static_cast<int64_t>(value.size()));
+    };
+    if (strings.length() > 0) {
+      auto data_length =
+          strings.total_values_length() + (strings.length() - 1) * separator.length();
+      RETURN_NOT_OK(builder.Reserve(data_length));
+      RETURN_NOT_OK(Append(strings.GetView(0)));
+      for (int64_t j = 1; j < strings.length(); j++) {
+        RETURN_NOT_OK(Append(separator));
+        RETURN_NOT_OK(Append(strings.GetView(j)));
+      }
+    }
+    auto out_scalar = checked_cast<BaseBinaryScalar*>(out->scalar().get());
+    return builder.Finish(&out_scalar->value);
+  }
+
+  // Scalar, array -> array
+  static Status ExecScalarArray(KernelContext* ctx, const Scalar& left,
+                                const std::shared_ptr<ArrayData>& right, Datum* out) {
+    const auto& list_scalar = checked_cast<const BaseListScalar&>(left);
+    if (!list_scalar.is_valid) {
+      ARROW_ASSIGN_OR_RAISE(
+          auto nulls, MakeArrayOfNull(right->type, right->length, ctx->memory_pool()));
+      *out = *nulls->data();
+      return Status::OK();
+    }
+    const auto& strings = checked_cast<const ArrayType&>(*list_scalar.value);
+    if (strings.null_count() != 0) {
+      ARROW_ASSIGN_OR_RAISE(
+          auto nulls, MakeArrayOfNull(right->type, right->length, ctx->memory_pool()));
+      *out = *nulls->data();
+      return Status::OK();
+    }
+    const ArrayType separators(right);
+
+    BuilderType builder(ctx->memory_pool());
+    RETURN_NOT_OK(builder.Reserve(separators.length()));
+
+    // Presize data to avoid multiple reallocations when joining strings
+    int64_t total_data_length = 0;
+    const int64_t list_length = strings.length();
+    if (list_length) {
+      const int64_t string_length = strings.total_values_length();
+      total_data_length +=
+          string_length * (separators.length() - separators.null_count());
+      for (int64_t i = 0; i < separators.length(); ++i) {
+        if (separators.IsNull(i)) {
+          continue;
+        }
+        total_data_length += (list_length - 1) * separators.value_length(i);
+      }
+    }
+    RETURN_NOT_OK(builder.ReserveData(total_data_length));
+
+    return JoinStrings(separators.length(), strings, ListScalarOffsetLookup{strings},
+                       SeparatorArrayLookup{separators}, &builder, out);
+  }
+
+  // Array, scalar -> array
+  static Status ExecArrayScalar(KernelContext* ctx,
+                                const std::shared_ptr<ArrayData>& left,
+                                const Scalar& right, Datum* out) {
+    const ListArrayType lists(left);
+    const auto& separator_scalar = checked_cast<const BaseBinaryScalar&>(right);
+
+    if (!separator_scalar.is_valid) {
+      ARROW_ASSIGN_OR_RAISE(
+          auto nulls,
+          MakeArrayOfNull(lists.value_type(), lists.length(), ctx->memory_pool()));
+      *out = *nulls->data();
+      return Status::OK();
+    }
+
+    util::string_view separator(*separator_scalar.value);
+    const auto& strings = checked_cast<const ArrayType&>(*lists.values());
+    const auto list_offsets = lists.raw_value_offsets();
+
+    BuilderType builder(ctx->memory_pool());
+    RETURN_NOT_OK(builder.Reserve(lists.length()));
+
+    // Presize data to avoid multiple reallocations when joining strings
+    int64_t total_data_length = strings.total_values_length();
+    for (int64_t i = 0; i < lists.length(); ++i) {
+      const auto start = list_offsets[i], end = list_offsets[i + 1];
+      if (end > start && !ValuesContainNull(strings, start, end)) {
+        total_data_length += (end - start - 1) * separator.length();
+      }
+    }
+    RETURN_NOT_OK(builder.ReserveData(total_data_length));
+
+    return JoinStrings(lists.length(), strings, ListArrayOffsetLookup{lists},
+                       SeparatorScalarLookup{separator}, &builder, out);
+  }
+
+  // Array, array -> array
+  static Status ExecArrayArray(KernelContext* ctx, const std::shared_ptr<ArrayData>& left,
+                               const std::shared_ptr<ArrayData>& right, Datum* out) {
+    const ListArrayType lists(left);
+    const auto& strings = checked_cast<const ArrayType&>(*lists.values());
+    const auto list_offsets = lists.raw_value_offsets();
+    const auto string_offsets = strings.raw_value_offsets();
+    const ArrayType separators(right);
+
+    BuilderType builder(ctx->memory_pool());
+    RETURN_NOT_OK(builder.Reserve(lists.length()));
+
+    // Presize data to avoid multiple reallocations when joining strings
+    int64_t total_data_length = 0;
+    for (int64_t i = 0; i < lists.length(); ++i) {
+      if (separators.IsNull(i)) {
+        continue;
+      }
+      const auto start = list_offsets[i], end = list_offsets[i + 1];
+      if (end > start && !ValuesContainNull(strings, start, end)) {
+        total_data_length += string_offsets[end] - string_offsets[start];
+        total_data_length += (end - start - 1) * separators.value_length(i);
+      }
+    }
+    RETURN_NOT_OK(builder.ReserveData(total_data_length));
+
+    struct SeparatorLookup {
+      const ArrayType& separators;
+
+      bool IsNull(int64_t i) { return separators.IsNull(i); }
+      util::string_view GetView(int64_t i) { return separators.GetView(i); }
+    };
+    return JoinStrings(lists.length(), strings, ListArrayOffsetLookup{lists},
+                       SeparatorArrayLookup{separators}, &builder, out);
+  }
+
+  template <typename ListOffsetLookup, typename SeparatorLookup>
+  static Status JoinStrings(int64_t length, const ArrayType& strings,
+                            ListOffsetLookup&& list_offsets, SeparatorLookup&& separators,
+                            BuilderType* builder, Datum* out) {
+    for (int64_t i = 0; i < length; ++i) {
+      if (list_offsets.IsNull(i) || separators.IsNull(i)) {
+        builder->UnsafeAppendNull();
+        continue;
+      }
+      const auto j_start = list_offsets.GetStart(i), j_end = list_offsets.GetStop(i);
+      if (j_start == j_end) {
+        builder->UnsafeAppendEmptyValue();
+        continue;
+      }
+      if (ValuesContainNull(strings, j_start, j_end)) {
+        builder->UnsafeAppendNull();
+        continue;
+      }
+      builder->UnsafeAppend(strings.GetView(j_start));
+      for (int64_t j = j_start + 1; j < j_end; ++j) {
+        builder->UnsafeExtendCurrent(separators.GetView(i));
+        builder->UnsafeExtendCurrent(strings.GetView(j));
+      }
+    }
+
+    std::shared_ptr<Array> string_array;
+    RETURN_NOT_OK(builder->Finish(&string_array));
+    *out = *string_array->data();
+    // Correct the output type based on the input
+    out->mutable_array()->type = strings.type();
+    return Status::OK();
+  }
+
+  static bool ValuesContainNull(const ArrayType& values, int64_t start, int64_t end) {
+    if (values.null_count() == 0) {
+      return false;
+    }
+    for (int64_t i = start; i < end; ++i) {
+      if (values.IsNull(i)) {
+        return true;
+      }
+    }
+    return false;
+  }
+};
+
+const FunctionDoc binary_join_doc(
+    "Join a list of strings together with a `separator` to form a single string",
+    ("Insert `separator` between `list` elements, and concatenate them.\n"
+     "Any null input and any null `list` element emits a null output.\n"),
+    {"list", "separator"});
+
+template <typename ListType>
+void AddBinaryJoinForListType(ScalarFunction* func) {
+  for (const std::shared_ptr<DataType>& ty : BaseBinaryTypes()) {
+    auto exec = GenerateTypeAgnosticVarBinaryBase<BinaryJoin, ListType>(*ty);
+    auto list_ty = std::make_shared<ListType>(ty);
+    DCHECK_OK(func->AddKernel({InputType(list_ty), InputType(ty)}, ty, exec));
+  }
+}
+
+void AddBinaryJoin(FunctionRegistry* registry) {
+  auto func =
+      std::make_shared<ScalarFunction>("binary_join", Arity::Binary(), &binary_join_doc);
+  AddBinaryJoinForListType<ListType>(func.get());
+  AddBinaryJoinForListType<LargeListType>(func.get());
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+}
+
 template <template <typename> class ExecFunctor>
 void MakeUnaryStringBatchKernel(
     std::string name, FunctionRegistry* registry, const FunctionDoc* doc,
@@ -2930,6 +3413,7 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   AddUtf8Length(registry);
   AddMatchSubstring(registry);
   AddFindSubstring(registry);
+  AddCountSubstring(registry);
   MakeUnaryStringBatchKernelWithState<ReplaceSubStringPlain>(
       "replace_substring", registry, &replace_substring_doc,
       MemAllocation::NO_PREALLOCATE);
@@ -2942,6 +3426,7 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   AddSlice(registry);
   AddSplit(registry);
   AddStrptime(registry);
+  AddBinaryJoin(registry);
 }
 
 }  // namespace internal

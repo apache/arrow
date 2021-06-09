@@ -285,6 +285,19 @@ def test_variance():
     assert pc.variance(data, ddof=1).as_py() == 6.0
 
 
+def test_count_substring():
+    arr = pa.array(["ab", "cab", "abcab", "ba", "AB", None])
+    result = pc.count_substring(arr, "ab")
+    expected = pa.array([1, 1, 2, 0, 0, None], type=pa.int32())
+    assert expected.equals(result)
+
+    arr = pa.array(["ab", "cab", "abcab", "ba", "AB", None],
+                   type=pa.large_string())
+    result = pc.count_substring(arr, "ab")
+    expected = pa.array([1, 1, 2, 0, 0, None], type=pa.int64())
+    assert expected.equals(result)
+
+
 def test_find_substring():
     arr = pa.array(["ab", "cab", "ba", None])
     result = pc.find_substring(arr, "ab")
@@ -697,6 +710,17 @@ def test_extract_regex():
     struct = pc.extract_regex(ar, pattern=r'(?P<letter>[ab])(?P<digit>\d)')
     assert struct.tolist() == [{'letter': 'a', 'digit': '1'}, {
         'letter': 'b', 'digit': '2'}]
+
+
+def test_binary_join():
+    ar_list = pa.array([['foo', 'bar'], None, []])
+    expected = pa.array(['foo-bar', None, ''])
+    assert pc.binary_join(ar_list, '-').equals(expected)
+
+    separator_array = pa.array(['1', '2'], type=pa.binary())
+    expected = pa.array(['a1b', 'c2d'], type=pa.binary())
+    ar_list = pa.array([['a', 'b'], ['c', 'd']], type=pa.list_(pa.binary()))
+    assert pc.binary_join(ar_list, separator_array).equals(expected)
 
 
 @pytest.mark.parametrize(('ty', 'values'), all_array_types)

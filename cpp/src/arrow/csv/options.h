@@ -129,6 +129,9 @@ struct ARROW_EXPORT ReadOptions {
   /// Number of header rows to skip (not including the row of column names, if any)
   int32_t skip_rows = 0;
 
+  /// Number of rows to skip after the column names are read, if any
+  int32_t skip_rows_after_names = 0;
+
   /// Column names for the target table.
   /// If empty, fall back on autogenerate_column_names.
   std::vector<std::string> column_names;

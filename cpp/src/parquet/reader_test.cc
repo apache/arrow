@@ -16,6 +16,7 @@
 // under the License.
 
 #include <fcntl.h>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <cstdint>
 #include <cstdlib>
@@ -26,6 +27,7 @@
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/io/file.h"
+#include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/checked_cast.h"
@@ -558,6 +560,76 @@ TEST(TestFileReader, BufferedReads) {
         scratch_space[col_index]->Equals(*column_data[col_index]->data()->buffers[1]));
   }
 }
+
+std::unique_ptr<ParquetFileReader> OpenBuffer(const std::string& contents) {
+  auto buffer = ::arrow::Buffer::FromString(contents);
+  return ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
+}
+
+::arrow::Future<> OpenBufferAsync(const std::string& contents) {
+  auto buffer = ::arrow::Buffer::FromString(contents);
+  return ::arrow::Future<>(
+      ParquetFileReader::OpenAsync(std::make_shared<::arrow::io::BufferReader>(buffer)));
+}
+
+// https://github.com/google/googletest/pull/2904 not available in our version of
+// gtest/gmock
+#define EXPECT_THROW_THAT(callable, ex_type, property)   \
+  EXPECT_THROW(                                          \
+      try { (callable)(); } catch (const ex_type& err) { \
+        EXPECT_THAT(err, (property));                    \
+        throw;                                           \
+      },                                                 \
+      ex_type)
+
+TEST(TestFileReader, TestOpenErrors) {
+  EXPECT_THROW_THAT(
+      []() { OpenBuffer(""); }, ParquetInvalidOrCorruptedFileException,
+      ::testing::Property(&ParquetInvalidOrCorruptedFileException::what,
+                          ::testing::HasSubstr("Parquet file size is 0 bytes")));
+  EXPECT_THROW_THAT(
+      []() { OpenBuffer("AAAAPAR0"); }, ParquetInvalidOrCorruptedFileException,
+      ::testing::Property(&ParquetInvalidOrCorruptedFileException::what,
+                          ::testing::HasSubstr("Parquet magic bytes not found")));
+  EXPECT_THROW_THAT(
+      []() { OpenBuffer("APAR1"); }, ParquetInvalidOrCorruptedFileException,
+      ::testing::Property(
+          &ParquetInvalidOrCorruptedFileException::what,
+          ::testing::HasSubstr(
+              "Parquet file size is 5 bytes, smaller than the minimum file footer")));
+  EXPECT_THROW_THAT(
+      []() { OpenBuffer("\xFF\xFF\xFF\x0FPAR1"); },
+      ParquetInvalidOrCorruptedFileException,
+      ::testing::Property(&ParquetInvalidOrCorruptedFileException::what,
+                          ::testing::HasSubstr("Parquet file size is 8 bytes, smaller "
+                                               "than the size reported by footer's")));
+  EXPECT_THROW_THAT(
+      []() { OpenBuffer(std::string("\x00\x00\x00\x00PAR1", 8)); }, ParquetException,
+      ::testing::Property(
+          &ParquetException::what,
+          ::testing::HasSubstr("Couldn't deserialize thrift: No more data to read")));
+
+  EXPECT_FINISHES_AND_RAISES_WITH_MESSAGE_THAT(
+      IOError, ::testing::HasSubstr("Parquet file size is 0 bytes"), OpenBufferAsync(""));
+  EXPECT_FINISHES_AND_RAISES_WITH_MESSAGE_THAT(
+      IOError, ::testing::HasSubstr("Parquet magic bytes not found"),
+      OpenBufferAsync("AAAAPAR0"));
+  EXPECT_FINISHES_AND_RAISES_WITH_MESSAGE_THAT(
+      IOError,
+      ::testing::HasSubstr(
+          "Parquet file size is 5 bytes, smaller than the minimum file footer"),
+      OpenBufferAsync("APAR1"));
+  EXPECT_FINISHES_AND_RAISES_WITH_MESSAGE_THAT(
+      IOError,
+      ::testing::HasSubstr(
+          "Parquet file size is 8 bytes, smaller than the size reported by footer's"),
+      OpenBufferAsync("\xFF\xFF\xFF\x0FPAR1"));
+  EXPECT_FINISHES_AND_RAISES_WITH_MESSAGE_THAT(
+      IOError, ::testing::HasSubstr("Couldn't deserialize thrift: No more data to read"),
+      OpenBufferAsync(std::string("\x00\x00\x00\x00PAR1", 8)));
+}
+
+#undef EXPECT_THROW_THAT
 
 #ifdef ARROW_WITH_LZ4
 struct TestCodecParam {
