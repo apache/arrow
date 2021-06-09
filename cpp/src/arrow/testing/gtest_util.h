@@ -444,6 +444,14 @@ inline void BitmapFromVector(const std::vector<T>& is_valid,
   ASSERT_OK(GetBitmapFromVector(is_valid, out));
 }
 
+// Given an array, return a new identical array except for one validity bit
+// set to a new value.
+// This is useful to force the underlying "value" of null entries to otherwise
+// invalid data and check that errors don't get reported.
+ARROW_TESTING_EXPORT
+std::shared_ptr<Array> TweakValidityBit(const std::shared_ptr<Array>& array,
+                                        int64_t index, bool validity);
+
 ARROW_TESTING_EXPORT
 void SleepFor(double seconds);
 

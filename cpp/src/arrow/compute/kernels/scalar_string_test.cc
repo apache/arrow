@@ -144,10 +144,13 @@ TYPED_TEST(TestStringKernels, AsciiReverse) {
   this->CheckUnary("ascii_reverse", R"(["abcd", null, "", "bbb"])", this->type(),
                    R"(["dcba", null, "", "bbb"])");
 
-  Datum invalid_input = ArrayFromJSON(this->type(), R"(["aAazZæÆ&", null, "", "bbb"])");
+  auto invalid_input = ArrayFromJSON(this->type(), R"(["aAazZæÆ&", null, "", "bcd"])");
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                   testing::HasSubstr("Non-ASCII sequence in input"),
                                   CallFunction("ascii_reverse", {invalid_input}));
+  auto masked_input = TweakValidityBit(invalid_input, 0, false);
+  CheckScalarUnary("ascii_reverse", masked_input,
+                   ArrayFromJSON(this->type(), R"([null, null, "", "dcb"])"));
 }
 
 TYPED_TEST(TestStringKernels, Utf8Reverse) {

@@ -553,6 +553,19 @@ void ApproxCompareBatch(const RecordBatch& left, const RecordBatch& right,
       [](const Array& left, const Array& right) { return left.ApproxEquals(right); });
 }
 
+std::shared_ptr<Array> TweakValidityBit(const std::shared_ptr<Array>& array,
+                                        int64_t index, bool validity) {
+  auto data = array->data()->Copy();
+  if (data->buffers[0] == nullptr) {
+    data->buffers[0] = *AllocateBitmap(data->length);
+    BitUtil::SetBitsTo(data->buffers[0]->mutable_data(), 0, data->length, true);
+  }
+  BitUtil::SetBitTo(data->buffers[0]->mutable_data(), index, validity);
+  data->null_count = kUnknownNullCount;
+  // Need to return a new array, because Array caches the null bitmap pointer
+  return MakeArray(data);
+}
+
 class LocaleGuard::Impl {
  public:
   explicit Impl(const char* new_locale) : global_locale_(std::locale()) {
