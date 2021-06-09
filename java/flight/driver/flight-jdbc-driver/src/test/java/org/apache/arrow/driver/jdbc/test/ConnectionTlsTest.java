@@ -17,7 +17,6 @@
 
 package org.apache.arrow.driver.jdbc.test;
 
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 
 import java.io.IOException;
@@ -82,7 +81,7 @@ public class ConnectionTlsTest {
 
   @After
   public void tearDown() throws Exception {
-    AutoCloseables.close(tlsServer);
+    AutoCloseables.close(tlsServer, allocator);
   }
 
   /**
@@ -135,14 +134,15 @@ public class ConnectionTlsTest {
     UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(
             flightTestUtils.getUsername1(), flightTestUtils.getPassword1());
 
-    ArrowFlightClient client = ArrowFlightClient
+    try (ArrowFlightClient client = ArrowFlightClient
         .getEncryptedClientAuthenticated(
           allocator, address.getHost(), address.getPort(),
           null, credentials.getUserName(), credentials.getPassword(),
           properties.getProperty("keyStorePath"),
-          properties.getProperty("keyStorePass"));
+          properties.getProperty("keyStorePass"))) {
 
-    assertNotNull(client);
+      assertNotNull(client);
+    }
   }
 
   /**
@@ -160,13 +160,14 @@ public class ConnectionTlsTest {
     properties.put("keyStorePath", "src/test/resources/keys/keyStore.jks");
     properties.put("keyStorePass", "flight");
 
-    ArrowFlightClient client = ArrowFlightClient
+    try (ArrowFlightClient client = ArrowFlightClient
         .getEncryptedClientNoAuth(
           allocator, flightTestUtils.getLocalhost(), this.tlsServer.getPort(),
           null, properties.getProperty("keyStorePath"),
-          properties.getProperty("keyStorePass"));
+          properties.getProperty("keyStorePass"))) {
 
-    assertNotNull(client);
+      assertNotNull(client); 
+    }
   }
 
   /**
@@ -186,8 +187,10 @@ public class ConnectionTlsTest {
     properties.put("keyStorePath", "src/test/resources/keys/keyStore.jks");
     properties.put("keyStorePass", "flight");
 
-    Connection connection = DriverManager.getConnection(serverUrl, properties);
+    try (Connection connection = DriverManager
+        .getConnection(serverUrl, properties)) {
 
-    assertFalse(connection.isClosed());
+      assert connection.isValid(300);
+    }
   }
 }
