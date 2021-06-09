@@ -30,6 +30,7 @@ import java.util.Properties;
 
 import org.apache.arrow.driver.jdbc.ArrowFlightClient;
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver;
+import org.apache.arrow.driver.jdbc.test.utils.FlightTestUtils;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightProducer;
 import org.apache.arrow.flight.FlightRuntimeException;
@@ -64,7 +65,7 @@ public class ConnectionTest {
    *           If the {@link ArrowFlightJdbcDriver} cannot be loaded.
    */
   @Before
-  public void setUp() throws ClassNotFoundException, IOException {
+  public void setUp() throws Exception {
     allocator = new RootAllocator(Long.MAX_VALUE);
 
     flightTestUtils = new FlightTestUtils("localhost", "flight1",
@@ -124,7 +125,7 @@ public class ConnectionTest {
    */
   @Test
   public void testUnencryptedConnectionShouldOpenSuccessfullyWhenProvidedValidCredentials()
-      throws SQLException {
+      throws Exception {
     Properties properties = new Properties();
 
     properties.put("user", flightTestUtils.getUsername1());
@@ -140,7 +141,7 @@ public class ConnectionTest {
    *           on error.
    */
   @Test
-  public void testGetBasicClient() throws URISyntaxException {
+  public void testGetBasicClient() throws Exception {
     URI address = new URI("jdbc",
             flightTestUtils.getUsername1() + ":" + flightTestUtils.getPassword1(),
             flightTestUtils.getLocalhost(), this.server.getPort(), null, null,
@@ -163,9 +164,9 @@ public class ConnectionTest {
    * @throws SQLException
    *           The exception expected to be thrown.
    */
-  @Test(expected = FlightRuntimeException.class)
+  @Test(expected = SQLException.class)
   public void testUnencryptedConnectionShouldThrowExceptionWhenProvidedWithInvalidCredentials()
-      throws SQLException {
+      throws Exception {
 
     Properties properties = new Properties();
 

@@ -33,6 +33,7 @@ public enum UrlSample {
 
   private final String prefix;
   private final String host;
+  // TODO Check how to use this in tests.
   private final int port;
   private final Optional<String> catalog;
 

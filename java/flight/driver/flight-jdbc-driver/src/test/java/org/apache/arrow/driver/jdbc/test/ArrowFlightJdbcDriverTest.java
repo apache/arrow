@@ -17,27 +17,72 @@
 
 package org.apache.arrow.driver.jdbc.test;
 
+import java.io.IOException;
+import java.net.URI;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.Properties;
 
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver;
+import org.apache.arrow.driver.jdbc.test.utils.FlightTestUtils;
 import org.apache.arrow.driver.jdbc.test.utils.PropertiesSample;
 import org.apache.arrow.driver.jdbc.test.utils.UrlSample;
+import org.apache.arrow.flight.CallStatus;
+import org.apache.arrow.flight.FlightProducer;
+import org.apache.arrow.flight.FlightServer;
+import org.apache.arrow.flight.auth2.BasicCallHeaderAuthenticator;
+import org.apache.arrow.flight.auth2.CallHeaderAuthenticator;
+import org.apache.arrow.flight.auth2.GeneratedBearerTokenAuthenticator;
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.RootAllocator;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+
+import com.google.common.base.Strings;
 
 /**
  * Tests for {@link ArrowFlightJdbcDriver}.
  */
 public class ArrowFlightJdbcDriverTest {
 
+  private BufferAllocator allocator;
+  private FlightServer server;
+  FlightTestUtils testUtils;
+
   @Before
   public void setUp() throws Exception {
     // TODO Replace this.
     Class.forName("org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver");
+
+    allocator = new RootAllocator(Long.MAX_VALUE);
+
+    UrlSample url = UrlSample.CONFORMING;
+
+    Properties propertiesConforming = PropertiesSample.CONFORMING
+        .getProperties();
+
+    Properties propertiesUnsupported = PropertiesSample.UNSUPPORTED
+        .getProperties();
+
+    testUtils = new FlightTestUtils(url.getHost(),
+        propertiesConforming.getProperty("user"),
+        propertiesConforming.getProperty("password"),
+        propertiesUnsupported.getProperty("user"),
+        propertiesUnsupported.getProperty("password"));
+
+    final FlightProducer flightProducer = testUtils
+        .getFlightProducer(allocator);
+
+    server = testUtils
+        .getStartedServer(
+            (location -> FlightServer
+                .builder(allocator, location, flightProducer)
+                .headerAuthenticator(new GeneratedBearerTokenAuthenticator(
+                    new BasicCallHeaderAuthenticator(this::validate)))
+                .build()));
   }
 
   @After
@@ -52,7 +97,7 @@ public class ArrowFlightJdbcDriverTest {
    *           If an error occurs. (This is not supposed to happen.)
    */
   @Test
-  public void testDriverIsRegisteredInDriverManager() throws SQLException {
+  public void testDriverIsRegisteredInDriverManager() throws Exception {
     assert DriverManager.getDriver(
         UrlSample.CONFORMING.getPrefix()) instanceof ArrowFlightJdbcDriver;
   }
@@ -65,7 +110,7 @@ public class ArrowFlightJdbcDriverTest {
    *           If the test passes.
    */
   @Test(expected = SQLException.class)
-  public void testShouldDeclineUrlWithUnsupportedPrefix() throws SQLException {
+  public void testShouldDeclineUrlWithUnsupportedPrefix() throws Exception {
     Driver driver = new ArrowFlightJdbcDriver();
 
     driver.connect(UrlSample.UNSUPPORTED.getPath(),
@@ -78,16 +123,47 @@ public class ArrowFlightJdbcDriverTest {
    * 
    * @throws SQLException
    *           If the connection fails to be established.
+   * @throws IOException 
    */
   @Test
-  public void testShouldConnectWhenProvidedWithValidUrl() throws SQLException {
+  public void testShouldConnectWhenProvidedWithValidUrl() throws Exception {
     // Get the Arrow Flight JDBC driver by providing a URL with a valid prefix.
     Driver driver = DriverManager.getDriver(UrlSample.CONFORMING.getPath());
 
-    try (Connection connection = driver.connect(UrlSample.CONFORMING.getPath(),
+    URI uri = server.getLocation().getUri();
+
+    try (Connection connection = driver.connect(
+        "jdbc:arrow-flight://" + uri.getHost() + ":" + uri.getPort(),
         PropertiesSample.CONFORMING.getProperties())) {
       assert connection.isValid(300);
     }
+  }
+
+  /**
+   * Validate the user's credential on a FlightServer.
+   *
+   * @param username
+   *          flight server username.
+   * @param password
+   *          flight server password.
+   * @return the result of validation.
+   */
+  private CallHeaderAuthenticator.AuthResult validate(String username,
+      String password) {
+    if (Strings.isNullOrEmpty(username)) {
+      throw CallStatus.UNAUTHENTICATED
+          .withDescription("Credentials not supplied.").toRuntimeException();
+    }
+    final String identity;
+    if (testUtils.getUsername1().equals(username)
+        && testUtils.getPassword1().equals(password)) {
+      identity = testUtils.getUsername1();
+    } else {
+      throw CallStatus.UNAUTHENTICATED
+          .withDescription("Username or password is invalid.")
+          .toRuntimeException();
+    }
+    return () -> identity;
   }
 
 }
