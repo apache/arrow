@@ -99,9 +99,6 @@ void CheckScalar(std::string func_name, const DatumVector& inputs,
                  std::shared_ptr<Array> expected,
                  const FunctionOptions* options = nullptr);
 
-void CheckScalar(std::string func_name, const std::vector<Datum>& inputs,
-                 const Datum& expected, const FunctionOptions* options = nullptr);
-
 void CheckScalarUnary(std::string func_name, std::shared_ptr<DataType> in_ty,
                       std::string json_input, std::shared_ptr<DataType> out_ty,
                       std::string json_expected,

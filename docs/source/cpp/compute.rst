@@ -306,8 +306,11 @@ an ``Invalid`` :class:`Status` when overflow is detected.
 |            | | precision = p1 - s1 + s2 + scale          |
 +------------+---------------------------------------------+
 
-Decimal overflow is checked before calculation. Error is returned if the result
-precision is beyond the decimal range.
+It's compatible with Redshift's decimal promotion rules. All decimal digits
+are preserved for `add`, `subtract` and `multiply` operations. The result
+precision of `divide` is at least the sum of precisions of both operands with
+enough scale kept. Error is returned if the result precision is beyond the
+decimal value range.
 
 Comparisons
 ~~~~~~~~~~~

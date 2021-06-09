@@ -250,12 +250,11 @@ struct ArrayIterator<Type, enable_if_base_binary<Type>> {
 template <typename Type>
 struct ArrayIterator<Type, enable_if_decimal<Type>> {
   using T = typename TypeTraits<Type>::ScalarType::ValueType;
-  using Bytes = std::array<uint8_t, sizeof(T)>;
-  const Bytes* values;
+  using endian_agnostic = std::array<uint8_t, sizeof(T)>;
+  const endian_agnostic* values;
 
-  explicit ArrayIterator(const ArrayData& data) : values(data.GetValues<Bytes>(1)) {
-    DCHECK_EQ(sizeof(T) * 8, bit_width(data.type->id()));
-  }
+  explicit ArrayIterator(const ArrayData& data)
+      : values(data.GetValues<endian_agnostic>(1)) {}
 
   T operator()() { return T{values++->data()}; }
 };
@@ -282,12 +281,11 @@ struct OutputArrayWriter<Type, enable_if_has_c_type_not_boolean<Type>> {
 template <typename Type>
 struct OutputArrayWriter<Type, enable_if_decimal<Type>> {
   using T = typename TypeTraits<Type>::ScalarType::ValueType;
-  using Bytes = std::array<uint8_t, sizeof(T)>;
-  Bytes* values;
+  using endian_agnostic = std::array<uint8_t, sizeof(T)>;
+  endian_agnostic* values;
 
-  explicit OutputArrayWriter(ArrayData* data) : values(data->GetMutableValues<Bytes>(1)) {
-    DCHECK_EQ(sizeof(T) * 8, bit_width(data->type->id()));
-  }
+  explicit OutputArrayWriter(ArrayData* data)
+      : values(data->GetMutableValues<endian_agnostic>(1)) {}
 
   void Write(T value) { value.ToBytes(values++->data()); }
 
@@ -573,12 +571,14 @@ struct OutputAdapter<Type, enable_if_base_binary<Type>> {
 template <typename Type>
 struct OutputAdapter<Type, enable_if_decimal<Type>> {
   using T = typename TypeTraits<Type>::ScalarType::ValueType;
+  using endian_agnostic = std::array<uint8_t, sizeof(T)>;
+
   template <typename Generator>
   static Status Write(KernelContext*, Datum* out, Generator&& generator) {
     ArrayData* out_arr = out->mutable_array();
-    T* out_data = out_arr->GetMutableValues<T>(1);
+    auto out_data = out_arr->GetMutableValues<endian_agnostic>(1);
     for (int64_t i = 0; i < out_arr->length; ++i) {
-      *out_data++ = generator();
+      generator().ToBytes(out_data++->data());
     }
     return Status::OK();
   }
