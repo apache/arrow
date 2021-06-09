@@ -42,7 +42,7 @@ TEST(ScalarTemporalTest, TestTemporalComponentExtraction) {
   auto unit = timestamp(TimeUnit::NANO);
   auto iso_calendar_type =
       struct_({field("iso_year", int64()), field("iso_week", int64()),
-               field("day_of_week", int64())});
+               field("iso_day_of_week", int64())});
 
   auto year =
       "[1970, 2000, 1899, 2033, null, 2020, 2019, 2019, 2009, 2010, 2010, 2010, 2006, "
@@ -58,23 +58,23 @@ TEST(ScalarTemporalTest, TestTemporalComponentExtraction) {
   auto iso_week = "[1, 9, 52, 20, null, 1, 1, 1, 53, 53, 53, 1, 52, 52, 52, 1, 52]";
   auto iso_calendar =
       ArrayFromJSON(iso_calendar_type,
-                    R"([{"iso_year": 1970, "iso_week": 1, "day_of_week": 4},
-                        {"iso_year": 2000, "iso_week": 9, "day_of_week": 2},
-                        {"iso_year": 1898, "iso_week": 52, "day_of_week": 7},
-                        {"iso_year": 2033, "iso_week": 20, "day_of_week": 3},
+                    R"([{"iso_year": 1970, "iso_week": 1, "iso_day_of_week": 4},
+                        {"iso_year": 2000, "iso_week": 9, "iso_day_of_week": 2},
+                        {"iso_year": 1898, "iso_week": 52, "iso_day_of_week": 7},
+                        {"iso_year": 2033, "iso_week": 20, "iso_day_of_week": 3},
                         null,
-                        {"iso_year": 2020, "iso_week": 1, "day_of_week": 3},
-                        {"iso_year": 2020, "iso_week": 1, "day_of_week": 2},
-                        {"iso_year": 2020, "iso_week": 1, "day_of_week": 1},
-                        {"iso_year": 2009, "iso_week": 53, "day_of_week": 4},
-                        {"iso_year": 2009, "iso_week": 53, "day_of_week": 5},
-                        {"iso_year": 2009, "iso_week": 53, "day_of_week": 7},
-                        {"iso_year": 2010, "iso_week": 1, "day_of_week": 1},
-                        {"iso_year": 2005, "iso_week": 52, "day_of_week": 7},
-                        {"iso_year": 2005, "iso_week": 52, "day_of_week": 6},
-                        {"iso_year": 2008, "iso_week": 52, "day_of_week": 7},
-                        {"iso_year": 2009, "iso_week": 1, "day_of_week": 1},
-                        {"iso_year": 2011, "iso_week": 52, "day_of_week": 7}])");
+                        {"iso_year": 2020, "iso_week": 1, "iso_day_of_week": 3},
+                        {"iso_year": 2020, "iso_week": 1, "iso_day_of_week": 2},
+                        {"iso_year": 2020, "iso_week": 1, "iso_day_of_week": 1},
+                        {"iso_year": 2009, "iso_week": 53, "iso_day_of_week": 4},
+                        {"iso_year": 2009, "iso_week": 53, "iso_day_of_week": 5},
+                        {"iso_year": 2009, "iso_week": 53, "iso_day_of_week": 7},
+                        {"iso_year": 2010, "iso_week": 1, "iso_day_of_week": 1},
+                        {"iso_year": 2005, "iso_week": 52, "iso_day_of_week": 7},
+                        {"iso_year": 2005, "iso_week": 52, "iso_day_of_week": 6},
+                        {"iso_year": 2008, "iso_week": 52, "iso_day_of_week": 7},
+                        {"iso_year": 2009, "iso_week": 1, "iso_day_of_week": 1},
+                        {"iso_year": 2011, "iso_week": 52, "iso_day_of_week": 7}])");
   auto quarter = "[1, 1, 1, 2, null, 1, 4, 4, 4, 1, 1, 1, 1, 4, 4, 4, 1]";
   auto hour = "[0, 23, 0, 3, null, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 0, 1]";
   auto minute = "[0, 23, 59, 33, null, 5, 10, 15, 20, 25, 30, 35, 40, 45, 0, 0, 2]";
@@ -107,7 +107,7 @@ TEST(ScalarTemporalTest, TestTemporalComponentExtraction) {
 TEST(ScalarTemporalTest, TestTemporalComponentExtractionWithDifferentUnits) {
   auto iso_calendar_type =
       struct_({field("iso_year", int64()), field("iso_week", int64()),
-               field("day_of_week", int64())});
+               field("iso_day_of_week", int64())});
   const char* times =
       R"(["1970-01-01T00:00:59","2000-02-29T23:23:23",
             "1899-01-01T00:59:20","2033-05-18T03:33:20", null])";
@@ -120,10 +120,10 @@ TEST(ScalarTemporalTest, TestTemporalComponentExtractionWithDifferentUnits) {
   auto iso_week = "[1, 9, 52, 20, null]";
   auto iso_calendar =
       ArrayFromJSON(iso_calendar_type,
-                    R"([{"iso_year": 1970, "iso_week": 1, "day_of_week": 4},
-                          {"iso_year": 2000, "iso_week": 9, "day_of_week": 2},
-                          {"iso_year": 1898, "iso_week": 52, "day_of_week": 7},
-                          {"iso_year": 2033, "iso_week": 20, "day_of_week": 3}, null])");
+                    R"([{"iso_year": 1970, "iso_week": 1, "iso_day_of_week": 4},
+                          {"iso_year": 2000, "iso_week": 9, "iso_day_of_week": 2},
+                          {"iso_year": 1898, "iso_week": 52, "iso_day_of_week": 7},
+                          {"iso_year": 2033, "iso_week": 20, "iso_day_of_week": 3}, null])");
   auto quarter = "[1, 1, 1, 2, null]";
   auto hour = "[0, 23, 0, 3, null]";
   auto minute = "[0, 23, 59, 33, null]";

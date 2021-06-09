@@ -355,7 +355,7 @@ struct ISOCalendar {
     if (in.is_valid) {
       const std::shared_ptr<DataType> iso_calendar_type =
           struct_({field("iso_year", int64()), field("iso_week", int64()),
-                   field("day_of_week", int64())});
+                   field("iso_day_of_week", int64())});
       const auto& in_val = internal::UnboxScalar<const TimestampType>::Unbox(in);
       const auto iso_calendar = get_iso_calendar<Duration>(in_val);
 
@@ -380,7 +380,7 @@ struct ISOCalendar {
     }
     const std::shared_ptr<DataType> iso_calendar_type =
         struct_({field("iso_year", int64()), field("iso_week", int64()),
-                 field("day_of_week", int64())});
+                 field("iso_day_of_week", int64())});
 
     std::unique_ptr<ArrayBuilder> array_builder;
     RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), iso_calendar_type, &array_builder));
@@ -446,10 +446,10 @@ std::shared_ptr<ScalarFunction> MakeTemporal(std::string name, const FunctionDoc
 }
 
 template <template <typename...> class Op>
-std::shared_ptr<ScalarFunction> MakeSimpleTemporal(std::string name,
+std::shared_ptr<ScalarFunction> MakeStructTemporal(std::string name,
                                                    const FunctionDoc* doc) {
   const auto& out_type = struct_({field("iso_year", int64()), field("iso_week", int64()),
-                                  field("day_of_week", int64())});
+                                  field("iso_day_of_week", int64())});
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
 
   for (auto unit : internal::AllTimeUnits()) {
@@ -510,20 +510,21 @@ const FunctionDoc day_of_year_doc{
 
 const FunctionDoc iso_year_doc{
     "Extract ISO year number",
-    ("First week of an ISO year has the majority (4 or more) of it's days in January."
+    ("First week of an ISO year has the majority (4 or more) of its days in January."
      "Returns an error if timestamp has a defined timezone. Null values return null."),
     {"values"}};
 
 const FunctionDoc iso_week_doc{
     "Extract ISO week of year number",
-    ("First ISO week has the majority (4 or more) of it's days in January.\n"
+    ("First ISO week has the majority (4 or more) of its days in January.\n"
      "Week of the year starts with 1 and can run up to 53.\n"
      "Returns an error if timestamp has a defined timezone. Null values return null."),
     {"values"}};
 
 const FunctionDoc iso_calendar_doc{
-    "Extract (ISO year, ISO week, day of week) struct",
-    "Returns an error if timestamp has a defined timezone. Null values return null.",
+    "Extract (ISO year, ISO week, ISO day of week) struct",
+    ("ISO week starts on Monday denoted by 1 and ends on Sunday denoted by 7.\n"
+     "Returns an error if timestamp has a defined timezone. Null values return null."),
     {"values"}};
 
 const FunctionDoc quarter_doc{
@@ -533,7 +534,7 @@ const FunctionDoc quarter_doc{
     {"values"}};
 
 const FunctionDoc hour_doc{
-    "Extract hour values",
+    "Extract hour value",
     "Returns an error if timestamp has a defined timezone. Null values return null.",
     {"values"}};
 
@@ -549,22 +550,26 @@ const FunctionDoc second_doc{
 
 const FunctionDoc millisecond_doc{
     "Extract millisecond values",
-    "Returns an error if timestamp has a defined timezone. Null values return null.",
+    ("Millisecond returns number of milliseconds since the last full second.\n"
+     "Returns an error if timestamp has a defined timezone. Null values return null."),
     {"values"}};
 
 const FunctionDoc microsecond_doc{
     "Extract microsecond values",
-    "Returns an error if timestamp has a defined timezone. Null values return null.",
+    ("Millisecond returns number of microseconds since the last full millisecond.\n"
+     "Returns an error if timestamp has a defined timezone. Null values return null."),
     {"values"}};
 
 const FunctionDoc nanosecond_doc{
     "Extract nanosecond values",
-    "Returns an error if timestamp has a defined timezone. Null values return null.",
+    ("Nanosecond returns number of nanoseconds since the last full microsecond.\n"
+     "Returns an error if timestamp has a defined timezone. Null values return null."),
     {"values"}};
 
 const FunctionDoc subsecond_doc{
     "Extract subsecond values",
-    "Returns an error if timestamp has a defined timezone. Null values return null.",
+    ("Subsecond returns the fraction of a second since the last full second.\n"
+     "Returns an error if timestamp has a defined timezone. Null values return null."),
     {"values"}};
 
 }  // namespace
@@ -591,7 +596,7 @@ void RegisterScalarTemporal(FunctionRegistry* registry) {
   auto iso_week = MakeTemporal<ISOWeek, Int64Type>("iso_week", &iso_week_doc);
   DCHECK_OK(registry->AddFunction(std::move(iso_week)));
 
-  auto iso_calendar = MakeSimpleTemporal<ISOCalendar>("iso_calendar", &iso_calendar_doc);
+  auto iso_calendar = MakeStructTemporal<ISOCalendar>("iso_calendar", &iso_calendar_doc);
   DCHECK_OK(registry->AddFunction(std::move(iso_calendar)));
 
   auto quarter = MakeTemporal<Quarter, Int64Type>("quarter", &quarter_doc);

@@ -601,8 +601,9 @@ Result<Datum> ISOYear(const Datum& values, ExecContext* ctx = NULLPTR);
 /// \note API not yet finalized
 ARROW_EXPORT Result<Datum> ISOWeek(const Datum& values, ExecContext* ctx = NULLPTR);
 
-/// \brief ISOCalendar returns a (ISO year, ISO week, Day of week) struct for each element
-/// of `values`
+/// \brief ISOCalendar returns a (ISO year, ISO week, ISO day of week) struct for
+/// each element of `values`.
+/// ISO week starts on Monday denoted by 1 and ends on Sunday denoted by 7.
 ///
 /// \param[in] values input to ISO calendar struct from
 /// \param[in] ctx the function execution context, optional
