@@ -76,15 +76,6 @@ Status PromoteNullsVisitor(KernelContext* ctx, const Datum& cond_d, const Datum&
   // duplicated (probably elided) access to cond_data
   const Bitmap& _ = cond_data;
 
-  // lambda function that will be used inside the visitor
-  uint64_t* out_validity = nullptr;
-  int64_t i = 0;
-  auto apply = [&](uint64_t c_valid, uint64_t c_data, uint64_t l_valid,
-                   uint64_t r_valid) {
-    out_validity[i] = c_valid & ((c_data & l_valid) | (~c_data & r_valid));
-    i++;
-  };
-
   // cond.valid & (cond.data & left.valid | ~cond.data & right.valid)
   // In the following cases, we dont need to allocate out_valid bitmap
 
@@ -110,72 +101,103 @@ Status PromoteNullsVisitor(KernelContext* ctx, const Datum& cond_d, const Datum&
 
   // following cases requires a separate out_valid buffer
   ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(cond.length));
-  out_validity = output->GetMutableValues<uint64_t>(0);
+
+  // lambda function that will be used inside the visitor
+  auto apply = [&](uint64_t c_valid, uint64_t c_data, uint64_t l_valid,
+                   uint64_t r_valid) {
+    return c_valid & ((c_data & l_valid) | (~c_data & r_valid));
+  };
+
+  Bitmap out_bitmap(output->buffers[0], 0, cond.length);
 
   enum { C_VALID, C_DATA, L_VALID, R_VALID };
 
   switch (flag) {
     case COND_CONST | LEFT_CONST | RIGHT_CONST: {
-      Bitmap bitmaps[] = {_, cond_data, _, _};
-      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
-        apply(*cond_const, words[C_DATA], *left_const, *right_const);
-      });
+      std::array<Bitmap, 4> bitmaps{_, cond_data, _, _};
+      Bitmap::VisitWordsAndWrite(
+          bitmaps,
+          [&](std::array<uint64_t, 4> words) {
+            return apply(*cond_const, words[C_DATA], *left_const, *right_const);
+          },
+          &out_bitmap);
       break;
     }
     case LEFT_CONST | RIGHT_CONST: {
-      Bitmap bitmaps[] = {cond_valid, cond_data, _, _};
-      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
-        apply(words[C_VALID], words[C_DATA], *left_const, *right_const);
-      });
+      std::array<Bitmap, 4> bitmaps{cond_valid, cond_data, _, _};
+      Bitmap::VisitWordsAndWrite(
+          bitmaps,
+          [&](std::array<uint64_t, 4> words) {
+            return apply(words[C_VALID], words[C_DATA], *left_const, *right_const);
+          },
+          &out_bitmap);
       break;
     }
     case COND_CONST | RIGHT_CONST: {
       // bitmaps[C_VALID], bitmaps[R_VALID] might be null; override to make it safe for
       // Visit()
-      Bitmap bitmaps[] = {_, cond_data, left_valid, _};
-      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
-        apply(*cond_const, words[C_DATA], words[L_VALID], *right_const);
-      });
+      std::array<Bitmap, 4> bitmaps{_, cond_data, left_valid, _};
+      Bitmap::VisitWordsAndWrite(
+          bitmaps,
+          [&](std::array<uint64_t, 4> words) {
+            return apply(*cond_const, words[C_DATA], words[L_VALID], *right_const);
+          },
+          &out_bitmap);
       break;
     }
     case RIGHT_CONST: {
       // bitmaps[R_VALID] might be null; override to make it safe for Visit()
-      Bitmap bitmaps[] = {cond_valid, cond_data, left_valid, _};
-      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
-        apply(words[C_VALID], words[C_DATA], words[L_VALID], *right_const);
-      });
+      std::array<Bitmap, 4> bitmaps{cond_valid, cond_data, left_valid, _};
+      Bitmap::VisitWordsAndWrite(
+          bitmaps,
+          [&](std::array<uint64_t, 4> words) {
+            return apply(words[C_VALID], words[C_DATA], words[L_VALID], *right_const);
+          },
+          &out_bitmap);
       break;
     }
     case COND_CONST | LEFT_CONST: {
       // bitmaps[C_VALID], bitmaps[L_VALID] might be null; override to make it safe for
       // Visit()
-      Bitmap bitmaps[] = {_, cond_data, _, right_valid};
-      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
-        apply(*cond_const, words[C_DATA], *left_const, words[R_VALID]);
-      });
+      std::array<Bitmap, 4> bitmaps{_, cond_data, _, right_valid};
+      Bitmap::VisitWordsAndWrite(
+          bitmaps,
+          [&](std::array<uint64_t, 4> words) {
+            return apply(*cond_const, words[C_DATA], *left_const, words[R_VALID]);
+          },
+          &out_bitmap);
       break;
     }
     case LEFT_CONST: {
       // bitmaps[L_VALID] might be null; override to make it safe for Visit()
-      Bitmap bitmaps[] = {cond_valid, cond_data, _, right_valid};
-      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
-        apply(words[C_VALID], words[C_DATA], *left_const, words[R_VALID]);
-      });
+      std::array<Bitmap, 4> bitmaps{cond_valid, cond_data, _, right_valid};
+      Bitmap::VisitWordsAndWrite(
+          bitmaps,
+          [&](std::array<uint64_t, 4> words) {
+            return apply(words[C_VALID], words[C_DATA], *left_const, words[R_VALID]);
+          },
+          &out_bitmap);
       break;
     }
     case COND_CONST: {
       // bitmaps[C_VALID] might be null; override to make it safe for Visit()
-      Bitmap bitmaps[] = {_, cond_data, left_valid, right_valid};
-      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
-        apply(*cond_const, words[C_DATA], words[L_VALID], words[R_VALID]);
-      });
+      std::array<Bitmap, 4> bitmaps{_, cond_data, left_valid, right_valid};
+      Bitmap::VisitWordsAndWrite(
+          bitmaps,
+          [&](std::array<uint64_t, 4> words) {
+            return apply(*cond_const, words[C_DATA], words[L_VALID], words[R_VALID]);
+          },
+          &out_bitmap);
       break;
     }
     case 0: {
-      Bitmap bitmaps[] = {cond_valid, cond_data, left_valid, right_valid};
-      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
-        apply(words[C_VALID], words[C_DATA], words[L_VALID], words[R_VALID]);
-      });
+      std::array<Bitmap, 4> bitmaps{cond_valid, cond_data, left_valid, right_valid};
+      Bitmap::VisitWordsAndWrite(
+          bitmaps,
+          [&](std::array<uint64_t, 4> words) {
+            return apply(words[C_VALID], words[C_DATA], words[L_VALID], words[R_VALID]);
+          },
+          &out_bitmap);
       break;
     }
   }
