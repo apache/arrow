@@ -218,10 +218,10 @@ public class ArrowFlightJdbcDriverTest {
     getUrlArgs.setAccessible(true);
 
     String[] parsedArgs = (String[]) getUrlArgs
-        .invoke(driver, "jdbc:arrow-flight://localhost:32010/database");    
+        .invoke(driver, "jdbc:arrow-flight://localhost:32010");    
     
     assertArrayEquals(parsedArgs,
-        new String[] {"localhost", "32010", "database"});
+        new String[] {"localhost", "32010"});
   }
 
   /**

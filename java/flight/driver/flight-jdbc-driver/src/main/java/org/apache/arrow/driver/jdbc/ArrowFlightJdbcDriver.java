@@ -94,20 +94,10 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
 
     /*
      * Granted the URL format will always be
-     * "jdbc:arrow-flight://<host>:<port>[/<catalog>]," it should be safe to
-     * split the URL arguments "host," "port[/catalog]" by the colon in between.
+     * "jdbc:arrow-flight://<host>:<port>," it should be safe to
+     * split the URL arguments "host," "port" by the colon in between.
      */
-    Deque<String> args = Arrays
-        .stream(url.substring(getConnectStringPrefix().length()).split(":"))
-        .collect(Collectors.toCollection(ArrayDeque::new));
-
-    if (args.getLast().contains("/")) {
-      String lastArg = args.getLast();
-      args.removeLast();
-      args.addAll(Arrays.asList(lastArg.split("/")));
-    }
-
-    return args.toArray(new String[args.size()]);
+    return url.substring(getConnectStringPrefix().length()).split(":");
   }
 
   private static void addToProperties(Properties info, String... args) {
