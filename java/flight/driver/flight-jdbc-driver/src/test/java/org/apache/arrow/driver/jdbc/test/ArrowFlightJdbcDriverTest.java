@@ -39,6 +39,7 @@ import org.apache.arrow.flight.auth2.CallHeaderAuthenticator;
 import org.apache.arrow.flight.auth2.GeneratedBearerTokenAuthenticator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.util.AutoCloseables;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -89,6 +90,7 @@ public class ArrowFlightJdbcDriverTest {
 
   @After
   public void tearDown() throws Exception {
+    AutoCloseables.close(server, allocator);
   }
 
   /**
