@@ -143,6 +143,19 @@ class OSFile {
     return Status::OK();
   }
 
+  Status WontNeed(const std::vector<ReadRange>& ranges) {
+    RETURN_NOT_OK(CheckClosed());
+    for (const auto& range : ranges) {
+      RETURN_NOT_OK(internal::ValidateRange(range.offset, range.length));
+#if defined(POSIX_FADV_WILLNEED)
+      if (posix_fadvise(fd_, range.offset, range.length, POSIX_FADV_DONTNEED)) {
+        return IOErrorFromErrno(errno, "posix_fadvise failed");
+      }
+#endif
+    }
+    return Status::OK();
+  }
+
   Result<int64_t> Read(int64_t nbytes, void* out) {
     RETURN_NOT_OK(CheckClosed());
     RETURN_NOT_OK(CheckPositioned());
@@ -287,6 +300,8 @@ class ReadableFile::ReadableFileImpl : public OSFile {
     return Status::OK();
   }
 
+  Status WillNeedWholeFile() { return WillNeed({ReadRange{0, size()}}); }
+
  private:
   MemoryPool* pool_;
 };
@@ -315,6 +330,8 @@ bool ReadableFile::closed() const { return !impl_->is_open(); }
 Status ReadableFile::WillNeed(const std::vector<ReadRange>& ranges) {
   return impl_->WillNeed(ranges);
 }
+
+Status ReadableFile::WillNeedWholeFile() { return impl_->WillNeedWholeFile(); }
 
 Result<int64_t> ReadableFile::DoTell() const { return impl_->Tell(); }
 
@@ -370,6 +387,10 @@ Result<std::shared_ptr<FileOutputStream>> FileOutputStream::Open(int fd) {
 }
 
 Status FileOutputStream::Close() { return impl_->Close(); }
+
+Status FileOutputStream::WontNeed(const std::vector<ReadRange>& ranges) {
+  return impl_->WontNeed(ranges);
+}
 
 bool FileOutputStream::closed() const { return !impl_->is_open(); }
 

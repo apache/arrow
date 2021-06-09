@@ -29,6 +29,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/io/concurrency.h"
+#include "arrow/io/file.h"
 #include "arrow/io/type_fwd.h"
 #include "arrow/io/util_internal.h"
 #include "arrow/result.h"
@@ -130,6 +131,12 @@ Result<Iterator<std::shared_ptr<Buffer>>> MakeInputStreamIterator(
   }
   DCHECK_GT(block_size, 0);
   return Iterator<std::shared_ptr<Buffer>>(InputStreamBlockIterator(stream, block_size));
+}
+
+Result<Iterator<std::shared_ptr<Buffer>>> MakeFadviseInputStreamIterator(
+    std::shared_ptr<ReadableFile> file, int64_t block_size) {
+  file->WillNeedWholeFile();
+  return MakeInputStreamIterator(std::static_pointer_cast<InputStream>(file), block_size);
 }
 
 struct RandomAccessFile::Impl {

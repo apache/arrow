@@ -15,10 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/filesystem/api.h"
 #include "arrow/io/buffered.h"
 #include "arrow/io/file.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/io_util.h"
+#include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/windows_compatibility.h"
 
@@ -28,6 +30,7 @@
 #include <atomic>
 #include <cstdlib>
 #include <iostream>
+#include <random>
 #include <thread>
 #include <valarray>
 
@@ -287,6 +290,138 @@ static void BufferedOutputStreamLargeWritesToPipe(
   BenchmarkStreamingWrites(state, large_sizes, buffered_stream.get(), reader.get());
 }
 
+#ifdef _WIN32
+#else
+
+constexpr const char* kTestFile = "/home/pace/testfile";
+// constexpr const char* kTestFile = "/media/pace/Extreme SSD3/arrow/testfile";
+
+static void CreateTemporaryFile(int64_t nbytes) {
+  std::default_random_engine gen(42);
+  std::vector<uint8_t> data(nbytes);
+  std::uniform_int_distribution<uint8_t> dist(0, std::numeric_limits<uint8_t>::max());
+  std::generate(data.begin(), data.end(), [&]() { return dist(gen); });
+  fs::LocalFileSystem fs;
+  // Ok to fail if file does not exist
+  ARROW_UNUSED(fs.DeleteFile(kTestFile));
+  int fd = open(kTestFile, O_WRONLY | O_CREAT, 00666);
+  assert(fd != 0);
+  ASSERT_OK(internal::FileWrite(fd, &*data.begin(), nbytes));
+  int ret = close(fd);
+  assert(ret == 0);
+  sync();
+}
+
+static void ClearTemporaryFileFromCache(int64_t nbytes) {
+  sync();
+  int fd = open(kTestFile, O_SYNC | O_RDONLY);
+  assert(fd != 0);
+  int ret = posix_fadvise(fd, 0, nbytes, POSIX_FADV_DONTNEED);
+  assert(ret == 0);
+  ret = close(fd);
+  assert(ret == 0);
+  sync();
+}
+
+static void EnsureTemporaryFileCached(int64_t nbytes) {
+  ASSERT_OK_AND_ASSIGN(auto in, io::ReadableFile::Open(kTestFile));
+  ASSERT_OK(in->Read(nbytes));
+  ASSERT_OK(in->Close());
+}
+
+using IteratorFactory = std::function<Iterator<std::shared_ptr<Buffer> >(int64_t)>;
+
+static void BenchmarkIteratorRead(benchmark::State& state, IteratorFactory it_factory,
+                                  bool cached) {
+  int64_t nbytes = state.range(0);
+  int64_t block_size = state.range(1);
+  CreateTemporaryFile(nbytes);
+  if (cached > 0) {
+    EnsureTemporaryFileCached(nbytes);
+  }
+  while (state.KeepRunning()) {
+    state.PauseTiming();
+    if (cached == 0) {
+      ClearTemporaryFileFromCache(nbytes);
+    }
+    state.ResumeTiming();
+    uint64_t accumulator = 0;
+    auto it = it_factory(block_size);
+    ASSERT_OK(it.Visit([&accumulator](std::shared_ptr<Buffer> buf) {
+      uint64_t local_accumulator = 0;
+      for (const uint8_t *it = buf->data(), *end = it + buf->size(); it != end; ++it) {
+        if (*it == 0x17) {
+          local_accumulator++;
+        }
+      }
+      accumulator += local_accumulator;
+      return Status::OK();
+    }));
+    benchmark::DoNotOptimize(accumulator);
+  }
+
+  state.SetBytesProcessed(state.iterations() * nbytes);
+}
+
+static IteratorFactory InputStreamFactory() {
+  return [](int64_t block_size) {
+    EXPECT_OK_AND_ASSIGN(std::shared_ptr<io::InputStream> in,
+                         io::ReadableFile::Open(kTestFile));
+    EXPECT_OK_AND_ASSIGN(auto it, io::MakeInputStreamIterator(std::move(in), block_size));
+    return it;
+  };
+}
+
+static IteratorFactory FadviseFactory() {
+  return [](int64_t block_size) {
+    EXPECT_OK_AND_ASSIGN(auto in, io::ReadableFile::Open(kTestFile));
+    EXPECT_OK_AND_ASSIGN(auto it,
+                         io::MakeFadviseInputStreamIterator(std::move(in), block_size));
+    return it;
+  };
+}
+
+static IteratorFactory BufferedInputStreamFactory(int blksize) {
+  return [blksize](int64_t block_size) {
+    EXPECT_OK_AND_ASSIGN(std::shared_ptr<io::InputStream> in,
+                         io::ReadableFile::Open(kTestFile));
+    EXPECT_OK_AND_ASSIGN(
+        auto buffered_in,
+        io::BufferedInputStream::Create(blksize, default_memory_pool(), std::move(in)));
+    EXPECT_OK_AND_ASSIGN(auto it,
+                         io::MakeInputStreamIterator(std::move(buffered_in), block_size));
+    return it;
+  };
+}
+
+static void ColdReadFromInputStreamViaIterator(benchmark::State& state) {
+  BenchmarkIteratorRead(state, InputStreamFactory(), false);
+}
+
+static void ColdReadFromReadableFileViaIterator(benchmark::State& state) {
+  BenchmarkIteratorRead(state, FadviseFactory(), false);
+}
+
+static void ColdReadFromBufferedInputStreamViaIterator(benchmark::State& state) {
+  int64_t blksize = state.range(2);
+  BenchmarkIteratorRead(state, BufferedInputStreamFactory(blksize), false);
+}
+
+static void HotReadFromInputStreamViaIterator(benchmark::State& state) {
+  BenchmarkIteratorRead(state, InputStreamFactory(), true);
+}
+
+static void HotReadFromReadableFileViaIterator(benchmark::State& state) {
+  BenchmarkIteratorRead(state, FadviseFactory(), true);
+}
+
+static void HotReadFromBufferedInputStreamViaIterator(benchmark::State& state) {
+  int64_t blksize = state.range(2);
+  BenchmarkIteratorRead(state, BufferedInputStreamFactory(blksize), true);
+}
+
+#endif
+
 // We use real time as we don't want to count CPU time spent in the
 // BackgroundReader thread
 
@@ -297,5 +432,38 @@ BENCHMARK(FileOutputStreamLargeWritesToPipe)->UseRealTime();
 BENCHMARK(BufferedOutputStreamSmallWritesToNull)->UseRealTime();
 BENCHMARK(BufferedOutputStreamSmallWritesToPipe)->UseRealTime();
 BENCHMARK(BufferedOutputStreamLargeWritesToPipe)->UseRealTime();
+
+#ifdef _WIN32
+#else
+BENCHMARK(ColdReadFromInputStreamViaIterator)
+    ->Iterations(3)
+    ->ArgsProduct({{1 << 26}, {1 << 4, 1 << 10, 1 << 14, 1 << 20}})
+    ->ArgNames({"nbytes", "nread"})
+    ->UseRealTime();
+BENCHMARK(ColdReadFromReadableFileViaIterator)
+    ->Iterations(3)
+    ->ArgsProduct({{1 << 26}, {1 << 4, 1 << 10, 1 << 14, 1 << 20}})
+    ->ArgNames({"nbytes", "nread"})
+    ->UseRealTime();
+BENCHMARK(ColdReadFromBufferedInputStreamViaIterator)
+    ->Iterations(3)
+    ->ArgsProduct({{1 << 26}, {1 << 4, 1 << 10, 1 << 14, 1 << 20}, {1 << 14, 1 << 20}})
+    ->ArgNames({"nbytes", "nread", "blksz"})
+    ->UseRealTime();
+BENCHMARK(HotReadFromInputStreamViaIterator)
+    ->ArgsProduct({{1 << 26}, {1 << 4, 1 << 10, 1 << 14, 1 << 20, 1 << 22}})
+    ->ArgNames({"nbytes", "nread"})
+    ->UseRealTime();
+BENCHMARK(HotReadFromReadableFileViaIterator)
+    ->ArgsProduct({{1 << 26}, {1 << 4, 1 << 10, 1 << 14, 1 << 20, 1 << 22}})
+    ->ArgNames({"nbytes", "nread"})
+    ->UseRealTime();
+BENCHMARK(HotReadFromBufferedInputStreamViaIterator)
+    ->ArgsProduct({{1 << 26},
+                   {1 << 4, 1 << 10, 1 << 14, 1 << 20, 1 << 22},
+                   {1 << 14, 1 << 20}})
+    ->ArgNames({"nbytes", "nread", "blksz"})
+    ->UseRealTime();
+#endif
 
 }  // namespace arrow

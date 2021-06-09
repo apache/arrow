@@ -62,6 +62,7 @@ class ARROW_EXPORT FileOutputStream : public OutputStream {
 
   // OutputStream interface
   Status Close() override;
+  Status WontNeed(const std::vector<ReadRange>& ranges);
   bool closed() const override;
   Result<int64_t> Tell() const override;
 
@@ -112,6 +113,7 @@ class ARROW_EXPORT ReadableFile
   int file_descriptor() const;
 
   Status WillNeed(const std::vector<ReadRange>& ranges) override;
+  Status WillNeedWholeFile();
 
  private:
   friend RandomAccessFileConcurrencyWrapper<ReadableFile>;

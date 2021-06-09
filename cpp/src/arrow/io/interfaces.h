@@ -336,5 +336,11 @@ ARROW_EXPORT
 Result<Iterator<std::shared_ptr<Buffer>>> MakeInputStreamIterator(
     std::shared_ptr<InputStream> stream, int64_t block_size);
 
+/// \brief Overload of MakeInputStreamIterator which calls fadvise to ask
+///        for the whole file
+ARROW_EXPORT
+Result<Iterator<std::shared_ptr<Buffer>>> MakeFadviseInputStreamIterator(
+    std::shared_ptr<ReadableFile> stream, int64_t block_size);
+
 }  // namespace io
 }  // namespace arrow
