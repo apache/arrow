@@ -23,6 +23,7 @@ import java.util.Properties;
 
 import javax.annotation.Nullable;
 
+import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.util.Preconditions;
 import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.DriverVersion;
@@ -49,7 +50,7 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
       addToProperties(info, args);
 
       return new ArrowFlightConnection(this, factory, url, info);
-    } catch (AssertionError e) {
+    } catch (AssertionError | FlightRuntimeException e) {
       throw new SQLException("Failed to connect.", e);
     }
   }

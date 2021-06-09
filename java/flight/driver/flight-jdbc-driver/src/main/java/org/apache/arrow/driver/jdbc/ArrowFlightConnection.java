@@ -58,9 +58,15 @@ public final class ArrowFlightConnection extends AvaticaConnection {
   public ArrowFlightConnection(ArrowFlightJdbcDriver driver,
       ArrowFlightFactory factory, String url, Properties info) throws SQLException {
     super(driver, factory, url, info);
-    loadClient();
     allocator = new RootAllocator(
         Integer.MAX_VALUE);
+    
+    try {
+      loadClient();
+    } catch (SQLException e) {
+      allocator.close();
+      throw e;
+    }
   }
 
   /**
