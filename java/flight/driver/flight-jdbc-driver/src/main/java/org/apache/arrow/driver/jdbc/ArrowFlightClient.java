@@ -315,9 +315,10 @@ public final class ArrowFlightClient implements AutoCloseable {
           .build();
 
       return new ArrowFlightClient(flightClient, null);
-    } catch (Exception e) {
-      throw new SQLException(
-          "Failed to create a new Arrow Flight client.", e);
+    } catch (KeyStoreException | NoSuchAlgorithmException |
+        CertificateException | IOException e) {
+        throw new SQLException(
+            "Failed to create a new Arrow Flight client.", e);
     }
   }
 
