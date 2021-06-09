@@ -264,7 +264,7 @@ public final class ArrowFlightClient implements AutoCloseable {
           username, password, factory, clientProperties));
     } catch (Exception e) {
       throw new SQLException(
-          "Failed to create a new Arrow Flight client: " + e.getMessage());
+          "Failed to create a new Arrow Flight client.", e);
     }
   }
 
