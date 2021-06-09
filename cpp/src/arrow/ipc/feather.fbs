@@ -54,10 +54,7 @@ enum Type : byte {
   TIME = 16,
 
   LARGE_UTF8 = 17,
-  LARGE_BINARY = 18,
-
-  COMPLEX_FLOAT = 19,
-  COMPLEX_DOUBLE = 20
+  LARGE_BINARY = 18
 }
 
 enum Encoding : byte {

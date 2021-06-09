@@ -394,12 +394,6 @@ struct Type {
     /// Like LIST, but with 64-bit offsets
     LARGE_LIST,
 
-    // 32-bit COMPLEX values
-    COMPLEX_FLOAT,
-
-    // 64-bit COMPLEX values
-    COMPLEX_DOUBLE,
-
     // Leave this at the end
     MAX_ID
   };

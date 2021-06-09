@@ -58,13 +58,11 @@ enum class Type : int8_t {
   TIME = 16,
   LARGE_UTF8 = 17,
   LARGE_BINARY = 18,
-  COMPLEX_FLOAT = 19,
-  COMPLEX_DOUBLE = 20,
   MIN = BOOL,
-  MAX = COMPLEX_DOUBLE
+  MAX = LARGE_BINARY
 };
 
-inline const Type (&EnumValuesType())[21] {
+inline const Type (&EnumValuesType())[19] {
   static const Type values[] = {
     Type::BOOL,
     Type::INT8,
@@ -84,15 +82,13 @@ inline const Type (&EnumValuesType())[21] {
     Type::DATE,
     Type::TIME,
     Type::LARGE_UTF8,
-    Type::LARGE_BINARY,
-    Type::COMPLEX_FLOAT,
-    Type::COMPLEX_DOUBLE
+    Type::LARGE_BINARY
   };
   return values;
 }
 
 inline const char * const *EnumNamesType() {
-  static const char * const names[22] = {
+  static const char * const names[20] = {
     "BOOL",
     "INT8",
     "INT16",
@@ -112,15 +108,13 @@ inline const char * const *EnumNamesType() {
     "TIME",
     "LARGE_UTF8",
     "LARGE_BINARY",
-    "COMPLEX_FLOAT",
-    "COMPLEX_DOUBLE",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameType(Type e) {
-  if (flatbuffers::IsOutRange(e, Type::BOOL, Type::COMPLEX_DOUBLE)) return "";
+  if (flatbuffers::IsOutRange(e, Type::BOOL, Type::LARGE_BINARY)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesType()[index];
 }
@@ -330,6 +324,7 @@ struct PrimitiveArrayBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
+  PrimitiveArrayBuilder &operator=(const PrimitiveArrayBuilder &);
   flatbuffers::Offset<PrimitiveArray> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<PrimitiveArray>(end);
@@ -392,6 +387,7 @@ struct CategoryMetadataBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
+  CategoryMetadataBuilder &operator=(const CategoryMetadataBuilder &);
   flatbuffers::Offset<CategoryMetadata> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<CategoryMetadata>(end);
@@ -446,6 +442,7 @@ struct TimestampMetadataBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
+  TimestampMetadataBuilder &operator=(const TimestampMetadataBuilder &);
   flatbuffers::Offset<TimestampMetadata> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<TimestampMetadata>(end);
@@ -490,6 +487,7 @@ struct DateMetadataBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
+  DateMetadataBuilder &operator=(const DateMetadataBuilder &);
   flatbuffers::Offset<DateMetadata> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<DateMetadata>(end);
@@ -529,6 +527,7 @@ struct TimeMetadataBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
+  TimeMetadataBuilder &operator=(const TimeMetadataBuilder &);
   flatbuffers::Offset<TimeMetadata> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<TimeMetadata>(end);
@@ -636,6 +635,7 @@ struct ColumnBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
+  ColumnBuilder &operator=(const ColumnBuilder &);
   flatbuffers::Offset<Column> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Column>(end);
@@ -745,6 +745,7 @@ struct CTableBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
+  CTableBuilder &operator=(const CTableBuilder &);
   flatbuffers::Offset<CTable> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<CTable>(end);

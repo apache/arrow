@@ -59,6 +59,7 @@ struct TensorDimBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
+  TensorDimBuilder &operator=(const TensorDimBuilder &);
   flatbuffers::Offset<TensorDim> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<TensorDim>(end);
@@ -303,6 +304,7 @@ struct TensorBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
+  TensorBuilder &operator=(const TensorBuilder &);
   flatbuffers::Offset<Tensor> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Tensor>(end);
