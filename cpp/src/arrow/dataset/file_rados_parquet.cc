@@ -40,6 +40,7 @@ namespace flatbuf = org::apache::arrow::flatbuf;
 
 namespace dataset {
 
+/// \brief A ScanTask backed by an RadosParquet file.
 class RadosParquetScanTask : public ScanTask {
  public:
   RadosParquetScanTask(std::shared_ptr<ScanOptions> options,
