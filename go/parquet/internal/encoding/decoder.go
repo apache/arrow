@@ -153,7 +153,7 @@ func spacedExpand(buffer interface{}, nullCount int, validBits []byte, validBits
 		numValues int = bufferRef.Len()
 	)
 
-	idxDecode := int32(numValues - nullCount)
+	idxDecode := int64(numValues - nullCount)
 	if idxDecode == 0 { // if there's nothing to decode there's nothing to do.
 		return numValues
 	}
@@ -171,7 +171,7 @@ func spacedExpand(buffer interface{}, nullCount int, validBits []byte, validBits
 		// up after ourselves because we're doing this in reverse to guarantee that we'll always simply
 		// overwrite any existing data with the correctly spaced data. Any data that happens to be left in the null
 		// slots is fine since it shouldn't matter and saves us work.
-		idxDecode -= int32(run.Length)
+		idxDecode -= run.Length
 		n := reflect.Copy(bufferRef.Slice(int(run.Pos), bufferRef.Len()), bufferRef.Slice(int(idxDecode), int(int64(idxDecode)+run.Length)))
 		debug.Assert(n == int(run.Length), "reflect.Copy copied incorrect number of elements in spacedExpand")
 	}
