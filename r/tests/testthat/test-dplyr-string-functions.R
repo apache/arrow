@@ -544,7 +544,7 @@ test_that("strptime", {
   )
 
   tstring <- tibble(x = c("08-05-2008", NA))
-  tstamp <- tibble(x = c(strptime("08-05-2008", format = "%m-%d-%Y"), NA))
+  tstamp <- tibble(x = c(strptime("08-05-2008", format = "%m-%d-%Y", tz = "UTC"), NA))
 
   expect_equal(
     tstring %>%
