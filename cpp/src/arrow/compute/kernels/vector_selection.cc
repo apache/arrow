@@ -1668,6 +1668,66 @@ struct ListImpl : public Selection<ListImpl<Type>, Type> {
   }
 };
 
+struct DenseUnionImpl : public Selection<DenseUnionImpl, DenseUnionType> {
+  using Base = Selection<DenseUnionImpl, DenseUnionType>;
+  LIFT_BASE_MEMBERS();
+
+  typename TypeTraits<DenseUnionType>::ValueOffsetBuilderType value_offset_builder;
+  typename TypeTraits<DenseUnionType>::ChildIdBuilderType child_id_builder;
+  std::vector<int8_t> type_codes;
+
+  DenseUnionImpl(KernelContext* ctx, const ExecBatch& batch, int64_t output_length,
+                 Datum* out)
+      : Base(ctx, batch, output_length, out),
+        value_offset_builder(ctx->memory_pool()),
+        child_id_builder(ctx->memory_pool()) {
+    DenseUnionArray typed_values(this->values);
+    type_codes = typed_values.union_type()->type_codes();
+  }
+
+  template <typename Adapter>
+  Status GenerateOutput() {
+    DenseUnionArray typed_values(this->values);
+    Adapter adapter(this);
+    RETURN_NOT_OK(adapter.Generate(
+        [&](int64_t index) {
+          auto child_id = typed_values.child_id(index);
+          child_id_builder.UnsafeAppend(type_codes[child_id]);
+          auto value_offset = typed_values.value_offset(index);
+          value_offset_builder.UnsafeAppend(value_offset);
+          return Status::OK();
+        },
+        // TODO: not able to handle null case
+        VisitNoop));
+    return Status::OK();
+  }
+
+  Status Init() override {
+    RETURN_NOT_OK(child_id_builder.Reserve(output_length));
+    RETURN_NOT_OK(value_offset_builder.Reserve(output_length));
+    return Status::OK();
+  }
+
+  Status Finish() override {
+    std::shared_ptr<Array> child_ids;
+    std::shared_ptr<Array> value_offsets;
+    RETURN_NOT_OK(child_id_builder.Finish(&child_ids));
+    RETURN_NOT_OK(value_offset_builder.Finish(&value_offsets));
+
+    DenseUnionArray typed_values(this->values);
+    auto num_fields = typed_values.num_fields();
+    ArrayVector child_arrays;
+    child_arrays.reserve(num_fields);
+    BufferVector buffers = {nullptr, checked_cast<const Int8Array&>(*child_ids).values(),
+                            checked_cast<const Int32Array&>(*value_offsets).values()};
+    *out = ArrayData(typed_values.type(), child_ids->length(), std::move(buffers), 0);
+    for (int i = 0; i < typed_values.num_fields(); i++) {
+      out->child_data.push_back(typed_values.field(i)->data());
+    }
+    return Status::OK();
+  }
+};
+
 struct FSLImpl : public Selection<FSLImpl, FixedSizeListType> {
   Int64Builder child_index_builder;
 
@@ -2170,6 +2230,7 @@ void RegisterVectorSelection(FunctionRegistry* registry) {
       {InputType::Array(Type::LIST), TakeExec<ListImpl<ListType>>},
       {InputType::Array(Type::LARGE_LIST), TakeExec<ListImpl<LargeListType>>},
       {InputType::Array(Type::FIXED_SIZE_LIST), TakeExec<FSLImpl>},
+      {InputType::Array(Type::DENSE_UNION), TakeExec<DenseUnionImpl>},
       {InputType::Array(Type::STRUCT), TakeExec<StructImpl>},
       // TODO: Reuse ListType kernel for MAP
       {InputType::Array(Type::MAP), TakeExec<ListImpl<MapType>>},
