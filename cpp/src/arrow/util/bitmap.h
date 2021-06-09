@@ -115,6 +115,21 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
     }
   }
 
+  /// \brief Visit bits from each bitmap as bitset<N>
+  ///
+  /// All bitmaps must have identical length.
+  template <size_t N, typename Visitor>
+  static void VisitBits(const std::array<Bitmap, N>& bitmaps, Visitor&& visitor) {
+    int64_t bit_length = BitLength(bitmaps);
+    std::bitset<N> bits;
+    for (int64_t bit_i = 0; bit_i < bit_length; ++bit_i) {
+      for (size_t i = 0; i < N; ++i) {
+        bits[i] = bitmaps[i].GetBit(bit_i);
+      }
+      visitor(bits);
+    }
+  }
+
   /// \brief Visit words of bits from each bitmap as array<Word, N>
   ///
   /// All bitmaps must have identical length. The first bit in a visited bitmap
@@ -252,13 +267,11 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
     constexpr int64_t kBitWidth = sizeof(Word) * 8;
 
     // local, mutable variables which will be sliced/decremented to represent consumption:
-    // todo use std::array here
-    Bitmap bitmaps[N];
-    int64_t word_offsets[N];
+    Bitmap bitmaps[N];  // todo use std::array here
     int64_t bit_length = BitLength(bitmaps_arg);
-    View<Word> words[N];
 
     struct BitmapHolder {
+      BitmapHolder() = default;
       explicit BitmapHolder(Bitmap* bitmap_)
           : bitmap(bitmap_),
             word_offset(bitmap_->template word_offset<Word>()),
@@ -266,48 +279,31 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
         assert(BitmapHolder::word_offset >= 0 && BitmapHolder::word_offset < kBitWidth);
       }
 
-      //      void SliceAndUpdate(int64_t _offset, int64_t _length) {
-      //        BitmapHolder::bitmap = bitmap.Slice(_offset, _length);
-      //        BitmapHolder::word_offset = bitmap.template word_offset<Word>();
-      //        assert(BitmapHolder::word_offset >= 0 && BitmapHolder::word_offset <
-      //        kBitWidth); BitmapHolder::words = bitmap.template words<Word>();
-      //      }
-
-      void StrideAndUpdate(int64_t _stride) {
+      inline void StrideAndUpdate(int64_t _stride) {
         BitmapHolder::bitmap->Stride(_stride);
         BitmapHolder::word_offset = bitmap->template word_offset<Word>();
         assert(BitmapHolder::word_offset >= 0 && BitmapHolder::word_offset < kBitWidth);
         BitmapHolder::words = bitmap->template words<Word>();
       }
 
-      inline int64_t offset() const { return bitmap->offset_; }
-
-      inline const uint8_t* data() const { return bitmap->buffer_->data(); }
-
-      inline uint8_t* mutable_data() { return bitmap->buffer_->mutable_data(); }
-
-      Bitmap* bitmap;
-      int64_t word_offset;
+      Bitmap* bitmap{};
+      int64_t word_offset = 0;
       View<Word> words;
     };
 
-    for (size_t i = 0; i < N; ++i) {
-      bitmaps[i] = bitmaps_arg[i];
-      word_offsets[i] = bitmaps[i].template word_offset<Word>();
-      assert(word_offsets[i] >= 0 && word_offsets[i] < kBitWidth);
-      words[i] = bitmaps[i].template words<Word>();
-    }
+    std::array<BitmapHolder, N> in_bitmaps;
+    Bitmap out_bitmap = *out_bitmap_arg;  // make a copy
 
-    BitmapHolder out_bitmap(out_bitmap_arg);
+    for (size_t i = 0; i < N; ++i) {
+      bitmaps[i] = bitmaps_arg[i];  // make a copy
+      in_bitmaps[i] = BitmapHolder(&bitmaps[i]);
+    }
 
     auto consume = [&](int64_t consumed_bits) {
       for (size_t i = 0; i < N; ++i) {
-        bitmaps[i] = bitmaps[i].Slice(consumed_bits, bit_length - consumed_bits);
-        word_offsets[i] = bitmaps[i].template word_offset<Word>();
-        assert(word_offsets[i] >= 0 && word_offsets[i] < kBitWidth);
-        words[i] = bitmaps[i].template words<Word>();
+        in_bitmaps[i].StrideAndUpdate(consumed_bits);
       }
-      out_bitmap.StrideAndUpdate(consumed_bits);
+      out_bitmap.Stride(consumed_bits);
 
       bit_length -= consumed_bits;
     };
@@ -322,25 +318,33 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
         SafeLoadWords(bitmaps, 0, leading_bits, false, &visited_words);
         Word visit_out = visitor(visited_words);  // outputs a word/ partial word
         CopyBitmap(reinterpret_cast<uint8_t*>(&visit_out), 0, leading_bits,
-                   out_bitmap.mutable_data(), out_bitmap.offset());
+                   out_bitmap.buffer_->mutable_data(), out_bitmap.offset());
         consume(leading_bits);
       }
       return 0;
     }
 
-    int64_t max_word_offset = *std::max_element(word_offsets, word_offsets + N);
-    int64_t min_word_offset = *std::min_element(word_offsets, word_offsets + N);
+    auto word_offset_comp = [](const BitmapHolder& l, const BitmapHolder& r) {
+      return l.word_offset < r.word_offset;
+    };
+
+    int64_t max_word_offset =
+        (*std::max_element(in_bitmaps.begin(), in_bitmaps.end(), word_offset_comp))
+            .word_offset;
+    int64_t min_word_offset =
+        (*std::min_element(in_bitmaps.begin(), in_bitmaps.end(), word_offset_comp))
+            .word_offset;
     if (max_word_offset > 0) {
       // consume leading bits
       auto leading_bits = kBitWidth - min_word_offset;
       SafeLoadWords(bitmaps, 0, leading_bits, true, &visited_words);
       Word visit_out = visitor(visited_words);
       CopyBitmap(reinterpret_cast<uint8_t*>(&visit_out), sizeof(Word) * 8 - leading_bits,
-                 leading_bits, out_bitmap.mutable_data(), out_bitmap.offset());
+                 leading_bits, out_bitmap.buffer_->mutable_data(), out_bitmap.offset());
       consume(leading_bits);
     }
-    assert(*std::min_element(word_offsets, word_offsets + N) == 0);
-    assert(out_bitmap.word_offset == 0);
+    assert((*std::min_element(in_bitmaps.begin(), in_bitmaps.end(), word_offset_comp))
+               .word_offset == 0);
 
     int64_t whole_word_count = bit_length / kBitWidth;
     assert(whole_word_count >= 1);
@@ -350,18 +354,18 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
 
     if (min_word_offset == max_word_offset) {
       // all offsets were identical, all leading bits have been consumed
-      assert(std::all_of(word_offsets, word_offsets + N,
-                         [](int64_t offset) { return offset == 0; }));
-      assert(out_bitmap.word_offset == 0);
+      assert(std::all_of(
+          in_bitmaps.begin(), in_bitmaps.end(),
+          [](const BitmapHolder& holder) { return holder.word_offset == 0; }));
 
       for (int64_t word_i = 0; word_i < whole_word_count; ++word_i) {
         for (size_t i = 0; i < N; ++i) {
-          visited_words[i] = words[i][word_i];
+          visited_words[i] = in_bitmaps[i].words[word_i];
         }
         visit_outs.template emplace_back(visitor(visited_words));
       }
       CopyBitmap(reinterpret_cast<const uint8_t*>(visit_outs.data()), 0,
-                 whole_word_count * kBitWidth, out_bitmap.mutable_data(),
+                 whole_word_count * kBitWidth, out_bitmap.buffer_->mutable_data(),
                  out_bitmap.offset());
       consume(whole_word_count * kBitWidth);
     } else {
@@ -371,19 +375,21 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
       // within the bitmap for all i
       for (int64_t word_i = 0; word_i < whole_word_count - 1; ++word_i) {
         for (size_t i = 0; i < N; ++i) {
-          if (word_offsets[i] == 0) {
-            visited_words[i] = words[i][word_i];
+          const auto ith_words = in_bitmaps[i].words;
+          const auto ith_word_offset = in_bitmaps[i].word_offset;
+          if (ith_word_offset == 0) {
+            visited_words[i] = ith_words[word_i];
           } else {
-            auto words0 = BitUtil::ToLittleEndian(words[i][word_i]);
-            auto words1 = BitUtil::ToLittleEndian(words[i][word_i + 1]);
+            auto words0 = BitUtil::ToLittleEndian(ith_words[word_i]);
+            auto words1 = BitUtil::ToLittleEndian(ith_words[word_i + 1]);
             visited_words[i] = BitUtil::FromLittleEndian(
-                (words0 >> word_offsets[i]) | (words1 << (kBitWidth - word_offsets[i])));
+                (words0 >> ith_word_offset) | (words1 << (kBitWidth - ith_word_offset)));
           }
         }
         visit_outs.template emplace_back(visitor(visited_words));
       }
       CopyBitmap(reinterpret_cast<const uint8_t*>(visit_outs.data()), 0,
-                 (whole_word_count - 1) * kBitWidth, out_bitmap.mutable_data(),
+                 (whole_word_count - 1) * kBitWidth, out_bitmap.buffer_->mutable_data(),
                  out_bitmap.offset());
       consume((whole_word_count - 1) * kBitWidth);
 
@@ -391,7 +397,7 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
 
       Word visit_out = visitor(visited_words);  // outputs a word/ partial word
       CopyBitmap(reinterpret_cast<uint8_t*>(&visit_out), 0, kBitWidth,
-                 out_bitmap.mutable_data(), out_bitmap.offset());
+                 out_bitmap.buffer_->mutable_data(), out_bitmap.offset());
       consume(kBitWidth);
     }
 
@@ -400,7 +406,7 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
       SafeLoadWords(bitmaps, 0, bit_length, false, &visited_words);
       Word visit_out = visitor(visited_words);
       CopyBitmap(reinterpret_cast<uint8_t*>(&visit_out), 0, bit_length,
-                 out_bitmap.mutable_data(), out_bitmap.offset());
+                 out_bitmap.buffer_->mutable_data(), out_bitmap.offset());
     }
 
     return min_word_offset;
@@ -484,8 +490,8 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
 
   template <size_t N>
   static int64_t BitLength(const std::array<Bitmap, N>& bitmaps) {
-    for (size_t i = 1; i < bitmaps.size(); ++i) {
-      DCHECK_EQ(bitmaps[i].length(), bitmaps[0].length());
+    for (size_t i = 1; i < N; ++i) {
+      assert(bitmaps[i].length() == bitmaps[0].length());
     }
     return bitmaps[0].length();
   }
