@@ -552,7 +552,7 @@ def test_any():
     options = pc.ScalarAggregateOptions(skip_nulls=False)
     a = pa.array([False, None, True])
     assert pc.any(a).as_py() is True
-    assert pc.any(a, options=options).as_py() is None
+    assert pc.any(a, options=options).as_py() is True
 
     a = pa.array([False, None, False])
     assert pc.any(a).as_py() is False

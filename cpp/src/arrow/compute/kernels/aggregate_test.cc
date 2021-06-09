@@ -1005,14 +1005,14 @@ TEST_F(TestAnyKernel, Basics) {
   this->AssertAnyIs("[null, null, null]", null_value, keep_nulls);
   this->AssertAnyIs("[false, false, false]", false_value, keep_nulls);
   this->AssertAnyIs("[false, false, false, null]", null_value, keep_nulls);
-  this->AssertAnyIs("[true, null, true, true]", null_value, keep_nulls);
-  this->AssertAnyIs("[false, null, false, true]", null_value, keep_nulls);
-  this->AssertAnyIs("[true, null, false, true]", null_value, keep_nulls);
+  this->AssertAnyIs("[true, null, true, true]", true_value, keep_nulls);
+  this->AssertAnyIs("[false, null, false, true]", true_value, keep_nulls);
+  this->AssertAnyIs("[true, null, false, true]", true_value, keep_nulls);
   this->AssertAnyIs(chunked_input0, true_value, keep_nulls);
-  this->AssertAnyIs(chunked_input1, null_value, keep_nulls);
+  this->AssertAnyIs(chunked_input1, true_value, keep_nulls);
   this->AssertAnyIs(chunked_input2, false_value, keep_nulls);
   this->AssertAnyIs(chunked_input3, null_value, keep_nulls);
-  this->AssertAnyIs(chunked_input4, null_value, keep_nulls);
+  this->AssertAnyIs(chunked_input4, true_value, keep_nulls);
 }
 
 //
@@ -1085,16 +1085,16 @@ TEST_F(TestAllKernel, Basics) {
   this->AssertAllIs("[true, false]", false_value, keep_nulls);
   this->AssertAllIs("[null, null, null]", null_value, keep_nulls);
   this->AssertAllIs("[false, false, false]", false_value, keep_nulls);
-  this->AssertAllIs("[false, false, false, null]", null_value, keep_nulls);
+  this->AssertAllIs("[false, false, false, null]", false_value, keep_nulls);
   this->AssertAllIs("[true, null, true, true]", null_value, keep_nulls);
-  this->AssertAllIs("[false, null, false, true]", null_value, keep_nulls);
-  this->AssertAllIs("[true, null, false, true]", null_value, keep_nulls);
+  this->AssertAllIs("[false, null, false, true]", false_value, keep_nulls);
+  this->AssertAllIs("[true, null, false, true]", false_value, keep_nulls);
   this->AssertAllIs(chunked_input0, true_value, keep_nulls);
   this->AssertAllIs(chunked_input1, null_value, keep_nulls);
   this->AssertAllIs(chunked_input2, false_value, keep_nulls);
-  this->AssertAllIs(chunked_input3, null_value, keep_nulls);
-  this->AssertAllIs(chunked_input4, null_value, keep_nulls);
-  this->AssertAllIs(chunked_input5, null_value, keep_nulls);
+  this->AssertAllIs(chunked_input3, false_value, keep_nulls);
+  this->AssertAllIs(chunked_input4, false_value, keep_nulls);
+  this->AssertAllIs(chunked_input5, false_value, keep_nulls);
 }
 
 //

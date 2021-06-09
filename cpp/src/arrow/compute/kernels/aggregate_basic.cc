@@ -146,11 +146,7 @@ struct BooleanAnyImpl : public ScalarAggregator {
 
   Status Consume(KernelContext*, const ExecBatch& batch) override {
     // short-circuit if seen a True already
-    if (options.skip_nulls && this->any == true) {
-      return Status::OK();
-    }
-    // short-circuit if seen a null already
-    if (!options.skip_nulls && this->has_nulls) {
+    if (this->any == true) {
       return Status::OK();
     }
     const auto& data = *batch[0].array();
@@ -177,7 +173,7 @@ struct BooleanAnyImpl : public ScalarAggregator {
   }
 
   Status Finalize(KernelContext* ctx, Datum* out) override {
-    if (!options.skip_nulls && this->has_nulls) {
+    if (!options.skip_nulls && !this->any && this->has_nulls) {
       out->value = std::make_shared<BooleanScalar>();
     } else {
       out->value = std::make_shared<BooleanScalar>(this->any);
@@ -205,7 +201,7 @@ struct BooleanAllImpl : public ScalarAggregator {
 
   Status Consume(KernelContext*, const ExecBatch& batch) override {
     // short-circuit if seen a false already
-    if (options.skip_nulls && this->all == false) {
+    if (this->all == false) {
       return Status::OK();
     }
     // short-circuit if seen a null already
@@ -237,7 +233,7 @@ struct BooleanAllImpl : public ScalarAggregator {
   }
 
   Status Finalize(KernelContext*, Datum* out) override {
-    if (!options.skip_nulls && this->has_nulls) {
+    if (!options.skip_nulls && this->all && this->has_nulls) {
       out->value = std::make_shared<BooleanScalar>();
     } else {
       out->value = std::make_shared<BooleanScalar>(this->all);
