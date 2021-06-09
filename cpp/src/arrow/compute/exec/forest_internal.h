@@ -30,7 +30,7 @@ namespace compute {
 /// A Forest is a view of a sorted range which carries an ancestry relation in addition
 /// to an ordering relation: each element's descendants appear directly after it.
 /// This can be used to efficiently skip subtrees when iterating through the range.
-class ARROW_EXPORT Forest {
+class Forest {
  public:
   Forest() = default;
 
@@ -70,7 +70,7 @@ class ARROW_EXPORT Forest {
            std::equal(it, it + size_, other.descendant_counts_->begin());
   }
 
-  struct ARROW_EXPORT Ref {
+  struct Ref {
     int num_descendants() const { return forest->descendant_counts_->at(i); }
 
     bool IsAncestorOf(const Ref& ref) const {
