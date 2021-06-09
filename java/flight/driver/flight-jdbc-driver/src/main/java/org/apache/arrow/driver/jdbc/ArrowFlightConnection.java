@@ -46,6 +46,15 @@ public final class ArrowFlightConnection extends AvaticaConnection {
 
   private final Map<Integer, ArrowFlightStatement> statementMap = new HashMap<>();
 
+  /**
+   * Instantiates a new Arrow Flight Connection.
+   *
+   * @param driver The JDBC driver to use.
+   * @param factory The Avatica Factory to use.
+   * @param url The URL to connect to.
+   * @param info The properties of this connection.
+   * @throws SQLException If the connection cannot be established.
+   */
   public ArrowFlightConnection(ArrowFlightJdbcDriver driver,
       ArrowFlightFactory factory, String url, Properties info) throws SQLException {
     super(driver, factory, url, info);

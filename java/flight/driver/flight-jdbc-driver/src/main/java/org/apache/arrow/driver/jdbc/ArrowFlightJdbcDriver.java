@@ -19,11 +19,7 @@ package org.apache.arrow.driver.jdbc;
 
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.ArrayDeque;
-import java.util.Arrays;
-import java.util.Deque;
 import java.util.Properties;
-import java.util.stream.Collectors;
 
 import javax.annotation.Nullable;
 
@@ -104,17 +100,8 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
     String host = (String) args[0];
     int port = Integer.parseInt(args[1]);
 
-    @Nullable
-    String catalog = args.length >= 3 ? args[2] : null;
-
     Preconditions.checkNotNull(info).put("host", host);
     info.put("port", port);
-
-    if (catalog != null) {
-      Preconditions.checkArgument(!catalog.trim().equals(""),
-          "When provided, catalog cannot be blank!");
-      info.put("catalog", catalog);
-    }
   }
 
   /**

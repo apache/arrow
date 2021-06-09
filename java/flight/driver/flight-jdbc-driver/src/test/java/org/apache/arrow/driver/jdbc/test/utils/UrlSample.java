@@ -17,32 +17,24 @@
 
 package org.apache.arrow.driver.jdbc.test.utils;
 
-import javax.annotation.Nullable;
-
 import org.apache.arrow.util.Preconditions;
-
-import com.google.common.base.Optional;
 
 /**
  * Class for storing sample JDBC URLs. Used for testing.
  */
 public enum UrlSample {
-  CONFORMING("jdbc:arrow-flight://", "localhost", 32010,
-      "sample"), UNSUPPORTED("jdbc:mysql://", "localhost", 3306,
-          "sample-catalog");
+  CONFORMING("jdbc:arrow-flight://", "localhost", 32010),
+  UNSUPPORTED("jdbc:mysql://", "localhost", 3306);
 
   private final String prefix;
   private final String host;
   // TODO Check how to use this in tests.
   private final int port;
-  private final Optional<String> catalog;
 
-  private UrlSample(String prefix, String host, int port,
-      @Nullable String catalog) {
+  private UrlSample(String prefix, String host, int port) {
     this.prefix = Preconditions.checkNotNull(prefix);
     this.host = Preconditions.checkNotNull(host);
     this.port = Preconditions.checkElementIndex(port, Integer.MAX_VALUE);
-    this.catalog = Optional.of(catalog);
   }
 
   /**
@@ -73,21 +65,11 @@ public enum UrlSample {
   }
 
   /**
-   * Gets the catalog name.
-   *
-   * @return the catalog.
-   */
-  public final Optional<String> getCatalog() {
-    return catalog;
-  }
-
-  /**
    * Gets the full URL.
    *
    * @return the URL.
    */
   public final String getPath() {
-    return getPrefix() + getHost() + ":" + getPort() +
-        (getCatalog().isPresent() ? "/" + getCatalog() : "");
+    return getPrefix() + getHost() + ":" + getPort();
   }
 }

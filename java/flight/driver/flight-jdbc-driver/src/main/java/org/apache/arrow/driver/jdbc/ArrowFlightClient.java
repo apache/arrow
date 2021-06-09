@@ -50,7 +50,6 @@ import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.calcite.avatica.org.apache.commons.logging.impl.Log4JLogger;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 
 /**
@@ -316,9 +315,8 @@ public final class ArrowFlightClient implements AutoCloseable {
 
       return new ArrowFlightClient(flightClient, null);
     } catch (KeyStoreException | NoSuchAlgorithmException |
-        CertificateException | IOException e) {
-        throw new SQLException(
-            "Failed to create a new Arrow Flight client.", e);
+          CertificateException | IOException e) {
+      throw new SQLException("Failed to create an Arrow Flight client.", e);
     }
   }
 
