@@ -58,6 +58,8 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       UNARY_UNSAFE_NULL_IF_NULL(ltrim, {}, utf8, utf8),
       UNARY_UNSAFE_NULL_IF_NULL(rtrim, {}, utf8, utf8),
       UNARY_UNSAFE_NULL_IF_NULL(btrim, {}, utf8, utf8),
+      UNARY_UNSAFE_NULL_IF_NULL(space, {}, int32, utf8),
+      UNARY_UNSAFE_NULL_IF_NULL(space, {}, int64, utf8),
 
       UNARY_SAFE_NULL_NEVER_BOOL_FN(isnull, {}),
       UNARY_SAFE_NULL_NEVER_BOOL_FN(isnotnull, {}),

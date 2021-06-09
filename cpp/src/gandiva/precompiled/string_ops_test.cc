@@ -69,6 +69,31 @@ TEST(TestStringOps, TestBeginsEnds) {
   EXPECT_FALSE(ends_with_utf8_utf8("hello", 5, "sir", 3));
 }
 
+TEST(TestStringOps, TestSpace) {
+  // Space - returns a string with 'n' spaces
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  int32_t out_len = 0;
+
+  auto out = space_int32(ctx_ptr, 1, &out_len);
+  EXPECT_EQ(std::string(out, out_len), " ");
+  out = space_int32(ctx_ptr, 10, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "          ");
+  out = space_int32(ctx_ptr, 5, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "     ");
+  out = space_int32(ctx_ptr, -5, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "");
+
+  out = space_int64(ctx_ptr, 2, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "  ");
+  out = space_int64(ctx_ptr, 9, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "         ");
+  out = space_int64(ctx_ptr, 4, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "    ");
+  out = space_int64(ctx_ptr, -5, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "");
+}
+
 TEST(TestStringOps, TestIsSubstr) {
   EXPECT_TRUE(is_substr_utf8_utf8("hello world", 11, "world", 5));
   EXPECT_TRUE(is_substr_utf8_utf8("hello world", 11, "lo wo", 5));
