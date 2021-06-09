@@ -81,12 +81,17 @@ static Status InferDecimalPrecisionAndScale(PyObject* python_decimal, int32_t* p
 
     // we have leading zeros, need to add to precision
     num_additional_zeros = abs_exponent - num_digits;
+    *scale = -exponent;
+  } else if (exponent > 0) {
+    // trailing zeros not included in num_digits, need to add to precision
+    num_additional_zeros = exponent;
+    *scale = 0;
   } else {
     // we can use the number of digits as the precision
     num_additional_zeros = 0;
+    *scale = -exponent;
   }
 
-  *scale = -exponent;
   *precision = num_digits + num_additional_zeros;
   return Status::OK();
 }
@@ -226,12 +231,6 @@ Status DecimalMetadata::Update(int32_t suggested_precision, int32_t suggested_sc
     auto num_digits = std::max(current_precision - current_scale,
                                suggested_precision - suggested_scale);
     precision_ = std::max(num_digits + scale_, current_precision);
-  }
-
-  // if our suggested scale is zero and we don't yet have enough precision then we need to
-  // add whatever the current scale is to the precision
-  if (suggested_scale == 0 && suggested_precision > current_precision) {
-    precision_ += scale_;
   }
 
   return Status::OK();
