@@ -126,6 +126,7 @@ static std::unique_ptr<FunctionRegistry> CreateBuiltInRegistry() {
   RegisterScalarValidity(registry.get());
   RegisterScalarFillNull(registry.get());
   RegisterScalarIfElse(registry.get());
+  RegisterScalarTemporal(registry.get());
 
   // Vector functions
   RegisterVectorHash(registry.get());
