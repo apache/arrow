@@ -180,6 +180,14 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     return out;
   }
 
+  if (func_name == "element_wise_min" || func_name == "element_wise_max") {
+    using Options = arrow::compute::ScalarAggregateOptions;
+    auto out = std::make_shared<Options>(Options::Defaults());
+    out->min_count = cpp11::as_cpp<int>(options["na.min_count"]);
+    out->skip_nulls = cpp11::as_cpp<bool>(options["na.rm"]);
+    return out;
+  }
+
   if (func_name == "quantile") {
     using Options = arrow::compute::QuantileOptions;
     auto out = std::make_shared<Options>(Options::Defaults());
