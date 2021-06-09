@@ -21,6 +21,7 @@
 #include <cstdint>
 
 #include "arrow/compute/exec/util.h"
+#include "arrow/util/ubsan.h"
 
 namespace arrow {
 namespace compute {
@@ -170,19 +171,19 @@ void KeyCompare::CompareFixedLengthImp(uint32_t num_rows_already_processed,
     //
     if (num_64bit_words == 0) {
       for (; istripe < num_loops_less_one; ++istripe) {
-        uint64_t key_left = key_left_ptr[istripe];
-        uint64_t key_right = key_right_ptr[istripe];
+        uint64_t key_left = util::SafeLoad(&key_left_ptr[istripe]);
+        uint64_t key_right = util::SafeLoad(&key_right_ptr[istripe]);
         result_or |= (key_left ^ key_right);
       }
     } else if (num_64bit_words == 2) {
-      uint64_t key_left = key_left_ptr[istripe];
-      uint64_t key_right = key_right_ptr[istripe];
+      uint64_t key_left = util::SafeLoad(&key_left_ptr[istripe]);
+      uint64_t key_right = util::SafeLoad(&key_right_ptr[istripe]);
       result_or |= (key_left ^ key_right);
       ++istripe;
     }
 
-    uint64_t key_left = key_left_ptr[istripe];
-    uint64_t key_right = key_right_ptr[istripe];
+    uint64_t key_left = util::SafeLoad(&key_left_ptr[istripe]);
+    uint64_t key_right = util::SafeLoad(&key_right_ptr[istripe]);
     result_or |= (tail_mask & (key_left ^ key_right));
 
     int result = (result_or == 0 ? 0xff : 0);
@@ -246,16 +247,16 @@ void KeyCompare::CompareVaryingLengthImp(
     int32_t istripe;
     // length can be zero
     for (istripe = 0; istripe < (static_cast<int32_t>(length) + 7) / 8 - 1; ++istripe) {
-      uint64_t key_left = key_left_ptr[istripe];
-      uint64_t key_right = key_right_ptr[istripe];
+      uint64_t key_left = util::SafeLoad(&key_left_ptr[istripe]);
+      uint64_t key_right = util::SafeLoad(&key_right_ptr[istripe]);
       result_or |= (key_left ^ key_right);
     }
 
     uint32_t length_remaining = length - static_cast<uint32_t>(istripe) * 8;
     uint64_t tail_mask = tail_masks[length_remaining];
 
-    uint64_t key_left = key_left_ptr[istripe];
-    uint64_t key_right = key_right_ptr[istripe];
+    uint64_t key_left = util::SafeLoad(&key_left_ptr[istripe]);
+    uint64_t key_right = util::SafeLoad(&key_right_ptr[istripe]);
     result_or |= (tail_mask & (key_left ^ key_right));
 
     int result = (result_or == 0 ? 0xff : 0);
