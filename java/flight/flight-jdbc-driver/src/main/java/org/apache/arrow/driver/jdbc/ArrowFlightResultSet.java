@@ -22,6 +22,7 @@ import java.sql.SQLException;
 import java.util.TimeZone;
 
 import org.apache.calcite.avatica.AvaticaResultSet;
+import org.apache.calcite.avatica.AvaticaStatement;
 import org.apache.calcite.avatica.Meta.Frame;
 import org.apache.calcite.avatica.Meta.Signature;
 import org.apache.calcite.avatica.QueryState;
@@ -31,9 +32,9 @@ import org.apache.calcite.avatica.QueryState;
  */
 public class ArrowFlightResultSet extends AvaticaResultSet {
 
-  public ArrowFlightResultSet(ArrowFlightStatement statement, QueryState state,
-      Signature signature, ArrowFlightResultSetMetadata resultSetMetaData,
-      TimeZone timeZone, Frame firstFrame) throws SQLException {
+  public ArrowFlightResultSet(AvaticaStatement statement, QueryState state,
+                              Signature signature, ArrowFlightResultSetMetadata resultSetMetaData,
+                              TimeZone timeZone, Frame firstFrame) throws SQLException {
     super(statement, state, signature, resultSetMetaData, timeZone, firstFrame);
     // TODO Auto-generated constructor stub
   }
