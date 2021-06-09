@@ -442,7 +442,8 @@ class FileFormatFixtureMixin : public ::testing::Test {
         ::testing::AllOf(
             ::testing::HasSubstr(make_error_message("/herp/derp")),
             ::testing::HasSubstr(
-                "Error creating dataset. Could not read schema from '/herp/derp':")));
+                "Error creating dataset. Could not read schema from '/herp/derp':"),
+            ::testing::HasSubstr("Is this a '" + format_->type_name() + "' file?")));
   }
   void TestInspectFailureWithRelevantError(StatusCode code,
                                            const std::string format_name) {
