@@ -48,7 +48,6 @@ public enum PropertiesSample {
 
     this.properties.put("host", url.getHost());
     this.properties.put("port", url.getPort());
-    this.properties.put("catalog", url.getCatalog());
 
     if (properties == null) {
       return;
