@@ -102,6 +102,13 @@ class GANDIVA_EXPORT ConfigurationBuilder {
     return default_configuration_;
   }
 
+  // Gets a configuration that defines the LLVM ExecutionEngine to run in
+  // interpreted mode.
+  static std::shared_ptr<Configuration> InterpretedModeConfig() {
+    std::shared_ptr<Configuration> configuration(new Configuration(false, false));
+    return configuration;
+  }
+
  private:
   static std::shared_ptr<Configuration> InitDefaultConfig() {
     std::shared_ptr<Configuration> configuration(new Configuration());

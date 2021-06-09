@@ -95,8 +95,14 @@ static inline ArrayPtr MakeArrowTypeArray(const std::shared_ptr<arrow::DataType>
   EXPECT_TRUE((a)->Equals(b)) << "expected type: " << (a)->ToString() \
                               << " actual type: " << (b)->ToString()
 
-static inline std::shared_ptr<Configuration> TestConfiguration() {
+static inline std::shared_ptr<Configuration> TestConfiguration(
+    bool use_interpreted = true) {
   auto builder = ConfigurationBuilder();
+
+  if (use_interpreted) {
+    return builder.InterpretedModeConfig();
+  }
+
   return builder.DefaultConfiguration();
 }
 
