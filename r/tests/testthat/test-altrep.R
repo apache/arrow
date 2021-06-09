@@ -20,13 +20,33 @@ context("altrep")
 skip_if(getRversion() <= "3.5.0")
 
 test_that("altrep vectors from int32 arrays with no nulls", {
+  withr::local_options(list(arrow.use_altrep = TRUE))
   v <- Array$create(1:1000)
   expect_true(is_altrep_int_nonull(as.vector(v)))
   expect_true(is_altrep_int_nonull(as.vector(v$Slice(1))))
+
+  withr::local_options(list(arrow.use_altrep = NULL))
+  v <- Array$create(1:1000)
+  expect_true(is_altrep_int_nonull(as.vector(v)))
+  expect_true(is_altrep_int_nonull(as.vector(v$Slice(1))))
+
+  withr::local_options(list(arrow.use_altrep = FALSE))
+  expect_false(is_altrep_int_nonull(as.vector(v)))
+  expect_false(is_altrep_int_nonull(as.vector(v$Slice(1))))
 })
 
 test_that("altrep vectors from double arrays with no nulls", {
+  withr::local_options(list(arrow.use_altrep = TRUE))
   v <- Array$create(as.numeric(1:1000))
   expect_true(is_altrep_dbl_nonull(as.vector(v)))
   expect_true(is_altrep_dbl_nonull(as.vector(v$Slice(1))))
+
+  withr::local_options(list(arrow.use_altrep = NULL))
+  expect_true(is_altrep_dbl_nonull(as.vector(v)))
+  expect_true(is_altrep_dbl_nonull(as.vector(v$Slice(1))))
+
+  withr::local_options(list(arrow.use_altrep = FALSE))
+  expect_false(is_altrep_dbl_nonull(as.vector(v)))
+  expect_false(is_altrep_dbl_nonull(as.vector(v$Slice(1))))
 })
+

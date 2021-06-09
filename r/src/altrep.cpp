@@ -74,7 +74,7 @@ struct array_nonull {
     SEXP copy = PROTECT(Rf_allocVector(int_array ? INTSXP : REALSXP, array->length()));
 
     memcpy(DATAPTR(copy), Dataptr_or_null(vec),
-           REALSXP ? (size * sizeof(int)) : (size * sizeof(double)));
+           int_array ? (size * sizeof(int)) : (size * sizeof(double)));
 
     UNPROTECT(1);
     return copy;
@@ -109,23 +109,6 @@ struct array_nonull_dbl_vector {
   }
 };
 
-struct array_nonull_int64_vector {
-  static R_altrep_class_t class_t;
-
-  static SEXP Make(const std::shared_ptr<Array>& array) {
-    SEXP res = PROTECT(array_nonull::Make(class_t, array));
-    Rf_setAttrib(res, R_ClassSymbol, Rf_mkString("integer64"));
-    UNPROTECT(1);
-    return res;
-  }
-
-  static void Init(DllInfo* dll) {
-    class_t = R_make_altreal_class("array_nonull_int64_vector", "arrow", dll);
-    array_nonull::Init(class_t, dll);
-    R_set_altreal_No_NA_method(class_t, array_nonull::No_NA);
-  }
-};
-
 struct array_nonull_int_vector {
   static R_altrep_class_t class_t;
 
@@ -138,12 +121,10 @@ struct array_nonull_int_vector {
 
 R_altrep_class_t array_nonull_int_vector::class_t;
 R_altrep_class_t array_nonull_dbl_vector::class_t;
-R_altrep_class_t array_nonull_int64_vector::class_t;
 
 void Init_Altrep_classes(DllInfo* dll) {
   array_nonull_dbl_vector::Init(dll);
   array_nonull_int_vector::Init(dll);
-  array_nonull_int64_vector::Init(dll);
 }
 
 SEXP Make_array_nonull_dbl_vector(const std::shared_ptr<Array>& array) {
@@ -152,10 +133,6 @@ SEXP Make_array_nonull_dbl_vector(const std::shared_ptr<Array>& array) {
 
 SEXP Make_array_nonull_int_vector(const std::shared_ptr<Array>& array) {
   return array_nonull::Make(array_nonull_int_vector::class_t, array);
-}
-
-SEXP Make_array_nonull_int64_vector(const std::shared_ptr<Array>& array) {
-  return array_nonull_int64_vector::Make(array);
 }
 
 }  // namespace r
@@ -176,10 +153,6 @@ SEXP Make_array_nonull_dbl_vector(const std::shared_ptr<Array>& array) {
 }
 
 SEXP Make_array_nonull_int_vector(const std::shared_ptr<Array>& array) {
-  return R_NilValue;
-}
-
-SEXP Make_array_nonull_int64_vector(const std::shared_ptr<Array>& array) {
   return R_NilValue;
 }
 
