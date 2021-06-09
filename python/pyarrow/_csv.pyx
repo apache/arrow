@@ -58,6 +58,7 @@ cdef class ReadOptions(_Weakrefable):
         How much bytes to process at a time from the input stream.
         This will determine multi-threading granularity as well as
         the size of individual record batches or table chunks.
+        Minimum valid value for block size is 1
     skip_rows: int, optional (default 0)
         The number of rows to skip before the column names (if any)
         and the CSV data.
@@ -188,6 +189,9 @@ cdef class ReadOptions(_Weakrefable):
     @skip_rows_after_names.setter
     def skip_rows_after_names(self, value):
         deref(self.options).skip_rows_after_names = value
+
+    def validate(self):
+        check_status(deref(self.options).Validate())
 
     def equals(self, ReadOptions other):
         return (
@@ -358,6 +362,9 @@ cdef class ParseOptions(_Weakrefable):
     @ignore_empty_lines.setter
     def ignore_empty_lines(self, value):
         deref(self.options).ignore_empty_lines = value
+
+    def validate(self):
+        check_status(deref(self.options).Validate())
 
     def equals(self, ParseOptions other):
         return (
@@ -680,6 +687,9 @@ cdef class ConvertOptions(_Weakrefable):
         out.options.reset(new CCSVConvertOptions(move(options)))
         return out
 
+    def validate(self):
+        check_status(deref(self.options).Validate())
+
     def equals(self, ConvertOptions other):
         return (
             self.check_utf8 == other.check_utf8 and
@@ -940,6 +950,9 @@ cdef class WriteOptions(_Weakrefable):
     @batch_size.setter
     def batch_size(self, value):
         self.options.batch_size = value
+
+    def validate(self):
+        check_status(self.options.Validate())
 
 
 cdef _get_write_options(WriteOptions write_options, CCSVWriteOptions* out):
