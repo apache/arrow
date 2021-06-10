@@ -23,12 +23,11 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.sql.SQLException;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Properties;
 
 import javax.annotation.Nullable;
 
+import org.apache.arrow.driver.jdbc.utils.DefaultProperty;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.Preconditions;
@@ -40,19 +39,9 @@ import org.apache.calcite.avatica.AvaticaFactory;
  */
 public final class ArrowFlightConnection extends AvaticaConnection {
 
-  private static final String HOST = "host";
-  private static final String PORT = "port";
-  private static final String USER = "user";
-  private static final String PASSWORD = "password";
-  private static final String USE_TLS = "useTls";
-  private static final String KEYSTORE_PATH = "keyStorePath";
-  private static final String KEYSTORE_PASS = "keyStorePass";
-
   private BufferAllocator allocator;
 
   private ArrowFlightClient client;
-
-  private final Map<Integer, ArrowFlightStatement> statementMap = new HashMap<>();
 
   /**
    * Instantiates a new Arrow Flight Connection.
@@ -136,19 +125,22 @@ public final class ArrowFlightConnection extends AvaticaConnection {
       throw new IllegalStateException("Client already loaded.");
     }
 
-    String host = (String) info.getOrDefault(HOST, "localhost");
+    String host = (String) info.getOrDefault(DefaultProperty.HOST.toString(),
+        "localhost");
     Preconditions.checkArgument(!host.trim().isEmpty());
 
-    int port = Integer.parseInt((String) info.getOrDefault(PORT, "32010"));
+    int port = Integer.parseInt((String) info.getOrDefault(DefaultProperty.PORT
+        .toString(), "32010"));
     Preconditions.checkArgument(0 < port && port < 65536);
 
     @Nullable
-    String username = info.getProperty(USER);
+    String username = info.getProperty(DefaultProperty.USER.toString());
 
     @Nullable
-    String password = info.getProperty(PASSWORD);
+    String password = info.getProperty(DefaultProperty.PASS.toString());
 
-    boolean useTls = ((String) info.getOrDefault(USE_TLS, "false"))
+    boolean useTls = ((String) info.getOrDefault(DefaultProperty.USE_TLS
+        .toString(), "false"))
         .equalsIgnoreCase("true");
     
     boolean authenticate = username != null;
@@ -167,8 +159,10 @@ public final class ArrowFlightConnection extends AvaticaConnection {
 
     }
 
-    String keyStorePath = info.getProperty(KEYSTORE_PATH);
-    String keyStorePass = info.getProperty(KEYSTORE_PASS);
+    String keyStorePath = info.getProperty(
+        DefaultProperty.KEYSTORE_PATH.toString());
+    String keyStorePass = info.getProperty(
+        DefaultProperty.KEYSTORE_PATH.toString());
 
     if (authenticate) {
       client = ArrowFlightClient.getEncryptedClientAuthenticated(allocator,
