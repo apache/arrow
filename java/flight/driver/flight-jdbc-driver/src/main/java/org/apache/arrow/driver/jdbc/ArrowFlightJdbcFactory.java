@@ -24,30 +24,37 @@ import java.util.Properties;
 import java.util.TimeZone;
 
 import org.apache.calcite.avatica.AvaticaConnection;
+import org.apache.calcite.avatica.AvaticaFactory;
 import org.apache.calcite.avatica.AvaticaSpecificDatabaseMetaData;
 import org.apache.calcite.avatica.AvaticaStatement;
 import org.apache.calcite.avatica.Meta;
 import org.apache.calcite.avatica.QueryState;
+import org.apache.calcite.avatica.UnregisteredDriver;
 
 /**
  * Factory for the Arrow Flight JDBC Driver.
  */
-public class ArrowFlightJdbcFactory extends AbstractFactory {
+public class ArrowFlightJdbcFactory implements AvaticaFactory {
+  private final int major;
+  private final int minor;
+
   // This need to be public so Avatica can call this constructor
   public ArrowFlightJdbcFactory() {
     this(4, 1);
   }
 
-  protected ArrowFlightJdbcFactory(int major, int minor) {
-    super(major, minor);
+  public ArrowFlightJdbcFactory(int major, int minor) {
+    this.major = major;
+    this.minor = minor;
   }
 
   @Override
-  ArrowFlightConnection newConnection(ArrowFlightJdbcDriver driver,
-                                      AbstractFactory factory,
-                                      String url,
-                                      Properties info) throws SQLException {
-    return new ArrowFlightConnection(driver, factory, url, info);
+  public AvaticaConnection newConnection(UnregisteredDriver driver,
+                                         AvaticaFactory factory,
+                                         String url,
+                                         Properties info) throws SQLException {
+    return new ArrowFlightConnection((ArrowFlightJdbcDriver) driver,
+            factory, url, info);
   }
 
   @Override
@@ -60,7 +67,7 @@ public class ArrowFlightJdbcFactory extends AbstractFactory {
   }
 
   @Override
-  public ArrowFlightJdbcPreparedStatement newPreparedStatement(AvaticaConnection connection,
+  public ArrowFlightPreparedStatement newPreparedStatement(AvaticaConnection connection,
                                                                Meta.StatementHandle statementHandle,
                                                                Meta.Signature signature,
                                                                int resultType,
@@ -69,7 +76,7 @@ public class ArrowFlightJdbcFactory extends AbstractFactory {
 
     ArrowFlightConnection arrowFlightConnection = (ArrowFlightConnection) connection;
 
-    return new ArrowFlightJdbcPreparedStatement(arrowFlightConnection, statementHandle,
+    return new ArrowFlightPreparedStatement(arrowFlightConnection, statementHandle,
             signature, resultType, resultSetConcurrency, resultSetHoldability, null);
   }
 
