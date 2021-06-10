@@ -791,15 +791,14 @@ Status SetObjectMetadata(const std::shared_ptr<const KeyValueMetadata>& metadata
                          ObjectRequest* req) {
   static auto setters = ObjectMetadataSetter<ObjectRequest>::GetSetters();
 
-  if (metadata) {
-    const auto& keys = metadata->keys();
-    const auto& values = metadata->values();
+  DCHECK_NE(metadata, nullptr);
+  const auto& keys = metadata->keys();
+  const auto& values = metadata->values();
 
-    for (size_t i = 0; i < keys.size(); ++i) {
-      auto it = setters.find(keys[i]);
-      if (it != setters.end()) {
-        RETURN_NOT_OK(it->second(values[i], req));
-      }
+  for (size_t i = 0; i < keys.size(); ++i) {
+    auto it = setters.find(keys[i]);
+    if (it != setters.end()) {
+      RETURN_NOT_OK(it->second(values[i], req));
     }
   }
   return Status::OK();
@@ -979,6 +978,7 @@ class ObjectOutputStream final : public io::OutputStream {
         io_context_(io_context),
         path_(path),
         metadata_(metadata),
+        default_metadata_(options.default_metadata),
         background_writes_(options.background_writes) {}
 
   ~ObjectOutputStream() override {
@@ -992,7 +992,11 @@ class ObjectOutputStream final : public io::OutputStream {
     S3Model::CreateMultipartUploadRequest req;
     req.SetBucket(ToAwsString(path_.bucket));
     req.SetKey(ToAwsString(path_.key));
-    RETURN_NOT_OK(SetObjectMetadata(metadata_, &req));
+    if (metadata_ && metadata_->size() != 0) {
+      RETURN_NOT_OK(SetObjectMetadata(metadata_, &req));
+    } else if (default_metadata_ && default_metadata_->size() != 0) {
+      RETURN_NOT_OK(SetObjectMetadata(default_metadata_, &req));
+    }
 
     auto outcome = client_->CreateMultipartUpload(req);
     if (!outcome.IsSuccess()) {
@@ -1263,6 +1267,7 @@ class ObjectOutputStream final : public io::OutputStream {
   const io::IOContext io_context_;
   const S3Path path_;
   const std::shared_ptr<const KeyValueMetadata> metadata_;
+  const std::shared_ptr<const KeyValueMetadata> default_metadata_;
   const bool background_writes_;
 
   Aws::String upload_id_;

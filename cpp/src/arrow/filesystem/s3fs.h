@@ -71,7 +71,7 @@ enum class S3CredentialsKind : int8_t {
 
 /// Options for the S3FileSystem implementation.
 struct ARROW_EXPORT S3Options {
-  /// AWS region to connect to.
+  /// \brief AWS region to connect to.
   ///
   /// If unset, the AWS SDK will choose a default value.  The exact algorithm
   /// depends on the SDK version.  Before 1.8, the default is hardcoded
@@ -106,6 +106,11 @@ struct ARROW_EXPORT S3Options {
 
   /// Whether OutputStream writes will be issued in the background, without blocking.
   bool background_writes = true;
+
+  /// \brief Default metadata for OpenOutputStream.
+  ///
+  /// This will be ignored if non-empty metadata is passed to OpenOutputStream.
+  std::shared_ptr<const KeyValueMetadata> default_metadata;
 
   /// Configure with the default AWS credentials provider chain.
   void ConfigureDefaultCredentials();
