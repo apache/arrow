@@ -23,6 +23,7 @@
 #include "arrow/status.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/thread_pool.h"
+#include "arrow/util/vector.h"
 
 namespace arrow {
 namespace internal {
@@ -56,11 +57,7 @@ Future<std::vector<R>> ParallelForAsync(
   }
   return All(std::move(futures))
       .Then([](const std::vector<Result<R>>& results) -> Result<std::vector<R>> {
-        std::vector<R> result(results.size());
-        for (size_t i = 0; i < results.size(); i++) {
-          ARROW_ASSIGN_OR_RAISE(result[i], results[i]);
-        }
-        return result;
+        return UnwrapOrRaise(results);
       });
 }
 

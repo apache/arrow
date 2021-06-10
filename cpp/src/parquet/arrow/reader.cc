@@ -1041,16 +1041,9 @@ class RowGroupGenerator {
     return self->DecodeRowGroups(self, {row_group}, column_indices, cpu_executor)
         .Then([](const std::shared_ptr<Table>& table)
                   -> ::arrow::Result<RecordBatchGenerator> {
-          auto table_reader = std::make_shared<::arrow::TableBatchReader>(*table);
+          ::arrow::TableBatchReader table_reader(*table);
           ::arrow::RecordBatchVector batches;
-          while (true) {
-            std::shared_ptr<::arrow::RecordBatch> batch;
-            RETURN_NOT_OK(table_reader->ReadNext(&batch));
-            if (!batch) {
-              break;
-            }
-            batches.push_back(batch);
-          }
+          RETURN_NOT_OK(table_reader.ReadAll(&batches));
           return ::arrow::MakeVectorGenerator(std::move(batches));
         });
   }
@@ -1144,34 +1137,35 @@ Future<std::shared_ptr<Table>> FileReaderImpl::DecodeRowGroups(
   std::vector<std::shared_ptr<ColumnReaderImpl>> readers;
   std::shared_ptr<::arrow::Schema> result_schema;
   RETURN_NOT_OK(GetFieldReaders(column_indices, row_groups, &readers, &result_schema));
-
   // OptionalParallelForAsync requires an executor
   if (!cpu_executor) cpu_executor = ::arrow::internal::GetCpuThreadPool();
-  return ::arrow::internal::OptionalParallelForAsync(
-             reader_properties_.use_threads(), std::move(readers),
-             [row_groups, self](int i, std::shared_ptr<ColumnReaderImpl> reader)
-                 -> ::arrow::Result<std::shared_ptr<::arrow::ChunkedArray>> {
-               std::shared_ptr<::arrow::ChunkedArray> column;
-               RETURN_NOT_OK(self->ReadColumn(static_cast<int>(i), row_groups,
-                                              reader.get(), &column));
-               return column;
-             },
-             cpu_executor)
-      .Then([result_schema, row_groups, self](const ::arrow::ChunkedArrayVector& columns)
-                -> ::arrow::Result<std::shared_ptr<Table>> {
-        int64_t num_rows = 0;
-        if (!columns.empty()) {
-          num_rows = columns[0]->length();
-        } else {
-          for (int i : row_groups) {
-            num_rows += self->parquet_reader()->metadata()->RowGroup(i)->num_rows();
-          }
-        }
 
-        auto table = Table::Make(std::move(result_schema), columns, num_rows);
-        RETURN_NOT_OK(table->Validate());
-        return table;
-      });
+  auto read_column = [row_groups, self](int i, std::shared_ptr<ColumnReaderImpl> reader)
+      -> ::arrow::Result<std::shared_ptr<::arrow::ChunkedArray>> {
+    std::shared_ptr<::arrow::ChunkedArray> column;
+    RETURN_NOT_OK(
+        self->ReadColumn(static_cast<int>(i), row_groups, reader.get(), &column));
+    return column;
+  };
+  auto make_table = [result_schema, row_groups,
+                     self](const ::arrow::ChunkedArrayVector& columns)
+      -> ::arrow::Result<std::shared_ptr<Table>> {
+    int64_t num_rows = 0;
+    if (!columns.empty()) {
+      num_rows = columns[0]->length();
+    } else {
+      for (int i : row_groups) {
+        num_rows += self->parquet_reader()->metadata()->RowGroup(i)->num_rows();
+      }
+    }
+    auto table = Table::Make(std::move(result_schema), columns, num_rows);
+    RETURN_NOT_OK(table->Validate());
+    return table;
+  };
+  return ::arrow::internal::OptionalParallelForAsync(reader_properties_.use_threads(),
+                                                     std::move(readers), read_column,
+                                                     cpu_executor)
+      .Then(std::move(make_table));
 }
 
 std::shared_ptr<RowGroupReader> FileReaderImpl::RowGroup(int row_group_index) {
