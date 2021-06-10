@@ -17,96 +17,80 @@
 
 package org.apache.arrow.driver.jdbc;
 
+import java.sql.PreparedStatement;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.Properties;
 import java.util.TimeZone;
 
 import org.apache.calcite.avatica.AvaticaConnection;
-import org.apache.calcite.avatica.AvaticaFactory;
-import org.apache.calcite.avatica.AvaticaResultSetMetaData;
 import org.apache.calcite.avatica.AvaticaSpecificDatabaseMetaData;
 import org.apache.calcite.avatica.AvaticaStatement;
 import org.apache.calcite.avatica.Meta;
 import org.apache.calcite.avatica.QueryState;
-import org.apache.calcite.avatica.UnregisteredDriver;
 
 /**
  * Factory for the Arrow Flight JDBC Driver.
  */
-public class ArrowFlightJdbcFactory implements AvaticaFactory {
-  private final int major;
-  private final int minor;
-
+public class ArrowFlightJdbcFactory extends AbstractFactory {
   // This need to be public so Avatica can call this constructor
   public ArrowFlightJdbcFactory() {
     this(4, 1);
   }
 
-  private ArrowFlightJdbcFactory(final int major, final int minor) {
-    this.major = major;
-    this.minor = minor;
+  protected ArrowFlightJdbcFactory(int major, int minor) {
+    super(major, minor);
   }
 
   @Override
-  public AvaticaConnection newConnection(final UnregisteredDriver driver,
-      final AvaticaFactory factory,
-      final String url,
-      final Properties info) throws SQLException {
-    return new ArrowFlightConnection((ArrowFlightJdbcDriver) driver,
-        factory, url, info);
+  ArrowFlightConnection newConnection(ArrowFlightJdbcDriver driver,
+                                      AbstractFactory factory,
+                                      String url,
+                                      Properties info) throws SQLException {
+    return new ArrowFlightConnection(driver, factory, url, info);
   }
 
   @Override
-  public AvaticaStatement newStatement(
-      final AvaticaConnection connection,
-      final Meta.StatementHandle handle,
-      final int resultType,
-      final int resultSetConcurrency,
-      final int resultSetHoldability) throws SQLException {
-    return new ArrowFlightStatement((ArrowFlightConnection) connection,
-            handle, resultType, resultSetConcurrency, resultSetHoldability);
+  public AvaticaStatement newStatement(AvaticaConnection avaticaConnection,
+                                       Meta.StatementHandle statementHandle,
+                                       int resultType,
+                                       int resultSetConcurrency,
+                                       int resultSetHoldability) throws SQLException {
+    return null;
   }
 
   @Override
-  public ArrowFlightPreparedStatement newPreparedStatement(
-      final AvaticaConnection connection,
-      final Meta.StatementHandle statementHandle,
-      final Meta.Signature signature,
-      final int resultType,
-      final int resultSetConcurrency,
-      final int resultSetHoldability) throws SQLException {
+  public ArrowFlightJdbcPreparedStatement newPreparedStatement(AvaticaConnection connection,
+                                                               Meta.StatementHandle statementHandle,
+                                                               Meta.Signature signature,
+                                                               int resultType,
+                                                               int resultSetConcurrency,
+                                                               int resultSetHoldability) throws SQLException {
 
-    final ArrowFlightConnection arrowFlightConnection =
-        (ArrowFlightConnection) connection;
+    ArrowFlightConnection arrowFlightConnection = (ArrowFlightConnection) connection;
 
-    return new ArrowFlightPreparedStatement(arrowFlightConnection, statementHandle,
-        signature, resultType, resultSetConcurrency, resultSetHoldability, null);
+    return new ArrowFlightJdbcPreparedStatement(arrowFlightConnection, statementHandle,
+            signature, resultType, resultSetConcurrency, resultSetHoldability, null);
   }
 
   @Override
-  public ArrowFlightJdbcVectorSchemaRootResultSet newResultSet(final AvaticaStatement statement,
-                                                               final QueryState state,
-                                                               final Meta.Signature signature,
-                                                               final TimeZone timeZone,
-                                                               final Meta.Frame frame) throws SQLException {
-    final ResultSetMetaData metaData = newResultSetMetaData(statement, signature);
-
-    return new ArrowFlightJdbcFlightStreamResultSet(statement, state, signature, metaData, timeZone, frame);
+  public ArrowFlightResultSet newResultSet(AvaticaStatement statement,
+                                           QueryState state,
+                                           Meta.Signature signature,
+                                           TimeZone timeZone,
+                                           Meta.Frame frame) throws SQLException {
+    return null;
   }
 
   @Override
-  public AvaticaSpecificDatabaseMetaData newDatabaseMetaData(
-      final AvaticaConnection connection) {
+  public AvaticaSpecificDatabaseMetaData newDatabaseMetaData(AvaticaConnection connection) {
     return new ArrowDatabaseMetadata(connection);
   }
 
   @Override
-  public ResultSetMetaData newResultSetMetaData(
-      final AvaticaStatement avaticaStatement,
-      final Meta.Signature signature) throws SQLException {
-    return new AvaticaResultSetMetaData(avaticaStatement,
-            null, signature);
+  public ResultSetMetaData newResultSetMetaData(AvaticaStatement avaticaStatement,
+                                                Meta.Signature signature) throws SQLException {
+    return null;
   }
 
   @Override
@@ -117,5 +101,19 @@ public class ArrowFlightJdbcFactory implements AvaticaFactory {
   @Override
   public int getJdbcMinorVersion() {
     return minor;
+  }
+
+  private static class ArrowFlightJdbcPreparedStatement extends ArrowFlightPreparedStatement {
+
+    public ArrowFlightJdbcPreparedStatement(AvaticaConnection connection,
+                                            Meta.StatementHandle h,
+                                            Meta.Signature signature,
+                                            int resultSetType,
+                                            int resultSetConcurrency,
+                                            int resultSetHoldability,
+                                            PreparedStatement preparedStatement) throws SQLException {
+      super(connection, h, signature, resultSetType,
+              resultSetConcurrency, resultSetHoldability, preparedStatement);
+    }
   }
 }
