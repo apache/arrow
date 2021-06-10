@@ -17,8 +17,9 @@
 
 # cython: language_level = 3
 
-from pyarrow.lib cimport check_status
-from pyarrow.lib import frombytes, tobytes
+from pyarrow.lib cimport (check_status, pyarrow_wrap_metadata,
+                          pyarrow_unwrap_metadata)
+from pyarrow.lib import frombytes, tobytes, KeyValueMetadata
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_fs cimport *
@@ -92,8 +93,11 @@ cdef class S3FileSystem(FileSystem):
     endpoint_override: str, default None
         Override region with a connect string such as "localhost:9000"
     background_writes: boolean, default True
-        Whether OutputStream writes will be issued in the background, without
+        Whether file writes will be issued in the background, without
         blocking.
+    default_metadata: mapping or KeyValueMetadata, default None
+        Default metadata for open_output_stream.  This will be ignored if
+        non-empty metadata is passed to open_output_stream.
     proxy_options: dict or str, default None
         If a proxy is used, provide the options here. Supported options are:
         'scheme' (str: 'http' or 'https'; required), 'host' (str; required),
@@ -115,8 +119,8 @@ cdef class S3FileSystem(FileSystem):
     def __init__(self, *, access_key=None, secret_key=None, session_token=None,
                  bint anonymous=False, region=None, scheme=None,
                  endpoint_override=None, bint background_writes=True,
-                 role_arn=None, session_name=None, external_id=None,
-                 load_frequency=900, proxy_options=None):
+                 default_metadata=None, role_arn=None, session_name=None,
+                 external_id=None, load_frequency=900, proxy_options=None):
         cdef:
             CS3Options options
             shared_ptr[CS3FileSystem] wrapped
@@ -185,6 +189,11 @@ cdef class S3FileSystem(FileSystem):
             options.endpoint_override = tobytes(endpoint_override)
         if background_writes is not None:
             options.background_writes = background_writes
+        if default_metadata is not None:
+            if not isinstance(default_metadata, KeyValueMetadata):
+                default_metadata = KeyValueMetadata(default_metadata)
+            options.default_metadata = pyarrow_unwrap_metadata(
+                default_metadata)
 
         if proxy_options is not None:
             if isinstance(proxy_options, dict):
@@ -247,6 +256,7 @@ cdef class S3FileSystem(FileSystem):
                 external_id=frombytes(opts.external_id),
                 load_frequency=opts.load_frequency,
                 background_writes=opts.background_writes,
+                default_metadata=pyarrow_wrap_metadata(opts.default_metadata),
                 proxy_options={'scheme': frombytes(opts.proxy_options.scheme),
                                'host': frombytes(opts.proxy_options.host),
                                'port': opts.proxy_options.port,
