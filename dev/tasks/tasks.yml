@@ -844,6 +844,7 @@ tasks:
     template: docker-tests/azure.linux.yml
     params:
       env:
+        ARROW_R_DEV: "TRUE"
         UBUNTU: 18.04
       run: ubuntu-r-valgrind
 
