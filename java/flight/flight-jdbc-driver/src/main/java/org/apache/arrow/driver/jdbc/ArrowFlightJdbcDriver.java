@@ -142,10 +142,12 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
 
     /*
      * Granted the URL format will always be
-     * "jdbc:arrow-flight://<host>:<port>," it should be safe to
-     * split the URL arguments "host," "port" by the colon in between.
+     * "jdbc:arrow-flight://<host>:<port>/?k1=v1&k2=v2&(...)," it should be safe
+     * to split the URL arguments "host," "port" by the colon in between.
+     *
+     * TODO Work with REGEX.
      */
-    return url.substring(getConnectStringPrefix().length()).split(":");
+    return url.substring(getConnectStringPrefix().length()).split(":|?");
   }
 
   private static void addToProperties(Properties info, String... args) {
