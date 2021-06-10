@@ -456,13 +456,13 @@ String transforms
 +==========================+============+=========================+========================+=========+=======================================+
 | ascii_lower              | Unary      | String-like             | String-like            | \(1)    |                                       |
 +--------------------------+------------+-------------------------+------------------------+---------+---------------------------------------+
-| ascii_replace_slice      | Unary      | String-like             | Binary- or String-like | \(2)    | :struct:`ReplaceSliceOptions`         |
+| ascii_reverse            | Unary      | String-like             | String-like            | \(2)    |                                       |
 +--------------------------+------------+-------------------------+------------------------+---------+---------------------------------------+
-| ascii_reverse            | Unary      | String-like             | String-like            | \(3)    |                                       |
+| ascii_upper              | Unary      | String-like             | String-like            | \(1)    |                                       |
 +--------------------------+------------+-------------------------+------------------------+---------+---------------------------------------+
-| ascii_upper              | Unary      | String-like             | String-like            | \(2)    |                                       |
+| binary_length            | Unary      | Binary- or String-like  | Int32 or Int64         | \(3)    |                                       |
 +--------------------------+------------+-------------------------+------------------------+---------+---------------------------------------+
-| binary_length            | Unary      | Binary- or String-like  | Int32 or Int64         | \(4)    |                                       |
+| binary_replace_slice     | Unary      | String-like             | Binary- or String-like | \(4)    | :struct:`ReplaceSliceOptions`         |
 +--------------------------+------------+-------------------------+------------------------+---------+---------------------------------------+
 | replace_substring        | Unary      | String-like             | String-like            | \(5)    | :struct:`ReplaceSubstringOptions`     |
 +--------------------------+------------+-------------------------+------------------------+---------+---------------------------------------+
@@ -483,16 +483,16 @@ String transforms
 * \(1) Each ASCII character in the input is converted to lowercase or
   uppercase.  Non-ASCII characters are left untouched.
 
-* \(2) Replace the slice of the substring from :member:`ReplaceSliceOptions::start`
-  (inclusive) to :member:`ReplaceSliceOptions::stop` (exclusive) by
-  :member:`ReplaceSubstringOptions::replacement`. The ASCII kernel measures the slice
-  in bytes, while the UTF8 kernel measures the slice in codeunits.
-
-* \(3) ASCII input is reversed to the output. If non-ASCII characters
+* \(2) ASCII input is reversed to the output. If non-ASCII characters
   are present, ``Invalid`` :class:`Status` will be returned.
 
-* \(4) Output is the physical length in bytes of each input element.  Output
+* \(3) Output is the physical length in bytes of each input element.  Output
   type is Int32 for Binary / String, Int64 for LargeBinary / LargeString.
+
+* \(4) Replace the slice of the substring from :member:`ReplaceSliceOptions::start`
+  (inclusive) to :member:`ReplaceSliceOptions::stop` (exclusive) by
+  :member:`ReplaceSubstringOptions::replacement`. The binary kernel measures the
+  slice in bytes, while the UTF8 kernel measures the slice in codeunits.
 
 * \(5) Replace non-overlapping substrings that match to
   :member:`ReplaceSubstringOptions::pattern` by

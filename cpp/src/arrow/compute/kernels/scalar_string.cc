@@ -2304,7 +2304,7 @@ struct ReplaceSliceTransformBase : public StringTransformBase {
   }
 };
 
-struct AsciiReplaceSliceTransform : ReplaceSliceTransformBase {
+struct BinaryReplaceSliceTransform : ReplaceSliceTransformBase {
   using ReplaceSliceTransformBase::ReplaceSliceTransformBase;
   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
                     uint8_t* output) {
@@ -2324,7 +2324,7 @@ struct AsciiReplaceSliceTransform : ReplaceSliceTransformBase {
     if (opts.stop >= 0) {
       // Count from left
       after_slice =
-          std::min<int64_t>(input_string_ncodeunits, std::max(opts.start, opts.stop));
+          std::min<int64_t>(input_string_ncodeunits, std::max(before_slice, opts.stop));
     } else {
       // Count from right
       after_slice = std::max<int64_t>(before_slice, input_string_ncodeunits + opts.stop);
@@ -2332,7 +2332,7 @@ struct AsciiReplaceSliceTransform : ReplaceSliceTransformBase {
     output = std::copy(input, input + before_slice, output);
     output = std::copy(opts.replacement.begin(), opts.replacement.end(), output);
     output = std::copy(input + after_slice, input + input_string_ncodeunits, output);
-    return std::distance(output_start, output);
+    return output - output_start;
   }
 };
 
@@ -2397,17 +2397,18 @@ struct Utf8ReplaceSliceTransform : ReplaceSliceTransformBase {
     output = std::copy(begin, begin_sliced, output);
     output = std::copy(opts.replacement.begin(), options->replacement.end(), output);
     output = std::copy(end_sliced, end, output);
-    return std::distance(output_start, output);
+    return output - output_start;
   }
 };
 
 template <typename Type>
-using AsciiReplaceSlice = StringTransformExecWithState<Type, AsciiReplaceSliceTransform>;
+using BinaryReplaceSlice =
+    StringTransformExecWithState<Type, BinaryReplaceSliceTransform>;
 template <typename Type>
 using Utf8ReplaceSlice = StringTransformExecWithState<Type, Utf8ReplaceSliceTransform>;
 
-const FunctionDoc ascii_replace_slice_doc(
-    "Replace a slice of a string with `replacement`",
+const FunctionDoc binary_replace_slice_doc(
+    "Replace a slice of a binary string with `replacement`",
     ("For each string in `strings`, replace a slice of the string defined by `start`"
      "and `stop` with `replacement`. `start` is inclusive and `stop` is exclusive, "
      "and both are measured in bytes.\n"
@@ -2424,11 +2425,11 @@ const FunctionDoc utf8_replace_slice_doc(
 
 void AddReplaceSlice(FunctionRegistry* registry) {
   {
-    auto func = std::make_shared<ScalarFunction>("ascii_replace_slice", Arity::Unary(),
-                                                 &ascii_replace_slice_doc);
+    auto func = std::make_shared<ScalarFunction>("binary_replace_slice", Arity::Unary(),
+                                                 &binary_replace_slice_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       DCHECK_OK(func->AddKernel({ty}, ty,
-                                GenerateTypeAgnosticVarBinaryBase<AsciiReplaceSlice>(ty),
+                                GenerateTypeAgnosticVarBinaryBase<BinaryReplaceSlice>(ty),
                                 ReplaceSliceTransformBase::State::Init));
     }
     DCHECK_OK(registry->AddFunction(std::move(func)));
@@ -2436,7 +2437,7 @@ void AddReplaceSlice(FunctionRegistry* registry) {
 
   {
     auto func = std::make_shared<ScalarFunction>("utf8_replace_slice", Arity::Unary(),
-                                                 &ascii_replace_slice_doc);
+                                                 &utf8_replace_slice_doc);
     DCHECK_OK(func->AddKernel({utf8()}, utf8(), Utf8ReplaceSlice<StringType>::Exec,
                               ReplaceSliceTransformBase::State::Init));
     DCHECK_OK(func->AddKernel({large_utf8()}, large_utf8(),

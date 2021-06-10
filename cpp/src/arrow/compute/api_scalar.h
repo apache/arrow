@@ -82,9 +82,9 @@ struct ARROW_EXPORT ReplaceSliceOptions : public FunctionOptions {
       : start(start), stop(stop), replacement(std::move(replacement)) {}
 
   /// Index to start slicing at
-  int64_t start = 0;
+  int64_t start;
   /// Index to stop slicing at
-  int64_t stop = std::numeric_limits<int64_t>::max();
+  int64_t stop;
   /// String to replace the slice with
   std::string replacement;
 };
