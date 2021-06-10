@@ -129,7 +129,7 @@ public final class ArrowFlightConnection extends AvaticaConnection {
     String keyStorePath = info.getProperty(
         DefaultProperty.KEYSTORE_PATH.toString());
     String keyStorePass = info.getProperty(
-        DefaultProperty.KEYSTORE_PATH.toString());
+        DefaultProperty.KEYSTORE_PASS.toString());
 
     if (authenticate) {
       client = ArrowFlightClient.getEncryptedClientAuthenticated(allocator,
