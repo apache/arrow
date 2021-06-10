@@ -476,6 +476,13 @@ cdef class ConvertOptions(_Weakrefable):
         produce a column of nulls (whose type is selected using
         `column_types`, or null by default).
         This option is ignored if `include_columns` is empty.
+    infer_32bit_values: bool, optional (default False)
+        If false only 64bit integer values will be used when types are
+        inferred.
+        If true then columns will first be parsed as 32 bit integer values and
+        only be 64 bit if it cannot be represented as 32 bit. When using the
+        streaming reader and this option parse errors can occur if a row was
+        inferred as 32 bit but subsequent block has a 64 bit value.
     """
     # Avoid mistakingly creating attributes
     __slots__ = ()
@@ -716,6 +723,22 @@ cdef class ConvertOptions(_Weakrefable):
                 raise TypeError("Expected list of str or ISO8601 objects")
 
         deref(self.options).timestamp_parsers = move(c_parsers)
+
+    @property
+    def infer_32bit_values(self):
+        """
+        If false only 64bit integer values will be used when types are
+        inferred.
+        If true then columns will first be parsed as 32 bit integer values and
+        only be 64 bit if it cannot be represented as 32 bit. When using the
+        streaming reader and this option parse errors can occur if a row was
+        inferred as 32 bit but subsequent block has a 64 bit value.r
+        """
+        return deref(self.options).infer_32bit_values
+
+    @infer_32bit_values.setter
+    def infer_32bit_values(self, value):
+        deref(self.options).infer_32bit_values = value
 
     @staticmethod
     cdef ConvertOptions wrap(CCSVConvertOptions options):

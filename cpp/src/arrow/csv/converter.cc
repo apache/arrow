@@ -493,7 +493,7 @@ class PrimitiveConverter : public ConcreteConverter {
       builder.UnsafeAppend(value);
       return Status::OK();
     };
-    RETURN_NOT_OK(parser.VisitColumn(col_index, visit));
+    RETURN_NOT_OK(parser.VisitColumn(col_index, std::move(visit)));
 
     std::shared_ptr<Array> res;
     RETURN_NOT_OK(builder.Finish(&res));

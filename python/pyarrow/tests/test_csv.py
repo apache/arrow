@@ -599,6 +599,25 @@ class BaseTestCSV(abc.ABC):
                             read_options=read_options,
                             convert_options=convert_options)
 
+    def test_infer_32bit(self):
+        convert_options = ConvertOptions()
+
+        csv = b"a\r\n12"
+
+        table = self.read_bytes(csv, convert_options=convert_options)
+        assert pa.schema([('a', pa.int64())]) == table.schema
+        assert table.to_pydict() == {'a': [12]}
+
+        convert_options.infer_32bit_values = True
+        table = self.read_bytes(csv, convert_options=convert_options)
+        assert pa.schema([('a', pa.int32())]) == table.schema
+        assert table.to_pydict() == {'a': [12]}
+
+        csv = b"a\r\n127897896615"
+        table = self.read_bytes(csv, convert_options=convert_options)
+        assert pa.schema([('a', pa.int64())]) == table.schema
+        assert table.to_pydict() == {'a': [127897896615]}
+
 
 class BaseCSVTableRead(BaseTestCSV):
 

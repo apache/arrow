@@ -127,6 +127,13 @@ struct ARROW_EXPORT ConvertOptions {
   /// built-in ISO-8601 parser.
   std::vector<std::shared_ptr<TimestampParser>> timestamp_parsers;
 
+  /// If false only 64bit integer values will be used when types are inferred.
+  /// If true then columns will first be parsed as 32 bit integer values and only be 64bit
+  /// if it cannot be represented as 32 bit. When using the streaming reader and this
+  /// option parse errors can occur if a row was inferred as 32 bit but subsequent block
+  /// has a 64 bit value.
+  bool infer_32bit_values = false;
+
   /// Create conversion options with default values, including conventional
   /// values for `null_values`, `true_values` and `false_values`
   static ConvertOptions Defaults();

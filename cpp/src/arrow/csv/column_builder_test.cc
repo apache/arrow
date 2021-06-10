@@ -604,5 +604,23 @@ TEST_F(InferringColumnBuilderTest, SingleChunkBinaryAutoDict) {
                        {expected_dictionary});
 }
 
+TEST_F(InferringColumnBuilderTest, Infer32BitWithInt32) {
+  auto options = ConvertOptions::Defaults();
+  options.infer_32bit_values = true;
+  auto tg = TaskGroup::MakeSerial();
+
+  CheckInferred(tg, {{"1", "-80456", "3465"}}, options,
+                {ArrayFromJSON(int32(), R"([1, -80456, 3465])")});
+}
+
+TEST_F(InferringColumnBuilderTest, Infer32BitWithInt64) {
+  auto options = ConvertOptions::Defaults();
+  options.infer_32bit_values = true;
+  auto tg = TaskGroup::MakeSerial();
+
+  CheckInferred(tg, {{"1", "-80456", "346525346946"}}, options,
+                {ArrayFromJSON(int64(), R"([1, -80456, 346525346946])")});
+}
+
 }  // namespace csv
 }  // namespace arrow

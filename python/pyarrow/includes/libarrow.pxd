@@ -1616,6 +1616,7 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         c_bool strings_can_be_null
         c_bool quoted_strings_can_be_null
         vector[shared_ptr[CTimestampParser]] timestamp_parsers
+        c_bool infer_32bit_values
 
         c_bool auto_dict_encode
         int32_t auto_dict_max_cardinality

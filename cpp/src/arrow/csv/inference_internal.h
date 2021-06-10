@@ -28,6 +28,7 @@ namespace csv {
 
 enum class InferKind {
   Null,
+  Integer32,
   Integer,
   Boolean,
   Real,
@@ -55,6 +56,9 @@ class InferStatus {
 
     switch (kind_) {
       case InferKind::Null:
+        return SetKind(options_.infer_32bit_values ? InferKind::Integer32
+                                                   : InferKind::Integer);
+      case InferKind::Integer32:
         return SetKind(InferKind::Integer);
       case InferKind::Integer:
         return SetKind(InferKind::Boolean);
@@ -111,6 +115,8 @@ class InferStatus {
     switch (kind_) {
       case InferKind::Null:
         return make_converter(null());
+      case InferKind::Integer32:
+        return make_converter(int32());
       case InferKind::Integer:
         return make_converter(int64());
       case InferKind::Boolean:
