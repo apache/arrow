@@ -25,6 +25,7 @@ import java.io.Reader;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.Properties;
 
 import org.apache.arrow.flight.FlightRuntimeException;
@@ -148,10 +149,15 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
   }
 
   private static void addToProperties(Properties info, String... args) {
-    String host = (String) args[0];
-    int port = Integer.parseInt(args[1]);
 
-    Preconditions.checkNotNull(info).put("host", host);
-    info.put("port", port);
+    Preconditions.checkArgument(args.length % 2 == 0,
+        "Properties arguments must be provided as key-value pairs.");
+
+    Iterator<String> iterator =
+        new org.bouncycastle.util.Arrays.Iterator<>(args);
+
+    while (iterator.hasNext()) {
+      info.put(iterator.next(), iterator.next());
+    }
   }
 }
