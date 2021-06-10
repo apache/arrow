@@ -34,6 +34,9 @@ import org.apache.calcite.avatica.UnregisteredDriver;
 public class ArrowFlightJdbcDriver extends UnregisteredDriver {
 
   private static final String CONNECT_STRING_PREFIX = "jdbc:arrow-flight://";
+  private static final DriverVersion VERSION =
+      new DriverVersion("Arrow Flight JDBC Driver", "0.0.1-SNAPSHOT",
+          "Arrow Flight", "0.0.1-SNAPSHOT", true, 0, 1, 0, 1);
 
   static {
     (new ArrowFlightJdbcDriver()).register();
@@ -62,7 +65,7 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
 
   @Override
   protected DriverVersion createDriverVersion() {
-    return Version.CURRENT.getDriverVersion();
+    return VERSION;
   }
 
   @Override
@@ -109,23 +112,3 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
     Preconditions.checkNotNull(info).put("host", host);
     info.put("port", port);
   }
-
-  /**
-   * Enum representation of this driver's version.
-   */
-  public enum Version {
-    // TODO Double-check this.
-    CURRENT(new DriverVersion("Arrow Flight JDBC Driver", "0.0.1-SNAPSHOT",
-        "Arrow Flight", "0.0.1-SNAPSHOT", true, 0, 1, 0, 1));
-
-    private final DriverVersion driverVersion;
-
-    private Version(DriverVersion driverVersion) {
-      this.driverVersion = Preconditions.checkNotNull(driverVersion);
-    }
-
-    public final DriverVersion getDriverVersion() {
-      return driverVersion;
-    }
-  }
-}
