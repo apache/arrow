@@ -17,7 +17,6 @@
 
 package org.apache.arrow.driver.jdbc;
 
-import java.sql.PreparedStatement;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.Properties;
@@ -108,19 +107,5 @@ public class ArrowFlightJdbcFactory implements AvaticaFactory {
   @Override
   public int getJdbcMinorVersion() {
     return minor;
-  }
-
-  private static class ArrowFlightJdbcPreparedStatement extends ArrowFlightPreparedStatement {
-
-    public ArrowFlightJdbcPreparedStatement(AvaticaConnection connection,
-                                            Meta.StatementHandle h,
-                                            Meta.Signature signature,
-                                            int resultSetType,
-                                            int resultSetConcurrency,
-                                            int resultSetHoldability,
-                                            PreparedStatement preparedStatement) throws SQLException {
-      super(connection, h, signature, resultSetType,
-              resultSetConcurrency, resultSetHoldability, preparedStatement);
-    }
   }
 }

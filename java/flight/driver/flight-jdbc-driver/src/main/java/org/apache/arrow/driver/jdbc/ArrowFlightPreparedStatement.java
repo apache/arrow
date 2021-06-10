@@ -33,16 +33,12 @@ public class ArrowFlightPreparedStatement extends AvaticaPreparedStatement {
 
   private final PreparedStatement preparedStatement;
 
-  public ArrowFlightPreparedStatement(AvaticaConnection connection, Meta.StatementHandle h,
+  ArrowFlightPreparedStatement(AvaticaConnection connection, Meta.StatementHandle h,
                                       Meta.Signature signature, int resultSetType,
                                       int resultSetConcurrency, int resultSetHoldability,
                                       PreparedStatement preparedStatement) throws SQLException {
     super(connection, h, signature, resultSetType, resultSetConcurrency, resultSetHoldability);
     this.preparedStatement = preparedStatement;
-  }
-
-  PreparedStatement getPreparedStatement() {
-    return preparedStatement;
   }
 
   @Override
