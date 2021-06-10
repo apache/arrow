@@ -45,6 +45,8 @@ import org.apache.maven.model.Parent;
 import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
 import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
 
+import com.google.common.base.Strings;
+
 /**
  * JDBC driver for querying data from an Apache Arrow Flight server.
  */
@@ -162,7 +164,9 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
     resultMap.put(DefaultProperty.PORT.toString(), matcher.group(3));
 
     // Group 4 contains all optional parameters, if provided -- must check.
-    if (matcher.groupCount() == 4) {
+    String group4 = matcher.group(4);
+
+    if (!Strings.isNullOrEmpty(group4)) {
       for (String params : matcher.group(4).split("&")) {
         String[] keyValuePair = params.split("=");
         resultMap.put(keyValuePair[0], keyValuePair[1]);
