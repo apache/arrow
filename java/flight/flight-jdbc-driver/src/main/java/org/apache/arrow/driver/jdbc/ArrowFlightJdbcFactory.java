@@ -42,60 +42,65 @@ public class ArrowFlightJdbcFactory implements AvaticaFactory {
     this(4, 1);
   }
 
-  public ArrowFlightJdbcFactory(int major, int minor) {
+  public ArrowFlightJdbcFactory(final int major, final int minor) {
     this.major = major;
     this.minor = minor;
   }
 
   @Override
-  public AvaticaConnection newConnection(UnregisteredDriver driver,
-                                         AvaticaFactory factory,
-                                         String url,
-                                         Properties info) throws SQLException {
+  public AvaticaConnection newConnection(final UnregisteredDriver driver,
+      final AvaticaFactory factory,
+      final String url,
+      final Properties info) throws SQLException {
     return new ArrowFlightConnection((ArrowFlightJdbcDriver) driver,
-            factory, url, info);
+        factory, url, info);
   }
 
   @Override
-  public AvaticaStatement newStatement(AvaticaConnection avaticaConnection,
-                                       Meta.StatementHandle statementHandle,
-                                       int resultType,
-                                       int resultSetConcurrency,
-                                       int resultSetHoldability) throws SQLException {
+  public AvaticaStatement newStatement(
+      final AvaticaConnection avaticaConnection,
+      final Meta.StatementHandle statementHandle,
+      final int resultType,
+      final int resultSetConcurrency,
+      final int resultSetHoldability) throws SQLException {
     return null;
   }
 
   @Override
-  public ArrowFlightPreparedStatement newPreparedStatement(AvaticaConnection connection,
-                                                               Meta.StatementHandle statementHandle,
-                                                               Meta.Signature signature,
-                                                               int resultType,
-                                                               int resultSetConcurrency,
-                                                               int resultSetHoldability) throws SQLException {
+  public ArrowFlightPreparedStatement newPreparedStatement(
+      final AvaticaConnection connection,
+      final Meta.StatementHandle statementHandle,
+      final Meta.Signature signature,
+      final int resultType,
+      final int resultSetConcurrency,
+      final int resultSetHoldability) throws SQLException {
 
-    ArrowFlightConnection arrowFlightConnection = (ArrowFlightConnection) connection;
+    final ArrowFlightConnection arrowFlightConnection =
+        (ArrowFlightConnection) connection;
 
     return new ArrowFlightPreparedStatement(arrowFlightConnection, statementHandle,
-            signature, resultType, resultSetConcurrency, resultSetHoldability, null);
+        signature, resultType, resultSetConcurrency, resultSetHoldability, null);
   }
 
   @Override
-  public ArrowFlightResultSet newResultSet(AvaticaStatement statement,
-                                           QueryState state,
-                                           Meta.Signature signature,
-                                           TimeZone timeZone,
-                                           Meta.Frame frame) throws SQLException {
+  public ArrowFlightResultSet newResultSet(final AvaticaStatement statement,
+      final QueryState state,
+      final Meta.Signature signature,
+      final TimeZone timeZone,
+      final Meta.Frame frame) throws SQLException {
     return null;
   }
 
   @Override
-  public AvaticaSpecificDatabaseMetaData newDatabaseMetaData(AvaticaConnection connection) {
+  public AvaticaSpecificDatabaseMetaData newDatabaseMetaData(
+      final AvaticaConnection connection) {
     return new ArrowDatabaseMetadata(connection);
   }
 
   @Override
-  public ResultSetMetaData newResultSetMetaData(AvaticaStatement avaticaStatement,
-                                                Meta.Signature signature) throws SQLException {
+  public ResultSetMetaData newResultSetMetaData(
+      final AvaticaStatement avaticaStatement,
+      final Meta.Signature signature) throws SQLException {
     return null;
   }
 

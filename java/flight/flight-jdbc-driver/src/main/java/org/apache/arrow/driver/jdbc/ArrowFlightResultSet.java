@@ -32,9 +32,10 @@ import org.apache.calcite.avatica.QueryState;
  */
 public class ArrowFlightResultSet extends AvaticaResultSet {
 
-  public ArrowFlightResultSet(AvaticaStatement statement, QueryState state,
-                              Signature signature, ArrowFlightResultSetMetadata resultSetMetaData,
-                              TimeZone timeZone, Frame firstFrame) throws SQLException {
+  public ArrowFlightResultSet(final AvaticaStatement statement, final QueryState state,
+      final Signature signature,
+      final ArrowFlightResultSetMetadata resultSetMetaData,
+      final TimeZone timeZone, final Frame firstFrame) throws SQLException {
     super(statement, state, signature, resultSetMetaData, timeZone, firstFrame);
     // TODO Auto-generated constructor stub
   }

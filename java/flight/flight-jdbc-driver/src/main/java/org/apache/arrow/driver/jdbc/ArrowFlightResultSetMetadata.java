@@ -27,8 +27,8 @@ import org.apache.calcite.avatica.Meta.Signature;
  */
 public class ArrowFlightResultSetMetadata extends AvaticaResultSetMetaData {
 
-  public ArrowFlightResultSetMetadata(ArrowFlightStatement statement,
-      String query, Signature signature) {
+  public ArrowFlightResultSetMetadata(final ArrowFlightStatement statement,
+      final String query, final Signature signature) {
     super(statement, query, signature);
     // TODO Auto-generated constructor stub
   }

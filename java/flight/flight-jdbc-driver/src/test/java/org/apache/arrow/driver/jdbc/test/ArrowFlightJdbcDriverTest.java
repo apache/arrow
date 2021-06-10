@@ -64,12 +64,12 @@ public class ArrowFlightJdbcDriverTest {
 
     allocator = new RootAllocator(Long.MAX_VALUE);
 
-    UrlSample url = UrlSample.CONFORMING;
+    final UrlSample url = UrlSample.CONFORMING;
 
-    Properties propertiesConforming = PropertiesSample.CONFORMING
+    final Properties propertiesConforming = PropertiesSample.CONFORMING
         .getProperties();
 
-    Properties propertiesUnsupported = PropertiesSample.UNSUPPORTED
+    final Properties propertiesUnsupported = PropertiesSample.UNSUPPORTED
         .getProperties();
 
     testUtils = new FlightTestUtils(url.getHost(),
@@ -98,7 +98,7 @@ public class ArrowFlightJdbcDriverTest {
   /**
    * Tests whether the {@link ArrowFlightJdbcDriver} is registered in the
    * {@link DriverManager}.
-   * 
+   *
    * @throws SQLException
    *           If an error occurs. (This is not supposed to happen.)
    */
@@ -111,13 +111,13 @@ public class ArrowFlightJdbcDriverTest {
   /**
    * Tests whether the {@link ArrowFlightJdbcDriver} fails when provided with an
    * unsupported URL prefix.
-   * 
+   *
    * @throws SQLException
    *           If the test passes.
    */
   @Test(expected = SQLException.class)
   public void testShouldDeclineUrlWithUnsupportedPrefix() throws Exception {
-    Driver driver = new ArrowFlightJdbcDriver();
+    final Driver driver = new ArrowFlightJdbcDriver();
 
     driver.connect(UrlSample.UNSUPPORTED.getPath(),
         PropertiesSample.UNSUPPORTED.getProperties()).close();
@@ -126,16 +126,16 @@ public class ArrowFlightJdbcDriverTest {
   /**
    * Tests whether the {@link ArrowFlightJdbcDriver} can establish a successful
    * connection to the Arrow Flight client.
-   * 
+   *
    * @throws Exception
    *           If the connection fails to be established.
    */
   @Test
   public void testShouldConnectWhenProvidedWithValidUrl() throws Exception {
     // Get the Arrow Flight JDBC driver by providing a URL with a valid prefix.
-    Driver driver = new ArrowFlightJdbcDriver();
+    final Driver driver = new ArrowFlightJdbcDriver();
 
-    URI uri = server.getLocation().getUri();
+    final URI uri = server.getLocation().getUri();
 
     try (Connection connection = driver.connect(
         "jdbc:arrow-flight://" + uri.getHost() + ":" + uri.getPort(),
@@ -153,8 +153,8 @@ public class ArrowFlightJdbcDriverTest {
   @Test(expected = SQLException.class)
   public void testShouldThrowExceptionWhenAttemptingToConnectToMalformedUrl()
       throws Exception {
-    Driver driver = new ArrowFlightJdbcDriver();
-    String malformedUri = "yes:??/chainsaw.i=T333";
+    final Driver driver = new ArrowFlightJdbcDriver();
+    final String malformedUri = "yes:??/chainsaw.i=T333";
     driver.connect(malformedUri, PropertiesSample.UNSUPPORTED.getProperties());
   }
 
@@ -167,8 +167,8 @@ public class ArrowFlightJdbcDriverTest {
   @Test(expected = SQLException.class)
   public void testShouldThrowExceptionWhenAttemptingToConnectToUrlNoPrefix()
       throws Exception {
-    Driver driver = new ArrowFlightJdbcDriver();
-    String malformedUri = server.getLocation().getUri().toString();
+    final Driver driver = new ArrowFlightJdbcDriver();
+    final String malformedUri = server.getLocation().getUri().toString();
     driver.connect(malformedUri, PropertiesSample.UNSUPPORTED.getProperties());
   }
 
@@ -181,8 +181,8 @@ public class ArrowFlightJdbcDriverTest {
   @Test(expected = SQLException.class)
   public void testShouldThrowExceptionWhenAttemptingToConnectToUrlNoPort()
       throws Exception {
-    Driver driver = new ArrowFlightJdbcDriver();
-    String malformedUri = "arrow-jdbc://" +
+    final Driver driver = new ArrowFlightJdbcDriver();
+    final String malformedUri = "arrow-jdbc://" +
         server.getLocation().getUri().getHost();
     driver.connect(malformedUri, PropertiesSample.UNSUPPORTED.getProperties());
   }
@@ -196,9 +196,9 @@ public class ArrowFlightJdbcDriverTest {
   @Test(expected = SQLException.class)
   public void testShouldThrowExceptionWhenAttemptingToConnectToUrlNoHost()
       throws Exception {
-    Driver driver = new ArrowFlightJdbcDriver();
+    final Driver driver = new ArrowFlightJdbcDriver();
 
-    String malformedUri = "arrow-jdbc://" +
+    final String malformedUri = "arrow-jdbc://" +
         ":" + server.getLocation().getUri().getPort();
     driver.connect(malformedUri, PropertiesSample.UNSUPPORTED.getProperties());
   }
@@ -213,17 +213,17 @@ public class ArrowFlightJdbcDriverTest {
   @Test
   public void testDriverUrlParsingMechanismShouldReturnTheDesiredArgsFromUrl()
       throws Exception {
-    Driver driver = new ArrowFlightJdbcDriver();
+    final Driver driver = new ArrowFlightJdbcDriver();
 
-    Method getUrlsArgs = driver.getClass()
+    final Method getUrlsArgs = driver.getClass()
         .getDeclaredMethod("getUrlsArgs", String.class);
 
     getUrlsArgs.setAccessible(true);
 
-    Map<String, String> parsedArgs = (Map<String, String>) getUrlsArgs
+    final Map<String, String> parsedArgs = (Map<String, String>) getUrlsArgs
         .invoke(driver,
-            "jdbc:arrow-flight://localhost:2222/?key1=value1&key2=value2&a=b");    
-    
+            "jdbc:arrow-flight://localhost:2222/?key1=value1&key2=value2&a=b");
+
     // Check size == the amount of args provided (prefix not included!)
     assertEquals(5, parsedArgs.size());
 
@@ -248,20 +248,20 @@ public class ArrowFlightJdbcDriverTest {
    *          flight server password.
    * @return the result of validation.
    */
-  private CallHeaderAuthenticator.AuthResult validate(String username,
-      String password) {
+  private CallHeaderAuthenticator.AuthResult validate(final String username,
+      final String password) {
     if (Strings.isNullOrEmpty(username)) {
       throw CallStatus.UNAUTHENTICATED
-          .withDescription("Credentials not supplied.").toRuntimeException();
+      .withDescription("Credentials not supplied.").toRuntimeException();
     }
     final String identity;
     if (testUtils.getUsername1().equals(username) &&
-          testUtils.getPassword1().equals(password)) {
+        testUtils.getPassword1().equals(password)) {
       identity = testUtils.getUsername1();
     } else {
       throw CallStatus.UNAUTHENTICATED
-          .withDescription("Username or password is invalid.")
-          .toRuntimeException();
+      .withDescription("Username or password is invalid.")
+      .toRuntimeException();
     }
     return () -> identity;
   }

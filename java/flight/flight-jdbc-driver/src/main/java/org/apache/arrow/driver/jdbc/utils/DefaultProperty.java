@@ -31,7 +31,7 @@ public enum DefaultProperty {
 
   private final String repr;
 
-  private DefaultProperty(String repr) {
+  private DefaultProperty(final String repr) {
     this.repr = repr;
   }
 
