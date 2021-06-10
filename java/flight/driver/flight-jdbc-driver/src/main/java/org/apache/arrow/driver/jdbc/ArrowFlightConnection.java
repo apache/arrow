@@ -40,6 +40,14 @@ import org.apache.calcite.avatica.AvaticaFactory;
  */
 public final class ArrowFlightConnection extends AvaticaConnection {
 
+  private static final String HOST = "host";
+  private static final String PORT = "port";
+  private static final String USER = "user";
+  private static final String PASSWORD = "password";
+  private static final String USE_TLS = "useTls";
+  private static final String KEYSTORE_PATH = "keyStorePath";
+  private static final String KEYSTORE_PASS = "keyStorePass";
+
   private BufferAllocator allocator;
 
   private ArrowFlightClient client;
@@ -124,51 +132,52 @@ public final class ArrowFlightConnection extends AvaticaConnection {
    */
   private void loadClient() throws SQLException {
 
-    String host = (String) info.getOrDefault("host", "localhost");
-    Preconditions.checkArgument(!host.trim().equals(""));
+    if (client != null) {
+      throw new IllegalStateException("Client already loaded.");
+    }
 
-    int port = (int) info.getOrDefault("port", "32010");
+    String host = (String) info.getOrDefault(HOST, "localhost");
+    Preconditions.checkArgument(!host.trim().isEmpty());
+
+    int port = (int) info.getOrDefault(PORT, 32010);
     Preconditions.checkArgument(port > 0);
 
     @Nullable
-    String username = info.getProperty("user");
+    String username = info.getProperty(USER);
 
     @Nullable
-    String password = info.getProperty("password");
+    String password = info.getProperty(PASSWORD);
 
-    boolean useTls = ((String) info.getOrDefault("useTls", "false"))
+    boolean useTls = ((String) info.getOrDefault(USE_TLS, "false"))
         .equalsIgnoreCase("true");
     
     boolean authenticate = username != null;
 
-    CreateClient: {
-
-      if (!useTls) {
-
-        if (authenticate) {
-          client = ArrowFlightClient.getBasicClientAuthenticated(allocator, host,
-              port, username, password, null);
-          break CreateClient;
-        }
-
-        client = ArrowFlightClient.getBasicClientNoAuth(allocator, host, port,
-            null);
-        break CreateClient;
-
-      }
-
-      String keyStorePath = info.getProperty("keyStorePath");
-      String keyStorePass = info.getProperty("keyStorePass");
+    if (!useTls) {
 
       if (authenticate) {
-        client = ArrowFlightClient.getEncryptedClientAuthenticated(allocator,
-            host, port, null, username, password, keyStorePath, keyStorePass);
-        break CreateClient;
+        client = ArrowFlightClient.getBasicClientAuthenticated(allocator, host,
+            port, username, password, null);
+        return;
       }
 
-      client = ArrowFlightClient.getEncryptedClientNoAuth(allocator, host,
-          port, null, keyStorePath, keyStorePass);
+      client = ArrowFlightClient.getBasicClientNoAuth(allocator, host, port,
+          null);
+      return;
+
     }
+
+    String keyStorePath = info.getProperty(KEYSTORE_PATH);
+    String keyStorePass = info.getProperty(KEYSTORE_PASS);
+
+    if (authenticate) {
+      client = ArrowFlightClient.getEncryptedClientAuthenticated(allocator,
+          host, port, null, username, password, keyStorePath, keyStorePass);
+      return;
+    }
+
+    client = ArrowFlightClient.getEncryptedClientNoAuth(allocator, host,
+        port, null, keyStorePath, keyStorePass);
   }
 
   @Override
@@ -178,14 +187,14 @@ public final class ArrowFlightConnection extends AvaticaConnection {
     } catch (Exception e) {
       throw new SQLException(
           "Failed to close the connection " +
-              "to the Arrow Flight client: " + e.getMessage());
+              "to the Arrow Flight client.", e);
     }
 
     try {
       allocator.close();
     } catch (Exception e) {
       throw new SQLException("Failed to close the resource allocator used " +
-          "by the Arrow Flight client: " + e.getMessage());
+          "by the Arrow Flight client.", e);
     }
 
     super.close();

@@ -389,7 +389,7 @@ public final class ArrowFlightClient implements AutoCloseable {
       }
     }
 
-    throw new RuntimeException("Keystore did not have a certificate.");
+    throw new CertificateException("Keystore did not have a certificate.");
   }
 
   private static InputStream toInputStream(Certificate certificate)
