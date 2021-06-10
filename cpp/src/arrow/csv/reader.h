@@ -73,6 +73,17 @@ class ARROW_EXPORT StreamingReader : public RecordBatchReader {
 
   virtual Future<std::shared_ptr<RecordBatch>> ReadNextAsync() = 0;
 
+  /// - bytes skipped by `ReadOptions.skip_rows` will be counted as being read before
+  /// any records are returned.
+  /// - bytes read while parsing the header will be counted as being read before any
+  /// records are returned.
+  /// - bytes skipped by `ReadOptions.skip_rows_after_names` will be counted after the
+  /// first batch is returned.
+  ///
+  /// \return the number of bytes which have been read from the CSV stream and returned to
+  /// caller
+  virtual int64_t bytes_read() const = 0;
+
   /// Create a StreamingReader instance
   ///
   /// This involves some I/O as the first batch must be loaded during the creation process
