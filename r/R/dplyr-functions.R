@@ -398,6 +398,10 @@ nse_funcs$str_split <- function(string, pattern, n = Inf, simplify = FALSE) {
   )
 }
 
+nse_funcs$pmin <- function(..., na.rm = FALSE) {
+  Expression$create("element_wise_min", ...)
+}
+
 # String function helpers
 
 # format `pattern` as needed for case insensitivity and literal matching by RE2
