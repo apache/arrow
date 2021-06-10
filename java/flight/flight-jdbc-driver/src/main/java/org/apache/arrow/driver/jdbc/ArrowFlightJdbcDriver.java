@@ -146,7 +146,7 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
    */
   private Map<String, String> getUrlsArgs(String url) throws SQLException {
     @RegEx
-    String regex =
+    final String regex =
         "^(" + getConnectStringPrefix() + ")" +
             "(\\w+):([\\d]+)\\/*\\?*([[\\w]*=[\\w]*&?]*)?";
 
@@ -154,21 +154,21 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
      * URL must ALWAYS start follow pattern
      * "jdbc:arrow-flight://<host>:<port>[/?param1=value1&param2=value2&(...)]."
      */
-    Matcher matcher = Pattern.compile(regex).matcher(url);
+    final Matcher matcher = Pattern.compile(regex).matcher(url);
     assert matcher.matches();
 
-    Map<String, String> resultMap = new HashMap<>();
+    final Map<String, String> resultMap = new HashMap<>();
 
     // Group 1 contains the prefix -- start from 2.
     resultMap.put(DefaultProperty.HOST.toString(), matcher.group(2));
     resultMap.put(DefaultProperty.PORT.toString(), matcher.group(3));
 
     // Group 4 contains all optional parameters, if provided -- must check.
-    String group4 = matcher.group(4);
+    final String group4 = matcher.group(4);
 
     if (!Strings.isNullOrEmpty(group4)) {
-      for (String params : matcher.group(4).split("&")) {
-        String[] keyValuePair = params.split("=");
+      for (String params : group4.split("&")) {
+        final String[] keyValuePair = params.split("=");
         resultMap.put(keyValuePair[0], keyValuePair[1]);
       }
     }
