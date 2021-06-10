@@ -29,8 +29,17 @@
   # stringr spellings of those
   "str_length" = "utf8_length",
   "str_to_lower" = "utf8_lower",
-  "str_to_upper" = "utf8_upper"
+  "str_to_upper" = "utf8_upper",
   # str_trim is defined in dplyr.R
+  "year" = "year",
+  "isoyear" = "iso_year",
+  "quarter" = "quarter",
+  "month" = "month",
+  "day" = "day",
+  "yday" = "day_of_year",
+  "isoweek" = "iso_week",
+  "minute" = "minute",
+  "second" = "second"
 )
 
 .binary_function_map <- list(

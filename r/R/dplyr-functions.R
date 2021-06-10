@@ -442,3 +442,37 @@ nse_funcs$strptime <- function(x, format = "%Y-%m-%d %H:%M:%S", tz = NULL, unit 
 
   Expression$create("strptime", x, options = list(format = format, unit = unit))
 }
+
+nse_funcs$wday <- function(x, label = FALSE, abbr = TRUE, week_start = getOption("lubridate.week.start", 7), locale = Sys.getlocale("LC_TIME")){
+  if(label){
+    arrow_not_supported("Label argument")
+  }
+  offset <- get_date_offset(week_start)
+  Expression$create("add", Expression$create("day_of_week", x), Expression$scalar(offset))
+}
+
+
+#' Get date offset
+#' 
+#' Arrow's `day_of_week` kernel counts from 0 (Monday) to 6 (Sunday), whereas
+#' `lubridate::wday` counts from 1 to 7, and allows users to specify which day
+#' of the week is first (Sunday by default).  This function converts the returned
+#' day of the week back to the value that would be returned by lubridate by 
+#' providing offset values based on the specified week_start day, and adding 1
+#' so the returned value is 1-indexed instead of 0-indexed.
+#' 
+#' @param week_start day on which week starts following ISO conventions - 1 means Monday, 7 means Sunday.
+#' 
+#' @keywords internal
+get_date_offset <- function(week_start){
+  if(week_start < 1 || week_start > 7){
+    abort(c(
+      "The value of `week_start` must be between 1 and 7",
+      x = paste("`week_start` =", week_start)
+      )
+    )
+  }
+  offset_vals <- c(0:-4, 2, 1)
+  
+  offset_vals[week_start] + 1
+}
