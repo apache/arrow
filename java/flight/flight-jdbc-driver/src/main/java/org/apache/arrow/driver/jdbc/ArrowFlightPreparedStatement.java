@@ -31,13 +31,15 @@ import org.apache.calcite.avatica.Meta;
  */
 public class ArrowFlightPreparedStatement extends AvaticaPreparedStatement {
 
+  // TODO will be used later
+  @SuppressWarnings("unused")
   private final PreparedStatement preparedStatement;
 
-  ArrowFlightPreparedStatement(AvaticaConnection connection, Meta.StatementHandle h,
+  ArrowFlightPreparedStatement(AvaticaConnection connection, Meta.StatementHandle handle,
                                       Meta.Signature signature, int resultSetType,
                                       int resultSetConcurrency, int resultSetHoldability,
                                       PreparedStatement preparedStatement) throws SQLException {
-    super(connection, h, signature, resultSetType, resultSetConcurrency, resultSetHoldability);
+    super(connection, handle, signature, resultSetType, resultSetConcurrency, resultSetHoldability);
     this.preparedStatement = preparedStatement;
   }
 
