@@ -147,7 +147,7 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
      *
      * TODO Work with REGEX.
      */
-    return url.substring(getConnectStringPrefix().length()).split(":|?");
+    return url.substring(getConnectStringPrefix().length()).split(":|/\\?");
   }
 
   private static void addToProperties(Properties info, String... args) {
