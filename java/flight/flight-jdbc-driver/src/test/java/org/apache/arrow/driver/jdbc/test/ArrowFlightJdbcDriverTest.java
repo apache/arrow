@@ -17,8 +17,7 @@
 
 package org.apache.arrow.driver.jdbc.test;
 
-import static org.apache.arrow.driver.jdbc.utils.BaseProperty.HOST;
-import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PORT;
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.lang.reflect.InvocationTargetException;
@@ -28,7 +27,6 @@ import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.util.Collection;
 import java.util.Map;
 import java.util.Properties;
 
@@ -36,6 +34,7 @@ import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver;
 import org.apache.arrow.driver.jdbc.test.utils.FlightTestUtils;
 import org.apache.arrow.driver.jdbc.test.utils.PropertiesSample;
 import org.apache.arrow.driver.jdbc.test.utils.UrlSample;
+import org.apache.arrow.driver.jdbc.utils.DefaultProperty;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightProducer;
 import org.apache.arrow.flight.FlightServer;
@@ -259,17 +258,28 @@ public class ArrowFlightJdbcDriverTest {
       throws Exception {
     final Driver driver = new ArrowFlightJdbcDriver();
 
-    final Method getUrlsArgs = driver.getClass()
+    Method getUrlsArgs = driver.getClass()
         .getDeclaredMethod("getUrlsArgs", String.class);
 
     getUrlsArgs.setAccessible(true);
 
-    try {
-      final Map<Object, Object> parsedArgs = (Map<Object, Object>) getUrlsArgs
-          .invoke(driver, "jdbc:arrow-flight://localhost:2222/?k1=v1&m=");
-    } catch (final InvocationTargetException e) {
-      throw (SQLException) e.getCause();
-    }
+    Map<String, String> parsedArgs = (Map<String, String>) getUrlsArgs
+        .invoke(driver,
+            "jdbc:arrow-flight://localhost:2222/?key1=value1&key2=value2&a=b");    
+    
+    // Check size == the amount of args provided (prefix not included!)
+    assertEquals(5, parsedArgs.size());
+
+    // Check host == the provided host
+    assertEquals(parsedArgs.get(DefaultProperty.HOST.toString()), "localhost");
+
+    // Check port == the provided port
+    assertEquals(parsedArgs.get(DefaultProperty.PORT.toString()), "2222");
+
+    // Check all other non-default arguments
+    assertEquals(parsedArgs.get("key1"), "value1");
+    assertEquals(parsedArgs.get("key2"), "value2");
+    assertEquals(parsedArgs.get("a"), "b");
   }
 
   /**
