@@ -11,14 +11,6 @@ jobs:
     ARROW_VERSION: {{ arrow.no_rc_version }}
     UPLOAD_PACKAGES: False
   steps:
-  - script: |
-      echo "Removing homebrew from Azure to avoid conflicts."
-      curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/uninstall > ~/uninstall_homebrew
-      chmod +x ~/uninstall_homebrew
-      ~/uninstall_homebrew -fq
-      rm ~/uninstall_homebrew
-    displayName: Remove homebrew
-
   - bash: |
       echo "##vso[task.prependpath]$CONDA/bin"
       sudo chown -R $USER $CONDA
@@ -28,6 +20,13 @@ jobs:
       source activate base
       conda install -n base -c conda-forge --quiet --yes conda-forge-ci-setup=3 conda-build
     displayName: 'Add conda-forge-ci-setup=3'
+
+  - script: |
+      echo "Removing homebrew from Azure to avoid conflicts."
+      /usr/bin/sudo mangle_homebrew
+      /usr/bin/sudo -k
+    displayName: Mangle homebrew
+
 
   {{ macros.azure_checkout_arrow() }}
 
@@ -75,6 +74,10 @@ jobs:
       fi
     workingDirectory: arrow/dev/tasks/conda-recipes
     displayName: Build recipes
+
+  - script: |
+     sudo mv /usr/local/conda_mangled/* /usr/local/
+    displayName: Unmangle homebrew
 
   {{ macros.azure_upload_releases("arrow/dev/tasks/conda-recipes/build_artifacts/osx-*/*.tar.bz2") }}
   {{ macros.azure_upload_anaconda("arrow/dev/tasks/conda-recipes/build_artifacts/osx-*/*.tar.bz2") }}
