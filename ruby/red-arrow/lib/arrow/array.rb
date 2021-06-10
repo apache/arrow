@@ -55,6 +55,18 @@ module Arrow
       end
     end
 
+    # @param other [Arrow::Array] The array to be compared.
+    # @param options [Arrow::EqualOptions, Hash] (nil)
+    #   The options to custom how to compare.
+    #
+    # @return [Boolean]
+    #   `true` if both of them have the same data, `false` otherwise.
+    #
+    # @since 5.0.0
+    def equal_array?(other, options=nil)
+      equal_options(other, options)
+    end
+
     def each
       return to_enum(__method__) unless block_given?
 
