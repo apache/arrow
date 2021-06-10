@@ -17,8 +17,11 @@
 
 package org.apache.arrow.driver.jdbc;
 
-import java.io.FileReader;
+import java.io.BufferedReader;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -75,7 +78,9 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
       return version;
     }
 
-    try (FileReader reader = new FileReader("pom.xml")) {
+    try (Reader reader =
+          new BufferedReader(new InputStreamReader(
+              new FileInputStream("pom.xml"), "UTF-8"))) {
 
       Model flightJdbcDriverPom = (new MavenXpp3Reader()).read(reader);
       Parent arrowFlightPom = flightJdbcDriverPom.getParent();
