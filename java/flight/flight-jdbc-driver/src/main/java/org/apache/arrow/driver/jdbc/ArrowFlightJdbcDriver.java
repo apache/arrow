@@ -25,9 +25,15 @@ import java.io.Reader;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Arrays;
-import java.util.Iterator;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import javax.annotation.RegEx;
+
+import org.apache.arrow.driver.jdbc.utils.DefaultProperty;
 import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.util.Preconditions;
 import org.apache.calcite.avatica.AvaticaConnection;
@@ -57,9 +63,9 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
     Properties clonedProperties = (Properties) info.clone();
 
     try {
-      String[] args = getUrlsArgs(Preconditions.checkNotNull(url));
+      Map<String, String> args = getUrlsArgs(Preconditions.checkNotNull(url));
 
-      addToProperties(clonedProperties, args);
+      clonedProperties.putAll(args);
 
       return new ArrowFlightConnection(this, factory, url, clonedProperties);
     } catch (AssertionError | FlightRuntimeException e) {
@@ -136,30 +142,33 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
    * @throws SQLException
    *           If an error occurs while trying to parse the URL.
    */
-  private String[] getUrlsArgs(String url) throws SQLException {
-    // URL must ALWAYS start with "jdbc:arrow-flight://"
-    assert acceptsURL(url);
+  private Map<String, String> getUrlsArgs(String url) throws SQLException {
+    @RegEx
+    String regex =
+        "^(" + getConnectStringPrefix() + ")" +
+            "(\\w+):([\\d]+)\\/*\\?*([[\\w]*=[\\w]*&?]*)?";
 
     /*
-     * Granted the URL format will always be
-     * "jdbc:arrow-flight://<host>:<port>/?k1=v1&k2=v2&(...)," it should be safe
-     * to split the URL arguments "host," "port" by the colon in between.
-     *
-     * TODO Work with REGEX.
+     * URL must ALWAYS start follow pattern
+     * "jdbc:arrow-flight://<host>:<port>[/?param1=value1&param2=value2&(...)]."
      */
-    return url.substring(getConnectStringPrefix().length()).split(":|/\\?");
-  }
+    Matcher matcher = Pattern.compile(regex).matcher(url);
+    assert matcher.matches();
 
-  private static void addToProperties(Properties info, String... args) {
+    Map<String, String> resultMap = new HashMap<>();
 
-    Preconditions.checkArgument(args.length % 2 == 0,
-        "Properties arguments must be provided as key-value pairs.");
+    // Group 1 contains the prefix -- start from 2.
+    resultMap.put(DefaultProperty.HOST.toString(), matcher.group(2));
+    resultMap.put(DefaultProperty.PORT.toString(), matcher.group(3));
 
-    Iterator<String> iterator =
-        new org.bouncycastle.util.Arrays.Iterator<>(args);
-
-    while (iterator.hasNext()) {
-      info.put(iterator.next(), iterator.next());
+    // Group 4 contains all optional parameters, if provided -- must check.
+    if (matcher.groupCount() == 4) {
+      for (String params : matcher.group(4).split("&")) {
+        String[] keyValuePair = params.split("=");
+        resultMap.put(keyValuePair[0], keyValuePair[1]);
+      }
     }
+
+    return resultMap;
   }
 }
