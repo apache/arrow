@@ -74,36 +74,40 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
   @Override
   protected DriverVersion createDriverVersion() {
 
-    if (version != null) {
-      return version;
+    CreateVersionIfNull: {
+
+      if (version != null) {
+        break CreateVersionIfNull;
+      }
+  
+      try (Reader reader =
+            new BufferedReader(new InputStreamReader(
+                new FileInputStream("pom.xml"), "UTF-8"))) {
+  
+        Model flightJdbcDriverPom = (new MavenXpp3Reader()).read(reader);
+        Parent arrowFlightPom = flightJdbcDriverPom.getParent();
+  
+        String parentVersion = arrowFlightPom.getVersion();
+        String childVersion = flightJdbcDriverPom.getVersion();
+  
+        int[] childVersionParts =
+            Arrays.stream(parentVersion.split("\\.")).limit(2)
+              .mapToInt(Integer::parseInt).toArray();
+        
+        int[] parentVersionParts =
+            Arrays.stream(parentVersion.split("\\.")).limit(2)
+              .mapToInt(Integer::parseInt).toArray();
+  
+        version = new DriverVersion(flightJdbcDriverPom.getName(), childVersion,
+            arrowFlightPom.getId(), parentVersion, true, childVersionParts[0],
+            childVersionParts[1], parentVersionParts[0], parentVersionParts[1]);
+      } catch (IOException | XmlPullParserException e) {
+        throw new RuntimeException("Failed to load driver version.", e);
+      }
+    
     }
 
-    try (Reader reader =
-          new BufferedReader(new InputStreamReader(
-              new FileInputStream("pom.xml"), "UTF-8"))) {
-
-      Model flightJdbcDriverPom = (new MavenXpp3Reader()).read(reader);
-      Parent arrowFlightPom = flightJdbcDriverPom.getParent();
-
-      String parentVersion = arrowFlightPom.getVersion();
-      String childVersion = flightJdbcDriverPom.getVersion();
-
-      int[] childVersionParts =
-          Arrays.stream(parentVersion.split("\\.")).limit(2)
-            .mapToInt(Integer::parseInt).toArray();
-      
-      int[] parentVersionParts =
-          Arrays.stream(parentVersion.split("\\.")).limit(2)
-            .mapToInt(Integer::parseInt).toArray();
-
-      version = new DriverVersion(flightJdbcDriverPom.getName(), childVersion,
-          arrowFlightPom.getId(), parentVersion, true, childVersionParts[0],
-          childVersionParts[1], parentVersionParts[0], parentVersionParts[1]);
-    } catch (IOException | XmlPullParserException e) {
-      throw new RuntimeException("Failed to load driver version.", e);
-    }
-
-    return createDriverVersion();
+    return version;
   }
 
   @Override
