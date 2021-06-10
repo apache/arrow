@@ -77,6 +77,18 @@ struct ARROW_EXPORT SplitPatternOptions : public SplitOptions {
   std::string pattern;
 };
 
+struct ARROW_EXPORT ReplaceSliceOptions : public FunctionOptions {
+  explicit ReplaceSliceOptions(int64_t start, int64_t stop, std::string replacement)
+      : start(start), stop(stop), replacement(std::move(replacement)) {}
+
+  /// Index to start slicing at
+  int64_t start;
+  /// Index to stop slicing at
+  int64_t stop;
+  /// String to replace the slice with
+  std::string replacement;
+};
+
 struct ARROW_EXPORT ReplaceSubstringOptions : public FunctionOptions {
   explicit ReplaceSubstringOptions(std::string pattern, std::string replacement,
                                    int64_t max_replacements = -1)

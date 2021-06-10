@@ -2289,6 +2289,165 @@ const FunctionDoc replace_substring_regex_doc(
 #endif
 
 // ----------------------------------------------------------------------
+// Replace slice
+
+struct ReplaceSliceTransformBase : public StringTransformBase {
+  using State = OptionsWrapper<ReplaceSliceOptions>;
+
+  const ReplaceSliceOptions* options;
+
+  explicit ReplaceSliceTransformBase(const ReplaceSliceOptions& options)
+      : options{&options} {}
+
+  int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) override {
+    return ninputs * options->replacement.size() + input_ncodeunits;
+  }
+};
+
+struct BinaryReplaceSliceTransform : ReplaceSliceTransformBase {
+  using ReplaceSliceTransformBase::ReplaceSliceTransformBase;
+  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+                    uint8_t* output) {
+    const auto& opts = *options;
+    int64_t before_slice = 0;
+    int64_t after_slice = 0;
+    uint8_t* output_start = output;
+
+    if (opts.start >= 0) {
+      // Count from left
+      before_slice = std::min<int64_t>(input_string_ncodeunits, opts.start);
+    } else {
+      // Count from right
+      before_slice = std::max<int64_t>(0, input_string_ncodeunits + opts.start);
+    }
+    // Mimic Pandas: if stop would be before start, treat as 0-length slice
+    if (opts.stop >= 0) {
+      // Count from left
+      after_slice =
+          std::min<int64_t>(input_string_ncodeunits, std::max(before_slice, opts.stop));
+    } else {
+      // Count from right
+      after_slice = std::max<int64_t>(before_slice, input_string_ncodeunits + opts.stop);
+    }
+    output = std::copy(input, input + before_slice, output);
+    output = std::copy(opts.replacement.begin(), opts.replacement.end(), output);
+    output = std::copy(input + after_slice, input + input_string_ncodeunits, output);
+    return output - output_start;
+  }
+};
+
+struct Utf8ReplaceSliceTransform : ReplaceSliceTransformBase {
+  using ReplaceSliceTransformBase::ReplaceSliceTransformBase;
+  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+                    uint8_t* output) {
+    const auto& opts = *options;
+    const uint8_t* begin = input;
+    const uint8_t* end = input + input_string_ncodeunits;
+    const uint8_t *begin_sliced, *end_sliced;
+    uint8_t* output_start = output;
+
+    // Mimic Pandas: if stop would be before start, treat as 0-length slice
+    if (opts.start >= 0) {
+      // Count from left
+      if (!arrow::util::UTF8AdvanceCodepoints(begin, end, &begin_sliced, opts.start)) {
+        return kTransformError;
+      }
+      if (opts.stop > options->start) {
+        // Continue counting from left
+        const int64_t length = opts.stop - options->start;
+        if (!arrow::util::UTF8AdvanceCodepoints(begin_sliced, end, &end_sliced, length)) {
+          return kTransformError;
+        }
+      } else if (opts.stop < 0) {
+        // Count from right
+        if (!arrow::util::UTF8AdvanceCodepointsReverse(begin_sliced, end, &end_sliced,
+                                                       -opts.stop)) {
+          return kTransformError;
+        }
+      } else {
+        // Zero-length slice
+        end_sliced = begin_sliced;
+      }
+    } else {
+      // Count from right
+      if (!arrow::util::UTF8AdvanceCodepointsReverse(begin, end, &begin_sliced,
+                                                     -opts.start)) {
+        return kTransformError;
+      }
+      if (opts.stop >= 0) {
+        // Restart counting from left
+        if (!arrow::util::UTF8AdvanceCodepoints(begin, end, &end_sliced, opts.stop)) {
+          return kTransformError;
+        }
+        if (end_sliced <= begin_sliced) {
+          // Zero-length slice
+          end_sliced = begin_sliced;
+        }
+      } else if ((opts.stop < 0) && (options->stop > options->start)) {
+        // Count from right
+        if (!arrow::util::UTF8AdvanceCodepointsReverse(begin_sliced, end, &end_sliced,
+                                                       -opts.stop)) {
+          return kTransformError;
+        }
+      } else {
+        // zero-length slice
+        end_sliced = begin_sliced;
+      }
+    }
+    output = std::copy(begin, begin_sliced, output);
+    output = std::copy(opts.replacement.begin(), options->replacement.end(), output);
+    output = std::copy(end_sliced, end, output);
+    return output - output_start;
+  }
+};
+
+template <typename Type>
+using BinaryReplaceSlice =
+    StringTransformExecWithState<Type, BinaryReplaceSliceTransform>;
+template <typename Type>
+using Utf8ReplaceSlice = StringTransformExecWithState<Type, Utf8ReplaceSliceTransform>;
+
+const FunctionDoc binary_replace_slice_doc(
+    "Replace a slice of a binary string with `replacement`",
+    ("For each string in `strings`, replace a slice of the string defined by `start`"
+     "and `stop` with `replacement`. `start` is inclusive and `stop` is exclusive, "
+     "and both are measured in bytes.\n"
+     "Null values emit null."),
+    {"strings"}, "ReplaceSliceOptions");
+
+const FunctionDoc utf8_replace_slice_doc(
+    "Replace a slice of a string with `replacement`",
+    ("For each string in `strings`, replace a slice of the string defined by `start`"
+     "and `stop` with `replacement`. `start` is inclusive and `stop` is exclusive, "
+     "and both are measured in codeunits.\n"
+     "Null values emit null."),
+    {"strings"}, "ReplaceSliceOptions");
+
+void AddReplaceSlice(FunctionRegistry* registry) {
+  {
+    auto func = std::make_shared<ScalarFunction>("binary_replace_slice", Arity::Unary(),
+                                                 &binary_replace_slice_doc);
+    for (const auto& ty : BaseBinaryTypes()) {
+      DCHECK_OK(func->AddKernel({ty}, ty,
+                                GenerateTypeAgnosticVarBinaryBase<BinaryReplaceSlice>(ty),
+                                ReplaceSliceTransformBase::State::Init));
+    }
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+
+  {
+    auto func = std::make_shared<ScalarFunction>("utf8_replace_slice", Arity::Unary(),
+                                                 &utf8_replace_slice_doc);
+    DCHECK_OK(func->AddKernel({utf8()}, utf8(), Utf8ReplaceSlice<StringType>::Exec,
+                              ReplaceSliceTransformBase::State::Init));
+    DCHECK_OK(func->AddKernel({large_utf8()}, large_utf8(),
+                              Utf8ReplaceSlice<LargeStringType>::Exec,
+                              ReplaceSliceTransformBase::State::Init));
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+}
+
+// ----------------------------------------------------------------------
 // Extract with regex
 
 #ifdef ARROW_WITH_RE2
@@ -3434,6 +3593,7 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
       MemAllocation::NO_PREALLOCATE);
   AddExtractRegex(registry);
 #endif
+  AddReplaceSlice(registry);
   AddSlice(registry);
   AddSplit(registry);
   AddStrptime(registry);

@@ -41,6 +41,7 @@ from pyarrow._compute import (  # noqa
     PartitionNthOptions,
     ProjectOptions,
     QuantileOptions,
+    ReplaceSliceOptions,
     ReplaceSubstringOptions,
     ScalarAggregateOptions,
     SetLookupOptions,
