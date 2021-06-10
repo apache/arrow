@@ -25,7 +25,7 @@ jobs:
       echo "Removing homebrew from Azure to avoid conflicts."
       /usr/bin/sudo mangle_homebrew
       /usr/bin/sudo -k
-    displayName: Remove homebrew
+    displayName: Mangle homebrew
 
 
   {{ macros.azure_checkout_arrow() }}
@@ -74,6 +74,10 @@ jobs:
       fi
     workingDirectory: arrow/dev/tasks/conda-recipes
     displayName: Build recipes
+
+  - script: |
+     sudo mv /usr/local/conda_mangled/* /usr/local/
+    displayName: Unmangle homebrew
 
   {{ macros.azure_upload_releases("arrow/dev/tasks/conda-recipes/build_artifacts/osx-*/*.tar.bz2") }}
   {{ macros.azure_upload_anaconda("arrow/dev/tasks/conda-recipes/build_artifacts/osx-*/*.tar.bz2") }}
