@@ -74,11 +74,18 @@ struct ARROW_EXPORT ConvertOptions {
   std::vector<std::string> true_values;
   /// Recognized spellings for boolean false values
   std::vector<std::string> false_values;
+
   /// Whether string / binary columns can have null values.
   ///
   /// If true, then strings in "null_values" are considered null for string columns.
   /// If false, then all strings are valid string values.
   bool strings_can_be_null = false;
+  /// Whether string / binary columns can have quotednull values.
+  ///
+  /// If true *and* `strings_can_be_null` is true, then quoted strings in
+  /// "null_values" are also considered null for string columns.  Otherwise,
+  /// quoted strings are never considered null.
+  bool quoted_strings_can_be_null = true;
 
   /// Whether to try to automatically dict-encode string / binary data.
   /// If true, then when type inference detects a string or binary column,
