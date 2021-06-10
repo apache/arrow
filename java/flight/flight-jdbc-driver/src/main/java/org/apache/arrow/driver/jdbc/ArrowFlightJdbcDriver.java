@@ -56,6 +56,11 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
   }
 
   @Override
+  protected String getFactoryClassName(JdbcVersion jdbcVersion) {
+    return ArrowFlightJdbcFactory.class.getName();
+  }
+
+  @Override
   protected DriverVersion createDriverVersion() {
     return Version.CURRENT.getDriverVersion();
   }
