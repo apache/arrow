@@ -77,7 +77,7 @@ public class TestDenseUnionVector {
       unionVector.allocateNew();
 
       // write some data
-      byte uint4TypeId = unionVector.registerNewTypeId(Field.nullable("uint4", MinorType.UINT4.getType()));
+      byte uint4TypeId = unionVector.registerNewTypeId(Field.nullable("", MinorType.UINT4.getType()));
       unionVector.setTypeId(0, uint4TypeId);
       unionVector.setSafe(0, uInt4Holder);
       unionVector.setTypeId(2, uint4TypeId);
