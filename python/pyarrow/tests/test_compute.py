@@ -1433,7 +1433,18 @@ def test_extract_datetime_components():
                   "2008-12-29",
                   "2012-01-01 01:02:03"]
 
-    _check_datetime_components(timestamps)
+    timezones = ["US/Central", "Pacific/Marquesas", "Asia/Kolkata",
+                 "Etc/GMT-4", "Etc/GMT+4", "Pacific/Marquesas",
+                 "Australia/Broken_Hill"]
+
+    # Test timezone naive timestamp array
+    ts = pd.to_datetime(timestamps)
+    _check_datetime_components(ts)
+
+    # Test timezone aware timestamp array
+    for timezone in timezones:
+        ts = pd.to_datetime(timestamps).tz_localize("UTC").tz_convert(timezone)
+        _check_datetime_components(ts)
 
 
 def test_count():

@@ -189,7 +189,7 @@ TEST(ScalarTemporalTest, TestZoned1) {
   CheckScalarUnary("quarter", unit, times, int64(), quarter);
   CheckScalarUnary("hour", unit, times, int64(), hour);
   CheckScalarUnary("minute", unit, times, int64(), minute);
-  CheckScalarUnary("second", unit, times, float64(), second);
+  CheckScalarUnary("second", unit, times, int64(), second);
   CheckScalarUnary("millisecond", unit, times, int64(), millisecond);
   CheckScalarUnary("microsecond", unit, times, int64(), microsecond);
   CheckScalarUnary("nanosecond", unit, times, int64(), nanosecond);
@@ -305,5 +305,8 @@ TEST_F(ScalarTemporalTest, DayOfWeek) {
                 DayOfWeek(timestamps, DayOfWeekOptions(/*one_based_numbering=*/false,
                                                        /*week_start=*/8)));
 }
+// TODO: Also, it would maybe be good to add a test for a timestamp that doesn't fit into
+// the nanosecond range? I meant a date that falls outside the date range of 1677-09-21 -
+// 2262-04-11 (the range that ns resolution can cover).
 }  // namespace compute
 }  // namespace arrow
