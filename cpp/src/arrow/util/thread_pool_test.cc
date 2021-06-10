@@ -456,38 +456,45 @@ TEST_F(TestThreadPool, QuickShutdown) {
 
 TEST_F(TestThreadPool, DestroyWithoutShutdown) {
   std::mutex mx;
-  std::condition_variable cv;
+  std::condition_variable wait_for_tp_shutdown;
+  std::condition_variable wait_for_worker_start;
   std::weak_ptr<ThreadPool> weak_pool;
-  bool ready = false;
-  bool completed = false;
+
+  // Create a task and let it start then destroy the thread pool before
+  // the task finishes.  The worker loop should not prevent the thread pool
+  // from being destroyed but it should be able to finish
+  bool done_shutting_down = false;
+  bool worker_started = false;
+  Future<> job_finished;
   {
     auto pool = this->MakeThreadPool(1);
     weak_pool = pool;
     // Simulate Windows
     pool->shutdown_on_destroy_ = false;
 
-    ASSERT_OK(pool->Spawn([&mx, &cv, &completed, &ready] {
+    ASSERT_OK_AND_ASSIGN(job_finished, pool->Submit([&] {
       std::unique_lock<std::mutex> lock(mx);
-      ready = true;
-      cv.notify_one();
-      cv.wait(lock);
-      completed = true;
+      worker_started = true;
+      wait_for_worker_start.notify_one();
+      wait_for_tp_shutdown.wait(lock, [&] { return done_shutting_down; });
     }));
+
+    std::unique_lock<std::mutex> lock(mx);
+    wait_for_worker_start.wait(lock, [&] { return worker_started; });
   }
 
+  // The worker thread should not keep the thread pool alive (or else the eternal pools
+  // would never be destroyed)
+  ASSERT_TRUE(weak_pool.expired());
+
   std::unique_lock<std::mutex> lock(mx);
-  cv.wait(lock, [&ready] { return ready; });
   // Thread pool has shut down, now we unblock the task
-  cv.notify_one();
+  done_shutting_down = true;
+  wait_for_tp_shutdown.notify_one();
   lock.unlock();
 
-  // The worker thread should be able to keep the thread pool alive by itself
-  ASSERT_FALSE(weak_pool.expired());
-  // Need to shutdown for test purposes to ensure the thread is joined and that the worker
-  // finishes
-  ASSERT_OK(weak_pool.lock()->Shutdown(false));
-
-  ASSERT_TRUE(completed);
+  // The worker thread should be able to finish up on its own
+  ASSERT_FINISHES_OK(job_finished);
 }
 
 TEST_F(TestThreadPool, SetCapacity) {
