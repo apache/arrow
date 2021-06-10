@@ -293,11 +293,9 @@ class FileReaderImpl : public FileReader {
                        const std::vector<int>& indices,
                        std::shared_ptr<Table>* table) override;
 
-  // Helper method used by ReadRowGroups - read the given row groups/columns,
-  // skipping bounds checks and pre-buffering.
-  Status DecodeRowGroups(const std::vector<int>& row_groups,
-                         const std::vector<int>& indices, std::shared_ptr<Table>* table);
-  // Async equivalent helper for the generator reader.
+  // Helper method used by ReadRowGroups - read the given row groups/columns, skipping
+  // bounds checks and pre-buffering. Takes a shared_ptr to self to keep the reader
+  // alive in async contexts.
   Future<std::shared_ptr<Table>> DecodeRowGroups(
       std::shared_ptr<FileReaderImpl> self, const std::vector<int>& row_groups,
       const std::vector<int>& column_indices, ::arrow::internal::Executor* cpu_executor);
@@ -1101,61 +1099,39 @@ Status FileReaderImpl::ReadRowGroups(const std::vector<int>& row_groups,
     END_PARQUET_CATCH_EXCEPTIONS
   }
 
-  return DecodeRowGroups(row_groups, column_indices, out);
-}
-
-// Also used by RowGroupGenerator - skip bounds check/pre-buffer to avoid doing that twice
-Status FileReaderImpl::DecodeRowGroups(const std::vector<int>& row_groups,
-                                       const std::vector<int>& column_indices,
-                                       std::shared_ptr<Table>* out) {
-  std::vector<std::shared_ptr<ColumnReaderImpl>> readers;
-  std::shared_ptr<::arrow::Schema> result_schema;
-  RETURN_NOT_OK(GetFieldReaders(column_indices, row_groups, &readers, &result_schema));
-
-  ::arrow::ChunkedArrayVector columns(readers.size());
-  RETURN_NOT_OK(::arrow::internal::OptionalParallelFor(
-      reader_properties_.use_threads(), static_cast<int>(readers.size()), [&](int i) {
-        return ReadColumn(static_cast<int>(i), row_groups, readers[i].get(), &columns[i]);
-      }));
-
-  int64_t num_rows = 0;
-  if (!columns.empty()) {
-    num_rows = columns[0]->length();
-  } else {
-    for (int i : row_groups) {
-      num_rows += parquet_reader()->metadata()->RowGroup(i)->num_rows();
-    }
-  }
-
-  *out = Table::Make(std::move(result_schema), std::move(columns), num_rows);
-  return (*out)->Validate();
+  auto fut = DecodeRowGroups(/*self=*/nullptr, row_groups, column_indices,
+                             /*cpu_executor=*/nullptr);
+  ARROW_ASSIGN_OR_RAISE(*out, fut.MoveResult());
+  return Status::OK();
 }
 
 Future<std::shared_ptr<Table>> FileReaderImpl::DecodeRowGroups(
     std::shared_ptr<FileReaderImpl> self, const std::vector<int>& row_groups,
     const std::vector<int>& column_indices, ::arrow::internal::Executor* cpu_executor) {
+  // `self` is used solely to keep `this` alive in an async context - but we use this
+  // in a sync context too so use `this` over `self`
   std::vector<std::shared_ptr<ColumnReaderImpl>> readers;
   std::shared_ptr<::arrow::Schema> result_schema;
   RETURN_NOT_OK(GetFieldReaders(column_indices, row_groups, &readers, &result_schema));
   // OptionalParallelForAsync requires an executor
   if (!cpu_executor) cpu_executor = ::arrow::internal::GetCpuThreadPool();
 
-  auto read_column = [row_groups, self](int i, std::shared_ptr<ColumnReaderImpl> reader)
+  auto read_column = [row_groups, self, this](int i,
+                                              std::shared_ptr<ColumnReaderImpl> reader)
       -> ::arrow::Result<std::shared_ptr<::arrow::ChunkedArray>> {
     std::shared_ptr<::arrow::ChunkedArray> column;
-    RETURN_NOT_OK(
-        self->ReadColumn(static_cast<int>(i), row_groups, reader.get(), &column));
+    RETURN_NOT_OK(ReadColumn(static_cast<int>(i), row_groups, reader.get(), &column));
     return column;
   };
-  auto make_table = [result_schema, row_groups,
-                     self](const ::arrow::ChunkedArrayVector& columns)
+  auto make_table = [result_schema, row_groups, self,
+                     this](const ::arrow::ChunkedArrayVector& columns)
       -> ::arrow::Result<std::shared_ptr<Table>> {
     int64_t num_rows = 0;
     if (!columns.empty()) {
       num_rows = columns[0]->length();
     } else {
       for (int i : row_groups) {
-        num_rows += self->parquet_reader()->metadata()->RowGroup(i)->num_rows();
+        num_rows += parquet_reader()->metadata()->RowGroup(i)->num_rows();
       }
     }
     auto table = Table::Make(std::move(result_schema), columns, num_rows);
