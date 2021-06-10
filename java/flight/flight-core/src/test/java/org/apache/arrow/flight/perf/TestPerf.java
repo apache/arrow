@@ -103,7 +103,7 @@ public class TestPerf {
             res.add(f.get());
           }
           return res;
-        }).get();
+        }, pool).get();
 
         double seconds = r.nanos * 1.0d / 1000 / 1000 / 1000;
         throughPuts[i] = (r.bytes * 1.0d / 1024 / 1024) / seconds;

@@ -26,7 +26,6 @@
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
         <protobuf.version>2.5.0</protobuf.version>
-        <dep.guava.version>18.0</dep.guava.version>
         <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
         <arrow.cpp.build.dir>../../../cpp/release-build</arrow.cpp.build.dir>
     </properties>
@@ -56,7 +55,6 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>23.0</version>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
