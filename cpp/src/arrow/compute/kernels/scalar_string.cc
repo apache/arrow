@@ -1072,12 +1072,7 @@ void AddCountSubstring(FunctionRegistry* registry) {
     auto func = std::make_shared<ScalarFunction>("count_substring", Arity::Unary(),
                                                  &count_substring_doc);
     for (const auto& ty : BaseBinaryTypes()) {
-      std::shared_ptr<DataType> offset_type;
-      if (ty->id() == Type::type::LARGE_BINARY || ty->id() == Type::type::LARGE_STRING) {
-        offset_type = int64();
-      } else {
-        offset_type = int32();
-      }
+      auto offset_type = offset_bit_width(ty->id()) == 64 ? int64() : int32();
       DCHECK_OK(func->AddKernel({ty}, offset_type,
                                 GenerateTypeAgnosticVarBinaryBase<CountSubstringExec>(ty),
                                 MatchSubstringState::Init));
@@ -1089,12 +1084,7 @@ void AddCountSubstring(FunctionRegistry* registry) {
     auto func = std::make_shared<ScalarFunction>("count_substring_regex", Arity::Unary(),
                                                  &count_substring_regex_doc);
     for (const auto& ty : BaseBinaryTypes()) {
-      std::shared_ptr<DataType> offset_type;
-      if (ty->id() == Type::type::LARGE_BINARY || ty->id() == Type::type::LARGE_STRING) {
-        offset_type = int64();
-      } else {
-        offset_type = int32();
-      }
+      auto offset_type = offset_bit_width(ty->id()) == 64 ? int64() : int32();
       DCHECK_OK(
           func->AddKernel({ty}, offset_type,
                           GenerateTypeAgnosticVarBinaryBase<CountSubstringRegexExec>(ty),
