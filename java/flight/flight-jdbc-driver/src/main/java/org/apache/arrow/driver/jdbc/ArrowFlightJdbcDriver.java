@@ -219,11 +219,8 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
      *
      * TODO Come up with a RegEx better than #urlRegExPattern.
      */
-    final Matcher matcher = urlRegExPattern.matcher(url);
-
-    if (!matcher.matches()) {
-      throw new SQLException("Malformed/invalid URL!");
-    }
+    return url.substring(getConnectStringPrefix().length()).split(":|/\\?");
+  }
 
     final Map<Object, Object> resultMap = new HashMap<>();
 
