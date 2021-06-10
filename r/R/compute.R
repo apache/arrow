@@ -116,16 +116,6 @@ max.ArrowDatum <- function(..., na.rm = FALSE) {
   scalar_aggregate("min_max", ..., na.rm = na.rm)$GetFieldByName("max")
 }
 
-#' @export
-pmin.ArrowDatum <- function(..., na.rm = FALSE) {
-  scalar_aggregate("element_wise_min", ..., na.rm = na.rm)
-}
-
-#' @export
-pmax.ArrowDatum <- function(..., na.rm = FALSE) {
-  scalar_aggregate("element_wise_max", ..., na.rm = na.rm)
-}
-
 scalar_aggregate <- function(FUN, ..., na.rm = FALSE, na.min_count = 0) {
   a <- collect_arrays_from_dots(list(...))
   if (!na.rm) {
