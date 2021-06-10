@@ -113,12 +113,6 @@ class SimpleExecutor {
     }
   }
 
-  // Need to explicilty call the pool shutdown.  The worker threads have a shared_ptr
-  // to the pool so they will keep it alive after this class is destructed.  However, the
-  // worker threads will then try and run their task which accesses this class' futures
-  // which fails
-  ~SimpleExecutor() { ARROW_EXPECT_OK(pool_->Shutdown()); }
-
   std::vector<Future<T>>& futures() { return futures_; }
 
   void SetFinished(const std::vector<std::pair<int, bool>>& pairs) {

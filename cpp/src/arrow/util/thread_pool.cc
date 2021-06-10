@@ -419,13 +419,12 @@ void SimpleThreadPool::WorkerLoop(std::shared_ptr<WorkerControl> control,
       if (!maybe_task.has_value()) {
         break;
       }
-      auto task = *std::move(maybe_task);
-      StopToken* stop_token = &task.stop_token;
+      StopToken* stop_token = &maybe_task->stop_token;
       if (!stop_token->IsStopRequested()) {
-        std::move(task.callable)();
+        std::move(maybe_task->callable)();
       } else {
-        if (task.stop_callback) {
-          std::move(task.stop_callback)(stop_token->Poll());
+        if (maybe_task->stop_callback) {
+          std::move(maybe_task->stop_callback)(stop_token->Poll());
         }
       }
       control->RecordFinishedTask();
