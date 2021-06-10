@@ -59,9 +59,9 @@ public class ArrowFlightJdbcFactory implements AvaticaFactory {
   @Override
   public AvaticaStatement newStatement(AvaticaConnection avaticaConnection,
                                        Meta.StatementHandle statementHandle,
-                                       int i,
-                                       int i1,
-                                       int i2) throws SQLException {
+                                       int resultType,
+                                       int resultSetConcurrency,
+                                       int resultSetHoldability) throws SQLException {
     return null;
   }
 
