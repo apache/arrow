@@ -32,8 +32,6 @@ import org.apache.calcite.avatica.remote.TypedValue;
  */
 public class ArrowFlightMetaImpl extends MetaImpl {
 
-  private static final ArrowFlightJdbcDriver driver = new ArrowFlightJdbcDriver();
-
   public ArrowFlightMetaImpl(AvaticaConnection connection) {
     super(connection);
     setDefaultConnectionProperties();

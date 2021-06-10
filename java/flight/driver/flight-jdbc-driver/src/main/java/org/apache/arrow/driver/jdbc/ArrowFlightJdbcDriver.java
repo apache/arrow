@@ -42,12 +42,14 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
   @Override
   public Connection connect(String url, Properties info) throws SQLException {
 
+    Properties clonedProperties = (Properties) info.clone();
+
     try {
       String[] args = getUrlsArgs(Preconditions.checkNotNull(url));
 
-      addToProperties(info, args);
+      addToProperties(clonedProperties, args);
 
-      return new ArrowFlightConnection(this, factory, url, info);
+      return new ArrowFlightConnection(this, factory, url, clonedProperties);
     } catch (AssertionError | FlightRuntimeException e) {
       throw new SQLException("Failed to connect.", e);
     }
