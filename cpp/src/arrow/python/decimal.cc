@@ -72,27 +72,19 @@ static Status InferDecimalPrecisionAndScale(PyObject* python_decimal, int32_t* p
   const auto exponent = static_cast<int32_t>(PyLong_AsLong(py_exponent.obj()));
   RETURN_IF_PYERROR();
 
-  const int32_t abs_exponent = std::abs(exponent);
-
-  int32_t num_additional_zeros;
-
-  if ((exponent < 0) && (num_digits <= abs_exponent)) {
-    DCHECK_NE(exponent, 0) << "exponent should never be zero here";
-
-    // we have leading zeros, need to add to precision
-    num_additional_zeros = abs_exponent - num_digits;
+  if (exponent < 0) {
+    // If exponent > num_digits, we have a number with leading zeros
+    // such as 0.01234.  Ensure we have enough precision for leading zeros
+    // (which are not included in num_digits).
+    *precision = std::max(num_digits, -exponent);
     *scale = -exponent;
-  } else if (exponent > 0) {
-    // trailing zeros not included in num_digits, need to add to precision
-    num_additional_zeros = exponent;
-    *scale = 0;
   } else {
-    // we can use the number of digits as the precision
-    num_additional_zeros = 0;
-    *scale = -exponent;
+    // Trailing zeros are not included in num_digits, need to add to precision.
+    // Note we don't generate negative scales as they are poorly supported
+    // in non-Arrow systems.
+    *precision = num_digits + exponent;
+    *scale = 0;
   }
-
-  *precision = num_digits + num_additional_zeros;
   return Status::OK();
 }
 
