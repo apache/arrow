@@ -22,15 +22,12 @@ import org.junit.jupiter.api.Test;
 
 public class ArrowFlightJdbcNullVectorAccessorTest {
 
-  ArrowFlightJdbcNullVectorAccessor accessor = new ArrowFlightJdbcNullVectorAccessor();
-
-  @Test
-  void testShouldWasNullReturnTrue() {
-    Assertions.assertTrue(accessor.wasNull());
-  }
-
-  @Test
-  void testShouldGetObjectReturnNull() {
-    Assertions.assertNull(accessor.getObject());
+/**
+ * Arrow Flight JDBC's implementation of {@link DatabaseMetaData}.
+ */
+public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
+  
+  protected ArrowDatabaseMetadata(AvaticaConnection connection) {
+    super(connection);
   }
 }
