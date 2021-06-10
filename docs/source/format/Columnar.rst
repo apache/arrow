@@ -1006,19 +1006,21 @@ message flatbuffer is read, you can then read the message body.
 
 The stream writer can signal end-of-stream (EOS) either by writing 8 bytes
 containing the 4-byte continuation indicator (``0xFFFFFFFF``) followed by 0
-metadata length (``0x00000000``) or closing the stream interface.
+metadata length (``0x00000000``) or closing the stream interface.  We
+recommend the ".arrows" file extension for the streaming format although
+in many cases these streams will not ever be stored as files.
 
 IPC File Format
 ---------------
 
-We define a "file format" supporting random access that is build with
-the stream format. The file starts and ends with a magic string
-``ARROW1`` (plus padding). What follows in the file is identical to
-the stream format. At the end of the file, we write a *footer*
-containing a redundant copy of the schema (which is a part of the
-streaming format) plus memory offsets and sizes for each of the data
-blocks in the file. This enables random access any record batch in the
-file. See `File.fbs`_ for the precise details of the file footer.
+We define a "file format" supporting random access that is built with
+the stream format.  We recommend the ".arrow" extension for files. The
+file starts and ends with a magic string ``ARROW1`` (plus padding). What
+follows in the file is identical to the stream format. At the end of the
+file, we write a *footer* containing a redundant copy of the schema (which
+is a part of the streaming format) plus memory offsets and sizes for each
+of the data blocks in the file. This enables random access any record batch
+in the file. See `File.fbs`_ for the precise details of the file footer.
 
 Schematically we have: ::
 
