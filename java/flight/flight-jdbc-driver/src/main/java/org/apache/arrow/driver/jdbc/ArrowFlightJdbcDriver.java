@@ -17,8 +17,11 @@
 
 package org.apache.arrow.driver.jdbc;
 
+import java.io.FileReader;
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.Properties;
 
 import org.apache.arrow.flight.FlightRuntimeException;
@@ -27,6 +30,10 @@ import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.DriverVersion;
 import org.apache.calcite.avatica.Meta;
 import org.apache.calcite.avatica.UnregisteredDriver;
+import org.apache.maven.model.Model;
+import org.apache.maven.model.Parent;
+import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
+import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
 
 /**
  * JDBC driver for querying data from an Apache Arrow Flight server.
@@ -34,9 +41,7 @@ import org.apache.calcite.avatica.UnregisteredDriver;
 public class ArrowFlightJdbcDriver extends UnregisteredDriver {
 
   private static final String CONNECT_STRING_PREFIX = "jdbc:arrow-flight://";
-  private static final DriverVersion VERSION =
-      new DriverVersion("Arrow Flight JDBC Driver", "0.0.1-SNAPSHOT",
-          "Arrow Flight", "0.0.1-SNAPSHOT", true, 0, 1, 0, 1);
+  private static DriverVersion version;
 
   static {
     (new ArrowFlightJdbcDriver()).register();
@@ -65,7 +70,35 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
 
   @Override
   protected DriverVersion createDriverVersion() {
-    return VERSION;
+
+    if (version != null) {
+      return version;
+    }
+
+    try (FileReader reader = new FileReader("pom.xml")) {
+
+      Model flightJdbcDriverPom = (new MavenXpp3Reader()).read(reader);
+      Parent arrowFlightPom = flightJdbcDriverPom.getParent();
+
+      String parentVersion = arrowFlightPom.getVersion();
+      String childVersion = flightJdbcDriverPom.getVersion();
+
+      int[] childVersionParts =
+          Arrays.stream(parentVersion.split("\\.")).limit(2)
+            .mapToInt(Integer::parseInt).toArray();
+      
+      int[] parentVersionParts =
+          Arrays.stream(parentVersion.split("\\.")).limit(2)
+            .mapToInt(Integer::parseInt).toArray();
+
+      version = new DriverVersion(flightJdbcDriverPom.getName(), childVersion,
+          arrowFlightPom.getId(), parentVersion, true, childVersionParts[0],
+          childVersionParts[1], parentVersionParts[0], parentVersionParts[1]);
+    } catch (IOException | XmlPullParserException e) {
+      throw new RuntimeException("Failed to load driver version.", e);
+    }
+
+    return createDriverVersion();
   }
 
   @Override
@@ -112,3 +145,4 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
     Preconditions.checkNotNull(info).put("host", host);
     info.put("port", port);
   }
+}
