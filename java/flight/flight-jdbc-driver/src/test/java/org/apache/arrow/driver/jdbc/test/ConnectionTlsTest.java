@@ -23,7 +23,6 @@ import java.io.IOException;
 import java.net.URI;
 import java.sql.Connection;
 import java.sql.DriverManager;
-import java.sql.SQLException;
 import java.util.Properties;
 
 import org.apache.arrow.driver.jdbc.ArrowFlightClient;
@@ -39,26 +38,16 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.calcite.avatica.org.apache.http.auth.UsernamePasswordCredentials;
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
 import com.google.common.base.Strings;
 
-/**
- * Tests encrypted connections.
- * TODO Update to use {@link FlightServerTestRule} instead of {@link FlightTestUtils}
- */
 public class ConnectionTlsTest {
   private FlightServer tlsServer;
   private String serverUrl;
   private BufferAllocator allocator;
   private FlightTestUtils flightTestUtils;
-  private final String keyStorePath = this.getClass().getResource("/keys/keyStore.jks")
-      .getPath();
-  private final String noCertificateKeyStorePath = this.getClass().getResource("/keys/noCertificate.jks")
-      .getPath();
-  private final String keyStorePass = "flight";
 
   @Before
   public void setUp() throws Exception {
@@ -87,6 +76,8 @@ public class ConnectionTlsTest {
     }));
     serverUrl = flightTestUtils.getConnectionPrefix() +
         flightTestUtils.getLocalhost() + ":" + this.tlsServer.getPort();
+
+    Class.forName("org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver");
   }
 
   @After
@@ -129,6 +120,13 @@ public class ConnectionTlsTest {
    */
   @Test
   public void testGetEncryptedClientAuthenticated() throws Exception {
+
+    final Properties properties = new Properties();
+
+    properties.put("useTls", "true");
+    properties.put("keyStorePath", "src/test/resources/keys/keyStore.jks");
+    properties.put("keyStorePass", "flight");
+
     final URI address = new URI("jdbc",
         flightTestUtils.getUsername1() + ":" + flightTestUtils.getPassword1(),
         flightTestUtils.getLocalhost(), this.tlsServer.getPort(), null, null,
@@ -137,72 +135,39 @@ public class ConnectionTlsTest {
     final UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(
         flightTestUtils.getUsername1(), flightTestUtils.getPassword1());
 
-    try (ArrowFlightClientHandler client =
-           ArrowFlightClientHandler
-             .getClient(
-                allocator, address.getHost(), address.getPort(),
-                credentials.getUserName(), credentials.getPassword(),
-                null, true, keyStorePath, keyStorePass)) {
+    try (ArrowFlightClient client = ArrowFlightClient
+        .getEncryptedClientAuthenticated(
+            allocator, address.getHost(), address.getPort(),
+            null, credentials.getUserName(), credentials.getPassword(),
+            properties.getProperty("keyStorePath"),
+            properties.getProperty("keyStorePass"))) {
 
       assertNotNull(client);
     }
   }
 
   /**
-   * Try to instantiate an encrypted FlightClient providing a keystore without certificate. It's expected to
-   * receive the SQLException.
-   *
-   * @throws Exception
-   *           on error.
-   */
-  @Test(expected = SQLException.class)
-  public void testGetEncryptedClientWithNoCertificateOnKeyStore() throws Exception {
-    final String noCertificateKeyStorePassword = "flight1";
-
-    try (ArrowFlightClient client = ArrowFlightClient
-        .getEncryptedClientNoAuth(
-            allocator, flightTestUtils.getLocalhost(), this.tlsServer.getPort(),
-            null, noCertificateKeyStorePath,
-            noCertificateKeyStorePassword)) {
-      Assert.fail();
-    }
-  }
-
-  /**
-   * Try to instantiate an encrypted FlightClient without credentials.
+   * Try to instantiate an encrypted FlightClient.
    *
    * @throws Exception
    *           on error.
    */
   @Test
-  public void testGetNonAuthenticatedEncryptedClientNoAuth() throws Exception {
+  public void testGetEncryptedClientNoAuth() throws Exception {
+
+    final Properties properties = new Properties();
+
+    properties.put("useTls", "true");
+    properties.put("keyStorePath", "src/test/resources/keys/keyStore.jks");
+    properties.put("keyStorePass", "flight");
+
     try (ArrowFlightClient client = ArrowFlightClient
         .getEncryptedClientNoAuth(
             allocator, flightTestUtils.getLocalhost(), this.tlsServer.getPort(),
-            null, keyStorePath,
-            keyStorePass)) {
+            null, properties.getProperty("keyStorePath"),
+            properties.getProperty("keyStorePass"))) {
 
       assertNotNull(client);
-    }
-  }
-
-  /**
-   * Try to instantiate an encrypted FlightClient with an invalid password to the keystore file.
-   * It's expected to receive the SQLException.
-   *
-   * @throws Exception
-   *           on error.
-   */
-  @Test(expected = SQLException.class)
-  public void testGetEncryptedClientWithKeyStoreBadPasswordAndNoAuth() throws Exception {
-    String keyStoreBadPassword = "badPassword";
-
-    try (ArrowFlightClient client = ArrowFlightClient
-        .getEncryptedClientNoAuth(
-            allocator, flightTestUtils.getLocalhost(), this.tlsServer.getPort(),
-            null, keyStorePath,
-            keyStoreBadPassword)) {
-      Assert.fail();
     }
   }
 
@@ -214,57 +179,14 @@ public class ConnectionTlsTest {
    *           on error.
    */
   @Test
-  public void testGetEncryptedConnectionWithValidCredentialsAndKeyStore() throws Exception {
+  public void connectTls() throws Exception {
     final Properties properties = new Properties();
 
     properties.put("user", flightTestUtils.getUsername1());
     properties.put("password", flightTestUtils.getPassword1());
     properties.put("useTls", "true");
-    properties.put("keyStorePath", keyStorePath);
-    properties.put("keyStorePass", keyStorePass);
-
-    try (Connection connection = DriverManager
-        .getConnection(serverUrl, properties)) {
-
-      assert connection.isValid(300);
-    }
-  }
-
-  /**
-   * Check if the SQLException is thrown when trying to establish an encrypted connection
-   * providing valid credentials but invalid password to the Keystore.
-   *
-   * @throws SQLException on error.
-   */
-  @Test(expected = SQLException.class)
-  public void testGetAuthenticatedEncryptedConnectionWithKeyStoreBadPassword() throws Exception {
-    final Properties properties = new Properties();
-
-    properties.put("user", flightTestUtils.getUsername1());
-    properties.put("password", flightTestUtils.getPassword1());
-    properties.put("useTls", "true");
-    properties.put("keyStorePath", keyStorePath);
-    properties.put("keyStorePass", "badpassword");
-
-    try (Connection connection = DriverManager
-        .getConnection(serverUrl, properties)) {
-      Assert.fail();
-    }
-  }
-
-  /**
-   * Check if an encrypted connection can be established successfully when not providing authentication.
-   *
-   * @throws Exception
-   *           on error.
-   */
-  @Test
-  public void testGetNonAuthenticatedEncryptedConnection() throws Exception {
-    final Properties properties = new Properties();
-
-    properties.put("useTls", "true");
-    properties.put("keyStorePath", keyStorePath);
-    properties.put("keyStorePass", keyStorePass);
+    properties.put("keyStorePath", "src/test/resources/keys/keyStore.jks");
+    properties.put("keyStorePass", "flight");
 
     try (Connection connection = DriverManager
         .getConnection(serverUrl, properties)) {
