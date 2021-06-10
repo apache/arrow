@@ -84,7 +84,7 @@ import static org.apache.arrow.vector.types.UnionMode.Dense;
  * each time the vector is accessed.
  * Source code generated using FreeMarker template ${.template_name}
  */
-public class DenseUnionVector implements FieldVector {
+public class DenseUnionVector extends AbstractContainerVector implements FieldVector {
 
   private String name;
   private BufferAllocator allocator;
@@ -134,6 +134,7 @@ public class DenseUnionVector implements FieldVector {
   }
 
   public DenseUnionVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
+    super(name, allocator, callBack);
     this.name = name;
     this.allocator = allocator;
     this.fieldType = fieldType;
@@ -575,7 +576,7 @@ public class DenseUnionVector implements FieldVector {
   }
 
   public FieldVector addVector(byte typeId, FieldVector v) {
-    String name = fieldName(typeId, v.getMinorType());
+    final String name = v.getName().isEmpty() ? fieldName(typeId, v.getMinorType()) : v.getName();
     Preconditions.checkState(internalStruct.getChild(name) == null, String.format("%s vector already exists", name));
     final FieldVector newVector = internalStruct.addOrGet(name, v.getField().getFieldType(), v.getClass());
     v.makeTransferPair(newVector).transfer();
@@ -907,6 +908,37 @@ public class DenseUnionVector implements FieldVector {
   private void setNegative(long start, long end) {
     for (long i = start;i < end; i++) {
       typeBuffer.setByte(i, -1);
+    }
+  }
+
+  @Override
+  public <T extends FieldVector> T addOrGet(String name, FieldType fieldType, Class<T> clazz) {
+    return internalStruct.addOrGet(name, fieldType, clazz);
+  }
+
+  @Override
+  public <T extends FieldVector> T getChild(String name, Class<T> clazz) {
+    return internalStruct.getChild(name, clazz);
+  }
+
+  @Override
+  public VectorWithOrdinal getChildVectorWithOrdinal(String name) {
+    return internalStruct.getChildVectorWithOrdinal(name);
+  }
+
+  @Override
+  public int size() {
+    return internalStruct.size();
+  }
+
+  @Override
+  public void setInitialCapacity(int valueCount, double density) {
+    for (final ValueVector vector : internalStruct) {
+      if (vector instanceof DensityAwareVector) {
+        ((DensityAwareVector) vector).setInitialCapacity(valueCount, density);
+      } else {
+        vector.setInitialCapacity(valueCount);
+      }
     }
   }
 }
