@@ -202,8 +202,8 @@ public class ArrowFlightJdbcDriverTest {
       throws Exception {
     final Driver driver = new ArrowFlightJdbcDriver();
 
-    final String malformedUri = "arrow-jdbc://" + ":" +
-        server.getLocation().getUri().getPort();
+    final String malformedUri = "arrow-jdbc://" +
+        ":" + server.getLocation().getUri().getPort();
     driver.connect(malformedUri, PropertiesSample.UNSUPPORTED.getProperties());
   }
 
@@ -225,47 +225,10 @@ public class ArrowFlightJdbcDriverTest {
 
     getUrlsArgs.setAccessible(true);
 
-    final Map<Object, Object> parsedArgs = (Map<Object, Object>) getUrlsArgs
+    final Map<String, String> parsedArgs = (Map<String, String>) getUrlsArgs
         .invoke(driver,
             "jdbc:arrow-flight://localhost:2222/?key1=value1&key2=value2&a=b");
 
-    // Check size == the amount of args provided (prefix not included!)
-    assertEquals(5, parsedArgs.size());
-
-    // Check host == the provided host
-    assertEquals(parsedArgs.get(HOST.getName()), "localhost");
-
-    // Check port == the provided port
-    assertEquals(parsedArgs.get(PORT.getName()), "2222");
-
-    // Check all other non-default arguments
-    assertEquals(parsedArgs.get("key1"), "value1");
-    assertEquals(parsedArgs.get("key2"), "value2");
-    assertEquals(parsedArgs.get("a"), "b");
-  }
-
-  /**
-   * Tests whether an exception is thrown upon attempting to connect to a
-   * malformed URI.
-   *
-   * @throws Exception
-   *           If an error occurs.
-   */
-  @SuppressWarnings("unchecked")
-  @Test(expected = SQLException.class)
-  public void testDriverUrlParsingMechanismShouldThrowExceptionUponProvidedWithMalformedUrl()
-      throws Exception {
-    final Driver driver = new ArrowFlightJdbcDriver();
-
-    Method getUrlsArgs = driver.getClass()
-        .getDeclaredMethod("getUrlsArgs", String.class);
-
-    getUrlsArgs.setAccessible(true);
-
-    Map<String, String> parsedArgs = (Map<String, String>) getUrlsArgs
-        .invoke(driver,
-            "jdbc:arrow-flight://localhost:2222/?key1=value1&key2=value2&a=b");    
-    
     // Check size == the amount of args provided (prefix not included!)
     assertEquals(5, parsedArgs.size());
 
@@ -294,7 +257,7 @@ public class ArrowFlightJdbcDriverTest {
       final String password) {
     if (Strings.isNullOrEmpty(username)) {
       throw CallStatus.UNAUTHENTICATED
-          .withDescription("Credentials not supplied.").toRuntimeException();
+      .withDescription("Credentials not supplied.").toRuntimeException();
     }
     final String identity;
     if (testUtils.getUsername1().equals(username) &&
@@ -302,8 +265,8 @@ public class ArrowFlightJdbcDriverTest {
       identity = testUtils.getUsername1();
     } else {
       throw CallStatus.UNAUTHENTICATED
-          .withDescription("Username or password is invalid.")
-          .toRuntimeException();
+      .withDescription("Username or password is invalid.")
+      .toRuntimeException();
     }
     return () -> identity;
   }

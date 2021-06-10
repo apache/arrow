@@ -60,12 +60,14 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
   }
 
   @Override
-  public Connection connect(String url, Properties info) throws SQLException {
+  public Connection connect(final String url, final Properties info)
+      throws SQLException {
 
-    Properties clonedProperties = (Properties) info.clone();
+    final Properties clonedProperties = (Properties) info.clone();
 
     try {
-      Map<String, String> args = getUrlsArgs(Preconditions.checkNotNull(url));
+      final Map<String, String> args = getUrlsArgs(
+          Preconditions.checkNotNull(url));
 
       clonedProperties.putAll(args);
 
@@ -76,7 +78,7 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
   }
 
   @Override
-  protected String getFactoryClassName(JdbcVersion jdbcVersion) {
+  protected String getFactoryClassName(final JdbcVersion jdbcVersion) {
     return ArrowFlightJdbcFactory.class.getName();
   }
 
@@ -88,40 +90,40 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
       if (version != null) {
         break CreateVersionIfNull;
       }
-  
+
       try (Reader reader =
-            new BufferedReader(new InputStreamReader(
-                new FileInputStream("pom.xml"), "UTF-8"))) {
-  
-        Model flightJdbcDriverPom = (new MavenXpp3Reader()).read(reader);
-        Parent arrowFlightPom = flightJdbcDriverPom.getParent();
-  
-        String parentVersion = arrowFlightPom.getVersion();
-        String childVersion = flightJdbcDriverPom.getVersion();
-  
-        int[] childVersionParts =
+          new BufferedReader(new InputStreamReader(
+              new FileInputStream("pom.xml"), "UTF-8"))) {
+
+        final Model flightJdbcDriverPom = (new MavenXpp3Reader()).read(reader);
+        final Parent arrowFlightPom = flightJdbcDriverPom.getParent();
+
+        final String parentVersion = arrowFlightPom.getVersion();
+        final String childVersion = flightJdbcDriverPom.getVersion();
+
+        final int[] childVersionParts =
             Arrays.stream(parentVersion.split("\\.")).limit(2)
-              .mapToInt(Integer::parseInt).toArray();
-        
-        int[] parentVersionParts =
+            .mapToInt(Integer::parseInt).toArray();
+
+        final int[] parentVersionParts =
             Arrays.stream(parentVersion.split("\\.")).limit(2)
-              .mapToInt(Integer::parseInt).toArray();
-  
+            .mapToInt(Integer::parseInt).toArray();
+
         version = new DriverVersion(flightJdbcDriverPom.getName(), childVersion,
             arrowFlightPom.getId(), parentVersion, true, childVersionParts[0],
             childVersionParts[1], parentVersionParts[0], parentVersionParts[1]);
       } catch (IOException | XmlPullParserException e) {
         throw new RuntimeException("Failed to load driver version.", e);
       }
-    
+
     }
 
     return version;
   }
 
   @Override
-  public Meta createMeta(AvaticaConnection connection) {
-    return new ArrowFlightMetaImpl((ArrowFlightConnection) connection);
+  public Meta createMeta(final AvaticaConnection connection) {
+    return new ArrowFlightMetaImpl(connection);
   }
 
   @Override
@@ -130,7 +132,7 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
   }
 
   @Override
-  public boolean acceptsURL(String url) throws SQLException {
+  public boolean acceptsURL(final String url) throws SQLException {
     return Preconditions.checkNotNull(url).startsWith(CONNECT_STRING_PREFIX);
   }
 
@@ -144,11 +146,12 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
    * @throws SQLException
    *           If an error occurs while trying to parse the URL.
    */
-  private Map<String, String> getUrlsArgs(String url) throws SQLException {
+  private Map<String, String> getUrlsArgs(final String url)
+      throws SQLException {
     @RegEx
     final String regex =
         "^(" + getConnectStringPrefix() + ")" +
-            "(\\w+):([\\d]+)\\/*\\?*([[\\w]*=[\\w]*&?]*)?";
+        "(\\w+):([\\d]+)\\/*\\?*([[\\w]*=[\\w]*&?]*)?";
 
     /*
      * URL must ALWAYS start follow pattern
@@ -164,10 +167,10 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
     resultMap.put(DefaultProperty.PORT.toString(), matcher.group(3));
 
     // Group 4 contains all optional parameters, if provided -- must check.
-    final String group4 = matcher.group(4);
+    final String extraParams = matcher.group(4);
 
-    if (!Strings.isNullOrEmpty(group4)) {
-      for (String params : group4.split("&")) {
+    if (!Strings.isNullOrEmpty(extraParams)) {
+      for (final String params : extraParams.split("&")) {
         final String[] keyValuePair = params.split("=");
         resultMap.put(keyValuePair[0], keyValuePair[1]);
       }

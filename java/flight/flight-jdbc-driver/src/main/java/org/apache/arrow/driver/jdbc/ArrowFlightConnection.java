@@ -39,7 +39,7 @@ import org.apache.calcite.avatica.AvaticaFactory;
  */
 public final class ArrowFlightConnection extends AvaticaConnection {
 
-  private BufferAllocator allocator;
+  private final BufferAllocator allocator;
 
   // TODO Use this later to run queries.
   @SuppressWarnings("unused")
@@ -54,15 +54,16 @@ public final class ArrowFlightConnection extends AvaticaConnection {
    * @param info The properties of this connection.
    * @throws SQLException If the connection cannot be established.
    */
-  public ArrowFlightConnection(ArrowFlightJdbcDriver driver,
-      AvaticaFactory factory, String url, Properties info) throws SQLException {
+  public ArrowFlightConnection(final ArrowFlightJdbcDriver driver,
+      final AvaticaFactory factory, final String url, final Properties info)
+          throws SQLException {
     super(driver, factory, url, info);
     allocator = new RootAllocator(
         Integer.MAX_VALUE);
-    
+
     try {
       loadClient();
-    } catch (SQLException e) {
+    } catch (final SQLException e) {
       allocator.close();
       throw e;
     }
@@ -92,25 +93,27 @@ public final class ArrowFlightConnection extends AvaticaConnection {
       throw new IllegalStateException("Client already loaded.");
     }
 
-    String host = (String) info.getOrDefault(DefaultProperty.HOST.toString(),
+    final String host = (String) info.getOrDefault(DefaultProperty.HOST.toString(),
         "localhost");
     Preconditions.checkArgument(!host.trim().isEmpty());
 
-    int port = Integer.parseInt((String) info.getOrDefault(DefaultProperty.PORT
-        .toString(), "32010"));
+    final int port = Integer.parseInt((String) info.getOrDefault(
+        DefaultProperty.PORT.toString(), "32010"));
     Preconditions.checkArgument(0 < port && port < 65536);
 
     @Nullable
-    String username = info.getProperty(DefaultProperty.USER.toString());
+    final String username =
+        info.getProperty(DefaultProperty.USER.toString());
 
     @Nullable
-    String password = info.getProperty(DefaultProperty.PASS.toString());
+    final String password =
+        info.getProperty(DefaultProperty.PASS.toString());
 
-    boolean useTls = ((String) info.getOrDefault(DefaultProperty.USE_TLS
+    final boolean useTls = ((String) info.getOrDefault(DefaultProperty.USE_TLS
         .toString(), "false"))
         .equalsIgnoreCase("true");
-    
-    boolean authenticate = username != null;
+
+    final boolean authenticate = username != null;
 
     if (!useTls) {
 
@@ -126,9 +129,9 @@ public final class ArrowFlightConnection extends AvaticaConnection {
 
     }
 
-    String keyStorePath = info.getProperty(
+    final String keyStorePath = info.getProperty(
         DefaultProperty.KEYSTORE_PATH.toString());
-    String keyStorePass = info.getProperty(
+    final String keyStorePass = info.getProperty(
         DefaultProperty.KEYSTORE_PASS.toString());
 
     if (authenticate) {
@@ -145,7 +148,7 @@ public final class ArrowFlightConnection extends AvaticaConnection {
   public void close() throws SQLException {
     try {
       client.close();
-    } catch (Exception e) {
+    } catch (final Exception e) {
       throw new SQLException(
           "Failed to close the connection " +
               "to the Arrow Flight client.", e);
@@ -153,7 +156,7 @@ public final class ArrowFlightConnection extends AvaticaConnection {
 
     try {
       allocator.close();
-    } catch (Exception e) {
+    } catch (final Exception e) {
       throw new SQLException("Failed to close the resource allocator used " +
           "by the Arrow Flight client.", e);
     }
