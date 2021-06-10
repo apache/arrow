@@ -140,7 +140,7 @@ public final class ArrowFlightConnection extends AvaticaConnection {
     Preconditions.checkArgument(!host.trim().isEmpty());
 
     int port = Integer.parseInt((String) info.getOrDefault(PORT, "32010"));
-    Preconditions.checkArgument(port > 0);
+    Preconditions.checkArgument(0 < port && port < 65536);
 
     @Nullable
     String username = info.getProperty(USER);
