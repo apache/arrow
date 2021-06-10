@@ -122,7 +122,7 @@ class ThreadPool::WorkerControl {
     quick_shutdown_ = other.quick_shutdown_;
     // Launch worker threads anew
     if (!please_shutdown_) {
-      SetCapacity(other.desired_capacity_);
+      ARROW_UNUSED(SetCapacity(other.desired_capacity_));
     }
   }
 
