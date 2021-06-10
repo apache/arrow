@@ -99,5 +99,4 @@ jobs:
             $GITHUB_WORKSPACE/arrow \
             $GITHUB_WORKSPACE/arrow/java/dist \
             $GITHUB_WORKSPACE/arrow/java/dist
-          ls -lah $GITHUB_WORKSPACE/arrow/java/dist
       {{ macros.github_upload_releases(["arrow/java/dist/*.jar", "arrow/java/dist/*.pom"])|indent }}
