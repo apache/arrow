@@ -154,7 +154,7 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
         "(\\w+):([\\d]+)\\/*\\?*([[\\w]*=[\\w]*&?]*)?";
 
     /*
-     * URL must ALWAYS start follow pattern
+     * URL must ALWAYS follow the pattern:
      * "jdbc:arrow-flight://<host>:<port>[/?param1=value1&param2=value2&(...)]."
      */
     final Matcher matcher = Pattern.compile(regex).matcher(url);
