@@ -443,8 +443,8 @@ nse_funcs$strptime <- function(x, format = "%Y-%m-%d %H:%M:%S", tz = NULL, unit 
   Expression$create("strptime", x, options = list(format = format, unit = unit))
 }
 
-nse_funcs$wday <- function(x, label = FALSE, abbr = TRUE, week_start = getOption("lubridate.week.start", 7)){
-  if(label){
+nse_funcs$wday <- function(x, label = FALSE, abbr = TRUE, week_start = getOption("lubridate.week.start", 7)) {
+  if (label) {
     arrow_not_supported("Label argument")
   }
   offset <- get_date_offset(week_start)
@@ -463,8 +463,8 @@ nse_funcs$wday <- function(x, label = FALSE, abbr = TRUE, week_start = getOption
 #' @param week_start Day on which week starts following ISO conventions - 1 means Monday, 7 means Sunday.
 #' @return Offset value, integer
 #' @keywords internal
-get_date_offset <- function(week_start){
-  if(week_start < 1 || week_start > 7){
+get_date_offset <- function(week_start) {
+  if (week_start < 1 || week_start > 7) {
     abort(c(
       "The value of `week_start` must be between 1 and 7",
       x = paste("`week_start` =", week_start)
@@ -475,3 +475,4 @@ get_date_offset <- function(week_start){
   
   offset_vals[week_start] + 1
 }
+
