@@ -27,16 +27,17 @@ import org.apache.calcite.avatica.Meta.StatementHandle;
  */
 public class ArrowFlightStatement extends AvaticaStatement {
 
-  public ArrowFlightStatement(AvaticaConnection connection,
-      StatementHandle handle, int resultSetType, int resultSetConcurrency,
-      int resultSetHoldability) {
+  public ArrowFlightStatement(final AvaticaConnection connection,
+      final StatementHandle handle, final int resultSetType,
+      final int resultSetConcurrency, final int resultSetHoldability) {
     super(connection, handle, resultSetType, resultSetConcurrency,
         resultSetHoldability);
   }
 
-  public ArrowFlightStatement(AvaticaConnection connection,
-      StatementHandle handle, int resultSetType, int resultSetConcurrency,
-      int resultSetHoldability, Signature signature) {
+  public ArrowFlightStatement(final AvaticaConnection connection,
+      final StatementHandle handle, final int resultSetType,
+      final int resultSetConcurrency, final int resultSetHoldability,
+      final Signature signature) {
     super(connection, handle, resultSetType, resultSetConcurrency,
         resultSetHoldability, signature);
   }

@@ -62,8 +62,8 @@ public final class ArrowFlightClient implements AutoCloseable {
 
   private final CredentialCallOption bearerToken;
 
-  private ArrowFlightClient(FlightClient client,
-      CredentialCallOption properties) {
+  private ArrowFlightClient(final FlightClient client,
+      final CredentialCallOption properties) {
     this.client = client;
     this.bearerToken = properties;
   }
@@ -97,8 +97,8 @@ public final class ArrowFlightClient implements AutoCloseable {
    * @throws Exception
    *           If an error occurs during query execution.
    */
-  public VectorSchemaRoot runQuery(String query,
-      HeaderCallOption headerCallOption) throws Exception {
+  public VectorSchemaRoot runQuery(final String query,
+      final HeaderCallOption headerCallOption) throws Exception {
     /*
      * TODO Run a query and return its corresponding VectorSchemaRoot, which
      * must later be converted into a ResultSet.
@@ -116,7 +116,7 @@ public final class ArrowFlightClient implements AutoCloseable {
    *          The client properties to execute this request with.
    * @return a {@link FlightInfo} object.
    */
-  public FlightInfo getInfo(String query, CallOption... options) {
+  public FlightInfo getInfo(final String query, final CallOption... options) {
     return client.getInfo(
         FlightDescriptor.command(query.getBytes(StandardCharsets.UTF_8)),
         options);
@@ -133,7 +133,8 @@ public final class ArrowFlightClient implements AutoCloseable {
    *          The client properties to execute this request with.
    * @return a {@code FlightStream} of results.
    */
-  public FlightStream getStream(FlightInfo flightInfo, CallOption... options) {
+  public FlightStream getStream(final FlightInfo flightInfo,
+      final CallOption... options) {
     return client.getStream(null, options);
   }
 
@@ -159,15 +160,17 @@ public final class ArrowFlightClient implements AutoCloseable {
    *         to the wrapped client.
    */
   public static ArrowFlightClient getBasicClientAuthenticated(
-      BufferAllocator allocator,
-      String host, int port, String username,
-      @Nullable String password, @Nullable HeaderCallOption clientProperties) {
+      final BufferAllocator allocator,
+      final String host, final int port, final String username,
+      @Nullable final String password,
+      @Nullable final HeaderCallOption clientProperties) {
 
-    ClientIncomingAuthHeaderMiddleware.Factory factory =
+    final ClientIncomingAuthHeaderMiddleware.Factory factory =
         new ClientIncomingAuthHeaderMiddleware.Factory(
             new ClientBearerHeaderHandler());
 
-    FlightClient flightClient = FlightClient.builder().allocator(allocator)
+    final FlightClient flightClient = FlightClient.builder()
+        .allocator(allocator)
         .location(
             Location.forGrpcInsecure(host, port))
         .intercept(factory).build();
@@ -194,10 +197,11 @@ public final class ArrowFlightClient implements AutoCloseable {
    *         to the wrapped client.
    */
   public static ArrowFlightClient getBasicClientNoAuth(
-      BufferAllocator allocator,
-      String host, int port, @Nullable HeaderCallOption clientProperties) {
+      final BufferAllocator allocator,
+      final String host, final int port,
+      @Nullable final HeaderCallOption clientProperties) {
 
-    FlightClient flightClient = FlightClient.builder().allocator(allocator)
+    final FlightClient flightClient = FlightClient.builder().allocator(allocator)
         .location(
             Location.forGrpcInsecure(host, port)).build();
 
@@ -240,19 +244,21 @@ public final class ArrowFlightClient implements AutoCloseable {
    *           If an I/O operation fails.
    */
   public static ArrowFlightClient getEncryptedClientAuthenticated(
-      BufferAllocator allocator,
-      String host, int port,
-      @Nullable HeaderCallOption clientProperties, String username,
-      @Nullable String password, String keyStorePath, String keyStorePass)
-      throws SQLException {
+      final BufferAllocator allocator,
+      final String host, final int port,
+      @Nullable final HeaderCallOption clientProperties, final String username,
+      @Nullable final String password, final String keyStorePath,
+      final String keyStorePass)
+          throws SQLException {
 
     try {
 
-      ClientIncomingAuthHeaderMiddleware.Factory factory =
+      final ClientIncomingAuthHeaderMiddleware.Factory factory =
           new ClientIncomingAuthHeaderMiddleware.Factory(
               new ClientBearerHeaderHandler());
 
-      FlightClient flightClient = FlightClient.builder().allocator(allocator)
+      final FlightClient flightClient = FlightClient.builder()
+          .allocator(allocator)
           .location(
               Location.forGrpcTls(host, port))
           .intercept(factory).useTls()
@@ -261,7 +267,7 @@ public final class ArrowFlightClient implements AutoCloseable {
 
       return new ArrowFlightClient(flightClient, getAuthenticate(flightClient,
           username, password, factory, clientProperties));
-    } catch (Exception e) {
+    } catch (final Exception e) {
       throw new SQLException(
           "Failed to create a new Arrow Flight client.", e);
     }
@@ -299,15 +305,16 @@ public final class ArrowFlightClient implements AutoCloseable {
    *           If an I/O operation fails.
    */
   public static ArrowFlightClient getEncryptedClientNoAuth(
-      BufferAllocator allocator,
-      String host, int port,
-      @Nullable HeaderCallOption clientProperties, String keyStorePath,
-      String keyStorePass)
-      throws SQLException {
+      final BufferAllocator allocator,
+      final String host, final int port,
+      @Nullable final HeaderCallOption clientProperties,
+      final String keyStorePath, final String keyStorePass)
+          throws SQLException {
 
     try {
 
-      FlightClient flightClient = FlightClient.builder().allocator(allocator)
+      final FlightClient flightClient = FlightClient.builder()
+          .allocator(allocator)
           .location(
               Location.forGrpcTls(host, port)).useTls()
           .trustedCertificates(getCertificateStream(keyStorePath, keyStorePass))
@@ -315,7 +322,7 @@ public final class ArrowFlightClient implements AutoCloseable {
 
       return new ArrowFlightClient(flightClient, null);
     } catch (KeyStoreException | NoSuchAlgorithmException |
-          CertificateException | IOException e) {
+        CertificateException | IOException e) {
       throw new SQLException("Failed to create an Arrow Flight client.", e);
     }
   }
@@ -337,10 +344,10 @@ public final class ArrowFlightClient implements AutoCloseable {
    * @return {@link CredentialCallOption} encapsulating the bearer token to use
    *         in subsequent requests.
    */
-  public static CredentialCallOption getAuthenticate(FlightClient client,
-      String username, @Nullable String password,
-      ClientIncomingAuthHeaderMiddleware.Factory factory,
-      @Nullable HeaderCallOption clientProperties) {
+  public static CredentialCallOption getAuthenticate(final FlightClient client,
+      final String username, @Nullable final String password,
+      final ClientIncomingAuthHeaderMiddleware.Factory factory,
+      @Nullable final HeaderCallOption clientProperties) {
 
     final List<CallOption> callOptions = new ArrayList<>();
 
@@ -368,18 +375,18 @@ public final class ArrowFlightClient implements AutoCloseable {
    * @throws Exception
    *           If there was an error looking up the private key or certificates.
    */
-  public static InputStream getCertificateStream(String keyStorePath,
-      String keyStorePass) throws KeyStoreException, NoSuchAlgorithmException,
-      CertificateException, IOException {
+  public static InputStream getCertificateStream(final String keyStorePath,
+      final String keyStorePass) throws KeyStoreException,
+      NoSuchAlgorithmException, CertificateException, IOException {
 
-    KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+    final KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
     try (final InputStream keyStoreStream = Files
         .newInputStream(Paths.get(Preconditions.checkNotNull(keyStorePath)))) {
       keyStore.load(keyStoreStream,
           Preconditions.checkNotNull(keyStorePass).toCharArray());
     }
 
-    Enumeration<String> aliases = keyStore.aliases();
+    final Enumeration<String> aliases = keyStore.aliases();
 
     while (aliases.hasMoreElements()) {
       final String alias = aliases.nextElement();
@@ -392,7 +399,7 @@ public final class ArrowFlightClient implements AutoCloseable {
     throw new CertificateException("Keystore did not have a certificate.");
   }
 
-  private static InputStream toInputStream(Certificate certificate)
+  private static InputStream toInputStream(final Certificate certificate)
       throws IOException {
 
     try (final StringWriter writer = new StringWriter();
@@ -409,7 +416,7 @@ public final class ArrowFlightClient implements AutoCloseable {
   public void close() throws Exception {
     try {
       client.close();
-    } catch (InterruptedException e) {
+    } catch (final InterruptedException e) {
       System.out.println("[WARNING] Failed to close resource.");
       e.printStackTrace();
     }

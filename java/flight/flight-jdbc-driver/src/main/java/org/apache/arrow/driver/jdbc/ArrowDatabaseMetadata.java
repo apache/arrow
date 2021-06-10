@@ -26,8 +26,8 @@ import org.apache.calcite.avatica.AvaticaDatabaseMetaData;
  * Arrow Flight JDBC's implementation of {@link DatabaseMetaData}.
  */
 public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
-  
-  protected ArrowDatabaseMetadata(AvaticaConnection connection) {
+
+  protected ArrowDatabaseMetadata(final AvaticaConnection connection) {
     super(connection);
   }
 }

@@ -35,11 +35,13 @@ public class ArrowFlightPreparedStatement extends AvaticaPreparedStatement {
   @SuppressWarnings("unused")
   private final PreparedStatement preparedStatement;
 
-  ArrowFlightPreparedStatement(AvaticaConnection connection, Meta.StatementHandle handle,
-                                      Meta.Signature signature, int resultSetType,
-                                      int resultSetConcurrency, int resultSetHoldability,
-                                      PreparedStatement preparedStatement) throws SQLException {
-    super(connection, handle, signature, resultSetType, resultSetConcurrency, resultSetHoldability);
+  ArrowFlightPreparedStatement(final AvaticaConnection connection,
+      final Meta.StatementHandle handle,
+      final Meta.Signature signature, final int resultSetType,
+      final int resultSetConcurrency, final int resultSetHoldability,
+      final PreparedStatement preparedStatement) throws SQLException {
+    super(connection, handle, signature, resultSetType, resultSetConcurrency,
+        resultSetHoldability);
     this.preparedStatement = preparedStatement;
   }
 

@@ -64,7 +64,7 @@ public class ConnectionTest {
     allocator = new RootAllocator(Long.MAX_VALUE);
 
     flightTestUtils = new FlightTestUtils("localhost", "flight1",
-            "woho1", "invalid", "wrong");
+        "woho1", "invalid", "wrong");
 
     final FlightProducer flightProducer = flightTestUtils.getFlightProducer(allocator);
     this.server = flightTestUtils.getStartedServer((location -> FlightServer
@@ -73,7 +73,7 @@ public class ConnectionTest {
             new BasicCallHeaderAuthenticator(this::validate)))
         .build()));
     serverUrl = flightTestUtils.getConnectionPrefix() +
-            flightTestUtils.getLocalhost() + ":" + this.server.getPort();
+        flightTestUtils.getLocalhost() + ":" + this.server.getPort();
 
     // TODO Double-check this later.
     Class.forName("org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver");
@@ -93,20 +93,20 @@ public class ConnectionTest {
    *          flight server password.
    * @return the result of validation.
    */
-  private CallHeaderAuthenticator.AuthResult validate(String username,
-      String password) {
+  private CallHeaderAuthenticator.AuthResult validate(final String username,
+      final String password) {
     if (Strings.isNullOrEmpty(username)) {
       throw CallStatus.UNAUTHENTICATED
-          .withDescription("Credentials not supplied.").toRuntimeException();
+      .withDescription("Credentials not supplied.").toRuntimeException();
     }
     final String identity;
     if (flightTestUtils.getUsername1().equals(username) &&
-            flightTestUtils.getPassword1().equals(password)) {
+        flightTestUtils.getPassword1().equals(password)) {
       identity = flightTestUtils.getUsername1();
     } else {
       throw CallStatus.UNAUTHENTICATED
-          .withDescription("Username or password is invalid.")
-          .toRuntimeException();
+      .withDescription("Username or password is invalid.")
+      .toRuntimeException();
     }
     return () -> identity;
   }
@@ -121,7 +121,7 @@ public class ConnectionTest {
   @Test
   public void testUnencryptedConnectionShouldOpenSuccessfullyWhenProvidedValidCredentials()
       throws Exception {
-    Properties properties = new Properties();
+    final Properties properties = new Properties();
 
     properties.put("user", flightTestUtils.getUsername1());
     properties.put("password", flightTestUtils.getPassword1());
@@ -142,9 +142,9 @@ public class ConnectionTest {
   public void testGetBasicClientAuthenticatedShouldOpenConnection() throws Exception {
 
     try (ArrowFlightClient client = ArrowFlightClient.getBasicClientAuthenticated(
-            allocator, flightTestUtils.getLocalhost(), this.server.getPort(),
-              flightTestUtils.getUsername1(), flightTestUtils.getPassword1(),
-              null)) {
+        allocator, flightTestUtils.getLocalhost(), this.server.getPort(),
+        flightTestUtils.getUsername1(), flightTestUtils.getPassword1(),
+        null)) {
       assertNotNull(client);
     }
   }
@@ -159,9 +159,9 @@ public class ConnectionTest {
   public void testGetBasicClientNoAuthShouldOpenConnection() throws Exception {
 
     try (ArrowFlightClient client = ArrowFlightClient.getBasicClientNoAuth(
-            allocator, flightTestUtils.getLocalhost(), this.server.getPort(),
-              null)) {
-      assertNotNull(client); 
+        allocator, flightTestUtils.getLocalhost(), this.server.getPort(),
+        null)) {
+      assertNotNull(client);
     }
   }
 
@@ -176,12 +176,13 @@ public class ConnectionTest {
   public void testUnencryptedConnectionShouldThrowExceptionWhenProvidedWithInvalidCredentials()
       throws Exception {
 
-    Properties properties = new Properties();
+    final Properties properties = new Properties();
 
     properties.put("user", flightTestUtils.getUsernameInvalid());
     properties.put("password", flightTestUtils.getPasswordInvalid());
 
-    try (Connection connection = DriverManager.getConnection(serverUrl, properties)) {
+    try (Connection connection = DriverManager.getConnection(serverUrl,
+        properties)) {
       // Shouldn't reach this.
     }
   }

@@ -32,90 +32,92 @@ import org.apache.calcite.avatica.remote.TypedValue;
  */
 public class ArrowFlightMetaImpl extends MetaImpl {
 
-  public ArrowFlightMetaImpl(AvaticaConnection connection) {
+  public ArrowFlightMetaImpl(final AvaticaConnection connection) {
     super(connection);
     setDefaultConnectionProperties();
   }
 
   @Override
-  public void closeStatement(StatementHandle statementHandle) {
+  public void closeStatement(final StatementHandle statementHandle) {
     // TODO Fill this stub.
   }
 
   @Override
-  public void commit(ConnectionHandle connectionHandle) {
+  public void commit(final ConnectionHandle connectionHandle) {
     // TODO Fill this stub.
   }
 
   @Override
-  public ExecuteResult execute(StatementHandle statementHandle,
-      List<TypedValue> typedValues, long maxRowCount)
-      throws NoSuchStatementException {
+  public ExecuteResult execute(final StatementHandle statementHandle,
+      final List<TypedValue> typedValues, final long maxRowCount)
+          throws NoSuchStatementException {
     return null;
   }
 
   @Override
-  public ExecuteResult execute(StatementHandle statementHandle,
-      List<TypedValue> typedValues, int maxRowsInFirstFrame)
-      throws NoSuchStatementException {
+  public ExecuteResult execute(final StatementHandle statementHandle,
+      final List<TypedValue> typedValues, final int maxRowsInFirstFrame)
+          throws NoSuchStatementException {
     return null;
   }
 
   @Override
-  public ExecuteBatchResult executeBatch(StatementHandle statementHandle,
-      List<List<TypedValue>> parameterValuesList)
-      throws NoSuchStatementException {
-    // TODO Fill this stub.
-    return null;
-  }
-
-  @Override
-  public Frame fetch(StatementHandle statementHandle, long offset,
-      int fetchMaxRowCount)
-      throws NoSuchStatementException, MissingResultsException {
+  public ExecuteBatchResult executeBatch(final StatementHandle statementHandle,
+      final List<List<TypedValue>> parameterValuesList)
+          throws NoSuchStatementException {
     // TODO Fill this stub.
     return null;
   }
 
   @Override
-  public StatementHandle prepare(ConnectionHandle connectionHandle,
-      String query, long maxRowCount) {
+  public Frame fetch(final StatementHandle statementHandle, final long offset,
+      final int fetchMaxRowCount)
+          throws NoSuchStatementException, MissingResultsException {
     // TODO Fill this stub.
     return null;
   }
 
   @Override
-  public ExecuteResult prepareAndExecute(StatementHandle statementHandle,
-      String query, long maxRowCount, PrepareCallback prepareCallback)
-      throws NoSuchStatementException {
+  public StatementHandle prepare(final ConnectionHandle connectionHandle,
+      final String query, final long maxRowCount) {
     // TODO Fill this stub.
     return null;
   }
 
   @Override
-  public ExecuteResult prepareAndExecute(StatementHandle statementHandle,
-      String query, long maxRowCount, int maxRowsInFirstFrame,
-      PrepareCallback prepareCallback) throws NoSuchStatementException {
+  public ExecuteResult prepareAndExecute(final StatementHandle statementHandle,
+      final String query, final long maxRowCount,
+      final PrepareCallback prepareCallback)
+          throws NoSuchStatementException {
+    // TODO Fill this stub.
+    return null;
+  }
+
+  @Override
+  public ExecuteResult prepareAndExecute(final StatementHandle statementHandle,
+      final String query, final long maxRowCount, final int maxRowsInFirstFrame,
+      final PrepareCallback prepareCallback) throws NoSuchStatementException {
     // TODO Fill this stub.
     return null;
   }
 
   @Override
   public ExecuteBatchResult prepareAndExecuteBatch(
-      StatementHandle statementHandle, List<String> queries)
-      throws NoSuchStatementException {
+      final StatementHandle statementHandle, final List<String> queries)
+          throws NoSuchStatementException {
     // TODO Fill this stub.
     return null;
   }
 
   @Override
-  public void rollback(ConnectionHandle connectionHandle) {
+  public void rollback(final ConnectionHandle connectionHandle) {
     // TODO Fill this stub.
   }
 
   @Override
-  public boolean syncResults(StatementHandle statementHandle,
-      QueryState queryState, long offset) throws NoSuchStatementException {
+  public boolean syncResults(final StatementHandle statementHandle,
+      final QueryState queryState, final long offset)
+          throws NoSuchStatementException {
     // TODO Fill this stub.
     return false;
   }
@@ -127,7 +129,7 @@ public class ArrowFlightMetaImpl extends MetaImpl {
   private void setDefaultConnectionProperties() {
     // TODO Double-check this.
     connProps.setAutoCommit(true).setReadOnly(true)
-        .setTransactionIsolation(Connection.TRANSACTION_NONE);
+    .setTransactionIsolation(Connection.TRANSACTION_NONE);
     connProps.setDirty(false);
   }
 }
