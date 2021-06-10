@@ -443,14 +443,13 @@ nse_funcs$strptime <- function(x, format = "%Y-%m-%d %H:%M:%S", tz = NULL, unit 
   Expression$create("strptime", x, options = list(format = format, unit = unit))
 }
 
-nse_funcs$wday <- function(x, label = FALSE, abbr = TRUE, week_start = getOption("lubridate.week.start", 7), locale = Sys.getlocale("LC_TIME")){
+nse_funcs$wday <- function(x, label = FALSE, abbr = TRUE, week_start = getOption("lubridate.week.start", 7)){
   if(label){
     arrow_not_supported("Label argument")
   }
   offset <- get_date_offset(week_start)
   Expression$create("add", Expression$create("day_of_week", x), Expression$scalar(offset))
 }
-
 
 #' Get date offset
 #' 
@@ -461,8 +460,8 @@ nse_funcs$wday <- function(x, label = FALSE, abbr = TRUE, week_start = getOption
 #' providing offset values based on the specified week_start day, and adding 1
 #' so the returned value is 1-indexed instead of 0-indexed.
 #' 
-#' @param week_start day on which week starts following ISO conventions - 1 means Monday, 7 means Sunday.
-#' 
+#' @param week_start Day on which week starts following ISO conventions - 1 means Monday, 7 means Sunday.
+#' @return Offset value, integer
 #' @keywords internal
 get_date_offset <- function(week_start){
   if(week_start < 1 || week_start > 7){

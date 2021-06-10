@@ -21,7 +21,8 @@ library(dplyr)
 test_date <- ymd_hms("1987-10-09 23:00:00", tz = NULL)
 test_df <- tibble::tibble(date = test_date)
 
-test_that("extract date components", {
+
+test_that("extract datetime components from date", {
   expect_dplyr_equal(
     input %>%
       mutate(x = year(date)) %>%
@@ -55,6 +56,30 @@ test_that("extract date components", {
       mutate(x = wday(date)) %>%
       collect(),
     test_df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = wday(date, week_start = 3)) %>%
+      collect(),
+    test_df
+  )
+  
+  expect_warning(
+    test_df %>%
+      Table$create() %>%
+      mutate(x = wday(date, label = TRUE)) %>%
+      collect(),
+    regexp = "Label argument not supported by Arrow; pulling data into R"
+  )
+  
+  expect_warning(
+    test_df %>%
+      Table$create() %>%
+      mutate(x = wday(date, locale = Sys.getlocale("LC_TIME"))) %>%
+      collect(),
+    regexp = 'Expression wday(date, locale = Sys.getlocale("LC_TIME")) not supported in Arrow; pulling data into R',
+    fixed = TRUE
   )
   
   expect_dplyr_equal(
