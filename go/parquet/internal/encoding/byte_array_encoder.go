@@ -29,6 +29,8 @@ import (
 // by encoding the length as a int32 followed by the bytes of the value.
 type PlainByteArrayEncoder struct {
 	encoder
+
+	bitSetReader utils.SetBitRunReader
 }
 
 // PutByteArray writes out the 4 bytes for the length followed by the data
@@ -53,9 +55,19 @@ func (enc *PlainByteArrayEncoder) Put(in []parquet.ByteArray) {
 // If validBits is nil, this is equivalent to calling Put
 func (enc *PlainByteArrayEncoder) PutSpaced(in []parquet.ByteArray, validBits []byte, validBitsOffset int64) {
 	if validBits != nil {
-		data := make([]parquet.ByteArray, len(in))
-		nvalid := spacedCompress(in, data, validBits, validBitsOffset)
-		enc.Put(data[:nvalid])
+		if enc.bitSetReader == nil {
+			enc.bitSetReader = utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(in)))
+		} else {
+			enc.bitSetReader.Reset(validBits, validBitsOffset, int64(len(in)))
+		}
+
+		for {
+			run := enc.bitSetReader.NextRun()
+			if run.Length == 0 {
+				break
+			}
+			enc.Put(in[int(run.Pos):int(run.Pos+run.Length)])
+		}
 	} else {
 		enc.Put(in)
 	}

@@ -25,6 +25,8 @@ import (
 // always writing typeLength bytes for each value.
 type PlainFixedLenByteArrayEncoder struct {
 	encoder
+
+	bitSetReader utils.SetBitRunReader
 }
 
 // Put writes the provided values to the encoder
@@ -47,9 +49,19 @@ func (enc *PlainFixedLenByteArrayEncoder) Put(in []parquet.FixedLenByteArray) {
 // PutSpaced is like Put but works with data that is spaced out according to the passed in bitmap
 func (enc *PlainFixedLenByteArrayEncoder) PutSpaced(in []parquet.FixedLenByteArray, validBits []byte, validBitsOffset int64) {
 	if validBits != nil {
-		data := make([]parquet.FixedLenByteArray, len(in))
-		nvalid := spacedCompress(in, data, validBits, validBitsOffset)
-		enc.Put(data[:nvalid])
+		if enc.bitSetReader == nil {
+			enc.bitSetReader = utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(in)))
+		} else {
+			enc.bitSetReader.Reset(validBits, validBitsOffset, int64(len(in)))
+		}
+
+		for {
+			run := enc.bitSetReader.NextRun()
+			if run.Length == 0 {
+				break
+			}
+			enc.Put(in[int(run.Pos):int(run.Pos+run.Length)])
+		}
 	} else {
 		enc.Put(in)
 	}
