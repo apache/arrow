@@ -899,3 +899,17 @@ test_that("No duplicate field names are allowed in an arrow_dplyr_query", {
   )
 })
 
+test_that("abs()", {
+  df1 <- tibble(x = c(-127, -10, -1, -0 , 0, 1, 10, 127, NA))
+  df2 <- tibble(x = c(127, 10, 1, 0 , 0, 1, 10, 127, NA))
+
+  expect_equal(
+    df1 %>%
+      Table$create() %>%
+      mutate(
+        x = abs(x)
+      ) %>%
+      collect(),
+    df2
+  )
+})
