@@ -152,8 +152,6 @@ class TestUnaryArithmetic : public TestBase {
 
   void SetOverflowCheck(bool value = true) { options_.check_overflow = value; }
 
-  void SetSignedZero(bool value = true) { options_.allow_signed_zero = value; }
-
   void SetNansEqual(bool value = true) {
     this->equal_options_ = equal_options_.nans_equal(value);
   }
@@ -1035,7 +1033,7 @@ TEST(TestBinaryArithmetic, AddWithImplicitCastsUint64EdgeCase) {
 
 TEST(TestUnaryArithmetic, DispatchBest) {
   // All arithmetic
-  for (std::string name : {"negate", "abs", "abs_checked", "sign"}) {
+  for (std::string name : {"negate", "abs", "abs_checked"}) {
     for (const auto& ty : {int8(), int16(), int32(), int64(), uint8(), uint16(), uint32(),
                            uint64(), float32(), float64()}) {
       CheckDispatchBest(name, {ty}, {ty});
@@ -1051,8 +1049,23 @@ TEST(TestUnaryArithmetic, DispatchBest) {
     }
   }
 
+  // Functions with fixed output type
+  struct FuncAndOutType {
+    std::string name;
+    std::shared_ptr<DataType> out_type;
+  };
+
+  FuncAndOutType funcs[] = {{"sign", int8()}};
+  for (const auto& func : funcs) {
+    for (const auto& ty : {int8(), int16(), int32(), int64(), uint8(), uint16(), uint32(),
+                           uint64(), float32(), float64()}) {
+      CheckDispatchBest(func.name, {ty}, {func.out_type});
+      CheckDispatchBest(func.name, {dictionary(int8(), ty)}, {func.out_type});
+    }
+  }
+
   // Null input
-  for (std::string name : {"negate", "negate_checked", "abs", "abs_checked", "sign"}) {
+  for (std::string name : {"negate", "negate_checked", "abs", "abs_checked", "sign", "sign_with_signed_zero"}) {
     CheckDispatchFails(name, {null()});
   }
 
@@ -1991,28 +2004,20 @@ TYPED_TEST(TestUnaryArithmeticSigned, Sign) {
   auto min = std::numeric_limits<CType>::min();
   auto max = std::numeric_limits<CType>::max();
 
-  for (auto allow_signed_zero : {false, true}) {
-    this->SetSignedZero(allow_signed_zero);
-    // Empty array
-    this->AssertUnaryOp(Sign, "[]", ArrayFromJSON(int8(), "[]"));
-    // Scalar/arrays with nulls
-    this->AssertUnaryOp(Sign, "[null]", ArrayFromJSON(int8(), "[null]"));
-    this->AssertUnaryOp(Sign, "[1, null, -10]", ArrayFromJSON(int8(), "[1, null, -1]"));
-    // Scalar/arrays with zeros
-    this->AssertUnaryOp(Sign, "[0]", ArrayFromJSON(int8(), "[0]"));
-    // Ordinary scalar/arrays (positive inputs)
-    this->AssertUnaryOp(Sign, "[1, 10, 127]", ArrayFromJSON(int8(), "[1, 1, 1]"));
-    // Ordinary scalar/arrays (negative inputs)
-    this->AssertUnaryOp(Sign, "[-1, -10, -127]", ArrayFromJSON(int8(), "[-1, -1, -1]"));
-    // Min/max
-    this->AssertUnaryOp(Sign, ArrayFromJSON(this->type_singleton(), MakeArray(min, max)),
-                        ArrayFromJSON(int8(), "[-1, 1]"));
-
-    auto arg = ArrayFromJSON(this->type_singleton(), MakeArray(-1, min, max, 1));
-    arg = TweakValidityBit(arg, 1, false);
-    arg = TweakValidityBit(arg, 2, false);
-    this->AssertUnaryOp(Sign, arg, ArrayFromJSON(int8(), "[-1, null, null, 1]"));
-  }
+  // Empty array
+  this->AssertUnaryOp(Sign, "[]", ArrayFromJSON(int8(), "[]"));
+  // Scalar/arrays with nulls
+  this->AssertUnaryOp(Sign, "[null]", ArrayFromJSON(int8(), "[null]"));
+  this->AssertUnaryOp(Sign, "[1, null, -10]", ArrayFromJSON(int8(), "[1, null, -1]"));
+  // Scalar/arrays with zeros
+  this->AssertUnaryOp(Sign, "[0]", ArrayFromJSON(int8(), "[0]"));
+  // Ordinary scalar/arrays (positive inputs)
+  this->AssertUnaryOp(Sign, "[1, 10, 127]", ArrayFromJSON(int8(), "[1, 1, 1]"));
+  // Ordinary scalar/arrays (negative inputs)
+  this->AssertUnaryOp(Sign, "[-1, -10, -127]", ArrayFromJSON(int8(), "[-1, -1, -1]"));
+  // Min/max
+  this->AssertUnaryOp(Sign, ArrayFromJSON(this->type_singleton(), MakeArray(min, max)),
+                      ArrayFromJSON(int8(), "[-1, 1]"));
 }
 
 TYPED_TEST(TestUnaryArithmeticUnsigned, Sign) {
@@ -2020,23 +2025,15 @@ TYPED_TEST(TestUnaryArithmeticUnsigned, Sign) {
   auto min = std::numeric_limits<CType>::min();
   auto max = std::numeric_limits<CType>::max();
 
-  for (auto allow_signed_zero : {false, true}) {
-    this->SetSignedZero(allow_signed_zero);
-    // Empty arrays
-    this->AssertUnaryOp(Sign, "[]", ArrayFromJSON(int8(), "[]"));
-    // Array with nulls
-    this->AssertUnaryOp(Sign, "[null]", ArrayFromJSON(int8(), "[null]"));
-    // Ordinary arrays
-    this->AssertUnaryOp(Sign, "[0, 1, 10, 127]", ArrayFromJSON(int8(), "[0, 1, 1, 1]"));
-    // Min/max
-    this->AssertUnaryOp(Sign, ArrayFromJSON(this->type_singleton(), MakeArray(min, max)),
-                        ArrayFromJSON(int8(), "[0, 1]"));
-
-    auto arg = ArrayFromJSON(this->type_singleton(), MakeArray(0, min, max, 1));
-    arg = TweakValidityBit(arg, 1, false);
-    arg = TweakValidityBit(arg, 2, false);
-    this->AssertUnaryOp(Sign, arg, ArrayFromJSON(int8(), "[0, null, null, 1]"));
-  }
+  // Empty arrays
+  this->AssertUnaryOp(Sign, "[]", ArrayFromJSON(int8(), "[]"));
+  // Array with nulls
+  this->AssertUnaryOp(Sign, "[null]", ArrayFromJSON(int8(), "[null]"));
+  // Ordinary arrays
+  this->AssertUnaryOp(Sign, "[0, 1, 10, 127]", ArrayFromJSON(int8(), "[0, 1, 1, 1]"));
+  // Min/max
+  this->AssertUnaryOp(Sign, ArrayFromJSON(this->type_singleton(), MakeArray(min, max)),
+                      ArrayFromJSON(int8(), "[0, 1]"));
 }
 
 TYPED_TEST(TestUnaryArithmeticFloating, Sign) {
@@ -2052,9 +2049,6 @@ TYPED_TEST(TestUnaryArithmeticFloating, Sign) {
                       ArrayFromJSON(int8(), "[1, null, -1]"));
   // Scalars/arrays with zeros
   this->AssertUnaryOp(Sign, "[0.0, -0.0]", ArrayFromJSON(int8(), "[0, 0]"));
-  this->SetSignedZero(true);
-  this->AssertUnaryOp(Sign, "[0.0, -0.0]", ArrayFromJSON(int8(), "[1, -1]"));
-  this->SetSignedZero(false);
   // Ordinary scalars/arrays (positive inputs)
   this->AssertUnaryOp(Sign, "[1.3, 10.80, 12748.001]",
                       ArrayFromJSON(int8(), "[1, 1, 1]"));
@@ -2068,11 +2062,6 @@ TYPED_TEST(TestUnaryArithmeticFloating, Sign) {
   // Min/max
   this->AssertUnaryOp(Sign, ArrayFromJSON(this->type_singleton(), MakeArray(min, max)),
                       ArrayFromJSON(int8(), "[-1, 1]"));
-
-  // auto arg = ArrayFromJSON(this->type_singleton(), MakeArray(-1, min, max, 1));
-  // arg = TweakValidityBit(arg, 1, false);
-  // arg = TweakValidityBit(arg, 2, false);
-  // this->AssertUnaryOp(Sign, arg, ArrayFromJSON(int8(), "[-1, null, null, 1]"));
 }
 }  // namespace compute
 }  // namespace arrow
