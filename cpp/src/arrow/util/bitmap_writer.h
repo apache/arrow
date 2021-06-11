@@ -187,7 +187,7 @@ class BitmapWordWriter {
   BitmapWordWriter(uint8_t* bitmap, int64_t offset, int64_t length) {
     bitmap_ = bitmap + offset / 8;
     offset_ = offset % 8;
-    bitmap_end_ = bitmap_ + BitUtil::BytesForBits(offset + length);
+    bitmap_end_ = bitmap_ + BitUtil::BytesForBits(offset_ + length);
     mask_ = (1U << offset_) - 1;
 
     if (offset_) {
@@ -225,22 +225,17 @@ class BitmapWordWriter {
     bitmap_ += sizeof(Word);
   }
 
-  void PutNextWord(Word word, int valid_bits) {
+  void PutTrailingWord(Word word, int valid_bits) {
     assert(static_cast<size_t>(valid_bits) <= sizeof(Word) * 8);
     if (ARROW_PREDICT_FALSE(valid_bits == 0)) {
       return;
-    } else if (ARROW_PREDICT_FALSE(valid_bits == sizeof(Word) * 8)) {
-      return PutNextWord(word);
     }
-    int i = 0;
-    for (; i < valid_bits / 8; i++) {
+
+    int n_bytes = (valid_bits + 7) / 8;
+    for (int i = 0; i < n_bytes; i++) {
       uint8_t byte = *(reinterpret_cast<uint8_t*>(&word) + i);
-      PutNextTrailingByte(byte, 8);
-    }
-    // cleanup
-    if (int remainder = valid_bits - i * 8) {
-      assert(static_cast<size_t>(remainder) < sizeof(Word) * 8);
-      PutNextTrailingByte(*(reinterpret_cast<uint8_t*>(&word) + i), remainder);
+      PutNextTrailingByte(byte, std::min(8, valid_bits));
+      valid_bits -= 8;
     }
   }
 

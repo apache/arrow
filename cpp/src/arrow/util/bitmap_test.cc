@@ -58,95 +58,8 @@ void VerifyBoolOutput(const Bitmap& bitmap, const std::vector<bool>& expected) {
       << "exp: " << VectorToString(expected) << "\ngot: " << bitmap.ToString();
 }
 
-class TestBitmapVisit : public ::testing::Test {};
-
-TEST_F(TestBitmapVisit, SingleWriterOutputZeroOffset) {
-  // choosing part = 199, a prime, so that shifts are falling in-between bytes
-  int64_t part = 199, bits = part * 4;
-
-  std::vector<bool> data;
-  random_bool_vector(data, bits);
-
-  arrow::BooleanBuilder boolean_builder;
-  ASSERT_OK(boolean_builder.AppendValues(data));
-  ASSERT_OK_AND_ASSIGN(auto arrow_data, boolean_builder.Finish());
-
-  std::shared_ptr<Buffer>& arrow_buffer = arrow_data->data()->buffers[1];
-
-  Bitmap bm0(arrow_buffer, 0, part);
-  Bitmap bm1 = bm0.Slice(part * 1, part);  // this goes beyond bm0's len
-  Bitmap bm2 = bm0.Slice(part * 2, part);  // this goes beyond bm0's len
-
-  ASSERT_OK_AND_ASSIGN(auto out, AllocateBitmap(part));
-  Bitmap out_bm(out, 0, part);
-
-  // (bm0 & bm1) | bm2
-  std::array<Bitmap, 3> in_bms{bm0, bm1, bm2};
-  Bitmap::VisitWordsAndWrite(
-      in_bms,
-      [](const std::array<uint64_t, 3>& in_words, uint64_t& out_words) {
-        out_words = (in_words[0] & in_words[1]) | in_words[2];
-      },
-      out_bm);
-
-  std::vector<bool> v0(data.begin(), data.begin() + part);
-  std::vector<bool> v1(data.begin() + part * 1, data.begin() + part * 2);
-  std::vector<bool> v2(data.begin() + part * 2, data.begin() + part * 3);
-  std::vector<bool> v3(part);
-  // v3 = v0 & v1
-  std::transform(v0.begin(), v0.end(), v1.begin(), v3.begin(), std::logical_and<bool>());
-  // v3 |= v2
-  std::transform(v3.begin(), v3.end(), v2.begin(), v3.begin(), std::logical_or<bool>());
-
-  VerifyBoolOutput(out_bm, v3);
-}
-
-TEST_F(TestBitmapVisit, SingleWriterOutputNonZeroOffset) {
-  // choosing part = 199, a prime
-  int64_t part = 199, bits = part * 4;
-
-  std::vector<bool> data;
-  random_bool_vector(data, bits);
-
-  arrow::BooleanBuilder boolean_builder;
-  ASSERT_OK(boolean_builder.AppendValues(data));
-  ASSERT_OK_AND_ASSIGN(auto arrow_data, boolean_builder.Finish());
-
-  std::shared_ptr<Buffer>& arrow_buffer = arrow_data->data()->buffers[1];
-
-  Bitmap bm0(arrow_buffer, 0, part);
-  Bitmap bm1 = bm0.Slice(part * 1, part);  // this goes beyond bm0's len
-  Bitmap bm2 = bm0.Slice(part * 2, part);  // this goes beyond bm0's len
-
-  // allocate lager buffer but only use the last `part`
-  ASSERT_OK_AND_ASSIGN(auto out, AllocateBitmap(part * 2));
-  Bitmap out_bm(out, part, part);
-
-  // (bm0 & bm1) | bm2
-  std::array<Bitmap, 3> in_bms{bm0, bm1, bm2};
-  Bitmap::VisitWordsAndWrite(
-      in_bms,
-      [](const std::array<uint64_t, 3>& in_words, uint64_t& out_words) {
-        out_words = (in_words[0] & in_words[1]) | in_words[2];
-      },
-      out_bm);
-
-  std::vector<bool> v0(data.begin(), data.begin() + part);
-  std::vector<bool> v1(data.begin() + part * 1, data.begin() + part * 2);
-  std::vector<bool> v2(data.begin() + part * 2, data.begin() + part * 3);
-  std::vector<bool> v3(part);
-  // v3 = v0 & v1
-  std::transform(v0.begin(), v0.end(), v1.begin(), v3.begin(), std::logical_and<bool>());
-  // v3 |= v2
-  std::transform(v3.begin(), v3.end(), v2.begin(), v3.begin(), std::logical_or<bool>());
-
-  VerifyBoolOutput(out_bm, v3);
-}
-
-TEST_F(TestBitmapVisit, MultiWriterOutputZeroOffset) {
-  // choosing part = 199, a prime
-  int64_t part = 199, bits = part * 4;
-
+void RunOutputNoOffset(int part) {
+  int64_t bits = 4 * part;
   std::vector<bool> data;
   random_bool_vector(data, bits);
 
@@ -173,12 +86,11 @@ TEST_F(TestBitmapVisit, MultiWriterOutputZeroOffset) {
   // out0 = bm0 & bm1, out1= bm0 | bm2
   std::array<Bitmap, 3> in_bms{bm0, bm1, bm2};
   Bitmap::VisitWordsAndWrite(
-      in_bms,
+      in_bms, &out_bms,
       [](const std::array<uint64_t, 3>& in, std::array<uint64_t, 2>& out) {
         out[0] = in[0] & in[1];
         out[1] = in[0] | in[2];
-      },
-      out_bms);
+      });
 
   std::vector<bool> out_v0(part);
   std::vector<bool> out_v1(part);
@@ -200,10 +112,8 @@ TEST_F(TestBitmapVisit, MultiWriterOutputZeroOffset) {
   VerifyBoolOutput(out_bms[1], out_v1);
 }
 
-TEST_F(TestBitmapVisit, MultiWriterOutputNonZeroOffset) {
-  // choosing part = 199, a prime
-  int64_t part = 199, bits = part * 4;
-
+void RunOutputWithOffset(int64_t part) {
+  int64_t bits = part * 4;
   std::vector<bool> data;
   random_bool_vector(data, bits);
 
@@ -226,22 +136,12 @@ TEST_F(TestBitmapVisit, MultiWriterOutputNonZeroOffset) {
   std::vector<bool> v1(data.begin() + part * 1, data.begin() + part * 2);
   std::vector<bool> v2(data.begin() + part * 2, data.begin() + part * 3);
 
-  //  std::cout << "v0: " << VectorToString(v0)<< "\n";
-  //  std::cout << "b0: " << bm0.ToString() << "\n";
-  //  std::cout << "v1: " << VectorToString(v1) << "\n";
-  //  std::cout << "b1: " << bm1.ToString() << "\n";
-  //  std::cout << "v2: " << VectorToString(v2) << "\n";
-  //  std::cout << "b2: " << bm2.ToString() << "\n";
-
-  // out0 = bm0 & bm1, out1= bm0 | bm2
-  std::array<Bitmap, 3> in_bms{bm0, bm1, bm2};
-  Bitmap::VisitWordsAndWrite(
-      in_bms,
-      [](const std::array<uint64_t, 3>& in, std::array<uint64_t, 2>& out) {
-        out[0] = in[0] & in[1];
-        out[1] = in[0] | in[2];
-      },
-      out_bms);
+  std::cout << "v0: " << VectorToString(v0) << "\n";
+  std::cout << "b0: " << bm0.ToString() << "\n";
+  std::cout << "v1: " << VectorToString(v1) << "\n";
+  std::cout << "b1: " << bm1.ToString() << "\n";
+  std::cout << "v2: " << VectorToString(v2) << "\n";
+  std::cout << "b2: " << bm2.ToString() << "\n";
 
   std::vector<bool> out_v0(part);
   std::vector<bool> out_v1(part);
@@ -252,9 +152,53 @@ TEST_F(TestBitmapVisit, MultiWriterOutputNonZeroOffset) {
   std::transform(v0.begin(), v0.end(), v2.begin(), out_v1.begin(),
                  std::logical_or<bool>());
 
+  std::cout << "out0: " << VectorToString(out_v0) << "\n";
+  std::cout << "out1: " << VectorToString(out_v1) << "\n";
+
+  // out0 = bm0 & bm1, out1= bm0 | bm2
+  std::array<Bitmap, 3> in_bms{bm0, bm1, bm2};
+  Bitmap::VisitWordsAndWrite(
+      in_bms, &out_bms,
+      [](const std::array<uint64_t, 3>& in, std::array<uint64_t, 2>& out) {
+        out[0] = in[0] & in[1];
+        out[1] = in[0] | in[2];
+      });
+
   VerifyBoolOutput(out_bms[0], out_v0);
   VerifyBoolOutput(out_bms[1], out_v1);
 }
+
+class TestBitmapVisitOutputNoOffset : public ::testing::TestWithParam<int32_t> {};
+
+TEST_P(TestBitmapVisitOutputNoOffset, Test1) {
+  auto part = GetParam();
+  RunOutputNoOffset(part);
+}
+
+INSTANTIATE_TEST_SUITE_P(General, TestBitmapVisitOutputNoOffset,
+                         testing::Values(199, 256, 1000));
+
+INSTANTIATE_TEST_SUITE_P(EdgeCases, TestBitmapVisitOutputNoOffset,
+                         testing::Values(5, 13, 21, 29, 37, 41, 51, 59, 64, 97));
+
+INSTANTIATE_TEST_SUITE_P(EdgeCases2, TestBitmapVisitOutputNoOffset,
+                         testing::Values(8, 16, 24, 32, 40, 48, 56, 64));
+
+class TestBitmapVisitOutputWithOffset : public ::testing::TestWithParam<int32_t> {};
+
+TEST_P(TestBitmapVisitOutputWithOffset, Test2) {
+  auto part = GetParam();
+  RunOutputWithOffset(part);
+}
+
+INSTANTIATE_TEST_SUITE_P(General, TestBitmapVisitOutputWithOffset,
+                         testing::Values(199, 256, 1000));
+
+INSTANTIATE_TEST_SUITE_P(EdgeCases, TestBitmapVisitOutputWithOffset,
+                         testing::Values(7, 15, 23, 31, 39, 47, 55, 63, 73, 97));
+
+INSTANTIATE_TEST_SUITE_P(EdgeCases2, TestBitmapVisitOutputWithOffset,
+                         testing::Values(8, 16, 24, 32, 40, 48, 56, 64));
 
 }  // namespace internal
 }  // namespace arrow

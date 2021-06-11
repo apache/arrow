@@ -153,7 +153,7 @@ class BitmapWordReader {
   BitmapWordReader(const uint8_t* bitmap, int64_t offset, int64_t length) {
     bitmap_ = bitmap + offset / 8;
     offset_ = offset % 8;
-    bitmap_end_ = bitmap_ + BitUtil::BytesForBits(offset + length);
+    bitmap_end_ = bitmap_ + BitUtil::BytesForBits(offset_ + length);
 
     // decrement word count by one as we may touch two adjacent words in one iteration
     nwords_ = length / (sizeof(Word) * 8) - 1;
@@ -190,6 +190,21 @@ class BitmapWordReader {
       word |= next_word << (sizeof(Word) * 8 - offset_);
     }
     current_word_ = next_word;
+    return word;
+  }
+
+  Word NextTrailingWord(int& valid_bits) {
+    // safest way to create a word from the trailing bits, is to concatenate bytes
+    // returned by NextTrailingByte
+    Word word = 0;  // only a partial word may be returned.
+    valid_bits = 0;
+    int n_byte = std::min(trailing_bytes_, static_cast<int>(sizeof(Word)));
+    for (int b = 0; b < n_byte; b++) {
+      int valid;
+      auto byte = static_cast<Word>(NextTrailingByte(valid));
+      word |= byte << (b * 8);
+      valid_bits += valid;
+    }
     return word;
   }
 

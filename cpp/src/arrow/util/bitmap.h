@@ -248,186 +248,31 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
     return min_offset;
   }
 
-  /// \brief Visit words of bits from each bitmap as array<Word, N>
+  /// \brief Visit words of bits from each input bitmap as array<Word, N> and collects
+  /// outputs to an array<Word, M>, to be written into the output bitmaps accordingly.
   ///
   /// All bitmaps must have identical length. The first bit in a visited bitmap
   /// may be offset within the first visited word, but words will otherwise contain
   /// densely packed bits loaded from the bitmap. That offset within the first word is
   /// returned.
+  /// Visitor is expected to have the following signature
+  ///     [](const std::array<Word, N>& in_words, std::array<Word, M>& out_words){...}
   ///
-  /// TODO(bkietz) allow for early termination
   // NOTE: this function is efficient on 3+ sufficiently large bitmaps.
   // It also has a large prolog / epilog overhead and should be used
   // carefully in other cases.
   // For 2 bitmaps or less, and/or smaller bitmaps, see also VisitTwoBitBlocksVoid
   // and BitmapUInt64Reader.
-  template <size_t N, typename Visitor,
-            typename Word = typename std::decay<
-                internal::call_traits::argument_type<0, Visitor&&>>::type::value_type>
-  static int64_t VisitWordsAndWrite(const std::array<Bitmap, N>& bitmaps_arg,
-                                    Visitor&& visitor, Bitmap* out_bitmap_arg) {
-    constexpr int64_t kBitWidth = sizeof(Word) * 8;
-
-    // local, mutable variables which will be sliced/decremented to represent consumption:
-    Bitmap bitmaps[N];  // todo use std::array here
-    int64_t bit_length = BitLength(bitmaps_arg);
-
-    struct BitmapHolder {
-      BitmapHolder() = default;
-      explicit BitmapHolder(Bitmap* bitmap_)
-          : bitmap(bitmap_),
-            word_offset(bitmap_->template word_offset<Word>()),
-            words(bitmap_->template words<Word>()) {
-        assert(BitmapHolder::word_offset >= 0 && BitmapHolder::word_offset < kBitWidth);
-      }
-
-      inline void StrideAndUpdate(int64_t _stride) {
-        BitmapHolder::bitmap->Stride(_stride);
-        BitmapHolder::word_offset = bitmap->template word_offset<Word>();
-        assert(BitmapHolder::word_offset >= 0 && BitmapHolder::word_offset < kBitWidth);
-        BitmapHolder::words = bitmap->template words<Word>();
-      }
-
-      Bitmap* bitmap{};
-      int64_t word_offset = 0;
-      View<Word> words;
-    };
-
-    std::array<BitmapHolder, N> in_bitmaps;
-    Bitmap out_bitmap = *out_bitmap_arg;  // make a copy
-
-    for (size_t i = 0; i < N; ++i) {
-      bitmaps[i] = bitmaps_arg[i];  // make a copy
-      in_bitmaps[i] = BitmapHolder(&bitmaps[i]);
-    }
-
-    auto consume = [&](int64_t consumed_bits) {
-      for (size_t i = 0; i < N; ++i) {
-        in_bitmaps[i].StrideAndUpdate(consumed_bits);
-      }
-      out_bitmap.Stride(consumed_bits);
-
-      bit_length -= consumed_bits;
-    };
-
-    std::array<Word, N> visited_words;
-    visited_words.fill(0);
-
-    if (bit_length <= kBitWidth * 2) {
-      // bitmaps fit into one or two words so don't bother with optimization
-      while (bit_length > 0) {
-        auto leading_bits = std::min(bit_length, kBitWidth);
-        SafeLoadWords(bitmaps, 0, leading_bits, false, &visited_words);
-        Word visit_out = visitor(visited_words);  // outputs a word/ partial word
-        CopyBitmap(reinterpret_cast<uint8_t*>(&visit_out), 0, leading_bits,
-                   out_bitmap.buffer_->mutable_data(), out_bitmap.offset());
-        consume(leading_bits);
-      }
-      return 0;
-    }
-
-    auto word_offset_comp = [](const BitmapHolder& l, const BitmapHolder& r) {
-      return l.word_offset < r.word_offset;
-    };
-
-    int64_t max_word_offset =
-        (*std::max_element(in_bitmaps.begin(), in_bitmaps.end(), word_offset_comp))
-            .word_offset;
-    int64_t min_word_offset =
-        (*std::min_element(in_bitmaps.begin(), in_bitmaps.end(), word_offset_comp))
-            .word_offset;
-    if (max_word_offset > 0) {
-      // consume leading bits
-      auto leading_bits = kBitWidth - min_word_offset;
-      SafeLoadWords(bitmaps, 0, leading_bits, true, &visited_words);
-      Word visit_out = visitor(visited_words);
-      CopyBitmap(reinterpret_cast<uint8_t*>(&visit_out), sizeof(Word) * 8 - leading_bits,
-                 leading_bits, out_bitmap.buffer_->mutable_data(), out_bitmap.offset());
-      consume(leading_bits);
-    }
-    assert((*std::min_element(in_bitmaps.begin(), in_bitmaps.end(), word_offset_comp))
-               .word_offset == 0);
-
-    int64_t whole_word_count = bit_length / kBitWidth;
-    assert(whole_word_count >= 1);
-
-    std::vector<Word> visit_outs;
-    visit_outs.reserve(whole_word_count);
-
-    if (min_word_offset == max_word_offset) {
-      // all offsets were identical, all leading bits have been consumed
-      assert(std::all_of(
-          in_bitmaps.begin(), in_bitmaps.end(),
-          [](const BitmapHolder& holder) { return holder.word_offset == 0; }));
-
-      for (int64_t word_i = 0; word_i < whole_word_count; ++word_i) {
-        for (size_t i = 0; i < N; ++i) {
-          visited_words[i] = in_bitmaps[i].words[word_i];
-        }
-        visit_outs.template emplace_back(visitor(visited_words));
-      }
-      CopyBitmap(reinterpret_cast<const uint8_t*>(visit_outs.data()), 0,
-                 whole_word_count * kBitWidth, out_bitmap.buffer_->mutable_data(),
-                 out_bitmap.offset());
-      consume(whole_word_count * kBitWidth);
-    } else {
-      // leading bits from potentially incomplete words have been consumed
-
-      // word_i such that words[i][word_i] and words[i][word_i + 1] are lie entirely
-      // within the bitmap for all i
-      for (int64_t word_i = 0; word_i < whole_word_count - 1; ++word_i) {
-        for (size_t i = 0; i < N; ++i) {
-          const auto ith_words = in_bitmaps[i].words;
-          const auto ith_word_offset = in_bitmaps[i].word_offset;
-          if (ith_word_offset == 0) {
-            visited_words[i] = ith_words[word_i];
-          } else {
-            auto words0 = BitUtil::ToLittleEndian(ith_words[word_i]);
-            auto words1 = BitUtil::ToLittleEndian(ith_words[word_i + 1]);
-            visited_words[i] = BitUtil::FromLittleEndian(
-                (words0 >> ith_word_offset) | (words1 << (kBitWidth - ith_word_offset)));
-          }
-        }
-        visit_outs.template emplace_back(visitor(visited_words));
-      }
-      CopyBitmap(reinterpret_cast<const uint8_t*>(visit_outs.data()), 0,
-                 (whole_word_count - 1) * kBitWidth, out_bitmap.buffer_->mutable_data(),
-                 out_bitmap.offset());
-      consume((whole_word_count - 1) * kBitWidth);
-
-      SafeLoadWords(bitmaps, 0, kBitWidth, false, &visited_words);
-
-      Word visit_out = visitor(visited_words);  // outputs a word/ partial word
-      CopyBitmap(reinterpret_cast<uint8_t*>(&visit_out), 0, kBitWidth,
-                 out_bitmap.buffer_->mutable_data(), out_bitmap.offset());
-      consume(kBitWidth);
-    }
-
-    // load remaining bits
-    if (bit_length > 0) {
-      SafeLoadWords(bitmaps, 0, bit_length, false, &visited_words);
-      Word visit_out = visitor(visited_words);
-      CopyBitmap(reinterpret_cast<uint8_t*>(&visit_out), 0, bit_length,
-                 out_bitmap.buffer_->mutable_data(), out_bitmap.offset());
-    }
-
-    return min_word_offset;
-  }
-
-  //  template <size_t N, size_t M, typename Word>
-  //  using MultiOutputVisitor = std::function<void(const std::array<Word, N>& in_words,
-  //                                                std::array<Word, M>& out_words)>;
-
   template <size_t N, size_t M, typename Visitor,
             typename Word = typename std::decay<
                 internal::call_traits::argument_type<0, Visitor&&>>::type::value_type>
   static void VisitWordsAndWrite(const std::array<Bitmap, N>& bitmaps_arg,
-                                 Visitor&& visitor,
-                                 std::array<Bitmap, M>& out_bitmaps_arg) {
+                                 std::array<Bitmap, M>* out_bitmaps_arg,
+                                 Visitor&& visitor) {
     constexpr int64_t kBitWidth = sizeof(Word) * 8;
 
     int64_t bit_length = BitLength(bitmaps_arg);
-    assert(bit_length == BitLength(out_bitmaps_arg));
+    assert(bit_length == BitLength(*out_bitmaps_arg));
 
     std::array<BitmapWordReader<Word>, N> readers;
     for (size_t i = 0; i < N; ++i) {
@@ -437,9 +282,9 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
 
     std::array<BitmapWordWriter<Word>, M> writers;
     for (size_t i = 0; i < M; ++i) {
-      writers[i] =
-          BitmapWordWriter<Word>(out_bitmaps_arg[i].buffer_->mutable_data(),
-                                 out_bitmaps_arg[i].offset_, out_bitmaps_arg[i].length_);
+      const Bitmap& out_bitmap = out_bitmaps_arg->at(i);
+      writers[i] = BitmapWordWriter<Word>(out_bitmap.buffer_->mutable_data(),
+                                          out_bitmap.offset_, out_bitmap.length_);
     }
 
     std::array<Word, N> visited_words;
@@ -456,74 +301,30 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
       for (size_t i = 0; i < N; i++) {
         visited_words[i] = readers[i].NextWord();
       }
-
       visitor(visited_words, output_words);
-
       for (size_t i = 0; i < M; i++) {
         writers[i].PutNextWord(output_words[i]);
       }
-
       bit_length -= kBitWidth;
     }
 
     // every reader will have same number of trailing bytes, because of the above reason
-    // todo when the above issue is resolved, following logic also needs to be fixed!
     // tailing portion could be more than one word! (ref: BitmapWordReader constructor)
-    assert(static_cast<size_t>(bit_length) < kBitWidth * 2);
-    if (bit_length / kBitWidth) {
-      // there's one full word in trailing portion. Cant use NextWord() here because it
-      // doesn't stride the trailing metadata
-      for (size_t i = 0; i < N; i++) {
-        visited_words[i] = 0;
-        for (size_t b = 0; b < sizeof(Word); b++) {
-          int dummy;
-          auto byte = static_cast<Word>(readers[i].NextTrailingByte(dummy));
-          visited_words[i] |= byte << (b * 8);
-        }
-      }
-
-      visitor(visited_words, output_words);
-
-      for (size_t i = 0; i < M; i++) {
-        writers[i].PutNextWord(output_words[i]);
-      }
-
-      bit_length -= kBitWidth;
-    }
-
-    // clean-up last partial word
-    if (bit_length) {
+    // remaining full/ partial words to write
+    n_words = (bit_length + kBitWidth - 1) / kBitWidth;
+    assert(n_words <= 2);
+    while (n_words--) {
+      visited_words.fill(0);
       output_words.fill(0);
+      int valid_bits;
       for (size_t i = 0; i < N; i++) {
-        visited_words[i] = 0;
-        int n_byte = readers[i].trailing_bytes();
-        for (int b = 0; b < n_byte; b++) {
-          int valid_bits;
-          auto byte = static_cast<Word>(readers[i].NextTrailingByte(valid_bits));
-          visited_words[i] |= (byte << b * 8);
-        }
+        visited_words[i] = readers[i].NextTrailingWord(valid_bits);
       }
-
       visitor(visited_words, output_words);
-
       for (size_t i = 0; i < M; i++) {
-        writers[i].PutNextWord(output_words[i], bit_length);
+        writers[i].PutTrailingWord(output_words[i], valid_bits);
       }
     }
-  }
-
-  template <size_t N, typename Visitor,
-            typename Word = typename std::decay<
-                internal::call_traits::argument_type<0, Visitor&&>>::type::value_type>
-  static void VisitWordsAndWrite(const std::array<Bitmap, N>& bitmaps_arg,
-                                 Visitor&& visitor, Bitmap& out_bitmap_arg) {
-    std::array<Bitmap, 1> out_bitmaps{out_bitmap_arg};
-    VisitWordsAndWrite(
-        bitmaps_arg,
-        [&](const std::array<Word, N>& in_words, std::array<Word, 1>& out_words) {
-          visitor(in_words, out_words[0]);
-        },
-        out_bitmaps);
   }
 
   const std::shared_ptr<Buffer>& buffer() const { return buffer_; }
