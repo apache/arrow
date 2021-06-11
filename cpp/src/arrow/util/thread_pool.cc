@@ -461,7 +461,6 @@ ThreadPool::~ThreadPool() {
   if (shutdown_on_destroy_) {
     // Child implementations MUST call MaybeShutdownOnDestroy()
     DCHECK_EQ(control_->workers_.size(), 0);
-    ARROW_UNUSED(Shutdown(false /* wait */));
   }
 }
 
