@@ -474,18 +474,18 @@ struct Sign {
   template <typename T, typename Arg,
             enable_if_t<std::is_unsigned<Arg>::value, bool> = true>
   static constexpr int8_t Call(KernelContext*, Arg arg, Status*) {
-    return arg ? 1 : 0;
+    return (arg == 0) ? 0 : 1;
   }
 
   template <typename T, typename Arg,
             enable_if_t<std::is_integral<Arg>::value && std::is_signed<Arg>::value,
                         bool> = true>
   static constexpr int8_t Call(KernelContext*, Arg arg, Status*) {
-    return (arg > 0) ? 1 : ((arg < 0) ? -1 : 0);
+    return (arg > 0) ? 1 : ((arg == 0) ? 0 : -1);
   }
 };
 
-struct SignWithSignedZero : Sign {
+struct SignWithSignedZero {
   template <typename T, typename Arg,
             enable_if_t<std::is_floating_point<Arg>::value, bool> = true>
   static constexpr int8_t Call(KernelContext*, Arg arg, Status*) {
@@ -495,14 +495,14 @@ struct SignWithSignedZero : Sign {
   template <typename T, typename Arg,
             enable_if_t<std::is_unsigned<Arg>::value, bool> = true>
   static constexpr int8_t Call(KernelContext*, Arg arg, Status*) {
-    return arg ? 1 : 0;
+    return (arg == 0) ? 0 : 1;
   }
 
   template <typename T, typename Arg,
             enable_if_t<std::is_integral<Arg>::value && std::is_signed<Arg>::value,
                         bool> = true>
   static constexpr int8_t Call(KernelContext*, Arg arg, Status*) {
-    return (arg > 0) ? 1 : ((arg < 0) ? -1 : 0);
+    return (arg >= 0) ? 1 : -1;
   }
 };
 
@@ -1078,31 +1078,31 @@ void AddDecimalBinaryKernels(const std::string& name,
 }
 
 // Generate a kernel given an arithmetic functor
-template <template <typename... Args> class KernelGenerator, typename Type0,
+template <template <typename... Args> class KernelGenerator, typename OutType,
           typename... Args>
 ArrayKernelExec GenerateArithmeticFixedOutType(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::INT8:
-      return KernelGenerator<Type0, Int8Type, Args...>::Exec;
+      return KernelGenerator<OutType, Int8Type, Args...>::Exec;
     case Type::UINT8:
-      return KernelGenerator<Type0, UInt8Type, Args...>::Exec;
+      return KernelGenerator<OutType, UInt8Type, Args...>::Exec;
     case Type::INT16:
-      return KernelGenerator<Type0, Int16Type, Args...>::Exec;
+      return KernelGenerator<OutType, Int16Type, Args...>::Exec;
     case Type::UINT16:
-      return KernelGenerator<Type0, UInt16Type, Args...>::Exec;
+      return KernelGenerator<OutType, UInt16Type, Args...>::Exec;
     case Type::INT32:
-      return KernelGenerator<Type0, Int32Type, Args...>::Exec;
+      return KernelGenerator<OutType, Int32Type, Args...>::Exec;
     case Type::UINT32:
-      return KernelGenerator<Type0, UInt32Type, Args...>::Exec;
+      return KernelGenerator<OutType, UInt32Type, Args...>::Exec;
     case Type::INT64:
     case Type::TIMESTAMP:
-      return KernelGenerator<Type0, Int64Type, Args...>::Exec;
+      return KernelGenerator<OutType, Int64Type, Args...>::Exec;
     case Type::UINT64:
-      return KernelGenerator<Type0, UInt64Type, Args...>::Exec;
+      return KernelGenerator<OutType, UInt64Type, Args...>::Exec;
     case Type::FLOAT:
-      return KernelGenerator<Type0, FloatType, Args...>::Exec;
+      return KernelGenerator<OutType, FloatType, Args...>::Exec;
     case Type::DOUBLE:
-      return KernelGenerator<Type0, DoubleType, Args...>::Exec;
+      return KernelGenerator<OutType, DoubleType, Args...>::Exec;
     default:
       DCHECK(false);
       return ExecFail;
