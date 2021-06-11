@@ -22,6 +22,8 @@ set -ex
 
 source_dir=${1}/r
 
+export CMAKE_BUILD_TYPE=RelWithDebInfo
+
 ${R_BIN} CMD INSTALL ${source_dir}
 pushd ${source_dir}/tests
 
