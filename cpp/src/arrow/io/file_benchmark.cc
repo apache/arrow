@@ -329,12 +329,13 @@ static void EnsureTemporaryFileCached(int64_t nbytes) {
   ASSERT_OK(in->Close());
 }
 
-using IteratorFactory = std::function<Iterator<std::shared_ptr<Buffer> >(int64_t)>;
+using IteratorFactory = std::function<Iterator<std::shared_ptr<Buffer> >(int64_t, bool)>;
 
 static void BenchmarkIteratorRead(benchmark::State& state, IteratorFactory it_factory,
                                   bool cached) {
   int64_t nbytes = state.range(0);
   int64_t block_size = state.range(1);
+  bool memory_mapped = state.range(2) != 0;
   CreateTemporaryFile(nbytes);
   if (cached > 0) {
     EnsureTemporaryFileCached(nbytes);
@@ -346,13 +347,11 @@ static void BenchmarkIteratorRead(benchmark::State& state, IteratorFactory it_fa
     }
     state.ResumeTiming();
     uint64_t accumulator = 0;
-    auto it = it_factory(block_size);
+    auto it = it_factory(block_size, memory_mapped);
     ASSERT_OK(it.Visit([&accumulator](std::shared_ptr<Buffer> buf) {
       uint64_t local_accumulator = 0;
       for (const uint8_t *it = buf->data(), *end = it + buf->size(); it != end; ++it) {
-        if (*it == 0x17) {
-          local_accumulator++;
-        }
+        local_accumulator += *it;
       }
       accumulator += local_accumulator;
       return Status::OK();
@@ -363,17 +362,25 @@ static void BenchmarkIteratorRead(benchmark::State& state, IteratorFactory it_fa
   state.SetBytesProcessed(state.iterations() * nbytes);
 }
 
+static Result<std::shared_ptr<io::InputStream> > OpenTestFile(bool memory_mapped) {
+  if (memory_mapped) {
+    return io::MemoryMappedFile::Open(kTestFile, io::FileMode::READ);
+  } else {
+    return io::ReadableFile::Open(kTestFile);
+  }
+}
+
 static IteratorFactory InputStreamFactory() {
-  return [](int64_t block_size) {
+  return [](int64_t block_size, bool memory_mapped) {
     EXPECT_OK_AND_ASSIGN(std::shared_ptr<io::InputStream> in,
-                         io::ReadableFile::Open(kTestFile));
+                         OpenTestFile(memory_mapped));
     EXPECT_OK_AND_ASSIGN(auto it, io::MakeInputStreamIterator(std::move(in), block_size));
     return it;
   };
 }
 
 static IteratorFactory FadviseFactory() {
-  return [](int64_t block_size) {
+  return [](int64_t block_size, bool memory_mapped) {
     EXPECT_OK_AND_ASSIGN(auto in, io::ReadableFile::Open(kTestFile));
     EXPECT_OK_AND_ASSIGN(auto it,
                          io::MakeFadviseInputStreamIterator(std::move(in), block_size));
@@ -382,9 +389,9 @@ static IteratorFactory FadviseFactory() {
 }
 
 static IteratorFactory BufferedInputStreamFactory(int blksize) {
-  return [blksize](int64_t block_size) {
+  return [blksize](int64_t block_size, bool memory_mapped) {
     EXPECT_OK_AND_ASSIGN(std::shared_ptr<io::InputStream> in,
-                         io::ReadableFile::Open(kTestFile));
+                         OpenTestFile(memory_mapped));
     EXPECT_OK_AND_ASSIGN(
         auto buffered_in,
         io::BufferedInputStream::Create(blksize, default_memory_pool(), std::move(in)));
@@ -403,7 +410,7 @@ static void ColdReadFromReadableFileViaIterator(benchmark::State& state) {
 }
 
 static void ColdReadFromBufferedInputStreamViaIterator(benchmark::State& state) {
-  int64_t blksize = state.range(2);
+  int64_t blksize = state.range(3);
   BenchmarkIteratorRead(state, BufferedInputStreamFactory(blksize), false);
 }
 
@@ -416,7 +423,7 @@ static void HotReadFromReadableFileViaIterator(benchmark::State& state) {
 }
 
 static void HotReadFromBufferedInputStreamViaIterator(benchmark::State& state) {
-  int64_t blksize = state.range(2);
+  int64_t blksize = state.range(3);
   BenchmarkIteratorRead(state, BufferedInputStreamFactory(blksize), true);
 }
 
@@ -437,32 +444,37 @@ BENCHMARK(BufferedOutputStreamLargeWritesToPipe)->UseRealTime();
 #else
 BENCHMARK(ColdReadFromInputStreamViaIterator)
     ->Iterations(3)
-    ->ArgsProduct({{1 << 26}, {1 << 4, 1 << 10, 1 << 14, 1 << 20}})
-    ->ArgNames({"nbytes", "nread"})
+    ->ArgsProduct({{1 << 26}, {1 << 4, 1 << 10, 1 << 14, 1 << 20}, {0, 1}})
+    ->ArgNames({"nbytes", "nread", "mmap"})
     ->UseRealTime();
 BENCHMARK(ColdReadFromReadableFileViaIterator)
     ->Iterations(3)
-    ->ArgsProduct({{1 << 26}, {1 << 4, 1 << 10, 1 << 14, 1 << 20}})
-    ->ArgNames({"nbytes", "nread"})
+    ->ArgsProduct({{1 << 26}, {1 << 4, 1 << 10, 1 << 14, 1 << 20}, {0}})
+    ->ArgNames({"nbytes", "nread", "mmap"})
     ->UseRealTime();
 BENCHMARK(ColdReadFromBufferedInputStreamViaIterator)
     ->Iterations(3)
-    ->ArgsProduct({{1 << 26}, {1 << 4, 1 << 10, 1 << 14, 1 << 20}, {1 << 14, 1 << 20}})
-    ->ArgNames({"nbytes", "nread", "blksz"})
+    ->ArgsProduct(
+        {{1 << 26}, {1 << 4, 1 << 10, 1 << 14, 1 << 20}, {0, 1}, {1 << 14, 1 << 20}})
+    ->ArgNames({"nbytes", "nread", "mmap", "blksz"})
     ->UseRealTime();
 BENCHMARK(HotReadFromInputStreamViaIterator)
-    ->ArgsProduct({{1 << 26}, {1 << 4, 1 << 10, 1 << 14, 1 << 20, 1 << 22}})
-    ->ArgNames({"nbytes", "nread"})
+    ->Iterations(1000)
+    ->ArgsProduct({{1 << 26}, {1 << 4, 1 << 10, 1 << 14, 1 << 20, 1 << 22}, {0, 1}})
+    ->ArgNames({"nbytes", "nread", "mmap"})
     ->UseRealTime();
 BENCHMARK(HotReadFromReadableFileViaIterator)
-    ->ArgsProduct({{1 << 26}, {1 << 4, 1 << 10, 1 << 14, 1 << 20, 1 << 22}})
-    ->ArgNames({"nbytes", "nread"})
+    ->Iterations(1000)
+    ->ArgsProduct({{1 << 26}, {1 << 4, 1 << 10, 1 << 14, 1 << 20, 1 << 22}, {0}})
+    ->ArgNames({"nbytes", "nread", "mmap"})
     ->UseRealTime();
 BENCHMARK(HotReadFromBufferedInputStreamViaIterator)
+    ->Iterations(1000)
     ->ArgsProduct({{1 << 26},
                    {1 << 4, 1 << 10, 1 << 14, 1 << 20, 1 << 22},
+                   {0, 1},
                    {1 << 14, 1 << 20}})
-    ->ArgNames({"nbytes", "nread", "blksz"})
+    ->ArgNames({"nbytes", "nread", "mmap", "blksz"})
     ->UseRealTime();
 #endif
 
