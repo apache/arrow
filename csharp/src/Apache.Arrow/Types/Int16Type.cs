@@ -15,7 +15,7 @@
 
 namespace Apache.Arrow.Types
 {
-    public sealed class Int16Type : NumberType
+    public sealed class Int16Type : IntegerType
     {
         public static readonly Int16Type Default = new Int16Type();
 

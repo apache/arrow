@@ -28,7 +28,7 @@ namespace Apache.Arrow.Ipc
         private readonly bool _leaveOpen;
         private readonly MemoryAllocator _allocator;
 
-        public ArrowStreamReaderImplementation(Stream stream, MemoryAllocator allocator, bool leaveOpen)
+        public ArrowStreamReaderImplementation(Stream stream, MemoryAllocator allocator, bool leaveOpen) : base()
         {
             BaseStream = stream;
             _allocator = allocator ?? MemoryAllocator.Default.Value;
@@ -42,6 +42,37 @@ namespace Apache.Arrow.Ipc
                 BaseStream.Dispose();
             }
         }
+        protected void ReadInitialDictionaries()
+        {
+            if (HasReadInitialDictionary)
+            {
+                return;
+            }
+
+            int fieldCount = _dictionaryMemo.GetFieldCount();
+            for (int i = 0; i < fieldCount; ++i)
+            {
+                ReadArrowObject();
+            }
+
+            HasReadInitialDictionary = true;
+        }
+
+        protected async ValueTask ReadInitialDictionariesAsync(CancellationToken cancellationToken = default)
+        {
+            if (HasReadInitialDictionary)
+            {
+                return;
+            }
+
+            int fieldCount = _dictionaryMemo.GetFieldCount();
+            for (int i = 0; i < fieldCount; ++i)
+            {
+                await ReadArrowObjectAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            HasReadInitialDictionary = true;
+        }
 
         public override async ValueTask<RecordBatch> ReadNextRecordBatchAsync(CancellationToken cancellationToken)
         {
@@ -49,6 +80,8 @@ namespace Apache.Arrow.Ipc
             cancellationToken.ThrowIfCancellationRequested();
             return await ReadRecordBatchAsync(cancellationToken).ConfigureAwait(false);
         }
+
+
 
         public override RecordBatch ReadNextRecordBatch()
         {
@@ -59,6 +92,66 @@ namespace Apache.Arrow.Ipc
         {
             await ReadSchemaAsync().ConfigureAwait(false);
 
+            await ReadInitialDictionariesAsync().ConfigureAwait(false);
+
+            return await ReadArrowObjectAsync().ConfigureAwait(false);
+        }
+
+
+        protected RecordBatch ReadRecordBatch()
+        {
+            ReadSchema();
+
+            ReadInitialDictionaries();
+
+            return ReadArrowObject();
+        }
+
+        protected virtual async ValueTask ReadSchemaAsync()
+        {
+            if (HasReadSchema)
+            {
+                return;
+            }
+
+            // Figure out length of schema
+            int schemaMessageLength = await ReadMessageLengthAsync(throwOnFullRead: true)
+                .ConfigureAwait(false);
+
+            await ArrayPool<byte>.Shared.RentReturnAsync(schemaMessageLength, async (buff) =>
+            {
+                // Read in schema
+                int bytesRead = await BaseStream.ReadFullBufferAsync(buff).ConfigureAwait(false);
+                EnsureFullRead(buff, bytesRead);
+
+                FlatBuffers.ByteBuffer schemabb = CreateByteBuffer(buff);
+                Schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemabb), _dictionaryMemo);
+            }).ConfigureAwait(false);
+        }
+
+        protected virtual void ReadSchema()
+        {
+            if (HasReadSchema)
+            {
+                return;
+            }
+
+            // Figure out length of schema
+            int schemaMessageLength = ReadMessageLength(throwOnFullRead: true);
+
+            ArrayPool<byte>.Shared.RentReturn(schemaMessageLength, buff =>
+            {
+                int bytesRead = BaseStream.ReadFullBuffer(buff);
+                EnsureFullRead(buff, bytesRead);
+
+                FlatBuffers.ByteBuffer schemabb = CreateByteBuffer(buff);
+                Schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemabb), _dictionaryMemo);
+            });
+        }
+
+        // Note: When the message type is DictionaryBatch, this function adds data to _dictionaryMemo and returns null.
+        private async ValueTask<RecordBatch> ReadArrowObjectAsync(CancellationToken cancellationToken = default)
+        {
             int messageLength = await ReadMessageLengthAsync(throwOnFullRead: false, cancellationToken)
                 .ConfigureAwait(false);
 
@@ -68,7 +161,7 @@ namespace Apache.Arrow.Ipc
                 return null;
             }
 
-            RecordBatch result = null;
+            RecordBatch result = default;
             await ArrayPool<byte>.Shared.RentReturnAsync(messageLength, async (messageBuff) =>
             {
                 int bytesRead = await BaseStream.ReadFullBufferAsync(messageBuff, cancellationToken)
@@ -92,10 +185,9 @@ namespace Apache.Arrow.Ipc
             return result;
         }
 
-        protected RecordBatch ReadRecordBatch()
+        // Note: When the message type is DictionaryBatch, this function adds data to _dictionaryMemo and returns null.
+        private RecordBatch ReadArrowObject()
         {
-            ReadSchema();
-
             int messageLength = ReadMessageLength(throwOnFullRead: false);
 
             if (messageLength == 0)
@@ -104,7 +196,7 @@ namespace Apache.Arrow.Ipc
                 return null;
             }
 
-            RecordBatch result = null;
+            RecordBatch result = default;
             ArrayPool<byte>.Shared.RentReturn(messageLength, messageBuff =>
             {
                 int bytesRead = BaseStream.ReadFullBuffer(messageBuff);
@@ -124,48 +216,6 @@ namespace Apache.Arrow.Ipc
             });
 
             return result;
-        }
-
-        protected virtual async ValueTask ReadSchemaAsync()
-        {
-            if (HasReadSchema)
-            {
-                return;
-            }
-
-            // Figure out length of schema
-            int schemaMessageLength = await ReadMessageLengthAsync(throwOnFullRead: true)
-                .ConfigureAwait(false);
-
-            await ArrayPool<byte>.Shared.RentReturnAsync(schemaMessageLength, async (buff) =>
-            {
-                // Read in schema
-                int bytesRead = await BaseStream.ReadFullBufferAsync(buff).ConfigureAwait(false);
-                EnsureFullRead(buff, bytesRead);
-
-                FlatBuffers.ByteBuffer schemabb = CreateByteBuffer(buff);
-                Schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemabb));
-            }).ConfigureAwait(false);
-        }
-
-        protected virtual void ReadSchema()
-        {
-            if (HasReadSchema)
-            {
-                return;
-            }
-
-            // Figure out length of schema
-            int schemaMessageLength = ReadMessageLength(throwOnFullRead: true);
-
-            ArrayPool<byte>.Shared.RentReturn(schemaMessageLength, buff =>
-            {
-                int bytesRead = BaseStream.ReadFullBuffer(buff);
-                EnsureFullRead(buff, bytesRead);
-
-                FlatBuffers.ByteBuffer schemabb = CreateByteBuffer(buff);
-                Schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemabb));
-            });
         }
 
         private async ValueTask<int> ReadMessageLengthAsync(bool throwOnFullRead, CancellationToken cancellationToken = default)

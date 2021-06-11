@@ -16,7 +16,7 @@
 
 namespace Apache.Arrow.Types
 {
-    public sealed class Int8Type : NumberType
+    public sealed class Int8Type : IntegerType
     {
         public static readonly Int8Type Default = new Int8Type();
 

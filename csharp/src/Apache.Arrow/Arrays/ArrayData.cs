@@ -30,11 +30,12 @@ namespace Apache.Arrow
         public readonly int Offset;
         public readonly ArrowBuffer[] Buffers;
         public readonly ArrayData[] Children;
+        public readonly ArrayData Dictionary; //Only used for dictionary type
 
         public ArrayData(
             IArrowType dataType,
             int length, int nullCount = 0, int offset = 0,
-            IEnumerable<ArrowBuffer> buffers = null, IEnumerable<ArrayData> children = null)
+            IEnumerable<ArrowBuffer> buffers = null, IEnumerable<ArrayData> children = null, ArrayData dictionary = null)
         {
             DataType = dataType ?? NullType.Default;
             Length = length;
@@ -42,12 +43,13 @@ namespace Apache.Arrow
             Offset = offset;
             Buffers = buffers?.ToArray();
             Children = children?.ToArray();
+            Dictionary = dictionary;
         }
 
         public ArrayData(
             IArrowType dataType,
             int length, int nullCount = 0, int offset = 0,
-            ArrowBuffer[] buffers = null, ArrayData[] children = null)
+            ArrowBuffer[] buffers = null, ArrayData[] children = null, ArrayData dictionary = null)
         {
             DataType = dataType ?? NullType.Default;
             Length = length;
@@ -55,6 +57,7 @@ namespace Apache.Arrow
             Offset = offset;
             Buffers = buffers;
             Children = children;
+            Dictionary = dictionary;
         }
 
         public void Dispose()
@@ -74,6 +77,8 @@ namespace Apache.Arrow
                     child?.Dispose();
                 }
             }
+
+            Dictionary?.Dispose();
         }
 
         public ArrayData Slice(int offset, int length)
@@ -86,7 +91,7 @@ namespace Apache.Arrow
             length = Math.Min(Length - offset, length);
             offset += Offset;
 
-            return new ArrayData(DataType, length, RecalculateNullCount, offset, Buffers, Children);
+            return new ArrayData(DataType, length, RecalculateNullCount, offset, Buffers, Children, Dictionary);
         }
     }
 }

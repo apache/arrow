@@ -61,8 +61,8 @@ namespace Apache.Arrow.Ipc
 #endif
         }
 
-        public ArrowFooter(Flatbuf.Footer footer)
-            : this(Ipc.MessageSerializer.GetSchema(footer.Schema.GetValueOrDefault()), GetDictionaries(footer),
+        public ArrowFooter(Flatbuf.Footer footer, DictionaryMemo dictionaryMemo)
+            : this(Ipc.MessageSerializer.GetSchema(footer.Schema.GetValueOrDefault(), dictionaryMemo), GetDictionaries(footer),
                 GetRecordBatches(footer))
         { }
 

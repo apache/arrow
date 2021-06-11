@@ -29,6 +29,13 @@ namespace Apache.Arrow.Ipc
     {
         public Schema Schema { get; protected set; }
         protected bool HasReadSchema => Schema != null;
+        protected bool HasReadInitialDictionary { get; set; }
+        protected readonly DictionaryMemo _dictionaryMemo;
+
+        public ArrowReaderImplementation()
+        {
+            _dictionaryMemo = new DictionaryMemo();
+        }
 
         public void Dispose()
         {
@@ -88,8 +95,8 @@ namespace Apache.Arrow.Ipc
                     // TODO: Read schema and verify equality?
                     break;
                 case Flatbuf.MessageHeader.DictionaryBatch:
-                    // TODO: not supported currently
-                    Debug.WriteLine("Dictionaries are not yet supported.");
+                    Flatbuf.DictionaryBatch dictionaryBatch = message.Header<Flatbuf.DictionaryBatch>().Value;
+                    ReadDictionaryBatch(dictionaryBatch, bodyByteBuffer, memoryOwner);
                     break;
                 case Flatbuf.MessageHeader.RecordBatch:
                     Flatbuf.RecordBatch rb = message.Header<Flatbuf.RecordBatch>().Value;
@@ -107,6 +114,36 @@ namespace Apache.Arrow.Ipc
         internal static ByteBuffer CreateByteBuffer(ReadOnlyMemory<byte> buffer)
         {
             return new ByteBuffer(new ReadOnlyMemoryBufferAllocator(buffer), 0);
+        }
+
+        private void ReadDictionaryBatch(Flatbuf.DictionaryBatch dictionaryBatch, ByteBuffer bodyByteBuffer, IMemoryOwner<byte> memoryOwner)
+        {
+            long id = dictionaryBatch.Id;
+            IArrowType valueType = _dictionaryMemo.GetDictionaryType(id);
+            Flatbuf.RecordBatch? recordBatch = dictionaryBatch.Data;
+
+            if (!recordBatch.HasValue)
+            {
+                throw new InvalidDataException("Dictionary must contain RecordBatch");
+            }
+
+            Field valueField = new Field("dummy", valueType, true);
+            var schema = new Schema(new[] { valueField }, default);
+            IList<IArrowArray> arrays = BuildArrays(schema, bodyByteBuffer, recordBatch.Value);
+
+            if (arrays.Count != 1)
+            {
+                throw new InvalidDataException("Dictionary record batch must contain only one field");
+            }
+
+            if (dictionaryBatch.IsDelta)
+            {
+                throw new NotImplementedException("Dictionary delta is not supported yet");
+            }
+            else
+            {
+                _dictionaryMemo.AddOrReplaceDictionary(id, arrays[0]);
+            }
         }
 
         private List<IArrowArray> BuildArrays(
@@ -179,7 +216,14 @@ namespace Apache.Arrow.Ipc
 
             ArrayData[] children = GetChildren(ref recordBatchEnumerator, field, bodyData);
 
-            return new ArrayData(field.DataType, fieldLength, fieldNullCount, 0, arrowBuff, children);
+            IArrowArray dictionary = null;
+            if (field.DataType.TypeId == ArrowTypeId.Dictionary)
+            {
+                long id = _dictionaryMemo.GetId(field);
+                dictionary = _dictionaryMemo?.GetDictionary(id);
+            }
+
+            return new ArrayData(field.DataType, fieldLength, fieldNullCount, 0, arrowBuff, children, dictionary?.Data);
         }
 
         private ArrayData LoadVariableField(
@@ -218,7 +262,14 @@ namespace Apache.Arrow.Ipc
             ArrowBuffer[] arrowBuff = new[] { nullArrowBuffer, offsetArrowBuffer, valueArrowBuffer };
             ArrayData[] children = GetChildren(ref recordBatchEnumerator, field, bodyData);
 
-            return new ArrayData(field.DataType, fieldLength, fieldNullCount, 0, arrowBuff, children);
+            IArrowArray dictionary = null;
+            if (field.DataType.TypeId == ArrowTypeId.Dictionary)
+            {
+                long id = _dictionaryMemo.GetId(field);
+                dictionary = _dictionaryMemo?.GetDictionary(id);
+            }
+
+            return new ArrayData(field.DataType, fieldLength, fieldNullCount, 0, arrowBuff, children, dictionary?.Data);
         }
 
         private ArrayData[] GetChildren(

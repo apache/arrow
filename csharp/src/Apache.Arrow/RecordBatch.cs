@@ -29,7 +29,7 @@ namespace Apache.Arrow
         public int Length { get; }
 
         private readonly IMemoryOwner<byte> _memoryOwner;
-        private readonly IList<IArrowArray> _arrays;
+        internal readonly IReadOnlyList<IArrowArray> _arrays;
 
         public IArrowArray Column(int i)
         {

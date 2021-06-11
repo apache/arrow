@@ -32,7 +32,7 @@ namespace Apache.Arrow.Tests
         [Fact]
         public void Ctor_LeaveOpenDefault_StreamClosedOnDispose()
         {
-            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: true);
             var stream = new MemoryStream();
             new ArrowStreamWriter(stream, originalBatch.Schema).Dispose();
             Assert.Throws<ObjectDisposedException>(() => stream.Position);
@@ -41,7 +41,7 @@ namespace Apache.Arrow.Tests
         [Fact]
         public void Ctor_LeaveOpenFalse_StreamClosedOnDispose()
         {
-            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: true);
             var stream = new MemoryStream();
             new ArrowStreamWriter(stream, originalBatch.Schema, leaveOpen: false).Dispose();
             Assert.Throws<ObjectDisposedException>(() => stream.Position);
@@ -50,7 +50,7 @@ namespace Apache.Arrow.Tests
         [Fact]
         public void Ctor_LeaveOpenTrue_StreamValidOnDispose()
         {
-            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: true);
             var stream = new MemoryStream();
             new ArrowStreamWriter(stream, originalBatch.Schema, leaveOpen: true).Dispose();
             Assert.Equal(0, stream.Position);
@@ -59,7 +59,7 @@ namespace Apache.Arrow.Tests
         [Fact]
         public void CanWriteToNetworkStream()
         {
-            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: true);
 
             const int port = 32153;
             TcpListener listener = new TcpListener(IPAddress.Loopback, port);
@@ -93,7 +93,7 @@ namespace Apache.Arrow.Tests
         [Fact]
         public async Task CanWriteToNetworkStreamAsync()
         {
-            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: true);
 
             const int port = 32154;
             TcpListener listener = new TcpListener(IPAddress.Loopback, port);
@@ -196,13 +196,17 @@ namespace Apache.Arrow.Tests
             await TestRoundTripRecordBatchAsync(originalBatch);
         }
 
-        private static void TestRoundTripRecordBatch(RecordBatch originalBatch, IpcOptions options = null)
+
+        private static void TestRoundTripRecordBatches(List<RecordBatch> originalBatches, IpcOptions options = null)
         {
             using (MemoryStream stream = new MemoryStream())
             {
-                using (var writer = new ArrowStreamWriter(stream, originalBatch.Schema, leaveOpen: true, options))
+                using (var writer = new ArrowStreamWriter(stream, originalBatches[0].Schema, leaveOpen: true, options))
                 {
-                    writer.WriteRecordBatch(originalBatch);
+                    foreach (RecordBatch originalBatch in originalBatches)
+                    {
+                        writer.WriteRecordBatch(originalBatch);
+                    }
                     writer.WriteEnd();
                 }
 
@@ -210,20 +214,25 @@ namespace Apache.Arrow.Tests
 
                 using (var reader = new ArrowStreamReader(stream))
                 {
-                    RecordBatch newBatch = reader.ReadNextRecordBatch();
-                    ArrowReaderVerifier.CompareBatches(originalBatch, newBatch);
+                    foreach (RecordBatch originalBatch in originalBatches)
+                    {
+                        RecordBatch newBatch = reader.ReadNextRecordBatch();
+                        ArrowReaderVerifier.CompareBatches(originalBatch, newBatch);
+                    }
                 }
             }
         }
 
-
-        private static async Task TestRoundTripRecordBatchAsync(RecordBatch originalBatch, IpcOptions options = null)
+        private static async Task TestRoundTripRecordBatchesAsync(List<RecordBatch> originalBatches, IpcOptions options = null)
         {
             using (MemoryStream stream = new MemoryStream())
             {
-                using (var writer = new ArrowStreamWriter(stream, originalBatch.Schema, leaveOpen: true, options))
+                using (var writer = new ArrowStreamWriter(stream, originalBatches[0].Schema, leaveOpen: true, options))
                 {
-                    await writer.WriteRecordBatchAsync(originalBatch);
+                    foreach (RecordBatch originalBatch in originalBatches)
+                    {
+                        await writer.WriteRecordBatchAsync(originalBatch);
+                    }
                     await writer.WriteEndAsync();
                 }
 
@@ -231,10 +240,24 @@ namespace Apache.Arrow.Tests
 
                 using (var reader = new ArrowStreamReader(stream))
                 {
-                    RecordBatch newBatch = reader.ReadNextRecordBatch();
-                    ArrowReaderVerifier.CompareBatches(originalBatch, newBatch);
+                    foreach (RecordBatch originalBatch in originalBatches)
+                    {
+                        RecordBatch newBatch = reader.ReadNextRecordBatch();
+                        ArrowReaderVerifier.CompareBatches(originalBatch, newBatch);
+                    }
                 }
             }
+        }
+
+        private static void TestRoundTripRecordBatch(RecordBatch originalBatch, IpcOptions options = null)
+        {
+            TestRoundTripRecordBatches(new List<RecordBatch> { originalBatch }, options);
+        }
+
+
+        private static async Task TestRoundTripRecordBatchAsync(RecordBatch originalBatch, IpcOptions options = null)
+        {
+            await TestRoundTripRecordBatchesAsync(new List<RecordBatch> { originalBatch }, options);
         }
 
         [Fact]
@@ -372,7 +395,7 @@ namespace Apache.Arrow.Tests
         [Fact]
         public void LegacyIpcFormatRoundTrips()
         {
-            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: true);
             TestRoundTripRecordBatch(originalBatch, new IpcOptions() { WriteLegacyIpcFormat = true });
         }
 
@@ -380,7 +403,7 @@ namespace Apache.Arrow.Tests
         [Fact]
         public async Task LegacyIpcFormatRoundTripsAsync()
         {
-            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: true);
             await TestRoundTripRecordBatchAsync(originalBatch, new IpcOptions() { WriteLegacyIpcFormat = true });
         }
 
@@ -389,7 +412,7 @@ namespace Apache.Arrow.Tests
         [InlineData(false)]
         public void WriteLegacyIpcFormat(bool writeLegacyIpcFormat)
         {
-            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: true);
             var options = new IpcOptions() { WriteLegacyIpcFormat = writeLegacyIpcFormat };
 
             using (MemoryStream stream = new MemoryStream())
@@ -429,7 +452,7 @@ namespace Apache.Arrow.Tests
         [InlineData(false)]
         public async Task WriteLegacyIpcFormatAsync(bool writeLegacyIpcFormat)
         {
-            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: true);
             var options = new IpcOptions() { WriteLegacyIpcFormat = writeLegacyIpcFormat };
 
             using (MemoryStream stream = new MemoryStream())
@@ -493,6 +516,59 @@ namespace Apache.Arrow.Tests
             RecordBatch originalBatch = TestData.CreateSampleRecordBatch(schema, length: 10);
 
             TestRoundTripRecordBatch(originalBatch);
+        }
+
+        [Fact]
+        public async Task WriteMultipleDictionaryArraysAsync()
+        {
+            List<RecordBatch> originalRecordBatches = CreateMultipleDictionaryArraysTestData();
+            await TestRoundTripRecordBatchesAsync(originalRecordBatches);
+        }
+
+        [Fact]
+        public void WriteMultipleDictionaryArrays()
+        {
+            List<RecordBatch> originalRecordBatches = CreateMultipleDictionaryArraysTestData();
+            TestRoundTripRecordBatches(originalRecordBatches);
+        }
+
+        private List<RecordBatch> CreateMultipleDictionaryArraysTestData()
+        {
+            var dictionaryData = new List<string> { "a", "b", "c" };
+            int length = dictionaryData.Count;
+
+            var indicesSchema = new Schema(new List<Field> {
+                new Field("int8", Int8Type.Default, true),
+                new Field("uint8", UInt8Type.Default, true),
+                new Field("int16", Int16Type.Default, true),
+                new Field("uint16", UInt16Type.Default, true),
+                new Field("int32", Int32Type.Default, true),
+                new Field("uint32", UInt32Type.Default, true),
+                new Field("int64", Int64Type.Default, true),
+                new Field("uint64", UInt64Type.Default, true)
+            }, null);
+
+            StringArray dictionary = new StringArray.Builder().AppendRange(new[] { "a", "b", "c" }).Build();
+            IEnumerable<IArrowArray> indicesArrays = TestData.CreateArrays(indicesSchema, length);
+
+            var fields = new List<Field>(capacity: length);
+            var dictionaryArrays = new List<DictionaryArray>(capacity: length);
+
+            foreach (IArrowArray indices in indicesArrays)
+            {
+                var dictionaryArray = new DictionaryArray(
+                    new DictionaryType(indices.Data.DataType, StringType.Default, false),
+                    indices, dictionary);
+                dictionaryArrays.Add(dictionaryArray);
+                fields.Add(new Field($"dictionaryField_{indices.Data.DataType.Name}", dictionaryArray.Data.DataType, false));
+            }
+
+            var schema = new Schema(fields, null);
+
+            return new List<RecordBatch> {
+                new RecordBatch(schema, dictionaryArrays, length),
+                new RecordBatch(schema, dictionaryArrays, length),
+            };
         }
     }
 }

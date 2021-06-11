@@ -38,7 +38,7 @@ namespace Apache.Arrow.Benchmarks
         [GlobalSetup]
         public void GlobalSetup()
         {
-            _batch = TestData.CreateSampleRecordBatch(BatchLength, ColumnSetCount);
+            _batch = TestData.CreateSampleRecordBatch(BatchLength, ColumnSetCount, false);
             _memoryStream = new MemoryStream();
         }
 
