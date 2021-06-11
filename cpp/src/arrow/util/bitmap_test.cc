@@ -80,13 +80,13 @@ TEST_F(TestBitmapVisit, SingleWriterOutputZeroOffset) {
   ASSERT_OK_AND_ASSIGN(auto out, AllocateBitmap(part));
   Bitmap out_bm(out, 0, part);
 
-  auto visitor = [](const std::array<uint64_t, 3>& in_words, uint64_t& out_words) {
-    out_words = (in_words[0] & in_words[1]) | in_words[2];
-  };
-
   // (bm0 & bm1) | bm2
+  std::array<Bitmap, 3> in_bms{bm0, bm1, bm2};
   Bitmap::VisitWordsAndWrite(
-      {bm0, bm1, bm2}, std::forward<Bitmap::SingleOutputVisitor<3, uint64_t>>(visitor),
+      in_bms,
+      [](const std::array<uint64_t, 3>& in_words, uint64_t& out_words) {
+        out_words = (in_words[0] & in_words[1]) | in_words[2];
+      },
       out_bm);
 
   std::vector<bool> v0(data.begin(), data.begin() + part);
@@ -122,13 +122,13 @@ TEST_F(TestBitmapVisit, SingleWriterOutputNonZeroOffset) {
   ASSERT_OK_AND_ASSIGN(auto out, AllocateBitmap(part * 2));
   Bitmap out_bm(out, part, part);
 
-  auto visitor = [](const std::array<uint64_t, 3>& in_words, uint64_t& out_words) {
-    out_words = (in_words[0] & in_words[1]) | in_words[2];
-  };
-
   // (bm0 & bm1) | bm2
+  std::array<Bitmap, 3> in_bms{bm0, bm1, bm2};
   Bitmap::VisitWordsAndWrite(
-      {bm0, bm1, bm2}, std::forward<Bitmap::SingleOutputVisitor<3, uint64_t>>(visitor),
+      in_bms,
+      [](const std::array<uint64_t, 3>& in_words, uint64_t& out_words) {
+        out_words = (in_words[0] & in_words[1]) | in_words[2];
+      },
       out_bm);
 
   std::vector<bool> v0(data.begin(), data.begin() + part);
@@ -171,15 +171,14 @@ TEST_F(TestBitmapVisit, MultiWriterOutputZeroOffset) {
   std::vector<bool> v2(data.begin() + part * 2, data.begin() + part * 3);
 
   // out0 = bm0 & bm1, out1= bm0 | bm2
-  auto visitor_func = [](const std::array<uint64_t, 3>& in,
-                         std::array<uint64_t, 2>& out) {
-    out[0] = in[0] & in[1];
-    out[1] = in[0] | in[2];
-  };
-
+  std::array<Bitmap, 3> in_bms{bm0, bm1, bm2};
   Bitmap::VisitWordsAndWrite(
-      {bm0, bm1, bm2},
-      std::forward<Bitmap::MultiOutputVisitor<3, 2, uint64_t>>(visitor_func), out_bms);
+      in_bms,
+      [](const std::array<uint64_t, 3>& in, std::array<uint64_t, 2>& out) {
+        out[0] = in[0] & in[1];
+        out[1] = in[0] | in[2];
+      },
+      out_bms);
 
   std::vector<bool> out_v0(part);
   std::vector<bool> out_v1(part);
@@ -235,15 +234,14 @@ TEST_F(TestBitmapVisit, MultiWriterOutputNonZeroOffset) {
   //  std::cout << "b2: " << bm2.ToString() << "\n";
 
   // out0 = bm0 & bm1, out1= bm0 | bm2
-  auto visitor_func = [](const std::array<uint64_t, 3>& in,
-                         std::array<uint64_t, 2>& out) {
-    out[0] = in[0] & in[1];
-    out[1] = in[0] | in[2];
-  };
-
+  std::array<Bitmap, 3> in_bms{bm0, bm1, bm2};
   Bitmap::VisitWordsAndWrite(
-      {bm0, bm1, bm2},
-      std::forward<Bitmap::MultiOutputVisitor<3, 2, uint64_t>>(visitor_func), out_bms);
+      in_bms,
+      [](const std::array<uint64_t, 3>& in, std::array<uint64_t, 2>& out) {
+        out[0] = in[0] & in[1];
+        out[1] = in[0] | in[2];
+      },
+      out_bms);
 
   std::vector<bool> out_v0(part);
   std::vector<bool> out_v1(part);

@@ -414,13 +414,15 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
     return min_word_offset;
   }
 
-  template <size_t N, size_t M, typename Word>
-  using MultiOutputVisitor = std::function<void(const std::array<Word, N>& in_words,
-                                                std::array<Word, M>& out_words)>;
+  //  template <size_t N, size_t M, typename Word>
+  //  using MultiOutputVisitor = std::function<void(const std::array<Word, N>& in_words,
+  //                                                std::array<Word, M>& out_words)>;
 
-  template <size_t N, size_t M, typename Word>
+  template <size_t N, size_t M, typename Visitor,
+            typename Word = typename std::decay<
+                internal::call_traits::argument_type<0, Visitor&&>>::type::value_type>
   static void VisitWordsAndWrite(const std::array<Bitmap, N>& bitmaps_arg,
-                                 MultiOutputVisitor<N, M, Word>&& visitor,
+                                 Visitor&& visitor,
                                  std::array<Bitmap, M>& out_bitmaps_arg) {
     constexpr int64_t kBitWidth = sizeof(Word) * 8;
 
@@ -510,16 +512,13 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
     }
   }
 
-  template <size_t N, typename Word>
-  using SingleOutputVisitor =
-      std::function<void(const std::array<Word, N>& in_words, Word& out_words)>;
-
-  template <size_t N, typename Word>
+  template <size_t N, typename Visitor,
+            typename Word = typename std::decay<
+                internal::call_traits::argument_type<0, Visitor&&>>::type::value_type>
   static void VisitWordsAndWrite(const std::array<Bitmap, N>& bitmaps_arg,
-                                 SingleOutputVisitor<N, Word>&& visitor,
-                                 Bitmap& out_bitmap_arg) {
+                                 Visitor&& visitor, Bitmap& out_bitmap_arg) {
     std::array<Bitmap, 1> out_bitmaps{out_bitmap_arg};
-    VisitWordsAndWrite<N, 1, Word>(
+    VisitWordsAndWrite(
         bitmaps_arg,
         [&](const std::array<Word, N>& in_words, std::array<Word, 1>& out_words) {
           visitor(in_words, out_words[0]);
