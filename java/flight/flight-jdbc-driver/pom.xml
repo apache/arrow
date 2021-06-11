@@ -97,15 +97,6 @@
             <artifactId>guava</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>org.apache.maven</groupId>
-            <artifactId>maven-model</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.codehaus.plexus</groupId>
-            <artifactId>plexus-utils</artifactId>
-        </dependency>
     </dependencies>
 
     <build>

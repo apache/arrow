@@ -24,7 +24,6 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -40,10 +39,6 @@ import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.DriverVersion;
 import org.apache.calcite.avatica.Meta;
 import org.apache.calcite.avatica.UnregisteredDriver;
-import org.apache.maven.model.Model;
-import org.apache.maven.model.Parent;
-import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
-import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
 
 import com.google.common.base.Strings;
 
@@ -93,29 +88,34 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
 
       try (Reader reader =
           new BufferedReader(new InputStreamReader(
-              new FileInputStream("pom.xml"), "UTF-8"))) {
+              new FileInputStream("target/flight.properties"), "UTF-8"))) {
+        Properties properties = new Properties();
+        properties.load(reader);
 
-        final Model flightJdbcDriverPom = (new MavenXpp3Reader()).read(reader);
-        final Parent arrowFlightPom = flightJdbcDriverPom.getParent();
+        String parentName = properties.getProperty(
+            "org.apache.arrow.flight.name");
+        String parentVersion = properties.getProperty(
+            "org.apache.arrow.flight.version");
+        String[] pVersion = parentVersion.split("\\.");
 
-        final String parentVersion = arrowFlightPom.getVersion();
-        final String childVersion = flightJdbcDriverPom.getVersion();
+        int parentMajorVersion = Integer.parseInt(pVersion[0]);
+        int parentMinorVersion = Integer.parseInt(pVersion[1]);
 
-        final int[] childVersionParts =
-            Arrays.stream(parentVersion.split("\\.")).limit(2)
-            .mapToInt(Integer::parseInt).toArray();
+        String childName = properties.getProperty(
+            "org.apache.arrow.flight.jdbc-driver.name");
+        String childVersion = properties.getProperty(
+            "org.apache.arrow.flight.jdbc-driver.version");
+        String[] cVersion = childVersion.split("\\.");
 
-        final int[] parentVersionParts =
-            Arrays.stream(parentVersion.split("\\.")).limit(2)
-            .mapToInt(Integer::parseInt).toArray();
+        int childMajorVersion = Integer.parseInt(cVersion[0]);
+        int childMinorVersion = Integer.parseInt(cVersion[1]);
 
-        version = new DriverVersion(flightJdbcDriverPom.getName(), childVersion,
-            arrowFlightPom.getId(), parentVersion, true, childVersionParts[0],
-            childVersionParts[1], parentVersionParts[0], parentVersionParts[1]);
-      } catch (IOException | XmlPullParserException e) {
+        version = new DriverVersion(childName, childVersion, parentName,
+            parentVersion, true, childMajorVersion, childMinorVersion,
+            parentMajorVersion, parentMinorVersion);
+      } catch (IOException e) {
         throw new RuntimeException("Failed to load driver version.", e);
       }
-
     }
 
     return version;
