@@ -63,6 +63,7 @@ module Arrow
       require "arrow/dense-union-data-type"
       require "arrow/dictionary-array"
       require "arrow/dictionary-data-type"
+      require "arrow/equal-options"
       require "arrow/field"
       require "arrow/file-output-stream"
       require "arrow/fixed-size-binary-array"

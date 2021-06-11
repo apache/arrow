@@ -64,6 +64,40 @@ class ArrayTest < Test::Unit::TestCase
       end
     end
 
+    sub_test_case("#equal_array?") do
+      test("no options") do
+        array1 = Arrow::FloatArray.new([1.1, Float::NAN])
+        array2 = Arrow::FloatArray.new([1.1, Float::NAN])
+        assert do
+          not array1.equal_array?(array2)
+        end
+      end
+
+      test("approx") do
+        array1 = Arrow::FloatArray.new([1.1])
+        array2 = Arrow::FloatArray.new([1.100001])
+        assert do
+          array1.equal_array?(array2, approx: true)
+        end
+      end
+
+      test("nans-equal") do
+        array1 = Arrow::FloatArray.new([1.1, Float::NAN])
+        array2 = Arrow::FloatArray.new([1.1, Float::NAN])
+        assert do
+          array1.equal_array?(array2, nans_equal: true)
+        end
+      end
+
+      test("absolute-tolerance") do
+        array1 = Arrow::FloatArray.new([1.1])
+        array2 = Arrow::FloatArray.new([1.101])
+        assert do
+          array1.equal_array?(array2, approx: true, absolute_tolerance: 0.01)
+        end
+      end
+    end
+
     sub_test_case("#cast") do
       test("Symbol") do
         assert_equal(Arrow::Int32Array.new([1, 2, 3]),
