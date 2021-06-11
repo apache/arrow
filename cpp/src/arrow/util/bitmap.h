@@ -30,6 +30,8 @@
 #include "arrow/buffer.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/bitmap_reader.h"
+#include "arrow/util/bitmap_writer.h"
 #include "arrow/util/compare.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/functional.h"
@@ -410,6 +412,119 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
     }
 
     return min_word_offset;
+  }
+
+  template <size_t N, size_t M, typename Word>
+  using MultiOutputVisitor = std::function<void(const std::array<Word, N>& in_words,
+                                                std::array<Word, M>& out_words)>;
+
+  template <size_t N, size_t M, typename Word>
+  static void VisitWordsAndWrite(const std::array<Bitmap, N>& bitmaps_arg,
+                                 MultiOutputVisitor<N, M, Word>&& visitor,
+                                 std::array<Bitmap, M>& out_bitmaps_arg) {
+    constexpr int64_t kBitWidth = sizeof(Word) * 8;
+
+    int64_t bit_length = BitLength(bitmaps_arg);
+    assert(bit_length == BitLength(out_bitmaps_arg));
+
+    std::array<BitmapWordReader<Word>, N> readers;
+    for (size_t i = 0; i < N; ++i) {
+      readers[i] = BitmapWordReader<Word>(bitmaps_arg[i].buffer_->data(),
+                                          bitmaps_arg[i].offset_, bitmaps_arg[i].length_);
+    }
+
+    std::array<BitmapWordWriter<Word>, M> writers;
+    for (size_t i = 0; i < M; ++i) {
+      writers[i] =
+          BitmapWordWriter<Word>(out_bitmaps_arg[i].buffer_->mutable_data(),
+                                 out_bitmaps_arg[i].offset_, out_bitmaps_arg[i].length_);
+    }
+
+    std::array<Word, N> visited_words;
+    visited_words.fill(0);
+    std::array<Word, M> output_words;
+    output_words.fill(0);
+
+    // every reader will have same number of words, since they are same length'ed
+    // todo this will be inefficient in some cases. When there are offsets beyond Word
+    //  boundary, every Word would have to be created from 2 adjoining Words
+    auto n_words = readers[0].words();
+    while (n_words--) {
+      // first collect all words to visited_words array
+      for (size_t i = 0; i < N; i++) {
+        visited_words[i] = readers[i].NextWord();
+      }
+
+      visitor(visited_words, output_words);
+
+      for (size_t i = 0; i < M; i++) {
+        writers[i].PutNextWord(output_words[i]);
+      }
+
+      bit_length -= kBitWidth;
+    }
+
+    // every reader will have same number of trailing bytes, because of the above reason
+    // todo when the above issue is resolved, following logic also needs to be fixed!
+    // tailing portion could be more than one word! (ref: BitmapWordReader constructor)
+    assert(static_cast<size_t>(bit_length) < kBitWidth * 2);
+    if (bit_length / kBitWidth) {
+      // there's one full word in trailing portion. Cant use NextWord() here because it
+      // doesn't stride the trailing metadata
+      for (size_t i = 0; i < N; i++) {
+        visited_words[i] = 0;
+        for (size_t b = 0; b < sizeof(Word); b++) {
+          int dummy;
+          auto byte = static_cast<Word>(readers[i].NextTrailingByte(dummy));
+          visited_words[i] |= byte << (b * 8);
+        }
+      }
+
+      visitor(visited_words, output_words);
+
+      for (size_t i = 0; i < M; i++) {
+        writers[i].PutNextWord(output_words[i]);
+      }
+
+      bit_length -= kBitWidth;
+    }
+
+    // clean-up last partial word
+    if (bit_length) {
+      output_words.fill(0);
+      for (size_t i = 0; i < N; i++) {
+        visited_words[i] = 0;
+        int n_byte = readers[i].trailing_bytes();
+        for (int b = 0; b < n_byte; b++) {
+          int valid_bits;
+          auto byte = static_cast<Word>(readers[i].NextTrailingByte(valid_bits));
+          visited_words[i] |= (byte << b * 8);
+        }
+      }
+
+      visitor(visited_words, output_words);
+
+      for (size_t i = 0; i < M; i++) {
+        writers[i].PutNextWord(output_words[i], bit_length);
+      }
+    }
+  }
+
+  template <size_t N, typename Word>
+  using SingleOutputVisitor =
+      std::function<void(const std::array<Word, N>& in_words, Word& out_words)>;
+
+  template <size_t N, typename Word>
+  static void VisitWordsAndWrite(const std::array<Bitmap, N>& bitmaps_arg,
+                                 SingleOutputVisitor<N, Word>&& visitor,
+                                 Bitmap& out_bitmap_arg) {
+    std::array<Bitmap, 1> out_bitmaps{out_bitmap_arg};
+    VisitWordsAndWrite<N, 1, Word>(
+        bitmaps_arg,
+        [&](const std::array<Word, N>& in_words, std::array<Word, 1>& out_words) {
+          visitor(in_words, out_words[0]);
+        },
+        out_bitmaps);
   }
 
   const std::shared_ptr<Buffer>& buffer() const { return buffer_; }

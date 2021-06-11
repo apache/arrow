@@ -149,10 +149,11 @@ class BitmapUInt64Reader {
 template <typename Word>
 class BitmapWordReader {
  public:
+  BitmapWordReader() = default;
   BitmapWordReader(const uint8_t* bitmap, int64_t offset, int64_t length) {
     bitmap_ = bitmap + offset / 8;
     offset_ = offset % 8;
-    bitmap_end_ = bitmap_ + BitUtil::BytesForBits(offset_ + length);
+    bitmap_end_ = bitmap_ + BitUtil::BytesForBits(offset + length);
 
     // decrement word count by one as we may touch two adjacent words in one iteration
     nwords_ = length / (sizeof(Word) * 8) - 1;
@@ -220,6 +221,7 @@ class BitmapWordReader {
       }
       current_byte_ = next_byte;
       trailing_bits_ -= 8;
+      trailing_bytes_--;
       valid_bits = 8;
     }
     return byte;
