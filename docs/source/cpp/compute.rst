@@ -258,7 +258,7 @@ Input(s) will be cast to the :ref:`common numeric type <common-numeric-type>`
 (and dictionary decoded, if applicable) before the operation is applied.
 
 The default variant of these functions does not detect overflow (the result
-then typically wraps around).  Each function is also available in an
+then typically wraps around).  Most functions are also available in an
 overflow-checking variant, suffixed ``_checked``, which returns
 an ``Invalid`` :class:`Status` when overflow is detected.
 

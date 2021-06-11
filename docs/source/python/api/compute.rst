@@ -39,7 +39,7 @@ Aggregations
 Arithmetic Functions
 --------------------
 
-By default these functions do not detect overflow. Each function is also
+By default these functions do not detect overflow. Most functions are also
 available in an overflow-checking variant, suffixed ``_checked``, which
 throws an ``ArrowInvalid`` exception when overflow is detected.
 
