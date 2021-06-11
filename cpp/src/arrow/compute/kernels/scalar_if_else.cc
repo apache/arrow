@@ -107,8 +107,6 @@ Status PromoteNullsVisitor(KernelContext* ctx, const Datum& cond_d, const Datum&
 
   std::array<Bitmap, 1> out_bitmaps{Bitmap{output->buffers[0], 0, cond.length}};
 
-  enum { C_VALID, C_DATA, L_VALID, R_VALID };
-
   switch (flag) {
     case COND_CONST | LEFT_CONST | RIGHT_CONST: {
       std::array<Bitmap, 1> bitmaps{cond_data};

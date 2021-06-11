@@ -30,60 +30,60 @@ namespace compute {
 
 namespace {
 
-enum BitmapIndex { LEFT_VALID, LEFT_DATA, RIGHT_VALID, RIGHT_DATA };
-
 template <typename ComputeWord>
 void ComputeKleene(ComputeWord&& compute_word, KernelContext* ctx, const ArrayData& left,
                    const ArrayData& right, ArrayData* out) {
   DCHECK(left.null_count != 0 || right.null_count != 0)
       << "ComputeKleene is unnecessarily expensive for the non-null case";
 
-  Bitmap bitmaps[4];
-  bitmaps[LEFT_VALID] = {left.buffers[0], left.offset, left.length};
-  bitmaps[LEFT_DATA] = {left.buffers[1], left.offset, left.length};
+  Bitmap left_valid_bm{left.buffers[0], left.offset, left.length};
+  Bitmap left_data_bm{left.buffers[1], left.offset, left.length};
 
-  bitmaps[RIGHT_VALID] = {right.buffers[0], right.offset, right.length};
-  bitmaps[RIGHT_DATA] = {right.buffers[1], right.offset, right.length};
+  Bitmap right_valid_bm{right.buffers[0], right.offset, right.length};
+  Bitmap right_data_bm{right.buffers[1], right.offset, right.length};
 
-  auto out_validity = out->GetMutableValues<uint64_t>(0);
-  auto out_data = out->GetMutableValues<uint64_t>(1);
+  std::array<Bitmap, 2> out_bms{Bitmap(out->buffers[0], out->offset, out->length),
+                                Bitmap(out->buffers[1], out->offset, out->length)};
 
-  int64_t i = 0;
   auto apply = [&](uint64_t left_valid, uint64_t left_data, uint64_t right_valid,
-                   uint64_t right_data) {
+                   uint64_t right_data, uint64_t* out_validity, uint64_t* out_data) {
     auto left_true = left_valid & left_data;
     auto left_false = left_valid & ~left_data;
 
     auto right_true = right_valid & right_data;
     auto right_false = right_valid & ~right_data;
 
-    compute_word(left_true, left_false, right_true, right_false, &out_validity[i],
-                 &out_data[i]);
-    ++i;
+    compute_word(left_true, left_false, right_true, right_false, out_validity, out_data);
   };
 
   if (right.null_count == 0) {
-    // bitmaps[RIGHT_VALID] might be null; override to make it safe for Visit()
-    bitmaps[RIGHT_VALID] = bitmaps[RIGHT_DATA];
-    Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
-      apply(words[LEFT_VALID], words[LEFT_DATA], ~uint64_t(0), words[RIGHT_DATA]);
-    });
+    std::array<Bitmap, 3> in_bms{left_valid_bm, left_data_bm, right_data_bm};
+    Bitmap::VisitWordsAndWrite(
+        in_bms, &out_bms,
+        [&](const std::array<uint64_t, 3>& in, std::array<uint64_t, 2>* out) {
+          apply(in[0], in[1], ~uint64_t(0), in[2], &(out->at(0)), &(out->at(1)));
+        });
     return;
   }
 
   if (left.null_count == 0) {
-    // bitmaps[LEFT_VALID] might be null; override to make it safe for Visit()
-    bitmaps[LEFT_VALID] = bitmaps[LEFT_DATA];
-    Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
-      apply(~uint64_t(0), words[LEFT_DATA], words[RIGHT_VALID], words[RIGHT_DATA]);
-    });
+    std::array<Bitmap, 3> in_bms{left_data_bm, right_valid_bm, right_data_bm};
+    Bitmap::VisitWordsAndWrite(
+        in_bms, &out_bms,
+        [&](const std::array<uint64_t, 3>& in, std::array<uint64_t, 2>* out) {
+          apply(~uint64_t(0), in[0], in[1], in[2], &(out->at(0)), &(out->at(1)));
+        });
     return;
   }
 
   DCHECK(left.null_count != 0 && right.null_count != 0);
-  Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
-    apply(words[LEFT_VALID], words[LEFT_DATA], words[RIGHT_VALID], words[RIGHT_DATA]);
-  });
+  std::array<Bitmap, 4> in_bms{left_valid_bm, left_data_bm, right_valid_bm,
+                               right_data_bm};
+  Bitmap::VisitWordsAndWrite(
+      in_bms, &out_bms,
+      [&](const std::array<uint64_t, 4>& in, std::array<uint64_t, 2>* out) {
+        apply(in[0], in[1], in[2], in[3], &(out->at(0)), &(out->at(1)));
+      });
 }
 
 inline BooleanScalar InvertScalar(const Scalar& in) {
