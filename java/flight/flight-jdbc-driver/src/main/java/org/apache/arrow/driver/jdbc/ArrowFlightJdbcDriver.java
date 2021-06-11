@@ -48,7 +48,7 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
   private static final String CONNECT_STRING_PREFIX = "jdbc:arrow-flight://";
   private static final Pattern urlRegExPattern = Pattern.compile("^(" +
       CONNECT_STRING_PREFIX + ")" +
-      "(\\w+):([\\d]+)\\/*\\?*([[\\w]*=[\\w]*&?]*)?");
+      "(\\w+):([\\d]+)\\/*\\?*([[\\w]+=[\\w]+&?]*)?");
       
   private static DriverVersion version;
 
@@ -173,6 +173,10 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
     if (!Strings.isNullOrEmpty(extraParams)) {
       for (final String params : extraParams.split("&")) {
         final String[] keyValuePair = params.split("=");
+        if (keyValuePair.length != 2) {
+          throw new SQLException(
+              "URL parameters must be provided in key-value pairs!");
+        }
         resultMap.put(keyValuePair[0], keyValuePair[1]);
       }
     }
