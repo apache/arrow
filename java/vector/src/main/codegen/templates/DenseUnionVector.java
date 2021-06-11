@@ -85,9 +85,6 @@ import static org.apache.arrow.vector.types.UnionMode.Dense;
  * Source code generated using FreeMarker template ${.template_name}
  */
 public class DenseUnionVector extends AbstractContainerVector implements FieldVector {
-
-  private String name;
-  private BufferAllocator allocator;
   int valueCount;
 
   NonNullableStructVector internalStruct;
@@ -109,13 +106,12 @@ public class DenseUnionVector extends AbstractContainerVector implements FieldVe
   private byte[] typeMapFields = new byte[Byte.MAX_VALUE + 1];
 
   /**
-   * The next typd id to allocate.
+   * The next type id to allocate.
    */
   private byte nextTypeId = 0;
 
   private FieldReader reader;
 
-  private final CallBack callBack;
   private long typeBufferAllocationSizeInBytes;
   private long offsetBufferAllocationSizeInBytes;
 
@@ -135,8 +131,6 @@ public class DenseUnionVector extends AbstractContainerVector implements FieldVe
 
   public DenseUnionVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
     super(name, allocator, callBack);
-    this.name = name;
-    this.allocator = allocator;
     this.fieldType = fieldType;
     this.internalStruct = new NonNullableStructVector(
         "internal",
@@ -146,7 +140,6 @@ public class DenseUnionVector extends AbstractContainerVector implements FieldVe
         AbstractStructVector.ConflictPolicy.CONFLICT_REPLACE,
         false);
     this.typeBuffer = allocator.getEmpty();
-    this.callBack = callBack;
     this.typeBufferAllocationSizeInBytes = BaseValueVector.INITIAL_VALUE_ALLOCATION * TYPE_WIDTH;
     this.offsetBuffer = allocator.getEmpty();
     this.offsetBufferAllocationSizeInBytes = BaseValueVector.INITIAL_VALUE_ALLOCATION * OFFSET_WIDTH;
