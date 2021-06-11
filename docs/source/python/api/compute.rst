@@ -159,6 +159,23 @@ String Splitting
    ascii_split_whitespace
    utf8_split_whitespace
 
+String Component Extraction
+---------------------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   extract_regex
+
+String Joining
+--------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   binary_join
+   var_args_join
+
 String Transforms
 -----------------
 

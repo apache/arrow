@@ -1787,6 +1787,22 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CElementWiseAggregateOptions(c_bool skip_nulls)
         c_bool skip_nulls
 
+    enum CJoinNullHandlingBehavior \
+            "arrow::compute::JoinOptions::NullHandlingBehavior":
+        CJoinNullHandlingBehavior_EMIT_NULL \
+            "arrow::compute::JoinOptions::EMIT_NULL"
+        CJoinNullHandlingBehavior_SKIP \
+            "arrow::compute::JoinOptions::SKIP"
+        CJoinNullHandlingBehavior_REPLACE \
+            "arrow::compute::JoinOptions::REPLACE"
+
+    cdef cppclass CJoinOptions \
+            "arrow::compute::JoinOptions"(CFunctionOptions):
+        CJoinOptions(CJoinNullHandlingBehavior null_handling,
+                     c_string null_replacement)
+        CJoinNullHandlingBehavior null_handling
+        c_string null_replacement
+
     cdef cppclass CMatchSubstringOptions \
             "arrow::compute::MatchSubstringOptions"(CFunctionOptions):
         CMatchSubstringOptions(c_string pattern, c_bool ignore_case)
