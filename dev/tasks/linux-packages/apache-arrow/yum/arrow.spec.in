@@ -43,12 +43,14 @@
 %define use_python (!%{is_amazon_linux})
 # TODO: Enable this. This works on local but is fragile on GitHub Actions and
 # Travis CI.
-# %define use_s3 (%{_centos_ver} >= 8)
+# %define use_s3 (%{rhel} >= 8)
 %define use_s3 0
 
 %define have_rapidjson (%{rhel} == 7)
 %define have_re2 (%{rhel} >= 8)
-%define have_utf8proc (%{rhel} == 7)
+# EPEL ships utf8proc but it's old.
+# %define have_utf8proc (%{rhel} == 7)
+%define have_utf8proc 0
 
 Name:		@PACKAGE@
 Version:	@VERSION@
