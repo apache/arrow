@@ -30,8 +30,6 @@ import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javax.annotation.RegEx;
-
 import org.apache.arrow.driver.jdbc.utils.DefaultProperty;
 import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.util.Preconditions;
@@ -48,6 +46,10 @@ import com.google.common.base.Strings;
 public class ArrowFlightJdbcDriver extends UnregisteredDriver {
 
   private static final String CONNECT_STRING_PREFIX = "jdbc:arrow-flight://";
+  private static final Pattern urlRegExPattern = Pattern.compile("^(" +
+      CONNECT_STRING_PREFIX + ")" +
+      "(\\w+):([\\d]+)\\/*\\?*([[\\w]*=[\\w]*&?]*)?");
+      
   private static DriverVersion version;
 
   static {
@@ -148,17 +150,16 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
    */
   private Map<String, String> getUrlsArgs(final String url)
       throws SQLException {
-    @RegEx
-    final String regex =
-        "^(" + getConnectStringPrefix() + ")" +
-        "(\\w+):([\\d]+)\\/*\\?*([[\\w]*=[\\w]*&?]*)?";
 
     /*
      * URL must ALWAYS follow the pattern:
      * "jdbc:arrow-flight://<host>:<port>[/?param1=value1&param2=value2&(...)]."
      */
-    final Matcher matcher = Pattern.compile(regex).matcher(url);
-    assert matcher.matches();
+    final Matcher matcher = urlRegExPattern.matcher(url);
+    
+    if (!matcher.matches()) {
+      throw new SQLException("Malformed/invalid URL!");
+    }
 
     final Map<String, String> resultMap = new HashMap<>();
 

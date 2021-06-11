@@ -21,6 +21,7 @@ package org.apache.arrow.driver.jdbc.utils;
  * An enum for centralizing default property names.
  */
 public enum DefaultProperty {
+  // TODO These names are up to discussion.
   HOST("host"),
   PORT("port"),
   USER("user"),
