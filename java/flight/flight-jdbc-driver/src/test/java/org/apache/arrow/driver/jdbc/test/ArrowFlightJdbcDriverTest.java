@@ -245,6 +245,32 @@ public class ArrowFlightJdbcDriverTest {
   }
 
   /**
+   * Tests whether an exception is thrown upon attempting to connect to a
+   * malformed URI.
+   *
+   * @throws Exception If an error occurs.
+   */
+  @SuppressWarnings("unchecked")
+  @Test(expected = SQLException.class)
+  public void testDriverUrlParsingMechanismShouldThrowExceptionUponProvidedWithMalformedUrl()
+      throws Exception {
+    final Driver driver = new ArrowFlightJdbcDriver();
+
+    final Method getUrlsArgs = driver.getClass()
+        .getDeclaredMethod("getUrlsArgs", String.class);
+
+    getUrlsArgs.setAccessible(true);
+
+    try {
+      final Map<String, String> parsedArgs = (Map<String, String>) getUrlsArgs
+          .invoke(driver,
+            "jdbc:arrow-flight://localhost:2222/?k1=v1&m=");
+    } catch (InvocationTargetException e) {
+      throw (SQLException) e.getCause();
+    }
+  }
+
+  /**
    * Validate the user's credential on a FlightServer.
    *
    * @param username
