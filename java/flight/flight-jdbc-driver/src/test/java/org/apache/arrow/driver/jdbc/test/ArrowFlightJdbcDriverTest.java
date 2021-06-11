@@ -19,6 +19,7 @@ package org.apache.arrow.driver.jdbc.test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URI;
 import java.sql.Connection;
@@ -204,8 +205,8 @@ public class ArrowFlightJdbcDriverTest {
   }
 
   /**
-   * Tests whether an exception is thrown upon attempting to connect to a
-   * malformed URI.
+   * Tests whether {@code ArrowFlightJdbcDriverTest#getUrlsArgs} returns the
+   * correct URL parameters.
    *
    * @throws Exception If an error occurs.
    */
@@ -237,6 +238,32 @@ public class ArrowFlightJdbcDriverTest {
     assertEquals(parsedArgs.get("key1"), "value1");
     assertEquals(parsedArgs.get("key2"), "value2");
     assertEquals(parsedArgs.get("a"), "b");
+  }
+
+  /**
+   * Tests whether an exception is thrown upon attempting to connect to a
+   * malformed URI.
+   *
+   * @throws Exception If an error occurs.
+   */
+  @SuppressWarnings("unchecked")
+  @Test(expected = SQLException.class)
+  public void testDriverUrlParsingMechanismShouldThrowExceptionUponProvidedWithMalformedUrl()
+      throws Exception {
+    final Driver driver = new ArrowFlightJdbcDriver();
+
+    final Method getUrlsArgs = driver.getClass()
+        .getDeclaredMethod("getUrlsArgs", String.class);
+
+    getUrlsArgs.setAccessible(true);
+
+    try {
+      final Map<String, String> parsedArgs = (Map<String, String>) getUrlsArgs
+          .invoke(driver,
+            "jdbc:arrow-flight://localhost:2222/?k1=v1&m=");
+    } catch (InvocationTargetException e) {
+      throw (SQLException) e.getCause();
+    }
   }
 
   /**
