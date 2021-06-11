@@ -256,7 +256,7 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
   /// densely packed bits loaded from the bitmap. That offset within the first word is
   /// returned.
   /// Visitor is expected to have the following signature
-  ///     [](const std::array<Word, N>& in_words, std::array<Word, M>& out_words){...}
+  ///     [](const std::array<Word, N>& in_words, std::array<Word, M>* out_words){...}
   ///
   // NOTE: this function is efficient on 3+ sufficiently large bitmaps.
   // It also has a large prolog / epilog overhead and should be used
@@ -296,33 +296,47 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
     // todo this will be inefficient in some cases. When there are offsets beyond Word
     //  boundary, every Word would have to be created from 2 adjoining Words
     auto n_words = readers[0].words();
+    bit_length -= n_words * kBitWidth;
     while (n_words--) {
       // first collect all words to visited_words array
       for (size_t i = 0; i < N; i++) {
         visited_words[i] = readers[i].NextWord();
       }
-      visitor(visited_words, output_words);
+      visitor(visited_words, &output_words);
       for (size_t i = 0; i < M; i++) {
         writers[i].PutNextWord(output_words[i]);
       }
-      bit_length -= kBitWidth;
     }
 
     // every reader will have same number of trailing bytes, because of the above reason
     // tailing portion could be more than one word! (ref: BitmapWordReader constructor)
     // remaining full/ partial words to write
-    n_words = (bit_length + kBitWidth - 1) / kBitWidth;
-    assert(n_words <= 2);
-    while (n_words--) {
-      visited_words.fill(0);
-      output_words.fill(0);
-      int valid_bits;
-      for (size_t i = 0; i < N; i++) {
-        visited_words[i] = readers[i].NextTrailingWord(valid_bits);
-      }
-      visitor(visited_words, output_words);
-      for (size_t i = 0; i < M; i++) {
-        writers[i].PutTrailingWord(output_words[i], valid_bits);
+
+    if (bit_length) {
+      // convert the word visitor lambda to a byte_visitor
+      auto byte_visitor = [&](const std::array<uint8_t, N>& in,
+                              std::array<uint8_t, M>* out) {
+        std::array<Word, N> in_words;
+        std::array<Word, M> out_words;
+        std::copy(in.begin(), in.end(), in_words.begin());
+        visitor(in_words, &out_words);
+        std::move(out_words.begin(), out_words.end(), out->begin());
+      };
+
+      std::array<uint8_t, N> visited_bytes;
+      std::array<uint8_t, M> output_bytes;
+      int n_bytes = readers[0].trailing_bytes();
+      while (n_bytes--) {
+        visited_bytes.fill(0);
+        output_bytes.fill(0);
+        int valid_bits;
+        for (size_t i = 0; i < N; i++) {
+          visited_bytes[i] = readers[i].NextTrailingByte(valid_bits);
+        }
+        byte_visitor(visited_bytes, &output_bytes);
+        for (size_t i = 0; i < M; i++) {
+          writers[i].PutNextTrailingByte(output_bytes[i], valid_bits);
+        }
       }
     }
   }

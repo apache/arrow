@@ -87,9 +87,9 @@ void RunOutputNoOffset(int part) {
   std::array<Bitmap, 3> in_bms{bm0, bm1, bm2};
   Bitmap::VisitWordsAndWrite(
       in_bms, &out_bms,
-      [](const std::array<uint64_t, 3>& in, std::array<uint64_t, 2>& out) {
-        out[0] = in[0] & in[1];
-        out[1] = in[0] | in[2];
+      [](const std::array<uint64_t, 3>& in, std::array<uint64_t, 2>* out) {
+        out->at(0) = in[0] & in[1];
+        out->at(1) = in[0] | in[2];
       });
 
   std::vector<bool> out_v0(part);
@@ -124,8 +124,8 @@ void RunOutputWithOffset(int64_t part) {
   std::shared_ptr<Buffer>& arrow_buffer = arrow_data->data()->buffers[1];
 
   Bitmap bm0(arrow_buffer, 0, part);
-  Bitmap bm1 = bm0.Slice(part * 1, part);  // this goes beyond bm0's len
-  Bitmap bm2 = bm0.Slice(part * 2, part);  // this goes beyond bm0's len
+  Bitmap bm1(arrow_buffer, part * 1, part);
+  Bitmap bm2(arrow_buffer, part * 2, part);
 
   std::array<Bitmap, 2> out_bms;
   ASSERT_OK_AND_ASSIGN(auto out, AllocateBitmap(part * 4));
@@ -136,12 +136,12 @@ void RunOutputWithOffset(int64_t part) {
   std::vector<bool> v1(data.begin() + part * 1, data.begin() + part * 2);
   std::vector<bool> v2(data.begin() + part * 2, data.begin() + part * 3);
 
-  std::cout << "v0: " << VectorToString(v0) << "\n";
-  std::cout << "b0: " << bm0.ToString() << "\n";
-  std::cout << "v1: " << VectorToString(v1) << "\n";
-  std::cout << "b1: " << bm1.ToString() << "\n";
-  std::cout << "v2: " << VectorToString(v2) << "\n";
-  std::cout << "b2: " << bm2.ToString() << "\n";
+  //  std::cout << "v0: " << VectorToString(v0) << "\n";
+  //  std::cout << "b0: " << bm0.ToString() << "\n";
+  //  std::cout << "v1: " << VectorToString(v1) << "\n";
+  //  std::cout << "b1: " << bm1.ToString() << "\n";
+  //  std::cout << "v2: " << VectorToString(v2) << "\n";
+  //  std::cout << "b2: " << bm2.ToString() << "\n";
 
   std::vector<bool> out_v0(part);
   std::vector<bool> out_v1(part);
@@ -152,16 +152,16 @@ void RunOutputWithOffset(int64_t part) {
   std::transform(v0.begin(), v0.end(), v2.begin(), out_v1.begin(),
                  std::logical_or<bool>());
 
-  std::cout << "out0: " << VectorToString(out_v0) << "\n";
-  std::cout << "out1: " << VectorToString(out_v1) << "\n";
+  //  std::cout << "out0: " << VectorToString(out_v0) << "\n";
+  //  std::cout << "out1: " << VectorToString(out_v1) << "\n";
 
   // out0 = bm0 & bm1, out1= bm0 | bm2
   std::array<Bitmap, 3> in_bms{bm0, bm1, bm2};
   Bitmap::VisitWordsAndWrite(
       in_bms, &out_bms,
-      [](const std::array<uint64_t, 3>& in, std::array<uint64_t, 2>& out) {
-        out[0] = in[0] & in[1];
-        out[1] = in[0] | in[2];
+      [](const std::array<uint64_t, 3>& in, std::array<uint64_t, 2>* out) {
+        out->at(0) = in[0] & in[1];
+        out->at(1) = in[0] | in[2];
       });
 
   VerifyBoolOutput(out_bms[0], out_v0);

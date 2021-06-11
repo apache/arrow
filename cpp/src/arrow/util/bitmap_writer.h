@@ -225,20 +225,6 @@ class BitmapWordWriter {
     bitmap_ += sizeof(Word);
   }
 
-  void PutTrailingWord(Word word, int valid_bits) {
-    assert(static_cast<size_t>(valid_bits) <= sizeof(Word) * 8);
-    if (ARROW_PREDICT_FALSE(valid_bits == 0)) {
-      return;
-    }
-
-    int n_bytes = (valid_bits + 7) / 8;
-    for (int i = 0; i < n_bytes; i++) {
-      uint8_t byte = *(reinterpret_cast<uint8_t*>(&word) + i);
-      PutNextTrailingByte(byte, std::min(8, valid_bits));
-      valid_bits -= 8;
-    }
-  }
-
   void PutNextTrailingByte(uint8_t byte, int valid_bits) {
     if (valid_bits == 8) {
       if (offset_) {

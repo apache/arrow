@@ -193,21 +193,6 @@ class BitmapWordReader {
     return word;
   }
 
-  Word NextTrailingWord(int& valid_bits) {
-    // safest way to create a word from the trailing bits, is to concatenate bytes
-    // returned by NextTrailingByte
-    Word word = 0;  // only a partial word may be returned.
-    valid_bits = 0;
-    int n_byte = std::min(trailing_bytes_, static_cast<int>(sizeof(Word)));
-    for (int b = 0; b < n_byte; b++) {
-      int valid;
-      auto byte = static_cast<Word>(NextTrailingByte(valid));
-      word |= byte << (b * 8);
-      valid_bits += valid;
-    }
-    return word;
-  }
-
   uint8_t NextTrailingByte(int& valid_bits) {
     uint8_t byte;
     assert(trailing_bits_ > 0);
