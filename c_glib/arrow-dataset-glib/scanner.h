@@ -27,62 +27,68 @@ G_BEGIN_DECLS
 
 /* arrow::dataset::ScanOptions */
 
-#define GAD_TYPE_SCAN_OPTIONS (gad_scan_options_get_type())
-G_DECLARE_DERIVABLE_TYPE(GADScanOptions,
-                         gad_scan_options,
-                         GAD,
+#define GADATASET_TYPE_SCAN_OPTIONS (gadataset_scan_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GADatasetScanOptions,
+                         gadataset_scan_options,
+                         GADATASET,
                          SCAN_OPTIONS,
                          GObject)
-struct _GADScanOptionsClass
+struct _GADatasetScanOptionsClass
 {
   GObjectClass parent_class;
 };
 
 
 GARROW_AVAILABLE_IN_1_0
-GADScanOptions *gad_scan_options_new(GArrowSchema *schema);
+GADatasetScanOptions *
+gadataset_scan_options_new(GArrowSchema *schema);
 GARROW_AVAILABLE_IN_1_0
-GArrowSchema *gad_scan_options_get_schema(GADScanOptions *scan_options);
+GArrowSchema *
+gadataset_scan_options_get_schema(GADatasetScanOptions *scan_options);
 
 /* arrow::dataset::ScanTask */
 
-#define GAD_TYPE_SCAN_TASK (gad_scan_task_get_type())
-G_DECLARE_DERIVABLE_TYPE(GADScanTask,
-                         gad_scan_task,
-                         GAD,
+#define GADATASET_TYPE_SCAN_TASK (gadataset_scan_task_get_type())
+G_DECLARE_DERIVABLE_TYPE(GADatasetScanTask,
+                         gadataset_scan_task,
+                         GADATASET,
                          SCAN_TASK,
                          GObject)
-struct _GADScanTaskClass
+struct _GADatasetScanTaskClass
 {
   GObjectClass parent_class;
 };
 
 GARROW_AVAILABLE_IN_1_0
-GADScanOptions *gad_scan_task_get_options(GADScanTask *scan_task);
+GADatasetScanOptions *
+gadataset_scan_task_get_options(GADatasetScanTask *scan_task);
 GARROW_AVAILABLE_IN_4_0
-GADFragment *gad_scan_task_get_fragment(GADScanTask *scan_task);
+GADatasetFragment *
+gadataset_scan_task_get_fragment(GADatasetScanTask *scan_task);
 GARROW_AVAILABLE_IN_1_0
-GArrowRecordBatchIterator *gad_scan_task_execute(GADScanTask *scan_task,
-                                                 GError **error);
+GArrowRecordBatchIterator *
+gadataset_scan_task_execute(GADatasetScanTask *scan_task,
+                            GError **error);
 
 /* arrow::dataset::InMemoryScanTask */
 
-#define GAD_TYPE_IN_MEMORY_SCAN_TASK (gad_in_memory_scan_task_get_type())
-G_DECLARE_DERIVABLE_TYPE(GADInMemoryScanTask,
-                         gad_in_memory_scan_task,
-                         GAD,
+#define GADATASET_TYPE_IN_MEMORY_SCAN_TASK      \
+  (gadataset_in_memory_scan_task_get_type())
+G_DECLARE_DERIVABLE_TYPE(GADatasetInMemoryScanTask,
+                         gadataset_in_memory_scan_task,
+                         GADATASET,
                          IN_MEMORY_SCAN_TASK,
-                         GADScanTask)
-struct _GADInMemoryScanTaskClass
+                         GADatasetScanTask)
+struct _GADatasetInMemoryScanTaskClass
 {
-  GADScanTaskClass parent_class;
+  GADatasetScanTaskClass parent_class;
 };
 
 GARROW_AVAILABLE_IN_1_0
-GADInMemoryScanTask *
-gad_in_memory_scan_task_new(GArrowRecordBatch **record_batches,
-                            gsize n_record_batches,
-                            GADScanOptions *options,
-                            GADInMemoryFragment *fragment);
+GADatasetInMemoryScanTask *
+gadataset_in_memory_scan_task_new(GArrowRecordBatch **record_batches,
+                                  gsize n_record_batches,
+                                  GADatasetScanOptions *options,
+                                  GADatasetInMemoryFragment *fragment);
 
 G_END_DECLS
