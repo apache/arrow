@@ -16,17 +16,10 @@
 # under the License.
 
 module Arrow
-  class Buffer
-    class << self
-      # @api private
-      def try_convert(value)
-        case value
-        when String
-          new(value)
-        else
-          nil
-        end
-      end
+  module ConstructorArgumentsGCGuardable
+    def initialize(*args)
+      super
+      @arguments = args
     end
   end
 end

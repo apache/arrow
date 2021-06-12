@@ -29,6 +29,7 @@ module Arrow
     def post_load(repository, namespace)
       require_libraries
       require_extension_library
+      gc_guard
     end
 
     def require_libraries
@@ -113,6 +114,27 @@ module Arrow
 
     def require_extension_library
       require "arrow.so"
+    end
+
+    def gc_guard
+      require "arrow/constructor-arguments-gc-guardable"
+
+      [
+        @base_module::BinaryScalar,
+        @base_module::Buffer,
+        @base_module::DenseUnionScalar,
+        @base_module::FixedSizeBinaryScalar,
+        @base_module::LargeBinaryScalar,
+        @base_module::LargeListScalar,
+        @base_module::LargeStringScalar,
+        @base_module::ListScalar,
+        @base_module::MapScalar,
+        @base_module::SparseUnionScalar,
+        @base_module::StringScalar,
+        @base_module::StructScalar,
+      ].each do |klass|
+        klass.prepend(ConstructorArgumentsGCGuardable)
+      end
     end
 
     def load_object_info(info)
