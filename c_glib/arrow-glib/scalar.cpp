@@ -95,6 +95,17 @@ G_BEGIN_DECLS
  *
  * #GArrowDecimal256Scalar is a class for a 256-bit decimal scalar.
  *
+ * #GArrowBaseListScalar is a base class for all list scalar classes
+ * such as #GArrowListScalar.
+ *
+ * #GArrowListScalar is a class for a list scalar.
+ *
+ * #GArrowLargeListScalar is a class for a large list scalar.
+ *
+ * #GArrowMapScalar is a class for a map list scalar.
+ *
+ * #GArrowStructScalar is a class for a struct list scalar.
+ *
  * #GArrowUnionScalar is a base class for all union scalar classes
  * such as #GArrowSparseUnionScalar.
  *
