@@ -467,20 +467,20 @@ struct PowerChecked {
 struct Sign {
   template <typename T, typename Arg,
             enable_if_t<std::is_floating_point<Arg>::value, bool> = true>
-  static constexpr int8_t Call(KernelContext*, Arg arg, Status*) {
+  static constexpr T Call(KernelContext*, Arg arg, Status*) {
     return (arg == 0) ? 0 : (std::signbit(arg) ? -1 : 1);
   }
 
   template <typename T, typename Arg,
             enable_if_t<std::is_unsigned<Arg>::value, bool> = true>
-  static constexpr int8_t Call(KernelContext*, Arg arg, Status*) {
+  static constexpr T Call(KernelContext*, Arg arg, Status*) {
     return (arg == 0) ? 0 : 1;
   }
 
   template <typename T, typename Arg,
             enable_if_t<std::is_integral<Arg>::value && std::is_signed<Arg>::value,
                         bool> = true>
-  static constexpr int8_t Call(KernelContext*, Arg arg, Status*) {
+  static constexpr T Call(KernelContext*, Arg arg, Status*) {
     return (arg > 0) ? 1 : ((arg == 0) ? 0 : -1);
   }
 };
@@ -488,20 +488,20 @@ struct Sign {
 struct SignWithSignedZero {
   template <typename T, typename Arg,
             enable_if_t<std::is_floating_point<Arg>::value, bool> = true>
-  static constexpr int8_t Call(KernelContext*, Arg arg, Status*) {
+  static constexpr T Call(KernelContext*, Arg arg, Status*) {
     return std::signbit(arg) ? -1 : 1;
   }
 
   template <typename T, typename Arg,
             enable_if_t<std::is_unsigned<Arg>::value, bool> = true>
-  static constexpr int8_t Call(KernelContext*, Arg arg, Status*) {
-    return (arg == 0) ? 0 : 1;
+  static constexpr T Call(KernelContext*, Arg arg, Status*) {
+    return 1;
   }
 
   template <typename T, typename Arg,
             enable_if_t<std::is_integral<Arg>::value && std::is_signed<Arg>::value,
                         bool> = true>
-  static constexpr int8_t Call(KernelContext*, Arg arg, Status*) {
+  static constexpr T Call(KernelContext*, Arg arg, Status*) {
     return (arg >= 0) ? 1 : -1;
   }
 };
@@ -1078,7 +1078,7 @@ void AddDecimalBinaryKernels(const std::string& name,
 }
 
 // Generate a kernel given an arithmetic functor
-template <template <typename... Args> class KernelGenerator, typename OutType,
+template <template <typename...> class KernelGenerator, typename OutType,
           typename... Args>
 ArrayKernelExec GenerateArithmeticFixedOutType(detail::GetTypeId get_id) {
   switch (get_id.id) {
@@ -1218,7 +1218,8 @@ std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunction(std::string name,
   return func;
 }
 
-// Like MakeUnaryArithmeticFunction, but with a fixed output type.
+// Like MakeUnaryArithmeticFunction, but for unary arithmetic ops with a fixed
+// output type.
 template <typename Op, typename OutType>
 std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionFixedOutType(
     std::string name, const FunctionDoc* doc) {
