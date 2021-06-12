@@ -1096,7 +1096,8 @@ TEST(TestUnaryArithmetic, DispatchBest) {
   }
 
   // Null input
-  for (std::string name : {"negate", "negate_checked", "abs", "abs_checked", "sign", "sign_with_signed_zero"}) {
+  for (std::string name : {"negate", "negate_checked", "abs", "abs_checked", "sign",
+                           "sign_with_signed_zero"}) {
     CheckDispatchFails(name, {null()});
   }
 
