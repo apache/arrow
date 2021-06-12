@@ -36,6 +36,7 @@
 #include "arrow/compute/registry.h"
 #include "arrow/compute/util_internal.h"
 #include "arrow/datum.h"
+#include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
@@ -67,6 +68,38 @@ ExecBatch::ExecBatch(const RecordBatch& batch)
     : values(batch.num_columns()), length(batch.num_rows()) {
   auto columns = batch.column_data();
   std::move(columns.begin(), columns.end(), values.begin());
+}
+
+bool ExecBatch::Equals(const ExecBatch& other) const {
+  return guarantee == other.guarantee && values == other.values;
+}
+
+void PrintTo(const ExecBatch& batch, std::ostream* os) {
+  *os << "ExecBatch\n";
+
+  static const std::string indent = "    ";
+
+  *os << indent << "# Rows: " << batch.length << "\n";
+  if (batch.guarantee != literal(true)) {
+    *os << indent << "Guarantee: " << batch.guarantee.ToString() << "\n";
+  }
+
+  int i = 0;
+  for (const Datum& value : batch.values) {
+    *os << indent << "" << i++ << ": ";
+
+    if (value.is_scalar()) {
+      *os << "Scalar[" << value.scalar()->ToString() << "]\n";
+      continue;
+    }
+
+    auto array = value.make_array();
+    PrettyPrintOptions options;
+    options.skip_new_lines = true;
+    *os << "Array";
+    ARROW_CHECK_OK(PrettyPrint(*array, options, os));
+    *os << "\n";
+  }
 }
 
 ExecBatch ExecBatch::Slice(int64_t offset, int64_t length) const {

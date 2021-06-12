@@ -34,40 +34,30 @@
 
 namespace arrow {
 
-using internal::Executor;
+using testing::UnorderedElementsAreArray;
 
 namespace compute {
 
-void AssertBatchesEqual(const RecordBatchVector& expected,
-                        const RecordBatchVector& actual) {
-  ASSERT_EQ(expected.size(), actual.size());
-  for (size_t i = 0; i < expected.size(); ++i) {
-    AssertBatchesEqual(*expected[i], *actual[i]);
-  }
-}
+ExecBatch ExecBatchFromJSON(const std::vector<ValueDescr>& descrs,
+                            util::string_view json) {
+  auto fields = internal::MapVector(
+      [](const ValueDescr& descr) { return field("", descr.type); }, descrs);
 
-void AssertBatchesEqual(const std::vector<util::optional<ExecBatch>>& expected,
-                        const std::vector<util::optional<ExecBatch>>& actual) {
-  ASSERT_EQ(expected.size(), actual.size());
-  for (size_t i = 0; i < expected.size(); ++i) {
-    AssertBatchesEqual(*expected[i], *actual[i]);
-  }
-}
+  ExecBatch batch{*RecordBatchFromJSON(schema(std::move(fields)), json)};
 
-void AssertBatchesEqual(const RecordBatchVector& expected,
-                        const std::vector<util::optional<ExecBatch>>& actual) {
-  ASSERT_EQ(expected.size(), actual.size());
-  for (size_t i = 0; i < expected.size(); ++i) {
-    AssertBatchesEqual(ExecBatch(*expected[i]), *actual[i]);
+  auto value_it = batch.values.begin();
+  for (const auto& descr : descrs) {
+    if (descr.shape == ValueDescr::SCALAR) {
+      if (batch.length == 0) {
+        *value_it = MakeNullScalar(value_it->type());
+      } else {
+        *value_it = value_it->make_array()->GetScalar(0).ValueOrDie();
+      }
+    }
+    ++value_it;
   }
-}
 
-void AssertBatchesEqual(const RecordBatchVector& expected,
-                        const std::vector<ExecBatch>& actual) {
-  ASSERT_EQ(expected.size(), actual.size());
-  for (size_t i = 0; i < expected.size(); ++i) {
-    AssertBatchesEqual(ExecBatch(*expected[i]), actual[i]);
-  }
+  return batch;
 }
 
 TEST(ExecPlanConstruction, Empty) {
@@ -214,175 +204,151 @@ TEST(ExecPlan, DummyStartProducingError) {
   ASSERT_THAT(t.stopped, ::testing::ElementsAre("process2", "process3", "sink"));
 }
 
-// TODO move this to gtest_util.h?
+static Result<ExecNode*> MakeTestSourceNode(ExecPlan* plan, std::string label,
+                                            std::vector<ExecBatch> batches, bool parallel,
+                                            bool slow) {
+  DCHECK_GT(batches.size(), 0);
+  auto out_descr = batches.back().GetDescriptors();
 
-class SlowRecordBatchReader : public RecordBatchReader {
- public:
-  explicit SlowRecordBatchReader(std::shared_ptr<RecordBatchReader> reader)
-      : reader_(std::move(reader)) {}
+  auto opt_batches = internal::MapVector(
+      [](ExecBatch batch) { return util::make_optional(std::move(batch)); },
+      std::move(batches));
 
-  std::shared_ptr<Schema> schema() const override { return reader_->schema(); }
+  AsyncGenerator<util::optional<ExecBatch>> gen;
 
-  Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
-    SleepABit();
-    return reader_->ReadNext(batch);
+  if (parallel) {
+    // emulate batches completing initial decode-after-scan on a cpu thread
+    ARROW_ASSIGN_OR_RAISE(
+        gen, MakeBackgroundGenerator(MakeVectorIterator(std::move(opt_batches)),
+                                     internal::GetCpuThreadPool()));
+  } else {
+    gen = MakeVectorGenerator(std::move(opt_batches));
   }
 
-  static Result<std::shared_ptr<RecordBatchReader>> Make(
-      RecordBatchVector batches, std::shared_ptr<Schema> schema = nullptr) {
-    ARROW_ASSIGN_OR_RAISE(auto reader,
-                          RecordBatchReader::Make(std::move(batches), std::move(schema)));
-    return std::make_shared<SlowRecordBatchReader>(std::move(reader));
+  if (slow) {
+    gen = MakeMappedGenerator(std::move(gen), [](const util::optional<ExecBatch>& batch) {
+      SleepABit();
+      return batch;
+    });
   }
 
- protected:
-  std::shared_ptr<RecordBatchReader> reader_;
-};
-
-static Result<RecordBatchGenerator> MakeSlowRecordBatchGenerator(
-    RecordBatchVector batches, std::shared_ptr<Schema> schema) {
-  // TODO move this into testing/async_generator_util.h?
-  auto delayed_gen =
-      MakeMappedGenerator(MakeVectorGenerator(std::move(batches)),
-                          [](const std::shared_ptr<RecordBatch>& batch) {
-                            return SleepABitAsync().Then([=] { return batch; });
-                          });
-  // Adding readahead implicitly adds parallelism by pulling reentrantly from
-  // the delayed generator
-  return MakeReadaheadGenerator(std::move(delayed_gen), /*max_readahead=*/64);
+  return MakeSourceNode(plan, label, out_descr, std::move(gen));
 }
 
-class TestExecPlanExecution : public ::testing::Test {
- public:
-  void SetUp() override {
-    ASSERT_OK_AND_ASSIGN(io_executor_, internal::ThreadPool::Make(8));
-  }
+static Result<std::vector<ExecBatch>> StartAndCollect(
+    ExecPlan* plan, AsyncGenerator<util::optional<ExecBatch>> gen) {
+  RETURN_NOT_OK(plan->Validate());
+  RETURN_NOT_OK(plan->StartProducing());
 
-  RecordBatchVector MakeRandomBatches(const std::shared_ptr<Schema>& schema,
-                                      int num_batches = 10, int batch_size = 4) {
-    random::RandomArrayGenerator rng(42);
-    RecordBatchVector batches;
-    batches.reserve(num_batches);
-    for (int i = 0; i < num_batches; ++i) {
-      batches.push_back(rng.BatchOf(schema->fields(), batch_size));
+  auto maybe_collected = CollectAsyncGenerator(gen).result();
+  ARROW_ASSIGN_OR_RAISE(auto collected, maybe_collected);
+
+  // RETURN_NOT_OK(plan->StopProducing());
+
+  return internal::MapVector(
+      [](util::optional<ExecBatch> batch) { return std::move(*batch); }, collected);
+}
+
+static std::vector<ExecBatch> MakeBasicBatches() {
+  return {ExecBatchFromJSON({int32(), boolean()}, "[[null, true], [4, false]]"),
+          ExecBatchFromJSON({int32(), boolean()}, "[[5, null], [6, false], [7, false]]")};
+}
+
+static std::vector<ExecBatch> MakeRandomBatches(const std::shared_ptr<Schema>& schema,
+                                                int num_batches = 10,
+                                                int batch_size = 4) {
+  random::RandomArrayGenerator rng(42);
+  std::vector<ExecBatch> batches(num_batches);
+
+  for (int i = 0; i < num_batches; ++i) {
+    batches[i] = ExecBatch(*rng.BatchOf(schema->fields(), batch_size));
+    // add a tag scalar to ensure the batches are unique
+    batches[i].values.emplace_back(i);
+  }
+  return batches;
+}
+
+TEST(ExecPlanExecution, SourceSink) {
+  for (bool slow : {false, true}) {
+    SCOPED_TRACE(slow ? "slowed" : "unslowed");
+
+    for (bool parallel : {false, true}) {
+      SCOPED_TRACE(parallel ? "parallel" : "single threaded");
+
+      ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+
+      auto batches = MakeBasicBatches();
+
+      ASSERT_OK_AND_ASSIGN(
+          auto source, MakeTestSourceNode(plan.get(), "source", batches, parallel, slow));
+
+      auto sink_gen = MakeSinkNode(source, "sink");
+
+      ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+                  ResultWith(UnorderedElementsAreArray(batches)));
     }
-    return batches;
   }
-
-  Result<std::vector<util::optional<ExecBatch>>> StartAndCollect(
-      ExecPlan* plan, AsyncGenerator<util::optional<ExecBatch>> gen) {
-    RETURN_NOT_OK(plan->Validate());
-    RETURN_NOT_OK(plan->StartProducing());
-    return CollectAsyncGenerator(gen).result();
-  }
-
-  Result<std::vector<ExecBatch>> StartAndCollect(
-      ExecPlan* plan, AsyncGenerator<Enumerated<ExecBatch>> gen) {
-    RETURN_NOT_OK(plan->Validate());
-    RETURN_NOT_OK(plan->StartProducing());
-
-    auto maybe_collected = CollectAsyncGenerator(gen).result();
-    ARROW_ASSIGN_OR_RAISE(auto collected, maybe_collected);
-
-    std::sort(collected.begin(), collected.end(),
-              [](const Enumerated<ExecBatch>& l, const Enumerated<ExecBatch>& r) {
-                return l.index < r.index;
-              });
-    return internal::MapVector(
-        [](Enumerated<ExecBatch> batch) { return std::move(batch.value); }, collected);
-  }
-
-  ExecNode* MakeSource(ExecPlan* plan, std::shared_ptr<RecordBatchReader> reader,
-                       std::shared_ptr<Schema> schema) {
-    return MakeRecordBatchReaderNode(plan, "source", reader, io_executor_.get());
-  }
-
-  ExecNode* MakeSource(ExecPlan* plan, RecordBatchGenerator generator,
-                       std::shared_ptr<Schema> schema) {
-    return MakeRecordBatchReaderNode(plan, "source", schema, generator,
-                                     io_executor_.get());
-  }
-
-  template <typename RecordBatchReaderFactory>
-  void TestSourceSink(RecordBatchReaderFactory factory) {
-    auto schema = ::arrow::schema({field("a", int32()), field("b", boolean())});
-    RecordBatchVector batches{
-        RecordBatchFromJSON(schema, R"([{"a": null, "b": true},
-                                        {"a": 4,    "b": false}])"),
-        RecordBatchFromJSON(schema, R"([{"a": 5,    "b": null},
-                                        {"a": 6,    "b": false},
-                                        {"a": 7,    "b": false}])"),
-    };
-
-    ASSERT_OK_AND_ASSIGN(auto reader_or_gen, factory(batches, schema));
-
-    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-    auto source = MakeSource(plan.get(), reader_or_gen, schema);
-    auto sink_gen = MakeSinkNode(source, "sink");
-
-    ASSERT_OK_AND_ASSIGN(auto got_batches, StartAndCollect(plan.get(), sink_gen));
-    AssertBatchesEqual(batches, got_batches);
-  }
-
-  template <typename RecordBatchReaderFactory>
-  void TestStressSourceSink(int num_batches, RecordBatchReaderFactory factory) {
-    auto schema = ::arrow::schema({field("a", int32()), field("b", boolean())});
-    auto batches = MakeRandomBatches(schema, num_batches);
-
-    ASSERT_OK_AND_ASSIGN(auto reader_or_gen, factory(batches, schema));
-    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-    auto source = MakeSource(plan.get(), reader_or_gen, schema);
-    auto sink_gen = MakeSinkNode(source, "sink");
-
-    ASSERT_OK_AND_ASSIGN(auto got_batches, StartAndCollect(plan.get(), sink_gen));
-    AssertBatchesEqual(batches, got_batches);
-  }
-
- protected:
-  std::shared_ptr<Executor> io_executor_;
-};
-
-// FIXME Test "collecting" an error
-
-TEST_F(TestExecPlanExecution, SourceSink) { TestSourceSink(RecordBatchReader::Make); }
-
-TEST_F(TestExecPlanExecution, SlowSourceSink) {
-  TestSourceSink(SlowRecordBatchReader::Make);
 }
 
-TEST_F(TestExecPlanExecution, SlowSourceSinkParallel) {
-  TestSourceSink(MakeSlowRecordBatchGenerator);
-}
-
-TEST_F(TestExecPlanExecution, StressSourceSink) {
-  TestStressSourceSink(/*num_batches=*/200, RecordBatchReader::Make);
-}
-
-TEST_F(TestExecPlanExecution, StressSlowSourceSink) {
-  // This doesn't create parallelism as the RecordBatchReader is iterated serially.
-  TestStressSourceSink(/*num_batches=*/30, SlowRecordBatchReader::Make);
-}
-
-TEST_F(TestExecPlanExecution, StressSlowSourceSinkParallel) {
-  TestStressSourceSink(/*num_batches=*/300, MakeSlowRecordBatchGenerator);
-}
-
-TEST_F(TestExecPlanExecution, SourceFilterSink) {
+TEST(ExecPlanExecution, SourceSinkError) {
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
 
-  const auto schema = ::arrow::schema({field("a", int32()), field("b", boolean())});
-  RecordBatchVector batches{
-      RecordBatchFromJSON(schema, R"([{"a": null, "b": true},
-                                      {"a": 4,    "b": false}])"),
-      RecordBatchFromJSON(schema, R"([{"a": 5,    "b": null},
-                                      {"a": 6,    "b": false},
-                                      {"a": 7,    "b": false}])"),
+  auto batches = MakeBasicBatches();
+  auto it = batches.begin();
+  AsyncGenerator<util::optional<ExecBatch>> gen =
+      [&]() -> Result<util::optional<ExecBatch>> {
+    if (it == batches.end()) {
+      return Status::Invalid("Artificial error");
+    }
+    return util::make_optional(*it++);
   };
 
-  ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchReader::Make(std::move(batches), schema));
+  auto source = MakeSourceNode(plan.get(), "source", {}, gen);
+  auto sink_gen = MakeSinkNode(source, "sink");
 
-  auto source =
-      MakeRecordBatchReaderNode(plan.get(), "source", reader, io_executor_.get());
+  ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+              Raises(StatusCode::Invalid, testing::HasSubstr("Artificial")));
+}
+
+TEST(ExecPlanExecution, StressSourceSink) {
+  for (bool slow : {false, true}) {
+    SCOPED_TRACE(slow ? "slowed" : "unslowed");
+
+    for (bool parallel : {false, true}) {
+      SCOPED_TRACE(parallel ? "parallel" : "single threaded");
+
+      int num_batches = slow && !parallel ? 30 : 300;
+
+      ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+
+      auto batches = MakeRandomBatches(
+          schema({field("a", int32()), field("b", boolean())}), num_batches);
+
+      ASSERT_OK_AND_ASSIGN(
+          auto source, MakeTestSourceNode(plan.get(), "source", batches, parallel, slow));
+
+      auto sink_gen = MakeSinkNode(source, "sink");
+
+      ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+                  ResultWith(UnorderedElementsAreArray(batches)));
+    }
+  }
+}
+
+TEST(ExecPlanExecution, SourceFilterSink) {
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+
+  auto batches = MakeBasicBatches();
+
+  ASSERT_OK_AND_ASSIGN(auto source,
+                       MakeTestSourceNode(plan.get(), "source", batches,
+                                          /*parallel=*/false, /*slow=*/false));
+
+  const auto schema = ::arrow::schema({
+      field("a", int32()),
+      field("b", boolean()),
+      field("__tag", int32()),
+  });
 
   ASSERT_OK_AND_ASSIGN(auto predicate, equal(field_ref("a"), literal(6)).Bind(*schema));
 
@@ -390,33 +356,25 @@ TEST_F(TestExecPlanExecution, SourceFilterSink) {
 
   auto sink_gen = MakeSinkNode(filter, "sink");
 
-  ASSERT_OK_AND_ASSIGN(auto got_batches, StartAndCollect(plan.get(), sink_gen));
-
-  ASSERT_EQ(got_batches.size(), 2);
-  AssertBatchesEqual(
-      {
-          RecordBatchFromJSON(schema, R"([])"),
-          RecordBatchFromJSON(schema, R"([{"a": 6,    "b": false}])"),
-      },
-      got_batches);
+  ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+              ResultWith(UnorderedElementsAreArray(
+                  {ExecBatchFromJSON({int32(), boolean()}, "[]"),
+                   ExecBatchFromJSON({int32(), boolean()}, "[[6, false]]")})));
 }
 
-TEST_F(TestExecPlanExecution, SourceProjectSink) {
+TEST(ExecPlanExecution, SourceProjectSink) {
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
 
-  const auto schema = ::arrow::schema({field("a", int32()), field("b", boolean())});
-  RecordBatchVector batches{
-      RecordBatchFromJSON(schema, R"([{"a": null, "b": true},
-                                      {"a": 4,    "b": false}])"),
-      RecordBatchFromJSON(schema, R"([{"a": 5,    "b": null},
-                                      {"a": 6,    "b": false},
-                                      {"a": 7,    "b": false}])"),
-  };
+  auto batches = MakeBasicBatches();
 
-  ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchReader::Make(std::move(batches), schema));
+  ASSERT_OK_AND_ASSIGN(auto source,
+                       MakeTestSourceNode(plan.get(), "source", batches,
+                                          /*parallel=*/false, /*slow=*/false));
 
-  auto source =
-      MakeRecordBatchReaderNode(plan.get(), "source", reader, io_executor_.get());
+  const auto schema = ::arrow::schema({
+      field("a", int32()),
+      field("b", boolean()),
+  });
 
   std::vector<Expression> exprs{
       not_(field_ref("b")),
@@ -430,19 +388,11 @@ TEST_F(TestExecPlanExecution, SourceProjectSink) {
 
   auto sink_gen = MakeSinkNode(projection, "sink");
 
-  ASSERT_OK_AND_ASSIGN(auto got_batches, StartAndCollect(plan.get(), sink_gen));
-
-  auto out_schema = ::arrow::schema({field("!b", boolean()), field("a + 1", int32())});
-  ASSERT_EQ(got_batches.size(), 2);
-  AssertBatchesEqual(
-      {
-          RecordBatchFromJSON(out_schema, R"([{"!b": false, "a + 1": null},
-                                              {"!b": true,  "a + 1": 5}])"),
-          RecordBatchFromJSON(out_schema, R"([{"!b": null,  "a + 1": 6},
-                                              {"!b": true,  "a + 1": 7},
-                                              {"!b": true,  "a + 1": 8}])"),
-      },
-      got_batches);
+  ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+              ResultWith(UnorderedElementsAreArray(
+                  {ExecBatchFromJSON({boolean(), int32()}, "[[false, null], [true, 5]]"),
+                   ExecBatchFromJSON({boolean(), int32()},
+                                     "[[null, 6], [true, 7], [true, 8]]")})));
 }
 
 }  // namespace compute

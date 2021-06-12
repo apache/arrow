@@ -21,6 +21,7 @@
 #include <random>
 #include <thread>
 #include <unordered_set>
+#include <utility>
 
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
@@ -88,8 +89,7 @@ std::function<Future<TestInt>()> BackgroundAsyncVectorIt(
   auto slow_iterator = PossiblySlowVectorIt(v, sleep);
   EXPECT_OK_AND_ASSIGN(
       auto background,
-      MakeBackgroundGenerator<TestInt>(std::move(slow_iterator),
-                                       internal::GetCpuThreadPool(), max_q, q_restart));
+      MakeBackgroundGenerator<TestInt>(std::move(slow_iterator), pool, max_q, q_restart));
   return MakeTransferredGenerator(background, pool);
 }
 
@@ -106,8 +106,7 @@ std::function<Future<TestInt>()> NewBackgroundAsyncVectorIt(std::vector<TestInt>
       });
 
   EXPECT_OK_AND_ASSIGN(auto background,
-                       MakeBackgroundGenerator<TestInt>(std::move(slow_iterator),
-                                                        internal::GetCpuThreadPool()));
+                       MakeBackgroundGenerator<TestInt>(std::move(slow_iterator), pool));
   return MakeTransferredGenerator(background, pool);
 }
 
@@ -176,7 +175,8 @@ class ReentrantChecker {
 template <typename T>
 class ReentrantCheckerGuard {
  public:
-  explicit ReentrantCheckerGuard(ReentrantChecker<T> checker) : checker_(checker) {}
+  explicit ReentrantCheckerGuard(ReentrantChecker<T> checker)
+      : checker_(std::move(checker)) {}
 
   ARROW_DISALLOW_COPY_AND_ASSIGN(ReentrantCheckerGuard);
   ReentrantCheckerGuard(ReentrantCheckerGuard&& other) : checker_(other.checker_) {

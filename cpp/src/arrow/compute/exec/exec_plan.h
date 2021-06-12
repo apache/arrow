@@ -17,14 +17,15 @@
 
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
 
 #include "arrow/compute/type_fwd.h"
 #include "arrow/type_fwd.h"
-#include "arrow/util/async_generator.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/optional.h"
 #include "arrow/util/visibility.h"
 
 // NOTES:
@@ -93,8 +94,6 @@ class ARROW_EXPORT ExecNode {
   const NodeVector& inputs() const { return inputs_; }
 
   /// \brief Labels identifying the function of each input.
-  ///
-  /// For example, FilterNode accepts "target" and "filter" inputs.
   const std::vector<std::string>& input_labels() const { return input_labels_; }
 
   /// This node's successors in the exec plan
@@ -209,6 +208,8 @@ class ARROW_EXPORT ExecNode {
   virtual void StopProducing(ExecNode* output) = 0;
 
   /// \brief Stop producing definitively
+  ///
+  /// XXX maybe this should return a Future<>?
   virtual void StopProducing() = 0;
 
  protected:
@@ -228,16 +229,20 @@ class ARROW_EXPORT ExecNode {
 };
 
 /// \brief Adapt an AsyncGenerator<ExecBatch> as a source node
+///
+/// TODO this should accept an Executor and explicitly handle batches
+/// as they are generated on each of the Executor's threads.
 ARROW_EXPORT
 ExecNode* MakeSourceNode(ExecPlan*, std::string label, ExecNode::BatchDescr output_descr,
-                         AsyncGenerator<util::optional<ExecBatch>>);
+                         std::function<Future<util::optional<ExecBatch>>()>);
 
 /// \brief Add a sink node which forwards to an AsyncGenerator<ExecBatch>
 ///
 /// Emitted batches will not be ordered; instead they will be tagged with the `seq` at
 /// which they were received.
 ARROW_EXPORT
-AsyncGenerator<Enumerated<ExecBatch>> MakeSinkNode(ExecNode* input, std::string label);
+std::function<Future<util::optional<ExecBatch>>()> MakeSinkNode(ExecNode* input,
+                                                                std::string label);
 
 /// \brief Make a node which excludes some rows from batches passed through it
 ///

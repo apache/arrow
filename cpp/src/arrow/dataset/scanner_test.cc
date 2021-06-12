@@ -18,6 +18,7 @@
 #include "arrow/dataset/scanner.h"
 
 #include <memory>
+#include <utility>
 
 #include <gmock/gmock.h>
 
@@ -25,6 +26,7 @@
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
+#include "arrow/compute/exec/exec_plan.h"
 #include "arrow/dataset/scanner_internal.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/record_batch.h"
@@ -38,6 +40,7 @@
 
 using testing::ElementsAre;
 using testing::IsEmpty;
+using testing::UnorderedElementsAreArray;
 
 namespace arrow {
 namespace dataset {
@@ -923,7 +926,7 @@ TEST_F(TestReordering, ScanBatchesUnordered) {
 
 struct BatchConsumer {
   explicit BatchConsumer(EnumeratedRecordBatchGenerator generator)
-      : generator(generator), next() {}
+      : generator(std::move(generator)), next() {}
 
   void AssertCanConsume() {
     if (!next.is_valid()) {
@@ -1089,18 +1092,17 @@ TEST(ScanOptions, TestMaterializedFields) {
 }
 
 static Result<std::vector<compute::ExecBatch>> StartAndCollect(
-    compute::ExecPlan* plan, AsyncGenerator<Enumerated<compute::ExecBatch>> gen) {
+    compute::ExecPlan* plan, AsyncGenerator<util::optional<compute::ExecBatch>> gen) {
   RETURN_NOT_OK(plan->Validate());
   RETURN_NOT_OK(plan->StartProducing());
 
   auto maybe_collected = CollectAsyncGenerator(gen).result();
   ARROW_ASSIGN_OR_RAISE(auto collected, maybe_collected);
 
-  std::sort(collected.begin(), collected.end(),
-            [](const Enumerated<compute::ExecBatch>& l,
-               const Enumerated<compute::ExecBatch>& r) { return l.index < r.index; });
+  // RETURN_NOT_OK(plan->StopProducing());
+
   return internal::MapVector(
-      [](Enumerated<compute::ExecBatch> batch) { return std::move(batch.value); },
+      [](util::optional<compute::ExecBatch> batch) { return std::move(*batch); },
       collected);
 }
 
@@ -1122,19 +1124,19 @@ TEST(ScanNode, Trivial) {
   ASSERT_OK(scanner_builder.UseAsync(true));
   ASSERT_OK_AND_ASSIGN(auto scan, scanner_builder.MakeScanNode(plan.get()));
   auto sink_gen = MakeSinkNode(scan, "sink");
-  ASSERT_OK_AND_ASSIGN(auto got_batches, StartAndCollect(plan.get(), sink_gen));
 
-  ASSERT_EQ(got_batches.size(), batches.size());
-  for (size_t i = 0; i < batches.size(); ++i) {
-    SCOPED_TRACE("Batch " + std::to_string(i));
-    const compute::ExecBatch& actual = got_batches[i];
-    const RecordBatch& expected = *batches[i];
-    AssertDatumsEqual(expected.GetColumnByName("a"), actual[0], /*verbose=*/true);
-    AssertDatumsEqual(expected.GetColumnByName("b"), actual[1], /*verbose=*/true);
-    // InMemoryDataset(RecordBatchVector) produces a fragment wrapping each batch
-    AssertDatumsEqual(Datum(int(i)), actual[2], /*verbose=*/true);
-    AssertDatumsEqual(Datum(0), actual[3], /*verbose=*/true);
+  std::vector<compute::ExecBatch> expected;
+  // InMemoryDataset(RecordBatchVector) produces a fragment wrapping each batch
+  const int batch_index = 0;
+  int fragment_index = 0;
+  for (const auto& batch : batches) {
+    expected.emplace_back(*batch);
+    expected.back().values.emplace_back(fragment_index++);
+    expected.back().values.emplace_back(batch_index);
   }
+
+  ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+              ResultWith(UnorderedElementsAreArray(expected)));
 }
 
 TEST(ScanNode, FilteredOnVirtualColumn) {
@@ -1168,28 +1170,28 @@ TEST(ScanNode, FilteredOnVirtualColumn) {
   ASSERT_OK(scanner_builder.Filter(greater(field_ref("c"), literal(30))));
   ASSERT_OK_AND_ASSIGN(auto scan, scanner_builder.MakeScanNode(plan.get()));
   auto sink_gen = MakeSinkNode(scan, "sink");
-  ASSERT_OK_AND_ASSIGN(auto got_batches, StartAndCollect(plan.get(), sink_gen));
 
-  ASSERT_EQ(got_batches.size(), 2);
-  for (size_t i = 0; i < batches.size(); ++i) {
-    const compute::ExecBatch& actual = got_batches[i];
-    const RecordBatch& expected = *batches[i];
-    AssertDatumsEqual(expected.GetColumnByName("a"), actual[0], /*verbose=*/true);
-    AssertDatumsEqual(expected.GetColumnByName("b"), actual[1], /*verbose=*/true);
+  std::vector<compute::ExecBatch> expected;
+  const int fragment_index = 0;  // only the second fragment will make it past the filter,
+                                 // and its index in the scan is 0
+  int batch_index = 0;
+  for (const auto& batch : batches) {
+    expected.emplace_back(*batch);
+
+    expected.back().guarantee = equal(field_ref("c"), literal(47));
 
     // Note: placeholder for partition field "c"
-    AssertDatumsEqual(Datum(std::make_shared<Int32Scalar>()), actual[2],
-                      /*verbose=*/true);
+    expected.back().values.emplace_back(std::make_shared<Int32Scalar>());
 
-    // Only one fragment in this scan, its index is 0
-    AssertDatumsEqual(Datum(0), actual[3], /*verbose=*/true);
-    AssertDatumsEqual(Datum(int(i)), actual[4], /*verbose=*/true);
-
-    EXPECT_EQ(actual.guarantee, equal(field_ref("c"), literal(47)));
+    expected.back().values.emplace_back(fragment_index);
+    expected.back().values.emplace_back(batch_index++);
   }
+
+  ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+              ResultWith(UnorderedElementsAreArray(expected)));
 }
 
-TEST(ScanNode, FilteredOnPhysicalColumn) {
+TEST(ScanNode, DeferredFilterOnPhysicalColumn) {
   ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
 
   const auto dataset_schema = ::arrow::schema({
@@ -1220,26 +1222,29 @@ TEST(ScanNode, FilteredOnPhysicalColumn) {
   ASSERT_OK(scanner_builder.Filter(greater(field_ref("a"), literal(4))));
   ASSERT_OK_AND_ASSIGN(auto scan, scanner_builder.MakeScanNode(plan.get()));
   auto sink_gen = MakeSinkNode(scan, "sink");
-  ASSERT_OK_AND_ASSIGN(auto got_batches, StartAndCollect(plan.get(), sink_gen));
 
   // no filtering is performed by ScanNode: all batches will be yielded whole
-  ASSERT_EQ(got_batches.size(), batches.size() * 2);
-  for (size_t i = 0; i < got_batches.size(); ++i) {
-    const compute::ExecBatch& actual = got_batches[i];
-    const RecordBatch& expected = *batches[i % 2];
-    AssertDatumsEqual(expected.GetColumnByName("a"), actual[0], /*verbose=*/true);
-    AssertDatumsEqual(expected.GetColumnByName("b"), actual[1], /*verbose=*/true);
-    AssertDatumsEqual(Datum(std::make_shared<Int32Scalar>()), actual[2],
-                      /*verbose=*/true);
+  std::vector<compute::ExecBatch> expected;
+  for (int fragment_index = 0; fragment_index < 2; ++fragment_index) {
+    for (int batch_index = 0; batch_index < 2; ++batch_index) {
+      expected.emplace_back(*batches[batch_index]);
 
-    AssertDatumsEqual(Datum(int(i / 2)), actual[3], /*verbose=*/true);
-    AssertDatumsEqual(Datum(int(i % 2)), actual[4], /*verbose=*/true);
+      expected.back().guarantee =
+          equal(field_ref("c"), literal(fragment_index == 0 ? 23 : 47));
 
-    EXPECT_EQ(actual.guarantee, equal(field_ref("c"), literal(i / 2 ? 47 : 23))) << i;
+      // Note: placeholder for partition field "c"
+      expected.back().values.emplace_back(std::make_shared<Int32Scalar>());
+
+      expected.back().values.emplace_back(fragment_index);
+      expected.back().values.emplace_back(batch_index);
+    }
   }
+
+  ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+              ResultWith(UnorderedElementsAreArray(expected)));
 }
 
-TEST(ScanNode, ProjectPhysicalColumn) {
+TEST(ScanNode, MaterializationOfVirtualColumn) {
   ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
 
   const auto dataset_schema = ::arrow::schema({
@@ -1271,16 +1276,23 @@ TEST(ScanNode, ProjectPhysicalColumn) {
   auto project = compute::MakeProjectNode(
       scan, "project", {field_ref("c").Bind(*dataset_schema).ValueOrDie()});
   auto sink_gen = MakeSinkNode(project, "sink");
-  ASSERT_OK_AND_ASSIGN(auto got_batches, StartAndCollect(plan.get(), sink_gen));
 
-  // no filtering is performed by ScanNode: all batches will be yielded whole
-  ASSERT_EQ(got_batches.size(), batches.size() * 2);
-  for (size_t i = 0; i < got_batches.size(); ++i) {
-    const compute::ExecBatch& actual = got_batches[i];
-    Datum expected(i / 2 ? 47 : 23);
-    AssertDatumsEqual(expected, actual[0], /*verbose=*/true);
-    EXPECT_EQ(actual.guarantee, equal(field_ref("c"), literal(expected))) << i;
+  std::vector<compute::ExecBatch> expected;
+  for (int fragment_index = 0; fragment_index < 2; ++fragment_index) {
+    for (int batch_index = 0; batch_index < 2; ++batch_index) {
+      auto c_value = fragment_index == 0 ? 23 : 47;
+
+      expected.push_back(compute::ExecBatch{{}, batches[batch_index]->num_rows()});
+
+      // NB: ProjectNode overwrites "c" placeholder with value from guarantee
+      expected.back().values.emplace_back(c_value);
+
+      expected.back().guarantee = equal(field_ref("c"), literal(c_value));
+    }
   }
+
+  ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+              ResultWith(UnorderedElementsAreArray(expected)));
 }
 
 }  // namespace dataset

@@ -28,6 +28,7 @@
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
 #include "arrow/array/builder_binary.h"
@@ -283,6 +284,126 @@ ARROW_TESTING_EXPORT void AssertZeroPadded(const Array& array);
 // and cause valgrind warnings otherwise.
 ARROW_TESTING_EXPORT void TestInitialized(const ArrayData& array);
 ARROW_TESTING_EXPORT void TestInitialized(const Array& array);
+
+template <typename ValueMatcher>
+class ResultMatcher {
+ public:
+  explicit ResultMatcher(ValueMatcher value_matcher)
+      : value_matcher_(std::move(value_matcher)) {}
+
+  template <typename Res, typename ValueType = typename std::decay<Res>::type::ValueType>
+  operator testing::Matcher<Res>() const {  // NOLINT runtime/explicit
+    struct Impl : testing::MatcherInterface<const Res&> {
+      explicit Impl(const ValueMatcher& value_matcher)
+          : value_matcher_(testing::MatcherCast<ValueType>(value_matcher)) {}
+
+      void DescribeTo(::std::ostream* os) const override {
+        *os << "value ";
+        value_matcher_.DescribeTo(os);
+      }
+
+      void DescribeNegationTo(::std::ostream* os) const override {
+        *os << "value ";
+        value_matcher_.DescribeNegationTo(os);
+      }
+
+      bool MatchAndExplain(const Res& maybe_value,
+                           testing::MatchResultListener* listener) const override {
+        if (!maybe_value.ok()) {
+          *listener << "whose error "
+                    << testing::PrintToString(maybe_value.status().ToString())
+                    << " doesn't match";
+          return false;
+        }
+        const ValueType& value = maybe_value.ValueOrDie();
+        testing::StringMatchResultListener value_listener;
+        const bool match = value_matcher_.MatchAndExplain(value, &value_listener);
+        *listener << "whose value " << testing::PrintToString(value)
+                  << (match ? " matches" : " doesn't match");
+        testing::internal::PrintIfNotEmpty(value_listener.str(), listener->stream());
+        return match;
+      }
+
+      const testing::Matcher<ValueType> value_matcher_;
+    };
+
+    return testing::Matcher<Res>(new Impl(value_matcher_));
+  }
+
+ private:
+  const ValueMatcher value_matcher_;
+};
+
+class StatusMatcher {
+ public:
+  explicit StatusMatcher(StatusCode code,
+                         util::optional<testing::Matcher<std::string>> message_matcher)
+      : code_(code), message_matcher_(std::move(message_matcher)) {}
+
+  template <typename ResultOrStatus>
+  operator testing::Matcher<ResultOrStatus>() const {  // NOLINT runtime/explicit
+    struct Impl : testing::MatcherInterface<const ResultOrStatus&> {
+      explicit Impl(StatusCode code,
+                    util::optional<testing::Matcher<std::string>> message_matcher)
+          : code_(code), message_matcher_(std::move(message_matcher)) {}
+
+      void DescribeTo(::std::ostream* os) const override {
+        *os << "raises StatusCode::" << Status::CodeAsString(code_);
+        if (message_matcher_) {
+          *os << " and message ";
+          message_matcher_->DescribeTo(os);
+        }
+      }
+
+      void DescribeNegationTo(::std::ostream* os) const override {
+        *os << "does not raise StatusCode::" << Status::CodeAsString(code_);
+        if (message_matcher_) {
+          *os << " or message ";
+          message_matcher_->DescribeNegationTo(os);
+        }
+      }
+
+      bool MatchAndExplain(const ResultOrStatus& result_or_status,
+                           testing::MatchResultListener* listener) const override {
+        const Status& status = internal::GenericToStatus(result_or_status);
+        testing::StringMatchResultListener value_listener;
+
+        bool match = status.code() == code_;
+        if (message_matcher_) {
+          match = match &&
+                  message_matcher_->MatchAndExplain(status.message(), &value_listener);
+        }
+
+        *listener << "whose value " << testing::PrintToString(status.ToString())
+                  << (match ? " matches" : " doesn't match");
+        testing::internal::PrintIfNotEmpty(value_listener.str(), listener->stream());
+        return match;
+      }
+
+      const StatusCode code_;
+      const util::optional<testing::Matcher<std::string>> message_matcher_;
+    };
+
+    return testing::Matcher<ResultOrStatus>(new Impl(code_, message_matcher_));
+  }
+
+  const StatusCode code_;
+  const util::optional<testing::Matcher<std::string>> message_matcher_;
+};
+
+template <typename ValueMatcher>
+ResultMatcher<ValueMatcher> ResultWith(const ValueMatcher& value_matcher) {
+  return ResultMatcher<ValueMatcher>(value_matcher);
+}
+
+inline StatusMatcher Raises(StatusCode code) {
+  return StatusMatcher(code, util::nullopt);
+}
+
+template <typename MessageMatcher>
+StatusMatcher Raises(StatusCode code, const MessageMatcher& message_matcher) {
+  return StatusMatcher(code, testing::MatcherCast<std::string>(message_matcher));
+}
 
 template <typename BuilderType>
 void FinishAndCheckPadding(BuilderType* builder, std::shared_ptr<Array>* out) {

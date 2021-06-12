@@ -207,6 +207,8 @@ struct ARROW_EXPORT ExecBatch {
     return values[i];
   }
 
+  bool Equals(const ExecBatch& other) const;
+
   /// \brief A convenience for the number of values / arguments.
   int num_values() const { return static_cast<int>(values.size()); }
 
@@ -221,7 +223,12 @@ struct ARROW_EXPORT ExecBatch {
     }
     return result;
   }
+
+  ARROW_EXPORT friend void PrintTo(const ExecBatch&, std::ostream*);
 };
+
+inline bool operator==(const ExecBatch& l, const ExecBatch& r) { return l.Equals(r); }
+inline bool operator!=(const ExecBatch& l, const ExecBatch& r) { return !l.Equals(r); }
 
 /// \defgroup compute-call-function One-shot calls to compute functions
 ///

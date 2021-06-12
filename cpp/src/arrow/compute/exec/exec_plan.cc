@@ -25,6 +25,7 @@
 #include "arrow/compute/exec/expression.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
@@ -220,11 +221,8 @@ struct SourceNode : ExecNode {
       return Status::Invalid("Restarted SourceNode '", label(), "'");
     }
 
-    auto gen = std::move(generator_);
-
-    /// XXX should we wait on this future anywhere? In StopProducing() maybe?
-    auto done_fut =
-        Loop([gen, this] {
+    finished_fut_ =
+        Loop([this] {
           std::unique_lock<std::mutex> lock(mutex_);
           int seq = next_batch_index_++;
           if (finished_) {
@@ -232,7 +230,7 @@ struct SourceNode : ExecNode {
           }
           lock.unlock();
 
-          return gen().Then(
+          return generator_().Then(
               [=](const util::optional<ExecBatch>& batch) -> ControlFlow<int> {
                 std::unique_lock<std::mutex> lock(mutex_);
                 if (!batch || finished_) {
@@ -250,8 +248,8 @@ struct SourceNode : ExecNode {
                   finished_ = true;
                   lock.unlock();
                   // unless we were already finished, push the error to our output
-                  // XXX is this correct? Is it reasonable for a consumer to ignore errors
-                  // from a finished producer?
+                  // XXX is this correct? Is it reasonable for a consumer to
+                  // ignore errors from a finished producer?
                   outputs_[0]->ErrorReceived(this, error);
                 }
                 return Break(seq);
@@ -271,8 +269,12 @@ struct SourceNode : ExecNode {
 
   void StopProducing(ExecNode* output) override {
     DCHECK_EQ(output, outputs_[0]);
-    std::unique_lock<std::mutex> lock(mutex_);
-    finished_ = true;
+    {
+      std::unique_lock<std::mutex> lock(mutex_);
+      finished_ = true;
+    }
+    DCHECK(finished_fut_.is_valid());
+    finished_fut_.Wait();
   }
 
   void StopProducing() override { StopProducing(outputs_[0]); }
@@ -281,6 +283,7 @@ struct SourceNode : ExecNode {
   std::mutex mutex_;
   bool finished_{false};
   int next_batch_index_{0};
+  Future<> finished_fut_;
   AsyncGenerator<util::optional<ExecBatch>> generator_;
 };
 
@@ -448,14 +451,14 @@ ExecNode* MakeProjectNode(ExecNode* input, std::string label,
 
 struct SinkNode : ExecNode {
   SinkNode(ExecNode* input, std::string label,
-           AsyncGenerator<Enumerated<ExecBatch>>* generator)
+           AsyncGenerator<util::optional<ExecBatch>>* generator)
       : ExecNode(input->plan(), std::move(label), {input}, {"collected"}, {},
                  /*num_outputs=*/0),
         producer_(MakeProducer(generator)) {}
 
-  static PushGenerator<Enumerated<ExecBatch>>::Producer MakeProducer(
-      AsyncGenerator<Enumerated<ExecBatch>>* out_gen) {
-    PushGenerator<Enumerated<ExecBatch>> gen;
+  static PushGenerator<util::optional<ExecBatch>>::Producer MakeProducer(
+      AsyncGenerator<util::optional<ExecBatch>>* out_gen) {
+    PushGenerator<util::optional<ExecBatch>> gen;
     auto out = gen.producer();
     *out_gen = std::move(gen);
     return out;
@@ -473,7 +476,7 @@ struct SinkNode : ExecNode {
 
   void StopProducing() override {
     std::unique_lock<std::mutex> lock(mutex_);
-    StopProducingUnlocked();
+    InputFinishedUnlocked();
   }
 
   void InputReceived(ExecNode* input, int seq_num, ExecBatch batch) override {
@@ -484,7 +487,7 @@ struct SinkNode : ExecNode {
 
     ++num_received_;
     if (num_received_ == emit_stop_) {
-      StopProducingUnlocked();
+      InputFinishedUnlocked();
     }
 
     if (emit_stop_ != -1) {
@@ -492,30 +495,29 @@ struct SinkNode : ExecNode {
     }
     lock.unlock();
 
-    producer_.Push(Enumerated<ExecBatch>{std::move(batch), seq_num, false});
+    producer_.Push(std::move(batch));
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {
     DCHECK_EQ(input, inputs_[0]);
     producer_.Push(std::move(error));
     std::unique_lock<std::mutex> lock(mutex_);
-    StopProducingUnlocked();
+    InputFinishedUnlocked();
   }
 
   void InputFinished(ExecNode* input, int seq_stop) override {
     std::unique_lock<std::mutex> lock(mutex_);
     emit_stop_ = seq_stop;
     if (emit_stop_ == num_received_) {
-      StopProducingUnlocked();
+      InputFinishedUnlocked();
     }
   }
 
  private:
-  void StopProducingUnlocked() {
+  void InputFinishedUnlocked() {
     if (!stopped_) {
       stopped_ = true;
       producer_.Close();
-      inputs_[0]->StopProducing(this);
     }
   }
 
@@ -525,11 +527,12 @@ struct SinkNode : ExecNode {
   int emit_stop_ = -1;
   bool stopped_ = false;
 
-  PushGenerator<Enumerated<ExecBatch>>::Producer producer_;
+  PushGenerator<util::optional<ExecBatch>>::Producer producer_;
 };
 
-AsyncGenerator<Enumerated<ExecBatch>> MakeSinkNode(ExecNode* input, std::string label) {
-  AsyncGenerator<Enumerated<ExecBatch>> out;
+AsyncGenerator<util::optional<ExecBatch>> MakeSinkNode(ExecNode* input,
+                                                       std::string label) {
+  AsyncGenerator<util::optional<ExecBatch>> out;
   (void)input->plan()->EmplaceNode<SinkNode>(input, std::move(label), &out);
   return out;
 }

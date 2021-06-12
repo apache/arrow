@@ -490,7 +490,7 @@ class ARROW_MUST_USE_TYPE Result : public util::EqualityComparable<Result<T>> {
 namespace internal {
 
 template <typename T>
-inline Status GenericToStatus(const Result<T>& res) {
+inline const Status& GenericToStatus(const Result<T>& res) {
   return res.status();
 }
 
