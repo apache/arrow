@@ -72,8 +72,6 @@ struct _GArrowScalarDatumClass
 GARROW_AVAILABLE_IN_5_0
 GArrowScalarDatum *garrow_scalar_datum_new(GArrowScalar *value);
 
-/* ... */
-
 #define GARROW_TYPE_ARRAY_DATUM (garrow_array_datum_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowArrayDatum,
                          garrow_array_datum,
