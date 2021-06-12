@@ -21,25 +21,17 @@
 
 #include <arrow/api.h>
 
-#include <arrow-glib/datum.h>
+#include <arrow-glib/scalar.h>
 
-arrow::Datum
-garrow_datum_get_raw(GArrowDatum *datum);
-GArrowDatum *
-garrow_datum_new_raw(arrow::Datum *arrow_datum);
-
-GArrowScalarDatum *
-garrow_scalar_datum_new_raw(arrow::Datum *arrow_datum,
-                            GArrowScalar *value);
-GArrowArrayDatum *
-garrow_array_datum_new_raw(arrow::Datum *arrow_datum,
-                           GArrowArray *value);
-GArrowChunkedArrayDatum *
-garrow_chunked_array_datum_new_raw(arrow::Datum *arrow_datum,
-                                   GArrowChunkedArray *value);
-GArrowRecordBatchDatum *
-garrow_record_batch_datum_new_raw(arrow::Datum *arrow_datum,
-                                  GArrowRecordBatch *value);
-GArrowTableDatum *
-garrow_table_datum_new_raw(arrow::Datum *arrow_datum,
-                           GArrowTable *value);
+GArrowScalar *
+garrow_scalar_new_raw(std::shared_ptr<arrow::Scalar> *arrow_scalar);
+GArrowScalar *
+garrow_scalar_new_raw(std::shared_ptr<arrow::Scalar> *arrow_scalar,
+                      const gchar *first_property_name,
+                      ...);
+GArrowScalar *
+garrow_scalar_new_raw_valist(std::shared_ptr<arrow::Scalar> *arrow_scalar,
+                             const gchar *first_property_name,
+                             va_list args);
+std::shared_ptr<arrow::Scalar>
+garrow_scalar_get_raw(GArrowScalar *scalar);

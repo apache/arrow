@@ -16,25 +16,17 @@
 # under the License.
 
 module Arrow
-  class Buffer
-    class << self
-      # @api private
-      def try_convert(value)
-        case value
-        when String
-          new(value)
-        else
-          nil
-        end
-      end
-    end
-
-    alias_method :initialize_raw, :initialize
-    private :initialize_raw
-
-    def initialize(data)
-      @data = data
-      initialize_raw(data)
+  class Scalar
+    # @param other [Arrow::Scalar] The scalar to be compared.
+    # @param options [Arrow::EqualOptions, Hash] (nil)
+    #   The options to custom how to compare.
+    #
+    # @return [Boolean]
+    #   `true` if both of them have the same data, `false` otherwise.
+    #
+    # @since 5.0.0
+    def equal_scalar?(other, options=nil)
+      equal_options(other, options)
     end
   end
 end

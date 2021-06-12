@@ -15,26 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module Arrow
-  class Buffer
-    class << self
-      # @api private
-      def try_convert(value)
-        case value
-        when String
-          new(value)
-        else
-          nil
-        end
-      end
-    end
+class BooleanScalarTest < Test::Unit::TestCase
+  def setup
+    @scalar = Arrow::BooleanScalar.new(true)
+  end
 
-    alias_method :initialize_raw, :initialize
-    private :initialize_raw
-
-    def initialize(data)
-      @data = data
-      initialize_raw(data)
-    end
+  test("#value") do
+    assert_equal(true, @scalar.value)
   end
 end

@@ -52,6 +52,7 @@ module Arrow
       require "arrow/date32-array-builder"
       require "arrow/date64-array"
       require "arrow/date64-array-builder"
+      require "arrow/datum"
       require "arrow/decimal128"
       require "arrow/decimal128-array"
       require "arrow/decimal128-array-builder"
@@ -81,6 +82,7 @@ module Arrow
       require "arrow/record-batch-iterator"
       require "arrow/record-batch-stream-reader"
       require "arrow/rolling-window"
+      require "arrow/scalar"
       require "arrow/schema"
       require "arrow/slicer"
       require "arrow/sort-key"
@@ -163,6 +165,12 @@ module Arrow
         case method_name
         when "copy"
           method_name = "dup"
+        end
+        super(info, klass, method_name)
+      when "Arrow::BooleanScalar"
+        case method_name
+        when "value?"
+          method_name = "value"
         end
         super(info, klass, method_name)
       else

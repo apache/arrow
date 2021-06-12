@@ -15,56 +15,41 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestArrayDatum < Test::Unit::TestCase
-  include Helper::Buildable
-
+class TestStringScalar < Test::Unit::TestCase
   def setup
-    @array = build_boolean_array([true, false])
-    @datum = Arrow::ArrayDatum.new(@array)
+    @buffer = Arrow::Buffer.new("Hello")
+    @scalar = Arrow::StringScalar.new(@buffer)
   end
 
-  def test_array?
+  def test_data_type
+    assert_equal(Arrow::StringDataType.new,
+                 @scalar.data_type)
+  end
+
+  def test_valid?
     assert do
-      @datum.array?
+      @scalar.valid?
     end
   end
 
-  def test_array_like?
-    assert do
-      @datum.array_like?
-    end
+  def test_equal
+    assert_equal(Arrow::StringScalar.new(@buffer),
+                 @scalar)
   end
 
-  def test_scalar?
-    assert do
-      not @datum.scalar?
-    end
-  end
-
-  def test_value?
-    assert do
-      @datum.value?
-    end
-  end
-
-  sub_test_case("==") do
-    def test_true
-      assert_equal(Arrow::ArrayDatum.new(@array),
-                   Arrow::ArrayDatum.new(@array))
-    end
-
-    def test_false
-      table = build_table("visible" => @array)
-      assert_not_equal(@datum,
-                       Arrow::TableDatum.new(table))
-    end
-  end
-
-  def test_to_string
-    assert_equal("Array", @datum.to_s)
+  def test_to_s
+    assert_equal("Hello", @scalar.to_s)
   end
 
   def test_value
-    assert_equal(@array, @datum.value)
+    assert_equal(@buffer,
+                 @scalar.value)
+  end
+
+  def test_cast
+    buffer = Arrow::Buffer.new("-10")
+    scalar = Arrow::StringScalar.new(buffer)
+    assert_equal(Arrow::Int8Scalar.new(-10),
+                 scalar.cast(Arrow::Int8DataType.new))
   end
 end

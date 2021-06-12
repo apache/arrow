@@ -15,26 +15,32 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module Arrow
-  class Buffer
-    class << self
-      # @api private
-      def try_convert(value)
-        case value
-        when String
-          new(value)
-        else
-          nil
-        end
+class FloatScalarTest < Test::Unit::TestCase
+  sub_test_case("#equal_scalar?") do
+    test("no options") do
+      scalar1 = Arrow::FloatScalar.new(1.1)
+      scalar2 = Arrow::FloatScalar.new(1.1000001)
+      assert do
+        not scalar1.equal_scalar?(scalar2)
       end
     end
 
-    alias_method :initialize_raw, :initialize
-    private :initialize_raw
+    test(":approx") do
+      scalar1 = Arrow::FloatScalar.new(1.1)
+      scalar2 = Arrow::FloatScalar.new(1.1000001)
+      assert do
+        scalar1.equal_scalar?(scalar2, approx: true)
+      end
+    end
 
-    def initialize(data)
-      @data = data
-      initialize_raw(data)
+    test(":absolute_tolerance") do
+      scalar1 = Arrow::FloatScalar.new(1.1)
+      scalar2 = Arrow::FloatScalar.new(1.1001)
+      assert do
+        scalar1.equal_scalar?(scalar2,
+                              approx: true,
+                              absolute_tolerance: 0.001)
+      end
     end
   end
 end

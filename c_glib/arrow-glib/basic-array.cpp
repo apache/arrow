@@ -323,6 +323,21 @@ garrow_equal_options_new(void)
   return GARROW_EQUAL_OPTIONS(equal_options);
 }
 
+/**
+ * garrow_equal_options_is_approx:
+ * @options: A #GArrowEqualOptions.
+ *
+ * Returns: %TRUE if approximate comparison is used, %FALSE otherwise.
+ *
+ * Since: 5.0.0
+ */
+gboolean
+garrow_equal_options_is_approx(GArrowEqualOptions *options)
+{
+  auto priv = GARROW_EQUAL_OPTIONS_GET_PRIVATE(options);
+  return priv->approx;
+}
+
 
 typedef struct GArrowArrayPrivate_ {
   std::shared_ptr<arrow::Array> array;
@@ -576,9 +591,9 @@ garrow_array_equal_options(GArrowArray *array,
   const auto arrow_array = garrow_array_get_raw(array);
   const auto arrow_other_array = garrow_array_get_raw(other_array);
   if (options) {
-    auto options_priv = GARROW_EQUAL_OPTIONS_GET_PRIVATE(options);
+    auto is_approx = garrow_equal_options_is_approx(options);
     const auto arrow_options = garrow_equal_options_get_raw(options);
-    if (options_priv->approx) {
+    if (is_approx) {
       return arrow_array->ApproxEquals(arrow_other_array, *arrow_options);
     } else {
       return arrow_array->Equals(arrow_other_array, *arrow_options);

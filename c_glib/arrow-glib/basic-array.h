@@ -38,6 +38,9 @@ struct _GArrowEqualOptionsClass
 GARROW_AVAILABLE_IN_5_0
 GArrowEqualOptions *
 garrow_equal_options_new(void);
+GARROW_AVAILABLE_IN_5_0
+gboolean
+garrow_equal_options_is_approx(GArrowEqualOptions *options);
 
 
 #define GARROW_TYPE_ARRAY (garrow_array_get_type())
