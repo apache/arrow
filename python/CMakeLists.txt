@@ -331,7 +331,8 @@ function(bundle_arrow_dependency library_name)
 endfunction()
 
 # Always bundle includes
-file(COPY ${ARROW_INCLUDE_DIR}/arrow DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY}/include)
+get_filename_component(ARROW_INCLUDE_REALPATH "${ARROW_INCLUDE_DIR}/arrow" REALPATH)
+file(COPY ${ARROW_INCLUDE_REALPATH} DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY}/include)
 
 if(PYARROW_BUNDLE_ARROW_CPP)
   # arrow
