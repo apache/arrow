@@ -204,7 +204,9 @@ struct KleeneAndOp : Commutative<KleeneAndOp> {
                      ArrayData* out) {
     if (left.GetNullCount() == 0 && right.GetNullCount() == 0) {
       out->null_count = 0;
-      out->buffers[0] = nullptr;
+      //      out->buffers[0] = nullptr;
+      // Kleene kernels have validity bitmap pre-allocated. Therefore, set it to 1
+      std::memset(out->buffers[0]->mutable_data(), UINT8_MAX, out->buffers[0]->size());
       return AndOp::Call(ctx, left, right, out);
     }
     auto compute_word = [](uint64_t left_true, uint64_t left_false, uint64_t right_true,
@@ -307,7 +309,9 @@ struct KleeneOrOp : Commutative<KleeneOrOp> {
                      ArrayData* out) {
     if (left.GetNullCount() == 0 && right.GetNullCount() == 0) {
       out->null_count = 0;
-      out->buffers[0] = nullptr;
+      //      out->buffers[0] = nullptr;
+      // Kleene kernels have validity bitmap pre-allocated. Therefore, set it to 1
+      std::memset(out->buffers[0]->mutable_data(), UINT8_MAX, out->buffers[0]->size());
       return OrOp::Call(ctx, left, right, out);
     }
 
@@ -437,7 +441,9 @@ struct KleeneAndNotOp {
                      ArrayData* out) {
     if (left.GetNullCount() == 0 && right.GetNullCount() == 0) {
       out->null_count = 0;
-      out->buffers[0] = nullptr;
+      //      out->buffers[0] = nullptr;
+      // Kleene kernels have validity bitmap pre-allocated. Therefore, set it to 1
+      std::memset(out->buffers[0]->mutable_data(), UINT8_MAX, out->buffers[0]->size());
       return AndNotOp::Call(ctx, left, right, out);
     }
 
@@ -453,9 +459,8 @@ struct KleeneAndNotOp {
   }
 };
 
-void MakeFunction(std::string name, int arity, ArrayKernelExec exec,
+void MakeFunction(const std::string& name, int arity, ArrayKernelExec exec,
                   const FunctionDoc* doc, FunctionRegistry* registry,
-                  bool can_write_into_slices = true,
                   NullHandling::type null_handling = NullHandling::INTERSECTION) {
   auto func = std::make_shared<ScalarFunction>(name, Arity(arity), doc);
 
@@ -463,7 +468,6 @@ void MakeFunction(std::string name, int arity, ArrayKernelExec exec,
   std::vector<InputType> in_types(arity, InputType(boolean()));
   ScalarKernel kernel(std::move(in_types), boolean(), exec);
   kernel.null_handling = null_handling;
-  kernel.can_write_into_slices = can_write_into_slices;
 
   DCHECK_OK(func->AddKernel(kernel));
   DCHECK_OK(registry->AddFunction(std::move(func)));
@@ -551,14 +555,11 @@ void RegisterScalarBoolean(FunctionRegistry* registry) {
 
   // The Kleene logic kernels cannot write into sliced output bitmaps
   MakeFunction("and_kleene", 2, applicator::SimpleBinary<KleeneAndOp>, &and_kleene_doc,
-               registry,
-               /*can_write_into_slices=*/false, NullHandling::COMPUTED_PREALLOCATE);
+               registry, NullHandling::COMPUTED_PREALLOCATE);
   MakeFunction("and_not_kleene", 2, applicator::SimpleBinary<KleeneAndNotOp>,
-               &and_not_kleene_doc, registry,
-               /*can_write_into_slices=*/false, NullHandling::COMPUTED_PREALLOCATE);
+               &and_not_kleene_doc, registry, NullHandling::COMPUTED_PREALLOCATE);
   MakeFunction("or_kleene", 2, applicator::SimpleBinary<KleeneOrOp>, &or_kleene_doc,
-               registry,
-               /*can_write_into_slices=*/false, NullHandling::COMPUTED_PREALLOCATE);
+               registry, NullHandling::COMPUTED_PREALLOCATE);
 }
 
 }  // namespace internal
