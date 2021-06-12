@@ -359,7 +359,10 @@ class SimpleThreadPool::SimpleTaskQueue {
  public:
   bool Empty() { return task_count_.load(std::memory_order_acquire) == 0; }
   void NotifyIdleWorker() { waiting_for_work_.notify_one(); }
-  void NotifyIdleWorkers() { waiting_for_work_.notify_all(); }
+  void WakeupForShutdown() {
+    std::lock_guard<std::mutex> lock(mx_);
+    waiting_for_work_.notify_all();
+  }
   void Clear() { pending_tasks_.clear(); }
   bool WaitForWork(std::function<bool()> should_shutdown) {
     std::unique_lock<std::mutex> lock(mx_);
@@ -431,8 +434,7 @@ void SimpleThreadPool::WorkerLoop(std::shared_ptr<WorkerControl> control,
     }
 
     // Now either the queue is empty *or* a quick shutdown was requested
-    if (control->ShouldWorkerQuitNow(&self) ||
-        (control->ShouldWorkerQuit(&self) && task_queue->Empty())) {
+    if (control->ShouldWorkerQuitNow(&self)) {
       break;
     }
     if (!task_queue->WaitForWork([&] { return control->ShouldWorkerQuit(&self); })) {
@@ -537,7 +539,7 @@ SimpleThreadPool::SimpleThreadPool(bool eternal)
     : ThreadPool(eternal), task_queue_(std::make_shared<SimpleTaskQueue>()) {}
 
 void SimpleThreadPool::WakeupWorkersToCheckShutdown() {
-  task_queue_->NotifyIdleWorkers();
+  task_queue_->WakeupForShutdown();
 }
 
 void SimpleThreadPool::ResetAfterFork() {
