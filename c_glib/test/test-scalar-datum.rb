@@ -15,29 +15,29 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestArrayDatum < Test::Unit::TestCase
+class TestScalarDatum < Test::Unit::TestCase
   include Helper::Buildable
 
   def setup
-    @array = build_boolean_array([true, false])
-    @datum = Arrow::ArrayDatum.new(@array)
+    @scalar = Arrow::BooleanScalar.new(true)
+    @datum = Arrow::ScalarDatum.new(@scalar)
   end
 
   def test_array?
     assert do
-      @datum.array?
+      not @datum.array?
     end
   end
 
   def test_array_like?
     assert do
-      @datum.array_like?
+      not @datum.array_like?
     end
   end
 
   def test_scalar?
     assert do
-      not @datum.scalar?
+      @datum.scalar?
     end
   end
 
@@ -49,22 +49,21 @@ class TestArrayDatum < Test::Unit::TestCase
 
   sub_test_case("==") do
     def test_true
-      assert_equal(Arrow::ArrayDatum.new(@array),
-                   Arrow::ArrayDatum.new(@array))
+      assert_equal(Arrow::ScalarDatum.new(@scalar),
+                   Arrow::ScalarDatum.new(@scalar))
     end
 
     def test_false
-      table = build_table("visible" => @array)
       assert_not_equal(@datum,
-                       Arrow::TableDatum.new(table))
+                       Arrow::ArrayDatum.new(build_boolean_array([true, false])))
     end
   end
 
   def test_to_string
-    assert_equal("Array", @datum.to_s)
+    assert_equal("Scalar", @datum.to_s)
   end
 
   def test_value
-    assert_equal(@array, @datum.value)
+    assert_equal(@scalar, @datum.value)
   end
 end

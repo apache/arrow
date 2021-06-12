@@ -39,6 +39,10 @@ module Arrow
       @data = data
     end
   end
+
+  class BooleanScalar
+    alias_method :value, :value?
+  end
 end
 
 begin
