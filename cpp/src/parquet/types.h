@@ -632,7 +632,7 @@ static inline int64_t Int96GetMilliSeconds(const parquet::Int96& i96) {
 
 // ARROW-12096
 static inline int64_t Int96GetSeconds(const parquet::Int96& i96) {
-  // We do the computations in the unsigned domain to avoid unsigned behaviour
+  // We do the computations in the unsigned domain to avoid undefined behaviour
   // on overflow.
   uint64_t days_since_epoch =
       i96.value[2] - static_cast<uint64_t>(kJulianToUnixEpochDays);
