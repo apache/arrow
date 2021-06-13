@@ -591,58 +591,44 @@ static inline void Int96SetNanoSeconds(parquet::Int96& i96, int64_t nanoseconds)
   std::memcpy(&i96.value, &nanoseconds, sizeof(nanoseconds));
 }
 
-static inline int64_t Int96GetNanoSeconds(const parquet::Int96& i96) {
+// ARROW-12096 - Update INT96 conversion to allow users to define arrow timestamp unit
+struct DecodedInt96 {
+  uint64_t days_since_epoch;
+  uint64_t nanoseconds;
+};
+
+static inline DecodedInt96 DecodeInt96Timestamp(const parquet::Int96& i96) {
   // We do the computations in the unsigned domain to avoid unsigned behaviour
   // on overflow.
-  uint64_t days_since_epoch =
-      i96.value[2] - static_cast<uint64_t>(kJulianToUnixEpochDays);
-  uint64_t nanoseconds = 0;
-
-  memcpy(&nanoseconds, &i96.value, sizeof(uint64_t));
-  return static_cast<int64_t>(days_since_epoch * kNanosecondsPerDay + nanoseconds);
-}
-
-// ARROW-12096
-static inline int64_t Int96GetMicroSeconds(const parquet::Int96& i96) {
-  // We do the computations in the unsigned domain to avoid unsigned behaviour
-  // on overflow.
-  uint64_t days_since_epoch =
-      i96.value[2] - static_cast<uint64_t>(kJulianToUnixEpochDays);
-  uint64_t nanoseconds = 0;
-  memcpy(&nanoseconds, &i96.value, sizeof(uint64_t));
-
-  uint64_t microseconds = nanoseconds/static_cast<uint64_t>(1000);
-
-  return static_cast<int64_t>(days_since_epoch * kMicrosecondsPerDay + microseconds);
-}
-
-// ARROW-12096
-static inline int64_t Int96GetMilliSeconds(const parquet::Int96& i96) {
-  // We do the computations in the unsigned domain to avoid unsigned behaviour
-  // on overflow.
-  uint64_t days_since_epoch =
-      i96.value[2] - static_cast<uint64_t>(kJulianToUnixEpochDays);
-  uint64_t nanoseconds = 0;
-  memcpy(&nanoseconds, &i96.value, sizeof(uint64_t));
-
-  uint64_t milliseconds = nanoseconds/static_cast<uint64_t>(1000000);
-
-  return static_cast<int64_t>(days_since_epoch * kMillisecondsPerDay + milliseconds);
-}
-
-// ARROW-12096
-static inline int64_t Int96GetSeconds(const parquet::Int96& i96) {
-  // We do the computations in the unsigned domain to avoid undefined behaviour
-  // on overflow.
-  uint64_t days_since_epoch =
-      i96.value[2] - static_cast<uint64_t>(kJulianToUnixEpochDays);
+  DecodedInt96 result;
+  result.days_since_epoch = i96.value[2] - static_cast<uint64_t>(kJulianToUnixEpochDays);
+  result.nanoseconds = 0;
   
-  uint64_t nanoseconds = 0;
-  memcpy(&nanoseconds, &i96.value, sizeof(uint64_t));
+  memcpy(&result.nanoseconds, &i96.value, sizeof(uint64_t));
+  return result;
+}
 
-  uint64_t seconds = nanoseconds/(static_cast<uint64_t>(1000000000));
+static inline int64_t Int96GetNanoSeconds(const parquet::Int96& i96) {
+  const auto decoded = DecodeInt96Timestamp(i96);
+  return static_cast<int64_t>(decoded.days_since_epoch * kNanosecondsPerDay + decoded.nanoseconds);
+}
 
-  return static_cast<int64_t>(days_since_epoch * kSecondsPerDay + seconds);
+static inline int64_t Int96GetMicroSeconds(const parquet::Int96& i96) {
+  const auto decoded = DecodeInt96Timestamp(i96);
+  uint64_t microseconds = decoded.nanoseconds/static_cast<uint64_t>(1000);
+  return static_cast<int64_t>(decoded.days_since_epoch * kMicrosecondsPerDay + microseconds);
+}
+
+static inline int64_t Int96GetMilliSeconds(const parquet::Int96& i96) {
+  const auto decoded = DecodeInt96Timestamp(i96);
+  uint64_t milliseconds = decoded.nanoseconds/static_cast<uint64_t>(1000000);
+  return static_cast<int64_t>(decoded.days_since_epoch * kMillisecondsPerDay + milliseconds);
+}
+
+static inline int64_t Int96GetSeconds(const parquet::Int96& i96) {
+  const auto decoded = DecodeInt96Timestamp(i96);
+  uint64_t seconds = decoded.nanoseconds/static_cast<uint64_t>(1000000000);
+  return static_cast<int64_t>(decoded.days_since_epoch * kSecondsPerDay + seconds);
 }
 
 static inline std::string Int96ToString(const Int96& a) {

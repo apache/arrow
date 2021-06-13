@@ -354,7 +354,7 @@ Status TransferBool(RecordReader* reader, MemoryPool* pool, Datum* out) {
 
 Status TransferInt96(RecordReader* reader, MemoryPool* pool,
                      const std::shared_ptr<DataType>& type, Datum* out,
-                     const ::arrow::TimeUnit::type& int96_arrow_time_unit) {
+                     const ::arrow::TimeUnit::type int96_arrow_time_unit) {
   int64_t length = reader->values_written();
   auto values = reinterpret_cast<const Int96*>(reader->values());
   ARROW_ASSIGN_OR_RAISE(auto data,
@@ -757,14 +757,11 @@ Status TransferColumnData(RecordReader* reader, std::shared_ptr<DataType> value_
         }
       else {
         switch (timestamp_type.unit()) {
-          case ::arrow::TimeUnit::SECOND:
           case ::arrow::TimeUnit::MILLI:
           case ::arrow::TimeUnit::MICRO:
           case ::arrow::TimeUnit::NANO: {
             result = TransferZeroCopy(reader, value_type);
           } break;
-          default:
-            return Status::NotImplemented("TimeUnit not supported");
         }
       }
     } break;

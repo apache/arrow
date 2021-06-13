@@ -43,15 +43,14 @@ Result<std::shared_ptr<::arrow::DataType>> GetArrowType(Type::type physical_type
 Result<std::shared_ptr<::arrow::DataType>> GetArrowType(Type::type physical_type,
                                                         const LogicalType& logical_type,
                                                         int type_length,
-                                                        const ::arrow::TimeUnit::type& int96_arrow_time_unit);
+                                                        const ::arrow::TimeUnit::type int96_arrow_time_unit);
 
 Result<std::shared_ptr<::arrow::DataType>> GetArrowType(
     const schema::PrimitiveNode& primitive);
 
-// ARROW-12096 Exposing int96 arrow timestamp unit definition
 Result<std::shared_ptr<::arrow::DataType>> GetArrowType(
     const schema::PrimitiveNode& primitive,
-    const ::arrow::TimeUnit::type& int96_arrow_time_unit);
+    const ::arrow::TimeUnit::type int96_arrow_time_unit);
 
 Result<std::shared_ptr<::arrow::DataType>> GetArrowType(
     const ColumnDescriptor& descriptor);
