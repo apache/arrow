@@ -106,6 +106,9 @@ jobs:
           -e Protobuf_SOURCE=BUNDLED
           -e gRPC_SOURCE=BUNDLED
           "
+        # The LLVM's APT repository causes download error for s390x binary
+        # We should use the LLVM provided by the default APT repository
+        LLVM: "10"
         UBUNTU: "20.04"
 
     - name: "Go on s390x"
