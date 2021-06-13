@@ -43,6 +43,8 @@
       <xi:include href="xml/scanner.xml"/>
       <title>Fragment</title>
       <xi:include href="xml/fragment.xml"/>
+      <title>File format</title>
+      <xi:include href="xml/file-format.xml"/>
     </chapter>
   </part>
 
@@ -61,6 +63,10 @@
   <index id="api-index-4-0-0" role="4.0.0">
     <title>Index of new symbols in 4.0.0</title>
     <xi:include href="xml/api-index-4.0.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-3-0-0" role="3.0.0">
+    <title>Index of new symbols in 3.0.0</title>
+    <xi:include href="xml/api-index-3.0.0.xml"><xi:fallback /></xi:include>
   </index>
   <index id="api-index-1-0-0" role="1.0.0">
     <title>Index of new symbols in 1.0.0</title>
