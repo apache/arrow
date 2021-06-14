@@ -316,5 +316,21 @@ static inline void SetBitTo(uint8_t* bits, int64_t i, bool bit_is_set) {
 ARROW_EXPORT
 void SetBitsTo(uint8_t* bits, int64_t start_offset, int64_t length, bool bits_are_set);
 
+template <typename Word>
+constexpr Word WordBitMask(int i) {
+  return (static_cast<Word>(1) << i) - 1;
+}
+
+/// \brief Create a word with low `n` bits from `low` and high `sizeof(Word)-n` bits
+/// from `high`.
+/// Word ret
+/// for (i = 0; i < sizeof(Word); i++){
+///     ret[i]= i < n ? low[i]: high[i];
+/// }
+template <typename Word>
+constexpr Word SpliceWord(int n, Word low, Word high) {
+  return (high & ~WordBitMask<Word>(n)) | (low & WordBitMask<Word>(n));
+}
+
 }  // namespace BitUtil
 }  // namespace arrow

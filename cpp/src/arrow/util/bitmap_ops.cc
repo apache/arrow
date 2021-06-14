@@ -385,35 +385,49 @@ void BitmapOrNot(const uint8_t* left, int64_t left_offset, const uint8_t* right,
 
 template <bool value>
 void SetBitmapImpl(uint8_t* data, int64_t offset, int64_t length) {
-  int64_t prologue = std::min(((offset + 7) / 8) * 8 - offset, length);
+  //                 offset  length
+  // data              |<------------->|
+  //   |--------|...|--------|...|--------|
+  //                   |<--->|   |<--->|
+  //                     pro       epi
+  if (ARROW_PREDICT_FALSE(length == 0)) {
+    return;
+  }
+
+  constexpr uint8_t set_byte = value ? UINT8_MAX : 0;
+
+  int prologue = static_cast<int>(((offset + 7) / 8) * 8 - offset);
+  DCHECK_LT(prologue, 8);
+
+  if (length < prologue) {  // special case where a mask is required
+    //             offset length
+    // data             |<->|
+    //   |--------|...|--------|...
+    //             mask |111|
+    //                  |<---->|
+    //                     pro
+    uint8_t mask = BitUtil::kPrecedingBitmask[8 - prologue] ^
+                   BitUtil::kPrecedingBitmask[8 - prologue + length];
+    data[offset / 8] |= mask;
+    return;
+  }
 
   if (prologue) {  // align to a byte boundary
-    DCHECK_LT(prologue, 8);
-    BitmapWriter writer(data, offset, prologue);
-    for (auto i = 0; i < prologue; i++) {
-      value ? writer.Set() : writer.Clear();
-      writer.Next();
-    }
-    writer.Finish();
+    data[offset / 8] = BitUtil::SpliceWord(offset, data[offset / 8], set_byte);
     offset += prologue;
     length -= prologue;
   }
 
-  if (length) {  // set values per byte
+  if (length / 8) {  // set values per byte
     DCHECK_EQ(offset % 8, 0);
-    std::memset(data + offset / 8, value ? UINT8_MAX : 0, length / 8);
+    std::memset(data + offset / 8, set_byte, length / 8);
     offset += ((length / 8) * 8);
     length -= ((length / 8) * 8);
   }
 
   if (length) {  // clean up
-    DCHECK_LT(prologue, 8);
-    BitmapWriter writer(data, offset, length);
-    for (auto i = 0; i < length; i++) {
-      value ? writer.Set() : writer.Clear();
-      writer.Next();
-    }
-    writer.Finish();
+    DCHECK_LT(length, 8);
+    data[offset / 8] = BitUtil::SpliceWord(length, set_byte, data[offset / 8]);
   }
 }
 
