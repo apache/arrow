@@ -40,23 +40,5 @@ ARROW_TESTING_EXPORT
 ExecNode* MakeDummyNode(ExecPlan* plan, std::string label, std::vector<ExecNode*> inputs,
                         int num_outputs, StartProducingFunc = {}, StopProducingFunc = {});
 
-using RecordBatchGenerator = AsyncGenerator<std::shared_ptr<RecordBatch>>;
-
-// Make a source node (no inputs) that produces record batches by reading in the
-// background from a RecordBatchReader.
-ARROW_TESTING_EXPORT
-ExecNode* MakeRecordBatchReaderNode(ExecPlan* plan, std::string label,
-                                    const std::shared_ptr<RecordBatchReader>& reader,
-                                    ::arrow::internal::Executor* io_executor);
-
-ARROW_TESTING_EXPORT
-ExecNode* MakeRecordBatchReaderNode(ExecPlan* plan, std::string label,
-                                    const std::shared_ptr<Schema>& schema,
-                                    RecordBatchGenerator generator,
-                                    ::arrow::internal::Executor* io_executor);
-
-ARROW_TESTING_EXPORT void AssertBatchesEqual(const ExecBatch& expected,
-                                             const ExecBatch& actual);
-
 }  // namespace compute
 }  // namespace arrow

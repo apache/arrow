@@ -1273,8 +1273,8 @@ TEST(ScanNode, MaterializationOfVirtualColumn) {
   ScannerBuilder scanner_builder(dataset);
   ASSERT_OK(scanner_builder.UseAsync(true));
   ASSERT_OK_AND_ASSIGN(auto scan, scanner_builder.MakeScanNode(plan.get()));
-  auto project = compute::MakeProjectNode(
-      scan, "project", {field_ref("c").Bind(*dataset_schema).ValueOrDie()});
+  ASSERT_OK_AND_ASSIGN(auto project,
+                       compute::MakeProjectNode(scan, "project", {field_ref("c")}));
   auto sink_gen = MakeSinkNode(project, "sink");
 
   std::vector<compute::ExecBatch> expected;

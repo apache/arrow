@@ -1136,12 +1136,7 @@ Result<compute::ExecNode*> ScannerBuilder::MakeScanNode(compute::ExecPlan* plan)
         return batch;
       });
 
-  std::vector<ValueDescr> output_descr;
-  for (const auto& field : schema->fields()) {
-    output_descr.push_back(ValueDescr::Array(field->type()));
-  }
-
-  return MakeSourceNode(plan, "dataset_scan", std::move(output_descr), std::move(gen));
+  return MakeSourceNode(plan, "dataset_scan", schema, std::move(gen));
 }
 
 }  // namespace dataset

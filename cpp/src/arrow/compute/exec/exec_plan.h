@@ -80,7 +80,6 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
 class ARROW_EXPORT ExecNode {
  public:
   using NodeVector = std::vector<ExecNode*>;
-  using BatchDescr = std::vector<ValueDescr>;
 
   virtual ~ExecNode() = default;
 
@@ -100,7 +99,7 @@ class ARROW_EXPORT ExecNode {
   const NodeVector& outputs() const { return outputs_; }
 
   /// The datatypes for batches produced by this node
-  const BatchDescr& output_descr() const { return output_descr_; }
+  const std::shared_ptr<Schema>& output_schema() const { return output_schema_; }
 
   /// This node's exec plan
   ExecPlan* plan() { return plan_; }
@@ -214,7 +213,7 @@ class ARROW_EXPORT ExecNode {
 
  protected:
   ExecNode(ExecPlan* plan, std::string label, NodeVector inputs,
-           std::vector<std::string> input_labels, BatchDescr output_descr,
+           std::vector<std::string> input_labels, std::shared_ptr<Schema> output_schema,
            int num_outputs);
 
   ExecPlan* plan_;
@@ -223,7 +222,7 @@ class ARROW_EXPORT ExecNode {
   NodeVector inputs_;
   std::vector<std::string> input_labels_;
 
-  BatchDescr output_descr_;
+  std::shared_ptr<Schema> output_schema_;
   int num_outputs_;
   NodeVector outputs_;
 };
@@ -233,7 +232,8 @@ class ARROW_EXPORT ExecNode {
 /// TODO this should accept an Executor and explicitly handle batches
 /// as they are generated on each of the Executor's threads.
 ARROW_EXPORT
-ExecNode* MakeSourceNode(ExecPlan*, std::string label, ExecNode::BatchDescr output_descr,
+ExecNode* MakeSourceNode(ExecPlan*, std::string label,
+                         std::shared_ptr<Schema> output_schema,
                          std::function<Future<util::optional<ExecBatch>>()>);
 
 /// \brief Add a sink node which forwards to an AsyncGenerator<ExecBatch>
@@ -248,19 +248,17 @@ std::function<Future<util::optional<ExecBatch>>()> MakeSinkNode(ExecNode* input,
 ///
 /// The filter Expression will be evaluated against each batch which is pushed to
 /// this node. Any rows for which the filter does not evaluate to `true` will be excluded
-/// in the batch emitted by this node. Filter Expression must be bound; no field
-/// references will be looked up by name
+/// in the batch emitted by this node.
 ARROW_EXPORT
-ExecNode* MakeFilterNode(ExecNode* input, std::string label, Expression filter);
+Result<ExecNode*> MakeFilterNode(ExecNode* input, std::string label, Expression filter);
 
 /// \brief Make a node which executes expressions on input batches, producing new batches.
 ///
 /// Each expression will be evaluated against each batch which is pushed to
 /// this node to produce a corresponding output column.
-/// Expressions must be bound; no field references will be looked up by name
 ARROW_EXPORT
-ExecNode* MakeProjectNode(ExecNode* input, std::string label,
-                          std::vector<Expression> exprs);
+Result<ExecNode*> MakeProjectNode(ExecNode* input, std::string label,
+                                  std::vector<Expression> exprs);
 
 }  // namespace compute
 }  // namespace arrow

@@ -45,27 +45,13 @@ namespace arrow {
 using internal::Executor;
 
 namespace compute {
-
-void AssertBatchesEqual(const ExecBatch& expected, const ExecBatch& actual) {
-  ASSERT_THAT(actual.values, testing::ElementsAreArray(expected.values));
-}
-
 namespace {
-
-// TODO expose this as `static ValueDescr::FromSchemaColumns`?
-std::vector<ValueDescr> DescrFromSchemaColumns(const Schema& schema) {
-  std::vector<ValueDescr> descr(schema.num_fields());
-  std::transform(schema.fields().begin(), schema.fields().end(), descr.begin(),
-                 [](const std::shared_ptr<Field>& field) {
-                   return ValueDescr::Array(field->type());
-                 });
-  return descr;
-}
 
 struct DummyNode : ExecNode {
   DummyNode(ExecPlan* plan, std::string label, NodeVector inputs, int num_outputs,
             StartProducingFunc start_producing, StopProducingFunc stop_producing)
-      : ExecNode(plan, std::move(label), std::move(inputs), {}, descr(), num_outputs),
+      : ExecNode(plan, std::move(label), std::move(inputs), {}, dummy_schema(),
+                 num_outputs),
         start_producing_(std::move(start_producing)),
         stop_producing_(std::move(stop_producing)) {
     input_labels_.resize(inputs_.size());
@@ -123,41 +109,16 @@ struct DummyNode : ExecNode {
     ASSERT_NE(std::find(outputs_.begin(), outputs_.end(), output), outputs_.end());
   }
 
-  BatchDescr descr() const { return std::vector<ValueDescr>{ValueDescr(null())}; }
+  std::shared_ptr<Schema> dummy_schema() const {
+    return schema({field("dummy", null())});
+  }
 
   StartProducingFunc start_producing_;
   StopProducingFunc stop_producing_;
   bool started_ = false;
 };
 
-AsyncGenerator<util::optional<ExecBatch>> Wrap(RecordBatchGenerator gen,
-                                               ::arrow::internal::Executor* io_executor) {
-  return MakeMappedGenerator(
-      MakeTransferredGenerator(std::move(gen), io_executor),
-      [](const std::shared_ptr<RecordBatch>& batch) -> util::optional<ExecBatch> {
-        return ExecBatch(*batch);
-      });
-}
-
 }  // namespace
-
-ExecNode* MakeRecordBatchReaderNode(ExecPlan* plan, std::string label,
-                                    const std::shared_ptr<Schema>& schema,
-                                    RecordBatchGenerator generator,
-                                    ::arrow::internal::Executor* io_executor) {
-  return MakeSourceNode(plan, std::move(label), DescrFromSchemaColumns(*schema),
-                        Wrap(std::move(generator), io_executor));
-}
-
-ExecNode* MakeRecordBatchReaderNode(ExecPlan* plan, std::string label,
-                                    const std::shared_ptr<RecordBatchReader>& reader,
-                                    Executor* io_executor) {
-  auto gen =
-      MakeBackgroundGenerator(MakeIteratorFromReader(reader), io_executor).ValueOrDie();
-
-  return MakeRecordBatchReaderNode(plan, std::move(label), reader->schema(),
-                                   std::move(gen), io_executor);
-}
 
 ExecNode* MakeDummyNode(ExecPlan* plan, std::string label, std::vector<ExecNode*> inputs,
                         int num_outputs, StartProducingFunc start_producing,

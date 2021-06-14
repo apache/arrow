@@ -167,13 +167,13 @@ Status ExecPlan::Validate() { return ToDerived(this)->Validate(); }
 Status ExecPlan::StartProducing() { return ToDerived(this)->StartProducing(); }
 
 ExecNode::ExecNode(ExecPlan* plan, std::string label, NodeVector inputs,
-                   std::vector<std::string> input_labels, BatchDescr output_descr,
-                   int num_outputs)
+                   std::vector<std::string> input_labels,
+                   std::shared_ptr<Schema> output_schema, int num_outputs)
     : plan_(plan),
       label_(std::move(label)),
       inputs_(std::move(inputs)),
       input_labels_(std::move(input_labels)),
-      output_descr_(std::move(output_descr)),
+      output_schema_(std::move(output_schema)),
       num_outputs_(num_outputs) {
   for (auto input : inputs_) {
     input->outputs_.push_back(this);
@@ -203,9 +203,9 @@ Status ExecNode::Validate() const {
 }
 
 struct SourceNode : ExecNode {
-  SourceNode(ExecPlan* plan, std::string label, ExecNode::BatchDescr output_descr,
+  SourceNode(ExecPlan* plan, std::string label, std::shared_ptr<Schema> output_schema,
              AsyncGenerator<util::optional<ExecBatch>> generator)
-      : ExecNode(plan, std::move(label), {}, {}, std::move(output_descr),
+      : ExecNode(plan, std::move(label), {}, {}, std::move(output_schema),
                  /*num_outputs=*/1),
         generator_(std::move(generator)) {}
 
@@ -288,16 +288,16 @@ struct SourceNode : ExecNode {
 };
 
 ExecNode* MakeSourceNode(ExecPlan* plan, std::string label,
-                         ExecNode::BatchDescr output_descr,
+                         std::shared_ptr<Schema> output_schema,
                          AsyncGenerator<util::optional<ExecBatch>> generator) {
-  return plan->EmplaceNode<SourceNode>(plan, std::move(label), std::move(output_descr),
+  return plan->EmplaceNode<SourceNode>(plan, std::move(label), std::move(output_schema),
                                        std::move(generator));
 }
 
 struct FilterNode : ExecNode {
   FilterNode(ExecNode* input, std::string label, Expression filter)
       : ExecNode(input->plan(), std::move(label), {input}, {"target"},
-                 /*output_descr=*/{input->output_descr()},
+                 /*output_schema=*/input->output_schema(),
                  /*num_outputs=*/1),
         filter_(std::move(filter)) {}
 
@@ -352,10 +352,7 @@ struct FilterNode : ExecNode {
     outputs_[0]->InputFinished(this, seq);
   }
 
-  Status StartProducing() override {
-    // XXX validate inputs_[0]->output_descr() against filter_
-    return Status::OK();
-  }
+  Status StartProducing() override { return Status::OK(); }
 
   void PauseProducing(ExecNode* output) override {}
 
@@ -372,15 +369,24 @@ struct FilterNode : ExecNode {
   Expression filter_;
 };
 
-ExecNode* MakeFilterNode(ExecNode* input, std::string label, Expression filter) {
+Result<ExecNode*> MakeFilterNode(ExecNode* input, std::string label, Expression filter) {
+  ARROW_ASSIGN_OR_RAISE(filter, filter.Bind(*input->output_schema()));
+
+  if (filter.type()->id() != Type::BOOL) {
+    return Status::TypeError("Filter expression must evaluate to bool, but ",
+                             filter.ToString(), " evaluates to ",
+                             filter.type()->ToString());
+  }
+
   return input->plan()->EmplaceNode<FilterNode>(input, std::move(label),
                                                 std::move(filter));
 }
 
 struct ProjectNode : ExecNode {
-  ProjectNode(ExecNode* input, std::string label, std::vector<Expression> exprs)
+  ProjectNode(ExecNode* input, std::string label, std::shared_ptr<Schema> output_schema,
+              std::vector<Expression> exprs)
       : ExecNode(input->plan(), std::move(label), {input}, {"target"},
-                 /*output_descr=*/{input->output_descr()},
+                 /*output_schema=*/std::move(output_schema),
                  /*num_outputs=*/1),
         exprs_(std::move(exprs)) {}
 
@@ -423,10 +429,7 @@ struct ProjectNode : ExecNode {
     outputs_[0]->InputFinished(this, seq);
   }
 
-  Status StartProducing() override {
-    // XXX validate inputs_[0]->output_descr() against filter_
-    return Status::OK();
-  }
+  Status StartProducing() override { return Status::OK(); }
 
   void PauseProducing(ExecNode* output) override {}
 
@@ -443,10 +446,19 @@ struct ProjectNode : ExecNode {
   std::vector<Expression> exprs_;
 };
 
-ExecNode* MakeProjectNode(ExecNode* input, std::string label,
-                          std::vector<Expression> exprs) {
-  return input->plan()->EmplaceNode<ProjectNode>(input, std::move(label),
-                                                 std::move(exprs));
+Result<ExecNode*> MakeProjectNode(ExecNode* input, std::string label,
+                                  std::vector<Expression> exprs) {
+  FieldVector fields(exprs.size());
+
+  int i = 0;
+  for (auto& expr : exprs) {
+    ARROW_ASSIGN_OR_RAISE(expr, expr.Bind(*input->output_schema()));
+    fields[i] = field(expr.ToString(), expr.type());
+    ++i;
+  }
+
+  return input->plan()->EmplaceNode<ProjectNode>(
+      input, std::move(label), schema(std::move(fields)), std::move(exprs));
 }
 
 struct SinkNode : ExecNode {

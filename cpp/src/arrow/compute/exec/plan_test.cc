@@ -32,9 +32,11 @@
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/vector.h"
 
-namespace arrow {
-
+using testing::ElementsAre;
+using testing::HasSubstr;
 using testing::UnorderedElementsAreArray;
+
+namespace arrow {
 
 namespace compute {
 
@@ -70,8 +72,8 @@ TEST(ExecPlanConstruction, SingleNode) {
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
   auto node = MakeDummyNode(plan.get(), "dummy", /*inputs=*/{}, /*num_outputs=*/0);
   ASSERT_OK(plan->Validate());
-  ASSERT_THAT(plan->sources(), ::testing::ElementsAre(node));
-  ASSERT_THAT(plan->sinks(), ::testing::ElementsAre(node));
+  ASSERT_THAT(plan->sources(), ElementsAre(node));
+  ASSERT_THAT(plan->sinks(), ElementsAre(node));
 
   ASSERT_OK_AND_ASSIGN(plan, ExecPlan::Make());
   node = MakeDummyNode(plan.get(), "dummy", /*inputs=*/{}, /*num_outputs=*/1);
@@ -85,8 +87,8 @@ TEST(ExecPlanConstruction, SourceSink) {
   auto sink = MakeDummyNode(plan.get(), "sink", /*inputs=*/{source}, /*num_outputs=*/0);
 
   ASSERT_OK(plan->Validate());
-  EXPECT_THAT(plan->sources(), ::testing::ElementsAre(source));
-  EXPECT_THAT(plan->sinks(), ::testing::ElementsAre(sink));
+  EXPECT_THAT(plan->sources(), ElementsAre(source));
+  EXPECT_THAT(plan->sinks(), ElementsAre(sink));
 }
 
 TEST(ExecPlanConstruction, MultipleNode) {
@@ -109,8 +111,8 @@ TEST(ExecPlanConstruction, MultipleNode) {
   auto sink = MakeDummyNode(plan.get(), "sink", /*inputs=*/{process3}, /*num_outputs=*/0);
 
   ASSERT_OK(plan->Validate());
-  ASSERT_THAT(plan->sources(), ::testing::ElementsAre(source1, source2));
-  ASSERT_THAT(plan->sinks(), ::testing::ElementsAre(sink));
+  ASSERT_THAT(plan->sources(), ElementsAre(source1, source2));
+  ASSERT_THAT(plan->sinks(), ElementsAre(sink));
 }
 
 struct StartStopTracker {
@@ -160,8 +162,8 @@ TEST(ExecPlan, DummyStartProducing) {
 
   ASSERT_OK(plan->StartProducing());
   // Note that any correct reverse topological order may do
-  ASSERT_THAT(t.started, ::testing::ElementsAre("sink", "process3", "process2",
-                                                "process1", "source2", "source1"));
+  ASSERT_THAT(t.started, ElementsAre("sink", "process3", "process2", "process1",
+                                     "source2", "source1"));
   ASSERT_EQ(t.stopped.size(), 0);
 }
 
@@ -198,21 +200,26 @@ TEST(ExecPlan, DummyStartProducingError) {
 
   // `process1` raises IOError
   ASSERT_RAISES(IOError, plan->StartProducing());
-  ASSERT_THAT(t.started,
-              ::testing::ElementsAre("sink", "process3", "process2", "process1"));
+  ASSERT_THAT(t.started, ElementsAre("sink", "process3", "process2", "process1"));
   // Nodes that started successfully were stopped in reverse order
-  ASSERT_THAT(t.stopped, ::testing::ElementsAre("process2", "process3", "sink"));
+  ASSERT_THAT(t.stopped, ElementsAre("process2", "process3", "sink"));
 }
 
-static Result<ExecNode*> MakeTestSourceNode(ExecPlan* plan, std::string label,
-                                            std::vector<ExecBatch> batches, bool parallel,
-                                            bool slow) {
-  DCHECK_GT(batches.size(), 0);
-  auto out_descr = batches.back().GetDescriptors();
+namespace {
+
+struct BatchesWithSchema {
+  std::vector<ExecBatch> batches;
+  std::shared_ptr<Schema> schema;
+};
+
+Result<ExecNode*> MakeTestSourceNode(ExecPlan* plan, std::string label,
+                                     BatchesWithSchema batches_with_schema, bool parallel,
+                                     bool slow) {
+  DCHECK_GT(batches_with_schema.batches.size(), 0);
 
   auto opt_batches = internal::MapVector(
       [](ExecBatch batch) { return util::make_optional(std::move(batch)); },
-      std::move(batches));
+      std::move(batches_with_schema.batches));
 
   AsyncGenerator<util::optional<ExecBatch>> gen;
 
@@ -232,10 +239,11 @@ static Result<ExecNode*> MakeTestSourceNode(ExecPlan* plan, std::string label,
     });
   }
 
-  return MakeSourceNode(plan, label, out_descr, std::move(gen));
+  return MakeSourceNode(plan, label, std::move(batches_with_schema.schema),
+                        std::move(gen));
 }
 
-static Result<std::vector<ExecBatch>> StartAndCollect(
+Result<std::vector<ExecBatch>> StartAndCollect(
     ExecPlan* plan, AsyncGenerator<util::optional<ExecBatch>> gen) {
   RETURN_NOT_OK(plan->Validate());
   RETURN_NOT_OK(plan->StartProducing());
@@ -249,24 +257,30 @@ static Result<std::vector<ExecBatch>> StartAndCollect(
       [](util::optional<ExecBatch> batch) { return std::move(*batch); }, collected);
 }
 
-static std::vector<ExecBatch> MakeBasicBatches() {
-  return {ExecBatchFromJSON({int32(), boolean()}, "[[null, true], [4, false]]"),
-          ExecBatchFromJSON({int32(), boolean()}, "[[5, null], [6, false], [7, false]]")};
+BatchesWithSchema MakeBasicBatches() {
+  BatchesWithSchema out;
+  out.batches = {
+      ExecBatchFromJSON({int32(), boolean()}, "[[null, true], [4, false]]"),
+      ExecBatchFromJSON({int32(), boolean()}, "[[5, null], [6, false], [7, false]]")};
+  out.schema = schema({field("i32", int32()), field("bool", boolean())});
+  return out;
 }
 
-static std::vector<ExecBatch> MakeRandomBatches(const std::shared_ptr<Schema>& schema,
-                                                int num_batches = 10,
-                                                int batch_size = 4) {
+BatchesWithSchema MakeRandomBatches(const std::shared_ptr<Schema>& schema,
+                                    int num_batches = 10, int batch_size = 4) {
+  BatchesWithSchema out;
+
   random::RandomArrayGenerator rng(42);
-  std::vector<ExecBatch> batches(num_batches);
+  out.batches.resize(num_batches);
 
   for (int i = 0; i < num_batches; ++i) {
-    batches[i] = ExecBatch(*rng.BatchOf(schema->fields(), batch_size));
+    out.batches[i] = ExecBatch(*rng.BatchOf(schema->fields(), batch_size));
     // add a tag scalar to ensure the batches are unique
-    batches[i].values.emplace_back(i);
+    out.batches[i].values.emplace_back(i);
   }
-  return batches;
+  return out;
 }
+}  // namespace
 
 TEST(ExecPlanExecution, SourceSink) {
   for (bool slow : {false, true}) {
@@ -277,15 +291,15 @@ TEST(ExecPlanExecution, SourceSink) {
 
       ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
 
-      auto batches = MakeBasicBatches();
+      auto basic_data = MakeBasicBatches();
 
-      ASSERT_OK_AND_ASSIGN(
-          auto source, MakeTestSourceNode(plan.get(), "source", batches, parallel, slow));
+      ASSERT_OK_AND_ASSIGN(auto source, MakeTestSourceNode(plan.get(), "source",
+                                                           basic_data, parallel, slow));
 
       auto sink_gen = MakeSinkNode(source, "sink");
 
       ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-                  ResultWith(UnorderedElementsAreArray(batches)));
+                  ResultWith(UnorderedElementsAreArray(basic_data.batches)));
     }
   }
 }
@@ -293,11 +307,11 @@ TEST(ExecPlanExecution, SourceSink) {
 TEST(ExecPlanExecution, SourceSinkError) {
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
 
-  auto batches = MakeBasicBatches();
-  auto it = batches.begin();
+  auto basic_data = MakeBasicBatches();
+  auto it = basic_data.batches.begin();
   AsyncGenerator<util::optional<ExecBatch>> gen =
       [&]() -> Result<util::optional<ExecBatch>> {
-    if (it == batches.end()) {
+    if (it == basic_data.batches.end()) {
       return Status::Invalid("Artificial error");
     }
     return util::make_optional(*it++);
@@ -307,7 +321,7 @@ TEST(ExecPlanExecution, SourceSinkError) {
   auto sink_gen = MakeSinkNode(source, "sink");
 
   ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-              Raises(StatusCode::Invalid, testing::HasSubstr("Artificial")));
+              Raises(StatusCode::Invalid, HasSubstr("Artificial")));
 }
 
 TEST(ExecPlanExecution, StressSourceSink) {
@@ -321,16 +335,16 @@ TEST(ExecPlanExecution, StressSourceSink) {
 
       ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
 
-      auto batches = MakeRandomBatches(
+      auto random_data = MakeRandomBatches(
           schema({field("a", int32()), field("b", boolean())}), num_batches);
 
-      ASSERT_OK_AND_ASSIGN(
-          auto source, MakeTestSourceNode(plan.get(), "source", batches, parallel, slow));
+      ASSERT_OK_AND_ASSIGN(auto source, MakeTestSourceNode(plan.get(), "source",
+                                                           random_data, parallel, slow));
 
       auto sink_gen = MakeSinkNode(source, "sink");
 
       ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-                  ResultWith(UnorderedElementsAreArray(batches)));
+                  ResultWith(UnorderedElementsAreArray(random_data.batches)));
     }
   }
 }
@@ -338,21 +352,16 @@ TEST(ExecPlanExecution, StressSourceSink) {
 TEST(ExecPlanExecution, SourceFilterSink) {
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
 
-  auto batches = MakeBasicBatches();
+  auto basic_data = MakeBasicBatches();
 
   ASSERT_OK_AND_ASSIGN(auto source,
-                       MakeTestSourceNode(plan.get(), "source", batches,
+                       MakeTestSourceNode(plan.get(), "source", basic_data,
                                           /*parallel=*/false, /*slow=*/false));
 
-  const auto schema = ::arrow::schema({
-      field("a", int32()),
-      field("b", boolean()),
-      field("__tag", int32()),
-  });
+  ASSERT_OK_AND_ASSIGN(auto predicate,
+                       equal(field_ref("i32"), literal(6)).Bind(*basic_data.schema));
 
-  ASSERT_OK_AND_ASSIGN(auto predicate, equal(field_ref("a"), literal(6)).Bind(*schema));
-
-  auto filter = MakeFilterNode(source, "filter", predicate);
+  ASSERT_OK_AND_ASSIGN(auto filter, MakeFilterNode(source, "filter", predicate));
 
   auto sink_gen = MakeSinkNode(filter, "sink");
 
@@ -365,26 +374,21 @@ TEST(ExecPlanExecution, SourceFilterSink) {
 TEST(ExecPlanExecution, SourceProjectSink) {
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
 
-  auto batches = MakeBasicBatches();
+  auto basic_data = MakeBasicBatches();
 
   ASSERT_OK_AND_ASSIGN(auto source,
-                       MakeTestSourceNode(plan.get(), "source", batches,
+                       MakeTestSourceNode(plan.get(), "source", basic_data,
                                           /*parallel=*/false, /*slow=*/false));
 
-  const auto schema = ::arrow::schema({
-      field("a", int32()),
-      field("b", boolean()),
-  });
-
   std::vector<Expression> exprs{
-      not_(field_ref("b")),
-      call("add", {field_ref("a"), literal(1)}),
+      not_(field_ref("bool")),
+      call("add", {field_ref("i32"), literal(1)}),
   };
   for (auto& expr : exprs) {
-    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*schema));
+    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*basic_data.schema));
   }
 
-  auto projection = MakeProjectNode(source, "project", exprs);
+  ASSERT_OK_AND_ASSIGN(auto projection, MakeProjectNode(source, "project", exprs));
 
   auto sink_gen = MakeSinkNode(projection, "sink");
 
