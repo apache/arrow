@@ -17,88 +17,75 @@
 
 package org.apache.arrow.driver.jdbc;
 
+import static org.apache.arrow.driver.jdbc.utils.BaseProperty.HOST;
+import static org.apache.arrow.driver.jdbc.utils.BaseProperty.KEYSTORE_PASS;
+import static org.apache.arrow.driver.jdbc.utils.BaseProperty.KEYSTORE_PATH;
+import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PASSWORD;
+import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PORT;
+import static org.apache.arrow.driver.jdbc.utils.BaseProperty.USERNAME;
+
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.security.GeneralSecurityException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.sql.SQLException;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Properties;
 
-import javax.annotation.Nullable;
-
-import org.apache.arrow.driver.jdbc.utils.DefaultProperty;
+import org.apache.arrow.driver.jdbc.client.ArrowFlightClientHandler;
+import org.apache.arrow.flight.CallHeaders;
+import org.apache.arrow.flight.FlightCallHeaders;
+import org.apache.arrow.flight.HeaderCallOption;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
 import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.AvaticaFactory;
 
+import com.google.common.base.Strings;
+
 /**
  * Connection to the Arrow Flight server.
  */
-public final class ArrowFlightConnection extends AvaticaConnection {
+public class ArrowFlightConnection extends AvaticaConnection {
 
   private final BufferAllocator allocator;
 
-  private ArrowFlightClient client;
+  // TODO Use this later to run queries.
+  @SuppressWarnings("unused")
+  private ArrowFlightClientHandler client;
 
   /**
    * Instantiates a new Arrow Flight Connection.
    *
-   * @param driver The JDBC driver to use.
-   * @param factory The Avatica Factory to use.
-   * @param url The URL to connect to.
-   * @param info The properties of this connection.
-   * @throws SQLException If the connection cannot be established.
+   * @param driver
+   *          The JDBC driver to use.
+   * @param factory
+   *          The Avatica Factory to use.
+   * @param url
+   *          The URL to connect to.
+   * @param info
+   *          The properties of this connection.
+   * @throws SQLException
+   *           If the connection cannot be established.
    */
-  public ArrowFlightConnection(ArrowFlightJdbcDriver driver,
-      ArrowFlightFactory factory, String url, Properties info) throws SQLException {
+  protected ArrowFlightConnection(final ArrowFlightJdbcDriver driver,
+      final AvaticaFactory factory, final String url, final Properties info)
+      throws SQLException {
     super(driver, factory, url, info);
-    allocator = new RootAllocator(
-        Integer.MAX_VALUE);
+    allocator = new RootAllocator(Integer.MAX_VALUE);
 
     try {
       loadClient();
     } catch (final SQLException e) {
       allocator.close();
-      throw e;
+      throw new SQLException("Failed to initialize Flight Client.", e);
     }
-  }
-
-  /**
-   * Gets the Flight Client.
-   *
-   * @return the {@link ArrowFlightClient} wrapped by this.
-   */
-  protected ArrowFlightClient getClient() {
-    return client;
-  }
-
-  /**
-   * Registers a statement to this connection, mapping it to its own
-   * {@link ArrowFlightStatement#getId}.
-   *
-   * @param statement
-   *          The {@code ArrowFlightStatement} to register to this connection.
-   */
-  public void addStatement(ArrowFlightStatement statement) {
-    Preconditions.checkNotNull(
-        statementMap.putIfAbsent(statement.getId(), statement),
-        "Cannot register the same statement twice.");
-  }
-
-  /**
-   * Returns the statement mapped to the provided ID.
-   *
-   * @param id
-   *          The {@link ArrowFlightStatement#getId} from which to get the
-   *          corresponding statement.
-   * @return the {@link ArrowFlightStatement} mapped to the provided {@code id}
-   */
-  public ArrowFlightStatement getStatement(int id) {
-    return Preconditions.checkNotNull(statementMap.get(id),
-        "There is no such statement registed in this.");
   }
 
   /**
@@ -122,75 +109,81 @@ public final class ArrowFlightConnection extends AvaticaConnection {
   private void loadClient() throws SQLException {
 
     if (client != null) {
-      throw new IllegalStateException("Client already loaded.");
+      throw new SQLException("Client already loaded.",
+          new IllegalStateException());
     }
 
-    final String host = (String) info.getOrDefault(DefaultProperty.HOST.toString(),
-        "localhost");
-    Preconditions.checkArgument(!host.trim().isEmpty());
+    // =================== [ LOCATION CONFIG ] ===================
+    final Map.Entry<Object, Object> forHost = HOST.getEntry();
 
-    final int port = Integer.parseInt((String) info.getOrDefault(
-        DefaultProperty.PORT.toString(), "32010"));
-    Preconditions.checkArgument(0 < port && port < 65536);
+    final String host = (String) info.getOrDefault(forHost.getKey(),
+        forHost.getValue());
+    Preconditions.checkArgument(!Strings.isNullOrEmpty(host));
 
-    @Nullable
-    final String username =
-        info.getProperty(DefaultProperty.USER.toString());
+    final Map.Entry<Object, Object> forPort = PORT.getEntry();
 
-    @Nullable
-    final String password =
-        info.getProperty(DefaultProperty.PASS.toString());
+    final int port = Preconditions.checkElementIndex(
+        Integer.parseInt(Objects
+            .toString(info.getOrDefault(forPort.getKey(), forPort.getValue()))),
+        65536);
 
-    final boolean useTls = ((String) info.getOrDefault(DefaultProperty.USE_TLS
-        .toString(), "false"))
-        .equalsIgnoreCase("true");
+    // =================== [ CREDENTIALS CONFIG ] ===================
+    final Map.Entry<Object, Object> forUsername = USERNAME.getEntry();
 
-    final boolean authenticate = username != null;
+    final String username = (String) info.getOrDefault(forUsername.getKey(),
+        forUsername.getValue());
 
-    if (!useTls) {
+    final Map.Entry<Object, Object> forPassword = PASSWORD.getEntry();
 
-      if (authenticate) {
-        client = ArrowFlightClient.getBasicClientAuthenticated(allocator, host,
-            port, username, password, null);
-        return;
-      }
+    final String password = (String) info.getOrDefault(forPassword.getKey(),
+        forPassword.getValue());
 
-      client = ArrowFlightClient.getBasicClientNoAuth(allocator, host, port,
-          null);
-      return;
+    // =================== [ ENCRYPTION CONFIG ] ===================
+    final Map.Entry<Object, Object> forKeyStorePath = KEYSTORE_PATH.getEntry();
 
+    final String keyStorePath = (String) info
+        .getOrDefault(forKeyStorePath.getKey(), forKeyStorePath.getValue());
+
+    final Map.Entry<Object, Object> forKeyStorePass = KEYSTORE_PASS.getEntry();
+
+    final String keyStorePassword = (String) info
+        .getOrDefault(forKeyStorePass.getKey(), forKeyStorePass.getValue());
+
+    // =================== [ CLIENT GENERATION ] ===================
+    try {
+      client = ArrowFlightClientHandler.getClient(allocator, host, port,
+          username, password, getHeaders(), keyStorePath, keyStorePassword);
+    } catch (GeneralSecurityException | IOException e) {
+      throw new SQLException("Failed to connect to the Arrow Flight client.",
+          e);
+    }
+  }
+
+  private HeaderCallOption getHeaders() {
+
+    final CallHeaders headers = new FlightCallHeaders();
+
+    final Iterator<Map.Entry<Object, Object>> properties = info.entrySet()
+        .iterator();
+
+    while (properties.hasNext()) {
+
+      final Map.Entry<Object, Object> entry = properties.next();
+
+      headers.insert(Objects.toString(entry.getKey()),
+          Objects.toString(entry.getValue()));
     }
 
-    final String keyStorePath = info.getProperty(
-        DefaultProperty.KEYSTORE_PATH.toString());
-    final String keyStorePass = info.getProperty(
-        DefaultProperty.KEYSTORE_PASS.toString());
-
-    if (authenticate) {
-      client = ArrowFlightClient.getEncryptedClientAuthenticated(allocator,
-          host, port, null, username, password, keyStorePath, keyStorePass);
-      return;
-    }
-
-    client = ArrowFlightClient.getEncryptedClientNoAuth(allocator, host,
-        port, null, keyStorePath, keyStorePass);
+    return new HeaderCallOption(headers);
   }
 
   @Override
   public void close() throws SQLException {
-    try {
-      client.close();
-    } catch (final Exception e) {
-      throw new SQLException(
-          "Failed to close the connection " +
-              "to the Arrow Flight client.", e);
-    }
 
     try {
-      allocator.close();
+      AutoCloseables.close(client, allocator);
     } catch (final Exception e) {
-      throw new SQLException("Failed to close the resource allocator used " +
-          "by the Arrow Flight client.", e);
+      throw new SQLException("Failed to close resources.", e);
     }
 
     super.close();
