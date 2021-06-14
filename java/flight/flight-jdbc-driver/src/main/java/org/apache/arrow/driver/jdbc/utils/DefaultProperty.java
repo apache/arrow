@@ -17,27 +17,38 @@
 
 package org.apache.arrow.driver.jdbc.utils;
 
+import java.util.AbstractMap;
+import java.util.Map;
+
 /**
  * An enum for centralizing default property names.
  */
-public enum DefaultProperty {
+public enum BaseProperty {
   // TODO These names are up to discussion.
-  HOST("host"),
-  PORT("port"),
-  USER("user"),
-  PASS("password"),
-  USE_TLS("useTls"),
-  KEYSTORE_PATH("keyStorePath"),
-  KEYSTORE_PASS("keyStorePass");
+  HOST("host", "localhost"), PORT("port", 32210), USERNAME("user"), PASSWORD(
+      "password"), ENCRYPT("useTls",
+          false), KEYSTORE_PATH("keyStorePath"), KEYSTORE_PASS("keyStorePass");
 
   private final String repr;
+  private Object def;
 
-  private DefaultProperty(final String repr) {
+  BaseProperty(final String repr, final Object def) {
+    this(repr);
+    this.def = def;
+  }
+
+  BaseProperty(final String repr) {
     this.repr = repr;
   }
 
-  @Override
-  public String toString() {
-    return repr;
+  /**
+   * Gets the {@link Map.Entry} representation of this property, where
+   * {@link Map.Entry#getKey} gets the name and {@link Map.Entry#getValue} gets
+   * the default value of this property, or {@code null} if it lacks one.
+   *
+   * @return the entry of this property.
+   */
+  public Map.Entry<Object, Object> getEntry() {
+    return new AbstractMap.SimpleEntry<>(repr, def);
   }
 }
