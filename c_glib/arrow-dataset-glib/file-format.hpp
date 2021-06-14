@@ -23,8 +23,8 @@
 
 #include <arrow-dataset-glib/file-format.h>
 
-GADFileFormat *
-gad_file_format_new_raw(
+GADatasetFileFormat *
+gadataset_file_format_new_raw(
   std::shared_ptr<arrow::dataset::FileFormat> *arrow_file_format);
 std::shared_ptr<arrow::dataset::FileFormat>
-gad_file_format_get_raw(GADFileFormat *file_format);
+gadataset_file_format_get_raw(GADatasetFileFormat *file_format);

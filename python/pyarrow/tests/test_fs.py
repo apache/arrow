@@ -1058,6 +1058,12 @@ def test_s3_options():
     assert isinstance(fs, S3FileSystem)
     assert pickle.loads(pickle.dumps(fs)) == fs
 
+    fs = S3FileSystem(background_writes=True,
+                      default_metadata={"ACL": "authenticated-read",
+                                        "Content-Type": "text/plain"})
+    assert isinstance(fs, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs)) == fs
+
     with pytest.raises(ValueError):
         S3FileSystem(access_key='access')
     with pytest.raises(ValueError):
@@ -1076,6 +1082,8 @@ def test_s3_options():
         )
     with pytest.raises(ValueError):
         S3FileSystem(role_arn="arn", anonymous=True)
+    with pytest.raises(ValueError):
+        S3FileSystem(default_metadata=["foo", "bar"])
 
 
 @pytest.mark.s3

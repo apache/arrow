@@ -14,9 +14,35 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package bmi contains helpers for manipulating bitmaps via BMI2 extensions
+// properly falling back to pure go implementations if the CPU doesn't support
+// BMI2.
 package bmi
 
 import "math/bits"
+
+type funcs struct {
+	extractBits func(uint64, uint64) uint64
+	gtbitmap    func([]int16, int16) uint64
+}
+
+var funclist funcs
+
+// ExtractBits performs a Parallel Bit extract as per the PEXT instruction for
+// x86/x86-64 cpus to use the second parameter as a mask to extract the bits from
+// the first argument into a new bitmap.
+//
+// For each bit Set in selectBitmap, the corresponding bits are extracted from bitmap
+// and written to contiguous lower bits of the result, the remaining upper bits are zeroed.
+func ExtractBits(bitmap, selectBitmap uint64) uint64 {
+	return funclist.extractBits(bitmap, selectBitmap)
+}
+
+// GreaterThanBitmap builds a bitmap where each bit corresponds to whether or not
+// the level in that index is greater than the value of rhs.
+func GreaterThanBitmap(levels []int16, rhs int16) uint64 {
+	return funclist.gtbitmap(levels, rhs)
+}
 
 /* Python code to generate lookup table:
 kLookupBits = 5

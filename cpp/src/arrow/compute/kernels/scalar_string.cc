@@ -38,6 +38,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/utf8.h"
 #include "arrow/util/value_parsing.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
 
@@ -130,117 +131,170 @@ void EnsureLookupTablesFilled() {
   });
 }
 
+#else
+
+void EnsureLookupTablesFilled() {}
+
 #endif  // ARROW_WITH_UTF8PROC
 
-/// Transform string -> string with a reasonable guess on the maximum number of codepoints
-template <typename Type, typename Derived>
-struct StringTransform {
-  using offset_type = typename Type::offset_type;
-  using ArrayType = typename TypeTraits<Type>::ArrayType;
+constexpr int64_t kTransformError = -1;
 
+struct StringTransformBase {
+  virtual Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    return Status::OK();
+  }
+
+  // Return the maximum total size of the output in codeunits (i.e. bytes)
+  // given input characteristics.
   virtual int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) {
     return input_ncodeunits;
   }
 
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    return Derived().Execute(ctx, batch, out);
-  }
-
-  static Status InvalidStatus() {
+  virtual Status InvalidStatus() {
     return Status::Invalid("Invalid UTF8 sequence in input");
   }
 
-  Status Execute(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  // Derived classes should also define this method:
+  //   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+  //                     uint8_t* output);
+};
+
+template <typename Type, typename StringTransform>
+struct StringTransformExecBase {
+  using offset_type = typename Type::offset_type;
+  using ArrayType = typename TypeTraits<Type>::ArrayType;
+
+  static Status Execute(KernelContext* ctx, StringTransform* transform,
+                        const ExecBatch& batch, Datum* out) {
     if (batch[0].kind() == Datum::ARRAY) {
-      const ArrayData& input = *batch[0].array();
-      ArrayType input_boxed(batch[0].array());
-      ArrayData* output = out->mutable_array();
+      return ExecArray(ctx, transform, batch[0].array(), out);
+    }
+    DCHECK_EQ(batch[0].kind(), Datum::SCALAR);
+    return ExecScalar(ctx, transform, batch[0].scalar(), out);
+  }
 
-      offset_type input_ncodeunits = input_boxed.total_values_length();
-      offset_type input_nstrings = static_cast<offset_type>(input.length);
+  static Status ExecArray(KernelContext* ctx, StringTransform* transform,
+                          const std::shared_ptr<ArrayData>& data, Datum* out) {
+    ArrayType input(data);
+    ArrayData* output = out->mutable_array();
 
-      const int64_t output_ncodeunits_max =
-          MaxCodeunits(input_nstrings, input_ncodeunits);
-      if (output_ncodeunits_max > std::numeric_limits<offset_type>::max()) {
-        return Status::CapacityError(
-            "Result might not fit in a 32bit utf8 array, convert to large_utf8");
-      }
+    const int64_t input_ncodeunits = input.total_values_length();
+    const int64_t input_nstrings = input.length();
 
-      ARROW_ASSIGN_OR_RAISE(auto values_buffer, ctx->Allocate(output_ncodeunits_max));
-      output->buffers[2] = values_buffer;
+    const int64_t output_ncodeunits_max =
+        transform->MaxCodeunits(input_nstrings, input_ncodeunits);
+    if (output_ncodeunits_max > std::numeric_limits<offset_type>::max()) {
+      return Status::CapacityError(
+          "Result might not fit in a 32bit utf8 array, convert to large_utf8");
+    }
 
-      // String offsets are preallocated
-      offset_type* output_string_offsets = output->GetMutableValues<offset_type>(1);
-      uint8_t* output_str = output->buffers[2]->mutable_data();
-      offset_type output_ncodeunits = 0;
+    ARROW_ASSIGN_OR_RAISE(auto values_buffer, ctx->Allocate(output_ncodeunits_max));
+    output->buffers[2] = values_buffer;
 
-      output_string_offsets[0] = 0;
-      for (int64_t i = 0; i < input_nstrings; i++) {
+    // String offsets are preallocated
+    offset_type* output_string_offsets = output->GetMutableValues<offset_type>(1);
+    uint8_t* output_str = output->buffers[2]->mutable_data();
+    offset_type output_ncodeunits = 0;
+
+    output_string_offsets[0] = 0;
+    for (int64_t i = 0; i < input_nstrings; i++) {
+      if (!input.IsNull(i)) {
         offset_type input_string_ncodeunits;
-        const uint8_t* input_string = input_boxed.GetValue(i, &input_string_ncodeunits);
-        offset_type encoded_nbytes = 0;
-        if (ARROW_PREDICT_FALSE(!static_cast<Derived&>(*this).Transform(
-                input_string, input_string_ncodeunits, output_str + output_ncodeunits,
-                &encoded_nbytes))) {
-          return Derived::InvalidStatus();
+        const uint8_t* input_string = input.GetValue(i, &input_string_ncodeunits);
+        auto encoded_nbytes = static_cast<offset_type>(transform->Transform(
+            input_string, input_string_ncodeunits, output_str + output_ncodeunits));
+        if (encoded_nbytes < 0) {
+          return transform->InvalidStatus();
         }
         output_ncodeunits += encoded_nbytes;
-        output_string_offsets[i + 1] = output_ncodeunits;
       }
-      DCHECK_LE(output_ncodeunits, output_ncodeunits_max);
-
-      // Trim the codepoint buffer, since we allocated too much
-      return values_buffer->Resize(output_ncodeunits, /*shrink_to_fit=*/true);
-    } else {
-      DCHECK_EQ(batch[0].kind(), Datum::SCALAR);
-      const auto& input = checked_cast<const BaseBinaryScalar&>(*batch[0].scalar());
-      if (!input.is_valid) {
-        return Status::OK();
-      }
-      auto* result = checked_cast<BaseBinaryScalar*>(out->scalar().get());
-      result->is_valid = true;
-      offset_type data_nbytes = static_cast<offset_type>(input.value->size());
-
-      int64_t output_ncodeunits_max = MaxCodeunits(1, data_nbytes);
-      if (output_ncodeunits_max > std::numeric_limits<offset_type>::max()) {
-        return Status::CapacityError(
-            "Result might not fit in a 32bit utf8 array, convert to large_utf8");
-      }
-      ARROW_ASSIGN_OR_RAISE(auto value_buffer, ctx->Allocate(output_ncodeunits_max));
-      result->value = value_buffer;
-      offset_type encoded_nbytes = 0;
-      if (ARROW_PREDICT_FALSE(!static_cast<Derived&>(*this).Transform(
-              input.value->data(), data_nbytes, value_buffer->mutable_data(),
-              &encoded_nbytes))) {
-        return Derived::InvalidStatus();
-      }
-      DCHECK_LE(encoded_nbytes, output_ncodeunits_max);
-      return value_buffer->Resize(encoded_nbytes, /*shrink_to_fit=*/true);
+      output_string_offsets[i + 1] = output_ncodeunits;
     }
+    DCHECK_LE(output_ncodeunits, output_ncodeunits_max);
+
+    // Trim the codepoint buffer, since we allocated too much
+    return values_buffer->Resize(output_ncodeunits, /*shrink_to_fit=*/true);
+  }
+
+  static Status ExecScalar(KernelContext* ctx, StringTransform* transform,
+                           const std::shared_ptr<Scalar>& scalar, Datum* out) {
+    const auto& input = checked_cast<const BaseBinaryScalar&>(*scalar);
+    if (!input.is_valid) {
+      return Status::OK();
+    }
+    auto* result = checked_cast<BaseBinaryScalar*>(out->scalar().get());
+    result->is_valid = true;
+    const int64_t data_nbytes = static_cast<int64_t>(input.value->size());
+
+    const int64_t output_ncodeunits_max = transform->MaxCodeunits(1, data_nbytes);
+    if (output_ncodeunits_max > std::numeric_limits<offset_type>::max()) {
+      return Status::CapacityError(
+          "Result might not fit in a 32bit utf8 array, convert to large_utf8");
+    }
+    ARROW_ASSIGN_OR_RAISE(auto value_buffer, ctx->Allocate(output_ncodeunits_max));
+    result->value = value_buffer;
+    auto encoded_nbytes = static_cast<offset_type>(transform->Transform(
+        input.value->data(), data_nbytes, value_buffer->mutable_data()));
+    if (encoded_nbytes < 0) {
+      return transform->InvalidStatus();
+    }
+    DCHECK_LE(encoded_nbytes, output_ncodeunits_max);
+    return value_buffer->Resize(encoded_nbytes, /*shrink_to_fit=*/true);
+  }
+};
+
+template <typename Type, typename StringTransform>
+struct StringTransformExec : public StringTransformExecBase<Type, StringTransform> {
+  using StringTransformExecBase<Type, StringTransform>::Execute;
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    StringTransform transform;
+    RETURN_NOT_OK(transform.PreExec(ctx, batch, out));
+    return Execute(ctx, &transform, batch, out);
+  }
+};
+
+template <typename Type, typename StringTransform>
+struct StringTransformExecWithState
+    : public StringTransformExecBase<Type, StringTransform> {
+  using State = typename StringTransform::State;
+  using StringTransformExecBase<Type, StringTransform>::Execute;
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    StringTransform transform(State::Get(ctx));
+    RETURN_NOT_OK(transform.PreExec(ctx, batch, out));
+    return Execute(ctx, &transform, batch, out);
   }
 };
 
 #ifdef ARROW_WITH_UTF8PROC
 
-// transforms per codepoint
-template <typename Type, typename Derived>
-struct StringTransformCodepoint : StringTransform<Type, Derived> {
-  using Base = StringTransform<Type, Derived>;
-  using offset_type = typename Base::offset_type;
-
-  bool Transform(const uint8_t* input, offset_type input_string_ncodeunits,
-                 uint8_t* output, offset_type* output_written) {
-    uint8_t* output_start = output;
-    if (ARROW_PREDICT_FALSE(
-            !arrow::util::UTF8Transform(input, input + input_string_ncodeunits, &output,
-                                        Derived::TransformCodepoint))) {
-      return false;
-    }
-    *output_written = static_cast<offset_type>(output - output_start);
-    return true;
+template <typename CodepointTransform>
+struct StringTransformCodepoint : public StringTransformBase {
+  Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) override {
+    EnsureLookupTablesFilled();
+    return Status::OK();
   }
 
   int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) override {
+    return CodepointTransform::MaxCodeunits(ninputs, input_ncodeunits);
+  }
+
+  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+                    uint8_t* output) {
+    uint8_t* output_start = output;
+    if (ARROW_PREDICT_FALSE(
+            !arrow::util::UTF8Transform(input, input + input_string_ncodeunits, &output,
+                                        CodepointTransform::TransformCodepoint))) {
+      return kTransformError;
+    }
+    return output - output_start;
+  }
+};
+
+// struct CaseMappingMixin {
+struct CaseMappingTransform {
+  static int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) {
     // Section 5.18 of the Unicode spec claim that the number of codepoints for case
     // mapping can grow by a factor of 3. This means grow by a factor of 3 in bytes
     // However, since we don't support all casings (SpecialCasing.txt) the growth
@@ -249,73 +303,66 @@ struct StringTransformCodepoint : StringTransform<Type, Derived> {
     // two code units (even) can grow to 3 code units.
     return static_cast<int64_t>(input_ncodeunits) * 3 / 2;
   }
-
-  Status Execute(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    EnsureLookupTablesFilled();
-    return Base::Execute(ctx, batch, out);
-  }
 };
 
-template <typename Type>
-struct UTF8Upper : StringTransformCodepoint<Type, UTF8Upper<Type>> {
-  inline static uint32_t TransformCodepoint(uint32_t codepoint) {
+struct UTF8UpperTransform : public CaseMappingTransform {
+  static uint32_t TransformCodepoint(uint32_t codepoint) {
     return codepoint <= kMaxCodepointLookup ? lut_upper_codepoint[codepoint]
                                             : utf8proc_toupper(codepoint);
   }
 };
 
 template <typename Type>
-struct UTF8Lower : StringTransformCodepoint<Type, UTF8Lower<Type>> {
-  inline static uint32_t TransformCodepoint(uint32_t codepoint) {
+using UTF8Upper = StringTransformExec<Type, StringTransformCodepoint<UTF8UpperTransform>>;
+
+struct UTF8LowerTransform : public CaseMappingTransform {
+  static uint32_t TransformCodepoint(uint32_t codepoint) {
     return codepoint <= kMaxCodepointLookup ? lut_lower_codepoint[codepoint]
                                             : utf8proc_tolower(codepoint);
   }
 };
 
-#else
-
-void EnsureLookupTablesFilled() {}
+template <typename Type>
+using UTF8Lower = StringTransformExec<Type, StringTransformCodepoint<UTF8LowerTransform>>;
 
 #endif  // ARROW_WITH_UTF8PROC
 
-template <typename Type>
-struct AsciiReverse : StringTransform<Type, AsciiReverse<Type>> {
-  using Base = StringTransform<Type, AsciiReverse<Type>>;
-  using offset_type = typename Base::offset_type;
-
-  bool Transform(const uint8_t* input, offset_type input_string_ncodeunits,
-                 uint8_t* output, offset_type* output_written) {
+struct AsciiReverseTransform : public StringTransformBase {
+  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+                    uint8_t* output) {
     uint8_t utf8_char_found = 0;
-    for (offset_type i = 0; i < input_string_ncodeunits; i++) {
+    for (int64_t i = 0; i < input_string_ncodeunits; i++) {
       // if a utf8 char is found, report to utf8_char_found
       utf8_char_found |= input[i] & 0x80;
       output[input_string_ncodeunits - i - 1] = input[i];
     }
-    *output_written = input_string_ncodeunits;
-    return utf8_char_found == 0;
+    return utf8_char_found ? kTransformError : input_string_ncodeunits;
   }
 
-  static Status InvalidStatus() { return Status::Invalid("Non-ASCII sequence in input"); }
+  Status InvalidStatus() override {
+    return Status::Invalid("Non-ASCII sequence in input");
+  }
 };
 
 template <typename Type>
-struct Utf8Reverse : StringTransform<Type, Utf8Reverse<Type>> {
-  using Base = StringTransform<Type, Utf8Reverse<Type>>;
-  using offset_type = typename Base::offset_type;
+using AsciiReverse = StringTransformExec<Type, AsciiReverseTransform>;
 
-  bool Transform(const uint8_t* input, offset_type input_string_ncodeunits,
-                 uint8_t* output, offset_type* output_written) {
-    offset_type i = 0;
+struct Utf8ReverseTransform : public StringTransformBase {
+  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+                    uint8_t* output) {
+    int64_t i = 0;
     while (i < input_string_ncodeunits) {
-      uint8_t offset = util::ValidUtf8CodepointByteSize(input + i);
-      offset_type stride = std::min(i + offset, input_string_ncodeunits);
-      std::copy(input + i, input + stride, output + input_string_ncodeunits - stride);
-      i += offset;
+      int64_t char_end = std::min(i + util::ValidUtf8CodepointByteSize(input + i),
+                                  input_string_ncodeunits);
+      std::copy(input + i, input + char_end, output + input_string_ncodeunits - char_end);
+      i = char_end;
     }
-    *output_written = input_string_ncodeunits;
-    return true;
+    return input_string_ncodeunits;
   }
 };
+
+template <typename Type>
+using Utf8Reverse = StringTransformExec<Type, Utf8ReverseTransform>;
 
 using TransformFunc = std::function<void(const uint8_t*, int64_t, uint8_t*)>;
 
@@ -933,13 +980,70 @@ struct CountSubstring {
   }
 };
 
+#ifdef ARROW_WITH_RE2
+struct CountSubstringRegex {
+  std::unique_ptr<RE2> regex_match_;
+
+  explicit CountSubstringRegex(const MatchSubstringOptions& options, bool literal = false)
+      : regex_match_(new RE2(options.pattern,
+                             RegexSubstringMatcher::MakeRE2Options(options, literal))) {}
+
+  static Result<CountSubstringRegex> Make(const MatchSubstringOptions& options,
+                                          bool literal = false) {
+    CountSubstringRegex counter(options, literal);
+    RETURN_NOT_OK(RegexStatus(*counter.regex_match_));
+    return std::move(counter);
+  }
+
+  template <typename OutValue, typename... Ignored>
+  OutValue Call(KernelContext*, util::string_view val, Status*) const {
+    OutValue count = 0;
+    re2::StringPiece input(val.data(), val.size());
+    auto last_size = input.size();
+    while (re2::RE2::FindAndConsume(&input, *regex_match_)) {
+      count++;
+      if (last_size == input.size()) {
+        // 0-length match
+        if (input.size() > 0) {
+          input.remove_prefix(1);
+        } else {
+          break;
+        }
+      }
+      last_size = input.size();
+    }
+    return count;
+  }
+};
+
+template <typename InputType>
+struct CountSubstringRegexExec {
+  using OffsetType = typename TypeTraits<InputType>::OffsetType;
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const MatchSubstringOptions& options = MatchSubstringState::Get(ctx);
+    ARROW_ASSIGN_OR_RAISE(auto counter, CountSubstringRegex::Make(options));
+    applicator::ScalarUnaryNotNullStateful<OffsetType, InputType, CountSubstringRegex>
+        kernel{std::move(counter)};
+    return kernel.Exec(ctx, batch, out);
+  }
+};
+#endif
+
 template <typename InputType>
 struct CountSubstringExec {
   using OffsetType = typename TypeTraits<InputType>::OffsetType;
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const MatchSubstringOptions& options = MatchSubstringState::Get(ctx);
     if (options.ignore_case) {
-      return Status::NotImplemented("count_substring with ignore_case");
+#ifdef ARROW_WITH_RE2
+      ARROW_ASSIGN_OR_RAISE(auto counter,
+                            CountSubstringRegex::Make(options, /*literal=*/true));
+      applicator::ScalarUnaryNotNullStateful<OffsetType, InputType, CountSubstringRegex>
+          kernel{std::move(counter)};
+      return kernel.Exec(ctx, batch, out);
+#else
+      return Status::NotImplemented("ignore_case requires RE2");
+#endif
     }
     applicator::ScalarUnaryNotNullStateful<OffsetType, InputType, CountSubstring> kernel{
         CountSubstring(PlainSubstringMatcher(options))};
@@ -954,186 +1058,62 @@ const FunctionDoc count_substring_doc(
      "Null inputs emit null. The pattern must be given in MatchSubstringOptions."),
     {"strings"}, "MatchSubstringOptions");
 
+#ifdef ARROW_WITH_RE2
+const FunctionDoc count_substring_regex_doc(
+    "Count occurrences of substring",
+    ("For each string in `strings`, emit the number of occurrences of the given "
+     "regex pattern.\n"
+     "Null inputs emit null. The pattern must be given in MatchSubstringOptions."),
+    {"strings"}, "MatchSubstringOptions");
+#endif
+
 void AddCountSubstring(FunctionRegistry* registry) {
-  auto func = std::make_shared<ScalarFunction>("count_substring", Arity::Unary(),
-                                               &count_substring_doc);
-  for (const auto& ty : BaseBinaryTypes()) {
-    std::shared_ptr<DataType> offset_type;
-    if (ty->id() == Type::type::LARGE_BINARY || ty->id() == Type::type::LARGE_STRING) {
-      offset_type = int64();
-    } else {
-      offset_type = int32();
+  {
+    auto func = std::make_shared<ScalarFunction>("count_substring", Arity::Unary(),
+                                                 &count_substring_doc);
+    for (const auto& ty : BaseBinaryTypes()) {
+      auto offset_type = offset_bit_width(ty->id()) == 64 ? int64() : int32();
+      DCHECK_OK(func->AddKernel({ty}, offset_type,
+                                GenerateTypeAgnosticVarBinaryBase<CountSubstringExec>(ty),
+                                MatchSubstringState::Init));
     }
-    DCHECK_OK(func->AddKernel({ty}, offset_type,
-                              GenerateTypeAgnosticVarBinaryBase<CountSubstringExec>(ty),
-                              MatchSubstringState::Init));
+    DCHECK_OK(registry->AddFunction(std::move(func)));
   }
-  DCHECK_OK(registry->AddFunction(std::move(func)));
+#ifdef ARROW_WITH_RE2
+  {
+    auto func = std::make_shared<ScalarFunction>("count_substring_regex", Arity::Unary(),
+                                                 &count_substring_regex_doc);
+    for (const auto& ty : BaseBinaryTypes()) {
+      auto offset_type = offset_bit_width(ty->id()) == 64 ? int64() : int32();
+      DCHECK_OK(
+          func->AddKernel({ty}, offset_type,
+                          GenerateTypeAgnosticVarBinaryBase<CountSubstringRegexExec>(ty),
+                          MatchSubstringState::Init));
+    }
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+#endif
 }
 
 // Slicing
 
-template <typename Type, typename Derived>
-struct SliceBase : StringTransform<Type, Derived> {
-  using Base = StringTransform<Type, Derived>;
-  using offset_type = typename Base::offset_type;
+struct SliceTransformBase : public StringTransformBase {
   using State = OptionsWrapper<SliceOptions>;
 
-  SliceOptions options;
+  const SliceOptions* options;
 
-  explicit SliceBase(SliceOptions options) : options(options) {}
-
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    SliceOptions options = State::Get(ctx);
-    if (options.step == 0) {
+  Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) override {
+    options = &State::Get(ctx);
+    if (options->step == 0) {
       return Status::Invalid("Slice step cannot be zero");
     }
-    return Derived(options).Execute(ctx, batch, out);
+    return Status::OK();
   }
 };
 
-#define PROPAGATE_FALSE(expr)         \
-  do {                                \
-    if (ARROW_PREDICT_FALSE(!expr)) { \
-      return false;                   \
-    }                                 \
-  } while (0)
-
-bool SliceCodeunitsTransform(const uint8_t* input, int64_t input_string_ncodeunits,
-                             uint8_t* output, int64_t* output_written,
-                             const SliceOptions& options) {
-  const uint8_t* begin = input;
-  const uint8_t* end = input + input_string_ncodeunits;
-  const uint8_t* begin_sliced = begin;
-  const uint8_t* end_sliced = end;
-
-  if (options.step >= 1) {
-    if (options.start >= 0) {
-      // start counting from the left
-      PROPAGATE_FALSE(
-          arrow::util::UTF8AdvanceCodepoints(begin, end, &begin_sliced, options.start));
-      if (options.stop > options.start) {
-        // continue counting from begin_sliced
-        int64_t length = options.stop - options.start;
-        PROPAGATE_FALSE(
-            arrow::util::UTF8AdvanceCodepoints(begin_sliced, end, &end_sliced, length));
-      } else if (options.stop < 0) {
-        // or from the end (but we will never need to < begin_sliced)
-        PROPAGATE_FALSE(arrow::util::UTF8AdvanceCodepointsReverse(
-            begin_sliced, end, &end_sliced, -options.stop));
-      } else {
-        // zero length slice
-        *output_written = 0;
-        return true;
-      }
-    } else {
-      // start counting from the right
-      PROPAGATE_FALSE(arrow::util::UTF8AdvanceCodepointsReverse(begin, end, &begin_sliced,
-                                                                -options.start));
-      if (options.stop > 0) {
-        // continue counting from the left, we cannot start from begin_sliced because we
-        // don't know how many codepoints are between begin and begin_sliced
-        PROPAGATE_FALSE(
-            arrow::util::UTF8AdvanceCodepoints(begin, end, &end_sliced, options.stop));
-        // and therefore we also needs this
-        if (end_sliced <= begin_sliced) {
-          // zero length slice
-          *output_written = 0;
-          return true;
-        }
-      } else if ((options.stop < 0) && (options.stop > options.start)) {
-        // stop is negative, but larger than start, so we count again from the right
-        // in some cases we can optimize this, depending on the shortest path (from end
-        // or begin_sliced), but begin_sliced and options.start can be 'out of sync',
-        // for instance when start=-100, when the string length is only 10.
-        PROPAGATE_FALSE(arrow::util::UTF8AdvanceCodepointsReverse(
-            begin_sliced, end, &end_sliced, -options.stop));
-      } else {
-        // zero length slice
-        *output_written = 0;
-        return true;
-      }
-    }
-    DCHECK(begin_sliced <= end_sliced);
-    if (options.step == 1) {
-      // fast case, where we simply can finish with a memcpy
-      std::copy(begin_sliced, end_sliced, output);
-      *output_written = end_sliced - begin_sliced;
-    } else {
-      uint8_t* dest = output;
-      const uint8_t* i = begin_sliced;
-
-      while (i < end_sliced) {
-        uint32_t codepoint = 0;
-        // write a single codepoint
-        PROPAGATE_FALSE(arrow::util::UTF8Decode(&i, &codepoint));
-        dest = arrow::util::UTF8Encode(dest, codepoint);
-        // and skip the remainder
-        int64_t skips = options.step - 1;
-        while ((skips--) && (i < end_sliced)) {
-          PROPAGATE_FALSE(arrow::util::UTF8Decode(&i, &codepoint));
-        }
-      }
-      *output_written = dest - output;
-    }
-    return true;
-  } else {  // step < 0
-    // serious +1 -1 kung fu because now begin_slice and end_slice act like reverse
-    // iterators.
-
-    if (options.start >= 0) {
-      // +1 because begin_sliced acts as as the end of a reverse iterator
-      PROPAGATE_FALSE(arrow::util::UTF8AdvanceCodepoints(begin, end, &begin_sliced,
-                                                         options.start + 1));
-      // and make it point at the last codeunit of the previous codeunit
-      begin_sliced--;
-    } else {
-      // -1 because start=-1 means the last codeunit, which is 0 advances
-      PROPAGATE_FALSE(arrow::util::UTF8AdvanceCodepointsReverse(begin, end, &begin_sliced,
-                                                                -options.start - 1));
-      // and make it point at the last codeunit of the previous codeunit
-      begin_sliced--;
-    }
-    // similar to options.start
-    if (options.stop >= 0) {
-      PROPAGATE_FALSE(
-          arrow::util::UTF8AdvanceCodepoints(begin, end, &end_sliced, options.stop + 1));
-      end_sliced--;
-    } else {
-      PROPAGATE_FALSE(arrow::util::UTF8AdvanceCodepointsReverse(begin, end, &end_sliced,
-                                                                -options.stop - 1));
-      end_sliced--;
-    }
-
-    uint8_t* dest = output;
-    const uint8_t* i = begin_sliced;
-
-    while (i > end_sliced) {
-      uint32_t codepoint = 0;
-      // write a single codepoint
-      PROPAGATE_FALSE(arrow::util::UTF8DecodeReverse(&i, &codepoint));
-      dest = arrow::util::UTF8Encode(dest, codepoint);
-      // and skip the remainder
-      int64_t skips = -options.step - 1;
-      while ((skips--) && (i > end_sliced)) {
-        PROPAGATE_FALSE(arrow::util::UTF8DecodeReverse(&i, &codepoint));
-      }
-    }
-    *output_written = dest - output;
-    return true;
-  }
-}
-
-#undef PROPAGATE_FALSE
-
-template <typename Type>
-struct SliceCodeunits : SliceBase<Type, SliceCodeunits<Type>> {
-  using Base = SliceBase<Type, SliceCodeunits<Type>>;
-  using offset_type = typename Base::offset_type;
-  using Base::Base;
-
+struct SliceCodeunitsTransform : SliceTransformBase {
   int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) override {
-    const SliceOptions& opt = this->options;
+    const SliceOptions& opt = *this->options;
     if ((opt.start >= 0) != (opt.stop >= 0)) {
       // If start and stop don't have the same sign, we can't guess an upper bound
       // on the resulting slice lengths, so return a worst case estimate.
@@ -1145,15 +1125,154 @@ struct SliceCodeunits : SliceBase<Type, SliceCodeunits<Type>> {
                     4 * ninputs * std::max<int64_t>(0, max_slice_codepoints));
   }
 
-  bool Transform(const uint8_t* input, offset_type input_string_ncodeunits,
-                 uint8_t* output, offset_type* output_written) {
-    int64_t output_written_64;
-    bool res = SliceCodeunitsTransform(input, input_string_ncodeunits, output,
-                                       &output_written_64, this->options);
-    *output_written = static_cast<offset_type>(output_written_64);
-    return res;
+  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+                    uint8_t* output) {
+    if (options->step >= 1) {
+      return SliceForward(input, input_string_ncodeunits, output);
+    }
+    return SliceBackward(input, input_string_ncodeunits, output);
   }
+
+#define RETURN_IF_UTF8_ERROR(expr)    \
+  do {                                \
+    if (ARROW_PREDICT_FALSE(!expr)) { \
+      return kTransformError;         \
+    }                                 \
+  } while (0)
+
+  int64_t SliceForward(const uint8_t* input, int64_t input_string_ncodeunits,
+                       uint8_t* output) {
+    // Slice in forward order (step > 0)
+    const SliceOptions& opt = *this->options;
+    const uint8_t* begin = input;
+    const uint8_t* end = input + input_string_ncodeunits;
+    const uint8_t* begin_sliced = begin;
+    const uint8_t* end_sliced = end;
+
+    // First, compute begin_sliced and end_sliced
+    if (opt.start >= 0) {
+      // start counting from the left
+      RETURN_IF_UTF8_ERROR(
+          arrow::util::UTF8AdvanceCodepoints(begin, end, &begin_sliced, opt.start));
+      if (opt.stop > opt.start) {
+        // continue counting from begin_sliced
+        const int64_t length = opt.stop - opt.start;
+        RETURN_IF_UTF8_ERROR(
+            arrow::util::UTF8AdvanceCodepoints(begin_sliced, end, &end_sliced, length));
+      } else if (opt.stop < 0) {
+        // or from the end (but we will never need to < begin_sliced)
+        RETURN_IF_UTF8_ERROR(arrow::util::UTF8AdvanceCodepointsReverse(
+            begin_sliced, end, &end_sliced, -opt.stop));
+      } else {
+        // zero length slice
+        return 0;
+      }
+    } else {
+      // start counting from the right
+      RETURN_IF_UTF8_ERROR(arrow::util::UTF8AdvanceCodepointsReverse(
+          begin, end, &begin_sliced, -opt.start));
+      if (opt.stop > 0) {
+        // continue counting from the left, we cannot start from begin_sliced because we
+        // don't know how many codepoints are between begin and begin_sliced
+        RETURN_IF_UTF8_ERROR(
+            arrow::util::UTF8AdvanceCodepoints(begin, end, &end_sliced, opt.stop));
+        // and therefore we also needs this
+        if (end_sliced <= begin_sliced) {
+          // zero length slice
+          return 0;
+        }
+      } else if ((opt.stop < 0) && (opt.stop > opt.start)) {
+        // stop is negative, but larger than start, so we count again from the right
+        // in some cases we can optimize this, depending on the shortest path (from end
+        // or begin_sliced), but begin_sliced and opt.start can be 'out of sync',
+        // for instance when start=-100, when the string length is only 10.
+        RETURN_IF_UTF8_ERROR(arrow::util::UTF8AdvanceCodepointsReverse(
+            begin_sliced, end, &end_sliced, -opt.stop));
+      } else {
+        // zero length slice
+        return 0;
+      }
+    }
+
+    // Second, copy computed slice to output
+    DCHECK(begin_sliced <= end_sliced);
+    if (opt.step == 1) {
+      // fast case, where we simply can finish with a memcpy
+      std::copy(begin_sliced, end_sliced, output);
+      return end_sliced - begin_sliced;
+    }
+    uint8_t* dest = output;
+    const uint8_t* i = begin_sliced;
+
+    while (i < end_sliced) {
+      uint32_t codepoint = 0;
+      // write a single codepoint
+      RETURN_IF_UTF8_ERROR(arrow::util::UTF8Decode(&i, &codepoint));
+      dest = arrow::util::UTF8Encode(dest, codepoint);
+      // and skip the remainder
+      int64_t skips = opt.step - 1;
+      while ((skips--) && (i < end_sliced)) {
+        RETURN_IF_UTF8_ERROR(arrow::util::UTF8Decode(&i, &codepoint));
+      }
+    }
+    return dest - output;
+  }
+
+  int64_t SliceBackward(const uint8_t* input, int64_t input_string_ncodeunits,
+                        uint8_t* output) {
+    // Slice in reverse order (step < 0)
+    const SliceOptions& opt = *this->options;
+    const uint8_t* begin = input;
+    const uint8_t* end = input + input_string_ncodeunits;
+    const uint8_t* begin_sliced = begin;
+    const uint8_t* end_sliced = end;
+
+    // Serious +1 -1 kung fu because begin_sliced and end_sliced act like
+    // reverse iterators.
+    if (opt.start >= 0) {
+      // +1 because begin_sliced acts as as the end of a reverse iterator
+      RETURN_IF_UTF8_ERROR(
+          arrow::util::UTF8AdvanceCodepoints(begin, end, &begin_sliced, opt.start + 1));
+    } else {
+      // -1 because start=-1 means the last codeunit, which is 0 advances
+      RETURN_IF_UTF8_ERROR(arrow::util::UTF8AdvanceCodepointsReverse(
+          begin, end, &begin_sliced, -opt.start - 1));
+    }
+    // make it point at the last codeunit of the previous codeunit
+    begin_sliced--;
+
+    // similar to opt.start
+    if (opt.stop >= 0) {
+      RETURN_IF_UTF8_ERROR(
+          arrow::util::UTF8AdvanceCodepoints(begin, end, &end_sliced, opt.stop + 1));
+    } else {
+      RETURN_IF_UTF8_ERROR(arrow::util::UTF8AdvanceCodepointsReverse(
+          begin, end, &end_sliced, -opt.stop - 1));
+    }
+    end_sliced--;
+
+    // Copy computed slice to output
+    uint8_t* dest = output;
+    const uint8_t* i = begin_sliced;
+    while (i > end_sliced) {
+      uint32_t codepoint = 0;
+      // write a single codepoint
+      RETURN_IF_UTF8_ERROR(arrow::util::UTF8DecodeReverse(&i, &codepoint));
+      dest = arrow::util::UTF8Encode(dest, codepoint);
+      // and skip the remainder
+      int64_t skips = -opt.step - 1;
+      while ((skips--) && (i > end_sliced)) {
+        RETURN_IF_UTF8_ERROR(arrow::util::UTF8DecodeReverse(&i, &codepoint));
+      }
+    }
+    return dest - output;
+  }
+
+#undef RETURN_IF_UTF8_ERROR
 };
+
+template <typename Type>
+using SliceCodeunits = StringTransformExec<Type, SliceCodeunitsTransform>;
 
 const FunctionDoc utf8_slice_codeunits_doc(
     "Slice string ",
@@ -1170,10 +1289,13 @@ void AddSlice(FunctionRegistry* registry) {
                                                &utf8_slice_codeunits_doc);
   using t32 = SliceCodeunits<StringType>;
   using t64 = SliceCodeunits<LargeStringType>;
-  DCHECK_OK(func->AddKernel({utf8()}, utf8(), t32::Exec, t32::State::Init));
-  DCHECK_OK(func->AddKernel({large_utf8()}, large_utf8(), t64::Exec, t64::State::Init));
+  DCHECK_OK(
+      func->AddKernel({utf8()}, utf8(), t32::Exec, SliceCodeunitsTransform::State::Init));
+  DCHECK_OK(func->AddKernel({large_utf8()}, large_utf8(), t64::Exec,
+                            SliceCodeunitsTransform::State::Init));
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
+
 // IsAlpha/Digit etc
 
 #ifdef ARROW_WITH_UTF8PROC
@@ -1583,8 +1705,25 @@ struct IsUpperAscii : CharacterPredicateAscii<IsUpperAscii> {
 
 // splitting
 
-template <typename Type, typename ListType, typename Options, typename Derived>
-struct SplitBaseTransform {
+template <typename Options>
+struct SplitFinderBase {
+  virtual Status PreExec(const Options& options) { return Status::OK(); }
+
+  // Derived classes should also define these methods:
+  //   static bool Find(const uint8_t* begin, const uint8_t* end,
+  //                    const uint8_t** separator_begin,
+  //                    const uint8_t** separator_end,
+  //                    const SplitPatternOptions& options);
+  //
+  //   static bool FindReverse(const uint8_t* begin, const uint8_t* end,
+  //                           const uint8_t** separator_begin,
+  //                           const uint8_t** separator_end,
+  //                           const SplitPatternOptions& options);
+};
+
+template <typename Type, typename ListType, typename SplitFinder,
+          typename Options = typename SplitFinder::Options>
+struct SplitExec {
   using string_offset_type = typename Type::offset_type;
   using list_offset_type = typename ListType::offset_type;
   using ArrayType = typename TypeTraits<Type>::ArrayType;
@@ -1595,12 +1734,75 @@ struct SplitBaseTransform {
   using ListOffsetsBuilderType = TypedBufferBuilder<list_offset_type>;
   using State = OptionsWrapper<Options>;
 
+  // Keep the temporary storage accross individual values, to minimize reallocations
   std::vector<util::string_view> parts;
   Options options;
 
-  explicit SplitBaseTransform(Options options) : options(options) {}
+  explicit SplitExec(const Options& options) : options(options) {}
 
-  Status Split(const util::string_view& s, BuilderType* builder) {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    return SplitExec{State::Get(ctx)}.Execute(ctx, batch, out);
+  }
+
+  Status Execute(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    SplitFinder finder;
+    RETURN_NOT_OK(finder.PreExec(options));
+    if (batch[0].kind() == Datum::ARRAY) {
+      return Execute(ctx, &finder, batch[0].array(), out);
+    }
+    DCHECK_EQ(batch[0].kind(), Datum::SCALAR);
+    return Execute(ctx, &finder, batch[0].scalar(), out);
+  }
+
+  Status Execute(KernelContext* ctx, SplitFinder* finder,
+                 const std::shared_ptr<ArrayData>& data, Datum* out) {
+    const ArrayType input(data);
+
+    BuilderType builder(input.type(), ctx->memory_pool());
+    // A slight overestimate of the data needed
+    RETURN_NOT_OK(builder.ReserveData(input.total_values_length()));
+    // The minimum amount of strings needed
+    RETURN_NOT_OK(builder.Resize(input.length() - input.null_count()));
+
+    ArrayData* output_list = out->mutable_array();
+    // List offsets were preallocated
+    auto* list_offsets = output_list->GetMutableValues<list_offset_type>(1);
+    DCHECK_NE(list_offsets, nullptr);
+    // Initial value
+    *list_offsets++ = 0;
+    for (int64_t i = 0; i < input.length(); ++i) {
+      if (!input.IsNull(i)) {
+        RETURN_NOT_OK(SplitString(input.GetView(i), finder, &builder));
+        if (ARROW_PREDICT_FALSE(builder.length() >
+                                std::numeric_limits<list_offset_type>::max())) {
+          return Status::CapacityError("List offset does not fit into 32 bit");
+        }
+      }
+      *list_offsets++ = static_cast<list_offset_type>(builder.length());
+    }
+    // Assign string array to list child data
+    std::shared_ptr<Array> string_array;
+    RETURN_NOT_OK(builder.Finish(&string_array));
+    output_list->child_data.push_back(string_array->data());
+    return Status::OK();
+  }
+
+  Status Execute(KernelContext* ctx, SplitFinder* finder,
+                 const std::shared_ptr<Scalar>& scalar, Datum* out) {
+    const auto& input = checked_cast<const ScalarType&>(*scalar);
+    auto result = checked_cast<ListScalarType*>(out->scalar().get());
+    if (input.is_valid) {
+      result->is_valid = true;
+      BuilderType builder(input.type, ctx->memory_pool());
+      util::string_view s(*input.value);
+      RETURN_NOT_OK(SplitString(s, finder, &builder));
+      RETURN_NOT_OK(builder.Finish(&result->value));
+    }
+    return Status::OK();
+  }
+
+  Status SplitString(const util::string_view& s, SplitFinder* finder,
+                     BuilderType* builder) {
     const uint8_t* begin = reinterpret_cast<const uint8_t*>(s.data());
     const uint8_t* end = begin + s.length();
 
@@ -1618,8 +1820,7 @@ struct SplitBaseTransform {
       while (max_splits != 0) {
         const uint8_t *separator_begin, *separator_end;
         // find with whatever algo the part we will 'cut out'
-        if (static_cast<Derived&>(*this).FindReverse(begin, i, &separator_begin,
-                                                     &separator_end, options)) {
+        if (finder->FindReverse(begin, i, &separator_begin, &separator_end, options)) {
           parts.emplace_back(reinterpret_cast<const char*>(separator_end),
                              i - separator_end);
           i = separator_begin;
@@ -1639,8 +1840,7 @@ struct SplitBaseTransform {
       while (max_splits != 0) {
         const uint8_t *separator_begin, *separator_end;
         // find with whatever algo the part we will 'cut out'
-        if (static_cast<Derived&>(*this).Find(i, end, &separator_begin, &separator_end,
-                                              options)) {
+        if (finder->Find(i, end, &separator_begin, &separator_end, options)) {
           // the part till the beginning of the 'cut'
           RETURN_NOT_OK(
               builder->Append(i, static_cast<string_offset_type>(separator_begin - i)));
@@ -1656,85 +1856,13 @@ struct SplitBaseTransform {
     }
     return Status::OK();
   }
-
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    Options options = State::Get(ctx);
-    Derived splitter(options);  // we make an instance to reuse the parts vectors
-    RETURN_NOT_OK(splitter.CheckOptions());
-    return splitter.Split(ctx, batch, out);
-  }
-
-  Status CheckOptions() { return Status::OK(); }
-
-  Status Split(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    EnsureLookupTablesFilled();  // only needed for unicode
-
-    if (batch[0].kind() == Datum::ARRAY) {
-      const ArrayData& input = *batch[0].array();
-      ArrayType input_boxed(batch[0].array());
-
-      BuilderType builder(input.type, ctx->memory_pool());
-      // a slight overestimate of the data needed
-      RETURN_NOT_OK(builder.ReserveData(input_boxed.total_values_length()));
-      // the minimum amount of strings needed
-      RETURN_NOT_OK(builder.Resize(input.length));
-
-      ArrayData* output_list = out->mutable_array();
-      // list offsets were preallocated
-      auto* list_offsets = output_list->GetMutableValues<list_offset_type>(1);
-      DCHECK_NE(list_offsets, nullptr);
-      // initial value
-      *list_offsets++ = 0;
-      RETURN_NOT_OK(VisitArrayDataInline<Type>(
-          input,
-          [&](util::string_view s) {
-            RETURN_NOT_OK(Split(s, &builder));
-            if (ARROW_PREDICT_FALSE(builder.length() >
-                                    std::numeric_limits<list_offset_type>::max())) {
-              return Status::CapacityError("List offset does not fit into 32 bit");
-            }
-            *list_offsets++ = static_cast<list_offset_type>(builder.length());
-            return Status::OK();
-          },
-          [&]() {
-            // null value is already taken from input
-            *list_offsets++ = static_cast<list_offset_type>(builder.length());
-            return Status::OK();
-          }));
-      // assign list child data
-      std::shared_ptr<Array> string_array;
-      RETURN_NOT_OK(builder.Finish(&string_array));
-      output_list->child_data.push_back(string_array->data());
-
-    } else {
-      const auto& input = checked_cast<const ScalarType&>(*batch[0].scalar());
-      auto result = checked_pointer_cast<ListScalarType>(MakeNullScalar(out->type()));
-      if (input.is_valid) {
-        result->is_valid = true;
-        BuilderType builder(input.type, ctx->memory_pool());
-        util::string_view s(*input.value);
-        RETURN_NOT_OK(Split(s, &builder));
-        RETURN_NOT_OK(builder.Finish(&result->value));
-      }
-      out->value = result;
-    }
-
-    return Status::OK();
-  }
 };
 
-template <typename Type, typename ListType>
-struct SplitPatternTransform : SplitBaseTransform<Type, ListType, SplitPatternOptions,
-                                                  SplitPatternTransform<Type, ListType>> {
-  using Base = SplitBaseTransform<Type, ListType, SplitPatternOptions,
-                                  SplitPatternTransform<Type, ListType>>;
-  using ArrayType = typename TypeTraits<Type>::ArrayType;
-  using ScalarType = typename TypeTraits<Type>::ScalarType;
-  using string_offset_type = typename Type::offset_type;
-  using Base::Base;
+struct SplitPatternFinder : public SplitFinderBase<SplitPatternOptions> {
+  using Options = SplitPatternOptions;
 
-  Status CheckOptions() {
-    if (Base::options.pattern.length() == 0) {
+  Status PreExec(const SplitPatternOptions& options) override {
+    if (options.pattern.length() == 0) {
       return Status::Invalid("Empty separator");
     }
     return Status::OK();
@@ -1782,6 +1910,9 @@ struct SplitPatternTransform : SplitBaseTransform<Type, ListType, SplitPatternOp
   }
 };
 
+template <typename Type, typename ListType>
+using SplitPatternExec = SplitExec<Type, ListType, SplitPatternFinder>;
+
 const FunctionDoc split_pattern_doc(
     "Split string according to separator",
     ("Split each string according to the exact `pattern` defined in\n"
@@ -1815,29 +1946,22 @@ const FunctionDoc utf8_split_whitespace_doc(
 void AddSplitPattern(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("split_pattern", Arity::Unary(),
                                                &split_pattern_doc);
-  using t32 = SplitPatternTransform<StringType, ListType>;
-  using t64 = SplitPatternTransform<LargeStringType, ListType>;
+  using t32 = SplitPatternExec<StringType, ListType>;
+  using t64 = SplitPatternExec<LargeStringType, ListType>;
   DCHECK_OK(func->AddKernel({utf8()}, {list(utf8())}, t32::Exec, t32::State::Init));
   DCHECK_OK(
       func->AddKernel({large_utf8()}, {list(large_utf8())}, t64::Exec, t64::State::Init));
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
-template <typename Type, typename ListType>
-struct SplitWhitespaceAsciiTransform
-    : SplitBaseTransform<Type, ListType, SplitOptions,
-                         SplitWhitespaceAsciiTransform<Type, ListType>> {
-  using Base = SplitBaseTransform<Type, ListType, SplitOptions,
-                                  SplitWhitespaceAsciiTransform<Type, ListType>>;
-  using ArrayType = typename TypeTraits<Type>::ArrayType;
-  using ScalarType = typename TypeTraits<Type>::ScalarType;
-  using string_offset_type = typename Type::offset_type;
-  using Base::Base;
+struct SplitWhitespaceAsciiFinder : public SplitFinderBase<SplitOptions> {
+  using Options = SplitOptions;
+
   static bool Find(const uint8_t* begin, const uint8_t* end,
                    const uint8_t** separator_begin, const uint8_t** separator_end,
                    const SplitOptions& options) {
     const uint8_t* i = begin;
-    while ((i < end)) {
+    while (i < end) {
       if (IsSpaceCharacterAscii(*i)) {
         *separator_begin = i;
         do {
@@ -1850,6 +1974,7 @@ struct SplitWhitespaceAsciiTransform
     }
     return false;
   }
+
   static bool FindReverse(const uint8_t* begin, const uint8_t* end,
                           const uint8_t** separator_begin, const uint8_t** separator_end,
                           const SplitOptions& options) {
@@ -1869,13 +1994,16 @@ struct SplitWhitespaceAsciiTransform
   }
 };
 
+template <typename Type, typename ListType>
+using SplitWhitespaceAsciiExec = SplitExec<Type, ListType, SplitWhitespaceAsciiFinder>;
+
 void AddSplitWhitespaceAscii(FunctionRegistry* registry) {
   static const SplitOptions default_options{};
   auto func =
       std::make_shared<ScalarFunction>("ascii_split_whitespace", Arity::Unary(),
                                        &ascii_split_whitespace_doc, &default_options);
-  using t32 = SplitWhitespaceAsciiTransform<StringType, ListType>;
-  using t64 = SplitWhitespaceAsciiTransform<LargeStringType, ListType>;
+  using t32 = SplitWhitespaceAsciiExec<StringType, ListType>;
+  using t64 = SplitWhitespaceAsciiExec<LargeStringType, ListType>;
   DCHECK_OK(func->AddKernel({utf8()}, {list(utf8())}, t32::Exec, t32::State::Init));
   DCHECK_OK(
       func->AddKernel({large_utf8()}, {list(large_utf8())}, t64::Exec, t64::State::Init));
@@ -1883,19 +2011,16 @@ void AddSplitWhitespaceAscii(FunctionRegistry* registry) {
 }
 
 #ifdef ARROW_WITH_UTF8PROC
-template <typename Type, typename ListType>
-struct SplitWhitespaceUtf8Transform
-    : SplitBaseTransform<Type, ListType, SplitOptions,
-                         SplitWhitespaceUtf8Transform<Type, ListType>> {
-  using Base = SplitBaseTransform<Type, ListType, SplitOptions,
-                                  SplitWhitespaceUtf8Transform<Type, ListType>>;
-  using ArrayType = typename TypeTraits<Type>::ArrayType;
-  using string_offset_type = typename Type::offset_type;
-  using ScalarType = typename TypeTraits<Type>::ScalarType;
-  using Base::Base;
-  static bool Find(const uint8_t* begin, const uint8_t* end,
-                   const uint8_t** separator_begin, const uint8_t** separator_end,
-                   const SplitOptions& options) {
+struct SplitWhitespaceUtf8Finder : public SplitFinderBase<SplitOptions> {
+  using Options = SplitOptions;
+
+  Status PreExec(const SplitOptions& options) override {
+    EnsureLookupTablesFilled();
+    return Status::OK();
+  }
+
+  bool Find(const uint8_t* begin, const uint8_t* end, const uint8_t** separator_begin,
+            const uint8_t** separator_end, const SplitOptions& options) {
     const uint8_t* i = begin;
     while ((i < end)) {
       uint32_t codepoint = 0;
@@ -1915,9 +2040,10 @@ struct SplitWhitespaceUtf8Transform
     }
     return false;
   }
-  static bool FindReverse(const uint8_t* begin, const uint8_t* end,
-                          const uint8_t** separator_begin, const uint8_t** separator_end,
-                          const SplitOptions& options) {
+
+  bool FindReverse(const uint8_t* begin, const uint8_t* end,
+                   const uint8_t** separator_begin, const uint8_t** separator_end,
+                   const SplitOptions& options) {
     const uint8_t* i = end - 1;
     while ((i >= begin)) {
       uint32_t codepoint = 0;
@@ -1939,72 +2065,67 @@ struct SplitWhitespaceUtf8Transform
   }
 };
 
+template <typename Type, typename ListType>
+using SplitWhitespaceUtf8Exec = SplitExec<Type, ListType, SplitWhitespaceUtf8Finder>;
+
 void AddSplitWhitespaceUTF8(FunctionRegistry* registry) {
   static const SplitOptions default_options{};
   auto func =
       std::make_shared<ScalarFunction>("utf8_split_whitespace", Arity::Unary(),
                                        &utf8_split_whitespace_doc, &default_options);
-  using t32 = SplitWhitespaceUtf8Transform<StringType, ListType>;
-  using t64 = SplitWhitespaceUtf8Transform<LargeStringType, ListType>;
+  using t32 = SplitWhitespaceUtf8Exec<StringType, ListType>;
+  using t64 = SplitWhitespaceUtf8Exec<LargeStringType, ListType>;
   DCHECK_OK(func->AddKernel({utf8()}, {list(utf8())}, t32::Exec, t32::State::Init));
   DCHECK_OK(
       func->AddKernel({large_utf8()}, {list(large_utf8())}, t64::Exec, t64::State::Init));
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
-#endif
+#endif  // ARROW_WITH_UTF8PROC
 
 #ifdef ARROW_WITH_RE2
-template <typename Type, typename ListType>
-struct SplitRegexTransform : SplitBaseTransform<Type, ListType, SplitPatternOptions,
-                                                SplitRegexTransform<Type, ListType>> {
-  using Base = SplitBaseTransform<Type, ListType, SplitPatternOptions,
-                                  SplitRegexTransform<Type, ListType>>;
-  using ArrayType = typename TypeTraits<Type>::ArrayType;
-  using string_offset_type = typename Type::offset_type;
-  using ScalarType = typename TypeTraits<Type>::ScalarType;
+struct SplitRegexFinder : public SplitFinderBase<SplitPatternOptions> {
+  using Options = SplitPatternOptions;
 
-  const RE2 regex_split;
+  util::optional<RE2> regex_split;
 
-  explicit SplitRegexTransform(SplitPatternOptions options)
-      : Base(options), regex_split(MakePattern(options)) {}
-
-  static std::string MakePattern(const SplitPatternOptions& options) {
+  Status PreExec(const SplitPatternOptions& options) override {
+    if (options.reverse) {
+      return Status::NotImplemented("Cannot split in reverse with regex");
+    }
     // RE2 does *not* give you the full match! Must wrap the regex in a capture group
     // There is FindAndConsume, but it would give only the end of the separator
     std::string pattern = "(";
     pattern.reserve(options.pattern.size() + 2);
     pattern += options.pattern;
     pattern += ')';
-    return pattern;
-  }
-
-  Status CheckOptions() {
-    if (Base::options.reverse) {
-      return Status::NotImplemented("Cannot split in reverse with regex");
-    }
-    return RegexStatus(regex_split);
+    regex_split.emplace(std::move(pattern));
+    return RegexStatus(*regex_split);
   }
 
   bool Find(const uint8_t* begin, const uint8_t* end, const uint8_t** separator_begin,
-            const uint8_t** separator_end, const SplitOptions& options) {
+            const uint8_t** separator_end, const SplitPatternOptions& options) {
     re2::StringPiece piece(reinterpret_cast<const char*>(begin),
                            std::distance(begin, end));
     // "StringPiece is mutated to point to matched piece"
     re2::StringPiece result;
-    if (!re2::RE2::PartialMatch(piece, regex_split, &result)) {
+    if (!re2::RE2::PartialMatch(piece, *regex_split, &result)) {
       return false;
     }
     *separator_begin = reinterpret_cast<const uint8_t*>(result.data());
     *separator_end = reinterpret_cast<const uint8_t*>(result.data() + result.size());
     return true;
   }
+
   bool FindReverse(const uint8_t* begin, const uint8_t* end,
                    const uint8_t** separator_begin, const uint8_t** separator_end,
-                   const SplitOptions& options) {
-    // Not easily supportable, unfortunately
+                   const SplitPatternOptions& options) {
+    // Unsupported (see PreExec)
     return false;
   }
 };
+
+template <typename Type, typename ListType>
+using SplitRegexExec = SplitExec<Type, ListType, SplitRegexFinder>;
 
 const FunctionDoc split_pattern_regex_doc(
     "Split string according to regex pattern",
@@ -2019,14 +2140,14 @@ const FunctionDoc split_pattern_regex_doc(
 void AddSplitRegex(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("split_pattern_regex", Arity::Unary(),
                                                &split_pattern_regex_doc);
-  using t32 = SplitRegexTransform<StringType, ListType>;
-  using t64 = SplitRegexTransform<LargeStringType, ListType>;
+  using t32 = SplitRegexExec<StringType, ListType>;
+  using t64 = SplitRegexExec<LargeStringType, ListType>;
   DCHECK_OK(func->AddKernel({utf8()}, {list(utf8())}, t32::Exec, t32::State::Init));
   DCHECK_OK(
       func->AddKernel({large_utf8()}, {list(large_utf8())}, t64::Exec, t64::State::Init));
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
-#endif
+#endif  // ARROW_WITH_RE2
 
 void AddSplit(FunctionRegistry* registry) {
   AddSplitPattern(registry);
@@ -2243,6 +2364,165 @@ const FunctionDoc replace_substring_regex_doc(
      "backreferencing macan be used. Null values emit null."),
     {"strings"}, "ReplaceSubstringOptions");
 #endif
+
+// ----------------------------------------------------------------------
+// Replace slice
+
+struct ReplaceSliceTransformBase : public StringTransformBase {
+  using State = OptionsWrapper<ReplaceSliceOptions>;
+
+  const ReplaceSliceOptions* options;
+
+  explicit ReplaceSliceTransformBase(const ReplaceSliceOptions& options)
+      : options{&options} {}
+
+  int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) override {
+    return ninputs * options->replacement.size() + input_ncodeunits;
+  }
+};
+
+struct BinaryReplaceSliceTransform : ReplaceSliceTransformBase {
+  using ReplaceSliceTransformBase::ReplaceSliceTransformBase;
+  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+                    uint8_t* output) {
+    const auto& opts = *options;
+    int64_t before_slice = 0;
+    int64_t after_slice = 0;
+    uint8_t* output_start = output;
+
+    if (opts.start >= 0) {
+      // Count from left
+      before_slice = std::min<int64_t>(input_string_ncodeunits, opts.start);
+    } else {
+      // Count from right
+      before_slice = std::max<int64_t>(0, input_string_ncodeunits + opts.start);
+    }
+    // Mimic Pandas: if stop would be before start, treat as 0-length slice
+    if (opts.stop >= 0) {
+      // Count from left
+      after_slice =
+          std::min<int64_t>(input_string_ncodeunits, std::max(before_slice, opts.stop));
+    } else {
+      // Count from right
+      after_slice = std::max<int64_t>(before_slice, input_string_ncodeunits + opts.stop);
+    }
+    output = std::copy(input, input + before_slice, output);
+    output = std::copy(opts.replacement.begin(), opts.replacement.end(), output);
+    output = std::copy(input + after_slice, input + input_string_ncodeunits, output);
+    return output - output_start;
+  }
+};
+
+struct Utf8ReplaceSliceTransform : ReplaceSliceTransformBase {
+  using ReplaceSliceTransformBase::ReplaceSliceTransformBase;
+  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+                    uint8_t* output) {
+    const auto& opts = *options;
+    const uint8_t* begin = input;
+    const uint8_t* end = input + input_string_ncodeunits;
+    const uint8_t *begin_sliced, *end_sliced;
+    uint8_t* output_start = output;
+
+    // Mimic Pandas: if stop would be before start, treat as 0-length slice
+    if (opts.start >= 0) {
+      // Count from left
+      if (!arrow::util::UTF8AdvanceCodepoints(begin, end, &begin_sliced, opts.start)) {
+        return kTransformError;
+      }
+      if (opts.stop > options->start) {
+        // Continue counting from left
+        const int64_t length = opts.stop - options->start;
+        if (!arrow::util::UTF8AdvanceCodepoints(begin_sliced, end, &end_sliced, length)) {
+          return kTransformError;
+        }
+      } else if (opts.stop < 0) {
+        // Count from right
+        if (!arrow::util::UTF8AdvanceCodepointsReverse(begin_sliced, end, &end_sliced,
+                                                       -opts.stop)) {
+          return kTransformError;
+        }
+      } else {
+        // Zero-length slice
+        end_sliced = begin_sliced;
+      }
+    } else {
+      // Count from right
+      if (!arrow::util::UTF8AdvanceCodepointsReverse(begin, end, &begin_sliced,
+                                                     -opts.start)) {
+        return kTransformError;
+      }
+      if (opts.stop >= 0) {
+        // Restart counting from left
+        if (!arrow::util::UTF8AdvanceCodepoints(begin, end, &end_sliced, opts.stop)) {
+          return kTransformError;
+        }
+        if (end_sliced <= begin_sliced) {
+          // Zero-length slice
+          end_sliced = begin_sliced;
+        }
+      } else if ((opts.stop < 0) && (options->stop > options->start)) {
+        // Count from right
+        if (!arrow::util::UTF8AdvanceCodepointsReverse(begin_sliced, end, &end_sliced,
+                                                       -opts.stop)) {
+          return kTransformError;
+        }
+      } else {
+        // zero-length slice
+        end_sliced = begin_sliced;
+      }
+    }
+    output = std::copy(begin, begin_sliced, output);
+    output = std::copy(opts.replacement.begin(), options->replacement.end(), output);
+    output = std::copy(end_sliced, end, output);
+    return output - output_start;
+  }
+};
+
+template <typename Type>
+using BinaryReplaceSlice =
+    StringTransformExecWithState<Type, BinaryReplaceSliceTransform>;
+template <typename Type>
+using Utf8ReplaceSlice = StringTransformExecWithState<Type, Utf8ReplaceSliceTransform>;
+
+const FunctionDoc binary_replace_slice_doc(
+    "Replace a slice of a binary string with `replacement`",
+    ("For each string in `strings`, replace a slice of the string defined by `start`"
+     "and `stop` with `replacement`. `start` is inclusive and `stop` is exclusive, "
+     "and both are measured in bytes.\n"
+     "Null values emit null."),
+    {"strings"}, "ReplaceSliceOptions");
+
+const FunctionDoc utf8_replace_slice_doc(
+    "Replace a slice of a string with `replacement`",
+    ("For each string in `strings`, replace a slice of the string defined by `start`"
+     "and `stop` with `replacement`. `start` is inclusive and `stop` is exclusive, "
+     "and both are measured in codeunits.\n"
+     "Null values emit null."),
+    {"strings"}, "ReplaceSliceOptions");
+
+void AddReplaceSlice(FunctionRegistry* registry) {
+  {
+    auto func = std::make_shared<ScalarFunction>("binary_replace_slice", Arity::Unary(),
+                                                 &binary_replace_slice_doc);
+    for (const auto& ty : BaseBinaryTypes()) {
+      DCHECK_OK(func->AddKernel({ty}, ty,
+                                GenerateTypeAgnosticVarBinaryBase<BinaryReplaceSlice>(ty),
+                                ReplaceSliceTransformBase::State::Init));
+    }
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+
+  {
+    auto func = std::make_shared<ScalarFunction>("utf8_replace_slice", Arity::Unary(),
+                                                 &utf8_replace_slice_doc);
+    DCHECK_OK(func->AddKernel({utf8()}, utf8(), Utf8ReplaceSlice<StringType>::Exec,
+                              ReplaceSliceTransformBase::State::Init));
+    DCHECK_OK(func->AddKernel({large_utf8()}, large_utf8(),
+                              Utf8ReplaceSlice<LargeStringType>::Exec,
+                              ReplaceSliceTransformBase::State::Init));
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+}
 
 // ----------------------------------------------------------------------
 // Extract with regex
@@ -2477,56 +2757,54 @@ Result<ValueDescr> StrptimeResolve(KernelContext* ctx, const std::vector<ValueDe
 
 #ifdef ARROW_WITH_UTF8PROC
 
-template <typename Type, bool left, bool right, typename Derived>
-struct UTF8TrimWhitespaceBase : StringTransform<Type, Derived> {
-  using Base = StringTransform<Type, Derived>;
-  using offset_type = typename Base::offset_type;
-  bool Transform(const uint8_t* input, offset_type input_string_ncodeunits,
-                 uint8_t* output, offset_type* output_written) {
+template <bool TrimLeft, bool TrimRight>
+struct UTF8TrimWhitespaceTransform : public StringTransformBase {
+  Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) override {
+    EnsureLookupTablesFilled();
+    return Status::OK();
+  }
+
+  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+                    uint8_t* output) {
     const uint8_t* begin = input;
     const uint8_t* end = input + input_string_ncodeunits;
     const uint8_t* end_trimmed = end;
     const uint8_t* begin_trimmed = begin;
 
     auto predicate = [](uint32_t c) { return !IsSpaceCharacterUnicode(c); };
-    if (left && !ARROW_PREDICT_TRUE(
-                    arrow::util::UTF8FindIf(begin, end, predicate, &begin_trimmed))) {
-      return false;
+    if (TrimLeft && !ARROW_PREDICT_TRUE(
+                        arrow::util::UTF8FindIf(begin, end, predicate, &begin_trimmed))) {
+      return kTransformError;
     }
-    if (right && (begin_trimmed < end)) {
+    if (TrimRight && begin_trimmed < end) {
       if (!ARROW_PREDICT_TRUE(arrow::util::UTF8FindIfReverse(begin_trimmed, end,
                                                              predicate, &end_trimmed))) {
-        return false;
+        return kTransformError;
       }
     }
     std::copy(begin_trimmed, end_trimmed, output);
-    *output_written = static_cast<offset_type>(end_trimmed - begin_trimmed);
-    return true;
-  }
-  Status Execute(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    EnsureLookupTablesFilled();
-    return Base::Execute(ctx, batch, out);
+    return end_trimmed - begin_trimmed;
   }
 };
 
 template <typename Type>
-struct UTF8TrimWhitespace
-    : UTF8TrimWhitespaceBase<Type, true, true, UTF8TrimWhitespace<Type>> {};
+using UTF8TrimWhitespace =
+    StringTransformExec<Type, UTF8TrimWhitespaceTransform<true, true>>;
 
 template <typename Type>
-struct UTF8LTrimWhitespace
-    : UTF8TrimWhitespaceBase<Type, true, false, UTF8LTrimWhitespace<Type>> {};
+using UTF8LTrimWhitespace =
+    StringTransformExec<Type, UTF8TrimWhitespaceTransform<true, false>>;
 
 template <typename Type>
-struct UTF8RTrimWhitespace
-    : UTF8TrimWhitespaceBase<Type, false, true, UTF8RTrimWhitespace<Type>> {};
+using UTF8RTrimWhitespace =
+    StringTransformExec<Type, UTF8TrimWhitespaceTransform<false, true>>;
 
-struct TrimStateUTF8 {
+struct UTF8TrimState {
   TrimOptions options_;
   std::vector<bool> codepoints_;
   Status status_ = Status::OK();
 
-  explicit TrimStateUTF8(KernelContext* ctx, TrimOptions options)
+  explicit UTF8TrimState(KernelContext* ctx, TrimOptions options)
       : options_(std::move(options)) {
     if (!ARROW_PREDICT_TRUE(
             arrow::util::UTF8ForEach(options_.characters, [&](uint32_t c) {
@@ -2539,167 +2817,136 @@ struct TrimStateUTF8 {
   }
 };
 
-template <typename Type, bool left, bool right, typename Derived>
-struct UTF8TrimBase : StringTransform<Type, Derived> {
-  using Base = StringTransform<Type, Derived>;
-  using offset_type = typename Base::offset_type;
-  using State = KernelStateFromFunctionOptions<TrimStateUTF8, TrimOptions>;
-  TrimStateUTF8 state_;
+template <bool TrimLeft, bool TrimRight>
+struct UTF8TrimTransform : public StringTransformBase {
+  using State = KernelStateFromFunctionOptions<UTF8TrimState, TrimOptions>;
 
-  explicit UTF8TrimBase(TrimStateUTF8 state) : state_(std::move(state)) {}
+  const UTF8TrimState& state_;
 
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    TrimStateUTF8 state = State::Get(ctx);
-    RETURN_NOT_OK(state.status_);
-    return Derived(state).Execute(ctx, batch, out);
+  explicit UTF8TrimTransform(const UTF8TrimState& state) : state_(state) {}
+
+  Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) override {
+    return state_.status_;
   }
 
-  Status Execute(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    EnsureLookupTablesFilled();
-    return Base::Execute(ctx, batch, out);
-  }
-
-  bool Transform(const uint8_t* input, offset_type input_string_ncodeunits,
-                 uint8_t* output, offset_type* output_written) {
+  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+                    uint8_t* output) {
     const uint8_t* begin = input;
     const uint8_t* end = input + input_string_ncodeunits;
     const uint8_t* end_trimmed = end;
     const uint8_t* begin_trimmed = begin;
 
-    auto predicate = [&](uint32_t c) {
-      bool contains = state_.codepoints_[c];
-      return !contains;
-    };
-    if (left && !ARROW_PREDICT_TRUE(
-                    arrow::util::UTF8FindIf(begin, end, predicate, &begin_trimmed))) {
-      return false;
+    auto predicate = [&](uint32_t c) { return !state_.codepoints_[c]; };
+    if (TrimLeft && !ARROW_PREDICT_TRUE(
+                        arrow::util::UTF8FindIf(begin, end, predicate, &begin_trimmed))) {
+      return kTransformError;
     }
-    if (right && (begin_trimmed < end)) {
+    if (TrimRight && begin_trimmed < end) {
       if (!ARROW_PREDICT_TRUE(arrow::util::UTF8FindIfReverse(begin_trimmed, end,
                                                              predicate, &end_trimmed))) {
-        return false;
+        return kTransformError;
       }
     }
     std::copy(begin_trimmed, end_trimmed, output);
-    *output_written = static_cast<offset_type>(end_trimmed - begin_trimmed);
-    return true;
+    return end_trimmed - begin_trimmed;
   }
 };
 
 template <typename Type>
-struct UTF8Trim : UTF8TrimBase<Type, true, true, UTF8Trim<Type>> {
-  using Base = UTF8TrimBase<Type, true, true, UTF8Trim<Type>>;
-  using Base::Base;
-};
+using UTF8Trim = StringTransformExecWithState<Type, UTF8TrimTransform<true, true>>;
 
 template <typename Type>
-struct UTF8LTrim : UTF8TrimBase<Type, true, false, UTF8LTrim<Type>> {
-  using Base = UTF8TrimBase<Type, true, false, UTF8LTrim<Type>>;
-  using Base::Base;
-};
+using UTF8LTrim = StringTransformExecWithState<Type, UTF8TrimTransform<true, false>>;
 
 template <typename Type>
-struct UTF8RTrim : UTF8TrimBase<Type, false, true, UTF8RTrim<Type>> {
-  using Base = UTF8TrimBase<Type, false, true, UTF8RTrim<Type>>;
-  using Base::Base;
-};
+using UTF8RTrim = StringTransformExecWithState<Type, UTF8TrimTransform<false, true>>;
 
 #endif
 
-template <typename Type, bool left, bool right, typename Derived>
-struct AsciiTrimWhitespaceBase : StringTransform<Type, Derived> {
-  using offset_type = typename Type::offset_type;
-  bool Transform(const uint8_t* input, offset_type input_string_ncodeunits,
-                 uint8_t* output, offset_type* output_written) {
+template <bool TrimLeft, bool TrimRight>
+struct AsciiTrimWhitespaceTransform : public StringTransformBase {
+  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+                    uint8_t* output) {
     const uint8_t* begin = input;
     const uint8_t* end = input + input_string_ncodeunits;
     const uint8_t* end_trimmed = end;
+    const uint8_t* begin_trimmed = begin;
 
     auto predicate = [](unsigned char c) { return !IsSpaceCharacterAscii(c); };
-    const uint8_t* begin_trimmed = left ? std::find_if(begin, end, predicate) : begin;
-    if (right & (begin_trimmed < end)) {
+    if (TrimLeft) {
+      begin_trimmed = std::find_if(begin, end, predicate);
+    }
+    if (TrimRight && begin_trimmed < end) {
       std::reverse_iterator<const uint8_t*> rbegin(end);
       std::reverse_iterator<const uint8_t*> rend(begin_trimmed);
       end_trimmed = std::find_if(rbegin, rend, predicate).base();
     }
     std::copy(begin_trimmed, end_trimmed, output);
-    *output_written = static_cast<offset_type>(end_trimmed - begin_trimmed);
-    return true;
+    return end_trimmed - begin_trimmed;
   }
 };
 
 template <typename Type>
-struct AsciiTrimWhitespace
-    : AsciiTrimWhitespaceBase<Type, true, true, AsciiTrimWhitespace<Type>> {};
+using AsciiTrimWhitespace =
+    StringTransformExec<Type, AsciiTrimWhitespaceTransform<true, true>>;
 
 template <typename Type>
-struct AsciiLTrimWhitespace
-    : AsciiTrimWhitespaceBase<Type, true, false, AsciiLTrimWhitespace<Type>> {};
+using AsciiLTrimWhitespace =
+    StringTransformExec<Type, AsciiTrimWhitespaceTransform<true, false>>;
 
 template <typename Type>
-struct AsciiRTrimWhitespace
-    : AsciiTrimWhitespaceBase<Type, false, true, AsciiRTrimWhitespace<Type>> {};
+using AsciiRTrimWhitespace =
+    StringTransformExec<Type, AsciiTrimWhitespaceTransform<false, true>>;
 
-template <typename Type, bool left, bool right, typename Derived>
-struct AsciiTrimBase : StringTransform<Type, Derived> {
-  using Base = StringTransform<Type, Derived>;
-  using offset_type = typename Base::offset_type;
-  using State = OptionsWrapper<TrimOptions>;
+struct AsciiTrimState {
   TrimOptions options_;
   std::vector<bool> characters_;
 
-  explicit AsciiTrimBase(TrimOptions options)
+  explicit AsciiTrimState(KernelContext* ctx, TrimOptions options)
       : options_(std::move(options)), characters_(256) {
-    std::for_each(options_.characters.begin(), options_.characters.end(),
-                  [&](char c) { characters_[static_cast<unsigned char>(c)] = true; });
+    for (const auto c : options_.characters) {
+      characters_[static_cast<unsigned char>(c)] = true;
+    }
   }
+};
 
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    TrimOptions options = State::Get(ctx);
-    return Derived(options).Execute(ctx, batch, out);
-  }
+template <bool TrimLeft, bool TrimRight>
+struct AsciiTrimTransform : public StringTransformBase {
+  using State = KernelStateFromFunctionOptions<AsciiTrimState, TrimOptions>;
 
-  bool Transform(const uint8_t* input, offset_type input_string_ncodeunits,
-                 uint8_t* output, offset_type* output_written) {
+  const AsciiTrimState& state_;
+
+  explicit AsciiTrimTransform(const AsciiTrimState& state) : state_(state) {}
+
+  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+                    uint8_t* output) {
     const uint8_t* begin = input;
     const uint8_t* end = input + input_string_ncodeunits;
     const uint8_t* end_trimmed = end;
-    const uint8_t* begin_trimmed;
+    const uint8_t* begin_trimmed = begin;
 
-    auto predicate = [&](unsigned char c) {
-      bool contains = characters_[c];
-      return !contains;
-    };
-
-    begin_trimmed = left ? std::find_if(begin, end, predicate) : begin;
-    if (right & (begin_trimmed < end)) {
+    auto predicate = [&](uint8_t c) { return !state_.characters_[c]; };
+    if (TrimLeft) {
+      begin_trimmed = std::find_if(begin, end, predicate);
+    }
+    if (TrimRight && begin_trimmed < end) {
       std::reverse_iterator<const uint8_t*> rbegin(end);
       std::reverse_iterator<const uint8_t*> rend(begin_trimmed);
       end_trimmed = std::find_if(rbegin, rend, predicate).base();
     }
     std::copy(begin_trimmed, end_trimmed, output);
-    *output_written = static_cast<offset_type>(end_trimmed - begin_trimmed);
-    return true;
+    return end_trimmed - begin_trimmed;
   }
 };
 
 template <typename Type>
-struct AsciiTrim : AsciiTrimBase<Type, true, true, AsciiTrim<Type>> {
-  using Base = AsciiTrimBase<Type, true, true, AsciiTrim<Type>>;
-  using Base::Base;
-};
+using AsciiTrim = StringTransformExecWithState<Type, AsciiTrimTransform<true, true>>;
 
 template <typename Type>
-struct AsciiLTrim : AsciiTrimBase<Type, true, false, AsciiLTrim<Type>> {
-  using Base = AsciiTrimBase<Type, true, false, AsciiLTrim<Type>>;
-  using Base::Base;
-};
+using AsciiLTrim = StringTransformExecWithState<Type, AsciiTrimTransform<true, false>>;
 
 template <typename Type>
-struct AsciiRTrim : AsciiTrimBase<Type, false, true, AsciiRTrim<Type>> {
-  using Base = AsciiTrimBase<Type, false, true, AsciiRTrim<Type>>;
-  using Base::Base;
-};
+using AsciiRTrim = StringTransformExecWithState<Type, AsciiTrimTransform<false, true>>;
 
 const FunctionDoc utf8_trim_whitespace_doc(
     "Trim leading and trailing whitespace characters",
@@ -3423,6 +3670,7 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
       MemAllocation::NO_PREALLOCATE);
   AddExtractRegex(registry);
 #endif
+  AddReplaceSlice(registry);
   AddSlice(registry);
   AddSplit(registry);
   AddStrptime(registry);

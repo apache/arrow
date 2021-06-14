@@ -35,6 +35,18 @@ class TestArrayDatum < Test::Unit::TestCase
     end
   end
 
+  def test_scalar?
+    assert do
+      not @datum.scalar?
+    end
+  end
+
+  def test_value?
+    assert do
+      @datum.value?
+    end
+  end
+
   sub_test_case("==") do
     def test_true
       assert_equal(Arrow::ArrayDatum.new(@array),

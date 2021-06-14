@@ -168,7 +168,13 @@ String Transforms
    ascii_lower
    ascii_reverse
    ascii_upper
+   binary_length
+   binary_replace_slice
+   replace_substring
+   replace_substring_regex
+   utf8_length
    utf8_lower
+   utf8_replace_slice
    utf8_reverse
    utf8_upper
 
@@ -179,6 +185,7 @@ Containment tests
    :toctree: ../generated/
 
    count_substring
+   count_substring_regex
    ends_with
    find_substring
    index_in

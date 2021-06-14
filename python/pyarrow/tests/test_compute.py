@@ -25,6 +25,11 @@ import textwrap
 
 import numpy as np
 
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
+
 import pyarrow as pa
 import pyarrow.compute as pc
 
@@ -286,16 +291,31 @@ def test_variance():
 
 
 def test_count_substring():
-    arr = pa.array(["ab", "cab", "abcab", "ba", "AB", None])
-    result = pc.count_substring(arr, "ab")
-    expected = pa.array([1, 1, 2, 0, 0, None], type=pa.int32())
-    assert expected.equals(result)
+    for (ty, offset) in [(pa.string(), pa.int32()),
+                         (pa.large_string(), pa.int64())]:
+        arr = pa.array(["ab", "cab", "abcab", "ba", "AB", None], type=ty)
 
-    arr = pa.array(["ab", "cab", "abcab", "ba", "AB", None],
-                   type=pa.large_string())
-    result = pc.count_substring(arr, "ab")
-    expected = pa.array([1, 1, 2, 0, 0, None], type=pa.int64())
-    assert expected.equals(result)
+        result = pc.count_substring(arr, "ab")
+        expected = pa.array([1, 1, 2, 0, 0, None], type=offset)
+        assert expected.equals(result)
+
+        result = pc.count_substring(arr, "ab", ignore_case=True)
+        expected = pa.array([1, 1, 2, 0, 1, None], type=offset)
+        assert expected.equals(result)
+
+
+def test_count_substring_regex():
+    for (ty, offset) in [(pa.string(), pa.int32()),
+                         (pa.large_string(), pa.int64())]:
+        arr = pa.array(["ab", "cab", "baAacaa", "ba", "AB", None], type=ty)
+
+        result = pc.count_substring_regex(arr, "a+")
+        expected = pa.array([1, 1, 3, 1, 0, None], type=offset)
+        assert expected.equals(result)
+
+        result = pc.count_substring_regex(arr, "a+", ignore_case=True)
+        expected = pa.array([1, 1, 2, 1, 1, None], type=offset)
+        assert expected.equals(result)
 
 
 def test_find_substring():
@@ -691,6 +711,29 @@ def test_string_py_compat_boolean(function_name, variant):
             ar = pa.array([c])
             arrow_func = getattr(pc, arrow_name)
             assert arrow_func(ar)[0].as_py() == getattr(c, py_name)()
+
+
+@pytest.mark.pandas
+def test_replace_slice():
+    offsets = range(-3, 4)
+
+    arr = pa.array([None, '', 'a', 'ab', 'abc', 'abcd', 'abcde'])
+    series = arr.to_pandas()
+    for start in offsets:
+        for stop in offsets:
+            expected = series.str.slice_replace(start, stop, 'XX')
+            actual = pc.binary_replace_slice(
+                arr, start=start, stop=stop, replacement='XX')
+            assert actual.tolist() == expected.tolist()
+
+    arr = pa.array([None, '', 'π', 'πb', 'πbθ', 'πbθd', 'πbθde'])
+    series = arr.to_pandas()
+    for start in offsets:
+        for stop in offsets:
+            expected = series.str.slice_replace(start, stop, 'XX')
+            actual = pc.utf8_replace_slice(
+                arr, start=start, stop=stop, replacement='XX')
+            assert actual.tolist() == expected.tolist()
 
 
 def test_replace_plain():

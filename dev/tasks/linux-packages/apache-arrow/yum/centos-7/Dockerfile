@@ -51,7 +51,6 @@ RUN \
     rpmdevtools \
     snappy-devel \
     tar \
-    utf8proc-devel \
     zlib-devel && \
   yum clean ${quiet} all
 

@@ -1817,6 +1817,13 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
                              c_bool reverse)
         c_string pattern
 
+    cdef cppclass CReplaceSliceOptions \
+            "arrow::compute::ReplaceSliceOptions"(CFunctionOptions):
+        CReplaceSliceOptions(int64_t start, int64_t stop, c_string replacement)
+        int64_t start
+        int64_t stop
+        c_string replacement
+
     cdef cppclass CReplaceSubstringOptions \
             "arrow::compute::ReplaceSubstringOptions"(CFunctionOptions):
         CReplaceSubstringOptions(c_string pattern, c_string replacement,

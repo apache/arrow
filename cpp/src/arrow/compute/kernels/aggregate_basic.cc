@@ -378,26 +378,25 @@ namespace internal {
 namespace {
 
 const FunctionDoc count_doc{"Count the number of null / non-null values",
-                            ("By default, non-null values are counted.\n"
+                            ("By default, only non-null values are counted.\n"
                              "This can be changed through ScalarAggregateOptions."),
                             {"array"},
                             "ScalarAggregateOptions"};
 
-const FunctionDoc sum_doc{"Sum values of a numeric array",
-                          ("Null values are ignored. Minimum count of non-NA\n"
-                           "values can be set and NAN is returned if too "
-                           "few are present.\n"
-                           "This can be changed through ScalarAggregateOptions."),
-                          {"array"},
-                          "ScalarAggregateOptions"};
+const FunctionDoc sum_doc{
+    "Compute the sum of a numeric array",
+    ("Null values are ignored by default. Minimum count of non-null\n"
+     "values can be set and null is returned if too few are present.\n"
+     "This can be changed through ScalarAggregateOptions."),
+    {"array"},
+    "ScalarAggregateOptions"};
 
 const FunctionDoc mean_doc{
     "Compute the mean of a numeric array",
-    ("Null values are ignored by default. Minimum count of non-NA\n"
-     "values can be set and NAN is returned if too few are \n"
-     "present. The result is always computed as a double, \n"
-     "regardless of the input types.\n"
-     "This can be changed through ScalarAggregateOptions."),
+    ("Null values are ignored by default. Minimum count of non-null\n"
+     "values can be set and null is returned if too few are "
+     "present.\nThis can be changed through ScalarAggregateOptions.\n"
+     "The result is always computed as a double, regardless of the input types."),
     {"array"},
     "ScalarAggregateOptions"};
 

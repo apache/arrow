@@ -17,12 +17,16 @@
 
 module Arrow
   class Buffer
-    alias_method :initialize_raw, :initialize
-    private :initialize_raw
-
-    def initialize(data)
-      @data = data
-      initialize_raw(data)
+    class << self
+      # @api private
+      def try_convert(value)
+        case value
+        when String
+          new(value)
+        else
+          nil
+        end
+      end
     end
   end
 end

@@ -80,6 +80,56 @@ TYPED_TEST(TestBinaryKernels, BinaryLength) {
                    this->offset_type(), "[3, null, 10, 0, 1]");
 }
 
+TYPED_TEST(TestBinaryKernels, BinaryReplaceSlice) {
+  ReplaceSliceOptions options{0, 1, "XX"};
+  this->CheckUnary("binary_replace_slice", "[]", this->type(), "[]", &options);
+  this->CheckUnary("binary_replace_slice", R"([null, "", "a", "ab", "abc"])",
+                   this->type(), R"([null, "XX", "XX", "XXb", "XXbc"])", &options);
+
+  ReplaceSliceOptions options_whole{0, 5, "XX"};
+  this->CheckUnary("binary_replace_slice",
+                   R"([null, "", "a", "ab", "abc", "abcde", "abcdef"])", this->type(),
+                   R"([null, "XX", "XX", "XX", "XX", "XX", "XXf"])", &options_whole);
+
+  ReplaceSliceOptions options_middle{2, 4, "XX"};
+  this->CheckUnary("binary_replace_slice",
+                   R"([null, "", "a", "ab", "abc", "abcd", "abcde"])", this->type(),
+                   R"([null, "XX", "aXX", "abXX", "abXX", "abXX", "abXXe"])",
+                   &options_middle);
+
+  ReplaceSliceOptions options_neg_start{-3, -2, "XX"};
+  this->CheckUnary("binary_replace_slice",
+                   R"([null, "", "a", "ab", "abc", "abcd", "abcde"])", this->type(),
+                   R"([null, "XX", "XXa", "XXab", "XXbc", "aXXcd", "abXXde"])",
+                   &options_neg_start);
+
+  ReplaceSliceOptions options_neg_end{2, -2, "XX"};
+  this->CheckUnary("binary_replace_slice",
+                   R"([null, "", "a", "ab", "abc", "abcd", "abcde"])", this->type(),
+                   R"([null, "XX", "aXX", "abXX", "abXXc", "abXXcd", "abXXde"])",
+                   &options_neg_end);
+
+  ReplaceSliceOptions options_neg_pos{-1, 2, "XX"};
+  this->CheckUnary("binary_replace_slice",
+                   R"([null, "", "a", "ab", "abc", "abcd", "abcde"])", this->type(),
+                   R"([null, "XX", "XX", "aXX", "abXXc", "abcXXd", "abcdXXe"])",
+                   &options_neg_pos);
+
+  // Effectively the same as [2, 2)
+  ReplaceSliceOptions options_flip{2, 0, "XX"};
+  this->CheckUnary("binary_replace_slice",
+                   R"([null, "", "a", "ab", "abc", "abcd", "abcde"])", this->type(),
+                   R"([null, "XX", "aXX", "abXX", "abXXc", "abXXcd", "abXXcde"])",
+                   &options_flip);
+
+  // Effectively the same as [-3, -3)
+  ReplaceSliceOptions options_neg_flip{-3, -5, "XX"};
+  this->CheckUnary("binary_replace_slice",
+                   R"([null, "", "a", "ab", "abc", "abcd", "abcde"])", this->type(),
+                   R"([null, "XX", "XXa", "XXab", "XXabc", "aXXbcd", "abXXcde"])",
+                   &options_neg_flip);
+}
+
 TYPED_TEST(TestBinaryKernels, FindSubstring) {
   MatchSubstringOptions options{"ab"};
   this->CheckUnary("find_substring", "[]", this->offset_type(), "[]", &options);
@@ -118,9 +168,66 @@ TYPED_TEST(TestBinaryKernels, CountSubstring) {
   MatchSubstringOptions options_repeated{"aaa"};
   this->CheckUnary("count_substring", R"(["", "aaaa", "aaaaa", "aaaaaa", "aaá"])",
                    this->offset_type(), "[0, 1, 1, 2, 0]", &options_repeated);
-
-  // TODO: case-insensitive
 }
+
+#ifdef ARROW_WITH_RE2
+TYPED_TEST(TestBinaryKernels, CountSubstringRegex) {
+  MatchSubstringOptions options{"aba"};
+  this->CheckUnary("count_substring_regex", "[]", this->offset_type(), "[]", &options);
+  this->CheckUnary(
+      "count_substring",
+      R"(["", null, "ab", "aba", "baba", "ababa", "abaaba", "babacaba", "ABA"])",
+      this->offset_type(), "[0, null, 0, 1, 1, 1, 2, 2, 0]", &options);
+
+  MatchSubstringOptions options_empty{""};
+  this->CheckUnary("count_substring_regex", R"(["", null, "abc"])", this->offset_type(),
+                   "[1, null, 4]", &options_empty);
+
+  MatchSubstringOptions options_as{"a+"};
+  this->CheckUnary("count_substring_regex", R"(["", "bacaaadaaaa", "c", "AAA"])",
+                   this->offset_type(), "[0, 3, 0, 0]", &options_as);
+
+  MatchSubstringOptions options_empty_match{"a*"};
+  this->CheckUnary("count_substring_regex", R"(["", "bacaaadaaaa", "c", "AAA"])",
+                   // 7 is because it matches at |b|a|c|aaa|d|aaaa|
+                   this->offset_type(), "[1, 7, 2, 4]", &options_empty_match);
+
+  MatchSubstringOptions options_repeated{"aaa"};
+  this->CheckUnary("count_substring", R"(["", "aaaa", "aaaaa", "aaaaaa", "aaá"])",
+                   this->offset_type(), "[0, 1, 1, 2, 0]", &options_repeated);
+}
+
+TYPED_TEST(TestBinaryKernels, CountSubstringIgnoreCase) {
+  MatchSubstringOptions options{"aba", /*ignore_case=*/true};
+  this->CheckUnary("count_substring", "[]", this->offset_type(), "[]", &options);
+  this->CheckUnary(
+      "count_substring",
+      R"(["", null, "ab", "aBa", "bAbA", "aBaBa", "abaAbA", "babacaba", "ABA"])",
+      this->offset_type(), "[0, null, 0, 1, 1, 1, 2, 2, 1]", &options);
+
+  MatchSubstringOptions options_empty{"", /*ignore_case=*/true};
+  this->CheckUnary("count_substring", R"(["", null, "abc"])", this->offset_type(),
+                   "[1, null, 4]", &options_empty);
+}
+
+TYPED_TEST(TestBinaryKernels, CountSubstringRegexIgnoreCase) {
+  MatchSubstringOptions options_as{"a+", /*ignore_case=*/true};
+  this->CheckUnary("count_substring_regex", R"(["", "bacAaAdaAaA", "c", "AAA"])",
+                   this->offset_type(), "[0, 3, 0, 1]", &options_as);
+
+  MatchSubstringOptions options_empty_match{"a*", /*ignore_case=*/true};
+  this->CheckUnary("count_substring_regex", R"(["", "bacAaAdaAaA", "c", "AAA"])",
+                   this->offset_type(), "[1, 7, 2, 2]", &options_empty_match);
+}
+#else
+TYPED_TEST(TestBinaryKernels, CountSubstringIgnoreCase) {
+  Datum input = ArrayFromJSON(this->type(), R"(["a"])");
+  MatchSubstringOptions options{"a", /*ignore_case=*/true};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
+                                  ::testing::HasSubstr("ignore_case requires RE2"),
+                                  CallFunction("count_substring", {input}, &options));
+}
+#endif
 
 template <typename TestType>
 class TestStringKernels : public BaseTestStringKernels<TestType> {};
@@ -144,10 +251,13 @@ TYPED_TEST(TestStringKernels, AsciiReverse) {
   this->CheckUnary("ascii_reverse", R"(["abcd", null, "", "bbb"])", this->type(),
                    R"(["dcba", null, "", "bbb"])");
 
-  Datum invalid_input = ArrayFromJSON(this->type(), R"(["aAazZæÆ&", null, "", "bbb"])");
+  auto invalid_input = ArrayFromJSON(this->type(), R"(["aAazZæÆ&", null, "", "bcd"])");
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                   testing::HasSubstr("Non-ASCII sequence in input"),
                                   CallFunction("ascii_reverse", {invalid_input}));
+  auto masked_input = TweakValidityBit(invalid_input, 0, false);
+  CheckScalarUnary("ascii_reverse", masked_input,
+                   ArrayFromJSON(this->type(), R"([null, null, "", "dcb"])"));
 }
 
 TYPED_TEST(TestStringKernels, Utf8Reverse) {
@@ -741,6 +851,56 @@ TYPED_TEST(TestStringKernels, SplitRegexReverse) {
       CallFunction("split_pattern_regex", {input}, &options));
 }
 #endif
+
+TYPED_TEST(TestStringKernels, Utf8ReplaceSlice) {
+  ReplaceSliceOptions options{0, 1, "χχ"};
+  this->CheckUnary("utf8_replace_slice", "[]", this->type(), "[]", &options);
+  this->CheckUnary("utf8_replace_slice", R"([null, "", "π", "πb", "πbθ"])", this->type(),
+                   R"([null, "χχ", "χχ", "χχb", "χχbθ"])", &options);
+
+  ReplaceSliceOptions options_whole{0, 5, "χχ"};
+  this->CheckUnary("utf8_replace_slice",
+                   R"([null, "", "π", "πb", "πbθ", "πbθde", "πbθdef"])", this->type(),
+                   R"([null, "χχ", "χχ", "χχ", "χχ", "χχ", "χχf"])", &options_whole);
+
+  ReplaceSliceOptions options_middle{2, 4, "χχ"};
+  this->CheckUnary("utf8_replace_slice",
+                   R"([null, "", "π", "πb", "πbθ", "πbθd", "πbθde"])", this->type(),
+                   R"([null, "χχ", "πχχ", "πbχχ", "πbχχ", "πbχχ", "πbχχe"])",
+                   &options_middle);
+
+  ReplaceSliceOptions options_neg_start{-3, -2, "χχ"};
+  this->CheckUnary("utf8_replace_slice",
+                   R"([null, "", "π", "πb", "πbθ", "πbθd", "πbθde"])", this->type(),
+                   R"([null, "χχ", "χχπ", "χχπb", "χχbθ", "πχχθd", "πbχχde"])",
+                   &options_neg_start);
+
+  ReplaceSliceOptions options_neg_end{2, -2, "χχ"};
+  this->CheckUnary("utf8_replace_slice",
+                   R"([null, "", "π", "πb", "πbθ", "πbθd", "πbθde"])", this->type(),
+                   R"([null, "χχ", "πχχ", "πbχχ", "πbχχθ", "πbχχθd", "πbχχde"])",
+                   &options_neg_end);
+
+  ReplaceSliceOptions options_neg_pos{-1, 2, "χχ"};
+  this->CheckUnary("utf8_replace_slice",
+                   R"([null, "", "π", "πb", "πbθ", "πbθd", "πbθde"])", this->type(),
+                   R"([null, "χχ", "χχ", "πχχ", "πbχχθ", "πbθχχd", "πbθdχχe"])",
+                   &options_neg_pos);
+
+  // Effectively the same as [2, 2)
+  ReplaceSliceOptions options_flip{2, 0, "χχ"};
+  this->CheckUnary("utf8_replace_slice",
+                   R"([null, "", "π", "πb", "πbθ", "πbθd", "πbθde"])", this->type(),
+                   R"([null, "χχ", "πχχ", "πbχχ", "πbχχθ", "πbχχθd", "πbχχθde"])",
+                   &options_flip);
+
+  // Effectively the same as [-3, -3)
+  ReplaceSliceOptions options_neg_flip{-3, -5, "χχ"};
+  this->CheckUnary("utf8_replace_slice",
+                   R"([null, "", "π", "πb", "πbθ", "πbθd", "πbθde"])", this->type(),
+                   R"([null, "χχ", "χχπ", "χχπb", "χχπbθ", "πχχbθd", "πbχχθde"])",
+                   &options_neg_flip);
+}
 
 TYPED_TEST(TestStringKernels, ReplaceSubstring) {
   ReplaceSubstringOptions options{"foo", "bazz"};
