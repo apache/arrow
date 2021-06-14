@@ -20,6 +20,8 @@ package org.apache.arrow.driver.jdbc.utils;
 import java.util.AbstractMap;
 import java.util.Map;
 
+import javax.annotation.Nullable;
+
 /**
  * An enum for centralizing default property names.
  */
@@ -29,16 +31,17 @@ public enum BaseProperty {
       "password"), ENCRYPT("useTls",
           false), KEYSTORE_PATH("keyStorePath"), KEYSTORE_PASS("keyStorePass");
 
-  private final String repr;
-  private Object def;
+  private final String representation;
+  private final Object definition;
 
-  BaseProperty(final String repr, final Object def) {
-    this(repr);
-    this.def = def;
+  BaseProperty(final String representation, @Nullable final Object definition) {
+    this.representation = representation;
+    this.definition = definition;
   }
 
-  BaseProperty(final String repr) {
-    this.repr = repr;
+  BaseProperty(final String representation) {
+    this.representation = representation;
+    this.definition = null;
   }
 
   /**
@@ -49,6 +52,16 @@ public enum BaseProperty {
    * @return the entry of this property.
    */
   public Map.Entry<Object, Object> getEntry() {
-    return new AbstractMap.SimpleEntry<>(repr, def);
+
+    /*
+     * FIXME Should the second parameter be wrapped as an Optional?
+     *
+     * It's probably a better idea to make this return a
+     * Map.Entry<Object, Optional<Object>> instead, for the following reasons:
+     *  - 1. It avoids having to null-check constantly, and;
+     *  - 2. What if the default value IS null? (As opposed to null meaning
+     *  there is no default value.)
+     */
+    return new AbstractMap.SimpleEntry<>(representation, definition);
   }
 }
