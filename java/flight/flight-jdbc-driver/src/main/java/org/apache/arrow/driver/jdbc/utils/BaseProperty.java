@@ -17,7 +17,7 @@
 
 package org.apache.arrow.driver.jdbc.utils;
 
-import java.util.HashMap;
+import java.util.AbstractMap;
 import java.util.Map;
 
 /**
@@ -49,9 +49,6 @@ public enum BaseProperty {
    * @return the entry of this property.
    */
   public Map.Entry<Object, Object> getEntry() {
-    final Map<Object, Object> map = new HashMap<>();
-    map.put(repr, def);
-
-    return map.entrySet().iterator().next();
+    return new AbstractMap.SimpleEntry<>(repr, def);
   }
 }
