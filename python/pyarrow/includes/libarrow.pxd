@@ -2334,6 +2334,9 @@ cdef extern from 'arrow/c/bridge.h' namespace 'arrow' nogil:
     CStatus ExportType(CDataType&, ArrowSchema* out)
     CResult[shared_ptr[CDataType]] ImportType(ArrowSchema*)
 
+    CStatus ExportField(CField&, ArrowSchema* out)
+    CResult[shared_ptr[CField]] ImportField(ArrowSchema*)
+
     CStatus ExportSchema(CSchema&, ArrowSchema* out)
     CResult[shared_ptr[CSchema]] ImportSchema(ArrowSchema*)
 
