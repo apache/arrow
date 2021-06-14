@@ -316,6 +316,14 @@ static inline void SetBitTo(uint8_t* bits, int64_t i, bool bit_is_set) {
 ARROW_EXPORT
 void SetBitsTo(uint8_t* bits, int64_t start_offset, int64_t length, bool bits_are_set);
 
+/// \brief Sets all bits in the bitmap to true
+ARROW_EXPORT
+void SetBitmap(uint8_t* data, int64_t offset, int64_t length);
+
+/// \brief Clears all bits in the bitmap (set to false)
+ARROW_EXPORT
+void ClearBitmap(uint8_t* data, int64_t offset, int64_t length);
+
 template <typename Word>
 constexpr Word WordBitMask(int i) {
   return (static_cast<Word>(1) << i) - 1;

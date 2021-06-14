@@ -202,13 +202,5 @@ ARROW_EXPORT
 void BitmapOrNot(const uint8_t* left, int64_t left_offset, const uint8_t* right,
                  int64_t right_offset, int64_t length, int64_t out_offset, uint8_t* out);
 
-/// \brief Sets all bits in the bitmap to true
-ARROW_EXPORT
-void SetBitmap(uint8_t* data, int64_t offset, int64_t length);
-
-/// \brief Clears all bits in the bitmap (set to false)
-ARROW_EXPORT
-void ClearBitmap(uint8_t* data, int64_t offset, int64_t length);
-
 }  // namespace internal
 }  // namespace arrow
