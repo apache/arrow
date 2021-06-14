@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.util.Properties;
 
 import org.apache.arrow.driver.jdbc.ArrowFlightClient;
@@ -179,7 +180,7 @@ public class ConnectionTlsTest {
    *           on error.
    */
   @Test
-  public void testGetEncryptedClientNoAuth() throws Exception {
+  public void testGetNonAuthenticatedEncryptedClientNoAuth() throws Exception {
 
     final Properties properties = new Properties();
 
@@ -231,7 +232,7 @@ public class ConnectionTlsTest {
    *           on error.
    */
   @Test
-  public void connectTls() throws Exception {
+  public void testGetEncryptedConnectionWithValidCredentialsAndKeyStore() throws Exception {
     final Properties properties = new Properties();
 
     properties.put("user", flightTestUtils.getUsername1());
