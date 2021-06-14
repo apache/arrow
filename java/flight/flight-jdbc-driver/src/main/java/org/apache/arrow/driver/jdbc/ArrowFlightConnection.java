@@ -31,12 +31,17 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.apache.arrow.driver.jdbc.client.ArrowFlightClientHandler;
+import org.apache.arrow.driver.jdbc.utils.BaseProperty;
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.FlightCallHeaders;
 import org.apache.arrow.flight.HeaderCallOption;
@@ -162,16 +167,26 @@ public class ArrowFlightConnection extends AvaticaConnection {
   private HeaderCallOption getHeaders() {
 
     final CallHeaders headers = new FlightCallHeaders();
-
     final Iterator<Map.Entry<Object, Object>> properties = info.entrySet()
         .iterator();
+    final Set<Object> connectionProperties =
+        new HashSet<Object>(Arrays.stream(BaseProperty.values())
+            .map(baseProperty -> baseProperty.getEntry().getKey())
+            .collect(Collectors.toUnmodifiableList()));
 
     while (properties.hasNext()) {
-
       final Map.Entry<Object, Object> entry = properties.next();
+      final Object key = entry.getKey();
 
-      headers.insert(Objects.toString(entry.getKey()),
-          Objects.toString(entry.getValue()));
+      /*
+       * If the current property if not a BaseProperty, it must be a
+       * custom parameter that can be passed to the client as a header
+       * for subsequent calls.
+       */
+      if (!connectionProperties.contains(key)) {
+        headers.insert(Objects.toString(entry.getKey()),
+            Objects.toString(entry.getValue()));
+      }
     }
 
     return new HeaderCallOption(headers);
