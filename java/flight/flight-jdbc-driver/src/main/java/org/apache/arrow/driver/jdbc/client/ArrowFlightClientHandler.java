@@ -183,49 +183,45 @@ public class ArrowFlightClientHandler implements FlightClientHandler {
       @Nullable final String keyStorePath, @Nullable final String keyStorePass)
       throws GeneralSecurityException, IOException {
 
+    /*
+     * TODO Too many if/else clauses: REDUCE somehow.
+     *
+     * Do NOT resort to creating labels and breaking from them! A better
+     * alternative would be splitting this method into smaller ones.
+     */
     final FlightClient.Builder builder = FlightClient.builder()
         .allocator(allocator);
 
     ArrowFlightClientHandler handler;
 
-    DetermineEncryption: {
-      /*
-       * Check whether to use TLS encryption based upon:
-       * "Was the keystore path provided?"
-       */
-      final boolean useTls = Optional.fromNullable(keyStorePath).isPresent();
+    /*
+     * Check whether to use TLS encryption based upon:
+     * "Was the keystore path provided?"
+     */
+    final boolean useTls = Optional.fromNullable(keyStorePath).isPresent();
 
-      if (!useTls) {
-
-        // Build a secure TLS-encrypted connection.
-        builder.location(Location.forGrpcInsecure(host, port));
-        break DetermineEncryption;
-      }
-
+    if (!useTls) {
       // Build a secure TLS-encrypted connection.
+      builder.location(Location.forGrpcInsecure(host, port));
+    } else {
+      // Build an insecure, basic connection.
       builder.location(Location.forGrpcTls(host, port)).useTls()
           .trustedCertificates(ClientAuthenticationUtils
               .getCertificateStream(keyStorePath, keyStorePass));
     }
 
-    DetermineAuthentication: {
+    /*
+     * Check whether to use username/password credentials to authenticate to the
+     * Flight Client.
+     */
+    final boolean useAuthentication = Optional.fromNullable(username)
+        .isPresent();
 
-      /*
-       * Check whether to use username/password credentials to authenticate to
-       * the Flight Client.
-       */
-      final boolean useAuthentication = Optional.fromNullable(username)
-          .isPresent();
-
-      if (!useAuthentication) {
-
-        final FlightClient client = builder.build();
-
-        // Build an unauthenticated client.
-        handler = new ArrowFlightClientHandler(client, properties);
-        break DetermineAuthentication;
-      }
-
+    if (!useAuthentication) {
+      final FlightClient client = builder.build();
+      // Build an unauthenticated client.
+      handler = new ArrowFlightClientHandler(client, properties);
+    } else {
       final ClientIncomingAuthHeaderMiddleware.Factory factory = new ClientIncomingAuthHeaderMiddleware.Factory(
           new ClientBearerHeaderHandler());
 
