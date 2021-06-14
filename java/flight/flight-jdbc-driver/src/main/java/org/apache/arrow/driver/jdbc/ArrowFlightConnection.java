@@ -36,8 +36,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 
-import javax.management.InstanceAlreadyExistsException;
-
 import org.apache.arrow.driver.jdbc.client.ArrowFlightClientHandler;
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.FlightCallHeaders;
@@ -112,7 +110,7 @@ public class ArrowFlightConnection extends AvaticaConnection {
 
     if (client != null) {
       throw new SQLException("Client already loaded.",
-          new IllegalStateException(new InstanceAlreadyExistsException()));
+          new IllegalStateException());
     }
 
     // =================== [ LOCATION CONFIG ] ===================
