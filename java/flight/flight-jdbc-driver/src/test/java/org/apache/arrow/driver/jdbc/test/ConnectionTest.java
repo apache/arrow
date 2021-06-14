@@ -133,6 +133,28 @@ public class ConnectionTest {
   }
 
   /**
+   * Checks if the exception SQLException is thrown when trying to establish a connection without a host.
+   *
+   * @throws SQLException
+   *           on error.
+   */
+  @Test(expected = SQLException.class)
+  public void testUnencryptedConnectionWithEmptyHost()
+      throws Exception {
+    final Properties properties = new Properties();
+
+    properties.put("user", flightTestUtils.getUsername1());
+    properties.put("password", flightTestUtils.getPassword1());
+    String invalidUrl = flightTestUtils.getConnectionPrefix();
+
+
+    try (Connection connection = DriverManager
+        .getConnection(invalidUrl, properties)) {
+      assert connection.isValid(300);
+    }
+  }
+
+  /**
    * Try to instantiate a basic FlightClient.
    *
    * @throws URISyntaxException
