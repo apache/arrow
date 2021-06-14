@@ -204,6 +204,15 @@ struct ARROW_EXPORT DoubleScalar : public NumericScalar<DoubleType> {
   using NumericScalar<DoubleType>::NumericScalar;
 };
 
+struct ARROW_EXPORT ComplexFloatScalar : public NumericScalar<ComplexFloatType> {
+  using NumericScalar<ComplexFloatType>::NumericScalar;
+};
+
+struct ARROW_EXPORT ComplexDoubleScalar : public NumericScalar<ComplexDoubleType> {
+  using NumericScalar<ComplexDoubleType>::NumericScalar;
+};
+
+
 struct ARROW_EXPORT BaseBinaryScalar : public Scalar {
   using Scalar::Scalar;
   using ValueType = std::shared_ptr<Buffer>;

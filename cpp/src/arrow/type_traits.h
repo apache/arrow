@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <complex>
+#include <complex>
 #include <memory>
 #include <string>
 #include <type_traits>
@@ -53,6 +55,8 @@ TYPE_ID_TRAIT(UINT64, UInt64Type)
 TYPE_ID_TRAIT(HALF_FLOAT, HalfFloatType)
 TYPE_ID_TRAIT(FLOAT, FloatType)
 TYPE_ID_TRAIT(DOUBLE, DoubleType)
+TYPE_ID_TRAIT(COMPLEX_FLOAT, ComplexFloatType)
+TYPE_ID_TRAIT(COMPLEX_DOUBLE, ComplexDoubleType)
 TYPE_ID_TRAIT(STRING, StringType)
 TYPE_ID_TRAIT(BINARY, BinaryType)
 TYPE_ID_TRAIT(LARGE_STRING, LargeStringType)
@@ -280,6 +284,36 @@ struct TypeTraits<HalfFloatType> {
   constexpr static bool is_parameter_free = true;
   static inline std::shared_ptr<DataType> type_singleton() { return float16(); }
 };
+
+
+template <>
+struct TypeTraits<ComplexFloatType> {
+  using ArrayType = ComplexFloatArray;
+  using BuilderType = ComplexFloatBuilder;
+  using ScalarType = ComplexFloatScalar;
+  using TensorType = ComplexFloatTensor;
+
+  static constexpr int64_t bytes_required(int64_t elements) {
+    return elements * static_cast<int64_t>(sizeof(std::complex<float>));
+  }
+  constexpr static bool is_parameter_free = true;
+  static inline std::shared_ptr<DataType> type_singleton() { return complex64(); }
+};
+
+template <>
+struct TypeTraits<ComplexDoubleType> {
+  using ArrayType = ComplexDoubleArray;
+  using BuilderType = ComplexDoubleBuilder;
+  using ScalarType = ComplexDoubleScalar;
+  using TensorType = ComplexDoubleTensor;
+
+  static constexpr int64_t bytes_required(int64_t elements) {
+    return elements * static_cast<int64_t>(sizeof(std::complex<double>));
+  }
+  constexpr static bool is_parameter_free = true;
+  static inline std::shared_ptr<DataType> type_singleton() { return complex128(); }
+};
+
 
 template <>
 struct TypeTraits<Decimal128Type> {

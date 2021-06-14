@@ -73,6 +73,8 @@ std::vector<Type::type> AllTypeIds() {
           Type::HALF_FLOAT,
           Type::FLOAT,
           Type::DOUBLE,
+          Type::COMPLEX_FLOAT,
+          Type::COMPLEX_DOUBLE,
           Type::DECIMAL128,
           Type::DECIMAL256,
           Type::DATE32,

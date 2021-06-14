@@ -20,6 +20,7 @@ arrow-src.tar
 arrow-src.tar.gz
 
 # Compiled source
+cpp/debug
 *.a
 *.dll
 *.o

@@ -48,7 +48,9 @@ namespace arrow {
   ARROW_GENERATE_FOR_ALL_INTEGER_TYPES(ACTION);      \
   ACTION(HalfFloat);                                 \
   ACTION(Float);                                     \
-  ACTION(Double)
+  ACTION(Double);                                    \
+  ACTION(ComplexFloat);                              \
+  ACTION(ComplexDouble)                              
 
 #define ARROW_GENERATE_FOR_ALL_TYPES(ACTION)    \
   ACTION(Null);                                 \

@@ -374,6 +374,10 @@ class SchemaWriter {
     return WritePrimitive("floatingpoint", type);
   }
 
+  Status Visit(const ComplexType& type) {
+    return WritePrimitive("complex", type);
+  }
+
   Status Visit(const DateType& type) { return WritePrimitive("date", type); }
   Status Visit(const TimeType& type) { return WritePrimitive("time", type); }
   Status Visit(const StringType& type) { return WriteVarBytes("utf8", type); }

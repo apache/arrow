@@ -130,6 +130,8 @@ std::string ToString(Type::type id) {
     TO_STRING_CASE(HALF_FLOAT)
     TO_STRING_CASE(FLOAT)
     TO_STRING_CASE(DOUBLE)
+    TO_STRING_CASE(COMPLEX_FLOAT)
+    TO_STRING_CASE(COMPLEX_DOUBLE)
     TO_STRING_CASE(DECIMAL128)
     TO_STRING_CASE(DECIMAL256)
     TO_STRING_CASE(DATE32)
@@ -398,6 +400,15 @@ FloatingPointType::Precision FloatType::precision() const {
 FloatingPointType::Precision DoubleType::precision() const {
   return FloatingPointType::DOUBLE;
 }
+
+ComplexFloatType::Precision ComplexFloatType::precision() const {
+  return ComplexFloatType::SINGLE;
+}
+
+ComplexFloatType::Precision ComplexDoubleType::precision() const {
+  return ComplexFloatType::DOUBLE;
+}
+
 
 std::string ListType::ToString() const {
   std::stringstream s;
@@ -1915,6 +1926,8 @@ PARAMETER_LESS_FINGERPRINT(UInt64)
 PARAMETER_LESS_FINGERPRINT(HalfFloat)
 PARAMETER_LESS_FINGERPRINT(Float)
 PARAMETER_LESS_FINGERPRINT(Double)
+PARAMETER_LESS_FINGERPRINT(ComplexFloat)
+PARAMETER_LESS_FINGERPRINT(ComplexDouble)
 PARAMETER_LESS_FINGERPRINT(Binary)
 PARAMETER_LESS_FINGERPRINT(LargeBinary)
 PARAMETER_LESS_FINGERPRINT(String)
@@ -2084,6 +2097,8 @@ TYPE_FACTORY(uint64, UInt64Type)
 TYPE_FACTORY(float16, HalfFloatType)
 TYPE_FACTORY(float32, FloatType)
 TYPE_FACTORY(float64, DoubleType)
+TYPE_FACTORY(complex64, ComplexFloatType)
+TYPE_FACTORY(complex128, ComplexDoubleType)
 TYPE_FACTORY(utf8, StringType)
 TYPE_FACTORY(large_utf8, LargeStringType)
 TYPE_FACTORY(binary, BinaryType)

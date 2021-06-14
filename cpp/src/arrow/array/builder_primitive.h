@@ -292,6 +292,9 @@ using Int64Builder = NumericBuilder<Int64Type>;
 using HalfFloatBuilder = NumericBuilder<HalfFloatType>;
 using FloatBuilder = NumericBuilder<FloatType>;
 using DoubleBuilder = NumericBuilder<DoubleType>;
+using ComplexFloatBuilder = NumericBuilder<ComplexFloatType>;
+using ComplexDoubleBuilder = NumericBuilder<ComplexDoubleType>;
+
 
 class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
  public:

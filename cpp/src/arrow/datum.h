@@ -163,6 +163,8 @@ struct ARROW_EXPORT Datum {
   explicit Datum(uint64_t value);
   explicit Datum(float value);
   explicit Datum(double value);
+  explicit Datum(std::complex<float> value);
+  explicit Datum(std::complex<double> value);
   explicit Datum(std::string value);
   explicit Datum(const char* value);
 
