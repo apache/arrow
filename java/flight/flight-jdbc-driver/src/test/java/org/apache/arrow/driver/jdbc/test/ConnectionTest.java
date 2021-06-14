@@ -172,6 +172,28 @@ public class ConnectionTest {
   }
 
   /**
+   * Checks if the exception IllegalArgumentException is thrown when trying to establish an  unencrypted
+   * connection providing with an invalid port.
+   *
+   * @throws SQLException
+   *           on error.
+   */
+  @Test(expected = IllegalArgumentException.class)
+  public void testUnencryptedConnectionProvidingInvalidPort()
+      throws Exception {
+    final Properties properties = new Properties();
+
+    properties.put("user", flightTestUtils.getUsername1());
+    properties.put("password", flightTestUtils.getPassword1());
+    String invalidUrl = flightTestUtils.getConnectionPrefix() + flightTestUtils.getLocalhost() + ":" + 65537;
+
+    try (Connection connection = DriverManager
+        .getConnection(invalidUrl, properties)) {
+      assert connection.isValid(300);
+    }
+  }
+
+  /**
    * Try to instantiate a basic FlightClient.
    *
    * @throws URISyntaxException
