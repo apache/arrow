@@ -1363,13 +1363,18 @@ def test_strptime():
 
 
 def _check_datetime_components(timestamps, timezone=None):
+    import pandas as pd
     from pyarrow.vendored.version import Version
 
-    ts = pd.to_datetime(timestamps).to_series()
+    if timezone:
+        ts = pd.to_datetime(timestamps).tz_localize(timezone).to_series()
+    else:
+        ts = pd.to_datetime(timestamps).to_series()
+
     tsa = pa.array(ts)
 
     subseconds = ((ts.dt.microsecond * 10**3 +
-                   ts.dt.nanosecond) * 10**-9).round(9)
+                  ts.dt.nanosecond) * 10**-9).round(9)
     iso_calendar_fields = [
         pa.field('iso_year', pa.int64()),
         pa.field('iso_week', pa.int64()),
@@ -1417,6 +1422,8 @@ def _check_datetime_components(timestamps, timezone=None):
 
 @pytest.mark.pandas
 def test_extract_datetime_components():
+    # TODO: see https://github.com/pandas-dev/pandas/issues/41834
+    # "1899-01-01T00:59:20.001001001"
     timestamps = ["1970-01-01T00:00:59.123456789",
                   "2000-02-29T23:23:23.999999999",
                   "2033-05-18T03:33:20.000000000",
@@ -1432,19 +1439,15 @@ def test_extract_datetime_components():
                   "2008-12-28",
                   "2008-12-29",
                   "2012-01-01 01:02:03"]
-
-    timezones = ["US/Central", "Pacific/Marquesas", "Asia/Kolkata",
-                 "Etc/GMT-4", "Etc/GMT+4", "Pacific/Marquesas",
-                 "Australia/Broken_Hill"]
+    timezones = ["UTC", "US/Central", "Pacific/Marquesas", "Asia/Kolkata",
+                 "Etc/GMT-4", "Etc/GMT+4", "Australia/Broken_Hill"]
 
     # Test timezone naive timestamp array
-    ts = pd.to_datetime(timestamps)
-    _check_datetime_components(ts)
+    _check_datetime_components(timestamps)
 
     # Test timezone aware timestamp array
     for timezone in timezones:
-        ts = pd.to_datetime(timestamps).tz_localize(timezone)
-        _check_datetime_components(ts)
+        _check_datetime_components(timestamps, timezone)
 
 
 def test_count():

@@ -305,8 +305,52 @@ TEST_F(ScalarTemporalTest, DayOfWeek) {
                 DayOfWeek(timestamps, DayOfWeekOptions(/*one_based_numbering=*/false,
                                                        /*week_start=*/8)));
 }
-// TODO: Also, it would maybe be good to add a test for a timestamp that doesn't fit into
-// the nanosecond range? I meant a date that falls outside the date range of 1677-09-21 -
-// 2262-04-11 (the range that ns resolution can cover).
+
+TEST(ScalarTemporalTest, TestOverflow) {
+  const char* times =
+      R"(["1677-09-20T00:00:59.123456", "2262-04-13T23:23:23.999999"])";
+
+  auto unit = timestamp(TimeUnit::MICRO);
+  auto iso_calendar_type =
+      struct_({field("iso_year", int64()), field("iso_week", int64()),
+               field("iso_day_of_week", int64())});
+
+  auto year = "[1677, 2262]";
+  auto month = "[9, 4]";
+  auto day = "[20, 13]";
+  auto day_of_week = "[0, 6]";
+  auto day_of_year = "[263, 103]";
+  auto iso_year = "[1677, 2262]";
+  auto iso_week = "[38, 15]";
+  auto iso_calendar =
+      ArrayFromJSON(iso_calendar_type,
+                    R"([{"iso_year": 1677, "iso_week": 38, "iso_day_of_week": 1},
+                        {"iso_year": 2262, "iso_week": 15, "iso_day_of_week": 7}])");
+  auto quarter = "[3, 2]";
+  auto hour = "[0, 23]";
+  auto minute = "[0, 23]";
+  auto second = "[59, 23]";
+  auto millisecond = "[123, 999]";
+  auto microsecond = "[456, 999]";
+  auto nanosecond = "[0, 0]";
+  auto subsecond = "[0.123456, 0.999999]";
+
+  CheckScalarUnary("year", unit, times, int64(), year);
+  CheckScalarUnary("month", unit, times, int64(), month);
+  CheckScalarUnary("day", unit, times, int64(), day);
+  CheckScalarUnary("day_of_week", unit, times, int64(), day_of_week);
+  CheckScalarUnary("day_of_year", unit, times, int64(), day_of_year);
+  CheckScalarUnary("iso_year", unit, times, int64(), iso_year);
+  CheckScalarUnary("iso_week", unit, times, int64(), iso_week);
+  CheckScalarUnary("iso_calendar", ArrayFromJSON(unit, times), iso_calendar);
+  CheckScalarUnary("quarter", unit, times, int64(), quarter);
+  CheckScalarUnary("hour", unit, times, int64(), hour);
+  CheckScalarUnary("minute", unit, times, int64(), minute);
+  CheckScalarUnary("second", unit, times, int64(), second);
+  CheckScalarUnary("millisecond", unit, times, int64(), millisecond);
+  CheckScalarUnary("microsecond", unit, times, int64(), microsecond);
+  CheckScalarUnary("nanosecond", unit, times, int64(), nanosecond);
+  CheckScalarUnary("subsecond", unit, times, float64(), subsecond);
+}
 }  // namespace compute
 }  // namespace arrow
