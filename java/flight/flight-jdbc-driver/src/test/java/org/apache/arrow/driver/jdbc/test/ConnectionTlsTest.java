@@ -147,7 +147,33 @@ public class ConnectionTlsTest {
   }
 
   /**
-   * Try to instantiate an encrypted FlightClient.
+   * Try to instantiate an encrypted FlightClient providing a keystore without certificate. It's expected to
+   * receive the SQLException.
+   *
+   * @throws Exception
+   *           on error.
+   */
+  @Test(expected = SQLException.class)
+  public void testGetEncryptedClientWithNoCertificateOnKeyStore() throws Exception {
+
+    final Properties properties = new Properties();
+
+    properties.put("useTls", "true");
+    properties.put("keyStorePath", "src/test/resources/keys/noCertificate.jks");
+    properties.put("keyStorePass", "flight1");
+
+    try (ArrowFlightClient client = ArrowFlightClient
+        .getEncryptedClientNoAuth(
+            allocator, flightTestUtils.getLocalhost(), this.tlsServer.getPort(),
+            null, properties.getProperty("keyStorePath"),
+            properties.getProperty("keyStorePass"))) {
+
+      assertNotNull(client);
+    }
+  }
+
+  /**
+   * Try to instantiate an encrypted FlightClient without credentials.
    *
    * @throws Exception
    *           on error.
