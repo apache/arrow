@@ -80,8 +80,8 @@ These functions take any number of arguments of a numeric or temporal type.
 .. autosummary::
    :toctree: ../generated/
 
-   element_wise_max
-   element_wise_min
+   max_element_wise
+   min_element_wise
 
 Logical Functions
 -----------------

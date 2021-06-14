@@ -1467,35 +1467,35 @@ def test_fill_null_segfault():
     assert result == pa.array([0], pa.int8())
 
 
-def test_elementwise_min_max():
+def test_min_max_element_wise():
     arr1 = pa.array([1, 2, 3])
     arr2 = pa.array([3, 1, 2])
     arr3 = pa.array([2, 3, None])
 
-    result = pc.element_wise_max(arr1, arr2)
+    result = pc.max_element_wise(arr1, arr2)
     assert result == pa.array([3, 2, 3])
-    result = pc.element_wise_min(arr1, arr2)
+    result = pc.min_element_wise(arr1, arr2)
     assert result == pa.array([1, 1, 2])
 
-    result = pc.element_wise_max(arr1, arr2, arr3)
+    result = pc.max_element_wise(arr1, arr2, arr3)
     assert result == pa.array([3, 3, 3])
-    result = pc.element_wise_min(arr1, arr2, arr3)
+    result = pc.min_element_wise(arr1, arr2, arr3)
     assert result == pa.array([1, 1, 2])
 
     # with specifying the option
-    result = pc.element_wise_max(arr1, arr3, skip_nulls=True)
+    result = pc.max_element_wise(arr1, arr3, skip_nulls=True)
     assert result == pa.array([2, 3, 3])
-    result = pc.element_wise_min(arr1, arr3, skip_nulls=True)
+    result = pc.min_element_wise(arr1, arr3, skip_nulls=True)
     assert result == pa.array([1, 2, 3])
-    result = pc.element_wise_max(
+    result = pc.max_element_wise(
         arr1, arr3, options=pc.ElementWiseAggregateOptions())
     assert result == pa.array([2, 3, 3])
-    result = pc.element_wise_min(
+    result = pc.min_element_wise(
         arr1, arr3, options=pc.ElementWiseAggregateOptions())
     assert result == pa.array([1, 2, 3])
 
     # not skipping nulls
-    result = pc.element_wise_max(arr1, arr3, skip_nulls=False)
+    result = pc.max_element_wise(arr1, arr3, skip_nulls=False)
     assert result == pa.array([2, 3, None])
-    result = pc.element_wise_min(arr1, arr3, skip_nulls=False)
+    result = pc.min_element_wise(arr1, arr3, skip_nulls=False)
     assert result == pa.array([1, 2, None])

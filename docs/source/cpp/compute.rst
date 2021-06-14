@@ -318,8 +318,8 @@ expanded for the purposes of comparison.
 +--------------------------+------------+---------------------------------------------+---------------------+---------------------------------------+-------+
 | Function names           | Arity      | Input types                                 | Output type         | Options class                         | Notes |
 +==========================+============+=============================================+=====================+=======================================+=======+
-| element_wise_max,        | Varargs    | Numeric and Temporal                        | Numeric or Temporal | :struct:`ElementWiseAggregateOptions` | \(1)  |
-| element_wise_min         |            |                                             |                     |                                       |       |
+| max_element_wise,        | Varargs    | Numeric and Temporal                        | Numeric or Temporal | :struct:`ElementWiseAggregateOptions` | \(1)  |
+| min_element_wise         |            |                                             |                     |                                       |       |
 +--------------------------+------------+---------------------------------------------+---------------------+---------------------------------------+-------+
 
 * \(1) By default, nulls are skipped (but the kernel can be configured to propagate nulls).

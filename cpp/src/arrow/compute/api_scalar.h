@@ -306,7 +306,7 @@ Result<Datum> Power(const Datum& left, const Datum& right,
 /// \param[in] ctx the function execution context, optional
 /// \return the element-wise maximum
 ARROW_EXPORT
-Result<Datum> ElementWiseMax(
+Result<Datum> MaxElementWise(
     const std::vector<Datum>& args,
     ElementWiseAggregateOptions options = ElementWiseAggregateOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
@@ -319,7 +319,7 @@ Result<Datum> ElementWiseMax(
 /// \param[in] ctx the function execution context, optional
 /// \return the element-wise minimum
 ARROW_EXPORT
-Result<Datum> ElementWiseMin(
+Result<Datum> MinElementWise(
     const std::vector<Datum>& args,
     ElementWiseAggregateOptions options = ElementWiseAggregateOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
