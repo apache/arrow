@@ -31,7 +31,6 @@
         <org.apache.arrow.flight.version>${pom.parent.version}</org.apache.arrow.flight.version>
         <org.apache.arrow.flight.jdbc-driver.name>${pom.name}</org.apache.arrow.flight.jdbc-driver.name>
         <org.apache.arrow.flight.jdbc-driver.version>${pom.version}</org.apache.arrow.flight.jdbc-driver.version>
-        <jacoco.it.execution.data.file>${project.build.directory}/coverage-reports/jacoco-it.html</jacoco.it.execution.data.file>
         <jacoco.ut.execution.data.file>${project.build.directory}/coverage-reports/jacoco-ut.html</jacoco.ut.execution.data.file>
     </properties>
 
