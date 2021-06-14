@@ -210,6 +210,24 @@ public class ConnectionTest {
   }
 
   /**
+   * Checks if an unencrypted connection can be established successfully when
+   * not providing credentials.
+   *
+   * @throws SQLException
+   *           on error.
+   */
+  @Test
+  public void testUnencryptedConnectionShouldOpenSuccessfullyWithoutAuthentication()
+      throws Exception {
+    final Properties properties = new Properties();
+
+    try (Connection connection = DriverManager
+        .getConnection(serverUrl, properties)) {
+      assert connection.isValid(300);
+    }
+  }
+
+  /**
    * Check if an unencrypted connection throws an exception when provided with
    * invalid credentials.
    *
