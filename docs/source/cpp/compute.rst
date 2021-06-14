@@ -682,13 +682,13 @@ String joining
 
 This function does the inverse of string splitting.
 
-+-----------------+-----------+----------------------+----------------+-------------------+-----------------------+---------+
-| Function name   | Arity     | Input type 1         | Input type 2   | Output type       | Options class         | Notes   |
-+=================+===========+======================+================+===================+=======================+=========+
-| binary_join     | Binary    | List of string-like  | String-like    | String-like       |                       | \(1)    |
-+-----------------+-----------+----------------------+----------------+-------------------+-----------------------+---------+
-| var_args_join   | Varargs   | List of string-like  | (NA)           | String-like       | :struct:`JoinOptions` | \(2)    |
-+-----------------+-----------+----------------------+----------------+-------------------+-----------------------+---------+
++-----------------+-----------+-----------------------+----------------+-------------------+-----------------------+---------+
+| Function name   | Arity     | Input type 1          | Input type 2   | Output type       | Options class         | Notes   |
++=================+===========+=======================+================+===================+=======================+=========+
+| binary_join     | Binary    | List of string-like   | String-like    | String-like       |                       | \(1)    |
++-----------------+-----------+-----------------------+----------------+-------------------+-----------------------+---------+
+| var_args_join   | Varargs   | String-like (varargs) | String-like    | String-like       | :struct:`JoinOptions` | \(2)    |
++-----------------+-----------+-----------------------+----------------+-------------------+-----------------------+---------+
 
 * \(1) The first input must be an array, while the second can be a scalar or array.
   Each list of values in the first input is joined using each second input
@@ -696,7 +696,7 @@ This function does the inverse of string splitting.
   output will be null.
 
 * \(2) All arguments are concatenated element-wise, with the last argument treated
-  as the separator (scalars are recycled in either case).  Null separators emit
+  as the separator (scalars are recycled in either case). Null separators emit
   null. If any other argument is null, by default the corresponding output will be
   null, but it can instead either be skipped or replaced with a given string.
 
