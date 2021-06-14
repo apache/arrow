@@ -204,9 +204,9 @@ struct KleeneAndOp : Commutative<KleeneAndOp> {
                      ArrayData* out) {
     if (left.GetNullCount() == 0 && right.GetNullCount() == 0) {
       out->null_count = 0;
-      //      out->buffers[0] = nullptr;
       // Kleene kernels have validity bitmap pre-allocated. Therefore, set it to 1
-      std::memset(out->buffers[0]->mutable_data(), UINT8_MAX, out->buffers[0]->size());
+      arrow::internal::SetBitmap(out->buffers[0]->mutable_data(), out->offset,
+                                 out->length);
       return AndOp::Call(ctx, left, right, out);
     }
     auto compute_word = [](uint64_t left_true, uint64_t left_false, uint64_t right_true,
@@ -309,9 +309,9 @@ struct KleeneOrOp : Commutative<KleeneOrOp> {
                      ArrayData* out) {
     if (left.GetNullCount() == 0 && right.GetNullCount() == 0) {
       out->null_count = 0;
-      //      out->buffers[0] = nullptr;
       // Kleene kernels have validity bitmap pre-allocated. Therefore, set it to 1
-      std::memset(out->buffers[0]->mutable_data(), UINT8_MAX, out->buffers[0]->size());
+      arrow::internal::SetBitmap(out->buffers[0]->mutable_data(), out->offset,
+                                 out->length);
       return OrOp::Call(ctx, left, right, out);
     }
 
@@ -441,9 +441,9 @@ struct KleeneAndNotOp {
                      ArrayData* out) {
     if (left.GetNullCount() == 0 && right.GetNullCount() == 0) {
       out->null_count = 0;
-      //      out->buffers[0] = nullptr;
       // Kleene kernels have validity bitmap pre-allocated. Therefore, set it to 1
-      std::memset(out->buffers[0]->mutable_data(), UINT8_MAX, out->buffers[0]->size());
+      arrow::internal::SetBitmap(out->buffers[0]->mutable_data(), out->offset,
+                                 out->length);
       return AndNotOp::Call(ctx, left, right, out);
     }
 

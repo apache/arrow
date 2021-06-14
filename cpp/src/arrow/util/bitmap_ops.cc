@@ -383,5 +383,45 @@ void BitmapOrNot(const uint8_t* left, int64_t left_offset, const uint8_t* right,
   BitmapOp<OrNotOp>(left, left_offset, right, right_offset, length, out_offset, out);
 }
 
+template <bool value>
+void SetBitmapImpl(uint8_t* data, int64_t offset, int64_t length) {
+  int64_t prologue = std::min(((offset + 7) / 8) * 8 - offset, length);
+
+  if (prologue) { // align to a byte boundary
+    DCHECK_LT(prologue, 8);
+    BitmapWriter writer(data, offset, prologue);
+    for (auto i = 0; i < prologue; i++) {
+      value ? writer.Set() : writer.Clear();
+      writer.Next();
+    }
+    writer.Finish();
+    offset += prologue;
+    length -= prologue;
+  }
+
+  if (length) { // set values per byte
+    DCHECK_EQ(offset % 8, 0);
+    std::memset(data + offset / 8, value ? UINT8_MAX : 0, length / 8);
+    offset += ((length / 8) * 8);
+    length -= ((length / 8) * 8);
+  }
+
+  if (length) { // clean up
+    BitmapWriter writer(data, offset, length);
+    for (auto i = 0; i < length; i++) {
+      value ? writer.Set() : writer.Clear();
+      writer.Next();
+    }
+    writer.Finish();
+  }
+}
+
+void SetBitmap(uint8_t* data, int64_t offset, int64_t length) {
+  SetBitmapImpl<true>(data, offset, length);
+}
+
+void ClearBitmap(uint8_t* data, int64_t offset, int64_t length) {
+  SetBitmapImpl<false>(data, offset, length);
+}
 }  // namespace internal
 }  // namespace arrow
