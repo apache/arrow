@@ -1443,7 +1443,7 @@ def test_extract_datetime_components():
 
     # Test timezone aware timestamp array
     for timezone in timezones:
-        ts = pd.to_datetime(timestamps).tz_localize("UTC").tz_convert(timezone)
+        ts = pd.to_datetime(timestamps).tz_localize(timezone)
         _check_datetime_components(ts)
 
 
