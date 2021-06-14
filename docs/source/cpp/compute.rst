@@ -286,6 +286,14 @@ an ``Invalid`` :class:`Status` when overflow is detected.
 +--------------------------+------------+--------------------+---------------------+
 | power_checked            | Binary     | Numeric            | Numeric             |
 +--------------------------+------------+--------------------+---------------------+
+| shift_left               | Binary     | Numeric            | Numeric             |
++--------------------------+------------+--------------------+---------------------+
+| shift_left_checked       | Binary     | Numeric            | Numeric             |
++--------------------------+------------+--------------------+---------------------+
+| shift_right              | Binary     | Numeric            | Numeric             |
++--------------------------+------------+--------------------+---------------------+
+| shift_right_checked      | Binary     | Numeric            | Numeric             |
++--------------------------+------------+--------------------+---------------------+
 | subtract                 | Binary     | Numeric            | Numeric (1)         |
 +--------------------------+------------+--------------------+---------------------+
 | subtract_checked         | Binary     | Numeric            | Numeric (1)         |
@@ -311,6 +319,21 @@ are preserved for `add`, `subtract` and `multiply` operations. The result
 precision of `divide` is at least the sum of precisions of both operands with
 enough scale kept. Error is returned if the result precision is beyond the
 decimal value range.
+
+Bit-wise functions are similar, except there is no need for an
+overflow-checking variant.
+
++--------------------------+------------+--------------------+---------------------+
+| Function name            | Arity      | Input types        | Output type         |
++==========================+============+====================+=====================+
+| bit_wise_and             | Binary     | Numeric            | Numeric             |
++--------------------------+------------+--------------------+---------------------+
+| bit_wise_not             | Unary      | Numeric            | Numeric             |
++--------------------------+------------+--------------------+---------------------+
+| bit_wise_or              | Binary     | Numeric            | Numeric             |
++--------------------------+------------+--------------------+---------------------+
+| bit_wise_xor             | Binary     | Numeric            | Numeric             |
++--------------------------+------------+--------------------+---------------------+
 
 Comparisons
 ~~~~~~~~~~~

@@ -62,6 +62,8 @@ SCALAR_ARITHMETIC_BINARY(Subtract, "subtract", "subtract_checked")
 SCALAR_ARITHMETIC_BINARY(Multiply, "multiply", "multiply_checked")
 SCALAR_ARITHMETIC_BINARY(Divide, "divide", "divide_checked")
 SCALAR_ARITHMETIC_BINARY(Power, "power", "power_checked")
+SCALAR_ARITHMETIC_BINARY(ShiftLeft, "shift_left", "shift_left_checked")
+SCALAR_ARITHMETIC_BINARY(ShiftRight, "shift_right", "shift_right_checked")
 
 Result<Datum> MaxElementWise(const std::vector<Datum>& args,
                              ElementWiseAggregateOptions options, ExecContext* ctx) {
