@@ -418,6 +418,14 @@ struct S3Path {
     }
   }
 
+  Aws::String ToAwsString() const {
+    Aws::String res(bucket.begin(), bucket.end());
+    res.reserve(bucket.size() + key.size() + 1);
+    res += kSep;
+    res.append(key.begin(), key.end());
+    return res;
+  }
+
   Aws::String ToURLEncodedAwsString() const {
     // URL-encode individual parts, not the '/' separator
     Aws::String res;
@@ -1525,8 +1533,9 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
     S3Model::CopyObjectRequest req;
     req.SetBucket(ToAwsString(dest_path.bucket));
     req.SetKey(ToAwsString(dest_path.key));
-    // Copy source "Must be URL-encoded" according to AWS SDK docs.
-    req.SetCopySource(src_path.ToURLEncodedAwsString());
+    // ARROW-13048: Copy source "Must be URL-encoded" according to AWS SDK docs.
+    // However at least in 1.8 and 1.9 the SDK URL-encodes the path for you
+    req.SetCopySource(src_path.ToAwsString());
     return OutcomeToStatus(
         std::forward_as_tuple("When copying key '", src_path.key, "' in bucket '",
                               src_path.bucket, "' to key '", dest_path.key,
