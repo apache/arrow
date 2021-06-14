@@ -3344,39 +3344,16 @@ struct BinaryJoin {
   }
 };
 
-const FunctionDoc binary_join_doc(
-    "Join a list of strings together with a `separator` to form a single string",
-    ("Insert `separator` between `list` elements, and concatenate them.\n"
-     "Any null input and any null `list` element emits a null output.\n"),
-    {"list", "separator"});
-
-template <typename ListType>
-void AddBinaryJoinForListType(ScalarFunction* func) {
-  for (const std::shared_ptr<DataType>& ty : BaseBinaryTypes()) {
-    auto exec = GenerateTypeAgnosticVarBinaryBase<BinaryJoin, ListType>(*ty);
-    auto list_ty = std::make_shared<ListType>(ty);
-    DCHECK_OK(func->AddKernel({InputType(list_ty), InputType(ty)}, ty, exec));
-  }
-}
-
-void AddBinaryJoin(FunctionRegistry* registry) {
-  auto func =
-      std::make_shared<ScalarFunction>("binary_join", Arity::Binary(), &binary_join_doc);
-  AddBinaryJoinForListType<ListType>(func.get());
-  AddBinaryJoinForListType<LargeListType>(func.get());
-  DCHECK_OK(registry->AddFunction(std::move(func)));
-}
-
-using VarArgsJoinState = OptionsWrapper<JoinOptions>;
+using BinaryJoinElementWiseState = OptionsWrapper<JoinOptions>;
 
 template <typename Type>
-struct VarArgsJoin {
+struct BinaryJoinElementWise {
   using ArrayType = typename TypeTraits<Type>::ArrayType;
   using BuilderType = typename TypeTraits<Type>::BuilderType;
   using offset_type = typename Type::offset_type;
 
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    JoinOptions options = VarArgsJoinState::Get(ctx);
+    JoinOptions options = BinaryJoinElementWiseState::Get(ctx);
     // Last argument is the separator (for consistency with binary_join)
     if (std::all_of(batch.values.begin(), batch.values.end(),
                     [](const Datum& d) { return d.is_scalar(); })) {
@@ -3576,7 +3553,13 @@ struct VarArgsJoin {
   }
 };
 
-const FunctionDoc var_args_join_doc(
+const FunctionDoc binary_join_doc(
+    "Join a list of strings together with a `separator` to form a single string",
+    ("Insert `separator` between `list` elements, and concatenate them.\n"
+     "Any null input and any null `list` element emits a null output.\n"),
+    {"list", "separator"});
+
+const FunctionDoc binary_join_element_wise_doc(
     "Join string arguments into one, using the last argument as the separator",
     ("Insert the last argument of `strings` between the rest of the elements, "
      "and concatenate them.\n"
@@ -3586,16 +3569,35 @@ const FunctionDoc var_args_join_doc(
 
 const auto kDefaultJoinOptions = JoinOptions::Defaults();
 
-void AddVarArgsJoin(FunctionRegistry* registry) {
-  auto func =
-      std::make_shared<ScalarFunction>("var_args_join", Arity::VarArgs(/*min_args=*/1),
-                                       &var_args_join_doc, &kDefaultJoinOptions);
-  for (const auto& ty : BaseBinaryTypes()) {
-    DCHECK_OK(func->AddKernel({InputType(ty)}, ty,
-                              GenerateTypeAgnosticVarBinaryBase<VarArgsJoin>(ty),
-                              VarArgsJoinState::Init));
+template <typename ListType>
+void AddBinaryJoinForListType(ScalarFunction* func) {
+  for (const std::shared_ptr<DataType>& ty : BaseBinaryTypes()) {
+    auto exec = GenerateTypeAgnosticVarBinaryBase<BinaryJoin, ListType>(*ty);
+    auto list_ty = std::make_shared<ListType>(ty);
+    DCHECK_OK(func->AddKernel({InputType(list_ty), InputType(ty)}, ty, exec));
   }
-  DCHECK_OK(registry->AddFunction(std::move(func)));
+}
+
+void AddBinaryJoin(FunctionRegistry* registry) {
+  {
+    auto func = std::make_shared<ScalarFunction>("binary_join", Arity::Binary(),
+                                                 &binary_join_doc);
+    AddBinaryJoinForListType<ListType>(func.get());
+    AddBinaryJoinForListType<LargeListType>(func.get());
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+  {
+    auto func = std::make_shared<ScalarFunction>(
+        "binary_join_element_wise", Arity::VarArgs(/*min_args=*/1),
+        &binary_join_element_wise_doc, &kDefaultJoinOptions);
+    for (const auto& ty : BaseBinaryTypes()) {
+      DCHECK_OK(
+          func->AddKernel({InputType(ty)}, ty,
+                          GenerateTypeAgnosticVarBinaryBase<BinaryJoinElementWise>(ty),
+                          BinaryJoinElementWiseState::Init));
+    }
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
 }
 
 template <template <typename> class ExecFunctor>
@@ -3906,7 +3908,6 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   AddSplit(registry);
   AddStrptime(registry);
   AddBinaryJoin(registry);
-  AddVarArgsJoin(registry);
 }
 
 }  // namespace internal

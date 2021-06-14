@@ -766,29 +766,34 @@ def test_binary_join():
     assert pc.binary_join(ar_list, separator_array).equals(expected)
 
 
-def test_var_args_join():
+def test_binary_join_element_wise():
     null = pa.scalar(None, type=pa.string())
     arrs = [[None, 'a', 'b'], ['c', None, 'd'], [None, '-', '--']]
-    assert pc.var_args_join(*arrs).to_pylist() == \
+    assert pc.binary_join_element_wise(*arrs).to_pylist() == \
         [None, None, 'b--d']
-    assert pc.var_args_join('a', 'b', '-').as_py() == 'a-b'
-    assert pc.var_args_join('a', null, '-').as_py() is None
-    assert pc.var_args_join('a', 'b', null).as_py() is None
+    assert pc.binary_join_element_wise('a', 'b', '-').as_py() == 'a-b'
+    assert pc.binary_join_element_wise('a', null, '-').as_py() is None
+    assert pc.binary_join_element_wise('a', 'b', null).as_py() is None
 
     skip = pc.JoinOptions('skip')
-    assert pc.var_args_join(*arrs, options=skip).to_pylist() == \
+    assert pc.binary_join_element_wise(*arrs, options=skip).to_pylist() == \
         [None, 'a', 'b--d']
-    assert pc.var_args_join('a', 'b', '-', options=skip).as_py() == 'a-b'
-    assert pc.var_args_join('a', null, '-', options=skip).as_py() == 'a'
-    assert pc.var_args_join('a', 'b', null, options=skip).as_py() is None
+    assert pc.binary_join_element_wise(
+        'a', 'b', '-', options=skip).as_py() == 'a-b'
+    assert pc.binary_join_element_wise(
+        'a', null, '-', options=skip).as_py() == 'a'
+    assert pc.binary_join_element_wise(
+        'a', 'b', null, options=skip).as_py() is None
 
     replace = pc.JoinOptions('replace', null_replacement='spam')
-    assert pc.var_args_join(*arrs, options=replace).to_pylist() == \
+    assert pc.binary_join_element_wise(*arrs, options=replace).to_pylist() == \
         [None, 'a-spam', 'b--d']
-    assert pc.var_args_join('a', 'b', '-', options=replace).as_py() == 'a-b'
-    assert pc.var_args_join(
+    assert pc.binary_join_element_wise(
+        'a', 'b', '-', options=replace).as_py() == 'a-b'
+    assert pc.binary_join_element_wise(
         'a', null, '-', options=replace).as_py() == 'a-spam'
-    assert pc.var_args_join('a', 'b', null, options=replace).as_py() is None
+    assert pc.binary_join_element_wise(
+        'a', 'b', null, options=replace).as_py() is None
 
 
 @pytest.mark.parametrize(('ty', 'values'), all_array_types)

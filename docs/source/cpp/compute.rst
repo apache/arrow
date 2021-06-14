@@ -680,15 +680,15 @@ String component extraction
 String joining
 ~~~~~~~~~~~~~~
 
-This function does the inverse of string splitting.
+These functions do the inverse of string splitting.
 
-+-----------------+-----------+-----------------------+----------------+-------------------+-----------------------+---------+
-| Function name   | Arity     | Input type 1          | Input type 2   | Output type       | Options class         | Notes   |
-+=================+===========+=======================+================+===================+=======================+=========+
-| binary_join     | Binary    | List of string-like   | String-like    | String-like       |                       | \(1)    |
-+-----------------+-----------+-----------------------+----------------+-------------------+-----------------------+---------+
-| var_args_join   | Varargs   | String-like (varargs) | String-like    | String-like       | :struct:`JoinOptions` | \(2)    |
-+-----------------+-----------+-----------------------+----------------+-------------------+-----------------------+---------+
++--------------------------+-----------+-----------------------+----------------+-------------------+-----------------------+---------+
+| Function name            | Arity     | Input type 1          | Input type 2   | Output type       | Options class         | Notes   |
++==========================+===========+=======================+================+===================+=======================+=========+
+| binary_join              | Binary    | List of string-like   | String-like    | String-like       |                       | \(1)    |
++--------------------------+-----------+-----------------------+----------------+-------------------+-----------------------+---------+
+| binary_join_element_wise | Varargs   | String-like (varargs) | String-like    | String-like       | :struct:`JoinOptions` | \(2)    |
++--------------------------+-----------+-----------------------+----------------+-------------------+-----------------------+---------+
 
 * \(1) The first input must be an array, while the second can be a scalar or array.
   Each list of values in the first input is joined using each second input

@@ -174,7 +174,7 @@ String Joining
    :toctree: ../generated/
 
    binary_join
-   var_args_join
+   binary_join_element_wise
 
 String Transforms
 -----------------
