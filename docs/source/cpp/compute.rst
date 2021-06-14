@@ -186,9 +186,9 @@ Aggregations
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 | Function name | Arity | Input types | Output type    | Options class                    | Notes |
 +===============+=======+=============+================+==================================+=======+
-| all           | Unary | Boolean     | Scalar Boolean | :struct:`ScalarAggregateOptions` |       |
+| all           | Unary | Boolean     | Scalar Boolean | :struct:`ScalarAggregateOptions` | \(1)  |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
-| any           | Unary | Boolean     | Scalar Boolean | :struct:`ScalarAggregateOptions` |       |
+| any           | Unary | Boolean     | Scalar Boolean | :struct:`ScalarAggregateOptions` | \(1)  |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 | count         | Unary | Any         | Scalar Int64   | :struct:`ScalarAggregateOptions` |       |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
@@ -196,15 +196,15 @@ Aggregations
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 | mean          | Unary | Numeric     | Scalar Float64 | :struct:`ScalarAggregateOptions` |       |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
-| min_max       | Unary | Numeric     | Scalar Struct  | :struct:`ScalarAggregateOptions` | \(1)  |
+| min_max       | Unary | Numeric     | Scalar Struct  | :struct:`ScalarAggregateOptions` | \(2)  |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
-| mode          | Unary | Numeric     | Struct         | :struct:`ModeOptions`            | \(2)  |
+| mode          | Unary | Numeric     | Struct         | :struct:`ModeOptions`            | \(3)  |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
-| quantile      | Unary | Numeric     | Scalar Numeric | :struct:`QuantileOptions`        | \(3)  |
+| quantile      | Unary | Numeric     | Scalar Numeric | :struct:`QuantileOptions`        | \(4)  |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 | stddev        | Unary | Numeric     | Scalar Float64 | :struct:`VarianceOptions`        |       |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
-| sum           | Unary | Numeric     | Scalar Numeric | :struct:`ScalarAggregateOptions` | \(4)  |
+| sum           | Unary | Numeric     | Scalar Numeric | :struct:`ScalarAggregateOptions` | \(5)  |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
 | tdigest       | Unary | Numeric     | Scalar Float64 | :struct:`TDigestOptions`         |       |
 +---------------+-------+-------------+----------------+----------------------------------+-------+
@@ -213,18 +213,23 @@ Aggregations
 
 Notes:
 
-* \(1) Output is a ``{"min": input type, "max": input type}`` Struct.
+* \(1) If null values are taken into account by setting ScalarAggregateOptions
+  parameter skip_nulls = false then `Kleene logic`_ logic is applied.
 
-* \(2) Output is an array of ``{"mode": input type, "count": Int64}`` Struct.
+* \(2) Output is a ``{"min": input type, "max": input type}`` Struct.
+
+* \(3) Output is an array of ``{"mode": input type, "count": Int64}`` Struct.
   It contains the *N* most common elements in the input, in descending
   order, where *N* is given in :member:`ModeOptions::n`.
   If two values have the same count, the smallest one comes first.
   Note that the output can have less than *N* elements if the input has
   less than *N* distinct values.
 
-* \(3) Output is Float64 or input type, depending on QuantileOptions.
+* \(4) Output is Float64 or input type, depending on QuantileOptions.
 
-* \(4) Output is Int64, UInt64 or Float64, depending on the input type.
+* \(5) Output is Int64, UInt64 or Float64, depending on the input type.
+
+.. _Kleene logic: https://en.wikipedia.org/wiki/Three-valued_logic#Kleene_and_Priest_logics
 
 Element-wise ("scalar") functions
 ---------------------------------
