@@ -116,7 +116,6 @@ public final class ClientAuthenticationUtils {
 
     try (final InputStream keyStoreStream = Files
         .newInputStream(Paths.get(Preconditions.checkNotNull(keyStorePath)))) {
-
       keyStore.load(keyStoreStream,
           Preconditions.checkNotNull(keyStorePass).toCharArray());
     }
@@ -124,11 +123,8 @@ public final class ClientAuthenticationUtils {
     final Enumeration<String> aliases = keyStore.aliases();
 
     while (aliases.hasMoreElements()) {
-
       final String alias = aliases.nextElement();
-
       if (keyStore.isCertificateEntry(alias)) {
-
         return toInputStream(keyStore.getCertificate(alias));
       }
     }
