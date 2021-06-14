@@ -221,7 +221,7 @@ public class ArrowFlightJdbcDriverTest {
 
     getUrlsArgs.setAccessible(true);
 
-    final Map<String, String> parsedArgs = (Map<String, String>) getUrlsArgs
+    final Map<Object, Object> parsedArgs = (Map<Object, Object>) getUrlsArgs
         .invoke(driver,
             "jdbc:arrow-flight://localhost:2222/?key1=value1&key2=value2&a=b");
 
