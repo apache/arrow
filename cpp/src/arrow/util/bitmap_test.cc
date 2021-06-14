@@ -18,13 +18,12 @@
 #include "arrow/util/bitmap.h"
 
 #include <arrow/array/builder_primitive.h>
+#include <arrow/buffer.h>
 #include <arrow/testing/gtest_util.h>
 #include <gtest/gtest.h>
 
 #include <numeric>
 #include <random>
-
-#include "arrow/buffer.h"
 
 namespace arrow {
 namespace internal {
