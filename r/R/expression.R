@@ -38,6 +38,7 @@
   "day" = "day",
   "yday" = "day_of_year",
   "isoweek" = "iso_week",
+  "hour" = "hour",
   "minute" = "minute",
   "second" = "second"
 )

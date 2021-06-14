@@ -447,6 +447,7 @@ nse_funcs$wday <- function(x, label = FALSE, abbr = TRUE, week_start = getOption
   if (label) {
     arrow_not_supported("Label argument")
   }
+  # After ARROW-13054 is completed, we can change the line below and delete the function
   offset <- get_date_offset(week_start)
   Expression$create("add", Expression$create("day_of_week", x), Expression$scalar(offset))
 }

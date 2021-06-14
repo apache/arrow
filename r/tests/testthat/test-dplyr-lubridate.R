@@ -18,7 +18,7 @@
 library(lubridate)
 library(dplyr)
 
-test_date <- ymd_hms("1987-10-09 23:00:00", tz = NULL)
+test_date <- ymd_hms("2021-06-11 10:01:38.85")
 test_df <- tibble::tibble(date = test_date)
 
 test_that("extract datetime components from date", {
@@ -26,7 +26,8 @@ test_that("extract datetime components from date", {
     input %>%
       mutate(x = year(date)) %>%
       collect(),
-    test_df
+    test_df,
+    check.tzone = FALSE
   )
   
   expect_dplyr_equal(
@@ -51,6 +52,19 @@ test_that("extract datetime components from date", {
   )
   
   expect_dplyr_equal(
+    input %>%
+      mutate(x = isoweek(date)) %>%
+      collect(),
+    test_df
+  )
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = day(date)) %>%
+      collect(),
+    test_df
+  )
+  
+ expect_dplyr_equal(
     input %>%
       mutate(x = wday(date)) %>%
       collect(),
@@ -80,13 +94,7 @@ test_that("extract datetime components from date", {
     regexp = 'Expression wday(date, locale = Sys.getlocale("LC_TIME")) not supported in Arrow; pulling data into R',
     fixed = TRUE
   )
-  
-  expect_dplyr_equal(
-    input %>%
-      mutate(x = day(date)) %>%
-      collect(),
-    test_df
-  )
+
   
   expect_dplyr_equal(
     input %>%
@@ -97,7 +105,7 @@ test_that("extract datetime components from date", {
   
   expect_dplyr_equal(
     input %>%
-      mutate(x = isoweek(date)) %>%
+      mutate(x = hour(date)) %>%
       collect(),
     test_df
   )
