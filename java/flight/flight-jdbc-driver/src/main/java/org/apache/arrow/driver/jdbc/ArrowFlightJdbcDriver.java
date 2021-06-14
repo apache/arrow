@@ -56,8 +56,9 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
   private static DriverVersion version;
 
   static {
+    // jdbc:arrow-flight://<host>:<port>[/?k1=v1&k2=v2&(...)]
     @RegEx
-    final String pattern = "^(" + CONNECT_STRING_PREFIX + ")" +
+    final String pattern = "^(?:" + CONNECT_STRING_PREFIX + ")" +
         "(\\w+):([\\d]+)\\/*\\?*([[\\w]+=[\\w]+&?]*)?";
 
     urlRegExPattern = Pattern.compile(pattern);
@@ -149,6 +150,48 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
   /**
    * Parses the provided url based on the format this driver accepts, retrieving
    * arguments after the {@link #CONNECT_STRING_PREFIX}.
+   * <p>
+   * This regular expression checks if the provided URL follows this pattern:
+   * {@code jdbc:arrow-flight://<host>:<port>[/?key1=val1&key2=val2&(...)]}
+   *
+   * <table border="1">
+   *    <tr>
+   *        <td>Group</td>
+   *        <td>Definition</td>
+   *        <td>Value</td>
+   *    </tr>
+   *    <tr>
+   *        <td>? — inaccessible</td>
+   *        <td>{@link #getConnectStringPrefix}</td>
+   *        <td>
+   *            the URL prefix accepted by this driver, i.e.,
+   *            {@code "jdbc:arrow-flight://"}
+   *        </td>
+   *    </tr>
+   *    <tr>
+   *        <td>1</td>
+   *        <td>IPv4 host name</td>
+   *        <td>
+   *            first word after previous group and before "{@code :}"
+   *        </td>
+   *    </tr>
+   *    <tr>
+   *        <td>2</td>
+   *        <td>IPv4 port number</td>
+   *        <td>
+   *            first number after previous group and before "{@code /?}"
+   *        </td>
+   *    </tr>
+   *    <tr>
+   *        <td>3</td>
+   *        <td>custom call parameters</td>
+   *        <td>
+   *            all parameters provided after "{@code /?}" — must follow the
+   *            pattern: "{@code key=value}" with "{@code &}" separating a
+   *            parameter from another
+   *        </td>
+   *    </tr>
+   * </table>
    *
    * @param url
    *          The url to parse.
@@ -181,16 +224,23 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
 
     final Map<Object, Object> resultMap = new HashMap<>();
 
-    // Group 1 contains the prefix -- start from 2.
-    resultMap.put(HOST.getEntry().getKey(), matcher.group(2));
-    resultMap.put(PORT.getEntry().getKey(), matcher.group(3));
+    resultMap.put(HOST.getEntry().getKey(), matcher.group(1)); // host
+    resultMap.put(PORT.getEntry().getKey(), matcher.group(2)); // port
 
-    // Group 4 contains all optional parameters, if provided -- must check.
-    final String extraParams = matcher.group(4);
+    final String extraParams = matcher.group(3); // optional params
 
     if (!Strings.isNullOrEmpty(extraParams)) {
       for (final String params : extraParams.split("&")) {
         final String[] keyValuePair = params.split("=");
+
+        /*
+         * FIXME Regex should do this automatically.
+         *
+         * The pattern should automatically filter URLs with invalid
+         * parameters (e.g., "k1=v1&k2," or "k1=v1&." There shouldn't
+         * be the need to check whether every parameters is provided as a
+         * key-value pair.
+         */
         if (keyValuePair.length != 2) {
           throw new SQLException(
               "URL parameters must be provided in key-value pairs!");
