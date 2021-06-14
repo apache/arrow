@@ -49,6 +49,8 @@ public class ConnectionTlsTest {
   private String serverUrl;
   private BufferAllocator allocator;
   private FlightTestUtils flightTestUtils;
+  private final String keyStorePath = "src/test/resources/keys/keyStore.jks";
+  private final String keyStorePass = "flight";
 
   @Before
   public void setUp() throws Exception {
@@ -121,13 +123,6 @@ public class ConnectionTlsTest {
    */
   @Test
   public void testGetEncryptedClientAuthenticated() throws Exception {
-
-    final Properties properties = new Properties();
-
-    properties.put("useTls", "true");
-    properties.put("keyStorePath", "src/test/resources/keys/keyStore.jks");
-    properties.put("keyStorePass", "flight");
-
     final URI address = new URI("jdbc",
         flightTestUtils.getUsername1() + ":" + flightTestUtils.getPassword1(),
         flightTestUtils.getLocalhost(), this.tlsServer.getPort(), null, null,
@@ -140,8 +135,8 @@ public class ConnectionTlsTest {
         .getEncryptedClientAuthenticated(
             allocator, address.getHost(), address.getPort(),
             null, credentials.getUserName(), credentials.getPassword(),
-            properties.getProperty("keyStorePath"),
-            properties.getProperty("keyStorePass"))) {
+            keyStorePath,
+            keyStorePass)) {
 
       assertNotNull(client);
     }
@@ -156,18 +151,14 @@ public class ConnectionTlsTest {
    */
   @Test(expected = SQLException.class)
   public void testGetEncryptedClientWithNoCertificateOnKeyStore() throws Exception {
-
-    final Properties properties = new Properties();
-
-    properties.put("useTls", "true");
-    properties.put("keyStorePath", "src/test/resources/keys/noCertificate.jks");
-    properties.put("keyStorePass", "flight1");
+    final String noCertificateKeyStorePath = "src/test/resources/keys/noCertificate.jks";
+    final String noCertificateKeyStorePassword = "flight1";
 
     try (ArrowFlightClient client = ArrowFlightClient
         .getEncryptedClientNoAuth(
             allocator, flightTestUtils.getLocalhost(), this.tlsServer.getPort(),
-            null, properties.getProperty("keyStorePath"),
-            properties.getProperty("keyStorePass"))) {
+            null, noCertificateKeyStorePath,
+            noCertificateKeyStorePassword)) {
 
       assertNotNull(client);
     }
@@ -181,18 +172,11 @@ public class ConnectionTlsTest {
    */
   @Test
   public void testGetNonAuthenticatedEncryptedClientNoAuth() throws Exception {
-
-    final Properties properties = new Properties();
-
-    properties.put("useTls", "true");
-    properties.put("keyStorePath", "src/test/resources/keys/keyStore.jks");
-    properties.put("keyStorePass", "flight");
-
     try (ArrowFlightClient client = ArrowFlightClient
         .getEncryptedClientNoAuth(
             allocator, flightTestUtils.getLocalhost(), this.tlsServer.getPort(),
-            null, properties.getProperty("keyStorePath"),
-            properties.getProperty("keyStorePass"))) {
+            null, keyStorePath,
+            keyStorePass)) {
 
       assertNotNull(client);
     }
@@ -207,18 +191,13 @@ public class ConnectionTlsTest {
    */
   @Test(expected = SQLException.class)
   public void testGetEncryptedClientWithKeyStoreBadPasswordAndNoAuth() throws Exception {
-
-    final Properties properties = new Properties();
-
-    properties.put("useTls", "true");
-    properties.put("keyStorePath", "src/test/resources/keys/keyStore.jks");
-    properties.put("keyStorePass", "badPassword");
+    String keyStoreBadPassword = "badPassword";
 
     try (ArrowFlightClient client = ArrowFlightClient
         .getEncryptedClientNoAuth(
             allocator, flightTestUtils.getLocalhost(), this.tlsServer.getPort(),
-            null, properties.getProperty("keyStorePath"),
-            properties.getProperty("keyStorePass"))) {
+            null, keyStorePath,
+            keyStoreBadPassword)) {
 
       assertNotNull(client);
     }
@@ -238,8 +217,8 @@ public class ConnectionTlsTest {
     properties.put("user", flightTestUtils.getUsername1());
     properties.put("password", flightTestUtils.getPassword1());
     properties.put("useTls", "true");
-    properties.put("keyStorePath", "src/test/resources/keys/keyStore.jks");
-    properties.put("keyStorePass", "flight");
+    properties.put("keyStorePath", keyStorePath);
+    properties.put("keyStorePass", keyStorePass);
 
     try (Connection connection = DriverManager
         .getConnection(serverUrl, properties)) {
@@ -261,7 +240,7 @@ public class ConnectionTlsTest {
     properties.put("user", flightTestUtils.getUsername1());
     properties.put("password", flightTestUtils.getPassword1());
     properties.put("useTls", "true");
-    properties.put("keyStorePath", "src/test/resources/keys/keyStore.jks");
+    properties.put("keyStorePath", keyStorePath);
     properties.put("keyStorePass", "badpassword");
 
     try (Connection connection = DriverManager
@@ -282,8 +261,8 @@ public class ConnectionTlsTest {
     final Properties properties = new Properties();
 
     properties.put("useTls", "true");
-    properties.put("keyStorePath", "src/test/resources/keys/keyStore.jks");
-    properties.put("keyStorePass", "flight");
+    properties.put("keyStorePath", keyStorePath);
+    properties.put("keyStorePass", keyStorePass);
 
     try (Connection connection = DriverManager
         .getConnection(serverUrl, properties)) {
