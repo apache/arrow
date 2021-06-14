@@ -198,6 +198,32 @@ public class ConnectionTlsTest {
   }
 
   /**
+   * Try to instantiate an encrypted FlightClient with an invalid password to the keystore file.
+   * It's expected to receive the SQLException.
+   *
+   * @throws Exception
+   *           on error.
+   */
+  @Test(expected = SQLException.class)
+  public void testGetEncryptedClientWithKeyStoreBadPasswordAndNoAuth() throws Exception {
+
+    final Properties properties = new Properties();
+
+    properties.put("useTls", "true");
+    properties.put("keyStorePath", "src/test/resources/keys/keyStore.jks");
+    properties.put("keyStorePass", "badPassword");
+
+    try (ArrowFlightClient client = ArrowFlightClient
+        .getEncryptedClientNoAuth(
+            allocator, flightTestUtils.getLocalhost(), this.tlsServer.getPort(),
+            null, properties.getProperty("keyStorePath"),
+            properties.getProperty("keyStorePass"))) {
+
+      assertNotNull(client);
+    }
+  }
+
+  /**
    * Check if an encrypted connection can be established successfully when the
    * provided valid credentials and a valid Keystore.
    *
