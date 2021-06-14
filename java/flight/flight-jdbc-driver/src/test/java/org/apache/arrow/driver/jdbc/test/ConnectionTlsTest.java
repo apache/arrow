@@ -246,4 +246,48 @@ public class ConnectionTlsTest {
       assert connection.isValid(300);
     }
   }
+
+  /**
+   * Check if the SQLException is thrown when trying to establish an encrypted connection
+   * providing valid credentials but invalid password to the Keystore.
+   *
+   * @throws SQLException on error.
+   */
+  @Test(expected = SQLException.class)
+  public void testGetAuthenticatedEncryptedConnectionWithKeyStoreBadPassword() throws Exception {
+    final Properties properties = new Properties();
+
+    properties.put("user", flightTestUtils.getUsername1());
+    properties.put("password", flightTestUtils.getPassword1());
+    properties.put("useTls", "true");
+    properties.put("keyStorePath", "src/test/resources/keys/keyStore.jks");
+    properties.put("keyStorePass", "badpassword");
+
+    try (Connection connection = DriverManager
+        .getConnection(serverUrl, properties)) {
+
+      assert connection.isValid(300);
+    }
+  }
+
+  /**
+   * Check if an encrypted connection can be established successfully when not providing authentication.
+   *
+   * @throws Exception
+   *           on error.
+   */
+  @Test
+  public void testGetNonAuthenticatedEncryptedConnection() throws Exception {
+    final Properties properties = new Properties();
+
+    properties.put("useTls", "true");
+    properties.put("keyStorePath", "src/test/resources/keys/keyStore.jks");
+    properties.put("keyStorePass", "flight");
+
+    try (Connection connection = DriverManager
+        .getConnection(serverUrl, properties)) {
+
+      assert connection.isValid(300);
+    }
+  }
 }
