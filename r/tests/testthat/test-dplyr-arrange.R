@@ -139,18 +139,14 @@ test_that("arrange() on integer, double, and character columns", {
       collect(),
     tbl
   )
-  expect_warning(
-    expect_equal(
-      tbl %>%
-        Table$create() %>%
-        arrange(abs(int), dbl) %>%
-        collect(),
-      tbl %>%
-        arrange(abs(int), dbl) %>%
-        collect()
-    ),
-    "not supported in Arrow",
-    fixed = TRUE
+  expect_equal(
+    tbl %>%
+      Table$create() %>%
+      arrange(abs(int), dbl) %>%
+      collect(),
+    tbl %>%
+      arrange(abs(int), dbl) %>%
+      collect()
   )
 })
 
