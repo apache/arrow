@@ -58,8 +58,11 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
   static {
     // jdbc:arrow-flight://<host>:<port>[/?k1=v1&k2=v2&(...)]
     @RegEx
-    final String pattern = "^(?:" + CONNECT_STRING_PREFIX + ")" +
-        "(\\w+):([\\d]+)\\/*\\?*([[\\w]+=[\\w]+&?]*)?";
+    final String pattern =
+    "^(?:" + CONNECT_STRING_PREFIX.replace("(\\/)", "\\1") + ")" + // Prefix
+        "(\\w+):" + // Group 1 (host): match any word before colon
+        "([\\d]+)\\/*" + // Group 2 (port): match number before optional slash
+        "\\?*([[\\w]+=[\\w]+&?]*)?"; // Group 3 (params): match key-value pairs
 
     urlRegExPattern = Pattern.compile(pattern);
     new ArrowFlightJdbcDriver().register();
