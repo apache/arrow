@@ -3424,27 +3424,35 @@ struct BinaryJoinElementWise {
     RETURN_NOT_OK(builder.Reserve(batch.length));
     RETURN_NOT_OK(builder.ReserveData(final_size));
 
-    std::vector<const Datum*> valid_cols(batch.values.size());
+    std::vector<util::string_view> valid_cols(batch.values.size());
     for (size_t row = 0; row < static_cast<size_t>(batch.length); row++) {
       size_t num_valid = 0;  // Not counting separator
       for (size_t col = 0; col < batch.values.size(); col++) {
-        bool valid = false;
         if (batch[col].is_scalar()) {
-          valid = batch[col].scalar()->is_valid;
+          const auto& scalar = *batch[col].scalar();
+          if (scalar.is_valid) {
+            valid_cols[col] = UnboxScalar<Type>::Unbox(scalar);
+            if (col < batch.values.size() - 1) num_valid++;
+          } else {
+            valid_cols[col] = util::string_view();
+          }
         } else {
           const ArrayData& array = *batch[col].array();
-          valid = !array.MayHaveNulls() ||
-                  BitUtil::GetBit(array.buffers[0]->data(), array.offset + row);
-        }
-        if (valid) {
-          valid_cols[col] = &batch[col];
-          if (col < batch.values.size() - 1) num_valid++;
-        } else {
-          valid_cols[col] = nullptr;
+          if (!array.MayHaveNulls() ||
+              BitUtil::GetBit(array.buffers[0]->data(), array.offset + row)) {
+            const offset_type* offsets = array.GetValues<offset_type>(1);
+            const uint8_t* data = array.GetValues<uint8_t>(2, /*absolute_offset=*/0);
+            const int64_t length = offsets[row + 1] - offsets[row];
+            valid_cols[col] = util::string_view(
+                reinterpret_cast<const char*>(data + offsets[row]), length);
+            if (col < batch.values.size() - 1) num_valid++;
+          } else {
+            valid_cols[col] = util::string_view();
+          }
         }
       }
 
-      if (!valid_cols.back()) {
+      if (!valid_cols.back().data()) {
         // Separator is null
         builder.UnsafeAppendNull();
         continue;
@@ -3459,12 +3467,11 @@ struct BinaryJoinElementWise {
           continue;
         }
       }
-      const auto separator = Lookup(*valid_cols.back(), row);
+      const auto separator = valid_cols.back();
       bool first = true;
       for (size_t col = 0; col < batch.values.size() - 1; col++) {
-        const Datum* datum = valid_cols[col];
-        util::string_view value;
-        if (!datum) {
+        util::string_view value = valid_cols[col];
+        if (!value.data()) {
           switch (options.null_handling) {
             case JoinOptions::EMIT_NULL:
               DCHECK(false) << "unreachable";
@@ -3475,8 +3482,6 @@ struct BinaryJoinElementWise {
               value = options.null_replacement;
               break;
           }
-        } else {
-          value = Lookup(*datum, row);
         }
         if (first) {
           builder.UnsafeAppend(value);
@@ -3496,18 +3501,6 @@ struct BinaryJoinElementWise {
     DCHECK_EQ(final_size,
               checked_cast<const ArrayType&>(*string_array).total_values_length());
     return Status::OK();
-  }
-
-  // Unbox a scalar or the given element of an array.
-  static util::string_view Lookup(const Datum& datum, size_t row) {
-    if (datum.is_scalar()) {
-      return UnboxScalar<Type>::Unbox(*datum.scalar());
-    }
-    const ArrayData& array = *datum.array();
-    const offset_type* offsets = array.GetValues<offset_type>(1);
-    const uint8_t* data = array.GetValues<uint8_t>(2, /*absolute_offset=*/0);
-    const int64_t length = offsets[row + 1] - offsets[row];
-    return util::string_view(reinterpret_cast<const char*>(data + offsets[row]), length);
   }
 
   // Compute the length of the output for the given position, or -1 if it would be null.
