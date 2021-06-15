@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "arrow/testing/macros.h"
+#include "arrow/util/make_unique.h"
 #include "parquet/column_page.h"
 #include "parquet/column_reader.h"
 #include "parquet/schema.h"
@@ -383,6 +384,78 @@ TEST_F(TestPrimitiveReader, TestDictionaryEncodedPages) {
   InitReader(&descr);
   // unsupported encoding
   ASSERT_THROW(reader_->HasNext(), ParquetException);
+  pages_.clear();
+}
+
+TEST_F(TestPrimitiveReader, TestDictionaryEncodedPagesWithExposeEncoding) {
+  max_def_level_ = 0;
+  max_rep_level_ = 0;
+  int levels_per_page = 100;
+  int num_pages = 5;
+  const ByteArray* dict = nullptr;
+  int32_t dict_len = 0;
+  int64_t total_indices = 0;
+  int64_t indices_read = 0;
+  std::vector<int16_t> def_levels;
+  std::vector<int16_t> rep_levels;
+  std::vector<ByteArray> values;
+  std::vector<uint8_t> buffer;
+  ByteArrayReader* reader = nullptr;
+  NodePtr type = schema::ByteArray("a", Repetition::REQUIRED);
+  const ColumnDescriptor descr(type, max_def_level_, max_rep_level_);
+
+  // Fully dictionary encoded
+  MakePages<ByteArrayType>(&descr, num_pages, levels_per_page, def_levels, rep_levels,
+                           values, buffer, pages_, Encoding::RLE_DICTIONARY);
+  int64_t value_size = values.size();
+  auto indices = ::arrow::internal::make_unique<int32_t[]>(value_size);
+
+  InitReader(&descr);
+  reader = static_cast<ByteArrayReader*>(reader_.get());
+  while (total_indices < value_size && reader->HasNext()) {
+    const ByteArray* tmp_dict = nullptr;
+    int32_t tmp_dict_len = 0;
+    EXPECT_NO_THROW(reader->ReadBatchWithDictionary(
+        value_size, /*def_levels=*/nullptr,
+        /*rep_levels=*/nullptr, indices.get() + total_indices, &indices_read, &tmp_dict,
+        &tmp_dict_len));
+    if (tmp_dict) {
+      // Only reading the 1st batch will return the dictionary
+      EXPECT_EQ(total_indices, 0);
+      EXPECT_GT(tmp_dict_len, 0);
+      dict = tmp_dict;
+      dict_len = tmp_dict_len;
+    } else {
+      // Reading following batches won't return the dictionary
+      EXPECT_GT(total_indices, 0);
+      EXPECT_EQ(tmp_dict_len, 0);
+    }
+    total_indices += indices_read;
+  }
+
+  EXPECT_EQ(total_indices, value_size);
+  for (int64_t i = 0; i < total_indices; ++i) {
+    EXPECT_LT(indices[i], dict_len);
+    EXPECT_EQ(dict[indices[i]].len, values[i].len);
+    EXPECT_EQ(memcmp(dict[indices[i]].ptr, values[i].ptr, values[i].len), 0);
+  }
+  pages_.clear();
+
+  // The data page falls back to plain encoding
+  std::shared_ptr<ResizableBuffer> dummy = AllocateBuffer();
+  std::shared_ptr<DictionaryPage> dict_page =
+      std::make_shared<DictionaryPage>(dummy, 0, Encoding::PLAIN);
+  std::shared_ptr<DataPageV1> data_page = MakeDataPage<ByteArrayType>(
+      &descr, values, value_size, Encoding::PLAIN, {}, 0, {}, 0, {}, 0);
+  pages_.push_back(dict_page);
+  pages_.push_back(data_page);
+  InitReader(&descr);
+  reader = static_cast<ByteArrayReader*>(reader_.get());
+  // Dictionary cannot be exposed when it's not fully dictionary encoded
+  EXPECT_THROW(reader->ReadBatchWithDictionary(value_size, /*def_levels=*/nullptr,
+                                               /*rep_levels=*/nullptr, indices.get(),
+                                               &indices_read, &dict, &dict_len),
+               ParquetException);
   pages_.clear();
 }
 
