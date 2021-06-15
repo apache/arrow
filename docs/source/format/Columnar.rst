@@ -1013,14 +1013,15 @@ in many cases these streams will not ever be stored as files.
 IPC File Format
 ---------------
 
-We define a "file format" supporting random access that is built with
-the stream format.  We recommend the ".arrow" extension for files. The
-file starts and ends with a magic string ``ARROW1`` (plus padding). What
-follows in the file is identical to the stream format. At the end of the
-file, we write a *footer* containing a redundant copy of the schema (which
-is a part of the streaming format) plus memory offsets and sizes for each
-of the data blocks in the file. This enables random access any record batch
-in the file. See `File.fbs`_ for the precise details of the file footer.
+We define a "file format" supporting random access that is an extension of
+the stream format.  The file starts and ends with a magic string ``ARROW1``
+(plus padding). What follows in the file is identical to the stream format.
+At the end of the file, we write a *footer* containing a redundant copy of
+the schema (which is a part of the streaming format) plus memory offsets and
+sizes for each of the data blocks in the file. This enables random access any
+record batch in the file. We recommend the ".arrow" extension for files
+created with this format.  See `File.fbs`_ for the precise details of the file
+footer.
 
 Schematically we have: ::
 
