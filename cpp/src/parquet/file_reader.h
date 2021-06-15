@@ -56,6 +56,22 @@ class PARQUET_EXPORT RowGroupReader {
   // column. Ownership is shared with the RowGroupReader.
   std::shared_ptr<ColumnReader> Column(int i);
 
+  // Construct a ColumnReader, trying to enable exposed encoding.
+  //
+  // The encoding can only be exposed if the column chunk is encoded with the
+  // same encoding. For dictionary encoding, currently we only support column
+  // chunks that are fully dictionary encoded, i.e., all data pages in the
+  // column chunk are dictionary encoded. If a column chunk uses dictionary
+  // encoding but then falls back to plain encoding, the encoding cannot be
+  // exposed.
+  //
+  // The returned column reader provides an API GetExposedEncoding() for the
+  // users to check the exposed encoding and determine how to read the batches.
+  //
+  // \note API EXPERIMENTAL
+  std::shared_ptr<ColumnReader> ColumnWithExposeEncoding(
+      int i, ExposedEncodingType encoding_to_expose);
+
   std::unique_ptr<PageReader> GetColumnPageReader(int i);
 
  private:

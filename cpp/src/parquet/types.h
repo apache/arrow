@@ -479,6 +479,9 @@ struct Encoding {
   };
 };
 
+// Exposed data encodings.
+enum class ExposedEncodingType { NO_ENCODING = 0, DICTIONARY = 1 };
+
 /// \brief Return true if Parquet supports indicated compression type
 PARQUET_EXPORT
 bool IsCodecSupported(Compression::type codec);
