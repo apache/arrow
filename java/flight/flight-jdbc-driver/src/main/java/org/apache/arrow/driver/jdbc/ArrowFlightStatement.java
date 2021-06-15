@@ -17,22 +17,27 @@
 
 package org.apache.arrow.driver.jdbc;
 
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.util.TimeZone;
+
+import org.apache.calcite.avatica.AvaticaResultSet;
 import org.apache.calcite.avatica.AvaticaStatement;
-import org.apache.calcite.avatica.Meta.StatementHandle;
+import org.apache.calcite.avatica.Meta.Frame;
+import org.apache.calcite.avatica.Meta.Signature;
+import org.apache.calcite.avatica.QueryState;
 
 /**
- * A SQL statement for querying data from an Arrow Flight server.
+ * The {@link ResultSet} implementation for Arrow Flight.
  */
-public class ArrowFlightStatement extends AvaticaStatement {
+public class ArrowFlightResultSet extends AvaticaResultSet {
 
-  private ArrowFlightConnection connection;
-
-  ArrowFlightStatement(final AvaticaConnection connection,
-      final StatementHandle handle, final int resultSetType,
-      final int resultSetConcurrency, final int resultSetHoldability) {
-    super(connection, handle, resultSetType, resultSetConcurrency,
-        resultSetHoldability);
-    this.connection =  (ArrowFlightConnection) connection;
+  ArrowFlightResultSet(final AvaticaStatement statement, final QueryState state,
+      final Signature signature,
+      final ResultSetMetaData resultSetMetaData,
+      final TimeZone timeZone, final Frame firstFrame) throws SQLException {
+    super(statement, state, signature, resultSetMetaData, timeZone, firstFrame);
   }
 
   @Override
