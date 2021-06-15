@@ -291,7 +291,8 @@ class ResultMatcher {
   explicit ResultMatcher(ValueMatcher value_matcher)
       : value_matcher_(std::move(value_matcher)) {}
 
-  template <typename Res, typename ValueType = typename std::decay<Res>::type::ValueType>
+  template <typename Res,
+            typename ValueType = typename std::decay<Res>::type::ValueType>
   operator testing::Matcher<Res>() const {  // NOLINT runtime/explicit
     struct Impl : testing::MatcherInterface<const Res&> {
       explicit Impl(const ValueMatcher& value_matcher)
@@ -309,13 +310,13 @@ class ResultMatcher {
 
       bool MatchAndExplain(const Res& maybe_value,
                            testing::MatchResultListener* listener) const override {
-        if (!maybe_value.ok()) {
+        if (!maybe_value.status().ok()) {
           *listener << "whose error "
                     << testing::PrintToString(maybe_value.status().ToString())
                     << " doesn't match";
           return false;
         }
-        const ValueType& value = maybe_value.ValueOrDie();
+        const ValueType& value = GetValue(maybe_value);
         testing::StringMatchResultListener value_listener;
         const bool match = value_matcher_.MatchAndExplain(value, &value_listener);
         *listener << "whose value " << testing::PrintToString(value)
@@ -331,6 +332,16 @@ class ResultMatcher {
   }
 
  private:
+  template <typename T>
+  static const T& GetValue(const Result<T>& maybe_value) {
+    return maybe_value.ValueOrDie();
+  }
+
+  template <typename T>
+  static const T& GetValue(const Future<T>& value_fut) {
+    return GetValue(value_fut.result());
+  }
+
   const ValueMatcher value_matcher_;
 };
 
@@ -340,9 +351,9 @@ class StatusMatcher {
                          util::optional<testing::Matcher<std::string>> message_matcher)
       : code_(code), message_matcher_(std::move(message_matcher)) {}
 
-  template <typename ResultOrStatus>
-  operator testing::Matcher<ResultOrStatus>() const {  // NOLINT runtime/explicit
-    struct Impl : testing::MatcherInterface<const ResultOrStatus&> {
+  template <typename Res>
+  operator testing::Matcher<Res>() const {  // NOLINT runtime/explicit
+    struct Impl : testing::MatcherInterface<const Res&> {
       explicit Impl(StatusCode code,
                     util::optional<testing::Matcher<std::string>> message_matcher)
           : code_(code), message_matcher_(std::move(message_matcher)) {}
@@ -363,9 +374,9 @@ class StatusMatcher {
         }
       }
 
-      bool MatchAndExplain(const ResultOrStatus& result_or_status,
+      bool MatchAndExplain(const Res& maybe_value,
                            testing::MatchResultListener* listener) const override {
-        const Status& status = internal::GenericToStatus(result_or_status);
+        const Status& status = GetStatus(maybe_value);
         testing::StringMatchResultListener value_listener;
 
         bool match = status.code() == code_;
@@ -384,22 +395,41 @@ class StatusMatcher {
       const util::optional<testing::Matcher<std::string>> message_matcher_;
     };
 
-    return testing::Matcher<ResultOrStatus>(new Impl(code_, message_matcher_));
+    return testing::Matcher<Res>(new Impl(code_, message_matcher_));
+  }
+
+ private:
+  static const Status& GetStatus(const Status& status) { return status; }
+
+  template <typename T>
+  static const Status& GetStatus(const Result<T>& maybe_value) {
+    return maybe_value.status();
+  }
+
+  template <typename T>
+  static const Status& GetStatus(const Future<T>& value_fut) {
+    return value_fut.status();
   }
 
   const StatusCode code_;
   const util::optional<testing::Matcher<std::string>> message_matcher_;
 };
 
+// Returns a matcher that matches the value of a successful Result<T> or Future<T>.
+// (Future<T> will be waited upon to acquire its result for matching.)
 template <typename ValueMatcher>
 ResultMatcher<ValueMatcher> ResultWith(const ValueMatcher& value_matcher) {
   return ResultMatcher<ValueMatcher>(value_matcher);
 }
 
+// Returns a matcher that matches the StatusCode of a Status, Result<T>, or Future<T>.
+// (Future<T> will be waited upon to acquire its result for matching.)
 inline StatusMatcher Raises(StatusCode code) {
   return StatusMatcher(code, util::nullopt);
 }
 
+// Returns a matcher that matches the StatusCode and message of a Status, Result<T>, or
+// Future<T>. (Future<T> will be waited upon to acquire its result for matching.)
 template <typename MessageMatcher>
 StatusMatcher Raises(StatusCode code, const MessageMatcher& message_matcher) {
   return StatusMatcher(code, testing::MatcherCast<std::string>(message_matcher));
