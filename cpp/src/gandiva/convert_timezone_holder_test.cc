@@ -60,21 +60,43 @@ TEST_F(TestConvertTimezone, TestConvertTimezoneName) {
                                                         // saving time periods.
 }
 
+TEST_F(TestConvertTimezone, TestConvertTimezoneAbbreviations) {
+  std::shared_ptr<ConvertTimezoneHolder> convert_holder;
+
+  auto status = ConvertTimezoneHolder::Make("PST", "LKT", &convert_holder);
+  EXPECT_EQ(status.ok(), true) << status.message();
+
+  EXPECT_EQ(convert_holder->convert(StringToTimestamp("2016-02-01 08:29:00")),
+            StringToTimestamp("2016-02-01 21:59:00"));
+  EXPECT_EQ(convert_holder->convert(StringToTimestamp("2016-10-01 08:29:00")),
+            StringToTimestamp("2016-10-01 21:59:00"));  // Checks if it considers Daylight
+  // saving time periods.
+  EXPECT_EQ(convert_holder->convert(StringToTimestamp("2016-02-28 23:59:59")),
+            StringToTimestamp("2016-02-29 13:29:59"));
+  EXPECT_EQ(convert_holder->convert(StringToTimestamp("2015-02-28 23:59:59")),
+            StringToTimestamp("2015-03-01 13:29:59"));
+  EXPECT_EQ(convert_holder->convert(StringToTimestamp("1969-01-01 08:29:00")),
+            StringToTimestamp("1969-01-01 21:59:00"));
+  EXPECT_EQ(convert_holder->convert(StringToTimestamp("1950-10-01 08:29:00")),
+            StringToTimestamp("1950-10-01 21:59:00"));  // Checks if it considers Daylight
+  // saving time periods.
+}
+
 TEST_F(TestConvertTimezone, TestConvertTimezoneOffset) {
   std::shared_ptr<ConvertTimezoneHolder> convert_holder;
 
-  auto status = ConvertTimezoneHolder::Make("+01:00", "+02:00", &convert_holder);
+  auto status = ConvertTimezoneHolder::Make("-01:00", "+02:00", &convert_holder);
   EXPECT_EQ(status.ok(), true) << status.message();
 
   EXPECT_EQ(convert_holder->convert(StringToTimestamp("2020-06-03 21:33:20")),
-            StringToTimestamp("2020-06-03 22:33:20"));
+            StringToTimestamp("2020-06-04 00:33:20"));
   EXPECT_EQ(convert_holder->convert(StringToTimestamp("2016-10-01 08:29:00")),
-            StringToTimestamp("2016-10-01 09:29:00"));  // Checks if it considers Daylight
+            StringToTimestamp("2016-10-01 11:29:00"));  // Checks if it considers Daylight
                                                         // saving time periods.
   EXPECT_EQ(convert_holder->convert(StringToTimestamp("2016-02-28 23:59:59")),
-            StringToTimestamp("2016-02-29 00:59:59"));
+            StringToTimestamp("2016-02-29 02:59:59"));
   EXPECT_EQ(convert_holder->convert(StringToTimestamp("2015-02-28 23:59:59")),
-            StringToTimestamp("2015-03-01 00:59:59"));
+            StringToTimestamp("2015-03-01 02:59:59"));
 
   status = ConvertTimezoneHolder::Make("+02:00", "+01:00", &convert_holder);
   EXPECT_EQ(status.ok(), true) << status.message();
@@ -88,5 +110,35 @@ TEST_F(TestConvertTimezone, TestConvertTimezoneOffset) {
             StringToTimestamp("2016-02-28 23:59:59"));
   EXPECT_EQ(convert_holder->convert(StringToTimestamp("2015-03-01 00:59:59")),
             StringToTimestamp("2015-02-28 23:59:59"));
+}
+
+TEST_F(TestConvertTimezone, TestConvertTimezoneShift) {
+  std::shared_ptr<ConvertTimezoneHolder> convert_holder;
+
+  auto status = ConvertTimezoneHolder::Make("UT-1", "UTC+2", &convert_holder);
+  EXPECT_EQ(status.ok(), true) << status.message();
+
+  EXPECT_EQ(convert_holder->convert(StringToTimestamp("2020-06-03 21:33:20")),
+            StringToTimestamp("2020-06-04 00:33:20"));
+  EXPECT_EQ(convert_holder->convert(StringToTimestamp("2016-10-01 08:29:00")),
+            StringToTimestamp("2016-10-01 11:29:00"));  // Checks if it considers Daylight
+  // saving time periods.
+  EXPECT_EQ(convert_holder->convert(StringToTimestamp("2016-02-28 23:59:59")),
+            StringToTimestamp("2016-02-29 02:59:59"));
+  EXPECT_EQ(convert_holder->convert(StringToTimestamp("2015-02-28 23:59:59")),
+            StringToTimestamp("2015-03-01 02:59:59"));
+
+  status = ConvertTimezoneHolder::Make("GMT+08:45:15", "GMT-08:45:15", &convert_holder);
+  EXPECT_EQ(status.ok(), true) << status.message();
+
+  EXPECT_EQ(convert_holder->convert(StringToTimestamp("2020-06-03 22:33:20")),
+            StringToTimestamp("2020-06-03 05:02:50"));
+  EXPECT_EQ(convert_holder->convert(StringToTimestamp("2016-10-01 09:29:00")),
+            StringToTimestamp("2016-09-30 15:58:30"));  // Checks if it considers Daylight
+  // saving time periods.
+  EXPECT_EQ(convert_holder->convert(StringToTimestamp("2016-02-29 00:59:59")),
+            StringToTimestamp("2016-02-28 07:29:29"));
+  EXPECT_EQ(convert_holder->convert(StringToTimestamp("2015-03-01 00:59:59")),
+            StringToTimestamp("2015-02-28 07:29:29"));
 }
 }  // namespace gandiva
