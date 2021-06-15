@@ -24,10 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URI;
-import java.sql.Connection;
-import java.sql.Driver;
-import java.sql.DriverManager;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.Map;
 import java.util.Properties;
 
@@ -268,6 +265,49 @@ public class ArrowFlightJdbcDriverTest {
           .invoke(driver, "jdbc:arrow-flight://localhost:2222/?k1=v1&m=");
     } catch (final InvocationTargetException e) {
       throw (SQLException) e.getCause();
+    }
+  }
+
+  /**
+   * Tests whether the {@link ArrowFlightJdbcDriver} can run a query succesfully.
+   *
+   * @throws Exception
+   *           If the connection fails to be established.
+   */
+  @Test
+  public void testShouldRunQuery() throws Exception {
+    // Get the Arrow Flight JDBC driver by providing a URL with a valid prefix.
+    final Driver driver = new ArrowFlightJdbcDriver();
+
+    final URI uri = server.getLocation().getUri();
+
+    try (Connection connection = driver.connect(
+            "jdbc:arrow-flight://" + uri.getHost() + ":" + uri.getPort(),
+            PropertiesSample.CONFORMING.getProperties())) {
+      Statement statement = connection.createStatement();
+      statement.executeUpdate("CREATE SCHEMA sampledb");
+    }
+  }
+
+  /**
+   * Tests whether the {@link ArrowFlightJdbcDriver} can run a query succesfully.
+   *
+   * @throws Exception
+   *           If the connection fails to be established.
+   */
+  @Test
+  public void testShouldRunSelectQuery() throws Exception {
+    // Get the Arrow Flight JDBC driver by providing a URL with a valid prefix.
+    final Driver driver = new ArrowFlightJdbcDriver();
+
+    final URI uri = server.getLocation().getUri();
+
+    try (Connection connection = driver.connect(
+            "jdbc:arrow-flight://" + uri.getHost() + ":" + uri.getPort(),
+            PropertiesSample.CONFORMING.getProperties())) {
+      Statement statement = connection.createStatement();
+      ResultSet resultSet = statement.executeQuery("select * from (VALUES(1,2,3))");
+      System.out.println(resultSet);
     }
   }
 

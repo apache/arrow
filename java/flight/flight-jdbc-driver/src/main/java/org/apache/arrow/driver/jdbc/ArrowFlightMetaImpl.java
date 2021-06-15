@@ -46,7 +46,7 @@ public class ArrowFlightMetaImpl extends MetaImpl {
     return new Signature(
         new ArrayList<ColumnMetaData>(),
         sql,
-        Collections.<AvaticaParameter> emptyList(),
+        Collections.<AvaticaParameter>emptyList(),
         Collections.<String, Object>emptyMap(),
         null, // CursorFactory set to null, as SQL requests use DremioCursor
         StatementType.SELECT
@@ -123,7 +123,7 @@ public class ArrowFlightMetaImpl extends MetaImpl {
       final MetaResultSet metaResultSet = MetaResultSet.create(handle.connectionId, handle.id,
           false, signature, null);
       return new ExecuteResult(Collections.singletonList(metaResultSet));
-    } catch(SQLException e) {
+    } catch (SQLException e) {
       throw new RuntimeException(e);
     }
   }
