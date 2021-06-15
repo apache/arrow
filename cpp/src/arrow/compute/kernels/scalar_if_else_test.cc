@@ -57,15 +57,12 @@ TYPED_TEST(TestIfElsePrimitive, IfElseFixedSizeRand) {
 
   random::RandomArrayGenerator rand(/*seed=*/0);
   int64_t len = 1000;
-
-  // adding 64 consecutive 1's and 0's in the cond array to test all-true/ all-false
-  // word code paths
   ASSERT_OK_AND_ASSIGN(auto temp1, MakeArrayFromScalar(BooleanScalar(true), 64));
   ASSERT_OK_AND_ASSIGN(auto temp2, MakeArrayFromScalar(BooleanScalar(false), 64));
   auto temp3 = rand.ArrayOf(boolean(), len - 64 * 2, /*null_probability=*/0.01);
+
   ASSERT_OK_AND_ASSIGN(auto concat, Concatenate({temp1, temp2, temp3}));
   auto cond = std::static_pointer_cast<BooleanArray>(concat);
-
   auto left = std::static_pointer_cast<ArrayType>(
       rand.ArrayOf(type, len, /*null_probability=*/0.01));
   auto right = std::static_pointer_cast<ArrayType>(
@@ -324,7 +321,7 @@ using BaseBinaryTypes =
 
 TYPED_TEST_SUITE(TestIfElseBaseBinary, BaseBinaryTypes);
 
-TYPED_TEST(TestIfElseBaseBinary, IfElseFixedSize) {
+TYPED_TEST(TestIfElseBaseBinary, IfElseBaseBinary) {
   auto type = TypeTraits<TypeParam>::type_singleton();
 
   CheckIfElseOutput(ArrayFromJSON(boolean(), "[true, true, true, false]"),
@@ -366,6 +363,49 @@ TYPED_TEST(TestIfElseBaseBinary, IfElseFixedSize) {
                     ArrayFromJSON(type, R"(["a", "ab", "abc", "abcd"])"),
                     ArrayFromJSON(type, R"(["lmno", "lmn", "lm", "l"])"),
                     ArrayFromJSON(type, R"([null, "ab", "abc", "l"])"));
+}
+
+TYPED_TEST(TestIfElseBaseBinary, IfElseBaseBinaryRand) {
+  using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
+  using OffsetType = typename TypeTraits<TypeParam>::OffsetType::c_type;
+  auto type = TypeTraits<TypeParam>::type_singleton();
+
+  random::RandomArrayGenerator rand(/*seed=*/0);
+  int64_t len = 130;
+
+  ASSERT_OK_AND_ASSIGN(auto temp1, MakeArrayFromScalar(BooleanScalar(true), 64));
+  ASSERT_OK_AND_ASSIGN(auto temp2, MakeArrayFromScalar(BooleanScalar(false), 64));
+  auto temp3 = rand.ArrayOf(boolean(), len - 64 * 2, /*null_probability=*/0.01);
+
+  ASSERT_OK_AND_ASSIGN(auto concat, Concatenate({temp1, temp2, temp3}));
+  auto cond = std::static_pointer_cast<BooleanArray>(concat);
+
+  auto left = std::static_pointer_cast<ArrayType>(
+      rand.ArrayOf(type, len, /*null_probability=*/0.01));
+  auto right = std::static_pointer_cast<ArrayType>(
+      rand.ArrayOf(type, len, /*null_probability=*/0.01));
+
+  typename TypeTraits<TypeParam>::BuilderType builder;
+
+  for (int64_t i = 0; i < len; ++i) {
+    if (!cond->IsValid(i) || (cond->Value(i) && !left->IsValid(i)) ||
+        (!cond->Value(i) && !right->IsValid(i))) {
+      ASSERT_OK(builder.AppendNull());
+      continue;
+    }
+
+    OffsetType offset;
+    const uint8_t* val;
+    if (cond->Value(i)) {
+      val = left->GetValue(i, &offset);
+    } else {
+      val = right->GetValue(i, &offset);
+    }
+    ASSERT_OK(builder.Append(val, offset));
+  }
+  ASSERT_OK_AND_ASSIGN(auto expected_data, builder.Finish());
+
+  CheckIfElseOutput(cond, left, right, expected_data);
 }
 
 }  // namespace compute

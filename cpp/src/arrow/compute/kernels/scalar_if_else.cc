@@ -455,23 +455,6 @@ struct IfElseFunctor<Type, enable_if_number<Type>> {
   }
 };
 
-// const int32_t* offsets = reinterpret_cast<const
-// int32_t*>(strings_data.buffer[1]->data()) +
-//    strings_data.offset;
-// const uint8_t* bytes = strings_data.buffer[2]->data();
-//
-// const int32_t& first_offset = offsets[0];
-// const uint8_t& first_byte = bytes[first_offset];
-
-//             const offset_type* offsets = array.GetValues<offset_type>(1);
-//            const uint8_t* data = array.GetValues<uint8_t>(2, /*absolute_offset=*/0);
-//            const int64_t length = offsets[row + 1] - offsets[row];
-//            value = util::string_view(reinterpret_cast<const char*>(data +
-//            offsets[row]), length);
-
-// only number types needs to be handled for Fixed sized primitive data types because,
-// internal::GenerateTypeAgnosticPrimitive forwards types to the corresponding unsigned
-// int type
 template <typename Type>
 struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
   using OffsetType = typename TypeTraits<Type>::OffsetType::c_type;
@@ -483,8 +466,6 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
   //  AAA
   static Status Call(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
                      const ArrayData& right, ArrayData* out) {
-    // first calculate the space needed for the output data buffer, by traversing the
-    // cond.data array
     const uint8_t* cond_data = cond.buffers[1]->data();
     BitBlockCounter bit_counter(cond_data, cond.offset, cond.length);
 
@@ -517,26 +498,28 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
         // from left
         bytes_written = left_offsets[offset + block.length] - left_offsets[offset];
         std::memcpy(out_data, left_data + left_offsets[offset], bytes_written);
-        // normalize the out_offsets by reducing start offset
-        // offset - cond.offset + 1 --> [1, cond.length + 1)
-        std::transform(left_offsets + offset, left_offsets + offset + block.length + 1,
-                       out_offsets + offset - cond.offset + 1,
-                       [&](const OffsetType& src_offset) {
-                         return out_offsets[offset - cond.offset] + src_offset -
-                                left_offsets[offset];
-                       });
+        // normalize the out_offsets by reducing input start offset, and adding the
+        // offset upto the word
+        // offset - cond.offset --> [0, cond.length + 1)
+        std::transform(
+            left_offsets + offset + 1, left_offsets + offset + block.length + 1,
+            out_offsets + offset - cond.offset + 1, [&](const OffsetType& src_offset) {
+              return src_offset + out_offsets[offset - cond.offset] -
+                     left_offsets[offset];
+            });
       } else if (block.NoneSet()) {
         // from right
         bytes_written = right_offsets[offset + block.length] - right_offsets[offset];
         std::memcpy(out_data, right_data + right_offsets[offset], bytes_written);
-        // normalize the out_offsets by reducing start offset
-        // (offset - cond.offset + 1) is [1, cond.length + 1)
-        std::transform(right_offsets + offset, right_offsets + offset + block.length + 1,
-                       out_offsets + offset - cond.offset + 1,
-                       [&](const OffsetType& src_offset) {
-                         return out_offsets[offset - cond.offset] + src_offset -
-                                right_offsets[offset];
-                       });
+        // normalize the out_offsets by reducing input start offset, and adding the
+        // offset upto the word
+        // offset - cond.offset --> [0, cond.length + 1)
+        std::transform(
+            right_offsets + offset + 1, right_offsets + offset + block.length + 1,
+            out_offsets + offset - cond.offset + 1, [&](const OffsetType& src_offset) {
+              return src_offset + out_offsets[offset - cond.offset] -
+                     right_offsets[offset];
+            });
       } else if (block.popcount) {  // selectively copy from left
         for (auto i = 0; i < block.length; ++i) {
           OffsetType current_length;
