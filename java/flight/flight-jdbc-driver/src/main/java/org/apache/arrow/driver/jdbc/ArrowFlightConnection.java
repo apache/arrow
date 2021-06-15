@@ -92,6 +92,10 @@ public class ArrowFlightConnection extends AvaticaConnection {
     }
   }
 
+  protected final ArrowFlightClientHandler getClient() {
+    return client;
+  }
+
   /**
    * Sets {@link #client} based on the properties of this connection.
    *

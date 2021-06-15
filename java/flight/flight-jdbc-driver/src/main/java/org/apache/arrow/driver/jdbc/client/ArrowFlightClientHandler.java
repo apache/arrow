@@ -18,16 +18,13 @@
 package org.apache.arrow.driver.jdbc.client;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 
 import javax.annotation.Nullable;
 
 import org.apache.arrow.driver.jdbc.client.utils.ClientAuthenticationUtils;
-import org.apache.arrow.flight.FlightClient;
-import org.apache.arrow.flight.FlightInfo;
-import org.apache.arrow.flight.FlightStream;
-import org.apache.arrow.flight.HeaderCallOption;
-import org.apache.arrow.flight.Location;
+import org.apache.arrow.flight.*;
 import org.apache.arrow.flight.auth2.ClientBearerHeaderHandler;
 import org.apache.arrow.flight.auth2.ClientIncomingAuthHeaderMiddleware;
 import org.apache.arrow.flight.grpc.CredentialCallOption;
@@ -110,19 +107,27 @@ public class ArrowFlightClientHandler implements FlightClientHandler {
    * @return a {@link FlightInfo} object.
    */
   protected FlightInfo getInfo(final String query) {
-    return null;
+    return client.getInfo(FlightDescriptor.command(query.getBytes(StandardCharsets.UTF_8)),
+            token);
   }
 
   @Override
   public VectorSchemaRoot runQuery(final String query) throws Exception {
-    // TODO Auto-generated method stub
-    return null;
+
+    try (FlightStream stream = getStream(query)) {
+
+      if (!stream.next()) {
+        return null;
+      }
+
+      return stream.getRoot();
+    }
   }
 
   @Override
   public FlightStream getStream(final String query) {
-    // TODO Auto-generated method stub
-    return null;
+    return client.getStream(getInfo(query).getEndpoints().get(0).getTicket(),
+            token);
   }
 
   @Override
