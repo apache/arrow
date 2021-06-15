@@ -174,3 +174,15 @@ test_that("unify_schemas", {
     schema(b = double(), c = bool(), k = utf8())
   )
 })
+
+test_that("Schema to C-interface", {
+  schema <- schema(b = double(), c = bool())
+
+  # the new way, with a scan -> RecordBatchReader
+  ptr <- allocate_arrow_schema()
+  on.exit(delete_arrow_schema(ptr))
+
+  schema$export_to_c(ptr)
+  circle <- Schema$import_from_c(ptr)
+  expect_equal(circle, schema)
+})

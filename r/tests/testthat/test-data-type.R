@@ -411,3 +411,15 @@ test_that("FixedSizeBinary", {
   expect_error(fixed_size_binary("four"))
   expect_error(fixed_size_binary(c(2, 4)))
 })
+
+test_that("DataType to C-interface", {
+  datatype <- timestamp("ms", timezone = "Asia/Pyongyang")
+
+  # the new way, with a scan -> RecordBatchReader
+  ptr <- allocate_arrow_schema()
+  on.exit(delete_arrow_schema(ptr))
+
+  datatype$export_to_c(ptr)
+  circle <- DataType$import_from_c(ptr)
+  expect_equal(circle, datatype)
+})

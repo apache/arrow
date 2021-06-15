@@ -39,7 +39,8 @@ DataType <- R6Class("DataType",
     },
     fields = function() {
       DataType__fields(self)
-    }
+    },
+    export_to_c = function(ptr) ExportType(self, ptr)
   ),
 
   active = list(
@@ -48,6 +49,8 @@ DataType <- R6Class("DataType",
     num_fields = function() DataType__num_fields(self)
   )
 )
+
+DataType$import_from_c <- function(ptr) ImportType(ptr)
 
 INTEGER_TYPES <- as.character(outer(c("uint", "int"), c(8, 16, 32, 64), paste0))
 FLOAT_TYPES <- c("float16", "float32", "float64", "halffloat", "float", "double")

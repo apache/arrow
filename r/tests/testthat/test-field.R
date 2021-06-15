@@ -36,3 +36,15 @@ test_that("Print method for field", {
     "Field\nzz: dictionary<values=string, indices=int32>"
   )
 })
+
+test_that("Field to C-interface", {
+  field <- field("x", time32("s"))
+
+  # the new way, with a scan -> RecordBatchReader
+  ptr <- allocate_arrow_schema()
+  on.exit(delete_arrow_schema(ptr))
+
+  field$export_to_c(ptr)
+  circle <- Field$import_from_c(ptr)
+  expect_equal(circle, field)
+})

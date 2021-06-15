@@ -88,23 +88,23 @@
 #' my_array <- Array$create(1:10)
 #' my_array$type
 #' my_array$cast(int8())
-#' 
+#'
 #' # Check if value is null; zero-indexed
 #' na_array <- Array$create(c(1:5, NA))
 #' na_array$IsNull(0)
 #' na_array$IsNull(5)
 #' na_array$IsValid(5)
 #' na_array$null_count
-#' 
+#'
 #' # zero-copy slicing; the offset of the new Array will be the same as the index passed to $Slice
 #' new_array <- na_array$Slice(5)
 #' new_array$offset
-#' 
+#'
 #' # Compare 2 arrays
 #' na_array2 = na_array
 #' na_array2 == na_array # element-wise comparison
-#' na_array2$Equals(na_array) # overall comparison 
-#' 
+#' na_array2$Equals(na_array) # overall comparison
+#'
 #' @export
 Array <- R6Class("Array",
   inherit = ArrowDatum,
@@ -167,7 +167,8 @@ Array <- R6Class("Array",
     View = function(type) {
       Array$create(Array__View(self, as_type(type)))
     },
-    Validate = function() Array__Validate(self)
+    Validate = function() Array__Validate(self),
+    export_to_c = function(array_ptr, schema_ptr) ExportArray(self, array_ptr, schema_ptr)
   ),
   active = list(
     null_count = function() Array__null_count(self),
@@ -187,6 +188,9 @@ Array$create <- function(x, type = NULL) {
     return(out)
   }
   vec_to_arrow(x, type)
+}
+Array$import_from_c <- function(array_ptr, schema_ptr) {
+  ImportArray(array_ptr, schema_ptr)
 }
 
 #' @rdname array

@@ -112,7 +112,8 @@ Schema <- R6Class("Schema",
     },
     Equals = function(other, check_metadata = FALSE, ...) {
       inherits(other, "Schema") && Schema__Equals(self, other, isTRUE(check_metadata))
-    }
+    },
+    export_to_c = function(ptr) ExportSchema(self, ptr)
   ),
   active = list(
     names = function() {
@@ -136,6 +137,7 @@ Schema <- R6Class("Schema",
   )
 )
 Schema$create <- function(...) schema_(.fields(list2(...)))
+Schema$import_from_c <- function(ptr) ImportSchema(ptr)
 
 prepare_key_value_metadata <- function(metadata) {
   # key-value-metadata must be a named character vector;
