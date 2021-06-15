@@ -21,7 +21,9 @@
 #include <vector>
 
 #include "arrow/status.h"
+#include "arrow/util/functional.h"
 #include "arrow/util/thread_pool.h"
+#include "arrow/util/vector.h"
 
 namespace arrow {
 namespace internal {
@@ -44,6 +46,21 @@ Status ParallelFor(int num_tasks, FUNCTION&& func,
   return st;
 }
 
+template <class FUNCTION, typename T,
+          typename R = typename internal::call_traits::return_type<FUNCTION>::ValueType>
+Future<std::vector<R>> ParallelForAsync(
+    std::vector<T> inputs, FUNCTION&& func,
+    Executor* executor = internal::GetCpuThreadPool()) {
+  std::vector<Future<R>> futures(inputs.size());
+  for (size_t i = 0; i < inputs.size(); ++i) {
+    ARROW_ASSIGN_OR_RAISE(futures[i], executor->Submit(func, i, std::move(inputs[i])));
+  }
+  return All(std::move(futures))
+      .Then([](const std::vector<Result<R>>& results) -> Result<std::vector<R>> {
+        return UnwrapOrRaise(results);
+      });
+}
+
 // A parallelizer that takes a `Status(int)` function and calls it with
 // arguments between 0 and `num_tasks - 1`, in sequence or in parallel,
 // depending on the input boolean.
@@ -58,6 +75,26 @@ Status OptionalParallelFor(bool use_threads, int num_tasks, FUNCTION&& func,
       RETURN_NOT_OK(func(i));
     }
     return Status::OK();
+  }
+}
+
+// A parallelizer that takes a `Result<R>(int index, T item)` function and
+// calls it with each item from the input array, in sequence or in parallel,
+// depending on the input boolean.
+
+template <class FUNCTION, typename T,
+          typename R = typename internal::call_traits::return_type<FUNCTION>::ValueType>
+Future<std::vector<R>> OptionalParallelForAsync(
+    bool use_threads, std::vector<T> inputs, FUNCTION&& func,
+    Executor* executor = internal::GetCpuThreadPool()) {
+  if (use_threads) {
+    return ParallelForAsync(std::move(inputs), std::forward<FUNCTION>(func), executor);
+  } else {
+    std::vector<R> result(inputs.size());
+    for (size_t i = 0; i < inputs.size(); ++i) {
+      ARROW_ASSIGN_OR_RAISE(result[i], func(i, inputs[i]));
+    }
+    return result;
   }
 }
 

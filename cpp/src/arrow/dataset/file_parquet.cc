@@ -362,11 +362,7 @@ Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
             parquet_scan_options->arrow_reader_properties->cache_options());
         arrow_properties.set_io_context(
             parquet_scan_options->arrow_reader_properties->io_context());
-        // TODO: ARROW-12597 will let us enable parallel conversion
-        if (!options->use_threads) {
-          arrow_properties.set_use_threads(
-              parquet_scan_options->enable_parallel_column_conversion);
-        }
+        arrow_properties.set_use_threads(options->use_threads);
         std::unique_ptr<parquet::arrow::FileReader> arrow_reader;
         RETURN_NOT_OK(parquet::arrow::FileReader::Make(options->pool, std::move(reader),
                                                        std::move(arrow_properties),
