@@ -42,7 +42,7 @@ public class ArrowFlightJdbcFactory implements AvaticaFactory {
     this(4, 1);
   }
 
-  public ArrowFlightJdbcFactory(final int major, final int minor) {
+  private ArrowFlightJdbcFactory(final int major, final int minor) {
     this.major = major;
     this.minor = minor;
   }
@@ -88,7 +88,9 @@ public class ArrowFlightJdbcFactory implements AvaticaFactory {
       final Meta.Signature signature,
       final TimeZone timeZone,
       final Meta.Frame frame) throws SQLException {
-    return null;
+    final ResultSetMetaData metaData = newResultSetMetaData(statement, signature);
+
+    return new ArrowFlightResultSet(statement, state, signature, metaData, timeZone, frame);
   }
 
   @Override
