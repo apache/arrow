@@ -149,7 +149,7 @@ public class ConnectionTest {
 
     try (Connection connection = DriverManager
         .getConnection(invalidUrl, properties)) {
-      assert connection.isValid(300);
+      // Shouldn't reach this since we are expecting an Exception.
     }
   }
 
