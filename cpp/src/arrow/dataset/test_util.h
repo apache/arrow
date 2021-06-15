@@ -310,6 +310,7 @@ class DatasetFixtureMixinWithParam : public DatasetFixtureMixin,
 
 struct TestFormatParams {
   bool use_async;
+  bool use_threads;
   int num_batches;
   int items_per_batch;
 
@@ -318,7 +319,8 @@ struct TestFormatParams {
   std::string ToString() const {
     // GTest requires this to be alphanumeric
     std::stringstream ss;
-    ss << (use_async ? "Async" : "Sync") << num_batches << "b" << items_per_batch << "r";
+    ss << (use_async ? "Async" : "Sync") << (use_threads ? "Threaded" : "Serial")
+       << num_batches << "b" << items_per_batch << "r";
     return ss.str();
   }
 
@@ -328,8 +330,12 @@ struct TestFormatParams {
   }
 
   static std::vector<TestFormatParams> Values() {
-    std::vector<TestFormatParams> values{{/*async=*/false, 16, 1024},
-                                         {/*async=*/true, 16, 1024}};
+    std::vector<TestFormatParams> values;
+    for (const bool async : std::vector<bool>{true, false}) {
+      for (const bool use_threads : std::vector<bool>{true, false}) {
+        values.push_back(TestFormatParams{async, use_threads, 16, 1024});
+      }
+    }
     return values;
   }
 };
@@ -511,6 +517,7 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
     auto dataset = std::make_shared<FragmentDataset>(schema, FragmentVector{fragment});
     ScannerBuilder builder(dataset, opts_);
     ARROW_EXPECT_OK(builder.UseAsync(GetParam().use_async));
+    ARROW_EXPECT_OK(builder.UseThreads(GetParam().use_threads));
     EXPECT_OK_AND_ASSIGN(auto scanner, builder.Finish());
     EXPECT_OK_AND_ASSIGN(auto batch_it, scanner->ScanBatches());
     return MakeMapIterator([](TaggedRecordBatch tagged) { return tagged.record_batch; },
@@ -519,6 +526,7 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
 
   // Scan the fragment directly, without using the scanner.
   RecordBatchIterator PhysicalBatches(std::shared_ptr<Fragment> fragment) {
+    opts_->use_threads = GetParam().use_threads;
     if (GetParam().use_async) {
       EXPECT_OK_AND_ASSIGN(auto batch_gen, fragment->ScanBatchesAsync(opts_));
       EXPECT_OK_AND_ASSIGN(auto batch_it, MakeGeneratorIterator(std::move(batch_gen)));

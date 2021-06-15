@@ -54,6 +54,7 @@
 #include "arrow/util/string.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/ubsan.h"
+#include "arrow/util/vector.h"
 #include "arrow/visitor_inline.h"
 
 #include "generated/File_generated.h"  // IWYU pragma: export
@@ -1368,12 +1369,10 @@ Future<IpcFileRecordBatchGenerator::Item> IpcFileRecordBatchGenerator::operator(
     auto read_messages = All(std::move(messages));
     if (executor_) read_messages = executor_->Transfer(read_messages);
     read_dictionaries_ = read_messages.Then(
-        [=](const std::vector<Result<std::shared_ptr<Message>>> maybe_messages)
+        [=](const std::vector<Result<std::shared_ptr<Message>>>& maybe_messages)
             -> Status {
-          std::vector<std::shared_ptr<Message>> messages(state->num_dictionaries());
-          for (size_t i = 0; i < messages.size(); i++) {
-            ARROW_ASSIGN_OR_RAISE(messages[i], maybe_messages[i]);
-          }
+          ARROW_ASSIGN_OR_RAISE(auto messages,
+                                arrow::internal::UnwrapOrRaise(maybe_messages));
           return ReadDictionaries(state.get(), std::move(messages));
         });
   }
