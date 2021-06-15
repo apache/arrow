@@ -1294,6 +1294,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-docs
       args:
+        r: ${R}
         jdk: ${JDK}
         node: ${NODE}
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
