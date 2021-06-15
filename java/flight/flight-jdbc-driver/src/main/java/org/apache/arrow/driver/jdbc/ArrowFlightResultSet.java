@@ -22,6 +22,7 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.TimeZone;
 
+import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.calcite.avatica.AvaticaResultSet;
 import org.apache.calcite.avatica.AvaticaStatement;
 import org.apache.calcite.avatica.Meta.Frame;
@@ -32,6 +33,8 @@ import org.apache.calcite.avatica.QueryState;
  * The {@link ResultSet} implementation for Arrow Flight.
  */
 public class ArrowFlightResultSet extends AvaticaResultSet {
+
+  private VectorSchemaRoot rawData;
 
   ArrowFlightResultSet(final AvaticaStatement statement, final QueryState state,
       final Signature signature,
@@ -44,8 +47,14 @@ public class ArrowFlightResultSet extends AvaticaResultSet {
   protected AvaticaResultSet execute() throws SQLException {
 
     ArrowFlightJdbcCursor cursor = new ArrowFlightJdbcCursor();
-
     super.execute2(cursor, this.signature.columns);
+    try {
+      rawData =
+              ((ArrowFlightConnection) statement.getConnection()).getClient()
+                      .runQuery(signature.sql);
+    } catch (Exception e) {
+      throw new SQLException(e);
+    }
 
     return this;
   }

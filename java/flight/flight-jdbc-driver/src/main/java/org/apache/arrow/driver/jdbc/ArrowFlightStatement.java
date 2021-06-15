@@ -19,7 +19,6 @@ package org.apache.arrow.driver.jdbc;
 
 import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.AvaticaStatement;
-import org.apache.calcite.avatica.Meta.Signature;
 import org.apache.calcite.avatica.Meta.StatementHandle;
 
 /**
@@ -34,7 +33,6 @@ public class ArrowFlightStatement extends AvaticaStatement {
       final int resultSetConcurrency, final int resultSetHoldability) {
     super(connection, handle, resultSetType, resultSetConcurrency,
         resultSetHoldability);
-    this.connection =  (ArrowFlightConnection) connection;
+    this.connection = (ArrowFlightConnection) connection;
   }
-
 }
