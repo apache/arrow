@@ -159,8 +159,7 @@ public class ConnectionTlsTest {
             allocator, flightTestUtils.getLocalhost(), this.tlsServer.getPort(),
             null, noCertificateKeyStorePath,
             noCertificateKeyStorePassword)) {
-
-      assertNotNull(client);
+      // Shouldn't reach this since we are expecting an Exception.
     }
   }
 
@@ -198,8 +197,7 @@ public class ConnectionTlsTest {
             allocator, flightTestUtils.getLocalhost(), this.tlsServer.getPort(),
             null, keyStorePath,
             keyStoreBadPassword)) {
-
-      assertNotNull(client);
+      // Shouldn't reach this since we are expecting an Exception.
     }
   }
 
@@ -245,8 +243,7 @@ public class ConnectionTlsTest {
 
     try (Connection connection = DriverManager
         .getConnection(serverUrl, properties)) {
-
-      assert connection.isValid(300);
+      // Shouldn't reach this since we are expecting an Exception.
     }
   }
 
