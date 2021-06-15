@@ -31,6 +31,7 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.UnionVector;
+import org.apache.arrow.vector.complex.VectorWithOrdinal;
 import org.apache.arrow.vector.complex.impl.UnionWriter;
 import org.apache.arrow.vector.holders.NullableBitHolder;
 import org.apache.arrow.vector.holders.NullableFloat4Holder;
@@ -392,6 +393,19 @@ public class TestUnionVector {
     vector.initializeChildrenFromFields(children);
 
     assertTrue(vector.getField().equals(field));
+
+    // Union has 2 child vectors
+    assertEquals(vector.size(), 2);
+
+    // Check child field 0
+    VectorWithOrdinal intChild = vector.getChildVectorWithOrdinal("int");
+    assertEquals(intChild.ordinal, 0);
+    assertEquals(intChild.vector.getField(), children.get(0));
+
+    // Check child field 1
+    VectorWithOrdinal varcharChild = vector.getChildVectorWithOrdinal("varchar");
+    assertEquals(varcharChild.ordinal, 1);
+    assertEquals(varcharChild.vector.getField(), children.get(1));
   }
 
   @Test

@@ -84,10 +84,7 @@ import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
  * each time the vector is accessed.
  * Source code generated using FreeMarker template ${.template_name}
  */
-public class UnionVector implements FieldVector {
-
-  private String name;
-  private BufferAllocator allocator;
+public class UnionVector extends AbstractContainerVector implements FieldVector {
   int valueCount;
 
   NonNullableStructVector internalStruct;
@@ -102,7 +99,6 @@ public class UnionVector implements FieldVector {
   private int singleType = 0;
   private ValueVector singleVector;
 
-  private final CallBack callBack;
   private int typeBufferAllocationSizeInBytes;
 
   private final FieldType fieldType;
@@ -124,8 +120,7 @@ public class UnionVector implements FieldVector {
   }
 
   public UnionVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
-    this.name = name;
-    this.allocator = allocator;
+    super(name, allocator, callBack);
     this.fieldType = fieldType;
     this.internalStruct = new NonNullableStructVector(
         "internal",
@@ -135,7 +130,6 @@ public class UnionVector implements FieldVector {
         AbstractStructVector.ConflictPolicy.CONFLICT_REPLACE,
         false);
     this.typeBuffer = allocator.getEmpty();
-    this.callBack = callBack;
     this.typeBufferAllocationSizeInBytes = BaseValueVector.INITIAL_VALUE_ALLOCATION * TYPE_WIDTH;
   }
 
@@ -500,7 +494,7 @@ public class UnionVector implements FieldVector {
   }
 
   public FieldVector addVector(FieldVector v) {
-    String name = v.getMinorType().name().toLowerCase();
+    final String name = v.getName().isEmpty() ? fieldName(v.getMinorType()) : v.getName();
     Preconditions.checkState(internalStruct.getChild(name) == null, String.format("%s vector already exists", name));
     final FieldVector newVector = internalStruct.addOrGet(name, v.getField().getFieldType(), v.getClass());
     v.makeTransferPair(newVector).transfer();
@@ -515,7 +509,7 @@ public class UnionVector implements FieldVector {
    * Directly put a vector to internalStruct without creating a new one with same type.
    */
   public void directAddVector(FieldVector v) {
-    String name = v.getMinorType().name().toLowerCase();
+    String name = fieldName(v.getMinorType());
     Preconditions.checkState(internalStruct.getChild(name) == null, String.format("%s vector already exists", name));
     internalStruct.putChild(name, v);
     if (callBack != null) {
@@ -824,5 +818,36 @@ public class UnionVector implements FieldVector {
     @Override
     public String toString() {
       return ValueVectorUtility.getToString(this, 0, getValueCount());
+    }
+
+    @Override
+    public <T extends FieldVector> T addOrGet(String name, FieldType fieldType, Class<T> clazz) {
+      return internalStruct.addOrGet(name, fieldType, clazz);
+    }
+
+    @Override
+    public <T extends FieldVector> T getChild(String name, Class<T> clazz) {
+      return internalStruct.getChild(name, clazz);
+    }
+
+    @Override
+    public VectorWithOrdinal getChildVectorWithOrdinal(String name) {
+      return internalStruct.getChildVectorWithOrdinal(name);
+    }
+
+    @Override
+    public int size() {
+      return internalStruct.size();
+    }
+
+    @Override
+    public void setInitialCapacity(int valueCount, double density) {
+      for (final ValueVector vector : internalStruct) {
+        if (vector instanceof DensityAwareVector) {
+          ((DensityAwareVector) vector).setInitialCapacity(valueCount, density);
+        } else {
+          vector.setInitialCapacity(valueCount);
+        }
+      }
     }
 }
