@@ -454,7 +454,9 @@ bool IsDictionaryReadSupported(const ArrowType& type) {
 ::arrow::Result<std::shared_ptr<ArrowType>> GetTypeForNode(
     int column_index, const schema::PrimitiveNode& primitive_node,
     SchemaTreeContext* ctx) {
-  ASSIGN_OR_RAISE(std::shared_ptr<ArrowType> storage_type, GetArrowType(primitive_node));
+  ASSIGN_OR_RAISE(
+      std::shared_ptr<ArrowType> storage_type,
+      GetArrowType(primitive_node, ctx->properties.coerce_int96_timestamp_unit()));
   if (ctx->properties.read_dictionary(column_index) &&
       IsDictionaryReadSupported(*storage_type)) {
     return ::arrow::dictionary(::arrow::int32(), storage_type);
