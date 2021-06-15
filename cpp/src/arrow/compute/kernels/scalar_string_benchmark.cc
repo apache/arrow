@@ -173,7 +173,7 @@ static void BinaryJoinElementWise(benchmark::State& state,
                                   SeparatorFactory make_separator) {
   // Unfortunately benchmark is not 1:1 with BinaryJoin since BinaryJoin can join a
   // varying number of inputs per output
-  const int64_t n_strings = 1000;
+  const int64_t n_strings = 65536;
   const int64_t n_lists = state.range(0);
   const double null_probability = 0.02;
 
