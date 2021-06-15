@@ -496,49 +496,45 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
       OffsetType bytes_written = 0;
       if (block.AllSet()) {
         // from left
-        bytes_written = left_offsets[offset + block.length] - left_offsets[offset];
-        std::memcpy(out_data, left_data + left_offsets[offset], bytes_written);
+        bytes_written = left_offsets[block.length] - left_offsets[0];
+        std::memcpy(out_data, left_data + left_offsets[0], bytes_written);
         // normalize the out_offsets by reducing input start offset, and adding the
         // offset upto the word
-        // offset - cond.offset --> [0, cond.length + 1)
-        std::transform(
-            left_offsets + offset + 1, left_offsets + offset + block.length + 1,
-            out_offsets + offset - cond.offset + 1, [&](const OffsetType& src_offset) {
-              return src_offset + out_offsets[offset - cond.offset] -
-                     left_offsets[offset];
-            });
+        std::transform(left_offsets + 1, left_offsets + block.length + 1, out_offsets + 1,
+                       [&](const OffsetType& src_offset) {
+                         return src_offset - left_offsets[0] + out_offsets[0];
+                       });
       } else if (block.NoneSet()) {
         // from right
-        bytes_written = right_offsets[offset + block.length] - right_offsets[offset];
-        std::memcpy(out_data, right_data + right_offsets[offset], bytes_written);
+        bytes_written = right_offsets[block.length] - right_offsets[0];
+        std::memcpy(out_data, right_data + right_offsets[0], bytes_written);
         // normalize the out_offsets by reducing input start offset, and adding the
         // offset upto the word
-        // offset - cond.offset --> [0, cond.length + 1)
-        std::transform(
-            right_offsets + offset + 1, right_offsets + offset + block.length + 1,
-            out_offsets + offset - cond.offset + 1, [&](const OffsetType& src_offset) {
-              return src_offset + out_offsets[offset - cond.offset] -
-                     right_offsets[offset];
-            });
+        std::transform(right_offsets + 1, right_offsets + block.length + 1,
+                       out_offsets + 1, [&](const OffsetType& src_offset) {
+                         return src_offset - right_offsets[0] + out_offsets[0];
+                       });
       } else if (block.popcount) {  // selectively copy from left
         for (auto i = 0; i < block.length; ++i) {
           OffsetType current_length;
           if (BitUtil::GetBit(cond_data, offset + i)) {
-            current_length = left_offsets[offset + i + 1] - left_offsets[offset + i];
-            std::memcpy(out_data + bytes_written, left_data + left_offsets[offset + i],
+            current_length = left_offsets[i + 1] - left_offsets[i];
+            std::memcpy(out_data + bytes_written, left_data + left_offsets[i],
                         current_length);
           } else {
-            current_length = right_offsets[offset + i + 1] - right_offsets[offset + i];
-            std::memcpy(out_data + bytes_written, right_data + right_offsets[offset + i],
+            current_length = right_offsets[i + 1] - right_offsets[i];
+            std::memcpy(out_data + bytes_written, right_data + right_offsets[i],
                         current_length);
           }
-          out_offsets[offset + i - cond.offset + 1] =
-              out_offsets[offset + i - cond.offset] + current_length;
+          out_offsets[i + 1] = out_offsets[i] + current_length;
           bytes_written += current_length;
         }
       }
 
       offset += block.length;
+      left_offsets += block.length;
+      right_offsets += block.length;
+      out_offsets += block.length;
       out_data += bytes_written;
       total_bytes_written += bytes_written;
     }
@@ -554,39 +550,90 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
   // ASA
   static Status Call(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
                      const ArrayData& right, ArrayData* out) {
-    //    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
-    //                          ctx->Allocate(cond.length * sizeof(T)));
-    //    T* out_values = reinterpret_cast<T*>(out_buf->mutable_data());
-    //
-    //    // copy right data to out_buff
-    //    const T* right_data = right.GetValues<T>(1);
-    //    std::memcpy(out_values, right_data, right.length * sizeof(T));
-    //
-    //    const auto* cond_data = cond.buffers[1]->data();  // this is a BoolArray
+    //    const uint8_t* cond_data = cond.buffers[1]->data();
     //    BitBlockCounter bit_counter(cond_data, cond.offset, cond.length);
     //
-    //    // selectively copy values from left data
-    //    T left_data = internal::UnboxScalar<Type>::Unbox(left);
-    //    int64_t offset = cond.offset;
+    //    const auto casted_left = reinterpret_cast<const BaseBinaryScalar&>(left);
+    //    const uint8_t* left_data = casted_left.value->data();
+    //    int64_t left_size = casted_left.value->size();
+    //    util::basic_string_view<uint8_t> left_view(left_data, left_size);
     //
-    //    // todo this can be improved by intrinsics. ex: _mm*_mask_store_e* (vmovdqa*)
+    //    const auto* right_offsets = right.GetValues<OffsetType>(1);
+    //    const uint8_t* right_data = right.buffers[2]->data();
+    //
+    //    // reserve an additional space
+    //    ARROW_ASSIGN_OR_RAISE(auto out_offset_buf,
+    //                          ctx->Allocate((cond.length + 1) * sizeof(OffsetType)));
+    //    auto* out_offsets =
+    //    reinterpret_cast<OffsetType*>(out_offset_buf->mutable_data()); out_offsets[0] =
+    //    0;
+    //
+    //    // allocate data buffer conservatively
+    //    auto data_buff_alloc =
+    //        left_size * cond.length + (right_offsets[right.length] - right_offsets[0]);
+    //    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ResizableBuffer> out_data_buf,
+    //                          ctx->Allocate(data_buff_alloc));
+    //    uint8_t* out_data = out_data_buf->mutable_data();
+    //
+    //    int64_t offset = cond.offset;
+    //    OffsetType total_bytes_written = 0;
     //    while (offset < cond.offset + cond.length) {
     //      const BitBlockCount& block = bit_counter.NextWord();
-    //      if (block.AllSet()) {  // all from left
-    //        std::fill(out_values, out_values + block.length, left_data);
+    //
+    //      OffsetType bytes_written = 0;
+    //      if (block.AllSet()) {
+    //        // from left
+    //        bytes_written = left_size * block.length;
+    //        for (auto i = 0; i < block.length; i++) {
+    //          std::memcpy(out_data + i * left_size, left_data, left_size);
+    //          out_data_buf[]
+    //        }
+    //      } else if (block.NoneSet()) {
+    //        // from right
+    //        bytes_written = right_offsets[offset + block.length] -
+    //        right_offsets[offset]; std::memcpy(out_data, right_data +
+    //        right_offsets[offset], bytes_written);
+    //        // normalize the out_offsets by reducing input start offset, and adding the
+    //        // offset upto the word
+    //        // offset - cond.offset --> [0, cond.length + 1)
+    //        std::transform(
+    //            right_offsets + offset + 1, right_offsets + offset + block.length + 1,
+    //            out_offsets + offset - cond.offset + 1, [&](const OffsetType&
+    //            src_offset) {
+    //              return src_offset - right_offsets[offset] +
+    //                     out_offsets[offset - cond.offset];
+    //            });
     //      } else if (block.popcount) {  // selectively copy from left
-    //        for (int64_t i = 0; i < block.length; ++i) {
+    //        for (auto i = 0; i < block.length; ++i) {
+    //          OffsetType current_length;
     //          if (BitUtil::GetBit(cond_data, offset + i)) {
-    //            out_values[i] = left_data;
+    //            current_length = left_offsets[offset + i + 1] - left_offsets[offset +
+    //            i]; std::memcpy(out_data + bytes_written, left_data +
+    //            left_offsets[offset + i],
+    //                        current_length);
+    //          } else {
+    //            current_length = right_offsets[offset + i + 1] - right_offsets[offset +
+    //            i]; std::memcpy(out_data + bytes_written, right_data +
+    //            right_offsets[offset + i],
+    //                        current_length);
     //          }
+    //          out_offsets[offset + i - cond.offset + 1] =
+    //              out_offsets[offset + i - cond.offset] + current_length;
+    //          bytes_written += current_length;
     //        }
     //      }
     //
     //      offset += block.length;
-    //      out_values += block.length;
+    //      out_data += bytes_written;
+    //      total_bytes_written += bytes_written;
     //    }
     //
-    //    out->buffers[1] = std::move(out_buf);
+    //    // resize the data buffer
+    //    ARROW_RETURN_NOT_OK(out_data_buf->Resize(total_bytes_written));
+    //
+    //    out->buffers[1] = std::move(out_offset_buf);
+    //    out->buffers[2] = std::move(out_data_buf);
+    //    return Status::OK();
     return Status::OK();
   }
 
