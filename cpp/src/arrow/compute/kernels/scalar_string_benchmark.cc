@@ -174,7 +174,7 @@ static void BinaryJoinElementWise(benchmark::State& state,
   // Unfortunately benchmark is not 1:1 with BinaryJoin since BinaryJoin can join a
   // varying number of inputs per output
   const int64_t n_strings = 1000;
-  const int64_t n_lists = 10;
+  const int64_t n_lists = state.range(0);
   const double null_probability = 0.02;
 
   random::RandomArrayGenerator rng(kSeed);
@@ -234,8 +234,8 @@ BENCHMARK(TrimManyUtf8);
 
 BENCHMARK(BinaryJoinArrayScalar);
 BENCHMARK(BinaryJoinArrayArray);
-BENCHMARK(BinaryJoinElementWiseArrayScalar);
-BENCHMARK(BinaryJoinElementWiseArrayArray);
+BENCHMARK(BinaryJoinElementWiseArrayScalar)->RangeMultiplier(8)->Range(2, 128);
+BENCHMARK(BinaryJoinElementWiseArrayArray)->RangeMultiplier(8)->Range(2, 128);
 
 }  // namespace compute
 }  // namespace arrow
