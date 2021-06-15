@@ -781,7 +781,9 @@ TEST_F(TestS3FS, CopyFile) {
   ASSERT_OK(fs_->CopyFile("bucket/somedir/subdir/subfile", "bucket/newfile"));
   AssertFileInfo(fs_.get(), "bucket/newfile", FileType::File, 8);
   AssertObjectContents(client_.get(), "bucket", "newfile", "sub data");
-
+  // ARROW-13048: URL-encoded paths
+  ASSERT_OK(fs_->CopyFile("bucket/somefile", "bucket/a=2/newfile"));
+  ASSERT_OK(fs_->CopyFile("bucket/a=2/newfile", "bucket/a=3/newfile"));
   // Nonexistent
   ASSERT_RAISES(IOError, fs_->CopyFile("bucket/nonexistent", "bucket/newfile2"));
   ASSERT_RAISES(IOError, fs_->CopyFile("nonexistent-bucket/somefile", "bucket/newfile2"));
@@ -803,6 +805,10 @@ TEST_F(TestS3FS, Move) {
   AssertObjectContents(client_.get(), "bucket", "newfile", "sub data");
   // Source was deleted
   AssertFileInfo(fs_.get(), "bucket/somedir/subdir/subfile", FileType::NotFound);
+
+  // ARROW-13048: URL-encoded paths
+  ASSERT_OK(fs_->Move("bucket/newfile", "bucket/a=2/newfile"));
+  ASSERT_OK(fs_->Move("bucket/a=2/newfile", "bucket/a=3/newfile"));
 
   // Nonexistent
   ASSERT_RAISES(IOError, fs_->Move("bucket/non-existent", "bucket/newfile2"));
