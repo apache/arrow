@@ -455,6 +455,238 @@ struct IfElseFunctor<Type, enable_if_number<Type>> {
   }
 };
 
+// const int32_t* offsets = reinterpret_cast<const
+// int32_t*>(strings_data.buffer[1]->data()) +
+//    strings_data.offset;
+// const uint8_t* bytes = strings_data.buffer[2]->data();
+//
+// const int32_t& first_offset = offsets[0];
+// const uint8_t& first_byte = bytes[first_offset];
+
+//             const offset_type* offsets = array.GetValues<offset_type>(1);
+//            const uint8_t* data = array.GetValues<uint8_t>(2, /*absolute_offset=*/0);
+//            const int64_t length = offsets[row + 1] - offsets[row];
+//            value = util::string_view(reinterpret_cast<const char*>(data +
+//            offsets[row]), length);
+
+// only number types needs to be handled for Fixed sized primitive data types because,
+// internal::GenerateTypeAgnosticPrimitive forwards types to the corresponding unsigned
+// int type
+template <typename Type>
+struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
+  using OffsetType = typename TypeTraits<Type>::OffsetType::c_type;
+  using ArrayType = typename TypeTraits<Type>::ArrayType;
+
+  // A - Array
+  // S - Scalar
+
+  //  AAA
+  static Status Call(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
+                     const ArrayData& right, ArrayData* out) {
+    // first calculate the space needed for the output data buffer, by traversing the
+    // cond.data array
+    const uint8_t* cond_data = cond.buffers[1]->data();
+    BitBlockCounter bit_counter(cond_data, cond.offset, cond.length);
+
+    const auto* left_offsets = left.GetValues<OffsetType>(1);
+    const uint8_t* left_data = left.buffers[2]->data();
+    const auto* right_offsets = right.GetValues<OffsetType>(1);
+    const uint8_t* right_data = right.buffers[2]->data();
+
+    // reserve an additional space
+    ARROW_ASSIGN_OR_RAISE(auto out_offset_buf,
+                          ctx->Allocate((cond.length + 1) * sizeof(OffsetType)));
+    auto* out_offsets = reinterpret_cast<OffsetType*>(out_offset_buf->mutable_data());
+    out_offsets[0] = 0;
+
+    // allocate data buffer conservatively
+    auto data_buff_alloc =
+        static_cast<int64_t>((left_offsets[left.length] - left_offsets[0]) +
+                             (right_offsets[right.length] - right_offsets[0]));
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ResizableBuffer> out_data_buf,
+                          ctx->Allocate(data_buff_alloc));
+    uint8_t* out_data = out_data_buf->mutable_data();
+
+    int64_t offset = cond.offset;
+    OffsetType total_bytes_written = 0;
+    while (offset < cond.offset + cond.length) {
+      const BitBlockCount& block = bit_counter.NextWord();
+
+      OffsetType bytes_written = 0;
+      if (block.AllSet()) {
+        // from left
+        bytes_written = left_offsets[offset + block.length] - left_offsets[offset];
+        std::memcpy(out_data, left_data + left_offsets[offset], bytes_written);
+        // normalize the out_offsets by reducing start offset
+        // offset - cond.offset + 1 --> [1, cond.length + 1)
+        std::transform(left_offsets + offset, left_offsets + offset + block.length + 1,
+                       out_offsets + offset - cond.offset + 1,
+                       [&](const OffsetType& src_offset) {
+                         return out_offsets[offset - cond.offset] + src_offset -
+                                left_offsets[offset];
+                       });
+      } else if (block.NoneSet()) {
+        // from right
+        bytes_written = right_offsets[offset + block.length] - right_offsets[offset];
+        std::memcpy(out_data, right_data + right_offsets[offset], bytes_written);
+        // normalize the out_offsets by reducing start offset
+        // (offset - cond.offset + 1) is [1, cond.length + 1)
+        std::transform(right_offsets + offset, right_offsets + offset + block.length + 1,
+                       out_offsets + offset - cond.offset + 1,
+                       [&](const OffsetType& src_offset) {
+                         return out_offsets[offset - cond.offset] + src_offset -
+                                right_offsets[offset];
+                       });
+      } else if (block.popcount) {  // selectively copy from left
+        for (auto i = 0; i < block.length; ++i) {
+          OffsetType current_length;
+          if (BitUtil::GetBit(cond_data, offset + i)) {
+            current_length = left_offsets[offset + i + 1] - left_offsets[offset + i];
+            std::memcpy(out_data + bytes_written, left_data + left_offsets[offset + i],
+                        current_length);
+          } else {
+            current_length = right_offsets[offset + i + 1] - right_offsets[offset + i];
+            std::memcpy(out_data + bytes_written, right_data + right_offsets[offset + i],
+                        current_length);
+          }
+          out_offsets[offset + i - cond.offset + 1] =
+              out_offsets[offset + i - cond.offset] + current_length;
+          bytes_written += current_length;
+        }
+      }
+
+      offset += block.length;
+      out_data += bytes_written;
+      total_bytes_written += bytes_written;
+    }
+
+    // resize the data buffer
+    ARROW_RETURN_NOT_OK(out_data_buf->Resize(total_bytes_written));
+
+    out->buffers[1] = std::move(out_offset_buf);
+    out->buffers[2] = std::move(out_data_buf);
+    return Status::OK();
+  }
+
+  // ASA
+  static Status Call(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
+                     const ArrayData& right, ArrayData* out) {
+    //    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
+    //                          ctx->Allocate(cond.length * sizeof(T)));
+    //    T* out_values = reinterpret_cast<T*>(out_buf->mutable_data());
+    //
+    //    // copy right data to out_buff
+    //    const T* right_data = right.GetValues<T>(1);
+    //    std::memcpy(out_values, right_data, right.length * sizeof(T));
+    //
+    //    const auto* cond_data = cond.buffers[1]->data();  // this is a BoolArray
+    //    BitBlockCounter bit_counter(cond_data, cond.offset, cond.length);
+    //
+    //    // selectively copy values from left data
+    //    T left_data = internal::UnboxScalar<Type>::Unbox(left);
+    //    int64_t offset = cond.offset;
+    //
+    //    // todo this can be improved by intrinsics. ex: _mm*_mask_store_e* (vmovdqa*)
+    //    while (offset < cond.offset + cond.length) {
+    //      const BitBlockCount& block = bit_counter.NextWord();
+    //      if (block.AllSet()) {  // all from left
+    //        std::fill(out_values, out_values + block.length, left_data);
+    //      } else if (block.popcount) {  // selectively copy from left
+    //        for (int64_t i = 0; i < block.length; ++i) {
+    //          if (BitUtil::GetBit(cond_data, offset + i)) {
+    //            out_values[i] = left_data;
+    //          }
+    //        }
+    //      }
+    //
+    //      offset += block.length;
+    //      out_values += block.length;
+    //    }
+    //
+    //    out->buffers[1] = std::move(out_buf);
+    return Status::OK();
+  }
+
+  // AAS
+  static Status Call(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
+                     const Scalar& right, ArrayData* out) {
+    //    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
+    //                          ctx->Allocate(cond.length * sizeof(T)));
+    //    T* out_values = reinterpret_cast<T*>(out_buf->mutable_data());
+    //
+    //    // copy left data to out_buff
+    //    const T* left_data = left.GetValues<T>(1);
+    //    std::memcpy(out_values, left_data, left.length * sizeof(T));
+    //
+    //    const auto* cond_data = cond.buffers[1]->data();  // this is a BoolArray
+    //    BitBlockCounter bit_counter(cond_data, cond.offset, cond.length);
+    //
+    //    // selectively copy values from left data
+    //    T right_data = internal::UnboxScalar<Type>::Unbox(right);
+    //    int64_t offset = cond.offset;
+    //
+    //    // todo this can be improved by intrinsics. ex: _mm*_mask_store_e* (vmovdqa*)
+    //    // left data is already in the output buffer. Therefore, mask needs to be
+    //    inverted while (offset < cond.offset + cond.length) {
+    //      const BitBlockCount& block = bit_counter.NextWord();
+    //      if (block.NoneSet()) {  // all from right
+    //        std::fill(out_values, out_values + block.length, right_data);
+    //      } else if (block.popcount) {  // selectively copy from right
+    //        for (int64_t i = 0; i < block.length; ++i) {
+    //          if (!BitUtil::GetBit(cond_data, offset + i)) {
+    //            out_values[i] = right_data;
+    //          }
+    //        }
+    //      }
+    //
+    //      offset += block.length;
+    //      out_values += block.length;
+    //    }
+    //
+    //    out->buffers[1] = std::move(out_buf);
+    return Status::OK();
+  }
+
+  // ASS
+  static Status Call(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
+                     const Scalar& right, ArrayData* out) {
+    //    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
+    //                          ctx->Allocate(cond.length * sizeof(T)));
+    //    T* out_values = reinterpret_cast<T*>(out_buf->mutable_data());
+    //
+    //    // copy right data to out_buff
+    //    T right_data = internal::UnboxScalar<Type>::Unbox(right);
+    //    std::fill(out_values, out_values + cond.length, right_data);
+    //
+    //    const auto* cond_data = cond.buffers[1]->data();  // this is a BoolArray
+    //    BitBlockCounter bit_counter(cond_data, cond.offset, cond.length);
+    //
+    //    // selectively copy values from left data
+    //    T left_data = internal::UnboxScalar<Type>::Unbox(left);
+    //    int64_t offset = cond.offset;
+    //
+    //    // todo this can be improved by intrinsics. ex: _mm*_mask_store_e* (vmovdqa*)
+    //    while (offset < cond.offset + cond.length) {
+    //      const BitBlockCount& block = bit_counter.NextWord();
+    //      if (block.AllSet()) {  // all from left
+    //        std::fill(out_values, out_values + block.length, left_data);
+    //      } else if (block.popcount) {  // selectively copy from left
+    //        for (int64_t i = 0; i < block.length; ++i) {
+    //          if (BitUtil::GetBit(cond_data, offset + i)) {
+    //            out_values[i] = left_data;
+    //          }
+    //        }
+    //      }
+    //
+    //      offset += block.length;
+    //      out_values += block.length;
+    //    }
+    //
+    //    out->buffers[1] = std::move(out_buf);
+    return Status::OK();
+  }
+};
+
 template <typename Type>
 struct IfElseFunctor<Type, enable_if_boolean<Type>> {
   // A - Array, S - Scalar, X = Array/Scalar
@@ -676,6 +908,19 @@ void AddPrimitiveIfElseKernels(const std::shared_ptr<ScalarFunction>& scalar_fun
   }
 }
 
+void AddBinaryIfElseKernels(const std::shared_ptr<IfElseFunction>& scalar_function,
+                            const std::vector<std::shared_ptr<DataType>>& types) {
+  for (auto&& type : types) {
+    auto exec = internal::GenerateTypeAgnosticVarBinaryBase<ResolveIfElseExec>(*type);
+    // cond array needs to be boolean always
+    ScalarKernel kernel({boolean(), type, type}, type, exec);
+    kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+    kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+
+    DCHECK_OK(scalar_function->AddKernel(std::move(kernel)));
+  }
+}
+
 }  // namespace
 
 const FunctionDoc if_else_doc{"Choose values based on a condition",
@@ -698,7 +943,7 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
   AddPrimitiveIfElseKernels(func, TemporalTypes());
   AddPrimitiveIfElseKernels(func, {boolean()});
   AddNullIfElseKernel(func);
-  // todo add binary kernels
+  AddBinaryIfElseKernels(func, BaseBinaryTypes());
 
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }

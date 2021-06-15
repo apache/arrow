@@ -316,5 +316,57 @@ TEST_F(TestIfElseKernel, IfElseDispatchBest) {
   CheckDispatchBest(name, {null(), uint8(), int8()}, {boolean(), int16(), int16()});
 }
 
+template <typename Type>
+class TestIfElseBaseBinary : public ::testing::Test {};
+
+using BaseBinaryTypes =
+    ::testing::Types<StringType, LargeStringType, BinaryType, LargeBinaryType>;
+
+TYPED_TEST_SUITE(TestIfElseBaseBinary, BaseBinaryTypes);
+
+TYPED_TEST(TestIfElseBaseBinary, IfElseFixedSize) {
+  auto type = TypeTraits<TypeParam>::type_singleton();
+
+  CheckIfElseOutput(ArrayFromJSON(boolean(), "[true, true, true, false]"),
+                    ArrayFromJSON(type, R"(["a", "ab", "abc", "abcd"])"),
+                    ArrayFromJSON(type, R"(["lmno", "lmn", "lm", "l"])"),
+                    ArrayFromJSON(type, R"(["a", "ab", "abc", "l"])"));
+
+  CheckIfElseOutput(ArrayFromJSON(boolean(), R"([true, true, true, false])"),
+                    ArrayFromJSON(type, R"(["a", "ab", "abc", "abcd"])"),
+                    ArrayFromJSON(type, R"(["lmno", "lmn", "lm", null])"),
+                    ArrayFromJSON(type, R"(["a", "ab", "abc", null])"));
+
+  CheckIfElseOutput(ArrayFromJSON(boolean(), R"([true, true, true, false])"),
+                    ArrayFromJSON(type, R"(["a", "ab", null, "abcd"])"),
+                    ArrayFromJSON(type, R"(["lmno", "lmn", "lm", null])"),
+                    ArrayFromJSON(type, R"(["a", "ab", null, null])"));
+
+  CheckIfElseOutput(ArrayFromJSON(boolean(), R"([true, true, true, false])"),
+                    ArrayFromJSON(type, R"(["a", "ab", null, "abcd"])"),
+                    ArrayFromJSON(type, R"(["lmno", "lmn", "lm", "l"])"),
+                    ArrayFromJSON(type, R"(["a", "ab", null, "l"])"));
+
+  CheckIfElseOutput(ArrayFromJSON(boolean(), R"([null, true, true, false])"),
+                    ArrayFromJSON(type, R"(["a", "ab", null, "abcd"])"),
+                    ArrayFromJSON(type, R"(["lmno", "lmn", "lm", "l"])"),
+                    ArrayFromJSON(type, R"([null, "ab", null, "l"])"));
+
+  CheckIfElseOutput(ArrayFromJSON(boolean(), R"([null, true, true, false])"),
+                    ArrayFromJSON(type, R"(["a", "ab", null, "abcd"])"),
+                    ArrayFromJSON(type, R"(["lmno", "lmn", "lm", null])"),
+                    ArrayFromJSON(type, R"([null, "ab", null, null])"));
+
+  CheckIfElseOutput(ArrayFromJSON(boolean(), R"([null, true, true, false])"),
+                    ArrayFromJSON(type, R"(["a", "ab", "abc", "abcd"])"),
+                    ArrayFromJSON(type, R"(["lmno", "lmn", "lm", null])"),
+                    ArrayFromJSON(type, R"([null, "ab", "abc", null])"));
+
+  CheckIfElseOutput(ArrayFromJSON(boolean(), R"([null, true, true, false])"),
+                    ArrayFromJSON(type, R"(["a", "ab", "abc", "abcd"])"),
+                    ArrayFromJSON(type, R"(["lmno", "lmn", "lm", "l"])"),
+                    ArrayFromJSON(type, R"([null, "ab", "abc", "l"])"));
+}
+
 }  // namespace compute
 }  // namespace arrow
