@@ -147,7 +147,6 @@ public class ConnectionTest {
     properties.put("password", flightTestUtils.getPassword1());
     String invalidUrl = flightTestUtils.getConnectionPrefix();
 
-
     try (Connection connection = DriverManager
         .getConnection(invalidUrl, properties)) {
       assert connection.isValid(300);
