@@ -35,4 +35,13 @@ public class ArrowFlightStatement extends AvaticaStatement {
     this.connection =  (ArrowFlightConnection) connection;
   }
 
+  @Override
+  protected AvaticaResultSet execute() throws SQLException {
+
+    ArrowFlightJdbcCursor cursor = new ArrowFlightJdbcCursor();
+
+    super.execute2(cursor, this.signature.columns);
+
+    return this;
+  }
 }
