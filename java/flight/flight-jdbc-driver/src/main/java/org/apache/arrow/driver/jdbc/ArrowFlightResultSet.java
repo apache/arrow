@@ -18,6 +18,7 @@
 package org.apache.arrow.driver.jdbc;
 
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.TimeZone;
 
@@ -32,12 +33,11 @@ import org.apache.calcite.avatica.QueryState;
  */
 public class ArrowFlightResultSet extends AvaticaResultSet {
 
-  public ArrowFlightResultSet(final AvaticaStatement statement, final QueryState state,
+  ArrowFlightResultSet(final AvaticaStatement statement, final QueryState state,
       final Signature signature,
-      final ArrowFlightResultSetMetadata resultSetMetaData,
+      final ResultSetMetaData resultSetMetaData,
       final TimeZone timeZone, final Frame firstFrame) throws SQLException {
     super(statement, state, signature, resultSetMetaData, timeZone, firstFrame);
-    // TODO Auto-generated constructor stub
   }
 
   @Override
