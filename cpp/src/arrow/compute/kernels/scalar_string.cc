@@ -3408,6 +3408,7 @@ struct BinaryJoinElementWise {
       buf = std::copy(s.begin(), s.end(), buf);
     }
     output->is_valid = true;
+    DCHECK_EQ(final_size, buf - output->value->mutable_data());
     return Status::OK();
   }
 
@@ -3492,6 +3493,8 @@ struct BinaryJoinElementWise {
     *out = *string_array->data();
     out->mutable_array()->type = batch[0].type();
     DCHECK_EQ(batch.length, out->array()->length);
+    DCHECK_EQ(final_size,
+              checked_cast<const ArrayType&>(*string_array).total_values_length());
     return Status::OK();
   }
 
