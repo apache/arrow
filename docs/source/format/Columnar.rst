@@ -1020,8 +1020,7 @@ At the end of the file, we write a *footer* containing a redundant copy of
 the schema (which is a part of the streaming format) plus memory offsets and
 sizes for each of the data blocks in the file. This enables random access to
 any record batch in the file. See `File.fbs`_ for the precise details of the
-file footer.  We recommend the ".arrow" extension for files created with this
-format.
+file footer.
 
 Schematically we have: ::
 
@@ -1038,7 +1037,8 @@ should be defined in a ``DictionaryBatch`` before they are used in a
 file. Further more, it is invalid to have more than one **non-delta**
 dictionary batch per dictionary ID (i.e. dictionary replacement is not
 supported).  Delta dictionaries are applied in the order they appear in
-the file footer.
+the file footer.  We recommend the ".arrow" extension for files created with
+this format.
 
 Dictionary Messages
 -------------------
