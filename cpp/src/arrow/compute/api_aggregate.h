@@ -229,7 +229,7 @@ Result<Datum> Any(
 /// to true and false otherwise. Null values are ignored by default.
 /// If null values are taken into account by setting ScalarAggregateOptions
 /// parameter skip_nulls = false then Kleene logic is used.
-/// See KleeneOr for more details on Kleene logic.
+/// See KleeneAnd for more details on Kleene logic.
 ///
 /// \param[in] value input datum, expecting a boolean array
 /// \param[in] options see ScalarAggregateOptions for more information
