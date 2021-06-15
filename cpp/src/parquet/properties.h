@@ -621,10 +621,15 @@ class PARQUET_EXPORT ArrowReaderProperties {
 
   const ::arrow::io::IOContext& io_context() const { return io_context_; }
 
-  /// Set output Arrow format for parquet reader ARROW-12096
-  void set_coerce_int96_timestamp_unit(::arrow::TimeUnit::type unit) { coerce_int96_timestamp_unit_ = unit; }
+  /// Set timestamp unit to use for deprecated INT96-encoded timestamps
+  /// (default is NANO).
+  void set_coerce_int96_timestamp_unit(::arrow::TimeUnit::type unit) {
+    coerce_int96_timestamp_unit_ = unit;
+  }
 
-  ::arrow::TimeUnit::type coerce_int96_timestamp_unit() const { return coerce_int96_timestamp_unit_; }
+  ::arrow::TimeUnit::type coerce_int96_timestamp_unit() const {
+    return coerce_int96_timestamp_unit_;
+  }
 
  private:
   bool use_threads_;

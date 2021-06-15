@@ -561,24 +561,24 @@ void ReadSingleColumnFileStatistics(std::unique_ptr<FileReader> file_reader,
 void DownsampleInt96RoundTrip(std::shared_ptr<Array> arrow_vector_in,
                               std::shared_ptr<Array> arrow_vector_out,
                               ::arrow::TimeUnit::type unit) {
-
   // Create single input table of NS to be written to parquet with INT96
-  auto input_schema = ::arrow::schema({::arrow::field("f", ::arrow::timestamp(TimeUnit::NANO))});
+  auto input_schema =
+      ::arrow::schema({::arrow::field("f", ::arrow::timestamp(TimeUnit::NANO))});
   auto input = Table::Make(input_schema, {arrow_vector_in});
 
   // Create an expected schema for each resulting table (one for each "downsampled" ts)
   auto ex_schema = ::arrow::schema({::arrow::field("f", ::arrow::timestamp(unit))});
   auto ex_result = Table::Make(ex_schema, {arrow_vector_out});
-  
+
   std::shared_ptr<Table> result;
 
   ArrowReaderProperties arrow_reader_prop;
   arrow_reader_prop.set_coerce_int96_timestamp_unit(unit);
 
   ASSERT_NO_FATAL_FAILURE(DoRoundtrip(
-    input, input->num_rows(), &result, default_writer_properties(),
-    ArrowWriterProperties::Builder().enable_deprecated_int96_timestamps()->build(),
-    arrow_reader_prop));
+      input, input->num_rows(), &result, default_writer_properties(),
+      ArrowWriterProperties::Builder().enable_deprecated_int96_timestamps()->build(),
+      arrow_reader_prop));
 
   ASSERT_NO_FATAL_FAILURE(::arrow::AssertSchemaEqual(*ex_result->schema(),
                                                      *result->schema(),
@@ -1705,15 +1705,21 @@ TEST(TestArrowReadWrite, DownsampleDeprecatedInt96) {
   using ::arrow::field;
   using ::arrow::schema;
 
-  // timestamp values at 2000-01-01 00:00:00 then with increment unit of 1ns, 1us, 1ms and 1s
-  auto a_nano = ArrayFromJSON(timestamp(TimeUnit::NANO),
-                           "[946684800000000000, 946684800000000001, 946684800000001000, 946684800001000000, 946684801000000000]");
+  // Timestamp values at 2000-01-01 00:00:00,
+  // then with increment unit of 1ns, 1us, 1ms and 1s.
+  auto a_nano =
+      ArrayFromJSON(timestamp(TimeUnit::NANO),
+                    "[946684800000000000, 946684800000000001, 946684800000001000, "
+                    "946684800001000000, 946684801000000000]");
   auto a_micro = ArrayFromJSON(timestamp(TimeUnit::MICRO),
-                           "[946684800000000, 946684800000000, 946684800000001, 946684800001000, 946684801000000]");
-  auto a_milli = ArrayFromJSON(timestamp(TimeUnit::MILLI),
-                           "[946684800000, 946684800000, 946684800000, 946684800001, 946684801000]");
-  auto a_second = ArrayFromJSON(timestamp(TimeUnit::SECOND),
-                           "[946684800, 946684800, 946684800, 946684800, 946684801]");
+                               "[946684800000000, 946684800000000, 946684800000001, "
+                               "946684800001000, 946684801000000]");
+  auto a_milli = ArrayFromJSON(
+      timestamp(TimeUnit::MILLI),
+      "[946684800000, 946684800000, 946684800000, 946684800001, 946684801000]");
+  auto a_second =
+      ArrayFromJSON(timestamp(TimeUnit::SECOND),
+                    "[946684800, 946684800, 946684800, 946684800, 946684801]");
 
   ASSERT_NO_FATAL_FAILURE(DownsampleInt96RoundTrip(a_nano, a_nano, TimeUnit::NANO));
   ASSERT_NO_FATAL_FAILURE(DownsampleInt96RoundTrip(a_nano, a_micro, TimeUnit::MICRO));

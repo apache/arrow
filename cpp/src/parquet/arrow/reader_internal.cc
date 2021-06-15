@@ -366,15 +366,19 @@ Status TransferInt96(RecordReader* reader, MemoryPool* pool,
       // isn't representable as a 64-bit Unix timestamp.
       *data_ptr++ = 0;
     } else {
-      switch (int96_arrow_time_unit){
+      switch (int96_arrow_time_unit) {
         case ::arrow::TimeUnit::NANO:
-          *data_ptr++ = Int96GetNanoSeconds(values[i]); break;
+          *data_ptr++ = Int96GetNanoSeconds(values[i]);
+          break;
         case ::arrow::TimeUnit::MICRO:
-          *data_ptr++ = Int96GetMicroSeconds(values[i]); break;
+          *data_ptr++ = Int96GetMicroSeconds(values[i]);
+          break;
         case ::arrow::TimeUnit::MILLI:
-          *data_ptr++ = Int96GetMilliSeconds(values[i]); break;
+          *data_ptr++ = Int96GetMilliSeconds(values[i]);
+          break;
         case ::arrow::TimeUnit::SECOND:
-          *data_ptr++ = Int96GetSeconds(values[i]); break;
+          *data_ptr++ = Int96GetSeconds(values[i]);
+          break;
       }
     }
   }
@@ -753,15 +757,17 @@ Status TransferColumnData(RecordReader* reader, std::shared_ptr<DataType> value_
       const ::arrow::TimestampType& timestamp_type =
           checked_cast<::arrow::TimestampType&>(*value_type);
       if (descr->physical_type() == ::parquet::Type::INT96) {
-            RETURN_NOT_OK(TransferInt96(reader, pool, value_type, &result, timestamp_type.unit()));
-        }
-      else {
+        RETURN_NOT_OK(
+            TransferInt96(reader, pool, value_type, &result, timestamp_type.unit()));
+      } else {
         switch (timestamp_type.unit()) {
           case ::arrow::TimeUnit::MILLI:
           case ::arrow::TimeUnit::MICRO:
-          case ::arrow::TimeUnit::NANO: {
+          case ::arrow::TimeUnit::NANO:
             result = TransferZeroCopy(reader, value_type);
-          } break;
+            break;
+          default:
+            return Status::NotImplemented("TimeUnit not supported");
         }
       }
     } break;
