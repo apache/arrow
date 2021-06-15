@@ -40,4 +40,13 @@ public class ArrowFlightResultSet extends AvaticaResultSet {
     // TODO Auto-generated constructor stub
   }
 
+  @Override
+  protected AvaticaResultSet execute() throws SQLException {
+
+    ArrowFlightJdbcCursor cursor = new ArrowFlightJdbcCursor();
+
+    super.execute2(cursor, this.signature.columns);
+
+    return this;
+  }
 }
