@@ -74,6 +74,41 @@ std::shared_ptr<ColumnReader> RowGroupReader::Column(int i) {
       const_cast<ReaderProperties*>(contents_->properties())->memory_pool());
 }
 
+std::shared_ptr<ColumnReader> RowGroupReader::ColumnWithExposeEncoding(
+    int i, ExposedEncodingType encoding_to_expose) {
+  auto encoding_stats = metadata()->ColumnChunk(i)->encoding_stats();
+  auto reader = Column(i);
+
+  if (encoding_stats.empty()) {
+    return reader;
+  }
+
+  if (encoding_to_expose == ExposedEncodingType::DICTIONARY) {
+    // The 1st page should be the dictionary page.
+    if (encoding_stats[0].page_type != PageType::DICTIONARY_PAGE ||
+        (encoding_stats[0].encoding != Encoding::PLAIN &&
+         encoding_stats[0].encoding != Encoding::PLAIN_DICTIONARY)) {
+      return reader;
+    }
+    // The following pages should be dictionary encoded data pages.
+    for (size_t idx = 1; idx < encoding_stats.size(); ++idx) {
+      if ((encoding_stats[idx].encoding != Encoding::RLE_DICTIONARY &&
+           encoding_stats[idx].encoding != Encoding::PLAIN_DICTIONARY) ||
+          (encoding_stats[idx].page_type != PageType::DATA_PAGE &&
+           encoding_stats[idx].page_type != PageType::DATA_PAGE_V2)) {
+        return reader;
+      }
+    }
+  } else {
+    // Exposing other encodings are not supported for now.
+    return reader;
+  }
+
+  // Set exposed encoding.
+  reader->SetExposedEncoding(encoding_to_expose);
+  return reader;
+}
+
 std::unique_ptr<PageReader> RowGroupReader::GetColumnPageReader(int i) {
   if (i >= metadata()->num_columns()) {
     std::stringstream ss;
