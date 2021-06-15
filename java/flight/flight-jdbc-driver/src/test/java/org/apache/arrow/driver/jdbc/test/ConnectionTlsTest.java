@@ -39,6 +39,7 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.calcite.avatica.org.apache.http.auth.UsernamePasswordCredentials;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -159,7 +160,7 @@ public class ConnectionTlsTest {
             allocator, flightTestUtils.getLocalhost(), this.tlsServer.getPort(),
             null, noCertificateKeyStorePath,
             noCertificateKeyStorePassword)) {
-      // Shouldn't reach this since we are expecting an Exception.
+      Assert.fail();
     }
   }
 
@@ -197,7 +198,7 @@ public class ConnectionTlsTest {
             allocator, flightTestUtils.getLocalhost(), this.tlsServer.getPort(),
             null, keyStorePath,
             keyStoreBadPassword)) {
-      // Shouldn't reach this since we are expecting an Exception.
+      Assert.fail();
     }
   }
 
@@ -243,7 +244,7 @@ public class ConnectionTlsTest {
 
     try (Connection connection = DriverManager
         .getConnection(serverUrl, properties)) {
-      // Shouldn't reach this since we are expecting an Exception.
+      Assert.fail();
     }
   }
 
