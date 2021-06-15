@@ -18,9 +18,14 @@
 package org.apache.arrow.driver.jdbc;
 
 import java.sql.Connection;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.calcite.avatica.AvaticaConnection;
+import org.apache.calcite.avatica.AvaticaParameter;
+import org.apache.calcite.avatica.ColumnMetaData;
 import org.apache.calcite.avatica.MetaImpl;
 import org.apache.calcite.avatica.MissingResultsException;
 import org.apache.calcite.avatica.NoSuchStatementException;
@@ -35,6 +40,17 @@ public class ArrowFlightMetaImpl extends MetaImpl {
   public ArrowFlightMetaImpl(final AvaticaConnection connection) {
     super(connection);
     setDefaultConnectionProperties();
+  }
+
+  static Signature newSignature(String sql) {
+    return new Signature(
+        new ArrayList<ColumnMetaData>(),
+        sql,
+        Collections.<AvaticaParameter> emptyList(),
+        Collections.<String, Object>emptyMap(),
+        null, // CursorFactory set to null, as SQL requests use DremioCursor
+        StatementType.SELECT
+    );
   }
 
   @Override
@@ -94,11 +110,22 @@ public class ArrowFlightMetaImpl extends MetaImpl {
   }
 
   @Override
-  public ExecuteResult prepareAndExecute(final StatementHandle statementHandle,
+  public ExecuteResult prepareAndExecute(final StatementHandle handle,
       final String query, final long maxRowCount, final int maxRowsInFirstFrame,
-      final PrepareCallback prepareCallback) throws NoSuchStatementException {
-    // TODO Fill this stub.
-    return null;
+      final PrepareCallback callback) throws NoSuchStatementException {
+    final Signature signature = newSignature(query);
+    try {
+      synchronized (callback.getMonitor()) {
+        callback.clear();
+        callback.assign(signature, null, -1);
+      }
+      callback.execute();
+      final MetaResultSet metaResultSet = MetaResultSet.create(handle.connectionId, handle.id,
+          false, signature, null);
+      return new ExecuteResult(Collections.singletonList(metaResultSet));
+    } catch(SQLException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   @Override
