@@ -306,9 +306,8 @@ TEST_F(ScalarTemporalTest, DayOfWeek) {
                                                        /*week_start=*/8)));
 }
 
-TEST(ScalarTemporalTest, TestOverflow) {
-  const char* times =
-      R"(["1677-09-20T00:00:59.123456", "2262-04-13T23:23:23.999999"])";
+TEST(ScalarTemporalTest, TestOutsideNanosecondRange) {
+  const char* times = R"(["1677-09-20T00:00:59.123456", "2262-04-13T23:23:23.999999"])";
 
   auto unit = timestamp(TimeUnit::MICRO);
   auto iso_calendar_type =

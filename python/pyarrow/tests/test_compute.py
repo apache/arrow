@@ -1422,8 +1422,6 @@ def _check_datetime_components(timestamps, timezone=None):
 
 @pytest.mark.pandas
 def test_extract_datetime_components():
-    # TODO: see https://github.com/pandas-dev/pandas/issues/41834
-    # "1899-01-01T00:59:20.001001001"
     timestamps = ["1970-01-01T00:00:59.123456789",
                   "2000-02-29T23:23:23.999999999",
                   "2033-05-18T03:33:20.000000000",
