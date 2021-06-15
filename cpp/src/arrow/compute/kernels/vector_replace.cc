@@ -37,9 +37,9 @@ Status ReplaceWithScalarMask(KernelContext* ctx, const ArrayData& array,
                              ArrayData* output) {
   if (!mask.is_valid) {
     // Output = null
-    ARROW_ASSIGN_OR_RAISE(auto array,
+    ARROW_ASSIGN_OR_RAISE(auto replacement_array,
                           MakeArrayOfNull(array.type, array.length, ctx->memory_pool()));
-    *output = *array->data();
+    *output = *replacement_array->data();
     return Status::OK();
   }
   if (mask.value) {
@@ -91,9 +91,11 @@ Status ReplaceWithArrayMask(KernelContext* ctx, const ArrayData& array,
     out_bitmap = output->buffers[0]->mutable_data();
     output->null_count = -1;
     if (array.MayHaveNulls()) {
+      // Copy array's bitmap
       arrow::internal::CopyBitmap(array.buffers[0]->data(), array.offset, array.length,
                                   out_bitmap, /*dest_offset=*/0);
     } else {
+      // Array has no bitmap but mask/replacements do, generate an all-valid bitmap
       std::memset(out_bitmap, 0xFF, output->buffers[0]->size());
     }
   } else {
@@ -136,11 +138,8 @@ Status ReplaceWithArrayMask(KernelContext* ctx, const ArrayData& array,
         BitUtil::SetBitsTo(out_bitmap, out_offset, valid_block.length, true);
       }
       replacements_offset += valid_block.length;
-    } else if (value_block.NoneSet() && valid_block.AllSet()) {
+    } else if ((value_block.NoneSet() && valid_block.AllSet()) || valid_block.NoneSet()) {
       // Do nothing
-    } else if (valid_block.NoneSet()) {
-      DCHECK(out_bitmap);
-      BitUtil::SetBitsTo(out_bitmap, out_offset, valid_block.length, false);
     } else {
       for (int64_t i = 0; i < valid_block.length; ++i) {
         if (BitUtil::GetBit(mask_values, out_offset + mask.offset + i) &&
