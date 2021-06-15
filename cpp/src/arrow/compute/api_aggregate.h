@@ -207,7 +207,8 @@ Result<Datum> MinMax(
 /// This function returns true if any of the elements in the array evaluates
 /// to true and false otherwise. Null values are ignored by default.
 /// If null values are taken into account by setting ScalarAggregateOptions
-/// parameter skip_nulls = false then kleen logic is applied.
+/// parameter skip_nulls = false then Kleene logic is used.
+/// See KleeneOr for more details on Kleene logic.
 ///
 /// \param[in] value input datum, expecting a boolean array
 /// \param[in] options see ScalarAggregateOptions for more information
@@ -227,7 +228,8 @@ Result<Datum> Any(
 /// This function returns true if all of the elements in the array evaluate
 /// to true and false otherwise. Null values are ignored by default.
 /// If null values are taken into account by setting ScalarAggregateOptions
-/// parameter skip_nulls = false then kleen logic is applied.
+/// parameter skip_nulls = false then Kleene logic is used.
+/// See KleeneOr for more details on Kleene logic.
 ///
 /// \param[in] value input datum, expecting a boolean array
 /// \param[in] options see ScalarAggregateOptions for more information

@@ -229,8 +229,6 @@ Notes:
 
 * \(5) Output is Int64, UInt64 or Float64, depending on the input type.
 
-.. _Kleene logic: https://en.wikipedia.org/wiki/Three-valued_logic#Kleene_and_Priest_logics
-
 Element-wise ("scalar") functions
 ---------------------------------
 
