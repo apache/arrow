@@ -38,6 +38,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -149,7 +150,7 @@ public class ConnectionTest {
 
     try (Connection connection = DriverManager
         .getConnection(invalidUrl, properties)) {
-      // Shouldn't reach this since we are expecting an Exception.
+      Assert.fail();
     }
   }
 
@@ -188,7 +189,7 @@ public class ConnectionTest {
 
     try (Connection connection = DriverManager
         .getConnection(invalidUrl, properties)) {
-      // Shouldn't reach this since we are expecting an Exception.
+      Assert.fail();
     }
   }
 
@@ -244,7 +245,7 @@ public class ConnectionTest {
 
     try (Connection connection = DriverManager.getConnection(serverUrl,
         properties)) {
-      // Shouldn't reach this.
+      Assert.fail();
     }
   }
 }
