@@ -383,9 +383,9 @@ class DictDecoder : virtual public TypedDecoder<DType> {
   /// \brief Get dictionary. The reader will call this API when it encounters a
   /// new dictionary.
   ///
-  /// @param[out] dict The pointer to dictionary values. Dictionary is owned by
+  /// @param[out] dictionary The pointer to dictionary values. Dictionary is owned by
   /// the decoder and is destroyed when the decoder is destroyed.
-  /// @param[out] dict_len The dictionary length.
+  /// @param[out] dictionary_length The dictionary length.
   ///
   /// \note API EXPERIMENTAL
   virtual void GetDictionary(const T** dictionary, int32_t* dictionary_length) = 0;

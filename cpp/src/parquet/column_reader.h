@@ -133,14 +133,14 @@ class PARQUET_EXPORT ColumnReader {
   // dictionary encoding, then ReadBatchWithDictionary can be used to read data.
   //
   // \note API EXPERIMENTAL
-  virtual ExposedEncodingType GetExposedEncoding() = 0;
+  virtual ExposedEncoding GetExposedEncoding() = 0;
 
  protected:
   friend class RowGroupReader;
   // Set the encoding that can be exposed by this reader.
   //
   // \note API EXPERIMENTAL
-  virtual void SetExposedEncoding(ExposedEncodingType encoding) = 0;
+  virtual void SetExposedEncoding(ExposedEncoding encoding) = 0;
 };
 
 // API to read values from a single column. This is a main client facing API.
@@ -218,24 +218,24 @@ class TypedColumnReader : public ColumnReader {
   // Read a batch of repetition levels, definition levels, and indices from the
   // column. And read the dictionary if a dictionary page is encountered during
   // reading pages. This API is similar to ReadBatch(), with ability to read
-  // dictionary and indices. It's only valid when the reader can expose
-  // dictionary encoding. (i.e., the reader's GetExposedEncoding() returns
+  // dictionary and indices. It is only valid to call this method  when the reader can
+  // expose dictionary encoding. (i.e., the reader's GetExposedEncoding() returns
   // DICTIONARY).
   //
-  // Since a column chunk can only have one dictinoary page followed by all data
-  // pages, the dictionary page is read only once for each column chunk (upon
-  // reading the 1st batch).
+  // The dictionary is read along with the data page. When there's no data page,
+  // the dictionary won't be read.
   //
   // @param batch_size The batch size to read
   // @param[out] def_levels The Parquet definition levels.
   // @param[out] rep_levels The Parquet repetition levels.
   // @param[out] indices The dictionary indices.
   // @param[out] indices_read The number of indices read.
-  // @param[out] dict The pointer to dictionary values. It's set only if the
-  // reader encounters a new dictionary page (which only occurs once per column
-  // chunk). Dictionary is owned by the reader, so the caller is responsible for
-  // copying the dictionary values before the reader gets destroyed.
-  // @param[out] dict_len The dictionary length.
+  // @param[out] dict The pointer to dictionary values. It will return nullptr if
+  // there's no data page. Each column chunk only has one dictionary page. The dictionary
+  // is owned by the reader, so the caller is responsible for copying the dictionary
+  // values before the reader gets destroyed.
+  // @param[out] dict_len The dictionary length. It will return 0 if there's no data
+  // page.
   // @returns: actual number of levels read (see indices_read for number of
   // indices read
   //

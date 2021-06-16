@@ -62,7 +62,7 @@ class PARQUET_EXPORT RowGroupReader {
   // same encoding. For dictionary encoding, currently we only support column
   // chunks that are fully dictionary encoded, i.e., all data pages in the
   // column chunk are dictionary encoded. If a column chunk uses dictionary
-  // encoding but then falls back to plain encoding, the encoding cannot be
+  // encoding but then falls back to plain encoding, the encoding will not be
   // exposed.
   //
   // The returned column reader provides an API GetExposedEncoding() for the
@@ -70,7 +70,7 @@ class PARQUET_EXPORT RowGroupReader {
   //
   // \note API EXPERIMENTAL
   std::shared_ptr<ColumnReader> ColumnWithExposeEncoding(
-      int i, ExposedEncodingType encoding_to_expose);
+      int i, ExposedEncoding encoding_to_expose);
 
   std::unique_ptr<PageReader> GetColumnPageReader(int i);
 

@@ -519,8 +519,8 @@ TEST(TestFileReader, BufferedReadsWithDictionary) {
 
   auto row_group = file_reader->RowGroup(0);
   auto col_reader = std::static_pointer_cast<DoubleReader>(
-      row_group->ColumnWithExposeEncoding(0, ExposedEncodingType::DICTIONARY));
-  EXPECT_EQ(col_reader->GetExposedEncoding(), ExposedEncodingType::DICTIONARY);
+      row_group->ColumnWithExposeEncoding(0, ExposedEncoding::DICTIONARY));
+  EXPECT_EQ(col_reader->GetExposedEncoding(), ExposedEncoding::DICTIONARY);
 
   auto indices = ::arrow::internal::make_unique<int32_t[]>(num_rows);
   const double* dict = nullptr;
@@ -530,15 +530,15 @@ TEST(TestFileReader, BufferedReadsWithDictionary) {
     int32_t tmp_dict_len = 0;
     int64_t values_read = 0;
     int64_t levels_read = col_reader->ReadBatchWithDictionary(
-        1, nullptr, nullptr, indices.get() + row_index, &values_read, &tmp_dict,
-        &tmp_dict_len);
+        /*batch_size=*/1, /*def_levels=*/nullptr, /*rep_levels=*/nullptr,
+        indices.get() + row_index, &values_read, &tmp_dict, &tmp_dict_len);
 
-    if (tmp_dict) {
-      EXPECT_EQ(row_index, 0);
+    if (tmp_dict != nullptr) {
+      EXPECT_EQ(values_read, 1);
       dict = tmp_dict;
       dict_len = tmp_dict_len;
     } else {
-      EXPECT_GT(row_index, 0);
+      EXPECT_EQ(values_read, 0);
     }
 
     ASSERT_EQ(1, levels_read);

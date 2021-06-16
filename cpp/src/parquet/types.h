@@ -479,8 +479,14 @@ struct Encoding {
   };
 };
 
-// Exposed data encodings.
-enum class ExposedEncodingType { NO_ENCODING = 0, DICTIONARY = 1 };
+// Exposed data encodings. It is the encoding of the data read from the file,
+// rather than the encoding of the data in the file. E.g., the data encoded as
+// RLW_DICTIONARY in the file can be read as dictionary indices by RLE
+// decoding, in which case the data read from the file is DICTIONARY encoded.
+enum class ExposedEncoding {
+  NO_ENCODING = 0,  // data is not encoded, i.e. already decoded during reading
+  DICTIONARY = 1
+};
 
 /// \brief Return true if Parquet supports indicated compression type
 PARQUET_EXPORT

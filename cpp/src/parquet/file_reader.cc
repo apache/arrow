@@ -75,7 +75,7 @@ std::shared_ptr<ColumnReader> RowGroupReader::Column(int i) {
 }
 
 std::shared_ptr<ColumnReader> RowGroupReader::ColumnWithExposeEncoding(
-    int i, ExposedEncodingType encoding_to_expose) {
+    int i, ExposedEncoding encoding_to_expose) {
   auto encoding_stats = metadata()->ColumnChunk(i)->encoding_stats();
   auto reader = Column(i);
 
@@ -83,7 +83,7 @@ std::shared_ptr<ColumnReader> RowGroupReader::ColumnWithExposeEncoding(
     return reader;
   }
 
-  if (encoding_to_expose == ExposedEncodingType::DICTIONARY) {
+  if (encoding_to_expose == ExposedEncoding::DICTIONARY) {
     // The 1st page should be the dictionary page.
     if (encoding_stats[0].page_type != PageType::DICTIONARY_PAGE ||
         (encoding_stats[0].encoding != Encoding::PLAIN &&
