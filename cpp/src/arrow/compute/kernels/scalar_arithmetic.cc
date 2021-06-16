@@ -495,14 +495,14 @@ struct SignWithSignedZero {
   template <typename T, typename Arg,
             enable_if_t<std::is_unsigned<Arg>::value, bool> = true>
   static constexpr T Call(KernelContext*, Arg arg, Status*) {
-    return 1;
+    return (arg == 0) ? 0 : 1;
   }
 
   template <typename T, typename Arg,
             enable_if_t<std::is_integral<Arg>::value && std::is_signed<Arg>::value,
                         bool> = true>
   static constexpr T Call(KernelContext*, Arg arg, Status*) {
-    return (arg >= 0) ? 1 : -1;
+    return (arg > 0) ? 1 : ((arg == 0) ? 0 : -1);
   }
 };
 
