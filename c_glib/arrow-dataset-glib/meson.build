@@ -18,6 +18,8 @@
 # under the License.
 
 sources = files(
+  'dataset-factory.cpp',
+  'dataset.cpp',
   'file-format.cpp',
   'fragment.cpp',
   'scanner.cpp',
@@ -25,6 +27,8 @@ sources = files(
 
 c_headers = files(
   'arrow-dataset-glib.h',
+  'dataset-factory.h',
+  'dataset.h',
   'file-format.h',
   'fragment.h',
   'scanner.h',
@@ -32,6 +36,8 @@ c_headers = files(
 
 cpp_headers = files(
   'arrow-dataset-glib.hpp',
+  'dataset-factory.hpp',
+  'dataset.hpp',
   'file-format.hpp',
   'fragment.hpp',
   'scanner.hpp',

@@ -19,10 +19,30 @@
 
 #pragma once
 
-#include <arrow-glib/arrow-glib.h>
+#include <arrow/dataset/api.h>
 
-#include <arrow-dataset-glib/dataset-factory.h>
 #include <arrow-dataset-glib/dataset.h>
-#include <arrow-dataset-glib/file-format.h>
-#include <arrow-dataset-glib/fragment.h>
-#include <arrow-dataset-glib/scanner.h>
+
+GADatasetDataset *
+gadataset_dataset_new_raw(
+  std::shared_ptr<arrow::dataset::Dataset> *arrow_dataset);
+GADatasetDataset *
+gadataset_dataset_new_raw(
+  std::shared_ptr<arrow::dataset::Dataset> *arrow_dataset,
+  const gchar *first_property_name,
+  ...);
+GADatasetDataset *
+gadataset_dataset_new_raw_valist(
+  std::shared_ptr<arrow::dataset::Dataset> *arrow_dataset,
+  const gchar *first_property_name,
+  va_list arg);
+std::shared_ptr<arrow::dataset::Dataset>
+gadataset_dataset_get_raw(GADatasetDataset *dataset);
+
+GADatasetFileFormat *
+gadataset_file_format_new_raw(
+  std::shared_ptr<arrow::dataset::FileFormat> *arrow_format);
+std::shared_ptr<arrow::dataset::Dataset>
+gadataset_dataset_get_raw(GADatasetDataset *dataset);
+
+
