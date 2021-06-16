@@ -233,9 +233,9 @@ module Helper
     def build_file_uri(path)
       absolute_path = File.expand_path(path)
       if absolute_path.start_with?("/")
-        "file:///#{absolute_path}"
-      else
         "file://#{absolute_path}"
+      else
+        "file:///#{absolute_path}"
       end
     end
 
