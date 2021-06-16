@@ -129,35 +129,73 @@ s3://minioadmin:minioadmin@?scheme=http&endpoint_override=localhost%3A9000
 Among other applications, this can be useful for testing out code locally before
 running on a remote S3 bucket.
 
+## Non-AWS S3 cloud alternatives (DigitalOcean, IBM, Alibaba, and others)
+
+*This section adapts some elements from [Analyzing Room Temperature Data](https://www.jaredlander.com/2021/03/analyzing-room-temperature-data/#getting-the-data) by Jared Lander.*
+
 If you are using any Amazon S3 Compliant Storage Provider, such as AWS, Alibaba, 
-Ceph, DigitalOcean, Dreamhost, IBM COS, Minio, or others, you can connect with
-read-only access to it with `arrow` using `S3FileSystem` like this:
+Ceph, DigitalOcean, Dreamhost, IBM COS, Minio, or others, you can connect to it 
+with `arrow` by using the `S3FileSystem` function as for the case of using 
+MinIO locally. Please note that the use of DigitalOcean here is just an example, as 
+it can be any other S3 compatible service.
+
+At the begininning of this vignette we used:
 
 ```r
-minio <- S3FileSystem$create(
-  scheme = "http",
-  endpoint_override = "nyc-taxi.sfo3.digitaloceanspaces.com"
+june2019 <- SubTreeFileSystem$create("s3://ursa-labs-taxi-data/2019/06")
+```
+
+Which connects to AWS, and the same can be adapted for other providers, For 
+instructional purposes, we provide [nyc-taxi.sfo3.digitaloceanspaces.com](https://nyc-taxi.sfo3.digitaloceanspaces.com), 
+which is a public storage with the NYC taxi data used in
+[Working with Arrow Datasets and dplyr](dataset.html).
+
+To connect to this space, you only need to adapt the code from the previous
+section:
+
+```r
+space <- arrow::S3FileSystem$create(
+  anonymous = TRUE,
+  scheme = "https",
+  endpoint_override = "sfo3.digitaloceanspaces.com"
 )
 ```
 
-In this case, this would connect to an S3 bucket on 
-[DigitalOcean Spaces](https://www.digitalocean.com/products/spaces/).
-
-If you have write access to the bucket, you would need to provide both an access
-key and a secret, where one possibility is to call the environment variables
-that contain the actual values:
+The space that we are using space allows anonymous access, but if you were to 
+connect to a private space (i.e. with sensitive data), you would need to 
+provide a token, say:
 
 ```r
-minio <- S3FileSystem$create(
-  access_key = Sys.getenv("AWS_ACCESS_KEY_ID"),
-  secret_key = Sys.getenv("AWS_SECRET_ACCESS_KEY"),
-  scheme = "http",
-  endpoint_override = "nyc-taxi.sfo3.digitaloceanspaces.com"
+space <- arrow::S3FileSystem$create(
+  access_key = Sys.getenv('DO_ARROW_TAXI_TOKEN'),
+  secret_key = Sys.getenv('DO_ARROW_TAXI_SECRET'),
+  scheme = "https",
+  endpoint_override = "sfo3.digitaloceanspaces.com"
 )
 ```
 
-With the `minio` object created, now you can read feather files from the bucket:
+In order to list the files in the space, you can just type:
 
 ```r
-june2009 <- read_parquet(minio$path("2009/06/data.parquet"))
+space$ls('nyc-taxi', recursive = TRUE)
+```
+
+Just like AWS, one way to get a subtree is to call the `$cd()` method on a 
+`FileSystem`:
+
+```r
+june2019 <- space$path("nyc-taxi/2019/06")
+df <- read_parquet(june2019$path("data.parquet"))
+```
+
+From here, the same example from the [Working with Arrow Datasets and dplyr](dataset.html) vignette can be completed with a single change:
+
+```r 
+copy_files(space$path("nyc-taxi/"), "nyc-taxi")
+```
+
+Instead of:
+
+```
+copy_files("s3://ursa-labs-taxi-data", "nyc-taxi")
 ```
