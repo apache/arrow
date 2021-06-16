@@ -581,7 +581,7 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
       if (block.AllSet()) {
         // from left
         bytes_written = block.length * left_size;
-        for (int i = 0; i < block.length; i++) {
+        for (int i = 0; i < block.length; i++) {  // todo use std::fill may be?
           std::memcpy(out_data + i * left_size, left_data.cbegin(), left_size);
           out_offsets[i + 1] = out_offsets[0] + (i + 1) * left_size;
         }
@@ -639,6 +639,8 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
     int64_t right_size = right_data.size();
 
     // reserve an additional space
+    // todo use cond.data to calculate the out_data_buf size precisely, by summing true
+    //  bits
     ARROW_ASSIGN_OR_RAISE(auto out_offset_buf,
                           ctx->Allocate((cond.length + 1) * sizeof(OffsetType)));
     auto* out_offsets = reinterpret_cast<OffsetType*>(out_offset_buf->mutable_data());
