@@ -279,7 +279,7 @@ ArrowObject <- R6Class("ArrowObject",
         class_title <- class(self)[[1]]
       }
       cat(class_title, "\n", sep = "")
-      if (!is.null(self$ToString)){
+      if (!is.null(self$ToString)) {
         cat(self$ToString(), "\n", sep = "")
       }
       invisible(self)

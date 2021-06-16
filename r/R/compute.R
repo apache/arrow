@@ -202,7 +202,7 @@ unique.ArrowDatum <- function(x, incomparables = FALSE, ...) {
 }
 
 #' @export
-any.ArrowDatum <- function(..., na.rm = FALSE){
+any.ArrowDatum <- function(..., na.rm = FALSE) {
   
   a <- collect_arrays_from_dots(list(...))
   result <- call_function("any", a)
@@ -217,7 +217,7 @@ any.ArrowDatum <- function(..., na.rm = FALSE){
 }
 
 #' @export
-all.ArrowDatum <- function(..., na.rm = FALSE){
+all.ArrowDatum <- function(..., na.rm = FALSE) {
   
   a <- collect_arrays_from_dots(list(...))
   result <- call_function("all", a)

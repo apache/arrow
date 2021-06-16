@@ -59,7 +59,7 @@ apply_arrow_r_metadata <- function(x, r_metadata) {
           x[[name]] <- apply_arrow_r_metadata(x[[name]], columns_metadata[[name]])
         }
       }
-    } else if(is.list(x) && !inherits(x, "POSIXlt") && !is.null(columns_metadata)) {
+    } else if (is.list(x) && !inherits(x, "POSIXlt") && !is.null(columns_metadata)) {
       x <- map2(x, columns_metadata, function(.x, .y) {
         apply_arrow_r_metadata(.x, .y)
       })
