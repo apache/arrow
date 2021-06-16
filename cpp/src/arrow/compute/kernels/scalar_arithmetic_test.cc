@@ -2088,7 +2088,8 @@ TYPED_TEST(TestUnaryArithmeticFloating, Sign) {
   // NaN
   this->AssertUnaryOp(Sign, "[NaN]", ArrayFromJSON(int8(), "[1]"));
   // Min/max
-  this->AssertUnaryOp(Sign, MakeArray(min, max), ArrayFromJSON(int8(), "[-1, 1]"));
+  this->AssertUnaryOp(Sign, MakeScalar(min), *arrow::MakeScalar(int8(), -1));
+  this->AssertUnaryOp(Sign, MakeScalar(max), *arrow::MakeScalar(int8(), 1));
 }
 }  // namespace compute
 }  // namespace arrow
