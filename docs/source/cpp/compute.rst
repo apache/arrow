@@ -339,6 +339,40 @@ Bit-wise functions
   out of bounds for the data type.  However, an overflow when shifting the
   first input is not error (truncated bits are silently discarded).
 
+Trigonometric functions
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Trigonometric functions are also supported, and also offer ``_checked``
+variants that check for domain errors if needed.
+
++--------------------------+------------+--------------------+---------------------+
+| Function name            | Arity      | Input types        | Output type         |
++==========================+============+====================+=====================+
+| acos                     | Unary      | Float32/Float64    | Float32/Float64     |
++--------------------------+------------+--------------------+---------------------+
+| acos_checked             | Unary      | Float32/Float64    | Float32/Float64     |
++--------------------------+------------+--------------------+---------------------+
+| asin                     | Unary      | Float32/Float64    | Float32/Float64     |
++--------------------------+------------+--------------------+---------------------+
+| asin_checked             | Unary      | Float32/Float64    | Float32/Float64     |
++--------------------------+------------+--------------------+---------------------+
+| atan                     | Unary      | Float32/Float64    | Float32/Float64     |
++--------------------------+------------+--------------------+---------------------+
+| atan2                    | Binary     | Float32/Float64    | Float32/Float64     |
++--------------------------+------------+--------------------+---------------------+
+| cos                      | Unary      | Float32/Float64    | Float32/Float64     |
++--------------------------+------------+--------------------+---------------------+
+| cos_checked              | Unary      | Float32/Float64    | Float32/Float64     |
++--------------------------+------------+--------------------+---------------------+
+| sin                      | Unary      | Float32/Float64    | Float32/Float64     |
++--------------------------+------------+--------------------+---------------------+
+| sin_checked              | Unary      | Float32/Float64    | Float32/Float64     |
++--------------------------+------------+--------------------+---------------------+
+| tan                      | Unary      | Float32/Float64    | Float32/Float64     |
++--------------------------+------------+--------------------+---------------------+
+| tan_checked              | Unary      | Float32/Float64    | Float32/Float64     |
++--------------------------+------------+--------------------+---------------------+
+
 Comparisons
 ~~~~~~~~~~~
 

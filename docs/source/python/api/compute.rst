@@ -73,6 +73,28 @@ Bit-wise operations do not offer (or need) a checked variant.
    bit_wise_or
    bit_wise_xor
 
+Trigonometric Functions
+-----------------------
+
+Trigonometric functions are also supported, and also offer ``_checked``
+variants which detect domain errors where appropriate.
+
+.. autosummary::
+   :toctree: ../generated/
+
+   acos
+   acos_checked
+   asin
+   asin_checked
+   atan
+   atan2
+   cos
+   cos_checked
+   sin
+   sin_checked
+   tan
+   tan_checked
+
 Comparisons
 -----------
 

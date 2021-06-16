@@ -335,6 +335,67 @@ Result<Datum> ShiftRight(const Datum& left, const Datum& right,
                          ArithmeticOptions options = ArithmeticOptions(),
                          ExecContext* ctx = NULLPTR);
 
+/// \brief Compute the sine of the array values.
+/// \param[in] arg The values to compute the sine for.
+/// \param[in] options arithmetic options (enable/disable overflow checking), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise sine of the values
+ARROW_EXPORT
+Result<Datum> Sin(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
+                  ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the cosine of the array values.
+/// \param[in] arg The values to compute the cosine for.
+/// \param[in] options arithmetic options (enable/disable overflow checking), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise cosine of the values
+ARROW_EXPORT
+Result<Datum> Cos(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
+                  ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the inverse sine (arcsine) of the array values.
+/// \param[in] arg The values to compute the inverse sine for.
+/// \param[in] options arithmetic options (enable/disable overflow checking), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise inverse sine of the values
+ARROW_EXPORT
+Result<Datum> Asin(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
+                   ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the inverse cosine (arccosine) of the array values.
+/// \param[in] arg The values to compute the inverse cosine for.
+/// \param[in] options arithmetic options (enable/disable overflow checking), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise inverse cosine of the values
+ARROW_EXPORT
+Result<Datum> Acos(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
+                   ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the tangent of the array values.
+/// \param[in] arg The values to compute the tangent for.
+/// \param[in] options arithmetic options (enable/disable overflow checking), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise tangent of the values
+ARROW_EXPORT
+Result<Datum> Tan(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
+                  ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the inverse tangent (arctangent) of the array values.
+/// \param[in] arg The values to compute the inverse tangent for.
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise inverse tangent of the values
+ARROW_EXPORT
+Result<Datum> Atan(const Datum& arg, ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the inverse tangent (arctangent) of y/x, using the
+/// argument signs to determine the correct quadrant.
+/// \param[in] y The y-values to compute the inverse tangent for.
+/// \param[in] x The x-values to compute the inverse tangent for.
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise inverse tangent of the values
+ARROW_EXPORT
+Result<Datum> Atan2(const Datum& y, const Datum& x, ExecContext* ctx = NULLPTR);
+
 /// \brief Find the element-wise maximum of any number of arrays or scalars.
 /// Array values must be the same length.
 ///

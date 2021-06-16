@@ -49,6 +49,12 @@ namespace compute {
 
 SCALAR_ARITHMETIC_UNARY(AbsoluteValue, "abs", "abs_checked")
 SCALAR_ARITHMETIC_UNARY(Negate, "negate", "negate_checked")
+SCALAR_ARITHMETIC_UNARY(Sin, "sin", "sin_checked")
+SCALAR_ARITHMETIC_UNARY(Cos, "cos", "cos_checked")
+SCALAR_ARITHMETIC_UNARY(Asin, "asin", "asin_checked")
+SCALAR_ARITHMETIC_UNARY(Acos, "acos", "acos_checked")
+SCALAR_ARITHMETIC_UNARY(Tan, "tan", "tan_checked")
+SCALAR_EAGER_UNARY(Atan, "atan")
 
 #define SCALAR_ARITHMETIC_BINARY(NAME, REGISTRY_NAME, REGISTRY_CHECKED_NAME)           \
   Result<Datum> NAME(const Datum& left, const Datum& right, ArithmeticOptions options, \
@@ -64,6 +70,7 @@ SCALAR_ARITHMETIC_BINARY(Divide, "divide", "divide_checked")
 SCALAR_ARITHMETIC_BINARY(Power, "power", "power_checked")
 SCALAR_ARITHMETIC_BINARY(ShiftLeft, "shift_left", "shift_left_checked")
 SCALAR_ARITHMETIC_BINARY(ShiftRight, "shift_right", "shift_right_checked")
+SCALAR_EAGER_BINARY(Atan2, "atan2")
 
 Result<Datum> MaxElementWise(const std::vector<Datum>& args,
                              ElementWiseAggregateOptions options, ExecContext* ctx) {
