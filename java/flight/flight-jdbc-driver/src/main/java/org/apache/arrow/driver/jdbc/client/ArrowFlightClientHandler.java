@@ -22,6 +22,7 @@ import java.security.GeneralSecurityException;
 
 import javax.annotation.Nullable;
 
+import jdk.jfr.internal.Logger;
 import org.apache.arrow.driver.jdbc.client.utils.ClientAuthenticationUtils;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightInfo;
@@ -32,9 +33,11 @@ import org.apache.arrow.flight.auth2.ClientBearerHeaderHandler;
 import org.apache.arrow.flight.auth2.ClientIncomingAuthHeaderMiddleware;
 import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.VectorSchemaRoot;
 
 import com.google.common.base.Optional;
+import org.apache.calcite.avatica.org.apache.commons.logging.impl.Log4JLogger;
 
 /**
  * An adhoc {@link FlightClient} wrapper, used to access the client. Allows for
@@ -127,23 +130,17 @@ public class ArrowFlightClientHandler implements FlightClientHandler {
   @Override
   public final void close() throws Exception {
     try {
-      client.close();
-    } catch (final InterruptedException e) {
+      // Safer than client.close -> avoids NullPointerException
+      AutoCloseables.close(client);
+    } catch (final Exception e) {
       /*
-       * TODO Consider using a proper logger (e.g., Avatica's Log4JLogger.)
+       * FIXME Discuss: Should we really be doing this?
        *
-       * This portion of the code should probably be concerned about propagating
-       * that an Exception has occurred, as opposed to simply "eating it up."
-       */
-      System.out.println("[WARNING] Failed to close resource.");
-
-      /*
-       * FIXME Should we really be doing this?
-       *
+       * The method signature suggests this SHOULD throw an Exception upon failure.
        * Perhaps a better idea is to throw the aforementioned exception and, if
-       * necessary, handle it later.
+       * necessary, handle it later; as opposed to "eating up" exceptions like this.
        */
-      e.printStackTrace();
+      (new Log4JLogger()).error(e.getMessage(), e);
     }
   }
 
