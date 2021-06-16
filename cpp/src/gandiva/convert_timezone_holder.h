@@ -44,8 +44,8 @@ class OffsetZone {
 
   template <class Duration>
   auto to_local(arrow_vendored::date::sys_time<Duration> tp) const {
-    using std::chrono::seconds;
     using std::common_type_t;
+    using std::chrono::seconds;
     using LT = local_time<std::common_type_t<Duration, seconds>>;
     return LT((tp + offset_).time_since_epoch());
   }
