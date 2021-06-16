@@ -221,9 +221,9 @@ garrow_equal_options_set_property(GObject *object,
 
 static void
 garrow_equal_options_get_property(GObject *object,
-                                 guint prop_id,
-                                 GValue *value,
-                                 GParamSpec *pspec)
+                                  guint prop_id,
+                                  GValue *value,
+                                  GParamSpec *pspec)
 {
   auto priv = GARROW_EQUAL_OPTIONS_GET_PRIVATE(object);
 

@@ -15,23 +15,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module ArrowDataset
-  class ScanOptions
-    class << self
-      def try_convert(value)
-        case value
-        when Hash
-          return nil unless value.key?(:schema)
-          options = new(value[:schema])
-          value.each do |name, value|
-            next if name == :schema
-            options.__send__("#{name}=", value)
-          end
-          options
-        else
-          nil
-        end
-      end
+class TestFileSystemDataset < Test::Unit::TestCase
+  def setup
+    Dir.mktmpdir do |tmpdir|
+      @dir = tmpdir
+      @path = File.join(@dir, "table.arrow")
+      @table = Arrow::Table.new(visible: [true, false, true],
+                                point: [1, 2, 3])
+      @table.save(@path)
+      @format = ArrowDataset::IPCFileFormat.new
+      yield
     end
+  end
+
+  test(".build") do
+    dataset = ArrowDataset::FileSystemDataset.build(@format) do |factory|
+      factory.file_system = Arrow::LocalFileSystem.new
+      factory.add_path(File.expand_path(@path))
+    end
+    assert_equal(@table, dataset.to_table)
   end
 end

@@ -16,20 +16,14 @@
 # under the License.
 
 module ArrowDataset
-  class InMemoryScanTask
-    alias_method :initialize_raw, :initialize
-    private :initialize_raw
-    def initialize(record_batches, **options)
-      record_batches = record_batches.collect do |record_batch|
-        unless record_batch.is_a?(Arrow::RecordBatch)
-          record_batch = Arrow::RecordBatch.new(record_batch)
-        end
-        record_batch
+  class Dataset
+    class << self
+      def build(*args)
+        factory_class = ArrowDataset.const_get("#{name}Factory")
+        factory = factory_class.new(*args)
+        yield(factory)
+        factory.finish
       end
-      options[:schema] ||= record_batches.first.schema
-      fragment = options.delete(:fragment)
-      fragment ||= InMemoryFragment.new(options[:schema], record_batches)
-      initialize_raw(record_batches, options, fragment)
     end
   end
 end

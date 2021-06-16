@@ -19,45 +19,47 @@
 
 #pragma once
 
-#include <arrow-dataset-glib/dataset.h>
-#include <arrow-dataset-glib/fragment.h>
+#include <arrow-dataset-glib/file-format.h>
 
 G_BEGIN_DECLS
 
-#define GADATASET_TYPE_SCANNER (gadataset_scanner_get_type())
-G_DECLARE_DERIVABLE_TYPE(GADatasetScanner,
-                         gadataset_scanner,
-                         GADATASET,
-                         SCANNER,
-                         GObject)
-struct _GADatasetScannerClass
-{
-  GObjectClass parent_class;
-};
+typedef struct _GADatasetScannerBuilder GADatasetScannerBuilder;
 
-GARROW_AVAILABLE_IN_5_0
-GArrowTable *
-gadataset_scanner_to_table(GADatasetScanner *scanner,
-                           GError **error);
-
-#define GADATASET_TYPE_SCANNER_BUILDER (gadataset_scanner_builder_get_type())
-G_DECLARE_DERIVABLE_TYPE(GADatasetScannerBuilder,
-                         gadataset_scanner_builder,
+#define GADATASET_TYPE_DATASET (gadataset_dataset_get_type())
+G_DECLARE_DERIVABLE_TYPE(GADatasetDataset,
+                         gadataset_dataset,
                          GADATASET,
-                         SCANNER_BUILDER,
+                         DATASET,
                          GObject)
-struct _GADatasetScannerBuilderClass
+struct _GADatasetDatasetClass
 {
   GObjectClass parent_class;
 };
 
 GARROW_AVAILABLE_IN_5_0
 GADatasetScannerBuilder *
-gadataset_scanner_builder_new(GADatasetDataset *dataset,
-                              GError **error);
+gadataset_dataset_begin_scan(GADatasetDataset *dataset,
+                             GError **error);
 GARROW_AVAILABLE_IN_5_0
-GADatasetScanner *
-gadataset_scanner_builder_finish(GADatasetScannerBuilder *builder,
-                                 GError **error);
+GArrowTable *
+gadataset_dataset_to_table(GADatasetDataset *dataset,
+                           GError **error);
+GARROW_AVAILABLE_IN_5_0
+gchar *
+gadataset_dataset_get_type_name(GADatasetDataset *dataset);
+
+
+#define GADATASET_TYPE_FILE_SYSTEM_DATASET      \
+  (gadataset_file_system_dataset_get_type())
+G_DECLARE_DERIVABLE_TYPE(GADatasetFileSystemDataset,
+                         gadataset_file_system_dataset,
+                         GADATASET,
+                         FILE_SYSTEM_DATASET,
+                         GADatasetDataset)
+struct _GADatasetFileSystemDatasetClass
+{
+  GADatasetDatasetClass parent_class;
+};
+
 
 G_END_DECLS

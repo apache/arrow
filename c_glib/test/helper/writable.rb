@@ -15,33 +15,25 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestDatasetScanOptions < Test::Unit::TestCase
-  def setup
-    omit("Arrow Dataset is required") unless defined?(ArrowDataset)
-    @schema = Arrow::Schema.new([])
-    @scan_options = ArrowDataset::ScanOptions.new(@schema)
-  end
-
-  def test_schema
-    assert_equal(@schema,
-                 @scan_options.schema)
-  end
-
-  def test_batch_size
-    assert_equal(1<<20,
-                 @scan_options.batch_size)
-    @scan_options.batch_size = 42
-    assert_equal(42,
-                 @scan_options.batch_size)
-  end
-
-  def test_use_threads
-    assert do
-      not @scan_options.use_threads?
-    end
-    @scan_options.use_threads = true
-    assert do
-      @scan_options.use_threads?
+module Helper
+  module Writable
+    def write_table(table, path, type: :file)
+      output = Arrow::FileOutputStream.new(path, false)
+      begin
+        if type == :file
+          writer_class = Arrow::RecordBatchFileWriter
+        else
+          writer_class = Arrow::RecordBatchStreamWriter
+        end
+        writer = writer_class.new(output, table.schema)
+        begin
+          writer.write_table(table)
+        ensure
+          writer.close
+        end
+      ensure
+        output.close
+      end
     end
   end
 end
