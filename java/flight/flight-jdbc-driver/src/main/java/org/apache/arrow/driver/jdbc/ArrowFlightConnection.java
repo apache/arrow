@@ -130,7 +130,7 @@ public class ArrowFlightConnection extends AvaticaConnection {
     final int port = Integer.parseInt(Objects
             .toString(info.getOrDefault(forPort.getKey(), forPort.getValue())));
     Preconditions.checkArgument(0 < port && port < 65536,
-        "Port number must be between exclusive range (1, 65536).");
+        "Port number must be between exclusive range (0, 65536).");
 
     // =================== [ CREDENTIALS CONFIG ] ===================
     final Map.Entry<Object, Object> forUsername = USERNAME.getEntry();
