@@ -44,14 +44,15 @@ class OffsetZone {
 
   template <class Duration>
   auto to_local(arrow_vendored::date::sys_time<Duration> tp) const {
-    using namespace std::chrono;
+    using std::chrono::seconds;
+    using std::common_type_t;
     using LT = local_time<std::common_type_t<Duration, seconds>>;
     return LT((tp + offset_).time_since_epoch());
   }
 
   template <class Duration>
   auto to_sys(arrow_vendored::date::local_time<Duration> tp) const {
-    using namespace std::chrono;
+    using std::chrono::seconds;
     using ST = sys_time<std::common_type_t<Duration, seconds>>;
     return ST((tp - offset_).time_since_epoch());
   }
@@ -70,21 +71,21 @@ class GANDIVA_EXPORT ConvertTimezoneHolder : public FunctionHolder {
 
   /// Return the converted timestamp
   int64_t convert(const int64_t src_timestamp) {
-    using namespace std::chrono;
+    using std::chrono::seconds;
 
-    if (dest_timezone != nullptr && src_timezone == nullptr) {
+    if (dest_timezone != NULLPTR && src_timezone == NULLPTR) {
       return dest_timezone
           ->to_local(src_offset_tz->to_sys<milliseconds>(
               local_time<milliseconds>(milliseconds(src_timestamp))))
           .time_since_epoch()
           .count();
-    } else if (dest_timezone == nullptr && src_timezone != nullptr) {
+    } else if (dest_timezone == NULLPTR && src_timezone != NULLPTR) {
       return dest_offset_tz
           ->to_local(src_timezone->to_sys<milliseconds>(
               local_time<milliseconds>(milliseconds(src_timestamp))))
           .time_since_epoch()
           .count();
-    } else if (dest_timezone == nullptr && src_timezone == nullptr) {
+    } else if (dest_timezone == NULLPTR && src_timezone == NULLPTR) {
       return dest_offset_tz
           ->to_local(src_offset_tz->to_sys<milliseconds>(
               local_time<milliseconds>(milliseconds(src_timestamp))))
@@ -269,11 +270,11 @@ class GANDIVA_EXPORT ConvertTimezoneHolder : public FunctionHolder {
     return 0;
   }
 
-  const OffsetZone* src_offset_tz = nullptr;
-  const OffsetZone* dest_offset_tz = nullptr;
+  const OffsetZone* src_offset_tz = NULLPTR;
+  const OffsetZone* dest_offset_tz = NULLPTR;
 
-  const time_zone* src_timezone = nullptr;
-  const time_zone* dest_timezone = nullptr;
+  const time_zone* src_timezone = NULLPTR;
+  const time_zone* dest_timezone = NULLPTR;
 
   static std::unordered_map<std::string, std::string> abbrv_tz;
 };
