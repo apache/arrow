@@ -59,7 +59,8 @@ public class ArrowFlightJdbcFactory extends AbstractFactory {
       final int resultType,
       final int resultSetConcurrency,
       final int resultSetHoldability) throws SQLException {
-    return new ArrowFlightStatement(connection, handle, resultType, resultSetConcurrency, resultSetHoldability);
+    return new ArrowFlightStatement((ArrowFlightConnection) connection,
+            handle, resultType, resultSetConcurrency, resultSetHoldability);
   }
 
   @Override
