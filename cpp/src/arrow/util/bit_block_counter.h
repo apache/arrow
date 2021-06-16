@@ -89,14 +89,6 @@ struct BitBlockCount {
   bool AllSet() const { return this->length == this->popcount; }
 };
 
-template<int16_t length>
-struct BitBlockCount1 {
-  int16_t popcount;
-
-  bool NoneSet() const { return this->popcount == 0; }
-  bool AllSet() const { return length == this->popcount; }
-};
-
 /// \brief A class that scans through a true/false bitmap to compute popcounts
 /// 64 or 256 bits at a time. This is used to accelerate processing of
 /// mostly-not-null array data.

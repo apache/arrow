@@ -316,10 +316,7 @@ TEST_F(TestIfElseKernel, IfElseDispatchBest) {
 template <typename Type>
 class TestIfElseBaseBinary : public ::testing::Test {};
 
-using BaseBinaryTypes =
-    ::testing::Types<StringType, LargeStringType, BinaryType, LargeBinaryType>;
-
-TYPED_TEST_SUITE(TestIfElseBaseBinary, BaseBinaryTypes);
+TYPED_TEST_SUITE(TestIfElseBaseBinary, BinaryTypes);
 
 TYPED_TEST(TestIfElseBaseBinary, IfElseBaseBinary) {
   auto type = TypeTraits<TypeParam>::type_singleton();
@@ -373,6 +370,7 @@ TYPED_TEST(TestIfElseBaseBinary, IfElseBaseBinaryRand) {
   random::RandomArrayGenerator rand(/*seed=*/0);
   int64_t len = 130;
 
+  //  this is to check the BitBlockCount::AllSet/ NoneSet code paths
   ASSERT_OK_AND_ASSIGN(auto temp1, MakeArrayFromScalar(BooleanScalar(true), 64));
   ASSERT_OK_AND_ASSIGN(auto temp2, MakeArrayFromScalar(BooleanScalar(false), 64));
   auto temp3 = rand.ArrayOf(boolean(), len - 64 * 2, /*null_probability=*/0.01);

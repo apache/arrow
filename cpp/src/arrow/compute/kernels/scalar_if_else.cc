@@ -514,7 +514,7 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
                        out_offsets + 1, [&](const OffsetType& src_offset) {
                          return src_offset - right_offsets[0] + out_offsets[0];
                        });
-      } else if (block.popcount) {  // selectively copy from left
+      } else {  // selectively copy from left
         for (auto i = 0; i < block.length; ++i) {
           OffsetType current_length;
           if (BitUtil::GetBit(cond_data, offset + i)) {
@@ -554,7 +554,7 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
     BitBlockCounter bit_counter(cond_data, cond.offset, cond.length);
 
     util::string_view left_data = internal::UnboxScalar<Type>::Unbox(left);
-    int64_t left_size = left_data.size();
+    size_t left_size = left_data.size();
 
     const auto* right_offsets = right.GetValues<OffsetType>(1);
     const uint8_t* right_data = right.buffers[2]->data();
@@ -583,7 +583,7 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
         bytes_written = block.length * left_size;
         for (int i = 0; i < block.length; i++) {  // todo use std::fill may be?
           std::memcpy(out_data + i * left_size, left_data.cbegin(), left_size);
-          out_offsets[i + 1] = out_offsets[0] + (i + 1) * left_size;
+          out_offsets[i + 1] = out_offsets[i] + left_size;
         }
       } else if (block.NoneSet()) {
         // from right
@@ -595,7 +595,7 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
                        out_offsets + 1, [&](const OffsetType& src_offset) {
                          return src_offset - right_offsets[0] + out_offsets[0];
                        });
-      } else if (block.popcount) {  // selectively copy from left
+      } else {  // selectively copy from left
         for (auto i = 0; i < block.length; ++i) {
           OffsetType current_length;
           if (BitUtil::GetBit(cond_data, offset + i)) {
@@ -636,7 +636,7 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
     const uint8_t* left_data = left.buffers[2]->data();
 
     util::string_view right_data = internal::UnboxScalar<Type>::Unbox(right);
-    int64_t right_size = right_data.size();
+    size_t right_size = right_data.size();
 
     // reserve an additional space
     // todo use cond.data to calculate the out_data_buf size precisely, by summing true
@@ -674,9 +674,9 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
         bytes_written = block.length * right_size;
         for (int i = 0; i < block.length; i++) {
           std::memcpy(out_data + i * right_size, right_data.cbegin(), right_size);
-          out_offsets[i + 1] = out_offsets[0] + (i + 1) * right_size;
+          out_offsets[i + 1] = out_offsets[i] + right_size;
         }
-      } else if (block.popcount) {  // selectively copy from left
+      } else {  // selectively copy from left
         for (auto i = 0; i < block.length; ++i) {
           OffsetType current_length;
           if (BitUtil::GetBit(cond_data, offset + i)) {
@@ -714,10 +714,10 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
     BitBlockCounter bit_counter(cond_data, cond.offset, cond.length);
 
     util::string_view left_data = internal::UnboxScalar<Type>::Unbox(left);
-    int64_t left_size = left_data.size();
+    size_t left_size = left_data.size();
 
     util::string_view right_data = internal::UnboxScalar<Type>::Unbox(right);
-    int64_t right_size = right_data.size();
+    size_t right_size = right_data.size();
 
     // reserve an additional space
     ARROW_ASSIGN_OR_RAISE(auto out_offset_buf,
@@ -742,16 +742,16 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
         bytes_written = block.length * left_size;
         for (int i = 0; i < block.length; i++) {
           std::memcpy(out_data + i * left_size, left_data.cbegin(), left_size);
-          out_offsets[i + 1] = out_offsets[0] + (i + 1) * left_size;
+          out_offsets[i + 1] = out_offsets[i] + left_size;
         }
       } else if (block.NoneSet()) {
         // from right
         bytes_written = block.length * right_size;
         for (int i = 0; i < block.length; i++) {
           std::memcpy(out_data + i * right_size, right_data.cbegin(), right_size);
-          out_offsets[i + 1] = out_offsets[0] + (i + 1) * right_size;
+          out_offsets[i + 1] = out_offsets[i] + right_size;
         }
-      } else if (block.popcount) {  // selectively copy from left
+      } else {  // selectively copy from left
         for (auto i = 0; i < block.length; ++i) {
           OffsetType current_length;
           if (BitUtil::GetBit(cond_data, offset + i)) {
