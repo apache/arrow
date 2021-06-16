@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import importlib
+
 import click
 
 from .source import ArrowSources, InvalidArrowSource
@@ -50,8 +52,6 @@ def validate_arrow_sources(ctx, param, src):
 
 
 def add_optional_command(name, module, function, parent):
-    import importlib
-
     try:
         module = importlib.import_module(module, package="archery")
         command = getattr(module, function)
