@@ -173,8 +173,8 @@ static void BinaryJoinElementWise(benchmark::State& state,
                                   SeparatorFactory make_separator) {
   // Unfortunately benchmark is not 1:1 with BinaryJoin since BinaryJoin can join a
   // varying number of inputs per output
-  const int64_t n_strings = 65536;
-  const int64_t n_lists = state.range(0);
+  const int64_t n_rows = 10000;
+  const int64_t n_cols = state.range(0);
   const double null_probability = 0.02;
 
   random::RandomArrayGenerator rng(kSeed);
@@ -182,14 +182,13 @@ static void BinaryJoinElementWise(benchmark::State& state,
   DatumVector args;
   ArrayVector strings;
   int64_t total_values_length = 0;
-  for (int i = 0; i < n_lists; i++) {
-    auto arr =
-        rng.String(n_strings, /*min_length=*/5, /*max_length=*/20, null_probability);
+  for (int i = 0; i < n_cols; i++) {
+    auto arr = rng.String(n_rows, /*min_length=*/5, /*max_length=*/20, null_probability);
     strings.push_back(arr);
     args.emplace_back(arr);
     total_values_length += checked_cast<const StringArray&>(*arr).total_values_length();
   }
-  auto separator = make_separator(n_strings, null_probability);
+  auto separator = make_separator(n_rows, null_probability);
   args.emplace_back(separator);
 
   for (auto _ : state) {
