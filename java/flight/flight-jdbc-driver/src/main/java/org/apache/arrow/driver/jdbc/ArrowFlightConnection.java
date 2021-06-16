@@ -31,6 +31,9 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.sql.SQLException;
+import java.util.ArrayDeque;
+import java.util.Collection;
+import java.util.Deque;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
@@ -186,13 +189,34 @@ public class ArrowFlightConnection extends AvaticaConnection {
   @Override
   public void close() throws SQLException {
 
+    Deque<Exception> exceptionDeque = new ArrayDeque<>();
+
     try {
-      AutoCloseables.close(client, allocator);
-    } catch (final Exception e) {
-      LOGGER.error("Failed to close resources.", e);
+      AutoCloseables.close(client);
+    } catch (Exception e) {
+      exceptionDeque.add(e);
     }
 
-    super.close();
+    try {
+      Collection<BufferAllocator> childAllocators = allocator.getChildAllocators();
+      AutoCloseables.close(childAllocators.toArray(new AutoCloseable[childAllocators.size()]));
+    } catch (Exception e) {
+      exceptionDeque.add(e);
+    }
+
+    try {
+      AutoCloseables.close(allocator);
+    } catch (final Exception e) {
+      exceptionDeque.add(e);
+    }
+
+    try {
+      super.close();
+    } catch(Exception e) {
+      throw new SQLException(e);
+    }
+
+    exceptionDeque.forEach(err -> LOGGER.error(err.getMessage(), err));
   }
 
 }

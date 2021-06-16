@@ -20,11 +20,18 @@ package org.apache.arrow.driver.jdbc.client;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
+import java.util.ArrayDeque;
+import java.util.Deque;
 
 import javax.annotation.Nullable;
 
 import org.apache.arrow.driver.jdbc.client.utils.ClientAuthenticationUtils;
-import org.apache.arrow.flight.*;
+import org.apache.arrow.flight.FlightClient;
+import org.apache.arrow.flight.FlightDescriptor;
+import org.apache.arrow.flight.FlightInfo;
+import org.apache.arrow.flight.FlightStream;
+import org.apache.arrow.flight.HeaderCallOption;
+import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.auth2.ClientBearerHeaderHandler;
 import org.apache.arrow.flight.auth2.ClientIncomingAuthHeaderMiddleware;
 import org.apache.arrow.flight.grpc.CredentialCallOption;
@@ -40,6 +47,8 @@ import com.google.common.base.Optional;
  */
 public class ArrowFlightClientHandler implements FlightClientHandler {
 
+  private final Deque<AutoCloseable> resources =
+          new ArrayDeque<>();
   private final FlightClient client;
 
   @Nullable
@@ -68,6 +77,7 @@ public class ArrowFlightClientHandler implements FlightClientHandler {
 
   protected ArrowFlightClientHandler(final FlightClient client) {
     this.client = client;
+    this.resources.add(this.client);
   }
 
   /**
@@ -114,29 +124,35 @@ public class ArrowFlightClientHandler implements FlightClientHandler {
   @Override
   public VectorSchemaRoot runQuery(final String query) throws Exception {
 
-    try (FlightStream stream = getStream(query)) {
+    /*
+     * Will be closed automatically upon this.close() -- don't worry.
+     * This is necessary because otherwise stream.getRoot() will return
+     * an empty VectorSchemaRoot.
+     */
+    FlightStream stream = getStream(query);
 
-      if (!stream.next()) {
-        return null;
-      }
-
-      return stream.getRoot();
+    if (!stream.next()) {
+      return null;
     }
+
+    return stream.getRoot();
+
   }
 
   @Override
   public FlightStream getStream(final String query) {
-    return client.getStream(getInfo(query).getEndpoints().get(0).getTicket(),
+    FlightStream stream = client.getStream(getInfo(query).getEndpoints().get(0).getTicket(),
             token);
+    resources.addFirst(stream);
+    return stream;
   }
 
   @Override
   public final void close() throws Exception {
     try {
-      // Safer than client.close -> avoids NullPointerException
-      AutoCloseables.close(client);
+      AutoCloseables.close(resources);
     } catch (final Exception e) {
-      throw new IOException("Failed to close client.", e);
+      throw new IOException("Failed to close resources.", e);
     }
   }
 
@@ -209,9 +225,10 @@ public class ArrowFlightClientHandler implements FlightClientHandler {
      */
     final boolean useAuthentication = Optional.fromNullable(username)
         .isPresent();
+    final FlightClient client;
 
     if (!useAuthentication) {
-      final FlightClient client = builder.build();
+      client = builder.build();
       // Build an unauthenticated client.
       handler = new ArrowFlightClientHandler(client, properties);
     } else {
@@ -220,7 +237,7 @@ public class ArrowFlightClientHandler implements FlightClientHandler {
 
       builder.intercept(factory);
 
-      final FlightClient client = builder.build();
+      client = builder.build();
 
       // Build an authenticated client.
       handler = new ArrowFlightClientHandler(client, ClientAuthenticationUtils
@@ -228,6 +245,7 @@ public class ArrowFlightClientHandler implements FlightClientHandler {
           properties);
     }
 
+    handler.resources.addLast(client);
     return handler;
   }
 

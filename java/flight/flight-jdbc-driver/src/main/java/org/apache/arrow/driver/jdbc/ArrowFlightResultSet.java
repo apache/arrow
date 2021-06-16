@@ -20,11 +20,20 @@ package org.apache.arrow.driver.jdbc;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.TimeZone;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.calcite.avatica.AvaticaResultSet;
 import org.apache.calcite.avatica.AvaticaStatement;
+import org.apache.calcite.avatica.ColumnMetaData;
 import org.apache.calcite.avatica.Meta.Frame;
 import org.apache.calcite.avatica.Meta.Signature;
 import org.apache.calcite.avatica.QueryState;
@@ -34,8 +43,6 @@ import org.apache.calcite.avatica.QueryState;
  */
 public class ArrowFlightResultSet extends AvaticaResultSet {
 
-  private VectorSchemaRoot rawData;
-
   ArrowFlightResultSet(final AvaticaStatement statement, final QueryState state,
       final Signature signature,
       final ResultSetMetaData resultSetMetaData,
@@ -43,15 +50,59 @@ public class ArrowFlightResultSet extends AvaticaResultSet {
     super(statement, state, signature, resultSetMetaData, timeZone, firstFrame);
   }
 
+  protected VectorSchemaRoot getRawData() {
+    return rawData;
+  }
+
   @Override
   protected AvaticaResultSet execute() throws SQLException {
 
-    ArrowFlightJdbcCursor cursor = new ArrowFlightJdbcCursor();
-    super.execute2(cursor, this.signature.columns);
     try {
-      rawData =
-              ((ArrowFlightConnection) statement.getConnection()).getClient()
-                      .runQuery(signature.sql);
+
+      VectorSchemaRoot root = (((ArrowFlightConnection) statement
+              .getConnection())
+              .getClient()
+              .runQuery(signature.sql));
+
+      final List<Field> fields = root.getSchema().getFields();
+
+      List<ColumnMetaData> metadata =
+              Stream.iterate(0, Math::incrementExact).limit(fields.size())
+                .map(index -> {
+                  Field field = fields.get(index);
+                  ArrowType.ArrowTypeID fieldTypeId = field.getType().getTypeID();
+
+                  return new ColumnMetaData(
+                          index,
+                          false,
+                          false,
+                          false,
+                          false,
+                          0,
+                          false,
+                          1,
+                          field.getName(),
+                          field.getName(),
+                          field.getName(),
+                          0,
+                          0,
+                          "TABLE-HERE",
+                          "CATALOG-HERE",
+                          new ColumnMetaData.AvaticaType(
+                                  1 /* String-only for now */,
+                                  fieldTypeId.name(),
+                                  ColumnMetaData.Rep.STRING),
+                          false,
+                          false,
+                          false,
+                          "teste"
+                  );
+                }).collect(Collectors.toList());
+
+      signature.columns.addAll(metadata);
+
+      execute2(new ArrowFlightJdbcCursor(root.getFieldVectors().iterator()),
+              this.signature.columns);
     } catch (Exception e) {
       throw new SQLException(e);
     }

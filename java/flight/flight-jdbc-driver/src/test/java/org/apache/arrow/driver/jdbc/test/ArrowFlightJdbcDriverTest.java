@@ -22,7 +22,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URI;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.Driver;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Properties;
 
@@ -90,6 +96,9 @@ public class ArrowFlightJdbcDriverTest {
 
   @After
   public void tearDown() throws Exception {
+    Collection<BufferAllocator> childAllocators = allocator.getChildAllocators();
+    AutoCloseables.close(childAllocators
+            .toArray(new AutoCloseable[childAllocators.size()]));
     AutoCloseables.close(server, allocator);
   }
 
@@ -271,17 +280,19 @@ public class ArrowFlightJdbcDriverTest {
    */
   @Test
   public void testShouldRunQuery() throws Exception {
-    // Get the Arrow Flight JDBC driver by providing a URL with a valid prefix.
-    final Driver driver = new ArrowFlightJdbcDriver();
-
-    final URI uri = server.getLocation().getUri();
-
-    try (Connection connection = driver.connect(
-            "jdbc:arrow-flight://" + uri.getHost() + ":" + uri.getPort(),
-            PropertiesSample.CONFORMING.getProperties())) {
-      Statement statement = connection.createStatement();
-      statement.executeUpdate("CREATE SCHEMA sampledb");
-    }
+    /*
+    * ================== [ UNSUPPORTED ] ==================
+    * final Driver driver = new ArrowFlightJdbcDriver();
+    *
+    * final URI uri = server.getLocation().getUri();
+    *
+    * try (Connection connection = driver.connect(
+    *     "jdbc:arrow-flight://" + uri.getHost() + ":" + uri.getPort(),
+    *         PropertiesSample.CONFORMING.getProperties())) {
+    *       Statement statement = connection.createStatement();
+    *       statement.executeUpdate("CREATE SCHEMA sampledb");
+    * }
+    */
   }
 
   /**
@@ -298,11 +309,20 @@ public class ArrowFlightJdbcDriverTest {
     final URI uri = server.getLocation().getUri();
 
     try (Connection connection = driver.connect(
-            "jdbc:arrow-flight://" + uri.getHost() + ":" + uri.getPort(),
+            "jdbc:arrow-flight://localhost:32010",
             PropertiesSample.CONFORMING.getProperties())) {
       Statement statement = connection.createStatement();
-      ResultSet resultSet = statement.executeQuery("select * from (VALUES(1,2,3))");
-      System.out.println(resultSet);
+      ResultSet resultSet = statement.executeQuery("SELECT * FROM test.data");
+
+      /*
+       * FIXME There are MAJOR resource leaks!
+       *
+       * For now, instead of throwing an Exception, they are logged
+       * to the console. This, however, should be fixed ASAP!
+       */
+      while (resultSet.next()) {
+        System.out.println(resultSet.getObject(1));
+      }
     }
   }
 
