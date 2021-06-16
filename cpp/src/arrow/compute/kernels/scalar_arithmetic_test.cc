@@ -2038,8 +2038,7 @@ TYPED_TEST(TestUnaryArithmeticSigned, Sign) {
     // Negative inputs
     this->AssertUnaryOp(Sign, "[-1, -10, -127]", ArrayFromJSON(int8(), "[-1, -1, -1]"));
     // Min/max
-    this->AssertUnaryOp(Sign, ArrayFromJSON(this->type_singleton(), MakeArray(min, max)),
-                        ArrayFromJSON(int8(), "[-1, 1]"));
+    this->AssertUnaryOp(Sign, MakeArray(min, max), ArrayFromJSON(int8(), "[-1, 1]"));
   }
 }
 
@@ -2061,8 +2060,7 @@ TYPED_TEST(TestUnaryArithmeticUnsigned, Sign) {
     // Positive inputs
     this->AssertUnaryOp(Sign, "[1, 10, 127]", ArrayFromJSON(int8(), "[1, 1, 1]"));
     // Min/max
-    this->AssertUnaryOp(Sign, ArrayFromJSON(this->type_singleton(), MakeArray(min, max)),
-                        ArrayFromJSON(int8(), "[0, 1]"));
+    this->AssertUnaryOp(Sign, MakeArray(min, max), ArrayFromJSON(int8(), "[0, 1]"));
   }
 }
 
@@ -2090,8 +2088,7 @@ TYPED_TEST(TestUnaryArithmeticFloating, Sign) {
   // NaN
   this->AssertUnaryOp(Sign, "[NaN]", ArrayFromJSON(int8(), "[1]"));
   // Min/max
-  this->AssertUnaryOp(Sign, ArrayFromJSON(this->type_singleton(), MakeArray(min, max)),
-                      ArrayFromJSON(int8(), "[-1, 1]"));
+  this->AssertUnaryOp(Sign, MakeArray(min, max), ArrayFromJSON(int8(), "[-1, 1]"));
 }
 }  // namespace compute
 }  // namespace arrow
