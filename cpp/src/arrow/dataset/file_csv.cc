@@ -162,8 +162,8 @@ static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderAsync(
       }));
   return reader_fut.Then(
       // Adds the filename to the error
-      [](const std::shared_ptr<csv::StreamingReader>& maybe_reader)
-          -> Result<std::shared_ptr<csv::StreamingReader>> { return maybe_reader; },
+      [](const std::shared_ptr<csv::StreamingReader>& reader)
+          -> Result<std::shared_ptr<csv::StreamingReader>> { return reader; },
       [source](const Status& err) -> Result<std::shared_ptr<csv::StreamingReader>> {
         return err.WithMessage("Could not open CSV input source '", source.path(),
                                "': ", err);

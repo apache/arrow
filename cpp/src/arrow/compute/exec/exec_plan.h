@@ -249,6 +249,8 @@ std::function<Future<util::optional<ExecBatch>>()> MakeSinkNode(ExecNode* input,
 /// The filter Expression will be evaluated against each batch which is pushed to
 /// this node. Any rows for which the filter does not evaluate to `true` will be excluded
 /// in the batch emitted by this node.
+///
+/// If the filter is not already bound, it will be bound against the input's schema.
 ARROW_EXPORT
 Result<ExecNode*> MakeFilterNode(ExecNode* input, std::string label, Expression filter);
 
@@ -256,6 +258,8 @@ Result<ExecNode*> MakeFilterNode(ExecNode* input, std::string label, Expression 
 ///
 /// Each expression will be evaluated against each batch which is pushed to
 /// this node to produce a corresponding output column.
+///
+/// If exprs are not already bound, they will be bound against the input's schema.
 ARROW_EXPORT
 Result<ExecNode*> MakeProjectNode(ExecNode* input, std::string label,
                                   std::vector<Expression> exprs);

@@ -890,13 +890,10 @@ struct ArithmeticDatasetFixture {
   static std::shared_ptr<Schema> schema() {
     return ::arrow::schema({
         field("i64", int64()),
-        // ARROW-1644: Parquet can't write complex level
-        // field("struct", struct_({
-        //                     // ARROW-2587: Parquet can't write struct with more
-        //                     // than one field.
-        //                     // field("i32", int32()),
-        //                     field("str", utf8()),
-        //                 })),
+        field("struct", struct_({
+                            field("i32", int32()),
+                            field("str", utf8()),
+                        })),
         field("u8", uint8()),
         field("list", list(int32())),
         field("bool", boolean()),
@@ -913,12 +910,12 @@ struct ArithmeticDatasetFixture {
 
     ss << "{";
     ss << "\"i64\": " << n << ", ";
-    // ss << "\"struct\": {";
-    // {
-    //   // ss << "\"i32\": " << n_i32 << ", ";
-    //   ss << "\"str\": \"" << std::to_string(n) << "\"";
-    // }
-    // ss << "}, ";
+    ss << "\"struct\": {";
+    {
+      ss << "\"i32\": " << n_i32 << ", ";
+      ss << R"("str": ")" << std::to_string(n) << "\"";
+    }
+    ss << "}, ";
     ss << "\"u8\": " << static_cast<int32_t>(n) << ", ";
     ss << "\"list\": [" << n_i32 << ", " << n_i32 << "], ";
     ss << "\"bool\": " << (static_cast<bool>(n % 2) ? "true" : "false");

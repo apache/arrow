@@ -210,7 +210,7 @@ struct IterationTraits<dataset::EnumeratedRecordBatch> {
         IterationEnd<Enumerated<std::shared_ptr<dataset::Fragment>>>()};
   }
   static bool IsEnd(const dataset::EnumeratedRecordBatch& val) {
-    return val.fragment.value == NULLPTR;
+    return IsIterationEnd(val.fragment);
   }
 };
 
@@ -399,11 +399,6 @@ class ARROW_DS_EXPORT ScannerBuilder {
   /// \brief Return the constructed now-immutable Scanner object
   Result<std::shared_ptr<Scanner>> Finish();
 
-  /// \brief Construct a source ExecNode which yields batches from a dataset scan.
-  ///
-  /// Does not construct associated filter or project nodes
-  Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan*);
-
   const std::shared_ptr<Schema>& schema() const;
   const std::shared_ptr<Schema>& projected_schema() const;
 
@@ -411,6 +406,13 @@ class ARROW_DS_EXPORT ScannerBuilder {
   std::shared_ptr<Dataset> dataset_;
   std::shared_ptr<ScanOptions> scan_options_ = std::make_shared<ScanOptions>();
 };
+
+/// \brief Construct a source ExecNode which yields batches from a dataset scan.
+///
+/// Does not construct associated filter or project nodes
+ARROW_DS_EXPORT Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan*,
+                                                        std::shared_ptr<Dataset>,
+                                                        std::shared_ptr<ScanOptions>);
 
 /// @}
 

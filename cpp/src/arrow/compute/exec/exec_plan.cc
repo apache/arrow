@@ -239,6 +239,10 @@ struct SourceNode : ExecNode {
                 }
                 lock.unlock();
 
+                // TODO check if we are on the desired Executor and transfer if not.
+                // This can happen for in-memory scans where batches didn't require
+                // any CPU work to decode. Otherwise, parsing etc should have already
+                // been placed us on the thread pool
                 outputs_[0]->InputReceived(this, seq, *batch);
                 return Continue();
               },
@@ -273,7 +277,6 @@ struct SourceNode : ExecNode {
       std::unique_lock<std::mutex> lock(mutex_);
       finished_ = true;
     }
-    DCHECK(finished_fut_.is_valid());
     finished_fut_.Wait();
   }
 
@@ -283,7 +286,7 @@ struct SourceNode : ExecNode {
   std::mutex mutex_;
   bool finished_{false};
   int next_batch_index_{0};
-  Future<> finished_fut_;
+  Future<> finished_fut_ = Future<>::MakeFinished();
   AsyncGenerator<util::optional<ExecBatch>> generator_;
 };
 
@@ -370,7 +373,9 @@ struct FilterNode : ExecNode {
 };
 
 Result<ExecNode*> MakeFilterNode(ExecNode* input, std::string label, Expression filter) {
-  ARROW_ASSIGN_OR_RAISE(filter, filter.Bind(*input->output_schema()));
+  if (!filter.IsBound()) {
+    ARROW_ASSIGN_OR_RAISE(filter, filter.Bind(*input->output_schema()));
+  }
 
   if (filter.type()->id() != Type::BOOL) {
     return Status::TypeError("Filter expression must evaluate to bool, but ",
@@ -452,7 +457,9 @@ Result<ExecNode*> MakeProjectNode(ExecNode* input, std::string label,
 
   int i = 0;
   for (auto& expr : exprs) {
-    ARROW_ASSIGN_OR_RAISE(expr, expr.Bind(*input->output_schema()));
+    if (!expr.IsBound()) {
+      ARROW_ASSIGN_OR_RAISE(expr, expr.Bind(*input->output_schema()));
+    }
     fields[i] = field(expr.ToString(), expr.type());
     ++i;
   }

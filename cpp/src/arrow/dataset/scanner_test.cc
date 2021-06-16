@@ -1091,6 +1091,8 @@ TEST(ScanOptions, TestMaterializedFields) {
   EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i64", "i32"));
 }
 
+namespace {
+
 static Result<std::vector<compute::ExecBatch>> StartAndCollect(
     compute::ExecPlan* plan, AsyncGenerator<util::optional<compute::ExecBatch>> gen) {
   RETURN_NOT_OK(plan->Validate());
@@ -1106,49 +1108,25 @@ static Result<std::vector<compute::ExecBatch>> StartAndCollect(
       collected);
 }
 
-TEST(ScanNode, Trivial) {
-  ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
+struct DatasetAndBatches {
+  std::shared_ptr<Dataset> dataset;
+  std::vector<compute::ExecBatch> batches;
+};
 
-  const auto schema = ::arrow::schema({field("a", int32()), field("b", boolean())});
-  RecordBatchVector batches{
-      RecordBatchFromJSON(schema, R"([{"a": null, "b": true},
-                                      {"a": 4,    "b": false}])"),
-      RecordBatchFromJSON(schema, R"([{"a": 5,    "b": null},
-                                      {"a": 6,    "b": false},
-                                      {"a": 7,    "b": false}])"),
-  };
-
-  auto dataset = std::make_shared<InMemoryDataset>(schema, batches);
-
-  ScannerBuilder scanner_builder(dataset);
-  ASSERT_OK(scanner_builder.UseAsync(true));
-  ASSERT_OK_AND_ASSIGN(auto scan, scanner_builder.MakeScanNode(plan.get()));
-  auto sink_gen = MakeSinkNode(scan, "sink");
-
-  std::vector<compute::ExecBatch> expected;
-  // InMemoryDataset(RecordBatchVector) produces a fragment wrapping each batch
-  const int batch_index = 0;
-  int fragment_index = 0;
-  for (const auto& batch : batches) {
-    expected.emplace_back(*batch);
-    expected.back().values.emplace_back(fragment_index++);
-    expected.back().values.emplace_back(batch_index);
-  }
-
-  ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-              ResultWith(UnorderedElementsAreArray(expected)));
-}
-
-TEST(ScanNode, FilteredOnVirtualColumn) {
-  ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
-
+DatasetAndBatches MakeBasicDataset() {
   const auto dataset_schema = ::arrow::schema({
       field("a", int32()),
       field("b", boolean()),
       field("c", int32()),
   });
+
   const auto physical_schema = SchemaFromColumnNames(dataset_schema, {"a", "b"});
-  RecordBatchVector batches{
+
+  RecordBatchVector record_batches{
+      RecordBatchFromJSON(physical_schema, R"([{"a": 1,    "b": null},
+                                               {"a": 2,    "b": true}])"),
+      RecordBatchFromJSON(physical_schema, R"([{"a": null, "b": true},
+                                               {"a": 3,    "b": false}])"),
       RecordBatchFromJSON(physical_schema, R"([{"a": null, "b": true},
                                                {"a": 4,    "b": false}])"),
       RecordBatchFromJSON(physical_schema, R"([{"a": 5,    "b": null},
@@ -1159,33 +1137,96 @@ TEST(ScanNode, FilteredOnVirtualColumn) {
   auto dataset = std::make_shared<FragmentDataset>(
       dataset_schema,
       FragmentVector{
-          std::make_shared<InMemoryFragment>(physical_schema, batches,
-                                             equal(field_ref("c"), literal(23))),
-          std::make_shared<InMemoryFragment>(physical_schema, batches,
-                                             equal(field_ref("c"), literal(47))),
+          std::make_shared<InMemoryFragment>(
+              physical_schema, RecordBatchVector{record_batches[0], record_batches[1]},
+              equal(field_ref("c"), literal(23))),
+          std::make_shared<InMemoryFragment>(
+              physical_schema, RecordBatchVector{record_batches[2], record_batches[3]},
+              equal(field_ref("c"), literal(47))),
       });
 
-  ScannerBuilder scanner_builder(dataset);
-  ASSERT_OK(scanner_builder.UseAsync(true));
-  ASSERT_OK(scanner_builder.Filter(greater(field_ref("c"), literal(30))));
-  ASSERT_OK_AND_ASSIGN(auto scan, scanner_builder.MakeScanNode(plan.get()));
+  std::vector<compute::ExecBatch> batches;
+
+  auto batch_it = record_batches.begin();
+  for (int fragment_index = 0; fragment_index < 2; ++fragment_index) {
+    for (int batch_index = 0; batch_index < 2; ++batch_index) {
+      const auto& batch = *batch_it++;
+
+      // the scanned ExecBatches will begin with physical columns
+      batches.emplace_back(*batch);
+
+      // a placeholder will be inserted for partition field "c"
+      batches.back().values.emplace_back(std::make_shared<Int32Scalar>());
+
+      // scanned batches will be augmented with fragment and batch indices
+      batches.back().values.emplace_back(fragment_index);
+      batches.back().values.emplace_back(batch_index);
+
+      // ... and with the last-in-fragment flag
+      batches.back().values.emplace_back(batch_index == 1);
+
+      // each batch carries a guarantee inherited from its Fragment's partition expression
+      batches.back().guarantee =
+          equal(field_ref("c"), literal(fragment_index == 0 ? 23 : 47));
+    }
+  }
+
+  return {dataset, batches};
+}
+}  // namespace
+
+TEST(ScanNode, Schema) {
+  ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
+
+  auto basic = MakeBasicDataset();
+
+  auto options = std::make_shared<ScanOptions>();
+  options->use_async = true;
+
+  ASSERT_OK_AND_ASSIGN(auto scan, MakeScanNode(plan.get(), basic.dataset, options));
+
+  auto fields = basic.dataset->schema()->fields();
+  fields.push_back(field("__fragment_index", int32()));
+  fields.push_back(field("__batch_index", int32()));
+  fields.push_back(field("__last_in_fragment", boolean()));
+  AssertSchemaEqual(Schema(fields), *scan->output_schema());
+}
+
+TEST(ScanNode, Trivial) {
+  ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
+
+  auto basic = MakeBasicDataset();
+
+  auto options = std::make_shared<ScanOptions>();
+  options->use_async = true;
+
+  ASSERT_OK_AND_ASSIGN(auto scan, MakeScanNode(plan.get(), basic.dataset, options));
   auto sink_gen = MakeSinkNode(scan, "sink");
 
-  std::vector<compute::ExecBatch> expected;
-  const int fragment_index = 0;  // only the second fragment will make it past the filter,
-                                 // and its index in the scan is 0
-  int batch_index = 0;
-  for (const auto& batch : batches) {
-    expected.emplace_back(*batch);
+  // trivial scan: the batches are returned unmodified
+  auto expected = basic.batches;
+  ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+              ResultWith(UnorderedElementsAreArray(expected)));
+}
 
-    expected.back().guarantee = equal(field_ref("c"), literal(47));
+TEST(ScanNode, FilteredOnVirtualColumn) {
+  ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
 
-    // Note: placeholder for partition field "c"
-    expected.back().values.emplace_back(std::make_shared<Int32Scalar>());
+  auto basic = MakeBasicDataset();
 
-    expected.back().values.emplace_back(fragment_index);
-    expected.back().values.emplace_back(batch_index++);
-  }
+  auto options = std::make_shared<ScanOptions>();
+  options->use_async = true;
+  options->filter = less(field_ref("c"), literal(30));
+
+  ASSERT_OK_AND_ASSIGN(auto scan, MakeScanNode(plan.get(), basic.dataset, options));
+
+  auto sink_gen = MakeSinkNode(scan, "sink");
+
+  auto expected = basic.batches;
+
+  // only the first fragment will make it past the filter
+  expected.pop_back();
+  expected.pop_back();
 
   ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
               ResultWith(UnorderedElementsAreArray(expected)));
@@ -1194,101 +1235,54 @@ TEST(ScanNode, FilteredOnVirtualColumn) {
 TEST(ScanNode, DeferredFilterOnPhysicalColumn) {
   ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
 
-  const auto dataset_schema = ::arrow::schema({
-      field("a", int32()),
-      field("b", boolean()),
-      field("c", int32()),
-  });
-  const auto physical_schema = SchemaFromColumnNames(dataset_schema, {"a", "b"});
-  RecordBatchVector batches{
-      RecordBatchFromJSON(physical_schema, R"([{"a": null, "b": true},
-                                               {"a": 4,    "b": false}])"),
-      RecordBatchFromJSON(physical_schema, R"([{"a": 5,    "b": null},
-                                               {"a": 6,    "b": false},
-                                               {"a": 7,    "b": false}])"),
-  };
+  auto basic = MakeBasicDataset();
 
-  auto dataset = std::make_shared<FragmentDataset>(
-      dataset_schema,
-      FragmentVector{
-          std::make_shared<InMemoryFragment>(physical_schema, batches,
-                                             equal(field_ref("c"), literal(23))),
-          std::make_shared<InMemoryFragment>(physical_schema, batches,
-                                             equal(field_ref("c"), literal(47))),
-      });
+  auto options = std::make_shared<ScanOptions>();
+  options->use_async = true;
+  options->filter = greater(field_ref("a"), literal(4));
 
-  ScannerBuilder scanner_builder(dataset);
-  ASSERT_OK(scanner_builder.UseAsync(true));
-  ASSERT_OK(scanner_builder.Filter(greater(field_ref("a"), literal(4))));
-  ASSERT_OK_AND_ASSIGN(auto scan, scanner_builder.MakeScanNode(plan.get()));
+  ASSERT_OK_AND_ASSIGN(auto scan, MakeScanNode(plan.get(), basic.dataset, options));
+
   auto sink_gen = MakeSinkNode(scan, "sink");
 
-  // no filtering is performed by ScanNode: all batches will be yielded whole
-  std::vector<compute::ExecBatch> expected;
-  for (int fragment_index = 0; fragment_index < 2; ++fragment_index) {
-    for (int batch_index = 0; batch_index < 2; ++batch_index) {
-      expected.emplace_back(*batches[batch_index]);
-
-      expected.back().guarantee =
-          equal(field_ref("c"), literal(fragment_index == 0 ? 23 : 47));
-
-      // Note: placeholder for partition field "c"
-      expected.back().values.emplace_back(std::make_shared<Int32Scalar>());
-
-      expected.back().values.emplace_back(fragment_index);
-      expected.back().values.emplace_back(batch_index);
-    }
-  }
+  // No post filtering is performed by ScanNode: all batches will be yielded whole.
+  // To filter out rows from individual batches, construct a FilterNode.
+  auto expected = basic.batches;
 
   ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
               ResultWith(UnorderedElementsAreArray(expected)));
 }
 
+TEST(ScanNode, ProjectionPushdown) {
+  // ensure non-projected columns are dropped
+}
+
 TEST(ScanNode, MaterializationOfVirtualColumn) {
   ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
 
-  const auto dataset_schema = ::arrow::schema({
-      field("a", int32()),
-      field("b", boolean()),
-      field("c", int32()),
-  });
-  const auto physical_schema = SchemaFromColumnNames(dataset_schema, {"a", "b"});
-  RecordBatchVector batches{
-      RecordBatchFromJSON(physical_schema, R"([{"a": null, "b": true},
-                                               {"a": 4,    "b": false}])"),
-      RecordBatchFromJSON(physical_schema, R"([{"a": 5,    "b": null},
-                                               {"a": 6,    "b": false},
-                                               {"a": 7,    "b": false}])"),
-  };
+  auto basic = MakeBasicDataset();
 
-  auto dataset = std::make_shared<FragmentDataset>(
-      dataset_schema,
-      FragmentVector{
-          std::make_shared<InMemoryFragment>(physical_schema, batches,
-                                             equal(field_ref("c"), literal(23))),
-          std::make_shared<InMemoryFragment>(physical_schema, batches,
-                                             equal(field_ref("c"), literal(47))),
-      });
+  auto options = std::make_shared<ScanOptions>();
+  options->use_async = true;
+  options->filter = greater(field_ref("a"), literal(4));
 
-  ScannerBuilder scanner_builder(dataset);
-  ASSERT_OK(scanner_builder.UseAsync(true));
-  ASSERT_OK_AND_ASSIGN(auto scan, scanner_builder.MakeScanNode(plan.get()));
-  ASSERT_OK_AND_ASSIGN(auto project,
-                       compute::MakeProjectNode(scan, "project", {field_ref("c")}));
+  ASSERT_OK_AND_ASSIGN(auto scan, MakeScanNode(plan.get(), basic.dataset, options));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto project,
+      compute::MakeProjectNode(
+          scan, "project",
+          {field_ref("a"), field_ref("b"), field_ref("c"), field_ref("__fragment_index"),
+           field_ref("__batch_index"), field_ref("__last_in_fragment")}));
+
   auto sink_gen = MakeSinkNode(project, "sink");
 
-  std::vector<compute::ExecBatch> expected;
-  for (int fragment_index = 0; fragment_index < 2; ++fragment_index) {
-    for (int batch_index = 0; batch_index < 2; ++batch_index) {
-      auto c_value = fragment_index == 0 ? 23 : 47;
+  auto expected = basic.batches;
 
-      expected.push_back(compute::ExecBatch{{}, batches[batch_index]->num_rows()});
-
-      // NB: ProjectNode overwrites "c" placeholder with value from guarantee
-      expected.back().values.emplace_back(c_value);
-
-      expected.back().guarantee = equal(field_ref("c"), literal(c_value));
-    }
+  for (auto& batch : expected) {
+    // ProjectNode overwrites "c" placeholder with non-null drawn from guarantee
+    const auto& value = *batch.guarantee.call()->arguments[1].literal();
+    batch.values[project->output_schema()->GetFieldIndex("c")] = value;
   }
 
   ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
