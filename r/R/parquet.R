@@ -296,7 +296,7 @@ ParquetWriterPropertiesBuilder <- R6Class("ParquetWriterPropertiesBuilder", inhe
         parquet___ArrowWriterProperties___Builder__set_compressions
       )
     },
-    set_compression_level = function(table, compression_level){
+    set_compression_level = function(table, compression_level) {
       # cast to integer but keep names
       compression_level <- set_names(as.integer(compression_level), names(compression_level))
       private$.set(table, compression_level,
@@ -558,7 +558,7 @@ ParquetArrowReaderProperties <- R6Class("ParquetArrowReaderProperties",
   ),
   active = list(
     use_threads = function(use_threads) {
-      if(missing(use_threads)) {
+      if (missing(use_threads)) {
         parquet___arrow___ArrowReaderProperties__get_use_threads(self)
       } else {
         parquet___arrow___ArrowReaderProperties__set_use_threads(self, use_threads)

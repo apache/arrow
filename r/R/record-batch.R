@@ -162,6 +162,9 @@ RecordBatch$create <- function(..., schema = NULL) {
     return(dplyr::group_by(out, !!!dplyr::groups(arrays[[1]])))
   }
   
+  # If any arrays are length 1, recycle them
+  arrays <- recycle_scalars(arrays)
+
   # TODO: should this also assert that they're all Arrays?
   RecordBatch__from_arrays(schema, arrays)
 }
