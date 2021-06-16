@@ -37,9 +37,7 @@ using internal::BitBlockCount;
 using internal::BitBlockCounter;
 using internal::BitmapWordReader;
 
-const int64_t kBufferSize = 1024 * (std::rand() % 25 + 1000);
-
-// const int seed = std::rand();
+const int64_t kBufferSize = 1024 * 1024;
 
 static std::shared_ptr<Buffer> CreateRandomBuffer(int64_t nbytes) {
   auto buffer = *AllocateBuffer(nbytes);
@@ -51,20 +49,27 @@ static std::shared_ptr<Buffer> CreateRandomBuffer(int64_t nbytes) {
 static void BitBlockCounterBench(benchmark::State& state) {
   int64_t nbytes = state.range(0);
   std::shared_ptr<Buffer> cond_buf = CreateRandomBuffer(nbytes);
+  std::shared_ptr<Buffer> data_buf = CreateRandomBuffer(nbytes * 8 * 8);
+  std::shared_ptr<Buffer> dest_buf = CreateRandomBuffer(nbytes * 8 * 8);
   for (auto _ : state) {
     BitBlockCounter counter(cond_buf->data(), 0, nbytes * 8);
 
-    int64_t offset = 0;
-    int64_t set_bits = 0;
+    const uint8_t* cond_ptr = cond_buf->data();
+    const uint64_t* data_ptr = reinterpret_cast<const uint64_t*>(data_buf->data());
+    uint64_t* dest_ptr = reinterpret_cast<uint64_t*>(dest_buf->mutable_data());
 
+    int64_t offset = 0;
     while (offset < nbytes * 8) {
       const BitBlockCount& word = counter.NextWord();
-      //      if (word.AllSet()) {
-      //        set_bits += word.length;
-      //      } else if (word.popcount) {
-      //        set_bits += word.popcount;
-      //      }
-      set_bits += word.popcount;
+      if (word.AllSet()) {
+        std::memcpy(dest_ptr + offset, data_ptr + offset, word.length * 8);
+      } else if (word.popcount) {
+        for (int64_t i = 0; i < word.length; i++) {
+          if (GetBit(cond_ptr, offset + i)) {
+            dest_ptr[offset + i] = data_ptr[offset + i];
+          }
+        }
+      }
       offset += word.length;
     }
     benchmark::ClobberMemory();
@@ -76,27 +81,47 @@ static void BitBlockCounterBench(benchmark::State& state) {
 static void BitmapWordReaderBench(benchmark::State& state) {
   int64_t nbytes = state.range(0);
   std::shared_ptr<Buffer> cond_buf = CreateRandomBuffer(nbytes);
+  std::shared_ptr<Buffer> data_buf = CreateRandomBuffer(nbytes * 8 * 8);
+  std::shared_ptr<Buffer> dest_buf = CreateRandomBuffer(nbytes * 8 * 8);
+
   for (auto _ : state) {
     BitmapWordReader<uint64_t> counter(cond_buf->data(), 0, nbytes * 8);
 
-    int64_t set_bits = 0;
+    const uint8_t* cond_ptr = cond_buf->data();
+    const auto* data_ptr = reinterpret_cast<const uint64_t*>(data_buf->data());
+    auto* dest_ptr = reinterpret_cast<uint64_t*>(dest_buf->mutable_data());
 
+    int64_t offset = 0;
     int64_t cnt = counter.words();
     while (cnt--) {
       const auto& word = counter.NextWord();
-      //      if (word == UINT64_MAX) {
-      //        set_bits += sizeof(uint64_t) * 8;
-      //      } else if (word) {
-      //        set_bits += PopCount(word);
-      //      }
-      set_bits += PopCount(word);
+      if (word == UINT64_MAX) {
+        std::memcpy(dest_ptr + offset, data_ptr + offset, 64 * 8);
+      } else if (word) {
+        for (int64_t i = 0; i < 8; i++) {
+          if (GetBit(cond_ptr, offset + i)) {
+            dest_ptr[offset + i] = data_ptr[offset + i];
+          }
+        }
+      }
+      offset += 8;
     }
 
     cnt = counter.trailing_bytes();
     while (cnt--) {
       int valid_bits;
-      const auto& byte = static_cast<uint32_t>(counter.NextTrailingByte(valid_bits));
-      set_bits += PopCount(kPrecedingBitmask[valid_bits] & byte);
+      const auto& byte = counter.NextTrailingByte(valid_bits);
+      if (byte == UINT8_MAX && valid_bits == 8) {
+        std::memcpy(dest_ptr, data_ptr, 8 * 8);
+      } else {
+        for (int64_t i = 0; i < valid_bits; i++) {
+          if (GetBit(cond_ptr, offset + i)) {
+            dest_ptr[offset + i] = data_ptr[offset + i];
+          }
+        }
+      }
+
+      offset += valid_bits;
     }
     benchmark::ClobberMemory();
   }
