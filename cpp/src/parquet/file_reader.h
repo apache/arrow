@@ -58,12 +58,10 @@ class PARQUET_EXPORT RowGroupReader {
 
   // Construct a ColumnReader, trying to enable exposed encoding.
   //
-  // The encoding can only be exposed if the column chunk is encoded with the
-  // same encoding. For dictionary encoding, currently we only support column
-  // chunks that are fully dictionary encoded, i.e., all data pages in the
-  // column chunk are dictionary encoded. If a column chunk uses dictionary
-  // encoding but then falls back to plain encoding, the encoding will not be
-  // exposed.
+  // For dictionary encoding, currently we only support column chunks that are fully
+  // dictionary encoded, i.e., all data pages in the column chunk are dictionary encoded.
+  // If a column chunk uses dictionary encoding but then falls back to plain encoding, the
+  // encoding will not be exposed.
   //
   // The returned column reader provides an API GetExposedEncoding() for the
   // users to check the exposed encoding and determine how to read the batches.

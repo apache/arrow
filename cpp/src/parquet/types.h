@@ -481,7 +481,7 @@ struct Encoding {
 
 // Exposed data encodings. It is the encoding of the data read from the file,
 // rather than the encoding of the data in the file. E.g., the data encoded as
-// RLW_DICTIONARY in the file can be read as dictionary indices by RLE
+// RLE_DICTIONARY in the file can be read as dictionary indices by RLE
 // decoding, in which case the data read from the file is DICTIONARY encoded.
 enum class ExposedEncoding {
   NO_ENCODING = 0,  // data is not encoded, i.e. already decoded during reading

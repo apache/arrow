@@ -881,15 +881,15 @@ class TypedColumnReaderImpl : public TypedColumnReader<DType>,
   // Read dictionary indices. Similar to ReadValues but decode data to dictionary indices.
   // This function is called only by ReadBatchWithDictionary().
   int64_t ReadDictionaryIndices(int64_t indices_to_read, int32_t* indices) {
-    auto decoder = checked_cast<DictDecoder<DType>*>(this->current_decoder_);
+    auto decoder = dynamic_cast<DictDecoder<DType>*>(this->current_decoder_);
     return decoder->DecodeIndices(static_cast<int>(indices_to_read), indices);
   }
 
-  // Get dictionary. The dictionrary should have been set by SetDict(). The dictionary is
+  // Get dictionary. The dictionary should have been set by SetDict(). The dictionary is
   // owned by the internal decoder and is destroyed when the reader is destroyed. This
   // function is called only by ReadBatchWithDictionary() after dictionary is configured.
   void GetDictionary(const T** dictionary, int32_t* dictionary_length) {
-    auto decoder = checked_cast<DictDecoder<DType>*>(this->current_decoder_);
+    auto decoder = dynamic_cast<DictDecoder<DType>*>(this->current_decoder_);
     decoder->GetDictionary(dictionary, dictionary_length);
   }
 
@@ -929,11 +929,11 @@ template <typename DType>
 int64_t TypedColumnReaderImpl<DType>::ReadBatchWithDictionary(
     int64_t batch_size, int16_t* def_levels, int16_t* rep_levels, int32_t* indices,
     int64_t* indices_read, const T** dict, int32_t* dict_len) {
-  bool no_dict = dict == nullptr || dict_len == nullptr;
+  bool has_dict_output = dict != nullptr && dict_len != nullptr;
   // Similar logic as ReadValues to get pages.
   if (!HasNext()) {
     *indices_read = 0;
-    if (!no_dict) {
+    if (has_dict_output) {
       *dict = nullptr;
       *dict_len = 0;
     }
@@ -949,7 +949,7 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatchWithDictionary(
   }
 
   // Get dictionary pointer and length.
-  if (!no_dict) {
+  if (has_dict_output) {
     GetDictionary(dict, dict_len);
   }
 

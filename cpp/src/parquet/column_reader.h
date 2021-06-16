@@ -223,7 +223,7 @@ class TypedColumnReader : public ColumnReader {
   // DICTIONARY).
   //
   // The dictionary is read along with the data page. When there's no data page,
-  // the dictionary won't be read.
+  // the dictionary won't be returned.
   //
   // @param batch_size The batch size to read
   // @param[out] def_levels The Parquet definition levels.
