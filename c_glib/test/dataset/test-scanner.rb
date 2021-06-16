@@ -34,7 +34,7 @@ class TestDatasetScanner < Test::Unit::TestCase
       @format = ArrowDataset::IPCFileFormat.new
       write_table(@table, path)
       factory = ArrowDataset::FileSystemDatasetFactory.new(@format)
-      factory.file_system_uri = "file://#{File.expand_path(path)}"
+      factory.file_system_uri = build_file_uri(path)
       @dataset = factory.finish
       builder = @dataset.begin_scan
       @scanner = builder.finish

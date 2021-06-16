@@ -30,7 +30,8 @@ class TestFileSystemDataset < Test::Unit::TestCase
 
   test(".build") do
     dataset = ArrowDataset::FileSystemDataset.build(@format) do |factory|
-      factory.file_system_uri = "file://#{File.expand_path(@path)}"
+      factory.file_system = Arrow::LocalFileSystem.new
+      factory.add_path(File.expand_path(@path))
     end
     assert_equal(@table, dataset.to_table)
   end

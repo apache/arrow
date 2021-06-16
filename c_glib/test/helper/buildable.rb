@@ -230,6 +230,15 @@ module Helper
       Arrow::RecordBatch.new(schema, n_rows, columns.values)
     end
 
+    def build_file_uri(path)
+      absolute_path = File.expand_path(path)
+      if absolute_path.start_with?("/")
+        "file:///#{absolute_path}"
+      else
+        "file://#{absolute_path}"
+      end
+    end
+
     private
     def build_array(builder, values)
       values.each do |value|

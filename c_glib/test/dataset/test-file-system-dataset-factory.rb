@@ -48,7 +48,7 @@ class TestDatasetFileSystemDatasetFactory < Test::Unit::TestCase
 
   def test_file_system_uri
     factory = ArrowDataset::FileSystemDatasetFactory.new(@format)
-    factory.file_system_uri = "file://#{File.expand_path(@path)}"
+    factory.file_system_uri = build_file_uri(@path)
     dataset = factory.finish
     assert_equal(@table, dataset.to_table)
   end
