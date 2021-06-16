@@ -1033,6 +1033,9 @@ Result<std::shared_ptr<TableReader>> MakeTableReader(
     MemoryPool* pool, io::IOContext io_context, std::shared_ptr<io::InputStream> input,
     const ReadOptions& read_options, const ParseOptions& parse_options,
     const ConvertOptions& convert_options) {
+  RETURN_NOT_OK(parse_options.Validate());
+  RETURN_NOT_OK(read_options.Validate());
+  RETURN_NOT_OK(convert_options.Validate());
   std::shared_ptr<BaseTableReader> reader;
   if (read_options.use_threads) {
     auto cpu_executor = internal::GetCpuThreadPool();
@@ -1051,6 +1054,9 @@ Future<std::shared_ptr<StreamingReader>> MakeStreamingReader(
     io::IOContext io_context, std::shared_ptr<io::InputStream> input,
     internal::Executor* cpu_executor, const ReadOptions& read_options,
     const ParseOptions& parse_options, const ConvertOptions& convert_options) {
+  RETURN_NOT_OK(parse_options.Validate());
+  RETURN_NOT_OK(read_options.Validate());
+  RETURN_NOT_OK(convert_options.Validate());
   std::shared_ptr<BaseStreamingReader> reader;
   reader = std::make_shared<SerialStreamingReader>(
       io_context, cpu_executor, input, read_options, parse_options, convert_options,
@@ -1182,6 +1188,8 @@ Future<int64_t> CountRowsAsync(io::IOContext io_context,
                                internal::Executor* cpu_executor,
                                const ReadOptions& read_options,
                                const ParseOptions& parse_options) {
+  RETURN_NOT_OK(parse_options.Validate());
+  RETURN_NOT_OK(read_options.Validate());
   auto counter = std::make_shared<CSVRowCounter>(
       io_context, cpu_executor, std::move(input), read_options, parse_options);
   return counter->Count();
