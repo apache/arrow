@@ -48,6 +48,25 @@ struct ARROW_EXPORT ElementWiseAggregateOptions : public FunctionOptions {
   bool skip_nulls;
 };
 
+/// Options for var_args_join.
+struct ARROW_EXPORT JoinOptions : public FunctionOptions {
+  /// How to handle null values. (A null separator always results in a null output.)
+  enum NullHandlingBehavior {
+    /// A null in any input results in a null in the output.
+    EMIT_NULL,
+    /// Nulls in inputs are skipped.
+    SKIP,
+    /// Nulls in inputs are replaced with the replacement string.
+    REPLACE,
+  };
+  explicit JoinOptions(NullHandlingBehavior null_handling = EMIT_NULL,
+                       std::string null_replacement = "")
+      : null_handling(null_handling), null_replacement(std::move(null_replacement)) {}
+  static JoinOptions Defaults() { return JoinOptions(); }
+  NullHandlingBehavior null_handling;
+  std::string null_replacement;
+};
+
 struct ARROW_EXPORT MatchSubstringOptions : public FunctionOptions {
   explicit MatchSubstringOptions(std::string pattern, bool ignore_case = false)
       : pattern(std::move(pattern)), ignore_case(ignore_case) {}
@@ -287,7 +306,7 @@ Result<Datum> Power(const Datum& left, const Datum& right,
 /// \param[in] ctx the function execution context, optional
 /// \return the element-wise maximum
 ARROW_EXPORT
-Result<Datum> ElementWiseMax(
+Result<Datum> MaxElementWise(
     const std::vector<Datum>& args,
     ElementWiseAggregateOptions options = ElementWiseAggregateOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
@@ -300,7 +319,7 @@ Result<Datum> ElementWiseMax(
 /// \param[in] ctx the function execution context, optional
 /// \return the element-wise minimum
 ARROW_EXPORT
-Result<Datum> ElementWiseMin(
+Result<Datum> MinElementWise(
     const std::vector<Datum>& args,
     ElementWiseAggregateOptions options = ElementWiseAggregateOptions::Defaults(),
     ExecContext* ctx = NULLPTR);

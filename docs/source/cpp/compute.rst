@@ -318,8 +318,8 @@ expanded for the purposes of comparison.
 +--------------------------+------------+---------------------------------------------+---------------------+---------------------------------------+-------+
 | Function names           | Arity      | Input types                                 | Output type         | Options class                         | Notes |
 +==========================+============+=============================================+=====================+=======================================+=======+
-| element_wise_max,        | Varargs    | Numeric and Temporal                        | Numeric or Temporal | :struct:`ElementWiseAggregateOptions` | \(1)  |
-| element_wise_min         |            |                                             |                     |                                       |       |
+| max_element_wise,        | Varargs    | Numeric and Temporal                        | Numeric or Temporal | :struct:`ElementWiseAggregateOptions` | \(1)  |
+| min_element_wise         |            |                                             |                     |                                       |       |
 +--------------------------+------------+---------------------------------------------+---------------------+---------------------------------------+-------+
 
 * \(1) By default, nulls are skipped (but the kernel can be configured to propagate nulls).
@@ -680,19 +680,25 @@ String component extraction
 String joining
 ~~~~~~~~~~~~~~
 
-This function does the inverse of string splitting.
+These functions do the inverse of string splitting.
 
-+-----------------+-----------+----------------------+----------------+-------------------+---------+
-| Function name   | Arity     | Input type 1         | Input type 2   | Output type       | Notes   |
-+=================+===========+======================+================+===================+=========+
-| binary_join     | Binary    | List of string-like  | String-like    | String-like       | \(1)    |
-+-----------------+-----------+----------------------+----------------+-------------------+---------+
++--------------------------+-----------+-----------------------+----------------+-------------------+-----------------------+---------+
+| Function name            | Arity     | Input type 1          | Input type 2   | Output type       | Options class         | Notes   |
++==========================+===========+=======================+================+===================+=======================+=========+
+| binary_join              | Binary    | List of string-like   | String-like    | String-like       |                       | \(1)    |
++--------------------------+-----------+-----------------------+----------------+-------------------+-----------------------+---------+
+| binary_join_element_wise | Varargs   | String-like (varargs) | String-like    | String-like       | :struct:`JoinOptions` | \(2)    |
++--------------------------+-----------+-----------------------+----------------+-------------------+-----------------------+---------+
 
 * \(1) The first input must be an array, while the second can be a scalar or array.
   Each list of values in the first input is joined using each second input
   as separator.  If any input list is null or contains a null, the corresponding
   output will be null.
 
+* \(2) All arguments are concatenated element-wise, with the last argument treated
+  as the separator (scalars are recycled in either case). Null separators emit
+  null. If any other argument is null, by default the corresponding output will be
+  null, but it can instead either be skipped or replaced with a given string.
 
 Slicing
 ~~~~~~~

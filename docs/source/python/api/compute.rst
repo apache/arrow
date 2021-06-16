@@ -80,8 +80,8 @@ These functions take any number of arguments of a numeric or temporal type.
 .. autosummary::
    :toctree: ../generated/
 
-   element_wise_max
-   element_wise_min
+   max_element_wise
+   min_element_wise
 
 Logical Functions
 -----------------
@@ -158,6 +158,23 @@ String Splitting
    split_pattern_regex
    ascii_split_whitespace
    utf8_split_whitespace
+
+String Component Extraction
+---------------------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   extract_regex
+
+String Joining
+--------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   binary_join
+   binary_join_element_wise
 
 String Transforms
 -----------------
