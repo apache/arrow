@@ -108,7 +108,7 @@ nse_funcs$is.infinite <- function(x) {
   is_inf & !nse_funcs$is.na(is_inf)
 }
 
-nse_funcs$abs <- function(x){
+nse_funcs$abs <- function(x) {
   Expression$create("abs_checked", x)
 }
 
