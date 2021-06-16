@@ -224,14 +224,16 @@ def test_convert_options():
     check_options_class(
         cls, check_utf8=[True, False],
         strings_can_be_null=[False, True],
+        quoted_strings_can_be_null=[True, False],
         include_columns=[[], ['def', 'abc']],
         include_missing_columns=[False, True],
         auto_dict_encode=[False, True],
         timestamp_parsers=[[], [ISO8601, '%y-%m']])
 
     check_options_class_pickling(
-        cls, check_utf8=True,
-        strings_can_be_null=False,
+        cls, check_utf8=False,
+        strings_can_be_null=True,
+        quoted_strings_can_be_null=False,
         include_columns=['def', 'abc'],
         include_missing_columns=False,
         auto_dict_encode=True,
@@ -828,7 +830,7 @@ class BaseTestCSVRead:
     def test_custom_nulls(self):
         # Infer nulls with custom values
         opts = ConvertOptions(null_values=['Xxx', 'Zzz'])
-        rows = b"a,b,c,d\nZzz,Xxx,1,2\nXxx,#N/A,,Zzz\n"
+        rows = b"""a,b,c,d\nZzz,"Xxx",1,2\nXxx,#N/A,,Zzz\n"""
         table = self.read_bytes(rows, convert_options=opts)
         schema = pa.schema([('a', pa.null()),
                             ('b', pa.string()),
@@ -848,6 +850,14 @@ class BaseTestCSVRead:
         assert table.to_pydict() == {
             'a': [None, None],
             'b': [None, "#N/A"],
+            'c': ["1", ""],
+            'd': [2, None],
+        }
+        opts.quoted_strings_can_be_null = False
+        table = self.read_bytes(rows, convert_options=opts)
+        assert table.to_pydict() == {
+            'a': [None, None],
+            'b': ["Xxx", "#N/A"],
             'c': ["1", ""],
             'd': [2, None],
         }
