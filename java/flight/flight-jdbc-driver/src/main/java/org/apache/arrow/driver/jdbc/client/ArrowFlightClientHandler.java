@@ -22,7 +22,6 @@ import java.security.GeneralSecurityException;
 
 import javax.annotation.Nullable;
 
-import jdk.jfr.internal.Logger;
 import org.apache.arrow.driver.jdbc.client.utils.ClientAuthenticationUtils;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightInfo;
@@ -35,9 +34,9 @@ import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.calcite.avatica.org.apache.commons.logging.impl.Log4JLogger;
 
 import com.google.common.base.Optional;
-import org.apache.calcite.avatica.org.apache.commons.logging.impl.Log4JLogger;
 
 /**
  * An adhoc {@link FlightClient} wrapper, used to access the client. Allows for

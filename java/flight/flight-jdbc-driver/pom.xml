@@ -101,6 +101,11 @@
     </dependencies>
 
     <build>
+        <resources>
+            <resource>
+                <directory>target/properties</directory>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>com.github.spotbugs</groupId>
@@ -158,7 +163,7 @@
                     </execution>
                 </executions>
                 <configuration>
-                    <outputFile>target/flight.properties</outputFile>
+                    <outputFile>target/properties/flight.properties</outputFile>
                 </configuration>
             </plugin>
             <plugin>
