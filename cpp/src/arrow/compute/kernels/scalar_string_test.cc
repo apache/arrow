@@ -58,6 +58,26 @@ class BaseTestStringKernels : public ::testing::Test {
                             json_expected, options);
   }
 
+  void CheckVarArgsScalar(std::string func_name, std::string json_input,
+                          std::shared_ptr<DataType> out_ty, std::string json_expected,
+                          const FunctionOptions* options = nullptr) {
+    // CheckScalar (on arrays) checks scalar arguments individually,
+    // but this lets us test the all-scalar case explicitly
+    ScalarVector inputs;
+    std::shared_ptr<Array> args = ArrayFromJSON(type(), json_input);
+    for (int64_t i = 0; i < args->length(); i++) {
+      ASSERT_OK_AND_ASSIGN(auto scalar, args->GetScalar(i));
+      inputs.push_back(std::move(scalar));
+    }
+    CheckScalar(func_name, inputs, ScalarFromJSON(out_ty, json_expected), options);
+  }
+
+  void CheckVarArgs(std::string func_name, const std::vector<Datum>& inputs,
+                    std::shared_ptr<DataType> out_ty, std::string json_expected,
+                    const FunctionOptions* options = nullptr) {
+    CheckScalar(func_name, inputs, ArrayFromJSON(out_ty, json_expected), options);
+  }
+
   std::shared_ptr<DataType> type() { return TypeTraits<TestType>::type_singleton(); }
 
   template <typename CType>
@@ -228,6 +248,105 @@ TYPED_TEST(TestBinaryKernels, CountSubstringIgnoreCase) {
                                   CallFunction("count_substring", {input}, &options));
 }
 #endif
+
+TYPED_TEST(TestBinaryKernels, BinaryJoinElementWise) {
+  const auto ty = this->type();
+  JoinOptions options;
+  JoinOptions options_skip(JoinOptions::SKIP);
+  JoinOptions options_replace(JoinOptions::REPLACE, "X");
+  // Scalar args, Scalar separator
+  this->CheckVarArgsScalar("binary_join_element_wise", R"([null])", ty, R"(null)",
+                           &options);
+  this->CheckVarArgsScalar("binary_join_element_wise", R"(["-"])", ty, R"("")", &options);
+  this->CheckVarArgsScalar("binary_join_element_wise", R"(["a", "-"])", ty, R"("a")",
+                           &options);
+  this->CheckVarArgsScalar("binary_join_element_wise", R"(["a", "b", "-"])", ty,
+                           R"("a-b")", &options);
+  this->CheckVarArgsScalar("binary_join_element_wise", R"(["a", "b", null])", ty,
+                           R"(null)", &options);
+  this->CheckVarArgsScalar("binary_join_element_wise", R"(["a", null, "-"])", ty,
+                           R"(null)", &options);
+  this->CheckVarArgsScalar("binary_join_element_wise", R"(["foo", "bar", "baz", "++"])",
+                           ty, R"("foo++bar++baz")", &options);
+
+  // Scalar args, Array separator
+  const auto sep = ArrayFromJSON(ty, R"([null, "-", "--"])");
+  const auto scalar1 = ScalarFromJSON(ty, R"("foo")");
+  const auto scalar2 = ScalarFromJSON(ty, R"("bar")");
+  const auto scalar3 = ScalarFromJSON(ty, R"("")");
+  const auto scalar_null = ScalarFromJSON(ty, R"(null)");
+  this->CheckVarArgs("binary_join_element_wise", {sep}, ty, R"([null, "", ""])",
+                     &options);
+  this->CheckVarArgs("binary_join_element_wise", {scalar1, sep}, ty,
+                     R"([null, "foo", "foo"])", &options);
+  this->CheckVarArgs("binary_join_element_wise", {scalar1, scalar2, sep}, ty,
+                     R"([null, "foo-bar", "foo--bar"])", &options);
+  this->CheckVarArgs("binary_join_element_wise", {scalar1, scalar_null, sep}, ty,
+                     R"([null, null, null])", &options);
+  this->CheckVarArgs("binary_join_element_wise", {scalar1, scalar2, scalar3, sep}, ty,
+                     R"([null, "foo-bar-", "foo--bar--"])", &options);
+
+  // Array args, Scalar separator
+  const auto sep1 = ScalarFromJSON(ty, R"("-")");
+  const auto sep2 = ScalarFromJSON(ty, R"("--")");
+  const auto arr1 = ArrayFromJSON(ty, R"([null, "a", "bb", "ccc"])");
+  const auto arr2 = ArrayFromJSON(ty, R"(["d", null, "e", ""])");
+  const auto arr3 = ArrayFromJSON(ty, R"(["gg", null, "h", "iii"])");
+  this->CheckVarArgs("binary_join_element_wise", {arr1, arr2, arr3, scalar_null}, ty,
+                     R"([null, null, null, null])", &options);
+  this->CheckVarArgs("binary_join_element_wise", {arr1, arr2, arr3, sep1}, ty,
+                     R"([null, null, "bb-e-h", "ccc--iii"])", &options);
+  this->CheckVarArgs("binary_join_element_wise", {arr1, arr2, arr3, sep2}, ty,
+                     R"([null, null, "bb--e--h", "ccc----iii"])", &options);
+
+  // Array args, Array separator
+  const auto sep3 = ArrayFromJSON(ty, R"(["-", "--", null, "---"])");
+  this->CheckVarArgs("binary_join_element_wise", {arr1, arr2, arr3, sep3}, ty,
+                     R"([null, null, null, "ccc------iii"])", &options);
+
+  // Mixed
+  this->CheckVarArgs("binary_join_element_wise", {arr1, arr2, scalar2, sep3}, ty,
+                     R"([null, null, null, "ccc------bar"])", &options);
+  this->CheckVarArgs("binary_join_element_wise", {arr1, arr2, scalar_null, sep3}, ty,
+                     R"([null, null, null, null])", &options);
+  this->CheckVarArgs("binary_join_element_wise", {arr1, arr2, scalar2, sep1}, ty,
+                     R"([null, null, "bb-e-bar", "ccc--bar"])", &options);
+  this->CheckVarArgs("binary_join_element_wise", {arr1, arr2, scalar_null, scalar_null},
+                     ty, R"([null, null, null, null])", &options);
+
+  // Skip
+  this->CheckVarArgsScalar("binary_join_element_wise", R"(["a", null, "b", "-"])", ty,
+                           R"("a-b")", &options_skip);
+  this->CheckVarArgsScalar("binary_join_element_wise", R"(["a", null, "b", null])", ty,
+                           R"(null)", &options_skip);
+  this->CheckVarArgs("binary_join_element_wise", {arr1, arr2, scalar2, sep3}, ty,
+                     R"(["d-bar", "a--bar", null, "ccc------bar"])", &options_skip);
+  this->CheckVarArgs("binary_join_element_wise", {arr1, arr2, scalar_null, sep3}, ty,
+                     R"(["d", "a", null, "ccc---"])", &options_skip);
+  this->CheckVarArgs("binary_join_element_wise", {arr1, arr2, scalar2, sep1}, ty,
+                     R"(["d-bar", "a-bar", "bb-e-bar", "ccc--bar"])", &options_skip);
+  this->CheckVarArgs("binary_join_element_wise", {arr1, arr2, scalar_null, scalar_null},
+                     ty, R"([null, null, null, null])", &options_skip);
+
+  // Replace
+  this->CheckVarArgsScalar("binary_join_element_wise", R"(["a", null, "b", "-"])", ty,
+                           R"("a-X-b")", &options_replace);
+  this->CheckVarArgsScalar("binary_join_element_wise", R"(["a", null, "b", null])", ty,
+                           R"(null)", &options_replace);
+  this->CheckVarArgs("binary_join_element_wise", {arr1, arr2, scalar2, sep3}, ty,
+                     R"(["X-d-bar", "a--X--bar", null, "ccc------bar"])",
+                     &options_replace);
+  this->CheckVarArgs("binary_join_element_wise", {arr1, arr2, scalar_null, sep3}, ty,
+                     R"(["X-d-X", "a--X--X", null, "ccc------X"])", &options_replace);
+  this->CheckVarArgs("binary_join_element_wise", {arr1, arr2, scalar2, sep1}, ty,
+                     R"(["X-d-bar", "a-X-bar", "bb-e-bar", "ccc--bar"])",
+                     &options_replace);
+  this->CheckVarArgs("binary_join_element_wise", {arr1, arr2, scalar_null, scalar_null},
+                     ty, R"([null, null, null, null])", &options_replace);
+
+  // Error cases
+  ASSERT_RAISES(Invalid, CallFunction("binary_join_element_wise", {}, &options));
+}
 
 template <typename TestType>
 class TestStringKernels : public BaseTestStringKernels<TestType> {};

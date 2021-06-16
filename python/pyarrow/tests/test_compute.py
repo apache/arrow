@@ -766,6 +766,36 @@ def test_binary_join():
     assert pc.binary_join(ar_list, separator_array).equals(expected)
 
 
+def test_binary_join_element_wise():
+    null = pa.scalar(None, type=pa.string())
+    arrs = [[None, 'a', 'b'], ['c', None, 'd'], [None, '-', '--']]
+    assert pc.binary_join_element_wise(*arrs).to_pylist() == \
+        [None, None, 'b--d']
+    assert pc.binary_join_element_wise('a', 'b', '-').as_py() == 'a-b'
+    assert pc.binary_join_element_wise('a', null, '-').as_py() is None
+    assert pc.binary_join_element_wise('a', 'b', null).as_py() is None
+
+    skip = pc.JoinOptions('skip')
+    assert pc.binary_join_element_wise(*arrs, options=skip).to_pylist() == \
+        [None, 'a', 'b--d']
+    assert pc.binary_join_element_wise(
+        'a', 'b', '-', options=skip).as_py() == 'a-b'
+    assert pc.binary_join_element_wise(
+        'a', null, '-', options=skip).as_py() == 'a'
+    assert pc.binary_join_element_wise(
+        'a', 'b', null, options=skip).as_py() is None
+
+    replace = pc.JoinOptions('replace', null_replacement='spam')
+    assert pc.binary_join_element_wise(*arrs, options=replace).to_pylist() == \
+        [None, 'a-spam', 'b--d']
+    assert pc.binary_join_element_wise(
+        'a', 'b', '-', options=replace).as_py() == 'a-b'
+    assert pc.binary_join_element_wise(
+        'a', null, '-', options=replace).as_py() == 'a-spam'
+    assert pc.binary_join_element_wise(
+        'a', 'b', null, options=replace).as_py() is None
+
+
 @pytest.mark.parametrize(('ty', 'values'), all_array_types)
 def test_take(ty, values):
     arr = pa.array(values, type=ty)
@@ -1437,35 +1467,35 @@ def test_fill_null_segfault():
     assert result == pa.array([0], pa.int8())
 
 
-def test_elementwise_min_max():
+def test_min_max_element_wise():
     arr1 = pa.array([1, 2, 3])
     arr2 = pa.array([3, 1, 2])
     arr3 = pa.array([2, 3, None])
 
-    result = pc.element_wise_max(arr1, arr2)
+    result = pc.max_element_wise(arr1, arr2)
     assert result == pa.array([3, 2, 3])
-    result = pc.element_wise_min(arr1, arr2)
+    result = pc.min_element_wise(arr1, arr2)
     assert result == pa.array([1, 1, 2])
 
-    result = pc.element_wise_max(arr1, arr2, arr3)
+    result = pc.max_element_wise(arr1, arr2, arr3)
     assert result == pa.array([3, 3, 3])
-    result = pc.element_wise_min(arr1, arr2, arr3)
+    result = pc.min_element_wise(arr1, arr2, arr3)
     assert result == pa.array([1, 1, 2])
 
     # with specifying the option
-    result = pc.element_wise_max(arr1, arr3, skip_nulls=True)
+    result = pc.max_element_wise(arr1, arr3, skip_nulls=True)
     assert result == pa.array([2, 3, 3])
-    result = pc.element_wise_min(arr1, arr3, skip_nulls=True)
+    result = pc.min_element_wise(arr1, arr3, skip_nulls=True)
     assert result == pa.array([1, 2, 3])
-    result = pc.element_wise_max(
+    result = pc.max_element_wise(
         arr1, arr3, options=pc.ElementWiseAggregateOptions())
     assert result == pa.array([2, 3, 3])
-    result = pc.element_wise_min(
+    result = pc.min_element_wise(
         arr1, arr3, options=pc.ElementWiseAggregateOptions())
     assert result == pa.array([1, 2, 3])
 
     # not skipping nulls
-    result = pc.element_wise_max(arr1, arr3, skip_nulls=False)
+    result = pc.max_element_wise(arr1, arr3, skip_nulls=False)
     assert result == pa.array([2, 3, None])
-    result = pc.element_wise_min(arr1, arr3, skip_nulls=False)
+    result = pc.min_element_wise(arr1, arr3, skip_nulls=False)
     assert result == pa.array([1, 2, None])

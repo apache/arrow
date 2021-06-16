@@ -36,6 +36,7 @@ from pyarrow._compute import (  # noqa
     ExtractRegexOptions,
     FilterOptions,
     IndexOptions,
+    JoinOptions,
     MatchSubstringOptions,
     ModeOptions,
     PartitionNthOptions,

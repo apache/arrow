@@ -667,6 +667,37 @@ class ElementWiseAggregateOptions(_ElementWiseAggregateOptions):
         self._set_options(skip_nulls)
 
 
+cdef class _JoinOptions(FunctionOptions):
+    cdef:
+        unique_ptr[CJoinOptions] join_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.join_options.get()
+
+    def _set_options(self, null_handling, null_replacement):
+        cdef:
+            CJoinNullHandlingBehavior c_null_handling = \
+                CJoinNullHandlingBehavior_EMIT_NULL
+            c_string c_null_replacement = tobytes(null_replacement)
+        if null_handling == 'emit_null':
+            c_null_handling = CJoinNullHandlingBehavior_EMIT_NULL
+        elif null_handling == 'skip':
+            c_null_handling = CJoinNullHandlingBehavior_SKIP
+        elif null_handling == 'replace':
+            c_null_handling = CJoinNullHandlingBehavior_REPLACE
+        else:
+            raise ValueError(
+                '"{}" is not a valid null_handling'
+                .format(null_handling))
+        self.join_options.reset(
+            new CJoinOptions(c_null_handling, c_null_replacement))
+
+
+class JoinOptions(_JoinOptions):
+    def __init__(self, null_handling='emit_null', null_replacement=''):
+        self._set_options(null_handling, null_replacement)
+
+
 cdef class _MatchSubstringOptions(FunctionOptions):
     cdef:
         unique_ptr[CMatchSubstringOptions] match_substring_options
