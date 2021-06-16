@@ -22,12 +22,14 @@
 #include <string>
 
 #include "arrow/array.h"
+#include "arrow/array/validate.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/function.h"
 #include "arrow/compute/registry.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
+#include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 
 namespace arrow {
@@ -49,7 +51,7 @@ void CheckScalarNonRecursive(const std::string& func_name, const DatumVector& in
                              const FunctionOptions* options) {
   ASSERT_OK_AND_ASSIGN(Datum out, CallFunction(func_name, inputs, options));
   std::shared_ptr<Array> actual = std::move(out).make_array();
-  ASSERT_OK(actual->ValidateFull());
+  ValidateOutput(*actual);
   AssertArraysEqual(*expected, *actual, /*verbose=*/true);
 }
 
@@ -164,7 +166,9 @@ void CheckScalar(std::string func_name, const DatumVector& inputs,
 
     ASSERT_OK_AND_ASSIGN(Datum out,
                          CallFunction(func_name, GetDatums(chunked_inputs), options));
-    ASSERT_OK(out.chunked_array()->ValidateFull());
+    ValidateOutput(out);
+    auto chunked = out.chunked_array();
+    (void)chunked;
     AssertDatumsEqual(std::make_shared<ChunkedArray>(expected_chunks), out);
   }
 }
@@ -191,7 +195,7 @@ void CheckVectorUnary(std::string func_name, Datum input, std::shared_ptr<Array>
                       const FunctionOptions* options) {
   ASSERT_OK_AND_ASSIGN(Datum out, CallFunction(func_name, {input}, options));
   std::shared_ptr<Array> actual = std::move(out).make_array();
-  ASSERT_OK(actual->ValidateFull());
+  ValidateOutput(*actual);
   AssertArraysEqual(*expected, *actual, /*verbose=*/true);
 }
 
@@ -217,6 +221,57 @@ void CheckScalarBinary(std::string func_name, std::shared_ptr<Scalar> left_input
                        std::shared_ptr<Array> right_input,
                        std::shared_ptr<Array> expected, const FunctionOptions* options) {
   CheckScalar(std::move(func_name), {left_input, right_input}, expected, options);
+}
+
+void ValidateOutput(const Datum& output) {
+  switch (output.kind()) {
+    case Datum::ARRAY:
+      ValidateOutput(*output.array());
+      break;
+    case Datum::CHUNKED_ARRAY:
+      ValidateOutput(*output.chunked_array());
+      break;
+    case Datum::RECORD_BATCH:
+      ValidateOutput(*output.record_batch());
+      break;
+    case Datum::TABLE:
+      ValidateOutput(*output.table());
+      break;
+    default:
+      break;
+  }
+}
+
+void ValidateOutput(const ArrayData& output) {
+  ASSERT_OK(internal::ValidateArrayFull(output));
+  TestInitialized(output);
+}
+
+void ValidateOutput(const Array& output) {
+  ASSERT_OK(internal::ValidateArrayFull(output));
+}
+
+void ValidateOutput(const ChunkedArray& output) {
+  ASSERT_OK(output.ValidateFull());
+  for (const auto& chunk : output.chunks()) {
+    TestInitialized(*chunk);
+  }
+}
+
+void ValidateOutput(const RecordBatch& output) {
+  ASSERT_OK(output.ValidateFull());
+  for (const auto& column : output.column_data()) {
+    TestInitialized(*column);
+  }
+}
+
+void ValidateOutput(const Table& output) {
+  ASSERT_OK(output.ValidateFull());
+  for (const auto& column : output.columns()) {
+    for (const auto& chunk : column->chunks()) {
+      TestInitialized(*chunk);
+    }
+  }
 }
 
 void CheckDispatchBest(std::string func_name, std::vector<ValueDescr> original_values,

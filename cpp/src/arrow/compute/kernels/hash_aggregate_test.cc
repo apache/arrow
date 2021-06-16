@@ -116,7 +116,7 @@ void ValidateGroupBy(const std::vector<internal::Aggregate>& aggregates,
   ASSERT_OK_AND_ASSIGN(Datum actual, GroupBy(arguments, keys, aggregates));
 
   ASSERT_OK(expected.make_array()->ValidateFull());
-  ASSERT_OK(actual.make_array()->ValidateFull());
+  ValidateOutput(actual);
 
   AssertDatumsEqual(expected, actual, /*verbose=*/true);
 }
@@ -250,7 +250,7 @@ struct TestGrouper {
       // check that uniques_ are prefixes of new_uniques
       for (int i = 0; i < uniques_.num_values(); ++i) {
         auto new_unique = new_uniques[i].make_array();
-        ASSERT_OK(new_unique->ValidateFull());
+        ValidateOutput(*new_unique);
 
         AssertDatumsEqual(uniques_[i], new_unique->Slice(0, uniques_.length),
                           /*verbose=*/true);
@@ -261,7 +261,7 @@ struct TestGrouper {
 
     // check that the ids encode an equivalent key sequence
     auto ids = id_batch.make_array();
-    ASSERT_OK(ids->ValidateFull());
+    ValidateOutput(*ids);
 
     for (int i = 0; i < key_batch.num_values(); ++i) {
       SCOPED_TRACE(std::to_string(i) + "th key array");

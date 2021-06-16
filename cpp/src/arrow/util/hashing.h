@@ -329,8 +329,7 @@ class HashTable {
 
     // Stash old entries and seal builder, effectively resetting the Buffer
     const Entry* old_entries = entries_;
-    std::shared_ptr<Buffer> previous;
-    RETURN_NOT_OK(entries_builder_.Finish(&previous));
+    ARROW_ASSIGN_OR_RAISE(auto previous, entries_builder_.FinishWithLength(capacity_));
     // Allocate new buffer
     RETURN_NOT_OK(UpsizeBuffer(new_capacity));
 

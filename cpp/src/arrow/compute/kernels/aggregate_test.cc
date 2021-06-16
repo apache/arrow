@@ -1215,7 +1215,7 @@ class TestPrimitiveModeKernel : public ::testing::Test {
                       const std::vector<CType>& expected_modes,
                       const std::vector<int64_t>& expected_counts) {
     ASSERT_OK_AND_ASSIGN(Datum out, Mode(array, ModeOptions{n}));
-    ASSERT_OK(out.make_array()->ValidateFull());
+    ValidateOutput(out);
     const StructArray out_array(out.array());
     ASSERT_EQ(out_array.length(), expected_modes.size());
     ASSERT_EQ(out_array.num_fields(), 2);
@@ -1256,7 +1256,8 @@ class TestPrimitiveModeKernel : public ::testing::Test {
 
   void AssertModesEmpty(const Datum& array, int n) {
     ASSERT_OK_AND_ASSIGN(Datum out, Mode(array, ModeOptions{n}));
-    ASSERT_OK(out.make_array()->ValidateFull());
+    auto out_array = out.make_array();
+    ValidateOutput(*out_array);
     ASSERT_EQ(out.array()->length, 0);
   }
 
@@ -1397,8 +1398,8 @@ template <typename ArrowType, typename CTYPE = typename ArrowType::c_type>
 void VerifyMode(const std::shared_ptr<Array>& array) {
   auto expected = NaiveMode<ArrowType>(*array);
   ASSERT_OK_AND_ASSIGN(Datum out, Mode(array));
-  ASSERT_OK(out.make_array()->ValidateFull());
   const StructArray out_array(out.array());
+  ValidateOutput(out_array);
   ASSERT_EQ(out_array.length(), 1);
   ASSERT_EQ(out_array.num_fields(), 2);
 
@@ -1756,7 +1757,7 @@ class TestPrimitiveQuantileKernel : public ::testing::Test {
 
       ASSERT_OK_AND_ASSIGN(Datum out, Quantile(array, options));
       const auto& out_array = out.make_array();
-      ASSERT_OK(out_array->ValidateFull());
+      ValidateOutput(*out_array);
       ASSERT_EQ(out_array->length(), options.q.size());
       ASSERT_EQ(out_array->null_count(), 0);
       AssertTypeEqual(out_array->type(), expected[0][i].type());
@@ -1816,7 +1817,8 @@ class TestPrimitiveQuantileKernel : public ::testing::Test {
     for (auto interpolation : this->interpolations_) {
       options.interpolation = interpolation;
       ASSERT_OK_AND_ASSIGN(Datum out, Quantile(array, options));
-      ASSERT_OK(out.make_array()->ValidateFull());
+      auto out_array = out.make_array();
+      ValidateOutput(*out_array);
       ASSERT_EQ(out.array()->length, 0);
     }
   }
@@ -2044,7 +2046,7 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {
     TDigestOptions options(quantiles);
     ASSERT_OK_AND_ASSIGN(Datum out, TDigest(chunked, options));
     const auto& out_array = out.make_array();
-    ASSERT_OK(out_array->ValidateFull());
+    ValidateOutput(*out_array);
     ASSERT_EQ(out_array->length(), quantiles.size());
     ASSERT_EQ(out_array->null_count(), 0);
     AssertTypeEqual(out_array->type(), float64());
@@ -2186,7 +2188,8 @@ TEST_F(TestTDigestKernel, AllNullsOrNaNs) {
   for (const auto& json : tests) {
     auto chunked = ChunkedArrayFromJSON(float64(), json);
     ASSERT_OK_AND_ASSIGN(Datum out, TDigest(chunked, TDigestOptions()));
-    ASSERT_OK(out.make_array()->ValidateFull());
+    auto out_array = out.make_array();
+    ValidateOutput(*out_array);
     ASSERT_EQ(out.array()->length, 0);
   }
 }

@@ -159,22 +159,22 @@ TEST(ScalarTemporalTest, TestZonedTemporalComponentExtraction) {
     auto unit = timestamp(u, timezone);
     auto timestamps = ArrayFromJSON(unit, times);
 
-    ASSERT_RAISES(Invalid, Year(timestamps));
-    ASSERT_RAISES(Invalid, Month(timestamps));
-    ASSERT_RAISES(Invalid, Day(timestamps));
-    ASSERT_RAISES(Invalid, DayOfWeek(timestamps));
-    ASSERT_RAISES(Invalid, DayOfYear(timestamps));
-    ASSERT_RAISES(Invalid, ISOYear(timestamps));
-    ASSERT_RAISES(Invalid, ISOWeek(timestamps));
-    ASSERT_RAISES(Invalid, ISOCalendar(timestamps));
-    ASSERT_RAISES(Invalid, Quarter(timestamps));
-    ASSERT_RAISES(Invalid, Hour(timestamps));
-    ASSERT_RAISES(Invalid, Minute(timestamps));
-    ASSERT_RAISES(Invalid, Second(timestamps));
-    ASSERT_RAISES(Invalid, Millisecond(timestamps));
-    ASSERT_RAISES(Invalid, Microsecond(timestamps));
-    ASSERT_RAISES(Invalid, Nanosecond(timestamps));
-    ASSERT_RAISES(Invalid, Subsecond(timestamps));
+    ASSERT_RAISES(NotImplemented, Year(timestamps));
+    ASSERT_RAISES(NotImplemented, Month(timestamps));
+    ASSERT_RAISES(NotImplemented, Day(timestamps));
+    ASSERT_RAISES(NotImplemented, DayOfWeek(timestamps));
+    ASSERT_RAISES(NotImplemented, DayOfYear(timestamps));
+    ASSERT_RAISES(NotImplemented, ISOYear(timestamps));
+    ASSERT_RAISES(NotImplemented, ISOWeek(timestamps));
+    ASSERT_RAISES(NotImplemented, ISOCalendar(timestamps));
+    ASSERT_RAISES(NotImplemented, Quarter(timestamps));
+    ASSERT_RAISES(NotImplemented, Hour(timestamps));
+    ASSERT_RAISES(NotImplemented, Minute(timestamps));
+    ASSERT_RAISES(NotImplemented, Second(timestamps));
+    ASSERT_RAISES(NotImplemented, Millisecond(timestamps));
+    ASSERT_RAISES(NotImplemented, Microsecond(timestamps));
+    ASSERT_RAISES(NotImplemented, Nanosecond(timestamps));
+    ASSERT_RAISES(NotImplemented, Subsecond(timestamps));
   }
 }
 }  // namespace compute
