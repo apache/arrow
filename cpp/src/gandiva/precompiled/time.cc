@@ -945,8 +945,7 @@ gdv_int64 castBIGINT_daytimeinterval(gdv_day_time_interval in) {
 }
 
 static inline gdv_boolean parse_timezone(const char* in, int32_t in_len,
-                                         gdv_boolean* add_displacement,
-                                         int32_t* values) {
+                                         gdv_boolean* add_displacement, int32_t* values) {
   int index = 0;
   int value = 0;
   int values_index = 0;
@@ -956,7 +955,7 @@ static inline gdv_boolean parse_timezone(const char* in, int32_t in_len,
   while (index < in_len) {
     if (isdigit(in[index])) {
       value = (value * 10) + (in[index] - '0');
-    }else if ((in[0] == '+' ||in[0] == '-') && (in[3] == ':')){
+    } else if ((in[0] == '+' || in[0] == '-') && (in[3] == ':')) {
       is_offset = true;
       values[values_index] = value;
       value = 0;
@@ -964,7 +963,7 @@ static inline gdv_boolean parse_timezone(const char* in, int32_t in_len,
 
       if (in[0] == '-') {
         *add_displacement = true;
-      }else if (in[0] == '+') {
+      } else if (in[0] == '+') {
         *add_displacement = false;
       }
     }
@@ -1000,19 +999,19 @@ gdv_date64 convertTimezone(gdv_int64 context, const char* source, gdv_int32 sour
   time_fields[TimeFields::kSeconds] = extractSecond_timestamp(timestamp_in_millis);
 
   // Parses the source time zone
-  int source_values[2] = {0,0};
+  int source_values[2] = {0, 0};
   gdv_boolean source_add_displacement = true;
   gdv_boolean source_is_offset = false;
 
   // Checks if the source is an offset.
   if (source_length == 6) {
-      source_is_offset = parse_timezone(source,source_length,&source_add_displacement, source_values);
-  }else {
+    source_is_offset =
+        parse_timezone(source, source_length, &source_add_displacement, source_values);
+  } else {
     // Convert timestamp to UTC
     int err = 0;
     gdv_timestamp ret_time = 0;
-    err = gdv_fn_time_with_zone(&time_fields[0], source, source_length,
-                                &ret_time);
+    err = gdv_fn_time_with_zone(&time_fields[0], source, source_length, &ret_time);
     if (err) {
       const char* msg = "Invalid timestamp or unknown zone for timestamp value ";
       set_error_for_date(source_length, source, msg, context);
@@ -1029,13 +1028,13 @@ gdv_date64 convertTimezone(gdv_int64 context, const char* source, gdv_int32 sour
   }
 
   // Updates timestamp to UTC through source off-set
-  if (source_is_offset){
-    time_fields[TimeFields::kHours] = source_add_displacement ?
-        (time_fields[TimeFields::kHours] + source_values[0]) :
-        (time_fields[TimeFields::kHours] - source_values[0]);
-    time_fields[TimeFields::kMinutes] += source_add_displacement ?
-        (time_fields[TimeFields::kHours] + source_values[1]) :
-        (time_fields[TimeFields::kHours] - source_values[1]);
+  if (source_is_offset) {
+    time_fields[TimeFields::kHours] =
+        source_add_displacement ? (time_fields[TimeFields::kHours] + source_values[0])
+                                : (time_fields[TimeFields::kHours] - source_values[0]);
+    time_fields[TimeFields::kMinutes] +=
+        source_add_displacement ? (time_fields[TimeFields::kHours] + source_values[1])
+                                : (time_fields[TimeFields::kHours] - source_values[1]);
   }
 
   // Parses destination time zone
@@ -1044,13 +1043,14 @@ gdv_date64 convertTimezone(gdv_int64 context, const char* source, gdv_int32 sour
 
   // Checks if the destination is an offset.
   if (destination_length == 6) {
-    parse_timezone(destination, destination_length, &destination_add_displacement, destination_values);
-  }else {
+    parse_timezone(destination, destination_length, &destination_add_displacement,
+                   destination_values);
+  } else {
     // Convert timestamp to destination tz
     int err = 0;
     gdv_timestamp ret_time = 0;
     err = gdv_fn_utctime_to_zone(&time_fields[0], destination, destination_length,
-                                &ret_time);
+                                 &ret_time);
     if (err) {
       const char* msg = "Invalid timestamp or unknown zone for timestamp value ";
       set_error_for_date(destination_length, destination, msg, context);
@@ -1069,10 +1069,9 @@ gdv_date64 convertTimezone(gdv_int64 context, const char* source, gdv_int32 sour
                    milliseconds(time_fields[TimeFields::kSubSeconds]);
 
   // Convert timestamp to destination off-set
-  auto displacement_time = hours(destination_values[0]) +
-                           minutes(destination_values[1]);
+  auto displacement_time = hours(destination_values[0]) + minutes(destination_values[1]);
   date_time = (destination_add_displacement) ? (date_time + displacement_time)
-                                 : (date_time - displacement_time);
+                                             : (date_time - displacement_time);
 
   return std::chrono::time_point_cast<milliseconds>(date_time).time_since_epoch().count();
 }

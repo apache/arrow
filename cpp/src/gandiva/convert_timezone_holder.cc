@@ -106,8 +106,9 @@ Status ConvertTimezoneHolder::Make(const std::string& srcTz, const std::string& 
                                    std::shared_ptr<ConvertTimezoneHolder>* holder) {
   auto tzholder =
       std::shared_ptr<ConvertTimezoneHolder>(new ConvertTimezoneHolder(srcTz, destTz));
-  ARROW_RETURN_IF(!tzholder->ok,
-                  Status::Invalid("Couldn't find one of the timezones given or it's invalid."));
+  ARROW_RETURN_IF(
+      !tzholder->ok,
+      Status::Invalid("Couldn't find one of the timezones given or it's invalid."));
 
   *holder = tzholder;
   return Status::OK();

@@ -121,7 +121,7 @@ const char* gdv_fn_sha1_decimal128(int64_t context, int64_t x_high, uint64_t x_l
                                    gdv_boolean x_isvalid, int32_t* out_length);
 
 int gdv_fn_utctime_to_zone(int* time_fields, const char* zone, int zone_len,
-                          int64_t* ret_time);
+                           int64_t* ret_time);
 
 int32_t gdv_fn_dec_from_string(int64_t context, const char* in, int32_t in_length,
                                int32_t* precision_from_str, int32_t* scale_from_str,

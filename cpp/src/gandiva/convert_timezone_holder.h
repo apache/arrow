@@ -177,13 +177,13 @@ class GANDIVA_EXPORT ConvertTimezoneHolder : public FunctionHolder {
     std::string sub_minus, sub_plus;
     switch (string_offset.length()) {
       case 2:
-        sub_minus = string_offset.substr(string_offset.find("-")+1);
-        if (sub_minus.length()==1){
-          string_offset = "-0"+sub_minus; // fallthru
+        sub_minus = string_offset.substr(string_offset.find("-") + 1);
+        if (sub_minus.length() == 1) {
+          string_offset = "-0" + sub_minus;  // fallthru
         }
-        sub_plus = string_offset.substr(string_offset.find("+")+1);
-        if (sub_plus.length()==1){
-          string_offset = "+0"+sub_plus; // fallthru
+        sub_plus = string_offset.substr(string_offset.find("+") + 1);
+        if (sub_plus.length() == 1) {
+          string_offset = "+0" + sub_plus;  // fallthru
         }
       case 3:
         hours = parse_number(string_offset, 1, false);
