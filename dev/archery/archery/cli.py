@@ -416,7 +416,6 @@ def benchmark_filter_options(cmd):
 @click.argument("rev_or_path", metavar="[<rev_or_path>]",
                 default="WORKSPACE", required=False)
 @benchmark_common_options
-@benchmark_filter_options
 @click.pass_context
 def benchmark_list(ctx, rev_or_path, src, preserve, output, cmake_extras,
                    java_home, java_options, build_extras, benchmark_extras,
