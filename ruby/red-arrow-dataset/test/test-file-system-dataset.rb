@@ -15,19 +15,23 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestInMemoryScanTask < Test::Unit::TestCase
+class TestFileSystemDataset < Test::Unit::TestCase
   def setup
-    @record_batches = [
-      Arrow::RecordBatch.new(visible: [true, false, true],
-                             point: [1, 2, 3]),
-    ]
+    Dir.mktmpdir do |tmpdir|
+      @dir = tmpdir
+      @path = File.join(@dir, "table.arrow")
+      @table = Arrow::Table.new(visible: [true, false, true],
+                                point: [1, 2, 3])
+      @table.save(@path)
+      @format = ArrowDataset::IPCFileFormat.new
+      yield
+    end
   end
 
-  sub_test_case(".new") do
-    test("[[Arrow::RecordBatch]]") do
-      scan_task = ArrowDataset::InMemoryScanTask.new(@record_batches)
-      assert_equal(@record_batches,
-                   scan_task.execute.to_a)
+  test(".build") do
+    dataset = ArrowDataset::FileSystemDataset.build(@format) do |factory|
+      factory.file_system_uri = "file://#{File.expand_path(@path)}"
     end
+    assert_equal(@table, dataset.to_table)
   end
 end

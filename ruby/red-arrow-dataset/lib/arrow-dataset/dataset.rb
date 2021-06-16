@@ -16,21 +16,13 @@
 # under the License.
 
 module ArrowDataset
-  class ScanOptions
+  class Dataset
     class << self
-      def try_convert(value)
-        case value
-        when Hash
-          return nil unless value.key?(:schema)
-          options = new(value[:schema])
-          value.each do |name, value|
-            next if name == :schema
-            options.__send__("#{name}=", value)
-          end
-          options
-        else
-          nil
-        end
+      def build(*args)
+        factory_class = ArrowDataset.const_get("#{name}Factory")
+        factory = factory_class.new(*args)
+        yield(factory)
+        factory.finish
       end
     end
   end
