@@ -237,9 +237,10 @@ class ARROW_DS_EXPORT FileSystemDatasetFactory : public DatasetFactory {
                                                       std::shared_ptr<FileFormat> format,
                                                       FileSystemFactoryOptions options);
 
-  /// \brief Build a FileSystemDatasetFactory from  an explicit list of
-  /// filesystem information.
+  /// \brief Build a FileSystemDatasetFactory from an explicit list of
+  /// file information.
   ///
+  /// \param[in] filesystem passed to FileSystemDataset
   /// \param[in] files passed to FileSystemDataset
   /// \param[in] format passed to FileSystemDataset
   /// \param[in] options see FileSystemFactoryOptions for more information.
