@@ -17,12 +17,12 @@
 
 package org.apache.arrow.driver.jdbc.test;
 
-import java.lang.reflect.Constructor;
-import java.sql.Connection;
+import static org.junit.Assert.assertEquals;
+
 import java.util.Properties;
 
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver;
-import org.apache.arrow.driver.jdbc.ArrowFlightJdbcFactory;
+import org.apache.arrow.driver.jdbc.client.ArrowFlightClientHandler;
 import org.apache.arrow.driver.jdbc.test.utils.FlightTestUtils;
 import org.apache.arrow.driver.jdbc.test.utils.PropertiesSample;
 import org.apache.arrow.driver.jdbc.test.utils.UrlSample;
@@ -35,6 +35,8 @@ import org.apache.arrow.flight.auth2.GeneratedBearerTokenAuthenticator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
+import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.calcite.avatica.UnregisteredDriver;
 import org.junit.After;
 import org.junit.Before;
@@ -45,7 +47,7 @@ import com.google.common.base.Strings;
 /**
  * Tests for {@link ArrowFlightJdbcDriver}.
  */
-public class ArrowFlightJdbcFactoryTest {
+public class ArrowFlightClientTest {
 
   private BufferAllocator allocator;
   private FlightServer server;
@@ -88,20 +90,37 @@ public class ArrowFlightJdbcFactoryTest {
   }
 
   @Test
-  public void testShouldBeAbleToEstablishAConnectionSuccessfully()
+  public void testRunningQueryShouldReturnValuesAsVector()
           throws Exception {
     UnregisteredDriver driver = new ArrowFlightJdbcDriver();
-    Constructor<ArrowFlightJdbcFactory> constructor =
-            ArrowFlightJdbcFactory.class
-                    .getConstructor();
-    constructor.setAccessible(true);
-    ArrowFlightJdbcFactory factory = constructor.newInstance();
 
-    try (Connection connection = factory.newConnection(driver,
-            constructor.newInstance(),
-            "jdbc:arrow-flight://localhost:32010",
-            new Properties())) {
-      assert connection.isValid(300);
+    try (ArrowFlightClientHandler handler =
+            ArrowFlightClientHandler.getClient(
+                    allocator, "localhost", 32010,
+                    testUtils.getUsername1(), testUtils.getPassword1())) {
+      try (VectorSchemaRoot root = handler.runQuery("SELECT * FROM data.sample")) {
+        assert root.getFieldVectors()
+                .stream().mapToInt(FieldVector::getValueCount)
+                .reduce(Integer::sum).getAsInt() > 0;
+      }
+    }
+  }
+
+  @Test
+  public void testRunningBadQueryShouldReturnAnEmptyVector()
+          throws Exception {
+    UnregisteredDriver driver = new ArrowFlightJdbcDriver();
+
+    try (ArrowFlightClientHandler handler =
+                 ArrowFlightClientHandler.getClient(
+                         allocator, "localhost", 32010,
+                         testUtils.getUsername1(), testUtils.getPassword1())) {
+      try (VectorSchemaRoot root = handler
+              .runQuery("SELECT * FROM (VALUES(1, 2, 3)) WHERE 0 = 1")) {
+        assertEquals(root.getFieldVectors()
+                .stream().mapToInt(FieldVector::getValueCount)
+                .reduce(Integer::sum).getAsInt(), 0);
+      }
     }
   }
 

@@ -171,11 +171,11 @@
                         <goals>
                             <goal>write-project-properties</goal>
                         </goals>
+                        <configuration>
+                            <outputFile>src/main/resources/properties/flight.properties</outputFile>
+                        </configuration>
                     </execution>
                 </executions>
-                <configuration>
-                    <outputFile>src/main/resources/properties/flight.properties</outputFile>
-                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.jacoco</groupId>
