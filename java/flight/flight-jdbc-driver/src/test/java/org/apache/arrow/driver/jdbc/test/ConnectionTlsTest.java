@@ -50,7 +50,10 @@ public class ConnectionTlsTest {
   private String serverUrl;
   private BufferAllocator allocator;
   private FlightTestUtils flightTestUtils;
-  private final String keyStorePath = "src/test/resources/keys/keyStore.jks";
+  private final String keyStorePath = this.getClass().getResource("/keys/keyStore.jks")
+      .getPath();
+  private final String noCertificateKeyStorePath = this.getClass().getResource("/keys/noCertificate.jks")
+      .getPath();
   private final String keyStorePass = "flight";
 
   @Before
@@ -152,7 +155,6 @@ public class ConnectionTlsTest {
    */
   @Test(expected = SQLException.class)
   public void testGetEncryptedClientWithNoCertificateOnKeyStore() throws Exception {
-    final String noCertificateKeyStorePath = "src/test/resources/keys/noCertificate.jks";
     final String noCertificateKeyStorePassword = "flight1";
 
     try (ArrowFlightClient client = ArrowFlightClient
