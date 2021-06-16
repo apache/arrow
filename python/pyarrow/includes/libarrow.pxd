@@ -1592,6 +1592,8 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         @staticmethod
         CCSVParseOptions Defaults()
 
+        CStatus Validate()
+
     cdef cppclass CCSVConvertOptions" arrow::csv::ConvertOptions":
         c_bool check_utf8
         unordered_map[c_string, shared_ptr[CDataType]] column_types
@@ -1613,6 +1615,8 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         @staticmethod
         CCSVConvertOptions Defaults()
 
+        CStatus Validate()
+
     cdef cppclass CCSVReadOptions" arrow::csv::ReadOptions":
         c_bool use_threads
         int32_t block_size
@@ -1627,12 +1631,16 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         @staticmethod
         CCSVReadOptions Defaults()
 
+        CStatus Validate()
+
     cdef cppclass CCSVWriteOptions" arrow::csv::WriteOptions":
         c_bool include_header
         int32_t batch_size
 
         @staticmethod
         CCSVWriteOptions Defaults()
+
+        CStatus Validate()
 
     cdef cppclass CCSVReader" arrow::csv::TableReader":
         @staticmethod
