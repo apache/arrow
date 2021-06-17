@@ -39,10 +39,10 @@ type deltaBitPackDecoder struct {
 	usedFirst            bool
 	bitdecoder           *utils.BitReader
 	blockSize            uint64
-	currentBlockVals     uint64
+	currentBlockVals     uint32
 	miniBlocks           uint64
-	valsPerMini          uint64
-	currentMiniBlockVals uint64
+	valsPerMini          uint32
+	currentMiniBlockVals uint32
 	minDelta             int64
 	miniBlockIdx         uint64
 
@@ -61,9 +61,11 @@ func (d *deltaBitPackDecoder) Allocator() memory.Allocator { return d.mem }
 
 // SetData sets the bytes and the expected number of values to decode
 // into the decoder, updating the decoder and allowing it to be reused.
-func (d *deltaBitPackDecoder) SetData(nvalues int, data []byte) {
+func (d *deltaBitPackDecoder) SetData(nvalues int, data []byte) error {
 	// set our data into the underlying decoder for the type
-	d.decoder.SetData(nvalues, data)
+	if err := d.decoder.SetData(nvalues, data); err != nil {
+		return err
+	}
 	// create a bit reader for our decoder's values
 	d.bitdecoder = utils.NewBitReader(bytes.NewReader(d.data))
 	d.currentBlockVals = 0
@@ -75,27 +77,30 @@ func (d *deltaBitPackDecoder) SetData(nvalues int, data []byte) {
 	var ok bool
 	d.blockSize, ok = d.bitdecoder.GetVlqInt()
 	if !ok {
-		panic("parquet: eof exception")
+		return xerrors.New("parquet: eof exception")
 	}
 
 	if d.miniBlocks, ok = d.bitdecoder.GetVlqInt(); !ok {
-		panic("parquet: eof exception")
+		return xerrors.New("parquet: eof exception")
 	}
 
 	var totalValues uint64
 	if totalValues, ok = d.bitdecoder.GetVlqInt(); !ok {
-		panic("parquet: eof exception")
+		return xerrors.New("parquet: eof exception")
 	}
 
 	if int(totalValues) != d.nvals {
-		panic("parquet: mismatch between number of values and count in data header")
+		return xerrors.New("parquet: mismatch between number of values and count in data header")
 	}
 
 	if d.lastVal, ok = d.bitdecoder.GetZigZagVlqInt(); !ok {
-		panic("parquet: eof exception")
+		return xerrors.New("parquet: eof exception")
 	}
 
-	d.valsPerMini = uint64(d.blockSize / d.miniBlocks)
+	if d.miniBlocks != 0 {
+		d.valsPerMini = uint32(d.blockSize / d.miniBlocks)
+	}
+	return nil
 }
 
 // initialize a block to decode
@@ -118,7 +123,7 @@ func (d *deltaBitPackDecoder) initBlock() error {
 
 	d.miniBlockIdx = 0
 	d.deltaBitWidth = d.deltaBitWidths.Bytes()[0]
-	d.currentBlockVals = d.blockSize
+	d.currentBlockVals = uint32(d.blockSize)
 	return nil
 }
 
@@ -185,8 +190,8 @@ func (d *DeltaBitPackInt32Decoder) Decode(out []int32) (int, error) {
 
 		numCopied := end - start
 		out = out[numCopied:]
-		d.currentBlockVals -= uint64(numCopied)
-		d.currentMiniBlockVals -= uint64(numCopied)
+		d.currentBlockVals -= uint32(numCopied)
+		d.currentMiniBlockVals -= uint32(numCopied)
 	}
 	return max, nil
 }
@@ -274,8 +279,8 @@ func (d *DeltaBitPackInt64Decoder) Decode(out []int64) (int, error) {
 
 		numCopied := end - start
 		out = out[numCopied:]
-		d.currentBlockVals -= uint64(numCopied)
-		d.currentMiniBlockVals -= uint64(numCopied)
+		d.currentBlockVals -= uint32(numCopied)
+		d.currentMiniBlockVals -= uint32(numCopied)
 	}
 	return max, nil
 }

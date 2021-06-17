@@ -57,13 +57,13 @@ func (enc *DeltaByteArrayEncoder) Put(in []parquet.ByteArray) {
 		return
 	}
 
-	var suf [1]parquet.ByteArray
+	var suf parquet.ByteArray
 	if enc.prefixEncoder == nil { // initialize our encoders if we haven't yet
 		enc.initEncoders()
 		enc.prefixEncoder.Put([]int32{0})
-		suf[0] = in[0]
+		suf = in[0]
 		enc.lastVal = append([]byte(nil), in[0]...)
-		enc.suffixEncoder.Put(suf[:])
+		enc.suffixEncoder.Put([]parquet.ByteArray{suf})
 		in = in[1:]
 	}
 
@@ -80,8 +80,8 @@ func (enc *DeltaByteArrayEncoder) Put(in []parquet.ByteArray) {
 			j++
 		}
 		enc.prefixEncoder.Put([]int32{int32(j)})
-		suf[0] = val[j:]
-		enc.suffixEncoder.Put(suf[:])
+		suf = val[j:]
+		enc.suffixEncoder.Put([]parquet.ByteArray{suf})
 		enc.lastVal = append([]byte(nil), val...)
 	}
 }
@@ -133,13 +133,16 @@ func (d *DeltaByteArrayDecoder) Allocator() memory.Allocator { return d.mem }
 
 // SetData expects the data passed in to be the prefix lengths, followed by the
 // blocks of suffix data in order to initialize the decoder.
-func (d *DeltaByteArrayDecoder) SetData(nvalues int, data []byte) {
+func (d *DeltaByteArrayDecoder) SetData(nvalues int, data []byte) error {
 	prefixLenDec := DeltaBitPackInt32Decoder{
 		deltaBitPackDecoder: &deltaBitPackDecoder{
 			decoder: newDecoderBase(d.encoding, d.descr),
 			mem:     d.mem}}
 
-	prefixLenDec.SetData(nvalues, data)
+	if err := prefixLenDec.SetData(nvalues, data); err != nil {
+		return err
+	}
+
 	d.prefixLengths = make([]int32, nvalues)
 	// decode all the prefix lengths first so we know how many bytes it took to get the
 	// prefix lengths for nvalues
@@ -147,7 +150,7 @@ func (d *DeltaByteArrayDecoder) SetData(nvalues int, data []byte) {
 
 	// now that we know how many bytes we needed for the prefix lengths, the rest are the
 	// delta length byte array encoding.
-	d.DeltaLengthByteArrayDecoder.SetData(nvalues, data[int(prefixLenDec.bytesRead()):])
+	return d.DeltaLengthByteArrayDecoder.SetData(nvalues, data[int(prefixLenDec.bytesRead()):])
 }
 
 // Decode decodes byte arrays into the slice provided and returns the number of values actually decoded

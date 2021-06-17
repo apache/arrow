@@ -26,12 +26,13 @@ import (
 	format "github.com/apache/arrow/go/parquet/internal/gen-go/parquet"
 	"github.com/apache/arrow/go/parquet/internal/utils"
 	"github.com/apache/arrow/go/parquet/schema"
+	"golang.org/x/xerrors"
 )
 
 // DecoderTraits provides an interface for more easily interacting with types
 // to generate decoders for specific types.
 type DecoderTraits interface {
-	Decoder(parquet.Encoding, *schema.Column, bool, memory.Allocator) TypedDecoder
+	Decoder(e parquet.Encoding, descr *schema.Column, useDict bool, mem memory.Allocator) TypedDecoder
 	BytesRequired(int) int
 }
 
@@ -42,7 +43,7 @@ func NewDecoder(t parquet.Type, e parquet.Encoding, descr *schema.Column, mem me
 		return nil
 	}
 
-	return traits.Decoder(e, descr, false, mem)
+	return traits.Decoder(e, descr, false /* use dictionary */, mem)
 }
 
 // NewDictDecoder is like NewDecoder but for dictionary encodings, panics if type is bool.
@@ -58,7 +59,7 @@ func NewDictDecoder(t parquet.Type, descr *schema.Column, mem memory.Allocator) 
 		mem = memory.DefaultAllocator
 	}
 
-	return traits.Decoder(parquet.Encodings.RLEDict, descr, true, mem).(DictDecoder)
+	return traits.Decoder(parquet.Encodings.RLEDict, descr, true /* use dictionary */, mem).(DictDecoder)
 }
 
 type decoder struct {
@@ -86,9 +87,10 @@ func newDecoderBase(e format.Encoding, descr *schema.Column) decoder {
 
 // SetData sets the data for decoding into the decoder to update the available
 // data bytes and number of values available.
-func (d *decoder) SetData(nvals int, data []byte) {
+func (d *decoder) SetData(nvals int, data []byte) error {
 	d.data = data
 	d.nvals = nvals
+	return nil
 }
 
 // ValuesLeft returns the number of remaining values that can be decoded
@@ -115,19 +117,23 @@ func (d *dictDecoder) SetDict(dict TypedDecoder) {
 }
 
 // SetData sets the index value data into the decoder.
-func (d *dictDecoder) SetData(nvals int, data []byte) {
+func (d *dictDecoder) SetData(nvals int, data []byte) error {
 	d.nvals = nvals
 	if len(data) == 0 {
-		d.idxDecoder = utils.NewRleDecoder(bytes.NewReader(data), 1)
-		return
+		// no data, bitwidth can safely be 0
+		d.idxDecoder = utils.NewRleDecoder(bytes.NewReader(data), 0 /* bitwidth */)
+		return nil
 	}
 
+	// grab the bit width from the first byte
 	width := uint8(data[0])
 	if width >= 64 {
-		panic("parquet: invalid or corrupted bit width")
+		return xerrors.New("parquet: invalid or corrupted bit width")
 	}
 
+	// pass the rest of the data, minus that first byte, to the decoder
 	d.idxDecoder = utils.NewRleDecoder(bytes.NewReader(data[1:]), int(width))
+	return nil
 }
 
 func (d *dictDecoder) decode(out interface{}) (int, error) {

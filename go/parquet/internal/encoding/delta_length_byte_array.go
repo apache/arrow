@@ -104,17 +104,19 @@ func (d *DeltaLengthByteArrayDecoder) Allocator() memory.Allocator { return d.me
 
 // SetData sets in the expected data to the decoder which should be nvalues delta packed lengths
 // followed by the rest of the byte array data immediately after.
-func (d *DeltaLengthByteArrayDecoder) SetData(nvalues int, data []byte) {
+func (d *DeltaLengthByteArrayDecoder) SetData(nvalues int, data []byte) error {
 	dec := DeltaBitPackInt32Decoder{
 		deltaBitPackDecoder: &deltaBitPackDecoder{
 			decoder: newDecoderBase(d.encoding, d.descr),
 			mem:     d.mem}}
 
-	dec.SetData(nvalues, data)
+	if err := dec.SetData(nvalues, data); err != nil {
+		return err
+	}
 	d.lengths = make([]int32, nvalues)
 	dec.Decode(d.lengths)
 
-	d.decoder.SetData(nvalues, data[int(dec.bytesRead()):])
+	return d.decoder.SetData(nvalues, data[int(dec.bytesRead()):])
 }
 
 // Decode populates the passed in slice with data decoded until it hits the length of out

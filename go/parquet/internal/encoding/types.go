@@ -32,7 +32,7 @@ import (
 type TypedDecoder interface {
 	// SetData updates the data in the decoder with the passed in byte slice and the
 	// stated number of values as expected to be decoded.
-	SetData(buffered int, buf []byte)
+	SetData(buffered int, buf []byte) error
 	// Encoding returns the encoding type that this decoder decodes data of
 	Encoding() parquet.Encoding
 	// ValuesLeft returns the number of remaining values to be decoded
