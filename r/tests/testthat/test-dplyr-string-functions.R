@@ -102,20 +102,6 @@ test_that("paste, paste0, and str_c", {
     df
   )
 
-  # sep is a column reference
-  expect_dplyr_equal(
-    input %>%
-      transmute(paste(x, y, sep = w)) %>%
-      collect(),
-    df
-  )
-  expect_dplyr_equal(
-    input %>%
-      transmute(str_c(x, y, sep = w)) %>%
-      collect(),
-    df
-  )
-
   # known differences
 
   # arrow allows the separator to be an array
@@ -138,30 +124,30 @@ test_that("paste, paste0, and str_c", {
       transmute(result = paste(x, NA_character_, y, sep = ""))
   )
 
-  # known errors
+  # expected errors
 
   # collapse argument not supported
   x <- Expression$field_ref("x")
   y <- Expression$field_ref("x")
-  expect_failure(
+  expect_error(
     nse_funcs$paste(x, y, collapse = ""),
     "collapse"
   )
-  expect_failure(
+  expect_error(
     nse_funcs$paste0(x, y, collapse = ""),
     "collapse"
   )
-  expect_failure(
+  expect_error(
     nse_funcs$str_c(x, y, collapse = ""),
     "collapse"
   )
 
   # literal vectors of length != 1 not supported
-  expect_failure(
+  expect_error(
     nse_funcs$paste(x, character(0), y),
     "Literal vectors of length != 1 not supported in string concatenation"
   )
-  expect_failure(
+  expect_error(
     nse_funcs$paste(x, c(",", ";"), y),
     "Literal vectors of length != 1 not supported in string concatenation"
   )
