@@ -53,7 +53,7 @@ Expression::Expression(Parameter parameter)
 Expression literal(Datum lit) { return Expression(std::move(lit)); }
 
 Expression field_ref(FieldRef ref) {
-  return Expression(Expression::Parameter{std::move(ref), {}, {}});
+  return Expression(Expression::Parameter{std::move(ref), ValueDescr{}, -1});
 }
 
 Expression call(std::string function, std::vector<Expression> arguments,
