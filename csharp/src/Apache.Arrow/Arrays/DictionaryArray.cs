@@ -25,38 +25,32 @@ namespace Apache.Arrow
         public IArrowArray Indices { get; }
         public ArrowBuffer IndicesBuffer => Data.Buffers[1];
 
-        public DictionaryArray(IArrowType dataType, int length,
-            ArrowBuffer valueOffsetsBuffer, IArrowArray value,
-            ArrowBuffer nullBitmapBuffer, int nullCount = 0, int offset = 0)
-            : this(new ArrayData(dataType, length, nullCount, offset,
-                new[] { nullBitmapBuffer, valueOffsetsBuffer }, new[] { value.Data }, value.Data.Dictionary))
-        {
-        }
-
         public DictionaryArray(ArrayData data) : base(data)
         {
             data.EnsureBufferCount(2);
             data.EnsureDataType(ArrowTypeId.Dictionary);
 
-            var dicType = data.DataType as DictionaryType;
+            if (data.Dictionary == null)
+            {
+                throw new ArgumentException($"{nameof(data.Dictionary)} must be not null");
+            }
+
+            var dicType = (DictionaryType)data.DataType;
             data.Dictionary.EnsureDataType(dicType.ValueType.TypeId);
 
-            ArrayData indicesData = new ArrayData(dicType.IndexType, data.Length, data.NullCount, data.Offset, data.Buffers, data.Children);
+            var indicesData = new ArrayData(dicType.IndexType, data.Length, data.NullCount, data.Offset, data.Buffers, data.Children);
 
             Indices = ArrowArrayFactory.BuildArray(indicesData);
             Dictionary = ArrowArrayFactory.BuildArray(data.Dictionary);
         }
 
-        public DictionaryArray(IArrowType dataType, IArrowArray indicesArray, IArrowArray dictionary, bool ordered = false) :
-            base(new ArrayData(dataType, indicesArray.Length, indicesArray.Data.NullCount, indicesArray.Data.Offset, indicesArray.Data.Buffers, indicesArray.Data.Children, dictionary.Data))
+        public DictionaryArray(DictionaryType dataType, IArrowArray indicesArray, IArrowArray dictionary) :
+            base(new ArrayData(dataType, dictionary.Data, indicesArray.Length, indicesArray.Data.NullCount, indicesArray.Data.Offset, indicesArray.Data.Buffers, indicesArray.Data.Children))
         {
             Data.EnsureBufferCount(2);
-            Data.EnsureDataType(ArrowTypeId.Dictionary);
 
-            var dicType = dataType as DictionaryType;
-
-            indicesArray.Data.EnsureDataType(dicType.IndexType.TypeId);
-            dictionary.Data.EnsureDataType(dicType.ValueType.TypeId);
+            indicesArray.Data.EnsureDataType(dataType.IndexType.TypeId);
+            dictionary.Data.EnsureDataType(dataType.ValueType.TypeId);
 
             Indices = indicesArray;
             Dictionary = dictionary;

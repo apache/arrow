@@ -35,7 +35,21 @@ namespace Apache.Arrow
         public ArrayData(
             IArrowType dataType,
             int length, int nullCount = 0, int offset = 0,
-            IEnumerable<ArrowBuffer> buffers = null, IEnumerable<ArrayData> children = null, ArrayData dictionary = null)
+            IEnumerable<ArrowBuffer> buffers = null, IEnumerable<ArrayData> children = null) :
+            this(dataType, null, length, nullCount, offset, buffers, children)
+        { }
+
+        public ArrayData(
+            IArrowType dataType,
+            int length, int nullCount = 0, int offset = 0,
+            ArrowBuffer[] buffers = null, ArrayData[] children = null) :
+            this(dataType, null, length, nullCount, offset, buffers, children)
+        { }
+
+        public ArrayData(
+            IArrowType dataType, ArrayData dictionary,
+            int length, int nullCount = 0, int offset = 0,
+            IEnumerable<ArrowBuffer> buffers = null, IEnumerable<ArrayData> children = null)
         {
             DataType = dataType ?? NullType.Default;
             Length = length;
@@ -47,9 +61,9 @@ namespace Apache.Arrow
         }
 
         public ArrayData(
-            IArrowType dataType,
+            IArrowType dataType, ArrayData dictionary,
             int length, int nullCount = 0, int offset = 0,
-            ArrowBuffer[] buffers = null, ArrayData[] children = null, ArrayData dictionary = null)
+            ArrowBuffer[] buffers = null, ArrayData[] children = null)
         {
             DataType = dataType ?? NullType.Default;
             Length = length;
@@ -91,7 +105,7 @@ namespace Apache.Arrow
             length = Math.Min(Length - offset, length);
             offset += Offset;
 
-            return new ArrayData(DataType, length, RecalculateNullCount, offset, Buffers, Children, Dictionary);
+            return new ArrayData(DataType, Dictionary, length, RecalculateNullCount, offset, Buffers, Children);
         }
     }
 }

@@ -548,7 +548,7 @@ namespace Apache.Arrow.Tests
                 new Field("uint64", UInt64Type.Default, true)
             }, null);
 
-            StringArray dictionary = new StringArray.Builder().AppendRange(new[] { "a", "b", "c" }).Build();
+            StringArray dictionary = new StringArray.Builder().AppendRange(dictionaryData).Build();
             IEnumerable<IArrowArray> indicesArrays = TestData.CreateArrays(indicesSchema, length);
 
             var fields = new List<Field>(capacity: length);

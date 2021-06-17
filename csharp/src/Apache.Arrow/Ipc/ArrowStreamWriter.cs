@@ -190,7 +190,7 @@ namespace Apache.Arrow.Ipc
 
         private readonly ArrowTypeFlatbufferBuilder _fieldTypeBuilder;
 
-        private protected readonly DictionaryMemo _dictionaryMemo;
+        private protected readonly LazyCreator<DictionaryMemo> _lazyDictionaryMemo;
 
         public ArrowStreamWriter(Stream baseStream, Schema schema)
             : this(baseStream, schema, leaveOpen: false)
@@ -214,7 +214,7 @@ namespace Apache.Arrow.Ipc
 
             _fieldTypeBuilder = new ArrowTypeFlatbufferBuilder(Builder);
             _options = options ?? IpcOptions.Default;
-            _dictionaryMemo = new DictionaryMemo();
+            _lazyDictionaryMemo = new LazyCreator<DictionaryMemo>();
         }
 
 
@@ -231,7 +231,7 @@ namespace Apache.Arrow.Ipc
             Flatbuf.FieldNode.CreateFieldNode(Builder, data.Length, data.NullCount);
         }
 
-        private int CountAllNodes(IReadOnlyDictionary<string, Field> fields)
+        private static int CountAllNodes(IReadOnlyDictionary<string, Field> fields)
         {
             int count = 0;
             foreach (Field arrowArray in fields.Values)
@@ -241,7 +241,7 @@ namespace Apache.Arrow.Ipc
             return count;
         }
 
-        private void CountSelfAndChildrenNodes(IArrowType type, ref int count)
+        private static void CountSelfAndChildrenNodes(IArrowType type, ref int count)
         {
             if (type is NestedType nestedType)
             {
@@ -265,7 +265,7 @@ namespace Apache.Arrow.Ipc
 
             if (!HasWrittenDictionaryBatch)
             {
-                DictionaryCollector.Collect(recordBatch, _dictionaryMemo);
+                DictionaryCollector.Collect(recordBatch, _lazyDictionaryMemo);
                 WriteDictionaries(recordBatch);
                 HasWrittenDictionaryBatch = true;
             }
@@ -304,7 +304,7 @@ namespace Apache.Arrow.Ipc
 
             if (!HasWrittenDictionaryBatch)
             {
-                DictionaryCollector.Collect(recordBatch, _dictionaryMemo);
+                DictionaryCollector.Collect(recordBatch, _lazyDictionaryMemo);
                 await WriteDictionariesAsync(recordBatch, cancellationToken).ConfigureAwait(false);
                 HasWrittenDictionaryBatch = true;
             }
@@ -395,7 +395,7 @@ namespace Apache.Arrow.Ipc
 
         private Tuple<ArrowRecordBatchFlatBufferBuilder, VectorOffset> PreparingWritingRecordBatch(RecordBatch recordBatch)
         {
-            return PreparingWritingRecordBatch(recordBatch.Schema.Fields, recordBatch._arrays);
+            return PreparingWritingRecordBatch(recordBatch.Schema.Fields, recordBatch._Arrays);
         }
 
         private Tuple<ArrowRecordBatchFlatBufferBuilder, VectorOffset> PreparingWritingRecordBatch(IReadOnlyDictionary<string, Field> fields, IReadOnlyList<IArrowArray> arrays)
@@ -502,11 +502,11 @@ namespace Apache.Arrow.Ipc
             await WriteBufferDataAsync(recordBatchBuilder.Buffers, cancellationToken).ConfigureAwait(false);
         }
 
-        private protected Tuple<ArrowRecordBatchFlatBufferBuilder, Offset<Flatbuf.DictionaryBatch>> CreateDictionaryBatchOffset(Field field)
+        private Tuple<ArrowRecordBatchFlatBufferBuilder, Offset<Flatbuf.DictionaryBatch>> CreateDictionaryBatchOffset(Field field)
         {
             Field dictionaryField = new Field("dummy", ((DictionaryType)field.DataType).ValueType, false);
-            long id = _dictionaryMemo.GetId(field);
-            IArrowArray dictionary = _dictionaryMemo.GetDictionary(id);
+            long id = _lazyDictionaryMemo.Instance.GetId(field);
+            IArrowArray dictionary = _lazyDictionaryMemo.Instance.GetDictionary(id);
 
             var fieldsDictionary = new Dictionary<string, Field> {
                 { dictionaryField.Name, dictionaryField } };
@@ -666,7 +666,7 @@ namespace Apache.Arrow.Ipc
                 return default;
             }
 
-            long id = _dictionaryMemo.GetOrAssignId(field);
+            long id = _lazyDictionaryMemo.Instance.GetOrAssignId(field);
             var dicType = field.DataType as DictionaryType;
             var indexType = dicType.IndexType as NumberType;
 
@@ -871,7 +871,7 @@ namespace Apache.Arrow.Ipc
 
     internal static class DictionaryCollector
     {
-        internal static void Collect(RecordBatch recordBatch, DictionaryMemo dictionaryMemo)
+        internal static void Collect(RecordBatch recordBatch, LazyCreator<DictionaryMemo> lazyDictionaryMemo)
         {
             Schema schema = recordBatch.Schema;
             for (int i = 0; i < schema.Fields.Count; i++)
@@ -880,28 +880,28 @@ namespace Apache.Arrow.Ipc
                     Field field = schema.GetFieldByIndex(i);
                     IArrowArray array = recordBatch.Column(i);
 
-                    CollectDictionary(field, array, dictionaryMemo);
+                    CollectDictionary(field, array, lazyDictionaryMemo);
                 }
             }
         }
 
-        private static void CollectDictionary(Field field, IArrowArray array, DictionaryMemo dictionaryMemo)
+        private static void CollectDictionary(Field field, IArrowArray array, LazyCreator<DictionaryMemo> lazyDictionaryMemo)
         {
             if (field.DataType.TypeId == ArrowTypeId.Dictionary)
             {
                 IArrowArray dictionary = (array as DictionaryArray).Dictionary;
-                long id = dictionaryMemo.GetOrAssignId(field);
+                long id = lazyDictionaryMemo.Instance.GetOrAssignId(field);
 
-                dictionaryMemo.AddOrReplaceDictionary(id, dictionary);
-                WalkChildren(dictionary, dictionaryMemo);
+                lazyDictionaryMemo.Instance.AddOrReplaceDictionary(id, dictionary);
+                WalkChildren(dictionary, lazyDictionaryMemo);
             }
             else
             {
-                WalkChildren(array, dictionaryMemo);
+                WalkChildren(array, lazyDictionaryMemo);
             }
         }
 
-        private static void WalkChildren(IArrowArray array, DictionaryMemo dictionaryMemo)
+        private static void WalkChildren(IArrowArray array, LazyCreator<DictionaryMemo> lazyDictionaryMemo)
         {
             ArrayData[] children = array.Data.Children;
 
@@ -921,7 +921,7 @@ namespace Apache.Arrow.Ipc
                 ArrayData child = children[i];
                 IArrowArray childArray = ArrowArrayFactory.BuildArray(child);
 
-                CollectDictionary(childField, childArray, dictionaryMemo);
+                CollectDictionary(childField, childArray, lazyDictionaryMemo);
             }
         }
     }

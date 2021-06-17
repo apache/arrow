@@ -53,13 +53,13 @@ namespace Apache.Arrow.Ipc
                                 $"{(signed ? "signed " : "unsigned")} integer.");
         }
 
-        internal static Schema GetSchema(Flatbuf.Schema schema, DictionaryMemo dictionaryMemo)
+        internal static Schema GetSchema(Flatbuf.Schema schema, LazyCreator<DictionaryMemo> lazyDictionaryMemo)
         {
             List<Field> fields = new List<Field>();
             for (int i = 0; i < schema.FieldsLength; i++)
             {
                 Flatbuf.Field field = schema.Fields(i).GetValueOrDefault();
-                fields.Add(FieldFromFlatbuffer(field, dictionaryMemo));
+                fields.Add(FieldFromFlatbuffer(field, lazyDictionaryMemo));
             }
 
             Dictionary<string, string> metadata = schema.CustomMetadataLength > 0 ? new Dictionary<string, string>() : null;
@@ -73,13 +73,13 @@ namespace Apache.Arrow.Ipc
             return new Schema(fields, metadata, copyCollections: false);
         }
 
-        private static Field FieldFromFlatbuffer(Flatbuf.Field flatbufField, DictionaryMemo dictionaryMemo)
+        private static Field FieldFromFlatbuffer(Flatbuf.Field flatbufField, LazyCreator<DictionaryMemo> lazyDictionaryMemo)
         {
             Field[] childFields = flatbufField.ChildrenLength > 0 ? new Field[flatbufField.ChildrenLength] : null;
             for (int i = 0; i < flatbufField.ChildrenLength; i++)
             {
                 Flatbuf.Field? childFlatbufField = flatbufField.Children(i);
-                childFields[i] = FieldFromFlatbuffer(childFlatbufField.Value, dictionaryMemo);
+                childFields[i] = FieldFromFlatbuffer(childFlatbufField.Value, lazyDictionaryMemo);
             }
 
             Flatbuf.DictionaryEncoding? de = flatbufField.Dictionary;
@@ -108,7 +108,7 @@ namespace Apache.Arrow.Ipc
 
             if (de.HasValue)
             {
-                dictionaryMemo.AddField(de.Value.Id, arrowField);
+                lazyDictionaryMemo.Instance.AddField(de.Value.Id, arrowField);
             }
 
             return arrowField;

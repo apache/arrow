@@ -54,7 +54,7 @@ namespace Apache.Arrow.Tests
         [InlineData(false)]
         public async Task Ctor_MemoryPool_AllocatesFromPool(bool shouldLeaveOpen)
         {
-            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: true);
 
             using (MemoryStream stream = new MemoryStream())
             {
@@ -68,7 +68,7 @@ namespace Apache.Arrow.Tests
                 ArrowStreamReader reader = new ArrowStreamReader(stream, memoryPool, shouldLeaveOpen);
                 reader.ReadNextRecordBatch();
 
-                Assert.Equal(1, memoryPool.Statistics.Allocations);
+                Assert.Equal(2, memoryPool.Statistics.Allocations);
                 Assert.True(memoryPool.Statistics.BytesAllocated > 0);
 
                 reader.Dispose();
@@ -150,7 +150,7 @@ namespace Apache.Arrow.Tests
             Func<ArrowStreamReader, RecordBatch, Task> verificationFunc,
             bool writeEnd)
         {
-            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: true);
 
             using (MemoryStream stream = new MemoryStream())
             {
@@ -190,7 +190,7 @@ namespace Apache.Arrow.Tests
         /// </summary>
         private static async Task TestReaderFromPartialReadStream(Func<ArrowStreamReader, RecordBatch, Task> verificationFunc)
         {
-            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: true);
 
             using (PartialReadStream stream = new PartialReadStream())
             {

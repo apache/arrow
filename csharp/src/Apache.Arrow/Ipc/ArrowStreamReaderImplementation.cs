@@ -27,6 +27,8 @@ namespace Apache.Arrow.Ipc
         public Stream BaseStream { get; }
         private readonly bool _leaveOpen;
         private readonly MemoryAllocator _allocator;
+        private protected bool HasReadInitialDictionary { get; set; }
+
 
         public ArrowStreamReaderImplementation(Stream stream, MemoryAllocator allocator, bool leaveOpen) : base()
         {
@@ -42,6 +44,7 @@ namespace Apache.Arrow.Ipc
                 BaseStream.Dispose();
             }
         }
+
         protected void ReadInitialDictionaries()
         {
             if (HasReadInitialDictionary)
@@ -49,12 +52,13 @@ namespace Apache.Arrow.Ipc
                 return;
             }
 
-            int fieldCount = _dictionaryMemo.GetFieldCount();
-            for (int i = 0; i < fieldCount; ++i)
-            {
-                ReadArrowObject();
+            if (_lazyDictionaryMemo.IsCreated) {
+                int fieldCount = _lazyDictionaryMemo.Instance.GetFieldCount();
+                for (int i = 0; i < fieldCount; ++i)
+                {
+                    ReadArrowObject();
+                }
             }
-
             HasReadInitialDictionary = true;
         }
 
@@ -65,7 +69,7 @@ namespace Apache.Arrow.Ipc
                 return;
             }
 
-            int fieldCount = _dictionaryMemo.GetFieldCount();
+            int fieldCount = _lazyDictionaryMemo.Instance.GetFieldCount();
             for (int i = 0; i < fieldCount; ++i)
             {
                 await ReadArrowObjectAsync(cancellationToken).ConfigureAwait(false);
@@ -125,7 +129,7 @@ namespace Apache.Arrow.Ipc
                 EnsureFullRead(buff, bytesRead);
 
                 FlatBuffers.ByteBuffer schemabb = CreateByteBuffer(buff);
-                Schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemabb), _dictionaryMemo);
+                Schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemabb), _lazyDictionaryMemo);
             }).ConfigureAwait(false);
         }
 
@@ -145,7 +149,7 @@ namespace Apache.Arrow.Ipc
                 EnsureFullRead(buff, bytesRead);
 
                 FlatBuffers.ByteBuffer schemabb = CreateByteBuffer(buff);
-                Schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemabb), _dictionaryMemo);
+                Schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemabb), _lazyDictionaryMemo);
             });
         }
 

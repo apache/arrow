@@ -111,7 +111,7 @@ namespace Apache.Arrow.Ipc
             }
 
             ByteBuffer schemaBuffer = CreateByteBuffer(_buffer.Slice(_bufferPosition));
-            Schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemaBuffer), _dictionaryMemo);
+            Schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemaBuffer), _lazyDictionaryMemo);
             _bufferPosition += schemaMessageLength;
         }
     }

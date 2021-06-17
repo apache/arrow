@@ -29,12 +29,12 @@ namespace Apache.Arrow.Ipc
     {
         public Schema Schema { get; protected set; }
         protected bool HasReadSchema => Schema != null;
-        protected bool HasReadInitialDictionary { get; set; }
-        protected readonly DictionaryMemo _dictionaryMemo;
+
+        private protected readonly LazyCreator<DictionaryMemo> _lazyDictionaryMemo;
 
         public ArrowReaderImplementation()
         {
-            _dictionaryMemo = new DictionaryMemo();
+            _lazyDictionaryMemo = new LazyCreator<DictionaryMemo>();
         }
 
         public void Dispose()
@@ -119,7 +119,7 @@ namespace Apache.Arrow.Ipc
         private void ReadDictionaryBatch(Flatbuf.DictionaryBatch dictionaryBatch, ByteBuffer bodyByteBuffer, IMemoryOwner<byte> memoryOwner)
         {
             long id = dictionaryBatch.Id;
-            IArrowType valueType = _dictionaryMemo.GetDictionaryType(id);
+            IArrowType valueType = _lazyDictionaryMemo.Instance.GetDictionaryType(id);
             Flatbuf.RecordBatch? recordBatch = dictionaryBatch.Data;
 
             if (!recordBatch.HasValue)
@@ -142,7 +142,7 @@ namespace Apache.Arrow.Ipc
             }
             else
             {
-                _dictionaryMemo.AddOrReplaceDictionary(id, arrays[0]);
+                _lazyDictionaryMemo.Instance.AddOrReplaceDictionary(id, arrays[0]);
             }
         }
 
@@ -219,11 +219,11 @@ namespace Apache.Arrow.Ipc
             IArrowArray dictionary = null;
             if (field.DataType.TypeId == ArrowTypeId.Dictionary)
             {
-                long id = _dictionaryMemo.GetId(field);
-                dictionary = _dictionaryMemo?.GetDictionary(id);
+                long id = _lazyDictionaryMemo.Instance.GetId(field);
+                dictionary = _lazyDictionaryMemo.Instance.GetDictionary(id);
             }
 
-            return new ArrayData(field.DataType, fieldLength, fieldNullCount, 0, arrowBuff, children, dictionary?.Data);
+            return new ArrayData(field.DataType, dictionary?.Data, fieldLength, fieldNullCount, 0, arrowBuff, children);
         }
 
         private ArrayData LoadVariableField(
@@ -265,11 +265,11 @@ namespace Apache.Arrow.Ipc
             IArrowArray dictionary = null;
             if (field.DataType.TypeId == ArrowTypeId.Dictionary)
             {
-                long id = _dictionaryMemo.GetId(field);
-                dictionary = _dictionaryMemo?.GetDictionary(id);
+                long id = _lazyDictionaryMemo.Instance.GetId(field);
+                dictionary = _lazyDictionaryMemo.Instance.GetDictionary(id);
             }
 
-            return new ArrayData(field.DataType, fieldLength, fieldNullCount, 0, arrowBuff, children, dictionary?.Data);
+            return new ArrayData(field.DataType, dictionary?.Data, fieldLength, fieldNullCount, 0, arrowBuff, children);
         }
 
         private ArrayData[] GetChildren(

@@ -135,7 +135,7 @@ namespace Apache.Arrow.Ipc
         private void ReadSchema(Memory<byte> buffer)
         {
             // Deserialize the footer from the footer flatbuffer
-            _footer = new ArrowFooter(Flatbuf.Footer.GetRootAsFooter(CreateByteBuffer(buffer)), _dictionaryMemo);
+            _footer = new ArrowFooter(Flatbuf.Footer.GetRootAsFooter(CreateByteBuffer(buffer)), _lazyDictionaryMemo);
 
             Schema = _footer.Schema;
         }
