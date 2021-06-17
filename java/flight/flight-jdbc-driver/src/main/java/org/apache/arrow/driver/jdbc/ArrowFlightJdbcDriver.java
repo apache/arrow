@@ -17,6 +17,9 @@
 
 package org.apache.arrow.driver.jdbc;
 
+import static org.apache.arrow.driver.jdbc.utils.BaseProperty.HOST;
+import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PORT;
+
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -30,7 +33,8 @@ import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.apache.arrow.driver.jdbc.utils.DefaultProperty;
+import javax.annotation.RegEx;
+
 import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.util.Preconditions;
 import org.apache.calcite.avatica.AvaticaConnection;
@@ -46,24 +50,29 @@ import com.google.common.base.Strings;
 public class ArrowFlightJdbcDriver extends UnregisteredDriver {
 
   private static final String CONNECT_STRING_PREFIX = "jdbc:arrow-flight://";
-  private static final Pattern urlRegExPattern = Pattern.compile("^(" +
-      CONNECT_STRING_PREFIX + ")" +
-      "(\\w+):([\\d]+)\\/*\\?*([[\\w]+=[\\w]+&?]*)?");
-      
+
+  private static final Pattern urlRegExPattern;
+
   private static DriverVersion version;
 
   static {
-    (new ArrowFlightJdbcDriver()).register();
+    @RegEx
+    final String pattern = "^(" + CONNECT_STRING_PREFIX + ")" +
+        "(\\w+):([\\d]+)\\/*\\?*([[\\w]+=[\\w]+&?]*)?";
+
+    urlRegExPattern = Pattern.compile(pattern);
+    new ArrowFlightJdbcDriver().register();
   }
 
   @Override
   public Connection connect(final String url, final Properties info)
       throws SQLException {
 
-    final Properties clonedProperties = (Properties) info.clone();
+    // FIXME DO NOT tamper with the original Properties!
+    final Properties clonedProperties = info;
 
     try {
-      final Map<String, String> args = getUrlsArgs(
+      final Map<Object, Object> args = getUrlsArgs(
           Preconditions.checkNotNull(url));
 
       clonedProperties.putAll(args);
@@ -88,34 +97,33 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
         break CreateVersionIfNull;
       }
 
-      try (Reader reader =
-          new BufferedReader(new InputStreamReader(
-              new FileInputStream("target/flight.properties"), "UTF-8"))) {
-        Properties properties = new Properties();
+      try (Reader reader = new BufferedReader(new InputStreamReader(
+          new FileInputStream("target/flight.properties"), "UTF-8"))) {
+        final Properties properties = new Properties();
         properties.load(reader);
 
-        String parentName = properties.getProperty(
-            "org.apache.arrow.flight.name");
-        String parentVersion = properties.getProperty(
-            "org.apache.arrow.flight.version");
-        String[] pVersion = parentVersion.split("\\.");
+        final String parentName = properties
+            .getProperty("org.apache.arrow.flight.name");
+        final String parentVersion = properties
+            .getProperty("org.apache.arrow.flight.version");
+        final String[] pVersion = parentVersion.split("\\.");
 
-        int parentMajorVersion = Integer.parseInt(pVersion[0]);
-        int parentMinorVersion = Integer.parseInt(pVersion[1]);
+        final int parentMajorVersion = Integer.parseInt(pVersion[0]);
+        final int parentMinorVersion = Integer.parseInt(pVersion[1]);
 
-        String childName = properties.getProperty(
-            "org.apache.arrow.flight.jdbc-driver.name");
-        String childVersion = properties.getProperty(
-            "org.apache.arrow.flight.jdbc-driver.version");
-        String[] cVersion = childVersion.split("\\.");
+        final String childName = properties
+            .getProperty("org.apache.arrow.flight.jdbc-driver.name");
+        final String childVersion = properties
+            .getProperty("org.apache.arrow.flight.jdbc-driver.version");
+        final String[] cVersion = childVersion.split("\\.");
 
-        int childMajorVersion = Integer.parseInt(cVersion[0]);
-        int childMinorVersion = Integer.parseInt(cVersion[1]);
+        final int childMajorVersion = Integer.parseInt(cVersion[0]);
+        final int childMinorVersion = Integer.parseInt(cVersion[1]);
 
         version = new DriverVersion(childName, childVersion, parentName,
             parentVersion, true, childMajorVersion, childMinorVersion,
             parentMajorVersion, parentMinorVersion);
-      } catch (IOException e) {
+      } catch (final IOException e) {
         throw new RuntimeException("Failed to load driver version.", e);
       }
     }
@@ -148,24 +156,34 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
    * @throws SQLException
    *           If an error occurs while trying to parse the URL.
    */
-  private Map<String, String> getUrlsArgs(final String url)
+  private Map<Object, Object> getUrlsArgs(final String url)
       throws SQLException {
 
     /*
-     * URL must ALWAYS follow the pattern:
+     * FIXME Refactor this sub-optimal approach to URL parsing later.
+     *
+     * Perhaps this logic should be inside a utility class, separated from this
+     * one, so as to better delegate responsibilities and concerns throughout
+     * the code and increase maintainability.
+     *
+     * =====
+     *
+     * Keep in mind that the URL must ALWAYS follow the pattern:
      * "jdbc:arrow-flight://<host>:<port>[/?param1=value1&param2=value2&(...)]."
+     *
+     * TODO Come up with a RegEx better than #urlRegExPattern.
      */
     final Matcher matcher = urlRegExPattern.matcher(url);
-    
+
     if (!matcher.matches()) {
       throw new SQLException("Malformed/invalid URL!");
     }
 
-    final Map<String, String> resultMap = new HashMap<>();
+    final Map<Object, Object> resultMap = new HashMap<>();
 
     // Group 1 contains the prefix -- start from 2.
-    resultMap.put(DefaultProperty.HOST.toString(), matcher.group(2));
-    resultMap.put(DefaultProperty.PORT.toString(), matcher.group(3));
+    resultMap.put(HOST.getEntry().getKey(), matcher.group(2));
+    resultMap.put(PORT.getEntry().getKey(), matcher.group(3));
 
     // Group 4 contains all optional parameters, if provided -- must check.
     final String extraParams = matcher.group(4);

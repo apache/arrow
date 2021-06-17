@@ -17,6 +17,8 @@
 
 package org.apache.arrow.driver.jdbc.test;
 
+import static org.apache.arrow.driver.jdbc.utils.BaseProperty.HOST;
+import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PORT;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.lang.reflect.InvocationTargetException;
@@ -33,7 +35,6 @@ import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver;
 import org.apache.arrow.driver.jdbc.test.utils.FlightTestUtils;
 import org.apache.arrow.driver.jdbc.test.utils.PropertiesSample;
 import org.apache.arrow.driver.jdbc.test.utils.UrlSample;
-import org.apache.arrow.driver.jdbc.utils.DefaultProperty;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightProducer;
 import org.apache.arrow.flight.FlightServer;
@@ -202,8 +203,8 @@ public class ArrowFlightJdbcDriverTest {
       throws Exception {
     final Driver driver = new ArrowFlightJdbcDriver();
 
-    final String malformedUri = "arrow-jdbc://" +
-        ":" + server.getLocation().getUri().getPort();
+    final String malformedUri = "arrow-jdbc://" + ":" +
+        server.getLocation().getUri().getPort();
     driver.connect(malformedUri, PropertiesSample.UNSUPPORTED.getProperties());
   }
 
@@ -233,10 +234,10 @@ public class ArrowFlightJdbcDriverTest {
     assertEquals(5, parsedArgs.size());
 
     // Check host == the provided host
-    assertEquals(parsedArgs.get(DefaultProperty.HOST.toString()), "localhost");
+    assertEquals(parsedArgs.get(HOST.getEntry().getKey()), "localhost");
 
     // Check port == the provided port
-    assertEquals(parsedArgs.get(DefaultProperty.PORT.toString()), "2222");
+    assertEquals(parsedArgs.get(PORT.getEntry().getKey()), "2222");
 
     // Check all other non-default arguments
     assertEquals(parsedArgs.get("key1"), "value1");
@@ -248,7 +249,8 @@ public class ArrowFlightJdbcDriverTest {
    * Tests whether an exception is thrown upon attempting to connect to a
    * malformed URI.
    *
-   * @throws Exception If an error occurs.
+   * @throws Exception
+   *           If an error occurs.
    */
   @SuppressWarnings("unchecked")
   @Test(expected = SQLException.class)
@@ -262,10 +264,9 @@ public class ArrowFlightJdbcDriverTest {
     getUrlsArgs.setAccessible(true);
 
     try {
-      final Map<String, String> parsedArgs = (Map<String, String>) getUrlsArgs
-          .invoke(driver,
-            "jdbc:arrow-flight://localhost:2222/?k1=v1&m=");
-    } catch (InvocationTargetException e) {
+      final Map<Object, Object> parsedArgs = (Map<Object, Object>) getUrlsArgs
+          .invoke(driver, "jdbc:arrow-flight://localhost:2222/?k1=v1&m=");
+    } catch (final InvocationTargetException e) {
       throw (SQLException) e.getCause();
     }
   }
@@ -283,7 +284,7 @@ public class ArrowFlightJdbcDriverTest {
       final String password) {
     if (Strings.isNullOrEmpty(username)) {
       throw CallStatus.UNAUTHENTICATED
-      .withDescription("Credentials not supplied.").toRuntimeException();
+          .withDescription("Credentials not supplied.").toRuntimeException();
     }
     final String identity;
     if (testUtils.getUsername1().equals(username) &&
@@ -291,8 +292,8 @@ public class ArrowFlightJdbcDriverTest {
       identity = testUtils.getUsername1();
     } else {
       throw CallStatus.UNAUTHENTICATED
-      .withDescription("Username or password is invalid.")
-      .toRuntimeException();
+          .withDescription("Username or password is invalid.")
+          .toRuntimeException();
     }
     return () -> identity;
   }

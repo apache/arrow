@@ -21,12 +21,13 @@ import static org.junit.Assert.assertNotNull;
 
 import java.io.IOException;
 import java.net.URI;
+import java.security.cert.CertificateException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Properties;
 
-import org.apache.arrow.driver.jdbc.ArrowFlightClient;
+import org.apache.arrow.driver.jdbc.client.ArrowFlightClientHandler;
 import org.apache.arrow.driver.jdbc.test.utils.FlightTestUtils;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightProducer;
@@ -58,8 +59,8 @@ public class ConnectionTlsTest {
 
   @Before
   public void setUp() throws Exception {
-    flightTestUtils = new FlightTestUtils("localhost", "flight1",
-        "woho1", "invalid", "wrong");
+    flightTestUtils = new FlightTestUtils("localhost", "flight1", "woho1",
+        "invalid", "wrong");
 
     allocator = new RootAllocator(Long.MAX_VALUE);
 
@@ -68,10 +69,9 @@ public class ConnectionTlsTest {
 
     final FlightProducer flightProducer = flightTestUtils
         .getFlightProducer(allocator);
-    this.tlsServer = flightTestUtils.getStartedServer((location -> {
+    this.tlsServer = flightTestUtils.getStartedServer(location -> {
       try {
-        return FlightServer
-            .builder(allocator, location, flightProducer)
+        return FlightServer.builder(allocator, location, flightProducer)
             .useTls(certKey.cert, certKey.key)
             .headerAuthenticator(new GeneratedBearerTokenAuthenticator(
                 new BasicCallHeaderAuthenticator(this::validate)))
@@ -80,7 +80,7 @@ public class ConnectionTlsTest {
         e.printStackTrace();
       }
       return null;
-    }));
+    });
     serverUrl = flightTestUtils.getConnectionPrefix() +
         flightTestUtils.getLocalhost() + ":" + this.tlsServer.getPort();
 
@@ -105,16 +105,16 @@ public class ConnectionTlsTest {
       final String password) {
     if (Strings.isNullOrEmpty(username)) {
       throw CallStatus.UNAUTHENTICATED
-      .withDescription("Credentials not supplied.").toRuntimeException();
+          .withDescription("Credentials not supplied.").toRuntimeException();
     }
     final String identity;
-    if (flightTestUtils.getUsername1().equals(username) && flightTestUtils
-        .getPassword1().equals(password)) {
+    if (flightTestUtils.getUsername1().equals(username) &&
+        flightTestUtils.getPassword1().equals(password)) {
       identity = flightTestUtils.getUsername1();
     } else {
       throw CallStatus.UNAUTHENTICATED
-      .withDescription("Username or password is invalid.")
-      .toRuntimeException();
+          .withDescription("Username or password is invalid.")
+          .toRuntimeException();
     }
     return () -> identity;
   }
@@ -135,12 +135,12 @@ public class ConnectionTlsTest {
     final UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(
         flightTestUtils.getUsername1(), flightTestUtils.getPassword1());
 
-    try (ArrowFlightClient client = ArrowFlightClient
-        .getEncryptedClientAuthenticated(
-            allocator, address.getHost(), address.getPort(),
-            null, credentials.getUserName(), credentials.getPassword(),
-            keyStorePath,
-            keyStorePass)) {
+    try (ArrowFlightClientHandler client =
+           ArrowFlightClientHandler
+             .getClient(
+                allocator, address.getHost(), address.getPort(),
+                credentials.getUserName(), credentials.getPassword(),
+                null, keyStorePath, keyStorePass)) {
 
       assertNotNull(client);
     }
@@ -153,15 +153,15 @@ public class ConnectionTlsTest {
    * @throws Exception
    *           on error.
    */
-  @Test(expected = SQLException.class)
+  @Test(expected = CertificateException.class)
   public void testGetEncryptedClientWithNoCertificateOnKeyStore() throws Exception {
     final String noCertificateKeyStorePassword = "flight1";
 
-    try (ArrowFlightClient client = ArrowFlightClient
-        .getEncryptedClientNoAuth(
-            allocator, flightTestUtils.getLocalhost(), this.tlsServer.getPort(),
-            null, noCertificateKeyStorePath,
-            noCertificateKeyStorePassword)) {
+    try (ArrowFlightClientHandler client =
+           ArrowFlightClientHandler
+             .getClient(allocator, flightTestUtils.getLocalhost(), this.tlsServer.getPort(),
+                null, noCertificateKeyStorePath,
+                noCertificateKeyStorePassword)) {
       Assert.fail();
     }
   }
@@ -174,11 +174,12 @@ public class ConnectionTlsTest {
    */
   @Test
   public void testGetNonAuthenticatedEncryptedClientNoAuth() throws Exception {
-    try (ArrowFlightClient client = ArrowFlightClient
-        .getEncryptedClientNoAuth(
-            allocator, flightTestUtils.getLocalhost(), this.tlsServer.getPort(),
-            null, keyStorePath,
-            keyStorePass)) {
+    try (ArrowFlightClientHandler client =
+           ArrowFlightClientHandler
+             .getClient(
+                allocator, flightTestUtils.getLocalhost(), this.tlsServer.getPort(),
+                null, keyStorePath,
+                keyStorePass)) {
 
       assertNotNull(client);
     }
@@ -191,15 +192,15 @@ public class ConnectionTlsTest {
    * @throws Exception
    *           on error.
    */
-  @Test(expected = SQLException.class)
+  @Test(expected = IOException.class)
   public void testGetEncryptedClientWithKeyStoreBadPasswordAndNoAuth() throws Exception {
     String keyStoreBadPassword = "badPassword";
 
-    try (ArrowFlightClient client = ArrowFlightClient
-        .getEncryptedClientNoAuth(
-            allocator, flightTestUtils.getLocalhost(), this.tlsServer.getPort(),
-            null, keyStorePath,
-            keyStoreBadPassword)) {
+    try (ArrowFlightClientHandler client =
+           ArrowFlightClientHandler.getClient(
+             allocator, flightTestUtils.getLocalhost(), this.tlsServer.getPort(),
+             null, keyStorePath,
+             keyStoreBadPassword)) {
       Assert.fail();
     }
   }
@@ -264,8 +265,8 @@ public class ConnectionTlsTest {
     properties.put("keyStorePath", keyStorePath);
     properties.put("keyStorePass", keyStorePass);
 
-    try (Connection connection = DriverManager
-        .getConnection(serverUrl, properties)) {
+    try (Connection connection = DriverManager.getConnection(serverUrl,
+        properties)) {
 
       assert connection.isValid(300);
     }
