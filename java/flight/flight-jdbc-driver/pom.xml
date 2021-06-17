@@ -103,7 +103,7 @@
     <build>
         <resources>
             <resource>
-                <directory>target/properties</directory>
+                <directory>src/main/resources/properties</directory>
             </resource>
         </resources>
         <plugins>
@@ -163,7 +163,7 @@
                     </execution>
                 </executions>
                 <configuration>
-                    <outputFile>target/properties/flight.properties</outputFile>
+                    <outputFile>src/main/resources/properties/flight.properties</outputFile>
                 </configuration>
             </plugin>
             <plugin>
