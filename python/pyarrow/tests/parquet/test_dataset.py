@@ -1625,3 +1625,12 @@ def test_parquet_dataset_deprecated_properties(tempdir):
 
     with pytest.warns(DeprecationWarning, match="ParquetDataset.partitions"):
         dataset.partitions
+
+    with pytest.warns(DeprecationWarning, match="ParquetDataset.memory_map"):
+        dataset.memory_map
+
+    with pytest.warns(DeprecationWarning, match="ParquetDataset.read_diction"):
+        dataset.read_dictionary
+
+    with pytest.warns(DeprecationWarning, match="ParquetDataset.buffer_size"):
+        dataset.buffer_size

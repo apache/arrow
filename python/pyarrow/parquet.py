@@ -1323,11 +1323,14 @@ pre_buffer : bool, default True
 
         if self.fs.__class__ != other.fs.__class__:
             return False
-        for prop in ('paths', 'memory_map', '_pieces', '_partitions',
+        for prop in ('paths', '_pieces', '_partitions',
                      'common_metadata_path', 'metadata_path',
                      'common_metadata', 'metadata', 'schema',
-                     'buffer_size', 'split_row_groups'):
+                     'split_row_groups'):
             if getattr(self, prop) != getattr(other, prop):
+                return False
+        for prop in ('memory_map', 'buffer_size'):
+            if getattr(self._metadata, prop) != getattr(other._metadata, prop):
                 return False
 
         return True
@@ -1452,15 +1455,31 @@ pre_buffer : bool, default True
             DeprecationWarning, stacklevel=2)
         return self._partitions
 
+    @property
+    def memory_map(self):
+        warnings.warn(
+            "ParquetDataset.memory_map attribute is deprecated",
+            DeprecationWarning, stacklevel=2)
+        return self._metadata.memory_map
+
+    @property
+    def read_dictionary(self):
+        warnings.warn(
+            "ParquetDataset.read_dictionary attribute is deprecated",
+            DeprecationWarning, stacklevel=2)
+        return self._metadata.read_dictionary
+
+    @property
+    def buffer_size(self):
+        warnings.warn(
+            "ParquetDataset.buffer_size attribute is deprecated",
+            DeprecationWarning, stacklevel=2)
+        return self._metadata.buffer_size
+
     fs = property(operator.attrgetter('_metadata.fs'))
-    memory_map = property(operator.attrgetter('_metadata.memory_map'))
-    read_dictionary = property(
-        operator.attrgetter('_metadata.read_dictionary')
-    )
     common_metadata = property(
         operator.attrgetter('_metadata.common_metadata')
     )
-    buffer_size = property(operator.attrgetter('_metadata.buffer_size'))
 
 
 def _make_manifest(path_or_paths, fs, pathsep='/', metadata_nthreads=1,
