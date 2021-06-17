@@ -45,7 +45,8 @@ import com.google.common.base.Optional;
  */
 public class ArrowFlightClientHandler implements FlightClientHandler {
 
-  private static final Logger LOGGER;
+  private static final Logger LOGGER =
+    LoggerFactory.getLogger(ArrowFlightClientHandler.class);
   private final FlightClient client;
 
   @Nullable
@@ -53,10 +54,6 @@ public class ArrowFlightClientHandler implements FlightClientHandler {
 
   @Nullable
   private HeaderCallOption properties;
-
-  static {
-    LOGGER = LoggerFactory.getLogger(ArrowFlightClientHandler.class);
-  }
 
   protected ArrowFlightClientHandler(final FlightClient client,
       @Nullable final CredentialCallOption token,
