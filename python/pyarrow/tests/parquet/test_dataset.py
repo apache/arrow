@@ -139,6 +139,7 @@ def test_read_partitioned_directory(tempdir, use_legacy_dataset):
     _partition_test_for_filesystem(fs, tempdir, use_legacy_dataset)
 
 
+@pytest.mark.filterwarnings("ignore:ParquetDataset:DeprecationWarning")
 @pytest.mark.pandas
 def test_create_parquet_dataset_multi_threaded(tempdir):
     fs = LocalFileSystem._get_instance()
@@ -979,6 +980,7 @@ def test_dataset_read_pandas(tempdir, use_legacy_dataset):
     tm.assert_frame_equal(result.reindex(columns=expected.columns), expected)
 
 
+@pytest.mark.filterwarnings("ignore:ParquetDataset:DeprecationWarning")
 @pytest.mark.pandas
 @parametrize_legacy_dataset
 def test_dataset_memory_map(tempdir, use_legacy_dataset):
@@ -1056,7 +1058,7 @@ def _make_example_multifile_dataset(base_path, nfiles=10, file_nrows=5):
 
 def _assert_dataset_paths(dataset, paths, use_legacy_dataset):
     if use_legacy_dataset:
-        assert set(map(str, paths)) == {x.path for x in dataset.pieces}
+        assert set(map(str, paths)) == {x.path for x in dataset._pieces}
     else:
         paths = [str(path.as_posix()) for path in paths]
         assert set(paths) == set(dataset._dataset.files)
@@ -1368,6 +1370,7 @@ def test_write_to_dataset_no_partitions_s3fs(
         path, use_legacy_dataset, filesystem=fs)
 
 
+@pytest.mark.filterwarnings("ignore:ParquetDataset:DeprecationWarning")
 @pytest.mark.pandas
 @parametrize_legacy_dataset_not_supported
 def test_write_to_dataset_with_partitions_and_custom_filenames(
@@ -1456,7 +1459,7 @@ def _assert_dataset_is_picklable(dataset, pickler):
     for column in dataset.metadata.schema:
         assert is_pickleable(column)
 
-    for piece in dataset.pieces:
+    for piece in dataset._pieces:
         assert is_pickleable(piece)
         metadata = piece.get_metadata()
         assert metadata.num_row_groups
@@ -1594,6 +1597,7 @@ def test_parquet_dataset_new_filesystem(tempdir):
     assert result.equals(table)
 
 
+@pytest.mark.filterwarnings("ignore:ParquetDataset:DeprecationWarning")
 def test_parquet_dataset_partitions_piece_path_with_fsspec(tempdir):
     # ARROW-10462 ensure that on Windows we properly use posix-style paths
     # as used by fsspec
@@ -1608,3 +1612,16 @@ def test_parquet_dataset_partitions_piece_path_with_fsspec(tempdir):
     # ensure the piece path is also posix-style
     expected = path + "/data.parquet"
     assert dataset.pieces[0].path == expected
+
+
+def test_parquet_dataset_deprecated_properties(tempdir):
+    table = pa.table({'a': [1, 2, 3]})
+    path = tempdir / 'data.parquet'
+    pq.write_table(table, path)
+    dataset = pq.ParquetDataset(path)
+
+    with pytest.warns(DeprecationWarning, match="ParquetDataset.pieces"):
+        dataset.pieces
+
+    with pytest.warns(DeprecationWarning, match="ParquetDataset.partitions"):
+        dataset.partitions

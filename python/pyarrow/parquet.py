@@ -27,6 +27,7 @@ import os
 import re
 import operator
 import urllib.parse
+import warnings
 
 import pyarrow as pa
 import pyarrow.lib as lib
@@ -1279,8 +1280,8 @@ pre_buffer : bool, default True
         self._metadata.memory_map = memory_map
         self._metadata.buffer_size = buffer_size
 
-        (self.pieces,
-         self.partitions,
+        (self._pieces,
+         self._partitions,
          self.common_metadata_path,
          self.metadata_path) = _make_manifest(
              path_or_paths, self.fs, metadata_nthreads=metadata_nthreads,
@@ -1322,7 +1323,7 @@ pre_buffer : bool, default True
 
         if self.fs.__class__ != other.fs.__class__:
             return False
-        for prop in ('paths', 'memory_map', 'pieces', 'partitions',
+        for prop in ('paths', 'memory_map', '_pieces', '_partitions',
                      'common_metadata_path', 'metadata_path',
                      'common_metadata', 'metadata', 'schema',
                      'buffer_size', 'split_row_groups'):
@@ -1342,7 +1343,7 @@ pre_buffer : bool, default True
             if self.common_metadata is not None:
                 self.schema = self.common_metadata.schema
             else:
-                self.schema = self.pieces[0].get_metadata().schema
+                self.schema = self._pieces[0].get_metadata().schema
         elif self.schema is None:
             self.schema = self.metadata.schema
 
@@ -1350,13 +1351,13 @@ pre_buffer : bool, default True
         dataset_schema = self.schema.to_arrow_schema()
         # Exclude the partition columns from the schema, they are provided
         # by the path, not the DatasetPiece
-        if self.partitions is not None:
-            for partition_name in self.partitions.partition_names:
+        if self._partitions is not None:
+            for partition_name in self._partitions.partition_names:
                 if dataset_schema.get_field_index(partition_name) != -1:
                     field_idx = dataset_schema.get_field_index(partition_name)
                     dataset_schema = dataset_schema.remove(field_idx)
 
-        for piece in self.pieces:
+        for piece in self._pieces:
             file_metadata = piece.get_metadata()
             file_schema = file_metadata.schema.to_arrow_schema()
             if not dataset_schema.equals(file_schema, check_metadata=False):
@@ -1384,9 +1385,9 @@ pre_buffer : bool, default True
             Content of the file as a table (of columns).
         """
         tables = []
-        for piece in self.pieces:
+        for piece in self._pieces:
             table = piece.read(columns=columns, use_threads=use_threads,
-                               partitions=self.partitions,
+                               partitions=self._partitions,
                                use_pandas_metadata=use_pandas_metadata)
             tables.append(table)
 
@@ -1425,7 +1426,7 @@ pre_buffer : bool, default True
         return keyvalues.get(b'pandas', None)
 
     def _filter(self, filters):
-        accepts_filter = self.partitions.filter_accepts_partition
+        accepts_filter = self._partitions.filter_accepts_partition
 
         def one_filter_accepts(piece, filter):
             return all(accepts_filter(part_key, filter, level)
@@ -1435,7 +1436,21 @@ pre_buffer : bool, default True
             return any(all(one_filter_accepts(piece, f) for f in conjunction)
                        for conjunction in filters)
 
-        self.pieces = [p for p in self.pieces if all_filters_accept(p)]
+        self._pieces = [p for p in self._pieces if all_filters_accept(p)]
+
+    @property
+    def pieces(self):
+        warnings.warn(
+            "ParquetDataset.pieces attribute is deprecated",
+            DeprecationWarning, stacklevel=2)
+        return self._pieces
+
+    @property
+    def partitions(self):
+        warnings.warn(
+            "ParquetDataset.partitions attribute is deprecated",
+            DeprecationWarning, stacklevel=2)
+        return self._partitions
 
     fs = property(operator.attrgetter('_metadata.fs'))
     memory_map = property(operator.attrgetter('_metadata.memory_map'))
