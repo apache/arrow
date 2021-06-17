@@ -1079,30 +1079,30 @@ void AddDecimalBinaryKernels(const std::string& name,
 
 // Generate a kernel given an arithmetic functor
 template <template <typename...> class KernelGenerator, typename OutType,
-          typename... Args>
+          typename Op>
 ArrayKernelExec GenerateArithmeticFixedOutType(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::INT8:
-      return KernelGenerator<OutType, Int8Type, Args...>::Exec;
+      return KernelGenerator<OutType, Int8Type, Op>::Exec;
     case Type::UINT8:
-      return KernelGenerator<OutType, UInt8Type, Args...>::Exec;
+      return KernelGenerator<OutType, UInt8Type, Op>::Exec;
     case Type::INT16:
-      return KernelGenerator<OutType, Int16Type, Args...>::Exec;
+      return KernelGenerator<OutType, Int16Type, Op>::Exec;
     case Type::UINT16:
-      return KernelGenerator<OutType, UInt16Type, Args...>::Exec;
+      return KernelGenerator<OutType, UInt16Type, Op>::Exec;
     case Type::INT32:
-      return KernelGenerator<OutType, Int32Type, Args...>::Exec;
+      return KernelGenerator<OutType, Int32Type, Op>::Exec;
     case Type::UINT32:
-      return KernelGenerator<OutType, UInt32Type, Args...>::Exec;
+      return KernelGenerator<OutType, UInt32Type, Op>::Exec;
     case Type::INT64:
     case Type::TIMESTAMP:
-      return KernelGenerator<OutType, Int64Type, Args...>::Exec;
+      return KernelGenerator<OutType, Int64Type, Op>::Exec;
     case Type::UINT64:
-      return KernelGenerator<OutType, UInt64Type, Args...>::Exec;
+      return KernelGenerator<OutType, UInt64Type, Op>::Exec;
     case Type::FLOAT:
-      return KernelGenerator<OutType, FloatType, Args...>::Exec;
+      return KernelGenerator<OutType, FloatType, Op>::Exec;
     case Type::DOUBLE:
-      return KernelGenerator<OutType, DoubleType, Args...>::Exec;
+      return KernelGenerator<OutType, DoubleType, Op>::Exec;
     default:
       DCHECK(false);
       return ExecFail;
