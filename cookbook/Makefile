@@ -1,4 +1,7 @@
-all: py
+all: html
+
+
+html: py
 	@echo "\n\n>>> Cookbooks Available in ./build <<<"
 
 
