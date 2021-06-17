@@ -1279,7 +1279,8 @@ SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
   auto type = array->type();
 
 #if defined(HAS_ALTREP)
-  if (array->null_count() == 0 && arrow::r::GetBoolOption("arrow.use_altrep", true)) {
+  if (arrow::r::GetBoolOption("arrow.use_altrep", true) && array->length() > 0 &&
+      array->null_count() == 0) {
     switch (type->id()) {
       case arrow::Type::DOUBLE:
         return arrow::r::Make_array_nonull_dbl_vector(array);
