@@ -27,7 +27,10 @@
 namespace arrow {
 namespace r {
 
+template <int sexp_type>
 struct array_nonull {
+  using data_type = typename std::conditional<sexp_type == INTSXP, int, double>::type;
+
   // altrep object around an Array with no nulls
   // data1: an external pointer to a shared pointer to the Array
   // data2: not used
@@ -45,36 +48,32 @@ struct array_nonull {
 
   static Rboolean Inspect(SEXP x, int pre, int deep, int pvec,
                           void (*inspect_subtree)(SEXP, int, int, int)) {
-    auto& array = Get(x);
+    const auto& array = Get(x);
     Rprintf("std::shared_ptr<arrow::Array, %s, NONULL> (len=%d, ptr=%p)\n",
             array->type()->ToString().c_str(), array->length(), array.get());
     return TRUE;
   }
 
-  static std::shared_ptr<Array>& Get(SEXP vec) {
+  static const std::shared_ptr<Array>& Get(SEXP vec) {
     return *cpp11::external_pointer<std::shared_ptr<Array>>(R_altrep_data1(vec));
   }
 
   static R_xlen_t Length(SEXP vec) { return Get(vec)->length(); }
 
   static const void* Dataptr_or_null(SEXP vec) {
-    auto& array = Get(vec);
+    const auto& array = Get(vec);
 
-    int size = array->type_id() == Type::INT32 ? sizeof(int) : sizeof(double);
     return reinterpret_cast<const void*>(array->data()->buffers[1]->data() +
-                                         size * array->offset());
+                                         sizeof(data_type) * array->offset());
   }
 
   static SEXP Duplicate(SEXP vec, Rboolean) {
-    auto& array = Get(vec);
+    const auto& array = Get(vec);
     auto size = array->length();
 
-    bool int_array = array->type_id() == Type::INT32;
+    SEXP copy = PROTECT(Rf_allocVector(sexp_type, array->length()));
 
-    SEXP copy = PROTECT(Rf_allocVector(int_array ? INTSXP : REALSXP, array->length()));
-
-    memcpy(DATAPTR(copy), Dataptr_or_null(vec),
-           int_array ? (size * sizeof(int)) : (size * sizeof(double)));
+    memcpy(DATAPTR(copy), Dataptr_or_null(vec), size * sizeof(data_type));
 
     UNPROTECT(1);
     return copy;
@@ -104,8 +103,12 @@ struct array_nonull_dbl_vector {
 
   static void Init(DllInfo* dll) {
     class_t = R_make_altreal_class("array_nonull_dbl_vector", "arrow", dll);
-    array_nonull::Init(class_t, dll);
-    R_set_altreal_No_NA_method(class_t, array_nonull::No_NA);
+    array_nonull<REALSXP>::Init(class_t, dll);
+    R_set_altreal_No_NA_method(class_t, array_nonull<REALSXP>::No_NA);
+  }
+
+  static SEXP Make(const std::shared_ptr<Array>& array) {
+    return array_nonull<REALSXP>::Make(class_t, array);
   }
 };
 
@@ -114,8 +117,12 @@ struct array_nonull_int_vector {
 
   static void Init(DllInfo* dll) {
     class_t = R_make_altinteger_class("array_nonull_int_vector", "arrow", dll);
-    array_nonull::Init(class_t, dll);
-    R_set_altinteger_No_NA_method(class_t, array_nonull::No_NA);
+    array_nonull<INTSXP>::Init(class_t, dll);
+    R_set_altinteger_No_NA_method(class_t, array_nonull<INTSXP>::No_NA);
+  }
+
+  static SEXP Make(const std::shared_ptr<Array>& array) {
+    return array_nonull<INTSXP>::Make(class_t, array);
   }
 };
 
@@ -128,11 +135,11 @@ void Init_Altrep_classes(DllInfo* dll) {
 }
 
 SEXP Make_array_nonull_dbl_vector(const std::shared_ptr<Array>& array) {
-  return array_nonull::Make(array_nonull_dbl_vector::class_t, array);
+  return array_nonull_dbl_vector::Make(array);
 }
 
 SEXP Make_array_nonull_int_vector(const std::shared_ptr<Array>& array) {
-  return array_nonull::Make(array_nonull_int_vector::class_t, array);
+  return array_nonull_int_vector::Make(array);
 }
 
 }  // namespace r
