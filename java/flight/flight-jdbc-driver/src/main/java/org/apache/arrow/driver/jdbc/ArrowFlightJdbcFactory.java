@@ -23,11 +23,7 @@ import java.sql.SQLException;
 import java.util.Properties;
 import java.util.TimeZone;
 
-import org.apache.calcite.avatica.AvaticaConnection;
-import org.apache.calcite.avatica.AvaticaSpecificDatabaseMetaData;
-import org.apache.calcite.avatica.AvaticaStatement;
-import org.apache.calcite.avatica.Meta;
-import org.apache.calcite.avatica.QueryState;
+import org.apache.calcite.avatica.*;
 
 /**
  * Factory for the Arrow Flight JDBC Driver.
@@ -100,7 +96,7 @@ public class ArrowFlightJdbcFactory extends AbstractFactory {
   public ResultSetMetaData newResultSetMetaData(
       final AvaticaStatement avaticaStatement,
       final Meta.Signature signature) throws SQLException {
-    return new ArrowFlightResultSetMetadata((ArrowFlightStatement) avaticaStatement,
+    return new AvaticaResultSetMetaData(avaticaStatement,
             null, signature);
   }
 
