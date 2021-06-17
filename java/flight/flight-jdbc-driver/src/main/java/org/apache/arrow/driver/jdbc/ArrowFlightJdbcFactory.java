@@ -104,7 +104,8 @@ public class ArrowFlightJdbcFactory implements AvaticaFactory {
   public ResultSetMetaData newResultSetMetaData(
       final AvaticaStatement avaticaStatement,
       final Meta.Signature signature) throws SQLException {
-    return null;
+    return new ArrowFlightResultSetMetadata((ArrowFlightStatement) avaticaStatement,
+            null, signature);
   }
 
   @Override
