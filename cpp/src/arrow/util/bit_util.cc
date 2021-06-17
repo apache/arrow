@@ -82,7 +82,7 @@ void SetBitmapImpl(uint8_t* data, int64_t offset, int64_t length) {
 
   constexpr uint8_t set_byte = value ? UINT8_MAX : 0;
 
-  int prologue = static_cast<int>(((offset + 7) / 8) * 8 - offset);
+  auto prologue = BitUtil::RoundUp(offset, 8) - offset;
   DCHECK_LT(prologue, 8);
 
   if (length < prologue) {  // special case where a mask is required
@@ -106,8 +106,8 @@ void SetBitmapImpl(uint8_t* data, int64_t offset, int64_t length) {
   // set values per byte
   DCHECK_EQ(offset % 8, 0);
   std::memset(data + offset / 8, set_byte, length / 8);
-  offset += ((length / 8) * 8);
-  length -= ((length / 8) * 8);
+  offset += BitUtil::RoundDown(length, 8);
+  length -= BitUtil::RoundDown(length, 8);
 
   // clean up
   DCHECK_LT(length, 8);

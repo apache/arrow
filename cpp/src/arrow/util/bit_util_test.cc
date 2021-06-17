@@ -1984,7 +1984,7 @@ void CheckSplice(int n, Word low, Word high) {
                  : BitUtil::GetBit(reinterpret_cast<uint8_t*>(&high), i);
   }
 
-  ASSERT_EQ(static_cast<Word>(ret.to_ulong()), BitUtil::SpliceWord(n, low, high));
+  ASSERT_EQ(BitUtil::SpliceWord(n, low, high), static_cast<Word>(ret.to_ulong());
 }
 
 TEST(SpliceWord, SpliceWord) {
@@ -2261,13 +2261,6 @@ TEST_P(TestBitmapVisitAndWriteOutputNoOffset, Test1) {
   // v3 |= v2
   std::transform(v0.begin(), v0.end(), v2.begin(), out_v1.begin(),
                  std::logical_or<bool>());
-
-  //  std::cout << "v0: " << VectorToString(v0) << "\n"
-  //            << "b0: " << bm0.ToString() << "\n"
-  //            << "v1: " << VectorToString(v1) << "\n"
-  //            << "b1: " << bm1.ToString() << "\n"
-  //            << "v2: " << VectorToString(v2) << "\n"
-  //            << "b2: " << bm2.ToString() << "\n";
 
   VerifyBoolVectorAndBitmap(out_bms[0], out_v0);
   VerifyBoolVectorAndBitmap(out_bms[1], out_v1);

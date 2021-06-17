@@ -76,11 +76,6 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
     return Bitmap(buffer_, offset_ + offset, length);
   }
 
-  void Stride(int64_t stride) {
-    this->offset_ += stride;
-    this->length_ -= stride;
-  }
-
   std::string ToString() const;
 
   bool Equals(const Bitmap& other) const;
@@ -293,8 +288,8 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
     output_words.fill(0);
 
     // every reader will have same number of words, since they are same length'ed
-    // todo this will be inefficient in some cases. When there are offsets beyond Word
-    //  boundary, every Word would have to be created from 2 adjoining Words
+    // TODO($JIRA) this will be inefficient in some cases. When there are offsets beyond Word
+    // boundary, every Word would have to be created from 2 adjoining Words
     auto n_words = readers[0].words();
     bit_length -= n_words * kBitWidth;
     while (n_words--) {

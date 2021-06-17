@@ -324,9 +324,9 @@ void SetBitmap(uint8_t* data, int64_t offset, int64_t length);
 ARROW_EXPORT
 void ClearBitmap(uint8_t* data, int64_t offset, int64_t length);
 
-template <typename Word>
-constexpr Word WordBitMask(int i) {
-  return (static_cast<Word>(1) << i) - 1;
+template <typename Word, Word all = static_cast<Word>(~static_cast<Word>(0))>
+constexpr Word TrailingWordBitmask(int i) {
+  return ARROW_PREDICT_FALSE(i >= sizeof(Word) * 8) ? 0 : all << i;
 }
 
 /// \brief Create a word with low `n` bits from `low` and high `sizeof(Word)-n` bits
