@@ -45,7 +45,7 @@ test_that("paste, paste0, and str_c", {
   )
   expect_dplyr_equal(
     input %>%
-      transmute(str_c(x, y, sep = "〷")) %>%
+      transmute(str_c(v, w, sep = "〷")) %>%
       collect(),
     df
   )
