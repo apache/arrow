@@ -550,7 +550,6 @@ void RegisterScalarBoolean(FunctionRegistry* registry) {
   MakeFunction("or", 2, applicator::SimpleBinary<OrOp>, &or_doc, registry);
   MakeFunction("xor", 2, applicator::SimpleBinary<XorOp>, &xor_doc, registry);
 
-  // The Kleene logic kernels cannot write into sliced output bitmaps
   MakeFunction("and_kleene", 2, applicator::SimpleBinary<KleeneAndOp>, &and_kleene_doc,
                registry, NullHandling::COMPUTED_PREALLOCATE);
   MakeFunction("and_not_kleene", 2, applicator::SimpleBinary<KleeneAndNotOp>,
