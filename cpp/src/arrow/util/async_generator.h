@@ -20,6 +20,7 @@
 #include <cassert>
 #include <deque>
 #include <queue>
+#include <thread>
 
 #include "arrow/util/functional.h"
 #include "arrow/util/future.h"
@@ -1327,6 +1328,7 @@ class BackgroundGenerator {
     const int max_q;
     const int q_restart;
     Iterator<T> it;
+    std::thread::id worker_thread_id;
 
     // If true, the task is actively pumping items from the queue and does not need a
     // restart
@@ -1349,6 +1351,12 @@ class BackgroundGenerator {
   struct Cleanup {
     explicit Cleanup(State* state) : state(state) {}
     ~Cleanup() {
+      /// TODO: Once ARROW-13109 is available then we can be force consumers to spawn and
+      /// there is no need to perform this check.
+      ///
+      /// It's a deadlock if we enter cleanup from
+      /// the worker thread but it can happen if the consumer doesn't transfer away
+      assert(state->worker_thread_id != std::this_thread::get_id());
       Future<> finish_fut;
       {
         auto lock = state->mutex.Lock();
@@ -1369,6 +1377,7 @@ class BackgroundGenerator {
   static void WorkerTask(std::shared_ptr<State> state) {
     // We need to capture the state to read while outside the mutex
     bool reading = true;
+    state->worker_thread_id = std::this_thread::get_id();
     while (reading) {
       auto next = state->it.Next();
       // Need to capture state->waiting_future inside the mutex to mark finished outside
@@ -1420,6 +1429,7 @@ class BackgroundGenerator {
       // reference it.  We can safely transition to idle now.
       task_finished = state->task_finished;
       state->task_finished = Future<>();
+      state->worker_thread_id = std::thread::id();
     }
     task_finished.MarkFinished();
   }
@@ -1450,6 +1460,14 @@ constexpr int kDefaultBackgroundQRestart = 16;
 /// then you may exhaust the queue waiting for the background thread task to start running
 /// again.  If it is too high then it will be constantly stopping and restarting the
 /// background queue task
+///
+/// The "background thread" is a logical thread and will run as tasks on the io_executor.
+/// This thread may stop and start when the queue fills up but there will only be one
+/// active background thread task at any given time.  You MUST transfer away from this
+/// background generator.  Otherwise there could be a race condition if a callback on the
+/// background thread deletes the last consumer reference to the background generator. You
+/// can transfer onto the same executor as the background thread, it is only neccesary to
+/// create a new thread task, not to switch executors.
 ///
 /// This generator is not async-reentrant
 ///
