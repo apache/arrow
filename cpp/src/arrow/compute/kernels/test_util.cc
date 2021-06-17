@@ -243,12 +243,13 @@ void ValidateOutput(const Datum& output) {
 }
 
 void ValidateOutput(const ArrayData& output) {
-  ASSERT_OK(internal::ValidateArrayFull(output));
+  ASSERT_OK(::arrow::internal::ValidateArrayFull(output));
   TestInitialized(output);
 }
 
 void ValidateOutput(const Array& output) {
-  ASSERT_OK(internal::ValidateArrayFull(output));
+  ASSERT_OK(output.ValidateFull());
+  TestInitialized(output);
 }
 
 void ValidateOutput(const ChunkedArray& output) {

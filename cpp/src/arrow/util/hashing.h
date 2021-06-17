@@ -460,6 +460,13 @@ class ScalarMemoTable : public MemoTable {
         out_data[index] = entry->payload.value;
       }
     });
+    // Zero-initialize the null entry
+    if (null_index_ != kKeyNotFound) {
+      int32_t index = null_index_ - start;
+      if (index >= 0) {
+        out_data[index] = Scalar{};
+      }
+    }
   }
 
   void CopyValues(Scalar* out_data) const { CopyValues(0, out_data); }
@@ -774,6 +781,8 @@ class BinaryMemoTable : public MemoTable {
     if (left_size > 0) {
       memcpy(out_data, in_data + left_offset, left_size);
     }
+    // Zero-initialize the null entry
+    memset(out_data + left_size, 0, width_size);
 
     auto right_size = values_size() - static_cast<size_t>(null_data_offset);
     if (right_size > 0) {
