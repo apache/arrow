@@ -322,6 +322,7 @@ public class ArrowFlightJdbcDriverTest {
        */
       while (resultSet.next()) {
         System.out.println(resultSet.getObject(1));
+      }
     }
   }
 
