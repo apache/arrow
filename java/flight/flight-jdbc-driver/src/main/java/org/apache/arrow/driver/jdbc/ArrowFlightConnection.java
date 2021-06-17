@@ -93,7 +93,7 @@ public class ArrowFlightConnection extends AvaticaConnection {
     try {
       loadClient();
     } catch (final SQLException e) {
-      allocator.close();
+      close();
       throw new SQLException("Failed to initialize Flight Client.", e);
     }
   }
@@ -221,7 +221,9 @@ public class ArrowFlightConnection extends AvaticaConnection {
 
     exceptionDeque
             .forEach(exception -> LOGGER.error(
-                    exception.getMessage(),exception));
+                    exception.getMessage(), exception));
+
+    super.close();
   }
 
 }

@@ -40,6 +40,8 @@ import org.apache.calcite.avatica.QueryState;
  */
 public class ArrowFlightResultSet extends AvaticaResultSet {
 
+  private VectorSchemaRoot root;
+
   ArrowFlightResultSet(final AvaticaStatement statement, final QueryState state,
       final Signature signature,
       final ResultSetMetaData resultSetMetaData,
@@ -56,7 +58,7 @@ public class ArrowFlightResultSet extends AvaticaResultSet {
 
     try {
 
-      VectorSchemaRoot root = (((ArrowFlightConnection) statement
+      root = (((ArrowFlightConnection) statement
               .getConnection())
               .getClient()
               .runQuery(signature.sql));
