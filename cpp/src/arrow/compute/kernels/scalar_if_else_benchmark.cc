@@ -282,6 +282,37 @@ static void CoalesceNonNullBench64(benchmark::State& state) {
   return CoalesceBench<Int64Type>(state);
 }
 
+template <typename Type>
+static void ChooseBench(benchmark::State& state) {
+  constexpr int kNumChoices = 5;
+  using CType = typename Type::c_type;
+  auto type = TypeTraits<Type>::type_singleton();
+
+  int64_t len = state.range(0);
+  int64_t offset = state.range(1);
+
+  random::RandomArrayGenerator rand(/*seed=*/0);
+
+  std::vector<Datum> arguments;
+  arguments.emplace_back(
+      rand.Int64(len, /*min=*/0, /*max=*/kNumChoices - 1, /*null_probability=*/0.1)
+          ->Slice(offset));
+  for (int i = 0; i < kNumChoices; i++) {
+    arguments.emplace_back(
+        rand.ArrayOf(type, len, /*null_probability=*/0.25)->Slice(offset));
+  }
+
+  for (auto _ : state) {
+    ABORT_NOT_OK(CallFunction("choose", arguments));
+  }
+
+  state.SetBytesProcessed(state.iterations() * (len - offset) * sizeof(CType));
+}
+
+static void ChooseBench64(benchmark::State& state) {
+  return ChooseBench<Int64Type>(state);
+}
+
 BENCHMARK(IfElseBench32)->Args({elems, 0});
 BENCHMARK(IfElseBench64)->Args({elems, 0});
 
@@ -311,6 +342,9 @@ BENCHMARK(CoalesceBench64)->Args({elems, 99});
 
 BENCHMARK(CoalesceNonNullBench64)->Args({elems, 0});
 BENCHMARK(CoalesceNonNullBench64)->Args({elems, 99});
+
+BENCHMARK(ChooseBench64)->Args({elems, 0});
+BENCHMARK(ChooseBench64)->Args({elems, 99});
 
 }  // namespace compute
 }  // namespace arrow

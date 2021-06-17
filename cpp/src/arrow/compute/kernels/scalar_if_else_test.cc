@@ -1040,5 +1040,192 @@ TEST(TestCoalesce, FixedSizeBinary) {
               ArrayFromJSON(type, R"(["abc", "abc", "abc", "abc"])"));
 }
 
+template <typename Type>
+class TestChooseNumeric : public ::testing::Test {};
+template <typename Type>
+class TestChooseBinary : public ::testing::Test {};
+
+TYPED_TEST_SUITE(TestChooseNumeric, NumericBasedTypes);
+TYPED_TEST_SUITE(TestChooseBinary, BinaryTypes);
+
+TYPED_TEST(TestChooseNumeric, FixedSize) {
+  auto type = default_type_instance<TypeParam>();
+  auto indices1 = ArrayFromJSON(int64(), "[0, 1, 0, 1, null]");
+  auto values1 = ArrayFromJSON(type, "[10, 11, null, null, 14]");
+  auto values2 = ArrayFromJSON(type, "[20, 21, null, null, 24]");
+  auto nulls = ArrayFromJSON(type, "[null, null, null, null, null]");
+  CheckScalar("choose", {indices1, values1, values2},
+              ArrayFromJSON(type, "[10, 21, null, null, null]"));
+  // Mixed scalar and array (note CheckScalar checks all-scalar cases for us)
+  CheckScalar("choose", {ScalarFromJSON(int64(), "0"), values1, values2}, values1);
+  CheckScalar("choose", {ScalarFromJSON(int64(), "1"), values1, values2}, values2);
+  CheckScalar("choose", {ScalarFromJSON(int64(), "null"), values1, values2}, nulls);
+  auto scalar1 = ScalarFromJSON(type, "42");
+  CheckScalar("choose", {ScalarFromJSON(int64(), "0"), scalar1, values2},
+              *MakeArrayFromScalar(*scalar1, 5));
+  CheckScalar("choose", {ScalarFromJSON(int64(), "1"), scalar1, values2}, values2);
+  CheckScalar("choose", {ScalarFromJSON(int64(), "null"), values1, values2}, nulls);
+  auto scalar_null = ScalarFromJSON(type, "null");
+  CheckScalar("choose", {ScalarFromJSON(int64(), "0"), scalar_null, values2},
+              *MakeArrayOfNull(type, 5));
+}
+
+TYPED_TEST(TestChooseBinary, Basics) {
+  auto type = default_type_instance<TypeParam>();
+  auto indices1 = ArrayFromJSON(int64(), "[0, 1, 0, 1, null]");
+  auto values1 = ArrayFromJSON(type, R"(["a", "bc", null, null, "def"])");
+  auto values2 = ArrayFromJSON(type, R"(["ghij", "klmno", null, null, "pqrstu"])");
+  auto nulls = ArrayFromJSON(type, "[null, null, null, null, null]");
+  CheckScalar("choose", {indices1, values1, values2},
+              ArrayFromJSON(type, R"(["a", "klmno", null, null, null])"));
+  CheckScalar("choose", {ScalarFromJSON(int64(), "0"), values1, values2}, values1);
+  CheckScalar("choose", {ScalarFromJSON(int64(), "1"), values1, values2}, values2);
+  CheckScalar("choose", {ScalarFromJSON(int64(), "null"), values1, values2}, nulls);
+  auto scalar1 = ScalarFromJSON(type, R"("abcd")");
+  CheckScalar("choose", {ScalarFromJSON(int64(), "0"), scalar1, values2},
+              *MakeArrayFromScalar(*scalar1, 5));
+  CheckScalar("choose", {ScalarFromJSON(int64(), "1"), scalar1, values2}, values2);
+  CheckScalar("choose", {ScalarFromJSON(int64(), "null"), values1, values2}, nulls);
+  auto scalar_null = ScalarFromJSON(type, "null");
+  CheckScalar("choose", {ScalarFromJSON(int64(), "0"), scalar_null, values2},
+              *MakeArrayOfNull(type, 5));
+}
+
+TEST(TestChoose, Null) {
+  auto type = null();
+  auto indices1 = ArrayFromJSON(int64(), "[0, 1, 0, 1, null]");
+  auto nulls = *MakeArrayOfNull(type, 5);
+  CheckScalar("choose", {indices1, nulls, nulls}, nulls);
+  CheckScalar("choose", {ScalarFromJSON(int64(), "0"), nulls, nulls}, nulls);
+  CheckScalar("choose", {ScalarFromJSON(int64(), "1"), nulls, nulls}, nulls);
+  CheckScalar("choose", {ScalarFromJSON(int64(), "null"), nulls, nulls}, nulls);
+  auto scalar_null = ScalarFromJSON(type, "null");
+  CheckScalar("choose", {ScalarFromJSON(int64(), "0"), scalar_null, nulls}, nulls);
+  CheckScalar("choose", {ScalarFromJSON(int64(), "1"), scalar_null, nulls}, nulls);
+  CheckScalar("choose", {ScalarFromJSON(int64(), "null"), nulls, nulls}, nulls);
+}
+
+TEST(TestChoose, Boolean) {
+  auto type = boolean();
+  auto indices1 = ArrayFromJSON(int64(), "[0, 1, 0, 1, null]");
+  auto values1 = ArrayFromJSON(type, "[true, true, null, null, true]");
+  auto values2 = ArrayFromJSON(type, "[false, false, null, null, false]");
+  auto nulls = ArrayFromJSON(type, "[null, null, null, null, null]");
+  CheckScalar("choose", {indices1, values1, values2},
+              ArrayFromJSON(type, "[true, false, null, null, null]"));
+  CheckScalar("choose", {ScalarFromJSON(int64(), "0"), values1, values2}, values1);
+  CheckScalar("choose", {ScalarFromJSON(int64(), "1"), values1, values2}, values2);
+  CheckScalar("choose", {ScalarFromJSON(int64(), "null"), values1, values2}, nulls);
+  auto scalar1 = ScalarFromJSON(type, "true");
+  CheckScalar("choose", {ScalarFromJSON(int64(), "0"), scalar1, values2},
+              *MakeArrayFromScalar(*scalar1, 5));
+  CheckScalar("choose", {ScalarFromJSON(int64(), "1"), scalar1, values2}, values2);
+  CheckScalar("choose", {ScalarFromJSON(int64(), "null"), values1, values2}, nulls);
+  auto scalar_null = ScalarFromJSON(type, "null");
+  CheckScalar("choose", {ScalarFromJSON(int64(), "0"), scalar_null, values2},
+              *MakeArrayOfNull(type, 5));
+}
+
+TEST(TestChoose, DayTimeInterval) {
+  auto type = day_time_interval();
+  auto indices1 = ArrayFromJSON(int64(), "[0, 1, 0, 1, null]");
+  auto values1 = ArrayFromJSON(type, "[[10, 1], [10, 1], null, null, [10, 1]]");
+  auto values2 = ArrayFromJSON(type, "[[2, 20], [2, 20], null, null, [2, 20]]");
+  auto nulls = ArrayFromJSON(type, "[null, null, null, null, null]");
+  CheckScalar("choose", {indices1, values1, values2},
+              ArrayFromJSON(type, "[[10, 1], [2, 20], null, null, null]"));
+  CheckScalar("choose", {ScalarFromJSON(int64(), "0"), values1, values2}, values1);
+  CheckScalar("choose", {ScalarFromJSON(int64(), "1"), values1, values2}, values2);
+  CheckScalar("choose", {ScalarFromJSON(int64(), "null"), values1, values2}, nulls);
+  auto scalar1 = ScalarFromJSON(type, "[10, 1]");
+  CheckScalar("choose", {ScalarFromJSON(int64(), "0"), scalar1, values2},
+              *MakeArrayFromScalar(*scalar1, 5));
+  CheckScalar("choose", {ScalarFromJSON(int64(), "1"), scalar1, values2}, values2);
+  CheckScalar("choose", {ScalarFromJSON(int64(), "null"), values1, values2}, nulls);
+  auto scalar_null = ScalarFromJSON(type, "null");
+  CheckScalar("choose", {ScalarFromJSON(int64(), "0"), scalar_null, values2},
+              *MakeArrayOfNull(type, 5));
+}
+
+TEST(TestChoose, Decimal) {
+  for (const auto& type : {decimal128(3, 2), decimal256(3, 2)}) {
+    auto indices1 = ArrayFromJSON(int64(), "[0, 1, 0, 1, null]");
+    auto values1 = ArrayFromJSON(type, R"(["1.23", "1.24", null, null, "1.25"])");
+    auto values2 = ArrayFromJSON(type, R"(["4.56", "4.57", null, null, "4.58"])");
+    auto nulls = ArrayFromJSON(type, "[null, null, null, null, null]");
+    CheckScalar("choose", {indices1, values1, values2},
+                ArrayFromJSON(type, R"(["1.23", "4.57", null, null, null])"));
+    CheckScalar("choose", {ScalarFromJSON(int64(), "0"), values1, values2}, values1);
+    CheckScalar("choose", {ScalarFromJSON(int64(), "1"), values1, values2}, values2);
+    CheckScalar("choose", {ScalarFromJSON(int64(), "null"), values1, values2}, nulls);
+    auto scalar1 = ScalarFromJSON(type, R"("1.23")");
+    CheckScalar("choose", {ScalarFromJSON(int64(), "0"), scalar1, values2},
+                *MakeArrayFromScalar(*scalar1, 5));
+    CheckScalar("choose", {ScalarFromJSON(int64(), "1"), scalar1, values2}, values2);
+    CheckScalar("choose", {ScalarFromJSON(int64(), "null"), values1, values2}, nulls);
+    auto scalar_null = ScalarFromJSON(type, "null");
+    CheckScalar("choose", {ScalarFromJSON(int64(), "0"), scalar_null, values2},
+                *MakeArrayOfNull(type, 5));
+  }
+}
+
+TEST(TestChoose, FixedSizeBinary) {
+  auto type = fixed_size_binary(3);
+  auto indices1 = ArrayFromJSON(int64(), "[0, 1, 0, 1, null]");
+  auto values1 = ArrayFromJSON(type, R"(["abc", "abd", null, null, "abe"])");
+  auto values2 = ArrayFromJSON(type, R"(["def", "deg", null, null, "deh"])");
+  auto nulls = ArrayFromJSON(type, "[null, null, null, null, null]");
+  CheckScalar("choose", {indices1, values1, values2},
+              ArrayFromJSON(type, R"(["abc", "deg", null, null, null])"));
+  CheckScalar("choose", {ScalarFromJSON(int64(), "0"), values1, values2}, values1);
+  CheckScalar("choose", {ScalarFromJSON(int64(), "1"), values1, values2}, values2);
+  CheckScalar("choose", {ScalarFromJSON(int64(), "null"), values1, values2}, nulls);
+  auto scalar1 = ScalarFromJSON(type, R"("abc")");
+  CheckScalar("choose", {ScalarFromJSON(int64(), "0"), scalar1, values2},
+              *MakeArrayFromScalar(*scalar1, 5));
+  CheckScalar("choose", {ScalarFromJSON(int64(), "1"), scalar1, values2}, values2);
+  CheckScalar("choose", {ScalarFromJSON(int64(), "null"), values1, values2}, nulls);
+  auto scalar_null = ScalarFromJSON(type, "null");
+  CheckScalar("choose", {ScalarFromJSON(int64(), "0"), scalar_null, values2},
+              *MakeArrayOfNull(type, 5));
+}
+
+TEST(TestChooseKernel, DispatchBest) {
+  ASSERT_OK_AND_ASSIGN(auto function, GetFunctionRegistry()->GetFunction("choose"));
+  auto Check = [&](std::vector<ValueDescr> original_values) {
+    auto values = original_values;
+    ARROW_EXPECT_OK(function->DispatchBest(&values));
+    return values;
+  };
+
+  // Since DispatchBest for this kernel pulls tricks, we can't compare it to DispatchExact
+  // as CheckDispatchBest does
+  for (auto ty :
+       {int8(), int16(), int32(), int64(), uint8(), uint16(), uint32(), uint64()}) {
+    // Index always promoted to int64
+    EXPECT_EQ((std::vector<ValueDescr>{int64(), ty}), Check({ty, ty}));
+    EXPECT_EQ((std::vector<ValueDescr>{int64(), int64(), int64()}),
+              Check({ty, ty, int64()}));
+  }
+  // Other arguments promoted separately from index
+  EXPECT_EQ((std::vector<ValueDescr>{int64(), int32(), int32()}),
+            Check({int8(), int32(), uint8()}));
+}
+
+TEST(TestChooseKernel, Errors) {
+  ASSERT_RAISES(Invalid, CallFunction("choose", {}));
+  ASSERT_RAISES(Invalid, CallFunction("choose", {ArrayFromJSON(int64(), "[]")}));
+  ASSERT_RAISES(Invalid, CallFunction("choose", {ArrayFromJSON(utf8(), "[\"a\"]"),
+                                                 ArrayFromJSON(int64(), "[0]")}));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      IndexError, ::testing::HasSubstr("choose: index 1 out of range"),
+      CallFunction("choose",
+                   {ArrayFromJSON(int64(), "[1]"), ArrayFromJSON(int32(), "[0]")}));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      IndexError, ::testing::HasSubstr("choose: index -1 out of range"),
+      CallFunction("choose",
+                   {ArrayFromJSON(int64(), "[-1]"), ArrayFromJSON(int32(), "[0]")}));
+}
+
 }  // namespace compute
 }  // namespace arrow
