@@ -208,6 +208,9 @@ void GenericFileSystemTest::TestCreateDir(FileSystem* fs) {
   ASSERT_RAISES(IOError, fs->CreateDir("AB/def/EF/GH", true /* recursive */));
   ASSERT_RAISES(IOError, fs->CreateDir("AB/def/EF", false /* recursive */));
 
+  // Cannot create a directory when there is already a file with the same name
+  ASSERT_RAISES(IOError, fs->CreateDir("AB/def"));
+
   AssertAllDirs(fs, {"AB", "AB/CD", "AB/CD/EF", "AB/GH", "AB/GH/IJ", "XY"});
   AssertAllFiles(fs, {"AB/def"});
 }
