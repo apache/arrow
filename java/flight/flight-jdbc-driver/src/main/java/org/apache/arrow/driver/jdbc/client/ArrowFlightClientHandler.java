@@ -34,7 +34,8 @@ import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.calcite.avatica.org.apache.commons.logging.impl.Log4JLogger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Optional;
 
@@ -44,6 +45,7 @@ import com.google.common.base.Optional;
  */
 public class ArrowFlightClientHandler implements FlightClientHandler {
 
+  private static final Logger LOGGER;
   private final FlightClient client;
 
   @Nullable
@@ -51,6 +53,10 @@ public class ArrowFlightClientHandler implements FlightClientHandler {
 
   @Nullable
   private HeaderCallOption properties;
+
+  static {
+    LOGGER = LoggerFactory.getLogger(ArrowFlightClientHandler.class);
+  }
 
   protected ArrowFlightClientHandler(final FlightClient client,
       @Nullable final CredentialCallOption token,
@@ -139,7 +145,7 @@ public class ArrowFlightClientHandler implements FlightClientHandler {
        * Perhaps a better idea is to throw the aforementioned exception and, if
        * necessary, handle it later; as opposed to "eating up" exceptions like this.
        */
-      (new Log4JLogger()).error(e.getMessage(), e);
+      LOGGER.error(e.getMessage(), e);
     }
   }
 
