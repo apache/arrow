@@ -296,7 +296,7 @@ public class ArrowFlightJdbcDriverTest {
   }
 
   /**
-   * Tests whether the {@link ArrowFlightJdbcDriver} can run a query succesfully.
+   * Tests whether the {@link ArrowFlightJdbcDriver} can run a query successfully.
    *
    * @throws Exception
    *           If the connection fails to be established.
@@ -306,25 +306,19 @@ public class ArrowFlightJdbcDriverTest {
     // Get the Arrow Flight JDBC driver by providing a URL with a valid prefix.
     final Driver driver = new ArrowFlightJdbcDriver();
 
-    final URI uri = server.getLocation().getUri();
-
     try (Connection connection = driver.connect(
             "jdbc:arrow-flight://localhost:32010",
             PropertiesSample.CONFORMING.getProperties())) {
-      Statement statement = connection.createStatement();
-      ResultSet resultSet = statement.executeQuery("SELECT * FROM test.data2");
+      try (Statement statement = connection.createStatement()) {
+        // TODO Run query against bare Flight (hardcode a schema)
+        try (ResultSet resultSet = statement.executeQuery("SELECT * FROM test.sample")) {
+          int expectedColCount = 12;
 
-      int expectedColCount = 13;
-
-      /*
-       * FIXME There are MAJOR resource leaks!
-       *
-       * For now, instead of throwing an Exception, they are logged
-       * to the console. This, however, should be fixed ASAP!
-       */
-      while (resultSet.next()) {
-        for (; expectedColCount > 0; expectedColCount--) {
-          resultSet.getObject(expectedColCount);
+          while (resultSet.next()) {
+            for (; expectedColCount > 0; expectedColCount--) {
+              resultSet.getObject(expectedColCount);
+            }
+          }
         }
       }
     }
