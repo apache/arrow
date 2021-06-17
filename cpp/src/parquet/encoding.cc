@@ -1569,6 +1569,19 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
     return num_values;
   }
 
+  int DecodeIndices(int num_values, int32_t* indices) override {
+    if (num_values != idx_decoder_.GetBatch(indices, num_values)) {
+      ParquetException::EofException();
+    }
+    num_values_ -= num_values;
+    return num_values;
+  }
+
+  void GetDictionary(const T** dictionary, int32_t* dictionary_length) override {
+    *dictionary_length = dictionary_length_;
+    *dictionary = reinterpret_cast<T*>(dictionary_->mutable_data());
+  }
+
  protected:
   Status IndexInBounds(int32_t index) {
     if (ARROW_PREDICT_TRUE(0 <= index && index < dictionary_length_)) {
