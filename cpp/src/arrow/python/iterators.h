@@ -84,16 +84,6 @@ inline Status VisitSequenceGeneric(PyObject* obj, int64_t offset, VisitorFunc&& 
   return Status::OK();
 }
 
-// Visit sequence with no null mask or offset
-template <class VisitorFunc>
-inline Status VisitSequence(PyObject* obj, VisitorFunc&& func) {
-  return VisitSequenceGeneric(
-      obj, /*offset=*/0,
-      [&func](PyObject* value, int64_t i /* unused */, bool* keep_going) {
-        return func(value, keep_going);
-      });
-}
-
 // Visit sequence with offset but no null mask
 template <class VisitorFunc>
 inline Status VisitSequence(PyObject* obj, int64_t offset, VisitorFunc&& func) {
@@ -134,12 +124,6 @@ inline Status VisitSequenceMasked(PyObject* obj, PyObject* mo, int64_t offset,
   }
 }
 
-/// Visit sequence with null mask but no offset
-template <class VisitorFunc>
-inline Status VisitSequenceMasked(PyObject* obj, PyObject* mo, VisitorFunc&& func) {
-  return VisitSequenceMasked(obj, mo, /*offset=*/0, func);
-}
-
 // Like IterateSequence, but accepts any generic iterable (including
 // non-restartable iterators, e.g. generators).
 //
@@ -149,7 +133,7 @@ template <class VisitorFunc>
 inline Status VisitIterable(PyObject* obj, VisitorFunc&& func) {
   if (PySequence_Check(obj)) {
     // Numpy arrays fall here as well
-    return VisitSequence(obj, std::forward<VisitorFunc>(func));
+    return VisitSequence(obj, /*offset=*/0, std::forward<VisitorFunc>(func));
   }
   // Fall back on the iterator protocol
   OwnedRef iter_ref(PyObject_GetIter(obj));

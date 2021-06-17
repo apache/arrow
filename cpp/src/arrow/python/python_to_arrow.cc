@@ -518,65 +518,6 @@ class PyPrimitiveConverter<
 };
 
 template <typename T>
-class PyPrimitiveConverter<T, enable_if_binary<T>>
-    : public PrimitiveConverter<T, PyConverter> {
- public:
-  using OffsetType = typename T::offset_type;
-
-  Status Append(PyObject* value) override {
-    if (PyValue::IsNull(this->options_, value)) {
-      this->primitive_builder_->UnsafeAppendNull();
-    } else {
-      ARROW_RETURN_NOT_OK(
-          PyValue::Convert(this->primitive_type_, this->options_, value, view_));
-      // Since we don't know the varying length input size in advance, we need to
-      // reserve space in the value builder one by one. ReserveData raises CapacityError
-      // if the value would not fit into the array.
-      ARROW_RETURN_NOT_OK(this->primitive_builder_->ReserveData(view_.size));
-      this->primitive_builder_->UnsafeAppend(view_.bytes,
-                                             static_cast<OffsetType>(view_.size));
-    }
-    return Status::OK();
-  }
-
-  Result<int64_t> ExtendAsMuchAsPossible(PyObject* values, int64_t size,
-                                         int64_t offset) override {
-    DCHECK_GE(size, offset);
-    // See BaseBinaryBuilder::Resize - avoid error in Reserve()
-    if (size - offset >= BaseBinaryBuilder<T>::memory_limit()) {
-      size = offset + BaseBinaryBuilder<T>::memory_limit() - 1;
-    }
-    const auto status = this->Extend(values, size, offset);
-    const auto num_converted = this->builder()->length();
-    if (ARROW_PREDICT_TRUE(status.ok() ||
-                           (status.IsCapacityError() && num_converted > 0))) {
-      return num_converted;
-    }
-    return status;
-  }
-
-  Result<int64_t> ExtendMaskedAsMuchAsPossible(PyObject* values, PyObject* mask,
-                                               int64_t size, int64_t offset) override {
-    DCHECK_GE(size, offset);
-    if (size - offset >= BaseBinaryBuilder<T>::memory_limit()) {
-      size = offset + BaseBinaryBuilder<T>::memory_limit() - 1;
-    }
-    const auto status = this->ExtendMasked(values, mask, size, offset);
-    const auto num_converted = this->builder()->length();
-    if (ARROW_PREDICT_TRUE(status.ok() ||
-                           (status.IsCapacityError() && num_converted > 0))) {
-      return num_converted;
-    }
-    return status;
-  }
-
- protected:
-  // Create a single instance of PyBytesView here to prevent unnecessary object
-  // creation/destruction. This significantly improves the conversion performance.
-  PyBytesView view_;
-};
-
-template <typename T>
 class PyPrimitiveConverter<T, enable_if_t<std::is_same<T, FixedSizeBinaryType>::value>>
     : public PrimitiveConverter<T, PyConverter> {
  public:
@@ -597,7 +538,7 @@ class PyPrimitiveConverter<T, enable_if_t<std::is_same<T, FixedSizeBinaryType>::
 };
 
 template <typename T>
-class PyPrimitiveConverter<T, enable_if_string_like<T>>
+class PyPrimitiveConverter<T, enable_if_base_binary<T>>
     : public PrimitiveConverter<T, PyConverter> {
  public:
   using OffsetType = typename T::offset_type;
@@ -612,6 +553,9 @@ class PyPrimitiveConverter<T, enable_if_string_like<T>>
         // observed binary value
         observed_binary_ = true;
       }
+      // Since we don't know the varying length input size in advance, we need to
+      // reserve space in the value builder one by one. ReserveData raises CapacityError
+      // if the value would not fit into the array.
       ARROW_RETURN_NOT_OK(this->primitive_builder_->ReserveData(view_.size));
       this->primitive_builder_->UnsafeAppend(view_.bytes,
                                              static_cast<OffsetType>(view_.size));
@@ -624,7 +568,7 @@ class PyPrimitiveConverter<T, enable_if_string_like<T>>
     DCHECK_GE(size, offset);
     // See BaseBinaryBuilder::Resize - avoid error in Reserve()
     if (size - offset > BaseBinaryBuilder<T>::memory_limit()) {
-      size = offset + BaseBinaryBuilder<T>::memory_limit();
+      size = offset + BaseBinaryBuilder<T>::memory_limit() - 1;
     }
     const auto status = this->Extend(values, size, offset);
     const auto num_converted = this->builder()->length();
@@ -662,6 +606,8 @@ class PyPrimitiveConverter<T, enable_if_string_like<T>>
   }
 
  protected:
+  // Create a single instance of PyBytesView here to prevent unnecessary object
+  // creation/destruction. This significantly improves the conversion performance.
   PyBytesView view_;
   bool observed_binary_ = false;
 };
