@@ -1078,8 +1078,7 @@ void AddDecimalBinaryKernels(const std::string& name,
 }
 
 // Generate a kernel given an arithmetic functor
-template <template <typename...> class KernelGenerator, typename OutType,
-          typename Op>
+template <template <typename...> class KernelGenerator, typename OutType, typename Op>
 ArrayKernelExec GenerateArithmeticFixedOutType(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::INT8:
