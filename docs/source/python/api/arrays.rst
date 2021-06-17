@@ -68,6 +68,7 @@ may expose data type-specific methods or properties.
    Decimal128Array
    DictionaryArray
    ListArray
+   FixedSizeListArray
    LargeListArray
    StructArray
    UnionArray
