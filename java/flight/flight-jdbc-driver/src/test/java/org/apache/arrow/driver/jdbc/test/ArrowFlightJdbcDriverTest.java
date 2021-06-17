@@ -314,6 +314,8 @@ public class ArrowFlightJdbcDriverTest {
       Statement statement = connection.createStatement();
       ResultSet resultSet = statement.executeQuery("SELECT * FROM test.data2");
 
+      int expectedColCount = 13;
+
       /*
        * FIXME There are MAJOR resource leaks!
        *
@@ -321,7 +323,9 @@ public class ArrowFlightJdbcDriverTest {
        * to the console. This, however, should be fixed ASAP!
        */
       while (resultSet.next()) {
-        System.out.println(resultSet.getObject(1));
+        for (; expectedColCount > 0; expectedColCount--) {
+          resultSet.getObject(expectedColCount);
+        }
       }
     }
   }
