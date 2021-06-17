@@ -15,22 +15,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module ArrowDataset
-  class ScanOptions
-    class << self
-      def try_convert(value)
-        case value
-        when Hash
-          return nil unless value.key?(:schema)
-          options = new(value[:schema])
-          value.each do |name, value|
-            next if name == :schema
-            options.__send__("#{name}=", value)
-          end
-          options
+module Helper
+  module Writable
+    def write_table(table, path, type: :file)
+      output = Arrow::FileOutputStream.new(path, false)
+      begin
+        if type == :file
+          writer_class = Arrow::RecordBatchFileWriter
         else
-          nil
+          writer_class = Arrow::RecordBatchStreamWriter
         end
+        writer = writer_class.new(output, table.schema)
+        begin
+          writer.write_table(table)
+        ensure
+          writer.close
+        end
+      ensure
+        output.close
       end
     end
   end

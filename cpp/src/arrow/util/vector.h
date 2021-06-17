@@ -133,5 +133,18 @@ Result<std::vector<T>> UnwrapOrRaise(std::vector<Result<T>>&& results) {
   return std::move(out);
 }
 
+template <typename T>
+Result<std::vector<T>> UnwrapOrRaise(const std::vector<Result<T>>& results) {
+  std::vector<T> out;
+  out.reserve(results.size());
+  for (const auto& result : results) {
+    if (!result.ok()) {
+      return result.status();
+    }
+    out.push_back(result.ValueUnsafe());
+  }
+  return std::move(out);
+}
+
 }  // namespace internal
 }  // namespace arrow

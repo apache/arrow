@@ -31,6 +31,7 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.StructVector;
+import org.apache.arrow.vector.complex.VectorWithOrdinal;
 import org.apache.arrow.vector.holders.NullableBigIntHolder;
 import org.apache.arrow.vector.holders.NullableBitHolder;
 import org.apache.arrow.vector.holders.NullableFloat4Holder;
@@ -346,6 +347,19 @@ public class TestDenseUnionVector {
     vector.initializeChildrenFromFields(children);
 
     assertEquals(vector.getField(), field);
+
+    // Union has 2 child vectors
+    assertEquals(vector.size(), 2);
+
+    // Check child field 0
+    VectorWithOrdinal intChild = vector.getChildVectorWithOrdinal("int");
+    assertEquals(intChild.ordinal, 0);
+    assertEquals(intChild.vector.getField(), children.get(0));
+
+    // Check child field 1
+    VectorWithOrdinal varcharChild = vector.getChildVectorWithOrdinal("varchar");
+    assertEquals(varcharChild.ordinal, 1);
+    assertEquals(varcharChild.vector.getField(), children.get(1));
   }
 
   @Test
@@ -406,8 +420,8 @@ public class TestDenseUnionVector {
   @Test
   public void testMultipleStructs() {
     FieldType type = new FieldType(true, ArrowType.Struct.INSTANCE, null, null);
-    try (StructVector structVector1 = new StructVector("struct", allocator, type, null);
-         StructVector structVector2 = new StructVector("struct", allocator, type, null);
+    try (StructVector structVector1 = new StructVector("struct1", allocator, type, null);
+         StructVector structVector2 = new StructVector("struct2", allocator, type, null);
          DenseUnionVector unionVector = DenseUnionVector.empty("union", allocator)) {
 
       // prepare sub vectors

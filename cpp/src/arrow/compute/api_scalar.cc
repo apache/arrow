@@ -63,14 +63,14 @@ SCALAR_ARITHMETIC_BINARY(Multiply, "multiply", "multiply_checked")
 SCALAR_ARITHMETIC_BINARY(Divide, "divide", "divide_checked")
 SCALAR_ARITHMETIC_BINARY(Power, "power", "power_checked")
 
-Result<Datum> ElementWiseMax(const std::vector<Datum>& args,
+Result<Datum> MaxElementWise(const std::vector<Datum>& args,
                              ElementWiseAggregateOptions options, ExecContext* ctx) {
-  return CallFunction("element_wise_max", args, &options, ctx);
+  return CallFunction("max_element_wise", args, &options, ctx);
 }
 
-Result<Datum> ElementWiseMin(const std::vector<Datum>& args,
+Result<Datum> MinElementWise(const std::vector<Datum>& args,
                              ElementWiseAggregateOptions options, ExecContext* ctx) {
-  return CallFunction("element_wise_min", args, &options, ctx);
+  return CallFunction("min_element_wise", args, &options, ctx);
 }
 
 // ----------------------------------------------------------------------
@@ -171,6 +171,26 @@ Result<Datum> IfElse(const Datum& cond, const Datum& if_true, const Datum& if_fa
                      ExecContext* ctx) {
   return CallFunction("if_else", {cond, if_true, if_false}, ctx);
 }
+
+// ----------------------------------------------------------------------
+// Temporal functions
+
+SCALAR_EAGER_UNARY(Year, "year")
+SCALAR_EAGER_UNARY(Month, "month")
+SCALAR_EAGER_UNARY(Day, "day")
+SCALAR_EAGER_UNARY(DayOfWeek, "day_of_week")
+SCALAR_EAGER_UNARY(DayOfYear, "day_of_year")
+SCALAR_EAGER_UNARY(ISOYear, "iso_year")
+SCALAR_EAGER_UNARY(ISOWeek, "iso_week")
+SCALAR_EAGER_UNARY(ISOCalendar, "iso_calendar")
+SCALAR_EAGER_UNARY(Quarter, "quarter")
+SCALAR_EAGER_UNARY(Hour, "hour")
+SCALAR_EAGER_UNARY(Minute, "minute")
+SCALAR_EAGER_UNARY(Second, "second")
+SCALAR_EAGER_UNARY(Millisecond, "millisecond")
+SCALAR_EAGER_UNARY(Microsecond, "microsecond")
+SCALAR_EAGER_UNARY(Nanosecond, "nanosecond")
+SCALAR_EAGER_UNARY(Subsecond, "subsecond")
 
 }  // namespace compute
 }  // namespace arrow

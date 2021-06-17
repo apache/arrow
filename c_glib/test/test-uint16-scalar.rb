@@ -15,33 +15,32 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestDatasetScanOptions < Test::Unit::TestCase
+class TestUInt16Scalar < Test::Unit::TestCase
   def setup
-    omit("Arrow Dataset is required") unless defined?(ArrowDataset)
-    @schema = Arrow::Schema.new([])
-    @scan_options = ArrowDataset::ScanOptions.new(@schema)
+    @scalar = Arrow::UInt16Scalar.new((2 ** 16) - 1)
   end
 
-  def test_schema
-    assert_equal(@schema,
-                 @scan_options.schema)
+  def test_data_type
+    assert_equal(Arrow::UInt16DataType.new,
+                 @scalar.data_type)
   end
 
-  def test_batch_size
-    assert_equal(1<<20,
-                 @scan_options.batch_size)
-    @scan_options.batch_size = 42
-    assert_equal(42,
-                 @scan_options.batch_size)
-  end
-
-  def test_use_threads
+  def test_valid?
     assert do
-      not @scan_options.use_threads?
+      @scalar.valid?
     end
-    @scan_options.use_threads = true
-    assert do
-      @scan_options.use_threads?
-    end
+  end
+
+  def test_equal
+    assert_equal(Arrow::UInt16Scalar.new((2 ** 16) - 1),
+                 @scalar)
+  end
+
+  def test_to_s
+    assert_equal(((2 ** 16) - 1).to_s, @scalar.to_s)
+  end
+
+  def test_value
+    assert_equal((2 ** 16) - 1, @scalar.value)
   end
 end

@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-dist: bionic
+dist: focal
 
 language: minimal
 
@@ -43,7 +43,13 @@ jobs:
   include:
     - name: "C++ on ARM"
       os: linux
-      arch: arm64
+      arch: arm64-graviton2
+      # This is required for arm64-graviton2.
+      # https://docs.travis-ci.com/user/multi-cpu-architectures/#example-multi-architecture-build-matrix
+      group: edge
+      # This is required for arm64-graviton2.
+      # https://docs.travis-ci.com/user/multi-cpu-architectures/#testing-on-multiple-cpu-architectures
+      virt: vm
       env:
         <<: *global_env
         ARCH: arm64v8
@@ -51,27 +57,28 @@ jobs:
         DOCKER_IMAGE_ID: ubuntu-cpp
         # ARROW_USE_GLOG=OFF is needed to avoid build error caused by
         # glog and CMAKE_UNITY_BUILD=ON.
-        #
-        # Disable ARROW_S3 because it often causes "No output has
-        # been received in the last 10m0s, this potentially indicates
-        # a stalled build or something wrong with the build itself."
-        # on Travis CI.
-        #
-        # Limiting CPP_MAKE_PARALLELISM is required to avoid random compiler
-        # crashes.
         DOCKER_RUN_ARGS: >-
           "
           -e ARROW_BUILD_STATIC=OFF
           -e ARROW_ORC=OFF
-          -e ARROW_S3=OFF
           -e ARROW_USE_GLOG=OFF
           -e CMAKE_UNITY_BUILD=ON
-          -e CPP_MAKE_PARALLELISM=4
           "
         # The LLVM's APT repository doesn't provide arm64 binaries.
         # We should use LLVM provided by Ubuntu.
         LLVM: "10"
         UBUNTU: "20.04"
+
+    - name: "Go on ARM"
+      os: linux
+      arch: arm64-graviton2
+      group: edge
+      virt: vm
+      env:
+        <<: *global_env
+        ARCH: arm64v8
+        ARROW_CI_MODULES: "GO"
+        DOCKER_IMAGE_ID: debian-go
 
     - name: "C++ on s390x"
       os: linux
@@ -99,6 +106,9 @@ jobs:
           -e Protobuf_SOURCE=BUNDLED
           -e gRPC_SOURCE=BUNDLED
           "
+        # The LLVM's APT repository causes download error for s390x binary
+        # We should use the LLVM provided by the default APT repository
+        LLVM: "10"
         UBUNTU: "20.04"
 
     - name: "Go on s390x"
@@ -121,6 +131,7 @@ jobs:
         JDK: 11
 
   allow_failures:
+    - name: "Go on ARM"
     - name: "Go on s390x"
     - name: "Java on s390x"
 
@@ -139,14 +150,11 @@ before_install:
     fi
 
 install:
-  - pip3 install -e dev/archery[docker]
+  - sudo -H pip3 install --upgrade pip
+  - sudo -H pip3 install docker-compose
+  - sudo -H pip3 install -e dev/archery[docker]
 
 script:
-  - sudo sysctl -w kernel.core_pattern="core.%e.%p"
-  # This isn't allowed on Travis CI:
-  #   /home/travis/.travis/functions: line 109: ulimit: core file size: cannot modify limit: Operation not permitted
-  - |
-    ulimit -c unlimited || :
   - |
     archery docker run \
       ${DOCKER_RUN_ARGS} \

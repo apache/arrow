@@ -15,18 +15,32 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module ArrowDataset
-  class InMemoryFragment
-    alias_method :initialize_raw, :initialize
-    private :initialize_raw
-    def initialize(schema, record_batches)
-      record_batches = record_batches.collect do |record_batch|
-        unless record_batch.is_a?(Arrow::RecordBatch)
-          record_batch = Arrow::RecordBatch.new(record_batch)
-        end
-        record_batch
+class FloatScalarTest < Test::Unit::TestCase
+  sub_test_case("#equal_scalar?") do
+    test("no options") do
+      scalar1 = Arrow::FloatScalar.new(1.1)
+      scalar2 = Arrow::FloatScalar.new(1.1000001)
+      assert do
+        not scalar1.equal_scalar?(scalar2)
       end
-      initialize_raw(schema, record_batches)
+    end
+
+    test(":approx") do
+      scalar1 = Arrow::FloatScalar.new(1.1)
+      scalar2 = Arrow::FloatScalar.new(1.1000001)
+      assert do
+        scalar1.equal_scalar?(scalar2, approx: true)
+      end
+    end
+
+    test(":absolute_tolerance") do
+      scalar1 = Arrow::FloatScalar.new(1.1)
+      scalar2 = Arrow::FloatScalar.new(1.1001)
+      assert do
+        scalar1.equal_scalar?(scalar2,
+                              approx: true,
+                              absolute_tolerance: 0.001)
+      end
     end
   end
 end

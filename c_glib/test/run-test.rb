@@ -39,6 +39,10 @@ module Arrow
       @data = data
     end
   end
+
+  class BooleanScalar
+    alias_method :value, :value?
+  end
 end
 
 begin
@@ -79,10 +83,11 @@ require "zlib"
 require_relative "helper/buildable"
 require_relative "helper/data-type"
 require_relative "helper/fixture"
-require_relative "helper/omittable"
-require_relative "helper/plasma-store"
 if defined?(ArrowFlight)
   require_relative "helper/flight-server"
 end
+require_relative "helper/omittable"
+require_relative "helper/plasma-store"
+require_relative "helper/writable"
 
 exit(Test::Unit::AutoRunner.run(true, test_dir.to_s))

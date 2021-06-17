@@ -812,5 +812,37 @@ TEST(GroupBy, WithChunkedArray) {
                     aggregated_and_grouped,
                     /*verbose=*/true);
 }
+
+TEST(GroupBy, MinMaxWithNewGroupsInChunkedArray) {
+  auto table = TableFromJSON(
+      schema({field("argument", int64()), field("key", int64())}),
+      {R"([{"argument": 1, "key": 0}])", R"([{"argument": 0,   "key": 1}])"});
+  ScalarAggregateOptions count_options;
+  ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                       internal::GroupBy(
+                           {
+                               table->GetColumnByName("argument"),
+                           },
+                           {
+                               table->GetColumnByName("key"),
+                           },
+                           {
+                               {"hash_min_max", nullptr},
+                           }));
+
+  AssertDatumsEqual(ArrayFromJSON(struct_({
+                                      field("hash_min_max", struct_({
+                                                                field("min", int64()),
+                                                                field("max", int64()),
+                                                            })),
+                                      field("key_0", int64()),
+                                  }),
+                                  R"([
+    [{"min": 1, "max": 1}, 0],
+    [{"min": 0, "max": 0}, 1]
+  ])"),
+                    aggregated_and_grouped,
+                    /*verbose=*/true);
+}
 }  // namespace compute
 }  // namespace arrow

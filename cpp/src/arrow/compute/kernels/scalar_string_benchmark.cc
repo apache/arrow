@@ -87,6 +87,30 @@ static void TrimManyAscii(benchmark::State& state) {
   UnaryStringBenchmark(state, "ascii_trim", &options);
 }
 
+#ifdef ARROW_WITH_RE2
+static void MatchLike(benchmark::State& state) {
+  MatchSubstringOptions options("ab%ac");
+  UnaryStringBenchmark(state, "match_like", &options);
+}
+
+// MatchLike optimizes the following three into a substring/prefix/suffix search instead
+// of using RE2
+static void MatchLikeSubstring(benchmark::State& state) {
+  MatchSubstringOptions options("%abac%");
+  UnaryStringBenchmark(state, "match_like", &options);
+}
+
+static void MatchLikePrefix(benchmark::State& state) {
+  MatchSubstringOptions options("%abac");
+  UnaryStringBenchmark(state, "match_like", &options);
+}
+
+static void MatchLikeSuffix(benchmark::State& state) {
+  MatchSubstringOptions options("%abac");
+  UnaryStringBenchmark(state, "match_like", &options);
+}
+#endif
+
 #ifdef ARROW_WITH_UTF8PROC
 static void Utf8Upper(benchmark::State& state) {
   UnaryStringBenchmark(state, "utf8_upper");
@@ -145,6 +169,47 @@ static void BinaryJoinArrayArray(benchmark::State& state) {
   });
 }
 
+static void BinaryJoinElementWise(benchmark::State& state,
+                                  SeparatorFactory make_separator) {
+  // Unfortunately benchmark is not 1:1 with BinaryJoin since BinaryJoin can join a
+  // varying number of inputs per output
+  const int64_t n_rows = 10000;
+  const int64_t n_cols = state.range(0);
+  const double null_probability = 0.02;
+
+  random::RandomArrayGenerator rng(kSeed);
+
+  DatumVector args;
+  ArrayVector strings;
+  int64_t total_values_length = 0;
+  for (int i = 0; i < n_cols; i++) {
+    auto arr = rng.String(n_rows, /*min_length=*/5, /*max_length=*/20, null_probability);
+    strings.push_back(arr);
+    args.emplace_back(arr);
+    total_values_length += checked_cast<const StringArray&>(*arr).total_values_length();
+  }
+  auto separator = make_separator(n_rows, null_probability);
+  args.emplace_back(separator);
+
+  for (auto _ : state) {
+    ABORT_NOT_OK(CallFunction("binary_join_element_wise", args));
+  }
+  state.SetBytesProcessed(state.iterations() * total_values_length);
+}
+
+static void BinaryJoinElementWiseArrayScalar(benchmark::State& state) {
+  BinaryJoinElementWise(state, [](int64_t n, double null_probability) -> Datum {
+    return ScalarFromJSON(utf8(), R"("--")");
+  });
+}
+
+static void BinaryJoinElementWiseArrayArray(benchmark::State& state) {
+  BinaryJoinElementWise(state, [](int64_t n, double null_probability) -> Datum {
+    random::RandomArrayGenerator rng(kSeed + 1);
+    return rng.String(n, /*min_length=*/0, /*max_length=*/4, null_probability);
+  });
+}
+
 BENCHMARK(AsciiLower);
 BENCHMARK(AsciiUpper);
 BENCHMARK(IsAlphaNumericAscii);
@@ -152,6 +217,12 @@ BENCHMARK(MatchSubstring);
 BENCHMARK(SplitPattern);
 BENCHMARK(TrimSingleAscii);
 BENCHMARK(TrimManyAscii);
+#ifdef ARROW_WITH_RE2
+BENCHMARK(MatchLike);
+BENCHMARK(MatchLikeSubstring);
+BENCHMARK(MatchLikePrefix);
+BENCHMARK(MatchLikeSuffix);
+#endif
 #ifdef ARROW_WITH_UTF8PROC
 BENCHMARK(Utf8Lower);
 BENCHMARK(Utf8Upper);
@@ -162,6 +233,8 @@ BENCHMARK(TrimManyUtf8);
 
 BENCHMARK(BinaryJoinArrayScalar);
 BENCHMARK(BinaryJoinArrayArray);
+BENCHMARK(BinaryJoinElementWiseArrayScalar)->RangeMultiplier(8)->Range(2, 128);
+BENCHMARK(BinaryJoinElementWiseArrayArray)->RangeMultiplier(8)->Range(2, 128);
 
 }  // namespace compute
 }  // namespace arrow

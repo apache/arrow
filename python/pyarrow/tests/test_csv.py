@@ -132,6 +132,34 @@ def test_read_options():
     opts = cls(block_size=1234)
     assert opts.block_size == 1234
 
+    opts.validate()
+
+    match = "ReadOptions: block_size must be at least 1: 0"
+    with pytest.raises(pa.ArrowInvalid, match=match):
+        opts = cls()
+        opts.block_size = 0
+        opts.validate()
+
+    match = "ReadOptions: skip_rows cannot be negative: -1"
+    with pytest.raises(pa.ArrowInvalid, match=match):
+        opts = cls()
+        opts.skip_rows = -1
+        opts.validate()
+
+    match = "ReadOptions: skip_rows_after_names cannot be negative: -1"
+    with pytest.raises(pa.ArrowInvalid, match=match):
+        opts = cls()
+        opts.skip_rows_after_names = -1
+        opts.validate()
+
+    match = "ReadOptions: autogenerate_column_names cannot be true when" \
+            " column_names are provided"
+    with pytest.raises(pa.ArrowInvalid, match=match):
+        opts = cls()
+        opts.autogenerate_column_names = True
+        opts.column_names = ('a', 'b')
+        opts.validate()
+
 
 def test_parse_options():
     cls = ParseOptions
@@ -150,6 +178,44 @@ def test_parse_options():
                                  newlines_in_values=True,
                                  ignore_empty_lines=False)
 
+    cls().validate()
+    opts = cls()
+    opts.delimiter = "\t"
+    opts.validate()
+
+    match = "ParseOptions: delimiter cannot be \\\\r or \\\\n"
+    with pytest.raises(pa.ArrowInvalid, match=match):
+        opts = cls()
+        opts.delimiter = "\n"
+        opts.validate()
+
+    with pytest.raises(pa.ArrowInvalid, match=match):
+        opts = cls()
+        opts.delimiter = "\r"
+        opts.validate()
+
+    match = "ParseOptions: quote_char cannot be \\\\r or \\\\n"
+    with pytest.raises(pa.ArrowInvalid, match=match):
+        opts = cls()
+        opts.quote_char = "\n"
+        opts.validate()
+
+    with pytest.raises(pa.ArrowInvalid, match=match):
+        opts = cls()
+        opts.quote_char = "\r"
+        opts.validate()
+
+    match = "ParseOptions: escape_char cannot be \\\\r or \\\\n"
+    with pytest.raises(pa.ArrowInvalid, match=match):
+        opts = cls()
+        opts.escape_char = "\n"
+        opts.validate()
+
+    with pytest.raises(pa.ArrowInvalid, match=match):
+        opts = cls()
+        opts.escape_char = "\r"
+        opts.validate()
+
 
 def test_convert_options():
     cls = ConvertOptions
@@ -158,14 +224,16 @@ def test_convert_options():
     check_options_class(
         cls, check_utf8=[True, False],
         strings_can_be_null=[False, True],
+        quoted_strings_can_be_null=[True, False],
         include_columns=[[], ['def', 'abc']],
         include_missing_columns=[False, True],
         auto_dict_encode=[False, True],
         timestamp_parsers=[[], [ISO8601, '%y-%m']])
 
     check_options_class_pickling(
-        cls, check_utf8=True,
-        strings_can_be_null=False,
+        cls, check_utf8=False,
+        strings_can_be_null=True,
+        quoted_strings_can_be_null=False,
         include_columns=['def', 'abc'],
         include_missing_columns=False,
         auto_dict_encode=True,
@@ -237,6 +305,14 @@ def test_write_options():
 
     opts = cls(batch_size=9876)
     assert opts.batch_size == 9876
+
+    opts.validate()
+
+    match = "WriteOptions: batch_size must be at least 1: 0"
+    with pytest.raises(pa.ArrowInvalid, match=match):
+        opts = cls()
+        opts.batch_size = 0
+        opts.validate()
 
 
 class BaseTestCSVRead:
@@ -754,7 +830,7 @@ class BaseTestCSVRead:
     def test_custom_nulls(self):
         # Infer nulls with custom values
         opts = ConvertOptions(null_values=['Xxx', 'Zzz'])
-        rows = b"a,b,c,d\nZzz,Xxx,1,2\nXxx,#N/A,,Zzz\n"
+        rows = b"""a,b,c,d\nZzz,"Xxx",1,2\nXxx,#N/A,,Zzz\n"""
         table = self.read_bytes(rows, convert_options=opts)
         schema = pa.schema([('a', pa.null()),
                             ('b', pa.string()),
@@ -774,6 +850,14 @@ class BaseTestCSVRead:
         assert table.to_pydict() == {
             'a': [None, None],
             'b': [None, "#N/A"],
+            'c': ["1", ""],
+            'd': [2, None],
+        }
+        opts.quoted_strings_can_be_null = False
+        table = self.read_bytes(rows, convert_options=opts)
+        assert table.to_pydict() == {
+            'a': [None, None],
+            'b': ["Xxx", "#N/A"],
             'c': ["1", ""],
             'd': [2, None],
         }

@@ -1000,8 +1000,8 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
 
     mins_ = BufferBuilder(ctx->memory_pool());
     maxes_ = BufferBuilder(ctx->memory_pool());
-    has_values_ = BufferBuilder(ctx->memory_pool());
-    has_nulls_ = BufferBuilder(ctx->memory_pool());
+    has_values_ = TypedBufferBuilder<bool>(ctx->memory_pool());
+    has_nulls_ = TypedBufferBuilder<bool>(ctx->memory_pool());
 
     GetImpl get_impl;
     RETURN_NOT_OK(VisitTypeInline(*input_type, &get_impl));
@@ -1009,7 +1009,6 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
     consume_impl_ = std::move(get_impl.consume_impl);
     resize_min_impl_ = std::move(get_impl.resize_min_impl);
     resize_max_impl_ = std::move(get_impl.resize_max_impl);
-    resize_bitmap_impl_ = MakeResizeImpl(false);
 
     return Status::OK();
   }
@@ -1019,8 +1018,8 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
       num_groups_ += added_groups;
       RETURN_NOT_OK(resize_min_impl_(&mins_, added_groups));
       RETURN_NOT_OK(resize_max_impl_(&maxes_, added_groups));
-      RETURN_NOT_OK(resize_bitmap_impl_(&has_values_, added_groups));
-      RETURN_NOT_OK(resize_bitmap_impl_(&has_nulls_, added_groups));
+      RETURN_NOT_OK(has_values_.Append(added_groups, false));
+      RETURN_NOT_OK(has_nulls_.Append(added_groups, false));
       return Status::OK();
     }));
 
@@ -1056,10 +1055,11 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
   }
 
   int64_t num_groups_;
-  BufferBuilder mins_, maxes_, has_values_, has_nulls_;
+  BufferBuilder mins_, maxes_;
+  TypedBufferBuilder<bool> has_values_, has_nulls_;
   std::shared_ptr<DataType> type_;
   ConsumeImpl consume_impl_;
-  ResizeImpl resize_min_impl_, resize_max_impl_, resize_bitmap_impl_;
+  ResizeImpl resize_min_impl_, resize_max_impl_;
   ScalarAggregateOptions options_;
 };
 

@@ -17,4 +17,6 @@
 
 require "arrow-dataset"
 
+require "tmpdir"
+
 require "test-unit"

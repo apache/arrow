@@ -2714,6 +2714,51 @@ def test_array_masked():
     assert arr.type == pa.int64()
 
 
+def test_binary_array_masked():
+    # ARROW-12431
+    masked_basic = pa.array([b'\x05'], type=pa.binary(1),
+                            mask=np.array([False]))
+    assert [b'\x05'] == masked_basic.to_pylist()
+
+    # Fixed Length Binary
+    masked = pa.array(np.array([b'\x05']), type=pa.binary(1),
+                      mask=np.array([False]))
+    assert [b'\x05'] == masked.to_pylist()
+
+    masked_nulls = pa.array(np.array([b'\x05']), type=pa.binary(1),
+                            mask=np.array([True]))
+    assert [None] == masked_nulls.to_pylist()
+
+    # Variable Length Binary
+    masked = pa.array(np.array([b'\x05']), type=pa.binary(),
+                      mask=np.array([False]))
+    assert [b'\x05'] == masked.to_pylist()
+
+    masked_nulls = pa.array(np.array([b'\x05']), type=pa.binary(),
+                            mask=np.array([True]))
+    assert [None] == masked_nulls.to_pylist()
+
+    # Fixed Length Binary, copy
+    npa = np.array([b'aaa', b'bbb', b'ccc']*10)
+    arrow_array = pa.array(npa, type=pa.binary(3),
+                           mask=np.array([False, False, False]*10))
+    npa[npa == b"bbb"] = b"XXX"
+    assert ([b'aaa', b'bbb', b'ccc']*10) == arrow_array.to_pylist()
+
+
+def test_binary_array_strided():
+    # Masked
+    nparray = np.array([b"ab", b"cd", b"ef"])
+    arrow_array = pa.array(nparray[::2], pa.binary(2),
+                           mask=np.array([False, False]))
+    assert [b"ab", b"ef"] == arrow_array.to_pylist()
+
+    # Unmasked
+    nparray = np.array([b"ab", b"cd", b"ef"])
+    arrow_array = pa.array(nparray[::2], pa.binary(2))
+    assert [b"ab", b"ef"] == arrow_array.to_pylist()
+
+
 def test_array_invalid_mask_raises():
     # ARROW-10742
     cases = [

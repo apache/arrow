@@ -2275,7 +2275,7 @@ macro(build_utf8proc)
 endmacro()
 
 if(ARROW_WITH_UTF8PROC)
-  resolve_dependency(utf8proc)
+  resolve_dependency(utf8proc REQUIRED_VERSION "2.2.0")
 
   add_definitions(-DARROW_WITH_UTF8PROC)
 

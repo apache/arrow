@@ -18,6 +18,8 @@
 # under the License.
 
 sources = files(
+  'dataset-factory.cpp',
+  'dataset.cpp',
   'file-format.cpp',
   'fragment.cpp',
   'scanner.cpp',
@@ -25,6 +27,8 @@ sources = files(
 
 c_headers = files(
   'arrow-dataset-glib.h',
+  'dataset-factory.h',
+  'dataset.h',
   'file-format.h',
   'fragment.h',
   'scanner.h',
@@ -32,6 +36,8 @@ c_headers = files(
 
 cpp_headers = files(
   'arrow-dataset-glib.hpp',
+  'dataset-factory.hpp',
+  'dataset.hpp',
   'file-format.hpp',
   'fragment.hpp',
   'scanner.hpp',
@@ -68,8 +74,8 @@ if have_gi
                      sources: sources + c_headers,
                      namespace: 'ArrowDataset',
                      nsversion: api_version,
-                     identifier_prefix: 'GAD',
-                     symbol_prefix: 'gad',
+                     identifier_prefix: 'GADataset',
+                     symbol_prefix: 'gadataset',
                      export_packages: 'arrow-dataset-glib',
                      includes: [
                        'Arrow-1.0',

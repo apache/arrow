@@ -25,34 +25,35 @@ G_BEGIN_DECLS
 
 /* arrow::dataset::Fragment */
 
-#define GAD_TYPE_FRAGMENT (gad_fragment_get_type())
-G_DECLARE_DERIVABLE_TYPE(GADFragment,
-                         gad_fragment,
-                         GAD,
+#define GADATASET_TYPE_FRAGMENT (gadataset_fragment_get_type())
+G_DECLARE_DERIVABLE_TYPE(GADatasetFragment,
+                         gadataset_fragment,
+                         GADATASET,
                          FRAGMENT,
                          GObject)
-struct _GADFragmentClass
+struct _GADatasetFragmentClass
 {
   GObjectClass parent_class;
 };
 
 /* arrow::dataset::InMemoryFragment */
 
-#define GAD_TYPE_IN_MEMORY_FRAGMENT (gad_in_memory_fragment_get_type())
-G_DECLARE_DERIVABLE_TYPE(GADInMemoryFragment,
-                         gad_in_memory_fragment,
-                         GAD,
+#define GADATASET_TYPE_IN_MEMORY_FRAGMENT       \
+  (gadataset_in_memory_fragment_get_type())
+G_DECLARE_DERIVABLE_TYPE(GADatasetInMemoryFragment,
+                         gadataset_in_memory_fragment,
+                         GADATASET,
                          IN_MEMORY_FRAGMENT,
-                         GADFragment)
-struct _GADInMemoryFragmentClass
+                         GADatasetFragment)
+struct _GADatasetInMemoryFragmentClass
 {
-  GADFragmentClass parent_class;
+  GADatasetFragmentClass parent_class;
 };
 
 GARROW_AVAILABLE_IN_4_0
-GADInMemoryFragment *
-gad_in_memory_fragment_new(GArrowSchema *schema,
-                           GArrowRecordBatch **record_batches,
-                           gsize n_record_batches);
+GADatasetInMemoryFragment *
+gadataset_in_memory_fragment_new(GArrowSchema *schema,
+                                 GArrowRecordBatch **record_batches,
+                                 gsize n_record_batches);
 
 G_END_DECLS

@@ -24,7 +24,7 @@ Build-Depends:
   libre2-dev,
   libsnappy-dev,
   libssl-dev,
-  libutf8proc-dev,
+@USE_SYSTEM_UTF8PROC@  libutf8proc-dev,
   libzstd-dev,
   ninja-build,
   nvidia-cuda-toolkit [!arm64],
@@ -134,7 +134,7 @@ Depends:
   libre2-dev,
   libsnappy-dev,
   libssl-dev,
-  libutf8proc-dev,
+@USE_SYSTEM_UTF8PROC@  libutf8proc-dev,
   libzstd-dev,
 @USE_SYSTEM_GRPC@  protobuf-compiler-grpc,
   zlib1g-dev

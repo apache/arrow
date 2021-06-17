@@ -271,5 +271,42 @@ TEST_F(TestIfElseKernel, IfElseNull) {
                     ArrayFromJSON(null(), "[null, null, null, null]"));
 }
 
+TEST_F(TestIfElseKernel, IfElseMultiType) {
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[true, true, true, false]"),
+                           ArrayFromJSON(int32(), "[1, 2, 3, 4]"),
+                           ArrayFromJSON(float32(), "[5, 6, 7, 8]"),
+                           ArrayFromJSON(float32(), "[1, 2, 3, 8]"));
+}
+
+TEST_F(TestIfElseKernel, IfElseDispatchBest) {
+  std::string name = "if_else";
+  CheckDispatchBest(name, {boolean(), int32(), int32()}, {boolean(), int32(), int32()});
+  CheckDispatchBest(name, {boolean(), int32(), null()}, {boolean(), int32(), int32()});
+  CheckDispatchBest(name, {boolean(), null(), int32()}, {boolean(), int32(), int32()});
+
+  CheckDispatchBest(name, {boolean(), int32(), int8()}, {boolean(), int32(), int32()});
+  CheckDispatchBest(name, {boolean(), int32(), int16()}, {boolean(), int32(), int32()});
+  CheckDispatchBest(name, {boolean(), int32(), int32()}, {boolean(), int32(), int32()});
+  CheckDispatchBest(name, {boolean(), int32(), int64()}, {boolean(), int64(), int64()});
+
+  CheckDispatchBest(name, {boolean(), int32(), uint8()}, {boolean(), int32(), int32()});
+  CheckDispatchBest(name, {boolean(), int32(), uint16()}, {boolean(), int32(), int32()});
+  CheckDispatchBest(name, {boolean(), int32(), uint32()}, {boolean(), int64(), int64()});
+  CheckDispatchBest(name, {boolean(), int32(), uint64()}, {boolean(), int64(), int64()});
+
+  CheckDispatchBest(name, {boolean(), uint8(), uint8()}, {boolean(), uint8(), uint8()});
+  CheckDispatchBest(name, {boolean(), uint8(), uint16()},
+                    {boolean(), uint16(), uint16()});
+
+  CheckDispatchBest(name, {boolean(), int32(), float32()},
+                    {boolean(), float32(), float32()});
+  CheckDispatchBest(name, {boolean(), float32(), int64()},
+                    {boolean(), float32(), float32()});
+  CheckDispatchBest(name, {boolean(), float64(), int32()},
+                    {boolean(), float64(), float64()});
+
+  CheckDispatchBest(name, {null(), uint8(), int8()}, {boolean(), int16(), int16()});
+}
+
 }  // namespace compute
 }  // namespace arrow

@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstring>
 #include <memory>
 #include <string>
 #include <utility>
@@ -630,7 +631,7 @@ struct ScalarUnaryNotNullStateful {
           },
           [&]() {
             // null
-            ++out_data;
+            *out_data++ = OutValue{};
           });
       return st;
     }
@@ -700,7 +701,11 @@ struct ScalarUnaryNotNullStateful {
             functor.op.template Call<OutValue, Arg0Value>(ctx, v, &st)
                 .ToBytes(out_data++->data());
           },
-          [&]() { ++out_data; });
+          [&]() {
+            // null
+            std::memset(out_data, 0, sizeof(*out_data));
+            ++out_data;
+          });
       return st;
     }
   };

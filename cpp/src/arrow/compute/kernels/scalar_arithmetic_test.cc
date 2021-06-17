@@ -41,19 +41,6 @@
 namespace arrow {
 namespace compute {
 
-std::shared_ptr<Array> TweakValidityBit(const std::shared_ptr<Array>& array,
-                                        int64_t index, bool validity) {
-  auto data = array->data()->Copy();
-  if (data->buffers[0] == nullptr) {
-    data->buffers[0] = *AllocateBitmap(data->length);
-    BitUtil::SetBitsTo(data->buffers[0]->mutable_data(), 0, data->length, true);
-  }
-  BitUtil::SetBitTo(data->buffers[0]->mutable_data(), index, validity);
-  data->null_count = kUnknownNullCount;
-  // Need to return a new array, because Array caches the null bitmap pointer
-  return MakeArray(data);
-}
-
 template <typename T>
 class TestUnaryArithmetic : public TestBase {
  protected:

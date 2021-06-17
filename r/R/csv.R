@@ -414,7 +414,7 @@ CsvReadOptions$create <- function(use_threads = option_use_threads(),
 #' @rdname CsvReadOptions
 #' @export
 CsvWriteOptions <- R6Class("CsvWriteOptions", inherit = ArrowObject)
-CsvWriteOptions$create <- function(include_header = TRUE, batch_size = 1024L){
+CsvWriteOptions$create <- function(include_header = TRUE, batch_size = 1024L) {
   assert_that(is_integerish(batch_size, n = 1, finite = TRUE), batch_size > 0)
   csv___WriteOptions__initialize(
     list(
@@ -637,9 +637,9 @@ write_csv_arrow <- function(x,
     on.exit(sink$close())
   }
   
-  if(inherits(x, "RecordBatch")){
+  if (inherits(x, "RecordBatch")) {
     csv___WriteCSV__RecordBatch(x, write_options, sink)
-  } else if(inherits(x, "Table")){
+  } else if (inherits(x, "Table")) {
     csv___WriteCSV__Table(x, write_options, sink)
   }
   
