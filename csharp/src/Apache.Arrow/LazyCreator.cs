@@ -23,10 +23,6 @@ namespace Apache.Arrow
 
         private readonly Func<T> _instanceCreator;
 
-        public LazyCreator (Func<T> instanceCreator = null){
-            _instanceCreator = instanceCreator;
-        }
-
         public bool IsCreated => _instance != null;
 
         public T Instance { 
@@ -49,6 +45,11 @@ namespace Apache.Arrow
                     return _instance;
                 }
             }
+        }
+
+        public LazyCreator(Func<T> instanceCreator = null)
+        {
+            _instanceCreator = instanceCreator;
         }
     }
 }
