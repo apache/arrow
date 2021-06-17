@@ -16,6 +16,7 @@
 // under the License.
 
 #include <arrow/array.h>
+#include <arrow/array/concatenate.h>
 #include <arrow/compute/api_scalar.h>
 #include <arrow/compute/kernels/test_util.h>
 #include <arrow/testing/gtest_util.h>
@@ -56,8 +57,12 @@ TYPED_TEST(TestIfElsePrimitive, IfElseFixedSizeRand) {
 
   random::RandomArrayGenerator rand(/*seed=*/0);
   int64_t len = 1000;
-  auto cond = std::static_pointer_cast<BooleanArray>(
-      rand.ArrayOf(boolean(), len, /*null_probability=*/0.01));
+  ASSERT_OK_AND_ASSIGN(auto temp1, MakeArrayFromScalar(BooleanScalar(true), 64));
+  ASSERT_OK_AND_ASSIGN(auto temp2, MakeArrayFromScalar(BooleanScalar(false), 64));
+  auto temp3 = rand.ArrayOf(boolean(), len - 64 * 2, /*null_probability=*/0.01);
+  ASSERT_OK_AND_ASSIGN(auto concat, Concatenate({temp1, temp2, temp3}));
+  auto cond = std::static_pointer_cast<BooleanArray>(concat);
+
   auto left = std::static_pointer_cast<ArrayType>(
       rand.ArrayOf(type, len, /*null_probability=*/0.01));
   auto right = std::static_pointer_cast<ArrayType>(
