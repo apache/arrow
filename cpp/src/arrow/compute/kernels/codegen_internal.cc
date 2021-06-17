@@ -185,7 +185,9 @@ const std::vector<std::shared_ptr<DataType>>& ExampleParametricTypes() {
 // work above
 
 Result<ValueDescr> FirstType(KernelContext*, const std::vector<ValueDescr>& descrs) {
-  return descrs[0];
+  ValueDescr result = descrs.front();
+  result.shape = GetBroadcastShape(descrs);
+  return result;
 }
 
 void EnsureDictionaryDecoded(std::vector<ValueDescr>* descrs) {

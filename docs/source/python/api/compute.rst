@@ -337,6 +337,7 @@ Structural Transforms
 
    binary_length
    case_when
+   coalesce
    fill_null
    if_else
    is_finite
