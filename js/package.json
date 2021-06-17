@@ -65,8 +65,8 @@
     "@types/glob": "7.1.3",
     "@types/jest": "26.0.23",
     "@types/multistream": "2.1.1",
-    "@typescript-eslint/eslint-plugin": "4.25.0",
-    "@typescript-eslint/parser": "4.25.0",
+    "@typescript-eslint/eslint-plugin": "4.26.0",
+    "@typescript-eslint/parser": "4.26.0",
     "async-done": "1.3.2",
     "benny": "3.6.15",
     "cpy": "8.1.2",
@@ -96,10 +96,9 @@
     "ts-jest": "27.0.0",
     "ts-node": "10.0.0",
     "typedoc": "0.20.36",
-    "typescript": "4.0.2",
+    "typescript": "4.3.3",
     "web-stream-tools": "0.0.1",
     "web-streams-polyfill": "3.0.3",
-    "webpack": "5.37.1",
     "xml2js": "0.4.23"
   },
   "engines": {
