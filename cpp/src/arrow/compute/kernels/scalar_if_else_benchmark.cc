@@ -32,6 +32,7 @@ static void IfElseBench(benchmark::State& state) {
   using ArrayType = typename TypeTraits<Type>::ArrayType;
 
   int64_t len = state.range(0);
+  int64_t offset = state.range(1);
 
   random::RandomArrayGenerator rand(/*seed=*/0);
 
@@ -43,10 +44,11 @@ static void IfElseBench(benchmark::State& state) {
       rand.ArrayOf(type, len, /*null_probability=*/0.01));
 
   for (auto _ : state) {
-    ABORT_NOT_OK(IfElse(cond, left, right));
+    ABORT_NOT_OK(IfElse(cond->Slice(offset), left->Slice(offset), right->Slice(offset)));
   }
 
-  state.SetBytesProcessed(state.iterations() * (len / 8 + 2 * len * sizeof(CType)));
+  state.SetBytesProcessed(state.iterations() *
+                          ((len - offset) / 8 + 2 * (len - offset) * sizeof(CType)));
 }
 
 static void IfElseBench64Wide(benchmark::State& state) {
@@ -57,8 +59,11 @@ static void IfElseBench32Wide(benchmark::State& state) {
   return IfElseBench<UInt32Type>(state);
 }
 
-BENCHMARK(IfElseBench32Wide)->Arg(elems);
-BENCHMARK(IfElseBench64Wide)->Arg(elems);
+BENCHMARK(IfElseBench32Wide)->Args({elems, 0});
+BENCHMARK(IfElseBench64Wide)->Args({elems, 0});
+
+BENCHMARK(IfElseBench32Wide)->Args({elems, 99});
+BENCHMARK(IfElseBench64Wide)->Args({elems, 99});
 
 }  // namespace compute
 }  // namespace arrow
