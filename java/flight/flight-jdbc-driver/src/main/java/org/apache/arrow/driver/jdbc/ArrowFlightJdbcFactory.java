@@ -23,7 +23,14 @@ import java.sql.SQLException;
 import java.util.Properties;
 import java.util.TimeZone;
 
-import org.apache.calcite.avatica.*;
+import org.apache.calcite.avatica.AvaticaConnection;
+import org.apache.calcite.avatica.AvaticaFactory;
+import org.apache.calcite.avatica.AvaticaResultSetMetaData;
+import org.apache.calcite.avatica.AvaticaSpecificDatabaseMetaData;
+import org.apache.calcite.avatica.AvaticaStatement;
+import org.apache.calcite.avatica.Meta;
+import org.apache.calcite.avatica.QueryState;
+import org.apache.calcite.avatica.UnregisteredDriver;
 
 /**
  * Factory for the Arrow Flight JDBC Driver.

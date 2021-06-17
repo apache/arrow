@@ -135,7 +135,7 @@ public class ArrowFlightClientHandler implements FlightClientHandler {
       return null;
     }
 
-      return stream.getRoot();
+    return stream.getRoot();
   }
 
   @Override

@@ -19,20 +19,28 @@ package org.apache.arrow.driver.jdbc;
 
 
 import java.sql.SQLException;
-import java.util.*;
+import java.util.List;
 
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.calcite.avatica.util.*;
+import org.apache.calcite.avatica.util.AbstractCursor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Arrow Flight Jdbc's Cursor class.
  */
 public class ArrowFlightJdbcCursor extends AbstractCursor {
 
+  private static final Logger LOGGER;
   private final List<FieldVector> fieldVectorList;
   private final int rowCount;
   private int currentRow = -1;
+
+  static {
+    LOGGER = LoggerFactory.getLogger(ArrowFlightJdbcCursor.class);
+  }
 
   public ArrowFlightJdbcCursor(VectorSchemaRoot root) {
     fieldVectorList = root.getFieldVectors();
@@ -57,6 +65,10 @@ public class ArrowFlightJdbcCursor extends AbstractCursor {
 
   @Override
   public void close() {
-    //
+    try {
+      AutoCloseables.close(fieldVectorList);
+    } catch (Exception e) {
+      LOGGER.error(e.getMessage(), e);
+    }
   }
 }
