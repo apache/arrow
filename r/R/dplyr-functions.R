@@ -215,6 +215,49 @@ nse_funcs$nchar <- function(x, type = "chars", allowNA = FALSE, keepNA = NA) {
   }
 }
 
+nse_funcs$paste <- function(..., sep = " ", collapse = NULL, recycle0 = FALSE) {
+  assert_that(is.null(collapse))
+  arrow_string_join_function(NullHandlingBehavior$REPLACE, "NA")(..., sep)
+}
+
+nse_funcs$paste0 <- function(..., collapse = NULL, recycle0 = FALSE) {
+  assert_that(is.null(collapse))
+  arrow_string_join_function(NullHandlingBehavior$REPLACE, "NA")(..., "")
+}
+
+nse_funcs$str_c <- function(..., sep = "", collapse = NULL) {
+  assert_that(is.null(collapse))
+  arrow_string_join_function(NullHandlingBehavior$EMIT_NULL)(..., sep)
+}
+
+arrow_string_join_function <- function(null_handling, null_replacement = NULL) {
+  # the binary_join_element_wise kernel takes the separator as the last argument
+  function(...) {
+    dots <- list(...) # sep is the last value in dots
+    for(i in seq_along(dots)) {
+      # handle scalar literal args, and cast all args to string for
+      # consistency with base::paste(), base::paste0(), and stringr::str_c()
+      if (!inherits(dots[[i]], "Expression")) {
+        assert_that(length(dots[[i]]) == 1)
+        # handle scalar literal NA consistent with the binary_join_element_wise
+        # kernel's handling of nulls in the data
+        if (null_handling == NullHandlingBehavior$REPLACE && is.na(dots[[i]])) {
+          dots[[i]] <- null_replacement
+        }
+        dots[[i]] <- Expression$scalar(as.character(dots[[i]]))
+      } else {
+        dots[[i]] <- nse_funcs$as.character(dots[[i]])
+      }
+    }
+    args <- c(function_name = "binary_join_element_wise", dots)
+    args$options <- list(
+      null_handling = null_handling,
+      null_replacement = null_replacement
+    )
+    do.call(Expression$create, args)
+  }
+}
+
 nse_funcs$str_trim <- function(string, side = c("both", "left", "right")) {
   side <- match.arg(side)
   trim_fun <- switch(side,
