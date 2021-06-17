@@ -19,34 +19,50 @@ context("altrep")
 
 skip_if(getRversion() <= "3.5.0")
 
-test_that("altrep vectors from int32 arrays with no nulls", {
+test_that("altrep vectors from int32 and dbl arrays with no nulls", {
   withr::local_options(list(arrow.use_altrep = TRUE))
-  v <- Array$create(1:1000)
-  expect_true(is_altrep_int_nonull(as.vector(v)))
-  expect_true(is_altrep_int_nonull(as.vector(v$Slice(1))))
+  v_int <- Array$create(1:1000)
+  v_dbl <- Array$create(as.numeric(1:1000))
+
+  expect_true(is_altrep_int_nonull(as.vector(v_int)))
+  expect_true(is_altrep_int_nonull(as.vector(v_int$Slice(1))))
+  expect_true(is_altrep_dbl_nonull(as.vector(v_dbl)))
+  expect_true(is_altrep_dbl_nonull(as.vector(v_dbl$Slice(1))))
 
   withr::local_options(list(arrow.use_altrep = NULL))
-  v <- Array$create(1:1000)
-  expect_true(is_altrep_int_nonull(as.vector(v)))
-  expect_true(is_altrep_int_nonull(as.vector(v$Slice(1))))
+  expect_true(is_altrep_int_nonull(as.vector(v_int)))
+  expect_true(is_altrep_int_nonull(as.vector(v_int$Slice(1))))
+  expect_true(is_altrep_dbl_nonull(as.vector(v_dbl)))
+  expect_true(is_altrep_dbl_nonull(as.vector(v_dbl$Slice(1))))
 
   withr::local_options(list(arrow.use_altrep = FALSE))
-  expect_false(is_altrep_int_nonull(as.vector(v)))
-  expect_false(is_altrep_int_nonull(as.vector(v$Slice(1))))
+  expect_false(is_altrep_int_nonull(as.vector(v_int)))
+  expect_false(is_altrep_int_nonull(as.vector(v_int$Slice(1))))
+  expect_false(is_altrep_dbl_nonull(as.vector(v_dbl)))
+  expect_false(is_altrep_dbl_nonull(as.vector(v_dbl$Slice(1))))
 })
 
-test_that("altrep vectors from double arrays with no nulls", {
+test_that("altrep vectors from int32 and dbl arrays with nulls", {
   withr::local_options(list(arrow.use_altrep = TRUE))
-  v <- Array$create(as.numeric(1:1000))
-  expect_true(is_altrep_dbl_nonull(as.vector(v)))
-  expect_true(is_altrep_dbl_nonull(as.vector(v$Slice(1))))
+  v_int <- Array$create(c(1L, NA, 3L))
+  v_dbl <- Array$create(c(1, NA, 3))
 
-  withr::local_options(list(arrow.use_altrep = NULL))
-  expect_true(is_altrep_dbl_nonull(as.vector(v)))
-  expect_true(is_altrep_dbl_nonull(as.vector(v$Slice(1))))
+  # cannot be altrep because one NA
+  expect_false(is_altrep_int_nonull(as.vector(v_int)))
+  expect_false(is_altrep_int_nonull(as.vector(v_int$Slice(1))))
+  expect_false(is_altrep_dbl_nonull(as.vector(v_dbl)))
+  expect_false(is_altrep_dbl_nonull(as.vector(v_dbl$Slice(1))))
 
-  withr::local_options(list(arrow.use_altrep = FALSE))
-  expect_false(is_altrep_dbl_nonull(as.vector(v)))
-  expect_false(is_altrep_dbl_nonull(as.vector(v$Slice(1))))
+  # but then, no NA beyond, so can be altrep again
+  expect_true(is_altrep_int_nonull(as.vector(v_int$Slice(2))))
+  expect_true(is_altrep_dbl_nonull(as.vector(v_dbl$Slice(2))))
 })
 
+test_that("empty vectors are not altrep", {
+  withr::local_options(list(arrow.use_altrep = TRUE))
+  v_int <- Array$create(integer())
+  v_dbl <- Array$create(numeric())
+
+  expect_false(is_altrep_int_nonull(as.vector(v_int)))
+  expect_false(is_altrep_dbl_nonull(as.vector(v_dbl)))
+})
