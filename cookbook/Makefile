@@ -12,14 +12,19 @@ help:
 	@echo "make pytest      Verify the cookbook for Python only."
 
 
-py:
+pydeps:
+	@echo ">>> Installing Python Dependencies <<<\n"
+	cd python && pip install -r requirements.txt
+
+
+py: pydeps
 	@echo ">>> Building Python Cookbook <<<\n"
 	cd python && make html
 	mkdir -p build/py
 	cp -r python/build/html/* build/py
 
 
-pytest:
+pytest: pydeps
 	@echo ">>> Testing Python Cookbook <<<\n"
 	cd python && make doctest
 

@@ -1,0 +1,2 @@
+Sphinx>=4.0.2
+pyarrow>=4.0.0
