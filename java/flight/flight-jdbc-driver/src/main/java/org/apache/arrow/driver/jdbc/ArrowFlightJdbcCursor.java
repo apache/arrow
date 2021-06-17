@@ -66,7 +66,7 @@ public class ArrowFlightJdbcCursor extends IteratorCursor<FieldVector> {
 
       @Override
       public boolean wasNull() throws SQLException {
-        return false;
+        return wasNull[0];
       }
     };
   }
