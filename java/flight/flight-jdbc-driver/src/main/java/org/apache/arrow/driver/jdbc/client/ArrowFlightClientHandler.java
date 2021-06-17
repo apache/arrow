@@ -135,13 +135,13 @@ public class ArrowFlightClientHandler implements FlightClientHandler {
       return null;
     }
 
-    return stream.getRoot();
-
+      return stream.getRoot();
   }
 
   @Override
   public FlightStream getStream(final String query) {
-    FlightStream stream = client.getStream(getInfo(query).getEndpoints().get(0).getTicket(),
+    FlightStream stream = client.getStream(
+            getInfo(query).getEndpoints().get(0).getTicket(),
             token);
     resources.addFirst(stream);
     return stream;

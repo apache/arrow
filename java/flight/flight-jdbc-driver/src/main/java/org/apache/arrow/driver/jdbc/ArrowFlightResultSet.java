@@ -98,7 +98,7 @@ public class ArrowFlightResultSet extends AvaticaResultSet {
 
       signature.columns.addAll(metadata);
 
-      execute2(new ArrowFlightJdbcCursor(root.getFieldVectors().iterator()),
+      execute2(new ArrowFlightJdbcCursor(root),
               this.signature.columns);
     } catch (Exception e) {
       throw new SQLException(e);

@@ -312,7 +312,7 @@ public class ArrowFlightJdbcDriverTest {
             "jdbc:arrow-flight://localhost:32010",
             PropertiesSample.CONFORMING.getProperties())) {
       Statement statement = connection.createStatement();
-      ResultSet resultSet = statement.executeQuery("SELECT * FROM test.data");
+      ResultSet resultSet = statement.executeQuery("SELECT * FROM test.data2");
 
       /*
        * FIXME There are MAJOR resource leaks!
