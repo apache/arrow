@@ -907,6 +907,8 @@ AsyncGenerator<T> MakeVectorGenerator(std::vector<T> vec) {
   return [state]() {
     auto idx = state->vec_idx.fetch_add(1);
     if (idx >= state->vec.size()) {
+      // Eagerly return memory
+      state->vec.clear();
       return AsyncGeneratorEnd<T>();
     }
     return Future<T>::MakeFinished(state->vec[idx]);
