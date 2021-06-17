@@ -253,7 +253,7 @@ std::shared_ptr<DataType> CommonNumeric(const std::vector<ValueDescr>& descrs) {
     if (max_width_unsigned == 32) return uint32();
     if (max_width_unsigned == 16) return uint16();
     DCHECK_EQ(max_width_unsigned, 8);
-    return int8();
+    return uint8();
   }
 
   if (max_width_signed <= max_width_unsigned) {

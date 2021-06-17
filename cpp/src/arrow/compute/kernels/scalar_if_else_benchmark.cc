@@ -97,6 +97,96 @@ static void IfElseBench32Contiguous(benchmark::State& state) {
   return IfElseBenchContiguous<UInt32Type>(state);
 }
 
+template <typename Type>
+static void CaseWhenBench(benchmark::State& state) {
+  using CType = typename Type::c_type;
+  auto type = TypeTraits<Type>::type_singleton();
+  using ArrayType = typename TypeTraits<Type>::ArrayType;
+
+  int64_t len = state.range(0);
+  int64_t offset = state.range(1);
+
+  random::RandomArrayGenerator rand(/*seed=*/0);
+
+  auto cond1 = std::static_pointer_cast<BooleanArray>(
+      rand.ArrayOf(boolean(), len, /*null_probability=*/0.01));
+  auto cond2 = std::static_pointer_cast<BooleanArray>(
+      rand.ArrayOf(boolean(), len, /*null_probability=*/0.01));
+  auto cond3 = std::static_pointer_cast<BooleanArray>(
+      rand.ArrayOf(boolean(), len, /*null_probability=*/0.01));
+  auto val1 = std::static_pointer_cast<ArrayType>(
+      rand.ArrayOf(type, len, /*null_probability=*/0.01));
+  auto val2 = std::static_pointer_cast<ArrayType>(
+      rand.ArrayOf(type, len, /*null_probability=*/0.01));
+  auto val3 = std::static_pointer_cast<ArrayType>(
+      rand.ArrayOf(type, len, /*null_probability=*/0.01));
+  auto val4 = std::static_pointer_cast<ArrayType>(
+      rand.ArrayOf(type, len, /*null_probability=*/0.01));
+
+  for (auto _ : state) {
+    ABORT_NOT_OK(
+        CaseWhen({cond1->Slice(offset), val1->Slice(offset), cond2->Slice(offset),
+                  val2->Slice(offset), cond3->Slice(offset), val3->Slice(offset),
+                  val4->Slice(offset)}));
+  }
+
+  state.SetBytesProcessed(state.iterations() *
+                          ((len - offset) / 8 + 4 * (len - offset) * sizeof(CType)));
+}
+
+template <typename Type>
+static void CaseWhenBenchContiguous(benchmark::State& state) {
+  using CType = typename Type::c_type;
+  auto type = TypeTraits<Type>::type_singleton();
+  using ArrayType = typename TypeTraits<Type>::ArrayType;
+
+  int64_t len = state.range(0);
+  int64_t offset = state.range(1);
+
+  ASSERT_OK_AND_ASSIGN(auto trues, MakeArrayFromScalar(BooleanScalar(true), len / 3));
+  ASSERT_OK_AND_ASSIGN(auto falses, MakeArrayFromScalar(BooleanScalar(false), len / 3));
+  auto null_scalar = MakeNullScalar(boolean());
+  ASSERT_OK_AND_ASSIGN(auto nulls,
+                       MakeArrayFromScalar(*null_scalar, len - 2 * (len / 3)));
+  ASSERT_OK_AND_ASSIGN(auto concat, Concatenate({trues, falses, nulls}));
+  auto cond1 = std::static_pointer_cast<BooleanArray>(concat);
+
+  random::RandomArrayGenerator rand(/*seed=*/0);
+  auto cond2 = std::static_pointer_cast<BooleanArray>(
+      rand.ArrayOf(boolean(), len, /*null_probability=*/0.01));
+  auto val1 = std::static_pointer_cast<ArrayType>(
+      rand.ArrayOf(type, len, /*null_probability=*/0.01));
+  auto val2 = std::static_pointer_cast<ArrayType>(
+      rand.ArrayOf(type, len, /*null_probability=*/0.01));
+  auto val3 = std::static_pointer_cast<ArrayType>(
+      rand.ArrayOf(type, len, /*null_probability=*/0.01));
+
+  for (auto _ : state) {
+    ABORT_NOT_OK(
+        CaseWhen({cond1->Slice(offset), val1->Slice(offset), cond2->Slice(offset),
+                  val2->Slice(offset), val3->Slice(offset)}));
+  }
+
+  state.SetBytesProcessed(state.iterations() *
+                          ((len - offset) / 8 + 3 * (len - offset) * sizeof(CType)));
+}
+
+static void CaseWhenBench64(benchmark::State& state) {
+  return CaseWhenBench<UInt64Type>(state);
+}
+
+static void CaseWhenBench32(benchmark::State& state) {
+  return CaseWhenBench<UInt32Type>(state);
+}
+
+static void CaseWhenBench64Contiguous(benchmark::State& state) {
+  return CaseWhenBenchContiguous<UInt64Type>(state);
+}
+
+static void CaseWhenBench32Contiguous(benchmark::State& state) {
+  return CaseWhenBenchContiguous<UInt32Type>(state);
+}
+
 BENCHMARK(IfElseBench32)->Args({elems, 0});
 BENCHMARK(IfElseBench64)->Args({elems, 0});
 
@@ -108,6 +198,18 @@ BENCHMARK(IfElseBench64Contiguous)->Args({elems, 0});
 
 BENCHMARK(IfElseBench32Contiguous)->Args({elems, 99});
 BENCHMARK(IfElseBench64Contiguous)->Args({elems, 99});
+
+BENCHMARK(CaseWhenBench32)->Args({elems, 0});
+BENCHMARK(CaseWhenBench64)->Args({elems, 0});
+
+BENCHMARK(CaseWhenBench32)->Args({elems, 99});
+BENCHMARK(CaseWhenBench64)->Args({elems, 99});
+
+BENCHMARK(CaseWhenBench32Contiguous)->Args({elems, 0});
+BENCHMARK(CaseWhenBench64Contiguous)->Args({elems, 0});
+
+BENCHMARK(CaseWhenBench32Contiguous)->Args({elems, 99});
+BENCHMARK(CaseWhenBench64Contiguous)->Args({elems, 99});
 
 }  // namespace compute
 }  // namespace arrow

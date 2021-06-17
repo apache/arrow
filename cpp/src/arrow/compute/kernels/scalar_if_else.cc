@@ -30,6 +30,7 @@ using internal::Bitmap;
 using internal::BitmapWordReader;
 
 namespace compute {
+namespace internal {
 
 namespace {
 
@@ -676,7 +677,348 @@ void AddPrimitiveIfElseKernels(const std::shared_ptr<ScalarFunction>& scalar_fun
   }
 }
 
-}  // namespace
+// Helper to copy or broadcast fixed-width values between buffers.
+template <typename Type, typename Enable = void>
+struct CopyFixedWidth {};
+template <>
+struct CopyFixedWidth<BooleanType> {
+  static void CopyScalar(const Scalar& scalar, uint8_t* out_values, const int64_t offset,
+                         const int64_t length) {
+    const bool value = UnboxScalar<BooleanType>::Unbox(scalar);
+    BitUtil::SetBitsTo(out_values, offset, length, value);
+  }
+  static void CopyArray(const ArrayData& array, uint8_t* out_values, const int64_t offset,
+                        const int64_t length) {
+    arrow::internal::CopyBitmap(array.buffers[1]->data(), array.offset + offset, length,
+                                out_values, offset);
+  }
+};
+template <typename Type>
+struct CopyFixedWidth<Type, enable_if_number<Type>> {
+  using CType = typename TypeTraits<Type>::CType;
+  static void CopyScalar(const Scalar& values, uint8_t* raw_out_values,
+                         const int64_t offset, const int64_t length) {
+    CType* out_values = reinterpret_cast<CType*>(raw_out_values);
+    const CType value = UnboxScalar<Type>::Unbox(values);
+    std::fill(out_values + offset, out_values + offset + length, value);
+  }
+  static void CopyArray(const ArrayData& array, uint8_t* raw_out_values,
+                        const int64_t offset, const int64_t length) {
+    CType* out_values = reinterpret_cast<CType*>(raw_out_values);
+    const CType* in_values = array.GetValues<CType>(1);
+    std::copy(in_values + offset, in_values + offset + length, out_values + offset);
+  }
+};
+template <typename Type>
+struct CopyFixedWidth<Type, enable_if_same<Type, FixedSizeBinaryType>> {
+  static void CopyScalar(const Scalar& values, uint8_t* out_values, const int64_t offset,
+                         const int64_t length) {
+    const int32_t width =
+        checked_cast<const FixedSizeBinaryType&>(*values.type).byte_width();
+    uint8_t* next = out_values + (width * offset);
+    const auto& scalar = checked_cast<const FixedSizeBinaryScalar&>(values);
+    if (!scalar.is_valid) return;
+    DCHECK_EQ(scalar.value->size(), width);
+    for (int i = 0; i < length; i++) {
+      std::memcpy(next, scalar.value->data(), width);
+      next += width;
+    }
+  }
+  static void CopyArray(const ArrayData& array, uint8_t* out_values, const int64_t offset,
+                        const int64_t length) {
+    const int32_t width =
+        checked_cast<const FixedSizeBinaryType&>(*array.type).byte_width();
+    uint8_t* next = out_values + (width * offset);
+    const auto* in_values = array.GetValues<uint8_t>(1, (offset + array.offset) * width);
+    std::memcpy(next, in_values, length * width);
+  }
+};
+template <typename Type>
+struct CopyFixedWidth<Type, enable_if_decimal<Type>> {
+  using ScalarType = typename TypeTraits<Type>::ScalarType;
+  static void CopyScalar(const Scalar& values, uint8_t* out_values, const int64_t offset,
+                         const int64_t length) {
+    const int32_t width =
+        checked_cast<const FixedSizeBinaryType&>(*values.type).byte_width();
+    uint8_t* next = out_values + (width * offset);
+    const auto& scalar = checked_cast<const ScalarType&>(values);
+    const auto value = scalar.value.ToBytes();
+    for (int i = 0; i < length; i++) {
+      std::memcpy(next, value.data(), width);
+      next += width;
+    }
+  }
+  static void CopyArray(const ArrayData& array, uint8_t* out_values, const int64_t offset,
+                        const int64_t length) {
+    const int32_t width =
+        checked_cast<const FixedSizeBinaryType&>(*array.type).byte_width();
+    uint8_t* next = out_values + (width * offset);
+    const auto* in_values = array.GetValues<uint8_t>(1, (offset + array.offset) * width);
+    std::memcpy(next, in_values, length * width);
+  }
+};
+// Copy fixed-width values from a scalar/array datum into an output values buffer
+template <typename Type>
+void CopyValues(const Datum& values, uint8_t* out_valid, uint8_t* out_values,
+                const int64_t offset, const int64_t length) {
+  using Copier = CopyFixedWidth<Type>;
+  if (values.is_scalar()) {
+    const auto& scalar = *values.scalar();
+    if (out_valid) {
+      BitUtil::SetBitsTo(out_valid, offset, length, scalar.is_valid);
+    }
+    Copier::CopyScalar(scalar, out_values, offset, length);
+  } else {
+    const ArrayData& array = *values.array();
+    if (out_valid) {
+      if (array.MayHaveNulls()) {
+        arrow::internal::CopyBitmap(array.buffers[0]->data(), array.offset + offset,
+                                    length, out_valid, offset);
+      } else {
+        BitUtil::SetBitsTo(out_valid, offset, length, true);
+      }
+    }
+    Copier::CopyArray(array, out_values, offset, length);
+  }
+}
+
+struct CaseWhenFunction : ScalarFunction {
+  using ScalarFunction::ScalarFunction;
+
+  Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
+    RETURN_NOT_OK(CheckArity(*values));
+    std::vector<ValueDescr> value_types;
+    for (size_t i = 0; i < values->size() - 1; i += 2) {
+      ValueDescr* cond = &(*values)[i];
+      if (cond->type->id() == Type::NA) {
+        cond->type = boolean();
+      }
+      if (cond->type->id() != Type::BOOL) {
+        return Status::TypeError("Condition arguments must be boolean, but argument ", i,
+                                 " was ", cond->type->ToString());
+      }
+      value_types.push_back((*values)[i + 1]);
+    }
+    if (values->size() % 2 != 0) {
+      // Have an ELSE clause
+      value_types.push_back(values->back());
+    }
+    EnsureDictionaryDecoded(&value_types);
+    if (auto type = CommonNumeric(value_types)) {
+      ReplaceTypes(type, &value_types);
+    }
+
+    const DataType& common_values_type = *value_types.front().type;
+    auto next_type = value_types.cbegin();
+    for (size_t i = 0; i < values->size(); i += 2) {
+      if (!common_values_type.Equals(next_type->type)) {
+        return Status::TypeError("Value arguments must be of same type, but argument ", i,
+                                 " was ", next_type->type->ToString(), " (expected ",
+                                 common_values_type.ToString(), ")");
+      }
+      if (i == values->size() - 1) {
+        // ELSE
+        (*values)[i] = *next_type++;
+      } else {
+        (*values)[i + 1] = *next_type++;
+      }
+    }
+
+    // We register a unary kernel for each value type and dispatch to it after validation.
+    if (auto kernel = DispatchExactImpl(this, {values->back()})) return kernel;
+    return arrow::compute::detail::NoMatchingKernel(this, *values);
+  }
+};
+
+// Implement a 'case when' (SQL)/'select' (NumPy) function for any scalar arguments
+Status ExecScalarCaseWhen(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  for (size_t i = 0; i < batch.values.size() - 1; i += 2) {
+    const Scalar& cond = *batch[i].scalar();
+    if (cond.is_valid && internal::UnboxScalar<BooleanType>::Unbox(cond)) {
+      *out = batch[i + 1];
+      return Status::OK();
+    }
+  }
+  if (batch.values.size() % 2 == 0) {
+    // No ELSE
+    *out = MakeNullScalar(batch[1].type());
+  } else {
+    *out = batch.values.back();
+  }
+  return Status::OK();
+}
+
+// Implement 'case when' for any mix of scalar/array arguments for any fixed-width type,
+// given helper functions to copy data from a source array to a target array and to
+// allocate a values buffer
+template <typename Type>
+Status ExecArrayCaseWhen(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  ArrayData* output = out->mutable_array();
+  const bool have_else_arg = batch.values.size() % 2 != 0;
+  // Check if we may need a validity bitmap
+  uint8_t* out_valid = nullptr;
+
+  bool need_valid_bitmap = false;
+  if (!have_else_arg) {
+    // If we don't have an else arg -> need a bitmap since we may emit nulls
+    need_valid_bitmap = true;
+  } else if (batch.values.back().null_count() > 0) {
+    // If the 'else' array has a null count we need a validity bitmap
+    need_valid_bitmap = true;
+  } else {
+    // Otherwise if any value array has a null count we need a validity bitmap
+    for (size_t i = 1; i < batch.values.size(); i += 2) {
+      if (batch[i].null_count() > 0) {
+        need_valid_bitmap = true;
+        break;
+      }
+    }
+  }
+  if (need_valid_bitmap) {
+    ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(batch.length));
+    out_valid = output->buffers[0]->mutable_data();
+  }
+
+  // Initialize values buffer
+  uint8_t* out_values = output->buffers[1]->mutable_data();
+  if (have_else_arg) {
+    // Copy 'else' value into output
+    CopyValues<Type>(batch.values.back(), out_valid, out_values, /*offset=*/0,
+                     batch.length);
+  } else if (need_valid_bitmap) {
+    // There's no 'else' argument, so we should have an all-null validity bitmap
+    std::memset(out_valid, 0x00, output->buffers[0]->size());
+  }
+
+  // Allocate a temporary bitmap to determine which elements still need setting.
+  ARROW_ASSIGN_OR_RAISE(auto mask_buffer, ctx->AllocateBitmap(batch.length));
+  uint8_t* mask = mask_buffer->mutable_data();
+  std::memset(mask, 0xFF, mask_buffer->size());
+  // Then iterate through each argument in turn and set elements.
+  for (size_t i = 0; i < batch.values.size() - 1; i += 2) {
+    const Datum& cond_datum = batch[i];
+    const Datum& values_datum = batch[i + 1];
+    if (cond_datum.is_scalar()) {
+      const Scalar& cond_scalar = *cond_datum.scalar();
+      const bool cond =
+          cond_scalar.is_valid && UnboxScalar<BooleanType>::Unbox(cond_scalar);
+      if (!cond) continue;
+      BitBlockCounter counter(mask, /*start_offset=*/0, batch.length);
+      int64_t offset = 0;
+      while (offset < batch.length) {
+        const auto block = counter.NextWord();
+        if (block.AllSet()) {
+          CopyValues<Type>(values_datum, out_valid, out_values, offset, block.length);
+        } else if (block.popcount) {
+          for (int64_t j = 0; j < block.length; ++j) {
+            if (BitUtil::GetBit(mask, offset + j)) {
+              CopyValues<Type>(values_datum, out_valid, out_values, offset + j,
+                               /*length=*/1);
+            }
+          }
+        }
+        offset += block.length;
+      }
+      break;
+    }
+
+    const ArrayData& cond_array = *cond_datum.array();
+    const uint8_t* cond_values = cond_array.buffers[1]->data();
+    int64_t offset = 0;
+    // If no valid buffer, visit mask & value bitmap simultaneously
+    if (cond_array.GetNullCount() == 0) {
+      BinaryBitBlockCounter counter(mask, /*start_offset=*/0, cond_values,
+                                    cond_array.offset, batch.length);
+      while (offset < batch.length) {
+        const auto block = counter.NextAndWord();
+        if (block.AllSet()) {
+          CopyValues<Type>(values_datum, out_valid, out_values, offset, block.length);
+          BitUtil::SetBitsTo(mask, offset, block.length, false);
+        } else if (block.popcount) {
+          for (int64_t j = 0; j < block.length; ++j) {
+            if (BitUtil::GetBit(mask, offset + j) &&
+                BitUtil::GetBit(cond_values, cond_array.offset + offset + j)) {
+              CopyValues<Type>(values_datum, out_valid, out_values, offset + j,
+                               /*length=*/1);
+              BitUtil::SetBitTo(mask, offset + j, false);
+            }
+          }
+        }
+        offset += block.length;
+      }
+      continue;
+    }
+
+    // Else visit all three bitmaps simultaneously
+    const uint8_t* cond_valid = cond_array.buffers[0]->data();
+    Bitmap bitmaps[3] = {{mask, /*offset=*/0, batch.length},
+                         {cond_values, cond_array.offset, batch.length},
+                         {cond_valid, cond_array.offset, batch.length}};
+    Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 3> words) {
+      const uint64_t word = words[0] & words[1] & words[2];
+      const int64_t block_length = std::min<int64_t>(64, batch.length - offset);
+      if (word == std::numeric_limits<uint64_t>::max()) {
+        CopyValues<Type>(values_datum, out_valid, out_values, offset, block_length);
+        BitUtil::SetBitsTo(mask, offset, block_length, false);
+      } else if (word) {
+        for (int64_t j = 0; j < block_length; ++j) {
+          if (BitUtil::GetBit(mask, offset + j) &&
+              BitUtil::GetBit(cond_valid, cond_array.offset + offset + j) &&
+              BitUtil::GetBit(cond_values, cond_array.offset + offset + j)) {
+            CopyValues<Type>(values_datum, out_valid, out_values, offset + j,
+                             /*length=*/1);
+            BitUtil::SetBitTo(mask, offset + j, false);
+          }
+        }
+      }
+      offset += block_length;
+    });
+  }
+  return Status::OK();
+}
+
+template <typename Type, typename Enable = void>
+struct CaseWhenFunctor {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    for (const auto& datum : batch.values) {
+      if (datum.is_array()) {
+        return ExecArrayCaseWhen<Type>(ctx, batch, out);
+      }
+    }
+    return ExecScalarCaseWhen(ctx, batch, out);
+  }
+};
+
+template <>
+struct CaseWhenFunctor<NullType> {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    return Status::OK();
+  }
+};
+
+Result<ValueDescr> LastType(KernelContext*, const std::vector<ValueDescr>& descrs) {
+  ValueDescr result = descrs.back();
+  result.shape = GetBroadcastShape(descrs);
+  return result;
+}
+
+void AddCaseWhenKernel(const std::shared_ptr<CaseWhenFunction>& scalar_function,
+                       detail::GetTypeId get_id, ArrayKernelExec exec) {
+  ScalarKernel kernel(KernelSignature::Make({InputType(get_id.id)}, OutputType(LastType),
+                                            /*is_varargs=*/true),
+                      exec);
+  kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+  kernel.mem_allocation = MemAllocation::PREALLOCATE;
+  DCHECK_OK(scalar_function->AddKernel(std::move(kernel)));
+}
+
+void AddPrimitiveCaseWhenKernels(const std::shared_ptr<CaseWhenFunction>& scalar_function,
+                                 const std::vector<std::shared_ptr<DataType>>& types) {
+  for (auto&& type : types) {
+    auto exec = GenerateTypeAgnosticPrimitive<CaseWhenFunctor>(*type);
+    AddCaseWhenKernel(scalar_function, type, std::move(exec));
+  }
+}
 
 const FunctionDoc if_else_doc{"Choose values based on a condition",
                               ("`cond` must be a Boolean scalar/ array. \n`left` or "
@@ -685,22 +1027,45 @@ const FunctionDoc if_else_doc{"Choose values based on a condition",
                                " output."),
                               {"cond", "left", "right"}};
 
-namespace internal {
+const FunctionDoc case_when_doc{
+    "Choose values based on multiple conditions",
+    ("`cond` must be a sequence of alternating Boolean condition data "
+     "and value data (of any type, but all must be the same type or "
+     "castable to a common type), along with an optional datum of "
+     "\"else\" values. At least one datum must be given.\n"
+     "Each row of the output will be the corresponding value of the "
+     "first value datum for which the corresponding condition datum "
+     "is true, or otherwise the \"else\" value (if given), or null. "
+     "Essentially, this implements a switch-case or if-else if-else "
+     "statement."),
+    {"*cond"}};
+}  // namespace
 
 void RegisterScalarIfElse(FunctionRegistry* registry) {
-  ScalarKernel scalar_kernel;
-  scalar_kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
-  scalar_kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+  {
+    auto func =
+        std::make_shared<IfElseFunction>("if_else", Arity::Ternary(), &if_else_doc);
 
-  auto func = std::make_shared<IfElseFunction>("if_else", Arity::Ternary(), &if_else_doc);
-
-  AddPrimitiveIfElseKernels(func, NumericTypes());
-  AddPrimitiveIfElseKernels(func, TemporalTypes());
-  AddPrimitiveIfElseKernels(func, {boolean()});
-  AddNullIfElseKernel(func);
-  // todo add binary kernels
-
-  DCHECK_OK(registry->AddFunction(std::move(func)));
+    AddPrimitiveIfElseKernels(func, NumericTypes());
+    AddPrimitiveIfElseKernels(func, TemporalTypes());
+    AddPrimitiveIfElseKernels(func, {boolean(), day_time_interval(), month_interval()});
+    AddNullIfElseKernel(func);
+    // todo add binary kernels
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+  {
+    auto func = std::make_shared<CaseWhenFunction>(
+        "case_when", Arity::VarArgs(/*min_args=*/1), &case_when_doc);
+    AddPrimitiveCaseWhenKernels(func, NumericTypes());
+    AddPrimitiveCaseWhenKernels(func, TemporalTypes());
+    AddPrimitiveCaseWhenKernels(
+        func, {boolean(), null(), day_time_interval(), month_interval()});
+    AddCaseWhenKernel(func, Type::FIXED_SIZE_BINARY,
+                      CaseWhenFunctor<FixedSizeBinaryType>::Exec);
+    AddCaseWhenKernel(func, Type::DECIMAL128, CaseWhenFunctor<Decimal128Type>::Exec);
+    AddCaseWhenKernel(func, Type::DECIMAL256, CaseWhenFunctor<Decimal256Type>::Exec);
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
 }
 
 }  // namespace internal

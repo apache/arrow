@@ -863,30 +863,40 @@ Structural transforms
 +--------------------------+------------+------------------------------------------------+---------------------+---------+
 | Function name            | Arity      | Input types                                    | Output type         | Notes   |
 +==========================+============+================================================+=====================+=========+
-| fill_null                | Binary     | Boolean, Null, Numeric, Temporal, String-like  | Input type          | \(1)    |
+| case_when                | Varargs    | Boolean, Any fixed-width                       | Input type          | \(1)   |
 +--------------------------+------------+------------------------------------------------+---------------------+---------+
-| if_else                  | Ternary    | Boolean, Null, Numeric, Temporal               | Input type          | \(2)    |
+| fill_null                | Binary     | Boolean, Null, Numeric, Temporal, String-like  | Input type          | \(2)    |
 +--------------------------+------------+------------------------------------------------+---------------------+---------+
-| is_finite                | Unary      | Float, Double                                  | Boolean             | \(3)    |
+| if_else                  | Ternary    | Boolean, Null, Numeric, Temporal               | Input type          | \(3)    |
 +--------------------------+------------+------------------------------------------------+---------------------+---------+
-| is_inf                   | Unary      | Float, Double                                  | Boolean             | \(4)    |
+| is_finite                | Unary      | Float, Double                                  | Boolean             | \(4)    |
 +--------------------------+------------+------------------------------------------------+---------------------+---------+
-| is_nan                   | Unary      | Float, Double                                  | Boolean             | \(5)    |
+| is_inf                   | Unary      | Float, Double                                  | Boolean             | \(5)    |
 +--------------------------+------------+------------------------------------------------+---------------------+---------+
-| is_null                  | Unary      | Any                                            | Boolean             | \(6)    |
+| is_nan                   | Unary      | Float, Double                                  | Boolean             | \(6)    |
 +--------------------------+------------+------------------------------------------------+---------------------+---------+
-| is_valid                 | Unary      | Any                                            | Boolean             | \(7)    |
+| is_null                  | Unary      | Any                                            | Boolean             | \(7)    |
 +--------------------------+------------+------------------------------------------------+---------------------+---------+
-| list_value_length        | Unary      | List-like                                      | Int32 or Int64      | \(8)    |
+| is_valid                 | Unary      | Any                                            | Boolean             | \(8)    |
 +--------------------------+------------+------------------------------------------------+---------------------+---------+
-| project                  | Varargs    | Any                                            | Struct              | \(9)    |
+| list_value_length        | Unary      | List-like                                      | Int32 or Int64      | \(9)    |
++--------------------------+------------+------------------------------------------------+---------------------+---------+
+| project                  | Varargs    | Any                                            | Struct              | \(10)   |
 +--------------------------+------------+------------------------------------------------+---------------------+---------+
 
-* \(1) First input must be an array, second input a scalar of the same type.
+* \(1) This function acts like a SQL 'case when' statement or switch-case. The
+  input is any number of alternating Boolean and value data, followed by an
+  optional value datum to represent the 'else' or 'default' case. At least one
+  input must be provided. The output is of the same type as the value inputs;
+  each row will be the corresponding value from the first value datum for which
+  the corresponding Boolean is true, or the corresponding value from the
+  'default' input, or null otherwise.
+
+* \(2) First input must be an array, second input a scalar of the same type.
   Output is an array of the same type as the inputs, and with the same values
   as the first input, except for nulls replaced with the second input value.
 
-* \(2) First input must be a Boolean scalar or array. Second and third inputs
+* \(3) First input must be a Boolean scalar or array. Second and third inputs
   could be scalars or arrays and must be of the same type. Output is an array
   (or scalar if all inputs are scalar) of the same type as the second/ third
   input. If the nulls present on the first input, they will be promoted to the
@@ -894,21 +904,21 @@ Structural transforms
 
   Also see: :ref:`replace_with_mask <cpp-compute-vector-structural-transforms>`.
 
-* \(3) Output is true iff the corresponding input element is finite (not Infinity,
+* \(4) Output is true iff the corresponding input element is finite (not Infinity,
   -Infinity, or NaN).
 
-* \(4) Output is true iff the corresponding input element is Infinity/-Infinity.
+* \(5) Output is true iff the corresponding input element is Infinity/-Infinity.
 
-* \(5) Output is true iff the corresponding input element is NaN.
+* \(6) Output is true iff the corresponding input element is NaN.
 
-* \(6) Output is true iff the corresponding input element is null.
+* \(7) Output is true iff the corresponding input element is null.
 
-* \(7) Output is true iff the corresponding input element is non-null.
+* \(8) Output is true iff the corresponding input element is non-null.
 
-* \(8) Each output element is the length of the corresponding input element
+* \(9) Each output element is the length of the corresponding input element
   (null if input is null).  Output type is Int32 for List, Int64 for LargeList.
 
-* \(9) The output struct's field types are the types of its arguments. The
+* \(10) The output struct's field types are the types of its arguments. The
   field names are specified using an instance of :struct:`ProjectOptions`.
   The output shape will be scalar if all inputs are scalar, otherwise any
   scalars will be broadcast to arrays.

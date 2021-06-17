@@ -741,6 +741,22 @@ ARROW_EXPORT
 Result<Datum> IfElse(const Datum& cond, const Datum& left, const Datum& right,
                      ExecContext* ctx = NULLPTR);
 
+/// \brief CaseWhen behaves like a switch/case or if-else if-else statement: for
+/// each row, select the first value for which the corresponding condition is
+/// true, or (if given) select the 'else' value, else emit null. Note that a
+/// null condition is the same as false.
+///
+/// \param[in] cases Zero or more pairs of conditions (Boolean) & values (any
+/// type), along with an optional 'else' value.
+/// \param[in] ctx the function execution context, optional
+///
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> CaseWhen(const std::vector<Datum>& cases, ExecContext* ctx = NULLPTR);
+
 /// \brief Year returns year for each element of `values`
 ///
 /// \param[in] values input to extract year from

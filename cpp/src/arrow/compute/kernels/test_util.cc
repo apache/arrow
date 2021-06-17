@@ -47,12 +47,10 @@ DatumVector GetDatums(const std::vector<T>& inputs) {
 }
 
 void CheckScalarNonRecursive(const std::string& func_name, const DatumVector& inputs,
-                             const std::shared_ptr<Array>& expected,
-                             const FunctionOptions* options) {
+                             const Datum& expected, const FunctionOptions* options) {
   ASSERT_OK_AND_ASSIGN(Datum out, CallFunction(func_name, inputs, options));
-  std::shared_ptr<Array> actual = std::move(out).make_array();
-  ValidateOutput(*actual);
-  AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+  ValidateOutput(out);
+  AssertDatumsEqual(expected, out, /*verbose=*/true);
 }
 
 template <typename... SliceArgs>
@@ -103,35 +101,38 @@ void CheckScalar(std::string func_name, const ScalarVector& inputs,
   }
 }
 
-void CheckScalar(std::string func_name, const DatumVector& inputs,
-                 std::shared_ptr<Array> expected, const FunctionOptions* options) {
-  CheckScalarNonRecursive(func_name, inputs, expected, options);
+void CheckScalar(std::string func_name, const DatumVector& inputs, Datum expected_datum,
+                 const FunctionOptions* options) {
+  CheckScalarNonRecursive(func_name, inputs, expected_datum, options);
+
+  if (expected_datum.is_scalar()) return;
+  ASSERT_TRUE(expected_datum.is_array())
+      << "CheckScalar is only implemented for scalar/array expected values";
+  auto expected = expected_datum.make_array();
 
   // check for at least 1 array, and make sure the others are of equal length
-  std::shared_ptr<Array> array;
+  bool has_array = false;
   for (const auto& input : inputs) {
     if (input.is_array()) {
-      if (!array) {
-        array = input.make_array();
-      } else {
-        ASSERT_EQ(input.array()->length, array->length());
-      }
+      ASSERT_EQ(input.array()->length, expected->length());
+      has_array = true;
     }
   }
+  ASSERT_TRUE(has_array) << "Must have at least 1 array input to have an array output";
 
   // Check all the input scalars, if scalars are implemented
   if (std::none_of(inputs.begin(), inputs.end(), [](const Datum& datum) {
         return datum.type()->id() == Type::EXTENSION;
       })) {
     // Check all the input scalars
-    for (int64_t i = 0; i < array->length(); ++i) {
+    for (int64_t i = 0; i < expected->length(); ++i) {
       CheckScalar(func_name, GetScalars(inputs, i), *expected->GetScalar(i), options);
     }
   }
 
   // Since it's a scalar function, calling it on sliced inputs should
   // result in the sliced expected output.
-  const auto slice_length = array->length() / 3;
+  const auto slice_length = expected->length() / 3;
   if (slice_length > 0) {
     CheckScalarNonRecursive(func_name, SliceArrays(inputs, 0, slice_length),
                             expected->Slice(0, slice_length), options);
