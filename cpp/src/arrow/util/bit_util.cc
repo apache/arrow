@@ -94,12 +94,12 @@ void SetBitmapImpl(uint8_t* data, int64_t offset, int64_t length) {
     //                     pro
     uint8_t mask = BitUtil::kPrecedingBitmask[8 - prologue] ^
                    BitUtil::kPrecedingBitmask[8 - prologue + length];
-    data[offset / 8] |= mask;
+    data[offset / 8] = value ? data[offset / 8] | mask : data[offset / 8] & ~mask;
     return;
   }
 
   // align to a byte boundary
-  data[offset / 8] = BitUtil::SpliceWord(offset, data[offset / 8], set_byte);
+  data[offset / 8] = BitUtil::SpliceWord(prologue, data[offset / 8], set_byte);
   offset += prologue;
   length -= prologue;
 

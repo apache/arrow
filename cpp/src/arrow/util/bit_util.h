@@ -324,9 +324,17 @@ void SetBitmap(uint8_t* data, int64_t offset, int64_t length);
 ARROW_EXPORT
 void ClearBitmap(uint8_t* data, int64_t offset, int64_t length);
 
-template <typename Word, Word all = static_cast<Word>(~static_cast<Word>(0))>
-constexpr Word TrailingWordBitmask(int i) {
-  return ARROW_PREDICT_FALSE(i >= sizeof(Word) * 8) ? 0 : all << i;
+/// Returns a mask with lower i bits set to 1. If i >= sizeof(Word)*8, all-ones will be
+/// returned
+/// ex:
+/// PrecedingWordBitmask<uint_8>(0)= 0x00
+/// PrecedingWordBitmask<uint_8>(4)= 0x0f
+/// PrecedingWordBitmask<uint_8>(8)= 0xff
+/// PrecedingWordBitmask<uint_32>(8)= 0x00ff
+/// ref: https://stackoverflow.com/a/59523400
+template <typename Word>
+constexpr Word PrecedingWordBitmask(unsigned int const i) {
+  return (static_cast<Word>(i < sizeof(Word) * 8) << (i & (sizeof(Word) * 8 - 1))) - 1;
 }
 
 /// \brief Create a word with low `n` bits from `low` and high `sizeof(Word)-n` bits
@@ -337,7 +345,7 @@ constexpr Word TrailingWordBitmask(int i) {
 /// }
 template <typename Word>
 constexpr Word SpliceWord(int n, Word low, Word high) {
-  return (high & ~WordBitMask<Word>(n)) | (low & WordBitMask<Word>(n));
+  return (high & ~PrecedingWordBitmask<Word>(n)) | (low & PrecedingWordBitmask<Word>(n));
 }
 
 }  // namespace BitUtil

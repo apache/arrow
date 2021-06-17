@@ -315,7 +315,9 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
         std::array<Word, M> out_words;
         std::copy(in.begin(), in.end(), in_words.begin());
         visitor(in_words, &out_words);
-        std::move(out_words.begin(), out_words.end(), out->begin());
+        for (size_t i = 0; i < M; i++) {
+          out->at(i) = static_cast<uint8_t>(out_words[i]);
+        }
       };
 
       std::array<uint8_t, N> visited_bytes;
