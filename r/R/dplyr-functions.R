@@ -238,7 +238,10 @@ arrow_string_join_function <- function(null_handling, null_replacement = NULL) {
       # handle scalar literal args, and cast all args to string for
       # consistency with base::paste(), base::paste0(), and stringr::str_c()
       if (!inherits(dots[[i]], "Expression")) {
-        assert_that(length(dots[[i]]) == 1)
+        assert_that(
+          length(dots[[i]]) == 1,
+          msg = "Literal vectors of length != 1 not supported in string concatenation"
+        )
         # handle scalar literal NA consistent with the binary_join_element_wise
         # kernel's handling of nulls in the data
         if (null_handling == NullHandlingBehavior$REPLACE && is.na(dots[[i]])) {
