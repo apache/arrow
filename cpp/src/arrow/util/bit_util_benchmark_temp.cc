@@ -55,7 +55,7 @@ static void BitBlockCounterBench(benchmark::State& state) {
     BitBlockCounter counter(cond_buf->data(), 0, nbytes * 8);
 
     int64_t offset = 0;
-    int64_t set_bits = 0;
+    uint64_t set_bits = 0;
 
     while (offset < nbytes * 8) {
       const BitBlockCount& word = counter.NextWord();
@@ -65,6 +65,7 @@ static void BitBlockCounterBench(benchmark::State& state) {
       //        set_bits += word.popcount;
       //      }
       set_bits += word.popcount;
+      benchmark::DoNotOptimize(set_bits);
       offset += word.length;
     }
     benchmark::ClobberMemory();
@@ -90,6 +91,7 @@ static void BitmapWordReaderBench(benchmark::State& state) {
       //        set_bits += PopCount(word);
       //      }
       set_bits += PopCount(word);
+      benchmark::DoNotOptimize(set_bits);
     }
 
     cnt = counter.trailing_bytes();
@@ -97,6 +99,7 @@ static void BitmapWordReaderBench(benchmark::State& state) {
       int valid_bits;
       const auto& byte = static_cast<uint32_t>(counter.NextTrailingByte(valid_bits));
       set_bits += PopCount(kPrecedingBitmask[valid_bits] & byte);
+      benchmark::DoNotOptimize(set_bits);
     }
     benchmark::ClobberMemory();
   }
