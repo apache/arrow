@@ -17,11 +17,10 @@
 
 package org.apache.arrow.driver.jdbc.client;
 
-import java.util.List;
-
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
+import org.apache.arrow.vector.VectorSchemaRoot;
 
 /**
  * A wrapper for a {@link FlightClient}.
@@ -29,11 +28,23 @@ import org.apache.arrow.flight.FlightStream;
 public interface FlightClientHandler extends AutoCloseable {
 
   /**
+   * Makes RPC requests to the Dremio Flight Server Endpoint to retrieve results
+   * of the provided SQL query.
+   *
+   * @param query
+   *          The SQL query to execute.
+   * @throws Exception
+   *           If an error occurs during query execution.
+   */
+  VectorSchemaRoot runQuery(String query) throws Exception;
+
+  /**
    * Makes an RPC "getStream" request based on the provided {@link FlightInfo}
    * object. Retrieves result of the query previously prepared with "getInfo."
    *
-   * @param query The query.
+   * @param query
+   *          The query.
    * @return a {@code FlightStream} of results.
    */
-  List<FlightStream> getFlightStreams(String query);
+  FlightStream getStream(String query);
 }

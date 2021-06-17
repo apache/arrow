@@ -25,8 +25,8 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Properties;
 
-import org.apache.arrow.driver.jdbc.ArrowFlightClient;
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver;
+import org.apache.arrow.driver.jdbc.client.ArrowFlightClientHandler;
 import org.apache.arrow.driver.jdbc.test.utils.FlightTestUtils;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightProducer;
@@ -64,15 +64,16 @@ public class ConnectionTest {
   public void setUp() throws Exception {
     allocator = new RootAllocator(Long.MAX_VALUE);
 
-    flightTestUtils = new FlightTestUtils("localhost", "flight1",
-        "woho1", "invalid", "wrong");
+    flightTestUtils = new FlightTestUtils("localhost", "flight1", "woho1",
+        "invalid", "wrong");
 
-    final FlightProducer flightProducer = flightTestUtils.getFlightProducer(allocator);
-    this.server = flightTestUtils.getStartedServer((location -> FlightServer
-        .builder(allocator, location, flightProducer)
-        .headerAuthenticator(new GeneratedBearerTokenAuthenticator(
-            new BasicCallHeaderAuthenticator(this::validate)))
-        .build()));
+    final FlightProducer flightProducer = flightTestUtils
+        .getFlightProducer(allocator);
+    this.server = flightTestUtils.getStartedServer(
+        location -> FlightServer.builder(allocator, location, flightProducer)
+            .headerAuthenticator(new GeneratedBearerTokenAuthenticator(
+                new BasicCallHeaderAuthenticator(this::validate)))
+            .build());
     serverUrl = flightTestUtils.getConnectionPrefix() +
         flightTestUtils.getLocalhost() + ":" + this.server.getPort();
 
@@ -98,7 +99,7 @@ public class ConnectionTest {
       final String password) {
     if (Strings.isNullOrEmpty(username)) {
       throw CallStatus.UNAUTHENTICATED
-      .withDescription("Credentials not supplied.").toRuntimeException();
+          .withDescription("Credentials not supplied.").toRuntimeException();
     }
     final String identity;
     if (flightTestUtils.getUsername1().equals(username) &&
@@ -106,8 +107,8 @@ public class ConnectionTest {
       identity = flightTestUtils.getUsername1();
     } else {
       throw CallStatus.UNAUTHENTICATED
-      .withDescription("Username or password is invalid.")
-      .toRuntimeException();
+          .withDescription("Username or password is invalid.")
+          .toRuntimeException();
     }
     return () -> identity;
   }
@@ -127,8 +128,8 @@ public class ConnectionTest {
     properties.put("user", flightTestUtils.getUsername1());
     properties.put("password", flightTestUtils.getPassword1());
 
-    try (Connection connection = DriverManager
-        .getConnection(serverUrl, properties)) {
+    try (Connection connection = DriverManager.getConnection(serverUrl,
+        properties)) {
       assert connection.isValid(300);
     }
   }
@@ -161,12 +162,12 @@ public class ConnectionTest {
    *           on error.
    */
   @Test
-  public void testGetBasicClientAuthenticatedShouldOpenConnection() throws Exception {
+  public void testGetBasicClientAuthenticatedShouldOpenConnection()
+      throws Exception {
 
-    try (ArrowFlightClient client = ArrowFlightClient.getBasicClientAuthenticated(
+    try (ArrowFlightClientHandler client = ArrowFlightClientHandler.getClient(
         allocator, flightTestUtils.getLocalhost(), this.server.getPort(),
-        flightTestUtils.getUsername1(), flightTestUtils.getPassword1(),
-        null)) {
+        flightTestUtils.getUsername1(), flightTestUtils.getPassword1())) {
       assertNotNull(client);
     }
   }
@@ -178,7 +179,7 @@ public class ConnectionTest {
    * @throws SQLException
    *           on error.
    */
-  @Test(expected = IllegalArgumentException.class)
+  @Test(expected = IndexOutOfBoundsException.class)
   public void testUnencryptedConnectionProvidingInvalidPort()
       throws Exception {
     final Properties properties = new Properties();
@@ -202,9 +203,8 @@ public class ConnectionTest {
   @Test
   public void testGetBasicClientNoAuthShouldOpenConnection() throws Exception {
 
-    try (ArrowFlightClient client = ArrowFlightClient.getBasicClientNoAuth(
-        allocator, flightTestUtils.getLocalhost(), this.server.getPort(),
-        null)) {
+    try (ArrowFlightClientHandler client = ArrowFlightClientHandler.getClient(
+        allocator, flightTestUtils.getLocalhost(), this.server.getPort())) {
       assertNotNull(client);
     }
   }
