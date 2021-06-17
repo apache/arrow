@@ -108,10 +108,6 @@ nse_funcs$is.infinite <- function(x) {
   is_inf & !nse_funcs$is.na(is_inf)
 }
 
-nse_funcs$abs <- function(x) {
-  Expression$create("abs_checked", x)
-}
-
 # as.* type casting functions
 # as.factor() is mapped in expression.R
 nse_funcs$as.character <- function(x) {
