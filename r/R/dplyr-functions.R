@@ -234,7 +234,7 @@ arrow_string_join_function <- function(null_handling, null_replacement = NULL) {
   # the binary_join_element_wise kernel takes the separator as the last argument
   function(...) {
     dots <- list(...) # sep is the last value in dots
-    for(i in seq_along(dots)) {
+    for (i in seq_along(dots)) {
       # handle scalar literal args, and cast all args to string for
       # consistency with base::paste(), base::paste0(), and stringr::str_c()
       if (!inherits(dots[[i]], "Expression")) {
