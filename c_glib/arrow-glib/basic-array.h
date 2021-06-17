@@ -24,6 +24,25 @@
 
 G_BEGIN_DECLS
 
+#define GARROW_TYPE_EQUAL_OPTIONS (garrow_equal_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowEqualOptions,
+                         garrow_equal_options,
+                         GARROW,
+                         EQUAL_OPTIONS,
+                         GObject)
+struct _GArrowEqualOptionsClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_5_0
+GArrowEqualOptions *
+garrow_equal_options_new(void);
+GARROW_AVAILABLE_IN_5_0
+gboolean
+garrow_equal_options_is_approx(GArrowEqualOptions *options);
+
+
 #define GARROW_TYPE_ARRAY (garrow_array_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowArray,
                          garrow_array,
@@ -37,13 +56,18 @@ struct _GArrowArrayClass
 
 gboolean       garrow_array_equal       (GArrowArray *array,
                                          GArrowArray *other_array);
+GARROW_AVAILABLE_IN_5_0
+gboolean       garrow_array_equal_options(GArrowArray *array,
+                                          GArrowArray *other_array,
+                                          GArrowEqualOptions *options);
 gboolean       garrow_array_equal_approx(GArrowArray *array,
                                          GArrowArray *other_array);
 gboolean       garrow_array_equal_range (GArrowArray *array,
                                          gint64 start_index,
                                          GArrowArray *other_array,
                                          gint64 other_start_index,
-                                         gint64 end_index);
+                                         gint64 end_index,
+                                         GArrowEqualOptions *options);
 
 gboolean       garrow_array_is_null     (GArrowArray *array,
                                          gint64 i);

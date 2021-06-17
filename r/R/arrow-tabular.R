@@ -212,7 +212,7 @@ head.ArrowTabular <- head.ArrowDatum
 tail.ArrowTabular <- tail.ArrowDatum
 
 #' @export
-na.fail.ArrowTabular <- function(object, ...){
+na.fail.ArrowTabular <- function(object, ...) {
   for (col in seq_len(object$num_columns)) {
     if (object$column(col - 1L)$null_count > 0) {
       stop("missing values in object", call. = FALSE)
@@ -222,7 +222,7 @@ na.fail.ArrowTabular <- function(object, ...){
 }
 
 #' @export
-na.omit.ArrowTabular <- function(object, ...){
+na.omit.ArrowTabular <- function(object, ...) {
   not_na <- map(object$columns, ~call_function("is_valid", .x))
   not_na_agg <- Reduce("&", not_na)
   object$Filter(not_na_agg)
@@ -238,3 +238,6 @@ ToString_tabular <- function(x, ...) {
   dims <- sprintf("%s rows x %s columns", nrow(x), ncol(x))
   paste(c(dims, sch), collapse = "\n")
 }
+
+#' @export
+length.ArrowTabular <- function(x) x$num_columns

@@ -200,8 +200,7 @@ typedef std::vector<NodePtr> NodeVector;
 // parameters)
 class PARQUET_EXPORT PrimitiveNode : public Node {
  public:
-  // The field_id here is the default to use if it is not set in the SchemaElement
-  static std::unique_ptr<Node> FromParquet(const void* opaque_element, int field_id = -1);
+  static std::unique_ptr<Node> FromParquet(const void* opaque_element);
 
   // A field_id -1 (or any negative value) will be serialized as null in Thrift
   static inline NodePtr Make(const std::string& name, Repetition::type repetition,
@@ -266,9 +265,8 @@ class PARQUET_EXPORT PrimitiveNode : public Node {
 
 class PARQUET_EXPORT GroupNode : public Node {
  public:
-  // The field_id here is the default to use if it is not set in the SchemaElement
   static std::unique_ptr<Node> FromParquet(const void* opaque_element,
-                                           NodeVector fields = {}, int field_id = -1);
+                                           NodeVector fields = {});
 
   // A field_id -1 (or any negative value) will be serialized as null in Thrift
   static inline NodePtr Make(const std::string& name, Repetition::type repetition,

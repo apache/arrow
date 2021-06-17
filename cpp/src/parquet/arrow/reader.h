@@ -18,6 +18,8 @@
 #pragma once
 
 #include <cstdint>
+// N.B. we don't include async_generator.h as it's relatively heavy
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -65,6 +67,9 @@ class RowGroupReader;
 /// `FileReader::RowGroup(i)->Column(j)->Read` and receive an `arrow::Column`
 /// instance.
 ///
+/// The parquet format supports an optional integer field_id which can be assigned
+/// to a field.  Arrow will convert these field IDs to a metadata key named
+/// PARQUET:field_id on the appropriate field.
 // TODO(wesm): nested data does not always make sense with this user
 // interface unless you are only reading a single leaf node from a branch of
 // a table. For example:
@@ -174,6 +179,20 @@ class PARQUET_EXPORT FileReader {
   virtual ::arrow::Status GetRecordBatchReader(
       const std::vector<int>& row_group_indices, const std::vector<int>& column_indices,
       std::unique_ptr<::arrow::RecordBatchReader>* out) = 0;
+
+  /// \brief Return a generator of record batches.
+  ///
+  /// The FileReader must outlive the generator, so this requires that you pass in a
+  /// shared_ptr.
+  ///
+  /// \returns error Result if either row_group_indices or column_indices contains an
+  ///     invalid index
+  virtual ::arrow::Result<
+      std::function<::arrow::Future<std::shared_ptr<::arrow::RecordBatch>>()>>
+  GetRecordBatchGenerator(std::shared_ptr<FileReader> reader,
+                          const std::vector<int> row_group_indices,
+                          const std::vector<int> column_indices,
+                          ::arrow::internal::Executor* cpu_executor = NULLPTR) = 0;
 
   ::arrow::Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
                                        const std::vector<int>& column_indices,

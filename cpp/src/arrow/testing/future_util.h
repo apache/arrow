@@ -52,6 +52,13 @@
     ASSERT_RAISES(ENUM, _fut.status());        \
   } while (false)
 
+#define EXPECT_FINISHES_AND_RAISES_WITH_MESSAGE_THAT(ENUM, matcher, expr) \
+  do {                                                                    \
+    auto&& fut = (expr);                                                  \
+    ASSERT_FINISHES_IMPL(fut);                                            \
+    EXPECT_RAISES_WITH_MESSAGE_THAT(ENUM, matcher, fut.status());         \
+  } while (false)
+
 #define ASSERT_FINISHES_OK_AND_ASSIGN_IMPL(lhs, rexpr, _future_name) \
   auto _future_name = (rexpr);                                       \
   ASSERT_FINISHES_IMPL(_future_name);                                \

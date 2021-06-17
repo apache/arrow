@@ -287,10 +287,10 @@ if(ARROW_S3)
   set(ARROW_WITH_ZLIB ON)
 endif()
 
-if(NOT ARROW_COMPUTE)
-  # utf8proc is only potentially used in kernels for now
+if((NOT ARROW_COMPUTE) AND (NOT ARROW_GANDIVA))
   set(ARROW_WITH_UTF8PROC OFF)
 endif()
+
 if((NOT ARROW_COMPUTE) AND (NOT ARROW_GANDIVA) AND (NOT ARROW_WITH_GRPC))
   set(ARROW_WITH_RE2 OFF)
 endif()
@@ -2275,7 +2275,7 @@ macro(build_utf8proc)
 endmacro()
 
 if(ARROW_WITH_UTF8PROC)
-  resolve_dependency(utf8proc)
+  resolve_dependency(utf8proc REQUIRED_VERSION "2.2.0")
 
   add_definitions(-DARROW_WITH_UTF8PROC)
 
@@ -2548,6 +2548,7 @@ macro(build_grpc)
       gRPC::upb
       gRPC::address_sorting
       ${ABSL_LIBRARIES}
+      re2::re2
       c-ares::cares
       ZLIB::ZLIB
       Threads::Threads)

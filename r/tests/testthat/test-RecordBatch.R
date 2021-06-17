@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 test_that("RecordBatch", {
   # Note that we're reusing `tbl` and `batch` throughout the tests in this file
   tbl <- tibble::tibble(
@@ -415,11 +414,47 @@ test_that("record_batch() handles null type (ARROW-7064)", {
   expect_equivalent(batch$schema,  schema(a = int32(), n = null()))
 })
 
-test_that("record_batch() scalar recycling", {
-  skip("Not implemented (ARROW-11705)")
+test_that("record_batch() scalar recycling with vectors", {
   expect_data_frame(
     record_batch(a = 1:10, b = 5),
     tibble::tibble(a = 1:10, b = 5)
+  )
+})
+
+test_that("record_batch() scalar recycling with Scalars, Arrays, and ChunkedArrays", {
+  
+  expect_data_frame(
+    record_batch(a = Array$create(1:10), b = Scalar$create(5)),
+    tibble::tibble(a = 1:10, b = 5)
+  )
+  
+  expect_data_frame(
+    record_batch(a = Array$create(1:10), b = Array$create(5)),
+    tibble::tibble(a = 1:10, b = 5)
+  )
+  
+  expect_data_frame(
+    record_batch(a = Array$create(1:10), b = ChunkedArray$create(5)),
+    tibble::tibble(a = 1:10, b = 5)
+  )
+  
+})
+
+test_that("record_batch() no recycling with tibbles", {
+  expect_error(
+    record_batch(
+      tibble::tibble(a = 1:10),
+      tibble::tibble(a = 1, b = 5)
+    ),
+    regexp = "All input tibbles or data.frames must have the same number of rows"
+  )
+  
+  expect_error(
+    record_batch(
+      tibble::tibble(a = 1:10),
+      tibble::tibble(a = 1)
+    ),
+    regexp = "All input tibbles or data.frames must have the same number of rows"
   )
 })
 
@@ -435,7 +470,7 @@ test_that("RecordBatch$Equals", {
 test_that("RecordBatch$Equals(check_metadata)", {
   df <- tibble::tibble(x = 1:2, y = c("a", "b"))
   rb1 <- record_batch(df)
-  rb2 <- record_batch(df, schema = rb1$schema$WithMetadata(list(some="metadata")))
+  rb2 <- record_batch(df, schema = rb1$schema$WithMetadata(list(some = "metadata")))
 
   expect_r6_class(rb1, "RecordBatch")
   expect_r6_class(rb2, "RecordBatch")
@@ -467,8 +502,7 @@ test_that("RecordBatch name assignment", {
 
 test_that("record_batch() with different length arrays", {
   msg <- "All arrays must have the same length"
-  expect_error(record_batch(a=1:5, b = 42), msg)
-  expect_error(record_batch(a=1:5, b = 1:6), msg)
+  expect_error(record_batch(a = 1:5, b = 1:6), msg)
 })
 
 test_that("Handling string data with embedded nuls", {
@@ -516,4 +550,18 @@ test_that("ARROW-11769 - grouping preserved in record batch creation", {
     c("fct", "fct2")
   )
 
+})
+
+test_that("ARROW-12729 - length returns number of columns in RecordBatch", {
+  
+  tbl <- tibble::tibble(
+    int = 1:10,
+    fct = factor(rep(c("A", "B"), 5)),
+    fct2 = factor(rep(c("C", "D"), each = 5)),
+  )
+  
+  rb <- record_batch(!!!tbl)
+  
+  expect_identical(length(rb), 3L)
+  
 })

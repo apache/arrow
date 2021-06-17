@@ -36,6 +36,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/key_value_metadata.h"
 
 namespace liborc = orc;
 
@@ -326,6 +327,10 @@ TEST(TestAdapterRead, ReadIntAndStringFileMultipleStripes) {
   ASSERT_TRUE(
       adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool(), &reader).ok());
 
+  EXPECT_OK_AND_ASSIGN(auto metadata, reader->ReadMetadata());
+  auto expected_metadata = std::const_pointer_cast<const KeyValueMetadata>(
+      key_value_metadata(std::vector<std::string>(), std::vector<std::string>()));
+  ASSERT_TRUE(metadata->Equals(*expected_metadata));
   ASSERT_EQ(stripe_row_count * stripe_count, reader->NumberOfRows());
   ASSERT_EQ(stripe_count, reader->NumberOfStripes());
   accumulated = 0;

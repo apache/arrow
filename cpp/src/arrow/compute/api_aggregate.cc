@@ -25,19 +25,23 @@ namespace compute {
 // ----------------------------------------------------------------------
 // Scalar aggregates
 
-Result<Datum> Count(const Datum& value, CountOptions options, ExecContext* ctx) {
+Result<Datum> Count(const Datum& value, const ScalarAggregateOptions& options,
+                    ExecContext* ctx) {
   return CallFunction("count", {value}, &options, ctx);
 }
 
-Result<Datum> Mean(const Datum& value, ExecContext* ctx) {
-  return CallFunction("mean", {value}, ctx);
+Result<Datum> Mean(const Datum& value, const ScalarAggregateOptions& options,
+                   ExecContext* ctx) {
+  return CallFunction("mean", {value}, &options, ctx);
 }
 
-Result<Datum> Sum(const Datum& value, ExecContext* ctx) {
-  return CallFunction("sum", {value}, ctx);
+Result<Datum> Sum(const Datum& value, const ScalarAggregateOptions& options,
+                  ExecContext* ctx) {
+  return CallFunction("sum", {value}, &options, ctx);
 }
 
-Result<Datum> MinMax(const Datum& value, const MinMaxOptions& options, ExecContext* ctx) {
+Result<Datum> MinMax(const Datum& value, const ScalarAggregateOptions& options,
+                     ExecContext* ctx) {
   return CallFunction("min_max", {value}, &options, ctx);
 }
 
@@ -71,6 +75,10 @@ Result<Datum> Quantile(const Datum& value, const QuantileOptions& options,
 Result<Datum> TDigest(const Datum& value, const TDigestOptions& options,
                       ExecContext* ctx) {
   return CallFunction("tdigest", {value}, &options, ctx);
+}
+
+Result<Datum> Index(const Datum& value, const IndexOptions& options, ExecContext* ctx) {
+  return CallFunction("index", {value}, &options, ctx);
 }
 
 }  // namespace compute

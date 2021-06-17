@@ -26,6 +26,10 @@ on:
       - '.github/workflows/julia.yml'
       - 'julia/**'
 
+concurrency:
+  group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: AMD64 ${{ matrix.os }} Julia ${{ matrix.version }}

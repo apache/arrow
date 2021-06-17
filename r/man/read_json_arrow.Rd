@@ -39,7 +39,7 @@ A \code{data.frame}, or a Table if \code{as_data_frame = FALSE}.
 Using \link{JsonTableReader}
 }
 \examples{
-\donttest{
+\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
   tf <- tempfile()
   on.exit(unlink(tf))
   writeLines('
@@ -48,5 +48,5 @@ Using \link{JsonTableReader}
     { "hello": 0.0, "world": true, "yo": null }
   ', tf, useBytes=TRUE)
   df <- read_json_arrow(tf)
-}
+\dontshow{\}) # examplesIf}
 }

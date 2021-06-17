@@ -31,6 +31,10 @@ on:
       - 'cpp/**'
       - 'python/**'
 
+concurrency:
+  group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}
+  cancel-in-progress: true
+
 env:
   DOCKER_VOLUME_PREFIX: ".docker/"
   ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
@@ -140,7 +144,6 @@ jobs:
         run: |
           rm -f /usr/local/bin/2to3
           brew update --preinstall
-          brew unlink gcc@8 gcc@9
           brew bundle --file=cpp/Brewfile
           brew install coreutils
           python3 -mpip install \

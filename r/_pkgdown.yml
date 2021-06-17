@@ -168,6 +168,7 @@ reference:
     contents:
       - arrow_info
       - cpu_count
+      - io_thread_count
       - arrow_available
       - install_arrow
       - install_pyarrow

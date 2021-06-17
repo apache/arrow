@@ -15,6 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
+github:
+  description: "Apache Arrow is a multi-language toolbox for accelerated data interchange and in-memory processing"
+  homepage: https://arrow.apache.org/
+
 notifications:
   commits:      commits@arrow.apache.org
   issues:       github@arrow.apache.org

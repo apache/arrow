@@ -60,6 +60,20 @@ struct IsValidOperator {
   }
 };
 
+struct IsFiniteOperator {
+  template <typename OutType, typename InType>
+  static constexpr OutType Call(KernelContext*, const InType& value, Status*) {
+    return std::isfinite(value);
+  }
+};
+
+struct IsInfOperator {
+  template <typename OutType, typename InType>
+  static constexpr OutType Call(KernelContext*, const InType& value, Status*) {
+    return std::isinf(value);
+  }
+};
+
 struct IsNullOperator {
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
     checked_cast<BooleanScalar*>(out)->value = !in.is_valid;
@@ -103,19 +117,38 @@ void MakeFunction(std::string name, const FunctionDoc* doc,
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
-template <typename InType>
-void AddIsNanKernel(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
-  DCHECK_OK(
-      func->AddKernel({ty}, boolean(),
-                      applicator::ScalarUnary<BooleanType, InType, IsNanOperator>::Exec));
+template <typename InType, typename Op>
+void AddFloatValidityKernel(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
+  DCHECK_OK(func->AddKernel({ty}, boolean(),
+                            applicator::ScalarUnary<BooleanType, InType, Op>::Exec));
+}
+
+std::shared_ptr<ScalarFunction> MakeIsFiniteFunction(std::string name,
+                                                     const FunctionDoc* doc) {
+  auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
+
+  AddFloatValidityKernel<FloatType, IsFiniteOperator>(float32(), func.get());
+  AddFloatValidityKernel<DoubleType, IsFiniteOperator>(float64(), func.get());
+
+  return func;
+}
+
+std::shared_ptr<ScalarFunction> MakeIsInfFunction(std::string name,
+                                                  const FunctionDoc* doc) {
+  auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
+
+  AddFloatValidityKernel<FloatType, IsInfOperator>(float32(), func.get());
+  AddFloatValidityKernel<DoubleType, IsInfOperator>(float64(), func.get());
+
+  return func;
 }
 
 std::shared_ptr<ScalarFunction> MakeIsNanFunction(std::string name,
                                                   const FunctionDoc* doc) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
 
-  AddIsNanKernel<FloatType>(float32(), func.get());
-  AddIsNanKernel<DoubleType>(float64(), func.get());
+  AddFloatValidityKernel<FloatType, IsNanOperator>(float32(), func.get());
+  AddFloatValidityKernel<DoubleType, IsNanOperator>(float64(), func.get());
 
   return func;
 }
@@ -159,6 +192,16 @@ const FunctionDoc is_valid_doc(
     "Return true if non-null",
     ("For each input value, emit true iff the value is valid (non-null)."), {"values"});
 
+const FunctionDoc is_finite_doc(
+    "Return true if value is finite",
+    ("For each input value, emit true iff the value is finite (not NaN, inf, or -inf)."),
+    {"values"});
+
+const FunctionDoc is_inf_doc(
+    "Return true if infinity",
+    ("For each input value, emit true iff the value is infinite (inf or -inf)."),
+    {"values"});
+
 const FunctionDoc is_null_doc("Return true if null",
                               ("For each input value, emit true iff the value is null."),
                               {"values"});
@@ -177,6 +220,8 @@ void RegisterScalarValidity(FunctionRegistry* registry) {
                registry, MemAllocation::PREALLOCATE,
                /*can_write_into_slices=*/true);
 
+  DCHECK_OK(registry->AddFunction(MakeIsFiniteFunction("is_finite", &is_finite_doc)));
+  DCHECK_OK(registry->AddFunction(MakeIsInfFunction("is_inf", &is_inf_doc)));
   DCHECK_OK(registry->AddFunction(MakeIsNanFunction("is_nan", &is_nan_doc)));
 }
 

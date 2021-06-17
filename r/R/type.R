@@ -57,6 +57,13 @@ FLOAT_TYPES <- c("float16", "float32", "float64", "halffloat", "float", "double"
 #' @param x an R vector
 #'
 #' @return an arrow logical type
+#' @examplesIf arrow_available()
+#' type(1:10)
+#' type(1L:10L)
+#' type(c(1, 1.5, 2))
+#' type(c("A", "B", "C"))
+#' type(mtcars)
+#' type(Sys.Date())
 #' @export
 type <- function(x) UseMethod("type")
 
@@ -186,13 +193,11 @@ NestedType <- R6Class("NestedType", inherit = DataType)
 #' @return An Arrow type object inheriting from DataType.
 #' @export
 #' @seealso [dictionary()] for creating a dictionary (factor-like) type.
-#' @examples
-#' \donttest{
+#' @examplesIf arrow_available()
 #' bool()
 #' struct(a = int32(), b = double())
 #' timestamp("ms", timezone = "CEST")
 #' time64("ns")
-#' }
 int8 <- function() Int8__initialize()
 
 #' @rdname data-type
@@ -421,6 +426,55 @@ as_type <- function(type, name = "type") {
     stop(name, " must be a DataType, not ", class(type), call. = FALSE)
   }
   type
+}
+
+canonical_type_str <- function(type_str) {
+  # canonicalizes data type strings, converting data type function names and
+  # aliases to match the strings returned by DataType$ToString()
+  assert_that(is.string(type_str))
+  if (grepl("[([<]", type_str)) {
+    stop("Cannot interpret string representations of data types that have parameters", call. = FALSE)
+  }
+  switch(type_str,
+    int8 = "int8",
+    int16 = "int16",
+    int32 = "int32",
+    int64 = "int64",
+    uint8 = "uint8",
+    uint16 = "uint16",
+    uint32 = "uint32",
+    uint64 = "uint64",
+    float16 = "halffloat",
+    halffloat = "halffloat",
+    float32 = "float",
+    float = "float",
+    float64 = "double",
+    double = "double",
+    boolean = "bool",
+    bool = "bool",
+    utf8 = "string",
+    large_utf8 = "large_string",
+    large_string = "large_string",
+    binary = "binary",
+    large_binary = "large_binary",
+    fixed_size_binary = "fixed_size_binary",
+    string = "string",
+    date32 = "date32",
+    date64 = "date64",
+    time32 = "time32",
+    time64 = "time64",
+    null = "null",
+    timestamp = "timestamp",
+    decimal = "decimal128",
+    struct = "struct",
+    list_of = "list",
+    list = "list",
+    large_list_of = "large_list",
+    large_list = "large_list",
+    fixed_size_list_of = "fixed_size_list",
+    fixed_size_list = "fixed_size_list",
+    stop("Unrecognized string representation of data type", call. = FALSE)
+  )
 }
 
 # vctrs support -----------------------------------------------------------

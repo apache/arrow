@@ -63,6 +63,8 @@ Codec$create <- function(type = "gzip", compression_level = NA) {
 #' "zstd", "lz4", "lzo", or "bz2", case insensitive.
 #' @return Logical: is `type` available?
 #' @export
+#' @examplesIf arrow_available()
+#' codec_is_available("gzip")
 codec_is_available <- function(type) {
   util___Codec__IsAvailable(compression_from_name(type))
 }
@@ -97,7 +99,7 @@ compression_from_name <- function(name) {
 #' @export
 #' @include arrow-package.R
 CompressedOutputStream <- R6Class("CompressedOutputStream", inherit = OutputStream)
-CompressedOutputStream$create <- function(stream, codec = "gzip", compression_level = NA){
+CompressedOutputStream$create <- function(stream, codec = "gzip", compression_level = NA) {
   codec <- Codec$create(codec, compression_level = compression_level)
   if (is.string(stream)) {
     stream <- FileOutputStream$create(stream)
@@ -111,7 +113,7 @@ CompressedOutputStream$create <- function(stream, codec = "gzip", compression_le
 #' @format NULL
 #' @export
 CompressedInputStream <- R6Class("CompressedInputStream", inherit = InputStream)
-CompressedInputStream$create <- function(stream, codec = "gzip", compression_level = NA){
+CompressedInputStream$create <- function(stream, codec = "gzip", compression_level = NA) {
   codec <- Codec$create(codec, compression_level = compression_level)
   if (is.string(stream)) {
     stream <- ReadableFile$create(stream)

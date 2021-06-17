@@ -35,6 +35,11 @@
     echo 3; \
   fi)
 
+%define lz4_requirement %( \
+  if [ %{_amzn} -eq 0 ]; then \
+    echo ">= 1.8.0"; \
+  fi)
+
 %define use_boost (!%{is_amazon_linux})
 %define use_flight (%{rhel} >= 8)
 %define use_gandiva (%{rhel} >= 8 && %{_arch} != "aarch64")
@@ -43,12 +48,14 @@
 %define use_python (!%{is_amazon_linux})
 # TODO: Enable this. This works on local but is fragile on GitHub Actions and
 # Travis CI.
-# %define use_s3 (%{_centos_ver} >= 8)
+# %define use_s3 (%{rhel} >= 8)
 %define use_s3 0
 
 %define have_rapidjson (%{rhel} == 7)
 %define have_re2 (%{rhel} >= 8)
-%define have_utf8proc (%{rhel} == 7)
+# EPEL ships utf8proc but it's old.
+# %define have_utf8proc (%{rhel} == 7)
+%define have_utf8proc 0
 
 Name:		@PACKAGE@
 Version:	@VERSION@
@@ -65,6 +72,9 @@ BuildRequires:	boost%{boost_version}-devel
 %endif
 BuildRequires:	brotli-devel
 BuildRequires:	bzip2-devel
+%if %{use_flight}
+BuildRequires:	c-ares-devel
+%endif
 BuildRequires:	cmake%{cmake_version}
 %if %{use_s3}
 BuildRequires:	curl-devel
@@ -77,7 +87,7 @@ BuildRequires:	gflags-devel
 BuildRequires:	git
 BuildRequires:	glog-devel
 BuildRequires:	libzstd-devel
-BuildRequires:	lz4-devel
+BuildRequires:	lz4-devel %{lz4_requirement}
 BuildRequires:	ninja-build
 BuildRequires:	openssl-devel
 BuildRequires:	pkgconfig
@@ -193,7 +203,7 @@ Requires:	gflags
 %endif
 Requires:	glog
 Requires:	libzstd
-Requires:	lz4
+Requires:	lz4 %{lz4_requirement}
 %if %{have_re2}
 Requires:	re2
 %endif
@@ -218,8 +228,11 @@ License:	Apache-2.0
 Requires:	%{name}-libs = %{version}-%{release}
 Requires:	brotli-devel
 Requires:	bzip2-devel
+%if %{use_flight}
+Requires:	c-ares-devel
+%endif
 Requires:	libzstd-devel
-Requires:	lz4-devel
+Requires:	lz4-devel %{lz4_requirement}
 Requires:	openssl-devel
 %if %{have_rapidjson}
 Requires:	rapidjson-devel
@@ -252,6 +265,9 @@ Libraries and header files for Apache Arrow C++.
 %{_libdir}/cmake/arrow/FindBrotli.cmake
 %{_libdir}/cmake/arrow/FindLz4.cmake
 %{_libdir}/cmake/arrow/FindSnappy.cmake
+%if %{use_flight}
+%{_libdir}/cmake/arrow/Findc-aresAlt.cmake
+%endif
 %if %{have_re2}
 %{_libdir}/cmake/arrow/Findre2Alt.cmake
 %endif
@@ -307,6 +323,9 @@ Libraries and header files for Apache Arrow dataset.
 Summary:	C++ library for fast data transport.
 License:	Apache-2.0
 Requires:	%{name}-libs = %{version}-%{release}
+%if %{use_flight}
+Requires:	c-ares
+%endif
 Requires:	openssl
 
 %description flight-libs
@@ -578,13 +597,13 @@ Documentation for Apache Arrow GLib.
 %{_datadir}/gtk-doc/html/arrow-glib/
 
 %package dataset-glib-libs
-Summary:	Runtime libraries for Apache Arrow dataset GLib
+Summary:	Runtime libraries for Apache Arrow Dataset GLib
 License:	Apache-2.0
 Requires:	%{name}-dataset-libs = %{version}-%{release}
 Requires:	%{name}-glib-libs = %{version}-%{release}
 
 %description dataset-glib-libs
-This package contains the libraries for Apache Arrow dataset GLib.
+This package contains the libraries for Apache Arrow Dataset GLib.
 
 %files dataset-glib-libs
 %defattr(-,root,root,-)
@@ -593,13 +612,13 @@ This package contains the libraries for Apache Arrow dataset GLib.
 %{_datadir}/gir-1.0/ArrowDataset-1.0.gir
 
 %package dataset-glib-devel
-Summary:	Libraries and header files for Apache Arrow dataset GLib
+Summary:	Libraries and header files for Apache Arrow Dataset GLib
 License:	Apache-2.0
 Requires:	%{name}-dataset-devel = %{version}-%{release}
 Requires:	%{name}-glib-devel = %{version}-%{release}
 
 %description dataset-glib-devel
-Libraries and header files for Apache Arrow dataset GLib.
+Libraries and header files for Apache Arrow Dataset GLib.
 
 %files dataset-glib-devel
 %defattr(-,root,root,-)
@@ -611,7 +630,7 @@ Libraries and header files for Apache Arrow dataset GLib.
 %{_libdir}/girepository-1.0/ArrowDataset-1.0.typelib
 
 %package dataset-glib-doc
-Summary:	Documentation for Apache Arrow dataset GLib
+Summary:	Documentation for Apache Arrow Dataset GLib
 License:	Apache-2.0
 
 %description dataset-glib-doc
@@ -621,6 +640,53 @@ Documentation for Apache Arrow dataset GLib.
 %defattr(-,root,root,-)
 %doc README.md LICENSE.txt NOTICE.txt
 %{_datadir}/gtk-doc/html/arrow-dataset-glib/
+
+%if %{use_flight}
+%package flight-glib-libs
+Summary:	Runtime libraries for Apache Arrow Flight GLib
+License:	Apache-2.0
+Requires:	%{name}-flight-libs = %{version}-%{release}
+Requires:	%{name}-glib-libs = %{version}-%{release}
+
+%description flight-glib-libs
+This package contains the libraries for Apache Arrow Flight GLib.
+
+%files flight-glib-libs
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_libdir}/libarrow-flight-glib.so.*
+%{_datadir}/gir-1.0/ArrowFlight-1.0.gir
+
+%package flight-glib-devel
+Summary:	Libraries and header files for Apache Arrow Flight GLib
+License:	Apache-2.0
+Requires:	%{name}-flight-devel = %{version}-%{release}
+Requires:	%{name}-glib-devel = %{version}-%{release}
+
+%description flight-glib-devel
+Libraries and header files for Apache Arrow Flight GLib.
+
+%files flight-glib-devel
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_includedir}/arrow-flight-glib/
+%{_libdir}/libarrow-flight-glib.a
+%{_libdir}/libarrow-flight-glib.so
+%{_libdir}/pkgconfig/arrow-flight-glib.pc
+%{_libdir}/girepository-1.0/ArrowFlight-1.0.typelib
+
+%package flight-glib-doc
+Summary:	Documentation for Apache Arrow Flight GLib
+License:	Apache-2.0
+
+%description flight-glib-doc
+Documentation for Apache Arrow Flight GLib.
+
+%files flight-glib-doc
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_datadir}/gtk-doc/html/arrow-flight-glib/
+%endif
 
 %if %{use_gandiva}
 %package -n gandiva-glib-libs

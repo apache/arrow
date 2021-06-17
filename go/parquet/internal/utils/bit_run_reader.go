@@ -136,6 +136,8 @@ func (b *bitRunReader) loadWord(bitsRemaining int64) {
 		copy(wordptr, b.bitmap[:nbytes])
 
 		bitutil.SetBitTo(wordptr, int(bitsRemaining), bitutil.BitIsNotSet(wordptr, int(bitsRemaining-1)))
+		// reset the value to little endian for big endian architectures
+		b.word = toLEFunc(b.word)
 	}
 
 	// Two cases:

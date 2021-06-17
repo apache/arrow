@@ -290,4 +290,198 @@ TEST(TestGdvFnStubs, TestCastVARCHARFromDouble) {
   EXPECT_FALSE(ctx.has_error());
 }
 
+TEST(TestGdvFnStubs, TestUpper) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+
+  const char* out_str = gdv_fn_upper_utf8(ctx_ptr, "AbcDEfGh", 8, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "ABCDEFGH");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_upper_utf8(ctx_ptr, "asdfj", 5, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "ASDFJ");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_upper_utf8(ctx_ptr, "s;dcGS,jO!l", 11, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "S;DCGS,JO!L");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_upper_utf8(ctx_ptr, "münchen", 8, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "MÜNCHEN");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_upper_utf8(ctx_ptr, "CITROËN", 8, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "CITROËN");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_upper_utf8(ctx_ptr, "âBćDëFGH", 11, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "ÂBĆDËFGH");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_upper_utf8(ctx_ptr, "øhpqRšvñ", 11, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "ØHPQRŠVÑ");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_upper_utf8(ctx_ptr, "Möbelträgerfüße", 19, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "MÖBELTRÄGERFÜẞE");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_upper_utf8(ctx_ptr, "{õhp,PQŚv}ń+", 15, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "{ÕHP,PQŚV}Ń+");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_upper_utf8(ctx_ptr, "", 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  std::string d("AbOJjÜoß\xc3");
+  out_str = gdv_fn_upper_utf8(ctx_ptr, d.data(), static_cast<int>(d.length()), &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr(
+                  "unexpected byte \\c3 encountered while decoding utf8 string"));
+  ctx.Reset();
+
+  std::string e(
+      "åbÑg\xe0\xa0"
+      "åBUå");
+  out_str = gdv_fn_upper_utf8(ctx_ptr, e.data(), static_cast<int>(e.length()), &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr(
+                  "unexpected byte \\e0 encountered while decoding utf8 string"));
+  ctx.Reset();
+}
+
+TEST(TestGdvFnStubs, TestLower) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+
+  const char* out_str = gdv_fn_lower_utf8(ctx_ptr, "AbcDEfGh", 8, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "abcdefgh");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_lower_utf8(ctx_ptr, "asdfj", 5, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "asdfj");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_lower_utf8(ctx_ptr, "S;DCgs,Jo!L", 11, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "s;dcgs,jo!l");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_lower_utf8(ctx_ptr, "MÜNCHEN", 8, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "münchen");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_lower_utf8(ctx_ptr, "citroën", 8, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "citroën");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_lower_utf8(ctx_ptr, "ÂbĆDËFgh", 11, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "âbćdëfgh");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_lower_utf8(ctx_ptr, "ØHPQrŠvÑ", 11, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "øhpqršvñ");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_lower_utf8(ctx_ptr, "MÖBELTRÄGERFÜẞE", 20, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "möbelträgerfüße");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_lower_utf8(ctx_ptr, "{ÕHP,pqśv}Ń+", 15, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "{õhp,pqśv}ń+");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_lower_utf8(ctx_ptr, "", 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  std::string d("AbOJjÜoß\xc3");
+  out_str = gdv_fn_lower_utf8(ctx_ptr, d.data(), static_cast<int>(d.length()), &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr(
+                  "unexpected byte \\c3 encountered while decoding utf8 string"));
+  ctx.Reset();
+
+  std::string e(
+      "åbÑg\xe0\xa0"
+      "åBUå");
+  out_str = gdv_fn_lower_utf8(ctx_ptr, e.data(), static_cast<int>(e.length()), &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr(
+                  "unexpected byte \\e0 encountered while decoding utf8 string"));
+  ctx.Reset();
+}
+
+TEST(TestGdvFnStubs, TestInitCap) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+
+  const char* out_str = gdv_fn_initcap_utf8(ctx_ptr, "test string", 11, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Test String");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_initcap_utf8(ctx_ptr, "asdfj\nhlqf", 10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Asdfj\nHlqf");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_initcap_utf8(ctx_ptr, "s;DCgs,Jo!L", 11, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "S;DCgs,Jo!L");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_initcap_utf8(ctx_ptr, " mÜNCHEN", 9, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), " MÜNCHEN");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_initcap_utf8(ctx_ptr, "citroën CaR", 12, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Citroën CaR");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_initcap_utf8(ctx_ptr, "ÂbĆDËFgh\néll", 16, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "ÂbĆDËFgh\nÉll");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_initcap_utf8(ctx_ptr, "  øhpqršvñ  \n\n", 17, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "  Øhpqršvñ  \n\n");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str =
+      gdv_fn_initcap_utf8(ctx_ptr, "möbelträgerfüße   \nmöbelträgerfüße", 42, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Möbelträgerfüße   \nMöbelträgerfüße");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_initcap_utf8(ctx_ptr, "{ÕHP,pqśv}Ń+", 15, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "{ÕHP,pqśv}Ń+");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_initcap_utf8(ctx_ptr, "", 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  std::string d("AbOJjÜoß\xc3");
+  out_str =
+      gdv_fn_initcap_utf8(ctx_ptr, d.data(), static_cast<int>(d.length()), &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr(
+                  "unexpected byte \\c3 encountered while decoding utf8 string"));
+  ctx.Reset();
+
+  std::string e(
+      "åbÑg\xe0\xa0"
+      "åBUå");
+  out_str =
+      gdv_fn_initcap_utf8(ctx_ptr, e.data(), static_cast<int>(e.length()), &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr(
+                  "unexpected byte \\e0 encountered while decoding utf8 string"));
+  ctx.Reset();
+}
 }  // namespace gandiva

@@ -27,11 +27,13 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport (check_status, _Weakrefable,
                           MemoryPool, maybe_unbox_memory_pool,
                           Schema, pyarrow_wrap_schema,
+                          KeyValueMetadata,
                           pyarrow_wrap_batch,
                           RecordBatch,
                           Table,
                           pyarrow_wrap_table,
                           pyarrow_unwrap_schema,
+                          pyarrow_wrap_metadata,
                           pyarrow_unwrap_table,
                           get_reader,
                           get_writer)
@@ -56,6 +58,24 @@ cdef class ORCReader(_Weakrefable):
         with nogil:
             check_status(ORCFileReader.Open(rd_handle, self.allocator,
                                             &self.reader))
+
+    def metadata(self):
+        """
+        The arrow metadata for this file.
+
+        Returns
+        -------
+        metadata : pyarrow.KeyValueMetadata
+        """
+        cdef:
+            shared_ptr[const CKeyValueMetadata] sp_arrow_metadata
+
+        with nogil:
+            sp_arrow_metadata = GetResultValue(
+                deref(self.reader).ReadMetadata()
+            )
+
+        return pyarrow_wrap_metadata(sp_arrow_metadata)
 
     def schema(self):
         """

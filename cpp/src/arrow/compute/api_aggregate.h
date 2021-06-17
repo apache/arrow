@@ -40,40 +40,17 @@ class ExecContext;
 /// \addtogroup compute-concrete-options
 /// @{
 
-/// \brief Control Count kernel behavior
-///
-/// By default, all non-null values are counted.
-struct ARROW_EXPORT CountOptions : public FunctionOptions {
-  enum Mode {
-    /// Count all non-null values.
-    COUNT_NON_NULL = 0,
-    /// Count all null values.
-    COUNT_NULL,
-  };
-
-  explicit CountOptions(enum Mode count_mode = COUNT_NON_NULL) : count_mode(count_mode) {}
-
-  static CountOptions Defaults() { return CountOptions(COUNT_NON_NULL); }
-
-  enum Mode count_mode;
-};
-
-/// \brief Control MinMax kernel behavior
+/// \brief Control general scalar aggregate kernel behavior
 ///
 /// By default, null values are ignored
-struct ARROW_EXPORT MinMaxOptions : public FunctionOptions {
-  enum Mode {
-    /// Skip null values
-    SKIP = 0,
-    /// Any nulls will result in null output
-    EMIT_NULL
-  };
+struct ARROW_EXPORT ScalarAggregateOptions : public FunctionOptions {
+  explicit ScalarAggregateOptions(bool skip_nulls = true, uint32_t min_count = 1)
+      : skip_nulls(skip_nulls), min_count(min_count) {}
 
-  explicit MinMaxOptions(enum Mode null_handling = SKIP) : null_handling(null_handling) {}
+  static ScalarAggregateOptions Defaults() { return ScalarAggregateOptions{}; }
 
-  static MinMaxOptions Defaults() { return MinMaxOptions{}; }
-
-  enum Mode null_handling;
+  bool skip_nulls;
+  uint32_t min_count;
 };
 
 /// \brief Control Mode kernel behavior
@@ -149,11 +126,18 @@ struct ARROW_EXPORT TDigestOptions : public FunctionOptions {
   uint32_t buffer_size;
 };
 
+/// \brief Control Index kernel behavior
+struct ARROW_EXPORT IndexOptions : public FunctionOptions {
+  explicit IndexOptions(std::shared_ptr<Scalar> value) : value{std::move(value)} {}
+
+  std::shared_ptr<Scalar> value;
+};
+
 /// @}
 
 /// \brief Count non-null (or null) values in an array.
 ///
-/// \param[in] options counting options, see CountOptions for more information
+/// \param[in] options counting options, see ScalarAggregateOptions for more information
 /// \param[in] datum to count
 /// \param[in] ctx the function execution context, optional
 /// \return out resulting datum
@@ -161,30 +145,40 @@ struct ARROW_EXPORT TDigestOptions : public FunctionOptions {
 /// \since 1.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> Count(const Datum& datum, CountOptions options = CountOptions::Defaults(),
-                    ExecContext* ctx = NULLPTR);
+Result<Datum> Count(
+    const Datum& datum,
+    const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
 
 /// \brief Compute the mean of a numeric array.
 ///
 /// \param[in] value datum to compute the mean, expecting Array
+/// \param[in] options see ScalarAggregateOptions for more information
 /// \param[in] ctx the function execution context, optional
 /// \return datum of the computed mean as a DoubleScalar
 ///
 /// \since 1.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> Mean(const Datum& value, ExecContext* ctx = NULLPTR);
+Result<Datum> Mean(
+    const Datum& value,
+    const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
 
 /// \brief Sum values of a numeric array.
 ///
 /// \param[in] value datum to sum, expecting Array or ChunkedArray
+/// \param[in] options see ScalarAggregateOptions for more information
 /// \param[in] ctx the function execution context, optional
 /// \return datum of the computed sum as a Scalar
 ///
 /// \since 1.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> Sum(const Datum& value, ExecContext* ctx = NULLPTR);
+Result<Datum> Sum(
+    const Datum& value,
+    const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
 
 /// \brief Calculate the min / max of a numeric array
 ///
@@ -192,16 +186,17 @@ Result<Datum> Sum(const Datum& value, ExecContext* ctx = NULLPTR);
 /// struct<min: T, max: T>, where T is the input type
 ///
 /// \param[in] value input datum, expecting Array or ChunkedArray
-/// \param[in] options see MinMaxOptions for more information
+/// \param[in] options see ScalarAggregateOptions for more information
 /// \param[in] ctx the function execution context, optional
 /// \return resulting datum as a struct<min: T, max: T> scalar
 ///
 /// \since 1.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> MinMax(const Datum& value,
-                     const MinMaxOptions& options = MinMaxOptions::Defaults(),
-                     ExecContext* ctx = NULLPTR);
+Result<Datum> MinMax(
+    const Datum& value,
+    const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
 
 /// \brief Test whether any element in a boolean array evaluates to true.
 ///
@@ -305,6 +300,19 @@ ARROW_EXPORT
 Result<Datum> TDigest(const Datum& value,
                       const TDigestOptions& options = TDigestOptions::Defaults(),
                       ExecContext* ctx = NULLPTR);
+
+/// \brief Find the first index of a value in an array.
+///
+/// \param[in] value The array to search.
+/// \param[in] options The array to search for. See IndexOoptions.
+/// \param[in] ctx the function execution context, optional
+/// \return out a Scalar containing the index (or -1 if not found).
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Index(const Datum& value, const IndexOptions& options,
+                    ExecContext* ctx = NULLPTR);
 
 namespace internal {
 

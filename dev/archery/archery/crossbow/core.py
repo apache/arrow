@@ -194,7 +194,8 @@ class GitRemoteCallbacks(PygitRemoteCallbacks):
             print(msg)
             raise CrossbowError(msg)
 
-        if allowed_types & pygit2.credentials.GIT_CREDTYPE_USERPASS_PLAINTEXT:
+        if (allowed_types &
+                pygit2.credentials.GIT_CREDENTIAL_USERPASS_PLAINTEXT):
             return pygit2.UserPass(self.token, 'x-oauth-basic')
         else:
             return None

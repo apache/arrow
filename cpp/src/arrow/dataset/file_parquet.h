@@ -99,9 +99,13 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
       const std::shared_ptr<ScanOptions>& options,
       const std::shared_ptr<FileFragment>& file) const override;
 
+  Result<RecordBatchGenerator> ScanBatchesAsync(
+      const std::shared_ptr<ScanOptions>& options,
+      const std::shared_ptr<FileFragment>& file) const override;
+
   Future<util::optional<int64_t>> CountRows(
       const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
-      std::shared_ptr<ScanOptions> options) override;
+      const std::shared_ptr<ScanOptions>& options) override;
 
   using FileFormat::MakeFragment;
 
@@ -118,6 +122,9 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
   /// \brief Return a FileReader on the given source.
   Result<std::unique_ptr<parquet::arrow::FileReader>> GetReader(
       const FileSource& source, ScanOptions* = NULLPTR) const;
+
+  Future<std::shared_ptr<parquet::arrow::FileReader>> GetReaderAsync(
+      const FileSource& source, const std::shared_ptr<ScanOptions>& options) const;
 
   Result<std::shared_ptr<FileWriter>> MakeWriter(
       std::shared_ptr<io::OutputStream> destination, std::shared_ptr<Schema> schema,
@@ -215,7 +222,8 @@ class ARROW_DS_EXPORT ParquetFragmentScanOptions : public FragmentScanOptions {
   /// EXPERIMENTAL: Parallelize conversion across columns. This option is ignored if a
   /// scan is already parallelized across input files to avoid thread contention. This
   /// option will be removed after support is added for simultaneous parallelization
-  /// across files and columns.
+  /// across files and columns. Only affects the threaded reader; the async reader
+  /// will parallelize across columns if use_threads is enabled.
   bool enable_parallel_column_conversion = false;
 };
 

@@ -232,6 +232,16 @@ Future<std::shared_ptr<io::RandomAccessFile>> FileSystem::OpenInputFileAsync(
       [info](std::shared_ptr<FileSystem> self) { return self->OpenInputFile(info); });
 }
 
+Result<std::shared_ptr<io::OutputStream>> FileSystem::OpenOutputStream(
+    const std::string& path) {
+  return OpenOutputStream(path, std::shared_ptr<const KeyValueMetadata>{});
+}
+
+Result<std::shared_ptr<io::OutputStream>> FileSystem::OpenAppendStream(
+    const std::string& path) {
+  return OpenAppendStream(path, std::shared_ptr<const KeyValueMetadata>{});
+}
+
 //////////////////////////////////////////////////////////////////////////
 // SubTreeFileSystem implementation
 
@@ -447,17 +457,17 @@ Future<std::shared_ptr<io::RandomAccessFile>> SubTreeFileSystem::OpenInputFileAs
 }
 
 Result<std::shared_ptr<io::OutputStream>> SubTreeFileSystem::OpenOutputStream(
-    const std::string& path) {
+    const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
   auto s = path;
   RETURN_NOT_OK(PrependBaseNonEmpty(&s));
-  return base_fs_->OpenOutputStream(s);
+  return base_fs_->OpenOutputStream(s, metadata);
 }
 
 Result<std::shared_ptr<io::OutputStream>> SubTreeFileSystem::OpenAppendStream(
-    const std::string& path) {
+    const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
   auto s = path;
   RETURN_NOT_OK(PrependBaseNonEmpty(&s));
-  return base_fs_->OpenAppendStream(s);
+  return base_fs_->OpenAppendStream(s, metadata);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -555,16 +565,16 @@ Result<std::shared_ptr<io::RandomAccessFile>> SlowFileSystem::OpenInputFile(
 }
 
 Result<std::shared_ptr<io::OutputStream>> SlowFileSystem::OpenOutputStream(
-    const std::string& path) {
+    const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
   latencies_->Sleep();
   // XXX Should we have a SlowOutputStream that waits on Flush() and Close()?
-  return base_fs_->OpenOutputStream(path);
+  return base_fs_->OpenOutputStream(path, metadata);
 }
 
 Result<std::shared_ptr<io::OutputStream>> SlowFileSystem::OpenAppendStream(
-    const std::string& path) {
+    const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
   latencies_->Sleep();
-  return base_fs_->OpenAppendStream(path);
+  return base_fs_->OpenAppendStream(path, metadata);
 }
 
 Status CopyFiles(const std::vector<FileLocator>& sources,
@@ -582,9 +592,10 @@ Status CopyFiles(const std::vector<FileLocator>& sources,
 
     ARROW_ASSIGN_OR_RAISE(auto source,
                           sources[i].filesystem->OpenInputStream(sources[i].path));
+    ARROW_ASSIGN_OR_RAISE(const auto metadata, source->ReadMetadata());
 
     ARROW_ASSIGN_OR_RAISE(auto destination, destinations[i].filesystem->OpenOutputStream(
-                                                destinations[i].path));
+                                                destinations[i].path, metadata));
     RETURN_NOT_OK(internal::CopyStream(source, destination, chunk_size, io_context));
     return destination->Close();
   };

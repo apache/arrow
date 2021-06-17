@@ -73,9 +73,9 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         CResult[shared_ptr[CRandomAccessFile]] OpenInputFile(
             const c_string& path)
         CResult[shared_ptr[COutputStream]] OpenOutputStream(
-            const c_string& path)
+            const c_string& path, const shared_ptr[const CKeyValueMetadata]&)
         CResult[shared_ptr[COutputStream]] OpenAppendStream(
-            const c_string& path)
+            const c_string& path, const shared_ptr[const CKeyValueMetadata]&)
         c_bool Equals(const CFileSystem& other)
         c_bool Equals(shared_ptr[CFileSystem] other)
 
@@ -137,16 +137,26 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         CResult[CS3ProxyOptions] FromUriString "FromUri"(
             const c_string& uri_string)
 
+    ctypedef enum CS3CredentialsKind "arrow::fs::S3CredentialsKind":
+        CS3CredentialsKind_Anonymous "arrow::fs::S3CredentialsKind::Anonymous"
+        CS3CredentialsKind_Default "arrow::fs::S3CredentialsKind::Default"
+        CS3CredentialsKind_Explicit "arrow::fs::S3CredentialsKind::Explicit"
+        CS3CredentialsKind_Role "arrow::fs::S3CredentialsKind::Role"
+        CS3CredentialsKind_WebIdentity \
+            "arrow::fs::S3CredentialsKind::WebIdentity"
+
     cdef cppclass CS3Options "arrow::fs::S3Options":
         c_string region
         c_string endpoint_override
         c_string scheme
         c_bool background_writes
+        shared_ptr[const CKeyValueMetadata] default_metadata
         c_string role_arn
         c_string session_name
         c_string external_id
         int load_frequency
         CS3ProxyOptions proxy_options
+        CS3CredentialsKind credentials_kind
         void ConfigureDefaultCredentials()
         void ConfigureAccessKey(const c_string& access_key,
                                 const c_string& secret_key,
@@ -234,8 +244,9 @@ ctypedef void CallbackOpenInputStream(object, const c_string&,
                                       shared_ptr[CInputStream]*)
 ctypedef void CallbackOpenInputFile(object, const c_string&,
                                     shared_ptr[CRandomAccessFile]*)
-ctypedef void CallbackOpenOutputStream(object, const c_string&,
-                                       shared_ptr[COutputStream]*)
+ctypedef void CallbackOpenOutputStream(
+    object, const c_string&, const shared_ptr[const CKeyValueMetadata]&,
+    shared_ptr[COutputStream]*)
 ctypedef void CallbackNormalizePath(object, const c_string&, c_string*)
 
 cdef extern from "arrow/python/filesystem.h" namespace "arrow::py::fs" nogil:

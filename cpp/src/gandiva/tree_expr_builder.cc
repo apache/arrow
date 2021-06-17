@@ -215,6 +215,8 @@ MAKE_IN(Date64, int64_t);
 MAKE_IN(TimeStamp, int64_t);
 MAKE_IN(Time32, int32_t);
 MAKE_IN(Time64, int64_t);
+MAKE_IN(Float, float);
+MAKE_IN(Double, double);
 MAKE_IN(String, std::string);
 MAKE_IN(Binary, std::string);
 

@@ -189,7 +189,7 @@ function compareTableIsh(actual, expected) {
 function compareVectors(actual, expected) {
 
     if ((actual == null && expected != null) || (expected == null && actual != null)) {
-        throw new Error(`${actual == null ? `actual` : `expected`} is null, was expecting ${actual == null ? expected : actual} to be that also`);
+        throw new Error(`${actual == null ? `actual` : `expected`} is null, was expecting ${actual ?? expected} to be that also`);
     }
 
     let props = ['type', 'length', 'nullCount'];

@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <ostream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -32,6 +33,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/future.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/vector.h"
 
 using ::testing::ElementsAre;
@@ -410,9 +412,9 @@ void GenericFileSystemTest::TestMoveFile(FileSystem* fs) {
 
 void GenericFileSystemTest::TestMoveDir(FileSystem* fs) {
   if (!allow_move_dir()) {
-    // XXX skip
-    return;
+    GTEST_SKIP() << "Filesystem doesn't allow moving directories";
   }
+
   ASSERT_OK(fs->CreateDir("AB/CD"));
   ASSERT_OK(fs->CreateDir("EF"));
   CreateFile(fs, "AB/abc", "abc data");
@@ -851,6 +853,24 @@ void GenericFileSystemTest::TestOpenOutputStream(FileSystem* fs) {
 
   ASSERT_RAISES(Invalid, stream->Write("x"));  // Stream is closed
 
+  // Storing metadata along file
+  auto metadata = KeyValueMetadata::Make({"Content-Type", "Content-Language"},
+                                         {"x-arrow/filesystem-test", "fr_FR"});
+  ASSERT_OK_AND_ASSIGN(stream, fs->OpenOutputStream("jkl", metadata));
+  ASSERT_OK(stream->Write("data"));
+  ASSERT_OK(stream->Close());
+  ASSERT_OK_AND_ASSIGN(auto input, fs->OpenInputStream("jkl"));
+  ASSERT_OK_AND_ASSIGN(auto got_metadata, input->ReadMetadata());
+  if (have_file_metadata()) {
+    ASSERT_NE(got_metadata, nullptr);
+    ASSERT_GE(got_metadata->size(), 2);
+    ASSERT_OK_AND_EQ("x-arrow/filesystem-test", got_metadata->Get("Content-Type"));
+  } else {
+    if (got_metadata) {
+      ASSERT_EQ(got_metadata->size(), 0);
+    }
+  }
+
   if (!allow_write_file_over_dir()) {
     // Cannot turn dir into file
     ASSERT_RAISES(IOError, fs->OpenOutputStream("CD"));
@@ -860,9 +880,9 @@ void GenericFileSystemTest::TestOpenOutputStream(FileSystem* fs) {
 
 void GenericFileSystemTest::TestOpenAppendStream(FileSystem* fs) {
   if (!allow_append_to_file()) {
-    // XXX skip
-    return;
+    GTEST_SKIP() << "Filesystem doesn't allow file appends";
   }
+
   std::shared_ptr<io::OutputStream> stream;
 
   ASSERT_OK_AND_ASSIGN(stream, fs->OpenAppendStream("abc"));
@@ -893,6 +913,8 @@ void GenericFileSystemTest::TestOpenInputStream(FileSystem* fs) {
   std::shared_ptr<io::InputStream> stream;
   std::shared_ptr<Buffer> buffer;
   ASSERT_OK_AND_ASSIGN(stream, fs->OpenInputStream("AB/abc"));
+  ASSERT_OK_AND_ASSIGN(auto metadata, stream->ReadMetadata());
+  // XXX we cannot really test anything more about metadata...
   ASSERT_OK_AND_ASSIGN(buffer, stream->Read(4));
   AssertBufferEqual(*buffer, "some");
   ASSERT_OK_AND_ASSIGN(buffer, stream->Read(6));
@@ -946,7 +968,9 @@ void GenericFileSystemTest::TestOpenInputStreamAsync(FileSystem* fs) {
 
   std::shared_ptr<io::InputStream> stream;
   std::shared_ptr<Buffer> buffer;
+  std::shared_ptr<const KeyValueMetadata> metadata;
   ASSERT_FINISHES_OK_AND_ASSIGN(stream, fs->OpenInputStreamAsync("AB/abc"));
+  ASSERT_FINISHES_OK_AND_ASSIGN(metadata, stream->ReadMetadataAsync());
   ASSERT_OK_AND_ASSIGN(buffer, stream->Read(4));
   AssertBufferEqual(*buffer, "some");
   ASSERT_OK(stream->Close());

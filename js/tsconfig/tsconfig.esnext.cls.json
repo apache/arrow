@@ -2,10 +2,10 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "target": "ESNEXT",
+    "target": "esnext",
     "module": "es2015",
     "declaration": false,
     "noEmitHelpers": true,
-    "importHelpers": true
+    "importHelpers": false
   }
 }

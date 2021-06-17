@@ -15,12 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gtest/gtest.h>
+
 #include <sstream>
 
-#include <gtest/gtest.h>
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
-
 #include "gandiva/projector.h"
 #include "gandiva/tests/test_util.h"
 #include "gandiva/tree_expr_builder.h"
@@ -427,5 +427,189 @@ TEST_F(TestHash, TestSha1Varlen) {
     EXPECT_EQ(value_at_position.size(), sha1_hash_size);
     EXPECT_NE(value_at_position, response->GetScalar(i - 1).ValueOrDie()->ToString());
   }
+}
+
+TEST_F(TestHash, TestSha1FunctionsAlias) {
+  // schema for input fields
+  auto field_a = field("a", utf8());
+  auto field_b = field("c", int64());
+  auto field_c = field("e", float64());
+  auto schema = arrow::schema({field_a, field_b, field_c});
+
+  // output fields
+  auto res_0 = field("res0", utf8());
+  auto res_0_sha1 = field("res0sha1", utf8());
+  auto res_0_sha = field("res0sha", utf8());
+
+  auto res_1 = field("res1", utf8());
+  auto res_1_sha1 = field("res1sha1", utf8());
+  auto res_1_sha = field("res1sha", utf8());
+
+  auto res_2 = field("res2", utf8());
+  auto res_2_sha1 = field("res2_sha1", utf8());
+  auto res_2_sha = field("res2_sha", utf8());
+
+  // build expressions.
+  // hashSHA1(a)
+  auto node_a = TreeExprBuilder::MakeField(field_a);
+  auto hashSha1 = TreeExprBuilder::MakeFunction("hashSHA1", {node_a}, utf8());
+  auto expr_0 = TreeExprBuilder::MakeExpression(hashSha1, res_0);
+  auto sha1 = TreeExprBuilder::MakeFunction("sha1", {node_a}, utf8());
+  auto expr_0_sha1 = TreeExprBuilder::MakeExpression(sha1, res_0_sha1);
+  auto sha = TreeExprBuilder::MakeFunction("sha", {node_a}, utf8());
+  auto expr_0_sha = TreeExprBuilder::MakeExpression(sha, res_0_sha);
+
+  auto node_b = TreeExprBuilder::MakeField(field_b);
+  auto hashSha1_1 = TreeExprBuilder::MakeFunction("hashSHA1", {node_b}, utf8());
+  auto expr_1 = TreeExprBuilder::MakeExpression(hashSha1_1, res_1);
+  auto sha1_1 = TreeExprBuilder::MakeFunction("sha1", {node_b}, utf8());
+  auto expr_1_sha1 = TreeExprBuilder::MakeExpression(sha1_1, res_1_sha1);
+  auto sha_1 = TreeExprBuilder::MakeFunction("sha", {node_b}, utf8());
+  auto expr_1_sha = TreeExprBuilder::MakeExpression(sha_1, res_1_sha);
+
+  auto node_c = TreeExprBuilder::MakeField(field_c);
+  auto hashSha1_2 = TreeExprBuilder::MakeFunction("hashSHA1", {node_c}, utf8());
+  auto expr_2 = TreeExprBuilder::MakeExpression(hashSha1_2, res_2);
+  auto sha1_2 = TreeExprBuilder::MakeFunction("sha1", {node_c}, utf8());
+  auto expr_2_sha1 = TreeExprBuilder::MakeExpression(sha1_2, res_2_sha1);
+  auto sha_2 = TreeExprBuilder::MakeFunction("sha", {node_c}, utf8());
+  auto expr_2_sha = TreeExprBuilder::MakeExpression(sha_2, res_2_sha);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema,
+                                {expr_0, expr_0_sha, expr_0_sha1, expr_1, expr_1_sha,
+                                 expr_1_sha1, expr_2, expr_2_sha, expr_2_sha1},
+                                TestConfiguration(), &projector);
+  ASSERT_OK(status) << status.message();
+
+  // Create a row-batch with some sample data
+  int32_t num_records = 3;
+
+  std::string first_string =
+      "ði ıntəˈnæʃənəl fəˈnɛtık əsoʊsiˈeıʃn\nY [ˈʏpsilɔn], "
+      "Yen [jɛn], Yoga [ˈjoːgɑ]";
+  std::string second_string =
+      "ði ıntəˈnæʃənəl fəˈnɛtık əsoʊsiˈeın\nY [ˈʏpsilɔn], "
+      "Yen [jɛn], Yoga [ˈjoːgɑ] コンニチハ";
+
+  auto array_utf8 =
+      MakeArrowArrayUtf8({"", first_string, second_string}, {false, true, true});
+
+  auto validity_array = {false, true, true};
+
+  auto array_int64 = MakeArrowArrayInt64({1, 0, 32423}, validity_array);
+
+  auto array_float64 = MakeArrowArrayFloat64({1.0, 0.0, 324893.3849}, validity_array);
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records,
+                                           {array_utf8, array_int64, array_float64});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  ASSERT_OK(status);
+
+  // Checks that the response for the hashSHA1, sha and sha1 are equals for the first
+  // field of utf8 type
+  EXPECT_ARROW_ARRAY_EQUALS(outputs.at(0), outputs.at(1));  // hashSha1 and sha
+  EXPECT_ARROW_ARRAY_EQUALS(outputs.at(1), outputs.at(2));  // sha and sha1
+
+  // Checks that the response for the hashSHA1, sha and sha1 are equals for the second
+  // field of int64 type
+  EXPECT_ARROW_ARRAY_EQUALS(outputs.at(3), outputs.at(4));  // hashSha1 and sha
+  EXPECT_ARROW_ARRAY_EQUALS(outputs.at(4), outputs.at(5));  // sha and sha1
+
+  // Checks that the response for the hashSHA1, sha and sha1 are equals for the first
+  // field of float64 type
+  EXPECT_ARROW_ARRAY_EQUALS(outputs.at(6), outputs.at(7));  // hashSha1 and sha responses
+  EXPECT_ARROW_ARRAY_EQUALS(outputs.at(7), outputs.at(8));  // sha and sha1 responses
+}
+
+TEST_F(TestHash, TestSha256FunctionsAlias) {
+  // schema for input fields
+  auto field_a = field("a", utf8());
+  auto field_b = field("c", int64());
+  auto field_c = field("e", float64());
+  auto schema = arrow::schema({field_a, field_b, field_c});
+
+  // output fields
+  auto res_0 = field("res0", utf8());
+  auto res_0_sha256 = field("res0sha256", utf8());
+
+  auto res_1 = field("res1", utf8());
+  auto res_1_sha256 = field("res1sha256", utf8());
+
+  auto res_2 = field("res2", utf8());
+  auto res_2_sha256 = field("res2_sha256", utf8());
+
+  // build expressions.
+  // hashSHA1(a)
+  auto node_a = TreeExprBuilder::MakeField(field_a);
+  auto hashSha2 = TreeExprBuilder::MakeFunction("hashSHA256", {node_a}, utf8());
+  auto expr_0 = TreeExprBuilder::MakeExpression(hashSha2, res_0);
+  auto sha256 = TreeExprBuilder::MakeFunction("sha256", {node_a}, utf8());
+  auto expr_0_sha256 = TreeExprBuilder::MakeExpression(sha256, res_0_sha256);
+
+  auto node_b = TreeExprBuilder::MakeField(field_b);
+  auto hashSha2_1 = TreeExprBuilder::MakeFunction("hashSHA256", {node_b}, utf8());
+  auto expr_1 = TreeExprBuilder::MakeExpression(hashSha2_1, res_1);
+  auto sha256_1 = TreeExprBuilder::MakeFunction("sha256", {node_b}, utf8());
+  auto expr_1_sha256 = TreeExprBuilder::MakeExpression(sha256_1, res_1_sha256);
+
+  auto node_c = TreeExprBuilder::MakeField(field_c);
+  auto hashSha2_2 = TreeExprBuilder::MakeFunction("hashSHA256", {node_c}, utf8());
+  auto expr_2 = TreeExprBuilder::MakeExpression(hashSha2_2, res_2);
+  auto sha256_2 = TreeExprBuilder::MakeFunction("sha256", {node_c}, utf8());
+  auto expr_2_sha256 = TreeExprBuilder::MakeExpression(sha256_2, res_2_sha256);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(
+      schema, {expr_0, expr_0_sha256, expr_1, expr_1_sha256, expr_2, expr_2_sha256},
+      TestConfiguration(), &projector);
+  ASSERT_OK(status) << status.message();
+
+  // Create a row-batch with some sample data
+  int32_t num_records = 3;
+
+  std::string first_string =
+      "ði ıntəˈnæʃənəl fəˈnɛtık əsoʊsiˈeıʃn\nY [ˈʏpsilɔn], "
+      "Yen [jɛn], Yoga [ˈjoːgɑ]";
+  std::string second_string =
+      "ði ıntəˈnæʃənəl fəˈnɛtık əsoʊsiˈeın\nY [ˈʏpsilɔn], "
+      "Yen [jɛn], Yoga [ˈjoːgɑ] コンニチハ";
+
+  auto array_utf8 =
+      MakeArrowArrayUtf8({"", first_string, second_string}, {false, true, true});
+
+  auto validity_array = {false, true, true};
+
+  auto array_int64 = MakeArrowArrayInt64({1, 0, 32423}, validity_array);
+
+  auto array_float64 = MakeArrowArrayFloat64({1.0, 0.0, 324893.3849}, validity_array);
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records,
+                                           {array_utf8, array_int64, array_float64});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  ASSERT_OK(status);
+
+  // Checks that the response for the hashSHA2, sha256 and sha2 are equals for the first
+  // field of utf8 type
+  EXPECT_ARROW_ARRAY_EQUALS(outputs.at(0), outputs.at(1));  // hashSha2 and sha256
+
+  // Checks that the response for the hashSHA2, sha256 and sha2 are equals for the second
+  // field of int64 type
+  EXPECT_ARROW_ARRAY_EQUALS(outputs.at(2), outputs.at(3));  // hashSha2 and sha256
+
+  // Checks that the response for the hashSHA2, sha256 and sha2 are equals for the first
+  // field of float64 type
+  EXPECT_ARROW_ARRAY_EQUALS(outputs.at(4),
+                            outputs.at(5));  // hashSha2 and sha256 responses
 }
 }  // namespace gandiva

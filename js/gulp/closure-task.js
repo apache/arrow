@@ -72,12 +72,10 @@ const closureTask = ((cache) => memoizeTask(cache, async function closure(target
                 /* external libs first */
                 `node_modules/flatbuffers/package.json`,
                 `node_modules/flatbuffers/js/flatbuffers.mjs`,
-                `node_modules/text-encoding-utf-8/package.json`,
-                `node_modules/text-encoding-utf-8/src/encoding.js`,
                 `${src}/**/*.js` /* <-- then source globs */
             ], { base: `./` }),
             sourcemaps.init(),
-            closureCompiler(createClosureArgs(entry_point, externs), {
+            closureCompiler(createClosureArgs(entry_point, externs, target), {
                 platform: ['native', 'java', 'javascript']
             }),
             // rename the sourcemaps from *.js.map files to *.min.js.map
@@ -90,7 +88,7 @@ const closureTask = ((cache) => memoizeTask(cache, async function closure(target
 module.exports = closureTask;
 module.exports.closureTask = closureTask;
 
-const createClosureArgs = (entry_point, externs) => ({
+const createClosureArgs = (entry_point, externs, target) => ({
     externs,
     entry_point,
     third_party: true,
@@ -105,7 +103,7 @@ const createClosureArgs = (entry_point, externs) => ({
     assume_function_wrapper: true,
     js_output_file: `${mainExport}.js`,
     language_in: gCCLanguageNames[`esnext`],
-    language_out: gCCLanguageNames[`es5`],
+    language_out: gCCLanguageNames[target],
     output_wrapper:`${apacheHeader()}
 (function (global, factory) {
     typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :

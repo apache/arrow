@@ -652,5 +652,353 @@ TEST_F(TestStringCompareKernel, RandomCompareArrayArray) {
   }
 }
 
+template <typename T>
+class TestVarArgsCompare : public TestBase {
+ protected:
+  static std::shared_ptr<DataType> type_singleton() {
+    return TypeTraits<T>::type_singleton();
+  }
+
+  using VarArgsFunction = std::function<Result<Datum>(
+      const std::vector<Datum>&, ElementWiseAggregateOptions, ExecContext*)>;
+
+  void SetUp() override { equal_options_ = equal_options_.nans_equal(true); }
+
+  Datum scalar(const std::string& value) {
+    return ScalarFromJSON(type_singleton(), value);
+  }
+
+  Datum array(const std::string& value) { return ArrayFromJSON(type_singleton(), value); }
+
+  Datum Eval(VarArgsFunction func, const std::vector<Datum>& args) {
+    EXPECT_OK_AND_ASSIGN(auto actual,
+                         func(args, element_wise_aggregate_options_, nullptr));
+    if (actual.is_array()) {
+      auto arr = actual.make_array();
+      ARROW_EXPECT_OK(arr->ValidateFull());
+    }
+    return actual;
+  }
+
+  void AssertNullScalar(VarArgsFunction func, const std::vector<Datum>& args) {
+    auto datum = this->Eval(func, args);
+    ASSERT_TRUE(datum.is_scalar());
+    ASSERT_FALSE(datum.scalar()->is_valid);
+  }
+
+  void Assert(VarArgsFunction func, Datum expected, const std::vector<Datum>& args) {
+    auto actual = Eval(func, args);
+    AssertDatumsApproxEqual(expected, actual, /*verbose=*/true, equal_options_);
+  }
+
+  EqualOptions equal_options_ = EqualOptions::Defaults();
+  ElementWiseAggregateOptions element_wise_aggregate_options_;
+};
+
+template <typename T>
+class TestVarArgsCompareNumeric : public TestVarArgsCompare<T> {};
+
+template <typename T>
+class TestVarArgsCompareFloating : public TestVarArgsCompare<T> {};
+
+template <typename T>
+class TestVarArgsCompareParametricTemporal : public TestVarArgsCompare<T> {
+ protected:
+  static std::shared_ptr<DataType> type_singleton() {
+    // Time32 requires second/milli, Time64 requires nano/micro
+    if (TypeTraits<T>::bytes_required(1) == 4) {
+      return std::make_shared<T>(TimeUnit::type::SECOND);
+    } else {
+      return std::make_shared<T>(TimeUnit::type::NANO);
+    }
+  }
+
+  Datum scalar(const std::string& value) {
+    return ScalarFromJSON(type_singleton(), value);
+  }
+
+  Datum array(const std::string& value) { return ArrayFromJSON(type_singleton(), value); }
+};
+
+using NumericBasedTypes =
+    ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
+                     Int32Type, Int64Type, FloatType, DoubleType, Date32Type, Date64Type>;
+using ParametricTemporalTypes = ::testing::Types<TimestampType, Time32Type, Time64Type>;
+
+TYPED_TEST_SUITE(TestVarArgsCompareNumeric, NumericBasedTypes);
+TYPED_TEST_SUITE(TestVarArgsCompareFloating, RealArrowTypes);
+TYPED_TEST_SUITE(TestVarArgsCompareParametricTemporal, ParametricTemporalTypes);
+
+TYPED_TEST(TestVarArgsCompareNumeric, MinElementWise) {
+  this->AssertNullScalar(MinElementWise, {});
+  this->AssertNullScalar(MinElementWise, {this->scalar("null"), this->scalar("null")});
+
+  this->Assert(MinElementWise, this->scalar("0"), {this->scalar("0")});
+  this->Assert(MinElementWise, this->scalar("0"),
+               {this->scalar("2"), this->scalar("0"), this->scalar("1")});
+  this->Assert(
+      MinElementWise, this->scalar("0"),
+      {this->scalar("2"), this->scalar("0"), this->scalar("1"), this->scalar("null")});
+  this->Assert(MinElementWise, this->scalar("1"),
+               {this->scalar("null"), this->scalar("null"), this->scalar("1"),
+                this->scalar("null")});
+
+  this->Assert(MinElementWise, (this->array("[]")), {this->array("[]")});
+  this->Assert(MinElementWise, this->array("[1, 2, 3, null]"),
+               {this->array("[1, 2, 3, null]")});
+
+  this->Assert(MinElementWise, this->array("[1, 2, 2, 2]"),
+               {this->array("[1, 2, 3, 4]"), this->scalar("2")});
+  this->Assert(MinElementWise, this->array("[1, 2, 2, 2]"),
+               {this->array("[1, null, 3, 4]"), this->scalar("2")});
+  this->Assert(MinElementWise, this->array("[1, 2, 2, 2]"),
+               {this->array("[1, null, 3, 4]"), this->scalar("2"), this->scalar("4")});
+  this->Assert(MinElementWise, this->array("[1, 2, 2, 2]"),
+               {this->array("[1, null, 3, 4]"), this->scalar("null"), this->scalar("2")});
+
+  this->Assert(MinElementWise, this->array("[1, 2, 2, 2]"),
+               {this->array("[1, 2, 3, 4]"), this->array("[2, 2, 2, 2]")});
+  this->Assert(MinElementWise, this->array("[1, 2, 2, 2]"),
+               {this->array("[1, 2, 3, 4]"), this->array("[2, null, 2, 2]")});
+  this->Assert(MinElementWise, this->array("[1, 2, 2, 2]"),
+               {this->array("[1, null, 3, 4]"), this->array("[2, 2, 2, 2]")});
+
+  this->Assert(MinElementWise, this->array("[1, 2, null, 6]"),
+               {this->array("[1, 2, null, null]"), this->array("[4, null, null, 6]")});
+  this->Assert(MinElementWise, this->array("[1, 2, null, 6]"),
+               {this->array("[4, null, null, 6]"), this->array("[1, 2, null, null]")});
+  this->Assert(MinElementWise, this->array("[1, 2, 3, 4]"),
+               {this->array("[1, 2, 3, 4]"), this->array("[null, null, null, null]")});
+  this->Assert(MinElementWise, this->array("[1, 2, 3, 4]"),
+               {this->array("[null, null, null, null]"), this->array("[1, 2, 3, 4]")});
+
+  this->Assert(MinElementWise, this->array("[1, 1, 1, 1]"),
+               {this->scalar("1"), this->array("[1, 2, 3, 4]")});
+  this->Assert(MinElementWise, this->array("[1, 1, 1, 1]"),
+               {this->scalar("1"), this->array("[null, null, null, null]")});
+  this->Assert(MinElementWise, this->array("[1, 1, 1, 1]"),
+               {this->scalar("null"), this->array("[1, 1, 1, 1]")});
+  this->Assert(MinElementWise, this->array("[null, null, null, null]"),
+               {this->scalar("null"), this->array("[null, null, null, null]")});
+
+  // Test null handling
+  this->element_wise_aggregate_options_.skip_nulls = false;
+  this->AssertNullScalar(MinElementWise, {this->scalar("null"), this->scalar("null")});
+  this->AssertNullScalar(MinElementWise, {this->scalar("0"), this->scalar("null")});
+
+  this->Assert(MinElementWise, this->array("[1, null, 2, 2]"),
+               {this->array("[1, null, 3, 4]"), this->scalar("2"), this->scalar("4")});
+  this->Assert(MinElementWise, this->array("[null, null, null, null]"),
+               {this->array("[1, null, 3, 4]"), this->scalar("null"), this->scalar("2")});
+  this->Assert(MinElementWise, this->array("[1, null, 2, 2]"),
+               {this->array("[1, 2, 3, 4]"), this->array("[2, null, 2, 2]")});
+
+  this->Assert(MinElementWise, this->array("[null, null, null, null]"),
+               {this->scalar("1"), this->array("[null, null, null, null]")});
+  this->Assert(MinElementWise, this->array("[null, null, null, null]"),
+               {this->scalar("null"), this->array("[1, 1, 1, 1]")});
+}
+
+TYPED_TEST(TestVarArgsCompareFloating, MinElementWise) {
+  auto Check = [this](const std::string& expected,
+                      const std::vector<std::string>& inputs) {
+    std::vector<Datum> args;
+    for (const auto& input : inputs) {
+      args.emplace_back(this->scalar(input));
+    }
+    this->Assert(MinElementWise, this->scalar(expected), args);
+
+    args.clear();
+    for (const auto& input : inputs) {
+      args.emplace_back(this->array("[" + input + "]"));
+    }
+    this->Assert(MinElementWise, this->array("[" + expected + "]"), args);
+  };
+  Check("-0.0", {"0.0", "-0.0"});
+  Check("-0.0", {"1.0", "-0.0", "0.0"});
+  Check("-1.0", {"-1.0", "-0.0"});
+  Check("0", {"0", "NaN"});
+  Check("0", {"NaN", "0"});
+  Check("Inf", {"Inf", "NaN"});
+  Check("Inf", {"NaN", "Inf"});
+  Check("-Inf", {"-Inf", "NaN"});
+  Check("-Inf", {"NaN", "-Inf"});
+  Check("NaN", {"NaN", "null"});
+  Check("0", {"0", "Inf"});
+  Check("-Inf", {"0", "-Inf"});
+}
+
+TYPED_TEST(TestVarArgsCompareParametricTemporal, MinElementWise) {
+  // Temporal kernel is implemented with numeric kernel underneath
+  this->AssertNullScalar(MinElementWise, {});
+  this->AssertNullScalar(MinElementWise, {this->scalar("null"), this->scalar("null")});
+
+  this->Assert(MinElementWise, this->scalar("0"), {this->scalar("0")});
+  this->Assert(MinElementWise, this->scalar("0"), {this->scalar("2"), this->scalar("0")});
+  this->Assert(MinElementWise, this->scalar("0"),
+               {this->scalar("0"), this->scalar("null")});
+
+  this->Assert(MinElementWise, (this->array("[]")), {this->array("[]")});
+  this->Assert(MinElementWise, this->array("[1, 2, 3, null]"),
+               {this->array("[1, 2, 3, null]")});
+
+  this->Assert(MinElementWise, this->array("[1, 2, 2, 2]"),
+               {this->array("[1, null, 3, 4]"), this->scalar("null"), this->scalar("2")});
+
+  this->Assert(MinElementWise, this->array("[1, 2, 3, 2]"),
+               {this->array("[1, null, 3, 4]"), this->array("[2, 2, null, 2]")});
+}
+
+TYPED_TEST(TestVarArgsCompareNumeric, MaxElementWise) {
+  this->AssertNullScalar(MaxElementWise, {});
+  this->AssertNullScalar(MaxElementWise, {this->scalar("null"), this->scalar("null")});
+
+  this->Assert(MaxElementWise, this->scalar("0"), {this->scalar("0")});
+  this->Assert(MaxElementWise, this->scalar("2"),
+               {this->scalar("2"), this->scalar("0"), this->scalar("1")});
+  this->Assert(
+      MaxElementWise, this->scalar("2"),
+      {this->scalar("2"), this->scalar("0"), this->scalar("1"), this->scalar("null")});
+  this->Assert(MaxElementWise, this->scalar("1"),
+               {this->scalar("null"), this->scalar("null"), this->scalar("1"),
+                this->scalar("null")});
+
+  this->Assert(MaxElementWise, (this->array("[]")), {this->array("[]")});
+  this->Assert(MaxElementWise, this->array("[1, 2, 3, null]"),
+               {this->array("[1, 2, 3, null]")});
+
+  this->Assert(MaxElementWise, this->array("[2, 2, 3, 4]"),
+               {this->array("[1, 2, 3, 4]"), this->scalar("2")});
+  this->Assert(MaxElementWise, this->array("[2, 2, 3, 4]"),
+               {this->array("[1, null, 3, 4]"), this->scalar("2")});
+  this->Assert(MaxElementWise, this->array("[4, 4, 4, 4]"),
+               {this->array("[1, null, 3, 4]"), this->scalar("2"), this->scalar("4")});
+  this->Assert(MaxElementWise, this->array("[2, 2, 3, 4]"),
+               {this->array("[1, null, 3, 4]"), this->scalar("null"), this->scalar("2")});
+
+  this->Assert(MaxElementWise, this->array("[2, 2, 3, 4]"),
+               {this->array("[1, 2, 3, 4]"), this->array("[2, 2, 2, 2]")});
+  this->Assert(MaxElementWise, this->array("[2, 2, 3, 4]"),
+               {this->array("[1, 2, 3, 4]"), this->array("[2, null, 2, 2]")});
+  this->Assert(MaxElementWise, this->array("[2, 2, 3, 4]"),
+               {this->array("[1, null, 3, 4]"), this->array("[2, 2, 2, 2]")});
+
+  this->Assert(MaxElementWise, this->array("[4, 2, null, 6]"),
+               {this->array("[1, 2, null, null]"), this->array("[4, null, null, 6]")});
+  this->Assert(MaxElementWise, this->array("[4, 2, null, 6]"),
+               {this->array("[4, null, null, 6]"), this->array("[1, 2, null, null]")});
+  this->Assert(MaxElementWise, this->array("[1, 2, 3, 4]"),
+               {this->array("[1, 2, 3, 4]"), this->array("[null, null, null, null]")});
+  this->Assert(MaxElementWise, this->array("[1, 2, 3, 4]"),
+               {this->array("[null, null, null, null]"), this->array("[1, 2, 3, 4]")});
+
+  this->Assert(MaxElementWise, this->array("[1, 2, 3, 4]"),
+               {this->scalar("1"), this->array("[1, 2, 3, 4]")});
+  this->Assert(MaxElementWise, this->array("[1, 1, 1, 1]"),
+               {this->scalar("1"), this->array("[null, null, null, null]")});
+  this->Assert(MaxElementWise, this->array("[1, 1, 1, 1]"),
+               {this->scalar("null"), this->array("[1, 1, 1, 1]")});
+  this->Assert(MaxElementWise, this->array("[null, null, null, null]"),
+               {this->scalar("null"), this->array("[null, null, null, null]")});
+
+  // Test null handling
+  this->element_wise_aggregate_options_.skip_nulls = false;
+  this->AssertNullScalar(MaxElementWise, {this->scalar("null"), this->scalar("null")});
+  this->AssertNullScalar(MaxElementWise, {this->scalar("0"), this->scalar("null")});
+
+  this->Assert(MaxElementWise, this->array("[4, null, 4, 4]"),
+               {this->array("[1, null, 3, 4]"), this->scalar("2"), this->scalar("4")});
+  this->Assert(MaxElementWise, this->array("[null, null, null, null]"),
+               {this->array("[1, null, 3, 4]"), this->scalar("null"), this->scalar("2")});
+  this->Assert(MaxElementWise, this->array("[2, null, 3, 4]"),
+               {this->array("[1, 2, 3, 4]"), this->array("[2, null, 2, 2]")});
+
+  this->Assert(MaxElementWise, this->array("[null, null, null, null]"),
+               {this->scalar("1"), this->array("[null, null, null, null]")});
+  this->Assert(MaxElementWise, this->array("[null, null, null, null]"),
+               {this->scalar("null"), this->array("[1, 1, 1, 1]")});
+}
+
+TYPED_TEST(TestVarArgsCompareFloating, MaxElementWise) {
+  auto Check = [this](const std::string& expected,
+                      const std::vector<std::string>& inputs) {
+    std::vector<Datum> args;
+    for (const auto& input : inputs) {
+      args.emplace_back(this->scalar(input));
+    }
+    this->Assert(MaxElementWise, this->scalar(expected), args);
+
+    args.clear();
+    for (const auto& input : inputs) {
+      args.emplace_back(this->array("[" + input + "]"));
+    }
+    this->Assert(MaxElementWise, this->array("[" + expected + "]"), args);
+  };
+  Check("0.0", {"0.0", "-0.0"});
+  Check("1.0", {"1.0", "-0.0", "0.0"});
+  Check("-0.0", {"-1.0", "-0.0"});
+  Check("0", {"0", "NaN"});
+  Check("0", {"NaN", "0"});
+  Check("Inf", {"Inf", "NaN"});
+  Check("Inf", {"NaN", "Inf"});
+  Check("-Inf", {"-Inf", "NaN"});
+  Check("-Inf", {"NaN", "-Inf"});
+  Check("NaN", {"NaN", "null"});
+  Check("Inf", {"0", "Inf"});
+  Check("0", {"0", "-Inf"});
+}
+
+TYPED_TEST(TestVarArgsCompareParametricTemporal, MaxElementWise) {
+  // Temporal kernel is implemented with numeric kernel underneath
+  this->AssertNullScalar(MaxElementWise, {});
+  this->AssertNullScalar(MaxElementWise, {this->scalar("null"), this->scalar("null")});
+
+  this->Assert(MaxElementWise, this->scalar("0"), {this->scalar("0")});
+  this->Assert(MaxElementWise, this->scalar("2"), {this->scalar("2"), this->scalar("0")});
+  this->Assert(MaxElementWise, this->scalar("0"),
+               {this->scalar("0"), this->scalar("null")});
+
+  this->Assert(MaxElementWise, (this->array("[]")), {this->array("[]")});
+  this->Assert(MaxElementWise, this->array("[1, 2, 3, null]"),
+               {this->array("[1, 2, 3, null]")});
+
+  this->Assert(MaxElementWise, this->array("[2, 2, 3, 4]"),
+               {this->array("[1, null, 3, 4]"), this->scalar("null"), this->scalar("2")});
+
+  this->Assert(MaxElementWise, this->array("[2, 2, 3, 4]"),
+               {this->array("[1, null, 3, 4]"), this->array("[2, 2, null, 2]")});
+}
+
+TEST(TestMaxElementWiseMinElementWise, CommonTimestamp) {
+  {
+    auto t1 = std::make_shared<TimestampType>(TimeUnit::SECOND);
+    auto t2 = std::make_shared<TimestampType>(TimeUnit::MILLI);
+    auto expected = MakeScalar(t2, 1000).ValueOrDie();
+    ASSERT_OK_AND_ASSIGN(auto actual,
+                         MinElementWise({Datum(MakeScalar(t1, 1).ValueOrDie()),
+                                         Datum(MakeScalar(t2, 12000).ValueOrDie())}));
+    AssertScalarsEqual(*expected, *actual.scalar(), /*verbose=*/true);
+  }
+  {
+    auto t1 = std::make_shared<Date32Type>();
+    auto t2 = std::make_shared<TimestampType>(TimeUnit::SECOND);
+    auto expected = MakeScalar(t2, 86401).ValueOrDie();
+    ASSERT_OK_AND_ASSIGN(auto actual,
+                         MaxElementWise({Datum(MakeScalar(t1, 1).ValueOrDie()),
+                                         Datum(MakeScalar(t2, 86401).ValueOrDie())}));
+    AssertScalarsEqual(*expected, *actual.scalar(), /*verbose=*/true);
+  }
+  {
+    auto t1 = std::make_shared<Date32Type>();
+    auto t2 = std::make_shared<Date64Type>();
+    auto t3 = std::make_shared<TimestampType>(TimeUnit::SECOND);
+    auto expected = MakeScalar(t3, 86400).ValueOrDie();
+    ASSERT_OK_AND_ASSIGN(
+        auto actual, MinElementWise({Datum(MakeScalar(t1, 1).ValueOrDie()),
+                                     Datum(MakeScalar(t2, 2 * 86400000).ValueOrDie())}));
+    AssertScalarsEqual(*expected, *actual.scalar(), /*verbose=*/true);
+  }
+}
+
 }  // namespace compute
 }  // namespace arrow

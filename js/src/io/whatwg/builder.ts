@@ -91,7 +91,7 @@ export class BuilderTransform<T extends DataType = any, TNull = any> {
     }
 
     private _maybeFlush(builder: Builder<T, TNull>, controller: ReadableStreamDefaultController<V<T>> | null) {
-        if (controller === null) { return; }
+        if (controller == null) { return; }
         if (this._bufferedSize >= controller.desiredSize!) {
             ++this._numChunks && this._enqueue(controller, builder.toVector());
         }
@@ -108,7 +108,7 @@ export class BuilderTransform<T extends DataType = any, TNull = any> {
     private _enqueue(controller: ReadableStreamDefaultController<V<T>>, chunk: V<T> | null) {
         this._bufferedSize = 0;
         this._controller = null;
-        chunk === null ? controller.close() : controller.enqueue(chunk);
+        chunk == null ? controller.close() : controller.enqueue(chunk);
     }
 }
 

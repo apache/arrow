@@ -32,7 +32,7 @@ extras = {
     'benchmark': ['pandas'],
     'docker': ['ruamel.yaml', 'python-dotenv'],
     'release': [jinja_req, 'jira', 'semver', 'gitpython'],
-    'crossbow': ['github3.py', jinja_req, 'pygit2', 'ruamel.yaml',
+    'crossbow': ['github3.py', jinja_req, 'pygit2>=1.6.0', 'ruamel.yaml',
                  'setuptools_scm'],
 }
 extras['bot'] = extras['crossbow'] + ['pygithub', 'jira']

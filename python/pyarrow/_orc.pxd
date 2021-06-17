@@ -39,6 +39,8 @@ cdef extern from "arrow/adapters/orc/adapter.h" \
                      CMemoryPool* pool,
                      unique_ptr[ORCFileReader]* reader)
 
+        CResult[shared_ptr[const CKeyValueMetadata]] ReadMetadata()
+
         CStatus ReadSchema(shared_ptr[CSchema]* out)
 
         CStatus ReadStripe(int64_t stripe, shared_ptr[CRecordBatch]* out)

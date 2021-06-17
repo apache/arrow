@@ -30,6 +30,7 @@
 #include "arrow/array/builder_time.h"
 #include "arrow/array/builder_union.h"
 #include "arrow/ipc/json_simple.h"
+#include "arrow/scalar.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
@@ -909,6 +910,26 @@ Status DictArrayFromJSON(const std::shared_ptr<DataType>& type,
 
   return DictionaryArray::FromArrays(type, std::move(indices), std::move(dictionary))
       .Value(out);
+}
+
+Status ScalarFromJSON(const std::shared_ptr<DataType>& type,
+                      util::string_view json_string, std::shared_ptr<Scalar>* out) {
+  std::shared_ptr<Converter> converter;
+  RETURN_NOT_OK(GetConverter(type, &converter));
+
+  rj::Document json_doc;
+  json_doc.Parse<kParseFlags>(json_string.data(), json_string.length());
+  if (json_doc.HasParseError()) {
+    return Status::Invalid("JSON parse error at offset ", json_doc.GetErrorOffset(), ": ",
+                           GetParseError_En(json_doc.GetParseError()));
+  }
+
+  std::shared_ptr<Array> array;
+  RETURN_NOT_OK(converter->AppendValue(json_doc));
+  RETURN_NOT_OK(converter->Finish(&array));
+  DCHECK_EQ(array->length(), 1);
+  ARROW_ASSIGN_OR_RAISE(*out, array->GetScalar(0));
+  return Status::OK();
 }
 
 }  // namespace json

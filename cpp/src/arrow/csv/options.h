@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "arrow/csv/type_fwd.h"
+#include "arrow/status.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -59,6 +60,9 @@ struct ARROW_EXPORT ParseOptions {
 
   /// Create parsing options with default values
   static ParseOptions Defaults();
+
+  /// \brief Test that all set options are valid
+  Status Validate() const;
 };
 
 struct ARROW_EXPORT ConvertOptions {
@@ -74,11 +78,18 @@ struct ARROW_EXPORT ConvertOptions {
   std::vector<std::string> true_values;
   /// Recognized spellings for boolean false values
   std::vector<std::string> false_values;
+
   /// Whether string / binary columns can have null values.
   ///
   /// If true, then strings in "null_values" are considered null for string columns.
   /// If false, then all strings are valid string values.
   bool strings_can_be_null = false;
+  /// Whether string / binary columns can have quoted null values.
+  ///
+  /// If true *and* `strings_can_be_null` is true, then quoted strings in
+  /// "null_values" are also considered null for string columns.  Otherwise,
+  /// quoted strings are never considered null.
+  bool quoted_strings_can_be_null = true;
 
   /// Whether to try to automatically dict-encode string / binary data.
   /// If true, then when type inference detects a string or binary column,
@@ -112,6 +123,9 @@ struct ARROW_EXPORT ConvertOptions {
   /// Create conversion options with default values, including conventional
   /// values for `null_values`, `true_values` and `false_values`
   static ConvertOptions Defaults();
+
+  /// \brief Test that all set options are valid
+  Status Validate() const;
 };
 
 struct ARROW_EXPORT ReadOptions {
@@ -124,10 +138,14 @@ struct ARROW_EXPORT ReadOptions {
   ///
   /// This will determine multi-threading granularity as well as
   /// the size of individual record batches.
+  /// Minimum valid value for block size is 1
   int32_t block_size = 1 << 20;  // 1 MB
 
   /// Number of header rows to skip (not including the row of column names, if any)
   int32_t skip_rows = 0;
+
+  /// Number of rows to skip after the column names are read, if any
+  int32_t skip_rows_after_names = 0;
 
   /// Column names for the target table.
   /// If empty, fall back on autogenerate_column_names.
@@ -140,6 +158,9 @@ struct ARROW_EXPORT ReadOptions {
 
   /// Create read options with default values
   static ReadOptions Defaults();
+
+  /// \brief Test that all set options are valid
+  Status Validate() const;
 };
 
 /// Experimental
@@ -155,6 +176,9 @@ struct ARROW_EXPORT WriteOptions {
 
   /// Create write options with default values
   static WriteOptions Defaults();
+
+  /// \brief Test that all set options are valid
+  Status Validate() const;
 };
 
 }  // namespace csv

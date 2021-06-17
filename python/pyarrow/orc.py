@@ -76,6 +76,11 @@ class ORCFile:
         self._column_index_lookup = _schema_to_indices(self.schema)
 
     @property
+    def metadata(self):
+        """The file metadata, as an arrow KeyValueMetadata"""
+        return self.reader.metadata()
+
+    @property
     def schema(self):
         """The file schema, as an arrow schema"""
         return self.reader.schema()

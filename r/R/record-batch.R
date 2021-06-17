@@ -162,6 +162,9 @@ RecordBatch$create <- function(..., schema = NULL) {
     return(dplyr::group_by(out, !!!dplyr::groups(arrays[[1]])))
   }
   
+  # If any arrays are length 1, recycle them
+  arrays <- recycle_scalars(arrays)
+
   # TODO: should this also assert that they're all Arrays?
   RecordBatch__from_arrays(schema, arrays)
 }
@@ -187,8 +190,7 @@ RecordBatch$from_message <- function(obj, schema) {
 #' @param schema a [Schema], or `NULL` (the default) to infer the schema from
 #' the data in `...`. When providing an Arrow IPC buffer, `schema` is required.
 #' @rdname RecordBatch
-#' @examples
-#' \donttest{
+#' @examplesIf arrow_available()
 #' batch <- record_batch(name = rownames(mtcars), mtcars)
 #' dim(batch)
 #' dim(head(batch))
@@ -196,7 +198,6 @@ RecordBatch$from_message <- function(obj, schema) {
 #' batch$mpg
 #' batch[["cyl"]]
 #' as.data.frame(batch[4:8, c("gear", "hp", "wt")])
-#' }
 #' @export
 record_batch <- RecordBatch$create
 

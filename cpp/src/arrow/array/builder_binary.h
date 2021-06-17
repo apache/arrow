@@ -77,6 +77,23 @@ class BaseBinaryBuilder : public ArrayBuilder {
     return Append(value.data(), static_cast<offset_type>(value.size()));
   }
 
+  /// Extend the last appended value by appending more data at the end
+  ///
+  /// Unlike Append, this does not create a new offset.
+  Status ExtendCurrent(const uint8_t* value, offset_type length) {
+    // Safety check for UBSAN.
+    if (ARROW_PREDICT_TRUE(length > 0)) {
+      ARROW_RETURN_NOT_OK(ValidateOverflow(length));
+      ARROW_RETURN_NOT_OK(value_data_builder_.Append(value, length));
+    }
+    return Status::OK();
+  }
+
+  Status ExtendCurrent(util::string_view value) {
+    return ExtendCurrent(reinterpret_cast<const uint8_t*>(value.data()),
+                         static_cast<offset_type>(value.size()));
+  }
+
   Status AppendNulls(int64_t length) final {
     const int64_t num_bytes = value_data_builder_.length();
     ARROW_RETURN_NOT_OK(Reserve(length));
@@ -133,10 +150,26 @@ class BaseBinaryBuilder : public ArrayBuilder {
     UnsafeAppend(value.data(), static_cast<offset_type>(value.size()));
   }
 
+  /// Like ExtendCurrent, but do not check capacity
+  void UnsafeExtendCurrent(const uint8_t* value, offset_type length) {
+    value_data_builder_.UnsafeAppend(value, length);
+  }
+
+  void UnsafeExtendCurrent(util::string_view value) {
+    UnsafeExtendCurrent(reinterpret_cast<const uint8_t*>(value.data()),
+                        static_cast<offset_type>(value.size()));
+  }
+
   void UnsafeAppendNull() {
     const int64_t num_bytes = value_data_builder_.length();
     offsets_builder_.UnsafeAppend(static_cast<offset_type>(num_bytes));
     UnsafeAppendToBitmap(false);
+  }
+
+  void UnsafeAppendEmptyValue() {
+    const int64_t num_bytes = value_data_builder_.length();
+    offsets_builder_.UnsafeAppend(static_cast<offset_type>(num_bytes));
+    UnsafeAppendToBitmap(true);
   }
 
   /// \brief Append a sequence of strings in one shot.

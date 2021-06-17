@@ -108,6 +108,22 @@ test_that("ChunkedArray handles !!! splicing", {
   expect_equal(x$num_chunks, 3L)
 })
 
+test_that("ChunkedArray handles Inf", {
+  data <- list(c(Inf, 2:10), c(1:3, Inf, 5L), 1:10)
+  x <- chunked_array(!!!data)
+  expect_equal(x$type, float64())
+  expect_equal(x$num_chunks, 3L)
+  expect_equal(length(x), 25L)
+  expect_equal(as.vector(x), c(c(Inf, 2:10), c(1:3, Inf, 5), 1:10))
+
+  chunks <- x$chunks
+  expect_equal(as.vector(is.infinite(chunks[[2]])), is.infinite(data[[2]]))
+  expect_equal(
+    as.vector(is.infinite(x)),
+    c(is.infinite(data[[1]]), is.infinite(data[[2]]), is.infinite(data[[3]]))
+  )
+})
+
 test_that("ChunkedArray handles NA", {
   data <- list(1:10, c(NA, 2:10), c(1:3, NA, 5L))
   x <- chunked_array(!!!data)

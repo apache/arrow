@@ -16,7 +16,6 @@
 // under the License.
 
 const randomatic = require('randomatic');
-import { TextEncoder } from 'text-encoding-utf-8';
 import { VectorType as V } from '../src/interfaces';
 
 import {
@@ -581,15 +580,13 @@ type TypedArrayConstructor =
 
 const rand = Math.random.bind(Math);
 const randomBytes = (length: number) => fillRandom(Uint8Array, length);
-const randomString = ((opts) =>
-    (length: number) => randomatic('?', length, opts)
-)({ chars: `abcdefghijklmnopqrstuvwxyz0123456789_` });
+const randomString = (length: number) => randomatic('?', length, { chars: `abcdefghijklmnopqrstuvwxyz0123456789_` });
 
 const memoize = (fn: () => any) => ((x?: any) => () => x || (x = fn()))();
 
 const encodeUtf8 = ((encoder) =>
     encoder.encode.bind(encoder) as (input?: string, options?: { stream?: boolean }) => Uint8Array
-)(new TextEncoder('utf-8'));
+)(new TextEncoder());
 
 function fillRandom<T extends TypedArrayConstructor>(ArrayType: T, length: number) {
     const BPE = ArrayType.BYTES_PER_ELEMENT;

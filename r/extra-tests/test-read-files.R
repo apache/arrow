@@ -35,7 +35,9 @@ test_that("Can see the metadata (parquet)", {
   df <- read_parquet(pq_file)
   expect_s3_class(df, "tbl")
 
-  expect_equal(
+  # expect_mapequal() instead of expect_equal() because there was an order change where
+  # `class` is located in version 3.0.0 and above.
+  expect_mapequal(
     attributes(df),
     list(
       names = letters[1:4],
@@ -78,7 +80,7 @@ for (comp in c("lz4", "uncompressed", "zstd")) {
     df <- read_feather(feather_file)
     expect_s3_class(df, "tbl")
 
-    expect_equal(
+    expect_mapequal(
       attributes(df),
       list(
         names = letters[1:4],
@@ -137,7 +139,7 @@ test_that("Can see the metadata (stream)", {
 
   expect_s3_class(df, "tbl")
 
-  expect_equal(
+  expect_mapequal(
     attributes(df),
     list(
       names = letters[1:4],

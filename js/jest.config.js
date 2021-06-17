@@ -17,9 +17,6 @@
 
 module.exports = {
     "verbose": false,
-    "reporters": [
-      "jest-silent-reporter"
-    ],
     "testEnvironment": "node",
     "globals": {
       "ts-jest": {

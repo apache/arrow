@@ -315,9 +315,11 @@ test_that("Write a CSV file with different batch sizes", {
 })
 
 test_that("Write a CSV file with invalid input type", {
+  
+  bad_input <- Array$create(1:5)
   expect_error(
-    write_csv_arrow(Array$create(1:5), csv_file),
-    regexp = 'x must be a "ArrowTabular"'
+    write_csv_arrow(bad_input, csv_file),
+    regexp = "x must be an object of class 'data.frame', 'RecordBatch', or 'Table', not 'Array'."
     )
 })
 

@@ -128,12 +128,12 @@ class DummyHandler(FileSystemHandler):
         data = "{0}:input_file".format(path).encode('utf8')
         return pa.BufferReader(data)
 
-    def open_output_stream(self, path):
+    def open_output_stream(self, path, metadata):
         if "notfound" in path:
             raise FileNotFoundError(path)
         return pa.BufferOutputStream()
 
-    def open_append_stream(self, path):
+    def open_append_stream(self, path, metadata):
         if "notfound" in path:
             raise FileNotFoundError(path)
         return pa.BufferOutputStream()
@@ -193,11 +193,11 @@ class ProxyHandler(FileSystemHandler):
     def open_input_file(self, path):
         return self._fs.open_input_file(path)
 
-    def open_output_stream(self, path):
-        return self._fs.open_output_stream(path)
+    def open_output_stream(self, path, metadata):
+        return self._fs.open_output_stream(path, metadata=metadata)
 
-    def open_append_stream(self, path):
-        return self._fs.open_append_stream(path)
+    def open_append_stream(self, path, metadata):
+        return self._fs.open_append_stream(path, metadata=metadata)
 
 
 @pytest.fixture
@@ -967,6 +967,25 @@ def test_open_append_stream(fs, pathfn, compression, buffer_size, compressor,
                                   buffer_size=buffer_size)
 
 
+def test_open_output_stream_metadata(fs, pathfn):
+    p = pathfn('open-output-stream-metadata')
+    metadata = {'Content-Type': 'x-pyarrow/test'}
+
+    data = b'some data'
+    with fs.open_output_stream(p, metadata=metadata) as f:
+        f.write(data)
+
+    with fs.open_input_stream(p) as f:
+        assert f.read() == data
+        got_metadata = f.metadata()
+
+    if fs.type_name == 's3' or 'mock' in fs.type_name:
+        for k, v in metadata.items():
+            assert got_metadata[k] == v.encode()
+    else:
+        assert got_metadata == {}
+
+
 def test_localfs_options():
     # LocalFileSystem instantiation
     LocalFileSystem(use_mmap=False)
@@ -1035,6 +1054,16 @@ def test_s3_options():
     assert isinstance(fs, S3FileSystem)
     assert pickle.loads(pickle.dumps(fs)) == fs
 
+    fs = S3FileSystem(anonymous=True)
+    assert isinstance(fs, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs)) == fs
+
+    fs = S3FileSystem(background_writes=True,
+                      default_metadata={"ACL": "authenticated-read",
+                                        "Content-Type": "text/plain"})
+    assert isinstance(fs, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs)) == fs
+
     with pytest.raises(ValueError):
         S3FileSystem(access_key='access')
     with pytest.raises(ValueError):
@@ -1047,6 +1076,14 @@ def test_s3_options():
         S3FileSystem(
             access_key='access', secret_key='secret', role_arn='arn'
         )
+    with pytest.raises(ValueError):
+        S3FileSystem(
+            access_key='access', secret_key='secret', anonymous=True
+        )
+    with pytest.raises(ValueError):
+        S3FileSystem(role_arn="arn", anonymous=True)
+    with pytest.raises(ValueError):
+        S3FileSystem(default_metadata=["foo", "bar"])
 
 
 @pytest.mark.s3
@@ -1493,6 +1530,13 @@ def test_s3_real_aws():
     fs = S3FileSystem(anonymous=True, region='us-east-2')
     entries = fs.get_file_info(FileSelector('ursa-labs-taxi-data'))
     assert len(entries) > 0
+    with fs.open_input_stream('ursa-labs-taxi-data/2019/06/data.parquet') as f:
+        md = f.metadata()
+        assert 'Content-Type' in md
+        assert md['Last-Modified'] == b'2020-01-17T16:26:28Z'
+        # For some reason, the header value is quoted
+        # (both with AWS and Minio)
+        assert md['ETag'] == b'"f1efd5d76cb82861e1542117bfa52b90-8"'
 
 
 @pytest.mark.s3

@@ -311,6 +311,8 @@ In addition, the GitHub PR "suggestion" feature can also add commits to
 your branch, so it is possible that your local copy of your branch is missing
 some additions.
 
+.. include:: experimental_repos.rst
+
 Guidance for specific features
 ==============================
 

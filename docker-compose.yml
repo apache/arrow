@@ -119,12 +119,13 @@ x-hierarchy:
   - ubuntu-r-valgrind
   - python-sdist
   - r
+  - r-revdepcheck
   # helper services
   - impala
   - postgres
   - python-wheel-manylinux-2010
   - python-wheel-manylinux-2014:
-    - java-bundled-jars
+    - java-jni-manylinux-2014
   - python-wheel-manylinux-test-imports
   - python-wheel-manylinux-test-unittests
   - python-wheel-windows-vs2017
@@ -816,24 +817,24 @@ services:
         target: "C:/arrow"
     command: arrow\\ci\\scripts\\python_wheel_windows_test.bat
 
-  java-bundled-jars:
-    # Docker image
-    image: ${REPO}:${ARCH}-java-bundled-jars-vcpkg-${VCPKG}
+  java-jni-manylinux-2014:
+    image: ${REPO}:${ARCH}-java-jni-manylinux-2014-vcpkg-${VCPKG}
     build:
       args:
         base: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014-vcpkg-${VCPKG}
         java: 1.8.0
       context: .
-      dockerfile: ci/docker/java-bundled-jars.dockerfile
+      dockerfile: ci/docker/java-jni-manylinux-201x.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-java-bundled-jars-vcpkg-${VCPKG}
+        - ${REPO}:${ARCH}-java-jni-manylinux-2014-vcpkg-${VCPKG}
     environment:
       <<: *ccache
     volumes:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux2014-ccache:/ccache:delegated
     command:
-      [/arrow/ci/scripts/java_bundled_jars_manylinux_build.sh /arrow /build /arrow/dist]
+      ["pip install -e /arrow/dev/archery &&
+        /arrow/ci/scripts/java_jni_manylinux_build.sh /arrow /build /arrow/java/dist"]
 
   ##############################  Integration #################################
 
@@ -1088,6 +1089,7 @@ services:
         r_bin: RDvalgrind
     environment:
       <<: *ccache
+      ARROW_R_DEV: ${ARROW_R_DEV}
       # AVX512 not supported by Valgrind (similar to ARROW-9851) some runners support AVX512 and some do not
       # so some build might pass without this setting, but we want to ensure that we stay to AVX2 regardless of runner.
       EXTRA_CMAKE_FLAGS: "-DARROW_RUNTIME_SIMD_LEVEL=AVX2"
@@ -1095,6 +1097,30 @@ services:
     command: >
       /bin/bash -c "
         /arrow/ci/scripts/r_valgrind.sh /arrow"
+
+  r-revdepcheck:
+    # Usage:
+    #   docker-compose build r-revdepcheck
+    #   docker-compose run r-revdepcheck
+    image: ${REPO}:r-rstudio-r-base-4.0-focal-revdepcheck
+    build:
+      context: .
+      dockerfile: ci/docker/linux-r.dockerfile
+      cache_from:
+        - ${REPO}:r-rstudio-r-base-4.0-focal-revdepcheck
+      args:
+        base: rstudio/r-base:4.0-focal
+        r_dev: ${ARROW_R_DEV}
+    shm_size: *shm-size
+    environment:
+      LIBARROW_DOWNLOAD: "true"
+      LIBARROW_MINIMAL: "false"
+      ARROW_SOURCE_HOME: "/arrow"
+      ARROW_R_DEV: "true"
+    volumes: *ubuntu-volumes
+    command: >
+      /bin/bash -c "/arrow/ci/scripts/r_revdepcheck.sh /arrow"
+
 
 
   ################################# Go ########################################
@@ -1268,6 +1294,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-docs
       args:
+        r: ${R}
         jdk: ${JDK}
         node: ${NODE}
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3

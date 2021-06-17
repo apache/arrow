@@ -414,6 +414,7 @@ class CSVConverter {
 
 Status WriteCSV(const Table& table, const WriteOptions& options, MemoryPool* pool,
                 arrow::io::OutputStream* output) {
+  RETURN_NOT_OK(options.Validate());
   if (pool == nullptr) {
     pool = default_memory_pool();
   }
@@ -424,6 +425,7 @@ Status WriteCSV(const Table& table, const WriteOptions& options, MemoryPool* poo
 
 Status WriteCSV(const RecordBatch& batch, const WriteOptions& options, MemoryPool* pool,
                 arrow::io::OutputStream* output) {
+  RETURN_NOT_OK(options.Validate());
   if (pool == nullptr) {
     pool = default_memory_pool();
   }

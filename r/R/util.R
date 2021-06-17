@@ -110,3 +110,77 @@ handle_embedded_nul_error <- function(e) {
   }
   stop(e)
 }
+
+handle_parquet_io_error <- function(e, format) {
+  msg <- conditionMessage(e)
+  if (grepl("Parquet magic bytes not found in footer", msg) && length(format) > 1 && is_character(format)) {
+    # If length(format) > 1, that means it is (almost certainly) the default/not specified value
+    # so let the user know that they should specify the actual (not parquet) format
+    abort(c(
+      msg, 
+      i = "Did you mean to specify a 'format' other than the default (parquet)?"
+    ))
+  }
+  stop(e)
+}
+
+is_writable_table <- function(x) {
+  inherits(x, c("data.frame", "ArrowTabular"))
+}
+
+# This attribute is used when is_writable is passed into assert_that, and allows 
+# the call to form part of the error message when is_writable is FALSE
+attr(is_writable_table, "fail") <- function(call, env){
+  paste0(
+    deparse(call$x),
+    " must be an object of class 'data.frame', 'RecordBatch', or 'Table', not '",
+    class(env[[deparse(call$x)]])[[1]], 
+    "'."
+  )
+}
+
+#' Recycle scalar values in a list of arrays
+#' 
+#' @param arrays List of arrays
+#' @return List of arrays with any vector/Scalar/Array/ChunkedArray values of length 1 recycled 
+#' @keywords internal
+recycle_scalars <- function(arrays){
+  # Get lengths of items in arrays
+  arr_lens <- map_int(arrays, NROW)
+  
+  is_scalar <- arr_lens == 1
+  
+  if (length(arrays) > 1 && any(is_scalar) && !all(is_scalar)) {
+    
+    # Recycling not supported for tibbles and data.frames
+    if (all(map_lgl(arrays, ~inherits(.x, "data.frame")))) {
+      
+      abort(c(
+          "All input tibbles or data.frames must have the same number of rows",
+          x = paste(
+            "Number of rows in longest and shortest inputs:",
+            oxford_paste(c(max(arr_lens), min(arr_lens)))
+          )
+      ))
+    }
+    
+    max_array_len <- max(arr_lens)
+    arrays[is_scalar] <- lapply(arrays[is_scalar], repeat_value_as_array, max_array_len)
+  }
+  arrays
+}
+
+#' Take an object of length 1 and repeat it.
+#' 
+#' @param object Object of length 1 to be repeated - vector, `Scalar`, `Array`, or `ChunkedArray`
+#' @param n Number of repetitions
+#' 
+#' @return `Array` of length `n`
+#' 
+#' @keywords internal
+repeat_value_as_array <- function(object, n) {
+  if (inherits(object, "ChunkedArray")) {
+    return(Scalar$create(object$chunks[[1]])$as_array(n))
+  }
+  return(Scalar$create(object)$as_array(n))
+}

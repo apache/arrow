@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstdint>
+
 #include "gandiva/gdv_function_stubs.h"
 
 // Use the same names as in arrow data types. Makes it easy to write pre-processor macros.
@@ -98,6 +99,16 @@ gdv_int64 add_int64_timestamp(gdv_int64, gdv_timestamp);
 gdv_int64 add_int32_timestamp(gdv_int32, gdv_timestamp);
 gdv_int64 date_add_int64_timestamp(gdv_int64, gdv_timestamp);
 gdv_timestamp add_date64_int64(gdv_date64, gdv_int64);
+
+gdv_timestamp to_timestamp_int32(gdv_int32);
+gdv_timestamp to_timestamp_int64(gdv_int64);
+gdv_timestamp to_timestamp_float32(gdv_float32);
+gdv_timestamp to_timestamp_float64(gdv_float64);
+
+gdv_time32 to_time_int32(gdv_int32);
+gdv_time32 to_time_int64(gdv_int64);
+gdv_time32 to_time_float32(gdv_float32);
+gdv_time32 to_time_float64(gdv_float64);
 
 gdv_int64 date_sub_timestamp_int32(gdv_timestamp, gdv_int32);
 gdv_int64 subtract_timestamp_int32(gdv_timestamp, gdv_int32);
@@ -369,12 +380,13 @@ const char* concatOperator_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8(
     gdv_int32 in8_len, const char* in9, gdv_int32 in9_len, const char* in10,
     gdv_int32 in10_len, gdv_int32* out_len);
 
+const char* castVARCHAR_binary_int64(gdv_int64 context, const char* data,
+                                     gdv_int32 data_len, int64_t out_len,
+                                     int32_t* out_length);
+
 const char* castVARCHAR_utf8_int64(gdv_int64 context, const char* data,
                                    gdv_int32 data_len, int64_t out_len,
                                    int32_t* out_length);
-
-const char* lower_utf8(gdv_int64 context, const char* data, gdv_int32 data_len,
-                       int32_t* out_length);
 
 const char* reverse_utf8(gdv_int64 context, const char* data, gdv_int32 data_len,
                          int32_t* out_len);
@@ -400,12 +412,28 @@ const char* btrim_utf8_utf8(gdv_int64 context, const char* basetext,
                             gdv_int32 basetext_len, const char* trimtext,
                             gdv_int32 trimtext_len, int32_t* out_len);
 
+gdv_int32 ascii_utf8(const char* data, gdv_int32 data_len);
+
 gdv_int32 locate_utf8_utf8(gdv_int64 context, const char* sub_str, gdv_int32 sub_str_len,
                            const char* str, gdv_int32 str_len);
 
 gdv_int32 locate_utf8_utf8_int32(gdv_int64 context, const char* sub_str,
                                  gdv_int32 sub_str_len, const char* str,
                                  gdv_int32 str_len, gdv_int32 start_pos);
+
+const char* lpad_utf8_int32_utf8(gdv_int64 context, const char* text, gdv_int32 text_len,
+                                 gdv_int32 return_length, const char* fill_text,
+                                 gdv_int32 fill_text_len, gdv_int32* out_len);
+
+const char* rpad_utf8_int32_utf8(gdv_int64 context, const char* text, gdv_int32 text_len,
+                                 gdv_int32 return_length, const char* fill_text,
+                                 gdv_int32 fill_text_len, gdv_int32* out_len);
+
+const char* lpad_utf8_int32(gdv_int64 context, const char* text, gdv_int32 text_len,
+                            gdv_int32 return_length, gdv_int32* out_len);
+
+const char* rpad_utf8_int32(gdv_int64 context, const char* text, gdv_int32 text_len,
+                            gdv_int32 return_length, gdv_int32* out_len);
 
 const char* replace_with_max_len_utf8_utf8_utf8(gdv_int64 context, const char* text,
                                                 gdv_int32 text_len, const char* from_str,
@@ -423,6 +451,40 @@ const char* convert_replace_invalid_fromUTF8_binary(int64_t context, const char*
                                                     const char* char_to_replace,
                                                     int32_t char_to_replace_len,
                                                     int32_t* out_len);
+
+const char* convert_toDOUBLE(int64_t context, double value, int32_t* out_len);
+
+const char* convert_toDOUBLE_be(int64_t context, double value, int32_t* out_len);
+
+const char* convert_toFLOAT(int64_t context, float value, int32_t* out_len);
+
+const char* convert_toFLOAT_be(int64_t context, float value, int32_t* out_len);
+
+const char* convert_toBIGINT(int64_t context, int64_t value, int32_t* out_len);
+
+const char* convert_toBIGINT_be(int64_t context, int64_t value, int32_t* out_len);
+
+const char* convert_toINT(int64_t context, int32_t value, int32_t* out_len);
+
+const char* convert_toINT_be(int64_t context, int32_t value, int32_t* out_len);
+
+const char* convert_toBOOLEAN(int64_t context, bool value, int32_t* out_len);
+
+const char* convert_toTIME_EPOCH(int64_t context, int32_t value, int32_t* out_len);
+
+const char* convert_toTIME_EPOCH_be(int64_t context, int32_t value, int32_t* out_len);
+
+const char* convert_toTIMESTAMP_EPOCH(int64_t context, int64_t timestamp,
+                                      int32_t* out_len);
+const char* convert_toTIMESTAMP_EPOCH_be(int64_t context, int64_t timestamp,
+                                         int32_t* out_len);
+
+const char* convert_toDATE_EPOCH(int64_t context, int64_t date, int32_t* out_len);
+
+const char* convert_toDATE_EPOCH_be(int64_t context, int64_t date, int32_t* out_len);
+
+const char* convert_toUTF8(int64_t context, const char* value, int32_t value_len,
+                           int32_t* out_len);
 
 const char* split_part(gdv_int64 context, const char* text, gdv_int32 text_len,
                        const char* splitter, gdv_int32 split_len, gdv_int32 index,
@@ -442,6 +504,12 @@ const char* castVARCHAR_float32_int64(int64_t context, float value, int64_t len,
 
 const char* castVARCHAR_float64_int64(int64_t context, double value, int64_t len,
                                       int32_t* out_len);
+
+const char* left_utf8_int32(gdv_int64 context, const char* text, gdv_int32 text_len,
+                            gdv_int32 number, gdv_int32* out_len);
+
+const char* right_utf8_int32(gdv_int64 context, const char* text, gdv_int32 text_len,
+                             gdv_int32 number, gdv_int32* out_len);
 
 const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_len,
                           gdv_int32* out_len);

@@ -437,5 +437,14 @@ Result<std::shared_ptr<Buffer>> CompressedInputStream::DoRead(int64_t nbytes) {
 
 std::shared_ptr<InputStream> CompressedInputStream::raw() const { return impl_->raw(); }
 
+Result<std::shared_ptr<const KeyValueMetadata>> CompressedInputStream::ReadMetadata() {
+  return impl_->raw()->ReadMetadata();
+}
+
+Future<std::shared_ptr<const KeyValueMetadata>> CompressedInputStream::ReadMetadataAsync(
+    const IOContext& io_context) {
+  return impl_->raw()->ReadMetadataAsync(io_context);
+}
+
 }  // namespace io
 }  // namespace arrow

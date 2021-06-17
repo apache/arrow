@@ -23,6 +23,7 @@ import static org.apache.arrow.util.Preconditions.checkNotNull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -507,7 +508,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
   }
 
   @Override
-  public Object getObject(int index) {
+  public Map<String, ?> getObject(int index) {
     if (isSet(index) == 0) {
       return null;
     } else {

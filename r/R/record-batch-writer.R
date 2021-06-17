@@ -59,8 +59,7 @@
 #' @rdname RecordBatchWriter
 #' @name RecordBatchWriter
 #' @include arrow-package.R
-#' @examples
-#' \donttest{
+#' @examplesIf arrow_available()
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
 #'
@@ -94,7 +93,6 @@
 #' # Unlike the Writers, we don't have to close RecordBatchReaders,
 #' # but we do still need to close the file connection
 #' read_file_obj$close()
-#' }
 RecordBatchWriter <- R6Class("RecordBatchWriter", inherit = ArrowObject,
   public = list(
     write_batch = function(batch) ipc___RecordBatchWriter__WriteRecordBatch(self, batch),

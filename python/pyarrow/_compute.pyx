@@ -650,6 +650,54 @@ class CastOptions(_CastOptions):
         return self
 
 
+cdef class _ElementWiseAggregateOptions(FunctionOptions):
+    cdef:
+        unique_ptr[CElementWiseAggregateOptions] element_wise_aggregate_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.element_wise_aggregate_options.get()
+
+    def _set_options(self, bint skip_nulls):
+        self.element_wise_aggregate_options.reset(
+            new CElementWiseAggregateOptions(skip_nulls))
+
+
+class ElementWiseAggregateOptions(_ElementWiseAggregateOptions):
+    def __init__(self, bint skip_nulls=True):
+        self._set_options(skip_nulls)
+
+
+cdef class _JoinOptions(FunctionOptions):
+    cdef:
+        unique_ptr[CJoinOptions] join_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.join_options.get()
+
+    def _set_options(self, null_handling, null_replacement):
+        cdef:
+            CJoinNullHandlingBehavior c_null_handling = \
+                CJoinNullHandlingBehavior_EMIT_NULL
+            c_string c_null_replacement = tobytes(null_replacement)
+        if null_handling == 'emit_null':
+            c_null_handling = CJoinNullHandlingBehavior_EMIT_NULL
+        elif null_handling == 'skip':
+            c_null_handling = CJoinNullHandlingBehavior_SKIP
+        elif null_handling == 'replace':
+            c_null_handling = CJoinNullHandlingBehavior_REPLACE
+        else:
+            raise ValueError(
+                '"{}" is not a valid null_handling'
+                .format(null_handling))
+        self.join_options.reset(
+            new CJoinOptions(c_null_handling, c_null_replacement))
+
+
+class JoinOptions(_JoinOptions):
+    def __init__(self, null_handling='emit_null', null_replacement=''):
+        self._set_options(null_handling, null_replacement)
+
+
 cdef class _MatchSubstringOptions(FunctionOptions):
     cdef:
         unique_ptr[CMatchSubstringOptions] match_substring_options
@@ -657,14 +705,14 @@ cdef class _MatchSubstringOptions(FunctionOptions):
     cdef const CFunctionOptions* get_options(self) except NULL:
         return self.match_substring_options.get()
 
-    def _set_options(self, pattern):
+    def _set_options(self, pattern, bint ignore_case):
         self.match_substring_options.reset(
-            new CMatchSubstringOptions(tobytes(pattern)))
+            new CMatchSubstringOptions(tobytes(pattern), ignore_case))
 
 
 class MatchSubstringOptions(_MatchSubstringOptions):
-    def __init__(self, pattern):
-        self._set_options(pattern)
+    def __init__(self, pattern, bint ignore_case=False):
+        self._set_options(pattern, ignore_case)
 
 
 cdef class _TrimOptions(FunctionOptions):
@@ -682,6 +730,24 @@ cdef class _TrimOptions(FunctionOptions):
 class TrimOptions(_TrimOptions):
     def __init__(self, characters):
         self._set_options(characters)
+
+
+cdef class _ReplaceSliceOptions(FunctionOptions):
+    cdef:
+        unique_ptr[CReplaceSliceOptions] replace_slice_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.replace_slice_options.get()
+
+    def _set_options(self, start, stop, replacement):
+        self.replace_slice_options.reset(
+            new CReplaceSliceOptions(start, stop, tobytes(replacement))
+        )
+
+
+class ReplaceSliceOptions(_ReplaceSliceOptions):
+    def __init__(self, start, stop, replacement):
+        self._set_options(start, stop, replacement)
 
 
 cdef class _ReplaceSubstringOptions(FunctionOptions):
@@ -719,6 +785,23 @@ cdef class _ExtractRegexOptions(FunctionOptions):
 class ExtractRegexOptions(_ExtractRegexOptions):
     def __init__(self, pattern):
         self._set_options(pattern)
+
+
+cdef class _SliceOptions(FunctionOptions):
+    cdef:
+        unique_ptr[CSliceOptions] slice_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.slice_options.get()
+
+    def _set_options(self, start, stop, step):
+        self.slice_options.reset(
+            new CSliceOptions(start, stop, step))
+
+
+class SliceOptions(_SliceOptions):
+    def __init__(self, start, stop, step=1):
+        self._set_options(start, stop, step)
 
 
 cdef class _FilterOptions(FunctionOptions):
@@ -824,54 +907,47 @@ class ProjectOptions(_ProjectOptions):
         self._set_options(field_names)
 
 
-cdef class _MinMaxOptions(FunctionOptions):
+cdef class _ScalarAggregateOptions(FunctionOptions):
     cdef:
-        unique_ptr[CMinMaxOptions] min_max_options
+        unique_ptr[CScalarAggregateOptions] scalar_aggregate_options
 
     cdef const CFunctionOptions* get_options(self) except NULL:
-        return self.min_max_options.get()
+        return self.scalar_aggregate_options.get()
 
-    def _set_options(self, null_handling):
-        if null_handling == 'skip':
-            self.min_max_options.reset(
-                new CMinMaxOptions(CMinMaxMode_SKIP))
-        elif null_handling == 'emit_null':
-            self.min_max_options.reset(
-                new CMinMaxOptions(CMinMaxMode_EMIT_NULL))
-        else:
-            raise ValueError(
-                '{!r} is not a valid null_handling'
-                .format(null_handling))
+    def _set_options(self, skip_nulls, min_count):
+        self.scalar_aggregate_options.reset(
+            new CScalarAggregateOptions(skip_nulls, min_count))
 
 
-class MinMaxOptions(_MinMaxOptions):
-    def __init__(self, null_handling='skip'):
-        self._set_options(null_handling)
+class ScalarAggregateOptions(_ScalarAggregateOptions):
+    def __init__(self, skip_nulls=True, min_count=1):
+        self._set_options(skip_nulls, min_count)
 
 
-cdef class _CountOptions(FunctionOptions):
+cdef class _IndexOptions(FunctionOptions):
     cdef:
-        unique_ptr[CCountOptions] count_options
+        unique_ptr[CIndexOptions] index_options
 
     cdef const CFunctionOptions* get_options(self) except NULL:
-        return self.count_options.get()
+        return self.index_options.get()
 
-    def _set_options(self, count_mode):
-        if count_mode == 'count_null':
-            self.count_options.reset(
-                new CCountOptions(CCountMode_COUNT_NULL))
-        elif count_mode == 'count_non_null':
-            self.count_options.reset(
-                new CCountOptions(CCountMode_COUNT_NON_NULL))
-        else:
-            raise ValueError(
-                '{!r} is not a valid count_mode'
-                .format(count_mode))
+    def _set_options(self, Scalar scalar):
+        self.index_options.reset(
+            new CIndexOptions(pyarrow_unwrap_scalar(scalar)))
 
 
-class CountOptions(_CountOptions):
-    def __init__(self, count_mode='count_non_null'):
-        self._set_options(count_mode)
+class IndexOptions(_IndexOptions):
+    """
+    Options for the index kernel.
+
+    Parameters
+    ----------
+    value : Scalar
+        The value to search for.
+    """
+
+    def __init__(self, value):
+        self._set_options(value)
 
 
 cdef class _ModeOptions(FunctionOptions):

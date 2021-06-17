@@ -473,6 +473,70 @@ class TestStringBuilder : public TestBuilder {
     CheckStringArray(*result_, strings, is_valid, reps);
   }
 
+  void TestExtendCurrent() {
+    std::vector<std::string> strings = {"", "bbbb", "aaaaa", "", "ccc"};
+    std::vector<uint8_t> is_valid = {1, 1, 1, 0, 1};
+
+    int N = static_cast<int>(strings.size());
+    int reps = 10;
+
+    for (int j = 0; j < reps; ++j) {
+      for (int i = 0; i < N; ++i) {
+        if (!is_valid[i]) {
+          ASSERT_OK(builder_->AppendNull());
+        } else if (strings[i].length() > 3) {
+          ASSERT_OK(builder_->Append(strings[i].substr(0, 3)));
+          ASSERT_OK(builder_->ExtendCurrent(strings[i].substr(3)));
+        } else {
+          ASSERT_OK(builder_->Append(strings[i]));
+        }
+      }
+    }
+    Done();
+
+    ASSERT_EQ(reps * N, result_->length());
+    ASSERT_EQ(reps, result_->null_count());
+    ASSERT_EQ(reps * 12, result_->value_data()->size());
+
+    CheckStringArray(*result_, strings, is_valid, reps);
+  }
+
+  void TestExtendCurrentUnsafe() {
+    std::vector<std::string> strings = {"", "bbbb", "aaaaa", "", "ccc"};
+    std::vector<uint8_t> is_valid = {1, 1, 1, 0, 1};
+
+    int N = static_cast<int>(strings.size());
+    int reps = 13;
+    int64_t total_length = 0;
+    for (const auto& s : strings) {
+      total_length += static_cast<int64_t>(s.size());
+    }
+
+    ASSERT_OK(builder_->Reserve(N * reps));
+    ASSERT_OK(builder_->ReserveData(total_length * reps));
+
+    for (int j = 0; j < reps; ++j) {
+      for (int i = 0; i < N; ++i) {
+        if (!is_valid[i]) {
+          builder_->UnsafeAppendNull();
+        } else if (strings[i].length() > 3) {
+          builder_->UnsafeAppend(strings[i].substr(0, 3));
+          builder_->UnsafeExtendCurrent(strings[i].substr(3));
+        } else {
+          builder_->UnsafeAppend(strings[i]);
+        }
+      }
+    }
+    ASSERT_EQ(builder_->value_data_length(), total_length * reps);
+    Done();
+
+    ASSERT_EQ(reps * N, result_->length());
+    ASSERT_EQ(reps, result_->null_count());
+    ASSERT_EQ(reps * 12, result_->value_data()->size());
+
+    CheckStringArray(*result_, strings, is_valid, reps);
+  }
+
   void TestVectorAppend() {
     std::vector<std::string> strings = {"", "bb", "a", "", "ccc"};
     std::vector<uint8_t> valid_bytes = {1, 1, 1, 0, 1};
@@ -607,6 +671,12 @@ TYPED_TEST_SUITE(TestStringBuilder, StringTypes);
 TYPED_TEST(TestStringBuilder, TestScalarAppend) { this->TestScalarAppend(); }
 
 TYPED_TEST(TestStringBuilder, TestScalarAppendUnsafe) { this->TestScalarAppendUnsafe(); }
+
+TYPED_TEST(TestStringBuilder, TestExtendCurrent) { this->TestExtendCurrent(); }
+
+TYPED_TEST(TestStringBuilder, TestExtendCurrentUnsafe) {
+  this->TestExtendCurrentUnsafe();
+}
 
 TYPED_TEST(TestStringBuilder, TestVectorAppend) { this->TestVectorAppend(); }
 

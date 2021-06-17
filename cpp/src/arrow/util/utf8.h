@@ -65,6 +65,8 @@ static constexpr uint8_t kUTF8DecodeReject = 12;
 // In this table states are multiples of 256.
 ARROW_EXPORT extern uint16_t utf8_large_table[9 * 256];
 
+ARROW_EXPORT extern const uint8_t utf8_byte_size_table[16];
+
 // Success / reject states when looked up in the large table
 static constexpr uint16_t kUTF8ValidateAccept = 0;
 static constexpr uint16_t kUTF8ValidateReject = 256;
@@ -293,6 +295,18 @@ Result<const uint8_t*> SkipUTF8BOM(const uint8_t* data, int64_t size);
 
 static constexpr uint32_t kMaxUnicodeCodepoint = 0x110000;
 
+// size of a valid UTF8 can be determined by looking at leading 4 bits of BYTE1
+// utf8_byte_size_table[0..7] --> pure ascii chars --> 1B length
+// utf8_byte_size_table[8..11] --> internal bytes --> 1B length
+// utf8_byte_size_table[12,13] --> 2B long UTF8 chars
+// utf8_byte_size_table[14] --> 3B long UTF8 chars
+// utf8_byte_size_table[15] --> 4B long UTF8 chars
+// NOTE: Results for invalid/ malformed utf-8 sequences are undefined.
+// ex: \xFF... returns 4B
+static inline uint8_t ValidUtf8CodepointByteSize(const uint8_t* codeunit) {
+  return internal::utf8_byte_size_table[*codeunit >> 4];
+}
+
 static inline bool Utf8IsContinuation(const uint8_t codeunit) {
   return (codeunit & 0xC0) == 0x80;  // upper two bits should be 10
 }
@@ -476,6 +490,30 @@ static inline bool UTF8FindIfReverse(const uint8_t* first, const uint8_t* last,
   // to the 'first' pointer to indicate out of range.
   *position = first;
   return true;
+}
+
+static inline bool UTF8AdvanceCodepoints(const uint8_t* first, const uint8_t* last,
+                                         const uint8_t** destination, int64_t n) {
+  return UTF8FindIf(
+      first, last,
+      [&](uint32_t codepoint) {
+        bool done = n == 0;
+        n--;
+        return done;
+      },
+      destination);
+}
+
+static inline bool UTF8AdvanceCodepointsReverse(const uint8_t* first, const uint8_t* last,
+                                                const uint8_t** destination, int64_t n) {
+  return UTF8FindIfReverse(
+      first, last,
+      [&](uint32_t codepoint) {
+        bool done = n == 0;
+        n--;
+        return done;
+      },
+      destination);
 }
 
 template <class UnaryFunction>

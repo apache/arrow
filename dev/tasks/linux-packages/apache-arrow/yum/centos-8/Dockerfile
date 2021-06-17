@@ -28,6 +28,7 @@ RUN \
     boost-devel \
     brotli-devel \
     bzip2-devel \
+    c-ares-devel \
     ccache \
     clang \
     cmake \
@@ -39,6 +40,7 @@ RUN \
     glog-devel \
     gobject-introspection-devel \
     gtk-doc \
+    libarchive \
     libzstd-devel \
     llvm-devel \
     llvm-static \

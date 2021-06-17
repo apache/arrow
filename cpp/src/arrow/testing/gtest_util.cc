@@ -222,6 +222,20 @@ void AssertChunkedEquivalent(const ChunkedArray& expected, const ChunkedArray& a
   }
 }
 
+void AssertChunkedApproxEquivalent(const ChunkedArray& expected,
+                                   const ChunkedArray& actual,
+                                   const EqualOptions& equal_options) {
+  if (!actual.ApproxEquals(expected, equal_options)) {
+    std::stringstream pp_expected;
+    std::stringstream pp_actual;
+    ::arrow::PrettyPrintOptions options(/*indent=*/2);
+    options.window = 50;
+    ARROW_EXPECT_OK(PrettyPrint(expected, options, &pp_expected));
+    ARROW_EXPECT_OK(PrettyPrint(actual, options, &pp_actual));
+    FAIL() << "Got: \n" << pp_actual.str() << "\nExpected: \n" << pp_expected.str();
+  }
+}
+
 void AssertBufferEqual(const Buffer& buffer, const std::vector<uint8_t>& expected) {
   ASSERT_EQ(static_cast<size_t>(buffer.size()), expected.size())
       << "Mismatching buffer size";
@@ -361,6 +375,34 @@ void AssertDatumsEqual(const Datum& expected, const Datum& actual, bool verbose)
   }
 }
 
+void AssertDatumsApproxEqual(const Datum& expected, const Datum& actual, bool verbose,
+                             const EqualOptions& options) {
+  ASSERT_EQ(expected.kind(), actual.kind())
+      << "expected:" << expected.ToString() << " got:" << actual.ToString();
+
+  switch (expected.kind()) {
+    case Datum::SCALAR:
+      AssertScalarsApproxEqual(*expected.scalar(), *actual.scalar(), verbose, options);
+      break;
+    case Datum::ARRAY: {
+      auto expected_array = expected.make_array();
+      auto actual_array = actual.make_array();
+      AssertArraysApproxEqual(*expected_array, *actual_array, verbose, options);
+      break;
+    }
+    case Datum::CHUNKED_ARRAY: {
+      auto expected_array = expected.chunked_array();
+      auto actual_array = actual.chunked_array();
+      AssertChunkedApproxEquivalent(*expected_array, *actual_array, options);
+      break;
+    }
+    default:
+      // TODO: Implement better print
+      ASSERT_TRUE(actual.Equals(expected));
+      break;
+  }
+}
+
 std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>& type,
                                      util::string_view json) {
   std::shared_ptr<Array> out;
@@ -394,6 +436,13 @@ std::shared_ptr<RecordBatch> RecordBatchFromJSON(const std::shared_ptr<Schema>& 
 
   // Convert StructArray to RecordBatch
   return *RecordBatch::FromStructArray(struct_array);
+}
+
+std::shared_ptr<Scalar> ScalarFromJSON(const std::shared_ptr<DataType>& type,
+                                       util::string_view json) {
+  std::shared_ptr<Scalar> out;
+  ABORT_NOT_OK(ipc::internal::json::ScalarFromJSON(type, json, &out));
+  return out;
 }
 
 std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>& schema,
@@ -502,6 +551,19 @@ void ApproxCompareBatch(const RecordBatch& left, const RecordBatch& right,
   return CompareBatchWith(
       left, right, compare_metadata,
       [](const Array& left, const Array& right) { return left.ApproxEquals(right); });
+}
+
+std::shared_ptr<Array> TweakValidityBit(const std::shared_ptr<Array>& array,
+                                        int64_t index, bool validity) {
+  auto data = array->data()->Copy();
+  if (data->buffers[0] == nullptr) {
+    data->buffers[0] = *AllocateBitmap(data->length);
+    BitUtil::SetBitsTo(data->buffers[0]->mutable_data(), 0, data->length, true);
+  }
+  BitUtil::SetBitTo(data->buffers[0]->mutable_data(), index, validity);
+  data->null_count = kUnknownNullCount;
+  // Need to return a new array, because Array caches the null bitmap pointer
+  return MakeArray(data);
 }
 
 class LocaleGuard::Impl {

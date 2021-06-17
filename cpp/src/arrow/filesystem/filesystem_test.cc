@@ -28,6 +28,7 @@
 #include "arrow/filesystem/test_util.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
 namespace fs {
@@ -278,6 +279,8 @@ class TestMockFSGeneric : public ::testing::Test, public GenericFileSystemTest {
  protected:
   std::shared_ptr<FileSystem> GetEmptyFileSystem() override { return fs_; }
 
+  bool have_file_metadata() const override { return true; }
+
   TimePoint time_;
   std::shared_ptr<FileSystem> fs_;
 };
@@ -456,6 +459,18 @@ TEST_F(TestMockFS, OpenOutputStream) {
   ASSERT_OK(stream->Close());
   CheckDirs({});
   CheckFiles({{"ab", time_, ""}});
+
+  // With metadata
+  auto metadata = KeyValueMetadata::Make({"some key"}, {"some value"});
+  ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("cd", metadata));
+  ASSERT_OK(WriteString(stream.get(), "data"));
+  ASSERT_OK(stream->Close());
+  CheckFiles({{"ab", time_, ""}, {"cd", time_, "data"}});
+
+  ASSERT_OK_AND_ASSIGN(auto input, fs_->OpenInputStream("cd"));
+  ASSERT_OK_AND_ASSIGN(auto got_metadata, input->ReadMetadata());
+  ASSERT_NE(got_metadata, nullptr);
+  ASSERT_TRUE(got_metadata->Equals(*metadata));
 }
 
 TEST_F(TestMockFS, OpenAppendStream) {

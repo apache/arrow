@@ -16,11 +16,11 @@
 # under the License.
 
 #' @export
-`print.arrow-enum` <- function(x, ...){
+`print.arrow-enum` <- function(x, ...) {
   NextMethod()
 }
 
-enum <- function(class, ..., .list = list(...)){
+enum <- function(class, ..., .list = list(...)) {
   structure(
     .list,
     class = c(class, "arrow-enum")

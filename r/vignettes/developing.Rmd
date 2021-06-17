@@ -282,6 +282,14 @@ cmake \
 </p>
 </details>  
 
+### Documentation
+
+The documentation for the R package uses features of `roxygen2` that haven't yet been released on CRAN, such as conditional inclusion of examples via the `@examplesIf` tag.  If you are making changes which require updating the documentation, please install the development version of `roxygen2` from GitHub. 
+
+```{r}
+remotes::install_github("r-lib/roxygen2")
+```
+
 ## Troubleshooting
 
 Note that after any change to the C++ library, you must reinstall it and

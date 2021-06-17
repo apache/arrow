@@ -79,8 +79,10 @@ arrow::MemoryPool* gc_memory_pool();
 namespace arrow {
 
 static inline void StopIfNotOk(const Status& status) {
-  if (!(status.ok())) {
-    cpp11::stop(status.ToString());
+  if (!status.ok()) {
+    // ARROW-13039: be careful not to interpret our error message as a %-format string
+    std::string s = status.ToString();
+    cpp11::stop("%s", s.c_str());
   }
 }
 
@@ -147,6 +149,14 @@ void TraverseDots(cpp11::list dots, int num_fields, Lambda lambda) {
       j++;
     }
   }
+}
+
+inline cpp11::writable::list FlattenDots(cpp11::list dots, int num_fields) {
+  std::vector<SEXP> out(num_fields);
+  auto set = [&](int j, SEXP x, cpp11::r_string) { out[j] = x; };
+  TraverseDots(dots, num_fields, set);
+
+  return cpp11::writable::list(out.begin(), out.end());
 }
 
 arrow::Status InferSchemaFromDots(SEXP lst, SEXP schema_sxp, int num_fields,

@@ -203,7 +203,7 @@ FileSystem <- R6Class("FileSystem", inherit = ArrowObject,
     GetFileInfo = function(x) {
       if (inherits(x, "FileSelector")) {
         fs___FileSystem__GetTargetInfos_FileSelector(self, x)
-      } else if (is.character(x)){
+      } else if (is.character(x)) {
         fs___FileSystem__GetTargetInfos_Paths(self, clean_path_rel(x))
       } else {
         abort("incompatible type for FileSystem$GetFileInfo()")
@@ -398,10 +398,8 @@ default_s3_options <- list(
 #' @return A `SubTreeFileSystem` containing an `S3FileSystem` and the bucket's
 #' relative path. Note that this function's success does not guarantee that you
 #' are authorized to access the bucket's contents.
-#' @examples
-#' if (arrow_with_s3()) {
-#'   bucket <- s3_bucket("ursa-labs-taxi-data")
-#' }
+#' @examplesIf arrow_with_s3()
+#' bucket <- s3_bucket("ursa-labs-taxi-data")
 #' @export
 s3_bucket <- function(bucket, ...) {
   assert_that(is.string(bucket))
@@ -476,15 +474,13 @@ SubTreeFileSystem$create <- function(base_path, base_fs = NULL) {
 #' copying but may help accommodate high latency FileSystems.
 #' @return Nothing: called for side effects in the file system
 #' @export
-#' @examples
-#' \dontrun{
+#' @examplesIf FALSE
 #' # Copy an S3 bucket's files to a local directory:
 #' copy_files("s3://your-bucket-name", "local-directory")
 #' # Using a FileSystem object
 #' copy_files(s3_bucket("your-bucket-name"), "local-directory")
 #' # Or go the other way, from local to S3
 #' copy_files("local-directory", s3_bucket("your-bucket-name"))
-#' }
 copy_files <- function(from, to, chunk_size = 1024L * 1024L) {
   from <- get_path_and_filesystem(from)
   to <- get_path_and_filesystem(to)

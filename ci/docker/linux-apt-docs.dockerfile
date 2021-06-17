@@ -18,7 +18,7 @@
 ARG base
 FROM ${base}
 
-ARG r=4.0
+ARG r=4.1
 ARG jdk=8
 
 # See R install instructions at https://cloud.r-project.org/bin/linux/ubuntu/
@@ -51,6 +51,7 @@ RUN apt-get update -y && \
         nvidia-cuda-toolkit \
         openjdk-${jdk}-jdk-headless \
         pandoc \
+        r-recommended=${r}* \
         r-base=${r}* \
         rsync \
         ruby-dev \

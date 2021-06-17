@@ -25,6 +25,11 @@ import textwrap
 
 import numpy as np
 
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
+
 import pyarrow as pa
 import pyarrow.compute as pc
 
@@ -206,8 +211,20 @@ def test_sum_array(arrow_type):
     assert arr.sum().as_py() == 10
     assert pc.sum(arr).as_py() == 10
 
+    arr = pa.array([1, 2, 3, 4, None], type=arrow_type)
+    assert arr.sum().as_py() == 10
+    assert pc.sum(arr).as_py() == 10
+
+    arr = pa.array([None], type=arrow_type)
+    assert arr.sum().as_py() is None  # noqa: E711
+    assert pc.sum(arr).as_py() is None  # noqa: E711
+    assert arr.sum(min_count=0).as_py() == 0
+    assert pc.sum(arr, min_count=0).as_py() == 0
+
     arr = pa.array([], type=arrow_type)
     assert arr.sum().as_py() is None  # noqa: E711
+    assert arr.sum(min_count=0).as_py() == 0
+    assert pc.sum(arr, min_count=0).as_py() == 0
 
 
 @pytest.mark.parametrize('arrow_type', numerical_arrow_types)
@@ -230,6 +247,7 @@ def test_sum_chunked_array(arrow_type):
     arr = pa.chunked_array((), type=arrow_type)
     assert arr.num_chunks == 0
     assert pc.sum(arr).as_py() is None  # noqa: E711
+    assert pc.sum(arr, min_count=0).as_py() == 0
 
 
 def test_mode_array():
@@ -272,10 +290,83 @@ def test_variance():
     assert pc.variance(data, ddof=1).as_py() == 6.0
 
 
+def test_count_substring():
+    for (ty, offset) in [(pa.string(), pa.int32()),
+                         (pa.large_string(), pa.int64())]:
+        arr = pa.array(["ab", "cab", "abcab", "ba", "AB", None], type=ty)
+
+        result = pc.count_substring(arr, "ab")
+        expected = pa.array([1, 1, 2, 0, 0, None], type=offset)
+        assert expected.equals(result)
+
+        result = pc.count_substring(arr, "ab", ignore_case=True)
+        expected = pa.array([1, 1, 2, 0, 1, None], type=offset)
+        assert expected.equals(result)
+
+
+def test_count_substring_regex():
+    for (ty, offset) in [(pa.string(), pa.int32()),
+                         (pa.large_string(), pa.int64())]:
+        arr = pa.array(["ab", "cab", "baAacaa", "ba", "AB", None], type=ty)
+
+        result = pc.count_substring_regex(arr, "a+")
+        expected = pa.array([1, 1, 3, 1, 0, None], type=offset)
+        assert expected.equals(result)
+
+        result = pc.count_substring_regex(arr, "a+", ignore_case=True)
+        expected = pa.array([1, 1, 2, 1, 1, None], type=offset)
+        assert expected.equals(result)
+
+
+def test_find_substring():
+    arr = pa.array(["ab", "cab", "ba", None])
+    result = pc.find_substring(arr, "ab")
+    expected = pa.array([0, 1, -1, None], type=pa.int32())
+    assert expected.equals(result)
+
+    arr = pa.array(["ab", "cab", "ba", None], type=pa.large_string())
+    result = pc.find_substring(arr, "ab")
+    expected = pa.array([0, 1, -1, None], type=pa.int64())
+    assert expected.equals(result)
+
+    arr = pa.array([b"ab", b"cab", b"ba", None])
+    result = pc.find_substring(arr, b"ab")
+    expected = pa.array([0, 1, -1, None], type=pa.int32())
+    assert expected.equals(result)
+
+    arr = pa.array([b"ab", b"cab", b"ba", None], type=pa.large_binary())
+    result = pc.find_substring(arr, b"ab")
+    expected = pa.array([0, 1, -1, None], type=pa.int64())
+    assert expected.equals(result)
+
+
+def test_match_like():
+    arr = pa.array(["ab", "ba%", "ba", "ca%d", None])
+    result = pc.match_like(arr, r"_a\%%")
+    expected = pa.array([False, True, False, True, None])
+    assert expected.equals(result)
+
+    arr = pa.array(["aB", "bA%", "ba", "ca%d", None])
+    result = pc.match_like(arr, r"_a\%%", ignore_case=True)
+    expected = pa.array([False, True, False, True, None])
+    assert expected.equals(result)
+    result = pc.match_like(arr, r"_a\%%", ignore_case=False)
+    expected = pa.array([False, False, False, True, None])
+    assert expected.equals(result)
+
+
 def test_match_substring():
     arr = pa.array(["ab", "abc", "ba", None])
     result = pc.match_substring(arr, "ab")
     expected = pa.array([True, True, False, None])
+    assert expected.equals(result)
+
+    arr = pa.array(["áB", "Ábc", "ba", None])
+    result = pc.match_substring(arr, "áb", ignore_case=True)
+    expected = pa.array([True, True, False, None])
+    assert expected.equals(result)
+    result = pc.match_substring(arr, "áb", ignore_case=False)
+    expected = pa.array([False, False, False, None])
     assert expected.equals(result)
 
 
@@ -283,6 +374,14 @@ def test_match_substring_regex():
     arr = pa.array(["ab", "abc", "ba", "c", None])
     result = pc.match_substring_regex(arr, "^a?b")
     expected = pa.array([True, True, True, False, None])
+    assert expected.equals(result)
+
+    arr = pa.array(["aB", "Abc", "BA", "c", None])
+    result = pc.match_substring_regex(arr, "^a?b", ignore_case=True)
+    expected = pa.array([True, True, True, False, None])
+    assert expected.equals(result)
+    result = pc.match_substring_regex(arr, "^a?b", ignore_case=False)
+    expected = pa.array([False, False, False, False, None])
     assert expected.equals(result)
 
 
@@ -302,6 +401,18 @@ def test_trim():
     result = pc.utf8_trim(arr, characters=' f\u3000')
     expected = pa.array(["oo", None, "oo bar \t"])
     assert expected.equals(result)
+
+
+def test_slice_compatibility():
+    arr = pa.array(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])
+    for start in range(-6, 6):
+        for stop in range(-6, 6):
+            for step in [-3, -2, -1, 1, 2, 3]:
+                expected = pa.array([k.as_py()[start:stop:step]
+                                     for k in arr])
+                result = pc.utf8_slice_codeunits(
+                    arr, start=start, stop=stop, step=step)
+                assert expected.equals(result)
 
 
 def test_split_pattern():
@@ -349,29 +460,45 @@ def test_split_whitespace_ascii():
     assert expected.equals(result)
 
 
+def test_split_pattern_regex():
+    arr = pa.array(["-foo---bar--", "---foo---b"])
+    result = pc.split_pattern_regex(arr, pattern="-+")
+    expected = pa.array([["", "foo", "bar", ""], ["", "foo", "b"]])
+    assert expected.equals(result)
+
+    result = pc.split_pattern_regex(arr, pattern="-+", max_splits=1)
+    expected = pa.array([["", "foo---bar--"], ["", "foo---b"]])
+    assert expected.equals(result)
+
+    with pytest.raises(NotImplementedError,
+                       match="Cannot split in reverse with regex"):
+        result = pc.split_pattern_regex(
+            arr, pattern="---", max_splits=1, reverse=True)
+
+
 def test_min_max():
     # An example generated function wrapper with possible options
     data = [4, 5, 6, None, 1]
     s = pc.min_max(data)
     assert s.as_py() == {'min': 1, 'max': 6}
-    s = pc.min_max(data, options=pc.MinMaxOptions())
+    s = pc.min_max(data, options=pc.ScalarAggregateOptions())
     assert s.as_py() == {'min': 1, 'max': 6}
-    s = pc.min_max(data, options=pc.MinMaxOptions(null_handling='skip'))
+    s = pc.min_max(data, options=pc.ScalarAggregateOptions(skip_nulls=True))
     assert s.as_py() == {'min': 1, 'max': 6}
-    s = pc.min_max(data, options=pc.MinMaxOptions(null_handling='emit_null'))
+    s = pc.min_max(data, options=pc.ScalarAggregateOptions(skip_nulls=False))
     assert s.as_py() == {'min': None, 'max': None}
 
     # Options as dict of kwargs
-    s = pc.min_max(data, options={'null_handling': 'emit_null'})
+    s = pc.min_max(data, options={'skip_nulls': False})
     assert s.as_py() == {'min': None, 'max': None}
     # Options as named functions arguments
-    s = pc.min_max(data, null_handling='emit_null')
+    s = pc.min_max(data, skip_nulls=False)
     assert s.as_py() == {'min': None, 'max': None}
 
     # Both options and named arguments
     with pytest.raises(TypeError):
-        s = pc.min_max(data, options=pc.MinMaxOptions(),
-                       null_handling='emit_null')
+        s = pc.min_max(
+            data, options=pc.ScalarAggregateOptions(), skip_nulls=False)
 
     # Wrong options type
     options = pc.TakeOptions()
@@ -427,7 +554,7 @@ def test_generated_docstrings():
         Compute the minimum and maximum values of a numeric array.
 
         Null values are ignored by default.
-        This can be changed through MinMaxOptions.
+        This can be changed through ScalarAggregateOptions.
 
         Parameters
         ----------
@@ -435,10 +562,10 @@ def test_generated_docstrings():
             Argument to compute function
         memory_pool : pyarrow.MemoryPool, optional
             If not passed, will allocate memory from the default memory pool.
-        options : pyarrow.compute.MinMaxOptions, optional
+        options : pyarrow.compute.ScalarAggregateOptions, optional
             Parameters altering compute function semantics
         **kwargs : optional
-            Parameters for MinMaxOptions constructor.  Either `options`
+            Parameters for ScalarAggregateOptions constructor. Either `options`
             or `**kwargs` can be passed, but not both at the same time.
         """)
     assert pc.add.__doc__ == textwrap.dedent("""\
@@ -586,6 +713,29 @@ def test_string_py_compat_boolean(function_name, variant):
             assert arrow_func(ar)[0].as_py() == getattr(c, py_name)()
 
 
+@pytest.mark.pandas
+def test_replace_slice():
+    offsets = range(-3, 4)
+
+    arr = pa.array([None, '', 'a', 'ab', 'abc', 'abcd', 'abcde'])
+    series = arr.to_pandas()
+    for start in offsets:
+        for stop in offsets:
+            expected = series.str.slice_replace(start, stop, 'XX')
+            actual = pc.binary_replace_slice(
+                arr, start=start, stop=stop, replacement='XX')
+            assert actual.tolist() == expected.tolist()
+
+    arr = pa.array([None, '', 'π', 'πb', 'πbθ', 'πbθd', 'πbθde'])
+    series = arr.to_pandas()
+    for start in offsets:
+        for stop in offsets:
+            expected = series.str.slice_replace(start, stop, 'XX')
+            actual = pc.utf8_replace_slice(
+                arr, start=start, stop=stop, replacement='XX')
+            assert actual.tolist() == expected.tolist()
+
+
 def test_replace_plain():
     ar = pa.array(['foo', 'food', None])
     ar = pc.replace_substring(ar, pattern='foo', replacement='bar')
@@ -603,6 +753,47 @@ def test_extract_regex():
     struct = pc.extract_regex(ar, pattern=r'(?P<letter>[ab])(?P<digit>\d)')
     assert struct.tolist() == [{'letter': 'a', 'digit': '1'}, {
         'letter': 'b', 'digit': '2'}]
+
+
+def test_binary_join():
+    ar_list = pa.array([['foo', 'bar'], None, []])
+    expected = pa.array(['foo-bar', None, ''])
+    assert pc.binary_join(ar_list, '-').equals(expected)
+
+    separator_array = pa.array(['1', '2'], type=pa.binary())
+    expected = pa.array(['a1b', 'c2d'], type=pa.binary())
+    ar_list = pa.array([['a', 'b'], ['c', 'd']], type=pa.list_(pa.binary()))
+    assert pc.binary_join(ar_list, separator_array).equals(expected)
+
+
+def test_binary_join_element_wise():
+    null = pa.scalar(None, type=pa.string())
+    arrs = [[None, 'a', 'b'], ['c', None, 'd'], [None, '-', '--']]
+    assert pc.binary_join_element_wise(*arrs).to_pylist() == \
+        [None, None, 'b--d']
+    assert pc.binary_join_element_wise('a', 'b', '-').as_py() == 'a-b'
+    assert pc.binary_join_element_wise('a', null, '-').as_py() is None
+    assert pc.binary_join_element_wise('a', 'b', null).as_py() is None
+
+    skip = pc.JoinOptions('skip')
+    assert pc.binary_join_element_wise(*arrs, options=skip).to_pylist() == \
+        [None, 'a', 'b--d']
+    assert pc.binary_join_element_wise(
+        'a', 'b', '-', options=skip).as_py() == 'a-b'
+    assert pc.binary_join_element_wise(
+        'a', null, '-', options=skip).as_py() == 'a'
+    assert pc.binary_join_element_wise(
+        'a', 'b', null, options=skip).as_py() is None
+
+    replace = pc.JoinOptions('replace', null_replacement='spam')
+    assert pc.binary_join_element_wise(*arrs, options=replace).to_pylist() == \
+        [None, 'a-spam', 'b--d']
+    assert pc.binary_join_element_wise(
+        'a', 'b', '-', options=replace).as_py() == 'a-b'
+    assert pc.binary_join_element_wise(
+        'a', null, '-', options=replace).as_py() == 'a-spam'
+    assert pc.binary_join_element_wise(
+        'a', 'b', null, options=replace).as_py() is None
 
 
 @pytest.mark.parametrize(('ty', 'values'), all_array_types)
@@ -1001,6 +1192,11 @@ def test_fill_null():
     expected = pa.array([b'a', b'bb', b'ccc'], type=pa.large_binary())
     assert result.equals(expected)
 
+    arr = pa.array(['a', 'bb', None])
+    result = arr.fill_null(None)
+    expected = pa.array(['a', 'bb', None])
+    assert result.equals(expected)
+
 
 @pytest.mark.parametrize('arrow_type', numerical_arrow_types)
 def test_fill_null_array(arrow_type):
@@ -1092,11 +1288,25 @@ def test_strptime():
 def test_count():
     arr = pa.array([1, 2, 3, None, None])
     assert pc.count(arr).as_py() == 3
-    assert pc.count(arr, count_mode='count_non_null').as_py() == 3
-    assert pc.count(arr, count_mode='count_null').as_py() == 2
+    assert pc.count(arr, skip_nulls=True).as_py() == 3
+    assert pc.count(arr, skip_nulls=False).as_py() == 2
 
-    with pytest.raises(ValueError, match="'zzz' is not a valid count_mode"):
-        pc.count(arr, count_mode='zzz')
+    with pytest.raises(TypeError, match="an integer is required"):
+        pc.count(arr, min_count='zzz')
+
+
+def test_index():
+    arr = pa.array([0, 1, None, 3, 4], type=pa.int64())
+    assert pc.index(arr, pa.scalar(0)).as_py() == 0
+    assert pc.index(arr, pa.scalar(2, type=pa.int8())).as_py() == -1
+    assert pc.index(arr, 4).as_py() == 4
+    assert arr.index(3, start=2).as_py() == 3
+    assert arr.index(None).as_py() == -1
+
+    arr = pa.chunked_array([[1, 2], [1, 3]], type=pa.int64())
+    assert arr.index(1).as_py() == 0
+    assert arr.index(1, start=2).as_py() == 2
+    assert arr.index(1, start=1, end=2).as_py() == -1
 
 
 def test_partition_nth():
@@ -1255,3 +1465,37 @@ def test_fill_null_segfault():
     arr = pa.array([None], pa.bool_()).fill_null(False)
     result = arr.cast(pa.int8())
     assert result == pa.array([0], pa.int8())
+
+
+def test_min_max_element_wise():
+    arr1 = pa.array([1, 2, 3])
+    arr2 = pa.array([3, 1, 2])
+    arr3 = pa.array([2, 3, None])
+
+    result = pc.max_element_wise(arr1, arr2)
+    assert result == pa.array([3, 2, 3])
+    result = pc.min_element_wise(arr1, arr2)
+    assert result == pa.array([1, 1, 2])
+
+    result = pc.max_element_wise(arr1, arr2, arr3)
+    assert result == pa.array([3, 3, 3])
+    result = pc.min_element_wise(arr1, arr2, arr3)
+    assert result == pa.array([1, 1, 2])
+
+    # with specifying the option
+    result = pc.max_element_wise(arr1, arr3, skip_nulls=True)
+    assert result == pa.array([2, 3, 3])
+    result = pc.min_element_wise(arr1, arr3, skip_nulls=True)
+    assert result == pa.array([1, 2, 3])
+    result = pc.max_element_wise(
+        arr1, arr3, options=pc.ElementWiseAggregateOptions())
+    assert result == pa.array([2, 3, 3])
+    result = pc.min_element_wise(
+        arr1, arr3, options=pc.ElementWiseAggregateOptions())
+    assert result == pa.array([1, 2, 3])
+
+    # not skipping nulls
+    result = pc.max_element_wise(arr1, arr3, skip_nulls=False)
+    assert result == pa.array([2, 3, None])
+    result = pc.min_element_wise(arr1, arr3, skip_nulls=False)
+    assert result == pa.array([1, 2, None])

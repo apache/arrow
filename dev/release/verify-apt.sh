@@ -132,7 +132,8 @@ apt install -y -V libarrow-glib-dev=${package_version}
 apt install -y -V libarrow-glib-doc=${package_version}
 
 if [ "${have_flight}" = "yes" ]; then
-  apt install -y -V libarrow-flight-dev=${package_version}
+  apt install -y -V libarrow-flight-glib-dev=${package_version}
+  apt install -y -V libarrow-flight-glib-doc=${package_version}
 fi
 
 apt install -y -V libarrow-python-dev=${package_version}

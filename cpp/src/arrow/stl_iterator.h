@@ -47,6 +47,8 @@ class ArrayIterator {
  public:
   using value_type = arrow::util::optional<typename ValueAccessor::ValueType>;
   using difference_type = int64_t;
+  using pointer = value_type*;
+  using reference = value_type&;
   using iterator_category = std::random_access_iterator_tag;
 
   // Some algorithms need to default-construct an iterator
@@ -136,6 +138,8 @@ struct iterator_traits<::arrow::stl::ArrayIterator<ArrayType>> {
   using IteratorType = ::arrow::stl::ArrayIterator<ArrayType>;
   using difference_type = typename IteratorType::difference_type;
   using value_type = typename IteratorType::value_type;
+  using pointer = typename IteratorType::pointer;
+  using reference = typename IteratorType::reference;
   using iterator_category = typename IteratorType::iterator_category;
 };
 

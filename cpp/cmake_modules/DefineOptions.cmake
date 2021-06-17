@@ -365,7 +365,7 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(
     ARROW_WITH_UTF8PROC
-    "Build with support for Unicode properties using the utf8proc library;(only used if ARROW_COMPUTE is ON)"
+    "Build with support for Unicode properties using the utf8proc library;(only used if ARROW_COMPUTE is ON or ARROW_GANDIVA is ON)"
     ON)
   define_option(
     ARROW_WITH_RE2

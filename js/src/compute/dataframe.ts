@@ -29,11 +29,16 @@ export type BindFunc = (batch: RecordBatch) => void;
 /** @ignore */
 export type NextFunc = (idx: number, batch: RecordBatch) => void;
 
-Table.prototype.countBy = function(this: Table, name: Col | string) { return new DataFrame(this.chunks).countBy(name); };
-Table.prototype.scan = function(this: Table, next: NextFunc, bind?: BindFunc) { return new DataFrame(this.chunks).scan(next, bind); };
-Table.prototype.scanReverse = function(this: Table, next: NextFunc, bind?: BindFunc) { return new DataFrame(this.chunks).scanReverse(next, bind); };
-Table.prototype.filter = function(this: Table, predicate: Predicate): FilteredDataFrame { return new DataFrame(this.chunks).filter(predicate); };
-
+/**
+ * `DataFrame` extends {@link Table} with support for predicate filtering.
+ *
+ * You can construct `DataFrames` like tables or convert a `Table` to a `DataFrame`
+ * with the constructor.
+ *
+ * ```ts
+ * const df = new DataFrame(table);
+ * ```
+ */
 export class DataFrame<T extends { [key: string]: DataType } = any> extends Table<T> {
     public filter(predicate: Predicate): FilteredDataFrame<T> {
         return new FilteredDataFrame<T>(this.chunks, predicate);

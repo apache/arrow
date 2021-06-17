@@ -170,10 +170,10 @@ Result<std::shared_ptr<io::RandomAccessFile>> PyFileSystem::OpenInputFile(
 }
 
 Result<std::shared_ptr<io::OutputStream>> PyFileSystem::OpenOutputStream(
-    const std::string& path) {
+    const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
   std::shared_ptr<io::OutputStream> stream;
   auto st = SafeCallIntoPython([&]() -> Status {
-    vtable_.open_output_stream(handler_.obj(), path, &stream);
+    vtable_.open_output_stream(handler_.obj(), path, metadata, &stream);
     return CheckPyError();
   });
   RETURN_NOT_OK(st);
@@ -181,10 +181,10 @@ Result<std::shared_ptr<io::OutputStream>> PyFileSystem::OpenOutputStream(
 }
 
 Result<std::shared_ptr<io::OutputStream>> PyFileSystem::OpenAppendStream(
-    const std::string& path) {
+    const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
   std::shared_ptr<io::OutputStream> stream;
   auto st = SafeCallIntoPython([&]() -> Status {
-    vtable_.open_append_stream(handler_.obj(), path, &stream);
+    vtable_.open_append_stream(handler_.obj(), path, metadata, &stream);
     return CheckPyError();
   });
   RETURN_NOT_OK(st);

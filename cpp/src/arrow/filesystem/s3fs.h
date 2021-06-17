@@ -56,9 +56,22 @@ struct ARROW_EXPORT S3ProxyOptions {
   bool Equals(const S3ProxyOptions& other) const;
 };
 
+enum class S3CredentialsKind : int8_t {
+  /// Anonymous access (no credentials used)
+  Anonymous,
+  /// Use default AWS credentials, configured through environment variables
+  Default,
+  /// Use explicitly-provided access key pair
+  Explicit,
+  /// Assume role through a role ARN
+  Role,
+  /// Use web identity token to assume role, configured through environment variables
+  WebIdentity
+};
+
 /// Options for the S3FileSystem implementation.
 struct ARROW_EXPORT S3Options {
-  /// AWS region to connect to.
+  /// \brief AWS region to connect to.
   ///
   /// If unset, the AWS SDK will choose a default value.  The exact algorithm
   /// depends on the SDK version.  Before 1.8, the default is hardcoded
@@ -88,8 +101,16 @@ struct ARROW_EXPORT S3Options {
   /// AWS credentials provider
   std::shared_ptr<Aws::Auth::AWSCredentialsProvider> credentials_provider;
 
+  /// Type of credentials being used. Set along with credentials_provider.
+  S3CredentialsKind credentials_kind = S3CredentialsKind::Default;
+
   /// Whether OutputStream writes will be issued in the background, without blocking.
   bool background_writes = true;
+
+  /// \brief Default metadata for OpenOutputStream.
+  ///
+  /// This will be ignored if non-empty metadata is passed to OpenOutputStream.
+  std::shared_ptr<const KeyValueMetadata> default_metadata;
 
   /// Configure with the default AWS credentials provider chain.
   void ConfigureDefaultCredentials();
@@ -106,6 +127,9 @@ struct ARROW_EXPORT S3Options {
       const std::string& role_arn, const std::string& session_name = "",
       const std::string& external_id = "", int load_frequency = 900,
       const std::shared_ptr<Aws::STS::STSClient>& stsClient = NULLPTR);
+
+  /// Configure with credentials from role assumed using a web identitiy token
+  void ConfigureAssumeRoleWithWebIdentityCredentials();
 
   std::string GetAccessKey() const;
   std::string GetSecretKey() const;
@@ -137,6 +161,11 @@ struct ARROW_EXPORT S3Options {
       const std::string& role_arn, const std::string& session_name = "",
       const std::string& external_id = "", int load_frequency = 900,
       const std::shared_ptr<Aws::STS::STSClient>& stsClient = NULLPTR);
+
+  /// \brief Initialize from an assumed role with web-identity.
+  /// Uses the AWS SDK which uses environment variables to
+  /// generate temporary credentials.
+  static S3Options FromAssumeRoleWithWebIdentity();
 
   static Result<S3Options> FromUri(const ::arrow::internal::Uri& uri,
                                    std::string* out_path = NULLPTR);
@@ -214,10 +243,12 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
   /// It is recommended to enable background_writes unless you prefer
   /// implementing your own background execution strategy.
   Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
-      const std::string& path) override;
+      const std::string& path,
+      const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
 
   Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
-      const std::string& path) override;
+      const std::string& path,
+      const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
 
   /// Create a S3FileSystem instance from the given options.
   static Result<std::shared_ptr<S3FileSystem>> Make(

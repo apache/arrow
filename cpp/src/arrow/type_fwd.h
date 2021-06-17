@@ -449,8 +449,8 @@ std::shared_ptr<DataType> fixed_size_binary(int32_t byte_width);
 
 /// \brief Create a DecimalType instance depending on the precision
 ///
-/// If the precision is greater than 38, a Decimal128Type is returned,
-/// otherwise a Decimal256Type.
+/// If the precision is greater than 38, a Decimal256Type is returned,
+/// otherwise a Decimal128Type.
 ARROW_EXPORT
 std::shared_ptr<DataType> decimal(int32_t precision, int32_t scale);
 

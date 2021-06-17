@@ -70,7 +70,7 @@ gnome.gtkdoc(package_id,
              ],
              mkdb_args: [
                '--output-format=xml',
-               '--name-space=gad',
+               '--name-space=gadataset',
                '--source-suffixes=c,cpp,h',
              ],
              fixxref_args: [

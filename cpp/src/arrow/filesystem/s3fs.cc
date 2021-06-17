@@ -40,6 +40,7 @@
 #include <aws/core/Region.h>
 #include <aws/core/auth/AWSCredentials.h>
 #include <aws/core/auth/AWSCredentialsProviderChain.h>
+#include <aws/core/auth/STSCredentialsProvider.h>
 #include <aws/core/client/RetryStrategy.h>
 #include <aws/core/http/HttpResponse.h>
 #include <aws/core/utils/logging/ConsoleLogSystem.h>
@@ -61,6 +62,7 @@
 #include <aws/s3/model/HeadObjectRequest.h>
 #include <aws/s3/model/ListBucketsResult.h>
 #include <aws/s3/model/ListObjectsV2Request.h>
+#include <aws/s3/model/ObjectCannedACL.h>
 #include <aws/s3/model/PutObjectRequest.h>
 #include <aws/s3/model/UploadPartRequest.h>
 
@@ -78,6 +80,7 @@
 #include "arrow/util/atomic_shared_ptr.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
 #include "arrow/util/task_group.h"
@@ -204,10 +207,12 @@ bool S3ProxyOptions::Equals(const S3ProxyOptions& other) const {
 void S3Options::ConfigureDefaultCredentials() {
   credentials_provider =
       std::make_shared<Aws::Auth::DefaultAWSCredentialsProviderChain>();
+  credentials_kind = S3CredentialsKind::Default;
 }
 
 void S3Options::ConfigureAnonymousCredentials() {
   credentials_provider = std::make_shared<Aws::Auth::AnonymousAWSCredentialsProvider>();
+  credentials_kind = S3CredentialsKind::Anonymous;
 }
 
 void S3Options::ConfigureAccessKey(const std::string& access_key,
@@ -215,6 +220,7 @@ void S3Options::ConfigureAccessKey(const std::string& access_key,
                                    const std::string& session_token) {
   credentials_provider = std::make_shared<Aws::Auth::SimpleAWSCredentialsProvider>(
       ToAwsString(access_key), ToAwsString(secret_key), ToAwsString(session_token));
+  credentials_kind = S3CredentialsKind::Explicit;
 }
 
 void S3Options::ConfigureAssumeRoleCredentials(
@@ -224,6 +230,16 @@ void S3Options::ConfigureAssumeRoleCredentials(
   credentials_provider = std::make_shared<Aws::Auth::STSAssumeRoleCredentialsProvider>(
       ToAwsString(role_arn), ToAwsString(session_name), ToAwsString(external_id),
       load_frequency, stsClient);
+  credentials_kind = S3CredentialsKind::Role;
+}
+
+void S3Options::ConfigureAssumeRoleWithWebIdentityCredentials() {
+  // The AWS SDK uses environment variables AWS_DEFAULT_REGION,
+  // AWS_ROLE_ARN, AWS_WEB_IDENTITY_TOKEN_FILE and AWS_ROLE_SESSION_NAME
+  // to configure the required credentials
+  credentials_provider =
+      std::make_shared<Aws::Auth::STSAssumeRoleWebIdentityCredentialsProvider>();
+  credentials_kind = S3CredentialsKind::WebIdentity;
 }
 
 std::string S3Options::GetAccessKey() const {
@@ -272,6 +288,12 @@ S3Options S3Options::FromAssumeRole(
   options.load_frequency = load_frequency;
   options.ConfigureAssumeRoleCredentials(role_arn, session_name, external_id,
                                          load_frequency, stsClient);
+  return options;
+}
+
+S3Options S3Options::FromAssumeRoleWithWebIdentity() {
+  S3Options options;
+  options.ConfigureAssumeRoleWithWebIdentityCredentials();
   return options;
 }
 
@@ -343,6 +365,7 @@ Result<S3Options> S3Options::FromUri(const std::string& uri_string,
 bool S3Options::Equals(const S3Options& other) const {
   return (region == other.region && endpoint_override == other.endpoint_override &&
           scheme == other.scheme && background_writes == other.background_writes &&
+          credentials_kind == other.credentials_kind &&
           proxy_options.Equals(other.proxy_options) &&
           GetAccessKey() == other.GetAccessKey() &&
           GetSecretKey() == other.GetSecretKey() &&
@@ -393,6 +416,14 @@ struct S3Path {
     } else {
       return result;
     }
+  }
+
+  Aws::String ToAwsString() const {
+    Aws::String res(bucket.begin(), bucket.end());
+    res.reserve(bucket.size() + key.size() + 1);
+    res += kSep;
+    res.append(key.begin(), key.end());
+    return res;
   }
 
   Aws::String ToURLEncodedAwsString() const {
@@ -684,6 +715,103 @@ Result<S3Model::GetObjectResult> GetObjectRange(Aws::S3::S3Client* client,
   return OutcomeToResult(client->GetObject(req));
 }
 
+template <typename ObjectResult>
+std::shared_ptr<const KeyValueMetadata> GetObjectMetadata(const ObjectResult& result) {
+  auto md = std::make_shared<KeyValueMetadata>();
+
+  auto push = [&](std::string k, const Aws::String& v) {
+    if (!v.empty()) {
+      md->Append(std::move(k), FromAwsString(v).to_string());
+    }
+  };
+  auto push_datetime = [&](std::string k, const Aws::Utils::DateTime& v) {
+    if (v != Aws::Utils::DateTime(0.0)) {
+      push(std::move(k), v.ToGmtString(Aws::Utils::DateFormat::ISO_8601));
+    }
+  };
+
+  md->Append("Content-Length", std::to_string(result.GetContentLength()));
+  push("Cache-Control", result.GetCacheControl());
+  push("Content-Type", result.GetContentType());
+  push("Content-Language", result.GetContentLanguage());
+  push("ETag", result.GetETag());
+  push("VersionId", result.GetVersionId());
+  push_datetime("Last-Modified", result.GetLastModified());
+  push_datetime("Expires", result.GetExpires());
+  // NOTE the "canned ACL" isn't available for reading (one can get an expanded
+  // ACL using a separate GetObjectAcl request)
+  return md;
+}
+
+template <typename ObjectRequest>
+struct ObjectMetadataSetter {
+  using Setter = std::function<Status(const std::string& value, ObjectRequest* req)>;
+
+  static std::unordered_map<std::string, Setter> GetSetters() {
+    return {{"ACL", CannedACLSetter()},
+            {"Cache-Control", StringSetter(&ObjectRequest::SetCacheControl)},
+            {"Content-Type", StringSetter(&ObjectRequest::SetContentType)},
+            {"Content-Language", StringSetter(&ObjectRequest::SetContentLanguage)},
+            {"Expires", DateTimeSetter(&ObjectRequest::SetExpires)}};
+  }
+
+ private:
+  static Setter StringSetter(void (ObjectRequest::*req_method)(Aws::String&&)) {
+    return [req_method](const std::string& v, ObjectRequest* req) {
+      (req->*req_method)(ToAwsString(v));
+      return Status::OK();
+    };
+  }
+
+  static Setter DateTimeSetter(
+      void (ObjectRequest::*req_method)(Aws::Utils::DateTime&&)) {
+    return [req_method](const std::string& v, ObjectRequest* req) {
+      (req->*req_method)(
+          Aws::Utils::DateTime(v.data(), Aws::Utils::DateFormat::ISO_8601));
+      return Status::OK();
+    };
+  }
+
+  static Setter CannedACLSetter() {
+    return [](const std::string& v, ObjectRequest* req) {
+      ARROW_ASSIGN_OR_RAISE(auto acl, ParseACL(v));
+      req->SetACL(acl);
+      return Status::OK();
+    };
+  }
+
+  static Result<S3Model::ObjectCannedACL> ParseACL(const std::string& v) {
+    if (v.empty()) {
+      return S3Model::ObjectCannedACL::NOT_SET;
+    }
+    auto acl = S3Model::ObjectCannedACLMapper::GetObjectCannedACLForName(ToAwsString(v));
+    if (acl == S3Model::ObjectCannedACL::NOT_SET) {
+      // XXX This actually never happens, as the AWS SDK dynamically
+      // expands the enum range using Aws::GetEnumOverflowContainer()
+      return Status::Invalid("Invalid S3 canned ACL: '", v, "'");
+    }
+    return acl;
+  }
+};
+
+template <typename ObjectRequest>
+Status SetObjectMetadata(const std::shared_ptr<const KeyValueMetadata>& metadata,
+                         ObjectRequest* req) {
+  static auto setters = ObjectMetadataSetter<ObjectRequest>::GetSetters();
+
+  DCHECK_NE(metadata, nullptr);
+  const auto& keys = metadata->keys();
+  const auto& values = metadata->values();
+
+  for (size_t i = 0; i < keys.size(); ++i) {
+    auto it = setters.find(keys[i]);
+    if (it != setters.end()) {
+      RETURN_NOT_OK(it->second(values[i], req));
+    }
+  }
+  return Status::OK();
+}
+
 // A RandomAccessFile that reads from a S3 object
 class ObjectInputFile final : public io::RandomAccessFile {
  public:
@@ -720,6 +848,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
     }
     content_length_ = outcome.GetResult().GetContentLength();
     DCHECK_GE(content_length_, 0);
+    metadata_ = GetObjectMetadata(outcome.GetResult());
     return Status::OK();
   }
 
@@ -741,6 +870,15 @@ class ObjectInputFile final : public io::RandomAccessFile {
   }
 
   // RandomAccessFile APIs
+
+  Result<std::shared_ptr<const KeyValueMetadata>> ReadMetadata() override {
+    return metadata_;
+  }
+
+  Future<std::shared_ptr<const KeyValueMetadata>> ReadMetadataAsync(
+      const io::IOContext& io_context) override {
+    return metadata_;
+  }
 
   Status Close() override {
     client_ = nullptr;
@@ -825,6 +963,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
   bool closed_ = false;
   int64_t pos_ = 0;
   int64_t content_length_ = kNoSize;
+  std::shared_ptr<const KeyValueMetadata> metadata_;
 };
 
 // Minimum size for each part of a multipart upload, except for the last part.
@@ -841,10 +980,13 @@ class ObjectOutputStream final : public io::OutputStream {
  public:
   ObjectOutputStream(std::shared_ptr<Aws::S3::S3Client> client,
                      const io::IOContext& io_context, const S3Path& path,
-                     const S3Options& options)
+                     const S3Options& options,
+                     const std::shared_ptr<const KeyValueMetadata>& metadata)
       : client_(std::move(client)),
         io_context_(io_context),
         path_(path),
+        metadata_(metadata),
+        default_metadata_(options.default_metadata),
         background_writes_(options.background_writes) {}
 
   ~ObjectOutputStream() override {
@@ -858,6 +1000,11 @@ class ObjectOutputStream final : public io::OutputStream {
     S3Model::CreateMultipartUploadRequest req;
     req.SetBucket(ToAwsString(path_.bucket));
     req.SetKey(ToAwsString(path_.key));
+    if (metadata_ && metadata_->size() != 0) {
+      RETURN_NOT_OK(SetObjectMetadata(metadata_, &req));
+    } else if (default_metadata_ && default_metadata_->size() != 0) {
+      RETURN_NOT_OK(SetObjectMetadata(default_metadata_, &req));
+    }
 
     auto outcome = client_->CreateMultipartUpload(req);
     if (!outcome.IsSuccess()) {
@@ -1127,6 +1274,8 @@ class ObjectOutputStream final : public io::OutputStream {
   std::shared_ptr<Aws::S3::S3Client> client_;
   const io::IOContext io_context_;
   const S3Path path_;
+  const std::shared_ptr<const KeyValueMetadata> metadata_;
+  const std::shared_ptr<const KeyValueMetadata> default_metadata_;
   const bool background_writes_;
 
   Aws::String upload_id_;
@@ -1384,8 +1533,9 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
     S3Model::CopyObjectRequest req;
     req.SetBucket(ToAwsString(dest_path.bucket));
     req.SetKey(ToAwsString(dest_path.key));
-    // Copy source "Must be URL-encoded" according to AWS SDK docs.
-    req.SetCopySource(src_path.ToURLEncodedAwsString());
+    // ARROW-13048: Copy source "Must be URL-encoded" according to AWS SDK docs.
+    // However at least in 1.8 and 1.9 the SDK URL-encodes the path for you
+    req.SetCopySource(src_path.ToAwsString());
     return OutcomeToStatus(
         std::forward_as_tuple("When copying key '", src_path.key, "' in bucket '",
                               src_path.bucket, "' to key '", dest_path.key,
@@ -2106,18 +2256,18 @@ Result<std::shared_ptr<io::RandomAccessFile>> S3FileSystem::OpenInputFile(
 }
 
 Result<std::shared_ptr<io::OutputStream>> S3FileSystem::OpenOutputStream(
-    const std::string& s) {
+    const std::string& s, const std::shared_ptr<const KeyValueMetadata>& metadata) {
   ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
   RETURN_NOT_OK(ValidateFilePath(path));
 
   auto ptr = std::make_shared<ObjectOutputStream>(impl_->client_, io_context(), path,
-                                                  impl_->options());
+                                                  impl_->options(), metadata);
   RETURN_NOT_OK(ptr->Init());
   return ptr;
 }
 
 Result<std::shared_ptr<io::OutputStream>> S3FileSystem::OpenAppendStream(
-    const std::string& path) {
+    const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
   // XXX Investigate UploadPartCopy? Does it work with source == destination?
   // https://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadUploadPartCopy.html
   // (but would need to fall back to GET if the current data is < 5 MB)

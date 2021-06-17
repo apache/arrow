@@ -95,7 +95,7 @@ inline Bitmap GetBitmap(const ArrayData& arr, int index) {
   return Bitmap{arr.buffers[index], arr.offset, arr.length};
 }
 
-struct Invert {
+struct InvertOp {
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
     *checked_cast<BooleanScalar*>(out) = InvertScalar(in);
     return Status::OK();
@@ -115,8 +115,8 @@ struct Commutative {
   }
 };
 
-struct And : Commutative<And> {
-  using Commutative<And>::Call;
+struct AndOp : Commutative<AndOp> {
+  using Commutative<AndOp>::Call;
 
   static Status Call(KernelContext* ctx, const Scalar& left, const Scalar& right,
                      Scalar* out) {
@@ -147,8 +147,8 @@ struct And : Commutative<And> {
   }
 };
 
-struct KleeneAnd : Commutative<KleeneAnd> {
-  using Commutative<KleeneAnd>::Call;
+struct KleeneAndOp : Commutative<KleeneAndOp> {
+  using Commutative<KleeneAndOp>::Call;
 
   static Status Call(KernelContext* ctx, const Scalar& left, const Scalar& right,
                      Scalar* out) {
@@ -205,7 +205,7 @@ struct KleeneAnd : Commutative<KleeneAnd> {
     if (left.GetNullCount() == 0 && right.GetNullCount() == 0) {
       out->null_count = 0;
       out->buffers[0] = nullptr;
-      return And::Call(ctx, left, right, out);
+      return AndOp::Call(ctx, left, right, out);
     }
     auto compute_word = [](uint64_t left_true, uint64_t left_false, uint64_t right_true,
                            uint64_t right_false, uint64_t* out_valid,
@@ -218,8 +218,8 @@ struct KleeneAnd : Commutative<KleeneAnd> {
   }
 };
 
-struct Or : Commutative<Or> {
-  using Commutative<Or>::Call;
+struct OrOp : Commutative<OrOp> {
+  using Commutative<OrOp>::Call;
 
   static Status Call(KernelContext* ctx, const Scalar& left, const Scalar& right,
                      Scalar* out) {
@@ -250,8 +250,8 @@ struct Or : Commutative<Or> {
   }
 };
 
-struct KleeneOr : Commutative<KleeneOr> {
-  using Commutative<KleeneOr>::Call;
+struct KleeneOrOp : Commutative<KleeneOrOp> {
+  using Commutative<KleeneOrOp>::Call;
 
   static Status Call(KernelContext* ctx, const Scalar& left, const Scalar& right,
                      Scalar* out) {
@@ -308,7 +308,7 @@ struct KleeneOr : Commutative<KleeneOr> {
     if (left.GetNullCount() == 0 && right.GetNullCount() == 0) {
       out->null_count = 0;
       out->buffers[0] = nullptr;
-      return Or::Call(ctx, left, right, out);
+      return OrOp::Call(ctx, left, right, out);
     }
 
     static auto compute_word = [](uint64_t left_true, uint64_t left_false,
@@ -323,8 +323,8 @@ struct KleeneOr : Commutative<KleeneOr> {
   }
 };
 
-struct Xor : Commutative<Xor> {
-  using Commutative<Xor>::Call;
+struct XorOp : Commutative<XorOp> {
+  using Commutative<XorOp>::Call;
 
   static Status Call(KernelContext* ctx, const Scalar& left, const Scalar& right,
                      Scalar* out) {
@@ -355,10 +355,10 @@ struct Xor : Commutative<Xor> {
   }
 };
 
-struct AndNot {
+struct AndNotOp {
   static Status Call(KernelContext* ctx, const Scalar& left, const Scalar& right,
                      Scalar* out) {
-    return And::Call(ctx, left, InvertScalar(right), out);
+    return AndOp::Call(ctx, left, InvertScalar(right), out);
   }
 
   static Status Call(KernelContext* ctx, const Scalar& left, const ArrayData& right,
@@ -373,7 +373,7 @@ struct AndNot {
 
   static Status Call(KernelContext* ctx, const ArrayData& left, const Scalar& right,
                      ArrayData* out) {
-    return And::Call(ctx, left, InvertScalar(right), out);
+    return AndOp::Call(ctx, left, InvertScalar(right), out);
   }
 
   static Status Call(KernelContext* ctx, const ArrayData& left, const ArrayData& right,
@@ -385,10 +385,10 @@ struct AndNot {
   }
 };
 
-struct KleeneAndNot {
+struct KleeneAndNotOp {
   static Status Call(KernelContext* ctx, const Scalar& left, const Scalar& right,
                      Scalar* out) {
-    return KleeneAnd::Call(ctx, left, InvertScalar(right), out);
+    return KleeneAndOp::Call(ctx, left, InvertScalar(right), out);
   }
 
   static Status Call(KernelContext* ctx, const Scalar& left, const ArrayData& right,
@@ -430,7 +430,7 @@ struct KleeneAndNot {
 
   static Status Call(KernelContext* ctx, const ArrayData& left, const Scalar& right,
                      ArrayData* out) {
-    return KleeneAnd::Call(ctx, left, InvertScalar(right), out);
+    return KleeneAndOp::Call(ctx, left, InvertScalar(right), out);
   }
 
   static Status Call(KernelContext* ctx, const ArrayData& left, const ArrayData& right,
@@ -438,7 +438,7 @@ struct KleeneAndNot {
     if (left.GetNullCount() == 0 && right.GetNullCount() == 0) {
       out->null_count = 0;
       out->buffers[0] = nullptr;
-      return AndNot::Call(ctx, left, right, out);
+      return AndNotOp::Call(ctx, left, right, out);
     }
 
     static auto compute_word = [](uint64_t left_true, uint64_t left_false,
@@ -543,20 +543,20 @@ namespace internal {
 
 void RegisterScalarBoolean(FunctionRegistry* registry) {
   // These functions can write into sliced output bitmaps
-  MakeFunction("invert", 1, applicator::SimpleUnary<Invert>, &invert_doc, registry);
-  MakeFunction("and", 2, applicator::SimpleBinary<And>, &and_doc, registry);
-  MakeFunction("and_not", 2, applicator::SimpleBinary<AndNot>, &and_not_doc, registry);
-  MakeFunction("or", 2, applicator::SimpleBinary<Or>, &or_doc, registry);
-  MakeFunction("xor", 2, applicator::SimpleBinary<Xor>, &xor_doc, registry);
+  MakeFunction("invert", 1, applicator::SimpleUnary<InvertOp>, &invert_doc, registry);
+  MakeFunction("and", 2, applicator::SimpleBinary<AndOp>, &and_doc, registry);
+  MakeFunction("and_not", 2, applicator::SimpleBinary<AndNotOp>, &and_not_doc, registry);
+  MakeFunction("or", 2, applicator::SimpleBinary<OrOp>, &or_doc, registry);
+  MakeFunction("xor", 2, applicator::SimpleBinary<XorOp>, &xor_doc, registry);
 
   // The Kleene logic kernels cannot write into sliced output bitmaps
-  MakeFunction("and_kleene", 2, applicator::SimpleBinary<KleeneAnd>, &and_kleene_doc,
+  MakeFunction("and_kleene", 2, applicator::SimpleBinary<KleeneAndOp>, &and_kleene_doc,
                registry,
                /*can_write_into_slices=*/false, NullHandling::COMPUTED_PREALLOCATE);
-  MakeFunction("and_not_kleene", 2, applicator::SimpleBinary<KleeneAndNot>,
+  MakeFunction("and_not_kleene", 2, applicator::SimpleBinary<KleeneAndNotOp>,
                &and_not_kleene_doc, registry,
                /*can_write_into_slices=*/false, NullHandling::COMPUTED_PREALLOCATE);
-  MakeFunction("or_kleene", 2, applicator::SimpleBinary<KleeneOr>, &or_kleene_doc,
+  MakeFunction("or_kleene", 2, applicator::SimpleBinary<KleeneOrOp>, &or_kleene_doc,
                registry,
                /*can_write_into_slices=*/false, NullHandling::COMPUTED_PREALLOCATE);
 }

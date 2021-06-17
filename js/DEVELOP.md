@@ -72,7 +72,9 @@ Uses [lerna](https://github.com/lerna/lerna) to publish each build target to npm
 
 # Running the Performance Benchmarks
 
-First, compile the bundles with `yarn build` and generate perf data with `yarn create:perfdata`. Then you can run the benchmarks with `yarn perf`. You can change the target you want to test by changing the imports in `perf/index.js`. To print the results to stderr as JSON, add the `--json` flag (e.g. `yarn perf --json 2> perf.json`).
+You can run the benchmarks with `yarn perf`. To print the results to stderr as JSON, add the `--json` flag (e.g. `yarn perf --json 2> perf.json`).
+
+You can change the target you want to test by changing the imports in `perf/index.ts`. Note that you need to compile the bundles with `yarn build` before you can import them.
 
 # Updating the Arrow format flatbuffers generated code
 

@@ -32,6 +32,8 @@
 #' * `filter`: A `Expression` to filter the scanned rows by, or `TRUE` (default)
 #'    to keep all rows.
 #' * `use_threads`: logical: should scanning use multithreading? Default `TRUE`
+#' * `use_async`: logical: should the async scanner (performs better on
+#'    high-latency/highly parallel filesystems like S3) be used? Default `FALSE`
 #' * `...`: Additional arguments, currently ignored
 #' @section Methods:
 #' `ScannerBuilder` has the following methods:
@@ -42,6 +44,7 @@
 #' - `$UseThreads(threads)`: logical: should the scan use multithreading?
 #' The method's default input is `TRUE`, but you must call the method to enable
 #' multithreading because the scanner default is `FALSE`.
+#' - `$UseAsync(use_async)`: logical: should the async scanner be used?
 #' - `$BatchSize(batch_size)`: integer: Maximum row count of scanned record
 #' batches, default is 32K. If scanned record batches are overflowing memory
 #' then this method can be called to reduce their size.
@@ -68,9 +71,14 @@ Scanner$create <- function(dataset,
                            projection = NULL,
                            filter = TRUE,
                            use_threads = option_use_threads(),
+                           use_async = NULL,
                            batch_size = NULL,
                            fragment_scan_options = NULL,
                            ...) {
+  if (is.null(use_async)) {
+    use_async = getOption("arrow.use_async", FALSE)
+  }
+
   if (inherits(dataset, "arrow_dplyr_query")) {
     if (inherits(dataset$.data, "ArrowTabular")) {
       # To handle mutate() on Table/RecordBatch, we need to collect(as_data_frame=FALSE) now
@@ -81,6 +89,7 @@ Scanner$create <- function(dataset,
       c(dataset$selected_columns, dataset$temp_columns),
       dataset$filtered_rows,
       use_threads,
+      use_async,
       batch_size,
       fragment_scan_options,
       ...
@@ -94,6 +103,9 @@ Scanner$create <- function(dataset,
   scanner_builder <- dataset$NewScan()
   if (use_threads) {
     scanner_builder$UseThreads()
+  }
+  if (use_async) {
+    scanner_builder$UseAsync()
   }
   if (!is.null(projection)) {
     scanner_builder$Project(projection)
@@ -179,6 +191,10 @@ ScannerBuilder <- R6Class("ScannerBuilder", inherit = ArrowObject,
     },
     UseThreads = function(threads = option_use_threads()) {
       dataset___ScannerBuilder__UseThreads(self, threads)
+      self
+    },
+    UseAsync = function(use_async = TRUE) {
+      dataset___ScannerBuilder__UseAsync(self, use_async)
       self
     },
     BatchSize = function(batch_size) {

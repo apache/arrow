@@ -48,6 +48,11 @@ def cpu_count():
     If neither is present, it will default to the number of hardware threads
     on the system. It can be modified at runtime by calling
     :func:`set_cpu_count()`.
+
+    See Also
+    --------
+    set_cpu_count : Modify the size of this pool.
+    io_thread_count : The analogous function for the I/O thread pool.
     """
     return GetCpuThreadPoolCapacity()
 
@@ -55,6 +60,11 @@ def cpu_count():
 def set_cpu_count(int count):
     """
     Set the number of threads to use in parallel operations.
+
+    See Also
+    --------
+    cpu_count : Get the size of this pool.
+    set_io_thread_count : The analogous function for the I/O thread pool.
     """
     if count < 1:
         raise ValueError("CPU count must be strictly positive")

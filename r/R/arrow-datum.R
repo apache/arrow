@@ -33,6 +33,20 @@ ArrowDatum <- R6Class("ArrowDatum", inherit = ArrowObject,
 length.ArrowDatum <- function(x) x$length()
 
 #' @export
+is.finite.ArrowDatum <- function(x) {
+  is_fin <- call_function("is_finite", x)
+  # for compatibility with base::is.finite(), return FALSE for NA_real_
+  is_fin & !is.na(is_fin)
+}
+
+#' @export
+is.infinite.ArrowDatum <- function(x) {
+  is_inf <- call_function("is_inf", x)
+  # for compatibility with base::is.infinite(), return FALSE for NA_real_
+  is_inf & !is.na(is_inf)
+}
+
+#' @export
 is.na.ArrowDatum <- function(x) call_function("is_null", x)
 
 #' @export
@@ -114,7 +128,7 @@ eval_array_expression <- function(FUN,
 }
 
 #' @export
-na.omit.ArrowDatum <- function(object, ...){
+na.omit.ArrowDatum <- function(object, ...) {
   object$Filter(!is.na(object))
 }
 
@@ -122,7 +136,7 @@ na.omit.ArrowDatum <- function(object, ...){
 na.exclude.ArrowDatum <- na.omit.ArrowDatum
 
 #' @export
-na.fail.ArrowDatum <- function(object, ...){
+na.fail.ArrowDatum <- function(object, ...) {
   if (object$null_count > 0) {
     stop("missing values in object", call. = FALSE)
   }

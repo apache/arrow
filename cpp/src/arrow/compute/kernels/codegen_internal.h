@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstring>
 #include <memory>
 #include <string>
 #include <utility>
@@ -303,8 +304,12 @@ struct BoxScalar;
 template <typename Type>
 struct BoxScalar<Type, enable_if_has_c_type<Type>> {
   using T = typename GetOutputType<Type>::T;
-  using ScalarType = typename TypeTraits<Type>::ScalarType;
-  static void Box(T val, Scalar* out) { checked_cast<ScalarType*>(out)->value = val; }
+  static void Box(T val, Scalar* out) {
+    // Enables BoxScalar<Int64Type> to work on a (for example) Time64Scalar
+    T* mutable_data = reinterpret_cast<T*>(
+        checked_cast<::arrow::internal::PrimitiveScalarBase*>(out)->mutable_data());
+    *mutable_data = val;
+  }
 };
 
 template <typename Type>
@@ -349,7 +354,7 @@ template <typename T, typename VisitFunc, typename NullFunc>
 static typename arrow::internal::call_traits::enable_if_return<VisitFunc, Status>::type
 VisitArrayValuesInline(const ArrayData& arr, VisitFunc&& valid_func,
                        NullFunc&& null_func) {
-  VisitArrayDataInline<T>(
+  return VisitArrayDataInline<T>(
       arr,
       [&](typename GetViewType<T>::PhysicalType v) {
         return valid_func(GetViewType<T>::LogicalValue(std::move(v)));
@@ -626,7 +631,7 @@ struct ScalarUnaryNotNullStateful {
           },
           [&]() {
             // null
-            ++out_data;
+            *out_data++ = OutValue{};
           });
       return st;
     }
@@ -696,7 +701,11 @@ struct ScalarUnaryNotNullStateful {
             functor.op.template Call<OutValue, Arg0Value>(ctx, v, &st)
                 .ToBytes(out_data++->data());
           },
-          [&]() { ++out_data; });
+          [&]() {
+            // null
+            std::memset(out_data, 0, sizeof(*out_data));
+            ++out_data;
+          });
       return st;
     }
   };
@@ -1093,6 +1102,41 @@ ArrayKernelExec GeneratePhysicalInteger(detail::GetTypeId get_id) {
   }
 }
 
+template <template <typename... Args> class Generator, typename... Args>
+ArrayKernelExec GeneratePhysicalNumeric(detail::GetTypeId get_id) {
+  switch (get_id.id) {
+    case Type::INT8:
+      return Generator<Int8Type, Args...>::Exec;
+    case Type::INT16:
+      return Generator<Int16Type, Args...>::Exec;
+    case Type::INT32:
+    case Type::DATE32:
+    case Type::TIME32:
+      return Generator<Int32Type, Args...>::Exec;
+    case Type::INT64:
+    case Type::DATE64:
+    case Type::TIMESTAMP:
+    case Type::TIME64:
+    case Type::DURATION:
+      return Generator<Int64Type, Args...>::Exec;
+    case Type::UINT8:
+      return Generator<UInt8Type, Args...>::Exec;
+    case Type::UINT16:
+      return Generator<UInt16Type, Args...>::Exec;
+    case Type::UINT32:
+      return Generator<UInt32Type, Args...>::Exec;
+    case Type::UINT64:
+      return Generator<UInt64Type, Args...>::Exec;
+    case Type::FLOAT:
+      return Generator<FloatType, Args...>::Exec;
+    case Type::DOUBLE:
+      return Generator<DoubleType, Args...>::Exec;
+    default:
+      DCHECK(false);
+      return ExecFail;
+  }
+}
+
 // Generate a kernel given a templated functor for integer types
 //
 // See "Numeric" above for description of the generator functor
@@ -1154,15 +1198,15 @@ ArrayKernelExec GenerateTypeAgnosticPrimitive(detail::GetTypeId get_id) {
 }
 
 // similar to GenerateTypeAgnosticPrimitive, but for variable types
-template <template <typename...> class Generator>
+template <template <typename...> class Generator, typename... Args>
 ArrayKernelExec GenerateTypeAgnosticVarBinaryBase(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::BINARY:
     case Type::STRING:
-      return Generator<BinaryType>::Exec;
+      return Generator<BinaryType, Args...>::Exec;
     case Type::LARGE_BINARY:
     case Type::LARGE_STRING:
-      return Generator<LargeBinaryType>::Exec;
+      return Generator<LargeBinaryType, Args...>::Exec;
     default:
       DCHECK(false);
       return ExecFail;

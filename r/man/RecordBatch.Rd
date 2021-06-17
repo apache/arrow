@@ -80,7 +80,7 @@ All list elements are coerced to string. See \code{schema()} for more informatio
 }
 
 \examples{
-\donttest{
+\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 batch <- record_batch(name = rownames(mtcars), mtcars)
 dim(batch)
 dim(head(batch))
@@ -88,5 +88,5 @@ names(batch)
 batch$mpg
 batch[["cyl"]]
 as.data.frame(batch[4:8, c("gear", "hp", "wt")])
-}
+\dontshow{\}) # examplesIf}
 }

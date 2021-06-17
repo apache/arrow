@@ -1705,7 +1705,7 @@ class TestConvertStringLikeTypes:
         expected = pa.array(list(arr), type=pa.binary(3))
         assert converted.equals(expected)
 
-        mask = np.array([True, False, True])
+        mask = np.array([False, True, False])
         converted = pa.array(arr, type=pa.binary(3), mask=mask)
         expected = pa.array([b'foo', None, b'baz'], type=pa.binary(3))
         assert converted.equals(expected)

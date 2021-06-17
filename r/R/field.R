@@ -64,10 +64,8 @@ Field$create <- function(name, type, metadata) {
 #' @param type logical type, instance of [DataType]
 #' @param metadata currently ignored
 #'
-#' @examples
-#' \donttest{
+#' @examplesIf arrow_available()
 #' field("x", int32())
-#' }
 #' @rdname Field
 #' @export
 field <- Field$create

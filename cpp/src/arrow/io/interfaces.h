@@ -202,7 +202,9 @@ class ARROW_EXPORT OutputStream : virtual public FileInterface, public Writable 
   OutputStream() = default;
 };
 
-class ARROW_EXPORT InputStream : virtual public FileInterface, virtual public Readable {
+class ARROW_EXPORT InputStream : virtual public FileInterface,
+                                 virtual public Readable,
+                                 public std::enable_shared_from_this<InputStream> {
  public:
   /// \brief Advance or skip stream indicated number of bytes
   /// \param[in] nbytes the number to move forward
@@ -225,14 +227,23 @@ class ARROW_EXPORT InputStream : virtual public FileInterface, virtual public Re
   /// Zero copy reads imply the use of Buffer-returning Read() overloads.
   virtual bool supports_zero_copy() const;
 
+  /// \brief Read and return stream metadata
+  ///
+  /// If the stream implementation doesn't support metadata, empty metadata
+  /// is returned.  Note that it is allowed to return a null pointer rather
+  /// than an allocated empty metadata.
+  virtual Result<std::shared_ptr<const KeyValueMetadata>> ReadMetadata();
+
+  /// \brief Read stream metadata asynchronously
+  virtual Future<std::shared_ptr<const KeyValueMetadata>> ReadMetadataAsync(
+      const IOContext& io_context);
+  Future<std::shared_ptr<const KeyValueMetadata>> ReadMetadataAsync();
+
  protected:
   InputStream() = default;
 };
 
-class ARROW_EXPORT RandomAccessFile
-    : public std::enable_shared_from_this<RandomAccessFile>,
-      public InputStream,
-      public Seekable {
+class ARROW_EXPORT RandomAccessFile : public InputStream, public Seekable {
  public:
   /// Necessary because we hold a std::unique_ptr
   ~RandomAccessFile() override;

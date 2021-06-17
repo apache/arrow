@@ -26,8 +26,7 @@ const { testTask, createTestData, cleanTestData } = require('./gulp/test-task');
 const {
     taskName, combinations,
     targetDir, knownTargets,
-    npmPkgName, UMDSourceTargets,
-    tasksToSkipPerTargetOrFormat
+    npmPkgName, tasksToSkipPerTargetOrFormat
 } = require('./gulp/util');
 
 for (const [target, format] of combinations([`all`], [`all`])) {
@@ -46,7 +45,7 @@ for (const [target, format] of combinations([`all`], [`all`])) {
 // a minifier, so we special case that here.
 knownTargets.forEach((target) => {
     const umd = taskName(target, `umd`);
-    const cls = taskName(UMDSourceTargets[target], `cls`);
+    const cls = taskName(target, `cls`);
     gulp.task(`build:${umd}`, gulp.series(
         `build:${cls}`,
         `clean:${umd}`, `compile:${umd}`, `package:${umd}`,

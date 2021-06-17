@@ -98,7 +98,7 @@ export function wrapChunkedGet<T extends DataType>(fn: (data: Data<T>, _1: any) 
 /** @ignore */
 export function wrapChunkedSet<T extends DataType>(fn: (data: Data<T>, _1: any, _2: any) => void) {
     return (data: Data<T>, _1: any, _2: any) => {
-        if (data.setValid(_1, !(_2 === null || _2 === undefined))) {
+        if (data.setValid(_1, _2 != null)) {
             return fn(data, _1, _2);
         }
     };
@@ -158,5 +158,5 @@ export function wrapChunkedIndexOf<T extends DataType>(indexOf: (c: Data<T>, e: 
             : binarySearch(data, this._offsets, offset, chunkedIndexOf);
         _1 = undefined;
         return result;
-    }
+    };
 }

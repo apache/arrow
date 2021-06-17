@@ -45,12 +45,10 @@
 #' @export
 #' @seealso [RecordBatchWriter] for lower-level access to writing Arrow IPC data.
 #' @seealso [Schema] for information about schemas and metadata handling.
-#' @examples
-#' \donttest{
+#' @examplesIf arrow_available()
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
 #' write_feather(mtcars, tf)
-#' }
 #' @include arrow-package.R
 write_feather <- function(x,
                           sink,
@@ -105,7 +103,8 @@ write_feather <- function(x,
   if (is.data.frame(x) || inherits(x, "RecordBatch")) {
     x <- Table$create(x)
   }
-  assert_is(x, "Table")
+  
+  assert_that(is_writable_table(x))
 
   if (!inherits(sink, "OutputStream")) {
     sink <- make_output_stream(sink)
@@ -132,8 +131,7 @@ write_feather <- function(x,
 #'
 #' @export
 #' @seealso [FeatherReader] and [RecordBatchReader] for lower-level access to reading Arrow IPC data.
-#' @examples
-#' \donttest{
+#' @examplesIf arrow_available()
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
 #' write_feather(mtcars, tf)
@@ -141,7 +139,6 @@ write_feather <- function(x,
 #' dim(df)
 #' # Can select columns
 #' df <- read_feather(tf, col_select = starts_with("d"))
-#' }
 read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
   if (!inherits(file, "RandomAccessFile")) {
     file <- make_readable_file(file, ...)

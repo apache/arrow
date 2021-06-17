@@ -42,11 +42,39 @@ struct ArithmeticOptions : public FunctionOptions {
   bool check_overflow;
 };
 
+struct ARROW_EXPORT ElementWiseAggregateOptions : public FunctionOptions {
+  explicit ElementWiseAggregateOptions(bool skip_nulls = true) : skip_nulls(skip_nulls) {}
+  static ElementWiseAggregateOptions Defaults() { return ElementWiseAggregateOptions{}; }
+  bool skip_nulls;
+};
+
+/// Options for var_args_join.
+struct ARROW_EXPORT JoinOptions : public FunctionOptions {
+  /// How to handle null values. (A null separator always results in a null output.)
+  enum NullHandlingBehavior {
+    /// A null in any input results in a null in the output.
+    EMIT_NULL,
+    /// Nulls in inputs are skipped.
+    SKIP,
+    /// Nulls in inputs are replaced with the replacement string.
+    REPLACE,
+  };
+  explicit JoinOptions(NullHandlingBehavior null_handling = EMIT_NULL,
+                       std::string null_replacement = "")
+      : null_handling(null_handling), null_replacement(std::move(null_replacement)) {}
+  static JoinOptions Defaults() { return JoinOptions(); }
+  NullHandlingBehavior null_handling;
+  std::string null_replacement;
+};
+
 struct ARROW_EXPORT MatchSubstringOptions : public FunctionOptions {
-  explicit MatchSubstringOptions(std::string pattern) : pattern(std::move(pattern)) {}
+  explicit MatchSubstringOptions(std::string pattern, bool ignore_case = false)
+      : pattern(std::move(pattern)), ignore_case(ignore_case) {}
 
   /// The exact substring (or regex, depending on kernel) to look for inside input values.
   std::string pattern;
+  /// Whether to perform a case-insensitive match.
+  bool ignore_case = false;
 };
 
 struct ARROW_EXPORT SplitOptions : public FunctionOptions {
@@ -66,6 +94,18 @@ struct ARROW_EXPORT SplitPatternOptions : public SplitOptions {
 
   /// The exact substring to look for inside input values.
   std::string pattern;
+};
+
+struct ARROW_EXPORT ReplaceSliceOptions : public FunctionOptions {
+  explicit ReplaceSliceOptions(int64_t start, int64_t stop, std::string replacement)
+      : start(start), stop(stop), replacement(std::move(replacement)) {}
+
+  /// Index to start slicing at
+  int64_t start;
+  /// Index to stop slicing at
+  int64_t stop;
+  /// String to replace the slice with
+  std::string replacement;
 };
 
 struct ARROW_EXPORT ReplaceSubstringOptions : public FunctionOptions {
@@ -121,6 +161,14 @@ struct ARROW_EXPORT TrimOptions : public FunctionOptions {
   std::string characters;
 };
 
+struct ARROW_EXPORT SliceOptions : public FunctionOptions {
+  explicit SliceOptions(int64_t start, int64_t stop = std::numeric_limits<int64_t>::max(),
+                        int64_t step = 1)
+      : start(start), stop(stop), step(step) {}
+
+  int64_t start, stop, step;
+};
+
 enum CompareOperator : int8_t {
   EQUAL,
   NOT_EQUAL,
@@ -159,6 +207,18 @@ struct ARROW_EXPORT ProjectOptions : public FunctionOptions {
 };
 
 /// @}
+
+/// \brief Get the absolute value of a value. Array values can be of arbitrary
+/// length. If argument is null the result will be null.
+///
+/// \param[in] arg the value transformed
+/// \param[in] options arithmetic options (overflow handling), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise absolute value
+ARROW_EXPORT
+Result<Datum> AbsoluteValue(const Datum& arg,
+                            ArithmeticOptions options = ArithmeticOptions(),
+                            ExecContext* ctx = NULLPTR);
 
 /// \brief Add two values together. Array values must be the same length. If
 /// either addend is null the result will be null.
@@ -237,6 +297,32 @@ ARROW_EXPORT
 Result<Datum> Power(const Datum& left, const Datum& right,
                     ArithmeticOptions options = ArithmeticOptions(),
                     ExecContext* ctx = NULLPTR);
+
+/// \brief Find the element-wise maximum of any number of arrays or scalars.
+/// Array values must be the same length.
+///
+/// \param[in] args arrays or scalars to operate on.
+/// \param[in] options options for handling nulls, optional
+/// \param[in] ctx the function execution context, optional
+/// \return the element-wise maximum
+ARROW_EXPORT
+Result<Datum> MaxElementWise(
+    const std::vector<Datum>& args,
+    ElementWiseAggregateOptions options = ElementWiseAggregateOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
+/// \brief Find the element-wise minimum of any number of arrays or scalars.
+/// Array values must be the same length.
+///
+/// \param[in] args arrays or scalars to operate on.
+/// \param[in] options options for handling nulls, optional
+/// \param[in] ctx the function execution context, optional
+/// \return the element-wise minimum
+ARROW_EXPORT
+Result<Datum> MinElementWise(
+    const std::vector<Datum>& args,
+    ElementWiseAggregateOptions options = ElementWiseAggregateOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
 
 /// \brief Compare a numeric array with a scalar.
 ///
@@ -449,6 +535,205 @@ Result<Datum> IsNan(const Datum& values, ExecContext* ctx = NULLPTR);
 ARROW_EXPORT
 Result<Datum> FillNull(const Datum& values, const Datum& fill_value,
                        ExecContext* ctx = NULLPTR);
+
+/// \brief IfElse returns elements chosen from `left` or `right`
+/// depending on `cond`. `null` values in `cond` will be promoted to the result
+///
+/// \param[in] cond `Boolean` condition Scalar/ Array
+/// \param[in] left Scalar/ Array
+/// \param[in] right Scalar/ Array
+/// \param[in] ctx the function execution context, optional
+///
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> IfElse(const Datum& cond, const Datum& left, const Datum& right,
+                     ExecContext* ctx = NULLPTR);
+
+/// \brief Year returns year for each element of `values`
+///
+/// \param[in] values input to extract year from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Year(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief Month returns month for each element of `values`.
+/// Month is encoded as January=1, December=12
+///
+/// \param[in] values input to extract month from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Month(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief Day returns day number for each element of `values`
+///
+/// \param[in] values input to extract day from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Day(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief DayOfWeek returns number of the day of the week value for each element of
+/// `values`. Week starts on Monday denoted by 0 and ends on Sunday denoted by 6.
+///
+/// \param[in] values input to extract number of the day of the week from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> DayOfWeek(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief DayOfYear returns number of day of the year for each element of `values`.
+/// January 1st maps to day number 1, February 1st to 32, etc.
+///
+/// \param[in] values input to extract number of day of the year from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> DayOfYear(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief ISOYear returns ISO year number for each element of `values`.
+/// First week of an ISO year has the majority (4 or more) of its days in January.
+///
+/// \param[in] values input to extract ISO year from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> ISOYear(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief ISOWeek returns ISO week of year number for each element of `values`.
+/// First ISO week has the majority (4 or more) of its days in January.
+/// Week of the year starts with 1 and can run up to 53.
+///
+/// \param[in] values input to extract ISO week of year from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> ISOWeek(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief ISOCalendar returns a (ISO year, ISO week, ISO day of week) struct for
+/// each element of `values`.
+/// ISO week starts on Monday denoted by 1 and ends on Sunday denoted by 7.
+///
+/// \param[in] values input to ISO calendar struct from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> ISOCalendar(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief Quarter returns the quarter of year number for each element of `values`
+/// First quarter maps to 1 and fourth quarter maps to 4.
+///
+/// \param[in] values input to extract quarter of year from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> Quarter(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief Hour returns hour value for each element of `values`
+///
+/// \param[in] values input to extract hour from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Hour(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief Minute returns minutes value for each element of `values`
+///
+/// \param[in] values input to extract minutes from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Minute(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief Second returns seconds value for each element of `values`
+///
+/// \param[in] values input to extract seconds from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Second(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief Millisecond returns number of milliseconds since the last full second
+/// for each element of `values`
+///
+/// \param[in] values input to extract milliseconds from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Millisecond(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief Microsecond returns number of microseconds since the last full millisecond
+/// for each element of `values`
+///
+/// \param[in] values input to extract microseconds from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Microsecond(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief Nanosecond returns number of nanoseconds since the last full millisecond
+/// for each element of `values`
+///
+/// \param[in] values input to extract nanoseconds from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Nanosecond(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief Subsecond returns the fraction of second elapsed since last full second
+/// as a float for each element of `values`
+///
+/// \param[in] values input to extract subsecond from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> Subsecond(const Datum& values, ExecContext* ctx = NULLPTR);
 
 }  // namespace compute
 }  // namespace arrow

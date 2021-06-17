@@ -29,6 +29,14 @@ namespace gandiva {
       DATE_TYPES(INNER, name##Hour, {}), DATE_TYPES(INNER, name##Minute, {}),    \
       DATE_TYPES(INNER, name##Second, {})
 
+#define TO_TIMESTAMP_SAFE_NULL_IF_NULL(NAME, ALIASES, TYPE)                       \
+  NativeFunction(#NAME, std::vector<std::string> ALIASES, DataTypeVector{TYPE()}, \
+                 timestamp(), kResultNullIfNull, ARROW_STRINGIFY(NAME##_##TYPE))
+
+#define TO_TIME_SAFE_NULL_IF_NULL(NAME, ALIASES, TYPE)                            \
+  NativeFunction(#NAME, std::vector<std::string> ALIASES, DataTypeVector{TYPE()}, \
+                 time32(), kResultNullIfNull, ARROW_STRINGIFY(NAME##_##TYPE))
+
 #define TIME_EXTRACTION_FNS(name)                              \
   TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Hour, {}),       \
       TIME_TYPES(EXTRACT_SAFE_NULL_IF_NULL, name##Minute, {}), \
@@ -86,7 +94,9 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
       NativeFunction("extractDay", {}, DataTypeVector{day_time_interval()}, int64(),
                      kResultNullIfNull, "extractDay_daytimeinterval"),
 
-      DATE_TYPES(LAST_DAY_SAFE_NULL_IF_NULL, last_day, {})};
+      DATE_TYPES(LAST_DAY_SAFE_NULL_IF_NULL, last_day, {}),
+      BASE_NUMERIC_TYPES(TO_TIME_SAFE_NULL_IF_NULL, to_time, {}),
+      BASE_NUMERIC_TYPES(TO_TIMESTAMP_SAFE_NULL_IF_NULL, to_timestamp, {})};
 
   return date_time_fn_registry_;
 }

@@ -216,5 +216,55 @@ TEST(StreamingReaderTests, NestedParallelism) {
   TestNestedParallelism(thread_pool, table_factory);
 }
 
+TEST(CountRowsAsync, Basics) {
+  constexpr int NROWS = 4096;
+  ASSERT_OK_AND_ASSIGN(auto table_buffer, MakeSampleCsvBuffer(NROWS));
+  {
+    auto reader = std::make_shared<io::BufferReader>(table_buffer);
+    auto read_options = ReadOptions::Defaults();
+    auto parse_options = ParseOptions::Defaults();
+    ASSERT_FINISHES_OK_AND_EQ(
+        NROWS, CountRowsAsync(io::default_io_context(), reader,
+                              internal::GetCpuThreadPool(), read_options, parse_options));
+  }
+  {
+    auto reader = std::make_shared<io::BufferReader>(table_buffer);
+    auto read_options = ReadOptions::Defaults();
+    read_options.skip_rows = 20;
+    auto parse_options = ParseOptions::Defaults();
+    ASSERT_FINISHES_OK_AND_EQ(NROWS - 20, CountRowsAsync(io::default_io_context(), reader,
+                                                         internal::GetCpuThreadPool(),
+                                                         read_options, parse_options));
+  }
+  {
+    auto reader = std::make_shared<io::BufferReader>(table_buffer);
+    auto read_options = ReadOptions::Defaults();
+    read_options.autogenerate_column_names = true;
+    auto parse_options = ParseOptions::Defaults();
+    ASSERT_FINISHES_OK_AND_EQ(NROWS + 1, CountRowsAsync(io::default_io_context(), reader,
+                                                        internal::GetCpuThreadPool(),
+                                                        read_options, parse_options));
+  }
+  {
+    auto reader = std::make_shared<io::BufferReader>(table_buffer);
+    auto read_options = ReadOptions::Defaults();
+    read_options.block_size = 1024;
+    auto parse_options = ParseOptions::Defaults();
+    ASSERT_FINISHES_OK_AND_EQ(
+        NROWS, CountRowsAsync(io::default_io_context(), reader,
+                              internal::GetCpuThreadPool(), read_options, parse_options));
+  }
+}
+
+TEST(CountRowsAsync, Errors) {
+  ASSERT_OK_AND_ASSIGN(auto table_buffer, MakeSampleCsvBuffer(4096, /*valid=*/false));
+  auto reader = std::make_shared<io::BufferReader>(table_buffer);
+  auto read_options = ReadOptions::Defaults();
+  auto parse_options = ParseOptions::Defaults();
+  ASSERT_FINISHES_AND_RAISES(
+      Invalid, CountRowsAsync(io::default_io_context(), reader,
+                              internal::GetCpuThreadPool(), read_options, parse_options));
+}
+
 }  // namespace csv
 }  // namespace arrow

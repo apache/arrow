@@ -33,6 +33,16 @@ class TestLikeHolder : public ::testing::Test {
         std::make_shared<LiteralNode>(arrow::utf8(), LiteralHolder(pattern), false);
     return FunctionNode("like", {field, pattern_node}, arrow::boolean());
   }
+
+  FunctionNode BuildLike(std::string pattern, char escape_char) {
+    auto field = std::make_shared<FieldNode>(arrow::field("in", arrow::utf8()));
+    auto pattern_node =
+        std::make_shared<LiteralNode>(arrow::utf8(), LiteralHolder(pattern), false);
+    auto escape_char_node = std::make_shared<LiteralNode>(
+        arrow::int8(), LiteralHolder((int8_t)escape_char), false);
+    return FunctionNode("like", {field, pattern_node, escape_char_node},
+                        arrow::boolean());
+  }
 };
 
 TEST_F(TestLikeHolder, TestMatchAny) {
@@ -125,6 +135,80 @@ TEST_F(TestLikeHolder, TestOptimise) {
 
   fnode = LikeHolder::TryOptimize(BuildLike("x_yz%"));
   EXPECT_EQ(fnode.descriptor()->name(), "like");
+
+  // no optimisation for escaped pattern.
+  fnode = LikeHolder::TryOptimize(BuildLike("\\%xyz", '\\'));
+  EXPECT_EQ(fnode.descriptor()->name(), "like");
+  EXPECT_EQ(fnode.ToString(),
+            "bool like((string) in, (const string) \\%xyz, (const int8) \\)");
 }
 
+TEST_F(TestLikeHolder, TestMatchOneEscape) {
+  std::shared_ptr<LikeHolder> like_holder;
+
+  auto status = LikeHolder::Make("ab\\_", "\\", &like_holder);
+  EXPECT_EQ(status.ok(), true) << status.message();
+
+  auto& like = *like_holder;
+
+  EXPECT_TRUE(like("ab_"));
+
+  EXPECT_FALSE(like("abc"));
+  EXPECT_FALSE(like("abd"));
+  EXPECT_FALSE(like("a"));
+  EXPECT_FALSE(like("abcd"));
+  EXPECT_FALSE(like("dabc"));
+}
+
+TEST_F(TestLikeHolder, TestMatchManyEscape) {
+  std::shared_ptr<LikeHolder> like_holder;
+
+  auto status = LikeHolder::Make("ab\\%", "\\", &like_holder);
+  EXPECT_EQ(status.ok(), true) << status.message();
+
+  auto& like = *like_holder;
+
+  EXPECT_TRUE(like("ab%"));
+
+  EXPECT_FALSE(like("abc"));
+  EXPECT_FALSE(like("abd"));
+  EXPECT_FALSE(like("a"));
+  EXPECT_FALSE(like("abcd"));
+  EXPECT_FALSE(like("dabc"));
+}
+
+TEST_F(TestLikeHolder, TestMatchEscape) {
+  std::shared_ptr<LikeHolder> like_holder;
+
+  auto status = LikeHolder::Make("ab\\\\", "\\", &like_holder);
+  EXPECT_EQ(status.ok(), true) << status.message();
+
+  auto& like = *like_holder;
+
+  EXPECT_TRUE(like("ab\\"));
+
+  EXPECT_FALSE(like("abc"));
+}
+
+TEST_F(TestLikeHolder, TestEmptyEscapeChar) {
+  std::shared_ptr<LikeHolder> like_holder;
+
+  auto status = LikeHolder::Make("ab\\_", "", &like_holder);
+  EXPECT_EQ(status.ok(), true) << status.message();
+
+  auto& like = *like_holder;
+
+  EXPECT_TRUE(like("ab\\c"));
+  EXPECT_TRUE(like("ab\\_"));
+
+  EXPECT_FALSE(like("ab\\_d"));
+  EXPECT_FALSE(like("ab__"));
+}
+
+TEST_F(TestLikeHolder, TestMultipleEscapeChar) {
+  std::shared_ptr<LikeHolder> like_holder;
+
+  auto status = LikeHolder::Make("ab\\_", "\\\\", &like_holder);
+  EXPECT_EQ(status.ok(), false) << status.message();
+}
 }  // namespace gandiva

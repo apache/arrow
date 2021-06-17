@@ -594,9 +594,20 @@ Status NumPyConverter::Visit(const FixedSizeBinaryType& type) {
 
   if (mask_ != nullptr) {
     Ndarray1DIndexer<uint8_t> mask_values(mask_);
-    RETURN_NOT_OK(builder.AppendValues(data, length_, mask_values.data()));
+    RETURN_NOT_OK(builder.Reserve(length_));
+    for (int64_t i = 0; i < length_; ++i) {
+      if (mask_values[i]) {
+        RETURN_NOT_OK(builder.AppendNull());
+      } else {
+        RETURN_NOT_OK(builder.Append(data));
+      }
+      data += stride_;
+    }
   } else {
-    RETURN_NOT_OK(builder.AppendValues(data, length_));
+    for (int64_t i = 0; i < length_; ++i) {
+      RETURN_NOT_OK(builder.Append(data));
+      data += stride_;
+    }
   }
 
   std::shared_ptr<Array> result;

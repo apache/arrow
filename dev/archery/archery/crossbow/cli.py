@@ -340,11 +340,10 @@ def download_artifacts(obj, job_name, target_dir, dry_run, fetch):
 
 
 @crossbow.command()
+@click.argument('patterns', nargs=-1, required=True)
 @click.option('--sha', required=True, help='Target committish')
 @click.option('--tag', required=True, help='Target tag')
 @click.option('--method', default='curl', help='Use cURL to upload')
-@click.option('--pattern', '-p', 'patterns', required=True, multiple=True,
-              help='File pattern to upload as assets')
 @click.pass_obj
 def upload_artifacts(obj, tag, sha, patterns, method):
     queue = obj['queue']

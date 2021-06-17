@@ -1522,6 +1522,14 @@ std::function<Future<T>()> MakeSingleFutureGenerator(Future<T> future) {
   };
 }
 
+/// \brief Make a generator that immediately ends.
+///
+/// This generator is async-reentrant.
+template <typename T>
+std::function<Future<T>()> MakeEmptyGenerator() {
+  return []() -> Future<T> { return AsyncGeneratorEnd<T>(); };
+}
+
 /// \brief Make a generator that always fails with a given error
 ///
 /// This generator is async-reentrant.

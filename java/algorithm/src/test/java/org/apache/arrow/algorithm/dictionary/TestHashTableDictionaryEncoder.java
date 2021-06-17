@@ -250,7 +250,7 @@ public class TestHashTableDictionaryEncoder {
 
         assertEquals(vector.getValueCount(), decoded.getValueCount());
         for (int i = 0; i < 5; i++) {
-          assertEquals(vector.getObject(i), ((VarCharVector) decoded).getObject(i));
+          assertEquals(vector.getObject(i), decoded.getObject(i));
         }
       }
     }

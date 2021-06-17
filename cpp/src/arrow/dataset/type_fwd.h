@@ -71,8 +71,10 @@ class ParquetFileWriteOptions;
 class Partitioning;
 class PartitioningFactory;
 class PartitioningOrFactory;
+struct KeyValuePartitioningOptions;
 class DirectoryPartitioning;
 class HivePartitioning;
+struct HivePartitioningOptions;
 
 struct ScanOptions;
 

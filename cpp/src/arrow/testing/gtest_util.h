@@ -199,6 +199,9 @@ ARROW_TESTING_EXPORT void AssertChunkedEqual(const ChunkedArray& actual,
 // Like ChunkedEqual, but permits different chunk layout
 ARROW_TESTING_EXPORT void AssertChunkedEquivalent(const ChunkedArray& expected,
                                                   const ChunkedArray& actual);
+ARROW_TESTING_EXPORT void AssertChunkedApproxEquivalent(
+    const ChunkedArray& expected, const ChunkedArray& actual,
+    const EqualOptions& equal_options = EqualOptions::Defaults());
 ARROW_TESTING_EXPORT void AssertBufferEqual(const Buffer& buffer,
                                             const std::vector<uint8_t>& expected);
 ARROW_TESTING_EXPORT void AssertBufferEqual(const Buffer& buffer,
@@ -246,6 +249,9 @@ ARROW_TESTING_EXPORT void AssertTablesEqual(const Table& expected, const Table& 
 
 ARROW_TESTING_EXPORT void AssertDatumsEqual(const Datum& expected, const Datum& actual,
                                             bool verbose = false);
+ARROW_TESTING_EXPORT void AssertDatumsApproxEqual(
+    const Datum& expected, const Datum& actual, bool verbose = false,
+    const EqualOptions& options = EqualOptions::Defaults());
 
 template <typename C_TYPE>
 void AssertNumericDataEqual(const C_TYPE* raw_data,
@@ -300,6 +306,10 @@ std::shared_ptr<RecordBatch> RecordBatchFromJSON(const std::shared_ptr<Schema>&,
 ARROW_TESTING_EXPORT
 std::shared_ptr<ChunkedArray> ChunkedArrayFromJSON(const std::shared_ptr<DataType>&,
                                                    const std::vector<std::string>& json);
+
+ARROW_TESTING_EXPORT
+std::shared_ptr<Scalar> ScalarFromJSON(const std::shared_ptr<DataType>&,
+                                       util::string_view json);
 
 ARROW_TESTING_EXPORT
 std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>&,
@@ -433,6 +443,14 @@ inline void BitmapFromVector(const std::vector<T>& is_valid,
                              std::shared_ptr<Buffer>* out) {
   ASSERT_OK(GetBitmapFromVector(is_valid, out));
 }
+
+// Given an array, return a new identical array except for one validity bit
+// set to a new value.
+// This is useful to force the underlying "value" of null entries to otherwise
+// invalid data and check that errors don't get reported.
+ARROW_TESTING_EXPORT
+std::shared_ptr<Array> TweakValidityBit(const std::shared_ptr<Array>& array,
+                                        int64_t index, bool validity);
 
 ARROW_TESTING_EXPORT
 void SleepFor(double seconds);

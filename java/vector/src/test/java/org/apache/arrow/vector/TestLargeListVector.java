@@ -101,9 +101,9 @@ public class TestLargeListVector {
       Object result = outVector.getObject(0);
       ArrayList<Long> resultSet = (ArrayList<Long>) result;
       assertEquals(3, resultSet.size());
-      assertEquals(new Long(1), (Long) resultSet.get(0));
-      assertEquals(new Long(2), (Long) resultSet.get(1));
-      assertEquals(new Long(3), (Long) resultSet.get(2));
+      assertEquals(new Long(1), resultSet.get(0));
+      assertEquals(new Long(2), resultSet.get(1));
+      assertEquals(new Long(3), resultSet.get(2));
 
       /* index 1 */
       result = outVector.getObject(1);
@@ -220,37 +220,37 @@ public class TestLargeListVector {
       offset = (int) offsetBuffer.getLong(index * LargeListVector.OFFSET_WIDTH);
       assertEquals(Integer.toString(0), Integer.toString(offset));
 
-      Object actual = dataVector.getObject(offset);
-      assertEquals(new Long(10), (Long) actual);
+      Long actual = dataVector.getObject(offset);
+      assertEquals(new Long(10), actual);
       offset++;
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(11), (Long) actual);
+      assertEquals(new Long(11), actual);
       offset++;
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(12), (Long) actual);
+      assertEquals(new Long(12), actual);
 
       index++;
       offset = (int) offsetBuffer.getLong(index * LargeListVector.OFFSET_WIDTH);
       assertEquals(Integer.toString(3), Integer.toString(offset));
 
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(13), (Long) actual);
+      assertEquals(new Long(13), actual);
       offset++;
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(14), (Long) actual);
+      assertEquals(new Long(14), actual);
 
       index++;
       offset = (int) offsetBuffer.getLong(index * LargeListVector.OFFSET_WIDTH);
       assertEquals(Integer.toString(5), Integer.toString(offset));
 
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(15), (Long) actual);
+      assertEquals(new Long(15), actual);
       offset++;
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(16), (Long) actual);
+      assertEquals(new Long(16), actual);
       offset++;
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(17), (Long) actual);
+      assertEquals(new Long(17), actual);
 
       index++;
       offset = (int) offsetBuffer.getLong(index * LargeListVector.OFFSET_WIDTH);
@@ -323,7 +323,7 @@ public class TestLargeListVector {
 
       int index = 0;
       int offset = 0;
-      Object actual = null;
+      Long actual = null;
 
       /* index 0 */
       assertFalse(listVector.isNull(index));
@@ -331,13 +331,13 @@ public class TestLargeListVector {
       assertEquals(Integer.toString(0), Integer.toString(offset));
 
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(10), (Long) actual);
+      assertEquals(new Long(10), actual);
       offset++;
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(11), (Long) actual);
+      assertEquals(new Long(11), actual);
       offset++;
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(12), (Long) actual);
+      assertEquals(new Long(12), actual);
 
       /* index 1 */
       index++;
@@ -346,10 +346,10 @@ public class TestLargeListVector {
       assertEquals(Integer.toString(3), Integer.toString(offset));
 
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(13), (Long) actual);
+      assertEquals(new Long(13), actual);
       offset++;
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(14), (Long) actual);
+      assertEquals(new Long(14), actual);
 
       /* index 2 */
       index++;
@@ -358,16 +358,16 @@ public class TestLargeListVector {
       assertEquals(Integer.toString(5), Integer.toString(offset));
 
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(15), (Long) actual);
+      assertEquals(new Long(15), actual);
       offset++;
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(16), (Long) actual);
+      assertEquals(new Long(16), actual);
       offset++;
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(17), (Long) actual);
+      assertEquals(new Long(17), actual);
       offset++;
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(18), (Long) actual);
+      assertEquals(new Long(18), actual);
 
       /* index 3 */
       index++;
@@ -376,7 +376,7 @@ public class TestLargeListVector {
       assertEquals(Integer.toString(9), Integer.toString(offset));
 
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(19), (Long) actual);
+      assertEquals(new Long(19), actual);
 
       /* index 4 */
       index++;
@@ -385,16 +385,16 @@ public class TestLargeListVector {
       assertEquals(Integer.toString(10), Integer.toString(offset));
 
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(20), (Long) actual);
+      assertEquals(new Long(20), actual);
       offset++;
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(21), (Long) actual);
+      assertEquals(new Long(21), actual);
       offset++;
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(22), (Long) actual);
+      assertEquals(new Long(22), actual);
       offset++;
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(23), (Long) actual);
+      assertEquals(new Long(23), actual);
 
       /* index 5 */
       index++;

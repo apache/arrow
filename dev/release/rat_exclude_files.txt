@@ -60,6 +60,7 @@ dev/tasks/linux-packages/apache-arrow/debian/control.in
 dev/tasks/linux-packages/apache-arrow/debian/gir1.2-arrow-1.0.install
 dev/tasks/linux-packages/apache-arrow/debian/gir1.2-arrow-cuda-1.0.install
 dev/tasks/linux-packages/apache-arrow/debian/gir1.2-arrow-dataset-1.0.install
+dev/tasks/linux-packages/apache-arrow/debian/gir1.2-arrow-flight-1.0.install
 dev/tasks/linux-packages/apache-arrow/debian/gir1.2-gandiva-1.0.install
 dev/tasks/linux-packages/apache-arrow/debian/gir1.2-parquet-1.0.install
 dev/tasks/linux-packages/apache-arrow/debian/gir1.2-plasma-1.0.install
@@ -81,6 +82,11 @@ dev/tasks/linux-packages/apache-arrow/debian/libarrow-dataset-glib-doc.links
 dev/tasks/linux-packages/apache-arrow/debian/libarrow-dataset-glib500.install
 dev/tasks/linux-packages/apache-arrow/debian/libarrow-dataset500.install
 dev/tasks/linux-packages/apache-arrow/debian/libarrow-flight-dev.install
+dev/tasks/linux-packages/apache-arrow/debian/libarrow-flight-glib-dev.install
+dev/tasks/linux-packages/apache-arrow/debian/libarrow-flight-glib-doc.doc-base
+dev/tasks/linux-packages/apache-arrow/debian/libarrow-flight-glib-doc.install
+dev/tasks/linux-packages/apache-arrow/debian/libarrow-flight-glib-doc.links
+dev/tasks/linux-packages/apache-arrow/debian/libarrow-flight-glib500.install
 dev/tasks/linux-packages/apache-arrow/debian/libarrow-flight500.install
 dev/tasks/linux-packages/apache-arrow/debian/libarrow-python-dev.install
 dev/tasks/linux-packages/apache-arrow/debian/libarrow-python-flight-dev.install

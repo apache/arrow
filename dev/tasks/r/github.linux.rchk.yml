@@ -1,0 +1,77 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+# NOTE: must set "Crossbow" as name to have the badge links working in the
+# github comment reports!
+name: Crossbow
+
+on:
+  push:
+    branches:
+      - "*-github-*"
+
+jobs:
+  as-cran:
+    name: "rchk"
+    runs-on: ubuntu-20.04
+    strategy:
+      fail-fast: false
+    env:
+      ARROW_R_DEV: "FALSE"
+      RSPM: "https://packagemanager.rstudio.com/cran/__linux__/focal/latest"
+    steps:
+      - name: Checkout Arrow
+        run: |
+          git clone --no-checkout {{ arrow.remote }} arrow
+          git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
+          git -C arrow checkout FETCH_HEAD
+          git -C arrow submodule update --init --recursive
+      - name: Free Up Disk Space
+        shell: bash
+        run: arrow/ci/scripts/util_cleanup.sh
+      - uses: r-lib/actions/setup-r@v1
+      - uses: r-lib/actions/setup-pandoc@v1
+      - name: Install dependencies
+        run: |
+          install.packages("remotes")
+          remotes::install_deps("arrow/r", dependencies = TRUE)
+        shell: Rscript {0}
+      - name: Build arrow package
+        run: |
+          R CMD build arrow/r
+          mkdir packages
+          mv arrow_*.tar.gz packages
+      - name: rchk
+        run: |
+          docker run -v `pwd`/packages:/rchk/packages kalibera/rchk:latest /rchk/packages/arrow_*.tar.gz |& tee rchk.out
+      - name: Confirm that rchk has no errors
+        # Suspicious call, [UP], and [PB] are all of the error types currently at
+        # https://github.com/kalibera/cran-checks/tree/master/rchk/results
+        # though this might not be exhaustive, there does not appear to be a way to have rchk return an error code
+        # CRAN also will remove some of the outputs (especially those related to Rcpp and strptime, e.g.
+        # ERROR: too many states (abstraction error?))
+        # https://github.com/kalibera/rchk
+        run: |
+          if [ $(grep -c "Suspicious call" rchk.out) -gt 0 ] || [ $(grep -c "\[UP\]" rchk.out) -gt 0 ] || [ $(grep -c "\[PB\]" rchk.out) -gt 0 ]; then
+            echo "Found rchk errors"
+            cat rchk.out
+            exit 1
+          fi
+        if: always()
+      - name: Dump rchk output logs
+        run: cat rchk.out
+        if: always()

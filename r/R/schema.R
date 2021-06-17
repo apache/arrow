@@ -77,14 +77,12 @@
 #'
 #' @rdname Schema
 #' @name Schema
-#' @examples
-#' \donttest{
+#' @examplesIf arrow_available()
 #' df <- data.frame(col1 = 2:4, col2 = c(0.1, 0.3, 0.5))
 #' tab1 <- Table$create(df)
 #' tab1$schema
 #' tab2 <- Table$create(df, schema = schema(col1 = int8(), col2 = float32()))
 #' tab2$schema
-#' }
 #' @export
 Schema <- R6Class("Schema",
   inherit = ArrowObject,
@@ -284,12 +282,10 @@ read_schema <- function(stream, ...) {
 #' @param schemas Alternatively, a list of schemas
 #' @return A `Schema` with the union of fields contained in the inputs
 #' @export
-#' @examples
-#' \dontrun{
+#' @examplesIf arrow_available()
 #' a <- schema(b = double(), c = bool())
 #' z <- schema(b = double(), k = utf8())
 #' unify_schemas(a, z)
-#' }
 unify_schemas <- function(..., schemas = list(...)) {
   arrow__UnifySchemas(schemas)
 }

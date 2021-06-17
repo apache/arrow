@@ -52,7 +52,7 @@ groups:
     - centos-*
     - conda-*
     - debian-*
-    - jars
+    - java-jars
     - nuget
     - python-sdist
     - ubuntu-*
@@ -125,7 +125,7 @@ groups:
     - ubuntu-*
     - centos-*
     - conda-*
-    - jars
+    - java-jars
     # List the homebrews explicitly because we don't care about running homebrew-cpp-autobrew
     - homebrew-cpp
     - homebrew-r-autobrew
@@ -157,27 +157,27 @@ tasks:
   #   Python and the OS are the main dimension. The R package `r-arrow` is
   #   an independent feedstock as it doesn't have the Python but the
   #   R dimension. To limit the number of CI jobs, we are building `r-arrow`
-  #   for R 3.6 with the Python 3.6 jobs and for R 4.0 with the Python 3.7 jobs.
+  #   for R 4.0 with the Python 3.6 jobs and for R 4.1 with the Python 3.7 jobs.
   # * The files in `dev/tasks/conda-recipes/.ci_support/` are automatically
   #   generated and to be synced regularly from the feedstock. We have no way
   #   yet to generate them inside the arrow repository automatically.
 
-  conda-linux-gcc-py36-cpu-r36:
+  conda-linux-gcc-py36-cpu-r40:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
       config: linux_64_cuda_compiler_versionNonenumpy1.17python3.6.____cpython
-      r_config: linux_64_r_base3.6
+      r_config: linux_64_r_base4.0
     artifacts:
       - arrow-cpp-{no_rc_version}-py36(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0_cpu.tar.bz2
 
-  conda-linux-gcc-py37-cpu-r40:
+  conda-linux-gcc-py37-cpu-r41:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
       config: linux_64_cuda_compiler_versionNonenumpy1.17python3.7.____cpython
-      r_config: linux_64_r_base4.0
+      r_config: linux_64_r_base4.1
     artifacts:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
@@ -228,22 +228,22 @@ tasks:
 
   ############################## Conda OSX ####################################
 
-  conda-osx-clang-py36-r36:
+  conda-osx-clang-py36-r40:
     ci: azure
     template: conda-recipes/azure.osx.yml
     params:
       config: osx_64_numpy1.17python3.6.____cpython
-      r_config: osx_64_r_base3.6
+      r_config: osx_64_r_base4.0
     artifacts:
       - arrow-cpp-{no_rc_version}-py36(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0_cpu.tar.bz2
 
-  conda-osx-clang-py37-r40:
+  conda-osx-clang-py37-r41:
     ci: azure
     template: conda-recipes/azure.osx.yml
     params:
       config: osx_64_numpy1.17python3.7.____cpython
-      r_config: osx_64_r_base4.0
+      r_config: osx_64_r_base4.1
     artifacts:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
@@ -286,22 +286,22 @@ tasks:
 
   ############################## Conda Windows ################################
 
-  conda-win-vs2017-py36-r36:
+  conda-win-vs2017-py36-r40:
     ci: azure
     template: conda-recipes/azure.win.yml
     params:
       config: win_64_cuda_compiler_versionNonenumpy1.17python3.6.____cpython
-      r_config: win_64_r_base3.6
+      r_config: win_64_r_base4.0
     artifacts:
       - arrow-cpp-{no_rc_version}-py36(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0_cpu.tar.bz2
 
-  conda-win-vs2017-py37-r40:
+  conda-win-vs2017-py37-r41:
     ci: azure
     template: conda-recipes/azure.win.yml
     params:
       config: win_64_cuda_compiler_versionNonenumpy1.17python3.7.____cpython
-      r_config: win_64_r_base4.0
+      r_config: win_64_r_base4.1
     artifacts:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
@@ -429,6 +429,7 @@ tasks:
     {% endif %}
       - gir1.2-arrow-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-arrow-dataset-1.0_{no_rc_version}-1_[a-z0-9]+.deb
+      - gir1.2-arrow-flight-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-gandiva-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
@@ -440,6 +441,10 @@ tasks:
       - libarrow-dataset500_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight-glib500-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-flight-glib500_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight500-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - libarrow-flight500_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
@@ -535,6 +540,10 @@ tasks:
       - arrow-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       {% if target == "centos-8" %}
       - arrow-flight-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+      - arrow-flight-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+      - arrow-flight-glib-doc-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+      - arrow-flight-glib-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
+      - arrow-flight-glib-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow-flight-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow-flight-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       {% endif %}
@@ -621,14 +630,50 @@ tasks:
 
   ############################## Arrow JAR's ##################################
 
-  jars:
+  java-jars:
     # Build jar's that contains cpp libraries dependencies
     ci: github
-    template: jars/github.yml
+    template: java-jars/github.yml
     artifacts:
-      - arrow-gandiva-{no_rc_version}-SNAPSHOT.jar
-      - arrow-orc-{no_rc_version}-SNAPSHOT.jar
+      - arrow-algorithm-{no_rc_version}-SNAPSHOT-tests.jar
+      - arrow-algorithm-{no_rc_version}-SNAPSHOT.jar
+      - arrow-avro-{no_rc_version}-SNAPSHOT-tests.jar
+      - arrow-avro-{no_rc_version}-SNAPSHOT.jar
+      - arrow-compression-{no_rc_version}-SNAPSHOT-tests.jar
+      - arrow-compression-{no_rc_version}-SNAPSHOT.jar
+      - arrow-dataset-{no_rc_version}-SNAPSHOT-tests.jar
       - arrow-dataset-{no_rc_version}-SNAPSHOT.jar
+      - arrow-format-{no_rc_version}-SNAPSHOT-tests.jar
+      - arrow-format-{no_rc_version}-SNAPSHOT.jar
+      - arrow-gandiva-{no_rc_version}-SNAPSHOT-tests.jar
+      - arrow-gandiva-{no_rc_version}-SNAPSHOT.jar
+      - arrow-jdbc-{no_rc_version}-SNAPSHOT-tests.jar
+      - arrow-jdbc-{no_rc_version}-SNAPSHOT.jar
+      - arrow-memory-core-{no_rc_version}-SNAPSHOT-tests.jar
+      - arrow-memory-core-{no_rc_version}-SNAPSHOT.jar
+      - arrow-memory-netty-{no_rc_version}-SNAPSHOT-tests.jar
+      - arrow-memory-netty-{no_rc_version}-SNAPSHOT.jar
+      - arrow-memory-unsafe-{no_rc_version}-SNAPSHOT-tests.jar
+      - arrow-memory-unsafe-{no_rc_version}-SNAPSHOT.jar
+      - arrow-orc-{no_rc_version}-SNAPSHOT-tests.jar
+      - arrow-orc-{no_rc_version}-SNAPSHOT.jar
+      - arrow-performance-{no_rc_version}-SNAPSHOT-tests.jar
+      - arrow-performance-{no_rc_version}-SNAPSHOT.jar
+      - arrow-plasma-{no_rc_version}-SNAPSHOT-tests.jar
+      - arrow-plasma-{no_rc_version}-SNAPSHOT.jar
+      - arrow-tools-{no_rc_version}-SNAPSHOT-jar-with-dependencies.jar
+      - arrow-tools-{no_rc_version}-SNAPSHOT-tests.jar
+      - arrow-tools-{no_rc_version}-SNAPSHOT.jar
+      - arrow-vector-{no_rc_version}-SNAPSHOT-shade-format-flatbuffers.jar
+      - arrow-vector-{no_rc_version}-SNAPSHOT-tests.jar
+      - arrow-vector-{no_rc_version}-SNAPSHOT.jar
+      - benchmarks.jar
+      - flight-core-{no_rc_version}-SNAPSHOT-jar-with-dependencies.jar
+      - flight-core-{no_rc_version}-SNAPSHOT-shaded-ext.jar
+      - flight-core-{no_rc_version}-SNAPSHOT-shaded.jar
+      - flight-core-{no_rc_version}-SNAPSHOT-tests.jar
+      - flight-core-{no_rc_version}-SNAPSHOT.jar
+      - flight-grpc-{no_rc_version}-SNAPSHOT-tests.jar
 
   ############################## NuGet packages ###############################
 
@@ -834,8 +879,13 @@ tasks:
     template: docker-tests/azure.linux.yml
     params:
       env:
+        ARROW_R_DEV: "TRUE"
         UBUNTU: 18.04
       run: ubuntu-r-valgrind
+
+  test-r-linux-rchk:
+    ci: github
+    template: r/github.linux.rchk.yml
 
   test-r-linux-as-cran:
     ci: github
@@ -846,6 +896,10 @@ tasks:
   test-r-version-compatibility:
     ci: github
     template: r/github.linux.version.compatibility.yml
+    
+  test-r-rtools-35:
+    ci: github
+    template: r/github.windows.rtools35.yml
 
   test-r-versions:
     ci: github
@@ -919,6 +973,10 @@ tasks:
         UBUNTU: 18.04
       run: ubuntu-r-sanitizer
 
+  revdep-r-check:
+    ci: github
+    template: r/github.linux.revdepcheck.yml
+
   test-debian-10-go-1.15:
     ci: azure
     template: docker-tests/azure.linux.yml
@@ -933,6 +991,12 @@ tasks:
     params:
       env:
         UBUNTU: "20.10"
+      run: ubuntu-docs
+
+  test-ubuntu-default-docs:
+    ci: azure
+    template: docker-tests/azure.linux.yml
+    params:
       run: ubuntu-docs
 
   ############################## vcpkg tests ##################################

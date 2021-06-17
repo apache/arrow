@@ -132,6 +132,9 @@ class ARROW_EXPORT BufferedInputStream
   // InputStream APIs
 
   bool closed() const override;
+  Result<std::shared_ptr<const KeyValueMetadata>> ReadMetadata() override;
+  Future<std::shared_ptr<const KeyValueMetadata>> ReadMetadataAsync(
+      const IOContext& io_context) override;
 
  private:
   friend InputStreamConcurrencyWrapper<BufferedInputStream>;

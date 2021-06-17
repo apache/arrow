@@ -836,11 +836,12 @@ cdef class Array(_PandasConvertible):
             result = GetResultValue(self.ap.View(type.sp_type))
         return pyarrow_wrap_array(result)
 
-    def sum(self):
+    def sum(self, **kwargs):
         """
         Sum the values in a numerical array.
         """
-        return _pc().call_function('sum', [self])
+        options = _pc().ScalarAggregateOptions(**kwargs)
+        return _pc().call_function('sum', [self], options)
 
     def unique(self):
         """
@@ -1121,6 +1122,14 @@ cdef class Array(_PandasConvertible):
         Select values from an array. See pyarrow.compute.filter for full usage.
         """
         return _pc().filter(self, mask, null_selection_behavior)
+
+    def index(self, value, start=None, end=None, *, memory_pool=None):
+        """
+        Find the first index of a value.
+
+        See pyarrow.compute.index for full usage.
+        """
+        return _pc().index(self, value, start, end, memory_pool=memory_pool)
 
     def _to_pandas(self, options, **kwargs):
         return _array_like_to_pandas(self, options)

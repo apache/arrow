@@ -121,7 +121,7 @@ class TestPrimitiveNode : public ::testing::Test {
   }
 
   void Convert(const format::SchemaElement* element) {
-    node_ = PrimitiveNode::FromParquet(element, field_id_);
+    node_ = PrimitiveNode::FromParquet(element);
     ASSERT_TRUE(node_->is_primitive());
     prim_node_ = static_cast<const PrimitiveNode*>(node_.get());
   }
@@ -1728,7 +1728,7 @@ TEST(TestSchemaNodeCreation, FactoryExceptions) {
   node->ToParquet(&string_intermediary);
   // ... corrupt the Thrift intermediary ....
   string_intermediary.logicalType.__isset.STRING = false;
-  ASSERT_ANY_THROW(node = PrimitiveNode::FromParquet(&string_intermediary, 1));
+  ASSERT_ANY_THROW(node = PrimitiveNode::FromParquet(&string_intermediary));
 
   // Invalid TimeUnit in deserialized TimeLogicalType ...
   node = PrimitiveNode::Make("time", Repetition::REQUIRED,
@@ -1738,7 +1738,7 @@ TEST(TestSchemaNodeCreation, FactoryExceptions) {
   node->ToParquet(&time_intermediary);
   // ... corrupt the Thrift intermediary ....
   time_intermediary.logicalType.TIME.unit.__isset.NANOS = false;
-  ASSERT_ANY_THROW(PrimitiveNode::FromParquet(&time_intermediary, 1));
+  ASSERT_ANY_THROW(PrimitiveNode::FromParquet(&time_intermediary));
 
   // Invalid TimeUnit in deserialized TimestampLogicalType ...
   node = PrimitiveNode::Make(
@@ -1748,7 +1748,7 @@ TEST(TestSchemaNodeCreation, FactoryExceptions) {
   node->ToParquet(&timestamp_intermediary);
   // ... corrupt the Thrift intermediary ....
   timestamp_intermediary.logicalType.TIMESTAMP.unit.__isset.NANOS = false;
-  ASSERT_ANY_THROW(PrimitiveNode::FromParquet(&timestamp_intermediary, 1));
+  ASSERT_ANY_THROW(PrimitiveNode::FromParquet(&timestamp_intermediary));
 }
 
 struct SchemaElementConstructionArguments {

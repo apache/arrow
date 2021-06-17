@@ -283,13 +283,17 @@ class ARROW_EXPORT FileSystem : public std::enable_shared_from_this<FileSystem> 
   ///
   /// If the target already exists, existing data is truncated.
   virtual Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
-      const std::string& path) = 0;
+      const std::string& path,
+      const std::shared_ptr<const KeyValueMetadata>& metadata) = 0;
+  Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(const std::string& path);
 
   /// Open an output stream for appending.
   ///
   /// If the target doesn't exist, a new empty file is created.
   virtual Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
-      const std::string& path) = 0;
+      const std::string& path,
+      const std::shared_ptr<const KeyValueMetadata>& metadata) = 0;
+  Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(const std::string& path);
 
  protected:
   explicit FileSystem(const io::IOContext& io_context = io::default_io_context())
@@ -364,9 +368,11 @@ class ARROW_EXPORT SubTreeFileSystem : public FileSystem {
       const FileInfo& info) override;
 
   Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
-      const std::string& path) override;
+      const std::string& path,
+      const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
   Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
-      const std::string& path) override;
+      const std::string& path,
+      const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
 
  protected:
   SubTreeFileSystem() {}
@@ -420,9 +426,11 @@ class ARROW_EXPORT SlowFileSystem : public FileSystem {
   Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
       const FileInfo& info) override;
   Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
-      const std::string& path) override;
+      const std::string& path,
+      const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
   Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
-      const std::string& path) override;
+      const std::string& path,
+      const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
 
  protected:
   std::shared_ptr<FileSystem> base_fs_;

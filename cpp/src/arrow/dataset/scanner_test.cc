@@ -347,8 +347,8 @@ class CountRowsOnlyFragment : public InMemoryFragment {
  public:
   using InMemoryFragment::InMemoryFragment;
 
-  Future<util::optional<int64_t>> CountRows(compute::Expression predicate,
-                                            std::shared_ptr<ScanOptions>) override {
+  Future<util::optional<int64_t>> CountRows(
+      compute::Expression predicate, const std::shared_ptr<ScanOptions>&) override {
     if (compute::FieldsInExpression(predicate).size() > 0) {
       return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
     }
@@ -371,8 +371,8 @@ class ScanOnlyFragment : public InMemoryFragment {
  public:
   using InMemoryFragment::InMemoryFragment;
 
-  Future<util::optional<int64_t>> CountRows(compute::Expression predicate,
-                                            std::shared_ptr<ScanOptions>) override {
+  Future<util::optional<int64_t>> CountRows(
+      compute::Expression predicate, const std::shared_ptr<ScanOptions>&) override {
     return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
   }
   Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options) override {
@@ -410,8 +410,8 @@ class CountFailFragment : public InMemoryFragment {
       : InMemoryFragment(std::move(record_batches)),
         count(Future<util::optional<int64_t>>::Make()) {}
 
-  Future<util::optional<int64_t>> CountRows(compute::Expression,
-                                            std::shared_ptr<ScanOptions>) override {
+  Future<util::optional<int64_t>> CountRows(
+      compute::Expression, const std::shared_ptr<ScanOptions>&) override {
     return count;
   }
 

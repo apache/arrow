@@ -41,19 +41,6 @@
 namespace arrow {
 namespace compute {
 
-std::shared_ptr<Array> TweakValidityBit(const std::shared_ptr<Array>& array,
-                                        int64_t index, bool validity) {
-  auto data = array->data()->Copy();
-  if (data->buffers[0] == nullptr) {
-    data->buffers[0] = *AllocateBitmap(data->length);
-    BitUtil::SetBitsTo(data->buffers[0]->mutable_data(), 0, data->length, true);
-  }
-  BitUtil::SetBitTo(data->buffers[0]->mutable_data(), index, validity);
-  data->null_count = kUnknownNullCount;
-  // Need to return a new array, because Array caches the null bitmap pointer
-  return MakeArray(data);
-}
-
 template <typename T>
 class TestUnaryArithmetic : public TestBase {
  protected:
@@ -933,7 +920,7 @@ TEST(TestBinaryArithmetic, AddWithImplicitCastsUint64EdgeCase) {
 }
 
 TEST(TestUnaryArithmetic, DispatchBest) {
-  for (std::string name : {"negate"}) {
+  for (std::string name : {"negate", "abs", "abs_checked"}) {
     for (const auto& ty : {int8(), int16(), int32(), int64(), uint8(), uint16(), uint32(),
                            uint64(), float32(), float64()}) {
       CheckDispatchBest(name, {ty}, {ty});
@@ -948,7 +935,7 @@ TEST(TestUnaryArithmetic, DispatchBest) {
     }
   }
 
-  for (std::string name : {"negate", "negate_checked"}) {
+  for (std::string name : {"negate", "negate_checked", "abs", "abs_checked"}) {
     CheckDispatchFails(name, {null()});
   }
 }
@@ -1054,6 +1041,110 @@ TYPED_TEST(TestUnaryArithmeticFloating, Negate) {
     // Min/max
     this->AssertUnaryOp(Negate, min, max);
     this->AssertUnaryOp(Negate, max, min);
+  }
+}
+
+TYPED_TEST(TestUnaryArithmeticSigned, AbsoluteValue) {
+  using CType = typename TestFixture::CType;
+
+  auto min = std::numeric_limits<CType>::min();
+  auto max = std::numeric_limits<CType>::max();
+
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+    // Empty array
+    this->AssertUnaryOp(AbsoluteValue, "[]", "[]");
+    // Scalar/arrays with nulls
+    this->AssertUnaryOp(AbsoluteValue, "[null]", "[null]");
+    this->AssertUnaryOp(AbsoluteValue, "[1, null, -10]", "[1, null, 10]");
+    this->AssertUnaryOp(AbsoluteValue, this->MakeNullScalar(), this->MakeNullScalar());
+    // Scalar/arrays with zeros
+    this->AssertUnaryOp(AbsoluteValue, "[0, -0]", "[0, 0]");
+    this->AssertUnaryOp(AbsoluteValue, -0, 0);
+    this->AssertUnaryOp(AbsoluteValue, 0, 0);
+    // Ordinary scalar/arrays (positive inputs)
+    this->AssertUnaryOp(AbsoluteValue, "[1, 10, 127]", "[1, 10, 127]");
+    this->AssertUnaryOp(AbsoluteValue, 1, 1);
+    this->AssertUnaryOp(AbsoluteValue, this->MakeScalar(1), this->MakeScalar(1));
+    // Ordinary scalar/arrays (negative inputs)
+    this->AssertUnaryOp(AbsoluteValue, "[-1, -10, -127]", "[1, 10, 127]");
+    this->AssertUnaryOp(AbsoluteValue, -1, 1);
+    this->AssertUnaryOp(AbsoluteValue, MakeArray(-1), "[1]");
+    // Min/max
+    this->AssertUnaryOp(AbsoluteValue, max, max);
+    if (check_overflow) {
+      this->AssertUnaryOpRaises(AbsoluteValue, MakeArray(min), "overflow");
+    } else {
+      this->AssertUnaryOp(AbsoluteValue, min, min);
+    }
+  }
+
+  // Overflow should not be checked on underlying value slots when output would be null
+  this->SetOverflowCheck(true);
+  auto arg = ArrayFromJSON(this->type_singleton(), MakeArray(-1, max, min));
+  arg = TweakValidityBit(arg, 1, false);
+  arg = TweakValidityBit(arg, 2, false);
+  this->AssertUnaryOp(AbsoluteValue, arg, "[1, null, null]");
+}
+
+TYPED_TEST(TestUnaryArithmeticUnsigned, AbsoluteValue) {
+  using CType = typename TestFixture::CType;
+
+  auto min = std::numeric_limits<CType>::min();
+  auto max = std::numeric_limits<CType>::max();
+
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+    // Empty arrays
+    this->AssertUnaryOp(AbsoluteValue, "[]", "[]");
+    // Array with nulls
+    this->AssertUnaryOp(AbsoluteValue, "[null]", "[null]");
+    this->AssertUnaryOp(AbsoluteValue, this->MakeNullScalar(), this->MakeNullScalar());
+    // Ordinary arrays
+    this->AssertUnaryOp(AbsoluteValue, "[0, 1, 10, 127]", "[0, 1, 10, 127]");
+    // Min/max
+    this->AssertUnaryOp(AbsoluteValue, min, min);
+    this->AssertUnaryOp(AbsoluteValue, max, max);
+  }
+}
+
+TYPED_TEST(TestUnaryArithmeticFloating, AbsoluteValue) {
+  using CType = typename TestFixture::CType;
+
+  auto min = std::numeric_limits<CType>::lowest();
+  auto max = std::numeric_limits<CType>::max();
+
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+    // Empty array
+    this->AssertUnaryOp(AbsoluteValue, "[]", "[]");
+    // Scalar/arrays with nulls
+    this->AssertUnaryOp(AbsoluteValue, "[null]", "[null]");
+    this->AssertUnaryOp(AbsoluteValue, "[1.3, null, -10.80]", "[1.3, null, 10.80]");
+    this->AssertUnaryOp(AbsoluteValue, this->MakeNullScalar(), this->MakeNullScalar());
+    // Scalars/arrays with zeros
+    this->AssertUnaryOp(AbsoluteValue, "[0.0, -0.0]", "[0.0, 0.0]");
+    this->AssertUnaryOp(AbsoluteValue, -0.0F, 0.0F);
+    this->AssertUnaryOp(AbsoluteValue, 0.0F, 0.0F);
+    // Ordinary scalars/arrays (positive inputs)
+    this->AssertUnaryOp(AbsoluteValue, "[1.3, 10.80, 12748.001]",
+                        "[1.3, 10.80, 12748.001]");
+    this->AssertUnaryOp(AbsoluteValue, 1.3F, 1.3F);
+    this->AssertUnaryOp(AbsoluteValue, this->MakeScalar(1.3F), this->MakeScalar(1.3F));
+    // Ordinary scalars/arrays (negative inputs)
+    this->AssertUnaryOp(AbsoluteValue, "[-1.3, -10.80, -12748.001]",
+                        "[1.3, 10.80, 12748.001]");
+    this->AssertUnaryOp(AbsoluteValue, -1.3F, 1.3F);
+    this->AssertUnaryOp(AbsoluteValue, MakeArray(-1.3F), "[1.3]");
+    // Arrays with infinites
+    this->AssertUnaryOp(AbsoluteValue, "[Inf, -Inf]", "[Inf, Inf]");
+    // Arrays with NaNs
+    this->SetNansEqual(true);
+    this->AssertUnaryOp(AbsoluteValue, "[NaN]", "[NaN]");
+    this->AssertUnaryOp(AbsoluteValue, "[-NaN]", "[NaN]");
+    // Min/max
+    this->AssertUnaryOp(AbsoluteValue, min, max);
+    this->AssertUnaryOp(AbsoluteValue, max, max);
   }
 }
 

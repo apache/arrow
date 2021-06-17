@@ -1163,6 +1163,8 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         CIOContext(CMemoryPool*, CStopToken)
 
     CIOContext c_default_io_context "arrow::io::default_io_context"()
+    int GetIOThreadPoolCapacity()
+    CStatus SetIOThreadPoolCapacity(int threads)
 
     cdef cppclass FileStatistics:
         int64_t size
@@ -1194,7 +1196,7 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
 
     cdef cppclass CInputStream" arrow::io::InputStream"(FileInterface,
                                                         Readable):
-        pass
+        CResult[shared_ptr[const CKeyValueMetadata]] ReadMetadata()
 
     cdef cppclass CRandomAccessFile" arrow::io::RandomAccessFile"(CInputStream,
                                                                   Seekable):
@@ -1590,6 +1592,8 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         @staticmethod
         CCSVParseOptions Defaults()
 
+        CStatus Validate()
+
     cdef cppclass CCSVConvertOptions" arrow::csv::ConvertOptions":
         c_bool check_utf8
         unordered_map[c_string, shared_ptr[CDataType]] column_types
@@ -1597,6 +1601,7 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         vector[c_string] true_values
         vector[c_string] false_values
         c_bool strings_can_be_null
+        c_bool quoted_strings_can_be_null
         vector[shared_ptr[CTimestampParser]] timestamp_parsers
 
         c_bool auto_dict_encode
@@ -1611,10 +1616,13 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         @staticmethod
         CCSVConvertOptions Defaults()
 
+        CStatus Validate()
+
     cdef cppclass CCSVReadOptions" arrow::csv::ReadOptions":
         c_bool use_threads
         int32_t block_size
         int32_t skip_rows
+        int32_t skip_rows_after_names
         vector[c_string] column_names
         c_bool autogenerate_column_names
 
@@ -1624,12 +1632,16 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         @staticmethod
         CCSVReadOptions Defaults()
 
+        CStatus Validate()
+
     cdef cppclass CCSVWriteOptions" arrow::csv::WriteOptions":
         c_bool include_header
         int32_t batch_size
 
         @staticmethod
         CCSVWriteOptions Defaults()
+
+        CStatus Validate()
 
     cdef cppclass CCSVReader" arrow::csv::TableReader":
         @staticmethod
@@ -1779,15 +1791,44 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     CFunctionRegistry* GetFunctionRegistry()
 
+    cdef cppclass CElementWiseAggregateOptions \
+            "arrow::compute::ElementWiseAggregateOptions"(CFunctionOptions):
+        CElementWiseAggregateOptions(c_bool skip_nulls)
+        c_bool skip_nulls
+
+    enum CJoinNullHandlingBehavior \
+            "arrow::compute::JoinOptions::NullHandlingBehavior":
+        CJoinNullHandlingBehavior_EMIT_NULL \
+            "arrow::compute::JoinOptions::EMIT_NULL"
+        CJoinNullHandlingBehavior_SKIP \
+            "arrow::compute::JoinOptions::SKIP"
+        CJoinNullHandlingBehavior_REPLACE \
+            "arrow::compute::JoinOptions::REPLACE"
+
+    cdef cppclass CJoinOptions \
+            "arrow::compute::JoinOptions"(CFunctionOptions):
+        CJoinOptions(CJoinNullHandlingBehavior null_handling,
+                     c_string null_replacement)
+        CJoinNullHandlingBehavior null_handling
+        c_string null_replacement
+
     cdef cppclass CMatchSubstringOptions \
             "arrow::compute::MatchSubstringOptions"(CFunctionOptions):
-        CMatchSubstringOptions(c_string pattern)
+        CMatchSubstringOptions(c_string pattern, c_bool ignore_case)
         c_string pattern
+        c_bool ignore_case
 
     cdef cppclass CTrimOptions \
             "arrow::compute::TrimOptions"(CFunctionOptions):
         CTrimOptions(c_string characters)
         c_string characters
+
+    cdef cppclass CSliceOptions \
+            "arrow::compute::SliceOptions"(CFunctionOptions):
+        CSliceOptions(int64_t start, int64_t stop, int64_t step)
+        int64_t start
+        int64_t stop
+        int64_t step
 
     cdef cppclass CSplitOptions \
             "arrow::compute::SplitOptions"(CFunctionOptions):
@@ -1800,6 +1841,13 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CSplitPatternOptions(c_string pattern, int64_t max_splits,
                              c_bool reverse)
         c_string pattern
+
+    cdef cppclass CReplaceSliceOptions \
+            "arrow::compute::ReplaceSliceOptions"(CFunctionOptions):
+        CReplaceSliceOptions(int64_t start, int64_t stop, c_string replacement)
+        int64_t start
+        int64_t stop
+        c_string replacement
 
     cdef cppclass CReplaceSubstringOptions \
             "arrow::compute::ReplaceSubstringOptions"(CFunctionOptions):
@@ -1872,34 +1920,20 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CVarianceOptions(int ddof)
         int ddof
 
-    enum CMinMaxMode \
-            "arrow::compute::MinMaxOptions::Mode":
-        CMinMaxMode_SKIP \
-            "arrow::compute::MinMaxOptions::SKIP"
-        CMinMaxMode_EMIT_NULL \
-            "arrow::compute::MinMaxOptions::EMIT_NULL"
-
-    cdef cppclass CMinMaxOptions \
-            "arrow::compute::MinMaxOptions"(CFunctionOptions):
-        CMinMaxOptions(CMinMaxMode null_handling)
-        CMinMaxMode null_handling
+    cdef cppclass CScalarAggregateOptions \
+            "arrow::compute::ScalarAggregateOptions"(CFunctionOptions):
+        CScalarAggregateOptions(c_bool skip_nulls, uint32_t min_count)
+        c_bool skip_nulls
+        uint32_t min_count
 
     cdef cppclass CModeOptions \
             "arrow::compute::ModeOptions"(CFunctionOptions):
         CModeOptions(int64_t n)
         int64_t n
 
-    enum CCountMode \
-            "arrow::compute::CountOptions::Mode":
-        CCountMode_COUNT_NON_NULL \
-            "arrow::compute::CountOptions::COUNT_NON_NULL"
-        CCountMode_COUNT_NULL \
-            "arrow::compute::CountOptions::COUNT_NULL"
-
-    cdef cppclass CCountOptions \
-            "arrow::compute::CountOptions"(CFunctionOptions):
-        CCountOptions(CCountMode count_mode)
-        CCountMode count_mode
+    cdef cppclass CIndexOptions \
+            "arrow::compute::IndexOptions"(CFunctionOptions):
+        CIndexOptions(shared_ptr[CScalar] value)
 
     cdef cppclass CPartitionNthOptions \
             "arrow::compute::PartitionNthOptions"(CFunctionOptions):
@@ -2324,6 +2358,9 @@ cdef extern from 'arrow/c/abi.h':
 cdef extern from 'arrow/c/bridge.h' namespace 'arrow' nogil:
     CStatus ExportType(CDataType&, ArrowSchema* out)
     CResult[shared_ptr[CDataType]] ImportType(ArrowSchema*)
+
+    CStatus ExportField(CField&, ArrowSchema* out)
+    CResult[shared_ptr[CField]] ImportField(ArrowSchema*)
 
     CStatus ExportSchema(CSchema&, ArrowSchema* out)
     CResult[shared_ptr[CSchema]] ImportSchema(ArrowSchema*)

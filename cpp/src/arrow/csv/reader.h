@@ -96,5 +96,13 @@ class ARROW_EXPORT StreamingReader : public RecordBatchReader {
       const ConvertOptions& convert_options);
 };
 
+/// \brief Count the logical rows of data in a CSV file (i.e. the
+/// number of rows you would get if you read the file into a table).
+ARROW_EXPORT
+Future<int64_t> CountRowsAsync(io::IOContext io_context,
+                               std::shared_ptr<io::InputStream> input,
+                               internal::Executor* cpu_executor, const ReadOptions&,
+                               const ParseOptions&);
+
 }  // namespace csv
 }  // namespace arrow

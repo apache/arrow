@@ -47,6 +47,7 @@ namespace compute {
     return CallFunction(func_name, {arg}, ctx);                                        \
   }
 
+SCALAR_ARITHMETIC_UNARY(AbsoluteValue, "abs", "abs_checked")
 SCALAR_ARITHMETIC_UNARY(Negate, "negate", "negate_checked")
 
 #define SCALAR_ARITHMETIC_BINARY(NAME, REGISTRY_NAME, REGISTRY_CHECKED_NAME)           \
@@ -61,6 +62,16 @@ SCALAR_ARITHMETIC_BINARY(Subtract, "subtract", "subtract_checked")
 SCALAR_ARITHMETIC_BINARY(Multiply, "multiply", "multiply_checked")
 SCALAR_ARITHMETIC_BINARY(Divide, "divide", "divide_checked")
 SCALAR_ARITHMETIC_BINARY(Power, "power", "power_checked")
+
+Result<Datum> MaxElementWise(const std::vector<Datum>& args,
+                             ElementWiseAggregateOptions options, ExecContext* ctx) {
+  return CallFunction("max_element_wise", args, &options, ctx);
+}
+
+Result<Datum> MinElementWise(const std::vector<Datum>& args,
+                             ElementWiseAggregateOptions options, ExecContext* ctx) {
+  return CallFunction("min_element_wise", args, &options, ctx);
+}
 
 // ----------------------------------------------------------------------
 // Set-related operations
@@ -155,6 +166,31 @@ SCALAR_EAGER_UNARY(IsNan, "is_nan")
 Result<Datum> FillNull(const Datum& values, const Datum& fill_value, ExecContext* ctx) {
   return CallFunction("fill_null", {values, fill_value}, ctx);
 }
+
+Result<Datum> IfElse(const Datum& cond, const Datum& if_true, const Datum& if_false,
+                     ExecContext* ctx) {
+  return CallFunction("if_else", {cond, if_true, if_false}, ctx);
+}
+
+// ----------------------------------------------------------------------
+// Temporal functions
+
+SCALAR_EAGER_UNARY(Year, "year")
+SCALAR_EAGER_UNARY(Month, "month")
+SCALAR_EAGER_UNARY(Day, "day")
+SCALAR_EAGER_UNARY(DayOfWeek, "day_of_week")
+SCALAR_EAGER_UNARY(DayOfYear, "day_of_year")
+SCALAR_EAGER_UNARY(ISOYear, "iso_year")
+SCALAR_EAGER_UNARY(ISOWeek, "iso_week")
+SCALAR_EAGER_UNARY(ISOCalendar, "iso_calendar")
+SCALAR_EAGER_UNARY(Quarter, "quarter")
+SCALAR_EAGER_UNARY(Hour, "hour")
+SCALAR_EAGER_UNARY(Minute, "minute")
+SCALAR_EAGER_UNARY(Second, "second")
+SCALAR_EAGER_UNARY(Millisecond, "millisecond")
+SCALAR_EAGER_UNARY(Microsecond, "microsecond")
+SCALAR_EAGER_UNARY(Nanosecond, "nanosecond")
+SCALAR_EAGER_UNARY(Subsecond, "subsecond")
 
 }  // namespace compute
 }  // namespace arrow

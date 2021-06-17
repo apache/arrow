@@ -39,6 +39,7 @@ jobs:
           - "3.3"
           - "3.4"
           - "3.5"
+          - "3.6"
     env:
       R_ORG: "rstudio"
       R_IMAGE: "r-base"

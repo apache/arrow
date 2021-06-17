@@ -31,6 +31,18 @@ arrow_dplyr_query <- function(.data) {
     return(.data)
   }
 
+  # Evaluating expressions on a dataset with duplicated fieldnames will error
+  dupes <- duplicated(names(.data))
+  if (any(dupes)) {
+    abort(c(
+      "Duplicated field names",
+      x = paste0(
+        "The following field names were found more than once in the data: ",
+        oxford_paste(names(.data)[dupes])
+      )
+    ))
+  }
+  
   structure(
     list(
       .data = if (inherits(.data, "Dataset")) {

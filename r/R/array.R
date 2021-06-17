@@ -56,9 +56,9 @@
 #' - `$IsNull(i)`: Return true if value at index is null. Does not boundscheck
 #' - `$IsValid(i)`: Return true if value at index is valid. Does not boundscheck
 #' - `$length()`: Size in the number of elements this array contains
-#' - `$offset()`: A relative position into another array's data, to enable zero-copy slicing
-#' - `$null_count()`: The number of null entries in the array
-#' - `$type()`: logical type of data
+#' - `$offset`: A relative position into another array's data, to enable zero-copy slicing
+#' - `$null_count`: The number of null entries in the array
+#' - `$type`: logical type of data
 #' - `$type_id()`: type id
 #' - `$Equals(other)` : is this array equal to `other`
 #' - `$ApproxEquals(other)` :
@@ -84,6 +84,27 @@
 #'
 #' @rdname array
 #' @name array
+#' @examplesIf arrow_available()
+#' my_array <- Array$create(1:10)
+#' my_array$type
+#' my_array$cast(int8())
+#' 
+#' # Check if value is null; zero-indexed
+#' na_array <- Array$create(c(1:5, NA))
+#' na_array$IsNull(0)
+#' na_array$IsNull(5)
+#' na_array$IsValid(5)
+#' na_array$null_count
+#' 
+#' # zero-copy slicing; the offset of the new Array will be the same as the index passed to $Slice
+#' new_array <- na_array$Slice(5)
+#' new_array$offset
+#' 
+#' # Compare 2 arrays
+#' na_array2 = na_array
+#' na_array2 == na_array # element-wise comparison
+#' na_array2$Equals(na_array) # overall comparison 
+#' 
 #' @export
 Array <- R6Class("Array",
   inherit = ArrowDatum,
