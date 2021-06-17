@@ -23,8 +23,8 @@ import { instance as setVisitor } from '../visitor/set';
 import { instance as indexOfVisitor } from '../visitor/indexof';
 import { instance as iteratorVisitor } from '../visitor/iterator';
 
-/** @ignore */ const kKeys = Symbol.for('keys');
-/** @ignore */ const kVals = Symbol.for('vals');
+/** @ignore */ export const kKeys = Symbol.for('keys');
+/** @ignore */ export const kVals = Symbol.for('vals');
 
 export class MapRow<K extends DataType = any, V extends DataType = any> {
     private [kKeys]: Data<K>;

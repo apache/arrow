@@ -75,6 +75,7 @@ export class Vector<T extends DataType = any> {
 
     protected _offsets: Uint32Array;
     protected _nullCount!: number;
+    protected _byteLength!: number;
     protected _children?: Vector[];
 
     /**
@@ -103,9 +104,19 @@ export class Vector<T extends DataType = any> {
     public readonly stride: number;
 
     /**
-     * @summary The number of child Vectors this Vector has.
+     * @summary The number of child Vectors if this Vector is a nested dtype.
      */
     public readonly numChildren: number;
+
+    /**
+     * @summary The aggregate size (in bytes) of this Vector's buffers and/or child Vectors.
+     */
+     public get byteLength() {
+        if (this._byteLength === -1) {
+            this._byteLength = this.data.reduce((byteLength, data) => byteLength + data.byteLength, 0);
+        }
+        return this._byteLength;
+    }
 
     /**
      * @summary The number of null elements in this Vector.
@@ -244,6 +255,7 @@ export class Vector<T extends DataType = any> {
     // out this logic, but also so we're still compliant with `"sideEffects": false`
     protected static [Symbol.toStringTag] = ((proto: Vector) => {
         (proto as any)._nullCount = -1;
+        (proto as any)._byteLength = -1;
         (proto as any)[Symbol.isConcatSpreadable] = true;
         Object.setPrototypeOf(proto, new Proxy({}, new IndexingProxyHandlerMixin()));
 

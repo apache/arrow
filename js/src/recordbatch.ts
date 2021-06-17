@@ -87,7 +87,7 @@ export class RecordBatch<T extends { [key: string]: DataType } = any> {
                 [this.schema, this.data] = ensureSameLengthData<T>(schema, data.children as Data<T[keyof T]>[], length);
                 break;
             }
-            default: throw new TypeError("RecordBatch constructor expects an Object mapping names to child Data, or a [Schema, Data] pair.");
+            default: throw new TypeError('RecordBatch constructor expects an Object mapping names to child Data, or a [Schema, Data] pair.');
         }
     }
 

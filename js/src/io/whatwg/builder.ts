@@ -17,7 +17,6 @@
 
 import { DataType } from '../../type';
 import { Vector } from '../../vector';
-import { VectorType as V } from '../../interfaces';
 import { Builder, BuilderOptions } from '../../builder/index';
 
 /** @ignore */
@@ -37,9 +36,9 @@ export function builderThroughDOMStream<T extends DataType = any, TNull = any>(o
 /** @ignore */
 export class BuilderTransform<T extends DataType = any, TNull = any> {
 
-    public readable: ReadableStream<V<T>>;
+    public readable: ReadableStream<Vector<T>>;
     public writable: WritableStream<T['TValue'] | TNull>;
-    public _controller: ReadableStreamDefaultController<V<T>> | null;
+    public _controller: ReadableStreamDefaultController<Vector<T>> | null;
 
     private _numChunks = 0;
     private _finished = false;
@@ -65,7 +64,7 @@ export class BuilderTransform<T extends DataType = any, TNull = any> {
         const { ['highWaterMark']: readableHighWaterMark = queueingStrategy === 'bytes' ? 2 ** 14 : 1000 } = { ...readableStrategy };
         const { ['highWaterMark']: writableHighWaterMark = queueingStrategy === 'bytes' ? 2 ** 14 : 1000 } = { ...writableStrategy };
 
-        this['readable'] = new ReadableStream<V<T>>({
+        this['readable'] = new ReadableStream<Vector<T>>({
             ['cancel']: ()  => { this._builder.clear(); },
             ['pull']: (c) => { this._maybeFlush(this._builder, this._controller = c); },
             ['start']: (c) => { this._maybeFlush(this._builder, this._controller = c); },
@@ -90,7 +89,7 @@ export class BuilderTransform<T extends DataType = any, TNull = any> {
         return this._bufferedSize - bufferedSize;
     }
 
-    private _maybeFlush(builder: Builder<T, TNull>, controller: ReadableStreamDefaultController<V<T>> | null) {
+    private _maybeFlush(builder: Builder<T, TNull>, controller: ReadableStreamDefaultController<Vector<T>> | null) {
         if (controller == null) { return; }
         if (this._bufferedSize >= controller.desiredSize!) {
             ++this._numChunks && this._enqueue(controller, builder.toVector());
@@ -105,7 +104,7 @@ export class BuilderTransform<T extends DataType = any, TNull = any> {
         }
     }
 
-    private _enqueue(controller: ReadableStreamDefaultController<V<T>>, chunk: V<T> | null) {
+    private _enqueue(controller: ReadableStreamDefaultController<Vector<T>>, chunk: Vector<T> | null) {
         this._bufferedSize = 0;
         this._controller = null;
         chunk == null ? controller.close() : controller.enqueue(chunk);

@@ -126,11 +126,12 @@ export function wrapChunkedCall2<T extends DataType>(fn: (c: Data<T>, _1: number
         switch (data.length) {
             case 0: return undefined;
             case 1: return fn(data[0], index, value);
-            default:
+            default:{
                 _2 = value;
                 const result = binarySearch(data, this._offsets, index, chunkedFn);
                 _2 = undefined;
                 return result;
+            }
         }
     };
 }

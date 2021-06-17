@@ -87,7 +87,7 @@ const getListByteLength = <T extends List>({ valueOffsets, stride, children }: D
         size += visit(slice, idx);
     }
     return size;
-}
+};
 
 /** @ignore */
 const getFixedSizeListByteLength = <T extends FixedSizeList>({ stride, children }: Data<T>, index: number): number => {
@@ -127,7 +127,7 @@ const getSparseUnionByteLength = <T extends SparseUnion>({ children }: Data<T>, 
 GetByteLengthVisitor.prototype.visitUtf8 = getUtf8ByteLength;
 GetByteLengthVisitor.prototype.visitBinary = getBinaryByteLength;
 GetByteLengthVisitor.prototype.visitList = getListByteLength;
-GetByteLengthVisitor.prototype.visitFixedSizeList = getFixedSizeListByteLength
+GetByteLengthVisitor.prototype.visitFixedSizeList = getFixedSizeListByteLength;
 GetByteLengthVisitor.prototype.visitUnion = getUnionByteLength;
 GetByteLengthVisitor.prototype.visitDenseUnion = getDenseUnionByteLength;
 GetByteLengthVisitor.prototype.visitSparseUnion = getSparseUnionByteLength;

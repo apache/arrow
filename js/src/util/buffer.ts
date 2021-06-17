@@ -18,8 +18,7 @@
 import { flatbuffers } from 'flatbuffers';
 import { encodeUtf8 } from '../util/utf8';
 import ByteBuffer = flatbuffers.ByteBuffer;
-import { TypedArray, TypedArrayConstructor } from '../interfaces';
-import { BigIntArray, BigIntArrayConstructor } from '../interfaces';
+import { TypedArray, TypedArrayConstructor, BigIntArrayConstructor } from '../interfaces';
 import { isPromise, isIterable, isAsyncIterable, isIteratorResult, BigInt64Array, BigUint64Array } from './compat';
 
 /** @ignore */

@@ -15,9 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Column } from '../column';
 import { Vector } from '../vector';
-import { DataType } from '../type';
+import { DataType, Struct } from '../type';
 import { Data, Buffers } from '../data';
 import { Schema, Field } from '../schema';
 import { RecordBatch } from '../recordbatch';
@@ -28,49 +27,44 @@ const nullBufs = (bitmapLength: number) => <unknown> [
 ] as Buffers<any>;
 
 /** @ignore */
-export function distributeColumnsIntoRecordBatches<T extends { [key: string]: DataType } = any>(columns: Column<T[keyof T]>[]): [Schema<T>, RecordBatch<T>[]] {
-    return distributeVectorsIntoRecordBatches<T>(new Schema<T>(columns.map(({ field }) => field)), columns);
+export function distributeVectorsIntoRecordBatches<T extends { [key: string]: DataType } = any>(schema: Schema<T>, vecs: Vector<T[keyof T]>[]): [Schema<T>, RecordBatch<T>[]] {
+    return uniformlyDistributeChunksAcrossRecordBatches<T>(schema, vecs.map((v) => v.data.concat()));
 }
 
 /** @ignore */
-export function distributeVectorsIntoRecordBatches<T extends { [key: string]: DataType } = any>(schema: Schema<T>, vecs: (Vector<T[keyof T]> | Chunked<T[keyof T]>)[]): [Schema<T>, RecordBatch<T>[]] {
-    return uniformlyDistributeChunksAcrossRecordBatches<T>(schema, vecs.map((v) => v.chunks));
-}
-
-/** @ignore */
-function uniformlyDistributeChunksAcrossRecordBatches<T extends { [key: string]: DataType } = any>(schema: Schema<T>, columns: Data<T[keyof T]>[][]): [Schema<T>, RecordBatch<T>[]] {
+function uniformlyDistributeChunksAcrossRecordBatches<T extends { [key: string]: DataType } = any>(schema: Schema<T>, cols: Data<T[keyof T]>[][]): [Schema<T>, RecordBatch<T>[]] {
 
     const fields = [...schema.fields];
-    const batchArgs = [] as [number, Data<T[keyof T]>[]][];
-    const memo = { numBatches: columns.reduce((n, c) => Math.max(n, c.length), 0) };
+    const batches = [] as Data<Struct<T>>[];
+    const memo = { numBatches: cols.reduce((n, c) => Math.max(n, c.length), 0) };
 
     let numBatches = 0, batchLength = 0;
     let i = -1;
-    const numColumns = columns.length;
+    const numColumns = cols.length;
     let child: Data<T[keyof T]>, children: Data<T[keyof T]>[] = [];
 
     while (memo.numBatches-- > 0) {
 
         for (batchLength = Number.POSITIVE_INFINITY, i = -1; ++i < numColumns;) {
-            children[i] = child = columns[i].shift()!;
+            children[i] = child = cols[i].shift()!;
             batchLength = Math.min(batchLength, child ? child.length : batchLength);
         }
 
         if (isFinite(batchLength)) {
-            children = distributechildren(fields, batchLength, children, columns, memo);
+            children = distributeChildren(fields, batchLength, children, cols, memo);
             if (batchLength > 0) {
-                batchArgs[numBatches++] = [batchLength, children.slice()];
+                batches[numBatches++] = Data.Struct(new Struct(fields), 0, batchLength, 0, null, children.slice());
             }
         }
     }
     return [
         schema = new Schema<T>(fields, schema.metadata),
-        batchArgs.map((xs) => new RecordBatch(schema, ...xs))
+        batches.map((data) => new RecordBatch(schema, data))
     ];
 }
 
 /** @ignore */
-function distributechildren<T extends { [key: string]: DataType } = any>(fields: Field<T[keyof T]>[], batchLength: number, children: Data<T[keyof T]>[], columns: Data<T[keyof T]>[][], memo: { numBatches: number }) {
+function distributeChildren<T extends { [key: string]: DataType } = any>(fields: Field<T[keyof T]>[], batchLength: number, children: Data<T[keyof T]>[], columns: Data<T[keyof T]>[][], memo: { numBatches: number }) {
     let data: Data<T[keyof T]>;
     let field: Field<T[keyof T]>;
     let length = 0, i = -1;

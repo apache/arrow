@@ -17,9 +17,10 @@
 
 import { Data } from '../data';
 import { Type } from '../enum';
+import { Vector } from '../vector';
 import { DataType } from '../type';
 import { Visitor } from '../visitor';
-import { VectorType, BuilderCtor } from '../interfaces';
+import { BuilderCtor } from '../interfaces';
 import { BinaryBuilder } from '../builder/binary';
 import { BoolBuilder } from '../builder/bool';
 import { DateBuilder, DateDayBuilder, DateMillisecondBuilder } from '../builder/date';
@@ -44,7 +45,7 @@ export interface GetBuilderCtor extends Visitor {
     visit<T extends Type>(type: T): BuilderCtor<T>;
     visitMany<T extends Type>(types: T[]): BuilderCtor<T>[];
     getVisitFn<T extends Type>(type: T): () => BuilderCtor<T>;
-    getVisitFn<T extends DataType>(node: VectorType<T> | Data<T> | T): () => BuilderCtor<T>;
+    getVisitFn<T extends DataType>(node: Vector<T> | Data<T> | T): () => BuilderCtor<T>;
 }
 
 /** @ignore */

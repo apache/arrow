@@ -21,7 +21,6 @@ import { IntVector } from '../vector/int';
 import { Field, Schema } from '../schema';
 import { Predicate, Col, PredicateFunc } from './predicate';
 import { RecordBatch } from '../recordbatch';
-import { VectorType as V } from '../interfaces';
 import { DataType, Int, Struct, Dictionary } from '../type';
 
 /** @ignore */

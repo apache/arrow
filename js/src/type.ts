@@ -19,10 +19,10 @@
 
 import { Data } from './data';
 import { Field } from './schema';
+import { Vector } from './vector';
 import { MapRow } from './row/map';
 import { StructRow } from './row/struct';
 import { flatbuffers } from 'flatbuffers';
-import { VectorType as V } from './interfaces';
 import { TypedArrayConstructor } from './interfaces';
 
 import Long = flatbuffers.Long;
@@ -323,11 +323,11 @@ export class DateMillisecond extends Date_<Type.DateMillisecond> { constructor()
 type Times = Type.Time | Type.TimeSecond | Type.TimeMillisecond | Type.TimeMicrosecond | Type.TimeNanosecond;
 /** @ignore */
 type TimesType = {
-    [Type.Time           ]: { unit: TimeUnit;             TValue: number | bigint, TArray: Int32Array | BigInt64Array };
-    [Type.TimeSecond     ]: { unit: TimeUnit.SECOND;      TValue: number         , TArray: Int32Array                 };
-    [Type.TimeMillisecond]: { unit: TimeUnit.MILLISECOND; TValue: number         , TArray: Int32Array                 };
-    [Type.TimeMicrosecond]: { unit: TimeUnit.MICROSECOND; TValue: bigint         , TArray: BigInt64Array              };
-    [Type.TimeNanosecond ]: { unit: TimeUnit.NANOSECOND;  TValue: bigint         , TArray: BigInt64Array              };
+    [Type.Time           ]: { unit: TimeUnit;             TValue: number | bigint; TArray: Int32Array | BigInt64Array };
+    [Type.TimeSecond     ]: { unit: TimeUnit.SECOND;      TValue: number         ; TArray: Int32Array                 };
+    [Type.TimeMillisecond]: { unit: TimeUnit.MILLISECOND; TValue: number         ; TArray: Int32Array                 };
+    [Type.TimeMicrosecond]: { unit: TimeUnit.MICROSECOND; TValue: bigint         ; TArray: BigInt64Array              };
+    [Type.TimeNanosecond ]: { unit: TimeUnit.NANOSECOND;  TValue: bigint         ; TArray: BigInt64Array              };
 };
 
 /** @ignore */
@@ -432,7 +432,7 @@ export class IntervalYearMonth extends Interval_<Type.IntervalYearMonth> { const
 /** @ignore */
 export interface List<T extends DataType = any> extends DataType<Type.List, { [0]: T }>  {
     TArray: Array<T>;
-    TValue: V<T>;
+    TValue: Vector<T>;
 }
 
 /** @ignore */
@@ -556,7 +556,7 @@ export class FixedSizeBinary extends DataType<Type.FixedSizeBinary> {
 /** @ignore */
 export interface FixedSizeList<T extends DataType = any> extends DataType<Type.FixedSizeList, { [0]: T }> {
     TArray: Array<T['TArray']>;
-    TValue: V<T>;
+    TValue: Vector<T>;
 }
 
 /** @ignore */
@@ -597,7 +597,7 @@ export class Map_<TKey extends DataType = any, TValue extends DataType = any> ex
     public get typeId() { return Type.Map as Type.Map; }
     public get keyType(): TKey { return this.children[0].type.children[0].type as TKey; }
     public get valueType(): TValue { return this.children[0].type.children[1].type as TValue; }
-    public get childType() { return this.children[0].type as Struct<{ key: TKey, value: TValue }>; }
+    public get childType() { return this.children[0].type as Struct<{ key: TKey; value: TValue }>; }
     public toString() { return `Map<{${this.children[0].type.children.map((f) => `${f.name}:${f.type}`).join(`, `)}}>`; }
     public createRow(data: Data<this>, index: number) {
         const { [index]: begin, [index + 1]: end } = data.valueOffsets;

@@ -16,7 +16,8 @@
 // under the License.
 
 import { Vector } from '../vector';
-import { MapRow, StructRow } from '../vector/row';
+import { MapRow } from '../row/map';
+import { StructRow } from '../row/struct';
 import { compareArrayLike } from '../util/buffer';
 import { BigInt, BigIntAvailable } from './compat';
 

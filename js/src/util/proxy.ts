@@ -17,22 +17,24 @@
 
 /** @ignore */
 export class IndexingProxyHandlerMixin implements ProxyHandler<any> {
-    get(target: {}, key: any, instance: any) {
+    get(target: any, key: any, instance: any) {
         let p = key;
         switch (typeof key) {
             // @ts-ignore
             // fall through if key can be cast to a number
             case 'string': if ((p = +key) !== p) { break; }
+            // eslint-disable-next-line no-fallthrough
             case 'number': return instance.get(p);
         }
         return Reflect.get(target, key, instance);
     }
-    set(target: {}, key: any, value: any, instance: any) {
+    set(target: any, key: any, value: any, instance: any) {
         let p = key;
         switch (typeof key) {
             // @ts-ignore
             // fall through if key can be cast to a number
             case 'string': if ((p = +key) !== p) { break; }
+            // eslint-disable-next-line no-fallthrough
             case 'number': return (instance.set(p, value), true);
         }
         return Reflect.set(target, key, value, instance);

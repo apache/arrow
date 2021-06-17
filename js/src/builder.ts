@@ -16,10 +16,11 @@
 // under the License.
 
 import { Vector } from './vector';
+import { MapRow, kKeys } from './row/map';
 import { BufferType } from './enum';
 import { Data, Buffers } from './data';
 import { createIsValidFunction } from './builder/valid';
-import { BuilderType as B, VectorType as V} from './interfaces';
+import { BuilderType as B} from './interfaces';
 import { BufferBuilder, BitmapBufferBuilder, DataBufferBuilder, OffsetsBufferBuilder } from './builder/buffer';
 import {
     DataType, strideForType,
@@ -242,7 +243,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
      * Flush the `Builder` and return a `Vector<T>`.
      * @returns {Vector<T>} A `Vector<T>` of the flushed values.
      */
-    public toVector() { return Vector.new(this.flush()); }
+    public toVector() { return new Vector(this.type, this.flush()); }
 
     public get ArrayType() { return this.type.ArrayType; }
     public get nullCount() { return this._nulls.numInvalid; }
@@ -446,7 +447,7 @@ export abstract class VariableWidthBuilder<T extends Binary | Utf8 | List | Map_
         const pending = this._pending || (this._pending = new Map());
         const current = pending.get(index);
         current && (this._pendingLength -= current.length);
-        this._pendingLength += value.length;
+        this._pendingLength += (value instanceof MapRow) ? value[kKeys].length : value.length;
         pending.set(index, value);
     }
     public setValid(index: number, isValid: boolean) {
@@ -483,7 +484,7 @@ export abstract class VariableWidthBuilder<T extends Binary | Utf8 | List | Map_
 }
 
 /** @ignore */
-type ThroughIterable<T extends DataType = any, TNull = any> = (source: Iterable<T['TValue'] | TNull>) => IterableIterator<V<T>>;
+type ThroughIterable<T extends DataType = any, TNull = any> = (source: Iterable<T['TValue'] | TNull>) => IterableIterator<Vector<T>>;
 
 /** @ignore */
 function throughIterable<T extends DataType = any, TNull = any>(options: IterableBuilderOptions<T, TNull>) {
@@ -505,7 +506,7 @@ function throughIterable<T extends DataType = any, TNull = any>(options: Iterabl
 }
 
 /** @ignore */
-type ThroughAsyncIterable<T extends DataType = any, TNull = any> = (source: Iterable<T['TValue'] | TNull> | AsyncIterable<T['TValue'] | TNull>) => AsyncIterableIterator<V<T>>;
+type ThroughAsyncIterable<T extends DataType = any, TNull = any> = (source: Iterable<T['TValue'] | TNull> | AsyncIterable<T['TValue'] | TNull>) => AsyncIterableIterator<Vector<T>>;
 
 /** @ignore */
 function throughAsyncIterable<T extends DataType = any, TNull = any>(options: IterableBuilderOptions<T, TNull>) {

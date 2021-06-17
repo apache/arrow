@@ -18,9 +18,9 @@
 import { Data } from '../data';
 import { Type } from '../enum';
 import * as type from '../type';
+import { Vector } from '../vector';
 import { DataType } from '../type';
 import { Visitor } from '../visitor';
-import { VectorType } from '../interfaces';
 import { DataTypeCtor } from '../interfaces';
 
 /** @ignore */
@@ -28,7 +28,7 @@ export interface GetDataTypeConstructor extends Visitor {
     visit<T extends Type>(node: T): DataTypeCtor<T>;
     visitMany<T extends Type>(nodes: T[]): DataTypeCtor<T>[];
     getVisitFn<T extends Type>(node: T): () => DataTypeCtor<T>;
-    getVisitFn<T extends DataType>(node: VectorType<T> |  Data<T> | T): () => DataTypeCtor<T>;
+    getVisitFn<T extends DataType>(node: Vector<T> |  Data<T> | T): () => DataTypeCtor<T>;
 }
 
 /** @ignore */

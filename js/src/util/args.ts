@@ -85,8 +85,6 @@ export const selectFieldArgs = <T extends { [key: string]: DataType }>(args: any
 /** @ignore */
 export const selectChunkArgs = <T>(Ctor: any, vals: any[]) => _selectChunkArgs(Ctor, vals, [], 0) as T[];
 /** @ignore */
-export const selectVectorChildrenArgs = <T extends Vector>(Ctor: RecordBatchCtor, vals: any[]) => _selectVectorChildrenArgs(Ctor, vals, [], 0) as T[];
-/** @ignore */
 export const selectColumnChildrenArgs = <T extends Column>(Ctor: RecordBatchCtor, vals: any[]) => _selectColumnChildrenArgs(Ctor, vals, [], 0) as T[];
 
 /** @ignore */
@@ -113,21 +111,6 @@ function _selectChunkArgs<T>(Ctor: any, vals: any[], res: T[], idx: number) {
         } else if (value instanceof Chunked) {
             j = _selectChunkArgs(Ctor, value.chunks, res, j).length;
         } else if (value instanceof Ctor) { res[j++] = value; }
-    }
-    return res;
-}
-
-/** @ignore */
-function _selectVectorChildrenArgs<T extends Vector>(Ctor: RecordBatchCtor, vals: any[], res: T[], idx: number) {
-    let value: any, j = idx;
-    let i = -1;
-    const n = vals.length;
-    while (++i < n) {
-        if (isArray(value = vals[i])) {
-            j = _selectVectorChildrenArgs(Ctor, value, res, j).length;
-        } else if (value instanceof Ctor) {
-            j = _selectArgs(Vector, value.schema.fields.map((_, i) => value.getChildAt(i)!), res, j).length;
-        } else if (value instanceof Vector) { res[j++] = value as T; }
     }
     return res;
 }
