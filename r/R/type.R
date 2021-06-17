@@ -50,7 +50,7 @@ DataType <- R6Class("DataType",
   )
 )
 
-DataType$import_from_c <- function(ptr) ImportType(ptr)
+DataType$import_from_c <- ImportType
 
 INTEGER_TYPES <- as.character(outer(c("uint", "int"), c(8, 16, 32, 64), paste0))
 FLOAT_TYPES <- c("float16", "float32", "float64", "halffloat", "float", "double")

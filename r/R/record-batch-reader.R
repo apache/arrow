@@ -116,9 +116,7 @@ RecordBatchStreamReader$create <- function(stream) {
   assert_is(stream, "InputStream")
   ipc___RecordBatchStreamReader__Open(stream)
 }
-RecordBatchReader$import_from_c <- RecordBatchStreamReader$import_from_c <- function(stream_ptr) {
-  ImportRecordBatchReader(stream_ptr)
-}
+RecordBatchReader$import_from_c <- RecordBatchStreamReader$import_from_c <- ImportRecordBatchReader
 
 #' @rdname RecordBatchReader
 #' @usage NULL

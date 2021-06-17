@@ -60,7 +60,7 @@ Field$create <- function(name, type, metadata) {
   assert_that(missing(metadata), msg = "metadata= is currently ignored")
   Field__initialize(enc2utf8(name), type, TRUE)
 }
-Field$import_from_c <- function(ptr) ImportField(ptr)
+Field$import_from_c <- ImportField
 
 #' @param name field name
 #' @param type logical type, instance of [DataType]

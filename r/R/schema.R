@@ -137,7 +137,7 @@ Schema <- R6Class("Schema",
   )
 )
 Schema$create <- function(...) schema_(.fields(list2(...)))
-Schema$import_from_c <- function(ptr) ImportSchema(ptr)
+Schema$import_from_c <- ImportSchema
 
 prepare_key_value_metadata <- function(metadata) {
   # key-value-metadata must be a named character vector;
