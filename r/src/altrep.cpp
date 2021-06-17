@@ -61,10 +61,7 @@ struct array_nonull {
   static R_xlen_t Length(SEXP vec) { return Get(vec)->length(); }
 
   static const void* Dataptr_or_null(SEXP vec) {
-    const auto& array = Get(vec);
-
-    return reinterpret_cast<const void*>(array->data()->buffers[1]->data() +
-                                         sizeof(data_type) * array->offset());
+    return Get(vec)->data()->GetValues<data_type>(1);
   }
 
   static SEXP Duplicate(SEXP vec, Rboolean) {
