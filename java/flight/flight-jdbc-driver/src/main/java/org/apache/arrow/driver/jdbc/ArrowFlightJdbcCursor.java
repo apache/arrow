@@ -19,55 +19,44 @@ package org.apache.arrow.driver.jdbc;
 
 
 import java.sql.SQLException;
-import java.util.Calendar;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
 
-import com.google.common.base.Optional;
 import org.apache.arrow.vector.FieldVector;
-import org.apache.calcite.avatica.ColumnMetaData;
-import org.apache.calcite.avatica.util.ArrayImpl;
-import org.apache.calcite.avatica.util.Cursor;
-import org.apache.calcite.avatica.util.IteratorCursor;
-import org.apache.calcite.avatica.util.PositionedCursor;
+import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.calcite.avatica.util.*;
 
 /**
  * Arrow Flight Jdbc's Cursor class.
  */
-public class ArrowFlightJdbcCursor extends IteratorCursor<FieldVector> {
+public class ArrowFlightJdbcCursor extends AbstractCursor {
 
-  protected ArrowFlightJdbcCursor(Iterator<FieldVector> iterator) {
-    super(iterator);
+  private final List<FieldVector> fieldVectorList;
+  private final int rowCount;
+  private int currentRow = -1;
+
+  public ArrowFlightJdbcCursor(VectorSchemaRoot root) {
+    fieldVectorList = root.getFieldVectors();
+    rowCount = root.getRowCount();
   }
 
   @Override
-  protected Getter createGetter(int i) {
-    return new Getter() {
-
-      protected int index = 0;
-
+  protected Getter createGetter(int column) {
+    return new AbstractGetter() {
       @Override
       public Object getObject() throws SQLException {
-
-        Optional<Object> o = Optional.absent();
-
-        try {
-          o = Optional.fromNullable(((FieldVector) ArrowFlightJdbcCursor
-                  .super
-                  .current())
-                  .getObject(index++));
-        } catch (Exception e) {
-          throw new SQLException(e);
-        }
-
-        ArrowFlightJdbcCursor.this.wasNull[0] = o.isPresent();
-        return o.get();
-      }
-
-      @Override
-      public boolean wasNull() throws SQLException {
-        return wasNull[0];
+        return fieldVectorList.get(column).getObject(currentRow);
       }
     };
+  }
+
+  @Override
+  public boolean next() {
+    currentRow++;
+    return currentRow < rowCount;
+  }
+
+  @Override
+  public void close() {
+    //
   }
 }

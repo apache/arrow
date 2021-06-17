@@ -59,13 +59,16 @@ import com.google.common.base.Strings;
  */
 public class ArrowFlightConnection extends AvaticaConnection {
 
-  private static final Logger LOGGER =
-          LoggerFactory.getLogger(ArrowFlightConnection.class);
+  private static final Logger LOGGER;
   private final BufferAllocator allocator;
 
   // TODO Use this later to run queries.
   @SuppressWarnings("unused")
   private ArrowFlightClientHandler client;
+
+  static {
+    LOGGER = LoggerFactory.getLogger(ArrowFlightConnection.class);
+  }
 
   /**
    * Instantiates a new Arrow Flight Connection.
@@ -216,7 +219,9 @@ public class ArrowFlightConnection extends AvaticaConnection {
       throw new SQLException(e);
     }
 
-    exceptionDeque.forEach(err -> LOGGER.error(err.getMessage(), err));
+    exceptionDeque
+            .forEach(exception -> LOGGER.error(
+                    exception.getMessage(),exception));
   }
 
 }
