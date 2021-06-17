@@ -27,8 +27,8 @@ namespace internal {
 
 // unmodified structure which we wish to reflect on:
 struct Person {
-  std::string name;
   int age;
+  std::string name;
 };
 
 // enumeration of properties:
@@ -153,8 +153,8 @@ TEST(Reflection, Nameof) {
 }
 
 TEST(Reflection, EqualityWithDataMembers) {
-  Person genos{"Genos", 19};
-  Person kuseno{"Kuseno", 45};
+  Person genos{19, "Genos"};
+  Person kuseno{45, "Kuseno"};
 
   EXPECT_EQ(genos, genos);
   EXPECT_EQ(kuseno, kuseno);
@@ -164,15 +164,15 @@ TEST(Reflection, EqualityWithDataMembers) {
 }
 
 TEST(Reflection, ToStringFromDataMembers) {
-  Person genos{"Genos", 19};
-  Person kuseno{"Kuseno", 45};
+  Person genos{19, "Genos"};
+  Person kuseno{45, "Kuseno"};
 
   EXPECT_EQ(ToString(genos), "Person{age:19,name:Genos}");
   EXPECT_EQ(ToString(kuseno), "Person{age:45,name:Kuseno}");
 }
 
 TEST(Reflection, FromStringToDataMembers) {
-  Person genos{"Genos", 19};
+  Person genos{19, "Genos"};
 
   EXPECT_EQ(FromString<Person>(ToString(genos)), genos);
 
