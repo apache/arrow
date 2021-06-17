@@ -40,11 +40,12 @@ test_that("Print method for field", {
 test_that("Field to C-interface", {
   field <- field("x", time32("s"))
 
-  # the new way, with a scan -> RecordBatchReader
+  # export the field via the C-interface
   ptr <- allocate_arrow_schema()
   on.exit(delete_arrow_schema(ptr))
-
   field$export_to_c(ptr)
+
+  # then import it and check that the roundtripped value is the same
   circle <- Field$import_from_c(ptr)
   expect_equal(circle, field)
 })

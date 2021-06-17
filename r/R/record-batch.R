@@ -185,10 +185,8 @@ RecordBatch$from_message <- function(obj, schema) {
     ipc___ReadRecordBatch__Message__Schema(obj, schema)
   }
 }
-
-RecordBatch$import_from_c <- function(array_ptr, schema_ptr) {
-  ImportRecordBatch(array_ptr, schema_ptr)
-}
+#' @include arrowExports.R
+RecordBatch$import_from_c <- ImportRecordBatch
 
 #' @param ... A `data.frame` or a named set of Arrays or vectors. If given a
 #' mixture of data.frames and vectors, the inputs will be autospliced together

@@ -137,6 +137,7 @@ Schema <- R6Class("Schema",
   )
 )
 Schema$create <- function(...) schema_(.fields(list2(...)))
+#' @include arrowExports.R
 Schema$import_from_c <- ImportSchema
 
 prepare_key_value_metadata <- function(metadata) {

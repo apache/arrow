@@ -415,11 +415,12 @@ test_that("FixedSizeBinary", {
 test_that("DataType to C-interface", {
   datatype <- timestamp("ms", timezone = "Asia/Pyongyang")
 
-  # the new way, with a scan -> RecordBatchReader
+  # export the datatype via the C-interface
   ptr <- allocate_arrow_schema()
   on.exit(delete_arrow_schema(ptr))
-
   datatype$export_to_c(ptr)
+
+  # then import it and check that the roundtripped value is the same
   circle <- DataType$import_from_c(ptr)
   expect_equal(circle, datatype)
 })

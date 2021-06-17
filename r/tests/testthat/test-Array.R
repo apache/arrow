@@ -826,16 +826,16 @@ test_that("Array to C-interface", {
   df <- tibble::tibble(x = 1:10, y = x / 2, z = letters[1:10])
   arr <- Array$create(df)
 
-  # the new way, with an array
+  # export the array via the C-interface
   schema_ptr <- allocate_arrow_schema()
   array_ptr <- allocate_arrow_array()
   on.exit({
     delete_arrow_schema(schema_ptr)
     delete_arrow_array(array_ptr)
   })
-
   arr$export_to_c(array_ptr, schema_ptr)
 
+  # then import it and check that the roundtripped value is the same
   circle <- Array$import_from_c(array_ptr, schema_ptr)
   expect_equal(arr, circle)
 })

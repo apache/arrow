@@ -189,9 +189,8 @@ Array$create <- function(x, type = NULL) {
   }
   vec_to_arrow(x, type)
 }
-Array$import_from_c <- function(array_ptr, schema_ptr) {
-  ImportArray(array_ptr, schema_ptr)
-}
+#' @include arrowExports.R
+Array$import_from_c <- ImportArray
 
 #' @rdname array
 #' @usage NULL

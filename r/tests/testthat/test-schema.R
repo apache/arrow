@@ -178,11 +178,12 @@ test_that("unify_schemas", {
 test_that("Schema to C-interface", {
   schema <- schema(b = double(), c = bool())
 
-  # the new way, with a scan -> RecordBatchReader
+  # export the schema via the C-interface
   ptr <- allocate_arrow_schema()
   on.exit(delete_arrow_schema(ptr))
-
   schema$export_to_c(ptr)
+
+  # then import it and check that the roundtripped value is the same
   circle <- Schema$import_from_c(ptr)
   expect_equal(circle, schema)
 })

@@ -50,6 +50,7 @@ DataType <- R6Class("DataType",
   )
 )
 
+#' @include arrowExports.R
 DataType$import_from_c <- ImportType
 
 INTEGER_TYPES <- as.character(outer(c("uint", "int"), c(8, 16, 32, 64), paste0))
