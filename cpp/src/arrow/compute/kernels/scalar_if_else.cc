@@ -215,7 +215,15 @@ struct IfElseFunctor<Type, enable_if_number<Type>> {
   using Word = uint64_t;
   static constexpr int64_t word_len = sizeof(Word) * 8;
 
-  template <typename HandleBulk, typename HandleEach>
+  /// Runs the main if_else loop. Here, it is expected that the right data has already
+  /// been copied to the output.
+  /// If invert_mask is meant to invert the cond.data. If is set to ~Word(0), then the
+  /// buffer will be inverted before calling the handle_bulk or handle_each functions.
+  /// This is useful, when left is an array and right is scalar. Then rather than
+  /// copying data from the right to output, we can copy left data to the output and
+  /// invert the cond data to fill right values. Filling out with a scalar is presumed to
+  /// be more efficient than filling with an array
+  template <typename HandleBulk, typename HandleEach, Word invert_mask = Word(0)>
   static void RunIfElseLoop(const ArrayData& cond, HandleBulk handle_bulk,
                             HandleEach handle_each) {
     int64_t data_offset = 0;
@@ -227,11 +235,12 @@ struct IfElseFunctor<Type, enable_if_number<Type>> {
     int64_t cnt = cond_reader.words();
     while (cnt--) {
       Word word = cond_reader.NextWord();
-      if (word == UINT64_MAX) {
+      if ((word ^ invert_mask) == UINT64_MAX) {
         handle_bulk(data_offset, word_len);
-      } else if (word) {
+      } else if (word ^ invert_mask) {
         for (int64_t i = 0; i < word_len; ++i) {
-          if (BitUtil::GetBit(cond_data, bit_offset + i)) {
+          if (BitUtil::GetBit(cond_data, bit_offset + i) ^
+              static_cast<bool>(invert_mask)) {
             handle_each(data_offset + i);
           }
         }
@@ -244,11 +253,12 @@ struct IfElseFunctor<Type, enable_if_number<Type>> {
     while (cnt--) {
       int valid_bits;
       uint8_t byte = cond_reader.NextTrailingByte(valid_bits);
-      if (byte == UINT8_MAX && valid_bits == 8) {
+      if (((byte ^ static_cast<uint8_t>(invert_mask)) == UINT8_MAX) && valid_bits == 8) {
         handle_bulk(data_offset, 8);
-      } else if (byte) {
+      } else if (byte ^ static_cast<uint8_t>(invert_mask)) {
         for (int i = 0; i < valid_bits; ++i) {
-          if (BitUtil::GetBit(cond_data, bit_offset + i)) {
+          if (BitUtil::GetBit(cond_data, bit_offset + i) ^
+              static_cast<bool>(invert_mask)) {
             handle_each(data_offset + i);
           }
         }
@@ -256,6 +266,13 @@ struct IfElseFunctor<Type, enable_if_number<Type>> {
       data_offset += 8;
       bit_offset += 8;
     }
+  }
+
+  template <typename HandleBulk, typename HandleEach>
+  static void RunIfElseLoopInverted(const ArrayData& cond, HandleBulk handle_bulk,
+                                    HandleEach handle_each) {
+    return RunIfElseLoop<HandleBulk, HandleEach, ~Word(0)>(cond, handle_bulk,
+                                                           handle_each);
   }
 
   //  AAA
@@ -321,49 +338,15 @@ struct IfElseFunctor<Type, enable_if_number<Type>> {
     const T* left_data = left.GetValues<T>(1);
     std::memcpy(out_values, left_data, left.length * sizeof(T));
 
-    const auto* cond_data = cond.buffers[1]->data();  // this is a BoolArray
-    BitmapWordReader<Word> cond_reader(cond_data, cond.offset, cond.length);
-
-    // selectively copy values from left data
     T right_data = internal::UnboxScalar<Type>::Unbox(right);
-    int64_t data_offset = 0;
-    int64_t bit_offset = cond.offset;
 
-    // todo this can be improved by intrinsics. ex: _mm*_mask_store_e* (vmovdqa*)
-    // left data is already in the output buffer. Therefore, mask needs to be inverted
-    int64_t cnt = cond_reader.words();
-    while (cnt--) {
-      Word word = cond_reader.NextWord();
-      if (word == 0) {  // all from right
-        std::fill(out_values + data_offset, out_values + data_offset + word_len,
-                  right_data);
-      } else if (word != UINT64_MAX) {  // selectively copy from right
-        for (int64_t i = 0; i < word_len; ++i) {
-          if (!BitUtil::GetBit(cond_data, bit_offset + i)) {
-            out_values[data_offset + i] = right_data;
-          }
-        }
-      }
-      data_offset += word_len;
-      bit_offset += word_len;
-    }
-
-    cnt = cond_reader.trailing_bytes();
-    while (cnt--) {
-      int valid_bits;
-      uint8_t byte = cond_reader.NextTrailingByte(valid_bits);
-      if (byte == 0 && valid_bits == 8) {
-        std::fill(out_values + data_offset, out_values + data_offset + 8, right_data);
-      } else if (byte != UINT8_MAX) {
-        for (int i = 0; i < valid_bits; ++i) {
-          if (!BitUtil::GetBit(cond_data, bit_offset + i)) {
-            out_values[data_offset + i] = right_data;
-          }
-        }
-      }
-      data_offset += 8;
-      bit_offset += 8;
-    }
+    RunIfElseLoopInverted(
+        cond,
+        [&](int64_t data_offset, int64_t num_elems) {
+          std::fill(out_values + data_offset, out_values + data_offset + num_elems,
+                    right_data);
+        },
+        [&](int64_t data_offset) { out_values[data_offset] = right_data; });
 
     out->buffers[1] = std::move(out_buf);
     return Status::OK();
