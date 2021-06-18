@@ -29,6 +29,8 @@ test_that("paste, paste0, and str_c", {
     y = c(NA_character_, "h", "i"),
     z = c(1.1, 2.2, NA)
   )
+  x <- Expression$field_ref("x")
+  y <- Expression$field_ref("y")
 
   # no NAs in data
   expect_dplyr_equal(
@@ -98,10 +100,32 @@ test_that("paste, paste0, and str_c", {
     df
   )
 
+  # literal NA in dots
+  expect_dplyr_equal(
+    input %>%
+      transmute(paste(x, NA, y)) %>%
+      collect(),
+    df
+  )
+
   # expressions in dots
   expect_dplyr_equal(
     input %>%
       transmute(paste0(x, toupper(y), as.character(z))) %>%
+      collect(),
+    df
+  )
+
+  # sep is literal NA
+  # errors in paste() (consistent with base::paste())
+  expect_error(
+    nse_funcs$paste(x, y, sep = NA_character_),
+    "Invalid separator"
+  )
+  # emits null in str_c() (consistent with stringr::str_c())
+  expect_dplyr_equal(
+    input %>%
+      transmute(str_c(x, y, sep = NA_character_)) %>%
       collect(),
     df
   )
@@ -126,21 +150,9 @@ test_that("paste, paste0, and str_c", {
       transmute(result = paste(x, w, y, sep = ""))
   )
 
-  # arrow allows the separator to be scalar literal NA
-  expect_equal(
-    df %>%
-      Table$create() %>%
-      transmute(result = paste(x, y, sep = NA_character_)) %>%
-      collect(),
-    df %>%
-      transmute(result = paste(x, NA_character_, y, sep = ""))
-  )
-
   # expected errors
 
   # collapse argument not supported
-  x <- Expression$field_ref("x")
-  y <- Expression$field_ref("x")
   expect_error(
     nse_funcs$paste(x, y, collapse = ""),
     "collapse"

@@ -217,6 +217,9 @@ nse_funcs$nchar <- function(x, type = "chars", allowNA = FALSE, keepNA = NA) {
 
 nse_funcs$paste <- function(..., sep = " ", collapse = NULL, recycle0 = FALSE) {
   assert_that(is.null(collapse))
+  if (!inherits(sep, "Expression")) {
+    assert_that(!is.na(sep), msg = "Invalid separator")
+  }
   arrow_string_join_function(NullHandlingBehavior$REPLACE, "NA")(..., sep)
 }
 
