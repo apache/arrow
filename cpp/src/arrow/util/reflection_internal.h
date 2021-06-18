@@ -67,7 +67,9 @@ struct all_same<One, Other, Rest...> : std::false_type {};
 
 template <size_t I, typename T>
 struct TupleMember {
-  constexpr const T& operator[](index_constant<I>) const { return value_; }
+  friend constexpr const T& GetTupleMember(const TupleMember& member, index_constant<I>) {
+    return member.value_;
+  }
 
   T value_;
 };
@@ -101,7 +103,8 @@ constexpr Tuple<T...> MakeTuple(T... values) {
 
 template <size_t... I, typename... T, typename Fn>
 void ForEachTupleMember(const TupleImpl<TupleMember<I, T>...>& tup, Fn&& fn) {
-  (void)MakeTuple((fn(tup[index_constant<I>()], I), std::ignore)...);
+  (void)MakeTuple((fn(GetTupleMember(tup, index_constant<I>()), index_constant<I>()),
+                   std::ignore)...);
 }
 
 template <typename C, typename T>
