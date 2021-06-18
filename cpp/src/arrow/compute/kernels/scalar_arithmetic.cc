@@ -90,12 +90,6 @@ struct AbsoluteValue {
   static constexpr enable_if_signed_integer<T> Call(KernelContext*, T arg, Status* st) {
     return (arg < 0) ? arrow::internal::SafeSignedNegate(arg) : arg;
   }
-
-  template <typename T, typename Arg>
-  static enable_if_decimal<T> Call(KernelContext*, T arg, Status* st) {
-    *st = Status::NotImplemented("NYI");
-    return T();
-  }
 };
 
 struct AbsoluteValueChecked {
@@ -119,12 +113,6 @@ struct AbsoluteValueChecked {
   static constexpr enable_if_floating_point<T> Call(KernelContext*, Arg arg, Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
     return std::fabs(arg);
-  }
-
-  template <typename T, typename Arg>
-  static enable_if_decimal<T> Call(KernelContext*, Arg arg, Status* st) {
-    *st = Status::NotImplemented("NYI");
-    return T();
   }
 };
 
@@ -355,13 +343,9 @@ struct DivideChecked {
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_decimal<T> Call(KernelContext*, Arg0 left, Arg1 right, Status* st) {
-    if (right == Arg1()) {
-      *st = Status::Invalid("Divide by zero");
-      return T();
-    } else {
-      return left / right;
-    }
+  static enable_if_decimal<T> Call(KernelContext* ctx, Arg0 left, Arg1 right,
+                                   Status* st) {
+    return Divide::Call<T>(ctx, left, right, st);
   }
 };
 
@@ -379,12 +363,6 @@ struct Negate {
   template <typename T, typename Arg>
   static constexpr enable_if_signed_integer<T> Call(KernelContext*, Arg arg, Status*) {
     return arrow::internal::SafeSignedNegate(arg);
-  }
-
-  template <typename T, typename Arg>
-  static enable_if_decimal<T> Call(KernelContext*, Arg arg, Status* st) {
-    *st = Status::NotImplemented("NYI");
-    return T();
   }
 };
 
@@ -411,12 +389,6 @@ struct NegateChecked {
   static constexpr enable_if_floating_point<T> Call(KernelContext*, Arg arg, Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
     return -arg;
-  }
-
-  template <typename T, typename Arg>
-  static enable_if_decimal<T> Call(KernelContext*, Arg arg, Status* st) {
-    *st = Status::NotImplemented("NYI");
-    return T();
   }
 };
 
@@ -445,12 +417,6 @@ struct Power {
   template <typename T>
   static enable_if_floating_point<T> Call(KernelContext*, T base, T exp, Status*) {
     return std::pow(base, exp);
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_decimal<T> Call(KernelContext*, Arg0 base, Arg1 exp, Status* st) {
-    *st = Status::NotImplemented("NYI");
-    return T();
   }
 };
 
@@ -485,12 +451,6 @@ struct PowerChecked {
   static enable_if_floating_point<T> Call(KernelContext*, Arg0 base, Arg1 exp, Status*) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     return std::pow(base, exp);
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_decimal<T> Call(KernelContext*, Arg0 base, Arg1 exp, Status* st) {
-    *st = Status::NotImplemented("NYI");
-    return T();
   }
 };
 
@@ -645,6 +605,29 @@ Result<ValueDescr> ResolveDecimalDivisionOutput(KernelContext*,
       });
 }
 
+template <typename Op>
+void AddDecimalBinaryKernels(const std::string& name,
+                             std::shared_ptr<ScalarFunction>* func) {
+  OutputType out_type(null());
+  const std::string op = name.substr(0, name.find("_"));
+  if (op == "add" || op == "subtract") {
+    out_type = OutputType(ResolveDecimalAdditionOrSubtractionOutput);
+  } else if (op == "multiply") {
+    out_type = OutputType(ResolveDecimalMultiplicationOutput);
+  } else if (op == "divide") {
+    out_type = OutputType(ResolveDecimalDivisionOutput);
+  } else {
+    DCHECK(false);
+  }
+
+  auto in_type128 = InputType(Type::DECIMAL128);
+  auto in_type256 = InputType(Type::DECIMAL256);
+  auto exec128 = ScalarBinaryNotNullEqualTypes<Decimal128Type, Decimal128Type, Op>::Exec;
+  auto exec256 = ScalarBinaryNotNullEqualTypes<Decimal256Type, Decimal256Type, Op>::Exec;
+  DCHECK_OK((*func)->AddKernel({in_type128, in_type128}, out_type, exec128));
+  DCHECK_OK((*func)->AddKernel({in_type256, in_type256}, out_type, exec256));
+}
+
 struct ArithmeticFunction : ScalarFunction {
   using ScalarFunction::ScalarFunction;
 
@@ -689,29 +672,6 @@ struct ArithmeticFunction : ScalarFunction {
 };
 
 template <typename Op>
-void AddDecimalBinaryKernels(const std::string& name,
-                             std::shared_ptr<ArithmeticFunction>* func) {
-  OutputType out_type(null());
-  const std::string op = name.substr(0, name.find("_"));
-  if (op == "add" || op == "subtract") {
-    out_type = OutputType(ResolveDecimalAdditionOrSubtractionOutput);
-  } else if (op == "multiply") {
-    out_type = OutputType(ResolveDecimalMultiplicationOutput);
-  } else if (op == "divide") {
-    out_type = OutputType(ResolveDecimalDivisionOutput);
-  } else {
-    DCHECK(false);
-  }
-
-  auto in_type128 = InputType(Type::DECIMAL128);
-  auto in_type256 = InputType(Type::DECIMAL256);
-  auto exec128 = ScalarBinaryNotNullEqualTypes<Decimal128Type, Decimal128Type, Op>::Exec;
-  auto exec256 = ScalarBinaryNotNullEqualTypes<Decimal256Type, Decimal256Type, Op>::Exec;
-  DCHECK_OK((*func)->AddKernel({in_type128, in_type128}, out_type, exec128));
-  DCHECK_OK((*func)->AddKernel({in_type256, in_type256}, out_type, exec256));
-}
-
-template <typename Op>
 std::shared_ptr<ScalarFunction> MakeArithmeticFunction(std::string name,
                                                        const FunctionDoc* doc) {
   auto func = std::make_shared<ArithmeticFunction>(name, Arity::Binary(), doc);
@@ -719,8 +679,6 @@ std::shared_ptr<ScalarFunction> MakeArithmeticFunction(std::string name,
     auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
   }
-  AddDecimalBinaryKernels<Op>(name, &func);
-
   return func;
 }
 
@@ -734,8 +692,6 @@ std::shared_ptr<ScalarFunction> MakeArithmeticFunctionNotNull(std::string name,
     auto exec = ArithmeticExecFromOp<ScalarBinaryNotNullEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
   }
-  AddDecimalBinaryKernels<Op>(name, &func);
-
   return func;
 }
 
@@ -879,16 +835,19 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
 
   // ----------------------------------------------------------------------
   auto add = MakeArithmeticFunction<Add>("add", &add_doc);
+  AddDecimalBinaryKernels<Add>("add", &add);
   DCHECK_OK(registry->AddFunction(std::move(add)));
 
   // ----------------------------------------------------------------------
   auto add_checked =
       MakeArithmeticFunctionNotNull<AddChecked>("add_checked", &add_checked_doc);
+  AddDecimalBinaryKernels<AddChecked>("add_checked", &add_checked);
   DCHECK_OK(registry->AddFunction(std::move(add_checked)));
 
   // ----------------------------------------------------------------------
   // subtract
   auto subtract = MakeArithmeticFunction<Subtract>("subtract", &sub_doc);
+  AddDecimalBinaryKernels<Subtract>("subtract", &subtract);
 
   // Add subtract(timestamp, timestamp) -> duration
   for (auto unit : AllTimeUnits()) {
@@ -902,24 +861,29 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // ----------------------------------------------------------------------
   auto subtract_checked = MakeArithmeticFunctionNotNull<SubtractChecked>(
       "subtract_checked", &sub_checked_doc);
+  AddDecimalBinaryKernels<SubtractChecked>("subtract_checked", &subtract_checked);
   DCHECK_OK(registry->AddFunction(std::move(subtract_checked)));
 
   // ----------------------------------------------------------------------
   auto multiply = MakeArithmeticFunction<Multiply>("multiply", &mul_doc);
+  AddDecimalBinaryKernels<Multiply>("multiply", &multiply);
   DCHECK_OK(registry->AddFunction(std::move(multiply)));
 
   // ----------------------------------------------------------------------
   auto multiply_checked = MakeArithmeticFunctionNotNull<MultiplyChecked>(
       "multiply_checked", &mul_checked_doc);
+  AddDecimalBinaryKernels<MultiplyChecked>("multiply_checked", &multiply_checked);
   DCHECK_OK(registry->AddFunction(std::move(multiply_checked)));
 
   // ----------------------------------------------------------------------
   auto divide = MakeArithmeticFunctionNotNull<Divide>("divide", &div_doc);
+  AddDecimalBinaryKernels<Divide>("divide", &divide);
   DCHECK_OK(registry->AddFunction(std::move(divide)));
 
   // ----------------------------------------------------------------------
   auto divide_checked =
       MakeArithmeticFunctionNotNull<DivideChecked>("divide_checked", &div_checked_doc);
+  AddDecimalBinaryKernels<DivideChecked>("divide_checked", &divide_checked);
   DCHECK_OK(registry->AddFunction(std::move(divide_checked)));
 
   // ----------------------------------------------------------------------
