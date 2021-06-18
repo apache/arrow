@@ -111,7 +111,7 @@ std::shared_ptr<arrow::csv::ConvertOptions> csv___ConvertOptions__initialize(
   if (!Rf_isNull(op_timestamp_parsers)) {
     std::vector<std::shared_ptr<arrow::TimestampParser>> timestamp_parsers;
 
-    // if we have a character vector, convert to arrow::TimestampParser
+    // if we have a character vector, convert to arrow::StrptimeTimestampParser
     if (TYPEOF(op_timestamp_parsers) == STRSXP) {
       cpp11::strings s_timestamp_parsers(op_timestamp_parsers);
       for (cpp11::r_string s : s_timestamp_parsers) {

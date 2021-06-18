@@ -77,11 +77,16 @@ struct TupleMember {
 template <typename...>
 struct TupleImpl;
 
-template <size_t... I, typename... T>
-struct TupleImpl<TupleMember<I, T>...> : TupleMember<I, T>... {
-  constexpr explicit TupleImpl(T... values) : TupleMember<I, T>{values}... {}
+template <>
+struct TupleImpl<> {};
 
+template <size_t I0, size_t... I, typename T0, typename... T>
+struct TupleImpl<TupleMember<I0, T0>, TupleMember<I, T>...>
+    : TupleMember<I0, T0>, TupleImpl<TupleMember<I, T>...> {
   constexpr static size_t size() { return sizeof...(T); }
+
+  constexpr explicit TupleImpl(T0 value0, T... values)
+      : TupleMember<I0, T0>{value0}, TupleImpl<TupleMember<I, T>...>{values...} {}
 };
 
 template <size_t... I, typename... T>
@@ -101,10 +106,20 @@ constexpr Tuple<T...> MakeTuple(T... values) {
   return Tuple<T...>(values...);
 }
 
+constexpr auto tup = MakeTuple(1, "h", 3);
+static_assert(GetTupleMember(tup, index_constant<0>()) == 1, "");
+static_assert(GetTupleMember(tup, index_constant<1>())[0] == 'h', "");
+static_assert(GetTupleMember(tup, index_constant<2>()) == 3, "");
+
 template <size_t... I, typename... T, typename Fn>
-void ForEachTupleMember(const TupleImpl<TupleMember<I, T>...>& tup, Fn&& fn) {
+void ForEachTupleMemberImpl(const Tuple<T...>& tup, Fn&& fn, index_sequence<I...>) {
   (void)MakeTuple((fn(GetTupleMember(tup, index_constant<I>()), index_constant<I>()),
                    std::ignore)...);
+}
+
+template <typename... T, typename Fn>
+void ForEachTupleMember(const Tuple<T...>& tup, Fn&& fn) {
+  return ForEachTupleMemberImpl(tup, fn, index_sequence_for<T...>());
 }
 
 template <typename C, typename T>
