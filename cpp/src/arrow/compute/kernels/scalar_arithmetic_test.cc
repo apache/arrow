@@ -1148,28 +1148,70 @@ TYPED_TEST(TestUnaryArithmeticFloating, AbsoluteValue) {
   }
 }
 
-class TestBinaryArithmeticDecimal : public TestBase {
- protected:
-  std::shared_ptr<Scalar> MakeScalar(const std::shared_ptr<DataType>& type,
-                                     const std::string& str) {
-    std::shared_ptr<Scalar> scalar;
-    if (type->id() == Type::DECIMAL128) {
-      Decimal128 value;
-      int32_t dummy;
-      ABORT_NOT_OK(Decimal128::FromString(str, &value, &dummy));
-      ASSIGN_OR_ABORT(scalar, arrow::MakeScalar(type, value));
-    } else {
-      Decimal256 value;
-      int32_t dummy;
-      ABORT_NOT_OK(Decimal256::FromString(str, &value, &dummy));
-      ASSIGN_OR_ABORT(scalar, arrow::MakeScalar(type, value));
+TEST(TestBinaryDecimalArithmetic, DispatchBest) {
+  // decimal, floating point
+  for (std::string name : {"add", "subtract", "multiply", "divide"}) {
+    for (std::string suffix : {"", "_checked"}) {
+      name += suffix;
+
+      CheckDispatchBest(name, {decimal128(1, 0), float32()}, {float32(), float32()});
+      CheckDispatchBest(name, {decimal256(1, 0), float64()}, {float64(), float64()});
+      CheckDispatchBest(name, {float32(), decimal256(1, 0)}, {float32(), float32()});
+      CheckDispatchBest(name, {float64(), decimal128(1, 0)}, {float64(), float64()});
     }
-    return scalar;
   }
-};
+
+  // decimal, decimal
+  for (std::string name : {"add", "subtract"}) {
+    for (std::string suffix : {"", "_checked"}) {
+      name += suffix;
+
+      CheckDispatchBest(name, {decimal128(2, 1), decimal128(2, 1)},
+                        {decimal128(3, 1), decimal128(3, 1)});
+      CheckDispatchBest(name, {decimal256(2, 1), decimal256(2, 1)},
+                        {decimal256(3, 1), decimal256(3, 1)});
+      CheckDispatchBest(name, {decimal128(2, 1), decimal256(2, 1)},
+                        {decimal256(3, 1), decimal256(3, 1)});
+      CheckDispatchBest(name, {decimal256(2, 1), decimal128(2, 1)},
+                        {decimal256(3, 1), decimal256(3, 1)});
+    }
+  }
+  {
+    std::string name = "multiply";
+    for (std::string suffix : {"", "_checked"}) {
+      name += suffix;
+
+      CheckDispatchBest(name, {decimal128(2, 1), decimal128(2, 1)},
+                        {decimal128(5, 2), decimal128(5, 2)});
+      CheckDispatchBest(name, {decimal256(2, 1), decimal256(2, 1)},
+                        {decimal256(5, 2), decimal256(5, 2)});
+      CheckDispatchBest(name, {decimal128(2, 1), decimal256(2, 1)},
+                        {decimal256(5, 2), decimal256(5, 2)});
+      CheckDispatchBest(name, {decimal256(2, 1), decimal128(2, 1)},
+                        {decimal256(5, 2), decimal256(5, 2)});
+    }
+  }
+  {
+    std::string name = "divide";
+    for (std::string suffix : {"", "_checked"}) {
+      name += suffix;
+
+      CheckDispatchBest(name, {decimal128(2, 1), decimal128(2, 1)},
+                        {decimal128(6, 4), decimal128(6, 4)});
+      CheckDispatchBest(name, {decimal256(2, 1), decimal256(2, 1)},
+                        {decimal256(6, 4), decimal256(6, 4)});
+      CheckDispatchBest(name, {decimal128(2, 1), decimal256(2, 1)},
+                        {decimal256(6, 4), decimal256(6, 4)});
+      CheckDispatchBest(name, {decimal256(2, 1), decimal128(2, 1)},
+                        {decimal256(6, 4), decimal256(6, 4)});
+    }
+  }
+
+  // TODO(ARROW-13067): add 'integer, decimal' tests
+}
 
 // reference result from bc (precsion=100, scale=40)
-TEST_F(TestBinaryArithmeticDecimal, AddSubtract) {
+TEST(TestBinaryArithmeticDecimal, AddSubtract) {
   // array array, decimal128
   {
     auto left = ArrayFromJSON(decimal128(30, 3),
@@ -1240,7 +1282,7 @@ TEST_F(TestBinaryArithmeticDecimal, AddSubtract) {
 
   // scalar array
   {
-    auto left = this->MakeScalar(decimal128(6, 1), "12345.6");
+    auto left = ScalarFromJSON(decimal128(6, 1), R"("12345.6")");
     auto right = ArrayFromJSON(decimal128(10, 3),
                                R"(["1.234", "1234.000", "-9876.543", "666.888"])");
     auto added = ArrayFromJSON(decimal128(11, 3),
@@ -1257,26 +1299,26 @@ TEST_F(TestBinaryArithmeticDecimal, AddSubtract) {
 
   // scalar scalar
   {
-    auto left = this->MakeScalar(decimal256(3, 0), "666");
-    auto right = this->MakeScalar(decimal256(3, 0), "888");
-    auto added = this->MakeScalar(decimal256(4, 0), "1554");
-    auto subtracted = this->MakeScalar(decimal256(4, 0), "-222");
+    auto left = ScalarFromJSON(decimal256(3, 0), R"("666")");
+    auto right = ScalarFromJSON(decimal256(3, 0), R"("888")");
+    auto added = ScalarFromJSON(decimal256(4, 0), R"("1554")");
+    auto subtracted = ScalarFromJSON(decimal256(4, 0), R"("-222")");
     CheckScalarBinary("add", left, right, added);
     CheckScalarBinary("subtract", left, right, subtracted);
   }
 
   // decimal128 decimal256
   {
-    auto left = this->MakeScalar(decimal128(3, 0), "666");
-    auto right = this->MakeScalar(decimal256(3, 0), "888");
-    auto added = this->MakeScalar(decimal256(4, 0), "1554");
+    auto left = ScalarFromJSON(decimal128(3, 0), R"("666")");
+    auto right = ScalarFromJSON(decimal256(3, 0), R"("888")");
+    auto added = ScalarFromJSON(decimal256(4, 0), R"("1554")");
     CheckScalarBinary("add", left, right, added);
     CheckScalarBinary("add", right, left, added);
   }
 
   // decimal float
   {
-    auto left = this->MakeScalar(decimal128(3, 0), "666");
+    auto left = ScalarFromJSON(decimal128(3, 0), R"("666")");
     ASSIGN_OR_ABORT(auto right, arrow::MakeScalar(float64(), 888));
     ASSIGN_OR_ABORT(auto added, arrow::MakeScalar(float64(), 1554));
     CheckScalarBinary("add", left, right, added);
@@ -1289,19 +1331,19 @@ TEST_F(TestBinaryArithmeticDecimal, AddSubtract) {
   {
     std::shared_ptr<Scalar> left, right;
 
-    left = this->MakeScalar(decimal128(21, 20), "0.12345678901234567890");
-    right = this->MakeScalar(decimal128(21, 1), "1.0");
+    left = ScalarFromJSON(decimal128(21, 20), R"("0.12345678901234567890")");
+    right = ScalarFromJSON(decimal128(21, 1), R"("1.0")");
     ASSERT_RAISES(Invalid, CallFunction("add", {left, right}));
     ASSERT_RAISES(Invalid, CallFunction("subtract", {left, right}));
 
-    left = this->MakeScalar(decimal256(75, 0), "0");
-    right = this->MakeScalar(decimal256(2, 1), "0.0");
+    left = ScalarFromJSON(decimal256(75, 0), R"("0")");
+    right = ScalarFromJSON(decimal256(2, 1), R"("0.0")");
     ASSERT_RAISES(Invalid, CallFunction("add", {left, right}));
     ASSERT_RAISES(Invalid, CallFunction("subtract", {left, right}));
   }
 }
 
-TEST_F(TestBinaryArithmeticDecimal, Multiply) {
+TEST(TestBinaryArithmeticDecimal, Multiply) {
   // array array, decimal128
   {
     auto left = ArrayFromJSON(decimal128(20, 10),
@@ -1347,7 +1389,7 @@ TEST_F(TestBinaryArithmeticDecimal, Multiply) {
 
   // scalar array
   {
-    auto left = this->MakeScalar(decimal128(3, 2), "3.14");
+    auto left = ScalarFromJSON(decimal128(3, 2), R"("3.14")");
     auto right = ArrayFromJSON(decimal128(1, 0), R"(["1", "2", "3", "4", "5"])");
     auto expected =
         ArrayFromJSON(decimal128(5, 2), R"(["3.14", "6.28", "9.42", "12.56", "15.70"])");
@@ -1357,24 +1399,24 @@ TEST_F(TestBinaryArithmeticDecimal, Multiply) {
 
   // scalar scalar
   {
-    auto left = this->MakeScalar(decimal128(1, 0), "1");
-    auto right = this->MakeScalar(decimal128(1, 0), "1");
-    auto expected = this->MakeScalar(decimal128(3, 0), "1");
+    auto left = ScalarFromJSON(decimal128(1, 0), R"("1")");
+    auto right = ScalarFromJSON(decimal128(1, 0), R"("1")");
+    auto expected = ScalarFromJSON(decimal128(3, 0), R"("1")");
     CheckScalarBinary("multiply", left, right, expected);
   }
 
   // decimal128 decimal256
   {
-    auto left = this->MakeScalar(decimal128(3, 2), "6.66");
-    auto right = this->MakeScalar(decimal256(3, 1), "88.8");
-    auto expected = this->MakeScalar(decimal256(7, 3), "591.408");
+    auto left = ScalarFromJSON(decimal128(3, 2), R"("6.66")");
+    auto right = ScalarFromJSON(decimal256(3, 1), R"("88.8")");
+    auto expected = ScalarFromJSON(decimal256(7, 3), R"("591.408")");
     CheckScalarBinary("multiply", left, right, expected);
     CheckScalarBinary("multiply", right, left, expected);
   }
 
   // decimal float
   {
-    auto left = this->MakeScalar(decimal128(3, 0), "666");
+    auto left = ScalarFromJSON(decimal128(3, 0), R"("666")");
     ASSIGN_OR_ABORT(auto right, arrow::MakeScalar(float64(), 888));
     ASSIGN_OR_ABORT(auto expected, arrow::MakeScalar(float64(), 591408));
     CheckScalarBinary("multiply", left, right, expected);
@@ -1385,13 +1427,13 @@ TEST_F(TestBinaryArithmeticDecimal, Multiply) {
 
   // failed case: result maybe overflow
   {
-    auto left = this->MakeScalar(decimal128(20, 0), "1");
-    auto right = this->MakeScalar(decimal128(18, 1), "1.0");
+    auto left = ScalarFromJSON(decimal128(20, 0), R"("1")");
+    auto right = ScalarFromJSON(decimal128(18, 1), R"("1.0")");
     ASSERT_RAISES(Invalid, CallFunction("multiply", {left, right}));
   }
 }
 
-TEST_F(TestBinaryArithmeticDecimal, Divide) {
+TEST(TestBinaryArithmeticDecimal, Divide) {
   // array array, decimal128
   {
     auto left = ArrayFromJSON(decimal128(13, 3), R"(["1234567890.123", "0.001"])");
@@ -1414,7 +1456,7 @@ TEST_F(TestBinaryArithmeticDecimal, Divide) {
 
   // scalar array
   {
-    auto left = this->MakeScalar(decimal128(1, 0), "1");
+    auto left = ScalarFromJSON(decimal128(1, 0), R"("1")");
     auto right = ArrayFromJSON(decimal128(1, 0), R"(["1", "2", "3", "4"])");
     auto left_div_right =
         ArrayFromJSON(decimal128(5, 4), R"(["1.0000", "0.5000", "0.3333", "0.2500"])");
@@ -1426,25 +1468,25 @@ TEST_F(TestBinaryArithmeticDecimal, Divide) {
 
   // scalar scalar
   {
-    auto left = this->MakeScalar(decimal256(6, 5), "2.71828");
-    auto right = this->MakeScalar(decimal256(6, 5), "3.14159");
-    auto expected = this->MakeScalar(decimal256(13, 7), "0.8652561");
+    auto left = ScalarFromJSON(decimal256(6, 5), R"("2.71828")");
+    auto right = ScalarFromJSON(decimal256(6, 5), R"("3.14159")");
+    auto expected = ScalarFromJSON(decimal256(13, 7), R"("0.8652561")");
     CheckScalarBinary("divide", left, right, expected);
   }
 
   // decimal128 decimal256
   {
-    auto left = this->MakeScalar(decimal256(6, 5), "2.71828");
-    auto right = this->MakeScalar(decimal128(6, 5), "3.14159");
-    auto left_div_right = this->MakeScalar(decimal256(13, 7), "0.8652561");
-    auto right_div_left = this->MakeScalar(decimal256(13, 7), "1.1557271");
+    auto left = ScalarFromJSON(decimal256(6, 5), R"("2.71828")");
+    auto right = ScalarFromJSON(decimal128(6, 5), R"("3.14159")");
+    auto left_div_right = ScalarFromJSON(decimal256(13, 7), R"("0.8652561")");
+    auto right_div_left = ScalarFromJSON(decimal256(13, 7), R"("1.1557271")");
     CheckScalarBinary("divide", left, right, left_div_right);
     CheckScalarBinary("divide", right, left, right_div_left);
   }
 
   // decimal float
   {
-    auto left = this->MakeScalar(decimal128(3, 0), "100");
+    auto left = ScalarFromJSON(decimal128(3, 0), R"("100")");
     ASSIGN_OR_ABORT(auto right, arrow::MakeScalar(float64(), 50));
     ASSIGN_OR_ABORT(auto left_div_right, arrow::MakeScalar(float64(), 2));
     ASSIGN_OR_ABORT(auto right_div_left, arrow::MakeScalar(float64(), 0.5));
@@ -1456,15 +1498,15 @@ TEST_F(TestBinaryArithmeticDecimal, Divide) {
 
   // failed case: result maybe overflow
   {
-    auto left = this->MakeScalar(decimal128(20, 20), "0.12345678901234567890");
-    auto right = this->MakeScalar(decimal128(20, 0), "12345678901234567890");
+    auto left = ScalarFromJSON(decimal128(20, 20), R"("0.12345678901234567890")");
+    auto right = ScalarFromJSON(decimal128(20, 0), R"("12345678901234567890")");
     ASSERT_RAISES(Invalid, CallFunction("divide", {left, right}));
   }
 
   // failed case: divide by 0
   {
-    auto left = this->MakeScalar(decimal256(1, 0), "1");
-    auto right = this->MakeScalar(decimal256(1, 0), "0");
+    auto left = ScalarFromJSON(decimal256(1, 0), R"("1")");
+    auto right = ScalarFromJSON(decimal256(1, 0), R"("0")");
     ASSERT_RAISES(Invalid, CallFunction("divide", {left, right}));
   }
 }

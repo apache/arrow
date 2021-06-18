@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <utility>
 
 #include "arrow/compute/kernels/common.h"
 #include "arrow/type_traits.h"
@@ -596,38 +597,52 @@ Status CastBinaryDecimalArgs(const std::string& func_name,
   return Status::OK();
 }
 
-// resolve output decimal type per *casted* args
-Result<std::shared_ptr<DataType>> ResolveBinaryDecimalOutput(
-    const std::string& func_name, const std::vector<ValueDescr>& values) {
+// resolve decimal binary operation output type per *casted* args
+template <typename OutputGetter>
+Result<ValueDescr> ResolveDecimalBinaryOperationOutput(
+    const std::vector<ValueDescr>& args, OutputGetter&& getter) {
   // casted args should be same size decimals
-  auto left_type = checked_cast<const DecimalType*>(values[0].type.get());
-  auto right_type = checked_cast<const DecimalType*>(values[1].type.get());
+  auto left_type = checked_cast<const DecimalType*>(args[0].type.get());
+  auto right_type = checked_cast<const DecimalType*>(args[1].type.get());
   DCHECK_EQ(left_type->id(), right_type->id());
-  const Type::type out_type_id = left_type->id();
 
-  const int32_t p1 = left_type->precision(), s1 = left_type->scale();
-  const int32_t p2 = right_type->precision(), s2 = right_type->scale();
-  DCHECK(s1 >= 0 && s2 >= 0);
+  int32_t precision, scale;
+  std::tie(precision, scale) = getter(left_type->precision(), left_type->scale(),
+                                      right_type->precision(), right_type->scale());
+  ARROW_ASSIGN_OR_RAISE(auto type, DecimalType::Make(left_type->id(), precision, scale));
+  return ValueDescr(std::move(type), GetBroadcastShape(args));
+}
 
-  int32_t out_precision, out_scale;
+Result<ValueDescr> ResolveDecimalAdditionOrSubtractionOutput(
+    KernelContext*, const std::vector<ValueDescr>& args) {
+  return ResolveDecimalBinaryOperationOutput(
+      args, [](int32_t p1, int32_t s1, int32_t p2, int32_t s2) {
+        DCHECK_EQ(s1, s2);
+        const int32_t scale = s1;
+        const int32_t precision = std::max(p1 - s1, p2 - s2) + scale + 1;
+        return std::make_pair(precision, scale);
+      });
+}
 
-  const std::string op = func_name.substr(0, func_name.find("_"));
-  if (op == "add" || op == "subtract") {
-    DCHECK_EQ(s1, s2);
-    out_scale = s1;
-    out_precision = std::max(p1 - s1, p2 - s2) + 1 + out_scale;
-  } else if (op == "multiply") {
-    out_scale = s1 + s2;
-    out_precision = p1 + p2 + 1;
-  } else if (op == "divide") {
-    DCHECK_GE(s1, s2);
-    out_scale = s1 - s2;
-    out_precision = p1;
-  } else {
-    return Status::Invalid("Invalid decimal function: ", func_name);
-  }
+Result<ValueDescr> ResolveDecimalMultiplicationOutput(
+    KernelContext*, const std::vector<ValueDescr>& args) {
+  return ResolveDecimalBinaryOperationOutput(
+      args, [](int32_t p1, int32_t s1, int32_t p2, int32_t s2) {
+        const int32_t scale = s1 + s2;
+        const int32_t precision = p1 + p2 + 1;
+        return std::make_pair(precision, scale);
+      });
+}
 
-  return DecimalType::Make(out_type_id, out_precision, out_scale);
+Result<ValueDescr> ResolveDecimalDivisionOutput(KernelContext*,
+                                                const std::vector<ValueDescr>& args) {
+  return ResolveDecimalBinaryOperationOutput(
+      args, [](int32_t p1, int32_t s1, int32_t p2, int32_t s2) {
+        DCHECK_GE(s1, s2);
+        const int32_t scale = s1 - s2;
+        const int32_t precision = p1;
+        return std::make_pair(precision, scale);
+      });
 }
 
 struct ArithmeticFunction : ScalarFunction {
@@ -673,23 +688,21 @@ struct ArithmeticFunction : ScalarFunction {
   }
 };
 
-// resolve decimal operation output type
-struct BinaryDecimalOutputResolver {
-  const std::string func_name;
-
-  explicit BinaryDecimalOutputResolver(std::string func_name)
-      : func_name(std::move(func_name)) {}
-
-  Result<ValueDescr> operator()(KernelContext*, const std::vector<ValueDescr>& args) {
-    ARROW_ASSIGN_OR_RAISE(auto type, ResolveBinaryDecimalOutput(func_name, args));
-    return ValueDescr(std::move(type), GetBroadcastShape(args));
-  }
-};
-
 template <typename Op>
 void AddDecimalBinaryKernels(const std::string& name,
                              std::shared_ptr<ArithmeticFunction>* func) {
-  auto out_type = OutputType(BinaryDecimalOutputResolver(name));
+  OutputType out_type(null());
+  const std::string op = name.substr(0, name.find("_"));
+  if (op == "add" || op == "subtract") {
+    out_type = OutputType(ResolveDecimalAdditionOrSubtractionOutput);
+  } else if (op == "multiply") {
+    out_type = OutputType(ResolveDecimalMultiplicationOutput);
+  } else if (op == "divide") {
+    out_type = OutputType(ResolveDecimalDivisionOutput);
+  } else {
+    DCHECK(false);
+  }
+
   auto in_type128 = InputType(Type::DECIMAL128);
   auto in_type256 = InputType(Type::DECIMAL256);
   auto exec128 = ScalarBinaryNotNullEqualTypes<Decimal128Type, Decimal128Type, Op>::Exec;
