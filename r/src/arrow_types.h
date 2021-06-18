@@ -165,9 +165,11 @@ arrow::Status InferSchemaFromDots(SEXP lst, SEXP schema_sxp, int num_fields,
 arrow::Status AddMetadataFromDots(SEXP lst, int num_fields,
                                   std::shared_ptr<arrow::Schema>& schema);
 
+#if defined(HAS_ALTREP)
 void Init_Altrep_classes(DllInfo* dll);
-SEXP Make_array_nonull_dbl_vector(const std::shared_ptr<Array>& array);
-SEXP Make_array_nonull_int_vector(const std::shared_ptr<Array>& array);
+SEXP MakeInt32ArrayNoNull(const std::shared_ptr<Array>& array);
+SEXP MakeDoubleArrayNoNull(const std::shared_ptr<Array>& array);
+#endif
 
 }  // namespace r
 }  // namespace arrow

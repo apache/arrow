@@ -152,9 +152,9 @@ SEXP ArrayVector__as_vector(R_xlen_t n, const std::shared_ptr<DataType>& type,
         array->null_count() == 0) {
       switch (type->id()) {
         case arrow::Type::DOUBLE:
-          return arrow::r::Make_array_nonull_dbl_vector(array);
+          return arrow::r::MakeDoubleArrayNoNull(array);
         case arrow::Type::INT32:
-          return arrow::r::Make_array_nonull_int_vector(array);
+          return arrow::r::MakeInt32ArrayNoNull(array);
         default:
           break;
       }

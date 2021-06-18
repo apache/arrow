@@ -28,7 +28,7 @@ namespace arrow {
 namespace r {
 
 template <int sexp_type>
-struct array_nonull {
+struct ArrayNoNull {
   using data_type = typename std::conditional<sexp_type == INTSXP, int, double>::type;
 
   // altrep object around an Array with no nulls
@@ -85,79 +85,58 @@ struct array_nonull {
 
   static void Init(R_altrep_class_t class_t, DllInfo* dll) {
     // altrep
-    R_set_altrep_Length_method(class_t, array_nonull::Length);
-    R_set_altrep_Inspect_method(class_t, array_nonull::Inspect);
-    R_set_altrep_Duplicate_method(class_t, array_nonull::Duplicate);
+    R_set_altrep_Length_method(class_t, ArrayNoNull::Length);
+    R_set_altrep_Inspect_method(class_t, ArrayNoNull::Inspect);
+    R_set_altrep_Duplicate_method(class_t, ArrayNoNull::Duplicate);
 
     // altvec
-    R_set_altvec_Dataptr_method(class_t, array_nonull::Dataptr);
-    R_set_altvec_Dataptr_or_null_method(class_t, array_nonull::Dataptr_or_null);
+    R_set_altvec_Dataptr_method(class_t, ArrayNoNull::Dataptr);
+    R_set_altvec_Dataptr_or_null_method(class_t, ArrayNoNull::Dataptr_or_null);
   }
 };
 
-struct array_nonull_dbl_vector {
+struct DoubleArrayNoNull {
   static R_altrep_class_t class_t;
 
   static void Init(DllInfo* dll) {
     class_t = R_make_altreal_class("array_nonull_dbl_vector", "arrow", dll);
-    array_nonull<REALSXP>::Init(class_t, dll);
-    R_set_altreal_No_NA_method(class_t, array_nonull<REALSXP>::No_NA);
+    ArrayNoNull<REALSXP>::Init(class_t, dll);
+    R_set_altreal_No_NA_method(class_t, ArrayNoNull<REALSXP>::No_NA);
   }
 
   static SEXP Make(const std::shared_ptr<Array>& array) {
-    return array_nonull<REALSXP>::Make(class_t, array);
+    return ArrayNoNull<REALSXP>::Make(class_t, array);
   }
 };
 
-struct array_nonull_int_vector {
+struct Int32ArrayNoNull {
   static R_altrep_class_t class_t;
 
   static void Init(DllInfo* dll) {
     class_t = R_make_altinteger_class("array_nonull_int_vector", "arrow", dll);
-    array_nonull<INTSXP>::Init(class_t, dll);
-    R_set_altinteger_No_NA_method(class_t, array_nonull<INTSXP>::No_NA);
+    ArrayNoNull<INTSXP>::Init(class_t, dll);
+    R_set_altinteger_No_NA_method(class_t, ArrayNoNull<INTSXP>::No_NA);
   }
 
   static SEXP Make(const std::shared_ptr<Array>& array) {
-    return array_nonull<INTSXP>::Make(class_t, array);
+    return ArrayNoNull<INTSXP>::Make(class_t, array);
   }
 };
 
-R_altrep_class_t array_nonull_int_vector::class_t;
-R_altrep_class_t array_nonull_dbl_vector::class_t;
+R_altrep_class_t Int32ArrayNoNull::class_t;
+R_altrep_class_t DoubleArrayNoNull::class_t;
 
 void Init_Altrep_classes(DllInfo* dll) {
-  array_nonull_dbl_vector::Init(dll);
-  array_nonull_int_vector::Init(dll);
+  DoubleArrayNoNull::Init(dll);
+  Int32ArrayNoNull::Init(dll);
 }
 
-SEXP Make_array_nonull_dbl_vector(const std::shared_ptr<Array>& array) {
-  return array_nonull_dbl_vector::Make(array);
+SEXP MakeDoubleArrayNoNull(const std::shared_ptr<Array>& array) {
+  return DoubleArrayNoNull::Make(array);
 }
 
-SEXP Make_array_nonull_int_vector(const std::shared_ptr<Array>& array) {
-  return array_nonull_int_vector::Make(array);
-}
-
-}  // namespace r
-}  // namespace arrow
-
-// TODO: when arrow depends on R 3.5 we can eliminate this
-#else
-
-namespace arrow {
-namespace r {
-
-void Init_Altrep_classes(DllInfo* dll) {
-  // nothing
-}
-
-SEXP Make_array_nonull_dbl_vector(const std::shared_ptr<Array>& array) {
-  return R_NilValue;
-}
-
-SEXP Make_array_nonull_int_vector(const std::shared_ptr<Array>& array) {
-  return R_NilValue;
+SEXP MakeInt32ArrayNoNull(const std::shared_ptr<Array>& array) {
+  return Int32ArrayNoNull::Make(array);
 }
 
 }  // namespace r
@@ -168,7 +147,7 @@ SEXP Make_array_nonull_int_vector(const std::shared_ptr<Array>& array) {
 // [[arrow::export]]
 bool is_altrep_int_nonull(SEXP x) {
 #if defined(HAS_ALTREP)
-  return R_altrep_inherits(x, arrow::r::array_nonull_int_vector::class_t);
+  return R_altrep_inherits(x, arrow::r::Int32ArrayNoNull::class_t);
 #else
   return false;
 #endif
@@ -177,7 +156,7 @@ bool is_altrep_int_nonull(SEXP x) {
 // [[arrow::export]]
 bool is_altrep_dbl_nonull(SEXP x) {
 #if defined(HAS_ALTREP)
-  return R_altrep_inherits(x, arrow::r::array_nonull_dbl_vector::class_t);
+  return R_altrep_inherits(x, arrow::r::DoubleArrayNoNull::class_t);
 #else
   return false;
 #endif
