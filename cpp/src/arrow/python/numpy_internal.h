@@ -52,7 +52,7 @@ class Ndarray1DIndexer {
 
   int64_t size() const { return PyArray_SIZE(arr_); }
 
-  T* data() const { return data_; }
+  const T* data() const { return reinterpret_cast<const T*>(data_); }
 
   bool is_strided() const { return stride_ != sizeof(T); }
 

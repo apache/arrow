@@ -379,12 +379,13 @@ class TypeInferrer {
   // Infer value type from a sequence of values
   Status VisitSequence(PyObject* obj, PyObject* mask = nullptr) {
     if (mask == nullptr || mask == Py_None) {
-      return internal::VisitSequence(obj, [this](PyObject* value, bool* keep_going) {
-        return Visit(value, keep_going);
-      });
+      return internal::VisitSequence(
+          obj, /*offset=*/0,
+          [this](PyObject* value, bool* keep_going) { return Visit(value, keep_going); });
     } else {
       return internal::VisitSequenceMasked(
-          obj, mask, [this](PyObject* value, uint8_t masked, bool* keep_going) {
+          obj, mask, /*offset=*/0,
+          [this](PyObject* value, uint8_t masked, bool* keep_going) {
             if (!masked) {
               return Visit(value, keep_going);
             } else {

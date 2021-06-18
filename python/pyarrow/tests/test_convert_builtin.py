@@ -2185,7 +2185,11 @@ def test_auto_chunking_list_like():
     assert arr.num_chunks == 2
     assert len(arr.chunk(0)) == 7
     assert len(arr.chunk(1)) == 1
-    assert arr.chunk(1)[0].as_py() == list(item)
+    chunk = arr.chunk(1)
+    scalar = chunk[0]
+    assert isinstance(scalar, pa.ListScalar)
+    expected = pa.array(item, type=pa.uint8())
+    assert scalar.values == expected
 
 
 @pytest.mark.slow

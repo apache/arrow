@@ -2171,16 +2171,16 @@ class TestConvertListTypes:
     @pytest.mark.large_memory
     def test_auto_chunking_on_list_overflow(self):
         # ARROW-9976
-        n = 2**24
+        n = 2**21
         df = pd.DataFrame.from_dict({
-            "a": list(np.zeros((n, 2**7), dtype='uint8')),
+            "a": list(np.zeros((n, 2**10), dtype='uint8')),
             "b": range(n)
         })
         table = pa.Table.from_pandas(df)
 
         column_a = table[0]
         assert column_a.num_chunks == 2
-        assert len(column_a.chunk(0)) == 2**24 - 1
+        assert len(column_a.chunk(0)) == 2**21 - 1
         assert len(column_a.chunk(1)) == 1
 
     def test_map_array_roundtrip(self):
