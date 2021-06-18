@@ -149,6 +149,8 @@ struct GetViewType<Decimal128Type> {
   static T LogicalValue(PhysicalType value) {
     return Decimal128(reinterpret_cast<const uint8_t*>(value.data()));
   }
+
+  static T LogicalValue(T value) { return value; }
 };
 
 template <>
@@ -159,6 +161,8 @@ struct GetViewType<Decimal256Type> {
   static T LogicalValue(PhysicalType value) {
     return Decimal256(reinterpret_cast<const uint8_t*>(value.data()));
   }
+
+  static T LogicalValue(T value) { return value; }
 };
 
 template <typename Type, typename Enable = void>
@@ -243,6 +247,18 @@ struct ArrayIterator<Type, enable_if_base_binary<Type>> {
   }
 };
 
+template <typename Type>
+struct ArrayIterator<Type, enable_if_decimal<Type>> {
+  using T = typename TypeTraits<Type>::ScalarType::ValueType;
+  using endian_agnostic = std::array<uint8_t, sizeof(T)>;
+  const endian_agnostic* values;
+
+  explicit ArrayIterator(const ArrayData& data)
+      : values(data.GetValues<endian_agnostic>(1)) {}
+
+  T operator()() { return T{values++->data()}; }
+};
+
 // Iterator over various output array types, taking a GetOutputType<Type>
 
 template <typename Type, typename Enable = void>
@@ -260,6 +276,20 @@ struct OutputArrayWriter<Type, enable_if_has_c_type_not_boolean<Type>> {
   // Note that this doesn't write the null bitmap, which should be consistent
   // with Write / WriteNull calls
   void WriteNull() { *values++ = T{}; }
+};
+
+template <typename Type>
+struct OutputArrayWriter<Type, enable_if_decimal<Type>> {
+  using T = typename TypeTraits<Type>::ScalarType::ValueType;
+  using endian_agnostic = std::array<uint8_t, sizeof(T)>;
+  endian_agnostic* values;
+
+  explicit OutputArrayWriter(ArrayData* data)
+      : values(data->GetMutableValues<endian_agnostic>(1)) {}
+
+  void Write(T value) { value.ToBytes(values++->data()); }
+
+  void WriteNull() { T{}.ToBytes(values++->data()); }
 };
 
 // (Un)box Scalar to / from C++ value
@@ -535,6 +565,22 @@ struct OutputAdapter<Type, enable_if_base_binary<Type>> {
   template <typename Generator>
   static Status Write(KernelContext* ctx, Datum* out, Generator&& generator) {
     return Status::NotImplemented("NYI");
+  }
+};
+
+template <typename Type>
+struct OutputAdapter<Type, enable_if_decimal<Type>> {
+  using T = typename TypeTraits<Type>::ScalarType::ValueType;
+  using endian_agnostic = std::array<uint8_t, sizeof(T)>;
+
+  template <typename Generator>
+  static Status Write(KernelContext*, Datum* out, Generator&& generator) {
+    ArrayData* out_arr = out->mutable_array();
+    auto out_data = out_arr->GetMutableValues<endian_agnostic>(1);
+    for (int64_t i = 0; i < out_arr->length; ++i) {
+      generator().ToBytes(out_data++->data());
+    }
+    return Status::OK();
   }
 };
 
