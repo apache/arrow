@@ -518,34 +518,6 @@ class PyPrimitiveConverter<
 };
 
 template <typename T>
-class PyPrimitiveConverter<T, enable_if_binary<T>>
-    : public PrimitiveConverter<T, PyConverter> {
- public:
-  using OffsetType = typename T::offset_type;
-
-  Status Append(PyObject* value) override {
-    if (PyValue::IsNull(this->options_, value)) {
-      this->primitive_builder_->UnsafeAppendNull();
-    } else {
-      ARROW_RETURN_NOT_OK(
-          PyValue::Convert(this->primitive_type_, this->options_, value, view_));
-      // Since we don't know the varying length input size in advance, we need to
-      // reserve space in the value builder one by one. ReserveData raises CapacityError
-      // if the value would not fit into the array.
-      ARROW_RETURN_NOT_OK(this->primitive_builder_->ReserveData(view_.size));
-      this->primitive_builder_->UnsafeAppend(view_.bytes,
-                                             static_cast<OffsetType>(view_.size));
-    }
-    return Status::OK();
-  }
-
- protected:
-  // Create a single instance of PyBytesView here to prevent unnecessary object
-  // creation/destruction. This significantly improves the conversion performance.
-  PyBytesView view_;
-};
-
-template <typename T>
 class PyPrimitiveConverter<T, enable_if_t<std::is_same<T, FixedSizeBinaryType>::value>>
     : public PrimitiveConverter<T, PyConverter> {
  public:
@@ -566,7 +538,7 @@ class PyPrimitiveConverter<T, enable_if_t<std::is_same<T, FixedSizeBinaryType>::
 };
 
 template <typename T>
-class PyPrimitiveConverter<T, enable_if_string_like<T>>
+class PyPrimitiveConverter<T, enable_if_base_binary<T>>
     : public PrimitiveConverter<T, PyConverter> {
  public:
   using OffsetType = typename T::offset_type;
@@ -693,13 +665,12 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
     switch (value_type->id()) {
 // If the value type does not match the expected NumPy dtype, then fall through
 // to a slower PySequence-based path
-#define LIST_FAST_CASE(TYPE_ID, TYPE, NUMPY_TYPE)                 \
-  case Type::TYPE_ID: {                                           \
-    if (PyArray_DESCR(ndarray)->type_num != NUMPY_TYPE) {         \
-      RETURN_NOT_OK(this->value_converter_->Extend(value, size)); \
-      return Status::OK();                                        \
-    }                                                             \
-    return AppendNdarrayTyped<TYPE, NUMPY_TYPE>(ndarray);         \
+#define LIST_FAST_CASE(TYPE_ID, TYPE, NUMPY_TYPE)         \
+  case Type::TYPE_ID: {                                   \
+    if (PyArray_DESCR(ndarray)->type_num != NUMPY_TYPE) { \
+      return this->value_converter_->Extend(value, size); \
+    }                                                     \
+    return AppendNdarrayTyped<TYPE, NUMPY_TYPE>(ndarray); \
   }
       LIST_FAST_CASE(BOOL, BooleanType, NPY_BOOL)
       LIST_FAST_CASE(UINT8, UInt8Type, NPY_UINT8)
