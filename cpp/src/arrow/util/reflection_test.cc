@@ -25,23 +25,13 @@
 namespace arrow {
 namespace internal {
 
-// unmodified structure which we wish to reflect on:
-struct Person {
-  int age;
-  std::string name;
-};
-
-// enumeration of properties:
-constexpr auto kPersonProperties =
-    PropertySet<>().Add("age", &Person::age).Add("name", &Person::name);
-
 // generic property-based equality comparison
 template <typename Class>
 struct EqualsImpl {
-  template <typename... Properties>
-  EqualsImpl(const Class& l, const Class& r, const std::tuple<Properties...>& props)
+  template <typename Properties>
+  EqualsImpl(const Class& l, const Class& r, const Properties& props)
       : left_(l), right_(r) {
-    ForEachProperty(props, *this);
+    ForEachTupleMember(props, *this);
   }
 
   template <typename Property>
@@ -54,24 +44,19 @@ struct EqualsImpl {
   bool equal_ = true;
 };
 
-bool operator==(const Person& l, const Person& r) {
-  return EqualsImpl<Person>{l, r, kPersonProperties}.equal_;
-}
-
-bool operator!=(const Person& l, const Person& r) { return !(l == r); }
-
+// generic property-based serialization
 template <typename Class>
 struct ToStringImpl {
-  template <typename... Properties>
-  ToStringImpl(const Class& obj, const std::tuple<Properties...>& props) : obj_(obj) {
-    ForEachProperty(props, *this);
+  template <typename Properties>
+  ToStringImpl(const Class& obj, const Properties& props)
+      : obj_(obj), members_(props.size()) {
+    ForEachTupleMember(props, *this);
   }
 
   template <typename Property>
   void operator()(const Property& prop, size_t i) {
     std::stringstream ss;
     ss << prop.name() << ":" << prop.get(obj_);
-    members_.resize(std::max(members_.size(), i + 1));
     members_[i] = ss.str();
   }
 
@@ -81,19 +66,14 @@ struct ToStringImpl {
   std::vector<std::string> members_;
 };
 
-std::string ToString(const Person& obj) {
-  return "Person" + ToStringImpl<Person>{obj, kPersonProperties}.Finish();
-}
-
-void PrintTo(const Person& obj, std::ostream* os) { *os << ToString(obj); }
-
+// generic property-based deserialization
 template <typename Class>
 struct FromStringImpl {
-  template <typename... Properties>
+  template <typename Properties>
   FromStringImpl(util::string_view class_name, util::string_view repr,
-                 const std::tuple<Properties...>& props) {
-    Init(class_name, repr, sizeof...(Properties));
-    ForEachProperty(props, *this);
+                 const Properties& props) {
+    Init(class_name, repr, props.size());
+    ForEachTupleMember(props, *this);
   }
 
   void Fail() { obj_ = util::nullopt; }
@@ -122,7 +102,7 @@ struct FromStringImpl {
     if (name != prop.name()) return Fail();
 
     auto value_repr = members_[i].substr(first_colon + 1);
-    typename Property::type value;
+    typename Property::Type value;
     try {
       std::stringstream ss(value_repr.to_string());
       ss >> value;
@@ -136,6 +116,30 @@ struct FromStringImpl {
   util::optional<Class> obj_ = Class{};
   std::vector<util::string_view> members_;
 };
+
+// unmodified structure which we wish to reflect on:
+struct Person {
+  int age;
+  std::string name;
+};
+
+// enumeration of properties:
+// NB: no references to Person::age or Person::name after this
+constexpr auto kPersonProperties =
+    MakeProperties(DataMember("age", &Person::age), DataMember("name", &Person::name));
+
+// use generic facilities to define equality, serialization and deserialization
+bool operator==(const Person& l, const Person& r) {
+  return EqualsImpl<Person>{l, r, kPersonProperties}.equal_;
+}
+
+bool operator!=(const Person& l, const Person& r) { return !(l == r); }
+
+std::string ToString(const Person& obj) {
+  return "Person" + ToStringImpl<Person>{obj, kPersonProperties}.Finish();
+}
+
+void PrintTo(const Person& obj, std::ostream* os) { *os << ToString(obj); }
 
 util::optional<Person> PersonFromString(util::string_view repr) {
   return FromStringImpl<Person>("Person", repr, kPersonProperties).obj_;

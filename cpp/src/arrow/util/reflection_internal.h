@@ -19,7 +19,6 @@
 
 #include <array>
 #include <string>
-#include <tuple>
 #include <utility>
 
 #include "arrow/util/string_view.h"
@@ -51,25 +50,68 @@ static_assert(std::is_base_of<index_sequence<>, make_index_sequence<0>>::value, 
 static_assert(std::is_base_of<index_sequence<0, 1, 2>, make_index_sequence<3>>::value,
               "");
 
-template <typename Props, typename Fn, size_t... I>
-void ForEachPropertyImpl(const Props& props, Fn&& fn, const index_sequence<I...>&) {
-  struct {
-  } dummy;
-  std::make_tuple((std::forward<Fn>(fn)(std::get<I>(props), I), dummy)...);
+template <size_t I>
+using index_constant = std::integral_constant<size_t, I>;
+
+template <typename...>
+struct all_same : std::true_type {};
+
+template <typename One>
+struct all_same<One> : std::true_type {};
+
+template <typename Same, typename... Rest>
+struct all_same<Same, Same, Rest...> : all_same<Same, Rest...> {};
+
+template <typename One, typename Other, typename... Rest>
+struct all_same<One, Other, Rest...> : std::false_type {};
+
+template <size_t I, typename T>
+struct TupleMember {
+  constexpr const T& operator[](index_constant<I>) const { return value_; }
+
+  T value_;
+};
+
+template <typename...>
+struct TupleImpl;
+
+template <size_t... I, typename... T>
+struct TupleImpl<TupleMember<I, T>...> : TupleMember<I, T>... {
+  constexpr explicit TupleImpl(T... values) : TupleMember<I, T>{values}... {}
+
+  constexpr static size_t size() { return sizeof...(T); }
+};
+
+template <size_t... I, typename... T>
+TupleImpl<TupleMember<I, T>...> TupleImplForImpl(index_sequence<I...>, T... values);
+
+template <typename... T>
+using TupleImplFor =
+    decltype(TupleImplForImpl(index_sequence_for<T...>(), std::declval<T>()...));
+
+template <typename... T>
+struct Tuple : TupleImplFor<T...> {
+  using TupleImplFor<T...>::TupleImplFor;
+};
+
+template <typename... T>
+constexpr Tuple<T...> MakeTuple(T... values) {
+  return Tuple<T...>(values...);
 }
 
-template <typename... Properties, typename Fn>
-void ForEachProperty(const std::tuple<Properties...>& props, Fn&& fn) {
-  ForEachPropertyImpl(props, std::forward<Fn>(fn), index_sequence_for<Properties...>{});
+template <size_t... I, typename... T, typename Fn>
+void ForEachTupleMember(const TupleImpl<TupleMember<I, T>...>& tup, Fn&& fn) {
+  (void)MakeTuple((fn(tup[index_constant<I>()], I), std::ignore)...);
 }
 
-template <typename Class, typename Type>
-struct DataMemberPtr {
-  using type = Type;
+template <typename C, typename T>
+struct DataMemberProperty {
+  using Class = C;
+  using Type = T;
 
-  constexpr const type& get(const Class& obj) const { return obj.*ptr_; }
+  constexpr const Type& get(const Class& obj) const { return obj.*ptr_; }
 
-  void set(Class* obj, type value) const { (*obj).*ptr_ = std::move(value); }
+  void set(Class* obj, Type value) const { (*obj).*ptr_ = std::move(value); }
 
   constexpr util::string_view name() const { return name_; }
 
@@ -77,22 +119,18 @@ struct DataMemberPtr {
   Type Class::*ptr_;
 };
 
+template <typename Class, typename Type>
+constexpr DataMemberProperty<Class, Type> DataMember(util::string_view name,
+                                                     Type Class::*ptr) {
+  return {name, ptr};
+}
+
 template <typename... Properties>
-struct PropertySet : std::tuple<Properties...> {
-  using std::tuple<Properties...>::tuple;
-
-  template <typename Added, size_t... I>
-  constexpr PropertySet<Properties..., Added> AddImpl(Added added,
-                                                      index_sequence<I...>) const {
-    return {std::get<I>(*this)..., added};
-  }
-
-  template <typename Class, typename Type, typename Added = DataMemberPtr<Class, Type>>
-  constexpr PropertySet<Properties..., Added> Add(util::string_view name,
-                                                  Type Class::*ptr) const {
-    return AddImpl(Added{name, ptr}, index_sequence_for<Properties...>{});
-  }
-};
+constexpr Tuple<Properties...> MakeProperties(Properties... props) {
+  static_assert(all_same<typename Properties::Class...>::value,
+                "All properties must be properties of the same class");
+  return MakeTuple(props...);
+}
 
 }  // namespace internal
 }  // namespace arrow
