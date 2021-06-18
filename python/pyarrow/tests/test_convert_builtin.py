@@ -2236,3 +2236,50 @@ def test_nested_auto_chunking(ty, char):
         'integer': 1,
         'string-like': char
     }
+
+
+@pytest.mark.slow
+@pytest.mark.large_memory
+def test_array_from_pylist_data_overflow():
+    # Regression test for ARROW-12983
+    # Data buffer overflow - should result in chunked array
+    items = [b'a' * 4096] * (2 ** 19)
+    arr = pa.array(items, type=pa.string())
+    assert isinstance(arr, pa.ChunkedArray)
+    assert len(arr) == 2**19
+    assert len(arr.chunks) > 1
+
+    mask = np.zeros(2**19, bool)
+    arr = pa.array(items, mask=mask, type=pa.string())
+    assert isinstance(arr, pa.ChunkedArray)
+    assert len(arr) == 2**19
+    assert len(arr.chunks) > 1
+
+    arr = pa.array(items, type=pa.binary())
+    assert isinstance(arr, pa.ChunkedArray)
+    assert len(arr) == 2**19
+    assert len(arr.chunks) > 1
+
+
+@pytest.mark.slow
+@pytest.mark.large_memory
+def test_array_from_pylist_offset_overflow():
+    # Regression test for ARROW-12983
+    # Offset buffer overflow - should result in chunked array
+    # Note this doesn't apply to primitive arrays
+    items = [b'a'] * (2 ** 31)
+    arr = pa.array(items, type=pa.string())
+    assert isinstance(arr, pa.ChunkedArray)
+    assert len(arr) == 2**31
+    assert len(arr.chunks) > 1
+
+    mask = np.zeros(2**31, bool)
+    arr = pa.array(items, mask=mask, type=pa.string())
+    assert isinstance(arr, pa.ChunkedArray)
+    assert len(arr) == 2**31
+    assert len(arr.chunks) > 1
+
+    arr = pa.array(items, type=pa.binary())
+    assert isinstance(arr, pa.ChunkedArray)
+    assert len(arr) == 2**31
+    assert len(arr.chunks) > 1
