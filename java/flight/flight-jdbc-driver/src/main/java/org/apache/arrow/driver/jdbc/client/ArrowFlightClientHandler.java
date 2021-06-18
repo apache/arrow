@@ -34,8 +34,6 @@ import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Optional;
 
@@ -45,8 +43,6 @@ import com.google.common.base.Optional;
  */
 public class ArrowFlightClientHandler implements FlightClientHandler {
 
-  private static final Logger LOGGER =
-    LoggerFactory.getLogger(ArrowFlightClientHandler.class);
   private final FlightClient client;
 
   @Nullable
@@ -135,14 +131,7 @@ public class ArrowFlightClientHandler implements FlightClientHandler {
       // Safer than client.close -> avoids NullPointerException
       AutoCloseables.close(client);
     } catch (final Exception e) {
-      /*
-       * FIXME Discuss: Should we really be doing this?
-       *
-       * The method signature suggests this SHOULD throw an Exception upon failure.
-       * Perhaps a better idea is to throw the aforementioned exception and, if
-       * necessary, handle it later; as opposed to "eating up" exceptions like this.
-       */
-      LOGGER.error(e.getMessage(), e);
+      throw new IOException("Failed to close client.", e);
     }
   }
 
