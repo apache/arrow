@@ -215,36 +215,24 @@ struct IfElseFunctor<Type, enable_if_number<Type>> {
   using Word = uint64_t;
   static constexpr int64_t word_len = sizeof(Word) * 8;
 
-  //  AAA
-  static Status Call(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
-                     const ArrayData& right, ArrayData* out) {
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
-                          ctx->Allocate(cond.length * sizeof(T)));
-    T* out_values = reinterpret_cast<T*>(out_buf->mutable_data());
-
-    // copy right data to out_buff
-    const T* right_data = right.GetValues<T>(1);
-    std::memcpy(out_values, right_data, right.length * sizeof(T));
-
-    const auto* cond_data = cond.buffers[1]->data();  // this is a BoolArray
-    BitmapWordReader<Word> cond_reader(cond_data, cond.offset, cond.length);
-
-    // selectively copy values from left data
-    const T* left_data = left.GetValues<T>(1);
+  template <typename HandleBulk, typename HandleEach>
+  static void RunIfElseLoop(const ArrayData& cond, HandleBulk handle_bulk,
+                            HandleEach handle_each) {
     int64_t data_offset = 0;
     int64_t bit_offset = cond.offset;
+    const auto* cond_data = cond.buffers[1]->data();  // this is a BoolArray
 
-    // todo this can be improved by intrinsics. ex: _mm*_mask_store_e* (vmovdqa*)
+    BitmapWordReader<Word> cond_reader(cond_data, cond.offset, cond.length);
+
     int64_t cnt = cond_reader.words();
     while (cnt--) {
       Word word = cond_reader.NextWord();
       if (word == UINT64_MAX) {
-        std::memcpy(out_values + data_offset, left_data + data_offset,
-                    word_len * sizeof(T));
+        handle_bulk(data_offset, word_len);
       } else if (word) {
         for (int64_t i = 0; i < word_len; ++i) {
           if (BitUtil::GetBit(cond_data, bit_offset + i)) {
-            out_values[data_offset + i] = left_data[data_offset + i];
+            handle_each(data_offset + i);
           }
         }
       }
@@ -257,17 +245,40 @@ struct IfElseFunctor<Type, enable_if_number<Type>> {
       int valid_bits;
       uint8_t byte = cond_reader.NextTrailingByte(valid_bits);
       if (byte == UINT8_MAX && valid_bits == 8) {
-        std::memcpy(out_values + data_offset, left_data + data_offset, 8 * sizeof(T));
+        handle_bulk(data_offset, 8);
       } else if (byte) {
         for (int i = 0; i < valid_bits; ++i) {
           if (BitUtil::GetBit(cond_data, bit_offset + i)) {
-            out_values[data_offset + i] = left_data[data_offset + i];
+            handle_each(data_offset + i);
           }
         }
       }
       data_offset += 8;
       bit_offset += 8;
     }
+  }
+
+  //  AAA
+  static Status Call(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
+                     const ArrayData& right, ArrayData* out) {
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> out_buf,
+                          ctx->Allocate(cond.length * sizeof(T)));
+    T* out_values = reinterpret_cast<T*>(out_buf->mutable_data());
+
+    // copy right data to out_buff
+    const T* right_data = right.GetValues<T>(1);
+    std::memcpy(out_values, right_data, right.length * sizeof(T));
+
+    // selectively copy values from left data
+    const T* left_data = left.GetValues<T>(1);
+
+    RunIfElseLoop(
+        cond,
+        [&](int64_t data_offset, int64_t num_elems) {
+          std::memcpy(out_values + data_offset, left_data + data_offset,
+                      num_elems * sizeof(T));
+        },
+        [&](int64_t data_offset) { out_values[data_offset] = left_data[data_offset]; });
 
     out->buffers[1] = std::move(out_buf);
     return Status::OK();
@@ -284,48 +295,16 @@ struct IfElseFunctor<Type, enable_if_number<Type>> {
     const T* right_data = right.GetValues<T>(1);
     std::memcpy(out_values, right_data, right.length * sizeof(T));
 
-    const auto* cond_data = cond.buffers[1]->data();  // this is a BoolArray
-    BitmapWordReader<Word> cond_reader(cond_data, cond.offset, cond.length);
-
     // selectively copy values from left data
     T left_data = internal::UnboxScalar<Type>::Unbox(left);
-    int64_t data_offset = 0;
-    int64_t bit_offset = cond.offset;
 
-    // todo this can be improved by intrinsics. ex: _mm*_mask_store_e* (vmovdqa*)
-    int64_t cnt = cond_reader.words();
-    while (cnt--) {
-      Word word = cond_reader.NextWord();
-      if (word == UINT64_MAX) {
-        std::fill(out_values + data_offset, out_values + data_offset + word_len,
-                  left_data);
-      } else if (word) {
-        for (int64_t i = 0; i < word_len; ++i) {
-          if (BitUtil::GetBit(cond_data, bit_offset + i)) {
-            out_values[data_offset + i] = left_data;
-          }
-        }
-      }
-      data_offset += word_len;
-      bit_offset += word_len;
-    }
-
-    cnt = cond_reader.trailing_bytes();
-    while (cnt--) {
-      int valid_bits;
-      uint8_t byte = cond_reader.NextTrailingByte(valid_bits);
-      if (byte == UINT8_MAX && valid_bits == 8) {
-        std::fill(out_values + data_offset, out_values + data_offset + 8, left_data);
-      } else if (byte) {
-        for (int i = 0; i < valid_bits; ++i) {
-          if (BitUtil::GetBit(cond_data, bit_offset + i)) {
-            out_values[data_offset + i] = left_data;
-          }
-        }
-      }
-      data_offset += 8;
-      bit_offset += 8;
-    }
+    RunIfElseLoop(
+        cond,
+        [&](int64_t data_offset, int64_t num_elems) {
+          std::fill(out_values + data_offset, out_values + data_offset + num_elems,
+                    left_data);
+        },
+        [&](int64_t data_offset) { out_values[data_offset] = left_data; });
 
     out->buffers[1] = std::move(out_buf);
     return Status::OK();
@@ -401,48 +380,15 @@ struct IfElseFunctor<Type, enable_if_number<Type>> {
     T right_data = internal::UnboxScalar<Type>::Unbox(right);
     std::fill(out_values, out_values + cond.length, right_data);
 
-    const auto* cond_data = cond.buffers[1]->data();  // this is a BoolArray
-    BitmapWordReader<Word> cond_reader(cond_data, cond.offset, cond.length);
-
     // selectively copy values from left data
     T left_data = internal::UnboxScalar<Type>::Unbox(left);
-    int64_t data_offset = 0;
-    int64_t bit_offset = cond.offset;
-
-    // todo this can be improved by intrinsics. ex: _mm*_mask_store_e* (vmovdqa*)
-    int64_t cnt = cond_reader.words();
-    while (cnt--) {
-      Word word = cond_reader.NextWord();
-      if (word == UINT64_MAX) {  // all from left
-        std::fill(out_values + data_offset, out_values + data_offset + word_len,
-                  left_data);
-      } else if (word) {  // selectively copy from left
-        for (int64_t i = 0; i < word_len; ++i) {
-          if (BitUtil::GetBit(cond_data, bit_offset + i)) {
-            out_values[data_offset + i] = left_data;
-          }
-        }
-      }
-      data_offset += word_len;
-      bit_offset += word_len;
-    }
-
-    cnt = cond_reader.trailing_bytes();
-    while (cnt--) {
-      int valid_bits;
-      uint8_t byte = cond_reader.NextTrailingByte(valid_bits);
-      if (byte == UINT8_MAX && valid_bits == 8) {
-        std::fill(out_values + data_offset, out_values + data_offset + 8, left_data);
-      } else if (byte) {
-        for (int i = 0; i < valid_bits; ++i) {
-          if (BitUtil::GetBit(cond_data, bit_offset + i)) {
-            out_values[data_offset + i] = left_data;
-          }
-        }
-      }
-      data_offset += 8;
-      bit_offset += 8;
-    }
+    RunIfElseLoop(
+        cond,
+        [&](int64_t data_offset, int64_t num_elems) {
+          std::fill(out_values + data_offset, out_values + data_offset + num_elems,
+                    left_data);
+        },
+        [&](int64_t data_offset) { out_values[data_offset] = left_data; });
 
     out->buffers[1] = std::move(out_buf);
     return Status::OK();
