@@ -3587,10 +3587,14 @@ void AddBinaryJoin(FunctionRegistry* registry) {
         "binary_join_element_wise", Arity::VarArgs(/*min_args=*/1),
         &binary_join_element_wise_doc, &kDefaultJoinOptions);
     for (const auto& ty : BaseBinaryTypes()) {
-      DCHECK_OK(
-          func->AddKernel({InputType(ty)}, ty,
+      ScalarKernel kernel{KernelSignature::Make({InputType(ty)}, ty, /*is_varargs=*/true),
                           GenerateTypeAgnosticVarBinaryBase<BinaryJoinElementWise>(ty),
-                          BinaryJoinElementWiseState::Init));
+                          BinaryJoinElementWiseState::Init};
+      // This is redundant but expression simplification uses this to potentially replace
+      // calls with null
+      kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+      kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+      DCHECK_OK(func->AddKernel(std::move(kernel)));
     }
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }

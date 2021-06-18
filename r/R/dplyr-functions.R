@@ -242,11 +242,6 @@ arrow_string_join_function <- function(null_handling, null_replacement = NULL) {
           length(arg) == 1,
           msg = "Literal vectors of length != 1 not supported in string concatenation"
         )
-        # handle scalar literal NA consistent with the binary_join_element_wise
-        # kernel's handling of nulls in the data
-        if (null_handling == NullHandlingBehavior$REPLACE && is.na(arg)) {
-          arg <- null_replacement
-        }
         Expression$scalar(as.character(arg))
       } else {
         nse_funcs$as.character(arg)
