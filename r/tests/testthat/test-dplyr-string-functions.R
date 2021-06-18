@@ -30,7 +30,7 @@ test_that("paste, paste0, and str_c", {
     z = c(1.1, 2.2, NA)
   )
 
-  # non-ASCII characters
+  # no NAs in data
   expect_dplyr_equal(
     input %>%
       transmute(paste(v, w)) %>%
@@ -39,13 +39,25 @@ test_that("paste, paste0, and str_c", {
   )
   expect_dplyr_equal(
     input %>%
-      transmute(paste(v, w, sep = "፨")) %>%
+      transmute(paste(v, w, sep = "-")) %>%
       collect(),
     df
   )
   expect_dplyr_equal(
     input %>%
-      transmute(str_c(v, w, sep = "〷")) %>%
+      transmute(paste0(v, w)) %>%
+      collect(),
+    df
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(str_c(v, w)) %>%
+      collect(),
+    df
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(str_c(v, w, sep = "+")) %>%
       collect(),
     df
   )
