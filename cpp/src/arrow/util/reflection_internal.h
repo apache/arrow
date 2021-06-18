@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include <array>
 #include <string>
+#include <tuple>
 #include <utility>
 
 #include "arrow/util/string_view.h"
@@ -50,9 +50,6 @@ static_assert(std::is_base_of<index_sequence<>, make_index_sequence<0>>::value, 
 static_assert(std::is_base_of<index_sequence<0, 1, 2>, make_index_sequence<3>>::value,
               "");
 
-template <size_t I>
-using index_constant = std::integral_constant<size_t, I>;
-
 template <typename...>
 struct all_same : std::true_type {};
 
@@ -65,61 +62,14 @@ struct all_same<Same, Same, Rest...> : all_same<Same, Rest...> {};
 template <typename One, typename Other, typename... Rest>
 struct all_same<One, Other, Rest...> : std::false_type {};
 
-template <size_t I, typename T>
-struct TupleMember {
-  friend constexpr const T& GetTupleMember(const TupleMember& member, index_constant<I>) {
-    return member.value_;
-  }
-
-  T value_;
-};
-
-template <typename...>
-struct TupleImpl;
-
-template <>
-struct TupleImpl<> {};
-
-template <size_t I0, size_t... I, typename T0, typename... T>
-struct TupleImpl<TupleMember<I0, T0>, TupleMember<I, T>...>
-    : TupleMember<I0, T0>, TupleImpl<TupleMember<I, T>...> {
-  constexpr explicit TupleImpl(T0 value0, T... values)
-      : TupleMember<I0, T0>{value0}, TupleImpl<TupleMember<I, T>...>{values...} {}
-};
-
-template <size_t... I, typename... T>
-TupleImpl<TupleMember<I, T>...> TupleImplForImpl(index_sequence<I...>, T... values);
-
-template <typename... T>
-using TupleImplFor =
-    decltype(TupleImplForImpl(index_sequence_for<T...>(), std::declval<T>()...));
-
-template <typename... T>
-struct Tuple : TupleImplFor<T...> {
-  using TupleImplFor<T...>::TupleImplFor;
-
-  constexpr static size_t size() { return sizeof...(T); }
-};
-
-template <typename... T>
-constexpr Tuple<T...> MakeTuple(T... values) {
-  return Tuple<T...>(values...);
-}
-
-constexpr auto tup = MakeTuple(1, "h", 3);
-static_assert(GetTupleMember(tup, index_constant<0>()) == 1, "");
-static_assert(GetTupleMember(tup, index_constant<1>())[0] == 'h', "");
-static_assert(GetTupleMember(tup, index_constant<2>()) == 3, "");
-
 template <size_t... I, typename... T, typename Fn>
-void ForEachTupleMemberImpl(const Tuple<T...>& tup, Fn&& fn, index_sequence<I...>) {
-  (void)MakeTuple((fn(GetTupleMember(tup, index_constant<I>()), index_constant<I>()),
-                   std::ignore)...);
+void ForEachTupleMemberImpl(const std::tuple<T...>& tup, Fn&& fn, index_sequence<I...>) {
+  (void)std::make_tuple((fn(std::get<I>(tup), I), std::ignore)...);
 }
 
 template <typename... T, typename Fn>
-void ForEachTupleMember(const Tuple<T...>& tup, Fn&& fn) {
-  return ForEachTupleMemberImpl(tup, fn, index_sequence_for<T...>());
+void ForEachTupleMember(const std::tuple<T...>& tup, Fn&& fn) {
+  ForEachTupleMemberImpl(tup, fn, index_sequence_for<T...>());
 }
 
 template <typename C, typename T>
@@ -144,10 +94,23 @@ constexpr DataMemberProperty<Class, Type> DataMember(util::string_view name,
 }
 
 template <typename... Properties>
-constexpr Tuple<Properties...> MakeProperties(Properties... props) {
+struct PropertyTuple {
+  template <typename Fn>
+  void ForEach(Fn&& fn) const {
+    ForEachTupleMember(props_, fn);
+  }
+
   static_assert(all_same<typename Properties::Class...>::value,
                 "All properties must be properties of the same class");
-  return MakeTuple(props...);
+
+  size_t size() const { return sizeof...(Properties); }
+
+  std::tuple<Properties...> props_;
+};
+
+template <typename... Properties>
+PropertyTuple<Properties...> MakeProperties(Properties... props) {
+  return {std::make_tuple(props...)};
 }
 
 }  // namespace internal

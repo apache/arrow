@@ -31,7 +31,7 @@ struct EqualsImpl {
   template <typename Properties>
   EqualsImpl(const Class& l, const Class& r, const Properties& props)
       : left_(l), right_(r) {
-    ForEachTupleMember(props, *this);
+    props.ForEach(*this);
   }
 
   template <typename Property>
@@ -50,7 +50,7 @@ struct ToStringImpl {
   template <typename Properties>
   ToStringImpl(util::string_view class_name, const Class& obj, const Properties& props)
       : class_name_(class_name), obj_(obj), members_(props.size()) {
-    ForEachTupleMember(props, *this);
+    props.ForEach(*this);
   }
 
   template <typename Property>
@@ -76,7 +76,7 @@ struct FromStringImpl {
   FromStringImpl(util::string_view class_name, util::string_view repr,
                  const Properties& props) {
     Init(class_name, repr, props.size());
-    ForEachTupleMember(props, *this);
+    props.ForEach(*this);
   }
 
   void Fail() { obj_ = util::nullopt; }
@@ -130,7 +130,7 @@ struct Person {
 // NB: no references to Person::age or Person::name after this
 // NB: ordering of properties follows this enum, regardless of
 //     order of declaration in `struct Person`
-constexpr auto kPersonProperties =
+static auto kPersonProperties =
     MakeProperties(DataMember("age", &Person::age), DataMember("name", &Person::name));
 
 // use generic facilities to define equality, serialization and deserialization
