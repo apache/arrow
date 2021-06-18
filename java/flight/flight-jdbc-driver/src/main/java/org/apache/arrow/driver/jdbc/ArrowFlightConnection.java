@@ -215,15 +215,13 @@ public class ArrowFlightConnection extends AvaticaConnection {
 
     try {
       super.close();
-    } catch(Exception e) {
+    } catch (Exception e) {
       throw new SQLException(e);
     }
 
     exceptionDeque
             .forEach(exception -> LOGGER.error(
                     exception.getMessage(), exception));
-
-    super.close();
   }
 
 }
