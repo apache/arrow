@@ -48,8 +48,8 @@ struct EqualsImpl {
 template <typename Class>
 struct ToStringImpl {
   template <typename Properties>
-  ToStringImpl(const Class& obj, const Properties& props)
-      : obj_(obj), members_(props.size()) {
+  ToStringImpl(util::string_view class_name, const Class& obj, const Properties& props)
+      : class_name_(class_name), obj_(obj), members_(props.size()) {
     ForEachTupleMember(props, *this);
   }
 
@@ -60,8 +60,11 @@ struct ToStringImpl {
     members_[i] = ss.str();
   }
 
-  std::string Finish() { return "{" + JoinStrings(members_, ",") + "}"; }
+  std::string Finish() {
+    return class_name_.to_string() + "{" + JoinStrings(members_, ",") + "}";
+  }
 
+  util::string_view class_name_;
   const Class& obj_;
   std::vector<std::string> members_;
 };
@@ -110,7 +113,7 @@ struct FromStringImpl {
     } catch (...) {
       return Fail();
     }
-    prop.set(&*obj_, value);
+    prop.set(&*obj_, std::move(value));
   }
 
   util::optional<Class> obj_ = Class{};
@@ -125,6 +128,8 @@ struct Person {
 
 // enumeration of properties:
 // NB: no references to Person::age or Person::name after this
+// NB: ordering of properties follows this enum, regardless of
+//     order of declaration in `struct Person`
 constexpr auto kPersonProperties =
     MakeProperties(DataMember("age", &Person::age), DataMember("name", &Person::name));
 
@@ -136,7 +141,7 @@ bool operator==(const Person& l, const Person& r) {
 bool operator!=(const Person& l, const Person& r) { return !(l == r); }
 
 std::string ToString(const Person& obj) {
-  return "Person" + ToStringImpl<Person>{obj, kPersonProperties}.Finish();
+  return ToStringImpl<Person>{"Person", obj, kPersonProperties}.Finish();
 }
 
 void PrintTo(const Person& obj, std::ostream* os) { *os << ToString(obj); }
@@ -184,6 +189,8 @@ TEST(Reflection, FromStringToDataMembers) {
   EXPECT_EQ(PersonFromString("Person{age:nineteen,name:Genos}"), util::nullopt);
   EXPECT_EQ(PersonFromString("Person{age:19 ,name:Genos}"), util::nullopt);
   EXPECT_EQ(PersonFromString("Person{age:19,moniker:Genos}"), util::nullopt);
+
+  EXPECT_EQ(PersonFromString("Person{age: 19, name: Genos}"), util::nullopt);
 }
 
 }  // namespace internal
