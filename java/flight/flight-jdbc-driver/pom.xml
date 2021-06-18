@@ -103,6 +103,12 @@
             <artifactId>slf4j-api</artifactId>
             <scope>runtime</scope>
         </dependency>
+
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-api</artifactId>
+            <version>1.30.2</version>
+        </dependency>
     </dependencies>
 
     <build>

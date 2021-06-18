@@ -17,20 +17,25 @@
 
 package org.apache.arrow.driver.jdbc.test;
 
-import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.*;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.URISyntaxException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Properties;
 
+import org.apache.arrow.driver.jdbc.ArrowFlightConnection;
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver;
 import org.apache.arrow.driver.jdbc.client.ArrowFlightClientHandler;
 import org.apache.arrow.driver.jdbc.test.utils.FlightTestUtils;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightProducer;
 import org.apache.arrow.flight.FlightServer;
+import org.apache.arrow.flight.HeaderCallOption;
 import org.apache.arrow.flight.auth2.BasicCallHeaderAuthenticator;
 import org.apache.arrow.flight.auth2.CallHeaderAuthenticator;
 import org.apache.arrow.flight.auth2.GeneratedBearerTokenAuthenticator;
@@ -43,6 +48,8 @@ import org.junit.Before;
 import org.junit.Test;
 
 import com.google.common.base.Strings;
+
+import io.grpc.Metadata;
 
 /**
  * Tests for {@link Connection}.
@@ -179,7 +186,7 @@ public class ConnectionTest {
    * @throws SQLException
    *           on error.
    */
-  @Test(expected = IndexOutOfBoundsException.class)
+  @Test(expected = IllegalArgumentException.class)
   public void testUnencryptedConnectionProvidingInvalidPort()
       throws Exception {
     final Properties properties = new Properties();
@@ -191,6 +198,61 @@ public class ConnectionTest {
     try (Connection connection = DriverManager
         .getConnection(invalidUrl, properties)) {
       Assert.fail();
+    }
+  }
+
+  @Test(expected = SQLException.class)
+  public void testReloadClientShouldThrowException()
+      throws Exception {
+    try (Connection connection = DriverManager.getConnection(serverUrl, new Properties())) {
+      Method loadClient = ((ArrowFlightConnection) connection)
+          .getClass().getDeclaredMethod("loadClient");
+      loadClient.setAccessible(true);
+      try {
+        loadClient.invoke(connection);
+      } catch (InvocationTargetException e) {
+        Throwable throwable = e.getCause();
+        if (throwable instanceof SQLException) {
+          throw (SQLException) throwable;
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testGetHeadersShouldReturnPropertiesAsHeaders()
+      throws Exception {
+
+    Properties properties = new Properties();
+    properties.put("TEST", "PROPERTY");
+    properties.put("ONCE", "MORE");
+    properties.put("SHOULD", "SAVE");
+
+    try (Connection connection = DriverManager.getConnection(serverUrl, properties)) {
+      Method getHeaders = ((ArrowFlightConnection) connection)
+          .getClass().getDeclaredMethod("getHeaders");
+      getHeaders.setAccessible(true);
+
+      HeaderCallOption headers =
+          (HeaderCallOption) getHeaders.invoke(connection);
+
+      Field propertiesMetadata =
+          headers.getClass().getDeclaredField("propertiesMetadata");
+      propertiesMetadata.setAccessible(true);
+      Metadata metadata = (Metadata) propertiesMetadata.get(headers);
+
+      assertEquals(
+          metadata.get(Metadata.Key.of("TEST", Metadata.ASCII_STRING_MARSHALLER)),
+          "PROPERTY"
+      );
+      assertEquals(
+          metadata.get(Metadata.Key.of("ONCE", Metadata.ASCII_STRING_MARSHALLER)),
+          "MORE"
+      );
+      assertEquals(
+          metadata.get(Metadata.Key.of("SHOULD", Metadata.ASCII_STRING_MARSHALLER)),
+          "SAVE"
+      );
     }
   }
 
