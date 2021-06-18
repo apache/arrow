@@ -36,6 +36,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  PYARROW_TEST_SLOW: ON
+  PYARROW_TEST_LARGE_MEMORY: ON
   DOCKER_VOLUME_PREFIX: ".docker/"
   ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
   ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
