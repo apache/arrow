@@ -32,7 +32,7 @@ namespace Apache.Arrow
 
             if (data.Dictionary == null)
             {
-                throw new ArgumentException($"{nameof(data.Dictionary)} must be not null");
+                throw new ArgumentException($"{nameof(data.Dictionary)} must not be null");
             }
 
             var dicType = (DictionaryType)data.DataType;
