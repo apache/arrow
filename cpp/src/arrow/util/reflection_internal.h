@@ -83,8 +83,6 @@ struct TupleImpl<> {};
 template <size_t I0, size_t... I, typename T0, typename... T>
 struct TupleImpl<TupleMember<I0, T0>, TupleMember<I, T>...>
     : TupleMember<I0, T0>, TupleImpl<TupleMember<I, T>...> {
-  constexpr static size_t size() { return sizeof...(T); }
-
   constexpr explicit TupleImpl(T0 value0, T... values)
       : TupleMember<I0, T0>{value0}, TupleImpl<TupleMember<I, T>...>{values...} {}
 };
@@ -99,6 +97,8 @@ using TupleImplFor =
 template <typename... T>
 struct Tuple : TupleImplFor<T...> {
   using TupleImplFor<T...>::TupleImplFor;
+
+  constexpr static size_t size() { return sizeof...(T); }
 };
 
 template <typename... T>
