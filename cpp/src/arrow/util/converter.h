@@ -71,7 +71,7 @@ class Converter {
 
   bool may_overflow() const { return may_overflow_; }
 
-  virtual bool rewind_on_capacity_error() const { return false; }
+  bool rewind_on_error() const { return rewind_on_error_; }
 
   virtual Status Reserve(int64_t additional_capacity) {
     return builder_->Reserve(additional_capacity);
@@ -99,6 +99,7 @@ class Converter {
   std::shared_ptr<ArrayBuilder> builder_;
   OptionsType options_;
   bool may_overflow_ = false;
+  bool rewind_on_error_ = false;
 };
 
 template <typename ArrowType, typename BaseConverter>
@@ -137,7 +138,8 @@ class ListConverter : public BaseConverter {
         std::make_shared<BuilderType>(pool, value_converter_->builder(), this->type_);
     list_builder_ = checked_cast<BuilderType*>(this->builder_.get());
     // Narrow list types may overflow
-    this->may_overflow_ = sizeof(typename ArrowType::offset_type) < sizeof(int64_t);
+    this->may_overflow_ = this->rewind_on_error_ =
+        sizeof(typename ArrowType::offset_type) < sizeof(int64_t);
     return Status::OK();
   }
 
@@ -170,6 +172,7 @@ class StructConverter : public BaseConverter {
                             (MakeConverter<BaseConverter, ConverterTrait>(
                                 field->type(), this->options_, pool)));
       this->may_overflow_ |= child_converter->may_overflow();
+      this->rewind_on_error_ = this->may_overflow_;
       child_builders.push_back(child_converter->builder());
       children_.push_back(std::move(child_converter));
     }
@@ -320,7 +323,7 @@ class Chunker {
           // Builder length == 0 means the individual element is too large to append.
           // In this case, no need to try again.
           return status;
-        } else if (converter_->rewind_on_capacity_error()) {
+        } else if (converter_->rewind_on_error()) {
           length_ -= 1;
           offset -= 1;
         }
@@ -348,7 +351,7 @@ class Chunker {
           // Builder length == 0 means the individual element is too large to append.
           // In this case, no need to try again.
           return status;
-        } else if (converter_->rewind_on_capacity_error()) {
+        } else if (converter_->rewind_on_error()) {
           length_ -= 1;
           offset -= 1;
         }

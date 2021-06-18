@@ -633,8 +633,6 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
     return ValidateBuilder(this->list_type_);
   }
 
-  bool rewind_on_capacity_error() const override { return true; }
-
  protected:
   Status ValidateBuilder(const MapType*) {
     if (this->list_builder_->key_builder()->null_count() > 0) {
