@@ -3590,8 +3590,6 @@ void AddBinaryJoin(FunctionRegistry* registry) {
       ScalarKernel kernel{KernelSignature::Make({InputType(ty)}, ty, /*is_varargs=*/true),
                           GenerateTypeAgnosticVarBinaryBase<BinaryJoinElementWise>(ty),
                           BinaryJoinElementWiseState::Init};
-      // This is redundant but expression simplification uses this to potentially replace
-      // calls with null
       kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
       kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
       DCHECK_OK(func->AddKernel(std::move(kernel)));
