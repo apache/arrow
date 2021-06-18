@@ -212,7 +212,7 @@ struct IfElseFunctor<Type, enable_if_number<Type>> {
   using T = typename TypeTraits<Type>::CType;
   // A - Array
   // S - Scalar
-  using Word = uint64_t ;
+  using Word = uint64_t;
   static constexpr int64_t word_len = sizeof(Word) * 8;
 
   //  AAA
@@ -413,7 +413,7 @@ struct IfElseFunctor<Type, enable_if_number<Type>> {
     int64_t cnt = cond_reader.words();
     while (cnt--) {
       Word word = cond_reader.NextWord();
-      if (word == UINT64_MAX) { // all from left
+      if (word == UINT64_MAX) {  // all from left
         std::fill(out_values + data_offset, out_values + data_offset + word_len,
                   left_data);
       } else if (word) {  // selectively copy from left

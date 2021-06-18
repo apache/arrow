@@ -1986,7 +1986,7 @@ void CheckSplice(int n, Word low, Word high) {
 
   Word res = BitUtil::SpliceWord<Word>(n, low, high);
   Word exp = static_cast<Word>(ret.to_ulong());
-  assert(res == exp);
+  ASSERT_EQ(exp, res) << "exp: " << exp << " got: " << res << std::endl;
 }
 
 TEST(SpliceWord, SpliceWord) {

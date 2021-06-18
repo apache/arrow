@@ -82,7 +82,7 @@ void SetBitmapImpl(uint8_t* data, int64_t offset, int64_t length) {
 
   constexpr uint8_t set_byte = value ? UINT8_MAX : 0;
 
-  auto prologue = BitUtil::RoundUp(offset, 8) - offset;
+  auto prologue = static_cast<int32_t>(BitUtil::RoundUp(offset, 8) - offset);
   DCHECK_LT(prologue, 8);
 
   if (length < prologue) {  // special case where a mask is required
@@ -111,7 +111,8 @@ void SetBitmapImpl(uint8_t* data, int64_t offset, int64_t length) {
 
   // clean up
   DCHECK_LT(length, 8);
-  data[offset / 8] = BitUtil::SpliceWord(length, set_byte, data[offset / 8]);
+  data[offset / 8] =
+      BitUtil::SpliceWord(static_cast<int32_t>(length), set_byte, data[offset / 8]);
 }
 
 void SetBitmap(uint8_t* data, int64_t offset, int64_t length) {
