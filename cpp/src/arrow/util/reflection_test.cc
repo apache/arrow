@@ -32,75 +32,88 @@ struct Person {
 };
 
 // enumeration of properties:
-template <>
-struct ReflectionTraits<Person> {
-  using Properties = std::tuple<DataMember<Person, int, &Person::age>,
-                                DataMember<Person, std::string, &Person::name>>;
-};
+constexpr auto kPersonProperties =
+    PropertySet<>().Add("age", &Person::age).Add("name", &Person::name);
 
 // generic property-based equality comparison
 template <typename Class>
 struct EqualsImpl {
-  template <typename Property>
-  void operator()(const Property& prop, size_t i) const {
-    *out &= prop.get(l) == prop.get(r);
+  template <typename... Properties>
+  EqualsImpl(const Class& l, const Class& r, const std::tuple<Properties...>& props)
+      : left_(l), right_(r) {
+    ForEachProperty(props, *this);
   }
-  const Class& l;
-  const Class& r;
-  bool* out;
+
+  template <typename Property>
+  void operator()(const Property& prop, size_t i) {
+    equal_ &= prop.get(left_) == prop.get(right_);
+  }
+
+  const Class& left_;
+  const Class& right_;
+  bool equal_ = true;
 };
 
-template <typename Class,
-          typename Properties = typename ReflectionTraits<Class>::Properties>
-bool operator==(const Class& l, const Class& r) {
-  bool out = true;
-  ForEachProperty<Properties>(EqualsImpl<Person>{l, r, &out});
-  return out;
+bool operator==(const Person& l, const Person& r) {
+  return EqualsImpl<Person>{l, r, kPersonProperties}.equal_;
 }
 
-template <typename Class,
-          typename Properties = typename ReflectionTraits<Class>::Properties>
-bool operator!=(const Class& l, const Class& r) {
-  return !(l == r);
-}
+bool operator!=(const Person& l, const Person& r) { return !(l == r); }
 
-template <typename Class,
-          typename Properties = typename ReflectionTraits<Class>::Properties>
+template <typename Class>
 struct ToStringImpl {
-  explicit ToStringImpl(const Class& obj)
-      : obj_(obj), members_(std::tuple_size<Properties>::value) {}
+  template <typename... Properties>
+  ToStringImpl(const Class& obj, const std::tuple<Properties...>& props) : obj_(obj) {
+    ForEachProperty(props, *this);
+  }
 
   template <typename Property>
   void operator()(const Property& prop, size_t i) {
     std::stringstream ss;
     ss << prop.name() << ":" << prop.get(obj_);
+    members_.resize(std::max(members_.size(), i + 1));
     members_[i] = ss.str();
   }
 
-  std::string Finish() {
-    auto members = JoinStrings(members_, ",");
-    return nameof<Class>(/*strip_namespace=*/true) + "{" + members + "}";
-  }
+  std::string Finish() { return "{" + JoinStrings(members_, ",") + "}"; }
 
   const Class& obj_;
   std::vector<std::string> members_;
 };
 
-template <typename Class,
-          typename Properties = typename ReflectionTraits<Class>::Properties>
-std::string ToString(const Class& obj) {
-  ToStringImpl<Class> impl{obj};
-  ForEachProperty<Properties>(impl);
-  return impl.Finish();
+std::string ToString(const Person& obj) {
+  return "Person" + ToStringImpl<Person>{obj, kPersonProperties}.Finish();
 }
-template <typename Class,
-          typename Properties = typename ReflectionTraits<Class>::Properties>
+
+void PrintTo(const Person& obj, std::ostream* os) { *os << ToString(obj); }
+
+template <typename Class>
 struct FromStringImpl {
-  void Fail() { *obj_ = util::nullopt; }
+  template <typename... Properties>
+  FromStringImpl(util::string_view class_name, util::string_view repr,
+                 const std::tuple<Properties...>& props) {
+    Init(class_name, repr, sizeof...(Properties));
+    ForEachProperty(props, *this);
+  }
+
+  void Fail() { obj_ = util::nullopt; }
+
+  void Init(util::string_view class_name, util::string_view repr, size_t num_properties) {
+    if (!repr.starts_with(class_name)) return Fail();
+
+    repr = repr.substr(class_name.size());
+    if (repr.empty()) return Fail();
+    if (repr.front() != '{') return Fail();
+    if (repr.back() != '}') return Fail();
+
+    repr = repr.substr(1, repr.size() - 2);
+    members_ = SplitString(repr, ',');
+    if (members_.size() != num_properties) return Fail();
+  }
 
   template <typename Property>
   void operator()(const Property& prop, size_t i) {
-    if (!obj_->has_value()) return;
+    if (!obj_) return;
 
     auto first_colon = members_[i].find_first_of(':');
     if (first_colon == util::string_view::npos) return Fail();
@@ -117,39 +130,15 @@ struct FromStringImpl {
     } catch (...) {
       return Fail();
     }
-    prop.set(&obj_->value(), value);
+    prop.set(&*obj_, value);
   }
 
-  util::optional<Class>* obj_;
+  util::optional<Class> obj_ = Class{};
   std::vector<util::string_view> members_;
 };
 
-template <typename Class,
-          typename Properties = typename ReflectionTraits<Class>::Properties>
-util::optional<Class> FromString(util::string_view repr) {
-  auto first_brace = repr.find_first_of('{');
-  if (first_brace == util::string_view::npos) return util::nullopt;
-
-  auto name = repr.substr(0, first_brace);
-  if (name != nameof<Class>(/*strip_namespace=*/true)) return util::nullopt;
-
-  repr = repr.substr(first_brace + 1);
-  if (repr.empty()) return util::nullopt;
-  if (repr.back() != '}') return util::nullopt;
-  repr = repr.substr(0, repr.size() - 1);
-
-  auto members = SplitString(repr, ',');
-  if (members.size() != std::tuple_size<Properties>::value) return util::nullopt;
-
-  util::optional<Class> obj = Class{};
-  FromStringImpl<Class> impl{&obj, members};
-  ForEachProperty<Properties>(impl);
-  return obj;
-}
-
-TEST(Reflection, Nameof) {
-  EXPECT_EQ(nameof<Person>(), "arrow::internal::Person");
-  EXPECT_EQ(nameof<Person>(/*strip_namespace=*/true), "Person");
+util::optional<Person> PersonFromString(util::string_view repr) {
+  return FromStringImpl<Person>("Person", repr, kPersonProperties).obj_;
 }
 
 TEST(Reflection, EqualityWithDataMembers) {
@@ -174,23 +163,23 @@ TEST(Reflection, ToStringFromDataMembers) {
 TEST(Reflection, FromStringToDataMembers) {
   Person genos{19, "Genos"};
 
-  EXPECT_EQ(FromString<Person>(ToString(genos)), genos);
+  EXPECT_EQ(PersonFromString(ToString(genos)), genos);
 
-  EXPECT_EQ(FromString<Person>(""), util::nullopt);
-  EXPECT_EQ(FromString<Person>("Per"), util::nullopt);
-  EXPECT_EQ(FromString<Person>("Person{"), util::nullopt);
-  EXPECT_EQ(FromString<Person>("Person{age:19,name:Genos"), util::nullopt);
+  EXPECT_EQ(PersonFromString(""), util::nullopt);
+  EXPECT_EQ(PersonFromString("Per"), util::nullopt);
+  EXPECT_EQ(PersonFromString("Person{"), util::nullopt);
+  EXPECT_EQ(PersonFromString("Person{age:19,name:Genos"), util::nullopt);
 
-  EXPECT_EQ(FromString<Person>("Person{name:Genos"), util::nullopt);
-  EXPECT_EQ(FromString<Person>("Person{age:19,name:Genos,extra:Cyborg}"), util::nullopt);
-  EXPECT_EQ(FromString<Person>("Person{name:Genos,age:19"), util::nullopt);
+  EXPECT_EQ(PersonFromString("Person{name:Genos"), util::nullopt);
+  EXPECT_EQ(PersonFromString("Person{age:19,name:Genos,extra:Cyborg}"), util::nullopt);
+  EXPECT_EQ(PersonFromString("Person{name:Genos,age:19"), util::nullopt);
 
-  EXPECT_EQ(FromString<Person>("Fake{age:19,name:Genos}"), util::nullopt);
+  EXPECT_EQ(PersonFromString("Fake{age:19,name:Genos}"), util::nullopt);
 
-  EXPECT_EQ(FromString<Person>("Person{age,name:Genos}"), util::nullopt);
-  EXPECT_EQ(FromString<Person>("Person{age:nineteen,name:Genos}"), util::nullopt);
-  EXPECT_EQ(FromString<Person>("Person{age:19 ,name:Genos}"), util::nullopt);
-  EXPECT_EQ(FromString<Person>("Person{age:19,moniker:Genos}"), util::nullopt);
+  EXPECT_EQ(PersonFromString("Person{age,name:Genos}"), util::nullopt);
+  EXPECT_EQ(PersonFromString("Person{age:nineteen,name:Genos}"), util::nullopt);
+  EXPECT_EQ(PersonFromString("Person{age:19 ,name:Genos}"), util::nullopt);
+  EXPECT_EQ(PersonFromString("Person{age:19,moniker:Genos}"), util::nullopt);
 }
 
 }  // namespace internal

@@ -22,115 +22,10 @@
 #include <tuple>
 #include <utility>
 
+#include "arrow/util/string_view.h"
+
 namespace arrow {
 namespace internal {
-
-namespace detail {
-
-#ifdef _MSC_VER
-#define ARROW_PRETTY_FUNCTION __FUNCSIG__
-#else
-#define ARROW_PRETTY_FUNCTION __PRETTY_FUNCTION__
-#endif
-
-template <typename T>
-const char* raw() {
-  return ARROW_PRETTY_FUNCTION;
-}
-
-template <typename T>
-size_t raw_sizeof() {
-  return sizeof(ARROW_PRETTY_FUNCTION);
-}
-
-#undef ARROW_PRETTY_FUNCTION
-
-constexpr bool starts_with(char const* haystack, char const* needle) {
-  return needle[0] == '\0' ||
-         (haystack[0] == needle[0] && starts_with(haystack + 1, needle + 1));
-}
-
-constexpr size_t search(char const* haystack, char const* needle) {
-  return haystack[0] == '\0' || starts_with(haystack, needle)
-             ? 0
-             : search(haystack + 1, needle) + 1;
-}
-
-const size_t typename_prefix = search(raw<double>(), "double");
-
-template <typename T>
-size_t struct_class_prefix() {
-#ifdef _MSC_VER
-  return starts_with(raw<T>() + typename_prefix, "struct ")
-             ? 7
-             : starts_with(raw<T>() + typename_prefix, "class ") ? 6 : 0;
-#else
-  return 0;
-#endif
-}
-
-template <typename T>
-size_t typename_length() {
-  // raw_sizeof<T>() - raw_sizeof<double>() ==
-  //     (length of T's name) - strlen("double")
-  // (length of T's name) ==
-  //     raw_sizeof<T>() - raw_sizeof<double>() + strlen("double")
-  return raw_sizeof<T>() - struct_class_prefix<T>() - raw_sizeof<double>() + 6;
-}
-
-template <typename T>
-const char* typename_begin() {
-  return raw<T>() + struct_class_prefix<T>() + typename_prefix;
-}
-
-template <class Class, typename Type, Type Class::*Ptr>
-struct member_pointer_constant {
-  static constexpr auto value = Ptr;
-};
-
-struct HasCrib {
-  double crib;
-  using crib_constant = member_pointer_constant<HasCrib, double, &HasCrib::crib>;
-};
-
-const size_t membername_boilerplate = search(raw<HasCrib::crib_constant>(), "crib") -
-                                      typename_length<HasCrib>() * 2 -
-                                      typename_length<double>();
-
-template <class Class, typename Type, Type Class::*Ptr>
-size_t membername_prefix() {
-  return membername_boilerplate + typename_length<Class>() * 2 + typename_length<Type>();
-}
-
-const size_t membername_suffix = raw_sizeof<HasCrib::crib_constant>() -
-                                 membername_prefix<HasCrib, double, &HasCrib::crib>() -
-                                 4;  //  == strlen("crib")
-
-template <class Class, typename Type, Type Class::*Ptr>
-const char* membername_begin() {
-  return raw<member_pointer_constant<Class, Type, Ptr>>() +
-         membername_prefix<Class, Type, Ptr>();
-}
-
-template <class Class, typename Type, Type Class::*Ptr>
-size_t membername_length() {
-  return raw_sizeof<member_pointer_constant<Class, Type, Ptr>>() -
-         membername_prefix<Class, Type, Ptr>() - membername_suffix;
-}
-
-}  // namespace detail
-
-template <typename T>
-std::string nameof(bool strip_namespace = false) {
-  std::string name{detail::typename_begin<T>(), detail::typename_length<T>()};
-  if (strip_namespace) {
-    auto i = name.find_last_of("::");
-    if (i != std::string::npos) {
-      name = name.substr(i + 1);
-    }
-  }
-  return name;
-}
 
 template <size_t...>
 struct index_sequence {};
@@ -157,36 +52,47 @@ static_assert(std::is_base_of<index_sequence<0, 1, 2>, make_index_sequence<3>>::
               "");
 
 template <typename Props, typename Fn, size_t... I>
-void ForEachPropertyImpl(Fn&& fn, const index_sequence<I...>&) {
+void ForEachPropertyImpl(const Props& props, Fn&& fn, const index_sequence<I...>&) {
   struct {
   } dummy;
-  std::make_tuple((std::forward<Fn>(fn)(std::get<I>(Props{}), I), dummy)...);
+  std::make_tuple((std::forward<Fn>(fn)(std::get<I>(props), I), dummy)...);
 }
 
-template <typename Props, typename Fn>
-void ForEachProperty(Fn&& fn) {
-  ForEachPropertyImpl<Props>(std::forward<Fn>(fn),
-                             make_index_sequence<std::tuple_size<Props>::value>{});
+template <typename... Properties, typename Fn>
+void ForEachProperty(const std::tuple<Properties...>& props, Fn&& fn) {
+  ForEachPropertyImpl(props, std::forward<Fn>(fn), index_sequence_for<Properties...>{});
 }
 
-template <typename Class, typename Type, Type Class::*Ptr>
-struct DataMember {
+template <typename Class, typename Type>
+struct DataMemberPtr {
   using type = Type;
 
-  static constexpr auto ptr = Ptr;
+  constexpr const type& get(const Class& obj) const { return obj.*ptr_; }
 
-  static constexpr const type& get(const Class& obj) { return obj.*ptr; }
+  void set(Class* obj, type value) const { (*obj).*ptr_ = std::move(value); }
 
-  static void set(Class* obj, type value) { (*obj).*ptr = std::move(value); }
+  constexpr util::string_view name() const { return name_; }
 
-  static std::string name() {
-    return std::string(detail::membername_begin<Class, Type, Ptr>(),
-                       detail::membername_length<Class, Type, Ptr>());
-  }
+  util::string_view name_;
+  Type Class::*ptr_;
 };
 
-template <typename Class>
-struct ReflectionTraits {};
+template <typename... Properties>
+struct PropertySet : std::tuple<Properties...> {
+  using std::tuple<Properties...>::tuple;
+
+  template <typename Added, size_t... I>
+  constexpr PropertySet<Properties..., Added> AddImpl(Added added,
+                                                      index_sequence<I...>) const {
+    return {std::get<I>(*this)..., added};
+  }
+
+  template <typename Class, typename Type, typename Added = DataMemberPtr<Class, Type>>
+  constexpr PropertySet<Properties..., Added> Add(util::string_view name,
+                                                  Type Class::*ptr) const {
+    return AddImpl(Added{name, ptr}, index_sequence_for<Properties...>{});
+  }
+};
 
 }  // namespace internal
 }  // namespace arrow
