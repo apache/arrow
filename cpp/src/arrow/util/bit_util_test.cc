@@ -1975,23 +1975,7 @@ TEST(BitUtil, BitsetStack) {
   ASSERT_EQ(stack.TopSize(), 0);
 }
 
-template <typename Word>
-void CheckSplice(int n, Word low, Word high) {
-  std::bitset<sizeof(Word) * 8> ret;
-  for (size_t i = 0; i < ret.size(); i++) {
-    ret[i] = i < static_cast<size_t>(n)
-                 ? BitUtil::GetBit(reinterpret_cast<uint8_t*>(&low), i)
-                 : BitUtil::GetBit(reinterpret_cast<uint8_t*>(&high), i);
-  }
-
-  Word res = BitUtil::SpliceWord<Word>(n, low, high);
-  Word exp = static_cast<Word>(ret.to_ulong());
-  ASSERT_EQ(exp, res) << "exp: " << exp << " got: " << res << std::endl;
-}
-
 TEST(SpliceWord, SpliceWord) {
-  uint64_t low = 123456789, high = 987654321;
-
   static_assert(
       BitUtil::PrecedingWordBitmask<uint8_t>(0) == BitUtil::kPrecedingBitmask[0], "");
   static_assert(
@@ -2003,17 +1987,20 @@ TEST(SpliceWord, SpliceWord) {
   static_assert(BitUtil::PrecedingWordBitmask<uint64_t>(64) == UINT64_MAX, "");
   static_assert(BitUtil::PrecedingWordBitmask<uint64_t>(65) == UINT64_MAX, "");
 
-  CheckSplice<uint8_t>(0, static_cast<uint8_t>(low), static_cast<uint8_t>(high));
-  CheckSplice<uint8_t>(8, static_cast<uint8_t>(low), static_cast<uint8_t>(high));
-  CheckSplice<uint8_t>(8 / 3, static_cast<uint8_t>(low), static_cast<uint8_t>(high));
+  ASSERT_EQ(BitUtil::SpliceWord<uint8_t>(0, 0x12, 0xef), 0xef);
+  ASSERT_EQ(BitUtil::SpliceWord<uint8_t>(8, 0x12, 0xef), 0x12);
+  ASSERT_EQ(BitUtil::SpliceWord<uint8_t>(3, 0x12, 0xef), 0xea);
 
-  CheckSplice<uint32_t>(0, static_cast<uint32_t>(low), static_cast<uint32_t>(high));
-  CheckSplice<uint32_t>(32, static_cast<uint32_t>(low), static_cast<uint32_t>(high));
-  CheckSplice<uint32_t>(32 / 3, static_cast<uint32_t>(low), static_cast<uint32_t>(high));
+  ASSERT_EQ(BitUtil::SpliceWord<uint32_t>(0, 0x12345678, 0xfedcba98), 0xfedcba98);
+  ASSERT_EQ(BitUtil::SpliceWord<uint32_t>(32, 0x12345678, 0xfedcba98), 0x12345678);
+  ASSERT_EQ(BitUtil::SpliceWord<uint32_t>(24, 0x12345678, 0xfedcba98), 0xfe345678);
 
-  CheckSplice(0, low, high);
-  CheckSplice(64, low, high);
-  CheckSplice(64 / 3, low, high);
+  ASSERT_EQ(BitUtil::SpliceWord<uint64_t>(0, 0x0123456789abcdef, 0xfedcba9876543210),
+            0xfedcba9876543210);
+  ASSERT_EQ(BitUtil::SpliceWord<uint64_t>(64, 0x0123456789abcdef, 0xfedcba9876543210),
+            0x0123456789abcdef);
+  ASSERT_EQ(BitUtil::SpliceWord<uint64_t>(48, 0x0123456789abcdef, 0xfedcba9876543210),
+            0xfedc456789abcdef);
 }
 
 // test the basic assumption of word level Bitmap::Visit

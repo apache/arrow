@@ -340,7 +340,7 @@ constexpr Word PrecedingWordBitmask(unsigned int const i) {
 /// \brief Create a word with low `n` bits from `low` and high `sizeof(Word)-n` bits
 /// from `high`.
 /// Word ret
-/// for (i = 0; i < sizeof(Word); i++){
+/// for (i = 0; i < sizeof(Word)*8; i++){
 ///     ret[i]= i < n ? low[i]: high[i];
 /// }
 template <typename Word>
