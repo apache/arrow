@@ -104,7 +104,6 @@ test_that("DataType roundtrip", {
 })
 
 test_that("Field roundtrip", {
-  skip("TODO in pyarrow: 'pyarrow.lib.Field' has no attribute '_import_from_c'")
   r <- field("x", time32("s"))
   py <- reticulate::r_to_py(r)
   expect_s3_class(py, "pyarrow.lib.Field")
