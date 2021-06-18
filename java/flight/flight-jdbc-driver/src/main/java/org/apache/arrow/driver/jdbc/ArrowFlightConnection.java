@@ -31,17 +31,12 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.sql.SQLException;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 import org.apache.arrow.driver.jdbc.client.ArrowFlightClientHandler;
-import org.apache.arrow.driver.jdbc.utils.BaseProperty;
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.FlightCallHeaders;
 import org.apache.arrow.flight.HeaderCallOption;
@@ -51,6 +46,8 @@ import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
 import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.AvaticaFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Strings;
 
@@ -59,6 +56,8 @@ import com.google.common.base.Strings;
  */
 public class ArrowFlightConnection extends AvaticaConnection {
 
+  private static final Logger LOGGER =
+          LoggerFactory.getLogger(ArrowFlightConnection.class);
   private final BufferAllocator allocator;
 
   // TODO Use this later to run queries.
@@ -169,24 +168,12 @@ public class ArrowFlightConnection extends AvaticaConnection {
     final CallHeaders headers = new FlightCallHeaders();
     final Iterator<Map.Entry<Object, Object>> properties = info.entrySet()
         .iterator();
-    final Set<Object> connectionProperties =
-        new HashSet<Object>(Arrays.stream(BaseProperty.values())
-            .map(baseProperty -> baseProperty.getEntry().getKey())
-            .collect(Collectors.toUnmodifiableList()));
 
     while (properties.hasNext()) {
       final Map.Entry<Object, Object> entry = properties.next();
-      final Object key = entry.getKey();
 
-      /*
-       * If the current property if not a BaseProperty, it must be a
-       * custom parameter that can be passed to the client as a header
-       * for subsequent calls.
-       */
-      if (!connectionProperties.contains(key)) {
-        headers.insert(Objects.toString(entry.getKey()),
-            Objects.toString(entry.getValue()));
-      }
+      headers.insert(Objects.toString(entry.getKey()),
+          Objects.toString(entry.getValue()));
     }
 
     return new HeaderCallOption(headers);
@@ -198,7 +185,7 @@ public class ArrowFlightConnection extends AvaticaConnection {
     try {
       AutoCloseables.close(client, allocator);
     } catch (final Exception e) {
-      throw new SQLException("Failed to close resources.", e);
+      LOGGER.error("Failed to close resources.", e);
     }
 
     super.close();
