@@ -422,22 +422,22 @@ test_that("record_batch() scalar recycling with vectors", {
 })
 
 test_that("record_batch() scalar recycling with Scalars, Arrays, and ChunkedArrays", {
-  
+
   expect_data_frame(
     record_batch(a = Array$create(1:10), b = Scalar$create(5)),
     tibble::tibble(a = 1:10, b = 5)
   )
-  
+
   expect_data_frame(
     record_batch(a = Array$create(1:10), b = Array$create(5)),
     tibble::tibble(a = 1:10, b = 5)
   )
-  
+
   expect_data_frame(
     record_batch(a = Array$create(1:10), b = ChunkedArray$create(5)),
     tibble::tibble(a = 1:10, b = 5)
   )
-  
+
 })
 
 test_that("record_batch() no recycling with tibbles", {
@@ -448,7 +448,7 @@ test_that("record_batch() no recycling with tibbles", {
     ),
     regexp = "All input tibbles or data.frames must have the same number of rows"
   )
-  
+
   expect_error(
     record_batch(
       tibble::tibble(a = 1:10),
@@ -571,7 +571,7 @@ test_that("RecordBatchReader to C-interface", {
 
   # export the RecordBatchReader via the C-interface
   stream_ptr <- allocate_arrow_array_stream()
-  on.exit(delete_arrow_array_stream(stream_ptr))
+  on.exit(delete_arrow_array_stream(stream_ptr), add = TRUE)
   scan <- Scanner$create(tab)
   reader <- scan$ToRecordBatchReader()
   reader$export_to_c(stream_ptr)
@@ -583,7 +583,7 @@ test_that("RecordBatchReader to C-interface", {
 
   # export the RecordBatchStreamReader via the C-interface
   stream_ptr_new <- allocate_arrow_array_stream()
-  on.exit(delete_arrow_array_stream(stream_ptr_new))
+  on.exit(delete_arrow_array_stream(stream_ptr_new), add = TRUE)
   bytes <- write_to_raw(example_data)
   expect_type(bytes, "raw")
   reader_new <- RecordBatchStreamReader$create(bytes)
