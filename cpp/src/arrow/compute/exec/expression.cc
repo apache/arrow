@@ -716,17 +716,16 @@ Status ExtractKnownFieldValuesImpl(
 
 }  // namespace
 
-Result<std::unordered_map<FieldRef, Datum, FieldRef::Hash>> ExtractKnownFieldValues(
+Result<KnownFieldValues> ExtractKnownFieldValues(
     const Expression& guaranteed_true_predicate) {
   auto conjunction_members = GuaranteeConjunctionMembers(guaranteed_true_predicate);
-  std::unordered_map<FieldRef, Datum, FieldRef::Hash> known_values;
-  RETURN_NOT_OK(ExtractKnownFieldValuesImpl(&conjunction_members, &known_values));
+  KnownFieldValues known_values;
+  RETURN_NOT_OK(ExtractKnownFieldValuesImpl(&conjunction_members, &known_values.map));
   return known_values;
 }
 
-Result<Expression> ReplaceFieldsWithKnownValues(
-    const std::unordered_map<FieldRef, Datum, FieldRef::Hash>& known_values,
-    Expression expr) {
+Result<Expression> ReplaceFieldsWithKnownValues(const KnownFieldValues& known_values,
+                                                Expression expr) {
   if (!expr.IsBound()) {
     return Status::Invalid(
         "ReplaceFieldsWithKnownValues called on an unbound Expression");
@@ -736,8 +735,8 @@ Result<Expression> ReplaceFieldsWithKnownValues(
       std::move(expr),
       [&known_values](Expression expr) -> Result<Expression> {
         if (auto ref = expr.field_ref()) {
-          auto it = known_values.find(*ref);
-          if (it != known_values.end()) {
+          auto it = known_values.map.find(*ref);
+          if (it != known_values.map.end()) {
             Datum lit = it->second;
             if (lit.descr() == expr.descr()) return literal(std::move(lit));
             // type mismatch, try casting the known value to the correct type
@@ -939,8 +938,8 @@ Result<Expression> SimplifyWithGuarantee(Expression expr,
                                          const Expression& guaranteed_true_predicate) {
   auto conjunction_members = GuaranteeConjunctionMembers(guaranteed_true_predicate);
 
-  std::unordered_map<FieldRef, Datum, FieldRef::Hash> known_values;
-  RETURN_NOT_OK(ExtractKnownFieldValuesImpl(&conjunction_members, &known_values));
+  KnownFieldValues known_values;
+  RETURN_NOT_OK(ExtractKnownFieldValuesImpl(&conjunction_members, &known_values.map));
 
   ARROW_ASSIGN_OR_RAISE(expr,
                         ReplaceFieldsWithKnownValues(known_values, std::move(expr)));

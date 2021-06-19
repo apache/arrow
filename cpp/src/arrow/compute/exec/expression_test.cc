@@ -830,7 +830,7 @@ TEST(Expression, ExtractKnownFieldValues) {
     void operator()(Expression guarantee,
                     std::unordered_map<FieldRef, Datum, FieldRef::Hash> expected) {
       ASSERT_OK_AND_ASSIGN(auto actual, ExtractKnownFieldValues(guarantee));
-      EXPECT_THAT(actual, UnorderedElementsAreArray(expected))
+      EXPECT_THAT(actual.map, UnorderedElementsAreArray(expected))
           << "  guarantee: " << guarantee.ToString();
     }
   } ExpectKnown;
@@ -882,8 +882,8 @@ TEST(Expression, ReplaceFieldsWithKnownValues) {
          Expression unbound_expected) {
         ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*kBoringSchema));
         ASSERT_OK_AND_ASSIGN(auto expected, unbound_expected.Bind(*kBoringSchema));
-        ASSERT_OK_AND_ASSIGN(auto replaced,
-                             ReplaceFieldsWithKnownValues(known_values, expr));
+        ASSERT_OK_AND_ASSIGN(auto replaced, ReplaceFieldsWithKnownValues(
+                                                KnownFieldValues{known_values}, expr));
 
         EXPECT_EQ(replaced, expected);
         ExpectIdenticalIfUnchanged(replaced, expr);
@@ -943,13 +943,13 @@ TEST(Expression, ReplaceFieldsWithKnownValues) {
   Datum dict_i32{
       DictionaryScalar::Make(MakeScalar<int32_t>(0), ArrayFromJSON(int32(), R"([3])"))};
   // Unsupported cast dictionary(int32(), int32()) -> dictionary(int32(), utf8())
-  ASSERT_RAISES(NotImplemented,
-                ReplaceFieldsWithKnownValues({{"dict_str", dict_i32}}, expr));
+  ASSERT_RAISES(NotImplemented, ReplaceFieldsWithKnownValues(
+                                    KnownFieldValues{{{"dict_str", dict_i32}}}, expr));
   // Unsupported cast dictionary(int8(), utf8()) -> dictionary(int32(), utf8())
   dict_str = Datum{
       DictionaryScalar::Make(MakeScalar<int8_t>(0), ArrayFromJSON(utf8(), R"(["a"])"))};
-  ASSERT_RAISES(NotImplemented,
-                ReplaceFieldsWithKnownValues({{"dict_str", dict_str}}, expr));
+  ASSERT_RAISES(NotImplemented, ReplaceFieldsWithKnownValues(
+                                    KnownFieldValues{{{"dict_str", dict_str}}}, expr));
 }
 
 struct {

@@ -19,10 +19,8 @@
 
 #pragma once
 
-#include <atomic>
 #include <memory>
 #include <string>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -166,8 +164,9 @@ ARROW_EXPORT
 bool ExpressionHasFieldRefs(const Expression&);
 
 /// Assemble a mapping from field references to known values.
+struct ARROW_EXPORT KnownFieldValues;
 ARROW_EXPORT
-Result<std::unordered_map<FieldRef, Datum, FieldRef::Hash>> ExtractKnownFieldValues(
+Result<KnownFieldValues> ExtractKnownFieldValues(
     const Expression& guaranteed_true_predicate);
 
 /// \defgroup expression-passes Functions for modification of Expressions
@@ -196,8 +195,8 @@ Result<Expression> FoldConstants(Expression);
 
 /// Simplify Expressions by replacing with known values of the fields which it references.
 ARROW_EXPORT
-Result<Expression> ReplaceFieldsWithKnownValues(
-    const std::unordered_map<FieldRef, Datum, FieldRef::Hash>& known_values, Expression);
+Result<Expression> ReplaceFieldsWithKnownValues(const KnownFieldValues& known_values,
+                                                Expression);
 
 /// Simplify an expression by replacing subexpressions based on a guarantee:
 /// a boolean expression which is guaranteed to evaluate to `true`. For example, this is
