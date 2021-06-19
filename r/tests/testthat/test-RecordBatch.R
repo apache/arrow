@@ -604,7 +604,7 @@ test_that("RecordBatch to C-interface", {
   on.exit({
     delete_arrow_schema(schema_ptr)
     delete_arrow_array(array_ptr)
-  })
+  }, add = TRUE)
   batch$export_to_c(array_ptr, schema_ptr)
 
   # then import it and check that the roundtripped value is the same
