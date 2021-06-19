@@ -153,7 +153,7 @@ static arrow::Status ScanParquetObject(cls_method_context_t hctx,
                                        arrow::compute::Expression partition_expression,
                                        std::shared_ptr<arrow::Schema> projection_schema,
                                        std::shared_ptr<arrow::Schema> dataset_schema,
-                                       std::shared_ptr<arrow::Table>& table,
+                                       std::shared_ptr<arrow::Table>& result_table,
                                        int64_t object_size) {
   auto file = std::make_shared<RandomAccessObject>(hctx, object_size);
 
@@ -178,7 +178,7 @@ static arrow::Status ScanParquetObject(cls_method_context_t hctx,
   ARROW_ASSIGN_OR_RAISE(auto scanner, builder->Finish());
   ARROW_ASSIGN_OR_RAISE(auto table, scanner->ToTable());
 
-  table = table;
+  result_table = table;
 
   ARROW_RETURN_NOT_OK(file->Close());
   return arrow::Status::OK();
