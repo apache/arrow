@@ -223,7 +223,7 @@ struct IfElseFunctor<Type, enable_if_number<Type>> {
   /// copying data from the right to output, we can copy left data to the output and
   /// invert the cond data to fill right values. Filling out with a scalar is presumed to
   /// be more efficient than filling with an array
-  template <typename HandleBulk, typename HandleEach, Word invert_mask = Word(0)>
+  template <typename HandleBulk, typename HandleEach, bool invert = false>
   static void RunIfElseLoop(const ArrayData& cond, HandleBulk handle_bulk,
                             HandleEach handle_each) {
     int64_t data_offset = 0;
@@ -235,13 +235,24 @@ struct IfElseFunctor<Type, enable_if_number<Type>> {
     int64_t cnt = cond_reader.words();
     while (cnt--) {
       Word word = cond_reader.NextWord();
-      if ((word ^ invert_mask) == UINT64_MAX) {
-        handle_bulk(data_offset, word_len);
-      } else if (word ^ invert_mask) {
-        for (int64_t i = 0; i < word_len; ++i) {
-          if (BitUtil::GetBit(cond_data, bit_offset + i) !=
-              static_cast<bool>(invert_mask)) {
-            handle_each(data_offset + i);
+      if (invert) {
+        if (word == 0) {
+          handle_bulk(data_offset, word_len);
+        } else if (word != UINT64_MAX) {
+          for (int64_t i = 0; i < word_len; ++i) {
+            if (!BitUtil::GetBit(cond_data, bit_offset + i)) {
+              handle_each(data_offset + i);
+            }
+          }
+        }
+      } else {
+        if (word == UINT64_MAX) {
+          handle_bulk(data_offset, word_len);
+        } else if (word) {
+          for (int64_t i = 0; i < word_len; ++i) {
+            if (BitUtil::GetBit(cond_data, bit_offset + i)) {
+              handle_each(data_offset + i);
+            }
           }
         }
       }
@@ -253,13 +264,24 @@ struct IfElseFunctor<Type, enable_if_number<Type>> {
     while (cnt--) {
       int valid_bits;
       uint8_t byte = cond_reader.NextTrailingByte(valid_bits);
-      if (((byte ^ static_cast<uint8_t>(invert_mask)) == UINT8_MAX) && valid_bits == 8) {
-        handle_bulk(data_offset, 8);
-      } else if (byte ^ static_cast<uint8_t>(invert_mask)) {
-        for (int i = 0; i < valid_bits; ++i) {
-          if (BitUtil::GetBit(cond_data, bit_offset + i) !=
-              static_cast<bool>(invert_mask)) {
-            handle_each(data_offset + i);
+      if (invert) {
+        if (byte == 0 && valid_bits == 8) {
+          handle_bulk(data_offset, 8);
+        } else if (byte != UINT8_MAX) {
+          for (int i = 0; i < valid_bits; ++i) {
+            if (!BitUtil::GetBit(cond_data, bit_offset + i)) {
+              handle_each(data_offset + i);
+            }
+          }
+        }
+      } else {
+        if (byte == UINT8_MAX && valid_bits == 8) {
+          handle_bulk(data_offset, 8);
+        } else if (byte) {
+          for (int i = 0; i < valid_bits; ++i) {
+            if (BitUtil::GetBit(cond_data, bit_offset + i)) {
+              handle_each(data_offset + i);
+            }
           }
         }
       }
@@ -271,8 +293,7 @@ struct IfElseFunctor<Type, enable_if_number<Type>> {
   template <typename HandleBulk, typename HandleEach>
   static void RunIfElseLoopInverted(const ArrayData& cond, HandleBulk handle_bulk,
                                     HandleEach handle_each) {
-    return RunIfElseLoop<HandleBulk, HandleEach, ~Word(0)>(cond, handle_bulk,
-                                                           handle_each);
+    return RunIfElseLoop<HandleBulk, HandleEach, true>(cond, handle_bulk, handle_each);
   }
 
   //  AAA
