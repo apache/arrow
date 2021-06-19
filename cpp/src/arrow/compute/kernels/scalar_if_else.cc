@@ -217,7 +217,7 @@ struct IfElseFunctor<Type, enable_if_number<Type>> {
 
   /// Runs the main if_else loop. Here, it is expected that the right data has already
   /// been copied to the output.
-  /// If invert_mask is meant to invert the cond.data. If is set to ~Word(0), then the
+  /// If `invert` is meant to invert the cond.data. If is set to `true`, then the
   /// buffer will be inverted before calling the handle_bulk or handle_each functions.
   /// This is useful, when left is an array and right is scalar. Then rather than
   /// copying data from the right to output, we can copy left data to the output and
