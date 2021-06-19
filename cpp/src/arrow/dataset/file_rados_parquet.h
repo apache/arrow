@@ -140,7 +140,7 @@ class ARROW_DS_EXPORT DirectObjectAccess {
   /// \param[in] inode inode of the file.
   /// \param[in] fn The function to be executed by the librados::exec call.
   /// \param[in] in The input bufferlist.
-  /// \param[out] in The output bufferlist.
+  /// \param[out] out The output bufferlist.
   /// \return Status.
   Status Exec(uint64_t inode, const std::string& fn, ceph::bufferlist& in,
               ceph::bufferlist& out) {
