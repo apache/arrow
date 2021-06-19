@@ -28,19 +28,9 @@ namespace Apache.Arrow
         public T Instance { 
             get {
                 lock (this) { 
-                    if(IsCreated)
-                    {
-                        return _instance;
-                    }
-
-                    if(_instanceCreator != null)
-                    {
-                        _instance = _instanceCreator();
-                    }
-                    else
-                    {
-                        _instance = new T();
-                    }
+                    _instance ??= _instanceCreator != null ?
+                        _instanceCreator():
+                        new T();
 
                     return _instance;
                 }
