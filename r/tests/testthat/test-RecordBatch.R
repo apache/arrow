@@ -567,6 +567,8 @@ test_that("ARROW-12729 - length returns number of columns in RecordBatch", {
 })
 
 test_that("RecordBatchReader to C-interface", {
+  skip_if_not_available("dataset")
+  
   tab <- Table$create(example_data)
 
   # export the RecordBatchReader via the C-interface
