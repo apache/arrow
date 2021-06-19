@@ -239,7 +239,7 @@ struct IfElseFunctor<Type, enable_if_number<Type>> {
         handle_bulk(data_offset, word_len);
       } else if (word ^ invert_mask) {
         for (int64_t i = 0; i < word_len; ++i) {
-          if (BitUtil::GetBit(cond_data, bit_offset + i) ^
+          if (BitUtil::GetBit(cond_data, bit_offset + i) !=
               static_cast<bool>(invert_mask)) {
             handle_each(data_offset + i);
           }
@@ -257,7 +257,7 @@ struct IfElseFunctor<Type, enable_if_number<Type>> {
         handle_bulk(data_offset, 8);
       } else if (byte ^ static_cast<uint8_t>(invert_mask)) {
         for (int i = 0; i < valid_bits; ++i) {
-          if (BitUtil::GetBit(cond_data, bit_offset + i) ^
+          if (BitUtil::GetBit(cond_data, bit_offset + i) !=
               static_cast<bool>(invert_mask)) {
             handle_each(data_offset + i);
           }
