@@ -45,7 +45,7 @@ namespace Apache.Arrow
         }
 
         public DictionaryArray(DictionaryType dataType, IArrowArray indicesArray, IArrowArray dictionary) :
-            base(new ArrayData(dataType, dictionary.Data, indicesArray.Length, indicesArray.Data.NullCount, indicesArray.Data.Offset, indicesArray.Data.Buffers, indicesArray.Data.Children))
+            base(new ArrayData(dataType, indicesArray.Length, indicesArray.Data.NullCount, indicesArray.Data.Offset, indicesArray.Data.Buffers, indicesArray.Data.Children, dictionary.Data))
         {
             Data.EnsureBufferCount(2);
 

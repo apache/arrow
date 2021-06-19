@@ -32,24 +32,28 @@ namespace Apache.Arrow
         public readonly ArrayData[] Children;
         public readonly ArrayData Dictionary; //Only used for dictionary type
 
+        //This is left for compatibility with lower version binaries
+        //before the dictionary type was supported.
         public ArrayData(
             IArrowType dataType,
-            int length, int nullCount = 0, int offset = 0,
-            IEnumerable<ArrowBuffer> buffers = null, IEnumerable<ArrayData> children = null) :
-            this(dataType, null, length, nullCount, offset, buffers, children)
+            int length, int nullCount, int offset,
+            IEnumerable<ArrowBuffer> buffers, IEnumerable<ArrayData> children) :
+            this(dataType, length, nullCount, offset, buffers, children, null)
+        { }
+
+        //This is left for compatibility with lower version binaries
+        //before the dictionary type was supported.
+        public ArrayData(
+            IArrowType dataType,
+            int length, int nullCount, int offset,
+            ArrowBuffer[] buffers, ArrayData[] children) :
+            this(dataType, length, nullCount, offset, buffers, children, null)
         { }
 
         public ArrayData(
             IArrowType dataType,
             int length, int nullCount = 0, int offset = 0,
-            ArrowBuffer[] buffers = null, ArrayData[] children = null) :
-            this(dataType, null, length, nullCount, offset, buffers, children)
-        { }
-
-        public ArrayData(
-            IArrowType dataType, ArrayData dictionary,
-            int length, int nullCount = 0, int offset = 0,
-            IEnumerable<ArrowBuffer> buffers = null, IEnumerable<ArrayData> children = null)
+            IEnumerable<ArrowBuffer> buffers = null, IEnumerable<ArrayData> children = null, ArrayData dictionary = null)
         {
             DataType = dataType ?? NullType.Default;
             Length = length;
@@ -61,9 +65,9 @@ namespace Apache.Arrow
         }
 
         public ArrayData(
-            IArrowType dataType, ArrayData dictionary,
+            IArrowType dataType,
             int length, int nullCount = 0, int offset = 0,
-            ArrowBuffer[] buffers = null, ArrayData[] children = null)
+            ArrowBuffer[] buffers = null, ArrayData[] children = null, ArrayData dictionary = null)
         {
             DataType = dataType ?? NullType.Default;
             Length = length;
@@ -105,7 +109,7 @@ namespace Apache.Arrow
             length = Math.Min(Length - offset, length);
             offset += Offset;
 
-            return new ArrayData(DataType, Dictionary, length, RecalculateNullCount, offset, Buffers, Children);
+            return new ArrayData(DataType, length, RecalculateNullCount, offset, Buffers, Children, Dictionary);
         }
     }
 }

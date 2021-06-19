@@ -223,7 +223,7 @@ namespace Apache.Arrow.Ipc
                 dictionary = _lazyDictionaryMemo.Instance.GetDictionary(id);
             }
 
-            return new ArrayData(field.DataType, dictionary?.Data, fieldLength, fieldNullCount, 0, arrowBuff, children);
+            return new ArrayData(field.DataType, fieldLength, fieldNullCount, 0, arrowBuff, children, dictionary?.Data);
         }
 
         private ArrayData LoadVariableField(
@@ -269,7 +269,7 @@ namespace Apache.Arrow.Ipc
                 dictionary = _lazyDictionaryMemo.Instance.GetDictionary(id);
             }
 
-            return new ArrayData(field.DataType, dictionary?.Data, fieldLength, fieldNullCount, 0, arrowBuff, children);
+            return new ArrayData(field.DataType, fieldLength, fieldNullCount, 0, arrowBuff, children, dictionary?.Data);
         }
 
         private ArrayData[] GetChildren(
