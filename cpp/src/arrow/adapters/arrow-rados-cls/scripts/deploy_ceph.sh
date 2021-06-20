@@ -75,7 +75,7 @@ osd class load list = *
 osd op threads = 16
 EOF
 
-ceph-deploy --overwrite-conf config push $OSD_LIST
+ceph-deploy --overwrite-conf config push $MON_LIST $OSD_LIST $MDS_LIST $MGR_LIST
 
 cp ceph.conf /etc/ceph/ceph.conf
 cp ceph.client.admin.keyring  /etc/ceph/ceph.client.admin.keyring

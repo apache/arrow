@@ -168,13 +168,21 @@ Status DeserializeScanRequest(compute::Expression* filter, compute::Expression* 
   return Status::OK();
 }
 
-Status SerializeTable(std::shared_ptr<Table>& table, ceph::bufferlist& bl) {
+Status SerializeTable(std::shared_ptr<Table>& table, ceph::bufferlist& bl,
+                      bool aggressive) {
   ARROW_ASSIGN_OR_RAISE(auto buffer_output_stream, io::BufferOutputStream::Create());
 
   ipc::IpcWriteOptions options = ipc::IpcWriteOptions::Defaults();
-  ARROW_ASSIGN_OR_RAISE(
-      options.codec,
-      util::Codec::Create(Compression::LZ4_FRAME, std::numeric_limits<int>::min()));
+
+  Compression::type codec;
+  if (aggressive) {
+    codec = Compression::ZSTD;
+  } else {
+    codec = Compression::LZ4_FRAME;
+  }
+
+  ARROW_ASSIGN_OR_RAISE(options.codec,
+                        util::Codec::Create(codec, std::numeric_limits<int>::min()));
   ARROW_ASSIGN_OR_RAISE(
       auto writer, ipc::MakeStreamWriter(buffer_output_stream, table->schema(), options));
 

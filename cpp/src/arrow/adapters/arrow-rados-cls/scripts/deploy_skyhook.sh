@@ -38,15 +38,14 @@ fi
 
 cd /tmp/arrow
 git checkout $BRANCH
-mkdir -p cpp/debug
-cd cpp/debug
+mkdir -p cpp/release
+cd cpp/release
 
-cmake -DCMAKE_BUILD_TYPE=Debug -DARROW_CLS=ON -DARROW_PARQUET=ON -DARROW_WITH_SNAPPY=ON -DARROW_WITH_ZLIB=ON -DARROW_BUILD_EXAMPLES=ON -DPARQUET_BUILD_EXAMPLES=ON -DARROW_PYTHON=ON -DARROW_DATASET=ON -DARROW_CSV=ON -DARROW_WITH_LZ4=ON -DARROW_WITH_ZSTD=ON ..
+cmake -DARROW_CLS=ON -DARROW_PARQUET=ON -DARROW_WITH_SNAPPY=ON -DARROW_WITH_ZLIB=ON -DARROW_BUILD_EXAMPLES=ON -DPARQUET_BUILD_EXAMPLES=ON -DARROW_PYTHON=ON -DARROW_DATASET=ON -DARROW_CSV=ON -DARROW_WITH_LZ4=ON -DARROW_WITH_ZSTD=ON ..
 make -j4 install
 
 export WORKDIR=${WORKDIR:-$HOME}
 export ARROW_HOME=$WORKDIR/dist
-export PYARROW_BUILD_TYPE=Debug
 export PYARROW_WITH_DATASET=1
 export PYARROW_WITH_PARQUET=1
 export PYARROW_WITH_RADOS=1
@@ -64,7 +63,7 @@ rm -rf dist/*
 python3 setup.py build_ext --inplace --bundle-arrow-cpp bdist_wheel
 pip3 install --upgrade dist/*.whl
 
-cd /tmp/arrow/cpp/debug/debug
+cd /tmp/arrow/cpp/release/release
 for node in ${NODE_LIST[@]}; do
   scp libcls* $node:/usr/lib/rados-classes/
   scp libarrow* $node:/usr/lib/
