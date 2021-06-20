@@ -112,7 +112,9 @@ Expression$field_ref <- function(name) {
   compute___expr__field_ref(name)
 }
 Expression$scalar <- function(x) {
-  compute___expr__scalar(Scalar$create(x))
+  expr <- compute___expr__scalar(Scalar$create(x))
+  expr$schema <- schema()
+  expr
 }
 
 # Wrapper around Expression$create that:
