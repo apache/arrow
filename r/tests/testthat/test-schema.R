@@ -173,6 +173,19 @@ test_that("unify_schemas", {
     unify_schemas(a, z),
     schema(b = double(), c = bool(), k = utf8())
   )
+  # returns NULL when any arg is NULL
+  expect_null(
+    unify_schemas(a, NULL, z)
+  )
+  # returns NULL when all args are NULL
+  expect_null(
+    unify_schemas(NULL, NULL)
+  )
+  # errors when no args
+  expect_error(
+    unify_schemas(),
+    "Must provide at least one schema to unify"
+  )
 })
 
 test_that("Schema to C-interface", {
