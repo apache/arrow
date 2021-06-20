@@ -103,7 +103,9 @@ Expression$create <- function(function_name,
                               args = list(...),
                               options = empty_named_list()) {
   assert_that(is.string(function_name))
-  compute___expr__call(function_name, args, options)
+  expr <- compute___expr__call(function_name, args, options)
+  expr$schema <- unify_schemas(schemas = lapply(args, function(x) x$schema))
+  expr
 }
 Expression$field_ref <- function(name) {
   assert_that(is.string(name))
