@@ -29,7 +29,7 @@ void CheckIfElseOutput(const Datum& cond, const Datum& left, const Datum& right,
   ASSERT_OK_AND_ASSIGN(Datum datum_out, IfElse(cond, left, right));
   if (datum_out.is_array()) {
     std::shared_ptr<Array> result = datum_out.make_array();
-    ASSERT_OK(result->ValidateFull());
+    ValidateOutput(*result);
     std::shared_ptr<Array> expected_ = expected.make_array();
     AssertArraysEqual(*expected_, *result, /*verbose=*/true);
   } else {  // expecting scalar

@@ -106,7 +106,6 @@ Result<std::shared_ptr<Buffer>> AllocateDataBuffer(KernelContext* ctx, int64_t l
     int64_t buffer_size = BitUtil::BytesForBits(length * bit_width);
     return ctx->Allocate(buffer_size);
   }
-  return Status::OK();
 }
 
 struct BufferPreallocation {
