@@ -31,7 +31,6 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.function.Function;
 
-import com.google.protobuf.ByteString;
 import org.apache.arrow.driver.jdbc.utils.BaseProperty;
 import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.ActionType;
@@ -63,6 +62,8 @@ import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.protobuf.ByteString;
 
 /**
  * Utility class for unit tests that need to instantiate a {@link FlightServer}
