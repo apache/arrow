@@ -899,3 +899,14 @@ test_that("No duplicate field names are allowed in an arrow_dplyr_query", {
   )
 })
 
+test_that("abs()", {
+  df <- tibble(x = c(-127, -10, -1, -0 , 0, 1, 10, 127, NA))
+
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        abs = abs(x)
+      ) %>% collect(),
+    df
+  )
+})
