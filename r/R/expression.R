@@ -35,12 +35,11 @@
   "isoyear" = "iso_year",
   "quarter" = "quarter",
   "month" = "month",
+  "isoweek" = "iso_week",
   "day" = "day",
   "yday" = "day_of_year",
-  "isoweek" = "iso_week",
   "hour" = "hour",
-  "minute" = "minute",
-  "second" = "second"
+  "minute" = "minute"
 )
 
 .binary_function_map <- list(

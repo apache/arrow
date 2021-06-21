@@ -443,11 +443,15 @@ nse_funcs$strptime <- function(x, format = "%Y-%m-%d %H:%M:%S", tz = NULL, unit 
   Expression$create("strptime", x, options = list(format = format, unit = unit))
 }
 
+nse_funcs$second <- function(x) {
+  Expression$create("add", Expression$create("second", x), Expression$create("subsecond", x))
+}
+
 nse_funcs$wday <- function(x, label = FALSE, abbr = TRUE, week_start = getOption("lubridate.week.start", 7)) {
   if (label) {
     arrow_not_supported("Label argument")
   }
-  # After ARROW-13054 is completed, we can change the line below and delete the function
+  # After ARROW-13054 is completed, we can change the 2 lines below and delete the function get_date_offset
   offset <- get_date_offset(week_start)
   Expression$create("add", Expression$create("day_of_week", x), Expression$scalar(offset))
 }
@@ -474,6 +478,14 @@ get_date_offset <- function(week_start) {
   }
   offset_vals <- c(0:-4, 2, 1)
   
-  offset_vals[week_start] + 1
+  # offset by 1 due to R being 1-indexed
+  off_val <- offset_vals[week_start] + 1
+  
+  # so that day numbers go from 1 to 7 then repeat
+  if(off_val > 7){
+    off_val <- off_val - floor(off_val/7) * 7
+  }
+  
+  off_val
 }
 
