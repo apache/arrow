@@ -100,4 +100,21 @@ public class ResultSetMetadataTest {
 
     assert columnCount == 3;
   }
+
+  /**
+   * Test if {@link ResultSetMetaData#getColumnTypeName(int)}  returns the correct type for each
+   * column.
+   *
+   * @throws SQLException in case of error.
+   */
+  @Test
+  public void testShouldGetColumnTypes() throws SQLException {
+    final String firstColumn = metadata.getColumnTypeName(1);
+    final String secondColumn = metadata.getColumnTypeName(2);
+    final String thirdColumn = metadata.getColumnTypeName(3);
+
+    collector.checkThat(firstColumn, CoreMatchers.is(equalTo("Int")));
+    collector.checkThat(secondColumn, CoreMatchers.is(equalTo("Utf8")));
+    collector.checkThat(thirdColumn, CoreMatchers.is(equalTo("FloatingPoint")));
+  }
 }
