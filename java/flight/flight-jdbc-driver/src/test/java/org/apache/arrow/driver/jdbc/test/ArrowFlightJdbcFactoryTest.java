@@ -44,6 +44,7 @@ import com.google.common.base.Strings;
 
 /**
  * Tests for {@link ArrowFlightJdbcDriver}.
+ * TODO Update to use {@link FlightServerTestRule} instead of {@link FlightTestUtils}
  */
 public class ArrowFlightJdbcFactoryTest {
 

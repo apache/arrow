@@ -53,6 +53,7 @@ import io.grpc.Metadata;
 
 /**
  * Tests for {@link Connection}.
+ * TODO Update to use {@link FlightServerTestRule} instead of {@link FlightTestUtils}
  */
 public class ConnectionTest {
 

@@ -46,6 +46,10 @@ import org.junit.Test;
 
 import com.google.common.base.Strings;
 
+/**
+ * Tests encrypted connections.
+ * TODO Update to use {@link FlightServerTestRule} instead of {@link FlightTestUtils}
+ */
 public class ConnectionTlsTest {
   private FlightServer tlsServer;
   private String serverUrl;
