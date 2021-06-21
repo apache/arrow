@@ -117,4 +117,20 @@ public class ResultSetMetadataTest {
     collector.checkThat(secondColumn, CoreMatchers.is(equalTo("Utf8")));
     collector.checkThat(thirdColumn, CoreMatchers.is(equalTo("FloatingPoint")));
   }
+
+  /**
+   * Test if {@link ResultSetMetaData#getColumnName(int)} returns the correct name for each column.
+   *
+   * @throws SQLException in case of error.
+   */
+  @Test
+  public void testShouldGetColumnNames() throws SQLException {
+    final String firstColumn = metadata.getColumnName(1);
+    final String secondColumn = metadata.getColumnName(2);
+    final String thirdColumn = metadata.getColumnName(3);
+
+    collector.checkThat(firstColumn, CoreMatchers.is(equalTo("integer0")));
+    collector.checkThat(secondColumn, CoreMatchers.is(equalTo("string1")));
+    collector.checkThat(thirdColumn, CoreMatchers.is(equalTo("float2")));
+  }
 }
