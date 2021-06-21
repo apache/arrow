@@ -52,6 +52,8 @@ using parquet::arrow::SchemaField;
 using parquet::arrow::SchemaManifest;
 using parquet::arrow::StatisticsAsScalars;
 
+namespace {
+
 /// \brief A ScanTask backed by a parquet file and a RowGroup within a parquet file.
 class ParquetScanTask : public ScanTask {
  public:
@@ -128,7 +130,7 @@ class ParquetScanTask : public ScanTask {
   arrow::io::CacheOptions cache_options_;
 };
 
-static parquet::ReaderProperties MakeReaderProperties(
+parquet::ReaderProperties MakeReaderProperties(
     const ParquetFileFormat& format, ParquetFragmentScanOptions* parquet_scan_options,
     MemoryPool* pool = default_memory_pool()) {
   // Can't mutate pool after construction
@@ -144,7 +146,7 @@ static parquet::ReaderProperties MakeReaderProperties(
   return properties;
 }
 
-static parquet::ArrowReaderProperties MakeArrowReaderProperties(
+parquet::ArrowReaderProperties MakeArrowReaderProperties(
     const ParquetFileFormat& format, const parquet::FileMetaData& metadata) {
   parquet::ArrowReaderProperties properties(/* use_threads = */ false);
   for (const std::string& name : format.reader_options.dict_columns) {
@@ -155,7 +157,7 @@ static parquet::ArrowReaderProperties MakeArrowReaderProperties(
 }
 
 template <typename M>
-static Result<std::shared_ptr<SchemaManifest>> GetSchemaManifest(
+Result<std::shared_ptr<SchemaManifest>> GetSchemaManifest(
     const M& metadata, const parquet::ArrowReaderProperties& properties) {
   auto manifest = std::make_shared<SchemaManifest>();
   const std::shared_ptr<const ::arrow::KeyValueMetadata>& key_value_metadata = nullptr;
@@ -164,7 +166,7 @@ static Result<std::shared_ptr<SchemaManifest>> GetSchemaManifest(
   return manifest;
 }
 
-static util::optional<compute::Expression> ColumnChunkStatisticsAsExpression(
+util::optional<compute::Expression> ColumnChunkStatisticsAsExpression(
     const SchemaField& schema_field, const parquet::RowGroupMetaData& metadata) {
   // For the remaining of this function, failure to extract/parse statistics
   // are ignored by returning nullptr. The goal is two fold. First
@@ -214,8 +216,8 @@ static util::optional<compute::Expression> ColumnChunkStatisticsAsExpression(
   return util::nullopt;
 }
 
-static void AddColumnIndices(const SchemaField& schema_field,
-                             std::vector<int>* column_projection) {
+void AddColumnIndices(const SchemaField& schema_field,
+                      std::vector<int>* column_projection) {
   if (schema_field.is_leaf()) {
     column_projection->push_back(schema_field.column_index);
   } else {
@@ -227,8 +229,8 @@ static void AddColumnIndices(const SchemaField& schema_field,
 }
 
 // Compute the column projection out of an optional arrow::Schema
-static std::vector<int> InferColumnProjection(const parquet::arrow::FileReader& reader,
-                                              const ScanOptions& options) {
+std::vector<int> InferColumnProjection(const parquet::arrow::FileReader& reader,
+                                       const ScanOptions& options) {
   auto manifest = reader.manifest();
   // Checks if the field is needed in either the projection or the filter.
   auto field_names = options.MaterializedFields();
@@ -253,6 +255,13 @@ static std::vector<int> InferColumnProjection(const parquet::arrow::FileReader& 
   return columns_selection;
 }
 
+Status WrapSourceError(const Status& status, const std::string& path) {
+  return status.WithMessage("Could not open Parquet input source '", path,
+                            "': ", status.message());
+}
+
+}  // namespace
+
 bool ParquetFileFormat::Equals(const FileFormat& other) const {
   if (other.type_name() != type_name()) return false;
 
@@ -270,24 +279,29 @@ ParquetFileFormat::ParquetFileFormat(const parquet::ReaderProperties& reader_pro
 }
 
 Result<bool> ParquetFileFormat::IsSupported(const FileSource& source) const {
-  try {
-    ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
-    ARROW_ASSIGN_OR_RAISE(auto parquet_scan_options,
-                          GetFragmentScanOptions<ParquetFragmentScanOptions>(
-                              kParquetTypeName, nullptr, default_fragment_scan_options));
-    auto reader = parquet::ParquetFileReader::Open(
-        std::move(input), MakeReaderProperties(*this, parquet_scan_options.get()));
-    std::shared_ptr<parquet::FileMetaData> metadata = reader->metadata();
-    return metadata != nullptr && metadata->can_decompress();
-  } catch (const ::parquet::ParquetInvalidOrCorruptedFileException& e) {
-    ARROW_UNUSED(e);
-    return false;
-  } catch (const ::parquet::ParquetException& e) {
-    return Status::IOError("Could not open parquet input source '", source.path(),
-                           "': ", e.what());
-  }
+  auto maybe_is_supported = [&]() -> Result<bool> {
+    BEGIN_PARQUET_CATCH_EXCEPTIONS
+    try {
+      ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
+      ARROW_ASSIGN_OR_RAISE(
+          auto parquet_scan_options,
+          GetFragmentScanOptions<ParquetFragmentScanOptions>(
+              kParquetTypeName, nullptr, default_fragment_scan_options));
+      auto reader = parquet::ParquetFileReader::Open(
+          std::move(input), MakeReaderProperties(*this, parquet_scan_options.get()));
+      std::shared_ptr<parquet::FileMetaData> metadata = reader->metadata();
+      return metadata != nullptr && metadata->can_decompress();
+    } catch (const ::parquet::ParquetInvalidOrCorruptedFileException& e) {
+      ARROW_UNUSED(e);
+      return false;
+    }
+    END_PARQUET_CATCH_EXCEPTIONS
+  }();
 
-  return true;
+  if (!maybe_is_supported.ok()) {
+    return WrapSourceError(maybe_is_supported.status(), source.path());
+  }
+  return maybe_is_supported;
 }
 
 Result<std::shared_ptr<Schema>> ParquetFileFormat::Inspect(
@@ -307,14 +321,17 @@ Result<std::unique_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
   auto properties = MakeReaderProperties(*this, parquet_scan_options.get(), pool);
 
   ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
-  std::unique_ptr<parquet::ParquetFileReader> reader;
-  try {
-    reader = parquet::ParquetFileReader::Open(std::move(input), std::move(properties));
-  } catch (const ::parquet::ParquetException& e) {
-    return Status::IOError("Could not open parquet input source '", source.path(),
-                           "': ", e.what());
-  }
 
+  auto maybe_reader = [&]() -> Result<std::unique_ptr<parquet::ParquetFileReader>> {
+    BEGIN_PARQUET_CATCH_EXCEPTIONS
+    return parquet::ParquetFileReader::Open(std::move(input), std::move(properties));
+    END_PARQUET_CATCH_EXCEPTIONS
+  }();
+
+  if (!maybe_reader.ok()) {
+    return WrapSourceError(maybe_reader.status(), source.path());
+  }
+  std::unique_ptr<parquet::ParquetFileReader> reader = *std::move(maybe_reader);
   std::shared_ptr<parquet::FileMetaData> metadata = reader->metadata();
   auto arrow_properties = MakeArrowReaderProperties(*this, *metadata);
 
@@ -371,8 +388,7 @@ Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
       },
       [path](
           const Status& status) -> Result<std::shared_ptr<parquet::arrow::FileReader>> {
-        return status.WithMessage("Could not open Parquet input source '", path,
-                                  "': ", status.message());
+        return WrapSourceError(status, path);
       });
 }
 
