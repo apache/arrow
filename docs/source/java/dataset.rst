@@ -131,7 +131,7 @@ Native Memory Management
 ===========
 
 To gain better performance and reduce code complexity, Java ``FileSystemDataset`` internally relys on C++ ``arrow::dataset::FileSystemDataset`` via JNI.
-As a result, all Arrow data read from ``FileSystemDataset`` is supposed to be allocated off the JVM heap. To manage this part of memory, An utility class
+As a result, all Arrow data read from ``FileSystemDataset`` is supposed to be allocated off the JVM heap. To manage this part of memory, an utility class
 ``NativeMemoryPool`` is provided to users.
 
 As a basic example, by using a listenable ``NativeMemoryPool``, user can pass a listener hooking on C++ buffer allocation/deallocation:
