@@ -80,4 +80,12 @@ public class ResultSetMetadataTest {
       metadata = resultSet.getMetaData();
     }
   }
+
+  /**
+   * Test if {@link ResultSetMetaData} object is not null.
+   */
+  @Test
+  public void testShouldGetResultSetMetadata() {
+    collector.checkThat(metadata, CoreMatchers.is(notNullValue()));
+  }
 }
