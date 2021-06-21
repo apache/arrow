@@ -22,6 +22,7 @@ import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PASSWORD;
 import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PORT;
 import static org.apache.arrow.driver.jdbc.utils.BaseProperty.USERNAME;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.fail;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -82,13 +83,15 @@ public class ResultSetTest {
   }
 
   /**
-   * Tests whether the {@link ArrowFlightJdbcDriver} can run a query successfully.
+   * Tests whether the {@link ArrowFlightJdbcDriver} fails upon attempting
+   * to run an invalid query.
    *
    * @throws Exception
    *           If the connection fails to be established.
    */
   @Test(expected = SQLException.class)
-  public void testShouldFailedRunSelectQuery() throws Exception {
+  public void testShouldThrowExceptionUponAttemptingToExecuteAnInvalidSelectQuery()
+      throws Exception {
 
     Properties properties = new Properties();
     properties.put(USERNAME.getEntry().getKey(), rule.getProperty(USERNAME));
@@ -98,13 +101,10 @@ public class ResultSetTest {
         .connect("jdbc:arrow-flight://" +
                 rule.getProperty(HOST) + ":" +
                 rule.getProperty(PORT),
-            properties)) {
-      Statement statement = connection.createStatement();
-      ResultSet resultSet = statement.executeQuery("SELECT * FROM failed");
-
-      while (resultSet.next()) {
-        assertNotNull(resultSet.getObject(1));
-      }
+            properties);
+         Statement statement = connection.createStatement();
+         ResultSet resultSet = statement.executeQuery("SELECT * FROM SHOULD-FAIL")) {
+      fail();
     }
   }
 }
