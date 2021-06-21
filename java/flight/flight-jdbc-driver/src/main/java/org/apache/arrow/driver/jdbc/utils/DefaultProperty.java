@@ -51,13 +51,13 @@ public enum BaseProperty {
    *
    * @return the entry of this property.
    */
-  public Map.Entry<Object, Object> getEntry() {
+  public Map.Entry<String, Object> getEntry() {
 
     /*
      * FIXME Should the second parameter be wrapped as an Optional?
      *
      * It's probably a better idea to make this return a
-     * Map.Entry<Object, Optional<Object>> instead, for the following reasons:
+     * Map.Entry<String, Optional<Object>> instead, for the following reasons:
      *  - 1. It avoids having to null-check constantly, and;
      *  - 2. What if the default value IS null? (As opposed to null meaning
      *  there is no default value.)
