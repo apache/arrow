@@ -553,15 +553,63 @@ test_that("ARROW-11769 - grouping preserved in record batch creation", {
 })
 
 test_that("ARROW-12729 - length returns number of columns in RecordBatch", {
-  
+
   tbl <- tibble::tibble(
     int = 1:10,
     fct = factor(rep(c("A", "B"), 5)),
     fct2 = factor(rep(c("C", "D"), each = 5)),
   )
-  
+
   rb <- record_batch(!!!tbl)
-  
+
   expect_identical(length(rb), 3L)
+
+})
+
+test_that("RecordBatchReader to C-interface", {
+  skip_if_not_available("dataset")
   
+  tab <- Table$create(example_data)
+
+  # export the RecordBatchReader via the C-interface
+  stream_ptr <- allocate_arrow_array_stream()
+  on.exit(delete_arrow_array_stream(stream_ptr))
+  scan <- Scanner$create(tab)
+  reader <- scan$ToRecordBatchReader()
+  reader$export_to_c(stream_ptr)
+
+  # then import it and check that the roundtripped value is the same
+  circle <- RecordBatchStreamReader$import_from_c(stream_ptr)
+  tab_from_c_new <- circle$read_table()
+  expect_equal(tab, tab_from_c_new)
+
+  # export the RecordBatchStreamReader via the C-interface
+  stream_ptr_new <- allocate_arrow_array_stream()
+  on.exit(delete_arrow_array_stream(stream_ptr_new))
+  bytes <- write_to_raw(example_data)
+  expect_type(bytes, "raw")
+  reader_new <- RecordBatchStreamReader$create(bytes)
+  reader_new$export_to_c(stream_ptr_new)
+
+  # then import it and check that the roundtripped value is the same
+  circle_new <- RecordBatchStreamReader$import_from_c(stream_ptr_new)
+  tab_from_c_new <- circle_new$read_table()
+  expect_equal(tab, tab_from_c_new)
+})
+
+test_that("RecordBatch to C-interface", {
+  batch <- RecordBatch$create(example_data)
+
+  # export the RecordBatch via the C-interface
+  schema_ptr <- allocate_arrow_schema()
+  array_ptr <- allocate_arrow_array()
+  on.exit({
+    delete_arrow_schema(schema_ptr)
+    delete_arrow_array(array_ptr)
+  })
+  batch$export_to_c(array_ptr, schema_ptr)
+
+  # then import it and check that the roundtripped value is the same
+  circle <- RecordBatch$import_from_c(array_ptr, schema_ptr)
+  expect_equal(batch, circle)
 })
