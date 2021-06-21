@@ -607,7 +607,6 @@ struct ResolveIfElseExec {
   }
 };
 
-
 template <>
 struct ResolveIfElseExec<NullType> {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
@@ -621,7 +620,6 @@ struct ResolveIfElseExec<NullType> {
     return Status::OK();
   }
 };
-
 
 struct IfElseFunction : ScalarFunction {
   using ScalarFunction::ScalarFunction;
