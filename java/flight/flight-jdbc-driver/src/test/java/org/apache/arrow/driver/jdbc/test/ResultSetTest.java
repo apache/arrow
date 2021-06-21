@@ -25,6 +25,7 @@ import static org.junit.Assert.assertNotNull;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.HashMap;
 import java.util.Map;
@@ -86,7 +87,7 @@ public class ResultSetTest {
    * @throws Exception
    *           If the connection fails to be established.
    */
-  @Test
+  @Test(expected = SQLException.class)
   public void testShouldFailedRunSelectQuery() throws Exception {
 
     Properties properties = new Properties();
