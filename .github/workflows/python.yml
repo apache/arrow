@@ -112,7 +112,7 @@ jobs:
   macos:
     name: AMD64 MacOS 10.15 Python 3
     runs-on: macos-latest
-    # if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
     env:
       ARROW_HOME: /usr/local
