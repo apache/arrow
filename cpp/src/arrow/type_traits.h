@@ -363,30 +363,6 @@ struct CTypeTraits<DayTimeIntervalType::DayMilliseconds>
 };
 
 template <>
-struct TypeTraits<ComplexFloatType> {
-  using ArrayType = ComplexFloatArray;
-  using BuilderType = FixedSizeListBuilder;
-  using ScalarType = FixedSizeListScalar;
-  using OffsetType = Int32Type;
-  using OffsetArrayType = Int32Array;
-  using OffsetBuilderType = Int32Builder;
-  using OffsetScalarType = Int32Scalar;
-  constexpr static bool is_parameter_free = true;
-};
-
-template <>
-struct TypeTraits<ComplexDoubleType> {
-  using ArrayType = ComplexDoubleArray;
-  using BuilderType = FixedSizeListBuilder;
-  using ScalarType = FixedSizeListScalar;
-  using OffsetType = Int32Type;
-  using OffsetArrayType = Int32Array;
-  using OffsetBuilderType = Int32Builder;
-  using OffsetScalarType = Int32Scalar;
-  constexpr static bool is_parameter_free = true;
-};
-
-template <>
 struct TypeTraits<ListType> {
   using ArrayType = ListArray;
   using BuilderType = ListBuilder;
