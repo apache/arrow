@@ -30,6 +30,8 @@ namespace r {
 template <int sexp_type>
 struct ArrayNoNull {
   using data_type = typename std::conditional<sexp_type == INTSXP, int, double>::type;
+  using Pointer = cpp11::external_pointer<std::shared_ptr<Array>,
+                                          cpp11::default_deleter<std::shared_ptr<Array>>>;
 
   // altrep object around an Array with no nulls
   // data1: an external pointer to a shared pointer to the Array
@@ -38,7 +40,7 @@ struct ArrayNoNull {
   static SEXP Make(R_altrep_class_t class_t, const std::shared_ptr<Array>& array) {
     // we don't need the whole r6 object, just an external pointer
     // that retain the array
-    cpp11::external_pointer<std::shared_ptr<Array>> xp(new std::shared_ptr<Array>(array));
+    Pointer xp(new std::shared_ptr<Array>(array));
 
     SEXP res = R_new_altrep(class_t, xp, R_NilValue);
     MARK_NOT_MUTABLE(res);
@@ -56,7 +58,7 @@ struct ArrayNoNull {
   }
 
   static const std::shared_ptr<Array>& Get(SEXP vec) {
-    return *cpp11::external_pointer<std::shared_ptr<Array>>(R_altrep_data1(vec));
+    return *Pointer(R_altrep_data1(vec));
   }
 
   static R_xlen_t Length(SEXP vec) { return Get(vec)->length(); }
