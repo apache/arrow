@@ -42,10 +42,12 @@ test_that("Field to C-interface", {
 
   # export the field via the C-interface
   ptr <- allocate_arrow_schema()
-  on.exit(delete_arrow_schema(ptr))
   field$export_to_c(ptr)
 
   # then import it and check that the roundtripped value is the same
   circle <- Field$import_from_c(ptr)
   expect_equal(circle, field)
+
+  # must clean up the pointer or we leak
+  delete_arrow_schema(ptr)
 })

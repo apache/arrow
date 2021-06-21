@@ -180,10 +180,12 @@ test_that("Schema to C-interface", {
 
   # export the schema via the C-interface
   ptr <- allocate_arrow_schema()
-  on.exit(delete_arrow_schema(ptr))
   schema$export_to_c(ptr)
 
   # then import it and check that the roundtripped value is the same
   circle <- Schema$import_from_c(ptr)
   expect_equal(circle, schema)
+
+  # must clean up the pointer or we leak
+  delete_arrow_schema(ptr)
 })

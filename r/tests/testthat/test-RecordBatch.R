@@ -571,7 +571,6 @@ test_that("RecordBatchReader to C-interface", {
 
   # export the RecordBatchReader via the C-interface
   stream_ptr <- allocate_arrow_array_stream()
-  on.exit(delete_arrow_array_stream(stream_ptr), add = TRUE)
   scan <- Scanner$create(tab)
   reader <- scan$ToRecordBatchReader()
   reader$export_to_c(stream_ptr)
@@ -581,9 +580,11 @@ test_that("RecordBatchReader to C-interface", {
   tab_from_c_new <- circle$read_table()
   expect_equal(tab, tab_from_c_new)
 
+  # must clean up the pointer or we leak
+  delete_arrow_array_stream(stream_ptr)
+
   # export the RecordBatchStreamReader via the C-interface
   stream_ptr_new <- allocate_arrow_array_stream()
-  on.exit(delete_arrow_array_stream(stream_ptr_new), add = TRUE)
   bytes <- write_to_raw(example_data)
   expect_type(bytes, "raw")
   reader_new <- RecordBatchStreamReader$create(bytes)
@@ -593,6 +594,9 @@ test_that("RecordBatchReader to C-interface", {
   circle_new <- RecordBatchStreamReader$import_from_c(stream_ptr_new)
   tab_from_c_new <- circle_new$read_table()
   expect_equal(tab, tab_from_c_new)
+
+  # must clean up the pointer or we leak
+  delete_arrow_array_stream(stream_ptr_new)
 })
 
 test_that("RecordBatch to C-interface", {
@@ -601,13 +605,13 @@ test_that("RecordBatch to C-interface", {
   # export the RecordBatch via the C-interface
   schema_ptr <- allocate_arrow_schema()
   array_ptr <- allocate_arrow_array()
-  on.exit({
-    delete_arrow_schema(schema_ptr)
-    delete_arrow_array(array_ptr)
-  }, add = TRUE)
   batch$export_to_c(array_ptr, schema_ptr)
 
   # then import it and check that the roundtripped value is the same
   circle <- RecordBatch$import_from_c(array_ptr, schema_ptr)
-  expect_equal(batch, circle)
+  expect_equal
+
+  # must clean up the pointers or we leak
+  delete_arrow_schema(schema_ptr)
+  delete_arrow_array(array_ptr)
 })
