@@ -27,11 +27,6 @@ from Cryptodome.Cipher import AES
 from collections import OrderedDict
 from datetime import timedelta
 
-PARQUET_NAME = 'encrypted_table.in_mem.parquet'
-FOOTER_KEY = "0123456789ABCDEF"
-FOOTER_KEY_NAME = "footer_key"
-COL_KEY = "1234123412341234"
-COL_KEY_NAME = "col_key"
 DATA_TABLE = pa.Table.from_pydict(
     OrderedDict([
         ('a', pa.array([1, 2, 3])),
@@ -39,7 +34,17 @@ DATA_TABLE = pa.Table.from_pydict(
         ('c', pa.array(['x', 'y', 'z']))
     ])
 )
-
+PARQUET_NAME = 'encrypted_table.in_mem.parquet'
+FOOTER_KEY = "0123456789ABCDEF"
+FOOTER_KEY_NAME = "footer_key"
+COL_KEY = "1234123412341234"
+COL_KEY_NAME = "col_key"
+BASIC_ENCRYPTION_CONFIG = pq.EncryptionConfiguration(
+    footer_key=FOOTER_KEY_NAME,
+    column_keys={
+        COL_KEY_NAME: ["a", "b"],
+    },
+)
 
 class InMemoryKmsClient(pq.KmsClient):
     """This is a mock class implementation of KmsClient, built for testing only.
@@ -190,24 +195,24 @@ def test_encrypted_parquet_read_schema_no_decryption_config(tempdir):
 def test_encrypted_parquet_write_no_col_key(tempdir):
     """Write an encrypted parquet, but give only footer key,
     without column key."""
+    path = tempdir / 'encrypted_table_no_col_key.in_mem.parquet'
+    table = DATA_TABLE
+
+    # Encrypt the footer with the footer key
+    encryption_config = pq.EncryptionConfiguration(
+        footer_key=FOOTER_KEY_NAME)
+
+    kms_connection_config = pq.KmsConnectionConfig(
+        custom_kms_conf={
+            FOOTER_KEY_NAME: FOOTER_KEY,
+            COL_KEY_NAME: COL_KEY,
+        }
+    )
+
+    def kms_factory(kms_connection_configuration):
+        return InMemoryKmsClient(kms_connection_configuration)
+
     with pytest.raises(RuntimeError, match=r"column_keys"):
-        path = tempdir / 'encrypted_table_no_col_key.in_mem.parquet'
-        table = DATA_TABLE
-
-        # Encrypt the footer with the footer key
-        encryption_config = pq.EncryptionConfiguration(
-            footer_key=FOOTER_KEY_NAME)
-
-        kms_connection_config = pq.KmsConnectionConfig(
-            custom_kms_conf={
-                FOOTER_KEY_NAME: FOOTER_KEY,
-                COL_KEY_NAME: COL_KEY,
-            }
-        )
-
-        def kms_factory(kms_connection_configuration):
-            return InMemoryKmsClient(kms_connection_configuration)
-
         crypto_factory = pq.CryptoFactory(kms_factory)
         # Write with encryption properties
         write_encrypted_parquet(path, table, encryption_config,
@@ -217,30 +222,78 @@ def test_encrypted_parquet_write_no_col_key(tempdir):
 @pytest.mark.parquet
 def test_encrypted_parquet_write_kms_error(tempdir):
     """Write an encrypted parquet, but raise KeyError in KmsClient."""
+    path = tempdir / 'encrypted_table_kms_error.in_mem.parquet'
+    table = DATA_TABLE
+
+    encryption_config = BASIC_ENCRYPTION_CONFIG
+
+    # Empty master_keys_map
+    kms_connection_config = pq.KmsConnectionConfig()
+
+    def kms_factory(kms_connection_configuration):
+        # Empty master keys map will cause KeyError to be raised
+        # on wrap/unwrap calls
+        return InMemoryKmsClient(kms_connection_configuration)
+
     with pytest.raises(KeyError):
-        path = tempdir / 'encrypted_table_kms_error.in_mem.parquet'
-        table = DATA_TABLE
-
-        encryption_config = pq.EncryptionConfiguration(
-            footer_key=FOOTER_KEY_NAME,
-            column_keys={
-                COL_KEY_NAME: ["a", "b"],
-            },
-        )
-
-        # Empty master_keys_map
-        kms_connection_config = pq.KmsConnectionConfig()
-
-        def kms_factory(kms_connection_configuration):
-            # Empty master keys map will cause KeyError to be raised
-            # on wrap/unwrap calls
-            return InMemoryKmsClient(kms_connection_configuration)
-
         crypto_factory = pq.CryptoFactory(kms_factory)
         # Write with encryption properties
         write_encrypted_parquet(path, table, encryption_config,
                                 kms_connection_config, crypto_factory)
 
+@pytest.mark.parquet
+def test_encrypted_parquet_write_kms_factory_error(tempdir):
+    """Write an encrypted parquet, but raise ValueError in kms_factory."""
+    path = tempdir / 'encrypted_table_kms_factory_error.in_mem.parquet'
+    table = DATA_TABLE
+
+    encryption_config = BASIC_ENCRYPTION_CONFIG
+
+    # Empty master_keys_map
+    kms_connection_config = pq.KmsConnectionConfig()
+
+    def kms_factory(kms_connection_configuration):
+        raise ValueError('I am a value erorr')
+
+    with pytest.raises(ValueError):
+        crypto_factory = pq.CryptoFactory(kms_factory)
+        # Write with encryption properties
+        write_encrypted_parquet(path, table, encryption_config,
+                                kms_connection_config, crypto_factory)
+
+@pytest.mark.parquet
+def test_encrypted_parquet_write_kms_factory_type_error(tempdir):
+    """Write an encrypted parquet, but use wrong KMS client type
+    that doesn't implement KmsClient."""
+    path = tempdir / 'encrypted_table_kms_factory_error.in_mem.parquet'
+    table = DATA_TABLE
+
+    encryption_config = BASIC_ENCRYPTION_CONFIG
+
+    # Empty master_keys_map
+    kms_connection_config = pq.KmsConnectionConfig()
+
+    class WrongTypeKmsClient():
+        """This is not an implementation of KmsClient.
+        """
+
+        def __init__(self, config):
+            self.master_keys_map = config.custom_kms_conf
+
+        def wrap_key(self, key_bytes, master_key_identifier):
+            return None
+
+        def unwrap_key(self, wrapped_key, master_key_identifier):
+            return None
+
+    def kms_factory(kms_connection_configuration):
+        return WrongTypeKmsClient(kms_connection_configuration)
+
+    with pytest.raises(TypeError):
+        crypto_factory = pq.CryptoFactory(kms_factory)
+        # Write with encryption properties
+        write_encrypted_parquet(path, table, encryption_config,
+                                kms_connection_config, crypto_factory)
 
 @pytest.mark.parquet
 def test_encrypted_parquet_loop(tempdir):
