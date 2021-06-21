@@ -24,6 +24,7 @@
 #include <utility>
 #include <vector>
 
+#include "gandiva/gandiva_object_cache.h"
 #include "gandiva/bitmap_accumulator.h"
 #include "gandiva/decimal_ir.h"
 #include "gandiva/dex.h"
@@ -48,6 +49,15 @@ Status LLVMGenerator::Make(std::shared_ptr<Configuration> config,
   *llvm_generator = std::move(llvmgen_obj);
 
   return Status::OK();
+}
+
+std::shared_ptr<Cache<BaseCacheKey, std::shared_ptr<llvm::MemoryBuffer>>> LLVMGenerator::GetCache() {
+  static std::unique_ptr<Cache<BaseCacheKey, std::shared_ptr<llvm::MemoryBuffer>>> cache_unique =
+                                                                                       std::make_unique<Cache<BaseCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>();
+  static std::shared_ptr<Cache<BaseCacheKey, std::shared_ptr<llvm::MemoryBuffer>>> shared_cache =
+                                                                                       std::move(cache_unique);
+
+  return shared_cache;
 }
 
 Status LLVMGenerator::Add(const ExpressionPtr expr, const FieldDescriptorPtr output) {
@@ -505,7 +515,7 @@ llvm::Value* LLVMGenerator::AddFunctionCall(const std::string& full_name,
 std::shared_ptr<DecimalLValue> LLVMGenerator::BuildDecimalLValue(llvm::Value* value,
                                                                  DataTypePtr arrow_type) {
   // only decimals of size 128-bit supported.
-  DCHECK(is_decimal_128(arrow_type));
+      DCHECK(is_decimal_128(arrow_type));
   auto decimal_type =
       arrow::internal::checked_cast<arrow::DecimalType*>(arrow_type.get());
   return std::make_shared<DecimalLValue>(value, nullptr,
@@ -1218,8 +1228,8 @@ LValuePtr LLVMGenerator::Visitor::BuildFunctionCall(const NativeFunction* func,
     llvm::IRBuilder<>* builder = ir_builder();
     auto value =
         isDecimalFunction
-            ? decimalIR.CallDecimalFunction(func->pc_name(), llvm_return_type, *params)
-            : generator_->AddFunctionCall(func->pc_name(), llvm_return_type, *params);
+        ? decimalIR.CallDecimalFunction(func->pc_name(), llvm_return_type, *params)
+        : generator_->AddFunctionCall(func->pc_name(), llvm_return_type, *params);
     auto value_len =
         (result_len_ptr == nullptr) ? nullptr : builder->CreateLoad(result_len_ptr);
     return std::make_shared<LValue>(value, value_len);
@@ -1341,7 +1351,7 @@ std::string LLVMGenerator::ReplaceFormatInTrace(const std::string& in_msg,
   std::string msg = in_msg;
   std::size_t pos = msg.find("%T");
   if (pos == std::string::npos) {
-    DCHECK(0);
+        DCHECK(0);
     return msg;
   }
 
@@ -1365,7 +1375,7 @@ std::string LLVMGenerator::ReplaceFormatInTrace(const std::string& in_msg,
     // string
     fmt = "%s";
   } else {
-    DCHECK(0);
+        DCHECK(0);
   }
   msg.replace(pos, 2, fmt);
   return msg;
