@@ -51,15 +51,17 @@ namespace arrow {
   ACTION(Float);                                     \
   ACTION(Double)
 
+
+// ACTION(ComplexFloat);                        
+// ACTION(ComplexDouble);                        
+
 #define ARROW_GENERATE_FOR_ALL_TYPES(ACTION)    \
   ACTION(Null);                                 \
   ACTION(Boolean);                              \
   ARROW_GENERATE_FOR_ALL_NUMERIC_TYPES(ACTION); \
   ACTION(String);                               \
   ACTION(Binary);                               \
-  ACTION(ComplexFloat);                         \
-  ACTION(ComplexDouble);                        \
-  ACTION(LargeString);                          \
+    ACTION(LargeString);                          \
   ACTION(LargeBinary);                          \
   ACTION(FixedSizeBinary);                      \
   ACTION(Duration);                             \
