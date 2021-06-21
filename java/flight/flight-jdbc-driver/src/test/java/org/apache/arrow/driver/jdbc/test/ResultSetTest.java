@@ -59,7 +59,6 @@ public class ResultSetTest {
    *           If the connection fails to be established.
    */
   @Test
-  @Ignore
   public void testShouldRunSelectQuery() throws Exception {
 
     Properties properties = new Properties();
@@ -72,8 +71,7 @@ public class ResultSetTest {
                 rule.getProperty(PORT),
         properties)) {
       try (Statement statement = connection.createStatement()) {
-        // TODO Run query against bare Flight (hardcode a schema)
-        try (ResultSet resultSet = statement.executeQuery("SELECT * FROM (VALUES 1, 2, 3)")) {
+        try (ResultSet resultSet = statement.executeQuery("SELECT * FROM TEST")) {
 
           while (resultSet.next()) {
             assertNotNull(resultSet.getObject(1));
