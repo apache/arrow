@@ -24,5 +24,28 @@
 #include <arrow-flight-glib/common.h>
 
 
+arrow::flight::Criteria *
+gaflight_criteria_get_raw(GAFlightCriteria *criteria);
+
 arrow::flight::Location *
 gaflight_location_get_raw(GAFlightLocation *location);
+
+GAFlightDescriptor *
+gaflight_descriptor_new_raw(
+  const arrow::flight::FlightDescriptor *flight_descriptor);
+arrow::flight::FlightDescriptor *
+gaflight_descriptor_get_raw(GAFlightDescriptor *descriptor);
+
+arrow::flight::Ticket *
+gaflight_ticket_get_raw(GAFlightTicket *ticket);
+
+GAFlightEndpoint *
+gaflight_endpoint_new_raw(const arrow::flight::FlightEndpoint *flight_endpoint,
+                          GAFlightTicket *ticket);
+arrow::flight::FlightEndpoint *
+gaflight_endpoint_get_raw(GAFlightEndpoint *endpoint);
+
+GAFlightInfo *
+gaflight_info_new_raw(arrow::flight::FlightInfo *flight_info);
+arrow::flight::FlightInfo *
+gaflight_info_get_raw(GAFlightInfo *info);

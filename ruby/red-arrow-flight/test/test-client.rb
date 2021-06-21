@@ -26,10 +26,10 @@ class TestClient < Test::Unit::TestCase
     @server.shutdow
   end
 
-  def test_connect
-    # TODO: Add tests that use other methods and remove this.
-    assert_nothing_raised do
-      ArrowFlight::Client.new(@location)
-    end
+  def test_list_flights
+    client = ArrowFlight::Client.new(@location)
+    generator = Helper::InfoGenerator.new
+    assert_equal([generator.page_view],
+                 client.list_flights)
   end
 end

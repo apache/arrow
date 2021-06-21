@@ -73,5 +73,12 @@ gaflight_client_new(GAFlightLocation *location,
                     GAFlightClientOptions *options,
                     GError **error);
 
+GARROW_AVAILABLE_IN_5_0
+GList *
+gaflight_client_list_flights(GAFlightClient *client,
+                             GAFlightCallOptions *options,
+                             GAFlightCriteria *criteria,
+                             GError **error);
+
 
 G_END_DECLS

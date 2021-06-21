@@ -56,7 +56,25 @@ rescue GObjectIntrospection::RepositoryError::TypelibNotFound
 end
 
 begin
-  ArrowFlight = GI.load("ArrowFlight")
+  class ArrowFlightLoader < GI::Loader
+    def should_unlock_gvl?(info, klass)
+      case klass.name.split("::").last
+      when "Client"
+        case info.name
+        when "list_flights"
+          true
+        else
+          false
+        end
+      else
+        false
+      end
+    end
+  end
+  flight_module = Module.new
+  ArrowFlightLoader.load("ArrowFlight", flight_module)
+  ArrowFlight = flight_module
+  GObjectIntrospection::Loader.start_callback_dispatch_thread
 rescue GObjectIntrospection::RepositoryError::TypelibNotFound
 end
 
@@ -84,6 +102,7 @@ require_relative "helper/buildable"
 require_relative "helper/data-type"
 require_relative "helper/fixture"
 if defined?(ArrowFlight)
+  require_relative "helper/flight-info-generator"
   require_relative "helper/flight-server"
 end
 require_relative "helper/omittable"
