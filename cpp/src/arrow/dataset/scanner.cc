@@ -808,7 +808,11 @@ class OneShotFragment : public Fragment {
   Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options) override {
     RETURN_NOT_OK(CheckConsumed());
-    return MakeBackgroundGenerator(std::move(batch_it_), options->io_context.executor());
+    ARROW_ASSIGN_OR_RAISE(
+        auto background_gen,
+        MakeBackgroundGenerator(std::move(batch_it_), options->io_context.executor()));
+    return MakeTransferredGenerator(std::move(background_gen),
+                                    internal::GetCpuThreadPool());
   }
   std::string type_name() const override { return "one-shot"; }
 
