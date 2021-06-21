@@ -59,16 +59,12 @@ import com.google.common.base.Strings;
  */
 public class ArrowFlightConnection extends AvaticaConnection {
 
-  private static final Logger LOGGER;
+  private static final Logger LOGGER = LoggerFactory.getLogger(ArrowFlightConnection.class);
   private final BufferAllocator allocator;
 
   // TODO Use this later to run queries.
   @SuppressWarnings("unused")
   private ArrowFlightClientHandler client;
-
-  static {
-    LOGGER = LoggerFactory.getLogger(ArrowFlightConnection.class);
-  }
 
   /**
    * Instantiates a new Arrow Flight Connection.
