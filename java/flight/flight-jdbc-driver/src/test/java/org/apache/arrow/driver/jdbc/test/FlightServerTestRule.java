@@ -157,19 +157,28 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
   private FlightProducer getFlightProducer() {
     return new FlightProducer() {
       @Override
-      public void getStream(CallContext callContext, Ticket ticket, ServerStreamListener serverStreamListener) {
-        checkUsername(callContext, serverStreamListener);
-        VectorSchemaRoot root =
-            VectorSchemaRoot
-                .create(
-                    new Schema(
-                        ImmutableList
-                            .of(Field.nullable("Placeholder", Types.MinorType.BIGINT.getType()))), allocator);
-        serverStreamListener.start(root);
-        root.allocateNew();
-        root.setRowCount(Byte.MAX_VALUE);
-        serverStreamListener.putNext();
-        serverStreamListener.completed();
+      public void getStream(CallContext callContext, Ticket ticket, ServerStreamListener listener) {
+        checkUsername(callContext, listener);
+
+        if (Arrays.equals(QUERY_TICKET, ticket.getBytes())) {
+          final List<FieldVector> vectors = new ArrayList<>();
+          for (int col = 0; col < 4; col++) {
+            final BigIntVector vector = new BigIntVector("f" + col, allocator);
+            for (int row = 0; row < 10; row++) {
+              vector.setSafe(row, row);
+            }
+            vectors.add(vector);
+          }
+          try (final VectorSchemaRoot root = new VectorSchemaRoot(vectors)) {
+            root.setRowCount(10);
+            listener.start(root);
+            listener.putNext();
+            listener.putNext();
+            listener.completed();
+          }
+        } else {
+          throw new RuntimeException();
+        }
       }
 
       @Override
