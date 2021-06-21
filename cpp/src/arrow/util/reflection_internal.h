@@ -46,9 +46,8 @@ struct make_index_sequence_impl<N, 0, I...> {
 template <size_t N, size_t H, size_t... I>
 struct make_index_sequence_impl : make_index_sequence_impl<N, H - 1, H - 1, I...> {};
 
-static_assert(std::is_base_of<index_sequence<>, make_index_sequence<0>>::value, "");
-static_assert(std::is_base_of<index_sequence<0, 1, 2>, make_index_sequence<3>>::value,
-              "");
+static_assert(std::is_same<index_sequence<>, make_index_sequence<0>>::value, "");
+static_assert(std::is_same<index_sequence<0, 1, 2>, make_index_sequence<3>>::value, "");
 
 template <typename...>
 struct all_same : std::true_type {};
