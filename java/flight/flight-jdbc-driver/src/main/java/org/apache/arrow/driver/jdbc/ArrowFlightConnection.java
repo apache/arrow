@@ -130,8 +130,8 @@ public class ArrowFlightConnection extends AvaticaConnection {
     // =================== [ LOCATION CONFIG ] ===================
     final Map.Entry<Object, Object> forHost = HOST.getEntry();
 
-    final String host = (String) info.getOrDefault(forHost.getKey(),
-        forHost.getValue());
+    final String host = Objects.toString(info.getOrDefault(forHost.getKey(),
+        forHost.getValue()));
     Preconditions.checkArgument(!Strings.isNullOrEmpty(host));
 
     final Map.Entry<Object, Object> forPort = PORT.getEntry();
@@ -143,25 +143,29 @@ public class ArrowFlightConnection extends AvaticaConnection {
 
     // =================== [ CREDENTIALS CONFIG ] ===================
     final Map.Entry<Object, Object> forUsername = USERNAME.getEntry();
+    final String usernameKey = (String) forUsername.getKey();
+    final String usernameValue = (String) forUsername.getValue();
 
-    final String username = (String) info.getOrDefault(forUsername.getKey(),
-        forUsername.getValue());
+    final String username = (String) info.getOrDefault(usernameKey, usernameValue);
 
     final Map.Entry<Object, Object> forPassword = PASSWORD.getEntry();
+    final String passwordKey = (String) forPassword.getKey();
+    final String passwordValue = (String) forPassword.getValue();
 
-    final String password = (String) info.getOrDefault(forPassword.getKey(),
-        forPassword.getValue());
+    final String password = (String) info.getOrDefault(passwordKey, passwordValue);
 
     // =================== [ ENCRYPTION CONFIG ] ===================
     final Map.Entry<Object, Object> forKeyStorePath = KEYSTORE_PATH.getEntry();
+    final String keyStorePathKey = (String) forKeyStorePath.getKey();
+    final String keyStorePathValue = (String) forKeyStorePath.getValue();
 
-    final String keyStorePath = (String) info
-        .getOrDefault(forKeyStorePath.getKey(), forKeyStorePath.getValue());
+    final String keyStorePath = (String) info.getOrDefault(keyStorePathKey, keyStorePathValue);
 
     final Map.Entry<Object, Object> forKeyStorePass = KEYSTORE_PASS.getEntry();
+    final String keyStorePassKey = (String) forKeyStorePass.getKey();
+    final String keyStorePassValue = (String) forKeyStorePass.getValue();
 
-    final String keyStorePassword = (String) info
-        .getOrDefault(forKeyStorePass.getKey(), forKeyStorePass.getValue());
+    final String keyStorePassword = (String) info.getOrDefault(keyStorePassKey, keyStorePassValue);
 
     // =================== [ CLIENT GENERATION ] ===================
     try {
