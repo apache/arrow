@@ -171,7 +171,7 @@ namespace Apache.Arrow.Tests
 
                 Assert.Equal(1, array.Length);
                 Assert.NotNull(array.GetTimestamp(0));
-                Assert.Equal(now.Truncate(TimeSpan.FromTicks(100)), array.GetTimestamp(0).Value);
+                Assert.Equal(now, array.GetTimestamp(0).Value);
             }
         }
 
