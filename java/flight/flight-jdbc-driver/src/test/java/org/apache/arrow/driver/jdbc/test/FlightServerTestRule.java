@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -29,8 +30,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Random;
 import java.util.function.Function;
 
+import com.google.common.collect.ImmutableList;
 import org.apache.arrow.driver.jdbc.utils.BaseProperty;
 import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.ActionType;
@@ -55,8 +58,12 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BigIntVector;
+import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.Float4Vector;
+import org.apache.arrow.vector.Float8Vector;
+import org.apache.arrow.vector.LargeVarCharVector;
+import org.apache.arrow.vector.TimeStampMilliVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.util.Text;
@@ -75,7 +82,7 @@ import com.google.protobuf.ByteString;
 public class FlightServerTestRule implements TestRule, AutoCloseable {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(FlightServerTestRule.class);
-  private static final byte[] QUERY_TICKET = "SELECT * FROM TEST".getBytes(StandardCharsets.UTF_8);
+  private static final byte[] TEST_QUERY_TICKET = "SELECT * FROM TEST".getBytes(StandardCharsets.UTF_8);
   private static final byte[] METADATA_QUERY_TICKET = "SELECT * FROM METADATA".getBytes(StandardCharsets.UTF_8);
 
   private final Map<BaseProperty, Object> properties;
@@ -165,15 +172,38 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
       public void getStream(CallContext callContext, Ticket ticket, ServerStreamListener listener) {
         checkUsername(callContext, listener);
 
-        if (Arrays.equals(QUERY_TICKET, ticket.getBytes())) {
-          final List<FieldVector> vectors = new ArrayList<>();
-          for (int col = 0; col < 4; col++) {
-            final BigIntVector vector = new BigIntVector("f" + col, allocator);
-            for (int row = 0; row < 10; row++) {
-              vector.setSafe(row, row);
-            }
-            vectors.add(vector);
+        final Random random = new Random();
+
+        if (Arrays.equals(TEST_QUERY_TICKET, ticket.getBytes())) {
+          final int rows = Byte.MAX_VALUE;
+
+          final FieldVector id = new BigIntVector("ID", allocator);
+          for (int row = 0; row < rows; row++) {
+            ((BigIntVector) id).setSafe(row, random.nextLong());
           }
+
+          final FieldVector name = new LargeVarCharVector("Name", allocator);
+          for (int row = 0; row < rows; row++) {
+            ((LargeVarCharVector) name).setSafe(row, new Text("Test Name #" + row));
+          }
+
+          final FieldVector salary = new Float8Vector("Salary", allocator);
+          for (int row = 0; row < rows; row++) {
+            ((Float8Vector) salary).setSafe(row, random.nextDouble());
+          }
+
+          final FieldVector hireDate = new DateDayVector("Hire Date", allocator);
+          for (int row = 0; row < rows; row++) {
+            ((DateDayVector) hireDate).setSafe(row, random.nextInt(Integer.MAX_VALUE));
+          }
+
+          final FieldVector lastSale = new TimeStampMilliVector("Last Sale", allocator);
+          for (int row = 0; row < rows; row++) {
+            ((TimeStampMilliVector) lastSale).setSafe(row, Instant.now().toEpochMilli());
+          }
+
+          List<FieldVector> vectors = ImmutableList.of(id, name, salary, hireDate, lastSale);
+
           try (final VectorSchemaRoot root = new VectorSchemaRoot(vectors)) {
             root.setRowCount(10);
             listener.start(root);
