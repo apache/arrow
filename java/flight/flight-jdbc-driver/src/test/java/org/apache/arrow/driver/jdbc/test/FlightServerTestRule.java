@@ -82,7 +82,7 @@ import com.google.protobuf.ByteString;
 public class FlightServerTestRule implements TestRule, AutoCloseable {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(FlightServerTestRule.class);
-  private static final byte[] TEST_QUERY_TICKET = "SELECT * FROM TEST".getBytes(StandardCharsets.UTF_8);
+  private static final byte[] QUERY_TICKET = "SELECT * FROM TEST".getBytes(StandardCharsets.UTF_8);
   private static final byte[] METADATA_QUERY_TICKET = "SELECT * FROM METADATA".getBytes(StandardCharsets.UTF_8);
 
   private final Map<BaseProperty, Object> properties;
@@ -174,7 +174,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
 
         final Random random = new Random();
 
-        if (Arrays.equals(TEST_QUERY_TICKET, ticket.getBytes())) {
+        if (Arrays.equals(QUERY_TICKET, ticket.getBytes())) {
           final int rows = Byte.MAX_VALUE;
 
           final FieldVector id = new BigIntVector("ID", allocator);
