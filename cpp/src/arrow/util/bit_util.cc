@@ -99,7 +99,7 @@ void SetBitmapImpl(uint8_t* data, int64_t offset, int64_t length) {
   }
 
   // align to a byte boundary
-  data[offset / 8] = BitUtil::SpliceWord(prologue, data[offset / 8], set_byte);
+  data[offset / 8] = BitUtil::SpliceWord(8 - prologue, data[offset / 8], set_byte);
   offset += prologue;
   length -= prologue;
 
