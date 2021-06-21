@@ -321,6 +321,9 @@ class ARROW_EXPORT OutputType {
     this->resolver_ = other.resolver_;
   }
 
+  OutputType& operator=(const OutputType&) = default;
+  OutputType& operator=(OutputType&&) = default;
+
   /// \brief Return the shape and type of the expected output value of the
   /// kernel given the value descriptors (shapes and types) of the input
   /// arguments. The resolver may make use of state information kept in the

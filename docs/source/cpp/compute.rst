@@ -266,17 +266,17 @@ an ``Invalid`` :class:`Status` when overflow is detected.
 +--------------------------+------------+--------------------+---------------------+
 | abs_checked              | Unary      | Numeric            | Numeric             |
 +--------------------------+------------+--------------------+---------------------+
-| add                      | Binary     | Numeric            | Numeric             |
+| add                      | Binary     | Numeric            | Numeric (1)         |
 +--------------------------+------------+--------------------+---------------------+
-| add_checked              | Binary     | Numeric            | Numeric             |
+| add_checked              | Binary     | Numeric            | Numeric (1)         |
 +--------------------------+------------+--------------------+---------------------+
-| divide                   | Binary     | Numeric            | Numeric             |
+| divide                   | Binary     | Numeric            | Numeric (1)         |
 +--------------------------+------------+--------------------+---------------------+
-| divide_checked           | Binary     | Numeric            | Numeric             |
+| divide_checked           | Binary     | Numeric            | Numeric (1)         |
 +--------------------------+------------+--------------------+---------------------+
-| multiply                 | Binary     | Numeric            | Numeric             |
+| multiply                 | Binary     | Numeric            | Numeric (1)         |
 +--------------------------+------------+--------------------+---------------------+
-| multiply_checked         | Binary     | Numeric            | Numeric             |
+| multiply_checked         | Binary     | Numeric            | Numeric (1)         |
 +--------------------------+------------+--------------------+---------------------+
 | negate                   | Unary      | Numeric            | Numeric             |
 +--------------------------+------------+--------------------+---------------------+
@@ -286,10 +286,31 @@ an ``Invalid`` :class:`Status` when overflow is detected.
 +--------------------------+------------+--------------------+---------------------+
 | power_checked            | Binary     | Numeric            | Numeric             |
 +--------------------------+------------+--------------------+---------------------+
-| subtract                 | Binary     | Numeric            | Numeric             |
+| subtract                 | Binary     | Numeric            | Numeric (1)         |
 +--------------------------+------------+--------------------+---------------------+
-| subtract_checked         | Binary     | Numeric            | Numeric             |
+| subtract_checked         | Binary     | Numeric            | Numeric (1)         |
 +--------------------------+------------+--------------------+---------------------+
+
+* \(1) Precision and scale of computed DECIMAL results
+
++------------+---------------------------------------------+
+| Operation  | Result precision and scale                  |
++============+=============================================+
+| | add      | | scale = max(s1, s2)                       |
+| | subtract | | precision = max(p1-s1, p2-s2) + 1 + scale |
++------------+---------------------------------------------+
+| multiply   | | scale = s1 + s2                           |
+|            | | precision = p1 + p2 + 1                   |
++------------+---------------------------------------------+
+| divide     | | scale = max(4, s1 + p2 - s2 + 1)          |
+|            | | precision = p1 - s1 + s2 + scale          |
++------------+---------------------------------------------+
+
+It's compatible with Redshift's decimal promotion rules. All decimal digits
+are preserved for `add`, `subtract` and `multiply` operations. The result
+precision of `divide` is at least the sum of precisions of both operands with
+enough scale kept. Error is returned if the result precision is beyond the
+decimal value range.
 
 Comparisons
 ~~~~~~~~~~~
