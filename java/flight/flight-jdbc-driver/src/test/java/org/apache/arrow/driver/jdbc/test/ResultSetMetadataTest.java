@@ -114,9 +114,9 @@ public class ResultSetMetadataTest {
     final String secondColumn = metadata.getColumnTypeName(2);
     final String thirdColumn = metadata.getColumnTypeName(3);
 
-    collector.checkThat(firstColumn, CoreMatchers.is(equalTo("Int")));
-    collector.checkThat(secondColumn, CoreMatchers.is(equalTo("Utf8")));
-    collector.checkThat(thirdColumn, CoreMatchers.is(equalTo("FloatingPoint")));
+    collector.checkThat(firstColumn, equalTo("Int"));
+    collector.checkThat(secondColumn, equalTo("Utf8"));
+    collector.checkThat(thirdColumn, equalTo("FloatingPoint"));
   }
 
   /**
@@ -142,9 +142,9 @@ public class ResultSetMetadataTest {
     final String secondColumn = metadata.getColumnName(2);
     final String thirdColumn = metadata.getColumnName(3);
 
-    collector.checkThat(firstColumn, CoreMatchers.is(equalTo("integer0")));
-    collector.checkThat(secondColumn, CoreMatchers.is(equalTo("string1")));
-    collector.checkThat(thirdColumn, CoreMatchers.is(equalTo("float2")));
+    collector.checkThat(firstColumn, equalTo("integer0"));
+    collector.checkThat(secondColumn, equalTo("string1"));
+    collector.checkThat(thirdColumn, equalTo("float2"));
   }
 
 
@@ -172,9 +172,9 @@ public class ResultSetMetadataTest {
     final int secondColumn = metadata.getColumnType(2);
     final int thirdColumn = metadata.getColumnType(3);
 
-    collector.checkThat(firstColumn, CoreMatchers.is(equalTo(1)));
-    collector.checkThat(secondColumn, CoreMatchers.is(equalTo(1)));
-    collector.checkThat(thirdColumn, CoreMatchers.is(equalTo(1)));
+    collector.checkThat(firstColumn, equalTo(1));
+    collector.checkThat(secondColumn, equalTo(1));
+    collector.checkThat(thirdColumn, equalTo(1));
   }
 
 
