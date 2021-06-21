@@ -756,6 +756,7 @@ def test_large_binary_array(ty):
     assert len(arr) == nrepeats
 
 
+@pytest.mark.slow
 @pytest.mark.large_memory
 @pytest.mark.parametrize("ty", [pa.large_binary(), pa.large_string()])
 def test_large_binary_value(ty):
@@ -2169,7 +2170,6 @@ def test_auto_chunking_list_of_binary():
     assert arr.chunk(1).to_pylist() == [['x' * 1024]] * 2
 
 
-@pytest.mark.slow
 @pytest.mark.large_memory
 def test_auto_chunking_list_like():
     item = np.ones((2**28,), dtype='uint8')
@@ -2192,17 +2192,17 @@ def test_auto_chunking_list_like():
     assert scalar.values == expected
 
 
-# @pytest.mark.slow
-# @pytest.mark.large_memory
-# def test_auto_chunking_map_type():
-#     # takes ~20 minutes locally
-#     ty = pa.map_(pa.int8(), pa.int8())
-#     item = [(1, 1)] * 2**28
-#     data = [item] * 2**3
-#     arr = pa.array(data, type=ty)
-#     assert isinstance(arr, pa.ChunkedArray)
-#     assert len(arr.chunk(0)) == 7
-#     assert len(arr.chunk(1)) == 1
+@pytest.mark.slow
+@pytest.mark.large_memory
+def test_auto_chunking_map_type():
+    # takes ~20 minutes locally
+    ty = pa.map_(pa.int8(), pa.int8())
+    item = [(1, 1)] * 2**28
+    data = [item] * 2**3
+    arr = pa.array(data, type=ty)
+    assert isinstance(arr, pa.ChunkedArray)
+    assert len(arr.chunk(0)) == 7
+    assert len(arr.chunk(1)) == 1
 
 
 @pytest.mark.large_memory
@@ -2238,7 +2238,6 @@ def test_nested_auto_chunking(ty, char):
     }
 
 
-@pytest.mark.slow
 @pytest.mark.large_memory
 def test_array_from_pylist_data_overflow():
     # Regression test for ARROW-12983
