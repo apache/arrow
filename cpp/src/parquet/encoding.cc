@@ -341,7 +341,6 @@ class PlainEncoder<BooleanType> : public EncoderImpl, virtual public BooleanEnco
       // no nulls, just dump the data
       ::arrow::internal::CopyBitmap(data.data()->GetValues<uint8_t>(1), data.offset(),
                                     data.length(), sink_.mutable_data(), sink_.length());
-      sink_.UnsafeAdvance(data.length());
     } else {
       auto n_valid = BitUtil::BytesForBits(data.length() - data.null_count());
       PARQUET_THROW_NOT_OK(sink_.Reserve(n_valid));
@@ -360,6 +359,7 @@ class PlainEncoder<BooleanType> : public EncoderImpl, virtual public BooleanEnco
       }
       writer.Finish();
     }
+    sink_.UnsafeAdvance(data.length());
   }
 
  private:

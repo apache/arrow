@@ -59,7 +59,7 @@ template <typename T>
 void CheckUnique(const std::shared_ptr<T>& input,
                  const std::shared_ptr<Array>& expected) {
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> result, Unique(input));
-  ASSERT_OK(result->ValidateFull());
+  ValidateOutput(*result);
   // TODO: We probably shouldn't rely on array ordering.
   ASSERT_ARRAYS_EQUAL(*expected, *result);
 }
@@ -84,7 +84,7 @@ void CheckValueCountsNull(const std::shared_ptr<DataType>& type) {
   std::shared_ptr<Array> ex_counts = ArrayFromJSON(int64(), "[]");
 
   ASSERT_OK_AND_ASSIGN(auto result_struct, ValueCounts(input));
-  ASSERT_OK(result_struct->ValidateFull());
+  ValidateOutput(*result_struct);
   ASSERT_NE(result_struct->GetFieldByName(kValuesFieldName), nullptr);
   // TODO: We probably shouldn't rely on value ordering.
   ASSERT_ARRAYS_EQUAL(*ex_values, *result_struct->GetFieldByName(kValuesFieldName));
@@ -96,7 +96,7 @@ void CheckValueCounts(const std::shared_ptr<T>& input,
                       const std::shared_ptr<Array>& expected_values,
                       const std::shared_ptr<Array>& expected_counts) {
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> result, ValueCounts(input));
-  ASSERT_OK(result->ValidateFull());
+  ValidateOutput(*result);
   auto result_struct = std::dynamic_pointer_cast<StructArray>(result);
   ASSERT_EQ(result_struct->num_fields(), 2);
   // TODO: We probably shouldn't rely on value ordering.
@@ -128,7 +128,7 @@ void CheckDictEncode(const std::shared_ptr<Array>& input,
 
   ASSERT_OK_AND_ASSIGN(Datum datum_out, DictionaryEncode(input));
   std::shared_ptr<Array> result = MakeArray(datum_out.array());
-  ASSERT_OK(result->ValidateFull());
+  ValidateOutput(*result);
 
   ASSERT_ARRAYS_EQUAL(expected, *result);
 }
@@ -691,10 +691,7 @@ TEST_F(TestHashKernel, ZeroLengthDictionaryEncode) {
   // ARROW-7008
   auto values = ArrayFromJSON(utf8(), "[]");
   ASSERT_OK_AND_ASSIGN(Datum datum_result, DictionaryEncode(values));
-
-  std::shared_ptr<Array> result = datum_result.make_array();
-  const auto& dict_result = checked_cast<const DictionaryArray&>(*result);
-  ASSERT_OK(dict_result.ValidateFull());
+  ValidateOutput(datum_result);
 }
 
 TEST_F(TestHashKernel, NullEncodingSchemes) {

@@ -135,6 +135,8 @@ void CheckScalarBinary(std::string func_name, std::shared_ptr<Scalar> left_input
 void CheckVectorUnary(std::string func_name, Datum input, std::shared_ptr<Array> expected,
                       const FunctionOptions* options = nullptr);
 
+void ValidateOutput(const Datum& output);
+
 using BinaryTypes =
     ::testing::Types<BinaryType, LargeBinaryType, StringType, LargeStringType>;
 using StringTypes = ::testing::Types<StringType, LargeStringType>;
