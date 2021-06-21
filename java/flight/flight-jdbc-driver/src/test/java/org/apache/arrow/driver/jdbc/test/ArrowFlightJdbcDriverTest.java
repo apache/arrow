@@ -25,9 +25,7 @@ import java.net.URI;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.DriverManager;
-import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Properties;
@@ -270,58 +268,6 @@ public class ArrowFlightJdbcDriverTest {
             "jdbc:arrow-flight://localhost:2222/?k1=v1&m=");
     } catch (InvocationTargetException e) {
       throw (SQLException) e.getCause();
-    }
-  }
-
-  /**
-   * Tests whether the {@link ArrowFlightJdbcDriver} can run a query succesfully.
-   *
-   * @throws Exception
-   *           If the connection fails to be established.
-   */
-  @Test
-  public void testShouldRunQuery() throws Exception {
-    /*
-    * ================== [ UNSUPPORTED ] ==================
-    * final Driver driver = new ArrowFlightJdbcDriver();
-    *
-    * final URI uri = server.getLocation().getUri();
-    *
-    * try (Connection connection = driver.connect(
-    *     "jdbc:arrow-flight://" + uri.getHost() + ":" + uri.getPort(),
-    *         PropertiesSample.CONFORMING.getProperties())) {
-    *       Statement statement = connection.createStatement();
-    *       statement.executeUpdate("CREATE SCHEMA sampledb");
-    * }
-    */
-  }
-
-  /**
-   * Tests whether the {@link ArrowFlightJdbcDriver} can run a query successfully.
-   *
-   * @throws Exception
-   *           If the connection fails to be established.
-   */
-  @Test
-  public void testShouldRunSelectQuery() throws Exception {
-    // Get the Arrow Flight JDBC driver by providing a URL with a valid prefix.
-    final Driver driver = new ArrowFlightJdbcDriver();
-
-    try (Connection connection = driver.connect(
-            "jdbc:arrow-flight://localhost:32010",
-            PropertiesSample.CONFORMING.getProperties())) {
-      try (Statement statement = connection.createStatement()) {
-        // TODO Run query against bare Flight (hardcode a schema)
-        try (ResultSet resultSet = statement.executeQuery("SELECT * FROM test.sample")) {
-          int expectedColCount = 12;
-
-          while (resultSet.next()) {
-            for (; expectedColCount > 0; expectedColCount--) {
-              resultSet.getObject(expectedColCount);
-            }
-          }
-        }
-      }
     }
   }
 
