@@ -113,7 +113,7 @@ If no projection is needed, specify an empty String array ``new String[0]`` in S
     
 This way all columns will be emitted during scanning.
 
-Read data from HDFS
+Read Data from HDFS
 ===========
 
 ``FileSystemDataset`` supports reading data from non-local file systems. HDFS support is included in the official Apache Arrow Java package releases and
