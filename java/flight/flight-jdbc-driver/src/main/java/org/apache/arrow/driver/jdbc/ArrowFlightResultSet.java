@@ -65,6 +65,7 @@ public class ArrowFlightResultSet extends AvaticaResultSet {
                   Field field = fields.get(index);
                   ArrowType.ArrowTypeID fieldTypeId = field.getType().getTypeID();
 
+                  // TODO Revisit this later -- unfinished.
                   return new ColumnMetaData(
                           index,
                           false,
