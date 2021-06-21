@@ -56,7 +56,10 @@ import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.Float4Vector;
+import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.util.Text;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
@@ -73,6 +76,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(FlightServerTestRule.class);
   private static final byte[] QUERY_TICKET = "SELECT * FROM TEST".getBytes(StandardCharsets.UTF_8);
+  private static final byte[] METADATA_QUERY_TICKET = "SELECT * FROM METADATA".getBytes(StandardCharsets.UTF_8);
 
   private final Map<BaseProperty, Object> properties;
   private final BufferAllocator allocator;
@@ -172,6 +176,26 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
           }
           try (final VectorSchemaRoot root = new VectorSchemaRoot(vectors)) {
             root.setRowCount(10);
+            listener.start(root);
+            listener.putNext();
+            listener.putNext();
+            listener.completed();
+          }
+        } else if (Arrays.equals(METADATA_QUERY_TICKET, ticket.getBytes())) {
+          final List<FieldVector> vectors = new ArrayList<>();
+          final BigIntVector integerVector = new BigIntVector("integer" + 0, allocator);
+          final VarCharVector stringVector = new VarCharVector("string" + 1, allocator);
+          final Float4Vector float4Vector = new Float4Vector("float" + 2, allocator);
+
+          integerVector.setSafe(0, 1);
+          stringVector.setSafe(0, new Text("teste"));
+          float4Vector.setSafe(0, (float) 4.1);
+          vectors.add(integerVector);
+          vectors.add(stringVector);
+          vectors.add(float4Vector);
+
+          try (final VectorSchemaRoot root = new VectorSchemaRoot(vectors)) {
+            root.setRowCount(1);
             listener.start(root);
             listener.putNext();
             listener.putNext();
