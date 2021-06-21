@@ -21,10 +21,10 @@ import static org.apache.arrow.driver.jdbc.utils.BaseProperty.HOST;
 import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PORT;
 
 import java.io.BufferedReader;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.HashMap;
@@ -102,7 +102,7 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
       }
 
       try (Reader reader = new BufferedReader(new InputStreamReader(
-          new FileInputStream(this.getClass().getResource("/flight.properties").getPath()), "UTF-8"))) {
+          this.getClass().getResourceAsStream("/flight.properties"), StandardCharsets.UTF_8))) {
         final Properties properties = new Properties();
         properties.load(reader);
 
