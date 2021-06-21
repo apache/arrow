@@ -42,7 +42,13 @@ import org.apache.arrow.vector.types.pojo.Schema;
 
 import com.google.common.collect.ImmutableList;
 
-
+/**
+ * Utility class for running tests against a FlightServer.
+ *
+ * @deprecated this class doesn't follow best practices
+ * @see org.apache.arrow.driver.jdbc.test.FlightServerTestRule#apply
+ */
+@Deprecated
 public final class FlightTestUtils {
 
   private static final Random RANDOM = new Random();
@@ -92,7 +98,10 @@ public final class FlightTestUtils {
   /**
    * Return a a FlightServer (actually anything that is startable)
    * that has been started bound to a random port.
+   * @deprecated this approach is unnecessarily verbose and allows for little to no reuse.
+   * @see org.apache.arrow.driver.jdbc.test.FlightServerTestRule
    */
+  @Deprecated
   public <T> T getStartedServer(Function<Location, T> newServerFromLocation) throws IOException {
     IOException lastThrown = null;
     T server = null;
@@ -126,7 +135,9 @@ public final class FlightTestUtils {
    * Get a Flight Producer.
    *
    * @return NoOpFlightProducer.
+   * @deprecated this should not be visible.
    */
+  @Deprecated
   public FlightProducer getFlightProducer(BufferAllocator allocator) {
     return new NoOpFlightProducer() {
       @Override

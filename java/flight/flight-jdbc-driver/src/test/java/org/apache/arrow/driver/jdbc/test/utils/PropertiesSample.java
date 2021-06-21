@@ -23,11 +23,16 @@ import java.util.Properties;
 
 import javax.annotation.Nullable;
 
+import org.apache.arrow.driver.jdbc.test.FlightServerTestRule;
 import org.apache.arrow.util.Preconditions;
+
 
 /**
  * {@link Properties} wrapper used for testing. Uses sample values.
+ * @deprecated not updatable to match dinamic server allocation.
+ * @see org.apache.arrow.driver.jdbc.test.FlightServerTestRule
  */
+@Deprecated
 public enum PropertiesSample {
   CONFORMING(UrlSample.CONFORMING, "user", "flight", "password",
       "flight123"), UNSUPPORTED(UrlSample.UNSUPPORTED, "user", "", "password",
@@ -39,6 +44,13 @@ public enum PropertiesSample {
     loadProperties(url, properties);
   }
 
+  /**
+   * Returns default properties.
+   *
+   * @deprecated not updatable to match dinamic server allocation.
+   * @see FlightServerTestRule#getProperties
+   */
+  @Deprecated
   public final Properties getProperties() {
     return properties;
   }

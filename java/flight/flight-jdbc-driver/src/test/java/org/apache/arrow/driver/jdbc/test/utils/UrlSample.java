@@ -17,18 +17,21 @@
 
 package org.apache.arrow.driver.jdbc.test.utils;
 
+import org.apache.arrow.driver.jdbc.utils.BaseProperty;
 import org.apache.arrow.util.Preconditions;
 
 /**
  * Class for storing sample JDBC URLs. Used for testing.
+ * @deprecated not updatable to match dinamic server allocation.
+ * @see org.apache.arrow.driver.jdbc.utils.BaseProperty
  */
+@Deprecated
 public enum UrlSample {
   CONFORMING("jdbc:arrow-flight://", "localhost", 32010),
   UNSUPPORTED("jdbc:mysql://", "localhost", 3306);
 
   private final String prefix;
   private final String host;
-  // TODO Check how to use this in tests.
   private final int port;
 
   private UrlSample(String prefix, String host, int port) {
@@ -50,7 +53,10 @@ public enum UrlSample {
    * Gets the host name.
    *
    * @return the host.
+   * @deprecated outdated.
+   * @see BaseProperty#getEntry
    */
+  @Deprecated
   public final String getHost() {
     return host;
   }
@@ -59,7 +65,10 @@ public enum UrlSample {
    * Gets the port number.
    *
    * @return the port.
+   * @deprecated outdated.
+   * @see BaseProperty#getEntry
    */
+  @Deprecated
   public final int getPort() {
     return port;
   }
