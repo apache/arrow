@@ -144,8 +144,8 @@ Status IngestSome(const std::shared_ptr<arrow::Array>& array, R_xlen_t n,
 // Allocate + Ingest
 SEXP ArrayVector__as_vector(R_xlen_t n, const std::shared_ptr<DataType>& type,
                             const ArrayVector& arrays) {
-  // special case when there is only one array
 #if defined(HAS_ALTREP)
+  // special case when there is only one array
   if (arrays.size() == 1) {
     const auto& array = arrays[0];
     if (arrow::r::GetBoolOption("arrow.use_altrep", true) && array->length() > 0 &&
