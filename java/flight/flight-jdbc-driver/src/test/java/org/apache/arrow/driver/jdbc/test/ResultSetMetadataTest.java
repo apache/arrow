@@ -133,4 +133,21 @@ public class ResultSetMetadataTest {
     collector.checkThat(secondColumn, CoreMatchers.is(equalTo("string1")));
     collector.checkThat(thirdColumn, CoreMatchers.is(equalTo("float2")));
   }
+
+  /**
+   * Test if {@link ResultSetMetaData#getColumnType(int)}returns the correct values.
+   * TODO This test will need a refactor after the conversion type is finalized
+   *
+   * @throws SQLException in case of error.
+   */
+  @Test
+  public void testShouldGetColumnType() throws SQLException {
+    final int firstColumn = metadata.getColumnType(1);
+    final int secondColumn = metadata.getColumnType(2);
+    final int thirdColumn = metadata.getColumnType(3);
+
+    collector.checkThat(firstColumn, CoreMatchers.is(equalTo(1)));
+    collector.checkThat(secondColumn, CoreMatchers.is(equalTo(1)));
+    collector.checkThat(thirdColumn, CoreMatchers.is(equalTo(1)));
+  }
 }
