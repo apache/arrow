@@ -45,8 +45,6 @@
 #include <arrow/ipc/type_fwd.h>
 #include <arrow/json/type_fwd.h>
 #include <arrow/type_fwd.h>
-#include <arrow/util/parallel.h>
-#include <arrow/util/task_group.h>
 #include <arrow/util/type_fwd.h>
 
 #if defined(ARROW_R_WITH_PARQUET)
@@ -172,30 +170,6 @@ void Init_Altrep_classes(DllInfo* dll);
 SEXP MakeInt32ArrayNoNull(const std::shared_ptr<Array>& array);
 SEXP MakeDoubleArrayNoNull(const std::shared_ptr<Array>& array);
 #endif
-
-class RTasks {
- public:
-  using Task = internal::FnOnce<Status()>;
-
-  explicit RTasks(bool use_threads);
-
-  // This Finish() method must never be called from a thread pool thread
-  // as this would deadlock.
-  //
-  // Usage is to :
-  // - create an RTasks instance on the main thread
-  // - add some tasks with .Append()
-  // - and then call .Finish() so that the parallel tasks are finished
-  Status Finish();
-  void Append(bool parallel, Task&& task);
-
-  void Reset();
-
-  bool use_threads_;
-  StopSource stop_source_;
-  std::shared_ptr<arrow::internal::TaskGroup> parallel_tasks_;
-  std::vector<Task> delayed_serial_tasks_;
-};
 
 }  // namespace r
 }  // namespace arrow

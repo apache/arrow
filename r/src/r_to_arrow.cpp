@@ -31,8 +31,8 @@
 #include <arrow/util/checked_cast.h>
 #include <arrow/util/converter.h>
 #include <arrow/util/logging.h>
-#include <arrow/util/parallel.h>
-#include <arrow/util/task_group.h>
+
+#include "./r_task_group.h"
 
 namespace arrow {
 
@@ -49,52 +49,6 @@ using internal::MakeChunker;
 using internal::MakeConverter;
 
 namespace r {
-
-RTasks::RTasks(bool use_threads)
-    : use_threads_(use_threads),
-      stop_source_(),
-      parallel_tasks_(use_threads
-                          ? arrow::internal::TaskGroup::MakeThreaded(
-                                arrow::internal::GetCpuThreadPool(), stop_source_.token())
-                          : nullptr) {}
-
-Status RTasks::Finish() {
-  Status status = Status::OK();
-
-  // run the delayed tasks now
-  for (auto& task : delayed_serial_tasks_) {
-    status &= std::move(task)();
-    if (!status.ok()) {
-      stop_source_.RequestStop();
-      break;
-    }
-  }
-
-  // then wait for the parallel tasks to finish
-  if (use_threads_) {
-    status &= parallel_tasks_->Finish();
-  }
-
-  return status;
-}
-
-void RTasks::Append(bool parallel, RTasks::Task&& task) {
-  if (parallel && use_threads_) {
-    parallel_tasks_->Append(std::move(task));
-  } else {
-    delayed_serial_tasks_.push_back(std::move(task));
-  }
-}
-
-void RTasks::Reset() {
-  delayed_serial_tasks_.clear();
-
-  stop_source_.Reset();
-  if (use_threads_) {
-    parallel_tasks_ = arrow::internal::TaskGroup::MakeThreaded(
-        arrow::internal::GetCpuThreadPool(), stop_source_.token());
-  }
-}
 
 struct RConversionOptions {
   RConversionOptions() = default;
