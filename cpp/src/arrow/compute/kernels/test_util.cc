@@ -223,32 +223,10 @@ void CheckScalarBinary(std::string func_name, std::shared_ptr<Scalar> left_input
   CheckScalar(std::move(func_name), {left_input, right_input}, expected, options);
 }
 
-void ValidateOutput(const Datum& output) {
-  switch (output.kind()) {
-    case Datum::ARRAY:
-      ValidateOutput(*output.array());
-      break;
-    case Datum::CHUNKED_ARRAY:
-      ValidateOutput(*output.chunked_array());
-      break;
-    case Datum::RECORD_BATCH:
-      ValidateOutput(*output.record_batch());
-      break;
-    case Datum::TABLE:
-      ValidateOutput(*output.table());
-      break;
-    default:
-      break;
-  }
-}
+namespace {
 
 void ValidateOutput(const ArrayData& output) {
   ASSERT_OK(::arrow::internal::ValidateArrayFull(output));
-  TestInitialized(output);
-}
-
-void ValidateOutput(const Array& output) {
-  ASSERT_OK(output.ValidateFull());
   TestInitialized(output);
 }
 
@@ -272,6 +250,27 @@ void ValidateOutput(const Table& output) {
     for (const auto& chunk : column->chunks()) {
       TestInitialized(*chunk);
     }
+  }
+}
+
+}  // namespace
+
+void ValidateOutput(const Datum& output) {
+  switch (output.kind()) {
+    case Datum::ARRAY:
+      ValidateOutput(*output.array());
+      break;
+    case Datum::CHUNKED_ARRAY:
+      ValidateOutput(*output.chunked_array());
+      break;
+    case Datum::RECORD_BATCH:
+      ValidateOutput(*output.record_batch());
+      break;
+    case Datum::TABLE:
+      ValidateOutput(*output.table());
+      break;
+    default:
+      break;
   }
 }
 

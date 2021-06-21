@@ -676,7 +676,7 @@ TEST(TestBufferBuilder, Finish) {
   auto data_ptr = data.c_str();
 
   for (const bool shrink_to_fit : {true, false}) {
-    SCOPED_TRACE(shrink_to_fit);
+    ARROW_SCOPED_TRACE("shrink_to_fit = ", shrink_to_fit);
     BufferBuilder builder;
     ASSERT_OK(builder.Append(data_ptr, 9));
     ASSERT_OK(builder.Append(data_ptr, 9));
@@ -688,8 +688,7 @@ TEST(TestBufferBuilder, Finish) {
     ASSERT_EQ(buf->capacity(), 64);
   }
   for (const bool shrink_to_fit : {true, false}) {
-    // XXX would be nice to be able to write TEST_TRACE("shrink_to_fit =", shrink_to_fit)
-    SCOPED_TRACE(shrink_to_fit);
+    ARROW_SCOPED_TRACE("shrink_to_fit = ", shrink_to_fit);
     BufferBuilder builder;
     ASSERT_OK(builder.Reserve(1024));
     builder.UnsafeAppend(data_ptr, 9);
@@ -705,7 +704,7 @@ TEST(TestBufferBuilder, Finish) {
 
 TEST(TestBufferBuilder, FinishEmpty) {
   for (const bool shrink_to_fit : {true, false}) {
-    SCOPED_TRACE(shrink_to_fit);
+    ARROW_SCOPED_TRACE("shrink_to_fit = ", shrink_to_fit);
     BufferBuilder builder;
     ASSERT_EQ(0, builder.length());
     ASSERT_EQ(0, builder.capacity());
@@ -715,7 +714,7 @@ TEST(TestBufferBuilder, FinishEmpty) {
     ASSERT_EQ(buf->capacity(), 0);
   }
   for (const bool shrink_to_fit : {true, false}) {
-    SCOPED_TRACE(shrink_to_fit);
+    ARROW_SCOPED_TRACE("shrink_to_fit = ", shrink_to_fit);
     BufferBuilder builder;
     ASSERT_OK(builder.Reserve(1024));
     ASSERT_EQ(0, builder.length());

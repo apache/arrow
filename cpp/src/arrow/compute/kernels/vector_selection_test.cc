@@ -51,7 +51,7 @@ TEST(GetTakeIndices, Basics) {
     ASSERT_OK_AND_ASSIGN(auto indices,
                          internal::GetTakeIndices(*filter->data(), null_selection));
     auto indices_array = MakeArray(indices);
-    ValidateOutput(*indices_array);
+    ValidateOutput(indices);
     AssertArraysEqual(*expected_indices, *indices_array, /*verbose=*/true);
   };
 
@@ -73,13 +73,13 @@ TEST(GetTakeIndices, NullValidityBuffer) {
   ASSERT_OK_AND_ASSIGN(auto indices,
                        internal::GetTakeIndices(*filter.data(), FilterOptions::DROP));
   auto indices_array = MakeArray(indices);
-  ValidateOutput(*indices_array);
+  ValidateOutput(indices);
   AssertArraysEqual(*expected_indices, *indices_array, /*verbose=*/true);
 
   ASSERT_OK_AND_ASSIGN(
       indices, internal::GetTakeIndices(*filter.data(), FilterOptions::EMIT_NULL));
   indices_array = MakeArray(indices);
-  ValidateOutput(*indices_array);
+  ValidateOutput(indices);
   AssertArraysEqual(*expected_indices, *indices_array, /*verbose=*/true);
 }
 
@@ -642,7 +642,7 @@ class TestFilterKernelWithRecordBatch : public TestFilterKernel<RecordBatch> {
     std::shared_ptr<RecordBatch> actual;
 
     ASSERT_OK(this->DoFilter(schm, batch_json, selection, options, &actual));
-    ValidateOutput(*actual);
+    ValidateOutput(actual);
     ASSERT_BATCHES_EQUAL(*RecordBatchFromJSON(schm, expected_batch), *actual);
   }
 
@@ -695,7 +695,7 @@ class TestFilterKernelWithChunkedArray : public TestFilterKernel<ChunkedArray> {
                     const std::vector<std::string>& expected) {
     std::shared_ptr<ChunkedArray> actual;
     ASSERT_OK(this->FilterWithArray(type, values, filter, &actual));
-    ValidateOutput(*actual);
+    ValidateOutput(actual);
     AssertChunkedEqual(*ChunkedArrayFromJSON(type, expected), *actual);
   }
 
@@ -705,7 +705,7 @@ class TestFilterKernelWithChunkedArray : public TestFilterKernel<ChunkedArray> {
                            const std::vector<std::string>& expected) {
     std::shared_ptr<ChunkedArray> actual;
     ASSERT_OK(this->FilterWithChunkedArray(type, values, filter, &actual));
-    ValidateOutput(*actual);
+    ValidateOutput(actual);
     AssertChunkedEqual(*ChunkedArrayFromJSON(type, expected), *actual);
   }
 
@@ -754,7 +754,7 @@ class TestFilterKernelWithTable : public TestFilterKernel<Table> {
     std::shared_ptr<Table> actual;
 
     ASSERT_OK(this->FilterWithArray(schm, table_json, filter, options, &actual));
-    ValidateOutput(*actual);
+    ValidateOutput(actual);
     ASSERT_TABLES_EQUAL(*TableFromJSON(schm, expected_table), *actual);
   }
 
@@ -765,7 +765,7 @@ class TestFilterKernelWithTable : public TestFilterKernel<Table> {
     std::shared_ptr<Table> actual;
 
     ASSERT_OK(this->FilterWithChunkedArray(schm, table_json, filter, options, &actual));
-    ValidateOutput(*actual);
+    ValidateOutput(actual);
     AssertTablesEqual(*TableFromJSON(schm, expected_table), *actual,
                       /*same_chunk_layout=*/false);
   }
@@ -843,7 +843,7 @@ void AssertTakeArrays(const std::shared_ptr<Array>& values,
                       const std::shared_ptr<Array>& indices,
                       const std::shared_ptr<Array>& expected) {
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> actual, Take(*values, *indices));
-  ValidateOutput(*actual);
+  ValidateOutput(actual);
   AssertArraysEqual(*expected, *actual, /*verbose=*/true);
 }
 
@@ -860,7 +860,7 @@ void CheckTake(const std::shared_ptr<DataType>& type, const std::string& values,
 
   for (auto index_type : {int8(), uint32()}) {
     ASSERT_OK(TakeJSON(type, values, index_type, indices, &actual));
-    ValidateOutput(*actual);
+    ValidateOutput(actual);
     AssertArraysEqual(*ArrayFromJSON(type, expected), *actual, /*verbose=*/true);
   }
 }
@@ -900,7 +900,7 @@ void ValidateTake(const std::shared_ptr<Array>& values,
                   const std::shared_ptr<Array>& indices) {
   ASSERT_OK_AND_ASSIGN(Datum out, Take(values, indices));
   auto taken = out.make_array();
-  ValidateOutput(*taken);
+  ValidateOutput(taken);
   ASSERT_EQ(indices->length(), taken->length());
   switch (indices->type_id()) {
     case Type::INT8:
@@ -1324,7 +1324,7 @@ class TestPermutationsWithTake : public TestBase {
   void DoTake(const Int16Array& values, const Int16Array& indices,
               std::shared_ptr<Int16Array>* out) {
     ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> boxed_out, Take(values, indices));
-    ValidateOutput(*boxed_out);
+    ValidateOutput(boxed_out);
     *out = checked_pointer_cast<Int16Array>(std::move(boxed_out));
   }
 
@@ -1441,7 +1441,7 @@ class TestTakeKernelWithRecordBatch : public TestTakeKernelTyped<RecordBatch> {
 
     for (auto index_type : {int8(), uint32()}) {
       ASSERT_OK(TakeJSON(schm, batch_json, index_type, indices, &actual));
-      ValidateOutput(*actual);
+      ValidateOutput(actual);
       ASSERT_BATCHES_EQUAL(*RecordBatchFromJSON(schm, expected_batch), *actual);
     }
   }
@@ -1499,7 +1499,7 @@ class TestTakeKernelWithChunkedArray : public TestTakeKernelTyped<ChunkedArray> 
                   const std::vector<std::string>& expected) {
     std::shared_ptr<ChunkedArray> actual;
     ASSERT_OK(this->TakeWithArray(type, values, indices, &actual));
-    ValidateOutput(*actual);
+    ValidateOutput(actual);
     AssertChunkedEqual(*ChunkedArrayFromJSON(type, expected), *actual);
   }
 
@@ -1509,7 +1509,7 @@ class TestTakeKernelWithChunkedArray : public TestTakeKernelTyped<ChunkedArray> 
                          const std::vector<std::string>& expected) {
     std::shared_ptr<ChunkedArray> actual;
     ASSERT_OK(this->TakeWithChunkedArray(type, values, indices, &actual));
-    ValidateOutput(*actual);
+    ValidateOutput(actual);
     AssertChunkedEqual(*ChunkedArrayFromJSON(type, expected), *actual);
   }
 
@@ -1557,7 +1557,7 @@ class TestTakeKernelWithTable : public TestTakeKernelTyped<Table> {
     std::shared_ptr<Table> actual;
 
     ASSERT_OK(this->TakeWithArray(schm, table_json, filter, &actual));
-    ValidateOutput(*actual);
+    ValidateOutput(actual);
     ASSERT_TABLES_EQUAL(*TableFromJSON(schm, expected_table), *actual);
   }
 
@@ -1568,7 +1568,7 @@ class TestTakeKernelWithTable : public TestTakeKernelTyped<Table> {
     std::shared_ptr<Table> actual;
 
     ASSERT_OK(this->TakeWithChunkedArray(schm, table_json, filter, &actual));
-    ValidateOutput(*actual);
+    ValidateOutput(actual);
     ASSERT_TABLES_EQUAL(*TableFromJSON(schm, expected_table), *actual);
   }
 

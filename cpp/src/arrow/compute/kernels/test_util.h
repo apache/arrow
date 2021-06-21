@@ -136,11 +136,6 @@ void CheckVectorUnary(std::string func_name, Datum input, std::shared_ptr<Array>
                       const FunctionOptions* options = nullptr);
 
 void ValidateOutput(const Datum& output);
-void ValidateOutput(const ArrayData& output);
-void ValidateOutput(const Array& output);
-void ValidateOutput(const ChunkedArray& output);
-void ValidateOutput(const RecordBatch& output);
-void ValidateOutput(const Table& output);
 
 using BinaryTypes =
     ::testing::Types<BinaryType, LargeBinaryType, StringType, LargeStringType>;

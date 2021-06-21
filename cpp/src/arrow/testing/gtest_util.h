@@ -41,6 +41,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/string_builder.h"
 #include "arrow/util/type_fwd.h"
 
 // NOTE: failing must be inline in the macros below, to get correct file / line number
@@ -135,6 +136,11 @@
     ASSERT_OK_AND_ASSIGN(auto _actual, (expr)); \
     ASSERT_EQ(expected, _actual);               \
   } while (0)
+
+// A generalized version of GTest's SCOPED_TRACE that takes arbitrary arguments.
+//   ARROW_SCOPED_TRACE("some variable = ", some_variable, ...)
+
+#define ARROW_SCOPED_TRACE(...) SCOPED_TRACE(::arrow::util::StringBuilder(__VA_ARGS__))
 
 namespace arrow {
 

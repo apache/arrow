@@ -70,11 +70,14 @@ class ARROW_EXPORT BufferBuilder {
   /// shrinking the builder.
   /// \return Status
   Status Resize(const int64_t new_capacity, bool shrink_to_fit = true) {
-    // Resize(0) is a no-op  (XXX: why??)
-    if (new_capacity == 0) {
-      return Status::OK();
+    if (buffer_ == NULLPTR) {
+      ARROW_ASSIGN_OR_RAISE(buffer_, AllocateResizableBuffer(new_capacity, pool_));
+    } else {
+      ARROW_RETURN_NOT_OK(buffer_->Resize(new_capacity, shrink_to_fit));
     }
-    return ResizeInternal(new_capacity, shrink_to_fit);
+    capacity_ = buffer_->capacity();
+    data_ = buffer_->mutable_data();
+    return Status::OK();
   }
 
   /// \brief Ensure that builder can accommodate the additional number of bytes
@@ -146,7 +149,7 @@ class ARROW_EXPORT BufferBuilder {
   /// a reallocation, at the expense of potentially more memory consumption.
   /// \return Status
   Status Finish(std::shared_ptr<Buffer>* out, bool shrink_to_fit = true) {
-    ARROW_RETURN_NOT_OK(ResizeInternal(size_, shrink_to_fit));
+    ARROW_RETURN_NOT_OK(Resize(size_, shrink_to_fit));
     if (size_ != 0) buffer_->ZeroPadding();
     *out = buffer_;
     if (*out == NULLPTR) {
@@ -190,17 +193,6 @@ class ARROW_EXPORT BufferBuilder {
   uint8_t* mutable_data() { return data_; }
 
  private:
-  Status ResizeInternal(const int64_t new_capacity, bool shrink_to_fit = true) {
-    if (buffer_ == NULLPTR) {
-      ARROW_ASSIGN_OR_RAISE(buffer_, AllocateResizableBuffer(new_capacity, pool_));
-    } else {
-      ARROW_RETURN_NOT_OK(buffer_->Resize(new_capacity, shrink_to_fit));
-    }
-    capacity_ = buffer_->capacity();
-    data_ = buffer_->mutable_data();
-    return Status::OK();
-  }
-
   std::shared_ptr<ResizableBuffer> buffer_;
   MemoryPool* pool_;
   uint8_t* data_;
