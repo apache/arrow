@@ -33,8 +33,8 @@ import java.util.Random;
 
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver;
 import org.apache.arrow.driver.jdbc.utils.BaseProperty;
+import org.junit.Assert;
 import org.junit.ClassRule;
-import org.junit.Ignore;
 import org.junit.Test;
 
 public class ResultSetTest {
@@ -79,6 +79,33 @@ public class ResultSetTest {
             assertNotNull(resultSet.getObject(1));
           }
         }
+      }
+    }
+  }
+
+  /**
+   * Tests whether the {@link ArrowFlightJdbcDriver} can run a query successfully.
+   *
+   * @throws Exception
+   *           If the connection fails to be established.
+   */
+  @Test
+  public void testShouldFailedRunSelectQuery() throws Exception {
+
+    Properties properties = new Properties();
+    properties.put(USERNAME.getEntry().getKey(), rule.getProperty(USERNAME));
+    properties.put(PASSWORD.getEntry().getKey(), rule.getProperty(PASSWORD));
+
+    try (Connection connection = (new ArrowFlightJdbcDriver())
+        .connect("jdbc:arrow-flight://" +
+                rule.getProperty(HOST) + ":" +
+                rule.getProperty(PORT),
+            properties)) {
+      Statement statement = connection.createStatement();
+      ResultSet resultSet = statement.executeQuery("SELECT * FROM failed");
+
+      while (resultSet.next()) {
+        assertNotNull(resultSet.getObject(1));
       }
     }
   }
