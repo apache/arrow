@@ -181,21 +181,25 @@ class TestExtensionType : public ::testing::Test {
  public:
   void SetUp() {
     ASSERT_OK(RegisterExtensionType(std::make_shared<UuidType>()));
-    ASSERT_OK(RegisterExtensionType(std::make_shared<ComplexType>(float32())));
+    ASSERT_OK(RegisterExtensionType(std::make_shared<ComplexFloatType>()));
+    ASSERT_OK(RegisterExtensionType(std::make_shared<ComplexDoubleType>()));
   }
 
   void TearDown() {
     if (GetExtensionType("uuid")) {
       ASSERT_OK(UnregisterExtensionType("uuid"));
     }
-    if (GetExtensionType("complex")) {
-      ASSERT_OK(UnregisterExtensionType("complex"));
+    if (GetExtensionType("arrow.complex64")) {
+      ASSERT_OK(UnregisterExtensionType("arrow.complex64"));
+    }
+    if (GetExtensionType("arrow.complex128")) {
+      ASSERT_OK(UnregisterExtensionType("arrow.complex128"));
     }
   }
 };
 
 TEST_F(TestExtensionType, ComplexTypeTest) {
-  auto registered_type = GetExtensionType("complex");
+  auto registered_type = GetExtensionType("arrow.complex64");
   ASSERT_NE(registered_type, nullptr);
 
   auto type = complex64();

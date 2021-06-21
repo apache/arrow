@@ -207,6 +207,12 @@ _NUMERIC_TYPE_DECL(HalfFloat)
 _NUMERIC_TYPE_DECL(Float)
 _NUMERIC_TYPE_DECL(Double)
 
+class ComplexFloatType;
+class ComplexFloatArray;
+
+class ComplexDoubleType;
+class ComplexDoubleArray;
+
 #undef _NUMERIC_TYPE_DECL
 
 enum class DateUnit : char { DAY = 0, MILLI = 1 };
@@ -394,6 +400,12 @@ struct Type {
     /// Like LIST, but with 64-bit offsets
     LARGE_LIST,
 
+    // Single-precision 32-bit complex numbers
+    COMPLEX_FLOAT,
+
+    // Double-precision 64-bit complex numbers
+    COMPLEX_DOUBLE,
+
     // Leave this at the end
     MAX_ID
   };
@@ -430,6 +442,10 @@ std::shared_ptr<DataType> ARROW_EXPORT float16();
 std::shared_ptr<DataType> ARROW_EXPORT float32();
 /// \brief Return a DoubleType instance
 std::shared_ptr<DataType> ARROW_EXPORT float64();
+/// \brief Return a ComplexFloatType instance
+std::shared_ptr<DataType> ARROW_EXPORT complex64();
+/// \brief Return a ComplexDoubleType instance
+std::shared_ptr<DataType> ARROW_EXPORT complex128();
 /// \brief Return a StringType instance
 std::shared_ptr<DataType> ARROW_EXPORT utf8();
 /// \brief Return a LargeStringType instance

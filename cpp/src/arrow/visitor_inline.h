@@ -56,6 +56,8 @@ namespace arrow {
   ARROW_GENERATE_FOR_ALL_NUMERIC_TYPES(ACTION); \
   ACTION(String);                               \
   ACTION(Binary);                               \
+  ACTION(ComplexFloat);                         \
+  ACTION(ComplexDouble);                        \
   ACTION(LargeString);                          \
   ACTION(LargeBinary);                          \
   ACTION(FixedSizeBinary);                      \
