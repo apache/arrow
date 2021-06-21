@@ -139,15 +139,6 @@ test_that("arrange() on integer, double, and character columns", {
       collect(),
     tbl
   )
-  expect_equal(
-    tbl %>%
-      Table$create() %>%
-      arrange(abs(int), dbl) %>%
-      collect(),
-    tbl %>%
-      arrange(abs(int), dbl) %>%
-      collect()
-  )
 })
 
 test_that("arrange() on datetime columns", {
