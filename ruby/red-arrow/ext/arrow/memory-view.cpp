@@ -76,7 +76,11 @@ namespace red_arrow {
         // Memory view doesn't support bit stream. We use one byte
         // for 8 elements. Users can't calculate the number of
         // elements from memory view but it's limitation of memory view.
+#ifdef ARROW_LITTLE_ENDIAN
         view_->format = "b8";
+#else
+        view_->format = "B8";
+#endif
         view_->item_size = 1;
         view_->byte_size = (array.length() + 7) / 8;
         return arrow::Status::OK();
@@ -96,13 +100,13 @@ namespace red_arrow {
 
       arrow::Status Visit(const arrow::Int32Array& array) override {
         fill(static_cast<const arrow::Array&>(array));
-        view_->format = "l<";
+        view_->format = "l";
         return arrow::Status::OK();
       }
 
       arrow::Status Visit(const arrow::Int64Array& array) override {
         fill(static_cast<const arrow::Array&>(array));
-        view_->format = "q<";
+        view_->format = "q";
         return arrow::Status::OK();
       }
 
@@ -114,31 +118,31 @@ namespace red_arrow {
 
       arrow::Status Visit(const arrow::UInt16Array& array) override {
         fill(static_cast<const arrow::Array&>(array));
-        view_->format = "S<";
+        view_->format = "S";
         return arrow::Status::OK();
       }
 
       arrow::Status Visit(const arrow::UInt32Array& array) override {
         fill(static_cast<const arrow::Array&>(array));
-        view_->format = "L<";
+        view_->format = "L";
         return arrow::Status::OK();
       }
 
       arrow::Status Visit(const arrow::UInt64Array& array) override {
         fill(static_cast<const arrow::Array&>(array));
-        view_->format = "Q<";
+        view_->format = "Q";
         return arrow::Status::OK();
       }
 
       arrow::Status Visit(const arrow::FloatArray& array) override {
         fill(static_cast<const arrow::Array&>(array));
-        view_->format = "e";
+        view_->format = "f";
         return arrow::Status::OK();
       }
 
       arrow::Status Visit(const arrow::DoubleArray& array) override {
         fill(static_cast<const arrow::Array&>(array));
-        view_->format = "E";
+        view_->format = "d";
         return arrow::Status::OK();
       }
 
@@ -149,7 +153,7 @@ namespace red_arrow {
           std::static_pointer_cast<const arrow::FixedSizeBinaryType>(
             array.type());
         std::ostringstream output;
-        output << "b" << type->byte_width();
+        output << "C" << type->byte_width();
         priv->format = output.str();
         view_->format = priv->format.c_str();
         return arrow::Status::OK();
@@ -157,43 +161,43 @@ namespace red_arrow {
 
       arrow::Status Visit(const arrow::Date32Array& array) override {
         fill(static_cast<const arrow::Array&>(array));
-        view_->format = "l<";
+        view_->format = "l";
         return arrow::Status::OK();
       }
 
       arrow::Status Visit(const arrow::Date64Array& array) override {
         fill(static_cast<const arrow::Array&>(array));
-        view_->format = "q<";
+        view_->format = "q";
         return arrow::Status::OK();
       }
 
       arrow::Status Visit(const arrow::Time32Array& array) override {
         fill(static_cast<const arrow::Array&>(array));
-        view_->format = "l<";
+        view_->format = "l";
         return arrow::Status::OK();
       }
 
       arrow::Status Visit(const arrow::Time64Array& array) override {
         fill(static_cast<const arrow::Array&>(array));
-        view_->format = "q<";
+        view_->format = "q";
         return arrow::Status::OK();
       }
 
       arrow::Status Visit(const arrow::TimestampArray& array) override {
         fill(static_cast<const arrow::Array&>(array));
-        view_->format = "q<";
+        view_->format = "q";
         return arrow::Status::OK();
       }
 
       arrow::Status Visit(const arrow::Decimal128Array& array) override {
         fill(static_cast<const arrow::Array&>(array));
-        view_->format = "q<2";
+        view_->format = "q2";
         return arrow::Status::OK();
       }
 
       arrow::Status Visit(const arrow::Decimal256Array& array) override {
         fill(static_cast<const arrow::Array&>(array));
-        view_->format = "q<4";
+        view_->format = "q4";
         return arrow::Status::OK();
       }
 
@@ -262,7 +266,11 @@ namespace red_arrow {
       // Memory view doesn't support bit stream. We use one byte
       // for 8 elements. Users can't calculate the number of
       // elements from memory view but it's limitation of memory view.
+#ifdef ARROW_LITTLE_ENDIAN
       view_->format = "b8";
+#else
+      view_->format = "B8";
+#endif
       view_->item_size = 1;
       view_->byte_size = arrow_buffer->size();
       view_->readonly = true;

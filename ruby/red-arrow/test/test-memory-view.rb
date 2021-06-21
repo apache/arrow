@@ -25,14 +25,23 @@ class MemoryViewTest < Test::Unit::TestCase
     end
   end
 
+  def little_endian?
+    [1].pack("s") == [1].pack("s<")
+  end
+
   test("BooleanArray") do
     array = Arrow::BooleanArray.new([true] * 9)
     Fiddle::MemoryView.export(array) do |memory_view|
+      if little_endian?
+        template = "b"
+      else
+        template = "B"
+      end
       assert_equal([
-                     "b8",
+                     "#{template}8",
                      1,
                      2,
-                     [(("1" * 9) + ("0" * 7))].pack("b*"),
+                     [(("1" * 9) + ("0" * 7))].pack("#{template}*"),
                    ],
                    [
                      memory_view.format,
@@ -70,7 +79,7 @@ class MemoryViewTest < Test::Unit::TestCase
                      "s",
                      2,
                      2 * values.size,
-                     values.pack("s<*"),
+                     values.pack("s*"),
                    ],
                    [
                      memory_view.format,
@@ -86,10 +95,10 @@ class MemoryViewTest < Test::Unit::TestCase
     array = Arrow::Int32Array.new(values)
     Fiddle::MemoryView.export(array) do |memory_view|
       assert_equal([
-                     "l<",
+                     "l",
                      4,
                      4 * values.size,
-                     values.pack("l<*"),
+                     values.pack("l*"),
                    ],
                    [
                      memory_view.format,
@@ -105,10 +114,10 @@ class MemoryViewTest < Test::Unit::TestCase
     array = Arrow::Int64Array.new(values)
     Fiddle::MemoryView.export(array) do |memory_view|
       assert_equal([
-                     "q<",
+                     "q",
                      8,
                      8 * values.size,
-                     values.pack("q<*"),
+                     values.pack("q*"),
                    ],
                    [
                      memory_view.format,
@@ -143,10 +152,10 @@ class MemoryViewTest < Test::Unit::TestCase
     array = Arrow::UInt16Array.new(values)
     Fiddle::MemoryView.export(array) do |memory_view|
       assert_equal([
-                     "S<",
+                     "S",
                      2,
                      2 * values.size,
-                     values.pack("S<*"),
+                     values.pack("S*"),
                    ],
                    [
                      memory_view.format,
@@ -162,10 +171,10 @@ class MemoryViewTest < Test::Unit::TestCase
     array = Arrow::UInt32Array.new(values)
     Fiddle::MemoryView.export(array) do |memory_view|
       assert_equal([
-                     "L<",
+                     "L",
                      4,
                      4 * values.size,
-                     values.pack("L<*"),
+                     values.pack("L*"),
                    ],
                    [
                      memory_view.format,
@@ -181,10 +190,10 @@ class MemoryViewTest < Test::Unit::TestCase
     array = Arrow::UInt64Array.new(values)
     Fiddle::MemoryView.export(array) do |memory_view|
       assert_equal([
-                     "Q<",
+                     "Q",
                      8,
                      8 * values.size,
-                     values.pack("Q<*"),
+                     values.pack("Q*"),
                    ],
                    [
                      memory_view.format,
@@ -200,10 +209,10 @@ class MemoryViewTest < Test::Unit::TestCase
     array = Arrow::FloatArray.new(values)
     Fiddle::MemoryView.export(array) do |memory_view|
       assert_equal([
-                     "e",
+                     "f",
                      4,
                      4 * values.size,
-                     values.pack("e*"),
+                     values.pack("f*"),
                    ],
                    [
                      memory_view.format,
@@ -219,10 +228,10 @@ class MemoryViewTest < Test::Unit::TestCase
     array = Arrow::DoubleArray.new(values)
     Fiddle::MemoryView.export(array) do |memory_view|
       assert_equal([
-                     "E",
+                     "d",
                      8,
                      8 * values.size,
-                     values.pack("E*"),
+                     values.pack("d*"),
                    ],
                    [
                      memory_view.format,
@@ -239,7 +248,7 @@ class MemoryViewTest < Test::Unit::TestCase
     array = Arrow::FixedSizeBinaryArray.new(data_type, values)
     Fiddle::MemoryView.export(array) do |memory_view|
       assert_equal([
-                     "b2",
+                     "C2",
                      2,
                      2 * values.size,
                      values.join("").b,
@@ -259,10 +268,10 @@ class MemoryViewTest < Test::Unit::TestCase
     array = Arrow::Date32Array.new(values)
     Fiddle::MemoryView.export(array) do |memory_view|
       assert_equal([
-                     "l<",
+                     "l",
                      4,
                      4 * values.size,
-                     values.pack("l<*"),
+                     values.pack("l*"),
                    ],
                    [
                      memory_view.format,
@@ -279,10 +288,10 @@ class MemoryViewTest < Test::Unit::TestCase
     array = Arrow::Date64Array.new(values)
     Fiddle::MemoryView.export(array) do |memory_view|
       assert_equal([
-                     "q<",
+                     "q",
                      8,
                      8 * values.size,
-                     values.pack("q<*"),
+                     values.pack("q*"),
                    ],
                    [
                      memory_view.format,
@@ -298,10 +307,10 @@ class MemoryViewTest < Test::Unit::TestCase
     array = Arrow::Time32Array.new(:milli, values)
     Fiddle::MemoryView.export(array) do |memory_view|
       assert_equal([
-                     "l<",
+                     "l",
                      4,
                      4 * values.size,
-                     values.pack("l<*"),
+                     values.pack("l*"),
                    ],
                    [
                      memory_view.format,
@@ -317,10 +326,10 @@ class MemoryViewTest < Test::Unit::TestCase
     array = Arrow::Time64Array.new(:nano, values)
     Fiddle::MemoryView.export(array) do |memory_view|
       assert_equal([
-                     "q<",
+                     "q",
                      8,
                      8 * values.size,
-                     values.pack("q<*"),
+                     values.pack("q*"),
                    ],
                    [
                      memory_view.format,
@@ -336,10 +345,10 @@ class MemoryViewTest < Test::Unit::TestCase
     array = Arrow::TimestampArray.new(:micro, values)
     Fiddle::MemoryView.export(array) do |memory_view|
       assert_equal([
-                     "q<",
+                     "q",
                      8,
                      8 * values.size,
-                     values.pack("q<*"),
+                     values.pack("q*"),
                    ],
                    [
                      memory_view.format,
@@ -360,7 +369,7 @@ class MemoryViewTest < Test::Unit::TestCase
     array = Arrow::Decimal128Array.new(data_type, values)
     Fiddle::MemoryView.export(array) do |memory_view|
       assert_equal([
-                     "q<2",
+                     "q2",
                      16,
                      16 * values.size,
                      values.collect {|value| value.to_bytes.to_s}.join(""),
@@ -384,7 +393,7 @@ class MemoryViewTest < Test::Unit::TestCase
     array = Arrow::Decimal256Array.new(data_type, values)
     Fiddle::MemoryView.export(array) do |memory_view|
       assert_equal([
-                     "q<4",
+                     "q4",
                      32,
                      32 * values.size,
                      values.collect {|value| value.to_bytes.to_s}.join(""),
@@ -403,11 +412,16 @@ class MemoryViewTest < Test::Unit::TestCase
     array = Arrow::Int8Array.new(values)
     buffer = array.null_bitmap
     Fiddle::MemoryView.export(buffer) do |memory_view|
+      if little_endian?
+        template = "b"
+      else
+        template = "B"
+      end
       assert_equal([
-                     "b8",
+                     "#{template}8",
                      1,
                      2,
-                     ["100" * 3].pack("b*"),
+                     ["100" * 3].pack("#{template}*"),
                    ],
                    [
                      memory_view.format,
