@@ -44,7 +44,7 @@ class TestProjector : public ::testing::Test {
     // Setup arrow log severity threshold to debug level.
     arrow::util::ArrowLog::StartArrowLog("", arrow::util::ArrowLogLevel::ARROW_DEBUG);
     // To test the eviction, uncomment the line below:
-    setenv("GANDIVA_CACHE_SIZE", "10240", 1);
+    //setenv("GANDIVA_CACHE_SIZE", "10240", 1);
   }
 
  protected:
