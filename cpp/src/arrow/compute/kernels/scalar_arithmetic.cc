@@ -53,11 +53,11 @@ template <typename T>
 using is_signed_integer =
     std::integral_constant<bool, std::is_integral<T>::value && std::is_signed<T>::value>;
 
-template <typename T>
-using enable_if_signed_integer = enable_if_t<is_signed_integer<T>::value, T>;
+template <typename T, typename R = T>
+using enable_if_signed_integer = enable_if_t<is_signed_integer<T>::value, R>;
 
-template <typename T>
-using enable_if_unsigned_integer = enable_if_t<is_unsigned_integer<T>::value, T>;
+template <typename T, typename R = T>
+using enable_if_unsigned_integer = enable_if_t<is_unsigned_integer<T>::value, R>;
 
 template <typename T, typename R = T>
 using enable_if_integer =
@@ -686,6 +686,118 @@ struct Atan2 {
   }
 };
 
+struct LogNatural {
+  template <typename T, typename Arg>
+  static enable_if_floating_point<Arg, T> Call(KernelContext*, Arg arg, Status*) {
+    static_assert(std::is_same<T, Arg>::value, "");
+    if (arg == 0.0) {
+      return -std::numeric_limits<T>::infinity();
+    } else if (arg < 0.0) {
+      return std::numeric_limits<T>::quiet_NaN();
+    }
+    return std::log(arg);
+  }
+};
+
+struct LogNaturalChecked {
+  template <typename T, typename Arg>
+  static enable_if_floating_point<Arg, T> Call(KernelContext*, Arg arg, Status* st) {
+    static_assert(std::is_same<T, Arg>::value, "");
+    if (arg == 0.0) {
+      *st = Status::Invalid("divide by zero");
+      return arg;
+    } else if (arg < 0.0) {
+      *st = Status::Invalid("domain error");
+      return arg;
+    }
+    return std::log(arg);
+  }
+};
+
+struct Log10 {
+  template <typename T, typename Arg>
+  static enable_if_floating_point<Arg, T> Call(KernelContext*, Arg arg, Status*) {
+    static_assert(std::is_same<T, Arg>::value, "");
+    if (arg == 0.0) {
+      return -std::numeric_limits<T>::infinity();
+    } else if (arg < 0.0) {
+      return std::numeric_limits<T>::quiet_NaN();
+    }
+    return std::log10(arg);
+  }
+};
+
+struct Log10Checked {
+  template <typename T, typename Arg>
+  static enable_if_floating_point<Arg, T> Call(KernelContext*, Arg arg, Status* st) {
+    static_assert(std::is_same<T, Arg>::value, "");
+    if (arg == 0) {
+      *st = Status::Invalid("divide by zero");
+      return arg;
+    } else if (arg < 0) {
+      *st = Status::Invalid("domain error");
+      return arg;
+    }
+    return std::log10(arg);
+  }
+};
+
+struct Log2 {
+  template <typename T, typename Arg>
+  static enable_if_floating_point<Arg, T> Call(KernelContext*, Arg arg, Status*) {
+    static_assert(std::is_same<T, Arg>::value, "");
+    if (arg == 0.0) {
+      return -std::numeric_limits<T>::infinity();
+    } else if (arg < 0.0) {
+      return std::numeric_limits<T>::quiet_NaN();
+    }
+    return std::log2(arg);
+  }
+};
+
+struct Log2Checked {
+  template <typename T, typename Arg>
+  static enable_if_floating_point<Arg, T> Call(KernelContext*, Arg arg, Status* st) {
+    static_assert(std::is_same<T, Arg>::value, "");
+    if (arg == 0.0) {
+      *st = Status::Invalid("divide by zero");
+      return arg;
+    } else if (arg < 0.0) {
+      *st = Status::Invalid("domain error");
+      return arg;
+    }
+    return std::log2(arg);
+  }
+};
+
+struct Log1p {
+  template <typename T, typename Arg>
+  static enable_if_floating_point<Arg, T> Call(KernelContext*, Arg arg, Status*) {
+    static_assert(std::is_same<T, Arg>::value, "");
+    if (arg == -1) {
+      return -std::numeric_limits<T>::infinity();
+    } else if (arg < -1) {
+      return std::numeric_limits<T>::quiet_NaN();
+    }
+    return std::log1p(arg);
+  }
+};
+
+struct Log1pChecked {
+  template <typename T, typename Arg>
+  static enable_if_floating_point<Arg, T> Call(KernelContext*, Arg arg, Status* st) {
+    static_assert(std::is_same<T, Arg>::value, "");
+    if (arg == -1) {
+      *st = Status::Invalid("divide by zero");
+      return arg;
+    } else if (arg < -1) {
+      *st = Status::Invalid("domain error");
+      return arg;
+    }
+    return std::log1p(arg);
+  }
+};
+
 // Generate a kernel given an arithmetic functor
 template <template <typename... Args> class KernelGenerator, typename Op>
 ArrayKernelExec ArithmeticExecFromOp(detail::GetTypeId get_id) {
@@ -1295,6 +1407,60 @@ const FunctionDoc atan2_doc{
     "Compute the inverse tangent using argument signs to determine the quadrant",
     ("Integer arguments return double values."),
     {"y", "x"}};
+
+const FunctionDoc ln_doc{
+    "Take natural log of arguments element-wise",
+    ("Non-positive values return -inf or NaN. Null values return null.\n"
+     "Use function \"ln_checked\" if you want non-positive values to raise an error."),
+    {"x"}};
+
+const FunctionDoc ln_checked_doc{
+    "Take natural log of arguments element-wise",
+    ("Non-positive values return -inf or NaN. Null values return null.\n"
+     "Use function \"ln\" if you want non-positive values to return "
+     "-inf or NaN."),
+    {"x"}};
+
+const FunctionDoc log10_doc{
+    "Take log base 10 of arguments element-wise",
+    ("Non-positive values return -inf or NaN. Null values return null.\n"
+     "Use function \"log10_checked\" if you want non-positive values to raise an error."),
+    {"x"}};
+
+const FunctionDoc log10_checked_doc{
+    "Take log base 10 of arguments element-wise",
+    ("Non-positive values return -inf or NaN. Null values return null.\n"
+     "Use function \"log10\" if you want non-positive values to return "
+     "-inf or NaN."),
+    {"x"}};
+
+const FunctionDoc log2_doc{
+    "Take log base 2 of arguments element-wise",
+    ("Non-positive values return -inf or NaN. Null values return null.\n"
+     "Use function \"log2_checked\" if you want non-positive values to raise an error."),
+    {"x"}};
+
+const FunctionDoc log2_checked_doc{
+    "Take log base 2 of arguments element-wise",
+    ("Non-positive values return -inf or NaN. Null values return null.\n"
+     "Use function \"log2\" if you want non-positive values to return "
+     "-inf or NaN."),
+    {"x"}};
+
+const FunctionDoc log1p_doc{
+    "Take natural log of (1+x) element-wise",
+    ("Values <= -1 return -inf or NaN. Null values return null.\n"
+     "This function may be more precise than log(1 + x) for x close to zero."
+     "Use function \"log1p_checked\" if you want non-positive values to raise an error."),
+    {"x"}};
+
+const FunctionDoc log1p_checked_doc{
+    "Take natural log of (1+x) element-wise",
+    ("Values <= -1 return -inf or NaN. Null values return null.\n"
+     "This function may be more precise than log(1 + x) for x close to zero."
+     "Use function \"log1p\" if you want non-positive values to return "
+     "-inf or NaN."),
+    {"x"}};
 }  // namespace
 
 void RegisterScalarArithmetic(FunctionRegistry* registry) {
@@ -1460,6 +1626,36 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
 
   auto atan2 = MakeArithmeticFunctionFloatingPoint<Atan2>("atan2", &atan2_doc);
   DCHECK_OK(registry->AddFunction(std::move(atan2)));
+
+  // ----------------------------------------------------------------------
+  // Logarithms
+  auto ln = MakeUnaryArithmeticFunctionFloatingPoint<LogNatural>("ln", &ln_doc);
+  DCHECK_OK(registry->AddFunction(std::move(ln)));
+
+  auto ln_checked = MakeUnaryArithmeticFunctionFloatingPointNotNull<LogNaturalChecked>(
+      "ln_checked", &ln_checked_doc);
+  DCHECK_OK(registry->AddFunction(std::move(ln_checked)));
+
+  auto log10 = MakeUnaryArithmeticFunctionFloatingPoint<Log10>("log10", &log10_doc);
+  DCHECK_OK(registry->AddFunction(std::move(log10)));
+
+  auto log10_checked = MakeUnaryArithmeticFunctionFloatingPointNotNull<Log10Checked>(
+      "log10_checked", &log10_checked_doc);
+  DCHECK_OK(registry->AddFunction(std::move(log10_checked)));
+
+  auto log2 = MakeUnaryArithmeticFunctionFloatingPoint<Log2>("log2", &log2_doc);
+  DCHECK_OK(registry->AddFunction(std::move(log2)));
+
+  auto log2_checked = MakeUnaryArithmeticFunctionFloatingPointNotNull<Log2Checked>(
+      "log2_checked", &log2_checked_doc);
+  DCHECK_OK(registry->AddFunction(std::move(log2_checked)));
+
+  auto log1p = MakeUnaryArithmeticFunctionFloatingPoint<Log1p>("log1p", &log1p_doc);
+  DCHECK_OK(registry->AddFunction(std::move(log1p)));
+
+  auto log1p_checked = MakeUnaryArithmeticFunctionFloatingPointNotNull<Log1pChecked>(
+      "log1p_checked", &log1p_checked_doc);
+  DCHECK_OK(registry->AddFunction(std::move(log1p_checked)));
 }
 
 }  // namespace internal

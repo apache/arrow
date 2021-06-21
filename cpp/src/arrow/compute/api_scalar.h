@@ -424,6 +424,52 @@ Result<Datum> Atan(const Datum& arg, ExecContext* ctx = NULLPTR);
 ARROW_EXPORT
 Result<Datum> Atan2(const Datum& y, const Datum& x, ExecContext* ctx = NULLPTR);
 
+/// \brief Get the natural log of a value. Array values can be of arbitrary
+/// length. If argument is null the result will be null.
+///
+/// \param[in] arg the value transformed
+/// \param[in] options arithmetic options (overflow handling), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise natural log
+ARROW_EXPORT
+Result<Datum> Ln(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
+                 ExecContext* ctx = NULLPTR);
+
+/// \brief Get the log base 10 of a value. Array values can be of arbitrary
+/// length. If argument is null the result will be null.
+///
+/// \param[in] arg the value transformed
+/// \param[in] options arithmetic options (overflow handling), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise log base 10
+ARROW_EXPORT
+Result<Datum> Log10(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
+                    ExecContext* ctx = NULLPTR);
+
+/// \brief Get the log base 2 of a value. Array values can be of arbitrary
+/// length. If argument is null the result will be null.
+///
+/// \param[in] arg the value transformed
+/// \param[in] options arithmetic options (overflow handling), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise log base 2
+ARROW_EXPORT
+Result<Datum> Log2(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
+                   ExecContext* ctx = NULLPTR);
+
+/// \brief Get the natural log of (1 + value). Array values can be of arbitrary
+/// length. If argument is null the result will be null.
+///
+/// This function may be more accurate than Log(1 + value) for values close to zero.
+///
+/// \param[in] arg the value transformed
+/// \param[in] options arithmetic options (overflow handling), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise natural log
+ARROW_EXPORT
+Result<Datum> Log1p(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
+                    ExecContext* ctx = NULLPTR);
+
 /// \brief Find the element-wise maximum of any number of arrays or scalars.
 /// Array values must be the same length.
 ///

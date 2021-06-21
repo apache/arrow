@@ -339,6 +339,32 @@ Bit-wise functions
   out of bounds for the data type.  However, an overflow when shifting the
   first input is not error (truncated bits are silently discarded).
 
+Logarithmic functions
+~~~~~~~~~~~~~~~~~~~~~
+
+Logarithmic functions are also supported, and also offer ``_checked``
+variants that check for domain errors if needed.
+
++--------------------------+------------+--------------------+---------------------+
+| Function name            | Arity      | Input types        | Output type         |
++==========================+============+====================+=====================+
+| ln                       | Unary      | Float32/Float64    | Float32/Float64     |
++--------------------------+------------+--------------------+---------------------+
+| ln_checked               | Unary      | Float32/Float64    | Float32/Float64     |
++--------------------------+------------+--------------------+---------------------+
+| log10                    | Unary      | Float32/Float64    | Float32/Float64     |
++--------------------------+------------+--------------------+---------------------+
+| log10_checked            | Unary      | Float32/Float64    | Float32/Float64     |
++--------------------------+------------+--------------------+---------------------+
+| log1p                    | Unary      | Float32/Float64    | Float32/Float64     |
++--------------------------+------------+--------------------+---------------------+
+| log1p_checked            | Unary      | Float32/Float64    | Float32/Float64     |
++--------------------------+------------+--------------------+---------------------+
+| log2                     | Unary      | Float32/Float64    | Float32/Float64     |
++--------------------------+------------+--------------------+---------------------+
+| log2_checked             | Unary      | Float32/Float64    | Float32/Float64     |
++--------------------------+------------+--------------------+---------------------+
+
 Trigonometric functions
 ~~~~~~~~~~~~~~~~~~~~~~~
 

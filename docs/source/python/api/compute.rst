@@ -73,6 +73,24 @@ Bit-wise operations do not offer (or need) a checked variant.
    bit_wise_or
    bit_wise_xor
 
+Logarithmic Functions
+---------------------
+
+Logarithmic functions are also supported, and also offer ``_checked``
+variants which detect domain errors.
+
+.. autosummary::
+   :toctree: ../generated/
+
+   ln
+   ln_checked
+   log10
+   log10_checked
+   log1p
+   log1p_checked
+   log2
+   log2_checked
+
 Trigonometric Functions
 -----------------------
 

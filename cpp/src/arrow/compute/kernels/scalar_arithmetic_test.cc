@@ -1821,5 +1821,57 @@ TYPED_TEST(TestBinaryArithmeticFloating, TrigAtan2) {
                               -M_PI_2, 0, M_PI));
 }
 
+TYPED_TEST(TestUnaryArithmeticFloating, Log) {
+  using CType = typename TestFixture::CType;
+  auto ty = this->type_singleton();
+  this->SetNansEqual(true);
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+    this->AssertUnaryOp(Ln, "[1, 2.7182818284590452354, null, NaN, Inf]",
+                        "[0, 1, null, NaN, Inf]");
+    // N.B. min() for float types is smallest normal number > 0
+    this->AssertUnaryOp(Ln, std::numeric_limits<CType>::min(),
+                        std::log(std::numeric_limits<CType>::min()));
+    this->AssertUnaryOp(Ln, std::numeric_limits<CType>::max(),
+                        std::log(std::numeric_limits<CType>::max()));
+    this->AssertUnaryOp(Log10, "[1, 10, null, NaN, Inf]", "[0, 1, null, NaN, Inf]");
+    this->AssertUnaryOp(Log10, std::numeric_limits<CType>::min(),
+                        std::log10(std::numeric_limits<CType>::min()));
+    this->AssertUnaryOp(Log10, std::numeric_limits<CType>::max(),
+                        std::log10(std::numeric_limits<CType>::max()));
+    this->AssertUnaryOp(Log2, "[1, 2, null, NaN, Inf]", "[0, 1, null, NaN, Inf]");
+    this->AssertUnaryOp(Log2, std::numeric_limits<CType>::min(),
+                        std::log2(std::numeric_limits<CType>::min()));
+    this->AssertUnaryOp(Log2, std::numeric_limits<CType>::max(),
+                        std::log2(std::numeric_limits<CType>::max()));
+    this->AssertUnaryOp(Log1p, "[0, 1.7182818284590452354, null, NaN, Inf]",
+                        "[0, 1, null, NaN, Inf]");
+    this->AssertUnaryOp(Log1p, std::numeric_limits<CType>::min(),
+                        std::log1p(std::numeric_limits<CType>::min()));
+    this->AssertUnaryOp(Log1p, std::numeric_limits<CType>::max(),
+                        std::log1p(std::numeric_limits<CType>::max()));
+  }
+  this->AssertUnaryOpRaises(Ln, "[0]", "divide by zero");
+  this->AssertUnaryOpRaises(Ln, "[-1]", "domain error");
+  this->AssertUnaryOpRaises(Ln, "[-Inf]", "domain error");
+  this->AssertUnaryOpRaises(Ln, MakeArray(std::numeric_limits<CType>::lowest()),
+                            "domain error");
+  this->AssertUnaryOpRaises(Log10, "[0]", "divide by zero");
+  this->AssertUnaryOpRaises(Log10, "[-1]", "domain error");
+  this->AssertUnaryOpRaises(Log10, "[-Inf]", "domain error");
+  this->AssertUnaryOpRaises(Log10, MakeArray(std::numeric_limits<CType>::lowest()),
+                            "domain error");
+  this->AssertUnaryOpRaises(Log2, "[0]", "divide by zero");
+  this->AssertUnaryOpRaises(Log2, "[-1]", "domain error");
+  this->AssertUnaryOpRaises(Log2, "[-Inf]", "domain error");
+  this->AssertUnaryOpRaises(Log2, MakeArray(std::numeric_limits<CType>::lowest()),
+                            "domain error");
+  this->AssertUnaryOpRaises(Log1p, "[-1]", "divide by zero");
+  this->AssertUnaryOpRaises(Log1p, "[-2]", "domain error");
+  this->AssertUnaryOpRaises(Log1p, "[-Inf]", "domain error");
+  this->AssertUnaryOpRaises(Log1p, MakeArray(std::numeric_limits<CType>::lowest()),
+                            "domain error");
+}
+
 }  // namespace compute
 }  // namespace arrow
