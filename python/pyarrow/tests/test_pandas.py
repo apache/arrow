@@ -2167,7 +2167,6 @@ class TestConvertListTypes:
         expected[2] = None
         tm.assert_series_equal(arr.to_pandas(), expected)
 
-    @pytest.mark.slow
     @pytest.mark.large_memory
     def test_auto_chunking_on_list_overflow(self):
         # ARROW-9976
@@ -2356,6 +2355,7 @@ class TestConvertStructTypes:
             {'x': {'xx': 1, 'yy': True}, 'y': 2, 'z': 'foo'},
             {'x': {'xx': 3, 'yy': False}, 'y': 4, 'z': 'bar'}]
 
+    @pytest.mark.slow
     @pytest.mark.large_memory
     def test_from_numpy_large(self):
         # Exercise rechunking + nulls
