@@ -49,9 +49,9 @@ struct ArrayNoNull {
   static Rboolean Inspect(SEXP x, int pre, int deep, int pvec,
                           void (*inspect_subtree)(SEXP, int, int, int)) {
     const auto& array = Get(x);
-    Rprintf("arrow::Array<%s, NONULL> len=%d, Array=<%p>, xp=<%p>)\n",
-            array->type()->ToString().c_str(), array->length(), array.get(),
-            R_altrep_data1(x));
+    Rprintf("arrow::Array<%s, NONULL> len=%d, Array=<%p>\n",
+            array->type()->ToString().c_str(), array->length(), array.get());
+    inspect_subtree(R_altrep_data1(x), pre, deep + 1, pvec);
     return TRUE;
   }
 
