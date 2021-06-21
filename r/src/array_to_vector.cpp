@@ -1,7 +1,7 @@
 // Licensed to the Apache Software Foundation (ASF) under one
-// or more contributor license agreements.  See the NOTICE file
 // distributed with this work for additional information
 // regarding copyright ownership.  The ASF licenses this file
+// or more contributor license agreements.  See the NOTICE file
 // to you under the Apache License, Version 2.0 (the
 // "License"); you may not use this file except in compliance
 // with the License.  You may obtain a copy of the License at
@@ -25,11 +25,11 @@
 #include <arrow/util/bitmap_reader.h>
 #include <arrow/util/bitmap_writer.h>
 #include <arrow/util/int_util.h>
-#include <arrow/util/parallel.h>
-#include <arrow/util/task_group.h>
 
 #include <cpp11/altrep.hpp>
 #include <type_traits>
+
+#include "./r_task_group.h"
 
 namespace arrow {
 
@@ -59,44 +59,29 @@ class Converter {
                                    R_xlen_t start, R_xlen_t n,
                                    size_t chunk_index) const = 0;
 
-  // ingest one array
-  Status IngestOne(SEXP data, const std::shared_ptr<arrow::Array>& array, R_xlen_t start,
-                   R_xlen_t n, size_t chunk_index) const {
-    if (array->null_count() == n) {
-      return Ingest_all_nulls(data, start, n);
-    } else {
-      return Ingest_some_nulls(data, array, start, n, chunk_index);
-    }
-  }
-
   // can this run in parallel ?
   virtual bool Parallel() const { return true; }
 
-  // Ingest all the arrays serially
-  Status IngestSerial(SEXP data) {
-    R_xlen_t k = 0, i = 0;
-    for (const auto& array : arrays_) {
-      auto n_chunk = array->length();
-      RETURN_NOT_OK(IngestOne(data, array, k, n_chunk, i));
-      k += n_chunk;
-      i++;
-    }
-    return Status::OK();
+  SEXP LazyConvert(R_xlen_t n, RTasks& tasks) {
+    SEXP out = PROTECT(Allocate(n));
+    IngestAll(out, tasks);
+    UNPROTECT(1);
+    return out;
   }
 
-  // ingest the arrays in parallel
-  //
-  // for each array, add a task to the task group
-  //
-  // The task group is Finish() in the caller
-  // The converter itself is passed as `self` so that if one of the parallel ops
-  // hits `stop()`, we don't bail before `tg` is destroyed, which would cause a crash
-  void IngestParallel(SEXP data, const std::shared_ptr<arrow::internal::TaskGroup>& tg,
-                      std::shared_ptr<Converter> self) {
+  void IngestAll(SEXP data, RTasks& tasks) {
     R_xlen_t k = 0, i = 0;
     for (const auto& array : arrays_) {
       auto n_chunk = array->length();
-      tg->Append([=] { return self->IngestOne(data, array, k, n_chunk, i); });
+
+      tasks.Append(Parallel(), [=] {
+        if (array->null_count() == n_chunk) {
+          return Ingest_all_nulls(data, k, n_chunk);
+        } else {
+          return Ingest_some_nulls(data, array, k, n_chunk, i);
+        }
+      });
+
       k += n_chunk;
       i++;
     }
@@ -162,9 +147,11 @@ SEXP ArrayVector__as_vector(R_xlen_t n, const std::shared_ptr<DataType>& type,
   }
 #endif
 
+  RTasks tasks(false);
   auto converter = Converter::Make(type, arrays);
-  SEXP data = PROTECT(converter->Allocate(n));
-  StopIfNotOk(converter->IngestSerial(data));
+  SEXP data = PROTECT(converter->LazyConvert(n, tasks));
+  StopIfNotOk(tasks.Finish());
+
   UNPROTECT(1);
   return data;
 }
@@ -1233,54 +1220,23 @@ std::shared_ptr<Converter> Converter::Make(const std::shared_ptr<DataType>& type
   cpp11::stop("cannot handle Array of type ", type->name().c_str());
 }
 
-cpp11::writable::list to_dataframe_serial(
+cpp11::writable::list to_dataframe(
     int64_t nr, int64_t nc, const cpp11::writable::strings& names,
-    const std::vector<std::shared_ptr<Converter>>& converters) {
-  cpp11::writable::list tbl(nc);
-  for (int i = 0; i < nc; i++) {
-    SEXP column = tbl[i] = converters[i]->Allocate(nr);
-    StopIfNotOk(converters[i]->IngestSerial(column));
-  }
-  tbl.attr(R_NamesSymbol) = names;
-  tbl.attr(R_ClassSymbol) = arrow::r::data::classes_tbl_df;
-  tbl.attr(R_RowNamesSymbol) = arrow::r::short_row_names(nr);
-  return tbl;
-}
-
-cpp11::writable::list to_dataframe_parallel(
-    int64_t nr, int64_t nc, const cpp11::writable::strings& names,
-    const std::vector<std::shared_ptr<Converter>>& converters) {
+    const std::vector<ArrayVector>& columns,
+    const std::vector<std::shared_ptr<DataType>>& types,
+    bool use_threads) {
   cpp11::writable::list tbl(nc);
 
-  // task group to ingest data in parallel
-  auto tg = arrow::internal::TaskGroup::MakeThreaded(arrow::internal::GetCpuThreadPool());
+  arrow::r::RTasks tasks(use_threads);
+  std::vector<std::shared_ptr<Converter>> converters(nc);
 
-  // allocate and start ingesting immediately the columns that
-  // can be ingested in parallel, i.e. when ingestion no longer
-  // need to happen on the main thread
   for (int i = 0; i < nc; i++) {
-    // allocate data for column i
-    SEXP column = tbl[i] = converters[i]->Allocate(nr);
+    converters[i] = Converter::Make(types[i], columns[i]);
 
-    // add a task to ingest data of that column if that can be done in parallel
-    if (converters[i]->Parallel()) {
-      converters[i]->IngestParallel(column, tg, converters[i]);
-    }
+    tbl[i] = converters[i]->LazyConvert(nr, tasks);
   }
 
-  arrow::Status status = arrow::Status::OK();
-
-  // ingest the columns that cannot be dealt with in parallel
-  for (int i = 0; i < nc; i++) {
-    if (!converters[i]->Parallel()) {
-      status &= converters[i]->IngestSerial(tbl[i]);
-    }
-  }
-
-  // wait for the ingestion to be finished
-  status &= tg->Finish();
-
-  StopIfNotOk(status);
+  StopIfNotOk(tasks.Finish());
 
   tbl.attr(R_NamesSymbol) = names;
   tbl.attr(R_ClassSymbol) = arrow::r::data::classes_tbl_df;
@@ -1299,10 +1255,6 @@ SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
 
 // [[arrow::export]]
 SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
-  if (chunked_array->num_chunks() == 1) {
-    return Array__as_vector(chunked_array->chunk(0));
-  }
-
   return arrow::r::ArrayVector__as_vector(chunked_array->length(), chunked_array->type(),
                                           chunked_array->chunks());
 }
@@ -1314,19 +1266,15 @@ cpp11::writable::list RecordBatch__to_dataframe(
   int64_t nr = batch->num_rows();
   cpp11::writable::strings names(nc);
   std::vector<arrow::ArrayVector> arrays(nc);
-  std::vector<std::shared_ptr<arrow::r::Converter>> converters(nc);
+  std::vector<std::shared_ptr<arrow::DataType>> types(nc);
 
   for (R_xlen_t i = 0; i < nc; i++) {
     names[i] = batch->column_name(i);
     arrays[i] = {batch->column(i)};
-    converters[i] = arrow::r::Converter::Make(batch->column(i)->type(), arrays[i]);
+    types[i] = batch->column(i)->type();
   }
 
-  if (use_threads) {
-    return arrow::r::to_dataframe_parallel(nr, nc, names, converters);
-  } else {
-    return arrow::r::to_dataframe_serial(nr, nc, names, converters);
-  }
+  return arrow::r::to_dataframe(nr, nc, names, arrays, types, use_threads);
 }
 
 // [[arrow::export]]
@@ -1335,19 +1283,17 @@ cpp11::writable::list Table__to_dataframe(const std::shared_ptr<arrow::Table>& t
   int64_t nc = table->num_columns();
   int64_t nr = table->num_rows();
   cpp11::writable::strings names(nc);
-  std::vector<std::shared_ptr<arrow::r::Converter>> converters(nc);
+
+  std::vector<arrow::ArrayVector> arrays(nc);
+  std::vector<std::shared_ptr<arrow::DataType>> types(nc);
 
   for (R_xlen_t i = 0; i < nc; i++) {
-    converters[i] =
-        arrow::r::Converter::Make(table->column(i)->type(), table->column(i)->chunks());
+    arrays[i] = table->column(i)->chunks();
     names[i] = table->field(i)->name();
+    types[i] = table->field(i)->type();
   }
 
-  if (use_threads) {
-    return arrow::r::to_dataframe_parallel(nr, nc, names, converters);
-  } else {
-    return arrow::r::to_dataframe_serial(nr, nc, names, converters);
-  }
+  return arrow::r::to_dataframe(nr, nc, names, arrays, types, use_threads);
 }
 
 #endif
