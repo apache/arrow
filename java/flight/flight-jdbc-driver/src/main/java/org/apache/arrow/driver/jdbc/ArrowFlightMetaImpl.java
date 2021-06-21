@@ -48,7 +48,7 @@ public class ArrowFlightMetaImpl extends MetaImpl {
         sql,
         Collections.<AvaticaParameter>emptyList(),
         Collections.<String, Object>emptyMap(),
-        null, // CursorFactory set to null, as SQL requests use DremioCursor
+        null, // unnecessary, as SQL requests use ArrowFlightJdbcCursor
         StatementType.SELECT
     );
   }
