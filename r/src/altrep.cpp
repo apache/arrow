@@ -49,8 +49,9 @@ struct ArrayNoNull {
   static Rboolean Inspect(SEXP x, int pre, int deep, int pvec,
                           void (*inspect_subtree)(SEXP, int, int, int)) {
     const auto& array = Get(x);
-    Rprintf("std::shared_ptr<arrow::Array, %s, NONULL> (len=%d, ptr=%p)\n",
-            array->type()->ToString().c_str(), array->length(), array.get());
+    Rprintf("arrow::Array<%s, NONULL> len=%d, Array=<%p>, xp=<%p>)\n",
+            array->type()->ToString().c_str(), array->length(), array.get(),
+            R_altrep_data1(x));
     return TRUE;
   }
 
