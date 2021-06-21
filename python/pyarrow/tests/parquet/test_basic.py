@@ -288,6 +288,7 @@ def test_file_error_python_exception():
     class BogusFile(io.BytesIO):
         def read(self, *args):
             raise ZeroDivisionError("zorglub")
+
         def seek(self, *args):
             raise ZeroDivisionError("zorglub")
 
