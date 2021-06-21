@@ -36,8 +36,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  PYARROW_TEST_SLOW: ON
-  PYARROW_TEST_LARGE_MEMORY: ON
   DOCKER_VOLUME_PREFIX: ".docker/"
   ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
   ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -114,7 +112,7 @@ jobs:
   macos:
     name: AMD64 MacOS 10.15 Python 3
     runs-on: macos-latest
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    # if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
     env:
       ARROW_HOME: /usr/local
@@ -133,6 +131,8 @@ jobs:
       ARROW_WITH_BROTLI: ON
       ARROW_BUILD_TESTS: OFF
       CMAKE_ARGS: "-DPython3_EXECUTABLE=/usr/local/bin/python3"
+      # PYARROW_TEST_SLOW: ON
+      PYARROW_TEST_LARGE_MEMORY: ON
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
@@ -141,6 +141,12 @@ jobs:
       - name: Fetch Submodules and Tags
         shell: bash
         run: ci/scripts/util_checkout.sh
+      - name: Show available RAM size
+        shell: bash
+        run: |
+          hwmemsize=$(sysctl -n hw.memsize)
+          ramsize=$(expr $hwmemsize / $((1024**3)))
+          echo "System Memory: ${ramsize} GB"
       - name: Install Dependencies
         shell: bash
         run: |

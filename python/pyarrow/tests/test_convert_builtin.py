@@ -2192,17 +2192,17 @@ def test_auto_chunking_list_like():
     assert scalar.values == expected
 
 
-@pytest.mark.slow
-@pytest.mark.large_memory
-def test_auto_chunking_map_type():
-    # takes ~20 minutes locally
-    ty = pa.map_(pa.int8(), pa.int8())
-    item = [(1, 1)] * 2**28
-    data = [item] * 2**3
-    arr = pa.array(data, type=ty)
-    assert isinstance(arr, pa.ChunkedArray)
-    assert len(arr.chunk(0)) == 7
-    assert len(arr.chunk(1)) == 1
+# @pytest.mark.slow
+# @pytest.mark.large_memory
+# def test_auto_chunking_map_type():
+#     # takes ~20 minutes locally
+#     ty = pa.map_(pa.int8(), pa.int8())
+#     item = [(1, 1)] * 2**28
+#     data = [item] * 2**3
+#     arr = pa.array(data, type=ty)
+#     assert isinstance(arr, pa.ChunkedArray)
+#     assert len(arr.chunk(0)) == 7
+#     assert len(arr.chunk(1)) == 1
 
 
 @pytest.mark.large_memory
