@@ -33,7 +33,6 @@ import java.util.Properties;
 import java.util.Random;
 import java.util.function.Function;
 
-import com.google.common.collect.ImmutableList;
 import org.apache.arrow.driver.jdbc.utils.BaseProperty;
 import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.ActionType;
@@ -73,6 +72,7 @@ import org.junit.runners.model.Statement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
 
 /**
