@@ -37,6 +37,7 @@ import java.util.Random;
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver;
 import org.apache.arrow.driver.jdbc.utils.BaseProperty;
 import org.hamcrest.CoreMatchers;
+import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Rule;
@@ -119,6 +120,18 @@ public class ResultSetMetadataTest {
   }
 
   /**
+   * Test if {@link ResultSetMetaData#getColumnTypeName(int)} passing an column index that does not exist.
+   *
+   * @throws SQLException in case of error.
+   */
+  @Test(expected = IndexOutOfBoundsException.class)
+  public void testShouldGetColumnTypesNameFromOutOfBoundIndex() throws SQLException {
+    final String outOfBoundColumn = metadata.getColumnTypeName(4);
+
+    Assert.fail();
+  }
+
+  /**
    * Test if {@link ResultSetMetaData#getColumnName(int)} returns the correct name for each column.
    *
    * @throws SQLException in case of error.
@@ -132,6 +145,19 @@ public class ResultSetMetadataTest {
     collector.checkThat(firstColumn, CoreMatchers.is(equalTo("integer0")));
     collector.checkThat(secondColumn, CoreMatchers.is(equalTo("string1")));
     collector.checkThat(thirdColumn, CoreMatchers.is(equalTo("float2")));
+  }
+
+
+  /**
+   * Test {@link ResultSetMetaData#getColumnTypeName(int)} passing an column index that does not exist.
+   *
+   * @throws SQLException in case of error.
+   */
+  @Test(expected = IndexOutOfBoundsException.class)
+  public void testShouldGetColumnNameFromOutOfBoundIndex() throws SQLException {
+    final String outOfBoundColumn = metadata.getColumnName(4);
+
+    Assert.fail();
   }
 
   /**
@@ -149,5 +175,18 @@ public class ResultSetMetadataTest {
     collector.checkThat(firstColumn, CoreMatchers.is(equalTo(1)));
     collector.checkThat(secondColumn, CoreMatchers.is(equalTo(1)));
     collector.checkThat(thirdColumn, CoreMatchers.is(equalTo(1)));
+  }
+
+
+  /**
+   * Test if {@link ResultSetMetaData#getColumnTypeName(int)} passing an column index that does not exist.
+   *
+   * @throws SQLException in case of error.
+   */
+  @Test(expected = IndexOutOfBoundsException.class)
+  public void testShouldGetColumnTypesFromOutOfBoundIndex() throws SQLException {
+    final int outOfBoundColumn = metadata.getColumnType(4);
+
+    Assert.fail();
   }
 }
