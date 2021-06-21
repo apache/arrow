@@ -104,11 +104,8 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
    * @return the properties of the {@code FlightServer} managed by this {@code TestRule}.
    */
   public Properties getProperties() {
-    Properties asProperties = new Properties();
-    Arrays
-        .stream(BaseProperty.values())
-        .map(BaseProperty::getEntry).forEach(entry -> asProperties.put(entry.getKey(), entry.getValue()));
-    return asProperties;
+    // TODO Implement this.
+    throw new UnsupportedOperationException("Not implemented yet.");
   }
 
   @Override
