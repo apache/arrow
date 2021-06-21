@@ -324,6 +324,11 @@ class Chunker {
           // In this case, no need to try again.
           return status;
         } else if (converter_->rewind_on_overflow()) {
+          // The list-like and binary-like conversion paths may raise  a capacity error,
+          // we need to handle them differently. While the binary-like converters check
+          // the capacity before append/extend the list-like converters just check after
+          // append/extend. Thus depending on the implementation semantics we may need
+          // to rewind (slice) the output chunk by one.
           length_ -= 1;
           offset -= 1;
         }
@@ -352,6 +357,11 @@ class Chunker {
           // In this case, no need to try again.
           return status;
         } else if (converter_->rewind_on_overflow()) {
+          // The list-like and binary-like conversion paths may raise  a capacity error,
+          // we need to handle them differently. While the binary-like converters check
+          // the capacity before append/extend the list-like converters just check after
+          // append/extend. Thus depending on the implementation semantics we may need
+          // to rewind (slice) the output chunk by one.
           length_ -= 1;
           offset -= 1;
         }
