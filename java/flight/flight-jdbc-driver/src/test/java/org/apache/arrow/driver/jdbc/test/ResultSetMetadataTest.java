@@ -88,4 +88,16 @@ public class ResultSetMetadataTest {
   public void testShouldGetResultSetMetadata() {
     collector.checkThat(metadata, CoreMatchers.is(notNullValue()));
   }
+
+  /**
+   * Test if {@link ResultSetMetaData#getColumnCount()} returns the correct values.
+   *
+   * @throws SQLException in case of error.
+   */
+  @Test
+  public void testShouldGetColumnCount() throws SQLException {
+    final int columnCount = metadata.getColumnCount();
+
+    assert columnCount == 3;
+  }
 }
