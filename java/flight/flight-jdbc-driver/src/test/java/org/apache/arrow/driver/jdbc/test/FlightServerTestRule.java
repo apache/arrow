@@ -18,15 +18,20 @@
 package org.apache.arrow.driver.jdbc.test;
 
 import java.io.IOException;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.function.Function;
 
+import com.google.protobuf.ByteString;
 import org.apache.arrow.driver.jdbc.utils.BaseProperty;
 import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.ActionType;
@@ -45,21 +50,19 @@ import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.flight.auth2.BasicCallHeaderAuthenticator;
 import org.apache.arrow.flight.auth2.CallHeaderAuthenticator;
 import org.apache.arrow.flight.auth2.GeneratedBearerTokenAuthenticator;
+import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.BigIntVector;
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.types.Types;
-import org.apache.arrow.vector.types.pojo.Field;
-import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.collect.ImmutableList;
 
 /**
  * Utility class for unit tests that need to instantiate a {@link FlightServer}
@@ -68,6 +71,7 @@ import com.google.common.collect.ImmutableList;
 public class FlightServerTestRule implements TestRule, AutoCloseable {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(FlightServerTestRule.class);
+  private static final byte[] QUERY_TICKET = "SELECT * FROM TEST".getBytes(StandardCharsets.UTF_8);
 
   private final Map<BaseProperty, Object> properties;
   private final BufferAllocator allocator;
@@ -175,8 +179,32 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
 
       @Override
       public FlightInfo getFlightInfo(CallContext callContext, FlightDescriptor flightDescriptor) {
-        // TODO Implement this.
-        return null;
+        try {
+          Method toProtocol = Location.class.getDeclaredMethod("toProtocol");
+          toProtocol.setAccessible(true);
+          Flight.Location location = (Flight.Location) toProtocol.invoke(new Location("grpc+tcp://localhost"));
+
+          final byte[] value = flightDescriptor.getCommand();
+
+          Flight.FlightInfo getInfo = Flight.FlightInfo.newBuilder()
+              .setFlightDescriptor(Flight.FlightDescriptor.newBuilder()
+                  .setType(Flight.FlightDescriptor.DescriptorType.CMD)
+                  .setCmd(ByteString.copyFrom(value)))
+              .addEndpoint(Flight.FlightEndpoint.newBuilder()
+                  .addLocation(location)
+                  .setTicket(Flight.Ticket.newBuilder()
+                      .setTicket(ByteString.copyFrom(value))
+                      .build())
+              )
+              .build();
+
+          Constructor<FlightInfo> constructor = FlightInfo.class
+              .getDeclaredConstructor(org.apache.arrow.flight.impl.Flight.FlightInfo.class);
+          constructor.setAccessible(true);
+          return constructor.newInstance(getInfo);
+        } catch (Exception e) {
+          throw new RuntimeException(e);
+        }
       }
 
       @Override
