@@ -16,6 +16,7 @@
 // under the License.
 
 // Complex Number Extension Type
+#pragma once
 
 #include "arrow/extension_type.h"
 
