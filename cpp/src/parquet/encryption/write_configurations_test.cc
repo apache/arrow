@@ -227,7 +227,9 @@ TEST_F(TestEncryptionConfiguration, EncryptTwoColumnsAndFooterUseAES_GCM_CTR) {
 
 // Set temp_dir before running the write/read tests. The encrypted files will
 // be written/read from this directory.
-void TestEncryptionConfiguration::SetUpTestCase() { temp_dir = *temp_data_dir(); }
+void TestEncryptionConfiguration::SetUpTestCase() {
+  temp_dir = temp_data_dir().ValueOrDie();
+}
 
 }  // namespace test
 }  // namespace encryption

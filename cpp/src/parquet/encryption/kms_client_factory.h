@@ -26,7 +26,6 @@ namespace encryption {
 class PARQUET_EXPORT KmsClientFactory {
  public:
   explicit KmsClientFactory(bool wrap_locally = false) : wrap_locally_(wrap_locally) {}
-
   virtual ~KmsClientFactory() = default;
 
   virtual std::shared_ptr<KmsClient> CreateKmsClient(

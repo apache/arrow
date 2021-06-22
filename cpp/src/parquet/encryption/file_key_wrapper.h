@@ -62,7 +62,8 @@ class PARQUET_EXPORT FileKeyWrapper {
   /// master key
   std::string GetEncryptionKeyMetadata(const std::string& data_key,
                                        const std::string& master_key_id,
-                                       bool is_footer_key);
+                                       bool is_footer_key,
+                                       std::string key_id_in_file = "");
 
  private:
   KeyEncryptionKey CreateKeyEncryptionKey(const std::string& master_key_id);
@@ -76,6 +77,7 @@ class PARQUET_EXPORT FileKeyWrapper {
   std::shared_ptr<FileKeyMaterialStore> key_material_store_;
   const double cache_entry_lifetime_seconds_;
   const bool double_wrapping_;
+  uint16_t key_counter_;
 };
 
 }  // namespace encryption

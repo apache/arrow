@@ -48,6 +48,12 @@ std::string data_file(const char* file) {
   return ss.str();
 }
 
+::arrow::Result<std::shared_ptr<::arrow::fs::FileSystem>> MakeLocalFileSystem() {
+  std::shared_ptr<::arrow::fs::LocalFileSystem> local_fs =
+      std::make_shared<::arrow::fs::LocalFileSystem>();
+  return local_fs;
+}
+
 std::unordered_map<std::string, std::string> BuildKeyMap(const char* const* column_ids,
                                                          const char* const* column_keys,
                                                          const char* footer_id,
