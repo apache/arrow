@@ -30,7 +30,16 @@ GANDIVA_EXPORT
 size_t GetCapacity();
 
 GANDIVA_EXPORT
-void LogCacheSize(size_t capacity);
+size_t GetDiskCapacity();
+
+GANDIVA_EXPORT
+size_t GetReserved();
+
+/*GANDIVA_EXPORT
+void LogCacheSize(size_t capacity);*/
+
+GANDIVA_EXPORT
+void LogCacheSizeSafely(size_t capacity, size_t disk_capacity,size_t reserved);
 
 template <class KeyType, typename ValueType>
 class Cache {
@@ -39,9 +48,12 @@ class Cache {
   using WriteLock = std::unique_lock<MutexType>;
 
  public:
-  explicit Cache(size_t capacity) : cache_(capacity) { LogCacheSize(capacity); }
+  //explicit Cache(size_t capacity) : cache_(capacity) { LogCacheSize(capacity); }
+  explicit Cache(size_t capacity, size_t disk_capacity, size_t reserved) : cache_(capacity, disk_capacity, reserved) {
+    LogCacheSizeSafely(capacity, disk_capacity, reserved);
+  }
 
-  Cache() : Cache(GetCapacity()) {}
+  Cache() : Cache(GetCapacity(), GetDiskCapacity(), GetReserved()) {}
 
   ValueType GetModule(KeyType cache_key) {
     arrow::util::optional<ValueType> result;
@@ -83,8 +95,11 @@ class Cache {
     return cache_.getLruCacheSize();
   }
 
+  std::pair<size_t, size_t> GetCapacitySafely();
+
  private:
   LruCache<KeyType, ValueType> cache_;
   std::mutex mtx_;
+  llvm::SmallString<128> cache_dir_;
 };
 }  // namespace gandiva

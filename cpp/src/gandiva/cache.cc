@@ -20,7 +20,10 @@
 
 namespace gandiva {
 
-static const size_t DEFAULT_CACHE_SIZE = 128 * 1024 * 1024; //bytes or 256 MiB
+//static const int DEFAULT_CACHE_SIZE = 500; //old cache capacity of 500 itens list
+static const size_t DEFAULT_CACHE_SIZE = 256 * 1024 * 1024; //bytes or 256 MiB
+static const size_t DEFAULT_DISK_CACHE_SIZE = 1ULL * 1024 * 1024 * 1024; //bytes or 1 GiB
+static const size_t DEFAULT_RESERVED_SIZE = 10ULL * 1024 * 1024 * 1024; //bytes or 10 GiB
 
 size_t GetCapacity() {
   size_t capacity;
@@ -41,8 +44,53 @@ size_t GetCapacity() {
   return capacity;
 }
 
-void LogCacheSize(size_t capacity) {
-  ARROW_LOG(INFO) << "Creating gandiva cache with capacity of " << capacity << " bytes";
+size_t GetDiskCapacity() {
+  size_t capacity;
+  const char* env_disk_cache_size = std::getenv("GANDIVA_DISK_CAPACITY_SIZE");
+  if (env_disk_cache_size != nullptr) {
+    capacity = std::stoul(env_disk_cache_size);
+
+    if (capacity <= 0) {
+      ARROW_LOG(WARNING) << "Invalid cache size provided. Using default cache size: "
+                         << DEFAULT_DISK_CACHE_SIZE;
+      capacity = DEFAULT_DISK_CACHE_SIZE;
+    }
+
+  } else {
+    capacity = DEFAULT_DISK_CACHE_SIZE;
+  }
+
+
+  return capacity;
+}
+
+size_t GetReserved() {
+  size_t reserved;
+  const char* env_reserved_size = std::getenv("GANDIVA_DISK_RESERVED_SIZE");
+  if (env_reserved_size != nullptr) {
+    reserved = std::stoul(env_reserved_size);
+
+    if (reserved <= 0) {
+      ARROW_LOG(WARNING) << "Invalid cache size provided. Using default cache size: "
+                         << DEFAULT_RESERVED_SIZE;
+      reserved = DEFAULT_RESERVED_SIZE;
+    }
+  } else {
+    reserved = DEFAULT_RESERVED_SIZE;
+  }
+
+
+  return reserved;
+}
+
+/*void LogCacheSize(size_t capacity) {
+  ARROW_LOG(DEBUG) << "Creating gandiva cache with capacity of " << capacity << " bytes";
+}*/
+
+void LogCacheSizeSafely(size_t capacity, size_t disk_capacity, size_t reserved) {
+  ARROW_LOG(DEBUG) << "Creating gandiva cache with memory capacity of " << capacity << " bytes";
+  ARROW_LOG(DEBUG) << "Creating gandiva cache with disk space of " << disk_capacity << " bytes";
+  ARROW_LOG(DEBUG) << "Creating gandiva cache with reserved disk space of " << reserved << " bytes";
 }
 
 }  // namespace gandiva
