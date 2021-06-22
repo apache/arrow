@@ -543,7 +543,7 @@ class TransformingGenerator {
 ///
 /// This generator is not async-reentrant
 ///
-/// This generator may queue up to 1 instance of T
+/// This generator may queue up to 1 instance of T but will not delay
 template <typename T, typename V>
 AsyncGenerator<V> MakeTransformedGenerator(AsyncGenerator<T> generator,
                                            Transformer<T, V> transformer) {
@@ -718,50 +718,60 @@ template <typename T>
 class ReadaheadGenerator {
  public:
   ReadaheadGenerator(AsyncGenerator<T> source_generator, int max_readahead)
-      : source_generator_(std::move(source_generator)), max_readahead_(max_readahead) {
-    auto finished = std::make_shared<std::atomic<bool>>(false);
-    mark_finished_if_done_ = [finished](const Result<T>& next_result) {
-      if (!next_result.ok()) {
-        finished->store(true);
-      } else {
-        if (IsIterationEnd(*next_result)) {
-          *finished = true;
-        }
-      }
-    };
-    finished_ = std::move(finished);
-  }
+      : state_(std::make_shared<State>(std::move(source_generator), max_readahead)) {}
 
   Future<T> operator()() {
-    if (readahead_queue_.empty()) {
+    // Copy so we can capture into lambdas
+    auto state = state_;
+    if (state->readahead_queue.empty()) {
       // This is the first request, let's pump the underlying queue
-      for (int i = 0; i < max_readahead_; i++) {
-        auto next = source_generator_();
-        next.AddCallback(mark_finished_if_done_);
-        readahead_queue_.push(std::move(next));
+      for (int i = 0; i < state->max_readahead; i++) {
+        auto next = state->source_generator();
+        auto state = state_;
+        next.AddCallback(
+            [state](const Result<T>& result) { state->MarkFinishedIfDone(result); });
+        state->readahead_queue.push(std::move(next));
       }
     }
     // Pop one and add one
-    auto result = readahead_queue_.front();
-    readahead_queue_.pop();
-    if (finished_->load()) {
-      readahead_queue_.push(AsyncGeneratorEnd<T>());
+    auto result = state->readahead_queue.front();
+    state->readahead_queue.pop();
+    if (state->finished.load()) {
+      state->readahead_queue.push(AsyncGeneratorEnd<T>());
     } else {
-      auto back_of_queue = source_generator_();
-      back_of_queue.AddCallback(mark_finished_if_done_);
-      readahead_queue_.push(std::move(back_of_queue));
+      auto back_of_queue = state->source_generator();
+      auto state = state_;
+      back_of_queue.AddCallback(
+          [state](const Result<T>& result) { state->MarkFinishedIfDone(result); });
+      state->readahead_queue.push(std::move(back_of_queue));
     }
     return result;
   }
 
  private:
-  AsyncGenerator<T> source_generator_;
-  int max_readahead_;
-  std::function<void(const Result<T>&)> mark_finished_if_done_;
-  // Can't use a bool here because finished may be referenced by callbacks that
-  // outlive this class
-  std::shared_ptr<std::atomic<bool>> finished_;
-  std::queue<Future<T>> readahead_queue_;
+  struct State {
+    State(AsyncGenerator<T> source_generator, int max_readahead)
+        : source_generator(std::move(source_generator)), max_readahead(max_readahead) {
+      finished.store(false);
+    }
+
+    void MarkFinishedIfDone(const Result<T>& next_result) {
+      if (!next_result.ok()) {
+        finished.store(true);
+      } else {
+        if (IsIterationEnd(*next_result)) {
+          finished.store(true);
+        }
+      }
+    }
+
+    AsyncGenerator<T> source_generator;
+    int max_readahead;
+    std::atomic<bool> finished;
+    std::queue<Future<T>> readahead_queue;
+  };
+
+  std::shared_ptr<State> state_;
 };
 
 /// \brief A generator where the producer pushes items on a queue.
@@ -1108,6 +1118,10 @@ AsyncGenerator<T> MakeMergedGenerator(AsyncGenerator<AsyncGenerator<T>> source,
 /// will never pull from any subscription reentrantly.
 ///
 /// This generator may queue 1 instance of T
+///
+/// TODO: Could potentially make a bespoke implementation instead of MergedGenerator that
+/// forwards async-reentrant requests instead of buffering them (which is what
+/// MergedGenerator does)
 template <typename T>
 AsyncGenerator<T> MakeConcatenatedGenerator(AsyncGenerator<AsyncGenerator<T>> source) {
   return MergedGenerator<T>(std::move(source), 1);
@@ -1571,6 +1585,40 @@ AsyncGenerator<T> MakeFailingGenerator(Status st) {
 template <typename T>
 AsyncGenerator<T> MakeFailingGenerator(const Result<T>& result) {
   return MakeFailingGenerator<T>(result.status());
+}
+
+/// \brief Prepends initial_values onto a generator
+///
+/// This generator is async-reentrant but will buffer requests and will not
+/// pull from following_values async-reentrantly.
+template <typename T>
+AsyncGenerator<T> MakeGeneratorStartsWith(std::vector<T> initial_values,
+                                          AsyncGenerator<T> following_values) {
+  auto initial_values_vec_gen = MakeVectorGenerator(std::move(initial_values));
+  auto gen_gen = MakeVectorGenerator<AsyncGenerator<T>>(
+      {std::move(initial_values_vec_gen), std::move(following_values)});
+  return MakeConcatenatedGenerator(std::move(gen_gen));
+}
+
+template <typename T>
+struct CancellableGenerator {
+  Future<T> operator()() {
+    if (stop_token.IsStopRequested()) {
+      return stop_token.Poll();
+    }
+    return source();
+  }
+
+  AsyncGenerator<T> source;
+  StopToken stop_token;
+};
+
+/// \brief Allows an async generator to be cancelled
+///
+/// This generator is async-reentrant
+template <typename T>
+AsyncGenerator<T> MakeCancellable(AsyncGenerator<T> source, StopToken stop_token) {
+  return CancellableGenerator<T>{std::move(source), std::move(stop_token)};
 }
 
 }  // namespace arrow
