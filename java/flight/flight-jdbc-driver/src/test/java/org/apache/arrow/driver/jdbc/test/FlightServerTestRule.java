@@ -39,6 +39,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Random;
 import java.util.function.Function;
+import java.util.stream.IntStream;
 
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver;
 import org.apache.arrow.driver.jdbc.utils.BaseProperty;
@@ -201,30 +202,20 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
         if (Arrays.equals(QUERY_TICKET, ticket.getBytes())) {
           final int rows = Byte.MAX_VALUE;
 
-          final FieldVector id = new BigIntVector("ID", allocator);
-          for (int row = 0; row < rows; row++) {
-            ((BigIntVector) id).setSafe(row, random.nextLong());
-          }
+          final BigIntVector id = new BigIntVector("ID", allocator);
+          final LargeVarCharVector name = new LargeVarCharVector("Name", allocator);
+          final Float8Vector salary = new Float8Vector("Salary", allocator);
+          final DateDayVector hireDate = new DateDayVector("Hire Date", allocator);
+          final TimeStampMilliVector lastSale = new TimeStampMilliVector("Last Sale", allocator);
 
-          final FieldVector name = new LargeVarCharVector("Name", allocator);
-          for (int row = 0; row < rows; row++) {
-            ((LargeVarCharVector) name).setSafe(row, new Text("Test Name #" + row));
-          }
-
-          final FieldVector salary = new Float8Vector("Salary", allocator);
-          for (int row = 0; row < rows; row++) {
-            ((Float8Vector) salary).setSafe(row, random.nextDouble());
-          }
-
-          final FieldVector hireDate = new DateDayVector("Hire Date", allocator);
-          for (int row = 0; row < rows; row++) {
-            ((DateDayVector) hireDate).setSafe(row, random.nextInt(Integer.MAX_VALUE));
-          }
-
-          final FieldVector lastSale = new TimeStampMilliVector("Last Sale", allocator);
-          for (int row = 0; row < rows; row++) {
-            ((TimeStampMilliVector) lastSale).setSafe(row, Instant.now().toEpochMilli());
-          }
+          final IntStream range = IntStream.range(0, rows);
+          range.forEach(row -> {
+            id.setSafe(row, random.nextLong());
+            name.setSafe(row, new Text("Test Name #" + row));
+            salary.setSafe(row, random.nextDouble());
+            hireDate.setSafe(row, random.nextInt(Integer.MAX_VALUE));
+            lastSale.setSafe(row, Instant.now().toEpochMilli());
+          });
 
           List<FieldVector> vectors = ImmutableList.of(id, name, salary, hireDate, lastSale);
 
