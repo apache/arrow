@@ -140,6 +140,7 @@ public class ArrowFlightClientHandler implements FlightClientHandler {
 
   @Override
   public FlightStream getStream(final String query) {
+    // TODO refactor to not use one endpoint
     FlightStream stream = client.getStream(
             getInfo(query).getEndpoints().get(0).getTicket(),
             token);
