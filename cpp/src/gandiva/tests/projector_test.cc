@@ -1269,7 +1269,7 @@ TEST_F(TestProjector, TestBinRepresentation) {
   auto exp = MakeArrowArrayUtf8(
       {"111", "1111111111111111111111111111111111111111111111111001000001111010",
        "1110001100000101"},
-       {true, true, true});
+      {true, true, true});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
