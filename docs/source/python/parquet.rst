@@ -557,7 +557,7 @@ filesystems, through the ``filesystem`` keyword:
     from pyarrow import fs
 
     s3  = fs.S3FileSystem(region="us-east-2")
-    table = pq.read_table("path/to/file/or/directory/", filesystem=s3)
+    table = pq.read_table("bucket/object/key/prefix", filesystem=s3)
 
 Currently, :class:`HDFS <pyarrow.fs.HadoopFileSystem>` and
 :class:`Amazon S3-compatible storage <pyarrow.fs.S3FileSystem>` are
@@ -567,7 +567,7 @@ if specified as a URI:
 
 .. code-block:: python
 
-    table = pq.read_table("s3://path/to/file/or/directory/")
+    table = pq.read_table("s3://bucket/object/key/prefix")
 
 Other filesystems can still be supported if there is an
 `fsspec <https://filesystem-spec.readthedocs.io/en/latest/>`__-compatible
