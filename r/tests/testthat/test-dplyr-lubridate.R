@@ -99,23 +99,12 @@ test_that("extract wday from date", {
     test_df
   )
   
-  expect_warning(
-    test_df %>%
-      Table$create() %>%
-      mutate(x = wday(date, label = TRUE)) %>%
-      collect(),
-    # Update this test after ARROW-13133 is resolved
-    regexp = "Label argument not supported by Arrow; pulling data into R"
+  x <- Expression$field_ref("x")
+  expect_error(
+    nse_funcs$wday(x, label = TRUE),
+    "Label argument not supported by Arrow"
   )
   
-  expect_warning(
-    test_df %>%
-      Table$create() %>%
-      mutate(x = wday(date, locale = Sys.getlocale("LC_TIME"))) %>%
-      collect(),
-    regexp = 'Expression wday(date, locale = Sys.getlocale("LC_TIME")) not supported in Arrow; pulling data into R',
-    fixed = TRUE
-  )
 })
   
 test_that("extract yday from date", {
