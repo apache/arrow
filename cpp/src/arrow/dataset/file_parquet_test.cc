@@ -176,7 +176,7 @@ class TestParquetFileFormat : public FileFormatFixtureMixin<ParquetFormatHelper>
 };
 
 TEST_F(TestParquetFileFormat, InspectFailureWithRelevantError) {
-  TestInspectFailureWithRelevantError(StatusCode::IOError);
+  TestInspectFailureWithRelevantError(StatusCode::IOError, "parquet");
 }
 TEST_F(TestParquetFileFormat, Inspect) { TestInspect(); }
 
