@@ -278,11 +278,23 @@ def test_relative_paths(tempdir, use_legacy_dataset, filesystem):
     assert result.equals(table)
 
 
-@parametrize_legacy_dataset
-def test_read_non_existing_file(use_legacy_dataset):
+def test_read_non_existing_file():
     # ensure we have a proper error message
     with pytest.raises(FileNotFoundError):
         pq.read_table('i-am-not-existing.parquet')
+
+
+def test_file_error_python_exception():
+    class BogusFile(io.BytesIO):
+        def read(self, *args):
+            raise ZeroDivisionError("zorglub")
+
+        def seek(self, *args):
+            raise ZeroDivisionError("zorglub")
+
+    # ensure the Python exception is restored
+    with pytest.raises(ZeroDivisionError, match="zorglub"):
+        pq.read_table(BogusFile(b""))
 
 
 @parametrize_legacy_dataset
