@@ -58,5 +58,10 @@ add_arrow_lib(
 
 add_dependencies(arrow_dataset_jni ${ARROW_DATASET_JNI_LIBRARIES})
 
-add_arrow_test(dataset_jni_test SOURCES jni_util_test.cc jni_util.cc EXTRA_INCLUDES
-               ${JNI_INCLUDE_DIRS})
+add_arrow_test(
+  dataset_jni_test
+  SOURCES
+  jni_util_test.cc
+  jni_util.cc
+  EXTRA_INCLUDES
+  ${JNI_INCLUDE_DIRS})

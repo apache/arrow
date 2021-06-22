@@ -196,8 +196,12 @@ endmacro()
 macro(resolve_dependency DEPENDENCY_NAME)
   set(options)
   set(one_value_args HAVE_ALT IS_RUNTIME_DEPENDENCY REQUIRED_VERSION USE_CONFIG)
-  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}"
-                        ${ARGN})
+  cmake_parse_arguments(
+    ARG
+    "${options}"
+    "${one_value_args}"
+    "${multi_value_args}"
+    ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
@@ -989,8 +993,11 @@ macro(build_brotli)
     brotli_ep
     URL ${BROTLI_SOURCE_URL}
     BUILD_BYPRODUCTS
-      "${BROTLI_STATIC_LIBRARY_ENC}" "${BROTLI_STATIC_LIBRARY_DEC}"
-      "${BROTLI_STATIC_LIBRARY_COMMON}" ${BROTLI_BUILD_BYPRODUCTS} ${EP_LOG_OPTIONS}
+      "${BROTLI_STATIC_LIBRARY_ENC}"
+      "${BROTLI_STATIC_LIBRARY_DEC}"
+      "${BROTLI_STATIC_LIBRARY_COMMON}"
+      ${BROTLI_BUILD_BYPRODUCTS}
+      ${EP_LOG_OPTIONS}
     CMAKE_ARGS ${BROTLI_CMAKE_ARGS}
     STEP_TARGETS headers_copy)
 
@@ -1015,8 +1022,12 @@ macro(build_brotli)
                                  INTERFACE_INCLUDE_DIRECTORIES "${BROTLI_INCLUDE_DIR}")
   add_dependencies(Brotli::brotlidec brotli_ep)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS Brotli::brotlicommon Brotli::brotlienc
-       Brotli::brotlidec)
+  list(
+    APPEND
+    ARROW_BUNDLED_STATIC_LIBS
+    Brotli::brotlicommon
+    Brotli::brotlienc
+    Brotli::brotlidec)
 endmacro()
 
 if(ARROW_WITH_BROTLI)
@@ -1359,12 +1370,18 @@ macro(build_protobuf)
       list(APPEND PROTOBUF_BUILD_COMMAND "SDKROOT=${CMAKE_OSX_SYSROOT}")
     endif()
     set(PROTOBUF_EXTERNAL_PROJECT_ADD_ARGS
-        CONFIGURE_COMMAND "./configure" ${PROTOBUF_CONFIGURE_ARGS} BUILD_COMMAND
+        CONFIGURE_COMMAND
+        "./configure"
+        ${PROTOBUF_CONFIGURE_ARGS}
+        BUILD_COMMAND
         ${PROTOBUF_BUILD_COMMAND})
   else()
     set(PROTOBUF_CMAKE_ARGS
-        ${EP_COMMON_CMAKE_ARGS} -DBUILD_SHARED_LIBS=OFF -DCMAKE_INSTALL_LIBDIR=lib
-        "-DCMAKE_INSTALL_PREFIX=${PROTOBUF_PREFIX}" -Dprotobuf_BUILD_TESTS=OFF
+        ${EP_COMMON_CMAKE_ARGS}
+        -DBUILD_SHARED_LIBS=OFF
+        -DCMAKE_INSTALL_LIBDIR=lib
+        "-DCMAKE_INSTALL_PREFIX=${PROTOBUF_PREFIX}"
+        -Dprotobuf_BUILD_TESTS=OFF
         -Dprotobuf_DEBUG_POSTFIX=)
     if(MSVC AND NOT ARROW_USE_STATIC_CRT)
       list(APPEND PROTOBUF_CMAKE_ARGS "-Dprotobuf_MSVC_STATIC_RUNTIME=OFF")
@@ -1738,7 +1755,12 @@ macro(build_gtest)
 endmacro()
 
 if(ARROW_TESTING)
-  resolve_dependency(GTest REQUIRED_VERSION 1.10.0 USE_CONFIG TRUE)
+  resolve_dependency(
+    GTest
+    REQUIRED_VERSION
+    1.10.0
+    USE_CONFIG
+    TRUE)
 
   if(NOT GTEST_VENDORED)
     # TODO(wesm): This logic does not work correctly with the MSVC static libraries
@@ -1799,8 +1821,10 @@ macro(build_benchmark)
       "${GBENCHMARK_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}benchmark_main${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
   set(GBENCHMARK_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${GBENCHMARK_PREFIX}"
-      -DCMAKE_INSTALL_LIBDIR=lib -DBENCHMARK_ENABLE_TESTING=OFF
+      ${EP_COMMON_CMAKE_ARGS}
+      "-DCMAKE_INSTALL_PREFIX=${GBENCHMARK_PREFIX}"
+      -DCMAKE_INSTALL_LIBDIR=lib
+      -DBENCHMARK_ENABLE_TESTING=OFF
       -DCMAKE_CXX_FLAGS=${GBENCHMARK_CMAKE_CXX_FLAGS})
   if(APPLE)
     set(GBENCHMARK_CMAKE_ARGS ${GBENCHMARK_CMAKE_ARGS} "-DBENCHMARK_USE_LIBCXX=ON")
@@ -1859,8 +1883,11 @@ macro(build_rapidjson)
   set(RAPIDJSON_PREFIX
       "${CMAKE_CURRENT_BINARY_DIR}/rapidjson_ep/src/rapidjson_ep-install")
   set(RAPIDJSON_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS} -DRAPIDJSON_BUILD_DOC=OFF -DRAPIDJSON_BUILD_EXAMPLES=OFF
-      -DRAPIDJSON_BUILD_TESTS=OFF "-DCMAKE_INSTALL_PREFIX=${RAPIDJSON_PREFIX}")
+      ${EP_COMMON_CMAKE_ARGS}
+      -DRAPIDJSON_BUILD_DOC=OFF
+      -DRAPIDJSON_BUILD_EXAMPLES=OFF
+      -DRAPIDJSON_BUILD_TESTS=OFF
+      "-DCMAKE_INSTALL_PREFIX=${RAPIDJSON_PREFIX}")
 
   externalproject_add(
     rapidjson_ep
@@ -2050,8 +2077,10 @@ macro(build_zstd)
     # Only pass our C flags on Unix as on MSVC it leads to a
     # "incompatible command-line options" error
     set(ZSTD_CMAKE_ARGS
-        ${ZSTD_CMAKE_ARGS} -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-        -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER} -DCMAKE_C_FLAGS=${EP_C_FLAGS}
+        ${ZSTD_CMAKE_ARGS}
+        -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+        -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+        -DCMAKE_C_FLAGS=${EP_C_FLAGS}
         -DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS})
   endif()
 
@@ -2212,8 +2241,10 @@ macro(build_utf8proc)
   endif()
 
   set(UTF8PROC_CMAKE_ARGS
-      ${EP_COMMON_TOOLCHAIN} "-DCMAKE_INSTALL_PREFIX=${UTF8PROC_PREFIX}"
-      -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DCMAKE_INSTALL_LIBDIR=lib
+      ${EP_COMMON_TOOLCHAIN}
+      "-DCMAKE_INSTALL_PREFIX=${UTF8PROC_PREFIX}"
+      -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+      -DCMAKE_INSTALL_LIBDIR=lib
       -DBUILD_SHARED_LIBS=OFF)
 
   externalproject_add(
@@ -2270,8 +2301,11 @@ macro(build_cares)
   )
 
   set(CARES_CMAKE_ARGS
-      "${EP_COMMON_CMAKE_ARGS}" -DCARES_STATIC=ON -DCARES_SHARED=OFF
-      -DCMAKE_INSTALL_LIBDIR=lib "-DCMAKE_INSTALL_PREFIX=${CARES_PREFIX}")
+      "${EP_COMMON_CMAKE_ARGS}"
+      -DCARES_STATIC=ON
+      -DCARES_SHARED=OFF
+      -DCMAKE_INSTALL_LIBDIR=lib
+      "-DCMAKE_INSTALL_PREFIX=${CARES_PREFIX}")
 
   externalproject_add(
     cares_ep
@@ -2315,8 +2349,11 @@ macro(build_grpc)
   # First need to build Abseil
   set(ABSL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/absl_ep-install")
   set(ABSL_CMAKE_ARGS
-      "${EP_COMMON_CMAKE_ARGS}" -DABSL_RUN_TESTS=OFF -DCMAKE_CXX_STANDARD=11
-      -DCMAKE_INSTALL_LIBDIR=lib "-DCMAKE_INSTALL_PREFIX=${ABSL_PREFIX}")
+      "${EP_COMMON_CMAKE_ARGS}"
+      -DABSL_RUN_TESTS=OFF
+      -DCMAKE_CXX_STANDARD=11
+      -DCMAKE_INSTALL_LIBDIR=lib
+      "-DCMAKE_INSTALL_PREFIX=${ABSL_PREFIX}")
   set(ABSL_BUILD_BYPRODUCTS)
   set(ABSL_LIBRARIES)
 
@@ -2472,8 +2509,12 @@ macro(build_grpc)
     URL ${GRPC_SOURCE_URL}
     LIST_SEPARATOR |
     BUILD_BYPRODUCTS
-      ${GRPC_STATIC_LIBRARY_GPR} ${GRPC_STATIC_LIBRARY_GRPC} ${GRPC_STATIC_LIBRARY_GRPCPP}
-      ${GRPC_STATIC_LIBRARY_ADDRESS_SORTING} ${GRPC_STATIC_LIBRARY_UPB} ${GRPC_CPP_PLUGIN}
+      ${GRPC_STATIC_LIBRARY_GPR}
+      ${GRPC_STATIC_LIBRARY_GRPC}
+      ${GRPC_STATIC_LIBRARY_GRPCPP}
+      ${GRPC_STATIC_LIBRARY_ADDRESS_SORTING}
+      ${GRPC_STATIC_LIBRARY_UPB}
+      ${GRPC_CPP_PLUGIN}
     CMAKE_ARGS ${GRPC_CMAKE_ARGS} ${EP_LOG_OPTIONS}
     DEPENDS ${grpc_dependencies})
 
@@ -2565,7 +2606,12 @@ endmacro()
 
 if(ARROW_WITH_GRPC)
   set(ARROW_GRPC_REQUIRED_VERSION "1.17.0")
-  resolve_dependency(gRPC HAVE_ALT TRUE REQUIRED_VERSION ${ARROW_GRPC_REQUIRED_VERSION})
+  resolve_dependency(
+    gRPC
+    HAVE_ALT
+    TRUE
+    REQUIRED_VERSION
+    ${ARROW_GRPC_REQUIRED_VERSION})
 
   # TODO: Don't use global includes but rather target_include_directories
   get_target_property(GRPC_INCLUDE_DIR gRPC::grpc++ INTERFACE_INCLUDE_DIRECTORIES)
@@ -2799,8 +2845,10 @@ macro(build_awssdk)
     URL ${AWSSDK_SOURCE_URL}
     CMAKE_ARGS ${AWSSDK_CMAKE_ARGS}
     BUILD_BYPRODUCTS
-      ${AWS_CPP_SDK_COGNITO_IDENTITY_STATIC_LIBRARY} ${AWS_CPP_SDK_CORE_STATIC_LIBRARY}
-      ${AWS_CPP_SDK_IDENTITY_MANAGEMENT_STATIC_LIBRARY} ${AWS_CPP_SDK_S3_STATIC_LIBRARY}
+      ${AWS_CPP_SDK_COGNITO_IDENTITY_STATIC_LIBRARY}
+      ${AWS_CPP_SDK_CORE_STATIC_LIBRARY}
+      ${AWS_CPP_SDK_IDENTITY_MANAGEMENT_STATIC_LIBRARY}
+      ${AWS_CPP_SDK_S3_STATIC_LIBRARY}
       ${AWS_CPP_SDK_STS_STATIC_LIBRARY}
     DEPENDS aws_c_event_stream_ep)
   add_dependencies(toolchain awssdk_ep)
@@ -2859,14 +2907,26 @@ if(ARROW_S3)
 
   # Need to customize the find_package() call, so cannot call resolve_dependency()
   if(AWSSDK_SOURCE STREQUAL "AUTO")
-    find_package(AWSSDK COMPONENTS config s3 transfer identity-management sts)
+    find_package(
+      AWSSDK
+      COMPONENTS config
+                 s3
+                 transfer
+                 identity-management
+                 sts)
     if(NOT AWSSDK_FOUND)
       build_awssdk()
     endif()
   elseif(AWSSDK_SOURCE STREQUAL "BUNDLED")
     build_awssdk()
   elseif(AWSSDK_SOURCE STREQUAL "SYSTEM")
-    find_package(AWSSDK REQUIRED COMPONENTS config s3 transfer identity-management sts)
+    find_package(
+      AWSSDK REQUIRED
+      COMPONENTS config
+                 s3
+                 transfer
+                 identity-management
+                 sts)
   endif()
 
   # Restore previous value of BUILD_SHARED_LIBS

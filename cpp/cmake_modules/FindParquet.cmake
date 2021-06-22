@@ -56,8 +56,13 @@ if((NOT PARQUET_HOME) AND ARROW_HOME)
 endif()
 
 if(ARROW_FOUND)
-  arrow_find_package(PARQUET "${PARQUET_HOME}" parquet parquet/api/reader.h Parquet
-                     parquet)
+  arrow_find_package(
+    PARQUET
+    "${PARQUET_HOME}"
+    parquet
+    parquet/api/reader.h
+    Parquet
+    parquet)
   if(PARQUET_HOME)
     if(PARQUET_INCLUDE_DIR)
       file(READ "${PARQUET_INCLUDE_DIR}/parquet/parquet_version.h"

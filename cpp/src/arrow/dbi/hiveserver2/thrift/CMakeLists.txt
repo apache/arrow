@@ -53,9 +53,20 @@ function(HS2_THRIFT_GEN VAR)
     # It depends on hive_meta_store, which in turn depends on fb303.
     # The java dependency is handled by maven.
     # We need to generate C++ src file for the parent dependencies using the "-r" option.
-    set(CPP_ARGS -nowarn --gen cpp -out ${GEN_DIR})
+    set(CPP_ARGS
+        -nowarn
+        --gen
+        cpp
+        -out
+        ${GEN_DIR})
     if(FIL STREQUAL "beeswax.thrift")
-      set(CPP_ARGS -r -nowarn --gen cpp -out ${GEN_DIR})
+      set(CPP_ARGS
+          -r
+          -nowarn
+          --gen
+          cpp
+          -out
+          ${GEN_DIR})
     endif(FIL STREQUAL "beeswax.thrift")
 
     # Be able to include generated ErrorCodes.thrift file

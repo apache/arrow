@@ -52,8 +52,13 @@ find_package(ArrowFlight ${find_package_arguments})
 find_package(ArrowTesting ${find_package_arguments})
 
 if(ARROW_TESTING_FOUND AND ARROW_FLIGHT_FOUND)
-  arrow_find_package(ARROW_FLIGHT_TESTING "${ARROW_HOME}" arrow_flight_testing
-                     arrow/flight/test_util.h ArrowFlightTesting arrow-flight-testing)
+  arrow_find_package(
+    ARROW_FLIGHT_TESTING
+    "${ARROW_HOME}"
+    arrow_flight_testing
+    arrow/flight/test_util.h
+    ArrowFlightTesting
+    arrow-flight-testing)
   if(NOT ARROW_FLIGHT_TESTING_VERSION)
     set(ARROW_FLIGHT_TESTING_VERSION "${ARROW_VERSION}")
   endif()

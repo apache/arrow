@@ -404,7 +404,13 @@ if(NOT ARROW_BUILD_TESTS)
   set(NO_TESTS 1)
 else()
   add_custom_target(all-tests)
-  add_custom_target(unittest ctest -j4 -L unittest --output-on-failure)
+  add_custom_target(
+    unittest
+    ctest
+    -j4
+    -L
+    unittest
+    --output-on-failure)
   add_dependencies(unittest all-tests)
 endif()
 
@@ -784,8 +790,12 @@ if(NOT MSVC_TOOLCHAIN)
   list(APPEND ARROW_SHARED_INSTALL_INTERFACE_LIBS ${CMAKE_DL_LIBS})
 endif()
 
-set(ARROW_TEST_LINK_TOOLCHAIN GTest::gtest_main GTest::gtest GTest::gmock
-                              ${BOOST_FILESYSTEM_LIBRARY} ${BOOST_SYSTEM_LIBRARY})
+set(ARROW_TEST_LINK_TOOLCHAIN
+    GTest::gtest_main
+    GTest::gtest
+    GTest::gmock
+    ${BOOST_FILESYSTEM_LIBRARY}
+    ${BOOST_SYSTEM_LIBRARY})
 
 if(ARROW_BUILD_TESTS)
   add_dependencies(arrow_test_dependencies ${ARROW_TEST_LINK_TOOLCHAIN})

@@ -35,7 +35,10 @@
 #  CLANG_FORMAT_FOUND, Whether clang format was found
 
 set(CLANG_TOOLS_SEARCH_PATHS
-    ${ClangTools_PATH} $ENV{CLANG_TOOLS_PATH} /usr/local/bin /usr/bin
+    ${ClangTools_PATH}
+    $ENV{CLANG_TOOLS_PATH}
+    /usr/local/bin
+    /usr/bin
     "C:/Program Files/LLVM/bin" # Windows, non-conda
     "$ENV{CONDA_PREFIX}/Library/bin") # Windows, conda
 if(CLANG_TOOLS_BREW_PREFIX)

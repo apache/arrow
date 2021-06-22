@@ -48,8 +48,13 @@ endif()
 find_package(Arrow ${find_package_arguments})
 
 if(ARROW_FOUND)
-  arrow_find_package(ARROW_FLIGHT "${ARROW_HOME}" arrow_flight arrow/flight/api.h
-                     ArrowFlight arrow-flight)
+  arrow_find_package(
+    ARROW_FLIGHT
+    "${ARROW_HOME}"
+    arrow_flight
+    arrow/flight/api.h
+    ArrowFlight
+    arrow-flight)
   if(NOT ARROW_FLIGHT_VERSION)
     set(ARROW_FLIGHT_VERSION "${ARROW_VERSION}")
   endif()

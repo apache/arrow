@@ -20,15 +20,24 @@ add_custom_target(arrow)
 add_custom_target(arrow-benchmarks)
 add_custom_target(arrow-tests)
 add_custom_target(arrow-integration)
-add_dependencies(arrow-all arrow arrow-tests arrow-benchmarks arrow-integration)
+add_dependencies(
+  arrow-all
+  arrow
+  arrow-tests
+  arrow-benchmarks
+  arrow-integration)
 
 # Adding unit tests part of the "arrow" portion of the test suite
 function(ADD_ARROW_TEST REL_TEST_NAME)
   set(options)
   set(one_value_args PREFIX)
   set(multi_value_args LABELS PRECOMPILED_HEADERS)
-  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}"
-                        ${ARGN})
+  cmake_parse_arguments(
+    ARG
+    "${options}"
+    "${one_value_args}"
+    "${multi_value_args}"
+    ${ARGN})
 
   if(ARG_PREFIX)
     set(PREFIX ${ARG_PREFIX})
@@ -66,8 +75,12 @@ function(ADD_ARROW_FUZZ_TARGET REL_FUZZING_NAME)
   set(options)
   set(one_value_args PREFIX)
   set(multi_value_args)
-  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}"
-                        ${ARGN})
+  cmake_parse_arguments(
+    ARG
+    "${options}"
+    "${one_value_args}"
+    "${multi_value_args}"
+    ${ARGN})
 
   if(ARG_PREFIX)
     set(PREFIX ${ARG_PREFIX})
@@ -80,23 +93,37 @@ function(ADD_ARROW_FUZZ_TARGET REL_FUZZING_NAME)
   else()
     set(LINK_LIBS arrow_shared)
   endif()
-  add_fuzz_target(${REL_FUZZING_NAME} PREFIX ${PREFIX} LINK_LIBS ${LINK_LIBS}
-                  ${ARG_UNPARSED_ARGUMENTS})
+  add_fuzz_target(
+    ${REL_FUZZING_NAME}
+    PREFIX
+    ${PREFIX}
+    LINK_LIBS
+    ${LINK_LIBS}
+    ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
 function(ADD_ARROW_BENCHMARK REL_TEST_NAME)
   set(options)
   set(one_value_args PREFIX)
   set(multi_value_args)
-  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}"
-                        ${ARGN})
+  cmake_parse_arguments(
+    ARG
+    "${options}"
+    "${one_value_args}"
+    "${multi_value_args}"
+    ${ARGN})
   if(ARG_PREFIX)
     set(PREFIX ${ARG_PREFIX})
   else()
     set(PREFIX "arrow")
   endif()
-  add_benchmark(${REL_TEST_NAME} PREFIX ${PREFIX} LABELS "arrow-benchmarks"
-                ${ARG_UNPARSED_ARGUMENTS})
+  add_benchmark(
+    ${REL_TEST_NAME}
+    PREFIX
+    ${PREFIX}
+    LABELS
+    "arrow-benchmarks"
+    ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
 macro(append_avx2_src SRC)
@@ -619,8 +646,13 @@ set_source_files_properties(public_api_test.cc PROPERTIES SKIP_PRECOMPILE_HEADER
 add_arrow_test(scalar_test)
 add_arrow_test(type_test)
 
-add_arrow_test(table_test SOURCES chunked_array_test.cc record_batch_test.cc
-               table_test.cc table_builder_test.cc)
+add_arrow_test(
+  table_test
+  SOURCES
+  chunked_array_test.cc
+  record_batch_test.cc
+  table_test.cc
+  table_builder_test.cc)
 
 add_arrow_test(tensor_test)
 add_arrow_test(sparse_tensor_test)

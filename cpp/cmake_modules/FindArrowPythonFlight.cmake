@@ -49,8 +49,13 @@ find_package(ArrowFlight ${find_package_arguments})
 find_package(ArrowPython ${find_package_arguments})
 
 if(ARROW_PYTHON_FOUND AND ARROW_FLIGHT_FOUND)
-  arrow_find_package(ARROW_PYTHON_FLIGHT "${ARROW_HOME}" arrow_python_flight
-                     arrow/python/flight.h ArrowPythonFlight arrow-python-flight)
+  arrow_find_package(
+    ARROW_PYTHON_FLIGHT
+    "${ARROW_HOME}"
+    arrow_python_flight
+    arrow/python/flight.h
+    ArrowPythonFlight
+    arrow-python-flight)
   if(NOT ARROW_PYTHON_FLIGHT_VERSION)
     set(ARROW_PYTHON_FLIGHT_VERSION "${ARROW_VERSION}")
   endif()

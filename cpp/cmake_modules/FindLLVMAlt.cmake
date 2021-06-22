@@ -24,7 +24,12 @@ if(LLVM_BREW_PREFIX)
   list(APPEND LLVM_HINTS ${LLVM_BREW_PREFIX})
 endif()
 foreach(ARROW_LLVM_VERSION ${ARROW_LLVM_VERSIONS})
-  find_package(LLVM ${ARROW_LLVM_VERSION} CONFIG HINTS ${LLVM_HINTS})
+  find_package(
+    LLVM
+    ${ARROW_LLVM_VERSION}
+    CONFIG
+    HINTS
+    ${LLVM_HINTS})
   if(LLVM_FOUND)
     break()
   endif()

@@ -47,8 +47,13 @@ endif()
 find_package(Arrow ${find_package_arguments})
 
 if(ARROW_FOUND)
-  arrow_find_package(ARROW_TESTING "${ARROW_HOME}" arrow_testing arrow/testing/util.h
-                     ArrowTesting arrow-testing)
+  arrow_find_package(
+    ARROW_TESTING
+    "${ARROW_HOME}"
+    arrow_testing
+    arrow/testing/util.h
+    ArrowTesting
+    arrow-testing)
   if(NOT ARROW_TESTING_VERSION)
     set(ARROW_TESTING_VERSION "${ARROW_VERSION}")
   endif()

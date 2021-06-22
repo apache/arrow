@@ -47,8 +47,13 @@ endif()
 find_package(Arrow ${find_package_arguments})
 
 if(ARROW_FOUND)
-  arrow_find_package(ARROW_CUDA "${ARROW_HOME}" arrow_cuda arrow/gpu/cuda_api.h ArrowCUDA
-                     arrow-cuda)
+  arrow_find_package(
+    ARROW_CUDA
+    "${ARROW_HOME}"
+    arrow_cuda
+    arrow/gpu/cuda_api.h
+    ArrowCUDA
+    arrow-cuda)
   if(NOT ARROW_CUDA_VERSION)
     set(ARROW_CUDA_VERSION "${ARROW_VERSION}")
   endif()

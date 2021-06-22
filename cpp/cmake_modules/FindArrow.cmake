@@ -50,8 +50,19 @@ set(ARROW_SEARCH_LIB_PATH_SUFFIXES)
 if(CMAKE_LIBRARY_ARCHITECTURE)
   list(APPEND ARROW_SEARCH_LIB_PATH_SUFFIXES "lib/${CMAKE_LIBRARY_ARCHITECTURE}")
 endif()
-list(APPEND ARROW_SEARCH_LIB_PATH_SUFFIXES "lib64" "lib32" "lib" "bin")
-set(ARROW_CONFIG_SUFFIXES "_RELEASE" "_RELWITHDEBINFO" "_MINSIZEREL" "_DEBUG" "")
+list(
+  APPEND
+  ARROW_SEARCH_LIB_PATH_SUFFIXES
+  "lib64"
+  "lib32"
+  "lib"
+  "bin")
+set(ARROW_CONFIG_SUFFIXES
+    "_RELEASE"
+    "_RELWITHDEBINFO"
+    "_MINSIZEREL"
+    "_DEBUG"
+    "")
 if(CMAKE_BUILD_TYPE)
   string(TOUPPER ${CMAKE_BUILD_TYPE} ARROW_CONFIG_SUFFIX_PREFERRED)
   set(ARROW_CONFIG_SUFFIX_PREFERRED "_${ARROW_CONFIG_SUFFIX_PREFERRED}")
@@ -274,7 +285,12 @@ macro(arrow_find_package_pkg_config)
     if(n_shared_lib_paths LESS_EQUAL 1)
       set(rest_shared_lib_paths)
     else()
-      list(SUBLIST shared_lib_paths 1 -1 rest_shared_lib_paths)
+      list(
+        SUBLIST
+        shared_lib_paths
+        1
+        -1
+        rest_shared_lib_paths)
     endif()
 
     set(${prefix}_VERSION
@@ -379,7 +395,13 @@ endfunction()
 if(NOT "$ENV{ARROW_HOME}" STREQUAL "")
   file(TO_CMAKE_PATH "$ENV{ARROW_HOME}" ARROW_HOME)
 endif()
-arrow_find_package(ARROW "${ARROW_HOME}" arrow arrow/api.h Arrow arrow)
+arrow_find_package(
+  ARROW
+  "${ARROW_HOME}"
+  arrow
+  arrow/api.h
+  Arrow
+  arrow)
 
 if(ARROW_HOME)
   if(ARROW_INCLUDE_DIR)

@@ -50,8 +50,12 @@ function(ADD_THIRDPARTY_LIB LIB_NAME)
   set(options)
   set(one_value_args SHARED_LIB STATIC_LIB)
   set(multi_value_args DEPS INCLUDE_DIRECTORIES)
-  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}"
-                        ${ARGN})
+  cmake_parse_arguments(
+    ARG
+    "${options}"
+    "${one_value_args}"
+    "${multi_value_args}"
+    ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
@@ -143,8 +147,12 @@ function(create_merged_static_lib output_target)
   set(options)
   set(one_value_args NAME ROOT)
   set(multi_value_args TO_MERGE)
-  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}"
-                        ${ARGN})
+  cmake_parse_arguments(
+    ARG
+    "${options}"
+    "${one_value_args}"
+    "${multi_value_args}"
+    ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
@@ -218,8 +226,13 @@ endfunction()
 # \arg OUTPUTS list to append built targets to
 function(ADD_ARROW_LIB LIB_NAME)
   set(options)
-  set(one_value_args BUILD_SHARED BUILD_STATIC CMAKE_PACKAGE_NAME PKG_CONFIG_NAME
-                     SHARED_LINK_FLAGS PRECOMPILED_HEADER_LIB)
+  set(one_value_args
+      BUILD_SHARED
+      BUILD_STATIC
+      CMAKE_PACKAGE_NAME
+      PKG_CONFIG_NAME
+      SHARED_LINK_FLAGS
+      PRECOMPILED_HEADER_LIB)
   set(multi_value_args
       SOURCES
       PRECOMPILED_HEADERS
@@ -233,8 +246,12 @@ function(ADD_ARROW_LIB LIB_NAME)
       SHARED_INSTALL_INTERFACE_LIBS
       STATIC_INSTALL_INTERFACE_LIBS
       OUTPUT_PATH)
-  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}"
-                        ${ARGN})
+  cmake_parse_arguments(
+    ARG
+    "${options}"
+    "${one_value_args}"
+    "${multi_value_args}"
+    ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
@@ -359,8 +376,11 @@ function(ADD_ARROW_LIB LIB_NAME)
                  SOVERSION "${ARROW_SO_VERSION}")
 
     target_link_libraries(
-      ${LIB_NAME}_shared LINK_PUBLIC "$<BUILD_INTERFACE:${ARG_SHARED_LINK_LIBS}>"
-      "$<INSTALL_INTERFACE:${ARG_SHARED_INSTALL_INTERFACE_LIBS}>" LINK_PRIVATE
+      ${LIB_NAME}_shared
+      LINK_PUBLIC
+      "$<BUILD_INTERFACE:${ARG_SHARED_LINK_LIBS}>"
+      "$<INSTALL_INTERFACE:${ARG_SHARED_INSTALL_INTERFACE_LIBS}>"
+      LINK_PRIVATE
       ${ARG_SHARED_PRIVATE_LINK_LIBS})
 
     if(ARROW_RPATH_ORIGIN)
@@ -514,9 +534,18 @@ endfunction()
 function(ADD_BENCHMARK REL_BENCHMARK_NAME)
   set(options)
   set(one_value_args)
-  set(multi_value_args EXTRA_LINK_LIBS STATIC_LINK_LIBS DEPENDENCIES PREFIX LABELS)
-  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}"
-                        ${ARGN})
+  set(multi_value_args
+      EXTRA_LINK_LIBS
+      STATIC_LINK_LIBS
+      DEPENDENCIES
+      PREFIX
+      LABELS)
+  cmake_parse_arguments(
+    ARG
+    "${options}"
+    "${one_value_args}"
+    "${multi_value_args}"
+    ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
@@ -585,8 +614,13 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
     set(ARG_LABELS benchmark)
   endif()
 
-  add_test(${BENCHMARK_NAME} ${BUILD_SUPPORT_DIR}/run-test.sh ${CMAKE_BINARY_DIR}
-           benchmark ${BENCHMARK_PATH} ${NO_COLOR})
+  add_test(
+    ${BENCHMARK_NAME}
+    ${BUILD_SUPPORT_DIR}/run-test.sh
+    ${CMAKE_BINARY_DIR}
+    benchmark
+    ${BENCHMARK_PATH}
+    ${NO_COLOR})
   set_property(
     TEST ${BENCHMARK_NAME}
     APPEND
@@ -633,8 +667,12 @@ function(ADD_TEST_CASE REL_TEST_NAME)
       LABELS
       EXTRA_LABELS
       PREFIX)
-  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}"
-                        ${ARGN})
+  cmake_parse_arguments(
+    ARG
+    "${options}"
+    "${one_value_args}"
+    "${multi_value_args}"
+    ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
@@ -712,8 +750,12 @@ function(ADD_TEST_CASE REL_TEST_NAME)
   elseif(WIN32)
     add_test(${TEST_NAME} ${TEST_PATH})
   else()
-    add_test(${TEST_NAME} ${BUILD_SUPPORT_DIR}/run-test.sh ${CMAKE_BINARY_DIR} test
-             ${TEST_PATH})
+    add_test(
+      ${TEST_NAME}
+      ${BUILD_SUPPORT_DIR}/run-test.sh
+      ${CMAKE_BINARY_DIR}
+      test
+      ${TEST_PATH})
   endif()
 
   # Add test as dependency of relevant targets
@@ -776,8 +818,12 @@ function(ADD_ARROW_EXAMPLE REL_EXAMPLE_NAME)
   set(options)
   set(one_value_args)
   set(multi_value_args EXTRA_LINK_LIBS DEPENDENCIES PREFIX)
-  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}"
-                        ${ARGN})
+  cmake_parse_arguments(
+    ARG
+    "${options}"
+    "${one_value_args}"
+    "${multi_value_args}"
+    ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
@@ -826,8 +872,12 @@ function(ADD_FUZZ_TARGET REL_FUZZING_NAME)
   set(options)
   set(one_value_args PREFIX)
   set(multi_value_args LINK_LIBS)
-  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}"
-                        ${ARGN})
+  cmake_parse_arguments(
+    ARG
+    "${options}"
+    "${one_value_args}"
+    "${multi_value_args}"
+    ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
@@ -864,8 +914,12 @@ function(ARROW_INSTALL_ALL_HEADERS PATH)
   set(options)
   set(one_value_args)
   set(multi_value_args PATTERN)
-  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}"
-                        ${ARGN})
+  cmake_parse_arguments(
+    ARG
+    "${options}"
+    "${one_value_args}"
+    "${multi_value_args}"
+    ${ARGN})
   if(NOT ARG_PATTERN)
     # The .hpp extension is used by some vendored libraries
     set(ARG_PATTERN "*.h" "*.hpp")

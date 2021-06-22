@@ -29,6 +29,10 @@ with section("format"):
     # How many spaces to tab for indent
     tab_size = 2
 
+    # If a positional argument group contains more than this many arguments,
+    # then force it to a vertical layout.
+    max_pargs_hwrap = 4
+
     # If true, separate flow control names from their parentheses with a space
     separate_ctrl_name_with_space = False
 

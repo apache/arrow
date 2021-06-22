@@ -221,8 +221,12 @@ foreach(LIB_TARGET ${ARROW_FLIGHT_TESTING_LIBRARIES})
                           ${ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS})
 endforeach()
 
-add_arrow_test(flight_test STATIC_LINK_LIBS ${ARROW_FLIGHT_TEST_LINK_LIBS} LABELS
-               "arrow_flight")
+add_arrow_test(
+  flight_test
+  STATIC_LINK_LIBS
+  ${ARROW_FLIGHT_TEST_LINK_LIBS}
+  LABELS
+  "arrow_flight")
 
 # Build test server for unit tests or benchmarks
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)

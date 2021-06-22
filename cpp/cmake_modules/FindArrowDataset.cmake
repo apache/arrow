@@ -47,8 +47,13 @@ find_package(Arrow ${find_package_arguments})
 find_package(Parquet ${find_package_arguments})
 
 if(ARROW_FOUND AND PARQUET_FOUND)
-  arrow_find_package(ARROW_DATASET "${ARROW_HOME}" arrow_dataset arrow/dataset/api.h
-                     ArrowDataset arrow-dataset)
+  arrow_find_package(
+    ARROW_DATASET
+    "${ARROW_HOME}"
+    arrow_dataset
+    arrow/dataset/api.h
+    ArrowDataset
+    arrow-dataset)
   if(NOT ARROW_DATASET_VERSION)
     set(ARROW_DATASET_VERSION "${ARROW_VERSION}")
   endif()

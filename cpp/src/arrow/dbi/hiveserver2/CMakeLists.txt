@@ -104,8 +104,12 @@ set(ARROW_HIVESERVER2_TEST_LINK_LIBS arrow_hiveserver2_static arrow_hiveserver2_
                                      ${ARROW_TEST_LINK_LIBS} thrift::thrift)
 
 if(ARROW_BUILD_TESTS)
-  add_test_case(hiveserver2_test STATIC_LINK_LIBS "${ARROW_HIVESERVER2_TEST_LINK_LIBS}"
-                LABELS "arrow_hiveserver2-tests")
+  add_test_case(
+    hiveserver2_test
+    STATIC_LINK_LIBS
+    "${ARROW_HIVESERVER2_TEST_LINK_LIBS}"
+    LABELS
+    "arrow_hiveserver2-tests")
   if(TARGET arrow-hiveserver2-test)
     set_property(
       TARGET arrow-hiveserver2-test

@@ -50,7 +50,13 @@ endif()
 find_package(Arrow ${find_package_arguments})
 
 if(ARROW_FOUND)
-  arrow_find_package(PLASMA "${ARROW_HOME}" plasma plasma/client.h Plasma plasma)
+  arrow_find_package(
+    PLASMA
+    "${ARROW_HOME}"
+    plasma
+    plasma/client.h
+    Plasma
+    plasma)
   if(ARROW_HOME)
     set(PLASMA_STORE_SERVER
         ${ARROW_HOME}/bin/plasma-store-server${CMAKE_EXECUTABLE_SUFFIX})

@@ -48,7 +48,13 @@ endif()
 find_package(Arrow ${find_package_arguments})
 
 if(ARROW_FOUND)
-  arrow_find_package(GANDIVA "${ARROW_HOME}" gandiva gandiva/arrow.h Gandiva gandiva)
+  arrow_find_package(
+    GANDIVA
+    "${ARROW_HOME}"
+    gandiva
+    gandiva/arrow.h
+    Gandiva
+    gandiva)
   if(NOT GANDIVA_VERSION)
     set(GANDIVA_VERSION "${ARROW_VERSION}")
   endif()

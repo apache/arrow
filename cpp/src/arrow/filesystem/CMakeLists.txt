@@ -21,8 +21,13 @@ arrow_install_all_headers("arrow/filesystem")
 # pkg-config support
 arrow_add_pkg_config("arrow-filesystem")
 
-add_arrow_test(filesystem-test SOURCES filesystem_test.cc localfs_test.cc EXTRA_LABELS
-               filesystem)
+add_arrow_test(
+  filesystem-test
+  SOURCES
+  filesystem_test.cc
+  localfs_test.cc
+  EXTRA_LABELS
+  filesystem)
 
 if(ARROW_S3)
   add_arrow_test(s3fs_test EXTRA_LABELS filesystem)

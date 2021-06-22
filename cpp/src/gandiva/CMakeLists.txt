@@ -170,24 +170,41 @@ function(ADD_GANDIVA_TEST REL_TEST_NAME)
   set(options USE_STATIC_LINKING)
   set(one_value_args)
   set(multi_value_args)
-  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}"
-                        ${ARGN})
+  cmake_parse_arguments(
+    ARG
+    "${options}"
+    "${one_value_args}"
+    "${multi_value_args}"
+    ${ARGN})
 
   if(NO_TESTS)
     return()
   endif()
 
-  set(TEST_ARGUMENTS ENABLED PREFIX "gandiva" LABELS "gandiva-tests"
-                     ${ARG_UNPARSED_ARGUMENTS})
+  set(TEST_ARGUMENTS
+      ENABLED
+      PREFIX
+      "gandiva"
+      LABELS
+      "gandiva-tests"
+      ${ARG_UNPARSED_ARGUMENTS})
 
   # and uses less disk space, but in some cases we need to force static
   # linking (see rationale below).
   if(ARG_USE_STATIC_LINKING OR ARROW_TEST_LINKAGE STREQUAL "static")
-    add_test_case(${REL_TEST_NAME} ${TEST_ARGUMENTS} STATIC_LINK_LIBS
-                  ${GANDIVA_STATIC_TEST_LINK_LIBS} ${ARG_UNPARSED_ARGUMENTS})
+    add_test_case(
+      ${REL_TEST_NAME}
+      ${TEST_ARGUMENTS}
+      STATIC_LINK_LIBS
+      ${GANDIVA_STATIC_TEST_LINK_LIBS}
+      ${ARG_UNPARSED_ARGUMENTS})
   else()
-    add_test_case(${REL_TEST_NAME} ${TEST_ARGUMENTS} STATIC_LINK_LIBS
-                  ${GANDIVA_SHARED_TEST_LINK_LIBS} ${ARG_UNPARSED_ARGUMENTS})
+    add_test_case(
+      ${REL_TEST_NAME}
+      ${TEST_ARGUMENTS}
+      STATIC_LINK_LIBS
+      ${GANDIVA_SHARED_TEST_LINK_LIBS}
+      ${ARG_UNPARSED_ARGUMENTS})
   endif()
 
   set(TEST_NAME gandiva-${REL_TEST_NAME})
@@ -197,8 +214,12 @@ endfunction()
 
 set(GANDIVA_INTERNALS_TEST_ARGUMENTS)
 if(WIN32)
-  list(APPEND GANDIVA_INTERNALS_TEST_ARGUMENTS EXTRA_LINK_LIBS LLVM::LLVM_INTERFACE
-       ${GANDIVA_OPENSSL_LIBS})
+  list(
+    APPEND
+    GANDIVA_INTERNALS_TEST_ARGUMENTS
+    EXTRA_LINK_LIBS
+    LLVM::LLVM_INTERFACE
+    ${GANDIVA_OPENSSL_LIBS})
 endif()
 add_gandiva_test(
   internals-test

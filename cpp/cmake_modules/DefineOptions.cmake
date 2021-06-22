@@ -136,8 +136,12 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   #
   # If you change this, you need to change the definition in
   # python/CMakeLists.txt too.
-  define_option_string(ARROW_ARMV8_ARCH "Arm64 arch and extensions" "armv8-a" # Default
-                       "armv8-a" "armv8-a+crc+crypto")
+  define_option_string(
+    ARROW_ARMV8_ARCH
+    "Arm64 arch and extensions"
+    "armv8-a" # Default
+    "armv8-a"
+    "armv8-a+crc+crypto")
 
   define_option(ARROW_ALTIVEC "Build with Altivec if compiler has support" ON)
 
@@ -174,8 +178,11 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   endif()
 
   define_option_string(
-    ARROW_TEST_LINKAGE "Linkage of Arrow libraries with unit tests executables."
-    "${ARROW_TEST_LINKAGE_DEFAULT}" "shared" "static")
+    ARROW_TEST_LINKAGE
+    "Linkage of Arrow libraries with unit tests executables."
+    "${ARROW_TEST_LINKAGE_DEFAULT}"
+    "shared"
+    "static")
 
   define_option(ARROW_FUZZING "Build Arrow Fuzzing executables" OFF)
 

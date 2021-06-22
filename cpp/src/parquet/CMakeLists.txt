@@ -24,17 +24,29 @@ add_dependencies(parquet-all parquet parquet-tests parquet-benchmarks)
 function(ADD_PARQUET_TEST REL_TEST_NAME)
   set(one_value_args)
   set(multi_value_args EXTRA_DEPENDENCIES LABELS)
-  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}"
-                        ${ARGN})
+  cmake_parse_arguments(
+    ARG
+    "${options}"
+    "${one_value_args}"
+    "${multi_value_args}"
+    ${ARGN})
 
   set(TEST_ARGUMENTS PREFIX "parquet" LABELS "parquet-tests")
 
   if(ARROW_TEST_LINKAGE STREQUAL "static")
-    add_test_case(${REL_TEST_NAME} STATIC_LINK_LIBS ${PARQUET_STATIC_TEST_LINK_LIBS}
-                  ${TEST_ARGUMENTS} ${ARG_UNPARSED_ARGUMENTS})
+    add_test_case(
+      ${REL_TEST_NAME}
+      STATIC_LINK_LIBS
+      ${PARQUET_STATIC_TEST_LINK_LIBS}
+      ${TEST_ARGUMENTS}
+      ${ARG_UNPARSED_ARGUMENTS})
   else()
-    add_test_case(${REL_TEST_NAME} STATIC_LINK_LIBS ${PARQUET_SHARED_TEST_LINK_LIBS}
-                  ${TEST_ARGUMENTS} ${ARG_UNPARSED_ARGUMENTS})
+    add_test_case(
+      ${REL_TEST_NAME}
+      STATIC_LINK_LIBS
+      ${PARQUET_SHARED_TEST_LINK_LIBS}
+      ${TEST_ARGUMENTS}
+      ${ARG_UNPARSED_ARGUMENTS})
   endif()
 endfunction()
 
@@ -42,8 +54,12 @@ function(ADD_PARQUET_FUZZ_TARGET REL_FUZZING_NAME)
   set(options)
   set(one_value_args PREFIX)
   set(multi_value_args)
-  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}"
-                        ${ARGN})
+  cmake_parse_arguments(
+    ARG
+    "${options}"
+    "${one_value_args}"
+    "${multi_value_args}"
+    ${ARGN})
 
   if(ARG_PREFIX)
     set(PREFIX ${ARG_PREFIX})
@@ -56,16 +72,25 @@ function(ADD_PARQUET_FUZZ_TARGET REL_FUZZING_NAME)
   else()
     set(LINK_LIBS parquet_shared)
   endif()
-  add_fuzz_target(${REL_FUZZING_NAME} PREFIX ${PREFIX} LINK_LIBS ${LINK_LIBS}
-                  ${ARG_UNPARSED_ARGUMENTS})
+  add_fuzz_target(
+    ${REL_FUZZING_NAME}
+    PREFIX
+    ${PREFIX}
+    LINK_LIBS
+    ${LINK_LIBS}
+    ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
 function(ADD_PARQUET_BENCHMARK REL_TEST_NAME)
   set(options)
   set(one_value_args PREFIX)
   set(multi_value_args)
-  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}"
-                        ${ARGN})
+  cmake_parse_arguments(
+    ARG
+    "${options}"
+    "${one_value_args}"
+    "${multi_value_args}"
+    ${ARGN})
   if(ARG_PREFIX)
     set(PREFIX ${ARG_PREFIX})
   else()
@@ -321,14 +346,27 @@ add_parquet_test(
   stream_reader_test.cc
   test_util.cc)
 
-add_parquet_test(writer-test SOURCES column_writer_test.cc file_serialize_test.cc
-                 stream_writer_test.cc test_util.cc)
+add_parquet_test(
+  writer-test
+  SOURCES
+  column_writer_test.cc
+  file_serialize_test.cc
+  stream_writer_test.cc
+  test_util.cc)
 
-add_parquet_test(arrow-test SOURCES arrow/arrow_reader_writer_test.cc
-                 arrow/arrow_schema_test.cc test_util.cc)
+add_parquet_test(
+  arrow-test
+  SOURCES
+  arrow/arrow_reader_writer_test.cc
+  arrow/arrow_schema_test.cc
+  test_util.cc)
 
-add_parquet_test(arrow-internals-test SOURCES arrow/path_internal_test.cc
-                 arrow/reconstruct_internal_test.cc test_util.cc)
+add_parquet_test(
+  arrow-internals-test
+  SOURCES
+  arrow/path_internal_test.cc
+  arrow/reconstruct_internal_test.cc
+  test_util.cc)
 
 if(PARQUET_REQUIRE_ENCRYPTION)
   add_parquet_test(

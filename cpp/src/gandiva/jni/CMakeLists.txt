@@ -58,8 +58,12 @@ else()
   list(APPEND GANDIVA_LINK_LIBS gandiva_shared)
 endif()
 
-set(GANDIVA_JNI_SOURCES config_builder.cc config_holder.cc expression_registry_helper.cc
-                        jni_common.cc ${PROTO_SRCS})
+set(GANDIVA_JNI_SOURCES
+    config_builder.cc
+    config_holder.cc
+    expression_registry_helper.cc
+    jni_common.cc
+    ${PROTO_SRCS})
 
 # For users of gandiva_jni library (including integ tests), include-dir is :
 #   /usr/**/include dir after install,

@@ -46,8 +46,13 @@ endif()
 find_package(Arrow ${find_package_arguments})
 
 if(ARROW_FOUND)
-  arrow_find_package(ARROW_PYTHON "${ARROW_HOME}" arrow_python arrow/python/api.h
-                     ArrowPython arrow-python)
+  arrow_find_package(
+    ARROW_PYTHON
+    "${ARROW_HOME}"
+    arrow_python
+    arrow/python/api.h
+    ArrowPython
+    arrow-python)
   if(NOT ARROW_PYTHON_VERSION)
     set(ARROW_PYTHON_VERSION "${ARROW_VERSION}")
   endif()
