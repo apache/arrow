@@ -18,10 +18,10 @@
 library(lubridate)
 library(dplyr)
 
-test_date <- ymd_hms("2021-06-11 10:01:38.85")
+test_date <- as.POSIXct("2017-01-01 00:00:12.3456789", tz = "")
 test_df <- tibble::tibble(date = test_date)
 
-test_that("extract datetime components from date", {
+test_that("extract year from date", {
   expect_dplyr_equal(
     input %>%
       mutate(x = year(date)) %>%
@@ -29,41 +29,55 @@ test_that("extract datetime components from date", {
     test_df,
     check.tzone = FALSE
   )
-  
+})
+
+test_that("extract isoyear from date", {
   expect_dplyr_equal(
     input %>%
       mutate(x = isoyear(date)) %>%
       collect(),
     test_df
   )
+})
   
+test_that("extract quarter from date", {
   expect_dplyr_equal(
     input %>%
       mutate(x = quarter(date)) %>%
       collect(),
     test_df
   )
-  
+})
+
+test_that("extract month from date", {
   expect_dplyr_equal(
     input %>%
       mutate(x = month(date)) %>%
       collect(),
     test_df
   )
-  
+})
+
+test_that("extract isoweek from date", {
   expect_dplyr_equal(
     input %>%
       mutate(x = isoweek(date)) %>%
       collect(),
     test_df
   )
+})
+
+test_that("extract day from date", {
   expect_dplyr_equal(
     input %>%
       mutate(x = day(date)) %>%
       collect(),
     test_df
   )
+})
   
+
+test_that("extract wday from date", {
  expect_dplyr_equal(
     input %>%
       mutate(x = wday(date)) %>%
@@ -78,11 +92,19 @@ test_that("extract datetime components from date", {
     test_df
   )
   
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = wday(date, week_start = 1)) %>%
+      collect(),
+    test_df
+  )
+  
   expect_warning(
     test_df %>%
       Table$create() %>%
       mutate(x = wday(date, label = TRUE)) %>%
       collect(),
+    # Update this test after ARROW-13133 is resolved
     regexp = "Label argument not supported by Arrow; pulling data into R"
   )
   
@@ -94,34 +116,43 @@ test_that("extract datetime components from date", {
     regexp = 'Expression wday(date, locale = Sys.getlocale("LC_TIME")) not supported in Arrow; pulling data into R',
     fixed = TRUE
   )
-
+})
   
+test_that("extract yday from date", {
   expect_dplyr_equal(
     input %>%
       mutate(x = yday(date)) %>%
       collect(),
     test_df
   )
+})
   
+test_that("extract hour from date", {
   expect_dplyr_equal(
     input %>%
       mutate(x = hour(date)) %>%
       collect(),
     test_df
   )
+})
   
+test_that("extract minute from date", {
    expect_dplyr_equal(
     input %>%
       mutate(x = minute(date)) %>%
       collect(),
     test_df
   )
+})
   
+test_that("extract second from date", {
   expect_dplyr_equal(
     input %>%
       mutate(x = second(date)) %>%
       collect(),
-    test_df
+    test_df,
+    # arrow supports nanosecond resolution but lubridate does not
+    tolerance = 1e-6
   )
-  
 })
+
