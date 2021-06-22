@@ -386,12 +386,14 @@ void bin(uint64_t n, char* ret, int32_t* position) {
       gdv_fn_context_set_error_msg(context, "Could not allocate memory for output");  \
       return "";                                                                      \
     }                                                                                 \
-    /* generate bin representation recursively */                                     \
+    /* generate binary representation recursively */                                  \
     bin(value, ret, out_len);                                                         \
     return ret;                                                                       \
   }
 
 BIN_INTEGER(int32)
 BIN_INTEGER(int64)
+
+#undef BIN_INTEGER
 
 }  // extern "C"
