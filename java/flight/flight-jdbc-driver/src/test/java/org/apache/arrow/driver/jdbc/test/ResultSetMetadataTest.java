@@ -102,13 +102,13 @@ public class ResultSetMetadataTest {
   }
 
   /**
-   * Test if {@link ResultSetMetaData#getColumnTypeName(int)}  returns the correct type for each
+   * Test if {@link ResultSetMetaData#getColumnTypeName(int)}  returns the correct type name for each
    * column.
    *
    * @throws SQLException in case of error.
    */
   @Test
-  public void testShouldGetColumnTypes() throws SQLException {
+  public void testShouldGetColumnTypesName() throws SQLException {
     final String firstColumn = metadata.getColumnTypeName(1);
     final String secondColumn = metadata.getColumnTypeName(2);
     final String thirdColumn = metadata.getColumnTypeName(3);
