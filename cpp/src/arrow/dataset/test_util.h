@@ -486,7 +486,7 @@ class FileFormatFixtureMixin : public ::testing::Test {
     EXPECT_OK_AND_ASSIGN(auto sink, GetFileSink());
 
     if (!options) options = format->DefaultWriteOptions();
-    EXPECT_OK_AND_ASSIGN(auto writer, format->MakeWriter(sink, schema, options));
+    EXPECT_OK_AND_ASSIGN(auto writer, format->MakeWriter(sink, schema, options, {}));
     ARROW_EXPECT_OK(writer->Write(GetRecordBatchReader(schema).get()));
     ARROW_EXPECT_OK(writer->Finish());
     EXPECT_OK_AND_ASSIGN(auto written, sink->Finish());
@@ -722,7 +722,8 @@ class DummyFileFormat : public FileFormat {
 
   Result<std::shared_ptr<FileWriter>> MakeWriter(
       std::shared_ptr<io::OutputStream> destination, std::shared_ptr<Schema> schema,
-      std::shared_ptr<FileWriteOptions> options) const override {
+      std::shared_ptr<FileWriteOptions> options,
+      fs::FileLocator destination_locator) const override {
     return Status::NotImplemented("writing fragment of DummyFileFormat");
   }
 
@@ -770,7 +771,8 @@ class JSONRecordBatchFileFormat : public FileFormat {
 
   Result<std::shared_ptr<FileWriter>> MakeWriter(
       std::shared_ptr<io::OutputStream> destination, std::shared_ptr<Schema> schema,
-      std::shared_ptr<FileWriteOptions> options) const override {
+      std::shared_ptr<FileWriteOptions> options,
+      fs::FileLocator destination_locator) const override {
     return Status::NotImplemented("writing fragment of JSONRecordBatchFileFormat");
   }
 
@@ -1057,8 +1059,12 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
   void SetWriteOptions(std::shared_ptr<FileWriteOptions> file_write_options) {
     write_options_.file_write_options = file_write_options;
     write_options_.filesystem = fs_;
-    write_options_.base_dir = "new_root/";
+    write_options_.base_dir = "/new_root/";
     write_options_.basename_template = "dat_{i}";
+    write_options_.writer_pre_finish = [this](FileWriter* writer) {
+      visited_paths_.push_back(writer->destination().path);
+      return Status::OK();
+    };
   }
 
   void DoWrite(std::shared_ptr<Partitioning> desired_partitioning) {
@@ -1210,10 +1216,16 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
     for (const auto& file_contents : expected_files_) {
       expected_paths.insert(file_contents.first);
     }
+
+    // expect the written filesystem to contain precisely the paths we expected
     for (auto path : checked_pointer_cast<FileSystemDataset>(written_)->files()) {
       actual_paths.insert(std::move(path));
     }
     EXPECT_THAT(actual_paths, testing::UnorderedElementsAreArray(expected_paths));
+
+    // Additionally, the writer producing each written file was visited and its path
+    // collected. That should match the expected paths as well
+    EXPECT_THAT(visited_paths_, testing::UnorderedElementsAreArray(expected_paths));
 
     ASSERT_OK_AND_ASSIGN(auto written_fragments_it, written_->GetFragments());
     for (auto maybe_fragment : written_fragments_it) {
@@ -1257,6 +1269,7 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
   PathAndContent expected_files_;
   std::shared_ptr<Schema> expected_physical_schema_;
   std::shared_ptr<Dataset> written_;
+  std::vector<std::string> visited_paths_;
   FileSystemDatasetWriteOptions write_options_;
   std::shared_ptr<ScanOptions> scan_options_;
 };

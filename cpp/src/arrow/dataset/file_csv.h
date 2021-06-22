@@ -67,7 +67,8 @@ class ARROW_DS_EXPORT CsvFileFormat : public FileFormat {
 
   Result<std::shared_ptr<FileWriter>> MakeWriter(
       std::shared_ptr<io::OutputStream> destination, std::shared_ptr<Schema> schema,
-      std::shared_ptr<FileWriteOptions> options) const override {
+      std::shared_ptr<FileWriteOptions> options,
+      fs::FileLocator destination_locator) const override {
     return Status::NotImplemented("writing fragment of CsvFileFormat");
   }
 
