@@ -85,7 +85,7 @@ TEST_F(TestIpcFileFormat, WriteRecordBatchReaderCustomOptions) {
 }
 
 TEST_F(TestIpcFileFormat, InspectFailureWithRelevantError) {
-  TestInspectFailureWithRelevantError(StatusCode::Invalid);
+  TestInspectFailureWithRelevantError(StatusCode::Invalid, "IPC");
 }
 TEST_F(TestIpcFileFormat, Inspect) { TestInspect(); }
 TEST_F(TestIpcFileFormat, IsSupported) { TestIsSupported(); }

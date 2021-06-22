@@ -407,18 +407,50 @@ class FileFormatFixtureMixin : public ::testing::Test {
   }
 
   // Shared test cases
-  void TestInspectFailureWithRelevantError(StatusCode code) {
-    std::shared_ptr<Buffer> buf = std::make_shared<Buffer>(util::string_view(""));
-    auto result = format_->Inspect(FileSource(buf));
-    EXPECT_EQ(code, result.status().code());
-    EXPECT_THAT(result.status().ToString(), testing::HasSubstr("<Buffer>"));
-
+  void AssertInspectFailure(const std::string& contents, StatusCode code,
+                            const std::string& format_name) {
+    SCOPED_TRACE("Format: " + format_name + " File contents: " + contents);
     constexpr auto file_name = "herp/derp";
+    auto make_error_message = [&](const std::string& filename) {
+      return "Could not open " + format_name + " input source '" + filename + "':";
+    };
+    const auto buf = std::make_shared<Buffer>(contents);
+    Status status;
+
+    status = format_->Inspect(FileSource(buf)).status();
+    EXPECT_EQ(code, status.code());
+    EXPECT_THAT(status.ToString(), ::testing::HasSubstr(make_error_message("<Buffer>")));
+
+    ASSERT_OK_AND_EQ(false, format_->IsSupported(FileSource(buf)));
+
     ASSERT_OK_AND_ASSIGN(
         auto fs, fs::internal::MockFileSystem::Make(fs::kNoTime, {fs::File(file_name)}));
-    result = format_->Inspect({file_name, fs});
-    EXPECT_EQ(code, result.status().code());
-    EXPECT_THAT(result.status().ToString(), testing::HasSubstr(file_name));
+    status = format_->Inspect({file_name, fs}).status();
+    EXPECT_EQ(code, status.code());
+    EXPECT_THAT(status.ToString(), testing::HasSubstr(make_error_message("herp/derp")));
+
+    fs::FileSelector s;
+    s.base_dir = "/";
+    s.recursive = true;
+    FileSystemFactoryOptions options;
+    ASSERT_OK_AND_ASSIGN(auto factory,
+                         FileSystemDatasetFactory::Make(fs, s, format_, options));
+    status = factory->Finish().status();
+    EXPECT_EQ(code, status.code());
+    EXPECT_THAT(
+        status.ToString(),
+        ::testing::AllOf(
+            ::testing::HasSubstr(make_error_message("/herp/derp")),
+            ::testing::HasSubstr(
+                "Error creating dataset. Could not read schema from '/herp/derp':"),
+            ::testing::HasSubstr("Is this a '" + format_->type_name() + "' file?")));
+  }
+  void TestInspectFailureWithRelevantError(StatusCode code,
+                                           const std::string format_name) {
+    const std::vector<std::string> file_contents{"", "PAR0", "ASDFPAR1", "ARROW1"};
+    for (const auto& contents : file_contents) {
+      AssertInspectFailure(contents, code, format_name);
+    }
   }
   void TestInspect() {
     auto reader = GetRecordBatchReader(schema({field("f64", float64())}));
