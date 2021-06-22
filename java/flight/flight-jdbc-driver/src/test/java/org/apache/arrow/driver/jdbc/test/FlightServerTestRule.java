@@ -124,6 +124,22 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
     throw new UnsupportedOperationException("Not implemented yet.");
   }
 
+  /**
+   * Get a connection with the server to be used within the test.
+   *
+   * @return a valid JDBC connection.
+   * @throws SQLException in case of error.
+   */
+  Connection getConnection() throws SQLException {
+    Properties props = new Properties();
+    props.put(USERNAME.getEntry().getKey(), getProperty(USERNAME));
+    props.put(PASSWORD.getEntry().getKey(), getProperty(PASSWORD));
+
+    final String url = "jdbc:arrow-flight://" + getProperty(HOST) + ":" + getProperty(PORT);
+
+    return (new ArrowFlightJdbcDriver()).connect(url, props);
+  }
+
   @Override
   public Statement apply(Statement base, Description description) {
     return new Statement() {
