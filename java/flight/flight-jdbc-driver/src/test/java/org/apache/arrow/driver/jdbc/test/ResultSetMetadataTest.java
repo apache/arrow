@@ -31,7 +31,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Random;
 
 import org.apache.arrow.driver.jdbc.utils.BaseProperty;
 import org.hamcrest.CoreMatchers;
@@ -42,6 +41,8 @@ import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ErrorCollector;
+
+import me.alexpanov.net.FreePortFinder;
 
 public class ResultSetMetadataTest {
 
@@ -59,7 +60,7 @@ public class ResultSetMetadataTest {
   static {
     properties = new HashMap<>();
     properties.put(HOST, "localhost");
-    properties.put(PORT, (new Random()).nextInt(65536));
+    properties.put(PORT, FreePortFinder.findFreeLocalPort());
     properties.put(USERNAME, "flight-test-user");
     properties.put(PASSWORD, "flight-test-password");
     rule = new FlightServerTestRule(properties);
