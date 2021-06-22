@@ -24,8 +24,11 @@
 #include "arrow/array/data.h"
 #include "arrow/array/util.h"
 #include "arrow/buffer.h"
+#include "arrow/builder.h"
+#include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
 
@@ -90,6 +93,119 @@ Status ArrayBuilder::Advance(int64_t elements) {
   }
   length_ += elements;
   return null_bitmap_builder_.Advance(elements);
+}
+
+struct AppendScalarImpl {
+  template <typename T, typename AppendScalar,
+            typename BuilderType = typename TypeTraits<T>::BuilderType,
+            typename ScalarType = typename TypeTraits<T>::ScalarType>
+  Status UseBuilder(const AppendScalar& append) {
+    for (const auto scalar : scalars_) {
+      if (scalar->is_valid) {
+        RETURN_NOT_OK(append(internal::checked_cast<const ScalarType&>(*scalar),
+                             static_cast<BuilderType*>(builder_)));
+      } else {
+        RETURN_NOT_OK(builder_->AppendNull());
+      }
+    }
+    return Status::OK();
+  }
+
+  struct AppendValue {
+    template <typename BuilderType, typename ScalarType>
+    Status operator()(const ScalarType& s, BuilderType* builder) const {
+      return builder->Append(s.value);
+    }
+  };
+
+  struct AppendBuffer {
+    template <typename BuilderType, typename ScalarType>
+    Status operator()(const ScalarType& s, BuilderType* builder) const {
+      const Buffer& buffer = *s.value;
+      return builder->Append(util::string_view{buffer});
+    }
+  };
+
+  struct AppendList {
+    template <typename BuilderType, typename ScalarType>
+    Status operator()(const ScalarType& s, BuilderType* builder) const {
+      RETURN_NOT_OK(builder->Append());
+      const Array& list = *s.value;
+      for (int64_t i = 0; i < list.length(); i++) {
+        ARROW_ASSIGN_OR_RAISE(auto scalar, list.GetScalar(i));
+        RETURN_NOT_OK(builder->value_builder()->AppendScalar(*scalar));
+      }
+      return Status::OK();
+    }
+  };
+
+  template <typename T>
+  enable_if_has_c_type<T, Status> Visit(const T&) {
+    return UseBuilder<T>(AppendValue{});
+  }
+
+  template <typename T>
+  enable_if_has_string_view<T, Status> Visit(const T&) {
+    return UseBuilder<T>(AppendBuffer{});
+  }
+
+  template <typename T>
+  enable_if_decimal<T, Status> Visit(const T&) {
+    return UseBuilder<T>(AppendValue{});
+  }
+
+  template <typename T>
+  enable_if_list_like<T, Status> Visit(const T&) {
+    return UseBuilder<T>(AppendList{});
+  }
+
+  Status Visit(const StructType& type) {
+    auto* builder = static_cast<StructBuilder*>(builder_);
+    for (const auto s : scalars_) {
+      const auto& scalar = internal::checked_cast<const StructScalar&>(*s);
+      for (int field_index = 0; field_index < type.num_fields(); ++field_index) {
+        if (!scalar.is_valid || !scalar.value[field_index]) {
+          RETURN_NOT_OK(builder->field_builder(field_index)->AppendNull());
+        } else {
+          RETURN_NOT_OK(builder->field_builder(field_index)
+                            ->AppendScalar(*scalar.value[field_index]));
+        }
+      }
+      RETURN_NOT_OK(builder->Append(scalar.is_valid));
+    }
+    return Status::OK();
+  }
+
+  Status Visit(const DataType& type) {
+    return Status::NotImplemented("AppendScalar for type ", type);
+  }
+
+  Status Convert() { return VisitTypeInline(*scalars_[0]->type, this); }
+
+  std::vector<const Scalar*> scalars_;
+  ArrayBuilder* builder_;
+};
+
+Status ArrayBuilder::AppendScalar(const Scalar& scalar) {
+  if (!scalar.type->Equals(type())) {
+    return Status::Invalid("Cannot append scalar of type ", scalar.type->ToString(),
+                           " to builder for type ", type()->ToString());
+  }
+  return AppendScalarImpl{{&scalar}, this}.Convert();
+}
+
+Status ArrayBuilder::AppendScalars(const ScalarVector& scalars) {
+  if (scalars.empty()) return Status::OK();
+  std::vector<const Scalar*> refs;
+  refs.reserve(scalars.size());
+  for (const auto& scalar : scalars) {
+    if (!scalar->type->Equals(type())) {
+      return Status::Invalid("Cannot append scalar of type ", scalar->type->ToString(),
+                             " to builder for type ", type()->ToString());
+    }
+    refs.push_back(scalar.get());
+  }
+  return AppendScalarImpl{refs, this}.Convert();
 }
 
 Status ArrayBuilder::Finish(std::shared_ptr<Array>* out) {

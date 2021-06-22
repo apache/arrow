@@ -116,6 +116,10 @@ class ARROW_EXPORT ArrayBuilder {
   /// This method is useful when appending null values to a parent nested type.
   virtual Status AppendEmptyValues(int64_t length) = 0;
 
+  /// \brief Append a value from a scalar
+  virtual Status AppendScalar(const Scalar& scalar);
+  virtual Status AppendScalars(const ScalarVector& scalars);
+
   /// For cases where raw data was memcpy'd into the internal buffers, allows us
   /// to advance the length of the builder. It is your responsibility to use
   /// this function responsibly.
