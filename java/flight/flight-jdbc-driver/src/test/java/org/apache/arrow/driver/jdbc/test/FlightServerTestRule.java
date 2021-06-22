@@ -197,7 +197,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
       public void getStream(CallContext callContext, Ticket ticket, ServerStreamListener listener) {
         checkUsername(callContext, listener);
 
-        final Random random = new Random();
+        final Random random = new Random(10);
 
         if (Arrays.equals(QUERY_TICKET, ticket.getBytes())) {
           final int rows = Byte.MAX_VALUE;
