@@ -418,7 +418,8 @@ class WriteQueue {
 
     ARROW_ASSIGN_OR_RAISE(
         writer_, write_options.format()->MakeWriter(std::move(destination), schema_,
-                                                    write_options.file_write_options));
+                                                    write_options.file_write_options,
+                                                    {write_options.filesystem, path}));
     return Status::OK();
   }
 
@@ -445,15 +446,15 @@ struct WriteState {
   std::unordered_map<std::string, std::unique_ptr<WriteQueue>> queues;
 };
 
-Status WriteNextBatch(WriteState& state, const std::shared_ptr<Fragment>& fragment,
+Status WriteNextBatch(WriteState* state, const std::shared_ptr<Fragment>& fragment,
                       std::shared_ptr<RecordBatch> batch) {
-  ARROW_ASSIGN_OR_RAISE(auto groups, state.write_options.partitioning->Partition(batch));
+  ARROW_ASSIGN_OR_RAISE(auto groups, state->write_options.partitioning->Partition(batch));
   batch.reset();  // drop to hopefully conserve memory
 
-  if (groups.batches.size() > static_cast<size_t>(state.write_options.max_partitions)) {
+  if (groups.batches.size() > static_cast<size_t>(state->write_options.max_partitions)) {
     return Status::Invalid("Fragment would be written into ", groups.batches.size(),
                            " partitions. This exceeds the maximum of ",
-                           state.write_options.max_partitions);
+                           state->write_options.max_partitions);
   }
 
   std::unordered_set<WriteQueue*> need_flushed;
@@ -462,20 +463,20 @@ Status WriteNextBatch(WriteState& state, const std::shared_ptr<Fragment>& fragme
         and_(std::move(groups.expressions[i]), fragment->partition_expression());
     auto batch = std::move(groups.batches[i]);
 
-    ARROW_ASSIGN_OR_RAISE(auto part,
-                          state.write_options.partitioning->Format(partition_expression));
+    ARROW_ASSIGN_OR_RAISE(
+        auto part, state->write_options.partitioning->Format(partition_expression));
 
     WriteQueue* queue;
     {
       // lookup the queue to which batch should be appended
-      auto queues_lock = state.mutex.Lock();
+      auto queues_lock = state->mutex.Lock();
 
       queue = internal::GetOrInsertGenerated(
-                  &state.queues, std::move(part),
+                  &state->queues, std::move(part),
                   [&](const std::string& emplaced_part) {
                     // lookup in `queues` also failed,
                     // generate a new WriteQueue
-                    size_t queue_index = state.queues.size() - 1;
+                    size_t queue_index = state->queues.size() - 1;
 
                     return internal::make_unique<WriteQueue>(emplaced_part, queue_index,
                                                              batch->schema());
@@ -489,12 +490,12 @@ Status WriteNextBatch(WriteState& state, const std::shared_ptr<Fragment>& fragme
 
   // flush all touched WriteQueues
   for (auto queue : need_flushed) {
-    RETURN_NOT_OK(queue->Flush(state.write_options));
+    RETURN_NOT_OK(queue->Flush(state->write_options));
   }
   return Status::OK();
 }
 
-Status WriteInternal(const ScanOptions& scan_options, WriteState& state,
+Status WriteInternal(const ScanOptions& scan_options, WriteState* state,
                      ScanTaskVector scan_tasks) {
   // Store a mapping from partitions (represened by their formatted partition expressions)
   // to a WriteQueue which flushes batches into that partition's output file. In principle
@@ -544,7 +545,7 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
 #pragma warning(disable : 4996)
 #endif
 
-  // TODO: (ARROW-11782/ARROW-12288) Remove calls to Scan()
+  // TODO(ARROW-11782/ARROW-12288) Remove calls to Scan()
   ARROW_ASSIGN_OR_RAISE(auto scan_task_it, scanner->Scan());
   ARROW_ASSIGN_OR_RAISE(ScanTaskVector scan_tasks, scan_task_it.ToVector());
 
@@ -555,11 +556,14 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
 #endif
 
   WriteState state(write_options);
-  RETURN_NOT_OK(WriteInternal(*scanner->options(), state, std::move(scan_tasks)));
+  RETURN_NOT_OK(WriteInternal(*scanner->options(), &state, std::move(scan_tasks)));
 
   auto task_group = scanner->options()->TaskGroup();
   for (const auto& part_queue : state.queues) {
-    task_group->Append([&] { return part_queue.second->writer()->Finish(); });
+    task_group->Append([&] {
+      RETURN_NOT_OK(write_options.writer_pre_finish(part_queue.second->writer().get()));
+      return part_queue.second->writer()->Finish();
+    });
   }
   return task_group->Finish();
 }

@@ -258,7 +258,8 @@ std::shared_ptr<FileWriteOptions> IpcFileFormat::DefaultWriteOptions() {
 
 Result<std::shared_ptr<FileWriter>> IpcFileFormat::MakeWriter(
     std::shared_ptr<io::OutputStream> destination, std::shared_ptr<Schema> schema,
-    std::shared_ptr<FileWriteOptions> options) const {
+    std::shared_ptr<FileWriteOptions> options,
+    fs::FileLocator destination_locator) const {
   if (!Equals(*options->format())) {
     return Status::TypeError("Mismatching format/write options.");
   }
@@ -274,14 +275,16 @@ Result<std::shared_ptr<FileWriter>> IpcFileFormat::MakeWriter(
 
   return std::shared_ptr<FileWriter>(
       new IpcFileWriter(std::move(destination), std::move(writer), std::move(schema),
-                        std::move(ipc_options)));
+                        std::move(ipc_options), std::move(destination_locator)));
 }
 
 IpcFileWriter::IpcFileWriter(std::shared_ptr<io::OutputStream> destination,
                              std::shared_ptr<ipc::RecordBatchWriter> writer,
                              std::shared_ptr<Schema> schema,
-                             std::shared_ptr<IpcFileWriteOptions> options)
-    : FileWriter(std::move(schema), std::move(options), std::move(destination)),
+                             std::shared_ptr<IpcFileWriteOptions> options,
+                             fs::FileLocator destination_locator)
+    : FileWriter(std::move(schema), std::move(options), std::move(destination),
+                 std::move(destination_locator)),
       batch_writer_(std::move(writer)) {}
 
 Status IpcFileWriter::Write(const std::shared_ptr<RecordBatch>& batch) {
