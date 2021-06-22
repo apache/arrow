@@ -30,19 +30,22 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Properties;
 import java.util.Random;
 
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver;
 import org.apache.arrow.driver.jdbc.utils.BaseProperty;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
 
 public class ResultSetTest {
-  private static final Map<BaseProperty, Object> properties;
+  private static Map<BaseProperty, Object> properties;
 
   @ClassRule
-  public static final FlightServerTestRule rule;
+  public static FlightServerTestRule rule;
+
+  private static Connection connection;
 
   static {
     properties = new HashMap<>();
@@ -50,7 +53,18 @@ public class ResultSetTest {
     properties.put(PORT, (new Random()).nextInt(65536));
     properties.put(USERNAME, "flight-test-user");
     properties.put(PASSWORD, "flight-test-password");
+
     rule = new FlightServerTestRule(properties);
+  }
+
+  @BeforeClass
+  public static void setup() throws SQLException {
+    connection = rule.getConnection();
+  }
+
+  @AfterClass
+  public static void tearDown() throws SQLException {
+    connection.close();
   }
 
   /**
@@ -61,24 +75,11 @@ public class ResultSetTest {
    */
   @Test
   public void testShouldRunSelectQuery() throws Exception {
+    Statement statement = connection.createStatement();
+    ResultSet resultSet = statement.executeQuery("SELECT * FROM TEST");
 
-    Properties properties = new Properties();
-    properties.put(USERNAME.getEntry().getKey(), rule.getProperty(USERNAME));
-    properties.put(PASSWORD.getEntry().getKey(), rule.getProperty(PASSWORD));
-
-    try (Connection connection = (new ArrowFlightJdbcDriver())
-        .connect("jdbc:arrow-flight://" +
-                rule.getProperty(HOST) + ":" +
-                rule.getProperty(PORT),
-        properties)) {
-      try (Statement statement = connection.createStatement()) {
-        try (ResultSet resultSet = statement.executeQuery("SELECT * FROM TEST")) {
-
-          while (resultSet.next()) {
-            assertNotNull(resultSet.getObject(1));
-          }
-        }
-      }
+    while (resultSet.next()) {
+      assertNotNull(resultSet.getObject(1));
     }
   }
 
@@ -92,19 +93,8 @@ public class ResultSetTest {
   @Test(expected = SQLException.class)
   public void testShouldThrowExceptionUponAttemptingToExecuteAnInvalidSelectQuery()
       throws Exception {
-
-    Properties properties = new Properties();
-    properties.put(USERNAME.getEntry().getKey(), rule.getProperty(USERNAME));
-    properties.put(PASSWORD.getEntry().getKey(), rule.getProperty(PASSWORD));
-
-    try (Connection connection = (new ArrowFlightJdbcDriver())
-        .connect("jdbc:arrow-flight://" +
-                rule.getProperty(HOST) + ":" +
-                rule.getProperty(PORT),
-            properties);
-         Statement statement = connection.createStatement();
-         ResultSet resultSet = statement.executeQuery("SELECT * FROM SHOULD-FAIL")) {
-      fail();
-    }
+    Statement statement = connection.createStatement();
+    ResultSet resultSet = statement.executeQuery("SELECT * FROM SHOULD-FAIL");
+    fail();
   }
 }
