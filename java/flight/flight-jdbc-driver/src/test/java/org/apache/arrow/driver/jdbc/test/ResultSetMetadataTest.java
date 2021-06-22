@@ -31,12 +31,11 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Properties;
 import java.util.Random;
 
-import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver;
 import org.apache.arrow.driver.jdbc.utils.BaseProperty;
 import org.hamcrest.CoreMatchers;
+import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
@@ -48,6 +47,8 @@ public class ResultSetMetadataTest {
 
   private static final Map<BaseProperty, Object> properties;
   private static ResultSetMetaData metadata;
+
+  private static Connection connection;
 
   @Rule
   public ErrorCollector collector = new ErrorCollector();
@@ -66,20 +67,17 @@ public class ResultSetMetadataTest {
 
   @BeforeClass
   public static void setup() throws SQLException {
-    Properties properties = new Properties();
-    properties.put(USERNAME.getEntry().getKey(), rule.getProperty(USERNAME));
-    properties.put(PASSWORD.getEntry().getKey(), rule.getProperty(PASSWORD));
+    connection = rule.getConnection();
 
-    try (Connection connection = (new ArrowFlightJdbcDriver())
-        .connect("jdbc:arrow-flight://" +
-                rule.getProperty(HOST) + ":" +
-                rule.getProperty(PORT),
-            properties)) {
-      Statement statement = connection.createStatement();
-      ResultSet resultSet = statement.executeQuery("SELECT * FROM METADATA");
+    final Statement statement = connection.createStatement();
+    ResultSet resultSet = statement.executeQuery("SELECT * FROM METADATA");
 
-      metadata = resultSet.getMetaData();
-    }
+    metadata = resultSet.getMetaData();
+  }
+
+  @AfterClass
+  public static void teardown() throws SQLException {
+    connection.close();
   }
 
   /**
