@@ -30,9 +30,7 @@ namespace r {
 template <int sexp_type>
 struct ArrayNoNull {
   using data_type = typename std::conditional<sexp_type == INTSXP, int, double>::type;
-  static void DeleteArray(std::shared_ptr<Array>* ptr) {
-    delete ptr;
-  }
+  static void DeleteArray(std::shared_ptr<Array>* ptr) { delete ptr; }
   using Pointer = cpp11::external_pointer<std::shared_ptr<Array>, DeleteArray>;
 
   // altrep object around an Array with no nulls
