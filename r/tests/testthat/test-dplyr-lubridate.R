@@ -26,7 +26,6 @@ test_that("timezone aware timestamps are not supported",{
   tz_aware_date <- as.POSIXct("2017-01-01 00:00:12.3456789", tz = "BST")
   tz_aware_df <- tibble::tibble(date = tz_aware_date)
   
-  x <- Expression$field_ref("x")
   expect_error(
     Table$create(tz_aware_df) %>%
       mutate(x = wday(date)) %>%
