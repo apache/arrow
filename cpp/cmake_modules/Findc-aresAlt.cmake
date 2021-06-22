@@ -34,28 +34,33 @@ if(c-ares_PC_FOUND)
   set(c-ares_INCLUDE_DIR "${c-ares_PC_INCLUDEDIR}")
 
   list(APPEND c-ares_PC_LIBRARY_DIRS "${c-ares_PC_LIBDIR}")
-  find_library(c-ares_LIB cares
-               PATHS ${c-ares_PC_LIBRARY_DIRS}
-               PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES}
-               NO_DEFAULT_PATH)
+  find_library(
+    c-ares_LIB cares
+    PATHS ${c-ares_PC_LIBRARY_DIRS}
+    PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES}
+    NO_DEFAULT_PATH)
 elseif(c-ares_ROOT)
-  find_library(c-ares_LIB
-               NAMES cares
-                     "${CMAKE_SHARED_LIBRARY_PREFIX}cares${CMAKE_SHARED_LIBRARY_SUFFIX}"
-               PATHS ${c-ares_ROOT}
-               PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES}
-               NO_DEFAULT_PATH)
-  find_path(c-ares_INCLUDE_DIR
-            NAMES ares.h
-            PATHS ${c-ares_ROOT}
-            NO_DEFAULT_PATH
-            PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
+  find_library(
+    c-ares_LIB
+    NAMES cares "${CMAKE_SHARED_LIBRARY_PREFIX}cares${CMAKE_SHARED_LIBRARY_SUFFIX}"
+    PATHS ${c-ares_ROOT}
+    PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES}
+    NO_DEFAULT_PATH)
+  find_path(
+    c-ares_INCLUDE_DIR
+    NAMES ares.h
+    PATHS ${c-ares_ROOT}
+    NO_DEFAULT_PATH
+    PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
 else()
-  find_library(c-ares_LIB
-               NAMES cares
-                     "${CMAKE_SHARED_LIBRARY_PREFIX}cares${CMAKE_SHARED_LIBRARY_SUFFIX}"
-               PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES})
-  find_path(c-ares_INCLUDE_DIR NAMES ares.h PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
+  find_library(
+    c-ares_LIB
+    NAMES cares "${CMAKE_SHARED_LIBRARY_PREFIX}cares${CMAKE_SHARED_LIBRARY_SUFFIX}"
+    PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES})
+  find_path(
+    c-ares_INCLUDE_DIR
+    NAMES ares.h
+    PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
 endif()
 
 find_package_handle_standard_args(c-aresAlt REQUIRED_VARS c-ares_LIB c-ares_INCLUDE_DIR)
@@ -64,8 +69,7 @@ if(c-aresAlt_FOUND)
   if(NOT TARGET c-ares::cares)
     add_library(c-ares::cares UNKNOWN IMPORTED)
     set_target_properties(
-      c-ares::cares
-      PROPERTIES IMPORTED_LOCATION "${c-ares_LIB}" INTERFACE_INCLUDE_DIRECTORIES
-                 "${c-ares_INCLUDE_DIR}")
+      c-ares::cares PROPERTIES IMPORTED_LOCATION "${c-ares_LIB}"
+                               INTERFACE_INCLUDE_DIRECTORIES "${c-ares_INCLUDE_DIR}")
   endif()
 endif()

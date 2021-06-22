@@ -48,12 +48,7 @@ endif()
 find_package(Arrow ${find_package_arguments})
 
 if(ARROW_FOUND)
-  arrow_find_package(GANDIVA
-                     "${ARROW_HOME}"
-                     gandiva
-                     gandiva/arrow.h
-                     Gandiva
-                     gandiva)
+  arrow_find_package(GANDIVA "${ARROW_HOME}" gandiva gandiva/arrow.h Gandiva gandiva)
   if(NOT GANDIVA_VERSION)
     set(GANDIVA_VERSION "${ARROW_VERSION}")
   endif()
@@ -67,26 +62,24 @@ else()
   set(GANDIVA_VERSION_MATCH FALSE)
 endif()
 
-mark_as_advanced(GANDIVA_ABI_VERSION
-                 GANDIVA_IMPORT_LIB
-                 GANDIVA_INCLUDE_DIR
-                 GANDIVA_LIBS
-                 GANDIVA_LIB_DIR
-                 GANDIVA_SHARED_IMP_LIB
-                 GANDIVA_SHARED_LIB
-                 GANDIVA_SO_VERSION
-                 GANDIVA_STATIC_LIB
-                 GANDIVA_VERSION
-                 GANDIVA_VERSION_MATCH)
+mark_as_advanced(
+  GANDIVA_ABI_VERSION
+  GANDIVA_IMPORT_LIB
+  GANDIVA_INCLUDE_DIR
+  GANDIVA_LIBS
+  GANDIVA_LIB_DIR
+  GANDIVA_SHARED_IMP_LIB
+  GANDIVA_SHARED_LIB
+  GANDIVA_SO_VERSION
+  GANDIVA_STATIC_LIB
+  GANDIVA_VERSION
+  GANDIVA_VERSION_MATCH)
 
-find_package_handle_standard_args(Gandiva
-                                  REQUIRED_VARS
-                                  GANDIVA_INCLUDE_DIR
-                                  GANDIVA_LIB_DIR
-                                  GANDIVA_SO_VERSION
-                                  GANDIVA_VERSION_MATCH
-                                  VERSION_VAR
-                                  GANDIVA_VERSION)
+find_package_handle_standard_args(
+  Gandiva
+  REQUIRED_VARS GANDIVA_INCLUDE_DIR GANDIVA_LIB_DIR GANDIVA_SO_VERSION
+                GANDIVA_VERSION_MATCH
+  VERSION_VAR GANDIVA_VERSION)
 set(GANDIVA_FOUND ${Gandiva_FOUND})
 
 if(Gandiva_FOUND AND NOT Gandiva_FIND_QUIETLY)

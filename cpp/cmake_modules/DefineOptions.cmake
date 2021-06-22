@@ -24,7 +24,9 @@ function(check_description_length name description)
   foreach(description_line ${description})
     string(LENGTH ${description_line} line_length)
     if(${line_length} GREATER 80)
-      message(FATAL_ERROR "description for ${name} contained a\n\
+      message(
+        FATAL_ERROR
+          "description for ${name} contained a\n\
         line ${line_length} characters long!\n\
         (max is 80). Split it into more lines with semicolons")
     endif()
@@ -33,7 +35,9 @@ endfunction()
 
 function(list_join lst glue out)
   if("${${lst}}" STREQUAL "")
-    set(${out} "" PARENT_SCOPE)
+    set(${out}
+        ""
+        PARENT_SCOPE)
     return()
   endif()
 
@@ -42,7 +46,9 @@ function(list_join lst glue out)
   foreach(item ${${lst}})
     set(joined "${joined}${glue}${item}")
   endforeach()
-  set(${out} ${joined} PARENT_SCOPE)
+  set(${out}
+      ${joined}
+      PARENT_SCOPE)
 endfunction()
 
 macro(define_option name description default)
@@ -61,7 +67,9 @@ macro(define_option_string name description default)
   check_description_length(${name} ${description})
   list_join(description "\n" multiline_description)
 
-  set(${name} ${default} CACHE STRING "${multiline_description}")
+  set(${name}
+      ${default}
+      CACHE STRING "${multiline_description}")
 
   list(APPEND "ARROW_${ARROW_OPTION_CATEGORY}_OPTION_NAMES" ${name})
   set("${name}_OPTION_DESCRIPTION" ${description})
@@ -86,8 +94,8 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_BUILD_SHARED "Build shared libraries" ON)
 
-  define_option_string(ARROW_PACKAGE_KIND
-                       "Arbitrary string that identifies the kind of package;\
+  define_option_string(
+    ARROW_PACKAGE_KIND "Arbitrary string that identifies the kind of package;\
 (for informational purposes)" "")
 
   define_option_string(ARROW_GIT_ID "The Arrow git commit id (if any)" "")
@@ -104,33 +112,32 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   define_option(ARROW_USE_PRECOMPILED_HEADERS "Use precompiled headers when compiling"
                 OFF)
 
-  define_option_string(ARROW_SIMD_LEVEL
-                       "Compile-time SIMD optimization level"
-                       "SSE4_2" # default to SSE4.2
-                       "NONE"
-                       "SSE4_2"
-                       "AVX2"
-                       "AVX512")
+  define_option_string(
+    ARROW_SIMD_LEVEL
+    "Compile-time SIMD optimization level"
+    "SSE4_2" # default to SSE4.2
+    "NONE"
+    "SSE4_2"
+    "AVX2"
+    "AVX512")
 
-  define_option_string(ARROW_RUNTIME_SIMD_LEVEL
-                       "Max runtime SIMD optimization level"
-                       "MAX" # default to max supported by compiler
-                       "NONE"
-                       "SSE4_2"
-                       "AVX2"
-                       "AVX512"
-                       "MAX")
+  define_option_string(
+    ARROW_RUNTIME_SIMD_LEVEL
+    "Max runtime SIMD optimization level"
+    "MAX" # default to max supported by compiler
+    "NONE"
+    "SSE4_2"
+    "AVX2"
+    "AVX512"
+    "MAX")
 
   # Arm64 architectures and extensions can lead to exploding combinations.
   # So set it directly through cmake command line.
   #
   # If you change this, you need to change the definition in
   # python/CMakeLists.txt too.
-  define_option_string(ARROW_ARMV8_ARCH
-                       "Arm64 arch and extensions"
-                       "armv8-a" # Default
-                       "armv8-a"
-                       "armv8-a+crc+crypto")
+  define_option_string(ARROW_ARMV8_ARCH "Arm64 arch and extensions" "armv8-a" # Default
+                       "armv8-a" "armv8-a+crc+crypto")
 
   define_option(ARROW_ALTIVEC "Build with Altivec if compiler has support" ON)
 
@@ -166,11 +173,9 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     set(ARROW_TEST_LINKAGE_DEFAULT "static")
   endif()
 
-  define_option_string(ARROW_TEST_LINKAGE
-                       "Linkage of Arrow libraries with unit tests executables."
-                       "${ARROW_TEST_LINKAGE_DEFAULT}"
-                       "shared"
-                       "static")
+  define_option_string(
+    ARROW_TEST_LINKAGE "Linkage of Arrow libraries with unit tests executables."
+    "${ARROW_TEST_LINKAGE_DEFAULT}" "shared" "static")
 
   define_option(ARROW_FUZZING "Build Arrow Fuzzing executables" OFF)
 
@@ -181,8 +186,8 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_ONLY_LINT "Only define the lint and check-format targets" OFF)
 
-  define_option(ARROW_VERBOSE_LINT "If off, 'quiet' flags will be passed to linting tools"
-                OFF)
+  define_option(ARROW_VERBOSE_LINT
+                "If off, 'quiet' flags will be passed to linting tools" OFF)
 
   define_option(ARROW_GENERATE_COVERAGE "Build with C++ code coverage enabled" OFF)
 
@@ -287,15 +292,16 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   else()
     set(ARROW_DEPENDENCY_SOURCE_DEFAULT "AUTO")
   endif()
-  define_option_string(ARROW_DEPENDENCY_SOURCE
-                       "Method to use for acquiring arrow's build dependencies"
-                       "${ARROW_DEPENDENCY_SOURCE_DEFAULT}"
-                       "AUTO"
-                       "BUNDLED"
-                       "SYSTEM"
-                       "CONDA"
-                       "VCPKG"
-                       "BREW")
+  define_option_string(
+    ARROW_DEPENDENCY_SOURCE
+    "Method to use for acquiring arrow's build dependencies"
+    "${ARROW_DEPENDENCY_SOURCE_DEFAULT}"
+    "AUTO"
+    "BUNDLED"
+    "SYSTEM"
+    "CONDA"
+    "VCPKG"
+    "BREW")
 
   define_option(ARROW_VERBOSE_THIRDPARTY_BUILD
                 "Show output from ExternalProjects rather than just logging to files" OFF)
@@ -320,12 +326,13 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   define_option(ARROW_LZ4_USE_SHARED "Rely on lz4 shared libraries where relevant"
                 ${ARROW_DEPENDENCY_USE_SHARED})
 
-  define_option(ARROW_OPENSSL_USE_SHARED "Rely on OpenSSL shared libraries where relevant"
-                ${ARROW_DEPENDENCY_USE_SHARED})
+  define_option(
+    ARROW_OPENSSL_USE_SHARED "Rely on OpenSSL shared libraries where relevant"
+    ${ARROW_DEPENDENCY_USE_SHARED})
 
-  define_option(ARROW_PROTOBUF_USE_SHARED
-                "Rely on Protocol Buffers shared libraries where relevant"
-                ${ARROW_DEPENDENCY_USE_SHARED})
+  define_option(
+    ARROW_PROTOBUF_USE_SHARED "Rely on Protocol Buffers shared libraries where relevant"
+    ${ARROW_DEPENDENCY_USE_SHARED})
 
   if(WIN32)
     # It seems that Thrift doesn't support DLL well yet.
@@ -337,16 +344,16 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   define_option(ARROW_THRIFT_USE_SHARED "Rely on thrift shared libraries where relevant"
                 ${ARROW_THRIFT_USE_SHARED_DEFAULT})
 
-  define_option(ARROW_UTF8PROC_USE_SHARED
-                "Rely on utf8proc shared libraries where relevant"
-                ${ARROW_DEPENDENCY_USE_SHARED})
+  define_option(
+    ARROW_UTF8PROC_USE_SHARED "Rely on utf8proc shared libraries where relevant"
+    ${ARROW_DEPENDENCY_USE_SHARED})
 
   define_option(ARROW_SNAPPY_USE_SHARED "Rely on snappy shared libraries where relevant"
                 ${ARROW_DEPENDENCY_USE_SHARED})
 
-  define_option(ARROW_UTF8PROC_USE_SHARED
-                "Rely on utf8proc shared libraries where relevant"
-                ${ARROW_DEPENDENCY_USE_SHARED})
+  define_option(
+    ARROW_UTF8PROC_USE_SHARED "Rely on utf8proc shared libraries where relevant"
+    ${ARROW_DEPENDENCY_USE_SHARED})
 
   define_option(ARROW_ZSTD_USE_SHARED "Rely on zstd shared libraries where relevant"
                 ${ARROW_DEPENDENCY_USE_SHARED})
@@ -376,9 +383,9 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   if(MSVC_TOOLCHAIN)
     set_option_category("MSVC")
 
-    define_option(MSVC_LINK_VERBOSE
-                  "Pass verbose linking options when linking libraries and executables"
-                  OFF)
+    define_option(
+      MSVC_LINK_VERBOSE
+      "Pass verbose linking options when linking libraries and executables" OFF)
 
     define_option_string(BROTLI_MSVC_STATIC_LIB_SUFFIX
                          "Brotli static lib suffix used on Windows with MSVC" "-static")
@@ -396,9 +403,9 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     else()
       set(SNAPPY_MSVC_STATIC_LIB_SUFFIX_DEFAULT "")
     endif()
-    define_option_string(SNAPPY_MSVC_STATIC_LIB_SUFFIX
-                         "Snappy static lib suffix used on Windows with MSVC"
-                         "${SNAPPY_MSVC_STATIC_LIB_SUFFIX_DEFAULT}")
+    define_option_string(
+      SNAPPY_MSVC_STATIC_LIB_SUFFIX "Snappy static lib suffix used on Windows with MSVC"
+      "${SNAPPY_MSVC_STATIC_LIB_SUFFIX_DEFAULT}")
 
     define_option_string(LZ4_MSVC_STATIC_LIB_SUFFIX
                          "Lz4 static lib suffix used on Windows with MSVC" "_static")
@@ -412,8 +419,8 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   #----------------------------------------------------------------------
   set_option_category("Parquet")
 
-  define_option(PARQUET_MINIMAL_DEPENDENCY
-                "Depend only on Thirdparty headers to build libparquet.;\
+  define_option(
+    PARQUET_MINIMAL_DEPENDENCY "Depend only on Thirdparty headers to build libparquet.;\
 Always OFF if building binaries" OFF)
 
   define_option(
@@ -437,9 +444,9 @@ Always OFF if building binaries" OFF)
     "Include -static-libstdc++ -static-libgcc when linking with;Gandiva static libraries"
     OFF)
 
-  define_option_string(ARROW_GANDIVA_PC_CXX_FLAGS
-                       "Compiler flags to append when pre-compiling Gandiva operations"
-                       "")
+  define_option_string(
+    ARROW_GANDIVA_PC_CXX_FLAGS
+    "Compiler flags to append when pre-compiling Gandiva operations" "")
 
   #----------------------------------------------------------------------
   set_option_category("Advanced developer")
@@ -447,10 +454,12 @@ Always OFF if building binaries" OFF)
   define_option(ARROW_EXTRA_ERROR_CONTEXT
                 "Compile with extra error context (line numbers, code)" OFF)
 
-  define_option(ARROW_OPTIONAL_INSTALL
-                "If enabled install ONLY targets that have already been built. Please be;\
+  define_option(
+    ARROW_OPTIONAL_INSTALL
+    "If enabled install ONLY targets that have already been built. Please be;\
 advised that if this is enabled 'install' will fail silently on components;\
-that have not been built" OFF)
+that have not been built"
+    OFF)
 
   option(ARROW_BUILD_CONFIG_SUMMARY_JSON "Summarize build configuration in a JSON file"
          ON)
@@ -565,15 +574,17 @@ endmacro()
 # Compute default values for omitted variables
 
 if(NOT ARROW_GIT_ID)
-  execute_process(COMMAND "git" "log" "-n1" "--format=%H"
-                  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-                  OUTPUT_VARIABLE ARROW_GIT_ID
-                  OUTPUT_STRIP_TRAILING_WHITESPACE)
+  execute_process(
+    COMMAND "git" "log" "-n1" "--format=%H"
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    OUTPUT_VARIABLE ARROW_GIT_ID
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
 endif()
 if(NOT ARROW_GIT_DESCRIPTION)
-  execute_process(COMMAND "git" "describe" "--tags" "--dirty"
-                  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-                  ERROR_QUIET
-                  OUTPUT_VARIABLE ARROW_GIT_DESCRIPTION
-                  OUTPUT_STRIP_TRAILING_WHITESPACE)
+  execute_process(
+    COMMAND "git" "describe" "--tags" "--dirty"
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    ERROR_QUIET
+    OUTPUT_VARIABLE ARROW_GIT_DESCRIPTION
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
 endif()

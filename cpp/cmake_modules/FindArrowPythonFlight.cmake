@@ -49,12 +49,8 @@ find_package(ArrowFlight ${find_package_arguments})
 find_package(ArrowPython ${find_package_arguments})
 
 if(ARROW_PYTHON_FOUND AND ARROW_FLIGHT_FOUND)
-  arrow_find_package(ARROW_PYTHON_FLIGHT
-                     "${ARROW_HOME}"
-                     arrow_python_flight
-                     arrow/python/flight.h
-                     ArrowPythonFlight
-                     arrow-python-flight)
+  arrow_find_package(ARROW_PYTHON_FLIGHT "${ARROW_HOME}" arrow_python_flight
+                     arrow/python/flight.h ArrowPythonFlight arrow-python-flight)
   if(NOT ARROW_PYTHON_FLIGHT_VERSION)
     set(ARROW_PYTHON_FLIGHT_VERSION "${ARROW_VERSION}")
   endif()
@@ -66,23 +62,22 @@ else()
   set(ARROW_PYTHON_FLIGHT_VERSION_MATCH FALSE)
 endif()
 
-mark_as_advanced(ARROW_PYTHON_FLIGHT_IMPORT_LIB
-                 ARROW_PYTHON_FLIGHT_INCLUDE_DIR
-                 ARROW_PYTHON_FLIGHT_LIBS
-                 ARROW_PYTHON_FLIGHT_LIB_DIR
-                 ARROW_PYTHON_FLIGHT_SHARED_IMP_LIB
-                 ARROW_PYTHON_FLIGHT_SHARED_LIB
-                 ARROW_PYTHON_FLIGHT_STATIC_LIB
-                 ARROW_PYTHON_FLIGHT_VERSION
-                 ARROW_PYTHON_FLIGHT_VERSION_MATCH)
+mark_as_advanced(
+  ARROW_PYTHON_FLIGHT_IMPORT_LIB
+  ARROW_PYTHON_FLIGHT_INCLUDE_DIR
+  ARROW_PYTHON_FLIGHT_LIBS
+  ARROW_PYTHON_FLIGHT_LIB_DIR
+  ARROW_PYTHON_FLIGHT_SHARED_IMP_LIB
+  ARROW_PYTHON_FLIGHT_SHARED_LIB
+  ARROW_PYTHON_FLIGHT_STATIC_LIB
+  ARROW_PYTHON_FLIGHT_VERSION
+  ARROW_PYTHON_FLIGHT_VERSION_MATCH)
 
-find_package_handle_standard_args(ArrowPythonFlight
-                                  REQUIRED_VARS
-                                  ARROW_PYTHON_FLIGHT_INCLUDE_DIR
-                                  ARROW_PYTHON_FLIGHT_LIB_DIR
-                                  ARROW_PYTHON_FLIGHT_VERSION_MATCH
-                                  VERSION_VAR
-                                  ARROW_PYTHON_FLIGHT_VERSION)
+find_package_handle_standard_args(
+  ArrowPythonFlight
+  REQUIRED_VARS ARROW_PYTHON_FLIGHT_INCLUDE_DIR ARROW_PYTHON_FLIGHT_LIB_DIR
+                ARROW_PYTHON_FLIGHT_VERSION_MATCH
+  VERSION_VAR ARROW_PYTHON_FLIGHT_VERSION)
 set(ARROW_PYTHON_FLIGHT_FOUND ${ArrowPythonFlight_FOUND})
 
 if(ArrowPythonFlight_FOUND AND NOT ArrowPythonFlight_FIND_QUIETLY)

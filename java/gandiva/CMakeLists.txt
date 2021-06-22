@@ -35,19 +35,15 @@ if(ARROW_GANDIVA_JAVA7)
     src/main/java/org/apache/arrow/gandiva/evaluator/ExpressionRegistryJniHelper.java
     src/main/java/org/apache/arrow/gandiva/exceptions/GandivaException.java)
 
-  create_javah(TARGET
-               gandiva_jni_headers
-               CLASSES
-               org.apache.arrow.gandiva.evaluator.ConfigurationBuilder
-               org.apache.arrow.gandiva.evaluator.JniWrapper
-               org.apache.arrow.gandiva.evaluator.ExpressionRegistryJniHelper
-               org.apache.arrow.gandiva.exceptions.GandivaException
-               DEPENDS
-               gandiva_java
-               CLASSPATH
-               gandiva_java
-               OUTPUT_DIR
-               ${JNI_HEADERS_DIR}/jni)
+  create_javah(
+    TARGET gandiva_jni_headers
+    CLASSES org.apache.arrow.gandiva.evaluator.ConfigurationBuilder
+            org.apache.arrow.gandiva.evaluator.JniWrapper
+            org.apache.arrow.gandiva.evaluator.ExpressionRegistryJniHelper
+            org.apache.arrow.gandiva.exceptions.GandivaException
+    DEPENDS gandiva_java
+    CLASSPATH gandiva_java
+    OUTPUT_DIR ${JNI_HEADERS_DIR}/jni)
 else()
   add_jar(
     gandiva_java

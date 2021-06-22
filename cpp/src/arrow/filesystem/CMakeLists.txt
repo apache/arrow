@@ -21,11 +21,7 @@ arrow_install_all_headers("arrow/filesystem")
 # pkg-config support
 arrow_add_pkg_config("arrow-filesystem")
 
-add_arrow_test(filesystem-test
-               SOURCES
-               filesystem_test.cc
-               localfs_test.cc
-               EXTRA_LABELS
+add_arrow_test(filesystem-test SOURCES filesystem_test.cc localfs_test.cc EXTRA_LABELS
                filesystem)
 
 if(ARROW_S3)
@@ -47,8 +43,8 @@ if(ARROW_S3)
     if(AWS_CPP_SDK_S3_TYPE STREQUAL "STATIC_LIBRARY" AND NOT APPLE)
       list(APPEND ARROW_S3FS_TEST_COMPILE_DEFINITIONS "AWS_CPP_SDK_S3_NOT_SHARED")
     endif()
-    target_compile_definitions(arrow-s3fs-test PRIVATE
-                               ${ARROW_S3FS_TEST_COMPILE_DEFINITIONS})
+    target_compile_definitions(arrow-s3fs-test
+                               PRIVATE ${ARROW_S3FS_TEST_COMPILE_DEFINITIONS})
   endif()
 
   if(ARROW_BUILD_TESTS)
@@ -60,8 +56,8 @@ if(ARROW_S3)
 
   if(ARROW_BUILD_BENCHMARKS AND ARROW_PARQUET)
     add_arrow_benchmark(s3fs_benchmark PREFIX "arrow-filesystem")
-    target_compile_definitions(arrow-filesystem-s3fs-benchmark PRIVATE
-                               ${ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS})
+    target_compile_definitions(arrow-filesystem-s3fs-benchmark
+                               PRIVATE ${ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS})
     if(ARROW_TEST_LINKAGE STREQUAL "static")
       target_link_libraries(arrow-filesystem-s3fs-benchmark PRIVATE parquet_static)
     else()

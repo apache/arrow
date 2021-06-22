@@ -47,12 +47,8 @@ endif()
 find_package(Arrow ${find_package_arguments})
 
 if(ARROW_FOUND)
-  arrow_find_package(ARROW_TESTING
-                     "${ARROW_HOME}"
-                     arrow_testing
-                     arrow/testing/util.h
-                     ArrowTesting
-                     arrow-testing)
+  arrow_find_package(ARROW_TESTING "${ARROW_HOME}" arrow_testing arrow/testing/util.h
+                     ArrowTesting arrow-testing)
   if(NOT ARROW_TESTING_VERSION)
     set(ARROW_TESTING_VERSION "${ARROW_VERSION}")
   endif()
@@ -64,23 +60,22 @@ else()
   set(ARROW_TESTING_VERSION_MATCH FALSE)
 endif()
 
-mark_as_advanced(ARROW_TESTING_IMPORT_LIB
-                 ARROW_TESTING_INCLUDE_DIR
-                 ARROW_TESTING_LIBS
-                 ARROW_TESTING_LIB_DIR
-                 ARROW_TESTING_SHARED_IMP_LIB
-                 ARROW_TESTING_SHARED_LIB
-                 ARROW_TESTING_STATIC_LIB
-                 ARROW_TESTING_VERSION
-                 ARROW_TESTING_VERSION_MATCH)
+mark_as_advanced(
+  ARROW_TESTING_IMPORT_LIB
+  ARROW_TESTING_INCLUDE_DIR
+  ARROW_TESTING_LIBS
+  ARROW_TESTING_LIB_DIR
+  ARROW_TESTING_SHARED_IMP_LIB
+  ARROW_TESTING_SHARED_LIB
+  ARROW_TESTING_STATIC_LIB
+  ARROW_TESTING_VERSION
+  ARROW_TESTING_VERSION_MATCH)
 
-find_package_handle_standard_args(ArrowTesting
-                                  REQUIRED_VARS
-                                  ARROW_TESTING_INCLUDE_DIR
-                                  ARROW_TESTING_LIB_DIR
-                                  ARROW_TESTING_VERSION_MATCH
-                                  VERSION_VAR
-                                  ARROW_TESTING_VERSION)
+find_package_handle_standard_args(
+  ArrowTesting
+  REQUIRED_VARS ARROW_TESTING_INCLUDE_DIR ARROW_TESTING_LIB_DIR
+                ARROW_TESTING_VERSION_MATCH
+  VERSION_VAR ARROW_TESTING_VERSION)
 set(ARROW_TESTING_FOUND ${ArrowTesting_FOUND})
 
 if(ArrowTesting_FOUND AND NOT ArrowTesting_FIND_QUIETLY)

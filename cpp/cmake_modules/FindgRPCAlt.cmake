@@ -48,10 +48,11 @@ if(GRPCPP_PC_FOUND)
   endif()
   list(GET GRPCPP_LINK_LIBRARIES 0 GRPCPP_IMPORTED_LOCATION)
   list(REMOVE_AT GRPCPP_LINK_LIBRARIES 0)
-  find_program(GRPC_CPP_PLUGIN grpc_cpp_plugin
-               HINTS ${GRPCPP_PC_PREFIX}
-               NO_DEFAULT_PATH
-               PATH_SUFFIXES "bin")
+  find_program(
+    GRPC_CPP_PLUGIN grpc_cpp_plugin
+    HINTS ${GRPCPP_PC_PREFIX}
+    NO_DEFAULT_PATH
+    PATH_SUFFIXES "bin")
   set(gRPCAlt_FIND_PACKAGE_ARGS gRPCAlt REQUIRED_VARS GRPCPP_IMPORTED_LOCATION
                                 GRPC_CPP_PLUGIN)
   if(gRPCAlt_VERSION)
@@ -64,19 +65,15 @@ endif()
 
 if(gRPCAlt_FOUND)
   add_library(gRPC::grpc++ UNKNOWN IMPORTED)
-  set_target_properties(gRPC::grpc++
-                        PROPERTIES IMPORTED_LOCATION
-                                   "${GRPCPP_IMPORTED_LOCATION}"
-                                   INTERFACE_COMPILE_OPTIONS
-                                   "${GRPCPP_COMPILE_OPTIONS}"
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   "${GRPCPP_INCLUDE_DIRECTORIES}"
-                                   INTERFACE_LINK_LIBRARIES
-                                   "${GRPCPP_LINK_LIBRARIES}"
-                                   INTERFACE_LINK_OPTIONS
-                                   "${GRPCPP_LINK_OPTIONS}")
+  set_target_properties(
+    gRPC::grpc++
+    PROPERTIES IMPORTED_LOCATION "${GRPCPP_IMPORTED_LOCATION}"
+               INTERFACE_COMPILE_OPTIONS "${GRPCPP_COMPILE_OPTIONS}"
+               INTERFACE_INCLUDE_DIRECTORIES "${GRPCPP_INCLUDE_DIRECTORIES}"
+               INTERFACE_LINK_LIBRARIES "${GRPCPP_LINK_LIBRARIES}"
+               INTERFACE_LINK_OPTIONS "${GRPCPP_LINK_OPTIONS}")
 
   add_executable(gRPC::grpc_cpp_plugin IMPORTED)
-  set_target_properties(gRPC::grpc_cpp_plugin
-                        PROPERTIES IMPORTED_LOCATION ${GRPC_CPP_PLUGIN})
+  set_target_properties(gRPC::grpc_cpp_plugin PROPERTIES IMPORTED_LOCATION
+                                                         ${GRPC_CPP_PLUGIN})
 endif()

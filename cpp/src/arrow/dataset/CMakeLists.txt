@@ -42,25 +42,26 @@ if(ARROW_PARQUET)
   set(ARROW_DATASET_PRIVATE_INCLUDES ${PROJECT_SOURCE_DIR}/src/parquet)
 endif()
 
-add_arrow_lib(arrow_dataset
-              CMAKE_PACKAGE_NAME
-              ArrowDataset
-              PKG_CONFIG_NAME
-              arrow-dataset
-              OUTPUTS
-              ARROW_DATASET_LIBRARIES
-              SOURCES
-              ${ARROW_DATASET_SRCS}
-              PRECOMPILED_HEADERS
-              "$<$<COMPILE_LANGUAGE:CXX>:arrow/dataset/pch.h>"
-              DEPENDENCIES
-              toolchain
-              PRIVATE_INCLUDES
-              ${ARROW_DATASET_PRIVATE_INCLUDES}
-              SHARED_LINK_LIBS
-              ${ARROW_DATASET_LINK_SHARED}
-              STATIC_LINK_LIBS
-              ${ARROW_DATASET_LINK_STATIC})
+add_arrow_lib(
+  arrow_dataset
+  CMAKE_PACKAGE_NAME
+  ArrowDataset
+  PKG_CONFIG_NAME
+  arrow-dataset
+  OUTPUTS
+  ARROW_DATASET_LIBRARIES
+  SOURCES
+  ${ARROW_DATASET_SRCS}
+  PRECOMPILED_HEADERS
+  "$<$<COMPILE_LANGUAGE:CXX>:arrow/dataset/pch.h>"
+  DEPENDENCIES
+  toolchain
+  PRIVATE_INCLUDES
+  ${ARROW_DATASET_PRIVATE_INCLUDES}
+  SHARED_LINK_LIBS
+  ${ARROW_DATASET_LINK_SHARED}
+  STATIC_LINK_LIBS
+  ${ARROW_DATASET_LINK_STATIC})
 
 if(ARROW_TEST_LINKAGE STREQUAL "static")
   set(ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_static ${ARROW_TEST_STATIC_LINK_LIBS})
@@ -77,10 +78,7 @@ function(ADD_ARROW_DATASET_TEST REL_TEST_NAME)
   set(options)
   set(one_value_args PREFIX)
   set(multi_value_args LABELS)
-  cmake_parse_arguments(ARG
-                        "${options}"
-                        "${one_value_args}"
-                        "${multi_value_args}"
+  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}"
                         ${ARGN})
 
   if(ARG_PREFIX)
@@ -95,14 +93,15 @@ function(ADD_ARROW_DATASET_TEST REL_TEST_NAME)
     set(LABELS "arrow_dataset")
   endif()
 
-  add_arrow_test(${REL_TEST_NAME}
-                 EXTRA_LINK_LIBS
-                 ${ARROW_DATASET_TEST_LINK_LIBS}
-                 PREFIX
-                 ${PREFIX}
-                 LABELS
-                 ${LABELS}
-                 ${ARG_UNPARSED_ARGUMENTS})
+  add_arrow_test(
+    ${REL_TEST_NAME}
+    EXTRA_LINK_LIBS
+    ${ARROW_DATASET_TEST_LINK_LIBS}
+    PREFIX
+    ${PREFIX}
+    LABELS
+    ${LABELS}
+    ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
 add_arrow_dataset_test(dataset_test)

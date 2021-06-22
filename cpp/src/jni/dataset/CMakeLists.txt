@@ -37,29 +37,26 @@ set(ARROW_DATASET_JNI_LIBS arrow_dataset_static)
 
 set(ARROW_DATASET_JNI_SOURCES jni_wrapper.cc jni_util.cc)
 
-add_arrow_lib(arrow_dataset_jni
-              BUILD_SHARED
-              SOURCES
-              ${ARROW_DATASET_JNI_SOURCES}
-              OUTPUTS
-              ARROW_DATASET_JNI_LIBRARIES
-              SHARED_PRIVATE_LINK_LIBS
-              ${ARROW_DATASET_JNI_LIBS}
-              STATIC_LINK_LIBS
-              ${ARROW_DATASET_JNI_LIBS}
-              EXTRA_INCLUDES
-              ${JNI_HEADERS_DIR}
-              PRIVATE_INCLUDES
-              ${JNI_INCLUDE_DIRS}
-              DEPENDENCIES
-              arrow_static
-              arrow_dataset_java)
+add_arrow_lib(
+  arrow_dataset_jni
+  BUILD_SHARED
+  SOURCES
+  ${ARROW_DATASET_JNI_SOURCES}
+  OUTPUTS
+  ARROW_DATASET_JNI_LIBRARIES
+  SHARED_PRIVATE_LINK_LIBS
+  ${ARROW_DATASET_JNI_LIBS}
+  STATIC_LINK_LIBS
+  ${ARROW_DATASET_JNI_LIBS}
+  EXTRA_INCLUDES
+  ${JNI_HEADERS_DIR}
+  PRIVATE_INCLUDES
+  ${JNI_INCLUDE_DIRS}
+  DEPENDENCIES
+  arrow_static
+  arrow_dataset_java)
 
 add_dependencies(arrow_dataset_jni ${ARROW_DATASET_JNI_LIBRARIES})
 
-add_arrow_test(dataset_jni_test
-               SOURCES
-               jni_util_test.cc
-               jni_util.cc
-               EXTRA_INCLUDES
+add_arrow_test(dataset_jni_test SOURCES jni_util_test.cc jni_util.cc EXTRA_INCLUDES
                ${JNI_INCLUDE_DIRS})

@@ -44,43 +44,35 @@ function(HS2_THRIFT_GEN VAR)
     # All the output files we can determine based on filename.
     #   - Does not include .skeleton.cpp files
     #   - Does not include java output files
-    set(OUTPUT_BE_FILE "${GEN_DIR}/${FIL_WE}_types.cpp" "${GEN_DIR}/${FIL_WE}_types.h"
-                       "${GEN_DIR}/${FIL_WE}_constants.cpp"
-                       "${GEN_DIR}/${FIL_WE}_constants.h")
+    set(OUTPUT_BE_FILE
+        "${GEN_DIR}/${FIL_WE}_types.cpp" "${GEN_DIR}/${FIL_WE}_types.h"
+        "${GEN_DIR}/${FIL_WE}_constants.cpp" "${GEN_DIR}/${FIL_WE}_constants.h")
     list(APPEND ${VAR} ${OUTPUT_BE_FILE})
 
     # BeeswaxService thrift generation
     # It depends on hive_meta_store, which in turn depends on fb303.
     # The java dependency is handled by maven.
     # We need to generate C++ src file for the parent dependencies using the "-r" option.
-    set(CPP_ARGS
-        -nowarn
-        --gen
-        cpp
-        -out
-        ${GEN_DIR})
+    set(CPP_ARGS -nowarn --gen cpp -out ${GEN_DIR})
     if(FIL STREQUAL "beeswax.thrift")
-      set(CPP_ARGS
-          -r
-          -nowarn
-          --gen
-          cpp
-          -out
-          ${GEN_DIR})
+      set(CPP_ARGS -r -nowarn --gen cpp -out ${GEN_DIR})
     endif(FIL STREQUAL "beeswax.thrift")
 
     # Be able to include generated ErrorCodes.thrift file
     set(CPP_ARGS ${CPP_ARGS} -I ${CMAKE_CURRENT_BINARY_DIR})
 
-    add_custom_command(OUTPUT ${OUTPUT_BE_FILE}
-                       COMMAND ${THRIFT_COMPILER} ${CPP_ARGS} ${FIL}
-                       DEPENDS ${ABS_FIL}
-                       COMMENT "Running thrift compiler on ${FIL}"
-                       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-                       VERBATIM)
+    add_custom_command(
+      OUTPUT ${OUTPUT_BE_FILE}
+      COMMAND ${THRIFT_COMPILER} ${CPP_ARGS} ${FIL}
+      DEPENDS ${ABS_FIL}
+      COMMENT "Running thrift compiler on ${FIL}"
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+      VERBATIM)
   endforeach(FIL)
 
-  set(${VAR} ${${VAR}} PARENT_SCOPE)
+  set(${VAR}
+      ${${VAR}}
+      PARENT_SCOPE)
 endfunction(HS2_THRIFT_GEN)
 
 message("Using Thrift compiler: ${THRIFT_COMPILER}")
@@ -88,10 +80,11 @@ message("Using Thrift compiler: ${THRIFT_COMPILER}")
 set(OUTPUT_DIR ${ARROW_BINARY_DIR}/src)
 file(MAKE_DIRECTORY ${OUTPUT_DIR})
 
-add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/ErrorCodes.thrift
-                   COMMAND python generate_error_codes.py ${CMAKE_CURRENT_BINARY_DIR}
-                   DEPENDS generate_error_codes.py
-                   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+add_custom_command(
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/ErrorCodes.thrift
+  COMMAND python generate_error_codes.py ${CMAKE_CURRENT_BINARY_DIR}
+  DEPENDS generate_error_codes.py
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 set(SRC_FILES
     ${CMAKE_CURRENT_BINARY_DIR}/ErrorCodes.thrift
@@ -102,8 +95,8 @@ set(SRC_FILES
     Status.thrift
     Types.thrift)
 
-set_source_files_properties(Status.thrift PROPERTIES OBJECT_DEPENDS
-                            ${CMAKE_CURRENT_BINARY_DIR}/ErrorCodes.thrift)
+set_source_files_properties(
+  Status.thrift PROPERTIES OBJECT_DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/ErrorCodes.thrift)
 
 # Create a build command for each of the thrift src files and generate
 # a list of files they produce

@@ -69,21 +69,22 @@ if(NOT APPLE AND NOT MSVC_TOOLCHAIN)
       "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/symbols.map")
 endif()
 
-add_arrow_lib(plasma
-              CMAKE_PACKAGE_NAME
-              Plasma
-              PKG_CONFIG_NAME
-              plasma
-              SOURCES
-              ${PLASMA_SRCS}
-              OUTPUTS
-              PLASMA_LIBRARIES
-              SHARED_LINK_FLAGS
-              ${PLASMA_SHARED_LINK_FLAGS}
-              SHARED_LINK_LIBS
-              ${PLASMA_LINK_LIBS}
-              STATIC_LINK_LIBS
-              ${PLASMA_STATIC_LINK_LIBS})
+add_arrow_lib(
+  plasma
+  CMAKE_PACKAGE_NAME
+  Plasma
+  PKG_CONFIG_NAME
+  plasma
+  SOURCES
+  ${PLASMA_SRCS}
+  OUTPUTS
+  PLASMA_LIBRARIES
+  SHARED_LINK_FLAGS
+  ${PLASMA_SHARED_LINK_FLAGS}
+  SHARED_LINK_LIBS
+  ${PLASMA_LINK_LIBS}
+  STATIC_LINK_LIBS
+  ${PLASMA_STATIC_LINK_LIBS})
 
 add_dependencies(plasma ${PLASMA_LIBRARIES})
 
@@ -96,16 +97,22 @@ endforeach()
 set_source_files_properties(dlmalloc.cc PROPERTIES COMPILE_FLAGS "-O3")
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-  set_property(SOURCE dlmalloc.cc
-               APPEND_STRING
-               PROPERTY COMPILE_FLAGS " -Wno-parentheses-equality \
+  set_property(
+    SOURCE dlmalloc.cc
+    APPEND_STRING
+    PROPERTY
+      COMPILE_FLAGS
+      " -Wno-parentheses-equality \
 -Wno-null-pointer-arithmetic \
 -Wno-shorten-64-to-32 \
 -Wno-unused-macros")
 endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-  set_property(SOURCE dlmalloc.cc APPEND_STRING PROPERTY COMPILE_FLAGS " -Wno-conversion")
+  set_property(
+    SOURCE dlmalloc.cc
+    APPEND_STRING
+    PROPERTY COMPILE_FLAGS " -Wno-conversion")
 endif()
 
 list(APPEND PLASMA_EXTERNAL_STORE_SOURCES "external_store.cc" "hash_table_store.cc")
@@ -128,8 +135,8 @@ if(ARROW_RPATH_ORIGIN)
   else()
     set(_lib_install_rpath "\$ORIGIN")
   endif()
-  set_target_properties(plasma-store-server
-                        PROPERTIES INSTALL_RPATH ${_lib_install_rpath})
+  set_target_properties(plasma-store-server PROPERTIES INSTALL_RPATH
+                                                       ${_lib_install_rpath})
 elseif(APPLE)
   # With OSX and conda, we need to set the correct RPATH so that dependencies
   # are found. The installed libraries with conda have an RPATH that matches
@@ -137,27 +144,21 @@ elseif(APPLE)
   # $ENV{CONDA_PREFIX}/lib but our test libraries and executables are not
   # installed there.
   if(NOT "$ENV{CONDA_PREFIX}" STREQUAL "" AND APPLE)
-    set_target_properties(plasma-store-server
-                          PROPERTIES BUILD_WITH_INSTALL_RPATH
-                                     TRUE
-                                     INSTALL_RPATH_USE_LINK_PATH
-                                     TRUE
-                                     INSTALL_RPATH
-                                     "$ENV{CONDA_PREFIX}/lib")
+    set_target_properties(
+      plasma-store-server
+      PROPERTIES BUILD_WITH_INSTALL_RPATH TRUE
+                 INSTALL_RPATH_USE_LINK_PATH TRUE
+                 INSTALL_RPATH "$ENV{CONDA_PREFIX}/lib")
   endif()
 endif()
 
-install(FILES common.h
-              compat.h
-              client.h
-              events.h
-              test_util.h
+install(FILES common.h compat.h client.h events.h test_util.h
         DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/plasma")
 
 # Plasma store
 set_target_properties(plasma-store-server PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
-install(TARGETS plasma-store-server ${INSTALL_IS_OPTIONAL} DESTINATION
-                ${CMAKE_INSTALL_BINDIR})
+install(TARGETS plasma-store-server ${INSTALL_IS_OPTIONAL}
+        DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 if(ARROW_PLASMA_JAVA_CLIENT)
   # Plasma java client support
@@ -187,11 +188,8 @@ if(ARROW_PLASMA_JAVA_CLIENT)
   add_library(plasma_java SHARED ${PLASMA_LIBRARY_EXT_java_SRC})
 
   if(APPLE)
-    target_link_libraries(plasma_java
-                          plasma_shared
-                          ${PLASMA_LINK_LIBS}
-                          "-undefined dynamic_lookup"
-                          ${PTHREAD_LIBRARY})
+    target_link_libraries(plasma_java plasma_shared ${PLASMA_LINK_LIBS}
+                          "-undefined dynamic_lookup" ${PTHREAD_LIBRARY})
   else(APPLE)
     target_link_libraries(plasma_java plasma_shared ${PLASMA_LINK_LIBS}
                           ${PTHREAD_LIBRARY})
@@ -206,16 +204,9 @@ function(ADD_PLASMA_TEST REL_TEST_NAME)
   set(options)
   set(one_value_args)
   set(multi_value_args)
-  cmake_parse_arguments(ARG
-                        "${options}"
-                        "${one_value_args}"
-                        "${multi_value_args}"
+  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}"
                         ${ARGN})
-  add_test_case(${REL_TEST_NAME}
-                PREFIX
-                "plasma"
-                LABELS
-                "plasma-tests"
+  add_test_case(${REL_TEST_NAME} PREFIX "plasma" LABELS "plasma-tests"
                 ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
@@ -226,13 +217,7 @@ else()
 endif()
 
 add_plasma_test(test/serialization_tests EXTRA_LINK_LIBS ${PLASMA_TEST_LIBS})
-add_plasma_test(test/client_tests
-                EXTRA_LINK_LIBS
-                ${PLASMA_TEST_LIBS}
-                EXTRA_DEPENDENCIES
+add_plasma_test(test/client_tests EXTRA_LINK_LIBS ${PLASMA_TEST_LIBS} EXTRA_DEPENDENCIES
                 plasma-store-server)
-add_plasma_test(test/external_store_tests
-                EXTRA_LINK_LIBS
-                ${PLASMA_TEST_LIBS}
-                EXTRA_DEPENDENCIES
-                plasma-store-server)
+add_plasma_test(test/external_store_tests EXTRA_LINK_LIBS ${PLASMA_TEST_LIBS}
+                EXTRA_DEPENDENCIES plasma-store-server)

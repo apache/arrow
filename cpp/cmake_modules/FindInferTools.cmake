@@ -28,15 +28,12 @@
 #  INFER_BIN, The  path to the infer binary
 #  INFER_FOUND, Whether infer was found
 
-find_program(INFER_BIN
-             NAMES infer
-             PATHS ${InferTools_PATH}
-                   $ENV{INFER_TOOLS_PATH}
-                   /usr/local/bin
-                   /usr/bin
-                   /usr/local/homebrew/bin
-                   /opt/local/bin
-             NO_DEFAULT_PATH)
+find_program(
+  INFER_BIN
+  NAMES infer
+  PATHS ${InferTools_PATH} $ENV{INFER_TOOLS_PATH} /usr/local/bin /usr/bin
+        /usr/local/homebrew/bin /opt/local/bin
+  NO_DEFAULT_PATH)
 
 if("${INFER_BIN}" STREQUAL "INFER_BIN-NOTFOUND")
   set(INFER_FOUND 0)

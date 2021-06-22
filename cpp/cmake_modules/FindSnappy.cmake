@@ -19,45 +19,47 @@ if(ARROW_SNAPPY_USE_SHARED)
   set(SNAPPY_LIB_NAMES)
   if(CMAKE_IMPORT_LIBRARY_SUFFIX)
     list(APPEND SNAPPY_LIB_NAMES
-                "${CMAKE_IMPORT_LIBRARY_PREFIX}snappy${CMAKE_IMPORT_LIBRARY_SUFFIX}")
+         "${CMAKE_IMPORT_LIBRARY_PREFIX}snappy${CMAKE_IMPORT_LIBRARY_SUFFIX}")
   endif()
   list(APPEND SNAPPY_LIB_NAMES
-              "${CMAKE_SHARED_LIBRARY_PREFIX}snappy${CMAKE_SHARED_LIBRARY_SUFFIX}")
+       "${CMAKE_SHARED_LIBRARY_PREFIX}snappy${CMAKE_SHARED_LIBRARY_SUFFIX}")
 else()
   set(SNAPPY_STATIC_LIB_NAME_BASE "snappy")
   if(MSVC)
     set(SNAPPY_STATIC_LIB_NAME_BASE
         "${SNAPPY_STATIC_LIB_NAME_BASE}${SNAPPY_MSVC_STATIC_LIB_SUFFIX}")
   endif()
-  set(
-    SNAPPY_LIB_NAMES
-    "${CMAKE_STATIC_LIBRARY_PREFIX}${SNAPPY_STATIC_LIB_NAME_BASE}${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
+  set(SNAPPY_LIB_NAMES
+      "${CMAKE_STATIC_LIBRARY_PREFIX}${SNAPPY_STATIC_LIB_NAME_BASE}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+  )
 endif()
 
 if(Snappy_ROOT)
-  find_library(Snappy_LIB
-               NAMES ${SNAPPY_LIB_NAMES}
-               PATHS ${Snappy_ROOT}
-               PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES}
-               NO_DEFAULT_PATH)
-  find_path(Snappy_INCLUDE_DIR
-            NAMES snappy.h
-            PATHS ${Snappy_ROOT}
-            NO_DEFAULT_PATH
-            PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
+  find_library(
+    Snappy_LIB
+    NAMES ${SNAPPY_LIB_NAMES}
+    PATHS ${Snappy_ROOT}
+    PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES}
+    NO_DEFAULT_PATH)
+  find_path(
+    Snappy_INCLUDE_DIR
+    NAMES snappy.h
+    PATHS ${Snappy_ROOT}
+    NO_DEFAULT_PATH
+    PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
 else()
   find_library(Snappy_LIB NAMES ${SNAPPY_LIB_NAMES})
-  find_path(Snappy_INCLUDE_DIR
-            NAMES snappy.h
-            PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
+  find_path(
+    Snappy_INCLUDE_DIR
+    NAMES snappy.h
+    PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
 endif()
 
 find_package_handle_standard_args(Snappy REQUIRED_VARS Snappy_LIB Snappy_INCLUDE_DIR)
 
 if(Snappy_FOUND)
   add_library(Snappy::snappy UNKNOWN IMPORTED)
-  set_target_properties(Snappy::snappy
-                        PROPERTIES IMPORTED_LOCATION "${Snappy_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${Snappy_INCLUDE_DIR}")
+  set_target_properties(
+    Snappy::snappy PROPERTIES IMPORTED_LOCATION "${Snappy_LIB}"
+                              INTERFACE_INCLUDE_DIRECTORIES "${Snappy_INCLUDE_DIR}")
 endif()

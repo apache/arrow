@@ -41,21 +41,24 @@ set(LIBJEMALLOC_NAMES jemalloc libjemalloc.so.1 libjemalloc.so.2 libjemalloc.dyl
 
 # Try the parameterized roots, if they exist
 if(_jemalloc_roots)
-  find_path(JEMALLOC_INCLUDE_DIR
-            NAMES jemalloc/jemalloc.h
-            PATHS ${_jemalloc_roots}
-            NO_DEFAULT_PATH
-            PATH_SUFFIXES "include")
-  find_library(JEMALLOC_SHARED_LIB
-               NAMES ${LIBJEMALLOC_NAMES}
-               PATHS ${_jemalloc_roots}
-               NO_DEFAULT_PATH
-               PATH_SUFFIXES "lib")
-  find_library(JEMALLOC_STATIC_LIB
-               NAMES jemalloc_pic
-               PATHS ${_jemalloc_roots}
-               NO_DEFAULT_PATH
-               PATH_SUFFIXES "lib")
+  find_path(
+    JEMALLOC_INCLUDE_DIR
+    NAMES jemalloc/jemalloc.h
+    PATHS ${_jemalloc_roots}
+    NO_DEFAULT_PATH
+    PATH_SUFFIXES "include")
+  find_library(
+    JEMALLOC_SHARED_LIB
+    NAMES ${LIBJEMALLOC_NAMES}
+    PATHS ${_jemalloc_roots}
+    NO_DEFAULT_PATH
+    PATH_SUFFIXES "lib")
+  find_library(
+    JEMALLOC_STATIC_LIB
+    NAMES jemalloc_pic
+    PATHS ${_jemalloc_roots}
+    NO_DEFAULT_PATH
+    PATH_SUFFIXES "lib")
 else()
   find_path(JEMALLOC_INCLUDE_DIR NAMES jemalloc/jemalloc.h)
   message(STATUS ${JEMALLOC_INCLUDE_DIR})

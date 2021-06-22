@@ -64,7 +64,8 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
     # Check for AVX512 support in the compiler.
     set(OLD_CMAKE_REQURED_FLAGS ${CMAKE_REQUIRED_FLAGS})
     set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} ${ARROW_AVX512_FLAG}")
-    check_cxx_source_compiles("
+    check_cxx_source_compiles(
+      "
       #ifdef _MSC_VER
       #include <intrin.h>
       #else
@@ -76,12 +77,13 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
         char out[32];
         _mm512_storeu_si512(out, mask);
         return 0;
-      }" CXX_SUPPORTS_AVX512)
+      }"
+      CXX_SUPPORTS_AVX512)
     set(CMAKE_REQUIRED_FLAGS ${OLD_CMAKE_REQURED_FLAGS})
   endif()
   # Runtime SIMD level it can get from compiler and ARROW_RUNTIME_SIMD_LEVEL
-  if(CXX_SUPPORTS_SSE4_2
-     AND ARROW_RUNTIME_SIMD_LEVEL MATCHES "^(SSE4_2|AVX2|AVX512|MAX)$")
+  if(CXX_SUPPORTS_SSE4_2 AND ARROW_RUNTIME_SIMD_LEVEL MATCHES
+                             "^(SSE4_2|AVX2|AVX512|MAX)$")
     set(ARROW_HAVE_RUNTIME_SSE4_2 ON)
     add_definitions(-DARROW_HAVE_RUNTIME_SSE4_2)
   endif()
@@ -177,17 +179,18 @@ if(WIN32)
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd5105")
 
     if(ARROW_USE_STATIC_CRT)
-      foreach(c_flag
-              CMAKE_CXX_FLAGS
-              CMAKE_CXX_FLAGS_RELEASE
-              CMAKE_CXX_FLAGS_DEBUG
-              CMAKE_CXX_FLAGS_MINSIZEREL
-              CMAKE_CXX_FLAGS_RELWITHDEBINFO
-              CMAKE_C_FLAGS
-              CMAKE_C_FLAGS_RELEASE
-              CMAKE_C_FLAGS_DEBUG
-              CMAKE_C_FLAGS_MINSIZEREL
-              CMAKE_C_FLAGS_RELWITHDEBINFO)
+      foreach(
+        c_flag
+        CMAKE_CXX_FLAGS
+        CMAKE_CXX_FLAGS_RELEASE
+        CMAKE_CXX_FLAGS_DEBUG
+        CMAKE_CXX_FLAGS_MINSIZEREL
+        CMAKE_CXX_FLAGS_RELWITHDEBINFO
+        CMAKE_C_FLAGS
+        CMAKE_C_FLAGS_RELEASE
+        CMAKE_C_FLAGS_DEBUG
+        CMAKE_C_FLAGS_MINSIZEREL
+        CMAKE_C_FLAGS_RELWITHDEBINFO)
         string(REPLACE "/MD" "-MT" ${c_flag} "${${c_flag}}")
       endforeach()
     endif()
@@ -252,8 +255,8 @@ if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4365")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4267")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4838")
-  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
-         OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
+                                                        "Clang")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wextra")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wdocumentation")
@@ -286,8 +289,8 @@ elseif("${BUILD_WARNING_LEVEL}" STREQUAL "EVERYTHING")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /Wall")
     # https://docs.microsoft.com/en-us/cpp/build/reference/compiler-option-warning-level
     # /wdnnnn disables a warning where "nnnn" is a warning number
-  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
-         OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
+                                                        "Clang")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Weverything")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-c++98-compat")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-c++98-compat-pedantic")
@@ -315,9 +318,10 @@ else()
     # /wdnnnn disables a warning where "nnnn" is a warning number
     string(REPLACE "/W3" "" CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS}")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /W3")
-  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
-         OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang"
-         OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  elseif(
+    CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
+    OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang"
+    OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
   elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
     if(WIN32)
@@ -342,8 +346,8 @@ if(MSVC)
   # (required for protobuf, see https://github.com/protocolbuffers/protobuf/issues/6885)
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4065")
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL "7.0"
-     OR CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "7.0")
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL "7.0" OR CMAKE_CXX_COMPILER_VERSION
+                                                       VERSION_GREATER "7.0")
     # Without this, gcc >= 7 warns related to changes in C++17
     set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -Wno-noexcept-type")
   endif()
@@ -370,8 +374,8 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -Wno-subobject-linkage")
   endif()
 
-elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
-       OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
+                                                      "Clang")
   # Clang options for all builds
 
   # Using Clang with ccache causes a bunch of spurious warnings that are
@@ -453,8 +457,8 @@ if(ARROW_CPU_FLAG STREQUAL "armv8")
     add_definitions(-DARROW_HAVE_NEON)
   endif()
 
-  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
-     AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "5.4")
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS
+                                              "5.4")
     message(WARNING "Disable Armv8 CRC and Crypto as compiler doesn't support them well.")
   else()
     if(ARROW_ARMV8_ARCH_FLAG MATCHES "\\+crypto")
@@ -479,9 +483,10 @@ endif()
 # Any additional arguments are passed verbatim into the C++ compiler invocation.
 function(GET_GOLD_VERSION)
   # The gold linker is only for ELF binaries, which macOS doesn't use.
-  execute_process(COMMAND ${CMAKE_CXX_COMPILER} "-Wl,--version" ${ARGN}
-                  ERROR_QUIET
-                  OUTPUT_VARIABLE LINKER_OUTPUT)
+  execute_process(
+    COMMAND ${CMAKE_CXX_COMPILER} "-Wl,--version" ${ARGN}
+    ERROR_QUIET
+    OUTPUT_VARIABLE LINKER_OUTPUT)
   # We're expecting LINKER_OUTPUT to look like one of these:
   #   GNU gold (version 2.24) 1.11
   #   GNU gold (GNU Binutils for Ubuntu 2.30) 1.15
@@ -491,7 +496,9 @@ function(GET_GOLD_VERSION)
       message(SEND_ERROR "Could not extract GNU gold version. "
                          "Linker version output: ${LINKER_OUTPUT}")
     endif()
-    set(GOLD_VERSION "${CMAKE_MATCH_1}" PARENT_SCOPE)
+    set(GOLD_VERSION
+        "${CMAKE_MATCH_1}"
+        PARENT_SCOPE)
   endif()
 endfunction()
 
@@ -507,9 +514,10 @@ if(NOT WIN32 AND NOT APPLE)
     # We can't use the gold linker if it's inside devtoolset because the compiler
     # won't find it when invoked directly from make/ninja (which is typically
     # done outside devtoolset).
-    execute_process(COMMAND which ld.gold
-                    OUTPUT_VARIABLE GOLD_LOCATION
-                    OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+    execute_process(
+      COMMAND which ld.gold
+      OUTPUT_VARIABLE GOLD_LOCATION
+      OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
     if("${GOLD_LOCATION}" MATCHES "^/opt/rh/devtoolset")
       message("Skipping optional gold linker (version ${GOLD_VERSION}) because "
               "it's in devtoolset")
@@ -590,7 +598,7 @@ set(CXX_FLAGS_PROFILE_BUILD "${CXX_FLAGS_RELEASE} -fprofile-use")
 # Set compile flags based on the build type.
 message(
   "Configured for ${CMAKE_BUILD_TYPE} build (set with cmake -DCMAKE_BUILD_TYPE={release,debug,...})"
-  )
+)
 if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_DEBUG}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_DEBUG}")

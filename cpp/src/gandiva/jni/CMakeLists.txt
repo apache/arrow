@@ -32,19 +32,16 @@ set(PROTO_OUTPUT_FILES ${PROTO_OUTPUT_FILES} "${PROTO_OUTPUT_DIR}/Types.pb.h")
 
 set_source_files_properties(${PROTO_OUTPUT_FILES} PROPERTIES GENERATED TRUE)
 
-get_filename_component(ABS_GANDIVA_PROTO ${CMAKE_SOURCE_DIR}/src/gandiva/proto/Types.proto
-                       ABSOLUTE)
+get_filename_component(ABS_GANDIVA_PROTO
+                       ${CMAKE_SOURCE_DIR}/src/gandiva/proto/Types.proto ABSOLUTE)
 
-add_custom_command(OUTPUT ${PROTO_OUTPUT_FILES}
-                   COMMAND ${ARROW_PROTOBUF_PROTOC}
-                           --proto_path
-                           ${CMAKE_SOURCE_DIR}/src/gandiva/proto
-                           --cpp_out
-                           ${PROTO_OUTPUT_DIR}
-                           ${CMAKE_SOURCE_DIR}/src/gandiva/proto/Types.proto
-                   DEPENDS ${ABS_GANDIVA_PROTO} ${ARROW_PROTOBUF_LIBPROTOBUF}
-                   COMMENT "Running PROTO compiler on Types.proto"
-                   VERBATIM)
+add_custom_command(
+  OUTPUT ${PROTO_OUTPUT_FILES}
+  COMMAND ${ARROW_PROTOBUF_PROTOC} --proto_path ${CMAKE_SOURCE_DIR}/src/gandiva/proto
+          --cpp_out ${PROTO_OUTPUT_DIR} ${CMAKE_SOURCE_DIR}/src/gandiva/proto/Types.proto
+  DEPENDS ${ABS_GANDIVA_PROTO} ${ARROW_PROTOBUF_LIBPROTOBUF}
+  COMMENT "Running PROTO compiler on Types.proto"
+  VERBATIM)
 
 add_custom_target(gandiva_jni_proto ALL DEPENDS ${PROTO_OUTPUT_FILES})
 set(PROTO_SRCS "${PROTO_OUTPUT_DIR}/Types.pb.cc")
@@ -61,39 +58,36 @@ else()
   list(APPEND GANDIVA_LINK_LIBS gandiva_shared)
 endif()
 
-set(GANDIVA_JNI_SOURCES
-    config_builder.cc
-    config_holder.cc
-    expression_registry_helper.cc
-    jni_common.cc
-    ${PROTO_SRCS})
+set(GANDIVA_JNI_SOURCES config_builder.cc config_holder.cc expression_registry_helper.cc
+                        jni_common.cc ${PROTO_SRCS})
 
 # For users of gandiva_jni library (including integ tests), include-dir is :
 #   /usr/**/include dir after install,
 #   cpp/include during build
 # For building gandiva_jni library itself, include-dir (in addition to above) is :
 #   cpp/src
-add_arrow_lib(gandiva_jni
-              SOURCES
-              ${GANDIVA_JNI_SOURCES}
-              OUTPUTS
-              GANDIVA_JNI_LIBRARIES
-              SHARED_PRIVATE_LINK_LIBS
-              ${GANDIVA_LINK_LIBS}
-              STATIC_LINK_LIBS
-              ${GANDIVA_LINK_LIBS}
-              DEPENDENCIES
-              ${GANDIVA_LINK_LIBS}
-              gandiva_java
-              gandiva_jni_headers
-              gandiva_jni_proto
-              EXTRA_INCLUDES
-              $<INSTALL_INTERFACE:include>
-              $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
-              $<BUILD_INTERFACE:${JNI_HEADERS_DIR}>
-              PRIVATE_INCLUDES
-              ${JNI_INCLUDE_DIRS}
-              ${CMAKE_CURRENT_BINARY_DIR})
+add_arrow_lib(
+  gandiva_jni
+  SOURCES
+  ${GANDIVA_JNI_SOURCES}
+  OUTPUTS
+  GANDIVA_JNI_LIBRARIES
+  SHARED_PRIVATE_LINK_LIBS
+  ${GANDIVA_LINK_LIBS}
+  STATIC_LINK_LIBS
+  ${GANDIVA_LINK_LIBS}
+  DEPENDENCIES
+  ${GANDIVA_LINK_LIBS}
+  gandiva_java
+  gandiva_jni_headers
+  gandiva_jni_proto
+  EXTRA_INCLUDES
+  $<INSTALL_INTERFACE:include>
+  $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
+  $<BUILD_INTERFACE:${JNI_HEADERS_DIR}>
+  PRIVATE_INCLUDES
+  ${JNI_INCLUDE_DIRS}
+  ${CMAKE_CURRENT_BINARY_DIR})
 
 add_dependencies(gandiva ${GANDIVA_JNI_LIBRARIES})
 

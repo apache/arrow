@@ -30,10 +30,7 @@ function(ADD_ARROW_COMPUTE_TEST REL_TEST_NAME)
   set(options)
   set(one_value_args PREFIX)
   set(multi_value_args LABELS)
-  cmake_parse_arguments(ARG
-                        "${options}"
-                        "${one_value_args}"
-                        "${multi_value_args}"
+  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}"
                         ${ARGN})
 
   if(ARG_PREFIX)
@@ -48,22 +45,19 @@ function(ADD_ARROW_COMPUTE_TEST REL_TEST_NAME)
     set(LABELS "arrow_compute")
   endif()
 
-  add_arrow_test(${REL_TEST_NAME}
-                 EXTRA_LINK_LIBS
-                 ${ARROW_DATASET_TEST_LINK_LIBS}
-                 PREFIX
-                 ${PREFIX}
-                 LABELS
-                 ${LABELS}
-                 ${ARG_UNPARSED_ARGUMENTS})
+  add_arrow_test(
+    ${REL_TEST_NAME}
+    EXTRA_LINK_LIBS
+    ${ARROW_DATASET_TEST_LINK_LIBS}
+    PREFIX
+    ${PREFIX}
+    LABELS
+    ${LABELS}
+    ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
-add_arrow_compute_test(internals_test
-                       SOURCES
-                       function_test.cc
-                       exec_test.cc
-                       kernel_test.cc
-                       registry_test.cc)
+add_arrow_compute_test(internals_test SOURCES function_test.cc exec_test.cc
+                       kernel_test.cc registry_test.cc)
 
 add_arrow_benchmark(function_benchmark PREFIX "arrow-compute")
 

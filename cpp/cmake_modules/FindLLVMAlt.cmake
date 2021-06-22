@@ -24,11 +24,7 @@ if(LLVM_BREW_PREFIX)
   list(APPEND LLVM_HINTS ${LLVM_BREW_PREFIX})
 endif()
 foreach(ARROW_LLVM_VERSION ${ARROW_LLVM_VERSIONS})
-  find_package(LLVM
-               ${ARROW_LLVM_VERSION}
-               CONFIG
-               HINTS
-               ${LLVM_HINTS})
+  find_package(LLVM ${ARROW_LLVM_VERSION} CONFIG HINTS ${LLVM_HINTS})
   if(LLVM_FOUND)
     break()
   endif()
@@ -36,44 +32,41 @@ endforeach()
 
 if(LLVM_FOUND)
   # Find the libraries that correspond to the LLVM components
-  llvm_map_components_to_libnames(LLVM_LIBS
-                                  core
-                                  mcjit
-                                  native
-                                  ipo
-                                  bitreader
-                                  target
-                                  linker
-                                  analysis
-                                  debuginfodwarf)
+  llvm_map_components_to_libnames(
+    LLVM_LIBS
+    core
+    mcjit
+    native
+    ipo
+    bitreader
+    target
+    linker
+    analysis
+    debuginfodwarf)
 
   find_program(LLVM_LINK_EXECUTABLE llvm-link HINTS ${LLVM_TOOLS_BINARY_DIR})
 
-  find_program(CLANG_EXECUTABLE
-               NAMES clang-${LLVM_PACKAGE_VERSION}
-                     clang-${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}
-                     clang-${LLVM_VERSION_MAJOR} clang
-               HINTS ${LLVM_TOOLS_BINARY_DIR})
+  find_program(
+    CLANG_EXECUTABLE
+    NAMES clang-${LLVM_PACKAGE_VERSION} clang-${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}
+          clang-${LLVM_VERSION_MAJOR} clang
+    HINTS ${LLVM_TOOLS_BINARY_DIR})
 
   add_library(LLVM::LLVM_INTERFACE INTERFACE IMPORTED)
 
-  set_target_properties(LLVM::LLVM_INTERFACE
-                        PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                   "${LLVM_INCLUDE_DIRS}"
-                                   INTERFACE_COMPILE_FLAGS
-                                   "${LLVM_DEFINITIONS}"
-                                   INTERFACE_LINK_LIBRARIES
-                                   "${LLVM_LIBS}")
+  set_target_properties(
+    LLVM::LLVM_INTERFACE
+    PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${LLVM_INCLUDE_DIRS}"
+               INTERFACE_COMPILE_FLAGS "${LLVM_DEFINITIONS}"
+               INTERFACE_LINK_LIBRARIES "${LLVM_LIBS}")
 endif()
 
 mark_as_advanced(CLANG_EXECUTABLE LLVM_LINK_EXECUTABLE)
 
-find_package_handle_standard_args(LLVMAlt
-                                  REQUIRED_VARS # The first variable is used for display.
-                                  LLVM_PACKAGE_VERSION
-                                  CLANG_EXECUTABLE
-                                  LLVM_FOUND
-                                  LLVM_LINK_EXECUTABLE)
+find_package_handle_standard_args(
+  LLVMAlt
+  REQUIRED_VARS # The first variable is used for display.
+                LLVM_PACKAGE_VERSION CLANG_EXECUTABLE LLVM_FOUND LLVM_LINK_EXECUTABLE)
 if(LLVMAlt_FOUND)
   message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
   message(STATUS "Found llvm-link ${LLVM_LINK_EXECUTABLE}")

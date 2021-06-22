@@ -47,12 +47,8 @@ find_package(Arrow ${find_package_arguments})
 find_package(Parquet ${find_package_arguments})
 
 if(ARROW_FOUND AND PARQUET_FOUND)
-  arrow_find_package(ARROW_DATASET
-                     "${ARROW_HOME}"
-                     arrow_dataset
-                     arrow/dataset/api.h
-                     ArrowDataset
-                     arrow-dataset)
+  arrow_find_package(ARROW_DATASET "${ARROW_HOME}" arrow_dataset arrow/dataset/api.h
+                     ArrowDataset arrow-dataset)
   if(NOT ARROW_DATASET_VERSION)
     set(ARROW_DATASET_VERSION "${ARROW_VERSION}")
   endif()
@@ -64,23 +60,22 @@ else()
   set(ARROW_DATASET_VERSION_MATCH FALSE)
 endif()
 
-mark_as_advanced(ARROW_DATASET_IMPORT_LIB
-                 ARROW_DATASET_INCLUDE_DIR
-                 ARROW_DATASET_LIBS
-                 ARROW_DATASET_LIB_DIR
-                 ARROW_DATASET_SHARED_IMP_LIB
-                 ARROW_DATASET_SHARED_LIB
-                 ARROW_DATASET_STATIC_LIB
-                 ARROW_DATASET_VERSION
-                 ARROW_DATASET_VERSION_MATCH)
+mark_as_advanced(
+  ARROW_DATASET_IMPORT_LIB
+  ARROW_DATASET_INCLUDE_DIR
+  ARROW_DATASET_LIBS
+  ARROW_DATASET_LIB_DIR
+  ARROW_DATASET_SHARED_IMP_LIB
+  ARROW_DATASET_SHARED_LIB
+  ARROW_DATASET_STATIC_LIB
+  ARROW_DATASET_VERSION
+  ARROW_DATASET_VERSION_MATCH)
 
-find_package_handle_standard_args(ArrowDataset
-                                  REQUIRED_VARS
-                                  ARROW_DATASET_INCLUDE_DIR
-                                  ARROW_DATASET_LIB_DIR
-                                  ARROW_DATASET_VERSION_MATCH
-                                  VERSION_VAR
-                                  ARROW_DATASET_VERSION)
+find_package_handle_standard_args(
+  ArrowDataset
+  REQUIRED_VARS ARROW_DATASET_INCLUDE_DIR ARROW_DATASET_LIB_DIR
+                ARROW_DATASET_VERSION_MATCH
+  VERSION_VAR ARROW_DATASET_VERSION)
 set(ARROW_DATASET_FOUND ${ArrowDataset_FOUND})
 
 if(ArrowDataset_FOUND AND NOT ArrowDataset_FIND_QUIETLY)

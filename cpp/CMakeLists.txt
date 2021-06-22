@@ -53,7 +53,9 @@ string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSI
 
 # if no build build type is specified, default to release builds
 if(NOT DEFINED CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build.")
+  set(CMAKE_BUILD_TYPE
+      Release
+      CACHE STRING "Choose the type of build.")
 endif()
 string(TOLOWER ${CMAKE_BUILD_TYPE} LOWERCASE_BUILD_TYPE)
 string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_BUILD_TYPE)
@@ -117,39 +119,39 @@ set(ARROW_LLVM_VERSIONS
     "8"
     "7")
 list(GET ARROW_LLVM_VERSIONS 0 ARROW_LLVM_VERSION_PRIMARY)
-string(REGEX
-       REPLACE "^([0-9]+)(\\..+)?" "\\1" ARROW_LLVM_VERSION_PRIMARY_MAJOR
-               "${ARROW_LLVM_VERSION_PRIMARY}")
+string(REGEX REPLACE "^([0-9]+)(\\..+)?" "\\1" ARROW_LLVM_VERSION_PRIMARY_MAJOR
+                     "${ARROW_LLVM_VERSION_PRIMARY}")
 
 file(READ ${CMAKE_CURRENT_SOURCE_DIR}/../.env ARROW_ENV)
 string(REGEX MATCH "CLANG_TOOLS=[^\n]+" ARROW_ENV_CLANG_TOOLS_VERSION "${ARROW_ENV}")
-string(REGEX
-       REPLACE "^CLANG_TOOLS=" "" ARROW_CLANG_TOOLS_VERSION
-               "${ARROW_ENV_CLANG_TOOLS_VERSION}")
-string(REGEX
-       REPLACE "^([0-9]+)(\\..+)?" "\\1" ARROW_CLANG_TOOLS_VERSION_MAJOR
-               "${ARROW_CLANG_TOOLS_VERSION}")
+string(REGEX REPLACE "^CLANG_TOOLS=" "" ARROW_CLANG_TOOLS_VERSION
+                     "${ARROW_ENV_CLANG_TOOLS_VERSION}")
+string(REGEX REPLACE "^([0-9]+)(\\..+)?" "\\1" ARROW_CLANG_TOOLS_VERSION_MAJOR
+                     "${ARROW_CLANG_TOOLS_VERSION}")
 
 if(APPLE)
   find_program(BREW_BIN brew)
   if(BREW_BIN)
-    execute_process(COMMAND ${BREW_BIN} --prefix
-                            "llvm@${ARROW_LLVM_VERSION_PRIMARY_MAJOR}"
-                    OUTPUT_VARIABLE LLVM_BREW_PREFIX
-                    OUTPUT_STRIP_TRAILING_WHITESPACE)
+    execute_process(
+      COMMAND ${BREW_BIN} --prefix "llvm@${ARROW_LLVM_VERSION_PRIMARY_MAJOR}"
+      OUTPUT_VARIABLE LLVM_BREW_PREFIX
+      OUTPUT_STRIP_TRAILING_WHITESPACE)
     if(NOT LLVM_BREW_PREFIX)
-      execute_process(COMMAND ${BREW_BIN} --prefix llvm
-                      OUTPUT_VARIABLE LLVM_BREW_PREFIX
-                      OUTPUT_STRIP_TRAILING_WHITESPACE)
+      execute_process(
+        COMMAND ${BREW_BIN} --prefix llvm
+        OUTPUT_VARIABLE LLVM_BREW_PREFIX
+        OUTPUT_STRIP_TRAILING_WHITESPACE)
     endif()
 
-    execute_process(COMMAND ${BREW_BIN} --prefix "llvm@${ARROW_CLANG_TOOLS_VERSION_MAJOR}"
-                    OUTPUT_VARIABLE CLANG_TOOLS_BREW_PREFIX
-                    OUTPUT_STRIP_TRAILING_WHITESPACE)
+    execute_process(
+      COMMAND ${BREW_BIN} --prefix "llvm@${ARROW_CLANG_TOOLS_VERSION_MAJOR}"
+      OUTPUT_VARIABLE CLANG_TOOLS_BREW_PREFIX
+      OUTPUT_STRIP_TRAILING_WHITESPACE)
     if(NOT CLANG_TOOLS_BREW_PREFIX)
-      execute_process(COMMAND ${BREW_BIN} --prefix llvm
-                      OUTPUT_VARIABLE CLANG_TOOLS_BREW_PREFIX
-                      OUTPUT_STRIP_TRAILING_WHITESPACE)
+      execute_process(
+        COMMAND ${BREW_BIN} --prefix llvm
+        OUTPUT_VARIABLE CLANG_TOOLS_BREW_PREFIX
+        OUTPUT_STRIP_TRAILING_WHITESPACE)
     endif()
   endif()
 endif()
@@ -163,7 +165,9 @@ endif()
 
 find_package(ClangTools)
 find_package(InferTools)
-if("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1" OR CLANG_TIDY_FOUND OR INFER_FOUND)
+if("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1"
+   OR CLANG_TIDY_FOUND
+   OR INFER_FOUND)
   # Generate a Clang compile_commands.json "compilation database" file for use
   # with various development tools, such as Vim's YouCompleteMe plugin.
   # See http://clang.llvm.org/docs/JSONCompilationDatabase.html
@@ -226,52 +230,58 @@ if(NOT LINT_EXCLUSIONS_FILE)
   set(LINT_EXCLUSIONS_FILE ${BUILD_SUPPORT_DIR}/lint_exclusions.txt)
 endif()
 
-find_program(CPPLINT_BIN NAMES cpplint cpplint.py HINTS ${BUILD_SUPPORT_DIR})
+find_program(
+  CPPLINT_BIN
+  NAMES cpplint cpplint.py
+  HINTS ${BUILD_SUPPORT_DIR})
 message(STATUS "Found cpplint executable at ${CPPLINT_BIN}")
 
-add_custom_target(lint
-                  ${PYTHON_EXECUTABLE}
-                  ${BUILD_SUPPORT_DIR}/run_cpplint.py
-                  --cpplint_binary
-                  ${CPPLINT_BIN}
-                  --exclude_globs
-                  ${LINT_EXCLUSIONS_FILE}
-                  --source_dir
-                  ${CMAKE_CURRENT_SOURCE_DIR}/src
-                  ${ARROW_LINT_QUIET})
+add_custom_target(
+  lint
+  ${PYTHON_EXECUTABLE}
+  ${BUILD_SUPPORT_DIR}/run_cpplint.py
+  --cpplint_binary
+  ${CPPLINT_BIN}
+  --exclude_globs
+  ${LINT_EXCLUSIONS_FILE}
+  --source_dir
+  ${CMAKE_CURRENT_SOURCE_DIR}/src
+  ${ARROW_LINT_QUIET})
 
 #
 # "make format" and "make check-format" targets
 #
 if(${CLANG_FORMAT_FOUND})
   # runs clang format and updates files in place.
-  add_custom_target(format
-                    ${PYTHON_EXECUTABLE}
-                    ${BUILD_SUPPORT_DIR}/run_clang_format.py
-                    --clang_format_binary
-                    ${CLANG_FORMAT_BIN}
-                    --exclude_globs
-                    ${LINT_EXCLUSIONS_FILE}
-                    --source_dir
-                    ${CMAKE_CURRENT_SOURCE_DIR}/src
-                    --fix
-                    ${ARROW_LINT_QUIET})
+  add_custom_target(
+    format
+    ${PYTHON_EXECUTABLE}
+    ${BUILD_SUPPORT_DIR}/run_clang_format.py
+    --clang_format_binary
+    ${CLANG_FORMAT_BIN}
+    --exclude_globs
+    ${LINT_EXCLUSIONS_FILE}
+    --source_dir
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    --fix
+    ${ARROW_LINT_QUIET})
 
   # runs clang format and exits with a non-zero exit code if any files need to be reformatted
-  add_custom_target(check-format
-                    ${PYTHON_EXECUTABLE}
-                    ${BUILD_SUPPORT_DIR}/run_clang_format.py
-                    --clang_format_binary
-                    ${CLANG_FORMAT_BIN}
-                    --exclude_globs
-                    ${LINT_EXCLUSIONS_FILE}
-                    --source_dir
-                    ${CMAKE_CURRENT_SOURCE_DIR}/src
-                    ${ARROW_LINT_QUIET})
+  add_custom_target(
+    check-format
+    ${PYTHON_EXECUTABLE}
+    ${BUILD_SUPPORT_DIR}/run_clang_format.py
+    --clang_format_binary
+    ${CLANG_FORMAT_BIN}
+    --exclude_globs
+    ${LINT_EXCLUSIONS_FILE}
+    --source_dir
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${ARROW_LINT_QUIET})
 endif()
 
 add_custom_target(lint_cpp_cli ${PYTHON_EXECUTABLE} ${BUILD_SUPPORT_DIR}/lint_cpp_cli.py
-                  ${CMAKE_CURRENT_SOURCE_DIR}/src)
+                               ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 if(ARROW_LINT_ONLY)
   message("ARROW_LINT_ONLY was specified, this is only a partial build directory")
@@ -285,33 +295,35 @@ if(${CLANG_TIDY_FOUND})
   # TODO check to make sure .clang-tidy is being respected
 
   # runs clang-tidy and attempts to fix any warning automatically
-  add_custom_target(clang-tidy
-                    ${PYTHON_EXECUTABLE}
-                    ${BUILD_SUPPORT_DIR}/run_clang_tidy.py
-                    --clang_tidy_binary
-                    ${CLANG_TIDY_BIN}
-                    --exclude_globs
-                    ${LINT_EXCLUSIONS_FILE}
-                    --compile_commands
-                    ${CMAKE_BINARY_DIR}/compile_commands.json
-                    --source_dir
-                    ${CMAKE_CURRENT_SOURCE_DIR}/src
-                    --fix
-                    ${ARROW_LINT_QUIET})
+  add_custom_target(
+    clang-tidy
+    ${PYTHON_EXECUTABLE}
+    ${BUILD_SUPPORT_DIR}/run_clang_tidy.py
+    --clang_tidy_binary
+    ${CLANG_TIDY_BIN}
+    --exclude_globs
+    ${LINT_EXCLUSIONS_FILE}
+    --compile_commands
+    ${CMAKE_BINARY_DIR}/compile_commands.json
+    --source_dir
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    --fix
+    ${ARROW_LINT_QUIET})
 
   # runs clang-tidy and exits with a non-zero exit code if any errors are found.
-  add_custom_target(check-clang-tidy
-                    ${PYTHON_EXECUTABLE}
-                    ${BUILD_SUPPORT_DIR}/run_clang_tidy.py
-                    --clang_tidy_binary
-                    ${CLANG_TIDY_BIN}
-                    --exclude_globs
-                    ${LINT_EXCLUSIONS_FILE}
-                    --compile_commands
-                    ${CMAKE_BINARY_DIR}/compile_commands.json
-                    --source_dir
-                    ${CMAKE_CURRENT_SOURCE_DIR}/src
-                    ${ARROW_LINT_QUIET})
+  add_custom_target(
+    check-clang-tidy
+    ${PYTHON_EXECUTABLE}
+    ${BUILD_SUPPORT_DIR}/run_clang_tidy.py
+    --clang_tidy_binary
+    ${CLANG_TIDY_BIN}
+    --exclude_globs
+    ${LINT_EXCLUSIONS_FILE}
+    --compile_commands
+    ${CMAKE_BINARY_DIR}/compile_commands.json
+    --source_dir
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${ARROW_LINT_QUIET})
 endif()
 
 if(UNIX)
@@ -392,12 +404,7 @@ if(NOT ARROW_BUILD_TESTS)
   set(NO_TESTS 1)
 else()
   add_custom_target(all-tests)
-  add_custom_target(unittest
-                    ctest
-                    -j4
-                    -L
-                    unittest
-                    --output-on-failure)
+  add_custom_target(unittest ctest -j4 -L unittest --output-on-failure)
   add_dependencies(unittest all-tests)
 endif()
 
@@ -469,10 +476,7 @@ if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_BINARY_DIR})
   if(NOT APPLE)
     set(MORE_ARGS "-T")
   endif()
-  execute_process(COMMAND ln
-                          ${MORE_ARGS}
-                          -sf
-                          ${BUILD_OUTPUT_ROOT_DIRECTORY}
+  execute_process(COMMAND ln ${MORE_ARGS} -sf ${BUILD_OUTPUT_ROOT_DIRECTORY}
                           ${CMAKE_CURRENT_BINARY_DIR}/build/latest)
 else()
   set(BUILD_OUTPUT_ROOT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${BUILD_SUBDIR_NAME}/")
@@ -549,13 +553,11 @@ include_directories(src/generated)
 # Visibility
 #
 if(PARQUET_BUILD_SHARED)
-  set_target_properties(arrow_shared
-                        PROPERTIES C_VISIBILITY_PRESET
-                                   hidden
-                                   CXX_VISIBILITY_PRESET
-                                   hidden
-                                   VISIBILITY_INLINES_HIDDEN
-                                   1)
+  set_target_properties(
+    arrow_shared
+    PROPERTIES C_VISIBILITY_PRESET hidden
+               CXX_VISIBILITY_PRESET hidden
+               VISIBILITY_INLINES_HIDDEN 1)
 endif()
 
 #
@@ -569,29 +571,30 @@ endif(UNIX)
 # "make etags" target
 #
 if(UNIX)
-  add_custom_target(tags
-                    etags
-                    --members
-                    --declarations
-                    `find
-                    ${CMAKE_CURRENT_SOURCE_DIR}/src
-                    -name
-                    \\*.cc
-                    -or
-                    -name
-                    \\*.hh
-                    -or
-                    -name
-                    \\*.cpp
-                    -or
-                    -name
-                    \\*.h
-                    -or
-                    -name
-                    \\*.c
-                    -or
-                    -name
-                    \\*.f`)
+  add_custom_target(
+    tags
+    etags
+    --members
+    --declarations
+    `find
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    -name
+    \\*.cc
+    -or
+    -name
+    \\*.hh
+    -or
+    -name
+    \\*.cpp
+    -or
+    -name
+    \\*.h
+    -or
+    -name
+    \\*.c
+    -or
+    -name
+    \\*.f`)
   add_custom_target(etags DEPENDS tags)
 endif(UNIX)
 
@@ -599,35 +602,38 @@ endif(UNIX)
 # "make cscope" target
 #
 if(UNIX)
-  add_custom_target(cscope find ${CMAKE_CURRENT_SOURCE_DIR}
-                    (-name
-                     \\*.cc
-                     -or
-                     -name
-                     \\*.hh
-                     -or
-                     -name
-                     \\*.cpp
-                     -or
-                     -name
-                     \\*.h
-                     -or
-                     -name
-                     \\*.c
-                     -or
-                     -name
-                     \\*.f)
-                    -exec
-                    echo
-                    \"{}\"
-                    \;
-                    >
-                    cscope.files
-                    &&
-                    cscope
-                    -q
-                    -b
-                    VERBATIM)
+  add_custom_target(
+    cscope
+    find
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    (-name
+     \\*.cc
+     -or
+     -name
+     \\*.hh
+     -or
+     -name
+     \\*.cpp
+     -or
+     -name
+     \\*.h
+     -or
+     -name
+     \\*.c
+     -or
+     -name
+     \\*.f)
+    -exec
+    echo
+    \"{}\"
+    \;
+    >
+    cscope.files
+    &&
+    cscope
+    -q
+    -b
+    VERBATIM)
 endif(UNIX)
 
 #
@@ -636,23 +642,14 @@ endif(UNIX)
 
 if(${INFER_FOUND})
   # runs infer capture
-  add_custom_target(infer
-                    ${BUILD_SUPPORT_DIR}/run-infer.sh
-                    ${INFER_BIN}
-                    ${CMAKE_BINARY_DIR}/compile_commands.json
-                    1)
+  add_custom_target(infer ${BUILD_SUPPORT_DIR}/run-infer.sh ${INFER_BIN}
+                          ${CMAKE_BINARY_DIR}/compile_commands.json 1)
   # runs infer analyze
-  add_custom_target(infer-analyze
-                    ${BUILD_SUPPORT_DIR}/run-infer.sh
-                    ${INFER_BIN}
-                    ${CMAKE_BINARY_DIR}/compile_commands.json
-                    2)
+  add_custom_target(infer-analyze ${BUILD_SUPPORT_DIR}/run-infer.sh ${INFER_BIN}
+                                  ${CMAKE_BINARY_DIR}/compile_commands.json 2)
   # runs infer report
-  add_custom_target(infer-report
-                    ${BUILD_SUPPORT_DIR}/run-infer.sh
-                    ${INFER_BIN}
-                    ${CMAKE_BINARY_DIR}/compile_commands.json
-                    3)
+  add_custom_target(infer-report ${BUILD_SUPPORT_DIR}/run-infer.sh ${INFER_BIN}
+                                 ${CMAKE_BINARY_DIR}/compile_commands.json 3)
 endif()
 
 #
@@ -721,7 +718,7 @@ if(ARROW_ORC)
   list(APPEND ARROW_STATIC_LINK_LIBS orc::liborc ${ARROW_PROTOBUF_LIBPROTOBUF})
   if(ORC_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS orc::liborc
-                ${ARROW_PROTOBUF_LIBPROTOBUF})
+         ${ARROW_PROTOBUF_LIBPROTOBUF})
   endif()
 endif()
 
@@ -787,12 +784,8 @@ if(NOT MSVC_TOOLCHAIN)
   list(APPEND ARROW_SHARED_INSTALL_INTERFACE_LIBS ${CMAKE_DL_LIBS})
 endif()
 
-set(ARROW_TEST_LINK_TOOLCHAIN
-    GTest::gtest_main
-    GTest::gtest
-    GTest::gmock
-    ${BOOST_FILESYSTEM_LIBRARY}
-    ${BOOST_SYSTEM_LIBRARY})
+set(ARROW_TEST_LINK_TOOLCHAIN GTest::gtest_main GTest::gtest GTest::gmock
+                              ${BOOST_FILESYSTEM_LIBRARY} ${BOOST_SYSTEM_LIBRARY})
 
 if(ARROW_BUILD_TESTS)
   add_dependencies(arrow_test_dependencies ${ARROW_TEST_LINK_TOOLCHAIN})
@@ -916,8 +909,7 @@ endif()
 
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/../LICENSE.txt
               ${CMAKE_CURRENT_SOURCE_DIR}/../NOTICE.txt
-              ${CMAKE_CURRENT_SOURCE_DIR}/README.md
-        DESTINATION "${ARROW_DOC_DIR}")
+              ${CMAKE_CURRENT_SOURCE_DIR}/README.md DESTINATION "${ARROW_DOC_DIR}")
 
 #
 # Validate and print out Arrow configuration options

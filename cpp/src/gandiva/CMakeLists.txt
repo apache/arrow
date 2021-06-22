@@ -97,8 +97,8 @@ set(GANDIVA_SHARED_PRIVATE_LINK_LIBS arrow_shared LLVM::LLVM_INTERFACE
 
 set(GANDIVA_STATIC_LINK_LIBS arrow_static LLVM::LLVM_INTERFACE ${GANDIVA_OPENSSL_LIBS})
 
-if(ARROW_GANDIVA_STATIC_LIBSTDCPP
-   AND (CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX))
+if(ARROW_GANDIVA_STATIC_LIBSTDCPP AND (CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX
+                                      ))
   set(GANDIVA_STATIC_LINK_LIBS ${GANDIVA_STATIC_LINK_LIBS} -static-libstdc++
                                -static-libgcc)
 endif()
@@ -121,32 +121,33 @@ if(NOT APPLE AND NOT MSVC_TOOLCHAIN)
       "${GANDIVA_SHARED_LINK_FLAGS} ${GANDIVA_VERSION_SCRIPT_FLAGS}")
 endif()
 
-add_arrow_lib(gandiva
-              CMAKE_PACKAGE_NAME
-              Gandiva
-              PKG_CONFIG_NAME
-              gandiva
-              SOURCES
-              ${SRC_FILES}
-              PRECOMPILED_HEADERS
-              "$<$<COMPILE_LANGUAGE:CXX>:gandiva/pch.h>"
-              OUTPUTS
-              GANDIVA_LIBRARIES
-              DEPENDENCIES
-              arrow_dependencies
-              precompiled
-              EXTRA_INCLUDES
-              $<TARGET_PROPERTY:LLVM::LLVM_INTERFACE,INTERFACE_INCLUDE_DIRECTORIES>
-              ${GANDIVA_OPENSSL_INCLUDE_DIR}
-              ${UTF8PROC_INCLUDE_DIR}
-              SHARED_LINK_FLAGS
-              ${GANDIVA_SHARED_LINK_FLAGS}
-              SHARED_LINK_LIBS
-              arrow_shared
-              SHARED_PRIVATE_LINK_LIBS
-              ${GANDIVA_SHARED_PRIVATE_LINK_LIBS}
-              STATIC_LINK_LIBS
-              ${GANDIVA_STATIC_LINK_LIBS})
+add_arrow_lib(
+  gandiva
+  CMAKE_PACKAGE_NAME
+  Gandiva
+  PKG_CONFIG_NAME
+  gandiva
+  SOURCES
+  ${SRC_FILES}
+  PRECOMPILED_HEADERS
+  "$<$<COMPILE_LANGUAGE:CXX>:gandiva/pch.h>"
+  OUTPUTS
+  GANDIVA_LIBRARIES
+  DEPENDENCIES
+  arrow_dependencies
+  precompiled
+  EXTRA_INCLUDES
+  $<TARGET_PROPERTY:LLVM::LLVM_INTERFACE,INTERFACE_INCLUDE_DIRECTORIES>
+  ${GANDIVA_OPENSSL_INCLUDE_DIR}
+  ${UTF8PROC_INCLUDE_DIR}
+  SHARED_LINK_FLAGS
+  ${GANDIVA_SHARED_LINK_FLAGS}
+  SHARED_LINK_LIBS
+  arrow_shared
+  SHARED_PRIVATE_LINK_LIBS
+  ${GANDIVA_SHARED_PRIVATE_LINK_LIBS}
+  STATIC_LINK_LIBS
+  ${GANDIVA_STATIC_LINK_LIBS})
 
 foreach(LIB_TARGET ${GANDIVA_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE GANDIVA_EXPORTING)
@@ -169,38 +170,24 @@ function(ADD_GANDIVA_TEST REL_TEST_NAME)
   set(options USE_STATIC_LINKING)
   set(one_value_args)
   set(multi_value_args)
-  cmake_parse_arguments(ARG
-                        "${options}"
-                        "${one_value_args}"
-                        "${multi_value_args}"
+  cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}"
                         ${ARGN})
 
   if(NO_TESTS)
     return()
   endif()
 
-  set(TEST_ARGUMENTS
-      ENABLED
-      PREFIX
-      "gandiva"
-      LABELS
-      "gandiva-tests"
-      ${ARG_UNPARSED_ARGUMENTS})
+  set(TEST_ARGUMENTS ENABLED PREFIX "gandiva" LABELS "gandiva-tests"
+                     ${ARG_UNPARSED_ARGUMENTS})
 
   # and uses less disk space, but in some cases we need to force static
   # linking (see rationale below).
   if(ARG_USE_STATIC_LINKING OR ARROW_TEST_LINKAGE STREQUAL "static")
-    add_test_case(${REL_TEST_NAME}
-                  ${TEST_ARGUMENTS}
-                  STATIC_LINK_LIBS
-                  ${GANDIVA_STATIC_TEST_LINK_LIBS}
-                  ${ARG_UNPARSED_ARGUMENTS})
+    add_test_case(${REL_TEST_NAME} ${TEST_ARGUMENTS} STATIC_LINK_LIBS
+                  ${GANDIVA_STATIC_TEST_LINK_LIBS} ${ARG_UNPARSED_ARGUMENTS})
   else()
-    add_test_case(${REL_TEST_NAME}
-                  ${TEST_ARGUMENTS}
-                  STATIC_LINK_LIBS
-                  ${GANDIVA_SHARED_TEST_LINK_LIBS}
-                  ${ARG_UNPARSED_ARGUMENTS})
+    add_test_case(${REL_TEST_NAME} ${TEST_ARGUMENTS} STATIC_LINK_LIBS
+                  ${GANDIVA_SHARED_TEST_LINK_LIBS} ${ARG_UNPARSED_ARGUMENTS})
   endif()
 
   set(TEST_NAME gandiva-${REL_TEST_NAME})
@@ -211,37 +198,38 @@ endfunction()
 set(GANDIVA_INTERNALS_TEST_ARGUMENTS)
 if(WIN32)
   list(APPEND GANDIVA_INTERNALS_TEST_ARGUMENTS EXTRA_LINK_LIBS LLVM::LLVM_INTERFACE
-              ${GANDIVA_OPENSSL_LIBS})
+       ${GANDIVA_OPENSSL_LIBS})
 endif()
-add_gandiva_test(internals-test
-                 SOURCES
-                 bitmap_accumulator_test.cc
-                 engine_llvm_test.cc
-                 function_registry_test.cc
-                 function_signature_test.cc
-                 llvm_types_test.cc
-                 llvm_generator_test.cc
-                 annotator_test.cc
-                 tree_expr_test.cc
-                 expr_decomposer_test.cc
-                 expression_registry_test.cc
-                 selection_vector_test.cc
-                 lru_cache_test.cc
-                 to_date_holder_test.cc
-                 simple_arena_test.cc
-                 like_holder_test.cc
-                 decimal_type_util_test.cc
-                 random_generator_holder_test.cc
-                 hash_utils_test.cc
-                 gdv_function_stubs_test.cc
-                 EXTRA_DEPENDENCIES
-                 LLVM::LLVM_INTERFACE
-                 ${GANDIVA_OPENSSL_LIBS}
-                 EXTRA_INCLUDES
-                 $<TARGET_PROPERTY:LLVM::LLVM_INTERFACE,INTERFACE_INCLUDE_DIRECTORIES>
-                 ${GANDIVA_INTERNALS_TEST_ARGUMENTS}
-                 ${GANDIVA_OPENSSL_INCLUDE_DIR}
-                 ${UTF8PROC_INCLUDE_DIR})
+add_gandiva_test(
+  internals-test
+  SOURCES
+  bitmap_accumulator_test.cc
+  engine_llvm_test.cc
+  function_registry_test.cc
+  function_signature_test.cc
+  llvm_types_test.cc
+  llvm_generator_test.cc
+  annotator_test.cc
+  tree_expr_test.cc
+  expr_decomposer_test.cc
+  expression_registry_test.cc
+  selection_vector_test.cc
+  lru_cache_test.cc
+  to_date_holder_test.cc
+  simple_arena_test.cc
+  like_holder_test.cc
+  decimal_type_util_test.cc
+  random_generator_holder_test.cc
+  hash_utils_test.cc
+  gdv_function_stubs_test.cc
+  EXTRA_DEPENDENCIES
+  LLVM::LLVM_INTERFACE
+  ${GANDIVA_OPENSSL_LIBS}
+  EXTRA_INCLUDES
+  $<TARGET_PROPERTY:LLVM::LLVM_INTERFACE,INTERFACE_INCLUDE_DIRECTORIES>
+  ${GANDIVA_INTERNALS_TEST_ARGUMENTS}
+  ${GANDIVA_OPENSSL_INCLUDE_DIR}
+  ${UTF8PROC_INCLUDE_DIR})
 
 if(ARROW_GANDIVA_JAVA)
   add_subdirectory(jni)

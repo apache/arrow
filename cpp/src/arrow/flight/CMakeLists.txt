@@ -26,9 +26,9 @@ if(WIN32)
 endif()
 
 if(ARROW_TEST_LINKAGE STREQUAL "static")
-  set(ARROW_FLIGHT_TEST_LINK_LIBS arrow_flight_static arrow_flight_testing_static
-                                  ${ARROW_FLIGHT_STATIC_LINK_LIBS}
-                                  ${ARROW_TEST_LINK_LIBS})
+  set(ARROW_FLIGHT_TEST_LINK_LIBS
+      arrow_flight_static arrow_flight_testing_static ${ARROW_FLIGHT_STATIC_LINK_LIBS}
+      ${ARROW_TEST_LINK_LIBS})
 else()
   set(ARROW_FLIGHT_TEST_LINK_LIBS arrow_flight_shared arrow_flight_testing_shared
                                   ${ARROW_TEST_LINK_LIBS})
@@ -39,22 +39,22 @@ endif()
 set(FLIGHT_PROTO_PATH "${ARROW_SOURCE_DIR}/../format")
 set(FLIGHT_PROTO ${ARROW_SOURCE_DIR}/../format/Flight.proto)
 
-set(FLIGHT_GENERATED_PROTO_FILES "${CMAKE_CURRENT_BINARY_DIR}/Flight.pb.cc"
-                                 "${CMAKE_CURRENT_BINARY_DIR}/Flight.pb.h"
-                                 "${CMAKE_CURRENT_BINARY_DIR}/Flight.grpc.pb.cc"
-                                 "${CMAKE_CURRENT_BINARY_DIR}/Flight.grpc.pb.h")
+set(FLIGHT_GENERATED_PROTO_FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/Flight.pb.cc" "${CMAKE_CURRENT_BINARY_DIR}/Flight.pb.h"
+    "${CMAKE_CURRENT_BINARY_DIR}/Flight.grpc.pb.cc"
+    "${CMAKE_CURRENT_BINARY_DIR}/Flight.grpc.pb.h")
 
 set(PROTO_DEPENDS ${FLIGHT_PROTO} ${ARROW_PROTOBUF_LIBPROTOBUF} gRPC::grpc_cpp_plugin)
 
-add_custom_command(OUTPUT ${FLIGHT_GENERATED_PROTO_FILES}
-                   COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_PROTO_PATH}"
-                           "--cpp_out=${CMAKE_CURRENT_BINARY_DIR}" "${FLIGHT_PROTO}"
-                   DEPENDS ${PROTO_DEPENDS} ARGS
-                   COMMAND ${ARROW_PROTOBUF_PROTOC}
-                           "-I${FLIGHT_PROTO_PATH}"
-                           "--grpc_out=${CMAKE_CURRENT_BINARY_DIR}"
-                           "--plugin=protoc-gen-grpc=$<TARGET_FILE:gRPC::grpc_cpp_plugin>"
-                           "${FLIGHT_PROTO}")
+add_custom_command(
+  OUTPUT ${FLIGHT_GENERATED_PROTO_FILES}
+  COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_PROTO_PATH}"
+          "--cpp_out=${CMAKE_CURRENT_BINARY_DIR}" "${FLIGHT_PROTO}"
+  DEPENDS ${PROTO_DEPENDS} ARGS
+  COMMAND
+    ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_PROTO_PATH}"
+    "--grpc_out=${CMAKE_CURRENT_BINARY_DIR}"
+    "--plugin=protoc-gen-grpc=$<TARGET_FILE:gRPC::grpc_cpp_plugin>" "${FLIGHT_PROTO}")
 
 set_source_files_properties(${FLIGHT_GENERATED_PROTO_FILES} PROPERTIES GENERATED TRUE)
 
@@ -72,14 +72,16 @@ function(test_grpc_version DST_VAR DETECT_VERSION TEST_FILE)
   if(NOT DEFINED ${DST_VAR})
     message(
       STATUS "Checking support for TlsCredentialsOptions (gRPC >= ${DETECT_VERSION})...")
-    get_property(CURRENT_INCLUDE_DIRECTORIES
-                 DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-                 PROPERTY INCLUDE_DIRECTORIES)
-    try_compile(HAS_GRPC_VERSION ${CMAKE_CURRENT_BINARY_DIR}/try_compile SOURCES
-                "${CMAKE_CURRENT_SOURCE_DIR}/try_compile/${TEST_FILE}"
-                CMAKE_FLAGS "-DINCLUDE_DIRECTORIES=${CURRENT_INCLUDE_DIRECTORIES}"
-                LINK_LIBRARIES gRPC::grpc++
-                OUTPUT_VARIABLE TLS_CREDENTIALS_OPTIONS_CHECK_OUTPUT CXX_STANDARD 11)
+    get_property(
+      CURRENT_INCLUDE_DIRECTORIES
+      DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+      PROPERTY INCLUDE_DIRECTORIES)
+    try_compile(
+      HAS_GRPC_VERSION ${CMAKE_CURRENT_BINARY_DIR}/try_compile
+      SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/try_compile/${TEST_FILE}"
+      CMAKE_FLAGS "-DINCLUDE_DIRECTORIES=${CURRENT_INCLUDE_DIRECTORIES}"
+      LINK_LIBRARIES gRPC::grpc++
+      OUTPUT_VARIABLE TLS_CREDENTIALS_OPTIONS_CHECK_OUTPUT CXX_STANDARD 11)
     if(HAS_GRPC_VERSION)
       set(${DST_VAR}
           "${DETECT_VERSION}"
@@ -88,7 +90,7 @@ function(test_grpc_version DST_VAR DETECT_VERSION TEST_FILE)
       message(
         STATUS
           "TlsCredentialsOptions (for gRPC ${DETECT_VERSION}) not found in grpc::experimental."
-        )
+      )
       message(DEBUG "Build output:")
       list(APPEND CMAKE_MESSAGE_INDENT "${TEST_FILE}: ")
       message(DEBUG ${TLS_CREDENTIALS_OPTIONS_CHECK_OUTPUT})
@@ -108,16 +110,17 @@ else()
   message(
     STATUS
       "Found approximate gRPC version: ${GRPC_VERSION} (ARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS=${ARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS})"
-    )
+  )
 endif()
 if(GRPC_VERSION EQUAL "1.27")
   add_definitions(-DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc_impl::experimental)
 elseif(GRPC_VERSION EQUAL "1.32")
   add_definitions(-DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc::experimental)
 elseif(GRPC_VERSION EQUAL "1.34" OR GRPC_VERSION EQUAL "1.35")
-  add_definitions(-DGRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS
-                  -DGRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS_ROOT_CERTS
-                  -DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc::experimental)
+  add_definitions(
+    -DGRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS
+    -DGRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS_ROOT_CERTS
+    -DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc::experimental)
 elseif(GRPC_VERSION EQUAL "1.36")
   add_definitions(-DGRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS
                   -DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc::experimental)
@@ -125,15 +128,15 @@ else()
   message(
     STATUS
       "A proper version of gRPC could not be found to support TlsCredentialsOptions in Arrow Flight."
-    )
+  )
   message(
     STATUS
       "You may need a newer version of gRPC (>= 1.27), or the gRPC API has changed and Flight must be updated to match."
-    )
+  )
   if(ARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS)
     message(
       FATAL_ERROR "Halting build since ARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS is set."
-      )
+    )
   endif()
 endif()
 
@@ -155,27 +158,28 @@ set(ARROW_FLIGHT_SRCS
     server_auth.cc
     types.cc)
 
-add_arrow_lib(arrow_flight
-              CMAKE_PACKAGE_NAME
-              ArrowFlight
-              PKG_CONFIG_NAME
-              arrow-flight
-              OUTPUTS
-              ARROW_FLIGHT_LIBRARIES
-              SOURCES
-              ${ARROW_FLIGHT_SRCS}
-              PRECOMPILED_HEADERS
-              "$<$<COMPILE_LANGUAGE:CXX>:arrow/flight/pch.h>"
-              DEPENDENCIES
-              flight_grpc_gen
-              SHARED_LINK_FLAGS
-              ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
-              SHARED_LINK_LIBS
-              arrow_shared
-              ${ARROW_FLIGHT_LINK_LIBS}
-              STATIC_LINK_LIBS
-              arrow_static
-              ${ARROW_FLIGHT_LINK_LIBS})
+add_arrow_lib(
+  arrow_flight
+  CMAKE_PACKAGE_NAME
+  ArrowFlight
+  PKG_CONFIG_NAME
+  arrow-flight
+  OUTPUTS
+  ARROW_FLIGHT_LIBRARIES
+  SOURCES
+  ${ARROW_FLIGHT_SRCS}
+  PRECOMPILED_HEADERS
+  "$<$<COMPILE_LANGUAGE:CXX>:arrow/flight/pch.h>"
+  DEPENDENCIES
+  flight_grpc_gen
+  SHARED_LINK_FLAGS
+  ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
+  SHARED_LINK_LIBS
+  arrow_shared
+  ${ARROW_FLIGHT_LINK_LIBS}
+  STATIC_LINK_LIBS
+  arrow_static
+  ${ARROW_FLIGHT_LINK_LIBS})
 
 foreach(LIB_TARGET ${ARROW_FLIGHT_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_FLIGHT_EXPORTING)
@@ -183,42 +187,41 @@ endforeach()
 
 # Define arrow_flight_testing library
 if(ARROW_TESTING)
-  add_arrow_lib(arrow_flight_testing
-                CMAKE_PACKAGE_NAME
-                ArrowFlightTesting
-                PKG_CONFIG_NAME
-                arrow-flight-testing
-                OUTPUTS
-                ARROW_FLIGHT_TESTING_LIBRARIES
-                SOURCES
-                test_integration.cc
-                test_util.cc
-                DEPENDENCIES
-                GTest::gtest
-                flight_grpc_gen
-                arrow_dependencies
-                SHARED_LINK_LIBS
-                arrow_shared
-                arrow_flight_shared
-                arrow_testing_shared
-                ${BOOST_FILESYSTEM_LIBRARY}
-                ${BOOST_SYSTEM_LIBRARY}
-                GTest::gtest
-                STATIC_LINK_LIBS
-                arrow_static
-                arrow_flight_static
-                arrow_testing_static)
+  add_arrow_lib(
+    arrow_flight_testing
+    CMAKE_PACKAGE_NAME
+    ArrowFlightTesting
+    PKG_CONFIG_NAME
+    arrow-flight-testing
+    OUTPUTS
+    ARROW_FLIGHT_TESTING_LIBRARIES
+    SOURCES
+    test_integration.cc
+    test_util.cc
+    DEPENDENCIES
+    GTest::gtest
+    flight_grpc_gen
+    arrow_dependencies
+    SHARED_LINK_LIBS
+    arrow_shared
+    arrow_flight_shared
+    arrow_testing_shared
+    ${BOOST_FILESYSTEM_LIBRARY}
+    ${BOOST_SYSTEM_LIBRARY}
+    GTest::gtest
+    STATIC_LINK_LIBS
+    arrow_static
+    arrow_flight_static
+    arrow_testing_static)
 endif()
 
 foreach(LIB_TARGET ${ARROW_FLIGHT_TESTING_LIBRARIES})
-  target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_FLIGHT_EXPORTING
-                             ${ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS})
+  target_compile_definitions(
+    ${LIB_TARGET} PRIVATE ARROW_FLIGHT_EXPORTING
+                          ${ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS})
 endforeach()
 
-add_arrow_test(flight_test
-               STATIC_LINK_LIBS
-               ${ARROW_FLIGHT_TEST_LINK_LIBS}
-               LABELS
+add_arrow_test(flight_test STATIC_LINK_LIBS ${ARROW_FLIGHT_TEST_LINK_LIBS} LABELS
                "arrow_flight")
 
 # Build test server for unit tests or benchmarks
@@ -254,10 +257,11 @@ if(ARROW_BUILD_BENCHMARKS)
   set(PERF_PROTO_GENERATED_FILES "${CMAKE_CURRENT_BINARY_DIR}/perf.pb.cc"
                                  "${CMAKE_CURRENT_BINARY_DIR}/perf.pb.h")
 
-  add_custom_command(OUTPUT ${PERF_PROTO_GENERATED_FILES}
-                     COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${CMAKE_CURRENT_SOURCE_DIR}"
-                             "--cpp_out=${CMAKE_CURRENT_BINARY_DIR}" "perf.proto"
-                     DEPENDS ${PROTO_DEPENDS})
+  add_custom_command(
+    OUTPUT ${PERF_PROTO_GENERATED_FILES}
+    COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${CMAKE_CURRENT_SOURCE_DIR}"
+            "--cpp_out=${CMAKE_CURRENT_BINARY_DIR}" "perf.proto"
+    DEPENDS ${PROTO_DEPENDS})
 
   add_executable(arrow-flight-perf-server perf_server.cc perf.pb.cc)
   target_link_libraries(arrow-flight-perf-server ${ARROW_FLIGHT_TEST_LINK_LIBS}

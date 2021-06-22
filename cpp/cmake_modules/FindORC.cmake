@@ -22,29 +22,35 @@
 #  ORC_FOUND, whether orc has been found
 
 if(ORC_ROOT)
-  find_library(ORC_STATIC_LIB
-               NAMES orc
-               PATHS ${ORC_ROOT}
-               NO_DEFAULT_PATH
-               PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES})
-  find_path(ORC_INCLUDE_DIR
-            NAMES orc/orc-config.hh
-            PATHS ${ORC_ROOT}
-            NO_DEFAULT_PATH
-            PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
+  find_library(
+    ORC_STATIC_LIB
+    NAMES orc
+    PATHS ${ORC_ROOT}
+    NO_DEFAULT_PATH
+    PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES})
+  find_path(
+    ORC_INCLUDE_DIR
+    NAMES orc/orc-config.hh
+    PATHS ${ORC_ROOT}
+    NO_DEFAULT_PATH
+    PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
 else()
-  find_library(ORC_STATIC_LIB NAMES orc PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES})
-  find_path(ORC_INCLUDE_DIR
-            NAMES orc/orc-config.hh
-            PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
+  find_library(
+    ORC_STATIC_LIB
+    NAMES orc
+    PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES})
+  find_path(
+    ORC_INCLUDE_DIR
+    NAMES orc/orc-config.hh
+    PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
 endif()
 
 if(ORC_STATIC_LIB AND ORC_INCLUDE_DIR)
   set(ORC_FOUND TRUE)
   add_library(orc::liborc STATIC IMPORTED)
-  set_target_properties(orc::liborc
-                        PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${ORC_INCLUDE_DIR}")
+  set_target_properties(
+    orc::liborc PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}"
+                           INTERFACE_INCLUDE_DIRECTORIES "${ORC_INCLUDE_DIR}")
 else()
   if(ORC_FIND_REQUIRED)
     message(FATAL_ERROR "ORC library was required in toolchain and unable to locate")
