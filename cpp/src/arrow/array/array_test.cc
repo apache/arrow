@@ -397,6 +397,33 @@ TEST_F(TestArray, TestMakeArrayOfNullUnion) {
   }
 }
 
+void AssertAppendScalar(MemoryPool* pool, const std::shared_ptr<Scalar>& scalar) {
+  std::unique_ptr<arrow::ArrayBuilder> builder;
+  auto null_scalar = MakeNullScalar(scalar->type);
+  ASSERT_OK(MakeBuilder(pool, scalar->type, &builder));
+  ASSERT_OK(builder->AppendScalar(*scalar));
+  ASSERT_OK(builder->AppendScalar(*scalar));
+  ASSERT_OK(builder->AppendScalar(*null_scalar));
+  ASSERT_OK(builder->AppendScalars({scalar, null_scalar}));
+
+  std::shared_ptr<Array> out;
+  FinishAndCheckPadding(builder.get(), &out);
+  ASSERT_OK(out->ValidateFull());
+  ASSERT_EQ(out->length(), 5);
+  ASSERT_EQ(out->null_count(), 2);
+  ASSERT_FALSE(out->IsNull(0));
+  ASSERT_FALSE(out->IsNull(1));
+  ASSERT_TRUE(out->IsNull(2));
+  ASSERT_FALSE(out->IsNull(3));
+  ASSERT_TRUE(out->IsNull(4));
+  ASSERT_OK_AND_ASSIGN(auto scalar0, out->GetScalar(0));
+  ASSERT_OK_AND_ASSIGN(auto scalar1, out->GetScalar(1));
+  ASSERT_OK_AND_ASSIGN(auto scalar3, out->GetScalar(3));
+  AssertScalarsEqual(*scalar, *scalar0, /*verbose=*/true);
+  AssertScalarsEqual(*scalar, *scalar1, /*verbose=*/true);
+  AssertScalarsEqual(*scalar, *scalar3, /*verbose=*/true);
+}
+
 TEST_F(TestArray, TestMakeArrayFromScalar) {
   ASSERT_OK_AND_ASSIGN(auto null_array, MakeArrayFromScalar(NullScalar(), 5));
   ASSERT_OK(null_array->ValidateFull());
@@ -447,6 +474,10 @@ TEST_F(TestArray, TestMakeArrayFromScalar) {
       ASSERT_EQ(array->null_count(), 0);
     }
   }
+
+  for (auto scalar : scalars) {
+    AssertAppendScalar(pool_, scalar);
+  }
 }
 
 TEST_F(TestArray, TestMakeArrayFromDictionaryScalar) {
@@ -481,6 +512,8 @@ TEST_F(TestArray, TestMakeArrayFromMapScalar) {
     ASSERT_OK_AND_ASSIGN(auto item, array->GetScalar(i));
     ASSERT_TRUE(item->Equals(scalar));
   }
+
+  AssertAppendScalar(pool_, std::make_shared<MapScalar>(scalar));
 }
 
 TEST_F(TestArray, ValidateBuffersPrimitive) {
