@@ -23,6 +23,7 @@ import static org.apache.arrow.driver.jdbc.utils.BaseProperty.KEYSTORE_PATH;
 import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PASSWORD;
 import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PORT;
 import static org.apache.arrow.driver.jdbc.utils.BaseProperty.USERNAME;
+import static org.apache.arrow.util.Preconditions.checkNotNull;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -31,28 +32,28 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.sql.SQLException;
-import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Deque;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 
+import javax.annotation.Nullable;
+
 import org.apache.arrow.driver.jdbc.client.ArrowFlightClientHandler;
+import org.apache.arrow.driver.jdbc.utils.BaseProperty;
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.FlightCallHeaders;
 import org.apache.arrow.flight.HeaderCallOption;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
-import org.apache.arrow.util.Preconditions;
 import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.AvaticaFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Strings;
 
 /**
  * Connection to the Arrow Flight server.
@@ -123,54 +124,29 @@ public class ArrowFlightConnection extends AvaticaConnection {
           new IllegalStateException());
     }
 
-    // =================== [ LOCATION CONFIG ] ===================
-    final Map.Entry<String, Object> forHost = HOST.getEntry();
-
-    final String host = Objects.toString(info.getOrDefault(forHost.getKey(),
-        forHost.getValue()));
-    Preconditions.checkArgument(!Strings.isNullOrEmpty(host));
-
-    final Map.Entry<String, Object> forPort = PORT.getEntry();
-
-    final int port = Integer.parseInt(Objects
-            .toString(info.getOrDefault(forPort.getKey(), forPort.getValue())));
-    Preconditions.checkArgument(0 < port && port < 65536,
-        "Port number must be between exclusive range (0, 65536).");
-
-    // =================== [ CREDENTIALS CONFIG ] ===================
-    final Map.Entry<String, Object> forUsername = USERNAME.getEntry();
-    final String usernameKey = forUsername.getKey();
-    final String usernameValue = (String) forUsername.getValue();
-
-    final String username = (String) info.getOrDefault(usernameKey, usernameValue);
-
-    final Map.Entry<String, Object> forPassword = PASSWORD.getEntry();
-    final String passwordKey = forPassword.getKey();
-    final String passwordValue = (String) forPassword.getValue();
-
-    final String password = (String) info.getOrDefault(passwordKey, passwordValue);
-
-    // =================== [ ENCRYPTION CONFIG ] ===================
-    final Map.Entry<String, Object> forKeyStorePath = KEYSTORE_PATH.getEntry();
-    final String keyStorePathKey = forKeyStorePath.getKey();
-    final String keyStorePathValue = (String) forKeyStorePath.getValue();
-
-    final String keyStorePath = (String) info.getOrDefault(keyStorePathKey, keyStorePathValue);
-
-    final Map.Entry<String, Object> forKeyStorePass = KEYSTORE_PASS.getEntry();
-    final String keyStorePassKey = forKeyStorePass.getKey();
-    final String keyStorePassValue = (String) forKeyStorePass.getValue();
-
-    final String keyStorePassword = (String) info.getOrDefault(keyStorePassKey, keyStorePassValue);
-
-    // =================== [ CLIENT GENERATION ] ===================
     try {
-      client = ArrowFlightClientHandler.getClient(allocator, host, port,
-          username, password, getHeaders(), keyStorePath, keyStorePassword);
+      client = ArrowFlightClientHandler.getClient(allocator, getPropertyAsString(HOST),
+          getPropertyAsInteger(PORT), getPropertyAsString(USERNAME), getPropertyAsString(PASSWORD),
+          getHeaders(), getPropertyAsString(KEYSTORE_PATH), getPropertyAsString(KEYSTORE_PASS));
     } catch (GeneralSecurityException | IOException e) {
-      throw new SQLException("Failed to connect to the Arrow Flight client.",
-          e);
+      throw new SQLException("Failed to connect to the Arrow Flight client.", e);
     }
+  }
+
+  @Nullable
+  protected String getPropertyAsString(BaseProperty property) {
+    return (String) getPropertyOrDefault(checkNotNull(property));
+  }
+
+  @Nullable
+  protected int getPropertyAsInteger(BaseProperty property) {
+    return Integer.parseInt(Objects.toString(getPropertyOrDefault(checkNotNull(property))));
+  }
+
+  @Nullable
+  private Object getPropertyOrDefault(BaseProperty property) {
+    Map.Entry<String, Object> defaults = checkNotNull(property).getEntry();
+    return info.getOrDefault(defaults.getKey(), defaults.getValue());
   }
 
   private HeaderCallOption getHeaders() {
@@ -192,25 +168,25 @@ public class ArrowFlightConnection extends AvaticaConnection {
   @Override
   public void close() throws SQLException {
 
-    Deque<Exception> exceptionDeque = new ArrayDeque<>();
+    List<Exception> exceptions = new ArrayList<>();
 
     try {
       AutoCloseables.close(client);
     } catch (Exception e) {
-      exceptionDeque.add(e);
+      exceptions.add(e);
     }
 
     try {
       Collection<BufferAllocator> childAllocators = allocator.getChildAllocators();
       AutoCloseables.close(childAllocators.toArray(new AutoCloseable[childAllocators.size()]));
     } catch (Exception e) {
-      exceptionDeque.add(e);
+      exceptions.add(e);
     }
 
     try {
       AutoCloseables.close(allocator);
     } catch (final Exception e) {
-      exceptionDeque.add(e);
+      exceptions.add(e);
     }
 
     try {
@@ -219,7 +195,7 @@ public class ArrowFlightConnection extends AvaticaConnection {
       throw new SQLException(e);
     }
 
-    exceptionDeque
+    exceptions
             .forEach(exception -> LOGGER.error(
                     exception.getMessage(), exception));
   }
