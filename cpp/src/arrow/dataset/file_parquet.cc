@@ -70,7 +70,7 @@ class ParquetScanTask : public ScanTask {
         reader_(std::move(reader)),
         pre_buffer_once_(std::move(pre_buffer_once)),
         pre_buffer_row_groups_(std::move(pre_buffer_row_groups)),
-        io_context_(io_context),
+        io_context_(std::move(io_context)),
         cache_options_(cache_options) {}
 
   Result<RecordBatchIterator> Execute() override {
@@ -540,7 +540,8 @@ std::shared_ptr<FileWriteOptions> ParquetFileFormat::DefaultWriteOptions() {
 
 Result<std::shared_ptr<FileWriter>> ParquetFileFormat::MakeWriter(
     std::shared_ptr<io::OutputStream> destination, std::shared_ptr<Schema> schema,
-    std::shared_ptr<FileWriteOptions> options) const {
+    std::shared_ptr<FileWriteOptions> options,
+    fs::FileLocator destination_locator) const {
   if (!Equals(*options->format())) {
     return Status::TypeError("Mismatching format/write options");
   }
@@ -552,14 +553,17 @@ Result<std::shared_ptr<FileWriter>> ParquetFileFormat::MakeWriter(
       *schema, default_memory_pool(), destination, parquet_options->writer_properties,
       parquet_options->arrow_writer_properties, &parquet_writer));
 
-  return std::shared_ptr<FileWriter>(new ParquetFileWriter(
-      std::move(destination), std::move(parquet_writer), std::move(parquet_options)));
+  return std::shared_ptr<FileWriter>(
+      new ParquetFileWriter(std::move(destination), std::move(parquet_writer),
+                            std::move(parquet_options), std::move(destination_locator)));
 }
 
 ParquetFileWriter::ParquetFileWriter(std::shared_ptr<io::OutputStream> destination,
                                      std::shared_ptr<parquet::arrow::FileWriter> writer,
-                                     std::shared_ptr<ParquetFileWriteOptions> options)
-    : FileWriter(writer->schema(), std::move(options), std::move(destination)),
+                                     std::shared_ptr<ParquetFileWriteOptions> options,
+                                     fs::FileLocator destination_locator)
+    : FileWriter(writer->schema(), std::move(options), std::move(destination),
+                 std::move(destination_locator)),
       parquet_writer_(std::move(writer)) {}
 
 Status ParquetFileWriter::Write(const std::shared_ptr<RecordBatch>& batch) {
