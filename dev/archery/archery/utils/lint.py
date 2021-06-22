@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import fnmatch
 import gzip
 import os
 from pathlib import Path
@@ -90,20 +91,75 @@ def cpp_linter(src, build_dir, clang_format=True, cpplint=True,
 
 
 class CMakeFormat(Command):
-    def __init__(self, cmake_format_bin):
-        self.bin = cmake_format_bin
+
+    # TODO(kszucs): check cmake_format version
+    def __init__(self, paths, cmake_format_bin=None):
+        self.check_version()
+        self.bin = default_bin(cmake_format_bin, "cmake-format")
+        self.paths = paths
+
+    @classmethod
+    def from_patterns(cls, base_path, include_patterns, exclude_patterns):
+        paths = {
+            str(path.as_posix())
+            for pattern in include_patterns
+            for path in base_path.glob(pattern)
+        }
+        for pattern in exclude_patterns:
+            pattern = (base_path / pattern).as_posix()
+            paths -= set(fnmatch.filter(paths, str(pattern)))
+        return cls(paths)
+
+    @staticmethod
+    def check_version():
+        try:
+            # cmake_format is part of the cmakelang package
+            import cmakelang
+        except ImportError:
+            raise ImportError(
+                "Please install archery using: `pip install dev/archery[lint]`"
+            )
+        # pin a specific version of cmake_format, must be updated in setup.py
+        if cmakelang.__version__ != "0.6.13":
+            raise LintValidationException(
+                "Wrong version of cmake_format is detected. "
+                "Please reinstall it using `pip install dev/archery[lint]`"
+            )
+
+    def check(self):
+        return self.run("-l", "error", "--check", *self.paths, check=False)
+
+    def fix(self):
+        return self.run("--in-place", *self.paths, check=False)
 
 
 def cmake_linter(src, fix=False):
-    """ Run cmake-format.py on all CMakeFiles.txt """
+    """
+    Run cmake-format on all CMakeFiles.txt
+    """
     logger.info("Running cmake-format linters")
 
-    if not fix:
-        logger.warn("run-cmake-format modifies files, regardless of --fix")
+    cmake_format = CMakeFormat.from_patterns(
+        src.path,
+        include_patterns=[
+            'ci/**/*.cmake',
+            'cpp/CMakeLists.txt',
+            'cpp/src/**/CMakeLists.txt',
+            'cpp/cmake_modules/*.cmake',
+            'go/**/CMakeLists.txt',
+            'java/**/CMakeLists.txt',
+            'matlab/**/CMakeLists.txt',
+        ],
+        exclude_patterns=[
+            'cpp/cmake_modules/FindNumPy.cmake',
+            'cpp/cmake_modules/FindPythonLibsNew.cmake',
+            'cpp/cmake_modules/UseCython.cmake',
+            'cpp/src/arrow/util/config.h.cmake',
+        ]
+    )
+    method = cmake_format.fix if fix else cmake_format.check
 
-    arrow_cmake_format = os.path.join(src.path, "run-cmake-format.py")
-    cmake_format = CMakeFormat(cmake_format_bin=arrow_cmake_format)
-    yield LintResult.from_cmd(cmake_format("--check"))
+    yield LintResult.from_cmd(method())
 
 
 def python_linter(src, fix=False):
@@ -127,8 +183,7 @@ def python_linter(src, fix=False):
                 "python/pyarrow/**/*.pxd",
                 "python/pyarrow/**/*.pxi",
                 "python/examples/**/*.py",
-                "dev/archery/**/*.py",
-                ]
+                "dev/archery/**/*.py"]
     files = [setup_py]
     for pattern in patterns:
         files += list(map(str, Path(src.path).glob(pattern)))
