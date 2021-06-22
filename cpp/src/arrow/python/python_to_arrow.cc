@@ -647,8 +647,7 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
   Status AppendSequence(PyObject* value) {
     int64_t size = static_cast<int64_t>(PySequence_Size(value));
     RETURN_NOT_OK(this->list_builder_->ValidateOverflow(size));
-    RETURN_NOT_OK(this->value_converter_->Extend(value, size));
-    return Status::OK();
+    return this->value_converter_->Extend(value, size);
   }
 
   Status AppendNdarray(PyObject* value) {
@@ -686,8 +685,7 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
       LIST_FAST_CASE(DURATION, DurationType, NPY_TIMEDELTA)
 #undef LIST_FAST_CASE
       default: {
-        RETURN_NOT_OK(this->value_converter_->Extend(value, size));
-        return Status::OK();
+        return this->value_converter_->Extend(value, size);
       }
     }
   }
