@@ -291,14 +291,7 @@ class BaseBinaryBuilder : public ArrayBuilder {
   }
 
   Status Resize(int64_t capacity) override {
-    // XXX Why is this check necessary?  There is no reason to disallow, say,
-    // binary arrays with more than 2**31 empty or null values.
-    if (capacity > memory_limit()) {
-      return Status::CapacityError("BinaryBuilder cannot reserve space for more than ",
-                                   memory_limit(), " child elements, got ", capacity);
-    }
     ARROW_RETURN_NOT_OK(CheckCapacity(capacity));
-
     // One more than requested for offsets
     ARROW_RETURN_NOT_OK(offsets_builder_.Resize(capacity + 1));
     return ArrayBuilder::Resize(capacity);

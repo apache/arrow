@@ -392,22 +392,25 @@ class PyValue {
 class PyConverter : public Converter<PyObject*, PyConversionOptions> {
  public:
   // Iterate over the input values and defer the conversion to the Append method
-  Status Extend(PyObject* values, int64_t size) override {
+  Status Extend(PyObject* values, int64_t size, int64_t offset = 0) override {
+    DCHECK_GE(size, offset);
     /// Ensure we've allocated enough space
-    RETURN_NOT_OK(this->Reserve(size));
+    RETURN_NOT_OK(this->Reserve(size - offset));
     // Iterate over the items adding each one
-    return internal::VisitSequence(values, [this](PyObject* item, bool* /* unused */) {
-      return this->Append(item);
-    });
+    return internal::VisitSequence(
+        values, offset,
+        [this](PyObject* item, bool* /* unused */) { return this->Append(item); });
   }
 
   // Convert and append a sequence of values masked with a numpy array
-  Status ExtendMasked(PyObject* values, PyObject* mask, int64_t size) override {
+  Status ExtendMasked(PyObject* values, PyObject* mask, int64_t size,
+                      int64_t offset = 0) override {
+    DCHECK_GE(size, offset);
     /// Ensure we've allocated enough space
-    RETURN_NOT_OK(this->Reserve(size));
+    RETURN_NOT_OK(this->Reserve(size - offset));
     // Iterate over the items adding each one
     return internal::VisitSequenceMasked(
-        values, mask, [this](PyObject* item, bool is_masked, bool* /* unused */) {
+        values, mask, offset, [this](PyObject* item, bool is_masked, bool* /* unused */) {
           if (is_masked) {
             return this->AppendNull();
           } else {
@@ -515,34 +518,6 @@ class PyPrimitiveConverter<
 };
 
 template <typename T>
-class PyPrimitiveConverter<T, enable_if_binary<T>>
-    : public PrimitiveConverter<T, PyConverter> {
- public:
-  using OffsetType = typename T::offset_type;
-
-  Status Append(PyObject* value) override {
-    if (PyValue::IsNull(this->options_, value)) {
-      this->primitive_builder_->UnsafeAppendNull();
-    } else {
-      ARROW_RETURN_NOT_OK(
-          PyValue::Convert(this->primitive_type_, this->options_, value, view_));
-      // Since we don't know the varying length input size in advance, we need to
-      // reserve space in the value builder one by one. ReserveData raises CapacityError
-      // if the value would not fit into the array.
-      ARROW_RETURN_NOT_OK(this->primitive_builder_->ReserveData(view_.size));
-      this->primitive_builder_->UnsafeAppend(view_.bytes,
-                                             static_cast<OffsetType>(view_.size));
-    }
-    return Status::OK();
-  }
-
- protected:
-  // Create a single instance of PyBytesView here to prevent unnecessary object
-  // creation/destruction. This significantly improves the conversion performance.
-  PyBytesView view_;
-};
-
-template <typename T>
 class PyPrimitiveConverter<T, enable_if_t<std::is_same<T, FixedSizeBinaryType>::value>>
     : public PrimitiveConverter<T, PyConverter> {
  public:
@@ -563,7 +538,7 @@ class PyPrimitiveConverter<T, enable_if_t<std::is_same<T, FixedSizeBinaryType>::
 };
 
 template <typename T>
-class PyPrimitiveConverter<T, enable_if_string_like<T>>
+class PyPrimitiveConverter<T, enable_if_base_binary<T>>
     : public PrimitiveConverter<T, PyConverter> {
  public:
   using OffsetType = typename T::offset_type;
@@ -578,6 +553,9 @@ class PyPrimitiveConverter<T, enable_if_string_like<T>>
         // observed binary value
         observed_binary_ = true;
       }
+      // Since we don't know the varying length input size in advance, we need to
+      // reserve space in the value builder one by one. ReserveData raises CapacityError
+      // if the value would not fit into the array.
       ARROW_RETURN_NOT_OK(this->primitive_builder_->ReserveData(view_.size));
       this->primitive_builder_->UnsafeAppend(view_.bytes,
                                              static_cast<OffsetType>(view_.size));
@@ -728,7 +706,6 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
     auto value_builder =
         checked_cast<ValueBuilderType*>(this->value_converter_->builder().get());
 
-    // TODO(wesm): Vector append when not strided
     Ndarray1DIndexer<NumpyType> values(ndarray);
     if (null_sentinels_possible) {
       for (int64_t i = 0; i < values.size(); ++i) {
@@ -738,6 +715,8 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
           RETURN_NOT_OK(value_builder->Append(values[i]));
         }
       }
+    } else if (!values.is_strided()) {
+      RETURN_NOT_OK(value_builder->AppendValues(values.data(), values.size()));
     } else {
       for (int64_t i = 0; i < values.size(); ++i) {
         RETURN_NOT_OK(value_builder->Append(values[i]));
