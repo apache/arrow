@@ -31,7 +31,7 @@ test_that("timezone aware timestamps are not supported",{
     Table$create(tz_aware_df) %>%
       mutate(x = wday(date)) %>%
       collect(),
-    "Timezone aware timestamps not supported"
+    "Cannot extract components from timestamp with specific timezone"
   )
 })
 
