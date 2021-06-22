@@ -124,7 +124,7 @@ public class ArrowFlightMetaImpl extends MetaImpl {
           false, signature, null);
       return new ExecuteResult(Collections.singletonList(metaResultSet));
     } catch (SQLException e) {
-      throw new RuntimeException(e);
+      throw new NoSuchStatementException(handle);
     }
   }
 
