@@ -88,17 +88,17 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
   private final Map<BaseProperty, Object> properties;
   private final BufferAllocator allocator;
 
-  public FlightServerTestRule(Map<BaseProperty, Object> properties) {
+  FlightServerTestRule(Map<BaseProperty, Object> properties) {
     this();
     this.properties.putAll(properties);
   }
 
-  public FlightServerTestRule(BufferAllocator allocator) {
+  private FlightServerTestRule(BufferAllocator allocator) {
     properties = generateDefaults();
     this.allocator = allocator;
   }
 
-  public FlightServerTestRule() {
+  private FlightServerTestRule() {
     this(new RootAllocator(Long.MAX_VALUE));
   }
 
@@ -108,7 +108,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
    * @param property the key with which to find the {@code Object} mapped to it.
    * @return the {@code Object} mapped to the provided {@code BaseProperty}.
    */
-  public Object getProperty(BaseProperty property) {
+  private Object getProperty(BaseProperty property) {
     return properties.get(property);
   }
 
