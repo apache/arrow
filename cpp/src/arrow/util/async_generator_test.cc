@@ -1060,6 +1060,38 @@ TEST(TestAsyncUtil, Readahead) {
   ASSERT_TRUE(IsIterationEnd(last_val));
 }
 
+TEST(TestAsyncUtil, ReadaheadCopy) {
+  auto source = AsyncVectorIt<TestInt>(RangeVector(6));
+  auto gen = MakeReadaheadGenerator(std::move(source), 2);
+
+  for (int i = 0; i < 2; i++) {
+    ASSERT_FINISHES_OK_AND_EQ(TestInt(i), gen());
+  }
+  auto gen_copy = gen;
+  for (int i = 0; i < 2; i++) {
+    ASSERT_FINISHES_OK_AND_EQ(TestInt(i + 2), gen_copy());
+  }
+  for (int i = 0; i < 2; i++) {
+    ASSERT_FINISHES_OK_AND_EQ(TestInt(i + 4), gen());
+  }
+  AssertGeneratorExhausted(gen);
+  AssertGeneratorExhausted(gen_copy);
+}
+
+TEST(TestAsyncUtil, ReadaheadMove) {
+  auto source = AsyncVectorIt<TestInt>(RangeVector(6));
+  auto gen = MakeReadaheadGenerator(std::move(source), 2);
+
+  for (int i = 0; i < 2; i++) {
+    ASSERT_FINISHES_OK_AND_EQ(TestInt(i), gen());
+  }
+  auto gen_copy = std::move(gen);
+  for (int i = 0; i < 4; i++) {
+    ASSERT_FINISHES_OK_AND_EQ(TestInt(i + 2), gen_copy());
+  }
+  AssertGeneratorExhausted(gen_copy);
+}
+
 TEST(TestAsyncUtil, ReadaheadFailed) {
   ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(4));
   std::atomic<int32_t> counter(0);
