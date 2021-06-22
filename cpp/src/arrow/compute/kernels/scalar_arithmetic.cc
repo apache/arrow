@@ -1079,7 +1079,7 @@ void AddDecimalBinaryKernels(const std::string& name,
 
 // Generate a kernel given an arithmetic functor
 template <template <typename...> class KernelGenerator, typename OutType, typename Op>
-ArrayKernelExec GenerateArithmeticFixedOutType(detail::GetTypeId get_id) {
+ArrayKernelExec GenerateArithmeticWithFixedOutType(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::INT8:
       return KernelGenerator<OutType, Int8Type, Op>::Exec;
@@ -1220,12 +1220,12 @@ std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunction(std::string name,
 // Like MakeUnaryArithmeticFunction, but for unary arithmetic ops with a fixed
 // output type.
 template <typename Op, typename OutType>
-std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionFixedOutType(
+std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionWithFixedOutType(
     std::string name, const FunctionDoc* doc) {
   auto out_ty = TypeTraits<OutType>::type_singleton();
   auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), doc);
   for (const auto& ty : NumericTypes()) {
-    auto exec = GenerateArithmeticFixedOutType<ScalarUnary, OutType, Op>(ty);
+    auto exec = GenerateArithmeticWithFixedOutType<ScalarUnary, OutType, Op>(ty);
     DCHECK_OK(func->AddKernel({ty}, out_ty, exec));
   }
   return func;
@@ -1692,7 +1692,8 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(power_checked)));
 
   // ----------------------------------------------------------------------
-  auto sign = MakeUnaryArithmeticFunctionFixedOutType<Sign, Int8Type>("sign", &sign_doc);
+  auto sign =
+      MakeUnaryArithmeticFunctionWithFixedOutType<Sign, Int8Type>("sign", &sign_doc);
   DCHECK_OK(registry->AddFunction(std::move(sign)));
 
   // ----------------------------------------------------------------------
