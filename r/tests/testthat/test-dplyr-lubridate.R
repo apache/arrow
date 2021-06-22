@@ -21,6 +21,19 @@ library(dplyr)
 test_date <- as.POSIXct("2017-01-01 00:00:12.3456789", tz = "")
 test_df <- tibble::tibble(date = test_date)
 
+tz_aware_date <- ymd_hms("2017-01-01 00:00:12.3456789")
+tz_aware_df <- tibble::tibble(date = tz_aware_date)
+
+test_that("timezone aware timestamps are not supported",{
+  x <- Expression$field_ref("x")
+  expect_error(
+    Table$create(tz_aware_df) %>%
+      mutate(x = wday(date)) %>%
+      collect(),
+    "Timezone aware timestamps not supported"
+  )
+})
+
 test_that("extract year from date", {
   expect_dplyr_equal(
     input %>%
