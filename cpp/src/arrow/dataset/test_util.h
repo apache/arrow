@@ -445,13 +445,15 @@ class FileFormatFixtureMixin : public ::testing::Test {
                 "Error creating dataset. Could not read schema from '/herp/derp':"),
             ::testing::HasSubstr("Is this a '" + format_->type_name() + "' file?")));
   }
+
   void TestInspectFailureWithRelevantError(StatusCode code,
-                                           const std::string format_name) {
+                                           const std::string& format_name) {
     const std::vector<std::string> file_contents{"", "PAR0", "ASDFPAR1", "ARROW1"};
     for (const auto& contents : file_contents) {
       AssertInspectFailure(contents, code, format_name);
     }
   }
+
   void TestInspect() {
     auto reader = GetRecordBatchReader(schema({field("f64", float64())}));
     auto source = GetFileSource(reader.get());
