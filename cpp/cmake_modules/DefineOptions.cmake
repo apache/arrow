@@ -24,9 +24,7 @@ function(check_description_length name description)
   foreach(description_line ${description})
     string(LENGTH ${description_line} line_length)
     if(${line_length} GREATER 80)
-      message(
-        FATAL_ERROR
-          "description for ${name} contained a\n\
+      message(FATAL_ERROR "description for ${name} contained a\n\
         line ${line_length} characters long!\n\
         (max is 80). Split it into more lines with semicolons")
     endif()
@@ -333,13 +331,13 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   define_option(ARROW_LZ4_USE_SHARED "Rely on lz4 shared libraries where relevant"
                 ${ARROW_DEPENDENCY_USE_SHARED})
 
-  define_option(
-    ARROW_OPENSSL_USE_SHARED "Rely on OpenSSL shared libraries where relevant"
-    ${ARROW_DEPENDENCY_USE_SHARED})
+  define_option(ARROW_OPENSSL_USE_SHARED
+                "Rely on OpenSSL shared libraries where relevant"
+                ${ARROW_DEPENDENCY_USE_SHARED})
 
-  define_option(
-    ARROW_PROTOBUF_USE_SHARED "Rely on Protocol Buffers shared libraries where relevant"
-    ${ARROW_DEPENDENCY_USE_SHARED})
+  define_option(ARROW_PROTOBUF_USE_SHARED
+                "Rely on Protocol Buffers shared libraries where relevant"
+                ${ARROW_DEPENDENCY_USE_SHARED})
 
   if(WIN32)
     # It seems that Thrift doesn't support DLL well yet.
@@ -351,16 +349,16 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   define_option(ARROW_THRIFT_USE_SHARED "Rely on thrift shared libraries where relevant"
                 ${ARROW_THRIFT_USE_SHARED_DEFAULT})
 
-  define_option(
-    ARROW_UTF8PROC_USE_SHARED "Rely on utf8proc shared libraries where relevant"
-    ${ARROW_DEPENDENCY_USE_SHARED})
+  define_option(ARROW_UTF8PROC_USE_SHARED
+                "Rely on utf8proc shared libraries where relevant"
+                ${ARROW_DEPENDENCY_USE_SHARED})
 
   define_option(ARROW_SNAPPY_USE_SHARED "Rely on snappy shared libraries where relevant"
                 ${ARROW_DEPENDENCY_USE_SHARED})
 
-  define_option(
-    ARROW_UTF8PROC_USE_SHARED "Rely on utf8proc shared libraries where relevant"
-    ${ARROW_DEPENDENCY_USE_SHARED})
+  define_option(ARROW_UTF8PROC_USE_SHARED
+                "Rely on utf8proc shared libraries where relevant"
+                ${ARROW_DEPENDENCY_USE_SHARED})
 
   define_option(ARROW_ZSTD_USE_SHARED "Rely on zstd shared libraries where relevant"
                 ${ARROW_DEPENDENCY_USE_SHARED})
@@ -377,22 +375,20 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   define_option(ARROW_WITH_ZLIB "Build with zlib compression" OFF)
   define_option(ARROW_WITH_ZSTD "Build with zstd compression" OFF)
 
-  define_option(
-    ARROW_WITH_UTF8PROC
-    "Build with support for Unicode properties using the utf8proc library;(only used if ARROW_COMPUTE is ON or ARROW_GANDIVA is ON)"
-    ON)
-  define_option(
-    ARROW_WITH_RE2
-    "Build with support for regular expressions using the re2 library;(only used if ARROW_COMPUTE or ARROW_GANDIVA is ON)"
-    ON)
+  define_option(ARROW_WITH_UTF8PROC
+                "Build with support for Unicode properties using the utf8proc library;(only used if ARROW_COMPUTE is ON or ARROW_GANDIVA is ON)"
+                ON)
+  define_option(ARROW_WITH_RE2
+                "Build with support for regular expressions using the re2 library;(only used if ARROW_COMPUTE or ARROW_GANDIVA is ON)"
+                ON)
 
   #----------------------------------------------------------------------
   if(MSVC_TOOLCHAIN)
     set_option_category("MSVC")
 
-    define_option(
-      MSVC_LINK_VERBOSE
-      "Pass verbose linking options when linking libraries and executables" OFF)
+    define_option(MSVC_LINK_VERBOSE
+                  "Pass verbose linking options when linking libraries and executables"
+                  OFF)
 
     define_option_string(BROTLI_MSVC_STATIC_LIB_SUFFIX
                          "Brotli static lib suffix used on Windows with MSVC" "-static")
@@ -426,13 +422,13 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   #----------------------------------------------------------------------
   set_option_category("Parquet")
 
-  define_option(
-    PARQUET_MINIMAL_DEPENDENCY "Depend only on Thirdparty headers to build libparquet.;\
+  define_option(PARQUET_MINIMAL_DEPENDENCY
+                "Depend only on Thirdparty headers to build libparquet.;\
 Always OFF if building binaries" OFF)
 
-  define_option(
-    PARQUET_BUILD_EXECUTABLES
-    "Build the Parquet executable CLI tools. Requires static libraries to be built." OFF)
+  define_option(PARQUET_BUILD_EXECUTABLES
+                "Build the Parquet executable CLI tools. Requires static libraries to be built."
+                OFF)
 
   define_option(PARQUET_BUILD_EXAMPLES
                 "Build the Parquet examples. Requires static libraries to be built." OFF)
@@ -446,10 +442,9 @@ Always OFF if building binaries" OFF)
   define_option(ARROW_GANDIVA_JAVA "Build the Gandiva JNI wrappers" OFF)
 
   # ARROW-3860: Temporary workaround
-  define_option(
-    ARROW_GANDIVA_STATIC_LIBSTDCPP
-    "Include -static-libstdc++ -static-libgcc when linking with;Gandiva static libraries"
-    OFF)
+  define_option(ARROW_GANDIVA_STATIC_LIBSTDCPP
+                "Include -static-libstdc++ -static-libgcc when linking with;Gandiva static libraries"
+                OFF)
 
   define_option_string(
     ARROW_GANDIVA_PC_CXX_FLAGS
@@ -461,12 +456,11 @@ Always OFF if building binaries" OFF)
   define_option(ARROW_EXTRA_ERROR_CONTEXT
                 "Compile with extra error context (line numbers, code)" OFF)
 
-  define_option(
-    ARROW_OPTIONAL_INSTALL
-    "If enabled install ONLY targets that have already been built. Please be;\
+  define_option(ARROW_OPTIONAL_INSTALL
+                "If enabled install ONLY targets that have already been built. Please be;\
 advised that if this is enabled 'install' will fail silently on components;\
 that have not been built"
-    OFF)
+                OFF)
 
   option(ARROW_BUILD_CONFIG_SUMMARY_JSON "Summarize build configuration in a JSON file"
          ON)
@@ -481,9 +475,8 @@ macro(validate_config)
       set(value "${${name}}")
       if(possible_values)
         if(NOT "${value}" IN_LIST possible_values)
-          message(
-            FATAL_ERROR "Configuration option ${name} got invalid value '${value}'. "
-                        "Allowed values: ${${name}_OPTION_ENUM}.")
+          message(FATAL_ERROR "Configuration option ${name} got invalid value '${value}'. "
+                              "Allowed values: ${${name}_OPTION_ENUM}.")
         endif()
       endif()
     endforeach()
@@ -502,8 +495,8 @@ macro(config_summary_message)
   message(STATUS "  Source directory: ${CMAKE_CURRENT_SOURCE_DIR}")
   message(STATUS "  Install prefix: ${CMAKE_INSTALL_PREFIX}")
   if(${CMAKE_EXPORT_COMPILE_COMMANDS})
-    message(
-      STATUS "  Compile commands: ${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json")
+    message(STATUS "  Compile commands: ${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json"
+    )
   endif()
 
   foreach(category ${ARROW_OPTION_CATEGORIES})
@@ -581,17 +574,15 @@ endmacro()
 # Compute default values for omitted variables
 
 if(NOT ARROW_GIT_ID)
-  execute_process(
-    COMMAND "git" "log" "-n1" "--format=%H"
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    OUTPUT_VARIABLE ARROW_GIT_ID
-    OUTPUT_STRIP_TRAILING_WHITESPACE)
+  execute_process(COMMAND "git" "log" "-n1" "--format=%H"
+                  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                  OUTPUT_VARIABLE ARROW_GIT_ID
+                  OUTPUT_STRIP_TRAILING_WHITESPACE)
 endif()
 if(NOT ARROW_GIT_DESCRIPTION)
-  execute_process(
-    COMMAND "git" "describe" "--tags" "--dirty"
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    ERROR_QUIET
-    OUTPUT_VARIABLE ARROW_GIT_DESCRIPTION
-    OUTPUT_STRIP_TRAILING_WHITESPACE)
+  execute_process(COMMAND "git" "describe" "--tags" "--dirty"
+                  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                  ERROR_QUIET
+                  OUTPUT_VARIABLE ARROW_GIT_DESCRIPTION
+                  OUTPUT_STRIP_TRAILING_WHITESPACE)
 endif()

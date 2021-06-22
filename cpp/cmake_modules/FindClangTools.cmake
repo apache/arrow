@@ -47,24 +47,22 @@ endif()
 
 function(FIND_CLANG_TOOL NAME OUTPUT VERSION_CHECK_PATTERN)
   unset(CLANG_TOOL_BIN CACHE)
-  find_program(
-    CLANG_TOOL_BIN
-    NAMES ${NAME}-${ARROW_CLANG_TOOLS_VERSION} ${NAME}-${ARROW_CLANG_TOOLS_VERSION_MAJOR}
-    PATHS ${CLANG_TOOLS_SEARCH_PATHS}
-    NO_DEFAULT_PATH)
+  find_program(CLANG_TOOL_BIN
+               NAMES ${NAME}-${ARROW_CLANG_TOOLS_VERSION}
+                     ${NAME}-${ARROW_CLANG_TOOLS_VERSION_MAJOR}
+               PATHS ${CLANG_TOOLS_SEARCH_PATHS}
+               NO_DEFAULT_PATH)
   if(NOT CLANG_TOOL_BIN)
     # try searching for non-versioned tool and check the version
-    find_program(
-      CLANG_TOOL_BIN
-      NAMES ${NAME}
-      PATHS ${CLANG_TOOLS_SEARCH_PATHS}
-      NO_DEFAULT_PATH)
+    find_program(CLANG_TOOL_BIN
+                 NAMES ${NAME}
+                 PATHS ${CLANG_TOOLS_SEARCH_PATHS}
+                 NO_DEFAULT_PATH)
     if(CLANG_TOOL_BIN)
       unset(CLANG_TOOL_VERSION_MESSAGE)
-      execute_process(
-        COMMAND ${CLANG_TOOL_BIN} "-version"
-        OUTPUT_VARIABLE CLANG_TOOL_VERSION_MESSAGE
-        OUTPUT_STRIP_TRAILING_WHITESPACE)
+      execute_process(COMMAND ${CLANG_TOOL_BIN} "-version"
+                      OUTPUT_VARIABLE CLANG_TOOL_VERSION_MESSAGE
+                      OUTPUT_STRIP_TRAILING_WHITESPACE)
       if(NOT (${CLANG_TOOL_VERSION_MESSAGE} MATCHES ${VERSION_CHECK_PATTERN}))
         set(CLANG_TOOL_BIN "CLANG_TOOL_BIN-NOTFOUND")
       endif()

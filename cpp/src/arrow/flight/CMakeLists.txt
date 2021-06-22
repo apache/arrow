@@ -51,10 +51,10 @@ add_custom_command(
   COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_PROTO_PATH}"
           "--cpp_out=${CMAKE_CURRENT_BINARY_DIR}" "${FLIGHT_PROTO}"
   DEPENDS ${PROTO_DEPENDS} ARGS
-  COMMAND
-    ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_PROTO_PATH}"
-    "--grpc_out=${CMAKE_CURRENT_BINARY_DIR}"
-    "--plugin=protoc-gen-grpc=$<TARGET_FILE:gRPC::grpc_cpp_plugin>" "${FLIGHT_PROTO}")
+  COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_PROTO_PATH}"
+          "--grpc_out=${CMAKE_CURRENT_BINARY_DIR}"
+          "--plugin=protoc-gen-grpc=$<TARGET_FILE:gRPC::grpc_cpp_plugin>"
+          "${FLIGHT_PROTO}")
 
 set_source_files_properties(${FLIGHT_GENERATED_PROTO_FILES} PROPERTIES GENERATED TRUE)
 
@@ -70,26 +70,22 @@ string(REPLACE "-Werror " " " CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 # verification when using TLS.
 function(test_grpc_version DST_VAR DETECT_VERSION TEST_FILE)
   if(NOT DEFINED ${DST_VAR})
-    message(
-      STATUS "Checking support for TlsCredentialsOptions (gRPC >= ${DETECT_VERSION})...")
-    get_property(
-      CURRENT_INCLUDE_DIRECTORIES
-      DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-      PROPERTY INCLUDE_DIRECTORIES)
-    try_compile(
-      HAS_GRPC_VERSION ${CMAKE_CURRENT_BINARY_DIR}/try_compile
-      SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/try_compile/${TEST_FILE}"
-      CMAKE_FLAGS "-DINCLUDE_DIRECTORIES=${CURRENT_INCLUDE_DIRECTORIES}"
-      LINK_LIBRARIES gRPC::grpc++
-      OUTPUT_VARIABLE TLS_CREDENTIALS_OPTIONS_CHECK_OUTPUT CXX_STANDARD 11)
+    message(STATUS "Checking support for TlsCredentialsOptions (gRPC >= ${DETECT_VERSION})..."
+    )
+    get_property(CURRENT_INCLUDE_DIRECTORIES
+                 DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                 PROPERTY INCLUDE_DIRECTORIES)
+    try_compile(HAS_GRPC_VERSION ${CMAKE_CURRENT_BINARY_DIR}/try_compile
+                SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/try_compile/${TEST_FILE}"
+                CMAKE_FLAGS "-DINCLUDE_DIRECTORIES=${CURRENT_INCLUDE_DIRECTORIES}"
+                LINK_LIBRARIES gRPC::grpc++
+                OUTPUT_VARIABLE TLS_CREDENTIALS_OPTIONS_CHECK_OUTPUT CXX_STANDARD 11)
     if(HAS_GRPC_VERSION)
       set(${DST_VAR}
           "${DETECT_VERSION}"
           CACHE INTERNAL "The detected (approximate) gRPC version.")
     else()
-      message(
-        STATUS
-          "TlsCredentialsOptions (for gRPC ${DETECT_VERSION}) not found in grpc::experimental."
+      message(STATUS "TlsCredentialsOptions (for gRPC ${DETECT_VERSION}) not found in grpc::experimental."
       )
       message(DEBUG "Build output:")
       list(APPEND CMAKE_MESSAGE_INDENT "${TEST_FILE}: ")
@@ -107,9 +103,7 @@ else()
   test_grpc_version(GRPC_VERSION "1.34" "check_tls_opts_134.cc")
   test_grpc_version(GRPC_VERSION "1.32" "check_tls_opts_132.cc")
   test_grpc_version(GRPC_VERSION "1.27" "check_tls_opts_127.cc")
-  message(
-    STATUS
-      "Found approximate gRPC version: ${GRPC_VERSION} (ARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS=${ARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS})"
+  message(STATUS "Found approximate gRPC version: ${GRPC_VERSION} (ARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS=${ARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS})"
   )
 endif()
 if(GRPC_VERSION EQUAL "1.27")
@@ -117,25 +111,19 @@ if(GRPC_VERSION EQUAL "1.27")
 elseif(GRPC_VERSION EQUAL "1.32")
   add_definitions(-DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc::experimental)
 elseif(GRPC_VERSION EQUAL "1.34" OR GRPC_VERSION EQUAL "1.35")
-  add_definitions(
-    -DGRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS
-    -DGRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS_ROOT_CERTS
-    -DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc::experimental)
+  add_definitions(-DGRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS
+                  -DGRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS_ROOT_CERTS
+                  -DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc::experimental)
 elseif(GRPC_VERSION EQUAL "1.36")
   add_definitions(-DGRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS
                   -DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc::experimental)
 else()
-  message(
-    STATUS
-      "A proper version of gRPC could not be found to support TlsCredentialsOptions in Arrow Flight."
+  message(STATUS "A proper version of gRPC could not be found to support TlsCredentialsOptions in Arrow Flight."
   )
-  message(
-    STATUS
-      "You may need a newer version of gRPC (>= 1.27), or the gRPC API has changed and Flight must be updated to match."
+  message(STATUS "You may need a newer version of gRPC (>= 1.27), or the gRPC API has changed and Flight must be updated to match."
   )
   if(ARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS)
-    message(
-      FATAL_ERROR "Halting build since ARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS is set."
+    message(FATAL_ERROR "Halting build since ARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS is set."
     )
   endif()
 endif()
@@ -158,28 +146,27 @@ set(ARROW_FLIGHT_SRCS
     server_auth.cc
     types.cc)
 
-add_arrow_lib(
-  arrow_flight
-  CMAKE_PACKAGE_NAME
-  ArrowFlight
-  PKG_CONFIG_NAME
-  arrow-flight
-  OUTPUTS
-  ARROW_FLIGHT_LIBRARIES
-  SOURCES
-  ${ARROW_FLIGHT_SRCS}
-  PRECOMPILED_HEADERS
-  "$<$<COMPILE_LANGUAGE:CXX>:arrow/flight/pch.h>"
-  DEPENDENCIES
-  flight_grpc_gen
-  SHARED_LINK_FLAGS
-  ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
-  SHARED_LINK_LIBS
-  arrow_shared
-  ${ARROW_FLIGHT_LINK_LIBS}
-  STATIC_LINK_LIBS
-  arrow_static
-  ${ARROW_FLIGHT_LINK_LIBS})
+add_arrow_lib(arrow_flight
+              CMAKE_PACKAGE_NAME
+              ArrowFlight
+              PKG_CONFIG_NAME
+              arrow-flight
+              OUTPUTS
+              ARROW_FLIGHT_LIBRARIES
+              SOURCES
+              ${ARROW_FLIGHT_SRCS}
+              PRECOMPILED_HEADERS
+              "$<$<COMPILE_LANGUAGE:CXX>:arrow/flight/pch.h>"
+              DEPENDENCIES
+              flight_grpc_gen
+              SHARED_LINK_FLAGS
+              ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
+              SHARED_LINK_LIBS
+              arrow_shared
+              ${ARROW_FLIGHT_LINK_LIBS}
+              STATIC_LINK_LIBS
+              arrow_static
+              ${ARROW_FLIGHT_LINK_LIBS})
 
 foreach(LIB_TARGET ${ARROW_FLIGHT_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_FLIGHT_EXPORTING)
@@ -187,32 +174,31 @@ endforeach()
 
 # Define arrow_flight_testing library
 if(ARROW_TESTING)
-  add_arrow_lib(
-    arrow_flight_testing
-    CMAKE_PACKAGE_NAME
-    ArrowFlightTesting
-    PKG_CONFIG_NAME
-    arrow-flight-testing
-    OUTPUTS
-    ARROW_FLIGHT_TESTING_LIBRARIES
-    SOURCES
-    test_integration.cc
-    test_util.cc
-    DEPENDENCIES
-    GTest::gtest
-    flight_grpc_gen
-    arrow_dependencies
-    SHARED_LINK_LIBS
-    arrow_shared
-    arrow_flight_shared
-    arrow_testing_shared
-    ${BOOST_FILESYSTEM_LIBRARY}
-    ${BOOST_SYSTEM_LIBRARY}
-    GTest::gtest
-    STATIC_LINK_LIBS
-    arrow_static
-    arrow_flight_static
-    arrow_testing_static)
+  add_arrow_lib(arrow_flight_testing
+                CMAKE_PACKAGE_NAME
+                ArrowFlightTesting
+                PKG_CONFIG_NAME
+                arrow-flight-testing
+                OUTPUTS
+                ARROW_FLIGHT_TESTING_LIBRARIES
+                SOURCES
+                test_integration.cc
+                test_util.cc
+                DEPENDENCIES
+                GTest::gtest
+                flight_grpc_gen
+                arrow_dependencies
+                SHARED_LINK_LIBS
+                arrow_shared
+                arrow_flight_shared
+                arrow_testing_shared
+                ${BOOST_FILESYSTEM_LIBRARY}
+                ${BOOST_SYSTEM_LIBRARY}
+                GTest::gtest
+                STATIC_LINK_LIBS
+                arrow_static
+                arrow_flight_static
+                arrow_testing_static)
 endif()
 
 foreach(LIB_TARGET ${ARROW_FLIGHT_TESTING_LIBRARIES})
@@ -221,12 +207,11 @@ foreach(LIB_TARGET ${ARROW_FLIGHT_TESTING_LIBRARIES})
                           ${ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS})
 endforeach()
 
-add_arrow_test(
-  flight_test
-  STATIC_LINK_LIBS
-  ${ARROW_FLIGHT_TEST_LINK_LIBS}
-  LABELS
-  "arrow_flight")
+add_arrow_test(flight_test
+               STATIC_LINK_LIBS
+               ${ARROW_FLIGHT_TEST_LINK_LIBS}
+               LABELS
+               "arrow_flight")
 
 # Build test server for unit tests or benchmarks
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)

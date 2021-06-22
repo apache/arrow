@@ -30,17 +30,15 @@ if(RapidJSON_FOUND)
 endif()
 
 if(RapidJSON_ROOT)
-  find_path(
-    RAPIDJSON_INCLUDE_DIR
-    NAMES rapidjson/rapidjson.h
-    PATHS ${RapidJSON_ROOT}
-    NO_DEFAULT_PATH
-    PATH_SUFFIXES "include")
+  find_path(RAPIDJSON_INCLUDE_DIR
+            NAMES rapidjson/rapidjson.h
+            PATHS ${RapidJSON_ROOT}
+            NO_DEFAULT_PATH
+            PATH_SUFFIXES "include")
 else()
-  find_path(
-    RAPIDJSON_INCLUDE_DIR
-    NAMES rapidjson/rapidjson.h
-    PATH_SUFFIXES "include")
+  find_path(RAPIDJSON_INCLUDE_DIR
+            NAMES rapidjson/rapidjson.h
+            PATH_SUFFIXES "include")
 endif()
 
 if(RAPIDJSON_INCLUDE_DIR)

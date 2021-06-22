@@ -43,19 +43,17 @@ if(${CMAKE_VERSION} VERSION_LESS "3.18.0" OR ARROW_BUILD_TESTS)
   # the full "Development" component.  Also ask for it on CMake < 3.18,
   # where "Development.Module" is not available.
   if(Python3Alt_FIND_REQUIRED)
-    find_package(
-      Python3
-      COMPONENTS Interpreter Development NumPy
-      REQUIRED)
+    find_package(Python3
+                 COMPONENTS Interpreter Development NumPy
+                 REQUIRED)
   else()
     find_package(Python3 COMPONENTS Interpreter Development NumPy)
   endif()
 else()
   if(Python3Alt_FIND_REQUIRED)
-    find_package(
-      Python3
-      COMPONENTS Interpreter Development.Module NumPy
-      REQUIRED)
+    find_package(Python3
+                 COMPONENTS Interpreter Development.Module NumPy
+                 REQUIRED)
   else()
     find_package(Python3 COMPONENTS Interpreter Development.Module NumPy)
   endif()
@@ -75,12 +73,11 @@ get_target_property(NUMPY_INCLUDE_DIRS Python3::NumPy INTERFACE_INCLUDE_DIRECTOR
 # CMake's python3_add_library() doesn't apply the required extension suffix,
 # detect it ourselves.
 # (https://gitlab.kitware.com/cmake/cmake/issues/20408)
-execute_process(
-  COMMAND "${PYTHON_EXECUTABLE}" "-c"
-          "from distutils import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))"
-  RESULT_VARIABLE _PYTHON_RESULT
-  OUTPUT_VARIABLE _PYTHON_STDOUT
-  ERROR_VARIABLE _PYTHON_STDERR)
+execute_process(COMMAND "${PYTHON_EXECUTABLE}" "-c"
+                        "from distutils import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))"
+                RESULT_VARIABLE _PYTHON_RESULT
+                OUTPUT_VARIABLE _PYTHON_STDOUT
+                ERROR_VARIABLE _PYTHON_STDERR)
 
 if(NOT _PYTHON_RESULT MATCHES 0)
   if(Python3Alt_FIND_REQUIRED)

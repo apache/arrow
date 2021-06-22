@@ -33,6 +33,13 @@ with section("format"):
     # then force it to a vertical layout.
     max_pargs_hwrap = 4
 
+    # If the statement spelling length (including space and parenthesis) is
+    # smaller than this amount, then force reject nested layouts.
+    # This value only comes into play when considering whether or not to nest
+    # arguments below their parent. If the number of characters in the parent
+    # is less than this value, we will not nest.
+    min_prefix_chars = 16
+
     # If true, separate flow control names from their parentheses with a space
     separate_ctrl_name_with_space = False
 

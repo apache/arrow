@@ -180,10 +180,9 @@ function(create_merged_static_lib output_target)
     endforeach()
 
     file(APPEND ${ar_script_path}.in "SAVE\nEND\n")
-    file(
-      GENERATE
-      OUTPUT ${ar_script_path}
-      INPUT ${ar_script_path}.in)
+    file(GENERATE
+         OUTPUT ${ar_script_path}
+         INPUT ${ar_script_path}.in)
     set(ar_tool ${CMAKE_AR})
 
     if(CMAKE_INTERPROCEDURAL_OPTIMIZATION)
@@ -214,8 +213,7 @@ function(create_merged_static_lib output_target)
     COMMENT "Bundling ${output_lib_path}"
     VERBATIM)
 
-  message(
-    STATUS "Creating bundled static library target ${output_target} at ${output_lib_path}"
+  message(STATUS "Creating bundled static library target ${output_target} at ${output_lib_path}"
   )
 
   add_custom_target(${output_target} ALL DEPENDS ${output_lib_path})
@@ -404,14 +402,13 @@ function(ADD_ARROW_LIB LIB_NAME)
                                                                   "${_lib_install_name}")
     endif()
 
-    install(
-      TARGETS ${LIB_NAME}_shared ${INSTALL_IS_OPTIONAL}
-      EXPORT ${LIB_NAME}_targets
-      RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR}
-      LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-      ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-      INCLUDES
-      DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+    install(TARGETS ${LIB_NAME}_shared ${INSTALL_IS_OPTIONAL}
+            EXPORT ${LIB_NAME}_targets
+            RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR}
+            LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            INCLUDES
+            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
   endif()
 
   if(BUILD_STATIC)
@@ -460,24 +457,22 @@ function(ADD_ARROW_LIB LIB_NAME)
                             "$<BUILD_INTERFACE:${ARG_STATIC_LINK_LIBS}>")
     endif()
 
-    install(
-      TARGETS ${LIB_NAME}_static ${INSTALL_IS_OPTIONAL}
-      EXPORT ${LIB_NAME}_targets
-      RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR}
-      LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-      ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-      INCLUDES
-      DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+    install(TARGETS ${LIB_NAME}_static ${INSTALL_IS_OPTIONAL}
+            EXPORT ${LIB_NAME}_targets
+            RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR}
+            LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            INCLUDES
+            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
   endif()
 
   if(ARG_CMAKE_PACKAGE_NAME)
     arrow_install_cmake_find_module("${ARG_CMAKE_PACKAGE_NAME}")
 
     set(TARGETS_CMAKE "${ARG_CMAKE_PACKAGE_NAME}Targets.cmake")
-    install(
-      EXPORT ${LIB_NAME}_targets
-      FILE "${TARGETS_CMAKE}"
-      DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
+    install(EXPORT ${LIB_NAME}_targets
+            FILE "${TARGETS_CMAKE}"
+            DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
 
     set(CONFIG_CMAKE "${ARG_CMAKE_PACKAGE_NAME}Config.cmake")
     set(BUILT_CONFIG_CMAKE "${CMAKE_CURRENT_BINARY_DIR}/${CONFIG_CMAKE}")
@@ -614,17 +609,15 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
     set(ARG_LABELS benchmark)
   endif()
 
-  add_test(
-    ${BENCHMARK_NAME}
-    ${BUILD_SUPPORT_DIR}/run-test.sh
-    ${CMAKE_BINARY_DIR}
-    benchmark
-    ${BENCHMARK_PATH}
-    ${NO_COLOR})
-  set_property(
-    TEST ${BENCHMARK_NAME}
-    APPEND
-    PROPERTY LABELS ${ARG_LABELS})
+  add_test(${BENCHMARK_NAME}
+           ${BUILD_SUPPORT_DIR}/run-test.sh
+           ${CMAKE_BINARY_DIR}
+           benchmark
+           ${BENCHMARK_PATH}
+           ${NO_COLOR})
+  set_property(TEST ${BENCHMARK_NAME}
+               APPEND
+               PROPERTY LABELS ${ARG_LABELS})
 endfunction()
 
 #
@@ -739,23 +732,21 @@ function(ADD_TEST_CASE REL_TEST_NAME)
   endif()
 
   if(ARROW_TEST_MEMCHECK AND NOT ARG_NO_VALGRIND)
-    add_test(
-      ${TEST_NAME}
-      bash
-      -c
-      "cd '${CMAKE_SOURCE_DIR}'; \
+    add_test(${TEST_NAME}
+             bash
+             -c
+             "cd '${CMAKE_SOURCE_DIR}'; \
                valgrind --suppressions=valgrind.supp --tool=memcheck --gen-suppressions=all \
                  --num-callers=500 --leak-check=full --leak-check-heuristics=stdstring \
                  --error-exitcode=1 ${TEST_PATH}")
   elseif(WIN32)
     add_test(${TEST_NAME} ${TEST_PATH})
   else()
-    add_test(
-      ${TEST_NAME}
-      ${BUILD_SUPPORT_DIR}/run-test.sh
-      ${CMAKE_BINARY_DIR}
-      test
-      ${TEST_PATH})
+    add_test(${TEST_NAME}
+             ${BUILD_SUPPORT_DIR}/run-test.sh
+             ${CMAKE_BINARY_DIR}
+             test
+             ${TEST_PATH})
   endif()
 
   # Add test as dependency of relevant targets
@@ -788,10 +779,9 @@ function(ADD_TEST_CASE REL_TEST_NAME)
     add_dependencies(${LABEL_TEST_NAME} ${TEST_NAME})
   endforeach()
 
-  set_property(
-    TEST ${TEST_NAME}
-    APPEND
-    PROPERTY LABELS ${LABELS})
+  set_property(TEST ${TEST_NAME}
+               APPEND
+               PROPERTY LABELS ${LABELS})
 endfunction()
 
 #

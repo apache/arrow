@@ -22,10 +22,9 @@ message(STATUS "Using vcpkg to find dependencies")
 
 # macro to list subdirectirectories (non-recursive)
 macro(list_subdirs SUBDIRS DIR)
-  file(
-    GLOB children_
-    RELATIVE ${DIR}
-    ${DIR}/*)
+  file(GLOB children_
+       RELATIVE ${DIR}
+       ${DIR}/*)
   set(subdirs_ "")
   foreach(child_ ${children_})
     if(IS_DIRECTORY "${DIR}/${child_}")
@@ -47,30 +46,27 @@ if(DEFINED CMAKE_TOOLCHAIN_FILE)
     get_filename_component(_VCPKG_BUILDSYSTEMS_DIR "${CMAKE_TOOLCHAIN_FILE}" DIRECTORY)
     get_filename_component(VCPKG_ROOT "${_VCPKG_BUILDSYSTEMS_DIR}/../.." ABSOLUTE)
   else()
-    message(
-      FATAL_ERROR
-        "vcpkg toolchain file not found at path specified in -DCMAKE_TOOLCHAIN_FILE")
+    message(FATAL_ERROR "vcpkg toolchain file not found at path specified in -DCMAKE_TOOLCHAIN_FILE"
+    )
   endif()
 else()
   if(DEFINED VCPKG_ROOT)
     # Get it from the CMake variable VCPKG_ROOT
-    find_program(
-      _VCPKG_BIN vcpkg
-      PATHS "${VCPKG_ROOT}"
-      NO_DEFAULT_PATH)
+    find_program(_VCPKG_BIN vcpkg
+                 PATHS "${VCPKG_ROOT}"
+                 NO_DEFAULT_PATH)
     if(NOT _VCPKG_BIN)
       message(FATAL_ERROR "vcpkg not found in directory specified in -DVCPKG_ROOT")
     endif()
   elseif(DEFINED ENV{VCPKG_ROOT})
     # Get it from the environment variable VCPKG_ROOT
     set(VCPKG_ROOT $ENV{VCPKG_ROOT})
-    find_program(
-      _VCPKG_BIN vcpkg
-      PATHS "${VCPKG_ROOT}"
-      NO_DEFAULT_PATH)
+    find_program(_VCPKG_BIN vcpkg
+                 PATHS "${VCPKG_ROOT}"
+                 NO_DEFAULT_PATH)
     if(NOT _VCPKG_BIN)
-      message(
-        FATAL_ERROR "vcpkg not found in directory in environment variable VCPKG_ROOT")
+      message(FATAL_ERROR "vcpkg not found in directory in environment variable VCPKG_ROOT"
+      )
     endif()
   else()
     # Get it from the file vcpkg.path.txt
@@ -87,15 +83,13 @@ else()
       if(EXISTS "${_VCPKG_PATH_TXT}")
         file(READ "${_VCPKG_PATH_TXT}" VCPKG_ROOT)
       else()
-        message(
-          FATAL_ERROR
-            "vcpkg not found. Install vcpkg if not installed, "
-            "then run vcpkg integrate install or set environment variable VCPKG_ROOT.")
+        message(FATAL_ERROR "vcpkg not found. Install vcpkg if not installed, "
+                            "then run vcpkg integrate install or set environment variable VCPKG_ROOT."
+        )
       endif()
-      find_program(
-        _VCPKG_BIN vcpkg
-        PATHS "${VCPKG_ROOT}"
-        NO_DEFAULT_PATH)
+      find_program(_VCPKG_BIN vcpkg
+                   PATHS "${VCPKG_ROOT}"
+                   NO_DEFAULT_PATH)
       if(NOT _VCPKG_BIN)
         message(FATAL_ERROR "vcpkg not found. Re-run vcpkg integrate install "
                             "or set environment variable VCPKG_ROOT.")
@@ -166,10 +160,8 @@ if(NOT DEFINED VCPKG_TARGET_TRIPLET)
   message(FATAL_ERROR "Could not infer VCPKG_TARGET_TRIPLET. "
                       "Specify triplet with -DVCPKG_TARGET_TRIPLET.")
 elseif(NOT DEFINED _VCPKG_INSTALLED_DIR)
-  message(
-    FATAL_ERROR
-      "Could not find installed vcpkg packages for triplet ${VCPKG_TARGET_TRIPLET}. "
-      "Install packages with vcpkg before executing cmake.")
+  message(FATAL_ERROR "Could not find installed vcpkg packages for triplet ${VCPKG_TARGET_TRIPLET}. "
+                      "Install packages with vcpkg before executing cmake.")
 endif()
 
 set(VCPKG_TARGET_TRIPLET

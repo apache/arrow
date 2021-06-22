@@ -89,15 +89,12 @@ find_package_handle_standard_args(
 set(ARROW_FLIGHT_TESTING_FOUND ${ArrowFlightTesting_FOUND})
 
 if(ArrowFlightTesting_FOUND AND NOT ArrowFlightTesting_FIND_QUIETLY)
-  message(
-    STATUS "Found the Arrow Flight testing by ${ARROW_FLIGHT_TESTING_FIND_APPROACH}")
-  message(
-    STATUS
-      "Found the Arrow Flight testing shared library: ${ARROW_FLIGHT_TESTING_SHARED_LIB}")
-  message(
-    STATUS
-      "Found the Arrow Flight testing import library: ${ARROW_FLIGHT_TESTING_IMPORT_LIB}")
-  message(
-    STATUS
-      "Found the Arrow Flight testing static library: ${ARROW_FLIGHT_TESTING_STATIC_LIB}")
+  message(STATUS "Found the Arrow Flight testing by ${ARROW_FLIGHT_TESTING_FIND_APPROACH}"
+  )
+  message(STATUS "Found the Arrow Flight testing shared library: ${ARROW_FLIGHT_TESTING_SHARED_LIB}"
+  )
+  message(STATUS "Found the Arrow Flight testing import library: ${ARROW_FLIGHT_TESTING_IMPORT_LIB}"
+  )
+  message(STATUS "Found the Arrow Flight testing static library: ${ARROW_FLIGHT_TESTING_STATIC_LIB}"
+  )
 endif()

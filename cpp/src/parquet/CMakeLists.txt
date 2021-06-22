@@ -34,19 +34,17 @@ function(ADD_PARQUET_TEST REL_TEST_NAME)
   set(TEST_ARGUMENTS PREFIX "parquet" LABELS "parquet-tests")
 
   if(ARROW_TEST_LINKAGE STREQUAL "static")
-    add_test_case(
-      ${REL_TEST_NAME}
-      STATIC_LINK_LIBS
-      ${PARQUET_STATIC_TEST_LINK_LIBS}
-      ${TEST_ARGUMENTS}
-      ${ARG_UNPARSED_ARGUMENTS})
+    add_test_case(${REL_TEST_NAME}
+                  STATIC_LINK_LIBS
+                  ${PARQUET_STATIC_TEST_LINK_LIBS}
+                  ${TEST_ARGUMENTS}
+                  ${ARG_UNPARSED_ARGUMENTS})
   else()
-    add_test_case(
-      ${REL_TEST_NAME}
-      STATIC_LINK_LIBS
-      ${PARQUET_SHARED_TEST_LINK_LIBS}
-      ${TEST_ARGUMENTS}
-      ${ARG_UNPARSED_ARGUMENTS})
+    add_test_case(${REL_TEST_NAME}
+                  STATIC_LINK_LIBS
+                  ${PARQUET_SHARED_TEST_LINK_LIBS}
+                  ${TEST_ARGUMENTS}
+                  ${ARG_UNPARSED_ARGUMENTS})
   endif()
 endfunction()
 
@@ -72,13 +70,12 @@ function(ADD_PARQUET_FUZZ_TARGET REL_FUZZING_NAME)
   else()
     set(LINK_LIBS parquet_shared)
   endif()
-  add_fuzz_target(
-    ${REL_FUZZING_NAME}
-    PREFIX
-    ${PREFIX}
-    LINK_LIBS
-    ${LINK_LIBS}
-    ${ARG_UNPARSED_ARGUMENTS})
+  add_fuzz_target(${REL_FUZZING_NAME}
+                  PREFIX
+                  ${PREFIX}
+                  LINK_LIBS
+                  ${LINK_LIBS}
+                  ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
 function(ADD_PARQUET_BENCHMARK REL_TEST_NAME)
@@ -96,14 +93,13 @@ function(ADD_PARQUET_BENCHMARK REL_TEST_NAME)
   else()
     set(PREFIX "parquet")
   endif()
-  add_benchmark(
-    ${REL_TEST_NAME}
-    PREFIX
-    ${PREFIX}
-    LABELS
-    "parquet-benchmarks"
-    ${PARQUET_BENCHMARK_LINK_OPTION}
-    ${ARG_UNPARSED_ARGUMENTS})
+  add_benchmark(${REL_TEST_NAME}
+                PREFIX
+                ${PREFIX}
+                LABELS
+                "parquet-benchmarks"
+                ${PARQUET_BENCHMARK_LINK_OPTION}
+                ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
 # ----------------------------------------------------------------------
@@ -246,33 +242,32 @@ if(NOT APPLE AND NOT MSVC_TOOLCHAIN)
       "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/symbols.map")
 endif()
 
-add_arrow_lib(
-  parquet
-  CMAKE_PACKAGE_NAME
-  Parquet
-  PKG_CONFIG_NAME
-  parquet
-  SOURCES
-  ${PARQUET_SRCS}
-  PRECOMPILED_HEADERS
-  "$<$<COMPILE_LANGUAGE:CXX>:parquet/pch.h>"
-  OUTPUTS
-  PARQUET_LIBRARIES
-  DEPENDENCIES
-  ${PARQUET_DEPENDENCIES}
-  SHARED_LINK_FLAGS
-  ${PARQUET_SHARED_LINK_FLAGS}
-  SHARED_LINK_LIBS
-  ${PARQUET_SHARED_LINK_LIBS}
-  SHARED_PRIVATE_LINK_LIBS
-  ${PARQUET_SHARED_PRIVATE_LINK_LIBS}
-  STATIC_LINK_LIBS
-  ${PARQUET_STATIC_LINK_LIBS})
+add_arrow_lib(parquet
+              CMAKE_PACKAGE_NAME
+              Parquet
+              PKG_CONFIG_NAME
+              parquet
+              SOURCES
+              ${PARQUET_SRCS}
+              PRECOMPILED_HEADERS
+              "$<$<COMPILE_LANGUAGE:CXX>:parquet/pch.h>"
+              OUTPUTS
+              PARQUET_LIBRARIES
+              DEPENDENCIES
+              ${PARQUET_DEPENDENCIES}
+              SHARED_LINK_FLAGS
+              ${PARQUET_SHARED_LINK_FLAGS}
+              SHARED_LINK_LIBS
+              ${PARQUET_SHARED_LINK_LIBS}
+              SHARED_PRIVATE_LINK_LIBS
+              ${PARQUET_SHARED_PRIVATE_LINK_LIBS}
+              STATIC_LINK_LIBS
+              ${PARQUET_STATIC_LINK_LIBS})
 
 if(WIN32 AND NOT (ARROW_TEST_LINKAGE STREQUAL "static"))
-  add_library(
-    parquet_test_support STATIC "${ARROW_SOURCE_DIR}/src/generated/parquet_constants.cpp"
-                                "${ARROW_SOURCE_DIR}/src/generated/parquet_types.cpp")
+  add_library(parquet_test_support STATIC
+              "${ARROW_SOURCE_DIR}/src/generated/parquet_constants.cpp"
+              "${ARROW_SOURCE_DIR}/src/generated/parquet_types.cpp")
   add_dependencies(parquet_test_support thrift::thrift)
   set(PARQUET_SHARED_TEST_LINK_LIBS ${PARQUET_SHARED_TEST_LINK_LIBS} parquet_test_support)
   set(PARQUET_LIBRARIES ${PARQUET_LIBRARIES} parquet_test_support)

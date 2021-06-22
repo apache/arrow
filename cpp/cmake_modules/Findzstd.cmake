@@ -23,13 +23,14 @@ set(ZSTD_LIB_NAME_BASE "${ZSTD_MSVC_LIB_PREFIX}zstd")
 if(ARROW_ZSTD_USE_SHARED)
   set(ZSTD_LIB_NAMES)
   if(CMAKE_IMPORT_LIBRARY_SUFFIX)
-    list(
-      APPEND ZSTD_LIB_NAMES
-      "${CMAKE_IMPORT_LIBRARY_PREFIX}${ZSTD_LIB_NAME_BASE}${CMAKE_IMPORT_LIBRARY_SUFFIX}")
+    list(APPEND
+         ZSTD_LIB_NAMES
+         "${CMAKE_IMPORT_LIBRARY_PREFIX}${ZSTD_LIB_NAME_BASE}${CMAKE_IMPORT_LIBRARY_SUFFIX}"
+    )
   endif()
-  list(
-    APPEND ZSTD_LIB_NAMES
-    "${CMAKE_SHARED_LIBRARY_PREFIX}${ZSTD_LIB_NAME_BASE}${CMAKE_SHARED_LIBRARY_SUFFIX}")
+  list(APPEND ZSTD_LIB_NAMES
+       "${CMAKE_SHARED_LIBRARY_PREFIX}${ZSTD_LIB_NAME_BASE}${CMAKE_SHARED_LIBRARY_SUFFIX}"
+  )
 else()
   if(MSVC AND NOT DEFINED ZSTD_MSVC_STATIC_LIB_SUFFIX)
     set(ZSTD_MSVC_STATIC_LIB_SUFFIX "_static")
@@ -43,18 +44,16 @@ endif()
 # First, find via if specified ZTD_ROOT
 if(ZSTD_ROOT)
   message(STATUS "Using ZSTD_ROOT: ${ZSTD_ROOT}")
-  find_library(
-    ZSTD_LIB
-    NAMES ${ZSTD_LIB_NAMES}
-    PATHS ${ZSTD_ROOT}
-    PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES}
-    NO_DEFAULT_PATH)
-  find_path(
-    ZSTD_INCLUDE_DIR
-    NAMES zstd.h
-    PATHS ${ZSTD_ROOT}
-    NO_DEFAULT_PATH
-    PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
+  find_library(ZSTD_LIB
+               NAMES ${ZSTD_LIB_NAMES}
+               PATHS ${ZSTD_ROOT}
+               PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES}
+               NO_DEFAULT_PATH)
+  find_path(ZSTD_INCLUDE_DIR
+            NAMES zstd.h
+            PATHS ${ZSTD_ROOT}
+            NO_DEFAULT_PATH
+            PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
 
 else()
   # Second, find via pkg_check_modules
@@ -64,22 +63,19 @@ else()
     set(ZSTD_INCLUDE_DIR "${ZSTD_PC_INCLUDEDIR}")
 
     list(APPEND ZSTD_PC_LIBRARY_DIRS "${ZSTD_PC_LIBDIR}")
-    find_library(
-      ZSTD_LIB
-      NAMES ${ZSTD_LIB_NAMES}
-      PATHS ${ZSTD_PC_LIBRARY_DIRS}
-      NO_DEFAULT_PATH
-      PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES})
+    find_library(ZSTD_LIB
+                 NAMES ${ZSTD_LIB_NAMES}
+                 PATHS ${ZSTD_PC_LIBRARY_DIRS}
+                 NO_DEFAULT_PATH
+                 PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES})
   else()
     # Third, check all other CMake paths
-    find_library(
-      ZSTD_LIB
-      NAMES ${ZSTD_LIB_NAMES}
-      PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES})
-    find_path(
-      ZSTD_INCLUDE_DIR
-      NAMES zstd.h
-      PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
+    find_library(ZSTD_LIB
+                 NAMES ${ZSTD_LIB_NAMES}
+                 PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES})
+    find_path(ZSTD_INCLUDE_DIR
+              NAMES zstd.h
+              PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
   endif()
 endif()
 

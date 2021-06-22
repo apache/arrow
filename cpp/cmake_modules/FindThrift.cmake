@@ -57,15 +57,15 @@ set(THRIFT_LIB_NAME_BASE "thrift${THRIFT_MSVC_LIB_SUFFIX}")
 if(ARROW_THRIFT_USE_SHARED)
   set(THRIFT_LIB_NAMES thrift)
   if(CMAKE_IMPORT_LIBRARY_SUFFIX)
-    list(
-      APPEND
-      THRIFT_LIB_NAMES
-      "${CMAKE_IMPORT_LIBRARY_PREFIX}${THRIFT_LIB_NAME_BASE}${CMAKE_IMPORT_LIBRARY_SUFFIX}"
+    list(APPEND
+         THRIFT_LIB_NAMES
+         "${CMAKE_IMPORT_LIBRARY_PREFIX}${THRIFT_LIB_NAME_BASE}${CMAKE_IMPORT_LIBRARY_SUFFIX}"
     )
   endif()
-  list(
-    APPEND THRIFT_LIB_NAMES
-    "${CMAKE_SHARED_LIBRARY_PREFIX}${THRIFT_LIB_NAME_BASE}${CMAKE_SHARED_LIBRARY_SUFFIX}")
+  list(APPEND
+       THRIFT_LIB_NAMES
+       "${CMAKE_SHARED_LIBRARY_PREFIX}${THRIFT_LIB_NAME_BASE}${CMAKE_SHARED_LIBRARY_SUFFIX}"
+  )
 else()
   set(THRIFT_LIB_NAMES
       "${CMAKE_STATIC_LIBRARY_PREFIX}${THRIFT_LIB_NAME_BASE}${CMAKE_STATIC_LIBRARY_SUFFIX}"
@@ -73,19 +73,16 @@ else()
 endif()
 
 if(Thrift_ROOT)
-  find_library(
-    THRIFT_LIB
-    NAMES ${THRIFT_LIB_NAMES}
-    PATHS ${Thrift_ROOT}
-    PATH_SUFFIXES "lib/${CMAKE_LIBRARY_ARCHITECTURE}" "lib")
-  find_path(
-    THRIFT_INCLUDE_DIR thrift/Thrift.h
-    PATHS ${Thrift_ROOT}
-    PATH_SUFFIXES "include")
-  find_program(
-    THRIFT_COMPILER thrift
-    PATHS ${Thrift_ROOT}
-    PATH_SUFFIXES "bin")
+  find_library(THRIFT_LIB
+               NAMES ${THRIFT_LIB_NAMES}
+               PATHS ${Thrift_ROOT}
+               PATH_SUFFIXES "lib/${CMAKE_LIBRARY_ARCHITECTURE}" "lib")
+  find_path(THRIFT_INCLUDE_DIR thrift/Thrift.h
+            PATHS ${Thrift_ROOT}
+            PATH_SUFFIXES "include")
+  find_program(THRIFT_COMPILER thrift
+               PATHS ${Thrift_ROOT}
+               PATH_SUFFIXES "bin")
   extract_thrift_version()
 else()
   # THRIFT-4760: The pkgconfig files are currently only installed when using autotools.
@@ -97,22 +94,19 @@ else()
 
     list(APPEND THRIFT_PC_LIBRARY_DIRS "${THRIFT_PC_LIBDIR}")
 
-    find_library(
-      THRIFT_LIB
-      NAMES ${THRIFT_LIB_NAMES}
-      PATHS ${THRIFT_PC_LIBRARY_DIRS}
-      NO_DEFAULT_PATH)
-    find_program(
-      THRIFT_COMPILER thrift
-      HINTS ${THRIFT_PC_PREFIX}
-      NO_DEFAULT_PATH
-      PATH_SUFFIXES "bin")
+    find_library(THRIFT_LIB
+                 NAMES ${THRIFT_LIB_NAMES}
+                 PATHS ${THRIFT_PC_LIBRARY_DIRS}
+                 NO_DEFAULT_PATH)
+    find_program(THRIFT_COMPILER thrift
+                 HINTS ${THRIFT_PC_PREFIX}
+                 NO_DEFAULT_PATH
+                 PATH_SUFFIXES "bin")
     set(THRIFT_VERSION ${THRIFT_PC_VERSION})
   else()
-    find_library(
-      THRIFT_LIB
-      NAMES ${THRIFT_LIB_NAMES}
-      PATH_SUFFIXES "lib/${CMAKE_LIBRARY_ARCHITECTURE}" "lib")
+    find_library(THRIFT_LIB
+                 NAMES ${THRIFT_LIB_NAMES}
+                 PATH_SUFFIXES "lib/${CMAKE_LIBRARY_ARCHITECTURE}" "lib")
     find_path(THRIFT_INCLUDE_DIR thrift/Thrift.h PATH_SUFFIXES "include")
     find_program(THRIFT_COMPILER thrift PATH_SUFFIXES "bin")
     extract_thrift_version()

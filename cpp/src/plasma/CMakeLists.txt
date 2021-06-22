@@ -69,22 +69,21 @@ if(NOT APPLE AND NOT MSVC_TOOLCHAIN)
       "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/symbols.map")
 endif()
 
-add_arrow_lib(
-  plasma
-  CMAKE_PACKAGE_NAME
-  Plasma
-  PKG_CONFIG_NAME
-  plasma
-  SOURCES
-  ${PLASMA_SRCS}
-  OUTPUTS
-  PLASMA_LIBRARIES
-  SHARED_LINK_FLAGS
-  ${PLASMA_SHARED_LINK_FLAGS}
-  SHARED_LINK_LIBS
-  ${PLASMA_LINK_LIBS}
-  STATIC_LINK_LIBS
-  ${PLASMA_STATIC_LINK_LIBS})
+add_arrow_lib(plasma
+              CMAKE_PACKAGE_NAME
+              Plasma
+              PKG_CONFIG_NAME
+              plasma
+              SOURCES
+              ${PLASMA_SRCS}
+              OUTPUTS
+              PLASMA_LIBRARIES
+              SHARED_LINK_FLAGS
+              ${PLASMA_SHARED_LINK_FLAGS}
+              SHARED_LINK_LIBS
+              ${PLASMA_LINK_LIBS}
+              STATIC_LINK_LIBS
+              ${PLASMA_STATIC_LINK_LIBS})
 
 add_dependencies(plasma ${PLASMA_LIBRARIES})
 
@@ -97,22 +96,19 @@ endforeach()
 set_source_files_properties(dlmalloc.cc PROPERTIES COMPILE_FLAGS "-O3")
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-  set_property(
-    SOURCE dlmalloc.cc
-    APPEND_STRING
-    PROPERTY
-      COMPILE_FLAGS
-      " -Wno-parentheses-equality \
+  set_property(SOURCE dlmalloc.cc
+               APPEND_STRING
+               PROPERTY COMPILE_FLAGS
+                        " -Wno-parentheses-equality \
 -Wno-null-pointer-arithmetic \
 -Wno-shorten-64-to-32 \
 -Wno-unused-macros")
 endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-  set_property(
-    SOURCE dlmalloc.cc
-    APPEND_STRING
-    PROPERTY COMPILE_FLAGS " -Wno-conversion")
+  set_property(SOURCE dlmalloc.cc
+               APPEND_STRING
+               PROPERTY COMPILE_FLAGS " -Wno-conversion")
 endif()
 
 list(APPEND PLASMA_EXTERNAL_STORE_SOURCES "external_store.cc" "hash_table_store.cc")
@@ -152,13 +148,12 @@ elseif(APPLE)
   endif()
 endif()
 
-install(
-  FILES common.h
-        compat.h
-        client.h
-        events.h
-        test_util.h
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/plasma")
+install(FILES common.h
+              compat.h
+              client.h
+              events.h
+              test_util.h
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/plasma")
 
 # Plasma store
 set_target_properties(plasma-store-server PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
@@ -219,13 +214,12 @@ function(ADD_PLASMA_TEST REL_TEST_NAME)
     "${one_value_args}"
     "${multi_value_args}"
     ${ARGN})
-  add_test_case(
-    ${REL_TEST_NAME}
-    PREFIX
-    "plasma"
-    LABELS
-    "plasma-tests"
-    ${ARG_UNPARSED_ARGUMENTS})
+  add_test_case(${REL_TEST_NAME}
+                PREFIX
+                "plasma"
+                LABELS
+                "plasma-tests"
+                ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
 if(ARROW_BUILD_SHARED)
@@ -235,15 +229,13 @@ else()
 endif()
 
 add_plasma_test(test/serialization_tests EXTRA_LINK_LIBS ${PLASMA_TEST_LIBS})
-add_plasma_test(
-  test/client_tests
-  EXTRA_LINK_LIBS
-  ${PLASMA_TEST_LIBS}
-  EXTRA_DEPENDENCIES
-  plasma-store-server)
-add_plasma_test(
-  test/external_store_tests
-  EXTRA_LINK_LIBS
-  ${PLASMA_TEST_LIBS}
-  EXTRA_DEPENDENCIES
-  plasma-store-server)
+add_plasma_test(test/client_tests
+                EXTRA_LINK_LIBS
+                ${PLASMA_TEST_LIBS}
+                EXTRA_DEPENDENCIES
+                plasma-store-server)
+add_plasma_test(test/external_store_tests
+                EXTRA_LINK_LIBS
+                ${PLASMA_TEST_LIBS}
+                EXTRA_DEPENDENCIES
+                plasma-store-server)

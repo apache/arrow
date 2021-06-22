@@ -24,12 +24,11 @@ if(LLVM_BREW_PREFIX)
   list(APPEND LLVM_HINTS ${LLVM_BREW_PREFIX})
 endif()
 foreach(ARROW_LLVM_VERSION ${ARROW_LLVM_VERSIONS})
-  find_package(
-    LLVM
-    ${ARROW_LLVM_VERSION}
-    CONFIG
-    HINTS
-    ${LLVM_HINTS})
+  find_package(LLVM
+               ${ARROW_LLVM_VERSION}
+               CONFIG
+               HINTS
+               ${LLVM_HINTS})
   if(LLVM_FOUND)
     break()
   endif()
@@ -51,11 +50,11 @@ if(LLVM_FOUND)
 
   find_program(LLVM_LINK_EXECUTABLE llvm-link HINTS ${LLVM_TOOLS_BINARY_DIR})
 
-  find_program(
-    CLANG_EXECUTABLE
-    NAMES clang-${LLVM_PACKAGE_VERSION} clang-${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}
-          clang-${LLVM_VERSION_MAJOR} clang
-    HINTS ${LLVM_TOOLS_BINARY_DIR})
+  find_program(CLANG_EXECUTABLE
+               NAMES clang-${LLVM_PACKAGE_VERSION}
+                     clang-${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}
+                     clang-${LLVM_VERSION_MAJOR} clang
+               HINTS ${LLVM_TOOLS_BINARY_DIR})
 
   add_library(LLVM::LLVM_INTERFACE INTERFACE IMPORTED)
 

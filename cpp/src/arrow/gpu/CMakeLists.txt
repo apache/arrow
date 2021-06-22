@@ -36,24 +36,23 @@ set(ARROW_CUDA_SRCS cuda_arrow_ipc.cc cuda_context.cc cuda_internal.cc cuda_memo
 
 set(ARROW_CUDA_SHARED_LINK_LIBS ${CUDA_CUDA_LIBRARY})
 
-add_arrow_lib(
-  arrow_cuda
-  CMAKE_PACKAGE_NAME
-  ArrowCUDA
-  PKG_CONFIG_NAME
-  arrow-cuda
-  SOURCES
-  ${ARROW_CUDA_SRCS}
-  OUTPUTS
-  ARROW_CUDA_LIBRARIES
-  SHARED_LINK_FLAGS
-  ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
-  SHARED_LINK_LIBS
-  arrow_shared
-  ${ARROW_CUDA_SHARED_LINK_LIBS}
-  # Static arrow_cuda must also link against CUDA shared libs
-  STATIC_LINK_LIBS
-  ${ARROW_CUDA_SHARED_LINK_LIBS})
+add_arrow_lib(arrow_cuda
+              CMAKE_PACKAGE_NAME
+              ArrowCUDA
+              PKG_CONFIG_NAME
+              arrow-cuda
+              SOURCES
+              ${ARROW_CUDA_SRCS}
+              OUTPUTS
+              ARROW_CUDA_LIBRARIES
+              SHARED_LINK_FLAGS
+              ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
+              SHARED_LINK_LIBS
+              arrow_shared
+              ${ARROW_CUDA_SHARED_LINK_LIBS}
+              # Static arrow_cuda must also link against CUDA shared libs
+              STATIC_LINK_LIBS
+              ${ARROW_CUDA_SHARED_LINK_LIBS})
 
 add_dependencies(arrow_cuda ${ARROW_CUDA_LIBRARIES})
 

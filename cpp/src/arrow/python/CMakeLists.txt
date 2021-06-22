@@ -55,10 +55,9 @@ endif()
 set(ARROW_PYTHON_DEPENDENCIES arrow_dependencies)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-  set_property(
-    SOURCE pyarrow.cc
-    APPEND_STRING
-    PROPERTY COMPILE_FLAGS " -Wno-cast-qual ")
+  set_property(SOURCE pyarrow.cc
+               APPEND_STRING
+               PROPERTY COMPILE_FLAGS " -Wno-cast-qual ")
 endif()
 
 set(ARROW_PYTHON_SHARED_LINK_LIBS arrow_shared)
@@ -68,28 +67,27 @@ endif()
 
 set(ARROW_PYTHON_INCLUDES ${NUMPY_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS})
 
-add_arrow_lib(
-  arrow_python
-  CMAKE_PACKAGE_NAME
-  ArrowPython
-  PKG_CONFIG_NAME
-  arrow-python
-  SOURCES
-  ${ARROW_PYTHON_SRCS}
-  PRECOMPILED_HEADERS
-  "$<$<COMPILE_LANGUAGE:CXX>:arrow/python/pch.h>"
-  OUTPUTS
-  ARROW_PYTHON_LIBRARIES
-  DEPENDENCIES
-  ${ARROW_PYTHON_DEPENDENCIES}
-  SHARED_LINK_FLAGS
-  ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
-  SHARED_LINK_LIBS
-  ${ARROW_PYTHON_SHARED_LINK_LIBS}
-  STATIC_LINK_LIBS
-  ${PYTHON_OTHER_LIBS}
-  EXTRA_INCLUDES
-  "${ARROW_PYTHON_INCLUDES}")
+add_arrow_lib(arrow_python
+              CMAKE_PACKAGE_NAME
+              ArrowPython
+              PKG_CONFIG_NAME
+              arrow-python
+              SOURCES
+              ${ARROW_PYTHON_SRCS}
+              PRECOMPILED_HEADERS
+              "$<$<COMPILE_LANGUAGE:CXX>:arrow/python/pch.h>"
+              OUTPUTS
+              ARROW_PYTHON_LIBRARIES
+              DEPENDENCIES
+              ${ARROW_PYTHON_DEPENDENCIES}
+              SHARED_LINK_FLAGS
+              ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
+              SHARED_LINK_LIBS
+              ${ARROW_PYTHON_SHARED_LINK_LIBS}
+              STATIC_LINK_LIBS
+              ${PYTHON_OTHER_LIBS}
+              EXTRA_INCLUDES
+              "${ARROW_PYTHON_INCLUDES}")
 
 add_dependencies(arrow_python ${ARROW_PYTHON_LIBRARIES})
 
@@ -107,27 +105,26 @@ if(ARROW_FLIGHT AND ARROW_BUILD_SHARED)
   # fail with weird errors due to multiple copies of global static state (The
   # other solution is to link gRPC shared everywhere instead of statically only
   # in Flight)
-  add_arrow_lib(
-    arrow_python_flight
-    CMAKE_PACKAGE_NAME
-    ArrowPythonFlight
-    PKG_CONFIG_NAME
-    arrow-python-flight
-    SOURCES
-    flight.cc
-    OUTPUTS
-    ARROW_PYFLIGHT_LIBRARIES
-    DEPENDENCIES
-    flight_grpc_gen
-    SHARED_LINK_FLAGS
-    ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
-    SHARED_LINK_LIBS
-    arrow_python_shared
-    arrow_flight_shared
-    STATIC_LINK_LIBS
-    ${PYTHON_OTHER_LIBS}
-    EXTRA_INCLUDES
-    "${ARROW_PYTHON_INCLUDES}")
+  add_arrow_lib(arrow_python_flight
+                CMAKE_PACKAGE_NAME
+                ArrowPythonFlight
+                PKG_CONFIG_NAME
+                arrow-python-flight
+                SOURCES
+                flight.cc
+                OUTPUTS
+                ARROW_PYFLIGHT_LIBRARIES
+                DEPENDENCIES
+                flight_grpc_gen
+                SHARED_LINK_FLAGS
+                ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
+                SHARED_LINK_LIBS
+                arrow_python_shared
+                arrow_flight_shared
+                STATIC_LINK_LIBS
+                ${PYTHON_OTHER_LIBS}
+                EXTRA_INCLUDES
+                "${ARROW_PYTHON_INCLUDES}")
 
   add_dependencies(arrow_python ${ARROW_PYFLIGHT_LIBRARIES})
 
@@ -142,10 +139,9 @@ endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   # Clang, be quiet. Python C API has lots of macros
-  set_property(
-    SOURCE ${ARROW_PYTHON_SRCS}
-    APPEND_STRING
-    PROPERTY COMPILE_FLAGS -Wno-parentheses-equality)
+  set_property(SOURCE ${ARROW_PYTHON_SRCS}
+               APPEND_STRING
+               PROPERTY COMPILE_FLAGS -Wno-parentheses-equality)
 endif()
 
 arrow_install_all_headers("arrow/python")
@@ -175,15 +171,14 @@ if(ARROW_BUILD_TESTS)
                                     arrow_testing_static arrow_static)
   endif()
 
-  add_arrow_test(
-    python_test
-    STATIC_LINK_LIBS
-    "${ARROW_PYTHON_TEST_LINK_LIBS}"
-    EXTRA_LINK_LIBS
-    ${PYTHON_LIBRARIES}
-    EXTRA_INCLUDES
-    "${ARROW_PYTHON_INCLUDES}"
-    LABELS
-    "arrow_python-tests"
-    NO_VALGRIND)
+  add_arrow_test(python_test
+                 STATIC_LINK_LIBS
+                 "${ARROW_PYTHON_TEST_LINK_LIBS}"
+                 EXTRA_LINK_LIBS
+                 ${PYTHON_LIBRARIES}
+                 EXTRA_INCLUDES
+                 "${ARROW_PYTHON_INCLUDES}"
+                 LABELS
+                 "arrow_python-tests"
+                 NO_VALGRIND)
 endif()

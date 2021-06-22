@@ -179,18 +179,17 @@ if(WIN32)
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd5105")
 
     if(ARROW_USE_STATIC_CRT)
-      foreach(
-        c_flag
-        CMAKE_CXX_FLAGS
-        CMAKE_CXX_FLAGS_RELEASE
-        CMAKE_CXX_FLAGS_DEBUG
-        CMAKE_CXX_FLAGS_MINSIZEREL
-        CMAKE_CXX_FLAGS_RELWITHDEBINFO
-        CMAKE_C_FLAGS
-        CMAKE_C_FLAGS_RELEASE
-        CMAKE_C_FLAGS_DEBUG
-        CMAKE_C_FLAGS_MINSIZEREL
-        CMAKE_C_FLAGS_RELWITHDEBINFO)
+      foreach(c_flag
+              CMAKE_CXX_FLAGS
+              CMAKE_CXX_FLAGS_RELEASE
+              CMAKE_CXX_FLAGS_DEBUG
+              CMAKE_CXX_FLAGS_MINSIZEREL
+              CMAKE_CXX_FLAGS_RELWITHDEBINFO
+              CMAKE_C_FLAGS
+              CMAKE_C_FLAGS_RELEASE
+              CMAKE_C_FLAGS_DEBUG
+              CMAKE_C_FLAGS_MINSIZEREL
+              CMAKE_C_FLAGS_RELWITHDEBINFO)
         string(REPLACE "/MD" "-MT" ${c_flag} "${${c_flag}}")
       endforeach()
     endif()
@@ -318,10 +317,9 @@ else()
     # /wdnnnn disables a warning where "nnnn" is a warning number
     string(REPLACE "/W3" "" CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS}")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /W3")
-  elseif(
-    CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
-    OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang"
-    OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
+         OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang"
+         OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
   elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
     if(WIN32)
@@ -483,10 +481,9 @@ endif()
 # Any additional arguments are passed verbatim into the C++ compiler invocation.
 function(GET_GOLD_VERSION)
   # The gold linker is only for ELF binaries, which macOS doesn't use.
-  execute_process(
-    COMMAND ${CMAKE_CXX_COMPILER} "-Wl,--version" ${ARGN}
-    ERROR_QUIET
-    OUTPUT_VARIABLE LINKER_OUTPUT)
+  execute_process(COMMAND ${CMAKE_CXX_COMPILER} "-Wl,--version" ${ARGN}
+                  ERROR_QUIET
+                  OUTPUT_VARIABLE LINKER_OUTPUT)
   # We're expecting LINKER_OUTPUT to look like one of these:
   #   GNU gold (version 2.24) 1.11
   #   GNU gold (GNU Binutils for Ubuntu 2.30) 1.15
@@ -514,10 +511,9 @@ if(NOT WIN32 AND NOT APPLE)
     # We can't use the gold linker if it's inside devtoolset because the compiler
     # won't find it when invoked directly from make/ninja (which is typically
     # done outside devtoolset).
-    execute_process(
-      COMMAND which ld.gold
-      OUTPUT_VARIABLE GOLD_LOCATION
-      OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+    execute_process(COMMAND which ld.gold
+                    OUTPUT_VARIABLE GOLD_LOCATION
+                    OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
     if("${GOLD_LOCATION}" MATCHES "^/opt/rh/devtoolset")
       message("Skipping optional gold linker (version ${GOLD_VERSION}) because "
               "it's in devtoolset")
@@ -596,8 +592,7 @@ set(CXX_FLAGS_PROFILE_GEN "${CXX_FLAGS_RELEASE} -fprofile-generate")
 set(CXX_FLAGS_PROFILE_BUILD "${CXX_FLAGS_RELEASE} -fprofile-use")
 
 # Set compile flags based on the build type.
-message(
-  "Configured for ${CMAKE_BUILD_TYPE} build (set with cmake -DCMAKE_BUILD_TYPE={release,debug,...})"
+message("Configured for ${CMAKE_BUILD_TYPE} build (set with cmake -DCMAKE_BUILD_TYPE={release,debug,...})"
 )
 if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_DEBUG}")

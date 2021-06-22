@@ -340,45 +340,41 @@ endforeach()
 if(DEFINED ENV{ARROW_ABSL_URL})
   set(ABSL_SOURCE_URL "$ENV{ARROW_ABSL_URL}")
 else()
-  set_urls(
-    ABSL_SOURCE_URL
-    "https://github.com/abseil/abseil-cpp/archive/${ARROW_ABSL_BUILD_VERSION}.tar.gz")
+  set_urls(ABSL_SOURCE_URL
+           "https://github.com/abseil/abseil-cpp/archive/${ARROW_ABSL_BUILD_VERSION}.tar.gz"
+  )
 endif()
 
 if(DEFINED ENV{ARROW_AWS_C_COMMON_URL})
   set(AWS_C_COMMON_SOURCE_URL "$ENV{ARROW_AWS_C_COMMON_URL}")
 else()
-  set_urls(
-    AWS_C_COMMON_SOURCE_URL
-    "https://github.com/awslabs/aws-c-common/archive/${ARROW_AWS_C_COMMON_BUILD_VERSION}.tar.gz"
+  set_urls(AWS_C_COMMON_SOURCE_URL
+           "https://github.com/awslabs/aws-c-common/archive/${ARROW_AWS_C_COMMON_BUILD_VERSION}.tar.gz"
   )
 endif()
 
 if(DEFINED ENV{ARROW_AWS_CHECKSUMS_URL})
   set(AWS_CHECKSUMS_SOURCE_URL "$ENV{ARROW_AWS_CHECKSUMS_URL}")
 else()
-  set_urls(
-    AWS_CHECKSUMS_SOURCE_URL
-    "https://github.com/awslabs/aws-checksums/archive/${ARROW_AWS_CHECKSUMS_BUILD_VERSION}.tar.gz"
+  set_urls(AWS_CHECKSUMS_SOURCE_URL
+           "https://github.com/awslabs/aws-checksums/archive/${ARROW_AWS_CHECKSUMS_BUILD_VERSION}.tar.gz"
   )
 endif()
 
 if(DEFINED ENV{ARROW_AWS_C_EVENT_STREAM_URL})
   set(AWS_C_EVENT_STREAM_SOURCE_URL "$ENV{ARROW_AWS_C_EVENT_STREAM_URL}")
 else()
-  set_urls(
-    AWS_C_EVENT_STREAM_SOURCE_URL
-    "https://github.com/awslabs/aws-c-event-stream/archive/${ARROW_AWS_C_EVENT_STREAM_BUILD_VERSION}.tar.gz"
+  set_urls(AWS_C_EVENT_STREAM_SOURCE_URL
+           "https://github.com/awslabs/aws-c-event-stream/archive/${ARROW_AWS_C_EVENT_STREAM_BUILD_VERSION}.tar.gz"
   )
 endif()
 
 if(DEFINED ENV{ARROW_AWSSDK_URL})
   set(AWSSDK_SOURCE_URL "$ENV{ARROW_AWSSDK_URL}")
 else()
-  set_urls(
-    AWSSDK_SOURCE_URL
-    "https://github.com/aws/aws-sdk-cpp/archive/${ARROW_AWSSDK_BUILD_VERSION}.tar.gz"
-    "https://github.com/ursa-labs/thirdparty/releases/download/latest/aws-sdk-cpp-${ARROW_AWSSDK_BUILD_VERSION}.tar.gz"
+  set_urls(AWSSDK_SOURCE_URL
+           "https://github.com/aws/aws-sdk-cpp/archive/${ARROW_AWSSDK_BUILD_VERSION}.tar.gz"
+           "https://github.com/ursa-labs/thirdparty/releases/download/latest/aws-sdk-cpp-${ARROW_AWSSDK_BUILD_VERSION}.tar.gz"
   )
 endif()
 
@@ -387,136 +383,124 @@ if(DEFINED ENV{ARROW_BOOST_URL})
 else()
   string(REPLACE "." "_" ARROW_BOOST_BUILD_VERSION_UNDERSCORES
                  ${ARROW_BOOST_BUILD_VERSION})
-  set_urls(
-    BOOST_SOURCE_URL
-    # These are trimmed boost bundles we maintain.
-    # See cpp/build-support/trim-boost.sh
-    # FIXME(ARROW-6407) automate uploading this archive to ensure it reflects
-    # our currently used packages and doesn't fall out of sync with
-    # ${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}
-    "https://github.com/ursa-labs/thirdparty/releases/download/latest/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
-    "https://sourceforge.net/projects/boost/files/boost/${ARROW_BOOST_BUILD_VERSION}/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
-    "https://github.com/boostorg/boost/archive/boost-${ARROW_BOOST_BUILD_VERSION}.tar.gz")
+  set_urls(BOOST_SOURCE_URL
+           # These are trimmed boost bundles we maintain.
+           # See cpp/build-support/trim-boost.sh
+           # FIXME(ARROW-6407) automate uploading this archive to ensure it reflects
+           # our currently used packages and doesn't fall out of sync with
+           # ${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}
+           "https://github.com/ursa-labs/thirdparty/releases/download/latest/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
+           "https://sourceforge.net/projects/boost/files/boost/${ARROW_BOOST_BUILD_VERSION}/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
+           "https://github.com/boostorg/boost/archive/boost-${ARROW_BOOST_BUILD_VERSION}.tar.gz"
+  )
 endif()
 
 if(DEFINED ENV{ARROW_BROTLI_URL})
   set(BROTLI_SOURCE_URL "$ENV{ARROW_BROTLI_URL}")
 else()
-  set_urls(
-    BROTLI_SOURCE_URL
-    "https://github.com/google/brotli/archive/${ARROW_BROTLI_BUILD_VERSION}.tar.gz"
-    "https://github.com/ursa-labs/thirdparty/releases/download/latest/brotli-${ARROW_BROTLI_BUILD_VERSION}.tar.gz"
+  set_urls(BROTLI_SOURCE_URL
+           "https://github.com/google/brotli/archive/${ARROW_BROTLI_BUILD_VERSION}.tar.gz"
+           "https://github.com/ursa-labs/thirdparty/releases/download/latest/brotli-${ARROW_BROTLI_BUILD_VERSION}.tar.gz"
   )
 endif()
 
 if(DEFINED ENV{ARROW_BZIP2_URL})
   set(ARROW_BZIP2_SOURCE_URL "$ENV{ARROW_BZIP2_URL}")
 else()
-  set_urls(
-    ARROW_BZIP2_SOURCE_URL
-    "https://sourceware.org/pub/bzip2/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz"
-    "https://github.com/ursa-labs/thirdparty/releases/download/latest/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz"
+  set_urls(ARROW_BZIP2_SOURCE_URL
+           "https://sourceware.org/pub/bzip2/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz"
+           "https://github.com/ursa-labs/thirdparty/releases/download/latest/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz"
   )
 endif()
 
 if(DEFINED ENV{ARROW_CARES_URL})
   set(CARES_SOURCE_URL "$ENV{ARROW_CARES_URL}")
 else()
-  set_urls(
-    CARES_SOURCE_URL
-    "https://c-ares.haxx.se/download/c-ares-${ARROW_CARES_BUILD_VERSION}.tar.gz"
-    "https://github.com/ursa-labs/thirdparty/releases/download/latest/cares-${ARROW_CARES_BUILD_VERSION}.tar.gz"
+  set_urls(CARES_SOURCE_URL
+           "https://c-ares.haxx.se/download/c-ares-${ARROW_CARES_BUILD_VERSION}.tar.gz"
+           "https://github.com/ursa-labs/thirdparty/releases/download/latest/cares-${ARROW_CARES_BUILD_VERSION}.tar.gz"
   )
 endif()
 
 if(DEFINED ENV{ARROW_GBENCHMARK_URL})
   set(GBENCHMARK_SOURCE_URL "$ENV{ARROW_GBENCHMARK_URL}")
 else()
-  set_urls(
-    GBENCHMARK_SOURCE_URL
-    "https://github.com/google/benchmark/archive/${ARROW_GBENCHMARK_BUILD_VERSION}.tar.gz"
-    "https://github.com/ursa-labs/thirdparty/releases/download/latest/gbenchmark-${ARROW_GBENCHMARK_BUILD_VERSION}.tar.gz"
+  set_urls(GBENCHMARK_SOURCE_URL
+           "https://github.com/google/benchmark/archive/${ARROW_GBENCHMARK_BUILD_VERSION}.tar.gz"
+           "https://github.com/ursa-labs/thirdparty/releases/download/latest/gbenchmark-${ARROW_GBENCHMARK_BUILD_VERSION}.tar.gz"
   )
 endif()
 
 if(DEFINED ENV{ARROW_GFLAGS_URL})
   set(GFLAGS_SOURCE_URL "$ENV{ARROW_GFLAGS_URL}")
 else()
-  set_urls(
-    GFLAGS_SOURCE_URL
-    "https://github.com/gflags/gflags/archive/${ARROW_GFLAGS_BUILD_VERSION}.tar.gz"
-    "https://github.com/ursa-labs/thirdparty/releases/download/latest/gflags-${ARROW_GFLAGS_BUILD_VERSION}.tar.gz"
+  set_urls(GFLAGS_SOURCE_URL
+           "https://github.com/gflags/gflags/archive/${ARROW_GFLAGS_BUILD_VERSION}.tar.gz"
+           "https://github.com/ursa-labs/thirdparty/releases/download/latest/gflags-${ARROW_GFLAGS_BUILD_VERSION}.tar.gz"
   )
 endif()
 
 if(DEFINED ENV{ARROW_GLOG_URL})
   set(GLOG_SOURCE_URL "$ENV{ARROW_GLOG_URL}")
 else()
-  set_urls(
-    GLOG_SOURCE_URL
-    "https://github.com/google/glog/archive/${ARROW_GLOG_BUILD_VERSION}.tar.gz"
-    "https://github.com/ursa-labs/thirdparty/releases/download/latest/glog-${ARROW_GLOG_BUILD_VERSION}.tar.gz"
+  set_urls(GLOG_SOURCE_URL
+           "https://github.com/google/glog/archive/${ARROW_GLOG_BUILD_VERSION}.tar.gz"
+           "https://github.com/ursa-labs/thirdparty/releases/download/latest/glog-${ARROW_GLOG_BUILD_VERSION}.tar.gz"
   )
 endif()
 
 if(DEFINED ENV{ARROW_GRPC_URL})
   set(GRPC_SOURCE_URL "$ENV{ARROW_GRPC_URL}")
 else()
-  set_urls(
-    GRPC_SOURCE_URL
-    "https://github.com/grpc/grpc/archive/${ARROW_GRPC_BUILD_VERSION}.tar.gz"
-    "https://github.com/ursa-labs/thirdparty/releases/download/latest/grpc-${ARROW_GRPC_BUILD_VERSION}.tar.gz"
+  set_urls(GRPC_SOURCE_URL
+           "https://github.com/grpc/grpc/archive/${ARROW_GRPC_BUILD_VERSION}.tar.gz"
+           "https://github.com/ursa-labs/thirdparty/releases/download/latest/grpc-${ARROW_GRPC_BUILD_VERSION}.tar.gz"
   )
 endif()
 
 if(DEFINED ENV{ARROW_GTEST_URL})
   set(GTEST_SOURCE_URL "$ENV{ARROW_GTEST_URL}")
 else()
-  set_urls(
-    GTEST_SOURCE_URL
-    "https://github.com/google/googletest/archive/release-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
-    "https://chromium.googlesource.com/external/github.com/google/googletest/+archive/release-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
-    "https://github.com/ursa-labs/thirdparty/releases/download/latest/gtest-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
+  set_urls(GTEST_SOURCE_URL
+           "https://github.com/google/googletest/archive/release-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
+           "https://chromium.googlesource.com/external/github.com/google/googletest/+archive/release-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
+           "https://github.com/ursa-labs/thirdparty/releases/download/latest/gtest-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
   )
 endif()
 
 if(DEFINED ENV{ARROW_JEMALLOC_URL})
   set(JEMALLOC_SOURCE_URL "$ENV{ARROW_JEMALLOC_URL}")
 else()
-  set_urls(
-    JEMALLOC_SOURCE_URL
-    "https://github.com/jemalloc/jemalloc/releases/download/${ARROW_JEMALLOC_BUILD_VERSION}/jemalloc-${ARROW_JEMALLOC_BUILD_VERSION}.tar.bz2"
-    "https://github.com/ursa-labs/thirdparty/releases/download/latest/jemalloc-${ARROW_JEMALLOC_BUILD_VERSION}.tar.bz2"
+  set_urls(JEMALLOC_SOURCE_URL
+           "https://github.com/jemalloc/jemalloc/releases/download/${ARROW_JEMALLOC_BUILD_VERSION}/jemalloc-${ARROW_JEMALLOC_BUILD_VERSION}.tar.bz2"
+           "https://github.com/ursa-labs/thirdparty/releases/download/latest/jemalloc-${ARROW_JEMALLOC_BUILD_VERSION}.tar.bz2"
   )
 endif()
 
 if(DEFINED ENV{ARROW_MIMALLOC_URL})
   set(MIMALLOC_SOURCE_URL "$ENV{ARROW_MIMALLOC_URL}")
 else()
-  set_urls(
-    MIMALLOC_SOURCE_URL
-    "https://github.com/microsoft/mimalloc/archive/${ARROW_MIMALLOC_BUILD_VERSION}.tar.gz"
-    "https://github.com/ursa-labs/thirdparty/releases/download/latest/mimalloc-${ARROW_MIMALLOC_BUILD_VERSION}.tar.gz"
+  set_urls(MIMALLOC_SOURCE_URL
+           "https://github.com/microsoft/mimalloc/archive/${ARROW_MIMALLOC_BUILD_VERSION}.tar.gz"
+           "https://github.com/ursa-labs/thirdparty/releases/download/latest/mimalloc-${ARROW_MIMALLOC_BUILD_VERSION}.tar.gz"
   )
 endif()
 
 if(DEFINED ENV{ARROW_LZ4_URL})
   set(LZ4_SOURCE_URL "$ENV{ARROW_LZ4_URL}")
 else()
-  set_urls(
-    LZ4_SOURCE_URL
-    "https://github.com/lz4/lz4/archive/${ARROW_LZ4_BUILD_VERSION}.tar.gz"
-    "https://github.com/ursa-labs/thirdparty/releases/download/latest/lz4-${ARROW_LZ4_BUILD_VERSION}.tar.gz"
+  set_urls(LZ4_SOURCE_URL
+           "https://github.com/lz4/lz4/archive/${ARROW_LZ4_BUILD_VERSION}.tar.gz"
+           "https://github.com/ursa-labs/thirdparty/releases/download/latest/lz4-${ARROW_LZ4_BUILD_VERSION}.tar.gz"
   )
 endif()
 
 if(DEFINED ENV{ARROW_ORC_URL})
   set(ORC_SOURCE_URL "$ENV{ARROW_ORC_URL}")
 else()
-  set_urls(
-    ORC_SOURCE_URL
-    "https://github.com/apache/orc/archive/rel/release-${ARROW_ORC_BUILD_VERSION}.tar.gz"
-    "https://github.com/ursa-labs/thirdparty/releases/download/latest/orc-${ARROW_ORC_BUILD_VERSION}.tar.gz"
+  set_urls(ORC_SOURCE_URL
+           "https://github.com/apache/orc/archive/rel/release-${ARROW_ORC_BUILD_VERSION}.tar.gz"
+           "https://github.com/ursa-labs/thirdparty/releases/download/latest/orc-${ARROW_ORC_BUILD_VERSION}.tar.gz"
   )
 endif()
 
@@ -526,100 +510,92 @@ else()
   string(SUBSTRING ${ARROW_PROTOBUF_BUILD_VERSION} 1 -1
                    ARROW_PROTOBUF_STRIPPED_BUILD_VERSION)
   # strip the leading `v`
-  set_urls(
-    PROTOBUF_SOURCE_URL
-    "https://github.com/protocolbuffers/protobuf/releases/download/${ARROW_PROTOBUF_BUILD_VERSION}/protobuf-all-${ARROW_PROTOBUF_STRIPPED_BUILD_VERSION}.tar.gz"
-    "https://github.com/ursa-labs/thirdparty/releases/download/latest/protobuf-${ARROW_PROTOBUF_BUILD_VERSION}.tar.gz"
+  set_urls(PROTOBUF_SOURCE_URL
+           "https://github.com/protocolbuffers/protobuf/releases/download/${ARROW_PROTOBUF_BUILD_VERSION}/protobuf-all-${ARROW_PROTOBUF_STRIPPED_BUILD_VERSION}.tar.gz"
+           "https://github.com/ursa-labs/thirdparty/releases/download/latest/protobuf-${ARROW_PROTOBUF_BUILD_VERSION}.tar.gz"
   )
 endif()
 
 if(DEFINED ENV{ARROW_RE2_URL})
   set(RE2_SOURCE_URL "$ENV{ARROW_RE2_URL}")
 else()
-  set_urls(
-    RE2_SOURCE_URL
-    "https://github.com/google/re2/archive/${ARROW_RE2_BUILD_VERSION}.tar.gz"
-    "https://github.com/ursa-labs/thirdparty/releases/download/latest/re2-${ARROW_RE2_BUILD_VERSION}.tar.gz"
+  set_urls(RE2_SOURCE_URL
+           "https://github.com/google/re2/archive/${ARROW_RE2_BUILD_VERSION}.tar.gz"
+           "https://github.com/ursa-labs/thirdparty/releases/download/latest/re2-${ARROW_RE2_BUILD_VERSION}.tar.gz"
   )
 endif()
 
 if(DEFINED ENV{ARROW_RAPIDJSON_URL})
   set(RAPIDJSON_SOURCE_URL "$ENV{ARROW_RAPIDJSON_URL}")
 else()
-  set_urls(
-    RAPIDJSON_SOURCE_URL
-    "https://github.com/miloyip/rapidjson/archive/${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz"
-    "https://github.com/ursa-labs/thirdparty/releases/download/latest/rapidjson-${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz"
+  set_urls(RAPIDJSON_SOURCE_URL
+           "https://github.com/miloyip/rapidjson/archive/${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz"
+           "https://github.com/ursa-labs/thirdparty/releases/download/latest/rapidjson-${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz"
   )
 endif()
 
 if(DEFINED ENV{ARROW_SNAPPY_URL})
   set(SNAPPY_SOURCE_URL "$ENV{ARROW_SNAPPY_URL}")
 else()
-  set_urls(
-    SNAPPY_SOURCE_URL
-    "https://github.com/google/snappy/archive/${ARROW_SNAPPY_BUILD_VERSION}.tar.gz"
-    "https://github.com/ursa-labs/thirdparty/releases/download/latest/snappy-${ARROW_SNAPPY_BUILD_VERSION}.tar.gz"
+  set_urls(SNAPPY_SOURCE_URL
+           "https://github.com/google/snappy/archive/${ARROW_SNAPPY_BUILD_VERSION}.tar.gz"
+           "https://github.com/ursa-labs/thirdparty/releases/download/latest/snappy-${ARROW_SNAPPY_BUILD_VERSION}.tar.gz"
   )
 endif()
 
 if(DEFINED ENV{ARROW_THRIFT_URL})
   set(THRIFT_SOURCE_URL "$ENV{ARROW_THRIFT_URL}")
 else()
-  set_urls(
-    THRIFT_SOURCE_URL
-    "http://www.apache.org/dyn/closer.cgi?action=download&filename=/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-    "https://downloads.apache.org/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-    "https://github.com/apache/thrift/archive/v${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-    "https://apache.claz.org/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-    "https://apache.cs.utah.edu/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-    "https://apache.mirrors.lucidnetworks.net/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-    "https://apache.osuosl.org/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-    "https://ftp.wayne.edu/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-    "https://mirror.olnevhost.net/pub/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-    "https://mirrors.gigenet.com/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-    "https://mirrors.koehn.com/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-    "https://mirrors.ocf.berkeley.edu/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-    "https://mirrors.sonic.net/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-    "https://us.mirrors.quenda.co/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-    "https://github.com/ursa-labs/thirdparty/releases/download/latest/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+  set_urls(THRIFT_SOURCE_URL
+           "http://www.apache.org/dyn/closer.cgi?action=download&filename=/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+           "https://downloads.apache.org/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+           "https://github.com/apache/thrift/archive/v${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+           "https://apache.claz.org/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+           "https://apache.cs.utah.edu/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+           "https://apache.mirrors.lucidnetworks.net/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+           "https://apache.osuosl.org/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+           "https://ftp.wayne.edu/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+           "https://mirror.olnevhost.net/pub/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+           "https://mirrors.gigenet.com/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+           "https://mirrors.koehn.com/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+           "https://mirrors.ocf.berkeley.edu/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+           "https://mirrors.sonic.net/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+           "https://us.mirrors.quenda.co/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+           "https://github.com/ursa-labs/thirdparty/releases/download/latest/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
   )
 endif()
 
 if(DEFINED ENV{ARROW_UTF8PROC_URL})
   set(ARROW_UTF8PROC_SOURCE_URL "$ENV{ARROW_UTF8PROC_URL}")
 else()
-  set_urls(
-    ARROW_UTF8PROC_SOURCE_URL
-    "https://github.com/JuliaStrings/utf8proc/archive/${ARROW_UTF8PROC_BUILD_VERSION}.tar.gz"
+  set_urls(ARROW_UTF8PROC_SOURCE_URL
+           "https://github.com/JuliaStrings/utf8proc/archive/${ARROW_UTF8PROC_BUILD_VERSION}.tar.gz"
   )
 endif()
 
 if(DEFINED ENV{ARROW_XSIMD_URL})
   set(XSIMD_SOURCE_URL "$ENV{ARROW_XSIMD_URL}")
 else()
-  set_urls(
-    XSIMD_SOURCE_URL
-    "https://github.com/xtensor-stack/xsimd/archive/${ARROW_XSIMD_BUILD_VERSION}.tar.gz")
+  set_urls(XSIMD_SOURCE_URL
+           "https://github.com/xtensor-stack/xsimd/archive/${ARROW_XSIMD_BUILD_VERSION}.tar.gz"
+  )
 endif()
 
 if(DEFINED ENV{ARROW_ZLIB_URL})
   set(ZLIB_SOURCE_URL "$ENV{ARROW_ZLIB_URL}")
 else()
-  set_urls(
-    ZLIB_SOURCE_URL
-    "https://zlib.net/fossils/zlib-${ARROW_ZLIB_BUILD_VERSION}.tar.gz"
-    "https://github.com/ursa-labs/thirdparty/releases/download/latest/zlib-${ARROW_ZLIB_BUILD_VERSION}.tar.gz"
+  set_urls(ZLIB_SOURCE_URL
+           "https://zlib.net/fossils/zlib-${ARROW_ZLIB_BUILD_VERSION}.tar.gz"
+           "https://github.com/ursa-labs/thirdparty/releases/download/latest/zlib-${ARROW_ZLIB_BUILD_VERSION}.tar.gz"
   )
 endif()
 
 if(DEFINED ENV{ARROW_ZSTD_URL})
   set(ZSTD_SOURCE_URL "$ENV{ARROW_ZSTD_URL}")
 else()
-  set_urls(
-    ZSTD_SOURCE_URL
-    "https://github.com/facebook/zstd/archive/${ARROW_ZSTD_BUILD_VERSION}.tar.gz"
-    "https://github.com/ursa-labs/thirdparty/releases/download/latest/zstd-${ARROW_ZSTD_BUILD_VERSION}.tar.gz"
+  set_urls(ZSTD_SOURCE_URL
+           "https://github.com/facebook/zstd/archive/${ARROW_ZSTD_BUILD_VERSION}.tar.gz"
+           "https://github.com/ursa-labs/thirdparty/releases/download/latest/zstd-${ARROW_ZSTD_BUILD_VERSION}.tar.gz"
   )
 endif()
 
@@ -752,11 +728,10 @@ macro(build_boost)
     endif()
 
     if(MSVC)
-      string(
-        REGEX
-        REPLACE "^([0-9]+)\\.([0-9]+)\\.[0-9]+$" "\\1_\\2"
-                ARROW_BOOST_BUILD_VERSION_NO_MICRO_UNDERSCORE
-                ${ARROW_BOOST_BUILD_VERSION})
+      string(REGEX
+             REPLACE "^([0-9]+)\\.([0-9]+)\\.[0-9]+$" "\\1_\\2"
+                     ARROW_BOOST_BUILD_VERSION_NO_MICRO_UNDERSCORE
+                     ${ARROW_BOOST_BUILD_VERSION})
       set(BOOST_LIBRARY_SUFFIX "-vc${MSVC_TOOLSET_VERSION}-mt")
       if(BOOST_BUILD_VARIANT STREQUAL "debug")
         set(BOOST_LIBRARY_SUFFIX "${BOOST_LIBRARY_SUFFIX}-gd")
@@ -887,10 +862,9 @@ if(ARROW_BUILD_INTEGRATION
    OR (ARROW_S3 AND ARROW_BUILD_BENCHMARKS))
   set(ARROW_BOOST_REQUIRED TRUE)
   set(ARROW_BOOST_REQUIRE_LIBRARY TRUE)
-elseif(
-  ARROW_GANDIVA
-  OR (ARROW_WITH_THRIFT AND THRIFT_REQUIRES_BOOST)
-  OR (NOT ARROW_USE_NATIVE_INT128))
+elseif(ARROW_GANDIVA
+       OR (ARROW_WITH_THRIFT AND THRIFT_REQUIRES_BOOST)
+       OR (NOT ARROW_USE_NATIVE_INT128))
   set(ARROW_BOOST_REQUIRED TRUE)
   set(ARROW_BOOST_REQUIRE_LIBRARY FALSE)
 else()
@@ -992,12 +966,11 @@ macro(build_brotli)
   externalproject_add(
     brotli_ep
     URL ${BROTLI_SOURCE_URL}
-    BUILD_BYPRODUCTS
-      "${BROTLI_STATIC_LIBRARY_ENC}"
-      "${BROTLI_STATIC_LIBRARY_DEC}"
-      "${BROTLI_STATIC_LIBRARY_COMMON}"
-      ${BROTLI_BUILD_BYPRODUCTS}
-      ${EP_LOG_OPTIONS}
+    BUILD_BYPRODUCTS "${BROTLI_STATIC_LIBRARY_ENC}"
+                     "${BROTLI_STATIC_LIBRARY_DEC}"
+                     "${BROTLI_STATIC_LIBRARY_COMMON}"
+                     ${BROTLI_BUILD_BYPRODUCTS}
+                     ${EP_LOG_OPTIONS}
     CMAKE_ARGS ${BROTLI_CMAKE_ARGS}
     STEP_TARGETS headers_copy)
 
@@ -1022,12 +995,11 @@ macro(build_brotli)
                                  INTERFACE_INCLUDE_DIRECTORIES "${BROTLI_INCLUDE_DIR}")
   add_dependencies(Brotli::brotlidec brotli_ep)
 
-  list(
-    APPEND
-    ARROW_BUNDLED_STATIC_LIBS
-    Brotli::brotlicommon
-    Brotli::brotlienc
-    Brotli::brotlidec)
+  list(APPEND
+       ARROW_BUNDLED_STATIC_LIBS
+       Brotli::brotlicommon
+       Brotli::brotlienc
+       Brotli::brotlidec)
 endmacro()
 
 if(ARROW_WITH_BROTLI)
@@ -1043,17 +1015,15 @@ if(PARQUET_REQUIRE_ENCRYPTION AND NOT ARROW_PARQUET)
 endif()
 set(ARROW_OPENSSL_REQUIRED_VERSION "1.0.2")
 if(BREW_BIN AND NOT OPENSSL_ROOT_DIR)
-  execute_process(
-    COMMAND ${BREW_BIN} --prefix "openssl@1.1"
-    OUTPUT_VARIABLE OPENSSL11_BREW_PREFIX
-    OUTPUT_STRIP_TRAILING_WHITESPACE)
+  execute_process(COMMAND ${BREW_BIN} --prefix "openssl@1.1"
+                  OUTPUT_VARIABLE OPENSSL11_BREW_PREFIX
+                  OUTPUT_STRIP_TRAILING_WHITESPACE)
   if(OPENSSL11_BREW_PREFIX)
     set(OPENSSL_ROOT_DIR ${OPENSSL11_BREW_PREFIX})
   else()
-    execute_process(
-      COMMAND ${BREW_BIN} --prefix "openssl"
-      OUTPUT_VARIABLE OPENSSL_BREW_PREFIX
-      OUTPUT_STRIP_TRAILING_WHITESPACE)
+    execute_process(COMMAND ${BREW_BIN} --prefix "openssl"
+                    OUTPUT_VARIABLE OPENSSL_BREW_PREFIX
+                    OUTPUT_STRIP_TRAILING_WHITESPACE)
     if(OPENSSL_BREW_PREFIX)
       set(OPENSSL_ROOT_DIR ${OPENSSL_BREW_PREFIX})
     endif()
@@ -1093,9 +1063,7 @@ if(ARROW_USE_OPENSSL)
 
   include_directories(SYSTEM ${OPENSSL_INCLUDE_DIR})
 else()
-  message(
-    STATUS
-      "Building without OpenSSL support. Minimum OpenSSL version ${ARROW_OPENSSL_REQUIRED_VERSION} required."
+  message(STATUS "Building without OpenSSL support. Minimum OpenSSL version ${ARROW_OPENSSL_REQUIRED_VERSION} required."
   )
 endif()
 
@@ -1253,8 +1221,8 @@ endif()
 
 macro(build_thrift)
   if(CMAKE_VERSION VERSION_LESS 3.10)
-    message(
-      FATAL_ERROR "Building thrift using ExternalProject requires at least CMake 3.10")
+    message(FATAL_ERROR "Building thrift using ExternalProject requires at least CMake 3.10"
+    )
   endif()
   message("Building Apache Thrift from source")
   set(THRIFT_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/thrift_ep-install")
@@ -1519,21 +1487,20 @@ if(ARROW_JEMALLOC)
   if(CMAKE_OSX_SYSROOT)
     list(APPEND JEMALLOC_CONFIGURE_COMMAND "SDKROOT=${CMAKE_OSX_SYSROOT}")
   endif()
-  list(
-    APPEND
-    JEMALLOC_CONFIGURE_COMMAND
-    "--prefix=${JEMALLOC_PREFIX}"
-    "--libdir=${JEMALLOC_LIB_DIR}"
-    "--with-jemalloc-prefix=je_arrow_"
-    "--with-private-namespace=je_arrow_private_"
-    "--without-export"
-    "--disable-shared"
-    # Don't override operator new()
-    "--disable-cxx"
-    "--disable-libdl"
-    # See https://github.com/jemalloc/jemalloc/issues/1237
-    "--disable-initial-exec-tls"
-    ${EP_LOG_OPTIONS})
+  list(APPEND
+       JEMALLOC_CONFIGURE_COMMAND
+       "--prefix=${JEMALLOC_PREFIX}"
+       "--libdir=${JEMALLOC_LIB_DIR}"
+       "--with-jemalloc-prefix=je_arrow_"
+       "--with-private-namespace=je_arrow_private_"
+       "--without-export"
+       "--disable-shared"
+       # Don't override operator new()
+       "--disable-cxx"
+       "--disable-libdl"
+       # See https://github.com/jemalloc/jemalloc/issues/1237
+       "--disable-initial-exec-tls"
+       ${EP_LOG_OPTIONS})
   set(JEMALLOC_BUILD_COMMAND ${MAKE} ${MAKE_BUILD_ARGS})
   if(CMAKE_OSX_SYSROOT)
     list(APPEND JEMALLOC_BUILD_COMMAND "SDKROOT=${CMAKE_OSX_SYSROOT}")
@@ -1541,9 +1508,8 @@ if(ARROW_JEMALLOC)
   externalproject_add(
     jemalloc_ep
     URL ${JEMALLOC_SOURCE_URL}
-    PATCH_COMMAND
-      touch doc/jemalloc.3 doc/jemalloc.html
-      # The prefix "je_arrow_" must be kept in sync with the value in memory_pool.cc
+    PATCH_COMMAND touch doc/jemalloc.3 doc/jemalloc.html
+                  # The prefix "je_arrow_" must be kept in sync with the value in memory_pool.cc
     CONFIGURE_COMMAND ${JEMALLOC_CONFIGURE_COMMAND}
     BUILD_IN_SOURCE 1
     BUILD_COMMAND ${JEMALLOC_BUILD_COMMAND}
@@ -1711,9 +1677,8 @@ macro(build_gtest)
         "${_GTEST_RUNTIME_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest_main${_GTEST_RUNTIME_SUFFIX}"
     )
     if(CMAKE_VERSION VERSION_LESS 3.9)
-      message(
-        FATAL_ERROR
-          "Building GoogleTest from source on Windows requires at least CMake 3.9")
+      message(FATAL_ERROR "Building GoogleTest from source on Windows requires at least CMake 3.9"
+      )
     endif()
     get_property(_GENERATOR_IS_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
     if(_GENERATOR_IS_MULTI_CONFIG)
@@ -2508,13 +2473,12 @@ macro(build_grpc)
     grpc_ep
     URL ${GRPC_SOURCE_URL}
     LIST_SEPARATOR |
-    BUILD_BYPRODUCTS
-      ${GRPC_STATIC_LIBRARY_GPR}
-      ${GRPC_STATIC_LIBRARY_GRPC}
-      ${GRPC_STATIC_LIBRARY_GRPCPP}
-      ${GRPC_STATIC_LIBRARY_ADDRESS_SORTING}
-      ${GRPC_STATIC_LIBRARY_UPB}
-      ${GRPC_CPP_PLUGIN}
+    BUILD_BYPRODUCTS ${GRPC_STATIC_LIBRARY_GPR}
+                     ${GRPC_STATIC_LIBRARY_GRPC}
+                     ${GRPC_STATIC_LIBRARY_GRPCPP}
+                     ${GRPC_STATIC_LIBRARY_ADDRESS_SORTING}
+                     ${GRPC_STATIC_LIBRARY_UPB}
+                     ${GRPC_CPP_PLUGIN}
     CMAKE_ARGS ${GRPC_CMAKE_ARGS} ${EP_LOG_OPTIONS}
     DEPENDS ${grpc_dependencies})
 
@@ -2593,15 +2557,14 @@ macro(build_grpc)
   add_custom_target(grpc_copy_grpc++ ALL DEPENDS "${GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR}")
   add_dependencies(gRPC::grpcpp_for_bundling grpc_copy_grpc++)
 
-  list(
-    APPEND
-    ARROW_BUNDLED_STATIC_LIBS
-    ${ABSL_LIBRARIES}
-    gRPC::address_sorting
-    gRPC::gpr
-    gRPC::grpc
-    gRPC::grpcpp_for_bundling
-    gRPC::upb)
+  list(APPEND
+       ARROW_BUNDLED_STATIC_LIBS
+       ${ABSL_LIBRARIES}
+       gRPC::address_sorting
+       gRPC::gpr
+       gRPC::grpc
+       gRPC::grpcpp_for_bundling
+       gRPC::upb)
 endmacro()
 
 if(ARROW_WITH_GRPC)
@@ -2844,12 +2807,11 @@ macro(build_awssdk)
     ${EP_LOG_OPTIONS}
     URL ${AWSSDK_SOURCE_URL}
     CMAKE_ARGS ${AWSSDK_CMAKE_ARGS}
-    BUILD_BYPRODUCTS
-      ${AWS_CPP_SDK_COGNITO_IDENTITY_STATIC_LIBRARY}
-      ${AWS_CPP_SDK_CORE_STATIC_LIBRARY}
-      ${AWS_CPP_SDK_IDENTITY_MANAGEMENT_STATIC_LIBRARY}
-      ${AWS_CPP_SDK_S3_STATIC_LIBRARY}
-      ${AWS_CPP_SDK_STS_STATIC_LIBRARY}
+    BUILD_BYPRODUCTS ${AWS_CPP_SDK_COGNITO_IDENTITY_STATIC_LIBRARY}
+                     ${AWS_CPP_SDK_CORE_STATIC_LIBRARY}
+                     ${AWS_CPP_SDK_IDENTITY_MANAGEMENT_STATIC_LIBRARY}
+                     ${AWS_CPP_SDK_S3_STATIC_LIBRARY}
+                     ${AWS_CPP_SDK_STS_STATIC_LIBRARY}
     DEPENDS aws_c_event_stream_ep)
   add_dependencies(toolchain awssdk_ep)
   foreach(_AWSSDK_LIB ${_AWSSDK_LIBS})
@@ -2871,19 +2833,16 @@ macro(build_awssdk)
         CURL::libcurl PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${CURL_INCLUDE_DIRS}"
                                  IMPORTED_LOCATION "${CURL_LIBRARIES}")
     endif()
-    set_property(
-      TARGET aws-cpp-sdk-core
-      APPEND
-      PROPERTY INTERFACE_LINK_LIBRARIES CURL::libcurl)
-    set_property(
-      TARGET CURL::libcurl
-      APPEND
-      PROPERTY INTERFACE_LINK_LIBRARIES OpenSSL::SSL)
+    set_property(TARGET aws-cpp-sdk-core
+                 APPEND
+                 PROPERTY INTERFACE_LINK_LIBRARIES CURL::libcurl)
+    set_property(TARGET CURL::libcurl
+                 APPEND
+                 PROPERTY INTERFACE_LINK_LIBRARIES OpenSSL::SSL)
     if(TARGET zlib_ep)
-      set_property(
-        TARGET aws-cpp-sdk-core
-        APPEND
-        PROPERTY INTERFACE_LINK_LIBRARIES ZLIB::ZLIB)
+      set_property(TARGET aws-cpp-sdk-core
+                   APPEND
+                   PROPERTY INTERFACE_LINK_LIBRARIES ZLIB::ZLIB)
       add_dependencies(awssdk_ep zlib_ep)
     endif()
   endif()
@@ -2907,26 +2866,24 @@ if(ARROW_S3)
 
   # Need to customize the find_package() call, so cannot call resolve_dependency()
   if(AWSSDK_SOURCE STREQUAL "AUTO")
-    find_package(
-      AWSSDK
-      COMPONENTS config
-                 s3
-                 transfer
-                 identity-management
-                 sts)
+    find_package(AWSSDK
+                 COMPONENTS config
+                            s3
+                            transfer
+                            identity-management
+                            sts)
     if(NOT AWSSDK_FOUND)
       build_awssdk()
     endif()
   elseif(AWSSDK_SOURCE STREQUAL "BUNDLED")
     build_awssdk()
   elseif(AWSSDK_SOURCE STREQUAL "SYSTEM")
-    find_package(
-      AWSSDK REQUIRED
-      COMPONENTS config
-                 s3
-                 transfer
-                 identity-management
-                 sts)
+    find_package(AWSSDK REQUIRED
+                 COMPONENTS config
+                            s3
+                            transfer
+                            identity-management
+                            sts)
   endif()
 
   # Restore previous value of BUILD_SHARED_LIBS

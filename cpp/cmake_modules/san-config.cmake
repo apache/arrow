@@ -94,8 +94,7 @@ endif()
 if(${ARROW_USE_COVERAGE})
   if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
                                                     "Clang")
-    add_definitions(
-      "-fsanitize-coverage=pc-table,inline-8bit-counters,edge,no-prune,trace-cmp,trace-div,trace-gep"
+    add_definitions("-fsanitize-coverage=pc-table,inline-8bit-counters,edge,no-prune,trace-cmp,trace-div,trace-gep"
     )
 
     set(CMAKE_CXX_FLAGS
@@ -117,9 +116,7 @@ if("${ARROW_USE_UBSAN}"
         "${CMAKE_CXX_FLAGS} -fsanitize-blacklist=${BUILD_SUPPORT_DIR}/sanitizer-disallowed-entries.txt"
     )
   else()
-    message(
-      WARNING
-        "GCC does not support specifying a sanitizer disallowed entries list. Known sanitizer check failures will not be suppressed."
+    message(WARNING "GCC does not support specifying a sanitizer disallowed entries list. Known sanitizer check failures will not be suppressed."
     )
   endif()
 endif()

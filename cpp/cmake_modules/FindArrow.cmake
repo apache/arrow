@@ -50,13 +50,12 @@ set(ARROW_SEARCH_LIB_PATH_SUFFIXES)
 if(CMAKE_LIBRARY_ARCHITECTURE)
   list(APPEND ARROW_SEARCH_LIB_PATH_SUFFIXES "lib/${CMAKE_LIBRARY_ARCHITECTURE}")
 endif()
-list(
-  APPEND
-  ARROW_SEARCH_LIB_PATH_SUFFIXES
-  "lib64"
-  "lib32"
-  "lib"
-  "bin")
+list(APPEND
+     ARROW_SEARCH_LIB_PATH_SUFFIXES
+     "lib64"
+     "lib32"
+     "lib"
+     "bin")
 set(ARROW_CONFIG_SUFFIXES
     "_RELEASE"
     "_RELWITHDEBINFO"
@@ -150,11 +149,10 @@ endfunction()
 #
 # Find package in HOME.
 macro(arrow_find_package_home)
-  find_path(
-    ${prefix}_include_dir "${header_path}"
-    PATHS "${home}"
-    PATH_SUFFIXES "include"
-    NO_DEFAULT_PATH)
+  find_path(${prefix}_include_dir "${header_path}"
+            PATHS "${home}"
+            PATH_SUFFIXES "include"
+            NO_DEFAULT_PATH)
   set(include_dir "${${prefix}_include_dir}")
   set(${prefix}_INCLUDE_DIR
       "${include_dir}"
@@ -166,12 +164,11 @@ macro(arrow_find_package_home)
     # CMAKE_FIND_LIBRARY_SUFFIXES.
     list(APPEND CMAKE_FIND_LIBRARY_SUFFIXES "${CMAKE_SHARED_LIBRARY_SUFFIX}")
   endif()
-  find_library(
-    ${prefix}_shared_lib
-    NAMES "${shared_lib_name}"
-    PATHS "${home}"
-    PATH_SUFFIXES ${ARROW_SEARCH_LIB_PATH_SUFFIXES}
-    NO_DEFAULT_PATH)
+  find_library(${prefix}_shared_lib
+               NAMES "${shared_lib_name}"
+               PATHS "${home}"
+               PATH_SUFFIXES ${ARROW_SEARCH_LIB_PATH_SUFFIXES}
+               NO_DEFAULT_PATH)
   if(MSVC_TOOLCHAIN)
     set(CMAKE_SHARED_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES_ORIGINAL})
   endif()
@@ -186,12 +183,11 @@ macro(arrow_find_package_home)
       set_target_properties(${target_shared} PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
                                                         "${include_dir}")
     endif()
-    find_library(
-      ${prefix}_import_lib
-      NAMES "${import_lib_name}"
-      PATHS "${home}"
-      PATH_SUFFIXES ${ARROW_SEARCH_LIB_PATH_SUFFIXES}
-      NO_DEFAULT_PATH)
+    find_library(${prefix}_import_lib
+                 NAMES "${import_lib_name}"
+                 PATHS "${home}"
+                 PATH_SUFFIXES ${ARROW_SEARCH_LIB_PATH_SUFFIXES}
+                 NO_DEFAULT_PATH)
     set(import_lib "${${prefix}_import_lib}")
     set(${prefix}_IMPORT_LIB
         "${import_lib}"
@@ -201,12 +197,11 @@ macro(arrow_find_package_home)
     endif()
   endif()
 
-  find_library(
-    ${prefix}_static_lib
-    NAMES "${static_lib_name}"
-    PATHS "${home}"
-    PATH_SUFFIXES ${ARROW_SEARCH_LIB_PATH_SUFFIXES}
-    NO_DEFAULT_PATH)
+  find_library(${prefix}_static_lib
+               NAMES "${static_lib_name}"
+               PATHS "${home}"
+               PATH_SUFFIXES ${ARROW_SEARCH_LIB_PATH_SUFFIXES}
+               NO_DEFAULT_PATH)
   set(static_lib "${${prefix}_static_lib}")
   set(${prefix}_STATIC_LIB
       "${static_lib}"
@@ -285,12 +280,11 @@ macro(arrow_find_package_pkg_config)
     if(n_shared_lib_paths LESS_EQUAL 1)
       set(rest_shared_lib_paths)
     else()
-      list(
-        SUBLIST
-        shared_lib_paths
-        1
-        -1
-        rest_shared_lib_paths)
+      list(SUBLIST
+           shared_lib_paths
+           1
+           -1
+           rest_shared_lib_paths)
     endif()
 
     set(${prefix}_VERSION
@@ -311,11 +305,10 @@ macro(arrow_find_package_pkg_config)
                  IMPORTED_LOCATION "${first_shared_lib_path}")
     get_target_property(shared_lib ${target_shared} IMPORTED_LOCATION)
 
-    find_library(
-      ${prefix}_static_lib
-      NAMES "${static_lib_name}"
-      PATHS "${lib_dir}"
-      NO_DEFAULT_PATH)
+    find_library(${prefix}_static_lib
+                 NAMES "${static_lib_name}"
+                 PATHS "${lib_dir}"
+                 NO_DEFAULT_PATH)
     set(static_lib "${${prefix}_static_lib}")
     set(${prefix}_STATIC_LIB
         "${static_lib}"
@@ -329,14 +322,13 @@ macro(arrow_find_package_pkg_config)
   endif()
 endmacro()
 
-function(
-  arrow_find_package
-  prefix
-  home
-  base_name
-  header_path
-  cmake_package_name
-  pkg_config_name)
+function(arrow_find_package
+         prefix
+         home
+         base_name
+         header_path
+         cmake_package_name
+         pkg_config_name)
   arrow_build_shared_library_name(shared_lib_name ${base_name})
   arrow_build_import_library_name(import_lib_name ${base_name})
   arrow_build_static_library_name(static_lib_name ${base_name})
@@ -460,11 +452,10 @@ mark_as_advanced(
 
 find_package_handle_standard_args(
   Arrow
-  REQUIRED_VARS
-    # The first required variable is shown
-    # in the found message. So this list is
-    # not sorted alphabetically.
-    ARROW_INCLUDE_DIR ARROW_LIB_DIR ARROW_FULL_SO_VERSION ARROW_SO_VERSION
+  REQUIRED_VARS # The first required variable is shown
+                # in the found message. So this list is
+                # not sorted alphabetically.
+                ARROW_INCLUDE_DIR ARROW_LIB_DIR ARROW_FULL_SO_VERSION ARROW_SO_VERSION
   VERSION_VAR ARROW_VERSION)
 set(ARROW_FOUND ${Arrow_FOUND})
 

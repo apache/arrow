@@ -37,13 +37,12 @@ function(ADD_ARROW_IPC_TEST REL_TEST_NAME)
     set(PREFIX "arrow-ipc")
   endif()
 
-  add_arrow_test(
-    ${REL_TEST_NAME}
-    EXTRA_LINK_LIBS
-    ${ARROW_DATASET_TEST_LINK_LIBS}
-    PREFIX
-    ${PREFIX}
-    ${ARG_UNPARSED_ARGUMENTS})
+  add_arrow_test(${REL_TEST_NAME}
+                 EXTRA_LINK_LIBS
+                 ${ARROW_DATASET_TEST_LINK_LIBS}
+                 PREFIX
+                 ${PREFIX}
+                 ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
 add_arrow_test(feather_test)

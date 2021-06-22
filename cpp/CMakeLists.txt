@@ -132,26 +132,23 @@ string(REGEX REPLACE "^([0-9]+)(\\..+)?" "\\1" ARROW_CLANG_TOOLS_VERSION_MAJOR
 if(APPLE)
   find_program(BREW_BIN brew)
   if(BREW_BIN)
-    execute_process(
-      COMMAND ${BREW_BIN} --prefix "llvm@${ARROW_LLVM_VERSION_PRIMARY_MAJOR}"
-      OUTPUT_VARIABLE LLVM_BREW_PREFIX
-      OUTPUT_STRIP_TRAILING_WHITESPACE)
+    execute_process(COMMAND ${BREW_BIN} --prefix
+                            "llvm@${ARROW_LLVM_VERSION_PRIMARY_MAJOR}"
+                    OUTPUT_VARIABLE LLVM_BREW_PREFIX
+                    OUTPUT_STRIP_TRAILING_WHITESPACE)
     if(NOT LLVM_BREW_PREFIX)
-      execute_process(
-        COMMAND ${BREW_BIN} --prefix llvm
-        OUTPUT_VARIABLE LLVM_BREW_PREFIX
-        OUTPUT_STRIP_TRAILING_WHITESPACE)
+      execute_process(COMMAND ${BREW_BIN} --prefix llvm
+                      OUTPUT_VARIABLE LLVM_BREW_PREFIX
+                      OUTPUT_STRIP_TRAILING_WHITESPACE)
     endif()
 
-    execute_process(
-      COMMAND ${BREW_BIN} --prefix "llvm@${ARROW_CLANG_TOOLS_VERSION_MAJOR}"
-      OUTPUT_VARIABLE CLANG_TOOLS_BREW_PREFIX
-      OUTPUT_STRIP_TRAILING_WHITESPACE)
+    execute_process(COMMAND ${BREW_BIN} --prefix "llvm@${ARROW_CLANG_TOOLS_VERSION_MAJOR}"
+                    OUTPUT_VARIABLE CLANG_TOOLS_BREW_PREFIX
+                    OUTPUT_STRIP_TRAILING_WHITESPACE)
     if(NOT CLANG_TOOLS_BREW_PREFIX)
-      execute_process(
-        COMMAND ${BREW_BIN} --prefix llvm
-        OUTPUT_VARIABLE CLANG_TOOLS_BREW_PREFIX
-        OUTPUT_STRIP_TRAILING_WHITESPACE)
+      execute_process(COMMAND ${BREW_BIN} --prefix llvm
+                      OUTPUT_VARIABLE CLANG_TOOLS_BREW_PREFIX
+                      OUTPUT_STRIP_TRAILING_WHITESPACE)
     endif()
   endif()
 endif()
@@ -230,10 +227,9 @@ if(NOT LINT_EXCLUSIONS_FILE)
   set(LINT_EXCLUSIONS_FILE ${BUILD_SUPPORT_DIR}/lint_exclusions.txt)
 endif()
 
-find_program(
-  CPPLINT_BIN
-  NAMES cpplint cpplint.py
-  HINTS ${BUILD_SUPPORT_DIR})
+find_program(CPPLINT_BIN
+             NAMES cpplint cpplint.py
+             HINTS ${BUILD_SUPPORT_DIR})
 message(STATUS "Found cpplint executable at ${CPPLINT_BIN}")
 
 add_custom_target(

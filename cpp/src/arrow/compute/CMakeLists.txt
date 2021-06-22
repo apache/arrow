@@ -49,15 +49,14 @@ function(ADD_ARROW_COMPUTE_TEST REL_TEST_NAME)
     set(LABELS "arrow_compute")
   endif()
 
-  add_arrow_test(
-    ${REL_TEST_NAME}
-    EXTRA_LINK_LIBS
-    ${ARROW_DATASET_TEST_LINK_LIBS}
-    PREFIX
-    ${PREFIX}
-    LABELS
-    ${LABELS}
-    ${ARG_UNPARSED_ARGUMENTS})
+  add_arrow_test(${REL_TEST_NAME}
+                 EXTRA_LINK_LIBS
+                 ${ARROW_DATASET_TEST_LINK_LIBS}
+                 PREFIX
+                 ${PREFIX}
+                 LABELS
+                 ${LABELS}
+                 ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
 add_arrow_compute_test(

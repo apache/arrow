@@ -47,12 +47,11 @@ endif()
 set(ORC_STATIC_TEST_LINK_LIBS orc::liborc ${ARROW_LIBRARIES_FOR_STATIC_TESTS}
                               ${ORC_MIN_TEST_LIBS})
 
-add_arrow_test(
-  adapter_test
-  PREFIX
-  "arrow-orc"
-  STATIC_LINK_LIBS
-  ${ORC_STATIC_TEST_LINK_LIBS})
+add_arrow_test(adapter_test
+               PREFIX
+               "arrow-orc"
+               STATIC_LINK_LIBS
+               ${ORC_STATIC_TEST_LINK_LIBS})
 
 set_source_files_properties(adapter_test.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                                        SKIP_UNITY_BUILD_INCLUSION ON)

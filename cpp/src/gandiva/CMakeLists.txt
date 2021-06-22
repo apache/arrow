@@ -121,33 +121,32 @@ if(NOT APPLE AND NOT MSVC_TOOLCHAIN)
       "${GANDIVA_SHARED_LINK_FLAGS} ${GANDIVA_VERSION_SCRIPT_FLAGS}")
 endif()
 
-add_arrow_lib(
-  gandiva
-  CMAKE_PACKAGE_NAME
-  Gandiva
-  PKG_CONFIG_NAME
-  gandiva
-  SOURCES
-  ${SRC_FILES}
-  PRECOMPILED_HEADERS
-  "$<$<COMPILE_LANGUAGE:CXX>:gandiva/pch.h>"
-  OUTPUTS
-  GANDIVA_LIBRARIES
-  DEPENDENCIES
-  arrow_dependencies
-  precompiled
-  EXTRA_INCLUDES
-  $<TARGET_PROPERTY:LLVM::LLVM_INTERFACE,INTERFACE_INCLUDE_DIRECTORIES>
-  ${GANDIVA_OPENSSL_INCLUDE_DIR}
-  ${UTF8PROC_INCLUDE_DIR}
-  SHARED_LINK_FLAGS
-  ${GANDIVA_SHARED_LINK_FLAGS}
-  SHARED_LINK_LIBS
-  arrow_shared
-  SHARED_PRIVATE_LINK_LIBS
-  ${GANDIVA_SHARED_PRIVATE_LINK_LIBS}
-  STATIC_LINK_LIBS
-  ${GANDIVA_STATIC_LINK_LIBS})
+add_arrow_lib(gandiva
+              CMAKE_PACKAGE_NAME
+              Gandiva
+              PKG_CONFIG_NAME
+              gandiva
+              SOURCES
+              ${SRC_FILES}
+              PRECOMPILED_HEADERS
+              "$<$<COMPILE_LANGUAGE:CXX>:gandiva/pch.h>"
+              OUTPUTS
+              GANDIVA_LIBRARIES
+              DEPENDENCIES
+              arrow_dependencies
+              precompiled
+              EXTRA_INCLUDES
+              $<TARGET_PROPERTY:LLVM::LLVM_INTERFACE,INTERFACE_INCLUDE_DIRECTORIES>
+              ${GANDIVA_OPENSSL_INCLUDE_DIR}
+              ${UTF8PROC_INCLUDE_DIR}
+              SHARED_LINK_FLAGS
+              ${GANDIVA_SHARED_LINK_FLAGS}
+              SHARED_LINK_LIBS
+              arrow_shared
+              SHARED_PRIVATE_LINK_LIBS
+              ${GANDIVA_SHARED_PRIVATE_LINK_LIBS}
+              STATIC_LINK_LIBS
+              ${GANDIVA_STATIC_LINK_LIBS})
 
 foreach(LIB_TARGET ${GANDIVA_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE GANDIVA_EXPORTING)
@@ -192,19 +191,17 @@ function(ADD_GANDIVA_TEST REL_TEST_NAME)
   # and uses less disk space, but in some cases we need to force static
   # linking (see rationale below).
   if(ARG_USE_STATIC_LINKING OR ARROW_TEST_LINKAGE STREQUAL "static")
-    add_test_case(
-      ${REL_TEST_NAME}
-      ${TEST_ARGUMENTS}
-      STATIC_LINK_LIBS
-      ${GANDIVA_STATIC_TEST_LINK_LIBS}
-      ${ARG_UNPARSED_ARGUMENTS})
+    add_test_case(${REL_TEST_NAME}
+                  ${TEST_ARGUMENTS}
+                  STATIC_LINK_LIBS
+                  ${GANDIVA_STATIC_TEST_LINK_LIBS}
+                  ${ARG_UNPARSED_ARGUMENTS})
   else()
-    add_test_case(
-      ${REL_TEST_NAME}
-      ${TEST_ARGUMENTS}
-      STATIC_LINK_LIBS
-      ${GANDIVA_SHARED_TEST_LINK_LIBS}
-      ${ARG_UNPARSED_ARGUMENTS})
+    add_test_case(${REL_TEST_NAME}
+                  ${TEST_ARGUMENTS}
+                  STATIC_LINK_LIBS
+                  ${GANDIVA_SHARED_TEST_LINK_LIBS}
+                  ${ARG_UNPARSED_ARGUMENTS})
   endif()
 
   set(TEST_NAME gandiva-${REL_TEST_NAME})
@@ -214,12 +211,11 @@ endfunction()
 
 set(GANDIVA_INTERNALS_TEST_ARGUMENTS)
 if(WIN32)
-  list(
-    APPEND
-    GANDIVA_INTERNALS_TEST_ARGUMENTS
-    EXTRA_LINK_LIBS
-    LLVM::LLVM_INTERFACE
-    ${GANDIVA_OPENSSL_LIBS})
+  list(APPEND
+       GANDIVA_INTERNALS_TEST_ARGUMENTS
+       EXTRA_LINK_LIBS
+       LLVM::LLVM_INTERFACE
+       ${GANDIVA_OPENSSL_LIBS})
 endif()
 add_gandiva_test(
   internals-test

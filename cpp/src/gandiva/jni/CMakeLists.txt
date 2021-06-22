@@ -70,28 +70,27 @@ set(GANDIVA_JNI_SOURCES
 #   cpp/include during build
 # For building gandiva_jni library itself, include-dir (in addition to above) is :
 #   cpp/src
-add_arrow_lib(
-  gandiva_jni
-  SOURCES
-  ${GANDIVA_JNI_SOURCES}
-  OUTPUTS
-  GANDIVA_JNI_LIBRARIES
-  SHARED_PRIVATE_LINK_LIBS
-  ${GANDIVA_LINK_LIBS}
-  STATIC_LINK_LIBS
-  ${GANDIVA_LINK_LIBS}
-  DEPENDENCIES
-  ${GANDIVA_LINK_LIBS}
-  gandiva_java
-  gandiva_jni_headers
-  gandiva_jni_proto
-  EXTRA_INCLUDES
-  $<INSTALL_INTERFACE:include>
-  $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
-  $<BUILD_INTERFACE:${JNI_HEADERS_DIR}>
-  PRIVATE_INCLUDES
-  ${JNI_INCLUDE_DIRS}
-  ${CMAKE_CURRENT_BINARY_DIR})
+add_arrow_lib(gandiva_jni
+              SOURCES
+              ${GANDIVA_JNI_SOURCES}
+              OUTPUTS
+              GANDIVA_JNI_LIBRARIES
+              SHARED_PRIVATE_LINK_LIBS
+              ${GANDIVA_LINK_LIBS}
+              STATIC_LINK_LIBS
+              ${GANDIVA_LINK_LIBS}
+              DEPENDENCIES
+              ${GANDIVA_LINK_LIBS}
+              gandiva_java
+              gandiva_jni_headers
+              gandiva_jni_proto
+              EXTRA_INCLUDES
+              $<INSTALL_INTERFACE:include>
+              $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
+              $<BUILD_INTERFACE:${JNI_HEADERS_DIR}>
+              PRIVATE_INCLUDES
+              ${JNI_INCLUDE_DIRS}
+              ${CMAKE_CURRENT_BINARY_DIR})
 
 add_dependencies(gandiva ${GANDIVA_JNI_LIBRARIES})
 
