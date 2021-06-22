@@ -17,10 +17,17 @@
 
 package org.apache.arrow.driver.jdbc.test;
 
+import static org.apache.arrow.driver.jdbc.utils.BaseProperty.HOST;
+import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PASSWORD;
+import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PORT;
+import static org.apache.arrow.driver.jdbc.utils.BaseProperty.USERNAME;
+
 import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -33,6 +40,7 @@ import java.util.Properties;
 import java.util.Random;
 import java.util.function.Function;
 
+import org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver;
 import org.apache.arrow.driver.jdbc.utils.BaseProperty;
 import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.ActionType;
