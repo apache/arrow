@@ -32,6 +32,11 @@ from .rat import Rat, exclusion_from_globs
 from .tmpdir import tmpdir
 
 
+_archery_install_msg = (
+    "Please install archery using: `pip install -e dev/archery[lint]`. "
+)
+
+
 class LintValidationException(Exception):
     pass
 
@@ -116,13 +121,13 @@ class CMakeFormat(Command):
             import cmakelang
         except ImportError:
             raise ImportError(
-                "Please install archery using: `pip install dev/archery[lint]`"
+
             )
         # pin a specific version of cmake_format, must be updated in setup.py
         if cmakelang.__version__ != "0.6.13":
             raise LintValidationException(
-                "Wrong version of cmake_format is detected. "
-                "Please reinstall it using `pip install dev/archery[lint]`"
+                f"Wrong version of cmake_format is detected. "
+                f"{_archery_install_msg}"
             )
 
     def check(self):
@@ -174,7 +179,7 @@ def python_linter(src, fix=False):
     if not autopep8.available:
         logger.error(
             "Python formatter requested but autopep8 binary not found. "
-            "Please reinstall archery with `pip install dev/archery[lint]`")
+            f"{_archery_install_msg}")
         return
 
     # Gather files for autopep8
@@ -213,7 +218,7 @@ def python_linter(src, fix=False):
     if not flake8.available:
         logger.error(
             "Python linter requested but flake8 binary not found. "
-            "Please reinstall archery with `pip install dev/archery[lint]`")
+            f"{_archery_install_msg}")
         return
 
     flake8_exclude = ['.venv*']
