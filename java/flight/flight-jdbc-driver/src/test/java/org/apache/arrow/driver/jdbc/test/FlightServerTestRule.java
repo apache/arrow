@@ -204,6 +204,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
 
           final BigIntVector id = new BigIntVector("ID", allocator);
           final LargeVarCharVector name = new LargeVarCharVector("Name", allocator);
+          final BigIntVector age = new BigIntVector("Age", allocator);
           final Float8Vector salary = new Float8Vector("Salary", allocator);
           final DateDayVector hireDate = new DateDayVector("Hire Date", allocator);
           final TimeStampMilliVector lastSale = new TimeStampMilliVector("Last Sale", allocator);
@@ -212,15 +213,16 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
           range.forEach(row -> {
             id.setSafe(row, random.nextLong());
             name.setSafe(row, new Text("Test Name #" + row));
+            age.setSafe(row, random.nextInt(Integer.MAX_VALUE));
             salary.setSafe(row, random.nextDouble());
             hireDate.setSafe(row, random.nextInt(Integer.MAX_VALUE));
             lastSale.setSafe(row, Instant.now().toEpochMilli());
           });
 
-          List<FieldVector> vectors = ImmutableList.of(id, name, salary, hireDate, lastSale);
+          List<FieldVector> vectors = ImmutableList.of(id, name, age, salary, hireDate, lastSale);
 
           try (final VectorSchemaRoot root = new VectorSchemaRoot(vectors)) {
-            root.setRowCount(10);
+            root.setRowCount(rows);
             listener.start(root);
             listener.putNext();
             listener.putNext();

@@ -21,7 +21,7 @@ import static org.apache.arrow.driver.jdbc.utils.BaseProperty.HOST;
 import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PASSWORD;
 import static org.apache.arrow.driver.jdbc.utils.BaseProperty.PORT;
 import static org.apache.arrow.driver.jdbc.utils.BaseProperty.USERNAME;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import java.sql.Connection;
@@ -36,7 +36,9 @@ import org.apache.arrow.driver.jdbc.utils.BaseProperty;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.ErrorCollector;
 
 import me.alexpanov.net.FreePortFinder;
 
@@ -45,6 +47,9 @@ public class ResultSetTest {
 
   @ClassRule
   public static FlightServerTestRule rule;
+
+  @Rule
+  public final ErrorCollector collector = new ErrorCollector();
 
   private static Connection connection;
 
@@ -76,11 +81,17 @@ public class ResultSetTest {
    */
   @Test
   public void testShouldRunSelectQuery() throws Exception {
-    Statement statement = connection.createStatement();
-    ResultSet resultSet = statement.executeQuery("SELECT * FROM TEST");
+    try (Statement statement = connection.createStatement();
+        ResultSet resultSet = statement.executeQuery("SELECT * FROM TEST")) {
+      int count = 0;
+      int columns = 6;
+      for (; resultSet.next(); count++) {
+        for (int column = 1; column <= columns; column++) {
+          resultSet.getObject(column);
+        }
+      }
 
-    while (resultSet.next()) {
-      assertNotNull(resultSet.getObject(1));
+      assertEquals(count, Byte.MAX_VALUE);
     }
   }
 
