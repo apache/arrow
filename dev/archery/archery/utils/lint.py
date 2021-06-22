@@ -92,7 +92,6 @@ def cpp_linter(src, build_dir, clang_format=True, cpplint=True,
 
 class CMakeFormat(Command):
 
-    # TODO(kszucs): check cmake_format version
     def __init__(self, paths, cmake_format_bin=None):
         self.check_version()
         self.bin = default_bin(cmake_format_bin, "cmake-format")
@@ -149,6 +148,7 @@ def cmake_linter(src, fix=False):
             'go/**/CMakeLists.txt',
             'java/**/CMakeLists.txt',
             'matlab/**/CMakeLists.txt',
+            'python/CMakeLists.txt',
         ],
         exclude_patterns=[
             'cpp/cmake_modules/FindNumPy.cmake',
@@ -174,7 +174,7 @@ def python_linter(src, fix=False):
     if not autopep8.available:
         logger.error(
             "Python formatter requested but autopep8 binary not found. "
-            "Please run `pip install -r dev/archery/requirements-lint.txt`")
+            "Please reinstall archery with `pip install dev/archery[lint]`")
         return
 
     # Gather files for autopep8
@@ -213,7 +213,7 @@ def python_linter(src, fix=False):
     if not flake8.available:
         logger.error(
             "Python linter requested but flake8 binary not found. "
-            "Please run `pip install -r dev/archery/requirements-lint.txt`")
+            "Please reinstall archery with `pip install dev/archery[lint]`")
         return
 
     flake8_exclude = ['.venv*']
