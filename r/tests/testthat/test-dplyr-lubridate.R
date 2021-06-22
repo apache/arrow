@@ -23,7 +23,7 @@ test_df <- tibble::tibble(date = test_date)
 
 test_that("timezone aware timestamps are not supported",{
   
-  tz_aware_date <- ymd_hms("2017-01-01")
+  tz_aware_date <- as.POSIXct("2017-01-01 00:00:12.3456789", tz = "BST")
   tz_aware_df <- tibble::tibble(date = tz_aware_date)
   
   x <- Expression$field_ref("x")
