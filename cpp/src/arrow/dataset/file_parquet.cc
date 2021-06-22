@@ -260,6 +260,26 @@ Status WrapSourceError(const Status& status, const std::string& path) {
                             "': ", status.message());
 }
 
+Result<bool> IsSupportedParquetFile(const ParquetFileFormat& format,
+                                    const FileSource& source) {
+  BEGIN_PARQUET_CATCH_EXCEPTIONS
+  try {
+    ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
+    ARROW_ASSIGN_OR_RAISE(
+        auto parquet_scan_options,
+        GetFragmentScanOptions<ParquetFragmentScanOptions>(
+            kParquetTypeName, nullptr, format.default_fragment_scan_options));
+    auto reader = parquet::ParquetFileReader::Open(
+        std::move(input), MakeReaderProperties(format, parquet_scan_options.get()));
+    std::shared_ptr<parquet::FileMetaData> metadata = reader->metadata();
+    return metadata != nullptr && metadata->can_decompress();
+  } catch (const ::parquet::ParquetInvalidOrCorruptedFileException& e) {
+    ARROW_UNUSED(e);
+    return false;
+  }
+  END_PARQUET_CATCH_EXCEPTIONS
+}
+
 }  // namespace
 
 bool ParquetFileFormat::Equals(const FileFormat& other) const {
@@ -279,25 +299,7 @@ ParquetFileFormat::ParquetFileFormat(const parquet::ReaderProperties& reader_pro
 }
 
 Result<bool> ParquetFileFormat::IsSupported(const FileSource& source) const {
-  auto maybe_is_supported = [&]() -> Result<bool> {
-    BEGIN_PARQUET_CATCH_EXCEPTIONS
-    try {
-      ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
-      ARROW_ASSIGN_OR_RAISE(
-          auto parquet_scan_options,
-          GetFragmentScanOptions<ParquetFragmentScanOptions>(
-              kParquetTypeName, nullptr, default_fragment_scan_options));
-      auto reader = parquet::ParquetFileReader::Open(
-          std::move(input), MakeReaderProperties(*this, parquet_scan_options.get()));
-      std::shared_ptr<parquet::FileMetaData> metadata = reader->metadata();
-      return metadata != nullptr && metadata->can_decompress();
-    } catch (const ::parquet::ParquetInvalidOrCorruptedFileException& e) {
-      ARROW_UNUSED(e);
-      return false;
-    }
-    END_PARQUET_CATCH_EXCEPTIONS
-  }();
-
+  auto maybe_is_supported = IsSupportedParquetFile(*this, source);
   if (!maybe_is_supported.ok()) {
     return WrapSourceError(maybe_is_supported.status(), source.path());
   }
@@ -322,12 +324,13 @@ Result<std::unique_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
 
   ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
 
-  auto maybe_reader = [&]() -> Result<std::unique_ptr<parquet::ParquetFileReader>> {
+  auto make_reader = [&]() -> Result<std::unique_ptr<parquet::ParquetFileReader>> {
     BEGIN_PARQUET_CATCH_EXCEPTIONS
     return parquet::ParquetFileReader::Open(std::move(input), std::move(properties));
     END_PARQUET_CATCH_EXCEPTIONS
-  }();
+  };
 
+  auto maybe_reader = std::move(make_reader)();
   if (!maybe_reader.ok()) {
     return WrapSourceError(maybe_reader.status(), source.path());
   }
