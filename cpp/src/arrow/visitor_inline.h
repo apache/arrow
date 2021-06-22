@@ -23,7 +23,6 @@
 
 #include "arrow/array.h"
 #include "arrow/extension_type.h"
-#include "arrow/extensions/complex_type.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -50,7 +49,6 @@ namespace arrow {
   ACTION(HalfFloat);                                 \
   ACTION(Float);                                     \
   ACTION(Double)
-
 
 #define ARROW_GENERATE_FOR_ALL_TYPES(ACTION)    \
   ACTION(Null);                                 \
