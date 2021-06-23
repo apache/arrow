@@ -44,9 +44,9 @@ endif()
 if(ORC_STATIC_LIB AND ORC_INCLUDE_DIR)
   set(ORC_FOUND TRUE)
   add_library(orc::liborc STATIC IMPORTED)
-  set_target_properties(
-    orc::liborc PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}"
-                           INTERFACE_INCLUDE_DIRECTORIES "${ORC_INCLUDE_DIR}")
+  set_target_properties(orc::liborc
+                        PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${ORC_INCLUDE_DIR}")
 else()
   if(ORC_FIND_REQUIRED)
     message(FATAL_ERROR "ORC library was required in toolchain and unable to locate")

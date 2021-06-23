@@ -92,8 +92,8 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_BUILD_SHARED "Build shared libraries" ON)
 
-  define_option_string(
-    ARROW_PACKAGE_KIND "Arbitrary string that identifies the kind of package;\
+  define_option_string(ARROW_PACKAGE_KIND
+                       "Arbitrary string that identifies the kind of package;\
 (for informational purposes)" "")
 
   define_option_string(ARROW_GIT_ID "The Arrow git commit id (if any)" "")
@@ -110,36 +110,33 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   define_option(ARROW_USE_PRECOMPILED_HEADERS "Use precompiled headers when compiling"
                 OFF)
 
-  define_option_string(
-    ARROW_SIMD_LEVEL
-    "Compile-time SIMD optimization level"
-    "SSE4_2" # default to SSE4.2
-    "NONE"
-    "SSE4_2"
-    "AVX2"
-    "AVX512")
+  define_option_string(ARROW_SIMD_LEVEL
+                       "Compile-time SIMD optimization level"
+                       "SSE4_2" # default to SSE4.2
+                       "NONE"
+                       "SSE4_2"
+                       "AVX2"
+                       "AVX512")
 
-  define_option_string(
-    ARROW_RUNTIME_SIMD_LEVEL
-    "Max runtime SIMD optimization level"
-    "MAX" # default to max supported by compiler
-    "NONE"
-    "SSE4_2"
-    "AVX2"
-    "AVX512"
-    "MAX")
+  define_option_string(ARROW_RUNTIME_SIMD_LEVEL
+                       "Max runtime SIMD optimization level"
+                       "MAX" # default to max supported by compiler
+                       "NONE"
+                       "SSE4_2"
+                       "AVX2"
+                       "AVX512"
+                       "MAX")
 
   # Arm64 architectures and extensions can lead to exploding combinations.
   # So set it directly through cmake command line.
   #
   # If you change this, you need to change the definition in
   # python/CMakeLists.txt too.
-  define_option_string(
-    ARROW_ARMV8_ARCH
-    "Arm64 arch and extensions"
-    "armv8-a" # Default
-    "armv8-a"
-    "armv8-a+crc+crypto")
+  define_option_string(ARROW_ARMV8_ARCH
+                       "Arm64 arch and extensions"
+                       "armv8-a" # Default
+                       "armv8-a"
+                       "armv8-a+crc+crypto")
 
   define_option(ARROW_ALTIVEC "Build with Altivec if compiler has support" ON)
 
@@ -175,12 +172,11 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     set(ARROW_TEST_LINKAGE_DEFAULT "static")
   endif()
 
-  define_option_string(
-    ARROW_TEST_LINKAGE
-    "Linkage of Arrow libraries with unit tests executables."
-    "${ARROW_TEST_LINKAGE_DEFAULT}"
-    "shared"
-    "static")
+  define_option_string(ARROW_TEST_LINKAGE
+                       "Linkage of Arrow libraries with unit tests executables."
+                       "${ARROW_TEST_LINKAGE_DEFAULT}"
+                       "shared"
+                       "static")
 
   define_option(ARROW_FUZZING "Build Arrow Fuzzing executables" OFF)
 
@@ -297,16 +293,15 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   else()
     set(ARROW_DEPENDENCY_SOURCE_DEFAULT "AUTO")
   endif()
-  define_option_string(
-    ARROW_DEPENDENCY_SOURCE
-    "Method to use for acquiring arrow's build dependencies"
-    "${ARROW_DEPENDENCY_SOURCE_DEFAULT}"
-    "AUTO"
-    "BUNDLED"
-    "SYSTEM"
-    "CONDA"
-    "VCPKG"
-    "BREW")
+  define_option_string(ARROW_DEPENDENCY_SOURCE
+                       "Method to use for acquiring arrow's build dependencies"
+                       "${ARROW_DEPENDENCY_SOURCE_DEFAULT}"
+                       "AUTO"
+                       "BUNDLED"
+                       "SYSTEM"
+                       "CONDA"
+                       "VCPKG"
+                       "BREW")
 
   define_option(ARROW_VERBOSE_THIRDPARTY_BUILD
                 "Show output from ExternalProjects rather than just logging to files" OFF)
@@ -406,9 +401,9 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
     else()
       set(SNAPPY_MSVC_STATIC_LIB_SUFFIX_DEFAULT "")
     endif()
-    define_option_string(
-      SNAPPY_MSVC_STATIC_LIB_SUFFIX "Snappy static lib suffix used on Windows with MSVC"
-      "${SNAPPY_MSVC_STATIC_LIB_SUFFIX_DEFAULT}")
+    define_option_string(SNAPPY_MSVC_STATIC_LIB_SUFFIX
+                         "Snappy static lib suffix used on Windows with MSVC"
+                         "${SNAPPY_MSVC_STATIC_LIB_SUFFIX_DEFAULT}")
 
     define_option_string(LZ4_MSVC_STATIC_LIB_SUFFIX
                          "Lz4 static lib suffix used on Windows with MSVC" "_static")
@@ -446,9 +441,9 @@ Always OFF if building binaries" OFF)
                 "Include -static-libstdc++ -static-libgcc when linking with;Gandiva static libraries"
                 OFF)
 
-  define_option_string(
-    ARROW_GANDIVA_PC_CXX_FLAGS
-    "Compiler flags to append when pre-compiling Gandiva operations" "")
+  define_option_string(ARROW_GANDIVA_PC_CXX_FLAGS
+                       "Compiler flags to append when pre-compiling Gandiva operations"
+                       "")
 
   #----------------------------------------------------------------------
   set_option_category("Advanced developer")

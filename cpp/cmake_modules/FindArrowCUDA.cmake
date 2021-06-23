@@ -47,13 +47,12 @@ endif()
 find_package(Arrow ${find_package_arguments})
 
 if(ARROW_FOUND)
-  arrow_find_package(
-    ARROW_CUDA
-    "${ARROW_HOME}"
-    arrow_cuda
-    arrow/gpu/cuda_api.h
-    ArrowCUDA
-    arrow-cuda)
+  arrow_find_package(ARROW_CUDA
+                     "${ARROW_HOME}"
+                     arrow_cuda
+                     arrow/gpu/cuda_api.h
+                     ArrowCUDA
+                     arrow-cuda)
   if(NOT ARROW_CUDA_VERSION)
     set(ARROW_CUDA_VERSION "${ARROW_VERSION}")
   endif()
@@ -65,16 +64,15 @@ else()
   set(ARROW_CUDA_VERSION_MATCH FALSE)
 endif()
 
-mark_as_advanced(
-  ARROW_CUDA_IMPORT_LIB
-  ARROW_CUDA_INCLUDE_DIR
-  ARROW_CUDA_LIBS
-  ARROW_CUDA_LIB_DIR
-  ARROW_CUDA_SHARED_IMP_LIB
-  ARROW_CUDA_SHARED_LIB
-  ARROW_CUDA_STATIC_LIB
-  ARROW_CUDA_VERSION
-  ARROW_CUDA_VERSION_MATCH)
+mark_as_advanced(ARROW_CUDA_IMPORT_LIB
+                 ARROW_CUDA_INCLUDE_DIR
+                 ARROW_CUDA_LIBS
+                 ARROW_CUDA_LIB_DIR
+                 ARROW_CUDA_SHARED_IMP_LIB
+                 ARROW_CUDA_SHARED_LIB
+                 ARROW_CUDA_STATIC_LIB
+                 ARROW_CUDA_VERSION
+                 ARROW_CUDA_VERSION_MATCH)
 
 find_package_handle_standard_args(
   ArrowCUDA

@@ -34,10 +34,9 @@ add_gandiva_test(filter_project_test)
 
 if(ARROW_BUILD_STATIC)
   add_gandiva_test(projector_test_static SOURCES projector_test.cc USE_STATIC_LINKING)
-  add_arrow_benchmark(
-    micro_benchmarks
-    PREFIX
-    "gandiva"
-    EXTRA_LINK_LIBS
-    gandiva_static)
+  add_arrow_benchmark(micro_benchmarks
+                      PREFIX
+                      "gandiva"
+                      EXTRA_LINK_LIBS
+                      gandiva_static)
 endif()

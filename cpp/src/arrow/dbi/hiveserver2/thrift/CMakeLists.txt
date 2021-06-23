@@ -72,13 +72,12 @@ function(HS2_THRIFT_GEN VAR)
     # Be able to include generated ErrorCodes.thrift file
     set(CPP_ARGS ${CPP_ARGS} -I ${CMAKE_CURRENT_BINARY_DIR})
 
-    add_custom_command(
-      OUTPUT ${OUTPUT_BE_FILE}
-      COMMAND ${THRIFT_COMPILER} ${CPP_ARGS} ${FIL}
-      DEPENDS ${ABS_FIL}
-      COMMENT "Running thrift compiler on ${FIL}"
-      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-      VERBATIM)
+    add_custom_command(OUTPUT ${OUTPUT_BE_FILE}
+                       COMMAND ${THRIFT_COMPILER} ${CPP_ARGS} ${FIL}
+                       DEPENDS ${ABS_FIL}
+                       COMMENT "Running thrift compiler on ${FIL}"
+                       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                       VERBATIM)
   endforeach(FIL)
 
   set(${VAR}
@@ -91,11 +90,10 @@ message("Using Thrift compiler: ${THRIFT_COMPILER}")
 set(OUTPUT_DIR ${ARROW_BINARY_DIR}/src)
 file(MAKE_DIRECTORY ${OUTPUT_DIR})
 
-add_custom_command(
-  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/ErrorCodes.thrift
-  COMMAND python generate_error_codes.py ${CMAKE_CURRENT_BINARY_DIR}
-  DEPENDS generate_error_codes.py
-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/ErrorCodes.thrift
+                   COMMAND python generate_error_codes.py ${CMAKE_CURRENT_BINARY_DIR}
+                   DEPENDS generate_error_codes.py
+                   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 set(SRC_FILES
     ${CMAKE_CURRENT_BINARY_DIR}/ErrorCodes.thrift
@@ -106,8 +104,9 @@ set(SRC_FILES
     Status.thrift
     Types.thrift)
 
-set_source_files_properties(
-  Status.thrift PROPERTIES OBJECT_DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/ErrorCodes.thrift)
+set_source_files_properties(Status.thrift
+                            PROPERTIES OBJECT_DEPENDS
+                                       ${CMAKE_CURRENT_BINARY_DIR}/ErrorCodes.thrift)
 
 # Create a build command for each of the thrift src files and generate
 # a list of files they produce

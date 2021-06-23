@@ -196,12 +196,11 @@ endmacro()
 macro(resolve_dependency DEPENDENCY_NAME)
   set(options)
   set(one_value_args HAVE_ALT IS_RUNTIME_DEPENDENCY REQUIRED_VERSION USE_CONFIG)
-  cmake_parse_arguments(
-    ARG
-    "${options}"
-    "${one_value_args}"
-    "${multi_value_args}"
-    ${ARGN})
+  cmake_parse_arguments(ARG
+                        "${options}"
+                        "${one_value_args}"
+                        "${multi_value_args}"
+                        ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
@@ -756,23 +755,21 @@ macro(build_boost)
 
     add_thirdparty_lib(boost_filesystem STATIC_LIB "${BOOST_STATIC_FILESYSTEM_LIBRARY}")
 
-    externalproject_add(
-      boost_ep
-      URL ${BOOST_SOURCE_URL}
-      BUILD_BYPRODUCTS ${BOOST_BUILD_PRODUCTS}
-      BUILD_IN_SOURCE 1
-      CONFIGURE_COMMAND ${BOOST_CONFIGURE_COMMAND}
-      BUILD_COMMAND ${BOOST_BUILD_COMMAND}
-      INSTALL_COMMAND "" ${EP_LOG_OPTIONS})
+    externalproject_add(boost_ep
+                        URL ${BOOST_SOURCE_URL}
+                        BUILD_BYPRODUCTS ${BOOST_BUILD_PRODUCTS}
+                        BUILD_IN_SOURCE 1
+                        CONFIGURE_COMMAND ${BOOST_CONFIGURE_COMMAND}
+                        BUILD_COMMAND ${BOOST_BUILD_COMMAND}
+                        INSTALL_COMMAND "" ${EP_LOG_OPTIONS})
     list(APPEND ARROW_BUNDLED_STATIC_LIBS boost_system_static boost_filesystem_static)
   else()
-    externalproject_add(
-      boost_ep
-      ${EP_LOG_OPTIONS}
-      BUILD_COMMAND ""
-      CONFIGURE_COMMAND ""
-      INSTALL_COMMAND ""
-      URL ${BOOST_SOURCE_URL})
+    externalproject_add(boost_ep
+                        ${EP_LOG_OPTIONS}
+                        BUILD_COMMAND ""
+                        CONFIGURE_COMMAND ""
+                        INSTALL_COMMAND ""
+                        URL ${BOOST_SOURCE_URL})
   endif()
   set(Boost_INCLUDE_DIR "${BOOST_PREFIX}")
   set(Boost_INCLUDE_DIRS "${Boost_INCLUDE_DIR}")
@@ -872,15 +869,14 @@ else()
 endif()
 
 if(ARROW_BOOST_REQUIRED)
-  resolve_dependency(
-    Boost
-    HAVE_ALT
-    TRUE
-    REQUIRED_VERSION
-    ${ARROW_BOOST_REQUIRED_VERSION}
-    IS_RUNTIME_DEPENDENCY
-    # libarrow.so doesn't depend on libboost*.
-    FALSE)
+  resolve_dependency(Boost
+                     HAVE_ALT
+                     TRUE
+                     REQUIRED_VERSION
+                     ${ARROW_BOOST_REQUIRED_VERSION}
+                     IS_RUNTIME_DEPENDENCY
+                     # libarrow.so doesn't depend on libboost*.
+                     FALSE)
 
   if(TARGET Boost::system)
     set(BOOST_SYSTEM_LIBRARY Boost::system)
@@ -915,21 +911,21 @@ macro(build_snappy)
       ${EP_COMMON_CMAKE_ARGS} -DCMAKE_INSTALL_LIBDIR=lib -DSNAPPY_BUILD_TESTS=OFF
       "-DCMAKE_INSTALL_PREFIX=${SNAPPY_PREFIX}")
 
-  externalproject_add(
-    snappy_ep
-    ${EP_LOG_OPTIONS}
-    BUILD_IN_SOURCE 1
-    INSTALL_DIR ${SNAPPY_PREFIX}
-    URL ${SNAPPY_SOURCE_URL}
-    CMAKE_ARGS ${SNAPPY_CMAKE_ARGS}
-    BUILD_BYPRODUCTS "${SNAPPY_STATIC_LIB}")
+  externalproject_add(snappy_ep
+                      ${EP_LOG_OPTIONS}
+                      BUILD_IN_SOURCE 1
+                      INSTALL_DIR ${SNAPPY_PREFIX}
+                      URL ${SNAPPY_SOURCE_URL}
+                      CMAKE_ARGS ${SNAPPY_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS "${SNAPPY_STATIC_LIB}")
 
   file(MAKE_DIRECTORY "${SNAPPY_PREFIX}/include")
 
   add_library(Snappy::snappy STATIC IMPORTED)
-  set_target_properties(
-    Snappy::snappy PROPERTIES IMPORTED_LOCATION "${SNAPPY_STATIC_LIB}"
-                              INTERFACE_INCLUDE_DIRECTORIES "${SNAPPY_PREFIX}/include")
+  set_target_properties(Snappy::snappy
+                        PROPERTIES IMPORTED_LOCATION "${SNAPPY_STATIC_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES
+                                   "${SNAPPY_PREFIX}/include")
   add_dependencies(toolchain snappy_ep)
   add_dependencies(Snappy::snappy snappy_ep)
 
@@ -963,36 +959,35 @@ macro(build_brotli)
   set(BROTLI_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${BROTLI_PREFIX}"
                         -DCMAKE_INSTALL_LIBDIR=${BROTLI_LIB_DIR})
 
-  externalproject_add(
-    brotli_ep
-    URL ${BROTLI_SOURCE_URL}
-    BUILD_BYPRODUCTS "${BROTLI_STATIC_LIBRARY_ENC}"
-                     "${BROTLI_STATIC_LIBRARY_DEC}"
-                     "${BROTLI_STATIC_LIBRARY_COMMON}"
-                     ${BROTLI_BUILD_BYPRODUCTS}
-                     ${EP_LOG_OPTIONS}
-    CMAKE_ARGS ${BROTLI_CMAKE_ARGS}
-    STEP_TARGETS headers_copy)
+  externalproject_add(brotli_ep
+                      URL ${BROTLI_SOURCE_URL}
+                      BUILD_BYPRODUCTS "${BROTLI_STATIC_LIBRARY_ENC}"
+                                       "${BROTLI_STATIC_LIBRARY_DEC}"
+                                       "${BROTLI_STATIC_LIBRARY_COMMON}"
+                                       ${BROTLI_BUILD_BYPRODUCTS}
+                                       ${EP_LOG_OPTIONS}
+                      CMAKE_ARGS ${BROTLI_CMAKE_ARGS}
+                      STEP_TARGETS headers_copy)
 
   add_dependencies(toolchain brotli_ep)
   file(MAKE_DIRECTORY "${BROTLI_INCLUDE_DIR}")
 
   add_library(Brotli::brotlicommon STATIC IMPORTED)
-  set_target_properties(
-    Brotli::brotlicommon PROPERTIES IMPORTED_LOCATION "${BROTLI_STATIC_LIBRARY_COMMON}"
-                                    INTERFACE_INCLUDE_DIRECTORIES "${BROTLI_INCLUDE_DIR}")
+  set_target_properties(Brotli::brotlicommon
+                        PROPERTIES IMPORTED_LOCATION "${BROTLI_STATIC_LIBRARY_COMMON}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${BROTLI_INCLUDE_DIR}")
   add_dependencies(Brotli::brotlicommon brotli_ep)
 
   add_library(Brotli::brotlienc STATIC IMPORTED)
-  set_target_properties(
-    Brotli::brotlienc PROPERTIES IMPORTED_LOCATION "${BROTLI_STATIC_LIBRARY_ENC}"
-                                 INTERFACE_INCLUDE_DIRECTORIES "${BROTLI_INCLUDE_DIR}")
+  set_target_properties(Brotli::brotlienc
+                        PROPERTIES IMPORTED_LOCATION "${BROTLI_STATIC_LIBRARY_ENC}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${BROTLI_INCLUDE_DIR}")
   add_dependencies(Brotli::brotlienc brotli_ep)
 
   add_library(Brotli::brotlidec STATIC IMPORTED)
-  set_target_properties(
-    Brotli::brotlidec PROPERTIES IMPORTED_LOCATION "${BROTLI_STATIC_LIBRARY_DEC}"
-                                 INTERFACE_INCLUDE_DIRECTORIES "${BROTLI_INCLUDE_DIR}")
+  set_target_properties(Brotli::brotlidec
+                        PROPERTIES IMPORTED_LOCATION "${BROTLI_STATIC_LIBRARY_DEC}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${BROTLI_INCLUDE_DIR}")
   add_dependencies(Brotli::brotlidec brotli_ep)
 
   list(APPEND
@@ -1103,20 +1098,19 @@ macro(build_glog)
       -DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${GLOG_CMAKE_CXX_FLAGS}
       -DCMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}=${GLOG_CMAKE_C_FLAGS}
       -DCMAKE_CXX_FLAGS=${GLOG_CMAKE_CXX_FLAGS})
-  externalproject_add(
-    glog_ep
-    URL ${GLOG_SOURCE_URL}
-    BUILD_IN_SOURCE 1
-    BUILD_BYPRODUCTS "${GLOG_STATIC_LIB}"
-    CMAKE_ARGS ${GLOG_CMAKE_ARGS} ${EP_LOG_OPTIONS})
+  externalproject_add(glog_ep
+                      URL ${GLOG_SOURCE_URL}
+                      BUILD_IN_SOURCE 1
+                      BUILD_BYPRODUCTS "${GLOG_STATIC_LIB}"
+                      CMAKE_ARGS ${GLOG_CMAKE_ARGS} ${EP_LOG_OPTIONS})
 
   add_dependencies(toolchain glog_ep)
   file(MAKE_DIRECTORY "${GLOG_INCLUDE_DIR}")
 
   add_library(glog::glog STATIC IMPORTED)
-  set_target_properties(
-    glog::glog PROPERTIES IMPORTED_LOCATION "${GLOG_STATIC_LIB}"
-                          INTERFACE_INCLUDE_DIRECTORIES "${GLOG_INCLUDE_DIR}")
+  set_target_properties(glog::glog
+                        PROPERTIES IMPORTED_LOCATION "${GLOG_STATIC_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${GLOG_INCLUDE_DIR}")
   add_dependencies(glog::glog glog_ep)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS glog::glog)
@@ -1169,20 +1163,19 @@ macro(build_gflags)
       -DINSTALL_HEADERS=ON)
 
   file(MAKE_DIRECTORY "${GFLAGS_INCLUDE_DIR}")
-  externalproject_add(
-    gflags_ep
-    URL ${GFLAGS_SOURCE_URL} ${EP_LOG_OPTIONS}
-    BUILD_IN_SOURCE 1
-    BUILD_BYPRODUCTS "${GFLAGS_STATIC_LIB}"
-    CMAKE_ARGS ${GFLAGS_CMAKE_ARGS})
+  externalproject_add(gflags_ep
+                      URL ${GFLAGS_SOURCE_URL} ${EP_LOG_OPTIONS}
+                      BUILD_IN_SOURCE 1
+                      BUILD_BYPRODUCTS "${GFLAGS_STATIC_LIB}"
+                      CMAKE_ARGS ${GFLAGS_CMAKE_ARGS})
 
   add_dependencies(toolchain gflags_ep)
 
   add_thirdparty_lib(gflags STATIC_LIB ${GFLAGS_STATIC_LIB})
   set(GFLAGS_LIBRARY gflags_static)
-  set_target_properties(
-    ${GFLAGS_LIBRARY} PROPERTIES INTERFACE_COMPILE_DEFINITIONS "GFLAGS_IS_A_DLL=0"
-                                 INTERFACE_INCLUDE_DIRECTORIES "${GFLAGS_INCLUDE_DIR}")
+  set_target_properties(${GFLAGS_LIBRARY}
+                        PROPERTIES INTERFACE_COMPILE_DEFINITIONS "GFLAGS_IS_A_DLL=0"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${GFLAGS_INCLUDE_DIR}")
   if(MSVC)
     set_target_properties(${GFLAGS_LIBRARY} PROPERTIES INTERFACE_LINK_LIBRARIES
                                                        "shlwapi.lib")
@@ -1196,14 +1189,13 @@ endmacro()
 
 if(ARROW_NEED_GFLAGS)
   set(ARROW_GFLAGS_REQUIRED_VERSION "2.1.0")
-  resolve_dependency(
-    gflags
-    HAVE_ALT
-    TRUE
-    REQUIRED_VERSION
-    ${ARROW_GFLAGS_REQUIRED_VERSION}
-    IS_RUNTIME_DEPENDENCY
-    FALSE)
+  resolve_dependency(gflags
+                     HAVE_ALT
+                     TRUE
+                     REQUIRED_VERSION
+                     ${ARROW_GFLAGS_REQUIRED_VERSION}
+                     IS_RUNTIME_DEPENDENCY
+                     FALSE)
   # TODO: Don't use global includes but rather target_include_directories
   include_directories(SYSTEM ${GFLAGS_INCLUDE_DIR})
 
@@ -1275,20 +1267,19 @@ macro(build_thrift)
     set(THRIFT_DEPENDENCIES ${THRIFT_DEPENDENCIES} boost_ep)
   endif()
 
-  externalproject_add(
-    thrift_ep
-    URL ${THRIFT_SOURCE_URL}
-    URL_HASH "MD5=${ARROW_THRIFT_BUILD_MD5_CHECKSUM}"
-    BUILD_BYPRODUCTS "${THRIFT_STATIC_LIB}"
-    CMAKE_ARGS ${THRIFT_CMAKE_ARGS}
-    DEPENDS ${THRIFT_DEPENDENCIES} ${EP_LOG_OPTIONS})
+  externalproject_add(thrift_ep
+                      URL ${THRIFT_SOURCE_URL}
+                      URL_HASH "MD5=${ARROW_THRIFT_BUILD_MD5_CHECKSUM}"
+                      BUILD_BYPRODUCTS "${THRIFT_STATIC_LIB}"
+                      CMAKE_ARGS ${THRIFT_CMAKE_ARGS}
+                      DEPENDS ${THRIFT_DEPENDENCIES} ${EP_LOG_OPTIONS})
 
   add_library(thrift::thrift STATIC IMPORTED)
   # The include directory must exist before it is referenced by a target.
   file(MAKE_DIRECTORY "${THRIFT_INCLUDE_DIR}")
-  set_target_properties(
-    thrift::thrift PROPERTIES IMPORTED_LOCATION "${THRIFT_STATIC_LIB}"
-                              INTERFACE_INCLUDE_DIRECTORIES "${THRIFT_INCLUDE_DIR}")
+  set_target_properties(thrift::thrift
+                        PROPERTIES IMPORTED_LOCATION "${THRIFT_STATIC_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${THRIFT_INCLUDE_DIR}")
   add_dependencies(toolchain thrift_ep)
   add_dependencies(thrift::thrift thrift_ep)
   set(THRIFT_VERSION ${ARROW_THRIFT_BUILD_VERSION})
@@ -1361,25 +1352,25 @@ macro(build_protobuf)
                                            SOURCE_SUBDIR "cmake")
   endif()
 
-  externalproject_add(
-    protobuf_ep
-    ${PROTOBUF_EXTERNAL_PROJECT_ADD_ARGS}
-    BUILD_BYPRODUCTS "${PROTOBUF_STATIC_LIB}" "${PROTOBUF_COMPILER}" ${EP_LOG_OPTIONS}
-    BUILD_IN_SOURCE 1
-    URL ${PROTOBUF_SOURCE_URL})
+  externalproject_add(protobuf_ep
+                      ${PROTOBUF_EXTERNAL_PROJECT_ADD_ARGS}
+                      BUILD_BYPRODUCTS "${PROTOBUF_STATIC_LIB}" "${PROTOBUF_COMPILER}"
+                                       ${EP_LOG_OPTIONS}
+                      BUILD_IN_SOURCE 1
+                      URL ${PROTOBUF_SOURCE_URL})
 
   file(MAKE_DIRECTORY "${PROTOBUF_INCLUDE_DIR}")
 
   add_library(arrow::protobuf::libprotobuf STATIC IMPORTED)
-  set_target_properties(
-    arrow::protobuf::libprotobuf
-    PROPERTIES IMPORTED_LOCATION "${PROTOBUF_STATIC_LIB}" INTERFACE_INCLUDE_DIRECTORIES
-                                                          "${PROTOBUF_INCLUDE_DIR}")
+  set_target_properties(arrow::protobuf::libprotobuf
+                        PROPERTIES IMPORTED_LOCATION "${PROTOBUF_STATIC_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES
+                                   "${PROTOBUF_INCLUDE_DIR}")
   add_library(arrow::protobuf::libprotoc STATIC IMPORTED)
-  set_target_properties(
-    arrow::protobuf::libprotoc
-    PROPERTIES IMPORTED_LOCATION "${PROTOC_STATIC_LIB}" INTERFACE_INCLUDE_DIRECTORIES
-                                                        "${PROTOBUF_INCLUDE_DIR}")
+  set_target_properties(arrow::protobuf::libprotoc
+                        PROPERTIES IMPORTED_LOCATION "${PROTOC_STATIC_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES
+                                   "${PROTOBUF_INCLUDE_DIR}")
   add_executable(arrow::protobuf::protoc IMPORTED)
   set_target_properties(arrow::protobuf::protoc PROPERTIES IMPORTED_LOCATION
                                                            "${PROTOBUF_COMPILER}")
@@ -1416,10 +1407,10 @@ if(ARROW_WITH_PROTOBUF)
     # CMake 3.8 or older don't define the targets
     if(NOT TARGET protobuf::libprotobuf)
       add_library(protobuf::libprotobuf UNKNOWN IMPORTED)
-      set_target_properties(
-        protobuf::libprotobuf
-        PROPERTIES IMPORTED_LOCATION "${PROTOBUF_LIBRARY}" INTERFACE_INCLUDE_DIRECTORIES
-                                                           "${PROTOBUF_INCLUDE_DIR}")
+      set_target_properties(protobuf::libprotobuf
+                            PROPERTIES IMPORTED_LOCATION "${PROTOBUF_LIBRARY}"
+                                       INTERFACE_INCLUDE_DIRECTORIES
+                                       "${PROTOBUF_INCLUDE_DIR}")
     endif()
     set(ARROW_PROTOBUF_LIBPROTOBUF protobuf::libprotobuf)
   endif()
@@ -1436,10 +1427,10 @@ if(ARROW_WITH_PROTOBUF)
         message(FATAL_ERROR "libprotoc was set to ${Protobuf_PROTOC_LIBRARY}")
       endif()
       add_library(protobuf::libprotoc UNKNOWN IMPORTED)
-      set_target_properties(
-        protobuf::libprotoc
-        PROPERTIES IMPORTED_LOCATION "${Protobuf_PROTOC_LIBRARY}"
-                   INTERFACE_INCLUDE_DIRECTORIES "${PROTOBUF_INCLUDE_DIR}")
+      set_target_properties(protobuf::libprotoc
+                            PROPERTIES IMPORTED_LOCATION "${Protobuf_PROTOC_LIBRARY}"
+                                       INTERFACE_INCLUDE_DIRECTORIES
+                                       "${PROTOBUF_INCLUDE_DIR}")
     endif()
     set(ARROW_PROTOBUF_LIBPROTOC protobuf::libprotoc)
   endif()
@@ -1505,16 +1496,15 @@ if(ARROW_JEMALLOC)
   if(CMAKE_OSX_SYSROOT)
     list(APPEND JEMALLOC_BUILD_COMMAND "SDKROOT=${CMAKE_OSX_SYSROOT}")
   endif()
-  externalproject_add(
-    jemalloc_ep
-    URL ${JEMALLOC_SOURCE_URL}
-    PATCH_COMMAND touch doc/jemalloc.3 doc/jemalloc.html
-                  # The prefix "je_arrow_" must be kept in sync with the value in memory_pool.cc
-    CONFIGURE_COMMAND ${JEMALLOC_CONFIGURE_COMMAND}
-    BUILD_IN_SOURCE 1
-    BUILD_COMMAND ${JEMALLOC_BUILD_COMMAND}
-    BUILD_BYPRODUCTS "${JEMALLOC_STATIC_LIB}"
-    INSTALL_COMMAND ${MAKE} -j1 install)
+  externalproject_add(jemalloc_ep
+                      URL ${JEMALLOC_SOURCE_URL}
+                      PATCH_COMMAND touch doc/jemalloc.3 doc/jemalloc.html
+                                    # The prefix "je_arrow_" must be kept in sync with the value in memory_pool.cc
+                      CONFIGURE_COMMAND ${JEMALLOC_CONFIGURE_COMMAND}
+                      BUILD_IN_SOURCE 1
+                      BUILD_COMMAND ${JEMALLOC_BUILD_COMMAND}
+                      BUILD_BYPRODUCTS "${JEMALLOC_STATIC_LIB}"
+                      INSTALL_COMMAND ${MAKE} -j1 install)
 
   # Don't use the include directory directly so that we can point to a path
   # that is unique to our codebase.
@@ -1522,12 +1512,11 @@ if(ARROW_JEMALLOC)
   # The include directory must exist before it is referenced by a target.
   file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src/")
   add_library(jemalloc::jemalloc STATIC IMPORTED)
-  set_target_properties(
-    jemalloc::jemalloc
-    PROPERTIES INTERFACE_LINK_LIBRARIES Threads::Threads
-               IMPORTED_LOCATION "${JEMALLOC_STATIC_LIB}"
-               INTERFACE_INCLUDE_DIRECTORIES
-               "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src")
+  set_target_properties(jemalloc::jemalloc
+                        PROPERTIES INTERFACE_LINK_LIBRARIES Threads::Threads
+                                   IMPORTED_LOCATION "${JEMALLOC_STATIC_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES
+                                   "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src")
   add_dependencies(jemalloc::jemalloc jemalloc_ep)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS jemalloc::jemalloc)
@@ -1563,21 +1552,20 @@ if(ARROW_MIMALLOC)
       -DMI_BUILD_SHARED=OFF
       -DMI_BUILD_TESTS=OFF)
 
-  externalproject_add(
-    mimalloc_ep
-    URL ${MIMALLOC_SOURCE_URL}
-    CMAKE_ARGS ${MIMALLOC_CMAKE_ARGS}
-    BUILD_BYPRODUCTS "${MIMALLOC_STATIC_LIB}")
+  externalproject_add(mimalloc_ep
+                      URL ${MIMALLOC_SOURCE_URL}
+                      CMAKE_ARGS ${MIMALLOC_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS "${MIMALLOC_STATIC_LIB}")
 
   include_directories(SYSTEM ${MIMALLOC_INCLUDE_DIR})
   file(MAKE_DIRECTORY ${MIMALLOC_INCLUDE_DIR})
 
   add_library(mimalloc::mimalloc STATIC IMPORTED)
-  set_target_properties(
-    mimalloc::mimalloc
-    PROPERTIES INTERFACE_LINK_LIBRARIES Threads::Threads
-               IMPORTED_LOCATION "${MIMALLOC_STATIC_LIB}"
-               INTERFACE_INCLUDE_DIRECTORIES "${MIMALLOC_INCLUDE_DIR}")
+  set_target_properties(mimalloc::mimalloc
+                        PROPERTIES INTERFACE_LINK_LIBRARIES Threads::Threads
+                                   IMPORTED_LOCATION "${MIMALLOC_STATIC_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES
+                                   "${MIMALLOC_INCLUDE_DIR}")
   add_dependencies(mimalloc::mimalloc mimalloc_ep)
   add_dependencies(toolchain mimalloc_ep)
 
@@ -1652,11 +1640,11 @@ macro(build_gtest)
     set(GTEST_CMAKE_ARGS ${GTEST_CMAKE_ARGS} -Dgtest_force_shared_crt=ON)
   endif()
 
-  externalproject_add(
-    googletest_ep
-    URL ${GTEST_SOURCE_URL}
-    BUILD_BYPRODUCTS ${GTEST_SHARED_LIB} ${GTEST_MAIN_SHARED_LIB} ${GMOCK_SHARED_LIB}
-    CMAKE_ARGS ${GTEST_CMAKE_ARGS} ${EP_LOG_OPTIONS})
+  externalproject_add(googletest_ep
+                      URL ${GTEST_SOURCE_URL}
+                      BUILD_BYPRODUCTS ${GTEST_SHARED_LIB} ${GTEST_MAIN_SHARED_LIB}
+                                       ${GMOCK_SHARED_LIB}
+                      CMAKE_ARGS ${GTEST_CMAKE_ARGS} ${EP_LOG_OPTIONS})
   if(WIN32)
     # Copy the built shared libraries to the same directory as our
     # test programs because Windows doesn't provided rpath (run-time
@@ -1686,33 +1674,35 @@ macro(build_gtest)
     else()
       set(_GTEST_RUNTIME_OUTPUT_DIR ${BUILD_OUTPUT_ROOT_DIRECTORY})
     endif()
-    externalproject_add_step(
-      googletest_ep copy
-      COMMAND ${CMAKE_COMMAND} -E make_directory ${_GTEST_RUNTIME_OUTPUT_DIR}
-      COMMAND ${CMAKE_COMMAND} -E copy ${_GTEST_RUNTIME_LIB} ${_GTEST_RUNTIME_OUTPUT_DIR}
-      COMMAND ${CMAKE_COMMAND} -E copy ${_GMOCK_RUNTIME_LIB} ${_GTEST_RUNTIME_OUTPUT_DIR}
-      COMMAND ${CMAKE_COMMAND} -E copy ${_GTEST_MAIN_RUNTIME_LIB}
-              ${_GTEST_RUNTIME_OUTPUT_DIR}
-      DEPENDEES install)
+    externalproject_add_step(googletest_ep copy
+                             COMMAND ${CMAKE_COMMAND} -E make_directory
+                                     ${_GTEST_RUNTIME_OUTPUT_DIR}
+                             COMMAND ${CMAKE_COMMAND} -E copy ${_GTEST_RUNTIME_LIB}
+                                     ${_GTEST_RUNTIME_OUTPUT_DIR}
+                             COMMAND ${CMAKE_COMMAND} -E copy ${_GMOCK_RUNTIME_LIB}
+                                     ${_GTEST_RUNTIME_OUTPUT_DIR}
+                             COMMAND ${CMAKE_COMMAND} -E copy ${_GTEST_MAIN_RUNTIME_LIB}
+                                     ${_GTEST_RUNTIME_OUTPUT_DIR}
+                             DEPENDEES install)
   endif()
 
   # The include directory must exist before it is referenced by a target.
   file(MAKE_DIRECTORY "${GTEST_INCLUDE_DIR}")
 
   add_library(GTest::gtest SHARED IMPORTED)
-  set_target_properties(
-    GTest::gtest PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GTEST_SHARED_LIB}"
-                            INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
+  set_target_properties(GTest::gtest
+                        PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GTEST_SHARED_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
 
   add_library(GTest::gtest_main SHARED IMPORTED)
-  set_target_properties(
-    GTest::gtest_main PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GTEST_MAIN_SHARED_LIB}"
-                                 INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
+  set_target_properties(GTest::gtest_main
+                        PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GTEST_MAIN_SHARED_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
 
   add_library(GTest::gmock SHARED IMPORTED)
-  set_target_properties(
-    GTest::gmock PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GMOCK_SHARED_LIB}"
-                            INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
+  set_target_properties(GTest::gmock
+                        PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GMOCK_SHARED_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
   add_dependencies(toolchain-tests googletest_ep)
   add_dependencies(GTest::gtest googletest_ep)
   add_dependencies(GTest::gtest_main googletest_ep)
@@ -1720,12 +1710,11 @@ macro(build_gtest)
 endmacro()
 
 if(ARROW_TESTING)
-  resolve_dependency(
-    GTest
-    REQUIRED_VERSION
-    1.10.0
-    USE_CONFIG
-    TRUE)
+  resolve_dependency(GTest
+                     REQUIRED_VERSION
+                     1.10.0
+                     USE_CONFIG
+                     TRUE)
 
   if(NOT GTEST_VENDORED)
     # TODO(wesm): This logic does not work correctly with the MSVC static libraries
@@ -1795,26 +1784,26 @@ macro(build_benchmark)
     set(GBENCHMARK_CMAKE_ARGS ${GBENCHMARK_CMAKE_ARGS} "-DBENCHMARK_USE_LIBCXX=ON")
   endif()
 
-  externalproject_add(
-    gbenchmark_ep
-    URL ${GBENCHMARK_SOURCE_URL}
-    BUILD_BYPRODUCTS "${GBENCHMARK_STATIC_LIB}" "${GBENCHMARK_MAIN_STATIC_LIB}"
-    CMAKE_ARGS ${GBENCHMARK_CMAKE_ARGS} ${EP_LOG_OPTIONS})
+  externalproject_add(gbenchmark_ep
+                      URL ${GBENCHMARK_SOURCE_URL}
+                      BUILD_BYPRODUCTS "${GBENCHMARK_STATIC_LIB}"
+                                       "${GBENCHMARK_MAIN_STATIC_LIB}"
+                      CMAKE_ARGS ${GBENCHMARK_CMAKE_ARGS} ${EP_LOG_OPTIONS})
 
   # The include directory must exist before it is referenced by a target.
   file(MAKE_DIRECTORY "${GBENCHMARK_INCLUDE_DIR}")
 
   add_library(benchmark::benchmark STATIC IMPORTED)
-  set_target_properties(
-    benchmark::benchmark
-    PROPERTIES IMPORTED_LOCATION "${GBENCHMARK_STATIC_LIB}" INTERFACE_INCLUDE_DIRECTORIES
-                                                            "${GBENCHMARK_INCLUDE_DIR}")
+  set_target_properties(benchmark::benchmark
+                        PROPERTIES IMPORTED_LOCATION "${GBENCHMARK_STATIC_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES
+                                   "${GBENCHMARK_INCLUDE_DIR}")
 
   add_library(benchmark::benchmark_main STATIC IMPORTED)
-  set_target_properties(
-    benchmark::benchmark_main
-    PROPERTIES IMPORTED_LOCATION "${GBENCHMARK_MAIN_STATIC_LIB}"
-               INTERFACE_INCLUDE_DIRECTORIES "${GBENCHMARK_INCLUDE_DIR}")
+  set_target_properties(benchmark::benchmark_main
+                        PROPERTIES IMPORTED_LOCATION "${GBENCHMARK_MAIN_STATIC_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES
+                                   "${GBENCHMARK_INCLUDE_DIR}")
 
   add_dependencies(toolchain-benchmarks gbenchmark_ep)
   add_dependencies(benchmark::benchmark gbenchmark_ep)
@@ -1854,12 +1843,11 @@ macro(build_rapidjson)
       -DRAPIDJSON_BUILD_TESTS=OFF
       "-DCMAKE_INSTALL_PREFIX=${RAPIDJSON_PREFIX}")
 
-  externalproject_add(
-    rapidjson_ep
-    ${EP_LOG_OPTIONS}
-    PREFIX "${CMAKE_BINARY_DIR}"
-    URL ${RAPIDJSON_SOURCE_URL}
-    CMAKE_ARGS ${RAPIDJSON_CMAKE_ARGS})
+  externalproject_add(rapidjson_ep
+                      ${EP_LOG_OPTIONS}
+                      PREFIX "${CMAKE_BINARY_DIR}"
+                      URL ${RAPIDJSON_SOURCE_URL}
+                      CMAKE_ARGS ${RAPIDJSON_CMAKE_ARGS})
 
   set(RAPIDJSON_INCLUDE_DIR "${RAPIDJSON_PREFIX}/include")
 
@@ -1872,14 +1860,13 @@ endmacro()
 
 if(ARROW_WITH_RAPIDJSON)
   set(ARROW_RAPIDJSON_REQUIRED_VERSION "1.1.0")
-  resolve_dependency(
-    RapidJSON
-    HAVE_ALT
-    TRUE
-    REQUIRED_VERSION
-    ${ARROW_RAPIDJSON_REQUIRED_VERSION}
-    IS_RUNTIME_DEPENDENCY
-    FALSE)
+  resolve_dependency(RapidJSON
+                     HAVE_ALT
+                     TRUE
+                     REQUIRED_VERSION
+                     ${ARROW_RAPIDJSON_REQUIRED_VERSION}
+                     IS_RUNTIME_DEPENDENCY
+                     FALSE)
 
   if(RapidJSON_INCLUDE_DIR)
     set(RAPIDJSON_INCLUDE_DIR "${RapidJSON_INCLUDE_DIR}")
@@ -1894,12 +1881,11 @@ macro(build_xsimd)
   set(XSIMD_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/xsimd_ep/src/xsimd_ep-install")
   set(XSIMD_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${XSIMD_PREFIX}")
 
-  externalproject_add(
-    xsimd_ep
-    ${EP_LOG_OPTIONS}
-    PREFIX "${CMAKE_BINARY_DIR}"
-    URL ${XSIMD_SOURCE_URL}
-    CMAKE_ARGS ${XSIMD_CMAKE_ARGS})
+  externalproject_add(xsimd_ep
+                      ${EP_LOG_OPTIONS}
+                      PREFIX "${CMAKE_BINARY_DIR}"
+                      URL ${XSIMD_SOURCE_URL}
+                      CMAKE_ARGS ${XSIMD_CMAKE_ARGS})
 
   set(XSIMD_INCLUDE_DIR "${XSIMD_PREFIX}/include")
 
@@ -1933,20 +1919,19 @@ macro(build_zlib)
   set(ZLIB_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${ZLIB_PREFIX}"
                       -DBUILD_SHARED_LIBS=OFF)
 
-  externalproject_add(
-    zlib_ep
-    URL ${ZLIB_SOURCE_URL} ${EP_LOG_OPTIONS}
-    BUILD_BYPRODUCTS "${ZLIB_STATIC_LIB}"
-    CMAKE_ARGS ${ZLIB_CMAKE_ARGS})
+  externalproject_add(zlib_ep
+                      URL ${ZLIB_SOURCE_URL} ${EP_LOG_OPTIONS}
+                      BUILD_BYPRODUCTS "${ZLIB_STATIC_LIB}"
+                      CMAKE_ARGS ${ZLIB_CMAKE_ARGS})
 
   file(MAKE_DIRECTORY "${ZLIB_PREFIX}/include")
 
   add_library(ZLIB::ZLIB STATIC IMPORTED)
   set(ZLIB_LIBRARIES ${ZLIB_STATIC_LIB})
   set(ZLIB_INCLUDE_DIRS "${ZLIB_PREFIX}/include")
-  set_target_properties(
-    ZLIB::ZLIB PROPERTIES IMPORTED_LOCATION ${ZLIB_LIBRARIES}
-                          INTERFACE_INCLUDE_DIRECTORIES ${ZLIB_INCLUDE_DIRS})
+  set_target_properties(ZLIB::ZLIB
+                        PROPERTIES IMPORTED_LOCATION ${ZLIB_LIBRARIES}
+                                   INTERFACE_INCLUDE_DIRECTORIES ${ZLIB_INCLUDE_DIRS})
 
   add_dependencies(toolchain zlib_ep)
   add_dependencies(ZLIB::ZLIB zlib_ep)
@@ -1989,21 +1974,21 @@ macro(build_lz4)
   endif()
 
   # We need to copy the header in lib to directory outside of the build
-  externalproject_add(
-    lz4_ep
-    URL ${LZ4_SOURCE_URL} ${EP_LOG_OPTIONS}
-    UPDATE_COMMAND ${CMAKE_COMMAND} -E copy_directory "${LZ4_BUILD_DIR}/lib"
-                   "${LZ4_PREFIX}/include" ${LZ4_PATCH_COMMAND}
-    CONFIGURE_COMMAND ""
-    INSTALL_COMMAND ""
-    BINARY_DIR ${LZ4_BUILD_DIR}
-    BUILD_BYPRODUCTS ${LZ4_STATIC_LIB} ${LZ4_BUILD_COMMAND})
+  externalproject_add(lz4_ep
+                      URL ${LZ4_SOURCE_URL} ${EP_LOG_OPTIONS}
+                      UPDATE_COMMAND ${CMAKE_COMMAND} -E copy_directory
+                                     "${LZ4_BUILD_DIR}/lib" "${LZ4_PREFIX}/include"
+                                     ${LZ4_PATCH_COMMAND}
+                      CONFIGURE_COMMAND ""
+                      INSTALL_COMMAND ""
+                      BINARY_DIR ${LZ4_BUILD_DIR}
+                      BUILD_BYPRODUCTS ${LZ4_STATIC_LIB} ${LZ4_BUILD_COMMAND})
 
   file(MAKE_DIRECTORY "${LZ4_PREFIX}/include")
   add_library(LZ4::lz4 STATIC IMPORTED)
-  set_target_properties(
-    LZ4::lz4 PROPERTIES IMPORTED_LOCATION "${LZ4_STATIC_LIB}"
-                        INTERFACE_INCLUDE_DIRECTORIES "${LZ4_PREFIX}/include")
+  set_target_properties(LZ4::lz4
+                        PROPERTIES IMPORTED_LOCATION "${LZ4_STATIC_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${LZ4_PREFIX}/include")
   add_dependencies(toolchain lz4_ep)
   add_dependencies(LZ4::lz4 lz4_ep)
 
@@ -2053,21 +2038,20 @@ macro(build_zstd)
     message(FATAL_ERROR "Building zstd using ExternalProject requires at least CMake 3.7")
   endif()
 
-  externalproject_add(
-    zstd_ep
-    ${EP_LOG_OPTIONS}
-    CMAKE_ARGS ${ZSTD_CMAKE_ARGS}
-    SOURCE_SUBDIR "build/cmake"
-    INSTALL_DIR ${ZSTD_PREFIX}
-    URL ${ZSTD_SOURCE_URL}
-    BUILD_BYPRODUCTS "${ZSTD_STATIC_LIB}")
+  externalproject_add(zstd_ep
+                      ${EP_LOG_OPTIONS}
+                      CMAKE_ARGS ${ZSTD_CMAKE_ARGS}
+                      SOURCE_SUBDIR "build/cmake"
+                      INSTALL_DIR ${ZSTD_PREFIX}
+                      URL ${ZSTD_SOURCE_URL}
+                      BUILD_BYPRODUCTS "${ZSTD_STATIC_LIB}")
 
   file(MAKE_DIRECTORY "${ZSTD_PREFIX}/include")
 
   add_library(zstd::libzstd STATIC IMPORTED)
-  set_target_properties(
-    zstd::libzstd PROPERTIES IMPORTED_LOCATION "${ZSTD_STATIC_LIB}"
-                             INTERFACE_INCLUDE_DIRECTORIES "${ZSTD_PREFIX}/include")
+  set_target_properties(zstd::libzstd
+                        PROPERTIES IMPORTED_LOCATION "${ZSTD_STATIC_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${ZSTD_PREFIX}/include")
 
   add_dependencies(toolchain zstd_ep)
   add_dependencies(zstd::libzstd zstd_ep)
@@ -2112,19 +2096,18 @@ macro(build_re2)
   set(RE2_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${RE2_PREFIX}"
                      -DCMAKE_INSTALL_LIBDIR=lib)
 
-  externalproject_add(
-    re2_ep
-    ${EP_LOG_OPTIONS}
-    INSTALL_DIR ${RE2_PREFIX}
-    URL ${RE2_SOURCE_URL}
-    CMAKE_ARGS ${RE2_CMAKE_ARGS}
-    BUILD_BYPRODUCTS "${RE2_STATIC_LIB}")
+  externalproject_add(re2_ep
+                      ${EP_LOG_OPTIONS}
+                      INSTALL_DIR ${RE2_PREFIX}
+                      URL ${RE2_SOURCE_URL}
+                      CMAKE_ARGS ${RE2_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS "${RE2_STATIC_LIB}")
 
   file(MAKE_DIRECTORY "${RE2_PREFIX}/include")
   add_library(re2::re2 STATIC IMPORTED)
-  set_target_properties(
-    re2::re2 PROPERTIES IMPORTED_LOCATION "${RE2_STATIC_LIB}"
-                        INTERFACE_INCLUDE_DIRECTORIES "${RE2_PREFIX}/include")
+  set_target_properties(re2::re2
+                        PROPERTIES IMPORTED_LOCATION "${RE2_STATIC_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${RE2_PREFIX}/include")
 
   add_dependencies(toolchain re2_ep)
   add_dependencies(re2::re2 re2_ep)
@@ -2158,22 +2141,24 @@ macro(build_bzip2)
     list(APPEND BZIP2_EXTRA_ARGS "SDKROOT=${CMAKE_OSX_SYSROOT}")
   endif()
 
-  externalproject_add(
-    bzip2_ep
-    ${EP_LOG_OPTIONS}
-    CONFIGURE_COMMAND ""
-    BUILD_IN_SOURCE 1
-    BUILD_COMMAND ${MAKE} libbz2.a ${MAKE_BUILD_ARGS} ${BZIP2_EXTRA_ARGS}
-    INSTALL_COMMAND ${MAKE} install PREFIX=${BZIP2_PREFIX} ${BZIP2_EXTRA_ARGS}
-    INSTALL_DIR ${BZIP2_PREFIX}
-    URL ${ARROW_BZIP2_SOURCE_URL}
-    BUILD_BYPRODUCTS "${BZIP2_STATIC_LIB}")
+  externalproject_add(bzip2_ep
+                      ${EP_LOG_OPTIONS}
+                      CONFIGURE_COMMAND ""
+                      BUILD_IN_SOURCE 1
+                      BUILD_COMMAND ${MAKE} libbz2.a ${MAKE_BUILD_ARGS}
+                                    ${BZIP2_EXTRA_ARGS}
+                      INSTALL_COMMAND ${MAKE} install PREFIX=${BZIP2_PREFIX}
+                                      ${BZIP2_EXTRA_ARGS}
+                      INSTALL_DIR ${BZIP2_PREFIX}
+                      URL ${ARROW_BZIP2_SOURCE_URL}
+                      BUILD_BYPRODUCTS "${BZIP2_STATIC_LIB}")
 
   file(MAKE_DIRECTORY "${BZIP2_PREFIX}/include")
   add_library(BZip2::BZip2 STATIC IMPORTED)
-  set_target_properties(
-    BZip2::BZip2 PROPERTIES IMPORTED_LOCATION "${BZIP2_STATIC_LIB}"
-                            INTERFACE_INCLUDE_DIRECTORIES "${BZIP2_PREFIX}/include")
+  set_target_properties(BZip2::BZip2
+                        PROPERTIES IMPORTED_LOCATION "${BZIP2_STATIC_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES
+                                   "${BZIP2_PREFIX}/include")
   set(BZIP2_INCLUDE_DIR "${BZIP2_PREFIX}/include")
 
   add_dependencies(toolchain bzip2_ep)
@@ -2187,9 +2172,9 @@ if(ARROW_WITH_BZ2)
 
   if(NOT TARGET BZip2::BZip2)
     add_library(BZip2::BZip2 UNKNOWN IMPORTED)
-    set_target_properties(
-      BZip2::BZip2 PROPERTIES IMPORTED_LOCATION "${BZIP2_LIBRARIES}"
-                              INTERFACE_INCLUDE_DIRECTORIES "${BZIP2_INCLUDE_DIR}")
+    set_target_properties(BZip2::BZip2
+                          PROPERTIES IMPORTED_LOCATION "${BZIP2_LIBRARIES}"
+                                     INTERFACE_INCLUDE_DIRECTORIES "${BZIP2_INCLUDE_DIR}")
   endif()
   include_directories(SYSTEM "${BZIP2_INCLUDE_DIR}")
 endif()
@@ -2212,21 +2197,20 @@ macro(build_utf8proc)
       -DCMAKE_INSTALL_LIBDIR=lib
       -DBUILD_SHARED_LIBS=OFF)
 
-  externalproject_add(
-    utf8proc_ep
-    ${EP_LOG_OPTIONS}
-    CMAKE_ARGS ${UTF8PROC_CMAKE_ARGS}
-    INSTALL_DIR ${UTF8PROC_PREFIX}
-    URL ${ARROW_UTF8PROC_SOURCE_URL}
-    BUILD_BYPRODUCTS "${UTF8PROC_STATIC_LIB}")
+  externalproject_add(utf8proc_ep
+                      ${EP_LOG_OPTIONS}
+                      CMAKE_ARGS ${UTF8PROC_CMAKE_ARGS}
+                      INSTALL_DIR ${UTF8PROC_PREFIX}
+                      URL ${ARROW_UTF8PROC_SOURCE_URL}
+                      BUILD_BYPRODUCTS "${UTF8PROC_STATIC_LIB}")
 
   file(MAKE_DIRECTORY "${UTF8PROC_PREFIX}/include")
   add_library(utf8proc::utf8proc STATIC IMPORTED)
-  set_target_properties(
-    utf8proc::utf8proc
-    PROPERTIES IMPORTED_LOCATION "${UTF8PROC_STATIC_LIB}"
-               INTERFACE_COMPILER_DEFINITIONS "UTF8PROC_STATIC"
-               INTERFACE_INCLUDE_DIRECTORIES "${UTF8PROC_PREFIX}/include")
+  set_target_properties(utf8proc::utf8proc
+                        PROPERTIES IMPORTED_LOCATION "${UTF8PROC_STATIC_LIB}"
+                                   INTERFACE_COMPILER_DEFINITIONS "UTF8PROC_STATIC"
+                                   INTERFACE_INCLUDE_DIRECTORIES
+                                   "${UTF8PROC_PREFIX}/include")
 
   add_dependencies(toolchain utf8proc_ep)
   add_dependencies(utf8proc::utf8proc utf8proc_ep)
@@ -2272,20 +2256,19 @@ macro(build_cares)
       -DCMAKE_INSTALL_LIBDIR=lib
       "-DCMAKE_INSTALL_PREFIX=${CARES_PREFIX}")
 
-  externalproject_add(
-    cares_ep
-    ${EP_LOG_OPTIONS}
-    URL ${CARES_SOURCE_URL}
-    CMAKE_ARGS ${CARES_CMAKE_ARGS}
-    BUILD_BYPRODUCTS "${CARES_STATIC_LIB}")
+  externalproject_add(cares_ep
+                      ${EP_LOG_OPTIONS}
+                      URL ${CARES_SOURCE_URL}
+                      CMAKE_ARGS ${CARES_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS "${CARES_STATIC_LIB}")
 
   file(MAKE_DIRECTORY ${CARES_INCLUDE_DIR})
 
   add_dependencies(toolchain cares_ep)
   add_library(c-ares::cares STATIC IMPORTED)
-  set_target_properties(
-    c-ares::cares PROPERTIES IMPORTED_LOCATION "${CARES_STATIC_LIB}"
-                             INTERFACE_INCLUDE_DIRECTORIES "${CARES_INCLUDE_DIR}")
+  set_target_properties(c-ares::cares
+                        PROPERTIES IMPORTED_LOCATION "${CARES_STATIC_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${CARES_INCLUDE_DIR}")
   add_dependencies(c-ares::cares cares_ep)
 
   if(APPLE)
@@ -2359,12 +2342,11 @@ macro(build_grpc)
     list(APPEND ABSL_LIBRARIES absl::${_ABSL_LIB})
   endforeach()
 
-  externalproject_add(
-    absl_ep
-    ${EP_LOG_OPTIONS}
-    URL ${ABSL_SOURCE_URL}
-    CMAKE_ARGS ${ABSL_CMAKE_ARGS}
-    BUILD_BYPRODUCTS ${ABSL_BUILD_BYPRODUCTS})
+  externalproject_add(absl_ep
+                      ${EP_LOG_OPTIONS}
+                      URL ${ABSL_SOURCE_URL}
+                      CMAKE_ARGS ${ABSL_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS ${ABSL_BUILD_BYPRODUCTS})
 
   set(GRPC_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/grpc_ep-prefix/src/grpc_ep-build")
   set(GRPC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/grpc_ep-install")
@@ -2469,37 +2451,36 @@ macro(build_grpc)
   # XXX the gRPC git checkout is huge and takes a long time
   # Ideally, we should be able to use the tarballs, but they don't contain
   # vendored dependencies such as c-ares...
-  externalproject_add(
-    grpc_ep
-    URL ${GRPC_SOURCE_URL}
-    LIST_SEPARATOR |
-    BUILD_BYPRODUCTS ${GRPC_STATIC_LIBRARY_GPR}
-                     ${GRPC_STATIC_LIBRARY_GRPC}
-                     ${GRPC_STATIC_LIBRARY_GRPCPP}
-                     ${GRPC_STATIC_LIBRARY_ADDRESS_SORTING}
-                     ${GRPC_STATIC_LIBRARY_UPB}
-                     ${GRPC_CPP_PLUGIN}
-    CMAKE_ARGS ${GRPC_CMAKE_ARGS} ${EP_LOG_OPTIONS}
-    DEPENDS ${grpc_dependencies})
+  externalproject_add(grpc_ep
+                      URL ${GRPC_SOURCE_URL}
+                      LIST_SEPARATOR |
+                      BUILD_BYPRODUCTS ${GRPC_STATIC_LIBRARY_GPR}
+                                       ${GRPC_STATIC_LIBRARY_GRPC}
+                                       ${GRPC_STATIC_LIBRARY_GRPCPP}
+                                       ${GRPC_STATIC_LIBRARY_ADDRESS_SORTING}
+                                       ${GRPC_STATIC_LIBRARY_UPB}
+                                       ${GRPC_CPP_PLUGIN}
+                      CMAKE_ARGS ${GRPC_CMAKE_ARGS} ${EP_LOG_OPTIONS}
+                      DEPENDS ${grpc_dependencies})
 
   # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
   file(MAKE_DIRECTORY ${GRPC_INCLUDE_DIR})
 
   add_library(gRPC::upb STATIC IMPORTED)
-  set_target_properties(
-    gRPC::upb PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_UPB}"
-                         INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
+  set_target_properties(gRPC::upb
+                        PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_UPB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
 
   add_library(gRPC::gpr STATIC IMPORTED)
-  set_target_properties(
-    gRPC::gpr PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_GPR}"
-                         INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
+  set_target_properties(gRPC::gpr
+                        PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_GPR}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
 
   add_library(gRPC::address_sorting STATIC IMPORTED)
-  set_target_properties(
-    gRPC::address_sorting
-    PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_ADDRESS_SORTING}"
-               INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
+  set_target_properties(gRPC::address_sorting
+                        PROPERTIES IMPORTED_LOCATION
+                                   "${GRPC_STATIC_LIBRARY_ADDRESS_SORTING}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
 
   add_library(gRPC::grpc STATIC IMPORTED)
   set(GRPC_LINK_LIBRARIES
@@ -2511,19 +2492,17 @@ macro(build_grpc)
       c-ares::cares
       ZLIB::ZLIB
       Threads::Threads)
-  set_target_properties(
-    gRPC::grpc
-    PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_GRPC}"
-               INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}"
-               INTERFACE_LINK_LIBRARIES "${GRPC_LINK_LIBRARIES}")
+  set_target_properties(gRPC::grpc
+                        PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_GRPC}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}"
+                                   INTERFACE_LINK_LIBRARIES "${GRPC_LINK_LIBRARIES}")
 
   add_library(gRPC::grpc++ STATIC IMPORTED)
   set(GRPCPP_LINK_LIBRARIES gRPC::grpc ${ARROW_PROTOBUF_LIBPROTOBUF})
-  set_target_properties(
-    gRPC::grpc++
-    PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_GRPCPP}"
-               INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}"
-               INTERFACE_LINK_LIBRARIES "${GRPCPP_LINK_LIBRARIES}")
+  set_target_properties(gRPC::grpc++
+                        PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_GRPCPP}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}"
+                                   INTERFACE_LINK_LIBRARIES "${GRPCPP_LINK_LIBRARIES}")
 
   add_executable(gRPC::grpc_cpp_plugin IMPORTED)
   set_target_properties(gRPC::grpc_cpp_plugin PROPERTIES IMPORTED_LOCATION
@@ -2542,15 +2521,14 @@ macro(build_grpc)
   set(GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR
       "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}grpcpp${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
-  add_custom_command(
-    OUTPUT ${GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR}
-    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:gRPC::grpc++>
-            ${GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR}
-    DEPENDS grpc_ep)
+  add_custom_command(OUTPUT ${GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR}
+                     COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:gRPC::grpc++>
+                             ${GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR}
+                     DEPENDS grpc_ep)
   add_library(gRPC::grpcpp_for_bundling STATIC IMPORTED)
-  set_target_properties(
-    gRPC::grpcpp_for_bundling PROPERTIES IMPORTED_LOCATION
-                                         "${GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR}")
+  set_target_properties(gRPC::grpcpp_for_bundling
+                        PROPERTIES IMPORTED_LOCATION
+                                   "${GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR}")
 
   set_source_files_properties("${GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR}" PROPERTIES GENERATED
                                                                                 TRUE)
@@ -2569,12 +2547,11 @@ endmacro()
 
 if(ARROW_WITH_GRPC)
   set(ARROW_GRPC_REQUIRED_VERSION "1.17.0")
-  resolve_dependency(
-    gRPC
-    HAVE_ALT
-    TRUE
-    REQUIRED_VERSION
-    ${ARROW_GRPC_REQUIRED_VERSION})
+  resolve_dependency(gRPC
+                     HAVE_ALT
+                     TRUE
+                     REQUIRED_VERSION
+                     ${ARROW_GRPC_REQUIRED_VERSION})
 
   # TODO: Don't use global includes but rather target_include_directories
   get_target_property(GRPC_INCLUDE_DIR gRPC::grpc++ INTERFACE_INCLUDE_DIRECTORIES)
@@ -2666,11 +2643,10 @@ macro(build_orc)
   # Work around CMake bug
   file(MAKE_DIRECTORY ${ORC_INCLUDE_DIR})
 
-  externalproject_add(
-    orc_ep
-    URL ${ORC_SOURCE_URL}
-    BUILD_BYPRODUCTS ${ORC_STATIC_LIB}
-    CMAKE_ARGS ${ORC_CMAKE_ARGS} ${EP_LOG_OPTIONS})
+  externalproject_add(orc_ep
+                      URL ${ORC_SOURCE_URL}
+                      BUILD_BYPRODUCTS ${ORC_STATIC_LIB}
+                      CMAKE_ARGS ${ORC_CMAKE_ARGS} ${EP_LOG_OPTIONS})
 
   add_dependencies(toolchain orc_ep)
 
@@ -2681,9 +2657,9 @@ macro(build_orc)
   add_dependencies(orc_ep ${ARROW_PROTOBUF_LIBPROTOBUF})
 
   add_library(orc::liborc STATIC IMPORTED)
-  set_target_properties(
-    orc::liborc PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}"
-                           INTERFACE_INCLUDE_DIRECTORIES "${ORC_INCLUDE_DIR}")
+  set_target_properties(orc::liborc
+                        PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${ORC_INCLUDE_DIR}")
 
   add_dependencies(toolchain orc_ep)
   add_dependencies(orc::liborc orc_ep)
@@ -2768,51 +2744,47 @@ macro(build_awssdk)
       set(_AWSSDK_TARGET_NAME AWS::${_AWSSDK_LIB})
     endif()
     add_library(${_AWSSDK_TARGET_NAME} STATIC IMPORTED)
-    set_target_properties(
-      ${_AWSSDK_TARGET_NAME}
-      PROPERTIES IMPORTED_LOCATION ${_AWSSDK_STATIC_LIBRARY} INTERFACE_INCLUDE_DIRECTORIES
-                                                             "${AWSSDK_INCLUDE_DIR}")
+    set_target_properties(${_AWSSDK_TARGET_NAME}
+                          PROPERTIES IMPORTED_LOCATION ${_AWSSDK_STATIC_LIBRARY}
+                                     INTERFACE_INCLUDE_DIRECTORIES
+                                     "${AWSSDK_INCLUDE_DIR}")
     set("${_AWSSDK_LIB_NAME_PREFIX}_STATIC_LIBRARY" ${_AWSSDK_STATIC_LIBRARY})
     list(APPEND AWSSDK_LIBRARIES ${_AWSSDK_TARGET_NAME})
   endforeach()
 
-  externalproject_add(
-    aws_c_common_ep
-    ${EP_LOG_OPTIONS}
-    URL ${AWS_C_COMMON_SOURCE_URL}
-    CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
-    BUILD_BYPRODUCTS ${AWS_C_COMMON_STATIC_LIBRARY})
+  externalproject_add(aws_c_common_ep
+                      ${EP_LOG_OPTIONS}
+                      URL ${AWS_C_COMMON_SOURCE_URL}
+                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS ${AWS_C_COMMON_STATIC_LIBRARY})
   add_dependencies(AWS::aws-c-common aws_c_common_ep)
 
-  externalproject_add(
-    aws_checksums_ep
-    ${EP_LOG_OPTIONS}
-    URL ${AWS_CHECKSUMS_SOURCE_URL}
-    CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
-    BUILD_BYPRODUCTS ${AWS_CHECKSUMS_STATIC_LIBRARY}
-    DEPENDS aws_c_common_ep)
+  externalproject_add(aws_checksums_ep
+                      ${EP_LOG_OPTIONS}
+                      URL ${AWS_CHECKSUMS_SOURCE_URL}
+                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS ${AWS_CHECKSUMS_STATIC_LIBRARY}
+                      DEPENDS aws_c_common_ep)
   add_dependencies(AWS::aws-checksums aws_checksums_ep)
 
-  externalproject_add(
-    aws_c_event_stream_ep
-    ${EP_LOG_OPTIONS}
-    URL ${AWS_C_EVENT_STREAM_SOURCE_URL}
-    CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
-    BUILD_BYPRODUCTS ${AWS_C_EVENT_STREAM_STATIC_LIBRARY}
-    DEPENDS aws_checksums_ep)
+  externalproject_add(aws_c_event_stream_ep
+                      ${EP_LOG_OPTIONS}
+                      URL ${AWS_C_EVENT_STREAM_SOURCE_URL}
+                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS ${AWS_C_EVENT_STREAM_STATIC_LIBRARY}
+                      DEPENDS aws_checksums_ep)
   add_dependencies(AWS::aws-c-event-stream aws_c_event_stream_ep)
 
-  externalproject_add(
-    awssdk_ep
-    ${EP_LOG_OPTIONS}
-    URL ${AWSSDK_SOURCE_URL}
-    CMAKE_ARGS ${AWSSDK_CMAKE_ARGS}
-    BUILD_BYPRODUCTS ${AWS_CPP_SDK_COGNITO_IDENTITY_STATIC_LIBRARY}
-                     ${AWS_CPP_SDK_CORE_STATIC_LIBRARY}
-                     ${AWS_CPP_SDK_IDENTITY_MANAGEMENT_STATIC_LIBRARY}
-                     ${AWS_CPP_SDK_S3_STATIC_LIBRARY}
-                     ${AWS_CPP_SDK_STS_STATIC_LIBRARY}
-    DEPENDS aws_c_event_stream_ep)
+  externalproject_add(awssdk_ep
+                      ${EP_LOG_OPTIONS}
+                      URL ${AWSSDK_SOURCE_URL}
+                      CMAKE_ARGS ${AWSSDK_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS ${AWS_CPP_SDK_COGNITO_IDENTITY_STATIC_LIBRARY}
+                                       ${AWS_CPP_SDK_CORE_STATIC_LIBRARY}
+                                       ${AWS_CPP_SDK_IDENTITY_MANAGEMENT_STATIC_LIBRARY}
+                                       ${AWS_CPP_SDK_S3_STATIC_LIBRARY}
+                                       ${AWS_CPP_SDK_STS_STATIC_LIBRARY}
+                      DEPENDS aws_c_event_stream_ep)
   add_dependencies(toolchain awssdk_ep)
   foreach(_AWSSDK_LIB ${_AWSSDK_LIBS})
     if(${_AWSSDK_LIB} MATCHES "^aws-cpp-sdk-")
@@ -2829,9 +2801,10 @@ macro(build_awssdk)
     if(NOT TARGET CURL::libcurl)
       # For CMake 3.11 or older
       add_library(CURL::libcurl UNKNOWN IMPORTED)
-      set_target_properties(
-        CURL::libcurl PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${CURL_INCLUDE_DIRS}"
-                                 IMPORTED_LOCATION "${CURL_LIBRARIES}")
+      set_target_properties(CURL::libcurl
+                            PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                       "${CURL_INCLUDE_DIRS}" IMPORTED_LOCATION
+                                                              "${CURL_LIBRARIES}")
     endif()
     set_property(TARGET aws-cpp-sdk-core
                  APPEND
@@ -2904,9 +2877,9 @@ if(ARROW_S3)
     # aws-sdk-cpp to use the MacOSX SDK provided by XCode which makes
     # XCode a hard dependency. Command Line Tools is often used instead
     # of the full XCode suite, so let the linker to find it.
-    set_target_properties(
-      AWS::aws-c-common PROPERTIES INTERFACE_LINK_LIBRARIES
-                                   "-pthread;pthread;-framework CoreFoundation")
+    set_target_properties(AWS::aws-c-common
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "-pthread;pthread;-framework CoreFoundation")
   endif()
 endif()
 

@@ -46,15 +46,14 @@ set(FLIGHT_GENERATED_PROTO_FILES
 
 set(PROTO_DEPENDS ${FLIGHT_PROTO} ${ARROW_PROTOBUF_LIBPROTOBUF} gRPC::grpc_cpp_plugin)
 
-add_custom_command(
-  OUTPUT ${FLIGHT_GENERATED_PROTO_FILES}
-  COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_PROTO_PATH}"
-          "--cpp_out=${CMAKE_CURRENT_BINARY_DIR}" "${FLIGHT_PROTO}"
-  DEPENDS ${PROTO_DEPENDS} ARGS
-  COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_PROTO_PATH}"
-          "--grpc_out=${CMAKE_CURRENT_BINARY_DIR}"
-          "--plugin=protoc-gen-grpc=$<TARGET_FILE:gRPC::grpc_cpp_plugin>"
-          "${FLIGHT_PROTO}")
+add_custom_command(OUTPUT ${FLIGHT_GENERATED_PROTO_FILES}
+                   COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_PROTO_PATH}"
+                           "--cpp_out=${CMAKE_CURRENT_BINARY_DIR}" "${FLIGHT_PROTO}"
+                   DEPENDS ${PROTO_DEPENDS} ARGS
+                   COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_PROTO_PATH}"
+                           "--grpc_out=${CMAKE_CURRENT_BINARY_DIR}"
+                           "--plugin=protoc-gen-grpc=$<TARGET_FILE:gRPC::grpc_cpp_plugin>"
+                           "${FLIGHT_PROTO}")
 
 set_source_files_properties(${FLIGHT_GENERATED_PROTO_FILES} PROPERTIES GENERATED TRUE)
 
@@ -202,9 +201,9 @@ if(ARROW_TESTING)
 endif()
 
 foreach(LIB_TARGET ${ARROW_FLIGHT_TESTING_LIBRARIES})
-  target_compile_definitions(
-    ${LIB_TARGET} PRIVATE ARROW_FLIGHT_EXPORTING
-                          ${ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS})
+  target_compile_definitions(${LIB_TARGET}
+                             PRIVATE ARROW_FLIGHT_EXPORTING
+                                     ${ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS})
 endforeach()
 
 add_arrow_test(flight_test
@@ -246,11 +245,10 @@ if(ARROW_BUILD_BENCHMARKS)
   set(PERF_PROTO_GENERATED_FILES "${CMAKE_CURRENT_BINARY_DIR}/perf.pb.cc"
                                  "${CMAKE_CURRENT_BINARY_DIR}/perf.pb.h")
 
-  add_custom_command(
-    OUTPUT ${PERF_PROTO_GENERATED_FILES}
-    COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${CMAKE_CURRENT_SOURCE_DIR}"
-            "--cpp_out=${CMAKE_CURRENT_BINARY_DIR}" "perf.proto"
-    DEPENDS ${PROTO_DEPENDS})
+  add_custom_command(OUTPUT ${PERF_PROTO_GENERATED_FILES}
+                     COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${CMAKE_CURRENT_SOURCE_DIR}"
+                             "--cpp_out=${CMAKE_CURRENT_BINARY_DIR}" "perf.proto"
+                     DEPENDS ${PROTO_DEPENDS})
 
   add_executable(arrow-flight-perf-server perf_server.cc perf.pb.cc)
   target_link_libraries(arrow-flight-perf-server ${ARROW_FLIGHT_TEST_LINK_LIBS}

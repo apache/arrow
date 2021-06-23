@@ -82,27 +82,26 @@ foreach(SRC_FILE ${PRECOMPILED_SRCS})
   if(NOT ARROW_USE_NATIVE_INT128)
     list(APPEND PRECOMPILE_COMMAND -I${Boost_INCLUDE_DIR})
   endif()
-  add_custom_command(
-    OUTPUT ${BC_FILE}
-    COMMAND ${PRECOMPILE_COMMAND}
-    DEPENDS ${SRC_FILE})
+  add_custom_command(OUTPUT ${BC_FILE}
+                     COMMAND ${PRECOMPILE_COMMAND}
+                     DEPENDS ${SRC_FILE})
   list(APPEND BC_FILES ${BC_FILE})
 endforeach()
 
 # link all of the bitcode files into a single bitcode file.
-add_custom_command(
-  OUTPUT ${GANDIVA_PRECOMPILED_BC_PATH}
-  COMMAND ${LLVM_LINK_EXECUTABLE} -o ${GANDIVA_PRECOMPILED_BC_PATH} ${BC_FILES}
-  DEPENDS ${BC_FILES})
+add_custom_command(OUTPUT ${GANDIVA_PRECOMPILED_BC_PATH}
+                   COMMAND ${LLVM_LINK_EXECUTABLE} -o ${GANDIVA_PRECOMPILED_BC_PATH}
+                           ${BC_FILES}
+                   DEPENDS ${BC_FILES})
 
 # turn the bitcode file into a C++ static data variable.
-add_custom_command(
-  OUTPUT ${GANDIVA_PRECOMPILED_CC_PATH}
-  COMMAND ${PYTHON_EXECUTABLE}
-          "${CMAKE_CURRENT_SOURCE_DIR}/../make_precompiled_bitcode.py"
-          ${GANDIVA_PRECOMPILED_CC_IN_PATH} ${GANDIVA_PRECOMPILED_BC_PATH}
-          ${GANDIVA_PRECOMPILED_CC_PATH}
-  DEPENDS ${GANDIVA_PRECOMPILED_CC_IN_PATH} ${GANDIVA_PRECOMPILED_BC_PATH})
+add_custom_command(OUTPUT ${GANDIVA_PRECOMPILED_CC_PATH}
+                   COMMAND ${PYTHON_EXECUTABLE}
+                           "${CMAKE_CURRENT_SOURCE_DIR}/../make_precompiled_bitcode.py"
+                           ${GANDIVA_PRECOMPILED_CC_IN_PATH}
+                           ${GANDIVA_PRECOMPILED_BC_PATH} ${GANDIVA_PRECOMPILED_CC_PATH}
+                   DEPENDS ${GANDIVA_PRECOMPILED_CC_IN_PATH}
+                           ${GANDIVA_PRECOMPILED_BC_PATH})
 
 add_custom_target(precompiled ALL DEPENDS ${GANDIVA_PRECOMPILED_BC_PATH}
                                           ${GANDIVA_PRECOMPILED_CC_PATH})

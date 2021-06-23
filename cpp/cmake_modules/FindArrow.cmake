@@ -298,11 +298,10 @@ macro(arrow_find_package_pkg_config)
         PARENT_SCOPE)
 
     add_library(${target_shared} SHARED IMPORTED)
-    set_target_properties(
-      ${target_shared}
-      PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${include_dir}"
-                 INTERFACE_LINK_LIBRARIES "${rest_shared_lib_paths}"
-                 IMPORTED_LOCATION "${first_shared_lib_path}")
+    set_target_properties(${target_shared}
+                          PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${include_dir}"
+                                     INTERFACE_LINK_LIBRARIES "${rest_shared_lib_paths}"
+                                     IMPORTED_LOCATION "${first_shared_lib_path}")
     get_target_property(shared_lib ${target_shared} IMPORTED_LOCATION)
 
     find_library(${prefix}_static_lib
@@ -315,9 +314,9 @@ macro(arrow_find_package_pkg_config)
         PARENT_SCOPE)
     if(static_lib)
       add_library(${target_static} STATIC IMPORTED)
-      set_target_properties(
-        ${target_static} PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${include_dir}"
-                                    IMPORTED_LOCATION "${static_lib}")
+      set_target_properties(${target_static}
+                            PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${include_dir}"
+                                       IMPORTED_LOCATION "${static_lib}")
     endif()
   endif()
 endmacro()
@@ -387,13 +386,12 @@ endfunction()
 if(NOT "$ENV{ARROW_HOME}" STREQUAL "")
   file(TO_CMAKE_PATH "$ENV{ARROW_HOME}" ARROW_HOME)
 endif()
-arrow_find_package(
-  ARROW
-  "${ARROW_HOME}"
-  arrow
-  arrow/api.h
-  Arrow
-  arrow)
+arrow_find_package(ARROW
+                   "${ARROW_HOME}"
+                   arrow
+                   arrow/api.h
+                   Arrow
+                   arrow)
 
 if(ARROW_HOME)
   if(ARROW_INCLUDE_DIR)
@@ -432,23 +430,22 @@ endif()
 
 set(ARROW_ABI_VERSION ${ARROW_SO_VERSION})
 
-mark_as_advanced(
-  ARROW_ABI_VERSION
-  ARROW_CONFIG_SUFFIXES
-  ARROW_FULL_SO_VERSION
-  ARROW_IMPORT_LIB
-  ARROW_INCLUDE_DIR
-  ARROW_LIBS
-  ARROW_LIB_DIR
-  ARROW_SEARCH_LIB_PATH_SUFFIXES
-  ARROW_SHARED_IMP_LIB
-  ARROW_SHARED_LIB
-  ARROW_SO_VERSION
-  ARROW_STATIC_LIB
-  ARROW_VERSION
-  ARROW_VERSION_MAJOR
-  ARROW_VERSION_MINOR
-  ARROW_VERSION_PATCH)
+mark_as_advanced(ARROW_ABI_VERSION
+                 ARROW_CONFIG_SUFFIXES
+                 ARROW_FULL_SO_VERSION
+                 ARROW_IMPORT_LIB
+                 ARROW_INCLUDE_DIR
+                 ARROW_LIBS
+                 ARROW_LIB_DIR
+                 ARROW_SEARCH_LIB_PATH_SUFFIXES
+                 ARROW_SHARED_IMP_LIB
+                 ARROW_SHARED_LIB
+                 ARROW_SO_VERSION
+                 ARROW_STATIC_LIB
+                 ARROW_VERSION
+                 ARROW_VERSION_MAJOR
+                 ARROW_VERSION_MINOR
+                 ARROW_VERSION_PATCH)
 
 find_package_handle_standard_args(
   Arrow

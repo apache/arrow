@@ -232,48 +232,45 @@ find_program(CPPLINT_BIN
              HINTS ${BUILD_SUPPORT_DIR})
 message(STATUS "Found cpplint executable at ${CPPLINT_BIN}")
 
-add_custom_target(
-  lint
-  ${PYTHON_EXECUTABLE}
-  ${BUILD_SUPPORT_DIR}/run_cpplint.py
-  --cpplint_binary
-  ${CPPLINT_BIN}
-  --exclude_globs
-  ${LINT_EXCLUSIONS_FILE}
-  --source_dir
-  ${CMAKE_CURRENT_SOURCE_DIR}/src
-  ${ARROW_LINT_QUIET})
+add_custom_target(lint
+                  ${PYTHON_EXECUTABLE}
+                  ${BUILD_SUPPORT_DIR}/run_cpplint.py
+                  --cpplint_binary
+                  ${CPPLINT_BIN}
+                  --exclude_globs
+                  ${LINT_EXCLUSIONS_FILE}
+                  --source_dir
+                  ${CMAKE_CURRENT_SOURCE_DIR}/src
+                  ${ARROW_LINT_QUIET})
 
 #
 # "make format" and "make check-format" targets
 #
 if(${CLANG_FORMAT_FOUND})
   # runs clang format and updates files in place.
-  add_custom_target(
-    format
-    ${PYTHON_EXECUTABLE}
-    ${BUILD_SUPPORT_DIR}/run_clang_format.py
-    --clang_format_binary
-    ${CLANG_FORMAT_BIN}
-    --exclude_globs
-    ${LINT_EXCLUSIONS_FILE}
-    --source_dir
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-    --fix
-    ${ARROW_LINT_QUIET})
+  add_custom_target(format
+                    ${PYTHON_EXECUTABLE}
+                    ${BUILD_SUPPORT_DIR}/run_clang_format.py
+                    --clang_format_binary
+                    ${CLANG_FORMAT_BIN}
+                    --exclude_globs
+                    ${LINT_EXCLUSIONS_FILE}
+                    --source_dir
+                    ${CMAKE_CURRENT_SOURCE_DIR}/src
+                    --fix
+                    ${ARROW_LINT_QUIET})
 
   # runs clang format and exits with a non-zero exit code if any files need to be reformatted
-  add_custom_target(
-    check-format
-    ${PYTHON_EXECUTABLE}
-    ${BUILD_SUPPORT_DIR}/run_clang_format.py
-    --clang_format_binary
-    ${CLANG_FORMAT_BIN}
-    --exclude_globs
-    ${LINT_EXCLUSIONS_FILE}
-    --source_dir
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${ARROW_LINT_QUIET})
+  add_custom_target(check-format
+                    ${PYTHON_EXECUTABLE}
+                    ${BUILD_SUPPORT_DIR}/run_clang_format.py
+                    --clang_format_binary
+                    ${CLANG_FORMAT_BIN}
+                    --exclude_globs
+                    ${LINT_EXCLUSIONS_FILE}
+                    --source_dir
+                    ${CMAKE_CURRENT_SOURCE_DIR}/src
+                    ${ARROW_LINT_QUIET})
 endif()
 
 add_custom_target(lint_cpp_cli ${PYTHON_EXECUTABLE} ${BUILD_SUPPORT_DIR}/lint_cpp_cli.py
@@ -291,35 +288,33 @@ if(${CLANG_TIDY_FOUND})
   # TODO check to make sure .clang-tidy is being respected
 
   # runs clang-tidy and attempts to fix any warning automatically
-  add_custom_target(
-    clang-tidy
-    ${PYTHON_EXECUTABLE}
-    ${BUILD_SUPPORT_DIR}/run_clang_tidy.py
-    --clang_tidy_binary
-    ${CLANG_TIDY_BIN}
-    --exclude_globs
-    ${LINT_EXCLUSIONS_FILE}
-    --compile_commands
-    ${CMAKE_BINARY_DIR}/compile_commands.json
-    --source_dir
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-    --fix
-    ${ARROW_LINT_QUIET})
+  add_custom_target(clang-tidy
+                    ${PYTHON_EXECUTABLE}
+                    ${BUILD_SUPPORT_DIR}/run_clang_tidy.py
+                    --clang_tidy_binary
+                    ${CLANG_TIDY_BIN}
+                    --exclude_globs
+                    ${LINT_EXCLUSIONS_FILE}
+                    --compile_commands
+                    ${CMAKE_BINARY_DIR}/compile_commands.json
+                    --source_dir
+                    ${CMAKE_CURRENT_SOURCE_DIR}/src
+                    --fix
+                    ${ARROW_LINT_QUIET})
 
   # runs clang-tidy and exits with a non-zero exit code if any errors are found.
-  add_custom_target(
-    check-clang-tidy
-    ${PYTHON_EXECUTABLE}
-    ${BUILD_SUPPORT_DIR}/run_clang_tidy.py
-    --clang_tidy_binary
-    ${CLANG_TIDY_BIN}
-    --exclude_globs
-    ${LINT_EXCLUSIONS_FILE}
-    --compile_commands
-    ${CMAKE_BINARY_DIR}/compile_commands.json
-    --source_dir
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${ARROW_LINT_QUIET})
+  add_custom_target(check-clang-tidy
+                    ${PYTHON_EXECUTABLE}
+                    ${BUILD_SUPPORT_DIR}/run_clang_tidy.py
+                    --clang_tidy_binary
+                    ${CLANG_TIDY_BIN}
+                    --exclude_globs
+                    ${LINT_EXCLUSIONS_FILE}
+                    --compile_commands
+                    ${CMAKE_BINARY_DIR}/compile_commands.json
+                    --source_dir
+                    ${CMAKE_CURRENT_SOURCE_DIR}/src
+                    ${ARROW_LINT_QUIET})
 endif()
 
 if(UNIX)
@@ -400,13 +395,12 @@ if(NOT ARROW_BUILD_TESTS)
   set(NO_TESTS 1)
 else()
   add_custom_target(all-tests)
-  add_custom_target(
-    unittest
-    ctest
-    -j4
-    -L
-    unittest
-    --output-on-failure)
+  add_custom_target(unittest
+                    ctest
+                    -j4
+                    -L
+                    unittest
+                    --output-on-failure)
   add_dependencies(unittest all-tests)
 endif()
 
@@ -555,11 +549,10 @@ include_directories(src/generated)
 # Visibility
 #
 if(PARQUET_BUILD_SHARED)
-  set_target_properties(
-    arrow_shared
-    PROPERTIES C_VISIBILITY_PRESET hidden
-               CXX_VISIBILITY_PRESET hidden
-               VISIBILITY_INLINES_HIDDEN 1)
+  set_target_properties(arrow_shared
+                        PROPERTIES C_VISIBILITY_PRESET hidden
+                                   CXX_VISIBILITY_PRESET hidden
+                                   VISIBILITY_INLINES_HIDDEN 1)
 endif()
 
 #
@@ -573,30 +566,29 @@ endif(UNIX)
 # "make etags" target
 #
 if(UNIX)
-  add_custom_target(
-    tags
-    etags
-    --members
-    --declarations
-    `find
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-    -name
-    \\*.cc
-    -or
-    -name
-    \\*.hh
-    -or
-    -name
-    \\*.cpp
-    -or
-    -name
-    \\*.h
-    -or
-    -name
-    \\*.c
-    -or
-    -name
-    \\*.f`)
+  add_custom_target(tags
+                    etags
+                    --members
+                    --declarations
+                    `find
+                    ${CMAKE_CURRENT_SOURCE_DIR}/src
+                    -name
+                    \\*.cc
+                    -or
+                    -name
+                    \\*.hh
+                    -or
+                    -name
+                    \\*.cpp
+                    -or
+                    -name
+                    \\*.h
+                    -or
+                    -name
+                    \\*.c
+                    -or
+                    -name
+                    \\*.f`)
   add_custom_target(etags DEPENDS tags)
 endif(UNIX)
 
@@ -604,38 +596,37 @@ endif(UNIX)
 # "make cscope" target
 #
 if(UNIX)
-  add_custom_target(
-    cscope
-    find
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    (-name
-     \\*.cc
-     -or
-     -name
-     \\*.hh
-     -or
-     -name
-     \\*.cpp
-     -or
-     -name
-     \\*.h
-     -or
-     -name
-     \\*.c
-     -or
-     -name
-     \\*.f)
-    -exec
-    echo
-    \"{}\"
-    \;
-    >
-    cscope.files
-    &&
-    cscope
-    -q
-    -b
-    VERBATIM)
+  add_custom_target(cscope
+                    find
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    (-name
+                     \\*.cc
+                     -or
+                     -name
+                     \\*.hh
+                     -or
+                     -name
+                     \\*.cpp
+                     -or
+                     -name
+                     \\*.h
+                     -or
+                     -name
+                     \\*.c
+                     -or
+                     -name
+                     \\*.f)
+                    -exec
+                    echo
+                    \"{}\"
+                    \;
+                    >
+                    cscope.files
+                    &&
+                    cscope
+                    -q
+                    -b
+                    VERBATIM)
 endif(UNIX)
 
 #

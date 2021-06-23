@@ -90,9 +90,10 @@ find_package_handle_standard_args(
 if(utf8proc_FOUND)
   set(utf8proc_FOUND TRUE)
   add_library(utf8proc::utf8proc UNKNOWN IMPORTED)
-  set_target_properties(
-    utf8proc::utf8proc PROPERTIES IMPORTED_LOCATION "${utf8proc_LIB}"
-                                  INTERFACE_INCLUDE_DIRECTORIES "${utf8proc_INCLUDE_DIR}")
+  set_target_properties(utf8proc::utf8proc
+                        PROPERTIES IMPORTED_LOCATION "${utf8proc_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES
+                                   "${utf8proc_INCLUDE_DIR}")
   if(NOT ARROW_UTF8PROC_USE_SHARED)
     set_target_properties(utf8proc::utf8proc PROPERTIES INTERFACE_COMPILER_DEFINITIONS
                                                         "UTF8PROC_STATIC")

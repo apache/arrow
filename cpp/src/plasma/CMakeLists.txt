@@ -140,11 +140,10 @@ elseif(APPLE)
   # $ENV{CONDA_PREFIX}/lib but our test libraries and executables are not
   # installed there.
   if(NOT "$ENV{CONDA_PREFIX}" STREQUAL "" AND APPLE)
-    set_target_properties(
-      plasma-store-server
-      PROPERTIES BUILD_WITH_INSTALL_RPATH TRUE
-                 INSTALL_RPATH_USE_LINK_PATH TRUE
-                 INSTALL_RPATH "$ENV{CONDA_PREFIX}/lib")
+    set_target_properties(plasma-store-server
+                          PROPERTIES BUILD_WITH_INSTALL_RPATH TRUE
+                                     INSTALL_RPATH_USE_LINK_PATH TRUE
+                                     INSTALL_RPATH "$ENV{CONDA_PREFIX}/lib")
   endif()
 endif()
 
@@ -188,12 +187,11 @@ if(ARROW_PLASMA_JAVA_CLIENT)
   add_library(plasma_java SHARED ${PLASMA_LIBRARY_EXT_java_SRC})
 
   if(APPLE)
-    target_link_libraries(
-      plasma_java
-      plasma_shared
-      ${PLASMA_LINK_LIBS}
-      "-undefined dynamic_lookup"
-      ${PTHREAD_LIBRARY})
+    target_link_libraries(plasma_java
+                          plasma_shared
+                          ${PLASMA_LINK_LIBS}
+                          "-undefined dynamic_lookup"
+                          ${PTHREAD_LIBRARY})
   else(APPLE)
     target_link_libraries(plasma_java plasma_shared ${PLASMA_LINK_LIBS}
                           ${PTHREAD_LIBRARY})
@@ -208,12 +206,11 @@ function(ADD_PLASMA_TEST REL_TEST_NAME)
   set(options)
   set(one_value_args)
   set(multi_value_args)
-  cmake_parse_arguments(
-    ARG
-    "${options}"
-    "${one_value_args}"
-    "${multi_value_args}"
-    ${ARGN})
+  cmake_parse_arguments(ARG
+                        "${options}"
+                        "${one_value_args}"
+                        "${multi_value_args}"
+                        ${ARGN})
   add_test_case(${REL_TEST_NAME}
                 PREFIX
                 "plasma"

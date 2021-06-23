@@ -50,12 +50,11 @@ function(ADD_THIRDPARTY_LIB LIB_NAME)
   set(options)
   set(one_value_args SHARED_LIB STATIC_LIB)
   set(multi_value_args DEPS INCLUDE_DIRECTORIES)
-  cmake_parse_arguments(
-    ARG
-    "${options}"
-    "${one_value_args}"
-    "${multi_value_args}"
-    ${ARGN})
+  cmake_parse_arguments(ARG
+                        "${options}"
+                        "${one_value_args}"
+                        "${multi_value_args}"
+                        ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
@@ -147,12 +146,11 @@ function(create_merged_static_lib output_target)
   set(options)
   set(one_value_args NAME ROOT)
   set(multi_value_args TO_MERGE)
-  cmake_parse_arguments(
-    ARG
-    "${options}"
-    "${one_value_args}"
-    "${multi_value_args}"
-    ${ARGN})
+  cmake_parse_arguments(ARG
+                        "${options}"
+                        "${one_value_args}"
+                        "${multi_value_args}"
+                        ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
@@ -207,11 +205,10 @@ function(create_merged_static_lib output_target)
     message(FATAL_ERROR "Unknown bundle scenario!")
   endif()
 
-  add_custom_command(
-    COMMAND ${BUNDLE_COMMAND}
-    OUTPUT ${output_lib_path}
-    COMMENT "Bundling ${output_lib_path}"
-    VERBATIM)
+  add_custom_command(COMMAND ${BUNDLE_COMMAND}
+                     OUTPUT ${output_lib_path}
+                     COMMENT "Bundling ${output_lib_path}"
+                     VERBATIM)
 
   message(STATUS "Creating bundled static library target ${output_target} at ${output_lib_path}"
   )
@@ -244,12 +241,11 @@ function(ADD_ARROW_LIB LIB_NAME)
       SHARED_INSTALL_INTERFACE_LIBS
       STATIC_INSTALL_INTERFACE_LIBS
       OUTPUT_PATH)
-  cmake_parse_arguments(
-    ARG
-    "${options}"
-    "${one_value_args}"
-    "${multi_value_args}"
-    ${ARGN})
+  cmake_parse_arguments(ARG
+                        "${options}"
+                        "${one_value_args}"
+                        "${multi_value_args}"
+                        ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
@@ -363,23 +359,21 @@ function(ADD_ARROW_LIB LIB_NAME)
       set(ARG_SHARED_LINK_FLAGS "-undefined dynamic_lookup ${ARG_SHARED_LINK_FLAGS}")
     endif()
 
-    set_target_properties(
-      ${LIB_NAME}_shared
-      PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${OUTPUT_PATH}"
-                 RUNTIME_OUTPUT_DIRECTORY "${OUTPUT_PATH}"
-                 PDB_OUTPUT_DIRECTORY "${OUTPUT_PATH}"
-                 LINK_FLAGS "${ARG_SHARED_LINK_FLAGS}"
-                 OUTPUT_NAME ${LIB_NAME}
-                 VERSION "${ARROW_FULL_SO_VERSION}"
-                 SOVERSION "${ARROW_SO_VERSION}")
+    set_target_properties(${LIB_NAME}_shared
+                          PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${OUTPUT_PATH}"
+                                     RUNTIME_OUTPUT_DIRECTORY "${OUTPUT_PATH}"
+                                     PDB_OUTPUT_DIRECTORY "${OUTPUT_PATH}"
+                                     LINK_FLAGS "${ARG_SHARED_LINK_FLAGS}"
+                                     OUTPUT_NAME ${LIB_NAME}
+                                     VERSION "${ARROW_FULL_SO_VERSION}"
+                                     SOVERSION "${ARROW_SO_VERSION}")
 
-    target_link_libraries(
-      ${LIB_NAME}_shared
-      LINK_PUBLIC
-      "$<BUILD_INTERFACE:${ARG_SHARED_LINK_LIBS}>"
-      "$<INSTALL_INTERFACE:${ARG_SHARED_INSTALL_INTERFACE_LIBS}>"
-      LINK_PRIVATE
-      ${ARG_SHARED_PRIVATE_LINK_LIBS})
+    target_link_libraries(${LIB_NAME}_shared
+                          LINK_PUBLIC
+                          "$<BUILD_INTERFACE:${ARG_SHARED_LINK_LIBS}>"
+                          "$<INSTALL_INTERFACE:${ARG_SHARED_INSTALL_INTERFACE_LIBS}>"
+                          LINK_PRIVATE
+                          ${ARG_SHARED_PRIVATE_LINK_LIBS})
 
     if(ARROW_RPATH_ORIGIN)
       if(APPLE)
@@ -397,9 +391,9 @@ function(ADD_ARROW_LIB LIB_NAME)
       else()
         set(_lib_install_name "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
       endif()
-      set_target_properties(
-        ${LIB_NAME}_shared PROPERTIES BUILD_WITH_INSTALL_RPATH ON INSTALL_NAME_DIR
-                                                                  "${_lib_install_name}")
+      set_target_properties(${LIB_NAME}_shared
+                            PROPERTIES BUILD_WITH_INSTALL_RPATH ON INSTALL_NAME_DIR
+                                                                   "${_lib_install_name}")
     endif()
 
     install(TARGETS ${LIB_NAME}_shared ${INSTALL_IS_OPTIONAL}
@@ -443,9 +437,9 @@ function(ADD_ARROW_LIB LIB_NAME)
       target_compile_definitions(${LIB_NAME}_static PUBLIC ARROW_STATIC)
     endif()
 
-    set_target_properties(
-      ${LIB_NAME}_static PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${OUTPUT_PATH}"
-                                    OUTPUT_NAME ${LIB_NAME_STATIC})
+    set_target_properties(${LIB_NAME}_static
+                          PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${OUTPUT_PATH}"
+                                     OUTPUT_NAME ${LIB_NAME_STATIC})
 
     if(ARG_STATIC_INSTALL_INTERFACE_LIBS)
       target_link_libraries(${LIB_NAME}_static LINK_PUBLIC
@@ -535,12 +529,11 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
       DEPENDENCIES
       PREFIX
       LABELS)
-  cmake_parse_arguments(
-    ARG
-    "${options}"
-    "${one_value_args}"
-    "${multi_value_args}"
-    ${ARGN})
+  cmake_parse_arguments(ARG
+                        "${options}"
+                        "${one_value_args}"
+                        "${multi_value_args}"
+                        ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
@@ -586,11 +579,11 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
   # $ENV{CONDA_PREFIX}/lib but our test libraries and executables are not
   # installed there.
   if(NOT "$ENV{CONDA_PREFIX}" STREQUAL "" AND APPLE)
-    set_target_properties(
-      ${BENCHMARK_NAME}
-      PROPERTIES BUILD_WITH_INSTALL_RPATH TRUE
-                 INSTALL_RPATH_USE_LINK_PATH TRUE
-                 INSTALL_RPATH "$ENV{CONDA_PREFIX}/lib;${EXECUTABLE_OUTPUT_PATH}")
+    set_target_properties(${BENCHMARK_NAME}
+                          PROPERTIES BUILD_WITH_INSTALL_RPATH TRUE
+                                     INSTALL_RPATH_USE_LINK_PATH TRUE
+                                     INSTALL_RPATH
+                                     "$ENV{CONDA_PREFIX}/lib;${EXECUTABLE_OUTPUT_PATH}")
   endif()
 
   # Add test as dependency of relevant label targets
@@ -660,12 +653,11 @@ function(ADD_TEST_CASE REL_TEST_NAME)
       LABELS
       EXTRA_LABELS
       PREFIX)
-  cmake_parse_arguments(
-    ARG
-    "${options}"
-    "${one_value_args}"
-    "${multi_value_args}"
-    ${ARGN})
+  cmake_parse_arguments(ARG
+                        "${options}"
+                        "${one_value_args}"
+                        "${multi_value_args}"
+                        ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
@@ -697,11 +689,11 @@ function(ADD_TEST_CASE REL_TEST_NAME)
   # $ENV{CONDA_PREFIX}/lib but our test libraries and executables are not
   # installed there.
   if(NOT "$ENV{CONDA_PREFIX}" STREQUAL "" AND APPLE)
-    set_target_properties(
-      ${TEST_NAME}
-      PROPERTIES BUILD_WITH_INSTALL_RPATH TRUE
-                 INSTALL_RPATH_USE_LINK_PATH TRUE
-                 INSTALL_RPATH "${EXECUTABLE_OUTPUT_PATH};$ENV{CONDA_PREFIX}/lib")
+    set_target_properties(${TEST_NAME}
+                          PROPERTIES BUILD_WITH_INSTALL_RPATH TRUE
+                                     INSTALL_RPATH_USE_LINK_PATH TRUE
+                                     INSTALL_RPATH
+                                     "${EXECUTABLE_OUTPUT_PATH};$ENV{CONDA_PREFIX}/lib")
   endif()
 
   if(ARG_STATIC_LINK_LIBS)
@@ -770,10 +762,9 @@ function(ADD_TEST_CASE REL_TEST_NAME)
     # ensure there is a cmake target which exercises tests with this LABEL
     set(LABEL_TEST_NAME "test-${LABEL}")
     if(NOT TARGET ${LABEL_TEST_NAME})
-      add_custom_target(
-        ${LABEL_TEST_NAME}
-        ctest -L "${LABEL}" --output-on-failure
-        USES_TERMINAL)
+      add_custom_target(${LABEL_TEST_NAME}
+                        ctest -L "${LABEL}" --output-on-failure
+                        USES_TERMINAL)
     endif()
     # ensure the test is (re)built before the LABEL test runs
     add_dependencies(${LABEL_TEST_NAME} ${TEST_NAME})
@@ -808,12 +799,11 @@ function(ADD_ARROW_EXAMPLE REL_EXAMPLE_NAME)
   set(options)
   set(one_value_args)
   set(multi_value_args EXTRA_LINK_LIBS DEPENDENCIES PREFIX)
-  cmake_parse_arguments(
-    ARG
-    "${options}"
-    "${one_value_args}"
-    "${multi_value_args}"
-    ${ARGN})
+  cmake_parse_arguments(ARG
+                        "${options}"
+                        "${one_value_args}"
+                        "${multi_value_args}"
+                        ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
@@ -862,12 +852,11 @@ function(ADD_FUZZ_TARGET REL_FUZZING_NAME)
   set(options)
   set(one_value_args PREFIX)
   set(multi_value_args LINK_LIBS)
-  cmake_parse_arguments(
-    ARG
-    "${options}"
-    "${one_value_args}"
-    "${multi_value_args}"
-    ${ARGN})
+  cmake_parse_arguments(ARG
+                        "${options}"
+                        "${one_value_args}"
+                        "${multi_value_args}"
+                        ${ARGN})
   if(ARG_UNPARSED_ARGUMENTS)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
@@ -904,12 +893,11 @@ function(ARROW_INSTALL_ALL_HEADERS PATH)
   set(options)
   set(one_value_args)
   set(multi_value_args PATTERN)
-  cmake_parse_arguments(
-    ARG
-    "${options}"
-    "${one_value_args}"
-    "${multi_value_args}"
-    ${ARGN})
+  cmake_parse_arguments(ARG
+                        "${options}"
+                        "${one_value_args}"
+                        "${multi_value_args}"
+                        ${ARGN})
   if(NOT ARG_PATTERN)
     # The .hpp extension is used by some vendored libraries
     set(ARG_PATTERN "*.h" "*.hpp")

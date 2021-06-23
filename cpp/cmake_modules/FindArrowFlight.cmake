@@ -48,13 +48,12 @@ endif()
 find_package(Arrow ${find_package_arguments})
 
 if(ARROW_FOUND)
-  arrow_find_package(
-    ARROW_FLIGHT
-    "${ARROW_HOME}"
-    arrow_flight
-    arrow/flight/api.h
-    ArrowFlight
-    arrow-flight)
+  arrow_find_package(ARROW_FLIGHT
+                     "${ARROW_HOME}"
+                     arrow_flight
+                     arrow/flight/api.h
+                     ArrowFlight
+                     arrow-flight)
   if(NOT ARROW_FLIGHT_VERSION)
     set(ARROW_FLIGHT_VERSION "${ARROW_VERSION}")
   endif()
@@ -66,16 +65,15 @@ else()
   set(ARROW_FLIGHT_VERSION_MATCH FALSE)
 endif()
 
-mark_as_advanced(
-  ARROW_FLIGHT_IMPORT_LIB
-  ARROW_FLIGHT_INCLUDE_DIR
-  ARROW_FLIGHT_LIBS
-  ARROW_FLIGHT_LIB_DIR
-  ARROW_FLIGHT_SHARED_IMP_LIB
-  ARROW_FLIGHT_SHARED_LIB
-  ARROW_FLIGHT_STATIC_LIB
-  ARROW_FLIGHT_VERSION
-  ARROW_FLIGHT_VERSION_MATCH)
+mark_as_advanced(ARROW_FLIGHT_IMPORT_LIB
+                 ARROW_FLIGHT_INCLUDE_DIR
+                 ARROW_FLIGHT_LIBS
+                 ARROW_FLIGHT_LIB_DIR
+                 ARROW_FLIGHT_SHARED_IMP_LIB
+                 ARROW_FLIGHT_SHARED_LIB
+                 ARROW_FLIGHT_STATIC_LIB
+                 ARROW_FLIGHT_VERSION
+                 ARROW_FLIGHT_VERSION_MATCH)
 
 find_package_handle_standard_args(
   ArrowFlight

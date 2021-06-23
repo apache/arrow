@@ -50,13 +50,12 @@ endif()
 find_package(Arrow ${find_package_arguments})
 
 if(ARROW_FOUND)
-  arrow_find_package(
-    PLASMA
-    "${ARROW_HOME}"
-    plasma
-    plasma/client.h
-    Plasma
-    plasma)
+  arrow_find_package(PLASMA
+                     "${ARROW_HOME}"
+                     plasma
+                     plasma/client.h
+                     Plasma
+                     plasma)
   if(ARROW_HOME)
     set(PLASMA_STORE_SERVER
         ${ARROW_HOME}/bin/plasma-store-server${CMAKE_EXECUTABLE_SUFFIX})
@@ -75,19 +74,18 @@ if(ARROW_FOUND)
   set(PLASMA_LIBS "${PLASMA_LIB_DIR}")
 endif()
 
-mark_as_advanced(
-  PLASMA_ABI_VERSION
-  PLASMA_EXECUTABLE
-  PLASMA_IMPORT_LIB
-  PLASMA_INCLUDE_DIR
-  PLASMA_LIBS
-  PLASMA_LIB_DIR
-  PLASMA_SHARED_IMP_LIB
-  PLASMA_SHARED_LIB
-  PLASMA_SO_VERSION
-  PLASMA_STATIC_LIB
-  PLASMA_STORE_SERVER
-  PLASMA_VERSION)
+mark_as_advanced(PLASMA_ABI_VERSION
+                 PLASMA_EXECUTABLE
+                 PLASMA_IMPORT_LIB
+                 PLASMA_INCLUDE_DIR
+                 PLASMA_LIBS
+                 PLASMA_LIB_DIR
+                 PLASMA_SHARED_IMP_LIB
+                 PLASMA_SHARED_LIB
+                 PLASMA_SO_VERSION
+                 PLASMA_STATIC_LIB
+                 PLASMA_STORE_SERVER
+                 PLASMA_VERSION)
 
 find_package_handle_standard_args(
   Plasma

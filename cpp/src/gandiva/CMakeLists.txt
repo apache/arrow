@@ -169,12 +169,11 @@ function(ADD_GANDIVA_TEST REL_TEST_NAME)
   set(options USE_STATIC_LINKING)
   set(one_value_args)
   set(multi_value_args)
-  cmake_parse_arguments(
-    ARG
-    "${options}"
-    "${one_value_args}"
-    "${multi_value_args}"
-    ${ARGN})
+  cmake_parse_arguments(ARG
+                        "${options}"
+                        "${one_value_args}"
+                        "${multi_value_args}"
+                        ${ARGN})
 
   if(NO_TESTS)
     return()
@@ -217,36 +216,35 @@ if(WIN32)
        LLVM::LLVM_INTERFACE
        ${GANDIVA_OPENSSL_LIBS})
 endif()
-add_gandiva_test(
-  internals-test
-  SOURCES
-  bitmap_accumulator_test.cc
-  engine_llvm_test.cc
-  function_registry_test.cc
-  function_signature_test.cc
-  llvm_types_test.cc
-  llvm_generator_test.cc
-  annotator_test.cc
-  tree_expr_test.cc
-  expr_decomposer_test.cc
-  expression_registry_test.cc
-  selection_vector_test.cc
-  lru_cache_test.cc
-  to_date_holder_test.cc
-  simple_arena_test.cc
-  like_holder_test.cc
-  decimal_type_util_test.cc
-  random_generator_holder_test.cc
-  hash_utils_test.cc
-  gdv_function_stubs_test.cc
-  EXTRA_DEPENDENCIES
-  LLVM::LLVM_INTERFACE
-  ${GANDIVA_OPENSSL_LIBS}
-  EXTRA_INCLUDES
-  $<TARGET_PROPERTY:LLVM::LLVM_INTERFACE,INTERFACE_INCLUDE_DIRECTORIES>
-  ${GANDIVA_INTERNALS_TEST_ARGUMENTS}
-  ${GANDIVA_OPENSSL_INCLUDE_DIR}
-  ${UTF8PROC_INCLUDE_DIR})
+add_gandiva_test(internals-test
+                 SOURCES
+                 bitmap_accumulator_test.cc
+                 engine_llvm_test.cc
+                 function_registry_test.cc
+                 function_signature_test.cc
+                 llvm_types_test.cc
+                 llvm_generator_test.cc
+                 annotator_test.cc
+                 tree_expr_test.cc
+                 expr_decomposer_test.cc
+                 expression_registry_test.cc
+                 selection_vector_test.cc
+                 lru_cache_test.cc
+                 to_date_holder_test.cc
+                 simple_arena_test.cc
+                 like_holder_test.cc
+                 decimal_type_util_test.cc
+                 random_generator_holder_test.cc
+                 hash_utils_test.cc
+                 gdv_function_stubs_test.cc
+                 EXTRA_DEPENDENCIES
+                 LLVM::LLVM_INTERFACE
+                 ${GANDIVA_OPENSSL_LIBS}
+                 EXTRA_INCLUDES
+                 $<TARGET_PROPERTY:LLVM::LLVM_INTERFACE,INTERFACE_INCLUDE_DIRECTORIES>
+                 ${GANDIVA_INTERNALS_TEST_ARGUMENTS}
+                 ${GANDIVA_OPENSSL_INCLUDE_DIR}
+                 ${UTF8PROC_INCLUDE_DIR})
 
 if(ARROW_GANDIVA_JAVA)
   add_subdirectory(jni)

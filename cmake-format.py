@@ -38,7 +38,7 @@ with section("format"):
     # This value only comes into play when considering whether or not to nest
     # arguments below their parent. If the number of characters in the parent
     # is less than this value, we will not nest.
-    min_prefix_chars = 16
+    min_prefix_chars = 32
 
     # If true, separate flow control names from their parentheses with a space
     separate_ctrl_name_with_space = False

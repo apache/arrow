@@ -64,8 +64,7 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
     # Check for AVX512 support in the compiler.
     set(OLD_CMAKE_REQURED_FLAGS ${CMAKE_REQUIRED_FLAGS})
     set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} ${ARROW_AVX512_FLAG}")
-    check_cxx_source_compiles(
-      "
+    check_cxx_source_compiles("
       #ifdef _MSC_VER
       #include <intrin.h>
       #else
@@ -78,7 +77,7 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
         _mm512_storeu_si512(out, mask);
         return 0;
       }"
-      CXX_SUPPORTS_AVX512)
+                              CXX_SUPPORTS_AVX512)
     set(CMAKE_REQUIRED_FLAGS ${OLD_CMAKE_REQURED_FLAGS})
   endif()
   # Runtime SIMD level it can get from compiler and ARROW_RUNTIME_SIMD_LEVEL

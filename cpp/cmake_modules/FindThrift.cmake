@@ -132,9 +132,9 @@ if(Thrift_FOUND OR THRIFT_FOUND)
   else()
     add_library(thrift::thrift STATIC IMPORTED)
   endif()
-  set_target_properties(
-    thrift::thrift PROPERTIES IMPORTED_LOCATION "${THRIFT_LIB}"
-                              INTERFACE_INCLUDE_DIRECTORIES "${THRIFT_INCLUDE_DIR}")
+  set_target_properties(thrift::thrift
+                        PROPERTIES IMPORTED_LOCATION "${THRIFT_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${THRIFT_INCLUDE_DIR}")
   if(WIN32 AND NOT MSVC_TOOLCHAIN)
     # We don't need this for Visual C++ because Thrift uses
     # "#pragma comment(lib, "Ws2_32.lib")" in

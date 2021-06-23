@@ -65,8 +65,9 @@ find_package_handle_standard_args(c-aresAlt REQUIRED_VARS c-ares_LIB c-ares_INCL
 if(c-aresAlt_FOUND)
   if(NOT TARGET c-ares::cares)
     add_library(c-ares::cares UNKNOWN IMPORTED)
-    set_target_properties(
-      c-ares::cares PROPERTIES IMPORTED_LOCATION "${c-ares_LIB}"
-                               INTERFACE_INCLUDE_DIRECTORIES "${c-ares_INCLUDE_DIR}")
+    set_target_properties(c-ares::cares
+                          PROPERTIES IMPORTED_LOCATION "${c-ares_LIB}"
+                                     INTERFACE_INCLUDE_DIRECTORIES
+                                     "${c-ares_INCLUDE_DIR}")
   endif()
 endif()

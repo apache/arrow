@@ -83,7 +83,7 @@ find_package_handle_standard_args(zstd REQUIRED_VARS ZSTD_LIB ZSTD_INCLUDE_DIR)
 
 if(zstd_FOUND)
   add_library(zstd::libzstd UNKNOWN IMPORTED)
-  set_target_properties(
-    zstd::libzstd PROPERTIES IMPORTED_LOCATION "${ZSTD_LIB}" INTERFACE_INCLUDE_DIRECTORIES
-                                                             "${ZSTD_INCLUDE_DIR}")
+  set_target_properties(zstd::libzstd
+                        PROPERTIES IMPORTED_LOCATION "${ZSTD_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${ZSTD_INCLUDE_DIR}")
 endif()

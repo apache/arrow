@@ -77,12 +77,11 @@ function(ADD_ARROW_DATASET_TEST REL_TEST_NAME)
   set(options)
   set(one_value_args PREFIX)
   set(multi_value_args LABELS)
-  cmake_parse_arguments(
-    ARG
-    "${options}"
-    "${one_value_args}"
-    "${multi_value_args}"
-    ${ARGN})
+  cmake_parse_arguments(ARG
+                        "${options}"
+                        "${one_value_args}"
+                        "${multi_value_args}"
+                        ${ARGN})
 
   if(ARG_PREFIX)
     set(PREFIX ${ARG_PREFIX})

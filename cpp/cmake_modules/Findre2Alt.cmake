@@ -80,8 +80,8 @@ find_package_handle_standard_args(re2Alt REQUIRED_VARS RE2_LIB RE2_INCLUDE_DIR)
 if(re2Alt_FOUND)
   if(NOT TARGET re2::re2)
     add_library(re2::re2 UNKNOWN IMPORTED)
-    set_target_properties(
-      re2::re2 PROPERTIES IMPORTED_LOCATION "${RE2_LIB}" INTERFACE_INCLUDE_DIRECTORIES
-                                                         "${RE2_INCLUDE_DIR}")
+    set_target_properties(re2::re2
+                          PROPERTIES IMPORTED_LOCATION "${RE2_LIB}"
+                                     INTERFACE_INCLUDE_DIRECTORIES "${RE2_INCLUDE_DIR}")
   endif()
 endif()

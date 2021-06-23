@@ -56,7 +56,7 @@ find_package_handle_standard_args(Snappy REQUIRED_VARS Snappy_LIB Snappy_INCLUDE
 
 if(Snappy_FOUND)
   add_library(Snappy::snappy UNKNOWN IMPORTED)
-  set_target_properties(
-    Snappy::snappy PROPERTIES IMPORTED_LOCATION "${Snappy_LIB}"
-                              INTERFACE_INCLUDE_DIRECTORIES "${Snappy_INCLUDE_DIR}")
+  set_target_properties(Snappy::snappy
+                        PROPERTIES IMPORTED_LOCATION "${Snappy_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${Snappy_INCLUDE_DIR}")
 endif()

@@ -20,24 +20,22 @@ add_custom_target(arrow)
 add_custom_target(arrow-benchmarks)
 add_custom_target(arrow-tests)
 add_custom_target(arrow-integration)
-add_dependencies(
-  arrow-all
-  arrow
-  arrow-tests
-  arrow-benchmarks
-  arrow-integration)
+add_dependencies(arrow-all
+                 arrow
+                 arrow-tests
+                 arrow-benchmarks
+                 arrow-integration)
 
 # Adding unit tests part of the "arrow" portion of the test suite
 function(ADD_ARROW_TEST REL_TEST_NAME)
   set(options)
   set(one_value_args PREFIX)
   set(multi_value_args LABELS PRECOMPILED_HEADERS)
-  cmake_parse_arguments(
-    ARG
-    "${options}"
-    "${one_value_args}"
-    "${multi_value_args}"
-    ${ARGN})
+  cmake_parse_arguments(ARG
+                        "${options}"
+                        "${one_value_args}"
+                        "${multi_value_args}"
+                        ${ARGN})
 
   if(ARG_PREFIX)
     set(PREFIX ${ARG_PREFIX})
@@ -74,12 +72,11 @@ function(ADD_ARROW_FUZZ_TARGET REL_FUZZING_NAME)
   set(options)
   set(one_value_args PREFIX)
   set(multi_value_args)
-  cmake_parse_arguments(
-    ARG
-    "${options}"
-    "${one_value_args}"
-    "${multi_value_args}"
-    ${ARGN})
+  cmake_parse_arguments(ARG
+                        "${options}"
+                        "${one_value_args}"
+                        "${multi_value_args}"
+                        ${ARGN})
 
   if(ARG_PREFIX)
     set(PREFIX ${ARG_PREFIX})
@@ -104,12 +101,11 @@ function(ADD_ARROW_BENCHMARK REL_TEST_NAME)
   set(options)
   set(one_value_args PREFIX)
   set(multi_value_args)
-  cmake_parse_arguments(
-    ARG
-    "${options}"
-    "${one_value_args}"
-    "${multi_value_args}"
-    ${ARGN})
+  cmake_parse_arguments(ARG
+                        "${options}"
+                        "${one_value_args}"
+                        "${multi_value_args}"
+                        ${ARGN})
   if(ARG_PREFIX)
     set(PREFIX ${ARG_PREFIX})
   else()
@@ -264,9 +260,9 @@ set(ARROW_C_SRCS
     vendored/uriparser/UriResolve.c
     vendored/uriparser/UriShorten.c)
 
-set_source_files_properties(
-  vendored/datetime/tz.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON
-                                      SKIP_UNITY_BUILD_INCLUSION ON)
+set_source_files_properties(vendored/datetime/tz.cpp
+                            PROPERTIES SKIP_PRECOMPILE_HEADERS ON
+                                       SKIP_UNITY_BUILD_INCLUSION ON)
 
 # Disable DLL exports in vendored uriparser library
 add_definitions(-DURI_STATIC_BUILD)
@@ -441,9 +437,9 @@ if(ARROW_FILESYSTEM)
   endif()
   if(ARROW_S3)
     list(APPEND ARROW_SRCS filesystem/s3fs.cc)
-    set_source_files_properties(
-      filesystem/s3fs.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON SKIP_UNITY_BUILD_INCLUSION
-                                                               ON)
+    set_source_files_properties(filesystem/s3fs.cc
+                                PROPERTIES SKIP_PRECOMPILE_HEADERS ON
+                                           SKIP_UNITY_BUILD_INCLUSION ON)
   endif()
 
   list(APPEND ARROW_TESTING_SRCS filesystem/test_util.cc)
@@ -542,14 +538,13 @@ endif()
 if(ARROW_BUILD_STATIC AND ARROW_BUNDLED_STATIC_LIBS)
   arrow_car(_FIRST_LIB ${ARROW_BUNDLED_STATIC_LIBS})
   arrow_cdr(_OTHER_LIBS ${ARROW_BUNDLED_STATIC_LIBS})
-  create_merged_static_lib(
-    arrow_bundled_dependencies
-    NAME
-    arrow_bundled_dependencies
-    ROOT
-    ${_FIRST_LIB}
-    TO_MERGE
-    ${_OTHER_LIBS})
+  create_merged_static_lib(arrow_bundled_dependencies
+                           NAME
+                           arrow_bundled_dependencies
+                           ROOT
+                           ${_FIRST_LIB}
+                           TO_MERGE
+                           ${_OTHER_LIBS})
 endif()
 
 if(ARROW_TESTING)

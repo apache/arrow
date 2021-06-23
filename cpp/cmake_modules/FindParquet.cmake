@@ -56,13 +56,12 @@ if((NOT PARQUET_HOME) AND ARROW_HOME)
 endif()
 
 if(ARROW_FOUND)
-  arrow_find_package(
-    PARQUET
-    "${PARQUET_HOME}"
-    parquet
-    parquet/api/reader.h
-    Parquet
-    parquet)
+  arrow_find_package(PARQUET
+                     "${PARQUET_HOME}"
+                     parquet
+                     parquet/api/reader.h
+                     Parquet
+                     parquet)
   if(PARQUET_HOME)
     if(PARQUET_INCLUDE_DIR)
       file(READ "${PARQUET_INCLUDE_DIR}/parquet/parquet_version.h"
@@ -102,17 +101,16 @@ if(ARROW_FOUND)
   set(PARQUET_ABI_VERSION "${PARQUET_SO_VERSION}")
 endif()
 
-mark_as_advanced(
-  PARQUET_ABI_VERSION
-  PARQUET_IMPORT_LIB
-  PARQUET_INCLUDE_DIR
-  PARQUET_LIBS
-  PARQUET_LIB_DIR
-  PARQUET_SHARED_IMP_LIB
-  PARQUET_SHARED_LIB
-  PARQUET_SO_VERSION
-  PARQUET_STATIC_LIB
-  PARQUET_VERSION)
+mark_as_advanced(PARQUET_ABI_VERSION
+                 PARQUET_IMPORT_LIB
+                 PARQUET_INCLUDE_DIR
+                 PARQUET_LIBS
+                 PARQUET_LIB_DIR
+                 PARQUET_SHARED_IMP_LIB
+                 PARQUET_SHARED_LIB
+                 PARQUET_SO_VERSION
+                 PARQUET_STATIC_LIB
+                 PARQUET_VERSION)
 
 find_package_handle_standard_args(
   Parquet

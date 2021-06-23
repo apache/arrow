@@ -52,13 +52,12 @@ find_package(ArrowFlight ${find_package_arguments})
 find_package(ArrowTesting ${find_package_arguments})
 
 if(ARROW_TESTING_FOUND AND ARROW_FLIGHT_FOUND)
-  arrow_find_package(
-    ARROW_FLIGHT_TESTING
-    "${ARROW_HOME}"
-    arrow_flight_testing
-    arrow/flight/test_util.h
-    ArrowFlightTesting
-    arrow-flight-testing)
+  arrow_find_package(ARROW_FLIGHT_TESTING
+                     "${ARROW_HOME}"
+                     arrow_flight_testing
+                     arrow/flight/test_util.h
+                     ArrowFlightTesting
+                     arrow-flight-testing)
   if(NOT ARROW_FLIGHT_TESTING_VERSION)
     set(ARROW_FLIGHT_TESTING_VERSION "${ARROW_VERSION}")
   endif()
@@ -70,16 +69,15 @@ else()
   set(ARROW_FLIGHT_TESTING_VERSION_MATCH FALSE)
 endif()
 
-mark_as_advanced(
-  ARROW_FLIGHT_TESTING_IMPORT_LIB
-  ARROW_FLIGHT_TESTING_INCLUDE_DIR
-  ARROW_FLIGHT_TESTING_LIBS
-  ARROW_FLIGHT_TESTING_LIB_DIR
-  ARROW_FLIGHT_TESTING_SHARED_IMP_LIB
-  ARROW_FLIGHT_TESTING_SHARED_LIB
-  ARROW_FLIGHT_TESTING_STATIC_LIB
-  ARROW_FLIGHT_TESTING_VERSION
-  ARROW_FLIGHT_TESTING_VERSION_MATCH)
+mark_as_advanced(ARROW_FLIGHT_TESTING_IMPORT_LIB
+                 ARROW_FLIGHT_TESTING_INCLUDE_DIR
+                 ARROW_FLIGHT_TESTING_LIBS
+                 ARROW_FLIGHT_TESTING_LIB_DIR
+                 ARROW_FLIGHT_TESTING_SHARED_IMP_LIB
+                 ARROW_FLIGHT_TESTING_SHARED_LIB
+                 ARROW_FLIGHT_TESTING_STATIC_LIB
+                 ARROW_FLIGHT_TESTING_VERSION
+                 ARROW_FLIGHT_TESTING_VERSION_MATCH)
 
 find_package_handle_standard_args(
   ArrowFlightTesting
