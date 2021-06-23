@@ -87,10 +87,10 @@ Status GetTensorType(PyObject* dtype, std::shared_ptr<DataType>* out) {
     TO_ARROW_TYPE_CASE(FLOAT32, float32);
     TO_ARROW_TYPE_CASE(FLOAT64, float64);
     case NPY_COMPLEX64:
-      *out = complex(float32());
+      *out = complex64();
       break;
     case NPY_COMPLEX128:
-      *out = complex(float64());
+      *out = complex128();
       break;
     default: {
       return Status::NotImplemented("Unsupported numpy type ", descr->type_num);
@@ -118,20 +118,19 @@ Status GetNumPyType(const DataType& type, int* type_num) {
     NUMPY_TYPE_CASE(FLOAT, FLOAT32);
     NUMPY_TYPE_CASE(DOUBLE, FLOAT64);
     case Type::EXTENSION: {
-      const auto* ptr = dynamic_cast<const ComplexType*>(&type);
+      auto ext_ptr = dynamic_cast<const ExtensionType*>(&type);
 
-      if (ptr == nullptr) {
-        // continue into the default branch
-      } else if (ptr->subtype()->Equals(float32())) {
+      if(ext_ptr == nullptr) {
+        return Status::Invalid(type.id(), " could not be cast to ExtensionType");
+      } else if (ext_ptr->extension_name() == "arrow.extension.complex64") {
         *type_num = NPY_COMPLEX64;
         break;
-      } else if (ptr->subtype()->Equals(float64())) {
+      } else if (ext_ptr->extension_name() == "arrow.extension.complex128") {
         *type_num = NPY_COMPLEX128;
         break;
       } else {
-        return Status::NotImplemented("Unsupported complex tensor type: ",
-                                      ptr->ToString());
-        break;
+        return Status::NotImplemented("Unsupported ExtensionType: ",
+                                      ext_ptr->extension_name());
       }
     }
 

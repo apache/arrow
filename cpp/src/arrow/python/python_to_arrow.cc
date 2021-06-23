@@ -166,7 +166,21 @@ class PyValue {
     return value;
   }
 
-  static Result<std::complex<double>> Convert(const ComplexType*, const O&, I obj) {
+  static Result<std::complex<double>> Convert(const ComplexFloatType*, const O&, I obj) {
+    std::complex<double> value;
+
+    if (PyComplex_Check(obj)) {
+      value =
+          std::complex<double>(PyComplex_RealAsDouble(obj), PyComplex_ImagAsDouble(obj));
+      RETURN_IF_PYERROR();
+    } else {
+      return internal::InvalidValue(obj, "tried to convert to std::complex<double>");
+    }
+
+    return value;
+  }
+
+static Result<std::complex<double>> Convert(const ComplexDoubleType*, const O&, I obj) {
     std::complex<double> value;
 
     if (PyComplex_Check(obj)) {

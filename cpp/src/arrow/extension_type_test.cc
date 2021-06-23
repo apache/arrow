@@ -189,17 +189,17 @@ class TestExtensionType : public ::testing::Test {
     if (GetExtensionType("uuid")) {
       ASSERT_OK(UnregisterExtensionType("uuid"));
     }
-    if (GetExtensionType("arrow.complex64")) {
-      ASSERT_OK(UnregisterExtensionType("arrow.complex64"));
+    if (GetExtensionType("arrow.extension.complex64")) {
+      ASSERT_OK(UnregisterExtensionType("arrow.extension.complex64"));
     }
-    if (GetExtensionType("arrow.complex128")) {
-      ASSERT_OK(UnregisterExtensionType("arrow.complex128"));
+    if (GetExtensionType("arrow.extension.complex128")) {
+      ASSERT_OK(UnregisterExtensionType("arrow.extension.complex128"));
     }
   }
 };
 
 TEST_F(TestExtensionType, ComplexTypeTest) {
-  auto registered_type = GetExtensionType("arrow.complex64");
+  auto registered_type = GetExtensionType("arrow.extension.complex64");
   ASSERT_NE(registered_type, nullptr);
 
   auto type = complex64();

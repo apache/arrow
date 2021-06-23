@@ -42,7 +42,7 @@ class ComplexFloatType : public ExtensionType {
   }
 
   std::string extension_name() const override {
-    return "arrow.complex64";
+    return "arrow.extension.complex64";
   }
 
   bool ExtensionEquals(const ExtensionType& other) const override;
@@ -78,7 +78,7 @@ class ComplexDoubleType : public ExtensionType {
   }
 
   std::string extension_name() const override {
-    return "arrow.complex128";
+    return "arrow.extension.complex128";
   }
 
   bool ExtensionEquals(const ExtensionType& other) const override;
