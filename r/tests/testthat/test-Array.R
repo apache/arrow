@@ -491,8 +491,9 @@ test_that("Array$create() can handle data frame with custom struct type (not inf
 })
 
 test_that("Array$create() supports tibble with no columns (ARROW-8354)", {
+  # TODO: should this return a tibble automatically?
   df <- tibble::tibble()
-  expect_equal(Array$create(df)$as_vector(), df)
+  expect_equal(tibble::as_tibble(Array$create(df)$as_vector()), df)
 })
 
 test_that("Array$create() handles vector -> list arrays (ARROW-7662)", {
@@ -838,4 +839,24 @@ test_that("Array to C-interface", {
   # must clean up the pointers or we leak
   delete_arrow_schema(schema_ptr)
   delete_arrow_array(array_ptr)
+})
+
+test_that("posixlt", {
+  skip("Arrays don't keep metadata about class type")
+  # doesn't work right now because Arrays cannot have custom metadata to keep
+  # their type
+  posixlts <- as.POSIXlt(lubridate::ymd_hms("2018-10-07 19:04:05") + 1:10)
+  expect_array_roundtrip(
+    posixlts,
+    struct(
+      sec = double(), min = int32(), hour = int32(), mday = int32(), mon = int32(),
+      year = int32(), wday = int32(), yday = int32(), isdst = int32())
+  )
+})
+
+test_that("named vectors as structs", {
+  expect_array_roundtrip(list("one", "two"), list_of(string()))
+  expect_array_roundtrip(list(a = "one", b = "two"), struct(a = string(), b = string()))
+  expect_array_roundtrip(list(a = c("one", "two"), b = c("two", "three")), struct(a = string(), b = string()))
+  expect_array_roundtrip(list(a = c("one", "one", "one"), b = c("two", "two", "two")), struct(a = string(), b = string()))
 })

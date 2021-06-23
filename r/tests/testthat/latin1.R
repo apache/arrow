@@ -35,12 +35,12 @@ expect_identical(Encoding(levels(df[[2]])), "latin1")
 # Array
 expect_identical(as.vector(Array$create(x)), x)
 # struct
-expect_identical(as.vector(Array$create(df)), df)
+expect_identical(as.data.frame(Array$create(df)), df)
 
 # ChunkedArray
 expect_identical(as.vector(ChunkedArray$create(x)), x)
 # struct
-expect_identical(as.vector(ChunkedArray$create(df)), df)
+expect_identical(tibble::as_tibble(as.vector(ChunkedArray$create(df))), df)
 
 # Table (including field name)
 expect_identical(as.data.frame(Table$create(df)), df)

@@ -158,6 +158,7 @@ enum RVectorType {
   POSIXLT,
   BINARY,
   LIST,
+  NAMED_LIST,
   FACTOR,
 
   OTHER
@@ -207,6 +208,11 @@ RVectorType GetVectorType(SEXP x) {
 
       if (Rf_inherits(x, "arrow_binary")) {
         return BINARY;
+      }
+
+      SEXP names = Rf_getAttrib(x, R_NamesSymbol);
+      if (!Rf_isNull(names)) {
+        return DATAFRAME;
       }
 
       return LIST;
@@ -1023,7 +1029,9 @@ class RListConverter : public ListConverter<T, RConverter, RConverterTrait> {
     RETURN_NOT_OK(this->Reserve(size));
 
     RVectorType rtype = GetVectorType(x);
-    if (rtype != LIST) {
+    if (rtype == DATAFRAME) {
+      return Status::Invalid("Cannot convert to named list type (yet)");
+    } else if (rtype != LIST) {
       return Status::Invalid("Cannot convert to list type");
     }
 
@@ -1103,8 +1111,9 @@ class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
   Status ExtendSetup(SEXP x, int64_t size, int64_t offset) {
     // check that x is compatible
     R_xlen_t n_columns = XLENGTH(x);
+    SEXP names = Rf_getAttrib(x, R_NamesSymbol);
 
-    if (!Rf_inherits(x, "data.frame") && !Rf_inherits(x, "POSIXlt")) {
+    if (!Rf_inherits(x, "data.frame") && !Rf_inherits(x, "POSIXlt") && Rf_isNull(names)) {
       return Status::Invalid("Can only convert data frames to Struct type");
     }
 

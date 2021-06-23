@@ -265,7 +265,10 @@ dim.StructArray <- function(x, ...) c(length(x), x$type$num_fields)
 
 #' @export
 as.data.frame.StructArray <- function(x, row.names = NULL, optional = FALSE, ...) {
-  as.vector(x)
+  out <- as.data.frame(as.vector(x))
+  class(out) <- c("tbl_df", "tbl", class(out))
+
+  out
 }
 
 #' @rdname array

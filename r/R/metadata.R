@@ -87,9 +87,9 @@ arrow_attributes <- function(x, only_top_level = FALSE) {
   att <- attributes(x)
 
   removed_attributes <- character()
-  if (identical(class(x), c("tbl_df", "tbl", "data.frame"))) {
+  if (identical(class(x), c("tbl_df", "tbl", "data.frame")) && only_top_level) {
     removed_attributes <- c("class", "row.names", "names")
-  } else if (inherits(x, "data.frame")) {
+  } else if (inherits(x, "data.frame") && only_top_level) {
     removed_attributes <- c("row.names", "names")
   } else if (inherits(x, "factor")) {
     removed_attributes <- c("class", "levels")

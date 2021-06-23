@@ -28,6 +28,17 @@ expect_array_roundtrip <- function(x, type, as = NULL) {
   expect_equivalent(as.vector(a), x)
   # Make sure the storage mode is the same on roundtrip (esp. integer vs. numeric)
   expect_identical(typeof(as.vector(a)), typeof(x))
+  # Make sure that the classes are the same on the roundtrip
+  # though we remove arrow_ and vctrs_ additions which sometimes come back with
+  # some roundtrips (or we use them as inputs)
+  roundtrip_classes <- class(as.vector(a))
+  roundtrip_classes <- roundtrip_classes[!startsWith(roundtrip_classes, "vctrs_")]
+  roundtrip_classes <- roundtrip_classes[!startsWith(roundtrip_classes, "arrow_")]
+  orig_classes <- class(x)
+  orig_classes <- orig_classes[!startsWith(orig_classes, "vctrs_")]
+  orig_classes <- orig_classes[!startsWith(orig_classes, "arrow_")]
+  expect_identical(roundtrip_classes, orig_classes)
+
 
   if (length(x)) {
     a_sliced <- a$Slice(1)

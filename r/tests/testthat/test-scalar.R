@@ -102,3 +102,9 @@ test_that("Handling string data with embedded nuls", {
     )
   })
 })
+
+test_that("named vectors as structs", {
+  expect_scalar_roundtrip(list("one", "two"), list_of(list_of(string())))
+  expect_scalar_roundtrip(list(a = "one", b = "two"), list_of(struct(a = string(), b = string())))
+  expect_scalar_roundtrip(list(a = c("one", "two"), b = c("two", "three")), list_of(struct(a = string(), b = string())))
+})

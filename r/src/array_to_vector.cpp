@@ -723,9 +723,13 @@ class Converter_Struct : public Converter {
     auto colnames = arrow::r::to_r_strings(
         type->fields(),
         [](const std::shared_ptr<Field>& field) { return field->name(); });
-    out.attr(symbols::row_names) = arrow::r::short_row_names(n);
     out.attr(R_NamesSymbol) = colnames;
-    out.attr(R_ClassSymbol) = arrow::r::data::classes_tbl_df;
+
+    // backwards compatibility
+    if (arrow::r::GetBoolOption("arrow.structs_as_dfs", false)) {
+      out.attr(symbols::row_names) = arrow::r::short_row_names(n);
+      out.attr(R_ClassSymbol) = arrow::r::data::classes_tbl_df;
+    }
 
     return out;
   }

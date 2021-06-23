@@ -205,3 +205,18 @@ test_that("metadata of list elements (ARROW-10386)", {
   expect_identical(attr(as.data.frame(tab)$x[[1]], "foo"), "bar")
   expect_identical(attr(as.data.frame(tab)$x[[2]], "baz"), "qux")
 })
+
+test_that("named list type roundtrip", {
+  df <- tibble::tibble(
+    named_list = list(
+      list(a = c("one", "one"), b = c("two", "two")),
+      list(a = c("three", "three"), b = c("four", "four")),
+      list(a = c("five", "five"), b = c("six", "six"))
+    )
+  )
+
+  rb <- record_batch(df)
+  expect_equal(rb$schema$named_list$type, list_of(struct(a = string(), b = string())))
+  # expect_r6_class(rb$schema$named_list$type, "StructType")
+  expect_identical(as.data.frame(rb), df)
+})

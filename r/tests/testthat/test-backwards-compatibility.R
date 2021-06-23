@@ -46,6 +46,7 @@ expect_identical_with_metadata <- function(object, expected, ..., top_level = TR
 }
 
 test_that("reading a known Parquet file to dataframe with 3.0.0", {
+  withr::local_options(arrow.structs_as_dfs = TRUE)
   skip_if_not_available("parquet")
   skip_if_not_available("snappy")
   pq_file <- test_path("golden-files/data-arrow-extra-meta_3.0.0.parquet")
@@ -56,6 +57,7 @@ test_that("reading a known Parquet file to dataframe with 3.0.0", {
 })
 
 test_that("reading a known Parquet file to dataframe with 2.0.0", {
+  withr::local_options(arrow.structs_as_dfs = TRUE)
   skip_if_not_available("parquet")
   skip_if_not_available("snappy")
   pq_file <- test_path("golden-files/data-arrow_2.0.0.parquet")
@@ -66,6 +68,7 @@ test_that("reading a known Parquet file to dataframe with 2.0.0", {
 })
 
 test_that("reading a known Parquet file to dataframe with 1.0.1", {
+  withr::local_options(arrow.structs_as_dfs = TRUE)
   skip_if_not_available("parquet")
   skip_if_not_available("snappy")
   pq_file <- test_path("golden-files/data-arrow_1.0.1.parquet")
@@ -80,6 +83,7 @@ for (comp in c("lz4", "uncompressed", "zstd")) {
   # write_feather(example_with_metadata, test_path("golden-files/data-arrow_2.0.0_uncompressed.feather"), compression = "uncompressed")
   # write_feather(example_with_metadata, test_path("golden-files/data-arrow_2.0.0_zstd.feather"), compression = "zstd")
   test_that("reading a known Feather file to dataframe with 2.0.0", {
+    withr::local_options(arrow.structs_as_dfs = TRUE)
     skip_if_not_available("parquet")
     skip_if_not_available(comp)
     feather_file <- test_path(paste0("golden-files/data-arrow_2.0.0_", comp,".feather"))
@@ -89,6 +93,7 @@ for (comp in c("lz4", "uncompressed", "zstd")) {
   })
 
   test_that("reading a known Feather file to dataframe with 1.0.1", {
+    withr::local_options(arrow.structs_as_dfs = TRUE)
     skip_if_not_available("parquet")
     skip_if_not_available(comp)
     feather_file <- test_path(paste0("golden-files/data-arrow_1.0.1_", comp,".feather"))
@@ -99,6 +104,7 @@ for (comp in c("lz4", "uncompressed", "zstd")) {
   })
 
   test_that("reading a known Feather file to dataframe with 0.17.0", {
+    withr::local_options(arrow.structs_as_dfs = TRUE)
     skip_if_not_available("parquet")
     skip_if_not_available(comp)
     feather_file <- test_path(paste0("golden-files/data-arrow_0.17.0_", comp,".feather"))
