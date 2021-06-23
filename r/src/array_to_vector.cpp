@@ -28,6 +28,7 @@
 #include <arrow/util/parallel.h>
 #include <arrow/util/task_group.h>
 
+#include <cpp11/altrep.hpp>
 #include <type_traits>
 
 namespace arrow {
@@ -143,6 +144,24 @@ Status IngestSome(const std::shared_ptr<arrow::Array>& array, R_xlen_t n,
 // Allocate + Ingest
 SEXP ArrayVector__as_vector(R_xlen_t n, const std::shared_ptr<DataType>& type,
                             const ArrayVector& arrays) {
+#if defined(HAS_ALTREP)
+  // special case when there is only one array
+  if (arrays.size() == 1) {
+    const auto& array = arrays[0];
+    if (arrow::r::GetBoolOption("arrow.use_altrep", true) && array->length() > 0 &&
+        array->null_count() == 0) {
+      switch (type->id()) {
+        case arrow::Type::DOUBLE:
+          return arrow::r::MakeDoubleArrayNoNull(array);
+        case arrow::Type::INT32:
+          return arrow::r::MakeInt32ArrayNoNull(array);
+        default:
+          break;
+      }
+    }
+  }
+#endif
+
   auto converter = Converter::Make(type, arrays);
   SEXP data = PROTECT(converter->Allocate(n));
   StopIfNotOk(converter->IngestSerial(data));
@@ -1280,6 +1299,10 @@ SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array) {
 
 // [[arrow::export]]
 SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
+  if (chunked_array->num_chunks() == 1) {
+    return Array__as_vector(chunked_array->chunk(0));
+  }
+
   return arrow::r::ArrayVector__as_vector(chunked_array->length(), chunked_array->type(),
                                           chunked_array->chunks());
 }
