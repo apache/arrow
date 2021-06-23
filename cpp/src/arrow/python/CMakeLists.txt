@@ -45,12 +45,8 @@ set(ARROW_PYTHON_SRCS
     pyarrow.cc
     serialize.cc)
 
-set_source_files_properties(init.cc
-                            PROPERTIES
-                            SKIP_PRECOMPILE_HEADERS
-                            ON
-                            SKIP_UNITY_BUILD_INCLUSION
-                            ON)
+set_source_files_properties(init.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON
+                                               SKIP_UNITY_BUILD_INCLUSION ON)
 
 if(ARROW_FILESYSTEM)
   list(APPEND ARROW_PYTHON_SRCS filesystem.cc)
@@ -59,7 +55,9 @@ endif()
 set(ARROW_PYTHON_DEPENDENCIES arrow_dependencies)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-  set_property(SOURCE pyarrow.cc APPEND_STRING PROPERTY COMPILE_FLAGS " -Wno-cast-qual ")
+  set_property(SOURCE pyarrow.cc
+               APPEND_STRING
+               PROPERTY COMPILE_FLAGS " -Wno-cast-qual ")
 endif()
 
 set(ARROW_PYTHON_SHARED_LINK_LIBS arrow_shared)
@@ -159,8 +157,8 @@ if(ARROW_BUILD_TESTS)
 
   if(APPLE)
     target_link_libraries(arrow_python_test_main ${CMAKE_DL_LIBS})
-    set_target_properties(arrow_python_test_main
-                          PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
+    set_target_properties(arrow_python_test_main PROPERTIES LINK_FLAGS
+                                                            "-undefined dynamic_lookup")
   elseif(NOT MSVC)
     target_link_libraries(arrow_python_test_main pthread ${CMAKE_DL_LIBS})
   endif()

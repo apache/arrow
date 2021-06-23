@@ -1332,10 +1332,7 @@ services:
     environment:
       <<: *ccache
     volumes: *ubuntu-volumes
-    command: >
-      /bin/bash -c "
-        pip install -e /arrow/dev/archery &&
-        archery lint --all --no-clang-tidy --no-iwyu --no-numpydoc"
+    command: archery lint --all --no-clang-tidy --no-iwyu --no-numpydoc
 
   ######################### Integration Tests #################################
 
