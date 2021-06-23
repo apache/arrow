@@ -1,0 +1,15 @@
+// Gandiva Cache Schema.
+
+namespace gandiva.cache;
+
+table Cache {
+    schema_exprs:SchemaExpressionsPair;
+    object_code:string;
+}
+
+table SchemaExpressionsPair {
+  schema:string;
+  exprs:[string];
+}
+
+root_type Cache;

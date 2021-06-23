@@ -25,11 +25,14 @@
 #include <iostream>
 #include <list>
 #include <map>
+#include <sstream>
 #include <unordered_map>
 #include <utility>
 
 #include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
+//#include "gandiva/proto/generated/gandiva_cache_file.pb.h"
+#include "gandiva/flatbuffer/gandiva_cache_file_generated.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 
@@ -196,10 +199,44 @@ class LruCache {
       if (llvm::sys::fs::exists(obj_cache_file.str())) {
         // This file is in our disk!
 
-        auto obj_cache_file_buffer = llvm::MemoryBuffer::getFile(obj_cache_file, -1, true, false);
+        // Piece of code to work with Protobuf, but protobuf is not linking
+        /*gandiva::cache::file::SchemaExprsPairAndObjectCode schema_exprs_obj_code;
+
+        //std::ifstream cached_file;
+        // Read the protobuf file cache.
+        std::fstream input(obj_cache_file.c_str(), std::ios::in | std::ios::binary);
+        if (!schema_exprs_obj_code.ParseFromIstream(&input)) {
+          std::cerr << "Failed to parse the proto buf file cache." << std::endl;
+          //return -1;
+          return nullptr;
+        }
+
+        auto obj_code_pb = schema_exprs_obj_code.objectcode();
+
+        llvm::StringRef ref_id_pb(obj_cache_file.c_str());
+        llvm::StringRef obj_code_ref(obj_code_pb);*/
+
+        //auto obj_cache_file_buffer = llvm::MemoryBuffer::getFile(obj_cache_file, -1, true, false);
+        //std::unique_ptr<llvm::MemoryBuffer> obj_cache_buffer =
+        //    llvm::MemoryBuffer::getMemBufferCopy(obj_cache_file_buffer.get()->getBuffer(),
+        //                                         obj_cache_file_buffer.get()->getBufferIdentifier());
+
+
+        // Flatbuffer implementation
+        std::ifstream cached_file(obj_cache_file.c_str(), std::ios::binary);
+        std::vector<unsigned char> buffer_from_file(std::istreambuf_iterator<char>(cached_file), {});
+
+        auto flatbuffer_cache = gandiva::cache::GetCache(static_cast<void*>(buffer_from_file.data()));
+
+        // Read the obj_code bytes
+        auto flatbuffer_obj_code = flatbuffer_cache->object_code()->Data();
+        std::string flatbuffer_obj_code_string((char*) flatbuffer_obj_code);
+
+        auto obj_code_ref = llvm::StringRef(flatbuffer_obj_code_string);
+        auto ref_id_pb = llvm::StringRef(splitDirPath(obj_cache_file.c_str(), "/").back());
+
         std::unique_ptr<llvm::MemoryBuffer> obj_cache_buffer =
-            llvm::MemoryBuffer::getMemBufferCopy(obj_cache_file_buffer.get()->getBuffer(),
-                                                 obj_cache_file_buffer.get()->getBufferIdentifier());
+            llvm::MemoryBuffer::getMemBufferCopy(obj_code_ref, ref_id_pb);
         std::shared_ptr<llvm::MemoryBuffer> obj_cache_buffer_shared = std::move(obj_cache_buffer);
 
         reinsertObject(key, obj_cache_buffer_shared, obj_cache_buffer_shared->getBufferSize());
@@ -302,12 +339,52 @@ class LruCache {
 
     if (!llvm::sys::fs::exists(obj_cache_file.str())) {
       // This file isn't in our disk, so we need to save it to the disk!
-      std::error_code ErrStr;
-      llvm::raw_fd_ostream CachedObjectFile(obj_cache_file.c_str(), ErrStr);
-      CachedObjectFile << value->getBuffer();
-      disk_cache_size_ +=  value->getBufferSize();
+      //std::error_code ErrStr;
+      //llvm::raw_fd_ostream CachedObjectFile(obj_cache_file.c_str(), ErrStr);
+      //CachedObjectFile << value->getBuffer();
+      //disk_cache_size_ +=  value->getBufferSize();
+      //disk_cache_files_qty_ += 1;
+      //CachedObjectFile.close();
+
+
+      // Piece of code to work with Protobuf, but protobuf is not linking
+      //gandiva::cache::file::SchemaExpressionsPair schema_exprs_pair;
+      /*gandiva::cache::file::SchemaExprsPairAndObjectCode schema_exprs_pair_obj_code;
+
+      schema_exprs_pair_obj_code.set_objectcode(value->getBuffer().str());
+
+      std::ofstream new_cache_file;
+
+      new_cache_file.open(obj_cache_file.c_str(), std::ios::out | std::ios::binary);
+
+      schema_exprs_pair_obj_code.SerializeToOstream(&new_cache_file);
+
+      auto size_to_add = new_cache_file.tellp();
+
+      new_cache_file.close();*/
+
+      // Flatbuffer implementation
+      auto value_ref_string = value->getBuffer().str();
+      int8_t buffer[value_ref_string.length()];
+      std::copy(value_ref_string.begin(), value_ref_string.end(), buffer);
+
+      auto flatbuffer_obj_code = flatbuffer_builder_.CreateString(value_ref_string);
+
+      auto flatbuffer_cache = gandiva::cache::CreateCache(flatbuffer_builder_, 0,
+                                                                flatbuffer_obj_code);
+
+      flatbuffer_builder_.Finish(flatbuffer_cache);
+
+      uint8_t *pre_file_buffer = flatbuffer_builder_.GetBufferPointer();
+      int64_t pre_file_buffer_size = flatbuffer_builder_.GetSize();
+
+      std::ofstream cache_file(obj_cache_file.c_str(), std::ios::out | std::ios::binary);
+      cache_file.write(reinterpret_cast<char *>(pre_file_buffer), pre_file_buffer_size);
+      auto size_to_add = cache_file.tellp();
+      cache_file.close();
+
+      disk_cache_size_ +=  size_to_add;
       disk_cache_files_qty_ += 1;
-      CachedObjectFile.close();
 
       std::pair<std::string, size_t> file_and_size = std::make_pair(obj_file_name, value->getBufferSize());
       cached_files_map_[key.getUuidString()] = file_and_size;
@@ -598,5 +675,6 @@ class LruCache {
   size_t disk_space_capactiy_ = 0;
   size_t disk_cache_space_available_ = 0;
   std::unordered_map<std::string, std::pair<std::string, size_t>> cached_files_map_;
+  flatbuffers::FlatBufferBuilder flatbuffer_builder_;
 };
 }  // namespace gandiva
