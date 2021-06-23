@@ -140,7 +140,7 @@ TEST_F(TestLikeHolder, TestOptimise) {
   fnode = LikeHolder::TryOptimize(BuildLike("\\%xyz", '\\'));
   EXPECT_EQ(fnode.descriptor()->name(), "like");
   EXPECT_EQ(fnode.ToString(),
-            "bool like((string) in, (const string) \\%xyz, (const int8) \\)");
+            "bool like((string) in, (const string) '\\%xyz', (const int8) \\)");
 }
 
 TEST_F(TestLikeHolder, TestMatchOneEscape) {
