@@ -48,8 +48,9 @@ class ScalarTemporalTest : public ::testing::Test {
   std::shared_ptr<arrow::DataType> iso_calendar_type =
       struct_({field("iso_year", int64()), field("iso_week", int64()),
                field("iso_day_of_week", int64())});
-  std::shared_ptr<arrow::Array> iso_calendar = ArrayFromJSON(iso_calendar_type,
-              R"([{"iso_year": 1970, "iso_week": 1, "iso_day_of_week": 4},
+  std::shared_ptr<arrow::Array> iso_calendar =
+      ArrayFromJSON(iso_calendar_type,
+                    R"([{"iso_year": 1970, "iso_week": 1, "iso_day_of_week": 4},
                       {"iso_year": 2000, "iso_week": 9, "iso_day_of_week": 2},
                       {"iso_year": 1898, "iso_week": 52, "iso_day_of_week": 7},
                       {"iso_year": 2033, "iso_week": 20, "iso_day_of_week": 3},
@@ -98,6 +99,7 @@ class ScalarTemporalTest : public ::testing::Test {
 namespace compute {
 
 TEST_F(ScalarTemporalTest, TestTemporalComponentExtraction) {
+  auto unit = timestamp(TimeUnit::NANO);
   CheckScalarUnary("year", unit, times, int64(), year);
   CheckScalarUnary("month", unit, times, int64(), month);
   CheckScalarUnary("day", unit, times, int64(), day);
@@ -139,7 +141,7 @@ TEST_F(ScalarTemporalTest, TestTemporalComponentExtractionWithDifferentUnits) {
   }
 }
 
-TEST(ScalarTemporalTest, TestOutsideNanosecondRange) {
+TEST_F(ScalarTemporalTest, TestOutsideNanosecondRange) {
   const char* times = R"(["1677-09-20T00:00:59.123456", "2262-04-13T23:23:23.999999"])";
 
   auto unit = timestamp(TimeUnit::MICRO);
@@ -186,7 +188,8 @@ TEST(ScalarTemporalTest, TestOutsideNanosecondRange) {
 }
 
 #ifndef _WIN32
-TEST(ScalarTemporalTest, TestZoned1) {
+// TODO: We should test on windows once ARROW-13168 is resolved.
+TEST_F(ScalarTemporalTest, TestZoned1) {
   auto unit = timestamp(TimeUnit::NANO, "Pacific/Marquesas");
   auto iso_calendar_type =
       struct_({field("iso_year", int64()), field("iso_week", int64()),
@@ -243,7 +246,7 @@ TEST(ScalarTemporalTest, TestZoned1) {
   CheckScalarUnary("subsecond", unit, times, float64(), subsecond);
 }
 
-TEST(ScalarTemporalTest, TestZoned2) {
+TEST_F(ScalarTemporalTest, TestZoned2) {
   for (auto u : internal::AllTimeUnits()) {
     auto unit = timestamp(u, "Australia/Broken_Hill");
     auto iso_calendar_type =
@@ -280,9 +283,7 @@ TEST(ScalarTemporalTest, TestZoned2) {
                           {"iso_year": 2009, "iso_week": 1, "iso_day_of_week": 1},
                           {"iso_year": 2011, "iso_week": 52, "iso_day_of_week": 7}, null])");
     auto quarter = "[1, 1, 1, 2, 1, 4, 4, 4, 1, 1, 1, 1, 4, 4, 4, 1, null]";
-    // TODO: pandas expects [9, 9, 10, ...
     auto hour = "[9, 9, 9, 13, 11, 12, 13, 14, 15, 17, 18, 19, 20, 10, 10, 11, null]";
-    // TODO: pandas expects [30, 53, 25, ...
     auto minute = "[30, 53, 59, 3, 35, 40, 45, 50, 55, 0, 5, 10, 15, 30, 30, 32, null]";
 
     CheckScalarUnary("year", unit, times_seconds_precision, int64(), year);
@@ -292,15 +293,16 @@ TEST(ScalarTemporalTest, TestZoned2) {
     CheckScalarUnary("day_of_year", unit, times_seconds_precision, int64(), day_of_year);
     CheckScalarUnary("iso_year", unit, times_seconds_precision, int64(), iso_year);
     CheckScalarUnary("iso_week", unit, times_seconds_precision, int64(), iso_week);
-    CheckScalarUnary("iso_calendar", ArrayFromJSON(unit, times_seconds_precision), iso_calendar);
+    CheckScalarUnary("iso_calendar", ArrayFromJSON(unit, times_seconds_precision),
+                     iso_calendar);
     CheckScalarUnary("quarter", unit, times_seconds_precision, int64(), quarter);
     CheckScalarUnary("hour", unit, times_seconds_precision, int64(), hour);
     CheckScalarUnary("minute", unit, times_seconds_precision, int64(), minute);
-    CheckScalarUnary("second", unit, times_seconds_precision, float64(), second);
-    CheckScalarUnary("millisecond", unit, times_seconds_precision, int64(), millisecond);
-    CheckScalarUnary("microsecond", unit, times_seconds_precision, int64(), microsecond);
-    CheckScalarUnary("nanosecond", unit, times_seconds_precision, int64(), nanosecond);
-    CheckScalarUnary("subsecond", unit, times_seconds_precision, float64(), subsecond);
+    CheckScalarUnary("second", unit, times_seconds_precision, int64(), second);
+    CheckScalarUnary("millisecond", unit, times_seconds_precision, int64(), zeros);
+    CheckScalarUnary("microsecond", unit, times_seconds_precision, int64(), zeros);
+    CheckScalarUnary("nanosecond", unit, times_seconds_precision, int64(), zeros);
+    CheckScalarUnary("subsecond", unit, times_seconds_precision, float64(), zeros);
   }
 }
 
@@ -309,13 +311,13 @@ TEST_F(ScalarTemporalTest, DayOfWeek) {
 
   auto timestamps = ArrayFromJSON(unit, times);
   auto day_of_week_week_start_7_zero_based =
-      "[4, 2, 0, 3, null, 3, 2, 1, 4, 5, 0, 1, 0, 6, 0, 1, 0]";
+      "[4, 2, 0, 3, 3, 2, 1, 4, 5, 0, 1, 0, 6, 0, 1, 0, null]";
   auto day_of_week_week_start_2_zero_based =
-      "[2, 0, 5, 1, null, 1, 0, 6, 2, 3, 5, 6, 5, 4, 5, 6, 5]";
+      "[2, 0, 5, 1, 1, 0, 6, 2, 3, 5, 6, 5, 4, 5, 6, 5, null]";
   auto day_of_week_week_start_7_one_based =
-      "[5, 3, 1, 4, null, 4, 3, 2, 5, 6, 1, 2, 1, 7, 1, 2, 1]";
+      "[5, 3, 1, 4, 4, 3, 2, 5, 6, 1, 2, 1, 7, 1, 2, 1, null]";
   auto day_of_week_week_start_2_one_based =
-      "[3, 1, 6, 2, null, 2, 1, 7, 3, 4, 6, 7, 6, 5, 6, 7, 6]";
+      "[3, 1, 6, 2, 2, 1, 7, 3, 4, 6, 7, 6, 5, 6, 7, 6, null]";
 
   auto expected_70 = ArrayFromJSON(int64(), day_of_week_week_start_7_zero_based);
   ASSERT_OK_AND_ASSIGN(

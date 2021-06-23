@@ -66,26 +66,28 @@ const std::string& GetInputTimezone(const ArrayData& array) {
   return checked_cast<const TimestampType&>(*array.type).timezone();
 }
 
-template <typename T>
-const std::string TemporalComponentExtractCheckTimezone(const T& input) {
-  const auto& timezone = GetInputTimezone(input);
-  if (!timezone.empty()) {
-    return "";
-  }
-  return timezone;
-}
-
 template <typename Op, typename OutType>
 struct TemporalComponentExtract {
   using OutValue = typename internal::GetOutputType<OutType>::T;
 
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    const std::string timezone = TemporalComponentExtractCheckTimezone(batch.values[0]);
+    return ScalarUnaryNotNull<OutType, TimestampType, Op>::Exec(ctx, batch, out);
+  }
+};
+
+template <typename Op, typename OutType>
+struct TemporalComponentExtractZoned {
+  using OutValue = typename internal::GetOutputType<OutType>::T;
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const auto& timezone = GetInputTimezone(batch.values[0]);
     if (timezone.empty()) {
-      return ScalarUnaryNotNull<OutType, TimestampType, Op>::Exec(ctx, batch, out);
+      applicator::ScalarUnaryNotNullStateful<OutType, TimestampType, Op> kernel{Op()};
+      return kernel.Exec(ctx, batch, out);
     } else {
-//      const time_zone* tz = locate_zone(timezone);
-      return ScalarUnaryNotNull<OutType, TimestampType, Op>::Exec(ctx, batch, out);
+      applicator::ScalarUnaryNotNullStateful<OutType, TimestampType, Op> kernel{
+          Op(locate_zone(timezone))};
+      return kernel.Exec(ctx, batch, out);
     }
   }
 };
@@ -95,6 +97,7 @@ struct DayOfWeekExec {
   using OutValue = typename internal::GetOutputType<OutType>::T;
 
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const auto& timezone = GetInputTimezone(batch.values[0]);
     const DayOfWeekOptions& options = DayOfWeekState::Get(ctx);
     if (options.week_start < 1 || 7 < options.week_start) {
       return Status::Invalid(
@@ -102,10 +105,15 @@ struct DayOfWeekExec {
           options.week_start);
     }
 
-    RETURN_NOT_OK(TemporalComponentExtractCheckTimezone(batch.values[0]));
-    applicator::ScalarUnaryNotNullStateful<OutType, TimestampType, Op> kernel{
-        Op(options)};
-    return kernel.Exec(ctx, batch, out);
+    if (timezone.empty()) {
+      applicator::ScalarUnaryNotNullStateful<OutType, TimestampType, Op> kernel{
+          Op(options)};
+      return kernel.Exec(ctx, batch, out);
+    } else {
+      applicator::ScalarUnaryNotNullStateful<OutType, TimestampType, Op> kernel{
+          Op(options, locate_zone(timezone))};
+      return kernel.Exec(ctx, batch, out);
+    }
   }
 };
 
@@ -114,17 +122,19 @@ struct DayOfWeekExec {
 
 template <typename Duration>
 struct Year {
+  explicit Year(const time_zone* tz = nullptr) : tz_(tz) {}
+
   template <typename T, typename Arg0>
-  static T Call(KernelContext*, Arg0 arg, Status*) {
+  T Call(KernelContext*, Arg0 arg, Status*) const {
+    if (tz_ == nullptr) {
+      return static_cast<T>(static_cast<const int32_t>(
+          year_month_day(floor<days>(sys_time<Duration>(Duration{arg}))).year()));
+    }
     return static_cast<T>(static_cast<const int32_t>(
-        year_month_day(floor<days>(sys_time<Duration>(Duration{arg}))).year()));
-  }
-  template <typename T>
-  static T Call(KernelContext*, int64_t arg, const time_zone* tz, Status*) {
-    return static_cast<T>(static_cast<const int32_t>(
-        year_month_day(floor<days>(tz->to_local(sys_time<Duration>(Duration{arg}))))
+        year_month_day(floor<days>(tz_->to_local(sys_time<Duration>(Duration{arg}))))
             .year()));
   }
+  const time_zone* tz_;
 };
 
 // ----------------------------------------------------------------------
@@ -132,17 +142,19 @@ struct Year {
 
 template <typename Duration>
 struct Month {
+  explicit Month(const time_zone* tz = nullptr) : tz_(tz) {}
+
   template <typename T, typename Arg0>
-  static T Call(KernelContext*, Arg0 arg, Status*) {
+  T Call(KernelContext*, Arg0 arg, Status*) const {
+    if (tz_ == nullptr) {
+      return static_cast<T>(static_cast<const uint32_t>(
+          year_month_day(floor<days>(sys_time<Duration>(Duration{arg}))).month()));
+    }
     return static_cast<T>(static_cast<const uint32_t>(
-        year_month_day(floor<days>(sys_time<Duration>(Duration{arg}))).month()));
-  }
-  template <typename T>
-  static T Call(KernelContext*, int64_t arg, const time_zone* tz, Status*) {
-    return static_cast<T>(static_cast<const uint32_t>(
-        year_month_day(floor<days>(tz->to_local(sys_time<Duration>(Duration{arg}))))
+        year_month_day(floor<days>(tz_->to_local(sys_time<Duration>(Duration{arg}))))
             .month()));
   }
+  const time_zone* tz_;
 };
 
 // ----------------------------------------------------------------------
@@ -150,17 +162,19 @@ struct Month {
 
 template <typename Duration>
 struct Day {
+  explicit Day(const time_zone* tz = nullptr) : tz_(tz) {}
+
   template <typename T, typename Arg0>
-  static T Call(KernelContext*, Arg0 arg, Status*) {
+  T Call(KernelContext*, Arg0 arg, Status*) const {
+    if (tz_ == nullptr) {
+      return static_cast<T>(static_cast<const uint32_t>(
+          year_month_day(floor<days>(sys_time<Duration>(Duration{arg}))).day()));
+    }
     return static_cast<T>(static_cast<const uint32_t>(
-        year_month_day(floor<days>(sys_time<Duration>(Duration{arg}))).day()));
-  }
-  template <typename T>
-  static T Call(KernelContext*, int64_t arg, const time_zone* tz, Status*) {
-    return static_cast<T>(static_cast<const uint32_t>(
-        year_month_day(floor<days>(tz->to_local(sys_time<Duration>(Duration{arg}))))
+        year_month_day(floor<days>(tz_->to_local(sys_time<Duration>(Duration{arg}))))
             .day()));
   }
+  const time_zone* tz_;
 };
 
 // ----------------------------------------------------------------------
@@ -172,7 +186,8 @@ struct Day {
 
 template <typename Duration>
 struct DayOfWeek {
-  explicit DayOfWeek(const DayOfWeekOptions& options) {
+  explicit DayOfWeek(const DayOfWeekOptions& options, const time_zone* tz = nullptr)
+      : tz_(tz) {
     for (int i = 0; i < 7; i++) {
       lookup_table[i] = i + 8 - options.week_start;
       lookup_table[i] = (lookup_table[i] > 6) ? lookup_table[i] - 7 : lookup_table[i];
@@ -182,21 +197,21 @@ struct DayOfWeek {
 
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
+    if (tz_ == nullptr) {
+      const auto wd = arrow_vendored::date::year_month_weekday(
+                          floor<days>(sys_time<Duration>(Duration{arg})))
+                          .weekday()
+                          .iso_encoding();
+      return lookup_table[wd - 1];
+    }
     const auto wd = arrow_vendored::date::year_month_weekday(
-                        floor<days>(sys_time<Duration>(Duration{arg})))
-                        .weekday()
-                        .iso_encoding();
-    return lookup_table[wd - 1];
-  }
-  template <typename T, typename Arg0>
-  T Call(KernelContext*, Arg0 arg, const time_zone* tz, Status*) const {
-    const auto wd = arrow_vendored::date::year_month_weekday(
-                        floor<days>(tz->to_local(sys_time<Duration>(Duration{arg}))))
+                        floor<days>(tz_->to_local(sys_time<Duration>(Duration{arg}))))
                         .weekday()
                         .iso_encoding();
     return lookup_table[wd - 1];
   }
   std::array<int64_t, 7> lookup_table;
+  const time_zone* tz_;
 };
 
 // ----------------------------------------------------------------------
@@ -204,18 +219,20 @@ struct DayOfWeek {
 
 template <typename Duration>
 struct DayOfYear {
+  explicit DayOfYear(const time_zone* tz = nullptr) : tz_(tz) {}
+
   template <typename T, typename Arg0>
-  static T Call(KernelContext*, Arg0 arg, Status*) {
-    const auto t = floor<days>(sys_time<Duration>(Duration{arg}));
-    return static_cast<T>(
-        (t - sys_time<days>(year_month_day(t).year() / jan / 0)).count());
-  }
-  template <typename T>
-  static T Call(KernelContext*, int64_t arg, const time_zone* tz, Status*) {
-    const auto t = floor<days>(tz->to_local(sys_time<Duration>(Duration{arg})));
+  T Call(KernelContext*, Arg0 arg, Status*) const {
+    if (tz_ == nullptr) {
+      const auto t = floor<days>(sys_time<Duration>(Duration{arg}));
+      return static_cast<T>(
+          (t - sys_time<days>(year_month_day(t).year() / jan / 0)).count());
+    }
+    const auto t = floor<days>(tz_->to_local(sys_time<Duration>(Duration{arg})));
     auto start = local_days(year_month_day(t).year() / jan / 0);
     return static_cast<T>((t - start).count());
   }
+  const time_zone* tz_;
 };
 
 // ----------------------------------------------------------------------
@@ -226,19 +243,20 @@ struct DayOfYear {
 
 template <typename Duration>
 struct ISOYear {
+  explicit ISOYear(const time_zone* tz = nullptr) : tz_(tz) {}
+
   template <typename T, typename Arg0>
-  static T Call(KernelContext*, Arg0 arg, Status*) {
-    const auto t = floor<days>(sys_time<Duration>(Duration{arg}));
-    auto y = year_month_day{t + days{3}}.year();
-    auto start = sys_time<days>((y - years{1}) / dec / thu[last]) + (mon - thu);
-    if (t < start) {
-      --y;
+  T Call(KernelContext*, Arg0 arg, Status*) const {
+    if (tz_ == nullptr) {
+      const auto t = floor<days>(sys_time<Duration>(Duration{arg}));
+      auto y = year_month_day{t + days{3}}.year();
+      auto start = sys_time<days>((y - years{1}) / dec / thu[last]) + (mon - thu);
+      if (t < start) {
+        --y;
+      }
+      return static_cast<T>(static_cast<int32_t>(y));
     }
-    return static_cast<T>(static_cast<int32_t>(y));
-  }
-  template <typename T>
-  static T Call(KernelContext*, int64_t arg, const time_zone* tz, Status*) {
-    const auto t = floor<days>(tz->to_local(sys_time<Duration>(Duration{arg})));
+    const auto t = floor<days>(tz_->to_local(sys_time<Duration>(Duration{arg})));
     auto y = year_month_day{t + days{3}}.year();
     auto start = local_days((y - years{1}) / dec / thu[last]) + (mon - thu);
     if (t < start) {
@@ -246,6 +264,7 @@ struct ISOYear {
     }
     return static_cast<T>(static_cast<int32_t>(y));
   }
+  const time_zone* tz_;
 };
 
 // ----------------------------------------------------------------------
@@ -257,20 +276,21 @@ struct ISOYear {
 // https://github.com/HowardHinnant/date/blob/6e921e1b1d21e84a5c82416ba7ecd98e33a436d0/include/date/iso_week.h#L1503
 template <typename Duration>
 struct ISOWeek {
+  explicit ISOWeek(const time_zone* tz = nullptr) : tz_(tz) {}
+
   template <typename T, typename Arg0>
-  static T Call(KernelContext*, Arg0 arg, Status*) {
-    const auto t = floor<days>(sys_time<Duration>(Duration{arg}));
-    auto y = year_month_day{t + days{3}}.year();
-    auto start = sys_time<days>((y - years{1}) / dec / thu[last]) + (mon - thu);
-    if (t < start) {
-      --y;
-      start = sys_time<days>((y - years{1}) / dec / thu[last]) + (mon - thu);
+  T Call(KernelContext*, Arg0 arg, Status*) const {
+    if (tz_ == nullptr) {
+      const auto t = floor<days>(sys_time<Duration>(Duration{arg}));
+      auto y = year_month_day{t + days{3}}.year();
+      auto start = sys_time<days>((y - years{1}) / dec / thu[last]) + (mon - thu);
+      if (t < start) {
+        --y;
+        start = sys_time<days>((y - years{1}) / dec / thu[last]) + (mon - thu);
+      }
+      return static_cast<T>(trunc<weeks>(t - start).count() + 1);
     }
-    return static_cast<T>(trunc<weeks>(t - start).count() + 1);
-  }
-  template <typename T>
-  static T Call(KernelContext*, int64_t arg, const time_zone* tz, Status*) {
-    const auto t = floor<days>(tz->to_local(sys_time<Duration>(Duration{arg})));
+    const auto t = floor<days>(tz_->to_local(sys_time<Duration>(Duration{arg})));
     auto y = year_month_day{t + days{3}}.year();
     auto start = local_days((y - years{1}) / dec / thu[last]) + (mon - thu);
     if (t < start) {
@@ -279,6 +299,7 @@ struct ISOWeek {
     }
     return static_cast<T>(trunc<weeks>(local_days(t) - start).count() + 1);
   }
+  const time_zone* tz_;
 };
 
 // ----------------------------------------------------------------------
@@ -286,17 +307,19 @@ struct ISOWeek {
 
 template <typename Duration>
 struct Quarter {
+  explicit Quarter(const time_zone* tz = nullptr) : tz_(tz) {}
+
   template <typename T, typename Arg0>
-  static T Call(KernelContext*, Arg0 arg, Status*) {
-    const auto ymd = year_month_day(floor<days>(sys_time<Duration>(Duration{arg})));
-    return static_cast<T>((static_cast<const uint32_t>(ymd.month()) - 1) / 3 + 1);
-  }
-  template <typename T>
-  static T Call(KernelContext*, int64_t arg, const time_zone* tz, Status*) {
+  T Call(KernelContext*, Arg0 arg, Status*) const {
+    if (tz_ == nullptr) {
+      const auto ymd = year_month_day(floor<days>(sys_time<Duration>(Duration{arg})));
+      return static_cast<T>((static_cast<const uint32_t>(ymd.month()) - 1) / 3 + 1);
+    }
     const auto ymd =
-        year_month_day(floor<days>(tz->to_local(sys_time<Duration>(Duration{arg}))));
+        year_month_day(floor<days>(tz_->to_local(sys_time<Duration>(Duration{arg}))));
     return static_cast<T>((static_cast<const uint32_t>(ymd.month()) - 1) / 3 + 1);
   }
+  const time_zone* tz_;
 };
 
 // ----------------------------------------------------------------------
@@ -304,16 +327,18 @@ struct Quarter {
 
 template <typename Duration>
 struct Hour {
+  explicit Hour(const time_zone* tz = nullptr) : tz_(tz) {}
+
   template <typename T, typename Arg0>
-  static T Call(KernelContext*, Arg0 arg, Status*) {
-    Duration t = Duration{arg};
+  T Call(KernelContext*, Arg0 arg, Status*) const {
+    if (tz_ == nullptr) {
+      Duration t = Duration{arg};
+      return static_cast<T>((t - floor<days>(t)) / std::chrono::hours(1));
+    }
+    const auto t = tz_->to_local(sys_time<Duration>(Duration{arg}));
     return static_cast<T>((t - floor<days>(t)) / std::chrono::hours(1));
   }
-  template <typename T>
-  static T Call(KernelContext*, int64_t arg, const time_zone* tz, Status*) {
-    const auto t = tz->to_local(sys_time<Duration>(Duration{arg}));
-    return static_cast<T>((t - floor<days>(t)) / std::chrono::hours(1));
-  }
+  const time_zone* tz_;
 };
 
 // ----------------------------------------------------------------------
@@ -321,16 +346,18 @@ struct Hour {
 
 template <typename Duration>
 struct Minute {
+  explicit Minute(const time_zone* tz = nullptr) : tz_(tz) {}
+
   template <typename T, typename Arg0>
-  static T Call(KernelContext*, Arg0 arg, Status*) {
-    Duration t = Duration{arg};
+  T Call(KernelContext*, Arg0 arg, Status*) const {
+    if (tz_ == nullptr) {
+      Duration t = Duration{arg};
+      return static_cast<T>((t - floor<std::chrono::hours>(t)) / std::chrono::minutes(1));
+    }
+    const auto t = tz_->to_local(sys_time<Duration>(Duration{arg}));
     return static_cast<T>((t - floor<std::chrono::hours>(t)) / std::chrono::minutes(1));
   }
-  template <typename T>
-  static T Call(KernelContext*, int64_t arg, const time_zone* tz, Status*) {
-    const auto t = tz->to_local(sys_time<Duration>(Duration{arg}));
-    return static_cast<T>((t - floor<std::chrono::hours>(t)) / std::chrono::minutes(1));
-  }
+  const time_zone* tz_;
 };
 
 // ----------------------------------------------------------------------
@@ -343,11 +370,6 @@ struct Second {
     Duration t = Duration{arg};
     return static_cast<T>((t - floor<std::chrono::minutes>(t)) / std::chrono::seconds(1));
   }
-  template <typename T>
-  static T Call(KernelContext*, int64_t arg, const time_zone* tz, Status*) {
-    const auto t = tz->to_local(sys_time<Duration>(Duration{arg}));
-    return static_cast<T>((t - floor<std::chrono::minutes>(t)) / std::chrono::seconds(1));
-  }
 };
 
 // ----------------------------------------------------------------------
@@ -357,12 +379,6 @@ template <typename Duration>
 struct Subsecond {
   template <typename T, typename Arg0>
   static T Call(KernelContext*, Arg0 arg, Status*) {
-    Duration t = Duration{arg};
-    return static_cast<T>(
-        (std::chrono::duration<double>(t - floor<std::chrono::seconds>(t)).count()));
-  }
-  template <typename T>
-  static T Call(KernelContext*, int64_t arg, const time_zone* tz, Status*) {
     Duration t = Duration{arg};
     return static_cast<T>(
         (std::chrono::duration<double>(t - floor<std::chrono::seconds>(t)).count()));
@@ -380,12 +396,6 @@ struct Millisecond {
     return static_cast<T>(
         ((t - floor<std::chrono::seconds>(t)) / std::chrono::milliseconds(1)) % 1000);
   }
-  template <typename T>
-  static T Call(KernelContext*, int64_t arg, const time_zone* tz, Status*) {
-    Duration t = Duration{arg};
-    return static_cast<T>(
-        ((t - floor<std::chrono::seconds>(t)) / std::chrono::milliseconds(1)) % 1000);
-  }
 };
 
 // ----------------------------------------------------------------------
@@ -399,12 +409,6 @@ struct Microsecond {
     return static_cast<T>(
         ((t - floor<std::chrono::seconds>(t)) / std::chrono::microseconds(1)) % 1000);
   }
-  template <typename T>
-  static T Call(KernelContext*, int64_t arg, const time_zone* tz, Status*) {
-    Duration t = Duration{arg};
-    return static_cast<T>(
-        ((t - floor<std::chrono::seconds>(t)) / std::chrono::microseconds(1)) % 1000);
-  }
 };
 
 // ----------------------------------------------------------------------
@@ -414,12 +418,6 @@ template <typename Duration>
 struct Nanosecond {
   template <typename T, typename Arg0>
   static T Call(KernelContext*, Arg0 arg, Status*) {
-    Duration t = Duration{arg};
-    return static_cast<T>(
-        ((t - floor<std::chrono::seconds>(t)) / std::chrono::nanoseconds(1)) % 1000);
-  }
-  template <typename T>
-  static T Call(KernelContext*, int64_t arg, const time_zone* tz, Status*) {
     Duration t = Duration{arg};
     return static_cast<T>(
         ((t - floor<std::chrono::seconds>(t)) / std::chrono::nanoseconds(1)) % 1000);
@@ -462,9 +460,7 @@ inline std::vector<int64_t> get_iso_calendar(int64_t arg, const time_zone* tz) {
 template <typename Duration>
 struct ISOCalendar {
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
-//    RETURN_NOT_OK(TemporalComponentExtractCheckTimezone(in));
-    const std::string timezone = TemporalComponentExtractCheckTimezone(in);
-    // const time_zone* tz = locate_zone(timezone);
+    std::string timezone = GetInputTimezone(in);
 
     if (in.is_valid) {
       const std::shared_ptr<DataType> iso_calendar_type =
@@ -490,9 +486,7 @@ struct ISOCalendar {
 
   static Status Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
     using BuilderType = typename TypeTraits<Int64Type>::BuilderType;
-//    RETURN_NOT_OK(TemporalComponentExtractCheckTimezone(in));
-    const std::string timezone = TemporalComponentExtractCheckTimezone(in);
-    // const time_zone* tz = locate_zone(timezone);
+    std::string timezone = GetInputTimezone(in);
 
     const std::shared_ptr<DataType> iso_calendar_type =
         struct_({field("iso_year", int64()), field("iso_week", int64()),
@@ -538,6 +532,44 @@ struct ISOCalendar {
     return Status::OK();
   }
 };
+
+template <template <typename...> class Op, typename OutType>
+std::shared_ptr<ScalarFunction> MakeTemporalZoned(std::string name,
+                                                  const FunctionDoc* doc) {
+  const auto& out_type = TypeTraits<OutType>::type_singleton();
+  auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
+
+  for (auto unit : internal::AllTimeUnits()) {
+    InputType in_type{match::TimestampTypeUnit(unit)};
+    switch (unit) {
+      case TimeUnit::SECOND: {
+        auto exec =
+            TemporalComponentExtractZoned<Op<std::chrono::seconds>, OutType>::Exec;
+        DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec)));
+        break;
+      }
+      case TimeUnit::MILLI: {
+        auto exec =
+            TemporalComponentExtractZoned<Op<std::chrono::milliseconds>, OutType>::Exec;
+        DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec)));
+        break;
+      }
+      case TimeUnit::MICRO: {
+        auto exec =
+            TemporalComponentExtractZoned<Op<std::chrono::microseconds>, OutType>::Exec;
+        DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec)));
+        break;
+      }
+      case TimeUnit::NANO: {
+        auto exec =
+            TemporalComponentExtractZoned<Op<std::chrono::nanoseconds>, OutType>::Exec;
+        DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec)));
+        break;
+      }
+    }
+  }
+  return func;
+}
 
 template <template <typename...> class Op, typename OutType>
 std::shared_ptr<ScalarFunction> MakeTemporal(std::string name, const FunctionDoc* doc) {
@@ -745,13 +777,13 @@ const FunctionDoc subsecond_doc{
 }  // namespace
 
 void RegisterScalarTemporal(FunctionRegistry* registry) {
-  auto year = MakeTemporal<Year, Int64Type>("year", &year_doc);
+  auto year = MakeTemporalZoned<Year, Int64Type>("year", &year_doc);
   DCHECK_OK(registry->AddFunction(std::move(year)));
 
-  auto month = MakeTemporal<Month, Int64Type>("month", &year_doc);
+  auto month = MakeTemporalZoned<Month, Int64Type>("month", &year_doc);
   DCHECK_OK(registry->AddFunction(std::move(month)));
 
-  auto day = MakeTemporal<Day, Int64Type>("day", &year_doc);
+  auto day = MakeTemporalZoned<Day, Int64Type>("day", &year_doc);
   DCHECK_OK(registry->AddFunction(std::move(day)));
 
   static auto default_day_of_week_options = DayOfWeekOptions::Defaults();
@@ -759,25 +791,26 @@ void RegisterScalarTemporal(FunctionRegistry* registry) {
       "day_of_week", &day_of_week_doc, default_day_of_week_options, DayOfWeekState::Init);
   DCHECK_OK(registry->AddFunction(std::move(day_of_week)));
 
-  auto day_of_year = MakeTemporal<DayOfYear, Int64Type>("day_of_year", &day_of_year_doc);
+  auto day_of_year =
+      MakeTemporalZoned<DayOfYear, Int64Type>("day_of_year", &day_of_year_doc);
   DCHECK_OK(registry->AddFunction(std::move(day_of_year)));
 
-  auto iso_year = MakeTemporal<ISOYear, Int64Type>("iso_year", &iso_year_doc);
+  auto iso_year = MakeTemporalZoned<ISOYear, Int64Type>("iso_year", &iso_year_doc);
   DCHECK_OK(registry->AddFunction(std::move(iso_year)));
 
-  auto iso_week = MakeTemporal<ISOWeek, Int64Type>("iso_week", &iso_week_doc);
+  auto iso_week = MakeTemporalZoned<ISOWeek, Int64Type>("iso_week", &iso_week_doc);
   DCHECK_OK(registry->AddFunction(std::move(iso_week)));
 
   auto iso_calendar = MakeStructTemporal<ISOCalendar>("iso_calendar", &iso_calendar_doc);
   DCHECK_OK(registry->AddFunction(std::move(iso_calendar)));
 
-  auto quarter = MakeTemporal<Quarter, Int64Type>("quarter", &quarter_doc);
+  auto quarter = MakeTemporalZoned<Quarter, Int64Type>("quarter", &quarter_doc);
   DCHECK_OK(registry->AddFunction(std::move(quarter)));
 
-  auto hour = MakeTemporal<Hour, Int64Type>("hour", &hour_doc);
+  auto hour = MakeTemporalZoned<Hour, Int64Type>("hour", &hour_doc);
   DCHECK_OK(registry->AddFunction(std::move(hour)));
 
-  auto minute = MakeTemporal<Minute, Int64Type>("minute", &minute_doc);
+  auto minute = MakeTemporalZoned<Minute, Int64Type>("minute", &minute_doc);
   DCHECK_OK(registry->AddFunction(std::move(minute)));
 
   auto second = MakeTemporal<Second, Int64Type>("second", &second_doc);
