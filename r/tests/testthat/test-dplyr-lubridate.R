@@ -21,6 +21,7 @@ library(dplyr)
 test_date <- as.POSIXct("2017-01-01 00:00:12.3456789", tz = "")
 test_df <- tibble::tibble(date = test_date)
 
+# We can support this feature after ARROW-12980 is merged
 test_that("timezone aware timestamps are not supported",{
   
   tz_aware_date <- as.POSIXct("2017-01-01 00:00:12.3456789", tz = "BST")
@@ -34,6 +35,7 @@ test_that("timezone aware timestamps are not supported",{
   )
 })
 
+# We can support this feature when ARROW-13138 is resolved
 test_that("date32 objects are not supported",{
   
   date <- ymd("2017-01-01")
