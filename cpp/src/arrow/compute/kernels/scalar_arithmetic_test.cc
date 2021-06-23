@@ -1661,8 +1661,10 @@ TYPED_TEST(TestBinaryArithmeticSigned, ShiftLeftOverflowRaises) {
   // Shift a bit past the sign bit
   this->AssertBinop(ShiftLeft, "[4]", MakeArray(bit_width - 1), "[0]");
   this->AssertBinop(ShiftLeft, MakeArray(min), "[1]", "[0]");
-  this->AssertBinopRaises(ShiftLeft, "[1, 2]", "[1, -1]", "shift must be non-negative");
-  this->AssertBinopRaises(ShiftLeft, "[1]", MakeArray(bit_width), "overflow");
+  this->AssertBinopRaises(ShiftLeft, "[1, 2]", "[1, -1]",
+                          "rhs must be >= 0 and less than precision of type");
+  this->AssertBinopRaises(ShiftLeft, "[1]", MakeArray(bit_width),
+                          "rhs must be >= 0 and less than precision of type");
 
   this->SetOverflowCheck(false);
   this->AssertBinop(ShiftLeft, "[1, 1]", MakeArray(-1, bit_width), "[1, 1]");

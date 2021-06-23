@@ -502,12 +502,8 @@ struct ShiftLeftChecked {
   static enable_if_unsigned_integer<T> Call(KernelContext*, Arg0 lhs, Arg1 rhs,
                                             Status* st) {
     static_assert(std::is_same<T, Arg0>::value, "");
-    if (ARROW_PREDICT_FALSE(rhs < 0)) {
-      *st = Status::Invalid("shift must be non-negative");
-      return lhs;
-    }
-    if (ARROW_PREDICT_FALSE(rhs >= std::numeric_limits<Arg0>::digits)) {
-      *st = Status::Invalid("overflow");
+    if (ARROW_PREDICT_FALSE(rhs < 0 || std::numeric_limits<Arg0>::digits)) {
+      *st = Status::Invalid("rhs must be >= 0 and less than precision of type");
       return lhs;
     }
     return lhs << rhs;
@@ -518,12 +514,8 @@ struct ShiftLeftChecked {
                                           Status* st) {
     using Unsigned = typename std::make_unsigned<Arg0>::type;
     static_assert(std::is_same<T, Arg0>::value, "");
-    if (ARROW_PREDICT_FALSE(rhs < 0)) {
-      *st = Status::Invalid("shift must be non-negative");
-      return lhs;
-    }
-    if (ARROW_PREDICT_FALSE(rhs >= std::numeric_limits<Arg0>::digits)) {
-      *st = Status::Invalid("overflow");
+    if (ARROW_PREDICT_FALSE(rhs < 0 || std::numeric_limits<Arg0>::digits)) {
+      *st = Status::Invalid("rhs must be >= 0 and less than precision of type");
       return lhs;
     }
     // In C/C++ left shift of a negative number is undefined (C++11 standard 5.8.2)
@@ -1000,18 +992,16 @@ const FunctionDoc pow_checked_doc{
     {"base", "exponent"}};
 
 const FunctionDoc bit_wise_not_doc{
-    "Bit-wise negate the arguments element-wise", ("This function never fails."), {"x"}};
+    "Bit-wise negate the arguments element-wise", (""), {"x"}};
 
-const FunctionDoc bit_wise_and_doc{"Bit-wise AND the arguments element-wise",
-                                   ("This function never fails."),
-                                   {"x", "y"}};
+const FunctionDoc bit_wise_and_doc{
+    "Bit-wise AND the arguments element-wise", (""), {"x", "y"}};
 
 const FunctionDoc bit_wise_or_doc{
-    "Bit-wise OR the arguments element-wise", ("This function never fails."), {"x", "y"}};
+    "Bit-wise OR the arguments element-wise", (""), {"x", "y"}};
 
-const FunctionDoc bit_wise_xor_doc{"Bit-wise XOR the arguments element-wise",
-                                   ("This function never fails."),
-                                   {"x", "y"}};
+const FunctionDoc bit_wise_xor_doc{
+    "Bit-wise XOR the arguments element-wise", (""), {"x", "y"}};
 
 const FunctionDoc shift_left_doc{
     "Left shift `x` by `y`",
