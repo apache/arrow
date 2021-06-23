@@ -44,21 +44,21 @@ class TestLruCache : public ::testing::Test {
 };
 
 TEST_F(TestLruCache, TestEvict) {
-  cache_.insert(TestLruCacheKey(1), ValueCacheObject<std::string>("hello", 0));
-  cache_.insert(TestLruCacheKey(2), ValueCacheObject<std::string>("hello", 0));
-  cache_.insert(TestLruCacheKey(1), ValueCacheObject<std::string>("hello", 0));
-  cache_.insert(TestLruCacheKey(3), ValueCacheObject<std::string>("hello", 0));
+  cache_.insert(TestLruCacheKey(1), ValueCacheObject<std::string>("1", 0));
+  cache_.insert(TestLruCacheKey(2), ValueCacheObject<std::string>("2", 0));
+  cache_.insert(TestLruCacheKey(1), ValueCacheObject<std::string>("3", 0));
+  cache_.insert(TestLruCacheKey(3), ValueCacheObject<std::string>("4", 0));
   // should have evicted key 1
   ASSERT_EQ(2, cache_.size());
   ASSERT_EQ(cache_.get(TestLruCacheKey(1)), arrow::util::nullopt);
 }
 
 TEST_F(TestLruCache, TestLruBehavior) {
-  cache_.insert(TestLruCacheKey(1), ValueCacheObject<std::string>("hello", 0));
-  cache_.insert(TestLruCacheKey(2), ValueCacheObject<std::string>("hello", 0));
+  cache_.insert(TestLruCacheKey(1), ValueCacheObject<std::string>("1", 0));
+  cache_.insert(TestLruCacheKey(2), ValueCacheObject<std::string>("2", 0));
   cache_.get(TestLruCacheKey(1));
-  cache_.insert(TestLruCacheKey(3), ValueCacheObject<std::string>("hello", 0));
+  cache_.insert(TestLruCacheKey(3), ValueCacheObject<std::string>("3", 0));
   // should have evicted key 2.
-  ASSERT_EQ(cache_.get(TestLruCacheKey(1))->module, "hello");
+  ASSERT_EQ(cache_.get(TestLruCacheKey(1))->module, "1");
 }
 }  // namespace gandiva
