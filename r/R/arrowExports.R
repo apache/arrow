@@ -148,8 +148,8 @@ Array__as_vector <- function(array){
     .Call(`_arrow_Array__as_vector`, array)
 }
 
-ChunkedArray__as_vector <- function(chunked_array){
-    .Call(`_arrow_ChunkedArray__as_vector`, chunked_array)
+ChunkedArray__as_vector <- function(chunked_array, use_threads){
+    .Call(`_arrow_ChunkedArray__as_vector`, chunked_array, use_threads)
 }
 
 RecordBatch__to_dataframe <- function(batch, use_threads){
