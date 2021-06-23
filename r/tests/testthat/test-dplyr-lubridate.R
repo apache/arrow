@@ -126,6 +126,8 @@ test_that("extract wday from date", {
     test_df
   )
   
+  # We should be able to support the label argument after this ticket is resolved:
+  # https://issues.apache.org/jira/browse/ARROW-13133
   x <- Expression$field_ref("x")
   expect_error(
     nse_funcs$wday(x, label = TRUE),

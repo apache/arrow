@@ -456,6 +456,10 @@ nse_funcs$second <- function(x) {
 # providing offset values based on the specified week_start day, and adding 1
 # so the returned value is 1-indexed instead of 0-indexed.
 nse_funcs$wday <- function(x, label = FALSE, abbr = TRUE, week_start = getOption("lubridate.week.start", 7)) {
+  
+  # The "day_of_week" compute function returns numeric days of week and not locale-aware strftime
+  # When the ticket below is resolved, we should be able to support the label argument
+  # https://issues.apache.org/jira/browse/ARROW-13133
   if (label) {
     arrow_not_supported("Label argument")
   }
