@@ -1700,7 +1700,8 @@ TYPED_TEST(TestBinaryArithmeticUnsigned, ShiftLeftOverflowRaises) {
                     MakeArray(static_cast<CType>(1) << (bit_width - 1)));
   this->AssertBinop(ShiftLeft, "[2]", MakeArray(bit_width - 1), "[0]");
   this->AssertBinop(ShiftLeft, "[4]", MakeArray(bit_width - 1), "[0]");
-  this->AssertBinopRaises(ShiftLeft, "[1]", MakeArray(bit_width), "overflow");
+  this->AssertBinopRaises(ShiftLeft, "[1]", MakeArray(bit_width),
+                          "rhs must be >= 0 and less than precision of type");
 }
 
 TYPED_TEST(TestBinaryArithmeticUnsigned, ShiftRightOverflowRaises) {
