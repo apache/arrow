@@ -37,8 +37,10 @@
   "month" = "month",
   "isoweek" = "iso_week",
   "day" = "day",
+  # wday is defined in dplyr-functions.R
   "yday" = "day_of_year",
   "hour" = "hour",
+  # second is defined in dplyr-functions.R
   "minute" = "minute"
 )
 
