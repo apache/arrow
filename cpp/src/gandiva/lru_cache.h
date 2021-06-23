@@ -315,7 +315,7 @@ class LruCache {
   }
 
   void saveObjectToCacheDir(key_type& key, const value_type value) {
-    std::string obj_file_name = key.Type() + "-" + key.getUuidString() + ".cache";
+    std::string obj_file_name = key.Type() + "-" + std::to_string(key.Hash()) + ".cache";
 
     llvm::SmallString<128>obj_cache_file = cache_dir_;
     llvm::sys::path::append(obj_cache_file, obj_file_name);
@@ -387,7 +387,7 @@ class LruCache {
       disk_cache_files_qty_ += 1;
 
       std::pair<std::string, size_t> file_and_size = std::make_pair(obj_file_name, value->getBufferSize());
-      cached_files_map_[key.getUuidString()] = file_and_size;
+      cached_files_map_[std::to_string(key.Hash())] = file_and_size;
 
       updateCacheInfoFile();
       updateCacheListFile();
@@ -403,9 +403,11 @@ class LruCache {
     disk_cache_size_ -= file_size;
     disk_cache_files_qty_ = disk_cache_files_qty_ - 1;
     std::string file = splitDirPath(filename, "/").back();
-    std::string uuid_string = file.substr(file.find("-")+1, file.find("."));
-    uuid_string = uuid_string.substr(0, uuid_string.find("."));
-    cached_files_map_.erase(uuid_string);
+    //std::string uuid_string = file.substr(file.find("-")+1, file.find("."));
+    //uuid_string = uuid_string.substr(0, uuid_string.find("."));
+    std::string key_string = file.substr(file.find("-")+1, file.find("."));
+    key_string = key_string.substr(0, key_string.find("."));
+    cached_files_map_.erase(key_string);
 
     remove(filename);
 
@@ -464,12 +466,12 @@ class LruCache {
         if (filename_and_size != "") {
           std::string filename = filename_and_size.substr(0, filename_and_size.find("_"));
           std::string size_string = filename_and_size.substr(filename_and_size.find("_")+1);
-          std::string uuid_string = filename.substr(filename.find("-")+1, filename.find("."));
+          std::string key_string = filename.substr(filename.find("-")+1, filename.find("."));
 
           if (size_string != "") {
             size_t size = std::stoul(size_string);
             std::pair<std::string, size_t> file_pair = std::make_pair(filename, size);
-            cached_files_map_[uuid_string] = file_pair;
+            cached_files_map_[key_string] = file_pair;
           }
         }
 
@@ -503,15 +505,15 @@ class LruCache {
     for (auto& entry : dir_iterator) {
       auto entry_path = entry.path().string();
       std::string filename = splitDirPath(entry_path, "/").back();
-      std::string uuid_string = filename.substr(filename.find("-")+1);
-      uuid_string = uuid_string.substr(0, uuid_string.find("."));
+      std::string key_string = filename.substr(filename.find("-")+1);
+      key_string = key_string.substr(0, key_string.find("."));
       auto entry_extension = entry_path.substr(entry_path.find(".")+1);
       if (entry_extension == "cache")
       {
         ++file_count;
         size_count += boost::filesystem::file_size(entry_path);
         std::pair<std::string, size_t> file_pair = std::make_pair(filename, boost::filesystem::file_size(entry_path));
-        cached_files_map_[uuid_string] = file_pair;
+        cached_files_map_[key_string] = file_pair;
       }
     }
 

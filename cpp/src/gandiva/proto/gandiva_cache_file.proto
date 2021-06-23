@@ -18,12 +18,12 @@
 syntax = "proto2";
 package gandiva.cache.file;
 
-message ExpressionsString {
+message ExpressionString {
   optional string expression = 1;
 }
 
 message ExpressionsList {
-  repeated ExpressionsString expressions = 1;
+  repeated ExpressionString expressions = 1;
 }
 
 message SchemaExpressionsPair {
