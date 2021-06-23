@@ -452,22 +452,28 @@ void GenericFileSystemTest::TestMoveDir(FileSystem* fs) {
   AssertAllDirs(fs, {"EF", "KL", "KL/CD"});
   AssertAllFiles(fs, {"EF/ghi", "KL/CD/def", "KL/abc"});
 
-  // Destination is a non-empty directory
-  if (!allow_move_dir_over_non_empty_dir()) {
-    ASSERT_RAISES(IOError, fs->Move("KL", "EF"));
-    AssertAllDirs(fs, {"EF", "KL", "KL/CD"});
-    AssertAllFiles(fs, {"EF/ghi", "KL/CD/def", "KL/abc"});
-  }
-
   // Cannot move directory inside itself
   ASSERT_RAISES(IOError, fs->Move("KL", "KL/ZZ"));
-
-  // (other errors tested in TestMoveFile)
 
   // Contents didn't change
   AssertAllDirs(fs, {"EF", "KL", "KL/CD"});
   AssertFileContents(fs, "KL/abc", "abc data");
   AssertFileContents(fs, "KL/CD/def", "def data");
+
+  // Destination is a non-empty directory
+  if (!allow_move_dir_over_non_empty_dir()) {
+    ASSERT_RAISES(IOError, fs->Move("KL", "EF"));
+    AssertAllDirs(fs, {"EF", "KL", "KL/CD"});
+    AssertAllFiles(fs, {"EF/ghi", "KL/CD/def", "KL/abc"});
+  } else {
+    // In some filesystems such as HDFS, this operation is interpreted
+    // as with the Unix `mv` command, i.e. move KL *inside* EF.
+    ASSERT_OK(fs->Move("KL", "EF"));
+    AssertAllDirs(fs, {"EF", "EF/KL", "EF/KL/CD"});
+    AssertAllFiles(fs, {"EF/KL/CD/def", "EF/KL/abc", "EF/ghi"});
+  }
+
+  // (other errors tested in TestMoveFile)
 }
 
 void GenericFileSystemTest::TestCopyFile(FileSystem* fs) {

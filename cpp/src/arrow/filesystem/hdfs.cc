@@ -154,11 +154,11 @@ class HadoopFileSystem::Impl {
       // special chars and therefore may not be a valid URI, so we parse by hand.
       auto pos = wd.find("://");  // start of host:port portion
       if (pos == std::string::npos) {
-        return Status::Invalid("xxx");
+        return Status::IOError("Unexpected HDFS working directory URI: ", wd);
       }
       pos = wd.find("/", pos + 3);  // end of host:port portion
       if (pos == std::string::npos) {
-        return Status::Invalid("zzz");
+        return Status::IOError("Unexpected HDFS working directory URI: ", wd);
       }
       wd = wd.substr(0, pos);  // keep up until host:port (included)
     } else if (!wd.empty() && wd.back() != '/') {

@@ -92,7 +92,7 @@ class HadoopFileSystemTestMixin {
       return;
     }
     loaded_driver_ = true;
-    fs_  = *result;
+    fs_ = *result;
   }
 
  protected:
