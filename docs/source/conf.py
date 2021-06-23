@@ -31,6 +31,7 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
 
+import datetime
 import os
 import sys
 from unittest import mock
@@ -107,7 +108,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Apache Arrow'
-copyright = u'2016-2019 Apache Software Foundation'
+copyright = f'2016-{datetime.datetime.now().year} Apache Software Foundation'
 author = u'Apache Software Foundation'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -179,14 +180,15 @@ todo_include_todos = False
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'sphinx_rtd_theme'
+html_theme = 'pydata_sphinx_theme'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
 #
 html_theme_options = {
-    'nosidebar': True
+    "show_toc_level": 2,
+    "google_analytics_id": "UA-107500873-1",
 }
 
 # Add any paths that contain custom themes here, relative to this directory.
@@ -204,13 +206,13 @@ html_title = u'Apache Arrow v{}'.format(version)
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
 #
-# html_logo = None
+html_logo = "_static/arrow.png"
 
 # The name of an image file (relative to this directory) to use as a favicon of
 # the docs.  This file should be a Windows icon file (.ico) being 16x16 or
 # 32x32 pixels large.
 #
-# html_favicon = None
+html_favicon = "_static/favicon.ico"
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -239,7 +241,10 @@ html_css_files = ['theme_overrides.css']
 
 # Custom sidebar templates, maps document names to template names.
 #
-# html_sidebars = {}
+html_sidebars = {
+#    '**': ['sidebar-logo.html', 'sidebar-search-bs.html', 'sidebar-nav-bs.html'],
+    '**': ['docs-sidebar.html'],
+}
 
 # Additional templates that should be rendered to pages, maps page names to
 # template names.

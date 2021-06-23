@@ -21,25 +21,33 @@ internal struct Message : IFlatbufferObject
   public MessageHeader HeaderType { get { int o = __p.__offset(6); return o != 0 ? (MessageHeader)__p.bb.Get(o + __p.bb_pos) : MessageHeader.NONE; } }
   public TTable? Header<TTable>() where TTable : struct, IFlatbufferObject { int o = __p.__offset(8); return o != 0 ? (TTable?)__p.__union<TTable>(o) : null; }
   public long BodyLength { get { int o = __p.__offset(10); return o != 0 ? __p.bb.GetLong(o + __p.bb_pos) : (long)0; } }
+  public KeyValue? CustomMetadata(int j) { int o = __p.__offset(12); return o != 0 ? (KeyValue?)(new KeyValue()).__assign(__p.__indirect(__p.__vector(o) + j * 4), __p.bb) : null; }
+  public int CustomMetadataLength { get { int o = __p.__offset(12); return o != 0 ? __p.__vector_len(o) : 0; } }
 
   public static Offset<Message> CreateMessage(FlatBufferBuilder builder,
       MetadataVersion version = MetadataVersion.V1,
       MessageHeader header_type = MessageHeader.NONE,
       int headerOffset = 0,
-      long bodyLength = 0) {
-    builder.StartObject(4);
+      long bodyLength = 0,
+      VectorOffset custom_metadataOffset = default(VectorOffset)) {
+    builder.StartObject(5);
     Message.AddBodyLength(builder, bodyLength);
+    Message.AddCustomMetadata(builder, custom_metadataOffset);
     Message.AddHeader(builder, headerOffset);
     Message.AddVersion(builder, version);
     Message.AddHeaderType(builder, header_type);
     return Message.EndMessage(builder);
   }
 
-  public static void StartMessage(FlatBufferBuilder builder) { builder.StartObject(4); }
+  public static void StartMessage(FlatBufferBuilder builder) { builder.StartObject(5); }
   public static void AddVersion(FlatBufferBuilder builder, MetadataVersion version) { builder.AddShort(0, (short)version, 0); }
   public static void AddHeaderType(FlatBufferBuilder builder, MessageHeader headerType) { builder.AddByte(1, (byte)headerType, 0); }
   public static void AddHeader(FlatBufferBuilder builder, int headerOffset) { builder.AddOffset(2, headerOffset, 0); }
   public static void AddBodyLength(FlatBufferBuilder builder, long bodyLength) { builder.AddLong(3, bodyLength, 0); }
+  public static void AddCustomMetadata(FlatBufferBuilder builder, VectorOffset customMetadataOffset) { builder.AddOffset(4, customMetadataOffset.Value, 0); }
+  public static VectorOffset CreateCustomMetadataVector(FlatBufferBuilder builder, Offset<KeyValue>[] data) { builder.StartVector(4, data.Length, 4); for (int i = data.Length - 1; i >= 0; i--) builder.AddOffset(data[i].Value); return builder.EndVector(); }
+  public static VectorOffset CreateCustomMetadataVectorBlock(FlatBufferBuilder builder, Offset<KeyValue>[] data) { builder.StartVector(4, data.Length, 4); builder.Add(data); return builder.EndVector(); }
+  public static void StartCustomMetadataVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
   public static Offset<Message> EndMessage(FlatBufferBuilder builder) {
     int o = builder.EndObject();
     return new Offset<Message>(o);

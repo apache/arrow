@@ -18,8 +18,6 @@
 #include "./arrow_types.h"
 #if defined(ARROW_R_WITH_ARROW)
 
-#include <type_traits>
-
 #include <arrow/array.h>
 #include <arrow/builder.h>
 #include <arrow/datum.h>
@@ -29,6 +27,8 @@
 #include <arrow/util/int_util.h>
 #include <arrow/util/parallel.h>
 #include <arrow/util/task_group.h>
+
+#include <type_traits>
 
 namespace arrow {
 
@@ -88,11 +88,14 @@ class Converter {
   // for each array, add a task to the task group
   //
   // The task group is Finish() in the caller
-  void IngestParallel(SEXP data, const std::shared_ptr<arrow::internal::TaskGroup>& tg) {
+  // The converter itself is passed as `self` so that if one of the parallel ops
+  // hits `stop()`, we don't bail before `tg` is destroyed, which would cause a crash
+  void IngestParallel(SEXP data, const std::shared_ptr<arrow::internal::TaskGroup>& tg,
+                      std::shared_ptr<Converter> self) {
     R_xlen_t k = 0, i = 0;
     for (const auto& array : arrays_) {
       auto n_chunk = array->length();
-      tg->Append([=] { return IngestOne(data, array, k, n_chunk, i); });
+      tg->Append([=] { return self->IngestOne(data, array, k, n_chunk, i); });
       k += n_chunk;
       i++;
     }
@@ -1242,7 +1245,7 @@ cpp11::writable::list to_dataframe_parallel(
 
     // add a task to ingest data of that column if that can be done in parallel
     if (converters[i]->Parallel()) {
-      converters[i]->IngestParallel(column, tg);
+      converters[i]->IngestParallel(column, tg, converters[i]);
     }
   }
 

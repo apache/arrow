@@ -29,4 +29,5 @@ pacman \
   ${MINGW_PACKAGE_PREFIX}-gcc-ada \
   ${MINGW_PACKAGE_PREFIX}-gcc-fortran \
   ${MINGW_PACKAGE_PREFIX}-gcc-libgfortran \
-  ${MINGW_PACKAGE_PREFIX}-gcc-objc
+  ${MINGW_PACKAGE_PREFIX}-gcc-objc \
+  ${MINGW_PACKAGE_PREFIX}-libgccjit

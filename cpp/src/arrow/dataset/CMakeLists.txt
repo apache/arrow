@@ -22,7 +22,6 @@ arrow_install_all_headers("arrow/dataset")
 set(ARROW_DATASET_SRCS
     dataset.cc
     discovery.cc
-    expression.cc
     file_base.cc
     file_ipc.cc
     partition.cc
@@ -54,6 +53,8 @@ add_arrow_lib(arrow_dataset
               ${ARROW_DATASET_SRCS}
               PRECOMPILED_HEADERS
               "$<$<COMPILE_LANGUAGE:CXX>:arrow/dataset/pch.h>"
+              DEPENDENCIES
+              toolchain
               PRIVATE_INCLUDES
               ${ARROW_DATASET_PRIVATE_INCLUDES}
               SHARED_LINK_LIBS
@@ -106,7 +107,6 @@ endfunction()
 
 add_arrow_dataset_test(dataset_test)
 add_arrow_dataset_test(discovery_test)
-add_arrow_dataset_test(expression_test)
 add_arrow_dataset_test(file_ipc_test)
 add_arrow_dataset_test(file_test)
 add_arrow_dataset_test(partition_test)
@@ -118,4 +118,14 @@ endif()
 
 if(ARROW_PARQUET)
   add_arrow_dataset_test(file_parquet_test)
+endif()
+
+if(ARROW_BUILD_BENCHMARKS)
+  add_arrow_benchmark(file_benchmark PREFIX "arrow-dataset")
+
+  if(ARROW_BUILD_STATIC)
+    target_link_libraries(arrow-dataset-file-benchmark PUBLIC arrow_dataset_static)
+  else()
+    target_link_libraries(arrow-dataset-file-benchmark PUBLIC arrow_dataset_shared)
+  endif()
 endif()

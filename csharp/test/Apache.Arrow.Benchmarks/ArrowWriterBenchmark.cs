@@ -28,8 +28,8 @@ namespace Apache.Arrow.Benchmarks
         [Params(10_000, 1_000_000)]
         public int BatchLength{ get; set; }
 
-        //Max column set count is 21 before reaching 2gb limit of memory stream
-        [Params(10, 20)]
+        //Max column set count is 15 before reaching 2gb limit of memory stream
+        [Params(10, 14)]
         public int ColumnSetCount { get; set; }
 
         private MemoryStream _memoryStream;

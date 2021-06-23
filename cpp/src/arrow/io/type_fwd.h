@@ -17,12 +17,39 @@
 
 #pragma once
 
+#include "arrow/type_fwd.h"
+#include "arrow/util/visibility.h"
+
 namespace arrow {
 namespace io {
 
 struct FileMode {
   enum type { READ, WRITE, READWRITE };
 };
+
+struct IOContext;
+struct CacheOptions;
+
+/// EXPERIMENTAL: convenience global singleton for default IOContext settings
+ARROW_EXPORT
+const IOContext& default_io_context();
+
+/// \brief Get the capacity of the global I/O thread pool
+///
+/// Return the number of worker threads in the thread pool to which
+/// Arrow dispatches various I/O-bound tasks.  This is an ideal number,
+/// not necessarily the exact number of threads at a given point in time.
+///
+/// You can change this number using SetIOThreadPoolCapacity().
+ARROW_EXPORT int GetIOThreadPoolCapacity();
+
+/// \brief Set the capacity of the global I/O thread pool
+///
+/// Set the number of worker threads in the thread pool to which
+/// Arrow dispatches various I/O-bound tasks.
+///
+/// The current number is returned by GetIOThreadPoolCapacity().
+ARROW_EXPORT Status SetIOThreadPoolCapacity(int threads);
 
 class FileInterface;
 class Seekable;

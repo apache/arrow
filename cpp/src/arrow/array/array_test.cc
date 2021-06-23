@@ -45,6 +45,7 @@
 #include "arrow/result.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
+#include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_compat.h"
 #include "arrow/testing/gtest_util.h"
@@ -2596,6 +2597,352 @@ TEST(TestRechunkArraysConsistently, Plain) {
       TestInitialized(*arr);
     }
   }
+}
+
+// ----------------------------------------------------------------------
+// Test SwapEndianArrayData
+
+/// \brief Indicate if fields are equals.
+///
+/// \param[in] target ArrayData to be converted and tested
+/// \param[in] expected result ArrayData
+void AssertArrayDataEqualsWithSwapEndian(const std::shared_ptr<ArrayData>& target,
+                                         const std::shared_ptr<ArrayData>& expected) {
+  auto swap_array = MakeArray(*::arrow::internal::SwapEndianArrayData(target));
+  auto expected_array = MakeArray(expected);
+  ASSERT_ARRAYS_EQUAL(*swap_array, *expected_array);
+  ASSERT_OK(swap_array->ValidateFull());
+}
+
+TEST(TestSwapEndianArrayData, PrimitiveType) {
+  auto null_buffer = Buffer::FromString("\xff");
+  auto data_int_buffer = Buffer::FromString("01234567");
+
+  auto data = ArrayData::Make(null(), 0, {nullptr}, 0);
+  auto expected_data = data;
+  AssertArrayDataEqualsWithSwapEndian(data, expected_data);
+
+  data = ArrayData::Make(boolean(), 8, {null_buffer, data_int_buffer}, 0);
+  expected_data = data;
+  AssertArrayDataEqualsWithSwapEndian(data, expected_data);
+
+  data = ArrayData::Make(int8(), 8, {null_buffer, data_int_buffer}, 0);
+  expected_data = data;
+  AssertArrayDataEqualsWithSwapEndian(data, expected_data);
+
+  data = ArrayData::Make(uint16(), 4, {null_buffer, data_int_buffer}, 0);
+  auto data_int16_buffer = Buffer::FromString("10325476");
+  expected_data = ArrayData::Make(uint16(), 4, {null_buffer, data_int16_buffer}, 0);
+  AssertArrayDataEqualsWithSwapEndian(data, expected_data);
+
+  data = ArrayData::Make(int32(), 2, {null_buffer, data_int_buffer}, 0);
+  auto data_int32_buffer = Buffer::FromString("32107654");
+  expected_data = ArrayData::Make(int32(), 2, {null_buffer, data_int32_buffer}, 0);
+  AssertArrayDataEqualsWithSwapEndian(data, expected_data);
+
+  data = ArrayData::Make(uint64(), 1, {null_buffer, data_int_buffer}, 0);
+  auto data_int64_buffer = Buffer::FromString("76543210");
+  expected_data = ArrayData::Make(uint64(), 1, {null_buffer, data_int64_buffer}, 0);
+  AssertArrayDataEqualsWithSwapEndian(data, expected_data);
+
+  auto data_16byte_buffer = Buffer::FromString("0123456789abcdef");
+  data = ArrayData::Make(decimal128(38, 10), 1, {null_buffer, data_16byte_buffer});
+  auto data_decimal128_buffer = Buffer::FromString("fedcba9876543210");
+  expected_data =
+      ArrayData::Make(decimal128(38, 10), 1, {null_buffer, data_decimal128_buffer}, 0);
+  AssertArrayDataEqualsWithSwapEndian(data, expected_data);
+
+  auto data_32byte_buffer = Buffer::FromString("0123456789abcdef123456789ABCDEF0");
+  data = ArrayData::Make(decimal256(76, 20), 1, {null_buffer, data_32byte_buffer});
+  auto data_decimal256_buffer = Buffer::FromString("0FEDCBA987654321fedcba9876543210");
+  expected_data =
+      ArrayData::Make(decimal256(76, 20), 1, {null_buffer, data_decimal256_buffer}, 0);
+  AssertArrayDataEqualsWithSwapEndian(data, expected_data);
+
+  auto data_float_buffer = Buffer::FromString("01200560");
+  data = ArrayData::Make(float32(), 2, {null_buffer, data_float_buffer}, 0);
+  auto data_float32_buffer = Buffer::FromString("02100650");
+  expected_data = ArrayData::Make(float32(), 2, {null_buffer, data_float32_buffer}, 0);
+  AssertArrayDataEqualsWithSwapEndian(data, expected_data);
+
+  data = ArrayData::Make(float64(), 1, {null_buffer, data_float_buffer});
+  auto data_float64_buffer = Buffer::FromString("06500210");
+  expected_data = ArrayData::Make(float64(), 1, {null_buffer, data_float64_buffer}, 0);
+  AssertArrayDataEqualsWithSwapEndian(data, expected_data);
+
+  // With offset > 0
+  data =
+      ArrayData::Make(int64(), 1, {null_buffer, data_int_buffer}, kUnknownNullCount, 1);
+  ASSERT_RAISES(Invalid, ::arrow::internal::SwapEndianArrayData(data));
+}
+
+std::shared_ptr<ArrayData> ReplaceBuffers(const std::shared_ptr<ArrayData>& data,
+                                          const int32_t buffer_index,
+                                          const std::vector<uint8_t>& buffer_data) {
+  const auto test_data = data->Copy();
+  test_data->buffers[buffer_index] =
+      std::make_shared<Buffer>(buffer_data.data(), buffer_data.size());
+  return test_data;
+}
+
+std::shared_ptr<ArrayData> ReplaceBuffersInChild(const std::shared_ptr<ArrayData>& data,
+                                                 const int32_t child_index,
+                                                 const std::vector<uint8_t>& child_data) {
+  const auto test_data = data->Copy();
+  // assume updating only buffer[1] in child_data
+  auto child_array_data = test_data->child_data[child_index]->Copy();
+  child_array_data->buffers[1] =
+      std::make_shared<Buffer>(child_data.data(), child_data.size());
+  test_data->child_data[child_index] = child_array_data;
+  return test_data;
+}
+
+std::shared_ptr<ArrayData> ReplaceBuffersInDictionary(
+    const std::shared_ptr<ArrayData>& data, const int32_t buffer_index,
+    const std::vector<uint8_t>& buffer_data) {
+  const auto test_data = data->Copy();
+  auto dict_array_data = test_data->dictionary->Copy();
+  dict_array_data->buffers[buffer_index] =
+      std::make_shared<Buffer>(buffer_data.data(), buffer_data.size());
+  test_data->dictionary = dict_array_data;
+  return test_data;
+}
+
+TEST(TestSwapEndianArrayData, BinaryType) {
+  auto array = ArrayFromJSON(binary(), R"(["0123", null, "45"])");
+  const std::vector<uint8_t> offset1 =
+#if ARROW_LITTLE_ENDIAN
+      {0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 4, 0, 0, 0, 6};
+#else
+      {0, 0, 0, 0, 4, 0, 0, 0, 4, 0, 0, 0, 6, 0, 0, 0};
+#endif
+  auto expected_data = array->data();
+  auto test_data = ReplaceBuffers(expected_data, 1, offset1);
+  AssertArrayDataEqualsWithSwapEndian(test_data, expected_data);
+
+  array = ArrayFromJSON(large_binary(), R"(["01234", null, "567"])");
+  const std::vector<uint8_t> offset2 =
+#if ARROW_LITTLE_ENDIAN
+      {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5,
+       0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 8};
+#else
+      {0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0,
+       5, 0, 0, 0, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0};
+#endif
+  expected_data = array->data();
+  test_data = ReplaceBuffers(expected_data, 1, offset2);
+  AssertArrayDataEqualsWithSwapEndian(test_data, expected_data);
+
+  array = ArrayFromJSON(fixed_size_binary(3), R"(["012", null, "345"])");
+  expected_data = array->data();
+  AssertArrayDataEqualsWithSwapEndian(expected_data, expected_data);
+}
+
+TEST(TestSwapEndianArrayData, StringType) {
+  auto array = ArrayFromJSON(utf8(), R"(["ABCD", null, "EF"])");
+  const std::vector<uint8_t> offset1 =
+#if ARROW_LITTLE_ENDIAN
+      {0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 4, 0, 0, 0, 6};
+#else
+      {0, 0, 0, 0, 4, 0, 0, 0, 4, 0, 0, 0, 6, 0, 0, 0};
+#endif
+  auto expected_data = array->data();
+  auto test_data = ReplaceBuffers(expected_data, 1, offset1);
+  AssertArrayDataEqualsWithSwapEndian(test_data, expected_data);
+
+  array = ArrayFromJSON(large_utf8(), R"(["ABCDE", null, "FGH"])");
+  const std::vector<uint8_t> offset2 =
+#if ARROW_LITTLE_ENDIAN
+      {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5,
+       0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 8};
+#else
+      {0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0,
+       5, 0, 0, 0, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0};
+#endif
+  expected_data = array->data();
+  test_data = ReplaceBuffers(expected_data, 1, offset2);
+  AssertArrayDataEqualsWithSwapEndian(test_data, expected_data);
+}
+
+TEST(TestSwapEndianArrayData, ListType) {
+  auto type1 = std::make_shared<ListType>(int32());
+  auto array = ArrayFromJSON(type1, "[[0, 1, 2, 3], null, [4, 5]]");
+  const std::vector<uint8_t> offset1 =
+#if ARROW_LITTLE_ENDIAN
+      {0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 4, 0, 0, 0, 6};
+#else
+      {0, 0, 0, 0, 4, 0, 0, 0, 4, 0, 0, 0, 6, 0, 0, 0};
+#endif
+  const std::vector<uint8_t> data1 =
+#if ARROW_LITTLE_ENDIAN
+      {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, 4, 0, 0, 0, 5};
+#else
+      {0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, 4, 0, 0, 0, 5, 0, 0, 0};
+#endif
+  auto expected_data = array->data();
+  auto test_data = ReplaceBuffers(expected_data, 1, offset1);
+  test_data = ReplaceBuffersInChild(test_data, 0, data1);
+  AssertArrayDataEqualsWithSwapEndian(test_data, expected_data);
+
+  auto type2 = std::make_shared<LargeListType>(int64());
+  array = ArrayFromJSON(type2, "[[0, 1, 2], null, [3]]");
+  const std::vector<uint8_t> offset2 =
+#if ARROW_LITTLE_ENDIAN
+      {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3,
+       0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 4};
+#else
+      {0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0,
+       3, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0};
+#endif
+  const std::vector<uint8_t> data2 =
+#if ARROW_LITTLE_ENDIAN
+      {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+       0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 3};
+#else
+      {0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
+       2, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0};
+#endif
+  expected_data = array->data();
+  test_data = ReplaceBuffers(expected_data, 1, offset2);
+  test_data = ReplaceBuffersInChild(test_data, 0, data2);
+  AssertArrayDataEqualsWithSwapEndian(test_data, expected_data);
+
+  auto type3 = std::make_shared<FixedSizeListType>(int32(), 2);
+  array = ArrayFromJSON(type3, "[[0, 1], null, [2, 3]]");
+  expected_data = array->data();
+  const std::vector<uint8_t> data3 =
+#if ARROW_LITTLE_ENDIAN
+      {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 3};
+#else
+      {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0};
+#endif
+  test_data = ReplaceBuffersInChild(expected_data, 0, data3);
+  AssertArrayDataEqualsWithSwapEndian(test_data, expected_data);
+}
+
+TEST(TestSwapEndianArrayData, DictionaryType) {
+  auto type = dictionary(int32(), int16());
+  auto dict = ArrayFromJSON(int16(), "[4, 5, 6, 7]");
+  DictionaryArray array(type, ArrayFromJSON(int32(), "[0, 2, 3]"), dict);
+  auto expected_data = array.data();
+  const std::vector<uint8_t> data1 =
+#if ARROW_LITTLE_ENDIAN
+      {0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 3};
+#else
+      {0, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0};
+#endif
+  const std::vector<uint8_t> data2 =
+#if ARROW_LITTLE_ENDIAN
+      {0, 4, 0, 5, 0, 6, 0, 7};
+#else
+      {4, 0, 5, 0, 6, 0, 7, 0};
+#endif
+  auto test_data = ReplaceBuffers(expected_data, 1, data1);
+  test_data = ReplaceBuffersInDictionary(test_data, 1, data2);
+  // dictionary must be explicitly swapped
+  test_data->dictionary = *::arrow::internal::SwapEndianArrayData(test_data->dictionary);
+  AssertArrayDataEqualsWithSwapEndian(test_data, expected_data);
+}
+
+TEST(TestSwapEndianArrayData, StructType) {
+  auto array = ArrayFromJSON(struct_({field("a", int32()), field("b", utf8())}),
+                             R"([{"a": 4, "b": null}, {"a": null, "b": "foo"}])");
+  auto expected_data = array->data();
+  const std::vector<uint8_t> data1 =
+#if ARROW_LITTLE_ENDIAN
+      {0, 0, 0, 4, 0, 0, 0, 0};
+#else
+      {4, 0, 0, 0, 0, 0, 0, 0};
+#endif
+  const std::vector<uint8_t> data2 =
+#if ARROW_LITTLE_ENDIAN
+      {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3};
+#else
+      {0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0};
+#endif
+  auto test_data = ReplaceBuffersInChild(expected_data, 0, data1);
+  test_data = ReplaceBuffersInChild(test_data, 1, data2);
+  AssertArrayDataEqualsWithSwapEndian(test_data, expected_data);
+}
+
+TEST(TestSwapEndianArrayData, UnionType) {
+  auto expected_i8 = ArrayFromJSON(int8(), "[127, null, null, null, null]");
+  auto expected_str = ArrayFromJSON(utf8(), R"([null, "abcd", null, null, ""])");
+  auto expected_i32 = ArrayFromJSON(int32(), "[null, null, 1, 2, null]");
+  std::vector<uint8_t> expected_types_vector;
+  expected_types_vector.push_back(Type::INT8);
+  expected_types_vector.insert(expected_types_vector.end(), 2, Type::STRING);
+  expected_types_vector.insert(expected_types_vector.end(), 2, Type::INT32);
+  std::shared_ptr<Array> expected_types;
+  ArrayFromVector<Int8Type, uint8_t>(expected_types_vector, &expected_types);
+  auto arr1 = SparseUnionArray::Make(
+      *expected_types, {expected_i8, expected_str, expected_i32}, {"i8", "str", "i32"},
+      {Type::INT8, Type::STRING, Type::INT32});
+  auto expected_data = (*arr1)->data();
+  const std::vector<uint8_t> data1a =
+#if ARROW_LITTLE_ENDIAN
+      {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 4, 0, 0, 0, 4, 0, 0, 0, 4};
+#else
+      {0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 4, 0, 0, 0, 4, 0, 0, 0, 4, 0, 0, 0};
+#endif
+  const std::vector<uint8_t> data1b =
+#if ARROW_LITTLE_ENDIAN
+      {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 0};
+#else
+      {0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0};
+#endif
+  auto test_data = ReplaceBuffersInChild(expected_data, 1, data1a);
+  test_data = ReplaceBuffersInChild(test_data, 2, data1b);
+  AssertArrayDataEqualsWithSwapEndian(test_data, expected_data);
+
+  expected_i8 = ArrayFromJSON(int8(), "[33, 10, -10]");
+  expected_str = ArrayFromJSON(utf8(), R"(["abc", "", "def"])");
+  expected_i32 = ArrayFromJSON(int32(), "[1, -259, 2]");
+  auto expected_offsets = ArrayFromJSON(int32(), "[0, 0, 0, 1, 1, 1, 2, 2, 2]");
+  auto arr2 = DenseUnionArray::Make(
+      *expected_types, *expected_offsets, {expected_i8, expected_str, expected_i32},
+      {"i8", "str", "i32"}, {Type::INT8, Type::STRING, Type::INT32});
+  expected_data = (*arr2)->data();
+  const std::vector<uint8_t> data2a =
+#if ARROW_LITTLE_ENDIAN
+      {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0,
+       0, 1, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 2};
+#else
+      {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0,
+       0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0};
+#endif
+  const std::vector<uint8_t> data2b =
+#if ARROW_LITTLE_ENDIAN
+      {0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 3, 0, 0, 0, 6};
+#else
+      {0, 0, 0, 0, 3, 0, 0, 0, 3, 0, 0, 0, 6, 0, 0, 0};
+#endif
+  const std::vector<uint8_t> data2c =
+#if ARROW_LITTLE_ENDIAN
+      {0, 0, 0, 1, 255, 255, 254, 253, 0, 0, 0, 2};
+#else
+      {1, 0, 0, 0, 253, 254, 255, 255, 2, 0, 0, 0};
+#endif
+  test_data = ReplaceBuffers(expected_data, 2, data2a);
+  test_data = ReplaceBuffersInChild(test_data, 1, data2b);
+  test_data = ReplaceBuffersInChild(test_data, 2, data2c);
+  AssertArrayDataEqualsWithSwapEndian(test_data, expected_data);
+}
+
+TEST(TestSwapEndianArrayData, ExtensionType) {
+  auto array_int16 = ArrayFromJSON(int16(), "[0, 1, 2, 3]");
+  auto ext_data = array_int16->data()->Copy();
+  ext_data->type = std::make_shared<SmallintType>();
+  auto array = MakeArray(ext_data);
+  auto expected_data = array->data();
+  const std::vector<uint8_t> data =
+#if ARROW_LITTLE_ENDIAN
+      {0, 0, 0, 1, 0, 2, 0, 3};
+#else
+      {0, 0, 1, 0, 2, 0, 3, 0};
+#endif
+  auto test_data = ReplaceBuffers(expected_data, 1, data);
+  AssertArrayDataEqualsWithSwapEndian(test_data, expected_data);
 }
 
 }  // namespace arrow

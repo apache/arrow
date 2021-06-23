@@ -158,4 +158,31 @@ class TestArray < Test::Unit::TestCase
                    array.diff_unified(other_array))
     end
   end
+
+  sub_test_case("#concatenate") do
+    def test_no_other_arrays
+      assert_equal(build_int32_array([1, 2, 3]),
+                   build_int32_array([1, 2, 3]).concatenate([]))
+    end
+
+    def test_multiple_other_arrays
+      a = build_int32_array([1, 2, 3])
+      b = build_int32_array([4])
+      c = build_int32_array([5, 6])
+      assert_equal(build_int32_array([1, 2, 3, 4, 5, 6]),
+                   a.concatenate([b, c]))
+    end
+
+    def test_mixed_type
+      int32_array = build_int32_array([1, 2, 3])
+      uint32_array = build_uint32_array([4])
+      message =
+        "[array][concatenate]: Invalid: " +
+        "arrays to be concatenated must be identically typed, " +
+        "but int32 and uint32 were encountered."
+      assert_raise(Arrow::Error::Invalid.new(message)) do
+        int32_array.concatenate([uint32_array])
+      end
+    end
+  end
 end

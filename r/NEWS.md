@@ -17,11 +17,77 @@
   under the License.
 -->
 
-# arrow 3.0.0.9000
+# arrow 4.0.1.9000
+
+* `write_csv_arrow()` to write Arrow data to CSV
+* Bindings and support for more Arrow C++ Compute functions: `strsplit()` and `str_split()`, `na.omit()` et al., `any()`/`all()`,
+* `arrow_info()` now includes details on the C++ build, such as compiler version
+* `dplyr` queries on `Table` and `RecordBatch` now use the same expression internals as `Dataset` (via `InMemoryDataset`). Among other (mostly internal) benefits that come with this, the print method for `arrow_dplyr_query` now includes the expression and the resulting type of columns derived by `mutate()`.
+* Added bindings for the remainder of C data interface: Type, Field, and RecordBatchReader (from the experimental C stream interface). These also have `reticulate::py_to_r()` and `r_to_py()` methods. Along with the addition of the `Scanner$ToRecordBatchReader()` method, you can now build up a Dataset query in R and pass the resulting stream of batches to another tool in process.
+* `match_arrow` now converts `x` into an `Array` if it is not a `Scalar`, `Array` or `ChunkedArray` and no longer dispatches `base::match()`.
+
+# arrow 4.0.1
+
+* Resolved a few bugs in new string compute kernels (ARROW-12774, ARROW-12670)
+
+# arrow 4.0.0.1
+
+ * The mimalloc memory allocator is the default memory allocator when using a static source build of the package on Linux. This is because it has better behavior under valgrind than jemalloc does. A full-featured build (installed with `LIBARROW_MINIMAL=false`) includes both jemalloc and mimalloc, and it has still has jemalloc as default, though this is configurable at runtime with the `ARROW_DEFAULT_MEMORY_POOL` environment variable.
+ * Environment variables `LIBARROW_MINIMAL`, `LIBARROW_DOWNLOAD`, and `NOT_CRAN` are now case-insensitive in the Linux build script.
+ * A build configuration issue in the macOS binary package has been resolved.
+
+# arrow 4.0.0
+
+## dplyr methods
+
+Many more `dplyr` verbs are supported on Arrow objects:
+
+* `dplyr::mutate()` is now supported in Arrow for many applications. For queries on `Table` and `RecordBatch` that are not yet supported in Arrow, the implementation falls back to pulling data into an in-memory R `data.frame` first, as in the previous release. For queries on `Dataset` (which can be larger than memory), it raises an error if the function is not implemented. The main `mutate()` features that cannot yet be called on Arrow objects are (1) `mutate()` after `group_by()` (which is typically used in combination with aggregation) and (2) queries that use `dplyr::across()`.
+* `dplyr::transmute()` (which calls `mutate()`)
+* `dplyr::group_by()` now preserves the `.drop` argument and supports on-the-fly definition of columns
+* `dplyr::relocate()` to reorder columns
+* `dplyr::arrange()` to sort rows
+* `dplyr::compute()` to evaluate the lazy expressions and return an Arrow Table. This is equivalent to `dplyr::collect(as_data_frame = FALSE)`, which was added in 2.0.0.
+
+Over 100 functions can now be called on Arrow objects inside a `dplyr` verb:
+
+* String functions `nchar()`, `tolower()`, and `toupper()`, along with their `stringr` spellings `str_length()`, `str_to_lower()`, and `str_to_upper()`, are supported in Arrow `dplyr` calls. `str_trim()` is also supported.
+* Regular expression functions `sub()`, `gsub()`, and `grepl()`, along with `str_replace()`, `str_replace_all()`, and `str_detect()`, are supported.
+* `cast(x, type)` and `dictionary_encode()` allow changing the type of columns in Arrow objects; `as.numeric()`, `as.character()`, etc. are exposed as similar type-altering conveniences
+* `dplyr::between()`; the Arrow version also allows the `left` and `right` arguments to be columns in the data and not just scalars
+* Additionally, any Arrow C++ compute function can be called inside a `dplyr` verb. This enables you to access Arrow functions that don't have a direct R mapping. See `list_compute_functions()` for all available functions, which are available in `dplyr` prefixed by `arrow_`.
+* Arrow C++ compute functions now do more systematic type promotion when called on data with different types (e.g. int32 and float64). Previously, Scalars in an expressions were always cast to match the type of the corresponding Array, so this new type promotion enables, among other things, operations on two columns (Arrays) in a dataset. As a side effect, some comparisons that worked in prior versions are no longer supported: for example, `dplyr::filter(arrow_dataset, string_column == 3)` will error with a message about the type mismatch between the numeric `3` and the string type of `string_column`.
+
+## Datasets
+
+* `open_dataset()` now accepts a vector of file paths (or even a single file path). Among other things, this enables you to open a single very large file and use `write_dataset()` to partition it without having to read the whole file into memory.
+* Datasets can now detect and read a directory of compressed CSVs
+* `write_dataset()` now defaults to `format = "parquet"` and better validates the `format` argument
+* Invalid input for `schema` in `open_dataset()` is now correctly handled
+* Collecting 0 columns from a Dataset now no longer returns all of the columns
+* The `Scanner$Scan()` method has been removed; use `Scanner$ScanBatches()`
+
+## Other improvements
 
 * `value_counts()` to tabulate values in an `Array` or `ChunkedArray`, similar to `base::table()`.
 * `StructArray` objects gain data.frame-like methods, including `names()`, `$`, `[[`, and `dim()`.
 * RecordBatch columns can now be added, replaced, or removed by assigning (`<-`) with either `$` or `[[`
+* Similarly, `Schema` can now be edited by assigning in new types. This enables using the CSV reader to detect the schema of a file, modify the `Schema` object for any columns that you want to read in as a different type, and then use that `Schema` to read the data.
+* Better validation when creating a `Table` with a schema, with columns of different lengths, and with scalar value recycling
+* Reading Parquet files in Japanese or other multi-byte locales on Windows no longer hangs (workaround for a [bug in libstdc++](https://gcc.gnu.org/bugzilla/show_bug.cgi?id=98723); thanks @yutannihilation for the persistence in discovering this!)
+* If you attempt to read string data that has embedded nul (`\0`) characters, the error message now informs you that you can set `options(arrow.skip_nul = TRUE)` to strip them out. It is not recommended to set this option by default since this code path is significantly slower, and most string data does not contain nuls.
+* `read_json_arrow()` now accepts a schema: `read_json_arrow("file.json", schema = schema(col_a = float64(), col_b = string()))`
+
+## Installation and configuration
+
+* The R package can now support working with an Arrow C++ library that has additional features (such as dataset, parquet, string libraries) disabled, and the bundled build script enables setting environment variables to disable them. See `vignette("install", package = "arrow")` for details. This allows a faster, smaller package build in cases where that is useful, and it enables a minimal, functioning R package build on Solaris.
+* On macOS, it is now possible to use the same bundled C++ build that is used by default on Linux, along with all of its customization parameters, by setting the environment variable `FORCE_BUNDLED_BUILD=true`.
+* `arrow` now uses the `mimalloc` memory allocator by default on macOS, if available (as it is in CRAN binaries), instead of `jemalloc`. There are [configuration issues](https://issues.apache.org/jira/browse/ARROW-6994) with `jemalloc` on macOS, and [benchmark analysis](https://ursalabs.org/blog/2021-r-benchmarks-part-1/) shows that this has negative effects on performance, especially on memory-intensive workflows. `jemalloc` remains the default on Linux; `mimalloc` is default on Windows.
+* Setting the `ARROW_DEFAULT_MEMORY_POOL` environment variable to switch memory allocators now works correctly when the Arrow C++ library has been statically linked (as is usually the case when installing from CRAN).
+* The `arrow_info()` function now reports on the additional optional features, as well as the detected SIMD level. If key features or compression libraries are not enabled in the build, `arrow_info()` will refer to the installation vignette for guidance on how to install a more complete build, if desired.
+* If you attempt to read a file that was compressed with a codec that your Arrow build does not contain support for, the error message now will tell you how to reinstall Arrow with that feature enabled.
+* A new vignette about developer environment setup `vignette("developing", package = "arrow")`.
+* When building from source, you can use the environment variable `ARROW_HOME` to point to a specific directory where the Arrow libraries are. This is similar to passing `INCLUDE_DIR` and `LIB_DIR`.
 
 # arrow 3.0.0
 
@@ -43,7 +109,7 @@
 * Option `arrow.skip_nul` (default `FALSE`, as in `base::scan()`) allows conversion of Arrow string (`utf8()`) type data containing embedded nul `\0` characters to R. If set to `TRUE`, nuls will be stripped and a warning is emitted if any are found.
 * `arrow_info()` for an overview of various run-time and build-time Arrow configurations, useful for debugging
 * Set environment variable `ARROW_DEFAULT_MEMORY_POOL` before loading the Arrow package to change memory allocators. Windows packages are built with `mimalloc`; most others are built with both `jemalloc` (used by default) and `mimalloc`. These alternative memory allocators are generally much faster than the system memory allocator, so they are used by default when available, but sometimes it is useful to turn them off for debugging purposes. To disable them, set `ARROW_DEFAULT_MEMORY_POOL=system`.
-* List columns that have attributes on each element are now also included with the metadata that is saved when creating Arrow tables. This allows `sf` tibbles to faithfully preserved and roundtripped ([ARROW-10386](https://issues.apache.org/jira/browse/ARROW-10386)).
+* List columns that have attributes on each element are now also included with the metadata that is saved when creating Arrow tables. This allows `sf` tibbles to faithfully preserved and roundtripped (ARROW-10386).
 * R metadata that exceeds 100Kb is now compressed before being written to a table; see `schema()` for more details.
 
 ## Bug fixes
@@ -52,8 +118,8 @@
 * C++ functions now trigger garbage collection when needed
 * `write_parquet()` can now write RecordBatches
 * Reading a Table from a RecordBatchStreamReader containing 0 batches no longer crashes
-* `readr`'s `problems` attribute is removed when converting to Arrow RecordBatch and table to prevent large amounts of metadata from accumulating inadvertently ([ARROW-10624](https://issues.apache.org/jira/browse/ARROW-10624))
-* Fixed reading of compressed Feather files written with Arrow 0.17 ([ARROW-10850](https://issues.apache.org/jira/browse/ARROW-10850))
+* `readr`'s `problems` attribute is removed when converting to Arrow RecordBatch and table to prevent large amounts of metadata from accumulating inadvertently (ARROW-10624)
+* Fixed reading of compressed Feather files written with Arrow 0.17 (ARROW-10850)
 * `SubTreeFileSystem` gains a useful print method and no longer errors when printing
 
 ## Packaging and installation
@@ -284,22 +350,22 @@ See `vignette("install", package = "arrow")` for details.
 
 * The R6 classes that wrap the C++ classes are now documented and exported and have been renamed to be more R-friendly. Users of the high-level R interface in this package are not affected. Those who want to interact with the Arrow C++ API more directly should work with these objects and methods. As part of this change, many functions that instantiated these R6 objects have been removed in favor of `Class$create()` methods. Notably, `arrow::array()` and `arrow::table()` have been removed in favor of `Array$create()` and `Table$create()`, eliminating the package startup message about masking `base` functions. For more information, see the new `vignette("arrow")`.
 * Due to a subtle change in the Arrow message format, data written by the 0.15 version libraries may not be readable by older versions. If you need to send data to a process that uses an older version of Arrow (for example, an Apache Spark server that hasn't yet updated to Arrow 0.15), you can set the environment variable `ARROW_PRE_0_15_IPC_FORMAT=1`.
-* The `as_tibble` argument in the `read_*()` functions has been renamed to `as_data_frame` ([ARROW-6337](https://issues.apache.org/jira/browse/ARROW-6337), @jameslamb)
+* The `as_tibble` argument in the `read_*()` functions has been renamed to `as_data_frame` (ARROW-6337, @jameslamb)
 * The `arrow::Column` class has been removed, as it was removed from the C++ library
 
 ## New features
 
 * `Table` and `RecordBatch` objects have S3 methods that enable you to work with them more like `data.frame`s. Extract columns, subset, and so on. See `?Table` and `?RecordBatch` for examples.
-* Initial implementation of bindings for the C++ File System API. ([ARROW-6348](https://issues.apache.org/jira/browse/ARROW-6348))
-* Compressed streams are now supported on Windows ([ARROW-6360](https://issues.apache.org/jira/browse/ARROW-6360)), and you can also specify a compression level ([ARROW-6533](https://issues.apache.org/jira/browse/ARROW-6533))
+* Initial implementation of bindings for the C++ File System API. (ARROW-6348)
+* Compressed streams are now supported on Windows (ARROW-6360), and you can also specify a compression level (ARROW-6533)
 
 ## Other upgrades
 
 * Parquet file reading is much, much faster, thanks to improvements in the Arrow C++ library.
 * `read_csv_arrow()` supports more parsing options, including `col_names`, `na`, `quoted_na`, and `skip`
-* `read_parquet()` and `read_feather()` can ingest data from a `raw` vector ([ARROW-6278](https://issues.apache.org/jira/browse/ARROW-6278))
-* File readers now properly handle paths that need expanding, such as `~/file.parquet` ([ARROW-6323](https://issues.apache.org/jira/browse/ARROW-6323))
-* Improved support for creating types in a schema: the types' printed names (e.g. "double") are guaranteed to be valid to use in instantiating a schema (e.g. `double()`), and time types can be created with human-friendly resolution strings ("ms", "s", etc.). ([ARROW-6338](https://issues.apache.org/jira/browse/ARROW-6338), [ARROW-6364](https://issues.apache.org/jira/browse/ARROW-6364))
+* `read_parquet()` and `read_feather()` can ingest data from a `raw` vector (ARROW-6278)
+* File readers now properly handle paths that need expanding, such as `~/file.parquet` (ARROW-6323)
+* Improved support for creating types in a schema: the types' printed names (e.g. "double") are guaranteed to be valid to use in instantiating a schema (e.g. `double()`), and time types can be created with human-friendly resolution strings ("ms", "s", etc.). (ARROW-6338, ARROW-6364)
 
 
 # arrow 0.14.1

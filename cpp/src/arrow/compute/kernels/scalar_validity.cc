@@ -32,11 +32,12 @@ namespace internal {
 namespace {
 
 struct IsValidOperator {
-  static void Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
+  static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
     checked_cast<BooleanScalar*>(out)->value = in.is_valid;
+    return Status::OK();
   }
 
-  static void Call(KernelContext* ctx, const ArrayData& arr, ArrayData* out) {
+  static Status Call(KernelContext* ctx, const ArrayData& arr, ArrayData* out) {
     DCHECK_EQ(out->offset, 0);
     DCHECK_LE(out->length, arr.length);
     if (arr.MayHaveNulls()) {
@@ -48,37 +49,54 @@ struct IsValidOperator {
           arr.offset == 0 ? arr.buffers[0]
                           : SliceBuffer(arr.buffers[0], arr.offset / 8,
                                         BitUtil::BytesForBits(out->length + out->offset));
-      return;
+      return Status::OK();
     }
 
     // Input has no nulls => output is entirely true.
-    KERNEL_ASSIGN_OR_RAISE(out->buffers[1], ctx,
-                           ctx->AllocateBitmap(out->length + out->offset));
+    ARROW_ASSIGN_OR_RAISE(out->buffers[1],
+                          ctx->AllocateBitmap(out->length + out->offset));
     BitUtil::SetBitsTo(out->buffers[1]->mutable_data(), out->offset, out->length, true);
+    return Status::OK();
+  }
+};
+
+struct IsFiniteOperator {
+  template <typename OutType, typename InType>
+  static constexpr OutType Call(KernelContext*, const InType& value, Status*) {
+    return std::isfinite(value);
+  }
+};
+
+struct IsInfOperator {
+  template <typename OutType, typename InType>
+  static constexpr OutType Call(KernelContext*, const InType& value, Status*) {
+    return std::isinf(value);
   }
 };
 
 struct IsNullOperator {
-  static void Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
+  static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
     checked_cast<BooleanScalar*>(out)->value = !in.is_valid;
+    return Status::OK();
   }
 
-  static void Call(KernelContext* ctx, const ArrayData& arr, ArrayData* out) {
+  static Status Call(KernelContext* ctx, const ArrayData& arr, ArrayData* out) {
     if (arr.MayHaveNulls()) {
       // Input has nulls => output is the inverted null (validity) bitmap.
       InvertBitmap(arr.buffers[0]->data(), arr.offset, arr.length,
                    out->buffers[1]->mutable_data(), out->offset);
-      return;
+    } else {
+      // Input has no nulls => output is entirely false.
+      BitUtil::SetBitsTo(out->buffers[1]->mutable_data(), out->offset, out->length,
+                         false);
     }
-
-    // Input has no nulls => output is entirely false.
-    BitUtil::SetBitsTo(out->buffers[1]->mutable_data(), out->offset, out->length, false);
+    return Status::OK();
   }
 };
 
 struct IsNanOperator {
   template <typename OutType, typename InType>
-  static constexpr OutType Call(KernelContext*, const InType& value) {
+  static constexpr OutType Call(KernelContext*, const InType& value, Status*) {
     return std::isnan(value);
   }
 };
@@ -99,24 +117,43 @@ void MakeFunction(std::string name, const FunctionDoc* doc,
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
-template <typename InType>
-void AddIsNanKernel(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
-  DCHECK_OK(
-      func->AddKernel({ty}, boolean(),
-                      applicator::ScalarUnary<BooleanType, InType, IsNanOperator>::Exec));
+template <typename InType, typename Op>
+void AddFloatValidityKernel(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
+  DCHECK_OK(func->AddKernel({ty}, boolean(),
+                            applicator::ScalarUnary<BooleanType, InType, Op>::Exec));
+}
+
+std::shared_ptr<ScalarFunction> MakeIsFiniteFunction(std::string name,
+                                                     const FunctionDoc* doc) {
+  auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
+
+  AddFloatValidityKernel<FloatType, IsFiniteOperator>(float32(), func.get());
+  AddFloatValidityKernel<DoubleType, IsFiniteOperator>(float64(), func.get());
+
+  return func;
+}
+
+std::shared_ptr<ScalarFunction> MakeIsInfFunction(std::string name,
+                                                  const FunctionDoc* doc) {
+  auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
+
+  AddFloatValidityKernel<FloatType, IsInfOperator>(float32(), func.get());
+  AddFloatValidityKernel<DoubleType, IsInfOperator>(float64(), func.get());
+
+  return func;
 }
 
 std::shared_ptr<ScalarFunction> MakeIsNanFunction(std::string name,
                                                   const FunctionDoc* doc) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
 
-  AddIsNanKernel<FloatType>(float32(), func.get());
-  AddIsNanKernel<DoubleType>(float64(), func.get());
+  AddFloatValidityKernel<FloatType, IsNanOperator>(float32(), func.get());
+  AddFloatValidityKernel<DoubleType, IsNanOperator>(float64(), func.get());
 
   return func;
 }
 
-void IsValidExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status IsValidExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   const Datum& arg0 = batch[0];
   if (arg0.type()->id() == Type::NA) {
     auto false_value = std::make_shared<BooleanScalar>(false);
@@ -124,17 +161,17 @@ void IsValidExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
       out->value = false_value;
     } else {
       std::shared_ptr<Array> false_values;
-      KERNEL_RETURN_IF_ERROR(
-          ctx, MakeArrayFromScalar(*false_value, out->length(), ctx->memory_pool())
-                   .Value(&false_values));
+      RETURN_NOT_OK(MakeArrayFromScalar(*false_value, out->length(), ctx->memory_pool())
+                        .Value(&false_values));
       out->value = false_values->data();
     }
+    return Status::OK();
   } else {
-    applicator::SimpleUnary<IsValidOperator>(ctx, batch, out);
+    return applicator::SimpleUnary<IsValidOperator>(ctx, batch, out);
   }
 }
 
-void IsNullExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status IsNullExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   const Datum& arg0 = batch[0];
   if (arg0.type()->id() == Type::NA) {
     if (arg0.kind() == Datum::SCALAR) {
@@ -145,14 +182,25 @@ void IsNullExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
       BitUtil::SetBitsTo(out_arr->buffers[1]->mutable_data(), out_arr->offset,
                          out_arr->length, true);
     }
+    return Status::OK();
   } else {
-    applicator::SimpleUnary<IsNullOperator>(ctx, batch, out);
+    return applicator::SimpleUnary<IsNullOperator>(ctx, batch, out);
   }
 }
 
 const FunctionDoc is_valid_doc(
     "Return true if non-null",
     ("For each input value, emit true iff the value is valid (non-null)."), {"values"});
+
+const FunctionDoc is_finite_doc(
+    "Return true if value is finite",
+    ("For each input value, emit true iff the value is finite (not NaN, inf, or -inf)."),
+    {"values"});
+
+const FunctionDoc is_inf_doc(
+    "Return true if infinity",
+    ("For each input value, emit true iff the value is infinite (inf or -inf)."),
+    {"values"});
 
 const FunctionDoc is_null_doc("Return true if null",
                               ("For each input value, emit true iff the value is null."),
@@ -172,6 +220,8 @@ void RegisterScalarValidity(FunctionRegistry* registry) {
                registry, MemAllocation::PREALLOCATE,
                /*can_write_into_slices=*/true);
 
+  DCHECK_OK(registry->AddFunction(MakeIsFiniteFunction("is_finite", &is_finite_doc)));
+  DCHECK_OK(registry->AddFunction(MakeIsInfFunction("is_inf", &is_inf_doc)));
   DCHECK_OK(registry->AddFunction(MakeIsNanFunction("is_nan", &is_nan_doc)));
 }
 

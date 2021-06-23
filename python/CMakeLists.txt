@@ -52,7 +52,11 @@ set(Python3_FIND_FRAMEWORK "LAST")
 set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY true)
 
 set(CMAKE_MACOSX_RPATH 1)
-set(CMAKE_OSX_DEPLOYMENT_TARGET 10.9)
+if(DEFINED ENV{MACOSX_DEPLOYMENT_TARGET})
+  set(CMAKE_OSX_DEPLOYMENT_TARGET $ENV{MACOSX_DEPLOYMENT_TARGET})
+else()
+  set(CMAKE_OSX_DEPLOYMENT_TARGET 10.9)
+endif()
 
 # Generate a Clang compile_commands.json "compilation database" file for use
 # with various development tools, such as Vim's YouCompleteMe plugin.
@@ -327,7 +331,8 @@ function(bundle_arrow_dependency library_name)
 endfunction()
 
 # Always bundle includes
-file(COPY ${ARROW_INCLUDE_DIR}/arrow DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY}/include)
+get_filename_component(ARROW_INCLUDE_REALPATH "${ARROW_INCLUDE_DIR}/arrow" REALPATH)
+file(COPY ${ARROW_INCLUDE_REALPATH} DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY}/include)
 
 if(PYARROW_BUNDLE_ARROW_CPP)
   # arrow
@@ -383,9 +388,11 @@ endif()
 
 set(CYTHON_EXTENSIONS
     lib
-    _fs
     _compute
     _csv
+    _feather
+    _fs
+    _hdfsio
     _json)
 
 set(LINK_LIBS arrow_shared arrow_python_shared)

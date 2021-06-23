@@ -32,7 +32,6 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/tdigest.h"
 
 namespace arrow {
@@ -51,7 +50,7 @@ TEST(TDigestTest, SingleValue) {
 }
 
 TEST(TDigestTest, FewValues) {
-  // exact quantile at 0.1 intervanl, test sorted and unsorted input
+  // exact quantile at 0.1 interval, test sorted and unsorted input
   std::vector<std::vector<double>> values_vector = {
       {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
       {4, 1, 9, 0, 3, 2, 5, 6, 8, 7, 10},
@@ -152,13 +151,13 @@ void TestMerge(const std::vector<std::vector<double>>& values_vector, uint32_t d
   const std::vector<double> quantiles = {0,   0.01, 0.1, 0.2, 0.3,  0.4, 0.5,
                                          0.6, 0.7,  0.8, 0.9, 0.99, 1};
 
-  std::vector<std::unique_ptr<TDigest>> tds;
+  std::vector<TDigest> tds;
   for (const auto& values : values_vector) {
-    auto td = make_unique<TDigest>(delta);
+    TDigest td(delta);
     for (double value : values) {
-      td->Add(value);
+      td.Add(value);
     }
-    ASSERT_OK(td->Validate());
+    ASSERT_OK(td.Validate());
     tds.push_back(std::move(td));
   }
 
@@ -181,13 +180,13 @@ void TestMerge(const std::vector<std::vector<double>>& values_vector, uint32_t d
 
   // merge into a non empty tdigest
   {
-    std::unique_ptr<TDigest> td = std::move(tds[0]);
+    TDigest td = std::move(tds[0]);
     tds.erase(tds.begin(), tds.begin() + 1);
-    td->Merge(&tds);
-    ASSERT_OK(td->Validate());
+    td.Merge(&tds);
+    ASSERT_OK(td.Validate());
     for (size_t i = 0; i < quantiles.size(); ++i) {
       const double tolerance = std::max(std::fabs(expected[i]) * error_ratio, 0.1);
-      EXPECT_NEAR(td->Quantile(quantiles[i]), expected[i], tolerance) << quantiles[i];
+      EXPECT_NEAR(td.Quantile(quantiles[i]), expected[i], tolerance) << quantiles[i];
     }
   }
 }

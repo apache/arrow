@@ -39,10 +39,7 @@ type Reader struct {
 func NewReader(r io.Reader, opts ...Option) (*Reader, error) {
 	dec := json.NewDecoder(r)
 	dec.UseNumber()
-	var raw struct {
-		Schema  Schema   `json:"schema"`
-		Records []Record `json:"batches"`
-	}
+	var raw rawJSON
 	err := dec.Decode(&raw)
 	if err != nil {
 		return nil, err

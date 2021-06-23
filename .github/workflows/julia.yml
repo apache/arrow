@@ -26,12 +26,17 @@ on:
       - '.github/workflows/julia.yml'
       - 'julia/**'
 
+concurrency:
+  group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: AMD64 ${{ matrix.os }} Julia ${{ matrix.version }}
     env:
       JULIA_NUM_THREADS: 2
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:

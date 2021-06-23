@@ -17,6 +17,7 @@
 
 add_arrow_test(test
                SOURCES
+               chunked_builder_test.cc
                chunker_test.cc
                converter_test.cc
                parser_test.cc

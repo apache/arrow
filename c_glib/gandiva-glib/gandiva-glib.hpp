@@ -22,5 +22,7 @@
 #include <gandiva-glib/gandiva-glib.h>
 
 #include <gandiva-glib/expression.hpp>
+#include <gandiva-glib/filter.hpp>
 #include <gandiva-glib/node.hpp>
 #include <gandiva-glib/projector.hpp>
+#include <gandiva-glib/selection-vector.hpp>

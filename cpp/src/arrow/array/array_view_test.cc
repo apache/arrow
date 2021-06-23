@@ -29,7 +29,7 @@
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
-#include "arrow/util/bit_util.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {

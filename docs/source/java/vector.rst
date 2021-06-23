@@ -35,7 +35,8 @@ create > allocate > mutate > set value count > access > clear (or allocate to st
 We will go through a concrete example to demonstrate each operation in the next section.
 
 Vector Life Cycle
-====================
+=================
+
 As discussed above, each vector goes through several steps in its life cycle,
 and each step is triggered by a vector operation. In particular, we have the following vector operations:
 
@@ -218,7 +219,7 @@ to be declared is that writer/reader is not as efficient as direct access
     }
 
 Building ListVector
-==================
+===================
 
 A :class:`ListVector` is a vector that holds a list of values for each index. Working with one you need to handle the same steps as mentioned above (create > allocate > mutate > set value count > access > clear), but the details of how you accomplish this are slightly different since you need to both create the vector and set the list of values for each index.
 
@@ -269,6 +270,7 @@ For example, the code below shows how to build a :class:`ListVector` of int's us
 
 Slicing
 =======
+
 Similar with C++ implementation, it is possible to make zero-copy slices of vectors to obtain a vector
 referring to some logical sub-sequence of the data through :class:`TransferPair`
 

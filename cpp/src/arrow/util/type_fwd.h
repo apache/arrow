@@ -19,13 +19,11 @@
 
 namespace arrow {
 
-namespace detail {
+namespace internal {
 struct Empty;
-}  // namespace detail
+}  // namespace internal
 
-template <typename T = detail::Empty>
-class Future;
-template <typename T = detail::Empty>
+template <typename T = internal::Empty>
 class WeakFuture;
 class FutureWaiter;
 

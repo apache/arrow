@@ -388,36 +388,39 @@ class PyValue {
   }
 };
 
-template <typename T>
-Status Extend(T* converter, PyObject* values, int64_t size) {
-  /// Ensure we've allocated enough space
-  RETURN_NOT_OK(converter->Reserve(size));
-  // Iterate over the items adding each one
-  return internal::VisitSequence(values, [converter](PyObject* item, bool* /* unused */) {
-    return converter->Append(item);
-  });
-}
-
-// Convert and append a sequence of values masked with a numpy array
-template <typename T>
-Status ExtendMasked(T* converter, PyObject* values, PyObject* mask, int64_t size) {
-  /// Ensure we've allocated enough space
-  RETURN_NOT_OK(converter->Reserve(size));
-  // Iterate over the items adding each one
-  return internal::VisitSequenceMasked(
-      values, mask, [converter](PyObject* item, bool is_masked, bool* /* unused */) {
-        if (is_masked) {
-          return converter->AppendNull();
-        } else {
-          // This will also apply the null-checking convention in the event
-          // that the value is not masked
-          return converter->Append(item);  // perhaps use AppendValue instead?
-        }
-      });
-}
-
 // The base Converter class is a mixin with predefined behavior and constructors.
-using PyConverter = Converter<PyObject*, PyConversionOptions>;
+class PyConverter : public Converter<PyObject*, PyConversionOptions> {
+ public:
+  // Iterate over the input values and defer the conversion to the Append method
+  Status Extend(PyObject* values, int64_t size, int64_t offset = 0) override {
+    DCHECK_GE(size, offset);
+    /// Ensure we've allocated enough space
+    RETURN_NOT_OK(this->Reserve(size - offset));
+    // Iterate over the items adding each one
+    return internal::VisitSequence(
+        values, offset,
+        [this](PyObject* item, bool* /* unused */) { return this->Append(item); });
+  }
+
+  // Convert and append a sequence of values masked with a numpy array
+  Status ExtendMasked(PyObject* values, PyObject* mask, int64_t size,
+                      int64_t offset = 0) override {
+    DCHECK_GE(size, offset);
+    /// Ensure we've allocated enough space
+    RETURN_NOT_OK(this->Reserve(size - offset));
+    // Iterate over the items adding each one
+    return internal::VisitSequenceMasked(
+        values, mask, offset, [this](PyObject* item, bool is_masked, bool* /* unused */) {
+          if (is_masked) {
+            return this->AppendNull();
+          } else {
+            // This will also apply the null-checking convention in the event
+            // that the value is not masked
+            return this->Append(item);  // perhaps use AppendValue instead?
+          }
+        });
+  }
+};
 
 template <typename T, typename Enable = void>
 class PyPrimitiveConverter;
@@ -515,34 +518,6 @@ class PyPrimitiveConverter<
 };
 
 template <typename T>
-class PyPrimitiveConverter<T, enable_if_binary<T>>
-    : public PrimitiveConverter<T, PyConverter> {
- public:
-  using OffsetType = typename T::offset_type;
-
-  Status Append(PyObject* value) override {
-    if (PyValue::IsNull(this->options_, value)) {
-      this->primitive_builder_->UnsafeAppendNull();
-    } else {
-      ARROW_RETURN_NOT_OK(
-          PyValue::Convert(this->primitive_type_, this->options_, value, view_));
-      // Since we don't know the varying length input size in advance, we need to
-      // reserve space in the value builder one by one. ReserveData raises CapacityError
-      // if the value would not fit into the array.
-      ARROW_RETURN_NOT_OK(this->primitive_builder_->ReserveData(view_.size));
-      this->primitive_builder_->UnsafeAppend(view_.bytes,
-                                             static_cast<OffsetType>(view_.size));
-    }
-    return Status::OK();
-  }
-
- protected:
-  // Create a single instance of PyBytesView here to prevent unnecessary object
-  // creation/destruction. This significantly improves the conversion performance.
-  PyBytesView view_;
-};
-
-template <typename T>
 class PyPrimitiveConverter<T, enable_if_t<std::is_same<T, FixedSizeBinaryType>::value>>
     : public PrimitiveConverter<T, PyConverter> {
  public:
@@ -563,7 +538,7 @@ class PyPrimitiveConverter<T, enable_if_t<std::is_same<T, FixedSizeBinaryType>::
 };
 
 template <typename T>
-class PyPrimitiveConverter<T, enable_if_string_like<T>>
+class PyPrimitiveConverter<T, enable_if_base_binary<T>>
     : public PrimitiveConverter<T, PyConverter> {
  public:
   using OffsetType = typename T::offset_type;
@@ -578,6 +553,9 @@ class PyPrimitiveConverter<T, enable_if_string_like<T>>
         // observed binary value
         observed_binary_ = true;
       }
+      // Since we don't know the varying length input size in advance, we need to
+      // reserve space in the value builder one by one. ReserveData raises CapacityError
+      // if the value would not fit into the array.
       ARROW_RETURN_NOT_OK(this->primitive_builder_->ReserveData(view_.size));
       this->primitive_builder_->UnsafeAppend(view_.bytes,
                                              static_cast<OffsetType>(view_.size));
@@ -669,7 +647,7 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
   Status AppendSequence(PyObject* value) {
     int64_t size = static_cast<int64_t>(PySequence_Size(value));
     RETURN_NOT_OK(this->list_builder_->ValidateOverflow(size));
-    return Extend(this->value_converter_.get(), value, size);
+    return this->value_converter_->Extend(value, size);
   }
 
   Status AppendNdarray(PyObject* value) {
@@ -684,12 +662,12 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
     switch (value_type->id()) {
 // If the value type does not match the expected NumPy dtype, then fall through
 // to a slower PySequence-based path
-#define LIST_FAST_CASE(TYPE_ID, TYPE, NUMPY_TYPE)               \
-  case Type::TYPE_ID: {                                         \
-    if (PyArray_DESCR(ndarray)->type_num != NUMPY_TYPE) {       \
-      return Extend(this->value_converter_.get(), value, size); \
-    }                                                           \
-    return AppendNdarrayTyped<TYPE, NUMPY_TYPE>(ndarray);       \
+#define LIST_FAST_CASE(TYPE_ID, TYPE, NUMPY_TYPE)         \
+  case Type::TYPE_ID: {                                   \
+    if (PyArray_DESCR(ndarray)->type_num != NUMPY_TYPE) { \
+      return this->value_converter_->Extend(value, size); \
+    }                                                     \
+    return AppendNdarrayTyped<TYPE, NUMPY_TYPE>(ndarray); \
   }
       LIST_FAST_CASE(BOOL, BooleanType, NPY_BOOL)
       LIST_FAST_CASE(UINT8, UInt8Type, NPY_UINT8)
@@ -707,7 +685,7 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
       LIST_FAST_CASE(DURATION, DurationType, NPY_TIMEDELTA)
 #undef LIST_FAST_CASE
       default: {
-        return Extend(this->value_converter_.get(), value, size);
+        return this->value_converter_->Extend(value, size);
       }
     }
   }
@@ -728,7 +706,6 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
     auto value_builder =
         checked_cast<ValueBuilderType*>(this->value_converter_->builder().get());
 
-    // TODO(wesm): Vector append when not strided
     Ndarray1DIndexer<NumpyType> values(ndarray);
     if (null_sentinels_possible) {
       for (int64_t i = 0; i < values.size(); ++i) {
@@ -738,6 +715,8 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
           RETURN_NOT_OK(value_builder->Append(values[i]));
         }
       }
+    } else if (!values.is_strided()) {
+      RETURN_NOT_OK(value_builder->AppendValues(values.data(), values.size()));
     } else {
       for (int64_t i = 0; i < values.size(); ++i) {
         RETURN_NOT_OK(value_builder->Append(values[i]));
@@ -1041,18 +1020,18 @@ Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(PyObject* obj, PyObject*
     // the overflow and automatically creates new chunks.
     ARROW_ASSIGN_OR_RAISE(auto chunked_converter, MakeChunker(std::move(converter)));
     if (mask != nullptr && mask != Py_None) {
-      RETURN_NOT_OK(ExtendMasked(chunked_converter.get(), seq, mask, size));
+      RETURN_NOT_OK(chunked_converter->ExtendMasked(seq, mask, size));
     } else {
-      RETURN_NOT_OK(Extend(chunked_converter.get(), seq, size));
+      RETURN_NOT_OK(chunked_converter->Extend(seq, size));
     }
     return chunked_converter->ToChunkedArray();
   } else {
     // If the converter can't overflow spare the capacity error checking on the hot-path,
     // this improves the performance roughly by ~10% for primitive types.
     if (mask != nullptr && mask != Py_None) {
-      RETURN_NOT_OK(ExtendMasked(converter.get(), seq, mask, size));
+      RETURN_NOT_OK(converter->ExtendMasked(seq, mask, size));
     } else {
-      RETURN_NOT_OK(Extend(converter.get(), seq, size));
+      RETURN_NOT_OK(converter->Extend(seq, size));
     }
     return converter->ToChunkedArray();
   }

@@ -45,6 +45,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/uri.h"
@@ -58,11 +59,11 @@
 #include "arrow/flight/serialization_internal.h"
 #include "arrow/flight/types.h"
 
-namespace pb = arrow::flight::protocol;
-
 namespace arrow {
 
 namespace flight {
+
+namespace pb = arrow::flight::protocol;
 
 const char* kWriteSizeDetailTypeId = "flight::FlightWriteSizeStatusDetail";
 
@@ -90,10 +91,15 @@ std::shared_ptr<FlightWriteSizeStatusDetail> FlightWriteSizeStatusDetail::Unwrap
   return std::dynamic_pointer_cast<FlightWriteSizeStatusDetail>(status.detail());
 }
 
-FlightClientOptions::FlightClientOptions()
-    : write_size_limit_bytes(0), disable_server_verification(false) {}
-
 FlightClientOptions FlightClientOptions::Defaults() { return FlightClientOptions(); }
+
+Status FlightStreamReader::ReadAll(std::shared_ptr<Table>* table,
+                                   const StopToken& stop_token) {
+  std::vector<std::shared_ptr<RecordBatch>> batches;
+  RETURN_NOT_OK(ReadAll(&batches, stop_token));
+  ARROW_ASSIGN_OR_RAISE(auto schema, GetSchema());
+  return Table::FromRecordBatches(schema, std::move(batches)).Value(table);
+}
 
 struct ClientRpc {
   grpc::ClientContext context;
@@ -487,11 +493,12 @@ template <typename Reader>
 class GrpcStreamReader : public FlightStreamReader {
  public:
   GrpcStreamReader(std::shared_ptr<ClientRpc> rpc, std::shared_ptr<std::mutex> read_mutex,
-                   const ipc::IpcReadOptions& options,
+                   const ipc::IpcReadOptions& options, StopToken stop_token,
                    std::shared_ptr<FinishableStream<Reader, internal::FlightData>> stream)
       : rpc_(rpc),
         read_mutex_(read_mutex),
         options_(options),
+        stop_token_(std::move(stop_token)),
         stream_(stream),
         peekable_reader_(new internal::PeekableFlightDataReader<std::shared_ptr<Reader>>(
             stream->stream())),
@@ -555,6 +562,28 @@ class GrpcStreamReader : public FlightStreamReader {
     out->app_metadata = std::move(app_metadata_);
     return Status::OK();
   }
+  Status ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches) override {
+    return ReadAll(batches, stop_token_);
+  }
+  Status ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches,
+                 const StopToken& stop_token) override {
+    FlightStreamChunk chunk;
+
+    while (true) {
+      if (stop_token.IsStopRequested()) {
+        Cancel();
+        return stop_token.Poll();
+      }
+      RETURN_NOT_OK(Next(&chunk));
+      if (!chunk.data) break;
+      batches->emplace_back(std::move(chunk.data));
+    }
+    return Status::OK();
+  }
+  Status ReadAll(std::shared_ptr<Table>* table) override {
+    return ReadAll(table, stop_token_);
+  }
+  using FlightStreamReader::ReadAll;
   void Cancel() override { rpc_->context.TryCancel(); }
 
  private:
@@ -577,6 +606,7 @@ class GrpcStreamReader : public FlightStreamReader {
   // read. Nullable, as DoGet() doesn't need this.
   std::shared_ptr<std::mutex> read_mutex_;
   ipc::IpcReadOptions options_;
+  StopToken stop_token_;
   std::shared_ptr<FinishableStream<Reader, internal::FlightData>> stream_;
   std::shared_ptr<internal::PeekableFlightDataReader<std::shared_ptr<Reader>>>
       peekable_reader_;
@@ -860,7 +890,7 @@ namespace {
 // requires root CA certs, even if you are skipping server
 // verification.
 #if defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
-constexpr char BLANK_ROOT_PEM[] =
+constexpr char kDummyRootCert[] =
     "-----BEGIN CERTIFICATE-----\n"
     "MIICwzCCAaugAwIBAgIJAM12DOkcaqrhMA0GCSqGSIb3DQEBBQUAMBQxEjAQBgNV\n"
     "BAMTCWxvY2FsaG9zdDAeFw0yMDEwMDcwODIyNDFaFw0zMDEwMDUwODIyNDFaMBQx\n"
@@ -893,11 +923,7 @@ class FlightClient::FlightClientImpl {
 
       if (scheme == kSchemeGrpcTls) {
         if (options.disable_server_verification) {
-#if !defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
-          return Status::NotImplemented(
-              "Using encryption with server verification disabled is unsupported. "
-              "Please use a release of Arrow Flight built with gRPC 1.27 or higher.");
-#else
+#if defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
           namespace ge = GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS;
 
           // A callback to supply to TlsCredentialsOptions that accepts any server
@@ -910,16 +936,40 @@ class FlightClient::FlightClientImpl {
               return 0;
             }
           };
-
+          auto server_authorization_check = std::make_shared<NoOpTlsAuthorizationCheck>();
           noop_auth_check_ = std::make_shared<ge::TlsServerAuthorizationCheckConfig>(
-              std::make_shared<NoOpTlsAuthorizationCheck>());
+              server_authorization_check);
+#if defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS)
+          auto certificate_provider =
+              std::make_shared<grpc::experimental::StaticDataCertificateProvider>(
+                  kDummyRootCert);
+#if defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS_ROOT_CERTS)
+          grpc::experimental::TlsChannelCredentialsOptions tls_options(
+              certificate_provider);
+#else
+          // While gRPC >= 1.36 does not require a root cert (it has a default)
+          // in practice the path it hardcodes is broken. See grpc/grpc#21655.
+          grpc::experimental::TlsChannelCredentialsOptions tls_options;
+          tls_options.set_certificate_provider(certificate_provider);
+#endif
+          tls_options.watch_root_certs();
+          tls_options.set_root_cert_name("dummy");
+          tls_options.set_server_verification_option(
+              grpc_tls_server_verification_option::GRPC_TLS_SKIP_ALL_SERVER_VERIFICATION);
+          tls_options.set_server_authorization_check_config(noop_auth_check_);
+#elif defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
           auto materials_config = std::make_shared<ge::TlsKeyMaterialsConfig>();
-          materials_config->set_pem_root_certs(BLANK_ROOT_PEM);
+          materials_config->set_pem_root_certs(kDummyRootCert);
           ge::TlsCredentialsOptions tls_options(
               GRPC_SSL_DONT_REQUEST_CLIENT_CERTIFICATE,
               GRPC_TLS_SKIP_ALL_SERVER_VERIFICATION, materials_config,
               std::shared_ptr<ge::TlsCredentialReloadConfig>(), noop_auth_check_);
+#endif
           creds = ge::TlsCredentials(tls_options);
+#else
+          return Status::NotImplemented(
+              "Using encryption with server verification disabled is unsupported. "
+              "Please use a release of Arrow Flight built with gRPC 1.27 or higher.");
 #endif
         } else {
           grpc::SslCredentialsOptions ssl_options;
@@ -1043,12 +1093,13 @@ class FlightClient::FlightClientImpl {
     std::vector<FlightInfo> flights;
 
     pb::FlightInfo pb_info;
-    while (stream->Read(&pb_info)) {
+    while (!options.stop_token.IsStopRequested() && stream->Read(&pb_info)) {
       FlightInfo::Data info_data;
       RETURN_NOT_OK(internal::FromProto(pb_info, &info_data));
       flights.emplace_back(std::move(info_data));
     }
-
+    if (options.stop_token.IsStopRequested()) rpc.context.TryCancel();
+    RETURN_NOT_OK(options.stop_token.Poll());
     listing->reset(new SimpleFlightListing(std::move(flights)));
     return internal::FromGrpcStatus(stream->Finish(), &rpc.context);
   }
@@ -1066,11 +1117,13 @@ class FlightClient::FlightClientImpl {
     pb::Result pb_result;
 
     std::vector<Result> materialized_results;
-    while (stream->Read(&pb_result)) {
+    while (!options.stop_token.IsStopRequested() && stream->Read(&pb_result)) {
       Result result;
       RETURN_NOT_OK(internal::FromProto(pb_result, &result));
       materialized_results.emplace_back(std::move(result));
     }
+    if (options.stop_token.IsStopRequested()) rpc.context.TryCancel();
+    RETURN_NOT_OK(options.stop_token.Poll());
 
     *results = std::unique_ptr<ResultStream>(
         new SimpleResultStream(std::move(materialized_results)));
@@ -1087,10 +1140,12 @@ class FlightClient::FlightClientImpl {
 
     pb::ActionType pb_type;
     ActionType type;
-    while (stream->Read(&pb_type)) {
+    while (!options.stop_token.IsStopRequested() && stream->Read(&pb_type)) {
       RETURN_NOT_OK(internal::FromProto(pb_type, &type));
       types->emplace_back(std::move(type));
     }
+    if (options.stop_token.IsStopRequested()) rpc.context.TryCancel();
+    RETURN_NOT_OK(options.stop_token.Poll());
     return internal::FromGrpcStatus(stream->Finish(), &rpc.context);
   }
 
@@ -1146,8 +1201,8 @@ class FlightClient::FlightClientImpl {
     auto finishable_stream = std::make_shared<
         FinishableStream<grpc::ClientReader<pb::FlightData>, internal::FlightData>>(
         rpc, stream);
-    *out = std::unique_ptr<StreamReader>(
-        new StreamReader(rpc, nullptr, options.read_options, finishable_stream));
+    *out = std::unique_ptr<StreamReader>(new StreamReader(
+        rpc, nullptr, options.read_options, options.stop_token, finishable_stream));
     // Eagerly read the schema
     return static_cast<StreamReader*>(out->get())->EnsureDataStarted();
   }
@@ -1191,8 +1246,8 @@ class FlightClient::FlightClientImpl {
     auto finishable_stream =
         std::make_shared<FinishableWritableStream<GrpcStream, internal::FlightData>>(
             rpc, read_mutex, stream);
-    *reader = std::unique_ptr<StreamReader>(
-        new StreamReader(rpc, read_mutex, options.read_options, finishable_stream));
+    *reader = std::unique_ptr<StreamReader>(new StreamReader(
+        rpc, read_mutex, options.read_options, options.stop_token, finishable_stream));
     // Do not eagerly read the schema. There may be metadata messages
     // before any data is sent, or data may not be sent at all.
     return StreamWriter::Open(descriptor, nullptr, options.write_options, rpc,
@@ -1220,7 +1275,7 @@ FlightClient::~FlightClient() {}
 
 Status FlightClient::Connect(const Location& location,
                              std::unique_ptr<FlightClient>* client) {
-  return Connect(location, {}, client);
+  return Connect(location, FlightClientOptions::Defaults(), client);
 }
 
 Status FlightClient::Connect(const Location& location, const FlightClientOptions& options,

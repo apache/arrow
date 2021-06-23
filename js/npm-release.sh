@@ -19,8 +19,10 @@
 set -e
 
 # validate the targets pass all tests before publishing
-npm install
-npx gulp
+yarn --frozen-lockfile
+yarn gulp
+
+read -p "Please enter your npm 2FA one-time password (or leave empty if you don't have 2FA enabled): " NPM_OTP </dev/tty
 
 # publish the JS target modules to npm
-npx lerna exec --no-bail -- npm publish
+yarn lerna exec --concurrency 1 --no-bail "npm publish${NPM_OTP:+ --otp=$NPM_OTP}"

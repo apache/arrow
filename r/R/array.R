@@ -56,12 +56,13 @@
 #' - `$IsNull(i)`: Return true if value at index is null. Does not boundscheck
 #' - `$IsValid(i)`: Return true if value at index is valid. Does not boundscheck
 #' - `$length()`: Size in the number of elements this array contains
-#' - `$offset()`: A relative position into another array's data, to enable zero-copy slicing
-#' - `$null_count()`: The number of null entries in the array
-#' - `$type()`: logical type of data
+#' - `$offset`: A relative position into another array's data, to enable zero-copy slicing
+#' - `$null_count`: The number of null entries in the array
+#' - `$type`: logical type of data
 #' - `$type_id()`: type id
 #' - `$Equals(other)` : is this array equal to `other`
 #' - `$ApproxEquals(other)` :
+#' - `$Diff(other)` : return a string expressing the difference between two arrays
 #' - `$data()`: return the underlying [ArrayData][ArrayData]
 #' - `$as_vector()`: convert to an R vector
 #' - `$ToString()`: string representation of the array
@@ -72,6 +73,8 @@
 #'    (R vector or Array Array) `i`.
 #' - `$Filter(i, keep_na = TRUE)`: return an `Array` with values at positions where logical
 #'    vector (or Arrow boolean Array) `i` is `TRUE`.
+#' - `$SortIndices(descending = FALSE)`: return an `Array` of integer positions that can be
+#'    used to rearrange the `Array` in ascending or descending order
 #' - `$RangeEquals(other, start_idx, end_idx, other_start_idx)` :
 #' - `$cast(target_type, safe = TRUE, options = cast_options(safe))`: Alter the
 #'    data in the array to change its type.
@@ -81,6 +84,27 @@
 #'
 #' @rdname array
 #' @name array
+#' @examplesIf arrow_available()
+#' my_array <- Array$create(1:10)
+#' my_array$type
+#' my_array$cast(int8())
+#'
+#' # Check if value is null; zero-indexed
+#' na_array <- Array$create(c(1:5, NA))
+#' na_array$IsNull(0)
+#' na_array$IsNull(5)
+#' na_array$IsValid(5)
+#' na_array$null_count
+#'
+#' # zero-copy slicing; the offset of the new Array will be the same as the index passed to $Slice
+#' new_array <- na_array$Slice(5)
+#' new_array$offset
+#'
+#' # Compare 2 arrays
+#' na_array2 = na_array
+#' na_array2 == na_array # element-wise comparison
+#' na_array2$Equals(na_array) # overall comparison
+#'
 #' @export
 Array <- R6Class("Array",
   inherit = ArrowDatum,
@@ -94,6 +118,12 @@ Array <- R6Class("Array",
     },
     ApproxEquals = function(other) {
       inherits(other, "Array") && Array__ApproxEquals(self, other)
+    },
+    Diff = function(other) {
+      if (!inherits(other, "Array")) {
+        other <- Array$create(other)
+      }
+      Array__Diff(self, other)
     },
     data = function() Array__data(self),
     as_vector = function() Array__as_vector(self),
@@ -124,6 +154,12 @@ Array <- R6Class("Array",
       assert_is(i, "Array")
       call_function("filter", self, i, options = list(keep_na = keep_na))
     },
+    SortIndices = function(descending = FALSE) {
+      assert_that(is.logical(descending))
+      assert_that(length(descending) == 1L)
+      assert_that(!is.na(descending))
+      call_function("array_sort_indices", self, options = list(order = descending))
+    },
     RangeEquals = function(other, start_idx, end_idx, other_start_idx = 0L) {
       assert_is(other, "Array")
       Array__RangeEquals(self, other, start_idx, end_idx, other_start_idx)
@@ -131,7 +167,8 @@ Array <- R6Class("Array",
     View = function(type) {
       Array$create(Array__View(self, as_type(type)))
     },
-    Validate = function() Array__Validate(self)
+    Validate = function() Array__Validate(self),
+    export_to_c = function(array_ptr, schema_ptr) ExportArray(self, array_ptr, schema_ptr)
   ),
   active = list(
     null_count = function() Array__null_count(self),
@@ -143,8 +180,17 @@ Array$create <- function(x, type = NULL) {
   if (!is.null(type)) {
     type <- as_type(type)
   }
-  Array__from_vector(x, type)
+  if (inherits(x, "Scalar")) {
+    out <- x$as_array()
+    if (!is.null(type)) {
+      out <- out$cast(type)
+    }
+    return(out)
+  }
+  vec_to_arrow(x, type)
 }
+#' @include arrowExports.R
+Array$import_from_c <- ImportArray
 
 #' @rdname array
 #' @usage NULL

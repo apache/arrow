@@ -54,7 +54,7 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
         ParquetType_FIXED_LEN_BYTE_ARRAY" parquet::Type::FIXED_LEN_BYTE_ARRAY"
 
     enum ParquetLogicalTypeId" parquet::LogicalType::Type::type":
-        ParquetLogicalType_UNKNOWN" parquet::LogicalType::Type::UNKNOWN"
+        ParquetLogicalType_UNDEFINED" parquet::LogicalType::Type::UNDEFINED"
         ParquetLogicalType_STRING" parquet::LogicalType::Type::STRING"
         ParquetLogicalType_MAP" parquet::LogicalType::Type::MAP"
         ParquetLogicalType_LIST" parquet::LogicalType::Type::LIST"
@@ -241,6 +241,8 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         int64_t distinct_count() const
         int64_t num_values() const
         bint HasMinMax()
+        bint HasNullCount()
+        bint HasDistinctCount()
         c_bool Equals(const CStatistics&) const
         void Reset()
         c_string EncodeMin()
@@ -329,6 +331,7 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
                                        uint32_t* metadata_len)
 
     cdef cppclass CReaderProperties" parquet::ReaderProperties":
+        c_bool is_buffered_stream_enabled() const
         void enable_buffered_stream()
         void disable_buffered_stream()
         void set_buffer_size(int64_t buf_size)
@@ -342,6 +345,8 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         c_bool read_dictionary()
         void set_batch_size(int64_t batch_size)
         int64_t batch_size()
+        void set_pre_buffer(c_bool pre_buffer)
+        c_bool pre_buffer() const
 
     ArrowReaderProperties default_arrow_reader_properties()
 
@@ -382,6 +387,8 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* allow_truncated_timestamps()
             Builder* disallow_truncated_timestamps()
             Builder* store_schema()
+            Builder* enable_compliant_nested_types()
+            Builder* disable_compliant_nested_types()
             Builder* set_engine_version(ArrowWriterEngineVersion version)
             shared_ptr[ArrowWriterProperties] build()
         c_bool support_deprecated_int96_timestamps()
@@ -501,7 +508,8 @@ cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
     use_deprecated_int96_timestamps=*,
     coerce_timestamps=*,
     allow_truncated_timestamps=*,
-    writer_engine_version=*) except *
+    writer_engine_version=*,
+    use_compliant_nested_type=*) except *
 
 cdef class ParquetSchema(_Weakrefable):
     cdef:

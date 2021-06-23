@@ -23,14 +23,18 @@ import warnings
 
 from pyarrow.util import implements, _DEPR_MSG
 from pyarrow.filesystem import FileSystem
-import pyarrow.lib as lib
+import pyarrow._hdfsio as _hdfsio
 
 
-class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
+class HadoopFileSystem(_hdfsio.HadoopFileSystem, FileSystem):
     """
-    FileSystem interface for HDFS cluster.
+    DEPRECATED: FileSystem interface for HDFS cluster.
 
     See pyarrow.hdfs.connect for full connection details
+
+    .. deprecated:: 2.0
+        ``pyarrow.hdfs.HadoopFileSystem`` is deprecated,
+        please use ``pyarrow.fs.HadoopFileSystem`` instead.
     """
 
     def __init__(self, host="default", port=0, user=None, kerb_ticket=None,
@@ -184,12 +188,18 @@ def _libhdfs_walk_files_dirs(top_path, contents):
 def connect(host="default", port=0, user=None, kerb_ticket=None,
             extra_conf=None):
     """
-    Connect to an HDFS cluster. All parameters are optional and should
-    only be set if the defaults need to be overridden.
+    DEPRECATED: Connect to an HDFS cluster.
+
+    All parameters are optional and should only be set if the defaults need
+    to be overridden.
 
     Authentication should be automatic if the HDFS cluster uses Kerberos.
     However, if a username is specified, then the ticket cache will likely
     be required.
+
+    .. deprecated:: 2.0
+        ``pyarrow.hdfs.connect`` is deprecated,
+        please use ``pyarrow.fs.HadoopFileSystem`` instead.
 
     Parameters
     ----------

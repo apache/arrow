@@ -31,6 +31,7 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/double_conversion.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/time.h"
 #include "arrow/util/visibility.h"
@@ -219,6 +220,11 @@ class StringFormatter<UInt64Type> : public IntToStringFormatterMixin<UInt64Type>
 class ARROW_EXPORT FloatToStringFormatter {
  public:
   FloatToStringFormatter();
+  FloatToStringFormatter(int flags, const char* inf_symbol, const char* nan_symbol,
+                         char exp_character, int decimal_in_shortest_low,
+                         int decimal_in_shortest_high,
+                         int max_leading_padding_zeroes_in_precision_mode,
+                         int max_trailing_padding_zeroes_in_precision_mode);
   ~FloatToStringFormatter();
 
   // Returns the number of characters written
@@ -238,6 +244,16 @@ class FloatToStringFormatterMixin : public FloatToStringFormatter {
   static constexpr int buffer_size = 50;
 
   explicit FloatToStringFormatterMixin(const std::shared_ptr<DataType>& = NULLPTR) {}
+
+  FloatToStringFormatterMixin(int flags, const char* inf_symbol, const char* nan_symbol,
+                              char exp_character, int decimal_in_shortest_low,
+                              int decimal_in_shortest_high,
+                              int max_leading_padding_zeroes_in_precision_mode,
+                              int max_trailing_padding_zeroes_in_precision_mode)
+      : FloatToStringFormatter(flags, inf_symbol, nan_symbol, exp_character,
+                               decimal_in_shortest_low, decimal_in_shortest_high,
+                               max_leading_padding_zeroes_in_precision_mode,
+                               max_trailing_padding_zeroes_in_precision_mode) {}
 
   template <typename Appender>
   Return<Appender> operator()(value_type value, Appender&& append) {

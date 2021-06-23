@@ -38,16 +38,14 @@ if(ARROW_BOOST_USE_SHARED)
   set(BUILD_SHARED_LIBS_KEEP ${BUILD_SHARED_LIBS})
   set(BUILD_SHARED_LIBS ON)
 
-  find_package(Boost ${BoostAlt_FIND_VERSION_OPTIONS}
-               COMPONENTS system filesystem)
+  find_package(Boost ${BoostAlt_FIND_VERSION_OPTIONS} COMPONENTS system filesystem)
   set(BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS_KEEP})
   unset(BUILD_SHARED_LIBS_KEEP)
 else()
   # Find static boost headers and libs
   # TODO Differentiate here between release and debug builds
   set(Boost_USE_STATIC_LIBS ON)
-  find_package(Boost ${BoostAlt_FIND_VERSION_OPTIONS}
-               COMPONENTS system filesystem)
+  find_package(Boost ${BoostAlt_FIND_VERSION_OPTIONS} COMPONENTS system filesystem)
 endif()
 
 if(Boost_FOUND)

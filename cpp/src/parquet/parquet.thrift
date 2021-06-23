@@ -17,11 +17,11 @@
  * under the License.
  */
 
-cpp_include "parquet/windows_compatibility.h"
-
 /**
  * File format description for the parquet file format
  */
+
+cpp_include "parquet/windows_compatibility.h"
 namespace cpp parquet.format
 namespace java org.apache.parquet.format
 
@@ -473,19 +473,21 @@ enum Encoding {
 /**
  * Supported compression algorithms.
  *
- * Codecs added in 2.4 can be read by readers based on 2.4 and later.
+ * Codecs added in format version X.Y can be read by readers based on X.Y and later.
  * Codec support may vary between readers based on the format version and
- * libraries available at runtime. Gzip, Snappy, and LZ4 codecs are
- * widely available, while Zstd and Brotli require additional libraries.
+ * libraries available at runtime.
+ *
+ * See Compression.md for a detailed specification of these algorithms.
  */
 enum CompressionCodec {
   UNCOMPRESSED = 0;
   SNAPPY = 1;
   GZIP = 2;
   LZO = 3;
-  BROTLI = 4; // Added in 2.4
-  LZ4 = 5;    // Added in 2.4
-  ZSTD = 6;   // Added in 2.4
+  BROTLI = 4;  // Added in 2.4
+  LZ4 = 5;     // DEPRECATED (Added in 2.4)
+  ZSTD = 6;    // Added in 2.4
+  LZ4_RAW = 7; // Added in 2.9
 }
 
 enum PageType {
@@ -568,7 +570,7 @@ struct DataPageHeaderV2 {
   If missing it is considered compressed */
   7: optional bool is_compressed = 1;
 
-  /** optional statistics for this column chunk */
+  /** optional statistics for the data in this page **/
   8: optional Statistics statistics;
 }
 
@@ -581,11 +583,11 @@ union BloomFilterAlgorithm {
 }
 
 /** Hash strategy type annotation. xxHash is an extremely fast non-cryptographic hash
- * algorithm. It uses 64 bits version of xxHash.
+ * algorithm. It uses 64 bits version of xxHash. 
  **/
 struct XxHash {}
 
-/**
+/** 
  * The hash function used in Bloom filter. This function takes the hash of a column value
  * using plain encoding.
  **/
@@ -648,6 +650,8 @@ struct PageHeader {
    *     uncompressed definition levels and the compressed column values.
    *     If no compression scheme is specified, the CRC shall be calculated on
    *     the uncompressed concatenation.
+   * - In encrypted columns, CRC is calculated after page encryption; the
+   *   encryption itself is performed after page compression (if compressed)
    * If enabled, this allows for disabling checksumming in HDFS if only a few
    * pages need to be read.
    **/
@@ -722,7 +726,7 @@ struct ColumnMetaData {
   /** total byte size of all uncompressed pages in this column chunk (including the headers) **/
   6: required i64 total_uncompressed_size
 
-  /** total byte size of all compressed, and potentially encrypted, pages
+  /** total byte size of all compressed, and potentially encrypted, pages 
    *  in this column chunk (including the headers) **/
   7: required i64 total_compressed_size
 
@@ -756,7 +760,7 @@ struct EncryptionWithFooterKey {
 struct EncryptionWithColumnKey {
   /** Column path in schema **/
   1: required list<string> path_in_schema
-
+  
   /** Retrieval metadata of column encryption key **/
   2: optional binary key_metadata
 }
@@ -795,7 +799,7 @@ struct ColumnChunk {
 
   /** Crypto metadata of encrypted columns **/
   8: optional ColumnCryptoMetaData crypto_metadata
-
+  
   /** Encrypted column metadata for this chunk **/
   9: optional binary encrypted_column_metadata
 }
@@ -821,10 +825,10 @@ struct RowGroup {
    * in this row group **/
   5: optional i64 file_offset
 
-  /** Total byte size of all compressed (and potentially encrypted) column data
+  /** Total byte size of all compressed (and potentially encrypted) column data 
    *  in this row group **/
   6: optional i64 total_compressed_size
-
+  
   /** Row group ordinal in the file **/
   7: optional i16 ordinal
 }
@@ -944,7 +948,7 @@ struct ColumnIndex {
   3: required list<binary> max_values
 
   /**
-   * Stores whether both min_values and max_values are ordered and if so, in
+   * Stores whether both min_values and max_values are orderd and if so, in
    * which direction. This allows readers to perform binary searches in both
    * lists. Readers cannot assume that max_values[i] <= min_values[i+1], even
    * if the lists are ordered.
@@ -961,7 +965,7 @@ struct AesGcmV1 {
 
   /** Unique file identifier part of AAD suffix **/
   2: optional binary aad_file_unique
-
+  
   /** In files encrypted with AAD prefix without storing it,
    * readers must supply the prefix **/
   3: optional bool supply_aad_prefix
@@ -973,7 +977,7 @@ struct AesGcmCtrV1 {
 
   /** Unique file identifier part of AAD suffix **/
   2: optional binary aad_file_unique
-
+  
   /** In files encrypted with AAD prefix without storing it,
    * readers must supply the prefix **/
   3: optional bool supply_aad_prefix
@@ -1029,30 +1033,31 @@ struct FileMetaData {
    */
   7: optional list<ColumnOrder> column_orders;
 
-  /**
+  /** 
    * Encryption algorithm. This field is set only in encrypted files
    * with plaintext footer. Files with encrypted footer store algorithm id
    * in FileCryptoMetaData structure.
    */
   8: optional EncryptionAlgorithm encryption_algorithm
 
-  /**
-   * Retrieval metadata of key used for signing the footer.
-   * Used only in encrypted files with plaintext footer.
-   */
+  /** 
+   * Retrieval metadata of key used for signing the footer. 
+   * Used only in encrypted files with plaintext footer. 
+   */ 
   9: optional binary footer_signing_key_metadata
 }
 
 /** Crypto metadata for files with encrypted footer **/
 struct FileCryptoMetaData {
-  /**
+  /** 
    * Encryption algorithm. This field is only used for files
    * with encrypted footer. Files with plaintext footer store algorithm id
    * inside footer (FileMetaData structure).
    */
   1: required EncryptionAlgorithm encryption_algorithm
-
-  /** Retrieval metadata of key used for encryption of footer,
+    
+  /** Retrieval metadata of key used for encryption of footer, 
    *  and (possibly) columns **/
   2: optional binary key_metadata
 }
+

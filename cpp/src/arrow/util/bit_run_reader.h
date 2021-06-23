@@ -24,6 +24,7 @@
 
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_reader.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -194,8 +195,36 @@ class BaseSetBitRunReader {
   /// \param[in] bitmap source data
   /// \param[in] start_offset bit offset into the source data
   /// \param[in] length number of bits to copy
-  inline BaseSetBitRunReader(const uint8_t* bitmap, int64_t start_offset, int64_t length);
+  ARROW_NOINLINE
+  BaseSetBitRunReader(const uint8_t* bitmap, int64_t start_offset, int64_t length)
+      : bitmap_(bitmap),
+        length_(length),
+        remaining_(length_),
+        current_word_(0),
+        current_num_bits_(0) {
+    if (Reverse) {
+      bitmap_ += (start_offset + length) / 8;
+      const int8_t end_bit_offset = static_cast<int8_t>((start_offset + length) % 8);
+      if (length > 0 && end_bit_offset) {
+        // Get LSBs from last byte
+        ++bitmap_;
+        current_num_bits_ =
+            std::min(static_cast<int32_t>(length), static_cast<int32_t>(end_bit_offset));
+        current_word_ = LoadPartialWord(8 - end_bit_offset, current_num_bits_);
+      }
+    } else {
+      bitmap_ += start_offset / 8;
+      const int8_t bit_offset = static_cast<int8_t>(start_offset % 8);
+      if (length > 0 && bit_offset) {
+        // Get MSBs from first byte
+        current_num_bits_ =
+            std::min(static_cast<int32_t>(length), static_cast<int32_t>(8 - bit_offset));
+        current_word_ = LoadPartialWord(bit_offset, current_num_bits_);
+      }
+    }
+  }
 
+  ARROW_NOINLINE
   SetBitRun NextRun() {
     int64_t pos = 0;
     int64_t len = 0;
@@ -423,51 +452,18 @@ inline uint64_t BaseSetBitRunReader<true>::ConsumeBits(uint64_t word, int32_t nu
   return word << num_bits;
 }
 
-template <>
-inline BaseSetBitRunReader<false>::BaseSetBitRunReader(const uint8_t* bitmap,
-                                                       int64_t start_offset,
-                                                       int64_t length)
-    : bitmap_(bitmap + start_offset / 8), length_(length), remaining_(length_) {
-  const int8_t bit_offset = static_cast<int8_t>(start_offset % 8);
-  if (length > 0 && bit_offset) {
-    // Get MSBs from first byte
-    current_num_bits_ =
-        std::min(static_cast<int32_t>(length), static_cast<int32_t>(8 - bit_offset));
-    current_word_ = LoadPartialWord(bit_offset, current_num_bits_);
-  } else {
-    current_num_bits_ = 0;
-    current_word_ = 0;
-  }
-}
-
-template <>
-inline BaseSetBitRunReader<true>::BaseSetBitRunReader(const uint8_t* bitmap,
-                                                      int64_t start_offset,
-                                                      int64_t length)
-    : bitmap_(bitmap + (start_offset + length) / 8),
-      length_(length),
-      remaining_(length_) {
-  const int8_t end_bit_offset = static_cast<int8_t>((start_offset + length) % 8);
-  if (length > 0 && end_bit_offset) {
-    // Get LSBs from last byte
-    ++bitmap_;
-    current_num_bits_ =
-        std::min(static_cast<int32_t>(length), static_cast<int32_t>(end_bit_offset));
-    current_word_ = LoadPartialWord(8 - end_bit_offset, current_num_bits_);
-  } else {
-    current_num_bits_ = 0;
-    current_word_ = 0;
-  }
-}
-
 using SetBitRunReader = BaseSetBitRunReader</*Reverse=*/false>;
 using ReverseSetBitRunReader = BaseSetBitRunReader</*Reverse=*/true>;
 
 // Functional-style bit run visitors.
 
+// XXX: Try to make this function small so the compiler can inline and optimize
+// the `visit` function, which is normally a hot loop with vectorizable code.
+// - don't inline SetBitRunReader constructor, it doesn't hurt performance
+// - un-inline NextRun hurts 'many null' cases a bit, but improves normal cases
 template <typename Visit>
-Status VisitSetBitRuns(const uint8_t* bitmap, int64_t offset, int64_t length,
-                       Visit&& visit) {
+inline Status VisitSetBitRuns(const uint8_t* bitmap, int64_t offset, int64_t length,
+                              Visit&& visit) {
   if (bitmap == NULLPTR) {
     // Assuming all set (as in a null bitmap)
     return visit(static_cast<int64_t>(0), static_cast<int64_t>(length));
@@ -484,8 +480,8 @@ Status VisitSetBitRuns(const uint8_t* bitmap, int64_t offset, int64_t length,
 }
 
 template <typename Visit>
-void VisitSetBitRunsVoid(const uint8_t* bitmap, int64_t offset, int64_t length,
-                         Visit&& visit) {
+inline void VisitSetBitRunsVoid(const uint8_t* bitmap, int64_t offset, int64_t length,
+                                Visit&& visit) {
   if (bitmap == NULLPTR) {
     // Assuming all set (as in a null bitmap)
     visit(static_cast<int64_t>(0), static_cast<int64_t>(length));
@@ -502,15 +498,15 @@ void VisitSetBitRunsVoid(const uint8_t* bitmap, int64_t offset, int64_t length,
 }
 
 template <typename Visit>
-Status VisitSetBitRuns(const std::shared_ptr<Buffer>& bitmap, int64_t offset,
-                       int64_t length, Visit&& visit) {
+inline Status VisitSetBitRuns(const std::shared_ptr<Buffer>& bitmap, int64_t offset,
+                              int64_t length, Visit&& visit) {
   return VisitSetBitRuns(bitmap ? bitmap->data() : NULLPTR, offset, length,
                          std::forward<Visit>(visit));
 }
 
 template <typename Visit>
-void VisitSetBitRunsVoid(const std::shared_ptr<Buffer>& bitmap, int64_t offset,
-                         int64_t length, Visit&& visit) {
+inline void VisitSetBitRunsVoid(const std::shared_ptr<Buffer>& bitmap, int64_t offset,
+                                int64_t length, Visit&& visit) {
   VisitSetBitRunsVoid(bitmap ? bitmap->data() : NULLPTR, offset, length,
                       std::forward<Visit>(visit));
 }

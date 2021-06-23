@@ -58,6 +58,17 @@ cdef wrap_scalar_aggregate_function(const shared_ptr[CFunction]& sp_func):
     return func
 
 
+cdef wrap_hash_aggregate_function(const shared_ptr[CFunction]& sp_func):
+    """
+    Wrap a C++ aggregate Function in a HashAggregateFunction object.
+    """
+    cdef HashAggregateFunction func = (
+        HashAggregateFunction.__new__(HashAggregateFunction)
+    )
+    func.init(sp_func)
+    return func
+
+
 cdef wrap_meta_function(const shared_ptr[CFunction]& sp_func):
     """
     Wrap a C++ meta Function in a MetaFunction object.
@@ -85,6 +96,8 @@ cdef wrap_function(const shared_ptr[CFunction]& sp_func):
         return wrap_vector_function(sp_func)
     elif c_kind == FunctionKind_SCALAR_AGGREGATE:
         return wrap_scalar_aggregate_function(sp_func)
+    elif c_kind == FunctionKind_HASH_AGGREGATE:
+        return wrap_hash_aggregate_function(sp_func)
     elif c_kind == FunctionKind_META:
         return wrap_meta_function(sp_func)
     else:
@@ -112,6 +125,16 @@ cdef wrap_scalar_aggregate_kernel(const CScalarAggregateKernel* c_kernel):
         raise ValueError('Kernel was NULL')
     cdef ScalarAggregateKernel kernel = (
         ScalarAggregateKernel.__new__(ScalarAggregateKernel)
+    )
+    kernel.init(c_kernel)
+    return kernel
+
+
+cdef wrap_hash_aggregate_kernel(const CHashAggregateKernel* c_kernel):
+    if c_kernel == NULL:
+        raise ValueError('Kernel was NULL')
+    cdef HashAggregateKernel kernel = (
+        HashAggregateKernel.__new__(HashAggregateKernel)
     )
     kernel.init(c_kernel)
     return kernel
@@ -165,6 +188,18 @@ cdef class ScalarAggregateKernel(Kernel):
                 .format(frombytes(self.kernel.signature.get().ToString())))
 
 
+cdef class HashAggregateKernel(Kernel):
+    cdef:
+        const CHashAggregateKernel* kernel
+
+    cdef void init(self, const CHashAggregateKernel* kernel) except *:
+        self.kernel = kernel
+
+    def __repr__(self):
+        return ("HashAggregateKernel<{}>"
+                .format(frombytes(self.kernel.signature.get().ToString())))
+
+
 FunctionDoc = namedtuple(
     "FunctionDoc",
     ("summary", "description", "arg_names", "options_class"))
@@ -190,8 +225,12 @@ cdef class Function(_Weakrefable):
       in each input.  Examples: dictionary encoding, sorting, extracting
       unique values...
 
-    * "aggregate" functions reduce the dimensionality of the inputs by
-      applying a reduction function.  Examples: sum, minmax, mode...
+    * "scalar_aggregate" functions reduce the dimensionality of the inputs by
+      applying a reduction function.  Examples: sum, min_max, mode...
+
+    * "hash_aggregate" functions apply a reduction function to an input
+      subdivided by grouping criteria.  They may not be directly called.
+      Examples: hash_sum, hash_min_max...
 
     * "meta" functions dispatch to other functions.
     """
@@ -249,6 +288,8 @@ cdef class Function(_Weakrefable):
             return 'vector'
         elif c_kind == FunctionKind_SCALAR_AGGREGATE:
             return 'scalar_aggregate'
+        elif c_kind == FunctionKind_HASH_AGGREGATE:
+            return 'hash_aggregate'
         elif c_kind == FunctionKind_META:
             return 'meta'
         else:
@@ -349,6 +390,25 @@ cdef class ScalarAggregateFunction(Function):
             self.func.kernels()
         )
         return [wrap_scalar_aggregate_kernel(k) for k in kernels]
+
+
+cdef class HashAggregateFunction(Function):
+    cdef:
+        const CHashAggregateFunction* func
+
+    cdef void init(self, const shared_ptr[CFunction]& sp_func) except *:
+        Function.init(self, sp_func)
+        self.func = <const CHashAggregateFunction*> sp_func.get()
+
+    @property
+    def kernels(self):
+        """
+        The kernels implementing this function.
+        """
+        cdef vector[const CHashAggregateKernel*] kernels = (
+            self.func.kernels()
+        )
+        return [wrap_hash_aggregate_kernel(k) for k in kernels]
 
 
 cdef class MetaFunction(Function):
@@ -590,6 +650,54 @@ class CastOptions(_CastOptions):
         return self
 
 
+cdef class _ElementWiseAggregateOptions(FunctionOptions):
+    cdef:
+        unique_ptr[CElementWiseAggregateOptions] element_wise_aggregate_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.element_wise_aggregate_options.get()
+
+    def _set_options(self, bint skip_nulls):
+        self.element_wise_aggregate_options.reset(
+            new CElementWiseAggregateOptions(skip_nulls))
+
+
+class ElementWiseAggregateOptions(_ElementWiseAggregateOptions):
+    def __init__(self, bint skip_nulls=True):
+        self._set_options(skip_nulls)
+
+
+cdef class _JoinOptions(FunctionOptions):
+    cdef:
+        unique_ptr[CJoinOptions] join_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.join_options.get()
+
+    def _set_options(self, null_handling, null_replacement):
+        cdef:
+            CJoinNullHandlingBehavior c_null_handling = \
+                CJoinNullHandlingBehavior_EMIT_NULL
+            c_string c_null_replacement = tobytes(null_replacement)
+        if null_handling == 'emit_null':
+            c_null_handling = CJoinNullHandlingBehavior_EMIT_NULL
+        elif null_handling == 'skip':
+            c_null_handling = CJoinNullHandlingBehavior_SKIP
+        elif null_handling == 'replace':
+            c_null_handling = CJoinNullHandlingBehavior_REPLACE
+        else:
+            raise ValueError(
+                '"{}" is not a valid null_handling'
+                .format(null_handling))
+        self.join_options.reset(
+            new CJoinOptions(c_null_handling, c_null_replacement))
+
+
+class JoinOptions(_JoinOptions):
+    def __init__(self, null_handling='emit_null', null_replacement=''):
+        self._set_options(null_handling, null_replacement)
+
+
 cdef class _MatchSubstringOptions(FunctionOptions):
     cdef:
         unique_ptr[CMatchSubstringOptions] match_substring_options
@@ -597,14 +705,14 @@ cdef class _MatchSubstringOptions(FunctionOptions):
     cdef const CFunctionOptions* get_options(self) except NULL:
         return self.match_substring_options.get()
 
-    def _set_options(self, pattern):
+    def _set_options(self, pattern, bint ignore_case):
         self.match_substring_options.reset(
-            new CMatchSubstringOptions(tobytes(pattern)))
+            new CMatchSubstringOptions(tobytes(pattern), ignore_case))
 
 
 class MatchSubstringOptions(_MatchSubstringOptions):
-    def __init__(self, pattern):
-        self._set_options(pattern)
+    def __init__(self, pattern, bint ignore_case=False):
+        self._set_options(pattern, ignore_case)
 
 
 cdef class _TrimOptions(FunctionOptions):
@@ -622,6 +730,78 @@ cdef class _TrimOptions(FunctionOptions):
 class TrimOptions(_TrimOptions):
     def __init__(self, characters):
         self._set_options(characters)
+
+
+cdef class _ReplaceSliceOptions(FunctionOptions):
+    cdef:
+        unique_ptr[CReplaceSliceOptions] replace_slice_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.replace_slice_options.get()
+
+    def _set_options(self, start, stop, replacement):
+        self.replace_slice_options.reset(
+            new CReplaceSliceOptions(start, stop, tobytes(replacement))
+        )
+
+
+class ReplaceSliceOptions(_ReplaceSliceOptions):
+    def __init__(self, start, stop, replacement):
+        self._set_options(start, stop, replacement)
+
+
+cdef class _ReplaceSubstringOptions(FunctionOptions):
+    cdef:
+        unique_ptr[CReplaceSubstringOptions] replace_substring_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.replace_substring_options.get()
+
+    def _set_options(self, pattern, replacement, max_replacements):
+        self.replace_substring_options.reset(
+            new CReplaceSubstringOptions(tobytes(pattern),
+                                         tobytes(replacement),
+                                         max_replacements)
+        )
+
+
+class ReplaceSubstringOptions(_ReplaceSubstringOptions):
+    def __init__(self, pattern, replacement, max_replacements=-1):
+        self._set_options(pattern, replacement, max_replacements)
+
+
+cdef class _ExtractRegexOptions(FunctionOptions):
+    cdef:
+        unique_ptr[CExtractRegexOptions] extract_regex_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.extract_regex_options.get()
+
+    def _set_options(self, pattern):
+        self.extract_regex_options.reset(
+            new CExtractRegexOptions(tobytes(pattern)))
+
+
+class ExtractRegexOptions(_ExtractRegexOptions):
+    def __init__(self, pattern):
+        self._set_options(pattern)
+
+
+cdef class _SliceOptions(FunctionOptions):
+    cdef:
+        unique_ptr[CSliceOptions] slice_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.slice_options.get()
+
+    def _set_options(self, start, stop, step):
+        self.slice_options.reset(
+            new CSliceOptions(start, stop, step))
+
+
+class SliceOptions(_SliceOptions):
+    def __init__(self, start, stop, step=1):
+        self._set_options(start, stop, step)
 
 
 cdef class _FilterOptions(FunctionOptions):
@@ -647,6 +827,32 @@ cdef class _FilterOptions(FunctionOptions):
 class FilterOptions(_FilterOptions):
     def __init__(self, null_selection_behavior='drop'):
         self._set_options(null_selection_behavior)
+
+
+cdef class _DictionaryEncodeOptions(FunctionOptions):
+    cdef:
+        unique_ptr[CDictionaryEncodeOptions] dictionary_encode_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.dictionary_encode_options.get()
+
+    def _set_options(self, null_encoding_behavior):
+        if null_encoding_behavior == 'encode':
+            self.dictionary_encode_options.reset(
+                new CDictionaryEncodeOptions(
+                    CDictionaryEncodeNullEncodingBehavior_ENCODE))
+        elif null_encoding_behavior == 'mask':
+            self.dictionary_encode_options.reset(
+                new CDictionaryEncodeOptions(
+                    CDictionaryEncodeNullEncodingBehavior_MASK))
+        else:
+            raise ValueError('"{}" is not a valid null_encoding_behavior'
+                             .format(null_encoding_behavior))
+
+
+class DictionaryEncodeOptions(_DictionaryEncodeOptions):
+    def __init__(self, null_encoding_behavior='mask'):
+        self._set_options(null_encoding_behavior)
 
 
 cdef class _TakeOptions(FunctionOptions):
@@ -701,54 +907,47 @@ class ProjectOptions(_ProjectOptions):
         self._set_options(field_names)
 
 
-cdef class _MinMaxOptions(FunctionOptions):
+cdef class _ScalarAggregateOptions(FunctionOptions):
     cdef:
-        unique_ptr[CMinMaxOptions] min_max_options
+        unique_ptr[CScalarAggregateOptions] scalar_aggregate_options
 
     cdef const CFunctionOptions* get_options(self) except NULL:
-        return self.min_max_options.get()
+        return self.scalar_aggregate_options.get()
 
-    def _set_options(self, null_handling):
-        if null_handling == 'skip':
-            self.min_max_options.reset(
-                new CMinMaxOptions(CMinMaxMode_SKIP))
-        elif null_handling == 'emit_null':
-            self.min_max_options.reset(
-                new CMinMaxOptions(CMinMaxMode_EMIT_NULL))
-        else:
-            raise ValueError(
-                '{!r} is not a valid null_handling'
-                .format(null_handling))
+    def _set_options(self, skip_nulls, min_count):
+        self.scalar_aggregate_options.reset(
+            new CScalarAggregateOptions(skip_nulls, min_count))
 
 
-class MinMaxOptions(_MinMaxOptions):
-    def __init__(self, null_handling='skip'):
-        self._set_options(null_handling)
+class ScalarAggregateOptions(_ScalarAggregateOptions):
+    def __init__(self, skip_nulls=True, min_count=1):
+        self._set_options(skip_nulls, min_count)
 
 
-cdef class _CountOptions(FunctionOptions):
+cdef class _IndexOptions(FunctionOptions):
     cdef:
-        unique_ptr[CCountOptions] count_options
+        unique_ptr[CIndexOptions] index_options
 
     cdef const CFunctionOptions* get_options(self) except NULL:
-        return self.count_options.get()
+        return self.index_options.get()
 
-    def _set_options(self, count_mode):
-        if count_mode == 'count_null':
-            self.count_options.reset(
-                new CCountOptions(CCountMode_COUNT_NULL))
-        elif count_mode == 'count_non_null':
-            self.count_options.reset(
-                new CCountOptions(CCountMode_COUNT_NON_NULL))
-        else:
-            raise ValueError(
-                '{!r} is not a valid count_mode'
-                .format(count_mode))
+    def _set_options(self, Scalar scalar):
+        self.index_options.reset(
+            new CIndexOptions(pyarrow_unwrap_scalar(scalar)))
 
 
-class CountOptions(_CountOptions):
-    def __init__(self, count_mode='count_non_null'):
-        self._set_options(count_mode)
+class IndexOptions(_IndexOptions):
+    """
+    Options for the index kernel.
+
+    Parameters
+    ----------
+    value : Scalar
+        The value to search for.
+    """
+
+    def __init__(self, value):
+        self._set_options(value)
 
 
 cdef class _ModeOptions(FunctionOptions):
@@ -965,3 +1164,22 @@ class QuantileOptions(_QuantileOptions):
         if not isinstance(q, (list, tuple, np.ndarray)):
             q = [q]
         self._set_options(q, interpolation)
+
+
+cdef class _TDigestOptions(FunctionOptions):
+    cdef:
+        unique_ptr[CTDigestOptions] tdigest_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.tdigest_options.get()
+
+    def _set_options(self, quantiles, delta, buffer_size):
+        self.tdigest_options.reset(
+            new CTDigestOptions(quantiles, delta, buffer_size))
+
+
+class TDigestOptions(_TDigestOptions):
+    def __init__(self, *, q=0.5, delta=100, buffer_size=500):
+        if not isinstance(q, (list, tuple, np.ndarray)):
+            q = [q]
+        self._set_options(q, delta, buffer_size)

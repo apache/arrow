@@ -23,6 +23,7 @@
 #include <arrow/filesystem/localfs.h>
 
 namespace fs = ::arrow::fs;
+namespace io = ::arrow::io;
 
 namespace cpp11 {
 
@@ -230,7 +231,9 @@ std::string fs___FileSystem__type_name(
 
 // [[arrow::export]]
 std::shared_ptr<fs::LocalFileSystem> fs___LocalFileSystem__create() {
-  return std::make_shared<fs::LocalFileSystem>();
+  // Affects OpenInputFile/OpenInputStream
+  auto io_context = arrow::io::IOContext(gc_memory_pool());
+  return std::make_shared<fs::LocalFileSystem>(io_context);
 }
 
 // [[arrow::export]]
@@ -268,7 +271,7 @@ void fs___CopyFiles(const std::shared_ptr<fs::FileSystem>& source_fs,
                     const std::string& destination_base_dir,
                     int64_t chunk_size = 1024 * 1024, bool use_threads = true) {
   StopIfNotOk(fs::CopyFiles(source_fs, *source_sel, destination_fs, destination_base_dir,
-                            chunk_size, use_threads));
+                            io::default_io_context(), chunk_size, use_threads));
 }
 
 #endif
@@ -314,7 +317,8 @@ std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(
   s3_opts.background_writes = background_writes;
 
   StopIfNotOk(fs::EnsureS3Initialized());
-  return ValueOrStop(fs::S3FileSystem::Make(s3_opts));
+  auto io_context = arrow::io::IOContext(gc_memory_pool());
+  return ValueOrStop(fs::S3FileSystem::Make(s3_opts, io_context));
 }
 
 // [[s3::export]]

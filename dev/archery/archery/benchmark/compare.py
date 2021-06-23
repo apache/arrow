@@ -25,11 +25,11 @@ def items_per_seconds_fmt(value):
     if value < 1000:
         return "{} items/sec".format(value)
     if value < 1000**2:
-        return "{:.3f}k items/sec".format(value / 1000)
+        return "{:.3f}K items/sec".format(value / 1000)
     if value < 1000**3:
-        return "{:.3f}m items/sec".format(value / 1000**2)
+        return "{:.3f}M items/sec".format(value / 1000**2)
     else:
-        return "{:.3f}b items/sec".format(value / 1000**3)
+        return "{:.3f}G items/sec".format(value / 1000**3)
 
 
 def bytes_per_seconds_fmt(value):

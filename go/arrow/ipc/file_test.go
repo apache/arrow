@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/apache/arrow/go/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/arrow/internal/flatbuf"
 	"github.com/apache/arrow/go/arrow/memory"
 )
 
@@ -45,6 +46,38 @@ func TestFile(t *testing.T) {
 
 			arrdata.WriteFile(t, f, mem, recs[0].Schema(), recs)
 			arrdata.CheckArrowFile(t, f, mem, recs[0].Schema(), recs)
+			arrdata.CheckArrowConcurrentFile(t, f, mem, recs[0].Schema(), recs)
 		})
+	}
+}
+
+func TestFileCompressed(t *testing.T) {
+	tempDir, err := ioutil.TempDir("", "go-arrow-file-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	compressTypes := []flatbuf.CompressionType{
+		flatbuf.CompressionTypeLZ4_FRAME, flatbuf.CompressionTypeZSTD,
+	}
+
+	for _, codec := range compressTypes {
+		for name, recs := range arrdata.Records {
+			t.Run(name, func(t *testing.T) {
+				mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+				defer mem.AssertSize(t, 0)
+
+				f, err := ioutil.TempFile(tempDir, "go-arrow-file-")
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer f.Close()
+
+				arrdata.WriteFileCompressed(t, f, mem, recs[0].Schema(), recs, codec)
+				arrdata.CheckArrowFile(t, f, mem, recs[0].Schema(), recs)
+				arrdata.CheckArrowConcurrentFile(t, f, mem, recs[0].Schema(), recs)
+			})
+		}
 	}
 }

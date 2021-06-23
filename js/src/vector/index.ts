@@ -90,9 +90,9 @@ function newVector<T extends DataType>(data: Data<T>, ...args: VectorCtorArgs<V<
 }
 
 /** @ignore */
-export interface VectorBuilderOptions<T extends DataType, TNull = any> extends IterableBuilderOptions<T, TNull> { values: Iterable<T['TValue'] | TNull>; }
+export interface VectorBuilderOptions<T extends DataType, TNull = any> extends IterableBuilderOptions<T, TNull> { values: Iterable<T['TValue'] | TNull> }
 /** @ignore */
-export interface VectorBuilderOptionsAsync<T extends DataType, TNull = any> extends IterableBuilderOptions<T, TNull> { values: AsyncIterable<T['TValue'] | TNull>; }
+export interface VectorBuilderOptionsAsync<T extends DataType, TNull = any> extends IterableBuilderOptions<T, TNull> { values: AsyncIterable<T['TValue'] | TNull> }
 
 /** @ignore */
 export function vectorFromValuesWithType<T extends DataType, TNull = any>(newDataType: () => T, input: Iterable<T['TValue'] | TNull> | AsyncIterable<T['TValue'] | TNull> | VectorBuilderOptions<T, TNull> | VectorBuilderOptionsAsync<T, TNull>) {
@@ -191,7 +191,7 @@ function wrapNullableGet<T extends DataType, V extends Vector<T>, F extends (i: 
 /** @ignore */
 function wrapNullableSet<T extends DataType, V extends BaseVector<T>, F extends (i: number, a: any) => void>(fn: F): (...args: Parameters<F>) => void {
     return function(this: V, i: number, a: any) {
-        if (setBool(this.nullBitmap, this.offset + i, !(a === null || a === undefined))) {
+        if (setBool(this.nullBitmap, this.offset + i, !((a == null)))) {
             fn.call(this, i, a);
         }
     };

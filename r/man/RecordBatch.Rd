@@ -57,6 +57,11 @@ of the table if \code{NULL}, the default.
 integers (R vector or Array Array) \code{i}.
 \item \verb{$Filter(i, keep_na = TRUE)}: return an \code{RecordBatch} with rows at positions where logical
 vector (or Arrow boolean Array) \code{i} is \code{TRUE}.
+\item \verb{$SortIndices(names, descending = FALSE)}: return an \code{Array} of integer row
+positions that can be used to rearrange the \code{RecordBatch} in ascending or
+descending order by the first named column, breaking ties with further named
+columns. \code{descending} can be a logical vector of length one or of the same
+length as \code{names}.
 \item \verb{$serialize()}: Returns a raw vector suitable for interprocess communication
 \item \verb{$cast(target_schema, safe = TRUE, options = cast_options(safe))}: Alter
 the schema of the record batch.
@@ -75,7 +80,7 @@ All list elements are coerced to string. See \code{schema()} for more informatio
 }
 
 \examples{
-\donttest{
+\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 batch <- record_batch(name = rownames(mtcars), mtcars)
 dim(batch)
 dim(head(batch))
@@ -83,5 +88,5 @@ names(batch)
 batch$mpg
 batch[["cyl"]]
 as.data.frame(batch[4:8, c("gear", "hp", "wt")])
-}
+\dontshow{\}) # examplesIf}
 }

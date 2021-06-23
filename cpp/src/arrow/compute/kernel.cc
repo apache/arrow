@@ -59,16 +59,6 @@ Result<std::shared_ptr<ResizableBuffer>> KernelContext::AllocateBitmap(int64_t n
   return result;
 }
 
-void KernelContext::SetStatus(const Status& status) {
-  if (ARROW_PREDICT_TRUE(status.ok())) {
-    return;
-  }
-  status_ = status;
-}
-
-/// \brief Clear any error status
-void KernelContext::ResetStatus() { status_ = Status::OK(); }
-
 // ----------------------------------------------------------------------
 // Some basic TypeMatcher implementations
 

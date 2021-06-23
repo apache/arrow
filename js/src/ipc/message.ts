@@ -72,7 +72,7 @@ export class MessageReader implements IterableIterator<Message> {
     public readSchema(throwIfNull = false) {
         const type = MessageHeader.Schema;
         const message = this.readMessage(type);
-        const schema = message && message.header();
+        const schema = message?.header();
         if (throwIfNull && !schema) {
             throw new Error(nullMessage(type));
         }
@@ -81,7 +81,7 @@ export class MessageReader implements IterableIterator<Message> {
     protected readMetadataLength(): IteratorResult<number> {
         const buf = this.source.read(PADDING);
         const bb = buf && new ByteBuffer(buf);
-        const len = bb && bb.readInt32(0) || 0;
+        const len = bb?.readInt32(0) || 0;
         return { done: len === 0, value: len };
     }
     protected readMetadata(metadataLength: number): IteratorResult<Message> {
@@ -141,7 +141,7 @@ export class AsyncMessageReader implements AsyncIterableIterator<Message> {
     public async readSchema(throwIfNull = false) {
         const type = MessageHeader.Schema;
         const message = await this.readMessage(type);
-        const schema = message && message.header();
+        const schema = message?.header();
         if (throwIfNull && !schema) {
             throw new Error(nullMessage(type));
         }
@@ -150,7 +150,7 @@ export class AsyncMessageReader implements AsyncIterableIterator<Message> {
     protected async readMetadataLength(): Promise<IteratorResult<number>> {
         const buf = await this.source.read(PADDING);
         const bb = buf && new ByteBuffer(buf);
-        const len = bb && bb.readInt32(0) || 0;
+        const len = bb?.readInt32(0) || 0;
         return { done: len === 0, value: len };
     }
     protected async readMetadata(metadataLength: number): Promise<IteratorResult<Message>> {
@@ -220,7 +220,7 @@ export class JSONMessageReader extends MessageReader {
     public readSchema() {
         const type = MessageHeader.Schema;
         const message = this.readMessage(type);
-        const schema = message && message.header();
+        const schema = message?.header();
         if (!message || !schema) {
             throw new Error(nullMessage(type));
         }

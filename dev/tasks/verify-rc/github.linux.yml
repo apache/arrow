@@ -15,39 +15,29 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# NOTE: must set "Crossbow" as name to have the badge links working in the
-# github comment reports!
-name: Crossbow
+{% import 'macros.jinja' as macros with context %}
 
-on:
-  push:
-    branches:
-      - "*-github-*"
+{{ macros.github_header() }}
 
 jobs:
   verify:
     name: "Verify release candidate Ubuntu {{ artifact }}"
     runs-on: ubuntu-20.04
-    {%- if env is defined %}
+    {% if env is defined %}
     env:
-    {%- for key, value in env.items() %}
+    {% for key, value in env.items() %}
       {{ key }}: {{ value }}
-    {%- endfor %}
-    {%- endif %}
+    {% endfor %}
+    {% endif %}
+
     steps:
-      - name: Checkout Arrow
-        run: |
-          git clone --no-checkout {{ arrow.remote }} arrow
-          git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-          git -C arrow checkout FETCH_HEAD
-          git -C arrow submodule update --init --recursive
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: cd arrow && ci/scripts/util_checkout.sh
+      {{ macros.github_checkout_arrow()|indent }}
+
       - name: Install System Dependencies
         run: |
           # TODO: don't require removing newer llvms
           sudo apt-get --purge remove -y llvm-9 clang-9
+          sudo apt-get update -y
           sudo apt-get install -y \
             autoconf-archive \
             binfmt-support \
@@ -58,6 +48,7 @@ jobs:
             jq \
             libboost-all-dev \
             libgirepository1.0-dev \
+            ninja-build \
             qemu-user-static \
             wget
 

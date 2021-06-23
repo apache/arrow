@@ -228,6 +228,17 @@ class PackageTask
     task :dist => [@archive_name]
   end
 
+  def split_target(target)
+    components = target.split("-")
+    if components[0, 2] == ["amazon", "linux"]
+      components[0, 2] = components[0, 2].join("-")
+    end
+    if components.size >= 3
+      components[2..-1] = components[2..-1].join("-")
+    end
+    components
+  end
+
   def enable_apt?
     true
   end
@@ -248,15 +259,17 @@ class PackageTask
     # because they require some setups on host.
     [
       "debian-buster",
-      # "debian-stretch-arm64",
-      "ubuntu-xenial",
-      # "ubuntu-xenial-arm64",
+      # "debian-buster-arm64",
+      "debian-bullseye",
+      # "debian-bullseye-arm64",
       "ubuntu-bionic",
       # "ubuntu-bionic-arm64",
       "ubuntu-focal",
       # "ubuntu-focal-arm64",
       "ubuntu-groovy",
       # "ubuntu-groovy-arm64",
+      "ubuntu-hirsute",
+      # "ubuntu-hirsute-arm64",
     ]
   end
 
@@ -275,7 +288,7 @@ class PackageTask
   def apt_prepare_debian_dir(tmp_dir, target)
     source_debian_dir = nil
     specific_debian_dir = "debian.#{target}"
-    distribution, code_name, _architecture = target.split("-", 3)
+    distribution, code_name, _architecture = split_target(target)
     platform = [distribution, code_name].join("-")
     platform_debian_dir = "debian.#{platform}"
     if File.exist?(specific_debian_dir)
@@ -324,7 +337,7 @@ VERSION=#{@deb_upstream_version}
 
     apt_targets.each do |target|
       cd(apt_dir) do
-        distribution, version, architecture = target.split("-", 3)
+        distribution, version, architecture = split_target(target)
         os = "#{distribution}-#{version}"
         docker_run(os, architecture, console: console)
       end
@@ -358,6 +371,7 @@ VERSION=#{@deb_upstream_version}
       end
 
       namespace :build do
+        desc "Open console"
         task :console => build_dependencies do
           apt_build(console: true) if enable_apt?
         end
@@ -390,6 +404,8 @@ VERSION=#{@deb_upstream_version}
     # Disable aarch64 targets by default for now
     # because they require some setups on host.
     [
+      "amazon-linux-2",
+      # "amazon-linux-2-arch64",
       "centos-7",
       # "centos-7-aarch64",
       "centos-8",
@@ -458,7 +474,7 @@ RELEASE=#{@rpm_release}
 
     yum_targets.each do |target|
       cd(yum_dir) do
-        distribution, version, architecture = target.split("-", 3)
+        distribution, version, architecture = split_target(target)
         os = "#{distribution}-#{version}"
         docker_run(os, architecture, console: console)
       end
@@ -491,6 +507,7 @@ RELEASE=#{@rpm_release}
       end
 
       namespace :build do
+        desc "Open console"
         task :console => build_dependencies do
           yum_build(console: true) if enable_yum?
         end
@@ -590,7 +607,7 @@ RELEASE=#{@rpm_release}
       push_tasks = []
 
       (apt_targets + yum_targets).each do |target|
-        distribution, version, architecture = target.split("-", 3)
+        distribution, version, architecture = split_target(target)
         os = "#{distribution}-#{version}"
 
         namespace :pull do

@@ -28,6 +28,7 @@
 
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 
 #include "parquet/column_reader.h"
@@ -43,6 +44,8 @@
 
 using arrow::default_memory_pool;
 using arrow::MemoryPool;
+
+namespace BitUtil = arrow::BitUtil;
 
 namespace parquet {
 
@@ -66,21 +69,51 @@ static FLBA FLBAFromString(const std::string& s) {
 }
 
 TEST(Comparison, SignedByteArray) {
+  // Signed byte array comparison is only used for Decimal comparison. When
+  // decimals are encoded as byte arrays they use twos complement big-endian
+  // encoded values. Comparisons of byte arrays of unequal types need to handle
+  // sign extension.
   auto comparator = MakeComparator<ByteArrayType>(Type::BYTE_ARRAY, SortOrder::SIGNED);
+  struct Case {
+    std::vector<uint8_t> bytes;
+    int order;
+    ByteArray ToByteArray() const {
+      return ByteArray(static_cast<int>(bytes.size()), bytes.data());
+    }
+  };
 
-  std::string s1 = "12345";
-  std::string s2 = "12345678";
-  ByteArray s1ba = ByteArrayFromString(s1);
-  ByteArray s2ba = ByteArrayFromString(s2);
-  ASSERT_TRUE(comparator->Compare(s1ba, s2ba));
+  // Test a mix of big-endian comparison values that are both equal and
+  // unequal after sign extension.
+  std::vector<Case> cases = {
+      {{0x80, 0x80, 0, 0}, 0},           {{/*0xFF,*/ 0x80, 0, 0}, 1},
+      {{0xFF, 0x80, 0, 0}, 1},           {{/*0xFF,*/ 0xFF, 0x01, 0}, 2},
+      {{/*0xFF,  0xFF,*/ 0x80, 0}, 3},   {{/*0xFF,*/ 0xFF, 0x80, 0}, 3},
+      {{0xFF, 0xFF, 0x80, 0}, 3},        {{/*0xFF,0xFF,0xFF,*/ 0x80}, 4},
+      {{/*0xFF, 0xFF, 0xFF,*/ 0xFF}, 5}, {{/*0, 0,*/ 0x01, 0x01}, 6},
+      {{/*0,*/ 0, 0x01, 0x01}, 6},       {{0, 0, 0x01, 0x01}, 6},
+      {{/*0,*/ 0x01, 0x01, 0}, 7},       {{0x01, 0x01, 0, 0}, 8}};
 
-  // This is case where signed comparison UTF-8 (PARQUET-686) is incorrect
-  // This example is to only check signed comparison and not UTF-8.
-  s1 = u8"bügeln";
-  s2 = u8"braten";
-  s1ba = ByteArrayFromString(s1);
-  s2ba = ByteArrayFromString(s2);
-  ASSERT_TRUE(comparator->Compare(s1ba, s2ba));
+  for (size_t x = 0; x < cases.size(); x++) {
+    const auto& case1 = cases[x];
+    // Empty array is always the smallest values
+    EXPECT_TRUE(comparator->Compare(ByteArray(), case1.ToByteArray())) << x;
+    EXPECT_FALSE(comparator->Compare(case1.ToByteArray(), ByteArray())) << x;
+    // Equals is always false.
+    EXPECT_FALSE(comparator->Compare(case1.ToByteArray(), case1.ToByteArray())) << x;
+
+    for (size_t y = 0; y < cases.size(); y++) {
+      const auto& case2 = cases[y];
+      if (case1.order < case2.order) {
+        EXPECT_TRUE(comparator->Compare(case1.ToByteArray(), case2.ToByteArray()))
+            << x << " (order: " << case1.order << ") " << y << " (order: " << case2.order
+            << ")";
+      } else {
+        EXPECT_FALSE(comparator->Compare(case1.ToByteArray(), case2.ToByteArray()))
+            << x << " (order: " << case1.order << ") " << y << " (order: " << case2.order
+            << ")";
+      }
+    }
+  }
 }
 
 TEST(Comparison, UnsignedByteArray) {
@@ -108,21 +141,28 @@ TEST(Comparison, UnsignedByteArray) {
 }
 
 TEST(Comparison, SignedFLBA) {
-  int size = 10;
+  int size = 4;
   auto comparator =
       MakeComparator<FLBAType>(Type::FIXED_LEN_BYTE_ARRAY, SortOrder::SIGNED, size);
 
-  std::string s1 = "Anti123456";
-  std::string s2 = "Bunkd123456";
-  FLBA s1flba = FLBAFromString(s1);
-  FLBA s2flba = FLBAFromString(s2);
-  ASSERT_TRUE(comparator->Compare(s1flba, s2flba));
+  std::vector<uint8_t> byte_values[] = {
+      {0x80, 0, 0, 0},          {0xFF, 0xFF, 0x01, 0},    {0xFF, 0xFF, 0x80, 0},
+      {0xFF, 0xFF, 0xFF, 0x80}, {0xFF, 0xFF, 0xFF, 0xFF}, {0, 0, 0x01, 0x01},
+      {0, 0x01, 0x01, 0},       {0x01, 0x01, 0, 0}};
+  std::vector<FLBA> values_to_compare;
+  for (auto& bytes : byte_values) {
+    values_to_compare.emplace_back(FLBA(bytes.data()));
+  }
 
-  s1 = "Bünk123456";
-  s2 = "Bunk123456";
-  s1flba = FLBAFromString(s1);
-  s2flba = FLBAFromString(s2);
-  ASSERT_TRUE(comparator->Compare(s1flba, s2flba));
+  for (size_t x = 0; x < values_to_compare.size(); x++) {
+    EXPECT_FALSE(comparator->Compare(values_to_compare[x], values_to_compare[x])) << x;
+    for (size_t y = x + 1; y < values_to_compare.size(); y++) {
+      EXPECT_TRUE(comparator->Compare(values_to_compare[x], values_to_compare[y]))
+          << x << " " << y;
+      EXPECT_FALSE(comparator->Compare(values_to_compare[y], values_to_compare[x]))
+          << y << " " << x;
+    }
+  }
 }
 
 TEST(Comparison, UnsignedFLBA) {

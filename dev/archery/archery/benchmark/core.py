@@ -27,11 +27,14 @@ def median(values):
 
 
 class Benchmark:
-    def __init__(self, name, unit, less_is_better, values, counters=None):
+    def __init__(self, name, unit, less_is_better, values, time_unit,
+                 times, counters=None):
         self.name = name
         self.unit = unit
         self.less_is_better = less_is_better
         self.values = sorted(values)
+        self.time_unit = time_unit
+        self.times = sorted(times)
         self.median = median(self.values)
         self.counters = counters or {}
 

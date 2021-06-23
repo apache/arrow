@@ -123,16 +123,30 @@ class TestSerialize : public PrimitiveTypedTest<TestType> {
 
     for (int rg = 0; rg < num_rowgroups_; ++rg) {
       auto rg_reader = file_reader->RowGroup(rg);
-      ASSERT_EQ(num_columns_, rg_reader->metadata()->num_columns());
-      ASSERT_EQ(rows_per_rowgroup_, rg_reader->metadata()->num_rows());
+      auto rg_metadata = rg_reader->metadata();
+      ASSERT_EQ(num_columns_, rg_metadata->num_columns());
+      ASSERT_EQ(rows_per_rowgroup_, rg_metadata->num_rows());
       // Check that the specified compression was actually used.
-      ASSERT_EQ(expected_codec_type,
-                rg_reader->metadata()->ColumnChunk(0)->compression());
+      ASSERT_EQ(expected_codec_type, rg_metadata->ColumnChunk(0)->compression());
 
-      int64_t values_read;
+      const int64_t total_byte_size = rg_metadata->total_byte_size();
+      const int64_t total_compressed_size = rg_metadata->total_compressed_size();
+      if (expected_codec_type == Compression::UNCOMPRESSED) {
+        ASSERT_EQ(total_byte_size, total_compressed_size);
+      } else {
+        ASSERT_NE(total_byte_size, total_compressed_size);
+      }
+
+      int64_t total_column_byte_size = 0;
+      int64_t total_column_compressed_size = 0;
 
       for (int i = 0; i < num_columns_; ++i) {
-        ASSERT_FALSE(rg_reader->metadata()->ColumnChunk(i)->has_index_page());
+        int64_t values_read;
+        ASSERT_FALSE(rg_metadata->ColumnChunk(i)->has_index_page());
+        total_column_byte_size += rg_metadata->ColumnChunk(i)->total_uncompressed_size();
+        total_column_compressed_size +=
+            rg_metadata->ColumnChunk(i)->total_compressed_size();
+
         std::vector<int16_t> def_levels_out(rows_per_rowgroup_);
         std::vector<int16_t> rep_levels_out(rows_per_rowgroup_);
         auto col_reader =
@@ -145,6 +159,9 @@ class TestSerialize : public PrimitiveTypedTest<TestType> {
         ASSERT_EQ(this->values_, this->values_out_);
         ASSERT_EQ(this->def_levels_, def_levels_out);
       }
+
+      ASSERT_EQ(total_byte_size, total_column_byte_size);
+      ASSERT_EQ(total_compressed_size, total_column_compressed_size);
     }
   }
 
@@ -313,8 +330,7 @@ TYPED_TEST(TestSerialize, SmallFileGzip) {
 
 #ifdef ARROW_WITH_LZ4
 TYPED_TEST(TestSerialize, SmallFileLz4) {
-  ASSERT_NO_FATAL_FAILURE(
-      this->FileSerializeTest(Compression::LZ4, Compression::LZ4_HADOOP));
+  ASSERT_NO_FATAL_FAILURE(this->FileSerializeTest(Compression::LZ4));
 }
 
 TYPED_TEST(TestSerialize, SmallFileLz4Hadoop) {

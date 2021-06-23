@@ -306,7 +306,7 @@ adjusted_mantissa compute_float(decimal &d) {
     decimal_left_shift(d, shift);
     if (d.decimal_point > decimal_point_range) {
       // we want to get infinity:
-      answer.power2 = 0xFF;
+      answer.power2 = binary::infinite_power();
       answer.mantissa = 0;
       return answer;
     }
@@ -354,17 +354,6 @@ adjusted_mantissa compute_float(decimal &d) {
 template <typename binary>
 adjusted_mantissa parse_long_mantissa(const char *first, const char* last) {
     decimal d = parse_decimal(first, last);
-    // In some cases we can get lucky and looking at only the first 19 digits is enough.
-    // Let us try that.
-    const uint64_t mantissa = d.to_truncated_mantissa();
-    const int64_t exponent =  d.to_truncated_exponent();
-    // credit: R. Oudompheng who first implemented this fast path (to my knowledge).
-    // It is rough, but it does the job of accelerating the slow path since most
-    // long streams of digits are determined after 19 digits.
-    adjusted_mantissa am1 = compute_float<binary>(exponent, mantissa);
-    adjusted_mantissa am2 = compute_float<binary>(exponent, mantissa+1);
-    // They must both agree and be both a successful result.
-    if(( am1 == am2 ) && (am1.power2 >= 0)) { return am1; }
     return compute_float<binary>(d);
 }
 

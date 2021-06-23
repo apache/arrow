@@ -1,6 +1,0 @@
-usr/lib/*/cmake/arrow/ArrowPythonConfig*.cmake
-usr/lib/*/cmake/arrow/ArrowPythonTargets*.cmake
-usr/lib/*/cmake/arrow/FindArrowPython.cmake
-usr/lib/*/libarrow_python.a
-usr/lib/*/libarrow_python.so
-usr/lib/*/pkgconfig/arrow-python.pc

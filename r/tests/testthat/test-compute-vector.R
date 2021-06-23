@@ -18,7 +18,7 @@
 expect_bool_function_equal <- function(array_exp, r_exp) {
   # Assert that the Array operation returns a boolean array
   # and that its contents are equal to expected
-  expect_is(array_exp, "ArrowDatum")
+  expect_r6_class(array_exp, "ArrowDatum")
   expect_type_equal(array_exp, bool())
   expect_identical(as.vector(array_exp), r_exp)
 }
@@ -43,6 +43,7 @@ test_that("compare ops with Array", {
   expect_array_compares(Array$create(c(NA, 1:5)), 4)
   expect_array_compares(Array$create(as.numeric(c(NA, 1:5))), 4)
   expect_array_compares(Array$create(c(NA, 1:5)), Array$create(rev(c(NA, 1:5))))
+  expect_array_compares(Array$create(c(NA, 1:5)), Array$create(rev(c(NA, 1:5)), type=double()))
 })
 
 test_that("compare ops with ChunkedArray", {

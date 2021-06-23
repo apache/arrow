@@ -177,7 +177,7 @@ Result<std::shared_ptr<Tensor>> MakeTensorFromSparseCSXMatrix(
   std::fill_n(values, value_elsize * tensor_size, 0);
 
   std::vector<int64_t> strides;
-  ComputeRowMajorStrides(fw_value_type, shape, &strides);
+  RETURN_NOT_OK(ComputeRowMajorStrides(fw_value_type, shape, &strides));
 
   const auto nc = shape[1];
 

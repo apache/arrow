@@ -22,17 +22,12 @@
 #include <memory>
 #include <vector>
 
+#include "arrow/compute/type_fwd.h"  // IWYU pragma: export
 #include "arrow/dataset/visibility.h"
 #include "arrow/filesystem/type_fwd.h"  // IWYU pragma: export
 #include "arrow/type_fwd.h"             // IWYU pragma: export
 
 namespace arrow {
-namespace compute {
-
-class ExecContext;
-
-}  // namespace compute
-
 namespace dataset {
 
 class Dataset;
@@ -46,6 +41,8 @@ class Fragment;
 using FragmentIterator = Iterator<std::shared_ptr<Fragment>>;
 using FragmentVector = std::vector<std::shared_ptr<Fragment>>;
 
+class FragmentScanOptions;
+
 class FileSource;
 class FileFormat;
 class FileFragment;
@@ -58,27 +55,28 @@ struct FileSystemDatasetWriteOptions;
 class InMemoryDataset;
 
 class CsvFileFormat;
+struct CsvFragmentScanOptions;
 
 class IpcFileFormat;
 class IpcFileWriter;
 class IpcFileWriteOptions;
+class IpcFragmentScanOptions;
 
 class ParquetFileFormat;
 class ParquetFileFragment;
+class ParquetFragmentScanOptions;
 class ParquetFileWriter;
 class ParquetFileWriteOptions;
-
-class Expression;
 
 class Partitioning;
 class PartitioningFactory;
 class PartitioningOrFactory;
+struct KeyValuePartitioningOptions;
 class DirectoryPartitioning;
 class HivePartitioning;
+struct HivePartitioningOptions;
 
-struct ScanContext;
-
-class ScanOptions;
+struct ScanOptions;
 
 class Scanner;
 
@@ -87,8 +85,6 @@ class ScannerBuilder;
 class ScanTask;
 using ScanTaskVector = std::vector<std::shared_ptr<ScanTask>>;
 using ScanTaskIterator = Iterator<std::shared_ptr<ScanTask>>;
-
-class RecordBatchProjector;
 
 }  // namespace dataset
 }  // namespace arrow

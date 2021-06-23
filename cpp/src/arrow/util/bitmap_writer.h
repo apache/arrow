@@ -21,6 +21,7 @@
 #include <cstring>
 
 #include "arrow/util/bit_util.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {

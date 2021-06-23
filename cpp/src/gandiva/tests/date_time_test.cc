@@ -537,4 +537,54 @@ TEST_F(TestProjector, TestMonthsBetween) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(0));
 }
 
+TEST_F(TestProjector, TestLastDay) {
+  auto f0 = field("f0", arrow::date64());
+  auto schema = arrow::schema({f0});
+
+  // output fields
+  auto output = field("out", arrow::date64());
+
+  auto last_day_expr = TreeExprBuilder::MakeExpression("last_day", {f0}, output);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {last_day_expr}, TestConfiguration(), &projector);
+  std::cout << status.message();
+  ASSERT_TRUE(status.ok());
+
+  time_t epoch = Epoch();
+
+  // Create a row-batch with some sample data
+  // Used a leap year as example.
+  int num_records = 5;
+  auto validity = {true, true, true, true, true};
+  std::vector<int64_t> f0_data = {MillisSince(epoch, 2016, 2, 3, 8, 20, 10, 34),
+                                  MillisSince(epoch, 2016, 2, 29, 23, 59, 59, 59),
+                                  MillisSince(epoch, 2016, 1, 30, 1, 15, 20, 0),
+                                  MillisSince(epoch, 2017, 2, 3, 23, 15, 20, 0),
+                                  MillisSince(epoch, 2015, 12, 30, 22, 50, 11, 0)};
+
+  auto array0 =
+      MakeArrowTypeArray<arrow::Date64Type, int64_t>(date64(), f0_data, validity);
+
+  std::vector<int64_t> f0_output_data = {MillisSince(epoch, 2016, 2, 29, 0, 0, 0, 0),
+                                         MillisSince(epoch, 2016, 2, 29, 0, 0, 0, 0),
+                                         MillisSince(epoch, 2016, 1, 31, 0, 0, 0, 0),
+                                         MillisSince(epoch, 2017, 2, 28, 0, 0, 0, 0),
+                                         MillisSince(epoch, 2015, 12, 31, 0, 0, 0, 0)};
+
+  // expected output
+  auto exp_output = MakeArrowArrayDate64(f0_output_data, validity);
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(0));
+}
+
 }  // namespace gandiva

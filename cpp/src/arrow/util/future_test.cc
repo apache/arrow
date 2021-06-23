@@ -20,16 +20,21 @@
 
 #include <algorithm>
 #include <chrono>
+#include <condition_variable>
 #include <memory>
+#include <mutex>
 #include <ostream>
 #include <random>
 #include <string>
 #include <thread>
+#include <unordered_set>
 #include <vector>
 
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
+#include "arrow/testing/executor_util.h"
+#include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/thread_pool.h"
@@ -63,86 +68,10 @@ struct IterationTraits<Foo> {
   static Foo End() { return Foo(-1); }
 };
 
-// A data type with only move constructors.
-struct MoveOnlyDataType {
-  explicit MoveOnlyDataType(int x) : data(new int(x)) {}
-
-  MoveOnlyDataType(const MoveOnlyDataType& other) = delete;
-  MoveOnlyDataType& operator=(const MoveOnlyDataType& other) = delete;
-
-  MoveOnlyDataType(MoveOnlyDataType&& other) { MoveFrom(&other); }
-  MoveOnlyDataType& operator=(MoveOnlyDataType&& other) {
-    MoveFrom(&other);
-    return *this;
-  }
-
-  ~MoveOnlyDataType() { Destroy(); }
-
-  void Destroy() {
-    if (data != nullptr) {
-      delete data;
-      data = nullptr;
-      moves = -1;
-    }
-  }
-
-  void MoveFrom(MoveOnlyDataType* other) {
-    Destroy();
-    data = other->data;
-    other->data = nullptr;
-    moves = other->moves + 1;
-  }
-
-  int ToInt() const { return data == nullptr ? -42 : *data; }
-
-  bool operator==(int other) const { return data != nullptr && *data == other; }
-  bool operator==(const MoveOnlyDataType& other) const {
-    return data != nullptr && other.data != nullptr && *data == *other.data;
-  }
-  friend bool operator==(int left, const MoveOnlyDataType& right) {
-    return right == left;
-  }
-
-  int* data = nullptr;
-  int moves = 0;
-};
-
 template <>
 struct IterationTraits<MoveOnlyDataType> {
   static MoveOnlyDataType End() { return MoveOnlyDataType(-1); }
 };
-
-template <typename T>
-void AssertNotFinished(const Future<T>& fut) {
-  ASSERT_FALSE(IsFutureFinished(fut.state()));
-}
-
-template <typename T>
-void AssertFinished(const Future<T>& fut) {
-  ASSERT_TRUE(IsFutureFinished(fut.state()));
-}
-
-// Assert the future is successful *now*
-template <typename T>
-void AssertSuccessful(const Future<T>& fut) {
-  if (IsFutureFinished(fut.state())) {
-    ASSERT_EQ(fut.state(), FutureState::SUCCESS);
-    ASSERT_OK(fut.status());
-  } else {
-    FAIL() << "Expected future to be completed successfully but it was still pending";
-  }
-}
-
-// Assert the future is failed *now*
-template <typename T>
-void AssertFailed(const Future<T>& fut) {
-  if (IsFutureFinished(fut.state())) {
-    ASSERT_EQ(fut.state(), FutureState::FAILURE);
-    ASSERT_FALSE(fut.status().ok());
-  } else {
-    FAIL() << "Expected future to have failed but it was still pending";
-  }
-}
 
 template <typename T>
 struct IteratorResults {
@@ -287,6 +216,133 @@ TEST(FutureSyncTest, Int) {
   }
 }
 
+TEST(FutureSyncTest, Foo) {
+  {
+    auto fut = Future<Foo>::Make();
+    AssertNotFinished(fut);
+    fut.MarkFinished(Foo(42));
+    AssertSuccessful(fut);
+    auto res = fut.result();
+    ASSERT_OK(res);
+    Foo value = *res;
+    ASSERT_EQ(value, 42);
+    ASSERT_OK(fut.status());
+    res = std::move(fut).result();
+    ASSERT_OK(res);
+    value = *res;
+    ASSERT_EQ(value, 42);
+  }
+  {
+    // MarkFinished(Result<Foo>)
+    auto fut = Future<Foo>::Make();
+    AssertNotFinished(fut);
+    fut.MarkFinished(Result<Foo>(Foo(42)));
+    AssertSuccessful(fut);
+    ASSERT_OK_AND_ASSIGN(Foo value, fut.result());
+    ASSERT_EQ(value, 42);
+  }
+  {
+    // MarkFinished(failed Result<Foo>)
+    auto fut = Future<Foo>::Make();
+    AssertNotFinished(fut);
+    fut.MarkFinished(Result<Foo>(Status::IOError("xxx")));
+    AssertFailed(fut);
+    ASSERT_RAISES(IOError, fut.result());
+  }
+}
+
+TEST(FutureSyncTest, Empty) {
+  {
+    // MarkFinished()
+    auto fut = Future<>::Make();
+    AssertNotFinished(fut);
+    fut.MarkFinished();
+    AssertSuccessful(fut);
+  }
+  {
+    // MakeFinished()
+    auto fut = Future<>::MakeFinished();
+    AssertSuccessful(fut);
+  }
+  {
+    // MarkFinished(Status)
+    auto fut = Future<>::Make();
+    AssertNotFinished(fut);
+    fut.MarkFinished();
+    AssertSuccessful(fut);
+  }
+  {
+    // MakeFinished(Status)
+    auto fut = Future<>::MakeFinished();
+    AssertSuccessful(fut);
+    fut = Future<>::MakeFinished(Status::IOError("xxx"));
+    AssertFailed(fut);
+  }
+  {
+    // MarkFinished(Status)
+    auto fut = Future<>::Make();
+    AssertNotFinished(fut);
+    fut.MarkFinished(Status::IOError("xxx"));
+    AssertFailed(fut);
+    ASSERT_RAISES(IOError, fut.status());
+  }
+}
+
+TEST(FutureSyncTest, GetStatusFuture) {
+  {
+    auto fut = Future<MoveOnlyDataType>::Make();
+    Future<> status_future(fut);
+
+    AssertNotFinished(fut);
+    AssertNotFinished(status_future);
+
+    fut.MarkFinished(MoveOnlyDataType(42));
+    AssertSuccessful(fut);
+    AssertSuccessful(status_future);
+    ASSERT_EQ(&fut.status(), &status_future.status());
+  }
+  {
+    auto fut = Future<MoveOnlyDataType>::Make();
+    Future<> status_future(fut);
+
+    AssertNotFinished(fut);
+    AssertNotFinished(status_future);
+
+    fut.MarkFinished(Status::IOError("xxx"));
+    AssertFailed(fut);
+    AssertFailed(status_future);
+    ASSERT_EQ(&fut.status(), &status_future.status());
+  }
+}
+
+// Ensure the implicit convenience constructors behave as desired.
+TEST(FutureSyncTest, ImplicitConstructors) {
+  {
+    auto fut = ([]() -> Future<MoveOnlyDataType> {
+      return arrow::Status::Invalid("Invalid");
+    })();
+    AssertFailed(fut);
+    ASSERT_RAISES(Invalid, fut.result());
+  }
+  {
+    auto fut = ([]() -> Future<MoveOnlyDataType> {
+      return arrow::Result<MoveOnlyDataType>(arrow::Status::Invalid("Invalid"));
+    })();
+    AssertFailed(fut);
+    ASSERT_RAISES(Invalid, fut.result());
+  }
+  {
+    auto fut = ([]() -> Future<MoveOnlyDataType> { return MoveOnlyDataType(42); })();
+    AssertSuccessful(fut);
+  }
+  {
+    auto fut = ([]() -> Future<MoveOnlyDataType> {
+      return arrow::Result<MoveOnlyDataType>(MoveOnlyDataType(42));
+    })();
+    AssertSuccessful(fut);
+  }
+}
+
 TEST(FutureRefTest, ChainRemoved) {
   // Creating a future chain should not prevent the futures from being deleted if the
   // entire chain is deleted
@@ -294,8 +350,7 @@ TEST(FutureRefTest, ChainRemoved) {
   std::weak_ptr<FutureImpl> ref2;
   {
     auto fut = Future<>::Make();
-    auto fut2 =
-        fut.Then([](const Result<detail::Empty>& status) { return Status::OK(); });
+    auto fut2 = fut.Then([]() { return Status::OK(); });
     ref = fut.impl_;
     ref2 = fut2.impl_;
   }
@@ -304,7 +359,7 @@ TEST(FutureRefTest, ChainRemoved) {
 
   {
     auto fut = Future<>::Make();
-    auto fut2 = fut.Then([](const Result<detail::Empty>&) { return Future<>::Make(); });
+    auto fut2 = fut.Then([]() { return Future<>::Make(); });
     ref = fut.impl_;
     ref2 = fut2.impl_;
   }
@@ -319,7 +374,7 @@ TEST(FutureRefTest, TailRemoved) {
   bool side_effect_run = false;
   {
     ref = std::make_shared<Future<>>(Future<>::Make());
-    auto fut2 = ref->Then([&side_effect_run](const Result<detail::Empty>& status) {
+    auto fut2 = ref->Then([&side_effect_run]() {
       side_effect_run = true;
       return Status::OK();
     });
@@ -334,22 +389,20 @@ TEST(FutureRefTest, TailRemoved) {
 
 TEST(FutureRefTest, HeadRemoved) {
   // Keeping the tail of the future chain should not keep the entire chain alive.  If no
-  // one has a reference to the head then there is no need to keep it, nothing will finish
-  // it.  In theory the intermediate futures could be finished by some external process
-  // but that would be highly unusual and bad practice so in reality this would just be a
-  // reference to a future that will never complete which is ok.
+  // one has a reference to the head then the future is abandoned.  TODO (ARROW-12207):
+  // detect abandonment.
   std::weak_ptr<FutureImpl> ref;
   std::shared_ptr<Future<>> ref2;
   {
     auto fut = std::make_shared<Future<>>(Future<>::Make());
     ref = fut->impl_;
-    ref2 = std::make_shared<Future<>>(fut->Then([](...) {}));
+    ref2 = std::make_shared<Future<>>(fut->Then([]() {}));
   }
   ASSERT_TRUE(ref.expired());
 
   {
     auto fut = Future<>::Make();
-    ref2 = std::make_shared<Future<>>(fut.Then([&](...) {
+    ref2 = std::make_shared<Future<>>(fut.Then([&]() {
       auto intermediate = Future<>::Make();
       ref = intermediate.impl_;
       return intermediate;
@@ -359,8 +412,13 @@ TEST(FutureRefTest, HeadRemoved) {
   ASSERT_TRUE(ref.expired());
 }
 
-TEST(FutureTest, StressCallback) {
-  for (unsigned int n = 0; n < 1000; n++) {
+TEST(FutureStressTest, Callback) {
+#ifdef ARROW_VALGRIND
+  const int NITERS = 2;
+#else
+  const int NITERS = 1000;
+#endif
+  for (unsigned int n = 0; n < NITERS; n++) {
     auto fut = Future<>::Make();
     std::atomic<unsigned int> count_finished_immediately(0);
     std::atomic<unsigned int> count_finished_deferred(0);
@@ -371,7 +429,8 @@ TEST(FutureTest, StressCallback) {
       auto test_thread = std::this_thread::get_id();
       while (!finished.load()) {
         fut.AddCallback([&test_thread, &count_finished_immediately,
-                         &count_finished_deferred](const Result<detail::Empty>& result) {
+                         &count_finished_deferred](const Status& status) {
+          ARROW_EXPECT_OK(status);
           if (std::this_thread::get_id() == test_thread) {
             count_finished_immediately++;
           } else {
@@ -379,6 +438,11 @@ TEST(FutureTest, StressCallback) {
           }
         });
         callbacks_added++;
+        if (callbacks_added.load() > 10000) {
+          // If we've added many callbacks already and the main thread hasn't noticed yet,
+          // help it a bit (this seems especially useful in Valgrind).
+          SleepABit();
+        }
       }
     });
 
@@ -404,6 +468,62 @@ TEST(FutureTest, StressCallback) {
   }
 }
 
+TEST(FutureStressTest, TryAddCallback) {
+  for (unsigned int n = 0; n < 1; n++) {
+    auto fut = Future<>::Make();
+    std::atomic<unsigned int> callbacks_added(0);
+    std::atomic<bool> finished(false);
+    std::mutex mutex;
+    std::condition_variable cv;
+    std::thread::id callback_adder_thread_id;
+
+    std::thread callback_adder([&] {
+      callback_adder_thread_id = std::this_thread::get_id();
+      std::function<void(const Status&)> callback =
+          [&callback_adder_thread_id](const Status& st) {
+            ARROW_EXPECT_OK(st);
+            if (std::this_thread::get_id() == callback_adder_thread_id) {
+              FAIL() << "TryAddCallback allowed a callback to be run synchronously";
+            }
+          };
+      std::function<std::function<void(const Status&)>()> callback_factory =
+          [&callback]() { return callback; };
+      while (true) {
+        auto callback_added = fut.TryAddCallback(callback_factory);
+        if (callback_added) {
+          callbacks_added++;
+          if (callbacks_added.load() > 10000) {
+            // If we've added many callbacks already and the main thread hasn't
+            // noticed yet, help it a bit (this seems especially useful in Valgrind).
+            SleepABit();
+          }
+        } else {
+          break;
+        }
+      }
+      {
+        std::lock_guard<std::mutex> lg(mutex);
+        finished.store(true);
+      }
+      cv.notify_one();
+    });
+
+    while (callbacks_added.load() == 0) {
+      // Spin until the callback_adder has started running
+    }
+
+    fut.MarkFinished();
+
+    std::unique_lock<std::mutex> lk(mutex);
+    cv.wait_for(lk, std::chrono::duration<double>(0.5),
+                [&finished] { return finished.load(); });
+    lk.unlock();
+
+    ASSERT_TRUE(finished);
+    callback_adder.join();
+  }
+}
+
 TEST(FutureCompletionTest, Void) {
   {
     // Simple callback
@@ -418,7 +538,7 @@ TEST(FutureCompletionTest, Void) {
   {
     // Propagate failure by returning it from on_failure
     auto fut = Future<int>::Make();
-    auto fut2 = fut.Then([](...) {}, [](const Status& s) { return s; });
+    auto fut2 = fut.Then([](const int&) {}, [](const Status& s) { return s; });
     fut.MarkFinished(Status::IOError("xxx"));
     AssertFailed(fut2);
     ASSERT_TRUE(fut2.status().IsIOError());
@@ -426,7 +546,7 @@ TEST(FutureCompletionTest, Void) {
   {
     // From void
     auto fut = Future<>::Make();
-    auto fut2 = fut.Then([](const Result<detail::Empty>&) {});
+    auto fut2 = fut.Then([]() {});
     fut.MarkFinished();
     AssertSuccessful(fut2);
   }
@@ -434,9 +554,9 @@ TEST(FutureCompletionTest, Void) {
     // Propagate failure by not having on_failure
     auto fut = Future<>::Make();
     auto cb_was_run = false;
-    auto fut2 = fut.Then([&cb_was_run](const Result<detail::Empty>& res) {
+    auto fut2 = fut.Then([&cb_was_run]() {
       cb_was_run = true;
-      return res;
+      return Status::OK();
     });
     fut.MarkFinished(Status::IOError("xxx"));
     AssertFailed(fut2);
@@ -446,7 +566,7 @@ TEST(FutureCompletionTest, Void) {
     // Swallow failure by catching in on_failure
     auto fut = Future<>::Make();
     Status status_seen = Status::OK();
-    auto fut2 = fut.Then([](...) {},
+    auto fut2 = fut.Then([]() {},
                          [&status_seen](const Status& s) {
                            status_seen = s;
                            return Status::OK();
@@ -503,7 +623,7 @@ TEST(FutureCompletionTest, NonVoid) {
   {
     // From void
     auto fut = Future<>::Make();
-    auto fut2 = fut.Then([](...) { return 42; });
+    auto fut2 = fut.Then([]() { return 42; });
     fut.MarkFinished();
     AssertSuccessful(fut2);
     auto result = *fut2.result();
@@ -579,7 +699,7 @@ TEST(FutureCompletionTest, FutureNonVoid) {
     // From void
     auto fut = Future<>::Make();
     auto innerFut = Future<std::string>::Make();
-    auto fut2 = fut.Then([&innerFut](...) { return innerFut; });
+    auto fut2 = fut.Then([&innerFut]() { return innerFut; });
     fut.MarkFinished();
     AssertNotFinished(fut2);
     innerFut.MarkFinished("hello");
@@ -593,7 +713,7 @@ TEST(FutureCompletionTest, FutureNonVoid) {
     auto innerFut = Future<std::string>::Make();
     auto was_cb_run = false;
     auto fut2 = fut.Then(
-        [&innerFut, &was_cb_run](...) {
+        [&innerFut, &was_cb_run]() {
           was_cb_run = true;
           return Result<Future<std::string>>(innerFut);
         },
@@ -652,7 +772,7 @@ TEST(FutureCompletionTest, Status) {
   {
     // From void
     auto fut = Future<>::Make();
-    auto fut2 = fut.Then([](const Result<detail::Empty>& res) { return Status::OK(); });
+    auto fut2 = fut.Then([]() { return Status::OK(); });
     fut.MarkFinished();
     AssertSuccessful(fut2);
   }
@@ -661,7 +781,7 @@ TEST(FutureCompletionTest, Status) {
     auto fut = Future<>::Make();
     auto was_cb_run = false;
     auto fut2 = fut.Then(
-        [&was_cb_run](const Result<detail::Empty>& res) {
+        [&was_cb_run]() {
           was_cb_run = true;
           return Status::OK();
         },
@@ -723,7 +843,7 @@ TEST(FutureCompletionTest, Result) {
   {
     // From void
     auto fut = Future<>::Make();
-    auto fut2 = fut.Then([](...) { return Result<int>(42); });
+    auto fut2 = fut.Then([]() { return Result<int>(42); });
     fut.MarkFinished();
     AssertSuccessful(fut2);
     auto result = *fut2.result();
@@ -734,7 +854,7 @@ TEST(FutureCompletionTest, Result) {
     auto fut = Future<>::Make();
     auto was_cb_run = false;
     auto fut2 = fut.Then(
-        [&was_cb_run](...) {
+        [&was_cb_run]() {
           was_cb_run = true;
           return Result<int>(42);
         },
@@ -815,7 +935,7 @@ TEST(FutureCompletionTest, FutureVoid) {
     // From void
     auto fut = Future<>::Make();
     auto innerFut = Future<>::Make();
-    auto fut2 = fut.Then([&innerFut](...) { return innerFut; });
+    auto fut2 = fut.Then([&innerFut]() { return innerFut; });
     fut.MarkFinished();
     AssertNotFinished(fut2);
     innerFut.MarkFinished();
@@ -825,149 +945,371 @@ TEST(FutureCompletionTest, FutureVoid) {
     // Propagate failure by returning failure
     auto fut = Future<>::Make();
     auto innerFut = Future<>::Make();
-    auto fut2 = fut.Then([&innerFut](...) { return innerFut; },
+    auto fut2 = fut.Then([&innerFut]() { return innerFut; },
                          [](const Status& s) { return Future<>::MakeFinished(s); });
     fut.MarkFinished(Status::IOError("xxx"));
     AssertFailed(fut2);
   }
 }
 
-TEST(FutureSyncTest, Foo) {
-  {
-    // MarkFinished(Foo)
-    auto fut = Future<Foo>::Make();
-    AssertNotFinished(fut);
-    fut.MarkFinished(Foo(42));
-    AssertSuccessful(fut);
-    auto res = fut.result();
-    ASSERT_OK(res);
-    Foo value = *res;
-    ASSERT_EQ(value, 42);
-    ASSERT_OK(fut.status());
-    res = std::move(fut).result();
-    ASSERT_OK(res);
-    value = *res;
-    ASSERT_EQ(value, 42);
-  }
-  {
-    // MarkFinished(Result<Foo>)
-    auto fut = Future<Foo>::Make();
-    AssertNotFinished(fut);
-    fut.MarkFinished(Result<Foo>(Foo(42)));
-    AssertSuccessful(fut);
-    ASSERT_OK_AND_ASSIGN(Foo value, fut.result());
-    ASSERT_EQ(value, 42);
-  }
-  {
-    // MarkFinished(failed Result<Foo>)
-    auto fut = Future<Foo>::Make();
-    AssertNotFinished(fut);
-    fut.MarkFinished(Result<Foo>(Status::IOError("xxx")));
-    AssertFailed(fut);
-    ASSERT_RAISES(IOError, fut.result());
-  }
-}
+class FutureSchedulingTest : public testing::Test {
+ public:
+  internal::Executor* executor() { return mock_executor.get(); }
 
-TEST(FutureSyncTest, MoveOnlyDataType) {
-  {
-    // MarkFinished(MoveOnlyDataType)
-    auto fut = Future<MoveOnlyDataType>::Make();
-    AssertNotFinished(fut);
-    fut.MarkFinished(MoveOnlyDataType(42));
-    AssertSuccessful(fut);
-    const auto& res = fut.result();
-    ASSERT_TRUE(res.ok());
-    ASSERT_EQ(*res, 42);
-    ASSERT_OK_AND_ASSIGN(MoveOnlyDataType value, std::move(fut).result());
-    ASSERT_EQ(value, 42);
-  }
-  {
-    // MarkFinished(Result<MoveOnlyDataType>)
-    auto fut = Future<MoveOnlyDataType>::Make();
-    AssertNotFinished(fut);
-    fut.MarkFinished(Result<MoveOnlyDataType>(MoveOnlyDataType(43)));
-    AssertSuccessful(fut);
-    ASSERT_OK_AND_ASSIGN(MoveOnlyDataType value, std::move(fut).result());
-    ASSERT_EQ(value, 43);
-  }
-  {
-    // MarkFinished(failed Result<MoveOnlyDataType>)
-    auto fut = Future<MoveOnlyDataType>::Make();
-    AssertNotFinished(fut);
-    fut.MarkFinished(Result<MoveOnlyDataType>(Status::IOError("xxx")));
-    AssertFailed(fut);
-    ASSERT_RAISES(IOError, fut.status());
-    const auto& res = fut.result();
-    ASSERT_TRUE(res.status().IsIOError());
-    ASSERT_RAISES(IOError, std::move(fut).result());
-  }
-}
+  int spawn_count() { return static_cast<int>(mock_executor->captured_tasks.size()); }
 
-TEST(FutureSyncTest, Empty) {
+  void AssertRunSynchronously(const std::vector<int>& ids) { AssertIds(ids, true); }
+
+  void AssertScheduled(const std::vector<int>& ids) { AssertIds(ids, false); }
+
+  void AssertIds(const std::vector<int>& ids, bool should_be_synchronous) {
+    for (auto id : ids) {
+      ASSERT_EQ(should_be_synchronous, callbacks_run_synchronously.find(id) !=
+                                           callbacks_run_synchronously.end());
+    }
+  }
+
+  std::function<void(const Status&)> callback(int id) {
+    return [this, id](const Status&) { callbacks_run_synchronously.insert(id); };
+  }
+
+  std::shared_ptr<DelayedExecutor> mock_executor = std::make_shared<DelayedExecutor>();
+  std::unordered_set<int> callbacks_run_synchronously;
+};
+
+TEST_F(FutureSchedulingTest, ScheduleNever) {
+  CallbackOptions options;
+  options.should_schedule = ShouldSchedule::Never;
+  options.executor = executor();
+  // Successful future
   {
-    // MarkFinished()
     auto fut = Future<>::Make();
-    AssertNotFinished(fut);
+    fut.AddCallback(callback(1), options);
     fut.MarkFinished();
-    AssertSuccessful(fut);
+    fut.AddCallback(callback(2), options);
+    ASSERT_EQ(0, spawn_count());
+    AssertRunSynchronously({1, 2});
   }
+  // Failing future
   {
-    // MakeFinished()
-    auto fut = Future<>::MakeFinished();
-    AssertSuccessful(fut);
-    auto res = fut.result();
-    ASSERT_OK(res);
-    res = std::move(fut.result());
-    ASSERT_OK(res);
-  }
-  {
-    // MarkFinished(Status)
     auto fut = Future<>::Make();
-    AssertNotFinished(fut);
-    fut.MarkFinished(Status::OK());
-    AssertSuccessful(fut);
-  }
-  {
-    // MakeFinished(Status)
-    auto fut = Future<>::MakeFinished(Status::OK());
-    AssertSuccessful(fut);
-    fut = Future<>::MakeFinished(Status::IOError("xxx"));
-    AssertFailed(fut);
-  }
-  {
-    // MarkFinished(Status)
-    auto fut = Future<>::Make();
-    AssertNotFinished(fut);
-    fut.MarkFinished(Status::IOError("xxx"));
-    AssertFailed(fut);
-    ASSERT_RAISES(IOError, fut.status());
+    fut.AddCallback(callback(3), options);
+    fut.MarkFinished(Status::Invalid("XYZ"));
+    fut.AddCallback(callback(4), options);
+    ASSERT_EQ(0, spawn_count());
+    AssertRunSynchronously({3, 4});
   }
 }
 
-TEST(FutureSyncTest, GetStatusFuture) {
+TEST_F(FutureSchedulingTest, ScheduleAlways) {
+  CallbackOptions options;
+  options.should_schedule = ShouldSchedule::Always;
+  options.executor = executor();
+  // Successful future
   {
-    auto fut = Future<MoveOnlyDataType>::Make();
-    Future<> status_future(fut);
-
-    AssertNotFinished(fut);
-    AssertNotFinished(status_future);
-
-    fut.MarkFinished(MoveOnlyDataType(42));
-    AssertSuccessful(fut);
-    AssertSuccessful(status_future);
-    ASSERT_EQ(&fut.status(), &status_future.status());
+    auto fut = Future<>::Make();
+    fut.AddCallback(callback(1), options);
+    fut.MarkFinished();
+    fut.AddCallback(callback(2), options);
+    ASSERT_EQ(2, spawn_count());
+    AssertScheduled({1, 2});
   }
+  // Failing future
   {
-    auto fut = Future<MoveOnlyDataType>::Make();
-    Future<> status_future(fut);
+    auto fut = Future<>::Make();
+    fut.AddCallback(callback(3), options);
+    fut.MarkFinished(Status::Invalid("XYZ"));
+    fut.AddCallback(callback(4), options);
+    ASSERT_EQ(4, spawn_count());
+    AssertScheduled({3, 4});
+  }
+}
 
-    AssertNotFinished(fut);
-    AssertNotFinished(status_future);
+TEST_F(FutureSchedulingTest, ScheduleIfUnfinished) {
+  CallbackOptions options;
+  options.should_schedule = ShouldSchedule::IfUnfinished;
+  options.executor = executor();
+  // Successful future
+  {
+    auto fut = Future<>::Make();
+    fut.AddCallback(callback(1), options);
+    fut.MarkFinished();
+    fut.AddCallback(callback(2), options);
+    ASSERT_EQ(1, spawn_count());
+    AssertRunSynchronously({2});
+    AssertScheduled({1});
+  }
+  // Failing future
+  {
+    auto fut = Future<>::Make();
+    fut.AddCallback(callback(3), options);
+    fut.MarkFinished(Status::Invalid("XYZ"));
+    fut.AddCallback(callback(4), options);
+    ASSERT_EQ(2, spawn_count());
+    AssertRunSynchronously({4});
+    AssertScheduled({3});
+  }
+}
 
-    fut.MarkFinished(Status::IOError("xxx"));
-    AssertFailed(fut);
-    AssertFailed(status_future);
-    ASSERT_EQ(&fut.status(), &status_future.status());
+TEST_F(FutureSchedulingTest, ScheduleAlwaysKeepsFutureAliveUntilCallback) {
+  CallbackOptions options;
+  options.should_schedule = ShouldSchedule::Always;
+  options.executor = executor();
+  {
+    auto fut = Future<int>::Make();
+    fut.AddCallback([](const Result<int> val) { ASSERT_EQ(7, *val); }, options);
+    fut.MarkFinished(7);
+  }
+  std::move(mock_executor->captured_tasks[0])();
+}
+
+TEST(FutureAllTest, Empty) {
+  auto combined = arrow::All(std::vector<Future<int>>{});
+  auto after_assert = combined.Then(
+      [](std::vector<Result<int>> results) { ASSERT_EQ(0, results.size()); });
+  AssertSuccessful(after_assert);
+}
+
+TEST(FutureAllTest, Simple) {
+  auto f1 = Future<int>::Make();
+  auto f2 = Future<int>::Make();
+  std::vector<Future<int>> futures = {f1, f2};
+  auto combined = arrow::All(futures);
+
+  auto after_assert = combined.Then([](std::vector<Result<int>> results) {
+    ASSERT_EQ(2, results.size());
+    ASSERT_EQ(1, *results[0]);
+    ASSERT_EQ(2, *results[1]);
+  });
+
+  // Finish in reverse order, results should still be delivered in proper order
+  AssertNotFinished(after_assert);
+  f2.MarkFinished(2);
+  AssertNotFinished(after_assert);
+  f1.MarkFinished(1);
+  AssertSuccessful(after_assert);
+}
+
+TEST(FutureAllTest, Failure) {
+  auto f1 = Future<int>::Make();
+  auto f2 = Future<int>::Make();
+  auto f3 = Future<int>::Make();
+  std::vector<Future<int>> futures = {f1, f2, f3};
+  auto combined = arrow::All(futures);
+
+  auto after_assert = combined.Then([](std::vector<Result<int>> results) {
+    ASSERT_EQ(3, results.size());
+    ASSERT_EQ(1, *results[0]);
+    ASSERT_EQ(Status::IOError("XYZ"), results[1].status());
+    ASSERT_EQ(3, *results[2]);
+  });
+
+  f1.MarkFinished(1);
+  f2.MarkFinished(Status::IOError("XYZ"));
+  f3.MarkFinished(3);
+
+  AssertFinished(after_assert);
+}
+
+TEST(FutureAllCompleteTest, Empty) {
+  Future<> combined = AllComplete(std::vector<Future<>>{});
+  AssertSuccessful(combined);
+}
+
+TEST(FutureAllCompleteTest, Simple) {
+  auto f1 = Future<int>::Make();
+  auto f2 = Future<int>::Make();
+  std::vector<Future<>> futures = {Future<>(f1), Future<>(f2)};
+  auto combined = AllComplete(futures);
+  AssertNotFinished(combined);
+  f2.MarkFinished(2);
+  AssertNotFinished(combined);
+  f1.MarkFinished(1);
+  AssertSuccessful(combined);
+}
+
+TEST(FutureAllCompleteTest, Failure) {
+  auto f1 = Future<int>::Make();
+  auto f2 = Future<int>::Make();
+  auto f3 = Future<int>::Make();
+  std::vector<Future<>> futures = {Future<>(f1), Future<>(f2), Future<>(f3)};
+  auto combined = AllComplete(futures);
+  AssertNotFinished(combined);
+  f1.MarkFinished(1);
+  AssertNotFinished(combined);
+  f2.MarkFinished(Status::IOError("XYZ"));
+  AssertFinished(combined);
+  f3.MarkFinished(3);
+  AssertFinished(combined);
+  ASSERT_EQ(Status::IOError("XYZ"), combined.status());
+}
+
+TEST(FutureLoopTest, Sync) {
+  struct {
+    int i = 0;
+    Future<int> Get() { return Future<int>::MakeFinished(i++); }
+  } IntSource;
+
+  bool do_fail = false;
+  std::vector<int> ints;
+  auto loop_body = [&] {
+    return IntSource.Get().Then([&](int i) -> Result<ControlFlow<int>> {
+      if (do_fail && i == 3) {
+        return Status::IOError("xxx");
+      }
+
+      if (i == 5) {
+        int sum = 0;
+        for (int i : ints) sum += i;
+        return Break(sum);
+      }
+
+      ints.push_back(i);
+      return Continue();
+    });
+  };
+
+  {
+    auto sum_fut = Loop(loop_body);
+    AssertSuccessful(sum_fut);
+
+    ASSERT_OK_AND_ASSIGN(auto sum, sum_fut.result());
+    ASSERT_EQ(sum, 0 + 1 + 2 + 3 + 4);
+  }
+
+  {
+    do_fail = true;
+    IntSource.i = 0;
+    auto sum_fut = Loop(loop_body);
+    AssertFailed(sum_fut);
+    ASSERT_RAISES(IOError, sum_fut.result());
+  }
+}
+
+TEST(FutureLoopTest, EmptyBreakValue) {
+  Future<> none_fut =
+      Loop([&] { return Future<>::MakeFinished().Then([&]() { return Break(); }); });
+  AssertSuccessful(none_fut);
+}
+
+TEST(FutureLoopTest, EmptyLoop) {
+  auto loop_body = []() -> Future<ControlFlow<int>> {
+    return Future<ControlFlow<int>>::MakeFinished(Break(0));
+  };
+  auto loop_fut = Loop(loop_body);
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto loop_res, loop_fut);
+  ASSERT_EQ(loop_res, 0);
+}
+
+// TODO - Test provided by Ben but I don't understand how it can pass legitimately.
+// Any future result will be passed by reference to the callbacks (as there can be
+// multiple callbacks).  In the Loop construct it takes the break and forwards it
+// on to the outer future.  Since there is no way to move a reference this can only
+// be done by copying.
+//
+// In theory it should be safe since Loop is guaranteed to be the last callback added
+// to the control future and so the value can be safely moved at that point.  However,
+// I'm unable to reproduce whatever trick you had in ControlFlow to make this work.
+// If we want to formalize this "last callback can steal" concept then we could add
+// a "last callback" to Future which gets called with an rvalue instead of an lvalue
+// reference but that seems overly complicated.
+//
+// Ben, can you recreate whatever trick you had in place before that allowed this to
+// pass?  Perhaps some kind of cast.  Worst case, I can move back to using
+// ControlFlow instead of std::optional
+//
+// TEST(FutureLoopTest, MoveOnlyBreakValue) {
+//   Future<MoveOnlyDataType> one_fut = Loop([&] {
+//     return Future<int>::MakeFinished(1).Then(
+//         [&](int i) { return Break(MoveOnlyDataType(i)); });
+//   });
+//   AssertSuccessful(one_fut);
+//   ASSERT_OK_AND_ASSIGN(auto one, std::move(one_fut).result());
+//   ASSERT_EQ(one, 1);
+// }
+
+TEST(FutureLoopTest, StackOverflow) {
+  // Looping over futures is normally a rather recursive task.  If the futures complete
+  // synchronously (because they are already finished) it could lead to a stack overflow
+  // if care is not taken.
+  int counter = 0;
+  auto loop_body = [&counter]() -> Future<ControlFlow<int>> {
+    while (counter < 1000000) {
+      counter++;
+      return Future<ControlFlow<int>>::MakeFinished(Continue());
+    }
+    return Future<ControlFlow<int>>::MakeFinished(Break(-1));
+  };
+  auto loop_fut = Loop(loop_body);
+  ASSERT_TRUE(loop_fut.Wait(0.1));
+}
+
+TEST(FutureLoopTest, AllowsBreakFutToBeDiscarded) {
+  int counter = 0;
+  auto loop_body = [&counter]() -> Future<ControlFlow<int>> {
+    while (counter < 10) {
+      counter++;
+      return Future<ControlFlow<int>>::MakeFinished(Continue());
+    }
+    return Future<ControlFlow<int>>::MakeFinished(Break(-1));
+  };
+  auto loop_fut = Loop(loop_body).Then([](const int&) { return Status::OK(); });
+  ASSERT_TRUE(loop_fut.Wait(0.1));
+}
+
+class MoveTrackingCallable {
+ public:
+  MoveTrackingCallable() {
+    // std::cout << "CONSTRUCT" << std::endl;
+  }
+  ~MoveTrackingCallable() {
+    valid_ = false;
+    // std::cout << "DESTRUCT" << std::endl;
+  }
+  MoveTrackingCallable(const MoveTrackingCallable& other) {
+    // std::cout << "COPY CONSTRUCT" << std::endl;
+  }
+  MoveTrackingCallable(MoveTrackingCallable&& other) {
+    other.valid_ = false;
+    // std::cout << "MOVE CONSTRUCT" << std::endl;
+  }
+  MoveTrackingCallable& operator=(const MoveTrackingCallable& other) {
+    // std::cout << "COPY ASSIGN" << std::endl;
+    return *this;
+  }
+  MoveTrackingCallable& operator=(MoveTrackingCallable&& other) {
+    other.valid_ = false;
+    // std::cout << "MOVE ASSIGN" << std::endl;
+    return *this;
+  }
+
+  Status operator()() {
+    // std::cout << "TRIGGER" << std::endl;
+    if (valid_) {
+      return Status::OK();
+    } else {
+      return Status::Invalid("Invalid callback triggered");
+    }
+  }
+
+ private:
+  bool valid_ = true;
+};
+
+TEST(FutureCompletionTest, ReuseCallback) {
+  auto fut = Future<>::Make();
+
+  Future<> continuation;
+  {
+    MoveTrackingCallable callback;
+    continuation = fut.Then(callback);
+  }
+
+  fut.MarkFinished();
+
+  ASSERT_TRUE(continuation.is_finished());
+  if (continuation.is_finished()) {
+    ASSERT_OK(continuation.status());
   }
 }
 
@@ -1080,7 +1422,11 @@ class FutureTestBase : public ::testing::Test {
   }
 
   void TestStressWait() {
+#ifdef ARROW_VALGRIND
+    const int N = 20;
+#else
     const int N = 2000;
+#endif
     MakeExecutor(N);
     const auto& futures = executor_->futures();
     const auto spans = RandomSequenceSpans(N);
@@ -1172,7 +1518,11 @@ class FutureTestBase : public ::testing::Test {
   }
 
   void TestStressWaitForAny() {
+#ifdef ARROW_VALGRIND
+    const int N = 5;
+#else
     const int N = 300;
+#endif
     MakeExecutor(N);
     const auto& futures = executor_->futures();
     const auto spans = RandomSequenceSpans(N);
@@ -1197,7 +1547,11 @@ class FutureTestBase : public ::testing::Test {
   }
 
   void TestStressWaitForAll() {
+#ifdef ARROW_VALGRIND
+    const int N = 5;
+#else
     const int N = 300;
+#endif
     MakeExecutor(N);
     const auto& futures = executor_->futures();
     const auto spans = RandomSequenceSpans(N);
@@ -1252,7 +1606,11 @@ class FutureTestBase : public ::testing::Test {
   }
 
   void TestStressAsCompleted() {
+#ifdef ARROW_VALGRIND
+    const int N = 10;
+#else
     const int N = 1000;
+#endif
     MakeExecutor(N);
 
     // Launch a worker thread that will finish random spans of futures,
@@ -1287,34 +1645,34 @@ class FutureTestBase : public ::testing::Test {
 };
 
 template <typename T>
-class FutureTest : public FutureTestBase<T> {};
+class FutureWaitTest : public FutureTestBase<T> {};
 
-using FutureTestTypes = ::testing::Types<int, Foo, MoveOnlyDataType>;
+using FutureWaitTestTypes = ::testing::Types<int, Foo, MoveOnlyDataType>;
 
-TYPED_TEST_SUITE(FutureTest, FutureTestTypes);
+TYPED_TEST_SUITE(FutureWaitTest, FutureWaitTestTypes);
 
-TYPED_TEST(FutureTest, BasicWait) { this->TestBasicWait(); }
+TYPED_TEST(FutureWaitTest, BasicWait) { this->TestBasicWait(); }
 
-TYPED_TEST(FutureTest, TimedWait) { this->TestTimedWait(); }
+TYPED_TEST(FutureWaitTest, TimedWait) { this->TestTimedWait(); }
 
-TYPED_TEST(FutureTest, StressWait) { this->TestStressWait(); }
+TYPED_TEST(FutureWaitTest, StressWait) { this->TestStressWait(); }
 
-TYPED_TEST(FutureTest, BasicWaitForAny) { this->TestBasicWaitForAny(); }
+TYPED_TEST(FutureWaitTest, BasicWaitForAny) { this->TestBasicWaitForAny(); }
 
-TYPED_TEST(FutureTest, TimedWaitForAny) { this->TestTimedWaitForAny(); }
+TYPED_TEST(FutureWaitTest, TimedWaitForAny) { this->TestTimedWaitForAny(); }
 
-TYPED_TEST(FutureTest, StressWaitForAny) { this->TestStressWaitForAny(); }
+TYPED_TEST(FutureWaitTest, StressWaitForAny) { this->TestStressWaitForAny(); }
 
-TYPED_TEST(FutureTest, BasicWaitForAll) { this->TestBasicWaitForAll(); }
+TYPED_TEST(FutureWaitTest, BasicWaitForAll) { this->TestBasicWaitForAll(); }
 
-TYPED_TEST(FutureTest, TimedWaitForAll) { this->TestTimedWaitForAll(); }
+TYPED_TEST(FutureWaitTest, TimedWaitForAll) { this->TestTimedWaitForAll(); }
 
-TYPED_TEST(FutureTest, StressWaitForAll) { this->TestStressWaitForAll(); }
+TYPED_TEST(FutureWaitTest, StressWaitForAll) { this->TestStressWaitForAll(); }
 
 template <typename T>
 class FutureIteratorTest : public FutureTestBase<T> {};
 
-using FutureIteratorTestTypes = ::testing::Types<Foo, MoveOnlyDataType>;
+using FutureIteratorTestTypes = ::testing::Types<Foo>;
 
 TYPED_TEST_SUITE(FutureIteratorTest, FutureIteratorTestTypes);
 
@@ -1346,7 +1704,5 @@ TEST(FnOnceTest, MoveOnlyDataType) {
   ASSERT_EQ(i0.moves, 0);
   ASSERT_EQ(i1.moves, 0);
 }
-
 }  // namespace internal
-
 }  // namespace arrow

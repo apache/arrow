@@ -40,7 +40,7 @@ export function truncateBitmap(offset: number, length: number, bitmap: Uint8Arra
         // If the offset is a multiple of 8 bits, it's safe to slice the bitmap
         bytes.set(offset % 8 === 0 ? bitmap.subarray(offset >> 3) :
             // Otherwise iterate each bit from the offset and return a new one
-            packBools(iterateBits(bitmap, offset, length, null, getBool)).subarray(0, alignedSize));
+            packBools(new BitIterator(bitmap, offset, length, null, getBool)).subarray(0, alignedSize));
         return bytes;
     }
     return bitmap;
@@ -48,7 +48,7 @@ export function truncateBitmap(offset: number, length: number, bitmap: Uint8Arra
 
 /** @ignore */
 export function packBools(values: Iterable<any>) {
-    let xs: number[] = [];
+    const xs: number[] = [];
     let i = 0, bit = 0, byte = 0;
     for (const value of values) {
         value && (byte |= 1 << bit);
@@ -58,22 +58,46 @@ export function packBools(values: Iterable<any>) {
         }
     }
     if (i === 0 || bit > 0) { xs[i++] = byte; }
-    let b = new Uint8Array((xs.length + 7) & ~7);
+    const b = new Uint8Array((xs.length + 7) & ~7);
     b.set(xs);
     return b;
 }
 
 /** @ignore */
-export function* iterateBits<T>(bytes: Uint8Array, begin: number, length: number, context: any,
-                                get: (context: any, index: number, byte: number, bit: number) => T) {
-    let bit = begin % 8;
-    let byteIndex = begin >> 3;
-    let index = 0, remaining = length;
-    for (; remaining > 0; bit = 0) {
-        let byte = bytes[byteIndex++];
-        do {
-            yield get(context, index++, byte, bit);
-        } while (--remaining > 0 && ++bit < 8);
+export class BitIterator<T> implements IterableIterator<T> {
+    bit: number;
+    byte: number;
+    byteIndex: number;
+    index: number;
+
+    constructor(
+        private bytes: Uint8Array,
+        begin: number,
+        private length: number,
+        private context: any,
+        private get: (context: any, index: number, byte: number, bit: number) => T
+    ) {
+        this.bit = begin % 8;
+        this.byteIndex = begin >> 3;
+        this.byte = bytes[this.byteIndex++];
+        this.index = 0;
+    }
+
+    next(): IteratorResult<T> {
+        if (this.index < this.length) {
+            if (this.bit === 8) {
+                this.bit = 0;
+                this.byte = this.bytes[this.byteIndex++];
+            }
+            return {
+                value: this.get(this.context, this.index++, this.byte, this.bit++)
+            };
+        }
+        return { done: true, value: null };
+    }
+
+    [Symbol.iterator]() {
+        return this;
     }
 }
 
@@ -89,7 +113,7 @@ export function popcnt_bit_range(data: Uint8Array, lhs: number, rhs: number): nu
     // If the bit range is less than one byte, sum the 1 bits in the bit range
     if (rhs - lhs < 8) {
         let sum = 0;
-        for (const bit of iterateBits(data, lhs, rhs - lhs, data, getBit)) {
+        for (const bit of new BitIterator(data, lhs, rhs - lhs, data, getBit)) {
             sum += bit;
         }
         return sum;

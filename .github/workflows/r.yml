@@ -20,29 +20,31 @@ name: R
 on:
   push:
     paths:
-      - '.github/workflows/r.yml'
-      - 'ci/scripts/r_*.sh'
-      - 'ci/scripts/cpp_*.sh'
-      - 'ci/scripts/PKGBUILD'
-      - 'ci/etc/rprofile'
-      - 'ci/docker/**'
-      - 'cpp/**'
-      - 'r/**'
+      - ".github/workflows/r.yml"
+      - "ci/scripts/r_*.sh"
+      - "ci/scripts/cpp_*.sh"
+      - "ci/scripts/PKGBUILD"
+      - "ci/etc/rprofile"
+      - "ci/docker/**"
+      - "cpp/**"
+      - "r/**"
   pull_request:
     paths:
-      - '.github/workflows/r.yml'
-      - 'ci/scripts/r_*.sh'
-      - 'ci/scripts/cpp_*.sh'
-      - 'ci/scripts/PKGBUILD'
-      - 'ci/etc/rprofile'
-      - 'ci/docker/**'
-      - 'cpp/**'
-      - 'r/**'
+      - ".github/workflows/r.yml"
+      - "ci/scripts/r_*.sh"
+      - "ci/scripts/cpp_*.sh"
+      - "ci/scripts/PKGBUILD"
+      - "ci/etc/rprofile"
+      - "ci/docker/**"
+      - "cpp/**"
+      - "r/**"
+
+concurrency:
+  group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}
+  cancel-in-progress: true
 
 env:
-  DOCKER_BUILDKIT: 0
   DOCKER_VOLUME_PREFIX: ".docker/"
-  COMPOSE_DOCKER_CLI_BUILD: 1
   ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
   ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
 
@@ -51,11 +53,12 @@ jobs:
     name: AMD64 Ubuntu ${{ matrix.ubuntu }} R ${{ matrix.r }}
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        r: ["3.6"]
-        ubuntu: [18.04]
+        r: ["4.1"]
+        ubuntu: [20.04]
     env:
       R: ${{ matrix.r }}
       UBUNTU: ${{ matrix.ubuntu }}
@@ -69,11 +72,13 @@ jobs:
       - name: Free Up Disk Space
         run: ci/scripts/util_cleanup.sh
       - name: Cache Docker Volumes
-        uses: actions/cache@v1
+        uses: actions/cache@v2
         with:
           path: .docker
           key: ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-${{ hashFiles('cpp/**') }}
           restore-keys: ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-
+      - name: Check pkgdown reference sections
+        run: ci/scripts/r_pkgdown_check.sh
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
@@ -88,6 +93,15 @@ jobs:
       - name: Dump install logs
         run: cat r/check/arrow.Rcheck/00install.out
         if: always()
+      - name: Dump test logs
+        run: cat r/check/arrow.Rcheck/tests/testthat.Rout*
+        if: always()
+      - name: Save the test output
+        if: always()
+        uses: actions/upload-artifact@v2
+        with:
+          name: test-output
+          path: r/check/arrow.Rcheck/tests/testthat.Rout*
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
@@ -97,12 +111,13 @@ jobs:
     name: "${{ matrix.config.org }}/${{ matrix.config.image }}:${{ matrix.config.tag }}"
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
         config:
-          - {org: 'rstudio', image: 'r-base', tag: '4.0-centos7'}
-          - {org: 'rhub', image: 'debian-gcc-devel', tag: 'latest'}
+          - { org: "rstudio", image: "r-base", tag: "4.0-centos7" }
+          - { org: "rhub", image: "debian-gcc-devel", tag: "latest" }
     env:
       R_ORG: ${{ matrix.config.org }}
       R_IMAGE: ${{ matrix.config.image }}
@@ -117,7 +132,7 @@ jobs:
       - name: Free Up Disk Space
         run: ci/scripts/util_cleanup.sh
       - name: Cache Docker Volumes
-        uses: actions/cache@v1
+        uses: actions/cache@v2
         with:
           path: .docker
           key: ${{ matrix.config.image }}-r-${{ hashFiles('cpp/**') }}
@@ -136,6 +151,15 @@ jobs:
       - name: Dump install logs
         run: cat r/check/arrow.Rcheck/00install.out
         if: always()
+      - name: Dump test logs
+        run: cat r/check/arrow.Rcheck/tests/testthat.Rout*
+        if: always()
+      - name: Save the test output
+        if: always()
+        uses: actions/upload-artifact@v2
+        with:
+          name: test-output
+          path: r/check/arrow.Rcheck/tests/testthat.Rout*
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
@@ -145,13 +169,14 @@ jobs:
     name: AMD64 Windows RTools ${{ matrix.rtools }}
     runs-on: windows-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        rtools: [35, 40]
+        rtools: [40]
     env:
       TEST_R_WITH_ARROW: "TRUE"
-      ARROW_R_CXXFLAGS: '-Werror'
+      ARROW_R_CXXFLAGS: "-Werror"
       _R_CHECK_TESTS_NLINES_: 0
     steps:
       - run: git config --global core.autocrlf false
@@ -184,18 +209,10 @@ jobs:
           path: ccache
           key: r-${{ matrix.rtools }}-ccache-mingw-${{ hashFiles('cpp/**') }}
           restore-keys: r-${{ matrix.rtools }}-ccache-mingw-
-      # We use the makepkg-mingw setup that is included in rtools40 even when
-      # we use the rtools35 compilers, so we always install R 4.0/Rtools40
       - uses: r-lib/actions/setup-r@master
         with:
           rtools-version: 40
-          r-version: '4.0'
-          Ncpus: 2
-      - uses: r-lib/actions/setup-r@master
-        if: ${{ matrix.rtools == 35 }}
-        with:
-          rtools-version: 35
-          r-version: '3.6'
+          r-version: "4.1"
           Ncpus: 2
       - name: Build Arrow C++
         shell: bash
@@ -223,14 +240,10 @@ jobs:
             build_args = '--no-build-vignettes',
             args = c('--no-manual', '--as-cran', '--ignore-vignettes', '--run-donttest'),
             error_on = 'warning',
-            check_dir = 'check'
+            check_dir = 'check',
+            timeout = 3600
           )
       - name: Dump install logs
         shell: cmd
         run: cat check/arrow.Rcheck/00install.out
         if: always()
-      # We can remove this when we drop support for Rtools 3.5.
-      - name: Ensure using system tar in actions/cache
-        run: |
-          Write-Output "${Env:windir}\System32" | `
-            Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append

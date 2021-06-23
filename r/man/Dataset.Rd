@@ -45,7 +45,8 @@ as described above.
 takes the following arguments:
 \itemize{
 \item \code{filesystem}: A \link{FileSystem}
-\item \code{selector}: A \link{FileSelector}
+\item \code{selector}: Either a \link{FileSelector} or \code{NULL}
+\item \code{paths}: Either a character vector of file paths or \code{NULL}
 \item \code{format}: A \link{FileFormat}
 \item \code{partitioning}: Either \code{Partitioning}, \code{PartitioningFactory}, or \code{NULL}
 }

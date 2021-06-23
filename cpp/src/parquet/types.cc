@@ -69,11 +69,6 @@ std::unique_ptr<Codec> GetCodec(Compression::type codec, int compression_level) 
     throw ParquetException(ss.str());
   }
 
-  if (codec == Compression::LZ4) {
-    // For compatibility with existing source code
-    codec = Compression::LZ4_HADOOP;
-  }
-
   PARQUET_ASSIGN_OR_THROW(result, Codec::Create(codec, compression_level));
   return result;
 }
@@ -366,13 +361,14 @@ std::shared_ptr<const LogicalType> LogicalType::FromConvertedType(
       return JSONLogicalType::Make();
     case ConvertedType::BSON:
       return BSONLogicalType::Make();
+    case ConvertedType::NA:
+      return NullLogicalType::Make();
     case ConvertedType::NONE:
       return NoLogicalType::Make();
-    case ConvertedType::NA:
     case ConvertedType::UNDEFINED:
-      return UnknownLogicalType::Make();
+      return UndefinedLogicalType::Make();
   }
-  return UnknownLogicalType::Make();
+  return UndefinedLogicalType::Make();
 }
 
 std::shared_ptr<const LogicalType> LogicalType::FromThrift(
@@ -483,10 +479,6 @@ std::shared_ptr<const LogicalType> LogicalType::UUID() { return UUIDLogicalType:
 
 std::shared_ptr<const LogicalType> LogicalType::None() { return NoLogicalType::Make(); }
 
-std::shared_ptr<const LogicalType> LogicalType::Unknown() {
-  return UnknownLogicalType::Make();
-}
-
 /*
  * The logical type implementation classes are built in four layers: (1) the base
  * layer, which establishes the interface and provides generally reusable implementations
@@ -516,7 +508,7 @@ class LogicalType::Impl {
   virtual std::string ToString() const = 0;
 
   virtual bool is_serialized() const {
-    return !(type_ == LogicalType::Type::NONE || type_ == LogicalType::Type::UNKNOWN);
+    return !(type_ == LogicalType::Type::NONE || type_ == LogicalType::Type::UNDEFINED);
   }
 
   virtual std::string ToJSON() const {
@@ -567,14 +559,14 @@ class LogicalType::Impl {
   class BSON;
   class UUID;
   class No;
-  class Unknown;
+  class Undefined;
 
  protected:
   Impl(LogicalType::Type::type t, SortOrder::type o) : type_(t), order_(o) {}
   Impl() = default;
 
  private:
-  LogicalType::Type::type type_ = LogicalType::Type::UNKNOWN;
+  LogicalType::Type::type type_ = LogicalType::Type::UNDEFINED;
   SortOrder::type order_ = SortOrder::UNKNOWN;
 };
 
@@ -636,7 +628,9 @@ bool LogicalType::is_JSON() const { return impl_->type() == LogicalType::Type::J
 bool LogicalType::is_BSON() const { return impl_->type() == LogicalType::Type::BSON; }
 bool LogicalType::is_UUID() const { return impl_->type() == LogicalType::Type::UUID; }
 bool LogicalType::is_none() const { return impl_->type() == LogicalType::Type::NONE; }
-bool LogicalType::is_valid() const { return impl_->type() != LogicalType::Type::UNKNOWN; }
+bool LogicalType::is_valid() const {
+  return impl_->type() != LogicalType::Type::UNDEFINED;
+}
 bool LogicalType::is_invalid() const { return !is_valid(); }
 bool LogicalType::is_nested() const {
   return (impl_->type() == LogicalType::Type::LIST) ||
@@ -1555,19 +1549,19 @@ class LogicalType::Impl::No final : public LogicalType::Impl::SimpleCompatible,
 
 GENERATE_MAKE(No)
 
-class LogicalType::Impl::Unknown final : public LogicalType::Impl::SimpleCompatible,
-                                         public LogicalType::Impl::UniversalApplicable {
+class LogicalType::Impl::Undefined final : public LogicalType::Impl::SimpleCompatible,
+                                           public LogicalType::Impl::UniversalApplicable {
  public:
-  friend class UnknownLogicalType;
+  friend class UndefinedLogicalType;
 
-  OVERRIDE_TOSTRING(Unknown)
+  OVERRIDE_TOSTRING(Undefined)
 
  private:
-  Unknown()
-      : LogicalType::Impl(LogicalType::Type::UNKNOWN, SortOrder::UNKNOWN),
-        LogicalType::Impl::SimpleCompatible(ConvertedType::NA) {}
+  Undefined()
+      : LogicalType::Impl(LogicalType::Type::UNDEFINED, SortOrder::UNKNOWN),
+        LogicalType::Impl::SimpleCompatible(ConvertedType::UNDEFINED) {}
 };
 
-GENERATE_MAKE(Unknown)
+GENERATE_MAKE(Undefined)
 
 }  // namespace parquet

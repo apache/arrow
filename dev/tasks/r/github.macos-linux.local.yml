@@ -1,0 +1,88 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+# NOTE: must set "Crossbow" as name to have the badge links working in the
+# github comment reports!
+name: Crossbow
+
+on:
+  push:
+    branches:
+      - "*-github-*"
+
+jobs:
+  autobrew:
+    name: "install from local source"
+    runs-on: {{ "${{ matrix.os }}" }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macOS-latest, ubuntu-20.04]
+
+    steps:
+      - name: Checkout Arrow
+        run: |
+          git clone --no-checkout {{ arrow.remote }} arrow
+          git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
+          git -C arrow checkout FETCH_HEAD
+          git -C arrow submodule update --init --recursive
+      - name: Configure non-autobrew dependencies (macos)
+        run: |
+          cd arrow/r
+          brew install openssl
+        if: contains(matrix.os, 'macOS')
+      - name: Configure non-autobrew dependencies (linux)
+        run: |
+          cd arrow/r
+          sudo apt-get update
+          sudo apt install libcurl4-openssl-dev libssl-dev
+        if: contains(matrix.os, 'ubuntu')
+      - uses: r-lib/actions/setup-r@v1
+      - name: Install dependencies
+        run: |
+          install.packages("remotes")
+          remotes::install_deps("arrow/r", dependencies = TRUE)
+          remotes::install_cran(c("rcmdcheck", "sys", "sessioninfo"))
+        shell: Rscript {0}
+      - name: Session info
+        run: |
+          options(width = 100)
+          pkgs <- installed.packages()[, "Package"]
+          sessioninfo::session_info(pkgs, include_base = TRUE)
+        shell: Rscript {0}
+      - name: Install
+        env:
+          _R_CHECK_CRAN_INCOMING_: false
+          ARROW_USE_PKG_CONFIG: false
+          FORCE_BUNDLED_BUILD: true
+          LIBARROW_MINIMAL: false
+          TEST_R_WITH_ARROW: TRUE
+          ARROW_R_DEV: TRUE
+        run: |
+          cd arrow/r
+          R CMD INSTALL . --install-tests
+      - name: Run the tests
+        run: R -e 'if(tools::testInstalledPackage("arrow") != 0L) stop("There was a test failure.")'
+      - name: Dump test logs
+        run: cat arrow-tests/testthat.Rout*
+        if: failure()
+      - name: Save the test output
+        uses: actions/upload-artifact@v2
+        with:
+          name: test-output
+          path: arrow-tests/testthat.Rout*
+        if: always()

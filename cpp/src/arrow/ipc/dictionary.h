@@ -80,6 +80,10 @@ class ARROW_EXPORT DictionaryFieldMapper {
 
   int num_fields() const;
 
+  /// \brief Returns number of unique dictionaries, taking into
+  /// account that different fields can share the same dictionary.
+  int num_dicts() const;
+
  private:
   struct Impl;
   std::unique_ptr<Impl> impl_;

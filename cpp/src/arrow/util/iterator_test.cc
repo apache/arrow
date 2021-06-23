@@ -15,9 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/iterator.h"
-
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <memory>
@@ -28,26 +27,12 @@
 #include <vector>
 
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/async_generator.h"
+#include "arrow/util/iterator.h"
+#include "arrow/util/test_common.h"
+#include "arrow/util/vector.h"
 
 namespace arrow {
-
-struct TestInt {
-  TestInt() : value(-999) {}
-  TestInt(int i) : value(i) {}  // NOLINT runtime/explicit
-  int value;
-
-  bool operator==(const TestInt& other) const { return value == other.value; }
-
-  friend std::ostream& operator<<(std::ostream& os, const TestInt& v) {
-    os << "{" << v.value << "}";
-    return os;
-  }
-};
-
-template <>
-struct IterationTraits<TestInt> {
-  static TestInt End() { return TestInt(); }
-};
 
 template <typename T>
 class TracingIterator {
@@ -130,13 +115,9 @@ inline Iterator<T> EmptyIt() {
   return MakeEmptyIterator<T>();
 }
 
+// Non-templated version of VectorIt<T> to allow better type deduction
 inline Iterator<TestInt> VectorIt(std::vector<TestInt> v) {
   return MakeVectorIterator<TestInt>(std::move(v));
-}
-
-template <typename T>
-inline Iterator<T> VectorIt(std::vector<T> v) {
-  return MakeVectorIterator<T>(std::move(v));
 }
 
 template <typename Fn, typename T>
@@ -165,10 +146,8 @@ void AssertIteratorNext(T expected, Iterator<T>& it) {
   ASSERT_EQ(expected, actual);
 }
 
-template <typename T>
-void AssertIteratorExhausted(Iterator<T>& it) {
-  AssertIteratorNext(IterationTraits<T>::End(), it);
-}
+// --------------------------------------------------------------------
+// Synchronous iterator tests
 
 TEST(TestEmptyIterator, Basic) { AssertIteratorMatch({}, EmptyIt<TestInt>()); }
 
@@ -212,6 +191,108 @@ TEST(TestVectorIterator, RangeForLoop) {
     ASSERT_EQ(*i_ptr, *ints_it++);
   }
   ASSERT_EQ(ints_it, ints.end());
+}
+
+Transformer<TestInt, TestStr> MakeFirstN(int n) {
+  int remaining = n;
+  return [remaining](TestInt next) mutable -> Result<TransformFlow<TestStr>> {
+    if (remaining > 0) {
+      remaining--;
+      return TransformYield(TestStr(next));
+    }
+    return TransformFinish();
+  };
+}
+
+template <typename T>
+Transformer<T, T> MakeFirstNGeneric(int n) {
+  int remaining = n;
+  return [remaining](T next) mutable -> Result<TransformFlow<T>> {
+    if (remaining > 0) {
+      remaining--;
+      return TransformYield(next);
+    }
+    return TransformFinish();
+  };
+}
+
+TEST(TestIteratorTransform, Truncating) {
+  auto original = VectorIt({1, 2, 3});
+  auto truncated = MakeTransformedIterator(std::move(original), MakeFirstN(2));
+  AssertIteratorMatch({"1", "2"}, std::move(truncated));
+}
+
+TEST(TestIteratorTransform, TestPointer) {
+  auto original = VectorIt<std::shared_ptr<int>>(
+      {std::make_shared<int>(1), std::make_shared<int>(2), std::make_shared<int>(3)});
+  auto truncated = MakeTransformedIterator(std::move(original),
+                                           MakeFirstNGeneric<std::shared_ptr<int>>(2));
+  ASSERT_OK_AND_ASSIGN(auto result, truncated.ToVector());
+  ASSERT_EQ(2, result.size());
+}
+
+TEST(TestIteratorTransform, TruncatingShort) {
+  // Tests the failsafe case where we never call Finish
+  auto original = VectorIt({1});
+  auto truncated =
+      MakeTransformedIterator<TestInt, TestStr>(std::move(original), MakeFirstN(2));
+  AssertIteratorMatch({"1"}, std::move(truncated));
+}
+
+TEST(TestIteratorTransform, SkipSome) {
+  // Exercises TransformSkip
+  auto original = VectorIt({1, 2, 3});
+  auto filter = MakeFilter([](TestInt& t) { return t.value != 2; });
+  auto filtered = MakeTransformedIterator(std::move(original), filter);
+  AssertIteratorMatch({"1", "3"}, std::move(filtered));
+}
+
+TEST(TestIteratorTransform, SkipAll) {
+  // Exercises TransformSkip
+  auto original = VectorIt({1, 2, 3});
+  auto filter = MakeFilter([](TestInt& t) { return false; });
+  auto filtered = MakeTransformedIterator(std::move(original), filter);
+  AssertIteratorMatch({}, std::move(filtered));
+}
+
+Transformer<TestInt, TestStr> MakeAbortOnSecond() {
+  int counter = 0;
+  return [counter](TestInt next) mutable -> Result<TransformFlow<TestStr>> {
+    if (counter++ == 1) {
+      return Status::Invalid("X");
+    }
+    return TransformYield(TestStr(next));
+  };
+}
+
+TEST(TestIteratorTransform, Abort) {
+  auto original = VectorIt({1, 2, 3});
+  auto transformed = MakeTransformedIterator(std::move(original), MakeAbortOnSecond());
+  ASSERT_OK(transformed.Next());
+  ASSERT_RAISES(Invalid, transformed.Next());
+  ASSERT_OK_AND_ASSIGN(auto third, transformed.Next());
+  ASSERT_TRUE(IsIterationEnd(third));
+}
+
+template <typename T>
+Transformer<T, T> MakeRepeatN(int repeat_count) {
+  int current_repeat = 0;
+  return [repeat_count, current_repeat](T next) mutable -> Result<TransformFlow<T>> {
+    current_repeat++;
+    bool ready_for_next = false;
+    if (current_repeat == repeat_count) {
+      current_repeat = 0;
+      ready_for_next = true;
+    }
+    return TransformYield(next, ready_for_next);
+  };
+}
+
+TEST(TestIteratorTransform, Repeating) {
+  auto original = VectorIt({1, 2, 3});
+  auto repeated = MakeTransformedIterator<TestInt, TestInt>(std::move(original),
+                                                            MakeRepeatN<TestInt>(2));
+  AssertIteratorMatch({1, 1, 2, 2, 3, 3}, std::move(repeated));
 }
 
 TEST(TestFunctionIterator, RangeForLoop) {
@@ -295,13 +376,6 @@ TEST(FlattenVectorIterator, Pyramid) {
   AssertIteratorMatch({1, 2, 2, 3, 3, 3}, std::move(it));
 }
 
-TEST(ReadaheadIterator, DefaultConstructor) {
-  ReadaheadIterator<TestInt> it;
-  TestInt v{42};
-  ASSERT_OK_AND_ASSIGN(v, it.Next());
-  ASSERT_EQ(v, TestInt());
-}
-
 TEST(ReadaheadIterator, Empty) {
   ASSERT_OK_AND_ASSIGN(auto it, MakeReadaheadIterator(VectorIt({}), 2));
   AssertIteratorMatch({}, std::move(it));
@@ -318,10 +392,6 @@ TEST(ReadaheadIterator, NotExhausted) {
   AssertIteratorNext({2}, it);
 }
 
-void SleepABit(double seconds = 1e-3) {
-  std::this_thread::sleep_for(std::chrono::duration<double>(seconds));
-}
-
 TEST(ReadaheadIterator, Trace) {
   TracingIterator<TestInt> tracing_it(VectorIt({1, 2, 3, 4, 5, 6, 7, 8}));
   auto tracing = tracing_it.state();
@@ -329,13 +399,16 @@ TEST(ReadaheadIterator, Trace) {
 
   ASSERT_OK_AND_ASSIGN(
       auto it, MakeReadaheadIterator(Iterator<TestInt>(std::move(tracing_it)), 2));
-  tracing->WaitForValues(2);
-  SleepABit();  // check no further value is emitted
-  tracing->AssertValuesEqual({1, 2});
+  SleepABit();  // Background iterator won't start pumping until first request comes in
+  ASSERT_EQ(tracing->values().size(), 0);
 
-  AssertIteratorNext({1}, it);
+  AssertIteratorNext({1}, it);  // Once we ask for one value we should get that one value
+                                // as well as 2 read ahead
+
   tracing->WaitForValues(3);
-  SleepABit();
+  tracing->AssertValuesEqual({1, 2, 3});
+
+  SleepABit();  // No further values should be fetched
   tracing->AssertValuesEqual({1, 2, 3});
 
   AssertIteratorNext({2}, it);
@@ -383,12 +456,9 @@ TEST(ReadaheadIterator, NextError) {
 
   ASSERT_RAISES(IOError, it.Next().status());
 
-  AssertIteratorNext({1}, it);
-  tracing->WaitForValues(3);
+  AssertIteratorExhausted(it);
   SleepABit();
-  tracing->AssertValuesEqual({1, 2, 3});
-  AssertIteratorNext({2}, it);
-  AssertIteratorNext({3}, it);
+  tracing->AssertValuesEqual({});
   AssertIteratorExhausted(it);
 }
 

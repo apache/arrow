@@ -51,232 +51,58 @@ void AddMinMaxAvx512AggKernels(ScalarAggregateFunction* func);
 // ----------------------------------------------------------------------
 // Sum implementation
 
-template <int64_t kRoundSize, typename ArrowType, SimdLevel::type SimdLevel>
-struct SumState {
-  using SumType = typename FindAccumulatorType<ArrowType>::Type;
-  using ThisType = SumState<kRoundSize, ArrowType, SimdLevel>;
-  using T = typename TypeTraits<ArrowType>::CType;
-  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
-
-  ThisType operator+(const ThisType& rhs) const {
-    return ThisType(this->count + rhs.count, this->sum + rhs.sum);
-  }
-
-  ThisType& operator+=(const ThisType& rhs) {
-    this->count += rhs.count;
-    this->sum += rhs.sum;
-
-    return *this;
-  }
-
- public:
-  void Consume(const Array& input) {
-    const ArrayType& array = static_cast<const ArrayType&>(input);
-    if (input.null_count() == 0) {
-      (*this) += ConsumeNoNulls(array);
-    } else {
-      (*this) += ConsumeWithNulls(array);
-    }
-  }
-
-  size_t count = 0;
-  typename SumType::c_type sum = 0;
-
- private:
-  template <int64_t kNoNullsRoundSize>
-  ThisType ConsumeNoNulls(const T* values, const int64_t length) const {
-    ThisType local;
-    const int64_t length_rounded = BitUtil::RoundDown(length, kNoNullsRoundSize);
-    typename SumType::c_type sum_rounded[kNoNullsRoundSize] = {0};
-
-    // Unroll the loop to add the results in parallel
-    for (int64_t i = 0; i < length_rounded; i += kNoNullsRoundSize) {
-      for (int64_t k = 0; k < kNoNullsRoundSize; k++) {
-        sum_rounded[k] += values[i + k];
-      }
-    }
-    for (int64_t k = 0; k < kNoNullsRoundSize; k++) {
-      local.sum += sum_rounded[k];
-    }
-
-    // The trailing part
-    for (int64_t i = length_rounded; i < length; ++i) {
-      local.sum += values[i];
-    }
-
-    local.count = length;
-    return local;
-  }
-
-  ThisType ConsumeNoNulls(const ArrayType& array) const {
-    const auto values = array.raw_values();
-    const int64_t length = array.length();
-
-    return ConsumeNoNulls<kRoundSize>(values, length);
-  }
-
-  // While this is not branchless, gcc needs this to be in a different function
-  // for it to generate cmov which tends to be slightly faster than
-  // multiplication but safe for handling NaN with doubles.
-  inline T MaskedValue(bool valid, T value) const { return valid ? value : 0; }
-
-  inline ThisType UnrolledSum(uint8_t bits, const T* values) const {
-    ThisType local;
-
-    if (bits < 0xFF) {
-      // Some nulls
-      for (size_t i = 0; i < 8; i++) {
-        local.sum += MaskedValue(bits & (1U << i), values[i]);
-      }
-      local.count += BitUtil::kBytePopcount[bits];
-    } else {
-      // No nulls
-      for (size_t i = 0; i < 8; i++) {
-        local.sum += values[i];
-      }
-      local.count += 8;
-    }
-
-    return local;
-  }
-
-  ThisType ConsumeWithNulls(const ArrayType& array) const {
-    ThisType local;
-    const T* values = array.raw_values();
-    const int64_t length = array.length();
-    int64_t offset = array.offset();
-    const uint8_t* bitmap = array.null_bitmap_data();
-    int64_t idx = 0;
-
-    const auto p = arrow::internal::BitmapWordAlign<1>(bitmap, offset, length);
-    // First handle the leading bits
-    const int64_t leading_bits = p.leading_bits;
-    while (idx < leading_bits) {
-      if (BitUtil::GetBit(bitmap, offset)) {
-        local.sum += values[idx];
-        local.count++;
-      }
-      idx++;
-      offset++;
-    }
-
-    // The aligned parts scanned with BitBlockCounter
-    constexpr int64_t kBatchSize = arrow::internal::BitBlockCounter::kWordBits;
-    arrow::internal::BitBlockCounter data_counter(bitmap, offset, length - leading_bits);
-    auto current_block = data_counter.NextWord();
-    while (idx < length) {
-      if (current_block.AllSet()) {  // All true values
-        int run_length = 0;
-        // Scan forward until a block that has some false values (or the end)
-        while (current_block.length > 0 && current_block.AllSet()) {
-          run_length += current_block.length;
-          current_block = data_counter.NextWord();
-        }
-        // Aggregate the no nulls parts
-        if (run_length >= kRoundSize * 8) {
-          local += ConsumeNoNulls<kRoundSize>(&values[idx], run_length);
-        } else {
-          local += ConsumeNoNulls<8>(&values[idx], run_length);
-        }
-        idx += run_length;
-        offset += run_length;
-        // The current_block already computed, advance to next loop
-        continue;
-      } else if (!current_block.NoneSet()) {  // Some values are null
-        const int64_t idx_byte = BitUtil::BytesForBits(offset);
-        const uint8_t* aligned_bitmap = &bitmap[idx_byte];
-        const T* aligned_values = &values[idx];
-
-        if (kBatchSize == current_block.length) {
-          for (int64_t i = 0; i < kBatchSize / 8; i++) {
-            local += UnrolledSum(aligned_bitmap[i], &aligned_values[i * 8]);
-          }
-        } else {  // The end part
-          for (int64_t i = 0; i < current_block.length; i++) {
-            if (BitUtil::GetBit(bitmap, offset)) {
-              local.sum += values[idx];
-              local.count++;
-            }
-            idx++;
-            offset++;
-          }
-        }
-
-        idx += current_block.length;
-        offset += current_block.length;
-      } else {  // All null values
-        idx += current_block.length;
-        offset += current_block.length;
-      }
-      current_block = data_counter.NextWord();
-    }
-
-    return local;
-  }
-};
-
-template <int64_t kRoundSize, SimdLevel::type SimdLevel>
-struct SumState<kRoundSize, BooleanType, SimdLevel> {
-  using SumType = typename FindAccumulatorType<BooleanType>::Type;
-  using ThisType = SumState<kRoundSize, BooleanType, SimdLevel>;
-
-  ThisType& operator+=(const ThisType& rhs) {
-    this->count += rhs.count;
-    this->sum += rhs.sum;
-    return *this;
-  }
-
- public:
-  void Consume(const Array& input) {
-    const BooleanArray& array = static_cast<const BooleanArray&>(input);
-    count += array.length() - array.null_count();
-    sum += array.true_count();
-  }
-
-  size_t count = 0;
-  typename SumType::c_type sum = 0;
-};
-
-template <uint64_t kRoundSize, typename ArrowType, SimdLevel::type SimdLevel>
+template <typename ArrowType, SimdLevel::type SimdLevel>
 struct SumImpl : public ScalarAggregator {
-  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
-  using ThisType = SumImpl<kRoundSize, ArrowType, SimdLevel>;
+  using ThisType = SumImpl<ArrowType, SimdLevel>;
+  using CType = typename ArrowType::c_type;
   using SumType = typename FindAccumulatorType<ArrowType>::Type;
   using OutputType = typename TypeTraits<SumType>::ScalarType;
 
-  void Consume(KernelContext*, const ExecBatch& batch) override {
-    this->state.Consume(ArrayType(batch[0].array()));
+  Status Consume(KernelContext*, const ExecBatch& batch) override {
+    const auto& data = batch[0].array();
+    this->count = data->length - data->GetNullCount();
+    if (is_boolean_type<ArrowType>::value) {
+      this->sum = static_cast<typename SumType::c_type>(BooleanArray(data).true_count());
+    } else {
+      this->sum =
+          arrow::compute::detail::SumArray<CType, typename SumType::c_type>(*data);
+    }
+    return Status::OK();
   }
 
-  void MergeFrom(KernelContext*, KernelState&& src) override {
+  Status MergeFrom(KernelContext*, KernelState&& src) override {
     const auto& other = checked_cast<const ThisType&>(src);
-    this->state += other.state;
+    this->count += other.count;
+    this->sum += other.sum;
+    return Status::OK();
   }
 
-  void Finalize(KernelContext*, Datum* out) override {
-    if (state.count == 0) {
+  Status Finalize(KernelContext*, Datum* out) override {
+    if (this->count < options.min_count) {
       out->value = std::make_shared<OutputType>();
     } else {
-      out->value = MakeScalar(state.sum);
+      out->value = MakeScalar(this->sum);
     }
+    return Status::OK();
   }
 
-  SumState<kRoundSize, ArrowType, SimdLevel> state;
+  size_t count = 0;
+  typename SumType::c_type sum = 0;
+  ScalarAggregateOptions options;
 };
 
-template <int64_t kRoundSize, typename ArrowType, SimdLevel::type SimdLevel>
-struct MeanImpl : public SumImpl<kRoundSize, ArrowType, SimdLevel> {
-  void Finalize(KernelContext*, Datum* out) override {
-    const bool is_valid = this->state.count > 0;
-    const double divisor = static_cast<double>(is_valid ? this->state.count : 1UL);
-    const double mean = static_cast<double>(this->state.sum) / divisor;
-
-    if (!is_valid) {
+template <typename ArrowType, SimdLevel::type SimdLevel>
+struct MeanImpl : public SumImpl<ArrowType, SimdLevel> {
+  Status Finalize(KernelContext*, Datum* out) override {
+    if (this->count < options.min_count) {
       out->value = std::make_shared<DoubleScalar>();
     } else {
+      const double mean = static_cast<double>(this->sum) / this->count;
       out->value = std::make_shared<DoubleScalar>(mean);
     }
+    return Status::OK();
   }
+  ScalarAggregateOptions options;
 };
 
 template <template <typename> class KernelClass>
@@ -284,8 +110,11 @@ struct SumLikeInit {
   std::unique_ptr<KernelState> state;
   KernelContext* ctx;
   const DataType& type;
+  const ScalarAggregateOptions& options;
 
-  SumLikeInit(KernelContext* ctx, const DataType& type) : ctx(ctx), type(type) {}
+  SumLikeInit(KernelContext* ctx, const DataType& type,
+              const ScalarAggregateOptions& options)
+      : ctx(ctx), type(type), options(options) {}
 
   Status Visit(const DataType&) { return Status::NotImplemented("No sum implemented"); }
 
@@ -294,18 +123,18 @@ struct SumLikeInit {
   }
 
   Status Visit(const BooleanType&) {
-    state.reset(new KernelClass<BooleanType>());
+    state.reset(new KernelClass<BooleanType>(options));
     return Status::OK();
   }
 
   template <typename Type>
   enable_if_number<Type, Status> Visit(const Type&) {
-    state.reset(new KernelClass<Type>());
+    state.reset(new KernelClass<Type>(options));
     return Status::OK();
   }
 
-  std::unique_ptr<KernelState> Create() {
-    ctx->SetStatus(VisitTypeInline(type, this));
+  Result<std::unique_ptr<KernelState>> Create() {
+    RETURN_NOT_OK(VisitTypeInline(type, this));
     return std::move(state);
   }
 };
@@ -394,10 +223,11 @@ struct MinMaxImpl : public ScalarAggregator {
   using ThisType = MinMaxImpl<ArrowType, SimdLevel>;
   using StateType = MinMaxState<ArrowType, SimdLevel>;
 
-  MinMaxImpl(const std::shared_ptr<DataType>& out_type, const MinMaxOptions& options)
+  MinMaxImpl(const std::shared_ptr<DataType>& out_type,
+             const ScalarAggregateOptions& options)
       : out_type(out_type), options(options) {}
 
-  void Consume(KernelContext*, const ExecBatch& batch) override {
+  Status Consume(KernelContext*, const ExecBatch& batch) override {
     StateType local;
 
     ArrayType arr(batch[0].array());
@@ -406,9 +236,9 @@ struct MinMaxImpl : public ScalarAggregator {
     local.has_nulls = null_count > 0;
     local.has_values = (arr.length() - null_count) > 0;
 
-    if (local.has_nulls && options.null_handling == MinMaxOptions::EMIT_NULL) {
+    if (local.has_nulls && !options.skip_nulls) {
       this->state = local;
-      return;
+      return Status::OK();
     }
 
     if (local.has_nulls) {
@@ -419,19 +249,20 @@ struct MinMaxImpl : public ScalarAggregator {
       }
     }
     this->state = local;
+    return Status::OK();
   }
 
-  void MergeFrom(KernelContext*, KernelState&& src) override {
+  Status MergeFrom(KernelContext*, KernelState&& src) override {
     const auto& other = checked_cast<const ThisType&>(src);
     this->state += other.state;
+    return Status::OK();
   }
 
-  void Finalize(KernelContext*, Datum* out) override {
+  Status Finalize(KernelContext*, Datum* out) override {
     using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
 
     std::vector<std::shared_ptr<Scalar>> values;
-    if (!state.has_values ||
-        (state.has_nulls && options.null_handling == MinMaxOptions::EMIT_NULL)) {
+    if (!state.has_values || (state.has_nulls && !options.skip_nulls)) {
       // (null, null)
       values = {std::make_shared<ScalarType>(), std::make_shared<ScalarType>()};
     } else {
@@ -439,10 +270,11 @@ struct MinMaxImpl : public ScalarAggregator {
                 std::make_shared<ScalarType>(state.max)};
     }
     out->value = std::make_shared<StructScalar>(std::move(values), this->out_type);
+    return Status::OK();
   }
 
   std::shared_ptr<DataType> out_type;
-  MinMaxOptions options;
+  ScalarAggregateOptions options;
   MinMaxState<ArrowType, SimdLevel> state;
 
  private:
@@ -511,7 +343,7 @@ struct BooleanMinMaxImpl : public MinMaxImpl<BooleanType, SimdLevel> {
   using MinMaxImpl<BooleanType, SimdLevel>::MinMaxImpl;
   using MinMaxImpl<BooleanType, SimdLevel>::options;
 
-  void Consume(KernelContext*, const ExecBatch& batch) override {
+  Status Consume(KernelContext*, const ExecBatch& batch) override {
     StateType local;
     ArrayType arr(batch[0].array());
 
@@ -521,9 +353,9 @@ struct BooleanMinMaxImpl : public MinMaxImpl<BooleanType, SimdLevel> {
 
     local.has_nulls = null_count > 0;
     local.has_values = valid_count > 0;
-    if (local.has_nulls && options.null_handling == MinMaxOptions::EMIT_NULL) {
+    if (local.has_nulls && !options.skip_nulls) {
       this->state = local;
-      return;
+      return Status::OK();
     }
 
     const auto true_count = arr.true_count();
@@ -532,6 +364,7 @@ struct BooleanMinMaxImpl : public MinMaxImpl<BooleanType, SimdLevel> {
     local.min = false_count == 0;
 
     this->state = local;
+    return Status::OK();
   }
 };
 
@@ -541,10 +374,11 @@ struct MinMaxInitState {
   KernelContext* ctx;
   const DataType& in_type;
   const std::shared_ptr<DataType>& out_type;
-  const MinMaxOptions& options;
+  const ScalarAggregateOptions& options;
 
   MinMaxInitState(KernelContext* ctx, const DataType& in_type,
-                  const std::shared_ptr<DataType>& out_type, const MinMaxOptions& options)
+                  const std::shared_ptr<DataType>& out_type,
+                  const ScalarAggregateOptions& options)
       : ctx(ctx), in_type(in_type), out_type(out_type), options(options) {}
 
   Status Visit(const DataType&) {
@@ -566,8 +400,8 @@ struct MinMaxInitState {
     return Status::OK();
   }
 
-  std::unique_ptr<KernelState> Create() {
-    ctx->SetStatus(VisitTypeInline(in_type, this));
+  Result<std::unique_ptr<KernelState>> Create() {
+    RETURN_NOT_OK(VisitTypeInline(in_type, this));
     return std::move(state);
   }
 };

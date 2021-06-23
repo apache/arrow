@@ -1,4 +1,4 @@
-﻿// Licensed to the Apache Software Foundation (ASF) under one or more
+// Licensed to the Apache Software Foundation (ASF) under one or more
 // contributor license agreements. See the NOTICE file distributed with
 // this work for additional information regarding copyright ownership.
 // The ASF licenses this file to You under the Apache License, Version 2.0
@@ -58,9 +58,12 @@ namespace Apache.Arrow
                     return new Date32Array.Builder();
                 case ArrowTypeId.List:
                     return new ListArray.Builder(dataType as ListType);
+                case ArrowTypeId.Decimal128:
+                    return new Decimal128Array.Builder(dataType as Decimal128Type);
+                case ArrowTypeId.Decimal256:
+                    return new Decimal256Array.Builder(dataType as Decimal256Type);
                 case ArrowTypeId.Struct:
                 case ArrowTypeId.Union:
-                case ArrowTypeId.Decimal:
                 case ArrowTypeId.Dictionary:
                 case ArrowTypeId.FixedSizedBinary:
                 case ArrowTypeId.HalfFloat:

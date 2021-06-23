@@ -68,18 +68,23 @@ jobs:
           path: arrow/r/extra-tests/files
 
   read-files:
-    name: "Read files with Arrow {{ '${{ matrix.old_arrow_version }}' }}"
+    name: "Read files with Arrow {{ '${{ matrix.config.old_arrow_version }}' }}"
     needs: [write-files]
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
       matrix:
-        old_arrow_version:
-          - "2.0.0"
-          - "1.0.1"
+        config:
+        # We use the R version that was released at the time of the arrow release in order
+        # to make sure we can download binaries from RSPM.
+        - { old_arrow_version: '4.0.0', r: '4.0' }
+        - { old_arrow_version: '3.0.0', r: '4.0' }
+        - { old_arrow_version: '2.0.0', r: '4.0' }
+        - { old_arrow_version: '1.0.1', r: '4.0' }
     env:
+      ARROW_R_DEV: "TRUE"
       RSPM: "https://packagemanager.rstudio.com/cran/__linux__/focal/latest"
-      OLD_ARROW_VERSION: {{ '${{ matrix.old_arrow_version }}' }}
+      OLD_ARROW_VERSION: {{ '${{ matrix.config.old_arrow_version }}' }}
     steps:
       - name: Checkout Arrow
         run: |
@@ -88,10 +93,12 @@ jobs:
           git -C arrow checkout FETCH_HEAD
           git -C arrow submodule update --init --recursive
       - uses: r-lib/actions/setup-r@v1
+        with:
+          r-version: {{ '${{ matrix.config.r }}' }}
       - name: Install old Arrow
         run: |
           install.packages(c("remotes", "testthat"))
-          remotes::install_version("arrow",  "{{ '${{ matrix.old_arrow_version }}' }}")
+          remotes::install_version("arrow",  "{{ '${{ matrix.config.old_arrow_version }}' }}")
         shell: Rscript {0}
       - name: Setup our testing directory, copy only the tests to it.
         run: |

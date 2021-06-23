@@ -34,7 +34,8 @@ TimePoint CurrentTimePoint();
 
 ARROW_EXPORT
 Status CopyStream(const std::shared_ptr<io::InputStream>& src,
-                  const std::shared_ptr<io::OutputStream>& dest, int64_t chunk_size);
+                  const std::shared_ptr<io::OutputStream>& dest, int64_t chunk_size,
+                  const io::IOContext& io_context);
 
 ARROW_EXPORT
 Status PathNotFound(const std::string& path);

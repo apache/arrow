@@ -38,6 +38,7 @@
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/bitmap.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 
@@ -49,361 +50,167 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::checked_pointer_cast;
 
 namespace compute {
 
-// Use std::string and Decimal128 for supplying test values for base binary types
-
-template <typename T, typename Enable = void>
-struct TestCType {
-  using type = typename T::c_type;
-};
-
-template <typename T>
-struct TestCType<T, enable_if_base_binary<T>> {
-  using type = std::string;
-};
-
-template <typename T>
-struct TestCType<T, enable_if_decimal128<T>> {
-  using type = Decimal128;
-};
-
-static constexpr const char* kInvalidUtf8 = "\xa0\xa1";
+static std::shared_ptr<Array> InvalidUtf8(std::shared_ptr<DataType> type) {
+  return ArrayFromJSON(type,
+                       "["
+                       R"(
+                       "Hi",
+                       "olá mundo",
+                       "你好世界",
+                       "",
+                       )"
+                       "\"\xa0\xa1\""
+                       "]");
+}
 
 static std::vector<std::shared_ptr<DataType>> kNumericTypes = {
     uint8(), int8(),   uint16(), int16(),   uint32(),
     int32(), uint64(), int64(),  float32(), float64()};
+
+static std::vector<std::shared_ptr<DataType>> kDictionaryIndexTypes = {
+    int8(), uint8(), int16(), uint16(), int32(), uint32(), int64(), uint64()};
+
+static std::vector<std::shared_ptr<DataType>> kBaseBinaryTypes = {
+    binary(), utf8(), large_binary(), large_utf8()};
 
 static void AssertBufferSame(const Array& left, const Array& right, int buffer_index) {
   ASSERT_EQ(left.data()->buffers[buffer_index].get(),
             right.data()->buffers[buffer_index].get());
 }
 
-class TestCast : public TestBase {
- public:
-  void CheckPass(const Array& input, const Array& expected,
-                 const std::shared_ptr<DataType>& out_type, const CastOptions& options,
-                 bool check_scalar = true, bool validate_full = true) {
-    ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> result, Cast(input, out_type, options));
-    if (validate_full) {
-      ASSERT_OK(result->ValidateFull());
-    } else {
-      ASSERT_OK(result->Validate());
+static void CheckCast(std::shared_ptr<Array> input, std::shared_ptr<Array> expected,
+                      CastOptions options = CastOptions{}) {
+  options.to_type = expected->type();
+  CheckScalarUnary("cast", input, expected, &options);
+}
+
+static void CheckCastFails(std::shared_ptr<Array> input, CastOptions options) {
+  ASSERT_RAISES(Invalid, Cast(input, options))
+      << "\n  to_type: " << options.to_type->ToString()
+      << "\n  input:   " << input->ToString();
+
+  if (input->type_id() == Type::EXTENSION) {
+    // ExtensionScalar not implemented
+    return;
+  }
+
+  // For the scalars, check that at least one of the input fails (since many
+  // of the tests contains a mix of passing and failing values). In some
+  // cases we will want to check more precisely
+  int64_t num_failing = 0;
+  for (int64_t i = 0; i < input->length(); ++i) {
+    ASSERT_OK_AND_ASSIGN(auto scalar, input->GetScalar(i));
+    num_failing += static_cast<int>(Cast(scalar, options).status().IsInvalid());
+  }
+  ASSERT_GT(num_failing, 0);
+}
+
+static void CheckCastZeroCopy(std::shared_ptr<Array> input,
+                              std::shared_ptr<DataType> to_type,
+                              CastOptions options = CastOptions::Safe()) {
+  ASSERT_OK_AND_ASSIGN(auto converted, Cast(*input, to_type, options));
+  ValidateOutput(*converted);
+
+  ASSERT_EQ(input->data()->buffers.size(), converted->data()->buffers.size());
+  for (size_t i = 0; i < input->data()->buffers.size(); ++i) {
+    AssertBufferSame(*input, *converted, static_cast<int>(i));
+  }
+}
+
+static std::shared_ptr<Array> MaskArrayWithNullsAt(std::shared_ptr<Array> input,
+                                                   std::vector<int> indices_to_mask) {
+  auto masked = input->data()->Copy();
+  masked->buffers[0] = *AllocateEmptyBitmap(input->length());
+  masked->null_count = kUnknownNullCount;
+
+  using arrow::internal::Bitmap;
+  Bitmap is_valid(masked->buffers[0], 0, input->length());
+  if (auto original = input->null_bitmap()) {
+    is_valid.CopyFrom(Bitmap(original, input->offset(), input->length()));
+  } else {
+    is_valid.SetBitsTo(true);
+  }
+
+  for (int i : indices_to_mask) {
+    is_valid.SetBitTo(i, false);
+  }
+  return MakeArray(masked);
+}
+
+TEST(Cast, CanCast) {
+  auto ExpectCanCast = [](std::shared_ptr<DataType> from,
+                          std::vector<std::shared_ptr<DataType>> to_set,
+                          bool expected = true) {
+    for (auto to : to_set) {
+      EXPECT_EQ(CanCast(*from, *to), expected) << "  from: " << from->ToString() << "\n"
+                                               << "    to: " << to->ToString();
     }
-    AssertArraysEqual(expected, *result, /*verbose=*/true);
+  };
 
-    if (input.type_id() == Type::DECIMAL || out_type->id() == Type::DECIMAL) {
-      // ARROW-10835
-      check_scalar = false;
-    }
+  auto ExpectCannotCast = [ExpectCanCast](std::shared_ptr<DataType> from,
+                                          std::vector<std::shared_ptr<DataType>> to_set) {
+    ExpectCanCast(from, to_set, /*expected=*/false);
+  };
 
-    if (check_scalar) {
-      for (int64_t i = 0; i < input.length(); ++i) {
-        ASSERT_OK_AND_ASSIGN(Datum out, Cast(*input.GetScalar(i), out_type, options));
-        AssertScalarsEqual(**expected.GetScalar(i), *out.scalar(), /*verbose=*/true);
-      }
-    }
+  ExpectCanCast(null(), {boolean()});
+  ExpectCanCast(null(), kNumericTypes);
+  ExpectCanCast(null(), kBaseBinaryTypes);
+  ExpectCanCast(
+      null(), {date32(), date64(), time32(TimeUnit::MILLI), timestamp(TimeUnit::SECOND)});
+  ExpectCanCast(dictionary(uint16(), null()), {null()});
+
+  ExpectCanCast(boolean(), {boolean()});
+  ExpectCanCast(boolean(), kNumericTypes);
+  ExpectCanCast(boolean(), {utf8(), large_utf8()});
+  ExpectCanCast(dictionary(int32(), boolean()), {boolean()});
+
+  ExpectCannotCast(boolean(), {null()});
+  ExpectCannotCast(boolean(), {binary(), large_binary()});
+  ExpectCannotCast(boolean(), {date32(), date64(), time32(TimeUnit::MILLI),
+                               timestamp(TimeUnit::SECOND)});
+
+  for (auto from_numeric : kNumericTypes) {
+    ExpectCanCast(from_numeric, {boolean()});
+    ExpectCanCast(from_numeric, kNumericTypes);
+    ExpectCanCast(from_numeric, {utf8(), large_utf8()});
+    ExpectCanCast(dictionary(int32(), from_numeric), {from_numeric});
+
+    ExpectCannotCast(from_numeric, {null()});
   }
 
-  void CheckFails(const Array& input, const std::shared_ptr<DataType>& out_type,
-                  const CastOptions& options, bool check_scalar = true) {
-    ASSERT_RAISES(Invalid, Cast(input, out_type, options));
+  for (auto from_base_binary : kBaseBinaryTypes) {
+    ExpectCanCast(from_base_binary, {boolean()});
+    ExpectCanCast(from_base_binary, kNumericTypes);
+    ExpectCanCast(from_base_binary, kBaseBinaryTypes);
+    ExpectCanCast(dictionary(int64(), from_base_binary), {from_base_binary});
 
-    if (input.type_id() == Type::DECIMAL || out_type->id() == Type::DECIMAL) {
-      // ARROW-10835
-      check_scalar = false;
-    }
+    // any cast which is valid for the dictionary is valid for the DictionaryArray
+    ExpectCanCast(dictionary(uint32(), from_base_binary), kBaseBinaryTypes);
+    ExpectCanCast(dictionary(int16(), from_base_binary), kNumericTypes);
 
-    // For the scalars, check that at least one of the input fails (since many
-    // of the tests contains a mix of passing and failing values). In some
-    // cases we will want to check more precisely
-    if (check_scalar) {
-      int64_t num_failing = 0;
-      for (int64_t i = 0; i < input.length(); ++i) {
-        auto maybe_out = Cast(*input.GetScalar(i), out_type, options);
-        num_failing += static_cast<int>(maybe_out.status().IsInvalid());
-      }
-      ASSERT_GT(num_failing, 0);
-    }
+    ExpectCannotCast(from_base_binary, {null()});
   }
 
-  template <typename InType, typename I_TYPE = typename TestCType<InType>::type>
-  void CheckFails(const std::shared_ptr<DataType>& in_type,
-                  const std::vector<I_TYPE>& in_values, const std::vector<bool>& is_valid,
-                  const std::shared_ptr<DataType>& out_type, const CastOptions& options,
-                  bool check_scalar = true) {
-    std::shared_ptr<Array> input;
-    if (is_valid.size() > 0) {
-      ArrayFromVector<InType, I_TYPE>(in_type, is_valid, in_values, &input);
-    } else {
-      ArrayFromVector<InType, I_TYPE>(in_type, in_values, &input);
-    }
-    CheckFails(*input, out_type, options, check_scalar);
-  }
+  ExpectCanCast(utf8(), {timestamp(TimeUnit::MILLI)});
+  ExpectCanCast(large_utf8(), {timestamp(TimeUnit::NANO)});
+  ExpectCannotCast(timestamp(TimeUnit::MICRO),
+                   kBaseBinaryTypes);  // no formatting supported
 
-  template <typename InType, typename I_TYPE = typename TestCType<InType>::type>
-  void CheckFails(const std::vector<I_TYPE>& in_values, const std::vector<bool>& is_valid,
-                  const std::shared_ptr<DataType>& out_type, const CastOptions& options,
-                  bool check_scalar = true) {
-    CheckFails<InType, I_TYPE>(TypeTraits<InType>::type_singleton(), in_values, is_valid,
-                               out_type, options, check_scalar);
-  }
+  ExpectCannotCast(fixed_size_binary(3),
+                   {fixed_size_binary(3)});  // FIXME missing identity cast
 
-  void CheckZeroCopy(const Array& input, const std::shared_ptr<DataType>& out_type) {
-    ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> result, Cast(input, out_type));
-    ASSERT_OK(result->ValidateFull());
-    ASSERT_EQ(input.data()->buffers.size(), result->data()->buffers.size());
-    for (size_t i = 0; i < input.data()->buffers.size(); ++i) {
-      AssertBufferSame(input, *result, static_cast<int>(i));
-    }
-  }
+  ExtensionTypeGuard smallint_guard(smallint());
+  ExpectCanCast(smallint(), {int16()});  // cast storage
+  ExpectCanCast(smallint(),
+                kNumericTypes);  // any cast which is valid for storage is supported
+  ExpectCannotCast(null(), {smallint()});  // FIXME missing common cast from null
+}
 
-  template <typename InType, typename OutType,
-            typename I_TYPE = typename TestCType<InType>::type,
-            typename O_TYPE = typename TestCType<OutType>::type>
-  void CheckCase(const std::shared_ptr<DataType>& in_type,
-                 const std::vector<I_TYPE>& in_values, const std::vector<bool>& is_valid,
-                 const std::shared_ptr<DataType>& out_type,
-                 const std::vector<O_TYPE>& out_values, const CastOptions& options,
-                 bool check_scalar = true, bool validate_full = true) {
-    ASSERT_EQ(in_values.size(), out_values.size());
-    std::shared_ptr<Array> input, expected;
-    if (is_valid.size() > 0) {
-      ASSERT_EQ(is_valid.size(), out_values.size());
-      ArrayFromVector<InType, I_TYPE>(in_type, is_valid, in_values, &input);
-      ArrayFromVector<OutType, O_TYPE>(out_type, is_valid, out_values, &expected);
-    } else {
-      ArrayFromVector<InType, I_TYPE>(in_type, in_values, &input);
-      ArrayFromVector<OutType, O_TYPE>(out_type, out_values, &expected);
-    }
-    CheckPass(*input, *expected, out_type, options, check_scalar, validate_full);
-
-    // Check a sliced variant
-    if (input->length() > 1) {
-      CheckPass(*input->Slice(1), *expected->Slice(1), out_type, options, check_scalar,
-                validate_full);
-    }
-  }
-
-  template <typename InType, typename OutType, typename I_TYPE = typename InType::c_type,
-            typename O_TYPE = typename OutType::c_type>
-  void CheckCase(const std::vector<I_TYPE>& in_values, const std::vector<bool>& is_valid,
-                 const std::vector<O_TYPE>& out_values, const CastOptions& options,
-                 bool check_scalar = true, bool validate_full = true) {
-    CheckCase<InType, OutType, I_TYPE, O_TYPE>(
-        TypeTraits<InType>::type_singleton(), in_values, is_valid,
-        TypeTraits<OutType>::type_singleton(), out_values, options, check_scalar,
-        validate_full);
-  }
-
-  void CheckCaseJSON(const std::shared_ptr<DataType>& in_type,
-                     const std::shared_ptr<DataType>& out_type,
-                     const std::string& in_json, const std::string& expected_json,
-                     bool check_scalar = true,
-                     const CastOptions& options = CastOptions()) {
-    std::shared_ptr<Array> input = ArrayFromJSON(in_type, in_json);
-    std::shared_ptr<Array> expected = ArrayFromJSON(out_type, expected_json);
-    ASSERT_EQ(input->length(), expected->length());
-    CheckPass(*input, *expected, out_type, options, check_scalar);
-
-    // Check a sliced variant
-    if (input->length() > 1) {
-      CheckPass(*input->Slice(1), *expected->Slice(1), out_type, options,
-                /*check_scalar=*/false);
-    }
-  }
-
-  void CheckFailsJSON(const std::shared_ptr<DataType>& in_type,
-                      const std::shared_ptr<DataType>& out_type,
-                      const std::string& in_json, bool check_scalar = true,
-                      const CastOptions& options = CastOptions()) {
-    std::shared_ptr<Array> input = ArrayFromJSON(in_type, in_json);
-    CheckFails(*input, out_type, options, check_scalar);
-  }
-
-  template <typename SourceType, typename DestType>
-  void TestCastBinaryToBinary() {
-    CastOptions options;
-    auto src_type = TypeTraits<SourceType>::type_singleton();
-    auto dest_type = TypeTraits<DestType>::type_singleton();
-
-    // All valid except the last one
-    std::vector<bool> all = {1, 1, 1, 1, 1};
-    std::vector<bool> valid = {1, 1, 1, 1, 0};
-    std::vector<std::string> strings = {"Hi", "olá mundo", "你好世界", "", kInvalidUtf8};
-
-    // Should accept when invalid but null.
-    CheckCase<SourceType, DestType>(strings, valid, strings, options,
-                                    /*check_scalar=*/false);
-
-    // Should accept empty array
-    CheckCaseJSON(src_type, dest_type, "[]", "[]", /*check_scalar=*/false);
-
-    if (!SourceType::is_utf8 && DestType::is_utf8) {
-      // Should refuse due to invalid utf8 payload
-      CheckFails<SourceType>(strings, all, dest_type, options,
-                             /*check_scalar=*/false);
-      // Should accept due to option override
-      options.allow_invalid_utf8 = true;
-      CheckCase<SourceType, DestType>(strings, all, strings, options,
-                                      /*check_scalar=*/false, /*validate_full=*/false);
-    } else {
-      // Destination type allows non-utf8 data,
-      // or source type also enforces utf8 data.
-      const bool validate_full = !DestType::is_utf8;
-      CheckCase<SourceType, DestType>(strings, all, strings, options,
-                                      /*check_scalar=*/false, validate_full);
-    }
-  }
-
-  template <typename DestType>
-  void TestCastNumberToString() {
-    auto dest_type = TypeTraits<DestType>::type_singleton();
-
-    CheckCaseJSON(int8(), dest_type, "[0, 1, 127, -128, null]",
-                  R"(["0", "1", "127", "-128", null])", /*check_scalar=*/false);
-    CheckCaseJSON(uint8(), dest_type, "[0, 1, 255, null]", R"(["0", "1", "255", null])",
-                  /*check_scalar=*/false);
-    CheckCaseJSON(int16(), dest_type, "[0, 1, 32767, -32768, null]",
-                  R"(["0", "1", "32767", "-32768", null])", /*check_scalar=*/false);
-    CheckCaseJSON(uint16(), dest_type, "[0, 1, 65535, null]",
-                  R"(["0", "1", "65535", null])", /*check_scalar=*/false);
-    CheckCaseJSON(int32(), dest_type, "[0, 1, 2147483647, -2147483648, null]",
-                  R"(["0", "1", "2147483647", "-2147483648", null])",
-                  /*check_scalar=*/false);
-    CheckCaseJSON(uint32(), dest_type, "[0, 1, 4294967295, null]",
-                  R"(["0", "1", "4294967295", null])", /*check_scalar=*/false);
-    CheckCaseJSON(int64(), dest_type,
-                  "[0, 1, 9223372036854775807, -9223372036854775808, null]",
-                  R"(["0", "1", "9223372036854775807", "-9223372036854775808", null])",
-                  /*check_scalar=*/false);
-    CheckCaseJSON(uint64(), dest_type, "[0, 1, 18446744073709551615, null]",
-                  R"(["0", "1", "18446744073709551615", null])", /*check_scalar=*/false);
-
-    CheckCaseJSON(float32(), dest_type, "[0.0, -0.0, 1.5, -Inf, Inf, NaN, null]",
-                  R"(["0", "-0", "1.5", "-inf", "inf", "nan", null])",
-                  /*check_scalar=*/false);
-    CheckCaseJSON(float64(), dest_type, "[0.0, -0.0, 1.5, -Inf, Inf, NaN, null]",
-                  R"(["0", "-0", "1.5", "-inf", "inf", "nan", null])",
-                  /*check_scalar=*/false);
-  }
-
-  template <typename DestType>
-  void TestCastBooleanToString() {
-    auto dest_type = TypeTraits<DestType>::type_singleton();
-
-    CheckCaseJSON(boolean(), dest_type, "[true, true, false, null]",
-                  R"(["true", "true", "false", null])", /*check_scalar=*/false);
-  }
-
-  template <typename SourceType>
-  void TestCastStringToNumber() {
-    CastOptions options;
-    auto src_type = TypeTraits<SourceType>::type_singleton();
-
-    std::vector<bool> is_valid = {true, false, true, true, true};
-
-    // string to int
-    std::vector<std::string> v_int = {"0", "1", "127", "-1", "0"};
-    std::vector<int8_t> e_int8 = {0, 1, 127, -1, 0};
-    std::vector<int16_t> e_int16 = {0, 1, 127, -1, 0};
-    std::vector<int32_t> e_int32 = {0, 1, 127, -1, 0};
-    std::vector<int64_t> e_int64 = {0, 1, 127, -1, 0};
-    CheckCase<SourceType, Int8Type>(v_int, is_valid, e_int8, options);
-    CheckCase<SourceType, Int16Type>(v_int, is_valid, e_int16, options);
-    CheckCase<SourceType, Int32Type>(v_int, is_valid, e_int32, options);
-    CheckCase<SourceType, Int64Type>(v_int, is_valid, e_int64, options);
-
-    v_int = {"2147483647", "0", "-2147483648", "0", "0"};
-    e_int32 = {2147483647, 0, -2147483648LL, 0, 0};
-    CheckCase<SourceType, Int32Type>(v_int, is_valid, e_int32, options);
-    v_int = {"9223372036854775807", "0", "-9223372036854775808", "0", "0"};
-    e_int64 = {9223372036854775807LL, 0, (-9223372036854775807LL - 1), 0, 0};
-    CheckCase<SourceType, Int64Type>(v_int, is_valid, e_int64, options);
-
-    // string to uint
-    std::vector<std::string> v_uint = {"0", "1", "127", "255", "0"};
-    std::vector<uint8_t> e_uint8 = {0, 1, 127, 255, 0};
-    std::vector<uint16_t> e_uint16 = {0, 1, 127, 255, 0};
-    std::vector<uint32_t> e_uint32 = {0, 1, 127, 255, 0};
-    std::vector<uint64_t> e_uint64 = {0, 1, 127, 255, 0};
-    CheckCase<SourceType, UInt8Type>(v_uint, is_valid, e_uint8, options);
-    CheckCase<SourceType, UInt16Type>(v_uint, is_valid, e_uint16, options);
-    CheckCase<SourceType, UInt32Type>(v_uint, is_valid, e_uint32, options);
-    CheckCase<SourceType, UInt64Type>(v_uint, is_valid, e_uint64, options);
-
-    v_uint = {"4294967295", "0", "0", "0", "0"};
-    e_uint32 = {4294967295, 0, 0, 0, 0};
-    CheckCase<SourceType, UInt32Type>(v_uint, is_valid, e_uint32, options);
-    v_uint = {"18446744073709551615", "0", "0", "0", "0"};
-    e_uint64 = {18446744073709551615ULL, 0, 0, 0, 0};
-    CheckCase<SourceType, UInt64Type>(v_uint, is_valid, e_uint64, options);
-
-    // string to float
-    std::vector<std::string> v_float = {"0.1", "1.2", "127.3", "200.4", "0.5"};
-    std::vector<float> e_float = {0.1f, 1.2f, 127.3f, 200.4f, 0.5f};
-    std::vector<double> e_double = {0.1, 1.2, 127.3, 200.4, 0.5};
-    CheckCase<SourceType, FloatType>(v_float, is_valid, e_float, options);
-    CheckCase<SourceType, DoubleType>(v_float, is_valid, e_double, options);
-
-#if !defined(_WIN32) || defined(NDEBUG)
-    // Test that casting is locale-independent
-    {
-      // French locale uses the comma as decimal point
-      LocaleGuard locale_guard("fr_FR.UTF-8");
-      CheckCase<SourceType, FloatType>(v_float, is_valid, e_float, options);
-      CheckCase<SourceType, DoubleType>(v_float, is_valid, e_double, options);
-    }
-#endif
-  }
-
-  template <typename SourceType>
-  void TestCastStringToTimestamp() {
-    CastOptions options;
-    auto src_type = TypeTraits<SourceType>::type_singleton();
-
-    std::vector<bool> is_valid = {true, false, true};
-    std::vector<std::string> strings = {"1970-01-01", "xxx", "2000-02-29"};
-
-    auto type = timestamp(TimeUnit::SECOND);
-    std::vector<int64_t> e = {0, 0, 951782400};
-    CheckCase<SourceType, TimestampType>(src_type, strings, is_valid, type, e, options);
-
-    type = timestamp(TimeUnit::MICRO);
-    e = {0, 0, 951782400000000LL};
-    CheckCase<SourceType, TimestampType>(src_type, strings, is_valid, type, e, options);
-
-    // NOTE: timestamp parsing is tested comprehensively in parsing-util-test.cc
-  }
-
-  void TestCastFloatingToDecimal(const std::shared_ptr<DataType>& in_type) {
-    auto out_type = decimal(5, 2);
-
-    CheckCaseJSON(in_type, out_type, "[0.0, null, 123.45, 123.456, 999.994]",
-                  R"(["0.00", null, "123.45", "123.46", "999.99"])");
-
-    // Overflow
-    CastOptions options{};
-    out_type = decimal(5, 2);
-    CheckFailsJSON(in_type, out_type, "[999.996]", /*check_scalar=*/true, options);
-
-    options.allow_decimal_truncate = true;
-    CheckCaseJSON(in_type, out_type, "[0.0, null, 999.996, 123.45, 999.994]",
-                  R"(["0.00", null, "0.00", "123.45", "999.99"])", /*check_scalar=*/true,
-                  options);
-  }
-
-  void TestCastDecimalToFloating(const std::shared_ptr<DataType>& out_type) {
-    auto in_type = decimal(5, 2);
-
-    CheckCaseJSON(in_type, out_type, R"(["0.00", null, "123.45", "999.99"])",
-                  "[0.0, null, 123.45, 999.99]");
-    // Edge cases are tested in Decimal128::ToReal()
-  }
-};
-
-TEST_F(TestCast, SameTypeZeroCopy) {
+TEST(Cast, SameTypeZeroCopy) {
   std::shared_ptr<Array> arr = ArrayFromJSON(int32(), "[0, null, 2, 3, 4]");
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> result, Cast(*arr, int32()));
 
@@ -411,7 +218,7 @@ TEST_F(TestCast, SameTypeZeroCopy) {
   AssertBufferSame(*arr, *result, 1);
 }
 
-TEST_F(TestCast, ZeroChunks) {
+TEST(Cast, ZeroChunks) {
   auto chunked_i32 = std::make_shared<ChunkedArray>(ArrayVector{}, int32());
   ASSERT_OK_AND_ASSIGN(Datum result, Cast(chunked_i32, utf8()));
 
@@ -419,1033 +226,1152 @@ TEST_F(TestCast, ZeroChunks) {
   AssertChunkedEqual(*result.chunked_array(), ChunkedArray({}, utf8()));
 }
 
-TEST_F(TestCast, CastDoesNotProvideDefaultOptions) {
+TEST(Cast, CastDoesNotProvideDefaultOptions) {
   std::shared_ptr<Array> arr = ArrayFromJSON(int32(), "[0, null, 2, 3, 4]");
   ASSERT_RAISES(Invalid, CallFunction("cast", {arr}));
 }
 
-TEST_F(TestCast, FromBoolean) {
-  CastOptions options;
-
-  std::vector<bool> is_valid(20, true);
-  is_valid[3] = false;
-
-  std::vector<bool> v1(is_valid.size(), true);
-  std::vector<int32_t> e1(is_valid.size(), 1);
-  for (size_t i = 0; i < v1.size(); ++i) {
-    if (i % 3 == 1) {
-      v1[i] = false;
-      e1[i] = 0;
-    }
-  }
-
-  CheckCase<BooleanType, Int32Type>(v1, is_valid, e1, options);
+TEST(Cast, FromBoolean) {
+  std::string vals = "[1, 0, null, 1, 0, 1, 1, null, 0, 0, 1]";
+  CheckCast(ArrayFromJSON(boolean(), vals), ArrayFromJSON(int32(), vals));
 }
 
-TEST_F(TestCast, ToBoolean) {
-  CastOptions options;
+TEST(Cast, ToBoolean) {
   for (auto type : kNumericTypes) {
-    CheckCaseJSON(type, boolean(), "[0, null, 127, 1, 0]",
-                  "[false, null, true, true, false]");
+    CheckCast(ArrayFromJSON(type, "[0, null, 127, 1, 0]"),
+              ArrayFromJSON(boolean(), "[false, null, true, true, false]"));
   }
 
   // Check negative numbers
-  CheckCaseJSON(int8(), boolean(), "[0, null, 127, -1, 0]",
-                "[false, null, true, true, false]");
-  CheckCaseJSON(float64(), boolean(), "[0, null, 127, -1, 0]",
-                "[false, null, true, true, false]");
+  for (auto type : {int8(), float64()}) {
+    CheckCast(ArrayFromJSON(type, "[0, null, 127, -1, 0]"),
+              ArrayFromJSON(boolean(), "[false, null, true, true, false]"));
+  }
 }
 
-TEST_F(TestCast, ToIntUpcast) {
-  CastOptions options;
-  options.allow_int_overflow = false;
-
+TEST(Cast, ToIntUpcast) {
   std::vector<bool> is_valid = {true, false, true, true, true};
 
   // int8 to int32
-  std::vector<int8_t> v1 = {0, 1, 127, -1, 0};
-  std::vector<int32_t> e1 = {0, 1, 127, -1, 0};
-  CheckCase<Int8Type, Int32Type>(v1, is_valid, e1, options);
-
-  // bool to int8
-  std::vector<bool> v2 = {false, true, false, true, true};
-  std::vector<int8_t> e2 = {0, 1, 0, 1, 1};
-  CheckCase<BooleanType, Int8Type>(v2, is_valid, e2, options);
+  CheckCast(ArrayFromJSON(int8(), "[0, null, 127, -1, 0]"),
+            ArrayFromJSON(int32(), "[0, null, 127, -1, 0]"));
 
   // uint8 to int16, no overflow/underrun
-  std::vector<uint8_t> v3 = {0, 100, 200, 255, 0};
-  std::vector<int16_t> e3 = {0, 100, 200, 255, 0};
-  CheckCase<UInt8Type, Int16Type>(v3, is_valid, e3, options);
+  CheckCast(ArrayFromJSON(uint8(), "[0, 100, 200, 255, 0]"),
+            ArrayFromJSON(int16(), "[0, 100, 200, 255, 0]"));
 }
 
-TEST_F(TestCast, OverflowInNullSlot) {
-  CastOptions options;
-  options.allow_int_overflow = false;
-
-  std::vector<bool> is_valid = {true, false, true, true, true};
-
-  std::vector<int32_t> v11 = {0, 70000, 2000, 1000, 0};
-  std::vector<int16_t> e11 = {0, 0, 2000, 1000, 0};
-
-  std::shared_ptr<Array> expected;
-  ArrayFromVector<Int16Type>(int16(), is_valid, e11, &expected);
-
-  auto buf = Buffer::Wrap(v11.data(), v11.size());
-  Int32Array tmp11(5, buf, expected->null_bitmap(), -1);
-
-  CheckPass(tmp11, *expected, int16(), options);
+TEST(Cast, OverflowInNullSlot) {
+  CheckCast(
+      MaskArrayWithNullsAt(ArrayFromJSON(int32(), "[0, 87654321, 2000, 1000, 0]"), {1}),
+      ArrayFromJSON(int16(), "[0, null, 2000, 1000, 0]"));
 }
 
-TEST_F(TestCast, ToIntDowncastSafe) {
-  CastOptions options;
-  options.allow_int_overflow = false;
+TEST(Cast, ToIntDowncastSafe) {
+  // int16 to uint8, no overflow/underflow
+  CheckCast(ArrayFromJSON(int16(), "[0, null, 200, 1, 2]"),
+            ArrayFromJSON(uint8(), "[0, null, 200, 1, 2]"));
 
-  std::vector<bool> is_valid = {true, false, true, true, true};
+  // int16 to uint8, overflow
+  CheckCastFails(ArrayFromJSON(int16(), "[0, null, 256, 0, 0]"),
+                 CastOptions::Safe(uint8()));
+  // ... and underflow
+  CheckCastFails(ArrayFromJSON(int16(), "[0, null, -1, 0, 0]"),
+                 CastOptions::Safe(uint8()));
 
-  // int16 to uint8, no overflow/underrun
-  std::vector<int16_t> v1 = {0, 100, 200, 1, 2};
-  std::vector<uint8_t> e1 = {0, 100, 200, 1, 2};
-  CheckCase<Int16Type, UInt8Type>(v1, is_valid, e1, options);
-
-  // int16 to uint8, with overflow
-  std::vector<int16_t> v2 = {0, 100, 256, 0, 0};
-  CheckFails<Int16Type>(v2, is_valid, uint8(), options);
-
-  // underflow
-  std::vector<int16_t> v3 = {0, 100, -1, 0, 0};
-  CheckFails<Int16Type>(v3, is_valid, uint8(), options);
-
-  // int32 to int16, no overflow
-  std::vector<int32_t> v4 = {0, 1000, 2000, 1, 2};
-  std::vector<int16_t> e4 = {0, 1000, 2000, 1, 2};
-  CheckCase<Int32Type, Int16Type>(v4, is_valid, e4, options);
+  // int32 to int16, no overflow/underflow
+  CheckCast(ArrayFromJSON(int32(), "[0, null, 2000, 1, 2]"),
+            ArrayFromJSON(int16(), "[0, null, 2000, 1, 2]"));
 
   // int32 to int16, overflow
-  std::vector<int32_t> v5 = {0, 1000, 2000, 70000, 0};
-  CheckFails<Int32Type>(v5, is_valid, int16(), options);
+  CheckCastFails(ArrayFromJSON(int32(), "[0, null, 2000, 70000, 2]"),
+                 CastOptions::Safe(int16()));
 
-  // underflow
-  std::vector<int32_t> v6 = {0, 1000, 2000, -70000, 0};
-  CheckFails<Int32Type>(v6, is_valid, int16(), options);
+  // ... and underflow
+  CheckCastFails(ArrayFromJSON(int32(), "[0, null, 2000, -70000, 2]"),
+                 CastOptions::Safe(int16()));
 
-  std::vector<int32_t> v7 = {0, 1000, 2000, -70000, 0};
-  CheckFails<Int32Type>(v7, is_valid, uint8(), options);
+  CheckCastFails(ArrayFromJSON(int32(), "[0, null, 2000, -70000, 2]"),
+                 CastOptions::Safe(uint8()));
 }
 
-template <typename O, typename I>
-std::vector<O> UnsafeVectorCast(const std::vector<I>& v) {
-  size_t n_elems = v.size();
-  std::vector<O> result(n_elems);
-
-  for (size_t i = 0; i < v.size(); i++) result[i] = static_cast<O>(v[i]);
-
-  return result;
-}
-
-TEST_F(TestCast, IntegerSignedToUnsigned) {
-  CastOptions options;
-  options.allow_int_overflow = false;
-
-  std::vector<bool> is_valid = {true, false, true, true, true};
-
-  std::vector<int32_t> v1 = {INT32_MIN, 100, -1, UINT16_MAX, INT32_MAX};
-
+TEST(Cast, IntegerSignedToUnsigned) {
+  auto i32s = ArrayFromJSON(int32(), "[-2147483648, null, -1, 65535, 2147483647]");
   // Same width
-  CheckFails<Int32Type>(v1, is_valid, uint32(), options);
+  CheckCastFails(i32s, CastOptions::Safe(uint32()));
   // Wider
-  CheckFails<Int32Type>(v1, is_valid, uint64(), options);
+  CheckCastFails(i32s, CastOptions::Safe(uint64()));
   // Narrower
-  CheckFails<Int32Type>(v1, is_valid, uint16(), options);
+  CheckCastFails(i32s, CastOptions::Safe(uint16()));
+
+  CastOptions options;
+  options.allow_int_overflow = true;
+
+  CheckCast(i32s,
+            ArrayFromJSON(uint32(), "[2147483648, null, 4294967295, 65535, 2147483647]"),
+            options);
+  CheckCast(i32s,
+            ArrayFromJSON(
+                uint64(),
+                "[18446744071562067968, null, 18446744073709551615, 65535, 2147483647]"),
+            options);
+  CheckCast(i32s, ArrayFromJSON(uint16(), "[0, null, 65535, 65535, 65535]"), options);
+
   // Fail because of overflow (instead of underflow).
-  std::vector<int32_t> over = {0, -11, 0, UINT16_MAX + 1, INT32_MAX};
-  CheckFails<Int32Type>(over, is_valid, uint16(), options);
+  i32s = ArrayFromJSON(int32(), "[0, null, 0, 65536, 2147483647]");
+  CheckCastFails(i32s, CastOptions::Safe(uint16()));
 
-  options.allow_int_overflow = true;
-
-  CheckCase<Int32Type, UInt32Type>(v1, is_valid, UnsafeVectorCast<uint32_t, int32_t>(v1),
-                                   options);
-  CheckCase<Int32Type, UInt64Type>(v1, is_valid, UnsafeVectorCast<uint64_t, int32_t>(v1),
-                                   options);
-  CheckCase<Int32Type, UInt16Type>(v1, is_valid, UnsafeVectorCast<uint16_t, int32_t>(v1),
-                                   options);
-  CheckCase<Int32Type, UInt16Type>(over, is_valid,
-                                   UnsafeVectorCast<uint16_t, int32_t>(over), options);
+  CheckCast(i32s, ArrayFromJSON(uint16(), "[0, null, 0, 0, 65535]"), options);
 }
 
-TEST_F(TestCast, IntegerUnsignedToSigned) {
-  CastOptions options;
-  options.allow_int_overflow = false;
-
-  std::vector<bool> is_valid = {true, true, true};
-
-  std::vector<uint32_t> v1 = {0, INT16_MAX + 1, UINT32_MAX};
-  std::vector<uint32_t> v2 = {0, INT16_MAX + 1, 2};
+TEST(Cast, IntegerUnsignedToSigned) {
+  auto u32s = ArrayFromJSON(uint32(), "[4294967295, null, 0, 32768]");
   // Same width
-  CheckFails<UInt32Type>(v1, is_valid, int32(), options);
+  CheckCastFails(u32s, CastOptions::Safe(int32()));
+
   // Narrower
-  CheckFails<UInt32Type>(v1, is_valid, int16(), options);
-  CheckFails<UInt32Type>(v2, is_valid, int16(), options);
+  CheckCastFails(u32s, CastOptions::Safe(int16()));
+  CheckCastFails(u32s->Slice(1), CastOptions::Safe(int16()));
 
-  options.allow_int_overflow = true;
-
-  CheckCase<UInt32Type, Int32Type>(v1, is_valid, UnsafeVectorCast<int32_t, uint32_t>(v1),
-                                   options);
-  CheckCase<UInt32Type, Int64Type>(v1, is_valid, UnsafeVectorCast<int64_t, uint32_t>(v1),
-                                   options);
-  CheckCase<UInt32Type, Int16Type>(v1, is_valid, UnsafeVectorCast<int16_t, uint32_t>(v1),
-                                   options);
-  CheckCase<UInt32Type, Int16Type>(v2, is_valid, UnsafeVectorCast<int16_t, uint32_t>(v2),
-                                   options);
-}
-
-TEST_F(TestCast, ToIntDowncastUnsafe) {
   CastOptions options;
   options.allow_int_overflow = true;
 
-  std::vector<bool> is_valid = {true, false, true, true, true};
-
-  // int16 to uint8, no overflow/underrun
-  std::vector<int16_t> v1 = {0, 100, 200, 1, 2};
-  std::vector<uint8_t> e1 = {0, 100, 200, 1, 2};
-  CheckCase<Int16Type, UInt8Type>(v1, is_valid, e1, options);
-
-  // int16 to uint8, with overflow
-  std::vector<int16_t> v2 = {0, 100, 256, 0, 0};
-  std::vector<uint8_t> e2 = {0, 100, 0, 0, 0};
-  CheckCase<Int16Type, UInt8Type>(v2, is_valid, e2, options);
-
-  // underflow
-  std::vector<int16_t> v3 = {0, 100, -1, 0, 0};
-  std::vector<uint8_t> e3 = {0, 100, 255, 0, 0};
-  CheckCase<Int16Type, UInt8Type>(v3, is_valid, e3, options);
-
-  // int32 to int16, no overflow
-  std::vector<int32_t> v4 = {0, 1000, 2000, 1, 2};
-  std::vector<int16_t> e4 = {0, 1000, 2000, 1, 2};
-  CheckCase<Int32Type, Int16Type>(v4, is_valid, e4, options);
-
-  // int32 to int16, overflow
-  // TODO(wesm): do we want to allow this? we could set to null
-  std::vector<int32_t> v5 = {0, 1000, 2000, 70000, 0};
-  std::vector<int16_t> e5 = {0, 1000, 2000, 4464, 0};
-  CheckCase<Int32Type, Int16Type>(v5, is_valid, e5, options);
-
-  // underflow
-  // TODO(wesm): do we want to allow this? we could set overflow to null
-  std::vector<int32_t> v6 = {0, 1000, 2000, -70000, 0};
-  std::vector<int16_t> e6 = {0, 1000, 2000, -4464, 0};
-  CheckCase<Int32Type, Int16Type>(v6, is_valid, e6, options);
+  CheckCast(u32s, ArrayFromJSON(int32(), "[-1, null, 0, 32768]"), options);
+  CheckCast(u32s, ArrayFromJSON(int64(), "[4294967295, null, 0, 32768]"), options);
+  CheckCast(u32s, ArrayFromJSON(int16(), "[-1, null, 0, -32768]"), options);
 }
 
-TEST_F(TestCast, FloatingPointToInt) {
-  // which means allow_float_truncate == false
-  auto options = CastOptions::Safe();
-
-  std::vector<bool> is_valid = {true, false, true, true, true};
-  std::vector<bool> all_valid = {true, true, true, true, true};
-
-  // float32 to int32 no truncation
-  std::vector<float> v1 = {1.0, 0, 0.0, -1.0, 5.0};
-  std::vector<int32_t> e1 = {1, 0, 0, -1, 5};
-  CheckCase<FloatType, Int32Type>(v1, is_valid, e1, options);
-  CheckCase<FloatType, Int32Type>(v1, all_valid, e1, options);
-
-  // float64 to int32 no truncation
-  std::vector<double> v2 = {1.0, 0, 0.0, -1.0, 5.0};
-  std::vector<int32_t> e2 = {1, 0, 0, -1, 5};
-  CheckCase<DoubleType, Int32Type>(v2, is_valid, e2, options);
-  CheckCase<DoubleType, Int32Type>(v2, all_valid, e2, options);
-
-  // float64 to int64 no truncation
-  std::vector<double> v3 = {1.0, 0, 0.0, -1.0, 5.0};
-  std::vector<int64_t> e3 = {1, 0, 0, -1, 5};
-  CheckCase<DoubleType, Int64Type>(v3, is_valid, e3, options);
-  CheckCase<DoubleType, Int64Type>(v3, all_valid, e3, options);
-
-  // float64 to int32 truncate
-  std::vector<double> v4 = {1.5, 0, 0.5, -1.5, 5.5};
-  std::vector<int32_t> e4 = {1, 0, 0, -1, 5};
-
-  options.allow_float_truncate = false;
-  CheckFails<DoubleType>(v4, is_valid, int32(), options);
-  CheckFails<DoubleType>(v4, all_valid, int32(), options);
-
-  options.allow_float_truncate = true;
-  CheckCase<DoubleType, Int32Type>(v4, is_valid, e4, options);
-  CheckCase<DoubleType, Int32Type>(v4, all_valid, e4, options);
-
-  // float64 to int64 truncate
-  std::vector<double> v5 = {1.5, 0, 0.5, -1.5, 5.5};
-  std::vector<int64_t> e5 = {1, 0, 0, -1, 5};
-
-  options.allow_float_truncate = false;
-  CheckFails<DoubleType>(v5, is_valid, int64(), options);
-  CheckFails<DoubleType>(v5, all_valid, int64(), options);
-
-  options.allow_float_truncate = true;
-  CheckCase<DoubleType, Int64Type>(v5, is_valid, e5, options);
-  CheckCase<DoubleType, Int64Type>(v5, all_valid, e5, options);
-}
-
-TEST_F(TestCast, IntToFloatingPoint) {
-  auto options = CastOptions::Safe();
-
-  std::vector<bool> all_valid = {true, true, true, true, true};
-  std::vector<bool> all_invalid = {false, false, false, false, false};
-
-  std::vector<uint32_t> u32_v1 = {1LL << 24, (1LL << 24) + 1};
-  CheckFails<UInt32Type>(u32_v1, {true, true}, float32(), options);
-
-  std::vector<uint32_t> u32_v2 = {1LL << 24, 1LL << 24};
-  CheckCase<UInt32Type, FloatType>(u32_v2, {true, true},
-                                   UnsafeVectorCast<float, uint32_t>(u32_v2), options);
-
-  std::vector<int32_t> i32_v1 = {1LL << 24, (1LL << 24) + 1};
-  std::vector<int32_t> i32_v2 = {1LL << 24, 1LL << 24};
-  CheckFails<Int32Type>(i32_v1, {true, true}, float32(), options);
-  CheckCase<Int32Type, FloatType>(i32_v2, {true, true},
-                                  UnsafeVectorCast<float, int32_t>(i32_v2), options);
-
-  std::vector<int64_t> v1 = {INT64_MIN, INT64_MIN + 1, 0, INT64_MAX - 1, INT64_MAX};
-  CheckFails<Int64Type>(v1, all_valid, float64(), options);
-
-  // While it's not safe to convert, all values are null.
-  CheckCase<Int64Type, DoubleType>(v1, all_invalid, UnsafeVectorCast<double, int64_t>(v1),
-                                   options);
-
-  CheckFails<UInt64Type>({1LL << 53, (1LL << 53) + 1}, {true, true}, float64(), options);
-}
-
-TEST_F(TestCast, DecimalToInt) {
+TEST(Cast, ToIntDowncastUnsafe) {
   CastOptions options;
-  std::vector<bool> is_valid2 = {true, true};
-  std::vector<bool> is_valid3 = {true, true, false};
+  options.allow_int_overflow = true;
 
-  // no overflow no truncation
-  std::vector<Decimal128> v12 = {Decimal128("02.0000000000"),
-                                 Decimal128("-11.0000000000")};
-  std::vector<Decimal128> v13 = {Decimal128("02.0000000000"),
-                                 Decimal128("-11.0000000000"),
-                                 Decimal128("-12.0000000000")};
-  std::vector<int64_t> e12 = {2, -11};
-  std::vector<int64_t> e13 = {2, -11, 0};
+  // int16 to uint8, no overflow/underflow
+  CheckCast(ArrayFromJSON(int16(), "[0, null, 200, 1, 2]"),
+            ArrayFromJSON(uint8(), "[0, null, 200, 1, 2]"), options);
+
+  // int16 to uint8, with overflow/underflow
+  CheckCast(ArrayFromJSON(int16(), "[0, null, 256, 1, 2, -1]"),
+            ArrayFromJSON(uint8(), "[0, null, 0, 1, 2, 255]"), options);
+
+  // int32 to int16, no overflow/underflow
+  CheckCast(ArrayFromJSON(int32(), "[0, null, 2000, 1, 2, -1]"),
+            ArrayFromJSON(int16(), "[0, null, 2000, 1, 2, -1]"), options);
+
+  // int32 to int16, with overflow/underflow
+  CheckCast(ArrayFromJSON(int32(), "[0, null, 2000, 70000, -70000]"),
+            ArrayFromJSON(int16(), "[0, null, 2000, 4464, -4464]"), options);
+}
+
+TEST(Cast, FloatingToInt) {
+  for (auto from : {float32(), float64()}) {
+    for (auto to : {int32(), int64()}) {
+      // float to int no truncation
+      CheckCast(ArrayFromJSON(from, "[1.0, null, 0.0, -1.0, 5.0]"),
+                ArrayFromJSON(to, "[1, null, 0, -1, 5]"));
+
+      // float to int truncate error
+      auto opts = CastOptions::Safe(to);
+      CheckCastFails(ArrayFromJSON(from, "[1.5, 0.0, null, 0.5, -1.5, 5.5]"), opts);
+
+      // float to int truncate allowed
+      opts.allow_float_truncate = true;
+      CheckCast(ArrayFromJSON(from, "[1.5, 0.0, null, 0.5, -1.5, 5.5]"),
+                ArrayFromJSON(to, "[1, 0, null, 0, -1, 5]"), opts);
+    }
+  }
+}
+
+TEST(Cast, IntToFloating) {
+  for (auto from : {uint32(), int32()}) {
+    std::string two_24 = "[16777216, 16777217]";
+
+    CheckCastFails(ArrayFromJSON(from, two_24), CastOptions::Safe(float32()));
+
+    CheckCast(ArrayFromJSON(from, two_24)->Slice(0, 1),
+              ArrayFromJSON(float32(), two_24)->Slice(0, 1));
+  }
+
+  auto i64s = ArrayFromJSON(int64(),
+                            "[-9223372036854775808, -9223372036854775807, 0,"
+                            "  9223372036854775806,  9223372036854775807]");
+  CheckCastFails(i64s, CastOptions::Safe(float64()));
+
+  // Masking those values with nulls makes this safe
+  CheckCast(MaskArrayWithNullsAt(i64s, {0, 1, 3, 4}),
+            ArrayFromJSON(float64(), "[null, null, 0, null, null]"));
+
+  CheckCastFails(ArrayFromJSON(uint64(), "[9007199254740992, 9007199254740993]"),
+                 CastOptions::Safe(float64()));
+}
+
+TEST(Cast, Decimal128ToInt) {
+  auto options = CastOptions::Safe(int64());
 
   for (bool allow_int_overflow : {false, true}) {
     for (bool allow_decimal_truncate : {false, true}) {
       options.allow_int_overflow = allow_int_overflow;
       options.allow_decimal_truncate = allow_decimal_truncate;
-      CheckCase<Decimal128Type, Int64Type>(decimal(38, 10), v12, is_valid2, int64(), e12,
-                                           options);
-      CheckCase<Decimal128Type, Int64Type>(decimal(38, 10), v13, is_valid3, int64(), e13,
-                                           options);
+
+      auto no_overflow_no_truncation = ArrayFromJSON(decimal(38, 10), R"([
+          "02.0000000000",
+         "-11.0000000000",
+          "22.0000000000",
+        "-121.0000000000",
+        null])");
+      CheckCast(no_overflow_no_truncation,
+                ArrayFromJSON(int64(), "[2, -11, 22, -121, null]"), options);
     }
   }
 
-  // truncation, no overflow
-  std::vector<Decimal128> v22 = {Decimal128("02.1000000000"),
-                                 Decimal128("-11.0000004500")};
-  std::vector<Decimal128> v23 = {Decimal128("02.1000000000"),
-                                 Decimal128("-11.0000004500"),
-                                 Decimal128("-12.0000004500")};
-  std::vector<int64_t> e22 = {2, -11};
-  std::vector<int64_t> e23 = {2, -11, 0};
-
   for (bool allow_int_overflow : {false, true}) {
     options.allow_int_overflow = allow_int_overflow;
-    options.allow_decimal_truncate = true;
-    CheckCase<Decimal128Type, Int64Type>(decimal(38, 10), v22, is_valid2, int64(), e22,
-                                         options);
-    CheckCase<Decimal128Type, Int64Type>(decimal(38, 10), v23, is_valid3, int64(), e23,
-                                         options);
-    options.allow_decimal_truncate = false;
-    CheckFails<Decimal128Type>(decimal(38, 10), v22, is_valid2, int64(), options);
-    CheckFails<Decimal128Type>(decimal(38, 10), v23, is_valid3, int64(), options);
-  }
+    auto truncation_but_no_overflow = ArrayFromJSON(decimal(38, 10), R"([
+          "02.1000000000",
+         "-11.0000004500",
+          "22.0000004500",
+        "-121.1210000000",
+        null])");
 
-  // overflow, no truncation
-  std::vector<Decimal128> v32 = {Decimal128("12345678901234567890000.0000000000"),
-                                 Decimal128("99999999999999999999999.0000000000")};
-  std::vector<Decimal128> v33 = {Decimal128("12345678901234567890000.0000000000"),
-                                 Decimal128("99999999999999999999999.0000000000"),
-                                 Decimal128("99999999999999999999999.0000000000")};
-  // 12345678901234567890000 % 2**64, 99999999999999999999999 % 2**64
-  std::vector<int64_t> e32 = {4807115922877858896, 200376420520689663};
-  std::vector<int64_t> e33 = {4807115922877858896, 200376420520689663, -2};
+    options.allow_decimal_truncate = true;
+    CheckCast(truncation_but_no_overflow,
+              ArrayFromJSON(int64(), "[2, -11, 22, -121, null]"), options);
+
+    options.allow_decimal_truncate = false;
+    CheckCastFails(truncation_but_no_overflow, options);
+  }
 
   for (bool allow_decimal_truncate : {false, true}) {
     options.allow_decimal_truncate = allow_decimal_truncate;
-    options.allow_int_overflow = true;
-    CheckCase<Decimal128Type, Int64Type>(decimal(38, 10), v32, is_valid2, int64(), e32,
-                                         options);
-    CheckCase<Decimal128Type, Int64Type>(decimal(38, 10), v33, is_valid3, int64(), e33,
-                                         options);
-    options.allow_int_overflow = false;
-    CheckFails<Decimal128Type>(decimal(38, 10), v32, is_valid2, int64(), options);
-    CheckFails<Decimal128Type>(decimal(38, 10), v33, is_valid3, int64(), options);
-  }
 
-  // overflow, truncation
-  std::vector<Decimal128> v42 = {Decimal128("12345678901234567890000.0045345000"),
-                                 Decimal128("99999999999999999999999.0000005430")};
-  std::vector<Decimal128> v43 = {Decimal128("12345678901234567890000.0005345340"),
-                                 Decimal128("99999999999999999999999.0000344300"),
-                                 Decimal128("99999999999999999999999.0004354000")};
-  // 12345678901234567890000 % 2**64, 99999999999999999999999 % 2**64
-  std::vector<int64_t> e42 = {4807115922877858896, 200376420520689663};
-  std::vector<int64_t> e43 = {4807115922877858896, 200376420520689663, -2};
+    auto overflow_no_truncation = ArrayFromJSON(decimal(38, 10), R"([
+        "12345678901234567890000.0000000000",
+        "99999999999999999999999.0000000000",
+        null])");
+
+    options.allow_int_overflow = true;
+    CheckCast(
+        overflow_no_truncation,
+        ArrayFromJSON(int64(),
+                      // 12345678901234567890000 % 2**64, 99999999999999999999999 % 2**64
+                      "[4807115922877858896, 200376420520689663, null]"),
+        options);
+
+    options.allow_int_overflow = false;
+    CheckCastFails(overflow_no_truncation, options);
+  }
 
   for (bool allow_int_overflow : {false, true}) {
     for (bool allow_decimal_truncate : {false, true}) {
       options.allow_int_overflow = allow_int_overflow;
       options.allow_decimal_truncate = allow_decimal_truncate;
+
+      auto overflow_and_truncation = ArrayFromJSON(decimal(38, 10), R"([
+        "12345678901234567890000.0045345000",
+        "99999999999999999999999.0000344300",
+        null])");
+
       if (options.allow_int_overflow && options.allow_decimal_truncate) {
-        CheckCase<Decimal128Type, Int64Type>(decimal(38, 10), v42, is_valid2, int64(),
-                                             e42, options);
-        CheckCase<Decimal128Type, Int64Type>(decimal(38, 10), v43, is_valid3, int64(),
-                                             e43, options);
+        CheckCast(overflow_and_truncation,
+                  ArrayFromJSON(
+                      int64(),
+                      // 12345678901234567890000 % 2**64, 99999999999999999999999 % 2**64
+                      "[4807115922877858896, 200376420520689663, null]"),
+                  options);
       } else {
-        CheckFails<Decimal128Type>(decimal(38, 10), v42, is_valid2, int64(), options);
-        CheckFails<Decimal128Type>(decimal(38, 10), v43, is_valid3, int64(), options);
+        CheckCastFails(overflow_and_truncation, options);
       }
     }
   }
 
-  // negative scale
-  std::vector<Decimal128> v5 = {Decimal128("1234567890000."), Decimal128("-120000.")};
-  for (int i = 0; i < 2; i++) v5[i] = v5[i].Rescale(0, -4).ValueOrDie();
-  std::vector<int64_t> e5 = {1234567890000, -120000};
-  CheckCase<Decimal128Type, Int64Type>(decimal(38, -4), v5, is_valid2, int64(), e5,
-                                       options);
+  Decimal128Builder builder(decimal(38, -4));
+  for (auto d : {Decimal128("1234567890000."), Decimal128("-120000.")}) {
+    ASSERT_OK_AND_ASSIGN(d, d.Rescale(0, -4));
+    ASSERT_OK(builder.Append(d));
+  }
+  ASSERT_OK_AND_ASSIGN(auto negative_scale, builder.Finish());
+  options.allow_int_overflow = true;
+  options.allow_decimal_truncate = true;
+  CheckCast(negative_scale, ArrayFromJSON(int64(), "[1234567890000, -120000]"), options);
 }
 
-TEST_F(TestCast, DecimalToDecimal) {
-  CastOptions options;
+TEST(Cast, Decimal256ToInt) {
+  auto options = CastOptions::Safe(int64());
 
-  std::vector<bool> is_valid1 = {true};
-  std::vector<bool> is_valid2 = {true, true};
-  std::vector<bool> is_valid3 = {true, true, false};
+  for (bool allow_int_overflow : {false, true}) {
+    for (bool allow_decimal_truncate : {false, true}) {
+      options.allow_int_overflow = allow_int_overflow;
+      options.allow_decimal_truncate = allow_decimal_truncate;
 
-  // Non-truncating
-
-  std::vector<Decimal128> v12 = {Decimal128("02.0000000000"),
-                                 Decimal128("30.0000000000")};
-  std::vector<Decimal128> e12 = {Decimal128("02."), Decimal128("30.")};
-  std::vector<Decimal128> v13 = {Decimal128("02.0000000000"), Decimal128("30.0000000000"),
-                                 Decimal128("30.0000000000")};
-  std::vector<Decimal128> e13 = {Decimal128("02."), Decimal128("30."), Decimal128("-1.")};
-
-  for (bool allow_decimal_truncate : {false, true}) {
-    options.allow_decimal_truncate = allow_decimal_truncate;
-    CheckCase<Decimal128Type, Decimal128Type>(decimal(38, 10), v12, is_valid2,
-                                              decimal(28, 0), e12, options);
-    CheckCase<Decimal128Type, Decimal128Type>(decimal(38, 10), v13, is_valid3,
-                                              decimal(28, 0), e13, options);
-    // and back
-    CheckCase<Decimal128Type, Decimal128Type>(decimal(28, 0), e12, is_valid2,
-                                              decimal(38, 10), v12, options);
-    CheckCase<Decimal128Type, Decimal128Type>(decimal(28, 0), e13, is_valid3,
-                                              decimal(38, 10), v13, options);
+      auto no_overflow_no_truncation = ArrayFromJSON(decimal256(40, 10), R"([
+          "02.0000000000",
+         "-11.0000000000",
+          "22.0000000000",
+        "-121.0000000000",
+        null])");
+      CheckCast(no_overflow_no_truncation,
+                ArrayFromJSON(int64(), "[2, -11, 22, -121, null]"), options);
+    }
   }
 
-  // Same scale, different precision
-  std::vector<Decimal128> v14 = {Decimal128("12.34"), Decimal128("0.56")};
-  for (bool allow_decimal_truncate : {false, true}) {
-    options.allow_decimal_truncate = allow_decimal_truncate;
-    CheckCase<Decimal128Type, Decimal128Type>(decimal(5, 2), v14, is_valid2,
-                                              decimal(4, 2), v14, options);
-    // and back
-    CheckCase<Decimal128Type, Decimal128Type>(decimal(4, 2), v14, is_valid2,
-                                              decimal(5, 2), v14, options);
-  }
-
-  auto check_truncate = [this](const std::shared_ptr<DataType>& input_type,
-                               const std::vector<Decimal128>& input,
-                               const std::vector<bool>& is_valid,
-                               const std::shared_ptr<DataType>& output_type,
-                               const std::vector<Decimal128>& expected_output) {
-    CastOptions options;
+  for (bool allow_int_overflow : {false, true}) {
+    options.allow_int_overflow = allow_int_overflow;
+    auto truncation_but_no_overflow = ArrayFromJSON(decimal256(40, 10), R"([
+          "02.1000000000",
+         "-11.0000004500",
+          "22.0000004500",
+        "-121.1210000000",
+        null])");
 
     options.allow_decimal_truncate = true;
-    CheckCase<Decimal128Type, Decimal128Type>(input_type, input, is_valid, output_type,
-                                              expected_output, options);
+    CheckCast(truncation_but_no_overflow,
+              ArrayFromJSON(int64(), "[2, -11, 22, -121, null]"), options);
+
     options.allow_decimal_truncate = false;
-    CheckFails<Decimal128Type>(input_type, input, is_valid, output_type, options);
-  };
+    CheckCastFails(truncation_but_no_overflow, options);
+  }
 
-  auto check_truncate_and_back =
-      [this](const std::shared_ptr<DataType>& input_type,
-             const std::vector<Decimal128>& input, const std::vector<bool>& is_valid,
-             const std::shared_ptr<DataType>& output_type,
-             const std::vector<Decimal128>& expected_output,
-             const std::vector<Decimal128>& expected_back_convert) {
-        CastOptions options;
+  for (bool allow_decimal_truncate : {false, true}) {
+    options.allow_decimal_truncate = allow_decimal_truncate;
 
-        options.allow_decimal_truncate = true;
-        CheckCase<Decimal128Type, Decimal128Type>(input_type, input, is_valid,
-                                                  output_type, expected_output, options);
-        // and back
-        CheckCase<Decimal128Type, Decimal128Type>(output_type, expected_output, is_valid,
-                                                  input_type, expected_back_convert,
-                                                  options);
+    auto overflow_no_truncation = ArrayFromJSON(decimal256(40, 10), R"([
+        "1234567890123456789000000.0000000000",
+        "9999999999999999999999999.0000000000",
+        null])");
 
-        options.allow_decimal_truncate = false;
-        CheckFails<Decimal128Type>(input_type, input, is_valid, output_type, options);
-        // back case is valid
-        CheckCase<Decimal128Type, Decimal128Type>(output_type, expected_output, is_valid,
-                                                  input_type, expected_back_convert,
-                                                  options);
-      };
+    options.allow_int_overflow = true;
+    CheckCast(overflow_no_truncation,
+              ArrayFromJSON(
+                  int64(),
+                  // 1234567890123456789000000 % 2**64, 9999999999999999999999999 % 2**64
+                  "[1096246371337547584, 1590897978359414783, null]"),
+              options);
 
-  // Rescale leads to truncation
+    options.allow_int_overflow = false;
+    CheckCastFails(overflow_no_truncation, options);
+  }
 
-  std::vector<Decimal128> v22 = {Decimal128("-02.1234567890"),
-                                 Decimal128("30.1234567890")};
-  std::vector<Decimal128> e22 = {Decimal128("-02."), Decimal128("30.")};
-  std::vector<Decimal128> f22 = {Decimal128("-02.0000000000"),
-                                 Decimal128("30.0000000000")};
-  std::vector<Decimal128> v23 = {Decimal128("-02.1234567890"),
-                                 Decimal128("30.1234567890"),
-                                 Decimal128("30.1234567890")};
-  std::vector<Decimal128> e23 = {Decimal128("-02."), Decimal128("30."),
-                                 Decimal128("-70.")};
-  std::vector<Decimal128> f23 = {Decimal128("-02.0000000000"),
-                                 Decimal128("30.0000000000"),
-                                 Decimal128("80.0000000000")};
+  for (bool allow_int_overflow : {false, true}) {
+    for (bool allow_decimal_truncate : {false, true}) {
+      options.allow_int_overflow = allow_int_overflow;
+      options.allow_decimal_truncate = allow_decimal_truncate;
 
-  check_truncate_and_back(decimal(38, 10), v22, is_valid2, decimal(28, 0), e22, f22);
-  check_truncate_and_back(decimal(38, 10), v23, is_valid3, decimal(28, 0), e23, f23);
+      auto overflow_and_truncation = ArrayFromJSON(decimal256(40, 10), R"([
+        "1234567890123456789000000.0045345000",
+        "9999999999999999999999999.0000344300",
+        null])");
+
+      if (options.allow_int_overflow && options.allow_decimal_truncate) {
+        CheckCast(
+            overflow_and_truncation,
+            ArrayFromJSON(
+                int64(),
+                // 1234567890123456789000000 % 2**64, 9999999999999999999999999 % 2**64
+                "[1096246371337547584, 1590897978359414783, null]"),
+            options);
+      } else {
+        CheckCastFails(overflow_and_truncation, options);
+      }
+    }
+  }
+
+  Decimal256Builder builder(decimal256(40, -4));
+  for (auto d : {Decimal256("1234567890000."), Decimal256("-120000.")}) {
+    ASSERT_OK_AND_ASSIGN(d, d.Rescale(0, -4));
+    ASSERT_OK(builder.Append(d));
+  }
+  ASSERT_OK_AND_ASSIGN(auto negative_scale, builder.Finish());
+  options.allow_int_overflow = true;
+  options.allow_decimal_truncate = true;
+  CheckCast(negative_scale, ArrayFromJSON(int64(), "[1234567890000, -120000]"), options);
+}
+
+TEST(Cast, Decimal128ToDecimal128) {
+  CastOptions options;
+
+  for (bool allow_decimal_truncate : {false, true}) {
+    options.allow_decimal_truncate = allow_decimal_truncate;
+
+    auto no_truncation = ArrayFromJSON(decimal(38, 10), R"([
+          "02.0000000000",
+          "30.0000000000",
+          "22.0000000000",
+        "-121.0000000000",
+        null])");
+    auto expected = ArrayFromJSON(decimal(28, 0), R"([
+          "02.",
+          "30.",
+          "22.",
+        "-121.",
+        null])");
+
+    CheckCast(no_truncation, expected, options);
+    CheckCast(expected, no_truncation, options);
+  }
+
+  for (bool allow_decimal_truncate : {false, true}) {
+    options.allow_decimal_truncate = allow_decimal_truncate;
+
+    // Same scale, different precision
+    auto d_5_2 = ArrayFromJSON(decimal(5, 2), R"([
+          "12.34",
+           "0.56"])");
+    auto d_4_2 = ArrayFromJSON(decimal(4, 2), R"([
+          "12.34",
+           "0.56"])");
+
+    CheckCast(d_5_2, d_4_2, options);
+    CheckCast(d_4_2, d_5_2, options);
+  }
+
+  auto d_38_10 = ArrayFromJSON(decimal(38, 10), R"([
+      "-02.1234567890",
+       "30.1234567890",
+      null])");
+
+  auto d_28_0 = ArrayFromJSON(decimal(28, 0), R"([
+      "-02.",
+       "30.",
+      null])");
+
+  auto d_38_10_roundtripped = ArrayFromJSON(decimal(38, 10), R"([
+      "-02.0000000000",
+       "30.0000000000",
+      null])");
+
+  // Rescale which leads to truncation
+  options.allow_decimal_truncate = true;
+  CheckCast(d_38_10, d_28_0, options);
+  CheckCast(d_28_0, d_38_10_roundtripped, options);
+
+  options.allow_decimal_truncate = false;
+  options.to_type = d_28_0->type();
+  CheckCastFails(d_38_10, options);
+  CheckCast(d_28_0, d_38_10_roundtripped, options);
 
   // Precision loss without rescale leads to truncation
+  auto d_4_2 = ArrayFromJSON(decimal(4, 2), R"(["12.34"])");
+  for (auto expected : {
+           ArrayFromJSON(decimal(3, 2), R"(["12.34"])"),
+           ArrayFromJSON(decimal(4, 3), R"(["12.340"])"),
+           ArrayFromJSON(decimal(2, 1), R"(["12.3"])"),
+       }) {
+    options.allow_decimal_truncate = true;
+    CheckCast(d_4_2, expected, options);
 
-  std::vector<Decimal128> v3 = {Decimal128("12.34")};
-  std::vector<Decimal128> e3 = {Decimal128("12.34")};
-
-  check_truncate(decimal(4, 2), v3, is_valid1, decimal(3, 2), e3);
-
-  // Precision loss with rescale leads to truncation
-
-  std::vector<Decimal128> v4 = {Decimal128("12.34")};
-  std::vector<Decimal128> e4 = {Decimal128("12.340")};
-  std::vector<Decimal128> v5 = {Decimal128("12.34")};
-  std::vector<Decimal128> e5 = {Decimal128("12.3")};
-
-  check_truncate(decimal(4, 2), v4, is_valid1, decimal(4, 3), e4);
-  check_truncate(decimal(4, 2), v5, is_valid1, decimal(2, 1), e5);
+    options.allow_decimal_truncate = false;
+    options.to_type = expected->type();
+    CheckCastFails(d_4_2, options);
+  }
 }
 
-TEST_F(TestCast, FloatToDecimal) {
-  auto in_type = float32();
-
-  TestCastFloatingToDecimal(in_type);
-
-  // 2**64 + 2**41 (exactly representable as a float)
-  auto out_type = decimal(20, 0);
-  CheckCaseJSON(in_type, out_type, "[1.8446746e+19, -1.8446746e+19]",
-                R"(["18446746272732807168", "-18446746272732807168"])");
-  out_type = decimal(20, 4);
-  CheckCaseJSON(in_type, out_type, "[1.8446746e+15, -1.8446746e+15]",
-                R"(["1844674627273280.7168", "-1844674627273280.7168"])");
-
-  // More edge cases tested in Decimal128::FromReal
-}
-
-TEST_F(TestCast, DoubleToDecimal) {
-  auto in_type = float64();
-
-  TestCastFloatingToDecimal(in_type);
-
-  // 2**64 + 2**11 (exactly representable as a double)
-  auto out_type = decimal(20, 0);
-  CheckCaseJSON(in_type, out_type, "[1.8446744073709556e+19, -1.8446744073709556e+19]",
-                R"(["18446744073709555712", "-18446744073709555712"])");
-  out_type = decimal(20, 4);
-  CheckCaseJSON(in_type, out_type, "[1.8446744073709556e+15, -1.8446744073709556e+15]",
-                R"(["1844674407370955.5712", "-1844674407370955.5712"])");
-
-  // More edge cases tested in Decimal128::FromReal
-}
-
-TEST_F(TestCast, DecimalToFloat) {
-  auto out_type = float32();
-  TestCastDecimalToFloating(out_type);
-}
-
-TEST_F(TestCast, DecimalToDouble) {
-  auto out_type = float64();
-  TestCastDecimalToFloating(out_type);
-}
-
-TEST_F(TestCast, TimestampToTimestamp) {
+TEST(Cast, Decimal256ToDecimal256) {
   CastOptions options;
 
-  auto CheckTimestampCast = [this](const CastOptions& options, TimeUnit::type from_unit,
-                                   TimeUnit::type to_unit,
-                                   const std::vector<int64_t>& from_values,
-                                   const std::vector<int64_t>& to_values,
-                                   const std::vector<bool>& is_valid) {
-    // ARROW-9196: make temporal casts work with scalars
-    CheckCase<TimestampType, TimestampType>(timestamp(from_unit), from_values, is_valid,
-                                            timestamp(to_unit), to_values, options,
-                                            /*check_scalar=*/false);
+  for (bool allow_decimal_truncate : {false, true}) {
+    options.allow_decimal_truncate = allow_decimal_truncate;
+
+    auto no_truncation = ArrayFromJSON(decimal256(38, 10), R"([
+          "02.0000000000",
+          "30.0000000000",
+          "22.0000000000",
+        "-121.0000000000",
+        null])");
+    auto expected = ArrayFromJSON(decimal256(28, 0), R"([
+          "02.",
+          "30.",
+          "22.",
+        "-121.",
+        null])");
+
+    CheckCast(no_truncation, expected, options);
+    CheckCast(expected, no_truncation, options);
+  }
+
+  for (bool allow_decimal_truncate : {false, true}) {
+    options.allow_decimal_truncate = allow_decimal_truncate;
+
+    // Same scale, different precision
+    auto d_5_2 = ArrayFromJSON(decimal256(5, 2), R"([
+          "12.34",
+           "0.56"])");
+    auto d_4_2 = ArrayFromJSON(decimal256(4, 2), R"([
+          "12.34",
+           "0.56"])");
+
+    CheckCast(d_5_2, d_4_2, options);
+    CheckCast(d_4_2, d_5_2, options);
+  }
+
+  auto d_38_10 = ArrayFromJSON(decimal256(38, 10), R"([
+      "-02.1234567890",
+       "30.1234567890",
+      null])");
+
+  auto d_28_0 = ArrayFromJSON(decimal256(28, 0), R"([
+      "-02.",
+       "30.",
+      null])");
+
+  auto d_38_10_roundtripped = ArrayFromJSON(decimal256(38, 10), R"([
+      "-02.0000000000",
+       "30.0000000000",
+      null])");
+
+  // Rescale which leads to truncation
+  options.allow_decimal_truncate = true;
+  CheckCast(d_38_10, d_28_0, options);
+  CheckCast(d_28_0, d_38_10_roundtripped, options);
+
+  options.allow_decimal_truncate = false;
+  options.to_type = d_28_0->type();
+  CheckCastFails(d_38_10, options);
+  CheckCast(d_28_0, d_38_10_roundtripped, options);
+
+  // Precision loss without rescale leads to truncation
+  auto d_4_2 = ArrayFromJSON(decimal256(4, 2), R"(["12.34"])");
+  for (auto expected : {
+           ArrayFromJSON(decimal256(3, 2), R"(["12.34"])"),
+           ArrayFromJSON(decimal256(4, 3), R"(["12.340"])"),
+           ArrayFromJSON(decimal256(2, 1), R"(["12.3"])"),
+       }) {
+    options.allow_decimal_truncate = true;
+    CheckCast(d_4_2, expected, options);
+
+    options.allow_decimal_truncate = false;
+    options.to_type = expected->type();
+    CheckCastFails(d_4_2, options);
+  }
+}
+
+TEST(Cast, Decimal128ToDecimal256) {
+  CastOptions options;
+
+  for (bool allow_decimal_truncate : {false, true}) {
+    options.allow_decimal_truncate = allow_decimal_truncate;
+
+    auto no_truncation = ArrayFromJSON(decimal(38, 10), R"([
+          "02.0000000000",
+          "30.0000000000",
+          "22.0000000000",
+        "-121.0000000000",
+        null])");
+    auto expected = ArrayFromJSON(decimal256(48, 0), R"([
+          "02.",
+          "30.",
+          "22.",
+        "-121.",
+        null])");
+
+    CheckCast(no_truncation, expected, options);
+  }
+
+  for (bool allow_decimal_truncate : {false, true}) {
+    options.allow_decimal_truncate = allow_decimal_truncate;
+
+    // Same scale, different precision
+    auto d_5_2 = ArrayFromJSON(decimal(5, 2), R"([
+          "12.34",
+           "0.56"])");
+    auto d_4_2 = ArrayFromJSON(decimal256(4, 2), R"([
+          "12.34",
+           "0.56"])");
+    auto d_40_2 = ArrayFromJSON(decimal256(40, 2), R"([
+          "12.34",
+           "0.56"])");
+
+    CheckCast(d_5_2, d_4_2, options);
+    CheckCast(d_5_2, d_40_2, options);
+  }
+
+  auto d128_38_10 = ArrayFromJSON(decimal(38, 10), R"([
+      "-02.1234567890",
+       "30.1234567890",
+      null])");
+
+  auto d128_28_0 = ArrayFromJSON(decimal(28, 0), R"([
+      "-02.",
+       "30.",
+      null])");
+
+  auto d256_28_0 = ArrayFromJSON(decimal256(28, 0), R"([
+      "-02.",
+       "30.",
+      null])");
+
+  auto d256_38_10_roundtripped = ArrayFromJSON(decimal256(38, 10), R"([
+      "-02.0000000000",
+       "30.0000000000",
+      null])");
+
+  // Rescale which leads to truncation
+  options.allow_decimal_truncate = true;
+  CheckCast(d128_38_10, d256_28_0, options);
+  CheckCast(d128_28_0, d256_38_10_roundtripped, options);
+
+  options.allow_decimal_truncate = false;
+  options.to_type = d256_28_0->type();
+  CheckCastFails(d128_38_10, options);
+  CheckCast(d128_28_0, d256_38_10_roundtripped, options);
+
+  // Precision loss without rescale leads to truncation
+  auto d128_4_2 = ArrayFromJSON(decimal(4, 2), R"(["12.34"])");
+  for (auto expected : {
+           ArrayFromJSON(decimal256(3, 2), R"(["12.34"])"),
+           ArrayFromJSON(decimal256(4, 3), R"(["12.340"])"),
+           ArrayFromJSON(decimal256(2, 1), R"(["12.3"])"),
+       }) {
+    options.allow_decimal_truncate = true;
+    CheckCast(d128_4_2, expected, options);
+
+    options.allow_decimal_truncate = false;
+    options.to_type = expected->type();
+    CheckCastFails(d128_4_2, options);
+  }
+}
+
+TEST(Cast, Decimal256ToDecimal128) {
+  CastOptions options;
+
+  for (bool allow_decimal_truncate : {false, true}) {
+    options.allow_decimal_truncate = allow_decimal_truncate;
+
+    auto no_truncation = ArrayFromJSON(decimal256(42, 10), R"([
+          "02.0000000000",
+          "30.0000000000",
+          "22.0000000000",
+        "-121.0000000000",
+        null])");
+    auto expected = ArrayFromJSON(decimal(28, 0), R"([
+          "02.",
+          "30.",
+          "22.",
+        "-121.",
+        null])");
+
+    CheckCast(no_truncation, expected, options);
+  }
+
+  for (bool allow_decimal_truncate : {false, true}) {
+    options.allow_decimal_truncate = allow_decimal_truncate;
+
+    // Same scale, different precision
+    auto d_5_2 = ArrayFromJSON(decimal256(42, 2), R"([
+          "12.34",
+           "0.56"])");
+    auto d_4_2 = ArrayFromJSON(decimal(4, 2), R"([
+          "12.34",
+           "0.56"])");
+
+    CheckCast(d_5_2, d_4_2, options);
+  }
+
+  auto d256_52_10 = ArrayFromJSON(decimal256(52, 10), R"([
+      "-02.1234567890",
+       "30.1234567890",
+      null])");
+
+  auto d256_42_0 = ArrayFromJSON(decimal256(42, 0), R"([
+      "-02.",
+       "30.",
+      null])");
+
+  auto d128_28_0 = ArrayFromJSON(decimal(28, 0), R"([
+      "-02.",
+       "30.",
+      null])");
+
+  auto d128_38_10_roundtripped = ArrayFromJSON(decimal(38, 10), R"([
+      "-02.0000000000",
+       "30.0000000000",
+      null])");
+
+  // Rescale which leads to truncation
+  options.allow_decimal_truncate = true;
+  CheckCast(d256_52_10, d128_28_0, options);
+  CheckCast(d256_42_0, d128_38_10_roundtripped, options);
+
+  options.allow_decimal_truncate = false;
+  options.to_type = d128_28_0->type();
+  CheckCastFails(d256_52_10, options);
+  CheckCast(d256_42_0, d128_38_10_roundtripped, options);
+
+  // Precision loss without rescale leads to truncation
+  auto d256_4_2 = ArrayFromJSON(decimal256(4, 2), R"(["12.34"])");
+  for (auto expected : {
+           ArrayFromJSON(decimal(3, 2), R"(["12.34"])"),
+           ArrayFromJSON(decimal(4, 3), R"(["12.340"])"),
+           ArrayFromJSON(decimal(2, 1), R"(["12.3"])"),
+       }) {
+    options.allow_decimal_truncate = true;
+    CheckCast(d256_4_2, expected, options);
+
+    options.allow_decimal_truncate = false;
+    options.to_type = expected->type();
+    CheckCastFails(d256_4_2, options);
+  }
+}
+
+TEST(Cast, FloatingToDecimal) {
+  for (auto float_type : {float32(), float64()}) {
+    for (auto decimal_type : {decimal(5, 2), decimal256(5, 2)}) {
+      CheckCast(
+          ArrayFromJSON(float_type, "[0.0, null, 123.45, 123.456, 999.994]"),
+          ArrayFromJSON(decimal_type, R"(["0.00", null, "123.45", "123.46", "999.99"])"));
+
+      // Overflow
+      CastOptions options;
+      options.to_type = decimal_type;
+      CheckCastFails(ArrayFromJSON(float_type, "[999.996]"), options);
+
+      options.allow_decimal_truncate = true;
+      CheckCast(
+          ArrayFromJSON(float_type, "[0.0, null, 999.996, 123.45, 999.994]"),
+          ArrayFromJSON(decimal_type, R"(["0.00", null, "0.00", "123.45", "999.99"])"),
+          options);
+    }
+  }
+
+  for (auto decimal_type : {decimal128, decimal256}) {
+    // 2**64 + 2**41 (exactly representable as a float)
+    CheckCast(ArrayFromJSON(float32(), "[1.8446746e+19, -1.8446746e+19]"),
+              ArrayFromJSON(decimal_type(20, 0),
+                            R"(["18446746272732807168", "-18446746272732807168"])"));
+
+    CheckCast(
+        ArrayFromJSON(float64(), "[1.8446744073709556e+19, -1.8446744073709556e+19]"),
+        ArrayFromJSON(decimal_type(20, 0),
+                      R"(["18446744073709555712", "-18446744073709555712"])"));
+
+    CheckCast(ArrayFromJSON(float32(), "[1.8446746e+15, -1.8446746e+15]"),
+              ArrayFromJSON(decimal_type(20, 4),
+                            R"(["1844674627273280.7168", "-1844674627273280.7168"])"));
+
+    CheckCast(
+        ArrayFromJSON(float64(), "[1.8446744073709556e+15, -1.8446744073709556e+15]"),
+        ArrayFromJSON(decimal_type(20, 4),
+                      R"(["1844674407370955.5712", "-1844674407370955.5712"])"));
+
+    // Edge cases are tested for Decimal128::FromReal() and Decimal256::FromReal
+  }
+}
+
+TEST(Cast, DecimalToFloating) {
+  for (auto float_type : {float32(), float64()}) {
+    for (auto decimal_type : {decimal(5, 2), decimal256(5, 2)}) {
+      CheckCast(ArrayFromJSON(decimal_type, R"(["0.00", null, "123.45", "999.99"])"),
+                ArrayFromJSON(float_type, "[0.0, null, 123.45, 999.99]"));
+    }
+  }
+
+  // Edge cases are tested for Decimal128::ToReal() and Decimal256::ToReal()
+}
+
+TEST(Cast, TimestampToTimestamp) {
+  struct TimestampTypePair {
+    std::shared_ptr<DataType> coarse, fine;
   };
 
-  std::vector<bool> is_valid = {true, false, true, true, true};
+  CastOptions options;
 
-  // Multiply promotions
-  std::vector<int64_t> v1 = {0, 100, 200, 1, 2};
-  std::vector<int64_t> e1 = {0, 100000, 200000, 1000, 2000};
-  CheckTimestampCast(options, TimeUnit::SECOND, TimeUnit::MILLI, v1, e1, is_valid);
+  for (auto types : {
+           TimestampTypePair{timestamp(TimeUnit::SECOND), timestamp(TimeUnit::MILLI)},
+           TimestampTypePair{timestamp(TimeUnit::MILLI), timestamp(TimeUnit::MICRO)},
+           TimestampTypePair{timestamp(TimeUnit::MICRO), timestamp(TimeUnit::NANO)},
+       }) {
+    auto coarse = ArrayFromJSON(types.coarse, "[0, null, 200, 1, 2]");
+    auto promoted = ArrayFromJSON(types.fine, "[0, null, 200000, 1000, 2000]");
 
-  std::vector<int64_t> v2 = {0, 100, 200, 1, 2};
-  std::vector<int64_t> e2 = {0, 100000000L, 200000000L, 1000000, 2000000};
-  CheckTimestampCast(options, TimeUnit::SECOND, TimeUnit::MICRO, v2, e2, is_valid);
+    // multiply/promote
+    CheckCast(coarse, promoted);
 
-  std::vector<int64_t> v3 = {0, 100, 200, 1, 2};
-  std::vector<int64_t> e3 = {0, 100000000000L, 200000000000L, 1000000000L, 2000000000L};
-  CheckTimestampCast(options, TimeUnit::SECOND, TimeUnit::NANO, v3, e3, is_valid);
+    auto will_be_truncated = ArrayFromJSON(types.fine, "[0, null, 200456, 1123, 2456]");
 
-  std::vector<int64_t> v4 = {0, 100, 200, 1, 2};
-  std::vector<int64_t> e4 = {0, 100000, 200000, 1000, 2000};
-  CheckTimestampCast(options, TimeUnit::MILLI, TimeUnit::MICRO, v4, e4, is_valid);
+    // with truncation disallowed, fails
+    options.allow_time_truncate = false;
+    options.to_type = types.coarse;
+    CheckCastFails(will_be_truncated, options);
 
-  std::vector<int64_t> v5 = {0, 100, 200, 1, 2};
-  std::vector<int64_t> e5 = {0, 100000000L, 200000000L, 1000000, 2000000};
-  CheckTimestampCast(options, TimeUnit::MILLI, TimeUnit::NANO, v5, e5, is_valid);
+    // with truncation allowed, divide/truncate
+    options.allow_time_truncate = true;
+    CheckCast(will_be_truncated, coarse, options);
+  }
 
-  std::vector<int64_t> v6 = {0, 100, 200, 1, 2};
-  std::vector<int64_t> e6 = {0, 100000, 200000, 1000, 2000};
-  CheckTimestampCast(options, TimeUnit::MICRO, TimeUnit::NANO, v6, e6, is_valid);
+  for (auto types : {
+           TimestampTypePair{timestamp(TimeUnit::SECOND), timestamp(TimeUnit::MICRO)},
+           TimestampTypePair{timestamp(TimeUnit::MILLI), timestamp(TimeUnit::NANO)},
+       }) {
+    auto coarse = ArrayFromJSON(types.coarse, "[0, null, 200, 1, 2]");
+    auto promoted = ArrayFromJSON(types.fine, "[0, null, 200000000, 1000000, 2000000]");
 
-  // Zero copy
-  std::vector<int64_t> v7 = {0, 70000, 2000, 1000, 0};
-  std::shared_ptr<Array> arr;
-  ArrayFromVector<TimestampType>(timestamp(TimeUnit::SECOND), is_valid, v7, &arr);
-  CheckZeroCopy(*arr, timestamp(TimeUnit::SECOND));
+    // multiply/promote
+    CheckCast(coarse, promoted);
 
-  // ARROW-1773, cast to integer
-  CheckZeroCopy(*arr, int64());
+    auto will_be_truncated =
+        ArrayFromJSON(types.fine, "[0, null, 200456000, 1123000, 2456000]");
 
-  // Divide, truncate
-  std::vector<int64_t> v8 = {0, 100123, 200456, 1123, 2456};
-  std::vector<int64_t> e8 = {0, 100, 200, 1, 2};
+    // with truncation disallowed, fails
+    options.allow_time_truncate = false;
+    options.to_type = types.coarse;
+    CheckCastFails(will_be_truncated, options);
 
-  options.allow_time_truncate = true;
-  CheckTimestampCast(options, TimeUnit::MILLI, TimeUnit::SECOND, v8, e8, is_valid);
-  CheckTimestampCast(options, TimeUnit::MICRO, TimeUnit::MILLI, v8, e8, is_valid);
-  CheckTimestampCast(options, TimeUnit::NANO, TimeUnit::MICRO, v8, e8, is_valid);
+    // with truncation allowed, divide/truncate
+    options.allow_time_truncate = true;
+    CheckCast(will_be_truncated, coarse, options);
+  }
 
-  std::vector<int64_t> v9 = {0, 100123000, 200456000, 1123000, 2456000};
-  std::vector<int64_t> e9 = {0, 100, 200, 1, 2};
-  CheckTimestampCast(options, TimeUnit::MICRO, TimeUnit::SECOND, v9, e9, is_valid);
-  CheckTimestampCast(options, TimeUnit::NANO, TimeUnit::MILLI, v9, e9, is_valid);
+  for (auto types : {
+           TimestampTypePair{timestamp(TimeUnit::SECOND), timestamp(TimeUnit::NANO)},
+       }) {
+    auto coarse = ArrayFromJSON(types.coarse, "[0, null, 200, 1, 2]");
+    auto promoted =
+        ArrayFromJSON(types.fine, "[0, null, 200000000000, 1000000000, 2000000000]");
 
-  std::vector<int64_t> v10 = {0, 100123000000L, 200456000000L, 1123000000L, 2456000000};
-  std::vector<int64_t> e10 = {0, 100, 200, 1, 2};
-  CheckTimestampCast(options, TimeUnit::NANO, TimeUnit::SECOND, v10, e10, is_valid);
+    // multiply/promote
+    CheckCast(coarse, promoted);
 
-  // Disallow truncate, failures
-  options.allow_time_truncate = false;
-  CheckFails<TimestampType>(timestamp(TimeUnit::MILLI), v8, is_valid,
-                            timestamp(TimeUnit::SECOND), options,
-                            /*check_scalar=*/false);
-  CheckFails<TimestampType>(timestamp(TimeUnit::MICRO), v8, is_valid,
-                            timestamp(TimeUnit::MILLI), options,
-                            /*check_scalar=*/false);
-  CheckFails<TimestampType>(timestamp(TimeUnit::NANO), v8, is_valid,
-                            timestamp(TimeUnit::MICRO), options,
-                            /*check_scalar=*/false);
-  CheckFails<TimestampType>(timestamp(TimeUnit::MICRO), v9, is_valid,
-                            timestamp(TimeUnit::SECOND), options,
-                            /*check_scalar=*/false);
-  CheckFails<TimestampType>(timestamp(TimeUnit::NANO), v9, is_valid,
-                            timestamp(TimeUnit::MILLI), options,
-                            /*check_scalar=*/false);
-  CheckFails<TimestampType>(timestamp(TimeUnit::NANO), v10, is_valid,
-                            timestamp(TimeUnit::SECOND), options,
-                            /*check_scalar=*/false);
+    auto will_be_truncated =
+        ArrayFromJSON(types.fine, "[0, null, 200456000000, 1123000000, 2456000000]");
 
-  // Multiply overflow
+    // with truncation disallowed, fails
+    options.allow_time_truncate = false;
+    options.to_type = types.coarse;
+    CheckCastFails(will_be_truncated, options);
 
+    // with truncation allowed, divide/truncate
+    options.allow_time_truncate = true;
+    CheckCast(will_be_truncated, coarse, options);
+  }
+}
+
+TEST(Cast, TimestampZeroCopy) {
+  for (auto zero_copy_to_type : {
+           timestamp(TimeUnit::SECOND),
+           int64(),  // ARROW-1773, cast to integer
+       }) {
+    CheckCastZeroCopy(
+        ArrayFromJSON(timestamp(TimeUnit::SECOND), "[0, null, 2000, 1000, 0]"),
+        zero_copy_to_type);
+  }
+  CheckCastZeroCopy(ArrayFromJSON(int64(), "[0, null, 2000, 1000, 0]"),
+                    timestamp(TimeUnit::SECOND));
+}
+
+TEST(Cast, TimestampToTimestampMultiplyOverflow) {
+  CastOptions options;
+  options.to_type = timestamp(TimeUnit::NANO);
   // 1000-01-01, 1800-01-01 , 2000-01-01, 2300-01-01, 3000-01-01
-  std::vector<int64_t> v11 = {-30610224000, -5364662400, 946684800, 10413792000,
-                              32503680000};
-
-  options.allow_time_overflow = false;
-  CheckFails<TimestampType>(timestamp(TimeUnit::SECOND), v11, is_valid,
-                            timestamp(TimeUnit::NANO), options,
-                            /*check_scalar=*/false);
+  CheckCastFails(
+      ArrayFromJSON(timestamp(TimeUnit::SECOND),
+                    "[-30610224000, -5364662400, 946684800, 10413792000, 32503680000]"),
+      options);
 }
 
-TEST_F(TestCast, TimestampToDate32_Date64) {
-  CastOptions options;
+TEST(Cast, TimestampToDate) {
+  for (auto date : {
+           // 2000-01-01, 2000-01-02, null
+           ArrayFromJSON(date32(), "[10957, 10958, null]"),
+           ArrayFromJSON(date64(), "[946684800000, 946771200000, null]"),
+       }) {
+    for (auto ts : {
+             ArrayFromJSON(timestamp(TimeUnit::SECOND), "[946684800, 946771200, null]"),
+             ArrayFromJSON(timestamp(TimeUnit::MILLI),
+                           "[946684800000, 946771200000, null]"),
+             ArrayFromJSON(timestamp(TimeUnit::MICRO),
+                           "[946684800000000, 946771200000000, null]"),
+             ArrayFromJSON(timestamp(TimeUnit::NANO),
+                           "[946684800000000000, 946771200000000000, null]"),
+         }) {
+      CheckCast(ts, date);
+    }
 
-  std::vector<bool> is_valid = {true, true, false};
+    for (auto ts : {
+             ArrayFromJSON(timestamp(TimeUnit::SECOND), "[946684801, 946771201, null]"),
+             ArrayFromJSON(timestamp(TimeUnit::MILLI),
+                           "[946684800001, 946771200001, null]"),
+             ArrayFromJSON(timestamp(TimeUnit::MICRO),
+                           "[946684800000001, 946771200000001, null]"),
+             ArrayFromJSON(timestamp(TimeUnit::NANO),
+                           "[946684800000000001, 946771200000000001, null]"),
+         }) {
+      auto options = CastOptions::Safe(date->type());
+      CheckCastFails(ts, options);
 
-  // 2000-01-01, 2000-01-02, null
-  std::vector<int64_t> v_nano = {946684800000000000, 946771200000000000, 0};
-  std::vector<int64_t> v_micro = {946684800000000, 946771200000000, 0};
-  std::vector<int64_t> v_milli = {946684800000, 946771200000, 0};
-  std::vector<int64_t> v_second = {946684800, 946771200, 0};
-  std::vector<int32_t> v_day = {10957, 10958, 0};
+      options.allow_time_truncate = true;
+      CheckCast(ts, date, options);
+    }
 
-  // Simple conversions
-  CheckCase<TimestampType, Date64Type>(timestamp(TimeUnit::NANO), v_nano, is_valid,
-                                       date64(), v_milli, options,
-                                       /*check_scalar=*/false);
-  CheckCase<TimestampType, Date64Type>(timestamp(TimeUnit::MICRO), v_micro, is_valid,
-                                       date64(), v_milli, options,
-                                       /*check_scalar=*/false);
-  CheckCase<TimestampType, Date64Type>(timestamp(TimeUnit::MILLI), v_milli, is_valid,
-                                       date64(), v_milli, options,
-                                       /*check_scalar=*/false);
-  CheckCase<TimestampType, Date64Type>(timestamp(TimeUnit::SECOND), v_second, is_valid,
-                                       date64(), v_milli, options,
-                                       /*check_scalar=*/false);
+    auto options = CastOptions::Safe(date->type());
+    auto ts = ArrayFromJSON(timestamp(TimeUnit::SECOND), "[946684800, 946771200, 1]");
+    CheckCastFails(ts, options);
 
-  CheckCase<TimestampType, Date32Type>(timestamp(TimeUnit::NANO), v_nano, is_valid,
-                                       date32(), v_day, options,
-                                       /*check_scalar=*/false);
-  CheckCase<TimestampType, Date32Type>(timestamp(TimeUnit::MICRO), v_micro, is_valid,
-                                       date32(), v_day, options,
-                                       /*check_scalar=*/false);
-  CheckCase<TimestampType, Date32Type>(timestamp(TimeUnit::MILLI), v_milli, is_valid,
-                                       date32(), v_day, options,
-                                       /*check_scalar=*/false);
-  CheckCase<TimestampType, Date32Type>(timestamp(TimeUnit::SECOND), v_second, is_valid,
-                                       date32(), v_day, options,
-                                       /*check_scalar=*/false);
-
-  // Disallow truncate, failures
-  std::vector<int64_t> v_nano_fail = {946684800000000001, 946771200000000001, 0};
-  std::vector<int64_t> v_micro_fail = {946684800000001, 946771200000001, 0};
-  std::vector<int64_t> v_milli_fail = {946684800001, 946771200001, 0};
-  std::vector<int64_t> v_second_fail = {946684801, 946771201, 0};
-
-  options.allow_time_truncate = false;
-  CheckFails<TimestampType>(timestamp(TimeUnit::NANO), v_nano_fail, is_valid, date64(),
-                            options,
-                            /*check_scalar=*/false);
-  CheckFails<TimestampType>(timestamp(TimeUnit::MICRO), v_micro_fail, is_valid, date64(),
-                            options,
-                            /*check_scalar=*/false);
-  CheckFails<TimestampType>(timestamp(TimeUnit::MILLI), v_milli_fail, is_valid, date64(),
-                            options,
-                            /*check_scalar=*/false);
-  CheckFails<TimestampType>(timestamp(TimeUnit::SECOND), v_second_fail, is_valid,
-                            date64(), options,
-                            /*check_scalar=*/false);
-
-  CheckFails<TimestampType>(timestamp(TimeUnit::NANO), v_nano_fail, is_valid, date32(),
-                            options,
-                            /*check_scalar=*/false);
-  CheckFails<TimestampType>(timestamp(TimeUnit::MICRO), v_micro_fail, is_valid, date32(),
-                            options,
-                            /*check_scalar=*/false);
-  CheckFails<TimestampType>(timestamp(TimeUnit::MILLI), v_milli_fail, is_valid, date32(),
-                            options,
-                            /*check_scalar=*/false);
-  CheckFails<TimestampType>(timestamp(TimeUnit::SECOND), v_second_fail, is_valid,
-                            date32(), options,
-                            /*check_scalar=*/false);
-
-  // Make sure that nulls are excluded from the truncation checks
-  std::vector<int64_t> v_second_nofail = {946684800, 946771200, 1};
-  CheckCase<TimestampType, Date64Type>(timestamp(TimeUnit::SECOND), v_second_nofail,
-                                       is_valid, date64(), v_milli, options,
-                                       /*check_scalar=*/false);
-  CheckCase<TimestampType, Date32Type>(timestamp(TimeUnit::SECOND), v_second_nofail,
-                                       is_valid, date32(), v_day, options,
-                                       /*check_scalar=*/false);
+    // Make sure that nulls are excluded from the truncation checks
+    CheckCast(MaskArrayWithNullsAt(ts, {2}), date);
+  }
 }
 
-TEST_F(TestCast, TimeToCompatible) {
+TEST(Cast, TimeToTime) {
+  struct TimeTypePair {
+    std::shared_ptr<DataType> coarse, fine;
+  };
+
   CastOptions options;
 
-  std::vector<bool> is_valid = {true, false, true, true, true};
+  for (auto types : {
+           TimeTypePair{time32(TimeUnit::SECOND), time32(TimeUnit::MILLI)},
+           TimeTypePair{time32(TimeUnit::MILLI), time64(TimeUnit::MICRO)},
+           TimeTypePair{time64(TimeUnit::MICRO), time64(TimeUnit::NANO)},
+       }) {
+    auto coarse = ArrayFromJSON(types.coarse, "[0, null, 200, 1, 2]");
+    auto promoted = ArrayFromJSON(types.fine, "[0, null, 200000, 1000, 2000]");
 
-  // Multiply promotions
-  std::vector<int32_t> v1 = {0, 100, 200, 1, 2};
-  std::vector<int32_t> e1 = {0, 100000, 200000, 1000, 2000};
-  CheckCase<Time32Type, Time32Type>(time32(TimeUnit::SECOND), v1, is_valid,
-                                    time32(TimeUnit::MILLI), e1, options,
-                                    /*check_scalar=*/false);
+    // multiply/promote
+    CheckCast(coarse, promoted);
 
-  std::vector<int32_t> v2 = {0, 100, 200, 1, 2};
-  std::vector<int64_t> e2 = {0, 100000000L, 200000000L, 1000000, 2000000};
-  CheckCase<Time32Type, Time64Type>(time32(TimeUnit::SECOND), v2, is_valid,
-                                    time64(TimeUnit::MICRO), e2, options,
-                                    /*check_scalar=*/false);
+    auto will_be_truncated = ArrayFromJSON(types.fine, "[0, null, 200456, 1123, 2456]");
 
-  std::vector<int32_t> v3 = {0, 100, 200, 1, 2};
-  std::vector<int64_t> e3 = {0, 100000000000L, 200000000000L, 1000000000L, 2000000000L};
-  CheckCase<Time32Type, Time64Type>(time32(TimeUnit::SECOND), v3, is_valid,
-                                    time64(TimeUnit::NANO), e3, options,
-                                    /*check_scalar=*/false);
+    // with truncation disallowed, fails
+    options.allow_time_truncate = false;
+    options.to_type = types.coarse;
+    CheckCastFails(will_be_truncated, options);
 
-  std::vector<int32_t> v4 = {0, 100, 200, 1, 2};
-  std::vector<int64_t> e4 = {0, 100000, 200000, 1000, 2000};
-  CheckCase<Time32Type, Time64Type>(time32(TimeUnit::MILLI), v4, is_valid,
-                                    time64(TimeUnit::MICRO), e4, options,
-                                    /*check_scalar=*/false);
+    // with truncation allowed, divide/truncate
+    options.allow_time_truncate = true;
+    CheckCast(will_be_truncated, coarse, options);
+  }
 
-  std::vector<int32_t> v5 = {0, 100, 200, 1, 2};
-  std::vector<int64_t> e5 = {0, 100000000L, 200000000L, 1000000, 2000000};
-  CheckCase<Time32Type, Time64Type>(time32(TimeUnit::MILLI), v5, is_valid,
-                                    time64(TimeUnit::NANO), e5, options,
-                                    /*check_scalar=*/false);
+  for (auto types : {
+           TimeTypePair{time32(TimeUnit::SECOND), time64(TimeUnit::MICRO)},
+           TimeTypePair{time32(TimeUnit::MILLI), time64(TimeUnit::NANO)},
+       }) {
+    auto coarse = ArrayFromJSON(types.coarse, "[0, null, 200, 1, 2]");
+    auto promoted = ArrayFromJSON(types.fine, "[0, null, 200000000, 1000000, 2000000]");
 
-  std::vector<int64_t> v6 = {0, 100, 200, 1, 2};
-  std::vector<int64_t> e6 = {0, 100000, 200000, 1000, 2000};
-  CheckCase<Time64Type, Time64Type>(time64(TimeUnit::MICRO), v6, is_valid,
-                                    time64(TimeUnit::NANO), e6, options,
-                                    /*check_scalar=*/false);
+    // multiply/promote
+    CheckCast(coarse, promoted);
 
-  // Zero copy
-  std::vector<int64_t> v7 = {0, 70000, 2000, 1000, 0};
-  std::shared_ptr<Array> arr;
-  ArrayFromVector<Time64Type>(time64(TimeUnit::MICRO), is_valid, v7, &arr);
-  CheckZeroCopy(*arr, time64(TimeUnit::MICRO));
+    auto will_be_truncated =
+        ArrayFromJSON(types.fine, "[0, null, 200456000, 1123000, 2456000]");
 
-  // ARROW-1773: cast to int64
-  CheckZeroCopy(*arr, int64());
+    // with truncation disallowed, fails
+    options.allow_time_truncate = false;
+    options.to_type = types.coarse;
+    CheckCastFails(will_be_truncated, options);
 
-  std::vector<int32_t> v7_2 = {0, 70000, 2000, 1000, 0};
-  ArrayFromVector<Time32Type>(time32(TimeUnit::SECOND), is_valid, v7_2, &arr);
-  CheckZeroCopy(*arr, time32(TimeUnit::SECOND));
+    // with truncation allowed, divide/truncate
+    options.allow_time_truncate = true;
+    CheckCast(will_be_truncated, coarse, options);
+  }
 
-  // ARROW-1773: cast to int64
-  CheckZeroCopy(*arr, int32());
+  for (auto types : {
+           TimeTypePair{time32(TimeUnit::SECOND), time64(TimeUnit::NANO)},
+       }) {
+    auto coarse = ArrayFromJSON(types.coarse, "[0, null, 200, 1, 2]");
+    auto promoted =
+        ArrayFromJSON(types.fine, "[0, null, 200000000000, 1000000000, 2000000000]");
 
-  // Divide, truncate
-  std::vector<int32_t> v8 = {0, 100123, 200456, 1123, 2456};
-  std::vector<int32_t> e8 = {0, 100, 200, 1, 2};
+    // multiply/promote
+    CheckCast(coarse, promoted);
 
-  options.allow_time_truncate = true;
-  CheckCase<Time32Type, Time32Type>(time32(TimeUnit::MILLI), v8, is_valid,
-                                    time32(TimeUnit::SECOND), e8, options,
-                                    /*check_scalar=*/false);
-  CheckCase<Time64Type, Time32Type>(time64(TimeUnit::MICRO), v8, is_valid,
-                                    time32(TimeUnit::MILLI), e8, options,
-                                    /*check_scalar=*/false);
-  CheckCase<Time64Type, Time64Type>(time64(TimeUnit::NANO), v8, is_valid,
-                                    time64(TimeUnit::MICRO), e8, options,
-                                    /*check_scalar=*/false);
+    auto will_be_truncated =
+        ArrayFromJSON(types.fine, "[0, null, 200456000000, 1123000000, 2456000000]");
 
-  std::vector<int64_t> v9 = {0, 100123000, 200456000, 1123000, 2456000};
-  std::vector<int32_t> e9 = {0, 100, 200, 1, 2};
-  CheckCase<Time64Type, Time32Type>(time64(TimeUnit::MICRO), v9, is_valid,
-                                    time32(TimeUnit::SECOND), e9, options,
-                                    /*check_scalar=*/false);
-  CheckCase<Time64Type, Time32Type>(time64(TimeUnit::NANO), v9, is_valid,
-                                    time32(TimeUnit::MILLI), e9, options,
-                                    /*check_scalar=*/false);
+    // with truncation disallowed, fails
+    options.allow_time_truncate = false;
+    options.to_type = types.coarse;
+    CheckCastFails(will_be_truncated, options);
 
-  std::vector<int64_t> v10 = {0, 100123000000L, 200456000000L, 1123000000L, 2456000000};
-  std::vector<int32_t> e10 = {0, 100, 200, 1, 2};
-  CheckCase<Time64Type, Time32Type>(time64(TimeUnit::NANO), v10, is_valid,
-                                    time32(TimeUnit::SECOND), e10, options,
-                                    /*check_scalar=*/false);
-
-  // Disallow truncate, failures
-
-  options.allow_time_truncate = false;
-  CheckFails<Time32Type>(time32(TimeUnit::MILLI), v8, is_valid, time32(TimeUnit::SECOND),
-                         options, /*check_scalar=*/false);
-  CheckFails<Time64Type>(time64(TimeUnit::MICRO), v8, is_valid, time32(TimeUnit::MILLI),
-                         options, /*check_scalar=*/false);
-  CheckFails<Time64Type>(time64(TimeUnit::NANO), v8, is_valid, time64(TimeUnit::MICRO),
-                         options, /*check_scalar=*/false);
-  CheckFails<Time64Type>(time64(TimeUnit::MICRO), v9, is_valid, time32(TimeUnit::SECOND),
-                         options, /*check_scalar=*/false);
-  CheckFails<Time64Type>(time64(TimeUnit::NANO), v9, is_valid, time32(TimeUnit::MILLI),
-                         options, /*check_scalar=*/false);
-  CheckFails<Time64Type>(time64(TimeUnit::NANO), v10, is_valid, time32(TimeUnit::SECOND),
-                         options, /*check_scalar=*/false);
+    // with truncation allowed, divide/truncate
+    options.allow_time_truncate = true;
+    CheckCast(will_be_truncated, coarse, options);
+  }
 }
 
-TEST_F(TestCast, DateToCompatible) {
-  CastOptions options;
+TEST(Cast, TimeZeroCopy) {
+  for (auto zero_copy_to_type : {
+           time32(TimeUnit::SECOND),
+           int32(),  // ARROW-1773: cast to int32
+       }) {
+    CheckCastZeroCopy(ArrayFromJSON(time32(TimeUnit::SECOND), "[0, null, 2000, 1000, 0]"),
+                      zero_copy_to_type);
+  }
+  CheckCastZeroCopy(ArrayFromJSON(int32(), "[0, null, 2000, 1000, 0]"),
+                    time32(TimeUnit::SECOND));
 
-  std::vector<bool> is_valid = {true, false, true, true, true};
+  for (auto zero_copy_to_type : {
+           time64(TimeUnit::MICRO),
+           int64(),  // ARROW-1773: cast to int64
+       }) {
+    CheckCastZeroCopy(ArrayFromJSON(time64(TimeUnit::MICRO), "[0, null, 2000, 1000, 0]"),
+                      zero_copy_to_type);
+  }
+  CheckCastZeroCopy(ArrayFromJSON(int64(), "[0, null, 2000, 1000, 0]"),
+                    time64(TimeUnit::MICRO));
+}
 
-  constexpr int64_t F = 86400000;
+TEST(Cast, DateToDate) {
+  auto day_32 = ArrayFromJSON(date32(), "[0, null, 100, 1, 10]");
+  auto day_64 = ArrayFromJSON(date64(), R"([
+               0,
+            null,
+      8640000000,
+        86400000,
+       864000000])");
 
   // Multiply promotion
-  std::vector<int32_t> v1 = {0, 100, 200, 1, 2};
-  std::vector<int64_t> e1 = {0, 100 * F, 200 * F, F, 2 * F};
-  CheckCase<Date32Type, Date64Type>(date32(), v1, is_valid, date64(), e1, options,
-                                    /*check_scalar=*/false);
+  CheckCast(day_32, day_64);
 
-  // Zero copy
-  std::vector<int32_t> v2 = {0, 70000, 2000, 1000, 0};
-  std::vector<int64_t> v3 = {0, 70000, 2000, 1000, 0};
-  std::shared_ptr<Array> arr;
-  ArrayFromVector<Date32Type>(date32(), is_valid, v2, &arr);
-  CheckZeroCopy(*arr, date32());
+  // No truncation
+  CheckCast(day_64, day_32);
 
-  // ARROW-1773: zero copy cast to integer
-  CheckZeroCopy(*arr, int32());
+  auto day_64_will_be_truncated = ArrayFromJSON(date64(), R"([
+               0,
+            null,
+      8640000123,
+        86400456,
+       864000789])");
 
-  ArrayFromVector<Date64Type>(date64(), is_valid, v3, &arr);
-  CheckZeroCopy(*arr, date64());
-
-  // ARROW-1773: zero copy cast to integer
-  CheckZeroCopy(*arr, int64());
+  // Disallow truncate
+  CastOptions options;
+  options.to_type = date32();
+  CheckCastFails(day_64_will_be_truncated, options);
 
   // Divide, truncate
-  std::vector<int64_t> v8 = {0, 100 * F + 123, 200 * F + 456, F + 123, 2 * F + 456};
-  std::vector<int32_t> e8 = {0, 100, 200, 1, 2};
-
   options.allow_time_truncate = true;
-  CheckCase<Date64Type, Date32Type>(date64(), v8, is_valid, date32(), e8, options,
-                                    /*check_scalar=*/false);
-
-  // Disallow truncate, failures
-  options.allow_time_truncate = false;
-  CheckFails<Date64Type>(v8, is_valid, date32(), options, /*check_scalar=*/false);
+  CheckCast(day_64_will_be_truncated, day_32, options);
 }
 
-TEST_F(TestCast, DurationToCompatible) {
-  CastOptions options;
+TEST(Cast, DateZeroCopy) {
+  for (auto zero_copy_to_type : {
+           date32(),
+           int32(),  // ARROW-1773: cast to int32
+       }) {
+    CheckCastZeroCopy(ArrayFromJSON(date32(), "[0, null, 2000, 1000, 0]"),
+                      zero_copy_to_type);
+  }
+  CheckCastZeroCopy(ArrayFromJSON(int32(), "[0, null, 2000, 1000, 0]"), date32());
 
-  auto CheckDurationCast =
-      [this](const CastOptions& options, TimeUnit::type from_unit, TimeUnit::type to_unit,
-             const std::vector<int64_t>& from_values,
-             const std::vector<int64_t>& to_values, const std::vector<bool>& is_valid) {
-        CheckCase<DurationType, DurationType>(duration(from_unit), from_values, is_valid,
-                                              duration(to_unit), to_values, options,
-                                              /*check_scalar=*/false);
-      };
-
-  std::vector<bool> is_valid = {true, false, true, true, true};
-
-  // Multiply promotions
-  std::vector<int64_t> v1 = {0, 100, 200, 1, 2};
-  std::vector<int64_t> e1 = {0, 100000, 200000, 1000, 2000};
-  CheckDurationCast(options, TimeUnit::SECOND, TimeUnit::MILLI, v1, e1, is_valid);
-
-  std::vector<int64_t> v2 = {0, 100, 200, 1, 2};
-  std::vector<int64_t> e2 = {0, 100000000L, 200000000L, 1000000, 2000000};
-  CheckDurationCast(options, TimeUnit::SECOND, TimeUnit::MICRO, v2, e2, is_valid);
-
-  std::vector<int64_t> v3 = {0, 100, 200, 1, 2};
-  std::vector<int64_t> e3 = {0, 100000000000L, 200000000000L, 1000000000L, 2000000000L};
-  CheckDurationCast(options, TimeUnit::SECOND, TimeUnit::NANO, v3, e3, is_valid);
-
-  std::vector<int64_t> v4 = {0, 100, 200, 1, 2};
-  std::vector<int64_t> e4 = {0, 100000, 200000, 1000, 2000};
-  CheckDurationCast(options, TimeUnit::MILLI, TimeUnit::MICRO, v4, e4, is_valid);
-
-  std::vector<int64_t> v5 = {0, 100, 200, 1, 2};
-  std::vector<int64_t> e5 = {0, 100000000L, 200000000L, 1000000, 2000000};
-  CheckDurationCast(options, TimeUnit::MILLI, TimeUnit::NANO, v5, e5, is_valid);
-
-  std::vector<int64_t> v6 = {0, 100, 200, 1, 2};
-  std::vector<int64_t> e6 = {0, 100000, 200000, 1000, 2000};
-  CheckDurationCast(options, TimeUnit::MICRO, TimeUnit::NANO, v6, e6, is_valid);
-
-  // Zero copy
-  std::vector<int64_t> v7 = {0, 70000, 2000, 1000, 0};
-  std::shared_ptr<Array> arr;
-  ArrayFromVector<DurationType>(duration(TimeUnit::SECOND), is_valid, v7, &arr);
-  CheckZeroCopy(*arr, duration(TimeUnit::SECOND));
-  CheckZeroCopy(*arr, int64());
-
-  // Divide, truncate
-  std::vector<int64_t> v8 = {0, 100123, 200456, 1123, 2456};
-  std::vector<int64_t> e8 = {0, 100, 200, 1, 2};
-
-  options.allow_time_truncate = true;
-  CheckDurationCast(options, TimeUnit::MILLI, TimeUnit::SECOND, v8, e8, is_valid);
-  CheckDurationCast(options, TimeUnit::MICRO, TimeUnit::MILLI, v8, e8, is_valid);
-  CheckDurationCast(options, TimeUnit::NANO, TimeUnit::MICRO, v8, e8, is_valid);
-
-  std::vector<int64_t> v9 = {0, 100123000, 200456000, 1123000, 2456000};
-  std::vector<int64_t> e9 = {0, 100, 200, 1, 2};
-  CheckDurationCast(options, TimeUnit::MICRO, TimeUnit::SECOND, v9, e9, is_valid);
-  CheckDurationCast(options, TimeUnit::NANO, TimeUnit::MILLI, v9, e9, is_valid);
-
-  std::vector<int64_t> v10 = {0, 100123000000L, 200456000000L, 1123000000L, 2456000000};
-  std::vector<int64_t> e10 = {0, 100, 200, 1, 2};
-  CheckDurationCast(options, TimeUnit::NANO, TimeUnit::SECOND, v10, e10, is_valid);
-
-  // Disallow truncate, failures
-  options.allow_time_truncate = false;
-  CheckFails<DurationType>(duration(TimeUnit::MILLI), v8, is_valid,
-                           duration(TimeUnit::SECOND), options, /*check_scalar=*/false);
-  CheckFails<DurationType>(duration(TimeUnit::MICRO), v8, is_valid,
-                           duration(TimeUnit::MILLI), options, /*check_scalar=*/false);
-  CheckFails<DurationType>(duration(TimeUnit::NANO), v8, is_valid,
-                           duration(TimeUnit::MICRO), options, /*check_scalar=*/false);
-  CheckFails<DurationType>(duration(TimeUnit::MICRO), v9, is_valid,
-                           duration(TimeUnit::SECOND), options, /*check_scalar=*/false);
-  CheckFails<DurationType>(duration(TimeUnit::NANO), v9, is_valid,
-                           duration(TimeUnit::MILLI), options, /*check_scalar=*/false);
-  CheckFails<DurationType>(duration(TimeUnit::NANO), v10, is_valid,
-                           duration(TimeUnit::SECOND), options, /*check_scalar=*/false);
-
-  // Multiply overflow
-
-  // 1000-01-01, 1800-01-01 , 2000-01-01, 2300-01-01, 3000-01-01
-  std::vector<int64_t> v11 = {10000000000, 1, 2, 3, 10000000000};
-
-  options.allow_time_overflow = false;
-  CheckFails<DurationType>(duration(TimeUnit::SECOND), v11, is_valid,
-                           duration(TimeUnit::NANO), options, /*check_scalar=*/false);
+  for (auto zero_copy_to_type : {
+           date64(),
+           int64(),  // ARROW-1773: cast to int64
+       }) {
+    CheckCastZeroCopy(ArrayFromJSON(date64(), "[0, null, 2000, 1000, 0]"),
+                      zero_copy_to_type);
+  }
+  CheckCastZeroCopy(ArrayFromJSON(int64(), "[0, null, 2000, 1000, 0]"), date64());
 }
 
-TEST_F(TestCast, ToDouble) {
-  CastOptions options;
-  std::vector<bool> is_valid = {true, false, true, true, true};
-
-  // int16 to double
-  std::vector<int16_t> v1 = {0, 100, 200, 1, 2};
-  std::vector<double> e1 = {0, 100, 200, 1, 2};
-  CheckCase<Int16Type, DoubleType>(v1, is_valid, e1, options);
-
-  // float to double
-  std::vector<float> v2 = {0, 100, 200, 1, 2};
-  std::vector<double> e2 = {0, 100, 200, 1, 2};
-  CheckCase<FloatType, DoubleType>(v2, is_valid, e2, options);
-
-  // bool to double
-  std::vector<bool> v3 = {true, true, false, false, true};
-  std::vector<double> e3 = {1, 1, 0, 0, 1};
-  CheckCase<BooleanType, DoubleType>(v3, is_valid, e3, options);
-}
-
-TEST_F(TestCast, ChunkedArray) {
-  std::vector<int16_t> values1 = {0, 1, 2};
-  std::vector<int16_t> values2 = {3, 4, 5};
-
-  auto type = int16();
-  auto out_type = int64();
-
-  auto a1 = _MakeArray<Int16Type, int16_t>(type, values1, {});
-  auto a2 = _MakeArray<Int16Type, int16_t>(type, values2, {});
-
-  ArrayVector arrays = {a1, a2};
-  auto carr = std::make_shared<ChunkedArray>(arrays);
+TEST(Cast, DurationToDuration) {
+  struct DurationTypePair {
+    std::shared_ptr<DataType> coarse, fine;
+  };
 
   CastOptions options;
 
-  ASSERT_OK_AND_ASSIGN(Datum out, Cast(carr, out_type, options));
-  ASSERT_EQ(Datum::CHUNKED_ARRAY, out.kind());
+  for (auto types : {
+           DurationTypePair{duration(TimeUnit::SECOND), duration(TimeUnit::MILLI)},
+           DurationTypePair{duration(TimeUnit::MILLI), duration(TimeUnit::MICRO)},
+           DurationTypePair{duration(TimeUnit::MICRO), duration(TimeUnit::NANO)},
+       }) {
+    auto coarse = ArrayFromJSON(types.coarse, "[0, null, 200, 1, 2]");
+    auto promoted = ArrayFromJSON(types.fine, "[0, null, 200000, 1000, 2000]");
 
-  auto out_carr = out.chunked_array();
+    // multiply/promote
+    CheckCast(coarse, promoted);
 
-  std::vector<int64_t> ex_values1 = {0, 1, 2};
-  std::vector<int64_t> ex_values2 = {3, 4, 5};
-  auto a3 = _MakeArray<Int64Type, int64_t>(out_type, ex_values1, {});
-  auto a4 = _MakeArray<Int64Type, int64_t>(out_type, ex_values2, {});
+    auto will_be_truncated = ArrayFromJSON(types.fine, "[0, null, 200456, 1123, 2456]");
 
-  ArrayVector ex_arrays = {a3, a4};
-  auto ex_carr = std::make_shared<ChunkedArray>(ex_arrays);
+    // with truncation disallowed, fails
+    options.allow_time_truncate = false;
+    options.to_type = types.coarse;
+    CheckCastFails(will_be_truncated, options);
 
-  ASSERT_TRUE(out.chunked_array()->Equals(*ex_carr));
+    // with truncation allowed, divide/truncate
+    options.allow_time_truncate = true;
+    CheckCast(will_be_truncated, coarse, options);
+  }
+
+  for (auto types : {
+           DurationTypePair{duration(TimeUnit::SECOND), duration(TimeUnit::MICRO)},
+           DurationTypePair{duration(TimeUnit::MILLI), duration(TimeUnit::NANO)},
+       }) {
+    auto coarse = ArrayFromJSON(types.coarse, "[0, null, 200, 1, 2]");
+    auto promoted = ArrayFromJSON(types.fine, "[0, null, 200000000, 1000000, 2000000]");
+
+    // multiply/promote
+    CheckCast(coarse, promoted);
+
+    auto will_be_truncated =
+        ArrayFromJSON(types.fine, "[0, null, 200000456, 1000123, 2000456]");
+
+    // with truncation disallowed, fails
+    options.allow_time_truncate = false;
+    options.to_type = types.coarse;
+    CheckCastFails(will_be_truncated, options);
+
+    // with truncation allowed, divide/truncate
+    options.allow_time_truncate = true;
+    CheckCast(will_be_truncated, coarse, options);
+  }
+
+  for (auto types : {
+           DurationTypePair{duration(TimeUnit::SECOND), duration(TimeUnit::NANO)},
+       }) {
+    auto coarse = ArrayFromJSON(types.coarse, "[0, null, 200, 1, 2]");
+    auto promoted =
+        ArrayFromJSON(types.fine, "[0, null, 200000000000, 1000000000, 2000000000]");
+
+    // multiply/promote
+    CheckCast(coarse, promoted);
+
+    auto will_be_truncated =
+        ArrayFromJSON(types.fine, "[0, null, 200000000456, 1000000123, 2000000456]");
+
+    // with truncation disallowed, fails
+    options.allow_time_truncate = false;
+    options.to_type = types.coarse;
+    CheckCastFails(will_be_truncated, options);
+
+    // with truncation allowed, divide/truncate
+    options.allow_time_truncate = true;
+    CheckCast(will_be_truncated, coarse, options);
+  }
 }
 
-TEST_F(TestCast, UnsupportedInputType) {
+TEST(Cast, DurationZeroCopy) {
+  for (auto zero_copy_to_type : {
+           duration(TimeUnit::SECOND),
+           int64(),  // ARROW-1773: cast to int64
+       }) {
+    CheckCastZeroCopy(
+        ArrayFromJSON(duration(TimeUnit::SECOND), "[0, null, 2000, 1000, 0]"),
+        zero_copy_to_type);
+  }
+  CheckCastZeroCopy(ArrayFromJSON(int64(), "[0, null, 2000, 1000, 0]"),
+                    duration(TimeUnit::SECOND));
+}
+
+TEST(Cast, DurationToDurationMultiplyOverflow) {
+  CastOptions options;
+  options.to_type = duration(TimeUnit::NANO);
+  CheckCastFails(
+      ArrayFromJSON(duration(TimeUnit::SECOND), "[10000000000, 1, 2, 3, 10000000000]"),
+      options);
+}
+
+TEST(Cast, MiscToFloating) {
+  for (auto to_type : {float32(), float64()}) {
+    CheckCast(ArrayFromJSON(int16(), "[0, null, 200, 1, 2]"),
+              ArrayFromJSON(to_type, "[0, null, 200, 1, 2]"));
+
+    CheckCast(ArrayFromJSON(float32(), "[0, null, 200, 1, 2]"),
+              ArrayFromJSON(to_type, "[0, null, 200, 1, 2]"));
+
+    CheckCast(ArrayFromJSON(boolean(), "[true, null, false, false, true]"),
+              ArrayFromJSON(to_type, "[1, null, 0, 0, 1]"));
+  }
+}
+
+TEST(Cast, UnsupportedInputType) {
   // Casting to a supported target type, but with an unsupported input type
   // for the target type.
   const auto arr = ArrayFromJSON(int32(), "[1, 2, 3]");
@@ -1464,7 +1390,7 @@ TEST_F(TestCast, UnsupportedInputType) {
                                   CallFunction("cast", {arr}, &options));
 }
 
-TEST_F(TestCast, UnsupportedTargetType) {
+TEST(Cast, UnsupportedTargetType) {
   // Casting to an unsupported target type
   const auto arr = ArrayFromJSON(int32(), "[1, 2, 3]");
   const auto to_type = dense_union({field("a", int32())});
@@ -1481,221 +1407,331 @@ TEST_F(TestCast, UnsupportedTargetType) {
                                   CallFunction("cast", {arr}, &options));
 }
 
-TEST_F(TestCast, DateTimeZeroCopy) {
-  std::vector<bool> is_valid = {true, false, true, true, true};
+TEST(Cast, StringToBoolean) {
+  for (auto string_type : {utf8(), large_utf8()}) {
+    CheckCast(ArrayFromJSON(string_type, R"(["False", null, "true", "True", "false"])"),
+              ArrayFromJSON(boolean(), "[false, null, true, true, false]"));
 
-  std::vector<int32_t> v1 = {0, 70000, 2000, 1000, 0};
-  std::shared_ptr<Array> arr;
-  ArrayFromVector<Int32Type>(int32(), is_valid, v1, &arr);
+    CheckCast(ArrayFromJSON(string_type, R"(["0", null, "1", "1", "0"])"),
+              ArrayFromJSON(boolean(), "[false, null, true, true, false]"));
 
-  CheckZeroCopy(*arr, time32(TimeUnit::SECOND));
-  CheckZeroCopy(*arr, date32());
-
-  std::vector<int64_t> v2 = {0, 70000, 2000, 1000, 0};
-  ArrayFromVector<Int64Type>(int64(), is_valid, v2, &arr);
-
-  CheckZeroCopy(*arr, time64(TimeUnit::MICRO));
-  CheckZeroCopy(*arr, date64());
-  CheckZeroCopy(*arr, timestamp(TimeUnit::NANO));
-  CheckZeroCopy(*arr, duration(TimeUnit::MILLI));
-}
-
-TEST_F(TestCast, StringToBoolean) {
-  CastOptions options;
-
-  std::vector<bool> is_valid = {true, false, true, true, true};
-
-  std::vector<std::string> v1 = {"False", "true", "true", "True", "false"};
-  std::vector<std::string> v2 = {"0", "1", "1", "1", "0"};
-  std::vector<bool> e = {false, true, true, true, false};
-  CheckCase<StringType, BooleanType, std::string>(utf8(), v1, is_valid, boolean(), e,
-                                                  options);
-  CheckCase<StringType, BooleanType, std::string>(utf8(), v2, is_valid, boolean(), e,
-                                                  options);
-
-  // Same with LargeStringType
-  CheckCase<LargeStringType, BooleanType, std::string>(v1, is_valid, e, options);
-}
-
-TEST_F(TestCast, StringToBooleanErrors) {
-  CastOptions options;
-
-  std::vector<bool> is_valid = {true};
-
-  CheckFails<StringType>({"false "}, is_valid, boolean(), options);
-  CheckFails<StringType>({"T"}, is_valid, boolean(), options);
-  CheckFails<LargeStringType>({"T"}, is_valid, boolean(), options);
-}
-
-TEST_F(TestCast, StringToNumber) { TestCastStringToNumber<StringType>(); }
-
-TEST_F(TestCast, LargeStringToNumber) { TestCastStringToNumber<LargeStringType>(); }
-
-TEST_F(TestCast, StringToNumberErrors) {
-  CastOptions options;
-
-  std::vector<bool> is_valid = {true};
-
-  CheckFails<StringType>({"z"}, is_valid, int8(), options);
-  CheckFails<StringType>({"12 z"}, is_valid, int8(), options);
-  CheckFails<StringType>({"128"}, is_valid, int8(), options);
-  CheckFails<StringType>({"-129"}, is_valid, int8(), options);
-  CheckFails<StringType>({"0.5"}, is_valid, int8(), options);
-
-  CheckFails<StringType>({"256"}, is_valid, uint8(), options);
-  CheckFails<StringType>({"-1"}, is_valid, uint8(), options);
-
-  CheckFails<StringType>({"z"}, is_valid, float32(), options);
-}
-
-TEST_F(TestCast, StringToTimestamp) { TestCastStringToTimestamp<StringType>(); }
-
-TEST_F(TestCast, LargeStringToTimestamp) { TestCastStringToTimestamp<LargeStringType>(); }
-
-TEST_F(TestCast, StringToTimestampErrors) {
-  CastOptions options;
-
-  std::vector<bool> is_valid = {true};
-
-  for (auto unit : {TimeUnit::SECOND, TimeUnit::MILLI, TimeUnit::MICRO, TimeUnit::NANO}) {
-    auto type = timestamp(unit);
-    CheckFails<StringType>({""}, is_valid, type, options);
-    CheckFails<StringType>({"xxx"}, is_valid, type, options);
+    auto options = CastOptions::Safe(boolean());
+    CheckCastFails(ArrayFromJSON(string_type, R"(["false "])"), options);
+    CheckCastFails(ArrayFromJSON(string_type, R"(["T"])"), options);
   }
 }
 
-TEST_F(TestCast, BinaryToString) { TestCastBinaryToBinary<BinaryType, StringType>(); }
+TEST(Cast, StringToInt) {
+  for (auto string_type : {utf8(), large_utf8()}) {
+    for (auto signed_type : {int8(), int16(), int32(), int64()}) {
+      CheckCast(ArrayFromJSON(string_type, R"(["0", null, "127", "-1", "0"])"),
+                ArrayFromJSON(signed_type, "[0, null, 127, -1, 0]"));
+    }
 
-TEST_F(TestCast, BinaryToLargeBinary) {
-  TestCastBinaryToBinary<BinaryType, LargeBinaryType>();
+    CheckCast(
+        ArrayFromJSON(string_type, R"(["2147483647", null, "-2147483648", "0", "0"])"),
+        ArrayFromJSON(int32(), "[2147483647, null, -2147483648, 0, 0]"));
+
+    CheckCast(ArrayFromJSON(
+                  string_type,
+                  R"(["9223372036854775807", null, "-9223372036854775808", "0", "0"])"),
+              ArrayFromJSON(int64(),
+                            "[9223372036854775807, null, -9223372036854775808, 0, 0]"));
+
+    for (auto unsigned_type : {uint8(), uint16(), uint32(), uint64()}) {
+      CheckCast(ArrayFromJSON(string_type, R"(["0", null, "127", "255", "0"])"),
+                ArrayFromJSON(unsigned_type, "[0, null, 127, 255, 0]"));
+    }
+
+    CheckCast(
+        ArrayFromJSON(string_type, R"(["2147483647", null, "4294967295", "0", "0"])"),
+        ArrayFromJSON(uint32(), "[2147483647, null, 4294967295, 0, 0]"));
+
+    CheckCast(ArrayFromJSON(
+                  string_type,
+                  R"(["9223372036854775807", null, "18446744073709551615", "0", "0"])"),
+              ArrayFromJSON(uint64(),
+                            "[9223372036854775807, null, 18446744073709551615, 0, 0]"));
+
+    for (std::string not_int8 : {
+             "z",
+             "12 z",
+             "128",
+             "-129",
+             "0.5",
+         }) {
+      auto options = CastOptions::Safe(int8());
+      CheckCastFails(ArrayFromJSON(string_type, "[\"" + not_int8 + "\"]"), options);
+    }
+
+    for (std::string not_uint8 : {
+             "256",
+             "-1",
+             "0.5",
+         }) {
+      auto options = CastOptions::Safe(uint8());
+      CheckCastFails(ArrayFromJSON(string_type, "[\"" + not_uint8 + "\"]"), options);
+    }
+  }
 }
 
-TEST_F(TestCast, BinaryToLargeString) {
-  TestCastBinaryToBinary<BinaryType, LargeStringType>();
+TEST(Cast, StringToFloating) {
+  for (auto string_type : {utf8(), large_utf8()}) {
+    for (auto float_type : {float32(), float64()}) {
+      auto strings =
+          ArrayFromJSON(string_type, R"(["0.1", null, "127.3", "1e3", "200.4", "0.5"])");
+      auto floats = ArrayFromJSON(float_type, "[0.1, null, 127.3, 1000, 200.4, 0.5]");
+      CheckCast(strings, floats);
+
+      for (std::string not_float : {
+               "z",
+           }) {
+        auto options = CastOptions::Safe(float32());
+        CheckCastFails(ArrayFromJSON(string_type, "[\"" + not_float + "\"]"), options);
+      }
+
+#if !defined(_WIN32) || defined(NDEBUG)
+      // Test that casting is locale-independent
+      // French locale uses the comma as decimal point
+      LocaleGuard locale_guard("fr_FR.UTF-8");
+      CheckCast(strings, floats);
+#endif
+    }
+  }
 }
 
-TEST_F(TestCast, LargeBinaryToBinary) {
-  TestCastBinaryToBinary<LargeBinaryType, BinaryType>();
+TEST(Cast, StringToTimestamp) {
+  for (auto string_type : {utf8(), large_utf8()}) {
+    auto strings = ArrayFromJSON(string_type, R"(["1970-01-01", null, "2000-02-29"])");
+
+    CheckCast(strings,
+              ArrayFromJSON(timestamp(TimeUnit::SECOND), "[0, null, 951782400]"));
+
+    CheckCast(strings,
+              ArrayFromJSON(timestamp(TimeUnit::MICRO), "[0, null, 951782400000000]"));
+
+    for (auto unit :
+         {TimeUnit::SECOND, TimeUnit::MILLI, TimeUnit::MICRO, TimeUnit::NANO}) {
+      for (std::string not_ts : {
+               "",
+               "xxx",
+           }) {
+        auto options = CastOptions::Safe(timestamp(unit));
+        CheckCastFails(ArrayFromJSON(string_type, "[\"" + not_ts + "\"]"), options);
+      }
+    }
+
+    // NOTE: timestamp parsing is tested comprehensively in parsing-util-test.cc
+  }
 }
 
-TEST_F(TestCast, LargeBinaryToString) {
-  TestCastBinaryToBinary<LargeBinaryType, StringType>();
+static void AssertBinaryZeroCopy(std::shared_ptr<Array> lhs, std::shared_ptr<Array> rhs) {
+  // null bitmap and data buffers are always zero-copied
+  AssertBufferSame(*lhs, *rhs, 0);
+  AssertBufferSame(*lhs, *rhs, 2);
+
+  if (offset_bit_width(lhs->type_id()) == offset_bit_width(rhs->type_id())) {
+    // offset buffer is zero copied if possible
+    AssertBufferSame(*lhs, *rhs, 1);
+    return;
+  }
+
+  // offset buffers are equivalent
+  ArrayVector offsets;
+  for (auto array : {lhs, rhs}) {
+    auto length = array->length();
+    auto buffer = array->data()->buffers[1];
+    offsets.push_back(offset_bit_width(array->type_id()) == 32
+                          ? *Cast(Int32Array(length, buffer), int64())
+                          : std::make_shared<Int64Array>(length, buffer));
+  }
+  AssertArraysEqual(*offsets[0], *offsets[1]);
 }
 
-TEST_F(TestCast, LargeBinaryToLargeString) {
-  TestCastBinaryToBinary<LargeBinaryType, LargeStringType>();
+TEST(Cast, BinaryToString) {
+  for (auto bin_type : {binary(), large_binary()}) {
+    for (auto string_type : {utf8(), large_utf8()}) {
+      // empty -> empty always works
+      CheckCast(ArrayFromJSON(bin_type, "[]"), ArrayFromJSON(string_type, "[]"));
+
+      auto invalid_utf8 = InvalidUtf8(bin_type);
+
+      // invalid utf-8 masked by a null bit is not an error
+      CheckCast(MaskArrayWithNullsAt(InvalidUtf8(bin_type), {4}),
+                MaskArrayWithNullsAt(InvalidUtf8(string_type), {4}));
+
+      // error: invalid utf-8
+      auto options = CastOptions::Safe(string_type);
+      CheckCastFails(invalid_utf8, options);
+
+      // override utf-8 check
+      options.allow_invalid_utf8 = true;
+      ASSERT_OK_AND_ASSIGN(auto strings, Cast(*invalid_utf8, string_type, options));
+      ASSERT_RAISES(Invalid, strings->ValidateFull());
+      AssertBinaryZeroCopy(invalid_utf8, strings);
+    }
+  }
 }
 
-TEST_F(TestCast, StringToBinary) { TestCastBinaryToBinary<StringType, BinaryType>(); }
+TEST(Cast, BinaryOrStringToBinary) {
+  for (auto from_type : {utf8(), large_utf8(), binary(), large_binary()}) {
+    for (auto to_type : {binary(), large_binary()}) {
+      // empty -> empty always works
+      CheckCast(ArrayFromJSON(from_type, "[]"), ArrayFromJSON(to_type, "[]"));
 
-TEST_F(TestCast, StringToLargeBinary) {
-  TestCastBinaryToBinary<StringType, LargeBinaryType>();
+      auto invalid_utf8 = InvalidUtf8(from_type);
+
+      // invalid utf-8 is not an error for binary
+      ASSERT_OK_AND_ASSIGN(auto strings, Cast(*invalid_utf8, to_type));
+      ValidateOutput(*strings);
+      AssertBinaryZeroCopy(invalid_utf8, strings);
+
+      // invalid utf-8 masked by a null bit is not an error
+      CheckCast(MaskArrayWithNullsAt(InvalidUtf8(from_type), {4}),
+                MaskArrayWithNullsAt(InvalidUtf8(to_type), {4}));
+    }
+  }
 }
 
-TEST_F(TestCast, StringToLargeString) {
-  TestCastBinaryToBinary<StringType, LargeStringType>();
+TEST(Cast, StringToString) {
+  for (auto from_type : {utf8(), large_utf8()}) {
+    for (auto to_type : {utf8(), large_utf8()}) {
+      // empty -> empty always works
+      CheckCast(ArrayFromJSON(from_type, "[]"), ArrayFromJSON(to_type, "[]"));
+
+      auto invalid_utf8 = InvalidUtf8(from_type);
+
+      // invalid utf-8 masked by a null bit is not an error
+      CheckCast(MaskArrayWithNullsAt(invalid_utf8, {4}),
+                MaskArrayWithNullsAt(InvalidUtf8(to_type), {4}));
+
+      // override utf-8 check
+      auto options = CastOptions::Safe(to_type);
+      options.allow_invalid_utf8 = true;
+      // utf-8 is not checked by Cast when the origin guarantees utf-8
+      ASSERT_OK_AND_ASSIGN(auto strings, Cast(*invalid_utf8, to_type, options));
+      ASSERT_RAISES(Invalid, strings->ValidateFull());
+      AssertBinaryZeroCopy(invalid_utf8, strings);
+    }
+  }
 }
 
-TEST_F(TestCast, LargeStringToBinary) {
-  TestCastBinaryToBinary<LargeStringType, BinaryType>();
+TEST(Cast, IntToString) {
+  for (auto string_type : {utf8(), large_utf8()}) {
+    CheckCast(ArrayFromJSON(int8(), "[0, 1, 127, -128, null]"),
+              ArrayFromJSON(string_type, R"(["0", "1", "127", "-128", null])"));
+
+    CheckCast(ArrayFromJSON(uint8(), "[0, 1, 255, null]"),
+              ArrayFromJSON(string_type, R"(["0", "1", "255", null])"));
+
+    CheckCast(ArrayFromJSON(int16(), "[0, 1, 32767, -32768, null]"),
+              ArrayFromJSON(string_type, R"(["0", "1", "32767", "-32768", null])"));
+
+    CheckCast(ArrayFromJSON(uint16(), "[0, 1, 65535, null]"),
+              ArrayFromJSON(string_type, R"(["0", "1", "65535", null])"));
+
+    CheckCast(
+        ArrayFromJSON(int32(), "[0, 1, 2147483647, -2147483648, null]"),
+        ArrayFromJSON(string_type, R"(["0", "1", "2147483647", "-2147483648", null])"));
+
+    CheckCast(ArrayFromJSON(uint32(), "[0, 1, 4294967295, null]"),
+              ArrayFromJSON(string_type, R"(["0", "1", "4294967295", null])"));
+
+    CheckCast(
+        ArrayFromJSON(int64(), "[0, 1, 9223372036854775807, -9223372036854775808, null]"),
+        ArrayFromJSON(
+            string_type,
+            R"(["0", "1", "9223372036854775807", "-9223372036854775808", null])"));
+
+    CheckCast(ArrayFromJSON(uint64(), "[0, 1, 18446744073709551615, null]"),
+              ArrayFromJSON(string_type, R"(["0", "1", "18446744073709551615", null])"));
+  }
 }
 
-TEST_F(TestCast, LargeStringToString) {
-  TestCastBinaryToBinary<LargeStringType, StringType>();
+TEST(Cast, FloatingToString) {
+  for (auto string_type : {utf8(), large_utf8()}) {
+    CheckCast(
+        ArrayFromJSON(float32(), "[0.0, -0.0, 1.5, -Inf, Inf, NaN, null]"),
+        ArrayFromJSON(string_type, R"(["0", "-0", "1.5", "-inf", "inf", "nan", null])"));
+
+    CheckCast(
+        ArrayFromJSON(float64(), "[0.0, -0.0, 1.5, -Inf, Inf, NaN, null]"),
+        ArrayFromJSON(string_type, R"(["0", "-0", "1.5", "-inf", "inf", "nan", null])"));
+  }
 }
 
-TEST_F(TestCast, LargeStringToLargeBinary) {
-  TestCastBinaryToBinary<LargeStringType, LargeBinaryType>();
+TEST(Cast, BooleanToString) {
+  for (auto string_type : {utf8(), large_utf8()}) {
+    CheckCast(ArrayFromJSON(boolean(), "[true, true, false, null]"),
+              ArrayFromJSON(string_type, R"(["true", "true", "false", null])"));
+  }
 }
 
-TEST_F(TestCast, NumberToString) { TestCastNumberToString<StringType>(); }
+TEST(Cast, ListToPrimitive) {
+  ASSERT_RAISES(NotImplemented,
+                Cast(*ArrayFromJSON(list(int8()), "[[1, 2], [3, 4]]"), uint8()));
 
-TEST_F(TestCast, NumberToLargeString) { TestCastNumberToString<LargeStringType>(); }
-
-TEST_F(TestCast, BooleanToString) { TestCastBooleanToString<StringType>(); }
-
-TEST_F(TestCast, BooleanToLargeString) { TestCastBooleanToString<LargeStringType>(); }
-
-TEST_F(TestCast, ListToPrimitive) {
-  auto from_int = ArrayFromJSON(list(int8()), "[[1, 2], [3, 4]]");
-  auto from_binary = ArrayFromJSON(list(binary()), "[[\"1\", \"2\"], [\"3\", \"4\"]]");
-
-  ASSERT_RAISES(NotImplemented, Cast(*from_int, uint8()));
-  ASSERT_RAISES(NotImplemented, Cast(*from_binary, utf8()));
+  ASSERT_RAISES(
+      NotImplemented,
+      Cast(*ArrayFromJSON(list(binary()), R"([["1", "2"], ["3", "4"]])"), utf8()));
 }
 
-TEST_F(TestCast, ListToList) {
-  CastOptions options;
-  std::shared_ptr<Array> offsets;
+TEST(Cast, ListToList) {
+  using make_list_t = std::shared_ptr<DataType>(const std::shared_ptr<DataType>&);
+  for (auto make_list : std::vector<make_list_t*>{&list, &large_list}) {
+    auto list_int32 =
+        ArrayFromJSON(make_list(int32()),
+                      "[[0], [1], null, [2, 3, 4], [5, 6], null, [], [7], [8, 9]]")
+            ->data();
 
-  std::vector<int32_t> offsets_values = {0, 1, 2, 5, 7, 7, 8, 10};
-  std::vector<bool> offsets_is_valid = {true, true, true, true, false, true, true, true};
-  ArrayFromVector<Int32Type>(offsets_is_valid, offsets_values, &offsets);
+    auto list_int64 = list_int32->Copy();
+    list_int64->type = make_list(int64());
+    list_int64->child_data[0] = Cast(list_int32->child_data[0], int64())->array();
+    ValidateOutput(*list_int64);
 
-  std::shared_ptr<Array> int32_plain_array =
-      TestBase::MakeRandomArray<typename TypeTraits<Int32Type>::ArrayType>(10, 2);
-  ASSERT_OK_AND_ASSIGN(auto int32_list_array,
-                       ListArray::FromArrays(*offsets, *int32_plain_array, pool_));
+    auto list_float32 = list_int32->Copy();
+    list_float32->type = make_list(float32());
+    list_float32->child_data[0] = Cast(list_int32->child_data[0], float32())->array();
+    ValidateOutput(*list_float32);
 
-  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> int64_plain_array,
-                       Cast(*int32_plain_array, int64(), options));
-  ASSERT_OK_AND_ASSIGN(auto int64_list_array,
-                       ListArray::FromArrays(*offsets, *int64_plain_array, pool_));
+    CheckCast(MakeArray(list_int32), MakeArray(list_float32));
+    CheckCast(MakeArray(list_float32), MakeArray(list_int64));
+    CheckCast(MakeArray(list_int64), MakeArray(list_float32));
 
-  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> float64_plain_array,
-                       Cast(*int32_plain_array, float64(), options));
-  ASSERT_OK_AND_ASSIGN(auto float64_list_array,
-                       ListArray::FromArrays(*offsets, *float64_plain_array, pool_));
+    CheckCast(MakeArray(list_int32), MakeArray(list_int64));
+    CheckCast(MakeArray(list_float32), MakeArray(list_int32));
+    CheckCast(MakeArray(list_int64), MakeArray(list_int32));
+  }
 
-  CheckPass(*int32_list_array, *int64_list_array, int64_list_array->type(), options,
-            /*check_scalar=*/false);
-  CheckPass(*int32_list_array, *float64_list_array, float64_list_array->type(), options,
-            /*check_scalar=*/false);
-  CheckPass(*int64_list_array, *int32_list_array, int32_list_array->type(), options,
-            /*check_scalar=*/false);
-  CheckPass(*int64_list_array, *float64_list_array, float64_list_array->type(), options,
-            /*check_scalar=*/false);
+  // No nulls (ARROW-12568)
+  for (auto make_list : std::vector<make_list_t*>{&list, &large_list}) {
+    auto list_int32 = ArrayFromJSON(make_list(int32()),
+                                    "[[0], [1], [2, 3, 4], [5, 6], [], [7], [8, 9]]")
+                          ->data();
+    auto list_int64 = list_int32->Copy();
+    list_int64->type = make_list(int64());
+    list_int64->child_data[0] = Cast(list_int32->child_data[0], int64())->array();
+    ValidateOutput(*list_int64);
 
-  options.allow_float_truncate = true;
-  CheckPass(*float64_list_array, *int32_list_array, int32_list_array->type(), options,
-            /*check_scalar=*/false);
-  CheckPass(*float64_list_array, *int64_list_array, int64_list_array->type(), options,
-            /*check_scalar=*/false);
+    CheckCast(MakeArray(list_int32), MakeArray(list_int64));
+    CheckCast(MakeArray(list_int64), MakeArray(list_int32));
+  }
 }
 
-TEST_F(TestCast, LargeListToLargeList) {
-  // Like ListToList above, only testing the basics
-  CastOptions options;
-  std::shared_ptr<Array> offsets;
+TEST(Cast, ListToListOptionsPassthru) {
+  auto list_int32 = ArrayFromJSON(list(int32()), "[[87654321]]");
 
-  std::vector<int64_t> offsets_values = {0, 1, 2, 5, 7, 7, 8, 10};
-  std::vector<bool> offsets_is_valid = {true, true, true, true, false, true, true, true};
-  ArrayFromVector<Int64Type>(offsets_is_valid, offsets_values, &offsets);
+  auto options = CastOptions::Safe(list(int16()));
+  CheckCastFails(list_int32, options);
 
-  std::shared_ptr<Array> int32_plain_array =
-      TestBase::MakeRandomArray<typename TypeTraits<Int32Type>::ArrayType>(10, 2);
-  ASSERT_OK_AND_ASSIGN(auto int32_list_array,
-                       LargeListArray::FromArrays(*offsets, *int32_plain_array, pool_));
-
-  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> float64_plain_array,
-                       Cast(*int32_plain_array, float64(), options));
-  ASSERT_OK_AND_ASSIGN(auto float64_list_array,
-                       LargeListArray::FromArrays(*offsets, *float64_plain_array, pool_));
-
-  CheckPass(*int32_list_array, *float64_list_array, float64_list_array->type(), options,
-            /*check_scalar=*/false);
-
-  options.allow_float_truncate = true;
-  CheckPass(*float64_list_array, *int32_list_array, int32_list_array->type(), options,
-            /*check_scalar=*/false);
+  options.allow_int_overflow = true;
+  CheckCast(list_int32, ArrayFromJSON(list(int16()), "[[32689]]"), options);
 }
 
-TEST_F(TestCast, IdentityCasts) {
+TEST(Cast, IdentityCasts) {
   // ARROW-4102
-  auto CheckIdentityCast = [this](std::shared_ptr<DataType> type,
-                                  const std::string& json) {
-    auto arr = ArrayFromJSON(type, json);
-    CheckZeroCopy(*arr, type);
+  auto CheckIdentityCast = [](std::shared_ptr<DataType> type, const std::string& json) {
+    CheckCastZeroCopy(ArrayFromJSON(type, json), type);
   };
 
   CheckIdentityCast(null(), "[null, null, null]");
@@ -1704,9 +1740,9 @@ TEST_F(TestCast, IdentityCasts) {
   for (auto type : kNumericTypes) {
     CheckIdentityCast(type, "[1, 2, null, 4]");
   }
-  CheckIdentityCast(binary(), "[\"foo\", \"bar\"]");
-  CheckIdentityCast(utf8(), "[\"foo\", \"bar\"]");
-  CheckIdentityCast(fixed_size_binary(3), "[\"foo\", \"bar\"]");
+  CheckIdentityCast(binary(), R"(["foo", "bar"])");
+  CheckIdentityCast(utf8(), R"(["foo", "bar"])");
+  CheckIdentityCast(fixed_size_binary(3), R"(["foo", "bar"])");
 
   CheckIdentityCast(list(int8()), "[[1, 2], [null], [], [3]]");
 
@@ -1716,134 +1752,119 @@ TEST_F(TestCast, IdentityCasts) {
   CheckIdentityCast(date64(), "[86400000, 0]");
   CheckIdentityCast(timestamp(TimeUnit::SECOND), "[1, 2, 3, 4]");
 
-  {
-    auto dict_values = ArrayFromJSON(int8(), "[1, 2, 3]");
-    auto dict_type = dictionary(int8(), dict_values->type());
-    auto dict_indices = ArrayFromJSON(int8(), "[0, 1, 2, 0, null, 2]");
-    auto dict_array =
-        std::make_shared<DictionaryArray>(dict_type, dict_indices, dict_values);
-    CheckZeroCopy(*dict_array, dict_type);
-  }
+  CheckIdentityCast(dictionary(int8(), int8()), "[1, 2, 3, 1, null, 3]");
 }
 
-TEST_F(TestCast, EmptyCasts) {
+TEST(Cast, EmptyCasts) {
   // ARROW-4766: 0-length arrays should not segfault
-  auto CheckEmptyCast = [this](std::shared_ptr<DataType> from,
-                               std::shared_ptr<DataType> to) {
-    CastOptions options;
-
+  auto CheckCastEmpty = [](std::shared_ptr<DataType> from, std::shared_ptr<DataType> to) {
     // Python creates array with nullptr instead of 0-length (valid) buffers.
     auto data = ArrayData::Make(from, /* length */ 0, /* buffers */ {nullptr, nullptr});
-    auto input = MakeArray(data);
-    auto expected = ArrayFromJSON(to, "[]");
-    CheckPass(*input, *expected, to, CastOptions{});
+    CheckCast(MakeArray(data), ArrayFromJSON(to, "[]"));
   };
 
   for (auto numeric : kNumericTypes) {
-    CheckEmptyCast(boolean(), numeric);
-    CheckEmptyCast(numeric, boolean());
+    CheckCastEmpty(boolean(), numeric);
+    CheckCastEmpty(numeric, boolean());
   }
+}
+
+TEST(Cast, CastWithNoValidityBitmapButUnknownNullCount) {
+  // ARROW-12672 segfault when casting slightly malformed array
+  // (no validity bitmap but atomic null count non-zero)
+  auto values = ArrayFromJSON(boolean(), "[true, true, false]");
+
+  ASSERT_OK_AND_ASSIGN(auto expected, Cast(*values, int8()));
+
+  ASSERT_EQ(values->data()->buffers[0], NULLPTR);
+  values->data()->null_count = kUnknownNullCount;
+  ASSERT_OK_AND_ASSIGN(auto result, Cast(*values, int8()));
+
+  AssertArraysEqual(*expected, *result);
 }
 
 // ----------------------------------------------------------------------
 // Test casting from NullType
 
-template <typename TestType>
-class TestNullCast : public TestCast {};
+TEST(Cast, FromNull) {
+  for (auto to_type : {
+           null(),
+           uint8(),
+           int8(),
+           uint16(),
+           int16(),
+           uint32(),
+           int32(),
+           uint64(),
+           int64(),
+           float32(),
+           float64(),
+           date32(),
+           date64(),
+           fixed_size_binary(10),
+           binary(),
+           utf8(),
+       }) {
+    ASSERT_OK_AND_ASSIGN(auto expected, MakeArrayOfNull(to_type, 10));
+    CheckCast(std::make_shared<NullArray>(10), expected);
+  }
+}
 
-typedef ::testing::Types<NullType, UInt8Type, Int8Type, UInt16Type, Int16Type, Int32Type,
-                         UInt32Type, UInt64Type, Int64Type, FloatType, DoubleType,
-                         Date32Type, Date64Type, FixedSizeBinaryType, BinaryType>
-    TestTypes;
+TEST(Cast, FromNullToDictionary) {
+  auto from = std::make_shared<NullArray>(10);
+  auto to_type = dictionary(int8(), boolean());
 
-TYPED_TEST_SUITE(TestNullCast, TestTypes);
-
-TYPED_TEST(TestNullCast, FromNull) {
-  // Null casts to everything
-  const int length = 10;
-
-  // Hack to get a DataType including for parametric types
-  std::shared_ptr<DataType> out_type =
-      TestBase::MakeRandomArray<typename TypeTraits<TypeParam>::ArrayType>(0, 0)->type();
-
-  NullArray arr(length);
-
-  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> result, Cast(arr, out_type));
-  ASSERT_OK(result->ValidateFull());
-
-  ASSERT_TRUE(result->type()->Equals(*out_type));
-  ASSERT_EQ(length, result->length());
-  ASSERT_EQ(length, result->null_count());
+  ASSERT_OK_AND_ASSIGN(auto expected, MakeArrayOfNull(to_type, 10));
+  CheckCast(from, expected);
 }
 
 // ----------------------------------------------------------------------
 // Test casting from DictionaryType
 
-template <typename TestType>
-class TestDictionaryCast : public TestCast {};
+TEST(Cast, FromDictionary) {
+  ArrayVector dictionaries;
+  dictionaries.push_back(std::make_shared<NullArray>(5));
 
-typedef ::testing::Types<NullType, UInt8Type, Int8Type, UInt16Type, Int16Type, Int32Type,
-                         UInt32Type, UInt64Type, Int64Type, FloatType, DoubleType,
-                         Date32Type, Date64Type, FixedSizeBinaryType, BinaryType>
-    TestTypes;
-
-TYPED_TEST_SUITE(TestDictionaryCast, TestTypes);
-
-TYPED_TEST(TestDictionaryCast, Basic) {
-  std::shared_ptr<Array> dict =
-      TestBase::MakeRandomArray<typename TypeTraits<TypeParam>::ArrayType>(5, 1);
-  for (auto index_ty : all_dictionary_index_types()) {
-    auto indices = ArrayFromJSON(index_ty, "[4, 0, 1, 2, 0, 4, null, 2]");
-    auto dict_ty = dictionary(index_ty, dict->type());
-    auto dict_arr = *DictionaryArray::FromArrays(dict_ty, indices, dict);
-    std::shared_ptr<Array> expected = *Take(*dict, *indices);
-
-    this->CheckPass(*dict_arr, *expected, expected->type(), CastOptions::Safe(),
-                    /*check_scalar=*/false);
-
-    auto opts = CastOptions::Safe();
-    opts.to_type = expected->type();
-    CheckScalarUnary("cast", dict_arr, expected, &opts);
-  }
-}
-
-TYPED_TEST(TestDictionaryCast, NoNulls) {
-  // Test with a nullptr bitmap buffer (ARROW-3208)
-  if (TypeParam::type_id == Type::NA) {
-    // Skip, but gtest doesn't support skipping :-/
-    return;
+  for (auto num_type : kNumericTypes) {
+    dictionaries.push_back(ArrayFromJSON(num_type, "[23, 12, 45, 12, null]"));
   }
 
-  CastOptions options;
-  std::shared_ptr<Array> plain_array =
-      TestBase::MakeRandomArray<typename TypeTraits<TypeParam>::ArrayType>(10, 0);
-  ASSERT_EQ(plain_array->null_count(), 0);
+  for (auto string_type : kBaseBinaryTypes) {
+    dictionaries.push_back(
+        ArrayFromJSON(string_type, R"(["foo", "bar", "baz", "foo", null])"));
+  }
 
-  // Dict-encode the plain array
-  ASSERT_OK_AND_ASSIGN(Datum encoded, DictionaryEncode(plain_array->data()));
+  for (auto dict : dictionaries) {
+    for (auto index_type : kDictionaryIndexTypes) {
+      auto indices = ArrayFromJSON(index_type, "[4, 0, 1, 2, 0, 4, null, 2]");
+      ASSERT_OK_AND_ASSIGN(auto expected, Take(*dict, *indices));
 
-  // Make a new dict array with nullptr bitmap buffer
-  auto data = encoded.array()->Copy();
-  data->buffers[0] = nullptr;
-  data->null_count = 0;
-  std::shared_ptr<Array> dict_array = std::make_shared<DictionaryArray>(data);
-  ASSERT_OK(dict_array->ValidateFull());
+      ASSERT_OK_AND_ASSIGN(
+          auto dict_arr, DictionaryArray::FromArrays(dictionary(index_type, dict->type()),
+                                                     indices, dict));
+      CheckCast(dict_arr, expected);
+    }
+  }
 
-  this->CheckPass(*dict_array, *plain_array, plain_array->type(), options,
-                  /*check_scalar=*/false);
-}
+  for (auto dict : dictionaries) {
+    if (dict->type_id() == Type::NA) continue;
 
-// TODO: See how this might cause problems post-refactor
-TYPED_TEST(TestDictionaryCast, DISABLED_OutTypeError) {
-  // ARROW-7077: unsupported out type should return an error
-  std::shared_ptr<Array> plain_array =
-      TestBase::MakeRandomArray<typename TypeTraits<TypeParam>::ArrayType>(0, 0);
-  auto in_type = dictionary(int32(), plain_array->type());
+    // Test with a nullptr bitmap buffer (ARROW-3208)
+    auto indices = ArrayFromJSON(int8(), "[0, 0, 1, 2, 0, 3, 3, 2]");
+    ASSERT_OK_AND_ASSIGN(auto no_nulls, Take(*dict, *indices));
+    ASSERT_EQ(no_nulls->null_count(), 0);
 
-  auto out_type = (plain_array->type()->id() == Type::INT8) ? binary() : int8();
-  // Test an output type that's not part of TestTypes.
-  out_type = list(in_type);
-  ASSERT_RAISES(NotImplemented, GetCastFunction(out_type));
+    ASSERT_OK_AND_ASSIGN(Datum encoded, DictionaryEncode(no_nulls));
+
+    // Make a new dict array with nullptr bitmap buffer
+    auto data = encoded.array()->Copy();
+    data->buffers[0] = nullptr;
+    data->null_count = 0;
+    std::shared_ptr<Array> dict_array = std::make_shared<DictionaryArray>(data);
+    ValidateOutput(*dict_array);
+
+    CheckCast(dict_array, no_nulls);
+  }
 }
 
 std::shared_ptr<Array> SmallintArrayFromJSON(const std::string& json_data) {
@@ -1853,46 +1874,41 @@ std::shared_ptr<Array> SmallintArrayFromJSON(const std::string& json_data) {
   return MakeArray(ext_data);
 }
 
-TEST_F(TestCast, ExtensionTypeToIntDowncast) {
+TEST(Cast, ExtensionTypeToIntDowncast) {
   auto smallint = std::make_shared<SmallintType>();
-  ASSERT_OK(RegisterExtensionType(smallint));
-
-  CastOptions options;
-  options.allow_int_overflow = false;
+  ExtensionTypeGuard smallint_guard(smallint);
 
   std::shared_ptr<Array> result;
   std::vector<bool> is_valid = {true, false, true, true, true};
 
   // Smallint(int16) to int16
-  auto v0 = SmallintArrayFromJSON("[0, 100, 200, 1, 2]");
-  CheckZeroCopy(*v0, int16());
+  CheckCastZeroCopy(SmallintArrayFromJSON("[0, 100, 200, 1, 2]"), int16());
 
   // Smallint(int16) to uint8, no overflow/underrun
-  auto v1 = SmallintArrayFromJSON("[0, 100, 200, 1, 2]");
-  auto e1 = ArrayFromJSON(uint8(), "[0, 100, 200, 1, 2]");
-  CheckPass(*v1, *e1, uint8(), options, /*check_scalar=*/false);
+  CheckCast(SmallintArrayFromJSON("[0, 100, 200, 1, 2]"),
+            ArrayFromJSON(uint8(), "[0, 100, 200, 1, 2]"));
 
   // Smallint(int16) to uint8, with overflow
-  auto v2 = SmallintArrayFromJSON("[0, null, 256, 1, 3]");
-  auto e2 = ArrayFromJSON(uint8(), "[0, null, 0, 1, 3]");
-  // allow overflow
-  options.allow_int_overflow = true;
-  CheckPass(*v2, *e2, uint8(), options, /*check_scalar=*/false);
-  // disallow overflow
-  options.allow_int_overflow = false;
-  ASSERT_RAISES(Invalid, Cast(*v2, uint8(), options));
+  {
+    CastOptions options;
+    options.to_type = uint8();
+    CheckCastFails(SmallintArrayFromJSON("[0, null, 256, 1, 3]"), options);
+
+    options.allow_int_overflow = true;
+    CheckCast(SmallintArrayFromJSON("[0, null, 256, 1, 3]"),
+              ArrayFromJSON(uint8(), "[0, null, 0, 1, 3]"), options);
+  }
 
   // Smallint(int16) to uint8, with underflow
-  auto v3 = SmallintArrayFromJSON("[0, null, -1, 1, 0]");
-  auto e3 = ArrayFromJSON(uint8(), "[0, null, 255, 1, 0]");
-  // allow overflow
-  options.allow_int_overflow = true;
-  CheckPass(*v3, *e3, uint8(), options, /*check_scalar=*/false);
-  // disallow overflow
-  options.allow_int_overflow = false;
-  ASSERT_RAISES(Invalid, Cast(*v3, uint8(), options));
+  {
+    CastOptions options;
+    options.to_type = uint8();
+    CheckCastFails(SmallintArrayFromJSON("[0, null, -1, 1, 3]"), options);
 
-  ASSERT_OK(UnregisterExtensionType("smallint"));
+    options.allow_int_overflow = true;
+    CheckCast(SmallintArrayFromJSON("[0, null, -1, 1, 3]"),
+              ArrayFromJSON(uint8(), "[0, null, 255, 1, 3]"), options);
+  }
 }
 
 }  // namespace compute

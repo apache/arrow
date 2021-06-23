@@ -16,11 +16,11 @@
 # under the License.
 
 #' @export
-`print.arrow-enum` <- function(x, ...){
+`print.arrow-enum` <- function(x, ...) {
   NextMethod()
 }
 
-enum <- function(class, ..., .list = list(...)){
+enum <- function(class, ..., .list = list(...)) {
   structure(
     .list,
     class = c(class, "arrow-enum")
@@ -127,4 +127,16 @@ ParquetVersionType <- enum("ParquetVersionType",
 #' @rdname enums
 MetadataVersion <- enum("MetadataVersion",
   V1 = 0L, V2 = 1L, V3 = 2L, V4 = 3L, V5 = 4L
+)
+
+#' @export
+#' @rdname enums
+QuantileInterpolation <- enum("QuantileInterpolation",
+  LINEAR = 0L, LOWER = 1L, HIGHER = 2L, NEAREST = 3L, MIDPOINT = 4L
+)
+
+#' @export
+#' @rdname enums
+NullEncodingBehavior <- enum("NullEncodingBehavior",
+  ENCODE = 0L, MASK = 1L
 )

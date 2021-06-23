@@ -26,14 +26,12 @@
 #'
 #' @return A [arrow::Table][Table], or a `data.frame` if `as_data_frame` is
 #' `TRUE` (the default).
-#' @examples
-#' \donttest{
+#' @examplesIf arrow_with_parquet()
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
 #' write_parquet(mtcars, tf)
 #' df <- read_parquet(tf, col_select = starts_with("d"))
 #' head(df)
-#' }
 #' @export
 read_parquet <- function(file,
                          col_select = NULL,
@@ -52,10 +50,16 @@ read_parquet <- function(file,
     schema <- reader$GetSchema()
     names <- names(schema)
     indices <- match(vars_select(names, !!col_select), names) - 1L
-    tab <- reader$ReadTable(indices)
+    tab <- tryCatch(
+      reader$ReadTable(indices),
+      error = read_compressed_error
+    )
   } else {
     # read all columns
-    tab <- reader$ReadTable()
+    tab <- tryCatch(
+      reader$ReadTable(),
+      error = read_compressed_error
+    )
   }
 
   if (as_data_frame) {
@@ -121,8 +125,7 @@ read_parquet <- function(file,
 #'
 #' @return the input `x` invisibly.
 #'
-#' @examples
-#' \donttest{
+#' @examplesIf arrow_with_parquet()
 #' tf1 <- tempfile(fileext = ".parquet")
 #' write_parquet(data.frame(x = 1:5), tf1)
 #'
@@ -130,7 +133,6 @@ read_parquet <- function(file,
 #' if (codec_is_available("gzip")) {
 #'   tf2 <- tempfile(fileext = ".gz.parquet")
 #'   write_parquet(data.frame(x = 1:5), tf2, compression = "gzip", compression_level = 5)
-#' }
 #' }
 #' @export
 write_parquet <- function(x,
@@ -150,9 +152,12 @@ write_parquet <- function(x,
                           properties = NULL,
                           arrow_properties = NULL) {
   x_out <- x
-  if (!inherits(x, "Table")) {
+  
+  if (is.data.frame(x) || inherits(x, "RecordBatch")) {
     x <- Table$create(x)
   }
+  
+  assert_that(is_writable_table(x))
 
   if (!inherits(sink, "OutputStream")) {
     sink <- make_output_stream(sink)
@@ -291,7 +296,7 @@ ParquetWriterPropertiesBuilder <- R6Class("ParquetWriterPropertiesBuilder", inhe
         parquet___ArrowWriterProperties___Builder__set_compressions
       )
     },
-    set_compression_level = function(table, compression_level){
+    set_compression_level = function(table, compression_level) {
       # cast to integer but keep names
       compression_level <- set_names(as.integer(compression_level), names(compression_level))
       private$.set(table, compression_level,
@@ -448,8 +453,7 @@ ParquetFileWriter$create <- function(schema,
 #' - `$num_row_groups`: number of row groups.
 #'
 #' @export
-#' @examples
-#' \donttest{
+#' @examplesIf arrow_with_parquet()
 #' f <- system.file("v0.7.1.parquet", package="arrow")
 #' pq <- ParquetFileReader$create(f)
 #' pq$GetSchema()
@@ -457,7 +461,6 @@ ParquetFileWriter$create <- function(schema,
 #'   # This file has compressed data columns
 #'   tab <- pq$ReadTable()
 #'   tab$schema
-#' }
 #' }
 #' @include arrow-package.R
 ParquetFileReader <- R6Class("ParquetFileReader",
@@ -555,7 +558,7 @@ ParquetArrowReaderProperties <- R6Class("ParquetArrowReaderProperties",
   ),
   active = list(
     use_threads = function(use_threads) {
-      if(missing(use_threads)) {
+      if (missing(use_threads)) {
         parquet___arrow___ArrowReaderProperties__get_use_threads(self)
       } else {
         parquet___arrow___ArrowReaderProperties__set_use_threads(self, use_threads)

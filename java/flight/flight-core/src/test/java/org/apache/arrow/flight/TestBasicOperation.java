@@ -63,6 +63,12 @@ import io.grpc.MethodDescriptor;
  */
 public class TestBasicOperation {
 
+  @Test
+  public void fastPathDefaults() {
+    Assert.assertTrue(ArrowMessage.ENABLE_ZERO_COPY_READ);
+    Assert.assertFalse(ArrowMessage.ENABLE_ZERO_COPY_WRITE);
+  }
+
   /**
    * ARROW-6017: we should be able to construct locations for unknown schemes.
    */
@@ -354,7 +360,8 @@ public class TestBasicOperation {
       final VectorUnloader unloader = new VectorUnloader(root);
       root.setRowCount(0);
       final MethodDescriptor.Marshaller<ArrowMessage> marshaller = ArrowMessage.createMarshaller(allocator);
-      try (final ArrowMessage message = new ArrowMessage(unloader.getRecordBatch(), null, IpcOption.DEFAULT)) {
+      try (final ArrowMessage message = new ArrowMessage(
+              unloader.getRecordBatch(), /* appMetadata */ null, /* tryZeroCopy */ false, IpcOption.DEFAULT)) {
         Assert.assertEquals(ArrowMessage.HeaderType.RECORD_BATCH, message.getMessageType());
         // Should have at least one empty body buffer (there may be multiple for e.g. data and validity)
         Iterator<ArrowBuf> iterator = message.getBufs().iterator();

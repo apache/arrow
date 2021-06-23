@@ -1,0 +1,9 @@
+Document: arrow-flight-glib
+Title: Apache Arrow Flight GLib Reference Manual
+Author: The Apache Software Foundation
+Abstract: Apache Arrow Flight GLib provides a general-purpose client-server framework to simplify high performance transport of large datasets over network interfaces.
+Section: Programming
+
+Format: HTML
+Index: /usr/share/gtk-doc/html/arrow-flight-glib/index.html
+Files: /usr/share/gtk-doc/html/arrow-flight-glib/*.html

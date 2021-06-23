@@ -27,7 +27,7 @@ pushd ${source_dir}/tests
 
 export TEST_R_WITH_ARROW=TRUE
 export UBSAN_OPTIONS="print_stacktrace=1,suppressions=/arrow/r/tools/ubsan.supp"
-${R_BIN} < testthat.R > testthat.out 2>&1
+${R_BIN} < testthat.R > testthat.out 2>&1 || { cat testthat.out; exit 1; }
 
 cat testthat.out
 if grep -q "runtime error" testthat.out; then

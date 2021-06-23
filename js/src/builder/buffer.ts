@@ -157,10 +157,8 @@ export class OffsetsBufferBuilder extends DataBufferBuilder<Int32Array> {
 
 /** @ignore */
 export class WideBufferBuilder<T extends TypedArray, R extends BigIntArray> extends BufferBuilder<T, DataValue<T>> {
-    // @ts-ignore
-    public buffer64: R;
-    // @ts-ignore
-    protected _ArrayType64: BigIntArrayConstructor<R>;
+    public buffer64!: R;
+    protected _ArrayType64!: BigIntArrayConstructor<R>;
     public get ArrayType64() {
         return this._ArrayType64 || (this._ArrayType64 = <BigIntArrayConstructor<R>> (this.buffer instanceof Int32Array ? BigInt64Array : BigUint64Array));
     }

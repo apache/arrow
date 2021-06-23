@@ -35,6 +35,7 @@ abstract class OutboundStreamListenerImpl implements OutboundStreamListener {
   protected final CallStreamObserver<ArrowMessage> responseObserver;
   protected volatile VectorUnloader unloader; // null until stream started
   protected IpcOption option; // null until stream started
+  protected boolean tryZeroCopy = ArrowMessage.ENABLE_ZERO_COPY_WRITE;
 
   OutboundStreamListenerImpl(FlightDescriptor descriptor, CallStreamObserver<ArrowMessage> responseObserver) {
     Preconditions.checkNotNull(responseObserver, "responseObserver must be provided");
@@ -93,7 +94,7 @@ abstract class OutboundStreamListenerImpl implements OutboundStreamListener {
     // close is a no-op if the message has been written to gRPC, otherwise frees the associated buffers
     // in some code paths (e.g. if the call is cancelled), gRPC does not write the message, so we need to clean up
     // ourselves. Normally, writing the ArrowMessage will transfer ownership of the data to gRPC/Netty.
-    try (final ArrowMessage message = new ArrowMessage(unloader.getRecordBatch(), metadata, option)) {
+    try (final ArrowMessage message = new ArrowMessage(unloader.getRecordBatch(), metadata, tryZeroCopy, option)) {
       responseObserver.onNext(message);
     } catch (Exception e) {
       // This exception comes from ArrowMessage#close, not responseObserver#onNext.
@@ -122,5 +123,10 @@ abstract class OutboundStreamListenerImpl implements OutboundStreamListener {
   @Override
   public void completed() {
     responseObserver.onCompleted();
+  }
+
+  @Override
+  public void setUseZeroCopy(boolean enabled) {
+    tryZeroCopy = enabled;
   }
 }

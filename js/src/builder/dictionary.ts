@@ -61,8 +61,8 @@ export class DictionaryBuilder<T extends Dictionary, TNull = any> extends Builde
         return valid;
     }
     public setValue(index: number, value: T['TValue']) {
-        let keysToIndices = this._keysToIndices;
-        let key = this.valueToKey(value);
+        const keysToIndices = this._keysToIndices;
+        const key = this.valueToKey(value);
         let idx = keysToIndices[key];
         if (idx === undefined) {
             keysToIndices[key] = idx = this._dictionaryOffset + this.dictionary.append(value).length - 1;

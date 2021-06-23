@@ -29,6 +29,7 @@ struct FunctionOptions;
 
 struct CastOptions;
 
+struct ExecBatch;
 class ExecContext;
 class KernelContext;
 
@@ -38,6 +39,8 @@ struct ScalarAggregateKernel;
 struct VectorKernel;
 
 struct KernelState;
+
+class Expression;
 
 }  // namespace compute
 }  // namespace arrow

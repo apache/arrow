@@ -59,7 +59,7 @@ template <typename T>
 void CheckUnique(const std::shared_ptr<T>& input,
                  const std::shared_ptr<Array>& expected) {
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> result, Unique(input));
-  ASSERT_OK(result->ValidateFull());
+  ValidateOutput(*result);
   // TODO: We probably shouldn't rely on array ordering.
   ASSERT_ARRAYS_EQUAL(*expected, *result);
 }
@@ -84,7 +84,7 @@ void CheckValueCountsNull(const std::shared_ptr<DataType>& type) {
   std::shared_ptr<Array> ex_counts = ArrayFromJSON(int64(), "[]");
 
   ASSERT_OK_AND_ASSIGN(auto result_struct, ValueCounts(input));
-  ASSERT_OK(result_struct->ValidateFull());
+  ValidateOutput(*result_struct);
   ASSERT_NE(result_struct->GetFieldByName(kValuesFieldName), nullptr);
   // TODO: We probably shouldn't rely on value ordering.
   ASSERT_ARRAYS_EQUAL(*ex_values, *result_struct->GetFieldByName(kValuesFieldName));
@@ -96,7 +96,7 @@ void CheckValueCounts(const std::shared_ptr<T>& input,
                       const std::shared_ptr<Array>& expected_values,
                       const std::shared_ptr<Array>& expected_counts) {
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> result, ValueCounts(input));
-  ASSERT_OK(result->ValidateFull());
+  ValidateOutput(*result);
   auto result_struct = std::dynamic_pointer_cast<StructArray>(result);
   ASSERT_EQ(result_struct->num_fields(), 2);
   // TODO: We probably shouldn't rely on value ordering.
@@ -128,7 +128,7 @@ void CheckDictEncode(const std::shared_ptr<Array>& input,
 
   ASSERT_OK_AND_ASSIGN(Datum datum_out, DictionaryEncode(input));
   std::shared_ptr<Array> result = MakeArray(datum_out.array());
-  ASSERT_OK(result->ValidateFull());
+  ValidateOutput(*result);
 
   ASSERT_ARRAYS_EQUAL(expected, *result);
 }
@@ -303,6 +303,11 @@ TEST_F(TestHashKernel, ValueCountsBoolean) {
   // Sliced
   CheckValueCounts(ArrayFromJSON(boolean(), "[true, false, false, null]")->Slice(1, 2),
                    ArrayFromJSON(boolean(), "[false]"), ArrayFromJSON(int64(), "[2]"));
+}
+
+TEST_F(TestHashKernel, ValueCountsNull) {
+  CheckValueCounts(ArrayFromJSON(null(), "[null, null, null]"),
+                   ArrayFromJSON(null(), "[null]"), ArrayFromJSON(int64(), "[3]"));
 }
 
 TEST_F(TestHashKernel, DictEncodeBoolean) {
@@ -542,6 +547,12 @@ TEST_F(TestHashKernel, UniqueDecimal) {
                                           {true, false, true, true}, expected, {1, 0, 1});
 }
 
+TEST_F(TestHashKernel, UniqueNull) {
+  CheckUnique<NullType, std::nullptr_t>(null(), {nullptr, nullptr}, {false, true},
+                                        {nullptr}, {false});
+  CheckUnique<NullType, std::nullptr_t>(null(), {}, {}, {}, {});
+}
+
 TEST_F(TestHashKernel, ValueCountsDecimal) {
   std::vector<Decimal128> values{12, 12, 11, 12};
   std::vector<Decimal128> expected{12, 0, 11};
@@ -580,12 +591,42 @@ TEST_F(TestHashKernel, DictionaryUniqueAndValueCounts) {
     CheckUnique(chunked, ex_uniques);
     CheckValueCounts(chunked, ex_uniques, ex_counts);
 
-    // Different dictionaries not supported
-    auto dict2 = ArrayFromJSON(int64(), "[30, 40, 50, 60]");
-    auto input2 = std::make_shared<DictionaryArray>(dict_ty, indices, dict2);
-    auto different_dictionaries = *ChunkedArray::Make({input, input2});
-    ASSERT_RAISES(Invalid, Unique(different_dictionaries));
-    ASSERT_RAISES(Invalid, ValueCounts(different_dictionaries));
+    // Different chunk dictionaries
+    auto input_2 = DictArrayFromJSON(dict_ty, "[1, null, 2, 3]", "[30, 40, 50, 60]");
+    auto ex_uniques_2 =
+        DictArrayFromJSON(dict_ty, "[3, 0, 1, null, 4, 5]", "[10, 20, 30, 40, 50, 60]");
+    auto ex_counts_2 = ArrayFromJSON(int64(), "[4, 5, 4, 1, 1, 1]");
+    auto different_dictionaries = *ChunkedArray::Make({input, input_2}, dict_ty);
+
+    CheckUnique(different_dictionaries, ex_uniques_2);
+    CheckValueCounts(different_dictionaries, ex_uniques_2, ex_counts_2);
+
+    // Dictionary with encoded nulls
+    auto dict_with_null = ArrayFromJSON(int64(), "[10, null, 30, 40]");
+    input = std::make_shared<DictionaryArray>(dict_ty, indices, dict_with_null);
+    ex_uniques = std::make_shared<DictionaryArray>(dict_ty, ex_indices, dict_with_null);
+    CheckUnique(input, ex_uniques);
+
+    CheckValueCounts(input, ex_uniques, ex_counts);
+
+    // Dictionary with masked nulls
+    auto indices_with_null =
+        ArrayFromJSON(index_ty, "[3, 0, 0, 0, null, null, 3, 0, null, 3, 0, null]");
+    auto ex_indices_with_null = ArrayFromJSON(index_ty, "[3, 0, null]");
+    ex_uniques = std::make_shared<DictionaryArray>(dict_ty, ex_indices_with_null, dict);
+    input = std::make_shared<DictionaryArray>(dict_ty, indices_with_null, dict);
+    CheckUnique(input, ex_uniques);
+
+    CheckValueCounts(input, ex_uniques, ex_counts);
+
+    // Dictionary with encoded AND masked nulls
+    auto some_indices_with_null =
+        ArrayFromJSON(index_ty, "[3, 0, 0, 0, 1, 1, 3, 0, null, 3, 0, null]");
+    ex_uniques =
+        std::make_shared<DictionaryArray>(dict_ty, ex_indices_with_null, dict_with_null);
+    input = std::make_shared<DictionaryArray>(dict_ty, indices_with_null, dict_with_null);
+    CheckUnique(input, ex_uniques);
+    CheckValueCounts(input, ex_uniques, ex_counts);
   }
 }
 
@@ -650,10 +691,34 @@ TEST_F(TestHashKernel, ZeroLengthDictionaryEncode) {
   // ARROW-7008
   auto values = ArrayFromJSON(utf8(), "[]");
   ASSERT_OK_AND_ASSIGN(Datum datum_result, DictionaryEncode(values));
+  ValidateOutput(datum_result);
+}
 
+TEST_F(TestHashKernel, NullEncodingSchemes) {
+  auto values = ArrayFromJSON(uint8(), "[1, 1, null, 2, null]");
+
+  // Masking should put null in the indices array
+  auto expected_mask_indices = ArrayFromJSON(int32(), "[0, 0, null, 1, null]");
+  auto expected_mask_dictionary = ArrayFromJSON(uint8(), "[1, 2]");
+  auto dictionary_type = dictionary(int32(), uint8());
+  std::shared_ptr<Array> expected = std::make_shared<DictionaryArray>(
+      dictionary_type, expected_mask_indices, expected_mask_dictionary);
+
+  ASSERT_OK_AND_ASSIGN(Datum datum_result, DictionaryEncode(values));
   std::shared_ptr<Array> result = datum_result.make_array();
-  const auto& dict_result = checked_cast<const DictionaryArray&>(*result);
-  ASSERT_OK(dict_result.ValidateFull());
+  AssertArraysEqual(*expected, *result);
+
+  // Encoding should put null in the dictionary
+  auto expected_encoded_indices = ArrayFromJSON(int32(), "[0, 0, 1, 2, 1]");
+  auto expected_encoded_dict = ArrayFromJSON(uint8(), "[1, null, 2]");
+  expected = std::make_shared<DictionaryArray>(dictionary_type, expected_encoded_indices,
+                                               expected_encoded_dict);
+
+  auto options = DictionaryEncodeOptions::Defaults();
+  options.null_encoding_behavior = DictionaryEncodeOptions::ENCODE;
+  ASSERT_OK_AND_ASSIGN(datum_result, DictionaryEncode(values, options));
+  result = datum_result.make_array();
+  AssertArraysEqual(*expected, *result);
 }
 
 TEST_F(TestHashKernel, ChunkedArrayZeroChunk) {

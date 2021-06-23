@@ -17,14 +17,11 @@
 
 module.exports = {
     "verbose": false,
-    "reporters": [
-      "jest-silent-reporter"
-    ],
     "testEnvironment": "node",
     "globals": {
       "ts-jest": {
         "diagnostics": false,
-        "tsConfig": "test/tsconfig.json"
+        "tsconfig": "test/tsconfig.json"
       }
     },
     "roots": [

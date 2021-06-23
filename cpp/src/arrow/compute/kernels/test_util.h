@@ -19,13 +19,14 @@
 
 // IWYU pragma: begin_exports
 
+#include <gmock/gmock.h>
+
 #include <memory>
 #include <string>
 #include <vector>
 
-#include <gmock/gmock.h>
-
 #include "arrow/array.h"
+#include "arrow/compute/kernel.h"
 #include "arrow/datum.h"
 #include "arrow/memory_pool.h"
 #include "arrow/pretty_print.h"
@@ -34,8 +35,6 @@
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 
-#include "arrow/compute/kernel.h"
-
 // IWYU pragma: end_exports
 
 namespace arrow {
@@ -43,6 +42,8 @@ namespace arrow {
 using internal::checked_cast;
 
 namespace compute {
+
+using DatumVector = std::vector<Datum>;
 
 template <typename Type, typename T>
 std::shared_ptr<Array> _MakeArray(const std::shared_ptr<DataType>& type,
@@ -90,6 +91,14 @@ struct DatumEqual<Type, enable_if_integer<Type>> {
   }
 };
 
+void CheckScalar(std::string func_name, const ScalarVector& inputs,
+                 std::shared_ptr<Scalar> expected,
+                 const FunctionOptions* options = nullptr);
+
+void CheckScalar(std::string func_name, const DatumVector& inputs,
+                 std::shared_ptr<Array> expected,
+                 const FunctionOptions* options = nullptr);
+
 void CheckScalarUnary(std::string func_name, std::shared_ptr<DataType> in_ty,
                       std::string json_input, std::shared_ptr<DataType> out_ty,
                       std::string json_expected,
@@ -113,8 +122,20 @@ void CheckScalarBinary(std::string func_name, std::shared_ptr<Array> left_input,
                        std::shared_ptr<Array> expected,
                        const FunctionOptions* options = nullptr);
 
+void CheckScalarBinary(std::string func_name, std::shared_ptr<Array> left_input,
+                       std::shared_ptr<Scalar> right_input,
+                       std::shared_ptr<Array> expected,
+                       const FunctionOptions* options = nullptr);
+
+void CheckScalarBinary(std::string func_name, std::shared_ptr<Scalar> left_input,
+                       std::shared_ptr<Array> right_input,
+                       std::shared_ptr<Array> expected,
+                       const FunctionOptions* options = nullptr);
+
 void CheckVectorUnary(std::string func_name, Datum input, std::shared_ptr<Array> expected,
                       const FunctionOptions* options = nullptr);
+
+void ValidateOutput(const Datum& output);
 
 using BinaryTypes =
     ::testing::Types<BinaryType, LargeBinaryType, StringType, LargeStringType>;
@@ -142,6 +163,14 @@ void TestRandomPrimitiveCTypes() {
   DoTestFunctor<TimestampType>::Test(timestamp(TimeUnit::MICRO));
   DoTestFunctor<DurationType>::Test(duration(TimeUnit::MILLI));
 }
+
+// Check that DispatchBest on a given function yields the same Kernel as
+// produced by DispatchExact on another set of ValueDescrs.
+void CheckDispatchBest(std::string func_name, std::vector<ValueDescr> descrs,
+                       std::vector<ValueDescr> exact_descrs);
+
+// Check that function fails to produce a Kernel for the set of ValueDescrs.
+void CheckDispatchFails(std::string func_name, std::vector<ValueDescr> descrs);
 
 }  // namespace compute
 }  // namespace arrow

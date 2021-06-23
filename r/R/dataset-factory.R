@@ -27,6 +27,7 @@ DatasetFactory <- R6Class("DatasetFactory", inherit = ArrowObject,
       if (is.null(schema)) {
         dataset___DatasetFactory__Finish1(self, unify_schemas)
       } else {
+        assert_is(schema, "Schema")
         dataset___DatasetFactory__Finish2(self, schema)
       }
     },
@@ -44,13 +45,18 @@ DatasetFactory$create <- function(x,
     return(dataset___UnionDatasetFactory__Make(x))
   }
 
-  path_and_fs <- get_path_and_filesystem(x, filesystem)
-  selector <- FileSelector$create(path_and_fs$path, allow_not_found = FALSE, recursive = TRUE)
-
   if (is.character(format)) {
     format <- FileFormat$create(match.arg(format), ...)
   } else {
     assert_is(format, "FileFormat")
+  }
+
+  path_and_fs <- get_paths_and_filesystem(x, filesystem)
+  info <- path_and_fs$fs$GetFileInfo(path_and_fs$path)
+
+  if (length(info) > 1 || info[[1]]$type == FileType$File) {
+    # x looks like a vector of one or more file paths (not a directory path)
+    return(FileSystemDatasetFactory$create(path_and_fs$fs, NULL, path_and_fs$path, format))
   }
 
   if (!is.null(partitioning)) {
@@ -61,7 +67,10 @@ DatasetFactory$create <- function(x,
       partitioning <- DirectoryPartitioningFactory$create(partitioning)
     }
   }
-  FileSystemDatasetFactory$create(path_and_fs$fs, selector, format, partitioning)
+
+  selector <- FileSelector$create(path_and_fs$path, allow_not_found = FALSE, recursive = TRUE)
+
+  FileSystemDatasetFactory$create(path_and_fs$fs, selector, NULL, format, partitioning)
 }
 
 #' Create a DatasetFactory
@@ -75,10 +84,11 @@ DatasetFactory$create <- function(x,
 #' directly. Use `dataset_factory()` when you
 #' want to combine different directories, file systems, or file formats.
 #'
-#' @param x A string file x containing data files, or
-#' a list of `DatasetFactory` objects whose datasets should be
-#' grouped. If this argument is specified it will be used to construct a
-#' `UnionDatasetFactory` and other arguments will be ignored.
+#' @param x A string path to a directory containing data files, a vector of one
+#' one or more string paths to data files, or a list of `DatasetFactory` objects
+#' whose datasets should be combined. If this argument is specified it will be
+#' used to construct a `UnionDatasetFactory` and other arguments will be
+#' ignored.
 #' @param filesystem A [FileSystem] object; if omitted, the `FileSystem` will
 #' be detected from `x`
 #' @param format A [FileFormat] object, or a string identifier of the format of
@@ -124,14 +134,25 @@ FileSystemDatasetFactory <- R6Class("FileSystemDatasetFactory",
   inherit = DatasetFactory
 )
 FileSystemDatasetFactory$create <- function(filesystem,
-                                            selector,
+                                            selector = NULL,
+                                            paths = NULL,
                                             format,
                                             partitioning = NULL) {
   assert_is(filesystem, "FileSystem")
-  assert_is(selector, "FileSelector")
+  is.null(selector) || assert_is(selector, "FileSelector")
+  is.null(paths) || assert_is(paths, "character")
+  assert_that(
+    xor(is.null(selector), is.null(paths)),
+    msg = "Either selector or paths must be specified"
+  )
   assert_is(format, "FileFormat")
+  if (!is.null(paths)) {
+    assert_that(is.null(partitioning), msg = "Partitioning not supported with paths")
+  }
 
-  if (is.null(partitioning)) {
+  if (!is.null(paths)) {
+    ptr <- dataset___FileSystemDatasetFactory__Make0(filesystem, paths, format)
+  } else if (is.null(partitioning)) {
     ptr <- dataset___FileSystemDatasetFactory__Make1(filesystem, selector, format)
   } else if (inherits(partitioning, "PartitioningFactory")) {
     ptr <- dataset___FileSystemDatasetFactory__Make3(filesystem, selector, format, partitioning)

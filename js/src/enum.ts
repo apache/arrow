@@ -15,17 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import * as Schema_ from './fb/Schema';
-import * as Message_ from './fb/Message';
+export {
+    DateUnit,
+    TimeUnit,
+    Precision,
+    UnionMode,
+    IntervalUnit,
+    MetadataVersion,
+} from './fb/Schema';
 
-export import ArrowType = Schema_.org.apache.arrow.flatbuf.Type;
-export import DateUnit = Schema_.org.apache.arrow.flatbuf.DateUnit;
-export import TimeUnit = Schema_.org.apache.arrow.flatbuf.TimeUnit;
-export import Precision = Schema_.org.apache.arrow.flatbuf.Precision;
-export import UnionMode = Schema_.org.apache.arrow.flatbuf.UnionMode;
-export import IntervalUnit = Schema_.org.apache.arrow.flatbuf.IntervalUnit;
-export import MessageHeader = Message_.org.apache.arrow.flatbuf.MessageHeader;
-export import MetadataVersion = Schema_.org.apache.arrow.flatbuf.MetadataVersion;
+export { MessageHeader } from './fb/Message';
 
 /**
  * Main data type enumeration.

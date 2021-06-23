@@ -69,11 +69,29 @@ SEXP Scalar__as_vector(const std::shared_ptr<arrow::Scalar>& scalar) {
 }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::Array> MakeArrayFromScalar(
+    const std::shared_ptr<arrow::Scalar>& scalar, int n) {
+  return ValueOrStop(arrow::MakeArrayFromScalar(*scalar, n, gc_memory_pool()));
+}
+
+// [[arrow::export]]
 bool Scalar__is_valid(const std::shared_ptr<arrow::Scalar>& s) { return s->is_valid; }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::DataType> Scalar__type(const std::shared_ptr<arrow::Scalar>& s) {
   return s->type;
+}
+
+// [[arrow::export]]
+bool Scalar__Equals(const std::shared_ptr<arrow::Scalar>& lhs,
+                    const std::shared_ptr<arrow::Scalar>& rhs) {
+  return lhs->Equals(rhs);
+}
+
+// [[arrow::export]]
+bool Scalar__ApproxEquals(const std::shared_ptr<arrow::Scalar>& lhs,
+                          const std::shared_ptr<arrow::Scalar>& rhs) {
+  return lhs->ApproxEquals(*rhs);
 }
 
 #endif

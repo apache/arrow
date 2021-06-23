@@ -38,8 +38,8 @@ public class NoCompressionCodec implements CompressionCodec {
   }
 
   @Override
-  public ArrowBuf compress(BufferAllocator allocator, ArrowBuf unCompressedBuffer) {
-    return unCompressedBuffer;
+  public ArrowBuf compress(BufferAllocator allocator, ArrowBuf uncompressedBuffer) {
+    return uncompressedBuffer;
   }
 
   @Override
@@ -48,7 +48,20 @@ public class NoCompressionCodec implements CompressionCodec {
   }
 
   @Override
-  public String getCodecName() {
-    return "default";
+  public CompressionUtil.CodecType getCodecType() {
+    return CompressionUtil.CodecType.NO_COMPRESSION;
+  }
+
+  /**
+   * The default factory that creates a {@link NoCompressionCodec}.
+   */
+  public static class Factory implements CompressionCodec.Factory {
+
+    public static final NoCompressionCodec.Factory INSTANCE = new NoCompressionCodec.Factory();
+
+    @Override
+    public CompressionCodec createCodec(CompressionUtil.CodecType codecType) {
+      return NoCompressionCodec.INSTANCE;
+    }
   }
 }

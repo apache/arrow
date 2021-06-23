@@ -84,6 +84,24 @@ struct ARROW_EXPORT IpcWriteOptions {
   /// then a delta is never emitted, for compatibility with the read path.
   bool emit_dictionary_deltas = false;
 
+  /// \brief Whether to unify dictionaries for the IPC file format
+  ///
+  /// The IPC file format doesn't support dictionary replacements or deltas.
+  /// Therefore, chunks of a column with a dictionary type must have the same
+  /// dictionary in each record batch.
+  ///
+  /// If this option is true, RecordBatchWriter::WriteTable will attempt
+  /// to unify dictionaries across each table column.  If this option is
+  /// false, unequal dictionaries across a table column will simply raise
+  /// an error.
+  ///
+  /// Note that enabling this option has a runtime cost. Also, not all types
+  /// currently support dictionary unification.
+  ///
+  /// This option is ignored for IPC streams, which support dictionary replacement
+  /// and deltas.
+  bool unify_dictionaries = false;
+
   /// \brief Format version to use for IPC messages and their metadata.
   ///
   /// Presently using V5 version (readable by 1.0.0 and later).
@@ -118,6 +136,18 @@ struct ARROW_EXPORT IpcReadOptions {
   /// \brief Use global CPU thread pool to parallelize any computational tasks
   /// like decompression
   bool use_threads = true;
+
+  /// \brief EXPERIMENTAL: Convert incoming data to platform-native endianness
+  ///
+  /// If the endianness of the received schema is not equal to platform-native
+  /// endianness, then all buffers with endian-sensitive data will be byte-swapped.
+  /// This includes the value buffers of numeric types, temporal types, decimal
+  /// types, as well as the offset buffers of variable-sized binary and list-like
+  /// types.
+  ///
+  /// Endianness conversion is achieved by the RecordBatchFileReader,
+  /// RecordBatchStreamReader and StreamDecoder classes.
+  bool ensure_native_endian = true;
 
   static IpcReadOptions Defaults();
 };

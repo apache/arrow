@@ -537,7 +537,7 @@ TEST_F(TestExecBatchIterator, ZeroLengthInputs) {
 // ----------------------------------------------------------------------
 // Scalar function execution
 
-void ExecCopy(KernelContext*, const ExecBatch& batch, Datum* out) {
+Status ExecCopy(KernelContext*, const ExecBatch& batch, Datum* out) {
   DCHECK_EQ(1, batch.num_values());
   const auto& type = checked_cast<const FixedWidthType&>(*batch[0].type());
   int value_size = type.bit_width() / 8;
@@ -547,9 +547,10 @@ void ExecCopy(KernelContext*, const ExecBatch& batch, Datum* out) {
   uint8_t* dst = out_arr->buffers[1]->mutable_data() + out_arr->offset * value_size;
   const uint8_t* src = arg0.buffers[1]->data() + arg0.offset * value_size;
   std::memcpy(dst, src, batch.length * value_size);
+  return Status::OK();
 }
 
-void ExecComputedBitmap(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status ExecComputedBitmap(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   // Propagate nulls not used. Check that the out bitmap isn't the same already
   // as the input bitmap
   const ArrayData& arg0 = *batch[0].array();
@@ -564,10 +565,10 @@ void ExecComputedBitmap(KernelContext* ctx, const ExecBatch& batch, Datum* out) 
 
   internal::CopyBitmap(arg0.buffers[0]->data(), arg0.offset, batch.length,
                        out_arr->buffers[0]->mutable_data(), out_arr->offset);
-  ExecCopy(ctx, batch, out);
+  return ExecCopy(ctx, batch, out);
 }
 
-void ExecNoPreallocatedData(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status ExecNoPreallocatedData(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   // Validity preallocated, but not the data
   ArrayData* out_arr = out->mutable_array();
   DCHECK_EQ(0, out_arr->offset);
@@ -575,10 +576,11 @@ void ExecNoPreallocatedData(KernelContext* ctx, const ExecBatch& batch, Datum* o
   int value_size = type.bit_width() / 8;
   Status s = (ctx->Allocate(out_arr->length * value_size).Value(&out_arr->buffers[1]));
   DCHECK_OK(s);
-  ExecCopy(ctx, batch, out);
+  return ExecCopy(ctx, batch, out);
 }
 
-void ExecNoPreallocatedAnything(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status ExecNoPreallocatedAnything(KernelContext* ctx, const ExecBatch& batch,
+                                  Datum* out) {
   // Neither validity nor data preallocated
   ArrayData* out_arr = out->mutable_array();
   DCHECK_EQ(0, out_arr->offset);
@@ -589,7 +591,7 @@ void ExecNoPreallocatedAnything(KernelContext* ctx, const ExecBatch& batch, Datu
                        out_arr->buffers[0]->mutable_data(), /*offset=*/0);
 
   // Reuse the kernel that allocates the data
-  ExecNoPreallocatedData(ctx, batch, out);
+  return ExecNoPreallocatedData(ctx, batch, out);
 }
 
 struct ExampleOptions : public FunctionOptions {
@@ -602,12 +604,13 @@ struct ExampleState : public KernelState {
   explicit ExampleState(std::shared_ptr<Scalar> value) : value(std::move(value)) {}
 };
 
-std::unique_ptr<KernelState> InitStateful(KernelContext*, const KernelInitArgs& args) {
+Result<std::unique_ptr<KernelState>> InitStateful(KernelContext*,
+                                                  const KernelInitArgs& args) {
   auto func_options = static_cast<const ExampleOptions*>(args.options);
   return std::unique_ptr<KernelState>(new ExampleState{func_options->value});
 }
 
-void ExecStateful(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status ExecStateful(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   // We take the value from the state and multiply the data in batch[0] with it
   ExampleState* state = static_cast<ExampleState*>(ctx->state());
   int32_t multiplier = checked_cast<const Int32Scalar&>(*state->value).value;
@@ -619,12 +622,14 @@ void ExecStateful(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   for (int64_t i = 0; i < arg0.length; ++i) {
     dst[i] = arg0_data[i] * multiplier;
   }
+  return Status::OK();
 }
 
-void ExecAddInt32(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status ExecAddInt32(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   const Int32Scalar& arg0 = batch[0].scalar_as<Int32Scalar>();
   const Int32Scalar& arg1 = batch[1].scalar_as<Int32Scalar>();
   out->value = std::make_shared<Int32Scalar>(arg0.value + arg1.value);
+  return Status::OK();
 }
 
 class TestCallScalarFunction : public TestComputeInternals {

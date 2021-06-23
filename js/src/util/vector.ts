@@ -46,7 +46,7 @@ export function clampRange<T extends RangeLike, N extends ClampRangeThen<T> = Cl
     // Adjust args similar to Array.prototype.slice. Normalize begin/end to
     // clamp between 0 and length, and wrap around on negative indices, e.g.
     // slice(-1, 5) or slice(5, -1)
-    let { length: len = 0 } = source;
+    const { length: len = 0 } = source;
     let lhs = typeof begin !== 'number' ? 0 : begin;
     let rhs = typeof end !== 'number' ? len : end;
     // wrap around on negative start/end positions
@@ -65,7 +65,7 @@ const isNaNFast = (value: any) => value !== value;
 
 /** @ignore */
 export function createElementComparator(search: any) {
-    let typeofSearch = typeof search;
+    const typeofSearch = typeof search;
     // Compare primitives
     if (typeofSearch !== 'object' || search === null) {
         // Compare NaN
@@ -177,7 +177,7 @@ function compareObject(comparators: ((x: any) => boolean)[], obj: Map<any, any>,
     const rValItr = obj instanceof Map ? obj.values() : Object.values(obj)[Symbol.iterator]();
 
     let i = 0;
-    let n = comparators.length;
+    const n = comparators.length;
     let rVal = rValItr.next();
     let lKey = lKeyItr.next();
     let rKey = rKeyItr.next();

@@ -20,6 +20,7 @@
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "arrow/csv/options.h"
@@ -295,7 +296,7 @@ TEST(BlockParser, Newlines) {
 
 TEST(BlockParser, MaxNumRows) {
   auto csv = MakeCSVData({"a\n", "b\n", "c\n", "d\n"});
-  BlockParser parser(ParseOptions::Defaults(), -1, 3 /* max_num_rows */);
+  BlockParser parser(ParseOptions::Defaults(), -1, 0, 3 /* max_num_rows */);
 
   AssertParsePartial(parser, csv, 6);
   AssertColumnsEq(parser, {{"a", "b", "c"}});
@@ -536,22 +537,37 @@ TEST(BlockParser, QuotesSpecial) {
 TEST(BlockParser, MismatchingNumColumns) {
   uint32_t out_size;
   {
-    BlockParser parser(ParseOptions::Defaults());
+    BlockParser parser(ParseOptions::Defaults(), -1, 0 /* first_row */);
     auto csv = MakeCSVData({"a,b\nc\n"});
     Status st = Parse(parser, csv, &out_size);
-    ASSERT_RAISES(Invalid, st);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid,
+        testing::HasSubstr("CSV parse error: Row #1: Expected 2 columns, got 1: c"), st);
   }
   {
-    BlockParser parser(ParseOptions::Defaults(), 2 /* num_cols */);
+    BlockParser parser(ParseOptions::Defaults(), 2 /* num_cols */, 0 /* first_row */);
     auto csv = MakeCSVData({"a\n"});
     Status st = Parse(parser, csv, &out_size);
-    ASSERT_RAISES(Invalid, st);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid,
+        testing::HasSubstr("CSV parse error: Row #0: Expected 2 columns, got 1: a"), st);
   }
   {
-    BlockParser parser(ParseOptions::Defaults(), 2 /* num_cols */);
+    BlockParser parser(ParseOptions::Defaults(), 2 /* num_cols */, 50 /* first_row */);
     auto csv = MakeCSVData({"a,b,c\n"});
     Status st = Parse(parser, csv, &out_size);
-    ASSERT_RAISES(Invalid, st);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid,
+        testing::HasSubstr("CSV parse error: Row #50: Expected 2 columns, got 3: a,b,c"),
+        st);
+  }
+  // No row number
+  {
+    BlockParser parser(ParseOptions::Defaults(), 2 /* num_cols */, -1);
+    auto csv = MakeCSVData({"a\n"});
+    Status st = Parse(parser, csv, &out_size);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, testing::HasSubstr("CSV parse error: Expected 2 columns, got 1: a"), st);
   }
 }
 
@@ -620,6 +636,47 @@ TEST(BlockParser, QuotedEscape) {
     BlockParser parser(options);
     AssertParseOk(parser, csv);
     AssertColumnsEq(parser, {{"a\"b"}, {"c"}}, {{true}, {false}} /* quoted */);
+  }
+}
+
+TEST(BlockParser, RowNumberAppendedToError) {
+  auto options = ParseOptions::Defaults();
+  auto csv = "a,b,c\nd,e,f\ng,h,i\n";
+  {
+    BlockParser parser(options, -1, 0);
+    ASSERT_NO_FATAL_FAILURE(AssertParseOk(parser, csv));
+    int row = 0;
+    auto status = parser.VisitColumn(
+        0, [row](const uint8_t* data, uint32_t size, bool quoted) mutable -> Status {
+          return ++row == 2 ? Status::Invalid("Bad value") : Status::OK();
+        });
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("Row #1: Bad value"),
+                                    status);
+  }
+
+  {
+    BlockParser parser(options, -1, 100);
+    ASSERT_NO_FATAL_FAILURE(AssertParseOk(parser, csv));
+    int row = 0;
+    auto status = parser.VisitColumn(
+        0, [row](const uint8_t* data, uint32_t size, bool quoted) mutable -> Status {
+          return ++row == 3 ? Status::Invalid("Bad value") : Status::OK();
+        });
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("Row #102: Bad value"),
+                                    status);
+  }
+
+  // No first row specified should not append row information
+  {
+    BlockParser parser(options, -1, -1);
+    ASSERT_NO_FATAL_FAILURE(AssertParseOk(parser, csv));
+    int row = 0;
+    auto status = parser.VisitColumn(
+        0, [row](const uint8_t* data, uint32_t size, bool quoted) mutable -> Status {
+          return ++row == 3 ? Status::Invalid("Bad value") : Status::OK();
+        });
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::Not(testing::HasSubstr("Row")),
+                                    status);
   }
 }
 

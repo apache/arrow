@@ -20,7 +20,7 @@
 
   <groupId>org.apache.arrow</groupId>
   <artifactId>arrow-java-root</artifactId>
-  <version>4.0.0-SNAPSHOT</version>
+  <version>5.0.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>Apache Arrow Java Root POM</name>
@@ -36,8 +36,7 @@
     <dep.netty.version>4.1.48.Final</dep.netty.version>
     <dep.jackson.version>2.11.4</dep.jackson.version>
     <dep.hadoop.version>2.7.1</dep.hadoop.version>
-    <dep.fbs.version>1.9.0</dep.fbs.version>
-    <dep.flatc.version>1.9.0</dep.flatc.version>
+    <dep.fbs.version>1.12.0</dep.fbs.version>
     <dep.avro.version>1.10.0</dep.avro.version>
     <arrow.vector.classifier />
     <forkCount>2</forkCount>
@@ -401,17 +400,7 @@
             <argLine>-Darrow.vector.max_allocation_bytes=1048576</argLine>
           </configuration>
         </plugin>
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-release-plugin</artifactId>
-          <version>2.5.2</version>
-          <configuration>
-            <useReleaseProfile>false</useReleaseProfile>
-            <pushChanges>false</pushChanges>
-            <goals>deploy</goals>
-            <arguments>-Papache-release ${arguments}</arguments>
-          </configuration>
-        </plugin>
+
 
         <!--This plugin's configuration is used to store Eclipse m2e settings
           only. It has no influence on the Maven build itself. -->
@@ -676,6 +665,7 @@
     <module>performance</module>
     <module>algorithm</module>
     <module>adapter/avro</module>
+    <module>compression</module>
   </modules>
 
   <profiles>
@@ -697,6 +687,7 @@
         <!-- these have dependency on cpp -->
         <module>adapter/orc</module>
         <module>gandiva</module>
+        <module>dataset</module>
       </modules>
     </profile>
 
@@ -710,7 +701,7 @@
 
     <profile>
       <id>error-prone</id>
-      <!-- 
+      <!--
            Do not activate Error Prone while running with Eclipse/M2E as it causes incompatibilities
            with other annotation processors.
            See https://github.com/jbosstools/m2e-apt/issues/62 for details

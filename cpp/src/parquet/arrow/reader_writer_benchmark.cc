@@ -31,8 +31,11 @@
 
 #include "arrow/array.h"
 #include "arrow/array/builder_primitive.h"
+#include "arrow/io/memory.h"
 #include "arrow/table.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/logging.h"
 
@@ -533,6 +536,7 @@ static void BM_ReadMultipleRowGroups(::benchmark::State& state) {
   EXIT_NOT_OK(
       WriteTable(*table, ::arrow::default_memory_pool(), output, BENCHMARK_SIZE / 10));
   PARQUET_ASSIGN_OR_THROW(auto buffer, output->Finish());
+  std::vector<int> rgs{0, 2, 4, 6, 8};
 
   while (state.KeepRunning()) {
     auto reader =
@@ -540,16 +544,6 @@ static void BM_ReadMultipleRowGroups(::benchmark::State& state) {
     std::unique_ptr<FileReader> arrow_reader;
     EXIT_NOT_OK(FileReader::Make(::arrow::default_memory_pool(), std::move(reader),
                                  &arrow_reader));
-
-    std::vector<std::shared_ptr<::arrow::Table>> tables;
-    std::vector<int> rgs;
-    for (int i = 0; i < arrow_reader->num_row_groups(); i++) {
-      // Only read the even numbered RowGroups
-      if ((i % 2) == 0) {
-        rgs.push_back(i);
-      }
-    }
-
     std::shared_ptr<::arrow::Table> table;
     EXIT_NOT_OK(arrow_reader->ReadRowGroups(rgs, &table));
   }
@@ -557,6 +551,34 @@ static void BM_ReadMultipleRowGroups(::benchmark::State& state) {
 }
 
 BENCHMARK(BM_ReadMultipleRowGroups);
+
+static void BM_ReadMultipleRowGroupsGenerator(::benchmark::State& state) {
+  std::vector<int64_t> values(BENCHMARK_SIZE, 128);
+  std::shared_ptr<::arrow::Table> table = TableFromVector<Int64Type>(values, true);
+  auto output = CreateOutputStream();
+  // This writes 10 RowGroups
+  EXIT_NOT_OK(
+      WriteTable(*table, ::arrow::default_memory_pool(), output, BENCHMARK_SIZE / 10));
+  PARQUET_ASSIGN_OR_THROW(auto buffer, output->Finish());
+  std::vector<int> rgs{0, 2, 4, 6, 8};
+
+  while (state.KeepRunning()) {
+    auto reader =
+        ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
+    std::unique_ptr<FileReader> unique_reader;
+    EXIT_NOT_OK(FileReader::Make(::arrow::default_memory_pool(), std::move(reader),
+                                 &unique_reader));
+    std::shared_ptr<FileReader> arrow_reader = std::move(unique_reader);
+    ASSIGN_OR_ABORT(auto generator,
+                    arrow_reader->GetRecordBatchGenerator(arrow_reader, rgs, {0}));
+    auto fut = ::arrow::CollectAsyncGenerator(generator);
+    ASSIGN_OR_ABORT(auto batches, fut.result());
+    ASSIGN_OR_ABORT(auto actual, ::arrow::Table::FromRecordBatches(std::move(batches)));
+  }
+  SetBytesProcessed<true, Int64Type>(state);
+}
+
+BENCHMARK(BM_ReadMultipleRowGroupsGenerator);
 
 }  // namespace benchmark
 

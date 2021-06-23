@@ -20,33 +20,40 @@ class TestGandivaProjector < Test::Unit::TestCase
 
   def setup
     omit("Gandiva is required") unless defined?(::Gandiva)
-  end
 
-  def test_evaluate
     field1 = Arrow::Field.new("field1", Arrow::Int32DataType.new)
     field2 = Arrow::Field.new("field2", Arrow::Int32DataType.new)
-    schema = Arrow::Schema.new([field1, field2])
-    field_node1 = Gandiva::FieldNode.new(field1)
-    field_node2 = Gandiva::FieldNode.new(field2)
-    add_function_node = Gandiva::FunctionNode.new("add",
-                                                  [field_node1, field_node2],
-                                                  Arrow::Int32DataType.new)
-    subtract_function_node = Gandiva::FunctionNode.new("subtract",
-                                                       [field_node1, field_node2],
-                                                       Arrow::Int32DataType.new)
+    @schema = Arrow::Schema.new([field1, field2])
+    @field_node1 = Gandiva::FieldNode.new(field1)
+    @field_node2 = Gandiva::FieldNode.new(field2)
+    add_function_node =
+      Gandiva::FunctionNode.new("add",
+                                [@field_node1, @field_node2],
+                                Arrow::Int32DataType.new)
+    subtract_function_node =
+      Gandiva::FunctionNode.new("subtract",
+                                [@field_node1, @field_node2],
+                                Arrow::Int32DataType.new)
     add_result = Arrow::Field.new("add_result", Arrow::Int32DataType.new)
     add_expression = Gandiva::Expression.new(add_function_node, add_result)
-    subtract_result = Arrow::Field.new("subtract_result", Arrow::Int32DataType.new)
-    subtract_expression = Gandiva::Expression.new(subtract_function_node, subtract_result)
+    subtract_result = Arrow::Field.new("subtract_result",
+                                       Arrow::Int32DataType.new)
+    subtract_expression = Gandiva::Expression.new(subtract_function_node,
+                                                  subtract_result)
+    @projector = Gandiva::Projector.new(@schema,
+                                        [add_expression, subtract_expression])
 
-    projector = Gandiva::Projector.new(schema,
-                                       [add_expression, subtract_expression])
     input_arrays = [
       build_int32_array([1, 2, 3, 4]),
       build_int32_array([11, 13, 15, 17]),
     ]
-    record_batch = Arrow::RecordBatch.new(schema, 4, input_arrays)
-    outputs = projector.evaluate(record_batch)
+    @record_batch = Arrow::RecordBatch.new(@schema,
+                                           input_arrays[0].length,
+                                           input_arrays)
+  end
+
+  def test_evaluate
+    outputs = @projector.evaluate(@record_batch)
     assert_equal([
                    [12, 15, 18, 21],
                    [-10, -11, -12, -13],

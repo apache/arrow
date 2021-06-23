@@ -26,18 +26,21 @@
 # R CMD INSTALL --configure-vars='INCLUDE_DIR=/.../include LIB_DIR=/.../lib'
 
 # Library settings
-PKG_CONFIG_NAME="arrow parquet arrow-dataset"
+PKG_CONFIG_NAME="arrow"
 PKG_DEB_NAME="(unsuppored)"
 PKG_RPM_NAME="(unsuppored)"
 PKG_BREW_NAME="apache-arrow"
 PKG_TEST_HEADER="<arrow/api.h>"
-# These must be the same order as $(pkg-config --libs arrow-dataset)
-PKG_LIBS="-larrow_dataset -lparquet -larrow"
+PKG_LIBS="-larrow"
 
 # Make some env vars case-insensitive
 ARROW_R_DEV=`echo $ARROW_R_DEV | tr '[:upper:]' '[:lower:]'`
 FORCE_AUTOBREW=`echo $FORCE_AUTOBREW | tr '[:upper:]' '[:lower:]'`
+FORCE_BUNDLED_BUILD=`echo $FORCE_BUNDLED_BUILD | tr '[:upper:]' '[:lower:]'`
 ARROW_USE_PKG_CONFIG=`echo $ARROW_USE_PKG_CONFIG | tr '[:upper:]' '[:lower:]'`
+LIBARROW_MINIMAL=`echo $LIBARROW_MINIMAL | tr '[:upper:]' '[:lower:]'`
+LIBARROW_DOWNLOAD=`echo $LIBARROW_DOWNLOAD | tr '[:upper:]' '[:lower:]'`
+NOT_CRAN=`echo $NOT_CRAN | tr '[:upper:]' '[:lower:]'`
 
 VERSION=`grep '^Version' DESCRIPTION | sed s/Version:\ //`
 UNAME=`uname -s`
@@ -61,27 +64,34 @@ if [ -f "tools/apache-arrow.rb" ]; then
   fi
 fi
 
-if [ "$FORCE_AUTOBREW" = "true" ]; then
+if [ "$FORCE_AUTOBREW" = "true" ] || [ "$FORCE_BUNDLED_BUILD" = "true" ]; then
   ARROW_USE_PKG_CONFIG="false"
 fi
 
 # Note that cflags may be empty in case of success
-if [ "$INCLUDE_DIR" ] || [ "$LIB_DIR" ]; then
-  echo "*** Using INCLUDE_DIR/LIB_DIR"
+if [ "$ARROW_HOME" ]; then
+  echo "*** Using ARROW_HOME as the source of libarrow"
+  PKG_CFLAGS="-I$ARROW_HOME/include $PKG_CFLAGS"
+  PKG_DIRS="-L$ARROW_HOME/lib"
+elif [ "$INCLUDE_DIR" ] && [ "$LIB_DIR" ]; then
+  echo "*** Using INCLUDE_DIR/LIB_DIR as the source of libarrow"
   PKG_CFLAGS="-I$INCLUDE_DIR $PKG_CFLAGS"
-  PKG_LIBS="-L$LIB_DIR $PKG_LIBS"
+  PKG_DIRS="-L$LIB_DIR"
 else
   # Use pkg-config if available and allowed
   pkg-config --version >/dev/null 2>&1
-  if [ "$ARROW_USE_PKG_CONFIG" != "false" ] && [ $? -eq 0 ]; then
+  if [ $? -eq 0 ] && [ "$ARROW_USE_PKG_CONFIG" != "false" ]; then
     PKGCONFIG_CFLAGS=`pkg-config --cflags --silence-errors ${PKG_CONFIG_NAME}`
-    PKGCONFIG_LIBS=`pkg-config --libs --silence-errors ${PKG_CONFIG_NAME}`
+    PKGCONFIG_LIBS=`pkg-config --libs-only-l --silence-errors ${PKG_CONFIG_NAME}`
+    PKGCONFIG_DIRS=`pkg-config --libs-only-L --silence-errors ${PKG_CONFIG_NAME}`
+    # TODO: what about --libs-only-other?
   fi
 
-  if [ "$PKGCONFIG_CFLAGS" ] || [ "$PKGCONFIG_LIBS" ]; then
+  if [ "$PKGCONFIG_CFLAGS" ] && [ "$PKGCONFIG_LIBS" ]; then
     echo "*** Arrow C++ libraries found via pkg-config"
     PKG_CFLAGS="$PKGCONFIG_CFLAGS"
     PKG_LIBS=${PKGCONFIG_LIBS}
+    PKG_DIRS=${PKGCONFIG_DIRS}
 
     # Check for version mismatch
     PC_LIB_VERSION=`pkg-config --modversion arrow`
@@ -94,11 +104,12 @@ else
       echo "**** or retry with ARROW_USE_PKG_CONFIG=false"
     fi
   else
-    if [ "$UNAME" = "Darwin" ]; then
+    if [ "$UNAME" = "Darwin" ] && [ "$FORCE_BUNDLED_BUILD" != "true" ]; then
       if [ "$FORCE_AUTOBREW" != "true" ] && [ "`command -v brew`" ] && [ "`brew ls --versions ${PKG_BREW_NAME}`" != "" ]; then
         echo "*** Using Homebrew ${PKG_BREW_NAME}"
         BREWDIR=`brew --prefix`
-        PKG_LIBS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib $PKG_LIBS -larrow_bundled_dependencies"
+        PKG_LIBS="$PKG_LIBS -larrow_bundled_dependencies"
+        PKG_DIRS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib $PKG_DIRS"
         PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include"
       else
         echo "*** Downloading ${PKG_BREW_NAME}"
@@ -114,7 +125,7 @@ else
         if [ $? -ne 0 ]; then
           echo "Failed to retrieve binary for ${PKG_BREW_NAME}"
         fi
-        # autobrew sets `PKG_LIBS` and `PKG_CFLAGS`
+        # autobrew sets `PKG_LIBS`, `PKG_DIRS`, and `PKG_CFLAGS`
       fi
     else
       # Set some default values/backwards compatibility
@@ -130,22 +141,45 @@ else
       if [ "${LIBARROW_MINIMAL}" = "" ] && [ "${NOT_CRAN}" = "true" ]; then
         LIBARROW_MINIMAL=false; export LIBARROW_MINIMAL
       fi
-      ${R_HOME}/bin/Rscript tools/linuxlibs.R $VERSION
-      PKG_CFLAGS="-I$(pwd)/libarrow/arrow-${VERSION}/include $PKG_CFLAGS"
+
+      # find openssl on macos. macOS ships with libressl. openssl is installable
+      # with brew, but it is generally not linked. We can over-ride this and find
+      # openssl but setting OPENSSL_ROOT_DIR (which cmake will pick up later in
+      # the installation process). FWIW, arrow's cmake process uses this
+      # same process to find openssl, but doing it now allows us to catch it in
+      # nixlibs.R and throw a nicer error.
+      if [ "$UNAME" = "Darwin" ] && [ "${OPENSSL_ROOT_DIR}" = "" ]; then
+        brew --prefix openssl >/dev/null 2>&1
+        if [ $? -eq 0 ]; then
+          OPENSSL_ROOT_DIR="`brew --prefix openssl`"; export OPENSSL_ROOT_DIR
+        fi
+      fi
+
+      ${R_HOME}/bin/Rscript tools/nixlibs.R $VERSION
+      PKG_CFLAGS="-I`pwd`/libarrow/arrow-${VERSION}/include $PKG_CFLAGS"
 
       LIB_DIR="libarrow/arrow-${VERSION}/lib"
       if [ -d "$LIB_DIR" ]; then
-        # Enumerate the static libs and add to PKG_LIBS
-        # (technically repeating arrow libs so they're in the right order)
+        # Enumerate the static libs, put their -l flags in BUNDLED_LIBS,
+        # and put their -L location in PKG_DIRS
         #
-        # If tools/linuxlibs.R fails to produce libs, this dir won't exist
+        # If tools/nixlibs.R fails to produce libs, this dir won't exist
         # so don't try (the error message from `ls` would be misleading)
-        # Assume linuxlibs.R has handled and messaged about its failure already
+        # Assume nixlibs.R has handled and messaged about its failure already
         #
         # TODO: what about non-bundled deps?
         BUNDLED_LIBS=`cd $LIB_DIR && ls *.a`
-        BUNDLED_LIBS=`echo $BUNDLED_LIBS | sed -E "s/lib(.*)\.a/-l\1/" | sed -e "s/\\.a lib/ -l/g"`
-        PKG_LIBS="-L$(pwd)/$LIB_DIR $PKG_LIBS $BUNDLED_LIBS"
+        BUNDLED_LIBS=`echo "$BUNDLED_LIBS" | sed -e "s/\\.a lib/ -l/g" | sed -e "s/\\.a$//" | sed -e "s/^lib/-l/" | tr '\n' ' ' | sed -e "s/ $//"`
+        PKG_DIRS="-L`pwd`/$LIB_DIR"
+
+        # When using brew's openssl it is not bundled and it is not on the system
+        # search path  and so we must add the lib path to BUNDLED_LIBS if we are
+        # using it. Note the order is important, this must be after the arrow
+        # lib path + the pkg and bundled libs above so this is why we're
+        # appending to BUNDLED_LIBS and not PKG_DIRS
+        if [ "$OPENSSL_ROOT_DIR" != "" ]; then
+          BUNDLED_LIBS="$BUNDLED_LIBS -L$OPENSSL_ROOT_DIR/lib"
+        fi
       fi
     fi
   fi
@@ -182,15 +216,35 @@ if [ $? -eq 0 ] || [ "$UNAME" = "Darwin" ]; then
   # Always build with arrow on macOS
   PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_ARROW"
   # Check for features
-  LIB_DIR=`echo $PKG_LIBS | sed -e 's/ -l.*//' | sed -e 's/^-L//'`
-  grep 'set(ARROW_S3 "ON")' $LIB_DIR/cmake/arrow/ArrowOptions.cmake >/dev/null 2>&1
+  LIB_DIR=`echo $PKG_DIRS | sed -e 's/^-L//'`
+  ARROW_OPTS_CMAKE="$LIB_DIR/cmake/arrow/ArrowOptions.cmake"
+  # Check for Parquet
+  grep 'set(ARROW_PARQUET "ON")' $ARROW_OPTS_CMAKE >/dev/null 2>&1
+  if [ $? -eq 0 ]; then
+    PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_PARQUET"
+    PKG_LIBS="-lparquet $PKG_LIBS"
+    # NOTE: parquet is assumed to have the same -L flag as arrow
+    # so there is no need to add its location to PKG_DIRS
+  fi
+  # Check for Arrow Dataset subcomponent
+  grep 'set(ARROW_DATASET "ON")' $ARROW_OPTS_CMAKE >/dev/null 2>&1
+  if [ $? -eq 0 ]; then
+    PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_DATASET"
+    PKG_LIBS="-larrow_dataset $PKG_LIBS"
+    # NOTE: arrow-dataset is assumed to have the same -L flag as arrow
+    # so there is no need to add its location to PKG_DIRS
+  fi
+  # Check for S3
+  grep 'set(ARROW_S3 "ON")' $ARROW_OPTS_CMAKE >/dev/null 2>&1
   if [ $? -eq 0 ]; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_S3"
     if [ "$BUNDLED_LIBS" != "" ]; then
       # We're depending on openssl/curl from the system, so they're not in the bundled deps
-      PKG_LIBS="$PKG_LIBS -lssl -lcrypto -lcurl"
+      BUNDLED_LIBS="$BUNDLED_LIBS -lssl -lcrypto -lcurl"
     fi
   fi
+  # prepend PKG_DIRS and append BUNDLED_LIBS to PKG_LIBS
+  PKG_LIBS="$PKG_DIRS $PKG_LIBS $BUNDLED_LIBS"
   echo "PKG_CFLAGS=$PKG_CFLAGS"
   echo "PKG_LIBS=$PKG_LIBS"
 else

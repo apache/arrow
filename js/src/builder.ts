@@ -35,7 +35,7 @@ import {
 export interface BuilderOptions<T extends DataType = any, TNull = any> {
     type: T;
     nullValues?: TNull[] | ReadonlyArray<TNull> | null;
-    children?: { [key: string]: BuilderOptions; } | BuilderOptions[];
+    children?: { [key: string]: BuilderOptions } | BuilderOptions[];
 }
 
 /**
@@ -279,25 +279,20 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
         return this.children.reduce((size, child) => size + child.reservedByteLength, size);
     }
 
-    // @ts-ignore
-    protected _offsets: DataBufferBuilder<Int32Array>;
+    protected _offsets!: DataBufferBuilder<Int32Array>;
     public get valueOffsets() { return this._offsets ? this._offsets.buffer : null; }
 
-    // @ts-ignore
-    protected _values: BufferBuilder<T['TArray'], any>;
+    protected _values!: BufferBuilder<T['TArray'], any>;
     public get values() { return this._values ? this._values.buffer : null; }
 
     protected _nulls: BitmapBufferBuilder;
     public get nullBitmap() { return this._nulls ? this._nulls.buffer : null; }
 
-    // @ts-ignore
-    protected _typeIds: DataBufferBuilder<Int8Array>;
+    protected _typeIds!: DataBufferBuilder<Int8Array>;
     public get typeIds() { return this._typeIds ? this._typeIds.buffer : null; }
 
-    // @ts-ignore
-    protected _isValid: (value: T['TValue'] | TNull) => boolean;
-    // @ts-ignore
-    protected _setValue: (inst: Builder<T>, index: number, value: T['TValue']) => void;
+    protected _isValid!: (value: T['TValue'] | TNull) => boolean;
+    protected _setValue!: (inst: Builder<T>, index: number, value: T['TValue']) => void;
 
     /**
      * Appends a value (or null) to this `Builder`.
@@ -310,7 +305,6 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
      * Validates whether a value is valid (true), or null (false)
      * @param {T['TValue'] | TNull } value The value to compare against null the value representations
      */
-    // @ts-ignore
     public isValid(value: T['TValue'] | TNull): boolean { return this._isValid(value); }
 
     /**
@@ -336,7 +330,6 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
      * @param {number} index
      * @param {T['TValue'] | TNull } value
      */
-    // @ts-ignore
     public setValue(index: number, value: T['TValue']) { this._setValue(this, index, value); }
     public setValid(index: number, valid: boolean) {
         this.length = this._nulls.set(index, +valid).length;
@@ -442,7 +435,7 @@ export abstract class FixedWidthBuilder<T extends Int | Float | FixedSizeBinary 
 
 /** @ignore */
 export abstract class VariableWidthBuilder<T extends Binary | Utf8 | List | Map_, TNull = any> extends Builder<T, TNull> {
-    protected _pendingLength: number = 0;
+    protected _pendingLength = 0;
     protected _offsets: OffsetsBufferBuilder;
     protected _pending: Map<number, any> | undefined;
     constructor(opts: BuilderOptions<T, TNull>) {
@@ -499,7 +492,7 @@ function throughIterable<T extends DataType = any, TNull = any>(options: Iterabl
     const sizeProperty: 'length' | 'byteLength' = queueingStrategy !== 'bytes' ? 'length' : 'byteLength';
     return function*(source: Iterable<T['TValue'] | TNull>) {
         let numChunks = 0;
-        let builder = Builder.new(options);
+        const builder = Builder.new(options);
         for (const value of source) {
             if (builder.append(value)[sizeProperty] >= highWaterMark) {
                 ++numChunks && (yield builder.toVector());
@@ -521,7 +514,7 @@ function throughAsyncIterable<T extends DataType = any, TNull = any>(options: It
     const sizeProperty: 'length' | 'byteLength' = queueingStrategy !== 'bytes' ? 'length' : 'byteLength';
     return async function* (source: Iterable<T['TValue'] | TNull> | AsyncIterable<T['TValue'] | TNull>) {
         let numChunks = 0;
-        let builder = Builder.new(options);
+        const builder = Builder.new(options);
         for await (const value of source) {
             if (builder.append(value)[sizeProperty] >= highWaterMark) {
                 ++numChunks && (yield builder.toVector());

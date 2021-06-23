@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "arrow/filesystem/filesystem.h"
+#include "arrow/util/string_view.h"
 #include "arrow/util/windows_fixup.h"
 
 namespace arrow {
@@ -43,7 +44,7 @@ struct MockDirInfo {
 struct MockFileInfo {
   std::string full_path;
   TimePoint mtime;
-  std::string data;
+  util::string_view data;
 
   bool operator==(const MockFileInfo& other) const {
     return mtime == other.mtime && full_path == other.full_path && data == other.data;
@@ -58,7 +59,8 @@ struct MockFileInfo {
 /// and bootstrapping FileSystem-based APIs.
 class ARROW_EXPORT MockFileSystem : public FileSystem {
  public:
-  explicit MockFileSystem(TimePoint current_time);
+  explicit MockFileSystem(TimePoint current_time,
+                          const io::IOContext& = io::default_io_context());
   ~MockFileSystem() override;
 
   std::string type_name() const override { return "mock"; }
@@ -88,9 +90,11 @@ class ARROW_EXPORT MockFileSystem : public FileSystem {
   Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
       const std::string& path) override;
   Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
-      const std::string& path) override;
+      const std::string& path,
+      const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
   Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
-      const std::string& path) override;
+      const std::string& path,
+      const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
 
   // Contents-dumping helpers to ease testing.
   // Output is lexicographically-ordered by full path.
@@ -98,7 +102,7 @@ class ARROW_EXPORT MockFileSystem : public FileSystem {
   std::vector<MockFileInfo> AllFiles();
 
   // Create a File with a content from a string.
-  Status CreateFile(const std::string& path, const std::string& content,
+  Status CreateFile(const std::string& path, util::string_view content,
                     bool recursive = true);
 
   // Create a MockFileSystem out of (empty) FileInfo. The content of every
@@ -110,6 +114,17 @@ class ARROW_EXPORT MockFileSystem : public FileSystem {
 
  protected:
   std::unique_ptr<Impl> impl_;
+};
+
+class ARROW_EXPORT MockAsyncFileSystem : public MockFileSystem {
+ public:
+  explicit MockAsyncFileSystem(TimePoint current_time,
+                               const io::IOContext& io_context = io::default_io_context())
+      : MockFileSystem(current_time, io_context) {
+    default_async_is_sync_ = false;
+  }
+
+  FileInfoGenerator GetFileInfoGenerator(const FileSelector& select) override;
 };
 
 }  // namespace internal

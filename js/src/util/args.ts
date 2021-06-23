@@ -19,12 +19,54 @@ import { Data } from '../data';
 import { Field } from '../schema';
 import { Column } from '../column';
 import { Vector } from '../vector';
-import { DataType } from '../type';
+import { DataType, Float32, Float64, FloatArray, IntArray, Int16, Int32, Int64, Int8, Uint16, Uint32, Uint64, Uint8 } from '../type';
 import { Chunked } from '../vector/chunked';
+import { BigIntArray, TypedArray as TypedArray_ } from '../interfaces';
+import { FloatArrayCtor } from '../vector/float';
+import { IntArrayCtor } from '../vector/int';
 
 type RecordBatchCtor = typeof import('../recordbatch').RecordBatch;
 
 const isArray = Array.isArray;
+
+type TypedArray = Exclude<TypedArray_ | BigIntArray, Uint8ClampedArray>;
+
+/** @ignore */
+export function isTypedArray(arr: any): arr is TypedArray {
+    return ArrayBuffer.isView(arr) && 'BYTES_PER_ELEMENT' in arr;
+}
+
+
+/** @ignore */
+type ArrayCtor = FloatArrayCtor | IntArrayCtor;
+
+/** @ignore */
+export function arrayTypeToDataType(ctor: ArrayCtor) {
+    switch (ctor) {
+        case Int8Array:         return Int8;
+        case Int16Array:        return Int16;
+        case Int32Array:        return Int32;
+        case BigInt64Array:     return Int64;
+        case Uint8Array:        return Uint8;
+        case Uint16Array:       return Uint16;
+        case Uint32Array:       return Uint32;
+        case BigUint64Array:    return Uint64;
+        case Float32Array:      return Float32;
+        case Float64Array:      return Float64;
+        default: return null;
+    }
+}
+
+/** @ignore */
+function vectorFromTypedArray(array: TypedArray): Vector {
+    const ArrowType = arrayTypeToDataType(array.constructor as ArrayCtor);
+    if (!ArrowType) {
+        throw new TypeError('Unrecognized Array input');
+    }
+    const type = new ArrowType();
+    const data = Data.new(type, 0, array.length, 0, [undefined, array as IntArray | FloatArray]);
+    return Vector.new(data);
+}
 
 /** @ignore */
 export const selectArgs = <T>(Ctor: any, vals: any[]) => _selectArgs(Ctor, vals, [], 0) as T[];
@@ -34,6 +76,7 @@ export const selectColumnArgs = <T extends { [key: string]: DataType }>(args: an
     return values.map((x, i) =>
         x instanceof Column ? Column.new(x.field.clone(fields[i]), x) :
         x instanceof Vector ? Column.new(fields[i], x) as Column<T[keyof T]> :
+        isTypedArray(x)     ? Column.new(fields[i], vectorFromTypedArray(x)) as Column<T[keyof T]> :
                               Column.new(fields[i], [] as Vector<T[keyof T]>[]));
 };
 
@@ -49,7 +92,8 @@ export const selectColumnChildrenArgs = <T extends Column>(Ctor: RecordBatchCtor
 /** @ignore */
 function _selectArgs<T>(Ctor: any, vals: any[], res: T[], idx: number) {
     let value: any, j = idx;
-    let i = -1, n = vals.length;
+    let i = -1;
+    const n = vals.length;
     while (++i < n) {
         if (isArray(value = vals[i])) {
             j = _selectArgs(Ctor, value, res, j).length;
@@ -61,7 +105,8 @@ function _selectArgs<T>(Ctor: any, vals: any[], res: T[], idx: number) {
 /** @ignore */
 function _selectChunkArgs<T>(Ctor: any, vals: any[], res: T[], idx: number) {
     let value: any, j = idx;
-    let i = -1, n = vals.length;
+    let i = -1;
+    const n = vals.length;
     while (++i < n) {
         if (isArray(value = vals[i])) {
             j = _selectChunkArgs(Ctor, value, res, j).length;
@@ -75,7 +120,8 @@ function _selectChunkArgs<T>(Ctor: any, vals: any[], res: T[], idx: number) {
 /** @ignore */
 function _selectVectorChildrenArgs<T extends Vector>(Ctor: RecordBatchCtor, vals: any[], res: T[], idx: number) {
     let value: any, j = idx;
-    let i = -1, n = vals.length;
+    let i = -1;
+    const n = vals.length;
     while (++i < n) {
         if (isArray(value = vals[i])) {
             j = _selectVectorChildrenArgs(Ctor, value, res, j).length;
@@ -89,7 +135,8 @@ function _selectVectorChildrenArgs<T extends Vector>(Ctor: RecordBatchCtor, vals
 /** @ignore */
 function _selectColumnChildrenArgs<T extends Column>(Ctor: RecordBatchCtor, vals: any[], res: T[], idx: number) {
     let value: any, j = idx;
-    let i = -1, n = vals.length;
+    let i = -1;
+    const n = vals.length;
     while (++i < n) {
         if (isArray(value = vals[i])) {
             j = _selectColumnChildrenArgs(Ctor, value, res, j).length;
@@ -104,15 +151,16 @@ function _selectColumnChildrenArgs<T extends Column>(Ctor: RecordBatchCtor, vals
 const toKeysAndValues = (xs: [any[], any[]], [k, v]: [any, any], i: number) => (xs[0][i] = k, xs[1][i] = v, xs);
 
 /** @ignore */
-function _selectFieldArgs<T extends { [key: string]: DataType }>(vals: any[], ret: [Field<T[keyof T]>[], Vector<T[keyof T]>[]]): [Field<T[keyof T]>[], (T[keyof T] | Vector<T[keyof T]>)[]] {
-    let keys: any[], n: number;
+function _selectFieldArgs<T extends { [key: string]: DataType }>(vals: any[], ret: [Field<T[keyof T]>[], (Vector<T[keyof T]> | TypedArray)[]]): [Field<T[keyof T]>[], (T[keyof T] | Vector<T[keyof T]> | TypedArray)[]] {
+    let keys: any[];
+    let n: number;
     switch (n = vals.length) {
         case 0: return ret;
         case 1:
             keys = ret[0];
             if (!(vals[0])) { return ret; }
             if (isArray(vals[0])) { return _selectFieldArgs(vals[0], ret); }
-            if (!(vals[0] instanceof Data || vals[0] instanceof Vector || vals[0] instanceof DataType)) {
+            if (!(vals[0] instanceof Data || vals[0] instanceof Vector || isTypedArray(vals[0]) || vals[0] instanceof DataType)) {
                 [keys, vals] = Object.entries(vals[0]).reduce(toKeysAndValues, ret);
             }
             break;
@@ -124,10 +172,11 @@ function _selectFieldArgs<T extends { [key: string]: DataType }>(vals: any[], re
 
     let fieldIndex = -1;
     let valueIndex = -1;
-    let idx = -1, len = vals.length;
+    let idx = -1;
+    const len = vals.length;
     let field: number | string | Field<T[keyof T]>;
     let val: Vector<T[keyof T]> | Data<T[keyof T]>;
-    let [fields, values] = ret as [Field<T[keyof T]>[], any[]];
+    const [fields, values] = ret as [Field<T[keyof T]>[], any[]];
 
     while (++idx < len) {
         val = vals[idx];
@@ -137,7 +186,7 @@ function _selectFieldArgs<T extends { [key: string]: DataType }>(vals: any[], re
             ({ [idx]: field = idx } = keys);
             if (val instanceof DataType && (values[++valueIndex] = val)) {
                 fields[++fieldIndex] = Field.new(field, val as DataType, true) as Field<T[keyof T]>;
-            } else if (val && val.type && (values[++valueIndex] = val)) {
+            } else if (val?.type && (values[++valueIndex] = val)) {
                 val instanceof Data && (values[valueIndex] = val = Vector.new(val) as Vector);
                 fields[++fieldIndex] = Field.new(field, val.type, true) as Field<T[keyof T]>;
             }

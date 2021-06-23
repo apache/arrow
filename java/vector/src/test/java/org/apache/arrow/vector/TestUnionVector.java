@@ -29,7 +29,10 @@ import java.util.Map;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.UnionVector;
+import org.apache.arrow.vector.complex.VectorWithOrdinal;
+import org.apache.arrow.vector.complex.impl.UnionWriter;
 import org.apache.arrow.vector.holders.NullableBitHolder;
 import org.apache.arrow.vector.holders.NullableFloat4Holder;
 import org.apache.arrow.vector.holders.NullableIntHolder;
@@ -88,6 +91,67 @@ public class TestUnionVector {
       assertEquals(100, unionVector.getObject(2));
 
       assertNull(unionVector.getObject(3));
+    }
+  }
+
+  @Test
+  public void testUnionVectorMapValue() throws Exception {
+    try (UnionVector unionVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
+      unionVector.allocateNew();
+
+      UnionWriter writer = (UnionWriter) unionVector.getWriter();
+
+      // populate map vector with the following two records
+      // [
+      //    null,
+      //    [[1: 2], [3: 4], [5: null]]
+      // ]
+
+      writer.setPosition(0);
+      writer.writeNull();
+
+      writer.setPosition(1);
+      writer.startMap();
+
+      writer.startEntry();
+      writer.key().integer().writeInt(1);
+      writer.value().integer().writeInt(2);
+      writer.endEntry();
+
+      writer.startEntry();
+      writer.key().integer().writeInt(3);
+      writer.value().integer().writeInt(4);
+      writer.endEntry();
+
+      writer.startEntry();
+      writer.key().integer().writeInt(5);
+      writer.endEntry();
+
+      writer.endMap();
+
+      unionVector.setValueCount(2);
+
+      // check that what we wrote is correct
+      assertEquals(2, unionVector.getValueCount());
+
+      // first entry
+      assertNull(unionVector.getObject(0));
+
+      // second entry
+      List<Map<String, Integer>> resultList = (List<Map<String, Integer>>) unionVector.getObject(1);
+      assertEquals(3, resultList.size());
+
+      Map<String, Integer> resultMap = resultList.get(0);
+      assertEquals(1, (int) resultMap.get(MapVector.KEY_NAME));
+      assertEquals(2, (int) resultMap.get(MapVector.VALUE_NAME));
+
+      resultMap = resultList.get(1);
+      assertEquals(3, (int) resultMap.get(MapVector.KEY_NAME));
+      assertEquals(4, (int) resultMap.get(MapVector.VALUE_NAME));
+
+      resultMap = resultList.get(2);
+      assertEquals(5, (int) resultMap.get(MapVector.KEY_NAME));
+      assertNull(resultMap.get(MapVector.VALUE_NAME));
     }
   }
 
@@ -329,6 +393,19 @@ public class TestUnionVector {
     vector.initializeChildrenFromFields(children);
 
     assertTrue(vector.getField().equals(field));
+
+    // Union has 2 child vectors
+    assertEquals(vector.size(), 2);
+
+    // Check child field 0
+    VectorWithOrdinal intChild = vector.getChildVectorWithOrdinal("int");
+    assertEquals(intChild.ordinal, 0);
+    assertEquals(intChild.vector.getField(), children.get(0));
+
+    // Check child field 1
+    VectorWithOrdinal varcharChild = vector.getChildVectorWithOrdinal("varchar");
+    assertEquals(varcharChild.ordinal, 1);
+    assertEquals(varcharChild.vector.getField(), children.get(1));
   }
 
   @Test

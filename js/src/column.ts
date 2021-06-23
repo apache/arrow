@@ -92,7 +92,7 @@ export class Column<T extends DataType = any>
 
         if (index < 0 || index >= this.numChildren) { return null; }
 
-        let columns = this._children || (this._children = []);
+        const columns = this._children || (this._children = []);
         let column: Column<R>, field: Field<R>, chunks: Vector<R>[];
 
         if (column = columns[index]) { return column; }

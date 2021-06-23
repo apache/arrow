@@ -79,18 +79,19 @@ x-hierarchy:
   # Each node must be either a string scalar of a list containing the
   # descendant images if any. Archery checks that all node has a corresponding
   # service entry, so any new image/service must be listed here.
-  - conda-cpp:
-    - conda-cpp-hiveserver2
-    - conda-cpp-valgrind
+  - conda:
+    - conda-cpp:
+      - conda-cpp-hiveserver2
+      - conda-cpp-valgrind
+      - conda-python:
+        - conda-python-pandas
+        - conda-python-dask
+        - conda-python-hdfs
+        - conda-python-jpype
+        - conda-python-turbodbc
+        - conda-python-kartothek
+        - conda-python-spark
     - conda-integration
-    - conda-python:
-      - conda-python-pandas
-      - conda-python-dask
-      - conda-python-hdfs
-      - conda-python-jpype
-      - conda-python-turbodbc
-      - conda-python-kartothek
-      - conda-python-spark
   - debian-cpp:
     - debian-c-glib:
       - debian-ruby
@@ -115,14 +116,18 @@ x-hierarchy:
   - ubuntu-cpp-sanitizer
   - ubuntu-cpp-thread-sanitizer
   - ubuntu-r-sanitizer
+  - ubuntu-r-valgrind
   - python-sdist
   - r
+  - r-revdepcheck
   # helper services
   - impala
   - postgres
   - python-wheel-manylinux-2010
-  - python-wheel-manylinux-2014
-  - python-wheel-manylinux-test
+  - python-wheel-manylinux-2014:
+    - java-jni-manylinux-2014
+  - python-wheel-manylinux-test-imports
+  - python-wheel-manylinux-test-unittests
   - python-wheel-windows-vs2017
   - python-wheel-windows-test
 
@@ -158,15 +163,32 @@ services:
   #     -e ARROW_BUILD_SHARED=OFF \
   #     -e ARROW_TEST_LINKAGE=static \
   #     conda-cpp|debian-cpp|...
-  # Minimum boost - Ubuntu Xenial 16.04 has Boost 1.58:
-  #   UBUNTU=16.04 docker-compose build \
-  #     -e BOOST_SOURCE=SYSTEM \
-  #     ubuntu-cpp
+
+  conda:
+    # Base image for conda builds.
+    #
+    # Usage:
+    #   docker-compose build con
+    #   docker-compose run --rm conda
+    # Parameters:
+    #   ARCH: amd64, arm32v7
+    image: ${REPO}:${ARCH}-conda
+    build:
+      context: .
+      dockerfile: ci/docker/conda.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-conda
+      args:
+        arch: ${ARCH}
+        prefix: /opt/conda
+    volumes:
+      - .:/arrow:delegated
 
   conda-cpp:
     # C++ build in conda environment, including the doxygen docs.
     #
     # Usage:
+    #   docker-compose build conda
     #   docker-compose build conda-cpp
     #   docker-compose run --rm conda-cpp
     # Parameters:
@@ -178,8 +200,8 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-conda-cpp
       args:
+        repo: ${REPO}
         arch: ${ARCH}
-        prefix: /opt/conda
     shm_size: &shm-size 2G
     ulimits: &ulimits
       core: ${ULIMIT_CORE}
@@ -199,6 +221,7 @@ services:
 
   conda-cpp-valgrind:
     # Usage:
+    #   docker-compose build conda
     #   docker-compose build conda-cpp
     #   docker-compose run --rm conda-cpp-valgrind
     # Parameters:
@@ -210,6 +233,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-conda-cpp
       args:
+        repo: ${REPO}
         arch: ${ARCH}
         prefix: /opt/conda
     shm_size: *shm-size
@@ -264,7 +288,7 @@ services:
     #   docker-compose run --rm ubuntu-cpp
     # Parameters:
     #   ARCH: amd64, arm64v8, s390x, ...
-    #   UBUNTU: 16.04, 18.04, 20.04
+    #   UBUNTU: 18.04, 20.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     build:
       context: .
@@ -321,7 +345,7 @@ services:
     #   docker-compose run --rm ubuntu-cpp-sanitizer
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 16.04, 18.04, 20.04
+    #   UBUNTU: 18.04, 20.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     cap_add:
       # For LeakSanitizer
@@ -345,6 +369,7 @@ services:
       ARROW_FUZZING: "ON"  # Check fuzz regressions
       ARROW_JEMALLOC: "OFF"
       ARROW_ORC: "OFF"
+      ARROW_S3: "OFF"
       ARROW_USE_ASAN: "ON"
       ARROW_USE_UBSAN: "ON"
       # utf8proc 2.1.0 in Ubuntu Bionic has test failures
@@ -357,7 +382,7 @@ services:
     #   docker-compose run --rm ubuntu-cpp-thread-sanitizer
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 16.04, 18.04, 20.04
+    #   UBUNTU: 18.04, 20.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     build:
       context: .
@@ -446,7 +471,7 @@ services:
     #   docker-compose run --rm ubuntu-c-glib
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 16.04, 18.04, 20.04
+    #   UBUNTU: 18.04, 20.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-c-glib
     build:
       context: .
@@ -506,7 +531,7 @@ services:
     #   docker-compose run --rm ubuntu-ruby
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 16.04, 18.04, 20.04
+    #   UBUNTU: 18.04, 20.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-ruby
     build:
       context: .
@@ -526,6 +551,7 @@ services:
 
   conda-python:
     # Usage:
+    #   docker-compose build conda
     #   docker-compose build conda-cpp
     #   docker-compose build conda-python
     #   docker-compose run --rm conda-python
@@ -607,7 +633,7 @@ services:
     #   docker-compose run --rm ubuntu-python
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 16.04, 18.04, 20.04
+    #   UBUNTU: 18.04, 20.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
     build:
       context: .
@@ -672,7 +698,7 @@ services:
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
     #   PYARROW_VERSION: The test target pyarrow version such as "3.0.0"
-    #   UBUNTU: 16.04, 18.04, 20.04
+    #   UBUNTU: 18.04, 20.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
     build:
       context: .
@@ -688,6 +714,7 @@ services:
     volumes: *ubuntu-volumes
     command: >
       /bin/bash -c "
+        apt remove -y git &&
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_sdist_test.sh /arrow"
 
@@ -695,17 +722,20 @@ services:
 
   # See available versions at:
   #    https://quay.io/repository/pypa/manylinux2010_x86_64?tab=tags
+  #    only amd64 arch is supported
   python-wheel-manylinux-2010:
-    image: ${REPO}:python-${PYTHON}-wheel-manylinux-2010
+    image: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2010-vcpkg-${VCPKG}
     build:
       args:
-        base: quay.io/pypa/manylinux2010_x86_64:2020-12-03-912b0de
+        arch_alias: ${ARCH_ALIAS}
+        arch_short_alias: ${ARCH_SHORT_ALIAS}
+        base: quay.io/pypa/manylinux2010_${ARCH_ALIAS}:2020-12-03-912b0de
         vcpkg: ${VCPKG}
         python: ${PYTHON}
       context: .
       dockerfile: ci/docker/python-wheel-manylinux-201x.dockerfile
       cache_from:
-        - ${REPO}:python-${PYTHON}-wheel-manylinux-2010
+        - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2010-vcpkg-${VCPKG}
     environment:
       <<: *ccache
       MANYLINUX_VERSION: 2010
@@ -717,16 +747,18 @@ services:
   # See available versions at:
   #    https://quay.io/repository/pypa/manylinux2014_x86_64?tab=tags
   python-wheel-manylinux-2014:
-    image: ${REPO}:python-${PYTHON}-wheel-manylinux-2014
+    image: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014-vcpkg-${VCPKG}
     build:
       args:
-        base:  quay.io/pypa/manylinux2014_x86_64:2020-11-11-bc8ce45
+        arch_alias: ${ARCH_ALIAS}
+        arch_short_alias: ${ARCH_SHORT_ALIAS}
+        base:  quay.io/pypa/manylinux2014_${ARCH_ALIAS}:2020-11-11-bc8ce45
         vcpkg: ${VCPKG}
         python: ${PYTHON}
       context: .
       dockerfile: ci/docker/python-wheel-manylinux-201x.dockerfile
       cache_from:
-        - ${REPO}:python-${PYTHON}-wheel-manylinux-2014
+        - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014-vcpkg-${VCPKG}
     environment:
       <<: *ccache
       MANYLINUX_VERSION: 2014
@@ -735,15 +767,30 @@ services:
       - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux2014-ccache:/ccache:delegated
     command: /arrow/ci/scripts/python_wheel_manylinux_build.sh
 
-  python-wheel-manylinux-test:
-    image: python:${PYTHON}
+  python-wheel-manylinux-test-imports:
+    image: ${ARCH}/python:${PYTHON}
     shm_size: 2G
     volumes:
       - .:/arrow:delegated
-    command: /arrow/ci/scripts/python_wheel_manylinux_test.sh
+    command: /arrow/ci/scripts/python_wheel_manylinux_test.sh imports
+
+  python-wheel-manylinux-test-unittests:
+    image: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-test
+    build:
+      args:
+        arch: ${ARCH}
+        python: ${PYTHON}
+      context: .
+      dockerfile: ci/docker/python-wheel-manylinux-test.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-test
+    shm_size: 2G
+    volumes:
+      - .:/arrow:delegated
+    command: /arrow/ci/scripts/python_wheel_manylinux_test.sh unittests
 
   python-wheel-windows-vs2017:
-    image: ${REPO}:python-${PYTHON}-wheel-windows-vs2017
+    image: ${REPO}:python-${PYTHON}-wheel-windows-vs2017-vcpkg-${VCPKG}
     build:
       args:
         vcpkg: ${VCPKG}
@@ -770,6 +817,25 @@ services:
         target: "C:/arrow"
     command: arrow\\ci\\scripts\\python_wheel_windows_test.bat
 
+  java-jni-manylinux-2014:
+    image: ${REPO}:${ARCH}-java-jni-manylinux-2014-vcpkg-${VCPKG}
+    build:
+      args:
+        base: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014-vcpkg-${VCPKG}
+        java: 1.8.0
+      context: .
+      dockerfile: ci/docker/java-jni-manylinux-201x.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-java-jni-manylinux-2014-vcpkg-${VCPKG}
+    environment:
+      <<: *ccache
+    volumes:
+      - .:/arrow:delegated
+      - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux2014-ccache:/ccache:delegated
+    command:
+      ["pip install -e /arrow/dev/archery &&
+        /arrow/ci/scripts/java_jni_manylinux_build.sh /arrow /build /arrow/java/dist"]
+
   ##############################  Integration #################################
 
   conda-python-pandas:
@@ -778,6 +844,7 @@ services:
     #  - `master`: git master branch, use `docker-compose run --no-cache`
     #  - `<version>`: specific version available on conda-forge
     # Usage:
+    #   docker-compose build conda
     #   docker-compose build conda-cpp
     #   docker-compose build conda-python
     #   docker-compose build conda-python-pandas
@@ -806,6 +873,7 @@ services:
     #  - `master`: git master branch, use `docker-compose run --no-cache`
     #  - `<version>`: specific version available on conda-forge
     # Usage:
+    #   docker-compose build conda
     #   docker-compose build conda-cpp
     #   docker-compose build conda-python
     #   docker-compose build conda-python-dask
@@ -832,6 +900,7 @@ services:
 
   conda-python-jpype:
     # Usage:
+    #   docker-compose build conda
     #   docker-compose build conda-cpp
     #   docker-compose build conda-python
     #   docker-compose build conda-python-jpype
@@ -864,6 +933,7 @@ services:
     #  - `master`: git master branch, use `docker-compose run --no-cache`
     #  - `<version>`: specific version available under github releases
     # Usage:
+    #   docker-compose build conda
     #   docker-compose build conda-cpp
     #   docker-compose build conda-python
     #   docker-compose build conda-python-turbodbc
@@ -894,6 +964,7 @@ services:
     #  - `master`: git master branch, use `docker-compose run --no-cache`
     #  - `<version>`: specific version available under github releases
     # Usage:
+    #   docker-compose build conda
     #   docker-compose build conda-cpp
     #   docker-compose build conda-python
     #   docker-compose build conda-python-kartothek
@@ -968,7 +1039,7 @@ services:
     shm_size: *shm-size
     environment:
       LIBARROW_DOWNLOAD: "false"
-      ARROW_HOME: "/arrow"
+      ARROW_SOURCE_HOME: "/arrow"
       ARROW_R_DEV: ${ARROW_R_DEV}
       # To test for CRAN release, delete ^^ these two env vars so we download the Apache release
       ARROW_USE_PKG_CONFIG: "false"
@@ -1001,6 +1072,56 @@ services:
     command: >
       /bin/bash -c "
         /arrow/ci/scripts/r_sanitize.sh /arrow"
+
+  ubuntu-r-valgrind:
+    # Only 18.04 and amd64 supported
+    # Usage:
+    #   docker-compose build ubuntu-r-valgrind
+    #   docker-compose run ubuntu-r-valgrind
+    image: ${REPO}:amd64-ubuntu-18.04-r-valgrind
+    build:
+      context: .
+      dockerfile: ci/docker/linux-r.dockerfile
+      cache_from:
+        - ${REPO}:amd64-ubuntu-18.04-r-valgrind
+      args:
+        base: wch1/r-debug:latest
+        r_bin: RDvalgrind
+    environment:
+      <<: *ccache
+      ARROW_R_DEV: ${ARROW_R_DEV}
+      # AVX512 not supported by Valgrind (similar to ARROW-9851) some runners support AVX512 and some do not
+      # so some build might pass without this setting, but we want to ensure that we stay to AVX2 regardless of runner.
+      EXTRA_CMAKE_FLAGS: "-DARROW_RUNTIME_SIMD_LEVEL=AVX2"
+    volumes: *ubuntu-volumes
+    command: >
+      /bin/bash -c "
+        /arrow/ci/scripts/r_valgrind.sh /arrow"
+
+  r-revdepcheck:
+    # Usage:
+    #   docker-compose build r-revdepcheck
+    #   docker-compose run r-revdepcheck
+    image: ${REPO}:r-rstudio-r-base-4.0-focal-revdepcheck
+    build:
+      context: .
+      dockerfile: ci/docker/linux-r.dockerfile
+      cache_from:
+        - ${REPO}:r-rstudio-r-base-4.0-focal-revdepcheck
+      args:
+        base: rstudio/r-base:4.0-focal
+        r_dev: ${ARROW_R_DEV}
+    shm_size: *shm-size
+    environment:
+      LIBARROW_DOWNLOAD: "true"
+      LIBARROW_MINIMAL: "false"
+      ARROW_SOURCE_HOME: "/arrow"
+      ARROW_R_DEV: "true"
+    volumes: *ubuntu-volumes
+    command: >
+      /bin/bash -c "/arrow/ci/scripts/r_revdepcheck.sh /arrow"
+
+
 
   ################################# Go ########################################
 
@@ -1149,7 +1270,7 @@ services:
       <<: *ccache
       # tell archery where the arrow binaries are located
       ARROW_CPP_EXE_PATH: /build/cpp/debug
-    # Running integration tests serially until ARROW-8176 resolved
+      ARCHERY_INTEGRATION_WITH_RUST: 0
     command:
       ["/arrow/ci/scripts/rust_build.sh /arrow /build &&
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
@@ -1173,6 +1294,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-docs
       args:
+        r: ${R}
         jdk: ${JDK}
         node: ${NODE}
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
@@ -1207,7 +1329,6 @@ services:
       args:
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
         clang_tools: ${CLANG_TOOLS}
-        rust: ${RUST}
     environment:
       <<: *ccache
     volumes: *ubuntu-volumes
@@ -1300,6 +1421,8 @@ services:
       ARROW_HDFS_TEST_HOST: impala
       ARROW_HDFS_TEST_PORT: 8020
       ARROW_HDFS_TEST_USER: hdfs
+      ARROW_S3: "OFF"
+      CMAKE_UNITY_BUILD: "ON"
     shm_size: *shm-size
     volumes: &conda-maven-volumes
       - .:/arrow:delegated

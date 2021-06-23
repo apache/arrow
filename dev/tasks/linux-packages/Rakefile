@@ -24,7 +24,7 @@ require_relative "helper"
 
 packages = [
   "apache-arrow",
-  "apache-arrow-archive-keyring",
+  "apache-arrow-apt-source",
   "apache-arrow-release",
 ]
 
@@ -109,6 +109,7 @@ class LocalBinaryTask < BinaryTask
 
   def resolve_docker_image(target)
     image = ""
+    target = target.gsub(/\Aamazon-linux/, "amazonlinux")
     case target
     when /-(?:arm64|aarch64)\z/
       target = $PREMATCH
@@ -155,7 +156,9 @@ class LocalBinaryTask < BinaryTask
     # because they require some setups on host.
     [
       "debian-buster",
-      # "debian-stretch-arm64",
+      # "debian-buster-arm64",
+      "debian-bullseye",
+      # "debian-bullseye-arm64",
       "ubuntu-xenial",
       # "ubuntu-xenial-arm64",
       "ubuntu-bionic",
@@ -201,8 +204,9 @@ class LocalBinaryTask < BinaryTask
     # Disable aarch64 targets by default for now
     # because they require some setups on host.
     [
+      "amazon-linux-2",
+      # "amazon-linux-2-aarch64",
       "centos-7",
-      # "centos-7-aarch64",
       "centos-8",
       # "centos-8-aarch64",
     ]

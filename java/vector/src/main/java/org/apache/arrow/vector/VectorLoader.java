@@ -27,6 +27,7 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.util.Collections2;
 import org.apache.arrow.vector.compression.CompressionCodec;
 import org.apache.arrow.vector.compression.CompressionUtil;
+import org.apache.arrow.vector.compression.NoCompressionCodec;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -38,13 +39,32 @@ public class VectorLoader {
 
   private final VectorSchemaRoot root;
 
+  private final CompressionCodec.Factory factory;
+
+  /**
+   * A flag indicating if decompression is needed.
+   * This will affect the behavior of releasing buffers.
+   */
+  private boolean decompressionNeeded;
+
   /**
    * Construct with a root to load and will create children in root based on schema.
    *
    * @param root the root to add vectors to based on schema
    */
   public VectorLoader(VectorSchemaRoot root) {
+    this(root, NoCompressionCodec.Factory.INSTANCE);
+  }
+
+  /**
+   * Construct with a root to load and will create children in root based on schema.
+   *
+   * @param root the root to add vectors to based on schema.
+   * @param factory the factory to create codec.
+   */
+  public VectorLoader(VectorSchemaRoot root, CompressionCodec.Factory factory) {
     this.root = root;
+    this.factory = factory;
   }
 
   /**
@@ -56,7 +76,10 @@ public class VectorLoader {
   public void load(ArrowRecordBatch recordBatch) {
     Iterator<ArrowBuf> buffers = recordBatch.getBuffers().iterator();
     Iterator<ArrowFieldNode> nodes = recordBatch.getNodes().iterator();
-    CompressionCodec codec = CompressionUtil.createCodec(recordBatch.getBodyCompression().getCodec());
+    CompressionUtil.CodecType codecType =
+        CompressionUtil.CodecType.fromCompressionType(recordBatch.getBodyCompression().getCodec());
+    decompressionNeeded = codecType != CompressionUtil.CodecType.NO_COMPRESSION;
+    CompressionCodec codec = decompressionNeeded ? factory.createCodec(codecType) : NoCompressionCodec.INSTANCE;
     for (FieldVector fieldVector : root.getFieldVectors()) {
       loadBuffers(fieldVector, fieldVector.getField(), buffers, nodes, codec);
     }
@@ -79,10 +102,21 @@ public class VectorLoader {
     List<ArrowBuf> ownBuffers = new ArrayList<>(bufferLayoutCount);
     for (int j = 0; j < bufferLayoutCount; j++) {
       ArrowBuf nextBuf = buffers.next();
-      ownBuffers.add(codec.decompress(vector.getAllocator(), nextBuf));
+      // for vectors without nulls, the buffer is empty, so there is no need to decompress it.
+      ArrowBuf bufferToAdd = nextBuf.writerIndex() > 0 ? codec.decompress(vector.getAllocator(), nextBuf) : nextBuf;
+      ownBuffers.add(bufferToAdd);
+      if (decompressionNeeded) {
+        // decompression performed
+        nextBuf.getReferenceManager().retain();
+      }
     }
     try {
       vector.loadFieldBuffers(fieldNode, ownBuffers);
+      if (decompressionNeeded) {
+        for (ArrowBuf buf : ownBuffers) {
+          buf.close();
+        }
+      }
     } catch (RuntimeException e) {
       throw new IllegalArgumentException("Could not load buffers for field " +
           field + ". error message: " + e.getMessage(), e);
@@ -100,5 +134,4 @@ public class VectorLoader {
       }
     }
   }
-
 }

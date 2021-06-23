@@ -32,10 +32,12 @@ override_dh_auto_configure:
 	  -DARROW_GANDIVA_JAVA=OFF				\
 	  -DARROW_MIMALLOC=ON					\
 	  -DARROW_ORC=ON					\
+	  -DARROW_PACKAGE_KIND=deb				\
 	  -DARROW_PARQUET=ON					\
 	  -DARROW_PLASMA=$${ARROW_PLASMA}			\
 	  -DARROW_PYTHON=ON					\
 	  -DARROW_S3=ON						\
+	  -DARROW_USE_CCACHE=OFF				\
 	  -DARROW_WITH_BROTLI=ON				\
 	  -DARROW_WITH_BZ2=ON					\
 	  -DARROW_WITH_LZ4=ON					\
@@ -96,3 +98,7 @@ override_dh_auto_test:
 	#     ARROW_TEST_DATA=$(CURDIR)/arrow-testing/data			\
 	#     PARQUET_TEST_DATA=$(CURDIR)/parquet-testing/data			\
 	#       ctest --exclude-regex 'arrow-cuda-test|plasma-client_tests'
+
+# skip file failing with "Unknown DWARF DW_OP_255" (see bug#949296)
+override_dh_dwz:
+	dh_dwz --exclude=libgandiva.so

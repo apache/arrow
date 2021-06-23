@@ -145,10 +145,10 @@ archery release changelog generate ${version} | \
 
 cat <<ANNOUNCE >> "${announce_file}"
 [1]: https://www.apache.org/dyn/closer.lua/arrow/arrow-${version}/
-[2]: https://bintray.com/apache/arrow/centos/${version}/
-[3]: https://bintray.com/apache/arrow/debian/${version}/
-[4]: https://bintray.com/apache/arrow/python/${version}/
-[5]: https://bintray.com/apache/arrow/ubuntu/${version}/
+[2]: https://apache.jfrog.io/artifactory/arrow/centos/
+[3]: https://apache.jfrog.io/artifactory/arrow/debian/
+[4]: https://apache.jfrog.io/artifactory/arrow/python/${version}/
+[5]: https://apache.jfrog.io/artifactory/arrow/ubuntu/
 [6]: https://github.com/apache/arrow/releases/tag/apache-arrow-${version}
 ANNOUNCE
 git add "${announce_file}"
@@ -242,8 +242,8 @@ current:
   github-tag-link: 'https://github.com/apache/arrow/releases/tag/${git_tag}'
   release-notes: 'https://arrow.apache.org/release/${version}.html'
   mirrors: 'https://www.apache.org/dyn/closer.lua/arrow/arrow-${version}/'
-  tarball_name: 'apache-arrow-${version}.tar.gz'
-  mirrors-tar: 'https://www.apache.org/dyn/closer.lua/arrow/arrow-${version}/apache-arrow-${version}.tar.gz'
+  tarball-name: 'apache-arrow-${version}.tar.gz'
+  tarball-url: 'https://www.apache.org/dyn/closer.lua?action=download&filename=arrow/arrow-${version}/apache-arrow-${version}.tar.gz'
   java-artifacts: 'http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22org.apache.arrow%22%20AND%20v%3A%22${version}%22'
   asc: '${apache_download_url}/arrow/arrow-${version}/apache-arrow-${version}.tar.gz.asc'
   sha256: '${apache_download_url}/arrow/arrow-${version}/apache-arrow-${version}.tar.gz.sha256'

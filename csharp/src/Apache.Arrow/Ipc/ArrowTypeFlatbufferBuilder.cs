@@ -61,7 +61,9 @@ namespace Apache.Arrow.Ipc
             IArrowTypeVisitor<TimestampType>,
             IArrowTypeVisitor<ListType>,
             IArrowTypeVisitor<UnionType>,
-            IArrowTypeVisitor<StructType>
+            IArrowTypeVisitor<StructType>,
+            IArrowTypeVisitor<Decimal128Type>,
+            IArrowTypeVisitor<Decimal256Type>
         {
             private FlatBufferBuilder Builder { get; }
 
@@ -176,6 +178,20 @@ namespace Apache.Arrow.Ipc
             {
                 Flatbuf.Struct_.StartStruct_(Builder);
                 Result = FieldType.Build(Flatbuf.Type.Struct_, Flatbuf.Struct_.EndStruct_(Builder));
+            }
+
+            public void Visit(Decimal128Type type)
+            {
+                Result = FieldType.Build(
+                    Flatbuf.Type.Decimal,
+                    Flatbuf.Decimal.CreateDecimal(Builder, type.Precision, type.Scale, type.BitWidth));
+            }
+
+            public void Visit(Decimal256Type type)
+            {
+                Result = FieldType.Build(
+                    Flatbuf.Type.Decimal,
+                    Flatbuf.Decimal.CreateDecimal(Builder, type.Precision, type.Scale, type.BitWidth));
             }
 
             private void CreateIntType(NumberType type)

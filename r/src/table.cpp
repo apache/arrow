@@ -254,25 +254,6 @@ arrow::Status AddMetadataFromDots(SEXP lst, int num_fields,
   return arrow::Status::OK();
 }
 
-arrow::Status CollectTableColumns(
-    SEXP lst, const std::shared_ptr<arrow::Schema>& schema, int num_fields, bool inferred,
-    std::vector<std::shared_ptr<arrow::ChunkedArray>>& columns) {
-  auto extract_one_column = [&columns, &schema, inferred](int j, SEXP x,
-                                                          cpp11::r_string) {
-    if (Rf_inherits(x, "ChunkedArray")) {
-      columns[j] = cpp11::as_cpp<std::shared_ptr<arrow::ChunkedArray>>(x);
-    } else if (Rf_inherits(x, "Array")) {
-      columns[j] = std::make_shared<arrow::ChunkedArray>(
-          cpp11::as_cpp<std::shared_ptr<arrow::Array>>(x));
-    } else {
-      auto array = arrow::r::Array__from_vector(x, schema->field(j)->type(), inferred);
-      columns[j] = std::make_shared<arrow::ChunkedArray>(array);
-    }
-  };
-  arrow::r::TraverseDots(lst, num_fields, extract_one_column);
-  return arrow::Status::OK();
-}
-
 }  // namespace r
 }  // namespace arrow
 
@@ -300,26 +281,6 @@ std::shared_ptr<arrow::Table> Table__from_record_batches(
   }
 
   return tab;
-}
-
-// [[arrow::export]]
-std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
-  bool infer_schema = !Rf_inherits(schema_sxp, "Schema");
-
-  int num_fields;
-  StopIfNotOk(arrow::r::count_fields(lst, &num_fields));
-
-  // schema + metadata
-  std::shared_ptr<arrow::Schema> schema;
-  StopIfNotOk(arrow::r::InferSchemaFromDots(lst, schema_sxp, num_fields, schema));
-  StopIfNotOk(arrow::r::AddMetadataFromDots(lst, num_fields, schema));
-
-  // table
-  std::vector<std::shared_ptr<arrow::ChunkedArray>> columns(num_fields);
-  StopIfNotOk(
-      arrow::r::CollectTableColumns(lst, schema, num_fields, infer_schema, columns));
-
-  return arrow::Table::Make(schema, columns);
 }
 
 #endif

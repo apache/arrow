@@ -13,10 +13,11 @@ dataset_factory(
 )
 }
 \arguments{
-\item{x}{A string file x containing data files, or
-a list of \code{DatasetFactory} objects whose datasets should be
-grouped. If this argument is specified it will be used to construct a
-\code{UnionDatasetFactory} and other arguments will be ignored.}
+\item{x}{A string path to a directory containing data files, a vector of one
+one or more string paths to data files, or a list of \code{DatasetFactory} objects
+whose datasets should be combined. If this argument is specified it will be
+used to construct a \code{UnionDatasetFactory} and other arguments will be
+ignored.}
 
 \item{filesystem}{A \link{FileSystem} object; if omitted, the \code{FileSystem} will
 be detected from \code{x}}

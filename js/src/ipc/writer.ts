@@ -25,6 +25,7 @@ import { Message } from './metadata/message';
 import * as metadata from './metadata/message';
 import { FileBlock, Footer } from './metadata/file';
 import { MessageHeader, MetadataVersion } from '../enum';
+import { compareSchemas } from '../visitor/typecomparator';
 import { WritableSink, AsyncByteQueue } from '../io/stream';
 import { VectorAssembler } from '../visitor/vectorassembler';
 import { JSONTypeAssembler } from '../visitor/jsontypeassembler';
@@ -60,8 +61,8 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
         // @ts-ignore
         writableStrategy?: QueuingStrategy<RecordBatch<T>> & { autoDestroy: boolean },
         // @ts-ignore
-        readableStrategy?: { highWaterMark?: number, size?: any }
-    ): { writable: WritableStream<Table<T> | RecordBatch<T>>, readable: ReadableStream<Uint8Array> } {
+        readableStrategy?: { highWaterMark?: number; size?: any }
+    ): { writable: WritableStream<Table<T> | RecordBatch<T>>; readable: ReadableStream<Uint8Array> } {
         throw new Error(`"throughDOM" not available in this environment`);
     }
 
@@ -123,7 +124,6 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
         return this;
     }
     public reset(sink: WritableSink<ArrayBufferViewInput> = this._sink, schema: Schema<T> | null = null) {
-
         if ((sink === this._sink) || (sink instanceof AsyncByteQueue)) {
             this._sink = sink as AsyncByteQueue;
         } else {
@@ -144,7 +144,7 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
         this._recordBatchBlocks = [];
         this._dictionaryDeltaOffsets = new Map();
 
-        if (!schema || !(schema.compareTo(this._schema))) {
+        if (!schema || !(compareSchemas(schema, this._schema))) {
             if (schema === null) {
                 this._position = 0;
                 this._schema = null;
@@ -159,12 +159,11 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
     }
 
     public write(payload?: Table<T> | RecordBatch<T> | Iterable<RecordBatch<T>> | null) {
-
         let schema: Schema<T> | null = null;
 
         if (!this._sink) {
             throw new Error(`RecordBatchWriter is closed`);
-        } else if (payload === null || payload === undefined) {
+        } else if (payload == null) {
             return this.finish() && undefined;
         } else if (payload instanceof Table && !(schema = payload.schema)) {
             return this.finish() && undefined;
@@ -172,7 +171,7 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
             return this.finish() && undefined;
         }
 
-        if (schema && !schema.compareTo(this._schema)) {
+        if (schema && !compareSchemas(schema, this._schema)) {
             if (this._started && this._autoDestroy) {
                 return this.close();
             }
@@ -191,7 +190,6 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
     }
 
     protected _writeMessage<T extends MessageHeader>(message: Message<T>, alignment = 8) {
-
         const a = alignment - 1;
         const buffer = Message.encode(message);
         const flatbufferSize = buffer.byteLength;
@@ -457,7 +455,7 @@ async function writeAllAsync<T extends { [key: string]: DataType } = any>(writer
 }
 
 /** @ignore */
-function fieldToJSON({ name, type, nullable }: Field): object {
+function fieldToJSON({ name, type, nullable }: Field): Record<string, unknown> {
     const assembler = new JSONTypeAssembler();
     return {
         'name': name, 'nullable': nullable,

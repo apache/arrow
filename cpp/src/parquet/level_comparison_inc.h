@@ -17,6 +17,7 @@
 #pragma once
 
 #include "arrow/util/bit_util.h"
+#include "arrow/util/endian.h"
 #include "parquet/level_comparison.h"
 
 // Used to make sure ODR rule isn't violated.

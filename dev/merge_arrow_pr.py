@@ -195,6 +195,10 @@ class JiraIssue(object):
             self.cmd.fail("JIRA issue %s already has status '%s'"
                           % (self.jira_id, cur_status))
 
+        if DEBUG:
+            print("JIRA issue %s untouched" % (self.jira_id))
+            return
+
         resolve = [x for x in self.jira_con.transitions(self.jira_id)
                    if x['name'] == "Resolve Issue"][0]
 
@@ -312,7 +316,10 @@ class PullRequest(object):
         print("\n=== Pull Request #%s ===" % self.number)
         print("title\t%s\nsource\t%s\ntarget\t%s\nurl\t%s"
               % (self.title, self.description, self.target_ref, self.url))
-        self.jira_issue.show()
+        if self.jira_issue is not None:
+            self.jira_issue.show()
+        else:
+            print("Minor PR.  Please ensure it meets guidelines for minor.\n")
 
     @property
     def is_merged(self):
@@ -323,6 +330,9 @@ class PullRequest(object):
         return bool(self._pr_data["mergeable"])
 
     def _get_jira(self):
+        if self.title.startswith("MINOR:"):
+            return None
+
         jira_id = None
         for project, regex in PR_TITLE_REGEXEN:
             m = regex.search(self.title)
@@ -580,6 +590,10 @@ def cli():
 
     # merged hash not used
     pr.merge()
+
+    if pr.jira_issue is None:
+        print("Minor PR.  No JIRA issue to update.\n")
+        return
 
     cmd.continue_maybe("Would you like to update the associated JIRA?")
     jira_comment = (

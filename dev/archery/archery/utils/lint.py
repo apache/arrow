@@ -26,7 +26,6 @@ from .cmake import CMake
 from .git import git
 from .logger import logger
 from ..lang.cpp import CppCMakeDefinition, CppConfiguration
-from ..lang.rust import Cargo
 from ..lang.python import Autopep8, Flake8, NumpyDoc
 from .rat import Rat, exclusion_from_globs
 from .tmpdir import tmpdir
@@ -162,12 +161,15 @@ def python_linter(src, fix=False):
             "Please run `pip install -r dev/archery/requirements-lint.txt`")
         return
 
-    yield LintResult.from_cmd(flake8(setup_py, src.pyarrow,
-                                     os.path.join(src.python, "examples"),
-                                     src.dev, check=False))
+    flake8_exclude = ['.venv*']
+
+    yield LintResult.from_cmd(
+        flake8("--extend-exclude=" + ','.join(flake8_exclude),
+               setup_py, src.pyarrow, os.path.join(src.python, "examples"),
+               src.dev, check=False))
     config = os.path.join(src.python, ".flake8.cython")
-    yield LintResult.from_cmd(flake8("--config=" + config, src.pyarrow,
-                                     check=False))
+    yield LintResult.from_cmd(
+        flake8("--config=" + config, src.pyarrow, check=False))
 
 
 def python_numpydoc(symbols=None, allow_rules=None, disallow_rules=None):
@@ -289,20 +291,6 @@ def r_linter(src):
     yield LintResult.from_cmd(Bash().run(r_lint_sh, check=False))
 
 
-def rust_linter(src):
-    """Run Rust linter."""
-    logger.info("Running Rust linter")
-    cargo = Cargo()
-
-    if not cargo.available:
-        logger.error("Rust linter requested but cargo executable not found.")
-        return
-
-    yield LintResult.from_cmd(cargo.run("+stable", "fmt", "--all", "--",
-                                        "--check", cwd=src.rust,
-                                        check=False))
-
-
 class Hadolint(Command):
     def __init__(self, hadolint_bin=None):
         self.bin = default_bin(hadolint_bin, "hadolint")
@@ -338,7 +326,7 @@ def docker_linter(src):
 def linter(src, fix=False, *, clang_format=False, cpplint=False,
            clang_tidy=False, iwyu=False, iwyu_all=False,
            python=False, numpydoc=False, cmake_format=False, rat=False,
-           r=False, rust=False, docker=False):
+           r=False, docker=False):
     """Run all linters."""
     with tmpdir(prefix="arrow-lint-") as root:
         build_dir = os.path.join(root, "cpp-build")
@@ -371,9 +359,6 @@ def linter(src, fix=False, *, clang_format=False, cpplint=False,
 
         if r:
             results.extend(r_linter(src))
-
-        if rust:
-            results.extend(rust_linter(src))
 
         if docker:
             results.extend(docker_linter(src))

@@ -21,6 +21,7 @@ import java.util.Iterator;
 
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
+import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
 import org.apache.arrow.vector.holders.DenseUnionHolder;
 import org.apache.arrow.vector.holders.UnionHolder;
@@ -107,6 +108,11 @@ abstract class AbstractBaseReader implements FieldReader {
 
   @Override
   public void copyAsValue(ListWriter writer) {
+    ComplexCopier.copy(this, (FieldWriter) writer);
+  }
+
+  @Override
+  public void copyAsValue(MapWriter writer) {
     ComplexCopier.copy(this, (FieldWriter) writer);
   }
 }

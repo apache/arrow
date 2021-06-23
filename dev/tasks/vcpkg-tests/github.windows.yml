@@ -1,0 +1,63 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+# NOTE: must set "Crossbow" as name to have the badge links working in the
+# github comment reports!
+name: Crossbow
+
+on:
+  push:
+    branches:
+      - "*-github-*"
+
+jobs:
+  test-vcpkg-win:
+    name: Install build deps with vcpkg and build Arrow C++
+    runs-on: windows-2019
+    steps:
+      - name: Checkout Arrow
+        run: |
+          git clone --no-checkout {{ arrow.remote }} arrow
+          git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
+          git -C arrow checkout FETCH_HEAD
+          git -C arrow submodule update --init --recursive
+      - name: Remove and Reinstall vcpkg
+        # As of January 2021, the version of vcpkg that is preinstalled on the
+        # Github Actions windows-2019 image is 2020.11.12, as noted at
+        # https://github.com/actions/virtual-environments/blob/main/images/win/Windows2019-Readme.md
+        # This version of vcpkg has a bug that causes the installation of
+        # aws-cpp-sdk to fail. See details at
+        # https://github.com/awslabs/aws-c-common/issues/734
+        # and https://github.com/microsoft/vcpkg/pull/14716.
+        # When running vcpkg in Github Actions on Windows, remove the
+        # preinstalled vcpkg and install the newest version from source.
+        shell: cmd
+        run: |
+          CALL vcpkg integrate remove 2>NUL
+          CALL C:
+          CALL cd \
+          CALL rmdir /s /q vcpkg 2>NUL
+          CALL git clone https://github.com/microsoft/vcpkg.git vcpkg
+          CALL cd vcpkg
+          CALL bootstrap-vcpkg.bat -win64 -disableMetrics
+          CALL vcpkg integrate install
+          CALL setx PATH "%PATH%;C:\vcpkg"
+      - name: Install Dependencies with vcpkg and Build Arrow C++
+        shell: cmd
+        run: |
+          CALL cd arrow
+          CALL dev\tasks\vcpkg-tests\cpp-build-vcpkg.bat

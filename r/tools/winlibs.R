@@ -17,12 +17,12 @@
 
 args <- commandArgs(TRUE)
 VERSION <- args[1]
-if(!file.exists(sprintf("windows/arrow-%s/include/arrow/api.h", VERSION))){
-  if(length(args) > 1){
+if (!file.exists(sprintf("windows/arrow-%s/include/arrow/api.h", VERSION))) {
+  if (length(args) > 1) {
     # Arg 2 would be the path/to/lib.zip
     localfile <- args[2]
     cat(sprintf("*** Using RWINLIB_LOCAL %s\n", localfile))
-    if(!file.exists(localfile)){
+    if (!file.exists(localfile)) {
       cat(sprintf("*** %s does not exist; build will fail\n", localfile))
     }
     file.copy(localfile, "lib.zip")
@@ -39,7 +39,7 @@ if(!file.exists(sprintf("windows/arrow-%s/include/arrow/api.h", VERSION))){
       )
     }
     # URL templates
-    nightly <- "https://dl.bintray.com/ursalabs/arrow-r/libarrow/bin/windows/arrow-%s.zip"
+    nightly <- "https://arrow-r-nightly.s3.amazonaws.com/libarrow/bin/windows/arrow-%s.zip"
     rwinlib <- "https://github.com/rwinlib/arrow/archive/v%s.zip"
     # First look for a nightly
     get_file(nightly, VERSION)

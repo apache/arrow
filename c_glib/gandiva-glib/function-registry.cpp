@@ -17,10 +17,6 @@
  * under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#  include <config.h>
-#endif
-
 #include <gandiva/function_registry.h>
 #include <gandiva-glib/function-registry.h>
 

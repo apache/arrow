@@ -26,11 +26,14 @@
 #include "parquet/arrow/schema.h"
 #include "parquet/file_reader.h"
 #include "parquet/schema.h"
+#include "parquet/schema_internal.h"
 #include "parquet/test_util.h"
+#include "parquet/thrift_internal.h"
 
 #include "arrow/array.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
+#include "arrow/util/key_value_metadata.h"
 
 using arrow::ArrayFromVector;
 using arrow::Field;
@@ -40,6 +43,7 @@ using ParquetType = parquet::Type;
 using parquet::ConvertedType;
 using parquet::LogicalType;
 using parquet::Repetition;
+using parquet::format::SchemaElement;
 using parquet::internal::LevelInfo;
 using parquet::schema::GroupNode;
 using parquet::schema::NodePtr;
@@ -1154,6 +1158,141 @@ TEST_F(TestConvertArrowSchema, ParquetFlatDecimals) {
   ASSERT_OK(ConvertSchema(arrow_fields));
 
   ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(parquet_fields));
+}
+
+class TestConvertRoundTrip : public ::testing::Test {
+ public:
+  ::arrow::Status RoundTripSchema(
+      const std::vector<std::shared_ptr<Field>>& fields,
+      std::shared_ptr<::parquet::ArrowWriterProperties> arrow_properties =
+          ::parquet::default_arrow_writer_properties()) {
+    arrow_schema_ = ::arrow::schema(fields);
+    std::shared_ptr<::parquet::WriterProperties> properties =
+        ::parquet::default_writer_properties();
+    RETURN_NOT_OK(ToParquetSchema(arrow_schema_.get(), *properties.get(),
+                                  *arrow_properties, &parquet_schema_));
+    ::parquet::schema::ToParquet(parquet_schema_->group_node(), &parquet_format_schema_);
+    auto parquet_schema = ::parquet::schema::FromParquet(parquet_format_schema_);
+    return FromParquetSchema(parquet_schema.get(), &result_schema_);
+  }
+
+ protected:
+  std::shared_ptr<::arrow::Schema> arrow_schema_;
+  std::shared_ptr<SchemaDescriptor> parquet_schema_;
+  std::vector<SchemaElement> parquet_format_schema_;
+  std::shared_ptr<::arrow::Schema> result_schema_;
+};
+
+int GetFieldId(const ::arrow::Field& field) {
+  if (field.metadata() == nullptr) {
+    return -1;
+  }
+  auto maybe_field = field.metadata()->Get("PARQUET:field_id");
+  if (!maybe_field.ok()) {
+    return -1;
+  }
+  return std::stoi(maybe_field.ValueOrDie());
+}
+
+void GetFieldIdsDfs(const ::arrow::FieldVector& fields, std::vector<int>* field_ids) {
+  for (const auto& field : fields) {
+    field_ids->push_back(GetFieldId(*field));
+    GetFieldIdsDfs(field->type()->fields(), field_ids);
+  }
+}
+
+std::vector<int> GetFieldIdsDfs(const ::arrow::FieldVector& fields) {
+  std::vector<int> field_ids;
+  GetFieldIdsDfs(fields, &field_ids);
+  return field_ids;
+}
+
+std::vector<int> GetParquetFieldIdsHelper(const parquet::schema::Node* node) {
+  std::vector<int> field_ids;
+  field_ids.push_back(node->field_id());
+  if (node->is_group()) {
+    const GroupNode* group_node = static_cast<const GroupNode*>(node);
+    for (int i = 0; i < group_node->field_count(); i++) {
+      for (auto id : GetParquetFieldIdsHelper(group_node->field(i).get())) {
+        field_ids.push_back(id);
+      }
+    }
+  }
+  return field_ids;
+}
+
+std::vector<int> GetParquetFieldIds(std::shared_ptr<SchemaDescriptor> parquet_schema) {
+  return GetParquetFieldIdsHelper(
+      static_cast<const parquet::schema::Node*>(parquet_schema->group_node()));
+}
+
+std::vector<int> GetThriftFieldIds(
+    const std::vector<SchemaElement>& parquet_format_schema) {
+  std::vector<int> field_ids;
+  for (const auto& element : parquet_format_schema) {
+    field_ids.push_back(element.field_id);
+  }
+  return field_ids;
+}
+
+TEST_F(TestConvertRoundTrip, FieldIdMissingIfNotSpecified) {
+  std::vector<std::shared_ptr<Field>> arrow_fields;
+  arrow_fields.push_back(::arrow::field("simple", ::arrow::int32(), false));
+  /// { "nested": { "outer": { "inner" }, "sibling" } }
+  arrow_fields.push_back(::arrow::field(
+      "nested",
+      ::arrow::struct_({::arrow::field("outer", ::arrow::struct_({::arrow::field(
+                                                    "inner", ::arrow::utf8())})),
+                        ::arrow::field("sibling", ::arrow::date32())}),
+      false));
+
+  ASSERT_OK(RoundTripSchema(arrow_fields));
+  auto field_ids = GetFieldIdsDfs(result_schema_->fields());
+  for (int actual_id : field_ids) {
+    ASSERT_EQ(actual_id, -1);
+  }
+  auto parquet_field_ids = GetParquetFieldIds(parquet_schema_);
+  for (int actual_id : parquet_field_ids) {
+    ASSERT_EQ(actual_id, -1);
+  }
+  // In our unit test a "not set" thrift field has a value of 0
+  auto thrift_field_ids = GetThriftFieldIds(parquet_format_schema_);
+  for (int actual_id : thrift_field_ids) {
+    ASSERT_EQ(actual_id, 0);
+  }
+}
+
+std::shared_ptr<::arrow::KeyValueMetadata> FieldIdMetadata(int field_id) {
+  return ::arrow::key_value_metadata({"PARQUET:field_id"}, {std::to_string(field_id)});
+}
+
+TEST_F(TestConvertRoundTrip, FieldIdPreserveExisting) {
+  std::vector<std::shared_ptr<Field>> arrow_fields;
+  arrow_fields.push_back(
+      ::arrow::field("simple", ::arrow::int32(), /*nullable=*/true, FieldIdMetadata(2)));
+  /// { "nested": { "outer": { "inner" }, "sibling" }
+  arrow_fields.push_back(::arrow::field(
+      "nested",
+      ::arrow::struct_({::arrow::field("outer", ::arrow::struct_({::arrow::field(
+                                                    "inner", ::arrow::utf8())})),
+                        ::arrow::field("sibling", ::arrow::date32(), /*nullable=*/true,
+                                       FieldIdMetadata(17))}),
+      false));
+
+  ASSERT_OK(RoundTripSchema(arrow_fields));
+  auto field_ids = GetFieldIdsDfs(result_schema_->fields());
+  auto expected_field_ids = std::vector<int>{2, -1, -1, -1, 17};
+  ASSERT_EQ(field_ids, expected_field_ids);
+
+  // Parquet has a field id for the schema itself
+  expected_field_ids = std::vector<int>{-1, 2, -1, -1, -1, 17};
+  auto parquet_ids = GetParquetFieldIds(parquet_schema_);
+  ASSERT_EQ(parquet_ids, expected_field_ids);
+
+  // In our unit test a "not set" thrift field has a value of 0
+  expected_field_ids = std::vector<int>{0, 2, 0, 0, 0, 17};
+  auto thrift_field_ids = GetThriftFieldIds(parquet_format_schema_);
+  ASSERT_EQ(thrift_field_ids, expected_field_ids);
 }
 
 TEST(InvalidSchema, ParquetNegativeDecimalScale) {

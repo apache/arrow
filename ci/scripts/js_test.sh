@@ -23,7 +23,7 @@ source_dir=${1}/js
 
 pushd ${source_dir}
 
-npm run lint
-npm run test
+yarn lint
+yarn test
 
 popd

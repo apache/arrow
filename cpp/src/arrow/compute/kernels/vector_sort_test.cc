@@ -15,13 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <functional>
 #include <limits>
 #include <memory>
 #include <string>
 #include <vector>
 
+#include "arrow/array/array_decimal.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/compute/api_vector.h"
+#include "arrow/compute/kernels/test_util.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
@@ -67,16 +70,33 @@ TypeToDataType() {
 // Tests for NthToIndices
 
 template <typename ArrayType>
+auto GetLogicalValue(const ArrayType& array, uint64_t index)
+    -> decltype(array.GetView(index)) {
+  return array.GetView(index);
+}
+
+Decimal128 GetLogicalValue(const Decimal128Array& array, uint64_t index) {
+  return Decimal128(array.Value(index));
+}
+
+Decimal256 GetLogicalValue(const Decimal256Array& array, uint64_t index) {
+  return Decimal256(array.Value(index));
+}
+
+template <typename ArrayType>
 class NthComparator {
  public:
   bool operator()(const ArrayType& array, uint64_t lhs, uint64_t rhs) {
     if (array.IsNull(rhs)) return true;
     if (array.IsNull(lhs)) return false;
+    const auto lval = GetLogicalValue(array, lhs);
+    const auto rval = GetLogicalValue(array, rhs);
     if (is_floating_type<typename ArrayType::TypeClass>::value) {
-      if (array.GetView(rhs) != array.GetView(rhs)) return true;
-      if (array.GetView(lhs) != array.GetView(lhs)) return false;
+      // NaNs ordered after non-NaNs
+      if (rval != rval) return true;
+      if (lval != lval) return false;
     }
-    return array.GetView(lhs) <= array.GetView(rhs);
+    return lval <= rval;
   }
 };
 
@@ -87,28 +107,29 @@ class SortComparator {
     if (array.IsNull(rhs) && array.IsNull(lhs)) return lhs < rhs;
     if (array.IsNull(rhs)) return true;
     if (array.IsNull(lhs)) return false;
+    const auto lval = GetLogicalValue(array, lhs);
+    const auto rval = GetLogicalValue(array, rhs);
     if (is_floating_type<typename ArrayType::TypeClass>::value) {
-      const bool lhs_isnan = array.GetView(lhs) != array.GetView(lhs);
-      const bool rhs_isnan = array.GetView(rhs) != array.GetView(rhs);
+      const bool lhs_isnan = lval != lval;
+      const bool rhs_isnan = rval != rval;
       if (lhs_isnan && rhs_isnan) return lhs < rhs;
       if (rhs_isnan) return true;
       if (lhs_isnan) return false;
     }
-    if (array.GetView(lhs) == array.GetView(rhs)) return lhs < rhs;
+    if (lval == rval) return lhs < rhs;
     if (order == SortOrder::Ascending) {
-      return array.GetView(lhs) < array.GetView(rhs);
+      return lval < rval;
     } else {
-      return array.GetView(lhs) > array.GetView(rhs);
+      return lval > rval;
     }
   }
 };
 
 template <typename ArrowType>
-class TestNthToIndices : public TestBase {
+class TestNthToIndicesBase : public TestBase {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
 
- private:
-  template <typename ArrayType>
+ protected:
   void Validate(const ArrayType& array, int n, UInt64Array& offsets) {
     if (n >= array.length()) {
       for (int i = 0; i < array.length(); ++i) {
@@ -129,19 +150,26 @@ class TestNthToIndices : public TestBase {
     }
   }
 
- protected:
   void AssertNthToIndicesArray(const std::shared_ptr<Array> values, int n) {
     ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> offsets, NthToIndices(*values, n));
-    ASSERT_OK(offsets->ValidateFull());
-    Validate<ArrayType>(*checked_pointer_cast<ArrayType>(values), n,
-                        *checked_pointer_cast<UInt64Array>(offsets));
+    // null_count field should have been initialized to 0, for convenience
+    ASSERT_EQ(offsets->data()->null_count, 0);
+    ValidateOutput(*offsets);
+    Validate(*checked_pointer_cast<ArrayType>(values), n,
+             *checked_pointer_cast<UInt64Array>(offsets));
   }
 
   void AssertNthToIndicesJson(const std::string& values, int n) {
     AssertNthToIndicesArray(ArrayFromJSON(GetType(), values), n);
   }
 
-  std::shared_ptr<DataType> GetType() { return TypeToDataType<ArrowType>(); }
+  virtual std::shared_ptr<DataType> GetType() = 0;
+};
+
+template <typename ArrowType>
+class TestNthToIndices : public TestNthToIndicesBase<ArrowType> {
+ protected:
+  std::shared_ptr<DataType> GetType() override { return TypeToDataType<ArrowType>(); }
 };
 
 template <typename ArrowType>
@@ -155,6 +183,14 @@ TYPED_TEST_SUITE(TestNthToIndicesForIntegral, IntegralArrowTypes);
 template <typename ArrowType>
 class TestNthToIndicesForTemporal : public TestNthToIndices<ArrowType> {};
 TYPED_TEST_SUITE(TestNthToIndicesForTemporal, TemporalArrowTypes);
+
+template <typename ArrowType>
+class TestNthToIndicesForDecimal : public TestNthToIndicesBase<ArrowType> {
+  std::shared_ptr<DataType> GetType() override {
+    return std::make_shared<ArrowType>(5, 2);
+  }
+};
+TYPED_TEST_SUITE(TestNthToIndicesForDecimal, DecimalArrowTypes);
 
 template <typename ArrowType>
 class TestNthToIndicesForStrings : public TestNthToIndices<ArrowType> {};
@@ -194,6 +230,14 @@ TYPED_TEST(TestNthToIndicesForTemporal, Temporal) {
   this->AssertNthToIndicesJson("[null, 1, 3, null, 2, 5]", 6);
 }
 
+TYPED_TEST(TestNthToIndicesForDecimal, Decimal) {
+  const std::string values = R"(["123.45", null, "-123.45", "456.78", "-456.78"])";
+  this->AssertNthToIndicesJson(values, 0);
+  this->AssertNthToIndicesJson(values, 2);
+  this->AssertNthToIndicesJson(values, 4);
+  this->AssertNthToIndicesJson(values, 5);
+}
+
 TYPED_TEST(TestNthToIndicesForStrings, Strings) {
   this->AssertNthToIndicesJson(R"(["testing", null, "nth", "for", null, "strings"])", 0);
   this->AssertNthToIndicesJson(R"(["testing", null, "nth", "for", null, "strings"])", 2);
@@ -202,31 +246,38 @@ TYPED_TEST(TestNthToIndicesForStrings, Strings) {
 }
 
 template <typename ArrowType>
-class TestNthToIndicesRandom : public TestNthToIndices<ArrowType> {};
+class TestNthToIndicesRandom : public TestNthToIndicesBase<ArrowType> {
+ public:
+  std::shared_ptr<DataType> GetType() override {
+    EXPECT_TRUE(0) << "shouldn't be used";
+    return nullptr;
+  }
+};
 
 using NthToIndicesableTypes =
     ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
-                     Int32Type, Int64Type, FloatType, DoubleType, StringType>;
+                     Int32Type, Int64Type, FloatType, DoubleType, Decimal128Type,
+                     StringType>;
 
 class RandomImpl {
  protected:
-  random::RandomArrayGenerator generator;
+  random::RandomArrayGenerator generator_;
+  std::shared_ptr<DataType> type_;
+
+  explicit RandomImpl(random::SeedType seed, std::shared_ptr<DataType> type)
+      : generator_(seed), type_(std::move(type)) {}
 
  public:
-  explicit RandomImpl(random::SeedType seed) : generator(seed) {}
+  std::shared_ptr<Array> Generate(uint64_t count, double null_prob) {
+    return generator_.ArrayOf(type_, count, null_prob);
+  }
 };
 
 template <typename ArrowType>
 class Random : public RandomImpl {
-  using CType = typename TypeTraits<ArrowType>::CType;
-
  public:
-  explicit Random(random::SeedType seed) : RandomImpl(seed) {}
-
-  std::shared_ptr<Array> Generate(uint64_t count, double null_prob) {
-    return generator.Numeric<ArrowType>(count, std::numeric_limits<CType>::min(),
-                                        std::numeric_limits<CType>::max(), null_prob);
-  }
+  explicit Random(random::SeedType seed)
+      : RandomImpl(seed, TypeTraits<ArrowType>::type_singleton()) {}
 };
 
 template <>
@@ -234,11 +285,11 @@ class Random<FloatType> : public RandomImpl {
   using CType = float;
 
  public:
-  explicit Random(random::SeedType seed) : RandomImpl(seed) {}
+  explicit Random(random::SeedType seed) : RandomImpl(seed, float32()) {}
 
   std::shared_ptr<Array> Generate(uint64_t count, double null_prob, double nan_prob = 0) {
-    return generator.Float32(count, std::numeric_limits<CType>::min(),
-                             std::numeric_limits<CType>::max(), null_prob, nan_prob);
+    return generator_.Float32(count, std::numeric_limits<CType>::min(),
+                              std::numeric_limits<CType>::max(), null_prob, nan_prob);
   }
 };
 
@@ -247,22 +298,20 @@ class Random<DoubleType> : public RandomImpl {
   using CType = double;
 
  public:
-  explicit Random(random::SeedType seed) : RandomImpl(seed) {}
+  explicit Random(random::SeedType seed) : RandomImpl(seed, float64()) {}
 
   std::shared_ptr<Array> Generate(uint64_t count, double null_prob, double nan_prob = 0) {
-    return generator.Float64(count, std::numeric_limits<CType>::min(),
-                             std::numeric_limits<CType>::max(), null_prob, nan_prob);
+    return generator_.Float64(count, std::numeric_limits<CType>::min(),
+                              std::numeric_limits<CType>::max(), null_prob, nan_prob);
   }
 };
 
 template <>
-class Random<StringType> : public RandomImpl {
+class Random<Decimal128Type> : public RandomImpl {
  public:
-  explicit Random(random::SeedType seed) : RandomImpl(seed) {}
-
-  std::shared_ptr<Array> Generate(uint64_t count, double null_prob) {
-    return generator.String(count, 1, 100, null_prob);
-  }
+  explicit Random(random::SeedType seed,
+                  std::shared_ptr<DataType> type = decimal128(18, 5))
+      : RandomImpl(seed, std::move(type)) {}
 };
 
 template <typename ArrowType>
@@ -270,7 +319,8 @@ class RandomRange : public RandomImpl {
   using CType = typename TypeTraits<ArrowType>::CType;
 
  public:
-  explicit RandomRange(random::SeedType seed) : RandomImpl(seed) {}
+  explicit RandomRange(random::SeedType seed)
+      : RandomImpl(seed, TypeTraits<ArrowType>::type_singleton()) {}
 
   std::shared_ptr<Array> Generate(uint64_t count, int range, double null_prob) {
     CType min = std::numeric_limits<CType>::min();
@@ -278,7 +328,7 @@ class RandomRange : public RandomImpl {
     if (sizeof(CType) < 4 && (range + min) > std::numeric_limits<CType>::max()) {
       max = std::numeric_limits<CType>::max();
     }
-    return generator.Numeric<ArrowType>(count, min, max, null_prob);
+    return generator_.Numeric<ArrowType>(count, min, max, null_prob);
   }
 };
 
@@ -303,7 +353,7 @@ template <typename T>
 void AssertSortIndices(const std::shared_ptr<T>& input, SortOrder order,
                        const std::shared_ptr<Array>& expected) {
   ASSERT_OK_AND_ASSIGN(auto actual, SortIndices(*input, order));
-  ASSERT_OK(actual->ValidateFull());
+  ValidateOutput(*actual);
   AssertArraysEqual(*expected, *actual, /*verbose=*/true);
 }
 
@@ -311,7 +361,7 @@ template <typename T>
 void AssertSortIndices(const std::shared_ptr<T>& input, const SortOptions& options,
                        const std::shared_ptr<Array>& expected) {
   ASSERT_OK_AND_ASSIGN(auto actual, SortIndices(Datum(*input), options));
-  ASSERT_OK(actual->ValidateFull());
+  ValidateOutput(*actual);
   AssertArraysEqual(*expected, *actual, /*verbose=*/true);
 }
 
@@ -323,12 +373,13 @@ void AssertSortIndices(const std::shared_ptr<T>& input, Options&& options,
                     ArrayFromJSON(uint64(), expected));
 }
 
-template <typename ArrowType>
-class TestArraySortIndicesKernel : public TestBase {
+class TestArraySortIndicesBase : public TestBase {
  public:
+  virtual std::shared_ptr<DataType> type() = 0;
+
   virtual void AssertSortIndices(const std::string& values, SortOrder order,
                                  const std::string& expected) {
-    auto type = TypeToDataType<ArrowType>();
+    auto type = this->type();
     arrow::compute::AssertSortIndices(ArrayFromJSON(type, values), order,
                                       ArrayFromJSON(uint64(), expected));
   }
@@ -339,25 +390,38 @@ class TestArraySortIndicesKernel : public TestBase {
 };
 
 template <typename ArrowType>
-class TestArraySortIndicesKernelForReal : public TestArraySortIndicesKernel<ArrowType> {};
-TYPED_TEST_SUITE(TestArraySortIndicesKernelForReal, RealArrowTypes);
+class TestArraySortIndices : public TestArraySortIndicesBase {
+ public:
+  std::shared_ptr<DataType> type() override {
+    // Will choose default parameters for temporal types
+    return std::make_shared<ArrowType>();
+  }
+};
 
 template <typename ArrowType>
-class TestArraySortIndicesKernelForIntegral
-    : public TestArraySortIndicesKernel<ArrowType> {};
-TYPED_TEST_SUITE(TestArraySortIndicesKernelForIntegral, IntegralArrowTypes);
+class TestArraySortIndicesForReal : public TestArraySortIndices<ArrowType> {};
+TYPED_TEST_SUITE(TestArraySortIndicesForReal, RealArrowTypes);
 
 template <typename ArrowType>
-class TestArraySortIndicesKernelForTemporal
-    : public TestArraySortIndicesKernel<ArrowType> {};
-TYPED_TEST_SUITE(TestArraySortIndicesKernelForTemporal, TemporalArrowTypes);
+class TestArraySortIndicesForIntegral : public TestArraySortIndices<ArrowType> {};
+TYPED_TEST_SUITE(TestArraySortIndicesForIntegral, IntegralArrowTypes);
 
 template <typename ArrowType>
-class TestArraySortIndicesKernelForStrings
-    : public TestArraySortIndicesKernel<ArrowType> {};
-TYPED_TEST_SUITE(TestArraySortIndicesKernelForStrings, testing::Types<StringType>);
+class TestArraySortIndicesForTemporal : public TestArraySortIndices<ArrowType> {};
+TYPED_TEST_SUITE(TestArraySortIndicesForTemporal, TemporalArrowTypes);
 
-TYPED_TEST(TestArraySortIndicesKernelForReal, SortReal) {
+using StringSortTestTypes = testing::Types<StringType, LargeStringType>;
+
+template <typename ArrowType>
+class TestArraySortIndicesForStrings : public TestArraySortIndices<ArrowType> {};
+TYPED_TEST_SUITE(TestArraySortIndicesForStrings, StringSortTestTypes);
+
+class TestArraySortIndicesForFixedSizeBinary : public TestArraySortIndicesBase {
+ public:
+  std::shared_ptr<DataType> type() override { return fixed_size_binary(3); }
+};
+
+TYPED_TEST(TestArraySortIndicesForReal, SortReal) {
   this->AssertSortIndices("[]", "[]");
 
   this->AssertSortIndices("[3.4, 2.6, 6.3]", "[1, 0, 2]");
@@ -382,7 +446,7 @@ TYPED_TEST(TestArraySortIndicesKernelForReal, SortReal) {
                           "[1, 2, 0, 3]");
 }
 
-TYPED_TEST(TestArraySortIndicesKernelForIntegral, SortIntegral) {
+TYPED_TEST(TestArraySortIndicesForIntegral, SortIntegral) {
   this->AssertSortIndices("[]", "[]");
 
   this->AssertSortIndices("[3, 2, 6]", "[1, 0, 2]");
@@ -400,7 +464,7 @@ TYPED_TEST(TestArraySortIndicesKernelForIntegral, SortIntegral) {
                           "[5, 2, 4, 1, 0, 3]");
 }
 
-TYPED_TEST(TestArraySortIndicesKernelForTemporal, SortTemporal) {
+TYPED_TEST(TestArraySortIndicesForTemporal, SortTemporal) {
   this->AssertSortIndices("[]", "[]");
 
   this->AssertSortIndices("[3, 2, 6]", "[1, 0, 2]");
@@ -418,7 +482,7 @@ TYPED_TEST(TestArraySortIndicesKernelForTemporal, SortTemporal) {
                           "[5, 2, 4, 1, 0, 3]");
 }
 
-TYPED_TEST(TestArraySortIndicesKernelForStrings, SortStrings) {
+TYPED_TEST(TestArraySortIndicesForStrings, SortStrings) {
   this->AssertSortIndices("[]", "[]");
 
   this->AssertSortIndices(R"(["a", "b", "c"])", "[0, 1, 2]");
@@ -431,41 +495,62 @@ TYPED_TEST(TestArraySortIndicesKernelForStrings, SortStrings) {
                           "[0, 1, 3, 2]");
 }
 
-template <typename ArrowType>
-class TestArraySortIndicesKernelForUInt8 : public TestArraySortIndicesKernel<ArrowType> {
-};
-TYPED_TEST_SUITE(TestArraySortIndicesKernelForUInt8, UInt8Type);
+TEST_F(TestArraySortIndicesForFixedSizeBinary, SortFixedSizeBinary) {
+  this->AssertSortIndices("[]", "[]");
+
+  this->AssertSortIndices(R"(["def", "abc", "ghi"])", "[1, 0, 2]");
+  this->AssertSortIndices(R"(["def", "abc", "ghi"])", SortOrder::Descending, "[2, 0, 1]");
+}
 
 template <typename ArrowType>
-class TestArraySortIndicesKernelForInt8 : public TestArraySortIndicesKernel<ArrowType> {};
-TYPED_TEST_SUITE(TestArraySortIndicesKernelForInt8, Int8Type);
+class TestArraySortIndicesForUInt8 : public TestArraySortIndices<ArrowType> {};
+TYPED_TEST_SUITE(TestArraySortIndicesForUInt8, UInt8Type);
 
-TYPED_TEST(TestArraySortIndicesKernelForUInt8, SortUInt8) {
+template <typename ArrowType>
+class TestArraySortIndicesForInt8 : public TestArraySortIndices<ArrowType> {};
+TYPED_TEST_SUITE(TestArraySortIndicesForInt8, Int8Type);
+
+TYPED_TEST(TestArraySortIndicesForUInt8, SortUInt8) {
   this->AssertSortIndices("[255, null, 0, 255, 10, null, 128, 0]",
                           "[2, 7, 4, 6, 0, 3, 1, 5]");
 }
 
-TYPED_TEST(TestArraySortIndicesKernelForInt8, SortInt8) {
+TYPED_TEST(TestArraySortIndicesForInt8, SortInt8) {
   this->AssertSortIndices("[null, 10, 127, 0, -128, -128, null]",
                           "[4, 5, 3, 1, 2, 0, 6]");
 }
 
 template <typename ArrowType>
-class TestArraySortIndicesKernelRandom : public TestBase {};
+class TestArraySortIndicesForDecimal : public TestArraySortIndicesBase {
+ public:
+  std::shared_ptr<DataType> type() override { return std::make_shared<ArrowType>(5, 2); }
+};
+TYPED_TEST_SUITE(TestArraySortIndicesForDecimal, DecimalArrowTypes);
+
+TYPED_TEST(TestArraySortIndicesForDecimal, DecimalSortTestTypes) {
+  this->AssertSortIndices(R"(["123.45", null, "-123.45", "456.78", "-456.78"])",
+                          "[4, 2, 0, 3, 1]");
+  this->AssertSortIndices(R"(["123.45", null, "-123.45", "456.78", "-456.78"])",
+                          SortOrder::Descending, "[3, 0, 2, 4, 1]");
+}
 
 template <typename ArrowType>
-class TestArraySortIndicesKernelRandomCount : public TestBase {};
+class TestArraySortIndicesRandom : public TestBase {};
 
 template <typename ArrowType>
-class TestArraySortIndicesKernelRandomCompare : public TestBase {};
+class TestArraySortIndicesRandomCount : public TestBase {};
+
+template <typename ArrowType>
+class TestArraySortIndicesRandomCompare : public TestBase {};
 
 using SortIndicesableTypes =
     ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
-                     Int32Type, Int64Type, FloatType, DoubleType, StringType>;
+                     Int32Type, Int64Type, FloatType, DoubleType, StringType,
+                     Decimal128Type>;
 
 template <typename ArrayType>
 void ValidateSorted(const ArrayType& array, UInt64Array& offsets, SortOrder order) {
-  ASSERT_OK(array.ValidateFull());
+  ValidateOutput(array);
   SortComparator<ArrayType> compare;
   for (int i = 1; i < array.length(); i++) {
     uint64_t lhs = offsets.Value(i - 1);
@@ -474,9 +559,9 @@ void ValidateSorted(const ArrayType& array, UInt64Array& offsets, SortOrder orde
   }
 }
 
-TYPED_TEST_SUITE(TestArraySortIndicesKernelRandom, SortIndicesableTypes);
+TYPED_TEST_SUITE(TestArraySortIndicesRandom, SortIndicesableTypes);
 
-TYPED_TEST(TestArraySortIndicesKernelRandom, SortRandomValues) {
+TYPED_TEST(TestArraySortIndicesRandom, SortRandomValues) {
   using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
 
   Random<TypeParam> rand(0x5487655);
@@ -497,9 +582,9 @@ TYPED_TEST(TestArraySortIndicesKernelRandom, SortRandomValues) {
 // Long array with small value range: counting sort
 // - length >= 1024(CountCompareSorter::countsort_min_len_)
 // - range  <= 4096(CountCompareSorter::countsort_max_range_)
-TYPED_TEST_SUITE(TestArraySortIndicesKernelRandomCount, IntegralArrowTypes);
+TYPED_TEST_SUITE(TestArraySortIndicesRandomCount, IntegralArrowTypes);
 
-TYPED_TEST(TestArraySortIndicesKernelRandomCount, SortRandomValuesCount) {
+TYPED_TEST(TestArraySortIndicesRandomCount, SortRandomValuesCount) {
   using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
 
   RandomRange<TypeParam> rand(0x5487656);
@@ -519,9 +604,9 @@ TYPED_TEST(TestArraySortIndicesKernelRandomCount, SortRandomValuesCount) {
 }
 
 // Long array with big value range: std::stable_sort
-TYPED_TEST_SUITE(TestArraySortIndicesKernelRandomCompare, IntegralArrowTypes);
+TYPED_TEST_SUITE(TestArraySortIndicesRandomCompare, IntegralArrowTypes);
 
-TYPED_TEST(TestArraySortIndicesKernelRandomCompare, SortRandomValuesCompare) {
+TYPED_TEST(TestArraySortIndicesRandomCompare, SortRandomValuesCompare) {
   using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
 
   Random<TypeParam> rand(0x5487657);
@@ -581,6 +666,22 @@ TYPED_TEST(TestChunkedArraySortIndicesForTemporal, NoNull) {
   AssertSortIndices(chunked_array, SortOrder::Descending, "[5, 2, 3, 1, 4, 0, 6]");
 }
 
+// Tests for decimal types
+template <typename ArrowType>
+class TestChunkedArraySortIndicesForDecimal : public TestChunkedArraySortIndices {
+ protected:
+  std::shared_ptr<DataType> GetType() { return std::make_shared<ArrowType>(5, 2); }
+};
+TYPED_TEST_SUITE(TestChunkedArraySortIndicesForDecimal, DecimalArrowTypes);
+
+TYPED_TEST(TestChunkedArraySortIndicesForDecimal, Basics) {
+  auto type = this->GetType();
+  auto chunked_array = ChunkedArrayFromJSON(
+      type, {R"(["123.45", "-123.45"])", R"([null, "456.78"])", R"(["-456.78", null])"});
+  AssertSortIndices(chunked_array, SortOrder::Ascending, "[4, 1, 0, 3, 2, 5]");
+  AssertSortIndices(chunked_array, SortOrder::Descending, "[3, 0, 1, 4, 2, 5]");
+}
+
 // Base class for testing against random chunked array.
 template <typename Type>
 class TestChunkedArrayRandomBase : public TestBase {
@@ -629,6 +730,7 @@ class TestChunkedArrayRandom : public TestChunkedArrayRandomBase<Type> {
   Random<Type>* rand_;
 };
 TYPED_TEST_SUITE(TestChunkedArrayRandom, SortIndicesableTypes);
+
 TYPED_TEST(TestChunkedArrayRandom, SortIndices) { this->TestSortIndices(1000); }
 
 // Long array with small value range: counting sort
@@ -744,19 +846,39 @@ TEST_F(TestRecordBatchSortIndices, MoreTypes) {
   auto schema = ::arrow::schema({
       {field("a", timestamp(TimeUnit::MICRO))},
       {field("b", large_utf8())},
+      {field("c", fixed_size_binary(3))},
+  });
+  SortOptions options({SortKey("a", SortOrder::Ascending),
+                       SortKey("b", SortOrder::Descending),
+                       SortKey("c", SortOrder::Ascending)});
+
+  auto batch = RecordBatchFromJSON(schema,
+                                   R"([{"a": 3, "b": "05",   "c": "aaa"},
+                                       {"a": 1, "b": "031",  "c": "bbb"},
+                                       {"a": 3, "b": "05",   "c": "bbb"},
+                                       {"a": 0, "b": "0666", "c": "aaa"},
+                                       {"a": 2, "b": "05",   "c": "aaa"},
+                                       {"a": 1, "b": "05",   "c": "bbb"}
+                                       ])");
+  AssertSortIndices(batch, options, "[3, 5, 1, 4, 0, 2]");
+}
+
+TEST_F(TestRecordBatchSortIndices, Decimal) {
+  auto schema = ::arrow::schema({
+      {field("a", decimal128(3, 1))},
+      {field("b", decimal256(4, 2))},
   });
   SortOptions options(
       {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
 
   auto batch = RecordBatchFromJSON(schema,
-                                   R"([{"a": 3,    "b": "05"},
-                                       {"a": 1,    "b": "03"},
-                                       {"a": 3,    "b": "04"},
-                                       {"a": 0,    "b": "06"},
-                                       {"a": 2,    "b": "05"},
-                                       {"a": 1,    "b": "05"}
+                                   R"([{"a": "12.3", "b": "12.34"},
+                                       {"a": "45.6", "b": "12.34"},
+                                       {"a": "12.3", "b": "-12.34"},
+                                       {"a": "-12.3", "b": null},
+                                       {"a": "-12.3", "b": "-45.67"}
                                        ])");
-  AssertSortIndices(batch, options, "[3, 5, 1, 4, 0, 2]");
+  AssertSortIndices(batch, options, "[4, 3, 0, 2, 1]");
 }
 
 // Test basic cases for table.
@@ -858,6 +980,44 @@ TEST_F(TestTableSortIndices, NaNAndNull) {
   AssertSortIndices(table, options, "[7, 1, 2, 6, 5, 4, 0, 3]");
 }
 
+TEST_F(TestTableSortIndices, BinaryLike) {
+  auto schema = ::arrow::schema({
+      {field("a", large_utf8())},
+      {field("b", fixed_size_binary(3))},
+  });
+  SortOptions options(
+      {SortKey("a", SortOrder::Descending), SortKey("b", SortOrder::Ascending)});
+  auto table = TableFromJSON(schema, {R"([{"a": "one", "b": null},
+                                          {"a": "two", "b": "aaa"},
+                                          {"a": "three", "b": "bbb"},
+                                          {"a": "four", "b": "ccc"}
+                                         ])",
+                                      R"([{"a": "one", "b": "ddd"},
+                                          {"a": "two", "b": "ccc"},
+                                          {"a": "three", "b": "bbb"},
+                                          {"a": "four", "b": "aaa"}
+                                         ])"});
+  AssertSortIndices(table, options, "[1, 5, 2, 6, 4, 0, 7, 3]");
+}
+
+TEST_F(TestTableSortIndices, Decimal) {
+  auto schema = ::arrow::schema({
+      {field("a", decimal128(3, 1))},
+      {field("b", decimal256(4, 2))},
+  });
+  SortOptions options(
+      {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
+
+  auto table = TableFromJSON(schema, {R"([{"a": "12.3", "b": "12.34"},
+                                          {"a": "45.6", "b": "12.34"},
+                                          {"a": "12.3", "b": "-12.34"}
+                                          ])",
+                                      R"([{"a": "-12.3", "b": null},
+                                          {"a": "-12.3", "b": "-45.67"}
+                                          ])"});
+  AssertSortIndices(table, options, "[4, 3, 0, 2, 1]");
+}
+
 // Tests for temporal types
 template <typename ArrowType>
 class TestTableSortIndicesForTemporal : public TestTableSortIndices {
@@ -945,6 +1105,7 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
     VISIT(Float)
     VISIT(Double)
     VISIT(String)
+    VISIT(Decimal128)
 
 #undef VISIT
 
@@ -972,8 +1133,10 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
     template <typename Type>
     int CompareType() {
       using ArrayType = typename TypeTraits<Type>::ArrayType;
-      auto lhs_value = checked_cast<const ArrayType*>(lhs_array_)->GetView(lhs_index_);
-      auto rhs_value = checked_cast<const ArrayType*>(rhs_array_)->GetView(rhs_index_);
+      auto lhs_value =
+          GetLogicalValue(checked_cast<const ArrayType&>(*lhs_array_), lhs_index_);
+      auto rhs_value =
+          GetLogicalValue(checked_cast<const ArrayType&>(*rhs_array_), rhs_index_);
       if (is_floating_type<Type>::value) {
         lhs_isnan_ = lhs_value != lhs_value;
         rhs_isnan_ = rhs_value != rhs_value;
@@ -1009,7 +1172,7 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
  public:
   // Validates the sorted indexes are really sorted.
   void Validate(const Table& table, const SortOptions& options, UInt64Array& offsets) {
-    ASSERT_OK(offsets.ValidateFull());
+    ValidateOutput(offsets);
     Comparator comparator{table, options};
     for (int i = 1; i < table.num_rows(); i++) {
       uint64_t lhs = offsets.Value(i - 1);
@@ -1024,20 +1187,17 @@ TEST_P(TestTableSortIndicesRandom, Sort) {
   const auto first_sort_key_name = std::get<0>(GetParam());
   const auto null_probability = std::get<1>(GetParam());
   const auto seed = 0x61549225;
-  std::vector<std::string> column_names = {
-      "uint8", "uint16", "uint32", "uint64", "int8",   "int16",
-      "int32", "int64",  "float",  "double", "string",
-  };
-  std::vector<std::shared_ptr<Field>> fields = {
-      {field(column_names[0], uint8())},   {field(column_names[1], uint16())},
-      {field(column_names[2], uint32())},  {field(column_names[3], uint64())},
-      {field(column_names[4], int8())},    {field(column_names[5], int16())},
-      {field(column_names[6], int32())},   {field(column_names[7], int64())},
-      {field(column_names[8], float32())}, {field(column_names[9], float64())},
-      {field(column_names[10], utf8())},
+
+  const FieldVector fields = {
+      {field("uint8", uint8())},   {field("uint16", uint16())},
+      {field("uint32", uint32())}, {field("uint64", uint64())},
+      {field("int8", int8())},     {field("int16", int16())},
+      {field("int32", int32())},   {field("int64", int64())},
+      {field("float", float32())}, {field("double", float64())},
+      {field("string", utf8())},   {field("decimal128", decimal128(18, 3))},
   };
   const auto length = 200;
-  std::vector<std::shared_ptr<Array>> columns = {
+  ArrayVector columns = {
       Random<UInt8Type>(seed).Generate(length, null_probability),
       Random<UInt16Type>(seed).Generate(length, 0.0),
       Random<UInt32Type>(seed).Generate(length, null_probability),
@@ -1049,22 +1209,27 @@ TEST_P(TestTableSortIndicesRandom, Sort) {
       Random<FloatType>(seed).Generate(length, null_probability, 1 - null_probability),
       Random<DoubleType>(seed).Generate(length, 0.0, null_probability),
       Random<StringType>(seed).Generate(length, null_probability),
+      Random<Decimal128Type>(seed, fields[11]->type()).Generate(length, null_probability),
   };
   const auto table = Table::Make(schema(fields), columns, length);
+
+  // Generate random sort keys
   std::default_random_engine engine(seed);
   std::uniform_int_distribution<> distribution(0);
-  const auto n_sort_keys = 5;
+  const auto n_sort_keys = 7;
   std::vector<SortKey> sort_keys;
   const auto first_sort_key_order =
       (distribution(engine) % 2) == 0 ? SortOrder::Ascending : SortOrder::Descending;
   sort_keys.emplace_back(first_sort_key_name, first_sort_key_order);
   for (int i = 1; i < n_sort_keys; ++i) {
-    const auto& column_name = column_names[distribution(engine) % column_names.size()];
+    const auto& field = *fields[distribution(engine) % fields.size()];
     const auto order =
         (distribution(engine) % 2) == 0 ? SortOrder::Ascending : SortOrder::Descending;
-    sort_keys.emplace_back(column_name, order);
+    sort_keys.emplace_back(field.name(), order);
   }
   SortOptions options(sort_keys);
+
+  // Test with different table chunkings
   for (const int64_t num_chunks : {1, 2, 20}) {
     TableBatchReader reader(*table);
     reader.set_chunksize((length + num_chunks - 1) / num_chunks);
@@ -1072,6 +1237,7 @@ TEST_P(TestTableSortIndicesRandom, Sort) {
     ASSERT_OK_AND_ASSIGN(auto offsets, SortIndices(Datum(*chunked_table), options));
     Validate(*table, options, *checked_pointer_cast<UInt64Array>(offsets));
   }
+
   // Also validate RecordBatch sorting
   TableBatchReader reader(*table);
   RecordBatchVector batches;
@@ -1081,26 +1247,18 @@ TEST_P(TestTableSortIndicesRandom, Sort) {
   Validate(*table, options, *checked_pointer_cast<UInt64Array>(offsets));
 }
 
+static const auto first_sort_keys =
+    testing::Values("uint8", "uint16", "uint32", "uint64", "int8", "int16", "int32",
+                    "int64", "float", "double", "string", "decimal128");
+
 INSTANTIATE_TEST_SUITE_P(NoNull, TestTableSortIndicesRandom,
-                         testing::Combine(testing::Values("uint8", "uint16", "uint32",
-                                                          "uint64", "int8", "int16",
-                                                          "int32", "int64", "float",
-                                                          "double", "string"),
-                                          testing::Values(0.0)));
+                         testing::Combine(first_sort_keys, testing::Values(0.0)));
 
 INSTANTIATE_TEST_SUITE_P(MayNull, TestTableSortIndicesRandom,
-                         testing::Combine(testing::Values("uint8", "uint16", "uint32",
-                                                          "uint64", "int8", "int16",
-                                                          "int32", "int64", "float",
-                                                          "double", "string"),
-                                          testing::Values(0.1, 0.5)));
+                         testing::Combine(first_sort_keys, testing::Values(0.1, 0.5)));
 
 INSTANTIATE_TEST_SUITE_P(AllNull, TestTableSortIndicesRandom,
-                         testing::Combine(testing::Values("uint8", "uint16", "uint32",
-                                                          "uint64", "int8", "int16",
-                                                          "int32", "int64", "float",
-                                                          "double", "string"),
-                                          testing::Values(1.0)));
+                         testing::Combine(first_sort_keys, testing::Values(1.0)));
 
 }  // namespace compute
 }  // namespace arrow

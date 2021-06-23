@@ -201,8 +201,18 @@ namespace Apache.Arrow
             /// <returns>Returns an <see cref="ArrowBuffer"/> object.</returns>
             public ArrowBuffer Build(MemoryAllocator allocator = default)
             {
+                return Build(64, allocator);
+            }
+
+            /// <summary>
+            /// Build an Arrow buffer from the appended contents so far of the specified byte size.
+            /// </summary>
+            /// <param name="allocator">Optional memory allocator.</param>
+            /// <returns>Returns an <see cref="ArrowBuffer"/> object.</returns>
+            internal ArrowBuffer Build(int byteSize, MemoryAllocator allocator = default)
+            {
                 int currentBytesLength = Length * _size;
-                int bufferLength = checked((int)BitUtility.RoundUpToMultipleOf64(currentBytesLength));
+                int bufferLength = checked((int)BitUtility.RoundUpToMultiplePowerOfTwo(currentBytesLength, byteSize));
 
                 MemoryAllocator memoryAllocator = allocator ?? MemoryAllocator.Default.Value;
                 IMemoryOwner<byte> memoryOwner = memoryAllocator.Allocate(bufferLength);

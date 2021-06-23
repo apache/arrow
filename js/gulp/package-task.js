@@ -50,11 +50,12 @@ const createMainPackageJson = (target, format) => (orig) => ({
     browser: `${mainExport}.dom`,
     module: `${mainExport}.dom.mjs`,
     types: `${mainExport}.node.d.ts`,
-    unpkg: `${mainExport}.es5.min.js`,
-    jsdelivr: `${mainExport}.es5.min.js`,
-    esm: { mode: `all`, sourceMap: true }
+    unpkg: `${mainExport}.es2015.min.js`,
+    jsdelivr: `${mainExport}.es2015.min.js`,
+    sideEffects: false,
+    esm: { mode: `all`, sourceMap: true },
 });
-  
+
 const createTypeScriptPackageJson = (target, format) => (orig) => ({
     ...createScopedPackageJSON(target, format)(orig),
     bin: undefined,
@@ -68,7 +69,7 @@ const createTypeScriptPackageJson = (target, format) => (orig) => ({
         ...orig.dependencies
     }
 });
-  
+
 const createScopedPackageJSON = (target, format) => (({ name, ...orig }) =>
     packageJSONFields.reduce(
         (xs, key) => ({ ...xs, [key]: xs[key] || orig[key] }),
@@ -86,6 +87,8 @@ const createScopedPackageJSON = (target, format) => (({ name, ...orig }) =>
             main:     format === 'umd' ? `${mainExport}.js` : `${mainExport}.node`,
             // set "module" (for https://www.npmjs.com/package/@pika/pack) if building scoped ESM target
             module:   format === 'esm' ? `${mainExport}.dom.js` : undefined,
+            // set "sideEffects" to false as a hint to Webpack that it's safe to tree-shake the ESM target
+            sideEffects: format === 'esm' ? false : undefined,
             // include "esm" settings for https://www.npmjs.com/package/esm if building scoped ESM target
             esm:      format === `esm` ? { mode: `auto`, sourceMap: true } : undefined,
             // set "types" (for TypeScript/VSCode)

@@ -19,6 +19,8 @@ from pyarrow._compute import (  # noqa
     Function,
     FunctionOptions,
     FunctionRegistry,
+    HashAggregateFunction,
+    HashAggregateKernel,
     Kernel,
     ScalarAggregateFunction,
     ScalarAggregateKernel,
@@ -29,20 +31,28 @@ from pyarrow._compute import (  # noqa
     # Option classes
     ArraySortOptions,
     CastOptions,
-    CountOptions,
+    DictionaryEncodeOptions,
+    ElementWiseAggregateOptions,
+    ExtractRegexOptions,
     FilterOptions,
+    IndexOptions,
+    JoinOptions,
     MatchSubstringOptions,
-    MinMaxOptions,
     ModeOptions,
-    SplitOptions,
-    SplitPatternOptions,
     PartitionNthOptions,
     ProjectOptions,
     QuantileOptions,
+    ReplaceSliceOptions,
+    ReplaceSubstringOptions,
+    ScalarAggregateOptions,
     SetLookupOptions,
+    SliceOptions,
     SortOptions,
+    SplitOptions,
+    SplitPatternOptions,
     StrptimeOptions,
     TakeOptions,
+    TDigestOptions,
     TrimOptions,
     VarianceOptions,
     # Functions
@@ -122,7 +132,7 @@ def _decorate_compute_function(wrapper, exposed_name, func, option_class):
             options : pyarrow.compute.{0}, optional
                 Parameters altering compute function semantics
             **kwargs : optional
-                Parameters for {0} constructor.  Either `options`
+                Parameters for {0} constructor. Either `options`
                 or `**kwargs` can be passed, but not both at the same time.
             """.format(option_class.__name__))
 
@@ -283,9 +293,10 @@ def cast(arr, target_type, safe=True):
     return call_function("cast", [arr], options)
 
 
-def match_substring(array, pattern):
+def count_substring(array, pattern, *, ignore_case=False):
     """
-    Test if substring *pattern* is contained within a value of a string array.
+    Count the occurrences of substring *pattern* in each value of a
+    string array.
 
     Parameters
     ----------
@@ -297,23 +308,111 @@ def match_substring(array, pattern):
     -------
     result : pyarrow.Array or pyarrow.ChunkedArray
     """
-    return call_function("match_substring", [array],
-                         MatchSubstringOptions(pattern))
+    return call_function("count_substring", [array],
+                         MatchSubstringOptions(pattern, ignore_case))
 
 
-def sum(array):
+def count_substring_regex(array, pattern, *, ignore_case=False):
     """
-    Sum the values in a numerical (chunked) array.
+    Count the non-overlapping matches of regex *pattern* in each value
+    of a string array.
 
     Parameters
     ----------
     array : pyarrow.Array or pyarrow.ChunkedArray
+    pattern : str
+        pattern to search for exact matches
 
     Returns
     -------
-    sum : pyarrow.Scalar
+    result : pyarrow.Array or pyarrow.ChunkedArray
     """
-    return call_function('sum', [array])
+    return call_function("count_substring_regex", [array],
+                         MatchSubstringOptions(pattern, ignore_case))
+
+
+def find_substring(array, pattern):
+    """
+    Find the index of the first occurrence of substring *pattern* in each
+    value of a string array.
+
+    Parameters
+    ----------
+    array : pyarrow.Array or pyarrow.ChunkedArray
+    pattern : str
+        pattern to search for exact matches
+
+    Returns
+    -------
+    result : pyarrow.Array or pyarrow.ChunkedArray
+    """
+    return call_function("find_substring", [array],
+                         MatchSubstringOptions(pattern))
+
+
+def match_like(array, pattern, *, ignore_case=False):
+    """
+    Test if the SQL-style LIKE pattern *pattern* matches a value of a
+    string array.
+
+    Parameters
+    ----------
+    array : pyarrow.Array or pyarrow.ChunkedArray
+    pattern : str
+        SQL-style LIKE pattern. '%' will match any number of
+        characters, '_' will match exactly one character, and all
+        other characters match themselves. To match a literal percent
+        sign or underscore, precede the character with a backslash.
+    ignore_case : bool, default False
+        Ignore case while searching.
+
+    Returns
+    -------
+    result : pyarrow.Array or pyarrow.ChunkedArray
+
+    """
+    return call_function("match_like", [array],
+                         MatchSubstringOptions(pattern, ignore_case))
+
+
+def match_substring(array, pattern, *, ignore_case=False):
+    """
+    Test if substring *pattern* is contained within a value of a string array.
+
+    Parameters
+    ----------
+    array : pyarrow.Array or pyarrow.ChunkedArray
+    pattern : str
+        pattern to search for exact matches
+    ignore_case : bool, default False
+        Ignore case while searching.
+
+    Returns
+    -------
+    result : pyarrow.Array or pyarrow.ChunkedArray
+    """
+    return call_function("match_substring", [array],
+                         MatchSubstringOptions(pattern, ignore_case))
+
+
+def match_substring_regex(array, pattern, *, ignore_case=False):
+    """
+    Test if regex *pattern* matches at any position a value of a string array.
+
+    Parameters
+    ----------
+    array : pyarrow.Array or pyarrow.ChunkedArray
+    pattern : str
+        regex pattern to search
+    ignore_case : bool, default False
+        Ignore case while searching.
+
+    Returns
+    -------
+    result : pyarrow.Array or pyarrow.ChunkedArray
+    """
+    return call_function("match_substring_regex", [array],
+                         MatchSubstringOptions(pattern, ignore_case))
 
 
 def mode(array, n=1):
@@ -387,6 +486,40 @@ def filter(data, mask, null_selection_behavior='drop'):
     """
     options = FilterOptions(null_selection_behavior)
     return call_function('filter', [data, mask], options)
+
+
+def index(data, value, start=None, end=None, *, memory_pool=None):
+    """
+    Find the index of the first occurrence of a given value.
+
+    Parameters
+    ----------
+    data : Array or ChunkedArray
+    value : Scalar-like object
+    start : int, optional
+    end : int, optional
+
+    Returns
+    -------
+    index : the index, or -1 if not found
+    """
+    if start is not None:
+        if end is not None:
+            data = data.slice(start, end - start)
+        else:
+            data = data.slice(start)
+    elif end is not None:
+        data = data.slice(0, end)
+
+    if not isinstance(value, pa.Scalar):
+        value = pa.scalar(value, type=data.type)
+    elif data.type != value.type:
+        value = pa.scalar(value.as_py(), type=data.type)
+    options = IndexOptions(value=value)
+    result = call_function('index', [data], options, memory_pool)
+    if start is not None and result.as_py() >= 0:
+        result = pa.scalar(result.as_py() + start, type=pa.int64())
+    return result
 
 
 def take(data, indices, *, boundscheck=True, memory_pool=None):

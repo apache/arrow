@@ -28,14 +28,13 @@
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/type_fwd.h"
-#include "arrow/filesystem/path_forest.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
 namespace dataset {
 
-DatasetFactory::DatasetFactory() : root_partition_(literal(true)) {}
+DatasetFactory::DatasetFactory() : root_partition_(compute::literal(true)) {}
 
 Result<std::shared_ptr<Schema>> DatasetFactory::Inspect(InspectOptions options) {
   ARROW_ASSIGN_OR_RAISE(auto schemas, InspectSchemas(std::move(options)));
@@ -208,6 +207,17 @@ Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
               std::move(options));
 }
 
+Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
+    std::string uri, std::shared_ptr<FileFormat> format,
+    FileSystemFactoryOptions options) {
+  std::string internal_path;
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<fs::FileSystem> filesystem,
+                        arrow::fs::FileSystemFromUri(uri, &internal_path))
+  ARROW_ASSIGN_OR_RAISE(fs::FileInfo file_info, filesystem->GetFileInfo(internal_path))
+  return std::shared_ptr<DatasetFactory>(new FileSystemDatasetFactory(
+      {file_info}, std::move(filesystem), std::move(format), std::move(options)));
+}
+
 Result<std::vector<std::shared_ptr<Schema>>> FileSystemDatasetFactory::InspectSchemas(
     InspectOptions options) {
   std::vector<std::shared_ptr<Schema>> schemas;
@@ -216,8 +226,14 @@ Result<std::vector<std::shared_ptr<Schema>>> FileSystemDatasetFactory::InspectSc
   int fragments = options.fragments;
   for (const auto& info : files_) {
     if (has_fragments_limit && fragments-- == 0) break;
-    ARROW_ASSIGN_OR_RAISE(auto schema, format_->Inspect({info, fs_}));
-    schemas.push_back(schema);
+    auto result = format_->Inspect({info, fs_});
+    if (ARROW_PREDICT_FALSE(!result.ok())) {
+      return result.status().WithMessage(
+          "Error creating dataset. Could not read schema from '", info.path(),
+          "': ", result.status().message(), ". Is this a '", format_->type_name(),
+          "' file?");
+    }
+    schemas.push_back(result.MoveValueUnsafe());
   }
 
   ARROW_ASSIGN_OR_RAISE(auto partition_schema,

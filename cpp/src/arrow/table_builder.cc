@@ -74,9 +74,9 @@ Status RecordBatchBuilder::Flush(bool reset_builders,
     }
   }
   std::shared_ptr<Schema> schema =
-      std::make_shared<Schema>(schema_fields, schema_->metadata());
+      std::make_shared<Schema>(std::move(schema_fields), schema_->metadata());
 
-  *batch = RecordBatch::Make(schema, length, std::move(fields));
+  *batch = RecordBatch::Make(std::move(schema), length, std::move(fields));
   if (reset_builders) {
     return InitBuilders();
   } else {

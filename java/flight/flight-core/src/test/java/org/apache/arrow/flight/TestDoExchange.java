@@ -249,6 +249,62 @@ public class TestDoExchange {
     }
   }
 
+  /** Write some data, have it transformed, then read it back. Use the zero-copy optimization. */
+  @Test
+  public void testTransformZeroCopy() throws Exception {
+    final int rowsPerBatch = 4096;
+    final Schema schema = new Schema(Arrays.asList(
+        Field.nullable("a", new ArrowType.Int(32, true)),
+        Field.nullable("b", new ArrowType.Int(32, true))));
+    try (final FlightClient.ExchangeReaderWriter stream =
+             client.doExchange(FlightDescriptor.command(EXCHANGE_TRANSFORM))) {
+      // Write ten batches of data to the stream, where batch N contains 1024 rows of data (N in [0, 10))
+      final FlightStream reader = stream.getReader();
+      final FlightClient.ClientStreamListener writer = stream.getWriter();
+      try (final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
+        writer.start(root);
+        // Enable the zero-copy optimization
+        writer.setUseZeroCopy(true);
+        for (int batchIndex = 0; batchIndex < 100; batchIndex++) {
+          for (final FieldVector rawVec : root.getFieldVectors()) {
+            final IntVector vec = (IntVector) rawVec;
+            for (int row = 0; row < rowsPerBatch; row++) {
+              // Use a value that'll be different per batch, so we can detect if we accidentally
+              // reuse a buffer (and overwrite a buffer that hasn't yet been sent over the network)
+              vec.setSafe(row, batchIndex + row);
+            }
+          }
+          root.setRowCount(rowsPerBatch);
+          writer.putNext();
+          // Allocate new buffers every time since we don't know if gRPC has written the buffer
+          // to the network yet
+          root.allocateNew();
+        }
+      }
+      // Indicate that we're done writing so that the server does not expect more data.
+      writer.completed();
+
+      // Read back data. We expect the server to double each value in each row of each batch.
+      assertEquals(schema, reader.getSchema());
+      final VectorSchemaRoot root = reader.getRoot();
+      for (int batchIndex = 0; batchIndex < 100; batchIndex++) {
+        assertTrue("Didn't receive batch #" + batchIndex, reader.next());
+        assertEquals(rowsPerBatch, root.getRowCount());
+        for (final FieldVector rawVec : root.getFieldVectors()) {
+          final IntVector vec = (IntVector) rawVec;
+          for (int row = 0; row < rowsPerBatch; row++) {
+            assertEquals(2 * (batchIndex + row), vec.get(row));
+          }
+        }
+      }
+
+      // The server also sends back a metadata-only message containing the message count
+      assertTrue("There should be one extra message", reader.next());
+      assertEquals(100, reader.getLatestMetadata().getInt(0));
+      assertFalse("There should be no more data", reader.next());
+    }
+  }
+
   /** Have the server immediately cancel; ensure the client doesn't hang. */
   @Test
   public void testServerCancel() throws Exception {
@@ -447,6 +503,7 @@ public class TestDoExchange {
       int batches = 0;
       try (final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
         writer.start(root);
+        writer.setUseZeroCopy(true);
         final VectorLoader loader = new VectorLoader(root);
         final VectorUnloader unloader = new VectorUnloader(reader.getRoot());
         while (reader.next()) {

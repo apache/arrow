@@ -17,6 +17,7 @@
 
 from collections import OrderedDict
 from collections.abc import Iterator
+from functools import partial
 import datetime
 import sys
 
@@ -561,31 +562,45 @@ def test_union_type():
               pa.field('y', pa.binary())]
     type_codes = [5, 9]
 
-    for mode in ('sparse', pa.lib.UnionMode_SPARSE):
-        ty = pa.union(fields, mode=mode)
-        assert ty.mode == 'sparse'
-        check_fields(ty, fields)
-        assert ty.type_codes == [0, 1]
-        ty = pa.union(fields, mode=mode, type_codes=type_codes)
-        assert ty.mode == 'sparse'
-        check_fields(ty, fields)
-        assert ty.type_codes == type_codes
-        # Invalid number of type codes
-        with pytest.raises(ValueError):
-            pa.union(fields, mode=mode, type_codes=type_codes[1:])
+    sparse_factories = [
+        partial(pa.union, mode='sparse'),
+        partial(pa.union, mode=pa.lib.UnionMode_SPARSE),
+        pa.sparse_union,
+    ]
 
-    for mode in ('dense', pa.lib.UnionMode_DENSE):
-        ty = pa.union(fields, mode=mode)
+    dense_factories = [
+        partial(pa.union, mode='dense'),
+        partial(pa.union, mode=pa.lib.UnionMode_DENSE),
+        pa.dense_union,
+    ]
+
+    for factory in sparse_factories:
+        ty = factory(fields)
+        assert isinstance(ty, pa.SparseUnionType)
+        assert ty.mode == 'sparse'
+        check_fields(ty, fields)
+        assert ty.type_codes == [0, 1]
+        ty = factory(fields, type_codes=type_codes)
+        assert ty.mode == 'sparse'
+        check_fields(ty, fields)
+        assert ty.type_codes == type_codes
+        # Invalid number of type codes
+        with pytest.raises(ValueError):
+            factory(fields, type_codes=type_codes[1:])
+
+    for factory in dense_factories:
+        ty = factory(fields)
+        assert isinstance(ty, pa.DenseUnionType)
         assert ty.mode == 'dense'
         check_fields(ty, fields)
         assert ty.type_codes == [0, 1]
-        ty = pa.union(fields, mode=mode, type_codes=type_codes)
+        ty = factory(fields, type_codes=type_codes)
         assert ty.mode == 'dense'
         check_fields(ty, fields)
         assert ty.type_codes == type_codes
         # Invalid number of type codes
         with pytest.raises(ValueError):
-            pa.union(fields, mode=mode, type_codes=type_codes[1:])
+            factory(fields, type_codes=type_codes[1:])
 
     for mode in ('unknown', 2):
         with pytest.raises(ValueError, match='Invalid union mode'):

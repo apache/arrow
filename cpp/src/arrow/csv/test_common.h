@@ -46,5 +46,8 @@ void MakeCSVParser(std::vector<std::string> lines, std::shared_ptr<BlockParser>*
 ARROW_TESTING_EXPORT
 void MakeColumnParser(std::vector<std::string> items, std::shared_ptr<BlockParser>* out);
 
+ARROW_TESTING_EXPORT
+Result<std::shared_ptr<Buffer>> MakeSampleCsvBuffer(size_t num_rows, bool valid = true);
+
 }  // namespace csv
 }  // namespace arrow

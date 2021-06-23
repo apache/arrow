@@ -207,7 +207,7 @@ records: 3
 		},
 		{
 			name: "primitives",
-			want: `version: V4
+			want: `version: V5
 schema:
   fields: 11
     - bools: type=bool, nullable
@@ -236,7 +236,7 @@ records: 2
 		},
 		{
 			name: "structs",
-			want: `version: V4
+			want: `version: V5
 schema:
   fields: 1
     - struct_nullable: type=struct<f1: int32, f2: utf8>, nullable
@@ -254,7 +254,7 @@ records: 4
 		},
 		{
 			name: "lists",
-			want: `version: V4
+			want: `version: V5
 schema:
   fields: 1
     - list_nullable: type=list<item: int32>, nullable
@@ -272,7 +272,7 @@ records: 3
 		},
 		{
 			name: "fixed_size_binaries",
-			want: `version: V4
+			want: `version: V5
 schema:
   fields: 1
     - fixed_size_binary_3: type=fixed_size_binary[3], nullable

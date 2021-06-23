@@ -25,7 +25,6 @@ add_arrow_test(filesystem-test
                SOURCES
                filesystem_test.cc
                localfs_test.cc
-               path_forest_test.cc
                EXTRA_LABELS
                filesystem)
 

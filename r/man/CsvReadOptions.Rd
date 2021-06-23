@@ -3,6 +3,7 @@
 \docType{class}
 \name{CsvReadOptions}
 \alias{CsvReadOptions}
+\alias{CsvWriteOptions}
 \alias{CsvParseOptions}
 \alias{TimestampParser}
 \alias{CsvConvertOptions}
@@ -89,6 +90,12 @@ starting from the beginning of this vector. Possible values are
 \code{TimestampParser$create()} takes an optional \code{format} string argument.
 See \code{\link[base:strptime]{strptime()}} for example syntax.
 The default is to use an ISO-8601 format parser.
+
+The \code{CsvWriteOptions$create()} factory method takes the following arguments:
+\itemize{
+\item \code{include_header} Whether to write an initial header line with column names
+\item \code{batch_size} Maximum number of rows processed at a time. Default is 1024.
+}
 }
 
 \section{Active bindings}{

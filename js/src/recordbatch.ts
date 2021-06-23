@@ -70,7 +70,7 @@ export class RecordBatch<T extends { [key: string]: DataType } = any>
     constructor(schema: Schema<T>, data: Data<Struct<T>>, children?: Vector[]);
     constructor(...args: any[]) {
         let data: Data<Struct<T>>;
-        let schema = args[0] as Schema<T>;
+        const schema = args[0] as Schema<T>;
         let children: Vector[] | undefined;
         if (args[1] instanceof Data) {
             [, data, children] = (args as [any, Data<Struct<T>>, Vector<T[keyof T]>[]?]);
@@ -117,7 +117,7 @@ export class RecordBatch<T extends { [key: string]: DataType } = any>
  * @ignore
  * @private
  */
-/* tslint:disable:class-name */
+/* eslint-disable @typescript-eslint/naming-convention */
 export class _InternalEmptyPlaceholderRecordBatch<T extends { [key: string]: DataType } = any> extends RecordBatch<T> {
     constructor(schema: Schema<T>) {
         super(schema, 0, schema.fields.map((f) => Data.new(f.type, 0, 0, 0)));

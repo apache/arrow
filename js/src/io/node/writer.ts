@@ -30,7 +30,7 @@ type CB = (error?: Error | null | undefined) => void;
 
 /** @ignore */
 class RecordBatchWriterDuplex<T extends { [key: string]: DataType } = any> extends Duplex {
-    private _pulling: boolean = false;
+    private _pulling = false;
     private _reader: AsyncByteStream | null;
     private _writer: RecordBatchWriter | null;
     constructor(writer: RecordBatchWriter<T>, options?: DuplexOptions) {
@@ -40,12 +40,12 @@ class RecordBatchWriterDuplex<T extends { [key: string]: DataType } = any> exten
     }
     _final(cb?: CB) {
         const writer = this._writer;
-        writer && writer.close();
+        writer?.close();
         cb && cb();
     }
     _write(x: any, _: string, cb: CB) {
         const writer = this._writer;
-        writer && writer.write(x);
+        writer?.write(x);
         cb && cb();
         return true;
     }
@@ -68,7 +68,7 @@ class RecordBatchWriterDuplex<T extends { [key: string]: DataType } = any> exten
             }
             if (!this.push(r.value) || size <= 0) { break; }
         }
-        if ((r && r.done || !this.readable)) {
+        if ((r?.done || !this.readable)) {
             this.push(null);
             await reader.cancel();
         }

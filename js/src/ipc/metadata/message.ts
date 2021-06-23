@@ -15,9 +15,37 @@
 // specific language governing permissions and limitations
 // under the License.
 
+/* eslint-disable brace-style */
+
 import { flatbuffers } from 'flatbuffers';
-import * as Schema_ from '../../fb/Schema';
-import * as Message_ from '../../fb/Message';
+
+import {
+    Type,
+    Int as _Int,
+    Field as _Field,
+    Schema as _Schema,
+    Buffer as _Buffer,
+    KeyValue as _KeyValue,
+    Endianness as _Endianness,
+    DictionaryEncoding as _DictionaryEncoding,
+    FloatingPoint as _FloatingPoint,
+    Decimal as _Decimal,
+    Date as _Date,
+    Time as _Time,
+    Timestamp as _Timestamp,
+    Interval as _Interval,
+    Union as _Union,
+    FixedSizeBinary as _FixedSizeBinary,
+    FixedSizeList as _FixedSizeList,
+    Map as _Map,
+} from '../../fb/Schema';
+
+import {
+    Message as _Message,
+    FieldNode as _FieldNode,
+    RecordBatch as _RecordBatch,
+    DictionaryBatch as _DictionaryBatch,
+} from '../../fb/Message';
 
 import { Schema, Field } from '../../schema';
 import { toUint8Array } from '../../util/buffer';
@@ -29,18 +57,6 @@ import { fieldFromJSON, schemaFromJSON, recordBatchFromJSON, dictionaryBatchFrom
 import Long = flatbuffers.Long;
 import Builder = flatbuffers.Builder;
 import ByteBuffer = flatbuffers.ByteBuffer;
-import _Int = Schema_.org.apache.arrow.flatbuf.Int;
-import Type = Schema_.org.apache.arrow.flatbuf.Type;
-import _Field = Schema_.org.apache.arrow.flatbuf.Field;
-import _Schema = Schema_.org.apache.arrow.flatbuf.Schema;
-import _Buffer = Schema_.org.apache.arrow.flatbuf.Buffer;
-import _Message = Message_.org.apache.arrow.flatbuf.Message;
-import _KeyValue = Schema_.org.apache.arrow.flatbuf.KeyValue;
-import _FieldNode = Message_.org.apache.arrow.flatbuf.FieldNode;
-import _Endianness = Schema_.org.apache.arrow.flatbuf.Endianness;
-import _RecordBatch = Message_.org.apache.arrow.flatbuf.RecordBatch;
-import _DictionaryBatch = Message_.org.apache.arrow.flatbuf.DictionaryBatch;
-import _DictionaryEncoding = Schema_.org.apache.arrow.flatbuf.DictionaryEncoding;
 
 import {
     DataType, Dictionary, TimeBitWidth,
@@ -76,7 +92,8 @@ export class Message<T extends MessageHeader = any> {
 
     /** @nocollapse */
     public static encode<T extends MessageHeader>(message: Message<T>) {
-        let b = new Builder(), headerOffset = -1;
+        const b = new Builder();
+        let headerOffset = -1;
         if (message.isSchema()) {
             headerOffset = Schema.encode(b, message.header() as Schema);
         } else if (message.isRecordBatch()) {
@@ -107,7 +124,6 @@ export class Message<T extends MessageHeader = any> {
         throw new Error(`Unrecognized Message header: ${header}`);
     }
 
-    // @ts-ignore
     public body: Uint8Array;
     protected _headerType: T;
     protected _bodyLength: number;
@@ -116,8 +132,7 @@ export class Message<T extends MessageHeader = any> {
     public get version() { return this._version; }
     public get headerType() { return this._headerType; }
     public get bodyLength() { return this._bodyLength; }
-    // @ts-ignore
-    protected _createHeader: MessageHeaderDecoder;
+    protected _createHeader!: MessageHeaderDecoder;
     public header() { return this._createHeader<T>(); }
     public isSchema(): this is Message<MessageHeader.Schema> { return this.headerType === MessageHeader.Schema; }
     public isRecordBatch(): this is Message<MessageHeader.RecordBatch> { return this.headerType === MessageHeader.RecordBatch; }
@@ -166,7 +181,7 @@ export class DictionaryBatch {
     public get nodes(): FieldNode[] { return this.data.nodes; }
     public get buffers(): BufferRegion[] { return this.data.buffers; }
 
-    constructor(data: RecordBatch, id: Long | number, isDelta: boolean = false) {
+    constructor(data: RecordBatch, id: Long | number, isDelta = false) {
         this._data = data;
         this._isDelta = isDelta;
         this._id = typeof id === 'number' ? id : id.low;
@@ -370,7 +385,6 @@ function decodeField(f: _Field, dictionaries?: Map<number, DataType>) {
         type = decodeFieldType(f, decodeFieldChildren(f, dictionaries));
         field = new Field(f.name()!, type, f.nullable(), decodeCustomMetadata(f));
     }
-    // tslint:disable
     // If dictionary encoded and the first time we've seen this dictionary id, decode
     // the data type and child fields, then wrap in a Dictionary type and insert the
     // data type into the dictionary types map.
@@ -416,58 +430,58 @@ function decodeFieldType(f: _Field, children?: Field[]): DataType<any> {
     const typeId = f.typeType();
 
     switch (typeId) {
-        case Type.NONE:    return new Null();
-        case Type.Null:    return new Null();
-        case Type.Binary:  return new Binary();
-        case Type.Utf8:    return new Utf8();
-        case Type.Bool:    return new Bool();
-        case Type.List:    return new List((children || [])[0]);
-        case Type.Struct_: return new Struct(children || []);
+        case Type['NONE']:     return new Null();
+        case Type['Null']:     return new Null();
+        case Type['Binary']:   return new Binary();
+        case Type['Utf8']:     return new Utf8();
+        case Type['Bool']:     return new Bool();
+        case Type['List']:    return new List((children || [])[0]);
+        case Type['Struct_']: return new Struct(children || []);
     }
 
     switch (typeId) {
-        case Type.Int: {
-            const t = f.type(new Schema_.org.apache.arrow.flatbuf.Int())!;
+        case Type['Int']: {
+            const t = f.type(new _Int())!;
             return new Int(t.isSigned(), t.bitWidth());
         }
-        case Type.FloatingPoint: {
-            const t = f.type(new Schema_.org.apache.arrow.flatbuf.FloatingPoint())!;
+        case Type['FloatingPoint']: {
+            const t = f.type(new _FloatingPoint())!;
             return new Float(t.precision());
         }
-        case Type.Decimal: {
-            const t = f.type(new Schema_.org.apache.arrow.flatbuf.Decimal())!;
+        case Type['Decimal']: {
+            const t = f.type(new _Decimal())!;
             return new Decimal(t.scale(), t.precision());
         }
-        case Type.Date: {
-            const t = f.type(new Schema_.org.apache.arrow.flatbuf.Date())!;
+        case Type['Date']: {
+            const t = f.type(new _Date())!;
             return new Date_(t.unit());
         }
-        case Type.Time: {
-            const t = f.type(new Schema_.org.apache.arrow.flatbuf.Time())!;
+        case Type['Time']: {
+            const t = f.type(new _Time())!;
             return new Time(t.unit(), t.bitWidth() as TimeBitWidth);
         }
-        case Type.Timestamp: {
-            const t = f.type(new Schema_.org.apache.arrow.flatbuf.Timestamp())!;
+        case Type['Timestamp']: {
+            const t = f.type(new _Timestamp())!;
             return new Timestamp(t.unit(), t.timezone());
         }
-        case Type.Interval: {
-            const t = f.type(new Schema_.org.apache.arrow.flatbuf.Interval())!;
+        case Type['Interval']: {
+            const t = f.type(new _Interval())!;
             return new Interval(t.unit());
         }
-        case Type.Union: {
-            const t = f.type(new Schema_.org.apache.arrow.flatbuf.Union())!;
+        case Type['Union']: {
+            const t = f.type(new _Union())!;
             return new Union(t.mode(), t.typeIdsArray() || [], children || []);
         }
-        case Type.FixedSizeBinary: {
-            const t = f.type(new Schema_.org.apache.arrow.flatbuf.FixedSizeBinary())!;
+        case Type['FixedSizeBinary']: {
+            const t = f.type(new _FixedSizeBinary())!;
             return new FixedSizeBinary(t.byteWidth());
         }
-        case Type.FixedSizeList: {
-            const t = f.type(new Schema_.org.apache.arrow.flatbuf.FixedSizeList())!;
+        case Type['FixedSizeList']: {
+            const t = f.type(new _FixedSizeList())!;
             return new FixedSizeList(t.listSize(), (children || [])[0]);
         }
-        case Type.Map: {
-            const t = f.type(new Schema_.org.apache.arrow.flatbuf.Map())!;
+        case Type['Map']: {
+            const t = f.type(new _Map())!;
             return new Map_((children || [])[0], t.keysSorted());
         }
     }
@@ -509,7 +523,7 @@ function encodeField(b: Builder, field: Field) {
     let typeOffset = -1;
     let dictionaryOffset = -1;
 
-    let type = field.type;
+    const type = field.type;
     let typeId: Type = <any> field.typeId;
 
     if (!DataType.isDictionary(type)) {

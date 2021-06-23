@@ -17,10 +17,6 @@
  * under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#  include <config.h>
-#endif
-
 #include <arrow-glib/codec.hpp>
 #include <arrow-glib/enums.h>
 #include <arrow-glib/ipc-options.hpp>

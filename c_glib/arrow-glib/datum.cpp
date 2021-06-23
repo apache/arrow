@@ -17,14 +17,11 @@
  * under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#  include <config.h>
-#endif
-
 #include <arrow-glib/array.hpp>
 #include <arrow-glib/chunked-array.hpp>
 #include <arrow-glib/datum.hpp>
 #include <arrow-glib/record-batch.hpp>
+#include <arrow-glib/scalar.hpp>
 #include <arrow-glib/table.hpp>
 
 G_BEGIN_DECLS
@@ -145,6 +142,37 @@ garrow_datum_is_array_like(GArrowDatum *datum)
 {
   const auto &arrow_datum = garrow_datum_get_raw(datum);
   return arrow_datum.is_arraylike();
+}
+
+/**
+ * garrow_datum_is_scalar:
+ * @datum: A #GArrowDatum.
+ *
+ * Returns: %TRUE if the datum holds a #GArrowScalar, %FALSE otherwise.
+ *
+ * Since: 5.0.0
+ */
+gboolean
+garrow_datum_is_scalar(GArrowDatum *datum)
+{
+  const auto &arrow_datum = garrow_datum_get_raw(datum);
+  return arrow_datum.is_scalar();
+}
+
+/**
+ * garrow_datum_is_value:
+ * @datum: A #GArrowDatum.
+ *
+ * Returns: %TRUE if the datum holds a #GArrowArray, #GChunkedArray or
+ *   #GArrowScalar, %FALSE otherwise.
+ *
+ * Since: 5.0.0
+ */
+gboolean
+garrow_datum_is_value(GArrowDatum *datum)
+{
+  const auto &arrow_datum = garrow_datum_get_raw(datum);
+  return arrow_datum.is_value();
 }
 
 /**
@@ -287,6 +315,109 @@ garrow_array_datum_new(GArrowArray *value)
   auto arrow_value = garrow_array_get_raw(value);
   arrow::Datum arrow_datum(arrow_value);
   return garrow_array_datum_new_raw(&arrow_datum, value);
+}
+
+
+typedef struct GArrowScalarDatumPrivate_ {
+  GArrowScalar *value;
+} GArrowScalarDatumPrivate;
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowScalarDatum,
+                           garrow_scalar_datum,
+                           GARROW_TYPE_DATUM)
+
+#define GARROW_SCALAR_DATUM_GET_PRIVATE(obj)         \
+  static_cast<GArrowScalarDatumPrivate *>(           \
+    garrow_scalar_datum_get_instance_private(        \
+      GARROW_SCALAR_DATUM(obj)))
+
+static void
+garrow_scalar_datum_dispose(GObject *object)
+{
+  auto priv = GARROW_SCALAR_DATUM_GET_PRIVATE(object);
+
+  if (priv->value) {
+    g_object_unref(priv->value);
+    priv->value = NULL;
+  }
+
+  G_OBJECT_CLASS(garrow_scalar_datum_parent_class)->dispose(object);
+}
+
+static void
+garrow_scalar_datum_set_property(GObject *object,
+                                 guint prop_id,
+                                 const GValue *value,
+                                 GParamSpec *pspec)
+{
+  auto priv = GARROW_SCALAR_DATUM_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_VALUE:
+    priv->value = GARROW_SCALAR(g_value_dup_object(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_scalar_datum_get_property(GObject *object,
+                                 guint prop_id,
+                                 GValue *value,
+                                 GParamSpec *pspec)
+{
+  auto priv = GARROW_SCALAR_DATUM_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_VALUE:
+    g_value_set_object(value, priv->value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_scalar_datum_init(GArrowScalarDatum *object)
+{
+}
+
+static void
+garrow_scalar_datum_class_init(GArrowScalarDatumClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->dispose      = garrow_scalar_datum_dispose;
+  gobject_class->set_property = garrow_scalar_datum_set_property;
+  gobject_class->get_property = garrow_scalar_datum_get_property;
+
+  GParamSpec *spec;
+  spec = g_param_spec_object("value",
+                             "Value",
+                             "The scalar held by this datum",
+                             GARROW_TYPE_SCALAR,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                      G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_VALUE, spec);
+}
+
+/**
+ * garrow_scalar_datum_new:
+ * @value: A #GArrowScalar.
+ *
+ * Returns: A newly created #GArrowScalarDatum.
+ *
+ * Since: 5.0.0
+ */
+GArrowScalarDatum *
+garrow_scalar_datum_new(GArrowScalar *value)
+{
+  auto arrow_value = garrow_scalar_get_raw(value);
+  arrow::Datum arrow_datum(arrow_value);
+  return garrow_scalar_datum_new_raw(&arrow_datum, value);
 }
 
 
@@ -612,6 +743,12 @@ GArrowDatum *
 garrow_datum_new_raw(arrow::Datum *arrow_datum)
 {
   switch (arrow_datum->kind()) {
+  case arrow::Datum::SCALAR:
+    {
+      auto arrow_scalar = arrow_datum->scalar();
+      auto scalar = garrow_scalar_new_raw(&arrow_scalar);
+      return GARROW_DATUM(garrow_scalar_datum_new_raw(arrow_datum, scalar));
+    }
   case arrow::Datum::ARRAY:
     {
       auto arrow_array = arrow_datum->make_array();
@@ -644,6 +781,16 @@ garrow_datum_new_raw(arrow::Datum *arrow_datum)
     // TODO
     return NULL;
   }
+}
+
+GArrowScalarDatum *
+garrow_scalar_datum_new_raw(arrow::Datum *arrow_datum,
+                            GArrowScalar *value)
+{
+  return GARROW_SCALAR_DATUM(g_object_new(GARROW_TYPE_SCALAR_DATUM,
+                                         "datum", arrow_datum,
+                                         "value", value,
+                                         NULL));
 }
 
 GArrowArrayDatum *

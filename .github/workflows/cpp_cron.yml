@@ -30,84 +30,18 @@ on:
         0 */12 * * *
 
 env:
-  DOCKER_BUILDKIT: 0
-  DOCKER_VOLUME_PREFIX: ".docker/"
-  COMPOSE_DOCKER_CLI_BUILD: 1
   ARROW_ENABLE_TIMING_TESTS: OFF
+  DOCKER_VOLUME_PREFIX: ".docker/"
   ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
   ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
 
 jobs:
-  docker:
-    name: ${{ matrix.title }}
-    runs-on: ubuntu-latest
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') && github.repository == 'apache/arrow' }}
-    strategy:
-      fail-fast: false
-      matrix:
-        name:
-          - amd64-debian-10-cpp
-          - amd64-fedora-33-cpp
-          - amd64-ubuntu-16.04-cpp
-          - amd64-ubuntu-18.04-cpp
-        include:
-          - name: amd64-debian-10-cpp
-            image: debian-cpp
-            title: AMD64 Debian 10 C++
-            debian: 10
-          - name: amd64-fedora-33-cpp
-            image: fedora-cpp
-            title: AMD64 Fedora 33 C++
-            fedora: 33
-          - name: amd64-ubuntu-16.04-cpp
-            image: ubuntu-cpp
-            title: AMD64 Ubuntu 16.04 C++
-            ubuntu: 16.04
-          - name: amd64-ubuntu-18.04-cpp
-            image: ubuntu-cpp
-            title: AMD64 Ubuntu 18.04 C++
-            ubuntu: 18.04
-    env:
-      # the defaults here should correspond to the values in .env
-      ARCH: 'amd64'
-      DEBIAN: ${{ matrix.debian || 10 }}
-      FEDORA: ${{ matrix.fedora || 33 }}
-      UBUNTU: ${{ matrix.ubuntu || 18.04 }}
-    steps:
-      - name: Checkout Arrow
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        run: ci/scripts/util_checkout.sh
-      - name: Free Up Disk Space
-        run: ci/scripts/util_cleanup.sh
-      - name: Cache Docker Volumes
-        uses: actions/cache@v1
-        with:
-          path: .docker
-          key: ${{ matrix.name }}-${{ hashFiles('cpp/**') }}
-          restore-keys: ${{ matrix.name }}-
-      - name: Setup Python
-        uses: actions/setup-python@v1
-        with:
-          python-version: 3.8
-      - name: Setup Archery
-        run: pip install -e dev/archery[docker]
-      - name: Execute Docker Build
-        run: |
-          sudo sysctl -w kernel.core_pattern="core.%e.%p"
-          ulimit -c unlimited
-          archery docker run ${{ matrix.image }}
-      - name: Docker Push
-        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
-        continue-on-error: true
-        run: archery docker push ${{ matrix.image }}
 
   oss-fuzz:
     name: OSS-Fuzz build check
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') && github.repository == 'apache/arrow' }}
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:

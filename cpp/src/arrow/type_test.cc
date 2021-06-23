@@ -475,6 +475,31 @@ TEST_F(TestSchema, Basics) {
 
   ASSERT_EQ(schema->fingerprint(), schema2->fingerprint());
   ASSERT_NE(schema->fingerprint(), schema3->fingerprint());
+
+  auto schema4 = ::arrow::schema({f0}, Endianness::Little);
+  auto schema5 = ::arrow::schema({f0}, Endianness::Little);
+  auto schema6 = ::arrow::schema({f0}, Endianness::Big);
+  auto schema7 = ::arrow::schema({f0});
+
+  AssertSchemaEqual(schema4, schema5);
+  AssertSchemaNotEqual(schema4, schema6);
+#if ARROW_LITTLE_ENDIAN
+  AssertSchemaEqual(schema4, schema7);
+  AssertSchemaNotEqual(schema6, schema7);
+#else
+  AssertSchemaNotEqual(schema4, schema6);
+  AssertSchemaEqual(schema6, schema7);
+#endif
+
+  ASSERT_EQ(schema4->fingerprint(), schema5->fingerprint());
+  ASSERT_NE(schema4->fingerprint(), schema6->fingerprint());
+#if ARROW_LITTLE_ENDIAN
+  ASSERT_EQ(schema4->fingerprint(), schema7->fingerprint());
+  ASSERT_NE(schema6->fingerprint(), schema7->fingerprint());
+#else
+  ASSERT_NE(schema4->fingerprint(), schema7->fingerprint());
+  ASSERT_EQ(schema6->fingerprint(), schema7->fingerprint());
+#endif
 }
 
 TEST_F(TestSchema, ToString) {
@@ -495,14 +520,38 @@ f3: list<item: int16>)";
   ASSERT_EQ(expected, result);
 
   result = schema->ToString(/*print_metadata=*/true);
+  std::string expected_with_metadata = expected + R"(
+-- metadata --
+foo: bar)";
+
+  ASSERT_EQ(expected_with_metadata, result);
+
+  // With swapped endianness
+#if ARROW_LITTLE_ENDIAN
+  schema = schema->WithEndianness(Endianness::Big);
   expected = R"(f0: int32
 f1: uint8 not null
 f2: string
 f3: list<item: int16>
+-- endianness: big --)";
+#else
+  schema = schema->WithEndianness(Endianness::Little);
+  expected = R"(f0: int32
+f1: uint8 not null
+f2: string
+f3: list<item: int16>
+-- endianness: little --)";
+#endif
+
+  result = schema->ToString();
+  ASSERT_EQ(expected, result);
+
+  result = schema->ToString(/*print_metadata=*/true);
+  expected_with_metadata = expected + R"(
 -- metadata --
 foo: bar)";
 
-  ASSERT_EQ(expected, result);
+  ASSERT_EQ(expected_with_metadata, result);
 }
 
 TEST_F(TestSchema, GetFieldByName) {
@@ -1613,160 +1662,6 @@ TEST(TestDictionaryType, Equals) {
   AssertTypeNotEqual(*t5, *t6);
 }
 
-void CheckTransposeMap(const Buffer& map, std::vector<int32_t> expected) {
-  AssertBufferEqual(map, *Buffer::Wrap(expected));
-}
-
-TEST(TestDictionaryType, UnifyNumeric) {
-  auto dict_ty = int64();
-
-  auto d1 = ArrayFromJSON(dict_ty, "[3, 4, 7]");
-  auto d2 = ArrayFromJSON(dict_ty, "[1, 7, 4, 8]");
-  auto d3 = ArrayFromJSON(dict_ty, "[1, -200]");
-
-  auto expected = dictionary(int8(), dict_ty);
-  auto expected_dict = ArrayFromJSON(dict_ty, "[3, 4, 7, 1, 8, -200]");
-
-  ASSERT_OK_AND_ASSIGN(auto unifier, DictionaryUnifier::Make(dict_ty));
-
-  std::shared_ptr<DataType> out_type;
-  std::shared_ptr<Array> out_dict;
-
-  ASSERT_OK(unifier->Unify(*d1));
-  ASSERT_OK(unifier->Unify(*d2));
-  ASSERT_OK(unifier->Unify(*d3));
-
-  ASSERT_RAISES(Invalid, unifier->Unify(*ArrayFromJSON(int32(), "[1, -200]")));
-
-  ASSERT_OK(unifier->GetResult(&out_type, &out_dict));
-  ASSERT_TRUE(out_type->Equals(*expected));
-  ASSERT_TRUE(out_dict->Equals(*expected_dict));
-
-  std::shared_ptr<Buffer> b1, b2, b3;
-
-  ASSERT_OK(unifier->Unify(*d1, &b1));
-  ASSERT_OK(unifier->Unify(*d2, &b2));
-  ASSERT_OK(unifier->Unify(*d3, &b3));
-  ASSERT_OK(unifier->GetResult(&out_type, &out_dict));
-  ASSERT_TRUE(out_type->Equals(*expected));
-  ASSERT_TRUE(out_dict->Equals(*expected_dict));
-
-  CheckTransposeMap(*b1, {0, 1, 2});
-  CheckTransposeMap(*b2, {3, 2, 1, 4});
-  CheckTransposeMap(*b3, {3, 5});
-}
-
-TEST(TestDictionaryType, UnifyString) {
-  auto dict_ty = utf8();
-
-  auto t1 = dictionary(int16(), dict_ty);
-  auto d1 = ArrayFromJSON(dict_ty, "[\"foo\", \"bar\"]");
-
-  auto t2 = dictionary(int32(), dict_ty);
-  auto d2 = ArrayFromJSON(dict_ty, "[\"quux\", \"foo\"]");
-
-  auto expected = dictionary(int8(), dict_ty);
-  auto expected_dict = ArrayFromJSON(dict_ty, "[\"foo\", \"bar\", \"quux\"]");
-
-  ASSERT_OK_AND_ASSIGN(auto unifier, DictionaryUnifier::Make(dict_ty));
-
-  std::shared_ptr<DataType> out_type;
-  std::shared_ptr<Array> out_dict;
-  ASSERT_OK(unifier->Unify(*d1));
-  ASSERT_OK(unifier->Unify(*d2));
-  ASSERT_OK(unifier->GetResult(&out_type, &out_dict));
-  ASSERT_TRUE(out_type->Equals(*expected));
-  ASSERT_TRUE(out_dict->Equals(*expected_dict));
-
-  std::shared_ptr<Buffer> b1, b2;
-
-  ASSERT_OK(unifier->Unify(*d1, &b1));
-  ASSERT_OK(unifier->Unify(*d2, &b2));
-  ASSERT_OK(unifier->GetResult(&out_type, &out_dict));
-  ASSERT_TRUE(out_type->Equals(*expected));
-  ASSERT_TRUE(out_dict->Equals(*expected_dict));
-
-  CheckTransposeMap(*b1, {0, 1});
-  CheckTransposeMap(*b2, {2, 0});
-}
-
-TEST(TestDictionaryType, UnifyFixedSizeBinary) {
-  auto type = fixed_size_binary(3);
-
-  std::string data = "foobarbazqux";
-  auto buf = std::make_shared<Buffer>(data);
-  // ["foo", "bar"]
-  auto dict1 = std::make_shared<FixedSizeBinaryArray>(type, 2, SliceBuffer(buf, 0, 6));
-  auto t1 = dictionary(int16(), type);
-  // ["bar", "baz", "qux"]
-  auto dict2 = std::make_shared<FixedSizeBinaryArray>(type, 3, SliceBuffer(buf, 3, 9));
-  auto t2 = dictionary(int16(), type);
-
-  // ["foo", "bar", "baz", "qux"]
-  auto expected_dict = std::make_shared<FixedSizeBinaryArray>(type, 4, buf);
-  auto expected = dictionary(int8(), type);
-
-  ASSERT_OK_AND_ASSIGN(auto unifier, DictionaryUnifier::Make(type));
-  std::shared_ptr<DataType> out_type;
-  std::shared_ptr<Array> out_dict;
-  ASSERT_OK(unifier->Unify(*dict1));
-  ASSERT_OK(unifier->Unify(*dict2));
-  ASSERT_OK(unifier->GetResult(&out_type, &out_dict));
-  ASSERT_TRUE(out_type->Equals(*expected));
-  ASSERT_TRUE(out_dict->Equals(*expected_dict));
-
-  std::shared_ptr<Buffer> b1, b2;
-  ASSERT_OK(unifier->Unify(*dict1, &b1));
-  ASSERT_OK(unifier->Unify(*dict2, &b2));
-  ASSERT_OK(unifier->GetResult(&out_type, &out_dict));
-  ASSERT_TRUE(out_type->Equals(*expected));
-  ASSERT_TRUE(out_dict->Equals(*expected_dict));
-
-  CheckTransposeMap(*b1, {0, 1});
-  CheckTransposeMap(*b2, {1, 2, 3});
-}
-
-TEST(TestDictionaryType, UnifyLarge) {
-  // Unifying "large" dictionary types should choose the right index type
-  std::shared_ptr<Array> dict1, dict2, expected_dict;
-
-  Int32Builder builder;
-  ASSERT_OK(builder.Reserve(120));
-  for (int32_t i = 0; i < 120; ++i) {
-    builder.UnsafeAppend(i);
-  }
-  ASSERT_OK(builder.Finish(&dict1));
-  ASSERT_EQ(dict1->length(), 120);
-  auto t1 = dictionary(int8(), int32());
-
-  ASSERT_OK(builder.Reserve(30));
-  for (int32_t i = 110; i < 140; ++i) {
-    builder.UnsafeAppend(i);
-  }
-  ASSERT_OK(builder.Finish(&dict2));
-  ASSERT_EQ(dict2->length(), 30);
-  auto t2 = dictionary(int8(), int32());
-
-  ASSERT_OK(builder.Reserve(140));
-  for (int32_t i = 0; i < 140; ++i) {
-    builder.UnsafeAppend(i);
-  }
-  ASSERT_OK(builder.Finish(&expected_dict));
-  ASSERT_EQ(expected_dict->length(), 140);
-
-  // int8 would be too narrow to hold all possible index values
-  auto expected = dictionary(int16(), int32());
-
-  ASSERT_OK_AND_ASSIGN(auto unifier, DictionaryUnifier::Make(int32()));
-  std::shared_ptr<DataType> out_type;
-  std::shared_ptr<Array> out_dict;
-  ASSERT_OK(unifier->Unify(*dict1));
-  ASSERT_OK(unifier->Unify(*dict2));
-  ASSERT_OK(unifier->GetResult(&out_type, &out_dict));
-  ASSERT_TRUE(out_type->Equals(*expected));
-  ASSERT_TRUE(out_dict->Equals(*expected_dict));
-}
-
 TEST(TypesTest, TestDecimal128Small) {
   Decimal128Type t1(8, 4);
 
@@ -1774,7 +1669,7 @@ TEST(TypesTest, TestDecimal128Small) {
   EXPECT_EQ(t1.precision(), 8);
   EXPECT_EQ(t1.scale(), 4);
 
-  EXPECT_EQ(t1.ToString(), std::string("decimal(8, 4)"));
+  EXPECT_EQ(t1.ToString(), std::string("decimal128(8, 4)"));
 
   // Test properties
   EXPECT_EQ(t1.byte_width(), 16);
@@ -1788,7 +1683,7 @@ TEST(TypesTest, TestDecimal128Medium) {
   EXPECT_EQ(t1.precision(), 12);
   EXPECT_EQ(t1.scale(), 5);
 
-  EXPECT_EQ(t1.ToString(), std::string("decimal(12, 5)"));
+  EXPECT_EQ(t1.ToString(), std::string("decimal128(12, 5)"));
 
   // Test properties
   EXPECT_EQ(t1.byte_width(), 16);
@@ -1802,7 +1697,7 @@ TEST(TypesTest, TestDecimal128Large) {
   EXPECT_EQ(t1.precision(), 27);
   EXPECT_EQ(t1.scale(), 7);
 
-  EXPECT_EQ(t1.ToString(), std::string("decimal(27, 7)"));
+  EXPECT_EQ(t1.ToString(), std::string("decimal128(27, 7)"));
 
   // Test properties
   EXPECT_EQ(t1.byte_width(), 16);

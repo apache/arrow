@@ -19,7 +19,7 @@
 class ApacheArrow < Formula
   desc "Columnar in-memory analytics layer designed to accelerate big data"
   homepage "https://arrow.apache.org/"
-  url "https://www.apache.org/dyn/closer.lua?path=arrow/arrow-3.0.0.9000/apache-arrow-3.0.0.9000.tar.gz"
+  url "https://www.apache.org/dyn/closer.lua?path=arrow/arrow-4.0.1.9000/apache-arrow-4.0.1.9000.tar.gz"
   sha256 "9948ddb6d4798b51552d0dca3252dd6e3a7d0f9702714fc6f5a1b59397ce1d28"
   head "https://github.com/apache/arrow.git"
 
@@ -57,9 +57,7 @@ class ApacheArrow < Formula
       -DARROW_USE_GLOG=OFF
       -DARROW_VERBOSE_THIRDPARTY_BUILD=ON
       -DARROW_WITH_LZ4=ON
-      -DARROW_WITH_RE2=OFF
       -DARROW_WITH_SNAPPY=ON
-      -DARROW_WITH_UTF8PROC=OFF
       -DARROW_WITH_ZLIB=ON
       -DARROW_WITH_ZSTD=ON
       -DCMAKE_UNITY_BUILD=OFF

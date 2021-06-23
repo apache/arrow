@@ -17,10 +17,6 @@
  * under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#  include <config.h>
-#endif
-
 #include <arrow-glib/array-builder.hpp>
 #include <arrow-glib/data-type.hpp>
 #include <arrow-glib/decimal.hpp>

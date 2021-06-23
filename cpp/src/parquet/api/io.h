@@ -17,5 +17,4 @@
 
 #pragma once
 
-#include "parquet/deprecated_io.h"
 #include "parquet/exception.h"

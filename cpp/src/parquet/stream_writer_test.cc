@@ -24,6 +24,7 @@
 #include <utility>
 
 #include "arrow/io/file.h"
+#include "arrow/io/memory.h"
 #include "parquet/exception.h"
 
 namespace parquet {

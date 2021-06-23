@@ -33,6 +33,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
@@ -282,6 +283,12 @@ TEST_F(TestSchemaExport, Primitive) {
 
   TestPrimitive(decimal(16, 4), "d:16,4");
   TestPrimitive(decimal256(16, 4), "d:16,4,256");
+
+  TestPrimitive(decimal(15, 0), "d:15,0");
+  TestPrimitive(decimal256(15, 0), "d:15,0,256");
+
+  TestPrimitive(decimal(15, -4), "d:15,-4");
+  TestPrimitive(decimal256(15, -4), "d:15,-4,256");
 }
 
 TEST_F(TestSchemaExport, Temporal) {
@@ -1195,6 +1202,20 @@ TEST_F(TestSchemaImport, Primitive) {
   CheckImport(field("", decimal128(16, 4)));
   FillPrimitive("d:16,4,256");
   CheckImport(field("", decimal256(16, 4)));
+
+  FillPrimitive("d:16,0");
+  CheckImport(field("", decimal128(16, 0)));
+  FillPrimitive("d:16,0,128");
+  CheckImport(field("", decimal128(16, 0)));
+  FillPrimitive("d:16,0,256");
+  CheckImport(field("", decimal256(16, 0)));
+
+  FillPrimitive("d:16,-4");
+  CheckImport(field("", decimal128(16, -4)));
+  FillPrimitive("d:16,-4,128");
+  CheckImport(field("", decimal128(16, -4)));
+  FillPrimitive("d:16,-4,256");
+  CheckImport(field("", decimal256(16, -4)));
 }
 
 TEST_F(TestSchemaImport, Temporal) {
@@ -1393,6 +1414,8 @@ TEST_F(TestSchemaImport, FormatStringError) {
   FillPrimitive("d:15");
   CheckImportError();
   FillPrimitive("d:15.4");
+  CheckImportError();
+  FillPrimitive("d:15,z");
   CheckImportError();
   FillPrimitive("t");
   CheckImportError();
@@ -2381,9 +2404,12 @@ TEST_F(TestSchemaRoundtrip, Primitive) {
   TestWithTypeFactory(boolean);
   TestWithTypeFactory(float16);
 
-  TestWithTypeFactory(std::bind(decimal, 19, 4));
   TestWithTypeFactory(std::bind(decimal128, 19, 4));
   TestWithTypeFactory(std::bind(decimal256, 19, 4));
+  TestWithTypeFactory(std::bind(decimal128, 19, 0));
+  TestWithTypeFactory(std::bind(decimal256, 19, 0));
+  TestWithTypeFactory(std::bind(decimal128, 19, -5));
+  TestWithTypeFactory(std::bind(decimal256, 19, -5));
   TestWithTypeFactory(std::bind(fixed_size_binary, 3));
   TestWithTypeFactory(binary);
   TestWithTypeFactory(large_utf8);

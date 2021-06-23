@@ -211,7 +211,7 @@ class TensorBuilderFromSparseCSFTensor : private SparseTensorConverterMixin {
   }
 
   Result<std::shared_ptr<Tensor>> Build() {
-    internal::ComputeRowMajorStrides(value_type_, shape_, &strides_);
+    RETURN_NOT_OK(internal::ComputeRowMajorStrides(value_type_, shape_, &strides_));
 
     ARROW_ASSIGN_OR_RAISE(values_buffer_,
                           AllocateBuffer(value_elsize_ * tensor_size_, pool_));

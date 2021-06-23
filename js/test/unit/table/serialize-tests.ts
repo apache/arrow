@@ -48,7 +48,7 @@ describe('Table#serialize()', () => {
     test(`Table#empty round-trips through serialization`, () => {
         const source = Table.empty();
         source.schema.metadata.set('foo', 'bar');
-        expect(source.length).toBe(0);
+        expect(source).toHaveLength(0);
         expect(source.numCols).toBe(0);
         const result = Table.from(source.serialize());
         expect(result).toEqualTable(source);
@@ -57,7 +57,7 @@ describe('Table#serialize()', () => {
 
     test(`Schema metadata round-trips through serialization`, () => {
         const source = createTable(schema1, [20]);
-        expect(source.length).toBe(20);
+        expect(source).toHaveLength(20);
         expect(source.numCols).toBe(3);
         const result = Table.from(source.serialize());
         expect(result).toEqualTable(source);
@@ -68,7 +68,7 @@ describe('Table#serialize()', () => {
         const table1 = new Table(nullSchema);
         const table2 = Table.empty();
         const source = table1.assign(table2);
-        expect(source.length).toBe(0);
+        expect(source).toHaveLength(0);
         expect(source.numCols).toBe(1);
         const result = Table.from(source.serialize());
         expect(result).toEqualTable(source);
@@ -102,7 +102,7 @@ describe('Table#serialize()', () => {
             const table1 = table(schema1);
             const source = table1.assign(Table.empty());
             expect(source.numCols).toBe(table1.numCols);
-            expect(source.length).toBe(table1.length);
+            expect(source).toHaveLength(table1.length);
             const result = Table.from(source.serialize());
             expect(result).toEqualTable(source);
             expect(result.schema.metadata.get('foo')).toEqual('bar');
@@ -111,7 +111,7 @@ describe('Table#serialize()', () => {
             const table1 = new Table(nullSchema);
             const table2 = table(schema1);
             const source = table1.assign(table2);
-            expect(source.length).toBe(table2.length);
+            expect(source).toHaveLength(table2.length);
             expect(source.numCols).toBe(4);
             const result = Table.from(source.serialize());
             expect(result).toEqualTable(source);
@@ -122,7 +122,7 @@ describe('Table#serialize()', () => {
             const table2 = createTable(schema2, [102, 4, 10, 97, 10, 2, 4]);
             const source = table1.assign(table2);
             expect(source.numCols).toBe(6);
-            expect(source.length).toBe(Math.max(table1.length, table2.length));
+            expect(source).toHaveLength(Math.max(table1.length, table2.length));
             const result = Table.from(source.serialize());
             expect(result).toEqualTable(source);
             expect(result.schema.metadata.get('foo')).toEqual('bar');
@@ -142,7 +142,7 @@ describe('Table#serialize()', () => {
             const [begin, end] = [length * .25, length * .75].map((x) => x | 0);
             const source = table1.slice(begin, end);
             expect(source.numCols).toBe(3);
-            expect(source.length).toBe(end - begin);
+            expect(source).toHaveLength(end - begin);
             const result = Table.from(source.serialize());
             expect(result).toEqualTable(source);
             expect(result.schema.metadata.get('foo')).toEqual('bar');
@@ -155,9 +155,9 @@ describe('Table#serialize()', () => {
             const slice1 = table1.slice(begin1, end1);
             const slice2 = table1.slice(begin2, end2);
             const source = slice1.concat(slice2);
-            expect(slice1.length).toBe(end1 - begin1);
-            expect(slice2.length).toBe(end2 - begin2);
-            expect(source.length).toBe((end1 - begin1) + (end2 - begin2));
+            expect(slice1).toHaveLength(end1 - begin1);
+            expect(slice2).toHaveLength(end2 - begin2);
+            expect(source).toHaveLength((end1 - begin1) + (end2 - begin2));
             [slice1, slice2, source].forEach((x) => expect(x.numCols).toBe(3));
             const result = Table.from(source.serialize());
             expect(result).toEqualTable(source);

@@ -32,8 +32,6 @@ rc=$2
 
 cd "${SOURCE_DIR}"
 
-: ${BINTRAY_REPOSITORY_CUSTOM:=${BINTRAY_REPOSITORY:-}}
-
 if [ ! -f .env ]; then
   echo "You must create $(pwd)/.env"
   echo "You can use $(pwd)/.env.example as template"
@@ -41,11 +39,7 @@ if [ ! -f .env ]; then
 fi
 . .env
 
-if [ -n "${BINTRAY_REPOSITORY_CUSTOM}" ]; then
-  BINTRAY_REPOSITORY=${BINTRAY_REPOSITORY_CUSTOM}
-fi
-
-. binary-common.sh
+. utils-binary.sh
 
 # By default deploy all artifacts.
 # To deactivate one category, deactivate the category and all of its dependents.
@@ -86,10 +80,10 @@ mkdir -p "${tmp_dir}"
 docker_run \
   ./runner.sh \
   rake \
+    --trace \
     "${rake_tasks[@]}" \
     APT_TARGETS=$(IFS=,; echo "${apt_targets[*]}") \
     ARTIFACTS_DIR="${tmp_dir}/artifacts" \
-    BINTRAY_REPOSITORY=${BINTRAY_REPOSITORY} \
     RC=${rc} \
     VERSION=${version} \
     YUM_TARGETS=$(IFS=,; echo "${yum_targets[*]}")

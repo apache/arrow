@@ -19,8 +19,6 @@
 
 # Apache Arrow
 
-[![Build Status](https://ci.appveyor.com/api/projects/status/github/apache/arrow/branch/master?svg=true)](https://ci.appveyor.com/project/ApacheSoftwareFoundation/arrow/branch/master)
-[![Coverage Status](https://codecov.io/gh/apache/arrow/branch/master/graph/badge.svg)](https://codecov.io/gh/apache/arrow?branch=master)
 [![Fuzzing Status](https://oss-fuzz-build-logs.storage.googleapis.com/badges/arrow.svg)](https://bugs.chromium.org/p/oss-fuzz/issues/list?sort=-opened&can=1&q=proj:arrow)
 [![License](http://img.shields.io/:license-Apache%202-blue.svg)](https://github.com/apache/arrow/blob/master/LICENSE.txt)
 [![Twitter Follow](https://img.shields.io/twitter/follow/apachearrow.svg?style=social&label=Follow)](https://twitter.com/apachearrow)
@@ -53,7 +51,7 @@ Major components of the project include:
  - [Python libraries](https://github.com/apache/arrow/tree/master/python)
  - [R libraries](https://github.com/apache/arrow/tree/master/r)
  - [Ruby libraries](https://github.com/apache/arrow/tree/master/ruby)
- - [Rust libraries](https://github.com/apache/arrow/tree/master/rust)
+ - [Rust libraries](https://github.com/apache/arrow-rs)
 
 Arrow is an [Apache Software Foundation](https://www.apache.org) project. Learn more at
 [arrow.apache.org](https://arrow.apache.org).

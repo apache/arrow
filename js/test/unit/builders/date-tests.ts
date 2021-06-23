@@ -32,7 +32,6 @@ const testDOMStreams = process.env.TEST_DOM_STREAMS === 'true';
 const testNodeStreams = process.env.TEST_NODE_STREAMS === 'true';
 
 describe('DateDayBuilder', () => {
-
     runTestsWithEncoder('encodeAll', encodeAll(() => new DateDay()));
     runTestsWithEncoder('encodeEach: 5', encodeEach(() => new DateDay(), 5));
     runTestsWithEncoder('encodeEach: 25', encodeEach(() => new DateDay(), 25));
@@ -55,7 +54,6 @@ describe('DateDayBuilder', () => {
 });
 
 describe('DateMillisecondBuilder', () => {
-
     runTestsWithEncoder('encodeAll', encodeAll(() => new DateMillisecond()));
     runTestsWithEncoder('encodeEach: 5', encodeEach(() => new DateMillisecond(), 5));
     runTestsWithEncoder('encodeEach: 25', encodeEach(() => new DateMillisecond(), 25));
@@ -77,7 +75,7 @@ describe('DateMillisecondBuilder', () => {
     }
 });
 
-describe('DateMillisecondBuilder', () => {
+describe('DateMillisecondBuilder with nulls', () => {
     const encode = encodeAll(() => new DateMillisecond());
     const dates = [
         null,

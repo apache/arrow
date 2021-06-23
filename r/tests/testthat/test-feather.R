@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("Feather")
-
 feather_file <- tempfile()
 tib <- tibble::tibble(x = 1:10, y = rnorm(10), z = letters[1:10])
 
@@ -46,18 +44,18 @@ expect_feather_roundtrip <- function(write_fun) {
 
   # Read both back
   tab2 <- read_feather(tf2)
-  expect_is(tab2, "data.frame")
+  expect_s3_class(tab2, "data.frame")
 
   tab3 <- read_feather(tf3)
-  expect_is(tab3, "data.frame")
+  expect_s3_class(tab3, "data.frame")
 
   # reading directly from arrow::io::MemoryMappedFile
   tab4 <- read_feather(mmap_open(tf3))
-  expect_is(tab4, "data.frame")
+  expect_s3_class(tab4, "data.frame")
 
   # reading directly from arrow::io::ReadableFile
   tab5 <- read_feather(ReadableFile$create(tf3))
-  expect_is(tab5, "data.frame")
+  expect_s3_class(tab5, "data.frame")
 
   expect_equal(tib, tab2)
   expect_equal(tib, tab3)
@@ -105,9 +103,17 @@ test_that("write_feather option error handling", {
   expect_false(file.exists(tf))
 })
 
+test_that("write_feather with invalid input type", {
+  bad_input <- Array$create(1:5)
+  expect_error(
+    write_feather(bad_input, feather_file),
+    regexp = "x must be an object of class 'data.frame', 'RecordBatch', or 'Table', not 'Array'."
+  )
+})
+
 test_that("read_feather supports col_select = <names>", {
   tab1 <- read_feather(feather_file, col_select = c("x", "y"))
-  expect_is(tab1, "data.frame")
+  expect_s3_class(tab1, "data.frame")
 
   expect_equal(tib$x, tab1$x)
   expect_equal(tib$y, tab1$y)
@@ -115,7 +121,7 @@ test_that("read_feather supports col_select = <names>", {
 
 test_that("feather handles col_select = <integer>", {
   tab1 <- read_feather(feather_file, col_select = 1:2)
-  expect_is(tab1, "data.frame")
+  expect_s3_class(tab1, "data.frame")
 
   expect_equal(tib$x, tab1$x)
   expect_equal(tib$y, tab1$y)
@@ -137,7 +143,7 @@ test_that("feather handles col_select = <tidyselect helper>", {
 
 test_that("feather read/write round trip", {
   tab1 <- read_feather(feather_file, as_data_frame = FALSE)
-  expect_is(tab1, "Table")
+  expect_r6_class(tab1, "Table")
 
   expect_equal(tib, as.data.frame(tab1))
 })
@@ -145,7 +151,7 @@ test_that("feather read/write round trip", {
 test_that("Read feather from raw vector", {
   test_raw <- readBin(feather_file, what = "raw", n = 5000)
   df <- read_feather(test_raw)
-  expect_is(df, "data.frame")
+  expect_s3_class(df, "data.frame")
 })
 
 test_that("FeatherReader", {
@@ -195,4 +201,50 @@ test_that("Character vectors > 2GB can write to feather", {
   expect_identical(read_feather(tf), df)
 })
 
+test_that("FeatherReader methods", {
+  # Setup a feather file to use in the test
+  feather_temp <- tempfile()
+  on.exit({
+    unlink(feather_temp)
+  })
+  write_feather(tib, feather_temp)
+  feather_temp_RA <- make_readable_file(feather_temp)
+
+  reader <- FeatherReader$create(feather_temp_RA)
+  feather_temp_RA$close()
+
+  # column_names
+  expect_identical(
+    reader$column_names,
+    c("x", "y", "z")
+  )
+
+  # print method
+  expect_identical(
+    capture.output(print(reader)),
+    # TODO: can we get  rows/columns?
+    c("FeatherReader:", "Schema", "x: int32", "y: double", "z: string")
+  )
+})
+
 unlink(feather_file)
+
+ft_file <- test_path("golden-files/data-arrow_2.0.0_lz4.feather")
+
+test_that("Error messages are shown when the compression algorithm lz4 is not found", {
+  msg <- "NotImplemented: Support for codec 'lz4' not built\nIn order to read this file, you will need to reinstall arrow with additional features enabled.\nSet one of these environment variables before installing:\n\n * LIBARROW_MINIMAL=false (for all optional features, including 'lz4')\n * ARROW_WITH_LZ4=ON (for just 'lz4')\n\nSee https://arrow.apache.org/docs/r/articles/install.html for details"
+
+  if (codec_is_available("lz4")) {
+    d <- read_feather(ft_file)
+    expect_is(d, "data.frame")
+  } else {
+    expect_error(read_feather(ft_file), msg, fixed = TRUE)
+  }
+})
+
+test_that("Error is created when feather reads a parquet file", {
+  expect_error(
+    read_feather(system.file("v0.7.1.parquet", package = "arrow")),
+    "Not a Feather V1 or Arrow IPC file"
+  )
+})

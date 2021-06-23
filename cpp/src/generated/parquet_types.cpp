@@ -204,7 +204,8 @@ int _kCompressionCodecValues[] = {
   CompressionCodec::LZO,
   CompressionCodec::BROTLI,
   CompressionCodec::LZ4,
-  CompressionCodec::ZSTD
+  CompressionCodec::ZSTD,
+  CompressionCodec::LZ4_RAW
 };
 const char* _kCompressionCodecNames[] = {
   "UNCOMPRESSED",
@@ -213,9 +214,10 @@ const char* _kCompressionCodecNames[] = {
   "LZO",
   "BROTLI",
   "LZ4",
-  "ZSTD"
+  "ZSTD",
+  "LZ4_RAW"
 };
-const std::map<int, const char*> _CompressionCodec_VALUES_TO_NAMES(::apache::thrift::TEnumIterator(7, _kCompressionCodecValues, _kCompressionCodecNames), ::apache::thrift::TEnumIterator(-1, NULL, NULL));
+const std::map<int, const char*> _CompressionCodec_VALUES_TO_NAMES(::apache::thrift::TEnumIterator(8, _kCompressionCodecValues, _kCompressionCodecNames), ::apache::thrift::TEnumIterator(-1, NULL, NULL));
 
 std::ostream& operator<<(std::ostream& out, const CompressionCodec::type& val) {
   std::map<int, const char*>::const_iterator it = _CompressionCodec_VALUES_TO_NAMES.find(val);

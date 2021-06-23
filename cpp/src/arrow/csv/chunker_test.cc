@@ -71,6 +71,36 @@ class BaseChunkerTest : public ::testing::TestWithParam<bool> {
 
   void MakeChunker() { chunker_ = ::arrow::csv::MakeChunker(options_); }
 
+  void AssertSkip(const std::string& str, int64_t count, int64_t rem_count,
+                  int64_t rest_size) {
+    MakeChunker();
+    {
+      auto test_count = count;
+      auto partial = std::make_shared<Buffer>("");
+      auto block = std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(str.data()),
+                                            static_cast<int64_t>(str.size()));
+      std::shared_ptr<Buffer> rest;
+      ASSERT_OK(chunker_->ProcessSkip(partial, block, true, &test_count, &rest));
+      ASSERT_EQ(rem_count, test_count);
+      ASSERT_EQ(rest_size, rest->size());
+      AssertBufferEqual(*SliceBuffer(block, block->size() - rest_size), *rest);
+    }
+    {
+      auto test_count = count;
+      auto split = static_cast<int64_t>(str.find_first_of('\n'));
+      auto partial =
+          std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(str.data()), split);
+      auto block =
+          std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(str.data() + split),
+                                   static_cast<int64_t>(str.size()) - split);
+      std::shared_ptr<Buffer> rest;
+      ASSERT_OK(chunker_->ProcessSkip(partial, block, true, &test_count, &rest));
+      ASSERT_EQ(rem_count, test_count);
+      ASSERT_EQ(rest_size, rest->size());
+      AssertBufferEqual(*SliceBuffer(block, block->size() - rest_size), *rest);
+    }
+  }
+
   ParseOptions options_;
   std::unique_ptr<Chunker> chunker_;
 };
@@ -258,6 +288,44 @@ TEST_P(BaseChunkerTest, EscapingNewline) {
       MakeChunker();
       AssertChunking(*chunker_, csv, lengths);
     }
+  }
+}
+
+TEST_P(BaseChunkerTest, ParseSkip) {
+  {
+    auto csv = MakeCSVData({"ab,c,\n", "def,,gh\n", ",ij,kl\n"});
+    ASSERT_NO_FATAL_FAILURE(AssertSkip(csv, 1, 0, 15));
+    ASSERT_NO_FATAL_FAILURE(AssertSkip(csv, 2, 0, 7));
+    ASSERT_NO_FATAL_FAILURE(AssertSkip(csv, 3, 0, 0));
+    ASSERT_NO_FATAL_FAILURE(AssertSkip(csv, 4, 1, 0));
+    ASSERT_NO_FATAL_FAILURE(AssertSkip(csv, 6, 3, 0));
+  }
+
+  // Test with no trailing new line
+  {
+    auto csv = MakeCSVData({"ab,c,\n", "def,,gh\n", ",ij,kl"});
+    ASSERT_NO_FATAL_FAILURE(AssertSkip(csv, 2, 0, 6));
+    ASSERT_NO_FATAL_FAILURE(AssertSkip(csv, 3, 0, 0));
+    ASSERT_NO_FATAL_FAILURE(AssertSkip(csv, 4, 1, 0));
+  }
+
+  // Test skip with new lines in values
+  {
+    auto csv = MakeCSVData({"ab,\"c\n\",\n", "\"d\nef\",,gh\n", ",ij,\"nkl\"\n"});
+    options_.newlines_in_values = true;
+    ASSERT_NO_FATAL_FAILURE(AssertSkip(csv, 1, 0, 21));
+    ASSERT_NO_FATAL_FAILURE(AssertSkip(csv, 2, 0, 10));
+    ASSERT_NO_FATAL_FAILURE(AssertSkip(csv, 3, 0, 0));
+    ASSERT_NO_FATAL_FAILURE(AssertSkip(csv, 4, 1, 0));
+    ASSERT_NO_FATAL_FAILURE(AssertSkip(csv, 6, 3, 0));
+  }
+
+  // Test with no trailing new line and new lines in values
+  {
+    auto csv = MakeCSVData({"ab,\"c\n\",\n", "\"d\nef\",,gh\n", ",ij,\"nkl\""});
+    ASSERT_NO_FATAL_FAILURE(AssertSkip(csv, 2, 0, 9));
+    ASSERT_NO_FATAL_FAILURE(AssertSkip(csv, 3, 0, 0));
+    ASSERT_NO_FATAL_FAILURE(AssertSkip(csv, 4, 1, 0));
   }
 }
 

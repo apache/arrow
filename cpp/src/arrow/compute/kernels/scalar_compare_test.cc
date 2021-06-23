@@ -451,6 +451,96 @@ TEST(TestCompareTimestamps, Basics) {
   CheckArrayCase(seconds_utc, CompareOperator::EQUAL, "[false, false, true]");
 }
 
+TEST(TestCompareKernel, DispatchBest) {
+  for (std::string name :
+       {"equal", "not_equal", "less", "less_equal", "greater", "greater_equal"}) {
+    CheckDispatchBest(name, {int32(), int32()}, {int32(), int32()});
+    CheckDispatchBest(name, {int32(), null()}, {int32(), int32()});
+    CheckDispatchBest(name, {null(), int32()}, {int32(), int32()});
+
+    CheckDispatchBest(name, {int32(), int8()}, {int32(), int32()});
+    CheckDispatchBest(name, {int32(), int16()}, {int32(), int32()});
+    CheckDispatchBest(name, {int32(), int32()}, {int32(), int32()});
+    CheckDispatchBest(name, {int32(), int64()}, {int64(), int64()});
+
+    CheckDispatchBest(name, {int32(), uint8()}, {int32(), int32()});
+    CheckDispatchBest(name, {int32(), uint16()}, {int32(), int32()});
+    CheckDispatchBest(name, {int32(), uint32()}, {int64(), int64()});
+    CheckDispatchBest(name, {int32(), uint64()}, {int64(), int64()});
+
+    CheckDispatchBest(name, {uint8(), uint8()}, {uint8(), uint8()});
+    CheckDispatchBest(name, {uint8(), uint16()}, {uint16(), uint16()});
+
+    CheckDispatchBest(name, {int32(), float32()}, {float32(), float32()});
+    CheckDispatchBest(name, {float32(), int64()}, {float32(), float32()});
+    CheckDispatchBest(name, {float64(), int32()}, {float64(), float64()});
+
+    CheckDispatchBest(name, {dictionary(int8(), float64()), float64()},
+                      {float64(), float64()});
+    CheckDispatchBest(name, {dictionary(int8(), float64()), int16()},
+                      {float64(), float64()});
+
+    CheckDispatchBest(name, {timestamp(TimeUnit::MICRO), date64()},
+                      {timestamp(TimeUnit::MICRO), timestamp(TimeUnit::MICRO)});
+
+    CheckDispatchBest(name, {timestamp(TimeUnit::MILLI), timestamp(TimeUnit::MICRO)},
+                      {timestamp(TimeUnit::MICRO), timestamp(TimeUnit::MICRO)});
+
+    CheckDispatchBest(name, {utf8(), binary()}, {binary(), binary()});
+    CheckDispatchBest(name, {large_utf8(), binary()}, {large_binary(), large_binary()});
+  }
+}
+
+TEST(TestCompareKernel, GreaterWithImplicitCasts) {
+  CheckScalarBinary("greater", ArrayFromJSON(int32(), "[0, 1, 2, null]"),
+                    ArrayFromJSON(float64(), "[0.5, 1.0, 1.5, 2.0]"),
+                    ArrayFromJSON(boolean(), "[false, false, true, null]"));
+
+  CheckScalarBinary("greater", ArrayFromJSON(int8(), "[-16, 0, 16, null]"),
+                    ArrayFromJSON(uint32(), "[3, 4, 5, 7]"),
+                    ArrayFromJSON(boolean(), "[false, false, true, null]"));
+
+  CheckScalarBinary("greater", ArrayFromJSON(int8(), "[-16, 0, 16, null]"),
+                    ArrayFromJSON(uint8(), "[255, 254, 1, 0]"),
+                    ArrayFromJSON(boolean(), "[false, false, true, null]"));
+
+  CheckScalarBinary("greater",
+                    ArrayFromJSON(dictionary(int32(), int32()), "[0, 1, 2, null]"),
+                    ArrayFromJSON(uint32(), "[3, 4, 5, 7]"),
+                    ArrayFromJSON(boolean(), "[false, false, false, null]"));
+
+  CheckScalarBinary("greater", ArrayFromJSON(int32(), "[0, 1, 2, null]"),
+                    std::make_shared<NullArray>(4),
+                    ArrayFromJSON(boolean(), "[null, null, null, null]"));
+
+  CheckScalarBinary("greater",
+                    ArrayFromJSON(timestamp(TimeUnit::SECOND),
+                                  R"(["1970-01-01","2000-02-29","1900-02-28"])"),
+                    ArrayFromJSON(date64(), "[86400000, 0, 86400000]"),
+                    ArrayFromJSON(boolean(), "[false, true, false]"));
+
+  CheckScalarBinary("greater",
+                    ArrayFromJSON(dictionary(int32(), int8()), "[3, -3, -28, null]"),
+                    ArrayFromJSON(uint32(), "[3, 4, 5, 7]"),
+                    ArrayFromJSON(boolean(), "[false, false, false, null]"));
+}
+
+TEST(TestCompareKernel, GreaterWithImplicitCastsUint64EdgeCase) {
+  // int64 is as wide as we can promote
+  CheckDispatchBest("greater", {int8(), uint64()}, {int64(), int64()});
+
+  // this works sometimes
+  CheckScalarBinary("greater", ArrayFromJSON(int8(), "[-1]"),
+                    ArrayFromJSON(uint64(), "[0]"), ArrayFromJSON(boolean(), "[false]"));
+
+  // ... but it can result in impossible implicit casts in  the presence of uint64, since
+  // some uint64 values cannot be cast to int64:
+  ASSERT_RAISES(
+      Invalid,
+      CallFunction("greater", {ArrayFromJSON(int64(), "[-1]"),
+                               ArrayFromJSON(uint64(), "[18446744073709551615]")}));
+}
+
 class TestStringCompareKernel : public ::testing::Test {};
 
 TEST_F(TestStringCompareKernel, SimpleCompareArrayScalar) {
@@ -459,85 +549,74 @@ TEST_F(TestStringCompareKernel, SimpleCompareArrayScalar) {
   CompareOptions eq(CompareOperator::EQUAL);
   ValidateCompare<StringType>(eq, "[]", one, "[]");
   ValidateCompare<StringType>(eq, "[null]", one, "[null]");
-  ValidateCompare<StringType>(eq, "[\"zero\",\"zero\",\"one\",\"one\",\"two\",\"two\"]",
-                              one, "[0,0,1,1,0,0]");
-  ValidateCompare<StringType>(
-      eq, "[\"zero\",\"one\",\"two\",\"three\",\"four\",\"five\"]", one, "[0,1,0,0,0,0]");
-  ValidateCompare<StringType>(
-      eq, "[\"five\",\"four\",\"three\",\"two\",\"one\",\"zero\"]", one, "[0,0,0,0,1,0]");
-  ValidateCompare<StringType>(eq, "[null,\"zero\",\"one\",\"one\"]", one, "[null,0,1,1]");
+  ValidateCompare<StringType>(eq, R"(["zero","zero","one","one","two","two"])", one,
+                              "[0,0,1,1,0,0]");
+  ValidateCompare<StringType>(eq, R"(["zero","one","two","three","four","five"])", one,
+                              "[0,1,0,0,0,0]");
+  ValidateCompare<StringType>(eq, R"(["five","four","three","two","one","zero"])", one,
+                              "[0,0,0,0,1,0]");
+  ValidateCompare<StringType>(eq, R"([null,"zero","one","one"])", one, "[null,0,1,1]");
 
   Datum na(std::make_shared<StringScalar>());
-  ValidateCompare<StringType>(eq, "[null,\"zero\",\"one\",\"one\"]", na,
+  ValidateCompare<StringType>(eq, R"([null,"zero","one","one"])", na,
                               "[null,null,null,null]");
-  ValidateCompare<StringType>(eq, na, "[null,\"zero\",\"one\",\"one\"]",
+  ValidateCompare<StringType>(eq, na, R"([null,"zero","one","one"])",
                               "[null,null,null,null]");
 
   CompareOptions neq(CompareOperator::NOT_EQUAL);
   ValidateCompare<StringType>(neq, "[]", one, "[]");
   ValidateCompare<StringType>(neq, "[null]", one, "[null]");
-  ValidateCompare<StringType>(neq, "[\"zero\",\"zero\",\"one\",\"one\",\"two\",\"two\"]",
-                              one, "[1,1,0,0,1,1]");
-  ValidateCompare<StringType>(neq,
-                              "[\"zero\",\"one\",\"two\",\"three\",\"four\",\"five\"]",
-                              one, "[1,0,1,1,1,1]");
-  ValidateCompare<StringType>(neq,
-                              "[\"five\",\"four\",\"three\",\"two\",\"one\",\"zero\"]",
-                              one, "[1,1,1,1,0,1]");
-  ValidateCompare<StringType>(neq, "[null,\"zero\",\"one\",\"one\"]", one,
-                              "[null,1,0,0]");
+  ValidateCompare<StringType>(neq, R"(["zero","zero","one","one","two","two"])", one,
+                              "[1,1,0,0,1,1]");
+  ValidateCompare<StringType>(neq, R"(["zero","one","two","three","four","five"])", one,
+                              "[1,0,1,1,1,1]");
+  ValidateCompare<StringType>(neq, R"(["five","four","three","two","one","zero"])", one,
+                              "[1,1,1,1,0,1]");
+  ValidateCompare<StringType>(neq, R"([null,"zero","one","one"])", one, "[null,1,0,0]");
 
   CompareOptions gt(CompareOperator::GREATER);
   ValidateCompare<StringType>(gt, "[]", one, "[]");
   ValidateCompare<StringType>(gt, "[null]", one, "[null]");
-  ValidateCompare<StringType>(gt, "[\"zero\",\"zero\",\"one\",\"one\",\"two\",\"two\"]",
-                              one, "[1,1,0,0,1,1]");
-  ValidateCompare<StringType>(
-      gt, "[\"zero\",\"one\",\"two\",\"three\",\"four\",\"five\"]", one, "[1,0,1,1,0,0]");
-  ValidateCompare<StringType>(gt,
-                              "[\"four\",\"five\",\"six\",\"seven\",\"eight\",\"nine\"]",
-                              one, "[0,0,1,1,0,0]");
-  ValidateCompare<StringType>(gt, "[null,\"zero\",\"one\",\"one\"]", one, "[null,1,0,0]");
+  ValidateCompare<StringType>(gt, R"(["zero","zero","one","one","two","two"])", one,
+                              "[1,1,0,0,1,1]");
+  ValidateCompare<StringType>(gt, R"(["zero","one","two","three","four","five"])", one,
+                              "[1,0,1,1,0,0]");
+  ValidateCompare<StringType>(gt, R"(["four","five","six","seven","eight","nine"])", one,
+                              "[0,0,1,1,0,0]");
+  ValidateCompare<StringType>(gt, R"([null,"zero","one","one"])", one, "[null,1,0,0]");
 
   CompareOptions gte(CompareOperator::GREATER_EQUAL);
   ValidateCompare<StringType>(gte, "[]", one, "[]");
   ValidateCompare<StringType>(gte, "[null]", one, "[null]");
-  ValidateCompare<StringType>(gte, "[\"zero\",\"zero\",\"one\",\"one\",\"two\",\"two\"]",
-                              one, "[1,1,1,1,1,1]");
-  ValidateCompare<StringType>(gte,
-                              "[\"zero\",\"one\",\"two\",\"three\",\"four\",\"five\"]",
-                              one, "[1,1,1,1,0,0]");
-  ValidateCompare<StringType>(gte,
-                              "[\"four\",\"five\",\"six\",\"seven\",\"eight\",\"nine\"]",
-                              one, "[0,0,1,1,0,0]");
-  ValidateCompare<StringType>(gte, "[null,\"zero\",\"one\",\"one\"]", one,
-                              "[null,1,1,1]");
+  ValidateCompare<StringType>(gte, R"(["zero","zero","one","one","two","two"])", one,
+                              "[1,1,1,1,1,1]");
+  ValidateCompare<StringType>(gte, R"(["zero","one","two","three","four","five"])", one,
+                              "[1,1,1,1,0,0]");
+  ValidateCompare<StringType>(gte, R"(["four","five","six","seven","eight","nine"])", one,
+                              "[0,0,1,1,0,0]");
+  ValidateCompare<StringType>(gte, R"([null,"zero","one","one"])", one, "[null,1,1,1]");
 
   CompareOptions lt(CompareOperator::LESS);
   ValidateCompare<StringType>(lt, "[]", one, "[]");
   ValidateCompare<StringType>(lt, "[null]", one, "[null]");
-  ValidateCompare<StringType>(lt, "[\"zero\",\"zero\",\"one\",\"one\",\"two\",\"two\"]",
-                              one, "[0,0,0,0,0,0]");
-  ValidateCompare<StringType>(
-      lt, "[\"zero\",\"one\",\"two\",\"three\",\"four\",\"five\"]", one, "[0,0,0,0,1,1]");
-  ValidateCompare<StringType>(lt,
-                              "[\"four\",\"five\",\"six\",\"seven\",\"eight\",\"nine\"]",
-                              one, "[1,1,0,0,1,1]");
-  ValidateCompare<StringType>(lt, "[null,\"zero\",\"one\",\"one\"]", one, "[null,0,0,0]");
+  ValidateCompare<StringType>(lt, R"(["zero","zero","one","one","two","two"])", one,
+                              "[0,0,0,0,0,0]");
+  ValidateCompare<StringType>(lt, R"(["zero","one","two","three","four","five"])", one,
+                              "[0,0,0,0,1,1]");
+  ValidateCompare<StringType>(lt, R"(["four","five","six","seven","eight","nine"])", one,
+                              "[1,1,0,0,1,1]");
+  ValidateCompare<StringType>(lt, R"([null,"zero","one","one"])", one, "[null,0,0,0]");
 
   CompareOptions lte(CompareOperator::LESS_EQUAL);
   ValidateCompare<StringType>(lte, "[]", one, "[]");
   ValidateCompare<StringType>(lte, "[null]", one, "[null]");
-  ValidateCompare<StringType>(lte, "[\"zero\",\"zero\",\"one\",\"one\",\"two\",\"two\"]",
-                              one, "[0,0,1,1,0,0]");
-  ValidateCompare<StringType>(lte,
-                              "[\"zero\",\"one\",\"two\",\"three\",\"four\",\"five\"]",
-                              one, "[0,1,0,0,1,1]");
-  ValidateCompare<StringType>(lte,
-                              "[\"four\",\"five\",\"six\",\"seven\",\"eight\",\"nine\"]",
-                              one, "[1,1,0,0,1,1]");
-  ValidateCompare<StringType>(lte, "[null,\"zero\",\"one\",\"one\"]", one,
-                              "[null,0,1,1]");
+  ValidateCompare<StringType>(lte, R"(["zero","zero","one","one","two","two"])", one,
+                              "[0,0,1,1,0,0]");
+  ValidateCompare<StringType>(lte, R"(["zero","one","two","three","four","five"])", one,
+                              "[0,1,0,0,1,1]");
+  ValidateCompare<StringType>(lte, R"(["four","five","six","seven","eight","nine"])", one,
+                              "[1,1,0,0,1,1]");
+  ValidateCompare<StringType>(lte, R"([null,"zero","one","one"])", one, "[null,0,1,1]");
 }
 
 TEST_F(TestStringCompareKernel, RandomCompareArrayScalar) {
@@ -563,13 +642,358 @@ TEST_F(TestStringCompareKernel, RandomCompareArrayArray) {
   for (size_t i = 3; i < 5; i++) {
     for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
       for (auto op : {EQUAL, NOT_EQUAL, GREATER, LESS_EQUAL}) {
-        const int64_t length = static_cast<int64_t>(1ULL << i);
+        auto length = static_cast<int64_t>(1ULL << i);
         auto lhs = Datum(rand.String(length << i, 0, 16, null_probability));
         auto rhs = Datum(rand.String(length << i, 0, 16, null_probability));
         auto options = CompareOptions(op);
         ValidateCompare<StringType>(options, lhs, rhs);
       }
     }
+  }
+}
+
+template <typename T>
+class TestVarArgsCompare : public TestBase {
+ protected:
+  static std::shared_ptr<DataType> type_singleton() {
+    return TypeTraits<T>::type_singleton();
+  }
+
+  using VarArgsFunction = std::function<Result<Datum>(
+      const std::vector<Datum>&, ElementWiseAggregateOptions, ExecContext*)>;
+
+  void SetUp() override { equal_options_ = equal_options_.nans_equal(true); }
+
+  Datum scalar(const std::string& value) {
+    return ScalarFromJSON(type_singleton(), value);
+  }
+
+  Datum array(const std::string& value) { return ArrayFromJSON(type_singleton(), value); }
+
+  Datum Eval(VarArgsFunction func, const std::vector<Datum>& args) {
+    EXPECT_OK_AND_ASSIGN(auto actual,
+                         func(args, element_wise_aggregate_options_, nullptr));
+    ValidateOutput(actual);
+    return actual;
+  }
+
+  void AssertNullScalar(VarArgsFunction func, const std::vector<Datum>& args) {
+    auto datum = this->Eval(func, args);
+    ASSERT_TRUE(datum.is_scalar());
+    ASSERT_FALSE(datum.scalar()->is_valid);
+  }
+
+  void Assert(VarArgsFunction func, Datum expected, const std::vector<Datum>& args) {
+    auto actual = Eval(func, args);
+    AssertDatumsApproxEqual(expected, actual, /*verbose=*/true, equal_options_);
+  }
+
+  EqualOptions equal_options_ = EqualOptions::Defaults();
+  ElementWiseAggregateOptions element_wise_aggregate_options_;
+};
+
+template <typename T>
+class TestVarArgsCompareNumeric : public TestVarArgsCompare<T> {};
+
+template <typename T>
+class TestVarArgsCompareFloating : public TestVarArgsCompare<T> {};
+
+template <typename T>
+class TestVarArgsCompareParametricTemporal : public TestVarArgsCompare<T> {
+ protected:
+  static std::shared_ptr<DataType> type_singleton() {
+    // Time32 requires second/milli, Time64 requires nano/micro
+    if (TypeTraits<T>::bytes_required(1) == 4) {
+      return std::make_shared<T>(TimeUnit::type::SECOND);
+    } else {
+      return std::make_shared<T>(TimeUnit::type::NANO);
+    }
+  }
+
+  Datum scalar(const std::string& value) {
+    return ScalarFromJSON(type_singleton(), value);
+  }
+
+  Datum array(const std::string& value) { return ArrayFromJSON(type_singleton(), value); }
+};
+
+using NumericBasedTypes =
+    ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
+                     Int32Type, Int64Type, FloatType, DoubleType, Date32Type, Date64Type>;
+using ParametricTemporalTypes = ::testing::Types<TimestampType, Time32Type, Time64Type>;
+
+TYPED_TEST_SUITE(TestVarArgsCompareNumeric, NumericBasedTypes);
+TYPED_TEST_SUITE(TestVarArgsCompareFloating, RealArrowTypes);
+TYPED_TEST_SUITE(TestVarArgsCompareParametricTemporal, ParametricTemporalTypes);
+
+TYPED_TEST(TestVarArgsCompareNumeric, MinElementWise) {
+  this->AssertNullScalar(MinElementWise, {});
+  this->AssertNullScalar(MinElementWise, {this->scalar("null"), this->scalar("null")});
+
+  this->Assert(MinElementWise, this->scalar("0"), {this->scalar("0")});
+  this->Assert(MinElementWise, this->scalar("0"),
+               {this->scalar("2"), this->scalar("0"), this->scalar("1")});
+  this->Assert(
+      MinElementWise, this->scalar("0"),
+      {this->scalar("2"), this->scalar("0"), this->scalar("1"), this->scalar("null")});
+  this->Assert(MinElementWise, this->scalar("1"),
+               {this->scalar("null"), this->scalar("null"), this->scalar("1"),
+                this->scalar("null")});
+
+  this->Assert(MinElementWise, (this->array("[]")), {this->array("[]")});
+  this->Assert(MinElementWise, this->array("[1, 2, 3, null]"),
+               {this->array("[1, 2, 3, null]")});
+
+  this->Assert(MinElementWise, this->array("[1, 2, 2, 2]"),
+               {this->array("[1, 2, 3, 4]"), this->scalar("2")});
+  this->Assert(MinElementWise, this->array("[1, 2, 2, 2]"),
+               {this->array("[1, null, 3, 4]"), this->scalar("2")});
+  this->Assert(MinElementWise, this->array("[1, 2, 2, 2]"),
+               {this->array("[1, null, 3, 4]"), this->scalar("2"), this->scalar("4")});
+  this->Assert(MinElementWise, this->array("[1, 2, 2, 2]"),
+               {this->array("[1, null, 3, 4]"), this->scalar("null"), this->scalar("2")});
+
+  this->Assert(MinElementWise, this->array("[1, 2, 2, 2]"),
+               {this->array("[1, 2, 3, 4]"), this->array("[2, 2, 2, 2]")});
+  this->Assert(MinElementWise, this->array("[1, 2, 2, 2]"),
+               {this->array("[1, 2, 3, 4]"), this->array("[2, null, 2, 2]")});
+  this->Assert(MinElementWise, this->array("[1, 2, 2, 2]"),
+               {this->array("[1, null, 3, 4]"), this->array("[2, 2, 2, 2]")});
+
+  this->Assert(MinElementWise, this->array("[1, 2, null, 6]"),
+               {this->array("[1, 2, null, null]"), this->array("[4, null, null, 6]")});
+  this->Assert(MinElementWise, this->array("[1, 2, null, 6]"),
+               {this->array("[4, null, null, 6]"), this->array("[1, 2, null, null]")});
+  this->Assert(MinElementWise, this->array("[1, 2, 3, 4]"),
+               {this->array("[1, 2, 3, 4]"), this->array("[null, null, null, null]")});
+  this->Assert(MinElementWise, this->array("[1, 2, 3, 4]"),
+               {this->array("[null, null, null, null]"), this->array("[1, 2, 3, 4]")});
+
+  this->Assert(MinElementWise, this->array("[1, 1, 1, 1]"),
+               {this->scalar("1"), this->array("[1, 2, 3, 4]")});
+  this->Assert(MinElementWise, this->array("[1, 1, 1, 1]"),
+               {this->scalar("1"), this->array("[null, null, null, null]")});
+  this->Assert(MinElementWise, this->array("[1, 1, 1, 1]"),
+               {this->scalar("null"), this->array("[1, 1, 1, 1]")});
+  this->Assert(MinElementWise, this->array("[null, null, null, null]"),
+               {this->scalar("null"), this->array("[null, null, null, null]")});
+
+  // Test null handling
+  this->element_wise_aggregate_options_.skip_nulls = false;
+  this->AssertNullScalar(MinElementWise, {this->scalar("null"), this->scalar("null")});
+  this->AssertNullScalar(MinElementWise, {this->scalar("0"), this->scalar("null")});
+
+  this->Assert(MinElementWise, this->array("[1, null, 2, 2]"),
+               {this->array("[1, null, 3, 4]"), this->scalar("2"), this->scalar("4")});
+  this->Assert(MinElementWise, this->array("[null, null, null, null]"),
+               {this->array("[1, null, 3, 4]"), this->scalar("null"), this->scalar("2")});
+  this->Assert(MinElementWise, this->array("[1, null, 2, 2]"),
+               {this->array("[1, 2, 3, 4]"), this->array("[2, null, 2, 2]")});
+
+  this->Assert(MinElementWise, this->array("[null, null, null, null]"),
+               {this->scalar("1"), this->array("[null, null, null, null]")});
+  this->Assert(MinElementWise, this->array("[null, null, null, null]"),
+               {this->scalar("null"), this->array("[1, 1, 1, 1]")});
+}
+
+TYPED_TEST(TestVarArgsCompareFloating, MinElementWise) {
+  auto Check = [this](const std::string& expected,
+                      const std::vector<std::string>& inputs) {
+    std::vector<Datum> args;
+    for (const auto& input : inputs) {
+      args.emplace_back(this->scalar(input));
+    }
+    this->Assert(MinElementWise, this->scalar(expected), args);
+
+    args.clear();
+    for (const auto& input : inputs) {
+      args.emplace_back(this->array("[" + input + "]"));
+    }
+    this->Assert(MinElementWise, this->array("[" + expected + "]"), args);
+  };
+  Check("-0.0", {"0.0", "-0.0"});
+  Check("-0.0", {"1.0", "-0.0", "0.0"});
+  Check("-1.0", {"-1.0", "-0.0"});
+  Check("0", {"0", "NaN"});
+  Check("0", {"NaN", "0"});
+  Check("Inf", {"Inf", "NaN"});
+  Check("Inf", {"NaN", "Inf"});
+  Check("-Inf", {"-Inf", "NaN"});
+  Check("-Inf", {"NaN", "-Inf"});
+  Check("NaN", {"NaN", "null"});
+  Check("0", {"0", "Inf"});
+  Check("-Inf", {"0", "-Inf"});
+}
+
+TYPED_TEST(TestVarArgsCompareParametricTemporal, MinElementWise) {
+  // Temporal kernel is implemented with numeric kernel underneath
+  this->AssertNullScalar(MinElementWise, {});
+  this->AssertNullScalar(MinElementWise, {this->scalar("null"), this->scalar("null")});
+
+  this->Assert(MinElementWise, this->scalar("0"), {this->scalar("0")});
+  this->Assert(MinElementWise, this->scalar("0"), {this->scalar("2"), this->scalar("0")});
+  this->Assert(MinElementWise, this->scalar("0"),
+               {this->scalar("0"), this->scalar("null")});
+
+  this->Assert(MinElementWise, (this->array("[]")), {this->array("[]")});
+  this->Assert(MinElementWise, this->array("[1, 2, 3, null]"),
+               {this->array("[1, 2, 3, null]")});
+
+  this->Assert(MinElementWise, this->array("[1, 2, 2, 2]"),
+               {this->array("[1, null, 3, 4]"), this->scalar("null"), this->scalar("2")});
+
+  this->Assert(MinElementWise, this->array("[1, 2, 3, 2]"),
+               {this->array("[1, null, 3, 4]"), this->array("[2, 2, null, 2]")});
+}
+
+TYPED_TEST(TestVarArgsCompareNumeric, MaxElementWise) {
+  this->AssertNullScalar(MaxElementWise, {});
+  this->AssertNullScalar(MaxElementWise, {this->scalar("null"), this->scalar("null")});
+
+  this->Assert(MaxElementWise, this->scalar("0"), {this->scalar("0")});
+  this->Assert(MaxElementWise, this->scalar("2"),
+               {this->scalar("2"), this->scalar("0"), this->scalar("1")});
+  this->Assert(
+      MaxElementWise, this->scalar("2"),
+      {this->scalar("2"), this->scalar("0"), this->scalar("1"), this->scalar("null")});
+  this->Assert(MaxElementWise, this->scalar("1"),
+               {this->scalar("null"), this->scalar("null"), this->scalar("1"),
+                this->scalar("null")});
+
+  this->Assert(MaxElementWise, (this->array("[]")), {this->array("[]")});
+  this->Assert(MaxElementWise, this->array("[1, 2, 3, null]"),
+               {this->array("[1, 2, 3, null]")});
+
+  this->Assert(MaxElementWise, this->array("[2, 2, 3, 4]"),
+               {this->array("[1, 2, 3, 4]"), this->scalar("2")});
+  this->Assert(MaxElementWise, this->array("[2, 2, 3, 4]"),
+               {this->array("[1, null, 3, 4]"), this->scalar("2")});
+  this->Assert(MaxElementWise, this->array("[4, 4, 4, 4]"),
+               {this->array("[1, null, 3, 4]"), this->scalar("2"), this->scalar("4")});
+  this->Assert(MaxElementWise, this->array("[2, 2, 3, 4]"),
+               {this->array("[1, null, 3, 4]"), this->scalar("null"), this->scalar("2")});
+
+  this->Assert(MaxElementWise, this->array("[2, 2, 3, 4]"),
+               {this->array("[1, 2, 3, 4]"), this->array("[2, 2, 2, 2]")});
+  this->Assert(MaxElementWise, this->array("[2, 2, 3, 4]"),
+               {this->array("[1, 2, 3, 4]"), this->array("[2, null, 2, 2]")});
+  this->Assert(MaxElementWise, this->array("[2, 2, 3, 4]"),
+               {this->array("[1, null, 3, 4]"), this->array("[2, 2, 2, 2]")});
+
+  this->Assert(MaxElementWise, this->array("[4, 2, null, 6]"),
+               {this->array("[1, 2, null, null]"), this->array("[4, null, null, 6]")});
+  this->Assert(MaxElementWise, this->array("[4, 2, null, 6]"),
+               {this->array("[4, null, null, 6]"), this->array("[1, 2, null, null]")});
+  this->Assert(MaxElementWise, this->array("[1, 2, 3, 4]"),
+               {this->array("[1, 2, 3, 4]"), this->array("[null, null, null, null]")});
+  this->Assert(MaxElementWise, this->array("[1, 2, 3, 4]"),
+               {this->array("[null, null, null, null]"), this->array("[1, 2, 3, 4]")});
+
+  this->Assert(MaxElementWise, this->array("[1, 2, 3, 4]"),
+               {this->scalar("1"), this->array("[1, 2, 3, 4]")});
+  this->Assert(MaxElementWise, this->array("[1, 1, 1, 1]"),
+               {this->scalar("1"), this->array("[null, null, null, null]")});
+  this->Assert(MaxElementWise, this->array("[1, 1, 1, 1]"),
+               {this->scalar("null"), this->array("[1, 1, 1, 1]")});
+  this->Assert(MaxElementWise, this->array("[null, null, null, null]"),
+               {this->scalar("null"), this->array("[null, null, null, null]")});
+
+  // Test null handling
+  this->element_wise_aggregate_options_.skip_nulls = false;
+  this->AssertNullScalar(MaxElementWise, {this->scalar("null"), this->scalar("null")});
+  this->AssertNullScalar(MaxElementWise, {this->scalar("0"), this->scalar("null")});
+
+  this->Assert(MaxElementWise, this->array("[4, null, 4, 4]"),
+               {this->array("[1, null, 3, 4]"), this->scalar("2"), this->scalar("4")});
+  this->Assert(MaxElementWise, this->array("[null, null, null, null]"),
+               {this->array("[1, null, 3, 4]"), this->scalar("null"), this->scalar("2")});
+  this->Assert(MaxElementWise, this->array("[2, null, 3, 4]"),
+               {this->array("[1, 2, 3, 4]"), this->array("[2, null, 2, 2]")});
+
+  this->Assert(MaxElementWise, this->array("[null, null, null, null]"),
+               {this->scalar("1"), this->array("[null, null, null, null]")});
+  this->Assert(MaxElementWise, this->array("[null, null, null, null]"),
+               {this->scalar("null"), this->array("[1, 1, 1, 1]")});
+}
+
+TYPED_TEST(TestVarArgsCompareFloating, MaxElementWise) {
+  auto Check = [this](const std::string& expected,
+                      const std::vector<std::string>& inputs) {
+    std::vector<Datum> args;
+    for (const auto& input : inputs) {
+      args.emplace_back(this->scalar(input));
+    }
+    this->Assert(MaxElementWise, this->scalar(expected), args);
+
+    args.clear();
+    for (const auto& input : inputs) {
+      args.emplace_back(this->array("[" + input + "]"));
+    }
+    this->Assert(MaxElementWise, this->array("[" + expected + "]"), args);
+  };
+  Check("0.0", {"0.0", "-0.0"});
+  Check("1.0", {"1.0", "-0.0", "0.0"});
+  Check("-0.0", {"-1.0", "-0.0"});
+  Check("0", {"0", "NaN"});
+  Check("0", {"NaN", "0"});
+  Check("Inf", {"Inf", "NaN"});
+  Check("Inf", {"NaN", "Inf"});
+  Check("-Inf", {"-Inf", "NaN"});
+  Check("-Inf", {"NaN", "-Inf"});
+  Check("NaN", {"NaN", "null"});
+  Check("Inf", {"0", "Inf"});
+  Check("0", {"0", "-Inf"});
+}
+
+TYPED_TEST(TestVarArgsCompareParametricTemporal, MaxElementWise) {
+  // Temporal kernel is implemented with numeric kernel underneath
+  this->AssertNullScalar(MaxElementWise, {});
+  this->AssertNullScalar(MaxElementWise, {this->scalar("null"), this->scalar("null")});
+
+  this->Assert(MaxElementWise, this->scalar("0"), {this->scalar("0")});
+  this->Assert(MaxElementWise, this->scalar("2"), {this->scalar("2"), this->scalar("0")});
+  this->Assert(MaxElementWise, this->scalar("0"),
+               {this->scalar("0"), this->scalar("null")});
+
+  this->Assert(MaxElementWise, (this->array("[]")), {this->array("[]")});
+  this->Assert(MaxElementWise, this->array("[1, 2, 3, null]"),
+               {this->array("[1, 2, 3, null]")});
+
+  this->Assert(MaxElementWise, this->array("[2, 2, 3, 4]"),
+               {this->array("[1, null, 3, 4]"), this->scalar("null"), this->scalar("2")});
+
+  this->Assert(MaxElementWise, this->array("[2, 2, 3, 4]"),
+               {this->array("[1, null, 3, 4]"), this->array("[2, 2, null, 2]")});
+}
+
+TEST(TestMaxElementWiseMinElementWise, CommonTimestamp) {
+  {
+    auto t1 = std::make_shared<TimestampType>(TimeUnit::SECOND);
+    auto t2 = std::make_shared<TimestampType>(TimeUnit::MILLI);
+    auto expected = MakeScalar(t2, 1000).ValueOrDie();
+    ASSERT_OK_AND_ASSIGN(auto actual,
+                         MinElementWise({Datum(MakeScalar(t1, 1).ValueOrDie()),
+                                         Datum(MakeScalar(t2, 12000).ValueOrDie())}));
+    AssertScalarsEqual(*expected, *actual.scalar(), /*verbose=*/true);
+  }
+  {
+    auto t1 = std::make_shared<Date32Type>();
+    auto t2 = std::make_shared<TimestampType>(TimeUnit::SECOND);
+    auto expected = MakeScalar(t2, 86401).ValueOrDie();
+    ASSERT_OK_AND_ASSIGN(auto actual,
+                         MaxElementWise({Datum(MakeScalar(t1, 1).ValueOrDie()),
+                                         Datum(MakeScalar(t2, 86401).ValueOrDie())}));
+    AssertScalarsEqual(*expected, *actual.scalar(), /*verbose=*/true);
+  }
+  {
+    auto t1 = std::make_shared<Date32Type>();
+    auto t2 = std::make_shared<Date64Type>();
+    auto t3 = std::make_shared<TimestampType>(TimeUnit::SECOND);
+    auto expected = MakeScalar(t3, 86400).ValueOrDie();
+    ASSERT_OK_AND_ASSIGN(
+        auto actual, MinElementWise({Datum(MakeScalar(t1, 1).ValueOrDie()),
+                                     Datum(MakeScalar(t2, 2 * 86400000).ValueOrDie())}));
+    AssertScalarsEqual(*expected, *actual.scalar(), /*verbose=*/true);
   }
 }
 

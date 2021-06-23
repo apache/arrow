@@ -20,6 +20,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/apache/arrow/go/arrow/array"
@@ -40,6 +41,8 @@ func TestReadWrite(t *testing.T) {
 	wantJSONs["intervals"] = makeIntervalsWantJSONs()
 	wantJSONs["durations"] = makeDurationsWantJSONs()
 	wantJSONs["decimal128"] = makeDecimal128sWantJSONs()
+	wantJSONs["maps"] = makeMapsWantJSONs()
+	wantJSONs["extension"] = makeExtensionsWantJSONs()
 
 	tempDir, err := ioutil.TempDir("", "go-arrow-read-write-")
 	if err != nil {
@@ -49,9 +52,6 @@ func TestReadWrite(t *testing.T) {
 
 	for name, recs := range arrdata.Records {
 		t.Run(name, func(t *testing.T) {
-			if name == "decimal128" {
-				t.Skip() // FIXME(sbinet): implement full decimal128 support
-			}
 			mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 			defer mem.AssertSize(t, 0)
 
@@ -85,7 +85,7 @@ func TestReadWrite(t *testing.T) {
 			}
 
 			fileBytes, _ := ioutil.ReadFile(f.Name())
-			if wantJSONs[name] != string(fileBytes) {
+			if wantJSONs[name] != strings.TrimSpace(string(fileBytes)) {
 				t.Fatalf("not expected JSON pretty output for case: %v", name)
 			}
 
@@ -146,6 +146,20 @@ func makeNullWantJSONs() string {
         },
         "nullable": true,
         "children": []
+      }
+    ],
+    "metadata": [
+      {
+        "key": "k1",
+        "value": "v1"
+      },
+      {
+        "key": "k2",
+        "value": "v2"
+      },
+      {
+        "key": "k3",
+        "value": "v3"
       }
     ]
   },
@@ -286,6 +300,20 @@ func makePrimitiveWantJSONs() string {
         },
         "nullable": true,
         "children": []
+      }
+    ],
+    "metadata": [
+      {
+        "key": "k1",
+        "value": "v1"
+      },
+      {
+        "key": "k2",
+        "value": "v2"
+      },
+      {
+        "key": "k3",
+        "value": "v3"
       }
     ]
   },
@@ -3100,5 +3128,1192 @@ func makeDurationsWantJSONs() string {
 }
 
 func makeDecimal128sWantJSONs() string {
-	return `` // FIXME(fredgan): implement full decimal128 JSON support
+	return `{
+  "schema": {
+    "fields": [
+      {
+        "name": "dec128s",
+        "type": {
+          "name": "decimal",
+          "scale": 1,
+          "precision": 10
+        },
+        "nullable": true,
+        "children": []
+      }
+    ]
+  },
+  "batches": [
+    {
+      "count": 5,
+      "columns": [
+        {
+          "name": "dec128s",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            0,
+            1,
+            1
+          ],
+          "DATA": [
+            "571849066284996100127",
+            "590295810358705651744",
+            "608742554432415203361",
+            "627189298506124754978",
+            "645636042579834306595"
+          ]
+        }
+      ]
+    },
+    {
+      "count": 5,
+      "columns": [
+        {
+          "name": "dec128s",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            0,
+            1,
+            1
+          ],
+          "DATA": [
+            "756316507022091616297",
+            "774763251095801167914",
+            "793209995169510719531",
+            "811656739243220271148",
+            "830103483316929822765"
+          ]
+        }
+      ]
+    },
+    {
+      "count": 5,
+      "columns": [
+        {
+          "name": "dec128s",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            0,
+            1,
+            1
+          ],
+          "DATA": [
+            "940783947759187132467",
+            "959230691832896684084",
+            "977677435906606235701",
+            "996124179980315787318",
+            "1014570924054025338935"
+          ]
+        }
+      ]
+    }
+  ]
+}`
+}
+
+func makeMapsWantJSONs() string {
+	return `{
+  "schema": {
+    "fields": [
+      {
+        "name": "map_int_utf8",
+        "type": {
+          "name": "map",
+          "keysSorted": true
+        },
+        "nullable": true,
+        "children": [
+          {
+            "name": "entries",
+            "type": {
+              "name": "struct"
+            },
+            "nullable": false,
+            "children": [
+              {
+                "name": "key",
+                "type": {
+                  "name": "int",
+                  "isSigned": true,
+                  "bitWidth": 32
+                },
+                "nullable": false,
+                "children": []
+              },
+              {
+                "name": "value",
+                "type": {
+                  "name": "utf8"
+                },
+                "nullable": true,
+                "children": []
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "batches": [
+    {
+      "count": 2,
+      "columns": [
+        {
+          "name": "map_int_utf8",
+          "count": 2,
+          "VALIDITY": [
+            1,
+            0
+          ],
+          "OFFSET": [
+            0,
+            25,
+            50
+          ],
+          "children": [
+            {
+              "name": "entries",
+              "count": 50,
+              "VALIDITY": [
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1
+              ],
+              "children": [
+                {
+                  "name": "key",
+                  "count": 50,
+                  "VALIDITY": [
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1
+                  ],
+                  "DATA": [
+                    -1,
+                    -2,
+                    -3,
+                    -4,
+                    -5,
+                    -1,
+                    -2,
+                    -3,
+                    -4,
+                    -5,
+                    -1,
+                    -2,
+                    -3,
+                    -4,
+                    -5,
+                    -1,
+                    -2,
+                    -3,
+                    -4,
+                    -5,
+                    -1,
+                    -2,
+                    -3,
+                    -4,
+                    -5,
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    1,
+                    2,
+                    3,
+                    4,
+                    5
+                  ]
+                },
+                {
+                  "name": "value",
+                  "count": 50,
+                  "VALIDITY": [
+                    1,
+                    0,
+                    0,
+                    1,
+                    1,
+                    1,
+                    0,
+                    0,
+                    1,
+                    1,
+                    1,
+                    0,
+                    0,
+                    1,
+                    1,
+                    1,
+                    0,
+                    0,
+                    1,
+                    1,
+                    1,
+                    0,
+                    0,
+                    1,
+                    1,
+                    1,
+                    0,
+                    0,
+                    1,
+                    1,
+                    1,
+                    0,
+                    0,
+                    1,
+                    1,
+                    1,
+                    0,
+                    0,
+                    1,
+                    1,
+                    1,
+                    0,
+                    0,
+                    1,
+                    1,
+                    1,
+                    0,
+                    0,
+                    1,
+                    1
+                  ],
+                  "DATA": [
+                    "111",
+                    "",
+                    "",
+                    "444",
+                    "555",
+                    "1111",
+                    "",
+                    "",
+                    "1444",
+                    "1555",
+                    "2111",
+                    "",
+                    "",
+                    "2444",
+                    "2555",
+                    "3111",
+                    "",
+                    "",
+                    "3444",
+                    "3555",
+                    "4111",
+                    "",
+                    "",
+                    "4444",
+                    "4555",
+                    "-111",
+                    "",
+                    "",
+                    "-444",
+                    "-555",
+                    "-1111",
+                    "",
+                    "",
+                    "-1444",
+                    "-1555",
+                    "-2111",
+                    "",
+                    "",
+                    "-2444",
+                    "-2555",
+                    "-3111",
+                    "",
+                    "",
+                    "-3444",
+                    "-3555",
+                    "-4111",
+                    "",
+                    "",
+                    "-4444",
+                    "-4555"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "count": 2,
+      "columns": [
+        {
+          "name": "map_int_utf8",
+          "count": 2,
+          "VALIDITY": [
+            1,
+            0
+          ],
+          "OFFSET": [
+            0,
+            25,
+            50
+          ],
+          "children": [
+            {
+              "name": "entries",
+              "count": 50,
+              "VALIDITY": [
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1
+              ],
+              "children": [
+                {
+                  "name": "key",
+                  "count": 50,
+                  "VALIDITY": [
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1
+                  ],
+                  "DATA": [
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    -1,
+                    -2,
+                    -3,
+                    -4,
+                    -5,
+                    -1,
+                    -2,
+                    -3,
+                    -4,
+                    -5,
+                    -1,
+                    -2,
+                    -3,
+                    -4,
+                    -5,
+                    -1,
+                    -2,
+                    -3,
+                    -4,
+                    -5,
+                    -1,
+                    -2,
+                    -3,
+                    -4,
+                    -5
+                  ]
+                },
+                {
+                  "name": "value",
+                  "count": 50,
+                  "VALIDITY": [
+                    1,
+                    0,
+                    0,
+                    1,
+                    1,
+                    1,
+                    0,
+                    0,
+                    1,
+                    1,
+                    1,
+                    0,
+                    0,
+                    1,
+                    1,
+                    1,
+                    0,
+                    0,
+                    1,
+                    1,
+                    1,
+                    0,
+                    0,
+                    1,
+                    1,
+                    1,
+                    0,
+                    0,
+                    1,
+                    1,
+                    1,
+                    0,
+                    0,
+                    1,
+                    1,
+                    1,
+                    0,
+                    0,
+                    1,
+                    1,
+                    1,
+                    0,
+                    0,
+                    1,
+                    1,
+                    1,
+                    0,
+                    0,
+                    1,
+                    1
+                  ],
+                  "DATA": [
+                    "-111",
+                    "",
+                    "",
+                    "-444",
+                    "-555",
+                    "-1111",
+                    "",
+                    "",
+                    "-1444",
+                    "-1555",
+                    "-2111",
+                    "",
+                    "",
+                    "-2444",
+                    "-2555",
+                    "-3111",
+                    "",
+                    "",
+                    "-3444",
+                    "-3555",
+                    "-4111",
+                    "",
+                    "",
+                    "-4444",
+                    "-4555",
+                    "111",
+                    "",
+                    "",
+                    "444",
+                    "555",
+                    "1111",
+                    "",
+                    "",
+                    "1444",
+                    "1555",
+                    "2111",
+                    "",
+                    "",
+                    "2444",
+                    "2555",
+                    "3111",
+                    "",
+                    "",
+                    "3444",
+                    "3555",
+                    "4111",
+                    "",
+                    "",
+                    "4444",
+                    "4555"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}`
+}
+
+func makeExtensionsWantJSONs() string {
+	return `{
+  "schema": {
+    "fields": [
+      {
+        "name": "p1",
+        "type": {
+          "name": "int",
+          "isSigned": true,
+          "bitWidth": 32
+        },
+        "nullable": true,
+        "children": [],
+        "metadata": [
+          {
+            "key": "k1",
+            "value": "v1"
+          },
+          {
+            "key": "k2",
+            "value": "v2"
+          },
+          {
+            "key": "ARROW:extension:name",
+            "value": "parametric-type-1"
+          },
+          {
+            "key": "ARROW:extension:metadata",
+            "value": "\u0006\u0000\u0000\u0000"
+          }
+        ]
+      },
+      {
+        "name": "p2",
+        "type": {
+          "name": "int",
+          "isSigned": true,
+          "bitWidth": 32
+        },
+        "nullable": true,
+        "children": [],
+        "metadata": [
+          {
+            "key": "k1",
+            "value": "v1"
+          },
+          {
+            "key": "k2",
+            "value": "v2"
+          },
+          {
+            "key": "ARROW:extension:name",
+            "value": "parametric-type-1"
+          },
+          {
+            "key": "ARROW:extension:metadata",
+            "value": "\u000c\u0000\u0000\u0000"
+          }
+        ]
+      },
+      {
+        "name": "p3",
+        "type": {
+          "name": "int",
+          "isSigned": true,
+          "bitWidth": 32
+        },
+        "nullable": true,
+        "children": [],
+        "metadata": [
+          {
+            "key": "k1",
+            "value": "v1"
+          },
+          {
+            "key": "k2",
+            "value": "v2"
+          },
+          {
+            "key": "ARROW:extension:name",
+            "value": "parametric-type-2<param=2>"
+          },
+          {
+            "key": "ARROW:extension:metadata",
+            "value": "\u0002\u0000\u0000\u0000"
+          }
+        ]
+      },
+      {
+        "name": "p4",
+        "type": {
+          "name": "int",
+          "isSigned": true,
+          "bitWidth": 32
+        },
+        "nullable": true,
+        "children": [],
+        "metadata": [
+          {
+            "key": "k1",
+            "value": "v1"
+          },
+          {
+            "key": "k2",
+            "value": "v2"
+          },
+          {
+            "key": "ARROW:extension:name",
+            "value": "parametric-type-2<param=3>"
+          },
+          {
+            "key": "ARROW:extension:metadata",
+            "value": "\u0003\u0000\u0000\u0000"
+          }
+        ]
+      },
+      {
+        "name": "p5",
+        "type": {
+          "name": "struct"
+        },
+        "nullable": true,
+        "children": [],
+        "metadata": [
+          {
+            "key": "k1",
+            "value": "v1"
+          },
+          {
+            "key": "k2",
+            "value": "v2"
+          },
+          {
+            "key": "ARROW:extension:name",
+            "value": "ext-struct-type"
+          },
+          {
+            "key": "ARROW:extension:metadata",
+            "value": "ext-struct-type-unique-code"
+          }
+        ]
+      },
+      {
+        "name": "unreg",
+        "type": {
+          "name": "int",
+          "isSigned": true,
+          "bitWidth": 8
+        },
+        "nullable": true,
+        "children": [],
+        "metadata": [
+          {
+            "key": "k1",
+            "value": "v1"
+          },
+          {
+            "key": "k2",
+            "value": "v2"
+          },
+          {
+            "key": "ARROW:extension:name",
+            "value": "unregistered"
+          },
+          {
+            "key": "ARROW:extension:metadata",
+            "value": ""
+          }
+        ]
+      }
+    ]
+  },
+  "batches": [
+    {
+      "count": 5,
+      "columns": [
+        {
+          "name": "p1",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            1,
+            1,
+            0
+          ],
+          "DATA": [
+            1,
+            -1,
+            2,
+            3,
+            -1
+          ]
+        },
+        {
+          "name": "p2",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            1,
+            1,
+            0
+          ],
+          "DATA": [
+            2,
+            -1,
+            3,
+            4,
+            -1
+          ]
+        },
+        {
+          "name": "p3",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            1,
+            1,
+            0
+          ],
+          "DATA": [
+            5,
+            -1,
+            6,
+            7,
+            8
+          ]
+        },
+        {
+          "name": "p4",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            1,
+            1,
+            0
+          ],
+          "DATA": [
+            5,
+            -1,
+            7,
+            9,
+            -1
+          ]
+        },
+        {
+          "name": "p5",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            1,
+            1,
+            0
+          ],
+          "children": [
+            {
+              "name": "a",
+              "count": 5,
+              "VALIDITY": [
+                1,
+                0,
+                1,
+                1,
+                0
+              ],
+              "DATA": [
+                "1",
+                "0",
+                "2",
+                "3",
+                "0"
+              ]
+            },
+            {
+              "name": "b",
+              "count": 5,
+              "VALIDITY": [
+                1,
+                0,
+                1,
+                1,
+                0
+              ],
+              "DATA": [
+                0.1,
+                0,
+                0.2,
+                0.3,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "name": "unreg",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            1,
+            1,
+            0
+          ],
+          "DATA": [
+            -1,
+            -2,
+            -3,
+            -4,
+            -5
+          ]
+        }
+      ]
+    },
+    {
+      "count": 5,
+      "columns": [
+        {
+          "name": "p1",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            1,
+            1,
+            0
+          ],
+          "DATA": [
+            10,
+            -1,
+            20,
+            30,
+            -1
+          ]
+        },
+        {
+          "name": "p2",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            1,
+            1,
+            0
+          ],
+          "DATA": [
+            20,
+            -1,
+            30,
+            40,
+            -1
+          ]
+        },
+        {
+          "name": "p3",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            1,
+            1,
+            0
+          ],
+          "DATA": [
+            50,
+            -1,
+            60,
+            70,
+            8
+          ]
+        },
+        {
+          "name": "p4",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            1,
+            1,
+            0
+          ],
+          "DATA": [
+            50,
+            -1,
+            70,
+            90,
+            -1
+          ]
+        },
+        {
+          "name": "p5",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            1,
+            1,
+            0
+          ],
+          "children": [
+            {
+              "name": "a",
+              "count": 5,
+              "VALIDITY": [
+                1,
+                0,
+                1,
+                1,
+                0
+              ],
+              "DATA": [
+                "10",
+                "0",
+                "20",
+                "30",
+                "0"
+              ]
+            },
+            {
+              "name": "b",
+              "count": 5,
+              "VALIDITY": [
+                1,
+                0,
+                1,
+                1,
+                0
+              ],
+              "DATA": [
+                0.01,
+                0,
+                0.02,
+                0.03,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "name": "unreg",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            1,
+            1,
+            0
+          ],
+          "DATA": [
+            -11,
+            -12,
+            -13,
+            -14,
+            -15
+          ]
+        }
+      ]
+    }
+  ]
+}`
 }

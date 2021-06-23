@@ -17,10 +17,6 @@
  * under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#  include <config.h>
-#endif
-
 #include <arrow-glib/data-type.hpp>
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/field.hpp>
@@ -116,9 +112,9 @@ enum {
   PROP_RETURN_TYPE
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GGandivaNode,
-                           ggandiva_node,
-                           G_TYPE_OBJECT)
+G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GGandivaNode,
+                                    ggandiva_node,
+                                    G_TYPE_OBJECT)
 
 #define GGANDIVA_NODE_GET_PRIVATE(object)                       \
   static_cast<GGandivaNodePrivate *>(                           \

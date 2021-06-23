@@ -342,7 +342,7 @@ class CompressedInputStream::Impl {
       RETURN_NOT_OK(EnsureCompressedData());
       if (compressed_pos_ == compressed_->size()) {
         // No more data to decompress
-        if (!fresh_decompressor_) {
+        if (!fresh_decompressor_ && !decompressor_->IsFinished()) {
           return Status::IOError("Truncated compressed stream");
         }
         *has_data = false;
@@ -436,6 +436,15 @@ Result<std::shared_ptr<Buffer>> CompressedInputStream::DoRead(int64_t nbytes) {
 }
 
 std::shared_ptr<InputStream> CompressedInputStream::raw() const { return impl_->raw(); }
+
+Result<std::shared_ptr<const KeyValueMetadata>> CompressedInputStream::ReadMetadata() {
+  return impl_->raw()->ReadMetadata();
+}
+
+Future<std::shared_ptr<const KeyValueMetadata>> CompressedInputStream::ReadMetadataAsync(
+    const IOContext& io_context) {
+  return impl_->raw()->ReadMetadataAsync(io_context);
+}
 
 }  // namespace io
 }  // namespace arrow

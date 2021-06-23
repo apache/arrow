@@ -627,7 +627,8 @@ cdef class FileSystem(_Weakrefable):
             stream, path=path, compression=compression, buffer_size=buffer_size
         )
 
-    def open_output_stream(self, path, compression='detect', buffer_size=None):
+    def open_output_stream(self, path, compression='detect',
+                           buffer_size=None, metadata=None):
         """
         Open an output stream for sequential writing.
 
@@ -646,6 +647,11 @@ cdef class FileSystem(_Weakrefable):
         buffer_size: int optional, default None
             If None or 0, no buffering will happen. Otherwise the size of the
             temporary write buffer.
+        metadata: dict optional, default None
+            If not None, a mapping of string keys to string values.
+            Some filesystems support storing metadata along the file
+            (such as "Content-Type").
+            Unsupported metadata keys will be ignored.
 
         Returns
         -------
@@ -655,9 +661,14 @@ cdef class FileSystem(_Weakrefable):
             c_string pathstr = _path_as_bytes(path)
             NativeFile stream = NativeFile()
             shared_ptr[COutputStream] out_handle
+            shared_ptr[const CKeyValueMetadata] c_metadata
+
+        if metadata is not None:
+            c_metadata = pyarrow_unwrap_metadata(KeyValueMetadata(metadata))
 
         with nogil:
-            out_handle = GetResultValue(self.fs.OpenOutputStream(pathstr))
+            out_handle = GetResultValue(
+                self.fs.OpenOutputStream(pathstr, c_metadata))
 
         stream.set_output_stream(out_handle)
         stream.is_writable = True
@@ -666,7 +677,8 @@ cdef class FileSystem(_Weakrefable):
             stream, path=path, compression=compression, buffer_size=buffer_size
         )
 
-    def open_append_stream(self, path, compression='detect', buffer_size=None):
+    def open_append_stream(self, path, compression='detect',
+                           buffer_size=None, metadata=None):
         """
         Open an output stream for appending.
 
@@ -685,6 +697,11 @@ cdef class FileSystem(_Weakrefable):
         buffer_size: int optional, default None
             If None or 0, no buffering will happen. Otherwise the size of the
             temporary write buffer.
+        metadata: dict optional, default None
+            If not None, a mapping of string keys to string values.
+            Some filesystems support storing metadata along the file
+            (such as "Content-Type").
+            Unsupported metadata keys will be ignored.
 
         Returns
         -------
@@ -694,9 +711,14 @@ cdef class FileSystem(_Weakrefable):
             c_string pathstr = _path_as_bytes(path)
             NativeFile stream = NativeFile()
             shared_ptr[COutputStream] out_handle
+            shared_ptr[const CKeyValueMetadata] c_metadata
+
+        if metadata is not None:
+            c_metadata = pyarrow_unwrap_metadata(KeyValueMetadata(metadata))
 
         with nogil:
-            out_handle = GetResultValue(self.fs.OpenAppendStream(pathstr))
+            out_handle = GetResultValue(
+                self.fs.OpenAppendStream(pathstr, c_metadata))
 
         stream.set_output_stream(out_handle)
         stream.is_writable = True
@@ -970,13 +992,13 @@ class FileSystemHandler(ABC):
         """
 
     @abstractmethod
-    def open_output_stream(self, path):
+    def open_output_stream(self, path, metadata):
         """
         Implement PyFileSystem.open_output_stream(...).
         """
 
     @abstractmethod
-    def open_append_stream(self, path):
+    def open_append_stream(self, path, metadata):
         """
         Implement PyFileSystem.open_append_stream(...).
         """
@@ -1067,17 +1089,23 @@ cdef void _cb_open_input_file(handler, const c_string& path,
                         "a PyArrow file")
     out[0] = (<NativeFile> stream).get_random_access_file()
 
-cdef void _cb_open_output_stream(handler, const c_string& path,
-                                 shared_ptr[COutputStream]* out) except *:
-    stream = handler.open_output_stream(frombytes(path))
+cdef void _cb_open_output_stream(
+        handler, const c_string& path,
+        const shared_ptr[const CKeyValueMetadata]& metadata,
+        shared_ptr[COutputStream]* out) except *:
+    stream = handler.open_output_stream(
+        frombytes(path), pyarrow_wrap_metadata(metadata))
     if not isinstance(stream, NativeFile):
         raise TypeError("open_output_stream should have returned "
                         "a PyArrow file")
     out[0] = (<NativeFile> stream).get_output_stream()
 
-cdef void _cb_open_append_stream(handler, const c_string& path,
-                                 shared_ptr[COutputStream]* out) except *:
-    stream = handler.open_append_stream(frombytes(path))
+cdef void _cb_open_append_stream(
+        handler, const c_string& path,
+        const shared_ptr[const CKeyValueMetadata]& metadata,
+        shared_ptr[COutputStream]* out) except *:
+    stream = handler.open_append_stream(
+        frombytes(path), pyarrow_wrap_metadata(metadata))
     if not isinstance(stream, NativeFile):
         raise TypeError("open_append_stream should have returned "
                         "a PyArrow file")

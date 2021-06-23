@@ -74,7 +74,7 @@ import org.junit.runners.Parameterized;
 public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
 
   /**
-   * Constructor which populate table object for each test iteration.
+   * Constructor which populates the table object for each test iteration.
    *
    * @param table Table object
    */

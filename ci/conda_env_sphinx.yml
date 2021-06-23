@@ -21,4 +21,4 @@ doxygen
 ipython
 # Pinned per ARROW-9693
 sphinx=3.1.2
-sphinx_rtd_theme
+pydata-sphinx-theme

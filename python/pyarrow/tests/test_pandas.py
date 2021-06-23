@@ -23,7 +23,6 @@ import sys
 
 from collections import OrderedDict
 from datetime import date, datetime, time, timedelta, timezone
-from distutils.version import LooseVersion
 
 import hypothesis as h
 import hypothesis.extra.pytz as tzst
@@ -36,6 +35,7 @@ import pytz
 from pyarrow.pandas_compat import get_logical_type, _pandas_api
 from pyarrow.tests.util import invoke_script, random_ascii, rands
 import pyarrow.tests.strategies as past
+from pyarrow.vendored.version import Version
 
 import pyarrow as pa
 try:
@@ -1042,7 +1042,7 @@ class TestConvertDateTimeLikeTypes:
     def test_python_datetime_with_timezone_tzinfo(self):
         from datetime import timezone
 
-        if LooseVersion(pd.__version__) > "0.25.0":
+        if Version(pd.__version__) > Version("0.25.0"):
             # older pandas versions fail on datetime.timezone.utc (as in input)
             # vs pytz.UTC (as in result)
             values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=timezone.utc)]
@@ -1467,8 +1467,9 @@ class TestConvertDateTimeLikeTypes:
         expected = pd.Series([None, date(1991, 1, 1), None])
         assert pa.Array.from_pandas(expected).equals(result)
 
-    @pytest.mark.skipif('1.16.0' <= LooseVersion(np.__version__) < '1.16.1',
-                        reason='Until numpy/numpy#12745 is resolved')
+    @pytest.mark.skipif(
+        Version('1.16.0') <= Version(np.__version__) < Version('1.16.1'),
+        reason='Until numpy/numpy#12745 is resolved')
     def test_fixed_offset_timezone(self):
         df = pd.DataFrame({
             'a': [
@@ -1704,7 +1705,7 @@ class TestConvertStringLikeTypes:
         expected = pa.array(list(arr), type=pa.binary(3))
         assert converted.equals(expected)
 
-        mask = np.array([True, False, True])
+        mask = np.array([False, True, False])
         converted = pa.array(arr, type=pa.binary(3), mask=mask)
         expected = pa.array([b'foo', None, b'baz'], type=pa.binary(3))
         assert converted.equals(expected)
@@ -2166,20 +2167,19 @@ class TestConvertListTypes:
         expected[2] = None
         tm.assert_series_equal(arr.to_pandas(), expected)
 
-    @pytest.mark.slow
     @pytest.mark.large_memory
     def test_auto_chunking_on_list_overflow(self):
         # ARROW-9976
-        n = 2**24
+        n = 2**21
         df = pd.DataFrame.from_dict({
-            "a": list(np.zeros((n, 2**7), dtype='uint8')),
+            "a": list(np.zeros((n, 2**10), dtype='uint8')),
             "b": range(n)
         })
         table = pa.Table.from_pandas(df)
 
         column_a = table[0]
         assert column_a.num_chunks == 2
-        assert len(column_a.chunk(0)) == 2**24 - 1
+        assert len(column_a.chunk(0)) == 2**21 - 1
         assert len(column_a.chunk(1)) == 1
 
     def test_map_array_roundtrip(self):
@@ -2272,6 +2272,33 @@ class TestConvertStructTypes:
         series = pd.Series(arr.to_pandas())
         tm.assert_series_equal(series, expected)
 
+    def test_to_pandas_multiple_chunks(self):
+        # ARROW-11855
+        gc.collect()
+        bytes_start = pa.total_allocated_bytes()
+        ints1 = pa.array([1], type=pa.int64())
+        ints2 = pa.array([2], type=pa.int64())
+        arr1 = pa.StructArray.from_arrays([ints1], ['ints'])
+        arr2 = pa.StructArray.from_arrays([ints2], ['ints'])
+        arr = pa.chunked_array([arr1, arr2])
+
+        expected = pd.Series([
+            {'ints': 1},
+            {'ints': 2}
+        ])
+
+        series = pd.Series(arr.to_pandas())
+        tm.assert_series_equal(series, expected)
+
+        del series
+        del arr
+        del arr1
+        del arr2
+        del ints1
+        del ints2
+        bytes_end = pa.total_allocated_bytes()
+        assert bytes_end == bytes_start
+
     def test_from_numpy(self):
         dt = np.dtype([('x', np.int32),
                        (('y_title', 'y'), np.bool_)])
@@ -2328,6 +2355,7 @@ class TestConvertStructTypes:
             {'x': {'xx': 1, 'yy': True}, 'y': 2, 'z': 'foo'},
             {'x': {'xx': 3, 'yy': False}, 'y': 4, 'z': 'bar'}]
 
+    @pytest.mark.slow
     @pytest.mark.large_memory
     def test_from_numpy_large(self):
         # Exercise rechunking + nulls
@@ -2800,7 +2828,7 @@ def _fully_loaded_dataframe_example():
         9: pd.period_range('2013', periods=10, freq='M')
     }
 
-    if LooseVersion(pd.__version__) >= '0.21':
+    if Version(pd.__version__) >= Version('0.21'):
         # There is an issue with pickling IntervalIndex in pandas 0.20.x
         data[10] = pd.interval_range(start=1, freq=1, periods=10)
 
@@ -2832,8 +2860,9 @@ def _check_serialize_components_roundtrip(pd_obj):
         tm.assert_series_equal(pd_obj, deserialized)
 
 
-@pytest.mark.skipif('1.16.0' <= LooseVersion(np.__version__) < '1.16.1',
-                    reason='Until numpy/numpy#12745 is resolved')
+@pytest.mark.skipif(
+    Version('1.16.0') <= Version(np.__version__) < Version('1.16.1'),
+    reason='Until numpy/numpy#12745 is resolved')
 def test_serialize_deserialize_pandas():
     # ARROW-1784, serialize and deserialize DataFrame by decomposing
     # BlockManager
@@ -2881,7 +2910,7 @@ def test_convert_unsupported_type_error_message():
         pa.Table.from_pandas(df)
 
     # period unsupported for pandas <= 0.25
-    if LooseVersion(pd.__version__) <= '0.25':
+    if Version(pd.__version__) <= Version('0.25'):
         df = pd.DataFrame({
             'a': pd.period_range('2000-01-01', periods=20),
         })
@@ -3790,12 +3819,12 @@ def test_dictionary_from_pandas_specified_type():
 
 
 def test_array_protocol():
-    if LooseVersion(pd.__version__) < '0.24.0':
+    if Version(pd.__version__) < Version('0.24.0'):
         pytest.skip('IntegerArray only introduced in 0.24')
 
     df = pd.DataFrame({'a': pd.Series([1, 2, None], dtype='Int64')})
 
-    if LooseVersion(pd.__version__) < '0.26.0.dev':
+    if Version(pd.__version__) < Version('0.26.0.dev'):
         # with pandas<=0.25, trying to convert nullable integer errors
         with pytest.raises(TypeError):
             pa.table(df)
@@ -3845,7 +3874,7 @@ def PandasArray__arrow_array__(self, type=None):
 def test_array_protocol_pandas_extension_types(monkeypatch):
     # ARROW-7022 - ensure protocol works for Period / Interval extension dtypes
 
-    if LooseVersion(pd.__version__) < '0.24.0':
+    if Version(pd.__version__) < Version('0.24.0'):
         pytest.skip('Period/IntervalArray only introduced in 0.24')
 
     storage = pa.array([1, 2, 3], type=pa.int64())
@@ -3894,7 +3923,7 @@ def _Int64Dtype__from_arrow__(self, array):
 
 
 def test_convert_to_extension_array(monkeypatch):
-    if LooseVersion(pd.__version__) < "0.26.0.dev":
+    if Version(pd.__version__) < Version("0.26.0.dev"):
         pytest.skip("Conversion from IntegerArray to arrow not yet supported")
 
     import pandas.core.internals as _int
@@ -3922,7 +3951,7 @@ def test_convert_to_extension_array(monkeypatch):
     tm.assert_frame_equal(result, df2)
 
     # monkeypatch pandas Int64Dtype to *not* have the protocol method
-    if LooseVersion(pd.__version__) < "1.3.0.dev":
+    if Version(pd.__version__) < Version("1.3.0.dev"):
         monkeypatch.delattr(
             pd.core.arrays.integer._IntegerDtype, "__from_arrow__")
     else:
@@ -3950,14 +3979,14 @@ def test_conversion_extensiontype_to_extensionarray(monkeypatch):
     # converting extension type to linked pandas ExtensionDtype/Array
     import pandas.core.internals as _int
 
-    if LooseVersion(pd.__version__) < "0.24.0":
+    if Version(pd.__version__) < Version("0.24.0"):
         pytest.skip("ExtensionDtype introduced in pandas 0.24")
 
     storage = pa.array([1, 2, 3, 4], pa.int64())
     arr = pa.ExtensionArray.from_storage(MyCustomIntegerType(), storage)
     table = pa.table({'a': arr})
 
-    if LooseVersion(pd.__version__) < "0.26.0.dev":
+    if Version(pd.__version__) < Version("0.26.0.dev"):
         # ensure pandas Int64Dtype has the protocol method (for older pandas)
         monkeypatch.setattr(
             pd.Int64Dtype, '__from_arrow__', _Int64Dtype__from_arrow__,
@@ -3977,9 +4006,9 @@ def test_conversion_extensiontype_to_extensionarray(monkeypatch):
 
     # monkeypatch pandas Int64Dtype to *not* have the protocol method
     # (remove the version added above and the actual version for recent pandas)
-    if LooseVersion(pd.__version__) < "0.26.0.dev":
+    if Version(pd.__version__) < Version("0.26.0.dev"):
         monkeypatch.delattr(pd.Int64Dtype, "__from_arrow__")
-    elif LooseVersion(pd.__version__) < "1.3.0.dev":
+    elif Version(pd.__version__) < Version("1.3.0.dev"):
         monkeypatch.delattr(
             pd.core.arrays.integer._IntegerDtype, "__from_arrow__")
     else:
@@ -3996,7 +4025,7 @@ def test_conversion_extensiontype_to_extensionarray(monkeypatch):
 
 
 def test_to_pandas_extension_dtypes_mapping():
-    if LooseVersion(pd.__version__) < "0.26.0.dev":
+    if Version(pd.__version__) < Version("0.26.0.dev"):
         pytest.skip("Conversion to pandas IntegerArray not yet supported")
 
     table = pa.table({'a': pa.array([1, 2, 3], pa.int64())})
@@ -4024,7 +4053,7 @@ def test_to_pandas_extension_dtypes_mapping():
 
 
 def test_array_to_pandas():
-    if LooseVersion(pd.__version__) < "1.1":
+    if Version(pd.__version__) < Version("1.1"):
         pytest.skip("ExtensionDtype to_pandas method missing")
 
     for arr in [pd.period_range("2012-01-01", periods=3, freq="D").array,

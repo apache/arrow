@@ -33,6 +33,8 @@
 #include "arrow/python/arrow_to_pandas.h"
 #include "arrow/python/decimal.h"
 #include "arrow/python/helpers.h"
+#include "arrow/python/numpy_convert.h"
+#include "arrow/python/numpy_interop.h"
 #include "arrow/python/python_to_arrow.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
@@ -187,6 +189,67 @@ TEST(PyBuffer, InvalidInputObject) {
   ASSERT_EQ(old_refcnt, Py_REFCNT(input));
 }
 
+// Because of how it is declared, the Numpy C API instance initialized
+// within libarrow_python.dll may not be visible in this test under Windows
+// ("unresolved external symbol arrow_ARRAY_API referenced").
+#ifndef _WIN32
+TEST(PyBuffer, NumpyArray) {
+  const npy_intp dims[1] = {10};
+
+  OwnedRef arr_ref(PyArray_SimpleNew(1, dims, NPY_FLOAT));
+  PyObject* arr = arr_ref.obj();
+  ASSERT_NE(arr, nullptr);
+  auto old_refcnt = Py_REFCNT(arr);
+
+  ASSERT_OK_AND_ASSIGN(auto buf, PyBuffer::FromPyObject(arr));
+  ASSERT_TRUE(buf->is_cpu());
+  ASSERT_EQ(buf->data(), PyArray_DATA(reinterpret_cast<PyArrayObject*>(arr)));
+  ASSERT_TRUE(buf->is_mutable());
+  ASSERT_EQ(buf->mutable_data(), buf->data());
+  ASSERT_EQ(old_refcnt + 1, Py_REFCNT(arr));
+  buf.reset();
+  ASSERT_EQ(old_refcnt, Py_REFCNT(arr));
+
+  // Read-only
+  PyArray_CLEARFLAGS(reinterpret_cast<PyArrayObject*>(arr), NPY_ARRAY_WRITEABLE);
+  ASSERT_OK_AND_ASSIGN(buf, PyBuffer::FromPyObject(arr));
+  ASSERT_TRUE(buf->is_cpu());
+  ASSERT_EQ(buf->data(), PyArray_DATA(reinterpret_cast<PyArrayObject*>(arr)));
+  ASSERT_FALSE(buf->is_mutable());
+  ASSERT_EQ(old_refcnt + 1, Py_REFCNT(arr));
+  buf.reset();
+  ASSERT_EQ(old_refcnt, Py_REFCNT(arr));
+}
+
+TEST(NumPyBuffer, NumpyArray) {
+  const npy_intp dims[1] = {10};
+
+  OwnedRef arr_ref(PyArray_SimpleNew(1, dims, NPY_FLOAT));
+  PyObject* arr = arr_ref.obj();
+  ASSERT_NE(arr, nullptr);
+  auto old_refcnt = Py_REFCNT(arr);
+
+  auto buf = std::make_shared<NumPyBuffer>(arr);
+  ASSERT_TRUE(buf->is_cpu());
+  ASSERT_EQ(buf->data(), PyArray_DATA(reinterpret_cast<PyArrayObject*>(arr)));
+  ASSERT_TRUE(buf->is_mutable());
+  ASSERT_EQ(buf->mutable_data(), buf->data());
+  ASSERT_EQ(old_refcnt + 1, Py_REFCNT(arr));
+  buf.reset();
+  ASSERT_EQ(old_refcnt, Py_REFCNT(arr));
+
+  // Read-only
+  PyArray_CLEARFLAGS(reinterpret_cast<PyArrayObject*>(arr), NPY_ARRAY_WRITEABLE);
+  buf = std::make_shared<NumPyBuffer>(arr);
+  ASSERT_TRUE(buf->is_cpu());
+  ASSERT_EQ(buf->data(), PyArray_DATA(reinterpret_cast<PyArrayObject*>(arr)));
+  ASSERT_FALSE(buf->is_mutable());
+  ASSERT_EQ(old_refcnt + 1, Py_REFCNT(arr));
+  buf.reset();
+  ASSERT_EQ(old_refcnt, Py_REFCNT(arr));
+}
+#endif
+
 class DecimalTest : public ::testing::Test {
  public:
   DecimalTest() : lock_(), decimal_constructor_() {
@@ -244,8 +307,8 @@ TEST_F(DecimalTest, TestInferPrecisionAndNegativeScale) {
   internal::DecimalMetadata metadata;
   ASSERT_OK(metadata.Update(python_decimal.obj()));
 
-  const auto expected_precision = 9;
-  const int32_t expected_scale = -2;
+  const auto expected_precision = 11;
+  const int32_t expected_scale = 0;
 
   ASSERT_EQ(expected_precision, metadata.precision());
   ASSERT_EQ(expected_scale, metadata.scale());

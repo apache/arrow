@@ -20,17 +20,14 @@
 
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/util_internal.h"
 #include "arrow/stl_allocator.h"
-#include "arrow/util/bit_run_reader.h"
 
 namespace arrow {
 namespace compute {
 namespace internal {
 
 namespace {
-
-using arrow::internal::checked_pointer_cast;
-using arrow::internal::VisitSetBitRunsVoid;
 
 using QuantileState = internal::OptionsWrapper<QuantileOptions>;
 
@@ -80,7 +77,7 @@ struct SortQuantiler {
   using CType = typename InType::c_type;
   using Allocator = arrow::stl::allocator<CType>;
 
-  void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const QuantileOptions& options = QuantileState::Get(ctx);
 
     // copy all chunks to a buffer, ignore nulls and nans
@@ -90,12 +87,7 @@ struct SortQuantiler {
     const int64_t in_length = datum.length() - datum.null_count();
     if (in_length > 0) {
       in_buffer.resize(in_length);
-
-      int64_t index = 0;
-      for (const auto& array : datum.chunks()) {
-        index += CopyArray(in_buffer.data() + index, *array);
-      }
-      DCHECK_EQ(index, in_length);
+      CopyNonNullValues(datum, in_buffer.data());
 
       // drop nan
       if (is_floating_type<InType>::value) {
@@ -119,9 +111,8 @@ struct SortQuantiler {
 
     // calculate quantiles
     if (out_length > 0) {
-      const auto out_bit_width = checked_pointer_cast<NumberType>(out_type)->bit_width();
-      KERNEL_ASSIGN_OR_RAISE(out_data->buffers[1], ctx,
-                             ctx->Allocate(out_length * out_bit_width / 8));
+      ARROW_ASSIGN_OR_RAISE(out_data->buffers[1],
+                            ctx->Allocate(out_length * GetBitWidth(*out_type) / 8));
 
       // find quantiles in descending order
       std::vector<int64_t> q_indices(out_length);
@@ -152,22 +143,7 @@ struct SortQuantiler {
     }
 
     *out = Datum(std::move(out_data));
-  }
-
-  int64_t CopyArray(CType* buffer, const Array& array) {
-    const int64_t n = array.length() - array.null_count();
-    if (n > 0) {
-      int64_t index = 0;
-      const ArrayData& data = *array.data();
-      const CType* values = data.GetValues<CType>(1);
-      VisitSetBitRunsVoid(data.buffers[0], data.offset, data.length,
-                          [&](int64_t pos, int64_t len) {
-                            memcpy(buffer + index, values + pos, len * sizeof(CType));
-                            index += len;
-                          });
-      DCHECK_EQ(index, n);
-    }
-    return n;
+    return Status::OK();
   }
 
   // return quantile located exactly at some input data point
@@ -248,28 +224,15 @@ struct CountQuantiler {
     uint32_t value_range = static_cast<uint32_t>(max - min) + 1;
     DCHECK_LT(value_range, 1 << 30);
     this->min = min;
-    this->counts.resize(value_range);
+    this->counts.resize(value_range, 0);
   }
 
-  void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const QuantileOptions& options = QuantileState::Get(ctx);
 
     // count values in all chunks, ignore nulls
     const Datum& datum = batch[0];
-    const int64_t in_length = datum.length() - datum.null_count();
-    if (in_length > 0) {
-      for (auto& c : this->counts) c = 0;
-      for (const auto& array : datum.chunks()) {
-        const ArrayData& data = *array->data();
-        const CType* values = data.GetValues<CType>(1);
-        VisitSetBitRunsVoid(data.buffers[0], data.offset, data.length,
-                            [&](int64_t pos, int64_t len) {
-                              for (int64_t i = 0; i < len; ++i) {
-                                ++this->counts[values[pos + i] - this->min];
-                              }
-                            });
-      }
-    }
+    int64_t in_length = CountValues<CType>(this->counts.data(), datum, this->min);
 
     // prepare out array
     int64_t out_length = options.q.size();
@@ -285,9 +248,8 @@ struct CountQuantiler {
 
     // calculate quantiles
     if (out_length > 0) {
-      const auto out_bit_width = checked_pointer_cast<NumberType>(out_type)->bit_width();
-      KERNEL_ASSIGN_OR_RAISE(out_data->buffers[1], ctx,
-                             ctx->Allocate(out_length * out_bit_width / 8));
+      ARROW_ASSIGN_OR_RAISE(out_data->buffers[1],
+                            ctx->Allocate(out_length * GetBitWidth(*out_type) / 8));
 
       // find quantiles in ascending order
       std::vector<int64_t> q_indices(out_length);
@@ -316,6 +278,7 @@ struct CountQuantiler {
     }
 
     *out = Datum(std::move(out_data));
+    return Status::OK();
   }
 
   // return quantile located exactly at some input data point
@@ -380,7 +343,7 @@ template <typename InType>
 struct CountOrSortQuantiler {
   using CType = typename InType::c_type;
 
-  void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     // cross point to benefit from histogram approach
     // parameters estimated from ad-hoc benchmarks manually
     static constexpr int kMinArraySize = 65536;
@@ -388,28 +351,15 @@ struct CountOrSortQuantiler {
 
     const Datum& datum = batch[0];
     if (datum.length() - datum.null_count() >= kMinArraySize) {
-      CType min = std::numeric_limits<CType>::max();
-      CType max = std::numeric_limits<CType>::min();
-
-      for (const auto& array : datum.chunks()) {
-        const ArrayData& data = *array->data();
-        const CType* values = data.GetValues<CType>(1);
-        VisitSetBitRunsVoid(data.buffers[0], data.offset, data.length,
-                            [&](int64_t pos, int64_t len) {
-                              for (int64_t i = 0; i < len; ++i) {
-                                min = std::min(min, values[pos + i]);
-                                max = std::max(max, values[pos + i]);
-                              }
-                            });
-      }
+      CType min, max;
+      std::tie(min, max) = GetMinMax<CType>(datum);
 
       if (static_cast<uint64_t>(max) - static_cast<uint64_t>(min) <= kMaxValueRange) {
-        CountQuantiler<InType>(min, max).Exec(ctx, batch, out);
-        return;
+        return CountQuantiler<InType>(min, max).Exec(ctx, batch, out);
       }
     }
 
-    SortQuantiler<InType>().Exec(ctx, batch, out);
+    return SortQuantiler<InType>().Exec(ctx, batch, out);
   }
 };
 
@@ -441,25 +391,22 @@ struct ExactQuantiler<InType, enable_if_t<is_floating_type<InType>::value>> {
 
 template <typename _, typename InType>
 struct QuantileExecutor {
-  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     if (ctx->state() == nullptr) {
-      ctx->SetStatus(Status::Invalid("Quantile requires QuantileOptions"));
-      return;
+      return Status::Invalid("Quantile requires QuantileOptions");
     }
 
     const QuantileOptions& options = QuantileState::Get(ctx);
     if (options.q.empty()) {
-      ctx->SetStatus(Status::Invalid("Requires quantile argument"));
-      return;
+      return Status::Invalid("Requires quantile argument");
     }
     for (double q : options.q) {
       if (q < 0 || q > 1) {
-        ctx->SetStatus(Status::Invalid("Quantile must be between 0 and 1"));
-        return;
+        return Status::Invalid("Quantile must be between 0 and 1");
       }
     }
 
-    ExactQuantiler<InType>().impl.Exec(ctx, batch, out);
+    return ExactQuantiler<InType>().impl.Exec(ctx, batch, out);
   }
 };
 

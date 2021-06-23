@@ -128,17 +128,17 @@ test_binary() {
   local download_dir=binaries
   mkdir -p ${download_dir}
 
-  python $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
+  ${PYTHON:-python} $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
          --dest=${download_dir}
 
   verify_dir_artifact_signatures ${download_dir}
 }
 
 test_apt() {
-  for target in "debian:buster" \
+  for target in "debian:bullseye" \
+                "arm64v8/debian:bullseye" \
+                "debian:buster" \
                 "arm64v8/debian:buster" \
-                "ubuntu:xenial" \
-                "arm64v8/ubuntu:xenial" \
                 "ubuntu:bionic" \
                 "arm64v8/ubuntu:bionic" \
                 "ubuntu:focal" \
@@ -146,6 +146,11 @@ test_apt() {
                 "ubuntu:groovy" \
                 "arm64v8/ubuntu:groovy"; do \
     case "${target}" in
+      arm64v8/debian:bullseye)
+        # qemu-user-static in Ubuntu 20.04 has a crash bug:
+        #   https://bugs.launchpad.net/qemu/+bug/1749393
+        continue
+        ;;
       arm64v8/*)
         if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
           : # OK
@@ -158,8 +163,7 @@ test_apt() {
            "${target}" \
            /arrow/dev/release/verify-apt.sh \
            "${VERSION}" \
-           "rc" \
-           "${BINTRAY_REPOSITORY}"; then
+           "rc"; then
       echo "Failed to verify the APT repository for ${target}"
       exit 1
     fi
@@ -167,8 +171,8 @@ test_apt() {
 }
 
 test_yum() {
-  for target in "centos:7" \
-                "arm64v8/centos:7" \
+  for target in "amazonlinux:2" \
+                "centos:7" \
                 "centos:8" \
                 "arm64v8/centos:8"; do
     case "${target}" in
@@ -184,8 +188,7 @@ test_yum() {
            "${target}" \
            /arrow/dev/release/verify-yum.sh \
            "${VERSION}" \
-           "rc" \
-           "${BINTRAY_REPOSITORY}"; then
+           "rc"; then
       echo "Failed to verify the Yum repository for ${target}"
       exit 1
     fi
@@ -214,15 +217,12 @@ setup_tempdir() {
 
 setup_miniconda() {
   # Setup short-lived miniconda for Python and integration tests
-  if [ "$(uname)" == "Darwin" ]; then
-    if [ "$(uname -m)" == "arm64" ]; then
-	MINICONDA_URL=https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-MacOSX-arm64.sh
-    else
-        MINICONDA_URL=https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
-    fi
-  else
-    MINICONDA_URL=https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+  OS="$(uname)"
+  if [ "${OS}" == "Darwin" ]; then
+    OS=MacOSX
   fi
+  ARCH="$(uname -m)"
+  MINICONDA_URL="https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-${OS}-${ARCH}.sh"
 
   MINICONDA=$PWD/test-miniconda
 
@@ -386,19 +386,11 @@ test_python() {
 test_glib() {
   pushd c_glib
 
-  if brew --prefix libffi > /dev/null 2>&1; then
-    PKG_CONFIG_PATH=$(brew --prefix libffi)/lib/pkgconfig:$PKG_CONFIG_PATH
-  fi
+  pip install meson
 
-  if [ -f configure ]; then
-    ./configure --prefix=$ARROW_HOME
-    make -j$NPROC
-    make install
-  else
-    meson build --prefix=$ARROW_HOME --libdir=lib
-    ninja -C build
-    ninja -C build install
-  fi
+  meson build --prefix=$ARROW_HOME --libdir=lib
+  ninja -C build
+  ninja -C build install
 
   export GI_TYPELIB_PATH=$ARROW_HOME/lib/girepository-1.0:$GI_TYPELIB_PATH
 
@@ -423,21 +415,27 @@ test_js() {
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
     nvm install --lts
+    npm install -g yarn
   fi
 
-  npm install
-  # clean, lint, and build JS source
-  npx run-s clean:all lint build
-  npm run test
+  yarn --frozen-lockfile
+  yarn run-s clean:all lint build
+  yarn test
   popd
 }
 
 test_ruby() {
   pushd ruby
 
-  local modules="red-arrow red-plasma red-gandiva red-parquet"
+  local modules="red-arrow red-arrow-dataset red-plasma red-parquet"
   if [ "${ARROW_CUDA}" = "ON" ]; then
     modules="${modules} red-arrow-cuda"
+  fi
+  if [ "${ARROW_FLIGHT}" = "ON" ]; then
+    modules="${modules} red-arrow-flight"
+  fi
+  if [ "${ARROW_GANDIVA}" = "ON" ]; then
+    modules="${modules} red-gandiva"
   fi
 
   for module in ${modules}; do
@@ -496,9 +494,7 @@ test_rust() {
   # raises on any formatting errors
   rustup component add rustfmt --toolchain stable
   cargo +stable fmt --all -- --check
-
-  # we are targeting Rust nightly for releases
-  rustup default nightly
+  rustup default stable
 
   # use local modules because we don't publish modules to crates.io yet
   sed \
@@ -601,8 +597,6 @@ test_source_distribution() {
 }
 
 test_binary_distribution() {
-  : ${BINTRAY_REPOSITORY:=apache/arrow}
-
   if [ ${TEST_BINARY} -gt 0 ]; then
     test_binary
   fi
@@ -697,6 +691,7 @@ test_wheels() {
   fi
 
   python $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
+         --package_type python \
          --regex=${filter_regex} \
          --dest=${download_dir}
 
@@ -766,7 +761,17 @@ TEST_JS=$((${TEST_JS} + ${TEST_INTEGRATION_JS}))
 TEST_GO=$((${TEST_GO} + ${TEST_INTEGRATION_GO}))
 TEST_INTEGRATION=$((${TEST_INTEGRATION} + ${TEST_INTEGRATION_CPP} + ${TEST_INTEGRATION_JAVA} + ${TEST_INTEGRATION_JS} + ${TEST_INTEGRATION_GO}))
 
-NEED_MINICONDA=$((${TEST_CPP} + ${TEST_WHEELS} + ${TEST_BINARY} + ${TEST_INTEGRATION}))
+if [ "${ARTIFACT}" == "source" ]; then
+  NEED_MINICONDA=$((${TEST_CPP} + ${TEST_INTEGRATION}))
+elif [ "${ARTIFACT}" == "wheels" ]; then
+  NEED_MINICONDA=$((${TEST_WHEELS}))
+else
+  if [ -z "${PYTHON:-}" ]; then
+    NEED_MINICONDA=$((${TEST_BINARY}))
+  else
+    NEED_MINICONDA=0
+  fi
+fi
 
 : ${TEST_ARCHIVE:=apache-arrow-${VERSION}.tar.gz}
 case "${TEST_ARCHIVE}" in

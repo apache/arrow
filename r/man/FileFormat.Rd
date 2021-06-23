@@ -28,20 +28,41 @@ delimiter for text files
 
 `format = "parquet"``:
 \itemize{
-\item \code{use_buffered_stream}: Read files through buffered input streams rather than
-loading entire row groups at once. This may be enabled
-to reduce memory overhead. Disabled by default.
-\item \code{buffer_size}: Size of buffered stream, if enabled. Default is 8KB.
 \item \code{dict_columns}: Names of columns which should be read as dictionaries.
+\item Any Parquet options from \link{FragmentScanOptions}.
 }
 
-\code{format = "text"}: see \link{CsvReadOptions}. Note that you can specify them either
+\code{format = "text"}: see \link{CsvParseOptions}. Note that you can specify them either
 with the Arrow C++ library naming ("delimiter", "quoting", etc.) or the
 \code{readr}-style naming used in \code{\link[=read_csv_arrow]{read_csv_arrow()}} ("delim", "quote", etc.).
 Not all \code{readr} options are currently supported; please file an issue if
-you encounter one that \code{arrow} should support.
+you encounter one that \code{arrow} should support. Also, the following options are
+supported. From \link{CsvReadOptions}:
+\itemize{
+\item \code{skip_rows}
+\item \code{column_names}
+\item \code{autogenerate_column_names}
+From \link{CsvFragmentScanOptions} (these values can be overridden at scan time):
+\item \code{convert_options}: a \link{CsvConvertOptions}
+\item \code{block_size}
+}
 }
 
 It returns the appropriate subclass of \code{FileFormat} (e.g. \code{ParquetFileFormat})
 }
 
+\examples{
+\dontshow{if (arrow_with_dataset()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+## Semi-colon delimited files
+# Set up directory for examples
+tf <- tempfile()
+dir.create(tf)
+on.exit(unlink(tf))
+write.table(mtcars, file.path(tf, "file1.txt"), sep = ";", row.names = FALSE)
+
+# Create FileFormat object
+format <- FileFormat$create(format = "text", delimiter = ";")
+
+open_dataset(tf, format = format)
+\dontshow{\}) # examplesIf}
+}

@@ -21,6 +21,9 @@ function haveJIRAID(title) {
   if (!title) {
     return false;
   }
+  if (title.startsWith("MINOR: ")) {
+    return true;
+  }
   return /^(WIP:?\s*)?(ARROW|PARQUET)-\d+/.test(title);
 }
 

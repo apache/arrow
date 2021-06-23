@@ -1,9 +1,0 @@
-Document: parquet-glib
-Title: Apache Parquet GLib Reference Manual
-Author: The Apache Software Foundation
-Abstract: Apache Parquet GLib is a columnar storage format processing library that uses GLib.
-Section: Programming
-
-Format: HTML
-Index: /usr/share/doc/libarrow-glib-doc/parquet-glib/index.html
-Files: /usr/share/doc/libarrow-glib-doc/parquet-glib/*.html

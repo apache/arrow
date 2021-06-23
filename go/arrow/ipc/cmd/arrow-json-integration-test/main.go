@@ -21,9 +21,11 @@ import (
 	"log"
 	"os"
 
+	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/arrio"
 	"github.com/apache/arrow/go/arrow/internal/arrjson"
+	"github.com/apache/arrow/go/arrow/internal/testing/types"
 	"github.com/apache/arrow/go/arrow/ipc"
 	"golang.org/x/xerrors"
 )
@@ -48,6 +50,8 @@ func main() {
 }
 
 func runCommand(jsonName, arrowName, mode string, verbose bool) error {
+	arrow.RegisterExtensionType(types.NewUUIDType())
+
 	if jsonName == "" {
 		return xerrors.Errorf("must specify json file name")
 	}

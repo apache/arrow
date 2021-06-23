@@ -17,10 +17,6 @@
  * under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#  include <config.h>
-#endif
-
 #include <arrow-glib/array.hpp>
 #include <arrow-glib/chunked-array.hpp>
 #include <arrow-glib/data-type.hpp>
@@ -1479,10 +1475,12 @@ garrow_csv_read_options_add_column_name(GArrowCSVReadOptions *options,
 
 typedef struct GArrowCSVReaderPrivate_ {
   std::shared_ptr<arrow::csv::TableReader> reader;
+  GArrowInputStream *input;
 } GArrowCSVReaderPrivate;
 
 enum {
-  PROP_CSV_TABLE_READER = 1
+  PROP_CSV_TABLE_READER = 1,
+  PROP_CSV_READER_INPUT,
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowCSVReader,
@@ -1499,9 +1497,22 @@ garrow_csv_reader_dispose(GObject *object)
 {
   auto priv = GARROW_CSV_READER_GET_PRIVATE(object);
 
-  priv->reader = nullptr;
+  if (priv->input) {
+    g_object_unref(priv->input);
+    priv->input = nullptr;
+  }
 
   G_OBJECT_CLASS(garrow_csv_reader_parent_class)->dispose(object);
+}
+
+static void
+garrow_csv_reader_finalize(GObject *object)
+{
+  auto priv = GARROW_CSV_READER_GET_PRIVATE(object);
+
+  priv->reader.~shared_ptr();
+
+  G_OBJECT_CLASS(garrow_csv_reader_parent_class)->finalize(object);
 }
 
 static void
@@ -1517,6 +1528,9 @@ garrow_csv_reader_set_property(GObject *object,
     priv->reader =
       *static_cast<std::shared_ptr<arrow::csv::TableReader> *>(g_value_get_pointer(value));
     break;
+  case PROP_CSV_READER_INPUT:
+    priv->input = GARROW_INPUT_STREAM(g_value_dup_object(value));
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
     break;
@@ -1529,7 +1543,12 @@ garrow_csv_reader_get_property(GObject *object,
                                GValue *value,
                                GParamSpec *pspec)
 {
+  auto priv = GARROW_CSV_READER_GET_PRIVATE(object);
+
   switch (prop_id) {
+  case PROP_CSV_READER_INPUT:
+    g_value_set_object(value, priv->input);
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
     break;
@@ -1539,25 +1558,37 @@ garrow_csv_reader_get_property(GObject *object,
 static void
 garrow_csv_reader_init(GArrowCSVReader *object)
 {
+  auto priv = GARROW_CSV_READER_GET_PRIVATE(object);
+  new(&priv->reader) std::shared_ptr<arrow::csv::TableReader>;
 }
 
 static void
 garrow_csv_reader_class_init(GArrowCSVReaderClass *klass)
 {
-  GParamSpec *spec;
-
   auto gobject_class = G_OBJECT_CLASS(klass);
 
   gobject_class->dispose      = garrow_csv_reader_dispose;
+  gobject_class->finalize     = garrow_csv_reader_finalize;
   gobject_class->set_property = garrow_csv_reader_set_property;
   gobject_class->get_property = garrow_csv_reader_get_property;
 
+  GParamSpec *spec;
   spec = g_param_spec_pointer("csv-table-reader",
                               "CSV table reader",
                               "The raw std::shared<arrow::csv::TableReader> *",
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_CSV_TABLE_READER, spec);
+
+  spec = g_param_spec_object("input",
+                             "Input",
+                             "The input stream to be read",
+                             GARROW_TYPE_INPUT_STREAM,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                      G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class,
+                                  PROP_CSV_READER_INPUT,
+                                  spec);
 }
 
 /**
@@ -1591,13 +1622,13 @@ garrow_csv_reader_new(GArrowInputStream *input,
   }
 
   auto arrow_reader =
-    arrow::csv::TableReader::Make(arrow::default_memory_pool(),
+    arrow::csv::TableReader::Make(arrow::io::default_io_context(),
                                   arrow_input,
                                   read_options,
                                   parse_options,
                                   convert_options);
   if (garrow::check(error, arrow_reader, "[csv-reader][new]")) {
-    return garrow_csv_reader_new_raw(&(arrow_reader.ValueOrDie()));
+    return garrow_csv_reader_new_raw(&(*arrow_reader), input);
   } else {
     return NULL;
   }
@@ -1633,11 +1664,11 @@ typedef struct GArrowJSONReadOptionsPrivate_ {
 } GArrowJSONReadOptionsPrivate;
 
 enum {
-  PROP_JSON_READER_USE_THREADS = 1,
-  PROP_JSON_READER_BLOCK_SIZE,
-  PROP_JSON_READER_ALLOW_NEWLINES_IN_VALUES,
-  PROP_JSON_READER_UNEXPECTED_FIELD_BEHAVIOR,
-  PROP_JSON_READER_SCHEMA
+  PROP_JSON_READ_OPTIONS_USE_THREADS = 1,
+  PROP_JSON_READ_OPTIONS_BLOCK_SIZE,
+  PROP_JSON_READ_OPTIONS_ALLOW_NEWLINES_IN_VALUES,
+  PROP_JSON_READ_OPTIONS_UNEXPECTED_FIELD_BEHAVIOR,
+  PROP_JSON_READ_OPTIONS_SCHEMA,
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowJSONReadOptions,
@@ -1671,20 +1702,20 @@ garrow_json_read_options_set_property(GObject *object,
   auto priv = GARROW_JSON_READ_OPTIONS_GET_PRIVATE(object);
 
   switch (prop_id) {
-  case PROP_JSON_READER_USE_THREADS:
+  case PROP_JSON_READ_OPTIONS_USE_THREADS:
     priv->read_options.use_threads = g_value_get_boolean(value);
     break;
-  case PROP_JSON_READER_BLOCK_SIZE:
+  case PROP_JSON_READ_OPTIONS_BLOCK_SIZE:
     priv->read_options.block_size = g_value_get_int(value);
     break;
-  case PROP_JSON_READER_ALLOW_NEWLINES_IN_VALUES:
+  case PROP_JSON_READ_OPTIONS_ALLOW_NEWLINES_IN_VALUES:
     priv->parse_options.newlines_in_values = g_value_get_boolean(value);
     break;
-  case PROP_JSON_READER_UNEXPECTED_FIELD_BEHAVIOR:
+  case PROP_JSON_READ_OPTIONS_UNEXPECTED_FIELD_BEHAVIOR:
     priv->parse_options.unexpected_field_behavior =
       static_cast<arrow::json::UnexpectedFieldBehavior>(g_value_get_enum(value));
     break;
-  case PROP_JSON_READER_SCHEMA:
+  case PROP_JSON_READ_OPTIONS_SCHEMA:
     {
       auto schema = g_value_dup_object(value);
       if (priv->schema) {
@@ -1714,19 +1745,19 @@ garrow_json_read_options_get_property(GObject *object,
   auto priv = GARROW_JSON_READ_OPTIONS_GET_PRIVATE(object);
 
   switch (prop_id) {
-  case PROP_JSON_READER_USE_THREADS:
+  case PROP_JSON_READ_OPTIONS_USE_THREADS:
     g_value_set_boolean(value, priv->read_options.use_threads);
     break;
-  case PROP_JSON_READER_BLOCK_SIZE:
+  case PROP_JSON_READ_OPTIONS_BLOCK_SIZE:
     g_value_set_int(value, priv->read_options.block_size);
     break;
-  case PROP_JSON_READER_ALLOW_NEWLINES_IN_VALUES:
+  case PROP_JSON_READ_OPTIONS_ALLOW_NEWLINES_IN_VALUES:
     g_value_set_boolean(value, priv->parse_options.newlines_in_values);
     break;
-  case PROP_JSON_READER_UNEXPECTED_FIELD_BEHAVIOR:
+  case PROP_JSON_READ_OPTIONS_UNEXPECTED_FIELD_BEHAVIOR:
     g_value_set_enum(value, static_cast<int>(priv->parse_options.unexpected_field_behavior));
     break;
-  case PROP_JSON_READER_SCHEMA:
+  case PROP_JSON_READ_OPTIONS_SCHEMA:
     g_value_set_object(value, priv->schema);
     break;
   default:
@@ -1769,7 +1800,7 @@ garrow_json_read_options_class_init(GArrowJSONReadOptionsClass *klass)
                               read_options.use_threads,
                               static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class,
-                                  PROP_JSON_READER_USE_THREADS,
+                                  PROP_JSON_READ_OPTIONS_USE_THREADS,
                                   spec);
 
   /**
@@ -1790,7 +1821,7 @@ garrow_json_read_options_class_init(GArrowJSONReadOptionsClass *klass)
                           read_options.block_size,
                           static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class,
-                                  PROP_JSON_READER_BLOCK_SIZE,
+                                  PROP_JSON_READ_OPTIONS_BLOCK_SIZE,
                                   spec);
 
 
@@ -1812,7 +1843,7 @@ garrow_json_read_options_class_init(GArrowJSONReadOptionsClass *klass)
                               parse_options.newlines_in_values,
                               static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class,
-                                  PROP_JSON_READER_ALLOW_NEWLINES_IN_VALUES,
+                                  PROP_JSON_READ_OPTIONS_ALLOW_NEWLINES_IN_VALUES,
                                   spec);
 
   /**
@@ -1829,7 +1860,7 @@ garrow_json_read_options_class_init(GArrowJSONReadOptionsClass *klass)
                            GARROW_JSON_READ_INFER_TYPE,
                            static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class,
-                                  PROP_JSON_READER_UNEXPECTED_FIELD_BEHAVIOR,
+                                  PROP_JSON_READ_OPTIONS_UNEXPECTED_FIELD_BEHAVIOR,
                                   spec);
 
   /**
@@ -1845,7 +1876,7 @@ garrow_json_read_options_class_init(GArrowJSONReadOptionsClass *klass)
                               GARROW_TYPE_SCHEMA,
                               static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class,
-                                  PROP_JSON_READER_SCHEMA,
+                                  PROP_JSON_READ_OPTIONS_SCHEMA,
                                   spec);
 }
 
@@ -1866,10 +1897,12 @@ garrow_json_read_options_new(void)
 
 typedef struct GArrowJSONReaderPrivate_ {
   std::shared_ptr<arrow::json::TableReader> reader;
+  GArrowInputStream *input;
 } GArrowJSONReaderPrivate;
 
 enum {
-  PROP_JSON_TABLE_READER = 1
+  PROP_JSON_TABLE_READER = 1,
+  PROP_JSON_READER_INPUT,
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowJSONReader,
@@ -1886,9 +1919,22 @@ garrow_json_reader_dispose(GObject *object)
 {
   auto priv = GARROW_JSON_READER_GET_PRIVATE(object);
 
-  priv->reader = nullptr;
+  if (priv->input) {
+    g_object_unref(priv->input);
+    priv->input = nullptr;
+  }
 
   G_OBJECT_CLASS(garrow_json_reader_parent_class)->dispose(object);
+}
+
+static void
+garrow_json_reader_finalize(GObject *object)
+{
+  auto priv = GARROW_JSON_READER_GET_PRIVATE(object);
+
+  priv->reader.~shared_ptr();
+
+  G_OBJECT_CLASS(garrow_json_reader_parent_class)->finalize(object);
 }
 
 static void
@@ -1904,6 +1950,9 @@ garrow_json_reader_set_property(GObject *object,
     priv->reader =
       *static_cast<std::shared_ptr<arrow::json::TableReader> *>(g_value_get_pointer(value));
     break;
+  case PROP_JSON_READER_INPUT:
+    priv->input = GARROW_INPUT_STREAM(g_value_dup_object(value));
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
     break;
@@ -1916,7 +1965,12 @@ garrow_json_reader_get_property(GObject *object,
                                 GValue *value,
                                 GParamSpec *pspec)
 {
+  auto priv = GARROW_JSON_READER_GET_PRIVATE(object);
+
   switch (prop_id) {
+  case PROP_JSON_READER_INPUT:
+    g_value_set_object(value, priv->input);
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
     break;
@@ -1926,25 +1980,37 @@ garrow_json_reader_get_property(GObject *object,
 static void
 garrow_json_reader_init(GArrowJSONReader *object)
 {
+  auto priv = GARROW_JSON_READER_GET_PRIVATE(object);
+  new(&priv->reader) std::shared_ptr<arrow::json::TableReader>;
 }
 
 static void
 garrow_json_reader_class_init(GArrowJSONReaderClass *klass)
 {
-  GParamSpec *spec;
-
   auto gobject_class = G_OBJECT_CLASS(klass);
 
   gobject_class->dispose      = garrow_json_reader_dispose;
+  gobject_class->finalize     = garrow_json_reader_finalize;
   gobject_class->set_property = garrow_json_reader_set_property;
   gobject_class->get_property = garrow_json_reader_get_property;
 
+  GParamSpec *spec;
   spec = g_param_spec_pointer("json-table-reader",
                               "JSON table reader",
                               "The raw std::shared<arrow::json::TableReader> *",
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_JSON_TABLE_READER, spec);
+
+  spec = g_param_spec_object("input",
+                             "Input",
+                             "The input stream to be read",
+                             GARROW_TYPE_INPUT_STREAM,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                      G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class,
+                                  PROP_JSON_READER_INPUT,
+                                  spec);
 }
 
 /**
@@ -1980,7 +2046,7 @@ garrow_json_reader_new(GArrowInputStream *input,
   }
 
   if (garrow::check(error, arrow_reader, "[json-reader][new]")) {
-    return garrow_json_reader_new_raw(&(arrow_reader.ValueOrDie()));
+    return garrow_json_reader_new_raw(&*arrow_reader, input);
   } else {
     return NULL;
   }
@@ -2085,10 +2151,12 @@ garrow_feather_file_reader_get_raw(GArrowFeatherFileReader *reader)
 }
 
 GArrowCSVReader *
-garrow_csv_reader_new_raw(std::shared_ptr<arrow::csv::TableReader> *arrow_reader)
+garrow_csv_reader_new_raw(std::shared_ptr<arrow::csv::TableReader> *arrow_reader,
+                          GArrowInputStream *input)
 {
   auto reader = GARROW_CSV_READER(g_object_new(GARROW_TYPE_CSV_READER,
                                                "csv-table-reader", arrow_reader,
+                                               "input", input,
                                                NULL));
   return reader;
 }
@@ -2101,10 +2169,12 @@ garrow_csv_reader_get_raw(GArrowCSVReader *reader)
 }
 
 GArrowJSONReader *
-garrow_json_reader_new_raw(std::shared_ptr<arrow::json::TableReader> *arrow_reader)
+garrow_json_reader_new_raw(std::shared_ptr<arrow::json::TableReader> *arrow_reader,
+                           GArrowInputStream *input)
 {
   auto reader = GARROW_JSON_READER(g_object_new(GARROW_TYPE_JSON_READER,
                                                 "json-table-reader", arrow_reader,
+                                                "input", input,
                                                 NULL));
   return reader;
 }

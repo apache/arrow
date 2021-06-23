@@ -30,6 +30,7 @@
 #include "arrow/buffer.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/compare.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/string_builder.h"
 #include "arrow/util/string_view.h"

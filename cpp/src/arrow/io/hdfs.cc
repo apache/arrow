@@ -19,6 +19,7 @@
 #include <cerrno>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <sstream>
@@ -34,11 +35,15 @@
 #include "arrow/memory_pool.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 
 using std::size_t;
 
 namespace arrow {
+
+using internal::IOErrorFromErrno;
+
 namespace io {
 
 namespace {
@@ -137,17 +142,30 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
 
   bool closed() const { return !is_open_; }
 
-  Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* buffer) {
+  Result<int64_t> ReadAt(int64_t position, int64_t nbytes, uint8_t* buffer) {
     if (!driver_->HasPread()) {
       std::lock_guard<std::mutex> guard(lock_);
       RETURN_NOT_OK(Seek(position));
       return Read(nbytes, buffer);
     }
-    tSize ret =
-        driver_->Pread(fs_, file_, static_cast<tOffset>(position),
-                       reinterpret_cast<void*>(buffer), static_cast<tSize>(nbytes));
-    CHECK_FAILURE(ret, "read");
-    return ret;
+
+    constexpr int64_t kMaxBlockSize = std::numeric_limits<int32_t>::max();
+    int64_t total_bytes = 0;
+    while (nbytes > 0) {
+      const auto block_size = static_cast<tSize>(std::min(kMaxBlockSize, nbytes));
+      tSize ret =
+          driver_->Pread(fs_, file_, static_cast<tOffset>(position), buffer, block_size);
+      CHECK_FAILURE(ret, "read");
+      DCHECK_LE(ret, block_size);
+      if (ret == 0) {
+        break;  // EOF
+      }
+      buffer += ret;
+      total_bytes += ret;
+      position += ret;
+      nbytes -= ret;
+    }
+    return total_bytes;
   }
 
   Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes) {
@@ -208,11 +226,8 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
   int32_t buffer_size_;
 };
 
-HdfsReadableFile::HdfsReadableFile(MemoryPool* pool) {
-  if (pool == nullptr) {
-    pool = default_memory_pool();
-  }
-  impl_.reset(new HdfsReadableFileImpl(pool));
+HdfsReadableFile::HdfsReadableFile(const io::IOContext& io_context) {
+  impl_.reset(new HdfsReadableFileImpl(io_context.pool()));
 }
 
 HdfsReadableFile::~HdfsReadableFile() { DCHECK_OK(impl_->Close()); }
@@ -222,7 +237,7 @@ Status HdfsReadableFile::Close() { return impl_->Close(); }
 bool HdfsReadableFile::closed() const { return impl_->closed(); }
 
 Result<int64_t> HdfsReadableFile::ReadAt(int64_t position, int64_t nbytes, void* buffer) {
-  return impl_->ReadAt(position, nbytes, buffer);
+  return impl_->ReadAt(position, nbytes, reinterpret_cast<uint8_t*>(buffer));
 }
 
 Result<std::shared_ptr<Buffer>> HdfsReadableFile::ReadAt(int64_t position,
@@ -274,12 +289,18 @@ class HdfsOutputStream::HdfsOutputStreamImpl : public HdfsAnyFileImpl {
     return Status::OK();
   }
 
-  Status Write(const void* buffer, int64_t nbytes, int64_t* bytes_written) {
+  Status Write(const uint8_t* buffer, int64_t nbytes) {
+    constexpr int64_t kMaxBlockSize = std::numeric_limits<int32_t>::max();
+
     std::lock_guard<std::mutex> guard(lock_);
-    tSize ret = driver_->Write(fs_, file_, reinterpret_cast<const void*>(buffer),
-                               static_cast<tSize>(nbytes));
-    CHECK_FAILURE(ret, "Write");
-    *bytes_written = ret;
+    while (nbytes > 0) {
+      const auto block_size = static_cast<tSize>(std::min(kMaxBlockSize, nbytes));
+      tSize ret = driver_->Write(fs_, file_, buffer, block_size);
+      CHECK_FAILURE(ret, "Write");
+      DCHECK_LE(ret, block_size);
+      buffer += ret;
+      nbytes -= ret;
+    }
     return Status::OK();
   }
 };
@@ -292,13 +313,8 @@ Status HdfsOutputStream::Close() { return impl_->Close(); }
 
 bool HdfsOutputStream::closed() const { return impl_->closed(); }
 
-Status HdfsOutputStream::Write(const void* buffer, int64_t nbytes, int64_t* bytes_read) {
-  return impl_->Write(buffer, nbytes, bytes_read);
-}
-
 Status HdfsOutputStream::Write(const void* buffer, int64_t nbytes) {
-  int64_t bytes_written_dummy = 0;
-  return Write(buffer, nbytes, &bytes_written_dummy);
+  return impl_->Write(reinterpret_cast<const uint8_t*>(buffer), nbytes);
 }
 
 Status HdfsOutputStream::Flush() { return impl_->Flush(); }
@@ -483,17 +499,21 @@ class HadoopFileSystem::HadoopFileSystemImpl {
   }
 
   Status OpenReadable(const std::string& path, int32_t buffer_size,
+                      const io::IOContext& io_context,
                       std::shared_ptr<HdfsReadableFile>* file) {
+    errno = 0;
     hdfsFile handle = driver_->OpenFile(fs_, path.c_str(), O_RDONLY, buffer_size, 0, 0);
 
     if (handle == nullptr) {
-      const char* msg = !Exists(path) ? "HDFS file does not exist: "
-                                      : "HDFS path exists, but opening file failed: ";
-      return Status::IOError(msg, path);
+      if (errno) {
+        return IOErrorFromErrno(errno, "Opening HDFS file '", path, "' failed");
+      } else {
+        return Status::IOError("Opening HDFS file '", path, "' failed");
+      }
     }
 
     // std::make_shared does not work with private ctors
-    *file = std::shared_ptr<HdfsReadableFile>(new HdfsReadableFile());
+    *file = std::shared_ptr<HdfsReadableFile>(new HdfsReadableFile(io_context));
     (*file)->impl_->set_members(path, driver_, fs_, handle);
     (*file)->impl_->set_buffer_size(buffer_size);
 
@@ -506,12 +526,17 @@ class HadoopFileSystem::HadoopFileSystemImpl {
     int flags = O_WRONLY;
     if (append) flags |= O_APPEND;
 
+    errno = 0;
     hdfsFile handle =
         driver_->OpenFile(fs_, path.c_str(), flags, buffer_size, replication,
                           static_cast<tSize>(default_block_size));
 
     if (handle == nullptr) {
-      return Status::IOError("Unable to open file ", path);
+      if (errno) {
+        return IOErrorFromErrno(errno, "Opening HDFS file '", path, "' failed");
+      } else {
+        return Status::IOError("Opening HDFS file '", path, "' failed");
+      }
     }
 
     // std::make_shared does not work with private ctors
@@ -612,12 +637,24 @@ Status HadoopFileSystem::ListDirectory(const std::string& path,
 
 Status HadoopFileSystem::OpenReadable(const std::string& path, int32_t buffer_size,
                                       std::shared_ptr<HdfsReadableFile>* file) {
-  return impl_->OpenReadable(path, buffer_size, file);
+  return impl_->OpenReadable(path, buffer_size, io::default_io_context(), file);
 }
 
 Status HadoopFileSystem::OpenReadable(const std::string& path,
                                       std::shared_ptr<HdfsReadableFile>* file) {
-  return OpenReadable(path, kDefaultHdfsBufferSize, file);
+  return OpenReadable(path, kDefaultHdfsBufferSize, io::default_io_context(), file);
+}
+
+Status HadoopFileSystem::OpenReadable(const std::string& path, int32_t buffer_size,
+                                      const io::IOContext& io_context,
+                                      std::shared_ptr<HdfsReadableFile>* file) {
+  return impl_->OpenReadable(path, buffer_size, io_context, file);
+}
+
+Status HadoopFileSystem::OpenReadable(const std::string& path,
+                                      const io::IOContext& io_context,
+                                      std::shared_ptr<HdfsReadableFile>* file) {
+  return OpenReadable(path, kDefaultHdfsBufferSize, io_context, file);
 }
 
 Status HadoopFileSystem::OpenWritable(const std::string& path, bool append,

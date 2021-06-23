@@ -2,22 +2,52 @@
 % Please edit documentation in R/compute.R
 \name{match_arrow}
 \alias{match_arrow}
-\title{\code{match} for Arrow objects}
+\alias{is_in}
+\title{\code{match} and \code{\%in\%} for Arrow objects}
 \usage{
 match_arrow(x, table, ...)
+
+is_in(x, table, ...)
 }
 \arguments{
-\item{x}{\code{Array} or \code{ChunkedArray}}
+\item{x}{\code{Scalar}, \code{Array} or \code{ChunkedArray}}
 
-\item{table}{\code{Array}, \code{ChunkedArray}, or R vector lookup table.}
+\item{table}{\code{Scalar}, Array\verb{, }ChunkedArray`, or R vector lookup table.}
 
 \item{...}{additional arguments, ignored}
 }
 \value{
-An \code{int32}-type \code{Array} of the same length as \code{x} with the
-(0-based) indexes into \code{table}.
+\code{match_arrow()} returns an \code{int32}-type Arrow object of the same length
+and type as \code{x} with the (0-based) indexes into \code{table}. \code{is_in()} returns a
+\code{boolean}-type Arrow object of the same length and type as \code{x} with values indicating
+per element of \code{x} it it is present in \code{table}.
 }
 \description{
 \code{base::match()} is not a generic, so we can't just define Arrow methods for
-it. This function exposes the analogous function in the Arrow C++ library.
+it. This function exposes the analogous functions in the Arrow C++ library.
+}
+\examples{
+\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+# note that the returned value is 0-indexed
+cars_tbl <- Table$create(name = rownames(mtcars), mtcars)
+match_arrow(Scalar$create("Mazda RX4 Wag"), cars_tbl$name)
+
+is_in(Array$create("Mazda RX4 Wag"), cars_tbl$name)
+
+# Although there are multiple matches, you are returned the index of the first 
+# match, as with the base R equivalent
+match(4, mtcars$cyl) # 1-indexed
+match_arrow(Scalar$create(4), cars_tbl$cyl) # 0-indexed
+
+# If `x` contains multiple values, you are returned the indices of the first 
+# match for each value.
+match(c(4, 6, 8), mtcars$cyl)
+match_arrow(Array$create(c(4, 6, 8)), cars_tbl$cyl)
+
+# Return type matches type of `x`
+is_in(c(4, 6, 8), mtcars$cyl) # returns vector
+is_in(Scalar$create(4), mtcars$cyl) # returns Scalar
+is_in(Array$create(c(4, 6, 8)), cars_tbl$cyl) # returns Array
+is_in(ChunkedArray$create(c(4, 6), 8), cars_tbl$cyl) # returns ChunkedArray
+\dontshow{\}) # examplesIf}
 }

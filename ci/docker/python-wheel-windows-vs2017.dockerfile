@@ -35,7 +35,7 @@ RUN git clone https://github.com/Microsoft/vcpkg && \
 
 # Patch ports files as needed
 COPY ci/vcpkg arrow/ci/vcpkg
-RUN cd vcpkg && patch -p1 -i C:/arrow/ci/vcpkg/ports.patch
+RUN cd vcpkg && git apply --ignore-whitespace C:/arrow/ci/vcpkg/ports.patch
 
 # Configure vcpkg and install dependencies
 # NOTE: use windows batch environment notation for build arguments in RUN
@@ -46,7 +46,8 @@ COPY ci/vcpkg arrow/ci/vcpkg
 ARG build_type=release
 ENV CMAKE_BUILD_TYPE=${build_type} \
     VCPKG_OVERLAY_TRIPLETS=C:\\arrow\\ci\\vcpkg \
-    VCPKG_DEFAULT_TRIPLET=x64-windows-static-md-${build_type}
+    VCPKG_DEFAULT_TRIPLET=x64-windows-static-md-${build_type} \
+    VCPKG_FEATURE_FLAGS=-manifests
 RUN vcpkg install --clean-after-build \
         abseil \
         aws-sdk-cpp[config,cognito-identity,core,identity-management,s3,sts,transfer] \

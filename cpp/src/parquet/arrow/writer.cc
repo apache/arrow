@@ -25,13 +25,13 @@
 #include <vector>
 
 #include "arrow/array.h"
-#include "arrow/buffer_builder.h"
 #include "arrow/extension_type.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/util/base64.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
 #include "arrow/visitor_inline.h"
@@ -55,7 +55,6 @@ using arrow::ExtensionArray;
 using arrow::ExtensionType;
 using arrow::Field;
 using arrow::FixedSizeBinaryArray;
-using Int16BufferBuilder = arrow::TypedBufferBuilder<int16_t>;
 using arrow::ListArray;
 using arrow::MemoryPool;
 using arrow::NumericArray;

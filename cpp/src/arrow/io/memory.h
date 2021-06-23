@@ -88,7 +88,7 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
   uint8_t* mutable_data_;
 };
 
-/// \brief A helper class to tracks the size of allocations
+/// \brief A helper class to track the size of allocations
 ///
 /// Writes to this stream do not copy or retain any data, they just bump
 /// a size counter that can be later used to know exactly which data size
@@ -160,7 +160,7 @@ class ARROW_EXPORT BufferReader
   std::shared_ptr<Buffer> buffer() const { return buffer_; }
 
   // Synchronous ReadAsync override
-  Future<std::shared_ptr<Buffer>> ReadAsync(const AsyncContext&, int64_t position,
+  Future<std::shared_ptr<Buffer>> ReadAsync(const IOContext&, int64_t position,
                                             int64_t nbytes) override;
   Status WillNeed(const std::vector<ReadRange>& ranges) override;
 

@@ -22,6 +22,7 @@
 
 #include "arrow/io/buffered.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_builders.h"
 
 #include "parquet/column_reader.h"
@@ -34,6 +35,8 @@
 #include "parquet/test_util.h"
 #include "parquet/thrift_internal.h"
 #include "parquet/types.h"
+
+namespace BitUtil = arrow::BitUtil;
 
 namespace parquet {
 

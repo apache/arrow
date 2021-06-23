@@ -42,6 +42,14 @@
       <title>Expression</title>
       <xi:include href="xml/expression.xml"/>
     </chapter>
+    <chapter id="filter">
+      <title>Filter</title>
+      <xi:include href="xml/filter.xml"/>
+    </chapter>
+    <chapter id="selection-vector">
+      <title>Selection vector</title>
+      <xi:include href="xml/selection-vector.xml"/>
+    </chapter>
     <chapter id="projector">
       <title>Projector</title>
       <xi:include href="xml/projector.xml"/>
@@ -91,6 +99,10 @@
   <index id="deprecated-api-index" role="deprecated">
     <title>Index of deprecated API</title>
     <xi:include href="xml/api-index-deprecated.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-4-0-0" role="4.0.0">
+    <title>Index of new symbols in 4.0.0</title>
+    <xi:include href="xml/api-index-4.0.0.xml"><xi:fallback /></xi:include>
   </index>
   <index id="api-index-1-0-0" role="1.0.0">
     <title>Index of new symbols in 1.0.0</title>

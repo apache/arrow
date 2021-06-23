@@ -32,10 +32,13 @@ constexpr auto kSeed = 0x94378165;
 static void SetLookupBenchmarkString(benchmark::State& state,
                                      const std::string& func_name,
                                      const int64_t value_set_length) {
-  const int64_t array_length = 1 << 20;
-  const int64_t value_min_size = 0;
-  const int64_t value_max_size = 32;
-  const double null_probability = 0.01;
+  // As the set lookup functions don't support duplicate values in the value_set,
+  // we need to choose random generation parameters that minimize the risk of
+  // duplicates (including nulls).
+  const int64_t array_length = 1 << 18;
+  const int32_t value_min_size = (value_set_length < 64) ? 2 : 10;
+  const int32_t value_max_size = 32;
+  const double null_probability = 0.2 / value_set_length;
   random::RandomArrayGenerator rng(kSeed);
 
   auto values =
@@ -54,10 +57,10 @@ template <typename Type>
 static void SetLookupBenchmarkNumeric(benchmark::State& state,
                                       const std::string& func_name,
                                       const int64_t value_set_length) {
-  const int64_t array_length = 1 << 20;
+  const int64_t array_length = 1 << 18;
   const int64_t value_min = 0;
   const int64_t value_max = std::numeric_limits<typename Type::c_type>::max();
-  const double null_probability = 0.01;
+  const double null_probability = 0.1 / value_set_length;
   random::RandomArrayGenerator rng(kSeed);
 
   auto values = rng.Numeric<Type>(array_length, value_min, value_max, null_probability);
@@ -125,11 +128,13 @@ BENCHMARK(IsInStringSmallSet)->RangeMultiplier(4)->Range(2, 64);
 BENCHMARK(IndexInStringLargeSet);
 BENCHMARK(IsInStringLargeSet);
 
-BENCHMARK(IndexInInt8SmallSet)->RangeMultiplier(4)->Range(2, 64);
+// XXX For Int8, the value_set length has to be capped at a lower value
+// in order to avoid duplicates.
+BENCHMARK(IndexInInt8SmallSet)->RangeMultiplier(4)->Range(2, 8);
 BENCHMARK(IndexInInt16SmallSet)->RangeMultiplier(4)->Range(2, 64);
 BENCHMARK(IndexInInt32SmallSet)->RangeMultiplier(4)->Range(2, 64);
 BENCHMARK(IndexInInt64SmallSet)->RangeMultiplier(4)->Range(2, 64);
-BENCHMARK(IsInInt8SmallSet)->RangeMultiplier(4)->Range(2, 64);
+BENCHMARK(IsInInt8SmallSet)->RangeMultiplier(4)->Range(2, 8);
 BENCHMARK(IsInInt16SmallSet)->RangeMultiplier(4)->Range(2, 64);
 BENCHMARK(IsInInt32SmallSet)->RangeMultiplier(4)->Range(2, 64);
 BENCHMARK(IsInInt64SmallSet)->RangeMultiplier(4)->Range(2, 64);

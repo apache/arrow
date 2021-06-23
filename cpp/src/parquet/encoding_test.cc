@@ -31,7 +31,9 @@
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap_writer.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/endian.h"
 
 #include "parquet/encoding.h"
 #include "parquet/platform.h"
@@ -42,6 +44,8 @@
 using arrow::default_memory_pool;
 using arrow::MemoryPool;
 using arrow::internal::checked_cast;
+
+namespace BitUtil = arrow::BitUtil;
 
 namespace parquet {
 
@@ -665,7 +669,7 @@ class EncodingAdHocTyped : public ::testing::Test {
     std::shared_ptr<::arrow::Array> result;
     ASSERT_OK(acc.Finish(&result));
     ASSERT_EQ(50, result->length());
-    ::arrow::AssertArraysEqual(*values, *result);
+    ::arrow::AssertArraysEqual(*values, *result, /*verbose=*/true);
   }
 
   void ByteStreamSplit(int seed) {

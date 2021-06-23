@@ -163,6 +163,20 @@ export type DataTypeCtor<T extends Type | DataType | VectorType = any> =
     ;
 
 /** @ignore */
+export type TypedArrayDataType<T extends Exclude<TypedArray, Uint8ClampedArray> | BigIntArray> =
+    T extends Int8Array ? type.Int8 :
+    T extends Int16Array ? type.Int16 :
+    T extends Int32Array ? type.Int32 :
+    T extends BigInt64Array ? type.Int64 :
+    T extends Uint8Array ? type.Uint8 :
+    T extends Uint16Array ? type.Uint16 :
+    T extends Uint32Array ? type.Uint32 :
+    T extends BigUint64Array ? type.Uint64 :
+    T extends Float32Array ? type.Float32 :
+    T extends Float64Array ? type.Float64 :
+    never;
+
+/** @ignore */
 type TypeToVector<T extends Type> = {
     [key: number               ]: vecs.Vector<any>                ;
     [Type.Null                 ]: vecs.NullVector                 ;

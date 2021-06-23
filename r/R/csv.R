@@ -129,8 +129,7 @@
 #'
 #' @return A `data.frame`, or a Table if `as_data_frame = FALSE`.
 #' @export
-#' @examples
-#' \donttest{
+#' @examplesIf arrow_available()
 #'   tf <- tempfile()
 #'   on.exit(unlink(tf))
 #'   write.csv(mtcars, file = tf)
@@ -138,7 +137,6 @@
 #'   dim(df)
 #'   # Can select columns
 #'   df <- read_csv_arrow(tf, col_select = starts_with("d"))
-#' }
 read_delim_arrow <- function(file,
                              delim = ",",
                              quote = '"',
@@ -381,6 +379,11 @@ CsvTableReader$create <- function(file,
 #' `TimestampParser$create()` takes an optional `format` string argument.
 #' See [`strptime()`][base::strptime()] for example syntax.
 #' The default is to use an ISO-8601 format parser.
+#' 
+#' The `CsvWriteOptions$create()` factory method takes the following arguments:
+#' - `include_header` Whether to write an initial header line with column names
+#' - `batch_size` Maximum number of rows processed at a time. Default is 1024.
+#' 
 #' @section Active bindings:
 #'
 #' - `column_names`: from `CsvReadOptions`
@@ -404,6 +407,19 @@ CsvReadOptions$create <- function(use_threads = option_use_threads(),
       skip_rows = skip_rows,
       column_names = column_names,
       autogenerate_column_names = autogenerate_column_names
+    )
+  )
+}
+
+#' @rdname CsvReadOptions
+#' @export
+CsvWriteOptions <- R6Class("CsvWriteOptions", inherit = ArrowObject)
+CsvWriteOptions$create <- function(include_header = TRUE, batch_size = 1024L) {
+  assert_that(is_integerish(batch_size, n = 1, finite = TRUE), batch_size > 0)
+  csv___WriteOptions__initialize(
+    list(
+      include_header = include_header,
+      batch_size = as.integer(batch_size)
     )
   )
 }
@@ -584,4 +600,48 @@ readr_to_csv_convert_options <- function(na,
     timestamp_parsers = timestamp_parsers,
     include_columns = include_columns
   )
+}
+
+#' Write CSV file to disk
+#'
+#' @param x `data.frame`, [RecordBatch], or [Table]
+#' @param sink A string file path, URI, or [OutputStream], or path in a file
+#' system (`SubTreeFileSystem`)
+#' @param include_header Whether to write an initial header line with column names
+#' @param batch_size Maximum number of rows processed at a time. Default is 1024.
+#'
+#' @return The input `x`, invisibly. Note that if `sink` is an [OutputStream],
+#' the stream will be left open.
+#' @export
+#' @examplesIf arrow_available()
+#' tf <- tempfile()
+#' on.exit(unlink(tf))
+#' write_csv_arrow(mtcars, tf)
+#' @include arrow-package.R
+write_csv_arrow <- function(x,
+                            sink,
+                            include_header = TRUE,
+                            batch_size = 1024L) {
+  
+  write_options <- CsvWriteOptions$create(include_header, batch_size)
+  
+  x_out <- x
+  if (is.data.frame(x)) {
+    x <- Table$create(x)
+  }
+  
+  assert_that(is_writable_table(x))
+  
+  if (!inherits(sink, "OutputStream")) {
+    sink <- make_output_stream(sink)
+    on.exit(sink$close())
+  }
+  
+  if (inherits(x, "RecordBatch")) {
+    csv___WriteCSV__RecordBatch(x, write_options, sink)
+  } else if (inherits(x, "Table")) {
+    csv___WriteCSV__Table(x, write_options, sink)
+  }
+  
+  invisible(x_out)
 }

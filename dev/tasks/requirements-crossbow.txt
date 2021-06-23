@@ -1,7 +1,0 @@
-click>=7.1
-github3.py
-jinja2
-pygit2
-ruamel.yaml
-setuptools_scm
-toolz

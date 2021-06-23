@@ -46,6 +46,7 @@ if (run_these) {
   })
 
   test_that("read/write Parquet on S3", {
+    skip_if_not_available("parquet")
     write_parquet(example_data, bucket_uri(now, "test.parquet"))
     expect_identical(read_parquet(bucket_uri(now, "test.parquet")), example_data)
   })

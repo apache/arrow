@@ -42,7 +42,7 @@ const packageJSONFields = [
 ];
 
 const metadataFiles = [`LICENSE.txt`, `NOTICE.txt`, `README.md`].map((filename) => {
-    let err = false, prefixes = [`./`, `../`];
+    let prefixes = [`./`, `../`];
     let p = prefixes.find((prefix) => {
         try {
             fs.statSync(path.resolve(path.join(prefix, filename)));
@@ -61,40 +61,10 @@ const gCCLanguageNames = {
  es2015: `ECMASCRIPT_2015`,
  es2016: `ECMASCRIPT_2016`,
  es2017: `ECMASCRIPT_2017`,
+ es2018: `ECMASCRIPT_2018`,
+ es2019: `ECMASCRIPT_2019`,
  esnext: `ECMASCRIPT_NEXT`
 };
-
-const UMDSourceTargets = {
-    es5: `es5`,
- es2015: `es2015`,
- es2016: `es2015`,
- es2017: `es2015`,
- esnext: `esnext`
-};
-
-const terserLanguageNames = {
-    es5: 5, es2015: 6,
- es2016: 7, es2017: 8,
- esnext: 8 // <--- ?
-};
-
-// ES7+ keywords Terser shouldn't mangle
-// Hardcoded here since some are from ES7+, others are
-// only defined in interfaces, so difficult to get by reflection.
-const ESKeywords = [
-    // PropertyDescriptors
-    `configurable`, `enumerable`,
-    // IteratorResult, Symbol.asyncIterator
-    `done`, `value`, `Symbol.asyncIterator`, `asyncIterator`,
-    // AsyncObserver
-    `values`, `hasError`, `hasCompleted`,`errorValue`, `closed`,
-    // Observable/Subscription/Scheduler
-    `next`, `error`, `complete`, `subscribe`, `unsubscribe`, `isUnsubscribed`,
-    // EventTarget
-    `addListener`, `removeListener`, `addEventListener`, `removeEventListener`,
-    // Arrow properties
-    `low`, `high`, `data`, `index`, `field`, `columns`, 'numCols', 'numRows', `values`, `valueOffsets`, `nullBitmap`, `subarray`
-];
 
 function taskName(target, format) {
     return !format ? target : `${target}:${format}`;
@@ -148,7 +118,6 @@ function observableFromStreams(...streams) {
 }
 
 function* combinations(_targets, _modules) {
-
     const targets = known(knownTargets, _targets || [`all`]);
     const modules = known(knownModules, _modules || [`all`]);
 
@@ -207,12 +176,10 @@ const esmRequire = require(`esm`)(module, {
 });
 
 module.exports = {
-
     mainExport, npmPkgName, npmOrgName, metadataFiles, packageJSONFields,
 
-    knownTargets, knownModules, tasksToSkipPerTargetOrFormat,
-    gCCLanguageNames, UMDSourceTargets, terserLanguageNames,
+    knownTargets, knownModules, tasksToSkipPerTargetOrFormat, gCCLanguageNames,
 
     taskName, packageName, tsconfigName, targetDir, combinations, observableFromStreams,
-    ESKeywords, publicModulePaths, esmRequire, shouldRunInChildProcess, spawnGulpCommandInChildProcess
+    publicModulePaths, esmRequire, shouldRunInChildProcess, spawnGulpCommandInChildProcess
 };

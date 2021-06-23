@@ -37,6 +37,7 @@
 #include "arrow/io/transform.h"
 #include "arrow/io/util_internal.h"
 #include "arrow/status.h"
+#include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/bit_util.h"
@@ -44,6 +45,7 @@
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/parallel.h"
 
 namespace arrow {
 
@@ -175,6 +177,14 @@ TEST(TestBufferReader, FromStrings) {
   ASSERT_OK(reader2.Seek(2));
   ASSERT_OK_AND_ASSIGN(piece, reader2.Read(4));
   ASSERT_EQ(0, memcmp(piece->data(), data.data() + 2, 4));
+}
+
+TEST(TestBufferReader, FromNullBuffer) {
+  std::shared_ptr<Buffer> buf;
+  BufferReader reader(buf);
+  ASSERT_OK_AND_EQ(0, reader.GetSize());
+  ASSERT_OK_AND_ASSIGN(auto piece, reader.Read(10));
+  ASSERT_EQ(0, piece->size());
 }
 
 TEST(TestBufferReader, Seeking) {
@@ -424,7 +434,7 @@ struct SwappingTransform {
     ARROW_ASSIGN_OR_RAISE(auto dest, AllocateBuffer(dest_size));
     const uint8_t* data = buf->data();
     uint8_t* out_data = dest->mutable_data();
-    if (has_pending_) {
+    if (has_pending_ && dest_size > 0) {
       *out_data++ = *data++;
       *out_data++ = pending_byte_;
       dest_size -= 2;
@@ -690,13 +700,115 @@ TEST(CoalesceReadRanges, Basics) {
   // Same as (*) but unsorted
   check({{140, 100}, {120, 11}, {240, 11}, {110, 10}, {260, 11}},
         {{110, 21}, {140, 100}, {240, 31}});
+
+  // Completely overlapping ranges should be eliminated
+  check({{20, 5}, {20, 5}, {21, 2}}, {{20, 5}});
 }
+
+class CountingBufferReader : public BufferReader {
+ public:
+  using BufferReader::BufferReader;
+  Future<std::shared_ptr<Buffer>> ReadAsync(const IOContext& context, int64_t position,
+                                            int64_t nbytes) override {
+    read_count_++;
+    return BufferReader::ReadAsync(context, position, nbytes);
+  }
+  int64_t read_count() const { return read_count_; }
+
+ private:
+  int64_t read_count_ = 0;
+};
 
 TEST(RangeReadCache, Basics) {
   std::string data = "abcdefghijklmnopqrstuvwxyz";
 
-  auto file = std::make_shared<BufferReader>(Buffer(data));
   CacheOptions options = CacheOptions::Defaults();
+  options.hole_size_limit = 2;
+  options.range_size_limit = 10;
+
+  for (auto lazy : std::vector<bool>{false, true}) {
+    SCOPED_TRACE(lazy);
+    options.lazy = lazy;
+    auto file = std::make_shared<CountingBufferReader>(Buffer(data));
+    internal::ReadRangeCache cache(file, {}, options);
+
+    ASSERT_OK(cache.Cache({{1, 2}, {3, 2}, {8, 2}, {20, 2}, {25, 0}}));
+    ASSERT_OK(cache.Cache({{10, 4}, {14, 0}, {15, 4}}));
+
+    ASSERT_OK_AND_ASSIGN(auto buf, cache.Read({20, 2}));
+    AssertBufferEqual(*buf, "uv");
+    ASSERT_OK_AND_ASSIGN(buf, cache.Read({1, 2}));
+    AssertBufferEqual(*buf, "bc");
+    ASSERT_OK_AND_ASSIGN(buf, cache.Read({3, 2}));
+    AssertBufferEqual(*buf, "de");
+    ASSERT_OK_AND_ASSIGN(buf, cache.Read({8, 2}));
+    AssertBufferEqual(*buf, "ij");
+    ASSERT_OK_AND_ASSIGN(buf, cache.Read({10, 4}));
+    AssertBufferEqual(*buf, "klmn");
+    ASSERT_OK_AND_ASSIGN(buf, cache.Read({15, 4}));
+    AssertBufferEqual(*buf, "pqrs");
+    ASSERT_FINISHES_OK(cache.WaitFor({{15, 1}, {16, 3}, {25, 0}, {1, 2}}));
+    // Zero-sized
+    ASSERT_OK_AND_ASSIGN(buf, cache.Read({14, 0}));
+    AssertBufferEqual(*buf, "");
+    ASSERT_OK_AND_ASSIGN(buf, cache.Read({25, 0}));
+    AssertBufferEqual(*buf, "");
+
+    // Non-cached ranges
+    ASSERT_RAISES(Invalid, cache.Read({20, 3}));
+    ASSERT_RAISES(Invalid, cache.Read({19, 3}));
+    ASSERT_RAISES(Invalid, cache.Read({0, 3}));
+    ASSERT_RAISES(Invalid, cache.Read({25, 2}));
+    ASSERT_FINISHES_AND_RAISES(Invalid, cache.WaitFor({{25, 2}}));
+    ASSERT_FINISHES_AND_RAISES(Invalid, cache.WaitFor({{1, 2}, {25, 2}}));
+
+    ASSERT_FINISHES_OK(cache.Wait());
+    // 8 ranges should lead to less than 8 reads
+    ASSERT_LT(file->read_count(), 8);
+  }
+}
+
+TEST(RangeReadCache, Concurrency) {
+  std::string data = "abcdefghijklmnopqrstuvwxyz";
+
+  auto file = std::make_shared<BufferReader>(Buffer(data));
+  std::vector<ReadRange> ranges{{1, 2},  {3, 2},  {8, 2},  {20, 2},
+                                {25, 0}, {10, 4}, {14, 0}, {15, 4}};
+
+  for (auto lazy : std::vector<bool>{false, true}) {
+    SCOPED_TRACE(lazy);
+    CacheOptions options = CacheOptions::Defaults();
+    options.hole_size_limit = 2;
+    options.range_size_limit = 10;
+    options.lazy = lazy;
+
+    {
+      internal::ReadRangeCache cache(file, {}, options);
+      ASSERT_OK(cache.Cache(ranges));
+      std::vector<Future<std::shared_ptr<Buffer>>> futures;
+      for (const auto& range : ranges) {
+        futures.push_back(
+            cache.WaitFor({range}).Then([&cache, range]() { return cache.Read(range); }));
+      }
+      for (auto fut : futures) {
+        ASSERT_FINISHES_OK(fut);
+      }
+    }
+    {
+      internal::ReadRangeCache cache(file, {}, options);
+      ASSERT_OK(cache.Cache(ranges));
+      ASSERT_OK(arrow::internal::ParallelFor(
+          static_cast<int>(ranges.size()),
+          [&](int index) { return cache.Read(ranges[index]).status(); }));
+    }
+  }
+}
+
+TEST(RangeReadCache, Lazy) {
+  std::string data = "abcdefghijklmnopqrstuvwxyz";
+
+  auto file = std::make_shared<CountingBufferReader>(Buffer(data));
+  CacheOptions options = CacheOptions::LazyDefaults();
   options.hole_size_limit = 2;
   options.range_size_limit = 10;
   internal::ReadRangeCache cache(file, {}, options);
@@ -704,29 +816,33 @@ TEST(RangeReadCache, Basics) {
   ASSERT_OK(cache.Cache({{1, 2}, {3, 2}, {8, 2}, {20, 2}, {25, 0}}));
   ASSERT_OK(cache.Cache({{10, 4}, {14, 0}, {15, 4}}));
 
+  // Lazy cache doesn't fetch ranges until requested
+  ASSERT_EQ(0, file->read_count());
+
   ASSERT_OK_AND_ASSIGN(auto buf, cache.Read({20, 2}));
   AssertBufferEqual(*buf, "uv");
-  ASSERT_OK_AND_ASSIGN(buf, cache.Read({1, 2}));
-  AssertBufferEqual(*buf, "bc");
-  ASSERT_OK_AND_ASSIGN(buf, cache.Read({3, 2}));
-  AssertBufferEqual(*buf, "de");
-  ASSERT_OK_AND_ASSIGN(buf, cache.Read({8, 2}));
-  AssertBufferEqual(*buf, "ij");
-  ASSERT_OK_AND_ASSIGN(buf, cache.Read({10, 4}));
-  AssertBufferEqual(*buf, "klmn");
-  ASSERT_OK_AND_ASSIGN(buf, cache.Read({15, 4}));
-  AssertBufferEqual(*buf, "pqrs");
-  // Zero-sized
-  ASSERT_OK_AND_ASSIGN(buf, cache.Read({14, 0}));
-  AssertBufferEqual(*buf, "");
-  ASSERT_OK_AND_ASSIGN(buf, cache.Read({25, 0}));
-  AssertBufferEqual(*buf, "");
+  ASSERT_EQ(1, file->read_count());
+
+  ASSERT_OK_AND_ASSIGN(buf, cache.Read({1, 4}));
+  AssertBufferEqual(*buf, "bcde");
+  ASSERT_EQ(2, file->read_count());
+
+  // Requested ranges are still cached
+  ASSERT_OK_AND_ASSIGN(buf, cache.Read({1, 4}));
+  ASSERT_EQ(2, file->read_count());
 
   // Non-cached ranges
   ASSERT_RAISES(Invalid, cache.Read({20, 3}));
   ASSERT_RAISES(Invalid, cache.Read({19, 3}));
   ASSERT_RAISES(Invalid, cache.Read({0, 3}));
   ASSERT_RAISES(Invalid, cache.Read({25, 2}));
+
+  // Can asynchronously kick off a read (though BufferReader::ReadAsync is synchronous so
+  // it will increment the read count here)
+  ASSERT_FINISHES_OK(cache.WaitFor({{10, 2}, {15, 4}}));
+  ASSERT_EQ(3, file->read_count());
+  ASSERT_OK_AND_ASSIGN(buf, cache.Read({10, 2}));
+  ASSERT_EQ(3, file->read_count());
 }
 
 TEST(CacheOptions, Basics) {
@@ -734,7 +850,8 @@ TEST(CacheOptions, Basics) {
                   const double expected_range_size_limit_MiB) -> void {
     const CacheOptions expected = {
         static_cast<int64_t>(std::round(expected_hole_size_limit_MiB * 1024 * 1024)),
-        static_cast<int64_t>(std::round(expected_range_size_limit_MiB * 1024 * 1024))};
+        static_cast<int64_t>(std::round(expected_range_size_limit_MiB * 1024 * 1024)),
+        /*lazy=*/false};
     ASSERT_EQ(actual, expected);
   };
 
@@ -750,6 +867,16 @@ TEST(CacheOptions, Basics) {
   // TTFB = 5 ms, BW = 500 MiB/s, BW_utilization = 75%, max_ideal_request_size = 5 MiB,
   // we expect the range_size_limit to be capped at 5 MiB.
   check(CacheOptions::MakeFromNetworkMetrics(5, 500, .75, 5), 2.5, 5);
+}
+
+TEST(IOThreadPool, Capacity) {
+  // Simple sanity check
+  auto pool = internal::GetIOThreadPool();
+  int capacity = pool->GetCapacity();
+  ASSERT_GT(capacity, 0);
+  ASSERT_EQ(GetIOThreadPoolCapacity(), capacity);
+  ASSERT_OK(SetIOThreadPoolCapacity(capacity + 1));
+  ASSERT_EQ(GetIOThreadPoolCapacity(), capacity + 1);
 }
 
 }  // namespace io

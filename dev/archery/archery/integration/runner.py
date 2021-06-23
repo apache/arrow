@@ -128,6 +128,21 @@ class IntegrationRunner(object):
                 skip = set()
             if name == 'union' and prefix == '0.17.1':
                 skip.add("Java")
+            if prefix == '1.0.0-bigendian' or prefix == '1.0.0-littleendian':
+                skip.add("Go")
+                skip.add("Java")
+                skip.add("JS")
+                skip.add("Rust")
+            if prefix == '2.0.0-compression':
+                skip.add("JS")
+                skip.add("Rust")
+
+            # See https://github.com/apache/arrow/pull/9822 for how to
+            # disable specific compression type tests.
+
+            if prefix == '4.0.0-shareddict':
+                skip.add("Go")
+
             yield datagen.File(name, None, None, skip=skip, path=out_path)
 
     def _run_test_cases(self, producer, consumer, case_runner,
@@ -381,8 +396,11 @@ def write_js_test_json(directory):
     datagen.generate_nested_case().write(
         os.path.join(directory, 'nested.json')
     )
-    datagen.generate_decimal_case().write(
+    datagen.generate_decimal128_case().write(
         os.path.join(directory, 'decimal.json')
+    )
+    datagen.generate_decimal256_case().write(
+        os.path.join(directory, 'decimal256.json')
     )
     datagen.generate_datetime_case().write(
         os.path.join(directory, 'datetime.json')

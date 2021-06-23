@@ -21,20 +21,16 @@ set -exu
 
 if [ $# -lt 2 ]; then
   echo "Usage: $0 VERSION rc"
-  echo "       $0 VERSION rc BINTRAY_REPOSITORY"
   echo "       $0 VERSION release"
-  echo "       $0 VERSION release BINTRAY_REPOSITORY"
   echo "       $0 VERSION local"
   echo " e.g.: $0 0.13.0 rc           # Verify 0.13.0 RC"
   echo " e.g.: $0 0.13.0 release      # Verify 0.13.0"
-  echo " e.g.: $0 0.13.0 rc kou/arrow # Verify 0.13.0 RC at https://bintray.com/kou/arrow"
   echo " e.g.: $0 0.13.0-dev20210203 local # Verify 0.13.0-dev20210203 on local"
   exit 1
 fi
 
 VERSION="$1"
 TYPE="$2"
-BINTRAY_REPOSITORY="${3:-apache/arrow}"
 
 local_prefix="/arrow/dev/tasks/linux-packages"
 
@@ -47,23 +43,20 @@ apt install -y -V \
 
 code_name="$(lsb_release --codename --short)"
 distribution="$(lsb_release --id --short | tr 'A-Z' 'a-z')"
-bintray_base_url="https://dl.bintray.com/${BINTRAY_REPOSITORY}/${distribution}"
+artifactory_base_url="https://apache.jfrog.io/artifactory/arrow/${distribution}"
 if [ "${TYPE}" = "rc" ]; then
-  bintray_base_url="${bintray_base_url}-rc"
+  artifactory_base_url+="-rc"
 fi
 
 have_flight=yes
 have_plasma=yes
 workaround_missing_packages=()
 case "${distribution}-${code_name}" in
-  debian-buster)
+  debian-*)
     sed \
       -i"" \
       -e "s/ main$/ main contrib non-free/g" \
       /etc/apt/sources.list
-    ;;
-  ubuntu-xenial)
-    have_flight=no
     ;;
 esac
 if [ "$(arch)" = "aarch64" ]; then
@@ -83,18 +76,18 @@ if [ "${TYPE}" = "local" ]; then
       ;;
   esac
   package_version+="-1"
-  keyring_archive_path="${local_prefix}/apt/repositories"
-  keyring_archive_path+="/${distribution}/pool/${code_name}/main"
-  keyring_archive_path+="/a/apache-arrow-archive-keyring"
-  keyring_archive_path+="/apache-arrow-archive-keyring_${package_version}_all.deb"
-  apt install -y -V "${keyring_archive_path}"
+  apt_source_path="${local_prefix}/apt/repositories"
+  apt_source_path+="/${distribution}/pool/${code_name}/main"
+  apt_source_path+="/a/apache-arrow-apt-source"
+  apt_source_path+="/apache-arrow-apt-source_${package_version}_all.deb"
+  apt install -y -V "${apt_source_path}"
 else
   package_version="${VERSION}-1"
-  keyring_archive_base_name="apache-arrow-archive-keyring-latest-${code_name}.deb"
+  apt_source_base_name="apache-arrow-apt-source-latest-${code_name}.deb"
   curl \
-    --output "${keyring_archive_base_name}" \
-    "${bintray_base_url}/${keyring_archive_base_name}"
-  apt install -y -V "./${keyring_archive_base_name}"
+    --output "${apt_source_base_name}" \
+    "${artifactory_base_url}/${apt_source_base_name}"
+  apt install -y -V "./${apt_source_base_name}"
 fi
 
 if [ "${TYPE}" = "local" ]; then
@@ -106,21 +99,14 @@ if [ "${TYPE}" = "local" ]; then
   if [ -f "${keys}" ]; then
     gpg \
       --no-default-keyring \
-      --keyring /usr/share/keyrings/apache-arrow-archive-keyring.gpg \
+      --keyring /usr/share/keyrings/apache-arrow-apt-source.gpg \
       --import "${keys}"
   fi
 else
-  if [ "${BINTRAY_REPOSITORY}" = "apache/arrow" ]; then
-    if [ "${TYPE}" = "rc" ]; then
-      sed \
-        -i"" \
-        -e "s,^URIs: \\(.*\\)/,URIs: \\1-rc/,g" \
-        /etc/apt/sources.list.d/apache-arrow.sources
-    fi
-  else
+  if [ "${TYPE}" = "rc" ]; then
     sed \
       -i"" \
-      -e "s,^URIs: .*,URIs: ${bintray_base_url}/,g" \
+      -e "s,^URIs: \\(.*\\)/,URIs: \\1-rc/,g" \
       /etc/apt/sources.list.d/apache-arrow.sources
   fi
 fi
@@ -132,11 +118,7 @@ required_packages=()
 required_packages+=(cmake)
 required_packages+=(g++)
 required_packages+=(git)
-# Bash on Ubuntu Xenial reports unbound variable for
-# ${workaround_missing_packages[@]} with empty workaround_missing_packages.
-if [ ${#workaround_missing_packages[@]} -gt 0 ]; then
-  required_packages+=(${workaround_missing_packages[@]})
-fi
+required_packages+=(${workaround_missing_packages[@]})
 apt install -y -V ${required_packages[@]}
 mkdir -p build
 cp -a /arrow/cpp/examples/minimal_build build
@@ -150,7 +132,8 @@ apt install -y -V libarrow-glib-dev=${package_version}
 apt install -y -V libarrow-glib-doc=${package_version}
 
 if [ "${have_flight}" = "yes" ]; then
-  apt install -y -V libarrow-flight-dev=${package_version}
+  apt install -y -V libarrow-flight-glib-dev=${package_version}
+  apt install -y -V libarrow-flight-glib-doc=${package_version}
 fi
 
 apt install -y -V libarrow-python-dev=${package_version}

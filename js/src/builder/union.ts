@@ -53,13 +53,11 @@ export abstract class UnionBuilder<T extends Union, TNull = any> extends Builder
         return this;
     }
 
-    // @ts-ignore
     public setValue(index: number, value: T['TValue'], childTypeId?: number) {
         this._typeIds.set(index, childTypeId!);
         super.setValue(index, value);
     }
 
-    // @ts-ignore
     public addChild(child: Builder, name = `${this.children.length}`) {
         const childTypeId = this.children.push(child);
         const { type: { children, mode, typeIds } } = this;

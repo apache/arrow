@@ -65,7 +65,7 @@ func createClientAuthUnaryInterceptor(auth ClientAuthHandler) grpc.UnaryClientIn
 			return status.Errorf(codes.Unauthenticated, "error retrieving token: %s", err)
 		}
 
-		return invoker(metadata.NewOutgoingContext(ctx, metadata.Pairs(grpcAuthHeader, tok)), method, req, reply, cc, opts...)
+		return invoker(metadata.AppendToOutgoingContext(ctx, grpcAuthHeader, tok), method, req, reply, cc, opts...)
 	}
 }
 
@@ -86,6 +86,6 @@ func createClientAuthStreamInterceptor(auth ClientAuthHandler) grpc.StreamClient
 			return nil, status.Errorf(codes.Unauthenticated, "error retrieving token: %s", err)
 		}
 
-		return streamer(metadata.NewOutgoingContext(ctx, metadata.Pairs(grpcAuthHeader, tok)), desc, cc, method, opts...)
+		return streamer(metadata.AppendToOutgoingContext(ctx, grpcAuthHeader, tok), desc, cc, method, opts...)
 	}
 }

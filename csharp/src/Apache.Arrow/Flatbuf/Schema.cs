@@ -27,19 +27,30 @@ internal struct Schema : IFlatbufferObject
   public int FieldsLength { get { int o = __p.__offset(6); return o != 0 ? __p.__vector_len(o) : 0; } }
   public KeyValue? CustomMetadata(int j) { int o = __p.__offset(8); return o != 0 ? (KeyValue?)(new KeyValue()).__assign(__p.__indirect(__p.__vector(o) + j * 4), __p.bb) : null; }
   public int CustomMetadataLength { get { int o = __p.__offset(8); return o != 0 ? __p.__vector_len(o) : 0; } }
+  /// Features used in the stream/file.
+  public Feature Features(int j) { int o = __p.__offset(10); return o != 0 ? (Feature)__p.bb.GetLong(__p.__vector(o) + j * 8) : (Feature)0; }
+  public int FeaturesLength { get { int o = __p.__offset(10); return o != 0 ? __p.__vector_len(o) : 0; } }
+#if ENABLE_SPAN_T
+  public Span<byte> GetFeaturesBytes() { return __p.__vector_as_span(10); }
+#else
+  public ArraySegment<byte>? GetFeaturesBytes() { return __p.__vector_as_arraysegment(10); }
+#endif
+  public Feature[] GetFeaturesArray() { return __p.__vector_as_array<Feature>(10); }
 
   public static Offset<Schema> CreateSchema(FlatBufferBuilder builder,
       Endianness endianness = Endianness.Little,
       VectorOffset fieldsOffset = default(VectorOffset),
-      VectorOffset custom_metadataOffset = default(VectorOffset)) {
-    builder.StartObject(3);
+      VectorOffset custom_metadataOffset = default(VectorOffset),
+      VectorOffset featuresOffset = default(VectorOffset)) {
+    builder.StartObject(4);
+    Schema.AddFeatures(builder, featuresOffset);
     Schema.AddCustomMetadata(builder, custom_metadataOffset);
     Schema.AddFields(builder, fieldsOffset);
     Schema.AddEndianness(builder, endianness);
     return Schema.EndSchema(builder);
   }
 
-  public static void StartSchema(FlatBufferBuilder builder) { builder.StartObject(3); }
+  public static void StartSchema(FlatBufferBuilder builder) { builder.StartObject(4); }
   public static void AddEndianness(FlatBufferBuilder builder, Endianness endianness) { builder.AddShort(0, (short)endianness, 0); }
   public static void AddFields(FlatBufferBuilder builder, VectorOffset fieldsOffset) { builder.AddOffset(1, fieldsOffset.Value, 0); }
   public static VectorOffset CreateFieldsVector(FlatBufferBuilder builder, Offset<Field>[] data) { builder.StartVector(4, data.Length, 4); for (int i = data.Length - 1; i >= 0; i--) builder.AddOffset(data[i].Value); return builder.EndVector(); }
@@ -49,6 +60,10 @@ internal struct Schema : IFlatbufferObject
   public static VectorOffset CreateCustomMetadataVector(FlatBufferBuilder builder, Offset<KeyValue>[] data) { builder.StartVector(4, data.Length, 4); for (int i = data.Length - 1; i >= 0; i--) builder.AddOffset(data[i].Value); return builder.EndVector(); }
   public static VectorOffset CreateCustomMetadataVectorBlock(FlatBufferBuilder builder, Offset<KeyValue>[] data) { builder.StartVector(4, data.Length, 4); builder.Add(data); return builder.EndVector(); }
   public static void StartCustomMetadataVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
+  public static void AddFeatures(FlatBufferBuilder builder, VectorOffset featuresOffset) { builder.AddOffset(3, featuresOffset.Value, 0); }
+  public static VectorOffset CreateFeaturesVector(FlatBufferBuilder builder, Feature[] data) { builder.StartVector(8, data.Length, 8); for (int i = data.Length - 1; i >= 0; i--) builder.AddLong((long)data[i]); return builder.EndVector(); }
+  public static VectorOffset CreateFeaturesVectorBlock(FlatBufferBuilder builder, Feature[] data) { builder.StartVector(8, data.Length, 8); builder.Add(data); return builder.EndVector(); }
+  public static void StartFeaturesVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(8, numElems, 8); }
   public static Offset<Schema> EndSchema(FlatBufferBuilder builder) {
     int o = builder.EndObject();
     return new Offset<Schema>(o);

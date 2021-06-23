@@ -203,16 +203,6 @@ TEST_P(ReaderTest, MultipleChunks) {
   AssertTablesEqual(*expected_table, *table_);
 }
 
-template <typename T>
-std::string RowsOfOneColumn(string_view name, std::initializer_list<T> values,
-                            decltype(std::to_string(*values.begin()))* = nullptr) {
-  std::stringstream ss;
-  for (auto value : values) {
-    ss << R"({")" << name << R"(":)" << std::to_string(value) << "}\n";
-  }
-  return ss.str();
-}
-
 TEST(ReaderTest, MultipleChunksParallel) {
   int64_t count = 1 << 10;
 

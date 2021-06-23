@@ -22,7 +22,7 @@ import { ArrayBufferViewInput, toUint8Array } from '../util/buffer';
 /** @ignore */
 export class RandomAccessFile extends ByteStream {
     public size: number;
-    public position: number = 0;
+    public position = 0;
     protected buffer: Uint8Array | null;
     constructor(buffer: ArrayBufferViewInput, byteLength?: number) {
         super();
@@ -59,9 +59,8 @@ export class RandomAccessFile extends ByteStream {
 
 /** @ignore */
 export class AsyncRandomAccessFile extends AsyncByteStream {
-    // @ts-ignore
-    public size: number;
-    public position: number = 0;
+    public size!: number;
+    public position = 0;
     public _pending?: Promise<void>;
     protected _handle: FileHandle | null;
     constructor(file: FileHandle, byteLength?: number) {
@@ -91,8 +90,8 @@ export class AsyncRandomAccessFile extends AsyncByteStream {
         if (file && position < size) {
             if (typeof nBytes !== 'number') { nBytes = Infinity; }
             let pos = position, offset = 0, bytesRead = 0;
-            let end = Math.min(size, pos + Math.min(size - pos, nBytes));
-            let buffer = new Uint8Array(Math.max(0, (this.position = end) - pos));
+            const end = Math.min(size, pos + Math.min(size - pos, nBytes));
+            const buffer = new Uint8Array(Math.max(0, (this.position = end) - pos));
             while ((pos += bytesRead) < end && (offset += bytesRead) < buffer.byteLength) {
                 ({ bytesRead } = await file.read(buffer, offset, buffer.byteLength - offset, pos));
             }

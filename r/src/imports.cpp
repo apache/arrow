@@ -32,6 +32,12 @@ const vctrs_api_ptrs_t& vctrs_api() {
   return ptrs;
 }
 
-R_len_t short_vec_size(SEXP x) { return vctrs_api().short_vec_size(x); }
+R_len_t vec_size(SEXP x) {
+  if (Rf_inherits(x, "data.frame") || TYPEOF(x) != VECSXP || Rf_inherits(x, "POSIXlt")) {
+    return vctrs_api().short_vec_size(x);
+  } else {
+    return Rf_length(x);
+  }
+}
 
 }  // namespace vctrs

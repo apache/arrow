@@ -20,11 +20,7 @@ import {
     Data, RecordBatch,
     Vector, Int32Vector, Float32Vector, Float32, Int32,
 } from '../../Arrow';
-
-function arange<T extends { length: number; [n: number]: number; }>(arr: T, n = arr.length) {
-    for (let i = -1; ++i < n; arr[i] = i) { }
-    return arr;
-}
+import { arange } from '../utils';
 
 function numsRecordBatch(i32Len: number, f32Len: number) {
     return RecordBatch.new({
@@ -41,14 +37,14 @@ describe(`RecordBatch`, () => {
             const i32s = new Int32Array(arange(new Array<number>(10)));
 
             let i32 = Vector.new(Data.Int(new Int32(), 0, i32s.length, 0, null, i32s));
-            expect(i32.length).toBe(i32s.length);
+            expect(i32).toHaveLength(i32s.length);
             expect(i32.nullCount).toBe(0);
 
             const batch = RecordBatch.new([i32], ['i32']);
             i32 = batch.getChildAt(0) as Int32Vector;
 
             expect(batch.schema.fields[0].name).toBe('i32');
-            expect(i32.length).toBe(i32s.length);
+            expect(i32).toHaveLength(i32s.length);
             expect(i32.nullCount).toBe(0);
 
             expect(i32).toEqualVector(Int32Vector.from(i32s));
@@ -61,8 +57,8 @@ describe(`RecordBatch`, () => {
 
             let i32 = Vector.new(Data.Int(new Int32(), 0, i32s.length, 0, null, i32s));
             let f32 = Vector.new(Data.Float(new Float32(), 0, f32s.length, 0, null, f32s));
-            expect(i32.length).toBe(i32s.length);
-            expect(f32.length).toBe(f32s.length);
+            expect(i32).toHaveLength(i32s.length);
+            expect(f32).toHaveLength(f32s.length);
             expect(i32.nullCount).toBe(0);
             expect(f32.nullCount).toBe(0);
 
@@ -72,8 +68,8 @@ describe(`RecordBatch`, () => {
 
             expect(batch.schema.fields[0].name).toBe('i32');
             expect(batch.schema.fields[1].name).toBe('f32');
-            expect(i32.length).toBe(i32s.length);
-            expect(f32.length).toBe(f32s.length);
+            expect(i32).toHaveLength(i32s.length);
+            expect(f32).toHaveLength(f32s.length);
             expect(i32.nullCount).toBe(0);
             expect(f32.nullCount).toBe(0);
 
@@ -89,8 +85,8 @@ describe(`RecordBatch`, () => {
             let i32 = Int32Vector.from(i32s);
             let f32 = Float32Vector.from(f32s);
 
-            expect(i32.length).toBe(i32s.length);
-            expect(f32.length).toBe(f32s.length);
+            expect(i32).toHaveLength(i32s.length);
+            expect(f32).toHaveLength(f32s.length);
             expect(i32.nullCount).toBe(0);
             expect(f32.nullCount).toBe(0);
 
@@ -100,8 +96,8 @@ describe(`RecordBatch`, () => {
 
             expect(batch.schema.fields[0].name).toBe('0');
             expect(batch.schema.fields[1].name).toBe('1');
-            expect(i32.length).toBe(i32s.length);
-            expect(f32.length).toBe(i32s.length); // new length should be the same as the longest sibling
+            expect(i32).toHaveLength(i32s.length);
+            expect(f32).toHaveLength(i32s.length); // new length should be the same as the longest sibling
             expect(i32.nullCount).toBe(0);
             expect(f32.nullCount).toBe(i32s.length - f32s.length);
 
@@ -120,7 +116,7 @@ describe(`RecordBatch`, () => {
             const batch = numsRecordBatch(32, 27);
             const i32sBatch = batch.select('i32');
             expect(i32sBatch.numCols).toBe(1);
-            expect(i32sBatch.length).toBe(32);
+            expect(i32sBatch).toHaveLength(32);
         });
     });
     describe(`selectAt()`, () => {
@@ -128,7 +124,7 @@ describe(`RecordBatch`, () => {
             const batch = numsRecordBatch(32, 45);
             const f32sBatch = batch.selectAt(1);
             expect(f32sBatch.numCols).toBe(1);
-            expect(f32sBatch.length).toBe(45);
+            expect(f32sBatch).toHaveLength(45);
         });
     });
 });

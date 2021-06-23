@@ -40,7 +40,7 @@ export class MapBuilder<K extends DataType = any, V extends DataType = any, TNul
         pending.set(index, value);
     }
 
-    public addChild(child: Builder<Struct<{ key: K, value: V }>>, name = `${this.numChildren}`) {
+    public addChild(child: Builder<Struct<{ key: K; value: V }>>, name = `${this.numChildren}`) {
         if (this.numChildren > 0) {
             throw new Error('ListBuilder can only have one child.');
         }

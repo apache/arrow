@@ -68,6 +68,9 @@ std::string Status::CodeAsString(StatusCode code) {
     case StatusCode::Invalid:
       type = "Invalid";
       break;
+    case StatusCode::Cancelled:
+      type = "Cancelled";
+      break;
     case StatusCode::IOError:
       type = "IOError";
       break;
@@ -132,7 +135,7 @@ void Status::Abort(const std::string& message) const {
 void Status::AddContextLine(const char* filename, int line, const char* expr) {
   ARROW_CHECK(!ok()) << "Cannot add context line to ok status";
   std::stringstream ss;
-  ss << "\nIn " << filename << ", line " << line << ", code: " << expr;
+  ss << "\n" << filename << ":" << line << "  " << expr;
   state_->msg += ss.str();
 }
 #endif

@@ -15,34 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { toUint8Array } from './buffer';
-import {
-    TextDecoder as TextDecoderPolyfill,
-    TextEncoder as TextEncoderPolyfill,
-} from 'text-encoding-utf-8';
-
-/** @ignore @suppress {missingRequire} */
-const _Buffer = typeof Buffer === 'function' ? Buffer : null;
+const decoder = new TextDecoder('utf-8');
 /** @ignore */
-const useNativeEncoders = typeof TextDecoder === 'function' && typeof TextEncoder === 'function';
+export const decodeUtf8 = (buffer?: BufferSource) => decoder.decode(buffer);
 
+const encoder = new TextEncoder();
 /** @ignore */
-export const decodeUtf8 = ((TextDecoder) => {
-    if (useNativeEncoders || !_Buffer) {
-        const decoder = new TextDecoder('utf-8');
-        return (buffer?: ArrayBuffer | ArrayBufferView) => decoder.decode(buffer);
-    }
-    return (input: ArrayBufferLike | ArrayBufferView) => {
-        const { buffer, byteOffset, length } = toUint8Array(input);
-        return _Buffer.from(buffer, byteOffset, length).toString();
-    };
-})(typeof TextDecoder !== 'undefined' ? TextDecoder : TextDecoderPolyfill);
-
-/** @ignore */
-export const encodeUtf8 = ((TextEncoder) => {
-    if (useNativeEncoders || !_Buffer) {
-        const encoder = new TextEncoder();
-        return (value?: string) => encoder.encode(value);
-    }
-    return (input = '') => toUint8Array(_Buffer.from(input, 'utf8'));
-})(typeof TextEncoder !== 'undefined' ? TextEncoder : TextEncoderPolyfill);
+export const encodeUtf8 = (value?: string) => encoder.encode(value);

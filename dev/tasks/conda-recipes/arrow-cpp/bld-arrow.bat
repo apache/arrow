@@ -1,5 +1,18 @@
+@echo on
+
 mkdir "%SRC_DIR%"\cpp\build
 pushd "%SRC_DIR%"\cpp\build
+
+:: Enable CUDA support
+if "%cuda_compiler_version%"=="None" (
+    set "EXTRA_CMAKE_ARGS=-DARROW_CUDA=OFF"
+) else (
+    REM this should move to nvcc-feedstock
+    set "CUDA_PATH=%CUDA_PATH:\=/%"
+    set "CUDA_HOME=%CUDA_HOME:\=/%"
+
+    set "EXTRA_CMAKE_ARGS=-DARROW_CUDA=ON"
+)
 
 cmake -G "Ninja" ^
       -DBUILD_SHARED_LIBS=ON ^
@@ -31,6 +44,7 @@ cmake -G "Ninja" ^
       -DARROW_S3:BOOL=ON ^
       -DBoost_NO_BOOST_CMAKE=ON ^
       -DCMAKE_UNITY_BUILD=ON ^
+      %EXTRA_CMAKE_ARGS% ^
       ..
 if errorlevel 1 exit 1
 

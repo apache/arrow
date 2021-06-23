@@ -42,8 +42,11 @@
 #include "arrow/testing/random.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/pcg_random.h"
 
 namespace arrow {
+
+using random::pcg32_fast;
 
 uint64_t random_seed() {
   return std::chrono::high_resolution_clock::now().time_since_epoch().count();
@@ -51,23 +54,23 @@ uint64_t random_seed() {
 
 void random_null_bytes(int64_t n, double pct_null, uint8_t* null_bytes) {
   const int random_seed = 0;
-  std::default_random_engine gen(random_seed);
-  std::uniform_real_distribution<double> d(0.0, 1.0);
+  pcg32_fast gen(random_seed);
+  ::arrow::random::uniform_real_distribution<double> d(0.0, 1.0);
   std::generate(null_bytes, null_bytes + n,
                 [&d, &gen, &pct_null] { return d(gen) > pct_null; });
 }
 
 void random_is_valid(int64_t n, double pct_null, std::vector<bool>* is_valid,
                      int random_seed) {
-  std::default_random_engine gen(random_seed);
-  std::uniform_real_distribution<double> d(0.0, 1.0);
+  pcg32_fast gen(random_seed);
+  ::arrow::random::uniform_real_distribution<double> d(0.0, 1.0);
   is_valid->resize(n, false);
   std::generate(is_valid->begin(), is_valid->end(),
                 [&d, &gen, &pct_null] { return d(gen) > pct_null; });
 }
 
 void random_bytes(int64_t n, uint32_t seed, uint8_t* out) {
-  std::default_random_engine gen(seed);
+  pcg32_fast gen(seed);
   std::uniform_int_distribution<uint32_t> d(0, std::numeric_limits<uint8_t>::max());
   std::generate(out, out + n, [&d, &gen] { return static_cast<uint8_t>(d(gen)); });
 }
@@ -80,7 +83,7 @@ std::string random_string(int64_t n, uint32_t seed) {
 }
 
 void random_decimals(int64_t n, uint32_t seed, int32_t precision, uint8_t* out) {
-  std::default_random_engine gen(seed);
+  pcg32_fast gen(seed);
   std::uniform_int_distribution<uint32_t> d(0, std::numeric_limits<uint8_t>::max());
   const int32_t required_bytes = DecimalType::DecimalSize(precision);
   constexpr int32_t byte_width = 16;

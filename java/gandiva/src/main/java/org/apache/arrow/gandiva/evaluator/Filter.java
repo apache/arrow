@@ -74,12 +74,28 @@ public class Filter {
    * @param schema Table schema. The field names in the schema should match the fields used to
    *               create the TreeNodes
    * @param condition condition to be evaluated against data
+   * @param configOptions ConfigOptions parameter
+   * @return A native filter object that can be used to invoke on a RecordBatch
+   */
+  public static Filter make(Schema schema, Condition condition, ConfigurationBuilder.ConfigOptions configOptions)
+          throws GandivaException {
+    return make(schema, condition, JniLoader.getConfiguration(configOptions));
+  }
+
+  /**
+   * Invoke this function to generate LLVM code to evaluate the condition expression. Invoke
+   * Filter::Evaluate() against a RecordBatch to evaluate the filter on this record batch
+   *
+   * @param schema Table schema. The field names in the schema should match the fields used to
+   *               create the TreeNodes
+   * @param condition condition to be evaluated against data
    * @param optimize Flag to choose if the generated llvm code is to be optimized
    * @return A native filter object that can be used to invoke on a RecordBatch
    */
+  @Deprecated
   public static Filter make(Schema schema, Condition condition, boolean optimize) throws GandivaException {
-    return make(schema, condition, optimize ? JniLoader.getDefaultConfiguration() :
-        JniLoader.getUnoptimizedConfiguration());
+    return make(schema, condition, JniLoader.getConfiguration((new ConfigurationBuilder.ConfigOptions())
+            .withOptimize(optimize)));
   }
 
   /**

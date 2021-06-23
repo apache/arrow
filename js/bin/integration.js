@@ -30,7 +30,7 @@ const {
     Table,
     RecordBatchReader,
     util: { createElementComparator }
-} = require('../targets/apache-arrow/Arrow.es5.min');
+} = require('../targets/apache-arrow/');
 
 const exists = async (p) => {
     try {
@@ -63,7 +63,7 @@ const exists = async (p) => {
     }
 })()
 .then((x) => +x || 0, (e) => {
-    e && process.stderr.write(`${e && e.stack || e}\n`);
+    e && process.stderr.write(`${e?.stack || e}\n`);
     return process.exitCode || 1;
 }).then((code) => process.exit(code));
 
@@ -141,7 +141,7 @@ function validateReaderIntegration(jsonData, arrowBuffer) {
         for (const [jsonRecordBatch, binaryRecordBatch] of zip(jsonReader, binaryReader)) {
             compareTableIsh(jsonRecordBatch, binaryRecordBatch);
         }
-    } catch (e) { throw new Error(`${msg}: fail \n ${e && e.stack || e}`); }
+    } catch (e) { throw new Error(`${msg}: fail \n ${e?.stack || e}`); }
     process.stdout.write(`${msg}: pass\n`);
 }
 
@@ -151,7 +151,7 @@ function validateTableFromBuffersIntegration(jsonData, arrowBuffer) {
         const jsonTable = Table.from(jsonData);
         const binaryTable = Table.from(arrowBuffer);
         compareTableIsh(jsonTable, binaryTable);
-    } catch (e) { throw new Error(`${msg}: fail \n ${e && e.stack || e}`); }
+    } catch (e) { throw new Error(`${msg}: fail \n ${e?.stack || e}`); }
     process.stdout.write(`${msg}: pass\n`);
 }
 
@@ -164,7 +164,7 @@ function validateTableToBuffersIntegration(srcFormat, arrowFormat) {
             const srcTable = Table.from(srcFormat === `json` ? jsonData : arrowBuffer);
             const dstTable = Table.from(srcTable.serialize(`binary`, arrowFormat === `stream`));
             compareTableIsh(dstTable, refTable);
-        } catch (e) { throw new Error(`${msg}: fail \n ${e && e.stack || e}`); }
+        } catch (e) { throw new Error(`${msg}: fail \n ${e?.stack || e}`); }
         process.stdout.write(`${msg}: pass\n`);
     };
 }
@@ -189,7 +189,7 @@ function compareTableIsh(actual, expected) {
 function compareVectors(actual, expected) {
 
     if ((actual == null && expected != null) || (expected == null && actual != null)) {
-        throw new Error(`${actual == null ? `actual` : `expected`} is null, was expecting ${actual == null ? expected : actual} to be that also`);
+        throw new Error(`${actual == null ? `actual` : `expected`} is null, was expecting ${actual ?? expected} to be that also`);
     }
 
     let props = ['type', 'length', 'nullCount'];

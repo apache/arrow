@@ -29,7 +29,7 @@ module Arrow
     #
     #     The unit must be microsecond or nanosecond.
     #
-    #   @example Create a time64 data type with {Arrow::TimeUnit}
+    #   @example Create a time64 data type with Arrow::TimeUnit
     #     Arrow::Time64DataType.new(Arrow::TimeUnit::NANO)
     #
     #   @example Create a time64 data type with Symbol
@@ -45,7 +45,7 @@ module Arrow
     #
     #     The unit must be microsecond or nanosecond.
     #
-    #   @example Create a time64 data type with {Arrow::TimeUnit}
+    #   @example Create a time64 data type with Arrow::TimeUnit
     #     Arrow::Time64DataType.new(unit: Arrow::TimeUnit::NANO)
     #
     #   @example Create a time64 data type with Symbol

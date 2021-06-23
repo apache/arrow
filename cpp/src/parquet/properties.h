@@ -26,7 +26,7 @@
 #include "arrow/io/caching.h"
 #include "arrow/type.h"
 #include "arrow/util/compression.h"
-#include "parquet/encryption.h"
+#include "parquet/encryption/encryption.h"
 #include "parquet/exception.h"
 #include "parquet/parquet_version.h"
 #include "parquet/platform.h"
@@ -575,7 +575,8 @@ class PARQUET_EXPORT ArrowReaderProperties {
         read_dict_indices_(),
         batch_size_(kArrowDefaultBatchSize),
         pre_buffer_(false),
-        cache_options_(::arrow::io::CacheOptions::Defaults()) {}
+        cache_options_(::arrow::io::CacheOptions::Defaults()),
+        coerce_int96_timestamp_unit_(::arrow::TimeUnit::NANO) {}
 
   void set_use_threads(bool use_threads) { use_threads_ = use_threads; }
 
@@ -613,20 +614,31 @@ class PARQUET_EXPORT ArrowReaderProperties {
   /// implementation for characteristics of different filesystems.
   void set_cache_options(::arrow::io::CacheOptions options) { cache_options_ = options; }
 
-  ::arrow::io::CacheOptions cache_options() const { return cache_options_; }
+  const ::arrow::io::CacheOptions& cache_options() const { return cache_options_; }
 
   /// Set execution context for read coalescing.
-  void set_async_context(::arrow::io::AsyncContext ctx) { async_context_ = ctx; }
+  void set_io_context(const ::arrow::io::IOContext& ctx) { io_context_ = ctx; }
 
-  ::arrow::io::AsyncContext async_context() const { return async_context_; }
+  const ::arrow::io::IOContext& io_context() const { return io_context_; }
+
+  /// Set timestamp unit to use for deprecated INT96-encoded timestamps
+  /// (default is NANO).
+  void set_coerce_int96_timestamp_unit(::arrow::TimeUnit::type unit) {
+    coerce_int96_timestamp_unit_ = unit;
+  }
+
+  ::arrow::TimeUnit::type coerce_int96_timestamp_unit() const {
+    return coerce_int96_timestamp_unit_;
+  }
 
  private:
   bool use_threads_;
   std::unordered_set<int> read_dict_indices_;
   int64_t batch_size_;
   bool pre_buffer_;
-  ::arrow::io::AsyncContext async_context_;
+  ::arrow::io::IOContext io_context_;
   ::arrow::io::CacheOptions cache_options_;
+  ::arrow::TimeUnit::type coerce_int96_timestamp_unit_;
 };
 
 /// EXPERIMENTAL: Constructs the default ArrowReaderProperties

@@ -29,7 +29,7 @@ namespace internal {
 namespace {
 
 template <typename Type, typename offset_type = typename Type::offset_type>
-void ListValueLength(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status ListValueLength(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
   using ScalarType = typename TypeTraits<Type>::ScalarType;
   using OffsetScalarType = typename TypeTraits<Type>::OffsetScalarType;
 
@@ -51,6 +51,8 @@ void ListValueLength(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
           static_cast<offset_type>(arg0.value->length());
     }
   }
+
+  return Status::OK();
 }
 
 const FunctionDoc list_value_length_doc{
@@ -63,9 +65,15 @@ const FunctionDoc list_value_length_doc{
 Result<ValueDescr> ProjectResolve(KernelContext* ctx,
                                   const std::vector<ValueDescr>& descrs) {
   const auto& names = OptionsWrapper<ProjectOptions>::Get(ctx).field_names;
-  if (names.size() != descrs.size()) {
-    return Status::Invalid("project() was passed ", names.size(), " field ", "names but ",
-                           descrs.size(), " arguments");
+  const auto& nullable = OptionsWrapper<ProjectOptions>::Get(ctx).field_nullability;
+  const auto& metadata = OptionsWrapper<ProjectOptions>::Get(ctx).field_metadata;
+
+  if (names.size() != descrs.size() || nullable.size() != descrs.size() ||
+      metadata.size() != descrs.size()) {
+    return Status::Invalid("project() was passed ", descrs.size(), " arguments but ",
+                           names.size(), " field names, ", nullable.size(),
+                           " nullability bits, and ", metadata.size(),
+                           " metadata dictionaries.");
   }
 
   size_t i = 0;
@@ -86,15 +94,24 @@ Result<ValueDescr> ProjectResolve(KernelContext* ctx,
       }
     }
 
-    fields[i] = field(names[i], descr.type);
+    fields[i] = field(names[i], descr.type, nullable[i], metadata[i]);
     ++i;
   }
 
   return ValueDescr{struct_(std::move(fields)), shape};
 }
 
-void ProjectExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  KERNEL_ASSIGN_OR_RAISE(auto descr, ctx, ProjectResolve(ctx, batch.GetDescriptors()));
+Status ProjectExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  ARROW_ASSIGN_OR_RAISE(auto descr, ProjectResolve(ctx, batch.GetDescriptors()));
+
+  for (int i = 0; i < batch.num_values(); ++i) {
+    const auto& field = checked_cast<const StructType&>(*descr.type).field(i);
+    if (batch[i].null_count() > 0 && !field->nullable()) {
+      return Status::Invalid("Output field ", field, " (#", i,
+                             ") does not allow nulls but the corresponding "
+                             "argument was not entirely valid.");
+    }
+  }
 
   if (descr.shape == ValueDescr::SCALAR) {
     ScalarVector scalars(batch.num_values());
@@ -104,7 +121,7 @@ void ProjectExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 
     *out =
         Datum(std::make_shared<StructScalar>(std::move(scalars), std::move(descr.type)));
-    return;
+    return Status::OK();
   }
 
   ArrayVector arrays(batch.num_values());
@@ -114,12 +131,12 @@ void ProjectExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
       continue;
     }
 
-    KERNEL_ASSIGN_OR_RAISE(
-        arrays[i], ctx,
-        MakeArrayFromScalar(*batch[i].scalar(), batch.length, ctx->memory_pool()));
+    ARROW_ASSIGN_OR_RAISE(arrays[i], MakeArrayFromScalar(*batch[i].scalar(), batch.length,
+                                                         ctx->memory_pool()));
   }
 
   *out = std::make_shared<StructArray>(descr.type, batch.length, std::move(arrays));
+  return Status::OK();
 }
 
 const FunctionDoc project_doc{"Wrap Arrays into a StructArray",

@@ -100,8 +100,6 @@ satisfy C++ dependencies.
 
 > Note that, unlike packages like `tensorflow`, `blogdown`, and others that require external dependencies, you do not need to run `install_arrow()` after a successful `arrow` installation.
 
-<!-- TODO: does remotes::install_github("apache/arrow/r") work now? -->
-
 ## S3 support
 
 The `arrow` package allows you to work with data in AWS S3 or in other cloud
@@ -166,7 +164,7 @@ run `install.packages("arrow")` or `R CMD INSTALL` but not when running `R CMD c
 unless you've set the `NOT_CRAN=true` environment variable.
 
 For the mechanics of how all this works, see the R package `configure` script,
-which calls `tools/linuxlibs.R`.
+which calls `tools/nixlibs.R`.
 If the C++ library is built from source, `inst/build_arrow_static.sh` is executed.
 This build script is also what is used to generate the prebuilt binaries.
 
@@ -220,30 +218,6 @@ if you update your system Arrow, you'll need to reinstall the R package to match
 Similarly, if you're using Arrow system libraries, running `update.packages()`
 after a new release of the `arrow` package will likely fail unless you first
 update the system packages.
-
-## Using a local Arrow C++ build
-
-If you've built the Arrow C++ libraries locally from source
-but haven't installed them where `pkg-config` will find them,
-there are a few options for telling the R package how to locate them.
-You can set `PKG_CONFIG_PATH` to `/path/to/your/installation/pkgconfig`
-(that is, `PKG_CONFIG_PATH=${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/pkgconfig`,
-if you've set those variables).
-Alternatively, you can set the `INCLUDE_DIR` and `LIB_DIR` environment variables
-to point to their location.
-
-If the package fails to install/load with an error like this:
-
-```
-** testing if installed package can be loaded from temporary location
-Error: package or namespace load failed for 'arrow' in dyn.load(file, DLLpath = DLLpath, ...):
-unable to load shared object '/Users/you/R/00LOCK-r/00new/arrow/libs/arrow.so':
-dlopen(/Users/you/R/00LOCK-r/00new/arrow/libs/arrow.so, 6): Library not loaded: @rpath/libarrow.14.dylib
-```
-
-try setting the environment variable `R_LD_LIBRARY_PATH` to wherever Arrow C++
-was put in `make install`, e.g. `export R_LD_LIBRARY_PATH=/usr/local/lib`, and
-retry installing the R package.
 
 ## Using prebuilt binaries
 
@@ -312,6 +286,17 @@ See discussion [here](https://issues.apache.org/jira/browse/ARROW-8556).
 
 ## Summary of build environment variables
 
+Some features are optional when you build Arrow from source. With the exception of `ARROW_S3`, these are all `ON` by default in the bundled C++ build, but you can set them to `OFF` to disable them.
+
+* `ARROW_S3`: If set to `ON` S3 support will be built as long as the 
+  dependencies are met; if they are not met, the build script will turn this `OFF` 
+* `ARROW_JEMALLOC` for the `jemalloc` memory allocator
+* `ARROW_PARQUET`
+* `ARROW_DATASET`
+* `ARROW_WITH_RE2` for the RE2 regular expression library, used in some string compute functions
+* `ARROW_WITH_UTF8PROC` for the UTF8Proc string library, used in many other string compute functions
+
+There are a number of other variables that affect the `configure` script and the bundled build script.
 By default, these are all unset. All boolean variables are case-insensitive.
 
 * `ARROW_USE_PKG_CONFIG`: If set to `false`, the configure script
@@ -334,7 +319,7 @@ By default, these are all unset. All boolean variables are case-insensitive.
   Use this if you want to avoid compiling the C++ library, which may be slow
   and resource-intensive, and ensure that you only use a prebuilt binary.
 * `LIBARROW_MINIMAL`: If set to `false`, the build script
-  will enable some optional features, including compression libraries, S3 
+  will enable some optional features, including compression libraries, S3
   support, and additional alternative memory allocators. This will increase the
   source build time but results in a more fully functional library.
 * `NOT_CRAN`: If this variable is set to `true`, as the `devtools` package does,
@@ -356,7 +341,8 @@ By default, these are all unset. All boolean variables are case-insensitive.
   The directory will be created if it does not exist.
 * `CMAKE`: When building the C++ library from source, you can specify a
   `/path/to/cmake` to use a different version than whatever is found on the `$PATH`
-
+  
+  
 # Contributing
 
 As mentioned above, please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues)

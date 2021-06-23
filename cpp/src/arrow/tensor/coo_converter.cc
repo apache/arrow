@@ -213,9 +213,9 @@ class SparseCOOTensorConverter : private SparseTensorConverterMixin {
     // make results
     const std::vector<int64_t> indices_shape = {nonzero_count, ndim};
     std::vector<int64_t> indices_strides;
-    internal::ComputeRowMajorStrides(
+    RETURN_NOT_OK(internal::ComputeRowMajorStrides(
         checked_cast<const FixedWidthType&>(*index_value_type_), indices_shape,
-        &indices_strides);
+        &indices_strides));
     auto coords = std::make_shared<Tensor>(index_value_type_, std::move(indices_buffer),
                                            indices_shape, indices_strides);
     ARROW_ASSIGN_OR_RAISE(sparse_index, SparseCOOIndex::Make(coords, true));
@@ -305,7 +305,7 @@ Result<std::shared_ptr<Tensor>> MakeTensorFromSparseCOOTensor(
   std::fill_n(values, value_elsize * sparse_tensor->size(), 0);
 
   std::vector<int64_t> strides;
-  ComputeRowMajorStrides(value_type, sparse_tensor->shape(), &strides);
+  RETURN_NOT_OK(ComputeRowMajorStrides(value_type, sparse_tensor->shape(), &strides));
 
   const auto* raw_data = sparse_tensor->raw_data();
   const int ndim = sparse_tensor->ndim();

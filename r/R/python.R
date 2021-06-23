@@ -24,7 +24,7 @@ py_to_r.pyarrow.lib.Array <- function(x, ...) {
   })
 
   x$`_export_to_c`(array_ptr, schema_ptr)
-  ImportArray(array_ptr, schema_ptr)
+  Array$import_from_c(array_ptr, schema_ptr)
 }
 
 r_to_py.Array <- function(x, convert = FALSE) {
@@ -37,7 +37,7 @@ r_to_py.Array <- function(x, convert = FALSE) {
 
   # Import with convert = FALSE so that `_import_from_c` returns a Python object
   pa <- reticulate::import("pyarrow", convert = FALSE)
-  ExportArray(x, array_ptr, schema_ptr)
+  x$export_to_c(array_ptr, schema_ptr)
   out <- pa$Array$`_import_from_c`(array_ptr, schema_ptr)
   # But set the convert attribute on the return object to the requested value
   assign("convert", convert, out)
@@ -54,7 +54,7 @@ py_to_r.pyarrow.lib.RecordBatch <- function(x, ...) {
 
   x$`_export_to_c`(array_ptr, schema_ptr)
 
-  ImportRecordBatch(array_ptr, schema_ptr)
+  RecordBatch$import_from_c(array_ptr, schema_ptr)
 }
 
 r_to_py.RecordBatch <- function(x, convert = FALSE) {
@@ -67,7 +67,7 @@ r_to_py.RecordBatch <- function(x, convert = FALSE) {
 
   # Import with convert = FALSE so that `_import_from_c` returns a Python object
   pa <- reticulate::import("pyarrow", convert = FALSE)
-  ExportRecordBatch(x, array_ptr, schema_ptr)
+  x$export_to_c(array_ptr, schema_ptr)
   out <- pa$RecordBatch$`_import_from_c`(array_ptr, schema_ptr)
   # But set the convert attribute on the return object to the requested value
   assign("convert", convert, out)
@@ -108,7 +108,7 @@ py_to_r.pyarrow.lib.Schema <- function(x, ...) {
   on.exit(delete_arrow_schema(schema_ptr))
 
   x$`_export_to_c`(schema_ptr)
-  ImportSchema(schema_ptr)
+  Schema$import_from_c(schema_ptr)
 }
 
 r_to_py.Schema <- function(x, convert = FALSE) {
@@ -117,12 +117,77 @@ r_to_py.Schema <- function(x, convert = FALSE) {
 
   # Import with convert = FALSE so that `_import_from_c` returns a Python object
   pa <- reticulate::import("pyarrow", convert = FALSE)
-  ExportSchema(x, schema_ptr)
+  x$export_to_c(schema_ptr)
   out <- pa$Schema$`_import_from_c`(schema_ptr)
   # But set the convert attribute on the return object to the requested value
   assign("convert", convert, out)
   out
 }
+
+py_to_r.pyarrow.lib.Field <- function(x, ...) {
+  schema_ptr <- allocate_arrow_schema()
+  on.exit(delete_arrow_schema(schema_ptr))
+
+  x$`_export_to_c`(schema_ptr)
+  Field$import_from_c(schema_ptr)
+}
+
+r_to_py.Field <- function(x, convert = FALSE) {
+  schema_ptr <- allocate_arrow_schema()
+  on.exit(delete_arrow_schema(schema_ptr))
+
+  # Import with convert = FALSE so that `_import_from_c` returns a Python object
+  pa <- reticulate::import("pyarrow", convert = FALSE)
+  x$export_to_c(schema_ptr)
+  out <- pa$Field$`_import_from_c`(schema_ptr)
+  # But set the convert attribute on the return object to the requested value
+  assign("convert", convert, out)
+  out
+}
+
+py_to_r.pyarrow.lib.DataType <- function(x, ...) {
+  schema_ptr <- allocate_arrow_schema()
+  on.exit(delete_arrow_schema(schema_ptr))
+
+  x$`_export_to_c`(schema_ptr)
+  DataType$import_from_c(schema_ptr)
+}
+
+r_to_py.DataType <- function(x, convert = FALSE) {
+  schema_ptr <- allocate_arrow_schema()
+  on.exit(delete_arrow_schema(schema_ptr))
+
+  # Import with convert = FALSE so that `_import_from_c` returns a Python object
+  pa <- reticulate::import("pyarrow", convert = FALSE)
+  x$export_to_c(schema_ptr)
+  out <- pa$DataType$`_import_from_c`(schema_ptr)
+  # But set the convert attribute on the return object to the requested value
+  assign("convert", convert, out)
+  out
+}
+
+py_to_r.pyarrow.lib.RecordBatchReader <- function(x, ...) {
+  stream_ptr <- allocate_arrow_array_stream()
+  on.exit(delete_arrow_array_stream(stream_ptr))
+
+  x$`_export_to_c`(stream_ptr)
+  RecordBatchFileReader$import_from_c(stream_ptr)
+}
+
+r_to_py.RecordBatchReader <- function(x, convert = FALSE) {
+  stream_ptr <- allocate_arrow_array_stream()
+  on.exit(delete_arrow_array_stream(stream_ptr))
+
+  # Import with convert = FALSE so that `_import_from_c` returns a Python object
+  pa <- reticulate::import("pyarrow", convert = FALSE)
+  x$export_to_c(stream_ptr)
+  # TODO: handle subclasses of RecordBatchReader?
+  out <- pa$lib$RecordBatchReader$`_import_from_c`(stream_ptr)
+  # But set the convert attribute on the return object to the requested value
+  assign("convert", convert, out)
+  out
+}
+
 
 maybe_py_to_r <- function(x) {
   if (inherits(x, "python.builtin.object")) {

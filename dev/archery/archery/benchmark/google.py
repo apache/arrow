@@ -67,8 +67,11 @@ class GoogleBenchmarkCommand(Command):
 class GoogleBenchmarkObservation:
     """ Represents one run of a single (google c++) benchmark.
 
-    Observations are found when running with `--benchmark_repetitions`. Sadly,
-    the format mixes values and aggregates, e.g.
+    Aggregates are reported by Google Benchmark executables alongside
+    other observations whenever repetitions are specified (with
+    `--benchmark_repetitions` on the bare benchmark, or with the
+    archery option `--repetitions`). Aggregate observations are not
+    included in `GoogleBenchmark.runs`.
 
     RegressionSumKernel/32768/0                 1 us          1 us  25.8077GB/s
     RegressionSumKernel/32768/0                 1 us          1 us  25.7066GB/s
@@ -78,42 +81,35 @@ class GoogleBenchmarkObservation:
     RegressionSumKernel/32768/0_mean            1 us          1 us  25.6307GB/s
     RegressionSumKernel/32768/0_median          1 us          1 us  25.7066GB/s
     RegressionSumKernel/32768/0_stddev          0 us          0 us  288.046MB/s
-
-    As from benchmark v1.4.1 (2019-04-24), the only way to differentiate an
-    actual run from the aggregates, is to match on the benchmark name. The
-    aggregates will be appended with `_$agg_name`.
-
-    This class encapsulate the logic to separate runs from aggregate . This is
-    hopefully avoided in benchmark's master version with a separate json
-    attribute.
     """
 
-    def __init__(self, name, real_time, cpu_time, time_unit, size=None,
-                 bytes_per_second=None, items_per_second=None, **counters):
+    def __init__(self, name, real_time, cpu_time, time_unit, run_type,
+                 size=None, bytes_per_second=None, items_per_second=None,
+                 **counters):
         self._name = name
         self.real_time = real_time
         self.cpu_time = cpu_time
         self.time_unit = time_unit
+        self.run_type = run_type
         self.size = size
         self.bytes_per_second = bytes_per_second
         self.items_per_second = items_per_second
         self.counters = counters
 
     @property
-    def is_agg(self):
+    def is_aggregate(self):
         """ Indicate if the observation is a run or an aggregate. """
-        suffixes = ["_mean", "_median", "_stddev"]
-        return any(map(lambda x: self._name.endswith(x), suffixes))
+        return self.run_type == "aggregate"
 
     @property
     def is_realtime(self):
         """ Indicate if the preferred value is realtime instead of cputime. """
-        return self.name.find("/realtime") != -1
+        return self.name.find("/real_time") != -1
 
     @property
     def name(self):
         name = self._name
-        return name.rsplit("_", maxsplit=1)[0] if self.is_agg else name
+        return name.rsplit("_", maxsplit=1)[0] if self.is_aggregate else name
 
     @property
     def time(self):
@@ -153,14 +149,17 @@ class GoogleBenchmark(Benchmark):
         """
         self.name = name
         # exclude google benchmark aggregate artifacts
-        _, runs = partition(lambda b: b.is_agg, runs)
+        _, runs = partition(lambda b: b.is_aggregate, runs)
         self.runs = sorted(runs, key=lambda b: b.value)
         unit = self.runs[0].unit
+        time_unit = self.runs[0].time_unit
         less_is_better = not unit.endswith("per_second")
         values = [b.value for b in self.runs]
+        times = [b.real_time for b in self.runs]
         # Slight kludge to extract the UserCounters for each benchmark
-        self.counters = self.runs[0].counters
-        super().__init__(name, unit, less_is_better, values)
+        counters = self.runs[0].counters
+        super().__init__(name, unit, less_is_better, values, time_unit, times,
+                         counters)
 
     def __repr__(self):
         return "GoogleBenchmark[name={},runs={}]".format(self.names, self.runs)

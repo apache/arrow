@@ -648,8 +648,7 @@ public class BaseFileTest {
     int numVarBinaryValues = 0;
     for (int i = 0; i < count; i++) {
       expectedArray[i] = (byte) i;
-      Object obj = listVector.getObject(i);
-      List<?> objList = (List) obj;
+      List<?> objList = listVector.getObject(i);
       if (i % 3 == 0) {
         Assert.assertTrue(objList.isEmpty());
       } else {

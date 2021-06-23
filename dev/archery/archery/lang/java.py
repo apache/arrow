@@ -15,7 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import os
+
 from ..utils.command import Command, CommandStackMixin, default_bin
+from ..utils.maven import MavenDefinition
 
 
 class Java(Command):
@@ -28,3 +31,47 @@ class Jar(CommandStackMixin, Java):
         self.jar = jar
         self.argv = ("-jar", jar)
         Java.__init__(self, *args, **kwargs)
+
+
+class JavaConfiguration:
+    def __init__(self,
+
+                 # toolchain
+                 java_home=None, java_options=None,
+                 # build & benchmark
+                 build_extras=None, benchmark_extras=None):
+        self.java_home = java_home
+        self.java_options = java_options
+
+        self.build_extras = list(build_extras) if build_extras else []
+        self.benchmark_extras = list(
+            benchmark_extras) if benchmark_extras else []
+
+    @property
+    def build_definitions(self):
+        return self.build_extras
+
+    @property
+    def benchmark_definitions(self):
+        return self.benchmark_extras
+
+    @property
+    def environment(self):
+        env = os.environ.copy()
+
+        if self.java_home:
+            env["JAVA_HOME"] = self.java_home
+
+        if self.java_options:
+            env["JAVA_OPTIONS"] = self.java_options
+
+        return env
+
+
+class JavaMavenDefinition(MavenDefinition):
+    def __init__(self, source, conf, **kwargs):
+        self.configuration = conf
+        super().__init__(source, **kwargs,
+                         build_definitions=conf.build_definitions,
+                         benchmark_definitions=conf.benchmark_definitions,
+                         env=conf.environment)

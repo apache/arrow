@@ -110,6 +110,12 @@ TEST(TestBooleanKernel, KleeneAnd) {
   expected = ArrayFromJSON(boolean(), "[true, false, false, null, false]");
   CheckScalarBinary("and_kleene", left, right, expected);
   CheckBooleanScalarArrayBinary("and_kleene", left);
+
+  left = ArrayFromJSON(boolean(), "    [true, true,  false, true]");
+  right = ArrayFromJSON(boolean(), "   [true, false, false, false]");
+  expected = ArrayFromJSON(boolean(), "[true, false, false, false]");
+  CheckScalarBinary("and_kleene", left, right, expected);
+  CheckBooleanScalarArrayBinary("and_kleene", left);
 }
 
 TEST(TestBooleanKernel, KleeneAndNot) {
@@ -119,6 +125,12 @@ TEST(TestBooleanKernel, KleeneAndNot) {
       boolean(), "[true,  false, null, true,  false, null,  true, false, null]");
   auto expected = ArrayFromJSON(
       boolean(), "[false, true,  null, false, false, false, false, null, null]");
+  CheckScalarBinary("and_not_kleene", left, right, expected);
+  CheckBooleanScalarArrayBinary("and_not_kleene", left);
+
+  left = ArrayFromJSON(boolean(), "    [true,  true,  false, false]");
+  right = ArrayFromJSON(boolean(), "   [true,  false, true,  false]");
+  expected = ArrayFromJSON(boolean(), "[false, true,  false, false]");
   CheckScalarBinary("and_not_kleene", left, right, expected);
   CheckBooleanScalarArrayBinary("and_not_kleene", left);
 }
@@ -133,6 +145,12 @@ TEST(TestBooleanKernel, KleeneOr) {
   left = ArrayFromJSON(boolean(), "    [true, true,  false, null, null]");
   right = ArrayFromJSON(boolean(), "   [true, false, false, true, false]");
   expected = ArrayFromJSON(boolean(), "[true, true,  false, true, null]");
+  CheckScalarBinary("or_kleene", left, right, expected);
+  CheckBooleanScalarArrayBinary("or_kleene", left);
+
+  left = ArrayFromJSON(boolean(), "    [true, true,  false, false]");
+  right = ArrayFromJSON(boolean(), "   [true, false, false, true]");
+  expected = ArrayFromJSON(boolean(), "[true, true,  false, true]");
   CheckScalarBinary("or_kleene", left, right, expected);
   CheckBooleanScalarArrayBinary("or_kleene", left);
 }

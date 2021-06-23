@@ -17,37 +17,45 @@
 # specific language governing permissions and limitations
 # under the License.
 
-%define _centos_ver %{?centos_ver:%{centos_ver}}%{!?centos_ver:8}
+%define _amzn %{?amzn:%{amzn}}%{!?amzn:0}
+%define is_amazon_linux (%{_amzn} != 0)
 
 %define boost_version %( \
-  if [ "%{_centos_ver}" = 7 ]; then \
+  if [ %{rhel} -eq 7 ]; then \
     echo 169; \
   fi)
 %define cmake_version %( \
-  if [ "%{_centos_ver}" -lt 8 ]; then \
+  if [ %{rhel} -lt 8 ]; then \
     echo 3; \
   fi)
 %define python_version %( \
-  if [ "%{_centos_ver}" = 7 ]; then \
+  if [ %{rhel} -eq 7 ]; then \
     echo 36; \
   else \
     echo 3; \
   fi)
 
-%define use_flight (%{_centos_ver} >= 8)
-%define use_gandiva (%{_centos_ver} >= 8 && %{_arch} != "aarch64")
-%define use_mimalloc (%{_centos_ver} >= 8)
-%define use_ninja (%{_centos_ver} >= 8)
+%define lz4_requirement %( \
+  if [ %{_amzn} -eq 0 ]; then \
+    echo ">= 1.8.0"; \
+  fi)
+
+%define use_boost (!%{is_amazon_linux})
+%define use_flight (%{rhel} >= 8)
+%define use_gandiva (%{rhel} >= 8 && %{_arch} != "aarch64")
+%define use_gflags (!%{is_amazon_linux})
+%define use_mimalloc (%{rhel} >= 8)
+%define use_python (!%{is_amazon_linux})
 # TODO: Enable this. This works on local but is fragile on GitHub Actions and
 # Travis CI.
-# %define use_s3 (%{_centos_ver} >= 8)
+# %define use_s3 (%{rhel} >= 8)
 %define use_s3 0
 
-%define use_meson (%{_centos_ver} >= 8)
-
-%define have_rapidjson (%{_centos_ver} == 7)
-%define have_re2 (%{_centos_ver} >= 8)
-%define have_utf8proc (%{_centos_ver} == 7)
+%define have_rapidjson (%{rhel} == 7)
+%define have_re2 (%{rhel} >= 8)
+# EPEL ships utf8proc but it's old.
+# %define have_utf8proc (%{rhel} == 7)
+%define have_utf8proc 0
 
 Name:		@PACKAGE@
 Version:	@VERSION@
@@ -59,24 +67,34 @@ URL:		https://arrow.apache.org/
 Source0:	https://dist.apache.org/repos/dist/release/@PACKAGE@/@PACKAGE@-%{version}/apache-@PACKAGE@-%{version}.tar.gz
 
 BuildRequires:	bison
+%if %{use_boost}
 BuildRequires:	boost%{boost_version}-devel
+%endif
 BuildRequires:	brotli-devel
 BuildRequires:	bzip2-devel
+%if %{use_flight}
+BuildRequires:	c-ares-devel
+%endif
 BuildRequires:	cmake%{cmake_version}
 %if %{use_s3}
 BuildRequires:	curl-devel
 %endif
 BuildRequires:	flex
 BuildRequires:	gcc-c++
+%if %{use_gflags}
 BuildRequires:	gflags-devel
+%endif
 BuildRequires:	git
 BuildRequires:	glog-devel
 BuildRequires:	libzstd-devel
-BuildRequires:	lz4-devel
+BuildRequires:	lz4-devel %{lz4_requirement}
+BuildRequires:	ninja-build
 BuildRequires:	openssl-devel
 BuildRequires:	pkgconfig
+%if %{use_python}
 BuildRequires:	python%{python_version}-devel
 BuildRequires:	python%{python_version}-numpy
+%endif
 %if %{have_rapidjson}
 BuildRequires:	rapidjson-devel
 %endif
@@ -94,9 +112,6 @@ BuildRequires:	llvm-devel
 BuildRequires:	ncurses-devel
 %endif
 
-%if !%{use_meson}
-BuildRequires:	autoconf-archive
-%endif
 BuildRequires:	gobject-introspection-devel
 BuildRequires:	gtk-doc
 
@@ -111,19 +126,26 @@ cpp_build_type=release
 mkdir cpp/build
 cd cpp/build
 %cmake3 .. \
+  -DARROW_CSV=ON \
+  -DARROW_DATASET=ON \
 %if %{use_flight}
   -DARROW_FLIGHT=ON \
 %endif
 %if %{use_gandiva}
   -DARROW_GANDIVA=ON \
 %endif
+  -DARROW_HDFS=ON \
+  -DARROW_JSON=ON \
 %if %{use_mimalloc}
   -DARROW_MIMALLOC=ON \
 %endif
   -DARROW_ORC=ON \
+  -DARROW_PACKAGE_KIND=rpm \
   -DARROW_PARQUET=ON \
   -DARROW_PLASMA=ON \
+%if %{use_python}
   -DARROW_PYTHON=ON \
+%endif
 %if %{use_s3}
   -DARROW_S3=ON \
 %endif
@@ -134,23 +156,19 @@ cd cpp/build
   -DARROW_WITH_ZLIB=ON \
   -DARROW_WITH_ZSTD=ON \
   -DCMAKE_BUILD_TYPE=$cpp_build_type \
+  -DARROW_USE_CCACHE=OFF \
   -DCMAKE_UNITY_BUILD=ON \
   -DPARQUET_REQUIRE_ENCRYPTION=ON \
+%if %{use_python}
   -DPythonInterp_FIND_VERSION=ON \
   -DPythonInterp_FIND_VERSION_MAJOR=3 \
-%if %{use_ninja}
+%endif
   -GNinja
-%endif
 
-%if %{use_ninja}
 ninja %{?_smp_mflags}
-%else
-make %{?_smp_mflags}
-%endif
 cd -
 
 cd c_glib
-%if %{use_meson}
 pip3 install meson
 meson setup build \
   --default-library=both \
@@ -159,58 +177,33 @@ meson setup build \
   -Darrow_cpp_build_dir=../cpp/build \
   -Darrow_cpp_build_type=$cpp_build_type \
   -Dgtk_doc=true
-LD_LIBRARY_PATH=$PWD/../cpp/build/$cpp_build_type ninja -C build %{?_smp_mflags}
-%else
-./autogen.sh
-%configure \
-  --with-arrow-cpp-build-dir=$PWD/../cpp/build \
-  --with-arrow-cpp-build-type=$cpp_build_type \
-  --enable-gtk-doc
-sed -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' libtool
-sed -i 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|g' libtool
-ld_library_path=$PWD/arrow-glib/.libs/
-ld_library_path=$ld_library_path:$PWD/arrow-dataset-glib/.libs/
-ld_library_path=$ld_library_path:$PWD/parquet-glib/.libs/
-ld_library_path=$ld_library_path:$PWD/plasma-glib/.libs/
-ld_library_path=$ld_library_path:$PWD/../cpp/build/$cpp_build_type
-LD_LIBRARY_PATH=$ld_library_path make %{?_smp_mflags}
-%endif
+LD_LIBRARY_PATH=$PWD/../cpp/build/$cpp_build_type \
+  ninja -C build %{?_smp_mflags}
 cd -
 
 %install
 cpp_build_type=release
 
 cd c_glib
-%if %{use_meson}
 DESTDIR=$RPM_BUILD_ROOT ninja -C build install
 ninja -C build clean
-%else
-make install DESTDIR=$RPM_BUILD_ROOT
-rm $RPM_BUILD_ROOT%{_libdir}/*.la
-make clean
-%endif
 cd -
 
 cd cpp/build
-%if %{use_ninja}
 DESTDIR=$RPM_BUILD_ROOT ninja install
 ninja clean
-%else
-make install DESTDIR=$RPM_BUILD_ROOT
-make clean
-%endif
 cd -
 
 %package libs
 Summary:	Runtime libraries for Apache Arrow C++
 License:	Apache-2.0
-Requires:	boost%{boost_version}-system
-Requires:	boost%{boost_version}-filesystem
 Requires:	brotli
+%if %{use_gflags}
 Requires:	gflags
+%endif
 Requires:	glog
 Requires:	libzstd
-Requires:	lz4
+Requires:	lz4 %{lz4_requirement}
 %if %{have_re2}
 Requires:	re2
 %endif
@@ -235,8 +228,11 @@ License:	Apache-2.0
 Requires:	%{name}-libs = %{version}-%{release}
 Requires:	brotli-devel
 Requires:	bzip2-devel
+%if %{use_flight}
+Requires:	c-ares-devel
+%endif
 Requires:	libzstd-devel
-Requires:	lz4-devel
+Requires:	lz4-devel %{lz4_requirement}
 Requires:	openssl-devel
 %if %{have_rapidjson}
 Requires:	rapidjson-devel
@@ -269,6 +265,9 @@ Libraries and header files for Apache Arrow C++.
 %{_libdir}/cmake/arrow/FindBrotli.cmake
 %{_libdir}/cmake/arrow/FindLz4.cmake
 %{_libdir}/cmake/arrow/FindSnappy.cmake
+%if %{use_flight}
+%{_libdir}/cmake/arrow/Findc-aresAlt.cmake
+%endif
 %if %{have_re2}
 %{_libdir}/cmake/arrow/Findre2Alt.cmake
 %endif
@@ -324,6 +323,9 @@ Libraries and header files for Apache Arrow dataset.
 Summary:	C++ library for fast data transport.
 License:	Apache-2.0
 Requires:	%{name}-libs = %{version}-%{release}
+%if %{use_flight}
+Requires:	c-ares
+%endif
 Requires:	openssl
 
 %description flight-libs
@@ -390,6 +392,7 @@ Libraries and header files for Gandiva.
 %{_libdir}/pkgconfig/gandiva.pc
 %endif
 
+%if %{use_python}
 %package python-libs
 Summary:	Python integration library for Apache Arrow
 License:	Apache-2.0
@@ -463,6 +466,7 @@ Apache Arrow Flight.
 %{_libdir}/libarrow_python_flight.so
 %{_libdir}/pkgconfig/arrow-python-flight.pc
 %endif
+%endif
 
 %package -n plasma-libs
 Summary:	Runtime libraries for Plasma in-memory object store
@@ -512,7 +516,6 @@ Libraries and header files for Plasma in-memory object store.
 %package -n parquet-libs
 Summary:	Runtime libraries for Apache Parquet C++
 License:	Apache-2.0
-Requires:	boost%{boost_version}-program-options
 Requires:	%{name}-libs = %{version}-%{release}
 Requires:	openssl
 
@@ -594,13 +597,13 @@ Documentation for Apache Arrow GLib.
 %{_datadir}/gtk-doc/html/arrow-glib/
 
 %package dataset-glib-libs
-Summary:	Runtime libraries for Apache Arrow dataset GLib
+Summary:	Runtime libraries for Apache Arrow Dataset GLib
 License:	Apache-2.0
 Requires:	%{name}-dataset-libs = %{version}-%{release}
 Requires:	%{name}-glib-libs = %{version}-%{release}
 
 %description dataset-glib-libs
-This package contains the libraries for Apache Arrow dataset GLib.
+This package contains the libraries for Apache Arrow Dataset GLib.
 
 %files dataset-glib-libs
 %defattr(-,root,root,-)
@@ -609,13 +612,13 @@ This package contains the libraries for Apache Arrow dataset GLib.
 %{_datadir}/gir-1.0/ArrowDataset-1.0.gir
 
 %package dataset-glib-devel
-Summary:	Libraries and header files for Apache Arrow dataset GLib
+Summary:	Libraries and header files for Apache Arrow Dataset GLib
 License:	Apache-2.0
 Requires:	%{name}-dataset-devel = %{version}-%{release}
 Requires:	%{name}-glib-devel = %{version}-%{release}
 
 %description dataset-glib-devel
-Libraries and header files for Apache Arrow dataset GLib.
+Libraries and header files for Apache Arrow Dataset GLib.
 
 %files dataset-glib-devel
 %defattr(-,root,root,-)
@@ -627,7 +630,7 @@ Libraries and header files for Apache Arrow dataset GLib.
 %{_libdir}/girepository-1.0/ArrowDataset-1.0.typelib
 
 %package dataset-glib-doc
-Summary:	Documentation for Apache Arrow dataset GLib
+Summary:	Documentation for Apache Arrow Dataset GLib
 License:	Apache-2.0
 
 %description dataset-glib-doc
@@ -637,6 +640,53 @@ Documentation for Apache Arrow dataset GLib.
 %defattr(-,root,root,-)
 %doc README.md LICENSE.txt NOTICE.txt
 %{_datadir}/gtk-doc/html/arrow-dataset-glib/
+
+%if %{use_flight}
+%package flight-glib-libs
+Summary:	Runtime libraries for Apache Arrow Flight GLib
+License:	Apache-2.0
+Requires:	%{name}-flight-libs = %{version}-%{release}
+Requires:	%{name}-glib-libs = %{version}-%{release}
+
+%description flight-glib-libs
+This package contains the libraries for Apache Arrow Flight GLib.
+
+%files flight-glib-libs
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_libdir}/libarrow-flight-glib.so.*
+%{_datadir}/gir-1.0/ArrowFlight-1.0.gir
+
+%package flight-glib-devel
+Summary:	Libraries and header files for Apache Arrow Flight GLib
+License:	Apache-2.0
+Requires:	%{name}-flight-devel = %{version}-%{release}
+Requires:	%{name}-glib-devel = %{version}-%{release}
+
+%description flight-glib-devel
+Libraries and header files for Apache Arrow Flight GLib.
+
+%files flight-glib-devel
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_includedir}/arrow-flight-glib/
+%{_libdir}/libarrow-flight-glib.a
+%{_libdir}/libarrow-flight-glib.so
+%{_libdir}/pkgconfig/arrow-flight-glib.pc
+%{_libdir}/girepository-1.0/ArrowFlight-1.0.typelib
+
+%package flight-glib-doc
+Summary:	Documentation for Apache Arrow Flight GLib
+License:	Apache-2.0
+
+%description flight-glib-doc
+Documentation for Apache Arrow Flight GLib.
+
+%files flight-glib-doc
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_datadir}/gtk-doc/html/arrow-flight-glib/
+%endif
 
 %if %{use_gandiva}
 %package -n gandiva-glib-libs

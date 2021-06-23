@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("RecordBatch")
-
 test_that("RecordBatch", {
   # Note that we're reusing `tbl` and `batch` throughout the tests in this file
   tbl <- tibble::tibble(
@@ -147,12 +145,17 @@ test_that("[ on RecordBatch", {
   expect_data_frame(batch[batch$lgl,], tbl[tbl$lgl,])
   # int Array
   expect_data_frame(batch[Array$create(5:6), 2:4], tbl[6:7, 2:4])
+
+  # input validation
+  expect_error(batch[, c("dbl", "NOTACOLUMN")], 'Column not found: "NOTACOLUMN"')
+  expect_error(batch[, c(6, NA)], 'Column indices cannot be NA')
+  expect_error(batch[, c(2, -2)], 'Invalid column index')
 })
 
 test_that("[[ and $ on RecordBatch", {
-  expect_vector(batch[["int"]], tbl$int)
-  expect_vector(batch$int, tbl$int)
-  expect_vector(batch[[4]], tbl$chr)
+  expect_as_vector(batch[["int"]], tbl$int)
+  expect_as_vector(batch$int, tbl$int)
+  expect_as_vector(batch[[4]], tbl$chr)
   expect_null(batch$qwerty)
   expect_null(batch[["asdf"]])
   expect_error(batch[[c(4, 3)]])
@@ -185,16 +188,16 @@ test_that("[[<- assignment", {
 
   # can replace a column by index
   batch[[2]] <- as.numeric(10:1)
-  expect_vector(batch[[2]], as.numeric(10:1))
+  expect_as_vector(batch[[2]], as.numeric(10:1))
 
   # can add a column by index
   batch[[5]] <- as.numeric(10:1)
-  expect_vector(batch[[5]], as.numeric(10:1))
-  expect_vector(batch[["5"]], as.numeric(10:1))
+  expect_as_vector(batch[[5]], as.numeric(10:1))
+  expect_as_vector(batch[["5"]], as.numeric(10:1))
 
   # can replace a column
   batch[["int"]] <- 10:1
-  expect_vector(batch[["int"]], 10:1)
+  expect_as_vector(batch[["int"]], 10:1)
 
   # can use $
   batch$new <- NULL
@@ -202,11 +205,11 @@ test_that("[[<- assignment", {
   expect_identical(dim(batch), c(10L, 4L))
 
   batch$int <- 1:10
-  expect_vector(batch$int, 1:10)
+  expect_as_vector(batch$int, 1:10)
 
   # recycling
   batch[["atom"]] <- 1L
-  expect_vector(batch[["atom"]], rep(1L, 10))
+  expect_as_vector(batch[["atom"]], rep(1L, 10))
 
   expect_error(
     batch[["atom"]] <- 1:6,
@@ -216,7 +219,7 @@ test_that("[[<- assignment", {
   # assign Arrow array
   array <- Array$create(c(10:1))
   batch$array <- array
-  expect_vector(batch$array, 10:1)
+  expect_as_vector(batch$array, 10:1)
 
   # nonsense indexes
   expect_error(batch[[NA]] <- letters[10:1], "'i' must be character or numeric, not logical")
@@ -411,6 +414,50 @@ test_that("record_batch() handles null type (ARROW-7064)", {
   expect_equivalent(batch$schema,  schema(a = int32(), n = null()))
 })
 
+test_that("record_batch() scalar recycling with vectors", {
+  expect_data_frame(
+    record_batch(a = 1:10, b = 5),
+    tibble::tibble(a = 1:10, b = 5)
+  )
+})
+
+test_that("record_batch() scalar recycling with Scalars, Arrays, and ChunkedArrays", {
+
+  expect_data_frame(
+    record_batch(a = Array$create(1:10), b = Scalar$create(5)),
+    tibble::tibble(a = 1:10, b = 5)
+  )
+
+  expect_data_frame(
+    record_batch(a = Array$create(1:10), b = Array$create(5)),
+    tibble::tibble(a = 1:10, b = 5)
+  )
+
+  expect_data_frame(
+    record_batch(a = Array$create(1:10), b = ChunkedArray$create(5)),
+    tibble::tibble(a = 1:10, b = 5)
+  )
+
+})
+
+test_that("record_batch() no recycling with tibbles", {
+  expect_error(
+    record_batch(
+      tibble::tibble(a = 1:10),
+      tibble::tibble(a = 1, b = 5)
+    ),
+    regexp = "All input tibbles or data.frames must have the same number of rows"
+  )
+
+  expect_error(
+    record_batch(
+      tibble::tibble(a = 1:10),
+      tibble::tibble(a = 1)
+    ),
+    regexp = "All input tibbles or data.frames must have the same number of rows"
+  )
+})
+
 test_that("RecordBatch$Equals", {
   df <- tibble::tibble(x = 1:10, y = letters[1:10])
   a <- record_batch(df)
@@ -423,10 +470,10 @@ test_that("RecordBatch$Equals", {
 test_that("RecordBatch$Equals(check_metadata)", {
   df <- tibble::tibble(x = 1:2, y = c("a", "b"))
   rb1 <- record_batch(df)
-  rb2 <- record_batch(df, schema = rb1$schema$WithMetadata(list(some="metadata")))
+  rb2 <- record_batch(df, schema = rb1$schema$WithMetadata(list(some = "metadata")))
 
-  expect_is(rb1, "RecordBatch")
-  expect_is(rb2, "RecordBatch")
+  expect_r6_class(rb1, "RecordBatch")
+  expect_r6_class(rb2, "RecordBatch")
   expect_false(rb1$schema$HasMetadata)
   expect_true(rb2$schema$HasMetadata)
   expect_identical(rb2$schema$metadata, list(some = "metadata"))
@@ -451,4 +498,122 @@ test_that("RecordBatch name assignment", {
   expect_error(names(rb) <- character(0))
   expect_error(names(rb) <- NULL)
   expect_error(names(rb) <- c(TRUE, FALSE))
+})
+
+test_that("record_batch() with different length arrays", {
+  msg <- "All arrays must have the same length"
+  expect_error(record_batch(a = 1:5, b = 1:6), msg)
+})
+
+test_that("Handling string data with embedded nuls", {
+  raws <- structure(list(
+    as.raw(c(0x70, 0x65, 0x72, 0x73, 0x6f, 0x6e)),
+    as.raw(c(0x77, 0x6f, 0x6d, 0x61, 0x6e)),
+    as.raw(c(0x6d, 0x61, 0x00, 0x6e)), # <-- there's your nul, 0x00
+    as.raw(c(0x63, 0x61, 0x6d, 0x65, 0x72, 0x61)),
+    as.raw(c(0x74, 0x76))),
+    class = c("arrow_binary", "vctrs_vctr", "list"))
+  batch_with_nul <- record_batch(a = 1:5, b = raws)
+  batch_with_nul$b <- batch_with_nul$b$cast(utf8())
+  expect_error(
+    as.data.frame(batch_with_nul),
+    "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow to R, set options(arrow.skip_nul = TRUE)",
+    fixed = TRUE
+  )
+
+  withr::with_options(list(arrow.skip_nul = TRUE), {
+    expect_warning(
+      expect_equivalent(
+        as.data.frame(batch_with_nul)$b,
+        c("person", "woman", "man", "camera", "tv")
+      ),
+      "Stripping '\\0' (nul) from character vector",
+      fixed = TRUE
+    )
+  })
+})
+
+test_that("ARROW-11769 - grouping preserved in record batch creation", {
+  skip_if_not_available("dataset")
+
+  tbl <- tibble::tibble(
+    int = 1:10,
+    fct = factor(rep(c("A", "B"), 5)),
+    fct2 = factor(rep(c("C", "D"), each = 5)),
+  )
+
+  expect_identical(
+    tbl %>%
+      dplyr::group_by(fct, fct2) %>%
+      record_batch() %>%
+      dplyr::group_vars(),
+    c("fct", "fct2")
+  )
+
+})
+
+test_that("ARROW-12729 - length returns number of columns in RecordBatch", {
+
+  tbl <- tibble::tibble(
+    int = 1:10,
+    fct = factor(rep(c("A", "B"), 5)),
+    fct2 = factor(rep(c("C", "D"), each = 5)),
+  )
+
+  rb <- record_batch(!!!tbl)
+
+  expect_identical(length(rb), 3L)
+
+})
+
+test_that("RecordBatchReader to C-interface", {
+  skip_if_not_available("dataset")
+  
+  tab <- Table$create(example_data)
+
+  # export the RecordBatchReader via the C-interface
+  stream_ptr <- allocate_arrow_array_stream()
+  scan <- Scanner$create(tab)
+  reader <- scan$ToRecordBatchReader()
+  reader$export_to_c(stream_ptr)
+
+  # then import it and check that the roundtripped value is the same
+  circle <- RecordBatchStreamReader$import_from_c(stream_ptr)
+  tab_from_c_new <- circle$read_table()
+  expect_equal(tab, tab_from_c_new)
+
+  # must clean up the pointer or we leak
+  delete_arrow_array_stream(stream_ptr)
+
+  # export the RecordBatchStreamReader via the C-interface
+  stream_ptr_new <- allocate_arrow_array_stream()
+  bytes <- write_to_raw(example_data)
+  expect_type(bytes, "raw")
+  reader_new <- RecordBatchStreamReader$create(bytes)
+  reader_new$export_to_c(stream_ptr_new)
+
+  # then import it and check that the roundtripped value is the same
+  circle_new <- RecordBatchStreamReader$import_from_c(stream_ptr_new)
+  tab_from_c_new <- circle_new$read_table()
+  expect_equal(tab, tab_from_c_new)
+
+  # must clean up the pointer or we leak
+  delete_arrow_array_stream(stream_ptr_new)
+})
+
+test_that("RecordBatch to C-interface", {
+  batch <- RecordBatch$create(example_data)
+
+  # export the RecordBatch via the C-interface
+  schema_ptr <- allocate_arrow_schema()
+  array_ptr <- allocate_arrow_array()
+  batch$export_to_c(array_ptr, schema_ptr)
+
+  # then import it and check that the roundtripped value is the same
+  circle <- RecordBatch$import_from_c(array_ptr, schema_ptr)
+  expect_equal
+
+  # must clean up the pointers or we leak
+  delete_arrow_schema(schema_ptr)
+  delete_arrow_array(array_ptr)
 })

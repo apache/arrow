@@ -221,6 +221,9 @@ message InNode {
   optional LongConstants longValues = 3;
   optional StringConstants stringValues = 4;
   optional BinaryConstants binaryValues = 5;
+  optional DecimalConstants decimalValues = 6;
+  optional FloatConstants floatValues = 7;
+  optional DoubleConstants doubleValues = 8;
 }
 
 message IntConstants {
@@ -229,6 +232,18 @@ message IntConstants {
 
 message LongConstants {
   repeated LongNode longValues = 1;
+}
+
+message DecimalConstants {
+  repeated DecimalNode decimalValues = 1;
+}
+
+message FloatConstants {
+  repeated FloatNode floatValues = 1;
+}
+
+message DoubleConstants {
+  repeated DoubleNode doubleValues = 1;
 }
 
 message StringConstants {

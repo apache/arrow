@@ -22,9 +22,9 @@ test_that("BufferReader can be created from R objects", {
   int <- BufferReader$create(integer(13))
   raw <- BufferReader$create(raw(16))
 
-  expect_is(num, "BufferReader")
-  expect_is(int, "BufferReader")
-  expect_is(raw, "BufferReader")
+  expect_r6_class(num, "BufferReader")
+  expect_r6_class(int, "BufferReader")
+  expect_r6_class(raw, "BufferReader")
 
   expect_equal(num$GetSize(), 13*8)
   expect_equal(int$GetSize(), 13*4)
@@ -35,6 +35,6 @@ test_that("BufferReader can be created from Buffer", {
   buf <- buffer(raw(76))
   reader <- BufferReader$create(buf)
 
-  expect_is(reader, "BufferReader")
+  expect_r6_class(reader, "BufferReader")
   expect_equal(reader$GetSize(), 76)
 })

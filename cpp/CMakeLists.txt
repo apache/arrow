@@ -47,7 +47,7 @@ if(POLICY CMP0074)
   cmake_policy(SET CMP0074 NEW)
 endif()
 
-set(ARROW_VERSION "4.0.0-SNAPSHOT")
+set(ARROW_VERSION "5.0.0-SNAPSHOT")
 
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
 
@@ -57,6 +57,14 @@ if(NOT DEFINED CMAKE_BUILD_TYPE)
 endif()
 string(TOLOWER ${CMAKE_BUILD_TYPE} LOWERCASE_BUILD_TYPE)
 string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_BUILD_TYPE)
+
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules")
+
+# this must be included before the project() command, because of the way
+# vcpkg (ab)uses CMAKE_TOOLCHAIN_FILE to inject its logic into CMake
+if(ARROW_DEPENDENCY_SOURCE STREQUAL "VCPKG")
+  include(Usevcpkg)
+endif()
 
 project(arrow VERSION "${ARROW_BASE_VERSION}")
 
@@ -88,8 +96,6 @@ message(STATUS "Arrow SO version: ${ARROW_SO_VERSION} (full: ${ARROW_FULL_SO_VER
 set(ARROW_SOURCE_DIR ${PROJECT_SOURCE_DIR})
 set(ARROW_BINARY_DIR ${PROJECT_BINARY_DIR})
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules")
-
 include(CMakePackageConfigHelpers)
 include(CMakeParseArguments)
 include(ExternalProject)
@@ -103,6 +109,7 @@ set(ARROW_CMAKE_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
 set(ARROW_DOC_DIR "share/doc/${PROJECT_NAME}")
 
 set(ARROW_LLVM_VERSIONS
+    "12.0"
     "11.1"
     "11.0"
     "10"
@@ -334,6 +341,10 @@ if(ARROW_CUDA
    OR ARROW_BUILD_TESTS
    OR ARROW_BUILD_BENCHMARKS)
   set(ARROW_IPC ON)
+endif()
+
+if(ARROW_ENGINE)
+  set(ARROW_COMPUTE ON)
 endif()
 
 if(ARROW_DATASET)
@@ -739,7 +750,7 @@ endif()
 if(ARROW_WITH_RE2)
   list(APPEND ARROW_LINK_LIBS re2::re2)
   list(APPEND ARROW_STATIC_LINK_LIBS re2::re2)
-  if(RE2_SOURCE STREQUAL "SYSTEM")
+  if(re2_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS re2::re2)
   endif()
 endif()

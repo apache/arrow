@@ -152,6 +152,7 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
     -------
     array : pyarrow.Array or pyarrow.ChunkedArray
         A ChunkedArray instead of an Array is returned if:
+
         - the object data overflowed binary storage.
         - the object's ``__arrow_array__`` protocol method returned a chunked
           array.
@@ -536,7 +537,8 @@ def _normalize_slice(object arrow_obj, slice key):
         indices = np.arange(start, stop, step)
         return arrow_obj.take(indices)
     else:
-        return arrow_obj.slice(start, stop - start)
+        length = max(stop - start, 0)
+        return arrow_obj.slice(start, length)
 
 
 cdef Py_ssize_t _normalize_index(Py_ssize_t index,
@@ -722,6 +724,10 @@ cdef class _PandasConvertible(_Weakrefable):
             memory while converting the Arrow object to pandas. If you use the
             object after calling to_pandas with this option it will crash your
             program.
+
+            Note that you may not see always memory usage improvements. For
+            example, if multiple columns share an underlying allocation,
+            memory can't be freed until all columns are converted.
         types_mapper : function, default None
             A function mapping a pyarrow DataType to a pandas ExtensionDtype.
             This can be used to override the default pandas type for conversion
@@ -830,11 +836,12 @@ cdef class Array(_PandasConvertible):
             result = GetResultValue(self.ap.View(type.sp_type))
         return pyarrow_wrap_array(result)
 
-    def sum(self):
+    def sum(self, **kwargs):
         """
         Sum the values in a numerical array.
         """
-        return _pc().call_function('sum', [self])
+        options = _pc().ScalarAggregateOptions(**kwargs)
+        return _pc().call_function('sum', [self], options)
 
     def unique(self):
         """
@@ -842,11 +849,12 @@ cdef class Array(_PandasConvertible):
         """
         return _pc().call_function('unique', [self])
 
-    def dictionary_encode(self):
+    def dictionary_encode(self, null_encoding='mask'):
         """
         Compute dictionary-encoded representation of array.
         """
-        return _pc().call_function('dictionary_encode', [self])
+        options = _pc().DictionaryEncodeOptions(null_encoding)
+        return _pc().call_function('dictionary_encode', [self], options)
 
     def value_counts(self):
         """
@@ -1015,9 +1023,11 @@ cdef class Array(_PandasConvertible):
         try:
             return self.equals(other)
         except TypeError:
+            # This also handles comparing with None
+            # as Array.equals(None) raises a TypeError.
             return NotImplemented
 
-    def equals(Array self, Array other):
+    def equals(Array self, Array other not None):
         return self.ap.Equals(deref(other.ap))
 
     def __len__(self):
@@ -1095,6 +1105,8 @@ cdef class Array(_PandasConvertible):
         if length is None:
             result = self.ap.Slice(offset)
         else:
+            if length < 0:
+                raise ValueError('Length must be non-negative')
             result = self.ap.Slice(offset, length)
 
         return pyarrow_wrap_array(result)
@@ -1110,6 +1122,14 @@ cdef class Array(_PandasConvertible):
         Select values from an array. See pyarrow.compute.filter for full usage.
         """
         return _pc().filter(self, mask, null_selection_behavior)
+
+    def index(self, value, start=None, end=None, *, memory_pool=None):
+        """
+        Find the first index of a value.
+
+        See pyarrow.compute.index for full usage.
+        """
+        return _pc().index(self, value, start, end, memory_pool=memory_pool)
 
     def _to_pandas(self, options, **kwargs):
         return _array_like_to_pandas(self, options)
@@ -1153,6 +1173,11 @@ cdef class Array(_PandasConvertible):
             raise ValueError(
                 "Cannot return a writable array if asking for zero-copy")
 
+        # If there are nulls and the array is a DictionaryArray
+        # decoding the dictionary will make sure nulls are correctly handled.
+        # Decoding a dictionary does imply a copy by the way,
+        # so it can't be done if the user requested a zero_copy.
+        c_options.decode_dictionaries = not zero_copy_only
         c_options.zero_copy_only = zero_copy_only
 
         with nogil:
@@ -1580,6 +1605,39 @@ cdef class ListArray(BaseListArray):
         Returns
         -------
         list_array : ListArray
+
+        Examples
+        --------
+        >>> values = pa.array([1, 2, 3, 4])
+        >>> offsets = pa.array([0, 2, 4])
+        >>> pa.ListArray.from_arrays(offsets, values)
+        <pyarrow.lib.ListArray object at 0x7fbde226bf40>
+        [
+          [
+            0,
+            1
+          ],
+          [
+            2,
+            3
+          ]
+        ]
+
+        # nulls in the offsets array become null lists
+        >>> offsets = pa.array([0, None, 2, 4])
+        >>> pa.ListArray.from_arrays(offsets, values)
+        <pyarrow.lib.ListArray object at 0x7fbde226bf40>
+        [
+          [
+            0,
+            1
+          ],
+          null,
+          [
+            2,
+            3
+          ]
+        ]
         """
         cdef:
             Array _offsets, _values
@@ -1984,6 +2042,12 @@ cdef class DictionaryArray(Array):
     def dictionary_encode(self):
         return self
 
+    def dictionary_decode(self):
+        """
+        Decodes the DictionaryArray to an Array.
+        """
+        return self.dictionary.take(self.indices)
+
     @property
     def dictionary(self):
         cdef CDictionaryArray* darr = <CDictionaryArray*>(self.ap)
@@ -2134,7 +2198,8 @@ cdef class StructArray(Array):
         return [pyarrow_wrap_array(arr) for arr in arrays]
 
     @staticmethod
-    def from_arrays(arrays, names=None, fields=None):
+    def from_arrays(arrays, names=None, fields=None, mask=None,
+                    memory_pool=None):
         """
         Construct StructArray from collection of arrays representing
         each field in the struct.
@@ -2148,6 +2213,10 @@ cdef class StructArray(Array):
             Field names for each struct child.
         fields : List[Field] (optional)
             Field instances for each struct child.
+        mask : pyarrow.Array[bool] (optional)
+            Indicate which values are null (True) or not null (False).
+        memory_pool : MemoryPool (optional)
+            For memory allocations, if required, otherwise uses default pool.
 
         Returns
         -------
@@ -2155,6 +2224,7 @@ cdef class StructArray(Array):
         """
         cdef:
             shared_ptr[CArray] c_array
+            shared_ptr[CBuffer] c_mask
             vector[shared_ptr[CArray]] c_arrays
             vector[c_string] c_names
             vector[shared_ptr[CField]] c_fields
@@ -2170,9 +2240,24 @@ cdef class StructArray(Array):
         if names is not None and fields is not None:
             raise ValueError('Must pass either names or fields, not both')
 
+        if mask is None:
+            c_mask = shared_ptr[CBuffer]()
+        elif isinstance(mask, Array):
+            if mask.type.id != Type_BOOL:
+                raise ValueError('Mask must be a pyarrow.Array of type bool')
+            if mask.null_count != 0:
+                raise ValueError('Mask must not contain nulls')
+            inverted_mask = _pc().invert(mask, memory_pool=memory_pool)
+            c_mask = pyarrow_unwrap_buffer(inverted_mask.buffers()[1])
+        else:
+            raise ValueError('Mask must be a pyarrow.Array of type bool')
+
         arrays = [asarray(x) for x in arrays]
         for arr in arrays:
-            c_arrays.push_back(pyarrow_unwrap_array(arr))
+            c_array = pyarrow_unwrap_array(arr)
+            if c_array == nullptr:
+                raise TypeError(f"Expected Array, got {arr.__class__}")
+            c_arrays.push_back(c_array)
         if names is not None:
             for name in names:
                 c_names.push_back(tobytes(name))
@@ -2193,10 +2278,10 @@ cdef class StructArray(Array):
             # XXX Cannot pass "nullptr" for a shared_ptr<T> argument:
             # https://github.com/cython/cython/issues/3020
             c_result = CStructArray.MakeFromFieldNames(
-                c_arrays, c_names, shared_ptr[CBuffer](), -1, 0)
+                c_arrays, c_names, c_mask, -1, 0)
         else:
             c_result = CStructArray.MakeFromFields(
-                c_arrays, c_fields, shared_ptr[CBuffer](), -1, 0)
+                c_arrays, c_fields, c_mask, -1, 0)
         cdef Array result = pyarrow_wrap_array(GetResultValue(c_result))
         result.validate()
         return result

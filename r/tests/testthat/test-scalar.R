@@ -19,14 +19,14 @@ context("Scalar")
 
 expect_scalar_roundtrip <- function(x, type) {
   s <- Scalar$create(x)
-  expect_is(s, "Scalar")
+  expect_r6_class(s, "Scalar")
   expect_type_equal(s$type, type)
   expect_identical(length(s), 1L)
   if (inherits(type, "NestedType")) {
     # Should this be? Missing if all elements are missing?
     # expect_identical(is.na(s), all(is.na(x)))
   } else {
-    expect_identical(is.na(s), is.na(x))
+    expect_identical(as.vector(is.na(s)), is.na(x))
     # MakeArrayFromScalar not implemented for list types
     expect_equal(as.vector(s), x)
   }
@@ -47,4 +47,58 @@ test_that("Scalar print", {
 test_that("Creating Scalars of a different type and casting them", {
   expect_type_equal(Scalar$create(4L, int8())$type, int8())
   expect_type_equal(Scalar$create(4L)$cast(float32())$type, float32())
+})
+
+test_that("Scalar to Array", {
+  a <- Scalar$create(42)
+  expect_equal(a$as_array(), Array$create(42))
+  expect_equal(Array$create(a), Array$create(42))
+})
+
+test_that("Scalar$Equals", {
+  a <- Scalar$create(42)
+  aa <- Array$create(42)
+  b <- Scalar$create(42)
+  d <- Scalar$create(43)
+  expect_equal(a, b)
+  expect_true(a$Equals(b))
+  expect_false(a$Equals(d))
+  expect_false(a$Equals(aa))
+})
+
+test_that("Scalar$ApproxEquals", {
+  a <- Scalar$create(1.0000000000001)
+  aa <- Array$create(1.0000000000001)
+  b <- Scalar$create(1.0)
+  d <- 2.400000000000001
+  expect_false(a$Equals(b))
+  expect_true(a$ApproxEquals(b))
+  expect_false(a$ApproxEquals(d))
+  expect_false(a$ApproxEquals(aa))
+})
+
+test_that("Handling string data with embedded nuls", {
+  raws <- as.raw(c(0x6d, 0x61, 0x00, 0x6e))
+  expect_error(
+    rawToChar(raws),
+    "embedded nul in string: 'ma\\0n'", # See?
+    fixed = TRUE
+  )
+  scalar_with_nul <- Scalar$create(raws, binary())$cast(utf8())
+  expect_error(
+    as.vector(scalar_with_nul),
+    "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow to R, set options(arrow.skip_nul = TRUE)",
+    fixed = TRUE
+  )
+
+  withr::with_options(list(arrow.skip_nul = TRUE), {
+    expect_warning(
+      expect_identical(
+        as.vector(scalar_with_nul),
+        "man"
+      ),
+      "Stripping '\\0' (nul) from character vector",
+      fixed = TRUE
+    )
+  })
 })

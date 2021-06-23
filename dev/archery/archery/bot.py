@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import operator
+import os
 import shlex
 from pathlib import Path
 from functools import partial
@@ -24,8 +24,9 @@ import tempfile
 import click
 import github
 
-from .utils.crossbow import Crossbow
-from .utils.git import Git
+from .utils.git import git
+from .utils.logger import logger
+from .crossbow import Repo, Queue, Config, Target, Job, CommentReport
 
 
 class EventError(Exception):
@@ -81,86 +82,6 @@ command = partial(click.command, cls=Command)
 group = partial(click.group, cls=Group)
 
 
-class CrossbowCommentFormatter:
-
-    _markdown_badge = '[![{title}]({badge})]({url})'
-
-    badges = {
-        'github': _markdown_badge.format(
-            title='Github Actions',
-            url='https://github.com/{repo}/actions?query=branch:{branch}',
-            badge=(
-                'https://github.com/{repo}/workflows/Crossbow/'
-                'badge.svg?branch={branch}'
-            ),
-        ),
-        'azure': _markdown_badge.format(
-            title='Azure',
-            url=(
-                'https://dev.azure.com/{repo}/_build/latest'
-                '?definitionId=1&branchName={branch}'
-            ),
-            badge=(
-                'https://dev.azure.com/{repo}/_apis/build/status/'
-                '{repo_dotted}?branchName={branch}'
-            )
-        ),
-        'travis': _markdown_badge.format(
-            title='TravisCI',
-            url='https://travis-ci.org/{repo}/branches',
-            badge='https://img.shields.io/travis/{repo}/{branch}.svg'
-        ),
-        'circle': _markdown_badge.format(
-            title='CircleCI',
-            url='https://circleci.com/gh/{repo}/tree/{branch}',
-            badge=(
-                'https://img.shields.io/circleci/build/github'
-                '/{repo}/{branch}.svg'
-            )
-        ),
-        'appveyor': _markdown_badge.format(
-            title='Appveyor',
-            url='https://ci.appveyor.com/project/{repo}/history',
-            badge='https://img.shields.io/appveyor/ci/{repo}/{branch}.svg'
-        ),
-        'drone': _markdown_badge.format(
-            title='Drone',
-            url='https://cloud.drone.io/{repo}',
-            badge='https://img.shields.io/drone/build/{repo}/{branch}.svg'
-        ),
-    }
-
-    def __init__(self, crossbow_repo):
-        self.crossbow_repo = crossbow_repo
-
-    def render(self, job):
-        url = 'https://github.com/{repo}/branches/all?query={branch}'
-        sha = job['target']['head']
-
-        msg = 'Revision: {}\n\n'.format(sha)
-        msg += 'Submitted crossbow builds: [{repo} @ {branch}]'
-        msg += '({})\n'.format(url)
-        msg += '\n|Task|Status|\n|----|------|'
-
-        tasks = sorted(job['tasks'].items(), key=operator.itemgetter(0))
-        for key, task in tasks:
-            branch = task['branch']
-
-            try:
-                template = self.badges[task['ci']]
-                badge = template.format(
-                    repo=self.crossbow_repo,
-                    repo_dotted=self.crossbow_repo.replace('/', '.'),
-                    branch=branch
-                )
-            except KeyError:
-                badge = 'unsupported CI service `{}`'.format(task['ci'])
-
-            msg += '\n|{}|{}|'.format(key, badge)
-
-        return msg.format(repo=self.crossbow_repo, branch=job['branch'])
-
-
 class CommentBot:
 
     def __init__(self, name, handler, token=None):
@@ -189,14 +110,19 @@ class CommentBot:
         elif not comment['body'].lstrip().startswith(mention):
             raise EventError("The bot is not mentioned")
 
-        return payload['comment']['body'].split(mention)[-1].strip()
+        # Parse the comment, removing the bot mentioned (and everything
+        # before it)
+        command = payload['comment']['body'].split(mention)[-1]
+
+        # then split on newlines and keep only the first line
+        # (ignoring all other lines)
+        return command.split("\n")[0].strip()
 
     def handle(self, event, payload):
         try:
             command = self.parse_command(payload)
         except EventError as e:
-            print(e)
-            # TODO(kszucs): log
+            logger.error(e)
             # see the possible reasons in the validate method
             return
 
@@ -220,14 +146,13 @@ class CommentBot:
 
         comment = pull.get_issue_comment(payload['comment']['id'])
         try:
-            self.handler(command, issue=issue, pull=pull, comment=comment)
+            self.handler(command, issue=issue, pull_request=pull,
+                         comment=comment)
         except CommandError as e:
-            # TODO(kszucs): log
-            print(e)
+            logger.error(e)
             pull.create_issue_comment("```\n{}\n```".format(e.message))
         except Exception as e:
-            # TODO(kszucs): log
-            print(e)
+            logger.exception(e)
             comment.create_reaction('-1')
         else:
             comment.create_reaction('+1')
@@ -248,8 +173,47 @@ def actions(ctx):
               help='Crossbow repository on github to use')
 @click.pass_obj
 def crossbow(obj, crossbow):
-    """Trigger crossbow builds for this pull request"""
+    """
+    Trigger crossbow builds for this pull request
+    """
     obj['crossbow_repo'] = crossbow
+
+
+def _clone_arrow_and_crossbow(dest, crossbow_repo, pull_request):
+    """
+    Clone the repositories and initialize crossbow objects.
+
+    Parameters
+    ----------
+    dest : Path
+        Filesystem path to clone the repositories to.
+    crossbow_repo : str
+        Github repository name, like kszucs/crossbow.
+    pull_request : pygithub.PullRequest
+        Object containing information about the pull request the comment bot
+        was triggered from.
+    """
+    arrow_path = dest / 'arrow'
+    queue_path = dest / 'crossbow'
+
+    # clone arrow and checkout the pull request's branch
+    pull_request_ref = 'pull/{}/head:{}'.format(
+        pull_request.number, pull_request.head.ref
+    )
+    git.clone(pull_request.base.repo.clone_url, str(arrow_path))
+    git.fetch('origin', pull_request_ref, git_dir=arrow_path)
+    git.checkout(pull_request.head.ref, git_dir=arrow_path)
+
+    # clone crossbow repository
+    crossbow_url = 'https://github.com/{}'.format(crossbow_repo)
+    git.clone(crossbow_url, str(queue_path))
+
+    # initialize crossbow objects
+    github_token = os.environ['CROSSBOW_GITHUB_TOKEN']
+    arrow = Repo(arrow_path)
+    queue = Queue(queue_path, github_token=github_token, require_https=True)
+
+    return (arrow, queue)
 
 
 @crossbow.command()
@@ -258,71 +222,46 @@ def crossbow(obj, crossbow):
               help='Submit task groups as defined in tests.yml')
 @click.option('--param', '-p', 'params', multiple=True,
               help='Additional task parameters for rendering the CI templates')
-@click.option('--dry-run/--push', default=False,
-              help='Just display the new changelog, don\'t write it')
+@click.option('--arrow-version', '-v', default=None,
+              help='Set target version explicitly.')
 @click.pass_obj
-def submit(obj, tasks, groups, params, dry_run):
-    """Submit crossbow testing tasks.
+def submit(obj, tasks, groups, params, arrow_version):
+    """
+    Submit crossbow testing tasks.
 
     See groups defined in arrow/dev/tasks/tests.yml
     """
-    from ruamel.yaml import YAML
-
-    git = Git()
-
-    # construct crossbow arguments
-    args = []
-    if dry_run:
-        args.append('--dry-run')
-
-    for p in params:
-        args.extend(['-p', p])
-    for g in groups:
-        args.extend(['-g', g])
-    for t in tasks:
-        args.append(t)
-
-    # pygithub pull request object
-    pr = obj['pull']
-    crossbow_url = 'https://github.com/{}'.format(obj['crossbow_repo'])
-
+    crossbow_repo = obj['crossbow_repo']
+    pull_request = obj['pull_request']
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-        arrow = tmpdir / 'arrow'
-        queue = tmpdir / 'crossbow'
-
-        # clone arrow and checkout the pull request's branch
-        git.clone(pr.base.repo.clone_url, str(arrow))
-        git.fetch('origin', 'pull/{}/head:{}'.format(pr.number, pr.head.ref),
-                  git_dir=str(arrow))
-        git.checkout(pr.head.ref, git_dir=str(arrow))
-
-        # clone crossbow
-        git.clone(crossbow_url, str(queue))
-
-        # submit the crossbow tasks
-        result = Path('result.yml').resolve()
-        xbow = Crossbow(str(arrow / 'dev' / 'tasks' / 'crossbow.py'))
-        xbow.run(
-            '--queue-path', str(queue),
-            '--output-file', str(result),
-            'submit',
-            '--job-prefix', 'actions',
-            # don't rely on crossbow's remote and branch detection, because
-            # it doesn't work without a tracking upstream branch
-            '--arrow-remote', pr.head.repo.clone_url,
-            '--arrow-branch', pr.head.ref,
-            *args
+        arrow, queue = _clone_arrow_and_crossbow(
+            dest=Path(tmpdir),
+            crossbow_repo=crossbow_repo,
+            pull_request=pull_request,
         )
+        # load available tasks configuration and groups from yaml
+        config = Config.load_yaml(arrow.path / "dev" / "tasks" / "tasks.yml")
+        config.validate()
 
-    # parse the result yml describing the submitted job
-    yaml = YAML()
-    with result.open() as fp:
-        job = yaml.load(fp)
+        # initialize the crossbow build's target repository
+        target = Target.from_repo(arrow, version=arrow_version,
+                                  remote=pull_request.head.repo.clone_url,
+                                  branch=pull_request.head.ref)
 
-    # render the response comment's content
-    formatter = CrossbowCommentFormatter(obj['crossbow_repo'])
-    response = formatter.render(job)
+        # parse additional job parameters
+        params = dict([p.split("=") for p in params])
 
-    # send the response
-    pr.create_issue_comment(response)
+        # instantiate the job object
+        job = Job.from_config(config=config, target=target, tasks=tasks,
+                              groups=groups, params=params)
+
+        # add the job to the crossbow queue and push to the remote repository
+        queue.put(job, prefix="actions")
+        queue.push()
+
+        # render the response comment's content
+        report = CommentReport(job, crossbow_repo=crossbow_repo)
+
+        # send the response
+        pull_request.create_issue_comment(report.show())

@@ -38,12 +38,14 @@ integers \code{i}. If \code{i} is an Arrow \code{Array} or \code{ChunkedArray}, 
 coerced to an R vector before taking.
 \item \verb{$Filter(i, keep_na = TRUE)}: return a \code{ChunkedArray} with values at positions where
 logical vector or Arrow boolean-type \verb{(Chunked)Array} \code{i} is \code{TRUE}.
+\item \verb{$SortIndices(descending = FALSE)}: return an \code{Array} of integer positions that can be
+used to rearrange the \code{ChunkedArray} in ascending or descending order
 \item \verb{$cast(target_type, safe = TRUE, options = cast_options(safe))}: Alter the
 data in the array to change its type.
-\item \verb{$null_count()}: The number of null entries in the array
-\item \verb{$chunks()}: return a list of \code{Array}s
-\item \verb{$num_chunks()}: integer number of chunks in the \code{ChunkedArray}
-\item \verb{$type()}: logical type of data
+\item \verb{$null_count}: The number of null entries in the array
+\item \verb{$chunks}: return a list of \code{Array}s
+\item \verb{$num_chunks}: integer number of chunks in the \code{ChunkedArray}
+\item \verb{$type}: logical type of data
 \item \verb{$View(type)}: Construct a zero-copy view of this \code{ChunkedArray} with the
 given type.
 \item \verb{$Validate()}: Perform any validation checks to determine obvious inconsistencies
@@ -51,6 +53,28 @@ within the array's internal data. This can be an expensive check, potentially \c
 }
 }
 
+\examples{
+\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+# Pass items into chunked_array as separate objects to create chunks
+class_scores <- chunked_array(c(87, 88, 89), c(94, 93, 92), c(71, 72, 73))
+class_scores$num_chunks
+
+# When taking a Slice from a chunked_array, chunks are preserved
+class_scores$Slice(2, length = 5)
+
+# You can combine Take and SortIndices to return a ChunkedArray with 1 chunk 
+# containing all values, ordered.
+class_scores$Take(class_scores$SortIndices(descending = TRUE))
+
+# If you pass a list into chunked_array, you get a list of length 1
+list_scores <- chunked_array(list(c(9.9, 9.6, 9.5), c(8.2, 8.3, 8.4), c(10.0, 9.9, 9.8)))
+list_scores$num_chunks
+
+# When constructing a ChunkedArray, the first chunk is used to infer type.
+doubles <- chunked_array(c(1, 2, 3), c(5L, 6L, 7L))
+doubles$type
+\dontshow{\}) # examplesIf}
+}
 \seealso{
 \link{Array}
 }

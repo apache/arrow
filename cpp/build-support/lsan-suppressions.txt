@@ -17,3 +17,5 @@
 
 # False positive from atexit() registration in libc
 leak:*__new_exitfn*
+# Leak at shutdown in OpenSSL
+leak:CRYPTO_zalloc

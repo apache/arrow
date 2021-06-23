@@ -22,8 +22,7 @@ import { DataType, Struct } from '../type';
 /** @ignore */ const kRowIndex = Symbol.for('rowIndex');
 /** @ignore */
 export class StructVector<T extends { [key: string]: DataType } = any> extends BaseVector<Struct<T>> {
-    // @ts-ignore
-    private _row: StructRow<T>;
+    private _row!: StructRow<T>;
     public bind(index: number): Struct<T>['TValue'] {
         const proto = this._row || (this._row = new StructRow<T>(this));
         const bound = Object.create(proto);

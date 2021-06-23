@@ -29,26 +29,15 @@ using gandiva::ConfigurationBuilder;
 /*
  * Class:     org_apache_arrow_gandiva_evaluator_ConfigBuilder
  * Method:    buildConfigInstance
- * Signature: ()J
+ * Signature: (ZZ)J
  */
 JNIEXPORT jlong JNICALL
 Java_org_apache_arrow_gandiva_evaluator_ConfigurationBuilder_buildConfigInstance(
-    JNIEnv* env, jobject configuration) {
+    JNIEnv* env, jobject configuration, jboolean optimize, jboolean target_host_cpu) {
   ConfigurationBuilder configuration_builder;
   std::shared_ptr<Configuration> config = configuration_builder.build();
-  return ConfigHolder::MapInsert(config);
-}
-
-/*
- * Class:     org_apache_arrow_gandiva_evaluator_ConfigBuilder
- * Method:    buildConfigInstance
- * Signature: ()J
- */
-JNIEXPORT jlong JNICALL
-Java_org_apache_arrow_gandiva_evaluator_ConfigurationBuilder_buildConfigInstance(
-    JNIEnv* env, jobject configuration, jboolean optimize) {
-  ConfigurationBuilder configuration_builder;
-  std::shared_ptr<Configuration> config = configuration_builder.build(optimize);
+  config->set_optimize(optimize);
+  config->target_host_cpu(target_host_cpu);
   return ConfigHolder::MapInsert(config);
 }
 

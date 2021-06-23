@@ -19,87 +19,45 @@
 
 #pragma once
 
-#include <arrow-glib/arrow-glib.h>
+#include <arrow-dataset-glib/dataset.h>
+#include <arrow-dataset-glib/fragment.h>
 
 G_BEGIN_DECLS
 
-/* arrow::dataset::ScanContext */
-
-#define GAD_TYPE_SCAN_CONTEXT (gad_scan_context_get_type())
-G_DECLARE_DERIVABLE_TYPE(GADScanContext,
-                         gad_scan_context,
-                         GAD,
-                         SCAN_CONTEXT,
+#define GADATASET_TYPE_SCANNER (gadataset_scanner_get_type())
+G_DECLARE_DERIVABLE_TYPE(GADatasetScanner,
+                         gadataset_scanner,
+                         GADATASET,
+                         SCANNER,
                          GObject)
-struct _GADScanContextClass
+struct _GADatasetScannerClass
 {
   GObjectClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_1_0
-GADScanContext *gad_scan_context_new(void);
+GARROW_AVAILABLE_IN_5_0
+GArrowTable *
+gadataset_scanner_to_table(GADatasetScanner *scanner,
+                           GError **error);
 
-/* arrow::dataset::ScanOptions */
-
-#define GAD_TYPE_SCAN_OPTIONS (gad_scan_options_get_type())
-G_DECLARE_DERIVABLE_TYPE(GADScanOptions,
-                         gad_scan_options,
-                         GAD,
-                         SCAN_OPTIONS,
+#define GADATASET_TYPE_SCANNER_BUILDER (gadataset_scanner_builder_get_type())
+G_DECLARE_DERIVABLE_TYPE(GADatasetScannerBuilder,
+                         gadataset_scanner_builder,
+                         GADATASET,
+                         SCANNER_BUILDER,
                          GObject)
-struct _GADScanOptionsClass
+struct _GADatasetScannerBuilderClass
 {
   GObjectClass parent_class;
 };
 
-
-GARROW_AVAILABLE_IN_1_0
-GADScanOptions *gad_scan_options_new(GArrowSchema *schema);
-GARROW_AVAILABLE_IN_1_0
-GArrowSchema *gad_scan_options_get_schema(GADScanOptions *scan_options);
-GARROW_AVAILABLE_IN_1_0
-GADScanOptions *gad_scan_options_replace_schema(GADScanOptions *scan_options,
-                                                GArrowSchema *schema);
-
-/* arrow::dataset::ScanTask */
-
-#define GAD_TYPE_SCAN_TASK (gad_scan_task_get_type())
-G_DECLARE_DERIVABLE_TYPE(GADScanTask,
-                         gad_scan_task,
-                         GAD,
-                         SCAN_TASK,
-                         GObject)
-struct _GADScanTaskClass
-{
-  GObjectClass parent_class;
-};
-
-GARROW_AVAILABLE_IN_1_0
-GADScanOptions *gad_scan_task_get_options(GADScanTask *scan_task);
-GARROW_AVAILABLE_IN_1_0
-GADScanContext *gad_scan_task_get_context(GADScanTask *scan_task);
-GARROW_AVAILABLE_IN_1_0
-GArrowRecordBatchIterator *gad_scan_task_execute(GADScanTask *scan_task,
-                                                 GError **error);
-
-/* arrow::dataset::InMemoryScanTask */
-
-#define GAD_TYPE_IN_MEMORY_SCAN_TASK (gad_in_memory_scan_task_get_type())
-G_DECLARE_DERIVABLE_TYPE(GADInMemoryScanTask,
-                         gad_in_memory_scan_task,
-                         GAD,
-                         IN_MEMORY_SCAN_TASK,
-                         GADScanTask)
-struct _GADInMemoryScanTaskClass
-{
-  GADScanTaskClass parent_class;
-};
-
-GARROW_AVAILABLE_IN_1_0
-GADInMemoryScanTask *
-gad_in_memory_scan_task_new(GArrowRecordBatch **record_batches,
-                            gsize n_record_batches,
-                            GADScanOptions *options,
-                            GADScanContext *context);
+GARROW_AVAILABLE_IN_5_0
+GADatasetScannerBuilder *
+gadataset_scanner_builder_new(GADatasetDataset *dataset,
+                              GError **error);
+GARROW_AVAILABLE_IN_5_0
+GADatasetScanner *
+gadataset_scanner_builder_finish(GADatasetScannerBuilder *builder,
+                                 GError **error);
 
 G_END_DECLS

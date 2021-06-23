@@ -55,8 +55,9 @@ struct ARROW_EXPORT LocalFileSystemOptions {
 /// followed, except when deleting an entry).
 class ARROW_EXPORT LocalFileSystem : public FileSystem {
  public:
-  LocalFileSystem();
-  explicit LocalFileSystem(const LocalFileSystemOptions&);
+  explicit LocalFileSystem(const io::IOContext& = io::default_io_context());
+  explicit LocalFileSystem(const LocalFileSystemOptions&,
+                           const io::IOContext& = io::default_io_context());
   ~LocalFileSystem() override;
 
   std::string type_name() const override { return "local"; }
@@ -90,9 +91,11 @@ class ARROW_EXPORT LocalFileSystem : public FileSystem {
   Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
       const std::string& path) override;
   Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
-      const std::string& path) override;
+      const std::string& path,
+      const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
   Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
-      const std::string& path) override;
+      const std::string& path,
+      const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
 
  protected:
   LocalFileSystemOptions options_;

@@ -141,6 +141,7 @@ test_that("RecordBatch R metadata", {
 })
 
 test_that("R metadata roundtrip via parquet", {
+  skip_if_not_available("parquet")
   tf <- tempfile()
   on.exit(unlink(tf))
 
@@ -166,7 +167,7 @@ test_that("haven types roundtrip via feather", {
 
 test_that("Date/time type roundtrip", {
   rb <- record_batch(example_with_times)
-  expect_is(rb$schema$posixlt$type, "StructType")
+  expect_r6_class(rb$schema$posixlt$type, "StructType")
   expect_identical(as.data.frame(rb), example_with_times)
 })
 

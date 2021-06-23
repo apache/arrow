@@ -119,6 +119,22 @@ function(ADD_ARROW_BENCHMARK REL_TEST_NAME)
                 ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
+macro(append_avx2_src SRC)
+  if(ARROW_HAVE_RUNTIME_AVX2)
+    list(APPEND ARROW_SRCS ${SRC})
+    set_source_files_properties(${SRC} PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+    set_source_files_properties(${SRC} PROPERTIES COMPILE_FLAGS ${ARROW_AVX2_FLAG})
+  endif()
+endmacro()
+
+macro(append_avx512_src SRC)
+  if(ARROW_HAVE_RUNTIME_AVX512)
+    list(APPEND ARROW_SRCS ${SRC})
+    set_source_files_properties(${SRC} PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+    set_source_files_properties(${SRC} PROPERTIES COMPILE_FLAGS ${ARROW_AVX512_FLAG})
+  endif()
+endmacro()
+
 set(ARROW_SRCS
     array/array_base.cc
     array/array_binary.cc
@@ -181,6 +197,7 @@ set(ARROW_SRCS
     util/bitmap_builders.cc
     util/bitmap_ops.cc
     util/bpacking.cc
+    util/cancel.cc
     util/compression.cc
     util/cpu_info.cc
     util/decimal.cc
@@ -189,7 +206,6 @@ set(ARROW_SRCS
     util/future.cc
     util/int_util.cc
     util/io_util.cc
-    util/iterator.cc
     util/logging.cc
     util/key_value_metadata.cc
     util/memory.cc
@@ -215,18 +231,11 @@ set(ARROW_SRCS
     vendored/double-conversion/diy-fp.cc
     vendored/double-conversion/strtod.cc)
 
-if(ARROW_HAVE_RUNTIME_AVX2)
-  list(APPEND ARROW_SRCS util/bpacking_avx2.cc)
-  set_source_files_properties(util/bpacking_avx2.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
-  set_source_files_properties(util/bpacking_avx2.cc PROPERTIES COMPILE_FLAGS
-                              ${ARROW_AVX2_FLAG})
-endif()
-if(ARROW_HAVE_RUNTIME_AVX512)
-  list(APPEND ARROW_SRCS util/bpacking_avx512.cc)
-  set_source_files_properties(util/bpacking_avx512.cc PROPERTIES SKIP_PRECOMPILE_HEADERS
-                              ON)
-  set_source_files_properties(util/bpacking_avx512.cc PROPERTIES COMPILE_FLAGS
-                              ${ARROW_AVX512_FLAG})
+append_avx2_src(util/bpacking_avx2.cc)
+append_avx512_src(util/bpacking_avx512.cc)
+
+if(ARROW_HAVE_NEON)
+  list(APPEND ARROW_SRCS util/bpacking_neon.cc)
 endif()
 
 if(APPLE)
@@ -350,6 +359,9 @@ if(ARROW_CSV)
               csv/options.cc
               csv/parser.cc
               csv/reader.cc)
+  if(ARROW_COMPUTE)
+    list(APPEND ARROW_SRCS csv/writer.cc)
+  endif()
 
   list(APPEND ARROW_TESTING_SRCS csv/test_common.cc)
 endif()
@@ -361,14 +373,18 @@ if(ARROW_COMPUTE)
               compute/api_vector.cc
               compute/cast.cc
               compute/exec.cc
+              compute/exec/exec_plan.cc
+              compute/exec/expression.cc
               compute/function.cc
               compute/kernel.cc
               compute/registry.cc
               compute/kernels/aggregate_basic.cc
               compute/kernels/aggregate_mode.cc
               compute/kernels/aggregate_quantile.cc
+              compute/kernels/aggregate_tdigest.cc
               compute/kernels/aggregate_var_std.cc
               compute/kernels/codegen_internal.cc
+              compute/kernels/hash_aggregate.cc
               compute/kernels/scalar_arithmetic.cc
               compute/kernels/scalar_boolean.cc
               compute/kernels/scalar_cast_boolean.cc
@@ -381,28 +397,31 @@ if(ARROW_COMPUTE)
               compute/kernels/scalar_nested.cc
               compute/kernels/scalar_set_lookup.cc
               compute/kernels/scalar_string.cc
+              compute/kernels/scalar_temporal.cc
               compute/kernels/scalar_validity.cc
               compute/kernels/scalar_fill_null.cc
+              compute/kernels/scalar_if_else.cc
               compute/kernels/util_internal.cc
               compute/kernels/vector_hash.cc
               compute/kernels/vector_nested.cc
               compute/kernels/vector_selection.cc
-              compute/kernels/vector_sort.cc)
+              compute/kernels/vector_sort.cc
+              compute/exec/key_hash.cc
+              compute/exec/key_map.cc
+              compute/exec/key_compare.cc
+              compute/exec/key_encode.cc
+              compute/exec/util.cc)
 
-  if(ARROW_HAVE_RUNTIME_AVX2)
-    list(APPEND ARROW_SRCS compute/kernels/aggregate_basic_avx2.cc)
-    set_source_files_properties(compute/kernels/aggregate_basic_avx2.cc PROPERTIES
-                                SKIP_PRECOMPILE_HEADERS ON)
-    set_source_files_properties(compute/kernels/aggregate_basic_avx2.cc PROPERTIES
-                                COMPILE_FLAGS ${ARROW_AVX2_FLAG})
-  endif()
-  if(ARROW_HAVE_RUNTIME_AVX512)
-    list(APPEND ARROW_SRCS compute/kernels/aggregate_basic_avx512.cc)
-    set_source_files_properties(compute/kernels/aggregate_basic_avx512.cc PROPERTIES
-                                SKIP_PRECOMPILE_HEADERS ON)
-    set_source_files_properties(compute/kernels/aggregate_basic_avx512.cc PROPERTIES
-                                COMPILE_FLAGS ${ARROW_AVX512_FLAG})
-  endif()
+  append_avx2_src(compute/kernels/aggregate_basic_avx2.cc)
+  append_avx512_src(compute/kernels/aggregate_basic_avx512.cc)
+
+  append_avx2_src(compute/exec/key_hash_avx2.cc)
+  append_avx2_src(compute/exec/key_map_avx2.cc)
+  append_avx2_src(compute/exec/key_compare_avx2.cc)
+  append_avx2_src(compute/exec/key_encode_avx2.cc)
+  append_avx2_src(compute/exec/util_avx2.cc)
+
+  list(APPEND ARROW_TESTING_SRCS compute/exec/test_util.cc)
 endif()
 
 if(ARROW_FILESYSTEM)
@@ -414,7 +433,6 @@ if(ARROW_FILESYSTEM)
               filesystem/filesystem.cc
               filesystem/localfs.cc
               filesystem/mockfs.cc
-              filesystem/path_forest.cc
               filesystem/path_util.cc
               filesystem/util_internal.cc)
 
@@ -455,6 +473,8 @@ if(ARROW_JSON)
               json/chunked_builder.cc
               json/chunker.cc
               json/converter.cc
+              json/object_parser.cc
+              json/object_writer.cc
               json/parser.cc
               json/reader.cc)
 endif()
@@ -506,11 +526,14 @@ if(ARROW_BUILD_STATIC AND WIN32)
   target_compile_definitions(arrow_static PUBLIC ARROW_STATIC)
 endif()
 
+foreach(LIB_TARGET ${ARROW_LIBRARIES})
+  target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_EXPORTING)
+endforeach()
+
 if(ARROW_WITH_BACKTRACE)
   find_package(Backtrace)
 
   foreach(LIB_TARGET ${ARROW_LIBRARIES})
-    target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_EXPORTING)
     if(Backtrace_FOUND AND ARROW_WITH_BACKTRACE)
       target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_WITH_BACKTRACE)
     endif()

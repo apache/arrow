@@ -40,7 +40,7 @@ using internal::checked_cast;
 using internal::GetCpuThreadPool;
 using internal::TaskGroup;
 
-void AssertBuilding(const std::unique_ptr<ChunkedArrayBuilder>& builder,
+void AssertBuilding(const std::shared_ptr<ChunkedArrayBuilder>& builder,
                     const std::vector<std::string>& chunks,
                     std::shared_ptr<ChunkedArray>* out) {
   ArrayVector unconverted;
@@ -67,9 +67,8 @@ std::shared_ptr<ChunkedArray> ExtractField(const std::string& name,
   for (auto& chunk : chunks) {
     chunk = checked_cast<const StructArray&>(*chunk).GetFieldByName(name);
   }
-  auto struct_type = static_cast<const StructType*>(columns.type().get());
-  return std::make_shared<ChunkedArray>(chunks,
-                                        struct_type->GetFieldByName(name)->type());
+  const auto& struct_type = checked_cast<const StructType&>(*columns.type());
+  return std::make_shared<ChunkedArray>(chunks, struct_type.GetFieldByName(name)->type());
 }
 
 void AssertFieldEqual(const std::vector<std::string>& path,
@@ -83,27 +82,9 @@ void AssertFieldEqual(const std::vector<std::string>& path,
   AssertChunkedEqual(expected, *actual);
 }
 
-template <typename T>
-std::string RowsOfOneColumn(string_view name, std::initializer_list<T> values,
-                            decltype(std::to_string(*values.begin()))* = nullptr) {
-  std::stringstream ss;
-  for (auto value : values) {
-    ss << R"({")" << name << R"(":)" << std::to_string(value) << "}\n";
-  }
-  return ss.str();
-}
-
-std::string RowsOfOneColumn(string_view name, std::initializer_list<std::string> values) {
-  std::stringstream ss;
-  for (auto value : values) {
-    ss << R"({")" << name << R"(":)" << value << "}\n";
-  }
-  return ss.str();
-}
-
 TEST(ChunkedArrayBuilder, Empty) {
   auto tg = TaskGroup::MakeSerial();
-  std::unique_ptr<ChunkedArrayBuilder> builder;
+  std::shared_ptr<ChunkedArrayBuilder> builder;
   ASSERT_OK(MakeChunkedArrayBuilder(tg, default_memory_pool(), nullptr,
                                     struct_({field("a", int32())}), &builder));
 
@@ -116,7 +97,7 @@ TEST(ChunkedArrayBuilder, Empty) {
 
 TEST(ChunkedArrayBuilder, Basics) {
   auto tg = TaskGroup::MakeSerial();
-  std::unique_ptr<ChunkedArrayBuilder> builder;
+  std::shared_ptr<ChunkedArrayBuilder> builder;
   ASSERT_OK(MakeChunkedArrayBuilder(tg, default_memory_pool(), nullptr,
                                     struct_({field("a", int32())}), &builder));
 
@@ -130,7 +111,7 @@ TEST(ChunkedArrayBuilder, Basics) {
 
 TEST(ChunkedArrayBuilder, Insert) {
   auto tg = TaskGroup::MakeSerial();
-  std::unique_ptr<ChunkedArrayBuilder> builder;
+  std::shared_ptr<ChunkedArrayBuilder> builder;
   ASSERT_OK(MakeChunkedArrayBuilder(tg, default_memory_pool(), nullptr,
                                     struct_({field("a", int32())}), &builder));
 
@@ -151,7 +132,7 @@ TEST(ChunkedArrayBuilder, Insert) {
 
 TEST(ChunkedArrayBuilder, MultipleChunks) {
   auto tg = TaskGroup::MakeSerial();
-  std::unique_ptr<ChunkedArrayBuilder> builder;
+  std::shared_ptr<ChunkedArrayBuilder> builder;
   ASSERT_OK(MakeChunkedArrayBuilder(tg, default_memory_pool(), nullptr,
                                     struct_({field("a", int32())}), &builder));
 
@@ -170,7 +151,7 @@ TEST(ChunkedArrayBuilder, MultipleChunks) {
 
 TEST(ChunkedArrayBuilder, MultipleChunksParallel) {
   auto tg = TaskGroup::MakeThreaded(GetCpuThreadPool());
-  std::unique_ptr<ChunkedArrayBuilder> builder;
+  std::shared_ptr<ChunkedArrayBuilder> builder;
   ASSERT_OK(MakeChunkedArrayBuilder(tg, default_memory_pool(), nullptr,
                                     struct_({field("a", int32())}), &builder));
 
@@ -194,7 +175,7 @@ TEST(ChunkedArrayBuilder, MultipleChunksParallel) {
 
 TEST(InferringChunkedArrayBuilder, Empty) {
   auto tg = TaskGroup::MakeSerial();
-  std::unique_ptr<ChunkedArrayBuilder> builder;
+  std::shared_ptr<ChunkedArrayBuilder> builder;
   ASSERT_OK(MakeChunkedArrayBuilder(tg, default_memory_pool(), GetPromotionGraph(),
                                     struct_({}), &builder));
 
@@ -207,7 +188,7 @@ TEST(InferringChunkedArrayBuilder, Empty) {
 
 TEST(InferringChunkedArrayBuilder, SingleChunkNull) {
   auto tg = TaskGroup::MakeSerial();
-  std::unique_ptr<ChunkedArrayBuilder> builder;
+  std::shared_ptr<ChunkedArrayBuilder> builder;
   ASSERT_OK(MakeChunkedArrayBuilder(tg, default_memory_pool(), GetPromotionGraph(),
                                     struct_({}), &builder));
 
@@ -224,7 +205,7 @@ TEST(InferringChunkedArrayBuilder, SingleChunkNull) {
 
 TEST(InferringChunkedArrayBuilder, MultipleChunkNull) {
   auto tg = TaskGroup::MakeSerial();
-  std::unique_ptr<ChunkedArrayBuilder> builder;
+  std::shared_ptr<ChunkedArrayBuilder> builder;
   ASSERT_OK(MakeChunkedArrayBuilder(tg, default_memory_pool(), GetPromotionGraph(),
                                     struct_({}), &builder));
 
@@ -244,7 +225,7 @@ TEST(InferringChunkedArrayBuilder, MultipleChunkNull) {
 
 TEST(InferringChunkedArrayBuilder, SingleChunkInteger) {
   auto tg = TaskGroup::MakeSerial();
-  std::unique_ptr<ChunkedArrayBuilder> builder;
+  std::shared_ptr<ChunkedArrayBuilder> builder;
   ASSERT_OK(MakeChunkedArrayBuilder(tg, default_memory_pool(), GetPromotionGraph(),
                                     struct_({}), &builder));
 
@@ -264,7 +245,7 @@ TEST(InferringChunkedArrayBuilder, SingleChunkInteger) {
 
 TEST(InferringChunkedArrayBuilder, MultipleChunkInteger) {
   auto tg = TaskGroup::MakeSerial();
-  std::unique_ptr<ChunkedArrayBuilder> builder;
+  std::shared_ptr<ChunkedArrayBuilder> builder;
   ASSERT_OK(MakeChunkedArrayBuilder(tg, default_memory_pool(), GetPromotionGraph(),
                                     struct_({}), &builder));
 
@@ -285,7 +266,7 @@ TEST(InferringChunkedArrayBuilder, MultipleChunkInteger) {
 
 TEST(InferringChunkedArrayBuilder, SingleChunkDouble) {
   auto tg = TaskGroup::MakeSerial();
-  std::unique_ptr<ChunkedArrayBuilder> builder;
+  std::shared_ptr<ChunkedArrayBuilder> builder;
   ASSERT_OK(MakeChunkedArrayBuilder(tg, default_memory_pool(), GetPromotionGraph(),
                                     struct_({}), &builder));
 
@@ -305,7 +286,7 @@ TEST(InferringChunkedArrayBuilder, SingleChunkDouble) {
 
 TEST(InferringChunkedArrayBuilder, MultipleChunkDouble) {
   auto tg = TaskGroup::MakeSerial();
-  std::unique_ptr<ChunkedArrayBuilder> builder;
+  std::shared_ptr<ChunkedArrayBuilder> builder;
   ASSERT_OK(MakeChunkedArrayBuilder(tg, default_memory_pool(), GetPromotionGraph(),
                                     struct_({}), &builder));
 
@@ -327,7 +308,7 @@ TEST(InferringChunkedArrayBuilder, MultipleChunkDouble) {
 
 TEST(InferringChunkedArrayBuilder, SingleChunkTimestamp) {
   auto tg = TaskGroup::MakeSerial();
-  std::unique_ptr<ChunkedArrayBuilder> builder;
+  std::shared_ptr<ChunkedArrayBuilder> builder;
   ASSERT_OK(MakeChunkedArrayBuilder(tg, default_memory_pool(), GetPromotionGraph(),
                                     struct_({}), &builder));
 
@@ -348,7 +329,7 @@ TEST(InferringChunkedArrayBuilder, SingleChunkTimestamp) {
 
 TEST(InferringChunkedArrayBuilder, MultipleChunkTimestamp) {
   auto tg = TaskGroup::MakeSerial();
-  std::unique_ptr<ChunkedArrayBuilder> builder;
+  std::shared_ptr<ChunkedArrayBuilder> builder;
   ASSERT_OK(MakeChunkedArrayBuilder(tg, default_memory_pool(), GetPromotionGraph(),
                                     struct_({}), &builder));
 
@@ -371,7 +352,7 @@ TEST(InferringChunkedArrayBuilder, MultipleChunkTimestamp) {
 
 TEST(InferringChunkedArrayBuilder, SingleChunkString) {
   auto tg = TaskGroup::MakeSerial();
-  std::unique_ptr<ChunkedArrayBuilder> builder;
+  std::shared_ptr<ChunkedArrayBuilder> builder;
   ASSERT_OK(MakeChunkedArrayBuilder(tg, default_memory_pool(), GetPromotionGraph(),
                                     struct_({}), &builder));
 
@@ -392,7 +373,7 @@ TEST(InferringChunkedArrayBuilder, SingleChunkString) {
 
 TEST(InferringChunkedArrayBuilder, MultipleChunkString) {
   auto tg = TaskGroup::MakeSerial();
-  std::unique_ptr<ChunkedArrayBuilder> builder;
+  std::shared_ptr<ChunkedArrayBuilder> builder;
   ASSERT_OK(MakeChunkedArrayBuilder(tg, default_memory_pool(), GetPromotionGraph(),
                                     struct_({}), &builder));
 
@@ -415,7 +396,7 @@ TEST(InferringChunkedArrayBuilder, MultipleChunkString) {
 
 TEST(InferringChunkedArrayBuilder, MultipleChunkIntegerParallel) {
   auto tg = TaskGroup::MakeThreaded(GetCpuThreadPool());
-  std::unique_ptr<ChunkedArrayBuilder> builder;
+  std::shared_ptr<ChunkedArrayBuilder> builder;
   ASSERT_OK(MakeChunkedArrayBuilder(tg, default_memory_pool(), GetPromotionGraph(),
                                     struct_({}), &builder));
 
@@ -430,6 +411,42 @@ TEST(InferringChunkedArrayBuilder, MultipleChunkIntegerParallel) {
 
   std::shared_ptr<ChunkedArray> expected;
   ChunkedArrayFromVector<Int64Type>(expected_chunks, &expected);
+  AssertFieldEqual({"a"}, actual, *expected);
+}
+
+TEST(InferringChunkedArrayBuilder, SingleChunkList) {
+  auto tg = TaskGroup::MakeSerial();
+  std::shared_ptr<ChunkedArrayBuilder> builder;
+  ASSERT_OK(MakeChunkedArrayBuilder(tg, default_memory_pool(), GetPromotionGraph(),
+                                    struct_({}), &builder));
+
+  std::shared_ptr<ChunkedArray> actual;
+  AssertBuilding(builder,
+                 {
+                     std::string("{}\n") + "{\"a\": []}\n" + "{\"a\": [1, 2]}\n",
+                 },
+                 &actual);
+
+  auto expected = ChunkedArrayFromJSON(list(int64()), {"[null, [], [1, 2]]"});
+  AssertFieldEqual({"a"}, actual, *expected);
+}
+
+TEST(InferringChunkedArrayBuilder, MultipleChunkList) {
+  auto tg = TaskGroup::MakeSerial();
+  std::shared_ptr<ChunkedArrayBuilder> builder;
+  ASSERT_OK(MakeChunkedArrayBuilder(tg, default_memory_pool(), GetPromotionGraph(),
+                                    struct_({}), &builder));
+
+  std::shared_ptr<ChunkedArray> actual;
+  AssertBuilding(builder,
+                 {
+                     "{}\n",
+                     "{\"a\": []}\n",
+                     "{\"a\": [1, 2]}\n",
+                 },
+                 &actual);
+
+  auto expected = ChunkedArrayFromJSON(list(int64()), {"[null]", "[[]]", "[[1, 2]]"});
   AssertFieldEqual({"a"}, actual, *expected);
 }
 

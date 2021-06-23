@@ -53,12 +53,13 @@ cdef class _PandasAPIShim(object):
             else:
                 return
 
+        from pyarrow.vendored.version import Version
+
         self._pd = pd
         self._version = pd.__version__
-        from distutils.version import LooseVersion
-        self._loose_version = LooseVersion(pd.__version__)
+        self._loose_version = Version(pd.__version__)
 
-        if self._loose_version < LooseVersion('0.23.0'):
+        if self._loose_version < Version('0.23.0'):
             self._have_pandas = False
             if raise_:
                 raise ImportError(
@@ -82,7 +83,7 @@ cdef class _PandasAPIShim(object):
             self._series, self._index, self._categorical_type,
             self._extension_array)
         self._extension_dtype = pd.api.extensions.ExtensionDtype
-        if self._loose_version >= LooseVersion('0.24.0'):
+        if self._loose_version >= Version('0.24.0'):
             self._is_extension_array_dtype = \
                 pd.api.types.is_extension_array_dtype
         else:
@@ -92,12 +93,12 @@ cdef class _PandasAPIShim(object):
         self._datetimetz_type = pd.api.types.DatetimeTZDtype
         self._have_pandas = True
 
-        if self._loose_version > LooseVersion('0.25'):
+        if self._loose_version > Version('0.25'):
             self.has_sparse = False
         else:
             self.has_sparse = True
 
-        self._pd024 = self._loose_version >= LooseVersion('0.24')
+        self._pd024 = self._loose_version >= Version('0.24')
 
     cdef inline _check_import(self, bint raise_=True):
         if self._tried_importing_pandas:

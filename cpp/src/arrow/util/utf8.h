@@ -23,6 +23,10 @@
 #include <memory>
 #include <string>
 
+#if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
+#include <xsimd/xsimd.hpp>
+#endif
+
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/simd.h"
@@ -60,6 +64,8 @@ static constexpr uint8_t kUTF8DecodeReject = 12;
 // not all the table will end up accessed and cached).
 // In this table states are multiples of 256.
 ARROW_EXPORT extern uint16_t utf8_large_table[9 * 256];
+
+ARROW_EXPORT extern const uint8_t utf8_byte_size_table[16];
 
 // Success / reject states when looked up in the large table
 static constexpr uint16_t kUTF8ValidateAccept = 0;
@@ -240,54 +246,26 @@ inline bool ValidateAsciiSw(const uint8_t* data, int64_t len) {
   }
 }
 
-#ifdef ARROW_HAVE_NEON
+#if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
 inline bool ValidateAsciiSimd(const uint8_t* data, int64_t len) {
+  using simd_batch = xsimd::batch<int8_t, 16>;
+
   if (len >= 32) {
+    const simd_batch zero(static_cast<int8_t>(0));
     const uint8_t* data2 = data + 16;
-    uint8x16_t or1 = vdupq_n_u8(0), or2 = or1;
+    simd_batch or1 = zero, or2 = zero;
 
     while (len >= 32) {
-      const uint8x16_t input1 = vld1q_u8(data);
-      const uint8x16_t input2 = vld1q_u8(data2);
-
-      or1 = vorrq_u8(or1, input1);
-      or2 = vorrq_u8(or2, input2);
-
+      or1 |= simd_batch(reinterpret_cast<const int8_t*>(data), xsimd::unaligned_mode{});
+      or2 |= simd_batch(reinterpret_cast<const int8_t*>(data2), xsimd::unaligned_mode{});
       data += 32;
       data2 += 32;
       len -= 32;
     }
 
-    or1 = vorrq_u8(or1, or2);
-    if (vmaxvq_u8(or1) >= 0x80) {
-      return false;
-    }
-  }
-
-  return ValidateAsciiSw(data, len);
-}
-#endif  // ARROW_HAVE_NEON
-
-#if defined(ARROW_HAVE_SSE4_2)
-inline bool ValidateAsciiSimd(const uint8_t* data, int64_t len) {
-  if (len >= 32) {
-    const uint8_t* data2 = data + 16;
-    __m128i or1 = _mm_set1_epi8(0), or2 = or1;
-
-    while (len >= 32) {
-      __m128i input1 = _mm_lddqu_si128((const __m128i*)data);
-      __m128i input2 = _mm_lddqu_si128((const __m128i*)data2);
-
-      or1 = _mm_or_si128(or1, input1);
-      or2 = _mm_or_si128(or2, input2);
-
-      data += 32;
-      data2 += 32;
-      len -= 32;
-    }
-
-    or1 = _mm_or_si128(or1, or2);
-    if (_mm_movemask_epi8(_mm_cmplt_epi8(or1, _mm_set1_epi8(0)))) {
+    // To test for upper bit in all bytes, test whether any of them is negative
+    or1 |= or2;
+    if (xsimd::any(or1 < zero)) {
       return false;
     }
   }
@@ -316,6 +294,18 @@ ARROW_EXPORT
 Result<const uint8_t*> SkipUTF8BOM(const uint8_t* data, int64_t size);
 
 static constexpr uint32_t kMaxUnicodeCodepoint = 0x110000;
+
+// size of a valid UTF8 can be determined by looking at leading 4 bits of BYTE1
+// utf8_byte_size_table[0..7] --> pure ascii chars --> 1B length
+// utf8_byte_size_table[8..11] --> internal bytes --> 1B length
+// utf8_byte_size_table[12,13] --> 2B long UTF8 chars
+// utf8_byte_size_table[14] --> 3B long UTF8 chars
+// utf8_byte_size_table[15] --> 4B long UTF8 chars
+// NOTE: Results for invalid/ malformed utf-8 sequences are undefined.
+// ex: \xFF... returns 4B
+static inline uint8_t ValidUtf8CodepointByteSize(const uint8_t* codeunit) {
+  return internal::utf8_byte_size_table[*codeunit >> 4];
+}
 
 static inline bool Utf8IsContinuation(const uint8_t codeunit) {
   return (codeunit & 0xC0) == 0x80;  // upper two bits should be 10
@@ -500,6 +490,30 @@ static inline bool UTF8FindIfReverse(const uint8_t* first, const uint8_t* last,
   // to the 'first' pointer to indicate out of range.
   *position = first;
   return true;
+}
+
+static inline bool UTF8AdvanceCodepoints(const uint8_t* first, const uint8_t* last,
+                                         const uint8_t** destination, int64_t n) {
+  return UTF8FindIf(
+      first, last,
+      [&](uint32_t codepoint) {
+        bool done = n == 0;
+        n--;
+        return done;
+      },
+      destination);
+}
+
+static inline bool UTF8AdvanceCodepointsReverse(const uint8_t* first, const uint8_t* last,
+                                                const uint8_t** destination, int64_t n) {
+  return UTF8FindIfReverse(
+      first, last,
+      [&](uint32_t codepoint) {
+        bool done = n == 0;
+        n--;
+        return done;
+      },
+      destination);
 }
 
 template <class UnaryFunction>

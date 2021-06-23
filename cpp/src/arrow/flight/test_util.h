@@ -56,7 +56,8 @@ class ARROW_FLIGHT_EXPORT TestServer {
   TestServer(const std::string& executable_name, const std::string& unix_sock)
       : executable_name_(executable_name), unix_sock_(unix_sock) {}
 
-  void Start();
+  void Start(const std::vector<std::string>& extra_args);
+  void Start() { Start({}); }
 
   int Stop();
 

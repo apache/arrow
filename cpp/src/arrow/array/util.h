@@ -56,6 +56,17 @@ Result<std::shared_ptr<Array>> MakeArrayFromScalar(
 
 namespace internal {
 
+/// \brief Swap endian of each element in a generic ArrayData
+///
+/// As dictionaries are often shared between different arrays, dictionaries
+/// are not swapped by this function and should be handled separately.
+///
+/// \param[in] data the array contents
+/// \return the resulting ArrayData whose elements were swapped
+ARROW_EXPORT
+Result<std::shared_ptr<ArrayData>> SwapEndianArrayData(
+    const std::shared_ptr<ArrayData>& data);
+
 /// Given a number of ArrayVectors, treat each ArrayVector as the
 /// chunks of a chunked array.  Then rechunk each ArrayVector such that
 /// all ArrayVectors are chunked identically.  It is mandatory that

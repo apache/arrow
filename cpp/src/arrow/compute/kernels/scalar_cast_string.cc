@@ -48,11 +48,11 @@ struct NumericToStringCastFunctor {
   using BuilderType = typename TypeTraits<O>::BuilderType;
   using FormatterType = StringFormatter<I>;
 
-  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     DCHECK(out->is_array());
     const ArrayData& input = *batch[0].array();
     ArrayData* output = out->mutable_array();
-    ctx->SetStatus(Convert(ctx, input, output));
+    return Convert(ctx, input, output);
   }
 
   static Status Convert(KernelContext* ctx, const ArrayData& input, ArrayData* output) {
@@ -94,95 +94,78 @@ struct Utf8Validator {
 };
 
 template <typename I, typename O>
-struct CastBinaryToBinaryOffsets;
-
-// Cast same-width offsets (no-op)
-template <>
-struct CastBinaryToBinaryOffsets<int32_t, int32_t> {
-  static void CastOffsets(KernelContext* ctx, const ArrayData& input, ArrayData* output) {
-  }
-};
-template <>
-struct CastBinaryToBinaryOffsets<int64_t, int64_t> {
-  static void CastOffsets(KernelContext* ctx, const ArrayData& input, ArrayData* output) {
-  }
-};
+Status CastBinaryToBinaryOffsets(KernelContext* ctx, const ArrayData& input,
+                                 ArrayData* output) {
+  static_assert(std::is_same<I, O>::value, "Cast same-width offsets (no-op)");
+  return Status::OK();
+}
 
 // Upcast offsets
 template <>
-struct CastBinaryToBinaryOffsets<int32_t, int64_t> {
-  static void CastOffsets(KernelContext* ctx, const ArrayData& input, ArrayData* output) {
-    using input_offset_type = int32_t;
-    using output_offset_type = int64_t;
-    KERNEL_ASSIGN_OR_RAISE(output->buffers[1], ctx,
-                           ctx->Allocate((output->length + output->offset + 1) *
-                                         sizeof(output_offset_type)));
+Status CastBinaryToBinaryOffsets<int32_t, int64_t>(KernelContext* ctx,
+                                                   const ArrayData& input,
+                                                   ArrayData* output) {
+  using input_offset_type = int32_t;
+  using output_offset_type = int64_t;
+  ARROW_ASSIGN_OR_RAISE(
+      output->buffers[1],
+      ctx->Allocate((output->length + output->offset + 1) * sizeof(output_offset_type)));
+  memset(output->buffers[1]->mutable_data(), 0,
+         output->offset * sizeof(output_offset_type));
+  ::arrow::internal::CastInts(input.GetValues<input_offset_type>(1),
+                              output->GetMutableValues<output_offset_type>(1),
+                              output->length + 1);
+  return Status::OK();
+}
+
+// Downcast offsets
+template <>
+Status CastBinaryToBinaryOffsets<int64_t, int32_t>(KernelContext* ctx,
+                                                   const ArrayData& input,
+                                                   ArrayData* output) {
+  using input_offset_type = int64_t;
+  using output_offset_type = int32_t;
+
+  constexpr input_offset_type kMaxOffset = std::numeric_limits<output_offset_type>::max();
+
+  auto input_offsets = input.GetValues<input_offset_type>(1);
+
+  // Binary offsets are ascending, so it's enough to check the last one for overflow.
+  if (input_offsets[input.length] > kMaxOffset) {
+    return Status::Invalid("Failed casting from ", input.type->ToString(), " to ",
+                           output->type->ToString(), ": input array too large");
+  } else {
+    ARROW_ASSIGN_OR_RAISE(output->buffers[1],
+                          ctx->Allocate((output->length + output->offset + 1) *
+                                        sizeof(output_offset_type)));
     memset(output->buffers[1]->mutable_data(), 0,
            output->offset * sizeof(output_offset_type));
     ::arrow::internal::CastInts(input.GetValues<input_offset_type>(1),
                                 output->GetMutableValues<output_offset_type>(1),
                                 output->length + 1);
+    return Status::OK();
   }
-};
-
-// Downcast offsets
-template <>
-struct CastBinaryToBinaryOffsets<int64_t, int32_t> {
-  static void CastOffsets(KernelContext* ctx, const ArrayData& input, ArrayData* output) {
-    using input_offset_type = int64_t;
-    using output_offset_type = int32_t;
-
-    constexpr input_offset_type kMaxOffset =
-        std::numeric_limits<output_offset_type>::max();
-
-    auto input_offsets = input.GetValues<input_offset_type>(1);
-
-    // Binary offsets are ascending, so it's enough to check the last one for overflow.
-    if (input_offsets[input.length] > kMaxOffset) {
-      ctx->SetStatus(Status::Invalid("Failed casting from ", input.type->ToString(),
-                                     " to ", output->type->ToString(),
-                                     ": input array too large"));
-    } else {
-      KERNEL_ASSIGN_OR_RAISE(output->buffers[1], ctx,
-                             ctx->Allocate((output->length + output->offset + 1) *
-                                           sizeof(output_offset_type)));
-      memset(output->buffers[1]->mutable_data(), 0,
-             output->offset * sizeof(output_offset_type));
-      ::arrow::internal::CastInts(input.GetValues<input_offset_type>(1),
-                                  output->GetMutableValues<output_offset_type>(1),
-                                  output->length + 1);
-    }
-  }
-};
+}
 
 template <typename O, typename I>
-struct BinaryToBinaryCastFunctor {
-  using input_offset_type = typename I::offset_type;
-  using output_offset_type = typename O::offset_type;
+Status BinaryToBinaryCastExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  DCHECK(out->is_array());
+  const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
+  const ArrayData& input = *batch[0].array();
 
-  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    DCHECK(out->is_array());
-    const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
-    const ArrayData& input = *batch[0].array();
+  if (!I::is_utf8 && O::is_utf8 && !options.allow_invalid_utf8) {
+    InitializeUTF8();
 
-    if (!I::is_utf8 && O::is_utf8 && !options.allow_invalid_utf8) {
-      InitializeUTF8();
-
-      ArrayDataVisitor<I> visitor;
-      Utf8Validator validator;
-      Status st = visitor.Visit(input, &validator);
-      if (!st.ok()) {
-        ctx->SetStatus(st);
-        return;
-      }
-    }
-
-    // Start with a zero-copy cast, but change indices to expected size
-    ZeroCopyCastExec(ctx, batch, out);
-    CastBinaryToBinaryOffsets<input_offset_type, output_offset_type>::CastOffsets(
-        ctx, input, out->mutable_array());
+    ArrayDataVisitor<I> visitor;
+    Utf8Validator validator;
+    RETURN_NOT_OK(visitor.Visit(input, &validator));
   }
-};
+
+  // Start with a zero-copy cast, but change indices to expected size
+  RETURN_NOT_OK(ZeroCopyCastExec(ctx, batch, out));
+  return CastBinaryToBinaryOffsets<typename I::offset_type, typename O::offset_type>(
+      ctx, input, out->mutable_array());
+}
 
 #if defined(_MSC_VER)
 #pragma warning(pop)
@@ -215,9 +198,17 @@ void AddBinaryToBinaryCast(CastFunction* func) {
   auto out_ty = TypeTraits<OutType>::type_singleton();
 
   DCHECK_OK(func->AddKernel(
-      OutType::type_id, {in_ty}, out_ty,
-      TrivialScalarUnaryAsArraysExec(BinaryToBinaryCastFunctor<OutType, InType>::Exec),
+      InType::type_id, {in_ty}, out_ty,
+      TrivialScalarUnaryAsArraysExec(BinaryToBinaryCastExec<OutType, InType>),
       NullHandling::COMPUTED_NO_PREALLOCATE));
+}
+
+template <typename OutType>
+void AddBinaryToBinaryCast(CastFunction* func) {
+  AddBinaryToBinaryCast<OutType, StringType>(func);
+  AddBinaryToBinaryCast<OutType, BinaryType>(func);
+  AddBinaryToBinaryCast<OutType, LargeStringType>(func);
+  AddBinaryToBinaryCast<OutType, LargeBinaryType>(func);
 }
 
 }  // namespace
@@ -225,31 +216,23 @@ void AddBinaryToBinaryCast(CastFunction* func) {
 std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts() {
   auto cast_binary = std::make_shared<CastFunction>("cast_binary", Type::BINARY);
   AddCommonCasts(Type::BINARY, binary(), cast_binary.get());
-  AddBinaryToBinaryCast<BinaryType, StringType>(cast_binary.get());
-  AddBinaryToBinaryCast<BinaryType, LargeBinaryType>(cast_binary.get());
-  AddBinaryToBinaryCast<BinaryType, LargeStringType>(cast_binary.get());
+  AddBinaryToBinaryCast<BinaryType>(cast_binary.get());
 
   auto cast_large_binary =
       std::make_shared<CastFunction>("cast_large_binary", Type::LARGE_BINARY);
   AddCommonCasts(Type::LARGE_BINARY, large_binary(), cast_large_binary.get());
-  AddBinaryToBinaryCast<LargeBinaryType, BinaryType>(cast_large_binary.get());
-  AddBinaryToBinaryCast<LargeBinaryType, StringType>(cast_large_binary.get());
-  AddBinaryToBinaryCast<LargeBinaryType, LargeStringType>(cast_large_binary.get());
+  AddBinaryToBinaryCast<LargeBinaryType>(cast_large_binary.get());
 
   auto cast_string = std::make_shared<CastFunction>("cast_string", Type::STRING);
   AddCommonCasts(Type::STRING, utf8(), cast_string.get());
   AddNumberToStringCasts<StringType>(cast_string.get());
-  AddBinaryToBinaryCast<StringType, BinaryType>(cast_string.get());
-  AddBinaryToBinaryCast<StringType, LargeBinaryType>(cast_string.get());
-  AddBinaryToBinaryCast<StringType, LargeStringType>(cast_string.get());
+  AddBinaryToBinaryCast<StringType>(cast_string.get());
 
   auto cast_large_string =
       std::make_shared<CastFunction>("cast_large_string", Type::LARGE_STRING);
   AddCommonCasts(Type::LARGE_STRING, large_utf8(), cast_large_string.get());
   AddNumberToStringCasts<LargeStringType>(cast_large_string.get());
-  AddBinaryToBinaryCast<LargeStringType, BinaryType>(cast_large_string.get());
-  AddBinaryToBinaryCast<LargeStringType, StringType>(cast_large_string.get());
-  AddBinaryToBinaryCast<LargeStringType, LargeBinaryType>(cast_large_string.get());
+  AddBinaryToBinaryCast<LargeStringType>(cast_large_string.get());
 
   auto cast_fsb =
       std::make_shared<CastFunction>("cast_fixed_size_binary", Type::FIXED_SIZE_BINARY);

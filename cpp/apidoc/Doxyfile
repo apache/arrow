@@ -2170,6 +2170,7 @@ PREDEFINED             = __attribute__(x)= \
                          __declspec(x)= \
                          PARQUET_EXPORT= \
                          ARROW_EXPORT= \
+                         ARROW_DS_EXPORT= \
                          ARROW_FLIGHT_EXPORT= \
                          ARROW_EXTERN_TEMPLATE= \
                          ARROW_DEPRECATED(x)=

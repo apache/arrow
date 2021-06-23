@@ -26,14 +26,13 @@ const { testTask, createTestData, cleanTestData } = require('./gulp/test-task');
 const {
     taskName, combinations,
     targetDir, knownTargets,
-    npmPkgName, UMDSourceTargets,
-    tasksToSkipPerTargetOrFormat
+    npmPkgName, tasksToSkipPerTargetOrFormat
 } = require('./gulp/util');
 
 for (const [target, format] of combinations([`all`], [`all`])) {
     const task = taskName(target, format);
     gulp.task(`clean:${task}`, cleanTask(target, format));
-    gulp.task( `test:${task}`,  testTask(target, format));
+    gulp.task(`test:${task}`,  testTask(target, format));
     gulp.task(`compile:${task}`, compileTask(target, format));
     gulp.task(`package:${task}`, packageTask(target, format));
     gulp.task(`build:${task}`, gulp.series(
@@ -46,7 +45,7 @@ for (const [target, format] of combinations([`all`], [`all`])) {
 // a minifier, so we special case that here.
 knownTargets.forEach((target) => {
     const umd = taskName(target, `umd`);
-    const cls = taskName(UMDSourceTargets[target], `cls`);
+    const cls = taskName(target, `cls`);
     gulp.task(`build:${umd}`, gulp.series(
         `build:${cls}`,
         `clean:${umd}`, `compile:${umd}`, `package:${umd}`,
@@ -56,13 +55,13 @@ knownTargets.forEach((target) => {
     ));
 });
 
-// The main "apache-arrow" module builds the es5/umd, es2015/cjs,
-// es2015/esm, and es2015/umd targets, then copies and renames the
+// The main "apache-arrow" module builds the es2015/umd, esnext/cjs,
+// esnext/esm, and esnext/umd targets, then copies and renames the
 // compiled output into the apache-arrow folder
 gulp.task(`build:${npmPkgName}`,
     gulp.series(
         gulp.parallel(
-            `build:${taskName(`es5`, `umd`)}`,
+            `build:${taskName(`es2015`, `umd`)}`,
             `build:${taskName(`esnext`, `cjs`)}`,
             `build:${taskName(`esnext`, `esm`)}`,
             `build:${taskName(`esnext`, `umd`)}`

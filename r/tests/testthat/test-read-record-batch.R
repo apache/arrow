@@ -34,7 +34,7 @@ test_that("RecordBatchFileWriter / RecordBatchFileReader roundtrips", {
 
   stream <- FileOutputStream$create(tf)
   writer <- RecordBatchFileWriter$create(stream, tab$schema)
-  expect_is(writer, "RecordBatchWriter")
+  expect_r6_class(writer, "RecordBatchWriter")
   writer$write_table(tab)
   writer$close()
   stream$close()

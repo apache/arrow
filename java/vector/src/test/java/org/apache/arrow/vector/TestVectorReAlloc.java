@@ -152,6 +152,30 @@ public class TestVectorReAlloc {
   }
 
   @Test
+  public void testVariableWidthTypeSetNullValues() {
+    // Test ARROW-11223 bug is fixed
+    try (final BaseVariableWidthVector v1 = new VarCharVector("var1", allocator)) {
+      v1.setInitialCapacity(512);
+      v1.allocateNew();
+      int numNullValues1 = v1.getValueCapacity() + 1;
+      for (int i = 0; i < numNullValues1; i++) {
+        v1.setNull(i);
+      }
+      Assert.assertTrue(v1.getBufferSizeFor(numNullValues1) > 0);
+    }
+
+    try (final BaseLargeVariableWidthVector v2 = new LargeVarCharVector("var2", allocator)) {
+      v2.setInitialCapacity(512);
+      v2.allocateNew();
+      int numNullValues2 = v2.getValueCapacity() + 1;
+      for (int i = 0; i < numNullValues2; i++) {
+        v2.setNull(i);
+      }
+      Assert.assertTrue(v2.getBufferSizeFor(numNullValues2) > 0);
+    }
+  }
+
+  @Test
   public void testFixedAllocateAfterReAlloc() throws Exception {
     try (final IntVector vector = new IntVector("", allocator)) {
       /*

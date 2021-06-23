@@ -2,17 +2,28 @@
 % Please edit documentation in R/arrow-package.R
 \name{arrow_available}
 \alias{arrow_available}
+\alias{arrow_with_dataset}
+\alias{arrow_with_parquet}
 \alias{arrow_with_s3}
 \title{Is the C++ Arrow library available?}
 \usage{
 arrow_available()
 
+arrow_with_dataset()
+
+arrow_with_parquet()
+
 arrow_with_s3()
 }
 \value{
 \code{TRUE} or \code{FALSE} depending on whether the package was installed
-with the Arrow C++ library (check with \code{arrow_available()}) or with S3
-support enabled (check with \code{arrow_with_s3()}).
+with:
+\itemize{
+\item The Arrow C++ library (check with \code{arrow_available()})
+\item Arrow Dataset support enabled (check with \code{arrow_with_dataset()})
+\item Parquet support enabled (check with \code{arrow_with_parquet()})
+\item Amazon S3 support enabled (check with \code{arrow_with_s3()})
+}
 }
 \description{
 You won't generally need to call these function, but they're made available
@@ -20,10 +31,12 @@ for diagnostic purposes.
 }
 \examples{
 arrow_available()
+arrow_with_dataset()
+arrow_with_parquet()
 arrow_with_s3()
 }
 \seealso{
-If either of these are \code{FALSE}, see
+If any of these are \code{FALSE}, see
 \code{vignette("install", package = "arrow")} for guidance on reinstalling the
 package.
 }

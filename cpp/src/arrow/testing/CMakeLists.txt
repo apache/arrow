@@ -17,6 +17,10 @@
 
 arrow_install_all_headers("arrow/testing")
 
+if(ARROW_BUILD_TESTS)
+  add_arrow_test(random_test)
+endif()
+
 # json_integration_test is two things at the same time:
 # - an executable that can be called to answer integration test requests
 # - a self-(unit)test for the C++ side of integration testing

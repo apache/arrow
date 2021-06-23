@@ -31,12 +31,13 @@
 #include "arrow/util/string_view.h"
 
 namespace arrow {
-namespace json {
-
-namespace rj = arrow::rapidjson;
 
 using internal::make_unique;
 using util::string_view;
+
+namespace json {
+
+namespace rj = arrow::rapidjson;
 
 static size_t ConsumeWhitespace(string_view view) {
 #ifdef RAPIDJSON_SIMD
@@ -161,6 +162,11 @@ class ParsingBoundaryFinder : public BoundaryFinder {
       *out_pos = static_cast<int64_t>(consumed_length);
     }
     return Status::OK();
+  }
+
+  Status FindNth(util::string_view partial, util::string_view block, int64_t count,
+                 int64_t* out_pos, int64_t* num_found) override {
+    return Status::NotImplemented("ParsingBoundaryFinder::FindNth");
   }
 };
 

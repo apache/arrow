@@ -24,12 +24,12 @@ import { DataType, Map_, Struct, List } from '../type';
 /** @ignore */
 export class MapVector<K extends DataType = any, V extends DataType = any> extends BaseVector<Map_<K, V>> {
     public asList() {
-        const child = this.type.children[0] as Field<Struct<{ key: K, value: V }>>;
-        return Vector.new(this.data.clone(new List<Struct<{ key: K, value: V }>>(child)));
+        const child = this.type.children[0] as Field<Struct<{ key: K; value: V }>>;
+        return Vector.new(this.data.clone(new List<Struct<{ key: K; value: V }>>(child)));
     }
     public bind(index: number): Map_<K, V>['TValue'] {
-        const child = this.getChildAt<Struct<{ key: K, value: V }>>(0);
+        const child = this.getChildAt<Struct<{ key: K; value: V }>>(0)!;
         const { [index]: begin, [index + 1]: end } = this.valueOffsets;
-        return new MapRow(child!.slice(begin, end));
+        return new MapRow(child.slice(begin, end));
     }
 }

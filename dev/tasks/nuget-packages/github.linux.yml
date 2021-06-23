@@ -15,36 +15,18 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# NOTE: must set "Crossbow" as name to have the badge links working in the
-# GitHub comment reports!
-name: Crossbow
+{% import 'macros.jinja' as macros with context %}
 
-on:
-  push:
-    branches:
-      - "*-github-*"
-
-env:
-  DOCKER_BUILDKIT: 0
-  COMPOSE_DOCKER_CLI_BUILD: 1
+{{ macros.github_header() }}
 
 jobs:
   package:
     name: Package
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Arrow
-        run: |
-          git clone --no-checkout {{ arrow.remote }} arrow
-          git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-          git -C arrow checkout FETCH_HEAD
-          git -C arrow submodule update --init --recursive
-      - name: Setup Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.8
-      - name: Setup Archery
-        run: pip install -e arrow/dev/archery[docker]
+      {{ macros.github_checkout_arrow()|indent }}
+      {{ macros.github_install_archery()|indent }}
+
       - name: Prepare version
         run: |
           sed -i'' -E -e \
@@ -55,31 +37,7 @@ jobs:
           pushd arrow
           archery docker run {{ run }}
           popd
-      # Using GitHub release tries to find a common ancestor between the
-      # currently pushed tag and the latest tag of the GitHub repository
-      # (don't know why).
-      # The tag upload took 43 minutes because of this scan, so use an
-      # alternative upload script.
-      - name: Set up Crossbow
-        run: |
-          pip install \
-            click \
-            github3.py \
-            jinja2 \
-            jira \
-            pygit2 \
-            ruamel.yaml \
-            setuptools_scm \
-            toolz
-      - name: Upload artifacts
-        run: |
-          python arrow/dev/tasks/crossbow.py \
-            --queue-path . \
-            --queue-remote {{ queue_remote_url }} \
-            upload-artifacts \
-            --pattern "arrow/csharp/artifacts/**/*.nupkg" \
-            --pattern "arrow/csharp/artifacts/**/*.snupkg" \
-            --sha {{ task.branch }} \
-            --tag {{ task.tag }}
-        env:
-          CROSSBOW_GITHUB_TOKEN: {{ '${{ secrets.CROSSBOW_GITHUB_TOKEN }}' }}
+
+      {% set patterns = ["arrow/csharp/artifacts/**/*.nupkg",
+                         "arrow/csharp/artifacts/**/*.snupkg"] %}
+      {{ macros.github_upload_releases(patterns)|indent }}

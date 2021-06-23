@@ -15,12 +15,21 @@ partitioning.
 \code{DirectoryPartitioning} describes how to interpret raw path segments, in
 order. For example, \code{schema(year = int16(), month = int8())} would define
 partitions for file paths like "2019/01/file.parquet",
-"2019/02/file.parquet", etc.
+"2019/02/file.parquet", etc. In this scheme \code{NULL} values will be skipped. In
+the previous example: when writing a dataset if the month was \code{NA} (or
+\code{NULL}), the files would be placed in "2019/file.parquet". When reading, the
+rows in "2019/file.parquet" would return an \code{NA} for the month column. An
+error will be raised if an outer directory is \code{NULL} and an inner directory
+is not.
 
 \code{HivePartitioning} is for Hive-style partitioning, which embeds field
 names and values in path segments, such as
 "/year=2019/month=2/data.parquet". Because fields are named in the path
-segments, order does not matter.
+segments, order does not matter. This partitioning scheme allows \code{NULL}
+values. They will be replaced by a configurable \code{null_fallback} which
+defaults to the string \code{"__HIVE_DEFAULT_PARTITION__"} when writing. When
+reading, the \code{null_fallback} string will be replaced with \code{NA}s as
+appropriate.
 
 \code{PartitioningFactory} subclasses instruct the \code{DatasetFactory} to detect
 partition features from the file paths.

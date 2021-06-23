@@ -31,10 +31,12 @@ on:
       - 'cpp/**'
       - 'python/**'
 
+concurrency:
+  group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}
+  cancel-in-progress: true
+
 env:
-  DOCKER_BUILDKIT: 0
   DOCKER_VOLUME_PREFIX: ".docker/"
-  COMPOSE_DOCKER_CLI_BUILD: 1
   ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
   ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
 
@@ -44,6 +46,7 @@ jobs:
     name: ${{ matrix.title }}
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -63,6 +66,7 @@ jobs:
             title: AMD64 Conda Python 3.6 Pandas 0.23
             python: 3.6
             pandas: 0.23
+            numpy: 1.16
           - name: conda-python-3.7-pandas-latest
             cache: conda-python-3.7
             image: conda-python-pandas
@@ -84,7 +88,7 @@ jobs:
       - name: Free Up Disk Space
         run: ci/scripts/util_cleanup.sh
       - name: Cache Docker Volumes
-        uses: actions/cache@v1
+        uses: actions/cache@v2
         with:
           path: .docker
           key: ${{ matrix.cache }}-${{ hashFiles('cpp/**') }}
@@ -109,6 +113,7 @@ jobs:
     name: AMD64 MacOS 10.15 Python 3
     runs-on: macos-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 60
     env:
       ARROW_HOME: /usr/local
       ARROW_DATASET: ON
@@ -126,6 +131,7 @@ jobs:
       ARROW_WITH_BROTLI: ON
       ARROW_BUILD_TESTS: OFF
       CMAKE_ARGS: "-DPython3_EXECUTABLE=/usr/local/bin/python3"
+      PYARROW_TEST_LARGE_MEMORY: ON
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
@@ -134,12 +140,17 @@ jobs:
       - name: Fetch Submodules and Tags
         shell: bash
         run: ci/scripts/util_checkout.sh
+      - name: Show available RAM size
+        shell: bash
+        run: |
+          hwmemsize=$(sysctl -n hw.memsize)
+          ramsize=$(expr $hwmemsize / $((1024**3)))
+          echo "System Memory: ${ramsize} GB"
       - name: Install Dependencies
         shell: bash
         run: |
           rm -f /usr/local/bin/2to3
           brew update --preinstall
-          brew unlink gcc@8 gcc@9
           brew bundle --file=cpp/Brewfile
           brew install coreutils
           python3 -mpip install \

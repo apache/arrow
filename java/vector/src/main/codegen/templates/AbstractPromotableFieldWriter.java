@@ -15,11 +15,6 @@
  * limitations under the License.
  */
 
-import org.apache.arrow.memory.ArrowBuf;
-import org.apache.arrow.vector.types.Types;
-import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.apache.drill.common.types.TypeProtos.MinorType;
-
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/AbstractPromotableFieldWriter.java" />
 
@@ -44,7 +39,11 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
    * @param type the type of the values we want to write
    * @return the corresponding field writer
    */
-  abstract protected FieldWriter getWriter(MinorType type);
+  protected FieldWriter getWriter(MinorType type) {
+    return getWriter(type, null);
+  }
+
+  abstract protected FieldWriter getWriter(MinorType type, ArrowType arrowType);
 
   /**
    * @return the current FieldWriter
@@ -71,6 +70,37 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
   public void endList() {
     getWriter(MinorType.LIST).endList();
     setPosition(idx() + 1);
+  }
+
+  @Override
+  public void startMap() {
+    getWriter(MinorType.MAP).startMap();
+  }
+
+  @Override
+  public void endMap() {
+    getWriter(MinorType.MAP).endMap();
+    setPosition(idx() + 1);
+  }
+
+  @Override
+  public void startEntry() {
+    getWriter(MinorType.MAP).startEntry();
+  }
+
+  @Override
+  public MapWriter key() {
+    return getWriter(MinorType.MAP).key();
+  }
+
+  @Override
+  public MapWriter value() {
+    return getWriter(MinorType.MAP).value();
+  }
+
+  @Override
+  public void endEntry() {
+    getWriter(MinorType.MAP).endEntry();
   }
 
   <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
@@ -145,6 +175,16 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
   }
 
   @Override
+  public MapWriter map() {
+    return getWriter(MinorType.LIST).map();
+  }
+
+  @Override
+  public MapWriter map(boolean keysSorted) {
+    return getWriter(MinorType.MAP, new ArrowType.Map(keysSorted));
+  }
+
+  @Override
   public StructWriter struct(String name) {
     return getWriter(MinorType.STRUCT).struct(name);
   }
@@ -154,6 +194,15 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
     return getWriter(MinorType.STRUCT).list(name);
   }
 
+  @Override
+  public MapWriter map(String name) {
+    return getWriter(MinorType.STRUCT).map(name);
+  }
+
+  @Override
+  public MapWriter map(String name, boolean keysSorted) {
+    return getWriter(MinorType.STRUCT).map(name, keysSorted);
+  }
   <#list vv.types as type><#list type.minor as minor>
   <#assign lowerName = minor.class?uncap_first />
   <#if lowerName == "int" ><#assign lowerName = "integer" /></#if>

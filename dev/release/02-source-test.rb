@@ -53,17 +53,6 @@ class SourceTest < Test::Unit::TestCase
     end
   end
 
-  def test_glib_configure
-    source("GLIB")
-    Dir.chdir("#{@tag_name}/c_glib") do
-      assert_equal([
-                     "configure",
-                     "configure.ac",
-                   ],
-                   Dir.glob("configure*").sort)
-    end
-  end
-
   def test_csharp_git_commit_information
     source
     Dir.chdir("#{@tag_name}/csharp") do
@@ -131,11 +120,11 @@ This release candidate is based on commit:
 #{@current_commit} [2]
 
 The source release rc0 is hosted at [3].
-The binary artifacts are hosted at [4][5][6][7].
-The changelog is located at [8].
+The binary artifacts are hosted at [4][5][6][7][8][9].
+The changelog is located at [10].
 
 Please download, verify checksums and signatures, run the unit tests,
-and vote on the release. See [9] for how to validate a release candidate.
+and vote on the release. See [11] for how to validate a release candidate.
 
 The vote will be open for at least 72 hours.
 
@@ -146,12 +135,14 @@ The vote will be open for at least 72 hours.
 [1]: https://issues.apache.org/jira/issues/?jql=project%20%3D%20ARROW%20AND%20status%20in%20%28Resolved%2C%20Closed%29%20AND%20fixVersion%20%3D%20#{@release_version}
 [2]: https://github.com/apache/arrow/tree/#{@current_commit}
 [3]: https://dist.apache.org/repos/dist/dev/arrow/apache-arrow-#{@release_version}-rc0
-[4]: https://bintray.com/apache/arrow/centos-rc/#{@release_version}-rc0
-[5]: https://bintray.com/apache/arrow/debian-rc/#{@release_version}-rc0
-[6]: https://bintray.com/apache/arrow/python-rc/#{@release_version}-rc0
-[7]: https://bintray.com/apache/arrow/ubuntu-rc/#{@release_version}-rc0
-[8]: https://github.com/apache/arrow/blob/#{@current_commit}/CHANGELOG.md
-[9]: https://cwiki.apache.org/confluence/display/ARROW/How+to+Verify+Release+Candidates
+[4]: https://apache.jfrog.io/artifactory/arrow/amazon-linux-rc/
+[5]: https://apache.jfrog.io/artifactory/arrow/centos-rc/
+[6]: https://apache.jfrog.io/artifactory/arrow/debian-rc/
+[7]: https://apache.jfrog.io/artifactory/arrow/nuget-rc/#{@release_version}-rc0
+[8]: https://apache.jfrog.io/artifactory/arrow/python-rc/#{@release_version}-rc0
+[9]: https://apache.jfrog.io/artifactory/arrow/ubuntu-rc/
+[10]: https://github.com/apache/arrow/blob/#{@current_commit}/CHANGELOG.md
+[11]: https://cwiki.apache.org/confluence/display/ARROW/How+to+Verify+Release+Candidates
     VOTE
   end
 end

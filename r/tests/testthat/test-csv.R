@@ -15,12 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("CsvTableReader")
-
 # Not all types round trip via CSV 100% identical by default
 tbl <- example_data[, c("dbl", "lgl", "false", "chr")]
+tbl_no_dates <- tbl
 # Add a date to test its parsing
 tbl$date <- Sys.Date() + 1:10
+
+csv_file <- tempfile()
 
 test_that("Can read csv file", {
   tf <- tempfile()
@@ -255,4 +256,76 @@ test_that("Mix of guessing and declaring types", {
 
   df <- read_csv_arrow(tf, col_types = "d-?c", col_names = cols, skip = 1)
   expect_identical(df, tbl[, c("dbl", "false", "chr")])
+})
+
+
+test_that("Write a CSV file with header", {
+  tbl_out <- write_csv_arrow(tbl_no_dates, csv_file)
+  expect_true(file.exists(csv_file))
+  expect_identical(tbl_out, tbl_no_dates)
+  
+  tbl_in <- read_csv_arrow(csv_file)
+  expect_identical(tbl_in, tbl_no_dates)
+  
+  skip("Doesn't yet work with date columns due to ARROW-12540")
+  
+  tbl_out <- write_csv_arrow(tbl, csv_file)
+  expect_true(file.exists(csv_file))
+  expect_identical(tbl_out, tbl)
+  
+  tbl_in <- read_csv_arrow(csv_file)
+  expect_identical(tbl_in, tbl)
+})
+
+
+test_that("Write a CSV file with no header", {
+  
+  tbl_out <- write_csv_arrow(tbl_no_dates, csv_file, include_header = FALSE)
+  expect_true(file.exists(csv_file))
+  expect_identical(tbl_out, tbl_no_dates)
+  tbl_in <- read_csv_arrow(csv_file, col_names = FALSE)
+  
+  tbl_expected <- tbl_no_dates
+  names(tbl_expected) <- c("f0", "f1", "f2", "f3")
+  
+  expect_identical(tbl_in, tbl_expected)
+  
+})
+
+test_that("Write a CSV file with different batch sizes", {
+  
+  tbl_out1 <- write_csv_arrow(tbl_no_dates, csv_file, batch_size = 1)
+  expect_true(file.exists(csv_file))
+  expect_identical(tbl_out1, tbl_no_dates)
+  tbl_in1 <- read_csv_arrow(csv_file)
+  expect_identical(tbl_in1, tbl_no_dates)
+  
+  tbl_out2 <- write_csv_arrow(tbl_no_dates, csv_file, batch_size = 2)
+  expect_true(file.exists(csv_file))
+  expect_identical(tbl_out2, tbl_no_dates)
+  tbl_in2 <- read_csv_arrow(csv_file)
+  expect_identical(tbl_in2, tbl_no_dates)
+  
+  tbl_out3 <- write_csv_arrow(tbl_no_dates, csv_file, batch_size = 12)
+  expect_true(file.exists(csv_file))
+  expect_identical(tbl_out3, tbl_no_dates)
+  tbl_in3 <- read_csv_arrow(csv_file)
+  expect_identical(tbl_in3, tbl_no_dates)
+  
+})
+
+test_that("Write a CSV file with invalid input type", {
+  
+  bad_input <- Array$create(1:5)
+  expect_error(
+    write_csv_arrow(bad_input, csv_file),
+    regexp = "x must be an object of class 'data.frame', 'RecordBatch', or 'Table', not 'Array'."
+    )
+})
+
+test_that("Write a CSV file with invalid batch size", {
+  expect_error(
+    write_csv_arrow(tbl_no_dates, csv_file, batch_size = -1),
+    regexp = 'batch_size not greater than 0'
+  )
 })

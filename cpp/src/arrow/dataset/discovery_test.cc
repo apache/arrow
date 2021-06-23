@@ -136,7 +136,9 @@ class FileSystemDatasetFactoryTest : public DatasetFactoryTest {
     if (schema == nullptr) {
       ASSERT_OK_AND_ASSIGN(schema, factory_->Inspect(options));
     }
-    options_ = ScanOptions::Make(schema);
+    options_ = std::make_shared<ScanOptions>();
+    options_->dataset_schema = schema;
+    ASSERT_OK(SetProjection(options_.get(), schema->field_names()));
     ASSERT_OK_AND_ASSIGN(dataset_, factory_->Finish(schema));
     ASSERT_OK_AND_ASSIGN(auto fragment_it, dataset_->GetFragments());
     AssertFragmentsAreFromPath(std::move(fragment_it), paths);

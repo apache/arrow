@@ -17,16 +17,17 @@
 
 import * as type from '../type';
 import { Visitor } from '../visitor';
-import { ArrowType, Precision, DateUnit, TimeUnit, IntervalUnit, UnionMode } from '../enum';
+import { Type as ArrowType } from '../fb/Schema';
+import { Precision, DateUnit, TimeUnit, IntervalUnit, UnionMode } from '../enum';
 
 /** @ignore */
 export interface JSONTypeAssembler extends Visitor {
-    visit<T extends type.DataType>(node: T): object | undefined;
+    visit<T extends type.DataType>(node: T): Record<string, unknown> | undefined;
 }
 
 /** @ignore */
 export class JSONTypeAssembler extends Visitor {
-    public visit<T extends type.DataType>(node: T): object | undefined {
+    public visit<T extends type.DataType>(node: T): Record<string, unknown> | undefined {
         return node == null ? undefined : super.visit(node);
     }
     public visitNull<T extends type.Null>({ typeId }: T) {

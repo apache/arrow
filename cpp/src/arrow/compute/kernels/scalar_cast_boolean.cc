@@ -31,17 +31,17 @@ namespace internal {
 
 struct IsNonZero {
   template <typename OutValue, typename Arg0Value>
-  static OutValue Call(KernelContext*, Arg0Value val) {
+  static OutValue Call(KernelContext*, Arg0Value val, Status*) {
     return val != 0;
   }
 };
 
 struct ParseBooleanString {
   template <typename OutValue, typename Arg0Value>
-  static OutValue Call(KernelContext* ctx, Arg0Value val) {
+  static OutValue Call(KernelContext*, Arg0Value val, Status* st) {
     bool result = false;
     if (ARROW_PREDICT_FALSE(!ParseValue<BooleanType>(val.data(), val.size(), &result))) {
-      ctx->SetStatus(Status::Invalid("Failed to parse value: ", val));
+      *st = Status::Invalid("Failed to parse value: ", val);
     }
     return result;
   }
@@ -50,6 +50,7 @@ struct ParseBooleanString {
 std::vector<std::shared_ptr<CastFunction>> GetBooleanCasts() {
   auto func = std::make_shared<CastFunction>("cast_boolean", Type::BOOL);
   AddCommonCasts(Type::BOOL, boolean(), func.get());
+  AddZeroCopyCast(Type::BOOL, boolean(), boolean(), func.get());
 
   for (const auto& ty : NumericTypes()) {
     ArrayKernelExec exec =

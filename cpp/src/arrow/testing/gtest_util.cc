@@ -26,12 +26,14 @@
 
 #include <algorithm>
 #include <chrono>
+#include <condition_variable>
 #include <cstdint>
 #include <cstdlib>
 #include <iostream>
 #include <limits>
 #include <locale>
 #include <memory>
+#include <mutex>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -47,8 +49,10 @@
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/windows_compatibility.h"
 
 namespace arrow {
 
@@ -129,20 +133,21 @@ void AssertArraysEqualWith(const Array& expected, const Array& actual, bool verb
   }
 }
 
-void AssertArraysEqual(const Array& expected, const Array& actual, bool verbose) {
+void AssertArraysEqual(const Array& expected, const Array& actual, bool verbose,
+                       const EqualOptions& options) {
   return AssertArraysEqualWith(
       expected, actual, verbose,
-      [](const Array& expected, const Array& actual, std::stringstream* diff) {
-        return expected.Equals(actual, EqualOptions().diff_sink(diff));
+      [&](const Array& expected, const Array& actual, std::stringstream* diff) {
+        return expected.Equals(actual, options.diff_sink(diff));
       });
 }
 
 void AssertArraysApproxEqual(const Array& expected, const Array& actual, bool verbose,
-                             const EqualOptions& option) {
+                             const EqualOptions& options) {
   return AssertArraysEqualWith(
       expected, actual, verbose,
-      [&option](const Array& expected, const Array& actual, std::stringstream* diff) {
-        return expected.ApproxEquals(actual, option.diff_sink(diff));
+      [&](const Array& expected, const Array& actual, std::stringstream* diff) {
+        return expected.ApproxEquals(actual, options.diff_sink(diff));
       });
 }
 
@@ -207,6 +212,20 @@ void AssertChunkedEquivalent(const ChunkedArray& expected, const ChunkedArray& a
   // XXX: AssertChunkedEqual in gtest_util.h does not permit the chunk layouts
   // to be different
   if (!actual.Equals(expected)) {
+    std::stringstream pp_expected;
+    std::stringstream pp_actual;
+    ::arrow::PrettyPrintOptions options(/*indent=*/2);
+    options.window = 50;
+    ARROW_EXPECT_OK(PrettyPrint(expected, options, &pp_expected));
+    ARROW_EXPECT_OK(PrettyPrint(actual, options, &pp_actual));
+    FAIL() << "Got: \n" << pp_actual.str() << "\nExpected: \n" << pp_expected.str();
+  }
+}
+
+void AssertChunkedApproxEquivalent(const ChunkedArray& expected,
+                                   const ChunkedArray& actual,
+                                   const EqualOptions& equal_options) {
+  if (!actual.ApproxEquals(expected, equal_options)) {
     std::stringstream pp_expected;
     std::stringstream pp_actual;
     ::arrow::PrettyPrintOptions options(/*indent=*/2);
@@ -356,6 +375,34 @@ void AssertDatumsEqual(const Datum& expected, const Datum& actual, bool verbose)
   }
 }
 
+void AssertDatumsApproxEqual(const Datum& expected, const Datum& actual, bool verbose,
+                             const EqualOptions& options) {
+  ASSERT_EQ(expected.kind(), actual.kind())
+      << "expected:" << expected.ToString() << " got:" << actual.ToString();
+
+  switch (expected.kind()) {
+    case Datum::SCALAR:
+      AssertScalarsApproxEqual(*expected.scalar(), *actual.scalar(), verbose, options);
+      break;
+    case Datum::ARRAY: {
+      auto expected_array = expected.make_array();
+      auto actual_array = actual.make_array();
+      AssertArraysApproxEqual(*expected_array, *actual_array, verbose, options);
+      break;
+    }
+    case Datum::CHUNKED_ARRAY: {
+      auto expected_array = expected.chunked_array();
+      auto actual_array = actual.chunked_array();
+      AssertChunkedApproxEquivalent(*expected_array, *actual_array, options);
+      break;
+    }
+    default:
+      // TODO: Implement better print
+      ASSERT_TRUE(actual.Equals(expected));
+      break;
+  }
+}
+
 std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>& type,
                                      util::string_view json) {
   std::shared_ptr<Array> out;
@@ -389,6 +436,13 @@ std::shared_ptr<RecordBatch> RecordBatchFromJSON(const std::shared_ptr<Schema>& 
 
   // Convert StructArray to RecordBatch
   return *RecordBatch::FromStructArray(struct_array);
+}
+
+std::shared_ptr<Scalar> ScalarFromJSON(const std::shared_ptr<DataType>& type,
+                                       util::string_view json) {
+  std::shared_ptr<Scalar> out;
+  ABORT_NOT_OK(ipc::internal::json::ScalarFromJSON(type, json, &out));
+  return out;
 }
 
 std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>& schema,
@@ -499,6 +553,19 @@ void ApproxCompareBatch(const RecordBatch& left, const RecordBatch& right,
       [](const Array& left, const Array& right) { return left.ApproxEquals(right); });
 }
 
+std::shared_ptr<Array> TweakValidityBit(const std::shared_ptr<Array>& array,
+                                        int64_t index, bool validity) {
+  auto data = array->data()->Copy();
+  if (data->buffers[0] == nullptr) {
+    data->buffers[0] = *AllocateBitmap(data->length);
+    BitUtil::SetBitsTo(data->buffers[0]->mutable_data(), 0, data->length, true);
+  }
+  BitUtil::SetBitTo(data->buffers[0]->mutable_data(), index, validity);
+  data->null_count = kUnknownNullCount;
+  // Need to return a new array, because Array caches the null bitmap pointer
+  return MakeArray(data);
+}
+
 class LocaleGuard::Impl {
  public:
   explicit Impl(const char* new_locale) : global_locale_(std::locale()) {
@@ -539,6 +606,24 @@ EnvVarGuard::~EnvVarGuard() {
   }
 }
 
+struct SignalHandlerGuard::Impl {
+  int signum_;
+  internal::SignalHandler old_handler_;
+
+  Impl(int signum, const internal::SignalHandler& handler)
+      : signum_(signum), old_handler_(*internal::SetSignalHandler(signum, handler)) {}
+
+  ~Impl() { ARROW_EXPECT_OK(internal::SetSignalHandler(signum_, old_handler_)); }
+};
+
+SignalHandlerGuard::SignalHandlerGuard(int signum, Callback cb)
+    : SignalHandlerGuard(signum, internal::SignalHandler(cb)) {}
+
+SignalHandlerGuard::SignalHandlerGuard(int signum, const internal::SignalHandler& handler)
+    : impl_(new Impl{signum, handler}) {}
+
+SignalHandlerGuard::~SignalHandlerGuard() = default;
+
 namespace {
 
 // Used to prevent compiler optimizing away side-effect-less statements
@@ -558,22 +643,91 @@ void AssertZeroPadded(const Array& array) {
   }
 }
 
-void TestInitialized(const Array& array) {
-  for (const auto& buffer : array.data()->buffers) {
+void TestInitialized(const Array& array) { TestInitialized(*array.data()); }
+
+void TestInitialized(const ArrayData& array) {
+  uint8_t total = 0;
+  for (const auto& buffer : array.buffers) {
     if (buffer && buffer->capacity() > 0) {
-      int total = 0;
       auto data = buffer->data();
       for (int64_t i = 0; i < buffer->size(); ++i) {
         total ^= data[i];
       }
-      throw_away = total;
     }
+  }
+  uint8_t total_bit = 0;
+  for (uint32_t mask = 1; mask < 256; mask <<= 1) {
+    total_bit ^= (total & mask) != 0;
+  }
+  // This is a dummy condition on all the bits of `total` (which depend on the
+  // entire buffer data).  If not all bits are well-defined, Valgrind will
+  // error with "Conditional jump or move depends on uninitialised value(s)".
+  if (total_bit == 0) {
+    ++throw_away;
+  }
+  for (const auto& child : array.child_data) {
+    TestInitialized(*child);
+  }
+  if (array.dictionary) {
+    TestInitialized(*array.dictionary);
   }
 }
 
 void SleepFor(double seconds) {
   std::this_thread::sleep_for(
       std::chrono::nanoseconds(static_cast<int64_t>(seconds * 1e9)));
+}
+
+#ifdef _WIN32
+void SleepABit() {
+  LARGE_INTEGER freq, start, now;
+  QueryPerformanceFrequency(&freq);
+  // 1 ms
+  auto desired = freq.QuadPart / 1000;
+  if (desired <= 0) {
+    // Fallback to STL sleep if high resolution clock not available, tests may fail,
+    // shouldn't really happen
+    SleepFor(1e-3);
+    return;
+  }
+  QueryPerformanceCounter(&start);
+  while (true) {
+    std::this_thread::yield();
+    QueryPerformanceCounter(&now);
+    auto elapsed = now.QuadPart - start.QuadPart;
+    if (elapsed > desired) {
+      break;
+    }
+  }
+}
+#else
+// std::this_thread::sleep_for should be high enough resolution on non-Windows systems
+void SleepABit() { SleepFor(1e-3); }
+#endif
+
+void BusyWait(double seconds, std::function<bool()> predicate) {
+  const double period = 0.001;
+  for (int i = 0; !predicate() && i * period < seconds; ++i) {
+    SleepFor(period);
+  }
+}
+
+Future<> SleepAsync(double seconds) {
+  auto out = Future<>::Make();
+  std::thread([out, seconds]() mutable {
+    SleepFor(seconds);
+    out.MarkFinished();
+  }).detach();
+  return out;
+}
+
+Future<> SleepABitAsync() {
+  auto out = Future<>::Make();
+  std::thread([out]() mutable {
+    SleepABit();
+    out.MarkFinished();
+  }).detach();
+  return out;
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -690,6 +844,90 @@ ExtensionTypeGuard::~ExtensionTypeGuard() {
   if (!extension_name_.empty()) {
     ARROW_CHECK_OK(UnregisterExtensionType(extension_name_));
   }
+}
+
+class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
+ public:
+  explicit Impl(double timeout_seconds)
+      : timeout_seconds_(timeout_seconds), status_(), unlocked_(false) {}
+
+  ~Impl() {
+    if (num_running_ != num_launched_) {
+      ADD_FAILURE()
+          << "A GatingTask instance was destroyed but some underlying tasks did not "
+             "start running"
+          << std::endl;
+    } else if (num_finished_ != num_launched_) {
+      ADD_FAILURE()
+          << "A GatingTask instance was destroyed but some underlying tasks did not "
+             "finish running"
+          << std::endl;
+    }
+  }
+
+  std::function<void()> Task() {
+    num_launched_++;
+    auto self = shared_from_this();
+    return [self] { self->RunTask(); };
+  }
+
+  void RunTask() {
+    std::unique_lock<std::mutex> lk(mx_);
+    num_running_++;
+    running_cv_.notify_all();
+    if (!unlocked_cv_.wait_for(
+            lk, std::chrono::nanoseconds(static_cast<int64_t>(timeout_seconds_ * 1e9)),
+            [this] { return unlocked_; })) {
+      status_ &= Status::Invalid("Timed out (" + std::to_string(timeout_seconds_) + "," +
+                                 std::to_string(unlocked_) +
+                                 " seconds) waiting for the gating task to be unlocked");
+    }
+    num_finished_++;
+    finished_cv_.notify_all();
+  }
+
+  Status WaitForRunning(int count) {
+    std::unique_lock<std::mutex> lk(mx_);
+    if (running_cv_.wait_for(
+            lk, std::chrono::nanoseconds(static_cast<int64_t>(timeout_seconds_ * 1e9)),
+            [this, count] { return num_running_ >= count; })) {
+      return Status::OK();
+    }
+    return Status::Invalid("Timed out waiting for tasks to launch");
+  }
+
+  Status Unlock() {
+    std::lock_guard<std::mutex> lk(mx_);
+    unlocked_ = true;
+    unlocked_cv_.notify_all();
+    return status_;
+  }
+
+ private:
+  double timeout_seconds_;
+  Status status_;
+  bool unlocked_;
+  int num_launched_ = 0;
+  int num_running_ = 0;
+  int num_finished_ = 0;
+  std::mutex mx_;
+  std::condition_variable running_cv_;
+  std::condition_variable unlocked_cv_;
+  std::condition_variable finished_cv_;
+};
+
+GatingTask::GatingTask(double timeout_seconds) : impl_(new Impl(timeout_seconds)) {}
+
+GatingTask::~GatingTask() {}
+
+std::function<void()> GatingTask::Task() { return impl_->Task(); }
+
+Status GatingTask::Unlock() { return impl_->Unlock(); }
+
+Status GatingTask::WaitForRunning(int count) { return impl_->WaitForRunning(count); }
+
+std::shared_ptr<GatingTask> GatingTask::Make(double timeout_seconds) {
+  return std::make_shared<GatingTask>(timeout_seconds);
 }
 
 }  // namespace arrow

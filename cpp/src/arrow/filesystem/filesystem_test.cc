@@ -28,6 +28,7 @@
 #include "arrow/filesystem/test_util.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
 namespace fs {
@@ -267,21 +268,28 @@ TEST(PathUtil, ToSlashes) {
 ////////////////////////////////////////////////////////////////////////////
 // Generic MockFileSystem tests
 
+template <typename MockFileSystemType>
 class TestMockFSGeneric : public ::testing::Test, public GenericFileSystemTest {
  public:
   void SetUp() override {
     time_ = TimePoint(TimePoint::duration(42));
-    fs_ = std::make_shared<MockFileSystem>(time_);
+    fs_ = std::make_shared<MockFileSystemType>(time_);
   }
 
  protected:
   std::shared_ptr<FileSystem> GetEmptyFileSystem() override { return fs_; }
 
+  bool have_file_metadata() const override { return true; }
+
   TimePoint time_;
-  std::shared_ptr<MockFileSystem> fs_;
+  std::shared_ptr<FileSystem> fs_;
 };
 
-GENERIC_FS_TEST_FUNCTIONS(TestMockFSGeneric);
+using MockFileSystemTypes = ::testing::Types<MockFileSystem, MockAsyncFileSystem>;
+
+TYPED_TEST_SUITE(TestMockFSGeneric, MockFileSystemTypes);
+
+GENERIC_FS_TYPED_TEST_FUNCTIONS(TestMockFSGeneric);
 
 ////////////////////////////////////////////////////////////////////////////
 // Concrete MockFileSystem tests
@@ -451,6 +459,18 @@ TEST_F(TestMockFS, OpenOutputStream) {
   ASSERT_OK(stream->Close());
   CheckDirs({});
   CheckFiles({{"ab", time_, ""}});
+
+  // With metadata
+  auto metadata = KeyValueMetadata::Make({"some key"}, {"some value"});
+  ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("cd", metadata));
+  ASSERT_OK(WriteString(stream.get(), "data"));
+  ASSERT_OK(stream->Close());
+  CheckFiles({{"ab", time_, ""}, {"cd", time_, "data"}});
+
+  ASSERT_OK_AND_ASSIGN(auto input, fs_->OpenInputStream("cd"));
+  ASSERT_OK_AND_ASSIGN(auto got_metadata, input->ReadMetadata());
+  ASSERT_NE(got_metadata, nullptr);
+  ASSERT_TRUE(got_metadata->Equals(*metadata));
 }
 
 TEST_F(TestMockFS, OpenAppendStream) {

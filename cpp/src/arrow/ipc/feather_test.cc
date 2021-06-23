@@ -52,6 +52,12 @@ struct TestParam {
   Compression::type compression;
 };
 
+void PrintTo(const TestParam& p, std::ostream* os) {
+  *os << "{version = " << p.version
+      << ", compression = " << ::arrow::util::Codec::GetCodecAsString(p.compression)
+      << "}";
+}
+
 class TestFeatherBase {
  public:
   void SetUp() { Initialize(); }

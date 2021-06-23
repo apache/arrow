@@ -211,6 +211,19 @@ static std::string FormatValueDescr(const ValueDescr& descr) {
 
 std::string ValueDescr::ToString() const { return FormatValueDescr(*this); }
 
+std::string ValueDescr::ToString(const std::vector<ValueDescr>& descrs) {
+  std::stringstream ss;
+  ss << "(";
+  for (size_t i = 0; i < descrs.size(); ++i) {
+    if (i > 0) {
+      ss << ", ";
+    }
+    ss << descrs[i].ToString();
+  }
+  ss << ")";
+  return ss.str();
+}
+
 void PrintTo(const ValueDescr& descr, std::ostream* os) { *os << descr.ToString(); }
 
 std::string Datum::ToString() const {

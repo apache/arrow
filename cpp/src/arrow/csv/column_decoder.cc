@@ -84,7 +84,7 @@ class ConcreteColumnDecoder : public ColumnDecoder {
     auto chunk_index = next_chunk_++;
     WaitForChunkUnlocked(chunk_index);
     // Move Future to avoid keeping chunk alive
-    return std::move(chunks_[chunk_index]).result();
+    return chunks_[chunk_index].MoveResult();
   }
 
  protected:

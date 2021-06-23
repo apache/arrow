@@ -18,29 +18,30 @@
 import { flatbuffers } from 'flatbuffers';
 import Long = flatbuffers.Long;
 import Builder = flatbuffers.Builder;
-import * as Schema_ from '../fb/Schema';
 
 import * as type from '../type';
 import { Visitor } from '../visitor';
 
-import Null = Schema_.org.apache.arrow.flatbuf.Null;
-import Int = Schema_.org.apache.arrow.flatbuf.Int;
-import FloatingPoint = Schema_.org.apache.arrow.flatbuf.FloatingPoint;
-import Binary = Schema_.org.apache.arrow.flatbuf.Binary;
-import Bool = Schema_.org.apache.arrow.flatbuf.Bool;
-import Utf8 = Schema_.org.apache.arrow.flatbuf.Utf8;
-import Decimal = Schema_.org.apache.arrow.flatbuf.Decimal;
-import Date = Schema_.org.apache.arrow.flatbuf.Date;
-import Time = Schema_.org.apache.arrow.flatbuf.Time;
-import Timestamp = Schema_.org.apache.arrow.flatbuf.Timestamp;
-import Interval = Schema_.org.apache.arrow.flatbuf.Interval;
-import List = Schema_.org.apache.arrow.flatbuf.List;
-import Struct = Schema_.org.apache.arrow.flatbuf.Struct_;
-import Union = Schema_.org.apache.arrow.flatbuf.Union;
-import DictionaryEncoding = Schema_.org.apache.arrow.flatbuf.DictionaryEncoding;
-import FixedSizeBinary = Schema_.org.apache.arrow.flatbuf.FixedSizeBinary;
-import FixedSizeList = Schema_.org.apache.arrow.flatbuf.FixedSizeList;
-import Map_ = Schema_.org.apache.arrow.flatbuf.Map;
+import {
+    Null,
+    Int,
+    FloatingPoint,
+    Binary,
+    Bool,
+    Utf8,
+    Decimal,
+    Date,
+    Time,
+    Timestamp,
+    Interval,
+    List,
+    Struct_ as Struct,
+    Union,
+    DictionaryEncoding,
+    FixedSizeBinary,
+    FixedSizeList,
+    Map as Map_,
+} from '../fb/Schema';
 
 /** @ignore */
 export interface TypeAssembler extends Visitor {

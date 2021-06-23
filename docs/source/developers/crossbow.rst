@@ -91,7 +91,7 @@ Install
    authentication. Although it overwrites the repository urls provided with ssh
    protocol, it's advisable to use the HTTPS repository URLs.
 
-4. `Create a Personal Access Token`_ with ``repo`` permissions (other
+4. `Create a Personal Access Token`_ with ``repo`` and ``workflow`` permissions (other
    permissions are not needed)
 
 5. Locally export the token as an environment variable:
@@ -125,30 +125,17 @@ Install
    Miniconda is preferred, see installation instructions:
    https://conda.io/docs/user-guide/install/index.html
 
-8. Install the python dependencies for the script:
+8. Install the archery toolset containing crossbow itself:
 
    .. code:: bash
 
-      conda install -c conda-forge -y --file arrow/ci/conda_env_crossbow.txt
-
-   .. code:: bash
-
-      # pygit2 requires libgit2: http://www.pygit2.org/install.html
-      pip install \
-          jinja2 \
-          pygit2 \
-          click \
-          ruamel.yaml \
-          setuptools_scm \
-          github3.py \
-          toolz \
-          jira
+      pip install -e arrow/dev/archery[crossbow]
 
 9. Try running it:
 
    .. code:: bash
 
-      $ python crossbow.py --help
+      $ archery crossbow --help
 
 Usage
 -----
@@ -165,8 +152,8 @@ The script does the following:
       $ git clone https://github.com/kszucs/crossbow
 
       $ cd arrow/dev/tasks
-      $ python crossbow.py submit --help  # show the available options
-      $ python crossbow.py submit conda-win conda-linux conda-osx
+      $ archery crossbow submit --help  # show the available options
+      $ archery crossbow submit conda-win conda-linux conda-osx
 
 2. Gets the HEAD commit of the currently checked out branch and
    generates the version number based on `setuptools_scm`_. So to build
@@ -175,7 +162,7 @@ The script does the following:
    .. code:: bash
 
       git checkout ARROW-<ticket number>
-      python dev/tasks/crossbow.py submit --dry-run conda-linux conda-osx
+      archery crossbow submit --dry-run conda-linux conda-osx
 
    ..
 
@@ -201,14 +188,14 @@ by the ``submit`` command.
 
 .. code:: bash
 
-   python crossbow.py status <build id / branch name>
+   archery crossbow status <build id / branch name>
 
 Download the build artifacts
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code:: bash
 
-   python crossbow.py artifacts <build id / branch name>
+   archery crossbow artifacts <build id / branch name>
 
 Examples
 ~~~~~~~~
@@ -220,7 +207,7 @@ Run multiple builds:
 
 .. code:: bash
 
-   $ python crossbow.py submit debian-stretch conda-linux-gcc-py37-r40
+   $ archery crossbow submit debian-stretch conda-linux-gcc-py37-r40
    Repository: https://github.com/kszucs/arrow@tasks
    Commit SHA: 810a718836bb3a8cefc053055600bdcc440e6702
    Version: 0.9.1.dev48+g810a7188.d20180414
@@ -232,35 +219,34 @@ Just render without applying or committing the changes:
 
 .. code:: bash
 
-   $ python crossbow.py submit --dry-run task_name
+   $ archery crossbow submit --dry-run task_name
 
 Run only ``conda`` package builds and a Linux one:
 
 .. code:: bash
 
-   $ python crossbow.py submit --group conda centos-7
+   $ archery crossbow submit --group conda centos-7
 
 Run ``wheel`` builds:
 
 .. code:: bash
 
-   $ python crossbow.py submit --group wheel
+   $ archery crossbow submit --group wheel
 
 There are multiple task groups in the ``tasks.yml`` like docker, integration
 and cpp-python for running docker based tests.
 
-``python crossbow.py submit`` supports multiple options and arguments, for more
+``archery crossbow submit`` supports multiple options and arguments, for more
 see its help page:
 
 .. code:: bash
 
-  $ python crossbow.py submit --help
+  $ archery crossbow submit --help
 
 
 .. _conda-forge packages: conda-recipes
 .. _Wheels: python-wheels
 .. _Linux packages: linux-packages
-.. _Crossbow.py: crossbow.py
 .. _Create the queue repository: https://help.github.com/articles/creating-a-new-repository
 .. _TravisCI: https://travis-ci.org/getting_started
 .. _Appveyor: https://www.appveyor.com/docs/

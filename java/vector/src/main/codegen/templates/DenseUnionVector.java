@@ -84,10 +84,7 @@ import static org.apache.arrow.vector.types.UnionMode.Dense;
  * each time the vector is accessed.
  * Source code generated using FreeMarker template ${.template_name}
  */
-public class DenseUnionVector implements FieldVector {
-
-  private String name;
-  private BufferAllocator allocator;
+public class DenseUnionVector extends AbstractContainerVector implements FieldVector {
   int valueCount;
 
   NonNullableStructVector internalStruct;
@@ -109,13 +106,12 @@ public class DenseUnionVector implements FieldVector {
   private byte[] typeMapFields = new byte[Byte.MAX_VALUE + 1];
 
   /**
-   * The next typd id to allocate.
+   * The next type id to allocate.
    */
   private byte nextTypeId = 0;
 
   private FieldReader reader;
 
-  private final CallBack callBack;
   private long typeBufferAllocationSizeInBytes;
   private long offsetBufferAllocationSizeInBytes;
 
@@ -134,8 +130,7 @@ public class DenseUnionVector implements FieldVector {
   }
 
   public DenseUnionVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
-    this.name = name;
-    this.allocator = allocator;
+    super(name, allocator, callBack);
     this.fieldType = fieldType;
     this.internalStruct = new NonNullableStructVector(
         "internal",
@@ -145,7 +140,6 @@ public class DenseUnionVector implements FieldVector {
         AbstractStructVector.ConflictPolicy.CONFLICT_REPLACE,
         false);
     this.typeBuffer = allocator.getEmpty();
-    this.callBack = callBack;
     this.typeBufferAllocationSizeInBytes = BaseValueVector.INITIAL_VALUE_ALLOCATION * TYPE_WIDTH;
     this.offsetBuffer = allocator.getEmpty();
     this.offsetBufferAllocationSizeInBytes = BaseValueVector.INITIAL_VALUE_ALLOCATION * OFFSET_WIDTH;
@@ -340,6 +334,22 @@ public class DenseUnionVector implements FieldVector {
       }
     }
     return listVector;
+  }
+
+  public MapVector getMap(byte typeId) {
+    MapVector mapVector = typeId < 0 ? null : (MapVector) childVectors[typeId];
+    if (mapVector == null) {
+      int vectorCount = internalStruct.size();
+      mapVector = addOrGet(typeId, MinorType.MAP, MapVector.class);
+      if (internalStruct.size() > vectorCount) {
+        mapVector.allocateNew();
+        childVectors[typeId] = mapVector;
+        if (callBack != null) {
+          callBack.doWork();
+        }
+      }
+    }
+    return mapVector;
   }
 
   public byte getTypeId(int index) {
@@ -559,7 +569,7 @@ public class DenseUnionVector implements FieldVector {
   }
 
   public FieldVector addVector(byte typeId, FieldVector v) {
-    String name = fieldName(typeId, v.getMinorType());
+    final String name = v.getName().isEmpty() ? fieldName(typeId, v.getMinorType()) : v.getName();
     Preconditions.checkState(internalStruct.getChild(name) == null, String.format("%s vector already exists", name));
     final FieldVector newVector = internalStruct.addOrGet(name, v.getField().getFieldType(), v.getClass());
     v.makeTransferPair(newVector).transfer();
@@ -891,6 +901,37 @@ public class DenseUnionVector implements FieldVector {
   private void setNegative(long start, long end) {
     for (long i = start;i < end; i++) {
       typeBuffer.setByte(i, -1);
+    }
+  }
+
+  @Override
+  public <T extends FieldVector> T addOrGet(String name, FieldType fieldType, Class<T> clazz) {
+    return internalStruct.addOrGet(name, fieldType, clazz);
+  }
+
+  @Override
+  public <T extends FieldVector> T getChild(String name, Class<T> clazz) {
+    return internalStruct.getChild(name, clazz);
+  }
+
+  @Override
+  public VectorWithOrdinal getChildVectorWithOrdinal(String name) {
+    return internalStruct.getChildVectorWithOrdinal(name);
+  }
+
+  @Override
+  public int size() {
+    return internalStruct.size();
+  }
+
+  @Override
+  public void setInitialCapacity(int valueCount, double density) {
+    for (final ValueVector vector : internalStruct) {
+      if (vector instanceof DensityAwareVector) {
+        ((DensityAwareVector) vector).setInitialCapacity(valueCount, density);
+      } else {
+        vector.setInitialCapacity(valueCount);
+      }
     }
   }
 }

@@ -15,15 +15,27 @@
 # specific language governing permissions and limitations
 # under the License.
 
+build_features <- c(
+  arrow_info()$capabilities,
+  # Special handling for "uncompressed", for tests that iterate over compressions
+  uncompressed = TRUE
+)
+
 skip_if_not_available <- function(feature) {
-  if (feature == "s3") {
-    skip_if_not(arrow_with_s3())
-  } else if (!codec_is_available(feature)) {
-    skip(paste("Arrow C++ not built with support for", feature))
+  if (feature == "re2") {
+    # RE2 does not support valgrind (on purpose): https://github.com/google/re2/issues/177
+    skip_on_valgrind()
+  }
+
+  yes <- feature %in% names(build_features) && build_features[feature]
+  if (!yes) {
+    skip(paste("Arrow C++ not built with", feature))
   }
 }
 
 skip_if_no_pyarrow <- function() {
+  skip_on_valgrind()
+
   skip_if_not_installed("reticulate")
   if (!reticulate::py_module_available("pyarrow")) {
     skip("pyarrow not available for testing")
@@ -42,6 +54,18 @@ skip_if_not_running_large_memory_tests <- function() {
     identical(tolower(Sys.getenv("ARROW_LARGE_MEMORY_TESTS")), "true"),
     "environment variable ARROW_LARGE_MEMORY_TESTS"
   )
+}
+
+skip_on_valgrind <- function() {
+  # This does not actually skip on valgrind because we can't exactly detect it.
+  # Instead, it skips on CRAN when the OS is linux + and the R version is development 
+  # (which is where valgrind is run as of this code)
+  linux_dev <- identical(tolower(Sys.info()[["sysname"]]), "linux") &&
+    grepl("devel", R.version.string)
+
+  if (linux_dev) {
+    skip_on_cran()
+  }
 }
 
 process_is_running <- function(x) {

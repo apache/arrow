@@ -22,7 +22,7 @@ from libc.string cimport const_char
 from libcpp.vector cimport vector as std_vector
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport (CArray, CSchema, CStatus,
-                                        CTable, CMemoryPool,
+                                        CResult, CTable, CMemoryPool,
                                         CKeyValueMetadata,
                                         CRecordBatch,
                                         CTable,
@@ -39,6 +39,8 @@ cdef extern from "arrow/adapters/orc/adapter.h" \
                      CMemoryPool* pool,
                      unique_ptr[ORCFileReader]* reader)
 
+        CResult[shared_ptr[const CKeyValueMetadata]] ReadMetadata()
+
         CStatus ReadSchema(shared_ptr[CSchema]* out)
 
         CStatus ReadStripe(int64_t stripe, shared_ptr[CRecordBatch]* out)
@@ -51,3 +53,11 @@ cdef extern from "arrow/adapters/orc/adapter.h" \
         int64_t NumberOfStripes()
 
         int64_t NumberOfRows()
+
+    cdef cppclass ORCFileWriter:
+        @staticmethod
+        CResult[unique_ptr[ORCFileWriter]] Open(COutputStream* output_stream)
+
+        CStatus Write(const CTable& table)
+
+        CStatus Close()

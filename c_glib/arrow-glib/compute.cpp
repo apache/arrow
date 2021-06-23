@@ -17,10 +17,6 @@
  * under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#  include <config.h>
-#endif
-
 #include <sstream>
 
 #include <arrow-glib/array.hpp>
@@ -134,8 +130,9 @@ G_BEGIN_DECLS
  * #GArrowCastOptions is a class to customize the `cast` function and
  * garrow_array_cast().
  *
- * #GArrowCountOptions is a class to customize the `count` function and
- * garrow_array_count().
+ * #GArrowScalarAggregateOptions is a class to customize the scalar
+ * aggregate functions such as `count` function and convenient
+ * functions of them such as garrow_array_count().
  *
  * #GArrowFilterOptions is a class to customize the `filter` function and
  * garrow_array_filter() family.
@@ -529,7 +526,7 @@ garrow_cast_options_class_init(GArrowCastOptionsClass *klass)
   /**
    * GArrowCastOptions:to-data-type:
    *
-   * The GArrowDataType being casted to.
+   * The #GArrowDataType being casted to.
    *
    * Since: 1.0.0
    */
@@ -640,60 +637,65 @@ garrow_cast_options_new(void)
 }
 
 
-typedef struct GArrowCountOptionsPrivate_ {
-  arrow::compute::CountOptions options;
-} GArrowCountOptionsPrivate;
+typedef struct GArrowScalarAggregateOptionsPrivate_ {
+  arrow::compute::ScalarAggregateOptions options;
+} GArrowScalarAggregateOptionsPrivate;
 
 enum {
-  PROP_MODE = 1,
+  PROP_SKIP_NULLS = 1,
+  PROP_MIN_COUNT,
 };
 
 static arrow::compute::FunctionOptions *
-garrow_count_options_get_raw_function_options(GArrowFunctionOptions *options)
+garrow_scalar_aggregate_options_get_raw_function_options(
+  GArrowFunctionOptions *options)
 {
-  return garrow_count_options_get_raw(GARROW_COUNT_OPTIONS(options));
+  return garrow_scalar_aggregate_options_get_raw(
+    GARROW_SCALAR_AGGREGATE_OPTIONS(options));
 }
 
 static void
-garrow_count_options_function_options_interface_init(
+garrow_scalar_aggregate_options_function_options_interface_init(
   GArrowFunctionOptionsInterface *iface)
 {
-  iface->get_raw = garrow_count_options_get_raw_function_options;
+  iface->get_raw = garrow_scalar_aggregate_options_get_raw_function_options;
 }
 
-G_DEFINE_TYPE_WITH_CODE(GArrowCountOptions,
-                        garrow_count_options,
+G_DEFINE_TYPE_WITH_CODE(GArrowScalarAggregateOptions,
+                        garrow_scalar_aggregate_options,
                         G_TYPE_OBJECT,
-                        G_ADD_PRIVATE(GArrowCountOptions)
+                        G_ADD_PRIVATE(GArrowScalarAggregateOptions)
                         G_IMPLEMENT_INTERFACE(
                           GARROW_TYPE_FUNCTION_OPTIONS,
-                          garrow_count_options_function_options_interface_init))
+                          garrow_scalar_aggregate_options_function_options_interface_init))
 
-#define GARROW_COUNT_OPTIONS_GET_PRIVATE(object)        \
-  static_cast<GArrowCountOptionsPrivate *>(             \
-    garrow_count_options_get_instance_private(          \
-      GARROW_COUNT_OPTIONS(object)))
+#define GARROW_SCALAR_AGGREGATE_OPTIONS_GET_PRIVATE(object)        \
+  static_cast<GArrowScalarAggregateOptionsPrivate *>(              \
+    garrow_scalar_aggregate_options_get_instance_private(          \
+      GARROW_SCALAR_AGGREGATE_OPTIONS(object)))
 
 static void
-garrow_count_options_finalize(GObject *object)
+garrow_scalar_aggregate_options_finalize(GObject *object)
 {
-  auto priv = GARROW_COUNT_OPTIONS_GET_PRIVATE(object);
-  priv->options.~CountOptions();
-  G_OBJECT_CLASS(garrow_count_options_parent_class)->finalize(object);
+  auto priv = GARROW_SCALAR_AGGREGATE_OPTIONS_GET_PRIVATE(object);
+  priv->options.~ScalarAggregateOptions();
+  G_OBJECT_CLASS(garrow_scalar_aggregate_options_parent_class)->finalize(object);
 }
 
 static void
-garrow_count_options_set_property(GObject *object,
-                                  guint prop_id,
-                                  const GValue *value,
-                                  GParamSpec *pspec)
+garrow_scalar_aggregate_options_set_property(GObject *object,
+                                             guint prop_id,
+                                             const GValue *value,
+                                             GParamSpec *pspec)
 {
-  auto priv = GARROW_COUNT_OPTIONS_GET_PRIVATE(object);
+  auto priv = GARROW_SCALAR_AGGREGATE_OPTIONS_GET_PRIVATE(object);
 
   switch (prop_id) {
-  case PROP_MODE:
-    priv->options.count_mode =
-      static_cast<arrow::compute::CountOptions::Mode>(g_value_get_enum(value));
+  case PROP_SKIP_NULLS:
+    priv->options.skip_nulls = g_value_get_boolean(value);
+    break;
+  case PROP_MIN_COUNT:
+    priv->options.min_count = g_value_get_uint(value);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -702,16 +704,19 @@ garrow_count_options_set_property(GObject *object,
 }
 
 static void
-garrow_count_options_get_property(GObject *object,
-                                 guint prop_id,
-                                 GValue *value,
-                                 GParamSpec *pspec)
+garrow_scalar_aggregate_options_get_property(GObject *object,
+                                             guint prop_id,
+                                             GValue *value,
+                                             GParamSpec *pspec)
 {
-  auto priv = GARROW_COUNT_OPTIONS_GET_PRIVATE(object);
+  auto priv = GARROW_SCALAR_AGGREGATE_OPTIONS_GET_PRIVATE(object);
 
   switch (prop_id) {
-  case PROP_MODE:
-    g_value_set_enum(value, priv->options.count_mode);
+  case PROP_SKIP_NULLS:
+    g_value_set_boolean(value, priv->options.skip_nulls);
+    break;
+  case PROP_MIN_COUNT:
+    g_value_set_uint(value, priv->options.min_count);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -720,51 +725,69 @@ garrow_count_options_get_property(GObject *object,
 }
 
 static void
-garrow_count_options_init(GArrowCountOptions *object)
+garrow_scalar_aggregate_options_init(GArrowScalarAggregateOptions *object)
 {
-  auto priv = GARROW_COUNT_OPTIONS_GET_PRIVATE(object);
-  new(&priv->options) arrow::compute::CountOptions(
-    arrow::compute::CountOptions::COUNT_NON_NULL);
+  auto priv = GARROW_SCALAR_AGGREGATE_OPTIONS_GET_PRIVATE(object);
+  new(&priv->options) arrow::compute::ScalarAggregateOptions();
 }
 
 static void
-garrow_count_options_class_init(GArrowCountOptionsClass *klass)
+garrow_scalar_aggregate_options_class_init(
+  GArrowScalarAggregateOptionsClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->finalize     = garrow_count_options_finalize;
-  gobject_class->set_property = garrow_count_options_set_property;
-  gobject_class->get_property = garrow_count_options_get_property;
+  gobject_class->finalize     = garrow_scalar_aggregate_options_finalize;
+  gobject_class->set_property = garrow_scalar_aggregate_options_set_property;
+  gobject_class->get_property = garrow_scalar_aggregate_options_get_property;
+
+  auto options = arrow::compute::ScalarAggregateOptions::Defaults();
 
   GParamSpec *spec;
   /**
-   * GArrowCountOptions:mode:
+   * GArrowScalarAggregateOptions:skip-nulls:
    *
-   * How to count values.
+   * Whether NULLs are skipped or not.
    *
-   * Since: 0.13.0
+   * Since: 5.0.0
    */
-  spec = g_param_spec_enum("mode",
-                           "Mode",
-                           "How to count values",
-                           GARROW_TYPE_COUNT_MODE,
-                           GARROW_COUNT_ALL,
+  spec = g_param_spec_boolean("skip-nulls",
+                              "Skip NULLs",
+                              "Whether NULLs are skipped or not",
+                              options.skip_nulls,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_SKIP_NULLS, spec);
+
+  /**
+   * GArrowScalarAggregateOptions:min-count:
+   *
+   * The minimum required number of values.
+   *
+   * Since: 5.0.0
+   */
+  spec = g_param_spec_uint("min-count",
+                           "Min count",
+                           "The minimum required number of values",
+                           0,
+                           G_MAXUINT,
+                           options.min_count,
                            static_cast<GParamFlags>(G_PARAM_READWRITE));
-  g_object_class_install_property(gobject_class, PROP_MODE, spec);
+  g_object_class_install_property(gobject_class, PROP_MIN_COUNT, spec);
 }
 
 /**
- * garrow_count_options_new:
+ * garrow_scalar_aggregate_options_new:
  *
- * Returns: A newly created #GArrowCountOptions.
+ * Returns: A newly created #GArrowScalarAggregateOptions.
  *
- * Since: 0.13.0
+ * Since: 5.0.0
  */
-GArrowCountOptions *
-garrow_count_options_new(void)
+GArrowScalarAggregateOptions *
+garrow_scalar_aggregate_options_new(void)
 {
-  auto count_options = g_object_new(GARROW_TYPE_COUNT_OPTIONS, NULL);
-  return GARROW_COUNT_OPTIONS(count_options);
+  auto scalar_aggregate_options =
+    g_object_new(GARROW_TYPE_SCALAR_AGGREGATE_OPTIONS, NULL);
+  return GARROW_SCALAR_AGGREGATE_OPTIONS(scalar_aggregate_options);
 }
 
 
@@ -867,14 +890,14 @@ garrow_filter_options_class_init(GArrowFilterOptionsClass *klass)
 
   GParamSpec *spec;
   /**
-   * GArrowFilterOptions:null_selection_behavior:
+   * GArrowFilterOptions:null-selection-behavior:
    *
    * How to handle filtered values.
    *
    * Since: 0.17.0
    */
-  spec = g_param_spec_enum("null_selection_behavior",
-                           "Null selection behavior",
+  spec = g_param_spec_enum("null-selection-behavior",
+                           "NULL selection behavior",
                            "How to handle filtered values",
                            GARROW_TYPE_FILTER_NULL_SELECTION_BEHAVIOR,
                            static_cast<GArrowFilterNullSelectionBehavior>(
@@ -1686,7 +1709,7 @@ garrow_array_dictionary_encode(GArrowArray *array,
 /**
  * garrow_array_count:
  * @array: A #GArrowArray.
- * @options: (nullable): A #GArrowCountOptions.
+ * @options: (nullable): A #GArrowScalarAggregateOptions.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: The number of target values on success. If an error is occurred,
@@ -1696,14 +1719,14 @@ garrow_array_dictionary_encode(GArrowArray *array,
  */
 gint64
 garrow_array_count(GArrowArray *array,
-                   GArrowCountOptions *options,
+                   GArrowScalarAggregateOptions *options,
                    GError **error)
 {
   auto arrow_array = garrow_array_get_raw(array);
   auto arrow_array_raw = arrow_array.get();
   arrow::Result<arrow::Datum> arrow_counted_datum;
   if (options) {
-    auto arrow_options = garrow_count_options_get_raw(options);
+    auto arrow_options = garrow_scalar_aggregate_options_get_raw(options);
     arrow_counted_datum =
       arrow::compute::Count(*arrow_array_raw, *arrow_options);
   } else {
@@ -3063,20 +3086,23 @@ garrow_cast_options_get_raw(GArrowCastOptions *cast_options)
   return &(priv->options);
 }
 
-GArrowCountOptions *
-garrow_count_options_new_raw(arrow::compute::CountOptions *arrow_count_options)
+GArrowScalarAggregateOptions *
+garrow_scalar_aggregate_options_new_raw(
+  arrow::compute::ScalarAggregateOptions *arrow_scalar_aggregate_options)
 {
-  auto count_options =
-    g_object_new(GARROW_TYPE_COUNT_OPTIONS,
-                 "mode", arrow_count_options->count_mode,
+  auto scalar_aggregate_options =
+    g_object_new(GARROW_TYPE_SCALAR_AGGREGATE_OPTIONS,
+                 "skip-nulls", arrow_scalar_aggregate_options->skip_nulls,
+                 "min-count", arrow_scalar_aggregate_options->min_count,
                  NULL);
-  return GARROW_COUNT_OPTIONS(count_options);
+  return GARROW_SCALAR_AGGREGATE_OPTIONS(scalar_aggregate_options);
 }
 
-arrow::compute::CountOptions *
-garrow_count_options_get_raw(GArrowCountOptions *count_options)
+arrow::compute::ScalarAggregateOptions *
+garrow_scalar_aggregate_options_get_raw(
+  GArrowScalarAggregateOptions *scalar_aggregate_options)
 {
-  auto priv = GARROW_COUNT_OPTIONS_GET_PRIVATE(count_options);
+  auto priv = GARROW_SCALAR_AGGREGATE_OPTIONS_GET_PRIVATE(scalar_aggregate_options);
   return &(priv->options);
 }
 

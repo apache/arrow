@@ -24,57 +24,44 @@ namespace aggregate {
 // ----------------------------------------------------------------------
 // Sum implementation
 
-// Round size optimized based on data type and compiler
-template <typename T>
-struct RoundSizeAvx2 {
-  static constexpr int64_t size = 32;
-};
-
-// Round size set to 64 for float/int32_t/uint32_t
-template <>
-struct RoundSizeAvx2<float> {
-  static constexpr int64_t size = 64;
-};
-
-template <>
-struct RoundSizeAvx2<int32_t> {
-  static constexpr int64_t size = 64;
-};
-
-template <>
-struct RoundSizeAvx2<uint32_t> {
-  static constexpr int64_t size = 64;
+template <typename ArrowType>
+struct SumImplAvx2 : public SumImpl<ArrowType, SimdLevel::AVX2> {
+  explicit SumImplAvx2(const ScalarAggregateOptions& options_) {
+    this->options = options_;
+  }
 };
 
 template <typename ArrowType>
-struct SumImplAvx2
-    : public SumImpl<RoundSizeAvx2<typename TypeTraits<ArrowType>::CType>::size,
-                     ArrowType, SimdLevel::AVX2> {};
+struct MeanImplAvx2 : public MeanImpl<ArrowType, SimdLevel::AVX2> {
+  explicit MeanImplAvx2(const ScalarAggregateOptions& options_) {
+    this->options = options_;
+  }
+};
 
-template <typename ArrowType>
-struct MeanImplAvx2
-    : public MeanImpl<RoundSizeAvx2<typename TypeTraits<ArrowType>::CType>::size,
-                      ArrowType, SimdLevel::AVX2> {};
-
-std::unique_ptr<KernelState> SumInitAvx2(KernelContext* ctx, const KernelInitArgs& args) {
-  SumLikeInit<SumImplAvx2> visitor(ctx, *args.inputs[0].type);
+Result<std::unique_ptr<KernelState>> SumInitAvx2(KernelContext* ctx,
+                                                 const KernelInitArgs& args) {
+  SumLikeInit<SumImplAvx2> visitor(
+      ctx, *args.inputs[0].type,
+      static_cast<const ScalarAggregateOptions&>(*args.options));
   return visitor.Create();
 }
 
-std::unique_ptr<KernelState> MeanInitAvx2(KernelContext* ctx,
-                                          const KernelInitArgs& args) {
-  SumLikeInit<MeanImplAvx2> visitor(ctx, *args.inputs[0].type);
+Result<std::unique_ptr<KernelState>> MeanInitAvx2(KernelContext* ctx,
+                                                  const KernelInitArgs& args) {
+  SumLikeInit<MeanImplAvx2> visitor(
+      ctx, *args.inputs[0].type,
+      static_cast<const ScalarAggregateOptions&>(*args.options));
   return visitor.Create();
 }
 
 // ----------------------------------------------------------------------
 // MinMax implementation
 
-std::unique_ptr<KernelState> MinMaxInitAvx2(KernelContext* ctx,
-                                            const KernelInitArgs& args) {
+Result<std::unique_ptr<KernelState>> MinMaxInitAvx2(KernelContext* ctx,
+                                                    const KernelInitArgs& args) {
   MinMaxInitState<SimdLevel::AVX2> visitor(
       ctx, *args.inputs[0].type, args.kernel->signature->out_type().type(),
-      static_cast<const MinMaxOptions&>(*args.options));
+      static_cast<const ScalarAggregateOptions&>(*args.options));
   return visitor.Create();
 }
 

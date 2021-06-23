@@ -22,23 +22,35 @@
 # so that we don't have to download the whole big boost project when we build
 # boost from source.
 #
-# After running this script, run upload-boost.sh to put the bundle on bintray
+# To test building Arrow locally with the boost bundle this creates, add:
+#
+#     set(BOOST_SOURCE_URL /path/to/arrow/cpp/build-support/boost_1_75_0/boost_1_75_0.tar.gz)
+#
+# to the beginning of the build_boost() macro in ThirdpartyToolchain.cmake,
+#
+# or set the env var ARROW_BOOST_URL before calling cmake, like:
+#
+#     ARROW_BOOST_URL=/path/to/arrow/cpp/build-support/boost_1_75_0/boost_1_75_0.tar.gz cmake ...
+#
+# After running this script, upload the bundle to
+# https://github.com/ursa-labs/thirdparty/releases/edit/latest
+# TODO(ARROW-6407) automate uploading to github
 
 set -eu
 
 # if version is not defined by the caller, set a default.
-: ${BOOST_VERSION:=1.71.0}
+: ${BOOST_VERSION:=1.75.0}
 : ${BOOST_FILE:=boost_${BOOST_VERSION//./_}}
-: ${BOOST_URL:=https://dl.bintray.com/boostorg/release/${BOOST_VERSION}/source/${BOOST_FILE}.tar.gz}
+: ${BOOST_URL:=https://sourceforge.net/projects/boost/files/boost/${BOOST_VERSION}/${BOOST_FILE}.tar.gz}
 
 # Arrow tests require these
-BOOST_LIBS="system.hpp filesystem.hpp"
+BOOST_LIBS="system.hpp filesystem.hpp process.hpp"
 # Add these to be able to build those
 BOOST_LIBS="$BOOST_LIBS config build boost_install headers log predef"
-# Gandiva needs these
+# Gandiva needs these (and some Arrow tests do too)
 BOOST_LIBS="$BOOST_LIBS multiprecision/cpp_int.hpp"
 # These are for Thrift when Thrift_SOURCE=BUNDLED
-BOOST_LIBS="$BOOST_LIBS algorithm/string.hpp locale.hpp noncopyable.hpp numeric/conversion/cast.hpp scope_exit.hpp typeof/incr_registration_group.hpp scoped_array.hpp shared_array.hpp tokenizer.hpp version.hpp"
+BOOST_LIBS="$BOOST_LIBS locale.hpp scope_exit.hpp boost/typeof/incr_registration_group.hpp"
 
 if [ ! -d ${BOOST_FILE} ]; then
   curl -L "${BOOST_URL}" > ${BOOST_FILE}.tar.gz

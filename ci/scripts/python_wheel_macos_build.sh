@@ -1,0 +1,133 @@
+#!/usr/bin/env bash
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+set -ex
+
+source_dir=${1}
+build_dir=${2}
+
+echo "=== (${PYTHON_VERSION}) Clear output directories and leftovers ==="
+# Clear output directories and leftovers
+rm -rf ${build_dir}/install
+rm -rf ${source_dir}/python/dist
+rm -rf ${source_dir}/python/build
+rm -rf ${source_dir}/python/repaired_wheels
+rm -rf ${source_dir}/python/pyarrow/*.so
+rm -rf ${source_dir}/python/pyarrow/*.so.*
+
+echo "=== (${PYTHON_VERSION}) Set OSX SDK and C flags ==="
+# Arrow is 64-bit-only at the moment
+export CFLAGS="-fPIC -arch x86_64 ${CFLAGS//-arch i386/}"
+export CXXFLAGS="-fPIC -arch x86_64 ${CXXFLAGS//-arch i386} -std=c++11"
+export SDKROOT="$(xcrun --show-sdk-path)"
+
+echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
+: ${ARROW_DATASET:=ON}
+: ${ARROW_FLIGHT:=ON}
+: ${ARROW_GANDIVA:=OFF}
+: ${ARROW_HDFS:=ON}
+: ${ARROW_JEMALLOC:=ON}
+: ${ARROW_MIMALLOC:=ON}
+: ${ARROW_ORC:=ON}
+: ${ARROW_PARQUET:=ON}
+: ${ARROW_PLASMA:=ON}
+: ${ARROW_S3:=ON}
+: ${ARROW_TENSORFLOW:=ON}
+: ${ARROW_WITH_BROTLI:=ON}
+: ${ARROW_WITH_BZ2:=ON}
+: ${ARROW_WITH_LZ4:=ON}
+: ${ARROW_WITH_SNAPPY:=ON}
+: ${ARROW_WITH_ZLIB:=ON}
+: ${ARROW_WITH_ZSTD:=ON}
+: ${CMAKE_BUILD_TYPE:=release}
+: ${CMAKE_GENERATOR:=Ninja}
+: ${VCPKG_FEATURE_FLAGS:=-manifests}
+: ${VCPKG_TARGET_TRIPLET:=${VCPKG_DEFAULT_TRIPLET:-x64-osx-static-${CMAKE_BUILD_TYPE}}}
+
+mkdir -p ${build_dir}/build
+pushd ${build_dir}/build
+cmake \
+    -DARROW_BUILD_SHARED=ON \
+    -DARROW_BUILD_STATIC=OFF \
+    -DARROW_BUILD_TESTS=OFF \
+    -DARROW_DATASET=${ARROW_DATASET} \
+    -DARROW_DEPENDENCY_SOURCE="VCPKG" \
+    -DARROW_DEPENDENCY_USE_SHARED=OFF \
+    -DARROW_FLIGHT==${ARROW_FLIGHT} \
+    -DARROW_GANDIVA=${ARROW_GANDIVA} \
+    -DARROW_HDFS=${ARROW_HDFS} \
+    -DARROW_JEMALLOC=${ARROW_JEMALLOC} \
+    -DARROW_MIMALLOC=${ARROW_MIMALLOC} \
+    -DARROW_ORC=${ARROW_ORC} \
+    -DARROW_PACKAGE_KIND="python-wheel-macos" \
+    -DARROW_PARQUET=${ARROW_PARQUET} \
+    -DARROW_PLASMA=${ARROW_PLASMA} \
+    -DARROW_PYTHON=ON \
+    -DARROW_RPATH_ORIGIN=ON \
+    -DARROW_S3=${ARROW_S3} \
+    -DARROW_TENSORFLOW=${ARROW_TENSORFLOW} \
+    -DARROW_USE_CCACHE=ON \
+    -DARROW_WITH_BROTLI=${ARROW_WITH_BROTLI} \
+    -DARROW_WITH_BZ2=${ARROW_WITH_BZ2} \
+    -DARROW_WITH_LZ4=${ARROW_WITH_LZ4} \
+    -DARROW_WITH_SNAPPY=${ARROW_WITH_SNAPPY} \
+    -DARROW_WITH_ZLIB=${ARROW_WITH_ZLIB} \
+    -DARROW_WITH_ZSTD=${ARROW_WITH_ZSTD} \
+    -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
+    -DCMAKE_INSTALL_LIBDIR=lib \
+    -DCMAKE_INSTALL_PREFIX=${build_dir}/install \
+    -DCMAKE_UNITY_BUILD=ON \
+    -DOPENSSL_USE_STATIC_LIBS=ON \
+    -DVCPKG_MANIFEST_MODE=OFF \
+    -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET} \
+    -G ${CMAKE_GENERATOR} \
+    ${source_dir}/cpp
+cmake --build . --target install
+popd
+
+# Check that we don't expose any unwanted symbols
+# check_arrow_visibility
+
+echo "=== (${PYTHON_VERSION}) Building wheel ==="
+export PYARROW_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+export PYARROW_BUNDLE_ARROW_CPP=1
+export PYARROW_CMAKE_GENERATOR=${CMAKE_GENERATOR}
+export PYARROW_INSTALL_TESTS=1
+export PYARROW_WITH_DATASET=${ARROW_DATASET}
+export PYARROW_WITH_FLIGHT=${ARROW_FLIGHT}
+export PYARROW_WITH_GANDIVA=${ARROW_GANDIVA}
+export PYARROW_WITH_HDFS=${ARROW_HDFS}
+export PYARROW_WITH_ORC=${ARROW_ORC}
+export PYARROW_WITH_PARQUET=${ARROW_PARQUET}
+export PYARROW_WITH_PLASMA=${ARROW_PLASMA}
+export PYARROW_WITH_S3=${ARROW_S3}
+# PyArrow build configuration
+export PKG_CONFIG_PATH=/usr/lib/pkgconfig:${build_dir}/install/lib/pkgconfig
+
+pushd ${source_dir}/python
+python setup.py bdist_wheel
+popd
+
+echo "=== (${PYTHON_VERSION}) Show dynamic libraries the wheel depend on ==="
+deps=$(delocate-listdeps ${source_dir}/python/dist/*.whl)
+
+if echo $deps | grep -v "^@rpath/lib\(arrow\|gandiva\|parquet\|plasma\)"; then
+  echo "There are non-bundled shared library dependencies."
+  exit 1
+fi

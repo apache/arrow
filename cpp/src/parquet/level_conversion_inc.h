@@ -24,6 +24,7 @@
 
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bitmap_writer.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/simd.h"
 #include "parquet/exception.h"

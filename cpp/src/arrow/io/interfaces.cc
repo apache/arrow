@@ -29,9 +29,11 @@
 
 #include "arrow/buffer.h"
 #include "arrow/io/concurrency.h"
+#include "arrow/io/type_fwd.h"
 #include "arrow/io/util_internal.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
@@ -40,24 +42,36 @@
 
 namespace arrow {
 
+using internal::checked_pointer_cast;
 using internal::Executor;
 using internal::TaskHints;
 using internal::ThreadPool;
 
 namespace io {
 
-AsyncContext::AsyncContext() : AsyncContext(internal::GetIOThreadPool()) {}
+static IOContext g_default_io_context{};
 
-AsyncContext::AsyncContext(Executor* executor) : executor(executor) {}
+IOContext::IOContext(MemoryPool* pool, StopToken stop_token)
+    : IOContext(pool, internal::GetIOThreadPool(), std::move(stop_token)) {}
+
+const IOContext& default_io_context() { return g_default_io_context; }
+
+int GetIOThreadPoolCapacity() { return internal::GetIOThreadPool()->GetCapacity(); }
+
+Status SetIOThreadPoolCapacity(int threads) {
+  return internal::GetIOThreadPool()->SetCapacity(threads);
+}
 
 FileInterface::~FileInterface() = default;
 
 Status FileInterface::Abort() { return Close(); }
 
+namespace {
+
 class InputStreamBlockIterator {
  public:
   InputStreamBlockIterator(std::shared_ptr<InputStream> stream, int64_t block_size)
-      : stream_(stream), block_size_(block_size) {}
+      : stream_(std::move(stream)), block_size_(block_size) {}
 
   Result<std::shared_ptr<Buffer>> Next() {
     if (done_) {
@@ -81,6 +95,10 @@ class InputStreamBlockIterator {
   bool done_ = false;
 };
 
+}  // namespace
+
+const IOContext& Readable::io_context() const { return g_default_io_context; }
+
 Status InputStream::Advance(int64_t nbytes) { return Read(nbytes).status(); }
 
 Result<util::string_view> InputStream::Peek(int64_t ARROW_ARG_UNUSED(nbytes)) {
@@ -88,6 +106,22 @@ Result<util::string_view> InputStream::Peek(int64_t ARROW_ARG_UNUSED(nbytes)) {
 }
 
 bool InputStream::supports_zero_copy() const { return false; }
+
+Result<std::shared_ptr<const KeyValueMetadata>> InputStream::ReadMetadata() {
+  return std::shared_ptr<const KeyValueMetadata>{};
+}
+
+// Default ReadMetadataAsync() implementation: simply issue the read on the context's
+// executor
+Future<std::shared_ptr<const KeyValueMetadata>> InputStream::ReadMetadataAsync(
+    const IOContext& ctx) {
+  auto self = shared_from_this();
+  return DeferNotOk(internal::SubmitIO(ctx, [self] { return self->ReadMetadata(); }));
+}
+
+Future<std::shared_ptr<const KeyValueMetadata>> InputStream::ReadMetadataAsync() {
+  return ReadMetadataAsync(io_context());
+}
 
 Result<Iterator<std::shared_ptr<Buffer>>> MakeInputStreamIterator(
     std::shared_ptr<InputStream> stream, int64_t block_size) {
@@ -98,14 +132,13 @@ Result<Iterator<std::shared_ptr<Buffer>>> MakeInputStreamIterator(
   return Iterator<std::shared_ptr<Buffer>>(InputStreamBlockIterator(stream, block_size));
 }
 
-struct RandomAccessFile::RandomAccessFileImpl {
+struct RandomAccessFile::Impl {
   std::mutex lock_;
 };
 
 RandomAccessFile::~RandomAccessFile() = default;
 
-RandomAccessFile::RandomAccessFile()
-    : interface_impl_(new RandomAccessFile::RandomAccessFileImpl()) {}
+RandomAccessFile::RandomAccessFile() : interface_impl_(new Impl()) {}
 
 Result<int64_t> RandomAccessFile::ReadAt(int64_t position, int64_t nbytes, void* out) {
   std::lock_guard<std::mutex> lock(interface_impl_->lock_);
@@ -121,16 +154,17 @@ Result<std::shared_ptr<Buffer>> RandomAccessFile::ReadAt(int64_t position,
 }
 
 // Default ReadAsync() implementation: simply issue the read on the context's executor
-Future<std::shared_ptr<Buffer>> RandomAccessFile::ReadAsync(const AsyncContext& ctx,
+Future<std::shared_ptr<Buffer>> RandomAccessFile::ReadAsync(const IOContext& ctx,
                                                             int64_t position,
                                                             int64_t nbytes) {
-  auto self = shared_from_this();
-  TaskHints hints;
-  hints.io_size = nbytes;
-  hints.external_id = ctx.external_id;
-  return DeferNotOk(ctx.executor->Submit(std::move(hints), [self, position, nbytes] {
-    return self->ReadAt(position, nbytes);
-  }));
+  auto self = checked_pointer_cast<RandomAccessFile>(shared_from_this());
+  return DeferNotOk(internal::SubmitIO(
+      ctx, [self, position, nbytes] { return self->ReadAt(position, nbytes); }));
+}
+
+Future<std::shared_ptr<Buffer>> RandomAccessFile::ReadAsync(int64_t position,
+                                                            int64_t nbytes) {
+  return ReadAsync(io_context(), position, nbytes);
 }
 
 // Default WillNeed() implementation: no-op
@@ -138,8 +172,8 @@ Status RandomAccessFile::WillNeed(const std::vector<ReadRange>& ranges) {
   return Status::OK();
 }
 
-Status Writable::Write(const std::string& data) {
-  return Write(data.c_str(), static_cast<int64_t>(data.size()));
+Status Writable::Write(util::string_view data) {
+  return Write(data.data(), static_cast<int64_t>(data.size()));
 }
 
 Status Writable::Write(const std::shared_ptr<Buffer>& data) {
@@ -345,10 +379,16 @@ struct ReadRangeCombiner {
     // Remove zero-sized ranges
     auto end = std::remove_if(ranges.begin(), ranges.end(),
                               [](const ReadRange& range) { return range.length == 0; });
-    ranges.resize(end - ranges.begin());
     // Sort in position order
-    std::sort(ranges.begin(), ranges.end(),
+    std::sort(ranges.begin(), end,
               [](const ReadRange& a, const ReadRange& b) { return a.offset < b.offset; });
+    // Remove ranges that overlap 100%
+    end = std::unique(ranges.begin(), end,
+                      [](const ReadRange& left, const ReadRange& right) {
+                        return right.offset >= left.offset &&
+                               right.offset + right.length <= left.offset + left.length;
+                      });
+    ranges.resize(end - ranges.begin());
 
     // Skip further processing if ranges is empty after removing zero-sized ranges.
     if (ranges.empty()) {

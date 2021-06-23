@@ -21,7 +21,7 @@ of columns, as used in \code{dplyr::select()}.}
 \item{as_data_frame}{Should the function return a \code{data.frame} (default) or
 an Arrow \link{Table}?}
 
-\item{...}{additional parameters, passed to \link[=FeatherReader]{FeatherReader$create()}}
+\item{...}{additional parameters, passed to \code{\link[=make_readable_file]{make_readable_file()}}.}
 }
 \value{
 A \code{data.frame} if \code{as_data_frame} is \code{TRUE} (the default), or an
@@ -35,7 +35,7 @@ This function reads both the original, limited specification of the format
 and the version 2 specification, which is the Apache Arrow IPC file format.
 }
 \examples{
-\donttest{
+\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 tf <- tempfile()
 on.exit(unlink(tf))
 write_feather(mtcars, tf)
@@ -43,7 +43,7 @@ df <- read_feather(tf)
 dim(df)
 # Can select columns
 df <- read_feather(tf, col_select = starts_with("d"))
-}
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \link{FeatherReader} and \link{RecordBatchReader} for lower-level access to reading Arrow IPC data.

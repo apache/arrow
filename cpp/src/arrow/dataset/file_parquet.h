@@ -29,6 +29,7 @@
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
+#include "arrow/io/caching.h"
 #include "arrow/util/optional.h"
 
 namespace parquet {
@@ -56,6 +57,12 @@ struct SchemaManifest;
 namespace arrow {
 namespace dataset {
 
+/// \addtogroup dataset-file-formats
+///
+/// @{
+
+constexpr char kParquetTypeName[] = "parquet";
+
 /// \brief A FileFormat implementation that reads from Parquet files
 class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
  public:
@@ -65,42 +72,21 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
   /// memory_pool will be ignored.
   explicit ParquetFileFormat(const parquet::ReaderProperties& reader_properties);
 
-  std::string type_name() const override { return "parquet"; }
-
-  bool splittable() const override { return true; }
+  std::string type_name() const override { return kParquetTypeName; }
 
   bool Equals(const FileFormat& other) const override;
 
   struct ReaderOptions {
-    /// \defgroup parquet-file-format-reader-properties properties which correspond to
-    /// members of parquet::ReaderProperties.
-    ///
-    /// We don't embed parquet::ReaderProperties directly because we get memory_pool from
-    /// ScanContext at scan time and provide differing defaults.
-    ///
-    /// @{
-    bool use_buffered_stream = false;
-    int64_t buffer_size = 1 << 13;
-    std::shared_ptr<parquet::FileDecryptionProperties> file_decryption_properties;
-    /// @}
-
     /// \defgroup parquet-file-format-arrow-reader-properties properties which correspond
     /// to members of parquet::ArrowReaderProperties.
     ///
-    /// We don't embed parquet::ReaderProperties directly because we get batch_size from
-    /// ScanOptions at scan time, and we will never pass use_threads == true (since we
-    /// defer parallelization of the scan). Additionally column names (rather than
-    /// indices) are used to indicate dictionary columns.
+    /// We don't embed parquet::ReaderProperties directly because column names (rather
+    /// than indices) are used to indicate dictionary columns, and other options are
+    /// deferred to scan time.
     ///
     /// @{
     std::unordered_set<std::string> dict_columns;
     /// @}
-
-    /// EXPERIMENTAL: Parallelize conversion across columns. This option is ignored if a
-    /// scan is already parallelized across input files to avoid thread contention. This
-    /// option will be removed after support is added for simultaneous parallelization
-    /// across files and columns.
-    bool enable_parallel_column_conversion = false;
   } reader_options;
 
   Result<bool> IsSupported(const FileSource& source) const override;
@@ -109,29 +95,41 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
   Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const override;
 
   /// \brief Open a file for scanning
-  Result<ScanTaskIterator> ScanFile(std::shared_ptr<ScanOptions> options,
-                                    std::shared_ptr<ScanContext> context,
-                                    FileFragment* file) const override;
+  Result<ScanTaskIterator> ScanFile(
+      const std::shared_ptr<ScanOptions>& options,
+      const std::shared_ptr<FileFragment>& file) const override;
+
+  Result<RecordBatchGenerator> ScanBatchesAsync(
+      const std::shared_ptr<ScanOptions>& options,
+      const std::shared_ptr<FileFragment>& file) const override;
+
+  Future<util::optional<int64_t>> CountRows(
+      const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
+      const std::shared_ptr<ScanOptions>& options) override;
 
   using FileFormat::MakeFragment;
 
   /// \brief Create a Fragment targeting all RowGroups.
   Result<std::shared_ptr<FileFragment>> MakeFragment(
-      FileSource source, Expression partition_expression,
+      FileSource source, compute::Expression partition_expression,
       std::shared_ptr<Schema> physical_schema) override;
 
   /// \brief Create a Fragment, restricted to the specified row groups.
   Result<std::shared_ptr<ParquetFileFragment>> MakeFragment(
-      FileSource source, Expression partition_expression,
+      FileSource source, compute::Expression partition_expression,
       std::shared_ptr<Schema> physical_schema, std::vector<int> row_groups);
 
   /// \brief Return a FileReader on the given source.
   Result<std::unique_ptr<parquet::arrow::FileReader>> GetReader(
-      const FileSource& source, ScanOptions* = NULLPTR, ScanContext* = NULLPTR) const;
+      const FileSource& source, ScanOptions* = NULLPTR) const;
+
+  Future<std::shared_ptr<parquet::arrow::FileReader>> GetReaderAsync(
+      const FileSource& source, const std::shared_ptr<ScanOptions>& options) const;
 
   Result<std::shared_ptr<FileWriter>> MakeWriter(
       std::shared_ptr<io::OutputStream> destination, std::shared_ptr<Schema> schema,
-      std::shared_ptr<FileWriteOptions> options) const override;
+      std::shared_ptr<FileWriteOptions> options,
+      fs::FileLocator destination_locator) const override;
 
   std::shared_ptr<FileWriteOptions> DefaultWriteOptions() override;
 };
@@ -150,7 +148,7 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
 /// significant performance boost when scanning high latency file systems.
 class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
  public:
-  Result<FragmentVector> SplitByRowGroup(Expression predicate);
+  Result<FragmentVector> SplitByRowGroup(compute::Expression predicate);
 
   /// \brief Return the RowGroups selected by this fragment.
   const std::vector<int>& row_groups() const {
@@ -166,12 +164,12 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   Status EnsureCompleteMetadata(parquet::arrow::FileReader* reader = NULLPTR);
 
   /// \brief Return fragment which selects a filtered subset of this fragment's RowGroups.
-  Result<std::shared_ptr<Fragment>> Subset(Expression predicate);
+  Result<std::shared_ptr<Fragment>> Subset(compute::Expression predicate);
   Result<std::shared_ptr<Fragment>> Subset(std::vector<int> row_group_ids);
 
  private:
   ParquetFileFragment(FileSource source, std::shared_ptr<FileFormat> format,
-                      Expression partition_expression,
+                      compute::Expression partition_expression,
                       std::shared_ptr<Schema> physical_schema,
                       util::optional<std::vector<int>> row_groups);
 
@@ -184,16 +182,22 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
     return physical_schema_;
   }
 
-  // Return a filtered subset of row group indices.
-  Result<std::vector<int>> FilterRowGroups(Expression predicate);
+  /// Return a filtered subset of row group indices.
+  Result<std::vector<int>> FilterRowGroups(compute::Expression predicate);
+  /// Simplify the predicate against the statistics of each row group.
+  Result<std::vector<compute::Expression>> TestRowGroups(compute::Expression predicate);
+  /// Try to count rows matching the predicate using metadata. Expects
+  /// metadata to be present, and expects the predicate to have been
+  /// simplified against the partition expression already.
+  Result<util::optional<int64_t>> TryCountRows(compute::Expression predicate);
 
   ParquetFileFormat& parquet_format_;
 
-  // Indices of row groups selected by this fragment,
-  // or util::nullopt if all row groups are selected.
+  /// Indices of row groups selected by this fragment,
+  /// or util::nullopt if all row groups are selected.
   util::optional<std::vector<int>> row_groups_;
 
-  std::vector<Expression> statistics_expressions_;
+  std::vector<compute::Expression> statistics_expressions_;
   std::vector<bool> statistics_expressions_complete_;
   std::shared_ptr<parquet::FileMetaData> metadata_;
   std::shared_ptr<parquet::arrow::SchemaManifest> manifest_;
@@ -202,10 +206,34 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   friend class ParquetDatasetFactory;
 };
 
+/// \brief Per-scan options for Parquet fragments
+class ARROW_DS_EXPORT ParquetFragmentScanOptions : public FragmentScanOptions {
+ public:
+  ParquetFragmentScanOptions();
+  std::string type_name() const override { return kParquetTypeName; }
+
+  /// Reader properties. Not all properties are respected: memory_pool comes from
+  /// ScanOptions.
+  std::shared_ptr<parquet::ReaderProperties> reader_properties;
+  /// Arrow reader properties. Not all properties are respected: batch_size comes from
+  /// ScanOptions, and use_threads will be overridden based on
+  /// enable_parallel_column_conversion. Additionally, dictionary columns come from
+  /// ParquetFileFormat::ReaderOptions::dict_columns.
+  std::shared_ptr<parquet::ArrowReaderProperties> arrow_reader_properties;
+  /// EXPERIMENTAL: Parallelize conversion across columns. This option is ignored if a
+  /// scan is already parallelized across input files to avoid thread contention. This
+  /// option will be removed after support is added for simultaneous parallelization
+  /// across files and columns. Only affects the threaded reader; the async reader
+  /// will parallelize across columns if use_threads is enabled.
+  bool enable_parallel_column_conversion = false;
+};
+
 class ARROW_DS_EXPORT ParquetFileWriteOptions : public FileWriteOptions {
  public:
+  /// \brief Parquet writer properties.
   std::shared_ptr<parquet::WriterProperties> writer_properties;
 
+  /// \brief Parquet Arrow writer properties.
   std::shared_ptr<parquet::ArrowWriterProperties> arrow_writer_properties;
 
  protected:
@@ -222,49 +250,52 @@ class ARROW_DS_EXPORT ParquetFileWriter : public FileWriter {
 
   Status Write(const std::shared_ptr<RecordBatch>& batch) override;
 
-  Status Finish() override;
-
  private:
-  ParquetFileWriter(std::shared_ptr<parquet::arrow::FileWriter> writer,
-                    std::shared_ptr<ParquetFileWriteOptions> options);
+  ParquetFileWriter(std::shared_ptr<io::OutputStream> destination,
+                    std::shared_ptr<parquet::arrow::FileWriter> writer,
+                    std::shared_ptr<ParquetFileWriteOptions> options,
+                    fs::FileLocator destination_locator);
+
+  Status FinishInternal() override;
 
   std::shared_ptr<parquet::arrow::FileWriter> parquet_writer_;
 
   friend class ParquetFileFormat;
 };
 
+/// \brief Options for making a FileSystemDataset from a Parquet _metadata file.
 struct ParquetFactoryOptions {
-  // Either an explicit Partitioning or a PartitioningFactory to discover one.
-  //
-  // If a factory is provided, it will be used to infer a schema for partition fields
-  // based on file and directory paths then construct a Partitioning. The default
-  // is a Partitioning which will yield no partition information.
-  //
-  // The (explicit or discovered) partitioning will be applied to discovered files
-  // and the resulting partition information embedded in the Dataset.
+  /// Either an explicit Partitioning or a PartitioningFactory to discover one.
+  ///
+  /// If a factory is provided, it will be used to infer a schema for partition fields
+  /// based on file and directory paths then construct a Partitioning. The default
+  /// is a Partitioning which will yield no partition information.
+  ///
+  /// The (explicit or discovered) partitioning will be applied to discovered files
+  /// and the resulting partition information embedded in the Dataset.
   PartitioningOrFactory partitioning{Partitioning::Default()};
 
-  // For the purposes of applying the partitioning, paths will be stripped
-  // of the partition_base_dir. Files not matching the partition_base_dir
-  // prefix will be skipped for partition discovery. The ignored files will still
-  // be part of the Dataset, but will not have partition information.
-  //
-  // Example:
-  // partition_base_dir = "/dataset";
-  //
-  // - "/dataset/US/sales.csv" -> "US/sales.csv" will be given to the partitioning
-  //
-  // - "/home/john/late_sales.csv" -> Will be ignored for partition discovery.
-  //
-  // This is useful for partitioning which parses directory when ordering
-  // is important, e.g. DirectoryPartitioning.
+  /// For the purposes of applying the partitioning, paths will be stripped
+  /// of the partition_base_dir. Files not matching the partition_base_dir
+  /// prefix will be skipped for partition discovery. The ignored files will still
+  /// be part of the Dataset, but will not have partition information.
+  ///
+  /// Example:
+  /// partition_base_dir = "/dataset";
+  ///
+  /// - "/dataset/US/sales.csv" -> "US/sales.csv" will be given to the partitioning
+  ///
+  /// - "/home/john/late_sales.csv" -> Will be ignored for partition discovery.
+  ///
+  /// This is useful for partitioning which parses directory when ordering
+  /// is important, e.g. DirectoryPartitioning.
   std::string partition_base_dir;
 
-  // Assert that all ColumnChunk paths are consistent. The parquet spec allows for
-  // ColumnChunk data to be stored in multiple files, but ParquetDatasetFactory
-  // supports only a single file with all ColumnChunk data. If this flag is set
-  // construction of a ParquetDatasetFactory will raise an error if ColumnChunk
-  // data is not resident in a single file.
+  /// Assert that all ColumnChunk paths are consistent. The parquet spec allows for
+  /// ColumnChunk data to be stored in multiple files, but ParquetDatasetFactory
+  /// supports only a single file with all ColumnChunk data. If this flag is set
+  /// construction of a ParquetDatasetFactory will raise an error if ColumnChunk
+  /// data is not resident in a single file.
   bool validate_column_chunk_paths = false;
 };
 
@@ -346,6 +377,8 @@ class ARROW_DS_EXPORT ParquetDatasetFactory : public DatasetFactory {
 
   Result<std::shared_ptr<Schema>> PartitionSchema();
 };
+
+/// @}
 
 }  // namespace dataset
 }  // namespace arrow

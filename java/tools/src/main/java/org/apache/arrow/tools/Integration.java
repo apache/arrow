@@ -26,6 +26,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
+import org.apache.arrow.compression.CommonsCompressionFactory;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -186,7 +187,7 @@ public class Integration {
              JsonFileReader jsonReader = new JsonFileReader(jsonFile, allocator);
              FileInputStream fileInputStream = new FileInputStream(arrowFile);
              ArrowFileReader arrowReader = new ArrowFileReader(fileInputStream.getChannel(),
-                 allocator)) {
+                 allocator, CommonsCompressionFactory.INSTANCE)) {
           Schema jsonSchema = jsonReader.start();
           VectorSchemaRoot arrowRoot = arrowReader.getVectorSchemaRoot();
           Schema arrowSchema = arrowRoot.getSchema();

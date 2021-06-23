@@ -32,10 +32,11 @@
 #include "arrow/util/value_parsing.h"
 
 namespace arrow {
-namespace json {
 
 using internal::checked_cast;
 using util::string_view;
+
+namespace json {
 
 template <typename... Args>
 Status GenericConversionError(const DataType& type, Args&&... args) {
@@ -47,17 +48,17 @@ namespace {
 
 const DictionaryArray& GetDictionaryArray(const std::shared_ptr<Array>& in) {
   DCHECK_EQ(in->type_id(), Type::DICTIONARY);
-  auto dict_type = static_cast<const DictionaryType*>(in->type().get());
+  auto dict_type = checked_cast<const DictionaryType*>(in->type().get());
   DCHECK_EQ(dict_type->index_type()->id(), Type::INT32);
   DCHECK_EQ(dict_type->value_type()->id(), Type::STRING);
-  return static_cast<const DictionaryArray&>(*in);
+  return checked_cast<const DictionaryArray&>(*in);
 }
 
 template <typename ValidVisitor, typename NullVisitor>
 Status VisitDictionaryEntries(const DictionaryArray& dict_array,
                               ValidVisitor&& visit_valid, NullVisitor&& visit_null) {
-  const StringArray& dict = static_cast<const StringArray&>(*dict_array.dictionary());
-  const Int32Array& indices = static_cast<const Int32Array&>(*dict_array.indices());
+  const StringArray& dict = checked_cast<const StringArray&>(*dict_array.dictionary());
+  const Int32Array& indices = checked_cast<const Int32Array&>(*dict_array.indices());
   for (int64_t i = 0; i < indices.length(); ++i) {
     if (indices.IsValid(i)) {
       RETURN_NOT_OK(visit_valid(dict.GetView(indices.GetView(i))));
@@ -126,7 +127,7 @@ class NumericConverter : public PrimitiveConverter {
 
     auto visit_valid = [&](string_view repr) {
       value_type value;
-      if (!internal::ParseValue(numeric_type_, repr.data(), repr.size(), &value)) {
+      if (!arrow::internal::ParseValue(numeric_type_, repr.data(), repr.size(), &value)) {
         return GenericConversionError(*out_type_, ", couldn't parse:", repr);
       }
 
@@ -280,8 +281,8 @@ const PromotionGraph* GetPromotionGraph() {
           return timestamp(TimeUnit::SECOND);
 
         case Kind::kArray: {
-          auto type = static_cast<const ListType*>(unexpected_field->type().get());
-          auto value_field = type->value_field();
+          const auto& type = checked_cast<const ListType&>(*unexpected_field->type());
+          auto value_field = type.value_field();
           return list(value_field->WithType(Infer(value_field)));
         }
         case Kind::kObject: {

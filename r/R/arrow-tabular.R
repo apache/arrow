@@ -38,13 +38,33 @@ ArrowTabular <- R6Class("ArrowTabular", inherit = ArrowObject,
       }
       assert_that(is.Array(i, "bool"))
       call_function("filter", self, i, options = list(keep_na = keep_na))
+    },
+    SortIndices = function(names, descending = FALSE) {
+      assert_that(is.character(names))
+      assert_that(length(names) > 0)
+      assert_that(!any(is.na(names)))
+      if (length(descending) == 1L) {
+        descending <- rep_len(descending, length(names))
+      }
+      assert_that(is.logical(descending))
+      assert_that(identical(length(names), length(descending)))
+      assert_that(!any(is.na(descending)))
+      call_function(
+        "sort_indices",
+        self,
+        # cpp11 does not support logical vectors so convert to integer
+        options = list(names = names, orders = as.integer(descending))
+      )
     }
   )
 )
 
 #' @export
 as.data.frame.ArrowTabular <- function(x, row.names = NULL, optional = FALSE, ...) {
-  df <- x$to_data_frame()
+  tryCatch(
+    df <- x$to_data_frame(),
+    error = handle_embedded_nul_error
+  )
   if (!is.null(r_metadata <- x$metadata$r)) {
     df <- apply_arrow_r_metadata(df, .unserialize_arrow_r_metadata(r_metadata))
   }
@@ -64,14 +84,22 @@ as.data.frame.ArrowTabular <- function(x, row.names = NULL, optional = FALSE, ..
   if (!missing(j)) {
     # Selecting columns is cheaper than filtering rows, so do it first.
     # That way, if we're filtering too, we have fewer arrays to filter/slice/take
+    if (is.character(j)) {
+      j_new <- match(j, names(x))
+      if (any(is.na(j_new))) {
+        stop("Column not found: ", oxford_paste(j[is.na(j_new)]), call. = FALSE)
+      }
+      j <- j_new
+    }
     if (is_integerish(j)) {
-      if (all(j < 0)) {
+      if (any(is.na(j))) {
+        stop("Column indices cannot be NA", call. = FALSE)
+      }
+      if (length(j) && all(j < 0)) {
         # in R, negative j means "everything but j"
         j <- setdiff(seq_len(x$num_columns), -1 * j)
       }
       x <- x$SelectColumns(as.integer(j) - 1L)
-    } else if (is.character(j)) {
-      x <- x$SelectColumns(match(j, names(x)) - 1L)
     }
 
     if (drop && ncol(x) == 1L) {
@@ -183,6 +211,26 @@ head.ArrowTabular <- head.ArrowDatum
 #' @export
 tail.ArrowTabular <- tail.ArrowDatum
 
+#' @export
+na.fail.ArrowTabular <- function(object, ...) {
+  for (col in seq_len(object$num_columns)) {
+    if (object$column(col - 1L)$null_count > 0) {
+      stop("missing values in object", call. = FALSE)
+    }
+  }
+  object
+}
+
+#' @export
+na.omit.ArrowTabular <- function(object, ...) {
+  not_na <- map(object$columns, ~call_function("is_valid", .x))
+  not_na_agg <- Reduce("&", not_na)
+  object$Filter(not_na_agg)
+}
+
+#' @export
+na.exclude.ArrowTabular <- na.omit.ArrowTabular
+
 ToString_tabular <- function(x, ...) {
   # Generic to work with both RecordBatch and Table
   sch <- unlist(strsplit(x$schema$ToString(), "\n"))
@@ -190,3 +238,6 @@ ToString_tabular <- function(x, ...) {
   dims <- sprintf("%s rows x %s columns", nrow(x), ncol(x))
   paste(c(dims, sch), collapse = "\n")
 }
+
+#' @export
+length.ArrowTabular <- function(x) x$num_columns

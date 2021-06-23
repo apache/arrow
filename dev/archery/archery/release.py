@@ -37,18 +37,21 @@ def cached_property(fn):
 
 class Version(SemVer):
 
-    __slots__ = SemVer.__slots__ + ('released', 'release_date')
+    __slots__ = ('released', 'release_date')
 
-    def __init__(self, version_string, released=False, release_date=None):
-        semver = SemVer.parse(version_string)
-        super().__init__(**semver.to_dict())
+    def __init__(self, released=False, release_date=None, **kwargs):
+        super().__init__(**kwargs)
         self.released = released
         self.release_date = release_date
 
     @classmethod
+    def parse(cls, version, **kwargs):
+        return cls(**SemVer.parse(version).to_dict(), **kwargs)
+
+    @classmethod
     def from_jira(cls, jira_version):
-        return cls(
-            version_string=jira_version.name,
+        return cls.parse(
+            jira_version.name,
             released=jira_version.released,
             release_date=getattr(jira_version, 'releaseDate', None)
         )
@@ -445,7 +448,7 @@ class MaintenanceMixin:
         if self.version.major == 0:
             # treat minor releases as major releases preceeding 1.0.0 release
             commit_range = "apache-arrow-0.{}.0..master".format(
-                self.version.minor - 1
+                self.version.minor
             )
         else:
             commit_range = "apache-arrow-{}.0.0..master".format(

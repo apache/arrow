@@ -31,9 +31,11 @@ on:
       - 'ci/scripts/js_*'
       - 'js/**'
 
+concurrency:
+  group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}
+  cancel-in-progress: true
+
 env:
-  DOCKER_BUILDKIT: 0
-  COMPOSE_DOCKER_CLI_BUILD: 1
   ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
   ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
 
@@ -43,6 +45,7 @@ jobs:
     name: AMD64 Debian 10 NodeJS 14
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 60
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
@@ -72,6 +75,7 @@ jobs:
     name: AMD64 MacOS 10.15 NodeJS ${{ matrix.node }}
     runs-on: macos-latest
     if: github.event_name == 'push'
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -95,30 +99,26 @@ jobs:
         shell: bash
         run: ci/scripts/js_test.sh $(pwd)
 
-  # TODO(kszucs): the windows build fails with platform specific npm error
-  # windows:
-  #   name: AMD64 Windows 2019 NodeJS ${{ matrix.node }}
-  #   runs-on: windows-latest
-  #   if: github.event_name == 'push'
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       node: [14]
-  #   steps:
-  #     - name: Checkout Arrow
-  #       uses: actions/checkout@v1
-  #       with:
-  #         submodules: true
-  #     - name: Install NodeJS
-  #       uses: actions/setup-node@v1
-  #       with:
-  #         node-version: ${{ matrix.node }}
-  #     - name: Install Platform Dependencies
-  #       shell: bash
-  #       run: npm install -g cross-env
-  #     - name: Build
-  #       shell: bash
-  #       run: ci/scripts/js_build.sh $(pwd)
-  #     - name: Test
-  #       shell: bash
-  #       run: ci/scripts/js_test.sh $(pwd)
+  windows:
+    name: AMD64 Windows 2019 NodeJS ${{ matrix.node }}
+    runs-on: windows-latest
+    if: github.event_name == 'push'
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [14]
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v1
+        with:
+          submodules: true
+      - name: Install NodeJS
+        uses: actions/setup-node@v1
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Build
+        shell: bash
+        run: ci/scripts/js_build.sh $(pwd)
+      - name: Test
+        shell: bash
+        run: ci/scripts/js_test.sh $(pwd)

@@ -1,0 +1,94 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+# NOTE: must set "Crossbow" as name to have the badge links working in the
+# github comment reports!
+name: Crossbow
+
+on:
+  push:
+    branches:
+      - "*-github-*"
+
+jobs:
+  devdocs:
+    name: 'R devdocs {{ "${{ matrix.os }}" }} system install: {{ "${{ matrix.system-install }}" }}'
+    runs-on: {{ "${{ matrix.os }}" }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macOS-latest, ubuntu-20.04]
+        # should the install method install libarrow into a system directory
+        # or a temporary directory. old is the same as a temporary
+        # directory, but an old version of libarrow will be installed
+        # into a system directory first (to make sure we can link correctly when building)
+        system-install: [true, false]
+
+    steps:
+      - name: Checkout Arrow
+        run: |
+          git clone --no-checkout {{ arrow.remote }} arrow
+          git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
+          git -C arrow checkout FETCH_HEAD
+          git -C arrow submodule update --init --recursive
+      - uses: r-lib/actions/setup-r@v1
+      - uses: r-lib/actions/setup-pandoc@v1
+      - name: Install knitr, rmarkdown
+        run: |
+          install.packages(c("rmarkdown", "knitr", "sessioninfo"))
+        shell: Rscript {0}
+      - name: Session info
+        run: |
+          options(width = 100)
+          pkgs <- installed.packages()[, "Package"]
+          sessioninfo::session_info(pkgs, include_base = TRUE)
+        shell: Rscript {0}
+      - name: Remove system gfortran so that brew can install gcc successfully
+        run: rm -f /usr/local/bin/gfortran
+      - name: Write the install script
+        env:
+          RUN_DEVDOCS: TRUE
+          DEVDOCS_MACOS: {{ "${{contains(matrix.os, 'macOS')}}" }}
+          DEVDOCS_UBUNTU: {{ "${{contains(matrix.os, 'ubuntu')}}" }}
+          DEVDOCS_SYSTEM_INSTALL: {{ "${{contains(matrix.system-install, 'true')}}" }}
+          DEVDOCS_PRIOR_SYSTEM_INSTALL: {{ "${{contains(matrix.system-install, 'old')}}" }}
+        run: |
+          # This isn't actually rendering the docs, but will save arrow/r/vignettes/script.sh
+          # which can be sourced to install arrow.
+          rmarkdown::render("arrow/r/vignettes/developing.Rmd")
+        shell: Rscript {0}
+      - name: Install from the devdocs
+        env:
+          LIBARROW_BINARY: FALSE
+          ARROW_R_DEV: TRUE
+        run: bash arrow/r/vignettes/script.sh
+        shell: bash
+      - name: Ensure that the Arrow package is loadable and we have the correct one
+        run: |
+          echo $LD_LIBRARY_PATH
+          R --no-save <<EOF
+          Sys.getenv("LD_LIBRARY_PATH")
+          library(arrow)
+          arrow_info()
+          EOF
+        shell: bash -l {0}
+      - name: Save the install script
+        uses: actions/upload-artifact@v2
+        with:
+          name: {{ "devdocs-script_os-${{ matrix.os }}_sysinstall-${{ matrix.system-install }}" }}
+          path: arrow/r/vignettes/script.sh
+        if: always()

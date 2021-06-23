@@ -1,0 +1,198 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+{%- macro github_header() -%}
+# NOTE: must set "Crossbow" as name to have the badge links working in the
+# github comment reports!
+name: Crossbow
+on:
+  push:
+    branches:
+      - "*-github-*"
+{% endmacro %}
+
+{%- macro github_checkout_arrow() -%}
+  - name: Checkout Arrow
+    run: |
+      git clone --no-checkout {{ arrow.remote }} arrow
+      git -C arrow config core.symlinks true
+      git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
+      git -C arrow checkout FETCH_HEAD
+      git -C arrow submodule update --init --recursive
+  - name: Fetch Submodules and Tags
+    shell: bash
+    run: cd arrow && ci/scripts/util_checkout.sh
+{% endmacro %}
+
+{%- macro github_login_dockerhub() -%}
+  - name: Login to Dockerhub
+    uses: docker/login-action@v1
+    with:
+      username: {{ '${{ secrets.DOCKERHUB_USER }}' }}
+      password: {{ '${{ secrets.DOCKERHUB_TOKEN }}' }}
+{% endmacro %}
+
+{%- macro github_login_ghcr() -%}
+  - name: Login to GitHub Container Registry
+    shell: bash
+    run: docker login ghcr.io -u {{ '${{ github.repository_owner }}' }} -p {{ '${{ secrets.CROSSBOW_GHCR_TOKEN }}' }}
+{% endmacro %}
+
+{%- macro github_install_archery() -%}
+  - name: Set up Python
+    uses: actions/setup-python@v2
+    with:
+      python-version: 3.8
+  - name: Install Archery
+    shell: bash
+    run: pip install -e arrow/dev/archery[all]
+{% endmacro %}
+
+{%- macro github_upload_releases(pattern) -%}
+  - name: Set up Python
+    uses: actions/setup-python@v2
+    with:
+      python-version: 3.8
+  - name: Setup Crossbow
+    shell: bash
+    run: pip install -e arrow/dev/archery[crossbow]
+  - name: Upload artifacts
+    shell: bash
+    run: |
+      archery crossbow \
+      --queue-path $(pwd) \
+      --queue-remote {{ queue_remote_url }} \
+      upload-artifacts \
+      --sha {{ task.branch }} \
+      --tag {{ task.tag }} \
+    {% if pattern is string %}
+      "{{ pattern }}"
+    {% elif pattern is iterable %}
+      {% for p in pattern %}
+      "{{ p }}" {{ "\\" if not loop.last else "" }}
+      {% endfor %}
+    {% endif %}
+    env:
+      CROSSBOW_GITHUB_TOKEN: {{ '${{ secrets.CROSSBOW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}' }}
+{% endmacro %}
+
+{%- macro github_upload_gemfury(pattern) -%}
+  {%- if arrow.branch == 'master' -%}
+  - name: Upload package to Gemfury
+    shell: bash
+    run: |
+      path=$(ls {{ pattern }})
+      curl -F "package=@${path}" https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/${CROSSBOW_GEMFURY_ORG}/
+    env:
+      CROSSBOW_GEMFURY_TOKEN: {{ '${{ secrets.CROSSBOW_GEMFURY_TOKEN }}' }}
+      CROSSBOW_GEMFURY_ORG: {{ '${{ secrets.CROSSBOW_GEMFURY_ORG }}' }}
+  {% endif %}
+{% endmacro %}
+
+{%- macro azure_checkout_arrow() -%}
+  - script: |
+      git clone --no-checkout {{ arrow.remote }} arrow
+      git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
+      git -C arrow checkout FETCH_HEAD
+      git -C arrow submodule update --init --recursive
+    displayName: Clone arrow
+{% endmacro %}
+
+{%- macro azure_upload_releases(pattern) -%}
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.8'
+  - script: pip install -e arrow/dev/archery[crossbow]
+    displayName: Install Crossbow
+  - bash: |
+      archery crossbow \
+        --queue-path $(pwd) \
+        --queue-remote {{ queue_remote_url }} \
+        upload-artifacts \
+        --sha {{ task.branch }} \
+        --tag {{ task.tag }} \
+      {% if pattern is string %}
+        "{{ pattern }}"
+      {% elif pattern is iterable %}
+        {% for p in pattern %}
+        "{{ p }}" {{ "\\" if not loop.last else "" }}
+        {% endfor %}
+      {% endif %}
+    env:
+      CROSSBOW_GITHUB_TOKEN: $(CROSSBOW_GITHUB_TOKEN)
+    displayName: Upload packages as a GitHub release
+{% endmacro %}
+
+{%- macro azure_upload_anaconda(pattern) -%}
+  {%- if arrow.branch == 'master' -%}
+  - task: CondaEnvironment@1
+    inputs:
+      packageSpecs: 'anaconda-client'
+      installOptions: '-c conda-forge'
+      updateConda: no
+  - script: |
+      conda install -y anaconda-client
+      anaconda -t $(CROSSBOW_ANACONDA_TOKEN) upload --force {{ pattern }}
+    displayName: Upload packages to Anaconda
+  {% endif %}
+{% endmacro %}
+
+{%- macro travis_checkout_arrow() -%}
+  - git clone --no-checkout {{ arrow.remote }} arrow
+  - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
+  - git -C arrow checkout FETCH_HEAD
+  - git -C arrow submodule update --init --recursive
+{% endmacro %}
+
+{%- macro travis_install_archery() -%}
+  - sudo -H pip3 install --upgrade pip
+  - sudo -H pip3 install docker-compose
+  - sudo -H pip3 install -e arrow/dev/archery[docker]
+{% endmacro %}
+
+{%- macro travis_docker_login() -%}
+  - echo "${DOCKERHUB_TOKEN}" | docker login --username "${DOCKERHUB_USER}" --password-stdin
+{% endmacro %}
+
+{%- macro travis_upload_releases(pattern) -%}
+  - sudo -H pip3 install pygit2==1.0
+  - sudo -H pip3 install -e arrow/dev/archery[crossbow]
+  - |
+    archery crossbow \
+      --queue-path $(pwd) \
+      --queue-remote {{ queue_remote_url }} \
+      upload-artifacts \
+      --sha {{ task.branch }} \
+      --tag {{ task.tag }} \
+    {% if pattern is string %}
+      "{{ pattern }}"
+    {% elif pattern is iterable %}
+      {% for p in pattern %}
+      "{{ p }}" {{ "\\" if not loop.last else "" }}
+      {% endfor %}
+    {% endif %}
+{% endmacro %}
+
+{%- macro travis_upload_gemfury(pattern) -%}
+  {%- if arrow.branch == 'master' -%}
+  - |
+    WHEEL_PATH=$(echo arrow/python/repaired_wheels/*.whl)
+    curl \
+      -F "package=@${WHEEL_PATH}" \
+      "https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/${CROSSBOW_GEMFURY_ORG}/"
+  {% endif %}
+{% endmacro %}

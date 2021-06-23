@@ -52,7 +52,7 @@ struct ARROW_EXPORT KernelState {
 /// \brief Context/state for the execution of a particular kernel.
 class ARROW_EXPORT KernelContext {
  public:
-  explicit KernelContext(ExecContext* exec_ctx) : exec_ctx_(exec_ctx) {}
+  explicit KernelContext(ExecContext* exec_ctx) : exec_ctx_(exec_ctx), state_() {}
 
   /// \brief Allocate buffer from the context's memory pool. The contents are
   /// not initialized.
@@ -62,22 +62,6 @@ class ARROW_EXPORT KernelContext {
   /// Allocate, the contents of the buffer are not initialized but the last
   /// byte is preemptively zeroed to help avoid ASAN or valgrind issues.
   Result<std::shared_ptr<ResizableBuffer>> AllocateBitmap(int64_t num_bits);
-
-  /// \brief Indicate that an error has occurred, to be checked by a exec caller
-  /// \param[in] status a Status instance.
-  ///
-  /// \note Will not overwrite a prior set Status, so we will have the first
-  /// error that occurred until ExecContext::ResetStatus is called.
-  void SetStatus(const Status& status);
-
-  /// \brief Clear any error status.
-  void ResetStatus();
-
-  /// \brief Return true if an error has occurred.
-  bool HasError() const { return !status_.ok(); }
-
-  /// \brief Return the current status of the context.
-  const Status& status() const { return status_; }
 
   /// \brief Assign the active KernelState to be utilized for each stage of
   /// kernel execution. Ownership and memory lifetime of the KernelState must
@@ -96,20 +80,8 @@ class ARROW_EXPORT KernelContext {
 
  private:
   ExecContext* exec_ctx_;
-  Status status_;
   KernelState* state_;
 };
-
-// A macro to invoke for error control flow after invoking functions (such as
-// kernel init or exec functions) that propagate errors via KernelContext.
-#define ARROW_CTX_RETURN_IF_ERROR(CTX)            \
-  do {                                            \
-    if (ARROW_PREDICT_FALSE((CTX)->HasError())) { \
-      Status s = (CTX)->status();                 \
-      (CTX)->ResetStatus();                       \
-      return s;                                   \
-    }                                             \
-  } while (0)
 
 /// \brief The standard kernel execution API that must be implemented for
 /// SCALAR and VECTOR kernel types. This includes both stateless and stateful
@@ -119,7 +91,7 @@ class ARROW_EXPORT KernelContext {
 /// into pre-allocated memory if they are able, though for some kernels
 /// (e.g. in cases when a builder like StringBuilder) must be employed this may
 /// not be possible.
-using ArrayKernelExec = std::function<void(KernelContext*, const ExecBatch&, Datum*)>;
+using ArrayKernelExec = std::function<Status(KernelContext*, const ExecBatch&, Datum*)>;
 
 /// \brief An type-checking interface to permit customizable validation rules
 /// for use with InputType and KernelSignature. This is for scenarios where the
@@ -349,6 +321,9 @@ class ARROW_EXPORT OutputType {
     this->resolver_ = other.resolver_;
   }
 
+  OutputType& operator=(const OutputType&) = default;
+  OutputType& operator=(OutputType&&) = default;
+
   /// \brief Return the shape and type of the expected output value of the
   /// kernel given the value descriptors (shapes and types) of the input
   /// arguments. The resolver may make use of state information kept in the
@@ -523,9 +498,8 @@ struct KernelInitArgs {
 };
 
 /// \brief Common initializer function for all kernel types.
-/// If an error occurs it will be stored in the KernelContext; nullptr will be returned.
-using KernelInit =
-    std::function<std::unique_ptr<KernelState>(KernelContext*, const KernelInitArgs&)>;
+using KernelInit = std::function<Result<std::unique_ptr<KernelState>>(
+    KernelContext*, const KernelInitArgs&)>;
 
 /// \brief Base type for kernels. Contains the function signature and
 /// optionally the state initialization function, along with some common
@@ -537,7 +511,8 @@ struct Kernel {
       : signature(std::move(sig)), init(std::move(init)) {}
 
   Kernel(std::vector<InputType> in_types, OutputType out_type, KernelInit init)
-      : Kernel(KernelSignature::Make(std::move(in_types), out_type), std::move(init)) {}
+      : Kernel(KernelSignature::Make(std::move(in_types), std::move(out_type)),
+               std::move(init)) {}
 
   /// \brief The "signature" of the kernel containing the InputType input
   /// argument validators and OutputType output type and shape resolver.
@@ -566,7 +541,7 @@ struct Kernel {
 /// output array values (as opposed to scalar values in the case of aggregate
 /// functions).
 struct ArrayKernel : public Kernel {
-  ArrayKernel() {}
+  ArrayKernel() = default;
 
   ArrayKernel(std::shared_ptr<KernelSignature> sig, ArrayKernelExec exec,
               KernelInit init = NULLPTR)
@@ -574,7 +549,8 @@ struct ArrayKernel : public Kernel {
 
   ArrayKernel(std::vector<InputType> in_types, OutputType out_type, ArrayKernelExec exec,
               KernelInit init = NULLPTR)
-      : Kernel(std::move(in_types), std::move(out_type), init), exec(std::move(exec)) {}
+      : Kernel(std::move(in_types), std::move(out_type), std::move(init)),
+        exec(std::move(exec)) {}
 
   /// \brief Perform a single invocation of this kernel. Depending on the
   /// implementation, it may only write into preallocated memory, while in some
@@ -606,7 +582,7 @@ struct ScalarKernel : public ArrayKernel {
 // VectorKernel (for VectorFunction)
 
 /// \brief See VectorKernel::finalize member for usage
-using VectorFinalize = std::function<void(KernelContext*, std::vector<Datum>*)>;
+using VectorFinalize = std::function<Status(KernelContext*, std::vector<Datum>*)>;
 
 /// \brief Kernel data structure for implementations of VectorFunction. In
 /// addition to the members found in ArrayKernel, contains an optional
@@ -614,10 +590,10 @@ using VectorFinalize = std::function<void(KernelContext*, std::vector<Datum>*)>;
 /// (which have different defaults from ScalarKernel), and some other
 /// execution-related options.
 struct VectorKernel : public ArrayKernel {
-  VectorKernel() {}
+  VectorKernel() = default;
 
   VectorKernel(std::shared_ptr<KernelSignature> sig, ArrayKernelExec exec)
-      : ArrayKernel(std::move(sig), exec) {}
+      : ArrayKernel(std::move(sig), std::move(exec)) {}
 
   VectorKernel(std::vector<InputType> in_types, OutputType out_type, ArrayKernelExec exec,
                KernelInit init = NULLPTR, VectorFinalize finalize = NULLPTR)
@@ -661,13 +637,13 @@ struct VectorKernel : public ArrayKernel {
 // ----------------------------------------------------------------------
 // ScalarAggregateKernel (for ScalarAggregateFunction)
 
-using ScalarAggregateConsume = std::function<void(KernelContext*, const ExecBatch&)>;
+using ScalarAggregateConsume = std::function<Status(KernelContext*, const ExecBatch&)>;
 
 using ScalarAggregateMerge =
-    std::function<void(KernelContext*, KernelState&&, KernelState*)>;
+    std::function<Status(KernelContext*, KernelState&&, KernelState*)>;
 
 // Finalize returns Datum to permit multiple return values
-using ScalarAggregateFinalize = std::function<void(KernelContext*, Datum*)>;
+using ScalarAggregateFinalize = std::function<Status(KernelContext*, Datum*)>;
 
 /// \brief Kernel data structure for implementations of
 /// ScalarAggregateFunction. The four necessary components of an aggregation
@@ -680,12 +656,12 @@ using ScalarAggregateFinalize = std::function<void(KernelContext*, Datum*)>;
 /// * finalize: produces the end result of the aggregation using the
 ///   KernelState in the KernelContext.
 struct ScalarAggregateKernel : public Kernel {
-  ScalarAggregateKernel() {}
+  ScalarAggregateKernel() = default;
 
   ScalarAggregateKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
                         ScalarAggregateConsume consume, ScalarAggregateMerge merge,
                         ScalarAggregateFinalize finalize)
-      : Kernel(std::move(sig), init),
+      : Kernel(std::move(sig), std::move(init)),
         consume(std::move(consume)),
         merge(std::move(merge)),
         finalize(std::move(finalize)) {}
@@ -693,12 +669,58 @@ struct ScalarAggregateKernel : public Kernel {
   ScalarAggregateKernel(std::vector<InputType> in_types, OutputType out_type,
                         KernelInit init, ScalarAggregateConsume consume,
                         ScalarAggregateMerge merge, ScalarAggregateFinalize finalize)
-      : ScalarAggregateKernel(KernelSignature::Make(std::move(in_types), out_type), init,
-                              consume, merge, finalize) {}
+      : ScalarAggregateKernel(
+            KernelSignature::Make(std::move(in_types), std::move(out_type)),
+            std::move(init), std::move(consume), std::move(merge), std::move(finalize)) {}
 
   ScalarAggregateConsume consume;
   ScalarAggregateMerge merge;
   ScalarAggregateFinalize finalize;
+};
+
+// ----------------------------------------------------------------------
+// HashAggregateKernel (for HashAggregateFunction)
+
+using HashAggregateConsume = std::function<Status(KernelContext*, const ExecBatch&)>;
+
+using HashAggregateMerge =
+    std::function<Status(KernelContext*, KernelState&&, KernelState*)>;
+
+// Finalize returns Datum to permit multiple return values
+using HashAggregateFinalize = std::function<Status(KernelContext*, Datum*)>;
+
+/// \brief Kernel data structure for implementations of
+/// HashAggregateFunction. The four necessary components of an aggregation
+/// kernel are the init, consume, merge, and finalize functions.
+///
+/// * init: creates a new KernelState for a kernel.
+/// * consume: processes an ExecBatch (which includes the argument as well
+///   as an array of group identifiers) and updates the KernelState found in the
+///   KernelContext.
+/// * merge: combines one KernelState with another.
+/// * finalize: produces the end result of the aggregation using the
+///   KernelState in the KernelContext.
+struct HashAggregateKernel : public Kernel {
+  HashAggregateKernel() = default;
+
+  HashAggregateKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
+                      HashAggregateConsume consume, HashAggregateMerge merge,
+                      HashAggregateFinalize finalize)
+      : Kernel(std::move(sig), std::move(init)),
+        consume(std::move(consume)),
+        merge(std::move(merge)),
+        finalize(std::move(finalize)) {}
+
+  HashAggregateKernel(std::vector<InputType> in_types, OutputType out_type,
+                      KernelInit init, HashAggregateMerge merge,
+                      HashAggregateConsume consume, HashAggregateFinalize finalize)
+      : HashAggregateKernel(
+            KernelSignature::Make(std::move(in_types), std::move(out_type)),
+            std::move(init), std::move(consume), std::move(merge), std::move(finalize)) {}
+
+  HashAggregateConsume consume;
+  HashAggregateMerge merge;
+  HashAggregateFinalize finalize;
 };
 
 }  // namespace compute

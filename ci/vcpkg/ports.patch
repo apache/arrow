@@ -1,18 +1,33 @@
+diff --git a/ports/aws-c-common/portfile.cmake b/ports/aws-c-common/portfile.cmake
+index f3704ef05b..3af543058d 100644
+--- a/ports/aws-c-common/portfile.cmake
++++ b/ports/aws-c-common/portfile.cmake
+@@ -1,8 +1,8 @@
+ vcpkg_from_github(
+     OUT_SOURCE_PATH SOURCE_PATH
+     REPO awslabs/aws-c-common
+-    REF 4a21a1c0757083a16497fea27886f5f20ccdf334 # v0.4.56
+-    SHA512 68898a8ac15d5490f45676eabfbe0df9e45370a74c543a28909fd0d85fed48dfcf4bcd6ea2d01d1a036dd352e2e4e0b08c48c63ab2a2b477fe150b46a827136e
++    REF 13adef72b7813ec878817c6d50a7a3f241015d8a # v0.4.57
++    SHA512 28256522ac6af544d7464e3e7dcd4dc802ae2b09728bf8f167f86a6487bb756d0cad5eb4a2480610b2967b9c24c4a7f70621894517aa2828ffdeb0479453803b
+     HEAD_REF master
+     PATCHES
+         disable-error-4068.patch # This patch fixes dependency port compilation failure
 diff --git a/ports/curl/portfile.cmake b/ports/curl/portfile.cmake
-index 6e18aecd0..2ccecf33c 100644
+index be66d452be..a5ce325e9d 100644
 --- a/ports/curl/portfile.cmake
 +++ b/ports/curl/portfile.cmake
-@@ -76,6 +76,8 @@ vcpkg_configure_cmake(
+@@ -94,6 +94,8 @@ vcpkg_configure_cmake(
          -DCMAKE_DISABLE_FIND_PACKAGE_Perl=ON
          -DENABLE_DEBUG=ON
          -DCURL_CA_FALLBACK=ON
 +        -DCURL_CA_PATH=none
 +        -DCURL_CA_BUNDLE=none
- )
- 
- vcpkg_install_cmake()
+     OPTIONS_DEBUG
+         ${EXTRA_ARGS_DEBUG}
+     OPTIONS_RELEASE
 diff --git a/ports/snappy/portfile.cmake b/ports/snappy/portfile.cmake
-index 75dd13302..84345c7ca 100644
+index 75dd133027..84345c7caa 100644
 --- a/ports/snappy/portfile.cmake
 +++ b/ports/snappy/portfile.cmake
 @@ -4,6 +4,7 @@ vcpkg_from_github(
@@ -21,11 +36,11 @@ index 75dd13302..84345c7ca 100644
      HEAD_REF master
 +    PATCHES "snappy-disable-bmi.patch"
  )
- 
+
  vcpkg_configure_cmake(
 diff --git a/ports/snappy/snappy-disable-bmi.patch b/ports/snappy/snappy-disable-bmi.patch
 new file mode 100644
-index 000000000..2cbb1533a
+index 0000000000..2cbb1533a8
 --- /dev/null
 +++ b/ports/snappy/snappy-disable-bmi.patch
 @@ -0,0 +1,17 @@

@@ -18,8 +18,6 @@
 ARG FROM=ubuntu:bionic
 FROM ${FROM}
 
-COPY qemu-* /usr/bin/
-
 RUN \
   echo "debconf debconf/frontend select Noninteractive" | \
     debconf-set-selections
@@ -34,6 +32,7 @@ RUN \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
     build-essential \
+    ccache \
     clang-10 \
     cmake \
     devscripts \
@@ -53,7 +52,6 @@ RUN \
     libre2-dev \
     libsnappy-dev \
     libssl-dev \
-    libutf8proc-dev \
     libzstd-dev \
     llvm-10-dev \
     lsb-release \

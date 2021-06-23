@@ -17,17 +17,15 @@
 
 import '../jest-extensions';
 import {
-    predicate,
-    Data, Schema, Table, RecordBatch, Column,
+    Data, Schema, Field, Table, RecordBatch, Column,
     Vector, Int32Vector, Float32Vector, Utf8Vector, DictionaryVector,
     Struct, Float32, Int32, Dictionary, Utf8, Int8
 } from '../Arrow';
-
-const { col, lit, custom, and, or, And, Or } = predicate;
+import { arange } from './utils';
 
 const NAMES = ['f32', 'i32', 'dictionary'] as (keyof TestDataSchema)[];
 const F32 = 0, I32 = 1, DICT = 2;
-const test_data = [
+export const test_data = [
     {
         name: `single record batch`,
         table: getSingleRecordBatchTable,
@@ -72,7 +70,7 @@ const test_data = [
 ];
 
 function compareBatchAndTable(source: Table, offset: number, batch: RecordBatch, table: Table) {
-    expect(batch.length).toEqual(table.length);
+    expect(batch).toHaveLength(table.length);
     expect(table.numCols).toEqual(source.numCols);
     expect(batch.numCols).toEqual(source.numCols);
     for (let i = -1, n = source.numCols; ++i < n;) {
@@ -87,31 +85,25 @@ function compareBatchAndTable(source: Table, offset: number, batch: RecordBatch,
 
 describe(`Table`, () => {
     test(`can create an empty table`, () => {
-        expect(Table.empty().length).toEqual(0);
+        expect(Table.empty()).toHaveLength(0);
     });
     test(`Table.from([]) creates an empty table`, () => {
-        expect(Table.from([]).length).toEqual(0);
+        expect(Table.from([])).toHaveLength(0);
     });
     test(`Table.from() creates an empty table`, () => {
-        expect(Table.from().length).toEqual(0);
+        expect(Table.from()).toHaveLength(0);
     });
 
     describe(`new()`, () => {
-
-        const arange = <T extends { length: number; [n: number]: number; }>(arr: T, n = arr.length) => {
-            for (let i = -1; ++i < n; arr[i] = i) { }
-            return arr;
-        };
-
         test(`creates an empty Table with Columns`, () => {
             let i32 = Column.new('i32', Data.new(new Int32(), 0, 0));
             let f32 = Column.new('f32', Data.new(new Float32(), 0, 0));
             const table = Table.new(i32, f32);
             i32 = table.getColumn('i32')!;
             f32 = table.getColumn('f32')!;
-            expect(table.length).toBe(0);
-            expect(i32.length).toBe(0);
-            expect(f32.length).toBe(0);
+            expect(table).toHaveLength(0);
+            expect(i32).toHaveLength(0);
+            expect(f32).toHaveLength(0);
             expect(i32.toArray()).toBeInstanceOf(Int32Array);
             expect(f32.toArray()).toBeInstanceOf(Float32Array);
         });
@@ -122,7 +114,7 @@ describe(`Table`, () => {
 
             let i32 = Column.new('i32', Data.Int(new Int32(), 0, i32s.length, 0, null, i32s));
             expect(i32.name).toBe('i32');
-            expect(i32.length).toBe(i32s.length);
+            expect(i32).toHaveLength(i32s.length);
             expect(i32.nullable).toBe(true);
             expect(i32.nullCount).toBe(0);
 
@@ -130,7 +122,7 @@ describe(`Table`, () => {
             i32 = table.getColumnAt(0)!;
 
             expect(i32.name).toBe('i32');
-            expect(i32.length).toBe(i32s.length);
+            expect(i32).toHaveLength(i32s.length);
             expect(i32.nullable).toBe(true);
             expect(i32.nullCount).toBe(0);
 
@@ -146,8 +138,8 @@ describe(`Table`, () => {
             let f32 = Column.new('f32', Data.Float(new Float32(), 0, f32s.length, 0, null, f32s));
             expect(i32.name).toBe('i32');
             expect(f32.name).toBe('f32');
-            expect(i32.length).toBe(i32s.length);
-            expect(f32.length).toBe(f32s.length);
+            expect(i32).toHaveLength(i32s.length);
+            expect(f32).toHaveLength(f32s.length);
             expect(i32.nullable).toBe(true);
             expect(f32.nullable).toBe(true);
             expect(i32.nullCount).toBe(0);
@@ -159,8 +151,8 @@ describe(`Table`, () => {
 
             expect(i32.name).toBe('i32');
             expect(f32.name).toBe('f32');
-            expect(i32.length).toBe(i32s.length);
-            expect(f32.length).toBe(f32s.length);
+            expect(i32).toHaveLength(i32s.length);
+            expect(f32).toHaveLength(f32s.length);
             expect(i32.nullable).toBe(true);
             expect(f32.nullable).toBe(true);
             expect(i32.nullCount).toBe(0);
@@ -180,8 +172,8 @@ describe(`Table`, () => {
 
             expect(i32.name).toBe('i32');
             expect(f32.name).toBe('f32');
-            expect(i32.length).toBe(i32s.length);
-            expect(f32.length).toBe(f32s.length);
+            expect(i32).toHaveLength(i32s.length);
+            expect(f32).toHaveLength(f32s.length);
             expect(i32.nullable).toBe(true);
             expect(f32.nullable).toBe(true);
             expect(i32.nullCount).toBe(0);
@@ -193,8 +185,8 @@ describe(`Table`, () => {
 
             expect(i32.name).toBe('i32');
             expect(f32.name).toBe('f32');
-            expect(i32.length).toBe(i32s.length);
-            expect(f32.length).toBe(i32s.length); // new length should be the same as the longest sibling
+            expect(i32).toHaveLength(i32s.length);
+            expect(f32).toHaveLength(i32s.length); // new length should be the same as the longest sibling
             expect(i32.nullable).toBe(true);
             expect(f32.nullable).toBe(true); // true, with 12 additional nulls
             expect(i32.nullCount).toBe(0);
@@ -219,8 +211,8 @@ describe(`Table`, () => {
 
             expect(i32.name).toBe('i32');
             expect(f32.name).toBe('f32');
-            expect(i32.length).toBe(i32s.length);
-            expect(f32.length).toBe(f32s.length);
+            expect(i32).toHaveLength(i32s.length);
+            expect(f32).toHaveLength(f32s.length);
             expect(i32.nullable).toBe(true);
             expect(f32.nullable).toBe(true);
             expect(i32.nullCount).toBe(0);
@@ -232,8 +224,8 @@ describe(`Table`, () => {
 
             expect(i32.name).toBe('i32Renamed');
             expect(f32.name).toBe('f32Renamed');
-            expect(i32.length).toBe(i32s.length);
-            expect(f32.length).toBe(i32s.length); // new length should be the same as the longest sibling
+            expect(i32).toHaveLength(i32s.length);
+            expect(f32).toHaveLength(i32s.length); // new length should be the same as the longest sibling
             expect(i32.nullable).toBe(true);
             expect(f32.nullable).toBe(true); // true, with 4 additional nulls
             expect(i32.nullCount).toBe(0);
@@ -246,6 +238,22 @@ describe(`Table`, () => {
 
             expect(i32).toEqualVector(Int32Vector.from(i32s));
             expect(f32).toEqualVector(new Float32Vector(f32Expected));
+        });
+
+        test(`creates a new Table from Typed Arrays`, () => {
+            let i32s = Int32Array.from({length: 10}, (_, i) => i);
+            let f32s = Float32Array.from({length: 10}, (_, i) => i);
+            const table = Table.new({ i32s, f32s });
+            const i32 = table.getColumn('i32s')!;
+            const f32 = table.getColumn('f32s')!;
+
+            expect(table).toHaveLength(10);
+            expect(i32).toHaveLength(10);
+            expect(f32).toHaveLength(10);
+            expect(i32.toArray()).toBeInstanceOf(Int32Array);
+            expect(f32.toArray()).toBeInstanceOf(Float32Array);
+            expect(i32.toArray()).toEqual(i32s);
+            expect(f32.toArray()).toEqual(f32s);
         });
     });
 
@@ -278,7 +286,7 @@ describe(`Table`, () => {
             test(`has the correct length`, () => {
                 const table = datum.table();
                 const values = datum.values();
-                expect(table.length).toEqual(values.length);
+                expect(table).toHaveLength(values.length);
             });
             test(`gets expected values`, () => {
                 const table = datum.table();
@@ -308,42 +316,6 @@ describe(`Table`, () => {
                 expect(clone).toEqualTable(table);
             });
 
-            describe(`scan()`, () => {
-                test(`yields all values`, () => {
-                    const table = datum.table();
-                    let expected_idx = 0;
-                    table.scan((idx, batch) => {
-                        const columns = batch.schema.fields.map((_, i) => batch.getChildAt(i)!);
-                        expect(columns.map((c) => c.get(idx))).toEqual(values[expected_idx++]);
-                    });
-                });
-                test(`calls bind function with every batch`, () => {
-                    const table = datum.table();
-                    let bind = jest.fn();
-                    table.scan(() => { }, bind);
-                    for (let batch of table.chunks) {
-                        expect(bind).toHaveBeenCalledWith(batch);
-                    }
-                });
-            });
-            describe(`scanReverse()`, () => {
-                test(`yields all values`, () => {
-                    const table = datum.table();
-                    let expected_idx = values.length;
-                    table.scanReverse((idx, batch) => {
-                        const columns = batch.schema.fields.map((_, i) => batch.getChildAt(i)!);
-                        expect(columns.map((c) => c.get(idx))).toEqual(values[--expected_idx]);
-                    });
-                });
-                test(`calls bind function with every batch`, () => {
-                    const table = datum.table();
-                    let bind = jest.fn();
-                    table.scanReverse(() => { }, bind);
-                    for (let batch of table.chunks) {
-                        expect(bind).toHaveBeenCalledWith(batch);
-                    }
-                });
-            });
             test(`count() returns the correct length`, () => {
                 const table = datum.table();
                 const values = datum.values();
@@ -355,158 +327,17 @@ describe(`Table`, () => {
                 expect(table.getColumnIndex('f32')).toEqual(F32);
                 expect(table.getColumnIndex('dictionary')).toEqual(DICT);
             });
+
             const table = datum.table();
             const values = datum.values();
-            let get_i32: (idx: number) => number, get_f32: (idx: number) => number;
-            const filter_tests = [
-                {
-                    name: `filter on f32 >= 0`,
-                    filtered: table.filter(col('f32').ge(0)),
-                    expected: values.filter((row) => row[F32] >= 0)
-                }, {
-                    name: `filter on 0 <= f32`,
-                    filtered: table.filter(lit(0).le(col('f32'))),
-                    expected: values.filter((row) => 0 <= row[F32])
-                }, {
-                    name: `filter on i32 <= 0`,
-                    filtered: table.filter(col('i32').le(0)),
-                    expected: values.filter((row) => row[I32] <= 0)
-                }, {
-                    name: `filter on 0 >= i32`,
-                    filtered: table.filter(lit(0).ge(col('i32'))),
-                    expected: values.filter((row) => 0 >= row[I32])
-                }, {
-                    name: `filter on f32 < 0`,
-                    filtered: table.filter(col('f32').lt(0)),
-                    expected: values.filter((row) => row[F32] < 0)
-                }, {
-                    name: `filter on i32 > 1 (empty)`,
-                    filtered: table.filter(col('i32').gt(0)),
-                    expected: values.filter((row) => row[I32] > 0)
-                }, {
-                    name: `filter on f32 <= -.25 || f3 >= .25`,
-                    filtered: table.filter(col('f32').le(-.25).or(col('f32').ge(.25))),
-                    expected: values.filter((row) => row[F32] <= -.25 || row[F32] >= .25)
-                }, {
-                    name: `filter on !(f32 <= -.25 || f3 >= .25) (not)`,
-                    filtered: table.filter(col('f32').le(-.25).or(col('f32').ge(.25)).not()),
-                    expected: values.filter((row) => !(row[F32] <= -.25 || row[F32] >= .25))
-                }, {
-                    name: `filter method combines predicates (f32 >= 0 && i32 <= 0)`,
-                    filtered: table.filter(col('i32').le(0)).filter(col('f32').ge(0)),
-                    expected: values.filter((row) => row[I32] <= 0 && row[F32] >= 0)
-                }, {
-                    name: `filter on dictionary == 'a'`,
-                    filtered: table.filter(col('dictionary').eq('a')),
-                    expected: values.filter((row) => row[DICT] === 'a')
-                }, {
-                    name: `filter on 'a' == dictionary (commutativity)`,
-                    filtered: table.filter(lit('a').eq(col('dictionary'))),
-                    expected: values.filter((row) => row[DICT] === 'a')
-                }, {
-                    name: `filter on dictionary != 'b'`,
-                    filtered: table.filter(col('dictionary').ne('b')),
-                    expected: values.filter((row) => row[DICT] !== 'b')
-                }, {
-                    name: `filter on f32 >= i32`,
-                    filtered: table.filter(col('f32').ge(col('i32'))),
-                    expected: values.filter((row) => row[F32] >= row[I32])
-                }, {
-                    name: `filter on f32 <= i32`,
-                    filtered: table.filter(col('f32').le(col('i32'))),
-                    expected: values.filter((row) => row[F32] <= row[I32])
-                }, {
-                    name: `filter on f32*i32 > 0 (custom predicate)`,
-                    filtered: table.filter(custom(
-                        (idx: number) => (get_f32(idx) * get_i32(idx) > 0),
-                        (batch: RecordBatch) => {
-                            get_f32 = col('f32').bind(batch);
-                            get_i32 = col('i32').bind(batch);
-                        })),
-                    expected: values.filter((row) => (row[F32] as number) * (row[I32] as number) > 0)
-                }, {
-                    name: `filter out all records`,
-                    filtered: table.filter(lit(1).eq(0)),
-                    expected: []
-                }
-            ];
-            for (let this_test of filter_tests) {
-                const { name, filtered, expected } = this_test;
-                describe(name, () => {
-                    test(`count() returns the correct length`, () => {
-                        expect(filtered.count()).toEqual(expected.length);
-                    });
-                    describe(`scan()`, () => {
-                        test(`iterates over expected values`, () => {
-                            let expected_idx = 0;
-                            filtered.scan((idx, batch) => {
-                                const columns = batch.schema.fields.map((_, i) => batch.getChildAt(i)!);
-                                expect(columns.map((c) => c.get(idx))).toEqual(expected[expected_idx++]);
-                            });
-                        });
-                        test(`calls bind function lazily`, () => {
-                            let bind = jest.fn();
-                            filtered.scan(() => { }, bind);
-                            if (expected.length) {
-                                expect(bind).toHaveBeenCalled();
-                            } else {
-                                expect(bind).not.toHaveBeenCalled();
-                            }
-                        });
-                    });
-                    describe(`scanReverse()`, () => {
-                        test(`iterates over expected values in reverse`, () => {
-                            let expected_idx = expected.length;
-                            filtered.scanReverse((idx, batch) => {
-                                const columns = batch.schema.fields.map((_, i) => batch.getChildAt(i)!);
-                                expect(columns.map((c) => c.get(idx))).toEqual(expected[--expected_idx]);
-                            });
-                        });
-                        test(`calls bind function lazily`, () => {
-                            let bind = jest.fn();
-                            filtered.scanReverse(() => { }, bind);
-                            if (expected.length) {
-                                expect(bind).toHaveBeenCalled();
-                            } else {
-                                expect(bind).not.toHaveBeenCalled();
-                            }
-                        });
-                    });
-                });
-            }
-            test(`countBy on dictionary returns the correct counts`, () => {
-                // Make sure countBy works both with and without the Col wrapper
-                // class
-                let expected: { [key: string]: number } = { 'a': 0, 'b': 0, 'c': 0 };
-                for (let row of values) {
-                    expected[row[DICT]] += 1;
-                }
 
-                expect(table.countBy(col('dictionary')).toJSON()).toEqual(expected);
-                expect(table.countBy('dictionary').toJSON()).toEqual(expected);
-            });
-            test(`countBy on dictionary with filter returns the correct counts`, () => {
-                let expected: { [key: string]: number } = { 'a': 0, 'b': 0, 'c': 0 };
-                for (let row of values) {
-                    if (row[I32] === 1) { expected[row[DICT]] += 1; }
-                }
-
-                expect(table.filter(col('i32').eq(1)).countBy('dictionary').toJSON()).toEqual(expected);
-            });
-            test(`countBy on non dictionary column throws error`, () => {
-                expect(() => { table.countBy('i32'); }).toThrow();
-                expect(() => { table.filter(col('dict').eq('a')).countBy('i32'); }).toThrow();
-            });
-            test(`countBy on non-existent column throws error`, () => {
-                expect(() => { table.countBy('FAKE' as any); }).toThrow();
-            });
             test(`table.select() basic tests`, () => {
                 let selected = table.select('f32', 'dictionary');
-                expect(selected.schema.fields.length).toEqual(2);
+                expect(selected.schema.fields).toHaveLength(2);
                 expect(selected.schema.fields[0]).toEqual(table.schema.fields[0]);
                 expect(selected.schema.fields[1]).toEqual(table.schema.fields[2]);
 
-                expect(selected.length).toEqual(values.length);
+                expect(selected).toHaveLength(values.length);
                 let idx = 0, expected_row;
                 for (let row of selected) {
                     expected_row = values[idx++];
@@ -514,65 +345,11 @@ describe(`Table`, () => {
                     expect(row.dictionary).toEqual(expected_row[DICT]);
                 }
             });
-            // test(`table.toString()`, () => {
-            //     let selected = table.select('i32', 'dictionary');
-            //     let headers = [`"row_id"`, `"i32: Int32"`, `"dictionary: Dictionary<Int8, Utf8>"`];
-            //     let expected = [headers.join(' | '), ...values.map((row, idx) => {
-            //         return [`${idx}`, `${row[I32]}`, `"${row[DICT]}"`].map((str, col) => {
-            //             return leftPad(str, ' ', headers[col].length);
-            //         }).join(' | ');
-            //     })].join('\n') + '\n';
-            //     expect(selected.toString()).toEqual(expected);
-            // });
-            test(`table.filter(..).count() on always false predicates returns 0`, () => {
-                expect(table.filter(col('i32').ge(100)).count()).toEqual(0);
-                expect(table.filter(col('dictionary').eq('z')).count()).toEqual(0);
-            });
-            describe(`lit-lit comparison`, () => {
-                test(`always-false count() returns 0`, () => {
-                    expect(table.filter(lit('abc').eq('def')).count()).toEqual(0);
-                    expect(table.filter(lit(0).ge(1)).count()).toEqual(0);
-                });
-                test(`always-true count() returns length`, () => {
-                    expect(table.filter(lit('abc').eq('abc')).count()).toEqual(table.length);
-                    expect(table.filter(lit(-100).le(0)).count()).toEqual(table.length);
-                });
-            });
-            describe(`col-col comparison`, () => {
-                test(`always-false count() returns 0`, () => {
-                    expect(table.filter(col('dictionary').eq(col('i32'))).count()).toEqual(0);
-                });
-                test(`always-true count() returns length`, () => {
-                    expect(table.filter(col('dictionary').eq(col('dictionary'))).count()).toEqual(table.length);
-                });
-            });
         });
     }
 });
 
-describe(`Predicate`, () => {
-    const p1 = col('a').gt(100);
-    const p2 = col('a').lt(1000);
-    const p3 = col('b').eq('foo');
-    const p4 = col('c').eq('bar');
-    const expected = [p1, p2, p3, p4];
-    test(`and flattens children`, () => {
-        expect(and(p1, p2, p3, p4).children).toEqual(expected);
-        expect(and(p1.and(p2), new And(p3, p4)).children).toEqual(expected);
-        expect(and(p1.and(p2, p3, p4)).children).toEqual(expected);
-    });
-    test(`or flattens children`, () => {
-        expect(or(p1, p2, p3, p4).children).toEqual(expected);
-        expect(or(p1.or(p2), new Or(p3, p4)).children).toEqual(expected);
-        expect(or(p1.or(p2, p3, p4)).children).toEqual(expected);
-    });
-});
-
-// function leftPad(str: string, fill: string, n: number) {
-//     return (new Array(n + 1).join(fill) + str).slice(-1 * n);
-// }
-
-type TestDataSchema = { f32: Float32; i32: Int32; dictionary: Dictionary<Utf8, Int8>; };
+type TestDataSchema = { f32: Float32; i32: Int32; dictionary: Dictionary<Utf8, Int8> };
 
 function getTestVectors(f32Values: number[], i32Values: number[], dictIndices: number[]) {
 
@@ -583,7 +360,7 @@ function getTestVectors(f32Values: number[], i32Values: number[], dictIndices: n
     return [Vector.new(f32Data), Vector.new(i32Data), DictionaryVector.from(values, new Int8(), dictIndices)];
 }
 
-export function getSingleRecordBatchTable() {
+function getSingleRecordBatchTable() {
     const vectors = getTestVectors(
         [-0.3, -0.2, -0.1, 0, 0.1, 0.2, 0.3],
         [-1, 1, -1, 1, -1, 1, -1],
@@ -595,7 +372,9 @@ export function getSingleRecordBatchTable() {
 
 function getMultipleRecordBatchesTable() {
 
-    const schema = Schema.from<TestDataSchema>(getTestVectors([], [], []), NAMES);
+    const types = getTestVectors([], [], []).map((vec) => vec.type);
+    const fields = NAMES.map((name, i) => Field.new(name, types[i]));
+    const schema = new Schema<TestDataSchema>(fields);
 
     const b1 = new RecordBatch(schema, 3, getTestVectors(
         [-0.3, -0.2, -0.1],

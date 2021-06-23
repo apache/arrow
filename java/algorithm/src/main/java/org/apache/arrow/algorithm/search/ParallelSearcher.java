@@ -66,8 +66,19 @@ public class ParallelSearcher<V extends ValueVector> {
     this.numThreads = numThreads;
   }
 
+  private CompletableFuture<Boolean>[] initSearch() {
+    keyPosition = -1;
+    final CompletableFuture<Boolean>[] futures = new CompletableFuture[numThreads];
+    for (int i = 0; i < futures.length; i++) {
+      futures[i] = new CompletableFuture<>();
+    }
+    return futures;
+  }
+
   /**
-   * Search for the key in the target vector.
+   * Search for the key in the target vector. The element-wise comparison is based on
+   * {@link RangeEqualsVisitor}, so there are two possible results for each element-wise
+   * comparison: equal and un-equal.
    * @param keyVector the vector containing the search key.
    * @param keyIndex the index of the search key in the key vector.
    * @return the position of a matched value in the target vector,
@@ -80,13 +91,8 @@ public class ParallelSearcher<V extends ValueVector> {
    * @throws InterruptedException if a thread is interrupted.
    */
   public int search(V keyVector, int keyIndex) throws ExecutionException, InterruptedException {
-    keyPosition = -1;
+    final CompletableFuture<Boolean>[] futures = initSearch();
     final int valueCount = vector.getValueCount();
-    final CompletableFuture<Boolean>[] futures = new CompletableFuture[numThreads];
-    for (int i = 0; i < futures.length; i++) {
-      futures[i] = new CompletableFuture<>();
-    }
-
     for (int i = 0; i < numThreads; i++) {
       final int tid = i;
       threadPool.submit(() -> {
@@ -110,6 +116,63 @@ public class ParallelSearcher<V extends ValueVector> {
           }
           range.setLeftStart(pos).setRightStart(keyIndex);
           if (visitor.rangeEquals(range)) {
+            keyPosition = pos;
+            futures[tid].complete(true);
+            return;
+          }
+        }
+
+        // no match value is found.
+        futures[tid].complete(false);
+      });
+    }
+
+    CompletableFuture.allOf(futures).get();
+    return keyPosition;
+  }
+
+  /**
+   * Search for the key in the target vector. The element-wise comparison is based on
+   * {@link VectorValueComparator}, so there are three possible results for each element-wise
+   * comparison: less than, equal to and greater than.
+   * @param keyVector the vector containing the search key.
+   * @param keyIndex the index of the search key in the key vector.
+   * @param comparator the comparator for comparing the key against vector elements.
+   * @return the position of a matched value in the target vector,
+   *     or -1 if none is found. Please note that if there are multiple
+   *     matches of the key in the target vector, this method makes no
+   *     guarantees about which instance is returned.
+   *     For an alternative search implementation that always finds the first match of the key,
+   *     see {@link VectorSearcher#linearSearch(ValueVector, VectorValueComparator, ValueVector, int)}.
+   * @throws ExecutionException if an exception occurs in a thread.
+   * @throws InterruptedException if a thread is interrupted.
+   */
+  public int search(
+      V keyVector, int keyIndex, VectorValueComparator<V> comparator) throws ExecutionException, InterruptedException {
+    final CompletableFuture<Boolean>[] futures = initSearch();
+    final int valueCount = vector.getValueCount();
+    for (int i = 0; i < numThreads; i++) {
+      final int tid = i;
+      threadPool.submit(() -> {
+        // convert to long to avoid overflow
+        int start = (int) (((long) valueCount) * tid / numThreads);
+        int end = (int) ((long) valueCount) * (tid + 1) / numThreads;
+
+        if (start >= end) {
+          // no data assigned to this task.
+          futures[tid].complete(false);
+          return;
+        }
+
+        VectorValueComparator<V> localComparator = comparator.createNew();
+        localComparator.attachVectors(vector, keyVector);
+        for (int pos = start; pos < end; pos++) {
+          if (keyPosition != -1) {
+            // the key has been found by another task
+            futures[tid].complete(false);
+            return;
+          }
+          if (localComparator.compare(pos, keyIndex) == 0) {
             keyPosition = pos;
             futures[tid].complete(true);
             return;

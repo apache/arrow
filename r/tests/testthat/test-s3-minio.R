@@ -38,7 +38,7 @@ if (arrow_with_s3() && process_is_running("minio server")) {
       scheme = "http",
       endpoint_override = paste0("localhost:", minio_port)
     )
-    expect_is(fs, "S3FileSystem")
+    expect_r6_class(fs, "S3FileSystem")
     now <- as.character(as.numeric(Sys.time()))
     # If minio isn't running, this will hang for a few seconds and fail with a
     # curl timeout, causing `run_these` to be set to FALSE and skipping the tests
@@ -69,84 +69,122 @@ if (arrow_with_s3() && process_is_running("minio server")) {
   })
 
   test_that("read/write Parquet on minio", {
+    skip_if_not_available("parquet")
     write_parquet(example_data, fs$path(minio_uri("test.parquet")))
     expect_identical(read_parquet(minio_uri("test.parquet")), example_data)
   })
 
-  # Dataset test setup, cf. test-dataset.R
-  library(dplyr)
-  first_date <- lubridate::ymd_hms("2015-04-29 03:12:39")
-  df1 <- tibble(
-    int = 1:10,
-    dbl = as.numeric(1:10),
-    lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
-    chr = letters[1:10],
-    fct = factor(LETTERS[1:10]),
-    ts = first_date + lubridate::days(1:10)
-  )
+  if (arrow_with_dataset()) {
 
-  second_date <- lubridate::ymd_hms("2017-03-09 07:01:02")
-  df2 <- tibble(
-    int = 101:110,
-    dbl = as.numeric(51:60),
-    lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
-    chr = letters[10:1],
-    fct = factor(LETTERS[10:1]),
-    ts = second_date + lubridate::days(10:1)
-  )
+    library(dplyr)
 
-  # This is also to set up the dataset tests
-  test_that("write_parquet with filesystem arg", {
-    fs$CreateDir(minio_path("hive_dir", "group=1", "other=xxx"))
-    fs$CreateDir(minio_path("hive_dir", "group=2", "other=yyy"))
-    expect_length(fs$ls(minio_path("hive_dir")), 2)
-    write_parquet(df1, fs$path(minio_path("hive_dir", "group=1", "other=xxx", "file1.parquet")))
-    write_parquet(df2, fs$path(minio_path("hive_dir", "group=2", "other=yyy", "file2.parquet")))
-    expect_identical(
-      read_parquet(fs$path(minio_path("hive_dir", "group=1", "other=xxx", "file1.parquet"))),
-      df1
+    make_temp_dir <- function() {
+      path <- tempfile()
+      dir.create(path)
+      normalizePath(path, winslash = "/")
+    }
+
+    test_that("open_dataset with an S3 file (not directory) URI", {
+      skip_if_not_available("parquet")
+      expect_identical(
+        open_dataset(minio_uri("test.parquet")) %>% collect(),
+        example_data
+      )
+    })
+
+    test_that("open_dataset with vector of S3 file URIs", {
+      expect_identical(
+        open_dataset(
+          c(minio_uri("test.feather"), minio_uri("test2.feather")),
+          format = "feather"
+        ) %>% collect(),
+        rbind(example_data, example_data)
+      )
+    })
+
+    test_that("open_dataset errors on URIs for different file systems", {
+      td <- make_temp_dir()
+      expect_error(
+        open_dataset(
+          c(
+            minio_uri("test.feather"),
+            paste0("file://", file.path(td, "fake.feather"))
+          ),
+          format = "feather"
+        ),
+        "Vectors of URIs for different file systems are not supported"
+      )
+    })
+
+    # Dataset test setup, cf. test-dataset.R
+    first_date <- lubridate::ymd_hms("2015-04-29 03:12:39")
+    df1 <- tibble(
+      int = 1:10,
+      dbl = as.numeric(1:10),
+      lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
+      chr = letters[1:10],
+      fct = factor(LETTERS[1:10]),
+      ts = first_date + lubridate::days(1:10)
     )
-  })
 
-  test_that("open_dataset with fs", {
-    ds <- open_dataset(fs$path(minio_path("hive_dir")))
-    expect_identical(
-      ds %>% select(dbl, lgl) %>% collect(),
-      rbind(df1[, c("dbl", "lgl")], df2[, c("dbl", "lgl")])
+    second_date <- lubridate::ymd_hms("2017-03-09 07:01:02")
+    df2 <- tibble(
+      int = 101:110,
+      dbl = as.numeric(51:60),
+      lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
+      chr = letters[10:1],
+      fct = factor(LETTERS[10:1]),
+      ts = second_date + lubridate::days(10:1)
     )
-  })
 
-  test_that("write_dataset with fs", {
-    ds <- open_dataset(fs$path(minio_path("hive_dir")))
-    write_dataset(ds, fs$path(minio_path("new_dataset_dir")))
-    expect_length(fs$ls(minio_path("new_dataset_dir")), 1)
-  })
+    # This is also to set up the dataset tests
+    test_that("write_parquet with filesystem arg", {
+      skip_if_not_available("parquet")
+      fs$CreateDir(minio_path("hive_dir", "group=1", "other=xxx"))
+      fs$CreateDir(minio_path("hive_dir", "group=2", "other=yyy"))
+      expect_length(fs$ls(minio_path("hive_dir")), 2)
+      write_parquet(df1, fs$path(minio_path("hive_dir", "group=1", "other=xxx", "file1.parquet")))
+      write_parquet(df2, fs$path(minio_path("hive_dir", "group=2", "other=yyy", "file2.parquet")))
+      expect_identical(
+        read_parquet(fs$path(minio_path("hive_dir", "group=1", "other=xxx", "file1.parquet"))),
+        df1
+      )
+    })
 
-  make_temp_dir <- function() {
-    path <- tempfile()
-    dir.create(path)
-    normalizePath(path, winslash = "/")
+    test_that("open_dataset with fs", {
+      ds <- open_dataset(fs$path(minio_path("hive_dir")))
+      expect_identical(
+        ds %>% select(dbl, lgl) %>% collect(),
+        rbind(df1[, c("dbl", "lgl")], df2[, c("dbl", "lgl")])
+      )
+    })
+
+    test_that("write_dataset with fs", {
+      ds <- open_dataset(fs$path(minio_path("hive_dir")))
+      write_dataset(ds, fs$path(minio_path("new_dataset_dir")))
+      expect_length(fs$ls(minio_path("new_dataset_dir")), 1)
+    })
+
+    test_that("Let's test copy_files too", {
+      td <- make_temp_dir()
+      copy_files(minio_uri("hive_dir"), td)
+      expect_length(dir(td), 2)
+      ds <- open_dataset(td)
+      expect_identical(
+        ds %>% select(dbl, lgl) %>% collect(),
+        rbind(df1[, c("dbl", "lgl")], df2[, c("dbl", "lgl")])
+      )
+
+      # Let's copy the other way and use a SubTreeFileSystem rather than URI
+      copy_files(td, fs$path(minio_path("hive_dir2")))
+      ds2 <- open_dataset(fs$path(minio_path("hive_dir2")))
+      expect_identical(
+        ds2 %>% select(dbl, lgl) %>% collect(),
+        rbind(df1[, c("dbl", "lgl")], df2[, c("dbl", "lgl")])
+      )
+    })
+
   }
-
-  test_that("Let's test copy_files too", {
-    td <- make_temp_dir()
-    copy_files(minio_uri("hive_dir"), td)
-    expect_length(dir(td), 2)
-    ds <- open_dataset(td)
-    expect_identical(
-      ds %>% select(dbl, lgl) %>% collect(),
-      rbind(df1[, c("dbl", "lgl")], df2[, c("dbl", "lgl")])
-    )
-
-    # Let's copy the other way and use a SubTreeFileSystem rather than URI
-    copy_files(td, fs$path(minio_path("hive_dir2")))
-    ds2 <- open_dataset(fs$path(minio_path("hive_dir2")))
-    expect_identical(
-      ds2 %>% select(dbl, lgl) %>% collect(),
-      rbind(df1[, c("dbl", "lgl")], df2[, c("dbl", "lgl")])
-    )
-  })
-
 
   test_that("S3FileSystem input validation", {
     expect_error(

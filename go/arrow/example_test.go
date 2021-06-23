@@ -593,3 +593,67 @@ func Example_table() {
 	// rec[3]["f1-i32"]: [16 17 18 19 20]
 	// rec[3]["f2-f64"]: [16 17 18 19 20]
 }
+
+// This example demonstrates how to create a Map Array.
+// The resulting array should be:
+//   [{["ab" "cd" "ef" "gh"] [1 2 3 4]} (null) {["ab" "cd" "ef" "gh"] [(null) 2 5 1]}]
+func Example_mapArray() {
+	pool := memory.NewGoAllocator()
+	mb := array.NewMapBuilder(pool, arrow.BinaryTypes.String, arrow.PrimitiveTypes.Int16, false)
+	defer mb.Release()
+
+	kb := mb.KeyBuilder().(*array.StringBuilder)
+	ib := mb.ItemBuilder().(*array.Int16Builder)
+
+	keys := []string{"ab", "cd", "ef", "gh"}
+
+	mb.Append(true)
+	kb.AppendValues(keys, nil)
+	ib.AppendValues([]int16{1, 2, 3, 4}, nil)
+
+	mb.AppendNull()
+
+	mb.Append(true)
+	kb.AppendValues(keys, nil)
+	ib.AppendValues([]int16{-1, 2, 5, 1}, []bool{false, true, true, true})
+
+	arr := mb.NewMapArray()
+	defer arr.Release()
+
+	fmt.Printf("NullN() = %d\n", arr.NullN())
+	fmt.Printf("Len()   = %d\n", arr.Len())
+
+	offsets := arr.Offsets()
+	keyArr := arr.Keys().(*array.String)
+	itemArr := arr.Items().(*array.Int16)
+
+	for i := 0; i < arr.Len(); i++ {
+		if arr.IsNull(i) {
+			fmt.Printf("Map[%d] = (null)\n", i)
+			continue
+		}
+
+		fmt.Printf("Map[%d] = {", i)
+		for j := offsets[i]; j < offsets[i+1]; j++ {
+			if j != offsets[i] {
+				fmt.Printf(", ")
+			}
+			fmt.Printf("%v => ", keyArr.Value(int(j)))
+			if itemArr.IsValid(int(j)) {
+				fmt.Printf("%v", itemArr.Value(int(j)))
+			} else {
+				fmt.Printf("(null)")
+			}
+		}
+		fmt.Printf("}\n")
+	}
+	fmt.Printf("Map    = %v\n", arr)
+
+	// Output:
+	// NullN() = 1
+	// Len()   = 3
+	// Map[0] = {ab => 1, cd => 2, ef => 3, gh => 4}
+	// Map[1] = (null)
+	// Map[2] = {ab => (null), cd => 2, ef => 5, gh => 1}
+	// Map    = [{["ab" "cd" "ef" "gh"] [1 2 3 4]} (null) {["ab" "cd" "ef" "gh"] [(null) 2 5 1]}]
+}

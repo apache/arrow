@@ -231,6 +231,16 @@ def base_datadir():
     return pathlib.Path(__file__).parent / 'data'
 
 
+@pytest.fixture(autouse=True)
+def disable_aws_metadata(monkeypatch):
+    """Stop the AWS SDK from trying to contact the EC2 metadata server.
+
+    Otherwise, this causes a 5 second delay in tests that exercise the
+    S3 filesystem.
+    """
+    monkeypatch.setenv("AWS_EC2_METADATA_DISABLED", "true")
+
+
 # TODO(kszucs): move the following fixtures to test_fs.py once the previous
 # parquet dataset implementation and hdfs implementation are removed.
 

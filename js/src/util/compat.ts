@@ -81,6 +81,7 @@ export { BigUint64ArrayCtor as BigUint64Array, BigUint64ArrayAvailable };
 /** @ignore */ const isBoolean = (x: any) => typeof x === 'boolean';
 /** @ignore */ const isFunction = (x: any) => typeof x === 'function';
 /** @ignore */
+// eslint-disable-next-line @typescript-eslint/ban-types
 export const isObject = (x: any): x is Object => x != null && Object(x) === x;
 
 /** @ignore */

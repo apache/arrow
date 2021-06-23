@@ -39,6 +39,15 @@ from pyarrow.util import guid
 # HDFS tests
 
 
+def check_libhdfs_present():
+    if not pa.have_libhdfs():
+        message = 'No libhdfs available on system'
+        if os.environ.get('PYARROW_HDFS_TEST_LIBHDFS_REQUIRE'):
+            pytest.fail(message)
+        else:
+            pytest.skip(message)
+
+
 def hdfs_test_client():
     host = os.environ.get('ARROW_HDFS_TEST_HOST', 'default')
     user = os.environ.get('ARROW_HDFS_TEST_USER', None)
@@ -251,14 +260,15 @@ class HdfsTestCases:
             result = f.read(10)
             assert result == data
 
-    def test_open_not_exist_error_message(self):
-        # ARROW-226
+    def test_open_not_exist(self):
         path = pjoin(self.tmp_path, 'does-not-exist-123')
 
-        try:
+        with pytest.raises(FileNotFoundError):
             self.hdfs.open(path)
-        except Exception as e:
-            assert 'file does not exist' in e.args[0].lower()
+
+    def test_open_write_error(self):
+        with pytest.raises((FileExistsError, IsADirectoryError)):
+            self.hdfs.open('/', 'wb')
 
     def test_read_whole_file(self):
         path = pjoin(self.tmp_path, 'read-whole-file')
@@ -381,12 +391,7 @@ class TestLibHdfs(HdfsTestCases, unittest.TestCase):
 
     @classmethod
     def check_driver(cls):
-        if not pa.have_libhdfs():
-            message = 'No libhdfs available on system'
-            if os.environ.get('PYARROW_HDFS_TEST_LIBHDFS_REQUIRE'):
-                pytest.fail(message)
-            else:
-                pytest.skip(message)
+        check_libhdfs_present()
 
     def test_orphaned_file(self):
         hdfs = hdfs_test_client()
@@ -417,6 +422,7 @@ def _get_hdfs_uri(path):
 def test_fastparquet_read_with_hdfs():
     from pandas.testing import assert_frame_equal
 
+    check_libhdfs_present()
     try:
         import snappy  # noqa
     except ImportError:

@@ -17,10 +17,6 @@
  * under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#  include <config.h>
-#endif
-
 #include <arrow-glib/array.hpp>
 #include <arrow-glib/chunked-array.hpp>
 #include <arrow-glib/data-type.hpp>
@@ -1928,6 +1924,9 @@ garrow_data_type_new_raw(std::shared_ptr<arrow::DataType> *arrow_data_type)
     break;
   case arrow::Type::type::DICTIONARY:
     type = GARROW_TYPE_DICTIONARY_DATA_TYPE;
+    break;
+  case arrow::Type::type::MAP:
+    type = GARROW_TYPE_MAP_DATA_TYPE;
     break;
   case arrow::Type::type::DECIMAL128:
     type = GARROW_TYPE_DECIMAL128_DATA_TYPE;

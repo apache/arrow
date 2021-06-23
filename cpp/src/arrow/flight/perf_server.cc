@@ -19,6 +19,7 @@
 
 #include <signal.h>
 #include <cstdint>
+#include <fstream>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -41,6 +42,8 @@
 DEFINE_string(server_host, "localhost", "Host where the server is running on");
 DEFINE_int32(port, 31337, "Server port to listen on");
 DEFINE_string(server_unix, "", "Unix socket path where the server is running on");
+DEFINE_string(cert_file, "", "Path to TLS certificate");
+DEFINE_string(key_file, "", "Path to TLS private key");
 
 namespace perf = arrow::flight::perf;
 namespace proto = arrow::flight::protocol;
@@ -142,14 +145,11 @@ Status GetPerfBatches(const perf::Token& token, const std::shared_ptr<Schema>& s
 class FlightPerfServer : public FlightServerBase {
  public:
   FlightPerfServer() : location_() {
-    if (FLAGS_server_unix.empty()) {
-      DCHECK_OK(Location::ForGrpcTcp(FLAGS_server_host, FLAGS_port, &location_));
-    } else {
-      DCHECK_OK(Location::ForGrpcUnix(FLAGS_server_unix, &location_));
-    }
     perf_schema_ = schema({field("a", int64()), field("b", int64()), field("c", int64()),
                            field("d", int64())});
   }
+
+  void SetLocation(Location location) { location_ = location; }
 
   Status GetFlightInfo(const ServerCallContext& context, const FlightDescriptor& request,
                        std::unique_ptr<FlightInfo>* info) override {
@@ -233,13 +233,42 @@ int main(int argc, char** argv) {
 
   g_server.reset(new arrow::flight::FlightPerfServer);
 
-  arrow::flight::Location location;
+  arrow::flight::Location bind_location;
+  arrow::flight::Location connect_location;
   if (FLAGS_server_unix.empty()) {
-    ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTcp("0.0.0.0", FLAGS_port, &location));
+    if (!FLAGS_cert_file.empty() || !FLAGS_key_file.empty()) {
+      if (!FLAGS_cert_file.empty() && !FLAGS_key_file.empty()) {
+        ARROW_CHECK_OK(
+            arrow::flight::Location::ForGrpcTls("0.0.0.0", FLAGS_port, &bind_location));
+        ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTls(FLAGS_server_host, FLAGS_port,
+                                                           &connect_location));
+      } else {
+        std::cerr << "If providing TLS cert/key, must provide both" << std::endl;
+        return 1;
+      }
+    } else {
+      ARROW_CHECK_OK(
+          arrow::flight::Location::ForGrpcTcp("0.0.0.0", FLAGS_port, &bind_location));
+      ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTcp(FLAGS_server_host, FLAGS_port,
+                                                         &connect_location));
+    }
   } else {
-    ARROW_CHECK_OK(arrow::flight::Location::ForGrpcUnix(FLAGS_server_unix, &location));
+    ARROW_CHECK_OK(
+        arrow::flight::Location::ForGrpcUnix(FLAGS_server_unix, &bind_location));
+    ARROW_CHECK_OK(
+        arrow::flight::Location::ForGrpcUnix(FLAGS_server_unix, &connect_location));
   }
-  arrow::flight::FlightServerOptions options(location);
+  arrow::flight::FlightServerOptions options(bind_location);
+  if (!FLAGS_cert_file.empty() && !FLAGS_key_file.empty()) {
+    std::cout << "Enabling TLS" << std::endl;
+    std::ifstream cert_file(FLAGS_cert_file);
+    std::string cert((std::istreambuf_iterator<char>(cert_file)),
+                     (std::istreambuf_iterator<char>()));
+    std::ifstream key_file(FLAGS_key_file);
+    std::string key((std::istreambuf_iterator<char>(key_file)),
+                    (std::istreambuf_iterator<char>()));
+    options.tls_certificates.push_back(arrow::flight::CertKeyPair{cert, key});
+  }
 
   ARROW_CHECK_OK(g_server->Init(options));
   // Exit with a clean error code (0) on SIGTERM
@@ -250,6 +279,7 @@ int main(int argc, char** argv) {
   } else {
     std::cout << "Server unix socket: " << FLAGS_server_unix << std::endl;
   }
+  g_server->SetLocation(connect_location);
   ARROW_CHECK_OK(g_server->Serve());
   return 0;
 }

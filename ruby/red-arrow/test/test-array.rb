@@ -64,6 +64,40 @@ class ArrayTest < Test::Unit::TestCase
       end
     end
 
+    sub_test_case("#equal_array?") do
+      test("no options") do
+        array1 = Arrow::FloatArray.new([1.1, Float::NAN])
+        array2 = Arrow::FloatArray.new([1.1, Float::NAN])
+        assert do
+          not array1.equal_array?(array2)
+        end
+      end
+
+      test("approx") do
+        array1 = Arrow::FloatArray.new([1.1])
+        array2 = Arrow::FloatArray.new([1.100001])
+        assert do
+          array1.equal_array?(array2, approx: true)
+        end
+      end
+
+      test("nans-equal") do
+        array1 = Arrow::FloatArray.new([1.1, Float::NAN])
+        array2 = Arrow::FloatArray.new([1.1, Float::NAN])
+        assert do
+          array1.equal_array?(array2, nans_equal: true)
+        end
+      end
+
+      test("absolute-tolerance") do
+        array1 = Arrow::FloatArray.new([1.1])
+        array2 = Arrow::FloatArray.new([1.101])
+        assert do
+          array1.equal_array?(array2, approx: true, absolute_tolerance: 0.01)
+        end
+      end
+    end
+
     sub_test_case("#cast") do
       test("Symbol") do
         assert_equal(Arrow::Int32Array.new([1, 2, 3]),
@@ -166,6 +200,126 @@ class ArrayTest < Test::Unit::TestCase
       right = Arrow::ChunkedArray.new(chunks)
       assert_equal(Arrow::BooleanArray.new([true, true, true, false]),
                    @array.is_in(right))
+    end
+  end
+
+  sub_test_case("#concatenate") do
+    test("Arrow::Array: same") do
+      assert_equal(Arrow::Int32Array.new([1, 2, nil, 4 ,5, 6]),
+                   Arrow::Int32Array.new([1, 2, nil]).
+                     concatenate(Arrow::Int32Array.new([4, 5]),
+                                 Arrow::Int32Array.new([6])))
+    end
+
+    test("Arrow::Array: castable") do
+      assert_equal(Arrow::Int32Array.new([1, 2, nil, 4 ,5, 6]),
+                   Arrow::Int32Array.new([1, 2, nil]).
+                     concatenate(Arrow::Int8Array.new([4, 5]),
+                                 Arrow::UInt32Array.new([6])))
+    end
+
+    test("Arrow::Array: non-castable") do
+      assert_raise(Arrow::Error::Invalid) do
+        Arrow::Int32Array.new([1, 2, nil]).
+          concatenate(Arrow::StringArray.new(["X"]))
+      end
+    end
+
+    test("Array") do
+      assert_equal(Arrow::Int32Array.new([1, 2, nil, 4 ,nil, 6]),
+                   Arrow::Int32Array.new([1, 2, nil]).
+                     concatenate([4, nil],
+                                 [6]))
+    end
+
+    test("invalid") do
+      message = "[array][resolve] can't build int32 array: 4"
+      assert_raise(ArgumentError.new(message)) do
+        Arrow::Int32Array.new([1, 2, nil]).
+          concatenate(4)
+      end
+    end
+  end
+
+  sub_test_case("#+") do
+    test("Arrow::Array: same") do
+      assert_equal(Arrow::Int32Array.new([1, 2, nil, 4 ,5, 6]),
+                   Arrow::Int32Array.new([1, 2, nil]) +
+                   Arrow::Int32Array.new([4, 5, 6]))
+    end
+
+    test("Arrow::Array: castable") do
+      assert_equal(Arrow::Int32Array.new([1, 2, nil, 4 ,5, 6]),
+                   Arrow::Int32Array.new([1, 2, nil]) +
+                   Arrow::Int8Array.new([4, 5, 6]))
+    end
+
+    test("Arrow::Array: non-castable") do
+      assert_raise(Arrow::Error::Invalid) do
+        Arrow::Int32Array.new([1, 2, nil]) +
+          Arrow::StringArray.new(["X"])
+      end
+    end
+
+    test("Array") do
+      assert_equal(Arrow::Int32Array.new([1, 2, nil, 4 ,nil, 6]),
+                   Arrow::Int32Array.new([1, 2, nil]) +
+                   [4, nil, 6])
+    end
+
+    test("invalid") do
+      message = "[array][resolve] can't build int32 array: 4"
+      assert_raise(ArgumentError.new(message)) do
+        Arrow::Int32Array.new([1, 2, nil]) + 4
+      end
+    end
+  end
+
+  sub_test_case("#resolve") do
+    test("Arrow::Array: same") do
+      assert_equal(Arrow::Int32Array.new([1, 2, nil]),
+                   Arrow::Int32Array.new([]).
+                     resolve(Arrow::Int32Array.new([1, 2, nil])))
+    end
+
+    test("Arrow::Array: castable") do
+      assert_equal(Arrow::Int32Array.new([1, 2, nil]),
+                   Arrow::Int32Array.new([]).
+                     resolve(Arrow::Int8Array.new([1, 2, nil])))
+    end
+
+    test("Arrow::Array: non-castable") do
+      assert_raise(Arrow::Error::Invalid) do
+        Arrow::Int32Array.new([]) +
+          Arrow::StringArray.new(["X"])
+      end
+    end
+
+    test("Array: non-parametric") do
+      assert_equal(Arrow::Int32Array.new([1, 2, nil]),
+                   Arrow::Int32Array.new([]).
+                     resolve([1, 2, nil]))
+    end
+
+    test("Array: parametric") do
+      list_data_type = Arrow::ListDataType.new(name: "visible", type: :boolean)
+      list_array = Arrow::ListArray.new(list_data_type, [])
+      assert_equal(Arrow::ListArray.new(list_data_type,
+                                        [
+                                          [true, false],
+                                          nil,
+                                        ]),
+                   list_array.resolve([
+                                        [true, false],
+                                        nil,
+                                      ]))
+    end
+
+    test("invalid") do
+      message = "[array][resolve] can't build int32 array: 4"
+      assert_raise(ArgumentError.new(message)) do
+        Arrow::Int32Array.new([]).resolve(4)
+      end
     end
   end
 end

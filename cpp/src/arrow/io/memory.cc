@@ -263,8 +263,8 @@ void FixedSizeBufferWriter::set_memcopy_threshold(int64_t threshold) {
 
 BufferReader::BufferReader(std::shared_ptr<Buffer> buffer)
     : buffer_(std::move(buffer)),
-      data_(buffer_->data()),
-      size_(buffer_->size()),
+      data_(buffer_ ? buffer_->data() : reinterpret_cast<const uint8_t*>("")),
+      size_(buffer_ ? buffer_->size() : 0),
       position_(0),
       is_open_(true) {}
 
@@ -320,7 +320,7 @@ Status BufferReader::WillNeed(const std::vector<ReadRange>& ranges) {
   return st;
 }
 
-Future<std::shared_ptr<Buffer>> BufferReader::ReadAsync(const AsyncContext&,
+Future<std::shared_ptr<Buffer>> BufferReader::ReadAsync(const IOContext&,
                                                         int64_t position,
                                                         int64_t nbytes) {
   return Future<std::shared_ptr<Buffer>>::MakeFinished(DoReadAt(position, nbytes));
@@ -344,8 +344,8 @@ Result<std::shared_ptr<Buffer>> BufferReader::DoReadAt(int64_t position, int64_t
   DCHECK_GE(nbytes, 0);
 
   // Arrange for data to be paged in
-  RETURN_NOT_OK(::arrow::internal::MemoryAdviseWillNeed(
-      {{const_cast<uint8_t*>(data_ + position), static_cast<size_t>(nbytes)}}));
+  // RETURN_NOT_OK(::arrow::internal::MemoryAdviseWillNeed(
+  //     {{const_cast<uint8_t*>(data_ + position), static_cast<size_t>(nbytes)}}));
 
   if (nbytes > 0 && buffer_ != nullptr) {
     return SliceBuffer(buffer_, position, nbytes);

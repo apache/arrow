@@ -17,7 +17,6 @@
 
 import datetime
 import os
-from distutils.version import LooseVersion
 
 import numpy as np
 import pytest
@@ -30,6 +29,7 @@ from pyarrow.tests.parquet.common import (
     parametrize_legacy_dataset, parametrize_legacy_dataset_fixed,
     parametrize_legacy_dataset_not_supported)
 from pyarrow.util import guid
+from pyarrow.vendored.version import Version
 
 try:
     import pyarrow.parquet as pq
@@ -206,7 +206,7 @@ def test_filters_equivalency(tempdir, use_legacy_dataset):
     dataset = pq.ParquetDataset(
         base_path, filesystem=fs,
         filters=[('integer', '=', 1), ('string', '!=', 'b'),
-                 ('boolean', '==', True)],
+                 ('boolean', '==', 'True')],
         use_legacy_dataset=use_legacy_dataset,
     )
     table = dataset.read()
@@ -350,6 +350,24 @@ def test_filters_cutoff_exclusive_datetime(tempdir, use_legacy_dataset):
         categories=np.array(date_keys, dtype='datetime64'))
 
     assert result_df['dates'].values == expected
+
+
+@pytest.mark.pandas
+@pytest.mark.dataset
+def test_filters_inclusive_datetime(tempdir):
+    # ARROW-11480
+    path = tempdir / 'timestamps.parquet'
+
+    pd.DataFrame({
+        "dates": pd.date_range("2020-01-01", periods=10, freq="D"),
+        "id": range(10)
+    }).to_parquet(path, use_deprecated_int96_timestamps=True)
+
+    table = pq.read_table(path, filters=[
+        ("dates", "<=", datetime.datetime(2020, 1, 5))
+    ])
+
+    assert table.column('id').to_pylist() == [0, 1, 2, 3, 4]
 
 
 @pytest.mark.pandas
@@ -615,7 +633,7 @@ def test_read_partitioned_directory_s3fs_wrapper(
 
     from pyarrow.filesystem import S3FSWrapper
 
-    if s3fs.__version__ >= LooseVersion("0.5"):
+    if Version(s3fs.__version__) >= Version("0.5"):
         pytest.skip("S3FSWrapper no longer working for s3fs 0.5+")
 
     fs, path = s3_example_s3fs
@@ -954,6 +972,12 @@ def test_dataset_read_pandas(tempdir, use_legacy_dataset):
 
     tm.assert_frame_equal(result, expected)
 
+    # also be able to pass the columns as a set (ARROW-12314)
+    result = dataset.read_pandas(columns=set(columns)).to_pandas()
+    assert result.shape == expected.shape
+    # column order can be different because of using a set
+    tm.assert_frame_equal(result.reindex(columns=expected.columns), expected)
+
 
 @pytest.mark.pandas
 @parametrize_legacy_dataset
@@ -995,6 +1019,27 @@ def test_dataset_enable_buffered_stream(tempdir, use_legacy_dataset):
             dirpath, buffer_size=buffer_size,
             use_legacy_dataset=use_legacy_dataset)
         assert dataset.read().equals(table)
+
+
+@pytest.mark.pandas
+@parametrize_legacy_dataset
+def test_dataset_enable_pre_buffer(tempdir, use_legacy_dataset):
+    dirpath = tempdir / guid()
+    dirpath.mkdir()
+
+    df = _test_dataframe(10, seed=0)
+    path = dirpath / '{}.parquet'.format(0)
+    table = pa.Table.from_pandas(df)
+    _write_table(table, path, version='2.0')
+
+    for pre_buffer in (True, False):
+        dataset = pq.ParquetDataset(
+            dirpath, pre_buffer=pre_buffer,
+            use_legacy_dataset=use_legacy_dataset)
+        assert dataset.read().equals(table)
+        actual = pq.read_table(dirpath, pre_buffer=pre_buffer,
+                               use_legacy_dataset=use_legacy_dataset)
+        assert actual.equals(table)
 
 
 def _make_example_multifile_dataset(base_path, nfiles=10, file_nrows=5):
@@ -1357,6 +1402,18 @@ def test_write_to_dataset_with_partitions_and_custom_filenames(
     output_basenames = [os.path.basename(p.path) for p in dataset.pieces]
 
     assert sorted(expected_basenames) == sorted(output_basenames)
+
+
+@pytest.mark.dataset
+@pytest.mark.pandas
+def test_write_to_dataset_filesystem(tempdir):
+    df = pd.DataFrame({'A': [1, 2, 3]})
+    table = pa.Table.from_pandas(df)
+    path = str(tempdir)
+
+    pq.write_to_dataset(table, path, filesystem=fs.LocalFileSystem())
+    result = pq.read_table(path)
+    assert result.equals(table)
 
 
 # TODO(dataset) support pickling

@@ -17,10 +17,6 @@
  * under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#  include <config.h>
-#endif
-
 #include <arrow-glib/buffer.hpp>
 #include <arrow-glib/error.hpp>
 
@@ -269,6 +265,10 @@ gplasma_client_create_options_new(void)
   return GPLASMA_CLIENT_CREATE_OPTIONS(options);
 }
 
+#if !GLIB_CHECK_VERSION(2, 68, 0)
+#  define g_memdup2(memory, byte_size) g_memdup(memory, byte_size)
+#endif
+
 /**
  * gplasma_client_create_options_set_metadata:
  * @options: A #GPlasmaClientCreateOptions.
@@ -286,7 +286,7 @@ gplasma_client_create_options_set_metadata(GPlasmaClientCreateOptions *options,
   if (priv->metadata) {
     g_free(priv->metadata);
   }
-  priv->metadata = static_cast<guint8 *>(g_memdup(metadata, size));
+  priv->metadata = static_cast<guint8 *>(g_memdup2(metadata, size));
   priv->metadata_size = size;
 }
 

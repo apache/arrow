@@ -255,4 +255,7 @@ class ARROW_TESTING_EXPORT ConstantArrayGenerator {
   }
 };
 
+ARROW_TESTING_EXPORT
+Result<std::shared_ptr<Array>> ScalarVectorToArray(const ScalarVector& scalars);
+
 }  // namespace arrow

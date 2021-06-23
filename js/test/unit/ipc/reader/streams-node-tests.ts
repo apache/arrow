@@ -16,8 +16,7 @@
 // under the License.
 
 import {
-    generateRandomTables,
-    // generateDictionaryTables
+    generateRandomTables
 } from '../../../data/tables';
 
 import {
@@ -35,13 +34,10 @@ import { validateRecordBatchAsyncIterator } from '../validate';
         return test('not testing node streams because process.env.TEST_NODE_STREAMS !== "true"', () => {});
     }
 
-    /* tslint:disable */
     const { Readable, PassThrough } = require('stream');
-    /* tslint:disable */
     const { parse: bignumJSONParse } = require('json-bignum');
-    /* tslint:disable */
-    const concatStream = ((multistream) => (...xs: any[]) =>
-        new Readable().wrap(multistream(...xs))
+    const concatStream = ((MultiStream) => (...xs: any[]) =>
+        new Readable().wrap(new MultiStream(...xs))
     )(require('multistream'));
 
     for (const table of generateRandomTables([10, 20, 30])) {

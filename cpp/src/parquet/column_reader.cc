@@ -35,6 +35,7 @@
 #include "arrow/chunked_array.h"
 #include "arrow/type.h"
 #include "arrow/util/bit_stream_utils.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/int_util_internal.h"
@@ -42,8 +43,8 @@
 #include "arrow/util/rle_encoding.h"
 #include "parquet/column_page.h"
 #include "parquet/encoding.h"
-#include "parquet/encryption_internal.h"
-#include "parquet/internal_file_decryptor.h"
+#include "parquet/encryption/encryption_internal.h"
+#include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/level_comparison.h"
 #include "parquet/level_conversion.h"
 #include "parquet/properties.h"
@@ -56,6 +57,8 @@ using arrow::MemoryPool;
 using arrow::internal::AddWithOverflow;
 using arrow::internal::checked_cast;
 using arrow::internal::MultiplyWithOverflow;
+
+namespace BitUtil = arrow::BitUtil;
 
 namespace parquet {
 namespace {
@@ -820,6 +823,9 @@ class ColumnReaderImplBase {
   /// DictionaryRecordReader
   bool new_dictionary_;
 
+  // The exposed encoding
+  ExposedEncoding exposed_encoding_ = ExposedEncoding::NO_ENCODING;
+
   // Map of encoding type to the respective decoder object. For example, a
   // column chunk's data pages may include both dictionary-encoded and
   // plain-encoded data.
@@ -858,7 +864,107 @@ class TypedColumnReaderImpl : public TypedColumnReader<DType>,
   Type::type type() const override { return this->descr_->physical_type(); }
 
   const ColumnDescriptor* descr() const override { return this->descr_; }
+
+  ExposedEncoding GetExposedEncoding() override { return this->exposed_encoding_; };
+
+  int64_t ReadBatchWithDictionary(int64_t batch_size, int16_t* def_levels,
+                                  int16_t* rep_levels, int32_t* indices,
+                                  int64_t* indices_read, const T** dict,
+                                  int32_t* dict_len) override;
+
+ protected:
+  void SetExposedEncoding(ExposedEncoding encoding) override {
+    this->exposed_encoding_ = encoding;
+  }
+
+ private:
+  // Read dictionary indices. Similar to ReadValues but decode data to dictionary indices.
+  // This function is called only by ReadBatchWithDictionary().
+  int64_t ReadDictionaryIndices(int64_t indices_to_read, int32_t* indices) {
+    auto decoder = dynamic_cast<DictDecoder<DType>*>(this->current_decoder_);
+    return decoder->DecodeIndices(static_cast<int>(indices_to_read), indices);
+  }
+
+  // Get dictionary. The dictionary should have been set by SetDict(). The dictionary is
+  // owned by the internal decoder and is destroyed when the reader is destroyed. This
+  // function is called only by ReadBatchWithDictionary() after dictionary is configured.
+  void GetDictionary(const T** dictionary, int32_t* dictionary_length) {
+    auto decoder = dynamic_cast<DictDecoder<DType>*>(this->current_decoder_);
+    decoder->GetDictionary(dictionary, dictionary_length);
+  }
+
+  // Read definition and repetition levels. Also return the number of definition levels
+  // and number of values to read. This function is called before reading values.
+  void ReadLevels(int64_t batch_size, int16_t* def_levels, int16_t* rep_levels,
+                  int64_t* num_def_levels, int64_t* values_to_read) {
+    batch_size =
+        std::min(batch_size, this->num_buffered_values_ - this->num_decoded_values_);
+
+    // If the field is required and non-repeated, there are no definition levels
+    if (this->max_def_level_ > 0 && def_levels != nullptr) {
+      *num_def_levels = this->ReadDefinitionLevels(batch_size, def_levels);
+      // TODO(wesm): this tallying of values-to-decode can be performed with better
+      // cache-efficiency if fused with the level decoding.
+      for (int64_t i = 0; i < *num_def_levels; ++i) {
+        if (def_levels[i] == this->max_def_level_) {
+          ++(*values_to_read);
+        }
+      }
+    } else {
+      // Required field, read all values
+      *values_to_read = batch_size;
+    }
+
+    // Not present for non-repeated fields
+    if (this->max_rep_level_ > 0 && rep_levels != nullptr) {
+      int64_t num_rep_levels = this->ReadRepetitionLevels(batch_size, rep_levels);
+      if (def_levels != nullptr && *num_def_levels != num_rep_levels) {
+        throw ParquetException("Number of decoded rep / def levels did not match");
+      }
+    }
+  }
 };
+
+template <typename DType>
+int64_t TypedColumnReaderImpl<DType>::ReadBatchWithDictionary(
+    int64_t batch_size, int16_t* def_levels, int16_t* rep_levels, int32_t* indices,
+    int64_t* indices_read, const T** dict, int32_t* dict_len) {
+  bool has_dict_output = dict != nullptr && dict_len != nullptr;
+  // Similar logic as ReadValues to get pages.
+  if (!HasNext()) {
+    *indices_read = 0;
+    if (has_dict_output) {
+      *dict = nullptr;
+      *dict_len = 0;
+    }
+    return 0;
+  }
+
+  // Verify the current data page is dictionary encoded.
+  if (this->current_encoding_ != Encoding::RLE_DICTIONARY) {
+    std::stringstream ss;
+    ss << "Data page is not dictionary encoded. Encoding: "
+       << EncodingToString(this->current_encoding_);
+    throw ParquetException(ss.str());
+  }
+
+  // Get dictionary pointer and length.
+  if (has_dict_output) {
+    GetDictionary(dict, dict_len);
+  }
+
+  // Similar logic as ReadValues to get def levels and rep levels.
+  int64_t num_def_levels = 0;
+  int64_t indices_to_read = 0;
+  ReadLevels(batch_size, def_levels, rep_levels, &num_def_levels, &indices_to_read);
+
+  // Read dictionary indices.
+  *indices_read = ReadDictionaryIndices(indices_to_read, indices);
+  int64_t total_indices = std::max(num_def_levels, *indices_read);
+  this->ConsumeBufferedValues(total_indices);
+
+  return total_indices;
+}
 
 template <typename DType>
 int64_t TypedColumnReaderImpl<DType>::ReadBatch(int64_t batch_size, int16_t* def_levels,
@@ -872,36 +978,9 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatch(int64_t batch_size, int16_t* def
 
   // TODO(wesm): keep reading data pages until batch_size is reached, or the
   // row group is finished
-  batch_size =
-      std::min(batch_size, this->num_buffered_values_ - this->num_decoded_values_);
-
   int64_t num_def_levels = 0;
-  int64_t num_rep_levels = 0;
-
   int64_t values_to_read = 0;
-
-  // If the field is required and non-repeated, there are no definition levels
-  if (this->max_def_level_ > 0 && def_levels) {
-    num_def_levels = this->ReadDefinitionLevels(batch_size, def_levels);
-    // TODO(wesm): this tallying of values-to-decode can be performed with better
-    // cache-efficiency if fused with the level decoding.
-    for (int64_t i = 0; i < num_def_levels; ++i) {
-      if (def_levels[i] == this->max_def_level_) {
-        ++values_to_read;
-      }
-    }
-  } else {
-    // Required field, read all values
-    values_to_read = batch_size;
-  }
-
-  // Not present for non-repeated fields
-  if (this->max_rep_level_ > 0 && rep_levels) {
-    num_rep_levels = this->ReadRepetitionLevels(batch_size, rep_levels);
-    if (def_levels && num_def_levels != num_rep_levels) {
-      throw ParquetException("Number of decoded rep / def levels did not match");
-    }
-  }
+  ReadLevels(batch_size, def_levels, rep_levels, &num_def_levels, &values_to_read);
 
   *values_read = this->ReadValues(values_to_read, values);
   int64_t total_values = std::max(num_def_levels, *values_read);
@@ -1198,6 +1277,7 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
       auto result = values_;
       PARQUET_THROW_NOT_OK(result->Resize(bytes_for_values(values_written_), true));
       values_ = AllocateBuffer(this->pool_);
+      values_capacity_ = 0;
       return result;
     } else {
       return nullptr;

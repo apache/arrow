@@ -36,4 +36,5 @@ User Guide
    parquet
    csv
    json
+   dataset
    flight

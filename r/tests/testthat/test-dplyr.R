@@ -15,74 +15,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("dplyr verbs")
+skip_if_not_available("dataset")
 
 library(dplyr)
-
-expect_dplyr_equal <- function(expr, # A dplyr pipeline with `input` as its start
-                               tbl,  # A tbl/df as reference, will make RB/Table with
-                               skip_record_batch = NULL, # Msg, if should skip RB test
-                               skip_table = NULL,        # Msg, if should skip Table test
-                               ...) {
-  expr <- rlang::enquo(expr)
-  expected <- rlang::eval_tidy(expr, rlang::new_data_mask(rlang::env(input = tbl)))
-
-  skip_msg <- NULL
-
-  if (is.null(skip_record_batch)) {
-    via_batch <- rlang::eval_tidy(
-      expr,
-      rlang::new_data_mask(rlang::env(input = record_batch(tbl)))
-    )
-    expect_equivalent(via_batch, expected, ...)
-  } else {
-    skip_msg <- c(skip_msg, skip_record_batch)
-  }
-
-  if (is.null(skip_table)) {
-    via_table <- rlang::eval_tidy(
-      expr,
-      rlang::new_data_mask(rlang::env(input = Table$create(tbl)))
-    )
-    expect_equivalent(via_table, expected, ...)
-  } else {
-    skip_msg <- c(skip_msg, skip_table)
-  }
-
-  if (!is.null(skip_msg)) {
-    skip(paste(skip_msg, collpase = "\n"))
-  }
-}
-
-expect_dplyr_error <- function(expr, # A dplyr pipeline with `input` as its start
-                               tbl,  # A tbl/df as reference, will make RB/Table with
-                               ...) {
-  expr <- rlang::enquo(expr)
-  msg <- tryCatch(
-    rlang::eval_tidy(expr, rlang::new_data_mask(rlang::env(input = tbl))),
-    error = function (e) conditionMessage(e)
-  )
-  expect_is(msg, "character", label = "dplyr on data.frame did not error")
-
-  expect_error(
-    rlang::eval_tidy(
-      expr,
-      rlang::new_data_mask(rlang::env(input = record_batch(tbl)))
-    ),
-    msg,
-    ...
-  )
-  expect_error(
-    rlang::eval_tidy(
-      expr,
-      rlang::new_data_mask(rlang::env(input = Table$create(tbl)))
-    ),
-    msg,
-    ...
-  )
-}
+library(stringr)
 
 tbl <- example_data
+# Add some better string data
+tbl$verses <- verses[[1]]
+# c(" a ", "  b  ", "   c   ", ...) increasing padding
+# nchar =   3  5  7  9 11 13 15 17 19 21
+tbl$padded_strings <- stringr::str_pad(letters[1:10], width = 2*(1:10) + 1, side = "both")
 
 test_that("basic select/filter/collect", {
   batch <- record_batch(tbl)
@@ -91,132 +34,11 @@ test_that("basic select/filter/collect", {
     select(int, chr) %>%
     filter(int > 5)
 
-  expect_is(b2, "arrow_dplyr_query")
+  expect_s3_class(b2, "arrow_dplyr_query")
   t2 <- collect(b2)
   expect_equal(t2, tbl[tbl$int > 5 & !is.na(tbl$int), c("int", "chr")])
   # Test that the original object is not affected
   expect_identical(collect(batch), tbl)
-})
-
-test_that("filter() on is.na()", {
-  expect_dplyr_equal(
-    input %>%
-      filter(is.na(lgl)) %>%
-      select(chr, int, lgl) %>%
-      collect(),
-    tbl
-  )
-})
-
-test_that("filter() with NAs in selection", {
-  expect_dplyr_equal(
-    input %>%
-      filter(lgl) %>%
-      select(chr, int, lgl) %>%
-      collect(),
-    tbl
-  )
-})
-
-test_that("Filter returning an empty Table should not segfault (ARROW-8354)", {
-  expect_dplyr_equal(
-    input %>%
-      filter(false) %>%
-      select(chr, int, lgl) %>%
-      collect(),
-    tbl
-  )
-})
-
-test_that("filtering with expression", {
-  char_sym <- "b"
-  expect_dplyr_equal(
-    input %>%
-      filter(chr == char_sym) %>%
-      select(string = chr, int) %>%
-      collect(),
-    tbl
-  )
-})
-
-test_that("filtering with arithmetic", {
-  expect_dplyr_equal(
-    input %>%
-      filter(dbl + 1 > 3) %>%
-      select(string = chr, int, dbl) %>%
-      collect(),
-    tbl
-  )
-
-  expect_dplyr_equal(
-    input %>%
-      filter(dbl / 2 > 3) %>%
-      select(string = chr, int, dbl) %>%
-      collect(),
-    tbl
-  )
-
-  expect_dplyr_equal(
-    input %>%
-      filter(dbl / 2L > 3) %>%
-      select(string = chr, int, dbl) %>%
-      collect(),
-    tbl
-  )
-
-  expect_dplyr_equal(
-    input %>%
-      filter(int / 2 > 3) %>%
-      select(string = chr, int, dbl) %>%
-      collect(),
-    tbl
-  )
-
-  expect_dplyr_equal(
-    input %>%
-      filter(int / 2L > 3) %>%
-      select(string = chr, int, dbl) %>%
-      collect(),
-    tbl
-  )
-
-  expect_dplyr_equal(
-    input %>%
-      filter(dbl %/% 2 > 3) %>%
-      select(string = chr, int, dbl) %>%
-      collect(),
-    tbl
-  )
-})
-
-test_that("filtering with expression + autocasting", {
-  expect_dplyr_equal(
-    input %>%
-      filter(dbl + 1 > 3L) %>% # test autocasting with comparison to 3L
-      select(string = chr, int, dbl) %>%
-      collect(),
-    tbl
-  )
-
-  expect_dplyr_equal(
-    input %>%
-      filter(int + 1 > 3) %>%
-      select(string = chr, int, dbl) %>%
-      collect(),
-    tbl
-  )
-})
-
-test_that("More complex select/filter", {
-  expect_dplyr_equal(
-    input %>%
-      filter(dbl > 2, chr == "d" | chr == "f") %>%
-      select(chr, int, lgl) %>%
-      filter(int < 5) %>%
-      select(int, chr) %>%
-      collect(),
-    tbl
-  )
 })
 
 test_that("dim() on query", {
@@ -237,109 +59,15 @@ test_that("Print method", {
       filter(int < 5) %>%
       select(int, chr) %>%
       print(),
-'RecordBatch (query)
+'InMemoryDataset (query)
 int: int32
 chr: string
 
-* Filter: and(and(greater(<Array>, 2), or(equal(<Array>, "d"), equal(<Array>, "f"))), less(<Array>, 5))
+* Filter: (((dbl > 2) and ((chr == "d") or (chr == "f"))) and (int < 5))
 See $.data for the source Arrow object',
   fixed = TRUE
   )
-})
-
-test_that("filter() with %in%", {
-  expect_dplyr_equal(
-    input %>%
-      filter(dbl > 2, chr %in% c("d", "f")) %>%
-      collect(),
-    tbl
-  )
-})
-
-test_that("filter environment scope", {
-  # "object 'b_var' not found"
-  expect_dplyr_error(input %>% filter(batch, chr == b_var))
-
-  b_var <- "b"
-  expect_dplyr_equal(
-    input %>%
-      filter(chr == b_var) %>%
-      collect(),
-    tbl
-  )
-  # Also for functions
-  # 'could not find function "isEqualTo"'
-  expect_dplyr_error(filter(batch, isEqualTo(int, 4)))
-
-  # TODO: fix this: this isEqualTo function is eagerly evaluating; it should
-  # instead yield array_expressions. Probably bc the parent env of the function
-  # has the Ops.Array methods defined; we need to move it so that the parent
-  # env is the data mask we use in the dplyr eval
-  isEqualTo <- function(x, y) x == y & !is.na(x)
-  expect_dplyr_equal(
-    input %>%
-      select(-fct) %>% # factor levels aren't identical
-      filter(isEqualTo(int, 4)) %>%
-      collect(),
-    tbl
-  )
-})
-
-test_that("Filtering on a column that doesn't exist errors correctly", {
-  skip("Error handling in filter() needs to be internationalized")
-  expect_error(
-    batch %>% filter(not_a_col == 42) %>% collect(),
-    "object 'not_a_col' not found"
-  )
-})
-
-test_that("Filtering with a function that doesn't have an Array/expr method still works", {
-  expect_warning(
-    expect_dplyr_equal(
-      input %>%
-        filter(int > 2, pnorm(dbl) > .99) %>%
-        collect(),
-      tbl
-    ),
-    'Filter expression not implemented in Arrow: pnorm(dbl) > 0.99; pulling data into R',
-    fixed = TRUE
-  )
-})
-
-test_that("filter() with .data pronoun", {
-  expect_dplyr_equal(
-    input %>%
-      filter(.data$dbl > 4) %>%
-      select(.data$chr, .data$int, .data$lgl) %>%
-      collect(),
-    tbl
-  )
-
-  expect_dplyr_equal(
-    input %>%
-      filter(is.na(.data$lgl)) %>%
-      select(.data$chr, .data$int, .data$lgl) %>%
-      collect(),
-    tbl
-  )
-
-  # and the .env pronoun too!
-  chr <- 4
-  expect_dplyr_equal(
-    input %>%
-      filter(.data$dbl > .env$chr) %>%
-      select(.data$chr, .data$int, .data$lgl) %>%
-      collect(),
-    tbl
-  )
-
-  # but there is an error if we don't override the masking with `.env`
-  expect_dplyr_error(
-    tbl %>%
-      filter(.data$dbl > chr) %>%
-      select(.data$chr, .data$int, .data$lgl) %>%
-      collect()
-  )
+  
 })
 
 test_that("summarize", {
@@ -360,56 +88,6 @@ test_that("summarize", {
   )
 })
 
-test_that("mutate", {
-  expect_dplyr_equal(
-    input %>%
-      select(int, chr) %>%
-      filter(int > 5) %>%
-      mutate(int = int + 6L) %>%
-      summarize(min_int = min(int)),
-    tbl
-  )
-})
-
-test_that("transmute", {
-  skip("TODO: reimplement transmute (with dplyr 1.0, it no longer just works via mutate)")
-  expect_dplyr_equal(
-    input %>%
-      select(int, chr) %>%
-      filter(int > 5) %>%
-      transmute(int = int + 6L) %>%
-      summarize(min_int = min(int)),
-    tbl
-  )
-})
-
-test_that("group_by groupings are recorded", {
-  expect_dplyr_equal(
-    input %>%
-      group_by(chr) %>%
-      select(int, chr) %>%
-      filter(int > 5) %>%
-      summarize(min_int = min(int)),
-    tbl
-  )
-  # Test that the original object is not affected
-  expect_identical(collect(batch), tbl)
-})
-
-test_that("ungroup", {
-  expect_dplyr_equal(
-    input %>%
-      group_by(chr) %>%
-      select(int, chr) %>%
-      ungroup() %>%
-      filter(int > 5) %>%
-      summarize(min_int = min(int)),
-    tbl
-  )
-  # Test that the original object is not affected
-  expect_identical(collect(batch), tbl)
-})
-
 test_that("Empty select returns no columns", {
   expect_dplyr_equal(
     input %>% select() %>% collect(),
@@ -420,17 +98,6 @@ test_that("Empty select returns no columns", {
 test_that("Empty select still includes the group_by columns", {
   expect_dplyr_equal(
     input %>% group_by(chr) %>% select() %>% collect(),
-    tbl
-  )
-})
-
-test_that("arrange", {
-  expect_dplyr_equal(
-    input %>%
-      group_by(chr) %>%
-      select(int, chr) %>%
-      arrange(desc(int)) %>%
-      collect(),
     tbl
   )
 })
@@ -457,6 +124,21 @@ test_that("select/rename", {
   )
 })
 
+test_that("select/rename with selection helpers", {
+
+  # TODO: add some passing tests here
+
+  expect_error(
+    expect_dplyr_equal(
+      input %>%
+        select(where(is.numeric)) %>%
+        collect(),
+      tbl
+    ),
+    "Unsupported selection helper"
+  )
+})
+
 test_that("filtering with rename", {
   expect_dplyr_equal(
     input %>%
@@ -469,16 +151,6 @@ test_that("filtering with rename", {
     input %>%
       select(string = chr, int) %>%
       filter(string == "b") %>%
-      collect(),
-    tbl
-  )
-})
-
-test_that("group_by then rename", {
-  expect_dplyr_equal(
-    input %>%
-      group_by(chr) %>%
-      select(string = chr, int) %>%
       collect(),
     tbl
   )
@@ -509,12 +181,17 @@ test_that("pull", {
 test_that("collect(as_data_frame=FALSE)", {
   batch <- record_batch(tbl)
 
+  b1 <- batch %>% collect(as_data_frame = FALSE)
+
+  expect_is(b1, "RecordBatch")
+
   b2 <- batch %>%
     select(int, chr) %>%
     filter(int > 5) %>%
     collect(as_data_frame = FALSE)
 
-  expect_is(b2, "RecordBatch")
+  # collect(as_data_frame = FALSE) always returns Table now
+  expect_r6_class(b2, "Table")
   expected <- tbl[tbl$int > 5 & !is.na(tbl$int), c("int", "chr")]
   expect_equal(as.data.frame(b2), expected)
 
@@ -522,7 +199,7 @@ test_that("collect(as_data_frame=FALSE)", {
     select(int, strng = chr) %>%
     filter(int > 5) %>%
     collect(as_data_frame = FALSE)
-  expect_is(b3, "arrow_dplyr_query")
+  expect_r6_class(b3, "Table")
   expect_equal(as.data.frame(b3), set_names(expected, c("int", "strng")))
 
   b4 <- batch %>%
@@ -530,13 +207,50 @@ test_that("collect(as_data_frame=FALSE)", {
     filter(int > 5) %>%
     group_by(int) %>%
     collect(as_data_frame = FALSE)
-  expect_is(b4, "arrow_dplyr_query")
+  expect_s3_class(b4, "arrow_dplyr_query")
   expect_equal(
     as.data.frame(b4),
     expected %>%
       rename(strng = chr) %>%
       group_by(int)
     )
+})
+
+test_that("compute()", {
+  batch <- record_batch(tbl)
+
+  b1 <- batch %>% compute()
+
+  expect_r6_class(b1, "RecordBatch")
+
+  b2 <- batch %>%
+    select(int, chr) %>%
+    filter(int > 5) %>%
+    compute()
+
+  expect_r6_class(b2, "Table")
+  expected <- tbl[tbl$int > 5 & !is.na(tbl$int), c("int", "chr")]
+  expect_equal(as.data.frame(b2), expected)
+
+  b3 <- batch %>%
+    select(int, strng = chr) %>%
+    filter(int > 5) %>%
+    compute()
+  expect_r6_class(b3, "Table")
+  expect_equal(as.data.frame(b3), set_names(expected, c("int", "strng")))
+
+  b4 <- batch %>%
+    select(int, strng = chr) %>%
+    filter(int > 5) %>%
+    group_by(int) %>%
+    compute()
+  expect_s3_class(b4, "arrow_dplyr_query")
+  expect_equal(
+    as.data.frame(b4),
+    expected %>%
+      rename(strng = chr) %>%
+      group_by(int)
+  )
 })
 
 test_that("head", {
@@ -547,7 +261,7 @@ test_that("head", {
     filter(int > 5) %>%
     head(2)
 
-  expect_is(b2, "RecordBatch")
+  expect_r6_class(b2, "Table")
   expected <- tbl[tbl$int > 5 & !is.na(tbl$int), c("int", "chr")][1:2, ]
   expect_equal(as.data.frame(b2), expected)
 
@@ -555,7 +269,7 @@ test_that("head", {
     select(int, strng = chr) %>%
     filter(int > 5) %>%
     head(2)
-  expect_is(b3, "arrow_dplyr_query")
+  expect_r6_class(b3, "Table")
   expect_equal(as.data.frame(b3), set_names(expected, c("int", "strng")))
 
   b4 <- batch %>%
@@ -563,7 +277,7 @@ test_that("head", {
     filter(int > 5) %>%
     group_by(int) %>%
     head(2)
-  expect_is(b4, "arrow_dplyr_query")
+  expect_s3_class(b4, "arrow_dplyr_query")
   expect_equal(
     as.data.frame(b4),
     expected %>%
@@ -580,7 +294,7 @@ test_that("tail", {
     filter(int > 5) %>%
     tail(2)
 
-  expect_is(b2, "RecordBatch")
+  expect_r6_class(b2, "Table")
   expected <- tail(tbl[tbl$int > 5 & !is.na(tbl$int), c("int", "chr")], 2)
   expect_equal(as.data.frame(b2), expected)
 
@@ -588,7 +302,7 @@ test_that("tail", {
     select(int, strng = chr) %>%
     filter(int > 5) %>%
     tail(2)
-  expect_is(b3, "arrow_dplyr_query")
+  expect_r6_class(b3, "Table")
   expect_equal(as.data.frame(b3), set_names(expected, c("int", "strng")))
 
   b4 <- batch %>%
@@ -596,11 +310,603 @@ test_that("tail", {
     filter(int > 5) %>%
     group_by(int) %>%
     tail(2)
-  expect_is(b4, "arrow_dplyr_query")
+  expect_s3_class(b4, "arrow_dplyr_query")
   expect_equal(
     as.data.frame(b4),
     expected %>%
       rename(strng = chr) %>%
       group_by(int)
     )
+})
+
+test_that("relocate", {
+  df <- tibble(a = 1, b = 1, c = 1, d = "a", e = "a", f = "a")
+  expect_dplyr_equal(
+    input %>% relocate(f) %>% collect(),
+    df,
+  )
+  expect_dplyr_equal(
+    input %>% relocate(a, .after = c) %>% collect(),
+    df,
+  )
+  expect_dplyr_equal(
+    input %>% relocate(f, .before = b) %>% collect(),
+    df,
+  )
+  expect_dplyr_equal(
+    input %>% relocate(a, .after = last_col()) %>% collect(),
+    df,
+  )
+  expect_dplyr_equal(
+    input %>% relocate(ff = f) %>% collect(),
+    df,
+  )
+})
+
+test_that("relocate with selection helpers", {
+  df <- tibble(a = 1, b = 1, c = 1, d = "a", e = "a", f = "a")
+  expect_dplyr_equal(
+    input %>% relocate(any_of(c("a", "e", "i", "o", "u"))) %>% collect(),
+    df
+  )
+  expect_dplyr_equal(
+    input %>% relocate(where(is.character)) %>% collect(),
+    df
+  )
+  expect_dplyr_equal(
+    input %>% relocate(a, b, c, .after = where(is.character)) %>% collect(),
+    df
+  )
+  expect_dplyr_equal(
+    input %>% relocate(d, e, f, .before = where(is.numeric)) %>% collect(),
+    df
+  )
+})
+
+test_that("explicit type conversions with cast()", {
+  num_int32 <- 12L
+  num_int64 <- bit64::as.integer64(10)
+
+  int_types <- c(int8(), int16(), int32(), int64())
+  uint_types <- c(uint8(), uint16(), uint32(), uint64())
+  float_types <- c(float32(), float64())
+
+  types <- c(
+    int_types,
+    uint_types,
+    float_types,
+    double(), # not actually a type, a base R function but should be alias for float64
+    string()
+  )
+
+  for (type in types) {
+    expect_type_equal(
+      {
+        t1 <- Table$create(x = num_int32) %>%
+          transmute(x = cast(x, type)) %>%
+          compute()
+        t1$schema[[1]]$type
+      },
+      as_type(type)
+    )
+    expect_type_equal(
+      {
+        t1 <- Table$create(x = num_int64) %>%
+          transmute(x = cast(x, type)) %>%
+          compute()
+        t1$schema[[1]]$type
+      },
+      as_type(type)
+    )
+  }
+
+  # Arrow errors when truncating floats...
+  expect_error(
+    expect_type_equal(
+      {
+        t1 <- Table$create(pi = pi) %>%
+          transmute(three = cast(pi, int32())) %>%
+          compute()
+        t1$schema[[1]]$type
+      },
+      int32()
+    ),
+    "truncated"
+  )
+
+  # ... unless safe = FALSE (or allow_float_truncate = TRUE)
+  expect_type_equal(
+    {
+      t1 <- Table$create(pi = pi) %>%
+        transmute(three = cast(pi, int32(), safe = FALSE)) %>%
+        compute()
+      t1$schema[[1]]$type
+    },
+    int32()
+  )
+})
+
+test_that("explicit type conversions with as.*()", {
+  library(bit64)
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        int2chr = as.character(int),
+        int2dbl = as.double(int),
+        int2int = as.integer(int),
+        int2num = as.numeric(int),
+        dbl2chr = as.character(dbl),
+        dbl2dbl = as.double(dbl),
+        dbl2int = as.integer(dbl),
+        dbl2num = as.numeric(dbl),
+      ) %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        chr2chr = as.character(chr),
+        chr2dbl = as.double(chr),
+        chr2int = as.integer(chr),
+        chr2num = as.numeric(chr)
+      ) %>%
+      collect(),
+    tibble(chr = c("1", "2", "3"))
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        chr2i64 = as.integer64(chr),
+        dbl2i64 = as.integer64(dbl),
+        i642i64 = as.integer64(i64),
+      ) %>%
+      collect(),
+    tibble(chr = "10000000000", dbl = 10000000000, i64 = as.integer64(1e10))
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        chr2lgl = as.logical(chr),
+        dbl2lgl = as.logical(dbl),
+        int2lgl = as.logical(int)
+      ) %>%
+      collect(),
+    tibble(
+      chr = c("TRUE", "FALSE", "true", "false"),
+      dbl = c(1, 0, -99, 0),
+      int = c(1L, 0L, -99L, 0L)
+    )
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        dbl2chr = as.character(dbl),
+        dbl2dbl = as.double(dbl),
+        dbl2int = as.integer(dbl),
+        dbl2lgl = as.logical(dbl),
+        int2chr = as.character(int),
+        int2dbl = as.double(int),
+        int2int = as.integer(int),
+        int2lgl = as.logical(int),
+        lgl2chr = as.character(lgl), # Arrow returns "true", "false" here ...
+        lgl2dbl = as.double(lgl),
+        lgl2int = as.integer(lgl),
+        lgl2lgl = as.logical(lgl)
+      ) %>%
+      collect() %>%
+      # need to use toupper() *after* collect() or else skip if utf8proc not available
+      mutate(lgl2chr = toupper(lgl2chr)), # ... but we need "TRUE", "FALSE"
+    tibble(
+      dbl = c(1, 0, NA_real_),
+      int = c(1L, 0L, NA_integer_),
+      lgl = c(TRUE, FALSE, NA)
+    )
+  )
+})
+
+test_that("is.finite(), is.infinite(), is.nan()", {
+  df <- tibble(x =c(-4.94065645841246544e-324, 1.79769313486231570e+308, 0,
+                    NA_real_, NaN, Inf, -Inf))
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        is_fin = is.finite(x),
+        is_inf = is.infinite(x)
+      ) %>% collect(),
+    df
+  )
+  skip("is.nan() evaluates to NA on NA values (ARROW-12850)")
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        is_nan = is.nan(x)
+      ) %>% collect(),
+    df
+  )
+})
+
+test_that("type checks with is() giving Arrow types", {
+  # with class2=DataType
+  expect_equal(
+    Table$create(
+        i32 = Array$create(1, int32()),
+        dec = Array$create(pi)$cast(decimal(3, 2)),
+        f64 = Array$create(1.1, float64()),
+        str = Array$create("a", arrow::string())
+      ) %>% transmute(
+        i32_is_i32 = is(i32, int32()),
+        i32_is_dec = is(i32, decimal(3, 2)),
+        i32_is_i64 = is(i32, float64()),
+        i32_is_str = is(i32, arrow::string()),
+        dec_is_i32 = is(dec, int32()),
+        dec_is_dec = is(dec, decimal(3, 2)),
+        dec_is_i64 = is(dec, float64()),
+        dec_is_str = is(dec, arrow::string()),
+        f64_is_i32 = is(f64, int32()),
+        f64_is_dec = is(f64, decimal(3, 2)),
+        f64_is_i64 = is(f64, float64()),
+        f64_is_str = is(f64, arrow::string()),
+        str_is_i32 = is(str, int32()),
+        str_is_dec = is(str, decimal(3, 2)),
+        str_is_i64 = is(str, float64()),
+        str_is_str = is(str, arrow::string())
+      ) %>%
+      collect() %>% t() %>% as.vector(),
+    c(TRUE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, TRUE,
+      FALSE, FALSE, FALSE, FALSE, TRUE)
+  )
+  # with class2=string
+  expect_equal(
+    Table$create(
+        i32 = Array$create(1, int32()),
+        f64 = Array$create(1.1, float64()),
+        str = Array$create("a", arrow::string())
+      ) %>% transmute(
+        i32_is_i32 = is(i32, "int32"),
+        i32_is_i64 = is(i32, "double"),
+        i32_is_str = is(i32, "string"),
+        f64_is_i32 = is(f64, "int32"),
+        f64_is_i64 = is(f64, "double"),
+        f64_is_str = is(f64, "string"),
+        str_is_i32 = is(str, "int32"),
+        str_is_i64 = is(str, "double"),
+        str_is_str = is(str, "string")
+      ) %>%
+      collect() %>% t() %>% as.vector(),
+    c(TRUE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, TRUE)
+  )
+  # with class2=string alias
+  expect_equal(
+    Table$create(
+        f16 = Array$create(NA_real_, halffloat()),
+        f32 = Array$create(1.1, float()),
+        f64 = Array$create(2.2, float64()),
+        lgl = Array$create(TRUE, bool()),
+        str = Array$create("a", arrow::string())
+      ) %>% transmute(
+        f16_is_f16 = is(f16, "float16"),
+        f16_is_f32 = is(f16, "float32"),
+        f16_is_f64 = is(f16, "float64"),
+        f16_is_lgl = is(f16, "boolean"),
+        f16_is_str = is(f16, "utf8"),
+        f32_is_f16 = is(f32, "float16"),
+        f32_is_f32 = is(f32, "float32"),
+        f32_is_f64 = is(f32, "float64"),
+        f32_is_lgl = is(f32, "boolean"),
+        f32_is_str = is(f32, "utf8"),
+        f64_is_f16 = is(f64, "float16"),
+        f64_is_f32 = is(f64, "float32"),
+        f64_is_f64 = is(f64, "float64"),
+        f64_is_lgl = is(f64, "boolean"),
+        f64_is_str = is(f64, "utf8"),
+        lgl_is_f16 = is(lgl, "float16"),
+        lgl_is_f32 = is(lgl, "float32"),
+        lgl_is_f64 = is(lgl, "float64"),
+        lgl_is_lgl = is(lgl, "boolean"),
+        lgl_is_str = is(lgl, "utf8"),
+        str_is_f16 = is(str, "float16"),
+        str_is_f32 = is(str, "float32"),
+        str_is_f64 = is(str, "float64"),
+        str_is_lgl = is(str, "boolean"),
+        str_is_str = is(str, "utf8")
+      ) %>%
+      collect() %>% t() %>% as.vector(),
+    c(TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE,
+      FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE,
+      FALSE, FALSE, TRUE)
+  )
+})
+
+test_that("type checks with is() giving R types", {
+  library(bit64)
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        chr_is_chr = is(chr, "character"),
+        chr_is_fct = is(chr, "factor"),
+        chr_is_int = is(chr, "integer"),
+        chr_is_i64 = is(chr, "integer64"),
+        chr_is_lst = is(chr, "list"),
+        chr_is_lgl = is(chr, "logical"),
+        chr_is_num = is(chr, "numeric"),
+        dbl_is_chr = is(dbl, "character"),
+        dbl_is_fct = is(dbl, "factor"),
+        dbl_is_int = is(dbl, "integer"),
+        dbl_is_i64 = is(dbl, "integer64"),
+        dbl_is_lst = is(dbl, "list"),
+        dbl_is_lgl = is(dbl, "logical"),
+        dbl_is_num = is(dbl, "numeric"),
+        fct_is_chr = is(fct, "character"),
+        fct_is_fct = is(fct, "factor"),
+        fct_is_int = is(fct, "integer"),
+        fct_is_i64 = is(fct, "integer64"),
+        fct_is_lst = is(fct, "list"),
+        fct_is_lgl = is(fct, "logical"),
+        fct_is_num = is(fct, "numeric"),
+        int_is_chr = is(int, "character"),
+        int_is_fct = is(int, "factor"),
+        int_is_int = is(int, "integer"),
+        int_is_i64 = is(int, "integer64"),
+        int_is_lst = is(int, "list"),
+        int_is_lgl = is(int, "logical"),
+        int_is_num = is(int, "numeric"),
+        lgl_is_chr = is(lgl, "character"),
+        lgl_is_fct = is(lgl, "factor"),
+        lgl_is_int = is(lgl, "integer"),
+        lgl_is_i64 = is(lgl, "integer64"),
+        lgl_is_lst = is(lgl, "list"),
+        lgl_is_lgl = is(lgl, "logical"),
+        lgl_is_num = is(lgl, "numeric")
+      ) %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        i64_is_chr = is(i64, "character"),
+        i64_is_fct = is(i64, "factor"),
+        # we want Arrow to return TRUE, but bit64 returns FALSE
+        #i64_is_int = is(i64, "integer"),
+        i64_is_i64 = is(i64, "integer64"),
+        i64_is_lst = is(i64, "list"),
+        i64_is_lgl = is(i64, "logical"),
+        # we want Arrow to return TRUE, but bit64 returns FALSE
+        #i64_is_num = is(i64, "numeric"),
+        lst_is_chr = is(lst, "character"),
+        lst_is_fct = is(lst, "factor"),
+        lst_is_int = is(lst, "integer"),
+        lst_is_i64 = is(lst, "integer64"),
+        lst_is_lst = is(lst, "list"),
+        lst_is_lgl = is(lst, "logical"),
+        lst_is_num = is(lst, "numeric")
+      ) %>%
+      collect(),
+    tibble(
+      i64 = as.integer64(1:3),
+      lst = list(c("a", "b"), c("d", "e"), c("f", "g"))
+    )
+  )
+})
+
+test_that("type checks with is.*()", {
+  library(bit64)
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        chr_is_chr = is.character(chr),
+        chr_is_dbl = is.double(chr),
+        chr_is_fct = is.factor(chr),
+        chr_is_int = is.integer(chr),
+        chr_is_i64 = is.integer64(chr),
+        chr_is_lst = is.list(chr),
+        chr_is_lgl = is.logical(chr),
+        chr_is_num = is.numeric(chr),
+        dbl_is_chr = is.character(dbl),
+        dbl_is_dbl = is.double(dbl),
+        dbl_is_fct = is.factor(dbl),
+        dbl_is_int = is.integer(dbl),
+        dbl_is_i64 = is.integer64(dbl),
+        dbl_is_lst = is.list(dbl),
+        dbl_is_lgl = is.logical(dbl),
+        dbl_is_num = is.numeric(dbl),
+        fct_is_chr = is.character(fct),
+        fct_is_dbl = is.double(fct),
+        fct_is_fct = is.factor(fct),
+        fct_is_int = is.integer(fct),
+        fct_is_i64 = is.integer64(fct),
+        fct_is_lst = is.list(fct),
+        fct_is_lgl = is.logical(fct),
+        fct_is_num = is.numeric(fct),
+        int_is_chr = is.character(int),
+        int_is_dbl = is.double(int),
+        int_is_fct = is.factor(int),
+        int_is_int = is.integer(int),
+        int_is_i64 = is.integer64(int),
+        int_is_lst = is.list(int),
+        int_is_lgl = is.logical(int),
+        int_is_num = is.numeric(int),
+        lgl_is_chr = is.character(lgl),
+        lgl_is_dbl = is.double(lgl),
+        lgl_is_fct = is.factor(lgl),
+        lgl_is_int = is.integer(lgl),
+        lgl_is_i64 = is.integer64(lgl),
+        lgl_is_lst = is.list(lgl),
+        lgl_is_lgl = is.logical(lgl),
+        lgl_is_num = is.numeric(lgl)
+      ) %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        i64_is_chr = is.character(i64),
+        # TODO: investigate why this is not matching when testthat runs it
+        #i64_is_dbl = is.double(i64),
+        i64_is_fct = is.factor(i64),
+        # we want Arrow to return TRUE, but bit64 returns FALSE
+        #i64_is_int = is.integer(i64),
+        i64_is_i64 = is.integer64(i64),
+        i64_is_lst = is.list(i64),
+        i64_is_lgl = is.logical(i64),
+        i64_is_num = is.numeric(i64),
+        lst_is_chr = is.character(lst),
+        lst_is_dbl = is.double(lst),
+        lst_is_fct = is.factor(lst),
+        lst_is_int = is.integer(lst),
+        lst_is_i64 = is.integer64(lst),
+        lst_is_lst = is.list(lst),
+        lst_is_lgl = is.logical(lst),
+        lst_is_num = is.numeric(lst)
+      ) %>%
+      collect(),
+    tibble(
+      i64 = as.integer64(1:3),
+      lst = list(c("a", "b"), c("d", "e"), c("f", "g"))
+    )
+  )
+})
+
+test_that("type checks with is_*()", {
+  library(rlang)
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        chr_is_chr = is_character(chr),
+        chr_is_dbl = is_double(chr),
+        chr_is_int = is_integer(chr),
+        chr_is_lst = is_list(chr),
+        chr_is_lgl = is_logical(chr),
+        dbl_is_chr = is_character(dbl),
+        dbl_is_dbl = is_double(dbl),
+        dbl_is_int = is_integer(dbl),
+        dbl_is_lst = is_list(dbl),
+        dbl_is_lgl = is_logical(dbl),
+        int_is_chr = is_character(int),
+        int_is_dbl = is_double(int),
+        int_is_int = is_integer(int),
+        int_is_lst = is_list(int),
+        int_is_lgl = is_logical(int),
+        lgl_is_chr = is_character(lgl),
+        lgl_is_dbl = is_double(lgl),
+        lgl_is_int = is_integer(lgl),
+        lgl_is_lst = is_list(lgl),
+        lgl_is_lgl = is_logical(lgl)
+      ) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("as.factor()/dictionary_encode()", {
+  skip("ARROW-12632: ExecuteScalarExpression cannot Execute non-scalar expression {x=dictionary_encode(x, {NON-REPRESENTABLE OPTIONS})}")
+  df1 <- tibble(x = c("C", "D", "B", NA, "D", "B", "S", "A", "B", "Z", "B"))
+  df2 <- tibble(x = c(5, 5, 5, NA, 2, 3, 6, 8))
+
+  expect_dplyr_equal(
+    input %>%
+      transmute(x = as.factor(x)) %>%
+      collect(),
+    df1
+  )
+
+  expect_warning(
+    expect_dplyr_equal(
+      input %>%
+        transmute(x = as.factor(x)) %>%
+        collect(),
+      df2
+    ),
+    "Coercing dictionary values to R character factor levels"
+  )
+
+  # dictionary values with default null encoding behavior ("mask") omits
+  # nulls from the dictionary values
+  expect_equal(
+    {
+      rb1 <- df1 %>%
+        record_batch() %>%
+        transmute(x = dictionary_encode(x)) %>%
+        compute()
+      dict <- rb1$x$dictionary()
+      as.vector(dict$Take(dict$SortIndices()))
+    },
+    sort(unique(df1$x), na.last = NA)
+  )
+
+  # dictionary values with "encode" null encoding behavior includes nulls in
+  # the dictionary values
+  expect_equal(
+    {
+      rb1 <- df1 %>%
+        record_batch() %>%
+        transmute(x = dictionary_encode(x, null_encoding_behavior = "encode")) %>%
+        compute()
+      dict <- rb1$x$dictionary()
+      as.vector(dict$Take(dict$SortIndices()))
+    },
+    sort(unique(df1$x), na.last = TRUE)
+  )
+
+})
+
+test_that("bad explicit type conversions with as.*()", {
+
+  # Arrow returns lowercase "true", "false" (instead of "TRUE", "FALSE" like R)
+  expect_error(
+    expect_dplyr_equal(
+      input %>%
+        transmute(lgl2chr = as.character(lgl)) %>%
+        collect(),
+      tibble(lgl = c(TRUE, FALSE, NA)
+      )
+    )
+  )
+
+  # Arrow fails to parse these strings as numbers (instead of returning NAs with
+  # a warning like R does)
+  expect_error(
+    expect_warning(
+      expect_dplyr_equal(
+        input %>%
+          transmute(chr2num = as.numeric(chr)) %>%
+          collect(),
+        tibble(chr = c("l.O", "S.S", ""))
+      )
+    )
+  )
+
+  # Arrow fails to parse these strings as Booleans (instead of returning NAs
+  # like R does)
+  expect_error(
+    expect_dplyr_equal(
+      input %>%
+        transmute(chr2lgl = as.logical(chr)) %>%
+        collect(),
+      tibble(chr = c("TRU", "FAX", ""))
+    )
+  )
+
+})
+
+test_that("No duplicate field names are allowed in an arrow_dplyr_query", {
+  expect_error(
+    Table$create(tbl, tbl) %>%
+      filter(int > 0),
+    regexp = 'The following field names were found more than once in the data: "int", "dbl", "dbl2", "lgl", "false", "chr", "fct", "verses", and "padded_strings"'
+  )
+})
+
+test_that("abs()", {
+  df <- tibble(x = c(-127, -10, -1, -0 , 0, 1, 10, 127, NA))
+
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        abs = abs(x)
+      ) %>% collect(),
+    df
+  )
 })

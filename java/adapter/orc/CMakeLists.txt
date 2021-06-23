@@ -30,14 +30,14 @@ include(FindJNI)
 
 message("generating headers to ${JNI_HEADERS_DIR}")
 
-add_jar(
-        arrow_orc_java
+add_jar(arrow_orc_java
         src/main/java/org/apache/arrow/adapter/orc/OrcReaderJniWrapper.java
         src/main/java/org/apache/arrow/adapter/orc/OrcStripeReaderJniWrapper.java
         src/main/java/org/apache/arrow/adapter/orc/OrcMemoryJniWrapper.java
         src/main/java/org/apache/arrow/adapter/orc/OrcJniUtils.java
         src/main/java/org/apache/arrow/adapter/orc/OrcRecordBatch.java
         src/main/java/org/apache/arrow/adapter/orc/OrcFieldNode.java
-        GENERATE_NATIVE_HEADERS arrow_orc_java-native
-        DESTINATION ${JNI_HEADERS_DIR}
-)
+        GENERATE_NATIVE_HEADERS
+        arrow_orc_java-native
+        DESTINATION
+        ${JNI_HEADERS_DIR})

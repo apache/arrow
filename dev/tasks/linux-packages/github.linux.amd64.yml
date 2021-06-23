@@ -15,31 +15,38 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# NOTE: must set "Crossbow" as name to have the badge links working in the
-# github comment reports!
-name: Crossbow
+{% import 'macros.jinja' as macros with context %}
 
-on:
-  push:
-    branches:
-      - "*-github-*"
+{{ macros.github_header() }}
 
 jobs:
   package:
     name: Package
+    # We can't use Ubuntu 20.04 because it doesn't ship neither
+    # createrepo nor createrepo_c. We'll be able to use Ubuntu
+    # 22.04. It will ship createrepo_c. Or we can build createrepo_c
+    # from source like we do in travis.linux.arm64.yml.
+    #
+    # Note that createrepo or createrepo_c is only needed to test Yum
+    # repository.
     runs-on: ubuntu-18.04
     steps:
+      {{ macros.github_checkout_arrow()|indent }}
+      {{ macros.github_login_dockerhub()|indent }}
+
       - name: Set up Ruby
-        uses: actions/setup-ruby@v1
-      - name: Checkout Arrow
-        run: |
-          git clone --no-checkout {{ arrow.remote }} arrow
-          git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-          git -C arrow checkout FETCH_HEAD
-          git -C arrow submodule update --init --recursive
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.0'
       - name: Free Up Disk Space
         shell: bash
         run: arrow/ci/scripts/util_cleanup.sh
+      - name: Cache ccache
+        uses: actions/cache@v2
+        with:
+          path: arrow/dev/tasks/linux-packages/apache-arrow/{{ task_namespace }}/build/{{ target }}/ccache
+          key: linux-{{ task_namespace }}-ccache-{{ target }}-{{ "${{ hashFiles('arrow/cpp/**') }}" }}
+          restore-keys: linux-{{ task_namespace }}-ccache-{{ target }}-
       - name: Build
         run: |
           set -e
@@ -59,8 +66,6 @@ jobs:
         shell: bash
         run: |
           pushd arrow/dev/tasks/linux-packages
-          docker login -u "{{ '${{ secrets.DOCKERHUB_USER }}' }}" \
-                       -p "{{ '${{ secrets.DOCKERHUB_TOKEN }}' }}"
           rake docker:push
           popd
         env:
@@ -97,28 +102,6 @@ jobs:
           APT_TARGETS: {{ target }}
           ARROW_VERSION: {{ arrow.version }}
           YUM_TARGETS: {{ target }}
-      # Using GitHub release tries to find a common ancestor between the
-      # currently pushed tag and the latest tag of the GitHub repository
-      # (don't know why).
-      # The tag upload took 43 minutes because of this scan, so use an
-      # alternative upload script.
-      - name: Set up Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.8
-      - name: Set up Crossbow
-        run: |
-          pip install --requirement arrow/dev/tasks/requirements-crossbow.txt
-      - name: Upload artifacts
-        run: |
-          python arrow/dev/tasks/crossbow.py \
-            --queue-path . \
-            --queue-remote {{ queue_remote_url }} \
-            upload-artifacts \
-          {%- for extension in upload_extensions %}
-            --pattern "arrow/dev/tasks/linux-packages/**/*{{ extension }}" \
-          {%- endfor %}
-            --sha {{ task.branch }} \
-            --tag {{ task.tag }}
-        env:
-          CROSSBOW_GITHUB_TOKEN: {{ '${{ secrets.CROSSBOW_GITHUB_TOKEN }}' }}
+
+      {% set patterns = upload_extensions | format_all("arrow/dev/tasks/linux-packages/**/*{}") %}
+      {{ macros.github_upload_releases(patterns)|indent }}

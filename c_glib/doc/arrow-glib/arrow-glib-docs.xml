@@ -55,6 +55,10 @@
       <title>Value</title>
       <xi:include href="xml/decimal.xml"/>
     </chapter>
+    <chapter id="scalar">
+      <title>Scalar</title>
+      <xi:include href="xml/scalar.xml"/>
+    </chapter>
     <chapter id="type">
       <title>Type</title>
       <xi:include href="xml/type.xml"/>
@@ -178,6 +182,14 @@
   <index id="deprecated-api-index" role="deprecated">
     <title>Index of deprecated API</title>
     <xi:include href="xml/api-index-deprecated.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-5-0-0" role="5.0.0">
+    <title>Index of new symbols in 5.0.0</title>
+    <xi:include href="xml/api-index-5.0.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-4-0-0" role="4.0.0">
+    <title>Index of new symbols in 4.0.0</title>
+    <xi:include href="xml/api-index-4.0.0.xml"><xi:fallback /></xi:include>
   </index>
   <index id="api-index-3-0-0" role="3.0.0">
     <title>Index of new symbols in 3.0.0</title>

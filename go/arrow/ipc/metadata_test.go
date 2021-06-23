@@ -22,8 +22,12 @@ import (
 	"testing"
 
 	"github.com/apache/arrow/go/arrow"
+	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/arrow/internal/testing/types"
+	"github.com/apache/arrow/go/arrow/memory"
 	flatbuffers "github.com/google/flatbuffers/go"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRWSchema(t *testing.T) {
@@ -156,4 +160,63 @@ func TestRWFooter(t *testing.T) {
 			}
 		})
 	}
+}
+
+func exampleUUID(mem memory.Allocator) array.Interface {
+	extType := types.NewUUIDType()
+	bldr := array.NewExtensionBuilder(mem, extType)
+	defer bldr.Release()
+
+	bldr.Builder.(*array.FixedSizeBinaryBuilder).AppendValues(
+		[][]byte{nil, []byte("abcdefghijklmno0"), []byte("abcdefghijklmno1"), []byte("abcdefghijklmno2")},
+		[]bool{false, true, true, true})
+
+	return bldr.NewArray()
+}
+
+func TestUnrecognizedExtensionType(t *testing.T) {
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
+	// register the uuid type
+	assert.NoError(t, arrow.RegisterExtensionType(types.NewUUIDType()))
+
+	extArr := exampleUUID(pool)
+	defer extArr.Release()
+
+	batch := array.NewRecord(
+		arrow.NewSchema([]arrow.Field{
+			{Name: "f0", Type: extArr.DataType(), Nullable: true}}, nil),
+		[]array.Interface{extArr}, 4)
+	defer batch.Release()
+
+	storageArr := extArr.(array.ExtensionArray).Storage()
+
+	var buf bytes.Buffer
+	wr := NewWriter(&buf, WithAllocator(pool), WithSchema(batch.Schema()))
+	assert.NoError(t, wr.Write(batch))
+	wr.Close()
+
+	// unregister the uuid type before we read back the buffer so it is
+	// unrecognized when reading back the record batch.
+	assert.NoError(t, arrow.UnregisterExtensionType("uuid"))
+	rdr, err := NewReader(&buf, WithAllocator(pool))
+	defer rdr.Release()
+
+	assert.NoError(t, err)
+	assert.True(t, rdr.Next())
+
+	rec := rdr.Record()
+	assert.NotNil(t, rec)
+
+	// create a record batch with the same data, but the field should contain the
+	// extension metadata and be of the storage type instead of being the extension type.
+	extMetadata := arrow.NewMetadata([]string{ExtensionTypeKeyName, ExtensionMetadataKeyName}, []string{"uuid", "uuid-serialized"})
+	batchNoExt := array.NewRecord(
+		arrow.NewSchema([]arrow.Field{
+			{Name: "f0", Type: storageArr.DataType(), Nullable: true, Metadata: extMetadata},
+		}, nil), []array.Interface{storageArr}, 4)
+	defer batchNoExt.Release()
+
+	assert.Truef(t, array.RecordEqual(rec, batchNoExt), "expected: %s\ngot: %s\n", batchNoExt, rec)
 }

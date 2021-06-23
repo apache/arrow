@@ -78,7 +78,7 @@ public class JdbcToArrowTimeZoneTest extends AbstractJdbcToArrowTest {
   };
 
   /**
-   * Constructor which populate table object for each test iteration.
+   * Constructor which populates the table object for each test iteration.
    *
    * @param table Table object
    */

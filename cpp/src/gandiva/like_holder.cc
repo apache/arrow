@@ -67,8 +67,8 @@ static bool IsArrowStringLiteral(arrow::Type::type type) {
 }
 
 Status LikeHolder::Make(const FunctionNode& node, std::shared_ptr<LikeHolder>* holder) {
-  ARROW_RETURN_IF(node.children().size() != 2,
-                  Status::Invalid("'like' function requires two parameters"));
+  ARROW_RETURN_IF(node.children().size() != 2 && node.children().size() != 3,
+                  Status::Invalid("'like' function requires two or three parameters"));
 
   auto literal = dynamic_cast<LiteralNode*>(node.children().at(1).get());
   ARROW_RETURN_IF(
@@ -80,14 +80,49 @@ Status LikeHolder::Make(const FunctionNode& node, std::shared_ptr<LikeHolder>* h
       !IsArrowStringLiteral(literal_type),
       Status::Invalid(
           "'like' function requires a string literal as the second parameter"));
+  if (node.children().size() == 2) {
+    return Make(arrow::util::get<std::string>(literal->holder()), holder);
+  } else {
+    auto escape_char = dynamic_cast<LiteralNode*>(node.children().at(2).get());
+    ARROW_RETURN_IF(
+        escape_char == nullptr,
+        Status::Invalid("'like' function requires a literal as the third parameter"));
 
-  return Make(arrow::util::get<std::string>(literal->holder()), holder);
+    auto escape_char_type = escape_char->return_type()->id();
+    ARROW_RETURN_IF(
+        !IsArrowStringLiteral(escape_char_type),
+        Status::Invalid(
+            "'like' function requires a string literal as the third parameter"));
+    return Make(arrow::util::get<std::string>(literal->holder()),
+                arrow::util::get<std::string>(escape_char->holder()), holder);
+  }
 }
 
 Status LikeHolder::Make(const std::string& sql_pattern,
                         std::shared_ptr<LikeHolder>* holder) {
   std::string pcre_pattern;
   ARROW_RETURN_NOT_OK(RegexUtil::SqlLikePatternToPcre(sql_pattern, pcre_pattern));
+
+  auto lholder = std::shared_ptr<LikeHolder>(new LikeHolder(pcre_pattern));
+  ARROW_RETURN_IF(!lholder->regex_.ok(),
+                  Status::Invalid("Building RE2 pattern '", pcre_pattern, "' failed"));
+
+  *holder = lholder;
+  return Status::OK();
+}
+
+Status LikeHolder::Make(const std::string& sql_pattern, const std::string& escape_char,
+                        std::shared_ptr<LikeHolder>* holder) {
+  ARROW_RETURN_IF(escape_char.length() > 1,
+                  Status::Invalid("The length of escape char ", escape_char,
+                                  " in 'like' function is greater than 1"));
+  std::string pcre_pattern;
+  if (escape_char.length() == 1) {
+    ARROW_RETURN_NOT_OK(
+        RegexUtil::SqlLikePatternToPcre(sql_pattern, escape_char.at(0), pcre_pattern));
+  } else {
+    ARROW_RETURN_NOT_OK(RegexUtil::SqlLikePatternToPcre(sql_pattern, pcre_pattern));
+  }
 
   auto lholder = std::shared_ptr<LikeHolder>(new LikeHolder(pcre_pattern));
   ARROW_RETURN_IF(!lholder->regex_.ok(),

@@ -51,9 +51,10 @@ class IterableReadable<T extends Uint8Array | any> extends Readable {
         }
     }
     _destroy(e: Error | null, cb: (e: Error | null) => void) {
-        let it = this._iterator, fn: any;
+        const it = this._iterator;
+        let fn: any;
         it && (fn = e != null && it.throw || it.return);
-        fn && fn.call(it, e);
+        fn?.call(it, e);
         cb && cb(null);
     }
     private _pull(size: number, it: SourceIterator<T>) {
@@ -65,7 +66,7 @@ class IterableReadable<T extends Uint8Array | any> extends Readable {
             }
             if (!this.push(r.value) || size <= 0) { break; }
         }
-        if ((r && r.done || !this.readable) && (this.push(null) || true)) {
+        if ((r?.done || !this.readable) && (this.push(null) || true)) {
             it.return && it.return();
         }
         return !this.readable;
@@ -90,9 +91,10 @@ class AsyncIterableReadable<T extends Uint8Array | any> extends Readable {
         }
     }
     _destroy(e: Error | null, cb: (e: Error | null) => void) {
-        let it = this._iterator, fn: any;
+        const it = this._iterator;
+        let fn: any;
         it && (fn = e != null && it.throw || it.return);
-        fn && fn.call(it, e).then(() => cb && cb(null)) || (cb && cb(null));
+        fn?.call(it, e).then(() => cb && cb(null)) || (cb && cb(null));
     }
     private async _pull(size: number, it: AsyncSourceIterator<T>) {
         const bm = this._bytesMode;
@@ -103,7 +105,7 @@ class AsyncIterableReadable<T extends Uint8Array | any> extends Readable {
             }
             if (!this.push(r.value) || size <= 0) { break; }
         }
-        if ((r && r.done || !this.readable) && (this.push(null) || true)) {
+        if ((r?.done || !this.readable) && (this.push(null) || true)) {
             it.return && it.return();
         }
         return !this.readable;

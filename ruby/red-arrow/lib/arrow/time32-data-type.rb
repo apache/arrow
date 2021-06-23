@@ -29,7 +29,7 @@ module Arrow
     #
     #     The unit must be second or millisecond.
     #
-    #   @example Create a time32 data type with {Arrow::TimeUnit}
+    #   @example Create a time32 data type with Arrow::TimeUnit
     #     Arrow::Time32DataType.new(Arrow::TimeUnit::MILLI)
     #
     #   @example Create a time32 data type with Symbol
@@ -45,7 +45,7 @@ module Arrow
     #
     #     The unit must be second or millisecond.
     #
-    #   @example Create a time32 data type with {Arrow::TimeUnit}
+    #   @example Create a time32 data type with Arrow::TimeUnit
     #     Arrow::Time32DataType.new(unit: Arrow::TimeUnit::MILLI)
     #
     #   @example Create a time32 data type with Symbol

@@ -25,6 +25,7 @@
 #include "arrow/array/data.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/util_internal.h"
 #include "arrow/table.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_block_counter.h"
@@ -52,14 +53,18 @@ namespace internal {
   VISIT(FloatType)                  \
   VISIT(DoubleType)                 \
   VISIT(BinaryType)                 \
-  VISIT(LargeBinaryType)
+  VISIT(LargeBinaryType)            \
+  VISIT(FixedSizeBinaryType)        \
+  VISIT(Decimal128Type)             \
+  VISIT(Decimal256Type)
 
 namespace {
 
 // The target chunk in a chunked array.
 template <typename ArrayType>
 struct ResolvedChunk {
-  using ViewType = decltype(std::declval<ArrayType>().GetView(0));
+  using V = GetViewType<typename ArrayType::TypeClass>;
+  using LogicalValueType = typename V::T;
 
   // The target array in chunked array.
   const ArrayType* array;
@@ -70,7 +75,7 @@ struct ResolvedChunk {
 
   bool IsNull() const { return array->IsNull(index); }
 
-  ViewType GetView() const { return array->GetView(index); }
+  LogicalValueType Value() const { return V::LogicalValue(array->GetView(index)); }
 };
 
 // ResolvedChunk specialization for untyped arrays when all is needed is null lookup
@@ -279,7 +284,7 @@ PartitionNullLikes(uint64_t* indices_begin, uint64_t* indices_end,
   ChunkedArrayResolver resolver(arrays);
   return partitioner(indices_begin, indices_end, [&](uint64_t ind) {
     const auto chunk = resolver.Resolve<ArrayType>(ind);
-    return !std::isnan(chunk.GetView());
+    return !std::isnan(chunk.Value());
   });
 }
 
@@ -317,25 +322,25 @@ template <typename OutType, typename InType>
 struct PartitionNthToIndices {
   using ArrayType = typename TypeTraits<InType>::ArrayType;
 
-  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    using GetView = GetViewType<InType>;
+
     if (ctx->state() == nullptr) {
-      ctx->SetStatus(Status::Invalid("NthToIndices requires PartitionNthOptions"));
-      return;
+      return Status::Invalid("NthToIndices requires PartitionNthOptions");
     }
 
     ArrayType arr(batch[0].array());
 
     int64_t pivot = PartitionNthToIndicesState::Get(ctx).pivot;
     if (pivot > arr.length()) {
-      ctx->SetStatus(Status::IndexError("NthToIndices index out of bound"));
-      return;
+      return Status::IndexError("NthToIndices index out of bound");
     }
     ArrayData* out_arr = out->mutable_array();
     uint64_t* out_begin = out_arr->GetMutableValues<uint64_t>(1);
     uint64_t* out_end = out_begin + arr.length();
     std::iota(out_begin, out_end, 0);
     if (pivot == arr.length()) {
-      return;
+      return Status::OK();
     }
     auto nulls_begin =
         PartitionNulls<ArrayType, NonStablePartitioner>(out_begin, out_end, arr, 0);
@@ -343,9 +348,12 @@ struct PartitionNthToIndices {
     if (nth_begin < nulls_begin) {
       std::nth_element(out_begin, nth_begin, nulls_begin,
                        [&arr](uint64_t left, uint64_t right) {
-                         return arr.GetView(left) < arr.GetView(right);
+                         const auto lval = GetView::LogicalValue(arr.GetView(left));
+                         const auto rval = GetView::LogicalValue(arr.GetView(right));
+                         return lval < rval;
                        });
     }
+    return Status::OK();
   }
 };
 
@@ -365,6 +373,7 @@ inline void VisitRawValuesInline(const ArrayType& values,
 template <typename ArrowType>
 class ArrayCompareSorter {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
+  using GetView = GetViewType<ArrowType>;
 
  public:
   // Returns where null starts.
@@ -377,14 +386,18 @@ class ArrayCompareSorter {
     if (options.order == SortOrder::Ascending) {
       std::stable_sort(
           indices_begin, nulls_begin, [&values, &offset](uint64_t left, uint64_t right) {
-            return values.GetView(left - offset) < values.GetView(right - offset);
+            const auto lhs = GetView::LogicalValue(values.GetView(left - offset));
+            const auto rhs = GetView::LogicalValue(values.GetView(right - offset));
+            return lhs < rhs;
           });
     } else {
       std::stable_sort(
           indices_begin, nulls_begin, [&values, &offset](uint64_t left, uint64_t right) {
+            const auto lhs = GetView::LogicalValue(values.GetView(left - offset));
+            const auto rhs = GetView::LogicalValue(values.GetView(right - offset));
             // We don't use 'left > right' here to reduce required operator.
             // If we use 'right < left' here, '<' is only required.
-            return values.GetView(right - offset) < values.GetView(left - offset);
+            return rhs < lhs;
           });
     }
     return nulls_begin;
@@ -479,16 +492,8 @@ class ArrayCountOrCompareSorter {
   uint64_t* Sort(uint64_t* indices_begin, uint64_t* indices_end, const ArrayType& values,
                  int64_t offset, const ArraySortOptions& options) {
     if (values.length() >= countsort_min_len_ && values.length() > values.null_count()) {
-      c_type min{std::numeric_limits<c_type>::max()};
-      c_type max{std::numeric_limits<c_type>::min()};
-
-      VisitRawValuesInline(
-          values,
-          [&](c_type v) {
-            min = std::min(min, v);
-            max = std::max(max, v);
-          },
-          []() {});
+      c_type min, max;
+      std::tie(min, max) = GetMinMax<c_type>(*values.data());
 
       // For signed int32/64, (max - min) may overflow and trigger UBSAN.
       // Cast to largest unsigned type(uint64_t) before subtraction.
@@ -542,8 +547,9 @@ struct ArraySorter<Type, enable_if_t<(is_integer_type<Type>::value &&
 };
 
 template <typename Type>
-struct ArraySorter<Type, enable_if_t<is_floating_type<Type>::value ||
-                                     is_base_binary_type<Type>::value>> {
+struct ArraySorter<
+    Type, enable_if_t<is_floating_type<Type>::value || is_base_binary_type<Type>::value ||
+                      is_fixed_size_binary_type<Type>::value>> {
   ArrayCompareSorter<Type> impl;
 };
 
@@ -552,7 +558,7 @@ using ArraySortIndicesState = internal::OptionsWrapper<ArraySortOptions>;
 template <typename OutType, typename InType>
 struct ArraySortIndices {
   using ArrayType = typename TypeTraits<InType>::ArrayType;
-  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const auto& options = ArraySortIndicesState::Get(ctx);
 
     ArrayType arr(batch[0].array());
@@ -563,6 +569,8 @@ struct ArraySortIndices {
 
     ArraySorter<InType> sorter;
     sorter.impl.Sort(out_begin, out_end, arr, 0, options);
+
+    return Status::OK();
   }
 };
 
@@ -585,12 +593,21 @@ void AddSortingKernels(VectorKernel base, VectorFunction* func) {
     base.exec = GenerateNumeric<ExecTemplate, UInt64Type>(*physical_type);
     DCHECK_OK(func->AddKernel(base));
   }
+  for (const auto id : DecimalTypeIds()) {
+    base.signature = KernelSignature::Make({InputType::Array(id)}, uint64());
+    base.exec = GenerateDecimal<ExecTemplate, UInt64Type>(id);
+    DCHECK_OK(func->AddKernel(base));
+  }
   for (const auto& ty : BaseBinaryTypes()) {
     auto physical_type = GetPhysicalType(ty);
     base.signature = KernelSignature::Make({InputType::Array(ty)}, uint64());
     base.exec = GenerateVarBinaryBase<ExecTemplate, UInt64Type>(*physical_type);
     DCHECK_OK(func->AddKernel(base));
   }
+  base.signature =
+      KernelSignature::Make({InputType::Array(Type::FIXED_SIZE_BINARY)}, uint64());
+  base.exec = ExecTemplate<UInt64Type, FixedSizeBinaryType>::Exec;
+  DCHECK_OK(func->AddKernel(base));
 }
 
 // ----------------------------------------------------------------------
@@ -617,7 +634,7 @@ class ChunkedArrayCompareSorter {
       std::stable_sort(indices_begin, nulls_begin, [&](uint64_t left, uint64_t right) {
         const auto chunk_left = resolver.Resolve<ArrayType>(left);
         const auto chunk_right = resolver.Resolve<ArrayType>(right);
-        return chunk_left.GetView() < chunk_right.GetView();
+        return chunk_left.Value() < chunk_right.Value();
       });
     } else {
       std::stable_sort(indices_begin, nulls_begin, [&](uint64_t left, uint64_t right) {
@@ -625,7 +642,7 @@ class ChunkedArrayCompareSorter {
         const auto chunk_right = resolver.Resolve<ArrayType>(right);
         // We don't use 'left > right' here to reduce required operator.
         // If we use 'right < left' here, '<' is only required.
-        return chunk_right.GetView() < chunk_left.GetView();
+        return chunk_right.Value() < chunk_left.Value();
       });
     }
     return nulls_begin;
@@ -786,7 +803,7 @@ class ChunkedArraySorter : public TypeVisitor {
                  [&](uint64_t left, uint64_t right) {
                    const auto chunk_left = left_resolver.Resolve<ArrayType>(left);
                    const auto chunk_right = right_resolver.Resolve<ArrayType>(right);
-                   return chunk_left.GetView() < chunk_right.GetView();
+                   return chunk_left.Value() < chunk_right.Value();
                  });
     } else {
       std::merge(indices_begin, indices_middle, indices_middle, indices_end, temp_indices,
@@ -796,7 +813,7 @@ class ChunkedArraySorter : public TypeVisitor {
                    // We don't use 'left > right' here to reduce required
                    // operator. If we use 'right < left' here, '<' is only
                    // required.
-                   return chunk_right.GetView() < chunk_left.GetView();
+                   return chunk_right.Value() < chunk_left.Value();
                  });
     }
     // Copy back temp area into main buffer
@@ -822,14 +839,16 @@ class ChunkedArraySorter : public TypeVisitor {
 template <typename ArrayType, typename Visitor>
 void VisitConstantRanges(const ArrayType& array, uint64_t* indices_begin,
                          uint64_t* indices_end, Visitor&& visit) {
+  using GetView = GetViewType<typename ArrayType::TypeClass>;
+
   if (indices_begin == indices_end) {
     return;
   }
   auto range_start = indices_begin;
   auto range_cur = range_start;
-  auto last_value = array.GetView(*range_cur);
+  auto last_value = GetView::LogicalValue(array.GetView(*range_cur));
   while (++range_cur != indices_end) {
-    auto v = array.GetView(*range_cur);
+    auto v = GetView::LogicalValue(array.GetView(*range_cur));
     if (v != last_value) {
       visit(range_start, range_cur);
       range_start = range_cur;
@@ -869,6 +888,8 @@ class ConcreteRecordBatchColumnSorter : public RecordBatchColumnSorter {
         null_count_(array_.null_count()) {}
 
   void SortRange(uint64_t* indices_begin, uint64_t* indices_end) {
+    using GetView = GetViewType<Type>;
+
     constexpr int64_t offset = 0;
     uint64_t* nulls_begin;
     if (null_count_ == 0) {
@@ -889,14 +910,18 @@ class ConcreteRecordBatchColumnSorter : public RecordBatchColumnSorter {
     if (order_ == SortOrder::Ascending) {
       std::stable_sort(
           indices_begin, null_likes_begin, [&](uint64_t left, uint64_t right) {
-            return array_.GetView(left - offset) < array_.GetView(right - offset);
+            const auto lhs = GetView::LogicalValue(array_.GetView(left - offset));
+            const auto rhs = GetView::LogicalValue(array_.GetView(right - offset));
+            return lhs < rhs;
           });
     } else {
       std::stable_sort(
           indices_begin, null_likes_begin, [&](uint64_t left, uint64_t right) {
             // We don't use 'left > right' here to reduce required operator.
             // If we use 'right < left' here, '<' is only required.
-            return array_.GetView(right - offset) < array_.GetView(left - offset);
+            const auto lhs = GetView::LogicalValue(array_.GetView(left - offset));
+            const auto rhs = GetView::LogicalValue(array_.GetView(right - offset));
+            return lhs > rhs;
           });
     }
 
@@ -1100,8 +1125,8 @@ class MultipleKeyComparator {
       const ResolvedChunk<typename TypeTraits<Type>::ArrayType>& chunk_left,
       const ResolvedChunk<typename TypeTraits<Type>::ArrayType>& chunk_right,
       const SortOrder order) {
-    const auto left = chunk_left.GetView();
-    const auto right = chunk_right.GetView();
+    const auto left = chunk_left.Value();
+    const auto right = chunk_right.Value();
     int32_t compared;
     if (left == right) {
       compared = 0;
@@ -1122,8 +1147,8 @@ class MultipleKeyComparator {
       const ResolvedChunk<typename TypeTraits<Type>::ArrayType>& chunk_left,
       const ResolvedChunk<typename TypeTraits<Type>::ArrayType>& chunk_right,
       const SortOrder order) {
-    const auto left = chunk_left.GetView();
-    const auto right = chunk_right.GetView();
+    const auto left = chunk_left.Value();
+    const auto right = chunk_right.Value();
     auto is_nan_left = std::isnan(left);
     auto is_nan_right = std::isnan(right);
     if (is_nan_left && is_nan_right) {
@@ -1439,8 +1464,8 @@ class MultipleKeyTableSorter : public TypeVisitor {
       // Both values are never null nor NaN.
       auto chunk_left = first_sort_key.GetChunk<ArrayType>(left);
       auto chunk_right = first_sort_key.GetChunk<ArrayType>(right);
-      auto value_left = chunk_left.GetView();
-      auto value_right = chunk_right.GetView();
+      auto value_left = chunk_left.Value();
+      auto value_right = chunk_right.Value();
       if (value_left == value_right) {
         // If the left value equals to the right value,
         // we need to compare the second and following
@@ -1502,7 +1527,7 @@ class MultipleKeyTableSorter : public TypeVisitor {
     DCHECK_EQ(indices_end_ - nulls_begin, first_sort_key.null_count);
     uint64_t* nans_begin = partitioner(indices_begin_, nulls_begin, [&](uint64_t index) {
       const auto chunk = first_sort_key.GetChunk<ArrayType>(index);
-      return !std::isnan(chunk.GetView());
+      return !std::isnan(chunk.Value());
     });
     auto& comparator = comparator_;
     // Sort all NaNs by the second and following sort keys.

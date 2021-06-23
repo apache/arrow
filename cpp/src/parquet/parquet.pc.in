@@ -25,7 +25,7 @@ full_so_version=@ARROW_FULL_SO_VERSION@
 
 Name: Apache Parquet
 Description: Apache Parquet is a columnar storage format.
-Version: @PARQUET_VERSION@
+Version: @ARROW_VERSION@
 Requires: arrow
 Libs: -L${libdir} -lparquet
 Cflags: -I${includedir}

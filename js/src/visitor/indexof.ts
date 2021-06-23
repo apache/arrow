@@ -19,7 +19,7 @@ import { Data } from '../data';
 import { Type } from '../enum';
 import { Visitor } from '../visitor';
 import { VectorType } from '../interfaces';
-import { getBool, iterateBits } from '../util/bit';
+import { getBool, BitIterator } from '../util/bit';
 import { createElementComparator } from '../util/vector';
 import {
     DataType, Dictionary,
@@ -100,7 +100,7 @@ function indexOfNull<T extends DataType>(vector: VectorType<T>, fromIndex?: numb
         return -1;
     }
     let i = 0;
-    for (const isValid of iterateBits(nullBitmap, vector.data.offset + (fromIndex || 0), vector.length, nullBitmap, getBool)) {
+    for (const isValid of new BitIterator(nullBitmap, vector.data.offset + (fromIndex || 0), vector.length, nullBitmap, getBool)) {
         if (!isValid) { return i; }
         ++i;
     }

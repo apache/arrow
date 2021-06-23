@@ -58,9 +58,9 @@ test_that("read_json_arrow() converts to tibble", {
   tab2 <- read_json_arrow(mmap_open(tf))
   tab3 <- read_json_arrow(ReadableFile$create(tf))
 
-  expect_is(tab1, "tbl_df")
-  expect_is(tab2, "tbl_df")
-  expect_is(tab3, "tbl_df")
+  expect_s3_class(tab1, "tbl_df")
+  expect_s3_class(tab2, "tbl_df")
+  expect_s3_class(tab3, "tbl_df")
 
   expect_equal(tab1, tab2)
   expect_equal(tab1, tab3)
@@ -84,6 +84,94 @@ test_that("read_json_arrow() supports col_select=", {
 
   tab2 <- read_json_arrow(tf, col_select = 1:2)
   expect_equal(names(tab2), c("hello", "world"))
+})
+
+test_that("read_json_arrow(schema=) with empty schema", {
+  tf <- tempfile()
+  writeLines('
+    { "hello": 3.5, "world": 2, "third_col": 99}
+    { "hello": 3.25, "world": 5, "third_col": 98}
+    { "hello": 3.125, "world": 8, "third_col": 97 }
+    { "hello": 0.0, "world": 10, "third_col": 96}
+  ', tf)
+  
+  tab1 <- read_json_arrow(tf, schema = schema())
+  
+  expect_identical(
+    tab1, 
+    tibble::tibble(
+      hello = c(3.5, 3.25, 3.125, 0),
+      world = c(2L, 5L, 8L, 10L),
+      third_col = c(99L,98L,97L,96L)
+    )               
+  )
+})
+
+test_that("read_json_arrow(schema=) with partial schema", {
+  tf <- tempfile()
+  writeLines('
+    { "hello": 3.5, "world": 2, "third_col": 99}
+    { "hello": 3.25, "world": 5, "third_col": 98}
+    { "hello": 3.125, "world": 8, "third_col": 97 }
+    { "hello": 0.0, "world": 10, "third_col": 96}
+  ', tf)
+  
+  tab1 <- read_json_arrow(tf, schema = schema(third_col = float64(), world = float64()))
+  
+  expect_identical(
+    tab1, 
+    tibble::tibble(
+      third_col = c(99,98,97,96),
+      world = c(2, 5, 8, 10),
+      hello = c(3.5, 3.25, 3.125, 0)
+    )               
+  )
+  
+  tf2 <- tempfile()
+  writeLines('
+    { "hello": 3.5, "world": 2, "third_col": "99"}
+    { "hello": 3.25, "world": 5, "third_col": "98"}
+    { "hello": 3.125, "world": 8, "third_col": "97"}
+  ', tf2)
+  
+  tab2 <- read_json_arrow(tf2, schema = schema(third_col = string(), world = float64()))
+  
+  expect_identical(
+    tab2, 
+    tibble::tibble(
+      third_col = c("99","98","97"),
+      world = c(2, 5, 8),
+      hello = c(3.5, 3.25, 3.125)
+    )               
+  )
+})
+
+test_that("read_json_arrow(schema=) with full schema", {
+  tf <- tempfile()
+  writeLines('
+    { "hello": 3.5, "world": 2, "third_col": 99}
+    { "hello": 3.25, "world": 5, "third_col": 98}
+    { "hello": 3.125, "world": 8, "third_col": 97}
+    { "hello": 0.0, "world": 10, "third_col": 96}
+  ', tf)
+  
+  tab1 <- read_json_arrow(
+    tf,
+    schema = schema(
+      hello = float64(),
+      third_col = float64(),
+      world = float64()
+    )
+  )
+  
+  expect_identical(
+    tab1, 
+    tibble::tibble(
+      hello = c(3.5, 3.25, 3.125, 0),
+      third_col = c(99,98,97,96),
+      world = c(2, 5, 8, 10)
+    )               
+  )
 })
 
 test_that("Can read json file with nested columns (ARROW-5503)", {

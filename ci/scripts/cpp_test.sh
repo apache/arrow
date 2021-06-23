@@ -86,6 +86,7 @@ if [ "${ARROW_FUZZING}" == "ON" ]; then
     ${binary_output_dir}/arrow-ipc-stream-fuzz ${ARROW_TEST_DATA}/arrow-ipc-stream/crash-*
     ${binary_output_dir}/arrow-ipc-stream-fuzz ${ARROW_TEST_DATA}/arrow-ipc-stream/*-testcase-*
     ${binary_output_dir}/arrow-ipc-file-fuzz ${ARROW_TEST_DATA}/arrow-ipc-file/*-testcase-*
+    ${binary_output_dir}/arrow-ipc-tensor-stream-fuzz ${ARROW_TEST_DATA}/arrow-ipc-tensor-stream/*-testcase-*
     if [ "${ARROW_PARQUET}" == "ON" ]; then
       ${binary_output_dir}/parquet-arrow-fuzz ${ARROW_TEST_DATA}/parquet/fuzzing/*-testcase-*
     fi

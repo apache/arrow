@@ -20,6 +20,7 @@
 #include <memory>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
@@ -197,10 +198,11 @@ class TestListArray : public TestBuilder {
   }
 
   void TestFromArrays() {
-    std::shared_ptr<Array> offsets1, offsets2, offsets3, offsets4, values;
+    std::shared_ptr<Array> offsets1, offsets2, offsets3, offsets4, offsets5, values;
 
     std::vector<bool> offsets_is_valid3 = {true, false, true, true};
     std::vector<bool> offsets_is_valid4 = {true, true, false, true};
+    std::vector<bool> offsets_is_valid5 = {true, true, false, false};
 
     std::vector<bool> values_is_valid = {true, false, true, true, true, true};
 
@@ -217,6 +219,8 @@ class TestListArray : public TestBuilder {
                                              &offsets3);
     ArrayFromVector<OffsetType, offset_type>(offsets_is_valid4, offset2_values,
                                              &offsets4);
+    ArrayFromVector<OffsetType, offset_type>(offsets_is_valid5, offset2_values,
+                                             &offsets5);
 
     ArrayFromVector<Int8Type, int8_t>(values_is_valid, values_values, &values);
 
@@ -254,6 +258,28 @@ class TestListArray : public TestBuilder {
 
     // Offsets not the right type
     ASSERT_RAISES(TypeError, ArrayType::FromArrays(*values, *offsets1, pool_));
+
+    // Null final offset
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("Last list offset should be non-null"),
+        ArrayType::FromArrays(*offsets5, *values, pool_));
+
+    // ARROW-12077: check for off-by-one in construction (need mimalloc/ASan/Valgrind)
+    {
+      std::shared_ptr<Array> offsets, values;
+      // Length multiple of 8 - we'll allocate a validity buffer with exactly enough bits
+      // (Need a large enough buffer or else ASan doesn't catch it)
+      std::vector<bool> offsets_is_valid(4096);
+      std::vector<offset_type> offset_values(4096);
+      std::vector<int8_t> values_values(4096);
+      std::fill(offsets_is_valid.begin(), offsets_is_valid.end(), true);
+      offsets_is_valid[1] = false;
+      std::fill(offset_values.begin(), offset_values.end(), 0);
+      std::fill(values_values.begin(), values_values.end(), 0);
+      ArrayFromVector<OffsetType, offset_type>(offsets_is_valid, offset_values, &offsets);
+      ArrayFromVector<Int8Type, int8_t>(values_values, &values);
+      ASSERT_OK_AND_ASSIGN(auto list, ArrayType::FromArrays(*offsets, *values, pool_));
+    }
   }
 
   void TestAppendNull() {

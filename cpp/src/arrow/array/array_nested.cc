@@ -70,12 +70,11 @@ Status CleanListOffsets(const Array& offsets, MemoryPool* pool,
     ARROW_ASSIGN_OR_RAISE(auto clean_offsets,
                           AllocateBuffer(num_offsets * sizeof(offset_type), pool));
 
-    // Copy valid bits, zero out the bit for the final offset
-    // XXX why?
+    // Copy valid bits, ignoring the final offset (since for a length N list array,
+    // we have N + 1 offsets)
     ARROW_ASSIGN_OR_RAISE(
         auto clean_valid_bits,
         offsets.null_bitmap()->CopySlice(0, BitUtil::BytesForBits(num_offsets - 1)));
-    BitUtil::ClearBit(clean_valid_bits->mutable_data(), num_offsets);
     *validity_buf_out = clean_valid_bits;
 
     const offset_type* raw_offsets = typed_offsets.raw_values();

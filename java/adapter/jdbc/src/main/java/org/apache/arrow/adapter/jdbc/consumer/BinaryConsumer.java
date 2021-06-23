@@ -26,8 +26,6 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.VarBinaryVector;
 
-import io.netty.util.internal.PlatformDependent;
-
 /**
  * Consumer which consume binary type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.VarBinaryVector}.
@@ -45,7 +43,7 @@ public abstract class BinaryConsumer extends BaseConsumer<VarBinaryVector> {
     }
   }
 
-  private static final int BUFFER_SIZE = 1024;
+  private final byte[] reuseBytes = new byte[1024];
 
   /**
    * Instantiate a BinaryConsumer.
@@ -62,23 +60,21 @@ public abstract class BinaryConsumer extends BaseConsumer<VarBinaryVector> {
    */
   public void consume(InputStream is) throws IOException {
     if (is != null) {
-
+      while (currentIndex >= vector.getValueCapacity()) {
+        vector.reallocValidityAndOffsetBuffers();
+      }
+      final int startOffset = vector.getStartOffset(currentIndex);
+      final ArrowBuf offsetBuffer = vector.getOffsetBuffer();
+      int dataLength = 0;
       int read;
-      byte[] bytes = new byte[BUFFER_SIZE];
-      int totalBytes = 0;
-
-      ArrowBuf dataBuffer = vector.getDataBuffer();
-      ArrowBuf offsetBuffer = vector.getOffsetBuffer();
-      int startIndex = offsetBuffer.getInt(currentIndex * 4);
-      while ((read = is.read(bytes)) != -1) {
-        while ((dataBuffer.writerIndex() + read) > dataBuffer.capacity()) {
+      while ((read = is.read(reuseBytes)) != -1) {
+        while (vector.getDataBuffer().capacity() < (startOffset + dataLength + read)) {
           vector.reallocDataBuffer();
         }
-        PlatformDependent.copyMemory(bytes, 0,
-                dataBuffer.memoryAddress() + startIndex + totalBytes, read);
-        totalBytes += read;
+        vector.getDataBuffer().setBytes(startOffset + dataLength, reuseBytes, 0, read);
+        dataLength += read;
       }
-      offsetBuffer.setInt((currentIndex + 1) * 4, startIndex + totalBytes);
+      offsetBuffer.setInt((currentIndex + 1) * VarBinaryVector.OFFSET_WIDTH, startOffset + dataLength);
       BitVectorHelper.setBit(vector.getValidityBuffer(), currentIndex);
       vector.setLastSet(currentIndex);
     }
@@ -113,7 +109,7 @@ public abstract class BinaryConsumer extends BaseConsumer<VarBinaryVector> {
       if (!resultSet.wasNull()) {
         consume(is);
       }
-      currentIndex++;
+      moveWriterPosition();
     }
   }
 
@@ -133,7 +129,7 @@ public abstract class BinaryConsumer extends BaseConsumer<VarBinaryVector> {
     public void consume(ResultSet resultSet) throws SQLException, IOException {
       InputStream is = resultSet.getBinaryStream(columnIndexInResultSet);
       consume(is);
-      currentIndex++;
+      moveWriterPosition();
     }
   }
 }

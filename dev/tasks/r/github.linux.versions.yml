@@ -39,6 +39,7 @@ jobs:
           - "3.3"
           - "3.4"
           - "3.5"
+          - "3.6"
     env:
       R_ORG: "rstudio"
       R_IMAGE: "r-base"
@@ -69,3 +70,12 @@ jobs:
       - name: Dump install logs
         run: cat arrow/r/check/arrow.Rcheck/00install.out
         if: always()
+      - name: Dump test logs
+        run: cat arrow/r/check/arrow.Rcheck/tests/testthat.Rout*
+        if: always()
+      - name: Save the test output
+        if: always()
+        uses: actions/upload-artifact@v2
+        with:
+          name: test-output
+          path: arrow/r/check/arrow.Rcheck/tests/testthat.Rout*

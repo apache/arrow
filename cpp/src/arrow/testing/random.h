@@ -25,6 +25,7 @@
 #include <random>
 #include <vector>
 
+#include "arrow/testing/uniform_real.h"
 #include "arrow/testing/visibility.h"
 #include "arrow/type.h"
 
@@ -225,6 +226,17 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
     }
   }
 
+  /// \brief Generate a random Decimal128Array
+  ///
+  /// \param[in] type the type of the array to generate
+  ///            (must be an instance of Decimal128Type)
+  /// \param[in] size the size of the array to generate
+  /// \param[in] null_probability the probability of a row being null
+  ///
+  /// \return a generated Array
+  std::shared_ptr<Array> Decimal128(std::shared_ptr<DataType> type, int64_t size,
+                                    double null_probability = 0);
+
   /// \brief Generate an array of offsets (for use in e.g. ListArray::FromArrays)
   ///
   /// \param[in] size the size of the array to generate
@@ -237,6 +249,10 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   std::shared_ptr<Array> Offsets(int64_t size, int32_t first_offset, int32_t last_offset,
                                  double null_probability = 0,
                                  bool force_empty_nulls = false);
+
+  std::shared_ptr<Array> LargeOffsets(int64_t size, int64_t first_offset,
+                                      int64_t last_offset, double null_probability = 0,
+                                      bool force_empty_nulls = false);
 
   /// \brief Generate a random StringArray
   ///
@@ -306,6 +322,19 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   std::shared_ptr<Array> List(const Array& values, int64_t size, double null_probability,
                               bool force_empty_nulls = false);
 
+  /// \brief Generate a random MapArray
+  ///
+  /// \param[in] keys The underlying keys array
+  /// \param[in] items The underlying items array
+  /// \param[in] size The size of the generated map array
+  /// \param[in] null_probability the probability of a map value being null
+  /// \param[in] force_empty_nulls if true, null map entries must have 0 length
+  ///
+  /// \return a generated Array
+  std::shared_ptr<Array> Map(const std::shared_ptr<Array>& keys,
+                             const std::shared_ptr<Array>& items, int64_t size,
+                             double null_probability, bool force_empty_nulls = false);
+
   /// \brief Generate a random SparseUnionArray
   ///
   /// The type ids are chosen randomly, according to a uniform distribution,
@@ -340,12 +369,73 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   std::shared_ptr<Array> ArrayOf(std::shared_ptr<DataType> type, int64_t size,
                                  double null_probability);
 
+  /// \brief Generate an array with random data based on the given field. See BatchOf
+  /// for usage info.
+  std::shared_ptr<Array> ArrayOf(const Field& field, int64_t size);
+
+  /// \brief Generate a record batch with random data of the specified length.
+  ///
+  /// Generation options are read from key-value metadata for each field, and may be
+  /// specified at any nesting level. For example, generation options for the child
+  /// values of a list array can be specified by constructing the list type with
+  /// list(field("item", int8(), options_metadata))
+  ///
+  /// The following options are supported:
+  ///
+  /// For all types except NullType:
+  /// - null_probability (double): range [0.0, 1.0] the probability of a null value.
+  /// Default/value is 0.0 if the field is marked non-nullable, else it is 0.01
+  ///
+  /// For all numeric types T:
+  /// - min (T::c_type): the minimum value to generate (inclusive), default
+  ///   std::numeric_limits<T::c_type>::min()
+  /// - max (T::c_type): the maximum value to generate (inclusive), default
+  ///   std::numeric_limits<T::c_type>::max()
+  /// Note this means that, for example, min/max are int16_t values for HalfFloatType.
+  ///
+  /// For floating point types T for which is_physical_floating_type<T>:
+  /// - nan_probability (double): range [0.0, 1.0] the probability of a NaN value.
+  ///
+  /// For BooleanType:
+  /// - true_probability (double): range [0.0, 1.0] the probability of a true.
+  ///
+  /// For DictionaryType:
+  /// - values (int32_t): the size of the dictionary.
+  /// Other properties are passed to the generator for the dictionary indices. However,
+  /// min and max cannot be specified. Note it is not possible to otherwise customize
+  /// the generation of dictionary values.
+  ///
+  /// For list, string, and binary types T, including their large variants:
+  /// - min_length (T::offset_type): the minimum length of the child to generate,
+  ///   default 0
+  /// - max_length (T::offset_type): the minimum length of the child to generate,
+  ///   default 1024
+  ///
+  /// For string and binary types T (not including their large variants):
+  /// - unique (int32_t): if positive, this many distinct values will be generated
+  ///   and all array values will be one of these values, default -1
+  ///
+  /// For MapType:
+  /// - values (int32_t): the number of key-value pairs to generate, which will be
+  ///   partitioned among the array values.
+  std::shared_ptr<arrow::RecordBatch> BatchOf(const FieldVector& fields, int64_t size);
+
   SeedType seed() { return seed_distribution_(seed_rng_); }
 
  private:
   std::uniform_int_distribution<SeedType> seed_distribution_;
   std::default_random_engine seed_rng_;
 };
+
+/// Generate an array with random data. See RandomArrayGenerator::BatchOf.
+ARROW_TESTING_EXPORT
+std::shared_ptr<arrow::RecordBatch> GenerateBatch(const FieldVector& fields, int64_t size,
+                                                  SeedType seed);
+
+/// Generate an array with random data. See RandomArrayGenerator::BatchOf.
+ARROW_TESTING_EXPORT
+std::shared_ptr<arrow::Array> GenerateArray(const Field& field, int64_t size,
+                                            SeedType seed);
 
 }  // namespace random
 
@@ -366,7 +456,7 @@ template <typename T, typename U>
 void random_real(int64_t n, uint32_t seed, T min_value, T max_value,
                  std::vector<U>* out) {
   std::default_random_engine gen(seed);
-  std::uniform_real_distribution<T> d(min_value, max_value);
+  ::arrow::random::uniform_real_distribution<T> d(min_value, max_value);
   out->resize(n, static_cast<T>(0));
   std::generate(out->begin(), out->end(), [&d, &gen] { return static_cast<U>(d(gen)); });
 }

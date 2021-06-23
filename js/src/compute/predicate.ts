@@ -56,10 +56,8 @@ export class Literal<T= any> extends Value<T> {
 
 /** @ignore */
 export class Col<T= any> extends Value<T> {
-    // @ts-ignore
-    public vector: Vector;
-    // @ts-ignore
-    public colidx: number;
+    public vector!: Vector;
+    public colidx!: number;
 
     constructor(public name: string) { super(); }
     bind(batch: RecordBatch): (idx: number, batch?: RecordBatch) => any {

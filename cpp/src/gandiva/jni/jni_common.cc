@@ -31,6 +31,7 @@
 
 #include "Types.pb.h"
 #include "gandiva/configuration.h"
+#include "gandiva/decimal_scalar.h"
 #include "gandiva/filter.h"
 #include "gandiva/jni/config_holder.h"
 #include "gandiva/jni/env_helper.h"
@@ -366,6 +367,33 @@ NodePtr ProtoTypeToInNode(const types::InNode& node) {
       long_values.insert(node.longvalues().longvalues(i).value());
     }
     return TreeExprBuilder::MakeInExpressionInt64(field, long_values);
+  }
+
+  if (node.has_decimalvalues()) {
+    std::unordered_set<gandiva::DecimalScalar128> decimal_values;
+    for (int i = 0; i < node.decimalvalues().decimalvalues_size(); i++) {
+      decimal_values.insert(
+          gandiva::DecimalScalar128(node.decimalvalues().decimalvalues(i).value(),
+                                    node.decimalvalues().decimalvalues(i).precision(),
+                                    node.decimalvalues().decimalvalues(i).scale()));
+    }
+    return TreeExprBuilder::MakeInExpressionDecimal(field, decimal_values);
+  }
+
+  if (node.has_floatvalues()) {
+    std::unordered_set<float> float_values;
+    for (int i = 0; i < node.floatvalues().floatvalues_size(); i++) {
+      float_values.insert(node.floatvalues().floatvalues(i).value());
+    }
+    return TreeExprBuilder::MakeInExpressionFloat(field, float_values);
+  }
+
+  if (node.has_doublevalues()) {
+    std::unordered_set<double> double_values;
+    for (int i = 0; i < node.doublevalues().doublevalues_size(); i++) {
+      double_values.insert(node.doublevalues().doublevalues(i).value());
+    }
+    return TreeExprBuilder::MakeInExpressionDouble(field, double_values);
   }
 
   if (node.has_stringvalues()) {
@@ -718,7 +746,7 @@ Status JavaResizableBuffer::Resize(const int64_t new_size, bool shrink_to_fit) {
   jlong ret_capacity = env_->GetLongField(ret, vector_expander_ret_capacity_);
   DCHECK_GE(ret_capacity, new_size);
 
-  data_ = mutable_data_ = reinterpret_cast<uint8_t*>(ret_address);
+  data_ = reinterpret_cast<uint8_t*>(ret_address);
   size_ = new_size;
   capacity_ = ret_capacity;
   return Status::OK();

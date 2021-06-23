@@ -34,6 +34,14 @@
 
 #define ARROW_PACKAGE_KIND "@ARROW_PACKAGE_KIND@"
 
+#cmakedefine ARROW_COMPUTE
+#cmakedefine ARROW_CSV
+#cmakedefine ARROW_DATASET
+#cmakedefine ARROW_FILESYSTEM
+#cmakedefine ARROW_FLIGHT
+#cmakedefine ARROW_IPC
+#cmakedefine ARROW_JSON
+
 #cmakedefine ARROW_S3
 #cmakedefine ARROW_USE_NATIVE_INT128
 

@@ -27,6 +27,7 @@ import org.apache.arrow.vector.complex.AbstractStructVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
@@ -214,6 +215,9 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
       case LIST:
         writer = new UnionListWriter((ListVector) vector, nullableStructWriterFactory);
         break;
+      case MAP:
+        writer = new UnionMapWriter((MapVector) vector);
+        break;
       case UNION:
         writer = new UnionWriter((UnionVector) vector, nullableStructWriterFactory);
         break;
@@ -243,13 +247,10 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     }
   }
 
-  protected FieldWriter getWriter(MinorType type) {
-    return getWriter(type, null);
-  }
-
+  @Override
   protected FieldWriter getWriter(MinorType type, ArrowType arrowType) {
     if (state == State.UNION) {
-      if (type == MinorType.DECIMAL) {
+      if (type == MinorType.DECIMAL || type == MinorType.MAP) {
         ((UnionWriter) writer).getWriter(type, arrowType);
       } else {
         ((UnionWriter) writer).getWriter(type);
@@ -276,7 +277,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
       writer.setPosition(position);
     } else if (type != this.type) {
       promoteToUnion();
-      if (type == MinorType.DECIMAL) {
+      if (type == MinorType.DECIMAL || type == MinorType.MAP) {
         ((UnionWriter) writer).getWriter(type, arrowType);
       } else {
         ((UnionWriter) writer).getWriter(type);

@@ -47,12 +47,13 @@ for base_name in ${base_names[@]}; do
       --fail \
       --location \
       --remote-name \
-      https://apache.bintray.com/arrow/nuget/${version}/${path}
+      https://apache.jfrog.io/artifactory/arrow/nuget/${version}/${path}
   done
   dotnet nuget push \
     ${base_name}.nupkg \
     -k ${NUGET_API_KEY} \
     -s https://api.nuget.org/v3/index.json
+  rm -f ${base_name}.{nupkg,snupkg}
 done
 
 echo "Success! The released NuGet package is available here:"

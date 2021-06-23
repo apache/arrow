@@ -29,7 +29,7 @@
     "strictNullChecks": true,
     "strictFunctionTypes": true,
     "strictPropertyInitialization": true,
-    
+
     "skipLibCheck": false,
     "importHelpers": true,
     "noEmitHelpers": true,

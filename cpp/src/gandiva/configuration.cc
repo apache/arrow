@@ -17,17 +17,23 @@
 
 #include "gandiva/configuration.h"
 
+#include "arrow/util/hash_util.h"
+
 namespace gandiva {
 
 const std::shared_ptr<Configuration> ConfigurationBuilder::default_configuration_ =
     InitDefaultConfig();
 
 std::size_t Configuration::Hash() const {
-  return 0;  // dummy for now, no configuration properties yet
+  static constexpr size_t kHashSeed = 0;
+  size_t result = kHashSeed;
+  arrow::internal::hash_combine(result, static_cast<size_t>(optimize_));
+  arrow::internal::hash_combine(result, static_cast<size_t>(target_host_cpu_));
+  return result;
 }
 
 bool Configuration::operator==(const Configuration& other) const {
-  return true;  // always true, no configuration properties yet
+  return optimize_ == other.optimize_ && target_host_cpu_ == other.target_host_cpu_;
 }
 
 bool Configuration::operator!=(const Configuration& other) const {

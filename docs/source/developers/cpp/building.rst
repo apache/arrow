@@ -61,13 +61,24 @@ On Alpine Linux:
            gcc \
            make
 
-On macOS, you can use `Homebrew <https://brew.sh/>`_.
+On macOS, you can use `Homebrew <https://brew.sh/>`_:
 
 .. code-block:: shell
 
    git clone https://github.com/apache/arrow.git
    cd arrow
    brew update && brew bundle --file=cpp/Brewfile
+
+With `vcpkg <https://github.com/Microsoft/vcpkg>`_:
+
+.. code-block:: shell
+   
+   git clone https://github.com/apache/arrow.git
+   cd arrow
+   vcpkg install \
+     --x-manifest-root cpp \
+     --feature-flags=versions \
+     --clean-after-build
 
 On MSYS2:
 
@@ -241,7 +252,7 @@ LLVM and Clang Tools
 
 We are currently using LLVM 8 for library builds and for other developer tools
 such as code formatting with ``clang-format``. LLVM can be installed via most
-modern package managers (apt, yum, conda, Homebrew, chocolatey).
+modern package managers (apt, yum, conda, Homebrew, vcpkg, chocolatey).
 
 .. _cpp-build-dependency-management:
 
@@ -276,14 +287,16 @@ The build system supports a number of third-party dependencies
 The CMake option ``ARROW_DEPENDENCY_SOURCE`` is a global option that instructs
 the build system how to resolve each dependency. There are a few options:
 
-* ``AUTO``: try to find package in the system default locations and build from
+* ``AUTO``: Try to find package in the system default locations and build from
   source if not found
 * ``BUNDLED``: Building the dependency automatically from source
 * ``SYSTEM``: Finding the dependency in system paths using CMake's built-in
   ``find_package`` function, or using ``pkg-config`` for packages that do not
   have this feature
-* ``BREW``: Use Homebrew default paths as an alternative ``SYSTEM`` path
 * ``CONDA``: Use ``$CONDA_PREFIX`` as alternative ``SYSTEM`` PATH
+* ``VCPKG``: Find dependencies installed by vcpkg, and if not found, run
+  ``vcpkg install`` to install them
+* ``BREW``: Use Homebrew default paths as an alternative ``SYSTEM`` path
 
 The default method is ``AUTO`` unless you are developing within an active conda
 environment (detected by presence of the ``$CONDA_PREFIX`` environment

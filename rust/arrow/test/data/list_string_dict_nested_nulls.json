@@ -1,3 +1,0 @@
-{"machine": "a", "events": [null, "Elect Leader", "Do Ballot"]}
-{"machine": "b", "events": ["Do Ballot", null, "Send Data", "Elect Leader"]}
-{"machine": "c", "events": ["Send Data"]}

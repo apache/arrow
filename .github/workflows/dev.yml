@@ -22,16 +22,18 @@ on:
   push:
   pull_request:
 
+concurrency:
+  group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}
+  cancel-in-progress: true
+
 env:
-  DOCKER_BUILDKIT: 0
-  COMPOSE_DOCKER_CLI_BUILD: 1
   ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
   ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
 
 jobs:
 
   lint:
-    name: Lint C++, Python, R, Rust, Docker, RAT
+    name: Lint C++, Python, R, Docker, RAT
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     steps:
@@ -81,13 +83,13 @@ jobs:
         with:
           python-version: '3.6'
       - name: Install Ruby
-        uses: actions/setup-ruby@v1
+        uses: ruby/setup-ruby@v1
         with:
           ruby-version: '2.6'
       - name: Install Dependencies
         shell: bash
         run: |
-          pip install cython setuptools pytest jira
+          pip install cython setuptools six pytest jira
       - name: Run Release Test
         shell: bash
         run: |

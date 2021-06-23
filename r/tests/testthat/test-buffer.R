@@ -20,33 +20,33 @@ context("Buffer")
 test_that("Buffer can be created from raw vector", {
   vec <- raw(123)
   buf <- buffer(vec)
-  expect_is(buf, "Buffer")
+  expect_r6_class(buf, "Buffer")
   expect_equal(buf$size, 123)
 })
 
 test_that("Buffer can be created from integer vector", {
   vec <- integer(17)
   buf <- buffer(vec)
-  expect_is(buf, "Buffer")
+  expect_r6_class(buf, "Buffer")
   expect_equal(buf$size, 17 * 4)
 })
 
 test_that("Buffer can be created from numeric vector", {
   vec <- numeric(17)
   buf <- buffer(vec)
-  expect_is(buf, "Buffer")
+  expect_r6_class(buf, "Buffer")
   expect_equal(buf$size, 17 * 8)
 })
 
 test_that("Buffer can be created from complex vector", {
   vec <- complex(3)
   buf <- buffer(vec)
-  expect_is(buf, "Buffer")
+  expect_r6_class(buf, "Buffer")
   expect_equal(buf$size, 3 * 16)
 })
 
 test_that("buffer buffer buffers buffers", {
-  expect_is(buffer(buffer(42)), "Buffer")
+  expect_r6_class(buffer(buffer(42)), "Buffer")
 })
 
 test_that("Other types can't be converted to Buffers", {

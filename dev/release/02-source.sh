@@ -21,7 +21,6 @@
 set -e
 
 : ${SOURCE_DEFAULT:=1}
-: ${SOURCE_GLIB:=${SOURCE_DEFAULT}}
 : ${SOURCE_RAT:=${SOURCE_DEFAULT}}
 : ${SOURCE_UPLOAD:=${SOURCE_DEFAULT}}
 : ${SOURCE_VOTE:=${SOURCE_DEFAULT}}
@@ -62,24 +61,6 @@ rm -rf ${tag}
 (cd "${SOURCE_TOP_DIR}" && \
   git archive ${release_hash} --prefix ${tag}/) | \
   tar xf -
-
-# Replace c_glib/ after running c_glib/autogen.sh to create c_gilb/ source archive containing the configure script
-if [ ${SOURCE_GLIB} -gt 0 ]; then
-  archive_name=tmp-apache-arrow
-  (cd "${SOURCE_TOP_DIR}" && \
-    git archive ${release_hash} --prefix ${archive_name}/) \
-    > "${SOURCE_TOP_DIR}/${archive_name}.tar"
-  c_glib_including_configure_tar_gz=c_glib.tar.gz
-  docker build -t arrow-release-source "${SOURCE_TOP_DIR}/dev/release/source"
-  docker run \
-    -v "${SOURCE_TOP_DIR}":/arrow:delegated \
-    arrow-release-source \
-    /arrow/dev/release/source/build.sh ${archive_name} ${c_glib_including_configure_tar_gz}
-  rm -f "${SOURCE_TOP_DIR}/${archive_name}.tar"
-  rm -rf ${tag}/c_glib
-  tar xf "${SOURCE_TOP_DIR}/${c_glib_including_configure_tar_gz}" -C ${tag}
-  rm -f "${SOURCE_TOP_DIR}/${c_glib_including_configure_tar_gz}"
-fi
 
 # Resolve all hard and symbolic links
 rm -rf ${tag}.tmp
@@ -155,11 +136,11 @@ This release candidate is based on commit:
 ${release_hash} [2]
 
 The source release rc${rc} is hosted at [3].
-The binary artifacts are hosted at [4][5][6][7].
-The changelog is located at [8].
+The binary artifacts are hosted at [4][5][6][7][8][9].
+The changelog is located at [10].
 
 Please download, verify checksums and signatures, run the unit tests,
-and vote on the release. See [9] for how to validate a release candidate.
+and vote on the release. See [11] for how to validate a release candidate.
 
 The vote will be open for at least 72 hours.
 
@@ -170,12 +151,14 @@ The vote will be open for at least 72 hours.
 [1]: ${jira_url}/issues/?jql=${jql}
 [2]: https://github.com/apache/arrow/tree/${release_hash}
 [3]: ${rc_url}
-[4]: https://bintray.com/apache/arrow/centos-rc/${version}-rc${rc}
-[5]: https://bintray.com/apache/arrow/debian-rc/${version}-rc${rc}
-[6]: https://bintray.com/apache/arrow/python-rc/${version}-rc${rc}
-[7]: https://bintray.com/apache/arrow/ubuntu-rc/${version}-rc${rc}
-[8]: https://github.com/apache/arrow/blob/${release_hash}/CHANGELOG.md
-[9]: https://cwiki.apache.org/confluence/display/ARROW/How+to+Verify+Release+Candidates
+[4]: https://apache.jfrog.io/artifactory/arrow/amazon-linux-rc/
+[5]: https://apache.jfrog.io/artifactory/arrow/centos-rc/
+[6]: https://apache.jfrog.io/artifactory/arrow/debian-rc/
+[7]: https://apache.jfrog.io/artifactory/arrow/nuget-rc/${version}-rc${rc}
+[8]: https://apache.jfrog.io/artifactory/arrow/python-rc/${version}-rc${rc}
+[9]: https://apache.jfrog.io/artifactory/arrow/ubuntu-rc/
+[10]: https://github.com/apache/arrow/blob/${release_hash}/CHANGELOG.md
+[11]: https://cwiki.apache.org/confluence/display/ARROW/How+to+Verify+Release+Candidates
 MAIL
   echo "---------------------------------------------------------"
 fi

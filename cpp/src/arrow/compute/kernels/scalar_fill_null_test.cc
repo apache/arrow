@@ -22,6 +22,7 @@
 
 #include "arrow/array/array_base.h"
 #include "arrow/compute/api.h"
+#include "arrow/compute/kernels/test_util.h"
 #include "arrow/result.h"
 #include "arrow/scalar.h"
 #include "arrow/testing/gtest_compat.h"
@@ -33,12 +34,17 @@
 namespace arrow {
 namespace compute {
 
-void CheckFillNull(const Array& input, const Datum& fill_value, const Array& expected) {
+void CheckFillNull(const Array& input, const Datum& fill_value, const Array& expected,
+                   bool all_valid = true) {
   auto Check = [&](const Array& input, const Array& expected) {
     ASSERT_OK_AND_ASSIGN(Datum datum_out, FillNull(input, fill_value));
     std::shared_ptr<Array> result = datum_out.make_array();
-    ASSERT_OK(result->ValidateFull());
+    ValidateOutput(*result);
     AssertArraysEqual(expected, *result, /*verbose=*/true);
+    if (all_valid) {
+      // Check null count of ArrayData is set, not the computed Array.null_count
+      ASSERT_EQ(result->data()->null_count, 0);
+    }
   };
 
   Check(input, expected);
@@ -48,10 +54,11 @@ void CheckFillNull(const Array& input, const Datum& fill_value, const Array& exp
 }
 
 void CheckFillNull(const std::shared_ptr<DataType>& type, const std::string& in_values,
-                   const Datum& fill_value, const std::string& out_values) {
+                   const Datum& fill_value, const std::string& out_values,
+                   bool all_valid = true) {
   std::shared_ptr<Array> input = ArrayFromJSON(type, in_values);
   std::shared_ptr<Array> expected = ArrayFromJSON(type, out_values);
-  CheckFillNull(*input, fill_value, *expected);
+  CheckFillNull(*input, fill_value, *expected, all_valid);
 }
 
 class TestFillNullKernel : public ::testing::Test {};
@@ -67,7 +74,8 @@ typedef ::testing::Types<Int8Type, UInt8Type, Int16Type, UInt16Type, Int32Type,
 TEST_F(TestFillNullKernel, FillNullInvalidScalar) {
   auto scalar = std::make_shared<Int8Scalar>(3);
   scalar->is_valid = false;
-  CheckFillNull(int8(), "[1, null, 3, 2]", Datum(scalar), "[1, null, 3, 2]");
+  CheckFillNull(int8(), "[1, null, 3, 2]", Datum(scalar), "[1, null, 3, 2]",
+                /*all_valid=*/false);
 }
 
 TYPED_TEST_SUITE(TestFillNullPrimitive, PrimitiveTypes);
@@ -106,7 +114,8 @@ TYPED_TEST(TestFillNullPrimitive, FillNull) {
 
 TEST_F(TestFillNullKernel, FillNullNull) {
   auto datum = Datum(std::make_shared<NullScalar>());
-  CheckFillNull(null(), "[null, null, null, null]", datum, "[null, null, null, null]");
+  CheckFillNull(null(), "[null, null, null, null]", datum, "[null, null, null, null]",
+                /*all_valid=*/false);
 }
 
 TEST_F(TestFillNullKernel, FillNullBoolean) {
@@ -162,6 +171,13 @@ TEST_F(TestFillNullKernel, FillNullString) {
   // some nulls
   CheckFillNull(type, R"(["foo", "bar", null])", Datum(scalar),
                 R"(["foo", "bar", "arrow"])");
+}
+
+TEST_F(TestFillNullKernel, FillNullSetsZeroNullCount) {
+  auto arr = ArrayFromJSON(int32(), "[1, null, 3, 4]");
+  auto fill_value = Datum(std::make_shared<Int32Scalar>(2, int32()));
+  std::shared_ptr<ArrayData> result = (*FillNull(arr, fill_value)).array();
+  ASSERT_EQ(result->null_count, 0);
 }
 
 }  // namespace compute

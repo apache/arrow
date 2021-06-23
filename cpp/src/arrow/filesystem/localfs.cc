@@ -264,10 +264,12 @@ Result<LocalFileSystemOptions> LocalFileSystemOptions::FromUri(
   return LocalFileSystemOptions();
 }
 
-LocalFileSystem::LocalFileSystem() : options_(LocalFileSystemOptions::Defaults()) {}
+LocalFileSystem::LocalFileSystem(const io::IOContext& io_context)
+    : FileSystem(io_context), options_(LocalFileSystemOptions::Defaults()) {}
 
-LocalFileSystem::LocalFileSystem(const LocalFileSystemOptions& options)
-    : options_(options) {}
+LocalFileSystem::LocalFileSystem(const LocalFileSystemOptions& options,
+                                 const io::IOContext& io_context)
+    : FileSystem(io_context), options_(options) {}
 
 LocalFileSystem::~LocalFileSystem() {}
 
@@ -378,7 +380,7 @@ Status LocalFileSystem::CopyFile(const std::string& src, const std::string& dest
 #else
   ARROW_ASSIGN_OR_RAISE(auto is, OpenInputStream(src));
   ARROW_ASSIGN_OR_RAISE(auto os, OpenOutputStream(dest));
-  RETURN_NOT_OK(internal::CopyStream(is, os, 1024 * 1024 /* chunk_size */));
+  RETURN_NOT_OK(internal::CopyStream(is, os, 1024 * 1024 /* chunk_size */, io_context()));
   RETURN_NOT_OK(os->Close());
   return is->Close();
 #endif
@@ -388,11 +390,12 @@ namespace {
 
 template <typename InputStreamType>
 Result<std::shared_ptr<InputStreamType>> OpenInputStreamGeneric(
-    const std::string& path, const LocalFileSystemOptions& options) {
+    const std::string& path, const LocalFileSystemOptions& options,
+    const io::IOContext& io_context) {
   if (options.use_mmap) {
     return io::MemoryMappedFile::Open(path, io::FileMode::READ);
   } else {
-    return io::ReadableFile::Open(path);
+    return io::ReadableFile::Open(path, io_context.pool());
   }
 }
 
@@ -400,12 +403,12 @@ Result<std::shared_ptr<InputStreamType>> OpenInputStreamGeneric(
 
 Result<std::shared_ptr<io::InputStream>> LocalFileSystem::OpenInputStream(
     const std::string& path) {
-  return OpenInputStreamGeneric<io::InputStream>(path, options_);
+  return OpenInputStreamGeneric<io::InputStream>(path, options_, io_context());
 }
 
 Result<std::shared_ptr<io::RandomAccessFile>> LocalFileSystem::OpenInputFile(
     const std::string& path) {
-  return OpenInputStreamGeneric<io::RandomAccessFile>(path, options_);
+  return OpenInputStreamGeneric<io::RandomAccessFile>(path, options_, io_context());
 }
 
 namespace {
@@ -428,14 +431,14 @@ Result<std::shared_ptr<io::OutputStream>> OpenOutputStreamGeneric(const std::str
 }  // namespace
 
 Result<std::shared_ptr<io::OutputStream>> LocalFileSystem::OpenOutputStream(
-    const std::string& path) {
+    const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
   bool truncate = true;
   bool append = false;
   return OpenOutputStreamGeneric(path, truncate, append);
 }
 
 Result<std::shared_ptr<io::OutputStream>> LocalFileSystem::OpenAppendStream(
-    const std::string& path) {
+    const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
   bool truncate = false;
   bool append = true;
   return OpenOutputStreamGeneric(path, truncate, append);

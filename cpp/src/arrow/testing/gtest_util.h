@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <functional>
 #include <memory>
 #include <string>
 #include <type_traits>
@@ -40,20 +41,20 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/string_builder.h"
+#include "arrow/util/type_fwd.h"
 
 // NOTE: failing must be inline in the macros below, to get correct file / line number
 // reporting on test failures.
 
-#define ASSERT_RAISES(ENUM, expr)                                                     \
-  do {                                                                                \
-    auto _res = (expr);                                                               \
-    ::arrow::Status _st = ::arrow::internal::GenericToStatus(_res);                   \
-    if (!_st.Is##ENUM()) {                                                            \
-      FAIL() << "Expected '" ARROW_STRINGIFY(expr) "' to fail with " ARROW_STRINGIFY( \
-                    ENUM) ", but got "                                                \
-             << _st.ToString();                                                       \
-    }                                                                                 \
-  } while (false)
+// NOTE: using a for loop for this macro allows extra failure messages to be
+// appended with operator<<
+#define ASSERT_RAISES(ENUM, expr)                                                 \
+  for (::arrow::Status _st = ::arrow::internal::GenericToStatus((expr));          \
+       !_st.Is##ENUM();)                                                          \
+  FAIL() << "Expected '" ARROW_STRINGIFY(expr) "' to fail with " ARROW_STRINGIFY( \
+                ENUM) ", but got "                                                \
+         << _st.ToString()
 
 #define ASSERT_RAISES_WITH_MESSAGE(ENUM, message, expr)                               \
   do {                                                                                \
@@ -67,26 +68,26 @@
     ASSERT_EQ((message), _st.ToString());                                             \
   } while (false)
 
-#define EXPECT_RAISES_WITH_MESSAGE_THAT(ENUM, matcher, expr)                          \
-  do {                                                                                \
-    auto _res = (expr);                                                               \
-    ::arrow::Status _st = ::arrow::internal::GenericToStatus(_res);                   \
-    if (!_st.Is##ENUM()) {                                                            \
-      FAIL() << "Expected '" ARROW_STRINGIFY(expr) "' to fail with " ARROW_STRINGIFY( \
-                    ENUM) ", but got "                                                \
-             << _st.ToString();                                                       \
-    }                                                                                 \
-    EXPECT_THAT(_st.ToString(), (matcher));                                           \
+#define EXPECT_RAISES_WITH_MESSAGE_THAT(ENUM, matcher, expr)                             \
+  do {                                                                                   \
+    auto _res = (expr);                                                                  \
+    ::arrow::Status _st = ::arrow::internal::GenericToStatus(_res);                      \
+    EXPECT_TRUE(_st.Is##ENUM()) << "Expected '" ARROW_STRINGIFY(expr) "' to fail with "  \
+                                << ARROW_STRINGIFY(ENUM) ", but got " << _st.ToString(); \
+    EXPECT_THAT(_st.ToString(), (matcher));                                              \
   } while (false)
 
-#define ASSERT_OK(expr)                                                       \
-  do {                                                                        \
-    auto _res = (expr);                                                       \
-    ::arrow::Status _st = ::arrow::internal::GenericToStatus(_res);           \
-    if (!_st.ok()) {                                                          \
-      FAIL() << "'" ARROW_STRINGIFY(expr) "' failed with " << _st.ToString(); \
-    }                                                                         \
+#define EXPECT_RAISES_WITH_CODE_AND_MESSAGE_THAT(code, matcher, expr) \
+  do {                                                                \
+    auto _res = (expr);                                               \
+    ::arrow::Status _st = ::arrow::internal::GenericToStatus(_res);   \
+    EXPECT_EQ(_st.CodeAsString(), Status::CodeAsString(code));        \
+    EXPECT_THAT(_st.ToString(), (matcher));                           \
   } while (false)
+
+#define ASSERT_OK(expr)                                                              \
+  for (::arrow::Status _st = ::arrow::internal::GenericToStatus((expr)); !_st.ok();) \
+  FAIL() << "'" ARROW_STRINGIFY(expr) "' failed with " << _st.ToString()
 
 #define ASSERT_OK_NO_THROW(expr) ASSERT_NO_THROW(ASSERT_OK(expr))
 
@@ -97,6 +98,10 @@
     EXPECT_TRUE(_st.ok()) << "'" ARROW_STRINGIFY(expr) "' failed with " \
                           << _st.ToString();                            \
   } while (false)
+
+#define ASSERT_NOT_OK(expr)                                                         \
+  for (::arrow::Status _st = ::arrow::internal::GenericToStatus((expr)); _st.ok();) \
+  FAIL() << "'" ARROW_STRINGIFY(expr) "' did not failed" << _st.ToString()
 
 #define ABORT_NOT_OK(expr)                                          \
   do {                                                              \
@@ -132,10 +137,19 @@
     ASSERT_EQ(expected, _actual);               \
   } while (0)
 
+// A generalized version of GTest's SCOPED_TRACE that takes arbitrary arguments.
+//   ARROW_SCOPED_TRACE("some variable = ", some_variable, ...)
+
+#define ARROW_SCOPED_TRACE(...) SCOPED_TRACE(::arrow::util::StringBuilder(__VA_ARGS__))
+
 namespace arrow {
 
 // ----------------------------------------------------------------------
 // Useful testing::Types declarations
+
+inline void PrintTo(StatusCode code, std::ostream* os) {
+  *os << Status::CodeAsString(code);
+}
 
 using NumericArrowTypes =
     ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
@@ -147,6 +161,8 @@ using IntegralArrowTypes = ::testing::Types<UInt8Type, UInt16Type, UInt32Type, U
                                             Int8Type, Int16Type, Int32Type, Int64Type>;
 using TemporalArrowTypes =
     ::testing::Types<Date32Type, Date64Type, TimestampType, Time32Type, Time64Type>;
+
+using DecimalArrowTypes = ::testing::Types<Decimal128Type, Decimal256Type>;
 
 class Array;
 class ChunkedArray;
@@ -164,10 +180,12 @@ std::vector<Type::type> AllTypeIds();
 
 // If verbose is true, then the arrays will be pretty printed
 ARROW_TESTING_EXPORT void AssertArraysEqual(const Array& expected, const Array& actual,
-                                            bool verbose = false);
-ARROW_TESTING_EXPORT void AssertArraysApproxEqual(
-    const Array& expected, const Array& actual, bool verbose = false,
-    const EqualOptions& option = EqualOptions::Defaults());
+                                            bool verbose = false,
+                                            const EqualOptions& options = {});
+ARROW_TESTING_EXPORT void AssertArraysApproxEqual(const Array& expected,
+                                                  const Array& actual,
+                                                  bool verbose = false,
+                                                  const EqualOptions& options = {});
 // Returns true when values are both null
 ARROW_TESTING_EXPORT void AssertScalarsEqual(
     const Scalar& expected, const Scalar& actual, bool verbose = false,
@@ -187,6 +205,9 @@ ARROW_TESTING_EXPORT void AssertChunkedEqual(const ChunkedArray& actual,
 // Like ChunkedEqual, but permits different chunk layout
 ARROW_TESTING_EXPORT void AssertChunkedEquivalent(const ChunkedArray& expected,
                                                   const ChunkedArray& actual);
+ARROW_TESTING_EXPORT void AssertChunkedApproxEquivalent(
+    const ChunkedArray& expected, const ChunkedArray& actual,
+    const EqualOptions& equal_options = EqualOptions::Defaults());
 ARROW_TESTING_EXPORT void AssertBufferEqual(const Buffer& buffer,
                                             const std::vector<uint8_t>& expected);
 ARROW_TESTING_EXPORT void AssertBufferEqual(const Buffer& buffer,
@@ -234,6 +255,9 @@ ARROW_TESTING_EXPORT void AssertTablesEqual(const Table& expected, const Table& 
 
 ARROW_TESTING_EXPORT void AssertDatumsEqual(const Datum& expected, const Datum& actual,
                                             bool verbose = false);
+ARROW_TESTING_EXPORT void AssertDatumsApproxEqual(
+    const Datum& expected, const Datum& actual, bool verbose = false,
+    const EqualOptions& options = EqualOptions::Defaults());
 
 template <typename C_TYPE>
 void AssertNumericDataEqual(const C_TYPE* raw_data,
@@ -257,6 +281,7 @@ ARROW_TESTING_EXPORT void AssertZeroPadded(const Array& array);
 
 // Check if the valid buffer bytes are initialized
 // and cause valgrind warnings otherwise.
+ARROW_TESTING_EXPORT void TestInitialized(const ArrayData& array);
 ARROW_TESTING_EXPORT void TestInitialized(const Array& array);
 
 template <typename BuilderType>
@@ -288,6 +313,10 @@ std::shared_ptr<RecordBatch> RecordBatchFromJSON(const std::shared_ptr<Schema>&,
 ARROW_TESTING_EXPORT
 std::shared_ptr<ChunkedArray> ChunkedArrayFromJSON(const std::shared_ptr<DataType>&,
                                                    const std::vector<std::string>& json);
+
+ARROW_TESTING_EXPORT
+std::shared_ptr<Scalar> ScalarFromJSON(const std::shared_ptr<DataType>&,
+                                       util::string_view json);
 
 ARROW_TESTING_EXPORT
 std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>&,
@@ -422,15 +451,34 @@ inline void BitmapFromVector(const std::vector<T>& is_valid,
   ASSERT_OK(GetBitmapFromVector(is_valid, out));
 }
 
-template <typename T>
-void AssertSortedEquals(std::vector<T> u, std::vector<T> v) {
-  std::sort(u.begin(), u.end());
-  std::sort(v.begin(), v.end());
-  ASSERT_EQ(u, v);
-}
+// Given an array, return a new identical array except for one validity bit
+// set to a new value.
+// This is useful to force the underlying "value" of null entries to otherwise
+// invalid data and check that errors don't get reported.
+ARROW_TESTING_EXPORT
+std::shared_ptr<Array> TweakValidityBit(const std::shared_ptr<Array>& array,
+                                        int64_t index, bool validity);
 
 ARROW_TESTING_EXPORT
 void SleepFor(double seconds);
+
+// Sleeps for a very small amount of time.  The thread will be yielded
+// at least once ensuring that context switches could happen.  It is intended
+// to be used for stress testing parallel code and shouldn't be assumed to do any
+// reliable timing.
+ARROW_TESTING_EXPORT
+void SleepABit();
+
+// Wait until predicate is true or timeout in seconds expires.
+ARROW_TESTING_EXPORT
+void BusyWait(double seconds, std::function<bool()> predicate);
+
+ARROW_TESTING_EXPORT
+Future<> SleepAsync(double seconds);
+
+// \see SleepABit
+ARROW_TESTING_EXPORT
+Future<> SleepABitAsync();
 
 template <typename T>
 std::vector<T> IteratorToVector(Iterator<T> iterator) {
@@ -464,11 +512,109 @@ class ARROW_TESTING_EXPORT EnvVarGuard {
   bool was_set_;
 };
 
+namespace internal {
+class SignalHandler;
+}
+
+class ARROW_TESTING_EXPORT SignalHandlerGuard {
+ public:
+  typedef void (*Callback)(int);
+
+  SignalHandlerGuard(int signum, Callback cb);
+  SignalHandlerGuard(int signum, const internal::SignalHandler& handler);
+  ~SignalHandlerGuard();
+
+ protected:
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
+};
+
 #ifndef ARROW_LARGE_MEMORY_TESTS
 #define LARGE_MEMORY_TEST(name) DISABLED_##name
 #else
 #define LARGE_MEMORY_TEST(name) name
 #endif
+
+inline void PrintTo(const Status& st, std::ostream* os) { *os << st.ToString(); }
+
+template <typename T>
+void PrintTo(const Result<T>& result, std::ostream* os) {
+  if (result.ok()) {
+    ::testing::internal::UniversalPrint(result.ValueOrDie(), os);
+  } else {
+    *os << result.status();
+  }
+}
+
+// A data type with only move constructors.
+struct MoveOnlyDataType {
+  explicit MoveOnlyDataType(int x) : data(new int(x)) {}
+
+  MoveOnlyDataType(const MoveOnlyDataType& other) = delete;
+  MoveOnlyDataType& operator=(const MoveOnlyDataType& other) = delete;
+
+  MoveOnlyDataType(MoveOnlyDataType&& other) { MoveFrom(&other); }
+  MoveOnlyDataType& operator=(MoveOnlyDataType&& other) {
+    MoveFrom(&other);
+    return *this;
+  }
+
+  ~MoveOnlyDataType() { Destroy(); }
+
+  void Destroy() {
+    if (data != nullptr) {
+      delete data;
+      data = nullptr;
+      moves = -1;
+    }
+  }
+
+  void MoveFrom(MoveOnlyDataType* other) {
+    Destroy();
+    data = other->data;
+    other->data = nullptr;
+    moves = other->moves + 1;
+  }
+
+  int ToInt() const { return data == nullptr ? -42 : *data; }
+
+  bool operator==(int other) const { return data != nullptr && *data == other; }
+  bool operator==(const MoveOnlyDataType& other) const {
+    return data != nullptr && other.data != nullptr && *data == *other.data;
+  }
+  friend bool operator==(int left, const MoveOnlyDataType& right) {
+    return right == left;
+  }
+
+  int* data = nullptr;
+  int moves = 0;
+};
+
+// A task that blocks until unlocked.  Useful for timing tests.
+class ARROW_TESTING_EXPORT GatingTask {
+ public:
+  explicit GatingTask(double timeout_seconds = 10);
+  /// \brief During destruction we wait for all pending tasks to finish
+  ~GatingTask();
+
+  /// \brief Creates a new waiting task (presumably to spawn on a thread).  It will return
+  /// invalid if the timeout arrived before the unlock.  The task will not complete until
+  /// unlocked or timed out
+  ///
+  /// Note: The GatingTask must outlive any Task instances
+  std::function<void()> Task();
+  /// \brief Waits until at least count tasks are running.
+  Status WaitForRunning(int count);
+  /// \brief Unlocks all waiting tasks.  Returns an invalid status if any waiting task has
+  /// timed out
+  Status Unlock();
+
+  static std::shared_ptr<GatingTask> Make(double timeout_seconds = 10);
+
+ private:
+  class Impl;
+  std::shared_ptr<Impl> impl_;
+};
 
 }  // namespace arrow
 

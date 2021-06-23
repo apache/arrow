@@ -34,17 +34,26 @@ else
     EXTRA_CMAKE_ARGS=" ${EXTRA_CMAKE_ARGS} -DARROW_CUDA=OFF"
 fi
 
+if [[ "${target_platform}" == "osx-arm64" ]]; then
+    # We need llvm 11+ support in Arrow for this
+    EXTRA_CMAKE_ARGS=" ${EXTRA_CMAKE_ARGS} -DARROW_GANDIVA=OFF"
+    sed -ie "s;protoc-gen-grpc.*$;protoc-gen-grpc=${BUILD_PREFIX}/bin/grpc_cpp_plugin\";g" ../src/arrow/flight/CMakeLists.txt
+    sed -ie 's;"--with-jemalloc-prefix\=je_arrow_";"--with-jemalloc-prefix\=je_arrow_" "--with-lg-page\=14";g' ../cmake_modules/ThirdpartyToolchain.cmake
+else
+    EXTRA_CMAKE_ARGS=" ${EXTRA_CMAKE_ARGS} -DARROW_GANDIVA=ON"
+fi
+
 cmake \
-    -DBUILD_SHARED_LIBS=ON \
     -DARROW_BOOST_USE_SHARED=ON \
     -DARROW_BUILD_BENCHMARKS=OFF \
     -DARROW_BUILD_STATIC=OFF \
     -DARROW_BUILD_TESTS=OFF \
     -DARROW_BUILD_UTILITIES=OFF \
+    -DBUILD_SHARED_LIBS=ON \
     -DARROW_DATASET=ON \
     -DARROW_DEPENDENCY_SOURCE=SYSTEM \
     -DARROW_FLIGHT=ON \
-    -DARROW_GANDIVA=ON \
+    -DARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS=ON \
     -DARROW_HDFS=ON \
     -DARROW_JEMALLOC=ON \
     -DARROW_MIMALLOC=ON \
@@ -55,34 +64,32 @@ cmake \
     -DARROW_PYTHON=ON \
     -DARROW_S3=ON \
     -DARROW_SIMD_LEVEL=NONE \
+    -DARROW_USE_LD_GOLD=ON \
     -DARROW_WITH_BROTLI=ON \
     -DARROW_WITH_BZ2=ON \
     -DARROW_WITH_LZ4=ON \
     -DARROW_WITH_SNAPPY=ON \
     -DARROW_WITH_ZLIB=ON \
     -DARROW_WITH_ZSTD=ON \
-    -DARROW_USE_LD_GOLD=ON \
-    -DCMAKE_AR=${AR} \
     -DCMAKE_BUILD_TYPE=release \
     -DCMAKE_INSTALL_LIBDIR=lib \
     -DCMAKE_INSTALL_PREFIX=$PREFIX \
-    -DCMAKE_RANLIB=${RANLIB} \
     -DLLVM_TOOLS_BINARY_DIR=$PREFIX/bin \
-    -DCMAKE_UNITY_BUILD=ON \
+    -DPython3_EXECUTABLE=${PYTHON} \
+    -DProtobuf_PROTOC_EXECUTABLE=$BUILD_PREFIX/bin/protoc \
     -GNinja \
     ${EXTRA_CMAKE_ARGS} \
     ..
 
-# Decrease parallelism a bit as we will otherwise get out-of-memory problems
-# This is only necessary on Travis
-if [ "${TRAVIS}" = "true" ]; then
-# if [ "$(uname -m)" = "ppc64le" ]; then
-    echo "Using $(grep -c ^processor /proc/cpuinfo) CPUs"
-    CPU_COUNT=$(grep -c ^processor /proc/cpuinfo)
-    CPU_COUNT=$((CPU_COUNT / 4))
-    ninja install -j${CPU_COUNT}
-else
-    ninja install
+# Commented out until jemalloc and mimalloc are fixed upstream
+if [[ "${target_platform}" == "osx-arm64" ]]; then
+     ninja jemalloc_ep-prefix/src/jemalloc_ep-stamp/jemalloc_ep-patch mimalloc_ep-prefix/src/mimalloc_ep-stamp/mimalloc_ep-patch
+     cp $BUILD_PREFIX/share/gnuconfig/config.* jemalloc_ep-prefix/src/jemalloc_ep/build-aux/
+     sed -ie 's/list(APPEND mi_cflags -march=native)//g' mimalloc_ep-prefix/src/mimalloc_ep/CMakeLists.txt
+     # Use the correct register for thread-local storage
+     sed -ie 's/tpidr_el0/tpidrro_el0/g' mimalloc_ep-prefix/src/mimalloc_ep/include/mimalloc-internal.h
 fi
+
+ninja install
 
 popd

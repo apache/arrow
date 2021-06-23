@@ -71,7 +71,7 @@ class EqualOptions {
     return res;
   }
 
-  static EqualOptions Defaults() { return EqualOptions(); }
+  static EqualOptions Defaults() { return {}; }
 
  protected:
   double atol_ = kDefaultAbsoluteTolerance;

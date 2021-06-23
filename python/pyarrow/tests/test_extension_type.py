@@ -525,7 +525,7 @@ def test_parquet_period(tmpdir, registered_period_type):
     # When reading in, properly create extension type if it is registered
     result = pq.read_table(filename)
     assert result.schema.field("ext").type == period_type
-    assert result.schema.field("ext").metadata == {b'PARQUET:field_id': b'1'}
+    assert result.schema.field("ext").metadata == {}
     # Get the exact array class defined by the registered type.
     result_array = result.column("ext").chunk(0)
     assert type(result_array) is period_class
@@ -537,8 +537,7 @@ def test_parquet_period(tmpdir, registered_period_type):
     # The extension metadata is present for roundtripping.
     assert result.schema.field("ext").metadata == {
         b'ARROW:extension:metadata': b'freq=D',
-        b'ARROW:extension:name': b'test.period',
-        b'PARQUET:field_id': b'1',
+        b'ARROW:extension:name': b'test.period'
     }
 
 

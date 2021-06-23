@@ -20,42 +20,67 @@
 #if defined(ARROW_R_WITH_ARROW)
 
 #include <arrow/compute/api_scalar.h>
-#include <arrow/dataset/api.h>
-namespace ds = ::arrow::dataset;
+#include <arrow/compute/exec/expression.h>
 
-std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
-    std::string func_name, cpp11::list options);
+namespace compute = ::arrow::compute;
+
+std::shared_ptr<compute::FunctionOptions> make_compute_options(std::string func_name,
+                                                               cpp11::list options);
 
 // [[arrow::export]]
-std::shared_ptr<ds::Expression> dataset___expr__call(std::string func_name,
-                                                     cpp11::list argument_list,
-                                                     cpp11::list options) {
-  std::vector<ds::Expression> arguments;
+std::shared_ptr<compute::Expression> compute___expr__call(std::string func_name,
+                                                          cpp11::list argument_list,
+                                                          cpp11::list options) {
+  std::vector<compute::Expression> arguments;
   for (SEXP argument : argument_list) {
-    auto argument_ptr = cpp11::as_cpp<std::shared_ptr<ds::Expression>>(argument);
+    auto argument_ptr = cpp11::as_cpp<std::shared_ptr<compute::Expression>>(argument);
     arguments.push_back(*argument_ptr);
   }
 
   auto options_ptr = make_compute_options(func_name, options);
 
-  return std::make_shared<ds::Expression>(
-      ds::call(std::move(func_name), std::move(arguments), std::move(options_ptr)));
+  return std::make_shared<compute::Expression>(
+      compute::call(std::move(func_name), std::move(arguments), std::move(options_ptr)));
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::Expression> dataset___expr__field_ref(std::string name) {
-  return std::make_shared<ds::Expression>(ds::field_ref(std::move(name)));
+std::shared_ptr<compute::Expression> compute___expr__field_ref(std::string name) {
+  return std::make_shared<compute::Expression>(compute::field_ref(std::move(name)));
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::Expression> dataset___expr__scalar(
+std::string compute___expr__get_field_ref_name(
+    const std::shared_ptr<compute::Expression>& x) {
+  if (auto field_ref = x->field_ref()) {
+    return *field_ref->name();
+  }
+  return "";
+}
+
+// [[arrow::export]]
+std::shared_ptr<compute::Expression> compute___expr__scalar(
     const std::shared_ptr<arrow::Scalar>& x) {
-  return std::make_shared<ds::Expression>(ds::literal(std::move(x)));
+  return std::make_shared<compute::Expression>(compute::literal(std::move(x)));
 }
 
 // [[arrow::export]]
-std::string dataset___expr__ToString(const std::shared_ptr<ds::Expression>& x) {
+std::string compute___expr__ToString(const std::shared_ptr<compute::Expression>& x) {
   return x->ToString();
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::DataType> compute___expr__type(
+    const std::shared_ptr<compute::Expression>& x,
+    const std::shared_ptr<arrow::Schema>& schema) {
+  auto bound = ValueOrStop(x->Bind(*schema));
+  return bound.type();
+}
+
+// [[arrow::export]]
+arrow::Type::type compute___expr__type_id(const std::shared_ptr<compute::Expression>& x,
+                                          const std::shared_ptr<arrow::Schema>& schema) {
+  auto bound = ValueOrStop(x->Bind(*schema));
+  return bound.type()->id();
 }
 
 #endif

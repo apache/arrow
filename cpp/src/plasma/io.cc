@@ -22,7 +22,7 @@
 #include <sstream>
 
 #include "arrow/status.h"
-#include "arrow/util/bit_util.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/logging.h"
 
 #include "plasma/common.h"

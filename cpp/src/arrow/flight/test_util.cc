@@ -86,7 +86,7 @@ Status ResolveCurrentExecutable(fs::path* out) {
 
 }  // namespace
 
-void TestServer::Start() {
+void TestServer::Start(const std::vector<std::string>& extra_args) {
   namespace fs = boost::filesystem;
 
   std::string str_port = std::to_string(port_);
@@ -104,11 +104,13 @@ void TestServer::Start() {
 
   try {
     if (unix_sock_.empty()) {
-      server_process_ = std::make_shared<bp::child>(
-          bp::search_path(executable_name_, search_path), "-port", str_port);
+      server_process_ =
+          std::make_shared<bp::child>(bp::search_path(executable_name_, search_path),
+                                      "-port", str_port, bp::args(extra_args));
     } else {
-      server_process_ = std::make_shared<bp::child>(
-          bp::search_path(executable_name_, search_path), "-server_unix", unix_sock_);
+      server_process_ =
+          std::make_shared<bp::child>(bp::search_path(executable_name_, search_path),
+                                      "-server_unix", unix_sock_, bp::args(extra_args));
     }
   } catch (...) {
     std::stringstream ss;

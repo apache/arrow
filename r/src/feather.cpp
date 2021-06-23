@@ -79,11 +79,9 @@ std::shared_ptr<arrow::ipc::feather::Reader> ipc___feather___Reader__Open(
 }
 
 // [[arrow::export]]
-cpp11::writable::strings ipc___feather___Reader__column_names(
+std::shared_ptr<arrow::Schema> ipc___feather___Reader__schema(
     const std::shared_ptr<arrow::ipc::feather::Reader>& reader) {
-  return arrow::r::to_r_strings(
-      reader->schema()->fields(),
-      [](const std::shared_ptr<arrow::Field>& field) { return field->name(); });
+  return reader->schema();
 }
 
 #endif

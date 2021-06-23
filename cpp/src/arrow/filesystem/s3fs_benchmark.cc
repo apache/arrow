@@ -36,6 +36,7 @@
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/range.h"
 
 #include "parquet/arrow/reader.h"
@@ -146,32 +147,24 @@ class MinioFixture : public benchmark::Fixture {
   /// Appends integer columns to the beginning (to act as indices).
   Status MakeParquetObject(const std::string& path, int num_columns, int num_rows) {
     std::vector<std::shared_ptr<ChunkedArray>> columns;
-    std::vector<std::shared_ptr<Field>> fields;
-
-    {
-      arrow::random::RandomArrayGenerator generator(0);
-      std::shared_ptr<Array> values = generator.Int64(num_rows, 0, 1e10, 0);
-      columns.push_back(std::make_shared<ChunkedArray>(values));
-      fields.push_back(::arrow::field("timestamp", values->type()));
-    }
-    {
-      arrow::random::RandomArrayGenerator generator(1);
-      std::shared_ptr<Array> values = generator.Int32(num_rows, 0, 1e9, 0);
-      columns.push_back(std::make_shared<ChunkedArray>(values));
-      fields.push_back(::arrow::field("val", values->type()));
-    }
-
+    FieldVector fields{
+        field("timestamp", int64(), /*nullable=*/true,
+              key_value_metadata(
+                  {{"min", "0"}, {"max", "10000000000"}, {"null_probability", "0"}})),
+        field("val", int32(), /*nullable=*/true,
+              key_value_metadata(
+                  {{"min", "0"}, {"max", "1000000000"}, {"null_probability", "0"}}))};
     for (int i = 0; i < num_columns; i++) {
-      arrow::random::RandomArrayGenerator generator(i);
-      std::shared_ptr<Array> values = generator.Float64(num_rows, -1.e10, 1e10, 0);
       std::stringstream ss;
       ss << "col" << i;
-      columns.push_back(std::make_shared<ChunkedArray>(values));
-      fields.push_back(::arrow::field(ss.str(), values->type()));
+      fields.push_back(
+          field(ss.str(), float64(), /*nullable=*/true,
+                key_value_metadata(
+                    {{"min", "-1.e10"}, {"max", "1e10"}, {"null_probability", "0"}})));
     }
-    auto schema = std::make_shared<::arrow::Schema>(fields);
-
-    std::shared_ptr<Table> table = Table::Make(schema, columns);
+    auto batch = random::GenerateBatch(fields, num_rows, 0);
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Table> table,
+                          Table::FromRecordBatches({batch}));
 
     std::shared_ptr<io::OutputStream> sink;
     ARROW_ASSIGN_OR_RAISE(sink, fs_->OpenOutputStream(path));
@@ -267,8 +260,10 @@ static void CoalescedRead(benchmark::State& st, S3FileSystem* fs,
     ASSERT_OK_AND_ASSIGN(size, file->GetSize());
     total_items += 1;
 
-    io::internal::ReadRangeCache cache(file, {},
-                                       io::CacheOptions{8192, 64 * 1024 * 1024});
+    io::internal::ReadRangeCache cache(
+        file, {},
+        io::CacheOptions{/*hole_size_limit=*/8192, /*range_size_limit=*/64 * 1024 * 1024,
+                         /*lazy=*/false});
     std::vector<io::ReadRange> ranges;
 
     int64_t offset = 0;

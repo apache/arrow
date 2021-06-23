@@ -38,9 +38,9 @@ export interface VectorLoader extends Visitor {
 export class VectorLoader extends Visitor {
     private bytes: Uint8Array;
     private nodes: FieldNode[];
-    private nodesIndex: number = -1;
+    private nodesIndex = -1;
     private buffers: BufferRegion[];
-    private buffersIndex: number = -1;
+    private buffersIndex = -1;
     private dictionaries: Map<number, Vector<any>>;
     constructor(bytes: Uint8Array, nodes: FieldNode[], buffers: BufferRegion[], dictionaries: Map<number, Vector<any>>) {
         super();

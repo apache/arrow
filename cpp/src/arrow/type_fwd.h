@@ -29,11 +29,19 @@ namespace arrow {
 
 template <typename T>
 class Iterator;
+template <typename T>
+struct IterationTraits;
 
 template <typename T>
 class Result;
 
 class Status;
+
+namespace internal {
+struct Empty;
+}  // namespace internal
+template <typename T = internal::Empty>
+class Future;
 
 namespace util {
 class Codec;
@@ -52,6 +60,7 @@ class DataType;
 class Field;
 class FieldRef;
 class KeyValueMetadata;
+enum class Endianness;
 class Schema;
 
 using DataTypeVector = std::vector<std::shared_ptr<DataType>>;
@@ -72,6 +81,7 @@ class RecordBatchReader;
 class Table;
 
 struct Datum;
+struct ValueDescr;
 
 using ChunkedArrayVector = std::vector<std::shared_ptr<ChunkedArray>>;
 using RecordBatchVector = std::vector<std::shared_ptr<RecordBatch>>;
@@ -437,7 +447,10 @@ std::shared_ptr<DataType> ARROW_EXPORT date64();
 ARROW_EXPORT
 std::shared_ptr<DataType> fixed_size_binary(int32_t byte_width);
 
-/// \brief Create a Decimal128Type or Decimal256Type instance depending on the precision
+/// \brief Create a DecimalType instance depending on the precision
+///
+/// If the precision is greater than 38, a Decimal256Type is returned,
+/// otherwise a Decimal128Type.
 ARROW_EXPORT
 std::shared_ptr<DataType> decimal(int32_t precision, int32_t scale);
 
@@ -625,6 +638,17 @@ std::shared_ptr<Field> ARROW_EXPORT
 field(std::string name, std::shared_ptr<DataType> type, bool nullable = true,
       std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
 
+/// \brief Create a Field instance with metadata
+///
+/// The field will be assumed to be nullable.
+///
+/// \param name the field name
+/// \param type the field value type
+/// \param metadata any custom key-value metadata
+std::shared_ptr<Field> ARROW_EXPORT
+field(std::string name, std::shared_ptr<DataType> type,
+      std::shared_ptr<const KeyValueMetadata> metadata);
+
 /// \brief Create a Schema instance
 ///
 /// \param fields the schema's fields
@@ -633,6 +657,17 @@ field(std::string name, std::shared_ptr<DataType> type, bool nullable = true,
 ARROW_EXPORT
 std::shared_ptr<Schema> schema(
     std::vector<std::shared_ptr<Field>> fields,
+    std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
+
+/// \brief Create a Schema instance
+///
+/// \param fields the schema's fields
+/// \param endianness the endianness of the data
+/// \param metadata any custom key-value metadata, default null
+/// \return schema shared_ptr to Schema
+ARROW_EXPORT
+std::shared_ptr<Schema> schema(
+    std::vector<std::shared_ptr<Field>> fields, Endianness endianness,
     std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
 
 /// @}

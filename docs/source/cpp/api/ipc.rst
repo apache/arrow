@@ -22,10 +22,6 @@
 Arrow IPC
 =========
 
-.. sidebar:: Contents
-
-   .. contents:: :local:
-
 IPC options
 ===========
 

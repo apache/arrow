@@ -17,70 +17,45 @@
 
 context("Expressions")
 
-test_that("Can create an expression", {
-  expect_is(build_array_expression(">", Array$create(1:5), 4), "array_expression")
-})
-
-test_that("as.vector(array_expression)", {
-  expect_equal(as.vector(build_array_expression(">", Array$create(1:5), 4)), c(FALSE, FALSE, FALSE, FALSE, TRUE))
-})
-
-test_that("array_expression print method", {
-  expect_output(
-    print(build_array_expression(">", Array$create(1:5), 4)),
-    # Not ideal but it is informative
-    "greater(<Array>, 4)",
-    fixed = TRUE
-  )
-})
-
 test_that("C++ expressions", {
+  skip_if_not_available("dataset")
   f <- Expression$field_ref("f")
+  expect_identical(f$field_name, "f")
   g <- Expression$field_ref("g")
   date <- Expression$scalar(as.Date("2020-01-15"))
   ts <- Expression$scalar(as.POSIXct("2020-01-17 11:11:11"))
   i64 <- Expression$scalar(bit64::as.integer64(42))
   time <- Expression$scalar(hms::hms(56, 34, 12))
 
-  expect_is(f == g, "Expression")
-  expect_is(f == 4, "Expression")
-  expect_is(f == "", "Expression")
-  expect_is(f == NULL, "Expression")
-  expect_is(f == date, "Expression")
-  expect_is(f == i64, "Expression")
-  expect_is(f == time, "Expression")
+  expect_r6_class(f == g, "Expression")
+  expect_r6_class(f == 4, "Expression")
+  expect_r6_class(f == "", "Expression")
+  expect_r6_class(f == NULL, "Expression")
+  expect_r6_class(f == date, "Expression")
+  expect_r6_class(f == i64, "Expression")
+  expect_r6_class(f == time, "Expression")
   # can't seem to make this work right now because of R Ops.method dispatch
-  # expect_is(f == as.Date("2020-01-15"), "Expression")
-  expect_is(f == ts, "Expression")
-  expect_is(f <= 2L, "Expression")
-  expect_is(f != FALSE, "Expression")
-  expect_is(f > 4, "Expression")
-  expect_is(f < 4 & f > 2, "Expression")
-  expect_is(f < 4 | f > 2, "Expression")
-  expect_is(!(f < 4), "Expression")
+  # expect_r6_class(f == as.Date("2020-01-15"), "Expression")
+  expect_r6_class(f == ts, "Expression")
+  expect_r6_class(f <= 2L, "Expression")
+  expect_r6_class(f != FALSE, "Expression")
+  expect_r6_class(f > 4, "Expression")
+  expect_r6_class(f < 4 & f > 2, "Expression")
+  expect_r6_class(f < 4 | f > 2, "Expression")
+  expect_r6_class(!(f < 4), "Expression")
   expect_output(
     print(f > 4),
     'Expression\n(f > 4)',
     fixed = TRUE
   )
-  # Interprets that as a list type
-  expect_is(f == c(1L, 2L), "Expression")
-})
-
-test_that("Can create an expression", {
-  a <- Array$create(as.numeric(1:5))
-  expr <- array_expression("cast", a, options = list(to_type = int32()))
-  expect_is(expr, "array_expression")
-  expect_equal(eval_array_expression(expr), Array$create(1:5))
-
-  b <- Array$create(0.5:4.5)
-  bad_expr <- array_expression("cast", b, options = list(to_type = int32()))
-  expect_is(bad_expr, "array_expression")
-  expect_error(
-    eval_array_expression(bad_expr),
-    "Invalid: Float value .* was truncated converting"
+  expect_type_equal(
+    f$type(schema(f = float64())),
+    float64()
   )
-  expr <- array_expression("cast", b, options = list(to_type = int32(), allow_float_truncate = TRUE))
-  expect_is(expr, "array_expression")
-  expect_equal(eval_array_expression(expr), Array$create(0:4))
+  expect_type_equal(
+    (f > 4)$type(schema(f = float64())),
+    bool()
+  )
+  # Interprets that as a list type
+  expect_r6_class(f == c(1L, 2L), "Expression")
 })

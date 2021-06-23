@@ -18,9 +18,10 @@
 
 from itertools import count
 from numbers import Integral
+import warnings
 
 from pyarrow import types
-from pyarrow.lib import Schema
+from pyarrow.lib import Schema, Table
 import pyarrow._orc as _orc
 
 
@@ -73,6 +74,11 @@ class ORCFile:
         self.reader = _orc.ORCReader()
         self.reader.open(source)
         self._column_index_lookup = _schema_to_indices(self.schema)
+
+    @property
+    def metadata(self):
+        """The file metadata, as an arrow KeyValueMetadata"""
+        return self.reader.metadata()
 
     @property
     def schema(self):
@@ -147,3 +153,63 @@ class ORCFile:
         """
         include_indices = self._select_indices(columns)
         return self.reader.read(include_indices=include_indices)
+
+
+class ORCWriter:
+    """
+    Writer interface for a single ORC file
+
+    Parameters
+    ----------
+    where : str or pyarrow.io.NativeFile
+        Writable target. For passing Python file objects or byte buffers,
+        see pyarrow.io.PythonFileInterface, pyarrow.io.BufferOutputStream
+        or pyarrow.io.FixedSizeBufferWriter.
+    """
+
+    def __init__(self, where):
+        self.writer = _orc.ORCWriter()
+        self.writer.open(where)
+
+    def write(self, table):
+        """
+        Write the table into an ORC file. The schema of the table must
+        be equal to the schema used when opening the ORC file.
+
+        Parameters
+        ----------
+        schema : pyarrow.lib.Table
+            The table to be written into the ORC file
+        """
+        self.writer.write(table)
+
+    def close(self):
+        """
+        Close the ORC file
+        """
+        self.writer.close()
+
+
+def write_table(table, where):
+    """
+    Write a table into an ORC file
+
+    Parameters
+    ----------
+    table : pyarrow.lib.Table
+        The table to be written into the ORC file
+    where : str or pyarrow.io.NativeFile
+        Writable target. For passing Python file objects or byte buffers,
+        see pyarrow.io.PythonFileInterface, pyarrow.io.BufferOutputStream
+        or pyarrow.io.FixedSizeBufferWriter.
+    """
+    if isinstance(where, Table):
+        warnings.warn(
+            "The order of the arguments has changed. Pass as "
+            "'write_table(table, where)' instead. The old order will raise "
+            "an error in the future.", FutureWarning, stacklevel=2
+        )
+        table, where = where, table
+    writer = ORCWriter(where)
+    writer.write(table)
+    writer.close()

@@ -38,7 +38,7 @@ Status RunMain(int argc, char** argv) {
                         arrow::io::ReadableFile::Open(csv_filename));
   ARROW_ASSIGN_OR_RAISE(
       auto csv_reader,
-      arrow::csv::TableReader::Make(arrow::default_memory_pool(),
+      arrow::csv::TableReader::Make(arrow::io::default_io_context(),
                                     input_file,
                                     arrow::csv::ReadOptions::Defaults(),
                                     arrow::csv::ParseOptions::Defaults(),

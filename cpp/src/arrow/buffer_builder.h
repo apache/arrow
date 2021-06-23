@@ -64,15 +64,12 @@ class ARROW_EXPORT BufferBuilder {
   /// \brief Resize the buffer to the nearest multiple of 64 bytes
   ///
   /// \param new_capacity the new capacity of the of the builder. Will be
-  /// rounded up to a multiple of 64 bytes for padding \param shrink_to_fit if
-  /// new capacity is smaller than the existing size, reallocate internal
-  /// buffer. Set to false to avoid reallocations when shrinking the builder.
+  /// rounded up to a multiple of 64 bytes for padding
+  /// \param shrink_to_fit if new capacity is smaller than the existing,
+  /// reallocate internal buffer. Set to false to avoid reallocations when
+  /// shrinking the builder.
   /// \return Status
   Status Resize(const int64_t new_capacity, bool shrink_to_fit = true) {
-    // Resize(0) is a no-op
-    if (new_capacity == 0) {
-      return Status::OK();
-    }
     if (buffer_ == NULLPTR) {
       ARROW_ASSIGN_OR_RAISE(buffer_, AllocateResizableBuffer(new_capacity, pool_));
     } else {
@@ -162,6 +159,23 @@ class ARROW_EXPORT BufferBuilder {
     return Status::OK();
   }
 
+  Result<std::shared_ptr<Buffer>> Finish(bool shrink_to_fit = true) {
+    std::shared_ptr<Buffer> out;
+    ARROW_RETURN_NOT_OK(Finish(&out, shrink_to_fit));
+    return out;
+  }
+
+  /// \brief Like Finish, but override the final buffer size
+  ///
+  /// This is useful after writing data directly into the builder memory
+  /// without calling the Append methods (basically, when using BufferBuilder
+  /// mostly for memory allocation).
+  Result<std::shared_ptr<Buffer>> FinishWithLength(int64_t final_length,
+                                                   bool shrink_to_fit = true) {
+    size_ = final_length;
+    return Finish(shrink_to_fit);
+  }
+
   void Reset() {
     buffer_ = NULLPTR;
     capacity_ = size_ = 0;
@@ -201,6 +215,11 @@ class TypedBufferBuilder<
   explicit TypedBufferBuilder(std::shared_ptr<ResizableBuffer> buffer,
                               MemoryPool* pool = default_memory_pool())
       : bytes_builder_(std::move(buffer), pool) {}
+
+  explicit TypedBufferBuilder(BufferBuilder builder)
+      : bytes_builder_(std::move(builder)) {}
+
+  BufferBuilder* bytes_builder() { return &bytes_builder_; }
 
   Status Append(T value) {
     return bytes_builder_.Append(reinterpret_cast<uint8_t*>(&value), sizeof(T));
@@ -256,6 +275,22 @@ class TypedBufferBuilder<
     return bytes_builder_.Finish(out, shrink_to_fit);
   }
 
+  Result<std::shared_ptr<Buffer>> Finish(bool shrink_to_fit = true) {
+    std::shared_ptr<Buffer> out;
+    ARROW_RETURN_NOT_OK(Finish(&out, shrink_to_fit));
+    return out;
+  }
+
+  /// \brief Like Finish, but override the final buffer size
+  ///
+  /// This is useful after writing data directly into the builder memory
+  /// without calling the Append methods (basically, when using TypedBufferBuilder
+  /// only for memory allocation).
+  Result<std::shared_ptr<Buffer>> FinishWithLength(int64_t final_length,
+                                                   bool shrink_to_fit = true) {
+    return bytes_builder_.FinishWithLength(final_length * sizeof(T), shrink_to_fit);
+  }
+
   void Reset() { bytes_builder_.Reset(); }
 
   int64_t length() const { return bytes_builder_.length() / sizeof(T); }
@@ -273,6 +308,11 @@ class TypedBufferBuilder<bool> {
  public:
   explicit TypedBufferBuilder(MemoryPool* pool = default_memory_pool())
       : bytes_builder_(pool) {}
+
+  explicit TypedBufferBuilder(BufferBuilder builder)
+      : bytes_builder_(std::move(builder)) {}
+
+  BufferBuilder* bytes_builder() { return &bytes_builder_; }
 
   Status Append(bool value) {
     ARROW_RETURN_NOT_OK(Reserve(1));
@@ -369,6 +409,25 @@ class TypedBufferBuilder<bool> {
                                  bytes_builder_.length());
     bit_length_ = false_count_ = 0;
     return bytes_builder_.Finish(out, shrink_to_fit);
+  }
+
+  Result<std::shared_ptr<Buffer>> Finish(bool shrink_to_fit = true) {
+    std::shared_ptr<Buffer> out;
+    ARROW_RETURN_NOT_OK(Finish(&out, shrink_to_fit));
+    return out;
+  }
+
+  /// \brief Like Finish, but override the final buffer size
+  ///
+  /// This is useful after writing data directly into the builder memory
+  /// without calling the Append methods (basically, when using TypedBufferBuilder
+  /// only for memory allocation).
+  Result<std::shared_ptr<Buffer>> FinishWithLength(int64_t final_length,
+                                                   bool shrink_to_fit = true) {
+    const auto final_byte_length = BitUtil::BytesForBits(final_length);
+    bytes_builder_.UnsafeAdvance(final_byte_length - bytes_builder_.length());
+    bit_length_ = false_count_ = 0;
+    return bytes_builder_.FinishWithLength(final_byte_length, shrink_to_fit);
   }
 
   void Reset() {

@@ -1519,15 +1519,14 @@ def get_generated_json_files(tempdir=None):
         .skip_category('JS'),
 
         generate_null_case([10, 0])
-        .skip_category('JS')   # TODO(ARROW-7900)
-        .skip_category('Go'),  # TODO(ARROW-7901)
+        .skip_category('Go')    # TODO(ARROW-7901)
+        .skip_category('JS'),   # TODO(ARROW-7900)
 
         generate_null_trivial_case([0, 0])
-        .skip_category('JS')   # TODO(ARROW-7900)
-        .skip_category('Go'),  # TODO(ARROW-7901)
+        .skip_category('Go')    # TODO(ARROW-7901)
+        .skip_category('JS'),   # TODO(ARROW-7900)
 
         generate_decimal128_case()
-        .skip_category('Go')  # TODO(ARROW-7948): Decimal + Go
         .skip_category('Rust'),
 
         generate_decimal256_case()
@@ -1542,11 +1541,9 @@ def get_generated_json_files(tempdir=None):
         .skip_category('Rust'),
 
         generate_map_case()
-        .skip_category('Go')  # TODO(ARROW-5620): Map + Go
         .skip_category('Rust'),
 
         generate_non_canonical_map_case()
-        .skip_category('Go')     # TODO(ARROW-5620)
         .skip_category('Java')   # TODO(ARROW-8715)
         .skip_category('JS')     # TODO(ARROW-8716)
         .skip_category('Rust'),
@@ -1567,7 +1564,6 @@ def get_generated_json_files(tempdir=None):
         .skip_category('Rust'),
 
         generate_custom_metadata_case()
-        .skip_category('Go')
         .skip_category('JS'),
 
         generate_duplicate_fieldnames_case()
@@ -1589,7 +1585,7 @@ def get_generated_json_files(tempdir=None):
         .skip_category('Rust'),
 
         generate_extension_case()
-        .skip_category('Go')
+        .skip_category('Go')  # TODO(ARROW-3039): requires dictionaries
         .skip_category('JS')
         .skip_category('Rust'),
     ]

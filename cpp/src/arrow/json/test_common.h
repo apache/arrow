@@ -19,7 +19,9 @@
 
 #include <memory>
 #include <random>
+#include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "arrow/json/rapidjson_defs.h"
@@ -34,10 +36,14 @@
 #include "arrow/json/parser.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/string_view.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace json {
 
 namespace rj = arrow::rapidjson;
@@ -161,8 +167,8 @@ inline static Status MakeStream(string_view src_str,
 // dictionary<index:int32, value:string>. This can be decoded for ease of comparison
 inline static Status DecodeStringDictionary(const DictionaryArray& dict_array,
                                             std::shared_ptr<Array>* decoded) {
-  const StringArray& dict = static_cast<const StringArray&>(*dict_array.dictionary());
-  const Int32Array& indices = static_cast<const Int32Array&>(*dict_array.indices());
+  const StringArray& dict = checked_cast<const StringArray&>(*dict_array.dictionary());
+  const Int32Array& indices = checked_cast<const Int32Array&>(*dict_array.indices());
   StringBuilder builder;
   RETURN_NOT_OK(builder.Resize(indices.length()));
   for (int64_t i = 0; i < indices.length(); ++i) {
@@ -195,6 +201,25 @@ static inline std::string PrettyPrint(string_view one_line) {
   rj::PrettyWriter<rj::StringBuffer> writer(sb);
   document.Accept(writer);
   return sb.GetString();
+}
+
+template <typename T>
+std::string RowsOfOneColumn(util::string_view name, std::initializer_list<T> values,
+                            decltype(std::to_string(*values.begin()))* = nullptr) {
+  std::stringstream ss;
+  for (auto value : values) {
+    ss << R"({")" << name << R"(":)" << std::to_string(value) << "}\n";
+  }
+  return ss.str();
+}
+
+inline std::string RowsOfOneColumn(util::string_view name,
+                                   std::initializer_list<std::string> values) {
+  std::stringstream ss;
+  for (auto value : values) {
+    ss << R"({")" << name << R"(":)" << value << "}\n";
+  }
+  return ss.str();
 }
 
 inline static std::string scalars_only_src() {

@@ -40,6 +40,19 @@ extern "C" {
   INNER(date64)           \
   INNER(timestamp)
 
+// Expand inner macro for all base numeric types.
+#define NUMERIC_TYPES(INNER) \
+  INNER(int8)                \
+  INNER(int16)               \
+  INNER(int32)               \
+  INNER(int64)               \
+  INNER(uint8)               \
+  INNER(uint16)              \
+  INNER(uint32)              \
+  INNER(uint64)              \
+  INNER(float32)             \
+  INNER(float64)
+
 // Extract millennium
 #define EXTRACT_MILLENNIUM(TYPE)                            \
   FORCE_INLINE                                              \
@@ -451,6 +464,23 @@ EXTRACT_HOUR_TIME(time32)
 DATE_TRUNC_FUNCTIONS(date64)
 DATE_TRUNC_FUNCTIONS(timestamp)
 
+#define LAST_DAY_FUNC(TYPE)                                                   \
+  FORCE_INLINE                                                                \
+  gdv_date64 last_day_from_##TYPE(gdv_date64 millis) {                        \
+    EpochTimePoint received_day(millis);                                      \
+    const auto& day_without_hours_and_sec = received_day.ClearTimeOfDay();    \
+                                                                              \
+    int received_day_in_month = day_without_hours_and_sec.TmMday();           \
+    const auto& first_day_in_month =                                          \
+        day_without_hours_and_sec.AddDays(1 - received_day_in_month);         \
+                                                                              \
+    const auto& month_last_day = first_day_in_month.AddMonths(1).AddDays(-1); \
+                                                                              \
+    return month_last_day.MillisSinceEpoch();                                 \
+  }
+
+DATE_TYPES(LAST_DAY_FUNC)
+
 FORCE_INLINE
 gdv_date64 castDATE_int64(gdv_int64 in) { return in; }
 
@@ -482,6 +512,12 @@ bool IsLastDayOfMonth(const EpochTimePoint& tp) {
 
   // check if year is non-leap year
   return !IsLeapYear(tp.TmYear());
+}
+
+FORCE_INLINE
+bool is_valid_time(const int hours, const int minutes, const int seconds) {
+  return hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60 && seconds >= 0 &&
+         seconds < 60;
 }
 
 // MONTHS_BETWEEN returns number of months between dates date1 and date2.
@@ -607,13 +643,16 @@ gdv_timestamp castTIMESTAMP_utf8(int64_t context, const char* input, gdv_int32 l
   int ts_fields[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
   gdv_boolean add_displacement = true;
   gdv_boolean encountered_zone = false;
-  int year_str_len = 0;
+  int year_str_len = 0, sub_seconds_len = 0;
   int ts_field_index = TimeFields::kYear, index = 0, value = 0;
   while (ts_field_index < TimeFields::kMax && index < length) {
     if (isdigit(input[index])) {
       value = (value * 10) + (input[index] - '0');
       if (ts_field_index == TimeFields::kYear) {
         year_str_len++;
+      }
+      if (ts_field_index == TimeFields::kSubSeconds) {
+        sub_seconds_len++;
       }
     } else {
       ts_fields[ts_field_index] = value;
@@ -660,6 +699,18 @@ gdv_timestamp castTIMESTAMP_utf8(int64_t context, const char* input, gdv_int32 l
     }
   }
 
+  // adjust the milliseconds
+  if (sub_seconds_len > 0) {
+    if (sub_seconds_len > 3) {
+      const char* msg = "Invalid millis for timestamp value ";
+      set_error_for_date(length, input, msg, context);
+      return 0;
+    }
+    while (sub_seconds_len < 3) {
+      ts_fields[TimeFields::kSubSeconds] *= 10;
+      sub_seconds_len++;
+    }
+  }
   // handle timezone
   if (encountered_zone) {
     int err = 0;
@@ -679,6 +730,13 @@ gdv_timestamp castTIMESTAMP_utf8(int64_t context, const char* input, gdv_int32 l
                         day(ts_fields[TimeFields::kDay]);
   if (!date.ok()) {
     const char* msg = "Not a valid day for timestamp value ";
+    set_error_for_date(length, input, msg, context);
+    return 0;
+  }
+
+  if (!is_valid_time(ts_fields[TimeFields::kHours], ts_fields[TimeFields::kMinutes],
+                     ts_fields[TimeFields::kSeconds])) {
+    const char* msg = "Not a valid time for timestamp value ";
     set_error_for_date(length, input, msg, context);
     return 0;
   }
@@ -704,6 +762,17 @@ gdv_timestamp castTIMESTAMP_int64(gdv_int64 in) { return in; }
 gdv_date64 castDATE_timestamp(gdv_timestamp timestamp_in_millis) {
   EpochTimePoint tp(timestamp_in_millis);
   return tp.ClearTimeOfDay().MillisSinceEpoch();
+}
+
+gdv_time32 castTIME_timestamp(gdv_timestamp timestamp_in_millis) {
+  // Retrieves a timestamp and returns the number of milliseconds since the midnight
+  EpochTimePoint tp(timestamp_in_millis);
+  auto tp_at_midnight = tp.ClearTimeOfDay();
+
+  int64_t millis_since_midnight =
+      tp.MillisSinceEpoch() - tp_at_midnight.MillisSinceEpoch();
+
+  return static_cast<int32_t>(millis_since_midnight);
 }
 
 const char* castVARCHAR_timestamp_int64(gdv_int64 context, gdv_timestamp in,
@@ -771,5 +840,24 @@ gdv_int64 castBIGINT_daytimeinterval(gdv_day_time_interval in) {
   return extractMillis_daytimeinterval(in) +
          extractDay_daytimeinterval(in) * MILLIS_IN_DAY;
 }
+
+// Convert the seconds since epoch argument to timestamp
+#define TO_TIMESTAMP(TYPE)                                      \
+  FORCE_INLINE                                                  \
+  gdv_timestamp to_timestamp##_##TYPE(gdv_##TYPE seconds) {     \
+    return static_cast<gdv_timestamp>(seconds * MILLIS_IN_SEC); \
+  }
+
+NUMERIC_TYPES(TO_TIMESTAMP)
+
+// Convert the seconds since epoch argument to time
+#define TO_TIME(TYPE)                                                     \
+  FORCE_INLINE                                                            \
+  gdv_time32 to_time##_##TYPE(gdv_##TYPE seconds) {                       \
+    EpochTimePoint tp(static_cast<int64_t>(seconds * MILLIS_IN_SEC));     \
+    return static_cast<gdv_time32>(tp.TimeOfDay().to_duration().count()); \
+  }
+
+NUMERIC_TYPES(TO_TIME)
 
 }  // extern "C"

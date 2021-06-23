@@ -2119,6 +2119,22 @@ DEALINGS IN THE SOFTWARE.
 
 --------------------------------------------------------------------------------
 
+This project includes code from Folly.
+
+ * cpp/src/arrow/vendored/ProducerConsumerQueue.h
+
+is based on Folly's
+
+ * folly/Portability.h
+ * folly/lang/Align.h
+ * folly/ProducerConsumerQueue.h
+
+Copyright: Copyright (c) Facebook, Inc. and its affiliates.
+Home page: https://github.com/facebook/folly
+License: http://www.apache.org/licenses/LICENSE-2.0
+
+--------------------------------------------------------------------------------
+
 The file cpp/src/arrow/vendored/musl/strptime.c has the following license
 
 Copyright © 2005-2020 Rich Felker, et al.
@@ -2193,3 +2209,34 @@ The files in cpp/src/arrow/vendored/fast_float/ contain code from
 https://github.com/lemire/fast_float
 
 which is made available under the Apache License 2.0.
+
+--------------------------------------------------------------------------------
+
+The file python/pyarrow/vendored/version.py contains code from
+
+https://github.com/pypa/packaging/
+
+which is made available under both the Apache license v2.0 and the
+BSD 2-clause license.
+
+--------------------------------------------------------------------------------
+
+The files in cpp/src/arrow/vendored/pcg contain code from
+
+https://github.com/imneme/pcg-cpp
+
+and have the following copyright notice:
+
+Copyright 2014-2019 Melissa O'Neill <oneill@pcg-random.org>,
+                    and the PCG Project contributors.
+
+SPDX-License-Identifier: (Apache-2.0 OR MIT)
+
+Licensed under the Apache License, Version 2.0 (provided in
+LICENSE-APACHE.txt and at http://www.apache.org/licenses/LICENSE-2.0)
+or under the MIT license (provided in LICENSE-MIT.txt and at
+http://opensource.org/licenses/MIT), at your option. This file may not
+be copied, modified, or distributed except according to those terms.
+
+Distributed on an "AS IS" BASIS, WITHOUT WARRANTY OF ANY KIND, either
+express or implied.  See your chosen license for details.

@@ -30,7 +30,7 @@ here = os.path.dirname(os.path.abspath(__file__))
 
 
 setup_template = """if 1:
-    from distutils.core import setup
+    from setuptools import setup
     from Cython.Build import cythonize
 
     import numpy as np
@@ -58,6 +58,20 @@ setup_template = """if 1:
         ext_modules=ext_modules,
     )
 """
+
+
+def check_cython_example_module(mod):
+    arr = pa.array([1, 2, 3])
+    assert mod.get_array_length(arr) == 3
+    with pytest.raises(TypeError, match="not an array"):
+        mod.get_array_length(None)
+
+    scal = pa.scalar(123)
+    cast_scal = mod.cast_scalar(scal, pa.utf8())
+    assert cast_scal == pa.scalar("123")
+    with pytest.raises(NotImplementedError,
+                       match="casting scalars of type int64 to type list"):
+        mod.cast_scalar(scal, pa.list_(pa.int64()))
 
 
 @pytest.mark.cython
@@ -100,10 +114,7 @@ def test_cython_api(tmpdir):
         sys.path.insert(0, str(tmpdir))
         try:
             mod = __import__('pyarrow_cython_example')
-            arr = pa.array([1, 2, 3])
-            assert mod.get_array_length(arr) == 3
-            with pytest.raises(TypeError, match="not an array"):
-                mod.get_array_length(None)
+            check_cython_example_module(mod)
         finally:
             sys.path = orig_path
 

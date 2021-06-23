@@ -15,22 +15,48 @@
 # specific language governing permissions and limitations
 # under the License.
 
+{% import 'macros.jinja' as macros with context %}
+
+arch: arm64-graviton2
+virt: vm
 os: linux
-arch: arm64
-dist: bionic
+dist: focal
+group: edge
 language: minimal
 
 addons:
   apt:
     packages:
       - apt-utils
-      - createrepo
+      # We need Ubuntu 20.10 or later
+      # - createrepo_c
       - devscripts
       - gpg
       - libgit2-dev
       - python3-pip
       - rake
       - rpm
+
+      # https://bugs.launchpad.net/ubuntu/+source/glibc/+bug/1916485
+      # We need to use runc 1.0.0~rc93 or later from focal-updated.
+      - runc
+
+      # To build createrepo_c from source.
+      # We can remove them when we can install createrepo_c package
+      - cmake
+      - libbz2-dev
+      - libcurl4-openssl-dev
+      - libglib2.0-dev
+      - liblzma-dev
+      - libmagic-dev
+      - librpm-dev
+      - libsqlite3-dev
+      - libssl-dev
+      - libxml2-dev
+      - libzstd-dev
+      - pkg-config
+      - zlib1g-dev
+    update: true
 
 services:
   - docker
@@ -47,9 +73,27 @@ env:
     - YUM_TARGETS={{ target }}
 
 before_script:
-  - git clone --no-checkout {{ arrow.remote }} arrow
-  - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-  - git -C arrow checkout FETCH_HEAD
+  - set -e
+  {{ macros.travis_checkout_arrow() }}
+  {{ macros.travis_docker_login() }}
+
+  # Build createrepo_c from source.
+  # We can remove them when we can install createrepo_c package
+  - git clone --depth 1 https://github.com/rpm-software-management/createrepo_c.git
+  - pushd createrepo_c
+  - |
+      /usr/bin/cmake \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DENABLE_BASHCOMP=OFF \
+        -DENABLE_DRPM=OFF \
+        -DENABLE_PYTHON=OFF \
+        -DWITH_LIBMODULEMD=OFF \
+        -DWITH_ZCHUNK=OFF \
+        .
+  - make -j$(nproc)
+  - sudo make install
+  - popd
+  - rm -rf createrepo_c
 
 script:
   # Build packages
@@ -57,7 +101,7 @@ script:
   - rake version:update
   - |
       rake docker:pull || :
-  - pushd apache-arrow-archive-keyring/apt
+  - pushd apache-arrow-apt-source/apt
   - |
       for target in debian-* ubuntu-*; do
         cp -a ${target} ${target}-arm64
@@ -99,19 +143,12 @@ script:
   - gpg --export --armor test@example.com > arrow/dev/tasks/linux-packages/KEYS
   - pushd arrow/dev/tasks/linux-packages
   - |
-      rake --trace {{ task_namespace }}:test GPG_KEY_ID=${GPG_KEY_ID}
+      rake --trace {{ task_namespace }}:test \
+        CREATEREPO=createrepo_c \
+        GPG_KEY_ID=${GPG_KEY_ID}
   - rm -rf {{ task_namespace }}/repositories
   - popd
 
 after_success:
-  - sudo -H pip3 install --requirement arrow/dev/tasks/requirements-crossbow.txt
-  - |
-    python3 arrow/dev/tasks/crossbow.py \
-      --queue-path . \
-      --queue-remote {{ queue_remote_url }} \
-      upload-artifacts \
-    {%- for extension in upload_extensions %}
-      --pattern "arrow/dev/tasks/linux-packages/**/*{{ extension }}" \
-    {%- endfor %}
-      --sha {{ task.branch }} \
-      --tag {{ task.tag }}
+  {% set patterns = upload_extensions | format_all("arrow/dev/tasks/linux-packages/**/*{}") %}
+  {{ macros.travis_upload_releases(patterns) }}

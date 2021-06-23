@@ -31,6 +31,7 @@
 #include "arrow/ipc/writer.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/cancel.h"
 #include "arrow/util/variant.h"
 
 #include "arrow/flight/types.h"  // IWYU pragma: keep
@@ -69,6 +70,9 @@ class ARROW_FLIGHT_EXPORT FlightCallOptions {
 
   /// \brief Headers for client to add to context.
   std::vector<std::pair<std::string, std::string>> headers;
+
+  /// \brief A token to enable interactive user cancellation of long-running requests.
+  StopToken stop_token;
 };
 
 /// \brief Indicate that the client attempted to write a message
@@ -92,10 +96,7 @@ class ARROW_FLIGHT_EXPORT FlightWriteSizeStatusDetail : public arrow::StatusDeta
   int64_t actual_;
 };
 
-class ARROW_FLIGHT_EXPORT FlightClientOptions {
- public:
-  FlightClientOptions();
-
+struct ARROW_FLIGHT_EXPORT FlightClientOptions {
   /// \brief Root certificates to use for validating server
   /// certificates.
   std::string tls_root_certs;
@@ -113,14 +114,14 @@ class ARROW_FLIGHT_EXPORT FlightClientOptions {
   /// Used to help limit server memory consumption. Only enabled if
   /// positive. When enabled, FlightStreamWriter.Write* may yield a
   /// IOError with error detail FlightWriteSizeStatusDetail.
-  int64_t write_size_limit_bytes;
+  int64_t write_size_limit_bytes = 0;
 
   /// \brief Generic connection options, passed to the underlying
   ///     transport; interpretation is implementation-dependent.
   std::vector<std::pair<std::string, util::Variant<int, std::string>>> generic_options;
 
   /// \brief Use TLS without validating the server certificate. Use with caution.
-  bool disable_server_verification;
+  bool disable_server_verification = false;
 
   /// \brief Get default options.
   static FlightClientOptions Defaults();
@@ -132,6 +133,12 @@ class ARROW_FLIGHT_EXPORT FlightStreamReader : public MetadataRecordBatchReader 
  public:
   /// \brief Try to cancel the call.
   virtual void Cancel() = 0;
+  using MetadataRecordBatchReader::ReadAll;
+  /// \brief Consume entire stream as a vector of record batches
+  virtual Status ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches,
+                         const StopToken& stop_token) = 0;
+  /// \brief Consume entire stream as a Table
+  Status ReadAll(std::shared_ptr<Table>* table, const StopToken& stop_token);
 };
 
 // Silence warning

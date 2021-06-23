@@ -121,7 +121,7 @@ class TestPrimitiveNode : public ::testing::Test {
   }
 
   void Convert(const format::SchemaElement* element) {
-    node_ = PrimitiveNode::FromParquet(element, field_id_);
+    node_ = PrimitiveNode::FromParquet(element);
     ASSERT_TRUE(node_->is_primitive());
     prim_node_ = static_cast<const PrimitiveNode*>(node_.get());
   }
@@ -1101,12 +1101,12 @@ TEST(TestLogicalTypeConstruction, ConvertedTypeCompatibility) {
   ASSERT_TRUE(reconstructed->is_valid());
   ASSERT_TRUE(reconstructed->Equals(*original));
 
-  // Unknown
-  original = LogicalType::Unknown();
+  // Undefined
+  original = UndefinedLogicalType::Make();
   ASSERT_TRUE(original->is_invalid());
   ASSERT_FALSE(original->is_valid());
   converted_type = original->ToConvertedType(&converted_decimal_metadata);
-  ASSERT_EQ(converted_type, ConvertedType::NA);
+  ASSERT_EQ(converted_type, ConvertedType::UNDEFINED);
   ASSERT_FALSE(converted_decimal_metadata.isset);
   ASSERT_TRUE(original->is_compatible(converted_type, converted_decimal_metadata));
   ASSERT_TRUE(original->is_compatible(converted_type));
@@ -1243,7 +1243,6 @@ TEST(TestLogicalTypeOperation, LogicalTypeProperties) {
       {BSONLogicalType::Make(), false, true, true},
       {UUIDLogicalType::Make(), false, true, true},
       {NoLogicalType::Make(), false, false, true},
-      {UnknownLogicalType::Make(), false, false, false},
   };
 
   for (const ExpectedProperties& c : cases) {
@@ -1339,7 +1338,7 @@ TEST(TestLogicalTypeOperation, LogicalTypeApplicability) {
   }
 
   std::vector<std::shared_ptr<const LogicalType>> any_type_cases = {
-      LogicalType::Null(), LogicalType::None(), LogicalType::Unknown()};
+      LogicalType::Null(), LogicalType::None(), UndefinedLogicalType::Make()};
 
   for (auto c : any_type_cases) {
     ConfirmAnyPrimitiveTypeApplicability(c);
@@ -1453,7 +1452,7 @@ TEST(TestLogicalTypeOperation, LogicalTypeRepresentation) {
   };
 
   std::vector<ExpectedRepresentation> cases = {
-      {LogicalType::Unknown(), "Unknown", R"({"Type": "Unknown"})"},
+      {UndefinedLogicalType::Make(), "Undefined", R"({"Type": "Undefined"})"},
       {LogicalType::String(), "String", R"({"Type": "String"})"},
       {LogicalType::Map(), "Map", R"({"Type": "Map"})"},
       {LogicalType::List(), "List", R"({"Type": "List"})"},
@@ -1550,7 +1549,6 @@ TEST(TestLogicalTypeOperation, LogicalTypeSortOrder) {
   };
 
   std::vector<ExpectedSortOrder> cases = {
-      {LogicalType::Unknown(), SortOrder::UNKNOWN},
       {LogicalType::String(), SortOrder::UNSIGNED},
       {LogicalType::Map(), SortOrder::UNKNOWN},
       {LogicalType::List(), SortOrder::UNKNOWN},
@@ -1730,7 +1728,7 @@ TEST(TestSchemaNodeCreation, FactoryExceptions) {
   node->ToParquet(&string_intermediary);
   // ... corrupt the Thrift intermediary ....
   string_intermediary.logicalType.__isset.STRING = false;
-  ASSERT_ANY_THROW(node = PrimitiveNode::FromParquet(&string_intermediary, 1));
+  ASSERT_ANY_THROW(node = PrimitiveNode::FromParquet(&string_intermediary));
 
   // Invalid TimeUnit in deserialized TimeLogicalType ...
   node = PrimitiveNode::Make("time", Repetition::REQUIRED,
@@ -1740,7 +1738,7 @@ TEST(TestSchemaNodeCreation, FactoryExceptions) {
   node->ToParquet(&time_intermediary);
   // ... corrupt the Thrift intermediary ....
   time_intermediary.logicalType.TIME.unit.__isset.NANOS = false;
-  ASSERT_ANY_THROW(PrimitiveNode::FromParquet(&time_intermediary, 1));
+  ASSERT_ANY_THROW(PrimitiveNode::FromParquet(&time_intermediary));
 
   // Invalid TimeUnit in deserialized TimestampLogicalType ...
   node = PrimitiveNode::Make(
@@ -1750,7 +1748,7 @@ TEST(TestSchemaNodeCreation, FactoryExceptions) {
   node->ToParquet(&timestamp_intermediary);
   // ... corrupt the Thrift intermediary ....
   timestamp_intermediary.logicalType.TIMESTAMP.unit.__isset.NANOS = false;
-  ASSERT_ANY_THROW(PrimitiveNode::FromParquet(&timestamp_intermediary, 1));
+  ASSERT_ANY_THROW(PrimitiveNode::FromParquet(&timestamp_intermediary));
 }
 
 struct SchemaElementConstructionArguments {
@@ -1888,8 +1886,6 @@ TEST_F(TestSchemaElementConstruction, SimpleCases) {
       {"uuid", LogicalType::UUID(), Type::FIXED_LEN_BYTE_ARRAY, 16, false,
        ConvertedType::NA, true, [this]() { return element_->logicalType.__isset.UUID; }},
       {"none", LogicalType::None(), Type::INT64, -1, false, ConvertedType::NA, false,
-       check_nothing},
-      {"unknown", LogicalType::Unknown(), Type::INT64, -1, true, ConvertedType::NA, false,
        check_nothing}};
 
   for (const SchemaElementConstructionArguments& c : cases) {

@@ -379,7 +379,7 @@ FORCE_INLINE gdv_int32 hash32_buf(const gdv_uint8* buf, int len, gdv_int32 seed)
     return is_valid ? hash32_buf(reinterpret_cast<const uint8_t*>(in), len, 0) : 0; \
   }
 
-// Expand inner macro for all numeric types.
+// Expand inner macro for all non-numeric types.
 #define VAR_LEN_TYPES(INNER, NAME) \
   INNER(NAME, utf8)                \
   INNER(NAME, binary)

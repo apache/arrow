@@ -106,6 +106,11 @@ class ARROW_EXPORT KernelExecutor {
  public:
   virtual ~KernelExecutor() = default;
 
+  /// The Kernel's `init` method must be called and any KernelState set in the
+  /// KernelContext *before* KernelExecutor::Init is called. This is to facilitate
+  /// the case where init may be expensive and does not need to be called again for
+  /// each execution of the kernel, for example the same lookup table can be re-used
+  /// for all scanned batches in a dataset filter.
   virtual Status Init(KernelContext*, KernelInitArgs) = 0;
 
   /// XXX: Better configurability for listener

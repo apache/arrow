@@ -17,10 +17,6 @@
  * under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#  include <config.h>
-#endif
-
 #include <arrow-glib/array.hpp>
 #include <arrow-glib/chunked-array.hpp>
 #include <arrow-glib/data-type.hpp>
@@ -328,6 +324,30 @@ garrow_chunked_array_to_string(GArrowChunkedArray *chunked_array, GError **error
 {
   const auto arrow_chunked_array = garrow_chunked_array_get_raw(chunked_array);
   return g_strdup(arrow_chunked_array->ToString().c_str());
+}
+
+/**
+ * garrow_chunked_array_combine:
+ * @chunked_array: A #GArrowChunkedArray.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The combined array that has
+ *   all data in all chunks.
+ *
+ * Since: 4.0.0
+ */
+GArrowArray *
+garrow_chunked_array_combine(GArrowChunkedArray *chunked_array, GError **error)
+{
+  const auto arrow_chunked_array = garrow_chunked_array_get_raw(chunked_array);
+  auto arrow_combined_array = arrow::Concatenate(arrow_chunked_array->chunks());
+  if (garrow::check(error,
+                    arrow_combined_array,
+                    "[chunked-array][combine]")) {
+    return garrow_array_new_raw(&(*arrow_combined_array));
+  } else {
+    return NULL;
+  }
 }
 
 G_END_DECLS

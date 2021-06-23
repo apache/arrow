@@ -21,8 +21,8 @@ import { DataType } from '../../src/type';
 import { Vector, BoolVector } from '../../src/vector/index';
 import { Bool, Int8, Utf8, List, Dictionary, Struct } from '../../src/type';
 
-type NamedSchema = { a: Int8, b: Utf8, c: Dictionary<List<Bool>>; [idx: string]: DataType; };
-type IndexSchema = { 0: Int8, 1: Utf8, 2: Dictionary<List<Bool>>; [idx: number]: DataType; };
+type NamedSchema = { a: Int8; b: Utf8; c: Dictionary<List<Bool>>; [idx: string]: DataType };
+type IndexSchema = { 0: Int8; 1: Utf8; 2: Dictionary<List<Bool>>; [idx: number]: DataType };
 
 checkIndexTypes({ 0: new Int8(), 1: new Utf8(), 2: new Dictionary<List<Bool>>(null!, null!) } as IndexSchema);
 checkNamedTypes({ a: new Int8(), b: new Utf8(), c: new Dictionary<List<Bool>>(null!, null!) } as NamedSchema);

@@ -19,12 +19,14 @@
 
 # Arrow GLib
 
-Arrow GLib is a wrapper library for [Arrow C++](https://github.com/apache/arrow/tree/master/cpp). Arrow GLib provides C
-API.
+Arrow GLib is a wrapper library for [Arrow
+C++](https://github.com/apache/arrow/tree/master/cpp). Arrow GLib
+provides C API.
 
-Arrow GLib supports
-[GObject Introspection](https://wiki.gnome.org/action/show/Projects/GObjectIntrospection).
-It means that you can create language bindings at runtime or compile time.
+Arrow GLib supports [GObject
+Introspection](https://wiki.gnome.org/action/show/Projects/GObjectIntrospection).
+It means that you can create language bindings at runtime or compile
+time.
 
 For example, you can use Apache Arrow from Ruby by Arrow GLib and
 [gobject-introspection gem](https://rubygems.org/gems/gobject-introspection)
@@ -50,71 +52,47 @@ gobject-introspection gem based bindings.
 You can use packages or build by yourself to install Arrow GLib. It's
 recommended that you use packages.
 
-Note that the packages are "unofficial". "Official" packages will be
-released in the future.
+We use Meson and Ninja as build tools. If you find problems when
+installing please see [common build
+problems](https://github.com/apache/arrow/blob/master/c_glib/README.md#common-build-problems).
 
-We support two build systems, GNU Autotools and Meson. If you find problems when installing please see [common build problems](https://github.com/apache/arrow/blob/master/c_glib/README.md#common-build-problems).
-
-### Package
+### Packages
 
 See [install document](https://arrow.apache.org/install/) for details.
 
 ### How to build by users
 
 Arrow GLib users should use released source archive to build Arrow
-GLib (replace the version number in the following commands with the one you use):
+GLib (replace the version number in the following commands with the
+one you use):
 
 ```console
-% wget https://archive.apache.org/dist/arrow/arrow-0.3.0/apache-arrow-0.3.0.tar.gz
-% tar xf apache-arrow-0.3.0.tar.gz
-% cd apache-arrow-0.3.0
+% wget https://downloads.apache.org/arrow/arrow-3.0.0/apache-arrow-3.0.0.tar.gz
+% tar xf apache-arrow-3.0.0.tar.gz
+% cd apache-arrow-3.0.0
 ```
 
 You need to build and install Arrow C++ before you build and install
 Arrow GLib. See Arrow C++ document about how to install Arrow C++.
 
-If you use macOS with [Homebrew](https://brew.sh/), you must install required packages and set `PKG_CONFIG_PATH` before build Arrow GLib:
-
-If you use GNU Autotools, you can build and install Arrow GLib by the followings:
+If you use macOS with [Homebrew](https://brew.sh/), you must install
+required packages.
 
 macOS:
 
 ```console
-% cd c_glib
-% brew bundle
-% ./configure PKG_CONFIG_PATH=$(brew --prefix libffi)/lib/pkgconfig:$PKG_CONFIG_PATH
-% make
-% sudo make install
+$ brew bundle
+$ meson setup c_glib.build c_glib --buildtype=release
+$ meson compile -C c_glib.build
+$ sudo meson install -C c_glib.build
 ```
 
 Others:
 
 ```console
-% cd c_glib
-% ./configure
-% make
-% sudo make install
-```
-
-If you use Meson, you can build and install Arrow GLib by the followings:
-
-macOS:
-
-```console
-% cd c_glib
-% brew bundle
-% PKG_CONFIG_PATH=$(brew --prefix libffi)/lib/pkgconfig:$PKG_CONFIG_PATH meson build --buildtype=release
-% ninja -C build
-% sudo ninja -C build install
-```
-
-Others:
-
-```console
-% cd c_glib
-% meson build --buildtype=release
-% ninja -C build
-% sudo ninja -C build install
+$ meson setup c_glib.build c_glib --buildtype=release
+$ meson compile -C c_glib.build
+$ sudo meson install -C build
 ```
 
 ### How to build by developers
@@ -129,51 +107,46 @@ to build Arrow GLib. You can install them by the followings:
 On Debian GNU/Linux or Ubuntu:
 
 ```console
-% sudo apt install -y -V gtk-doc-tools autoconf-archive libgirepository1.0-dev meson ninja-build
+$ sudo apt install -y -V gtk-doc-tools libgirepository1.0-dev meson ninja-build
 ```
 
-On CentOS 7 or later:
+On CentOS 7:
 
 ```console
-% sudo yum install -y gtk-doc gobject-introspection-devel
-% sudo pip install -y meson ninja
+$ sudo yum install -y gtk-doc gobject-introspection-devel ninja-build
+$ sudo pip3 install meson
+```
+
+On CentOS 8 or later:
+
+```console
+$ sudo dnf install -y --enablerepo=powertools gtk-doc gobject-introspection-devel ninja-build
+$ sudo pip3 install meson
 ```
 
 On macOS with [Homebrew](https://brew.sh/):
 
-```text
-% brew bundle
+```console
+$ brew bundle
 ```
 
-If you use GNU Autotools, you can build and install Arrow GLib by the followings:
+You can build and install Arrow GLib by the followings:
+
+macOS:
 
 ```console
-% cd c_glib
-% ./autogen.sh
-% ./configure --enable-gtk-doc
-% make
-% sudo make install
+$ XML_CATALOG_FILES=$(brew --prefix)/etc/xml/catalog
+$ meson setup c_glib.build c_glib -Dgtk_doc=true
+$ meson compile -C c_glib.build
+$ sudo meson install -C c_glib.build
 ```
 
-You need to set `PKG_CONFIG_PATH` to `configure` On macOS:
+Others:
 
 ```console
-% ./configure PKG_CONFIG_PATH=$(brew --prefix libffi)/lib/pkgconfig:$PKG_CONFIG_PATH --enable-gtk-doc
-```
-
-If you use Meson, you can build and install Arrow GLib by the followings:
-
-```console
-% cd c_glib
-% meson build -Dgtk_doc=true
-% ninja -C build
-% sudo ninja -C build install
-```
-
-You need to set `PKG_CONFIG_PATH` on macOS:
-
-```console
-% PKG_CONFIG_PATH=$(brew --prefix libffi)/lib/pkgconfig:$PKG_CONFIG_PATH meson build -Dgtk_doc=true
+$ meson c_glib.build c_glib -Dgtk_doc=true
+$ meson compile -C c_glib.build
+$ sudo meson install -C c_glib.build
 ```
 
 ## Usage
@@ -186,7 +159,7 @@ languages, you use GObject Introspection based bindings.
 
 You can find API reference in the
 `/usr/local/share/gtk-doc/html/arrow-glib/` directory. If you specify
-`--prefix` to `configure`, the directory will be different.
+`--prefix` to `meson`, the directory will be different.
 
 You can find example codes in the `example/` directory.
 
@@ -225,101 +198,118 @@ You can install them by the followings:
 On Debian GNU/Linux or Ubuntu:
 
 ```console
-% sudo apt install -y -V ruby-dev
-% sudo gem install bundler
-% (cd c_glib && bundle install)
+$ sudo apt install -y -V ruby-dev
+$ sudo gem install bundler
+$ (cd c_glib && bundle install)
 ```
 
 On CentOS 7 or later:
 
 ```console
-% sudo yum install -y git
-% git clone https://github.com/sstephenson/rbenv.git ~/.rbenv
-% git clone https://github.com/sstephenson/ruby-build.git ~/.rbenv/plugins/ruby-build
-% echo 'export PATH="$HOME/.rbenv/bin:$PATH"' >> ~/.bash_profile
-% echo 'eval "$(rbenv init -)"' >> ~/.bash_profile
-% exec ${SHELL} --login
-% sudo yum install -y gcc make patch openssl-devel readline-devel zlib-devel
-% rbenv install 2.4.1
-% rbenv global 2.4.1
-% gem install bundler
-% (cd c_glib && bundle install)
+$ sudo yum install -y git
+$ git clone https://github.com/sstephenson/rbenv.git ~/.rbenv
+$ git clone https://github.com/sstephenson/ruby-build.git ~/.rbenv/plugins/ruby-build
+$ echo 'export PATH="$HOME/.rbenv/bin:$PATH"' >> ~/.bash_profile
+$ echo 'eval "$(rbenv init -)"' >> ~/.bash_profile
+$ exec ${SHELL} --login
+$ sudo yum install -y gcc make patch openssl-devel readline-devel zlib-devel
+$ latest_ruby_version=$(rbenv install --list 2>&1 | grep '^[0-9]' | tail -n1)
+$ rbenv install ${latest_ruby_version}
+$ rbenv global ${latest_ruby_version}
+$ gem install bundler
+$ (cd c_glib && bundle install)
 ```
 
 On macOS with [Homebrew](https://brew.sh/):
 
 ```console
-% (cd c_glib && bundle install)
+$ (cd c_glib && bundle install)
 ```
 
 Now, you can run unit tests by the followings:
 
 ```console
-% cd c_glib
-% bundle exec test/run-test.sh
+$ cd c_glib.build
+$ bundle exec ../c_glib/test/run-test.sh
 ```
 
 ## Common build problems
 
-### configure failed - `AX_CXX_COMPILE_STDCXX_11(ext, mandatory)'
-
-* Check whether `autoconf-archive` is installed.
-* [macOS] `autoconf-archive` must be linked, but may not be linked. You can check it by running `brew install autoconf-archive` again. If it's not linked, it will show a warning message like:
-
-```console
-% brew install autoconf-archive
-Warning: autoconf-archive 2017.03.21 is already installed, it's just not linked.
-You can use `brew link autoconf-archive` to link this version.
-```
-
-In this case, you need to run `brew link autoconf-archive`. It may fail with the following message if you have install conflicted packages (e.g. `gnome-common`).
-
-```console
-% brew link autoconf-archive
-Linking /usr/local/Cellar/autoconf-archive/2017.03.21...
-Error: Could not symlink share/aclocal/ax_check_enable_debug.m4
-Target /usr/local/share/aclocal/ax_check_enable_debug.m4
-is a symlink belonging to gnome-common. You can unlink it:
-  brew unlink gnome-common
-```
-
-You need to run `brew unlink <pkgname>`, then run `brew link autoconf-archive` again.
-
-After installing/linking `autoconf-archive`, run `./autogen.sh` again.
-
-### [macOS] configure failed - gobject-introspection-1.0 is not installed
-
-gobject-introspection requires libffi, and it's automatically installed with gobject-introspection. However it can't be found because it's [keg-only](https://docs.brew.sh/FAQ.html#what-does-keg-only-mean). You need to set `PKG_CONFIG_PATH` when executing configure.
-
-```console
-% ./configure PKG_CONFIG_PATH=$(brew --prefix libffi)/lib/pkgconfig
-```
-
 ### build failed - /usr/bin/ld: cannot find -larrow
 
-Arrow C++ must be installed to build Arrow GLib. Run `make install` on Arrow C++ build directory. In addition, on linux, you may need to run `sudo ldconfig`.
+Arrow C++ must be installed to build Arrow GLib. Run `make install` on
+Arrow C++ build directory. In addition, on linux, you may need to run
+`sudo ldconfig`.
 
 ### build failed - unable to load http://docbook.sourceforge.net/release/xsl/current/html/chunk.xsl
 
-On macOS you may need to set the following environment variable:
+You need to set the following environment variable on macOS:
 
 ```console
-% export XML_CATALOG_FILES="/usr/local/etc/xml/catalog"
+$ export XML_CATALOG_FILES="$(brew --prefix)/etc/xml/catalog"
 ```
 
 ### build failed - Symbol not found, referenced from `libsource-highlight.4.dylib`
 
-On macOS if you see the following error you may need to upgrade `source-highlight`
+You may get the following error on macOS:
 
-```console
+
+```text
 dyld: Symbol not found: __ZN5boost16re_detail_10650112perl_matcherIPKcNSt3__19allocatorINS_9sub_matchIS3_EEEENS_12regex_traitsIcNS_16cpp_regex_traitsIcEEEEE14construct_initERKNS_11basic_regexIcSC_EENS_15regex_constants12_match_flagsE
   Referenced from: /usr/local/Cellar/source-highlight/3.1.8_7/lib/libsource-highlight.4.dylib
   Expected in: flat namespace
  in /usr/local/Cellar/source-highlight/3.1.8_7/lib/libsource-highlight.4.dylib
 ```
 
-To fix do:
+To fix this error, you need to upgrade `source-highlight`:
 
 ```console
-% brew upgrade source-highlight
+$ brew upgrade source-highlight
+```
+
+### test failed - Failed to load shared library '...' referenced by the typelib: dlopen(...): dependent dylib '@rpath/...' not found for '...'. relative file paths not allowed '@rpath/...'
+
+You may get the following error on macOS by running test:
+
+```text
+(NULL)-WARNING **: Failed to load shared library '/usr/local/lib/libparquet-glib.400.dylib' referenced by the typelib: dlopen(/usr/local/lib/libparquet-glib.400.dylib, 0x0009): dependent dylib '@rpath/libparquet.400.dylib' not found for '/usr/local/lib/libparquet-glib.400.dylib'. relative file paths not allowed '@rpath/libparquet.400.dylib'
+        from /Library/Ruby/Gems/2.6.0/gems/gobject-introspection-3.4.3/lib/gobject-introspection/loader.rb:215:in `load_object_info'
+        from /Library/Ruby/Gems/2.6.0/gems/gobject-introspection-3.4.3/lib/gobject-introspection/loader.rb:68:in `load_info'
+        from /Library/Ruby/Gems/2.6.0/gems/gobject-introspection-3.4.3/lib/gobject-introspection/loader.rb:43:in `block in load'
+        from /Library/Ruby/Gems/2.6.0/gems/gobject-introspection-3.4.3/lib/gobject-introspection/repository.rb:34:in `block (2 levels) in each'
+        from /Library/Ruby/Gems/2.6.0/gems/gobject-introspection-3.4.3/lib/gobject-introspection/repository.rb:33:in `times'
+        from /Library/Ruby/Gems/2.6.0/gems/gobject-introspection-3.4.3/lib/gobject-introspection/repository.rb:33:in `block in each'
+        from /Library/Ruby/Gems/2.6.0/gems/gobject-introspection-3.4.3/lib/gobject-introspection/repository.rb:32:in `each'
+        from /Library/Ruby/Gems/2.6.0/gems/gobject-introspection-3.4.3/lib/gobject-introspection/repository.rb:32:in `each'
+        from /Library/Ruby/Gems/2.6.0/gems/gobject-introspection-3.4.3/lib/gobject-introspection/loader.rb:42:in `load'
+        from /Library/Ruby/Gems/2.6.0/gems/gobject-introspection-3.4.3/lib/gobject-introspection.rb:44:in `load'
+        from /Users/karlkatzen/Documents/code/arrow-dev/arrow/c_glib/test/run-test.rb:60:in `<main>'
+Traceback (most recent call last):
+        17: from /Users/karlkatzen/Documents/code/arrow-dev/arrow/c_glib/test/run-test.rb:80:in `<main>'
+        16: from /Library/Ruby/Gems/2.6.0/gems/test-unit-3.4.0/lib/test/unit/autorunner.rb:66:in `run'
+        15: from /Library/Ruby/Gems/2.6.0/gems/test-unit-3.4.0/lib/test/unit/autorunner.rb:434:in `run'
+        14: from /Library/Ruby/Gems/2.6.0/gems/test-unit-3.4.0/lib/test/unit/autorunner.rb:106:in `block in <class:AutoRunner>'
+        13: from /Library/Ruby/Gems/2.6.0/gems/test-unit-3.4.0/lib/test/unit/collector/load.rb:38:in `collect'
+        12: from /Library/Ruby/Gems/2.6.0/gems/test-unit-3.4.0/lib/test/unit/collector/load.rb:136:in `add_load_path'
+        11: from /Library/Ruby/Gems/2.6.0/gems/test-unit-3.4.0/lib/test/unit/collector/load.rb:43:in `block in collect'
+        10: from /Library/Ruby/Gems/2.6.0/gems/test-unit-3.4.0/lib/test/unit/collector/load.rb:43:in `each'
+         9: from /Library/Ruby/Gems/2.6.0/gems/test-unit-3.4.0/lib/test/unit/collector/load.rb:46:in `block (2 levels) in collect'
+         8: from /Library/Ruby/Gems/2.6.0/gems/test-unit-3.4.0/lib/test/unit/collector/load.rb:85:in `collect_recursive'
+         7: from /Library/Ruby/Gems/2.6.0/gems/test-unit-3.4.0/lib/test/unit/collector/load.rb:85:in `each'
+         6: from /Library/Ruby/Gems/2.6.0/gems/test-unit-3.4.0/lib/test/unit/collector/load.rb:87:in `block in collect_recursive'
+         5: from /Library/Ruby/Gems/2.6.0/gems/test-unit-3.4.0/lib/test/unit/collector/load.rb:112:in `collect_file'
+         4: from /Library/Ruby/Gems/2.6.0/gems/test-unit-3.4.0/lib/test/unit/collector/load.rb:136:in `add_load_path'
+         3: from /Library/Ruby/Gems/2.6.0/gems/test-unit-3.4.0/lib/test/unit/collector/load.rb:114:in `block in collect_file'
+         2: from /Library/Ruby/Gems/2.6.0/gems/test-unit-3.4.0/lib/test/unit/collector/load.rb:114:in `require'
+         1: from /Users/karlkatzen/Documents/code/arrow-dev/arrow/c_glib/test/test-extension-data-type.rb:18:in `<top (required)>'
+/Users/karlkatzen/Documents/code/arrow-dev/arrow/c_glib/test/test-extension-data-type.rb:19:in `<class:TestExtensionDataType>': uninitialized constant Arrow::ExtensionArray (NameError)
+```
+
+You can't use `@rpath` in Arrow C++. To fix this error, you need to
+build Arrow C++ with `-DARROW_INSTALL_NAME_RPATH=OFF`:
+
+```console
+$ cmake -S cpp -B cpp.build -DARROW_INSTALL_NAME_RPATH=OFF ...
+$ cmake --build cpp.build
+$ sudo cmake --build cpp.build --target install
 ```

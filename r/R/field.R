@@ -38,7 +38,8 @@ Field <- R6Class("Field", inherit = ArrowObject,
     },
     Equals = function(other, ...) {
       inherits(other, "Field") && Field__Equals(self, other)
-    }
+    },
+    export_to_c = function(ptr) ExportField(self, ptr)
   ),
 
   active = list(
@@ -59,15 +60,15 @@ Field$create <- function(name, type, metadata) {
   assert_that(missing(metadata), msg = "metadata= is currently ignored")
   Field__initialize(enc2utf8(name), type, TRUE)
 }
+#' @include arrowExports.R
+Field$import_from_c <- ImportField
 
 #' @param name field name
 #' @param type logical type, instance of [DataType]
 #' @param metadata currently ignored
 #'
-#' @examples
-#' \donttest{
+#' @examplesIf arrow_available()
 #' field("x", int32())
-#' }
 #' @rdname Field
 #' @export
 field <- Field$create

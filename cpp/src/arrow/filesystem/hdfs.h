@@ -92,15 +92,18 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
   Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
       const std::string& path) override;
   Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
-      const std::string& path) override;
+      const std::string& path,
+      const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
   Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
-      const std::string& path) override;
+      const std::string& path,
+      const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
 
   /// Create a HdfsFileSystem instance from the given options.
-  static Result<std::shared_ptr<HadoopFileSystem>> Make(const HdfsOptions& options);
+  static Result<std::shared_ptr<HadoopFileSystem>> Make(
+      const HdfsOptions& options, const io::IOContext& = io::default_io_context());
 
  protected:
-  explicit HadoopFileSystem(const HdfsOptions& options);
+  HadoopFileSystem(const HdfsOptions& options, const io::IOContext&);
 
   class Impl;
   std::unique_ptr<Impl> impl_;

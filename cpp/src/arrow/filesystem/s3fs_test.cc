@@ -70,10 +70,14 @@
 #include "arrow/filesystem/test_util.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
@@ -394,6 +398,7 @@ class TestS3FS : public S3TestMixin {
       ASSERT_OK(OutcomeToStatus(client_->PutObject(req)));
       req.SetKey(ToAwsString("somefile"));
       req.SetBody(std::make_shared<std::stringstream>("some data"));
+      req.SetContentType("x-arrow/test");
       ASSERT_OK(OutcomeToStatus(client_->PutObject(req)));
     }
   }
@@ -403,6 +408,18 @@ class TestS3FS : public S3TestMixin {
     options_.scheme = "http";
     options_.endpoint_override = minio_.connect_string();
     ASSERT_OK_AND_ASSIGN(fs_, S3FileSystem::Make(options_));
+  }
+
+  template <typename Matcher>
+  void AssertMetadataRoundtrip(const std::string& path,
+                               const std::shared_ptr<const KeyValueMetadata>& metadata,
+                               Matcher&& matcher) {
+    ASSERT_OK_AND_ASSIGN(auto output, fs_->OpenOutputStream(path, metadata));
+    ASSERT_OK(output->Close());
+    ASSERT_OK_AND_ASSIGN(auto input, fs_->OpenInputStream(path));
+    ASSERT_OK_AND_ASSIGN(auto got_metadata, input->ReadMetadata());
+    ASSERT_NE(got_metadata, nullptr);
+    ASSERT_THAT(got_metadata->sorted_pairs(), matcher);
   }
 
   void TestOpenOutputStream() {
@@ -462,12 +479,12 @@ class TestS3FS : public S3TestMixin {
     // Open file and then lose filesystem reference
     ASSERT_EQ(fs_.use_count(), 1);  // needed for test to work
     std::weak_ptr<S3FileSystem> weak_fs(fs_);
-    ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/newfile5"));
+    ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/newfile99"));
     fs_.reset();
-    ASSERT_FALSE(weak_fs.expired());
-    ASSERT_OK(stream->Write("some data"));
+    ASSERT_OK(stream->Write("some other data"));
     ASSERT_OK(stream->Close());
     ASSERT_TRUE(weak_fs.expired());
+    AssertObjectContents(client_.get(), "bucket", "newfile99", "some other data");
   }
 
   void TestOpenOutputStreamAbort() {
@@ -641,6 +658,34 @@ TEST_F(TestS3FS, GetFileInfoSelectorRecursive) {
   AssertFileInfo(infos[1], "bucket/somedir/subdir/subfile", FileType::File, 8);
 }
 
+TEST_F(TestS3FS, GetFileInfoGenerator) {
+  FileSelector select;
+  FileInfoVector infos;
+
+  // Root dir
+  select.base_dir = "";
+  CollectFileInfoGenerator(fs_->GetFileInfoGenerator(select), &infos);
+  ASSERT_EQ(infos.size(), 2);
+  SortInfos(&infos);
+  AssertFileInfo(infos[0], "bucket", FileType::Directory);
+  AssertFileInfo(infos[1], "empty-bucket", FileType::Directory);
+
+  // Root dir, recursive
+  select.recursive = true;
+  CollectFileInfoGenerator(fs_->GetFileInfoGenerator(select), &infos);
+  ASSERT_EQ(infos.size(), 7);
+  SortInfos(&infos);
+  AssertFileInfo(infos[0], "bucket", FileType::Directory);
+  AssertFileInfo(infos[1], "bucket/emptydir", FileType::Directory);
+  AssertFileInfo(infos[2], "bucket/somedir", FileType::Directory);
+  AssertFileInfo(infos[3], "bucket/somedir/subdir", FileType::Directory);
+  AssertFileInfo(infos[4], "bucket/somedir/subdir/subfile", FileType::File, 8);
+  AssertFileInfo(infos[5], "bucket/somefile", FileType::File, 9);
+  AssertFileInfo(infos[6], "empty-bucket", FileType::Directory);
+
+  // Non-root dir case is tested by generic tests
+}
+
 TEST_F(TestS3FS, CreateDir) {
   FileInfo st;
 
@@ -736,7 +781,9 @@ TEST_F(TestS3FS, CopyFile) {
   ASSERT_OK(fs_->CopyFile("bucket/somedir/subdir/subfile", "bucket/newfile"));
   AssertFileInfo(fs_.get(), "bucket/newfile", FileType::File, 8);
   AssertObjectContents(client_.get(), "bucket", "newfile", "sub data");
-
+  // ARROW-13048: URL-encoded paths
+  ASSERT_OK(fs_->CopyFile("bucket/somefile", "bucket/a=2/newfile"));
+  ASSERT_OK(fs_->CopyFile("bucket/a=2/newfile", "bucket/a=3/newfile"));
   // Nonexistent
   ASSERT_RAISES(IOError, fs_->CopyFile("bucket/nonexistent", "bucket/newfile2"));
   ASSERT_RAISES(IOError, fs_->CopyFile("nonexistent-bucket/somefile", "bucket/newfile2"));
@@ -758,6 +805,10 @@ TEST_F(TestS3FS, Move) {
   AssertObjectContents(client_.get(), "bucket", "newfile", "sub data");
   // Source was deleted
   AssertFileInfo(fs_.get(), "bucket/somedir/subdir/subfile", FileType::NotFound);
+
+  // ARROW-13048: URL-encoded paths
+  ASSERT_OK(fs_->Move("bucket/newfile", "bucket/a=2/newfile"));
+  ASSERT_OK(fs_->Move("bucket/a=2/newfile", "bucket/a=3/newfile"));
 
   // Nonexistent
   ASSERT_RAISES(IOError, fs_->Move("bucket/non-existent", "bucket/newfile2"));
@@ -802,11 +853,23 @@ TEST_F(TestS3FS, OpenInputStream) {
   std::weak_ptr<S3FileSystem> weak_fs(fs_);
   ASSERT_OK_AND_ASSIGN(stream, fs_->OpenInputStream("bucket/somefile"));
   fs_.reset();
-  ASSERT_FALSE(weak_fs.expired());
   ASSERT_OK_AND_ASSIGN(buf, stream->Read(10));
   AssertBufferEqual(*buf, "some data");
   ASSERT_OK(stream->Close());
   ASSERT_TRUE(weak_fs.expired());
+}
+
+TEST_F(TestS3FS, OpenInputStreamMetadata) {
+  std::shared_ptr<io::InputStream> stream;
+  std::shared_ptr<const KeyValueMetadata> metadata;
+
+  ASSERT_OK_AND_ASSIGN(stream, fs_->OpenInputStream("bucket/somefile"));
+  ASSERT_FINISHES_OK_AND_ASSIGN(metadata, stream->ReadMetadataAsync());
+
+  std::vector<std::pair<std::string, std::string>> expected_kv{
+      {"Content-Length", "9"}, {"Content-Type", "x-arrow/test"}};
+  ASSERT_NE(metadata, nullptr);
+  ASSERT_THAT(metadata->sorted_pairs(), testing::IsSupersetOf(expected_kv));
 }
 
 TEST_F(TestS3FS, OpenInputFile) {
@@ -877,6 +940,37 @@ TEST_F(TestS3FS, OpenOutputStreamDestructorSyncWrite) {
   TestOpenOutputStreamDestructor();
 }
 
+TEST_F(TestS3FS, OpenOutputStreamMetadata) {
+  std::shared_ptr<io::OutputStream> stream;
+
+  // Create new file with explicit metadata
+  auto metadata = KeyValueMetadata::Make({"Content-Type", "Expires"},
+                                         {"x-arrow/test6", "2016-02-05T20:08:35Z"});
+  AssertMetadataRoundtrip("bucket/mdfile1", metadata,
+                          testing::IsSupersetOf(metadata->sorted_pairs()));
+
+  // Create new file with valid canned ACL
+  // XXX: no easy way of testing the ACL actually gets set
+  metadata = KeyValueMetadata::Make({"ACL"}, {"authenticated-read"});
+  AssertMetadataRoundtrip("bucket/mdfile2", metadata, testing::_);
+
+  // Create new file with default metadata
+  auto default_metadata = KeyValueMetadata::Make({"Content-Type", "Content-Language"},
+                                                 {"image/png", "fr_FR"});
+  options_.default_metadata = default_metadata;
+  MakeFileSystem();
+  // (null, then empty metadata argument)
+  AssertMetadataRoundtrip("bucket/mdfile3", nullptr,
+                          testing::IsSupersetOf(default_metadata->sorted_pairs()));
+  AssertMetadataRoundtrip("bucket/mdfile4", KeyValueMetadata::Make({}, {}),
+                          testing::IsSupersetOf(default_metadata->sorted_pairs()));
+
+  // Create new file with explicit metadata replacing default metadata
+  metadata = KeyValueMetadata::Make({"Content-Type"}, {"x-arrow/test6"});
+  AssertMetadataRoundtrip("bucket/mdfile5", metadata,
+                          testing::IsSupersetOf(metadata->sorted_pairs()));
+}
+
 TEST_F(TestS3FS, FileSystemFromUri) {
   std::stringstream ss;
   ss << "s3://" << minio_.access_key() << ":" << minio_.secret_key()
@@ -929,6 +1023,7 @@ class TestS3FSGeneric : public S3TestMixin, public GenericFileSystemTest {
     return false;
 #endif
   }
+  bool have_file_metadata() const override { return true; }
 
   S3Options options_;
   std::shared_ptr<S3FileSystem> s3fs_;

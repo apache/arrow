@@ -20,6 +20,7 @@ import datetime
 import decimal
 import itertools
 import math
+import re
 
 import hypothesis as h
 import numpy as np
@@ -42,7 +43,7 @@ int_type_pairs = [
     (np.uint64, pa.uint64())]
 
 
-np_int_types, _ = zip(*int_type_pairs)
+np_int_types, pa_int_types = zip(*int_type_pairs)
 
 
 class StrangeIterable:
@@ -433,6 +434,14 @@ def test_unsigned_integer_overflow(bits):
         pa.array([-1], ty)
 
 
+@parametrize_with_iterable_types
+@pytest.mark.parametrize("typ", pa_int_types)
+def test_integer_from_string_error(seq, typ):
+    # ARROW-9451: pa.array(['1'], type=pa.uint32()) should not succeed
+    with pytest.raises(pa.ArrowInvalid):
+        pa.array(seq(['1']), type=typ)
+
+
 def test_convert_with_mask():
     data = [1, 2, 3, 4, 5]
     mask = np.array([False, True, False, False, True])
@@ -747,6 +756,7 @@ def test_large_binary_array(ty):
     assert len(arr) == nrepeats
 
 
+@pytest.mark.slow
 @pytest.mark.large_memory
 @pytest.mark.parametrize("ty", [pa.large_binary(), pa.large_string()])
 def test_large_binary_value(ty):
@@ -1492,6 +1502,84 @@ def test_sequence_decimal_too_high_precision():
         pa.array([decimal.Decimal('1' * 80)])
 
 
+def test_sequence_decimal_infer():
+    for data, typ in [
+        # simple case
+        (decimal.Decimal('1.234'), pa.decimal128(4, 3)),
+        # trailing zeros
+        (decimal.Decimal('12300'), pa.decimal128(5, 0)),
+        (decimal.Decimal('12300.0'), pa.decimal128(6, 1)),
+        # scientific power notation
+        (decimal.Decimal('1.23E+4'), pa.decimal128(5, 0)),
+        (decimal.Decimal('123E+2'), pa.decimal128(5, 0)),
+        (decimal.Decimal('123E+4'), pa.decimal128(7, 0)),
+        # leading zeros
+        (decimal.Decimal('0.0123'), pa.decimal128(4, 4)),
+        (decimal.Decimal('0.01230'), pa.decimal128(5, 5)),
+        (decimal.Decimal('1.230E-2'), pa.decimal128(5, 5)),
+    ]:
+        assert pa.infer_type([data]) == typ
+        arr = pa.array([data])
+        assert arr.type == typ
+        assert arr.to_pylist()[0] == data
+
+
+def test_sequence_decimal_infer_mixed():
+    # ARROW-12150 - ensure mixed precision gets correctly inferred to
+    # common type that can hold all input values
+    cases = [
+        ([decimal.Decimal('1.234'), decimal.Decimal('3.456')],
+         pa.decimal128(4, 3)),
+        ([decimal.Decimal('1.234'), decimal.Decimal('456.7')],
+         pa.decimal128(6, 3)),
+        ([decimal.Decimal('123.4'), decimal.Decimal('4.567')],
+         pa.decimal128(6, 3)),
+        ([decimal.Decimal('123e2'), decimal.Decimal('4567e3')],
+         pa.decimal128(7, 0)),
+        ([decimal.Decimal('123e4'), decimal.Decimal('4567e2')],
+         pa.decimal128(7, 0)),
+        ([decimal.Decimal('0.123'), decimal.Decimal('0.04567')],
+         pa.decimal128(5, 5)),
+        ([decimal.Decimal('0.001'), decimal.Decimal('1.01E5')],
+         pa.decimal128(9, 3)),
+    ]
+    for data, typ in cases:
+        assert pa.infer_type(data) == typ
+        arr = pa.array(data)
+        assert arr.type == typ
+        assert arr.to_pylist() == data
+
+
+def test_sequence_decimal_given_type():
+    for data, typs, wrong_typs in [
+        # simple case
+        (
+            decimal.Decimal('1.234'),
+            [pa.decimal128(4, 3), pa.decimal128(5, 3), pa.decimal128(5, 4)],
+            [pa.decimal128(4, 2), pa.decimal128(4, 4)]
+        ),
+        # trailing zeros
+        (
+            decimal.Decimal('12300'),
+            [pa.decimal128(5, 0), pa.decimal128(6, 0), pa.decimal128(3, -2)],
+            [pa.decimal128(4, 0), pa.decimal128(3, -3)]
+        ),
+        # scientific power notation
+        (
+            decimal.Decimal('1.23E+4'),
+            [pa.decimal128(5, 0), pa.decimal128(6, 0), pa.decimal128(3, -2)],
+            [pa.decimal128(4, 0), pa.decimal128(3, -3)]
+        ),
+    ]:
+        for typ in typs:
+            arr = pa.array([data], type=typ)
+            assert arr.type == typ
+            assert arr.to_pylist()[0] == data
+        for typ in wrong_typs:
+            with pytest.raises(ValueError):
+                pa.array([data], type=typ)
+
+
 def test_range_types():
     arr1 = pa.array(range(3))
     arr2 = pa.array((0, 1, 2))
@@ -1684,7 +1772,7 @@ def test_struct_from_list_of_pairs_errors():
     # type inference
     template = (
         r"Could not convert {} with type {}: was expecting tuple of "
-        r"\(key, value\) pair"
+        r"(key, value) pair"
     )
     cases = [
         tuple(),  # empty key-value pair
@@ -1693,10 +1781,9 @@ def test_struct_from_list_of_pairs_errors():
         'string',  # not a tuple
     ]
     for key_value_pair in cases:
-        msg = template.format(
-            str(key_value_pair).replace('(', r'\(').replace(')', r'\)'),
-            type(key_value_pair).__name__
-        )
+        msg = re.escape(template.format(
+            repr(key_value_pair), type(key_value_pair).__name__
+        ))
 
         with pytest.raises(TypeError, match=msg):
             pa.array([
@@ -2083,7 +2170,6 @@ def test_auto_chunking_list_of_binary():
     assert arr.chunk(1).to_pylist() == [['x' * 1024]] * 2
 
 
-@pytest.mark.slow
 @pytest.mark.large_memory
 def test_auto_chunking_list_like():
     item = np.ones((2**28,), dtype='uint8')
@@ -2099,7 +2185,11 @@ def test_auto_chunking_list_like():
     assert arr.num_chunks == 2
     assert len(arr.chunk(0)) == 7
     assert len(arr.chunk(1)) == 1
-    assert arr.chunk(1)[0].as_py() == list(item)
+    chunk = arr.chunk(1)
+    scalar = chunk[0]
+    assert isinstance(scalar, pa.ListScalar)
+    expected = pa.array(item, type=pa.uint8())
+    assert scalar.values == expected
 
 
 @pytest.mark.slow
@@ -2146,3 +2236,49 @@ def test_nested_auto_chunking(ty, char):
         'integer': 1,
         'string-like': char
     }
+
+
+@pytest.mark.large_memory
+def test_array_from_pylist_data_overflow():
+    # Regression test for ARROW-12983
+    # Data buffer overflow - should result in chunked array
+    items = [b'a' * 4096] * (2 ** 19)
+    arr = pa.array(items, type=pa.string())
+    assert isinstance(arr, pa.ChunkedArray)
+    assert len(arr) == 2**19
+    assert len(arr.chunks) > 1
+
+    mask = np.zeros(2**19, bool)
+    arr = pa.array(items, mask=mask, type=pa.string())
+    assert isinstance(arr, pa.ChunkedArray)
+    assert len(arr) == 2**19
+    assert len(arr.chunks) > 1
+
+    arr = pa.array(items, type=pa.binary())
+    assert isinstance(arr, pa.ChunkedArray)
+    assert len(arr) == 2**19
+    assert len(arr.chunks) > 1
+
+
+@pytest.mark.slow
+@pytest.mark.large_memory
+def test_array_from_pylist_offset_overflow():
+    # Regression test for ARROW-12983
+    # Offset buffer overflow - should result in chunked array
+    # Note this doesn't apply to primitive arrays
+    items = [b'a'] * (2 ** 31)
+    arr = pa.array(items, type=pa.string())
+    assert isinstance(arr, pa.ChunkedArray)
+    assert len(arr) == 2**31
+    assert len(arr.chunks) > 1
+
+    mask = np.zeros(2**31, bool)
+    arr = pa.array(items, mask=mask, type=pa.string())
+    assert isinstance(arr, pa.ChunkedArray)
+    assert len(arr) == 2**31
+    assert len(arr.chunks) > 1
+
+    arr = pa.array(items, type=pa.binary())
+    assert isinstance(arr, pa.ChunkedArray)
+    assert len(arr) == 2**31
+    assert len(arr.chunks) > 1

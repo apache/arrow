@@ -60,6 +60,16 @@ public interface BaseReader extends Positionable{
     int size();
     void copyAsValue(ListWriter writer);
   }
+
+  public interface MapReader extends BaseReader{
+    FieldReader reader();
+  }
+
+  public interface RepeatedMapReader extends MapReader{
+    boolean next();
+    int size();
+    void copyAsValue(MapWriter writer);
+  }
   
   public interface ScalarReader extends  
   <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first /> ${name}Reader, </#list></#list> 

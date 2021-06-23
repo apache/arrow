@@ -104,6 +104,11 @@ def test_default_backend_name():
     assert pool.backend_name in possible_backends
 
 
+def test_release_unused():
+    pool = pa.default_memory_pool()
+    pool.release_unused()
+
+
 def check_env_var(name, expected, *, expect_warning=False):
     code = f"""if 1:
         import pyarrow as pa

@@ -37,8 +37,27 @@ struct _GGandivaExpressionClass
   GObjectClass parent_class;
 };
 
-GGandivaExpression *ggandiva_expression_new(GGandivaNode *root_node,
-                                            GArrowField *result_field);
+GGandivaExpression *
+ggandiva_expression_new(GGandivaNode *root_node,
+                        GArrowField *result_field);
 gchar *ggandiva_expression_to_string(GGandivaExpression *expression);
+
+
+#define GGANDIVA_TYPE_CONDITION (ggandiva_condition_get_type())
+G_DECLARE_DERIVABLE_TYPE(GGandivaCondition,
+                         ggandiva_condition,
+                         GGANDIVA,
+                         CONDITION,
+                         GGandivaExpression)
+
+struct _GGandivaConditionClass
+{
+  GGandivaExpressionClass parent_class;
+};
+
+GGANDIVA_AVAILABLE_IN_4_0
+GGandivaCondition *
+ggandiva_condition_new(GGandivaNode *root_node);
+
 
 G_END_DECLS

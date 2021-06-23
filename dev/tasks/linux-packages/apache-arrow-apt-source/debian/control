@@ -1,0 +1,23 @@
+Source: apache-arrow-apt-source
+Section: misc
+Priority: important
+Maintainer: Apache Arrow Developers <dev@arrow.apache.org>
+Build-Depends:
+  debhelper (>= 9),
+  gnupg,
+  lsb-release
+Standards-Version: 3.9.7
+Homepage: https://arrow.apache.org/
+
+Package: apache-arrow-apt-source
+Section: misc
+Architecture: all
+Replaces: apache-arrow-archive-keyring
+Breaks: apache-arrow-archive-keyring
+Depends:
+  ${misc:Depends},
+  apt-transport-https,
+  gnupg
+Description: GnuPG archive key of the Apache Arrow archive
+ The Apache Arrow project digitally signs its Release files. This
+ package contains the archive key used for that.

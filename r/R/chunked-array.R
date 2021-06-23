@@ -41,12 +41,14 @@
 #'    coerced to an R vector before taking.
 #' - `$Filter(i, keep_na = TRUE)`: return a `ChunkedArray` with values at positions where
 #'    logical vector or Arrow boolean-type `(Chunked)Array` `i` is `TRUE`.
+#' - `$SortIndices(descending = FALSE)`: return an `Array` of integer positions that can be
+#'    used to rearrange the `ChunkedArray` in ascending or descending order
 #' - `$cast(target_type, safe = TRUE, options = cast_options(safe))`: Alter the
 #'    data in the array to change its type.
-#' - `$null_count()`: The number of null entries in the array
-#' - `$chunks()`: return a list of `Array`s
-#' - `$num_chunks()`: integer number of chunks in the `ChunkedArray`
-#' - `$type()`: logical type of data
+#' - `$null_count`: The number of null entries in the array
+#' - `$chunks`: return a list of `Array`s
+#' - `$num_chunks`: integer number of chunks in the `ChunkedArray`
+#' - `$type`: logical type of data
 #' - `$View(type)`: Construct a zero-copy view of this `ChunkedArray` with the
 #'    given type.
 #' - `$Validate()`: Perform any validation checks to determine obvious inconsistencies
@@ -55,13 +57,33 @@
 #' @rdname ChunkedArray
 #' @name ChunkedArray
 #' @seealso [Array]
+#' @examplesIf arrow_available()
+#' # Pass items into chunked_array as separate objects to create chunks
+#' class_scores <- chunked_array(c(87, 88, 89), c(94, 93, 92), c(71, 72, 73))
+#' class_scores$num_chunks
+#' 
+#' # When taking a Slice from a chunked_array, chunks are preserved
+#' class_scores$Slice(2, length = 5)
+#' 
+#' # You can combine Take and SortIndices to return a ChunkedArray with 1 chunk 
+#' # containing all values, ordered.
+#' class_scores$Take(class_scores$SortIndices(descending = TRUE))
+#' 
+#' # If you pass a list into chunked_array, you get a list of length 1
+#' list_scores <- chunked_array(list(c(9.9, 9.6, 9.5), c(8.2, 8.3, 8.4), c(10.0, 9.9, 9.8)))
+#' list_scores$num_chunks
+#' 
+#' # When constructing a ChunkedArray, the first chunk is used to infer type.
+#' doubles <- chunked_array(c(1, 2, 3), c(5L, 6L, 7L))
+#' doubles$type
 #' @export
 ChunkedArray <- R6Class("ChunkedArray", inherit = ArrowDatum,
   public = list(
     length = function() ChunkedArray__length(self),
+    type_id = function() ChunkedArray__type(self)$id,
     chunk = function(i) Array$create(ChunkedArray__chunk(self, i)),
     as_vector = function() ChunkedArray__as_vector(self),
-    Slice = function(offset, length = NULL){
+    Slice = function(offset, length = NULL) {
       if (is.null(length)) {
         ChunkedArray__Slice1(self, offset)
       } else {
@@ -82,6 +104,18 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = ArrowDatum,
         i <- Array$create(i)
       }
       call_function("filter", self, i, options = list(keep_na = keep_na))
+    },
+    SortIndices = function(descending = FALSE) {
+      assert_that(is.logical(descending))
+      assert_that(length(descending) == 1L)
+      assert_that(!is.na(descending))
+      # TODO: after ARROW-12042 is closed, review whether this and the
+      # Array$SortIndices definition can be consolidated
+      call_function(
+        "sort_indices",
+        self,
+        options = list(names = "", orders = as.integer(descending))
+      )
     },
     View = function(type) {
       ChunkedArray__View(self, as_type(type))

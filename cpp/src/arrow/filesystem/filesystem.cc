@@ -32,18 +32,24 @@
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/util_internal.h"
 #include "arrow/io/slow.h"
+#include "arrow/io/util_internal.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/parallel.h"
 #include "arrow/util/uri.h"
+#include "arrow/util/vector.h"
 #include "arrow/util/windows_fixup.h"
 
 namespace arrow {
 
+using internal::checked_pointer_cast;
+using internal::TaskHints;
 using internal::Uri;
+using io::internal::SubmitIO;
 
 namespace fs {
 
@@ -132,6 +138,36 @@ Result<std::vector<FileInfo>> FileSystem::GetFileInfo(
   return res;
 }
 
+namespace {
+
+template <typename DeferredFunc>
+auto FileSystemDefer(FileSystem* fs, bool synchronous, DeferredFunc&& func)
+    -> decltype(DeferNotOk(
+        fs->io_context().executor()->Submit(func, std::shared_ptr<FileSystem>{}))) {
+  auto self = fs->shared_from_this();
+  if (synchronous) {
+    return std::forward<DeferredFunc>(func)(std::move(self));
+  }
+  return DeferNotOk(io::internal::SubmitIO(
+      fs->io_context(), std::forward<DeferredFunc>(func), std::move(self)));
+}
+
+}  // namespace
+
+Future<std::vector<FileInfo>> FileSystem::GetFileInfoAsync(
+    const std::vector<std::string>& paths) {
+  return FileSystemDefer(
+      this, default_async_is_sync_,
+      [paths](std::shared_ptr<FileSystem> self) { return self->GetFileInfo(paths); });
+}
+
+FileInfoGenerator FileSystem::GetFileInfoGenerator(const FileSelector& select) {
+  auto fut = FileSystemDefer(
+      this, default_async_is_sync_,
+      [select](std::shared_ptr<FileSystem> self) { return self->GetFileInfo(select); });
+  return MakeSingleFutureGenerator(std::move(fut));
+}
+
 Status FileSystem::DeleteFiles(const std::vector<std::string>& paths) {
   Status st = Status::OK();
   for (const auto& path : paths) {
@@ -140,26 +176,70 @@ Status FileSystem::DeleteFiles(const std::vector<std::string>& paths) {
   return st;
 }
 
-Result<std::shared_ptr<io::InputStream>> FileSystem::OpenInputStream(
-    const FileInfo& info) {
+namespace {
+
+Status ValidateInputFileInfo(const FileInfo& info) {
   if (info.type() == FileType::NotFound) {
     return internal::PathNotFound(info.path());
   }
   if (info.type() != FileType::File && info.type() != FileType::Unknown) {
     return internal::NotAFile(info.path());
   }
+  return Status::OK();
+}
+
+}  // namespace
+
+Result<std::shared_ptr<io::InputStream>> FileSystem::OpenInputStream(
+    const FileInfo& info) {
+  RETURN_NOT_OK(ValidateInputFileInfo(info));
   return OpenInputStream(info.path());
 }
 
 Result<std::shared_ptr<io::RandomAccessFile>> FileSystem::OpenInputFile(
     const FileInfo& info) {
-  if (info.type() == FileType::NotFound) {
-    return internal::PathNotFound(info.path());
-  }
-  if (info.type() != FileType::File && info.type() != FileType::Unknown) {
-    return internal::NotAFile(info.path());
-  }
+  RETURN_NOT_OK(ValidateInputFileInfo(info));
   return OpenInputFile(info.path());
+}
+
+Future<std::shared_ptr<io::InputStream>> FileSystem::OpenInputStreamAsync(
+    const std::string& path) {
+  return FileSystemDefer(
+      this, default_async_is_sync_,
+      [path](std::shared_ptr<FileSystem> self) { return self->OpenInputStream(path); });
+}
+
+Future<std::shared_ptr<io::InputStream>> FileSystem::OpenInputStreamAsync(
+    const FileInfo& info) {
+  RETURN_NOT_OK(ValidateInputFileInfo(info));
+  return FileSystemDefer(
+      this, default_async_is_sync_,
+      [info](std::shared_ptr<FileSystem> self) { return self->OpenInputStream(info); });
+}
+
+Future<std::shared_ptr<io::RandomAccessFile>> FileSystem::OpenInputFileAsync(
+    const std::string& path) {
+  return FileSystemDefer(
+      this, default_async_is_sync_,
+      [path](std::shared_ptr<FileSystem> self) { return self->OpenInputFile(path); });
+}
+
+Future<std::shared_ptr<io::RandomAccessFile>> FileSystem::OpenInputFileAsync(
+    const FileInfo& info) {
+  RETURN_NOT_OK(ValidateInputFileInfo(info));
+  return FileSystemDefer(
+      this, default_async_is_sync_,
+      [info](std::shared_ptr<FileSystem> self) { return self->OpenInputFile(info); });
+}
+
+Result<std::shared_ptr<io::OutputStream>> FileSystem::OpenOutputStream(
+    const std::string& path) {
+  return OpenOutputStream(path, std::shared_ptr<const KeyValueMetadata>{});
+}
+
+Result<std::shared_ptr<io::OutputStream>> FileSystem::OpenAppendStream(
+    const std::string& path) {
+  return OpenAppendStream(path, std::shared_ptr<const KeyValueMetadata>{});
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -167,7 +247,9 @@ Result<std::shared_ptr<io::RandomAccessFile>> FileSystem::OpenInputFile(
 
 SubTreeFileSystem::SubTreeFileSystem(const std::string& base_path,
                                      std::shared_ptr<FileSystem> base_fs)
-    : base_path_(NormalizeBasePath(base_path, base_fs).ValueOrDie()), base_fs_(base_fs) {}
+    : FileSystem(base_fs->io_context()),
+      base_path_(NormalizeBasePath(base_path, base_fs).ValueOrDie()),
+      base_fs_(base_fs) {}
 
 SubTreeFileSystem::~SubTreeFileSystem() {}
 
@@ -243,6 +325,23 @@ Result<std::vector<FileInfo>> SubTreeFileSystem::GetFileInfo(const FileSelector&
   return infos;
 }
 
+FileInfoGenerator SubTreeFileSystem::GetFileInfoGenerator(const FileSelector& select) {
+  auto selector = select;
+  selector.base_dir = PrependBase(selector.base_dir);
+  auto gen = base_fs_->GetFileInfoGenerator(selector);
+
+  auto self = checked_pointer_cast<SubTreeFileSystem>(shared_from_this());
+
+  std::function<Result<std::vector<FileInfo>>(const std::vector<FileInfo>& infos)>
+      fix_infos = [self](std::vector<FileInfo> infos) -> Result<std::vector<FileInfo>> {
+    for (auto& info : infos) {
+      RETURN_NOT_OK(self->FixInfo(&info));
+    }
+    return infos;
+  };
+  return MakeMappedGenerator(gen, fix_infos);
+}
+
 Status SubTreeFileSystem::CreateDir(const std::string& path, bool recursive) {
   auto s = path;
   RETURN_NOT_OK(PrependBaseNonEmpty(&s));
@@ -309,6 +408,22 @@ Result<std::shared_ptr<io::InputStream>> SubTreeFileSystem::OpenInputStream(
   return base_fs_->OpenInputStream(new_info);
 }
 
+Future<std::shared_ptr<io::InputStream>> SubTreeFileSystem::OpenInputStreamAsync(
+    const std::string& path) {
+  auto s = path;
+  RETURN_NOT_OK(PrependBaseNonEmpty(&s));
+  return base_fs_->OpenInputStreamAsync(s);
+}
+
+Future<std::shared_ptr<io::InputStream>> SubTreeFileSystem::OpenInputStreamAsync(
+    const FileInfo& info) {
+  auto s = info.path();
+  RETURN_NOT_OK(PrependBaseNonEmpty(&s));
+  FileInfo new_info(info);
+  new_info.set_path(std::move(s));
+  return base_fs_->OpenInputStreamAsync(new_info);
+}
+
 Result<std::shared_ptr<io::RandomAccessFile>> SubTreeFileSystem::OpenInputFile(
     const std::string& path) {
   auto s = path;
@@ -325,18 +440,34 @@ Result<std::shared_ptr<io::RandomAccessFile>> SubTreeFileSystem::OpenInputFile(
   return base_fs_->OpenInputFile(new_info);
 }
 
-Result<std::shared_ptr<io::OutputStream>> SubTreeFileSystem::OpenOutputStream(
+Future<std::shared_ptr<io::RandomAccessFile>> SubTreeFileSystem::OpenInputFileAsync(
     const std::string& path) {
   auto s = path;
   RETURN_NOT_OK(PrependBaseNonEmpty(&s));
-  return base_fs_->OpenOutputStream(s);
+  return base_fs_->OpenInputFileAsync(s);
+}
+
+Future<std::shared_ptr<io::RandomAccessFile>> SubTreeFileSystem::OpenInputFileAsync(
+    const FileInfo& info) {
+  auto s = info.path();
+  RETURN_NOT_OK(PrependBaseNonEmpty(&s));
+  FileInfo new_info(info);
+  new_info.set_path(std::move(s));
+  return base_fs_->OpenInputFileAsync(new_info);
+}
+
+Result<std::shared_ptr<io::OutputStream>> SubTreeFileSystem::OpenOutputStream(
+    const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
+  auto s = path;
+  RETURN_NOT_OK(PrependBaseNonEmpty(&s));
+  return base_fs_->OpenOutputStream(s, metadata);
 }
 
 Result<std::shared_ptr<io::OutputStream>> SubTreeFileSystem::OpenAppendStream(
-    const std::string& path) {
+    const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
   auto s = path;
   RETURN_NOT_OK(PrependBaseNonEmpty(&s));
-  return base_fs_->OpenAppendStream(s);
+  return base_fs_->OpenAppendStream(s, metadata);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -344,15 +475,19 @@ Result<std::shared_ptr<io::OutputStream>> SubTreeFileSystem::OpenAppendStream(
 
 SlowFileSystem::SlowFileSystem(std::shared_ptr<FileSystem> base_fs,
                                std::shared_ptr<io::LatencyGenerator> latencies)
-    : base_fs_(base_fs), latencies_(latencies) {}
+    : FileSystem(base_fs->io_context()), base_fs_(base_fs), latencies_(latencies) {}
 
 SlowFileSystem::SlowFileSystem(std::shared_ptr<FileSystem> base_fs,
                                double average_latency)
-    : base_fs_(base_fs), latencies_(io::LatencyGenerator::Make(average_latency)) {}
+    : FileSystem(base_fs->io_context()),
+      base_fs_(base_fs),
+      latencies_(io::LatencyGenerator::Make(average_latency)) {}
 
 SlowFileSystem::SlowFileSystem(std::shared_ptr<FileSystem> base_fs,
                                double average_latency, int32_t seed)
-    : base_fs_(base_fs), latencies_(io::LatencyGenerator::Make(average_latency, seed)) {}
+    : FileSystem(base_fs->io_context()),
+      base_fs_(base_fs),
+      latencies_(io::LatencyGenerator::Make(average_latency, seed)) {}
 
 bool SlowFileSystem::Equals(const FileSystem& other) const { return this == &other; }
 
@@ -430,47 +565,51 @@ Result<std::shared_ptr<io::RandomAccessFile>> SlowFileSystem::OpenInputFile(
 }
 
 Result<std::shared_ptr<io::OutputStream>> SlowFileSystem::OpenOutputStream(
-    const std::string& path) {
+    const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
   latencies_->Sleep();
   // XXX Should we have a SlowOutputStream that waits on Flush() and Close()?
-  return base_fs_->OpenOutputStream(path);
+  return base_fs_->OpenOutputStream(path, metadata);
 }
 
 Result<std::shared_ptr<io::OutputStream>> SlowFileSystem::OpenAppendStream(
-    const std::string& path) {
+    const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
   latencies_->Sleep();
-  return base_fs_->OpenAppendStream(path);
+  return base_fs_->OpenAppendStream(path, metadata);
 }
 
 Status CopyFiles(const std::vector<FileLocator>& sources,
-                 const std::vector<FileLocator>& destinations, int64_t chunk_size,
-                 bool use_threads) {
+                 const std::vector<FileLocator>& destinations,
+                 const io::IOContext& io_context, int64_t chunk_size, bool use_threads) {
   if (sources.size() != destinations.size()) {
     return Status::Invalid("Trying to copy ", sources.size(), " files into ",
                            destinations.size(), " paths.");
   }
 
+  auto copy_one_file = [&](int i) {
+    if (sources[i].filesystem->Equals(destinations[i].filesystem)) {
+      return sources[i].filesystem->CopyFile(sources[i].path, destinations[i].path);
+    }
+
+    ARROW_ASSIGN_OR_RAISE(auto source,
+                          sources[i].filesystem->OpenInputStream(sources[i].path));
+    ARROW_ASSIGN_OR_RAISE(const auto metadata, source->ReadMetadata());
+
+    ARROW_ASSIGN_OR_RAISE(auto destination, destinations[i].filesystem->OpenOutputStream(
+                                                destinations[i].path, metadata));
+    RETURN_NOT_OK(internal::CopyStream(source, destination, chunk_size, io_context));
+    return destination->Close();
+  };
+
   return ::arrow::internal::OptionalParallelFor(
-      use_threads, static_cast<int>(sources.size()), [&](int i) {
-        if (sources[i].filesystem->Equals(destinations[i].filesystem)) {
-          return sources[i].filesystem->CopyFile(sources[i].path, destinations[i].path);
-        }
-
-        ARROW_ASSIGN_OR_RAISE(auto source,
-                              sources[i].filesystem->OpenInputStream(sources[i].path));
-
-        ARROW_ASSIGN_OR_RAISE(
-            auto destination,
-            destinations[i].filesystem->OpenOutputStream(destinations[i].path));
-        return internal::CopyStream(source, destination, chunk_size);
-      });
+      use_threads, static_cast<int>(sources.size()), std::move(copy_one_file),
+      io_context.executor());
 }
 
 Status CopyFiles(const std::shared_ptr<FileSystem>& source_fs,
                  const FileSelector& source_sel,
                  const std::shared_ptr<FileSystem>& destination_fs,
-                 const std::string& destination_base_dir, int64_t chunk_size,
-                 bool use_threads) {
+                 const std::string& destination_base_dir, const io::IOContext& io_context,
+                 int64_t chunk_size, bool use_threads) {
   ARROW_ASSIGN_OR_RAISE(auto source_infos, source_fs->GetFileInfo(source_sel));
   if (source_infos.empty()) {
     return Status::OK();
@@ -497,12 +636,14 @@ Status CopyFiles(const std::shared_ptr<FileSystem>& source_fs,
     }
   }
 
+  auto create_one_dir = [&](int i) { return destination_fs->CreateDir(dirs[i]); };
+
   dirs = internal::MinimalCreateDirSet(std::move(dirs));
   RETURN_NOT_OK(::arrow::internal::OptionalParallelFor(
-      use_threads, static_cast<int>(dirs.size()),
-      [&](int i) { return destination_fs->CreateDir(dirs[i]); }));
+      use_threads, static_cast<int>(dirs.size()), std::move(create_one_dir),
+      io_context.executor()));
 
-  return CopyFiles(sources, destinations, chunk_size, use_threads);
+  return CopyFiles(sources, destinations, io_context, chunk_size, use_threads);
 }
 
 namespace {
@@ -526,6 +667,7 @@ Result<Uri> ParseFileSystemUri(const std::string& uri_string) {
 
 Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
                                                           const std::string& uri_string,
+                                                          const io::IOContext& io_context,
                                                           std::string* out_path) {
   const auto scheme = uri.scheme();
 
@@ -535,7 +677,7 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
     if (out_path != nullptr) {
       *out_path = path;
     }
-    return std::make_shared<LocalFileSystem>(options);
+    return std::make_shared<LocalFileSystem>(options, io_context);
   }
   if (scheme == "hdfs" || scheme == "viewfs") {
 #ifdef ARROW_HDFS
@@ -543,7 +685,7 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
     if (out_path != nullptr) {
       *out_path = uri.path();
     }
-    ARROW_ASSIGN_OR_RAISE(auto hdfs, HadoopFileSystem::Make(options));
+    ARROW_ASSIGN_OR_RAISE(auto hdfs, HadoopFileSystem::Make(options, io_context));
     return hdfs;
 #else
     return Status::NotImplemented("Got HDFS URI but Arrow compiled without HDFS support");
@@ -553,7 +695,7 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
 #ifdef ARROW_S3
     RETURN_NOT_OK(EnsureS3Initialized());
     ARROW_ASSIGN_OR_RAISE(auto options, S3Options::FromUri(uri, out_path));
-    ARROW_ASSIGN_OR_RAISE(auto s3fs, S3FileSystem::Make(options));
+    ARROW_ASSIGN_OR_RAISE(auto s3fs, S3FileSystem::Make(options, io_context));
     return s3fs;
 #else
     return Status::NotImplemented("Got S3 URI but Arrow compiled without S3 support");
@@ -566,7 +708,8 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
     if (out_path != nullptr) {
       *out_path = std::string(RemoveLeadingSlash(uri.path()));
     }
-    return std::make_shared<internal::MockFileSystem>(internal::CurrentTimePoint());
+    return std::make_shared<internal::MockFileSystem>(internal::CurrentTimePoint(),
+                                                      io_context);
   }
 
   return Status::Invalid("Unrecognized filesystem type in URI: ", uri_string);
@@ -576,12 +719,24 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
 
 Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri_string,
                                                       std::string* out_path) {
+  return FileSystemFromUri(uri_string, io::default_io_context(), out_path);
+}
+
+Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri_string,
+                                                      const io::IOContext& io_context,
+                                                      std::string* out_path) {
   ARROW_ASSIGN_OR_RAISE(auto fsuri, ParseFileSystemUri(uri_string));
-  return FileSystemFromUriReal(fsuri, uri_string, out_path);
+  return FileSystemFromUriReal(fsuri, uri_string, io_context, out_path);
 }
 
 Result<std::shared_ptr<FileSystem>> FileSystemFromUriOrPath(const std::string& uri_string,
                                                             std::string* out_path) {
+  return FileSystemFromUriOrPath(uri_string, io::default_io_context(), out_path);
+}
+
+Result<std::shared_ptr<FileSystem>> FileSystemFromUriOrPath(
+    const std::string& uri_string, const io::IOContext& io_context,
+    std::string* out_path) {
   if (internal::DetectAbsolutePath(uri_string)) {
     // Normalize path separators
     if (out_path != nullptr) {
@@ -589,7 +744,7 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriOrPath(const std::string& u
     }
     return std::make_shared<LocalFileSystem>();
   }
-  return FileSystemFromUri(uri_string, out_path);
+  return FileSystemFromUri(uri_string, io_context, out_path);
 }
 
 Status FileSystemFromUri(const std::string& uri, std::shared_ptr<FileSystem>* out_fs,

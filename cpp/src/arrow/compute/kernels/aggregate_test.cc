@@ -27,19 +27,26 @@
 #include "arrow/array.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api_aggregate.h"
+#include "arrow/compute/api_scalar.h"
+#include "arrow/compute/api_vector.h"
+#include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
 #include "arrow/compute/kernels/test_util.h"
+#include "arrow/compute/registry.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/int_util_internal.h"
 
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 
+using internal::BitmapReader;
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
@@ -65,8 +72,7 @@ static SumResult<ArrowType> NaiveSumPartial(const Array& array) {
   const auto values = array_numeric.raw_values();
 
   if (array.null_count() != 0) {
-    internal::BitmapReader reader(array.null_bitmap_data(), array.offset(),
-                                  array.length());
+    BitmapReader reader(array.null_bitmap_data(), array.offset(), array.length());
     for (int64_t i = 0; i < array.length(); i++) {
       if (reader.IsSet()) {
         result.first += values[i];
@@ -98,71 +104,129 @@ static Datum NaiveSum(const Array& array) {
 }
 
 template <typename ArrowType>
-void ValidateSum(const Array& input, Datum expected) {
+void ValidateSum(
+    const Array& input, Datum expected,
+    const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults()) {
   using OutputType = typename FindAccumulatorType<ArrowType>::Type;
 
-  ASSERT_OK_AND_ASSIGN(Datum result, Sum(input));
+  ASSERT_OK_AND_ASSIGN(Datum result, Sum(input, options));
   DatumEqual<OutputType>::EnsureEqual(result, expected);
 }
 
 template <typename ArrowType>
-void ValidateSum(const std::shared_ptr<ChunkedArray>& input, Datum expected) {
+void ValidateSum(const std::shared_ptr<ChunkedArray>& input, Datum expected,
+                 const ScalarAggregateOptions& options) {
   using OutputType = typename FindAccumulatorType<ArrowType>::Type;
 
-  ASSERT_OK_AND_ASSIGN(Datum result, Sum(input));
+  ASSERT_OK_AND_ASSIGN(Datum result, Sum(input, options));
   DatumEqual<OutputType>::EnsureEqual(result, expected);
 }
 
 template <typename ArrowType>
-void ValidateSum(const char* json, Datum expected) {
+void ValidateSum(
+    const char* json, Datum expected,
+    const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults()) {
   auto array = ArrayFromJSON(TypeTraits<ArrowType>::type_singleton(), json);
-  ValidateSum<ArrowType>(*array, expected);
+  ValidateSum<ArrowType>(*array, expected, options);
 }
 
 template <typename ArrowType>
-void ValidateSum(const std::vector<std::string>& json, Datum expected) {
+void ValidateSum(
+    const std::vector<std::string>& json, Datum expected,
+    const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults()) {
   auto array = ChunkedArrayFromJSON(TypeTraits<ArrowType>::type_singleton(), json);
-  ValidateSum<ArrowType>(array, expected);
+  ValidateSum<ArrowType>(array, expected, options);
 }
 
 template <typename ArrowType>
-void ValidateSum(const Array& array) {
-  ValidateSum<ArrowType>(array, NaiveSum<ArrowType>(array));
+void ValidateSum(const Array& array, const ScalarAggregateOptions& options =
+                                         ScalarAggregateOptions::Defaults()) {
+  ValidateSum<ArrowType>(array, NaiveSum<ArrowType>(array), options);
 }
 
-using UnaryOp = Result<Datum>(const Datum&, ExecContext*);
+using UnaryOp = Result<Datum>(const Datum&, const ScalarAggregateOptions&, ExecContext*);
 
-template <UnaryOp& Op, typename ScalarType>
+template <UnaryOp& Op, typename ScalarAggregateOptions, typename ScalarType>
 void ValidateBooleanAgg(const std::string& json,
-                        const std::shared_ptr<ScalarType>& expected) {
+                        const std::shared_ptr<ScalarType>& expected,
+                        const ScalarAggregateOptions& options) {
   auto array = ArrayFromJSON(boolean(), json);
-  auto exp = Datum(expected);
-  ASSERT_OK_AND_ASSIGN(Datum result, Op(array, nullptr));
-  ASSERT_TRUE(result.Equals(exp));
+  ASSERT_OK_AND_ASSIGN(Datum result, Op(array, options, nullptr));
+
+  const auto& exp = Datum(expected);
+  const auto& res = checked_pointer_cast<ScalarType>(result.scalar());
+  if (!(std::isnan((double)res->value) && std::isnan((double)expected->value))) {
+    ASSERT_TRUE(result.Equals(exp));
+  }
 }
 
 TEST(TestBooleanAggregation, Sum) {
-  ValidateBooleanAgg<Sum>("[]", std::make_shared<UInt64Scalar>());
-  ValidateBooleanAgg<Sum>("[null]", std::make_shared<UInt64Scalar>());
-  ValidateBooleanAgg<Sum>("[null, false]", std::make_shared<UInt64Scalar>(0));
-  ValidateBooleanAgg<Sum>("[true]", std::make_shared<UInt64Scalar>(1));
-  ValidateBooleanAgg<Sum>("[true, false, true]", std::make_shared<UInt64Scalar>(2));
+  const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults();
+  ValidateBooleanAgg<Sum>("[]", std::make_shared<UInt64Scalar>(), options);
+  ValidateBooleanAgg<Sum>("[null]", std::make_shared<UInt64Scalar>(), options);
+  ValidateBooleanAgg<Sum>("[null, false]", std::make_shared<UInt64Scalar>(0), options);
+  ValidateBooleanAgg<Sum>("[true]", std::make_shared<UInt64Scalar>(1), options);
+  ValidateBooleanAgg<Sum>("[true, false, true]", std::make_shared<UInt64Scalar>(2),
+                          options);
   ValidateBooleanAgg<Sum>("[true, false, true, true, null]",
-                          std::make_shared<UInt64Scalar>(3));
+                          std::make_shared<UInt64Scalar>(3), options);
+
+  const ScalarAggregateOptions& options_min_count_zero =
+      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0);
+  ValidateBooleanAgg<Sum>("[]", std::make_shared<UInt64Scalar>(0),
+                          options_min_count_zero);
+  ValidateBooleanAgg<Sum>("[null]", std::make_shared<UInt64Scalar>(0),
+                          options_min_count_zero);
+
+  const char* json = "[true, null, false, null]";
+  ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(1),
+                          ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1));
+  ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(1),
+                          ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/2));
+  ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(),
+                          ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/3));
+  ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(1),
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1));
+  ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(1),
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/2));
+  ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(),
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
 }
 
 TEST(TestBooleanAggregation, Mean) {
-  ValidateBooleanAgg<Mean>("[]", std::make_shared<DoubleScalar>());
-  ValidateBooleanAgg<Mean>("[null]", std::make_shared<DoubleScalar>());
-  ValidateBooleanAgg<Mean>("[null, false]", std::make_shared<DoubleScalar>(0));
-  ValidateBooleanAgg<Mean>("[true]", std::make_shared<DoubleScalar>(1));
+  const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults();
+  ValidateBooleanAgg<Mean>("[]", std::make_shared<DoubleScalar>(), options);
+  ValidateBooleanAgg<Mean>("[null]", std::make_shared<DoubleScalar>(), options);
+  ValidateBooleanAgg<Mean>("[null, false]", std::make_shared<DoubleScalar>(0), options);
+  ValidateBooleanAgg<Mean>("[true]", std::make_shared<DoubleScalar>(1), options);
   ValidateBooleanAgg<Mean>("[true, false, true, false]",
-                           std::make_shared<DoubleScalar>(0.5));
-  ValidateBooleanAgg<Mean>("[true, null]", std::make_shared<DoubleScalar>(1));
+                           std::make_shared<DoubleScalar>(0.5), options);
+  ValidateBooleanAgg<Mean>("[true, null]", std::make_shared<DoubleScalar>(1), options);
   ValidateBooleanAgg<Mean>("[true, null, false, true, true]",
-                           std::make_shared<DoubleScalar>(0.75));
+                           std::make_shared<DoubleScalar>(0.75), options);
   ValidateBooleanAgg<Mean>("[true, null, false, false, false]",
-                           std::make_shared<DoubleScalar>(0.25));
+                           std::make_shared<DoubleScalar>(0.25), options);
+
+  const ScalarAggregateOptions& options_min_count_zero =
+      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0);
+  ValidateBooleanAgg<Mean>("[]", std::make_shared<DoubleScalar>(NAN),
+                           options_min_count_zero);
+  ValidateBooleanAgg<Mean>("[null]", std::make_shared<DoubleScalar>(NAN),
+                           options_min_count_zero);
+
+  const char* json = "[true, null, false, null]";
+  ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(0.5),
+                           ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1));
+  ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(0.5),
+                           ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/2));
+  ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(),
+                           ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/3));
+  ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(0.5),
+                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1));
+  ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(0.5),
+                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/2));
+  ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(),
+                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
 }
 
 template <typename ArrowType>
@@ -193,13 +257,56 @@ TYPED_TEST(TestNumericSumKernel, SimpleSum) {
   ValidateSum<TypeParam>(chunks,
                          Datum(std::make_shared<ScalarType>(static_cast<T>(5 * 6 / 2))));
 
+  const ScalarAggregateOptions& options =
+      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0);
+
+  ValidateSum<TypeParam>("[]", Datum(std::make_shared<ScalarType>(static_cast<T>(0))),
+                         options);
+
+  ValidateSum<TypeParam>("[null]", Datum(std::make_shared<ScalarType>(static_cast<T>(0))),
+                         options);
+
   chunks = {};
-  ValidateSum<TypeParam>(chunks,
-                         Datum(std::make_shared<ScalarType>()));  // null
+  ValidateSum<TypeParam>(chunks, Datum(std::make_shared<ScalarType>(static_cast<T>(0))),
+                         options);
 
   const T expected_result = static_cast<T>(14);
   ValidateSum<TypeParam>("[1, null, 3, null, 3, null, 7]",
-                         Datum(std::make_shared<ScalarType>(expected_result)));
+                         Datum(std::make_shared<ScalarType>(expected_result)), options);
+}
+
+TYPED_TEST_SUITE(TestNumericSumKernel, NumericArrowTypes);
+TYPED_TEST(TestNumericSumKernel, ScalarAggregateOptions) {
+  using SumType = typename FindAccumulatorType<TypeParam>::Type;
+  using ScalarType = typename TypeTraits<SumType>::ScalarType;
+  using T = typename TypeParam::c_type;
+
+  const T expected_result = static_cast<T>(14);
+  auto null_result = Datum(std::make_shared<ScalarType>());
+  auto zero_result = Datum(std::make_shared<ScalarType>(static_cast<T>(0)));
+  auto result = Datum(std::make_shared<ScalarType>(expected_result));
+  const char* json = "[1, null, 3, null, 3, null, 7]";
+
+  ValidateSum<TypeParam>("[]", zero_result,
+                         ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0));
+  ValidateSum<TypeParam>("[null]", zero_result,
+                         ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0));
+  ValidateSum<TypeParam>(json, result,
+                         ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/3));
+  ValidateSum<TypeParam>(json, result,
+                         ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/4));
+  ValidateSum<TypeParam>(json, null_result,
+                         ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/5));
+  ValidateSum<TypeParam>("[]", null_result,
+                         ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1));
+  ValidateSum<TypeParam>("[null]", null_result,
+                         ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1));
+  ValidateSum<TypeParam>(json, result,
+                         ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
+  ValidateSum<TypeParam>(json, result,
+                         ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/4));
+  ValidateSum<TypeParam>(json, null_result,
+                         ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/5));
 }
 
 template <typename ArrowType>
@@ -208,13 +315,15 @@ class TestRandomNumericSumKernel : public ::testing::Test {};
 TYPED_TEST_SUITE(TestRandomNumericSumKernel, NumericArrowTypes);
 TYPED_TEST(TestRandomNumericSumKernel, RandomArraySum) {
   auto rand = random::RandomArrayGenerator(0x5487655);
+  const ScalarAggregateOptions& options =
+      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1);
   // Test size up to 1<<13 (8192).
   for (size_t i = 3; i < 14; i += 2) {
     for (auto null_probability : {0.0, 0.001, 0.1, 0.5, 0.999, 1.0}) {
       for (auto length_adjust : {-2, -1, 0, 1, 2}) {
         int64_t length = (1UL << i) + length_adjust;
         auto array = rand.Numeric<TypeParam>(length, 0, 100, null_probability);
-        ValidateSum<TypeParam>(*array);
+        ValidateSum<TypeParam>(*array, options);
       }
     }
   }
@@ -234,12 +343,14 @@ TYPED_TEST(TestRandomNumericSumKernel, RandomArraySumOverflow) {
   int64_t length = 1024;
 
   auto rand = random::RandomArrayGenerator(0x5487655);
+  const ScalarAggregateOptions& options =
+      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1);
   for (auto null_probability : {0.0, 0.1, 0.5, 1.0}) {
     // Test overflow on the original type
     auto array = rand.Numeric<TypeParam>(length, max - 200, max - 100, null_probability);
-    ValidateSum<TypeParam>(*array);
+    ValidateSum<TypeParam>(*array, options);
     array = rand.Numeric<TypeParam>(length, min + 100, min + 200, null_probability);
-    ValidateSum<TypeParam>(*array);
+    ValidateSum<TypeParam>(*array, options);
   }
 }
 
@@ -264,6 +375,29 @@ TYPED_TEST(TestRandomNumericSumKernel, RandomSliceArraySum) {
   }
 }
 
+// Test round-off error
+class TestSumKernelRoundOff : public ::testing::Test {};
+
+TEST_F(TestSumKernelRoundOff, Basics) {
+  using ScalarType = typename TypeTraits<DoubleType>::ScalarType;
+
+  // array = np.arange(321000, dtype='float64')
+  // array -= np.mean(array)
+  // array *= arrray
+  double index = 0;
+  ASSERT_OK_AND_ASSIGN(
+      auto array, ArrayFromBuilderVisitor(
+                      float64(), 321000, [&](NumericBuilder<DoubleType>* builder) {
+                        builder->UnsafeAppend((index - 160499.5) * (index - 160499.5));
+                        ++index;
+                      }));
+
+  // reference value from numpy.sum()
+  ASSERT_OK_AND_ASSIGN(Datum result, Sum(array));
+  auto sum = checked_cast<const ScalarType*>(result.scalar().get());
+  ASSERT_EQ(sum->value, 2756346749973250.0);
+}
+
 //
 // Count
 //
@@ -280,8 +414,8 @@ static CountPair NaiveCount(const Array& array) {
 }
 
 void ValidateCount(const Array& input, CountPair expected) {
-  CountOptions all = CountOptions(CountOptions::COUNT_NON_NULL);
-  CountOptions nulls = CountOptions(CountOptions::COUNT_NULL);
+  ScalarAggregateOptions all = ScalarAggregateOptions(/*skip_nulls=*/true);
+  ScalarAggregateOptions nulls = ScalarAggregateOptions(/*skip_nulls=*/false);
 
   ASSERT_OK_AND_ASSIGN(Datum result, Count(input, all));
   AssertDatumsEqual(result, Datum(expected.first));
@@ -345,22 +479,31 @@ static Datum NaiveMean(const Array& array) {
 }
 
 template <typename ArrowType>
-void ValidateMean(const Array& input, Datum expected) {
+void ValidateMean(const Array& input, Datum expected,
+                  const ScalarAggregateOptions& options) {
   using OutputType = typename FindAccumulatorType<DoubleType>::Type;
 
-  ASSERT_OK_AND_ASSIGN(Datum result, Mean(input));
-  DatumEqual<OutputType>::EnsureEqual(result, expected);
+  ASSERT_OK_AND_ASSIGN(Datum result, Mean(input, options, nullptr));
+  using ScalarType = typename TypeTraits<OutputType>::ScalarType;
+  const auto& res = checked_pointer_cast<ScalarType>(result.scalar());
+  const auto& exp = checked_pointer_cast<ScalarType>(expected.scalar());
+  if (!(std::isnan(res->value) && std::isnan(exp->value))) {
+    DatumEqual<OutputType>::EnsureEqual(result, expected);
+  }
 }
 
 template <typename ArrowType>
-void ValidateMean(const char* json, Datum expected) {
+void ValidateMean(
+    const char* json, Datum expected,
+    const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults()) {
   auto array = ArrayFromJSON(TypeTraits<ArrowType>::type_singleton(), json);
-  ValidateMean<ArrowType>(*array, expected);
+  ValidateMean<ArrowType>(*array, expected, options);
 }
 
 template <typename ArrowType>
-void ValidateMean(const Array& array) {
-  ValidateMean<ArrowType>(array, NaiveMean<ArrowType>(array));
+void ValidateMean(const Array& array, const ScalarAggregateOptions& options =
+                                          ScalarAggregateOptions::Defaults()) {
+  ValidateMean<ArrowType>(array, NaiveMean<ArrowType>(array), options);
 }
 
 template <typename ArrowType>
@@ -369,6 +512,13 @@ class TestMeanKernelNumeric : public ::testing::Test {};
 TYPED_TEST_SUITE(TestMeanKernelNumeric, NumericArrowTypes);
 TYPED_TEST(TestMeanKernelNumeric, SimpleMean) {
   using ScalarType = typename TypeTraits<DoubleType>::ScalarType;
+
+  const ScalarAggregateOptions& options =
+      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0);
+
+  ValidateMean<TypeParam>("[]", Datum(std::make_shared<ScalarType>(NAN)), options);
+
+  ValidateMean<TypeParam>("[null]", Datum(std::make_shared<ScalarType>(NAN)), options);
 
   ValidateMean<TypeParam>("[]", Datum(std::make_shared<ScalarType>()));
 
@@ -386,19 +536,64 @@ TYPED_TEST(TestMeanKernelNumeric, SimpleMean) {
                           Datum(std::make_shared<ScalarType>(1.0)));
 }
 
+TYPED_TEST_SUITE(TestMeanKernelNumeric, NumericArrowTypes);
+TYPED_TEST(TestMeanKernelNumeric, ScalarAggregateOptions) {
+  using ScalarType = typename TypeTraits<DoubleType>::ScalarType;
+  auto expected_result = Datum(std::make_shared<ScalarType>(2));
+  auto null_result = Datum(std::make_shared<ScalarType>());
+  auto nan_result = Datum(std::make_shared<ScalarType>(NAN));
+  const char* json = "[1, null, 2, 2, null, 7]";
+
+  ValidateMean<TypeParam>("[]", nan_result,
+                          ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0));
+  ValidateMean<TypeParam>("[null]", nan_result,
+                          ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0));
+  ValidateMean<TypeParam>("[]", null_result,
+                          ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1));
+  ValidateMean<TypeParam>("[null]", null_result,
+                          ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1));
+  ValidateMean<TypeParam>(json, expected_result,
+                          ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0));
+  ValidateMean<TypeParam>(json, expected_result,
+                          ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/3));
+  ValidateMean<TypeParam>(json, expected_result,
+                          ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/4));
+  ValidateMean<TypeParam>(json, null_result,
+                          ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/5));
+
+  ValidateMean<TypeParam>("[]", nan_result,
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
+  ValidateMean<TypeParam>("[null]", nan_result,
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
+  ValidateMean<TypeParam>("[]", null_result,
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1));
+  ValidateMean<TypeParam>("[null]", null_result,
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1));
+  ValidateMean<TypeParam>(json, expected_result,
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
+  ValidateMean<TypeParam>(json, expected_result,
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
+  ValidateMean<TypeParam>(json, expected_result,
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/4));
+  ValidateMean<TypeParam>(json, null_result,
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/15));
+}
+
 template <typename ArrowType>
 class TestRandomNumericMeanKernel : public ::testing::Test {};
 
 TYPED_TEST_SUITE(TestRandomNumericMeanKernel, NumericArrowTypes);
 TYPED_TEST(TestRandomNumericMeanKernel, RandomArrayMean) {
   auto rand = random::RandomArrayGenerator(0x8afc055);
+  const ScalarAggregateOptions& options =
+      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1);
   // Test size up to 1<<13 (8192).
   for (size_t i = 3; i < 14; i += 2) {
     for (auto null_probability : {0.0, 0.001, 0.1, 0.5, 0.999, 1.0}) {
       for (auto length_adjust : {-2, -1, 0, 1, 2}) {
         int64_t length = (1UL << i) + length_adjust;
         auto array = rand.Numeric<TypeParam>(length, 0, 100, null_probability);
-        ValidateMean<TypeParam>(*array);
+        ValidateMean<TypeParam>(*array, options);
       }
     }
   }
@@ -418,12 +613,14 @@ TYPED_TEST(TestRandomNumericMeanKernel, RandomArrayMeanOverflow) {
   int64_t length = 1024;
 
   auto rand = random::RandomArrayGenerator(0x8afc055);
+  const ScalarAggregateOptions& options =
+      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1);
   for (auto null_probability : {0.0, 0.1, 0.5, 1.0}) {
     // Test overflow on the original type
     auto array = rand.Numeric<TypeParam>(length, max - 200, max - 100, null_probability);
-    ValidateMean<TypeParam>(*array);
+    ValidateMean<TypeParam>(*array, options);
     array = rand.Numeric<TypeParam>(length, min + 100, min + 200, null_probability);
-    ValidateMean<TypeParam>(*array);
+    ValidateMean<TypeParam>(*array, options);
   }
 }
 
@@ -440,7 +637,7 @@ class TestPrimitiveMinMaxKernel : public ::testing::Test {
 
  public:
   void AssertMinMaxIs(const Datum& array, c_type expected_min, c_type expected_max,
-                      const MinMaxOptions& options) {
+                      const ScalarAggregateOptions& options) {
     ASSERT_OK_AND_ASSIGN(Datum out, MinMax(array, options));
     const StructScalar& value = out.scalar_as<StructScalar>();
 
@@ -452,33 +649,32 @@ class TestPrimitiveMinMaxKernel : public ::testing::Test {
   }
 
   void AssertMinMaxIs(const std::string& json, c_type expected_min, c_type expected_max,
-                      const MinMaxOptions& options) {
+                      const ScalarAggregateOptions& options) {
     auto array = ArrayFromJSON(type_singleton(), json);
     AssertMinMaxIs(array, expected_min, expected_max, options);
   }
 
   void AssertMinMaxIs(const std::vector<std::string>& json, c_type expected_min,
-                      c_type expected_max, const MinMaxOptions& options) {
+                      c_type expected_max, const ScalarAggregateOptions& options) {
     auto array = ChunkedArrayFromJSON(type_singleton(), json);
     AssertMinMaxIs(array, expected_min, expected_max, options);
   }
 
-  void AssertMinMaxIsNull(const Datum& array, const MinMaxOptions& options) {
+  void AssertMinMaxIsNull(const Datum& array, const ScalarAggregateOptions& options) {
     ASSERT_OK_AND_ASSIGN(Datum out, MinMax(array, options));
-
-    const StructScalar& value = out.scalar_as<StructScalar>();
-    for (const auto& val : value.value) {
+    for (const auto& val : out.scalar_as<StructScalar>().value) {
       ASSERT_FALSE(val->is_valid);
     }
   }
 
-  void AssertMinMaxIsNull(const std::string& json, const MinMaxOptions& options) {
+  void AssertMinMaxIsNull(const std::string& json,
+                          const ScalarAggregateOptions& options) {
     auto array = ArrayFromJSON(type_singleton(), json);
     AssertMinMaxIsNull(array, options);
   }
 
   void AssertMinMaxIsNull(const std::vector<std::string>& json,
-                          const MinMaxOptions& options) {
+                          const ScalarAggregateOptions& options) {
     auto array = ChunkedArrayFromJSON(type_singleton(), json);
     AssertMinMaxIsNull(array, options);
   }
@@ -495,13 +691,14 @@ class TestFloatingMinMaxKernel : public TestPrimitiveMinMaxKernel<ArrowType> {};
 class TestBooleanMinMaxKernel : public TestPrimitiveMinMaxKernel<BooleanType> {};
 
 TEST_F(TestBooleanMinMaxKernel, Basics) {
-  MinMaxOptions options;
+  ScalarAggregateOptions options;
   std::vector<std::string> chunked_input0 = {"[]", "[]"};
   std::vector<std::string> chunked_input1 = {"[true, true, null]", "[true, null]"};
   std::vector<std::string> chunked_input2 = {"[false, false, false]", "[false]"};
   std::vector<std::string> chunked_input3 = {"[true, null]", "[null, false]"};
 
   // SKIP nulls by default
+  options = ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1);
   this->AssertMinMaxIsNull("[]", options);
   this->AssertMinMaxIsNull("[null, null, null]", options);
   this->AssertMinMaxIs("[false, false, false]", false, false, options);
@@ -514,7 +711,7 @@ TEST_F(TestBooleanMinMaxKernel, Basics) {
   this->AssertMinMaxIs(chunked_input2, false, false, options);
   this->AssertMinMaxIs(chunked_input3, false, true, options);
 
-  options = MinMaxOptions(MinMaxOptions::EMIT_NULL);
+  options = ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1);
   this->AssertMinMaxIsNull("[]", options);
   this->AssertMinMaxIsNull("[null, null, null]", options);
   this->AssertMinMaxIsNull("[false, null, false]", options);
@@ -526,11 +723,15 @@ TEST_F(TestBooleanMinMaxKernel, Basics) {
   this->AssertMinMaxIsNull(chunked_input1, options);
   this->AssertMinMaxIs(chunked_input2, false, false, options);
   this->AssertMinMaxIsNull(chunked_input3, options);
+
+  options = ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0);
+  this->AssertMinMaxIsNull("[]", options);
+  this->AssertMinMaxIsNull("[null]", options);
 }
 
 TYPED_TEST_SUITE(TestIntegerMinMaxKernel, IntegralArrowTypes);
 TYPED_TEST(TestIntegerMinMaxKernel, Basics) {
-  MinMaxOptions options;
+  ScalarAggregateOptions options;
   std::vector<std::string> chunked_input1 = {"[5, 1, 2, 3, 4]", "[9, 1, null, 3, 4]"};
   std::vector<std::string> chunked_input2 = {"[5, null, 2, 3, 4]", "[9, 1, 2, 3, 4]"};
   std::vector<std::string> chunked_input3 = {"[5, 1, 2, 3, null]", "[9, 1, null, 3, 4]"};
@@ -544,7 +745,7 @@ TYPED_TEST(TestIntegerMinMaxKernel, Basics) {
   this->AssertMinMaxIs(chunked_input2, 1, 9, options);
   this->AssertMinMaxIs(chunked_input3, 1, 9, options);
 
-  options = MinMaxOptions(MinMaxOptions::EMIT_NULL);
+  options = ScalarAggregateOptions(/*skip_nulls=*/false);
   this->AssertMinMaxIs("[5, 1, 2, 3, 4]", 1, 5, options);
   // output null
   this->AssertMinMaxIsNull("[5, null, 2, 3, 4]", options);
@@ -556,7 +757,7 @@ TYPED_TEST(TestIntegerMinMaxKernel, Basics) {
 
 TYPED_TEST_SUITE(TestFloatingMinMaxKernel, RealArrowTypes);
 TYPED_TEST(TestFloatingMinMaxKernel, Floats) {
-  MinMaxOptions options;
+  ScalarAggregateOptions options;
   std::vector<std::string> chunked_input1 = {"[5, 1, 2, 3, 4]", "[9, 1, null, 3, 4]"};
   std::vector<std::string> chunked_input2 = {"[5, null, 2, 3, 4]", "[9, 1, 2, 3, 4]"};
   std::vector<std::string> chunked_input3 = {"[5, 1, 2, 3, null]", "[9, 1, null, 3, 4]"};
@@ -571,7 +772,7 @@ TYPED_TEST(TestFloatingMinMaxKernel, Floats) {
   this->AssertMinMaxIs(chunked_input2, 1, 9, options);
   this->AssertMinMaxIs(chunked_input3, 1, 9, options);
 
-  options = MinMaxOptions(MinMaxOptions::EMIT_NULL);
+  options = ScalarAggregateOptions(/*skip_nulls=*/false);
   this->AssertMinMaxIs("[5, 1, 2, 3, 4]", 1, 5, options);
   this->AssertMinMaxIs("[5, -Inf, 2, 3, 4]", -INFINITY, 5, options);
   // output null
@@ -582,6 +783,14 @@ TYPED_TEST(TestFloatingMinMaxKernel, Floats) {
   this->AssertMinMaxIsNull(chunked_input1, options);
   this->AssertMinMaxIsNull(chunked_input2, options);
   this->AssertMinMaxIsNull(chunked_input3, options);
+
+  options = ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0);
+  this->AssertMinMaxIsNull("[]", options);
+  this->AssertMinMaxIsNull("[null]", options);
+
+  options = ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1);
+  this->AssertMinMaxIsNull("[]", options);
+  this->AssertMinMaxIsNull("[null]", options);
 }
 
 TYPED_TEST(TestFloatingMinMaxKernel, DefaultOptions) {
@@ -589,7 +798,7 @@ TYPED_TEST(TestFloatingMinMaxKernel, DefaultOptions) {
 
   ASSERT_OK_AND_ASSIGN(auto no_options_provided, CallFunction("min_max", {values}));
 
-  auto default_options = MinMaxOptions::Defaults();
+  auto default_options = ScalarAggregateOptions::Defaults();
   ASSERT_OK_AND_ASSIGN(auto explicit_defaults,
                        CallFunction("min_max", {values}, &default_options));
 
@@ -623,8 +832,7 @@ static enable_if_integer<ArrowType, MinMaxResult<ArrowType>> NaiveMinMax(
   T min = std::numeric_limits<T>::max();
   T max = std::numeric_limits<T>::min();
   if (array.null_count() != 0) {  // Some values are null
-    internal::BitmapReader reader(array.null_bitmap_data(), array.offset(),
-                                  array.length());
+    BitmapReader reader(array.null_bitmap_data(), array.offset(), array.length());
     for (int64_t i = 0; i < array.length(); i++) {
       if (reader.IsSet()) {
         min = std::min(min, values[i]);
@@ -663,8 +871,7 @@ static enable_if_floating_point<ArrowType, MinMaxResult<ArrowType>> NaiveMinMax(
   T min = std::numeric_limits<T>::infinity();
   T max = -std::numeric_limits<T>::infinity();
   if (array.null_count() != 0) {  // Some values are null
-    internal::BitmapReader reader(array.null_bitmap_data(), array.offset(),
-                                  array.length());
+    BitmapReader reader(array.null_bitmap_data(), array.offset(), array.length());
     for (int64_t i = 0; i < array.length(); i++) {
       if (reader.IsSet()) {
         min = std::fmin(min, values[i]);
@@ -686,11 +893,11 @@ static enable_if_floating_point<ArrowType, MinMaxResult<ArrowType>> NaiveMinMax(
 }
 
 template <typename ArrowType>
-void ValidateMinMax(const Array& array) {
+void ValidateMinMax(const Array& array, const ScalarAggregateOptions& options) {
   using Traits = TypeTraits<ArrowType>;
   using ScalarType = typename Traits::ScalarType;
 
-  ASSERT_OK_AND_ASSIGN(Datum out, MinMax(array));
+  ASSERT_OK_AND_ASSIGN(Datum out, MinMax(array, options));
   const StructScalar& value = out.scalar_as<StructScalar>();
 
   auto expected = NaiveMinMax<ArrowType>(array);
@@ -714,6 +921,8 @@ class TestRandomNumericMinMaxKernel : public ::testing::Test {};
 TYPED_TEST_SUITE(TestRandomNumericMinMaxKernel, NumericArrowTypes);
 TYPED_TEST(TestRandomNumericMinMaxKernel, RandomArrayMinMax) {
   auto rand = random::RandomArrayGenerator(0x8afc055);
+  const ScalarAggregateOptions& options =
+      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1);
   // Test size up to 1<<11 (2048).
   for (size_t i = 3; i < 12; i += 2) {
     for (auto null_probability : {0.0, 0.01, 0.1, 0.5, 0.99, 1.0}) {
@@ -721,7 +930,7 @@ TYPED_TEST(TestRandomNumericMinMaxKernel, RandomArrayMinMax) {
       auto array = rand.Numeric<TypeParam>(base_length, 0, 100, null_probability);
       for (auto length_adjust : {-2, -1, 0, 1, 2}) {
         int64_t length = (1UL << i) + length_adjust;
-        ValidateMinMax<TypeParam>(*array->Slice(0, length));
+        ValidateMinMax<TypeParam>(*array->Slice(0, length), options);
       }
     }
   }
@@ -836,6 +1045,162 @@ TEST_F(TestAllKernel, Basics) {
 }
 
 //
+// Index
+//
+
+template <typename ArrowType>
+class TestIndexKernel : public ::testing::Test {
+ public:
+  using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
+  void AssertIndexIs(const Datum& array, const std::shared_ptr<ScalarType>& value,
+                     int64_t expected) {
+    IndexOptions options(value);
+    ASSERT_OK_AND_ASSIGN(Datum out, Index(array, options));
+    const Int64Scalar& out_index = out.scalar_as<Int64Scalar>();
+    ASSERT_EQ(out_index.value, expected);
+  }
+
+  void AssertIndexIs(const std::string& json, const std::shared_ptr<ScalarType>& value,
+                     int64_t expected) {
+    SCOPED_TRACE("Value: " + value->ToString());
+    SCOPED_TRACE("Input: " + json);
+    auto array = ArrayFromJSON(type_singleton(), json);
+    AssertIndexIs(array, value, expected);
+  }
+
+  void AssertIndexIs(const std::vector<std::string>& json,
+                     const std::shared_ptr<ScalarType>& value, int64_t expected) {
+    SCOPED_TRACE("Value: " + value->ToString());
+    auto array = ChunkedArrayFromJSON(type_singleton(), json);
+    SCOPED_TRACE("Input: " + array->ToString());
+    AssertIndexIs(array, value, expected);
+  }
+
+  std::shared_ptr<DataType> type_singleton() { return std::make_shared<ArrowType>(); }
+};
+
+template <typename ArrowType>
+class TestNumericIndexKernel : public TestIndexKernel<ArrowType> {
+ public:
+  using CType = typename TypeTraits<ArrowType>::CType;
+};
+TYPED_TEST_SUITE(TestNumericIndexKernel, NumericArrowTypes);
+TYPED_TEST(TestNumericIndexKernel, Basics) {
+  std::vector<std::string> chunked_input0 = {"[]", "[0]"};
+  std::vector<std::string> chunked_input1 = {"[1, 0, null]", "[0, 0]"};
+  std::vector<std::string> chunked_input2 = {"[1, 1, 1]", "[1, 0]", "[0, 1]"};
+  std::vector<std::string> chunked_input3 = {"[1, 1, 1]", "[1, 1]"};
+  std::vector<std::string> chunked_input4 = {"[1, 1, 1]", "[1, 1]", "[0]"};
+
+  auto value = std::make_shared<typename TestFixture::ScalarType>(
+      static_cast<typename TestFixture::CType>(0));
+  auto null_value = std::make_shared<typename TestFixture::ScalarType>(
+      static_cast<typename TestFixture::CType>(0));
+  null_value->is_valid = false;
+
+  this->AssertIndexIs("[]", value, -1);
+  this->AssertIndexIs("[0]", value, 0);
+  this->AssertIndexIs("[1, 2, 3, 4]", value, -1);
+  this->AssertIndexIs("[1, 2, 3, 4, 0]", value, 4);
+  this->AssertIndexIs("[null, null, null]", value, -1);
+  this->AssertIndexIs("[null, null, null]", null_value, -1);
+  this->AssertIndexIs("[0, null, null]", null_value, -1);
+  this->AssertIndexIs(chunked_input0, value, 0);
+  this->AssertIndexIs(chunked_input1, value, 1);
+  this->AssertIndexIs(chunked_input2, value, 4);
+  this->AssertIndexIs(chunked_input3, value, -1);
+  this->AssertIndexIs(chunked_input4, value, 5);
+}
+TYPED_TEST(TestNumericIndexKernel, Random) {
+  constexpr auto kChunks = 4;
+  auto rand = random::RandomArrayGenerator(0x5487655);
+  auto value = std::make_shared<typename TestFixture::ScalarType>(
+      static_cast<typename TestFixture::CType>(0));
+
+  // Test chunked array sizes from 32 to 2048
+  for (size_t i = 3; i <= 9; i += 2) {
+    const int64_t chunk_length = static_cast<int64_t>(1) << i;
+    ArrayVector chunks;
+    for (int i = 0; i < kChunks; i++) {
+      chunks.push_back(
+          rand.ArrayOf(this->type_singleton(), chunk_length, /*null_probability=*/0.1));
+    }
+    ChunkedArray chunked_array(std::move(chunks));
+
+    int64_t expected = -1;
+    int64_t index = 0;
+    for (auto chunk : chunked_array.chunks()) {
+      auto typed_chunk = arrow::internal::checked_pointer_cast<
+          typename TypeTraits<TypeParam>::ArrayType>(chunk);
+      for (auto value : *typed_chunk) {
+        if (value.has_value() &&
+            value.value() == static_cast<typename TestFixture::CType>(0)) {
+          expected = index;
+          break;
+        }
+        index++;
+      }
+      if (expected >= 0) break;
+    }
+
+    this->AssertIndexIs(Datum(chunked_array), value, expected);
+  }
+}
+
+template <typename ArrowType>
+class TestDateTimeIndexKernel : public TestIndexKernel<ArrowType> {};
+TYPED_TEST_SUITE(TestDateTimeIndexKernel, TemporalArrowTypes);
+TYPED_TEST(TestDateTimeIndexKernel, Basics) {
+  auto type = this->type_singleton();
+  auto value = std::make_shared<typename TestFixture::ScalarType>(42, type);
+  auto null_value = std::make_shared<typename TestFixture::ScalarType>(42, type);
+  null_value->is_valid = false;
+
+  this->AssertIndexIs("[]", value, -1);
+  this->AssertIndexIs("[42]", value, 0);
+  this->AssertIndexIs("[84, 84, 84, 84]", value, -1);
+  this->AssertIndexIs("[84, 84, 84, 84, 42]", value, 4);
+  this->AssertIndexIs("[null, null, null]", value, -1);
+  this->AssertIndexIs("[null, null, null]", null_value, -1);
+  this->AssertIndexIs("[42, null, null]", null_value, -1);
+}
+
+template <typename ArrowType>
+class TestBooleanIndexKernel : public TestIndexKernel<ArrowType> {};
+TYPED_TEST_SUITE(TestBooleanIndexKernel, ::testing::Types<BooleanType>);
+TYPED_TEST(TestBooleanIndexKernel, Basics) {
+  auto value = std::make_shared<typename TestFixture::ScalarType>(true);
+  auto null_value = std::make_shared<typename TestFixture::ScalarType>(true);
+  null_value->is_valid = false;
+
+  this->AssertIndexIs("[]", value, -1);
+  this->AssertIndexIs("[true]", value, 0);
+  this->AssertIndexIs("[false, false, false, false]", value, -1);
+  this->AssertIndexIs("[false, false, false, false, true]", value, 4);
+  this->AssertIndexIs("[null, null, null]", value, -1);
+  this->AssertIndexIs("[null, null, null]", null_value, -1);
+  this->AssertIndexIs("[true, null, null]", null_value, -1);
+}
+
+template <typename ArrowType>
+class TestStringIndexKernel : public TestIndexKernel<ArrowType> {};
+TYPED_TEST_SUITE(TestStringIndexKernel, BinaryTypes);
+TYPED_TEST(TestStringIndexKernel, Basics) {
+  auto buffer = Buffer::FromString("foo");
+  auto value = std::make_shared<typename TestFixture::ScalarType>(buffer);
+  auto null_value = std::make_shared<typename TestFixture::ScalarType>(buffer);
+  null_value->is_valid = false;
+
+  this->AssertIndexIs(R"([])", value, -1);
+  this->AssertIndexIs(R"(["foo"])", value, 0);
+  this->AssertIndexIs(R"(["bar", "bar", "bar", "bar"])", value, -1);
+  this->AssertIndexIs(R"(["bar", "bar", "bar", "bar", "foo"])", value, 4);
+  this->AssertIndexIs(R"([null, null, null])", value, -1);
+  this->AssertIndexIs(R"([null, null, null])", null_value, -1);
+  this->AssertIndexIs(R"(["foo", null, null])", null_value, -1);
+}
+
+//
 // Mode
 //
 
@@ -850,7 +1215,7 @@ class TestPrimitiveModeKernel : public ::testing::Test {
                       const std::vector<CType>& expected_modes,
                       const std::vector<int64_t>& expected_counts) {
     ASSERT_OK_AND_ASSIGN(Datum out, Mode(array, ModeOptions{n}));
-    ASSERT_OK(out.make_array()->ValidateFull());
+    ValidateOutput(out);
     const StructArray out_array(out.array());
     ASSERT_EQ(out_array.length(), expected_modes.size());
     ASSERT_EQ(out_array.num_fields(), 2);
@@ -891,7 +1256,8 @@ class TestPrimitiveModeKernel : public ::testing::Test {
 
   void AssertModesEmpty(const Datum& array, int n) {
     ASSERT_OK_AND_ASSIGN(Datum out, Mode(array, ModeOptions{n}));
-    ASSERT_OK(out.make_array()->ValidateFull());
+    auto out_array = out.make_array();
+    ValidateOutput(*out_array);
     ASSERT_EQ(out.array()->length, 0);
   }
 
@@ -1007,7 +1373,7 @@ ModeResult<ArrowType> NaiveMode(const Array& array) {
 
   const auto& array_numeric = reinterpret_cast<const ArrayType&>(array);
   const auto values = array_numeric.raw_values();
-  internal::BitmapReader reader(array.null_bitmap_data(), array.offset(), array.length());
+  BitmapReader reader(array.null_bitmap_data(), array.offset(), array.length());
   for (int64_t i = 0; i < array.length(); ++i) {
     if (reader.IsSet()) {
       ++value_counts[values[i]];
@@ -1029,15 +1395,11 @@ ModeResult<ArrowType> NaiveMode(const Array& array) {
 }
 
 template <typename ArrowType, typename CTYPE = typename ArrowType::c_type>
-void CheckModeWithRange(CTYPE range_min, CTYPE range_max) {
-  auto rand = random::RandomArrayGenerator(0x5487655);
-  // 32K items (>= counting mode cutoff) within range, 10% null
-  auto array = rand.Numeric<ArrowType>(32 * 1024, range_min, range_max, 0.1);
-
+void VerifyMode(const std::shared_ptr<Array>& array) {
   auto expected = NaiveMode<ArrowType>(*array);
   ASSERT_OK_AND_ASSIGN(Datum out, Mode(array));
-  ASSERT_OK(out.make_array()->ValidateFull());
   const StructArray out_array(out.array());
+  ValidateOutput(out_array);
   ASSERT_EQ(out_array.length(), 1);
   ASSERT_EQ(out_array.num_fields(), 2);
 
@@ -1047,14 +1409,44 @@ void CheckModeWithRange(CTYPE range_min, CTYPE range_max) {
   ASSERT_EQ(out_counts[0], expected.count);
 }
 
+template <typename ArrowType, typename CTYPE = typename ArrowType::c_type>
+void CheckModeWithRange(CTYPE range_min, CTYPE range_max) {
+  auto rand = random::RandomArrayGenerator(0x5487655);
+  // 32K items (>= counting mode cutoff) within range, 10% null
+  auto array = rand.Numeric<ArrowType>(32 * 1024, range_min, range_max, 0.1);
+  VerifyMode<ArrowType>(array);
+}
+
+template <typename ArrowType, typename CTYPE = typename ArrowType::c_type>
+void CheckModeWithRangeSliced(CTYPE range_min, CTYPE range_max) {
+  auto rand = random::RandomArrayGenerator(0x5487655);
+  auto array = rand.Numeric<ArrowType>(32 * 1024, range_min, range_max, 0.1);
+
+  const int64_t array_size = array->length();
+  const std::vector<std::array<int64_t, 2>> offset_size{
+      {0, 40},
+      {array_size - 40, 40},
+      {array_size / 3, array_size / 6},
+      {array_size * 9 / 10, array_size / 10},
+  };
+  for (const auto& os : offset_size) {
+    VerifyMode<ArrowType>(array->Slice(os[0], os[1]));
+  }
+}
+
 TEST_F(TestInt32ModeKernel, SmallValueRange) {
   // Small value range => should exercise counter-based Mode implementation
   CheckModeWithRange<ArrowType>(-100, 100);
 }
 
 TEST_F(TestInt32ModeKernel, LargeValueRange) {
-  // Large value range => should exercise hashmap-based Mode implementation
+  // Large value range => should exercise sorter-based Mode implementation
   CheckModeWithRange<ArrowType>(-10000000, 10000000);
+}
+
+TEST_F(TestInt32ModeKernel, Sliced) {
+  CheckModeWithRangeSliced<ArrowType>(-100, 100);
+  CheckModeWithRangeSliced<ArrowType>(-10000000, 10000000);
 }
 
 //
@@ -1205,6 +1597,26 @@ TEST_F(TestVarStdKernelMergeStability, Basics) {
 #endif
 }
 
+// Test round-off error
+template <typename ArrowType>
+class TestVarStdKernelRoundOff : public TestPrimitiveVarStdKernel<ArrowType> {};
+
+typedef ::testing::Types<Int32Type, Int64Type, FloatType, DoubleType> VarStdRoundOffTypes;
+
+TYPED_TEST_SUITE(TestVarStdKernelRoundOff, VarStdRoundOffTypes);
+TYPED_TEST(TestVarStdKernelRoundOff, Basics) {
+  // build array: np.arange(321000, dtype='xxx')
+  typename TypeParam::c_type value = 0;
+  ASSERT_OK_AND_ASSIGN(
+      auto array, ArrayFromBuilderVisitor(TypeTraits<TypeParam>::type_singleton(), 321000,
+                                          [&](NumericBuilder<TypeParam>* builder) {
+                                            builder->UnsafeAppend(value++);
+                                          }));
+
+  // reference value from numpy.var()
+  this->AssertVarStdIs(*array, VarianceOptions{0}, 8586749999.916667);
+}
+
 // Test integer arithmetic code
 class TestVarStdKernelInt32 : public TestPrimitiveVarStdKernel<Int32Type> {};
 
@@ -1238,7 +1650,7 @@ void KahanSum(double& sum, double& adjust, double addend) {
 template <typename ArrayType>
 std::pair<double, double> WelfordVar(const ArrayType& array) {
   const auto values = array.raw_values();
-  internal::BitmapReader reader(array.null_bitmap_data(), array.offset(), array.length());
+  BitmapReader reader(array.null_bitmap_data(), array.offset(), array.length());
   double count = 0, mean = 0, m2 = 0;
   double mean_adjust = 0, m2_adjust = 0;
   for (int64_t i = 0; i < array.length(); ++i) {
@@ -1258,12 +1670,17 @@ std::pair<double, double> WelfordVar(const ArrayType& array) {
 template <typename ArrowType>
 class TestVarStdKernelRandom : public TestPrimitiveVarStdKernel<ArrowType> {};
 
-typedef ::testing::Types<Int32Type, UInt32Type, Int64Type, UInt64Type, FloatType,
-                         DoubleType>
-    VarStdRandomTypes;
+using VarStdRandomTypes =
+    ::testing::Types<Int32Type, UInt32Type, Int64Type, UInt64Type, FloatType, DoubleType>;
 
 TYPED_TEST_SUITE(TestVarStdKernelRandom, VarStdRandomTypes);
+
 TYPED_TEST(TestVarStdKernelRandom, Basics) {
+#if defined(__MINGW32__) && !defined(__MINGW64__)
+  if (TypeParam::type_id == Type::FLOAT) {
+    GTEST_SKIP() << "Precision issues on MinGW32 with float32";
+  }
+#endif
   // Cut array into small chunks
   constexpr int array_size = 5000;
   constexpr int chunk_size_max = 50;
@@ -1292,7 +1709,7 @@ TYPED_TEST(TestVarStdKernelRandom, Basics) {
 
   double var_population, var_sample;
   using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
-  auto typed_array = std::static_pointer_cast<ArrayType>(array->Slice(0, total_size));
+  auto typed_array = checked_pointer_cast<ArrayType>(array->Slice(0, total_size));
   std::tie(var_population, var_sample) = WelfordVar(*typed_array);
 
   this->AssertVarStdIs(chunked, VarianceOptions{0}, var_population);
@@ -1313,7 +1730,7 @@ TEST_F(TestVarStdKernelIntegerLength, Basics) {
   // auto array = rand.Numeric<Int32Type>(4000000000, min, min + 100000, 0.1);
 
   double var_population, var_sample;
-  auto int32_array = std::static_pointer_cast<Int32Array>(array);
+  auto int32_array = checked_pointer_cast<Int32Array>(array);
   std::tie(var_population, var_sample) = WelfordVar(*int32_array);
 
   this->AssertVarStdIs(*array, VarianceOptions{0}, var_population);
@@ -1340,25 +1757,25 @@ class TestPrimitiveQuantileKernel : public ::testing::Test {
 
       ASSERT_OK_AND_ASSIGN(Datum out, Quantile(array, options));
       const auto& out_array = out.make_array();
-      ASSERT_OK(out_array->ValidateFull());
+      ValidateOutput(*out_array);
       ASSERT_EQ(out_array->length(), options.q.size());
       ASSERT_EQ(out_array->null_count(), 0);
-      ASSERT_EQ(out_array->type(), expected[0][i].type());
+      AssertTypeEqual(out_array->type(), expected[0][i].type());
 
-      if (out_array->type() == float64()) {
+      if (out_array->type()->Equals(float64())) {
         const double* quantiles = out_array->data()->GetValues<double>(1);
         for (int64_t j = 0; j < out_array->length(); ++j) {
           const auto& numeric_scalar =
-              std::static_pointer_cast<DoubleScalar>(expected[j][i].scalar());
+              checked_pointer_cast<DoubleScalar>(expected[j][i].scalar());
           ASSERT_TRUE((quantiles[j] == numeric_scalar->value) ||
                       (std::isnan(quantiles[j]) && std::isnan(numeric_scalar->value)));
         }
       } else {
-        ASSERT_EQ(out_array->type(), type_singleton());
+        AssertTypeEqual(out_array->type(), type_singleton());
         const CType* quantiles = out_array->data()->GetValues<CType>(1);
         for (int64_t j = 0; j < out_array->length(); ++j) {
           const auto& numeric_scalar =
-              std::static_pointer_cast<NumericScalar<ArrowType>>(expected[j][i].scalar());
+              checked_pointer_cast<NumericScalar<ArrowType>>(expected[j][i].scalar());
           ASSERT_EQ(quantiles[j], numeric_scalar->value);
         }
       }
@@ -1400,7 +1817,8 @@ class TestPrimitiveQuantileKernel : public ::testing::Test {
     for (auto interpolation : this->interpolations_) {
       options.interpolation = interpolation;
       ASSERT_OK_AND_ASSIGN(Datum out, Quantile(array, options));
-      ASSERT_OK(out.make_array()->ValidateFull());
+      auto out_array = out.make_array();
+      ValidateOutput(*out_array);
       ASSERT_EQ(out.array()->length, 0);
     }
   }
@@ -1530,42 +1948,149 @@ TEST_F(TestInt64QuantileKernel, Int64) {
 #undef O
 
 #ifndef __MINGW32__
-class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<Int32Type> {
+template <typename ArrowType>
+class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {
+  using CType = typename ArrowType::c_type;
+
  public:
   void CheckQuantiles(int64_t array_size, int64_t num_quantiles) {
-    auto rand = random::RandomArrayGenerator(0x5487658);
-    // small value range to exercise input array with equal values and histogram approach
-    const auto array = rand.Numeric<Int32Type>(array_size, -100, 200, 0.1);
-
+    std::shared_ptr<Array> array;
     std::vector<double> quantiles;
-    random_real(num_quantiles, 0x5487658, 0.0, 1.0, &quantiles);
-    // make sure to exercise 0 and 1 quantiles
-    *std::min_element(quantiles.begin(), quantiles.end()) = 0;
-    *std::max_element(quantiles.begin(), quantiles.end()) = 1;
+    // small value range to exercise input array with equal values and histogram approach
+    GenerateTestData(array_size, num_quantiles, -100, 200, &array, &quantiles);
 
     this->AssertQuantilesAre(array, QuantileOptions{quantiles},
-                             NaiveQuantile(*array, quantiles));
+                             NaiveQuantile(array, quantiles, this->interpolations_));
+  }
+
+  void CheckQuantilesSliced(int64_t array_size, int64_t num_quantiles) {
+    std::shared_ptr<Array> array;
+    std::vector<double> quantiles;
+    GenerateTestData(array_size, num_quantiles, -100, 200, &array, &quantiles);
+
+    const std::vector<std::array<int64_t, 2>> offset_size{
+        {0, array_size - 1},
+        {1, array_size - 1},
+        {array_size / 3, array_size / 2},
+        {array_size * 9 / 10, array_size / 10},
+    };
+    for (const auto& os : offset_size) {
+      auto sliced = array->Slice(os[0], os[1]);
+      this->AssertQuantilesAre(sliced, QuantileOptions{quantiles},
+                               NaiveQuantile(sliced, quantiles, this->interpolations_));
+    }
+  }
+
+  void CheckTDigests(const std::vector<int>& chunk_sizes, int64_t num_quantiles) {
+    std::shared_ptr<ChunkedArray> chunked;
+    std::vector<double> quantiles;
+    GenerateChunked(chunk_sizes, num_quantiles, &chunked, &quantiles);
+
+    VerifyTDigest(chunked, quantiles);
+  }
+
+  void CheckTDigestsSliced(const std::vector<int>& chunk_sizes, int64_t num_quantiles) {
+    std::shared_ptr<ChunkedArray> chunked;
+    std::vector<double> quantiles;
+    GenerateChunked(chunk_sizes, num_quantiles, &chunked, &quantiles);
+
+    const int64_t size = chunked->length();
+    const std::vector<std::array<int64_t, 2>> offset_size{
+        {0, size - 1},
+        {1, size - 1},
+        {size / 3, size / 2},
+        {size * 9 / 10, size / 10},
+    };
+    for (const auto& os : offset_size) {
+      VerifyTDigest(chunked->Slice(os[0], os[1]), quantiles);
+    }
   }
 
  private:
-  std::vector<std::vector<Datum>> NaiveQuantile(const Array& array,
-                                                const std::vector<double>& quantiles) {
-    // copy and sort input array
-    std::vector<int32_t> input(array.length() - array.null_count());
-    const int32_t* values = array.data()->GetValues<int32_t>(1);
-    const auto bitmap = array.null_bitmap_data();
+  void GenerateTestData(int64_t array_size, int64_t num_quantiles, int min, int max,
+                        std::shared_ptr<Array>* array, std::vector<double>* quantiles) {
+    auto rand = random::RandomArrayGenerator(0x5487658);
+    if (is_floating_type<ArrowType>::value) {
+      *array = rand.Float64(array_size, min, max, /*null_prob=*/0.1, /*nan_prob=*/0.2);
+    } else {
+      *array = rand.Int64(array_size, min, max, /*null_prob=*/0.1);
+    }
+
+    random_real(num_quantiles, 0x5487658, 0.0, 1.0, quantiles);
+    // make sure to exercise 0 and 1 quantiles
+    *std::min_element(quantiles->begin(), quantiles->end()) = 0;
+    *std::max_element(quantiles->begin(), quantiles->end()) = 1;
+  }
+
+  void GenerateChunked(const std::vector<int>& chunk_sizes, int64_t num_quantiles,
+                       std::shared_ptr<ChunkedArray>* chunked,
+                       std::vector<double>* quantiles) {
+    int total_size = 0;
+    for (int size : chunk_sizes) {
+      total_size += size;
+    }
+    std::shared_ptr<Array> array;
+    GenerateTestData(total_size, num_quantiles, 100, 123456789, &array, quantiles);
+
+    total_size = 0;
+    ArrayVector array_vector;
+    for (int size : chunk_sizes) {
+      array_vector.emplace_back(array->Slice(total_size, size));
+      total_size += size;
+    }
+    *chunked = ChunkedArray::Make(array_vector).ValueOrDie();
+  }
+
+  void VerifyTDigest(const std::shared_ptr<ChunkedArray>& chunked,
+                     std::vector<double>& quantiles) {
+    TDigestOptions options(quantiles);
+    ASSERT_OK_AND_ASSIGN(Datum out, TDigest(chunked, options));
+    const auto& out_array = out.make_array();
+    ValidateOutput(*out_array);
+    ASSERT_EQ(out_array->length(), quantiles.size());
+    ASSERT_EQ(out_array->null_count(), 0);
+    AssertTypeEqual(out_array->type(), float64());
+
+    // linear interpolated exact quantile as reference
+    std::vector<std::vector<Datum>> exact =
+        NaiveQuantile(*chunked, quantiles, {QuantileOptions::LINEAR});
+    const double* approx = out_array->data()->GetValues<double>(1);
+    for (size_t i = 0; i < quantiles.size(); ++i) {
+      const auto& exact_scalar = checked_pointer_cast<DoubleScalar>(exact[i][0].scalar());
+      const double tolerance = std::fabs(exact_scalar->value) * 0.05;
+      EXPECT_NEAR(approx[i], exact_scalar->value, tolerance) << quantiles[i];
+    }
+  }
+
+  std::vector<std::vector<Datum>> NaiveQuantile(
+      const std::shared_ptr<Array>& array, const std::vector<double>& quantiles,
+      const std::vector<enum QuantileOptions::Interpolation>& interpolations) {
+    return NaiveQuantile(ChunkedArray(array), quantiles, interpolations);
+  }
+
+  std::vector<std::vector<Datum>> NaiveQuantile(
+      const ChunkedArray& chunked, const std::vector<double>& quantiles,
+      const std::vector<enum QuantileOptions::Interpolation>& interpolations) {
+    // copy and sort input chunked array
     int64_t index = 0;
-    for (int64_t i = 0; i < array.length(); ++i) {
-      if (BitUtil::GetBit(bitmap, i)) {
-        input[index++] = values[i];
+    std::vector<CType> input(chunked.length() - chunked.null_count());
+    for (const auto& array : chunked.chunks()) {
+      const CType* values = array->data()->GetValues<CType>(1);
+      const auto bitmap = array->null_bitmap_data();
+      for (int64_t i = 0; i < array->length(); ++i) {
+        if ((!bitmap || BitUtil::GetBit(bitmap, array->data()->offset + i)) &&
+            !std::isnan(static_cast<double>(values[i]))) {
+          input[index++] = values[i];
+        }
       }
     }
+    input.resize(index);
     std::sort(input.begin(), input.end());
 
     std::vector<std::vector<Datum>> output(quantiles.size(),
-                                           std::vector<Datum>(interpolations_.size()));
-    for (uint64_t i = 0; i < interpolations_.size(); ++i) {
-      const auto interp = interpolations_[i];
+                                           std::vector<Datum>(interpolations.size()));
+    for (uint64_t i = 0; i < interpolations.size(); ++i) {
+      const auto interp = interpolations[i];
       for (uint64_t j = 0; j < quantiles.size(); ++j) {
         output[j][i] = GetQuantile(input, quantiles[j], interp);
       }
@@ -1573,7 +2098,7 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<Int32Type> {
     return output;
   }
 
-  Datum GetQuantile(const std::vector<int32_t>& input, double q,
+  Datum GetQuantile(const std::vector<CType>& input, double q,
                     enum QuantileOptions::Interpolation interp) {
     const double index = (input.size() - 1) * q;
     const uint64_t lower_index = static_cast<uint64_t>(index);
@@ -1594,14 +2119,14 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<Int32Type> {
         }
       case QuantileOptions::LINEAR:
         if (fraction == 0) {
-          return Datum(static_cast<double>(input[lower_index]));
+          return Datum(input[lower_index] * 1.0);
         } else {
           return Datum(fraction * input[lower_index + 1] +
                        (1 - fraction) * input[lower_index]);
         }
       case QuantileOptions::MIDPOINT:
         if (fraction == 0) {
-          return Datum(static_cast<double>(input[lower_index]));
+          return Datum(input[lower_index] * 1.0);
         } else {
           return Datum(input[lower_index] / 2.0 + input[lower_index + 1] / 2.0);
         }
@@ -1611,21 +2136,63 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<Int32Type> {
   }
 };
 
-TEST_F(TestRandomQuantileKernel, Normal) {
+class TestRandomInt64QuantileKernel : public TestRandomQuantileKernel<Int64Type> {};
+
+TEST_F(TestRandomInt64QuantileKernel, Normal) {
   // exercise copy and sort approach: size < 65536
   this->CheckQuantiles(/*array_size=*/10000, /*num_quantiles=*/100);
 }
 
-TEST_F(TestRandomQuantileKernel, Overlapped) {
+TEST_F(TestRandomInt64QuantileKernel, Overlapped) {
   // much more quantiles than array size => many overlaps
   this->CheckQuantiles(/*array_size=*/999, /*num_quantiles=*/9999);
 }
 
-TEST_F(TestRandomQuantileKernel, Histogram) {
+TEST_F(TestRandomInt64QuantileKernel, Histogram) {
   // exercise histogram approach: size >= 65536, range <= 65536
   this->CheckQuantiles(/*array_size=*/80000, /*num_quantiles=*/100);
 }
+
+TEST_F(TestRandomInt64QuantileKernel, Sliced) {
+  this->CheckQuantilesSliced(1000, 10);   // sort
+  this->CheckQuantilesSliced(66000, 10);  // count
+}
+
+class TestRandomFloatQuantileKernel : public TestRandomQuantileKernel<DoubleType> {};
+
+TEST_F(TestRandomFloatQuantileKernel, Exact) {
+  this->CheckQuantiles(/*array_size=*/1000, /*num_quantiles=*/100);
+}
+
+TEST_F(TestRandomFloatQuantileKernel, TDigest) {
+  this->CheckTDigests(/*chunk_sizes=*/{12345, 6789, 8765, 4321}, /*num_quantiles=*/100);
+}
+
+TEST_F(TestRandomFloatQuantileKernel, Sliced) {
+  this->CheckQuantilesSliced(1000, 10);
+  this->CheckTDigestsSliced({200, 600}, 10);
+}
 #endif
+
+class TestTDigestKernel : public ::testing::Test {};
+
+TEST_F(TestTDigestKernel, AllNullsOrNaNs) {
+  const std::vector<std::vector<std::string>> tests = {
+      {"[]"},
+      {"[null, null]", "[]", "[null]"},
+      {"[NaN]", "[NaN, NaN]", "[]"},
+      {"[null, NaN, null]"},
+      {"[NaN, NaN]", "[]", "[null]"},
+  };
+
+  for (const auto& json : tests) {
+    auto chunked = ChunkedArrayFromJSON(float64(), json);
+    ASSERT_OK_AND_ASSIGN(Datum out, TDigest(chunked, TDigestOptions()));
+    auto out_array = out.make_array();
+    ValidateOutput(*out_array);
+    ASSERT_EQ(out.array()->length, 0);
+  }
+}
 
 }  // namespace compute
 }  // namespace arrow

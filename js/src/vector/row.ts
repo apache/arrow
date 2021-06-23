@@ -54,7 +54,7 @@ abstract class Row<K extends PropertyKey = any, V = any> implements Map<K, V> {
 
     public get(key: K) {
         let val = undefined;
-        if (key !== null && key !== undefined) {
+        if (key != null) {
             const ktoi = this[kKeyToIdx] || (this[kKeyToIdx] = new Map());
             let idx = ktoi.get(key);
             if (idx !== undefined) {
@@ -70,7 +70,7 @@ abstract class Row<K extends PropertyKey = any, V = any> implements Map<K, V> {
     }
 
     public set(key: K, val: V) {
-        if (key !== null && key !== undefined) {
+        if (key != null) {
             const ktoi = this[kKeyToIdx] || (this[kKeyToIdx] = new Map());
             let idx = ktoi.get(key);
             if (idx === undefined) {
@@ -158,7 +158,7 @@ abstract class Row<K extends PropertyKey = any, V = any> implements Map<K, V> {
 }
 
 export class MapRow<K extends DataType = any, V extends DataType = any> extends Row<K['TValue'], V['TValue'] | null> {
-    constructor(slice: Vector<Struct<{ key: K, value: V }>>) {
+    constructor(slice: Vector<Struct<{ key: K; value: V }>>) {
         super(slice, slice.length);
         return createRowProxy(this);
     }
@@ -217,15 +217,16 @@ Object.setPrototypeOf(Row.prototype, Map.prototype);
 const defineRowProxyProperties = (() => {
     const desc = { enumerable: true, configurable: false, get: null as any, set: null as any };
     return <T extends Row>(row: T) => {
-        let idx = -1, ktoi = row[kKeyToIdx] || (row[kKeyToIdx] = new Map());
+        let idx = -1;
+        const ktoi = row[kKeyToIdx] || (row[kKeyToIdx] = new Map());
         const getter = (key: any) => function(this: T) { return this.get(key); };
         const setter = (key: any) => function(this: T, val: any) { return this.set(key, val); };
         for (const key of row.keys()) {
             ktoi.set(key, ++idx);
             desc.get = getter(key);
             desc.set = setter(key);
-            row.hasOwnProperty(key) || (desc.enumerable = true, Object.defineProperty(row, key, desc));
-            row.hasOwnProperty(idx) || (desc.enumerable = false, Object.defineProperty(row, idx, desc));
+            Object.prototype.hasOwnProperty.call(row, key) || (desc.enumerable = true, Object.defineProperty(row, key, desc));
+            Object.prototype.hasOwnProperty.call(row, idx) || (desc.enumerable = false, Object.defineProperty(row, idx, desc));
         }
         desc.get = desc.set = null;
         return row;

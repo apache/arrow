@@ -29,9 +29,8 @@
 #' Note that `select()`-ed columns may not be renamed.
 #' @param path string path, URI, or `SubTreeFileSystem` referencing a directory
 #' to write to (directory will be created if it does not exist)
-#' @param format file format to write the dataset to. Currently supported
-#' formats are "feather" (aka "ipc") and "parquet". Default is to write to the
-#' same format as `dataset`.
+#' @param format a string identifier of the file format. Default is to use
+#' "parquet" (see [FileFormat])
 #' @param partitioning `Partitioning` or a character vector of columns to
 #' use as partition keys (to be written as path segments). Default is to
 #' use the current `group_by()` columns.
@@ -52,20 +51,19 @@
 #'   which case it will be V4.
 #' - `codec`: A [Codec] which will be used to compress body buffers of written
 #'   files. Default (NULL) will not compress body buffers.
+#' - `null_fallback`: character to be used in place of missing values (`NA` or
+#' `NULL`) when using Hive-style partitioning. See [hive_partition()].
 #' @return The input `dataset`, invisibly
 #' @export
 write_dataset <- function(dataset,
                           path,
-                          format = dataset$format,
+                          format = c("parquet", "feather", "arrow", "ipc"),
                           partitioning = dplyr::group_vars(dataset),
                           basename_template = paste0("part-{i}.", as.character(format)),
                           hive_style = TRUE,
                           ...) {
+  format <- match.arg(format)
   if (inherits(dataset, "arrow_dplyr_query")) {
-    # We can select a subset of columns but we can't rename them
-    if (!all(dataset$selected_columns == names(dataset$selected_columns))) {
-      stop("Renaming columns when writing a dataset is not yet supported", call. = FALSE)
-    }
     # partitioning vars need to be in the `select` schema
     dataset <- ensure_group_vars(dataset)
   } else if (inherits(dataset, "grouped_df")) {
@@ -79,7 +77,7 @@ write_dataset <- function(dataset,
   if (!inherits(partitioning, "Partitioning")) {
     partition_schema <- scanner$schema[partitioning]
     if (isTRUE(hive_style)) {
-      partitioning <- HivePartitioning$create(partition_schema)
+      partitioning <- HivePartitioning$create(partition_schema, null_fallback = list(...)$null_fallback)
     } else {
       partitioning <- DirectoryPartitioning$create(partition_schema)
     }

@@ -53,6 +53,7 @@ test_that("binary Array", {
   expect_array_roundtrip(bin, fixed_size_binary(byte_width = 10))
 
   # degenerate cases
+  skip_on_valgrind() # valgrind errors on these tests ARROW-12638
   bin <- vctrs::new_vctr(
     list(1:10),
     class = "arrow_binary"
@@ -94,13 +95,13 @@ test_that("Slice() and RangeEquals()", {
   y <- x$Slice(10)
   expect_equal(y$type, int32())
   expect_equal(length(y), 15L)
-  expect_vector(y, c(101:110, 201:205))
+  expect_as_vector(y, c(101:110, 201:205))
   expect_true(x$RangeEquals(y, 10, 24))
   expect_false(x$RangeEquals(y, 9, 23))
   expect_false(x$RangeEquals(y, 11, 24))
 
   z <- x$Slice(10, 5)
-  expect_vector(z, c(101:105))
+  expect_as_vector(z, c(101:105))
   expect_true(x$RangeEquals(z, 10, 15, 0))
 
   # Input validation
@@ -262,17 +263,16 @@ test_that("array supports POSIXct (ARROW-3340)", {
 
 test_that("array supports POSIXct without timezone", {
   # Make sure timezone is not set
-  tz <- Sys.getenv("TZ")
-  Sys.setenv(TZ = "")
-  on.exit(Sys.setenv(TZ = tz))
-  times <- strptime("2019-02-03 12:34:56", format="%Y-%m-%d %H:%M:%S") + 1:10
-  expect_array_roundtrip(times, timestamp("us", ""))
+  withr::with_envvar(c(TZ = ""), {
+    times <- strptime("2019-02-03 12:34:56", format="%Y-%m-%d %H:%M:%S") + 1:10
+    expect_array_roundtrip(times, timestamp("us", ""))
 
-  # Also test the INTSXP code path
-  skip("Ingest_POSIXct only implemented for REALSXP")
-  times_int <- as.integer(times)
-  attributes(times_int) <- attributes(times)
-  expect_array_roundtrip(times_int, timestamp("us", ""))
+    # Also test the INTSXP code path
+    skip("Ingest_POSIXct only implemented for REALSXP")
+    times_int <- as.integer(times)
+    attributes(times_int) <- attributes(times)
+    expect_array_roundtrip(times_int, timestamp("us", ""))
+  })
 })
 
 test_that("Timezone handling in Arrow roundtrip (ARROW-3543)", {
@@ -385,24 +385,23 @@ test_that("Array$create() supports the type= argument. conversion from INTSXP an
 })
 
 test_that("Array$create() aborts on overflow", {
-  msg <- "Invalid.*Value is too large"
-  expect_error(Array$create(128L, type = int8()), msg)
-  expect_error(Array$create(-129L, type = int8()), msg)
+  expect_error(Array$create(128L, type = int8()))
+  expect_error(Array$create(-129L, type = int8()))
 
-  expect_error(Array$create(256L, type = uint8()), msg)
-  expect_error(Array$create(-1L, type = uint8()), msg)
+  expect_error(Array$create(256L, type = uint8()))
+  expect_error(Array$create(-1L, type = uint8()))
 
-  expect_error(Array$create(32768L, type = int16()), msg)
-  expect_error(Array$create(-32769L, type = int16()), msg)
+  expect_error(Array$create(32768L, type = int16()))
+  expect_error(Array$create(-32769L, type = int16()))
 
-  expect_error(Array$create(65536L, type = uint16()), msg)
-  expect_error(Array$create(-1L, type = uint16()), msg)
+  expect_error(Array$create(65536L, type = uint16()))
+  expect_error(Array$create(-1L, type = uint16()))
 
-  expect_error(Array$create(65536L, type = uint16()), msg)
-  expect_error(Array$create(-1L, type = uint16()), msg)
+  expect_error(Array$create(65536L, type = uint16()))
+  expect_error(Array$create(-1L, type = uint16()))
 
-  expect_error(Array$create(bit64::as.integer64(2^31), type = int32()), msg)
-  expect_error(Array$create(bit64::as.integer64(2^32), type = uint32()), msg)
+  expect_error(Array$create(bit64::as.integer64(2^31), type = int32()))
+  expect_error(Array$create(bit64::as.integer64(2^32), type = uint32()))
 })
 
 test_that("Array$create() does not convert doubles to integer", {
@@ -458,6 +457,11 @@ test_that("Array$create() handles data frame -> struct arrays (ARROW-3811)", {
   a <- Array$create(df)
   expect_type_equal(a$type, struct(x = int32(), y = float64(), z = utf8()))
   expect_equivalent(as.vector(a), df)
+
+  df <- structure(list(col = structure(list(structure(list(list(structure(1))), class = "inner")), class = "outer")), class = "data.frame", row.names = c(NA, -1L))
+  a <- Array$create(df)
+  expect_type_equal(a$type, struct(col = list_of(list_of(list_of(float64())))))
+  expect_equivalent(as.vector(a), df)
 })
 
 test_that("StructArray methods", {
@@ -483,7 +487,7 @@ test_that("Array$create() can handle data frame with custom struct type (not inf
   expect_error(Array$create(df, type = type), regexp = "Field name in position.*does not match the name of the column of the data frame")
 
   type <- struct(x = float64(), y = utf8())
-  expect_error(Array$create(df, type = type), regexp = "Expecting a character vector")
+  expect_error(Array$create(df, type = type), regexp = "Invalid")
 })
 
 test_that("Array$create() supports tibble with no columns (ARROW-8354)", {
@@ -493,7 +497,7 @@ test_that("Array$create() supports tibble with no columns (ARROW-8354)", {
 
 test_that("Array$create() handles vector -> list arrays (ARROW-7662)", {
   # Should be able to create an empty list with a type hint.
-  expect_is(Array$create(list(), list_of(bool())), "ListArray")
+  expect_r6_class(Array$create(list(), list_of(bool())), "ListArray")
 
   # logical
   expect_array_roundtrip(list(NA), list_of(bool()))
@@ -539,7 +543,7 @@ test_that("Array$create() handles vector -> list arrays (ARROW-7662)", {
 
 test_that("Array$create() handles vector -> large list arrays", {
   # Should be able to create an empty list with a type hint.
-  expect_is(Array$create(list(), type = large_list_of(bool())), "LargeListArray")
+  expect_r6_class(Array$create(list(), type = large_list_of(bool())), "LargeListArray")
 
   # logical
   expect_array_roundtrip(list(NA), large_list_of(bool()), as = large_list_of(bool()))
@@ -584,7 +588,7 @@ test_that("Array$create() handles vector -> large list arrays", {
 
 test_that("Array$create() handles vector -> fixed size list arrays", {
   # Should be able to create an empty list with a type hint.
-  expect_is(Array$create(list(), type = fixed_size_list_of(bool(), 20)), "FixedSizeListArray")
+  expect_r6_class(Array$create(list(), type = fixed_size_list_of(bool(), 20)), "FixedSizeListArray")
 
   # logical
   expect_array_roundtrip(list(NA), fixed_size_list_of(bool(), 1L), as = fixed_size_list_of(bool(), 1L))
@@ -635,24 +639,32 @@ test_that("Handling string data with embedded nuls", {
     as.raw(c(0x63, 0x61, 0x6d, 0x65, 0x72, 0x61)),
     as.raw(c(0x74, 0x76))),
     class = c("arrow_binary", "vctrs_vctr", "list"))
-  expect_error(rawToChar(raws[[3]]), "nul") # See?
-  array_with_nul <- Array$create(raws)$cast(utf8())
-  expect_error(as.vector(array_with_nul), "nul")
-
-  options(arrow.skip_nul = TRUE)
-  expect_warning(
-    expect_identical(
-      as.vector(array_with_nul),
-      c("person", "woman", "man", "fan", "camera", "tv")
-    ),
-    "Stripping '\\\\0' \\(nul\\) from character vector"
+  expect_error(
+    rawToChar(raws[[3]]),
+    "embedded nul in string: 'ma\\0n'", # See?
+    fixed = TRUE
   )
+  array_with_nul <- Array$create(raws)$cast(utf8())
+  expect_error(
+    as.vector(array_with_nul),
+    "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow to R, set options(arrow.skip_nul = TRUE)",
+    fixed = TRUE
+  )
+
+  withr::with_options(list(arrow.skip_nul = TRUE), {
+    expect_warning(
+      expect_identical(
+        as.vector(array_with_nul),
+        c("person", "woman", "man", "fan", "camera", "tv")
+      ),
+      "Stripping '\\0' (nul) from character vector",
+      fixed = TRUE
+    )
+  })
 })
 
 test_that("Array$create() should have helpful error", {
   expect_error(Array$create(list(numeric(0)), list_of(bool())), "Expecting a logical vector")
-  expect_error(Array$create(list(numeric(0)), list_of(int32())), "Expecting an integer vector")
-  expect_error(Array$create(list(integer(0)), list_of(float64())), "Expecting a numeric vector")
 
   lgl <- logical(0)
   int <- integer(0)
@@ -661,7 +673,6 @@ test_that("Array$create() should have helpful error", {
   expect_error(Array$create(list()), "Requires at least one element to infer")
   expect_error(Array$create(list(lgl, lgl, int)), "Expecting a logical vector")
   expect_error(Array$create(list(char, num, char)), "Expecting a character vector")
-  expect_error(Array$create(list(int, int, num)), "Expecting an integer vector")
 })
 
 test_that("Array$View() (ARROW-6542)", {
@@ -698,12 +709,12 @@ test_that("Array$Take()", {
 test_that("[ method on Array", {
   vec <- 11:20
   a <- Array$create(vec)
-  expect_vector(a[5:9], vec[5:9])
-  expect_vector(a[c(9, 3, 5)], vec[c(9, 3, 5)])
-  expect_vector(a[rep(c(TRUE, FALSE), 5)], vec[c(1, 3, 5, 7, 9)])
-  expect_vector(a[rep(c(TRUE, FALSE, NA, FALSE, TRUE), 2)], c(11, NA, 15, 16, NA, 20))
-  expect_vector(a[-4], vec[-4])
-  expect_vector(a[-1], vec[-1])
+  expect_as_vector(a[5:9], vec[5:9])
+  expect_as_vector(a[c(9, 3, 5)], vec[c(9, 3, 5)])
+  expect_as_vector(a[rep(c(TRUE, FALSE), 5)], vec[c(1, 3, 5, 7, 9)])
+  expect_as_vector(a[rep(c(TRUE, FALSE, NA, FALSE, TRUE), 2)], c(11, NA, 15, 16, NA, 20))
+  expect_as_vector(a[-4], vec[-4])
+  expect_as_vector(a[-1], vec[-1])
 })
 
 test_that("[ accepts Arrays and otherwise handles bad input", {
@@ -714,12 +725,12 @@ test_that("[ accepts Arrays and otherwise handles bad input", {
     a[Array$create(ind)],
     "Cannot extract rows with an Array of type double"
   )
-  expect_vector(a[Array$create(ind - 1, type = int8())], vec[ind])
-  expect_vector(a[Array$create(ind - 1, type = uint8())], vec[ind])
-  expect_vector(a[ChunkedArray$create(8, 2, 4, type = uint8())], vec[ind])
+  expect_as_vector(a[Array$create(ind - 1, type = int8())], vec[ind])
+  expect_as_vector(a[Array$create(ind - 1, type = uint8())], vec[ind])
+  expect_as_vector(a[ChunkedArray$create(8, 2, 4, type = uint8())], vec[ind])
 
   filt <- seq_along(vec) %in% ind
-  expect_vector(a[Array$create(filt)], vec[filt])
+  expect_as_vector(a[Array$create(filt)], vec[filt])
 
   expect_error(
     a["string"],
@@ -727,25 +738,38 @@ test_that("[ accepts Arrays and otherwise handles bad input", {
   )
 })
 
+test_that("%in% works on dictionary arrays", {
+  a1 <- Array$create(as.factor(c("A", "B", "C")))
+  a2 <- DictionaryArray$create(c(0L, 1L, 2L), c(4.5, 3.2, 1.1))
+  c1 <- Array$create(c(FALSE, TRUE, FALSE))
+  c2 <- Array$create(c(FALSE, FALSE, FALSE))
+  b1 <- Array$create("B")
+  b2 <- Array$create(5.4)
+
+  expect_equal(is_in(a1, b1), c1)
+  expect_equal(is_in(a2, b2), c2)
+  expect_error(is_in(a1, b2))
+})
+
 test_that("[ accepts Expressions", {
   vec <- 11:20
   a <- Array$create(vec)
   b <- Array$create(1:10)
-  expect_vector(a[b > 4], vec[5:10])
+  expect_as_vector(a[b > 4], vec[5:10])
 })
 
 test_that("Array head/tail", {
   vec <- 11:20
   a <- Array$create(vec)
-  expect_vector(head(a), head(vec))
-  expect_vector(head(a, 4), head(vec, 4))
-  expect_vector(head(a, 40), head(vec, 40))
-  expect_vector(head(a, -4), head(vec, -4))
-  expect_vector(head(a, -40), head(vec, -40))
-  expect_vector(tail(a), tail(vec))
-  expect_vector(tail(a, 4), tail(vec, 4))
-  expect_vector(tail(a, 40), tail(vec, 40))
-  expect_vector(tail(a, -40), tail(vec, -40))
+  expect_as_vector(head(a), head(vec))
+  expect_as_vector(head(a, 4), head(vec, 4))
+  expect_as_vector(head(a, 40), head(vec, 40))
+  expect_as_vector(head(a, -4), head(vec, -4))
+  expect_as_vector(head(a, -40), head(vec, -40))
+  expect_as_vector(tail(a), tail(vec))
+  expect_as_vector(tail(a, 4), tail(vec, 4))
+  expect_as_vector(tail(a, 40), tail(vec, 40))
+  expect_as_vector(tail(a, -40), tail(vec, -40))
 })
 
 test_that("Dictionary array: create from arrays, not factor", {
@@ -784,14 +808,34 @@ test_that("Array$ApproxEquals", {
 })
 
 test_that("auto int64 conversion to int can be disabled (ARROW-10093)", {
-  op <- options(arrow.int64_downcast = FALSE); on.exit(options(op))
+  withr::with_options(list(arrow.int64_downcast = FALSE), {
+    a <- Array$create(1:10, int64())
+    expect_true(inherits(a$as_vector(), "integer64"))
 
-  a <- Array$create(1:10, int64())
-  expect_true(inherits(a$as_vector(), "integer64"))
+    batch <- RecordBatch$create(x = a)
+    expect_true(inherits(as.data.frame(batch)$x, "integer64"))
 
-  batch <- RecordBatch$create(x = a)
-  expect_true(inherits(as.data.frame(batch)$x, "integer64"))
+    tab <- Table$create(x = a)
+    expect_true(inherits(as.data.frame(batch)$x, "integer64"))
+  })
+})
 
-  tab <- Table$create(x = a)
-  expect_true(inherits(as.data.frame(batch)$x, "integer64"))
+
+test_that("Array to C-interface", {
+  # create a struct array since that's one of the more complicated array types
+  df <- tibble::tibble(x = 1:10, y = x / 2, z = letters[1:10])
+  arr <- Array$create(df)
+
+  # export the array via the C-interface
+  schema_ptr <- allocate_arrow_schema()
+  array_ptr <- allocate_arrow_array()
+  arr$export_to_c(array_ptr, schema_ptr)
+
+  # then import it and check that the roundtripped value is the same
+  circle <- Array$import_from_c(array_ptr, schema_ptr)
+  expect_equal(arr, circle)
+
+  # must clean up the pointers or we leak
+  delete_arrow_schema(schema_ptr)
+  delete_arrow_array(array_ptr)
 })

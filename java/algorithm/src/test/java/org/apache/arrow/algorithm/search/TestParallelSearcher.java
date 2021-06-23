@@ -19,10 +19,15 @@ package org.apache.arrow.algorithm.search;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import org.apache.arrow.algorithm.sort.DefaultVectorComparators;
+import org.apache.arrow.algorithm.sort.VectorValueComparator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
@@ -30,24 +35,51 @@ import org.apache.arrow.vector.VarCharVector;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 /**
  * Test cases for {@link ParallelSearcher}.
  */
+@RunWith(Parameterized.class)
 public class TestParallelSearcher {
 
-  private static final int THREAD_COUNT = 10;
+  private enum ComparatorType {
+    EqualityComparator,
+    OrderingComparator;
+  }
 
   private static final int VECTOR_LENGTH = 10000;
+
+  private final int threadCount;
 
   private BufferAllocator allocator;
 
   private ExecutorService threadPool;
 
+  private final ComparatorType comparatorType;
+
+  public TestParallelSearcher(ComparatorType comparatorType, int threadCount) {
+    this.comparatorType = comparatorType;
+    this.threadCount = threadCount;
+  }
+
+  @Parameterized.Parameters(name = "comparator type = {0}, thread count = {1}")
+  public static Collection<Object[]> getComparatorName() {
+    List<Object[]> params = new ArrayList<>();
+    int[] threadCounts = {1, 2, 5, 10, 20, 50};
+    for (ComparatorType type : ComparatorType.values()) {
+      for (int count : threadCounts) {
+        params.add(new Object[] {type, count});
+      }
+    }
+    return params;
+  }
+
   @Before
   public void prepare() {
     allocator = new RootAllocator(1024 * 1024);
-    threadPool = Executors.newFixedThreadPool(THREAD_COUNT);
+    threadPool = Executors.newFixedThreadPool(threadCount);
   }
 
   @After
@@ -63,6 +95,10 @@ public class TestParallelSearcher {
       targetVector.allocateNew(VECTOR_LENGTH);
       keyVector.allocateNew(VECTOR_LENGTH);
 
+      // if we are comparing elements using equality semantics, we do not need a comparator here.
+      VectorValueComparator<IntVector> comparator = comparatorType == ComparatorType.EqualityComparator ? null
+          : DefaultVectorComparators.createDefaultComparator(targetVector);
+
       for (int i = 0; i < VECTOR_LENGTH; i++) {
         targetVector.set(i, i);
         keyVector.set(i, i * 2);
@@ -70,9 +106,9 @@ public class TestParallelSearcher {
       targetVector.setValueCount(VECTOR_LENGTH);
       keyVector.setValueCount(VECTOR_LENGTH);
 
-      ParallelSearcher<IntVector> searcher = new ParallelSearcher<>(targetVector, threadPool, THREAD_COUNT);
+      ParallelSearcher<IntVector> searcher = new ParallelSearcher<>(targetVector, threadPool, threadCount);
       for (int i = 0; i < VECTOR_LENGTH; i++) {
-        int pos = searcher.search(keyVector, i);
+        int pos = comparator == null ? searcher.search(keyVector, i) : searcher.search(keyVector, i, comparator);
         if (i * 2 < VECTOR_LENGTH) {
           assertEquals(i * 2, pos);
         } else {
@@ -89,6 +125,10 @@ public class TestParallelSearcher {
       targetVector.allocateNew(VECTOR_LENGTH);
       keyVector.allocateNew(VECTOR_LENGTH);
 
+      // if we are comparing elements using equality semantics, we do not need a comparator here.
+      VectorValueComparator<VarCharVector> comparator = comparatorType == ComparatorType.EqualityComparator ? null
+          : DefaultVectorComparators.createDefaultComparator(targetVector);
+
       for (int i = 0; i < VECTOR_LENGTH; i++) {
         targetVector.setSafe(i, String.valueOf(i).getBytes());
         keyVector.setSafe(i, String.valueOf(i * 2).getBytes());
@@ -96,9 +136,9 @@ public class TestParallelSearcher {
       targetVector.setValueCount(VECTOR_LENGTH);
       keyVector.setValueCount(VECTOR_LENGTH);
 
-      ParallelSearcher<VarCharVector> searcher = new ParallelSearcher<>(targetVector, threadPool, THREAD_COUNT);
+      ParallelSearcher<VarCharVector> searcher = new ParallelSearcher<>(targetVector, threadPool, threadCount);
       for (int i = 0; i < VECTOR_LENGTH; i++) {
-        int pos = searcher.search(keyVector, i);
+        int pos = comparator == null ? searcher.search(keyVector, i) : searcher.search(keyVector, i, comparator);
         if (i * 2 < VECTOR_LENGTH) {
           assertEquals(i * 2, pos);
         } else {

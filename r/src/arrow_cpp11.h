@@ -23,6 +23,7 @@
 #undef Free
 
 #include <cpp11.hpp>
+#include <cpp11/altrep.hpp>
 
 #include "./nameof.h"
 
@@ -140,7 +141,6 @@ struct data {
   static SEXP classes_ordered;
 
   static SEXP names_metadata;
-  static SEXP empty_raw;
 };
 
 struct ns {

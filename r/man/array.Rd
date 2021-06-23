@@ -54,12 +54,13 @@ a == a
 \item \verb{$IsNull(i)}: Return true if value at index is null. Does not boundscheck
 \item \verb{$IsValid(i)}: Return true if value at index is valid. Does not boundscheck
 \item \verb{$length()}: Size in the number of elements this array contains
-\item \verb{$offset()}: A relative position into another array's data, to enable zero-copy slicing
-\item \verb{$null_count()}: The number of null entries in the array
-\item \verb{$type()}: logical type of data
+\item \verb{$offset}: A relative position into another array's data, to enable zero-copy slicing
+\item \verb{$null_count}: The number of null entries in the array
+\item \verb{$type}: logical type of data
 \item \verb{$type_id()}: type id
 \item \verb{$Equals(other)} : is this array equal to \code{other}
 \item \verb{$ApproxEquals(other)} :
+\item \verb{$Diff(other)} : return a string expressing the difference between two arrays
 \item \verb{$data()}: return the underlying \link{ArrayData}
 \item \verb{$as_vector()}: convert to an R vector
 \item \verb{$ToString()}: string representation of the array
@@ -70,6 +71,8 @@ until the end of the array.
 (R vector or Array Array) \code{i}.
 \item \verb{$Filter(i, keep_na = TRUE)}: return an \code{Array} with values at positions where logical
 vector (or Arrow boolean Array) \code{i} is \code{TRUE}.
+\item \verb{$SortIndices(descending = FALSE)}: return an \code{Array} of integer positions that can be
+used to rearrange the \code{Array} in ascending or descending order
 \item \verb{$RangeEquals(other, start_idx, end_idx, other_start_idx)} :
 \item \verb{$cast(target_type, safe = TRUE, options = cast_options(safe))}: Alter the
 data in the array to change its type.
@@ -79,3 +82,26 @@ within the array's internal data. This can be an expensive check, potentially \c
 }
 }
 
+\examples{
+\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+my_array <- Array$create(1:10)
+my_array$type
+my_array$cast(int8())
+
+# Check if value is null; zero-indexed
+na_array <- Array$create(c(1:5, NA))
+na_array$IsNull(0)
+na_array$IsNull(5)
+na_array$IsValid(5)
+na_array$null_count
+
+# zero-copy slicing; the offset of the new Array will be the same as the index passed to $Slice
+new_array <- na_array$Slice(5)
+new_array$offset
+
+# Compare 2 arrays
+na_array2 = na_array
+na_array2 == na_array # element-wise comparison
+na_array2$Equals(na_array) # overall comparison
+\dontshow{\}) # examplesIf}
+}

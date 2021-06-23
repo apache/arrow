@@ -133,6 +133,10 @@ class ARROW_EXPORT Function {
     /// A function that computes scalar summary statistics from array input.
     SCALAR_AGGREGATE,
 
+    /// A function that computes grouped summary statistics from array input
+    /// and an array of group identifiers.
+    HASH_AGGREGATE,
+
     /// A function that dispatches to other functions and does not contain its
     /// own kernels.
     META
@@ -162,7 +166,15 @@ class ARROW_EXPORT Function {
   ///
   /// NB: This function is overridden in CastFunction.
   virtual Result<const Kernel*> DispatchExact(
-      const std::vector<ValueDescr>& values) const = 0;
+      const std::vector<ValueDescr>& values) const;
+
+  /// \brief Return a best-match kernel that can execute the function given the argument
+  /// types, after implicit casts are applied.
+  ///
+  /// \param[in,out] values Argument types. An element may be modified to indicate that
+  /// the returned kernel only approximately matches the input value descriptors; callers
+  /// are responsible for casting inputs to the type and shape required by the kernel.
+  virtual Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const;
 
   /// \brief Execute the function eagerly with the passed input arguments with
   /// kernel dispatch, batch iteration, and memory allocation details taken
@@ -191,7 +203,8 @@ class ARROW_EXPORT Function {
         doc_(doc ? doc : &FunctionDoc::Empty()),
         default_options_(default_options) {}
 
-  Status CheckArity(int passed_num_args) const;
+  Status CheckArity(const std::vector<InputType>&) const;
+  Status CheckArity(const std::vector<ValueDescr>&) const;
 
   std::string name_;
   Function::Kind kind_;
@@ -224,6 +237,14 @@ class FunctionImpl : public Function {
   std::vector<KernelType> kernels_;
 };
 
+/// \brief Look up a kernel in a function. If no Kernel is found, nullptr is returned.
+ARROW_EXPORT
+const Kernel* DispatchExactImpl(const Function* func, const std::vector<ValueDescr>&);
+
+/// \brief Return an error message if no Kernel is found.
+ARROW_EXPORT
+Status NoMatchingKernel(const Function* func, const std::vector<ValueDescr>&);
+
 }  // namespace detail
 
 /// \brief A function that executes elementwise operations on arrays or
@@ -249,9 +270,6 @@ class ARROW_EXPORT ScalarFunction : public detail::FunctionImpl<ScalarKernel> {
   /// \brief Add a kernel (function implementation). Returns error if the
   /// kernel's signature does not match the function's arity.
   Status AddKernel(ScalarKernel kernel);
-
-  Result<const Kernel*> DispatchExact(
-      const std::vector<ValueDescr>& values) const override;
 };
 
 /// \brief A function that executes general array operations that may yield
@@ -276,9 +294,6 @@ class ARROW_EXPORT VectorFunction : public detail::FunctionImpl<VectorKernel> {
   /// \brief Add a kernel (function implementation). Returns error if the
   /// kernel's signature does not match the function's arity.
   Status AddKernel(VectorKernel kernel);
-
-  Result<const Kernel*> DispatchExact(
-      const std::vector<ValueDescr>& values) const override;
 };
 
 class ARROW_EXPORT ScalarAggregateFunction
@@ -294,9 +309,21 @@ class ARROW_EXPORT ScalarAggregateFunction
   /// \brief Add a kernel (function implementation). Returns error if the
   /// kernel's signature does not match the function's arity.
   Status AddKernel(ScalarAggregateKernel kernel);
+};
 
-  Result<const Kernel*> DispatchExact(
-      const std::vector<ValueDescr>& values) const override;
+class ARROW_EXPORT HashAggregateFunction
+    : public detail::FunctionImpl<HashAggregateKernel> {
+ public:
+  using KernelType = HashAggregateKernel;
+
+  HashAggregateFunction(std::string name, const Arity& arity, const FunctionDoc* doc,
+                        const FunctionOptions* default_options = NULLPTR)
+      : detail::FunctionImpl<HashAggregateKernel>(
+            std::move(name), Function::HASH_AGGREGATE, arity, doc, default_options) {}
+
+  /// \brief Add a kernel (function implementation). Returns error if the
+  /// kernel's signature does not match the function's arity.
+  Status AddKernel(HashAggregateKernel kernel);
 };
 
 /// \brief A function that dispatches to other functions. Must implement
@@ -310,10 +337,6 @@ class ARROW_EXPORT MetaFunction : public Function {
 
   Result<Datum> Execute(const std::vector<Datum>& args, const FunctionOptions* options,
                         ExecContext* ctx) const override;
-
-  Result<const Kernel*> DispatchExact(const std::vector<ValueDescr>&) const override {
-    return Status::NotImplemented("DispatchExact for a MetaFunction's Kernels");
-  }
 
  protected:
   virtual Result<Datum> ExecuteImpl(const std::vector<Datum>& args,

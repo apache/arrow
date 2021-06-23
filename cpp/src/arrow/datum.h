@@ -89,6 +89,7 @@ struct ARROW_EXPORT ValueDescr {
   bool operator!=(const ValueDescr& other) const { return !(*this == other); }
 
   std::string ToString() const;
+  static std::string ToString(const std::vector<ValueDescr>&);
 
   ARROW_EXPORT friend void PrintTo(const ValueDescr&, std::ostream*);
 };

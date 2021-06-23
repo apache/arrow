@@ -23,17 +23,24 @@
 #' `open_dataset()` to point to a directory of data files and return a
 #' `Dataset`, then use `dplyr` methods to query it.
 #'
-#' @param sources Either:
-#'   * a string path to a directory containing data files
+#' @param sources One of:
+#'   * a string path or URI to a directory containing data files
+#'   * a string path or URI to a single file
+#'   * a character vector of paths or URIs to individual data files
 #'   * a list of `Dataset` objects as created by this function
 #'   * a list of `DatasetFactory` objects as created by [dataset_factory()].
-#' @param schema [Schema] for the dataset. If `NULL` (the default), the schema
+#'
+#' When `sources` is a vector of file URIs, they must all use the same protocol
+#' and point to files located in the same file system and having the same
+#' format.
+#' @param schema [Schema] for the `Dataset`. If `NULL` (the default), the schema
 #' will be inferred from the data sources.
-#' @param partitioning When `sources` is a file path, one of
+#' @param partitioning When `sources` is a directory path/URI, one of:
 #'   * a `Schema`, in which case the file paths relative to `sources` will be
 #'    parsed, and path segments will be matched with the schema fields. For
 #'    example, `schema(year = int16(), month = int8())` would create partitions
-#'    for file paths like "2019/01/file.parquet", "2019/02/file.parquet", etc.
+#'    for file paths like `"2019/01/file.parquet"`, `"2019/02/file.parquet"`,
+#'    etc.
 #'   * a character vector that defines the field names corresponding to those
 #'    path segments (that is, you're providing the names that would correspond
 #'    to a `Schema` but the types will be autodetected)
@@ -42,27 +49,89 @@
 #'    Hive-style path segments
 #'   * `NULL` for no partitioning
 #'
-#' The default is to autodetect Hive-style partitions.
+#' The default is to autodetect Hive-style partitions. When `sources` is not a
+#' directory path/URI, `partitioning` is ignored.
 #' @param unify_schemas logical: should all data fragments (files, `Dataset`s)
 #' be scanned in order to create a unified schema from them? If `FALSE`, only
-#' the first fragment will be inspected for its schema. Use this
-#' fast path when you know and trust that all fragments have an identical schema.
-#' The default is `FALSE` when creating a dataset from a file path (because
-#' there may be many files and scanning may be slow) but `TRUE` when `sources`
-#' is a list of `Dataset`s (because there should be few `Dataset`s in the list
-#' and their `Schema`s are already in memory).
-#' @param ... additional arguments passed to `dataset_factory()` when
-#' `sources` is a file path, otherwise ignored. These may include "format" to
-#' indicate the file format, or other format-specific options.
+#' the first fragment will be inspected for its schema. Use this fast path
+#' when you know and trust that all fragments have an identical schema.
+#' The default is `FALSE` when creating a dataset from a directory path/URI or
+#' vector of file paths/URIs (because there may be many files and scanning may
+#' be slow) but `TRUE` when `sources` is a list of `Dataset`s (because there
+#' should be few `Dataset`s in the list and their `Schema`s are already in
+#' memory).
+#' @param format A [FileFormat] object, or a string identifier of the format of
+#' the files in `x`. This argument is ignored when `sources` is a list of `Dataset` objects.
+#' Currently supported values:
+#' * "parquet"
+#' * "ipc"/"arrow"/"feather", all aliases for each other; for Feather, note that
+#'   only version 2 files are supported
+#' * "csv"/"text", aliases for the same thing (because comma is the default
+#'   delimiter for text files
+#' * "tsv", equivalent to passing `format = "text", delimiter = "\t"`
+#'
+#' Default is "parquet", unless a `delimiter` is also specified, in which case
+#' it is assumed to be "text".
+#' @param ... additional arguments passed to `dataset_factory()` when `sources`
+#' is a directory path/URI or vector of file paths/URIs, otherwise ignored.
+#' These may include `format` to indicate the file format, or other
+#' format-specific options.
 #' @return A [Dataset] R6 object. Use `dplyr` methods on it to query the data,
 #' or call [`$NewScan()`][Scanner] to construct a query directly.
 #' @export
 #' @seealso `vignette("dataset", package = "arrow")`
 #' @include arrow-package.R
+#' @examplesIf arrow_with_dataset() & arrow_with_parquet() 
+#' # Set up directory for examples
+#' tf <- tempfile()
+#' dir.create(tf)
+#' on.exit(unlink(tf))
+#' 
+#' data <- dplyr::group_by(mtcars, cyl)
+#' write_dataset(data, tf)
+#' 
+#' # You can specify a directory containing the files for your dataset and
+#' # open_dataset will scan all files in your directory.
+#' open_dataset(tf)
+#' 
+#' # You can also supply a vector of paths
+#' open_dataset(c(file.path(tf, "cyl=4/part-1.parquet"), file.path(tf,"cyl=8/part-2.parquet")))
+#'
+#' ## You must specify the file format if using a format other than parquet.
+#' tf2 <- tempfile()
+#' dir.create(tf2)
+#' on.exit(unlink(tf2))
+#' write_dataset(data, tf2, format = "ipc")
+#' # This line will results in errors when you try to work with the data
+#' \dontrun{open_dataset(tf2)}
+#' # This line will work
+#' open_dataset(tf2, format = "ipc") 
+#' 
+#' ## You can specify file partitioning to include it as a field in your dataset
+#' # Create a temporary directory and write example dataset
+#' tf3 <- tempfile()
+#' dir.create(tf3)
+#' on.exit(unlink(tf3))
+#' write_dataset(airquality, tf3, partitioning = c("Month", "Day"), hive_style = FALSE)
+#' 
+#' # View files - you can see the partitioning means that files have been written 
+#' # to folders based on Month/Day values
+#' list.files(tf3, recursive = TRUE)
+#' 
+#' # With no partitioning specified, dataset contains all files but doesn't include
+#' # directory names as field names
+#' open_dataset(tf3)
+#' 
+#' # Now that partitioning has been specified, your dataset contains columns for Month and Day
+#' open_dataset(tf3, partitioning = c("Month", "Day"))
+#' 
+#' # If you want to specify the data types for your fields, you can pass in a Schema
+#' open_dataset(tf3, partitioning = schema(Month = int8(), Day = int8()))
 open_dataset <- function(sources,
                          schema = NULL,
                          partitioning = hive_partition(),
                          unify_schemas = NULL,
+                         format = c("parquet", "arrow", "ipc", "feather", "csv", "tsv", "text"),
                          ...) {
   if (is_list_of(sources, "Dataset")) {
     if (is.null(schema)) {
@@ -75,15 +144,22 @@ open_dataset <- function(sources,
       }
     }
     # Enforce that all datasets have the same schema
+    assert_is(schema, "Schema")
     sources <- lapply(sources, function(x) {
       x$schema <- schema
       x
     })
     return(dataset___UnionDataset__create(sources, schema))
   }
-  factory <- DatasetFactory$create(sources, partitioning = partitioning, ...)
-  # Default is _not_ to inspect/unify schemas
-  factory$Finish(schema, isTRUE(unify_schemas))
+  
+  factory <- DatasetFactory$create(sources, partitioning = partitioning, format = format, ...)
+  tryCatch(
+    # Default is _not_ to inspect/unify schemas
+    factory$Finish(schema, isTRUE(unify_schemas)),
+    error = function(e){
+      handle_parquet_io_error(e, format)
+    }
+  )
 }
 
 #' Multi-file datasets
@@ -122,7 +198,8 @@ open_dataset <- function(sources,
 #' `FileSystemDatasetFactory$create()` is a lower-level factory method and
 #' takes the following arguments:
 #' * `filesystem`: A [FileSystem]
-#' * `selector`: A [FileSelector]
+#' * `selector`: Either a [FileSelector] or `NULL`
+#' * `paths`: Either a character vector of file paths or `NULL`
 #' * `format`: A [FileFormat]
 #' * `partitioning`: Either `Partitioning`, `PartitioningFactory`, or `NULL`
 #' @section Methods:
@@ -161,10 +238,7 @@ Dataset <- R6Class("Dataset", inherit = ArrowObject,
       }
     },
     metadata = function() self$schema$metadata,
-    num_rows = function() {
-      warning("Number of rows unknown; returning NA", call. = FALSE)
-      NA_integer_
-    },
+    num_rows = function() self$NewScan()$Finish()$CountRows(),
     num_cols = function() length(self$schema),
     # @description
     # Return the Dataset's type.
@@ -208,20 +282,6 @@ FileSystemDataset <- R6Class("FileSystemDataset", inherit = Dataset,
     # Return the filesystem of files in this `Dataset`
     filesystem = function() {
       dataset___FileSystemDataset__filesystem(self)
-    },
-    num_rows = function() {
-      if (inherits(self$format, "ParquetFileFormat")) {
-        # It's generally fast enough to skim the files directly
-        sum(map_int(self$files, ~ParquetFileReader$create(.x)$num_rows))
-      } else {
-        # TODO: implement for other file formats
-        warning("Number of rows unknown; returning NA", call. = FALSE)
-        NA_integer_
-        # Could do a scan, picking only the last column, which hopefully is virtual
-        # But this is can be slow
-        # Scanner$create(self, projection = tail(names(self), 1))$ToTable()$num_rows
-        # See also https://issues.apache.org/jira/browse/ARROW-9697
-      }
     }
   )
 )
@@ -273,13 +333,10 @@ tail.Dataset <- function(x, n = 6L, ...) {
   result <- list()
   batch_num <- 0
   scanner <- Scanner$create(ensure_group_vars(x))
-  for (scan_task in rev(dataset___Scanner__Scan(scanner))) {
-    for (batch in rev(scan_task$Execute())) {
-      batch_num <- batch_num + 1
-      result[[batch_num]] <- tail(batch, n)
-      n <- n - nrow(batch)
-      if (n <= 0) break
-    }
+  for (batch in rev(dataset___Scanner__ScanBatches(scanner))) {
+    batch_num <- batch_num + 1
+    result[[batch_num]] <- tail(batch, n)
+    n <- n - nrow(batch)
     if (n <= 0) break
   }
   Table$create(!!!rev(result))
@@ -302,28 +359,10 @@ tail.Dataset <- function(x, n = 6L, ...) {
 }
 
 take_dataset_rows <- function(x, i) {
-  # TODO: move this to cpp
   if (!is.numeric(i) || any(i < 0)) {
     stop("Only slicing with positive indices is supported", call. = FALSE)
   }
-  result <- list()
-  result_order <- order(i)
-  i <- sort(i) - 1L
   scanner <- Scanner$create(ensure_group_vars(x))
-  for (scan_task in dataset___Scanner__Scan(scanner)) {
-    for (batch in scan_task$Execute()) {
-      # Take all rows that are in this batch
-      this_batch_nrows <- batch$num_rows
-      in_this_batch <- i > -1L & i < this_batch_nrows
-      if (any(in_this_batch)) {
-        result[[length(result) + 1L]] <- batch$Take(i[in_this_batch])
-      }
-      i <- i - this_batch_nrows
-      if (all(i < 0L)) break
-    }
-    if (all(i < 0L)) break
-  }
-  tab <- Table$create(!!!result)
-  # Now sort
-  tab$Take(result_order - 1L)
+  i <- Array$create(i - 1)
+  dataset___Scanner__TakeRows(scanner, i)
 }

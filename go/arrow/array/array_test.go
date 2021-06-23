@@ -22,6 +22,7 @@ import (
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/internal/testing/tools"
+	"github.com/apache/arrow/go/arrow/internal/testing/types"
 	"github.com/apache/arrow/go/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
@@ -69,27 +70,35 @@ func TestMakeFromData(t *testing.T) {
 		{name: "decimal", d: &testDataType{arrow.DECIMAL}},
 
 		{name: "list", d: &testDataType{arrow.LIST}, child: []*array.Data{
-			array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 4), nil, 0, 0),
-			array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 4), nil, 0, 0),
+			array.NewData(&testDataType{arrow.INT64}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */),
+			array.NewData(&testDataType{arrow.INT64}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */),
 		}},
 
 		{name: "struct", d: &testDataType{arrow.STRUCT}},
 		{name: "struct", d: &testDataType{arrow.STRUCT}, child: []*array.Data{
-			array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 4), nil, 0, 0),
-			array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 4), nil, 0, 0),
+			array.NewData(&testDataType{arrow.INT64}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */),
+			array.NewData(&testDataType{arrow.INT64}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */),
 		}},
 
 		{name: "fixed_size_list", d: arrow.FixedSizeListOf(4, arrow.PrimitiveTypes.Int64), child: []*array.Data{
-			array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 4), nil, 0, 0),
-			array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 4), nil, 0, 0),
+			array.NewData(&testDataType{arrow.INT64}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */),
+			array.NewData(&testDataType{arrow.INT64}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */),
 		}},
 		{name: "duration", d: &testDataType{arrow.DURATION}},
+
+		{name: "map", d: &testDataType{arrow.MAP}, child: []*array.Data{
+			array.NewData(&testDataType{arrow.STRUCT}, 0 /* length */, make([]*memory.Buffer, 3 /*null bitmap, values, offsets*/), []*array.Data{
+				array.NewData(&testDataType{arrow.INT64}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */),
+				array.NewData(&testDataType{arrow.INT64}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */),
+			}, 0 /* nulls */, 0 /* offset */)},
+		},
+
+		{name: "extension", d: &testDataType{arrow.EXTENSION}, expPanic: true, expError: "arrow/array: DataType for ExtensionArray must implement arrow.ExtensionType"},
+		{name: "extension", d: types.NewUUIDType()},
 
 		// unsupported types
 		{name: "union", d: &testDataType{arrow.UNION}, expPanic: true, expError: "unsupported data type: UNION"},
 		{name: "dictionary", d: &testDataType{arrow.DICTIONARY}, expPanic: true, expError: "unsupported data type: DICTIONARY"},
-		{name: "map", d: &testDataType{arrow.Type(27)}, expPanic: true, expError: "unsupported data type: MAP"},
-		{name: "extension", d: &testDataType{arrow.Type(28)}, expPanic: true, expError: "unsupported data type: EXTENSION"},
 
 		// invalid types
 		{name: "invalid(-1)", d: &testDataType{arrow.Type(-1)}, expPanic: true, expError: "invalid data type: Type(-1)"},

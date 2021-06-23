@@ -41,7 +41,7 @@ type FromInput<T extends Float, TNull = any> =
     VectorBuilderOptionsAsync<T, TNull> ;
 
 /** @ignore */
-type FloatArrayCtor = TypedArrayConstructor<FloatArray>;
+export type FloatArrayCtor = TypedArrayConstructor<FloatArray>;
 
 /** @ignore */
 export class FloatVector<T extends Float = Float> extends BaseVector<T> {
@@ -68,7 +68,7 @@ export class FloatVector<T extends Float = Float> extends BaseVector<T> {
         let ArrowType = vectorTypeToDataType(this);
 
         if ((input instanceof ArrayBuffer) || ArrayBuffer.isView(input)) {
-            let InputType = arrayTypeToDataType(input.constructor as FloatArrayCtor) || ArrowType;
+            const InputType = arrayTypeToDataType(input.constructor as FloatArrayCtor) || ArrowType;
             // Special case, infer the Arrow DataType from the input if calling the base
             // FloatVector.from with a TypedArray, e.g. `FloatVector.from(new Float32Array())`
             if (ArrowType === null) {
@@ -77,8 +77,8 @@ export class FloatVector<T extends Float = Float> extends BaseVector<T> {
             // If the DataType inferred from the Vector constructor matches the
             // DataType inferred from the input arguments, return zero-copy view
             if (ArrowType && ArrowType === InputType) {
-                let type = new ArrowType();
-                let length = input.byteLength / type.ArrayType.BYTES_PER_ELEMENT;
+                const type = new ArrowType();
+                const length = input.byteLength / type.ArrayType.BYTES_PER_ELEMENT;
                 // If the ArrowType is Float16 but the input type isn't a Uint16Array,
                 // let the Float16Builder handle casting the input values to Uint16s.
                 if (!convertTo16Bit(ArrowType, input.constructor)) {

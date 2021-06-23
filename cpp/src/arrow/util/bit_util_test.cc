@@ -44,7 +44,6 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_stream_utils.h"
-#include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap.h"
 #include "arrow/util/bitmap_generate.h"
 #include "arrow/util/bitmap_ops.h"
@@ -52,6 +51,7 @@
 #include "arrow/util/bitmap_visit.h"
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/bitset_stack.h"
+#include "arrow/util/endian.h"
 
 namespace arrow {
 
@@ -1786,6 +1786,20 @@ TEST(BitUtil, ByteSwap) {
 
   EXPECT_EQ(BitUtil::ByteSwap(static_cast<uint16_t>(0)), 0);
   EXPECT_EQ(BitUtil::ByteSwap(static_cast<uint16_t>(0x1122)), 0x2211);
+
+  EXPECT_EQ(BitUtil::ByteSwap(static_cast<int8_t>(0)), 0);
+  EXPECT_EQ(BitUtil::ByteSwap(static_cast<int8_t>(0x11)), 0x11);
+
+  EXPECT_EQ(BitUtil::ByteSwap(static_cast<uint8_t>(0)), 0);
+  EXPECT_EQ(BitUtil::ByteSwap(static_cast<uint8_t>(0x11)), 0x11);
+
+  EXPECT_EQ(BitUtil::ByteSwap(static_cast<float>(0)), 0);
+  uint32_t srci32 = 0xaabbccdd, expectedi32 = 0xddccbbaa;
+  EXPECT_EQ(BitUtil::ByteSwap(*reinterpret_cast<float*>(&srci32)),
+            *reinterpret_cast<float*>(&expectedi32));
+  uint64_t srci64 = 0xaabb11223344ccdd, expectedi64 = 0xddcc44332211bbaa;
+  EXPECT_EQ(BitUtil::ByteSwap(*reinterpret_cast<double*>(&srci64)),
+            *reinterpret_cast<double*>(&expectedi64));
 }
 
 TEST(BitUtil, Log2) {

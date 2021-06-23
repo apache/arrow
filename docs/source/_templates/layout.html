@@ -1,13 +1,5 @@
-{# Import the theme's layout. #}
-{% extends "!layout.html" %}
+{% extends "pydata_sphinx_theme/layout.html" %}
 
-{%- block footer %}
-<script async src="https://www.googletagmanager.com/gtag/js?id=UA-107500873-1"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'UA-107500873-1');
-</script>
+{# Silence the navbar #}
+{% block docs_navbar %}
 {% endblock %}

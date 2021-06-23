@@ -61,13 +61,15 @@ class ExtensionType;
 namespace ipc {
 namespace feather {
 
-typedef flatbuffers::FlatBufferBuilder FBB;
+namespace {
 
-static constexpr const char* kFeatherV1MagicBytes = "FEA1";
-static constexpr const int kFeatherDefaultAlignment = 8;
-static const uint8_t kPaddingBytes[kFeatherDefaultAlignment] = {0};
+using FBB = flatbuffers::FlatBufferBuilder;
 
-static inline int64_t PaddedLength(int64_t nbytes) {
+constexpr const char* kFeatherV1MagicBytes = "FEA1";
+constexpr const int kFeatherDefaultAlignment = 8;
+const uint8_t kPaddingBytes[kFeatherDefaultAlignment] = {0};
+
+inline int64_t PaddedLength(int64_t nbytes) {
   static const int64_t alignment = kFeatherDefaultAlignment;
   return ((nbytes + alignment - 1) / alignment) * alignment;
 }
@@ -118,14 +120,14 @@ struct ColumnType {
   enum type { PRIMITIVE, CATEGORY, TIMESTAMP, DATE, TIME };
 };
 
-static inline TimeUnit::type FromFlatbufferEnum(fbs::TimeUnit unit) {
+inline TimeUnit::type FromFlatbufferEnum(fbs::TimeUnit unit) {
   return static_cast<TimeUnit::type>(static_cast<int>(unit));
 }
 
 /// For compatibility, we need to write any data sometimes just to keep producing
 /// files that can be read with an older reader.
-static Status WritePaddedBlank(io::OutputStream* stream, int64_t length,
-                               int64_t* bytes_written) {
+Status WritePaddedBlank(io::OutputStream* stream, int64_t length,
+                        int64_t* bytes_written) {
   const uint8_t null = 0;
   for (int64_t i = 0; i < length; i++) {
     RETURN_NOT_OK(stream->Write(&null, 1));
@@ -178,7 +180,7 @@ class ReaderV1 : public Reader {
           GetDataType(col->values(), col->metadata_type(), col->metadata(), &type));
       fields.push_back(::arrow::field(col->name()->str(), type));
     }
-    schema_ = ::arrow::schema(fields);
+    schema_ = ::arrow::schema(std::move(fields));
     return Status::OK();
   }
 
@@ -341,7 +343,7 @@ class ReaderV1 : public Reader {
       columns.emplace_back();
       RETURN_NOT_OK(GetColumn(i, &columns.back()));
     }
-    *out = Table::Make(this->schema(), columns, this->num_rows());
+    *out = Table::Make(this->schema(), std::move(columns), this->num_rows());
     return Status::OK();
   }
 
@@ -358,7 +360,8 @@ class ReaderV1 : public Reader {
       RETURN_NOT_OK(GetColumn(field_index, &columns.back()));
       fields.push_back(my_schema->field(field_index));
     }
-    *out = Table::Make(::arrow::schema(fields), columns, this->num_rows());
+    *out = Table::Make(::arrow::schema(std::move(fields)), std::move(columns),
+                       this->num_rows());
     return Status::OK();
   }
 
@@ -377,7 +380,8 @@ class ReaderV1 : public Reader {
       RETURN_NOT_OK(GetColumn(field_index, &columns.back()));
       fields.push_back(sch->field(field_index));
     }
-    *out = Table::Make(::arrow::schema(fields), columns, this->num_rows());
+    *out = Table::Make(::arrow::schema(std::move(fields)), std::move(columns),
+                       this->num_rows());
     return Status::OK();
   }
 
@@ -436,14 +440,14 @@ Result<fbs::Type> ToFlatbufferType(const DataType& type) {
   }
 }
 
-static inline flatbuffers::Offset<fbs::PrimitiveArray> GetPrimitiveArray(
+inline flatbuffers::Offset<fbs::PrimitiveArray> GetPrimitiveArray(
     FBB& fbb, const ArrayMetadata& array) {
   return fbs::CreatePrimitiveArray(fbb, array.type, fbs::Encoding::PLAIN, array.offset,
                                    array.length, array.null_count, array.total_bytes);
 }
 
 // Convert Feather enums to Flatbuffer enums
-static inline fbs::TimeUnit ToFlatbufferEnum(TimeUnit::type unit) {
+inline fbs::TimeUnit ToFlatbufferEnum(TimeUnit::type unit) {
   return static_cast<fbs::TimeUnit>(static_cast<int>(unit));
 }
 
@@ -455,7 +459,7 @@ const fbs::TypeMetadata COLUMN_TYPE_ENUM_MAPPING[] = {
     fbs::TypeMetadata::TimeMetadata        // TIME
 };
 
-static inline fbs::TypeMetadata ToFlatbufferEnum(ColumnType::type column_type) {
+inline fbs::TypeMetadata ToFlatbufferEnum(ColumnType::type column_type) {
   return COLUMN_TYPE_ENUM_MAPPING[column_type];
 }
 
@@ -751,6 +755,8 @@ class ReaderV2 : public Reader {
   std::shared_ptr<Schema> schema_;
 };
 
+}  // namespace
+
 Result<std::shared_ptr<Reader>> Reader::Open(
     const std::shared_ptr<io::RandomAccessFile>& source) {
   // Pathological issue where the file is smaller than header and footer
@@ -795,6 +801,8 @@ Status WriteTable(const Table& table, io::OutputStream* dst,
     return WriteFeatherV1(table, dst);
   } else {
     IpcWriteOptions ipc_options = IpcWriteOptions::Defaults();
+    ipc_options.unify_dictionaries = true;
+    ipc_options.allow_64bit = true;
     ARROW_ASSIGN_OR_RAISE(
         ipc_options.codec,
         util::Codec::Create(properties.compression, properties.compression_level));

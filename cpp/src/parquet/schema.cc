@@ -406,10 +406,11 @@ void GroupNode::VisitConst(Node::ConstVisitor* visitor) const { visitor->Visit(t
 // Node construction from Parquet metadata
 
 std::unique_ptr<Node> GroupNode::FromParquet(const void* opaque_element,
-                                             NodeVector fields, int field_id) {
+                                             NodeVector fields) {
   const format::SchemaElement* element =
       static_cast<const format::SchemaElement*>(opaque_element);
 
+  int field_id = -1;
   if (element->__isset.field_id) {
     field_id = element->field_id;
   }
@@ -431,11 +432,11 @@ std::unique_ptr<Node> GroupNode::FromParquet(const void* opaque_element,
   return std::unique_ptr<Node>(group_node.release());
 }
 
-std::unique_ptr<Node> PrimitiveNode::FromParquet(const void* opaque_element,
-                                                 int field_id) {
+std::unique_ptr<Node> PrimitiveNode::FromParquet(const void* opaque_element) {
   const format::SchemaElement* element =
       static_cast<const format::SchemaElement*>(opaque_element);
 
+  int field_id = -1;
   if (element->__isset.field_id) {
     field_id = element->field_id;
   }
@@ -448,7 +449,7 @@ std::unique_ptr<Node> PrimitiveNode::FromParquet(const void* opaque_element,
                           LogicalType::FromThrift(element->logicalType),
                           LoadEnumSafe(&element->type), element->type_length, field_id));
   } else if (element->__isset.converted_type) {
-    // legacy writer with logical type present
+    // legacy writer with converted type present
     primitive_node = std::unique_ptr<PrimitiveNode>(new PrimitiveNode(
         element->name, LoadEnumSafe(&element->repetition_type),
         LoadEnumSafe(&element->type), LoadEnumSafe(&element->converted_type),
@@ -500,7 +501,16 @@ void PrimitiveNode::ToParquet(void* opaque_element) const {
   element->__set_name(name_);
   element->__set_repetition_type(ToThrift(repetition_));
   if (converted_type_ != ConvertedType::NONE) {
-    element->__set_converted_type(ToThrift(converted_type_));
+    if (converted_type_ != ConvertedType::NA) {
+      element->__set_converted_type(ToThrift(converted_type_));
+    } else {
+      // ConvertedType::NA is an unreleased, obsolete synonym for LogicalType::Null.
+      // Never emit it (see PARQUET-1990 for discussion).
+      if (!logical_type_ || !logical_type_->is_null()) {
+        throw ParquetException(
+            "ConvertedType::NA is obsolete, please use LogicalType::Null instead");
+      }
+    }
   }
   if (field_id_ >= 0) {
     element->__set_field_id(field_id_);
@@ -529,7 +539,7 @@ std::unique_ptr<Node> Unflatten(const format::SchemaElement* elements, int lengt
   if (elements[0].num_children == 0) {
     if (length == 1) {
       // Degenerate case of Parquet file with no columns
-      return GroupNode::FromParquet(elements, {}, /*field_id=*/0);
+      return GroupNode::FromParquet(elements, {});
     } else {
       throw ParquetException(
           "Parquet schema had multiple nodes but root had no children");
@@ -540,19 +550,17 @@ std::unique_ptr<Node> Unflatten(const format::SchemaElement* elements, int lengt
   // consistently set by implementations
 
   int pos = 0;
-  int current_id = 0;
 
   std::function<std::unique_ptr<Node>()> NextNode = [&]() {
     if (pos == length) {
       throw ParquetException("Malformed schema: not enough elements");
     }
     const SchemaElement& element = elements[pos++];
-    int field_id = current_id++;
     const void* opaque_element = static_cast<const void*>(&element);
 
     if (element.num_children == 0 && element.__isset.type) {
       // Leaf (primitive) node: always has a type
-      return PrimitiveNode::FromParquet(opaque_element, field_id);
+      return PrimitiveNode::FromParquet(opaque_element);
     } else {
       // Group node (may have 0 children, but cannot have a type)
       NodeVector fields;
@@ -560,7 +568,7 @@ std::unique_ptr<Node> Unflatten(const format::SchemaElement* elements, int lengt
         std::unique_ptr<Node> field = NextNode();
         fields.push_back(NodePtr(field.release()));
       }
-      return GroupNode::FromParquet(opaque_element, std::move(fields), field_id);
+      return GroupNode::FromParquet(opaque_element, std::move(fields));
     }
   };
   return NextNode();

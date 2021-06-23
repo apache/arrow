@@ -23,7 +23,7 @@ project('arrow-glib', 'c', 'cpp',
           'cpp_std=c++11',
         ])
 
-version = '4.0.0-SNAPSHOT'
+version = '5.0.0-SNAPSHOT'
 if version.endswith('-SNAPSHOT')
   version_numbers = version.split('-')[0].split('.')
   version_tag = version.split('-')[1]
@@ -75,6 +75,7 @@ if arrow_cpp_build_lib_dir == ''
   have_arrow_orc = dependency('arrow-orc', required: false).found()
   arrow_cuda = dependency('arrow-cuda', required: false)
   arrow_dataset = dependency('arrow-dataset', required: false)
+  arrow_flight = dependency('arrow-flight', required: false)
   gandiva = dependency('gandiva', required: false)
   parquet = dependency('parquet', required: false)
   plasma = dependency('plasma', required: false)
@@ -105,6 +106,9 @@ main(void)
   arrow_dataset = cpp_compiler.find_library('arrow_dataset',
                                             dirs: [arrow_cpp_build_lib_dir],
                                             required: false)
+  arrow_flight = cpp_compiler.find_library('arrow_flight',
+                                           dirs: [arrow_cpp_build_lib_dir],
+                                           required: false)
   gandiva = cpp_compiler.find_library('gandiva',
                                       dirs: [arrow_cpp_build_lib_dir],
                                       required: false)
@@ -137,6 +141,9 @@ endif
 if arrow_dataset.found()
   subdir('arrow-dataset-glib')
 endif
+if arrow_flight.found()
+  subdir('arrow-flight-glib')
+endif
 if gandiva.found()
   subdir('gandiva-glib')
 endif
@@ -152,6 +159,9 @@ if get_option('gtk_doc')
   subdir('doc/arrow-glib')
   if arrow_dataset.found()
     subdir('doc/arrow-dataset-glib')
+  endif
+  if arrow_flight.found()
+    subdir('doc/arrow-flight-glib')
   endif
   if gandiva.found()
     subdir('doc/gandiva-glib')

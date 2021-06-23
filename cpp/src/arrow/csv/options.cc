@@ -22,6 +22,19 @@ namespace csv {
 
 ParseOptions ParseOptions::Defaults() { return ParseOptions(); }
 
+Status ParseOptions::Validate() const {
+  if (ARROW_PREDICT_FALSE(delimiter == '\n' || delimiter == '\r')) {
+    return Status::Invalid("ParseOptions: delimiter cannot be \\r or \\n");
+  }
+  if (ARROW_PREDICT_FALSE(quoting && (quote_char == '\n' || quote_char == '\r'))) {
+    return Status::Invalid("ParseOptions: quote_char cannot be \\r or \\n");
+  }
+  if (ARROW_PREDICT_FALSE(escaping && (escape_char == '\n' || escape_char == '\r'))) {
+    return Status::Invalid("ParseOptions: escape_char cannot be \\r or \\n");
+  }
+  return Status::OK();
+}
+
 ConvertOptions ConvertOptions::Defaults() {
   auto options = ConvertOptions();
   // Same default null / true / false spellings as in Pandas.
@@ -33,7 +46,38 @@ ConvertOptions ConvertOptions::Defaults() {
   return options;
 }
 
+Status ConvertOptions::Validate() const { return Status::OK(); }
+
 ReadOptions ReadOptions::Defaults() { return ReadOptions(); }
+
+Status ReadOptions::Validate() const {
+  if (ARROW_PREDICT_FALSE(block_size < 1)) {
+    // Min is 1 because some tests use really small block sizes
+    return Status::Invalid("ReadOptions: block_size must be at least 1: ", block_size);
+  }
+  if (ARROW_PREDICT_FALSE(skip_rows < 0)) {
+    return Status::Invalid("ReadOptions: skip_rows cannot be negative: ", skip_rows);
+  }
+  if (ARROW_PREDICT_FALSE(skip_rows_after_names < 0)) {
+    return Status::Invalid("ReadOptions: skip_rows_after_names cannot be negative: ",
+                           skip_rows_after_names);
+  }
+  if (ARROW_PREDICT_FALSE(autogenerate_column_names && !column_names.empty())) {
+    return Status::Invalid(
+        "ReadOptions: autogenerate_column_names cannot be true when column_names are "
+        "provided");
+  }
+  return Status::OK();
+}
+
+WriteOptions WriteOptions::Defaults() { return WriteOptions(); }
+
+Status WriteOptions::Validate() const {
+  if (ARROW_PREDICT_FALSE(batch_size < 1)) {
+    return Status::Invalid("WriteOptions: batch_size must be at least 1: ", batch_size);
+  }
+  return Status::OK();
+}
 
 }  // namespace csv
 }  // namespace arrow

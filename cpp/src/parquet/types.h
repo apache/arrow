@@ -29,6 +29,15 @@
 #include "parquet/platform.h"
 #include "parquet/type_fwd.h"
 
+#ifdef _WIN32
+
+// Repetition::OPTIONAL conflicts with a #define, so we undefine it
+#ifdef OPTIONAL
+#undef OPTIONAL
+#endif
+
+#endif  // _WIN32
+
 namespace arrow {
 namespace util {
 
@@ -71,7 +80,7 @@ struct Type {
 // Mirrors parquet::ConvertedType
 struct ConvertedType {
   enum type {
-    NONE,
+    NONE,  // Not a real converted type, but means no converted type is specified
     UTF8,
     MAP,
     MAP_KEY_VALUE,
@@ -94,9 +103,12 @@ struct ConvertedType {
     JSON,
     BSON,
     INTERVAL,
+    // DEPRECATED INVALID ConvertedType for all-null data.
+    // Only useful for reading legacy files written out by interim Parquet C++ releases.
+    // For writing, always emit LogicalType::Null instead.
+    // See PARQUET-1990.
     NA = 25,
-    // Should always be last element.
-    UNDEFINED = 26
+    UNDEFINED = 26  // Not a real converted type; should always be last element
   };
 };
 
@@ -140,7 +152,7 @@ class PARQUET_EXPORT LogicalType {
  public:
   struct Type {
     enum type {
-      UNKNOWN = 0,
+      UNDEFINED = 0,  // Not a real logical type
       STRING = 1,
       MAP,
       LIST,
@@ -151,11 +163,11 @@ class PARQUET_EXPORT LogicalType {
       TIMESTAMP,
       INTERVAL,
       INT,
-      NIL,  // Thrift NullType
+      NIL,  // Thrift NullType: annotates data that is always null
       JSON,
       BSON,
       UUID,
-      NONE
+      NONE  // Not a real logical type; should always be last element
     };
   };
 
@@ -199,12 +211,18 @@ class PARQUET_EXPORT LogicalType {
 
   static std::shared_ptr<const LogicalType> Interval();
   static std::shared_ptr<const LogicalType> Int(int bit_width, bool is_signed);
+
+  /// \brief Create a logical type for data that's always null
+  ///
+  /// Any physical type can be annotated with this logical type.
   static std::shared_ptr<const LogicalType> Null();
+
   static std::shared_ptr<const LogicalType> JSON();
   static std::shared_ptr<const LogicalType> BSON();
   static std::shared_ptr<const LogicalType> UUID();
+
+  /// \brief Create a placeholder for when no logical type is specified
   static std::shared_ptr<const LogicalType> None();
-  static std::shared_ptr<const LogicalType> Unknown();
 
   /// \brief Return true if this logical type is consistent with the given underlying
   /// physical type.
@@ -434,13 +452,13 @@ class PARQUET_EXPORT NoLogicalType : public LogicalType {
   NoLogicalType() = default;
 };
 
-/// \brief Allowed for any type.
-class PARQUET_EXPORT UnknownLogicalType : public LogicalType {
+// Internal API, for unrecognized logical types
+class PARQUET_EXPORT UndefinedLogicalType : public LogicalType {
  public:
   static std::shared_ptr<const LogicalType> Make();
 
  private:
-  UnknownLogicalType() = default;
+  UndefinedLogicalType() = default;
 };
 
 // Data encodings. Mirrors parquet::Encoding
@@ -459,6 +477,15 @@ struct Encoding {
     UNDEFINED = 10,
     UNKNOWN = 999
   };
+};
+
+// Exposed data encodings. It is the encoding of the data read from the file,
+// rather than the encoding of the data in the file. E.g., the data encoded as
+// RLE_DICTIONARY in the file can be read as dictionary indices by RLE
+// decoding, in which case the data read from the file is DICTIONARY encoded.
+enum class ExposedEncoding {
+  NO_ENCODING = 0,  // data is not encoded, i.e. already decoded during reading
+  DICTIONARY = 1
 };
 
 /// \brief Return true if Parquet supports indicated compression type
@@ -573,15 +600,46 @@ static inline void Int96SetNanoSeconds(parquet::Int96& i96, int64_t nanoseconds)
   std::memcpy(&i96.value, &nanoseconds, sizeof(nanoseconds));
 }
 
-static inline int64_t Int96GetNanoSeconds(const parquet::Int96& i96) {
+struct DecodedInt96 {
+  uint64_t days_since_epoch;
+  uint64_t nanoseconds;
+};
+
+static inline DecodedInt96 DecodeInt96Timestamp(const parquet::Int96& i96) {
   // We do the computations in the unsigned domain to avoid unsigned behaviour
   // on overflow.
-  uint64_t days_since_epoch =
-      i96.value[2] - static_cast<uint64_t>(kJulianToUnixEpochDays);
-  uint64_t nanoseconds = 0;
+  DecodedInt96 result;
+  result.days_since_epoch = i96.value[2] - static_cast<uint64_t>(kJulianToUnixEpochDays);
+  result.nanoseconds = 0;
 
-  memcpy(&nanoseconds, &i96.value, sizeof(uint64_t));
-  return static_cast<int64_t>(days_since_epoch * kNanosecondsPerDay + nanoseconds);
+  memcpy(&result.nanoseconds, &i96.value, sizeof(uint64_t));
+  return result;
+}
+
+static inline int64_t Int96GetNanoSeconds(const parquet::Int96& i96) {
+  const auto decoded = DecodeInt96Timestamp(i96);
+  return static_cast<int64_t>(decoded.days_since_epoch * kNanosecondsPerDay +
+                              decoded.nanoseconds);
+}
+
+static inline int64_t Int96GetMicroSeconds(const parquet::Int96& i96) {
+  const auto decoded = DecodeInt96Timestamp(i96);
+  uint64_t microseconds = decoded.nanoseconds / static_cast<uint64_t>(1000);
+  return static_cast<int64_t>(decoded.days_since_epoch * kMicrosecondsPerDay +
+                              microseconds);
+}
+
+static inline int64_t Int96GetMilliSeconds(const parquet::Int96& i96) {
+  const auto decoded = DecodeInt96Timestamp(i96);
+  uint64_t milliseconds = decoded.nanoseconds / static_cast<uint64_t>(1000000);
+  return static_cast<int64_t>(decoded.days_since_epoch * kMillisecondsPerDay +
+                              milliseconds);
+}
+
+static inline int64_t Int96GetSeconds(const parquet::Int96& i96) {
+  const auto decoded = DecodeInt96Timestamp(i96);
+  uint64_t seconds = decoded.nanoseconds / static_cast<uint64_t>(1000000000);
+  return static_cast<int64_t>(decoded.days_since_epoch * kSecondsPerDay + seconds);
 }
 
 static inline std::string Int96ToString(const Int96& a) {

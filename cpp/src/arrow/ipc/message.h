@@ -459,6 +459,11 @@ Result<std::unique_ptr<Message>> ReadMessage(const int64_t offset,
                                              const int32_t metadata_length,
                                              io::RandomAccessFile* file);
 
+ARROW_EXPORT
+Future<std::shared_ptr<Message>> ReadMessageAsync(
+    const int64_t offset, const int32_t metadata_length, const int64_t body_length,
+    io::RandomAccessFile* file, const io::IOContext& context = io::default_io_context());
+
 /// \brief Advance stream to an 8-byte offset if its position is not a multiple
 /// of 8 already
 /// \param[in] stream an input stream

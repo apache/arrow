@@ -16,7 +16,6 @@
 # under the License.
 
 from datetime import datetime, timezone, timedelta
-from distutils.version import LooseVersion
 import gzip
 import os
 import pathlib
@@ -28,6 +27,8 @@ import weakref
 
 import pyarrow as pa
 from pyarrow.tests.test_io import assert_file_not_found
+from pyarrow.vendored.version import Version
+
 from pyarrow.fs import (FileType, FileInfo, FileSelector, FileSystem,
                         LocalFileSystem, SubTreeFileSystem, _MockFileSystem,
                         FileSystemHandler, PyFileSystem, FSSpecHandler)
@@ -127,12 +128,12 @@ class DummyHandler(FileSystemHandler):
         data = "{0}:input_file".format(path).encode('utf8')
         return pa.BufferReader(data)
 
-    def open_output_stream(self, path):
+    def open_output_stream(self, path, metadata):
         if "notfound" in path:
             raise FileNotFoundError(path)
         return pa.BufferOutputStream()
 
-    def open_append_stream(self, path):
+    def open_append_stream(self, path, metadata):
         if "notfound" in path:
             raise FileNotFoundError(path)
         return pa.BufferOutputStream()
@@ -192,11 +193,11 @@ class ProxyHandler(FileSystemHandler):
     def open_input_file(self, path):
         return self._fs.open_input_file(path)
 
-    def open_output_stream(self, path):
-        return self._fs.open_output_stream(path)
+    def open_output_stream(self, path, metadata):
+        return self._fs.open_output_stream(path, metadata=metadata)
 
-    def open_append_stream(self, path):
-        return self._fs.open_append_stream(path)
+    def open_append_stream(self, path, metadata):
+        return self._fs.open_append_stream(path, metadata=metadata)
 
 
 @pytest.fixture
@@ -355,7 +356,8 @@ def py_fsspec_memoryfs(request, tempdir):
 @pytest.fixture
 def py_fsspec_s3fs(request, s3_connection, s3_server):
     s3fs = pytest.importorskip("s3fs")
-    if sys.version_info < (3, 7) and s3fs.__version__ >= LooseVersion("0.5"):
+    if (sys.version_info < (3, 7) and
+            Version(s3fs.__version__) >= Version("0.5")):
         pytest.skip("s3fs>=0.5 version is async and requires Python >= 3.7")
 
     host, port, access_key, secret_key = s3_connection
@@ -965,6 +967,25 @@ def test_open_append_stream(fs, pathfn, compression, buffer_size, compressor,
                                   buffer_size=buffer_size)
 
 
+def test_open_output_stream_metadata(fs, pathfn):
+    p = pathfn('open-output-stream-metadata')
+    metadata = {'Content-Type': 'x-pyarrow/test'}
+
+    data = b'some data'
+    with fs.open_output_stream(p, metadata=metadata) as f:
+        f.write(data)
+
+    with fs.open_input_stream(p) as f:
+        assert f.read() == data
+        got_metadata = f.metadata()
+
+    if fs.type_name == 's3' or 'mock' in fs.type_name:
+        for k, v in metadata.items():
+            assert got_metadata[k] == v.encode()
+    else:
+        assert got_metadata == {}
+
+
 def test_localfs_options():
     # LocalFileSystem instantiation
     LocalFileSystem(use_mmap=False)
@@ -1018,11 +1039,8 @@ def test_mockfs_mtime_roundtrip(mockfs):
 
 
 @pytest.mark.s3
-def test_s3_options(monkeypatch):
+def test_s3_options():
     from pyarrow.fs import S3FileSystem
-
-    # Avoid wait for unavailable metadata server in ARN role example below
-    monkeypatch.setenv("AWS_EC2_METADATA_DISABLED", "true")
 
     fs = S3FileSystem(access_key='access', secret_key='secret',
                       session_token='token', region='us-east-2',
@@ -1033,6 +1051,16 @@ def test_s3_options(monkeypatch):
 
     fs = S3FileSystem(role_arn='role', session_name='session',
                       external_id='id', load_frequency=100)
+    assert isinstance(fs, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs)) == fs
+
+    fs = S3FileSystem(anonymous=True)
+    assert isinstance(fs, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs)) == fs
+
+    fs = S3FileSystem(background_writes=True,
+                      default_metadata={"ACL": "authenticated-read",
+                                        "Content-Type": "text/plain"})
     assert isinstance(fs, S3FileSystem)
     assert pickle.loads(pickle.dumps(fs)) == fs
 
@@ -1048,6 +1076,155 @@ def test_s3_options(monkeypatch):
         S3FileSystem(
             access_key='access', secret_key='secret', role_arn='arn'
         )
+    with pytest.raises(ValueError):
+        S3FileSystem(
+            access_key='access', secret_key='secret', anonymous=True
+        )
+    with pytest.raises(ValueError):
+        S3FileSystem(role_arn="arn", anonymous=True)
+    with pytest.raises(ValueError):
+        S3FileSystem(default_metadata=["foo", "bar"])
+
+
+@pytest.mark.s3
+def test_s3_proxy_options(monkeypatch):
+    from pyarrow.fs import S3FileSystem
+
+    # The following two are equivalent:
+    proxy_opts_1_dict = {'scheme': 'http', 'host': 'localhost', 'port': 8999}
+    proxy_opts_1_str = 'http://localhost:8999'
+    # The following two are equivalent:
+    proxy_opts_2_dict = {'scheme': 'https', 'host': 'localhost', 'port': 8080}
+    proxy_opts_2_str = 'https://localhost:8080'
+
+    # Check dict case for 'proxy_options'
+    fs = S3FileSystem(proxy_options=proxy_opts_1_dict)
+    assert isinstance(fs, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs)) == fs
+
+    fs = S3FileSystem(proxy_options=proxy_opts_2_dict)
+    assert isinstance(fs, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs)) == fs
+
+    # Check str case for 'proxy_options'
+    fs = S3FileSystem(proxy_options=proxy_opts_1_str)
+    assert isinstance(fs, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs)) == fs
+
+    fs = S3FileSystem(proxy_options=proxy_opts_2_str)
+    assert isinstance(fs, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs)) == fs
+
+    # Check that two FSs using the same proxy_options dict are equal
+    fs1 = S3FileSystem(proxy_options=proxy_opts_1_dict)
+    fs2 = S3FileSystem(proxy_options=proxy_opts_1_dict)
+    assert fs1 == fs2
+    assert pickle.loads(pickle.dumps(fs1)) == fs2
+    assert pickle.loads(pickle.dumps(fs2)) == fs1
+
+    fs1 = S3FileSystem(proxy_options=proxy_opts_2_dict)
+    fs2 = S3FileSystem(proxy_options=proxy_opts_2_dict)
+    assert fs1 == fs2
+    assert pickle.loads(pickle.dumps(fs1)) == fs2
+    assert pickle.loads(pickle.dumps(fs2)) == fs1
+
+    # Check that two FSs using the same proxy_options str are equal
+    fs1 = S3FileSystem(proxy_options=proxy_opts_1_str)
+    fs2 = S3FileSystem(proxy_options=proxy_opts_1_str)
+    assert fs1 == fs2
+    assert pickle.loads(pickle.dumps(fs1)) == fs2
+    assert pickle.loads(pickle.dumps(fs2)) == fs1
+
+    fs1 = S3FileSystem(proxy_options=proxy_opts_2_str)
+    fs2 = S3FileSystem(proxy_options=proxy_opts_2_str)
+    assert fs1 == fs2
+    assert pickle.loads(pickle.dumps(fs1)) == fs2
+    assert pickle.loads(pickle.dumps(fs2)) == fs1
+
+    # Check that two FSs using equivalent proxy_options
+    # (one dict, one str) are equal
+    fs1 = S3FileSystem(proxy_options=proxy_opts_1_dict)
+    fs2 = S3FileSystem(proxy_options=proxy_opts_1_str)
+    assert fs1 == fs2
+    assert pickle.loads(pickle.dumps(fs1)) == fs2
+    assert pickle.loads(pickle.dumps(fs2)) == fs1
+
+    fs1 = S3FileSystem(proxy_options=proxy_opts_2_dict)
+    fs2 = S3FileSystem(proxy_options=proxy_opts_2_str)
+    assert fs1 == fs2
+    assert pickle.loads(pickle.dumps(fs1)) == fs2
+    assert pickle.loads(pickle.dumps(fs2)) == fs1
+
+    # Check that two FSs using nonequivalent proxy_options are not equal
+    fs1 = S3FileSystem(proxy_options=proxy_opts_1_dict)
+    fs2 = S3FileSystem(proxy_options=proxy_opts_2_dict)
+    assert fs1 != fs2
+    assert pickle.loads(pickle.dumps(fs1)) != fs2
+    assert pickle.loads(pickle.dumps(fs2)) != fs1
+
+    fs1 = S3FileSystem(proxy_options=proxy_opts_1_dict)
+    fs2 = S3FileSystem(proxy_options=proxy_opts_2_str)
+    assert fs1 != fs2
+    assert pickle.loads(pickle.dumps(fs1)) != fs2
+    assert pickle.loads(pickle.dumps(fs2)) != fs1
+
+    fs1 = S3FileSystem(proxy_options=proxy_opts_1_str)
+    fs2 = S3FileSystem(proxy_options=proxy_opts_2_dict)
+    assert fs1 != fs2
+    assert pickle.loads(pickle.dumps(fs1)) != fs2
+    assert pickle.loads(pickle.dumps(fs2)) != fs1
+
+    fs1 = S3FileSystem(proxy_options=proxy_opts_1_str)
+    fs2 = S3FileSystem(proxy_options=proxy_opts_2_str)
+    assert fs1 != fs2
+    assert pickle.loads(pickle.dumps(fs1)) != fs2
+    assert pickle.loads(pickle.dumps(fs2)) != fs1
+
+    # Check that two FSs (one using proxy_options and the other not)
+    # are not equal
+    fs1 = S3FileSystem(proxy_options=proxy_opts_1_dict)
+    fs2 = S3FileSystem()
+    assert fs1 != fs2
+    assert pickle.loads(pickle.dumps(fs1)) != fs2
+    assert pickle.loads(pickle.dumps(fs2)) != fs1
+
+    fs1 = S3FileSystem(proxy_options=proxy_opts_1_str)
+    fs2 = S3FileSystem()
+    assert fs1 != fs2
+    assert pickle.loads(pickle.dumps(fs1)) != fs2
+    assert pickle.loads(pickle.dumps(fs2)) != fs1
+
+    fs1 = S3FileSystem(proxy_options=proxy_opts_2_dict)
+    fs2 = S3FileSystem()
+    assert fs1 != fs2
+    assert pickle.loads(pickle.dumps(fs1)) != fs2
+    assert pickle.loads(pickle.dumps(fs2)) != fs1
+
+    fs1 = S3FileSystem(proxy_options=proxy_opts_2_str)
+    fs2 = S3FileSystem()
+    assert fs1 != fs2
+    assert pickle.loads(pickle.dumps(fs1)) != fs2
+    assert pickle.loads(pickle.dumps(fs2)) != fs1
+
+    # Only dict and str are supported
+    with pytest.raises(TypeError):
+        S3FileSystem(proxy_options=('http', 'localhost', 9090))
+    # Missing scheme
+    with pytest.raises(KeyError):
+        S3FileSystem(proxy_options={'host': 'localhost', 'port': 9090})
+    # Missing host
+    with pytest.raises(KeyError):
+        S3FileSystem(proxy_options={'scheme': 'https', 'port': 9090})
+    # Missing port
+    with pytest.raises(KeyError):
+        S3FileSystem(proxy_options={'scheme': 'http', 'host': 'localhost'})
+    # Invalid proxy URI (invalid scheme htttps)
+    with pytest.raises(pa.ArrowInvalid):
+        S3FileSystem(proxy_options='htttps://localhost:9000')
+    # Invalid proxy_options dict (invalid scheme htttps)
+    with pytest.raises(pa.ArrowInvalid):
+        S3FileSystem(proxy_options={'scheme': 'htttp', 'host': 'localhost',
+                                    'port': 8999})
 
 
 @pytest.mark.hdfs
@@ -1353,6 +1530,13 @@ def test_s3_real_aws():
     fs = S3FileSystem(anonymous=True, region='us-east-2')
     entries = fs.get_file_info(FileSelector('ursa-labs-taxi-data'))
     assert len(entries) > 0
+    with fs.open_input_stream('ursa-labs-taxi-data/2019/06/data.parquet') as f:
+        md = f.metadata()
+        assert 'Content-Type' in md
+        assert md['Last-Modified'] == b'2020-01-17T16:26:28Z'
+        # For some reason, the header value is quoted
+        # (both with AWS and Minio)
+        assert md['ETag'] == b'"f1efd5d76cb82861e1542117bfa52b90-8"'
 
 
 @pytest.mark.s3

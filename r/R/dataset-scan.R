@@ -32,6 +32,8 @@
 #' * `filter`: A `Expression` to filter the scanned rows by, or `TRUE` (default)
 #'    to keep all rows.
 #' * `use_threads`: logical: should scanning use multithreading? Default `TRUE`
+#' * `use_async`: logical: should the async scanner (performs better on
+#'    high-latency/highly parallel filesystems like S3) be used? Default `FALSE`
 #' * `...`: Additional arguments, currently ignored
 #' @section Methods:
 #' `ScannerBuilder` has the following methods:
@@ -42,6 +44,7 @@
 #' - `$UseThreads(threads)`: logical: should the scan use multithreading?
 #' The method's default input is `TRUE`, but you must call the method to enable
 #' multithreading because the scanner default is `FALSE`.
+#' - `$UseAsync(use_async)`: logical: should the async scanner be used?
 #' - `$BatchSize(batch_size)`: integer: Maximum row count of scanned record
 #' batches, default is 32K. If scanned record batches are overflowing memory
 #' then this method can be called to reduce their size.
@@ -56,7 +59,9 @@
 Scanner <- R6Class("Scanner", inherit = ArrowObject,
   public = list(
     ToTable = function() dataset___Scanner__ToTable(self),
-    Scan = function() dataset___Scanner__Scan(self)
+    ScanBatches = function() dataset___Scanner__ScanBatches(self),
+    ToRecordBatchReader = function() dataset___Scanner__ToRecordBatchReader(self),
+    CountRows = function() dataset___Scanner__CountRows(self)
   ),
   active = list(
     schema = function() dataset___Scanner__schema(self)
@@ -66,14 +71,27 @@ Scanner$create <- function(dataset,
                            projection = NULL,
                            filter = TRUE,
                            use_threads = option_use_threads(),
+                           use_async = NULL,
                            batch_size = NULL,
+                           fragment_scan_options = NULL,
                            ...) {
+  if (is.null(use_async)) {
+    use_async = getOption("arrow.use_async", FALSE)
+  }
+
   if (inherits(dataset, "arrow_dplyr_query")) {
+    if (inherits(dataset$.data, "ArrowTabular")) {
+      # To handle mutate() on Table/RecordBatch, we need to collect(as_data_frame=FALSE) now
+      dataset <- dplyr::collect(dataset, as_data_frame = FALSE)
+    }
     return(Scanner$create(
       dataset$.data,
-      dataset$selected_columns,
+      c(dataset$selected_columns, dataset$temp_columns),
       dataset$filtered_rows,
       use_threads,
+      use_async,
+      batch_size,
+      fragment_scan_options,
       ...
     ))
   }
@@ -86,6 +104,9 @@ Scanner$create <- function(dataset,
   if (use_threads) {
     scanner_builder$UseThreads()
   }
+  if (use_async) {
+    scanner_builder$UseAsync()
+  }
   if (!is.null(projection)) {
     scanner_builder$Project(projection)
   }
@@ -94,6 +115,9 @@ Scanner$create <- function(dataset,
   }
   if (is_integerish(batch_size)) {
     scanner_builder$BatchSize(batch_size)
+  }
+  if (!is.null(fragment_scan_options)) {
+    scanner_builder$FragmentScanOptions(fragment_scan_options)
   }
   scanner_builder$Finish()
 }
@@ -132,16 +156,12 @@ map_batches <- function(X, FUN, ..., .data.frame = TRUE) {
   scanner <- Scanner$create(ensure_group_vars(X))
   FUN <- as_mapper(FUN)
   # message("Making ScanTasks")
-  lapply(scanner$Scan(), function(scan_task) {
-    # This outer lapply could be parallelized
-    # message("Making Batches")
-    lapply(scan_task$Execute(), function(batch) {
-      # message("Processing Batch")
-      # This inner lapply cannot be parallelized
-      # TODO: wrap batch in arrow_dplyr_query with X$selected_columns and X$group_by_vars
-      # if X is arrow_dplyr_query, if some other arg (.dplyr?) == TRUE
-      FUN(batch, ...)
-    })
+  lapply(scanner$ScanBatches(), function(batch) {
+    # message("Processing Batch")
+    # TODO: wrap batch in arrow_dplyr_query with X$selected_columns,
+    # X$temp_columns, and X$group_by_vars
+    # if X is arrow_dplyr_query, if some other arg (.dplyr?) == TRUE
+    FUN(batch, ...)
   })
 }
 
@@ -152,8 +172,16 @@ map_batches <- function(X, FUN, ..., .data.frame = TRUE) {
 ScannerBuilder <- R6Class("ScannerBuilder", inherit = ArrowObject,
   public = list(
     Project = function(cols) {
-      assert_is(cols, "character")
-      dataset___ScannerBuilder__Project(self, cols)
+      # cols is either a character vector or a named list of Expressions
+      if (is.character(cols)) {
+        dataset___ScannerBuilder__ProjectNames(self, cols)
+      } else if (length(cols) == 0) {
+        # Empty projection
+        dataset___ScannerBuilder__ProjectNames(self, character(0))
+      } else {
+        # List of Expressions
+        dataset___ScannerBuilder__ProjectExprs(self, cols, names(cols))
+      }
       self
     },
     Filter = function(expr) {
@@ -165,8 +193,16 @@ ScannerBuilder <- R6Class("ScannerBuilder", inherit = ArrowObject,
       dataset___ScannerBuilder__UseThreads(self, threads)
       self
     },
+    UseAsync = function(use_async = TRUE) {
+      dataset___ScannerBuilder__UseAsync(self, use_async)
+      self
+    },
     BatchSize = function(batch_size) {
       dataset___ScannerBuilder__BatchSize(self, batch_size)
+      self
+    },
+    FragmentScanOptions = function(options) {
+      dataset___ScannerBuilder__FragmentScanOptions(self, options)
       self
     },
     Finish = function() dataset___ScannerBuilder__Finish(self)
