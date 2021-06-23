@@ -1,0 +1,249 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+namespace gandiva.types.fbs;
+
+enum GandivaType:byte {
+  NONE = 0,     // arrow::Type::NA
+  BOOL = 1,     // arrow::Type::BOOL
+  UINT8 = 2,    // arrow::Type::UINT8
+  INT8 = 3,     // arrow::Type::INT8
+  UINT16 = 4,   // represents arrow::Type fields in src/arrow/type.h
+  INT16 = 5,
+  UINT32 = 6,
+  INT32 = 7,
+  UINT64 = 8,
+  INT64 = 9,
+  HALF_FLOAT = 10,
+  FLOAT = 11,
+  DOUBLE = 12,
+  UTF8 = 13,
+  BINARY = 14,
+  FIXED_SIZE_BINARY = 15,
+  DATE32 = 16,
+  DATE64 = 17,
+  TIMESTAMP = 18,
+  TIME32 = 19,
+  TIME64 = 20,
+  INTERVAL = 21,
+  DECIMAL = 22,
+  LIST = 23,
+  STRUCT = 24,
+  UNION = 25,
+  DICTIONARY = 26,
+  MAP = 27
+}
+
+enum DateUnit:byte {
+  DAY = 0,
+  MILLI = 1
+}
+
+enum TimeUnit:byte {
+  SEC = 0,
+  MILLISEC = 1,
+  MICROSEC = 2,
+  NANOSEC = 3
+}
+
+enum IntervalType:byte {
+  YEAR_MONTH = 0,
+  DAY_TIME = 1
+}
+
+enum SelectionVectorType:byte {
+  SV_NONE = 0,
+  SV_INT16 = 1,
+  SV_INT32 = 2
+}
+
+table ExtGandivaType {
+  type:GandivaType;
+  width:uint32;  // used by FIXED_SIZE_BINARY
+  precision:int32; // used by DECIMAL
+  scale:int32; // used by DECIMAL
+  dateUnit:DateUnit;  // used by DATE32/DATE64
+  timeUnit:TimeUnit;  // used by TIME32/TIME64
+  timeZone:string; // used by TIMESTAMP
+  intervalType:IntervalType; // used by INTERVAL
+}
+
+table Field {
+  // name of the field
+  name:string;
+  type:ExtGandivaType;
+  nullable:bool;
+  // for complex data types like structs, unions
+  children:[Field];
+}
+
+table FieldNode {
+  field:Field;
+}
+
+table FunctionNode {
+  functionName:string;
+  inArgs:[TreeNode];
+  returnType:ExtGandivaType;
+}
+
+table IfNode {
+  cond:TreeNode;
+  thenNode:TreeNode;
+  elseNode:TreeNode;
+  returnType:ExtGandivaType;
+}
+
+table AndNode {
+  args:[TreeNode];
+}
+
+table OrNode {
+  args:[TreeNode];
+}
+
+table NullNode {
+  type:ExtGandivaType;
+}
+
+table IntNode {
+  value:int32;
+}
+
+table FloatNode {
+  value:float;
+}
+
+table DoubleNode {
+  value:double;
+}
+
+table BooleanNode {
+  value:bool;
+}
+
+table LongNode {
+  value:int64;
+}
+
+table StringNode {
+  value:string;
+}
+
+table BinaryNode {
+  value:[byte];
+}
+
+table DecimalNode {
+  value:string;
+  precision:int32;
+  scale:int32;
+}
+
+table TreeNode {
+  fieldNode:FieldNode;
+  fnNode:FunctionNode;
+
+  // control expressions
+  ifNode:IfNode;
+  andNode:AndNode;
+  orNode:OrNode;
+
+  // literals
+  nullNode:NullNode;
+  intNode:IntNode;
+  floatNode:FloatNode;
+  longNode:LongNode;
+  booleanNode:BooleanNode;
+  doubleNode:DoubleNode;
+  stringNode:StringNode;
+  binaryNode:BinaryNode;
+  decimalNode:DecimalNode;
+
+  // in expr
+  inNode:InNode;
+}
+
+table ExpressionRoot {
+  root:TreeNode;
+  resultType:Field;
+}
+
+table ExpressionList {
+  exprs:[ExpressionRoot];
+}
+
+table Condition {
+  root:TreeNode;
+}
+
+table Schema {
+  columns:Field;
+}
+
+table GandivaDataTypes {
+  dataType:[ExtGandivaType];
+}
+
+table GandivaFunctions {
+  function:[FunctionSignature];
+}
+
+table FunctionSignature {
+  name:string;
+  returnType:ExtGandivaType;
+  paramTypes:[ExtGandivaType];
+}
+
+table InNode {
+  node:TreeNode;
+  intValues:IntConstants;
+  longValues:LongConstants;
+  stringValues:StringConstants;
+  binaryValues:BinaryConstants;
+  decimalValues:DecimalConstants;
+  floatValues:FloatConstants;
+  doubleValues:DoubleConstants;
+}
+
+table IntConstants {
+  intValues:[IntNode];
+}
+
+table LongConstants {
+  longValues:[LongNode];
+}
+
+table DecimalConstants {
+  decimalValues:[DecimalNode];
+}
+
+table FloatConstants {
+  floatValues:[FloatNode];
+}
+
+table DoubleConstants {
+  doubleValues:[DoubleNode];
+}
+
+table StringConstants {
+  stringValues:[StringNode];
+}
+
+table BinaryConstants {
+  binaryValues:[BinaryNode];
+}
