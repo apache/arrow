@@ -581,7 +581,7 @@ class TestArraySortIndicesRandomCompare : public TestBase {};
 using SortIndicesableTypes =
     ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
                      Int32Type, Int64Type, FloatType, DoubleType, StringType,
-                     Decimal128Type>;
+                     Decimal128Type, BooleanType>;
 
 template <typename ArrayType>
 void ValidateSorted(const ArrayType& array, UInt64Array& offsets, SortOrder order) {

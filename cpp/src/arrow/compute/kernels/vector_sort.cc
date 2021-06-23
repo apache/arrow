@@ -694,6 +694,8 @@ class ChunkedArraySorter : public TypeVisitor {
 
   Status Sort() { return physical_type_->Accept(this); }
 
+  Status Visit(const BooleanType& type) override { return SortInternal<BooleanType>(); }
+
 #define VISIT(TYPE) \
   Status Visit(const TYPE& type) override { return SortInternal<TYPE>(); }
 
