@@ -63,6 +63,7 @@ from pyarrow._compute import (  # noqa
     list_functions,
 )
 
+import inspect
 from textwrap import dedent
 import warnings
 
@@ -70,20 +71,12 @@ import pyarrow as pa
 
 
 def _get_arg_names(func):
-    arg_names = func._doc.arg_names
-    if not arg_names:
-        if func.arity == 1:
-            arg_names = ["arg"]
-        elif func.arity == 2:
-            arg_names = ["left", "right"]
-        else:
-            raise NotImplementedError(
-                f"unsupported arity: {func.arity} (function: {func.name})")
-
-    return arg_names
+    return func._doc.arg_names
 
 
 def _decorate_compute_function(wrapper, exposed_name, func, option_class):
+    # Decorate the given compute function wrapper with useful metadata
+    # and documentation.
     wrapper.__arrow_compute_function__ = dict(name=func.name,
                                               arity=func.arity)
     wrapper.__name__ = exposed_name
@@ -174,41 +167,50 @@ def _handle_options(name, option_class, options, kwargs):
     return options
 
 
-_wrapper_template = dedent("""\
-    def make_wrapper(func, option_class):
-        def {func_name}({args_sig}{kwonly}, memory_pool=None):
-            return func.call([{args_sig}], None, memory_pool)
-        return {func_name}
-    """)
-
-_wrapper_options_template = dedent("""\
-    def make_wrapper(func, option_class):
-        def {func_name}({args_sig}{kwonly}, options=None, memory_pool=None,
-                        **kwargs):
-            options = _handle_options({func_name!r}, option_class, options,
+def _make_generic_wrapper(func_name, func, option_class):
+    if option_class is None:
+        def wrapper(*args, memory_pool=None):
+            return func.call(args, None, memory_pool)
+    else:
+        def wrapper(*args, memory_pool=None, options=None, **kwargs):
+            options = _handle_options(func_name, option_class, options,
                                       kwargs)
-            return func.call([{args_sig}], options, memory_pool)
-        return {func_name}
-    """)
+            return func.call(args, options, memory_pool)
+    return wrapper
+
+
+def _make_signature(arg_names, var_arg_names, option_class):
+    from inspect import Parameter
+    params = []
+    for name in arg_names:
+        params.append(Parameter(name, Parameter.POSITIONAL_OR_KEYWORD))
+    for name in var_arg_names:
+        params.append(Parameter(name, Parameter.VAR_POSITIONAL))
+    params.append(Parameter("memory_pool", Parameter.KEYWORD_ONLY,
+                            default=None))
+    if option_class is not None:
+        params.append(Parameter("options", Parameter.KEYWORD_ONLY,
+                                default=None))
+        options_sig = inspect.signature(option_class)
+        for p in options_sig.parameters.values():
+            # XXX for now, our generic wrappers don't allow positional
+            # option arguments
+            params.append(p.replace(kind=Parameter.KEYWORD_ONLY))
+    return inspect.Signature(params)
 
 
 def _wrap_function(name, func):
     option_class = _get_options_class(func)
     arg_names = _get_arg_names(func)
-    args_sig = ', '.join(arg_names)
-    kwonly = '' if arg_names[-1].startswith('*') else ', *'
-
-    # Generate templated wrapper, so that the signature matches
-    # the documented argument names.
-    ns = {}
-    if option_class is not None:
-        template = _wrapper_options_template
+    has_vararg = arg_names and arg_names[-1].startswith('*')
+    if has_vararg:
+        var_arg_names = [arg_names.pop().lstrip('*')]
     else:
-        template = _wrapper_template
-    exec(template.format(func_name=name, args_sig=args_sig, kwonly=kwonly),
-         globals(), ns)
-    wrapper = ns['make_wrapper'](func, option_class)
+        var_arg_names = []
 
+    wrapper = _make_generic_wrapper(name, func, option_class)
+    wrapper.__signature__ = _make_signature(arg_names, var_arg_names,
+                                            option_class)
     return _decorate_compute_function(wrapper, name, func, option_class)
 
 
