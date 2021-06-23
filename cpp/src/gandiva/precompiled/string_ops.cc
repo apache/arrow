@@ -809,6 +809,33 @@ const char* substr_utf8_int64(gdv_int64 context, const char* input, gdv_int32 in
 }
 
 FORCE_INLINE
+const char* repeat_utf8_int32(gdv_int64 context, const char* in, gdv_int32 in_len,
+                              gdv_int32 repeat_number, gdv_int32* out_len) {
+  // if the repeat number is zero, then return empty string
+  if (repeat_number == 0 || in_len <= 0) {
+    *out_len = 0;
+    return "";
+  }
+  // if the repeat number is a negative number, an error is set on context
+  if (repeat_number < 0) {
+    gdv_fn_context_set_error_msg(context, "Repeat number can't be negative");
+    *out_len = 0;
+    return "";
+  }
+  *out_len = repeat_number * in_len;
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+  for (int i = 0; i < repeat_number; ++i) {
+    memcpy(ret + (i * in_len), in, in_len);
+  }
+  return ret;
+}
+
+FORCE_INLINE
 const char* concat_utf8_utf8(gdv_int64 context, const char* left, gdv_int32 left_len,
                              bool left_validity, const char* right, gdv_int32 right_len,
                              bool right_validity, gdv_int32* out_len) {
