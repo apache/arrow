@@ -23,7 +23,7 @@ library(stringr)
 
 test_that("paste, paste0, and str_c", {
   df <- tibble(
-    v = c("α", "β", "γ"),
+    v = c("A", "B", "C"),
     w = c("a", "b", "c"),
     x = c("d", NA_character_, "f"),
     y = c(NA_character_, "h", "i"),

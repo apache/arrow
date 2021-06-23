@@ -216,7 +216,10 @@ nse_funcs$nchar <- function(x, type = "chars", allowNA = FALSE, keepNA = NA) {
 }
 
 nse_funcs$paste <- function(..., sep = " ", collapse = NULL, recycle0 = FALSE) {
-  assert_that(is.null(collapse))
+  assert_that(
+    is.null(collapse),
+    msg = "paste() with the collapse argument is not yet supported in Arrow"
+  )
   if (!inherits(sep, "Expression")) {
     assert_that(!is.na(sep), msg = "Invalid separator")
   }
@@ -224,12 +227,18 @@ nse_funcs$paste <- function(..., sep = " ", collapse = NULL, recycle0 = FALSE) {
 }
 
 nse_funcs$paste0 <- function(..., collapse = NULL, recycle0 = FALSE) {
-  assert_that(is.null(collapse))
+  assert_that(
+    is.null(collapse),
+    msg = "paste0() with the collapse argument is not yet supported in Arrow"
+  )
   arrow_string_join_function(NullHandlingBehavior$REPLACE, "NA")(..., "")
 }
 
 nse_funcs$str_c <- function(..., sep = "", collapse = NULL) {
-  assert_that(is.null(collapse))
+  assert_that(
+    is.null(collapse),
+    msg = "str_c() with the collapse argument is not yet supported in Arrow"
+  )
   arrow_string_join_function(NullHandlingBehavior$EMIT_NULL)(..., sep)
 }
 
