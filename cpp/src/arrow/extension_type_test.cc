@@ -213,8 +213,6 @@ TEST_F(TestExtensionType, ComplexTypeTest) {
 
   ASSERT_TRUE(deserialized->Equals(*type));
   ASSERT_FALSE(deserialized->Equals(*fixed_size_list(float32(), 2)));
-
-  // auto type2 = complex(int16());
 }
 
 TEST_F(TestExtensionType, ExtensionTypeTest) {
