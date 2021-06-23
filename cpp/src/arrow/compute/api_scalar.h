@@ -154,6 +154,16 @@ struct ARROW_EXPORT StrptimeOptions : public FunctionOptions {
   TimeUnit::type unit;
 };
 
+struct ARROW_EXPORT PadOptions : public FunctionOptions {
+  explicit PadOptions(int64_t width, std::string padding = " ")
+      : width(width), padding(std::move(padding)) {}
+
+  /// The desired string length.
+  int64_t width;
+  /// What to pad the string with. Should be one codepoint (Unicode)/byte (ASCII).
+  std::string padding;
+};
+
 struct ARROW_EXPORT TrimOptions : public FunctionOptions {
   explicit TrimOptions(std::string characters) : characters(std::move(characters)) {}
 

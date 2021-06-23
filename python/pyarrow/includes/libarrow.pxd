@@ -1823,6 +1823,12 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CTrimOptions(c_string characters)
         c_string characters
 
+    cdef cppclass CPadOptions \
+            "arrow::compute::PadOptions"(CFunctionOptions):
+        CPadOptions(int64_t width, c_string padding)
+        int64_t width
+        c_string padding
+
     cdef cppclass CSliceOptions \
             "arrow::compute::SliceOptions"(CFunctionOptions):
         CSliceOptions(int64_t start, int64_t stop, int64_t step)

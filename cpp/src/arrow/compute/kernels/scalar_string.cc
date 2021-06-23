@@ -93,19 +93,23 @@ struct BinaryLength {
   }
 };
 
+template <typename OffsetValue>
+OffsetValue CountCodepoints(const uint8_t* str, size_t strlen) {
+  OffsetValue length = 0;
+  while (strlen > 0) {
+    length += ((*str & 0xc0) != 0x80);
+    ++str;
+    --strlen;
+  }
+  return length;
+}
+
 struct Utf8Length {
   template <typename OutValue, typename Arg0Value = util::string_view>
   static OutValue Call(KernelContext*, Arg0Value val, Status*) {
     auto str = reinterpret_cast<const uint8_t*>(val.data());
     auto strlen = val.size();
-
-    OutValue length = 0;
-    while (strlen > 0) {
-      length += ((*str & 0xc0) != 0x80);
-      ++str;
-      --strlen;
-    }
-    return length;
+    return CountCodepoints<OutValue>(str, strlen);
   }
 };
 
@@ -2817,6 +2821,139 @@ Result<ValueDescr> StrptimeResolve(KernelContext* ctx, const std::vector<ValueDe
   return Status::Invalid("strptime does not provide default StrptimeOptions");
 }
 
+// ----------------------------------------------------------------------
+// string padding
+
+template <bool PadLeft, bool PadRight>
+struct AsciiPadTransform : public StringTransformBase {
+  using State = OptionsWrapper<PadOptions>;
+
+  const PadOptions& options_;
+
+  explicit AsciiPadTransform(const PadOptions& options) : options_(options) {}
+
+  Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) override {
+    if (options_.padding.size() != 1) {
+      return Status::Invalid("Padding must be one byte, got '", options_.padding, "'");
+    }
+    return Status::OK();
+  }
+
+  int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) override {
+    // This is likely very overallocated but hard to do better without
+    // actually looking at each string (because of strings that may be
+    // longer than the given width)
+    return input_ncodeunits + ninputs * options_.width;
+  }
+
+  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+                    uint8_t* output) {
+    if (input_string_ncodeunits >= options_.width) {
+      std::copy(input, input + input_string_ncodeunits, output);
+      return input_string_ncodeunits;
+    }
+    const int64_t spaces = options_.width - input_string_ncodeunits;
+    int64_t left = 0;
+    int64_t right = 0;
+    if (PadLeft && PadRight) {
+      // If odd number of spaces, put them on the left
+      right = spaces / 2;
+      left = spaces - right;
+    } else if (PadLeft) {
+      left = spaces;
+    } else if (PadRight) {
+      right = spaces;
+    } else {
+      DCHECK(false) << "unreachable";
+      return 0;
+    }
+    std::fill(output, output + left, options_.padding[0]);
+    output += left;
+    output = std::copy(input, input + input_string_ncodeunits, output);
+    std::fill(output, output + right, options_.padding[0]);
+    return options_.width;
+  }
+};
+
+template <bool PadLeft, bool PadRight>
+struct Utf8PadTransform : public StringTransformBase {
+  using State = OptionsWrapper<PadOptions>;
+
+  const PadOptions& options_;
+
+  explicit Utf8PadTransform(const PadOptions& options) : options_(options) {}
+
+  Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) override {
+    auto str = reinterpret_cast<const uint8_t*>(options_.padding.data());
+    auto strlen = options_.padding.size();
+    if (CountCodepoints<int64_t>(str, strlen) != 1) {
+      return Status::Invalid("Padding must be one codepoint, got '", options_.padding,
+                             "'");
+    }
+    return Status::OK();
+  }
+
+  int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) override {
+    // This is likely very overallocated but hard to do better without
+    // actually looking at each string (because of strings that may be
+    // longer than the given width)
+    // One codepoint may be up to 4 bytes
+    return input_ncodeunits + 4 * ninputs * options_.width;
+  }
+
+  int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
+                    uint8_t* output) {
+    // XXX input_string_ncodeunits is misleading - it's just bytes
+    const int64_t input_width = CountCodepoints<int64_t>(input, input_string_ncodeunits);
+    if (input_width >= options_.width) {
+      std::copy(input, input + input_string_ncodeunits, output);
+      return input_string_ncodeunits;
+    }
+    const int64_t spaces = options_.width - input_width;
+    int64_t left = 0;
+    int64_t right = 0;
+    if (PadLeft && PadRight) {
+      // If odd number of spaces, put them on the left
+      right = spaces / 2;
+      left = spaces - right;
+    } else if (PadLeft) {
+      left = spaces;
+    } else if (PadRight) {
+      right = spaces;
+    } else {
+      DCHECK(false) << "unreachable";
+      return 0;
+    }
+    uint8_t* start = output;
+    while (left) {
+      output = std::copy(options_.padding.begin(), options_.padding.end(), output);
+      left--;
+    }
+    output = std::copy(input, input + input_string_ncodeunits, output);
+    while (right) {
+      output = std::copy(options_.padding.begin(), options_.padding.end(), output);
+      right--;
+    }
+    return output - start;
+  }
+};
+
+template <typename Type>
+using AsciiLPad = StringTransformExecWithState<Type, AsciiPadTransform<true, false>>;
+template <typename Type>
+using AsciiRPad = StringTransformExecWithState<Type, AsciiPadTransform<false, true>>;
+template <typename Type>
+using AsciiCenter = StringTransformExecWithState<Type, AsciiPadTransform<true, true>>;
+template <typename Type>
+using Utf8LPad = StringTransformExecWithState<Type, Utf8PadTransform<true, false>>;
+template <typename Type>
+using Utf8RPad = StringTransformExecWithState<Type, Utf8PadTransform<false, true>>;
+template <typename Type>
+using Utf8Center = StringTransformExecWithState<Type, Utf8PadTransform<true, true>>;
+
+// ----------------------------------------------------------------------
+// string trimming
+
 #ifdef ARROW_WITH_UTF8PROC
 
 template <bool TrimLeft, bool TrimRight>
@@ -3009,6 +3146,42 @@ using AsciiLTrim = StringTransformExecWithState<Type, AsciiTrimTransform<true, f
 
 template <typename Type>
 using AsciiRTrim = StringTransformExecWithState<Type, AsciiTrimTransform<false, true>>;
+
+const FunctionDoc utf8_center_doc(
+    "Center strings by padding with a given character",
+    ("For each string in `strings`, emit a centered string by padding both sides \n"
+     "with the given UTF8 codeunit.\nNull values emit null."),
+    {"strings"}, "PadOptions");
+
+const FunctionDoc utf8_lpad_doc(
+    "Right-align strings by padding with a given character",
+    ("For each string in `strings`, emit a right-aligned string by prepending \n"
+     "the given UTF8 codeunit.\nNull values emit null."),
+    {"strings"}, "PadOptions");
+
+const FunctionDoc utf8_rpad_doc(
+    "Left-align strings by padding with a given character",
+    ("For each string in `strings`, emit a left-aligned string by appending \n"
+     "the given UTF8 codeunit.\nNull values emit null."),
+    {"strings"}, "PadOptions");
+
+const FunctionDoc ascii_center_doc(
+    utf8_center_doc.description + "",
+    ("For each string in `strings`, emit a centered string by padding both sides \n"
+     "with the given ASCII character.\nNull values emit null."),
+    {"strings"}, "PadOptions");
+
+const FunctionDoc ascii_lpad_doc(
+    utf8_lpad_doc.description + "",
+    ("For each string in `strings`, emit a right-aligned string by prepending \n"
+     "the given ASCII character.\nNull values emit null."),
+    {"strings"}, "PadOptions");
+
+const FunctionDoc ascii_rpad_doc(
+    utf8_rpad_doc.description + "",
+    ("For each string in `strings`, emit a left-aligned string by appending \n"
+     "the given ASCII character.\nNull values emit null."),
+    {"strings"}, "PadOptions");
 
 const FunctionDoc utf8_trim_whitespace_doc(
     "Trim leading and trailing whitespace characters",
@@ -3897,12 +4070,21 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
                                                    &ascii_rtrim_whitespace_doc);
   MakeUnaryStringBatchKernel<AsciiReverse>("ascii_reverse", registry, &ascii_reverse_doc);
   MakeUnaryStringBatchKernel<Utf8Reverse>("utf8_reverse", registry, &utf8_reverse_doc);
-  MakeUnaryStringBatchKernelWithState<AsciiTrim>("ascii_trim", registry,
-                                                 &ascii_lower_doc);
+
+  MakeUnaryStringBatchKernelWithState<AsciiCenter>("ascii_center", registry,
+                                                   &ascii_center_doc);
+  MakeUnaryStringBatchKernelWithState<AsciiLPad>("ascii_lpad", registry, &ascii_lpad_doc);
+  MakeUnaryStringBatchKernelWithState<AsciiRPad>("ascii_rpad", registry, &ascii_rpad_doc);
+  MakeUnaryStringBatchKernelWithState<Utf8Center>("utf8_center", registry,
+                                                  &utf8_center_doc);
+  MakeUnaryStringBatchKernelWithState<Utf8LPad>("utf8_lpad", registry, &utf8_lpad_doc);
+  MakeUnaryStringBatchKernelWithState<Utf8RPad>("utf8_rpad", registry, &utf8_rpad_doc);
+
+  MakeUnaryStringBatchKernelWithState<AsciiTrim>("ascii_trim", registry, &ascii_trim_doc);
   MakeUnaryStringBatchKernelWithState<AsciiLTrim>("ascii_ltrim", registry,
-                                                  &ascii_lower_doc);
+                                                  &ascii_ltrim_doc);
   MakeUnaryStringBatchKernelWithState<AsciiRTrim>("ascii_rtrim", registry,
-                                                  &ascii_lower_doc);
+                                                  &ascii_rtrim_doc);
 
   AddUnaryStringPredicate<IsAscii>("string_is_ascii", registry, &string_is_ascii_doc);
 
