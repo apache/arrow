@@ -262,6 +262,76 @@ def test_date_time_types(tempdir):
     assert read_table.equals(expected)
 
 
+@pytest.mark.pandas
+@pytest.mark.parametrize('unit', ['s', 'ms', 'us', 'ns'])
+def test_coerce_int96_timestamp_unit(unit):
+    i_s = pd.Timestamp('2010-01-01').value / 1000000000  # := 1262304000
+
+    d_s = np.arange(i_s, i_s + 10, 1, dtype='int64')
+    d_ms = d_s * 1000
+    d_us = d_ms * 1000
+    d_ns = d_us * 1000
+
+    a_s = pa.array(d_s, type=pa.timestamp('s'))
+    a_ms = pa.array(d_ms, type=pa.timestamp('ms'))
+    a_us = pa.array(d_us, type=pa.timestamp('us'))
+    a_ns = pa.array(d_ns, type=pa.timestamp('ns'))
+
+    arrays = {"s": a_s, "ms": a_ms, "us": a_us, "ns": a_ns}
+    names = ['ts:s', 'ts:ms', 'ts:us', 'ts:ns']
+    table = pa.Table.from_arrays([a_s, a_ms, a_us, a_ns], names)
+
+    # For either Parquet version, coercing to nanoseconds is allowed
+    # if Int96 storage is used
+    expected = pa.Table.from_arrays([arrays.get(unit)]*4, names)
+    read_table_kwargs = {"coerce_int96_timestamp_unit": unit}
+    _check_roundtrip(table, expected,
+                     read_table_kwargs=read_table_kwargs,
+                     use_deprecated_int96_timestamps=True)
+    _check_roundtrip(table, expected, version='2.0',
+                     read_table_kwargs=read_table_kwargs,
+                     use_deprecated_int96_timestamps=True)
+
+
+@pytest.mark.pandas
+def test_coerce_int96_timestamp_overflow(tempdir):
+
+    # Recreating the initial JIRA issue referrenced in ARROW-12096
+    oob_dts = [
+        datetime.datetime(1000, 1, 1),
+        datetime.datetime(2000, 1, 1),
+        datetime.datetime(3000, 1, 1)
+    ]
+    oob_dts_str = [
+        x.strftime("%Y-%m-%s %H:%M:%S.%f")
+        for x in oob_dts
+    ]
+    df = pd.DataFrame({"a": oob_dts})
+    a_df = pa.Table.from_pandas(df)
+
+    filename = tempdir / "test_round_trip_overflow.parquet"
+    pq.write_table(a_df, filename, use_deprecated_int96_timestamps=True,
+                   version="1.0")
+
+    df_error = pq.read_table(filename).to_pandas(timestamp_as_object=True)
+    out_error = [
+        x.strftime("%Y-%m-%s %H:%M:%S.%f")
+        for x in df_error.a.to_list()
+    ]
+
+    assert out_error != oob_dts_str
+
+    df_correct = pq.read_table(
+        filename, coerce_int96_timestamp_unit="s"
+    ).to_pandas(timestamp_as_object=True)
+
+    out_correct = [
+        x.strftime("%Y-%m-%s %H:%M:%S.%f")
+        for x in df_correct.a.to_list()
+    ]
+    assert out_correct == oob_dts_str
+
+
 def test_timestamp_restore_timezone():
     # ARROW-5888, restore timezone from serialized metadata
     ty = pa.timestamp('ms', tz='America/New_York')
