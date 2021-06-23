@@ -455,61 +455,17 @@ nse_funcs$second <- function(x) {
 # day of the week back to the value that would be returned by lubridate by
 # providing offset values based on the specified week_start day, and adding 1
 # so the returned value is 1-indexed instead of 0-indexed.
-# 
-# This looks complex but if you look at the lubridate implementation of wday,
-# you can see that this is the same maths, but with 1 added at the end to 
-# account for the fact that R is 1-based and the Arrow implementation is 0-based
-# 
-# overall formula to convert from arrow::wday to lubridate::wday is:
-#  (3 +wday(day) + (5 - start)) %% 7) + 1
-# 
-# To calculate e1 %% e2, we can rearrange it as:
-# {e1 - e2 * ( e1 %/% e2 )}
-# 
-# And e1 %/% e2 can itself be done via casting e1/e2 to an integer
 nse_funcs$wday <- function(x, label = FALSE, abbr = TRUE, week_start = getOption("lubridate.week.start", 7)) {
   if (label) {
     arrow_not_supported("Label argument")
   }
   
-  # e1 = 3 +wday(day) + (5 - start)
-  e1 = Expression$create(
-    "add_checked",
-    # 3 + wday(date)
-    Expression$create("add_checked",
-                      Expression$scalar(3),
-                      Expression$create("day_of_week", x)
-    ),
-    # (5 - start)
-    Expression$create("subtract_checked",
-                      Expression$scalar(5),
-                      Expression$scalar(week_start)
-    )
-  )
+  # overall formula to convert from arrow::wday to lubridate::wday is:
+  #  (3 +wday(day) + (5 - start)) %% 7) + 1
+  ((Expression$scalar(3) +
+      Expression$create("day_of_week", x) + 
+      Expression$scalar(5) -
+      Expression$scalar(week_start)
+    )%%  7) + 1
   
-  e2 = Expression$scalar(7)
-  
-  # (e1 - e2 * ( e1 %/% e2 )) + 1
-  Expression$create(
-    "add_checked",
-    Expression$scalar(1),                
-    # e1 - e2 * ( e1 %/% e2 )
-    Expression$create(
-      "subtract_checked",
-      # e1
-      e1,
-      # e2 * ( e1 %/% e2 )
-      Expression$create("multiply_checked",
-        e2,
-        # e1 %/% e2; because as.integer(x/y) == x%/%y
-        Expression$create(
-          "cast",
-          Expression$create("divide_checked", e1, e2),
-          options = cast_options(to_type = int32(), allow_float_truncate = TRUE,
-                                 allow_decimal_truncate = TRUE
-          )
-        )
-      )
-    )
-  )
 }
