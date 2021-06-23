@@ -23,7 +23,8 @@ except ImportError:
     pq = None
 
 import base64
-from Cryptodome.Cipher import AES
+from cryptography.fernet import Fernet
+from cryptography.fernet import InvalidToken
 from collections import OrderedDict
 from datetime import timedelta
 
@@ -35,9 +36,9 @@ DATA_TABLE = pa.Table.from_pydict(
     ])
 )
 PARQUET_NAME = 'encrypted_table.in_mem.parquet'
-FOOTER_KEY = "0123456789ABCDEF"
+FOOTER_KEY = Fernet.generate_key()
 FOOTER_KEY_NAME = "footer_key"
-COL_KEY = "1234123412341234"
+COL_KEY = Fernet.generate_key()
 COL_KEY_NAME = "col_key"
 BASIC_ENCRYPTION_CONFIG = pq.EncryptionConfiguration(
     footer_key=FOOTER_KEY_NAME,
@@ -45,6 +46,7 @@ BASIC_ENCRYPTION_CONFIG = pq.EncryptionConfiguration(
         COL_KEY_NAME: ["a", "b"],
     },
 )
+
 
 class InMemoryKmsClient(pq.KmsClient):
     """This is a mock class implementation of KmsClient, built for testing only.
@@ -60,21 +62,18 @@ class InMemoryKmsClient(pq.KmsClient):
         The result contains nonce concatenated before the encrypted key."""
         master_key = self.master_keys_map[master_key_identifier]
         # Create a cipher object to encrypt data
-        cipher = AES.new(master_key.encode('utf-8'), AES.MODE_GCM)
-        nonce = cipher.nonce
+        cipher = Fernet(master_key.encode('utf-8'))
         encrypted_key = cipher.encrypt(key_bytes)
-        result = base64.b64encode(nonce + encrypted_key)
+        result = base64.b64encode(encrypted_key)
         return result
 
     def unwrap_key(self, wrapped_key, master_key_identifier):
         """Unwrap wrapped_key with key identified by master_key_identifier"""
         master_key = self.master_keys_map[master_key_identifier]
         decoded_wrapped_key = base64.b64decode(wrapped_key)
-        nonce, encrypted_key = \
-            decoded_wrapped_key[:16], decoded_wrapped_key[-16:]
         # Create a cipher object to decrypt data
-        cipher = AES.new(master_key.encode('utf-8'), AES.MODE_GCM, nonce)
-        decrypted_key = cipher.decrypt(encrypted_key)
+        cipher = Fernet(master_key.encode('utf-8'))
+        decrypted_key = cipher.decrypt(decoded_wrapped_key)
         return decrypted_key
 
 
@@ -108,8 +107,8 @@ def test_encrypted_parquet_write_read(tempdir):
 
     kms_connection_config = pq.KmsConnectionConfig(
         custom_kms_conf={
-            FOOTER_KEY_NAME: FOOTER_KEY,
-            COL_KEY_NAME: COL_KEY,
+            FOOTER_KEY_NAME: FOOTER_KEY.decode("UTF-8"),
+            COL_KEY_NAME: COL_KEY.decode("UTF-8"),
         }
     )
 
@@ -159,6 +158,58 @@ def read_encrypted_parquet(path, decryption_config,
 
 
 @pytest.mark.parquet
+def test_encrypted_parquet_write_read_wrong_key(tempdir):
+    """Write an encrypted parquet, verify it's encrypted,
+    and then read it using wrong keys."""
+    path = tempdir / PARQUET_NAME
+    table = DATA_TABLE
+
+    # Encrypt the footer with the footer key,
+    # encrypt column `a` and column `b` with another key,
+    # keep `c` plaintext
+    encryption_config = pq.EncryptionConfiguration(
+        footer_key=FOOTER_KEY_NAME,
+        column_keys={
+            COL_KEY_NAME: ["a", "b"],
+        },
+        encryption_algorithm="AES_GCM_V1",
+        cache_lifetime=timedelta(minutes=5.0),
+        data_key_length_bits=256)
+
+    kms_connection_config = pq.KmsConnectionConfig(
+        custom_kms_conf={
+            FOOTER_KEY_NAME: FOOTER_KEY.decode("UTF-8"),
+            COL_KEY_NAME: COL_KEY.decode("UTF-8"),
+        }
+    )
+
+    def kms_factory(kms_connection_configuration):
+        return InMemoryKmsClient(kms_connection_configuration)
+
+    crypto_factory = pq.CryptoFactory(kms_factory)
+    # Write with encryption properties
+    write_encrypted_parquet(path, table, encryption_config,
+                            kms_connection_config, crypto_factory)
+    verify_file_encrypted(path)
+
+    # Read with decryption properties
+    wrong_kms_connection_config = pq.KmsConnectionConfig(
+        custom_kms_conf={
+            # Wrong keys - mixup in names
+            FOOTER_KEY_NAME: COL_KEY.decode("UTF-8"),
+            COL_KEY_NAME: FOOTER_KEY.decode("UTF-8"),
+        }
+    )
+    decryption_config = pq.DecryptionConfiguration(
+        cache_lifetime=timedelta(minutes=5.0))
+    with pytest.raises(InvalidToken):
+        result_table = read_encrypted_parquet(
+            path, decryption_config, wrong_kms_connection_config,
+            crypto_factory)
+        assert(result_table is not None)
+
+
+@pytest.mark.parquet
 def test_encrypted_parquet_read_no_decryption_config(tempdir):
     """Write an encrypted parquet, verify it's encrypted,
     but then try to read it without decryption properties."""
@@ -204,8 +255,8 @@ def test_encrypted_parquet_write_no_col_key(tempdir):
 
     kms_connection_config = pq.KmsConnectionConfig(
         custom_kms_conf={
-            FOOTER_KEY_NAME: FOOTER_KEY,
-            COL_KEY_NAME: COL_KEY,
+            FOOTER_KEY_NAME: FOOTER_KEY.decode("UTF-8"),
+            COL_KEY_NAME: COL_KEY.decode("UTF-8"),
         }
     )
 
@@ -235,11 +286,50 @@ def test_encrypted_parquet_write_kms_error(tempdir):
         # on wrap/unwrap calls
         return InMemoryKmsClient(kms_connection_configuration)
 
-    with pytest.raises(KeyError):
+    with pytest.raises(RuntimeError, match="footer_key.*KeyError"):
         crypto_factory = pq.CryptoFactory(kms_factory)
         # Write with encryption properties
         write_encrypted_parquet(path, table, encryption_config,
                                 kms_connection_config, crypto_factory)
+
+
+@pytest.mark.parquet
+def test_encrypted_parquet_write_kms_specific_error(tempdir):
+    """Write an encrypted parquet, but raise KeyError in KmsClient."""
+    path = tempdir / 'encrypted_table_kms_error.in_mem.parquet'
+    table = DATA_TABLE
+
+    encryption_config = BASIC_ENCRYPTION_CONFIG
+
+    # Empty master_keys_map
+    kms_connection_config = pq.KmsConnectionConfig()
+
+    class ThrowingKmsClient(pq.KmsClient):
+        """A KmsClient implementation that throws exception in
+        wrap/unwrap calls
+        """
+
+        def __init__(self, config):
+            """Create an InMemoryKmsClient instance."""
+            pq.KmsClient.__init__(self)
+            self.config = config
+
+        def wrap_key(self, key_bytes, master_key_identifier):
+            raise ValueError("Cannot Wrap Key")
+
+        def unwrap_key(self, wrapped_key, master_key_identifier):
+            raise ValueError("Cannot Unwrap Key")
+
+    def kms_factory(kms_connection_configuration):
+        # Exception thrown in wrap/unwrap calls
+        return ThrowingKmsClient(kms_connection_configuration)
+
+    with pytest.raises(RuntimeError, match="Cannot Wrap Key.*ValueError"):
+        crypto_factory = pq.CryptoFactory(kms_factory)
+        # Write with encryption properties
+        write_encrypted_parquet(path, table, encryption_config,
+                                kms_connection_config, crypto_factory)
+
 
 @pytest.mark.parquet
 def test_encrypted_parquet_write_kms_factory_error(tempdir):
@@ -253,13 +343,15 @@ def test_encrypted_parquet_write_kms_factory_error(tempdir):
     kms_connection_config = pq.KmsConnectionConfig()
 
     def kms_factory(kms_connection_configuration):
-        raise ValueError('I am a value erorr')
+        raise ValueError('Cannot create KmsClient')
 
-    with pytest.raises(ValueError):
+    with pytest.raises(RuntimeError,
+                       match="Cannot create KmsClient.*ValueError"):
         crypto_factory = pq.CryptoFactory(kms_factory)
         # Write with encryption properties
         write_encrypted_parquet(path, table, encryption_config,
                                 kms_connection_config, crypto_factory)
+
 
 @pytest.mark.parquet
 def test_encrypted_parquet_write_kms_factory_type_error(tempdir):
@@ -289,13 +381,15 @@ def test_encrypted_parquet_write_kms_factory_type_error(tempdir):
     def kms_factory(kms_connection_configuration):
         return WrongTypeKmsClient(kms_connection_configuration)
 
-    with pytest.raises(TypeError):
+    with pytest.raises(RuntimeError, match=r"TypeError"):
         crypto_factory = pq.CryptoFactory(kms_factory)
         # Write with encryption properties
         write_encrypted_parquet(path, table, encryption_config,
                                 kms_connection_config, crypto_factory)
 
+
 @pytest.mark.parquet
 def test_encrypted_parquet_loop(tempdir):
+    """Try to discover multithreaded reads issues"""
     for i in range(50):
         test_encrypted_parquet_write_read(tempdir)

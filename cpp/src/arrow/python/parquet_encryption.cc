@@ -34,9 +34,11 @@ std::string PyKmsClient::WrapKey(const std::string& key_bytes,
   std::string wrapped;
   auto st = SafeCallIntoPython([&]() -> Status {
     vtable_.wrap_key(handler_.obj(), key_bytes, master_key_identifier, &wrapped);
-    return Status::OK();
+    return CheckPyError();
   });
-  ARROW_UNUSED(st);
+  if (!st.ok()) {
+    throw ::parquet::ParquetStatusException(st);
+  }
   return wrapped;
 }
 
@@ -45,9 +47,11 @@ std::string PyKmsClient::UnwrapKey(const std::string& wrapped_key,
   std::string unwrapped;
   auto st = SafeCallIntoPython([&]() -> Status {
     vtable_.unwrap_key(handler_.obj(), wrapped_key, master_key_identifier, &unwrapped);
-    return Status::OK();
+    return CheckPyError();
   });
-  ARROW_UNUSED(st);
+  if (!st.ok()) {
+    throw ::parquet::ParquetStatusException(st);
+  }
   return unwrapped;
 }
 
@@ -63,9 +67,11 @@ std::shared_ptr<::parquet::encryption::KmsClient> PyKmsClientFactory::CreateKmsC
   std::shared_ptr<::parquet::encryption::KmsClient> kms_client;
   auto st = SafeCallIntoPython([&]() -> Status {
     vtable_.create_kms_client(handler_.obj(), kms_connection_config, &kms_client);
-    return Status::OK();
+    return CheckPyError();
   });
-  ARROW_UNUSED(st);
+  if (!st.ok()) {
+    throw ::parquet::ParquetStatusException(st);
+  }
   return kms_client;
 }
 
