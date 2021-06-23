@@ -452,20 +452,28 @@ void GenericFileSystemTest::TestMoveDir(FileSystem* fs) {
   AssertAllDirs(fs, {"EF", "KL", "KL/CD"});
   AssertAllFiles(fs, {"EF/ghi", "KL/CD/def", "KL/abc"});
 
-  // Destination is a non-empty directory
-  ASSERT_RAISES(IOError, fs->Move("KL", "EF"));
-  AssertAllDirs(fs, {"EF", "KL", "KL/CD"});
-  AssertAllFiles(fs, {"EF/ghi", "KL/CD/def", "KL/abc"});
-
   // Cannot move directory inside itself
   ASSERT_RAISES(IOError, fs->Move("KL", "KL/ZZ"));
-
-  // (other errors tested in TestMoveFile)
 
   // Contents didn't change
   AssertAllDirs(fs, {"EF", "KL", "KL/CD"});
   AssertFileContents(fs, "KL/abc", "abc data");
   AssertFileContents(fs, "KL/CD/def", "def data");
+
+  // Destination is a non-empty directory
+  if (!allow_move_dir_over_non_empty_dir()) {
+    ASSERT_RAISES(IOError, fs->Move("KL", "EF"));
+    AssertAllDirs(fs, {"EF", "KL", "KL/CD"});
+    AssertAllFiles(fs, {"EF/ghi", "KL/CD/def", "KL/abc"});
+  } else {
+    // In some filesystems such as HDFS, this operation is interpreted
+    // as with the Unix `mv` command, i.e. move KL *inside* EF.
+    ASSERT_OK(fs->Move("KL", "EF"));
+    AssertAllDirs(fs, {"EF", "EF/KL", "EF/KL/CD"});
+    AssertAllFiles(fs, {"EF/KL/CD/def", "EF/KL/abc", "EF/ghi"});
+  }
+
+  // (other errors tested in TestMoveFile)
 }
 
 void GenericFileSystemTest::TestCopyFile(FileSystem* fs) {
@@ -888,7 +896,11 @@ void GenericFileSystemTest::TestOpenAppendStream(FileSystem* fs) {
 
   std::shared_ptr<io::OutputStream> stream;
 
-  ASSERT_OK_AND_ASSIGN(stream, fs->OpenAppendStream("abc"));
+  if (allow_append_to_new_file()) {
+    ASSERT_OK_AND_ASSIGN(stream, fs->OpenAppendStream("abc"));
+  } else {
+    ASSERT_OK_AND_ASSIGN(stream, fs->OpenOutputStream("abc"));
+  }
   ASSERT_OK_AND_EQ(0, stream->Tell());
   ASSERT_OK(stream->Write("some "));
   ASSERT_OK(stream->Write(Buffer::FromString("data")));
@@ -1050,6 +1062,26 @@ void GenericFileSystemTest::TestOpenInputFileWithFileInfo(FileSystem* fs) {
   ASSERT_RAISES(IOError, fs->OpenInputFile(info));
 }
 
+void GenericFileSystemTest::TestSpecialChars(FileSystem* fs) {
+  ASSERT_OK(fs->CreateDir("Blank Char"));
+  CreateFile(fs, "Blank Char/Special%Char.txt", "data");
+  std::vector<std::string> all_dirs{"Blank Char"};
+
+  AssertAllDirs(fs, all_dirs);
+  AssertAllFiles(fs, {"Blank Char/Special%Char.txt"});
+  AssertFileContents(fs, "Blank Char/Special%Char.txt", "data");
+
+  ASSERT_OK(fs->CopyFile("Blank Char/Special%Char.txt", "Special and%different.txt"));
+  AssertAllDirs(fs, all_dirs);
+  AssertAllFiles(fs, {"Blank Char/Special%Char.txt", "Special and%different.txt"});
+  AssertFileContents(fs, "Special and%different.txt", "data");
+
+  ASSERT_OK(fs->DeleteFile("Special and%different.txt"));
+  ASSERT_OK(fs->DeleteDir("Blank Char"));
+  AssertAllDirs(fs, {});
+  AssertAllFiles(fs, {});
+}
+
 #define GENERIC_FS_TEST_DEFINE(FUNC_NAME) \
   void GenericFileSystemTest::FUNC_NAME() { FUNC_NAME(GetEmptyFileSystem().get()); }
 
@@ -1078,6 +1110,7 @@ GENERIC_FS_TEST_DEFINE(TestOpenInputStreamAsync)
 GENERIC_FS_TEST_DEFINE(TestOpenInputFile)
 GENERIC_FS_TEST_DEFINE(TestOpenInputFileWithFileInfo)
 GENERIC_FS_TEST_DEFINE(TestOpenInputFileAsync)
+GENERIC_FS_TEST_DEFINE(TestSpecialChars)
 
 #undef GENERIC_FS_TEST_DEFINE
 

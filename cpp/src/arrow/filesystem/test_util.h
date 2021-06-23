@@ -121,6 +121,7 @@ class ARROW_TESTING_EXPORT GenericFileSystemTest {
   void TestOpenInputFile();
   void TestOpenInputFileWithFileInfo();
   void TestOpenInputFileAsync();
+  void TestSpecialChars();
 
  protected:
   // This function should return the filesystem under test.
@@ -134,8 +135,12 @@ class ARROW_TESTING_EXPORT GenericFileSystemTest {
   virtual bool allow_write_file_over_dir() const { return false; }
   // - Whether the filesystem allows moving a directory
   virtual bool allow_move_dir() const { return true; }
+  // - Whether the filesystem allows moving a directory "over" a non-empty destination
+  virtual bool allow_move_dir_over_non_empty_dir() const { return false; }
   // - Whether the filesystem allows appending to a file
   virtual bool allow_append_to_file() const { return true; }
+  // - Whether the filesystem allows appending to a new (not existent yet) file
+  virtual bool allow_append_to_new_file() const { return true; }
   // - Whether the filesystem supports directory modification times
   virtual bool have_directory_mtimes() const { return true; }
   // - Whether some directory tree deletion tests may fail randomly
@@ -168,6 +173,7 @@ class ARROW_TESTING_EXPORT GenericFileSystemTest {
   void TestOpenInputFile(FileSystem* fs);
   void TestOpenInputFileWithFileInfo(FileSystem* fs);
   void TestOpenInputFileAsync(FileSystem* fs);
+  void TestSpecialChars(FileSystem* fs);
 };
 
 #define GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, NAME) \
@@ -198,7 +204,8 @@ class ARROW_TESTING_EXPORT GenericFileSystemTest {
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenInputStreamAsync)             \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenInputFile)                    \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenInputFileWithFileInfo)        \
-  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenInputFileAsync)
+  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenInputFileAsync)               \
+  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, SpecialChars)
 
 #define GENERIC_FS_TEST_FUNCTIONS(TEST_CLASS) \
   GENERIC_FS_TEST_FUNCTIONS_MACROS(TEST_F, TEST_CLASS)
