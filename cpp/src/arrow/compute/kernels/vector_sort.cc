@@ -370,6 +370,17 @@ inline void VisitRawValuesInline(const ArrayType& values,
       [&](int64_t i) { visitor_not_null(data[i]); }, [&]() { visitor_null(); });
 }
 
+template <typename VisitorNotNull, typename VisitorNull>
+inline void VisitRawValuesInline(const BooleanArray& values,
+                                 VisitorNotNull&& visitor_not_null,
+                                 VisitorNull&& visitor_null) {
+  const uint8_t* data = values.data()->buffers[1]->data();
+  VisitBitBlocksVoid(
+      values.null_bitmap(), values.offset(), values.length(),
+      [&](int64_t i) { visitor_not_null(BitUtil::GetBit(data, values.offset() + i)); },
+      [&]() { visitor_null(); });
+}
+
 template <typename ArrowType>
 class ArrayCompareSorter {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
@@ -528,6 +539,12 @@ template <typename Type, typename Enable = void>
 struct ArraySorter;
 
 template <>
+struct ArraySorter<BooleanType> {
+  ArrayCountSorter<BooleanType> impl;
+  ArraySorter() : impl(false, true) {}
+};
+
+template <>
 struct ArraySorter<UInt8Type> {
   ArrayCountSorter<UInt8Type> impl;
   ArraySorter() : impl(0, 255) {}
@@ -576,11 +593,17 @@ struct ArraySortIndices {
 
 // Sort indices kernels implemented for
 //
+// * Boolean type
 // * Number types
 // * Base binary types
 
 template <template <typename...> class ExecTemplate>
 void AddSortingKernels(VectorKernel base, VectorFunction* func) {
+  // bool type
+  base.signature = KernelSignature::Make({InputType::Array(boolean())}, uint64());
+  base.exec = ExecTemplate<UInt64Type, BooleanType>::Exec;
+  DCHECK_OK(func->AddKernel(base));
+
   for (const auto& ty : NumericTypes()) {
     auto physical_type = GetPhysicalType(ty);
     base.signature = KernelSignature::Make({InputType::Array(ty)}, uint64());
