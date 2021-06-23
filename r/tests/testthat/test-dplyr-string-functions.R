@@ -21,6 +21,162 @@ skip_if_not_available("utf8proc")
 library(dplyr)
 library(stringr)
 
+test_that("paste, paste0, and str_c", {
+  df <- tibble(
+    v = c("A", "B", "C"),
+    w = c("a", "b", "c"),
+    x = c("d", NA_character_, "f"),
+    y = c(NA_character_, "h", "i"),
+    z = c(1.1, 2.2, NA)
+  )
+  x <- Expression$field_ref("x")
+  y <- Expression$field_ref("y")
+
+  # no NAs in data
+  expect_dplyr_equal(
+    input %>%
+      transmute(paste(v, w)) %>%
+      collect(),
+    df
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(paste(v, w, sep = "-")) %>%
+      collect(),
+    df
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(paste0(v, w)) %>%
+      collect(),
+    df
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(str_c(v, w)) %>%
+      collect(),
+    df
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(str_c(v, w, sep = "+")) %>%
+      collect(),
+    df
+  )
+
+  # NAs in data
+  expect_dplyr_equal(
+    input %>%
+      transmute(paste(x, y)) %>%
+      collect(),
+    df
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(paste(x, y, sep = "-")) %>%
+      collect(),
+    df
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(str_c(x, y)) %>%
+      collect(),
+    df
+  )
+
+  # non-character column in dots
+  expect_dplyr_equal(
+    input %>%
+      transmute(paste0(x, y, z)) %>%
+      collect(),
+    df
+  )
+
+  # literal string in dots
+  expect_dplyr_equal(
+    input %>%
+      transmute(paste(x, "foo", y)) %>%
+      collect(),
+    df
+  )
+
+  # literal NA in dots
+  expect_dplyr_equal(
+    input %>%
+      transmute(paste(x, NA, y)) %>%
+      collect(),
+    df
+  )
+
+  # expressions in dots
+  expect_dplyr_equal(
+    input %>%
+      transmute(paste0(x, toupper(y), as.character(z))) %>%
+      collect(),
+    df
+  )
+
+  # sep is literal NA
+  # errors in paste() (consistent with base::paste())
+  expect_error(
+    nse_funcs$paste(x, y, sep = NA_character_),
+    "Invalid separator"
+  )
+  # emits null in str_c() (consistent with stringr::str_c())
+  expect_dplyr_equal(
+    input %>%
+      transmute(str_c(x, y, sep = NA_character_)) %>%
+      collect(),
+    df
+  )
+
+  # sep passed in dots to paste0 (which doesn't take a sep argument)
+  expect_dplyr_equal(
+    input %>%
+      transmute(paste0(x, y, sep = "-")) %>%
+      collect(),
+    df
+  )
+
+  # known differences
+
+  # arrow allows the separator to be an array
+  expect_equal(
+    df %>%
+      Table$create() %>%
+      transmute(result = paste(x, y, sep = w)) %>%
+      collect(),
+    df %>%
+      transmute(result = paste(x, w, y, sep = ""))
+  )
+
+  # expected errors
+
+  # collapse argument not supported
+  expect_error(
+    nse_funcs$paste(x, y, collapse = ""),
+    "collapse"
+  )
+  expect_error(
+    nse_funcs$paste0(x, y, collapse = ""),
+    "collapse"
+  )
+  expect_error(
+    nse_funcs$str_c(x, y, collapse = ""),
+    "collapse"
+  )
+
+  # literal vectors of length != 1 not supported
+  expect_error(
+    nse_funcs$paste(x, character(0), y),
+    "Literal vectors of length != 1 not supported in string concatenation"
+  )
+  expect_error(
+    nse_funcs$paste(x, c(",", ";"), y),
+    "Literal vectors of length != 1 not supported in string concatenation"
+  )
+})
+
 test_that("grepl with ignore.case = FALSE and fixed = TRUE", {
   df <- tibble(x = c("Foo", "bar"))
   expect_dplyr_equal(

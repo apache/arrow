@@ -215,6 +215,61 @@ nse_funcs$nchar <- function(x, type = "chars", allowNA = FALSE, keepNA = NA) {
   }
 }
 
+nse_funcs$paste <- function(..., sep = " ", collapse = NULL, recycle0 = FALSE) {
+  assert_that(
+    is.null(collapse),
+    msg = "paste() with the collapse argument is not yet supported in Arrow"
+  )
+  if (!inherits(sep, "Expression")) {
+    assert_that(!is.na(sep), msg = "Invalid separator")
+  }
+  arrow_string_join_function(NullHandlingBehavior$REPLACE, "NA")(..., sep)
+}
+
+nse_funcs$paste0 <- function(..., collapse = NULL, recycle0 = FALSE) {
+  assert_that(
+    is.null(collapse),
+    msg = "paste0() with the collapse argument is not yet supported in Arrow"
+  )
+  arrow_string_join_function(NullHandlingBehavior$REPLACE, "NA")(..., "")
+}
+
+nse_funcs$str_c <- function(..., sep = "", collapse = NULL) {
+  assert_that(
+    is.null(collapse),
+    msg = "str_c() with the collapse argument is not yet supported in Arrow"
+  )
+  arrow_string_join_function(NullHandlingBehavior$EMIT_NULL)(..., sep)
+}
+
+arrow_string_join_function <- function(null_handling, null_replacement = NULL) {
+  # the `binary_join_element_wise` Arrow C++ compute kernel takes the separator
+  # as the last argument, so pass `sep` as the last dots arg to this function
+  function(...) {
+    args <- lapply(list(...), function(arg) {
+      # handle scalar literal args, and cast all args to string for
+      # consistency with base::paste(), base::paste0(), and stringr::str_c()
+      if (!inherits(arg, "Expression")) {
+        assert_that(
+          length(arg) == 1,
+          msg = "Literal vectors of length != 1 not supported in string concatenation"
+        )
+        Expression$scalar(as.character(arg))
+      } else {
+        nse_funcs$as.character(arg)
+      }
+    })
+    Expression$create(
+      "binary_join_element_wise",
+      args = args,
+      options = list(
+        null_handling = null_handling,
+        null_replacement = null_replacement
+      )
+    )
+  }
+}
+
 nse_funcs$str_trim <- function(string, side = c("both", "left", "right")) {
   side <- match.arg(side)
   trim_fun <- switch(side,
