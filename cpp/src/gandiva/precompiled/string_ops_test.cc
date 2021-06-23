@@ -2448,4 +2448,63 @@ TEST(TestStringOps, TestInstr) {
   result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
   EXPECT_EQ(result, 8);
 }
+TEST(TestStringOps, TestParseURL){
+    gandiva::ExecutionContext ctx;
+    uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+
+    const char* url = "http://github.io/path1/path2/p.php?k1=v1&k2=v2#Ref1";
+
+    // Optimal cases.
+    const char* expected_host = "github.io";
+    EXPECT_STREQ(expected_host, parse_url_utf8_utf8(ctx_ptr, url, 51, "HOST", 4));
+
+    const char* expected_protocol = "http";
+    EXPECT_STREQ(expected_protocol, parse_url_utf8_utf8(ctx_ptr, url, 51, "PROTOCOL", 8));
+
+    const char* expected_path = "path1/path2/";
+    EXPECT_STREQ(expected_path, parse_url_utf8_utf8(ctx_ptr, url, 51, "PATH", 4));
+
+    const char* expected_file = "p.php";
+    EXPECT_STREQ(expected_file, parse_url_utf8_utf8(ctx_ptr, url, 51, "FILE", 4));
+
+    const char* expected_query = "k1=v1&k2=v2";
+    EXPECT_STREQ(expected_query, parse_url_utf8_utf8(ctx_ptr, url, 51, "QUERY", 5));
+
+    const char* expected_query_value = "v1";
+    EXPECT_STREQ(expected_query_value, parse_url_query_key_utf8_utf8(ctx_ptr, url, 51, "QUERY", 5, "k1", 2));
+
+    const char* expected_ref = "Ref1";
+    EXPECT_STREQ(expected_ref, parse_url_utf8_utf8(ctx_ptr, url, 51, "REF", 3));
+
+    const char* expected_autority = "github.io";
+    EXPECT_STREQ(expected_autority, parse_url_utf8_utf8(ctx_ptr, url, 51, "AUTHORITY", 9));
+
+    const char* url_ip = "http://127.0.0.0:8080/path1/path2/p.php?k1=v1&k2=v2#Ref1";
+    const char* expected_autority2 = "127.0.0.0:8080";
+    EXPECT_STREQ(expected_autority2, parse_url_utf8_utf8(ctx_ptr, url_ip, 56, "AUTHORITY", 9));
+
+    // Error cases
+
+    const char* expected_error = "Invalid part to extract, the accept values are HOST, PATH, QUERY, REF, PROTOCOL, AUTHORITY, FILE, and USERINFO.";
+    parse_url_utf8_utf8(ctx_ptr, url, 51, "HOSTy", 5);
+    EXPECT_TRUE(ctx.has_error());
+    EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr(expected_error));
+
+    const char* expected_error_missing_element = "Couldn't find the request element";
+    const char* url_without_element = "http://github.io/path1/path2?k1=v1&k2=v2#Ref1";
+    parse_url_utf8_utf8(ctx_ptr, url_without_element, 45, "FILE", 4);
+    EXPECT_TRUE(ctx.has_error());
+    EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr(expected_error));
+
+    const char* url_malformed = "github.io/path1/path2/p.php?k1=v1&k2=v2#Ref1";
+    const char* expected_error_wrong_url = "Invalid URL structure.";
+    parse_url_utf8_utf8(ctx_ptr, url_malformed, 44, "HOST", 4);
+    EXPECT_TRUE(ctx.has_error());
+    EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr(expected_error_wrong_url));
+
+    const char* expected_error_key = "Couldn't find the given query key.";
+    parse_url_query_key_utf8_utf8(ctx_ptr, url, 44, "QUERY", 5, "k3", 2);
+    EXPECT_TRUE(ctx.has_error());
+    EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr(expected_error_key));
+}
 }  // namespace gandiva

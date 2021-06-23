@@ -476,6 +476,14 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       NativeFunction("from_hex", {"unhex"}, DataTypeVector{utf8()}, binary(),
                      kResultNullIfNull, "from_hex_utf8", NativeFunction::kNeedsContext),
 
+      NativeFunction("parse_url", {}, DataTypeVector{utf8(), utf8()}, utf8(),
+                     kResultNullIfNull, "parse_url_utf8_utf8",
+                     NativeFunction::kNeedsContext),
+
+      NativeFunction("parse_url", {}, DataTypeVector{utf8(), utf8(), utf8()}, utf8(),
+                     kResultNullIfNull, "parse_url_query_key_utf8_utf8",
+                     NativeFunction::kNeedsContext),
+
       NativeFunction("split_part", {}, DataTypeVector{utf8(), utf8(), int32()}, utf8(),
                      kResultNullIfNull, "split_part",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
