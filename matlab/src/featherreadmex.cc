@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <mex.h>
-
 #include <string>
+
+#include <mex.h>
 
 #include "feather_reader.h"
 #include "util/handle_status.h"

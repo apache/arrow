@@ -15,6 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cmath>
+#include <functional> /* for std::multiplies */
+#include <numeric>    /* for std::accumulate */
+
 #include "feather_writer.h"
 
 #include <arrow/array.h>
@@ -28,10 +32,6 @@
 #include <arrow/util/bitmap_generate.h>
 #include <arrow/util/key_value_metadata.h>
 #include <mex.h>
-
-#include <cmath>
-#include <functional> /* for std::multiplies */
-#include <numeric>    /* for std::accumulate */
 
 #include "matlab_traits.h"
 #include "util/handle_status.h"
@@ -281,9 +281,7 @@ Status FeatherWriter::Open(const std::string& filename,
   // Open a FileOutputStream corresponding to the provided filename.
   arrow::Result<std::shared_ptr<arrow::io::OutputStream>> maybe_file_output_stream =
       io::FileOutputStream::Open(filename, &((*feather_writer)->file_output_stream_));
-  RETURN_NOT_OK(maybe_file_output_stream);
-  (*feather_writer)->file_output_stream_ = maybe_file_output_stream.ValueOrDie();
-
+  ARROW_ASSIGN_OR_RAISE((*feather_writer)->file_output_stream_, maybe_file_output_stream);
   return Status::OK();
 }
 
@@ -338,8 +336,7 @@ Status FeatherWriter::WriteVariables(const mxArray* variables, const mxArray* me
 
     arrow::Result<std::shared_ptr<ResizableBuffer>> maybe_buffer =
         arrow::AllocateResizableBuffer(internal::BitPackedLength(num_rows_));
-    RETURN_NOT_OK(maybe_buffer);
-    std::shared_ptr<ResizableBuffer> validity_bitmap = maybe_buffer.ValueOrDie();
+    ARROW_ASSIGN_OR_RAISE(auto validity_bitmap, maybe_buffer);
 
     // Populate bit-packed arrow::Buffer using validity data in the mxArray*.
     internal::BitPackBuffer(valid, validity_bitmap);
@@ -358,11 +355,9 @@ Status FeatherWriter::WriteVariables(const mxArray* variables, const mxArray* me
     table_columns.push_back(array);
   }
   // Create the table schema
-  arrow::Result<std::shared_ptr<arrow::Schema>> table_schema_result =
+  arrow::Result<std::shared_ptr<arrow::Schema>> maybe_table_schema =
       schema_builder.Finish();
-  RETURN_NOT_OK(table_schema_result);
-
-  std::shared_ptr<arrow::Schema> table_schema = table_schema_result.ValueOrDie();
+  ARROW_ASSIGN_OR_RAISE(auto table_schema, maybe_table_schema);
 
   // Specify the feather file format version as V1
   arrow::ipc::feather::WriteProperties write_props;

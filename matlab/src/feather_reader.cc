@@ -15,6 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
+#include <cmath>
+
 #include "feather_reader.h"
 
 #include <arrow/array/array_base.h>
@@ -29,9 +32,6 @@
 #include <arrow/type_traits.h>
 #include <arrow/util/bitmap_visit.h>
 #include <mex.h>
-
-#include <algorithm>
-#include <cmath>
 
 #include "matlab_traits.h"
 #include "util/handle_status.h"
@@ -184,20 +184,18 @@ Status FeatherReader::Open(const std::string& filename,
   // Open file with given filename as a ReadableFile.
   arrow::Result<std::shared_ptr<io::ReadableFile>> maybe_readable_file =
       io::ReadableFile::Open(filename);
-  RETURN_NOT_OK(maybe_readable_file);
 
   // TableReader expects a RandomAccessFile.
-  std::shared_ptr<io::RandomAccessFile> random_access_file{
-      maybe_readable_file.ValueOrDie()};
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<io::RandomAccessFile> random_access_file,
+                        maybe_readable_file);
 
   // Open the Feather file for reading with a TableReader.
   arrow::Result<std::shared_ptr<ipc::feather::Reader>> maybe_reader =
       ipc::feather::Reader::Open(random_access_file);
-  RETURN_NOT_OK(maybe_reader);
+  ARROW_ASSIGN_OR_RAISE(auto reader, maybe_reader);
 
   // Set the internal reader_ object.
-  (*feather_reader)->reader_ = maybe_reader.ValueOrDie();
-  std::shared_ptr<ipc::feather::Reader> reader = (*feather_reader)->reader_;
+  (*feather_reader)->reader_ = reader;
 
   // Check the feather file version
   int version = reader->version();
@@ -245,12 +243,12 @@ mxArray* FeatherReader::ReadVariables() {
   mxArray* variables =
       mxCreateStructMatrix(1, num_variables_, num_variable_fields, fieldnames);
 
-  // Read the entire table in the Feather file into memory.
   std::shared_ptr<arrow::Table> table = nullptr;
   arrow::Status status = reader_->Read(&table);
   if (!status.ok()) {
-    mexErrMsgIdAndTxt("MATLAB:arrow:FeatherReader::FailedToReadTable",
-                      "Failed to read arrow::Table from Feather file.");
+    std::string err_msg =
+        "Failed to read arrow::Table from Feather file. Reason: " + status.message();
+    mexErrMsgIdAndTxt("MATLAB:arrow:FeatherReader::FailedToReadTable", err_msg.c_str());
   }
 
   // Set the number of rows
