@@ -64,12 +64,30 @@ class Converter {
   virtual bool Parallel() const { return true; }
 
   // converter is passed as self to outlive the scope of Converter::Convert()
-  virtual SEXP ScheduleConvertTasks(RTasks& tasks, std::shared_ptr<Converter> self) {
-    SEXP out = PROTECT(Allocate(chunked_array_->length()));
-    R_xlen_t k = 0, i = 0;
+  SEXP ScheduleConvertTasks(RTasks& tasks, std::shared_ptr<Converter> self) {
+#if defined(HAS_ALTREP)
+    // special case when there is only one array
+    if (chunked_array_->num_chunks() == 1) {
+      const auto& array = chunked_array_->chunk(0);
+      if (arrow::r::GetBoolOption("arrow.use_altrep", true) && array->length() > 0 &&
+          array->null_count() == 0) {
+        switch (array->type()->id()) {
+          case arrow::Type::DOUBLE:
+            return arrow::r::MakeDoubleArrayNoNull(array);
+          case arrow::Type::INT32:
+            return arrow::r::MakeInt32ArrayNoNull(array);
+          default:
+            break;
+        }
+      }
+    }
+#endif
 
-    // for each array, fill the relevant slice of `out`
-    // potentially in parallel
+    // allocating the R vector upfront
+    SEXP out = PROTECT(Allocate(chunked_array_->length()));
+
+    // for each array, fill the relevant slice of `out`, potentially in parallel
+    R_xlen_t k = 0, i = 0;
     for (const auto& array : chunked_array_->chunks()) {
       auto n_chunk = array->length();
 
@@ -101,27 +119,6 @@ class Converter {
 
   static SEXP Convert(const std::shared_ptr<ChunkedArray>& chunked_array,
                       bool use_threads) {
-    const auto& type = chunked_array->type();
-
-    // TODO: move this down, e.g. Make() could make an alrep aware converter
-#if defined(HAS_ALTREP)
-    // special case when there is only one array
-    if (chunked_array->num_chunks() == 1) {
-      const auto& array = chunked_array->chunk(0);
-      if (arrow::r::GetBoolOption("arrow.use_altrep", true) && array->length() > 0 &&
-          array->null_count() == 0) {
-        switch (type->id()) {
-          case arrow::Type::DOUBLE:
-            return arrow::r::MakeDoubleArrayNoNull(array);
-          case arrow::Type::INT32:
-            return arrow::r::MakeInt32ArrayNoNull(array);
-          default:
-            break;
-        }
-      }
-    }
-#endif
-
     RTasks tasks(use_threads);
     SEXP out = PROTECT(Converter::LazyConvert(chunked_array, tasks));
     StopIfNotOk(tasks.Finish());
