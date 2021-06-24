@@ -414,7 +414,7 @@ class BlockParsingOperator {
     if (count_rows_) {
       num_rows_seen_ += parser->num_rows();
     }
-    block.consume_bytes(parsed_size);
+    RETURN_NOT_OK(block.consume_bytes(parsed_size));
     return ParsedBlock{std::move(parser), block.block_index,
                        static_cast<int64_t>(parsed_size) + block.bytes_skipped};
   }
