@@ -728,7 +728,7 @@ cdef class _PadOptions(FunctionOptions):
 
 
 class PadOptions(_PadOptions):
-    def __init__(self, width, padding):
+    def __init__(self, width, padding=' '):
         self._set_options(width, padding)
 
 
