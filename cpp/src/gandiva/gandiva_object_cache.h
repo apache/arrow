@@ -24,6 +24,7 @@
 #include "gandiva/cache.h"
 
 namespace gandiva {
+/// Class that enables the LLVM to use a custom rule to deal with the object code.
 template<class CacheKey>
 class GandivaObjectCache : public llvm::ObjectCache {
  public:
