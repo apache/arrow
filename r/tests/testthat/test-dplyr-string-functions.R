@@ -730,18 +730,14 @@ test_that("str_like", {
   df <- tibble(x = c("Foo and bar", "baz and qux and quux"))
   
   # This will give an error until a new version of stringr with str_like has been released
-  with_language("en", {
-    expect_error(
+  expect_error(
       expect_dplyr_equal(
         input %>%
           mutate(x = str_like(x, "%baz%")) %>%
           collect(),
-        df
-      ),
-      'could not find function "str_like"'
-    )
-  })
-  
+        df,
+      )
+  )
   
   # After new version of stringr with str_like has been released, update all these
   # tests to use expect_dplyr_equal
