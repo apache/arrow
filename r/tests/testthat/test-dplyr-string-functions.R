@@ -713,6 +713,7 @@ test_that("strptime", {
     tstamp,
     check.tzone = FALSE
   )
+})
 
 test_that("errors in strptime", {
   # Error when tz is passed
