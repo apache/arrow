@@ -478,6 +478,6 @@ above, if you are compiling C++ using these shared libraries, you will need
 to make sure you use a compatible toolchain as well or you might see a
 segfault during runtime.
 
-Also, if you enconter errors when linking or loading the library, consider
+Also, if you encounter errors when linking or loading the library, consider
 setting the ``_GLIBCXX_USE_CXX11_ABI`` preprocessor macro to ``0``
 (for example by adding ``-D_GLIBCXX_USE_CXX11_ABI=0`` to ``CFLAGS``).
