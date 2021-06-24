@@ -42,6 +42,7 @@ namespace internal {
 
 // Visit all physical types for which sorting is implemented.
 #define VISIT_PHYSICAL_TYPES(VISIT) \
+  VISIT(BooleanType)                \
   VISIT(Int8Type)                   \
   VISIT(Int16Type)                  \
   VISIT(Int32Type)                  \
@@ -693,8 +694,6 @@ class ChunkedArraySorter : public TypeVisitor {
         ctx_(ctx) {}
 
   Status Sort() { return physical_type_->Accept(this); }
-
-  Status Visit(const BooleanType& type) override { return SortInternal<BooleanType>(); }
 
 #define VISIT(TYPE) \
   Status Visit(const TYPE& type) override { return SortInternal<TYPE>(); }
