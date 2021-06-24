@@ -729,16 +729,6 @@ test_that("str_like", {
   
   df <- tibble(x = c("Foo and bar", "baz and qux and quux"))
   
-  # This will give an error until a new version of stringr with str_like has been released
-  expect_error(
-      expect_dplyr_equal(
-        input %>%
-          mutate(x = str_like(x, "%baz%")) %>%
-          collect(),
-        df,
-      )
-  )
-  
   # After new version of stringr with str_like has been released, update all these
   # tests to use expect_dplyr_equal
   
@@ -785,6 +775,15 @@ test_that("str_like", {
       mutate(x = str_like(x, "_a%")) %>%
       collect(),
     tibble(x = c(FALSE, TRUE))
+  )
+  
+  # This will give an error until a new version of stringr with str_like has been released
+  skip("Test will fail until stringr > 1.4.0 is release")
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = str_like(x, "%baz%")) %>%
+      collect(),
+    df,
   )
   
 })
