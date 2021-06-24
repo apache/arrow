@@ -104,8 +104,10 @@ Expression$create <- function(function_name,
                               args = list(...),
                               options = empty_named_list()) {
   assert_that(is.string(function_name))
+  assert_that(is_list_of(args, "Expression"), msg = "Expression arguments must be Expression objects")
   compute___expr__call(function_name, args, options)
 }
+
 Expression$field_ref <- function(name) {
   assert_that(is.string(name))
   compute___expr__field_ref(name)
