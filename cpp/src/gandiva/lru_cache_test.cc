@@ -146,4 +146,41 @@ TEST_F(TestLruCache, TestEvictObject) {
   b_cached_file.close();
   ASSERT_TRUE(b_file_is_cached);
 }
+
+TEST_F(TestLruCache, TestReinsertObject) {
+  llvm::StringRef d_ref("d");
+  std::unique_ptr<llvm::MemoryBuffer> d_buffer_uptr = llvm::MemoryBuffer::getMemBuffer(d_ref);
+  std::shared_ptr<llvm::MemoryBuffer> d_buffer_sptr = std::move(d_buffer_uptr);
+  BaseCacheKey d_key("test", "4");
+
+  llvm::StringRef e_ref("e");
+  std::unique_ptr<llvm::MemoryBuffer> e_buffer_uptr = llvm::MemoryBuffer::getMemBuffer(e_ref);
+  std::shared_ptr<llvm::MemoryBuffer> e_buffer_sptr = std::move(e_buffer_uptr);
+  BaseCacheKey e_key("test", "5");
+
+  cache_.insertObject(d_key, d_buffer_sptr, d_buffer_sptr->getBufferSize());
+  cache_.insertObject(e_key, e_buffer_sptr, e_buffer_sptr->getBufferSize());
+
+  // should have evicted key d
+  ASSERT_EQ(1, cache_.size());
+  ASSERT_EQ(cache_.get(d_key), arrow::util::nullopt);
+
+  // check for evicted d object that are now a file
+  bool d_file_is_cached = false;
+  std::string d_file_name = std::to_string(d_key.Hash()) + ".cache";
+  llvm::SmallString<128>d_cache_file = cache_.getCacheDir();
+  llvm::sys::path::append(d_cache_file, d_file_name);
+
+  std::ifstream d_cached_file(d_cache_file.c_str(), std::ios::binary);
+  if(d_cached_file) {
+    d_file_is_cached = true;
+  }
+  d_cached_file.close();
+  ASSERT_TRUE(d_file_is_cached);
+
+  // reinsert d_object to cache
+  cache_.reinsertObject(d_key, d_buffer_sptr, d_buffer_sptr->getBufferSize());
+  ASSERT_EQ(cache_.get(d_key), d_buffer_sptr);
+  ASSERT_EQ(cache_.get(e_key), arrow::util::nullopt);
+}
 }  // namespace gandiva
