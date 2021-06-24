@@ -98,7 +98,7 @@ class ColumnDecoderTest : public ::testing::Test {
   }
 
   Result<std::shared_ptr<Array>> NextChunk() {
-    EXPECT_LT(read_ptr_, decoded_chunks_.size());
+    EXPECT_LT(read_ptr_, static_cast<int64_t>(decoded_chunks_.size()));
     return decoded_chunks_[read_ptr_++].result();
   }
 
