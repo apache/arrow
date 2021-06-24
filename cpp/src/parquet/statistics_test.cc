@@ -702,10 +702,11 @@ class TestStatisticsSortOrder : public ::testing::Test {
     std::shared_ptr<parquet::FileMetaData> file_metadata = parquet_reader->metadata();
     std::shared_ptr<parquet::RowGroupMetaData> rg_metadata = file_metadata->RowGroup(0);
     for (int i = 0; i < static_cast<int>(fields_.size()); i++) {
+      ARROW_SCOPED_TRACE("Statistics for field #", i);
       std::shared_ptr<parquet::ColumnChunkMetaData> cc_metadata =
           rg_metadata->ColumnChunk(i);
-      ASSERT_EQ(stats_[i].min(), cc_metadata->statistics()->EncodeMin());
-      ASSERT_EQ(stats_[i].max(), cc_metadata->statistics()->EncodeMax());
+      EXPECT_EQ(stats_[i].min(), cc_metadata->statistics()->EncodeMin());
+      EXPECT_EQ(stats_[i].max(), cc_metadata->statistics()->EncodeMax());
     }
   }
 
@@ -934,11 +935,11 @@ template <typename Stats, typename Array, typename T = typename Array::value_typ
 void AssertMinMaxAre(Stats stats, const Array& values, T expected_min, T expected_max) {
   stats->Update(values.data(), values.size(), 0);
   ASSERT_TRUE(stats->HasMinMax());
-  ASSERT_EQ(stats->min(), expected_min);
-  ASSERT_EQ(stats->max(), expected_max);
+  EXPECT_EQ(stats->min(), expected_min);
+  EXPECT_EQ(stats->max(), expected_max);
 }
 
-template <typename Stats, typename Array, typename T = typename Array::value_type>
+template <typename Stats, typename Array, typename T = typename Stats::T>
 void AssertMinMaxAre(Stats stats, const Array& values, const uint8_t* valid_bitmap,
                      T expected_min, T expected_max) {
   auto n_values = values.size();
@@ -946,8 +947,8 @@ void AssertMinMaxAre(Stats stats, const Array& values, const uint8_t* valid_bitm
   auto non_null_count = n_values - null_count;
   stats->UpdateSpaced(values.data(), valid_bitmap, 0, non_null_count, null_count);
   ASSERT_TRUE(stats->HasMinMax());
-  ASSERT_EQ(stats->min(), expected_min);
-  ASSERT_EQ(stats->max(), expected_max);
+  EXPECT_EQ(stats->min(), expected_min);
+  EXPECT_EQ(stats->max(), expected_max);
 }
 
 template <typename Stats, typename Array>
@@ -969,10 +970,10 @@ template <typename ParquetType, typename T = typename ParquetType::c_type>
 void CheckExtremums() {
   using UT = typename std::make_unsigned<T>::type;
 
-  T smin = std::numeric_limits<T>::min();
-  T smax = std::numeric_limits<T>::max();
-  T umin = std::numeric_limits<UT>::min();
-  T umax = std::numeric_limits<UT>::max();
+  const T smin = std::numeric_limits<T>::min();
+  const T smax = std::numeric_limits<T>::max();
+  const T umin = static_cast<T>(std::numeric_limits<UT>::min());
+  const T umax = static_cast<T>(std::numeric_limits<UT>::max());
 
   constexpr int kNumValues = 8;
   std::array<T, kNumValues> values{0,    smin,     smax,     umin,
@@ -987,9 +988,11 @@ void CheckExtremums() {
       LogicalType::Int(sizeof(T) * CHAR_BIT, true /*signed*/), ParquetType::type_num);
   ColumnDescriptor signed_descr(signed_node, 1, 1);
 
+  ARROW_SCOPED_TRACE("unsigned statistics: umin = ", umin, ", umax = ", umax);
   auto unsigned_stats = MakeStatistics<ParquetType>(&unsigned_descr);
   AssertMinMaxAre(unsigned_stats, values, umin, umax);
 
+  ARROW_SCOPED_TRACE("signed statistics: smin = ", smin, ", smax = ", smax);
   auto signed_stats = MakeStatistics<ParquetType>(&signed_descr);
   AssertMinMaxAre(signed_stats, values, smin, smax);
 }
