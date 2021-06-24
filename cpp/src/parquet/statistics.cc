@@ -382,6 +382,25 @@ class TypedComparatorImpl : virtual public TypedComparator<DType> {
   int type_length_;
 };
 
+template <>
+std::pair<int32_t, int32_t>
+TypedComparatorImpl</*is_signed=*/false, Int32Type>::GetMinMax(const int32_t* values,
+                                                               int64_t length) {
+  DCHECK_GT(length, 0);
+
+  const uint32_t* unsigned_values = reinterpret_cast<const uint32_t*>(values);
+  uint32_t min = std::numeric_limits<uint32_t>::max();
+  uint32_t max = std::numeric_limits<uint32_t>::lowest();
+
+  for (int64_t i = 0; i < length; i++) {
+    const auto val = unsigned_values[i];
+    min = std::min<uint32_t>(min, val);
+    max = std::max<uint32_t>(max, val);
+  }
+
+  return {SafeCopy<int32_t>(min), SafeCopy<int32_t>(max)};
+}
+
 template <bool is_signed, typename DType>
 std::pair<typename DType::c_type, typename DType::c_type>
 TypedComparatorImpl<is_signed, DType>::GetMinMax(const ::arrow::Array& values) {
