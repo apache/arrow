@@ -6,14 +6,77 @@
 
 #include "flatbuffers/flatbuffers.h"
 
-#include "gandiva_types_generated.h"
-
 namespace gandiva {
 namespace cache {
 
+struct SchemaExpressionsPair;
+
 struct Cache;
 
-struct SchemaExpressionsPair;
+struct SchemaExpressionsPair FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_SCHEMA = 4,
+    VT_EXPRS = 6
+  };
+  const flatbuffers::String *schema() const {
+    return GetPointer<const flatbuffers::String *>(VT_SCHEMA);
+  }
+  const flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>> *exprs() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>> *>(VT_EXPRS);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_SCHEMA) &&
+           verifier.VerifyString(schema()) &&
+           VerifyOffset(verifier, VT_EXPRS) &&
+           verifier.VerifyVector(exprs()) &&
+           verifier.VerifyVectorOfStrings(exprs()) &&
+           verifier.EndTable();
+  }
+};
+
+struct SchemaExpressionsPairBuilder {
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_schema(flatbuffers::Offset<flatbuffers::String> schema) {
+    fbb_.AddOffset(SchemaExpressionsPair::VT_SCHEMA, schema);
+  }
+  void add_exprs(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>>> exprs) {
+    fbb_.AddOffset(SchemaExpressionsPair::VT_EXPRS, exprs);
+  }
+  explicit SchemaExpressionsPairBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  SchemaExpressionsPairBuilder &operator=(const SchemaExpressionsPairBuilder &);
+  flatbuffers::Offset<SchemaExpressionsPair> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<SchemaExpressionsPair>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<SchemaExpressionsPair> CreateSchemaExpressionsPair(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::String> schema = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>>> exprs = 0) {
+  SchemaExpressionsPairBuilder builder_(_fbb);
+  builder_.add_exprs(exprs);
+  builder_.add_schema(schema);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<SchemaExpressionsPair> CreateSchemaExpressionsPairDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    const char *schema = nullptr,
+    const std::vector<flatbuffers::Offset<flatbuffers::String>> *exprs = nullptr) {
+  auto schema__ = schema ? _fbb.CreateString(schema) : 0;
+  auto exprs__ = exprs ? _fbb.CreateVector<flatbuffers::Offset<flatbuffers::String>>(*exprs) : 0;
+  return gandiva::cache::CreateSchemaExpressionsPair(
+      _fbb,
+      schema__,
+      exprs__);
+}
 
 struct Cache FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
@@ -76,58 +139,6 @@ inline flatbuffers::Offset<Cache> CreateCacheDirect(
       _fbb,
       schema_exprs,
       object_code__);
-}
-
-struct SchemaExpressionsPair FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_SCHEMA = 4,
-    VT_EXPRS = 6
-  };
-  const gandiva::types::fbs::Schema *schema() const {
-    return GetPointer<const gandiva::types::fbs::Schema *>(VT_SCHEMA);
-  }
-  const gandiva::types::fbs::ExpressionList *exprs() const {
-    return GetPointer<const gandiva::types::fbs::ExpressionList *>(VT_EXPRS);
-  }
-  bool Verify(flatbuffers::Verifier &verifier) const {
-    return VerifyTableStart(verifier) &&
-           VerifyOffset(verifier, VT_SCHEMA) &&
-           verifier.VerifyTable(schema()) &&
-           VerifyOffset(verifier, VT_EXPRS) &&
-           verifier.VerifyTable(exprs()) &&
-           verifier.EndTable();
-  }
-};
-
-struct SchemaExpressionsPairBuilder {
-  flatbuffers::FlatBufferBuilder &fbb_;
-  flatbuffers::uoffset_t start_;
-  void add_schema(flatbuffers::Offset<gandiva::types::fbs::Schema> schema) {
-    fbb_.AddOffset(SchemaExpressionsPair::VT_SCHEMA, schema);
-  }
-  void add_exprs(flatbuffers::Offset<gandiva::types::fbs::ExpressionList> exprs) {
-    fbb_.AddOffset(SchemaExpressionsPair::VT_EXPRS, exprs);
-  }
-  explicit SchemaExpressionsPairBuilder(flatbuffers::FlatBufferBuilder &_fbb)
-        : fbb_(_fbb) {
-    start_ = fbb_.StartTable();
-  }
-  SchemaExpressionsPairBuilder &operator=(const SchemaExpressionsPairBuilder &);
-  flatbuffers::Offset<SchemaExpressionsPair> Finish() {
-    const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<SchemaExpressionsPair>(end);
-    return o;
-  }
-};
-
-inline flatbuffers::Offset<SchemaExpressionsPair> CreateSchemaExpressionsPair(
-    flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<gandiva::types::fbs::Schema> schema = 0,
-    flatbuffers::Offset<gandiva::types::fbs::ExpressionList> exprs = 0) {
-  SchemaExpressionsPairBuilder builder_(_fbb);
-  builder_.add_exprs(exprs);
-  builder_.add_schema(schema);
-  return builder_.Finish();
 }
 
 inline const gandiva::cache::Cache *GetCache(const void *buf) {

@@ -15,18 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
-include "gandiva_types.fbs";
+//include "gandiva_types.fbs";
 
 namespace gandiva.cache;
+
+// TODO: implement this to work with gandiva_types.fbs
+/*table SchemaExpressionsPair {
+  schema:gandiva.types.fbs.Schema;
+  exprs:gandiva.types.fbs.ExpressionList;
+}*/
+
+table SchemaExpressionsPair {
+  schema:string;
+  exprs:[string];
+}
 
 table Cache {
     schema_exprs:SchemaExpressionsPair;
     object_code:string;
-}
-
-table SchemaExpressionsPair {
-  schema:gandiva.types.fbs.Schema;
-  exprs:gandiva.types.fbs.ExpressionList;
 }
 
 root_type Cache;
