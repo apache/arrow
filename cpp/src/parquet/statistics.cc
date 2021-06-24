@@ -88,20 +88,34 @@ struct UnsignedCompareHelperBase {
   static_assert(!std::is_same<T, UCType>::value, "T is unsigned");
   static_assert(sizeof(T) == sizeof(UCType), "T and UCType not the same size");
 
-  constexpr static T DefaultMin() {
+  static const T DefaultMin() {
+    ARROW_LOG(INFO) << "DefaultMin = "
+                    << static_cast<T>(std::numeric_limits<UCType>::max());
     return static_cast<T>(std::numeric_limits<UCType>::max());
   }
-  constexpr static T DefaultMax() {
+  static const T DefaultMax() {
+    ARROW_LOG(INFO) << "DefaultMax = "
+                    << static_cast<T>(std::numeric_limits<UCType>::lowest());
     return static_cast<T>(std::numeric_limits<UCType>::lowest());
   }
   static T Coalesce(T val, T fallback) { return val; }
 
   static inline bool Compare(int type_length, T a, T b) {
+    ARROW_LOG(INFO) << "UCHBase::Compare(" << a << ", " << b << ") -> "
+                    << (static_cast<UCType>(a) < static_cast<UCType>(b));
     return static_cast<UCType>(a) < static_cast<UCType>(b);
   }
 
-  static T Min(int type_length, T a, T b) { return Compare(type_length, a, b) ? a : b; }
-  static T Max(int type_length, T a, T b) { return Compare(type_length, a, b) ? b : a; }
+  static T Min(int type_length, T a, T b) {
+    const auto res = Compare(type_length, a, b) ? a : b;
+    ARROW_LOG(INFO) << "UCHBase::Min(" << a << ", " << b << ") -> " << res;
+    return res;
+  }
+  static T Max(int type_length, T a, T b) {
+    const auto res = Compare(type_length, a, b) ? b : a;
+    ARROW_LOG(INFO) << "UCHBase::Max(" << a << ", " << b << ") -> " << res;
+    return res;
+  }
 };
 
 template <>

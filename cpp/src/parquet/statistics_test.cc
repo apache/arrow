@@ -967,7 +967,7 @@ void AssertUnsetMinMax(Stats stats, const Array& values, const uint8_t* valid_bi
 }
 
 template <typename ParquetType, typename T = typename ParquetType::c_type>
-void CheckExtremums() {
+void CheckExtrema() {
   using UT = typename std::make_unsigned<T>::type;
 
   const T smin = std::numeric_limits<T>::min();
@@ -1006,8 +1006,8 @@ void CheckExtremums() {
   }
 }
 
-TEST(TestStatistic, Int32Extremums) { CheckExtremums<Int32Type>(); }
-TEST(TestStatistic, Int64Extremums) { CheckExtremums<Int64Type>(); }
+TEST(TestStatistic, Int32Extrema) { CheckExtrema<Int32Type>(); }
+TEST(TestStatistic, Int64Extrema) { CheckExtrema<Int64Type>(); }
 
 // PARQUET-1225: Float NaN values may lead to incorrect min-max
 template <typename ParquetType>
