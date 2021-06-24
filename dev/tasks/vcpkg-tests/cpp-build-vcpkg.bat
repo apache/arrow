@@ -52,35 +52,35 @@ pushd cpp\build
 @rem TODO(ianmcook): Add -DARROW_BUILD_BENCHMARKS=ON after the issue described
 @rem at https://github.com/google/benchmark/issues/1046 is resolved
 
-cmake -G "Visual Studio 16 2019" -A x64 ^
-      -DARROW_BOOST_USE_SHARED=ON ^
-      -DARROW_BUILD_SHARED=ON ^
-      -DARROW_BUILD_STATIC=OFF ^
-      -DARROW_BUILD_TESTS=ON ^
-      -DARROW_CXXFLAGS="/MP" ^
-      -DARROW_DATASET=ON ^
-      -DARROW_DEPENDENCY_SOURCE=VCPKG ^
-      -DARROW_FLIGHT=OFF ^
-      -DARROW_MIMALLOC=ON ^
-      -DARROW_PARQUET=ON ^
-      -DARROW_PYTHON=OFF ^
-      -DARROW_WITH_BROTLI=ON ^
-      -DARROW_WITH_BZ2=ON ^
-      -DARROW_WITH_LZ4=ON ^
-      -DARROW_WITH_SNAPPY=ON ^
-      -DARROW_WITH_ZLIB=ON ^
-      -DARROW_WITH_ZSTD=ON ^
-      -DCMAKE_BUILD_TYPE=release ^
-      -DCMAKE_UNITY_BUILD=ON ^
-      .. || exit /B 1
-
-cmake --build . --target INSTALL --config Release || exit /B 1
+rem  cmake -G "Visual Studio 16 2019" -A x64 ^
+rem        -DARROW_BOOST_USE_SHARED=ON ^
+rem        -DARROW_BUILD_SHARED=ON ^
+rem        -DARROW_BUILD_STATIC=OFF ^
+rem        -DARROW_BUILD_TESTS=ON ^
+rem        -DARROW_CXXFLAGS="/MP" ^
+rem        -DARROW_DATASET=ON ^
+rem        -DARROW_DEPENDENCY_SOURCE=VCPKG ^
+rem        -DARROW_FLIGHT=OFF ^
+rem        -DARROW_MIMALLOC=ON ^
+rem        -DARROW_PARQUET=ON ^
+rem        -DARROW_PYTHON=OFF ^
+rem        -DARROW_WITH_BROTLI=ON ^
+rem        -DARROW_WITH_BZ2=ON ^
+rem        -DARROW_WITH_LZ4=ON ^
+rem        -DARROW_WITH_SNAPPY=ON ^
+rem        -DARROW_WITH_ZLIB=ON ^
+rem        -DARROW_WITH_ZSTD=ON ^
+rem        -DCMAKE_BUILD_TYPE=release ^
+rem        -DCMAKE_UNITY_BUILD=ON ^
+rem        .. || exit /B 1
+rem
+rem  cmake --build . --target INSTALL --config Release || exit /B 1
 
 
 @rem Test Arrow C++ library
 
-ctest --output-on-failure ^
-      --parallel %NUMBER_OF_PROCESSORS% ^
-      --timeout 300 || exit /B 1
+rem  ctest --output-on-failure ^
+rem        --parallel %NUMBER_OF_PROCESSORS% ^
+rem        --timeout 300 || exit /B 1
 
 popd

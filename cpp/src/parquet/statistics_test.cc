@@ -988,13 +988,22 @@ void CheckExtremums() {
       LogicalType::Int(sizeof(T) * CHAR_BIT, true /*signed*/), ParquetType::type_num);
   ColumnDescriptor signed_descr(signed_node, 1, 1);
 
-  ARROW_SCOPED_TRACE("unsigned statistics: umin = ", umin, ", umax = ", umax);
-  auto unsigned_stats = MakeStatistics<ParquetType>(&unsigned_descr);
-  AssertMinMaxAre(unsigned_stats, values, umin, umax);
-
-  ARROW_SCOPED_TRACE("signed statistics: smin = ", smin, ", smax = ", smax);
-  auto signed_stats = MakeStatistics<ParquetType>(&signed_descr);
-  AssertMinMaxAre(signed_stats, values, smin, smax);
+  {
+    ARROW_SCOPED_TRACE("unsigned statistics: umin = ", umin, ", umax = ", umax,
+                       ", node type = ", unsigned_node->logical_type()->ToString(),
+                       ", physical type = ", unsigned_descr.physical_type(),
+                       ", sort order = ", unsigned_descr.sort_order());
+    auto unsigned_stats = MakeStatistics<ParquetType>(&unsigned_descr);
+    AssertMinMaxAre(unsigned_stats, values, umin, umax);
+  }
+  {
+    ARROW_SCOPED_TRACE("signed statistics: smin = ", smin, ", smax = ", smax,
+                       ", node type = ", signed_node->logical_type()->ToString(),
+                       ", physical type = ", signed_descr.physical_type(),
+                       ", sort order = ", signed_descr.sort_order());
+    auto signed_stats = MakeStatistics<ParquetType>(&signed_descr);
+    AssertMinMaxAre(signed_stats, values, smin, smax);
+  }
 }
 
 TEST(TestStatistic, Int32Extremums) { CheckExtremums<Int32Type>(); }

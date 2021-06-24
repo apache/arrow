@@ -54,6 +54,9 @@ template <typename DType, bool is_signed>
 struct CompareHelper {
   using T = typename DType::c_type;
 
+  static_assert(!std::is_unsigned<T>::value || std::is_same<T, bool>::value,
+                "T is an unsigned numeric");
+
   constexpr static T DefaultMin() { return std::numeric_limits<T>::max(); }
   constexpr static T DefaultMax() { return std::numeric_limits<T>::lowest(); }
 
@@ -81,6 +84,9 @@ template <typename DType>
 struct UnsignedCompareHelperBase {
   using T = typename DType::c_type;
   using UCType = typename std::make_unsigned<T>::type;
+
+  static_assert(!std::is_same<T, UCType>::value, "T is unsigned");
+  static_assert(sizeof(T) == sizeof(UCType), "T and UCType not the same size");
 
   constexpr static T DefaultMin() {
     return static_cast<T>(std::numeric_limits<UCType>::max());

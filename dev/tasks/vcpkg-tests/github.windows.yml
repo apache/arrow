@@ -36,6 +36,7 @@ jobs:
           git -C arrow checkout FETCH_HEAD
           git -C arrow submodule update --init --recursive
       - name: Remove and Reinstall vcpkg
+        # TODO: this comment seems outdated, the vcpkg on GHA is quite recent.
         # As of January 2021, the version of vcpkg that is preinstalled on the
         # Github Actions windows-2019 image is 2020.11.12, as noted at
         # https://github.com/actions/virtual-environments/blob/main/images/win/Windows2019-Readme.md
@@ -56,6 +57,18 @@ jobs:
           CALL bootstrap-vcpkg.bat -win64 -disableMetrics
           CALL vcpkg integrate install
           CALL setx PATH "%PATH%;C:\vcpkg"
+      - name: vcpkg cache info
+        id: vcpkg-cache-info
+        shell: bash
+        run: |
+          echo "::set-output name=cache-dir::$LOCALAPPDATA/vcpkg/archives"
+      - name: Cache vcpkg binaries
+        uses: actions/cache@v2
+        with:
+          {% raw %}
+          path: ${{ steps.vcpkg-cache-info.outputs.cache-dir }}
+          key: ${{ github.job }}
+          {% endraw %}
       - name: Install Dependencies with vcpkg and Build Arrow C++
         shell: cmd
         run: |
