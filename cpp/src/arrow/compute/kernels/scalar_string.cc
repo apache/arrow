@@ -93,23 +93,12 @@ struct BinaryLength {
   }
 };
 
-template <typename OffsetValue>
-OffsetValue CountCodepoints(const uint8_t* str, size_t strlen) {
-  OffsetValue length = 0;
-  while (strlen > 0) {
-    length += ((*str & 0xc0) != 0x80);
-    ++str;
-    --strlen;
-  }
-  return length;
-}
-
 struct Utf8Length {
   template <typename OutValue, typename Arg0Value = util::string_view>
   static OutValue Call(KernelContext*, Arg0Value val, Status*) {
     auto str = reinterpret_cast<const uint8_t*>(val.data());
     auto strlen = val.size();
-    return CountCodepoints<OutValue>(str, strlen);
+    return static_cast<OutValue>(util::UTF8Length(str, str + strlen));
   }
 };
 
@@ -2886,7 +2875,7 @@ struct Utf8PadTransform : public StringTransformBase {
   Status PreExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) override {
     auto str = reinterpret_cast<const uint8_t*>(options_.padding.data());
     auto strlen = options_.padding.size();
-    if (CountCodepoints<int64_t>(str, strlen) != 1) {
+    if (util::UTF8Length(str, str + strlen) != 1) {
       return Status::Invalid("Padding must be one codepoint, got '", options_.padding,
                              "'");
     }
@@ -2903,8 +2892,7 @@ struct Utf8PadTransform : public StringTransformBase {
 
   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
                     uint8_t* output) {
-    // XXX input_string_ncodeunits is misleading - it's just bytes
-    const int64_t input_width = CountCodepoints<int64_t>(input, input_string_ncodeunits);
+    const int64_t input_width = util::UTF8Length(input, input + input_string_ncodeunits);
     if (input_width >= options_.width) {
       std::copy(input, input + input_string_ncodeunits, output);
       return input_string_ncodeunits;
