@@ -101,7 +101,7 @@ class LruCache {
     }
   }
 
-  void insertObject(key_type& key, const value_type value, size_t object_cache_size) {
+  void insertObject(const key_type& key, const value_type value, size_t object_cache_size) {
     typename map_type::iterator i = map_.find(key);
 
     if (i == map_.end()) {
@@ -305,6 +305,9 @@ class LruCache {
     return cache_size_;
   }
 
+  llvm::SmallString<128> getCacheDir(){
+    return cache_dir_;
+  }
 
  private:
   void evict() {

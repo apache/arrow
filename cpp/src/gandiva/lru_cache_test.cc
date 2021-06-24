@@ -16,6 +16,7 @@
 // under the License.
 
 #include "gandiva/lru_cache.h"
+#include "gandiva/base_cache_key.h"
 
 #include <map>
 #include <string>
@@ -25,7 +26,7 @@
 
 namespace gandiva {
 
-class TestCacheKey {
+/*class TestCacheKey {
  public:
   explicit TestCacheKey(int tmp) : tmp_(tmp) {}
   std::size_t Hash() const { return tmp_; }
@@ -33,42 +34,116 @@ class TestCacheKey {
 
  private:
   int tmp_;
-};
+}*/;
 
 class TestLruCache : public ::testing::Test {
  public:
-  TestLruCache() : cache_(2, 3, 4) {};
+  TestLruCache() : cache_(2, 256, 256) {};
 
  protected:
-  LruCache<TestCacheKey, std::shared_ptr<std::string>> cache_;
+  LruCache<BaseCacheKey, std::shared_ptr<llvm::MemoryBuffer>> cache_;
 
 };
 
 TEST_F(TestLruCache, TestEvict) {
-  std::shared_ptr<std::string> hello_ptr = std::make_shared<std::string>("hello");
-  std::shared_ptr<std::string> bye_ptr = std::make_shared<std::string>("bye");
-  std::shared_ptr<std::string> hey_ptr = std::make_shared<std::string>("hey");
+  llvm::StringRef hello_ref("hello");
+  std::unique_ptr<llvm::MemoryBuffer> hello_buffer_uptr = llvm::MemoryBuffer::getMemBuffer(hello_ref);
+  std::shared_ptr<llvm::MemoryBuffer> hello_buffer_sptr = std::move(hello_buffer_uptr);
+  BaseCacheKey hello_key("test", "1");
 
-  cache_.insert(TestCacheKey(1), hello_ptr);
-  cache_.insert(TestCacheKey(2), bye_ptr);
-  cache_.insert(TestCacheKey(1), hello_ptr);
-  cache_.insert(TestCacheKey(3), hey_ptr);
+  llvm::StringRef bye_ref("bye");
+  std::unique_ptr<llvm::MemoryBuffer> bye_buffer_uptr = llvm::MemoryBuffer::getMemBuffer(bye_ref);
+  std::shared_ptr<llvm::MemoryBuffer> bye_buffer_sptr = std::move(bye_buffer_uptr);
+  BaseCacheKey bye_key("test", "2");
+
+  llvm::StringRef hey_ref("hey");
+  std::unique_ptr<llvm::MemoryBuffer> hey_buffer_uptr = llvm::MemoryBuffer::getMemBuffer(hey_ref);
+  std::shared_ptr<llvm::MemoryBuffer> hey_buffer_sptr = std::move(hey_buffer_uptr);
+  BaseCacheKey hey_key("test", "3");
+
+  cache_.insert(hello_key, hello_buffer_sptr);
+  cache_.insert(bye_key, bye_buffer_sptr);
+  cache_.insert(hello_key, hello_buffer_sptr);
+  cache_.insert(hey_key, hey_buffer_sptr);
+
   // should have evicted key 1
   ASSERT_EQ(2, cache_.size());
-  ASSERT_EQ(cache_.get(TestCacheKey(1)), arrow::util::nullopt);
+  ASSERT_EQ(cache_.get(hello_key), arrow::util::nullopt);
 }
 
 TEST_F(TestLruCache, TestLruBehavior) {
-  std::shared_ptr<std::string> see_ya_ptr = std::make_shared<std::string>("see ya");
-  std::shared_ptr<std::string> welcome_ptr = std::make_shared<std::string>("welcome");
-  std::shared_ptr<std::string> good_ptr = std::make_shared<std::string>("good");
+  llvm::StringRef hello_ref("hello");
+  std::unique_ptr<llvm::MemoryBuffer> hello_buffer_uptr = llvm::MemoryBuffer::getMemBuffer(hello_ref);
+  std::shared_ptr<llvm::MemoryBuffer> hello_buffer_sptr = std::move(hello_buffer_uptr);
+  BaseCacheKey hello_key("test", "1");
 
-  cache_.insert(TestCacheKey(1), see_ya_ptr);
-  cache_.insert(TestCacheKey(2), welcome_ptr);
-  cache_.get(TestCacheKey(1));
-  cache_.insert(TestCacheKey(3), good_ptr);
+  llvm::StringRef bye_ref("bye");
+  std::unique_ptr<llvm::MemoryBuffer> bye_buffer_uptr = llvm::MemoryBuffer::getMemBuffer(bye_ref);
+  std::shared_ptr<llvm::MemoryBuffer> bye_buffer_sptr = std::move(bye_buffer_uptr);
+  BaseCacheKey bye_key("test", "2");
+
+  llvm::StringRef hey_ref("hey");
+  std::unique_ptr<llvm::MemoryBuffer> hey_buffer_uptr = llvm::MemoryBuffer::getMemBuffer(hey_ref);
+  std::shared_ptr<llvm::MemoryBuffer> hey_buffer_sptr = std::move(hey_buffer_uptr);
+  BaseCacheKey hey_key("test", "3");
+
+  cache_.insert(hello_key, hello_buffer_sptr);
+  cache_.insert(bye_key, bye_buffer_sptr);
+  cache_.get(hello_key);
+  cache_.insert(hey_key, hey_buffer_sptr);
 
   // should have evicted key 2.
-  ASSERT_EQ(cache_.get(TestCacheKey(1)), see_ya_ptr);
+  ASSERT_EQ(cache_.get(hello_key), hello_buffer_sptr);
+}
+
+TEST_F(TestLruCache, TestEvictObject) {
+  llvm::StringRef a_ref("a");
+  std::unique_ptr<llvm::MemoryBuffer> a_buffer_uptr = llvm::MemoryBuffer::getMemBuffer(a_ref);
+  std::shared_ptr<llvm::MemoryBuffer> a_buffer_sptr = std::move(a_buffer_uptr);
+  BaseCacheKey a_key("test", "1");
+
+  llvm::StringRef b_ref("b");
+  std::unique_ptr<llvm::MemoryBuffer> b_buffer_uptr = llvm::MemoryBuffer::getMemBuffer(b_ref);
+  std::shared_ptr<llvm::MemoryBuffer> b_buffer_sptr = std::move(b_buffer_uptr);
+  BaseCacheKey b_key("test", "2");
+
+  llvm::StringRef c_ref("c");
+  std::unique_ptr<llvm::MemoryBuffer> c_buffer_uptr = llvm::MemoryBuffer::getMemBuffer(c_ref);
+  std::shared_ptr<llvm::MemoryBuffer> c_buffer_sptr = std::move(c_buffer_uptr);
+  BaseCacheKey c_key("test", "3");
+
+  cache_.insertObject(a_key, a_buffer_sptr, a_buffer_sptr->getBufferSize());
+  cache_.insertObject(b_key, b_buffer_sptr, b_buffer_sptr->getBufferSize());
+  cache_.insertObject(c_key, c_buffer_sptr, c_buffer_sptr->getBufferSize());
+
+  // should have evicted key a and b
+  ASSERT_EQ(1, cache_.size());
+  ASSERT_EQ(cache_.get(a_key), arrow::util::nullopt);
+  ASSERT_EQ(cache_.get(b_key), arrow::util::nullopt);
+
+  // check for evicted objects that are now files
+  bool a_file_is_cached = false;
+  std::string a_file_name = std::to_string(a_key.Hash()) + ".cache";
+  llvm::SmallString<128>a_cache_file = cache_.getCacheDir();
+  llvm::sys::path::append(a_cache_file, a_file_name);
+
+  std::ifstream a_cached_file(a_cache_file.c_str(), std::ios::binary);
+  if(a_cached_file) {
+    a_file_is_cached = true;
+  }
+  a_cached_file.close();
+  ASSERT_TRUE(a_file_is_cached);
+
+  bool b_file_is_cached = false;
+  std::string b_file_name = std::to_string(b_key.Hash()) + ".cache";
+  llvm::SmallString<128>b_cache_file = cache_.getCacheDir();
+  llvm::sys::path::append(b_cache_file, a_file_name);
+
+  std::ifstream b_cached_file(b_cache_file.c_str(), std::ios::binary);
+  if(b_cached_file) {
+    b_file_is_cached = true;
+  }
+  b_cached_file.close();
+  ASSERT_TRUE(b_file_is_cached);
 }
 }  // namespace gandiva

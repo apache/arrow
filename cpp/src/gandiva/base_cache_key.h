@@ -107,6 +107,49 @@ class BaseCacheKey {
     uuid_ = gen(std::to_string(result_hash));
   };
 
+  /// Constructor used only for tests
+  BaseCacheKey(std::string type, std::string value)
+      : type_(type) {
+    static const int kSeedValue = 4;
+
+    size_t result_hash = kSeedValue;
+    arrow::internal::hash_combine(result_hash, type);
+    arrow::internal::hash_combine(result_hash, value);
+
+    exprs_string_.push_back(value);
+    schema_string_ = value;
+
+    hash_code_ = result_hash;
+
+
+    // Generate the same UUID based on the hash_code
+    boost::uuids::name_generator_sha1 gen(boost::uuids::ns::oid());
+    uuid_ = gen(std::to_string(result_hash));
+  };
+
+  /// Constructor used only for tests involving caching objects code
+  BaseCacheKey(std::string type, SchemaPtr schema, std::vector<ExpressionPtr> exprs)
+      : type_(type) {
+    static const int kSeedValue = 4;
+
+    size_t result_hash = kSeedValue;
+    arrow::internal::hash_combine(result_hash, type);
+    arrow::internal::hash_combine(result_hash, schema->ToString());
+
+    for (auto& expr: exprs) {
+      auto expr_string = expr->ToString();
+      arrow::internal::hash_combine(result_hash, expr_string);
+      exprs_string_.push_back(expr_string);
+    }
+
+    hash_code_ = result_hash;
+    schema_string_ = schema->ToString();
+
+    // Generate the same UUID based on the hash_code
+    boost::uuids::name_generator_sha1 gen(boost::uuids::ns::oid());
+    uuid_ = gen(std::to_string(result_hash));
+  };
+
   size_t Hash() const{
     return hash_code_;
   }
