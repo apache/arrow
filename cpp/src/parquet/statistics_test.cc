@@ -30,6 +30,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/ubsan.h"
 
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
@@ -44,6 +45,7 @@
 
 using arrow::default_memory_pool;
 using arrow::MemoryPool;
+using arrow::util::SafeCopy;
 
 namespace BitUtil = arrow::BitUtil;
 
@@ -972,8 +974,8 @@ void CheckExtrema() {
 
   const T smin = std::numeric_limits<T>::min();
   const T smax = std::numeric_limits<T>::max();
-  const T umin = static_cast<T>(std::numeric_limits<UT>::min());
-  const T umax = static_cast<T>(std::numeric_limits<UT>::max());
+  const T umin = SafeCopy<T>(std::numeric_limits<UT>::min());
+  const T umax = SafeCopy<T>(std::numeric_limits<UT>::max());
 
   constexpr int kNumValues = 8;
   std::array<T, kNumValues> values{0,    smin,     smax,     umin,

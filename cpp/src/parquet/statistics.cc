@@ -31,6 +31,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
+#include "arrow/util/ubsan.h"
 #include "arrow/visitor_inline.h"
 #include "parquet/encoding.h"
 #include "parquet/exception.h"
@@ -40,6 +41,7 @@
 using arrow::default_memory_pool;
 using arrow::MemoryPool;
 using arrow::internal::checked_cast;
+using arrow::util::SafeCopy;
 
 namespace parquet {
 namespace {
@@ -88,24 +90,18 @@ struct UnsignedCompareHelperBase {
   static_assert(!std::is_same<T, UCType>::value, "T is unsigned");
   static_assert(sizeof(T) == sizeof(UCType), "T and UCType not the same size");
 
-  static const T DefaultMin() {
-    return static_cast<T>(std::numeric_limits<UCType>::max());
-  }
+  static const T DefaultMin() { return SafeCopy<T>(std::numeric_limits<UCType>::max()); }
   static const T DefaultMax() {
-    return static_cast<T>(std::numeric_limits<UCType>::lowest());
+    return SafeCopy<T>(std::numeric_limits<UCType>::lowest());
   }
   static T Coalesce(T val, T fallback) { return val; }
 
-  static inline bool Compare(int type_length, T a, T b) {
-    return static_cast<UCType>(a) < static_cast<UCType>(b);
+  static bool Compare(int type_length, T a, T b) {
+    return SafeCopy<UCType>(a) < SafeCopy<UCType>(b);
   }
 
-  static T Min(int type_length, T a, T b) {
-    return Compare(type_length, a, b) ? a : b;
-  }
-  static T Max(int type_length, T a, T b) {
-    return Compare(type_length, a, b) ? b : a;
-  }
+  static T Min(int type_length, T a, T b) { return Compare(type_length, a, b) ? a : b; }
+  static T Max(int type_length, T a, T b) { return Compare(type_length, a, b) ? b : a; }
 };
 
 template <>
@@ -120,12 +116,12 @@ struct CompareHelper<Int96Type, is_signed> {
   using msb_type = typename std::conditional<is_signed, int32_t, uint32_t>::type;
 
   static T DefaultMin() {
-    uint32_t kMsbMax = static_cast<uint32_t>(std::numeric_limits<msb_type>::max());
+    uint32_t kMsbMax = SafeCopy<uint32_t>(std::numeric_limits<msb_type>::max());
     uint32_t kMax = std::numeric_limits<uint32_t>::max();
     return {kMax, kMax, kMsbMax};
   }
   static T DefaultMax() {
-    uint32_t kMsbMin = static_cast<uint32_t>(std::numeric_limits<msb_type>::min());
+    uint32_t kMsbMin = SafeCopy<uint32_t>(std::numeric_limits<msb_type>::min());
     uint32_t kMin = std::numeric_limits<uint32_t>::min();
     return {kMin, kMin, kMsbMin};
   }
@@ -135,7 +131,7 @@ struct CompareHelper<Int96Type, is_signed> {
     if (a.value[2] != b.value[2]) {
       // Only the MSB bit is by Signed comparison. For little-endian, this is the
       // last bit of Int96 type.
-      return static_cast<msb_type>(a.value[2]) < static_cast<msb_type>(b.value[2]);
+      return SafeCopy<msb_type>(a.value[2]) < SafeCopy<msb_type>(b.value[2]);
     } else if (a.value[1] != b.value[1]) {
       return (a.value[1] < b.value[1]);
     }
