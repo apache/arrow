@@ -729,8 +729,8 @@ test_that("str_like", {
   
   df <- tibble(x = c("Foo and bar", "baz and qux and quux"))
   
-  # After new version of stringr with str_like has been released, update all these
-  # tests to use expect_dplyr_equal
+  # TODO: After new version of stringr with str_like has been released, update all
+  # these tests to use expect_dplyr_equal
   
   # No match - entire string
   expect_equivalent(
