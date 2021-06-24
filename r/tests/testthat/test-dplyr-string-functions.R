@@ -714,8 +714,6 @@ test_that("strptime", {
     check.tzone = FALSE
   )
 
-})
-
 test_that("errors in strptime", {
   # Error when tz is passed
 
@@ -760,5 +758,67 @@ test_that("stri_reverse and arrow_ascii_reverse functions", {
       mutate(x = arrow_ascii_reverse(x)) %>%
       collect(),
     "Invalid: Non-ASCII sequence in input"
+  )
+})
+
+test_that("str_like", {
+  
+  df <- tibble(x = c("Foo and bar", "baz and qux and quux"))
+  
+  # TODO: After new version of stringr with str_like has been released, update all
+  # these tests to use expect_dplyr_equal
+  
+  # No match - entire string
+  expect_equivalent(
+    df %>%
+      Table$create() %>%
+      mutate(x = str_like(x, "baz")) %>%
+      collect(),
+    tibble(x = c(FALSE, FALSE))
+  )
+  
+  # Match - entire string
+  expect_equivalent(
+    df %>%
+      Table$create() %>%
+      mutate(x = str_like(x, "Foo and bar")) %>%
+      collect(),
+    tibble(x = c(TRUE, FALSE))
+  )
+  
+  # Wildcard
+  expect_equivalent(
+    df %>%
+      Table$create() %>%
+      mutate(x = str_like(x, "f%", ignore_case = TRUE)) %>%
+      collect(),
+    tibble(x = c(TRUE, FALSE))
+  )
+  
+  # Ignore case
+  expect_equivalent(
+    df %>%
+      Table$create() %>%
+      mutate(x = str_like(x, "f%", ignore_case = FALSE)) %>%
+      collect(),
+    tibble(x = c(FALSE, FALSE))
+  )
+  
+  # Single character
+  expect_equivalent(
+    df %>%
+      Table$create() %>%
+      mutate(x = str_like(x, "_a%")) %>%
+      collect(),
+    tibble(x = c(FALSE, TRUE))
+  )
+  
+  # This will give an error until a new version of stringr with str_like has been released
+  skip("Test will fail until stringr > 1.4.0 is release")
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = str_like(x, "%baz%")) %>%
+      collect(),
+    df,
   )
 })

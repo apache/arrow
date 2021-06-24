@@ -31,7 +31,18 @@
   "str_to_lower" = "utf8_lower",
   "str_to_upper" = "utf8_upper",
   "str_reverse" = "utf8_reverse"
-  # str_trim is defined in dplyr.R
+  # str_trim is defined in dplyr-functions.R
+  "year" = "year",
+  "isoyear" = "iso_year",
+  "quarter" = "quarter",
+  "month" = "month",
+  "isoweek" = "iso_week",
+  "day" = "day",
+  # wday is defined in dplyr-functions.R
+  "yday" = "day_of_year",
+  "hour" = "hour",
+  # second is defined in dplyr-functions.R
+  "minute" = "minute"
 )
 
 .binary_function_map <- list(
@@ -105,8 +116,10 @@ Expression$create <- function(function_name,
                               args = list(...),
                               options = empty_named_list()) {
   assert_that(is.string(function_name))
+  assert_that(is_list_of(args, "Expression"), msg = "Expression arguments must be Expression objects")
   compute___expr__call(function_name, args, options)
 }
+
 Expression$field_ref <- function(name) {
   assert_that(is.string(name))
   compute___expr__field_ref(name)
