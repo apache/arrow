@@ -100,12 +100,14 @@ struct AppendScalarImpl {
             typename BuilderType = typename TypeTraits<T>::BuilderType,
             typename ScalarType = typename TypeTraits<T>::ScalarType>
   Status UseBuilder(const AppendScalar& append) {
-    for (const auto scalar : scalars_) {
-      if (scalar->is_valid) {
-        RETURN_NOT_OK(append(internal::checked_cast<const ScalarType&>(*scalar),
-                             static_cast<BuilderType*>(builder_)));
-      } else {
-        RETURN_NOT_OK(builder_->AppendNull());
+    for (int64_t i = 0; i < n_repeats_; i++) {
+      for (const auto scalar : scalars_) {
+        if (scalar->is_valid) {
+          RETURN_NOT_OK(append(internal::checked_cast<const ScalarType&>(*scalar),
+                               static_cast<BuilderType*>(builder_)));
+        } else {
+          RETURN_NOT_OK(builder_->AppendNull());
+        }
       }
     }
     return Status::OK();
@@ -160,18 +162,20 @@ struct AppendScalarImpl {
   }
 
   Status Visit(const StructType& type) {
-    auto* builder = static_cast<StructBuilder*>(builder_);
-    for (const auto s : scalars_) {
-      const auto& scalar = internal::checked_cast<const StructScalar&>(*s);
-      for (int field_index = 0; field_index < type.num_fields(); ++field_index) {
-        if (!scalar.is_valid || !scalar.value[field_index]) {
-          RETURN_NOT_OK(builder->field_builder(field_index)->AppendNull());
-        } else {
-          RETURN_NOT_OK(builder->field_builder(field_index)
-                            ->AppendScalar(*scalar.value[field_index]));
+    for (int64_t i = 0; i < n_repeats_; i++) {
+      auto* builder = static_cast<StructBuilder*>(builder_);
+      for (const auto s : scalars_) {
+        const auto& scalar = internal::checked_cast<const StructScalar&>(*s);
+        for (int field_index = 0; field_index < type.num_fields(); ++field_index) {
+          if (!scalar.is_valid || !scalar.value[field_index]) {
+            RETURN_NOT_OK(builder->field_builder(field_index)->AppendNull());
+          } else {
+            RETURN_NOT_OK(builder->field_builder(field_index)
+                              ->AppendScalar(*scalar.value[field_index]));
+          }
         }
+        RETURN_NOT_OK(builder->Append(scalar.is_valid));
       }
-      RETURN_NOT_OK(builder->Append(scalar.is_valid));
     }
     return Status::OK();
   }
@@ -183,6 +187,7 @@ struct AppendScalarImpl {
   Status Convert() { return VisitTypeInline(*scalars_[0]->type, this); }
 
   std::vector<const Scalar*> scalars_;
+  int64_t n_repeats_;
   ArrayBuilder* builder_;
 };
 
@@ -191,7 +196,15 @@ Status ArrayBuilder::AppendScalar(const Scalar& scalar) {
     return Status::Invalid("Cannot append scalar of type ", scalar.type->ToString(),
                            " to builder for type ", type()->ToString());
   }
-  return AppendScalarImpl{{&scalar}, this}.Convert();
+  return AppendScalarImpl{{&scalar}, /*n_repeats=*/1, this}.Convert();
+}
+
+Status ArrayBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeats) {
+  if (!scalar.type->Equals(type())) {
+    return Status::Invalid("Cannot append scalar of type ", scalar.type->ToString(),
+                           " to builder for type ", type()->ToString());
+  }
+  return AppendScalarImpl{{&scalar}, n_repeats, this}.Convert();
 }
 
 Status ArrayBuilder::AppendScalars(const ScalarVector& scalars) {
@@ -205,7 +218,7 @@ Status ArrayBuilder::AppendScalars(const ScalarVector& scalars) {
     }
     refs.push_back(scalar.get());
   }
-  return AppendScalarImpl{refs, this}.Convert();
+  return AppendScalarImpl{refs, /*n_repeats=*/1, this}.Convert();
 }
 
 Status ArrayBuilder::Finish(std::shared_ptr<Array>* out) {

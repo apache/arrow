@@ -405,23 +405,22 @@ void AssertAppendScalar(MemoryPool* pool, const std::shared_ptr<Scalar>& scalar)
   ASSERT_OK(builder->AppendScalar(*scalar));
   ASSERT_OK(builder->AppendScalar(*null_scalar));
   ASSERT_OK(builder->AppendScalars({scalar, null_scalar}));
+  ASSERT_OK(builder->AppendScalar(*scalar, /*n_repeats=*/2));
+  ASSERT_OK(builder->AppendScalar(*null_scalar, /*n_repeats=*/2));
 
   std::shared_ptr<Array> out;
   FinishAndCheckPadding(builder.get(), &out);
   ASSERT_OK(out->ValidateFull());
-  ASSERT_EQ(out->length(), 5);
-  ASSERT_EQ(out->null_count(), 2);
-  ASSERT_FALSE(out->IsNull(0));
-  ASSERT_FALSE(out->IsNull(1));
-  ASSERT_TRUE(out->IsNull(2));
-  ASSERT_FALSE(out->IsNull(3));
-  ASSERT_TRUE(out->IsNull(4));
-  ASSERT_OK_AND_ASSIGN(auto scalar0, out->GetScalar(0));
-  ASSERT_OK_AND_ASSIGN(auto scalar1, out->GetScalar(1));
-  ASSERT_OK_AND_ASSIGN(auto scalar3, out->GetScalar(3));
-  AssertScalarsEqual(*scalar, *scalar0, /*verbose=*/true);
-  AssertScalarsEqual(*scalar, *scalar1, /*verbose=*/true);
-  AssertScalarsEqual(*scalar, *scalar3, /*verbose=*/true);
+  ASSERT_EQ(out->length(), 9);
+  ASSERT_EQ(out->null_count(), 4);
+  for (const auto index : {0, 1, 3, 5, 6}) {
+    ASSERT_FALSE(out->IsNull(index));
+    ASSERT_OK_AND_ASSIGN(auto scalar_i, out->GetScalar(index));
+    AssertScalarsEqual(*scalar, *scalar_i, /*verbose=*/true);
+  }
+  for (const auto index : {2, 4, 7, 8}) {
+    ASSERT_TRUE(out->IsNull(index));
+  }
 }
 
 TEST_F(TestArray, TestMakeArrayFromScalar) {
