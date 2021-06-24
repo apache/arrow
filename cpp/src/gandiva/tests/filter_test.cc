@@ -33,7 +33,10 @@ class TestFilter : public ::testing::Test {
     pool_ = arrow::default_memory_pool();
     // Setup arrow log severity threshold to debug level.
     arrow::util::ArrowLog::StartArrowLog("", arrow::util::ArrowLogLevel::ARROW_DEBUG);
-    //setenv("GANDIVA_CACHE_SIZE", "5120", 1);
+    // To test the eviction, uncomment the line below:
+    setenv("GANDIVA_CACHE_SIZE", "10240", 1); // 10 KiB
+    // To test the file eviction, uncomment the line below:
+    setenv("GANDIVA_DISK_CAPACITY_SIZE", "524288", 1); // 0.5 MiB
   }
 
  protected:

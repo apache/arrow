@@ -51,32 +51,46 @@ class BaseCacheKey {
     uuid_ = gen(std::to_string(result_hash));
   };
 
-  BaseCacheKey(ProjectorCacheKey& key, std::string type) : type_(type) {
-    static const int kSeedValue = 4;
-    size_t key_hash = key.Hash();
-    size_t result_hash = kSeedValue;
-    arrow::internal::hash_combine(result_hash, type);
-    arrow::internal::hash_combine(result_hash, key_hash);
-    hash_code_ = result_hash;
+  BaseCacheKey(ProjectorCacheKey& key, std::string type, std::vector<ExpressionPtr> exprs) : type_(type) {
+    //static const int kSeedValue = 4;
+    //size_t key_hash = key.Hash();
+    //size_t result_hash = kSeedValue;
+    //arrow::internal::hash_combine(result_hash, type);
+    //arrow::internal::hash_combine(result_hash, key_hash);
+    //hash_code_ = result_hash;
+    hash_code_ = key.Hash();
     key_ = key;
+    key_ = key;
+
+    schema_string_ = key.schema()->ToString(true);
+
+    for (auto& expr : exprs) {
+      exprs_string_.push_back(expr->ToString());
+    }
 
     // Generate the same UUID based on the hash_code
     boost::uuids::name_generator_sha1 gen(boost::uuids::ns::oid());
-    uuid_ = gen(std::to_string(result_hash));
+    uuid_ = gen(std::to_string(hash_code_));
   };
 
-  BaseCacheKey(FilterCacheKey& key, std::string type) : type_(type) {
-    static const int kSeedValue = 4;
-    size_t key_hash = key.Hash();
-    size_t result_hash = kSeedValue;
-    arrow::internal::hash_combine(result_hash, type);
-    arrow::internal::hash_combine(result_hash, key_hash);
-    hash_code_ = result_hash;
+  BaseCacheKey(FilterCacheKey& key, std::string type, ConditionPtr expr) : type_(type) {
+    //static const int kSeedValue = 4;
+    //size_t key_hash = key.Hash();
+    //size_t result_hash = kSeedValue;
+    //arrow::internal::hash_combine(result_hash, type);
+    //arrow::internal::hash_combine(result_hash, key_hash);
+    //hash_code_ = result_hash;
+    hash_code_ = key.Hash();
     key_ = key;
+
+    schema_string_ = key.schema()->ToString(true);
+
+    exprs_string_.push_back(expr->ToString());
+
 
     // Generate the same UUID based on the hash_code
     boost::uuids::name_generator_sha1 gen(boost::uuids::ns::oid());
-    uuid_ = gen(std::to_string(result_hash));
+    uuid_ = gen(std::to_string(hash_code_));
   };
 
   BaseCacheKey(std::shared_ptr<arrow::Schema> schema, std::shared_ptr<Expression> expr,
@@ -112,12 +126,39 @@ class BaseCacheKey {
     return ss.str();
   }
 
+  std::string getSchemaString() const {
+    return schema_string_;
+  }
+
+  std::vector<std::string> getExprsString() const {
+    return exprs_string_;
+  }
+
+  bool checkCacheFile(const std::string& schema, const std::vector<std::string>& exprs) const {
+    if (schema_string_ != schema) {
+      return false;
+    }
+
+    if (exprs_string_ != exprs) {
+      return false;
+    }
+    return true;
+  }
+
   bool operator==(const BaseCacheKey& other) const {
     if (hash_code_ != other.hash_code_) {
       return false;
     }
 
     if (uuid_ != other.uuid_) {
+      return false;
+    }
+
+    if (exprs_string_ != other.exprs_string_) {
+      return false;
+    }
+
+    if (schema_string_ != other.schema_string_) {
       return false;
     }
 
@@ -134,6 +175,8 @@ class BaseCacheKey {
   std::string type_;
   boost::uuids::uuid uuid_;
   boost::any key_ = nullptr;
+  std::vector<std::string> exprs_string_;
+  std::string schema_string_;
 };
 
 }

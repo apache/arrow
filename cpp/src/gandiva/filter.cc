@@ -106,7 +106,7 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   std::shared_ptr<Cache<BaseCacheKey, std::shared_ptr<llvm::MemoryBuffer>>> shared_cache = LLVMGenerator::GetCache();
 
   FilterCacheKey filter_key(schema, configuration, *(condition.get()));
-  BaseCacheKey cache_key(filter_key, "filter");
+  BaseCacheKey cache_key(filter_key, "filter", condition);
   std::unique_ptr<BaseCacheKey> base_cache_key = std::make_unique<BaseCacheKey>(cache_key);
   std::shared_ptr<BaseCacheKey> shared_base_cache_key = std::move(base_cache_key);
 

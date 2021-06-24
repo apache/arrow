@@ -146,7 +146,7 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
 
   // Cache key ptrs to use when caching only the obj code
   ProjectorCacheKey projector_key(schema, configuration, exprs, selection_vector_mode);
-  BaseCacheKey cache_key(projector_key, "projector");
+  BaseCacheKey cache_key(projector_key, "projector", exprs);
   std::unique_ptr<BaseCacheKey> base_cache_key = std::make_unique<BaseCacheKey>(cache_key);
   std::shared_ptr<BaseCacheKey> shared_base_cache_key = std::move(base_cache_key);
 

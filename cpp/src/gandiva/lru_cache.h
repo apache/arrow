@@ -187,7 +187,7 @@ class LruCache {
     // lookup value in the cache
     typename map_type::iterator value_for_key = map_.find(key);
 
-    std::string obj_file_name = "obj-" + std::to_string(key.Hash()) + ".cache";
+    std::string obj_file_name = std::to_string(key.Hash()) + ".cache";
     llvm::SmallString<128>obj_cache_file = cache_dir_;
     llvm::sys::path::append(obj_cache_file, obj_file_name);
 
@@ -225,12 +225,30 @@ class LruCache {
         // Flatbuffer implementation
         std::ifstream cached_file(obj_cache_file.c_str(), std::ios::binary);
         std::vector<unsigned char> buffer_from_file(std::istreambuf_iterator<char>(cached_file), {});
+        cached_file.close();
 
         auto flatbuffer_cache = gandiva::cache::GetCache(static_cast<void*>(buffer_from_file.data()));
 
         // Read the obj_code bytes
-        auto flatbuffer_obj_code = flatbuffer_cache->object_code()->Data();
-        std::string flatbuffer_obj_code_string((char*) flatbuffer_obj_code);
+        auto flatbuffer_obj_code_string = flatbuffer_cache->object_code()->str();
+        //std::string flatbuffer_obj_code_string((char*) flatbuffer_obj_code);
+
+        auto flatbuffer_schema_string = flatbuffer_cache->schema_exprs()->schema()->str();
+        auto flatbuffer_exprs = flatbuffer_cache->schema_exprs()->exprs();
+
+        std::vector<std::string> flatbuffer_exprs_string;
+
+        for (auto expr : *flatbuffer_exprs) {
+          flatbuffer_exprs_string.push_back(expr->str());
+        }
+
+        // Check if the file is really the same by checking its schema and expressions
+        // if the file does not has the same schema and expressions, it happened a hash
+        // collision and the files are not really the same.
+        bool isReallySame = key.checkCacheFile(flatbuffer_schema_string, flatbuffer_exprs_string);
+        if(!isReallySame){
+          return arrow::util::nullopt;
+        }
 
         auto obj_code_ref = llvm::StringRef(flatbuffer_obj_code_string);
         auto ref_id_pb = llvm::StringRef(splitDirPath(obj_cache_file.c_str(), "/").back());
@@ -314,8 +332,46 @@ class LruCache {
     }
   }
 
+  void saveWithFlatbuffer(key_type& key, const value_type value, std::string obj_file_name,
+                          llvm::SmallString<128>obj_cache_file) {
+    // Flatbuffer implementation
+    auto value_ref_string = value->getBuffer().str();
+    int8_t buffer[value_ref_string.length()];
+    std::copy(value_ref_string.begin(), value_ref_string.end(), buffer);
+
+    auto flatbuffer_obj_code = flatbuffer_builder_.CreateString(value_ref_string);
+    auto flatbuffer_schema = flatbuffer_builder_.CreateString(key.getSchemaString());
+    auto flatbuffer_exprs = flatbuffer_builder_.CreateVectorOfStrings(key.getExprsString());
+
+    auto flatbuffer_schema_exprs_pair = gandiva::cache::CreateSchemaExpressionsPair(flatbuffer_builder_,
+                                                                                    flatbuffer_schema,
+                                                                                    flatbuffer_exprs);
+    auto flatbuffer_cache = gandiva::cache::CreateCache(flatbuffer_builder_,
+                                                        flatbuffer_schema_exprs_pair,
+                                                        flatbuffer_obj_code);
+
+    flatbuffer_builder_.Finish(flatbuffer_cache);
+
+    uint8_t *pre_file_buffer = flatbuffer_builder_.GetBufferPointer();
+    int64_t pre_file_buffer_size = flatbuffer_builder_.GetSize();
+
+    std::ofstream cache_file(obj_cache_file.c_str(), std::ios::out | std::ios::binary);
+    cache_file.write(reinterpret_cast<char *>(pre_file_buffer), pre_file_buffer_size);
+    auto file_size = cache_file.tellp();
+    cache_file.close();
+
+    disk_cache_size_ +=  file_size;
+    disk_cache_files_qty_ += 1;
+
+    std::pair<std::string, size_t> file_and_size = std::make_pair(obj_file_name, file_size);
+    cached_files_map_[std::to_string(key.Hash())] = file_and_size;
+
+    updateCacheInfoFile();
+    updateCacheListFile();
+  }
+
   void saveObjectToCacheDir(key_type& key, const value_type value) {
-    std::string obj_file_name = key.Type() + "-" + std::to_string(key.Hash()) + ".cache";
+    std::string obj_file_name = std::to_string(key.Hash()) + ".cache";
 
     llvm::SmallString<128>obj_cache_file = cache_dir_;
     llvm::sys::path::append(obj_cache_file, obj_file_name);
@@ -364,35 +420,36 @@ class LruCache {
       new_cache_file.close();*/
 
       // Flatbuffer implementation
-      auto value_ref_string = value->getBuffer().str();
-      int8_t buffer[value_ref_string.length()];
-      std::copy(value_ref_string.begin(), value_ref_string.end(), buffer);
+      saveWithFlatbuffer(key, value, obj_file_name, obj_cache_file);
 
-      auto flatbuffer_obj_code = flatbuffer_builder_.CreateString(value_ref_string);
-
-      auto flatbuffer_cache = gandiva::cache::CreateCache(flatbuffer_builder_, 0,
-                                                                flatbuffer_obj_code);
-
-      flatbuffer_builder_.Finish(flatbuffer_cache);
-
-      uint8_t *pre_file_buffer = flatbuffer_builder_.GetBufferPointer();
-      int64_t pre_file_buffer_size = flatbuffer_builder_.GetSize();
-
-      std::ofstream cache_file(obj_cache_file.c_str(), std::ios::out | std::ios::binary);
-      cache_file.write(reinterpret_cast<char *>(pre_file_buffer), pre_file_buffer_size);
-      auto size_to_add = cache_file.tellp();
-      cache_file.close();
-
-      disk_cache_size_ +=  size_to_add;
-      disk_cache_files_qty_ += 1;
-
-      std::pair<std::string, size_t> file_and_size = std::make_pair(obj_file_name, value->getBufferSize());
-      cached_files_map_[std::to_string(key.Hash())] = file_and_size;
-
-      updateCacheInfoFile();
-      updateCacheListFile();
     } else {
-      std::cout << "File " << obj_file_name << " already exists." << std::endl;
+      std::ifstream cached_file(obj_cache_file.c_str(), std::ios::binary);
+      std::vector<unsigned char> buffer_from_file(std::istreambuf_iterator<char>(cached_file), {});
+      cached_file.close();
+
+      auto flatbuffer_cache = gandiva::cache::GetCache(static_cast<void*>(buffer_from_file.data()));
+
+      // Read the obj_code bytes
+      auto flatbuffer_obj_code_string = flatbuffer_cache->object_code()->str();
+      //std::string flatbuffer_obj_code_string((char*) flatbuffer_obj_code);
+
+      auto flatbuffer_schema_string = flatbuffer_cache->schema_exprs()->schema()->str();
+      auto flatbuffer_exprs = flatbuffer_cache->schema_exprs()->exprs();
+
+      std::vector<std::string> flatbuffer_exprs_string;
+
+      for (auto expr : *flatbuffer_exprs) {
+        flatbuffer_exprs_string.push_back(expr->str());
+      }
+
+      bool isReallySame = key.checkCacheFile(flatbuffer_schema_string, flatbuffer_exprs_string);
+      if(isReallySame){
+        ARROW_LOG(DEBUG) << "File " << obj_file_name << " already exists.";
+        return;
+      }
+      ARROW_LOG(WARNING) << "File with the file name " << obj_file_name
+                         << " already exists, but they are not the same, cache had a hash collision.";
+
     }
 
 
@@ -570,6 +627,8 @@ class LruCache {
         cache_info_file.close();
       }
     }
+
+    // Read cache.list file
     std::string cache_list_filename = "cache.list";
     llvm::SmallString<128>cache_list = cache_dir_;
     llvm::sys::path::append(cache_list, cache_list_filename);
@@ -606,7 +665,11 @@ class LruCache {
   }
 
   void freeCacheDir(size_t size) {
+    ARROW_LOG(DEBUG) << "Entered freeCacheDir...";
     while (disk_space_capactiy_ < disk_cache_size_ + size) {
+      ARROW_LOG(DEBUG) << "Capacity: " << std::to_string(disk_space_capactiy_);
+      ARROW_LOG(DEBUG) << "Capacity: " << std::to_string(disk_cache_size_ + size);
+      ARROW_LOG(DEBUG) << "Entered freeCacheDir while loop...";
       std::pair<llvm::SmallString<128>, size_t> file_pair = getLargerFilePathInsideCache();
       llvm::SmallString<128> file = file_pair.first;
       size_t file_size = file_pair.second;
