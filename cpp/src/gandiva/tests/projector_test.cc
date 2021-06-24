@@ -44,7 +44,7 @@ class TestProjector : public ::testing::Test {
     // Setup arrow log severity threshold to debug level.
     arrow::util::ArrowLog::StartArrowLog("", arrow::util::ArrowLogLevel::ARROW_DEBUG);
     // To test the eviction, uncomment the line below:
-    //setenv("GANDIVA_CACHE_SIZE", "10240", 1);
+    //setenv("GANDIVA_CACHE_SIZE", "10240", 1); // 10 KiB
   }
 
  protected:
@@ -80,7 +80,6 @@ TEST_F(TestProjector, TestProjectCache) {
                            &cached_projector);
 
   ASSERT_OK(status);
-  //EXPECT_EQ(cached_projector, projector); //-> old expect.
   EXPECT_TRUE(cached_projector->GetCompiledFromCache());
 
   // schema is different should return a new projector.
@@ -90,21 +89,18 @@ TEST_F(TestProjector, TestProjectCache) {
   status = Projector::Make(different_schema, {sum_expr, sub_expr}, configuration,
                            &should_be_new_projector);
   ASSERT_OK(status);
-  //EXPECT_NE(cached_projector, should_be_new_projector); //-> old expect.
   EXPECT_FALSE(should_be_new_projector->GetCompiledFromCache());
 
   // expression list is different should return a new projector.
   std::shared_ptr<Projector> should_be_new_projector1;
   status = Projector::Make(schema, {sum_expr}, configuration, &should_be_new_projector1);
   ASSERT_OK(status);
-  //EXPECT_NE(cached_projector, should_be_new_projector1); //-> old expect.
   EXPECT_FALSE(should_be_new_projector1->GetCompiledFromCache());
 
   // another instance of the same configuration, should return the same projector.
   status = Projector::Make(schema, {sum_expr, sub_expr}, TestConfiguration(),
                            &cached_projector);
   ASSERT_OK(status);
-  //EXPECT_EQ(cached_projector, projector); //-> old expect.
   EXPECT_TRUE(cached_projector->GetCompiledFromCache());
 }
 
@@ -224,7 +220,6 @@ TEST_F(TestProjector, TestProjectCacheDecimalCast) {
       TreeExprBuilder::MakeExpression("castDECIMAL", {field_float64}, res_31_13_alt);
   std::shared_ptr<Projector> projector2;
   ASSERT_OK(Projector::Make(schema, {expr2}, TestConfiguration(), &projector2));
-  //EXPECT_EQ(projector0.get(), projector2.get()); -> old expect.
   EXPECT_TRUE(projector2->GetCompiledFromCache());
 }
 
