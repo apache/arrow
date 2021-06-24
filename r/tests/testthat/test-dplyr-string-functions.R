@@ -724,3 +724,42 @@ test_that("errors in strptime", {
     'Time zone argument not supported by Arrow'
   )
 })
+
+test_that("arrow_utf8_reverse and arrow_ascii_reverse functions", {
+  
+  df_ascii <- tibble(x = c("Foo\nand bar", "baz\tand qux and quux"))
+  
+  df_utf8 <- tibble(x = c("Foo\u00A0\u0061nd\u00A0bar", "\u0062az\u00A0and\u00A0qux\u3000and\u00A0quux"))
+  
+  expect_equivalent(
+    df_ascii %>%
+      Table$create() %>%
+      mutate(x = arrow_utf8_reverse(x)) %>%
+      collect(),
+    tibble(x = c("rab dna\nooF", "xuuq dna xuq dna\tzab"))
+  )
+  
+  expect_equivalent(
+    df_utf8 %>%
+      Table$create() %>%
+      mutate(x = arrow_utf8_reverse(x)) %>%
+      collect(),
+    tibble(x = c("rab\u00A0dn\u0061\u00A0ooF", "xuuq\u00A0dna\u3000xuq\u00A0dna\u00A0za\u0062"))
+  )
+  
+  expect_equivalent(
+    df_ascii %>%
+      Table$create() %>%
+      mutate(x = arrow_ascii_reverse(x)) %>%
+      collect(),
+    tibble(x = c("rab dna\nooF", "xuuq dna xuq dna\tzab"))
+  )
+  
+  expect_error(
+    df_utf8 %>%
+      Table$create() %>%
+      mutate(x = arrow_ascii_reverse(x)) %>%
+      collect(),
+    "Invalid: Non-ASCII sequence in input"
+  )
+})
