@@ -33,7 +33,6 @@ class TestFilter : public ::testing::Test {
     pool_ = arrow::default_memory_pool();
     // Setup arrow log severity threshold to debug level.
     arrow::util::ArrowLog::StartArrowLog("", arrow::util::ArrowLogLevel::ARROW_DEBUG);
-    //setenv("GANDIVA_CACHE_SIZE", "5120", 1);
   }
 
  protected:
@@ -66,7 +65,6 @@ TEST_F(TestFilter, TestFilterCache) {
   std::shared_ptr<Filter> cached_filter;
   status = Filter::Make(schema, condition, configuration, &cached_filter);
   EXPECT_TRUE(status.ok());
-  //EXPECT_TRUE(cached_filter.get() == filter.get()); // old expect
   EXPECT_TRUE(cached_filter->GetCompiledFromCache());
 
   // schema is different should return a new filter.
@@ -76,7 +74,6 @@ TEST_F(TestFilter, TestFilterCache) {
   status =
       Filter::Make(different_schema, condition, configuration, &should_be_new_filter);
   EXPECT_TRUE(status.ok());
-  //EXPECT_TRUE(cached_filter.get() != should_be_new_filter.get()); // old expect
   EXPECT_FALSE(should_be_new_filter->GetCompiledFromCache());
 
   // condition is different, should return a new filter.
@@ -86,7 +83,6 @@ TEST_F(TestFilter, TestFilterCache) {
   std::shared_ptr<Filter> should_be_new_filter1;
   status = Filter::Make(schema, new_condition, configuration, &should_be_new_filter1);
   EXPECT_TRUE(status.ok());
-  //EXPECT_TRUE(cached_filter.get() != should_be_new_filter1.get()); // old expect
   EXPECT_FALSE(should_be_new_filter->GetCompiledFromCache());
 }
 

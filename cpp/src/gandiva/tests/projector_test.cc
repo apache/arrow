@@ -43,8 +43,6 @@ class TestProjector : public ::testing::Test {
     pool_ = arrow::default_memory_pool();
     // Setup arrow log severity threshold to debug level.
     arrow::util::ArrowLog::StartArrowLog("", arrow::util::ArrowLogLevel::ARROW_DEBUG);
-    // To test the eviction, uncomment the line below:
-    //setenv("GANDIVA_CACHE_SIZE", "10240", 1); // 10 KiB
   }
 
  protected:
