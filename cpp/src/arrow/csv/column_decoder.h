@@ -57,7 +57,7 @@ class ARROW_EXPORT ColumnDecoder {
                                                          std::shared_ptr<DataType> type);
 
  protected:
-  explicit ColumnDecoder() = default;
+  ColumnDecoder() = default;
 };
 
 }  // namespace csv
