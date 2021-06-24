@@ -38,6 +38,34 @@ using internal::IntegersCanFit;
 
 namespace r {
 
+template <typename T>
+T na_sentinel();
+
+template <>
+inline double na_sentinel<double>() {
+  return NA_REAL;
+}
+
+template <>
+inline int na_sentinel<int>() {
+  return NA_INTEGER;
+}
+
+template <typename T>
+void UseSentinel(const std::shared_ptr<Array>& array) {
+  auto n = array->length();
+  auto null_count = array->null_count();
+  internal::BitmapReader bitmap_reader(array->null_bitmap()->data(), array->offset(), n);
+
+  auto* data = array->data()->GetMutableValues<T>(1);
+
+  for (R_xlen_t i = 0; i < null_count; i++, bitmap_reader.Next()) {
+    if (bitmap_reader.IsNotSet()) {
+      data[i] = na_sentinel<T>();
+    }
+  }
+}
+
 class Converter {
  public:
   explicit Converter(const std::shared_ptr<ChunkedArray>& chunked_array)
