@@ -823,3 +823,26 @@ test_that("str_like", {
     df
   )
 })
+
+test_that("arrow_find_substring", {
+  
+  df <- tibble(x = c("Foo and Bar", "baz and qux and quux"))
+  
+  expect_equivalent(
+    df %>%
+      Table$create() %>%
+      mutate(x = arrow_find_substring(x, options = list(pattern = "b"))) %>%
+      collect(),
+    tibble(x = c(-1, 0))
+  )
+  
+  # This should no longer result in an error after ARROW-13157 is resolved
+  expect_error(
+    df %>%
+      Table$create() %>%
+      mutate(x = arrow_find_substring(x, options = list(pattern = "b", ignore_case = TRUE))) %>%
+      collect(),
+    "NotImplemented: find_substring with ignore_case"
+  )
+  
+})
