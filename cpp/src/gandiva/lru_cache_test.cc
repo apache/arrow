@@ -37,28 +37,38 @@ class TestCacheKey {
 
 class TestLruCache : public ::testing::Test {
  public:
-  TestLruCache() : cache_(2) {}
+  TestLruCache() : cache_(2, 3, 4) {};
 
  protected:
-  LruCache<TestCacheKey, std::string> cache_;
+  LruCache<TestCacheKey, std::shared_ptr<std::string>> cache_;
+
 };
 
 TEST_F(TestLruCache, TestEvict) {
-  cache_.insert(TestCacheKey(1), "hello");
-  cache_.insert(TestCacheKey(2), "hello");
-  cache_.insert(TestCacheKey(1), "hello");
-  cache_.insert(TestCacheKey(3), "hello");
+  std::shared_ptr<std::string> hello_ptr = std::make_shared<std::string>("hello");
+  std::shared_ptr<std::string> bye_ptr = std::make_shared<std::string>("bye");
+  std::shared_ptr<std::string> hey_ptr = std::make_shared<std::string>("hey");
+
+  cache_.insert(TestCacheKey(1), hello_ptr);
+  cache_.insert(TestCacheKey(2), bye_ptr);
+  cache_.insert(TestCacheKey(1), hello_ptr);
+  cache_.insert(TestCacheKey(3), hey_ptr);
   // should have evicted key 1
   ASSERT_EQ(2, cache_.size());
   ASSERT_EQ(cache_.get(TestCacheKey(1)), arrow::util::nullopt);
 }
 
 TEST_F(TestLruCache, TestLruBehavior) {
-  cache_.insert(TestCacheKey(1), "hello");
-  cache_.insert(TestCacheKey(2), "hello");
+  std::shared_ptr<std::string> see_ya_ptr = std::make_shared<std::string>("see ya");
+  std::shared_ptr<std::string> welcome_ptr = std::make_shared<std::string>("welcome");
+  std::shared_ptr<std::string> good_ptr = std::make_shared<std::string>("good");
+
+  cache_.insert(TestCacheKey(1), see_ya_ptr);
+  cache_.insert(TestCacheKey(2), welcome_ptr);
   cache_.get(TestCacheKey(1));
-  cache_.insert(TestCacheKey(3), "hello");
+  cache_.insert(TestCacheKey(3), good_ptr);
+
   // should have evicted key 2.
-  ASSERT_EQ(*cache_.get(TestCacheKey(1)), "hello");
+  ASSERT_EQ(cache_.get(TestCacheKey(1)), see_ya_ptr);
 }
 }  // namespace gandiva

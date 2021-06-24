@@ -97,7 +97,7 @@ class LruCache {
       lru_list_.push_front(key);
       map_[key] = std::make_pair(value, lru_list_.begin());
       cache_size_ += sizeof(key);
-      cache_size_ += sizeof(*value.get());
+      cache_size_ += sizeof(value.get());
     }
   }
 
