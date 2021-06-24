@@ -35,6 +35,7 @@ using arrow_vendored::date::days;
 using arrow_vendored::date::floor;
 using arrow_vendored::date::hh_mm_ss;
 using arrow_vendored::date::sys_time;
+using arrow_vendored::date::time_zone;
 using arrow_vendored::date::trunc;
 using arrow_vendored::date::weekday;
 using arrow_vendored::date::weeks;
@@ -78,6 +79,39 @@ struct TemporalComponentExtract {
     RETURN_NOT_OK(TemporalComponentExtractCheckTimezone(batch.values[0]));
     return ScalarUnaryNotNull<OutType, TimestampType, Op>::Exec(ctx, batch, out);
   }
+};
+
+/// \addtogroup compute-concrete-options
+/// @{
+
+/// \brief Control behavior of temporal kernels
+///
+/// Used to control timestamp localization and handling ambiguous/nonexistent times.
+struct ARROW_EXPORT TemporalOptions : public FunctionOptions {
+  /// How to interpret ambiguous local times that can be interpreted as
+  /// multiple instants due to DST shifts.
+  enum Ambiguous { RAISE_AMBIGUOUS = 0, INFER, IGNORE_AMBIGUOUS };
+
+  /// How to handle local times that do not exists due to DST shifts.
+  enum Nonexistent {
+    RAISE_NONEXISTENT = 0,
+    SHIFT_FORWARD,
+    SHIFT_BACKWARD,
+    IGNORE_NONEXISTENT
+  };
+
+  explicit TemporalOptions(const int64_t index_of_monday = 1,
+                           const time_zone* tz = nullptr,
+                           const Ambiguous ambiguous = RAISE_AMBIGUOUS,
+                           const Nonexistent nonexistent = RAISE_NONEXISTENT)
+      : tz(tz), ambiguous(ambiguous), nonexistent(nonexistent) {}
+
+  static TemporalOptions Defaults() { return TemporalOptions{}; }
+
+  const int64_t index_of_monday = 0;
+  const time_zone* tz;
+  const enum Ambiguous ambiguous;
+  const enum Nonexistent nonexistent;
 };
 
 // ----------------------------------------------------------------------
