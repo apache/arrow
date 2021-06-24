@@ -434,13 +434,19 @@ const FunctionDoc min_max_doc{"Compute the minimum and maximum values of a numer
 
 const FunctionDoc any_doc{"Test whether any element in a boolean array evaluates to true",
                           ("Null values are ignored by default.\n"
-                           "This can be changed through ScalarAggregateOptions."),
+                           "If null values are taken into account by setting "
+                           "ScalarAggregateOptions parameter skip_nulls = false then "
+                           "Kleene logic is used.\n"
+                           "See KleeneOr for more details on Kleene logic."),
                           {"array"},
                           "ScalarAggregateOptions"};
 
 const FunctionDoc all_doc{"Test whether all elements in a boolean array evaluate to true",
                           ("Null values are ignored by default.\n"
-                           "This can be changed through ScalarAggregateOptions."),
+                           "If null values are taken into account by setting "
+                           "ScalarAggregateOptions parameter skip_nulls = false then "
+                           "Kleene logic is used.\n"
+                           "See KleeneAnd for more details on Kleene logic."),
                           {"array"},
                           "ScalarAggregateOptions"};
 
