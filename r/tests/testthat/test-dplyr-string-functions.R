@@ -819,6 +819,6 @@ test_that("str_like", {
     input %>%
       mutate(x = str_like(x, "%baz%")) %>%
       collect(),
-    df,
+    df
   )
 })
