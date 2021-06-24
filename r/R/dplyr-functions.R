@@ -303,6 +303,14 @@ nse_funcs$str_detect <- function(string, pattern, negate = FALSE) {
   out
 }
 
+nse_funcs$str_like <- function(string, pattern, ignore_case = TRUE) {
+  Expression$create(
+    "match_like",
+    string,
+    options = list(pattern = pattern, ignore_case = ignore_case)
+  )
+}
+
 # Encapsulate some common logic for sub/gsub/str_replace/str_replace_all
 arrow_r_string_replace_function <- function(max_replacements) {
   function(pattern, replacement, x, ignore.case = FALSE, fixed = FALSE) {
