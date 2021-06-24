@@ -20,12 +20,14 @@
 set -eu
 
 if [[ $# -lt 2 ]] ; then
-    echo "./deploy_skyhook.sh [nodes] [skyhook-branch]"
+    echo "./deploy_skyhook.sh [nodes] [skyhook-branch] [deploy cls libs] [build python bindings]"
     exit 1
 fi
 
 NODES=$1
 BRANCH=$2
+DEPLOY_CLS_LIBS=${3:-true}
+BUILD_PYTHON_BINDINGS=${4:-true}
 
 IFS=',' read -ra NODE_LIST <<< "$NODES"; unset IFS
 
@@ -44,32 +46,36 @@ cd cpp/release
 cmake -DARROW_CLS=ON -DARROW_PARQUET=ON -DARROW_WITH_SNAPPY=ON -DARROW_WITH_ZLIB=ON -DARROW_BUILD_EXAMPLES=ON -DPARQUET_BUILD_EXAMPLES=ON -DARROW_PYTHON=ON -DARROW_DATASET=ON -DARROW_CSV=ON -DARROW_WITH_LZ4=ON -DARROW_WITH_ZSTD=ON ..
 make -j4 install
 
-export WORKDIR=${WORKDIR:-$HOME}
-export ARROW_HOME=$WORKDIR/dist
-export PYARROW_WITH_DATASET=1
-export PYARROW_WITH_PARQUET=1
-export PYARROW_WITH_RADOS=1
+if [[ "${BUILD_PYTHON_BINDINGS}" == "true" ]]; then
+  export WORKDIR=${WORKDIR:-$HOME}
+  export ARROW_HOME=$WORKDIR/dist
+  export PYARROW_WITH_DATASET=1
+  export PYARROW_WITH_PARQUET=1
+  export PYARROW_WITH_RADOS=1
 
-mkdir -p /root/dist/lib
-mkdir -p /root/dist/include
+  mkdir -p /root/dist/lib
+  mkdir -p /root/dist/include
 
-cp -r /usr/local/lib/. /root/dist/lib
-cp -r /usr/local/include/. /root/dist/include
+  cp -r /usr/local/lib/. /root/dist/lib
+  cp -r /usr/local/include/. /root/dist/include
 
-cd /tmp/arrow/python
-pip3 install -r requirements-build.txt -r requirements-test.txt
-pip3 install wheel
-rm -rf dist/*
-python3 setup.py build_ext --inplace --bundle-arrow-cpp bdist_wheel
-pip3 install --upgrade dist/*.whl
+  cd /tmp/arrow/python
+  pip3 install -r requirements-build.txt -r requirements-test.txt
+  pip3 install wheel
+  rm -rf dist/*
+  python3 setup.py build_ext --inplace --bundle-arrow-cpp bdist_wheel
+  pip3 install --upgrade dist/*.whl
+fi
 
-cd /tmp/arrow/cpp/release/release
-for node in ${NODE_LIST[@]}; do
-  scp libcls* $node:/usr/lib/rados-classes/
-  scp libarrow* $node:/usr/lib/
-  scp libparquet* $node:/usr/lib/
-  ssh $node systemctl restart ceph-osd.target
-done
+if [[ "${DEPLOY_CLS_LIBS}" == "true" ]]; then
+  cd /tmp/arrow/cpp/release/release
+  for node in ${NODE_LIST[@]}; do
+    scp libcls* $node:/usr/lib/rados-classes/
+    scp libarrow* $node:/usr/lib/
+    scp libparquet* $node:/usr/lib/
+    ssh $node systemctl restart ceph-osd.target
+  done
+fi
 
 export LD_LIBRARY_PATH=/usr/local/lib
 cp /usr/local/lib/libparq* /usr/lib/
