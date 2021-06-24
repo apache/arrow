@@ -28,7 +28,6 @@ if(ARROW_COMPUTE)
   list(APPEND CSV_TEST_SRCS writer_test.cc)
 endif()
 
-add_arrow_test(csv-decoder-test SOURCES column_decoder_test.cc)
 add_arrow_test(csv-test SOURCES ${CSV_TEST_SRCS})
 
 add_arrow_benchmark(converter_benchmark PREFIX "arrow-csv")

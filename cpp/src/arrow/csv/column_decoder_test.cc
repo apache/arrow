@@ -109,6 +109,12 @@ class ColumnDecoderTest : public ::testing::Test {
     AssertArraysEqual(*expected, *decoded);
   }
 
+  void AssertChunkInvalid(std::vector<std::string> chunk) {
+    std::shared_ptr<BlockParser> parser;
+    MakeColumnParser(chunk, &parser);
+    ASSERT_FINISHES_AND_RAISES(Invalid, decoder_->Decode(parser));
+  }
+
   void AssertFetch(std::shared_ptr<Array> expected_chunk) {
     ASSERT_OK_AND_ASSIGN(auto chunk, NextChunk());
     ASSERT_NE(chunk, nullptr);
@@ -249,23 +255,21 @@ class TypedColumnDecoderTest : public ColumnDecoderTest {
     AssertFetch(ArrayFromJSON(type, "[null, 1000]"));
   }
 
-  // void TestThreaded() {
-  //   auto type = uint32();
+  void TestThreaded() {
+    constexpr int NITERS = 10;
+    auto type = uint32();
+    MakeDecoder(type, default_options);
 
-  //   MakeDecoder(type, default_options);
-
-  //   auto joiner = RunThread([&]() {
-  //     InsertChunk(1, {"4", "-5"});
-  //     InsertChunk(0, {"1", "2", "3"});
-  //     InsertChunk(3, {"6"});
-  //     InsertChunk(2, {});
-  //   });
-
-  //   AssertFetch(ArrayFromJSON(type, "[1, 2, 3]"));
-  //   AssertFetchInvalid();
-  //   AssertFetch(ArrayFromJSON(type, "[]"));
-  //   AssertFetch(ArrayFromJSON(type, "[6]"));
-  // }
+    RunThreadsAndJoin(
+        [&](int thread_id) {
+          if (thread_id % 2 == 0) {
+            AssertChunkInvalid({"4", "-5"});
+          } else {
+            AssertChunk({"1", "2", "3"}, ArrayFromJSON(type, "[1, 2, 3]"));
+          }
+        },
+        NITERS);
+  }
 };
 
 TEST_F(TypedColumnDecoderTest, Integers) { this->TestIntegers(); }
@@ -274,7 +278,7 @@ TEST_F(TypedColumnDecoderTest, Options) { this->TestOptions(); }
 
 TEST_F(TypedColumnDecoderTest, Errors) { this->TestErrors(); }
 
-// TEST_F(TypedColumnDecoderTest, Threaded) { this->TestThreaded(); }
+TEST_F(TypedColumnDecoderTest, Threaded) { this->TestThreaded(); }
 
 //////////////////////////////////////////////////////////////////////////
 // Tests for type-inferring column decoder
@@ -299,26 +303,34 @@ class InferringColumnDecoderTest : public ColumnDecoderTest {
     AssertFetch(ArrayFromJSON(type, "[901, null]"));
   }
 
-  // void TestThreaded() {
-  //   auto type = float64();
+  void TestThreaded() {
+    constexpr int NITERS = 10;
+    auto type = float64();
+    MakeDecoder(default_options);
 
-  //   MakeDecoder(default_options);
+    // One of these will do the inference so we need to make sure they all have floating
+    // point
+    RunThreadsAndJoin(
+        [&](int thread_id) {
+          if (thread_id % 2 == 0) {
+            AssertChunk({"6.3", "7.2"}, ArrayFromJSON(type, "[6.3, 7.2]"));
+          } else {
+            AssertChunk({"1.1", "2", "3"}, ArrayFromJSON(type, "[1.1, 2, 3]"));
+          }
+        },
+        NITERS);
 
-  //   auto joiner = RunThread([&]() {
-  //     SleepFor(1e-3);
-  //     InsertChunk(0, {"1.5", "2", "3"});
-  //     InsertChunk(3, {"6"});
-  //   });
-
-  //   // These chunks will wait for inference to run on chunk 0
-  //   InsertChunk(1, {"4", "-5", "N/A"});
-  //   InsertChunk(2, {});
-
-  //   AssertFetch(ArrayFromJSON(type, "[1.5, 2, 3]"));
-  //   AssertFetch(ArrayFromJSON(type, "[4, -5, null]"));
-  //   AssertFetch(ArrayFromJSON(type, "[]"));
-  //   AssertFetch(ArrayFromJSON(type, "[6]"));
-  // }
+    // These will run after the inference
+    RunThreadsAndJoin(
+        [&](int thread_id) {
+          if (thread_id % 2 == 0) {
+            AssertChunk({"1", "2"}, ArrayFromJSON(type, "[1, 2]"));
+          } else {
+            AssertChunkInvalid({"xyz"});
+          }
+        },
+        NITERS);
+  }
 
   void TestOptions() {
     auto type = boolean();
@@ -359,7 +371,7 @@ class InferringColumnDecoderTest : public ColumnDecoderTest {
 
 TEST_F(InferringColumnDecoderTest, Integers) { this->TestIntegers(); }
 
-// TEST_F(InferringColumnDecoderTest, Threaded) { this->TestThreaded(); }
+TEST_F(InferringColumnDecoderTest, Threaded) { this->TestThreaded(); }
 
 TEST_F(InferringColumnDecoderTest, Options) { this->TestOptions(); }
 
