@@ -992,16 +992,16 @@ const FunctionDoc pow_checked_doc{
     {"base", "exponent"}};
 
 const FunctionDoc bit_wise_not_doc{
-    "Bit-wise negate the arguments element-wise", (""), {"x"}};
+    "Bit-wise negate the arguments element-wise", ("Null values return null."), {"x"}};
 
 const FunctionDoc bit_wise_and_doc{
-    "Bit-wise AND the arguments element-wise", (""), {"x", "y"}};
+    "Bit-wise AND the arguments element-wise", ("Null values return null."), {"x", "y"}};
 
 const FunctionDoc bit_wise_or_doc{
-    "Bit-wise OR the arguments element-wise", (""), {"x", "y"}};
+    "Bit-wise OR the arguments element-wise", ("Null values return null."), {"x", "y"}};
 
 const FunctionDoc bit_wise_xor_doc{
-    "Bit-wise XOR the arguments element-wise", (""), {"x", "y"}};
+    "Bit-wise XOR the arguments element-wise", ("Null values return null."), {"x", "y"}};
 
 const FunctionDoc shift_left_doc{
     "Left shift `x` by `y`",
