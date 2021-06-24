@@ -319,25 +319,20 @@ def test_count_substring_regex():
 
 
 def test_find_substring():
-    arr = pa.array(["ab", "cab", "ba", None])
-    result = pc.find_substring(arr, "ab")
-    expected = pa.array([0, 1, -1, None], type=pa.int32())
-    assert expected.equals(result)
+    for ty in [pa.string(), pa.binary(), pa.large_string(), pa.large_binary()]:
+        arr = pa.array(["ab", "cab", "ba", None], type=ty)
+        result = pc.find_substring(arr, "ab")
+        assert result.to_pylist() == [0, 1, -1, None]
 
-    arr = pa.array(["ab", "cab", "ba", None], type=pa.large_string())
-    result = pc.find_substring(arr, "ab")
-    expected = pa.array([0, 1, -1, None], type=pa.int64())
-    assert expected.equals(result)
+        result = pc.find_substring_regex(arr, "a?b")
+        assert result.to_pylist() == [0, 1, 0, None]
 
-    arr = pa.array([b"ab", b"cab", b"ba", None])
-    result = pc.find_substring(arr, b"ab")
-    expected = pa.array([0, 1, -1, None], type=pa.int32())
-    assert expected.equals(result)
+        arr = pa.array(["ab*", "cAB*", "ba", "aB?"], type=ty)
+        result = pc.find_substring(arr, "aB*", ignore_case=True)
+        assert result.to_pylist() == [0, 1, -1, -1]
 
-    arr = pa.array([b"ab", b"cab", b"ba", None], type=pa.large_binary())
-    result = pc.find_substring(arr, b"ab")
-    expected = pa.array([0, 1, -1, None], type=pa.int64())
-    assert expected.equals(result)
+        result = pc.find_substring_regex(arr, "a?b", ignore_case=True)
+        assert result.to_pylist() == [0, 1, 0, 0]
 
 
 def test_match_like():

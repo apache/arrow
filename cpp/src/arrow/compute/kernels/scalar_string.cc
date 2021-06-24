@@ -917,13 +917,44 @@ struct FindSubstring {
   }
 };
 
+#ifdef ARROW_WITH_RE2
+struct FindSubstringRegex {
+  std::unique_ptr<RE2> regex_match_;
+
+  explicit FindSubstringRegex(const MatchSubstringOptions& options,
+                              bool literal = false) {
+    std::string regex = "(";
+    regex.reserve(options.pattern.length() + 2);
+    regex += literal ? RE2::QuoteMeta(options.pattern) : options.pattern;
+    regex += ")";
+    regex_match_.reset(new RE2(std::move(regex), RegexSubstringMatcher::MakeRE2Options(
+                                                     options, /*literal=*/false)));
+  }
+
+  template <typename OutValue, typename... Ignored>
+  OutValue Call(KernelContext*, util::string_view val, Status*) const {
+    re2::StringPiece piece(val.data(), val.length());
+    re2::StringPiece match;
+    if (re2::RE2::PartialMatch(piece, *regex_match_, &match)) {
+      return static_cast<OutValue>(match.data() - piece.data());
+    }
+    return -1;
+  }
+};
+#endif
+
 template <typename InputType>
 struct FindSubstringExec {
   using OffsetType = typename TypeTraits<InputType>::OffsetType;
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const MatchSubstringOptions& options = MatchSubstringState::Get(ctx);
     if (options.ignore_case) {
-      return Status::NotImplemented("find_substring with ignore_case");
+#ifdef ARROW_WITH_RE2
+      applicator::ScalarUnaryNotNullStateful<OffsetType, InputType, FindSubstringRegex>
+          kernel{FindSubstringRegex(options, /*literal=*/true)};
+      return kernel.Exec(ctx, batch, out);
+#endif
+      return Status::NotImplemented("ignore_case requires RE2");
     }
     applicator::ScalarUnaryNotNullStateful<OffsetType, InputType, FindSubstring> kernel{
         FindSubstring(PlainSubstringMatcher(options))};
@@ -938,21 +969,52 @@ const FunctionDoc find_substring_doc(
      "Null inputs emit null. The pattern must be given in MatchSubstringOptions."),
     {"strings"}, "MatchSubstringOptions");
 
-void AddFindSubstring(FunctionRegistry* registry) {
-  auto func = std::make_shared<ScalarFunction>("find_substring", Arity::Unary(),
-                                               &find_substring_doc);
-  for (const auto& ty : BaseBinaryTypes()) {
-    std::shared_ptr<DataType> offset_type;
-    if (ty->id() == Type::type::LARGE_BINARY || ty->id() == Type::type::LARGE_STRING) {
-      offset_type = int64();
-    } else {
-      offset_type = int32();
-    }
-    DCHECK_OK(func->AddKernel({ty}, offset_type,
-                              GenerateTypeAgnosticVarBinaryBase<FindSubstringExec>(ty),
-                              MatchSubstringState::Init));
+#ifdef ARROW_WITH_RE2
+template <typename InputType>
+struct FindSubstringRegexExec {
+  using OffsetType = typename TypeTraits<InputType>::OffsetType;
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const MatchSubstringOptions& options = MatchSubstringState::Get(ctx);
+    applicator::ScalarUnaryNotNullStateful<OffsetType, InputType, FindSubstringRegex>
+        kernel{FindSubstringRegex(options, /*literal=*/false)};
+    return kernel.Exec(ctx, batch, out);
   }
-  DCHECK_OK(registry->AddFunction(std::move(func)));
+};
+
+const FunctionDoc find_substring_regex_doc(
+    "Find location of first match of regex pattern",
+    ("For each string in `strings`, emit the index of the first match of the given "
+     "pattern, or -1 if not found.\n"
+     "Null inputs emit null. The pattern must be given in MatchSubstringOptions."),
+    {"strings"}, "MatchSubstringOptions");
+#endif
+
+void AddFindSubstring(FunctionRegistry* registry) {
+  {
+    auto func = std::make_shared<ScalarFunction>("find_substring", Arity::Unary(),
+                                                 &find_substring_doc);
+    for (const auto& ty : BaseBinaryTypes()) {
+      auto offset_type = offset_bit_width(ty->id()) == 64 ? int64() : int32();
+      DCHECK_OK(func->AddKernel({ty}, offset_type,
+                                GenerateTypeAgnosticVarBinaryBase<FindSubstringExec>(ty),
+                                MatchSubstringState::Init));
+    }
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+#ifdef ARROW_WITH_RE2
+  {
+    auto func = std::make_shared<ScalarFunction>("find_substring_regex", Arity::Unary(),
+                                                 &find_substring_regex_doc);
+    for (const auto& ty : BaseBinaryTypes()) {
+      auto offset_type = offset_bit_width(ty->id()) == 64 ? int64() : int32();
+      DCHECK_OK(
+          func->AddKernel({ty}, offset_type,
+                          GenerateTypeAgnosticVarBinaryBase<FindSubstringRegexExec>(ty),
+                          MatchSubstringState::Init));
+    }
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+#endif
 }
 
 // Substring count
