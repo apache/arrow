@@ -276,6 +276,8 @@ struct OutputArrayWriter<Type, enable_if_has_c_type_not_boolean<Type>> {
   // Note that this doesn't write the null bitmap, which should be consistent
   // with Write / WriteNull calls
   void WriteNull() { *values++ = T{}; }
+
+  void WriteAllNull(int64_t length) { std::memset(values, 0, sizeof(T) * length); }
 };
 
 template <typename Type>
@@ -290,6 +292,8 @@ struct OutputArrayWriter<Type, enable_if_decimal<Type>> {
   void Write(T value) { value.ToBytes(values++->data()); }
 
   void WriteNull() { T{}.ToBytes(values++->data()); }
+
+  void WriteAllNull(int64_t length) { std::memset(values, 0, sizeof(T) * length); }
 };
 
 // (Un)box Scalar to / from C++ value
@@ -918,6 +922,8 @@ struct ScalarBinaryNotNullStateful {
                 op.template Call<OutValue, Arg0Value, Arg1Value>(ctx, u, arg1_val, &st));
           },
           [&]() { writer.WriteNull(); });
+    } else {
+      writer.WriteAllNull(out->mutable_array()->length);
     }
     return st;
   }
@@ -935,6 +941,8 @@ struct ScalarBinaryNotNullStateful {
                 op.template Call<OutValue, Arg0Value, Arg1Value>(ctx, arg0_val, v, &st));
           },
           [&]() { writer.WriteNull(); });
+    } else {
+      writer.WriteAllNull(out->mutable_array()->length);
     }
     return st;
   }

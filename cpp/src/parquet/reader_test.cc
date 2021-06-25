@@ -688,17 +688,17 @@ TEST(TestFileReader, TestOpenErrors) {
           ::testing::HasSubstr("Couldn't deserialize thrift: No more data to read")));
 
   EXPECT_FINISHES_AND_RAISES_WITH_MESSAGE_THAT(
-      IOError, ::testing::HasSubstr("Parquet file size is 0 bytes"), OpenBufferAsync(""));
+      Invalid, ::testing::HasSubstr("Parquet file size is 0 bytes"), OpenBufferAsync(""));
   EXPECT_FINISHES_AND_RAISES_WITH_MESSAGE_THAT(
-      IOError, ::testing::HasSubstr("Parquet magic bytes not found"),
+      Invalid, ::testing::HasSubstr("Parquet magic bytes not found"),
       OpenBufferAsync("AAAAPAR0"));
   EXPECT_FINISHES_AND_RAISES_WITH_MESSAGE_THAT(
-      IOError,
+      Invalid,
       ::testing::HasSubstr(
           "Parquet file size is 5 bytes, smaller than the minimum file footer"),
       OpenBufferAsync("APAR1"));
   EXPECT_FINISHES_AND_RAISES_WITH_MESSAGE_THAT(
-      IOError,
+      Invalid,
       ::testing::HasSubstr(
           "Parquet file size is 8 bytes, smaller than the size reported by footer's"),
       OpenBufferAsync("\xFF\xFF\xFF\x0FPAR1"));

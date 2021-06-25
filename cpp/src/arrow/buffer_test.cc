@@ -653,18 +653,77 @@ TEST(TestBufferBuilder, ResizeReserve) {
 
   ASSERT_OK(builder.Resize(128));
   ASSERT_EQ(128, builder.capacity());
+  ASSERT_EQ(9, builder.length());
 
   // Do not shrink to fit
   ASSERT_OK(builder.Resize(64, false));
   ASSERT_EQ(128, builder.capacity());
+  ASSERT_EQ(9, builder.length());
 
   // Shrink to fit
   ASSERT_OK(builder.Resize(64));
   ASSERT_EQ(64, builder.capacity());
+  ASSERT_EQ(9, builder.length());
 
   // Reserve elements
   ASSERT_OK(builder.Reserve(60));
   ASSERT_EQ(128, builder.capacity());
+  ASSERT_EQ(9, builder.length());
+}
+
+TEST(TestBufferBuilder, Finish) {
+  const std::string data = "some data";
+  auto data_ptr = data.c_str();
+
+  for (const bool shrink_to_fit : {true, false}) {
+    ARROW_SCOPED_TRACE("shrink_to_fit = ", shrink_to_fit);
+    BufferBuilder builder;
+    ASSERT_OK(builder.Append(data_ptr, 9));
+    ASSERT_OK(builder.Append(data_ptr, 9));
+    ASSERT_EQ(18, builder.length());
+    ASSERT_EQ(64, builder.capacity());
+
+    ASSERT_OK_AND_ASSIGN(auto buf, builder.Finish(shrink_to_fit));
+    ASSERT_EQ(buf->size(), 18);
+    ASSERT_EQ(buf->capacity(), 64);
+  }
+  for (const bool shrink_to_fit : {true, false}) {
+    ARROW_SCOPED_TRACE("shrink_to_fit = ", shrink_to_fit);
+    BufferBuilder builder;
+    ASSERT_OK(builder.Reserve(1024));
+    builder.UnsafeAppend(data_ptr, 9);
+    builder.UnsafeAppend(data_ptr, 9);
+    ASSERT_EQ(18, builder.length());
+    ASSERT_EQ(builder.capacity(), 1024);
+
+    ASSERT_OK_AND_ASSIGN(auto buf, builder.Finish(shrink_to_fit));
+    ASSERT_EQ(buf->size(), 18);
+    ASSERT_EQ(buf->capacity(), shrink_to_fit ? 64 : 1024);
+  }
+}
+
+TEST(TestBufferBuilder, FinishEmpty) {
+  for (const bool shrink_to_fit : {true, false}) {
+    ARROW_SCOPED_TRACE("shrink_to_fit = ", shrink_to_fit);
+    BufferBuilder builder;
+    ASSERT_EQ(0, builder.length());
+    ASSERT_EQ(0, builder.capacity());
+
+    ASSERT_OK_AND_ASSIGN(auto buf, builder.Finish(shrink_to_fit));
+    ASSERT_EQ(buf->size(), 0);
+    ASSERT_EQ(buf->capacity(), 0);
+  }
+  for (const bool shrink_to_fit : {true, false}) {
+    ARROW_SCOPED_TRACE("shrink_to_fit = ", shrink_to_fit);
+    BufferBuilder builder;
+    ASSERT_OK(builder.Reserve(1024));
+    ASSERT_EQ(0, builder.length());
+    ASSERT_EQ(1024, builder.capacity());
+
+    ASSERT_OK_AND_ASSIGN(auto buf, builder.Finish(shrink_to_fit));
+    ASSERT_EQ(buf->size(), 0);
+    ASSERT_EQ(buf->capacity(), shrink_to_fit ? 0 : 1024);
+  }
 }
 
 template <typename T>
@@ -717,7 +776,7 @@ TYPED_TEST(TypedTestBufferBuilder, AppendCopies) {
   }
 }
 
-TEST(TestBufferBuilder, BasicBoolBufferBuilderUsage) {
+TEST(TestBoolBufferBuilder, Basics) {
   TypedBufferBuilder<bool> builder;
 
   ASSERT_OK(builder.Append(false));
@@ -746,7 +805,7 @@ TEST(TestBufferBuilder, BasicBoolBufferBuilderUsage) {
   ASSERT_EQ(built->size(), BitUtil::BytesForBits(nvalues + 1));
 }
 
-TEST(TestBufferBuilder, BoolBufferBuilderAppendCopies) {
+TEST(TestBoolBufferBuilder, AppendCopies) {
   TypedBufferBuilder<bool> builder;
 
   ASSERT_OK(builder.Append(13, true));
@@ -763,6 +822,21 @@ TEST(TestBufferBuilder, BoolBufferBuilderAppendCopies) {
     EXPECT_EQ(BitUtil::GetBit(built->data(), i), i < 13) << "index = " << i;
   }
 
+  ASSERT_EQ(built->size(), BitUtil::BytesForBits(13 + 17));
+}
+
+TEST(TestBoolBufferBuilder, Reserve) {
+  TypedBufferBuilder<bool> builder;
+
+  ASSERT_OK(builder.Reserve(13 + 17));
+  builder.UnsafeAppend(13, true);
+  builder.UnsafeAppend(17, false);
+  ASSERT_EQ(builder.length(), 13 + 17);
+  ASSERT_EQ(builder.capacity(), 64 * 8);
+  ASSERT_EQ(builder.false_count(), 17);
+
+  ASSERT_OK_AND_ASSIGN(auto built, builder.Finish());
+  AssertIsCPUBuffer(*built);
   ASSERT_EQ(built->size(), BitUtil::BytesForBits(13 + 17));
 }
 

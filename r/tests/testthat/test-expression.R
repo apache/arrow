@@ -58,6 +58,12 @@ test_that("C++ expressions", {
   )
   # Interprets that as a list type
   expect_r6_class(f == c(1L, 2L), "Expression")
+  
+  expect_error(
+    Expression$create("add", 1, 2),
+    "Expression arguments must be Expression objects"
+  )
+  
 })
 
 test_that("Field reference expression schemas and types", {

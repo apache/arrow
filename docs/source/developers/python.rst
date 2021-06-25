@@ -34,8 +34,7 @@ We follow a similar PEP8-like coding style to the `pandas project
 
 .. code-block:: shell
 
-   pip install -e arrow/dev/archery
-   pip install -r arrow/dev/archery/requirements-lint.txt
+   pip install -e arrow/dev/archery[lint]
 
 .. code-block:: shell
 

@@ -76,12 +76,13 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
         char out[32];
         _mm512_storeu_si512(out, mask);
         return 0;
-      }" CXX_SUPPORTS_AVX512)
+      }"
+                              CXX_SUPPORTS_AVX512)
     set(CMAKE_REQUIRED_FLAGS ${OLD_CMAKE_REQURED_FLAGS})
   endif()
   # Runtime SIMD level it can get from compiler and ARROW_RUNTIME_SIMD_LEVEL
-  if(CXX_SUPPORTS_SSE4_2
-     AND ARROW_RUNTIME_SIMD_LEVEL MATCHES "^(SSE4_2|AVX2|AVX512|MAX)$")
+  if(CXX_SUPPORTS_SSE4_2 AND ARROW_RUNTIME_SIMD_LEVEL MATCHES
+                             "^(SSE4_2|AVX2|AVX512|MAX)$")
     set(ARROW_HAVE_RUNTIME_SSE4_2 ON)
     add_definitions(-DARROW_HAVE_RUNTIME_SSE4_2)
   endif()
@@ -252,8 +253,8 @@ if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4365")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4267")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4838")
-  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
-         OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
+                                                        "Clang")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wextra")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wdocumentation")
@@ -286,8 +287,8 @@ elseif("${BUILD_WARNING_LEVEL}" STREQUAL "EVERYTHING")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /Wall")
     # https://docs.microsoft.com/en-us/cpp/build/reference/compiler-option-warning-level
     # /wdnnnn disables a warning where "nnnn" is a warning number
-  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
-         OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
+                                                        "Clang")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Weverything")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-c++98-compat")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-c++98-compat-pedantic")
@@ -342,8 +343,8 @@ if(MSVC)
   # (required for protobuf, see https://github.com/protocolbuffers/protobuf/issues/6885)
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4065")
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL "7.0"
-     OR CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "7.0")
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL "7.0" OR CMAKE_CXX_COMPILER_VERSION
+                                                       VERSION_GREATER "7.0")
     # Without this, gcc >= 7 warns related to changes in C++17
     set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -Wno-noexcept-type")
   endif()
@@ -370,8 +371,8 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -Wno-subobject-linkage")
   endif()
 
-elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
-       OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
+                                                      "Clang")
   # Clang options for all builds
 
   # Using Clang with ccache causes a bunch of spurious warnings that are
@@ -453,8 +454,8 @@ if(ARROW_CPU_FLAG STREQUAL "armv8")
     add_definitions(-DARROW_HAVE_NEON)
   endif()
 
-  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
-     AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "5.4")
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS
+                                              "5.4")
     message(WARNING "Disable Armv8 CRC and Crypto as compiler doesn't support them well.")
   else()
     if(ARROW_ARMV8_ARCH_FLAG MATCHES "\\+crypto")
@@ -491,7 +492,9 @@ function(GET_GOLD_VERSION)
       message(SEND_ERROR "Could not extract GNU gold version. "
                          "Linker version output: ${LINKER_OUTPUT}")
     endif()
-    set(GOLD_VERSION "${CMAKE_MATCH_1}" PARENT_SCOPE)
+    set(GOLD_VERSION
+        "${CMAKE_MATCH_1}"
+        PARENT_SCOPE)
   endif()
 endfunction()
 
@@ -588,9 +591,8 @@ set(CXX_FLAGS_PROFILE_GEN "${CXX_FLAGS_RELEASE} -fprofile-generate")
 set(CXX_FLAGS_PROFILE_BUILD "${CXX_FLAGS_RELEASE} -fprofile-use")
 
 # Set compile flags based on the build type.
-message(
-  "Configured for ${CMAKE_BUILD_TYPE} build (set with cmake -DCMAKE_BUILD_TYPE={release,debug,...})"
-  )
+message("Configured for ${CMAKE_BUILD_TYPE} build (set with cmake -DCMAKE_BUILD_TYPE={release,debug,...})"
+)
 if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_DEBUG}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_DEBUG}")

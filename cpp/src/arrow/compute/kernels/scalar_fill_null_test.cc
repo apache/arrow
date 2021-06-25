@@ -22,6 +22,7 @@
 
 #include "arrow/array/array_base.h"
 #include "arrow/compute/api.h"
+#include "arrow/compute/kernels/test_util.h"
 #include "arrow/result.h"
 #include "arrow/scalar.h"
 #include "arrow/testing/gtest_compat.h"
@@ -38,7 +39,7 @@ void CheckFillNull(const Array& input, const Datum& fill_value, const Array& exp
   auto Check = [&](const Array& input, const Array& expected) {
     ASSERT_OK_AND_ASSIGN(Datum datum_out, FillNull(input, fill_value));
     std::shared_ptr<Array> result = datum_out.make_array();
-    ASSERT_OK(result->ValidateFull());
+    ValidateOutput(*result);
     AssertArraysEqual(expected, *result, /*verbose=*/true);
     if (all_valid) {
       // Check null count of ArrayData is set, not the computed Array.null_count

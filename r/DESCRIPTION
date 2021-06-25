@@ -48,6 +48,7 @@ Suggests:
     pkgload,
     reticulate,
     rmarkdown,
+    stringi,
     stringr,
     testthat,
     tibble,

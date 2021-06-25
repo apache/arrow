@@ -2630,6 +2630,7 @@ def test_array_from_numpy_str_utf8():
         pa.array(vec, pa.string(), mask=np.array([False]))
 
 
+@pytest.mark.slow
 @pytest.mark.large_memory
 def test_numpy_binary_overflow_to_chunked():
     # ARROW-3762, ARROW-5966

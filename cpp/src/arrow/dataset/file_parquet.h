@@ -128,7 +128,8 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
 
   Result<std::shared_ptr<FileWriter>> MakeWriter(
       std::shared_ptr<io::OutputStream> destination, std::shared_ptr<Schema> schema,
-      std::shared_ptr<FileWriteOptions> options) const override;
+      std::shared_ptr<FileWriteOptions> options,
+      fs::FileLocator destination_locator) const override;
 
   std::shared_ptr<FileWriteOptions> DefaultWriteOptions() override;
 };
@@ -252,7 +253,8 @@ class ARROW_DS_EXPORT ParquetFileWriter : public FileWriter {
  private:
   ParquetFileWriter(std::shared_ptr<io::OutputStream> destination,
                     std::shared_ptr<parquet::arrow::FileWriter> writer,
-                    std::shared_ptr<ParquetFileWriteOptions> options);
+                    std::shared_ptr<ParquetFileWriteOptions> options,
+                    fs::FileLocator destination_locator);
 
   Status FinishInternal() override;
 

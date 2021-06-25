@@ -286,7 +286,7 @@ std::shared_ptr<Array> MakeArray(const std::shared_ptr<ArrayData>& data) {
 // ----------------------------------------------------------------------
 // Misc APIs
 
-namespace internal {
+namespace {
 
 // get the maximum buffer length required, then allocate a single zeroed buffer
 // to use anywhere a buffer is required
@@ -650,12 +650,11 @@ class RepeatedArrayFactory {
   std::shared_ptr<Array> out_;
 };
 
-}  // namespace internal
+}  // namespace
 
 Result<std::shared_ptr<Array>> MakeArrayOfNull(const std::shared_ptr<DataType>& type,
                                                int64_t length, MemoryPool* pool) {
-  ARROW_ASSIGN_OR_RAISE(auto data,
-                        internal::NullArrayFactory(pool, type, length).Create());
+  ARROW_ASSIGN_OR_RAISE(auto data, NullArrayFactory(pool, type, length).Create());
   return MakeArray(data);
 }
 
@@ -664,7 +663,7 @@ Result<std::shared_ptr<Array>> MakeArrayFromScalar(const Scalar& scalar, int64_t
   if (!scalar.is_valid) {
     return MakeArrayOfNull(scalar.type, length, pool);
   }
-  return internal::RepeatedArrayFactory(pool, scalar, length).Create();
+  return RepeatedArrayFactory(pool, scalar, length).Create();
 }
 
 namespace internal {

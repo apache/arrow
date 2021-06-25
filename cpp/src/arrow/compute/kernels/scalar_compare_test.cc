@@ -673,10 +673,7 @@ class TestVarArgsCompare : public TestBase {
   Datum Eval(VarArgsFunction func, const std::vector<Datum>& args) {
     EXPECT_OK_AND_ASSIGN(auto actual,
                          func(args, element_wise_aggregate_options_, nullptr));
-    if (actual.is_array()) {
-      auto arr = actual.make_array();
-      ARROW_EXPECT_OK(arr->ValidateFull());
-    }
+    ValidateOutput(actual);
     return actual;
   }
 

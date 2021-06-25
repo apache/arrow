@@ -25,7 +25,6 @@
 #include <vector>
 
 #include "arrow/array.h"
-#include "arrow/buffer_builder.h"
 #include "arrow/extension_type.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/table.h"
@@ -56,7 +55,6 @@ using arrow::ExtensionArray;
 using arrow::ExtensionType;
 using arrow::Field;
 using arrow::FixedSizeBinaryArray;
-using Int16BufferBuilder = arrow::TypedBufferBuilder<int16_t>;
 using arrow::ListArray;
 using arrow::MemoryPool;
 using arrow::NumericArray;

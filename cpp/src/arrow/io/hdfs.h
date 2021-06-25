@@ -173,6 +173,10 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
   // current filesystem
   Status Rename(const std::string& src, const std::string& dst) override;
 
+  Status Copy(const std::string& src, const std::string& dst);
+
+  Status Move(const std::string& src, const std::string& dst);
+
   Status Stat(const std::string& path, FileStatistics* stat) override;
 
   // TODO(wesm): GetWorkingDirectory, SetWorkingDirectory
