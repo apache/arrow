@@ -2310,7 +2310,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     byte[] validity = new byte[]{(byte) 15, 0};
     String[] valuesX = new String[]{
         "  øhpqršvñ  \n\n",
-        "möbelträgerfüße   \nmöbelträgerfüße",
+        "möbelträger1füße   \nmöbelträge'rfüße",
         "ÂbĆDËFgh\néll",
         "citroën CaR",
         "kjk"
@@ -2318,9 +2318,9 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
     String[] expected = new String[]{
         "  Øhpqršvñ  \n\n",
-        "Möbelträgerfüße   \nMöbelträgerfüße",
-        "ÂbĆDËFgh\nÉll",
-        "Citroën CaR",
+        "Möbelträger1füße   \nMöbelträge'Rfüße",
+        "Âbćdëfgh\nÉll",
+        "Citroën Car",
         null
     };
 
