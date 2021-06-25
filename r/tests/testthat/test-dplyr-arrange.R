@@ -197,4 +197,11 @@ test_that("arrange() with bad inputs", {
     "not found",
     fixed = TRUE
   )
+  expect_error(
+    tbl %>%
+      Table$create() %>%
+      arrange(desc(int, chr)),
+    "expects only one argument",
+    fixed = TRUE
+  )
 })

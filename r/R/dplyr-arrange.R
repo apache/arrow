@@ -77,6 +77,11 @@ find_and_remove_desc <- function(quosure) {
       # remove enclosing parentheses
       expr <- expr[[2]]
     } else if (identical(expr[[1]], quote(desc))) {
+      # ensure desc() has only one argument (when an R expression is a function
+      # call, length == 2 means it has exactly one argument)
+      if (length(expr) > 2) {
+        stop("desc() expects only one argument", call. = FALSE)
+      }
       # remove desc() and toggle descending
       expr <- expr[[2]]
       descending <- !descending
