@@ -118,19 +118,17 @@ Status GetNumPyType(const DataType& type, int* type_num) {
     NUMPY_TYPE_CASE(FLOAT, FLOAT32);
     NUMPY_TYPE_CASE(DOUBLE, FLOAT64);
     case Type::EXTENSION: {
-      auto ext_ptr = dynamic_cast<const ExtensionType*>(&type);
+      auto ext = static_cast<const ExtensionType*>(&type);
 
-      if(ext_ptr == nullptr) {
-        return Status::Invalid(type.id(), " could not be cast to ExtensionType");
-      } else if (ext_ptr->extension_name() == "arrow.extension.complex64") {
+      if (ext->extension_name() == "arrow.extension.complex64") {
         *type_num = NPY_COMPLEX64;
         break;
-      } else if (ext_ptr->extension_name() == "arrow.extension.complex128") {
+      } else if (ext->extension_name() == "arrow.extension.complex128") {
         *type_num = NPY_COMPLEX128;
         break;
       } else {
         return Status::NotImplemented("Unsupported ExtensionType: ",
-                                      ext_ptr->extension_name());
+                                      ext->extension_name());
       }
     }
 

@@ -67,6 +67,8 @@ def _alltypes_example(size=100):
         'int64': np.arange(size, dtype=np.int64),
         'float32': np.arange(size, dtype=np.float32),
         'float64': np.arange(size, dtype=np.float64),
+        'complex64': np.arange(size, dtype=np.complex64),
+        'complex128': np.arange(size, dtype=np.complex128),
         'bool': np.random.randn(size) > 0,
         # TODO(wesm): Pandas only support ns resolution, Arrow supports s, ms,
         # us, ns

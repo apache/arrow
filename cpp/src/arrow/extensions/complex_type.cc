@@ -17,12 +17,13 @@
 
 // Complex Number Extension Type
 
+#include <mutex>
+#include <thread>
 #include <sstream>
 
 #include "arrow/extensions/complex_type.h"
 
 namespace arrow {
-
 
 bool ComplexFloatType::ExtensionEquals(const ExtensionType& other) const {
   const auto& other_ext = static_cast<const ExtensionType&>(other);
@@ -43,5 +44,24 @@ std::shared_ptr<DataType> complex128() {
   return std::make_shared<ComplexDoubleType>();
 }
 
+/// NOTE(sjperkins)
+// Suggestions on how to improve this welcome!
+std::once_flag complex_float_registered;
+std::once_flag complex_double_registered;
+
+Status register_complex_types()
+{
+  std::call_once(complex_float_registered,
+                 RegisterExtensionType,
+                 std::make_shared<ComplexFloatType>());
+
+  std::call_once(complex_double_registered,
+                 RegisterExtensionType,
+                 std::make_shared<ComplexDoubleType>());
+  
+  return Status::OK();
+}
+
+static Status complex_types_registered = register_complex_types();
 
 };  // namespace arrow

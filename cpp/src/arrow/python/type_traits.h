@@ -22,6 +22,7 @@
 #include "arrow/python/platform.h"
 
 #include <cstdint>
+#include <complex>
 #include <limits>
 
 #include "arrow/python/numpy_interop.h"
@@ -125,6 +126,37 @@ struct npy_traits<NPY_FLOAT64> {
 
   static inline bool isnull(double v) { return v != v; }
 };
+
+template <>
+struct npy_traits<NPY_COMPLEX64> {
+  using TypeClass = ComplexFloatType;
+  // NOTE(sjperkins)
+  // This should technically be FixedSizeListScalar, but FixedSizeListScalar
+  // isn't correctly sized for memcpy's in numpy_to_arrow.cc and doesn't
+  // have a default constructor either
+  using value_type = std::complex<float>;
+
+  static constexpr std::complex<float> na_sentinel = std::complex<float>(std::numeric_limits<float>::quiet_NaN(),
+                                                                         std::numeric_limits<float>::quiet_NaN());
+  static constexpr bool supports_nulls = true;
+  static inline bool isnull(const std::complex<float> & v) { return v != v; }
+};
+
+template <>
+struct npy_traits<NPY_COMPLEX128> {
+  using TypeClass = ComplexDoubleType;
+  // NOTE(sjperkins)
+  // This should technically be FixedSizeListScalar, but FixedSizeListScalar
+  // isn't correctly sized for memcpy's in numpy_to_arrow.cc and doesn't
+  // have a default constructor either
+  using value_type = std::complex<double>;
+  
+  static constexpr std::complex<double> na_sentinel = std::complex<double>(std::numeric_limits<double>::quiet_NaN(),
+                                                                           std::numeric_limits<double>::quiet_NaN());
+  static constexpr bool supports_nulls = true;
+  static inline bool isnull(const std::complex<double> & v) { return v != v; }
+};
+
 
 template <>
 struct npy_traits<NPY_DATETIME> {
