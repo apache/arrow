@@ -30,6 +30,7 @@ env:
   VCPKG_DEFAULT_TRIPLET: x64-osx-static-release
   VCPKG_FEATURE_FLAGS: "-manifests"
   VCPKG_OVERLAY_TRIPLETS: {{ "${{ github.workspace }}/arrow/ci/vcpkg" }}
+  ARROW_VCPKG_PATCH_FILE: {{ "${{ github.workspace }}/arrow/ci/vcpkg/ports.patch" }}
 
 jobs:
   build:
@@ -58,10 +59,9 @@ jobs:
 
       - name: Patch Vcpkg Ports
         run: |
-          vcpkg_patch_file="../arrow/ci/vcpkg/ports.patch"
           cd $VCPKG_ROOT
-          if ! git apply --reverse --check --ignore-whitespace ${vcpkg_patch_file}; then
-            git apply --ignore-whitespace ${vcpkg_patch_file}
+          if ! git apply --reverse --check --ignore-whitespace ${ARROW_VCPKG_PATCH_FILE}; then
+            git apply --ignore-whitespace ${ARROW_VCPKG_PATCH_FILE}
             echo "Patch successfully applied!"
           fi
 
