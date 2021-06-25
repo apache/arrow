@@ -1114,8 +1114,10 @@ class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
     SEXP names = Rf_getAttrib(x, R_NamesSymbol);
 
     RVectorType rtype = GetVectorType(x);
-    if (!Rf_inherits(x, "data.frame") && !Rf_inherits(x, "POSIXlt") && rtype != NAMED_LIST) {
-      return Status::Invalid("Can only convert data.frames and named lists to Struct type");
+    if (!Rf_inherits(x, "data.frame") && !Rf_inherits(x, "POSIXlt") &&
+        rtype != NAMED_LIST) {
+      return Status::Invalid(
+          "Can only convert data.frames and named lists to Struct type");
     }
 
     auto fields = this->struct_type_->fields();
@@ -1143,7 +1145,7 @@ class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
 
     // for data.frames, check if the dimension don't match
     // TOOD: for other types like named lists and posixlt?
-    if (Rf_inherits(x, "data.frame") ) {
+    if (Rf_inherits(x, "data.frame")) {
       for (R_xlen_t i = 0; i < n_columns; i++) {
         SEXP x_i = VECTOR_ELT(x, i);
         if (vctrs::vec_size(x_i) < size) {

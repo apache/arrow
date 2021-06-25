@@ -17,10 +17,3 @@ A \code{Schema} with the union of fields contained in the inputs
 \description{
 Combine and harmonize schemas
 }
-\examples{
-\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
-a <- schema(b = double(), c = bool())
-z <- schema(b = double(), k = utf8())
-unify_schemas(a, z)
-\dontshow{\}) # examplesIf}
-}
