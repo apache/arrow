@@ -280,7 +280,7 @@ Status FeatherWriter::Open(const std::string& filename,
 
   // Open a FileOutputStream corresponding to the provided filename.
   ARROW_ASSIGN_OR_RAISE((*feather_writer)->file_output_stream_,
-      io::FileOutputStream::Open(filename, &((*feather_writer)->file_output_stream_));
+      io::FileOutputStream::Open(filename, &((*feather_writer)->file_output_stream_)));
   return Status::OK();
 }
 
@@ -331,8 +331,8 @@ Status FeatherWriter::WriteVariables(const mxArray* variables, const mxArray* me
     auto datatype = internal::ConvertMatlabTypeStringToArrowDataType(type_str);
     auto field = std::make_shared<arrow::Field>(name_str, datatype);
 
-    ARROW_ASSIGN_OR_RAISE(auto validity_bitmap,
-        arrow::AllocateResizableBuffer(internal::BitPackedLength(num_rows_));
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ResizableBuffer> validity_bitmap,
+        arrow::AllocateResizableBuffer(internal::BitPackedLength(num_rows_)));
 
     // Populate bit-packed arrow::Buffer using validity data in the mxArray*.
     internal::BitPackBuffer(valid, validity_bitmap);
@@ -348,7 +348,7 @@ Status FeatherWriter::WriteVariables(const mxArray* variables, const mxArray* me
     RETURN_NOT_OK(schema_builder.AddField(field));
 
     // Store the table column
-    table_columns.push_back(array);
+    table_columns.push_back(std::move(array));
   }
   // Create the table schema
   ARROW_ASSIGN_OR_RAISE(auto table_schema, schema_builder.Finish());

@@ -182,17 +182,11 @@ Status FeatherReader::Open(const std::string& filename,
   *feather_reader = std::shared_ptr<FeatherReader>(new FeatherReader());
 
   // Open file with given filename as a ReadableFile.
-  ARROW_ASSIGN_OR_RAISE(auto readable_file,  io::ReadableFile::Open(filename));
-
-  // TableReader expects a RandomAccessFile.
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<io::RandomAccessFile> random_access_file,
-                        maybe_readable_file);
-
+  ARROW_ASSIGN_OR_RAISE(auto readable_file, io::ReadableFile::Open(filename));
+ 
   // Open the Feather file for reading with a TableReader.
-  arrow::Result<std::shared_ptr<ipc::feather::Reader>> maybe_reader =
-      ipc::feather::Reader::Open(random_access_file);
-  ARROW_ASSIGN_OR_RAISE(auto reader, maybe_reader);
-
+  ARROW_ASSIGN_OR_RAISE(auto reader, ipc::feather::Reader::Open(readable_file));
+ 
   // Set the internal reader_ object.
   (*feather_reader)->reader_ = reader;
 
@@ -246,7 +240,7 @@ mxArray* FeatherReader::ReadVariables() {
   if (!status.ok()) {
     mexErrMsgIdAndTxt("MATLAB:arrow:FeatherReader::FailedToReadTable",
                       "Failed to read arrow::Table from Feather file. Reason: %s",
-                      status.message());
+                      status.message().c_str());
   }
 
   // Set the number of rows
