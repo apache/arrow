@@ -279,9 +279,8 @@ Status FeatherWriter::Open(const std::string& filename,
   *feather_writer = std::shared_ptr<FeatherWriter>(new FeatherWriter());
 
   // Open a FileOutputStream corresponding to the provided filename.
-  arrow::Result<std::shared_ptr<arrow::io::OutputStream>> maybe_file_output_stream =
+  ARROW_ASSIGN_OR_RAISE((*feather_writer)->file_output_stream_,
       io::FileOutputStream::Open(filename, &((*feather_writer)->file_output_stream_));
-  ARROW_ASSIGN_OR_RAISE((*feather_writer)->file_output_stream_, maybe_file_output_stream);
   return Status::OK();
 }
 
@@ -329,14 +328,11 @@ Status FeatherWriter::WriteVariables(const mxArray* variables, const mxArray* me
     std::string name_str = internal::MxArrayToString(name);
     std::string type_str = internal::MxArrayToString(type);
 
-    std::shared_ptr<arrow::DataType> datatype =
-        internal::ConvertMatlabTypeStringToArrowDataType(type_str);
-    std::shared_ptr<arrow::Field> field =
-        std::make_shared<arrow::Field>(name_str, datatype);
+    auto datatype = internal::ConvertMatlabTypeStringToArrowDataType(type_str);
+    auto field = std::make_shared<arrow::Field>(name_str, datatype);
 
-    arrow::Result<std::shared_ptr<ResizableBuffer>> maybe_buffer =
+    ARROW_ASSIGN_OR_RAISE(auto validity_bitmap,
         arrow::AllocateResizableBuffer(internal::BitPackedLength(num_rows_));
-    ARROW_ASSIGN_OR_RAISE(auto validity_bitmap, maybe_buffer);
 
     // Populate bit-packed arrow::Buffer using validity data in the mxArray*.
     internal::BitPackBuffer(valid, validity_bitmap);

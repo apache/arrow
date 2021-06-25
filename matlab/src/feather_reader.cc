@@ -197,7 +197,7 @@ Status FeatherReader::Open(const std::string& filename,
   (*feather_reader)->reader_ = reader;
 
   // Check the feather file version
-  int version = reader->version();
+  auto version = reader->version();
   if (version == ipc::feather::kFeatherV2Version) {
     return Status::NotImplemented("Support for Feather V2 has not been implemented.");
   } else if (version != ipc::feather::kFeatherV1Version) {
@@ -205,8 +205,7 @@ Status FeatherReader::Open(const std::string& filename,
   }
 
   // read the table metadata from the Feather file
-  std::shared_ptr<Schema> schema = reader->schema();
-  (*feather_reader)->num_variables_ = schema->num_fields();
+  (*feather_reader)->num_variables_ = reader->schema()->num_fields();
   return Status::OK();
 }
 
@@ -243,11 +242,11 @@ mxArray* FeatherReader::ReadVariables() {
       mxCreateStructMatrix(1, num_variables_, num_variable_fields, fieldnames);
 
   std::shared_ptr<arrow::Table> table;
-  arrow::Status status = reader_->Read(&table);
+  auto status = reader_->Read(&table);
   if (!status.ok()) {
-    std::string err_msg =
-        "Failed to read arrow::Table from Feather file. Reason: " + status.message();
-    mexErrMsgIdAndTxt("MATLAB:arrow:FeatherReader::FailedToReadTable", err_msg.c_str());
+    mexErrMsgIdAndTxt("MATLAB:arrow:FeatherReader::FailedToReadTable",
+                      "Failed to read arrow::Table from Feather file. Reason: %s",
+                      status.message());
   }
 
   // Set the number of rows
@@ -260,10 +259,10 @@ mxArray* FeatherReader::ReadVariables() {
                       num_variables_);
   }
 
-  std::vector<std::string> column_names = table->ColumnNames();
+  auto column_names = table->ColumnNames();
 
   for (int64_t i = 0; i < num_variables_; ++i) {
-    std::shared_ptr<ChunkedArray> column = table->column(i);
+    auto column = table->column(i);
     if (column->num_chunks() != 1) {
       mexErrMsgIdAndTxt("MATLAB:arrow:FeatherReader::ReadVariables",
                         "Chunked columns not yet supported");
