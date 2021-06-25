@@ -283,13 +283,15 @@ read_schema <- function(stream, ...) {
 #'
 #' @param ... [Schema]s to unify
 #' @param schemas Alternatively, a list of schemas
-#' @return A `Schema` with the union of fields contained in the inputs
+#' @return A `Schema` with the union of fields contained in the inputs, or
+#'   `NULL` if any of `schemas` is `NULL`
 #' @export
 #' @examplesIf arrow_available()
 #' a <- schema(b = double(), c = bool())
 #' z <- schema(b = double(), k = utf8())
 #' unify_schemas(a, z)
 unify_schemas <- function(..., schemas = list(...)) {
+  if (any(vapply(schemas, is.null, TRUE))) return(NULL)
   arrow__UnifySchemas(schemas)
 }
 

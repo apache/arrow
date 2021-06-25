@@ -88,6 +88,8 @@
 Expression <- R6Class("Expression", inherit = ArrowObject,
   public = list(
     ToString = function() compute___expr__ToString(self),
+    # TODO: Implement type determination without storing
+    # schemas in Expression objects (ARROW-13186)
     schema = NULL,
     type = function(schema = self$schema) {
       assert_that(!is.null(schema))
@@ -117,7 +119,9 @@ Expression$create <- function(function_name,
                               options = empty_named_list()) {
   assert_that(is.string(function_name))
   assert_that(is_list_of(args, "Expression"), msg = "Expression arguments must be Expression objects")
-  compute___expr__call(function_name, args, options)
+  expr <- compute___expr__call(function_name, args, options)
+  expr$schema <- unify_schemas(schemas = lapply(args, function(x) x$schema))
+  expr
 }
 
 Expression$field_ref <- function(name) {
@@ -125,7 +129,9 @@ Expression$field_ref <- function(name) {
   compute___expr__field_ref(name)
 }
 Expression$scalar <- function(x) {
-  compute___expr__scalar(Scalar$create(x))
+  expr <- compute___expr__scalar(Scalar$create(x))
+  expr$schema <- schema()
+  expr
 }
 
 # Wrapper around Expression$create that:
