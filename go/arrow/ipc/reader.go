@@ -85,6 +85,12 @@ func (r *Reader) Err() error { return r.err }
 func (r *Reader) Schema() *arrow.Schema { return r.schema }
 
 func (r *Reader) readSchema(schema *arrow.Schema) error {
+	// We were passed in an external schema.  Use that rather than attempting to read from the stream.
+	if schema != nil {
+		r.schema = schema
+		return nil
+	}
+
 	msg, err := r.r.Message()
 	if err != nil {
 		return xerrors.Errorf("arrow/ipc: could not read message schema: %w", err)
@@ -112,11 +118,6 @@ func (r *Reader) readSchema(schema *arrow.Schema) error {
 	r.schema, err = schemaFromFB(&schemaFB, &r.memo)
 	if err != nil {
 		return xerrors.Errorf("arrow/ipc: could not decode schema from message schema: %w", err)
-	}
-
-	// check the provided schema match the one read from stream.
-	if schema != nil && !schema.Equal(r.schema) {
-		return errInconsistentSchema
 	}
 
 	return nil
