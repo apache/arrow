@@ -32,6 +32,7 @@ namespace compute {
 using arrow::internal::checked_pointer_cast;
 
 namespace {
+// Helper to get a default instance of a type, including parameterized types
 template <typename T>
 enable_if_parameter_free<T, std::shared_ptr<DataType>> default_type_instance() {
   return TypeTraits<T>::type_singleton();
@@ -39,11 +40,10 @@ enable_if_parameter_free<T, std::shared_ptr<DataType>> default_type_instance() {
 template <typename T>
 enable_if_time<T, std::shared_ptr<DataType>> default_type_instance() {
   // Time32 requires second/milli, Time64 requires nano/micro
-  if (TypeTraits<T>::bytes_required(1) == 4) {
+  if (bit_width(T::type_id) == 32) {
     return std::make_shared<T>(TimeUnit::type::SECOND);
-  } else {
-    return std::make_shared<T>(TimeUnit::type::NANO);
   }
+  return std::make_shared<T>(TimeUnit::type::NANO);
 }
 template <typename T>
 enable_if_timestamp<T, std::shared_ptr<DataType>> default_type_instance() {
@@ -52,33 +52,6 @@ enable_if_timestamp<T, std::shared_ptr<DataType>> default_type_instance() {
 template <typename T>
 enable_if_decimal<T, std::shared_ptr<DataType>> default_type_instance() {
   return std::make_shared<T>(5, 2);
-}
-template <typename T>
-enable_if_parameter_free<T, std::unique_ptr<typename TypeTraits<T>::BuilderType>>
-builder_instance() {
-  return arrow::internal::make_unique<typename TypeTraits<T>::BuilderType>();
-}
-template <typename T>
-enable_if_time<T, std::unique_ptr<typename TypeTraits<T>::BuilderType>>
-builder_instance() {
-  return arrow::internal::make_unique<typename TypeTraits<T>::BuilderType>(
-      default_type_instance<T>(), default_memory_pool());
-}
-template <typename T>
-enable_if_timestamp<T, std::unique_ptr<typename TypeTraits<T>::BuilderType>>
-builder_instance() {
-  return arrow::internal::make_unique<typename TypeTraits<T>::BuilderType>(
-      default_type_instance<T>(), default_memory_pool());
-}
-template <typename T>
-enable_if_t<std::is_signed<T>::value, T> max_int_value() {
-  return static_cast<T>(
-      std::min<double>(16384.0, static_cast<double>(std::numeric_limits<T>::max())));
-}
-template <typename T>
-enable_if_t<std::is_unsigned<T>::value, T> max_int_value() {
-  return static_cast<T>(
-      std::min<double>(16384.0, static_cast<double>(std::numeric_limits<T>::max())));
 }
 }  // namespace
 
@@ -139,7 +112,8 @@ class TestReplaceKernel : public ::testing::Test {
       const typename TypeTraits<T>::ArrayType& array, const BooleanArray& mask,
       const typename TypeTraits<T>::ArrayType& replacements) {
     auto length = array.length();
-    auto builder = builder_instance<T>();
+    auto builder = arrow::internal::make_unique<typename TypeTraits<T>::BuilderType>(
+        default_type_instance<T>(), default_memory_pool());
     int64_t replacement_offset = 0;
     for (int64_t i = 0; i < length; ++i) {
       if (mask.IsValid(i)) {
@@ -282,9 +256,10 @@ TYPED_TEST(TestReplaceNumeric, ReplaceWithMaskRandom) {
 
   random::RandomArrayGenerator rand(/*seed=*/0);
   const int64_t length = 1023;
-  // Clamp the range because date/time types don't print well with extreme values
   std::vector<std::string> values = {"0.01", "0"};
-  values.push_back(std::to_string(max_int_value<CType>()));
+  // Clamp the range because date/time types don't print well with extreme values
+  values.push_back(std::to_string(static_cast<CType>(std::min<double>(
+      16384.0, static_cast<double>(std::numeric_limits<CType>::max())))));
   auto options = key_value_metadata({"null_probability", "min", "max"}, values);
   auto array =
       checked_pointer_cast<ArrayType>(rand.ArrayOf(*field("a", ty, options), length));
