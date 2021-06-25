@@ -488,20 +488,20 @@ TEST(TestGdvFnStubs, TestInitCap) {
   EXPECT_EQ(std::string(out_str, out_len), "Asdfj\nHlqf");
   EXPECT_FALSE(ctx.has_error());
 
-  out_str = gdv_fn_initcap_utf8(ctx_ptr, "s;DCgs,Jo!L", 11, &out_len);
-  EXPECT_EQ(std::string(out_str, out_len), "S;DCgs,Jo!L");
+  out_str = gdv_fn_initcap_utf8(ctx_ptr, "s;DCgs,Jo!l", 11, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "S;Dcgs,Jo!L");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_initcap_utf8(ctx_ptr, " mÜNCHEN", 9, &out_len);
-  EXPECT_EQ(std::string(out_str, out_len), " MÜNCHEN");
+  EXPECT_EQ(std::string(out_str, out_len), " München");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_initcap_utf8(ctx_ptr, "citroën CaR", 12, &out_len);
-  EXPECT_EQ(std::string(out_str, out_len), "Citroën CaR");
+  EXPECT_EQ(std::string(out_str, out_len), "Citroën Car");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_initcap_utf8(ctx_ptr, "ÂbĆDËFgh\néll", 16, &out_len);
-  EXPECT_EQ(std::string(out_str, out_len), "ÂbĆDËFgh\nÉll");
+  EXPECT_EQ(std::string(out_str, out_len), "Âbćdëfgh\nÉll");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_initcap_utf8(ctx_ptr, "  øhpqršvñ  \n\n", 17, &out_len);
@@ -514,7 +514,7 @@ TEST(TestGdvFnStubs, TestInitCap) {
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_initcap_utf8(ctx_ptr, "{ÕHP,pqśv}Ń+", 15, &out_len);
-  EXPECT_EQ(std::string(out_str, out_len), "{ÕHP,pqśv}Ń+");
+  EXPECT_EQ(std::string(out_str, out_len), "{Õhp,Pqśv}Ń+");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_initcap_utf8(ctx_ptr, "", 0, &out_len);
