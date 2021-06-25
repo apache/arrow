@@ -24,9 +24,9 @@ Apache Arrow provides a [`Dataset`](https://arrow.apache.org/docs/cpp/api/datase
 
 **NOTE:** Please make sure [docker](https://docs.docker.com/engine/install/ubuntu/) and [docker-compose](https://docs.docker.com/compose/install/) is installed.
 
-* Clone the repository.
+* Clone the repository. The default branch gets cloned.
 ```bash
-git clone --branch v0.1.1 https://github.com/uccross/arrow
+git clone https://github.com/uccross/arrow
 ```
 
 * Run the `ubuntu-cls-demo` step in the docker-compose file. This step will start a single node Ceph cluster inside the container, mount CephFS, put sample data into CephFS, and open an example Jupyter notebook with PyArrow installed.
