@@ -61,8 +61,7 @@ mxArray* ReadNumericVariableData(const std::shared_ptr<Array>& column) {
       std::static_pointer_cast<ArrowArrayType>(column);
 
   // Get a raw pointer to the Arrow array data.
-  const MatlabType* source =
-      reinterpret_cast<const MatlabType*>(arrow_numeric_array->values()->data());
+  const MatlabType* source = arrow_numeric_array->raw_values();
 
   // Get a mutable pointer to the MATLAB array data and std::copy the
   // Arrow array data into it.
