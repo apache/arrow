@@ -595,8 +595,9 @@ const char* gdv_fn_lower_utf8(int64_t context, const char* data, int32_t data_le
   return out;
 }
 
-// Any codepoint, except the ones for lowercase letters, uppercase letters and decimal
-// digits will be considered as word separators.
+// Any codepoint, except the ones for lowercase letters category,
+// uppercase letters category and decimal digits category will be
+// considered as word separators.
 //
 // The Unicode characters also are divided between categories. This link
 // https://en.wikipedia.org/wiki/Unicode_character_property#General_Category shows
