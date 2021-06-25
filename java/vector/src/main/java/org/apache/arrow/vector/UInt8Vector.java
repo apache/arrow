@@ -44,7 +44,7 @@ public final class UInt8Vector extends BaseFixedWidthVector implements BaseIntVe
    */
   public static final long MAX_UINT8 = 0XFFFFFFFFFFFFFFFFL;
 
-  private static final byte TYPE_WIDTH = 8;
+  public static final byte TYPE_WIDTH = 8;
   private final FieldReader reader;
 
   public UInt8Vector(String name, BufferAllocator allocator) {

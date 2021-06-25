@@ -38,7 +38,7 @@ import org.apache.arrow.vector.util.TransferPair;
  * (bit vector) is maintained to track which elements in the vector are null.
  */
 public final class IntervalYearVector extends BaseFixedWidthVector {
-  private static final byte TYPE_WIDTH = 4;
+  public static final byte TYPE_WIDTH = 4;
   private final FieldReader reader;
 
   /**
