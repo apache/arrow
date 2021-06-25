@@ -51,3 +51,18 @@ From \link{CsvFragmentScanOptions} (these values can be overridden at scan time)
 It returns the appropriate subclass of \code{FileFormat} (e.g. \code{ParquetFileFormat})
 }
 
+\examples{
+\dontshow{if (arrow_with_dataset()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+## Semi-colon delimited files
+# Set up directory for examples
+tf <- tempfile()
+dir.create(tf)
+on.exit(unlink(tf))
+write.table(mtcars, file.path(tf, "file1.txt"), sep = ";", row.names = FALSE)
+
+# Create FileFormat object
+format <- FileFormat$create(format = "text", delimiter = ";")
+
+open_dataset(tf, format = format)
+\dontshow{\}) # examplesIf}
+}
