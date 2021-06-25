@@ -182,8 +182,7 @@ Status FeatherReader::Open(const std::string& filename,
   *feather_reader = std::shared_ptr<FeatherReader>(new FeatherReader());
 
   // Open file with given filename as a ReadableFile.
-  arrow::Result<std::shared_ptr<io::ReadableFile>> maybe_readable_file =
-      io::ReadableFile::Open(filename);
+  ARROW_ASSIGN_OR_RAISE(auto readable_file,  io::ReadableFile::Open(filename));
 
   // TableReader expects a RandomAccessFile.
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<io::RandomAccessFile> random_access_file,
