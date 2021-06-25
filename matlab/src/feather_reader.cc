@@ -57,7 +57,7 @@ mxArray* ReadNumericVariableData(const std::shared_ptr<Array>& column) {
   mxArray* variable_data =
       mxCreateNumericMatrix(column->length(), 1, matlab_class_id, mxREAL);
 
-  std::shared_ptr<ArrowArrayType> arrow_numeric_array =
+  auto arrow_numeric_array =
       std::static_pointer_cast<ArrowArrayType>(column);
 
   // Get a raw pointer to the Arrow array data.
