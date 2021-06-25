@@ -1136,8 +1136,8 @@ TEST(TestAsyncUtil, ReadaheadFailed) {
     ASSERT_EQ(TestInt(i + 1), next_val);
   }
 
-  // The error should have put the readahead into a failure state so
-  // no future reads should have occurred
+  // The error should have put the readahead into a failure state.  However, it does so
+  // with AddCallback and not Then so there is no guarantee when that will happen.
   ASSERT_FINISHES_OK_AND_ASSIGN(auto after, readahead());
   ASSERT_TRUE(IsIterationEnd(after));
   ASSERT_EQ(11, counter.load());
