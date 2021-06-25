@@ -49,6 +49,8 @@ from pyarrow._compute import (  # noqa
     QuantileOptions,
     ReplaceSliceOptions,
     ReplaceSubstringOptions,
+    RoundOptions,
+    RoundToMultipleOptions,
     ScalarAggregateOptions,
     SetLookupOptions,
     SliceOptions,
