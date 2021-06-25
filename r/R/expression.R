@@ -88,6 +88,8 @@
 Expression <- R6Class("Expression", inherit = ArrowObject,
   public = list(
     ToString = function() compute___expr__ToString(self),
+    # TODO: Implement type determination without storing
+    # schemas in Expression objects (ARROW-13186)
     schema = NULL,
     type = function(schema = self$schema) {
       assert_that(!is.null(schema))
