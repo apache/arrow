@@ -358,6 +358,9 @@ SCALAR_ARITHMETIC_BINARY(Power, "power", "power_checked")
 SCALAR_ARITHMETIC_BINARY(ShiftLeft, "shift_left", "shift_left_checked")
 SCALAR_ARITHMETIC_BINARY(ShiftRight, "shift_right", "shift_right_checked")
 SCALAR_EAGER_BINARY(Atan2, "atan2")
+SCALAR_EAGER_UNARY(Floor, "floor")
+SCALAR_EAGER_UNARY(Ceiling, "ceiling")
+SCALAR_EAGER_UNARY(Truncate, "truncate")
 
 Result<Datum> MaxElementWise(const std::vector<Datum>& args,
                              ElementWiseAggregateOptions options, ExecContext* ctx) {
