@@ -18,8 +18,11 @@
 expect_array_roundtrip <- function(x, type, as = NULL) {
   a <- Array$create(x, type = as)
   expect_type_equal(a$type, type)
-  expect_identical(length(a), length(x))
-  if (!inherits(type, c("ListType", "LargeListType", "FixedSizeListType"))) {
+  if (!inherits(type, "StructType")) {
+    # length on StructTypes is different than R length of lists
+    expect_identical(length(a), length(x))
+  }
+  if (!inherits(type, c("ListType", "LargeListType", "FixedSizeListType", "StructType"))) {
     # TODO: revisit how missingness works with ListArrays
     # R list objects don't handle missingness the same way as other vectors.
     # Is there some vctrs thing we should do on the roundtrip back to R?
@@ -40,7 +43,8 @@ expect_array_roundtrip <- function(x, type, as = NULL) {
   expect_identical(roundtrip_classes, orig_classes)
 
 
-  if (length(x)) {
+  if (length(x) && !inherits(type, "StructType")) {
+    # slicing on StructTypes is different than R slicing
     a_sliced <- a$Slice(1)
     x_sliced <- x[-1]
     expect_type_equal(a_sliced$type, type)

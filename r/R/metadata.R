@@ -56,7 +56,21 @@ apply_arrow_r_metadata <- function(x, r_metadata) {
     if (is.data.frame(x)) {
       if (length(names(x)) && !is.null(columns_metadata)) {
         for (name in intersect(names(columns_metadata), names(x))) {
-          x[[name]] <- apply_arrow_r_metadata(x[[name]], columns_metadata[[name]])
+          x[[name]] <- tryCatch({
+            x[[name]] <- apply_arrow_r_metadata(x[[name]], columns_metadata[[name]])
+          },
+          error = function(e) {
+            # if we are erroring because of incompatible data, try and make this
+            # a tibble
+            # TODO: also check if this is a list?
+            # TODO: only if there are exactly as many sub-list elements as rows?
+            # TODO: decide if this obviates the need for the option
+            #   arrow.strucs_as_dfs (or if that is actually a better way to handle that)
+            if (grepl("must be compatible with existing data", e$message))
+              x[[name]] <- as.data.frame(x[[name]])
+              class(x[[name]]) <-  c("tbl_df", "tbl", "data.frame")
+              apply_arrow_r_metadata(x[[name]], columns_metadata[[name]])
+          })
         }
       }
     } else if (is.list(x) && !inherits(x, "POSIXlt") && !is.null(columns_metadata)) {
@@ -77,7 +91,8 @@ apply_arrow_r_metadata <- function(x, r_metadata) {
       }
     }
 
-  }, error = function(e) {
+  },
+  error = function(e) {
     warning("Invalid metadata$r", call. = FALSE)
   })
   x

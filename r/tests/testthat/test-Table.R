@@ -481,22 +481,22 @@ test_that("Table$create() scalar recycling with vectors", {
 })
 
 test_that("Table$create() scalar recycling with Scalars, Arrays, and ChunkedArrays", {
-  
+
   expect_data_frame(
     Table$create(a = Array$create(1:10), b = Scalar$create(5)),
     tibble::tibble(a = 1:10, b = 5)
   )
-  
+
   expect_data_frame(
     Table$create(a = Array$create(1:10), b = Array$create(5)),
     tibble::tibble(a = 1:10, b = 5)
   )
-  
+
   expect_data_frame(
     Table$create(a = Array$create(1:10), b = ChunkedArray$create(5)),
     tibble::tibble(a = 1:10, b = 5)
   )
-  
+
 })
 
 test_that("Table$create() no recycling with tibbles", {
@@ -507,7 +507,7 @@ test_that("Table$create() no recycling with tibbles", {
     ),
     regexp = "All input tibbles or data.frames must have the same number of rows"
   )
-  
+
   expect_error(
     Table$create(
       tibble::tibble(a = 1:10, b = 5),
@@ -549,3 +549,26 @@ test_that("ARROW-12729 - length returns number of columns in Table", {
   expect_identical(length(tab), 3L)
 
 })
+
+test_that("named lists as structs", {
+  df <- tibble::tibble(num = 1, list_col = list(list("one", "ett")))
+  tab <- Table$create(df)
+  # turns into a vctrs_list_of strings instead of a simple list that contains strings
+  expect_equivalent(as.data.frame(tab), df)
+
+  df <- tibble::tibble(num = 1, list_col = list(list(a = "one", b = "ett")))
+  tab <- Table$create(df)
+  # turns into a vctrs_list_of strings instead of a simple list that contains strings
+  expect_equivalent(as.data.frame(tab), df)
+
+  df <- tibble::tibble(num = 1, list_col = list(list(a = c("one", "two"), b = c("ett", "tvaa"))))
+  tab <- Table$create(df)
+  # turns into a vctrs_list_of strings instead of a simple list that contains strings
+  expect_equivalent(as.data.frame(tab), df)
+
+  df <- tibble::tibble(num = 1, list_col = list(list(a = c("one", "two", "three"), b = c("ett", "tvaa", "tre"))))
+  tab <- Table$create(df)
+  # turns into a vctrs_list_of strings instead of a simple list that contains strings
+  expect_equivalent(as.data.frame(tab), df)
+})
+

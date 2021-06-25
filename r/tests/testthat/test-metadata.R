@@ -207,6 +207,7 @@ test_that("metadata of list elements (ARROW-10386)", {
 })
 
 test_that("named list type roundtrip", {
+  # TODO: also a named-list at the top-level
   df <- tibble::tibble(
     named_list = list(
       list(a = c("one", "one"), b = c("two", "two")),

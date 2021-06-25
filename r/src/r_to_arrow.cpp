@@ -1074,8 +1074,10 @@ class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
 
     auto fields = this->struct_type_->fields();
     R_xlen_t n_columns = XLENGTH(x);
+
     for (R_xlen_t i = offset; i < n_columns; i++) {
-      auto status = children_[i]->Extend(VECTOR_ELT(x, i), size);
+      R_xlen_t child_lengths = XLENGTH(VECTOR_ELT(x, 0));
+      auto status = children_[i]->Extend(VECTOR_ELT(x, i), child_lengths);
       if (!status.ok()) {
         return Status::Invalid("Problem with column ", (i + 1), " (", fields[i]->name(),
                                "): ", status.ToString());
@@ -1097,6 +1099,7 @@ class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
       auto fields = this->struct_type_->fields();
       R_xlen_t n_columns = XLENGTH(values);
 
+      // TODO: this needs to be updated for the new struct situation like Extend above
       for (R_xlen_t i = 0; i < n_columns; i++) {
         children_[i]->DelayedExtend(VECTOR_ELT(values, i), size, tasks);
       }
@@ -1140,16 +1143,29 @@ class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
       return Status::OK();
     }));
 
-    for (R_xlen_t i = 0; i < n_columns; i++) {
-      SEXP x_i = VECTOR_ELT(x, i);
-      if (vctrs::vec_size(x_i) < size) {
-        return Status::RError("Degenerated data frame");
+    // for data.frames, check if the dimension don't match
+    // TOOD: for other types like named lists and posixlt?
+    if (Rf_inherits(x, "data.frame") ) {
+      for (R_xlen_t i = 0; i < n_columns; i++) {
+        SEXP x_i = VECTOR_ELT(x, i);
+        if (vctrs::vec_size(x_i) < size) {
+          return Status::RError("Degenerated data frame");
+        }
       }
     }
 
     RETURN_NOT_OK(this->Reserve(size - offset));
 
-    for (R_xlen_t i = 0; i < size; i++) {
+    if (n_columns > 0) {
+
+      SEXP foo = VECTOR_ELT(x, 1);
+
+      R_xlen_t child_lengths = XLENGTH(VECTOR_ELT(x, 0));
+      for (R_xlen_t i = 0; i < child_lengths; i++) {
+        RETURN_NOT_OK(struct_builder_->Append());
+      }
+    } else {
+
       RETURN_NOT_OK(struct_builder_->Append());
     }
 
@@ -1459,6 +1475,7 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp,
 
   // init converters
   for (int j = 0; j < num_fields && status.ok(); j++) {
+    // for each column
     SEXP x = flatten_lst[j];
 
     if (Rf_inherits(x, "ChunkedArray")) {
