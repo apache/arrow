@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_BASE_CACHE_KEY_H
-#define ARROW_BASE_CACHE_KEY_H
+#pragma once
 
 #include <arrow/util/hash_util.h>
 #include <stddef.h>
@@ -39,7 +38,7 @@ class BaseCacheKey {
  public:
 
   BaseCacheKey(Expression& expr, std::string type) : type_(type) {
-    static const int kSeedValue = 4;
+    static const int32_t kSeedValue = 4;
     std::string expr_as_string = expr.ToString();
     size_t result_hash = kSeedValue;
     arrow::internal::hash_combine(result_hash, type);
@@ -52,7 +51,7 @@ class BaseCacheKey {
   };
 
   BaseCacheKey(ProjectorCacheKey& key, std::string type) : type_(type) {
-    static const int kSeedValue = 4;
+    static const int32_t kSeedValue = 4;
     size_t key_hash = key.Hash();
     size_t result_hash = kSeedValue;
     arrow::internal::hash_combine(result_hash, type);
@@ -66,7 +65,7 @@ class BaseCacheKey {
   };
 
   BaseCacheKey(FilterCacheKey& key, std::string type) : type_(type) {
-    static const int kSeedValue = 4;
+    static const int32_t kSeedValue = 4;
     size_t key_hash = key.Hash();
     size_t result_hash = kSeedValue;
     arrow::internal::hash_combine(result_hash, type);
@@ -81,7 +80,7 @@ class BaseCacheKey {
 
   BaseCacheKey(std::shared_ptr<arrow::Schema> schema, std::shared_ptr<Expression> expr,
                std::string type) : type_(type) {
-    static const int kSeedValue = 4;
+    static const int32_t kSeedValue = 4;
     unsigned long int result_hash = kSeedValue;
     arrow::internal::hash_combine(result_hash, type);
     arrow::internal::hash_combine(result_hash, schema->ToString());
@@ -137,5 +136,3 @@ class BaseCacheKey {
 };
 
 }
-
-#endif  // ARROW_BASE_CACHE_KEY_H
