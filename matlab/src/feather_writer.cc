@@ -342,7 +342,7 @@ Status FeatherWriter::WriteVariables(const mxArray* variables, const mxArray* me
     internal::BitPackBuffer(valid, validity_bitmap);
 
     // Wrap mxArray data in an arrow::Array of the equivalent type.
-    std::shared_ptr<Array> array =
+    auto array =
         internal::WriteVariableData(data, type_str, validity_bitmap);
 
     // Verify that the arrow::Array has the right number of elements.
