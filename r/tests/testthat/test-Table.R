@@ -553,22 +553,26 @@ test_that("ARROW-12729 - length returns number of columns in Table", {
 test_that("named lists as structs", {
   df <- tibble::tibble(num = 1, list_col = list(list("one", "ett")))
   tab <- Table$create(df)
-  # turns into a vctrs_list_of strings instead of a simple list that contains strings
+  # turns into a vctrs_list_of strings instead of a simple list that contains
+  # strings so the types aren't exactly the same (hence expect_equiv).
   expect_equivalent(as.data.frame(tab), df)
 
   df <- tibble::tibble(num = 1, list_col = list(list(a = "one", b = "ett")))
   tab <- Table$create(df)
-  # turns into a vctrs_list_of strings instead of a simple list that contains strings
+  # turns into a vctrs_list_of strings instead of a simple list that contains
+  # strings so the types aren't exactly the same (hence expect_equiv).
   expect_equivalent(as.data.frame(tab), df)
 
   df <- tibble::tibble(num = 1, list_col = list(list(a = c("one", "two"), b = c("ett", "tvaa"))))
   tab <- Table$create(df)
-  # turns into a vctrs_list_of strings instead of a simple list that contains strings
+  # turns into a vctrs_list_of strings instead of a simple list that contains
+  # strings so the types aren't exactly the same (hence expect_equiv).
   expect_equivalent(as.data.frame(tab), df)
 
   df <- tibble::tibble(num = 1, list_col = list(list(a = c("one", "two", "three"), b = c("ett", "tvaa", "tre"))))
   tab <- Table$create(df)
-  # turns into a vctrs_list_of strings instead of a simple list that contains strings
+  # turns into a vctrs_list_of strings instead of a simple list that contains
+  # strings so the types aren't exactly the same (hence expect_equiv)
   expect_equivalent(as.data.frame(tab), df)
 })
 

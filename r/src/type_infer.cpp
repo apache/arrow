@@ -137,6 +137,9 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<VECSXP>(SEXP x) {
   if (Rf_inherits(x, "data.frame") || Rf_inherits(x, "POSIXlt")) {
     return InferArrowTypeFromDataFrame(x);
   } else if (!Rf_isNull(names)) {
+    // is there some more restrictive way to catch named lists? I've also tried
+    // adding Rf_inherits(x, "list") && !Rf_isNull(names), but that does not catch
+    // them for some reason.
     return InferArrowTypeFromDataFrame(x);
   } else {
     // some known special cases

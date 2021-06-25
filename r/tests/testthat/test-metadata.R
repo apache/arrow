@@ -206,8 +206,22 @@ test_that("metadata of list elements (ARROW-10386)", {
   expect_identical(attr(as.data.frame(tab)$x[[2]], "baz"), "qux")
 })
 
-test_that("named list type roundtrip", {
-  # TODO: also a named-list at the top-level
+test_that("list types roundtrip", {
+  # first an unnamed, nested list
+  df <- tibble::tibble(
+    list = list(
+      list(c("one", "one"), c("two", "two")),
+      list(c("three", "three"), c("four", "four")),
+      list(c("five", "five"), c("six", "six"))
+    )
+  )
+  rb <- record_batch(df)
+  expect_identical(dim(rb), dim(df))
+  expect_equal(rb$schema$list$type, list_of(list_of(string())))
+  # as.data.frame(rb) adds arrow_list + vctrs classes, so we only check equivalence
+  expect_equivalent(as.data.frame(rb), df)
+
+  # Now, a named list
   df <- tibble::tibble(
     named_list = list(
       list(a = c("one", "one"), b = c("two", "two")),
@@ -215,9 +229,23 @@ test_that("named list type roundtrip", {
       list(a = c("five", "five"), b = c("six", "six"))
     )
   )
+  rb <- record_batch(df)
+  expect_identical(dim(rb), dim(df))
+  expect_equal(rb$schema$named_list$type, list_of(struct(a = string(), b = string())))
+  expect_identical(as.data.frame(rb), df)
+
+  skip("These are not yet supported, ")
+  # and at the top level (though these are probably rarer)
+  df <- tibble::tibble(
+    named_list = list(
+      one_row = list(a = c("one", "one"), b = c("two", "two")),
+      two_row = list(a = c("three", "three"), b = c("four", "four")),
+      three_row = list(a = c("five", "five"), b = c("six", "six"))
+    )
+  )
 
   rb <- record_batch(df)
-  expect_equal(rb$schema$named_list$type, list_of(struct(a = string(), b = string())))
-  # expect_r6_class(rb$schema$named_list$type, "StructType")
+  expect_identical(dim(rb), dim(df))
+  expect_equal(rb$schema$named_list$type, struct(struct(a = string(), b = string())))
   expect_identical(as.data.frame(rb), df)
 })

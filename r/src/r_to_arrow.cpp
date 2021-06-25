@@ -212,7 +212,7 @@ RVectorType GetVectorType(SEXP x) {
 
       SEXP names = Rf_getAttrib(x, R_NamesSymbol);
       if (!Rf_isNull(names)) {
-        return DATAFRAME;
+        return NAMED_LIST;
       }
 
       return LIST;
@@ -1029,9 +1029,7 @@ class RListConverter : public ListConverter<T, RConverter, RConverterTrait> {
     RETURN_NOT_OK(this->Reserve(size));
 
     RVectorType rtype = GetVectorType(x);
-    if (rtype == DATAFRAME) {
-      return Status::Invalid("Cannot convert to named list type (yet)");
-    } else if (rtype != LIST) {
+    if (rtype != LIST) {
       return Status::Invalid("Cannot convert to list type");
     }
 
@@ -1074,7 +1072,6 @@ class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
 
     auto fields = this->struct_type_->fields();
     R_xlen_t n_columns = XLENGTH(x);
-
     for (R_xlen_t i = offset; i < n_columns; i++) {
       R_xlen_t child_lengths = XLENGTH(VECTOR_ELT(x, 0));
       auto status = children_[i]->Extend(VECTOR_ELT(x, i), child_lengths);
@@ -1116,8 +1113,9 @@ class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
     R_xlen_t n_columns = XLENGTH(x);
     SEXP names = Rf_getAttrib(x, R_NamesSymbol);
 
-    if (!Rf_inherits(x, "data.frame") && !Rf_inherits(x, "POSIXlt") && Rf_isNull(names)) {
-      return Status::Invalid("Can only convert data frames to Struct type");
+    RVectorType rtype = GetVectorType(x);
+    if (!Rf_inherits(x, "data.frame") && !Rf_inherits(x, "POSIXlt") && rtype != NAMED_LIST) {
+      return Status::Invalid("Can only convert data.frames and named lists to Struct type");
     }
 
     auto fields = this->struct_type_->fields();
@@ -1157,15 +1155,12 @@ class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
     RETURN_NOT_OK(this->Reserve(size - offset));
 
     if (n_columns > 0) {
-
-      SEXP foo = VECTOR_ELT(x, 1);
-
       R_xlen_t child_lengths = XLENGTH(VECTOR_ELT(x, 0));
       for (R_xlen_t i = 0; i < child_lengths; i++) {
         RETURN_NOT_OK(struct_builder_->Append());
       }
     } else {
-
+      // if there are no columns, there's nothing to iterate over
       RETURN_NOT_OK(struct_builder_->Append());
     }
 
