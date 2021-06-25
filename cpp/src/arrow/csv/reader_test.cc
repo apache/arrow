@@ -154,14 +154,14 @@ TableReaderFactory MakeSerialFactory() {
 TEST(SerialReaderTests, Stress) { StressTableReader(MakeSerialFactory()); }
 TEST(SerialReaderTests, StressInvalid) { StressInvalidTableReader(MakeSerialFactory()); }
 TEST(SerialReaderTests, NestedParallelism) {
-  ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::SimpleThreadPool::Make(1));
+  ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::MakeSimpleThreadPool(1));
   TestNestedParallelism(thread_pool, MakeSerialFactory());
 }
 
 Result<TableReaderFactory> MakeAsyncFactory(
     std::shared_ptr<internal::ThreadPool> thread_pool = nullptr) {
   if (!thread_pool) {
-    ARROW_ASSIGN_OR_RAISE(thread_pool, internal::SimpleThreadPool::Make(1));
+    ARROW_ASSIGN_OR_RAISE(thread_pool, internal::MakeSimpleThreadPool(1));
   }
   return [thread_pool](std::shared_ptr<io::InputStream> input_stream)
              -> Result<std::shared_ptr<TableReader>> {
@@ -184,7 +184,7 @@ TEST(AsyncReaderTests, StressInvalid) {
   StressInvalidTableReader(table_factory);
 }
 TEST(AsyncReaderTests, NestedParallelism) {
-  ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::SimpleThreadPool::Make(1));
+  ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::MakeSimpleThreadPool(1));
   ASSERT_OK_AND_ASSIGN(auto table_factory, MakeAsyncFactory(thread_pool));
   TestNestedParallelism(thread_pool, table_factory);
 }
@@ -211,7 +211,7 @@ TEST(StreamingReaderTests, StressInvalid) {
   StressInvalidTableReader(table_factory);
 }
 TEST(StreamingReaderTests, NestedParallelism) {
-  ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::SimpleThreadPool::Make(1));
+  ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::MakeSimpleThreadPool(1));
   ASSERT_OK_AND_ASSIGN(auto table_factory, MakeStreamingFactory());
   TestNestedParallelism(thread_pool, table_factory);
 }

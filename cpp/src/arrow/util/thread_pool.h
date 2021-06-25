@@ -22,12 +22,9 @@
 #endif
 
 #include <cstdint>
-#include <deque>
-#include <list>
 #include <memory>
 #include <type_traits>
 #include <utility>
-#include <vector>
 
 #include "arrow/result.h"
 #include "arrow/status.h"
@@ -277,18 +274,6 @@ class ARROW_EXPORT SerialExecutor : public Executor {
   void MarkFinished();
 };
 
-class ThreadPool;
-
-/// In order to avoid ThreadPool from depending directly on std::thread (mainly to reduce
-/// compile times) we create a base interface for a thread object.
-class Thread {
- public:
-  virtual ~Thread();
-  virtual void Join() = 0;
-  virtual bool IsCurrentThread() const = 0;
-  virtual void ResetAfterFork() = 0;
-};
-
 /// An executor implementation which spawns tasks across a fixed-size pool of worker
 /// threads.
 ///
@@ -297,26 +282,13 @@ class Thread {
 /// asynchronous continuation.
 class ARROW_EXPORT ThreadPool : public Executor {
  public:
-  struct Task {
-    FnOnce<void()> callable;
-    StopToken stop_token;
-    Executor::StopCallback stop_callback;
-  };
-
-  using ThreadIt = std::list<std::shared_ptr<Thread>>::iterator;
-
-  virtual ~ThreadPool();
+  virtual ~ThreadPool() = default;
 
   // -------------- Management API -------------
   // These methods must all be guarded with ProtectAgainstFork
 
-  // Return the desired number of worker threads.
-  // The actual number of workers may lag a bit before being adjusted to
-  // match this value.
-  int GetCapacity() override;
-
   // Get the current actual capacity
-  int GetActualCapacity() const;
+  virtual int GetActualCapacity() const = 0;
 
   // Dynamically change the number of worker threads.
   //
@@ -325,7 +297,7 @@ class ARROW_EXPORT ThreadPool : public Executor {
   // on-demand when needed for task execution.
   // If more threads are running than this number, excess threads are reaped
   // as soon as possible.
-  Status SetCapacity(int threads);
+  virtual Status SetCapacity(int threads) = 0;
 
   // Heuristic for the default capacity of a thread pool for CPU-bound tasks.
   // This is exposed as a static method to help with testing.
@@ -336,92 +308,24 @@ class ARROW_EXPORT ThreadPool : public Executor {
   // If "wait" is true, shutdown waits for all pending tasks to be finished.
   // If "wait" is false, workers are stopped as soon as currently executing
   // tasks are finished.
-  Status Shutdown(bool wait = true);
+  virtual Status Shutdown(bool wait = true) = 0;
 
   // ------------- Statistics API ---------------
 
   /// The current number of tasks either currently running or in the queue to run
-  uint64_t NumTasksRunningOrQueued() const;
+  virtual uint64_t NumTasksRunningOrQueued() const = 0;
   /// A guess at the maximum number of tasks running or queued at any one point
-  uint64_t MaxTasksQueued() const;
+  virtual uint64_t MaxTasksQueued() const = 0;
   /// The total number of tasks that have been submitted over the lifetime of the pool
-  uint64_t TotalTasksQueued() const;
-
-  static std::shared_ptr<ThreadPool> MakeCpuThreadPool();
-
-  class WorkerControl;
-
- protected:
-  FRIEND_TEST(TestThreadPool, DestroyWithoutShutdown);
-  FRIEND_TEST(TestThreadPool, SetCapacity);
-  FRIEND_TEST(TestGlobalThreadPool, Capacity);
-  friend ARROW_EXPORT ThreadPool* GetCpuThreadPool();
-
-  explicit ThreadPool(bool eternal = false);
-
-  Status SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken,
-                   StopCallback&&) override;
-  /// Must be called by child threads on shutdown to ensure the thread pool is stopped
-  /// (unless shutdown_on_destroy_ is false)
-  void MaybeShutdownOnDestroy();
-
-  // Reinitialize the thread pool if the pid changed
-  void ProtectAgainstFork();
-  /// Called on the child process after a fork.  After a fork all threads will have ceased
-  /// running in the child process.  This method should clean up the thread pool state and
-  /// restart any previously running threads.
-  ///
-  /// The behavior is somewhat ill-defined if tasks are running when the fork happened.
-  /// For more details see ARROW-12879
-  virtual void ResetAfterFork();
-
-  /// Launch a worker thread
-  virtual std::shared_ptr<Thread> LaunchWorker(std::shared_ptr<WorkerControl> control,
-                                               ThreadIt thread_it) = 0;
-  /// Add a task to the task queue(s)
-  virtual void DoSubmitTask(TaskHints hints, Task task) = 0;
-  /// After a capacity change this is called so idle workers can shutdown
-  virtual void WakeupWorkersToCheckShutdown() = 0;
-
-#ifndef _WIN32
-  pid_t pid_;
-#endif
-  bool shutdown_on_destroy_ = false;
-  std::shared_ptr<WorkerControl> control_;
+  virtual uint64_t TotalTasksQueued() const = 0;
 };
 
-/// A ThreadPool implementation which uses one lock-protected task queue which
-/// the workers all share.
-class ARROW_EXPORT SimpleThreadPool
-    : public ThreadPool,
-      public std::enable_shared_from_this<SimpleThreadPool> {
- public:
-  // Construct a thread pool with the given number of worker threads
-  static Result<std::shared_ptr<ThreadPool>> Make(int threads);
+// Construct a thread pool with the given number of worker threads
+ARROW_EXPORT Result<std::shared_ptr<ThreadPool>> MakeSimpleThreadPool(int threads);
 
-  // Like Make(), but takes care that the returned ThreadPool is compatible
-  // with destruction late at process exit.
-  static Result<std::shared_ptr<ThreadPool>> MakeEternal(int threads);
-
-  // Destroy thread pool; the pool will first be shut down
-  ~SimpleThreadPool() override;
-
-  class SimpleTaskQueue;
-
- protected:
-  explicit SimpleThreadPool(bool eternal = false);
-  void ResetAfterFork() override;
-  std::shared_ptr<Thread> LaunchWorker(std::shared_ptr<WorkerControl> control,
-                                       ThreadIt thread_it) override;
-  static void WorkerLoop(std::shared_ptr<WorkerControl> thread_pool,
-                         std::shared_ptr<SimpleTaskQueue> task_queue, ThreadIt self);
-
-  void DoSubmitTask(TaskHints hints, Task task) override;
-  void WakeupWorkersToCheckShutdown() override;
-  util::optional<Task> PopTask();
-
-  std::shared_ptr<SimpleTaskQueue> task_queue_;
-};
+// Like MakeSimpleThreadPool(), but takes care that the returned ThreadPool is compatible
+// with destruction late at process exit.
+ARROW_EXPORT Result<std::shared_ptr<ThreadPool>> MakeEternalSimpleThreadPool(int threads);
 
 // Return the process-global thread pool for CPU-bound tasks.
 ARROW_EXPORT ThreadPool* GetCpuThreadPool();

@@ -86,7 +86,7 @@ static void ThreadPoolSpawn(benchmark::State& state) {  // NOLINT non-const refe
   for (auto _ : state) {
     state.PauseTiming();
     std::shared_ptr<ThreadPool> pool;
-    pool = *SimpleThreadPool::Make(nthreads);
+    pool = *MakeSimpleThreadPool(nthreads);
     state.ResumeTiming();
 
     for (int32_t i = 0; i < nspawns; ++i) {
@@ -130,7 +130,7 @@ static void ThreadPoolSubmit(benchmark::State& state) {  // NOLINT non-const ref
 
   for (auto _ : state) {
     state.PauseTiming();
-    auto pool = *SimpleThreadPool::Make(nthreads);
+    auto pool = *MakeSimpleThreadPool(nthreads);
     std::atomic<int32_t> n_finished{0};
     state.ResumeTiming();
 
@@ -176,7 +176,7 @@ static void ThreadedTaskGroup(benchmark::State& state) {  // NOLINT non-const re
   const auto workload_size = static_cast<int32_t>(state.range(1));
 
   std::shared_ptr<ThreadPool> pool;
-  pool = *SimpleThreadPool::Make(nthreads);
+  pool = *MakeSimpleThreadPool(nthreads);
 
   Task task(workload_size);
 

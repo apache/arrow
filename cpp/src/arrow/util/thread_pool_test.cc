@@ -41,6 +41,7 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/test_common.h"
 #include "arrow/util/thread_pool.h"
+#include "arrow/util/thread_pool_internal.h"
 
 namespace arrow {
 namespace internal {
@@ -143,7 +144,7 @@ class TestRunSynchronously : public testing::TestWithParam<bool> {
 
   void TestContinueAfterExternal(bool transfer_to_main_thread) {
     bool continuation_ran = false;
-    EXPECT_OK_AND_ASSIGN(auto external_pool, SimpleThreadPool::Make(1));
+    EXPECT_OK_AND_ASSIGN(auto external_pool, MakeSimpleThreadPool(1));
     auto top_level_task = [&](Executor* executor) {
       struct Callback {
         Status operator()() {
@@ -307,7 +308,7 @@ class TestThreadPool : public ::testing::Test {
   std::shared_ptr<ThreadPool> MakeThreadPool() { return MakeThreadPool(4); }
 
   std::shared_ptr<ThreadPool> MakeThreadPool(int threads) {
-    return *SimpleThreadPool::Make(threads);
+    return *MakeSimpleThreadPool(threads);
   }
 
   void DoSpawnAdds(ThreadPool* pool, int nadds, AddTaskFunc add_func,
@@ -467,7 +468,7 @@ TEST_F(TestThreadPool, DestroyWithoutShutdown) {
   bool worker_started = false;
   Future<> job_finished;
   {
-    auto pool = this->MakeThreadPool(1);
+    auto pool = internal::checked_pointer_cast<ThreadPoolBase>(this->MakeThreadPool(1));
     weak_pool = pool;
     // Simulate Windows
     pool->shutdown_on_destroy_ = false;

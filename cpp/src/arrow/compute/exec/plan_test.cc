@@ -285,7 +285,7 @@ static Result<RecordBatchGenerator> MakeSlowRecordBatchGenerator(
 class TestExecPlanExecution : public ::testing::Test {
  public:
   void SetUp() override {
-    ASSERT_OK_AND_ASSIGN(io_executor_, internal::SimpleThreadPool::Make(8));
+    ASSERT_OK_AND_ASSIGN(io_executor_, internal::MakeSimpleThreadPool(8));
   }
 
   RecordBatchVector MakeRandomBatches(const std::shared_ptr<Schema>& schema,

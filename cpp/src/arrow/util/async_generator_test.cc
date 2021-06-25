@@ -630,7 +630,7 @@ TEST(TestAsyncUtil, MakeTransferredGenerator) {
   std::condition_variable cv;
   std::atomic<bool> finished(false);
 
-  ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::SimpleThreadPool::Make(1));
+  ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::MakeSimpleThreadPool(1));
 
   // Needs to be a slow source to ensure we don't call Then on a completed
   AsyncGenerator<TestInt> slow_generator = [&]() {
@@ -753,7 +753,7 @@ TEST_P(BackgroundGeneratorTestFixture, InvalidExecutor) {
   // Case 1: waiting future
   auto slow = GetParam();
   auto it = PossiblySlowVectorIt(expected, slow);
-  ASSERT_OK_AND_ASSIGN(auto invalid_executor, internal::SimpleThreadPool::Make(1));
+  ASSERT_OK_AND_ASSIGN(auto invalid_executor, internal::MakeSimpleThreadPool(1));
   ASSERT_OK(invalid_executor->Shutdown());
   ASSERT_OK_AND_ASSIGN(auto background, MakeBackgroundGenerator(
                                             std::move(it), invalid_executor.get(), 4, 2));
@@ -761,7 +761,7 @@ TEST_P(BackgroundGeneratorTestFixture, InvalidExecutor) {
 
   // Case 2: Queue bad result
   it = PossiblySlowVectorIt(expected, slow);
-  ASSERT_OK_AND_ASSIGN(invalid_executor, internal::SimpleThreadPool::Make(1));
+  ASSERT_OK_AND_ASSIGN(invalid_executor, internal::MakeSimpleThreadPool(1));
   ASSERT_OK_AND_ASSIGN(
       background, MakeBackgroundGenerator(std::move(it), invalid_executor.get(), 4, 2));
   ASSERT_FINISHES_OK_AND_EQ(TestInt(1), background());
@@ -855,7 +855,7 @@ TEST_P(BackgroundGeneratorTestFixture, AbortReading) {
 
 TEST_P(BackgroundGeneratorTestFixture, AbortOnIdleBackground) {
   // Tests what happens when the downstream aborts while the background thread is idle
-  ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::SimpleThreadPool::Make(1));
+  ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::MakeSimpleThreadPool(1));
 
   auto source = PossiblySlowVectorIt(RangeVector(100), IsSlow());
   std::shared_ptr<AsyncGenerator<TestInt>> generator;
@@ -889,7 +889,7 @@ struct SlowEmptyIterator {
 TEST_P(BackgroundGeneratorTestFixture, BackgroundRepeatEnd) {
   // Ensure that the background generator properly fulfills the asyncgenerator contract
   // and can be called after it ends.
-  ASSERT_OK_AND_ASSIGN(auto io_pool, internal::SimpleThreadPool::Make(1));
+  ASSERT_OK_AND_ASSIGN(auto io_pool, internal::MakeSimpleThreadPool(1));
 
   bool slow = GetParam();
   Iterator<TestInt> iterator;
@@ -1061,7 +1061,7 @@ TEST(TestAsyncUtil, Readahead) {
 }
 
 TEST(TestAsyncUtil, ReadaheadFailed) {
-  ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::SimpleThreadPool::Make(4));
+  ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::MakeSimpleThreadPool(4));
   std::atomic<int32_t> counter(0);
   // All tasks are a little slow.  The first task fails.
   // The readahead will have spawned 9 more tasks and they

@@ -69,7 +69,7 @@ namespace perf = arrow::flight::perf;
 
 namespace arrow {
 
-using internal::SimpleThreadPool;
+using internal::MakeSimpleThreadPool;
 using internal::StopWatch;
 
 namespace flight {
@@ -307,7 +307,7 @@ Status DoSinglePerfRun(FlightClient* client, const FlightClientOptions client_op
   //   RETURN_NOT_OK(ConsumeStream(endpoint));
   // }
 
-  ARROW_ASSIGN_OR_RAISE(auto pool, SimpleThreadPool::Make(FLAGS_num_threads));
+  ARROW_ASSIGN_OR_RAISE(auto pool, MakeSimpleThreadPool(FLAGS_num_threads));
   std::vector<Future<>> tasks;
   for (const auto& endpoint : plan->endpoints()) {
     ARROW_ASSIGN_OR_RAISE(auto task, pool->Submit(ConsumeStream, endpoint));

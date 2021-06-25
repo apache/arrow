@@ -1491,7 +1491,7 @@ Result<Iterator<T>> MakeGeneratorIterator(AsyncGenerator<T> source) {
 /// MakeGeneratorIterator.
 template <typename T>
 Result<Iterator<T>> MakeReadaheadIterator(Iterator<T> it, int readahead_queue_size) {
-  ARROW_ASSIGN_OR_RAISE(auto io_executor, internal::SimpleThreadPool::Make(1));
+  ARROW_ASSIGN_OR_RAISE(auto io_executor, internal::MakeSimpleThreadPool(1));
   auto max_q = readahead_queue_size;
   auto q_restart = std::max(1, max_q / 2);
   ARROW_ASSIGN_OR_RAISE(

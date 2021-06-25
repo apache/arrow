@@ -380,14 +380,14 @@ TEST(ThreadedTaskGroup, Errors) {
   // Limit parallelism to ensure some tasks don't get started
   // after the first failing ones
   std::shared_ptr<ThreadPool> thread_pool;
-  ASSERT_OK_AND_ASSIGN(thread_pool, SimpleThreadPool::Make(4));
+  ASSERT_OK_AND_ASSIGN(thread_pool, MakeSimpleThreadPool(4));
 
   TestTaskGroupErrors(TaskGroup::MakeThreaded(thread_pool.get()));
 }
 
 TEST(ThreadedTaskGroup, Cancel) {
   std::shared_ptr<ThreadPool> thread_pool;
-  ASSERT_OK_AND_ASSIGN(thread_pool, SimpleThreadPool::Make(4));
+  ASSERT_OK_AND_ASSIGN(thread_pool, MakeSimpleThreadPool(4));
 
   StopSource stop_source;
   TestTaskGroupCancel(TaskGroup::MakeThreaded(thread_pool.get(), stop_source.token()),
@@ -401,20 +401,20 @@ TEST(ThreadedTaskGroup, TasksSpawnTasks) {
 
 TEST(ThreadedTaskGroup, NoCopyTask) {
   std::shared_ptr<ThreadPool> thread_pool;
-  ASSERT_OK_AND_ASSIGN(thread_pool, SimpleThreadPool::Make(4));
+  ASSERT_OK_AND_ASSIGN(thread_pool, MakeSimpleThreadPool(4));
   TestNoCopyTask(TaskGroup::MakeThreaded(thread_pool.get()));
 }
 
 TEST(ThreadedTaskGroup, StressTaskGroupLifetime) {
   std::shared_ptr<ThreadPool> thread_pool;
-  ASSERT_OK_AND_ASSIGN(thread_pool, SimpleThreadPool::Make(16));
+  ASSERT_OK_AND_ASSIGN(thread_pool, MakeSimpleThreadPool(16));
 
   StressTaskGroupLifetime([&] { return TaskGroup::MakeThreaded(thread_pool.get()); });
 }
 
 TEST(ThreadedTaskGroup, StressFailingTaskGroupLifetime) {
   std::shared_ptr<ThreadPool> thread_pool;
-  ASSERT_OK_AND_ASSIGN(thread_pool, SimpleThreadPool::Make(16));
+  ASSERT_OK_AND_ASSIGN(thread_pool, MakeSimpleThreadPool(16));
 
   StressFailingTaskGroupLifetime(
       [&] { return TaskGroup::MakeThreaded(thread_pool.get()); });
@@ -422,20 +422,20 @@ TEST(ThreadedTaskGroup, StressFailingTaskGroupLifetime) {
 
 TEST(ThreadedTaskGroup, FinishNotSticky) {
   std::shared_ptr<ThreadPool> thread_pool;
-  ASSERT_OK_AND_ASSIGN(thread_pool, SimpleThreadPool::Make(16));
+  ASSERT_OK_AND_ASSIGN(thread_pool, MakeSimpleThreadPool(16));
 
   TestFinishNotSticky([&] { return TaskGroup::MakeThreaded(thread_pool.get()); });
 }
 
 TEST(ThreadedTaskGroup, FinishNeverStarted) {
   std::shared_ptr<ThreadPool> thread_pool;
-  ASSERT_OK_AND_ASSIGN(thread_pool, SimpleThreadPool::Make(4));
+  ASSERT_OK_AND_ASSIGN(thread_pool, MakeSimpleThreadPool(4));
   TestFinishNeverStarted(TaskGroup::MakeThreaded(thread_pool.get()));
 }
 
 TEST(ThreadedTaskGroup, FinishAlreadyCompleted) {
   std::shared_ptr<ThreadPool> thread_pool;
-  ASSERT_OK_AND_ASSIGN(thread_pool, SimpleThreadPool::Make(16));
+  ASSERT_OK_AND_ASSIGN(thread_pool, MakeSimpleThreadPool(16));
 
   TestFinishAlreadyCompleted([&] { return TaskGroup::MakeThreaded(thread_pool.get()); });
 }
