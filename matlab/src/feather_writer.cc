@@ -355,9 +355,7 @@ Status FeatherWriter::WriteVariables(const mxArray* variables, const mxArray* me
     table_columns.push_back(array);
   }
   // Create the table schema
-  arrow::Result<std::shared_ptr<arrow::Schema>> maybe_table_schema =
-      schema_builder.Finish();
-  ARROW_ASSIGN_OR_RAISE(auto table_schema, maybe_table_schema);
+  ARROW_ASSIGN_OR_RAISE(auto table_schema, schema_builder.Finish());
 
   // Specify the feather file format version as V1
   arrow::ipc::feather::WriteProperties write_props;
