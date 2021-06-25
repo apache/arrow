@@ -243,7 +243,7 @@ mxArray* FeatherReader::ReadVariables() {
   mxArray* variables =
       mxCreateStructMatrix(1, num_variables_, num_variable_fields, fieldnames);
 
-  std::shared_ptr<arrow::Table> table = nullptr;
+  std::shared_ptr<arrow::Table> table;
   arrow::Status status = reader_->Read(&table);
   if (!status.ok()) {
     std::string err_msg =
