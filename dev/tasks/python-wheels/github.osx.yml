@@ -52,7 +52,7 @@ jobs:
           # where we build pre-build the vcpkg packages
           setupOnly: true
           doNotSaveCache: true
-          appendedCacheKey: "-macos-{{ macos_deployment_target }}"
+          appendedCacheKey: "-macos-{{ macos_deployment_target }}-2021-06-24"
           vcpkgDirectory: {{ "${{ github.workspace }}/vcpkg" }}
           vcpkgGitCommitId: "2021.04.30"
 
