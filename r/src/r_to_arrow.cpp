@@ -1111,7 +1111,6 @@ class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
   Status ExtendSetup(SEXP x, int64_t size, int64_t offset) {
     // check that x is compatible
     R_xlen_t n_columns = XLENGTH(x);
-    SEXP names = Rf_getAttrib(x, R_NamesSymbol);
 
     RVectorType rtype = GetVectorType(x);
     if (!Rf_inherits(x, "data.frame") && !Rf_inherits(x, "POSIXlt") &&
