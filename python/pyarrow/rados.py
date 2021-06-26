@@ -51,7 +51,7 @@ class SplittedParquetWriter(object):
         Returns
         ---------
         result: int
-            The rounded off number. 
+            The rounded off number.
         """
         num_str = str(int(num))
         result_str = ""
@@ -62,7 +62,8 @@ class SplittedParquetWriter(object):
 
     def write_file(self, filename, table):
         """
-        Update CephFS striping strategy and write the table to a set of split files.
+        Update CephFS striping strategy and write the table to a set of split
+        files.
 
         Parameters
         ---------
