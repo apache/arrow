@@ -1,0 +1,1 @@
+/home/pacha/github/arrow-setup/01-install-dependencies.sh

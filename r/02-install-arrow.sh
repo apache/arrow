@@ -1,0 +1,1 @@
+/home/pacha/github/arrow-setup/02-install-arrow.sh
