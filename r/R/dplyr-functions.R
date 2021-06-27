@@ -399,7 +399,19 @@ nse_funcs$str_split <- function(string, pattern, n = Inf, simplify = FALSE) {
 }
 
 nse_funcs$pmin <- function(..., na.rm = FALSE) {
-  Expression$create("element_wise_min", ...)
+  Expression$create(
+    "element_wise_min",
+    ...,
+    options = list(skip_nulls = na.rm)
+  )
+}
+
+nse_funcs$pmax <- function(..., na.rm = FALSE) {
+  Expression$create(
+    "element_wise_max",
+    ...,
+    options = list(skip_nulls = na.rm)
+  )
 }
 
 # String function helpers
