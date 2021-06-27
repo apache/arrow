@@ -1251,8 +1251,8 @@ TEST_F(TestProjector, TestRepeat) {
 
   // Create a row-batch with some sample data
   int num_records = 5;
-  auto array0 = MakeArrowArrayUtf8({"ab", "a", "car", "valid", ""},
-                                   {true, true, true, true, true});
+  auto array0 =
+      MakeArrowArrayUtf8({"ab", "a", "car", "valid", ""}, {true, true, true, true, true});
   auto array1 = MakeArrowArrayInt32({2, 1, 3, 2, 10}, {true, true, true, true, true});
   // expected output
   auto exp_repeat = MakeArrowArrayUtf8({"abab", "a", "carcarcar", "validvalid", ""},
