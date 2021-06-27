@@ -583,6 +583,54 @@ TEST(TestStringOps, TestSubstringInvalidInputs) {
   EXPECT_FALSE(ctx.has_error());
 }
 
+TEST(TestGdvFnStubs, TestCastVarbinaryUtf8) {
+  gandiva::ExecutionContext ctx;
+
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = 0;
+  const char* input = "abc";
+  const char* out;
+
+  out = castVARBINARY_utf8_int64(ctx_ptr, input, 3, 0, &out_len);
+  EXPECT_EQ(std::string(out, out_len), input);
+
+  out = castVARBINARY_utf8_int64(ctx_ptr, input, 3, 1, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "a");
+
+  out = castVARBINARY_utf8_int64(ctx_ptr, input, 3, 500, &out_len);
+  EXPECT_EQ(std::string(out, out_len), input);
+
+  out = castVARBINARY_utf8_int64(ctx_ptr, input, 3, -10, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "");
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Output buffer length can't be negative"));
+  ctx.Reset();
+}
+
+TEST(TestGdvFnStubs, TestCastVarbinaryBinary) {
+  gandiva::ExecutionContext ctx;
+
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = 0;
+  const char* input = "\\x41\\x42\\x43";
+  const char* out;
+
+  out = castVARBINARY_binary_int64(ctx_ptr, input, 12, 0, &out_len);
+  EXPECT_EQ(std::string(out, out_len), input);
+
+  out = castVARBINARY_binary_int64(ctx_ptr, input, 8, 8, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "\\x41\\x42");
+
+  out = castVARBINARY_binary_int64(ctx_ptr, input, 12, 500, &out_len);
+  EXPECT_EQ(std::string(out, out_len), input);
+
+  out = castVARBINARY_binary_int64(ctx_ptr, input, 12, -10, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "");
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Output buffer length can't be negative"));
+  ctx.Reset();
+}
+
 TEST(TestStringOps, TestConcat) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);

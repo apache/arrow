@@ -24,6 +24,63 @@
 
 namespace gandiva {
 
+TEST(TestGdvFnStubs, TestCastVarbinaryNumeric) {
+  gandiva::ExecutionContext ctx;
+
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = 0;
+
+  // tests for integer values as input
+  const char* out_str = gdv_fn_castVARBINARY_int32_int64(ctx_ptr, -46, 100, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "-46");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_castVARBINARY_int32_int64(ctx_ptr, 2147483647, 100, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "2147483647");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_castVARBINARY_int32_int64(ctx_ptr, -2147483647 - 1, 100, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "-2147483648");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_castVARBINARY_int32_int64(ctx_ptr, 0, 100, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "0");
+  EXPECT_FALSE(ctx.has_error());
+
+  // test with required length less than actual buffer length
+  out_str = gdv_fn_castVARBINARY_int32_int64(ctx_ptr, 34567, 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "345");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_castVARBINARY_int32_int64(ctx_ptr, 347, 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  gdv_fn_castVARBINARY_int32_int64(ctx_ptr, 347, -1, &out_len);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length can not be negative"));
+  ctx.Reset();
+
+  // tests for big integer values as input
+  out_str =
+      gdv_fn_castVARBINARY_int64_int64(ctx_ptr, 9223372036854775807LL, 100, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "9223372036854775807");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_castVARBINARY_int64_int64(ctx_ptr, -9223372036854775807LL - 1, 100,
+                                             &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "-9223372036854775808");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_castVARBINARY_int64_int64(ctx_ptr, 0, 100, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "0");
+  EXPECT_FALSE(ctx.has_error());
+
+  // test with required length less than actual buffer length
+  out_str = gdv_fn_castVARBINARY_int64_int64(ctx_ptr, 12345, 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "123");
+  EXPECT_FALSE(ctx.has_error());
+}
+
 TEST(TestGdvFnStubs, TestCastINT) {
   gandiva::ExecutionContext ctx;
 
