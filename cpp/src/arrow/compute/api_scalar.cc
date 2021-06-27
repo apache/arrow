@@ -145,6 +145,9 @@ static auto kSetLookupOptionsType = GetFunctionOptionsType<SetLookupOptions>(
 static auto kStrptimeOptionsType = GetFunctionOptionsType<StrptimeOptions>(
     DataMember("format", &StrptimeOptions::format),
     DataMember("unit", &StrptimeOptions::unit));
+static auto kStrftimeOptionsType = GetFunctionOptionsType<StrftimeOptions>(
+    DataMember("format", &StrftimeOptions::format),
+    DataMember("timezone", &StrftimeOptions::timezone));
 static auto kPadOptionsType = GetFunctionOptionsType<PadOptions>(
     DataMember("width", &PadOptions::width), DataMember("padding", &PadOptions::padding));
 static auto kTrimOptionsType = GetFunctionOptionsType<TrimOptions>(
@@ -238,6 +241,15 @@ StrptimeOptions::StrptimeOptions(std::string format, TimeUnit::type unit)
 StrptimeOptions::StrptimeOptions() : StrptimeOptions("", TimeUnit::SECOND) {}
 constexpr char StrptimeOptions::kTypeName[];
 
+StrftimeOptions::StrftimeOptions(std::string format, std::string timezone)
+    : FunctionOptions(internal::kStrftimeOptionsType),
+      format(std::move(format)),
+      timezone(std::move(timezone)) {
+  tz = arrow_vendored::date::locate_zone(this->timezone);
+}
+StrftimeOptions::StrftimeOptions() : StrftimeOptions("%Y-%m-%dT%H:%M:%S", "UTC") {}
+constexpr char StrftimeOptions::kTypeName[];
+
 PadOptions::PadOptions(int64_t width, std::string padding)
     : FunctionOptions(internal::kPadOptionsType),
       width(width),
@@ -294,6 +306,7 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kExtractRegexOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSetLookupOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kStrptimeOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kStrftimeOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kPadOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kTrimOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSliceOptionsType));
@@ -493,6 +506,10 @@ SCALAR_EAGER_UNARY(Subsecond, "subsecond")
 
 Result<Datum> DayOfWeek(const Datum& arg, DayOfWeekOptions options, ExecContext* ctx) {
   return CallFunction("day_of_week", {arg}, &options, ctx);
+}
+
+Result<Datum> Strftime(const Datum& arg, StrftimeOptions options, ExecContext* ctx) {
+  return CallFunction("strftime", {arg}, &options, ctx);
 }
 
 }  // namespace compute

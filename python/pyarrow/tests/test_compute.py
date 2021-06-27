@@ -130,9 +130,12 @@ def test_option_class_equality():
         pc.StrptimeOptions("%Y", "s"),
         pc.TrimOptions(" "),
     ]
+    if sys.platform != 'win32':
+        options.append(pc.StrftimeOptions("%Y", "UTC"))
     classes = {type(option) for option in options}
     for cls in exported_option_classes:
-        if cls not in classes:
+        if cls not in classes and sys.platform != 'win32' and \
+                cls != pc.StrftimeOptions:
             try:
                 options.append(cls())
             except TypeError:
@@ -1361,6 +1364,32 @@ def test_strptime():
     expected = pa.array([datetime(2020, 5, 1), None, datetime(1900, 12, 13)],
                         type=pa.timestamp('s'))
     assert got == expected
+
+
+# TODO: We should test on windows once ARROW-13168 is resolved.
+@pytest.mark.pandas
+@pytest.mark.skipif(sys.platform == 'win32',
+                    reason="Timezone database is not available on Windows yet")
+def test_strftime():
+    ts = pd.date_range(pd.Timestamp("2018-03-10 09:00"), periods=3, freq="s")
+    timezones = ["CET", "UTC", "Europe/Ljubljana"]
+    formats = ["%Y", "%M", "%F", "%Y-%m-%d %H:%M", "%B %d, %Y, %r"]
+
+    for timezone in timezones:
+        for unit in ["s", "ms", "us", "ns"]:
+            tsa = pa.array(ts, type=pa.timestamp(unit, timezone))
+            for fmt in formats:
+                options = pc.StrftimeOptions(fmt, timezone)
+                result = pc.strftime(tsa, options=options)
+
+                expected = pa.array(ts.tz_localize(
+                    "UTC").tz_convert(timezone).strftime(fmt))
+                assert result.equals(expected)
+
+    tsa = pa.array(ts, type=pa.timestamp("s", "UTC"))
+    result = pc.strftime(tsa)
+    expected = pa.array(ts.strftime("%Y-%m-%dT%H:%M:%S"))
+    assert result.equals(expected)
 
 
 def _check_datetime_components(timestamps, timezone=None):

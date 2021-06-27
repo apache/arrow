@@ -382,5 +382,28 @@ TEST_F(ScalarTemporalTest, DayOfWeek) {
                 DayOfWeek(timestamps, DayOfWeekOptions(/*one_based_numbering=*/false,
                                                        /*week_start=*/8)));
 }
+
+#ifndef _WIN32
+TEST_F(ScalarTemporalTest, Strftime) {
+  auto options_seconds = StrftimeOptions("%Y-%m-%dT%H:%M:%S", "UTC");
+  auto options_milliseconds = StrftimeOptions("%Y-%m-%dT%H:%M:%S", "UTC");
+  auto options_microseconds = StrftimeOptions("%Y-%m-%dT%H:%M:%S", "UTC");
+  auto options_nanoseconds = StrftimeOptions("%Y-%m-%dT%H:%M:%S", "UTC");
+
+  const char* times_seconds = R"(["1970-01-01T00:00:59", null])";
+  const char* times_milliseconds = R"(["1970-01-01T00:00:59.123", null])";
+  const char* times_microseconds = R"(["1970-01-01T00:00:59.123456", null])";
+  const char* times_nanoseconds = R"(["1970-01-01T00:00:59.123456789", null])";
+
+  CheckScalarUnary("strftime", timestamp(TimeUnit::SECOND), times_seconds, utf8(),
+                   times_seconds, &options_seconds);
+  CheckScalarUnary("strftime", timestamp(TimeUnit::MILLI), times_milliseconds, utf8(),
+                   times_milliseconds, &options_milliseconds);
+  CheckScalarUnary("strftime", timestamp(TimeUnit::MICRO), times_microseconds, utf8(),
+                   times_microseconds, &options_microseconds);
+  CheckScalarUnary("strftime", timestamp(TimeUnit::NANO), times_nanoseconds, utf8(),
+                   times_nanoseconds, &options_nanoseconds);
+}
+#endif
 }  // namespace compute
 }  // namespace arrow

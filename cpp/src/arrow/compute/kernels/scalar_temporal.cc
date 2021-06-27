@@ -55,6 +55,7 @@ using internal::applicator::ScalarUnaryNotNull;
 using internal::applicator::SimpleUnary;
 
 using DayOfWeekState = OptionsWrapper<DayOfWeekOptions>;
+using StrftimeState = OptionsWrapper<StrftimeOptions>;
 
 const std::shared_ptr<DataType>& IsoCalendarType() {
   static auto type = struct_({field("iso_year", int64()), field("iso_week", int64()),
@@ -445,6 +446,53 @@ struct Nanosecond {
 };
 
 // ----------------------------------------------------------------------
+// Convert timestamps to a string representation with an arbitrary format
+
+template <typename Duration>
+inline std::string get_timestamp(int64_t arg, const StrftimeOptions* options) {
+  auto zt = arrow_vendored::date::zoned_time<Duration>{options->tz,
+                                                       sys_time<Duration>(Duration{arg})};
+  return arrow_vendored::date::format(options->format, zt.get_local_time());
+}
+
+template <typename Duration>
+struct Strftime {
+  static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
+    const StrftimeOptions options = StrftimeState::Get(ctx);
+
+    if (in.is_valid) {
+      const auto& in_val = internal::UnboxScalar<const TimestampType>::Unbox(in);
+      *checked_cast<StringScalar*>(out) =
+          StringScalar(get_timestamp<Duration>(in_val, &options));
+    } else {
+      out->is_valid = false;
+    }
+    return Status::OK();
+  }
+
+  static Status Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
+    const StrftimeOptions options = StrftimeState::Get(ctx);
+
+    std::unique_ptr<ArrayBuilder> array_builder;
+    RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), utf8(), &array_builder));
+    StringBuilder* string_builder = checked_cast<StringBuilder*>(array_builder.get());
+    RETURN_NOT_OK(string_builder->Reserve(in.length * 30));
+
+    auto visit_null = [&]() { return string_builder->AppendNull(); };
+    auto visit_value = [&](int64_t arg) {
+      return string_builder->Append(get_timestamp<Duration>(arg, &options));
+    };
+    RETURN_NOT_OK(VisitArrayDataInline<Int64Type>(in, visit_value, visit_null));
+
+    std::shared_ptr<Array> out_array;
+    RETURN_NOT_OK(string_builder->Finish(&out_array));
+    *out = *std::move(out_array->data());
+
+    return Status::OK();
+  }
+};
+
+// ----------------------------------------------------------------------
 // Extract ISO calendar values from timestamp
 
 template <typename Duration, typename Localizer>
@@ -572,6 +620,41 @@ std::shared_ptr<ScalarFunction> MakeTemporal(
       }
       case TimeUnit::NANO: {
         auto exec = ExecTemplate<Op, std::chrono::nanoseconds, OutType>::Exec;
+        DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
+        break;
+      }
+    }
+  }
+  return func;
+}
+
+std::shared_ptr<ScalarFunction> MakeStrftime(std::string name, const FunctionDoc* doc,
+                                             const StrftimeOptions& default_options,
+                                             KernelInit init) {
+  const auto& out_type = utf8();
+  auto func =
+      std::make_shared<ScalarFunction>(name, Arity::Unary(), doc, &default_options);
+
+  for (auto unit : internal::AllTimeUnits()) {
+    InputType in_type{match::TimestampTypeUnit(unit)};
+    switch (unit) {
+      case TimeUnit::SECOND: {
+        auto exec = SimpleUnary<Strftime<std::chrono::seconds>>;
+        DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
+        break;
+      }
+      case TimeUnit::MILLI: {
+        auto exec = SimpleUnary<Strftime<std::chrono::milliseconds>>;
+        DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
+        break;
+      }
+      case TimeUnit::MICRO: {
+        auto exec = SimpleUnary<Strftime<std::chrono::microseconds>>;
+        DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
+        break;
+      }
+      case TimeUnit::NANO: {
+        auto exec = SimpleUnary<Strftime<std::chrono::nanoseconds>>;
         DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
         break;
       }
@@ -713,6 +796,15 @@ const FunctionDoc subsecond_doc{
      "Returns an error if timestamp has a defined timezone. Null values return null."),
     {"values"}};
 
+const FunctionDoc strftime_doc{
+    "Convert timestamps to a string representation with an arbitrary format",
+    ("Strftime returns a string representation with an arbitrary format.\n"
+     "Returns an error if timestamp has a defined timezone.\n"
+     "The time format string and output timezone can be set"
+     "via options."),
+    {"values"},
+    "StrftimeOptions"};
+
 }  // namespace
 
 void RegisterScalarTemporal(FunctionRegistry* registry) {
@@ -782,6 +874,13 @@ void RegisterScalarTemporal(FunctionRegistry* registry) {
   auto subsecond = MakeTemporal<Subsecond, TemporalComponentExtract, DoubleType>(
       "subsecond", float64(), &subsecond_doc);
   DCHECK_OK(registry->AddFunction(std::move(subsecond)));
+
+#ifndef _WIN32
+  static auto default_strftime_options = StrftimeOptions();
+  auto strftime = MakeStrftime("strftime", &strftime_doc, default_strftime_options,
+                               StrftimeState::Init);
+  DCHECK_OK(registry->AddFunction(std::move(strftime)));
+#endif
 }
 
 }  // namespace internal

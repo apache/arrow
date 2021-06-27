@@ -79,6 +79,9 @@ TEST(FunctionOptions, Equality) {
   options.emplace_back(new SetLookupOptions(ArrayFromJSON(boolean(), "[true, false]")));
   options.emplace_back(new StrptimeOptions("%Y", TimeUnit::type::MILLI));
   options.emplace_back(new StrptimeOptions("%Y", TimeUnit::type::NANO));
+#ifndef _WIN32
+  options.emplace_back(new StrftimeOptions("%Y-%m-%dT%H:%M:%S", "UTC"));
+#endif
   options.emplace_back(new PadOptions(5, " "));
   options.emplace_back(new PadOptions(10, "A"));
   options.emplace_back(new TrimOptions(" "));

@@ -29,6 +29,7 @@
 #include "arrow/result.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
+#include "arrow/vendored/datetime.h"
 
 namespace arrow {
 namespace compute {
@@ -176,6 +177,20 @@ class ARROW_EXPORT StrptimeOptions : public FunctionOptions {
 
   std::string format;
   TimeUnit::type unit;
+};
+
+class ARROW_EXPORT StrftimeOptions : public FunctionOptions {
+ public:
+  explicit StrftimeOptions(std::string format, std::string timezone);
+  StrftimeOptions();
+  constexpr static char const kTypeName[] = "StrftimeOptions";
+
+  /// The desired format string.
+  std::string format;
+  /// Timezone to output the time in.
+  std::string timezone;
+  /// Timezone to output the time in.
+  const arrow_vendored::date::time_zone* tz;
 };
 
 class ARROW_EXPORT PadOptions : public FunctionOptions {
@@ -998,6 +1013,18 @@ Result<Datum> Nanosecond(const Datum& values, ExecContext* ctx = NULLPTR);
 /// \since 5.0.0
 /// \note API not yet finalized
 ARROW_EXPORT Result<Datum> Subsecond(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief Strftime
+///
+/// \param[in] values input to print time string from
+/// \param[in] options for setting time format and timezone
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> Strftime(const Datum& values, StrftimeOptions options,
+                                    ExecContext* ctx = NULLPTR);
 
 }  // namespace compute
 }  // namespace arrow
