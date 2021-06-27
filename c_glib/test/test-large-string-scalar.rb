@@ -15,22 +15,34 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestScanOptions < Test::Unit::TestCase
+class TestLargeStringScalar < Test::Unit::TestCase
   def setup
-    @record_batches = [
-      Arrow::RecordBatch.new(visible: [true, false, true],
-                             point: [1, 2, 3]),
-    ]
-    @schema = @record_batches.first.schema
+    @buffer = Arrow::Buffer.new("Hello")
+    @scalar = Arrow::LargeStringScalar.new(@buffer)
   end
 
-  sub_test_case(".try_convert") do
-    def test_hash
-      batch_size = 1024
-      context = ArrowDataset::ScanOptions.try_convert(schema: @schema,
-                                                      batch_size: batch_size)
-      assert_equal([@schema, batch_size],
-                   [context.schema, context.batch_size])
+  def test_data_type
+    assert_equal(Arrow::LargeStringDataType.new,
+                 @scalar.data_type)
+  end
+
+  def test_valid?
+    assert do
+      @scalar.valid?
     end
+  end
+
+  def test_equal
+    assert_equal(Arrow::LargeStringScalar.new(@buffer),
+                 @scalar)
+  end
+
+  def test_to_s
+    assert_equal("...", @scalar.to_s)
+  end
+
+  def test_value
+    assert_equal(@buffer,
+                 @scalar.value)
   end
 end

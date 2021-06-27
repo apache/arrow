@@ -17,7 +17,9 @@
 
 import ast
 import base64
+import itertools
 import os
+import signal
 import struct
 import tempfile
 import threading
@@ -30,6 +32,7 @@ import pyarrow as pa
 
 from pyarrow.lib import tobytes
 from pyarrow.util import pathlib, find_free_port
+from pyarrow.tests import util
 
 try:
     from pyarrow import flight
@@ -301,6 +304,25 @@ class InvalidStreamFlightServer(FlightServerBase):
         assert table1.schema == self.schema
 
         return flight.GeneratorStream(self.schema, [table1, table2])
+
+
+class NeverSendsDataFlightServer(FlightServerBase):
+    """A Flight server that never actually yields data."""
+
+    schema = pa.schema([('a', pa.int32())])
+
+    def do_get(self, context, ticket):
+        if ticket.ticket == b'yield_data':
+            # Check that the server handler will ignore empty tables
+            # up to a certain extent
+            data = [
+                self.schema.empty_table(),
+                self.schema.empty_table(),
+                pa.RecordBatch.from_arrays([range(5)], schema=self.schema),
+            ]
+            return flight.GeneratorStream(self.schema, data)
+        return flight.GeneratorStream(
+            self.schema, itertools.repeat(self.schema.empty_table()))
 
 
 class SlowFlightServer(FlightServerBase):
@@ -1810,3 +1832,74 @@ def test_generic_options():
                                 generic_options=options)
         with pytest.raises(pa.ArrowInvalid):
             client.do_get(flight.Ticket(b'ints'))
+
+
+class CancelFlightServer(FlightServerBase):
+    """A server for testing StopToken."""
+
+    def do_get(self, context, ticket):
+        schema = pa.schema([])
+        rb = pa.RecordBatch.from_arrays([], schema=schema)
+        return flight.GeneratorStream(schema, itertools.repeat(rb))
+
+    def do_exchange(self, context, descriptor, reader, writer):
+        schema = pa.schema([])
+        rb = pa.RecordBatch.from_arrays([], schema=schema)
+        writer.begin(schema)
+        while not context.is_cancelled():
+            writer.write_batch(rb)
+            time.sleep(0.5)
+
+
+def test_interrupt():
+    if threading.current_thread().ident != threading.main_thread().ident:
+        pytest.skip("test only works from main Python thread")
+    # Skips test if not available
+    raise_signal = util.get_raise_signal()
+
+    def signal_from_thread():
+        time.sleep(0.5)
+        raise_signal(signal.SIGINT)
+
+    exc_types = (KeyboardInterrupt, pa.ArrowCancelled)
+
+    def test(read_all):
+        try:
+            try:
+                t = threading.Thread(target=signal_from_thread)
+                with pytest.raises(exc_types) as exc_info:
+                    t.start()
+                    read_all()
+            finally:
+                t.join()
+        except KeyboardInterrupt:
+            # In case KeyboardInterrupt didn't interrupt read_all
+            # above, at least prevent it from stopping the test suite
+            pytest.fail("KeyboardInterrupt didn't interrupt Flight read_all")
+        e = exc_info.value.__context__
+        assert isinstance(e, pa.ArrowCancelled) or \
+            isinstance(e, KeyboardInterrupt)
+
+    with CancelFlightServer() as server:
+        client = FlightClient(("localhost", server.port))
+
+        reader = client.do_get(flight.Ticket(b""))
+        test(reader.read_all)
+
+        descriptor = flight.FlightDescriptor.for_command(b"echo")
+        writer, reader = client.do_exchange(descriptor)
+        test(reader.read_all)
+
+
+def test_never_sends_data():
+    # Regression test for ARROW-12779
+    match = "application server implementation error"
+    with NeverSendsDataFlightServer() as server:
+        client = flight.connect(('localhost', server.port))
+        with pytest.raises(flight.FlightServerError, match=match):
+            client.do_get(flight.Ticket(b'')).read_all()
+
+        # Check that the server handler will ignore empty tables
+        # up to a certain extent
+        table = client.do_get(flight.Ticket(b'yield_data')).read_all()
+        assert table.num_rows == 5

@@ -15,19 +15,28 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestInMemoryScanTask < Test::Unit::TestCase
+class TestNullScalar < Test::Unit::TestCase
   def setup
-    @record_batches = [
-      Arrow::RecordBatch.new(visible: [true, false, true],
-                             point: [1, 2, 3]),
-    ]
+    @scalar = Arrow::NullScalar.new
   end
 
-  sub_test_case(".new") do
-    test("[[Arrow::RecordBatch]]") do
-      scan_task = ArrowDataset::InMemoryScanTask.new(@record_batches)
-      assert_equal(@record_batches,
-                   scan_task.execute.to_a)
+  def test_data_type
+    assert_equal(Arrow::NullDataType.new,
+                 @scalar.data_type)
+  end
+
+  def test_valid?
+    assert do
+      not @scalar.valid?
     end
+  end
+
+  def test_equal
+    assert_equal(Arrow::NullScalar.new,
+                 @scalar)
+  end
+
+  def test_to_s
+    assert_equal("null", @scalar.to_s)
   end
 end

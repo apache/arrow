@@ -229,7 +229,7 @@ N/A
 }
 
 TEST_P(TestCsvFileFormat, InspectFailureWithRelevantError) {
-  TestInspectFailureWithRelevantError(StatusCode::Invalid);
+  TestInspectFailureWithRelevantError(StatusCode::Invalid, "CSV");
 }
 
 TEST_P(TestCsvFileFormat, Inspect) {

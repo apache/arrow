@@ -174,67 +174,105 @@ void AssertConversionError(const std::shared_ptr<DataType>& type,
 // Converter tests
 
 template <typename T>
-static void TestBinaryConversionBasics() {
-  auto type = TypeTraits<T>::type_singleton();
-  AssertConversion<T, std::string>(type, {"ab,cdé\n", ",\xffgh\n"},
-                                   {{"ab", ""}, {"cdé", "\xffgh"}});
-}
+class BinaryConversionTestBase : public testing::Test {
+ public:
+  std::shared_ptr<DataType> type() { return TypeTraits<T>::type_singleton(); }
 
-TEST(BinaryConversion, Basics) { TestBinaryConversionBasics<BinaryType>(); }
+  void TestNulls() {
+    auto type = this->type();
+    AssertConversion<T, std::string>(type, {"ab,N/A\n", "NULL,\n"},
+                                     {{"ab", "NULL"}, {"N/A", ""}},
+                                     {{true, true}, {true, true}});
 
-TEST(LargeBinaryConversion, Basics) { TestBinaryConversionBasics<LargeBinaryType>(); }
+    auto options = ConvertOptions::Defaults();
+    options.strings_can_be_null = true;
+    AssertConversion<T, std::string>(type, {"ab,N/A\n", "NULL,\n"},
+                                     {{"ab", ""}, {"", ""}},
+                                     {{true, false}, {false, false}}, options);
+    AssertConversion<T, std::string>(type, {"ab,\"N/A\"\n", "\"NULL\",\"\"\n"},
+                                     {{"ab", ""}, {"", ""}},
+                                     {{true, false}, {false, false}}, options);
+    options.quoted_strings_can_be_null = false;
+    AssertConversion<T, std::string>(type, {"ab,N/A\n", "NULL,\n"},
+                                     {{"ab", ""}, {"", ""}},
+                                     {{true, false}, {false, false}}, options);
+    AssertConversion<T, std::string>(type, {"ab,\"N/A\"\n", "\"NULL\",\"\"\n"},
+                                     {{"ab", "NULL"}, {"N/A", ""}},
+                                     {{true, true}, {true, true}}, options);
+  }
 
-TEST(BinaryConversion, Nulls) {
-  AssertConversion<BinaryType, std::string>(binary(), {"ab,N/A\n", "NULL,\n"},
-                                            {{"ab", "NULL"}, {"N/A", ""}},
-                                            {{true, true}, {true, true}});
+  void TestCustomNulls() {
+    auto type = this->type();
+    auto options = ConvertOptions::Defaults();
+    options.null_values = {"xxx", "zzz"};
+    AssertConversion<T, std::string>(type, {"ab,N/A\n", "xxx,\"zzz\"\n"},
+                                     {{"ab", "xxx"}, {"N/A", "zzz"}},
+                                     {{true, true}, {true, true}}, options);
 
-  auto options = ConvertOptions::Defaults();
-  options.strings_can_be_null = true;
-  AssertConversion<BinaryType, std::string>(binary(), {"ab,N/A\n", "NULL,\n"},
-                                            {{"ab", ""}, {"", ""}},
-                                            {{true, false}, {false, false}}, options);
-}
-
-template <typename T>
-static void TestStringConversionBasics() {
-  auto type = TypeTraits<T>::type_singleton();
-  AssertConversion<T, std::string>(type, {"ab,cdé\n", ",gh\n"},
-                                   {{"ab", ""}, {"cdé", "gh"}});
-
-  auto options = ConvertOptions::Defaults();
-  options.check_utf8 = false;
-  AssertConversion<T, std::string>(type, {"ab,cdé\n", ",\xffgh\n"},
-                                   {{"ab", ""}, {"cdé", "\xffgh"}}, options,
-                                   /*validate_full=*/false);
-}
-
-TEST(StringConversion, Basics) { TestStringConversionBasics<StringType>(); }
-
-TEST(LargeStringConversion, Basics) { TestStringConversionBasics<LargeStringType>(); }
-
-TEST(StringConversion, Nulls) {
-  AssertConversion<StringType, std::string>(utf8(), {"ab,N/A\n", "NULL,\n"},
-                                            {{"ab", "NULL"}, {"N/A", ""}},
-                                            {{true, true}, {true, true}});
-
-  auto options = ConvertOptions::Defaults();
-  options.strings_can_be_null = true;
-  AssertConversion<StringType, std::string>(utf8(), {"ab,N/A\n", "NULL,\n"},
-                                            {{"ab", ""}, {"", ""}},
-                                            {{true, false}, {false, false}}, options);
-}
+    options.strings_can_be_null = true;
+    AssertConversion<T, std::string>(type, {"ab,N/A\n", "xxx,\"zzz\"\n"},
+                                     {{"ab", ""}, {"N/A", ""}},
+                                     {{true, false}, {true, false}}, options);
+    options.quoted_strings_can_be_null = false;
+    AssertConversion<T, std::string>(type, {"ab,N/A\n", "xxx,\"zzz\"\n"},
+                                     {{"ab", ""}, {"N/A", "zzz"}},
+                                     {{true, false}, {true, true}}, options);
+  }
+};
 
 template <typename T>
-static void TestStringConversionErrors() {
-  auto type = TypeTraits<T>::type_singleton();
-  // Invalid UTF8 in column 0
-  AssertConversionError(type, {"ab,cdé\n", "\xff,gh\n"}, {0});
-}
+class BinaryConversionTest : public BinaryConversionTestBase<T> {
+ public:
+  void TestBasics() {
+    auto type = this->type();
+    AssertConversion<T, std::string>(type, {"ab,cdé\n", ",\xffgh\n"},
+                                     {{"ab", ""}, {"cdé", "\xffgh"}});
+  }
+};
 
-TEST(StringConversion, Errors) { TestStringConversionErrors<StringType>(); }
+using BinaryTestTypes = ::testing::Types<BinaryType, LargeBinaryType>;
 
-TEST(LargeStringConversion, Errors) { TestStringConversionErrors<LargeStringType>(); }
+TYPED_TEST_SUITE(BinaryConversionTest, BinaryTestTypes);
+
+TYPED_TEST(BinaryConversionTest, Basics) { this->TestBasics(); }
+
+TYPED_TEST(BinaryConversionTest, Nulls) { this->TestNulls(); }
+
+TYPED_TEST(BinaryConversionTest, CustomNulls) { this->TestNulls(); }
+
+template <typename T>
+class StringConversionTest : public BinaryConversionTestBase<T> {
+ public:
+  void TestBasics() {
+    auto type = TypeTraits<T>::type_singleton();
+    AssertConversion<T, std::string>(type, {"ab,cdé\n", ",gh\n"},
+                                     {{"ab", ""}, {"cdé", "gh"}});
+  }
+
+  void TestInvalidUtf8() {
+    auto type = TypeTraits<T>::type_singleton();
+    // Invalid UTF8 in column 0
+    AssertConversionError(type, {"ab,cdé\n", "\xff,gh\n"}, {0});
+
+    auto options = ConvertOptions::Defaults();
+    options.check_utf8 = false;
+    AssertConversion<T, std::string>(type, {"ab,cdé\n", ",\xffgh\n"},
+                                     {{"ab", ""}, {"cdé", "\xffgh"}}, options,
+                                     /*validate_full=*/false);
+  }
+};
+
+using StringTestTypes = ::testing::Types<StringType, LargeStringType>;
+
+TYPED_TEST_SUITE(StringConversionTest, StringTestTypes);
+
+TYPED_TEST(StringConversionTest, Basics) { this->TestBasics(); }
+
+TYPED_TEST(StringConversionTest, Nulls) { this->TestNulls(); }
+
+TYPED_TEST(StringConversionTest, CustomNulls) { this->TestCustomNulls(); }
+
+TYPED_TEST(StringConversionTest, InvalidUtf8) { this->TestInvalidUtf8(); }
 
 TEST(FixedSizeBinaryConversion, Basics) {
   AssertConversion<FixedSizeBinaryType, std::string>(

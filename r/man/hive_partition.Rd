@@ -4,7 +4,7 @@
 \alias{hive_partition}
 \title{Construct Hive partitioning}
 \usage{
-hive_partition(..., null_fallback = NULL)
+hive_partition(..., null_fallback = NULL, segment_encoding = "uri")
 }
 \arguments{
 \item{...}{named list of \link[=data-type]{data types}, passed to \code{\link[=schema]{schema()}}}
@@ -12,6 +12,9 @@ hive_partition(..., null_fallback = NULL)
 \item{null_fallback}{character to be used in place of missing values (\code{NA} or \code{NULL})
 in partition columns. Default is \code{"__HIVE_DEFAULT_PARTITION__"},
 which is what Hive uses.}
+
+\item{segment_encoding}{Decode partition segments after splitting paths.
+Default is \code{"uri"} (URI-decode segments). May also be \code{"none"} (leave as-is).}
 }
 \value{
 A \link[=Partitioning]{HivePartitioning}, or a \code{HivePartitioningFactory} if

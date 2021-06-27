@@ -10,7 +10,7 @@
 Apache Arrow defines two formats for \href{https://arrow.apache.org/docs/format/Columnar.html#serialization-and-interprocess-communication-ipc}{serializing data for interprocess communication (IPC)}:
 a "stream" format and a "file" format, known as Feather.
 \code{RecordBatchStreamReader} and \code{RecordBatchFileReader} are
-interfaces for accessing record batches from input sources those formats,
+interfaces for accessing record batches from input sources in those formats,
 respectively.
 
 For guidance on how to use these classes, see the examples section.

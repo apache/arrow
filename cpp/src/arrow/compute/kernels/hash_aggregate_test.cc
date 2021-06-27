@@ -116,7 +116,7 @@ void ValidateGroupBy(const std::vector<internal::Aggregate>& aggregates,
   ASSERT_OK_AND_ASSIGN(Datum actual, GroupBy(arguments, keys, aggregates));
 
   ASSERT_OK(expected.make_array()->ValidateFull());
-  ASSERT_OK(actual.make_array()->ValidateFull());
+  ValidateOutput(actual);
 
   AssertDatumsEqual(expected, actual, /*verbose=*/true);
 }
@@ -250,7 +250,7 @@ struct TestGrouper {
       // check that uniques_ are prefixes of new_uniques
       for (int i = 0; i < uniques_.num_values(); ++i) {
         auto new_unique = new_uniques[i].make_array();
-        ASSERT_OK(new_unique->ValidateFull());
+        ValidateOutput(*new_unique);
 
         AssertDatumsEqual(uniques_[i], new_unique->Slice(0, uniques_.length),
                           /*verbose=*/true);
@@ -261,7 +261,7 @@ struct TestGrouper {
 
     // check that the ids encode an equivalent key sequence
     auto ids = id_batch.make_array();
-    ASSERT_OK(ids->ValidateFull());
+    ValidateOutput(*ids);
 
     for (int i = 0; i < key_batch.num_values(); ++i) {
       SCOPED_TRACE(std::to_string(i) + "th key array");
@@ -808,6 +808,38 @@ TEST(GroupBy, WithChunkedArray) {
     [3, -0.125, {"min": -0.25, "max": 0.125}, 2],
     [0, null,   {"min": null,  "max": null},  3],
     [2, 4.75,   {"min": 0.75,  "max": 4.0},   null]
+  ])"),
+                    aggregated_and_grouped,
+                    /*verbose=*/true);
+}
+
+TEST(GroupBy, MinMaxWithNewGroupsInChunkedArray) {
+  auto table = TableFromJSON(
+      schema({field("argument", int64()), field("key", int64())}),
+      {R"([{"argument": 1, "key": 0}])", R"([{"argument": 0,   "key": 1}])"});
+  ScalarAggregateOptions count_options;
+  ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                       internal::GroupBy(
+                           {
+                               table->GetColumnByName("argument"),
+                           },
+                           {
+                               table->GetColumnByName("key"),
+                           },
+                           {
+                               {"hash_min_max", nullptr},
+                           }));
+
+  AssertDatumsEqual(ArrayFromJSON(struct_({
+                                      field("hash_min_max", struct_({
+                                                                field("min", int64()),
+                                                                field("max", int64()),
+                                                            })),
+                                      field("key_0", int64()),
+                                  }),
+                                  R"([
+    [{"min": 1, "max": 1}, 0],
+    [{"min": 0, "max": 0}, 1]
   ])"),
                     aggregated_and_grouped,
                     /*verbose=*/true);

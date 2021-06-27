@@ -100,7 +100,7 @@ following checks:
 * Passes various C++ (and others) style checks, checked with the ``lint``
   subcommand to :ref:`Archery <archery>`.
 * CMake files pass style checks, can be fixed by running
-  ``run-cmake-format.py`` from the root of the repository. This requires Python
+  ``archery lint --cmake-format --fix``. This requires Python
   3 and `cmake_format <https://github.com/cheshirekow/cmake_format>`_ (note:
   this currently does not work on Windows)
 

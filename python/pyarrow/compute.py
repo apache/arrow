@@ -36,11 +36,13 @@ from pyarrow._compute import (  # noqa
     ExtractRegexOptions,
     FilterOptions,
     IndexOptions,
+    JoinOptions,
     MatchSubstringOptions,
     ModeOptions,
     PartitionNthOptions,
     ProjectOptions,
     QuantileOptions,
+    ReplaceSliceOptions,
     ReplaceSubstringOptions,
     ScalarAggregateOptions,
     SetLookupOptions,
@@ -289,6 +291,44 @@ def cast(arr, target_type, safe=True):
     else:
         options = CastOptions.unsafe(target_type)
     return call_function("cast", [arr], options)
+
+
+def count_substring(array, pattern, *, ignore_case=False):
+    """
+    Count the occurrences of substring *pattern* in each value of a
+    string array.
+
+    Parameters
+    ----------
+    array : pyarrow.Array or pyarrow.ChunkedArray
+    pattern : str
+        pattern to search for exact matches
+
+    Returns
+    -------
+    result : pyarrow.Array or pyarrow.ChunkedArray
+    """
+    return call_function("count_substring", [array],
+                         MatchSubstringOptions(pattern, ignore_case))
+
+
+def count_substring_regex(array, pattern, *, ignore_case=False):
+    """
+    Count the non-overlapping matches of regex *pattern* in each value
+    of a string array.
+
+    Parameters
+    ----------
+    array : pyarrow.Array or pyarrow.ChunkedArray
+    pattern : str
+        pattern to search for exact matches
+
+    Returns
+    -------
+    result : pyarrow.Array or pyarrow.ChunkedArray
+    """
+    return call_function("count_substring_regex", [array],
+                         MatchSubstringOptions(pattern, ignore_case))
 
 
 def find_substring(array, pattern):

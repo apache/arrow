@@ -139,19 +139,6 @@ test_that("arrange() on integer, double, and character columns", {
       collect(),
     tbl
   )
-  expect_warning(
-    expect_equal(
-      tbl %>%
-        Table$create() %>%
-        arrange(abs(int), dbl) %>%
-        collect(),
-      tbl %>%
-        arrange(abs(int), dbl) %>%
-        collect()
-    ),
-    "not supported in Arrow",
-    fixed = TRUE
-  )
 })
 
 test_that("arrange() on datetime columns", {
@@ -208,6 +195,13 @@ test_that("arrange() with bad inputs", {
       Table$create() %>%
       arrange(desc(aertidjfgjksertyj + iaermxiwerksxsdqq)),
     "not found",
+    fixed = TRUE
+  )
+  expect_error(
+    tbl %>%
+      Table$create() %>%
+      arrange(desc(int, chr)),
+    "expects only one argument",
     fixed = TRUE
   )
 })

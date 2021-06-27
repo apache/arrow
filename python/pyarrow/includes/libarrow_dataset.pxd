@@ -305,16 +305,35 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CResult[CExpression] Parse(const c_string & path) const
         const shared_ptr[CSchema] & schema()
 
+    cdef cppclass CSegmentEncoding" arrow::dataset::SegmentEncoding":
+        pass
+
+    CSegmentEncoding CSegmentEncodingNone\
+        " arrow::dataset::SegmentEncoding::None"
+    CSegmentEncoding CSegmentEncodingUri\
+        " arrow::dataset::SegmentEncoding::Uri"
+
+    cdef cppclass CKeyValuePartitioningOptions \
+            "arrow::dataset::KeyValuePartitioningOptions":
+        CSegmentEncoding segment_encoding
+
+    cdef cppclass CHivePartitioningOptions \
+            "arrow::dataset::HivePartitioningOptions":
+        CSegmentEncoding segment_encoding
+        c_string null_fallback
+
     cdef cppclass CPartitioningFactoryOptions \
             "arrow::dataset::PartitioningFactoryOptions":
         c_bool infer_dictionary
         shared_ptr[CSchema] schema
+        CSegmentEncoding segment_encoding
 
     cdef cppclass CHivePartitioningFactoryOptions \
             "arrow::dataset::HivePartitioningFactoryOptions":
-        c_bool infer_dictionary,
+        c_bool infer_dictionary
         c_string null_fallback
         shared_ptr[CSchema] schema
+        CSegmentEncoding segment_encoding
 
     cdef cppclass CPartitioningFactory "arrow::dataset::PartitioningFactory":
         pass
@@ -331,7 +350,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef cppclass CHivePartitioning \
             "arrow::dataset::HivePartitioning"(CPartitioning):
         CHivePartitioning(shared_ptr[CSchema] schema,
-                          vector[shared_ptr[CArray]] dictionaries)
+                          vector[shared_ptr[CArray]] dictionaries,
+                          CHivePartitioningOptions options)
 
         @staticmethod
         shared_ptr[CPartitioningFactory] MakeFactory(

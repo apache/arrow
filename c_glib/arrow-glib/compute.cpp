@@ -526,7 +526,7 @@ garrow_cast_options_class_init(GArrowCastOptionsClass *klass)
   /**
    * GArrowCastOptions:to-data-type:
    *
-   * The GArrowDataType being casted to.
+   * The #GArrowDataType being casted to.
    *
    * Since: 1.0.0
    */

@@ -118,6 +118,9 @@ RecordBatch <- R6Class("RecordBatch", inherit = ArrowTabular,
     invalidate = function() {
       .Call(`_arrow_RecordBatch__Reset`, self)
       super$invalidate()
+    },
+    export_to_c = function(array_ptr, schema_ptr) {
+      ExportRecordBatch(self, array_ptr, schema_ptr)
     }
   ),
 
@@ -148,7 +151,7 @@ RecordBatch$create <- function(..., schema = NULL) {
   if (length(arrays) == 1 && inherits(arrays[[1]], c("raw", "Buffer", "InputStream", "Message"))) {
     return(RecordBatch$from_message(arrays[[1]], schema))
   }
-  
+
   # Else, a list of arrays or data.frames
   # making sure there are always names
   if (is.null(names(arrays))) {
@@ -161,7 +164,10 @@ RecordBatch$create <- function(..., schema = NULL) {
     out <- RecordBatch__from_arrays(schema, arrays)
     return(dplyr::group_by(out, !!!dplyr::groups(arrays[[1]])))
   }
-  
+
+  # If any arrays are length 1, recycle them
+  arrays <- recycle_scalars(arrays)
+
   # TODO: should this also assert that they're all Arrays?
   RecordBatch__from_arrays(schema, arrays)
 }
@@ -179,6 +185,8 @@ RecordBatch$from_message <- function(obj, schema) {
     ipc___ReadRecordBatch__Message__Schema(obj, schema)
   }
 }
+#' @include arrowExports.R
+RecordBatch$import_from_c <- ImportRecordBatch
 
 #' @param ... A `data.frame` or a named set of Arrays or vectors. If given a
 #' mixture of data.frames and vectors, the inputs will be autospliced together

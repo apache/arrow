@@ -57,9 +57,9 @@ jobs:
           arrow/ci/scripts/java_jni_macos_build.sh \
             $GITHUB_WORKSPACE/arrow \
             $GITHUB_WORKSPACE/arrow/cpp-build \
-            $GITHUB_WORKSPACE/arrow/dist
+            $GITHUB_WORKSPACE/arrow/java/dist
       - name: Compress into single artifact
-        run: tar -cvzf arrow-shared-libs-macos.tar.gz arrow/dist/
+        run: tar -cvzf arrow-shared-libs-macos.tar.gz arrow/java/dist/
       - name: Upload Artifacts
         uses: actions/upload-artifact@v2
         with:
@@ -84,10 +84,19 @@ jobs:
         run: |
           tar -xvzf arrow-shared-libs-macos.tar.gz
           tar -xvzf arrow-shared-libs-linux.tar.gz
-      - name: Build Jar
+      - name: Test that Shared Libraries Exist
+        run: |
+          test -f arrow/java/dist/libarrow_dataset_jni.dylib
+          test -f arrow/java/dist/libgandiva_jni.dylib
+          test -f arrow/java/dist/libarrow_orc_jni.dylib
+          test -f arrow/java/dist/libarrow_dataset_jni.so
+          test -f arrow/java/dist/libarrow_orc_jni.so
+          test -f arrow/java/dist/libgandiva_jni.so
+      - name: Build Bundled Jar
         run: |
           set -e
           arrow/ci/scripts/java_jni_build.sh \
             $GITHUB_WORKSPACE/arrow \
-            $GITHUB_WORKSPACE/arrow/dist \
-      {{ macros.github_upload_releases("arrow/dist/*.jar")|indent }}
+            $GITHUB_WORKSPACE/arrow/java/dist \
+            $GITHUB_WORKSPACE/arrow/java/dist
+      {{ macros.github_upload_releases(["arrow/java/dist/*.jar", "arrow/java/dist/*.pom"])|indent }}

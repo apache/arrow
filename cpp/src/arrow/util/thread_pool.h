@@ -102,24 +102,24 @@ class ARROW_EXPORT Executor {
   // The continuations of that future should run on the CPU thread pool keeping
   // CPU heavy work off the I/O thread pool.  So the I/O task should transfer
   // the future to the CPU executor before returning.
-  template <typename T, typename FT = Future<T>, typename FTSync = typename FT::SyncType>
+  //
+  // By default this method will only transfer if the future is not already completed.  If
+  // the future is already completed then any callback would be run synchronously and so
+  // no transfer is typically necessary.  However, in cases where you want to force a
+  // transfer (e.g. to help the scheduler break up units of work across multiple cores)
+  // then you can override this behavior with `always_transfer`.
+  template <typename T>
   Future<T> Transfer(Future<T> future) {
-    auto transferred = Future<T>::Make();
-    auto callback = [this, transferred](const FTSync& result) mutable {
-      auto spawn_status =
-          Spawn([transferred, result]() mutable { transferred.MarkFinished(result); });
-      if (!spawn_status.ok()) {
-        transferred.MarkFinished(spawn_status);
-      }
-    };
-    auto callback_factory = [&callback]() { return callback; };
-    if (future.TryAddCallback(callback_factory)) {
-      return transferred;
-    }
-    // If the future is already finished and we aren't going to force spawn a thread
-    // then we don't need to add another layer of callback and can return the original
-    // future
-    return future;
+    return DoTransfer(std::move(future), false);
+  }
+
+  // Overload of Transfer which will always schedule callbacks on new threads even if the
+  // future is finished when the callback is added.
+  //
+  // This can be useful in cases where you want to ensure parallelism
+  template <typename T>
+  Future<T> TransferAlways(Future<T> future) {
+    return DoTransfer(std::move(future), true);
   }
 
   // Submit a callable and arguments for execution.  Return a future that
@@ -183,6 +183,39 @@ class ARROW_EXPORT Executor {
   ARROW_DISALLOW_COPY_AND_ASSIGN(Executor);
 
   Executor() = default;
+
+  template <typename T, typename FT = Future<T>, typename FTSync = typename FT::SyncType>
+  Future<T> DoTransfer(Future<T> future, bool always_transfer = false) {
+    auto transferred = Future<T>::Make();
+    if (always_transfer) {
+      CallbackOptions callback_options = CallbackOptions::Defaults();
+      callback_options.should_schedule = ShouldSchedule::Always;
+      callback_options.executor = this;
+      auto sync_callback = [transferred](const FTSync& result) mutable {
+        transferred.MarkFinished(result);
+      };
+      future.AddCallback(sync_callback, callback_options);
+      return transferred;
+    }
+
+    // We could use AddCallback's ShouldSchedule::IfUnfinished but we can save a bit of
+    // work by doing the test here.
+    auto callback = [this, transferred](const FTSync& result) mutable {
+      auto spawn_status =
+          Spawn([transferred, result]() mutable { transferred.MarkFinished(result); });
+      if (!spawn_status.ok()) {
+        transferred.MarkFinished(spawn_status);
+      }
+    };
+    auto callback_factory = [&callback]() { return callback; };
+    if (future.TryAddCallback(callback_factory)) {
+      return transferred;
+    }
+    // If the future is already finished and we aren't going to force spawn a thread
+    // then we don't need to add another layer of callback and can return the original
+    // future
+    return future;
+  }
 
   // Subclassing API
   virtual Status SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken,

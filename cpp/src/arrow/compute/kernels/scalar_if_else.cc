@@ -543,7 +543,38 @@ struct ResolveIfElseExec {
   }
 };
 
-void AddPrimitiveIfElseKernels(const std::shared_ptr<ScalarFunction>& scalar_function,
+struct IfElseFunction : ScalarFunction {
+  using ScalarFunction::ScalarFunction;
+
+  Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
+    RETURN_NOT_OK(CheckArity(*values));
+
+    using arrow::compute::detail::DispatchExactImpl;
+    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
+
+    // if 0th descriptor is null, replace with bool
+    if (values->at(0).type->id() == Type::NA) {
+      values->at(0).type = boolean();
+    }
+
+    // if-else 0'th descriptor is bool, so skip it
+    std::vector<ValueDescr> values_copy(values->begin() + 1, values->end());
+    internal::EnsureDictionaryDecoded(&values_copy);
+    internal::ReplaceNullWithOtherType(&values_copy);
+
+    if (auto type = internal::CommonNumeric(values_copy)) {
+      internal::ReplaceTypes(type, &values_copy);
+    }
+
+    std::move(values_copy.begin(), values_copy.end(), values->begin() + 1);
+
+    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
+
+    return arrow::compute::detail::NoMatchingKernel(this, *values);
+  }
+};
+
+void AddPrimitiveIfElseKernels(const std::shared_ptr<IfElseFunction>& scalar_function,
                                const std::vector<std::shared_ptr<DataType>>& types) {
   for (auto&& type : types) {
     auto exec = internal::GenerateTypeAgnosticPrimitive<ResolveIfElseExec>(*type);
@@ -572,7 +603,7 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
   scalar_kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
   scalar_kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
 
-  auto func = std::make_shared<ScalarFunction>("if_else", Arity::Ternary(), &if_else_doc);
+  auto func = std::make_shared<IfElseFunction>("if_else", Arity::Ternary(), &if_else_doc);
 
   AddPrimitiveIfElseKernels(func, NumericTypes());
   AddPrimitiveIfElseKernels(func, TemporalTypes());

@@ -33,7 +33,9 @@ endfunction()
 
 function(list_join lst glue out)
   if("${${lst}}" STREQUAL "")
-    set(${out} "" PARENT_SCOPE)
+    set(${out}
+        ""
+        PARENT_SCOPE)
     return()
   endif()
 
@@ -42,7 +44,9 @@ function(list_join lst glue out)
   foreach(item ${${lst}})
     set(joined "${joined}${glue}${item}")
   endforeach()
-  set(${out} ${joined} PARENT_SCOPE)
+  set(${out}
+      ${joined}
+      PARENT_SCOPE)
 endfunction()
 
 macro(define_option name description default)
@@ -61,7 +65,9 @@ macro(define_option_string name description default)
   check_description_length(${name} ${description})
   list_join(description "\n" multiline_description)
 
-  set(${name} ${default} CACHE STRING "${multiline_description}")
+  set(${name}
+      ${default}
+      CACHE STRING "${multiline_description}")
 
   list(APPEND "ARROW_${ARROW_OPTION_CATEGORY}_OPTION_NAMES" ${name})
   set("${name}_OPTION_DESCRIPTION" ${description})
@@ -181,8 +187,8 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_ONLY_LINT "Only define the lint and check-format targets" OFF)
 
-  define_option(ARROW_VERBOSE_LINT "If off, 'quiet' flags will be passed to linting tools"
-                OFF)
+  define_option(ARROW_VERBOSE_LINT
+                "If off, 'quiet' flags will be passed to linting tools" OFF)
 
   define_option(ARROW_GENERATE_COVERAGE "Build with C++ code coverage enabled" OFF)
 
@@ -320,7 +326,8 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   define_option(ARROW_LZ4_USE_SHARED "Rely on lz4 shared libraries where relevant"
                 ${ARROW_DEPENDENCY_USE_SHARED})
 
-  define_option(ARROW_OPENSSL_USE_SHARED "Rely on OpenSSL shared libraries where relevant"
+  define_option(ARROW_OPENSSL_USE_SHARED
+                "Rely on OpenSSL shared libraries where relevant"
                 ${ARROW_DEPENDENCY_USE_SHARED})
 
   define_option(ARROW_PROTOBUF_USE_SHARED
@@ -363,14 +370,12 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   define_option(ARROW_WITH_ZLIB "Build with zlib compression" OFF)
   define_option(ARROW_WITH_ZSTD "Build with zstd compression" OFF)
 
-  define_option(
-    ARROW_WITH_UTF8PROC
-    "Build with support for Unicode properties using the utf8proc library;(only used if ARROW_COMPUTE is ON or ARROW_GANDIVA is ON)"
-    ON)
-  define_option(
-    ARROW_WITH_RE2
-    "Build with support for regular expressions using the re2 library;(only used if ARROW_COMPUTE or ARROW_GANDIVA is ON)"
-    ON)
+  define_option(ARROW_WITH_UTF8PROC
+                "Build with support for Unicode properties using the utf8proc library;(only used if ARROW_COMPUTE is ON or ARROW_GANDIVA is ON)"
+                ON)
+  define_option(ARROW_WITH_RE2
+                "Build with support for regular expressions using the re2 library;(only used if ARROW_COMPUTE or ARROW_GANDIVA is ON)"
+                ON)
 
   #----------------------------------------------------------------------
   if(MSVC_TOOLCHAIN)
@@ -416,9 +421,9 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
                 "Depend only on Thirdparty headers to build libparquet.;\
 Always OFF if building binaries" OFF)
 
-  define_option(
-    PARQUET_BUILD_EXECUTABLES
-    "Build the Parquet executable CLI tools. Requires static libraries to be built." OFF)
+  define_option(PARQUET_BUILD_EXECUTABLES
+                "Build the Parquet executable CLI tools. Requires static libraries to be built."
+                OFF)
 
   define_option(PARQUET_BUILD_EXAMPLES
                 "Build the Parquet examples. Requires static libraries to be built." OFF)
@@ -432,10 +437,9 @@ Always OFF if building binaries" OFF)
   define_option(ARROW_GANDIVA_JAVA "Build the Gandiva JNI wrappers" OFF)
 
   # ARROW-3860: Temporary workaround
-  define_option(
-    ARROW_GANDIVA_STATIC_LIBSTDCPP
-    "Include -static-libstdc++ -static-libgcc when linking with;Gandiva static libraries"
-    OFF)
+  define_option(ARROW_GANDIVA_STATIC_LIBSTDCPP
+                "Include -static-libstdc++ -static-libgcc when linking with;Gandiva static libraries"
+                OFF)
 
   define_option_string(ARROW_GANDIVA_PC_CXX_FLAGS
                        "Compiler flags to append when pre-compiling Gandiva operations"
@@ -450,7 +454,8 @@ Always OFF if building binaries" OFF)
   define_option(ARROW_OPTIONAL_INSTALL
                 "If enabled install ONLY targets that have already been built. Please be;\
 advised that if this is enabled 'install' will fail silently on components;\
-that have not been built" OFF)
+that have not been built"
+                OFF)
 
   option(ARROW_BUILD_CONFIG_SUMMARY_JSON "Summarize build configuration in a JSON file"
          ON)
@@ -465,9 +470,8 @@ macro(validate_config)
       set(value "${${name}}")
       if(possible_values)
         if(NOT "${value}" IN_LIST possible_values)
-          message(
-            FATAL_ERROR "Configuration option ${name} got invalid value '${value}'. "
-                        "Allowed values: ${${name}_OPTION_ENUM}.")
+          message(FATAL_ERROR "Configuration option ${name} got invalid value '${value}'. "
+                              "Allowed values: ${${name}_OPTION_ENUM}.")
         endif()
       endif()
     endforeach()
@@ -486,8 +490,8 @@ macro(config_summary_message)
   message(STATUS "  Source directory: ${CMAKE_CURRENT_SOURCE_DIR}")
   message(STATUS "  Install prefix: ${CMAKE_INSTALL_PREFIX}")
   if(${CMAKE_EXPORT_COMPILE_COMMANDS})
-    message(
-      STATUS "  Compile commands: ${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json")
+    message(STATUS "  Compile commands: ${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json"
+    )
   endif()
 
   foreach(category ${ARROW_OPTION_CATEGORIES})

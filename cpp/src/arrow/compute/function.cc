@@ -210,8 +210,9 @@ Status Function::Validate() const {
     if (arity_.is_varargs && arg_count == arity_.num_args + 1) {
       return Status::OK();
     }
-    return Status::Invalid("In function '", name_,
-                           "': ", "number of argument names != function arity");
+    return Status::Invalid(
+        "In function '", name_,
+        "': ", "number of argument names for function documentation != function arity");
   }
   return Status::OK();
 }

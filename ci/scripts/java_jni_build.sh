@@ -20,39 +20,18 @@
 set -e
 
 arrow_dir=${1}
-cpp_build_dir=${2}
-java_dir=${arrow_dir}/java
+cpp_lib_dir=${2}
+java_dist_dir=${3}
 
 export ARROW_TEST_DATA=${arrow_dir}/testing/data
 
-pushd $java_dir
+pushd ${arrow_dir}/java
 
 # build the entire project
-mvn clean install -P arrow-jni -Darrow.cpp.build.dir=$cpp_build_dir
+mvn clean install -P arrow-jni -Darrow.cpp.build.dir=$cpp_lib_dir
 
-MODULES=(
-  adapter/avro
-  adapter/jdbc
-  adapter/orc
-  algorithm
-  compression
-  dataset
-  flight/flight-core
-  flight/flight-grpc
-  format
-  gandiva
-  memory/memory-core
-  memory/memory-netty
-  memory/memory-unsafe
-  performance
-  plasma
-  tools
-  vector
-)
-
-# copy all jars to distribution folder, excluding the unit tests
-for module in "${MODULES[@]}"; do
-  find $module/target/ -name "*.jar" -not -name "*tests*" -not -name "*benchmarks*" -exec cp  {} $cpp_build_dir \;
-done
+# copy all jars and pom files to the distribution folder
+find . -name "*.jar" -exec echo {} \; -exec cp {} $java_dist_dir \;
+find . -name "*.pom" -exec echo {} \; -exec cp {} $java_dist_dir \;
 
 popd

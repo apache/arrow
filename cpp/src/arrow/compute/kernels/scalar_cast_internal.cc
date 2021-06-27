@@ -255,7 +255,12 @@ static bool CanCastFromDictionary(Type::type type_id) {
 
 void AddCommonCasts(Type::type out_type_id, OutputType out_ty, CastFunction* func) {
   // From null to this type
-  DCHECK_OK(func->AddKernel(Type::NA, {null()}, out_ty, CastFromNull));
+  ScalarKernel kernel;
+  kernel.exec = CastFromNull;
+  kernel.signature = KernelSignature::Make({null()}, out_ty);
+  kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+  kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+  DCHECK_OK(func->AddKernel(Type::NA, std::move(kernel)));
 
   // From dictionary to this type
   if (CanCastFromDictionary(out_type_id)) {

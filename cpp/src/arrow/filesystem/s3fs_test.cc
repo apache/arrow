@@ -410,6 +410,18 @@ class TestS3FS : public S3TestMixin {
     ASSERT_OK_AND_ASSIGN(fs_, S3FileSystem::Make(options_));
   }
 
+  template <typename Matcher>
+  void AssertMetadataRoundtrip(const std::string& path,
+                               const std::shared_ptr<const KeyValueMetadata>& metadata,
+                               Matcher&& matcher) {
+    ASSERT_OK_AND_ASSIGN(auto output, fs_->OpenOutputStream(path, metadata));
+    ASSERT_OK(output->Close());
+    ASSERT_OK_AND_ASSIGN(auto input, fs_->OpenInputStream(path));
+    ASSERT_OK_AND_ASSIGN(auto got_metadata, input->ReadMetadata());
+    ASSERT_NE(got_metadata, nullptr);
+    ASSERT_THAT(got_metadata->sorted_pairs(), matcher);
+  }
+
   void TestOpenOutputStream() {
     std::shared_ptr<io::OutputStream> stream;
 
@@ -452,23 +464,6 @@ class TestS3FS : public S3TestMixin {
     }
     ASSERT_OK(stream->Close());
     AssertObjectContents(client_.get(), "bucket", "newfile4", expected);
-
-    // Create new file with metadata
-    auto metadata = KeyValueMetadata::Make({"Content-Type", "Expires"},
-                                           {"x-arrow/test6", "2016-02-05T20:08:35Z"});
-    ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/newfile5", metadata));
-    ASSERT_OK(stream->Close());
-    ASSERT_OK_AND_ASSIGN(auto input, fs_->OpenInputStream("bucket/newfile5"));
-    ASSERT_OK_AND_ASSIGN(auto got_metadata, input->ReadMetadata());
-    ASSERT_NE(got_metadata, nullptr);
-    ASSERT_THAT(got_metadata->sorted_pairs(),
-                testing::IsSupersetOf(metadata->sorted_pairs()));
-
-    // Create new file with valid canned ACL
-    // XXX: no easy way of testing the ACL actually gets set
-    metadata = KeyValueMetadata::Make({"ACL"}, {"authenticated-read"});
-    ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/newfile6", metadata));
-    ASSERT_OK(stream->Close());
 
     // Overwrite
     ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/newfile1"));
@@ -786,7 +781,9 @@ TEST_F(TestS3FS, CopyFile) {
   ASSERT_OK(fs_->CopyFile("bucket/somedir/subdir/subfile", "bucket/newfile"));
   AssertFileInfo(fs_.get(), "bucket/newfile", FileType::File, 8);
   AssertObjectContents(client_.get(), "bucket", "newfile", "sub data");
-
+  // ARROW-13048: URL-encoded paths
+  ASSERT_OK(fs_->CopyFile("bucket/somefile", "bucket/a=2/newfile"));
+  ASSERT_OK(fs_->CopyFile("bucket/a=2/newfile", "bucket/a=3/newfile"));
   // Nonexistent
   ASSERT_RAISES(IOError, fs_->CopyFile("bucket/nonexistent", "bucket/newfile2"));
   ASSERT_RAISES(IOError, fs_->CopyFile("nonexistent-bucket/somefile", "bucket/newfile2"));
@@ -808,6 +805,10 @@ TEST_F(TestS3FS, Move) {
   AssertObjectContents(client_.get(), "bucket", "newfile", "sub data");
   // Source was deleted
   AssertFileInfo(fs_.get(), "bucket/somedir/subdir/subfile", FileType::NotFound);
+
+  // ARROW-13048: URL-encoded paths
+  ASSERT_OK(fs_->Move("bucket/newfile", "bucket/a=2/newfile"));
+  ASSERT_OK(fs_->Move("bucket/a=2/newfile", "bucket/a=3/newfile"));
 
   // Nonexistent
   ASSERT_RAISES(IOError, fs_->Move("bucket/non-existent", "bucket/newfile2"));
@@ -937,6 +938,37 @@ TEST_F(TestS3FS, OpenOutputStreamDestructorSyncWrite) {
   options_.background_writes = false;
   MakeFileSystem();
   TestOpenOutputStreamDestructor();
+}
+
+TEST_F(TestS3FS, OpenOutputStreamMetadata) {
+  std::shared_ptr<io::OutputStream> stream;
+
+  // Create new file with explicit metadata
+  auto metadata = KeyValueMetadata::Make({"Content-Type", "Expires"},
+                                         {"x-arrow/test6", "2016-02-05T20:08:35Z"});
+  AssertMetadataRoundtrip("bucket/mdfile1", metadata,
+                          testing::IsSupersetOf(metadata->sorted_pairs()));
+
+  // Create new file with valid canned ACL
+  // XXX: no easy way of testing the ACL actually gets set
+  metadata = KeyValueMetadata::Make({"ACL"}, {"authenticated-read"});
+  AssertMetadataRoundtrip("bucket/mdfile2", metadata, testing::_);
+
+  // Create new file with default metadata
+  auto default_metadata = KeyValueMetadata::Make({"Content-Type", "Content-Language"},
+                                                 {"image/png", "fr_FR"});
+  options_.default_metadata = default_metadata;
+  MakeFileSystem();
+  // (null, then empty metadata argument)
+  AssertMetadataRoundtrip("bucket/mdfile3", nullptr,
+                          testing::IsSupersetOf(default_metadata->sorted_pairs()));
+  AssertMetadataRoundtrip("bucket/mdfile4", KeyValueMetadata::Make({}, {}),
+                          testing::IsSupersetOf(default_metadata->sorted_pairs()));
+
+  // Create new file with explicit metadata replacing default metadata
+  metadata = KeyValueMetadata::Make({"Content-Type"}, {"x-arrow/test6"});
+  AssertMetadataRoundtrip("bucket/mdfile5", metadata,
+                          testing::IsSupersetOf(metadata->sorted_pairs()));
 }
 
 TEST_F(TestS3FS, FileSystemFromUri) {

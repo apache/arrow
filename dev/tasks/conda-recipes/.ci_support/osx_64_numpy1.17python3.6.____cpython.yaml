@@ -47,13 +47,13 @@ pin_run_as_build:
 python:
 - 3.6.* *_cpython
 re2:
-- 2021.04.01
+- 2021.06.01
 snappy:
 - '1'
 target_platform:
 - osx-64
 thrift_cpp:
-- 0.14.1
+- 0.14.2
 zip_keys:
 - - c_compiler_version
   - cxx_compiler_version

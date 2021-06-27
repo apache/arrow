@@ -81,30 +81,52 @@
 #' @export
 #' @seealso `vignette("dataset", package = "arrow")`
 #' @include arrow-package.R
-#' @examplesIf arrow_with_dataset()
+#' @examplesIf arrow_with_dataset() & arrow_with_parquet() 
 #' # Set up directory for examples
 #' tf <- tempfile()
 #' dir.create(tf)
 #' on.exit(unlink(tf))
-#' \dontrun{
-#' write_parquet(mtcars[1:10,], file.path(tf, "file1.parquet"))
-#' write_parquet(mtcars[11:20,], file.path(tf, "file2.parquet"))
-#' write_parquet(mtcars[21:32,], file.path(tf, "file3.parquet"))
+#' 
+#' data <- dplyr::group_by(mtcars, cyl)
+#' write_dataset(data, tf)
 #' 
 #' # You can specify a directory containing the files for your dataset and
 #' # open_dataset will scan all files in your directory.
 #' open_dataset(tf)
 #' 
 #' # You can also supply a vector of paths
-#' open_dataset(c(file.path(tf, "file3.parquet"), file.path(tf, "file2.parquet")))
-#' }
+#' open_dataset(c(file.path(tf, "cyl=4/part-1.parquet"), file.path(tf,"cyl=8/part-2.parquet")))
+#'
 #' ## You must specify the file format if using a format other than parquet.
-#' write_csv_arrow(mtcars[1:10,], file.path(tf, "file1.csv"))
-#' write_csv_arrow(mtcars[11:20,], file.path(tf, "file2.csv"))
+#' tf2 <- tempfile()
+#' dir.create(tf2)
+#' on.exit(unlink(tf2))
+#' write_dataset(data, tf2, format = "ipc")
 #' # This line will results in errors when you try to work with the data
-#' \dontrun{open_dataset(c(file.path(tf, "file1.csv"), file.path(tf, "file2.csv")))}
-#' # This is the correct way to open a dataset containing CSVs
-#' open_dataset(c(file.path(tf, "file1.csv"), file.path(tf, "file2.csv")), format = "csv") 
+#' \dontrun{open_dataset(tf2)}
+#' # This line will work
+#' open_dataset(tf2, format = "ipc") 
+#' 
+#' ## You can specify file partitioning to include it as a field in your dataset
+#' # Create a temporary directory and write example dataset
+#' tf3 <- tempfile()
+#' dir.create(tf3)
+#' on.exit(unlink(tf3))
+#' write_dataset(airquality, tf3, partitioning = c("Month", "Day"), hive_style = FALSE)
+#' 
+#' # View files - you can see the partitioning means that files have been written 
+#' # to folders based on Month/Day values
+#' list.files(tf3, recursive = TRUE)
+#' 
+#' # With no partitioning specified, dataset contains all files but doesn't include
+#' # directory names as field names
+#' open_dataset(tf3)
+#' 
+#' # Now that partitioning has been specified, your dataset contains columns for Month and Day
+#' open_dataset(tf3, partitioning = c("Month", "Day"))
+#' 
+#' # If you want to specify the data types for your fields, you can pass in a Schema
+#' open_dataset(tf3, partitioning = schema(Month = int8(), Day = int8()))
 open_dataset <- function(sources,
                          schema = NULL,
                          partitioning = hive_partition(),

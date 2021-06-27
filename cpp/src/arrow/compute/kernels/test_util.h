@@ -43,6 +43,8 @@ using internal::checked_cast;
 
 namespace compute {
 
+using DatumVector = std::vector<Datum>;
+
 template <typename Type, typename T>
 std::shared_ptr<Array> _MakeArray(const std::shared_ptr<DataType>& type,
                                   const std::vector<T>& values,
@@ -93,7 +95,7 @@ void CheckScalar(std::string func_name, const ScalarVector& inputs,
                  std::shared_ptr<Scalar> expected,
                  const FunctionOptions* options = nullptr);
 
-void CheckScalar(std::string func_name, const ArrayVector& inputs,
+void CheckScalar(std::string func_name, const DatumVector& inputs,
                  std::shared_ptr<Array> expected,
                  const FunctionOptions* options = nullptr);
 
@@ -120,8 +122,20 @@ void CheckScalarBinary(std::string func_name, std::shared_ptr<Array> left_input,
                        std::shared_ptr<Array> expected,
                        const FunctionOptions* options = nullptr);
 
+void CheckScalarBinary(std::string func_name, std::shared_ptr<Array> left_input,
+                       std::shared_ptr<Scalar> right_input,
+                       std::shared_ptr<Array> expected,
+                       const FunctionOptions* options = nullptr);
+
+void CheckScalarBinary(std::string func_name, std::shared_ptr<Scalar> left_input,
+                       std::shared_ptr<Array> right_input,
+                       std::shared_ptr<Array> expected,
+                       const FunctionOptions* options = nullptr);
+
 void CheckVectorUnary(std::string func_name, Datum input, std::shared_ptr<Array> expected,
                       const FunctionOptions* options = nullptr);
+
+void ValidateOutput(const Datum& output);
 
 using BinaryTypes =
     ::testing::Types<BinaryType, LargeBinaryType, StringType, LargeStringType>;

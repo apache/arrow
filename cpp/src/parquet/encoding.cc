@@ -341,7 +341,6 @@ class PlainEncoder<BooleanType> : public EncoderImpl, virtual public BooleanEnco
       // no nulls, just dump the data
       ::arrow::internal::CopyBitmap(data.data()->GetValues<uint8_t>(1), data.offset(),
                                     data.length(), sink_.mutable_data(), sink_.length());
-      sink_.UnsafeAdvance(data.length());
     } else {
       auto n_valid = BitUtil::BytesForBits(data.length() - data.null_count());
       PARQUET_THROW_NOT_OK(sink_.Reserve(n_valid));
@@ -360,6 +359,7 @@ class PlainEncoder<BooleanType> : public EncoderImpl, virtual public BooleanEnco
       }
       writer.Finish();
     }
+    sink_.UnsafeAdvance(data.length());
   }
 
  private:
@@ -1567,6 +1567,19 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
     PARQUET_THROW_NOT_OK(binary_builder->AppendIndices(indices_buffer, num_values));
     num_values_ -= num_values;
     return num_values;
+  }
+
+  int DecodeIndices(int num_values, int32_t* indices) override {
+    if (num_values != idx_decoder_.GetBatch(indices, num_values)) {
+      ParquetException::EofException();
+    }
+    num_values_ -= num_values;
+    return num_values;
+  }
+
+  void GetDictionary(const T** dictionary, int32_t* dictionary_length) override {
+    *dictionary_length = dictionary_length_;
+    *dictionary = reinterpret_cast<T*>(dictionary_->mutable_data());
   }
 
  protected:

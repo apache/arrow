@@ -467,14 +467,14 @@ const FunctionDoc less_equal_doc{
     ("A null on either side emits a null comparison result."),
     {"x", "y"}};
 
-const FunctionDoc element_wise_min_doc{
+const FunctionDoc min_element_wise_doc{
     "Find the element-wise minimum value",
     ("Nulls will be ignored (default) or propagated. "
      "NaN will be taken over null, but not over any valid float."),
     {"*args"},
     "ElementWiseAggregateOptions"};
 
-const FunctionDoc element_wise_max_doc{
+const FunctionDoc max_element_wise_doc{
     "Find the element-wise maximum value",
     ("Nulls will be ignored (default) or propagated. "
      "NaN will be taken over null, but not over any valid float."),
@@ -501,13 +501,13 @@ void RegisterScalarComparison(FunctionRegistry* registry) {
   // ----------------------------------------------------------------------
   // Variadic element-wise functions
 
-  auto element_wise_min =
-      MakeScalarMinMax<Minimum>("element_wise_min", &element_wise_min_doc);
-  DCHECK_OK(registry->AddFunction(std::move(element_wise_min)));
+  auto min_element_wise =
+      MakeScalarMinMax<Minimum>("min_element_wise", &min_element_wise_doc);
+  DCHECK_OK(registry->AddFunction(std::move(min_element_wise)));
 
-  auto element_wise_max =
-      MakeScalarMinMax<Maximum>("element_wise_max", &element_wise_max_doc);
-  DCHECK_OK(registry->AddFunction(std::move(element_wise_max)));
+  auto max_element_wise =
+      MakeScalarMinMax<Maximum>("max_element_wise", &max_element_wise_doc);
+  DCHECK_OK(registry->AddFunction(std::move(max_element_wise)));
 }
 
 }  // namespace internal

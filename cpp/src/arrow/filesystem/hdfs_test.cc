@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <chrono>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -66,9 +67,9 @@ TEST(TestHdfsOptions, FromUri) {
   ASSERT_EQ(options.connection_config.user, "");
 }
 
-class TestHadoopFileSystem : public ::testing::Test {
+class HadoopFileSystemTestMixin {
  public:
-  void SetUp() override {
+  void MakeFileSystem() {
     const char* host = std::getenv("ARROW_HDFS_TEST_HOST");
     const char* port = std::getenv("ARROW_HDFS_TEST_PORT");
     const char* user = std::getenv("ARROW_HDFS_TEST_USER");
@@ -91,8 +92,18 @@ class TestHadoopFileSystem : public ::testing::Test {
       return;
     }
     loaded_driver_ = true;
-    fs_ = std::make_shared<SubTreeFileSystem>("", *result);
+    fs_ = *result;
   }
+
+ protected:
+  HdfsOptions options_;
+  bool loaded_driver_ = false;
+  std::shared_ptr<FileSystem> fs_;
+};
+
+class TestHadoopFileSystem : public ::testing::Test, public HadoopFileSystemTestMixin {
+ public:
+  void SetUp() override { MakeFileSystem(); }
 
   void TestFileSystemFromUri() {
     std::stringstream ss;
@@ -176,17 +187,11 @@ class TestHadoopFileSystem : public ::testing::Test {
     ASSERT_OK(fs_->DeleteDir(base_dir + "AB"));
     AssertFileInfo(fs_.get(), base_dir + "AB", FileType::NotFound);
   }
-
- protected:
-  std::shared_ptr<FileSystem> fs_;
-  HdfsOptions options_;
-  bool loaded_driver_ = false;
 };
 
-#define SKIP_IF_NO_DRIVER()                           \
-  if (!this->loaded_driver_) {                        \
-    ARROW_LOG(INFO) << "Driver not loaded, skipping"; \
-    return;                                           \
+#define SKIP_IF_NO_DRIVER()                        \
+  if (!this->loaded_driver_) {                     \
+    GTEST_SKIP() << "Driver not loaded, skipping"; \
   }
 
 TEST_F(TestHadoopFileSystem, CreateDirDeleteDir) {
@@ -307,6 +312,44 @@ TEST_F(TestHadoopFileSystem, FileSystemFromUri) {
 
   this->TestFileSystemFromUri();
 }
+
+class TestHadoopFileSystemGeneric : public ::testing::Test,
+                                    public HadoopFileSystemTestMixin,
+                                    public GenericFileSystemTest {
+ public:
+  void SetUp() override {
+    MakeFileSystem();
+    SKIP_IF_NO_DRIVER();
+    timestamp_ =
+        static_cast<int64_t>(std::chrono::time_point_cast<std::chrono::nanoseconds>(
+                                 std::chrono::steady_clock::now())
+                                 .time_since_epoch()
+                                 .count());
+  }
+
+ protected:
+  bool allow_write_file_over_dir() const override { return true; }
+  bool allow_move_dir_over_non_empty_dir() const override { return true; }
+  bool have_implicit_directories() const override { return true; }
+  bool allow_append_to_new_file() const override { return false; }
+
+  std::shared_ptr<FileSystem> GetEmptyFileSystem() override {
+    // Since the HDFS contents are kept persistently between test runs,
+    // make sure each test gets a pristine fresh directory.
+    std::stringstream ss;
+    ss << "GenericTest" << timestamp_ << "-" << test_num_++;
+    const auto subdir = ss.str();
+    ARROW_EXPECT_OK(fs_->CreateDir(subdir));
+    return std::make_shared<SubTreeFileSystem>(subdir, fs_);
+  }
+
+  static int test_num_;
+  int64_t timestamp_;
+};
+
+int TestHadoopFileSystemGeneric::test_num_ = 1;
+
+GENERIC_FS_TEST_FUNCTIONS(TestHadoopFileSystemGeneric);
 
 }  // namespace fs
 }  // namespace arrow

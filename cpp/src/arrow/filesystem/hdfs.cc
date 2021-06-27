@@ -106,12 +106,18 @@ class HadoopFileSystem::Impl {
       return st;
     }
     for (const auto& child_path_info : children) {
-      // HDFS returns an absolute URI here, need to extract path relative to wd
-      Uri uri;
-      RETURN_NOT_OK(uri.Parse(child_path_info.name));
-      std::string child_path = uri.path();
+      // HDFS returns an absolute "URI" here, need to extract path relative to wd
+      // XXX: unfortunately, this is not a real URI as special characters
+      // are not %-escaped... hence parsing it as URI would fail.
+      std::string child_path;
       if (!wd.empty()) {
-        ARROW_ASSIGN_OR_RAISE(child_path, MakeAbstractPathRelative(wd, child_path));
+        if (child_path_info.name.substr(0, wd.length()) != wd) {
+          return Status::IOError("HDFS returned path '", child_path_info.name,
+                                 "' that is not a child of '", wd, "'");
+        }
+        child_path = child_path_info.name.substr(wd.length());
+      } else {
+        child_path = child_path_info.name;
       }
 
       FileInfo info;
@@ -134,21 +140,39 @@ class HadoopFileSystem::Impl {
     }
     std::vector<FileInfo> results;
 
+    // Fetch working directory.
+    // If select.base_dir is relative, we need to trim it from the start
+    // of paths returned by ListDirectory.
+    // If select.base_dir is absolute, we need to trim the "URI authority"
+    // portion of the working directory.
     std::string wd;
-    if (select.base_dir.empty() || select.base_dir.front() != '/') {
-      // Fetch working directory, because we need to trim it from the start
-      // of paths returned by ListDirectory as select.base_dir is relative.
-      RETURN_NOT_OK(client_->GetWorkingDirectory(&wd));
-      Uri wd_uri;
-      RETURN_NOT_OK(wd_uri.Parse(wd));
-      wd = wd_uri.path();
+    RETURN_NOT_OK(client_->GetWorkingDirectory(&wd));
+
+    if (!select.base_dir.empty() && select.base_dir.front() == '/') {
+      // base_dir is absolute, only keep the URI authority portion.
+      // As mentioned in StatSelector() above, the URI may contain unescaped
+      // special chars and therefore may not be a valid URI, so we parse by hand.
+      auto pos = wd.find("://");  // start of host:port portion
+      if (pos == std::string::npos) {
+        return Status::IOError("Unexpected HDFS working directory URI: ", wd);
+      }
+      pos = wd.find("/", pos + 3);  // end of host:port portion
+      if (pos == std::string::npos) {
+        return Status::IOError("Unexpected HDFS working directory URI: ", wd);
+      }
+      wd = wd.substr(0, pos);  // keep up until host:port (included)
+    } else if (!wd.empty() && wd.back() != '/') {
+      // For a relative lookup, trim leading slashes
+      wd += '/';
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto info, GetFileInfo(select.base_dir));
-    if (info.type() == FileType::File) {
-      return Status::Invalid(
-          "GetFileInfo expects base_dir of selector to be a directory, while '",
-          select.base_dir, "' is a file");
+    if (!select.base_dir.empty()) {
+      ARROW_ASSIGN_OR_RAISE(auto info, GetFileInfo(select.base_dir));
+      if (info.type() == FileType::File) {
+        return Status::IOError(
+            "GetFileInfo expects base_dir of selector to be a directory, but '",
+            select.base_dir, "' is a file");
+      }
     }
     RETURN_NOT_OK(StatSelector(wd, select.base_dir, select, 0, &results));
     return results;
@@ -178,6 +202,10 @@ class HadoopFileSystem::Impl {
   }
 
   Status DeleteDirContents(const std::string& path) {
+    if (!IsDirectory(path)) {
+      return Status::IOError("Cannot delete contents of directory '", path,
+                             "': not a directory");
+    }
     std::vector<std::string> file_list;
     RETURN_NOT_OK(client_->GetChildren(path, &file_list));
     for (auto file : file_list) {
@@ -195,13 +223,17 @@ class HadoopFileSystem::Impl {
   }
 
   Status Move(const std::string& src, const std::string& dest) {
-    RETURN_NOT_OK(client_->Rename(src, dest));
-    return Status::OK();
+    auto st = client_->Rename(src, dest);
+    if (st.IsIOError() && IsFile(src) && IsFile(dest)) {
+      // Allow file -> file clobber
+      RETURN_NOT_OK(client_->Delete(dest));
+      st = client_->Rename(src, dest);
+    }
+    return st;
   }
 
   Status CopyFile(const std::string& src, const std::string& dest) {
-    // TODO implement this (but only if HDFS supports on-server copy)
-    return Status::NotImplemented("HadoopFileSystem::CopyFile is not supported yet");
+    return client_->Copy(src, dest);
   }
 
   Result<std::shared_ptr<io::InputStream>> OpenInputStream(const std::string& path) {
@@ -253,14 +285,16 @@ class HadoopFileSystem::Impl {
 
   bool IsDirectory(const std::string& path) {
     io::HdfsPathInfo info;
-    Status status = client_->GetPathInfo(path, &info);
-    if (!status.ok()) {
-      return false;
-    }
-    if (info.kind == io::ObjectType::DIRECTORY) {
-      return true;
-    }
-    return false;
+    return GetPathInfo(path, &info) && info.kind == io::ObjectType::DIRECTORY;
+  }
+
+  bool IsFile(const std::string& path) {
+    io::HdfsPathInfo info;
+    return GetPathInfo(path, &info) && info.kind == io::ObjectType::FILE;
+  }
+
+  bool GetPathInfo(const std::string& path, io::HdfsPathInfo* info) {
+    return client_->GetPathInfo(path, info).ok();
   }
 
   TimePoint ToTimePoint(int secs) {

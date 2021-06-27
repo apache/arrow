@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 test_that("read_table handles various input streams (ARROW-3450, ARROW-3505)", {
   tbl <- tibble::tibble(
     int = 1:10, dbl = as.numeric(1:10),
@@ -471,8 +470,51 @@ test_that("Table name assignment", {
 
 test_that("Table$create() with different length columns", {
   msg <- "All columns must have the same length"
-  expect_error(Table$create(a=1:5, b = 42), msg)
-  expect_error(Table$create(a=1:5, b = 1:6), msg)
+  expect_error(Table$create(a = 1:5, b = 1:6), msg)
+})
+
+test_that("Table$create() scalar recycling with vectors", {
+  expect_data_frame(
+    Table$create(a = 1:10, b = 5),
+    tibble::tibble(a = 1:10, b = 5)
+  )
+})
+
+test_that("Table$create() scalar recycling with Scalars, Arrays, and ChunkedArrays", {
+  
+  expect_data_frame(
+    Table$create(a = Array$create(1:10), b = Scalar$create(5)),
+    tibble::tibble(a = 1:10, b = 5)
+  )
+  
+  expect_data_frame(
+    Table$create(a = Array$create(1:10), b = Array$create(5)),
+    tibble::tibble(a = 1:10, b = 5)
+  )
+  
+  expect_data_frame(
+    Table$create(a = Array$create(1:10), b = ChunkedArray$create(5)),
+    tibble::tibble(a = 1:10, b = 5)
+  )
+  
+})
+
+test_that("Table$create() no recycling with tibbles", {
+  expect_error(
+    Table$create(
+      tibble::tibble(a = 1:10, b = 5),
+      tibble::tibble(a = 1, b = 5)
+    ),
+    regexp = "All input tibbles or data.frames must have the same number of rows"
+  )
+  
+  expect_error(
+    Table$create(
+      tibble::tibble(a = 1:10, b = 5),
+      tibble::tibble(a = 1)
+    ),
+    regexp = "All input tibbles or data.frames must have the same number of rows"
+  )
 })
 
 test_that("ARROW-11769 - grouping preserved in table creation", {
@@ -501,9 +543,9 @@ test_that("ARROW-12729 - length returns number of columns in Table", {
     fct = factor(rep(c("A", "B"), 5)),
     fct2 = factor(rep(c("C", "D"), each = 5)),
   )
-  
+
   tab <- Table$create(!!!tbl)
-  
+
   expect_identical(length(tab), 3L)
-  
+
 })

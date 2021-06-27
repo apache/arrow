@@ -24,6 +24,7 @@
 #include "arrow/array/array_decimal.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/compute/api_vector.h"
+#include "arrow/compute/kernels/test_util.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
@@ -153,7 +154,7 @@ class TestNthToIndicesBase : public TestBase {
     ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> offsets, NthToIndices(*values, n));
     // null_count field should have been initialized to 0, for convenience
     ASSERT_EQ(offsets->data()->null_count, 0);
-    ASSERT_OK(offsets->ValidateFull());
+    ValidateOutput(*offsets);
     Validate(*checked_pointer_cast<ArrayType>(values), n,
              *checked_pointer_cast<UInt64Array>(offsets));
   }
@@ -352,7 +353,7 @@ template <typename T>
 void AssertSortIndices(const std::shared_ptr<T>& input, SortOrder order,
                        const std::shared_ptr<Array>& expected) {
   ASSERT_OK_AND_ASSIGN(auto actual, SortIndices(*input, order));
-  ASSERT_OK(actual->ValidateFull());
+  ValidateOutput(*actual);
   AssertArraysEqual(*expected, *actual, /*verbose=*/true);
 }
 
@@ -360,7 +361,7 @@ template <typename T>
 void AssertSortIndices(const std::shared_ptr<T>& input, const SortOptions& options,
                        const std::shared_ptr<Array>& expected) {
   ASSERT_OK_AND_ASSIGN(auto actual, SortIndices(Datum(*input), options));
-  ASSERT_OK(actual->ValidateFull());
+  ValidateOutput(*actual);
   AssertArraysEqual(*expected, *actual, /*verbose=*/true);
 }
 
@@ -549,7 +550,7 @@ using SortIndicesableTypes =
 
 template <typename ArrayType>
 void ValidateSorted(const ArrayType& array, UInt64Array& offsets, SortOrder order) {
-  ASSERT_OK(array.ValidateFull());
+  ValidateOutput(array);
   SortComparator<ArrayType> compare;
   for (int i = 1; i < array.length(); i++) {
     uint64_t lhs = offsets.Value(i - 1);
@@ -1171,7 +1172,7 @@ class TestTableSortIndicesRandom : public testing::TestWithParam<RandomParam> {
  public:
   // Validates the sorted indexes are really sorted.
   void Validate(const Table& table, const SortOptions& options, UInt64Array& offsets) {
-    ASSERT_OK(offsets.ValidateFull());
+    ValidateOutput(offsets);
     Comparator comparator{table, options};
     for (int i = 1; i < table.num_rows(); i++) {
       uint64_t lhs = offsets.Value(i - 1);

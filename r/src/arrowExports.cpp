@@ -4,6 +4,36 @@
 
 #include "./arrow_types.h"
 
+// altrep.cpp
+#if defined(ARROW_R_WITH_ARROW)
+bool is_altrep_int_nonull(SEXP x);
+extern "C" SEXP _arrow_is_altrep_int_nonull(SEXP x_sexp){
+BEGIN_CPP11
+	arrow::r::Input<SEXP>::type x(x_sexp);
+	return cpp11::as_sexp(is_altrep_int_nonull(x));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_is_altrep_int_nonull(SEXP x_sexp){
+	Rf_error("Cannot call is_altrep_int_nonull(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// altrep.cpp
+#if defined(ARROW_R_WITH_ARROW)
+bool is_altrep_dbl_nonull(SEXP x);
+extern "C" SEXP _arrow_is_altrep_dbl_nonull(SEXP x_sexp){
+BEGIN_CPP11
+	arrow::r::Input<SEXP>::type x(x_sexp);
+	return cpp11::as_sexp(is_altrep_dbl_nonull(x));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_is_altrep_dbl_nonull(SEXP x_sexp){
+	Rf_error("Cannot call is_altrep_dbl_nonull(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // array.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Array> Array__Slice1(const std::shared_ptr<arrow::Array>& array, R_xlen_t offset);
@@ -1856,61 +1886,65 @@ extern "C" SEXP _arrow_dataset___ParquetFragmentScanOptions__Make(SEXP use_buffe
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
-std::shared_ptr<ds::DirectoryPartitioning> dataset___DirectoryPartitioning(const std::shared_ptr<arrow::Schema>& schm);
-extern "C" SEXP _arrow_dataset___DirectoryPartitioning(SEXP schm_sexp){
+std::shared_ptr<ds::DirectoryPartitioning> dataset___DirectoryPartitioning(const std::shared_ptr<arrow::Schema>& schm, const std::string& segment_encoding);
+extern "C" SEXP _arrow_dataset___DirectoryPartitioning(SEXP schm_sexp, SEXP segment_encoding_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schm(schm_sexp);
-	return cpp11::as_sexp(dataset___DirectoryPartitioning(schm));
+	arrow::r::Input<const std::string&>::type segment_encoding(segment_encoding_sexp);
+	return cpp11::as_sexp(dataset___DirectoryPartitioning(schm, segment_encoding));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___DirectoryPartitioning(SEXP schm_sexp){
+extern "C" SEXP _arrow_dataset___DirectoryPartitioning(SEXP schm_sexp, SEXP segment_encoding_sexp){
 	Rf_error("Cannot call dataset___DirectoryPartitioning(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
-std::shared_ptr<ds::PartitioningFactory> dataset___DirectoryPartitioning__MakeFactory(const std::vector<std::string>& field_names);
-extern "C" SEXP _arrow_dataset___DirectoryPartitioning__MakeFactory(SEXP field_names_sexp){
+std::shared_ptr<ds::PartitioningFactory> dataset___DirectoryPartitioning__MakeFactory(const std::vector<std::string>& field_names, const std::string& segment_encoding);
+extern "C" SEXP _arrow_dataset___DirectoryPartitioning__MakeFactory(SEXP field_names_sexp, SEXP segment_encoding_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::vector<std::string>&>::type field_names(field_names_sexp);
-	return cpp11::as_sexp(dataset___DirectoryPartitioning__MakeFactory(field_names));
+	arrow::r::Input<const std::string&>::type segment_encoding(segment_encoding_sexp);
+	return cpp11::as_sexp(dataset___DirectoryPartitioning__MakeFactory(field_names, segment_encoding));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___DirectoryPartitioning__MakeFactory(SEXP field_names_sexp){
+extern "C" SEXP _arrow_dataset___DirectoryPartitioning__MakeFactory(SEXP field_names_sexp, SEXP segment_encoding_sexp){
 	Rf_error("Cannot call dataset___DirectoryPartitioning__MakeFactory(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
-std::shared_ptr<ds::HivePartitioning> dataset___HivePartitioning(const std::shared_ptr<arrow::Schema>& schm, const std::string& null_fallback);
-extern "C" SEXP _arrow_dataset___HivePartitioning(SEXP schm_sexp, SEXP null_fallback_sexp){
+std::shared_ptr<ds::HivePartitioning> dataset___HivePartitioning(const std::shared_ptr<arrow::Schema>& schm, const std::string& null_fallback, const std::string& segment_encoding);
+extern "C" SEXP _arrow_dataset___HivePartitioning(SEXP schm_sexp, SEXP null_fallback_sexp, SEXP segment_encoding_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schm(schm_sexp);
 	arrow::r::Input<const std::string&>::type null_fallback(null_fallback_sexp);
-	return cpp11::as_sexp(dataset___HivePartitioning(schm, null_fallback));
+	arrow::r::Input<const std::string&>::type segment_encoding(segment_encoding_sexp);
+	return cpp11::as_sexp(dataset___HivePartitioning(schm, null_fallback, segment_encoding));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___HivePartitioning(SEXP schm_sexp, SEXP null_fallback_sexp){
+extern "C" SEXP _arrow_dataset___HivePartitioning(SEXP schm_sexp, SEXP null_fallback_sexp, SEXP segment_encoding_sexp){
 	Rf_error("Cannot call dataset___HivePartitioning(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
-std::shared_ptr<ds::PartitioningFactory> dataset___HivePartitioning__MakeFactory(const std::string& null_fallback);
-extern "C" SEXP _arrow_dataset___HivePartitioning__MakeFactory(SEXP null_fallback_sexp){
+std::shared_ptr<ds::PartitioningFactory> dataset___HivePartitioning__MakeFactory(const std::string& null_fallback, const std::string& segment_encoding);
+extern "C" SEXP _arrow_dataset___HivePartitioning__MakeFactory(SEXP null_fallback_sexp, SEXP segment_encoding_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::string&>::type null_fallback(null_fallback_sexp);
-	return cpp11::as_sexp(dataset___HivePartitioning__MakeFactory(null_fallback));
+	arrow::r::Input<const std::string&>::type segment_encoding(segment_encoding_sexp);
+	return cpp11::as_sexp(dataset___HivePartitioning__MakeFactory(null_fallback, segment_encoding));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___HivePartitioning__MakeFactory(SEXP null_fallback_sexp){
+extern "C" SEXP _arrow_dataset___HivePartitioning__MakeFactory(SEXP null_fallback_sexp, SEXP segment_encoding_sexp){
 	Rf_error("Cannot call dataset___HivePartitioning__MakeFactory(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
@@ -6087,15 +6121,16 @@ extern "C" SEXP _arrow_Scalar__as_vector(SEXP scalar_sexp){
 
 // scalar.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Array> MakeArrayFromScalar(const std::shared_ptr<arrow::Scalar>& scalar);
-extern "C" SEXP _arrow_MakeArrayFromScalar(SEXP scalar_sexp){
+std::shared_ptr<arrow::Array> MakeArrayFromScalar(const std::shared_ptr<arrow::Scalar>& scalar, int n);
+extern "C" SEXP _arrow_MakeArrayFromScalar(SEXP scalar_sexp, SEXP n_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::Scalar>&>::type scalar(scalar_sexp);
-	return cpp11::as_sexp(MakeArrayFromScalar(scalar));
+	arrow::r::Input<int>::type n(n_sexp);
+	return cpp11::as_sexp(MakeArrayFromScalar(scalar, n));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_MakeArrayFromScalar(SEXP scalar_sexp){
+extern "C" SEXP _arrow_MakeArrayFromScalar(SEXP scalar_sexp, SEXP n_sexp){
 	Rf_error("Cannot call MakeArrayFromScalar(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
@@ -6888,6 +6923,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_dataset_available", (DL_FUNC)& _dataset_available, 0 },
 		{ "_parquet_available", (DL_FUNC)& _parquet_available, 0 },
 		{ "_s3_available", (DL_FUNC)& _s3_available, 0 },
+		{ "_arrow_is_altrep_int_nonull", (DL_FUNC) &_arrow_is_altrep_int_nonull, 1}, 
+		{ "_arrow_is_altrep_dbl_nonull", (DL_FUNC) &_arrow_is_altrep_dbl_nonull, 1}, 
 		{ "_arrow_Array__Slice1", (DL_FUNC) &_arrow_Array__Slice1, 2}, 
 		{ "_arrow_Array__Slice2", (DL_FUNC) &_arrow_Array__Slice2, 3}, 
 		{ "_arrow_Array__IsNull", (DL_FUNC) &_arrow_Array__IsNull, 2}, 
@@ -7006,10 +7043,10 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___FragmentScanOptions__type_name", (DL_FUNC) &_arrow_dataset___FragmentScanOptions__type_name, 1}, 
 		{ "_arrow_dataset___CsvFragmentScanOptions__Make", (DL_FUNC) &_arrow_dataset___CsvFragmentScanOptions__Make, 2}, 
 		{ "_arrow_dataset___ParquetFragmentScanOptions__Make", (DL_FUNC) &_arrow_dataset___ParquetFragmentScanOptions__Make, 3}, 
-		{ "_arrow_dataset___DirectoryPartitioning", (DL_FUNC) &_arrow_dataset___DirectoryPartitioning, 1}, 
-		{ "_arrow_dataset___DirectoryPartitioning__MakeFactory", (DL_FUNC) &_arrow_dataset___DirectoryPartitioning__MakeFactory, 1}, 
-		{ "_arrow_dataset___HivePartitioning", (DL_FUNC) &_arrow_dataset___HivePartitioning, 2}, 
-		{ "_arrow_dataset___HivePartitioning__MakeFactory", (DL_FUNC) &_arrow_dataset___HivePartitioning__MakeFactory, 1}, 
+		{ "_arrow_dataset___DirectoryPartitioning", (DL_FUNC) &_arrow_dataset___DirectoryPartitioning, 2}, 
+		{ "_arrow_dataset___DirectoryPartitioning__MakeFactory", (DL_FUNC) &_arrow_dataset___DirectoryPartitioning__MakeFactory, 2}, 
+		{ "_arrow_dataset___HivePartitioning", (DL_FUNC) &_arrow_dataset___HivePartitioning, 3}, 
+		{ "_arrow_dataset___HivePartitioning__MakeFactory", (DL_FUNC) &_arrow_dataset___HivePartitioning__MakeFactory, 2}, 
 		{ "_arrow_dataset___ScannerBuilder__ProjectNames", (DL_FUNC) &_arrow_dataset___ScannerBuilder__ProjectNames, 2}, 
 		{ "_arrow_dataset___ScannerBuilder__ProjectExprs", (DL_FUNC) &_arrow_dataset___ScannerBuilder__ProjectExprs, 3}, 
 		{ "_arrow_dataset___ScannerBuilder__Filter", (DL_FUNC) &_arrow_dataset___ScannerBuilder__Filter, 2}, 
@@ -7275,7 +7312,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_StructScalar__field", (DL_FUNC) &_arrow_StructScalar__field, 2}, 
 		{ "_arrow_StructScalar__GetFieldByName", (DL_FUNC) &_arrow_StructScalar__GetFieldByName, 2}, 
 		{ "_arrow_Scalar__as_vector", (DL_FUNC) &_arrow_Scalar__as_vector, 1}, 
-		{ "_arrow_MakeArrayFromScalar", (DL_FUNC) &_arrow_MakeArrayFromScalar, 1}, 
+		{ "_arrow_MakeArrayFromScalar", (DL_FUNC) &_arrow_MakeArrayFromScalar, 2}, 
 		{ "_arrow_Scalar__is_valid", (DL_FUNC) &_arrow_Scalar__is_valid, 1}, 
 		{ "_arrow_Scalar__type", (DL_FUNC) &_arrow_Scalar__type, 1}, 
 		{ "_arrow_Scalar__Equals", (DL_FUNC) &_arrow_Scalar__Equals, 2}, 
@@ -7329,6 +7366,11 @@ static const R_CallMethodDef CallEntries[] = {
 extern "C" void R_init_arrow(DllInfo* dll){
   R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
   R_useDynamicSymbols(dll, FALSE);
+
+  #if defined(HAS_ALTREP)
+  arrow::r::Init_Altrep_classes(dll);
+  #endif
+
 }
 
 

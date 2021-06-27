@@ -22,6 +22,7 @@
 #include <arrow-glib/array.h>
 #include <arrow-glib/chunked-array.h>
 #include <arrow-glib/record-batch.h>
+#include <arrow-glib/scalar.h>
 #include <arrow-glib/table.h>
 
 G_BEGIN_DECLS
@@ -41,10 +42,12 @@ GARROW_AVAILABLE_IN_1_0
 gboolean garrow_datum_is_array(GArrowDatum *datum);
 GARROW_AVAILABLE_IN_1_0
 gboolean garrow_datum_is_array_like(GArrowDatum *datum);
-/*
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_5_0
 gboolean garrow_datum_is_scalar(GArrowDatum *datum);
-GARROW_AVAILABLE_IN_1_0
+GARROW_AVAILABLE_IN_5_0
+gboolean garrow_datum_is_value(GArrowDatum *datum);
+/*
+GARROW_AVAILABLE_IN_5_0
 gboolean garrow_datum_is_collection(GArrowDatum *datum);
 */
 GARROW_AVAILABLE_IN_1_0
@@ -54,9 +57,20 @@ GARROW_AVAILABLE_IN_1_0
 gchar *garrow_datum_to_string(GArrowDatum *datum);
 
 /* GARROW_TYPE_NONE_DATUM */
-/* GARROW_TYPE_SCALAR_DATUM */
-/* GARROW_TYPE_INT8_SCALAR_DATUM */
-/* ... */
+
+#define GARROW_TYPE_SCALAR_DATUM (garrow_scalar_datum_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowScalarDatum,
+                         garrow_scalar_datum,
+                         GARROW,
+                         SCALAR_DATUM,
+                         GArrowDatum)
+struct _GArrowScalarDatumClass
+{
+  GArrowDatumClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_5_0
+GArrowScalarDatum *garrow_scalar_datum_new(GArrowScalar *value);
 
 #define GARROW_TYPE_ARRAY_DATUM (garrow_array_datum_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowArrayDatum,

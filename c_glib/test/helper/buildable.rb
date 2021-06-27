@@ -205,7 +205,15 @@ module Helper
     def build_table(columns)
       fields = []
       chunked_arrays = []
-      columns.each do |name, chunked_array|
+      columns.each do |name, data|
+        case data
+        when Arrow::Array
+          chunked_array = Arrow::ChunkedArray.new([data])
+        when Array
+          chunked_array = Arrow::ChunkedArray.new(data)
+        else
+          chunked_array = data
+        end
         fields << Arrow::Field.new(name, chunked_array.value_data_type)
         chunked_arrays << chunked_array
       end
@@ -220,6 +228,15 @@ module Helper
       end
       schema = Arrow::Schema.new(fields)
       Arrow::RecordBatch.new(schema, n_rows, columns.values)
+    end
+
+    def build_file_uri(path)
+      absolute_path = File.expand_path(path)
+      if absolute_path.start_with?("/")
+        "file://#{absolute_path}"
+      else
+        "file:///#{absolute_path}"
+      end
     end
 
     private

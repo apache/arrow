@@ -227,7 +227,22 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     return make_cast_options(options);
   }
 
-  if (func_name == "match_substring" || func_name == "match_substring_regex") {
+  if (func_name == "binary_join_element_wise") {
+    using Options = arrow::compute::JoinOptions;
+    auto out = std::make_shared<Options>(Options::Defaults());
+    if (!Rf_isNull(options["null_handling"])) {
+      out->null_handling =
+          cpp11::as_cpp<enum arrow::compute::JoinOptions::NullHandlingBehavior>(
+              options["null_handling"]);
+    }
+    if (!Rf_isNull(options["null_replacement"])) {
+      out->null_replacement = cpp11::as_cpp<std::string>(options["null_replacement"]);
+    }
+    return out;
+  }
+
+  if (func_name == "match_substring" || func_name == "match_substring_regex" ||
+      func_name == "match_like") {
     using Options = arrow::compute::MatchSubstringOptions;
     bool ignore_case = false;
     if (!Rf_isNull(options["ignore_case"])) {

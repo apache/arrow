@@ -263,7 +263,10 @@ class FSSpecHandler(FileSystemHandler):
 
     def create_dir(self, path, recursive):
         # mkdir also raises FileNotFoundError when base directory is not found
-        self.fs.mkdir(path, create_parents=recursive)
+        try:
+            self.fs.mkdir(path, create_parents=recursive)
+        except FileExistsError:
+            pass
 
     def delete_dir(self, path):
         self.fs.rm(path, recursive=True)

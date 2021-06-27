@@ -72,7 +72,7 @@ _ReadStats = namedtuple(
 
 
 class ReadStats(_ReadStats):
-    """IPC write statistics
+    """IPC read statistics
     """
     __slots__ = ()
 

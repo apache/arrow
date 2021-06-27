@@ -442,6 +442,9 @@ struct GrouperImpl : Grouper {
 };
 
 struct GrouperFastImpl : Grouper {
+  static constexpr int kBitmapPaddingForSIMD = 64;  // bits
+  static constexpr int kPaddingForSIMD = 32;        // bytes
+
   static bool CanUse(const std::vector<ValueDescr>& keys) {
 #if ARROW_LITTLE_ENDIAN
     for (size_t i = 0; i < keys.size(); ++i) {
@@ -517,9 +520,8 @@ struct GrouperFastImpl : Grouper {
                                   impl->encode_ctx_.stack, impl->log_minibatch_max_,
                                   equal_func, append_func));
     impl->cols_.resize(num_columns);
-    constexpr int padding_for_SIMD = 32;
     impl->minibatch_hashes_.resize(impl->minibatch_size_max_ +
-                                   padding_for_SIMD / sizeof(uint32_t));
+                                   kPaddingForSIMD / sizeof(uint32_t));
 
     return std::move(impl);
   }
@@ -608,6 +610,22 @@ struct GrouperFastImpl : Grouper {
 
   uint32_t num_groups() const override { return static_cast<uint32_t>(rows_.length()); }
 
+  // Make sure padded buffers end up with the right logical size
+
+  Result<std::shared_ptr<Buffer>> AllocatePaddedBitmap(int64_t length) {
+    ARROW_ASSIGN_OR_RAISE(
+        std::shared_ptr<Buffer> buf,
+        AllocateBitmap(length + kBitmapPaddingForSIMD, ctx_->memory_pool()));
+    return SliceMutableBuffer(buf, 0, BitUtil::BytesForBits(length));
+  }
+
+  Result<std::shared_ptr<Buffer>> AllocatePaddedBuffer(int64_t size) {
+    ARROW_ASSIGN_OR_RAISE(
+        std::shared_ptr<Buffer> buf,
+        AllocateBuffer(size + kBitmapPaddingForSIMD, ctx_->memory_pool()));
+    return SliceMutableBuffer(buf, 0, size);
+  }
+
   Result<ExecBatch> GetUniques() override {
     auto num_columns = static_cast<uint32_t>(col_metadata_.size());
     int64_t num_groups = rows_.length();
@@ -616,28 +634,19 @@ struct GrouperFastImpl : Grouper {
     std::vector<std::shared_ptr<Buffer>> fixedlen_bufs(num_columns);
     std::vector<std::shared_ptr<Buffer>> varlen_bufs(num_columns);
 
-    constexpr int padding_bits = 64;
-    constexpr int padding_for_SIMD = 32;
     for (size_t i = 0; i < num_columns; ++i) {
-      ARROW_ASSIGN_OR_RAISE(non_null_bufs[i], AllocateBitmap(num_groups + padding_bits,
-                                                             ctx_->memory_pool()));
+      ARROW_ASSIGN_OR_RAISE(non_null_bufs[i], AllocatePaddedBitmap(num_groups));
       if (col_metadata_[i].is_fixed_length) {
         if (col_metadata_[i].fixed_length == 0) {
-          ARROW_ASSIGN_OR_RAISE(
-              fixedlen_bufs[i],
-              AllocateBitmap(num_groups + padding_bits, ctx_->memory_pool()));
+          ARROW_ASSIGN_OR_RAISE(fixedlen_bufs[i], AllocatePaddedBitmap(num_groups));
         } else {
           ARROW_ASSIGN_OR_RAISE(
               fixedlen_bufs[i],
-              AllocateBuffer(
-                  num_groups * col_metadata_[i].fixed_length + padding_for_SIMD,
-                  ctx_->memory_pool()));
+              AllocatePaddedBuffer(num_groups * col_metadata_[i].fixed_length));
         }
       } else {
-        ARROW_ASSIGN_OR_RAISE(
-            fixedlen_bufs[i],
-            AllocateBuffer((num_groups + 1) * sizeof(uint32_t) + padding_for_SIMD,
-                           ctx_->memory_pool()));
+        ARROW_ASSIGN_OR_RAISE(fixedlen_bufs[i],
+                              AllocatePaddedBuffer((num_groups + 1) * sizeof(uint32_t)));
       }
       cols_[i] = arrow::compute::KeyEncoder::KeyColumnArray(
           col_metadata_[i], num_groups, non_null_bufs[i]->mutable_data(),
@@ -657,9 +666,7 @@ struct GrouperFastImpl : Grouper {
         if (!col_metadata_[i].is_fixed_length) {
           auto varlen_size =
               reinterpret_cast<const uint32_t*>(fixedlen_bufs[i]->data())[num_groups];
-          ARROW_ASSIGN_OR_RAISE(
-              varlen_bufs[i],
-              AllocateBuffer(varlen_size + padding_for_SIMD, ctx_->memory_pool()));
+          ARROW_ASSIGN_OR_RAISE(varlen_bufs[i], AllocatePaddedBuffer(varlen_size));
           cols_[i] = arrow::compute::KeyEncoder::KeyColumnArray(
               col_metadata_[i], num_groups, non_null_bufs[i]->mutable_data(),
               fixedlen_bufs[i]->mutable_data(), varlen_bufs[i]->mutable_data());
@@ -1000,8 +1007,8 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
 
     mins_ = BufferBuilder(ctx->memory_pool());
     maxes_ = BufferBuilder(ctx->memory_pool());
-    has_values_ = BufferBuilder(ctx->memory_pool());
-    has_nulls_ = BufferBuilder(ctx->memory_pool());
+    has_values_ = TypedBufferBuilder<bool>(ctx->memory_pool());
+    has_nulls_ = TypedBufferBuilder<bool>(ctx->memory_pool());
 
     GetImpl get_impl;
     RETURN_NOT_OK(VisitTypeInline(*input_type, &get_impl));
@@ -1009,7 +1016,6 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
     consume_impl_ = std::move(get_impl.consume_impl);
     resize_min_impl_ = std::move(get_impl.resize_min_impl);
     resize_max_impl_ = std::move(get_impl.resize_max_impl);
-    resize_bitmap_impl_ = MakeResizeImpl(false);
 
     return Status::OK();
   }
@@ -1019,8 +1025,8 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
       num_groups_ += added_groups;
       RETURN_NOT_OK(resize_min_impl_(&mins_, added_groups));
       RETURN_NOT_OK(resize_max_impl_(&maxes_, added_groups));
-      RETURN_NOT_OK(resize_bitmap_impl_(&has_values_, added_groups));
-      RETURN_NOT_OK(resize_bitmap_impl_(&has_nulls_, added_groups));
+      RETURN_NOT_OK(has_values_.Append(added_groups, false));
+      RETURN_NOT_OK(has_nulls_.Append(added_groups, false));
       return Status::OK();
     }));
 
@@ -1056,10 +1062,11 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
   }
 
   int64_t num_groups_;
-  BufferBuilder mins_, maxes_, has_values_, has_nulls_;
+  BufferBuilder mins_, maxes_;
+  TypedBufferBuilder<bool> has_values_, has_nulls_;
   std::shared_ptr<DataType> type_;
   ConsumeImpl consume_impl_;
-  ResizeImpl resize_min_impl_, resize_max_impl_, resize_bitmap_impl_;
+  ResizeImpl resize_min_impl_, resize_max_impl_;
   ScalarAggregateOptions options_;
 };
 

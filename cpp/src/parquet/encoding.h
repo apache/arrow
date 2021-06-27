@@ -350,6 +350,8 @@ class TypedDecoder : virtual public Decoder {
 template <typename DType>
 class DictDecoder : virtual public TypedDecoder<DType> {
  public:
+  using T = typename DType::c_type;
+
   virtual void SetDict(TypedDecoder<DType>* dictionary) = 0;
 
   /// \brief Insert dictionary values into the Arrow dictionary builder's memo,
@@ -371,6 +373,22 @@ class DictDecoder : virtual public TypedDecoder<DType> {
   /// \warning Remember to reset the builder each time the dict decoder is initialized
   /// with a new dictionary page
   virtual int DecodeIndices(int num_values, ::arrow::ArrayBuilder* builder) = 0;
+
+  /// \brief Decode only dictionary indices (no nulls). Same as above
+  /// DecodeIndices but target is an array instead of a builder.
+  ///
+  /// \note API EXPERIMENTAL
+  virtual int DecodeIndices(int num_values, int32_t* indices) = 0;
+
+  /// \brief Get dictionary. The reader will call this API when it encounters a
+  /// new dictionary.
+  ///
+  /// @param[out] dictionary The pointer to dictionary values. Dictionary is owned by
+  /// the decoder and is destroyed when the decoder is destroyed.
+  /// @param[out] dictionary_length The dictionary length.
+  ///
+  /// \note API EXPERIMENTAL
+  virtual void GetDictionary(const T** dictionary, int32_t* dictionary_length) = 0;
 };
 
 // ----------------------------------------------------------------------

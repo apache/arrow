@@ -383,6 +383,7 @@ class GrpcServerCallContext : public ServerCallContext {
 
   const std::string& peer_identity() const override { return peer_identity_; }
   const std::string& peer() const override { return peer_; }
+  bool is_cancelled() const override { return context_->IsCancelled(); }
 
   // Helper method that runs interceptors given the result of an RPC,
   // then returns the final gRPC status to send to the client
