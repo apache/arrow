@@ -247,20 +247,21 @@ UTF8_LENGTH(lengthUtf8, binary)
 #define SPACE_STR(IN_TYPE)                                                              \
   GANDIVA_EXPORT                                                                        \
   const char* space_##IN_TYPE(gdv_int64 ctx, gdv_##IN_TYPE n, int32_t* out_len) {       \
-    if (n <= 0) {                                                                       \
+    gdv_int32 n_times = static_cast<gdv_int32>(n);                                      \
+    if (n_times <= 0) {                                                                 \
       *out_len = 0;                                                                     \
       return "";                                                                        \
     }                                                                                   \
-    char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(ctx, n));           \
+    char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(ctx, n_times));     \
     if (ret == nullptr) {                                                               \
       gdv_fn_context_set_error_msg(ctx, "Could not allocate memory for output string"); \
       *out_len = 0;                                                                     \
       return "";                                                                        \
     }                                                                                   \
-    for (gdv_##IN_TYPE i = 0; i < n; i++) {                                             \
+    for (int i = 0; i < n_times; i++) {                                                 \
       ret[i] = ' ';                                                                     \
     }                                                                                   \
-    *out_len = n;                                                                       \
+    *out_len = n_times;                                                                 \
     return ret;                                                                         \
   }
 
