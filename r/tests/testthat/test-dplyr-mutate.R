@@ -419,7 +419,6 @@ test_that("mutate and write_dataset", {
   )
 })
 
-
 test_that("mutate and pmin/pmax", {
   df <- tibble(
     city = c("Chillan", "Valdivia", "Osorno"),
