@@ -70,9 +70,6 @@ template <typename Functor>
 Status ReplaceWithArrayMask(KernelContext* ctx, const ArrayData& array,
                             const ArrayData& mask, const Datum& replacements,
                             ArrayData* output) {
-  ARROW_ASSIGN_OR_RAISE(output->buffers[1],
-                        Functor::AllocateData(ctx, *array.type, array.length));
-
   uint8_t* out_bitmap = nullptr;
   uint8_t* out_values = output->buffers[1]->mutable_data();
   const uint8_t* mask_bitmap = mask.MayHaveNulls() ? mask.buffers[0]->data() : nullptr;
@@ -176,11 +173,6 @@ template <typename Type>
 struct ReplaceWithMask<Type, enable_if_number<Type>> {
   using T = typename TypeTraits<Type>::CType;
 
-  static Result<std::shared_ptr<Buffer>> AllocateData(KernelContext* ctx, const DataType&,
-                                                      const int64_t length) {
-    return ctx->Allocate(length * sizeof(T));
-  }
-
   static void CopyData(const DataType&, uint8_t* out, const int64_t out_offset,
                        const Datum& in, const int64_t in_offset, const int64_t length) {
     if (in.is_array()) {
@@ -211,11 +203,6 @@ struct ReplaceWithMask<Type, enable_if_number<Type>> {
 
 template <typename Type>
 struct ReplaceWithMask<Type, enable_if_boolean<Type>> {
-  static Result<std::shared_ptr<Buffer>> AllocateData(KernelContext* ctx, const DataType&,
-                                                      const int64_t length) {
-    return ctx->AllocateBitmap(length);
-  }
-
   static void CopyData(const DataType&, uint8_t* out, const int64_t out_offset,
                        const Datum& in, const int64_t in_offset, const int64_t length) {
     if (in.is_array()) {
@@ -243,13 +230,6 @@ struct ReplaceWithMask<Type, enable_if_boolean<Type>> {
 
 template <typename Type>
 struct ReplaceWithMask<Type, enable_if_same<Type, FixedSizeBinaryType>> {
-  static Result<std::shared_ptr<Buffer>> AllocateData(KernelContext* ctx,
-                                                      const DataType& ty,
-                                                      const int64_t length) {
-    return ctx->Allocate(length *
-                         checked_cast<const FixedSizeBinaryType&>(ty).byte_width());
-  }
-
   static void CopyData(const DataType& ty, uint8_t* out, const int64_t out_offset,
                        const Datum& in, const int64_t in_offset, const int64_t length) {
     const int32_t width = checked_cast<const FixedSizeBinaryType&>(ty).byte_width();
@@ -291,14 +271,6 @@ struct ReplaceWithMask<Type, enable_if_same<Type, FixedSizeBinaryType>> {
 template <typename Type>
 struct ReplaceWithMask<Type, enable_if_decimal<Type>> {
   using ScalarType = typename TypeTraits<Type>::ScalarType;
-
-  static Result<std::shared_ptr<Buffer>> AllocateData(KernelContext* ctx,
-                                                      const DataType& ty,
-                                                      const int64_t length) {
-    return ctx->Allocate(length *
-                         checked_cast<const FixedSizeBinaryType&>(ty).byte_width());
-  }
-
   static void CopyData(const DataType& ty, uint8_t* out, const int64_t out_offset,
                        const Datum& in, const int64_t in_offset, const int64_t length) {
     const int32_t width = checked_cast<const FixedSizeBinaryType&>(ty).byte_width();
@@ -458,7 +430,7 @@ void RegisterVectorReplace(FunctionRegistry* registry) {
     VectorKernel kernel;
     kernel.can_execute_chunkwise = false;
     kernel.null_handling = NullHandling::type::COMPUTED_NO_PREALLOCATE;
-    kernel.mem_allocation = MemAllocation::type::NO_PREALLOCATE;
+    kernel.mem_allocation = MemAllocation::type::PREALLOCATE;
     kernel.signature = KernelSignature::Make(
         {InputType::Array(get_id.id), InputType(boolean()), InputType(get_id.id)},
         OutputType(FirstType));
