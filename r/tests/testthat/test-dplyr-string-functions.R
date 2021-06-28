@@ -725,8 +725,8 @@ test_that("errors in strptime", {
   )
 })
 
-test_that("arrow_find_substring", {
-  
+test_that("arrow_find_substring and arrow_find_substring_regex", {
+
   df <- tibble(x = c("Foo and Bar", "baz and qux and quux"))
   
   expect_equivalent(
@@ -742,6 +742,26 @@ test_that("arrow_find_substring", {
       mutate(x = arrow_find_substring(x, options = list(pattern = "b", ignore_case = TRUE))) %>%
       collect(),
     tibble(x = c(8, 0))
+  )
+  expect_equivalent(
+    df %>%
+      Table$create() %>%
+      mutate(x = arrow_find_substring_regex(
+        x,
+        options = list(pattern = "^[fb]")
+      )) %>%
+      collect(),
+    tibble(x = c(-1, 0))
+  )
+  expect_equivalent(
+    df %>%
+      Table$create() %>%
+      mutate(x = arrow_find_substring_regex(
+        x,
+        options = list(pattern = "[AEIOU]", ignore_case = TRUE)
+      )) %>%
+      collect(),
+    tibble(x = c(1, 1))
   )
 })
 
