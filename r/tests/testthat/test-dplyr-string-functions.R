@@ -736,7 +736,6 @@ test_that("arrow_find_substring", {
       collect(),
     tibble(x = c(-1, 0))
   )
-  
   expect_equivalent(
     df %>%
       Table$create() %>%
@@ -744,7 +743,6 @@ test_that("arrow_find_substring", {
       collect(),
     tibble(x = c(8, 0))
   )
-  
 })
 
 test_that("stri_reverse and arrow_ascii_reverse functions", {
@@ -844,27 +842,4 @@ test_that("str_like", {
       collect(),
     df
   )
-})
-
-test_that("arrow_find_substring", {
-  
-  df <- tibble(x = c("Foo and Bar", "baz and qux and quux"))
-  
-  expect_equivalent(
-    df %>%
-      Table$create() %>%
-      mutate(x = arrow_find_substring(x, options = list(pattern = "b"))) %>%
-      collect(),
-    tibble(x = c(-1, 0))
-  )
-  
-  skip("ARROW-13157: find_substring not implemented with ignore_case")
-  expect_error(
-    df %>%
-      Table$create() %>%
-      mutate(x = arrow_find_substring(x, options = list(pattern = "b", ignore_case = TRUE))) %>%
-      collect(),
-    "NotImplemented: find_substring with ignore_case"
-  )
-  
 })
