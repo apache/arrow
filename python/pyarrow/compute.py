@@ -331,7 +331,7 @@ def count_substring_regex(array, pattern, *, ignore_case=False):
                          MatchSubstringOptions(pattern, ignore_case))
 
 
-def find_substring(array, pattern):
+def find_substring(array, pattern, *, ignore_case=False):
     """
     Find the index of the first occurrence of substring *pattern* in each
     value of a string array.
@@ -341,13 +341,36 @@ def find_substring(array, pattern):
     array : pyarrow.Array or pyarrow.ChunkedArray
     pattern : str
         pattern to search for exact matches
+    ignore_case : bool, default False
+        Ignore case while searching.
 
     Returns
     -------
     result : pyarrow.Array or pyarrow.ChunkedArray
     """
     return call_function("find_substring", [array],
-                         MatchSubstringOptions(pattern))
+                         MatchSubstringOptions(pattern, ignore_case))
+
+
+def find_substring_regex(array, pattern, *, ignore_case=False):
+    """
+    Find the index of the first match of regex *pattern* in each
+    value of a string array.
+
+    Parameters
+    ----------
+    array : pyarrow.Array or pyarrow.ChunkedArray
+    pattern : str
+        regex pattern to search for
+    ignore_case : bool, default False
+        Ignore case while searching.
+
+    Returns
+    -------
+    result : pyarrow.Array or pyarrow.ChunkedArray
+    """
+    return call_function("find_substring_regex", [array],
+                         MatchSubstringOptions(pattern, ignore_case))
 
 
 def match_like(array, pattern, *, ignore_case=False):

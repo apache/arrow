@@ -597,7 +597,9 @@ Containment tests
 +---------------------------+------------+------------------------------------+--------------------+----------------------------------------+
 | ends_with                 | Unary      | String-like                        | Boolean (2)        | :struct:`MatchSubstringOptions`        |
 +---------------------------+------------+------------------------------------+--------------------+----------------------------------------+
-| find_substring            | Unary      | String-like                        | Int32 or Int64 (3) | :struct:`MatchSubstringOptions`        |
+| find_substring            | Unary      | Binary- and String-like            | Int32 or Int64 (3) | :struct:`MatchSubstringOptions`        |
++---------------------------+------------+------------------------------------+--------------------+----------------------------------------+
+| find_substring_regex      | Unary      | Binary- and String-like            | Int32 or Int64 (3) | :struct:`MatchSubstringOptions`        |
 +---------------------------+------------+------------------------------------+--------------------+----------------------------------------+
 | index_in                  | Unary      | Boolean, Null, Numeric, Temporal,  | Int32 (4)          | :struct:`SetLookupOptions`             |
 |                           |            | Binary- and String-like            |                    |                                        |

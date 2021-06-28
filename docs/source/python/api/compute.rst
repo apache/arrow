@@ -205,6 +205,7 @@ Containment tests
    count_substring_regex
    ends_with
    find_substring
+   find_substring_regex
    index_in
    is_in
    match_like

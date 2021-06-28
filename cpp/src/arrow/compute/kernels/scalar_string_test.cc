@@ -173,6 +173,36 @@ TYPED_TEST(TestBinaryKernels, FindSubstring) {
                    "[0, 0, null]", &options_empty);
 }
 
+#ifdef ARROW_WITH_RE2
+TYPED_TEST(TestBinaryKernels, FindSubstringIgnoreCase) {
+  MatchSubstringOptions options{"?AB)", /*ignore_case=*/true};
+  this->CheckUnary("find_substring", "[]", this->offset_type(), "[]", &options);
+  this->CheckUnary("find_substring",
+                   R"-(["?aB)c", "acb", "c?Ab)", null, "?aBc", "AB)"])-",
+                   this->offset_type(), "[0, -1, 1, null, -1, -1]", &options);
+}
+
+TYPED_TEST(TestBinaryKernels, FindSubstringRegex) {
+  MatchSubstringOptions options{"a+", /*ignore_case=*/false};
+  this->CheckUnary("find_substring_regex", "[]", this->offset_type(), "[]", &options);
+  this->CheckUnary("find_substring_regex", R"(["a", "A", "baaa", null, "", "AaaA"])",
+                   this->offset_type(), "[0, -1, 1, null, -1, 1]", &options);
+
+  options.ignore_case = true;
+  this->CheckUnary("find_substring_regex", "[]", this->offset_type(), "[]", &options);
+  this->CheckUnary("find_substring_regex", R"(["a", "A", "baaa", null, "", "AaaA"])",
+                   this->offset_type(), "[0, 0, 1, null, -1, 0]", &options);
+}
+#else
+TYPED_TEST(TestBinaryKernels, FindSubstringIgnoreCase) {
+  MatchSubstringOptions options{"a+", /*ignore_case=*/true};
+  Datum input = ArrayFromJSON(this->type(), R"(["a"])");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
+                                  ::testing::HasSubstr("ignore_case requires RE2"),
+                                  CallFunction("find_substring", {input}, &options));
+}
+#endif
+
 TYPED_TEST(TestBinaryKernels, CountSubstring) {
   MatchSubstringOptions options{"aba"};
   this->CheckUnary("count_substring", "[]", this->offset_type(), "[]", &options);
