@@ -286,14 +286,6 @@ an ``Invalid`` :class:`Status` when overflow is detected.
 +--------------------------+------------+--------------------+---------------------+
 | power_checked            | Binary     | Numeric            | Numeric             |
 +--------------------------+------------+--------------------+---------------------+
-| shift_left               | Binary     | Numeric            | Numeric             |
-+--------------------------+------------+--------------------+---------------------+
-| shift_left_checked       | Binary     | Numeric            | Numeric             |
-+--------------------------+------------+--------------------+---------------------+
-| shift_right              | Binary     | Numeric            | Numeric             |
-+--------------------------+------------+--------------------+---------------------+
-| shift_right_checked      | Binary     | Numeric            | Numeric             |
-+--------------------------+------------+--------------------+---------------------+
 | subtract                 | Binary     | Numeric            | Numeric (1)         |
 +--------------------------+------------+--------------------+---------------------+
 | subtract_checked         | Binary     | Numeric            | Numeric (1)         |
@@ -301,27 +293,27 @@ an ``Invalid`` :class:`Status` when overflow is detected.
 
 * \(1) Precision and scale of computed DECIMAL results
 
-+------------+---------------------------------------------+
-| Operation  | Result precision and scale                  |
-+============+=============================================+
-| | add      | | scale = max(s1, s2)                       |
-| | subtract | | precision = max(p1-s1, p2-s2) + 1 + scale |
-+------------+---------------------------------------------+
-| multiply   | | scale = s1 + s2                           |
-|            | | precision = p1 + p2 + 1                   |
-+------------+---------------------------------------------+
-| divide     | | scale = max(4, s1 + p2 - s2 + 1)          |
-|            | | precision = p1 - s1 + s2 + scale          |
-+------------+---------------------------------------------+
+  +------------+---------------------------------------------+
+  | Operation  | Result precision and scale                  |
+  +============+=============================================+
+  | | add      | | scale = max(s1, s2)                       |
+  | | subtract | | precision = max(p1-s1, p2-s2) + 1 + scale |
+  +------------+---------------------------------------------+
+  | multiply   | | scale = s1 + s2                           |
+  |            | | precision = p1 + p2 + 1                   |
+  +------------+---------------------------------------------+
+  | divide     | | scale = max(4, s1 + p2 - s2 + 1)          |
+  |            | | precision = p1 - s1 + s2 + scale          |
+  +------------+---------------------------------------------+
 
-It's compatible with Redshift's decimal promotion rules. All decimal digits
-are preserved for `add`, `subtract` and `multiply` operations. The result
-precision of `divide` is at least the sum of precisions of both operands with
-enough scale kept. Error is returned if the result precision is beyond the
-decimal value range.
+  It's compatible with Redshift's decimal promotion rules. All decimal digits
+  are preserved for `add`, `subtract` and `multiply` operations. The result
+  precision of `divide` is at least the sum of precisions of both operands with
+  enough scale kept. Error is returned if the result precision is beyond the
+  decimal value range.
 
-Bit-wise functions are similar, except there is no need for an
-overflow-checking variant.
+Bit-wise functions
+~~~~~~~~~~~~~~~~~~
 
 +--------------------------+------------+--------------------+---------------------+
 | Function name            | Arity      | Input types        | Output type         |
@@ -334,6 +326,18 @@ overflow-checking variant.
 +--------------------------+------------+--------------------+---------------------+
 | bit_wise_xor             | Binary     | Numeric            | Numeric             |
 +--------------------------+------------+--------------------+---------------------+
+| shift_left               | Binary     | Numeric            | Numeric             |
++--------------------------+------------+--------------------+---------------------+
+| shift_left_checked       | Binary     | Numeric            | Numeric (1)         |
++--------------------------+------------+--------------------+---------------------+
+| shift_right              | Binary     | Numeric            | Numeric             |
++--------------------------+------------+--------------------+---------------------+
+| shift_right_checked      | Binary     | Numeric            | Numeric (1)         |
++--------------------------+------------+--------------------+---------------------+
+
+* \(1) An error is emitted if the shift amount (i.e. the second input) is
+  out of bounds for the data type.  However, an overflow when shifting the
+  first input is not error (truncated bits are silently discarded).
 
 Comparisons
 ~~~~~~~~~~~

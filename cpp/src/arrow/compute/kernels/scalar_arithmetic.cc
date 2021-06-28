@@ -503,7 +503,7 @@ struct ShiftLeftChecked {
                                             Status* st) {
     static_assert(std::is_same<T, Arg0>::value, "");
     if (ARROW_PREDICT_FALSE(rhs < 0 || rhs >= std::numeric_limits<Arg0>::digits)) {
-      *st = Status::Invalid("rhs must be >= 0 and less than precision of type");
+      *st = Status::Invalid("shift amount must be >= 0 and less than precision of type");
       return lhs;
     }
     return lhs << rhs;
@@ -515,7 +515,7 @@ struct ShiftLeftChecked {
     using Unsigned = typename std::make_unsigned<Arg0>::type;
     static_assert(std::is_same<T, Arg0>::value, "");
     if (ARROW_PREDICT_FALSE(rhs < 0 || rhs >= std::numeric_limits<Arg0>::digits)) {
-      *st = Status::Invalid("rhs must be >= 0 and less than precision of type");
+      *st = Status::Invalid("shift amount must be >= 0 and less than precision of type");
       return lhs;
     }
     // In C/C++ left shift of a negative number is undefined (C++11 standard 5.8.2)
@@ -547,7 +547,7 @@ struct ShiftRightChecked {
   static T Call(KernelContext*, Arg0 lhs, Arg1 rhs, Status* st) {
     static_assert(std::is_same<T, Arg0>::value, "");
     if (ARROW_PREDICT_FALSE(rhs < 0 || rhs >= std::numeric_limits<Arg0>::digits)) {
-      *st = Status::Invalid("rhs must be >= 0 and less than precision of type");
+      *st = Status::Invalid("shift amount must be >= 0 and less than precision of type");
       return lhs;
     }
     return lhs >> rhs;
@@ -1026,7 +1026,7 @@ const FunctionDoc shift_left_checked_doc{
 
 const FunctionDoc shift_right_doc{
     "Right shift `x` by `y`",
-    ("Performs a logical shift for unsigned `x` and an arithmetic shift for signed `x`.\n"
+    ("Perform a logical shift for unsigned `x` and an arithmetic shift for signed `x`.\n"
      "This function will return `x` if `y` (the amount to shift by) is: "
      "(1) negative or (2) greater than or equal to the precision of `x`.\n"
      "Use function \"shift_right_checked\" if you want an invalid shift amount to return "
@@ -1035,11 +1035,12 @@ const FunctionDoc shift_right_doc{
 
 const FunctionDoc shift_right_checked_doc{
     "Right shift `x` by `y` with invalid shift check",
-    ("Performs a logical shift for unsigned `x` and an arithmetic shift for signed `x`.\n"
+    ("Perform a logical shift for unsigned `x` and an arithmetic shift for signed `x`.\n"
      "This function will raise an error if `y` (the amount to shift by) is: "
      "(1) negative or (2) greater than or equal to the precision of `x`.\n"
      "See \"shift_right\" for a variant that doesn't fail for an invalid shift amount"),
     {"x", "y"}};
+
 }  // namespace
 
 void RegisterScalarArithmetic(FunctionRegistry* registry) {

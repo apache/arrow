@@ -1662,9 +1662,9 @@ TYPED_TEST(TestBinaryArithmeticSigned, ShiftLeftOverflowRaises) {
   this->AssertBinop(ShiftLeft, "[4]", MakeArray(bit_width - 1), "[0]");
   this->AssertBinop(ShiftLeft, MakeArray(min), "[1]", "[0]");
   this->AssertBinopRaises(ShiftLeft, "[1, 2]", "[1, -1]",
-                          "rhs must be >= 0 and less than precision of type");
+                          "shift amount must be >= 0 and less than precision of type");
   this->AssertBinopRaises(ShiftLeft, "[1]", MakeArray(bit_width),
-                          "rhs must be >= 0 and less than precision of type");
+                          "shift amount must be >= 0 and less than precision of type");
 
   this->SetOverflowCheck(false);
   this->AssertBinop(ShiftLeft, "[1, 1]", MakeArray(-1, bit_width), "[1, 1]");
@@ -1681,9 +1681,9 @@ TYPED_TEST(TestBinaryArithmeticSigned, ShiftRightOverflowRaises) {
   this->AssertBinop(ShiftRight, "[-1, -1]", "[1, 5]", "[-1, -1]");
   this->AssertBinop(ShiftRight, MakeArray(min), "[1]", MakeArray(min / 2));
   this->AssertBinopRaises(ShiftRight, "[1, 2]", "[1, -1]",
-                          "rhs must be >= 0 and less than precision of type");
+                          "shift amount must be >= 0 and less than precision of type");
   this->AssertBinopRaises(ShiftRight, "[1]", MakeArray(bit_width),
-                          "rhs must be >= 0 and less than precision of type");
+                          "shift amount must be >= 0 and less than precision of type");
 
   this->SetOverflowCheck(false);
   this->AssertBinop(ShiftRight, "[1, 1]", MakeArray(-1, bit_width), "[1, 1]");
@@ -1701,7 +1701,7 @@ TYPED_TEST(TestBinaryArithmeticUnsigned, ShiftLeftOverflowRaises) {
   this->AssertBinop(ShiftLeft, "[2]", MakeArray(bit_width - 1), "[0]");
   this->AssertBinop(ShiftLeft, "[4]", MakeArray(bit_width - 1), "[0]");
   this->AssertBinopRaises(ShiftLeft, "[1]", MakeArray(bit_width),
-                          "rhs must be >= 0 and less than precision of type");
+                          "shift amount must be >= 0 and less than precision of type");
 }
 
 TYPED_TEST(TestBinaryArithmeticUnsigned, ShiftRightOverflowRaises) {
@@ -1712,7 +1712,7 @@ TYPED_TEST(TestBinaryArithmeticUnsigned, ShiftRightOverflowRaises) {
 
   this->AssertBinop(ShiftRight, MakeArray(max), MakeArray(bit_width - 1), "[1]");
   this->AssertBinopRaises(ShiftRight, "[1]", MakeArray(bit_width),
-                          "rhs must be >= 0 and less than precision of type");
+                          "shift amount must be >= 0 and less than precision of type");
 }
 
 }  // namespace compute
