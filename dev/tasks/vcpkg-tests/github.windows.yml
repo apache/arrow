@@ -35,6 +35,28 @@ jobs:
           git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
           git -C arrow checkout FETCH_HEAD
           git -C arrow submodule update --init --recursive
+      - name: Remove and Reinstall vcpkg
+        # TODO: this comment seems outdated, the vcpkg on GHA is quite recent.
+        # As of January 2021, the version of vcpkg that is preinstalled on the
+        # Github Actions windows-2019 image is 2020.11.12, as noted at
+        # https://github.com/actions/virtual-environments/blob/main/images/win/Windows2019-Readme.md
+        # This version of vcpkg has a bug that causes the installation of
+        # aws-cpp-sdk to fail. See details at
+        # https://github.com/awslabs/aws-c-common/issues/734
+        # and https://github.com/microsoft/vcpkg/pull/14716.
+        # When running vcpkg in Github Actions on Windows, remove the
+        # preinstalled vcpkg and install the newest version from source.
+        shell: cmd
+        run: |
+          CALL vcpkg integrate remove 2>NUL
+          CALL C:
+          CALL cd \
+          CALL rmdir /s /q vcpkg 2>NUL
+          CALL git clone https://github.com/microsoft/vcpkg.git vcpkg
+          CALL cd vcpkg
+          CALL bootstrap-vcpkg.bat -win64 -disableMetrics
+          CALL vcpkg integrate install
+          CALL setx PATH "%PATH%;C:\vcpkg"
       - name: Install Dependencies with vcpkg and Build Arrow C++
         shell: cmd
         run: |
