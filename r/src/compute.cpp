@@ -325,6 +325,22 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
         cpp11::as_cpp<arrow::TimeUnit::type>(options["unit"]));
   }
 
+  if (func_name == "assume_timezone") {
+    using Options = arrow::compute::AssumeTimezoneOptions;
+    enum Options::Ambiguous ambiguous;
+    enum Options::Nonexistent nonexistent;
+
+    if (!Rf_isNull(options["ambiguous"])) {
+      ambiguous = cpp11::as_cpp<enum Options::Ambiguous>(options["ambiguous"]);
+    }
+    if (!Rf_isNull(options["nonexistent"])) {
+      nonexistent = cpp11::as_cpp<enum Options::Nonexistent>(options["nonexistent"]);
+    }
+
+    return std::make_shared<Options>(cpp11::as_cpp<std::string>(options["timezone"]),
+                                     ambiguous, nonexistent);
+  }
+
   if (func_name == "split_pattern" || func_name == "split_pattern_regex") {
     using Options = arrow::compute::SplitPatternOptions;
     int64_t max_splits = -1;

@@ -1964,6 +1964,30 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         c_bool one_based_numbering
         uint32_t week_start
 
+    enum CAssumeTimezoneAmbiguous \
+            "arrow::compute::AssumeTimezoneOptions::Ambiguous":
+        CAssumeTimezoneAmbiguous_AMBIGUOUS_RAISE \
+            "arrow::compute::AssumeTimezoneOptions::AMBIGUOUS_RAISE"
+        CAssumeTimezoneAmbiguous_AMBIGUOUS_EARLIEST \
+            "arrow::compute::AssumeTimezoneOptions::AMBIGUOUS_EARLIEST"
+        CAssumeTimezoneAmbiguous_AMBIGUOUS_LATEST \
+            "arrow::compute::AssumeTimezoneOptions::AMBIGUOUS_LATEST"
+
+    enum CAssumeTimezoneNonexistent \
+            "arrow::compute::AssumeTimezoneOptions::Nonexistent":
+        CAssumeTimezoneNonexistent_NONEXISTENT_RAISE \
+            "arrow::compute::AssumeTimezoneOptions::NONEXISTENT_RAISE"
+        CAssumeTimezoneNonexistent_NONEXISTENT_EARLIEST \
+            "arrow::compute::AssumeTimezoneOptions::NONEXISTENT_EARLIEST"
+        CAssumeTimezoneNonexistent_NONEXISTENT_LATEST \
+            "arrow::compute::AssumeTimezoneOptions::NONEXISTENT_LATEST"
+
+    cdef cppclass CAssumeTimezoneOptions \
+            "arrow::compute::AssumeTimezoneOptions"(CFunctionOptions):
+        CAssumeTimezoneOptions(
+            c_string timezone, CAssumeTimezoneAmbiguous ambiguous,
+            CAssumeTimezoneNonexistent nonexistent)
+
     cdef cppclass CNullOptions \
             "arrow::compute::NullOptions"(CFunctionOptions):
         CNullOptions(c_bool nan_is_null)

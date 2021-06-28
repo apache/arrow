@@ -1263,6 +1263,30 @@ For timestamps inputs with non-empty timezone, localized timestamp components wi
 
 .. _ISO 8601 week date definition: https://en.wikipedia.org/wiki/ISO_week_date#First_week
 
+Timezone handling
+~~~~~~~~~~~~~~~~~
+
+This function is meant to be used when an external system produces
+"timezone-naive" timestamps which need to be converted to "timezone-aware"
+timestamps (see for example the `definition
+<https://docs.python.org/3/library/datetime.html#aware-and-naive-objects>`__
+in the Python documentation).
+
+Input timestamps are assumed to be relative to the timezone given in
+:member:`AssumeTimezoneOptions::timezone`. They are converted to
+UTC-relative timestamps with the timezone metadata set to the above value.
+An error is returned if the timestamps already have the timezone metadata set.
+
++--------------------+------------+-------------------+---------------+----------------------------------+-------+
+| Function name      | Arity      | Input types       | Output type   | Options class                    | Notes |
++====================+============+===================+===============+==================================+=======+
+| assume_timezone    | Unary      | Timestamp         | Timestamp     | :struct:`AssumeTimezoneOptions`  | \(1)  |
++--------------------+------------+-------------------+---------------+----------------------------------+-------+
+
+* \(1) In addition to the timezone value, :struct:`AssumeTimezoneOptions`
+  allows choosing the behaviour when a timestamp is ambiguous or nonexistent
+  in the given timezone (because of DST shifts).
+
 
 Array-wise ("vector") functions
 -------------------------------

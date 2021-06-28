@@ -29,6 +29,7 @@
 #include "arrow/result.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
+#include "arrow/vendored/datetime.h"
 
 namespace arrow {
 namespace compute {
@@ -276,6 +277,40 @@ struct ARROW_EXPORT DayOfWeekOptions : public FunctionOptions {
   bool one_based_numbering;
   /// What day does the week start with (Monday=1, Sunday=7)
   uint32_t week_start;
+};
+
+/// Used to control timestamp timezone conversion and handling ambiguous/nonexistent
+/// times.
+struct ARROW_EXPORT AssumeTimezoneOptions : public FunctionOptions {
+ public:
+  /// \brief How to interpret ambiguous local times that can be interpreted as
+  /// multiple instants (normally two) due to DST shifts.
+  ///
+  /// AMBIGUOUS_EARLIEST emits the earliest instant amongst possible interpretations.
+  /// AMBIGUOUS_LATEST emits the latest instant amongst possible interpretations.
+  enum Ambiguous { AMBIGUOUS_RAISE, AMBIGUOUS_EARLIEST, AMBIGUOUS_LATEST };
+
+  /// \brief How to handle local times that do not exist due to DST shifts.
+  ///
+  /// NONEXISTENT_EARLIEST emits the instant "just before" the DST shift instant
+  /// in the given timestamp precision (for example, for a nanoseconds precision
+  /// timestamp, this is one nanosecond before the DST shift instant).
+  /// NONEXISTENT_LATEST emits the DST shift instant.
+  enum Nonexistent { NONEXISTENT_RAISE, NONEXISTENT_EARLIEST, NONEXISTENT_LATEST };
+
+  explicit AssumeTimezoneOptions(std::string timezone,
+                                 Ambiguous ambiguous = AMBIGUOUS_RAISE,
+                                 Nonexistent nonexistent = NONEXISTENT_RAISE);
+  AssumeTimezoneOptions();
+  constexpr static char const kTypeName[] = "AssumeTimezoneOptions";
+
+  /// Timezone to convert timestamps from
+  std::string timezone;
+
+  /// How to interpret ambiguous local times (due to DST shifts)
+  Ambiguous ambiguous;
+  /// How to interpret non-existent local times (due to DST shifts)
+  Nonexistent nonexistent;
 };
 
 /// @}
@@ -1024,6 +1059,22 @@ ARROW_EXPORT Result<Datum> Subsecond(const Datum& values, ExecContext* ctx = NUL
 /// \note API not yet finalized
 ARROW_EXPORT Result<Datum> Strftime(const Datum& values, StrftimeOptions options,
                                     ExecContext* ctx = NULLPTR);
+
+/// \brief Converts timestamps from local timestamp without a timezone to a timestamp with
+/// timezone, interpreting the local timestamp as being in the specified timezone for each
+/// element of `values`
+///
+/// \param[in] values input to convert
+/// \param[in] options for setting source timezone, exception and ambiguous timestamp
+/// handling.
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 6.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> AssumeTimezone(const Datum& values,
+                                          AssumeTimezoneOptions options,
+                                          ExecContext* ctx = NULLPTR);
 
 }  // namespace compute
 }  // namespace arrow
