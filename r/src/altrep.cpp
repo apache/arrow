@@ -19,6 +19,8 @@
 
 #include "./arrow_types.h"
 
+#if defined(ARROW_R_WITH_ARROW)
+
 #if defined(HAS_ALTREP)
 
 #include <R_ext/Altrep.h>
@@ -164,3 +166,5 @@ bool is_altrep_dbl_nonull(SEXP x) {
   return false;
 #endif
 }
+
+#endif
