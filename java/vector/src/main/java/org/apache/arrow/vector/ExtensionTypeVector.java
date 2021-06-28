@@ -36,7 +36,7 @@ import org.apache.arrow.vector.util.TransferPair;
  * A vector that wraps an underlying vector, used to help implement extension types.
  * @param <T> The wrapped vector type.
  */
-public abstract class ExtensionTypeVector<T extends BaseValueVector & FieldVector> extends BaseValueVector implements
+public abstract class ExtensionTypeVector<T extends ValueVector & FieldVector> extends BaseValueVector implements
     FieldVector {
 
   private final T underlyingVector;
