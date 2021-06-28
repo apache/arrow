@@ -146,15 +146,14 @@ class BitmapUInt64Reader {
 // on sufficiently large inputs.  However, it has a larger prolog / epilog overhead
 // and should probably not be used for small bitmaps.
 
-template <typename Word>
+template <typename Word, bool may_have_byte_offset = true>
 class BitmapWordReader {
  public:
   BitmapWordReader() = default;
-  BitmapWordReader(const uint8_t* bitmap, int64_t offset, int64_t length) {
-    bitmap_ = bitmap + offset / 8;
-    offset_ = offset % 8;
-    bitmap_end_ = bitmap_ + BitUtil::BytesForBits(offset_ + length);
-
+  BitmapWordReader(const uint8_t* bitmap, int64_t offset, int64_t length)
+      : offset_(static_cast<int64_t>(may_have_byte_offset) * (offset % 8)),
+        bitmap_(bitmap + offset / 8),
+        bitmap_end_(bitmap_ + BitUtil::BytesForBits(offset_ + length)) {
     // decrement word count by one as we may touch two adjacent words in one iteration
     nwords_ = length / (sizeof(Word) * 8) - 1;
     if (nwords_ < 0) {
@@ -174,7 +173,7 @@ class BitmapWordReader {
     bitmap_ += sizeof(Word);
     const Word next_word = load<Word>(bitmap_);
     Word word = current_word_;
-    if (offset_) {
+    if (may_have_byte_offset && offset_) {
       // combine two adjacent words into one word
       // |<------ next ----->|<---- current ---->|
       // +-------------+-----+-------------+-----+
@@ -215,7 +214,7 @@ class BitmapWordReader {
       ++bitmap_;
       const uint8_t next_byte = load<uint8_t>(bitmap_);
       byte = current_byte_;
-      if (offset_) {
+      if (may_have_byte_offset && offset_) {
         byte >>= offset_;
         byte |= next_byte << (8 - offset_);
       }

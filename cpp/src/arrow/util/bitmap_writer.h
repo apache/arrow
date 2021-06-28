@@ -180,16 +180,15 @@ class FirstTimeBitmapWriter {
   int64_t byte_offset_;
 };
 
-template <typename Word>
+template <typename Word, bool may_have_byte_offset = true>
 class BitmapWordWriter {
  public:
   BitmapWordWriter() = default;
-  BitmapWordWriter(uint8_t* bitmap, int64_t offset, int64_t length) {
-    bitmap_ = bitmap + offset / 8;
-    offset_ = offset % 8;
-    bitmap_end_ = bitmap_ + BitUtil::BytesForBits(offset_ + length);
-    mask_ = (1U << offset_) - 1;
-
+  BitmapWordWriter(uint8_t* bitmap, int64_t offset, int64_t length)
+      : offset_(static_cast<int64_t>(may_have_byte_offset) * (offset % 8)),
+        bitmap_(bitmap + offset / 8),
+        bitmap_end_(bitmap_ + BitUtil::BytesForBits(offset_ + length)),
+        mask_((1U << offset_) - 1) {
     if (offset_) {
       if (length >= static_cast<int>(sizeof(Word) * 8)) {
         current_word_ = load<Word>(bitmap_);
@@ -200,7 +199,7 @@ class BitmapWordWriter {
   }
 
   void PutNextWord(Word word) {
-    if (offset_) {
+    if (may_have_byte_offset && offset_) {
       // split one word into two adjacent words, don't touch unused bits
       //               |<------ word ----->|
       //               +-----+-------------+
@@ -227,7 +226,7 @@ class BitmapWordWriter {
 
   void PutNextTrailingByte(uint8_t byte, int valid_bits) {
     if (valid_bits == 8) {
-      if (offset_) {
+      if (may_have_byte_offset && offset_) {
         byte = (byte << offset_) | (byte >> (8 - offset_));
         uint8_t next_byte = load<uint8_t>(bitmap_ + 1);
         current_byte_ = (current_byte_ & mask_) | (byte & ~mask_);

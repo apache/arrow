@@ -243,49 +243,17 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
     return min_offset;
   }
 
-  /// \brief Visit words of bits from each input bitmap as array<Word, N> and collects
-  /// outputs to an array<Word, M>, to be written into the output bitmaps accordingly.
-  ///
-  /// All bitmaps must have identical length. The first bit in a visited bitmap
-  /// may be offset within the first visited word, but words will otherwise contain
-  /// densely packed bits loaded from the bitmap. That offset within the first word is
-  /// returned.
-  /// Visitor is expected to have the following signature
-  ///     [](const std::array<Word, N>& in_words, std::array<Word, M>* out_words){...}
-  ///
-  // NOTE: this function is efficient on 3+ sufficiently large bitmaps.
-  // It also has a large prolog / epilog overhead and should be used
-  // carefully in other cases.
-  // For 2 bitmaps or less, and/or smaller bitmaps, see also VisitTwoBitBlocksVoid
-  // and BitmapUInt64Reader.
-  template <size_t N, size_t M, typename Visitor,
+  template <size_t N, size_t M, typename ReaderT, typename WriterT, typename Visitor,
             typename Word = typename std::decay<
                 internal::call_traits::argument_type<0, Visitor&&>>::type::value_type>
-  static void VisitWordsAndWrite(const std::array<Bitmap, N>& bitmaps_arg,
-                                 std::array<Bitmap, M>* out_bitmaps_arg,
-                                 Visitor&& visitor) {
+  static void RunVisitWordsAndWriteLoop(int64_t bit_length,
+                                        std::array<ReaderT, N>& readers,
+                                        std::array<WriterT, M>& writers,
+                                        Visitor&& visitor) {
     constexpr int64_t kBitWidth = sizeof(Word) * 8;
 
-    int64_t bit_length = BitLength(bitmaps_arg);
-    assert(bit_length == BitLength(*out_bitmaps_arg));
-
-    std::array<BitmapWordReader<Word>, N> readers;
-    for (size_t i = 0; i < N; ++i) {
-      readers[i] = BitmapWordReader<Word>(bitmaps_arg[i].buffer_->data(),
-                                          bitmaps_arg[i].offset_, bitmaps_arg[i].length_);
-    }
-
-    std::array<BitmapWordWriter<Word>, M> writers;
-    for (size_t i = 0; i < M; ++i) {
-      const Bitmap& out_bitmap = out_bitmaps_arg->at(i);
-      writers[i] = BitmapWordWriter<Word>(out_bitmap.buffer_->mutable_data(),
-                                          out_bitmap.offset_, out_bitmap.length_);
-    }
-
     std::array<Word, N> visited_words;
-    visited_words.fill(0);
     std::array<Word, M> output_words;
-    output_words.fill(0);
 
     // every reader will have same number of words, since they are same length'ed
     // TODO($JIRA) this will be inefficient in some cases. When there are offsets beyond
@@ -335,6 +303,69 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
           writers[i].PutNextTrailingByte(output_bytes[i], valid_bits);
         }
       }
+    }
+  }
+
+  /// \brief Visit words of bits from each input bitmap as array<Word, N> and collects
+  /// outputs to an array<Word, M>, to be written into the output bitmaps accordingly.
+  ///
+  /// All bitmaps must have identical length. The first bit in a visited bitmap
+  /// may be offset within the first visited word, but words will otherwise contain
+  /// densely packed bits loaded from the bitmap. That offset within the first word is
+  /// returned.
+  /// Visitor is expected to have the following signature
+  ///     [](const std::array<Word, N>& in_words, std::array<Word, M>* out_words){...}
+  ///
+  // NOTE: this function is efficient on 3+ sufficiently large bitmaps.
+  // It also has a large prolog / epilog overhead and should be used
+  // carefully in other cases.
+  // For 2 bitmaps or less, and/or smaller bitmaps, see also VisitTwoBitBlocksVoid
+  // and BitmapUInt64Reader.
+  template <size_t N, size_t M, typename Visitor,
+            typename Word = typename std::decay<
+                internal::call_traits::argument_type<0, Visitor&&>>::type::value_type>
+  static void VisitWordsAndWrite(const std::array<Bitmap, N>& bitmaps_arg,
+                                 std::array<Bitmap, M>* out_bitmaps_arg,
+                                 Visitor&& visitor) {
+    int64_t bit_length = BitLength(bitmaps_arg);
+    assert(bit_length == BitLength(*out_bitmaps_arg));
+
+    // if both input and output bitmaps have no byte offset, then use special template
+    if (std::all_of(bitmaps_arg.begin(), bitmaps_arg.end(),
+                    [](const Bitmap& b) { return b.offset_ % 8 == 0; }) &&
+        std::all_of(out_bitmaps_arg->begin(), out_bitmaps_arg->end(),
+                    [](const Bitmap& b) { return b.offset_ % 8 == 0; })) {
+      std::array<BitmapWordReader<Word, /*may_have_byte_offset=*/false>, N> readers;
+      for (size_t i = 0; i < N; ++i) {
+        const Bitmap& in_bitmap = bitmaps_arg[i];
+        readers[i] = BitmapWordReader<Word, /*may_have_byte_offset=*/false>(
+            in_bitmap.buffer_->data(), in_bitmap.offset_, in_bitmap.length_);
+      }
+
+      std::array<BitmapWordWriter<Word, /*may_have_byte_offset=*/false>, M> writers;
+      for (size_t i = 0; i < M; ++i) {
+        const Bitmap& out_bitmap = out_bitmaps_arg->at(i);
+        writers[i] = BitmapWordWriter<Word, /*may_have_byte_offset=*/false>(
+            out_bitmap.buffer_->mutable_data(), out_bitmap.offset_, out_bitmap.length_);
+      }
+
+      RunVisitWordsAndWriteLoop(bit_length, readers, writers, std::move(visitor));
+    } else {
+      std::array<BitmapWordReader<Word>, N> readers;
+      for (size_t i = 0; i < N; ++i) {
+        const Bitmap& in_bitmap = bitmaps_arg[i];
+        readers[i] = BitmapWordReader<Word>(in_bitmap.buffer_->data(), in_bitmap.offset_,
+                                            in_bitmap.length_);
+      }
+
+      std::array<BitmapWordWriter<Word>, M> writers;
+      for (size_t i = 0; i < M; ++i) {
+        const Bitmap& out_bitmap = out_bitmaps_arg->at(i);
+        writers[i] = BitmapWordWriter<Word>(out_bitmap.buffer_->mutable_data(),
+                                            out_bitmap.offset_, out_bitmap.length_);
+      }
+
+      RunVisitWordsAndWriteLoop(bit_length, readers, writers, std::move(visitor));
     }
   }
 
