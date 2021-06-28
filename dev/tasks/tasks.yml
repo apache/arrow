@@ -920,7 +920,8 @@ tasks:
                                  ("rstudio", "r-base", "3.6-bionic"),
                                  ("rstudio", "r-base", "3.6-centos8"),
                                  ("rstudio", "r-base", "3.6-opensuse15"),
-                                 ("rstudio", "r-base", "3.6-opensuse42")] %}
+                                 ("rstudio", "r-base", "3.6-opensuse42"),
+                                 ("rocker", "r-edge", "latest")] %}
   test-r-{{ r_org }}-{{ r_image }}-{{ r_tag }}:
     ci: azure
     template: r/azure.linux.yml
