@@ -193,10 +193,26 @@ public class StatusUtils {
       return ex;
     } else if (ex instanceof FlightRuntimeException) {
       final FlightRuntimeException fre = (FlightRuntimeException) ex;
+      if (fre.status().metadata() != null) {
+        Metadata trailers = toGrpcMetadata(fre.status().metadata());
+        return new StatusRuntimeException(toGrpcStatus(fre.status()), trailers);
+      }
       return toGrpcStatus(fre.status()).asRuntimeException();
     }
     return Status.INTERNAL.withCause(ex).withDescription("There was an error servicing your request.")
         .asRuntimeException();
+  }
+
+  private static Metadata toGrpcMetadata(ErrorFlightMetadata metadata) {
+    final Metadata trailers = new Metadata();
+    for (final String key : metadata.keys()) {
+      if (key.endsWith(Metadata.BINARY_HEADER_SUFFIX)) {
+        trailers.put(Metadata.Key.of(key, Metadata.BINARY_BYTE_MARSHALLER), metadata.getByte(key));
+      } else {
+        trailers.put(Metadata.Key.of(key, Metadata.ASCII_STRING_MARSHALLER), metadata.get(key));
+      }
+    }
+    return trailers;
   }
 
   /**
