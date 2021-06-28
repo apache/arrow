@@ -18,16 +18,13 @@
 #pragma once
 
 #include <functional>
-#include <memory>
 #include <string>
 #include <vector>
 
+#include "arrow/compute/exec.h"
 #include "arrow/compute/exec/exec_plan.h"
-#include "arrow/record_batch.h"
 #include "arrow/testing/visibility.h"
-#include "arrow/util/async_generator.h"
 #include "arrow/util/string_view.h"
-#include "arrow/util/type_fwd.h"
 
 namespace arrow {
 namespace compute {
@@ -39,6 +36,10 @@ using StopProducingFunc = std::function<void(ExecNode*)>;
 ARROW_TESTING_EXPORT
 ExecNode* MakeDummyNode(ExecPlan* plan, std::string label, std::vector<ExecNode*> inputs,
                         int num_outputs, StartProducingFunc = {}, StopProducingFunc = {});
+
+ARROW_TESTING_EXPORT
+ExecBatch ExecBatchFromJSON(const std::vector<ValueDescr>& descrs,
+                            util::string_view json);
 
 }  // namespace compute
 }  // namespace arrow

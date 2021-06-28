@@ -979,26 +979,6 @@ Future<BreakValueType> Loop(Iterate iterate) {
   return break_fut;
 }
 
-template <typename T>
-struct EnsureFuture {
-  using type = Future<T>;
-};
-
-template <typename T>
-struct EnsureFuture<Result<T>> {
-  using type = Future<T>;
-};
-
-template <typename T>
-struct EnsureFuture<Future<T>> {
-  using type = Future<T>;
-};
-
-template <>
-struct EnsureFuture<Status> {
-  using type = Future<>;
-};
-
 inline Future<> ToFuture(Status status) {
   return Future<>::MakeFinished(std::move(status));
 }
@@ -1017,5 +997,10 @@ template <typename T>
 Future<T> ToFuture(Future<T> fut) {
   return std::move(fut);
 }
+
+template <typename T>
+struct EnsureFuture {
+  using type = decltype(ToFuture(std::declval<T>()));
+};
 
 }  // namespace arrow

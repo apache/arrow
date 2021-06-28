@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <gmock/gmock-matchers.h>
-
 #include <functional>
 #include <memory>
+
+#include <gmock/gmock-matchers.h>
 
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/exec_plan.h"
@@ -27,7 +27,9 @@
 #include "arrow/record_batch.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/vector.h"
@@ -39,28 +41,6 @@ using testing::UnorderedElementsAreArray;
 namespace arrow {
 
 namespace compute {
-
-ExecBatch ExecBatchFromJSON(const std::vector<ValueDescr>& descrs,
-                            util::string_view json) {
-  auto fields = internal::MapVector(
-      [](const ValueDescr& descr) { return field("", descr.type); }, descrs);
-
-  ExecBatch batch{*RecordBatchFromJSON(schema(std::move(fields)), json)};
-
-  auto value_it = batch.values.begin();
-  for (const auto& descr : descrs) {
-    if (descr.shape == ValueDescr::SCALAR) {
-      if (batch.length == 0) {
-        *value_it = MakeNullScalar(value_it->type());
-      } else {
-        *value_it = value_it->make_array()->GetScalar(0).ValueOrDie();
-      }
-    }
-    ++value_it;
-  }
-
-  return batch;
-}
 
 TEST(ExecPlanConstruction, Empty) {
   ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());

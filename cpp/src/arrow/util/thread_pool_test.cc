@@ -408,6 +408,7 @@ TEST_F(TestThreadPool, OwnsCurrentThread) {
   }
 
   ASSERT_OK(pool->Shutdown());
+  ASSERT_FALSE(pool->OwnsThisThread());
   ASSERT_FALSE(one_failed);
 }
 

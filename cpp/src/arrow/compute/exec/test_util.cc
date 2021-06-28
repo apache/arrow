@@ -39,6 +39,7 @@
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
+#include "arrow/util/vector.h"
 
 namespace arrow {
 
@@ -126,6 +127,28 @@ ExecNode* MakeDummyNode(ExecPlan* plan, std::string label, std::vector<ExecNode*
   return plan->EmplaceNode<DummyNode>(plan, std::move(label), std::move(inputs),
                                       num_outputs, std::move(start_producing),
                                       std::move(stop_producing));
+}
+
+ExecBatch ExecBatchFromJSON(const std::vector<ValueDescr>& descrs,
+                            util::string_view json) {
+  auto fields = internal::MapVector(
+      [](const ValueDescr& descr) { return field("", descr.type); }, descrs);
+
+  ExecBatch batch{*RecordBatchFromJSON(schema(std::move(fields)), json)};
+
+  auto value_it = batch.values.begin();
+  for (const auto& descr : descrs) {
+    if (descr.shape == ValueDescr::SCALAR) {
+      if (batch.length == 0) {
+        *value_it = MakeNullScalar(value_it->type());
+      } else {
+        *value_it = value_it->make_array()->GetScalar(0).ValueOrDie();
+      }
+    }
+    ++value_it;
+  }
+
+  return batch;
 }
 
 }  // namespace compute

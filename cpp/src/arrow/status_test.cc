@@ -22,6 +22,7 @@
 
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
 
 namespace arrow {
 

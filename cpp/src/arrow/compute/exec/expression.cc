@@ -29,6 +29,7 @@
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/util/atomic_shared_ptr.h"
+#include "arrow/util/hash_util.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
@@ -65,7 +66,7 @@ Expression call(std::string function, std::vector<Expression> arguments,
 
   call.hash = std::hash<std::string>{}(call.function_name);
   for (const auto& arg : call.arguments) {
-    call.hash ^= arg.hash();
+    arrow::internal::hash_combine(call.hash, arg.hash());
   }
   return Expression(std::move(call));
 }
