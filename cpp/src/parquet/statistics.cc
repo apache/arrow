@@ -90,6 +90,14 @@ struct UnsignedCompareHelperBase {
   static_assert(!std::is_same<T, UCType>::value, "T is unsigned");
   static_assert(sizeof(T) == sizeof(UCType), "T and UCType not the same size");
 
+  // NOTE: according to the C++ spec, unsigned-to-signed conversion is
+  // implementation-defined if the original value does not fix in the signed type
+  // (i.e., two's complement cannot be assumed even on mainstream machines,
+  // because the compiler may decide otherwise).  Hence the use of `SafeCopy`
+  // below for deterministic bit-casting.
+  // (see "Integer conversions" in
+  //  https://en.cppreference.com/w/cpp/language/implicit_conversion)
+
   static const T DefaultMin() { return SafeCopy<T>(std::numeric_limits<UCType>::max()); }
   static const T DefaultMax() {
     return SafeCopy<T>(std::numeric_limits<UCType>::lowest());
@@ -382,6 +390,9 @@ class TypedComparatorImpl : virtual public TypedComparator<DType> {
   int type_length_;
 };
 
+// ARROW-11675: A hand-written version of GetMinMax(), to work around
+// what looks like a MSVC code generation bug.
+// This does not seem to be required for GetMinMaxSpaced().
 template <>
 std::pair<int32_t, int32_t>
 TypedComparatorImpl</*is_signed=*/false, Int32Type>::GetMinMax(const int32_t* values,
