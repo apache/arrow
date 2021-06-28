@@ -2845,7 +2845,7 @@ struct AsciiPadTransform : public StringTransformBase {
     int64_t left = 0;
     int64_t right = 0;
     if (PadLeft && PadRight) {
-      // If odd number of spaces, put them on the left
+      // If odd number of spaces, put the extra space on the left
       right = spaces / 2;
       left = spaces - right;
     } else if (PadLeft) {
@@ -2901,7 +2901,7 @@ struct Utf8PadTransform : public StringTransformBase {
     int64_t left = 0;
     int64_t right = 0;
     if (PadLeft && PadRight) {
-      // If odd number of spaces, put them on the left
+      // If odd number of spaces, put the extra space on the left
       right = spaces / 2;
       left = spaces - right;
     } else if (PadLeft) {
