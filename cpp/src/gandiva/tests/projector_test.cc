@@ -835,10 +835,10 @@ TEST_F(TestProjector, TestBase64) {
 
   // Create a row-batch with some sample data
   int num_records = 4;
-  auto array0 = MakeArrowArrayBinary({"hello", "", "test", "hive"},
-                                     {true, true, true, true});
+  auto array0 =
+      MakeArrowArrayBinary({"hello", "", "test", "hive"}, {true, true, true, true});
   // expected output
-  auto exp_left = MakeArrowArrayUtf8({"aGVsbG8=", "", "dGVzdA==", "aGl2ZQ=="},
+  auto exp_base = MakeArrowArrayUtf8({"aGVsbG8=", "", "dGVzdA==", "aGl2ZQ=="},
                                      {true, true, true, true});
 
   // prepare input record batch
@@ -850,7 +850,7 @@ TEST_F(TestProjector, TestBase64) {
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Validate results
-  EXPECT_ARROW_ARRAY_EQUALS(exp_left, outputs.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_base, outputs.at(0));
 }
 
 TEST_F(TestProjector, TestUnbase64) {
@@ -873,8 +873,8 @@ TEST_F(TestProjector, TestUnbase64) {
   auto array0 = MakeArrowArrayUtf8({"aGVsbG8=", "", "dGVzdA==", "aGl2ZQ=="},
                                    {true, true, true, true});
   // expected output
-  auto exp_left = MakeArrowArrayBinary({"hello", "", "test", "hive"},
-                                       {true, true, true, true});
+  auto exp_unbase =
+      MakeArrowArrayBinary({"hello", "", "test", "hive"}, {true, true, true, true});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
@@ -885,7 +885,7 @@ TEST_F(TestProjector, TestUnbase64) {
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Validate results
-  EXPECT_ARROW_ARRAY_EQUALS(exp_left, outputs.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_unbase, outputs.at(0));
 }
 
 TEST_F(TestProjector, TestLeftString) {
