@@ -19,6 +19,8 @@
 
 #include "./arrow_types.h"
 
+#if defined(ARROW_R_WITH_ARROW)
+
 #if defined(HAS_ALTREP)
 
 #include <R_ext/Altrep.h>
@@ -144,6 +146,8 @@ SEXP MakeInt32ArrayNoNull(const std::shared_ptr<Array>& array) {
 
 }  // namespace r
 }  // namespace arrow
+
+#endif
 
 #endif
 
