@@ -85,6 +85,7 @@ extern "C" {
 NUMERIC_TYPES(BINARY_SYMMETRIC, add, +)
 NUMERIC_TYPES(BINARY_SYMMETRIC, subtract, -)
 NUMERIC_TYPES(BINARY_SYMMETRIC, multiply, *)
+
 BINARY_SYMMETRIC(bitwise_and, int32, &)
 BINARY_SYMMETRIC(bitwise_and, int64, &)
 BINARY_SYMMETRIC(bitwise_or, int32, |)
@@ -92,6 +93,19 @@ BINARY_SYMMETRIC(bitwise_or, int64, |)
 BINARY_SYMMETRIC(bitwise_xor, int32, ^)
 BINARY_SYMMETRIC(bitwise_xor, int64, ^)
 
+BINARY_SYMMETRIC(bitwise_and, uint32, &)
+BINARY_SYMMETRIC(bitwise_and, uint64, &)
+BINARY_SYMMETRIC(bitwise_or, uint32, |)
+BINARY_SYMMETRIC(bitwise_or, uint64, |)
+BINARY_SYMMETRIC(bitwise_xor, uint32, ^)
+BINARY_SYMMETRIC(bitwise_xor, uint64, ^)
+
+BINARY_SYMMETRIC(bitwise_and, uint8, &)
+BINARY_SYMMETRIC(bitwise_and, uint16, &)
+BINARY_SYMMETRIC(bitwise_or, uint8, |)
+BINARY_SYMMETRIC(bitwise_or, uint16, |)
+BINARY_SYMMETRIC(bitwise_xor, uint8, ^)
+BINARY_SYMMETRIC(bitwise_xor, uint16, ^)
 #undef BINARY_SYMMETRIC
 
 MOD_OP(mod, int64, int32, int32)
@@ -202,6 +216,8 @@ NUMERIC_DATE_TYPES(COMPARE_SIX_VALUES, least, <)
 
 CAST_UNARY(castBIGINT, int32, int64)
 CAST_UNARY(castINT, int64, int32)
+CAST_UNARY(castINT, int8, int32)
+CAST_UNARY(castFLOAT4, int8, float32)
 CAST_UNARY(castFLOAT4, int32, float32)
 CAST_UNARY(castFLOAT4, int64, float32)
 CAST_UNARY(castFLOAT8, int32, float64)
@@ -466,6 +482,10 @@ DIV_FLOAT(float64)
 
 BITWISE_NOT(int32)
 BITWISE_NOT(int64)
+BITWISE_NOT(uint64)
+BITWISE_NOT(uint32)
+BITWISE_NOT(uint16)
+BITWISE_NOT(uint8)
 
 #undef BITWISE_NOT
 

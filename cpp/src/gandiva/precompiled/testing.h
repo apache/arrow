@@ -40,4 +40,11 @@ static inline gdv_timestamp StringToTimestamp(const std::string& s) {
   return out * 1000;
 }
 
+static const double MAX_ERROR = 0.00005;
+
+void inline VerifyFuzzyEquals(double actual, double expected,
+                              double max_error = MAX_ERROR) {
+  EXPECT_TRUE(fabs(actual - expected) < max_error) << actual << " != " << expected;
+}
+
 }  // namespace gandiva

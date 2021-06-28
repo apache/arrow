@@ -65,11 +65,12 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
       UNARY_SAFE_NULL_IF_NULL(not, {}, boolean, boolean),
       UNARY_SAFE_NULL_IF_NULL(castBIGINT, {}, int32, int64),
       UNARY_SAFE_NULL_IF_NULL(castINT, {}, int64, int32),
+      UNARY_SAFE_NULL_IF_NULL(castINT, {}, int8, int32),
       UNARY_SAFE_NULL_IF_NULL(castBIGINT, {}, decimal128, int64),
 
       // cast to float32
       UNARY_CAST_TO_FLOAT32(int32), UNARY_CAST_TO_FLOAT32(int64),
-      UNARY_CAST_TO_FLOAT32(float64),
+      UNARY_CAST_TO_FLOAT32(float64), UNARY_CAST_TO_FLOAT32(int8),
 
       // cast to int32
       UNARY_CAST_TO_INT32(float32), UNARY_CAST_TO_INT32(float64),
@@ -125,8 +126,27 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
       BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(bitwise_or, {}, int64),
       BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(bitwise_xor, {"xor"}, int32),
       BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(bitwise_xor, {"xor"}, int64),
+
+      BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(bitwise_and, {}, uint32),
+      BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(bitwise_and, {}, uint64),
+      BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(bitwise_or, {}, uint32),
+      BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(bitwise_or, {}, uint64),
+      BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(bitwise_xor, {}, uint32),
+      BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(bitwise_xor, {}, uint64),
+
+      BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(bitwise_and, {}, uint8),
+      BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(bitwise_and, {}, uint16),
+      BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(bitwise_or, {}, uint8),
+      BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(bitwise_or, {}, uint16),
+      BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(bitwise_xor, {}, uint8),
+      BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(bitwise_xor, {}, uint16),
+
       UNARY_SAFE_NULL_IF_NULL(bitwise_not, {}, int32, int32),
       UNARY_SAFE_NULL_IF_NULL(bitwise_not, {}, int64, int64),
+      UNARY_SAFE_NULL_IF_NULL(bitwise_not, {}, uint32, uint32),
+      UNARY_SAFE_NULL_IF_NULL(bitwise_not, {}, uint64, uint64),
+      UNARY_SAFE_NULL_IF_NULL(bitwise_not, {}, uint16, uint16),
+      UNARY_SAFE_NULL_IF_NULL(bitwise_not, {}, uint8, uint8),
 
       UNARY_SAFE_NULL_NEVER_BOOL(isnotfalse, ({"is not false"}), boolean),
       UNARY_SAFE_NULL_NEVER_BOOL(isnottrue, ({"is not true"}), boolean),
