@@ -223,7 +223,8 @@ Status ArrayBuilder::AppendScalars(const ScalarVector& scalars) {
                              " to builder for type ", type()->ToString());
     }
   }
-  return AppendScalarImpl{&*scalars.cbegin(), &*scalars.cend(), /*n_repeats=*/1, this}
+  return AppendScalarImpl{scalars.data(), scalars.data() + scalars.size(),
+                          /*n_repeats=*/1, this}
       .Convert();
 }
 
