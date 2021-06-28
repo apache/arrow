@@ -102,9 +102,10 @@ struct AppendScalarImpl {
             typename ScalarType = typename TypeTraits<T>::ScalarType>
   Status UseBuilder(const AppendScalar& append) {
     for (int64_t i = 0; i < n_repeats_; i++) {
-      for (const auto scalar : scalars_) {
-        if (scalar->is_valid) {
-          RETURN_NOT_OK(append(internal::checked_cast<const ScalarType&>(*scalar),
+      for (const std::shared_ptr<Scalar>* scalar = scalars_begin_; scalar != scalars_end_;
+           scalar++) {
+        if ((*scalar)->is_valid) {
+          RETURN_NOT_OK(append(internal::checked_cast<const ScalarType&>(**scalar),
                                static_cast<BuilderType*>(builder_)));
         } else {
           RETURN_NOT_OK(builder_->AppendNull());
@@ -165,8 +166,8 @@ struct AppendScalarImpl {
   Status Visit(const StructType& type) {
     for (int64_t i = 0; i < n_repeats_; i++) {
       auto* builder = static_cast<StructBuilder*>(builder_);
-      for (const auto s : scalars_) {
-        const auto& scalar = internal::checked_cast<const StructScalar&>(*s);
+      for (const std::shared_ptr<Scalar>* s = scalars_begin_; s != scalars_end_; s++) {
+        const auto& scalar = internal::checked_cast<const StructScalar&>(**s);
         for (int field_index = 0; field_index < type.num_fields(); ++field_index) {
           if (!scalar.is_valid || !scalar.value[field_index]) {
             RETURN_NOT_OK(builder->field_builder(field_index)->AppendNull());
@@ -185,9 +186,10 @@ struct AppendScalarImpl {
     return Status::NotImplemented("AppendScalar for type ", type);
   }
 
-  Status Convert() { return VisitTypeInline(*scalars_[0]->type, this); }
+  Status Convert() { return VisitTypeInline(*(*scalars_begin_)->type, this); }
 
-  std::vector<const Scalar*> scalars_;
+  const std::shared_ptr<Scalar>* scalars_begin_;
+  const std::shared_ptr<Scalar>* scalars_end_;
   int64_t n_repeats_;
   ArrayBuilder* builder_;
 };
@@ -198,7 +200,8 @@ Status ArrayBuilder::AppendScalar(const Scalar& scalar) {
     return Status::Invalid("Cannot append scalar of type ", scalar.type->ToString(),
                            " to builder for type ", type()->ToString());
   }
-  return AppendScalarImpl{{&scalar}, /*n_repeats=*/1, this}.Convert();
+  std::shared_ptr<Scalar> shared{const_cast<Scalar*>(&scalar), [](Scalar*) {}};
+  return AppendScalarImpl{&shared, &shared + 1, /*n_repeats=*/1, this}.Convert();
 }
 
 Status ArrayBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeats) {
@@ -207,22 +210,21 @@ Status ArrayBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeats) {
                            " to builder for type ", type()->ToString());
   }
   RETURN_NOT_OK(Reserve(n_repeats));
-  return AppendScalarImpl{{&scalar}, n_repeats, this}.Convert();
+  std::shared_ptr<Scalar> shared{const_cast<Scalar*>(&scalar), [](Scalar*) {}};
+  return AppendScalarImpl{&shared, &shared + 1, n_repeats, this}.Convert();
 }
 
 Status ArrayBuilder::AppendScalars(const ScalarVector& scalars) {
   if (scalars.empty()) return Status::OK();
-  RETURN_NOT_OK(Reserve(scalars.size()));
-  std::vector<const Scalar*> refs;
-  refs.reserve(scalars.size());
+  const auto ty = type();
   for (const auto& scalar : scalars) {
-    if (!scalar->type->Equals(type())) {
+    if (!scalar->type->Equals(ty)) {
       return Status::Invalid("Cannot append scalar of type ", scalar->type->ToString(),
                              " to builder for type ", type()->ToString());
     }
-    refs.push_back(scalar.get());
   }
-  return AppendScalarImpl{refs, /*n_repeats=*/1, this}.Convert();
+  return AppendScalarImpl{&*scalars.cbegin(), &*scalars.cend(), /*n_repeats=*/1, this}
+      .Convert();
 }
 
 Status ArrayBuilder::Finish(std::shared_ptr<Array>* out) {
