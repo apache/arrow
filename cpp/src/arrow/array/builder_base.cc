@@ -95,6 +95,7 @@ Status ArrayBuilder::Advance(int64_t elements) {
   return null_bitmap_builder_.Advance(elements);
 }
 
+namespace {
 struct AppendScalarImpl {
   template <typename T, typename AppendScalar,
             typename BuilderType = typename TypeTraits<T>::BuilderType,
@@ -190,6 +191,7 @@ struct AppendScalarImpl {
   int64_t n_repeats_;
   ArrayBuilder* builder_;
 };
+}  // namespace
 
 Status ArrayBuilder::AppendScalar(const Scalar& scalar) {
   if (!scalar.type->Equals(type())) {
@@ -204,11 +206,13 @@ Status ArrayBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeats) {
     return Status::Invalid("Cannot append scalar of type ", scalar.type->ToString(),
                            " to builder for type ", type()->ToString());
   }
+  RETURN_NOT_OK(Reserve(n_repeats));
   return AppendScalarImpl{{&scalar}, n_repeats, this}.Convert();
 }
 
 Status ArrayBuilder::AppendScalars(const ScalarVector& scalars) {
   if (scalars.empty()) return Status::OK();
+  RETURN_NOT_OK(Reserve(scalars.size()));
   std::vector<const Scalar*> refs;
   refs.reserve(scalars.size());
   for (const auto& scalar : scalars) {
