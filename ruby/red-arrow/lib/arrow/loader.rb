@@ -73,6 +73,8 @@ module Arrow
       require "arrow/group"
       require "arrow/list-array-builder"
       require "arrow/list-data-type"
+      require "arrow/map-array"
+      require "arrow/map-array-builder"
       require "arrow/map-data-type"
       require "arrow/null-array"
       require "arrow/null-array-builder"
