@@ -527,7 +527,7 @@ nse_funcs$second <- function(x) {
 }
 
 # After ARROW-13054 is completed, we can refactor this for simplicity
-#
+# 
 # Arrow's `day_of_week` kernel counts from 0 (Monday) to 6 (Sunday), whereas
 # `lubridate::wday` counts from 1 to 7, and allows users to specify which day
 # of the week is first (Sunday by default).  This Expression converts the returned
@@ -535,7 +535,7 @@ nse_funcs$second <- function(x) {
 # providing offset values based on the specified week_start day, and adding 1
 # so the returned value is 1-indexed instead of 0-indexed.
 nse_funcs$wday <- function(x, label = FALSE, abbr = TRUE, week_start = getOption("lubridate.week.start", 7)) {
-  
+
   # The "day_of_week" compute function returns numeric days of week and not locale-aware strftime
   # When the ticket below is resolved, we should be able to support the label argument
   # https://issues.apache.org/jira/browse/ARROW-13133
