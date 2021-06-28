@@ -349,7 +349,7 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
             out_bitmap.buffer_->mutable_data(), out_bitmap.offset_, out_bitmap.length_);
       }
 
-      RunVisitWordsAndWriteLoop(bit_length, readers, writers, std::move(visitor));
+      RunVisitWordsAndWriteLoop(bit_length, readers, writers, visitor);
     } else {
       std::array<BitmapWordReader<Word>, N> readers;
       for (size_t i = 0; i < N; ++i) {

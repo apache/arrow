@@ -57,6 +57,9 @@ TYPED_TEST(TestIfElsePrimitive, IfElseFixedSizeRand) {
 
   random::RandomArrayGenerator rand(/*seed=*/0);
   int64_t len = 1000;
+
+  // adding 64 consecutive 1's and 0's in the cond array to test all-true/ all-false
+  // word code paths
   ASSERT_OK_AND_ASSIGN(auto temp1, MakeArrayFromScalar(BooleanScalar(true), 64));
   ASSERT_OK_AND_ASSIGN(auto temp2, MakeArrayFromScalar(BooleanScalar(false), 64));
   auto temp3 = rand.ArrayOf(boolean(), len - 64 * 2, /*null_probability=*/0.01);
