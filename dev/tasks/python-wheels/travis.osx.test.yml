@@ -24,8 +24,8 @@ osx_image: xcode9.4
 install:
   - brew install python3
   - python3 --version
-  - wget https://github.com/ursacomputing/crossbow/releases/download/build-409-github-wheel-osx-high-sierra-cp36/pyarrow-5.0.0.dev321-cp36-cp36m-macosx_10_13_x86_64.whl
-  - pip3 install pyarrow-5.0.0.dev321-cp36-cp36m-macosx_10_13_x86_64.whl pytest
+  - wget https://github.com/ursacomputing/crossbow/releases/download/build-417-github-wheel-osx-high-sierra-cp37/pyarrow-5.0.0.dev324-cp37-cp37m-macosx_10_13_x86_64.whl
+  - pip3 install pyarrow-5.0.0.dev324-cp37-cp37m-macosx_10_13_x86_64.whl pytest hypothesis pandas pytest pytest-lazy-fixture pytz
 
 script:
-  - pytest --pyargs pyarrow
+  - PYARROW_TEST_PLASMA=OFF PYARROW_TEST_FLIGHT=OFF pytest --pyargs pyarrow
