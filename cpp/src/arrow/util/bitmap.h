@@ -358,7 +358,6 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
                                             in_bitmap.length_);
       }
 
-
       std::array<BitmapWordWriter<Word>, M> writers;
       for (size_t i = 0; i < M; ++i) {
         const Bitmap& out_bitmap = out_bitmaps_arg->at(i);
