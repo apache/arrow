@@ -327,15 +327,15 @@ void ClearBitmap(uint8_t* data, int64_t offset, int64_t length);
 /// Returns a mask with lower i bits set to 1. If i >= sizeof(Word)*8, all-ones will be
 /// returned
 /// ex:
-/// PrecedingWordBitmask<uint_8>(0)= 0x00
-/// PrecedingWordBitmask<uint_8>(4)= 0x0f
-/// PrecedingWordBitmask<uint_8>(8)= 0xff
-/// PrecedingWordBitmask<uint_32>(8)= 0x00ff
 /// ref: https://stackoverflow.com/a/59523400
 template <typename Word>
 constexpr Word PrecedingWordBitmask(unsigned int const i) {
   return (static_cast<Word>(i < sizeof(Word) * 8) << (i & (sizeof(Word) * 8 - 1))) - 1;
 }
+static_assert(PrecedingWordBitmask<uint8_t>(0) == 0x00, "");
+static_assert(PrecedingWordBitmask<uint8_t>(4) == 0x0f, "");
+static_assert(PrecedingWordBitmask<uint8_t>(8) == 0xff, "");
+static_assert(PrecedingWordBitmask<uint16_t>(8) == 0x00ff, "");
 
 /// \brief Create a word with low `n` bits from `low` and high `sizeof(Word)-n` bits
 /// from `high`.

@@ -365,7 +365,7 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
                                             out_bitmap.offset_, out_bitmap.length_);
       }
 
-      RunVisitWordsAndWriteLoop(bit_length, readers, writers, std::move(visitor));
+      RunVisitWordsAndWriteLoop(bit_length, readers, writers, visitor);
     }
   }
 
