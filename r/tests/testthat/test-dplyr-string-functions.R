@@ -737,7 +737,6 @@ test_that("arrow_find_substring", {
     tibble(x = c(-1, 0))
   )
   
-  skip("ARROW-13157: find_substring not implemented with ignore_case")
   expect_equivalent(
     df %>%
       Table$create() %>%
