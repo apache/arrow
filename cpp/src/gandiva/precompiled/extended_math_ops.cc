@@ -53,11 +53,6 @@ extern "C" {
   gdv_##OUT_TYPE sqrtf_##IN_TYPE(gdv_##IN_TYPE in) {                \
     return static_cast<gdv_float32>(sqrtf(static_cast<float>(in))); \
   }
-#define SQRT(IN_TYPE, OUT_TYPE)                                           \
-  FORCE_INLINE                                                            \
-  gdv_##OUT_TYPE sqrt_##IN_TYPE(gdv_##IN_TYPE in) {                       \
-    return static_cast<gdv_float64>(sqrtl(static_cast<long double>(in))); \
-  }
 
 ENUMERIC_TYPES_UNARY_FLOAT(SQRTF, float32)
 ENUMERIC_TYPES_UNARY(SQRT, float64)

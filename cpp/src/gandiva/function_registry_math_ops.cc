@@ -79,6 +79,10 @@ std::vector<NativeFunction> GetMathOpsFunctionRegistry() {
       MATH_UNARY_OPS_FLOAT(expf, {}), MATH_UNARY_OPS_FLOAT(logf, {}),
       MATH_UNARY_OPS_FLOAT(log10f, {}),
 
+      MATH_UNARY_OPS_FLOAT(sqrtf, {}), MATH_UNARY_OPS_FLOAT(cbrtf, {}),
+      MATH_UNARY_OPS_FLOAT(expf, {}), MATH_UNARY_OPS_FLOAT(logf, {}),
+      MATH_UNARY_OPS_FLOAT(log10f, {}),
+
       MATH_BINARY_UNSAFE(log, {}),
 
       BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(power, {"pow"}, float64),
