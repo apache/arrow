@@ -262,7 +262,8 @@ Result<jbyteArray> ToSchemaByteArray(JNIEnv* env, std::shared_ptr<Schema> schema
   return out;
 }
 
-Result<std::shared_ptr<Schema>> FromSchemaByteArray(JNIEnv* env, jbyteArray schema_bytes) {
+Result<std::shared_ptr<Schema>> FromSchemaByteArray(JNIEnv* env,
+                                                    jbyteArray schema_bytes) {
   ipc::DictionaryMemo in_memo;
   int schemaBytes_len = env->GetArrayLength(schema_bytes);
   jbyte* schemaBytes_data = env->GetByteArrayElements(schema_bytes, nullptr);
