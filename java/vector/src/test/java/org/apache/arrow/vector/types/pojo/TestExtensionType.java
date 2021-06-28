@@ -214,6 +214,11 @@ public class TestExtensionType {
                 expectedType.serialize());
 
         final ExtensionTypeVector deserialized = (ExtensionTypeVector) readerRoot.getFieldVectors().get(0);
+        Assert.assertTrue(deserialized instanceof LocationVector);
+        Assert.assertEquals(deserialized.getName(), "location");
+        StructVector deserStruct = (StructVector) deserialized.getUnderlyingVector();
+        Assert.assertNotNull(deserStruct.getChild("Latitude"));
+        Assert.assertNotNull(deserStruct.getChild("Longitude"));
         Assert.assertEquals(vector.getValueCount(), deserialized.getValueCount());
         for (int i = 0; i < vector.getValueCount(); i++) {
           Assert.assertEquals(vector.isNull(i), deserialized.isNull(i));
