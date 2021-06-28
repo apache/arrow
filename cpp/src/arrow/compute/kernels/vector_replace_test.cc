@@ -31,30 +31,6 @@ namespace compute {
 
 using arrow::internal::checked_pointer_cast;
 
-namespace {
-// Helper to get a default instance of a type, including parameterized types
-template <typename T>
-enable_if_parameter_free<T, std::shared_ptr<DataType>> default_type_instance() {
-  return TypeTraits<T>::type_singleton();
-}
-template <typename T>
-enable_if_time<T, std::shared_ptr<DataType>> default_type_instance() {
-  // Time32 requires second/milli, Time64 requires nano/micro
-  if (bit_width(T::type_id) == 32) {
-    return std::make_shared<T>(TimeUnit::type::SECOND);
-  }
-  return std::make_shared<T>(TimeUnit::type::NANO);
-}
-template <typename T>
-enable_if_timestamp<T, std::shared_ptr<DataType>> default_type_instance() {
-  return std::make_shared<T>(TimeUnit::type::SECOND);
-}
-template <typename T>
-enable_if_decimal<T, std::shared_ptr<DataType>> default_type_instance() {
-  return std::make_shared<T>(5, 2);
-}
-}  // namespace
-
 template <typename T>
 class TestReplaceKernel : public ::testing::Test {
  protected:
