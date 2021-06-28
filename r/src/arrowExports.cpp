@@ -7367,7 +7367,7 @@ extern "C" void R_init_arrow(DllInfo* dll){
   R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
   R_useDynamicSymbols(dll, FALSE);
 
-  #if defined(HAS_ALTREP)
+  #if defined(ARROW_R_WITH_ARROW) && defined(HAS_ALTREP)
   arrow::r::Init_Altrep_classes(dll);
   #endif
 
