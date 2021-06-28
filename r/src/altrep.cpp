@@ -149,8 +149,6 @@ SEXP MakeInt32ArrayNoNull(const std::shared_ptr<Array>& array) {
 
 #endif
 
-#endif
-
 // [[arrow::export]]
 bool is_altrep_int_nonull(SEXP x) {
 #if defined(HAS_ALTREP)
@@ -168,3 +166,5 @@ bool is_altrep_dbl_nonull(SEXP x) {
   return false;
 #endif
 }
+
+#endif
