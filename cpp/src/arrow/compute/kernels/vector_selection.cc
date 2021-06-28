@@ -657,18 +657,31 @@ class PrimitiveFilterImpl {
           if (filter_valid_block.AllSet()) {
             // Filter is non-null but some values are false
             for (int64_t i = 0; i < filter_block.length; ++i) {
-              if (BitUtil::GetBit(filter_data_, filter_offset_ + in_position)) {
-                WriteNotNull(in_position);
-              }
+              //              if (BitUtil::GetBit(filter_data_, filter_offset_ +
+              //              in_position)) {
+              //                WriteNotNull(in_position);
+              //              }
+              bool advance = BitUtil::GetBit(filter_data_, filter_offset_ + in_position);
+              BitUtil::SetBitTo(out_is_valid_, out_offset_ + out_position_, advance);
+              out_data_[out_position_] = values_data_[in_position];
+              out_position_ += advance;  // may need static_cast<int> here
               ++in_position;
             }
           } else if (null_selection_ == FilterOptions::DROP) {
             // If any values are selected, they ARE NOT null
             for (int64_t i = 0; i < filter_block.length; ++i) {
-              if (BitUtil::GetBit(filter_is_valid_, filter_offset_ + in_position) &&
-                  BitUtil::GetBit(filter_data_, filter_offset_ + in_position)) {
-                WriteNotNull(in_position);
-              }
+              //              if (BitUtil::GetBit(filter_is_valid_, filter_offset_ +
+              //              in_position) &&
+              //                  BitUtil::GetBit(filter_data_, filter_offset_ +
+              //                  in_position)) {
+              //                WriteNotNull(in_position);
+              //              }
+              bool advance =
+                  BitUtil::GetBit(filter_is_valid_, filter_offset_ + in_position) &&
+                  BitUtil::GetBit(filter_data_, filter_offset_ + in_position);
+              BitUtil::SetBitTo(out_is_valid_, out_offset_ + out_position_, advance);
+              out_data_[out_position_] = values_data_[in_position];
+              out_position_ += advance;  // may need static_cast<int> here
               ++in_position;
             }
           } else {  // null_selection == FilterOptions::EMIT_NULL
