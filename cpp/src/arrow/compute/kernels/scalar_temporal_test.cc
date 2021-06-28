@@ -50,6 +50,7 @@ TEST(ScalarTemporalTest, TestTemporalComponentExtraction) {
   auto month = "[1, 2, 1, 5, null, 1, 12, 12, 12, 1, 1, 1, 1, 12, 12, 12, 1]";
   auto day = "[1, 29, 1, 18, null, 1, 31, 30, 31, 1, 3, 4, 1, 31, 28, 29, 1]";
   auto day_of_week = "[3, 1, 6, 2, null, 2, 1, 0, 3, 4, 6, 0, 6, 5, 6, 0, 6]";
+  auto day_of_week_monday_1 = "[4, 2, 7, 3, null, 3, 2, 1, 4, 5, 7, 1, 7, 6, 7, 1, 7]";
   auto day_of_year =
       "[1, 60, 1, 138, null, 1, 365, 364, 365, 1, 3, 4, 1, 365, 363, 364, 1]";
   auto iso_year =
@@ -102,6 +103,12 @@ TEST(ScalarTemporalTest, TestTemporalComponentExtraction) {
   CheckScalarUnary("microsecond", unit, times, int64(), microsecond);
   CheckScalarUnary("nanosecond", unit, times, int64(), nanosecond);
   CheckScalarUnary("subsecond", unit, times, float64(), subsecond);
+
+  auto timestamps = ArrayFromJSON(unit, times);
+  auto expected = ArrayFromJSON(int64(), day_of_week_monday_1);
+  const auto monday_1_options = TemporalComponentExtractionOptions(/*start_index=*/1);
+  ASSERT_OK_AND_ASSIGN(Datum result, DayOfWeek(timestamps, monday_1_options));
+  ASSERT_TRUE(result.Equals(expected));
 }
 
 TEST(ScalarTemporalTest, TestTemporalComponentExtractionWithDifferentUnits) {

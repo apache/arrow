@@ -244,6 +244,18 @@ class ARROW_EXPORT ProjectOptions : public FunctionOptions {
   std::vector<std::shared_ptr<const KeyValueMetadata>> field_metadata;
 };
 
+struct ARROW_EXPORT TemporalComponentExtractionOptions : public FunctionOptions {
+  explicit TemporalComponentExtractionOptions(int64_t start_index = 0)
+      : start_index(start_index) {}
+
+  static TemporalComponentExtractionOptions Defaults() {
+    return TemporalComponentExtractionOptions{};
+  }
+
+  /// Index of the first day of the week.
+  int64_t start_index;
+};
+
 /// @}
 
 /// \brief Get the absolute value of a value. Array values can be of arbitrary
@@ -721,7 +733,10 @@ Result<Datum> Day(const Datum& values, ExecContext* ctx = NULLPTR);
 ///
 /// \since 5.0.0
 /// \note API not yet finalized
-ARROW_EXPORT Result<Datum> DayOfWeek(const Datum& values, ExecContext* ctx = NULLPTR);
+ARROW_EXPORT Result<Datum> DayOfWeek(const Datum& values,
+                                     TemporalComponentExtractionOptions options =
+                                         TemporalComponentExtractionOptions::Defaults(),
+                                     ExecContext* ctx = NULLPTR);
 
 /// \brief DayOfYear returns number of day of the year for each element of `values`.
 /// January 1st maps to day number 1, February 1st to 32, etc.

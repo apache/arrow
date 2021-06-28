@@ -458,7 +458,6 @@ Result<Datum> IfElse(const Datum& cond, const Datum& if_true, const Datum& if_fa
 SCALAR_EAGER_UNARY(Year, "year")
 SCALAR_EAGER_UNARY(Month, "month")
 SCALAR_EAGER_UNARY(Day, "day")
-SCALAR_EAGER_UNARY(DayOfWeek, "day_of_week")
 SCALAR_EAGER_UNARY(DayOfYear, "day_of_year")
 SCALAR_EAGER_UNARY(ISOYear, "iso_year")
 SCALAR_EAGER_UNARY(ISOWeek, "iso_week")
@@ -471,6 +470,11 @@ SCALAR_EAGER_UNARY(Millisecond, "millisecond")
 SCALAR_EAGER_UNARY(Microsecond, "microsecond")
 SCALAR_EAGER_UNARY(Nanosecond, "nanosecond")
 SCALAR_EAGER_UNARY(Subsecond, "subsecond")
+
+Result<Datum> DayOfWeek(const Datum& arg, TemporalComponentExtractionOptions options,
+                        ExecContext* ctx) {
+  return CallFunction("day_of_week", {arg}, &options, ctx);
+}
 
 }  // namespace compute
 }  // namespace arrow
