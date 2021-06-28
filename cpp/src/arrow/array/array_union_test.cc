@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <string>
-
 #include <gtest/gtest.h>
+
+#include <string>
 
 #include "arrow/array.h"
 #include "arrow/array/builder_nested.h"
@@ -107,11 +107,11 @@ class TestUnionArrayFactories : public ::testing::Test {
  public:
   void SetUp() {
     pool_ = default_memory_pool();
-    type_codes_ = {1, 2, 4, 8};
+    type_codes_ = {1, 2, 4, 127};
     ArrayFromVector<Int8Type>({0, 1, 2, 0, 1, 3, 2, 0, 2, 1}, &type_ids_);
-    ArrayFromVector<Int8Type>({1, 2, 4, 1, 2, 8, 4, 1, 4, 2}, &logical_type_ids_);
-    ArrayFromVector<Int8Type>({1, 2, 4, 1, -2, 8, 4, 1, 4, 2}, &invalid_type_ids1_);
-    ArrayFromVector<Int8Type>({1, 2, 4, 1, 3, 8, 4, 1, 4, 2}, &invalid_type_ids2_);
+    ArrayFromVector<Int8Type>({1, 2, 4, 1, 2, 127, 4, 1, 4, 2}, &logical_type_ids_);
+    ArrayFromVector<Int8Type>({1, 2, 4, 1, -2, 127, 4, 1, 4, 2}, &invalid_type_ids1_);
+    ArrayFromVector<Int8Type>({1, 2, 4, 1, 3, 127, 4, 1, 4, 2}, &invalid_type_ids2_);
   }
 
   void CheckUnionArray(const UnionArray& array, UnionMode::type mode,
