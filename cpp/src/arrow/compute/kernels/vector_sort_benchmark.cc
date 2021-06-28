@@ -84,7 +84,7 @@ static void ArraySortIndicesInt64Wide(benchmark::State& state) {
 static void ArraySortIndicesBool(benchmark::State& state) {
   RegressionArgs args(state);
 
-  const int64_t array_size = args.size / 8;
+  const int64_t array_size = args.size * 8;
   auto rand = random::RandomArrayGenerator(kSeed);
   auto values = rand.Boolean(array_size, 0.5, args.null_proportion);
 
