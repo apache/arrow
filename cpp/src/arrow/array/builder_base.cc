@@ -97,38 +97,56 @@ Status ArrayBuilder::Advance(int64_t elements) {
 
 namespace {
 struct AppendScalarImpl {
-  template <typename T, typename AppendScalar,
-            typename BuilderType = typename TypeTraits<T>::BuilderType,
-            typename ScalarType = typename TypeTraits<T>::ScalarType>
-  Status UseBuilder(const AppendScalar& append) {
+  template <typename T>
+  enable_if_t<has_c_type<T>::value || is_decimal_type<T>::value, Status> Visit(const T&) {
+    auto builder = internal::checked_cast<typename TypeTraits<T>::BuilderType*>(builder_);
+    RETURN_NOT_OK(builder->Reserve(n_repeats_ * (scalars_end_ - scalars_begin_)));
+
     for (int64_t i = 0; i < n_repeats_; i++) {
-      for (const std::shared_ptr<Scalar>* scalar = scalars_begin_; scalar != scalars_end_;
-           scalar++) {
-        if ((*scalar)->is_valid) {
-          RETURN_NOT_OK(append(internal::checked_cast<const ScalarType&>(**scalar),
-                               static_cast<BuilderType*>(builder_)));
+      for (const std::shared_ptr<Scalar>* raw = scalars_begin_; raw != scalars_end_;
+           raw++) {
+        auto scalar =
+            internal::checked_cast<const typename TypeTraits<T>::ScalarType*>(raw->get());
+        if (scalar->is_valid) {
+          builder->UnsafeAppend(scalar->value);
         } else {
-          RETURN_NOT_OK(builder_->AppendNull());
+          builder->UnsafeAppendNull();
         }
       }
     }
     return Status::OK();
   }
 
-  struct AppendValue {
-    template <typename BuilderType, typename ScalarType>
-    Status operator()(const ScalarType& s, BuilderType* builder) const {
-      return builder->Append(s.value);
+  template <typename T>
+  enable_if_has_string_view<T, Status> Visit(const T&) {
+    int64_t data_size = 0;
+    for (const std::shared_ptr<Scalar>* raw = scalars_begin_; raw != scalars_end_;
+         raw++) {
+      auto scalar =
+          internal::checked_cast<const typename TypeTraits<T>::ScalarType*>(raw->get());
+      if (scalar->is_valid) {
+        data_size += scalar->value->size();
+      }
     }
-  };
 
-  struct AppendBuffer {
-    template <typename BuilderType, typename ScalarType>
-    Status operator()(const ScalarType& s, BuilderType* builder) const {
-      const Buffer& buffer = *s.value;
-      return builder->Append(util::string_view{buffer});
+    auto builder = internal::checked_cast<typename TypeTraits<T>::BuilderType*>(builder_);
+    RETURN_NOT_OK(builder->Reserve(n_repeats_ * (scalars_end_ - scalars_begin_)));
+    RETURN_NOT_OK(builder->ReserveData(n_repeats_ * data_size));
+
+    for (int64_t i = 0; i < n_repeats_; i++) {
+      for (const std::shared_ptr<Scalar>* raw = scalars_begin_; raw != scalars_end_;
+           raw++) {
+        auto scalar =
+            internal::checked_cast<const typename TypeTraits<T>::ScalarType*>(raw->get());
+        if (scalar->is_valid) {
+          builder->UnsafeAppend(util::string_view{*scalar->value});
+        } else {
+          builder->UnsafeAppendNull();
+        }
+      }
     }
-  };
+    return Status::OK();
+  }
 
   struct AppendList {
     template <typename BuilderType, typename ScalarType>
@@ -144,60 +162,35 @@ struct AppendScalarImpl {
   };
 
   template <typename T>
-  enable_if_fixed_width<T, Status> Visit(const T&) {
-    auto builder = checked_cast<typename TypeTraits<T>::BuilderType*>(builder_);
-    RETURN_NOT_OK(builder->Reserve(n_repeats_ * (scalar_end_ - scalar_begin_)));
-
-    for (int64_t i = 0; i < n_repeats_; i++) {
-      for (const std::shared_ptr<Scalar>* raw = scalars_begin_; raw != scalars_end_;
-           raw++) {
-        auto scalar = checked_cast<const typename TypeTraits<T>::ScalarType*>(raw->get());
-        if (scalar->is_valid) {
-          builder->UnsafeAppend(scalar->value);
-        } else {
-          builder->UnsafeAppendNull();
-        }
-      }
-    }
-    return Status::OK();
-  }
-
-  template <typename T>
-  enable_if_base_binary<T, Status> Visit(const T&) {
-    int64_t data_size = 0;
-    for (const std::shared_ptr<Scalar>* raw = scalars_begin_; raw != scalars_end_;
-           raw++) {
-      auto scalar = checked_cast<const typename TypeTraits<T>::ScalarType*>(raw->get());
-      if (scalar->is_valid) {
-        data_size += scalar->value->size();
-      }
-    }
-
-    auto builder = checked_cast<typename TypeTraits<T>::BuilderType*>(builder_);
-    RETURN_NOT_OK(builder->Reserve(n_repeats_ * (scalar_end_ - scalar_begin_)));
-    RETURN_NOT_OK(builder->ReserveData(n_repeats_ * data_size));
-
-    for (int64_t i = 0; i < n_repeats_; i++) {
-      for (const std::shared_ptr<Scalar>* raw = scalars_begin_; raw != scalars_end_;
-           raw++) {
-        auto scalar = checked_cast<const typename TypeTraits<T>::ScalarType*>(raw->get());
-        if (scalar->is_valid) {
-          builder->UnsafeAppend(util::string_view{*scalar->value});
-        } else {
-          builder->UnsafeAppendNull();
-        }
-      }
-    }
-    return Status::OK();
-  }
-  template <typename T>
   enable_if_list_like<T, Status> Visit(const T&) {
-    return UseBuilder<T>(AppendList{});
+    auto builder = internal::checked_cast<typename TypeTraits<T>::BuilderType*>(builder_);
+    for (int64_t i = 0; i < n_repeats_; i++) {
+      for (const std::shared_ptr<Scalar>* scalar = scalars_begin_; scalar != scalars_end_;
+           scalar++) {
+        if ((*scalar)->is_valid) {
+          RETURN_NOT_OK(builder->Append());
+          const Array& list =
+              *internal::checked_cast<const BaseListScalar&>(**scalar).value;
+          for (int64_t i = 0; i < list.length(); i++) {
+            ARROW_ASSIGN_OR_RAISE(auto scalar, list.GetScalar(i));
+            RETURN_NOT_OK(builder->value_builder()->AppendScalar(*scalar));
+          }
+        } else {
+          RETURN_NOT_OK(builder_->AppendNull());
+        }
+      }
+    }
+    return Status::OK();
   }
 
   Status Visit(const StructType& type) {
+    auto* builder = internal::checked_cast<StructBuilder*>(builder_);
+    auto count = n_repeats_ * (scalars_end_ - scalars_begin_);
+    RETURN_NOT_OK(builder->Reserve(count));
+    for (int field_index = 0; field_index < type.num_fields(); ++field_index) {
+      RETURN_NOT_OK(builder->field_builder(field_index)->Reserve(count));
+    }
     for (int64_t i = 0; i < n_repeats_; i++) {
-      auto* builder = static_cast<StructBuilder*>(builder_);
       for (const std::shared_ptr<Scalar>* s = scalars_begin_; s != scalars_end_; s++) {
         const auto& scalar = internal::checked_cast<const StructScalar&>(**s);
         for (int field_index = 0; field_index < type.num_fields(); ++field_index) {
@@ -241,7 +234,6 @@ Status ArrayBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeats) {
     return Status::Invalid("Cannot append scalar of type ", scalar.type->ToString(),
                            " to builder for type ", type()->ToString());
   }
-  RETURN_NOT_OK(Reserve(n_repeats));
   std::shared_ptr<Scalar> shared{const_cast<Scalar*>(&scalar), [](Scalar*) {}};
   return AppendScalarImpl{&shared, &shared + 1, n_repeats, this}.Convert();
 }
