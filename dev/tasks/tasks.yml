@@ -936,7 +936,7 @@ tasks:
     params:
       env:
         UBUNTU: 21.04
-        CLANG_TOOLS: 9 # can remove this when >=9 is standard
+        CLANG_TOOLS: 9 # can remove this when >=9 is the default
         ARROW_HOME: ""
       image: ubuntu-r-static
 
@@ -946,7 +946,7 @@ tasks:
     params:
       env:
         UBUNTU: 21.04
-        CLANG_TOOLS: 9 # can remove this when >=9 is standard
+        CLANG_TOOLS: 9 # can remove this when >=9 is the default
         GCC_VERSION: 11
         ARROW_HOME: ""
       image: ubuntu-r-static
