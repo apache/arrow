@@ -218,7 +218,7 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     if (!Rf_isNull(options["null_encoding_behavior"])) {
       out->null_encoding_behavior = cpp11::as_cpp<
           enum arrow::compute::DictionaryEncodeOptions::NullEncodingBehavior>(
-              options["null_encoding_behavior"]);
+          options["null_encoding_behavior"]);
     }
     return out;
   }
@@ -326,7 +326,7 @@ std::shared_ptr<arrow::compute::CastOptions> make_cast_options(cpp11::list optio
 
   SEXP allow_int_overflow = options["allow_int_overflow"];
   if (!Rf_isNull(allow_int_overflow) && cpp11::as_cpp<bool>(allow_int_overflow)) {
-      out->allow_int_overflow = cpp11::as_cpp<bool>(allow_int_overflow);
+    out->allow_int_overflow = cpp11::as_cpp<bool>(allow_int_overflow);
   }
   return out;
 }
