@@ -273,9 +273,9 @@ arrow_string_join_function <- function(null_handling, null_replacement = NULL) {
 nse_funcs$str_trim <- function(string, side = c("both", "left", "right")) {
   side <- match.arg(side)
   trim_fun <- switch(side,
-                     left = "utf8_ltrim_whitespace",
-                     right = "utf8_rtrim_whitespace",
-                     both = "utf8_trim_whitespace"
+    left = "utf8_ltrim_whitespace",
+    right = "utf8_rtrim_whitespace",
+    both = "utf8_trim_whitespace"
   )
   Expression$create(trim_fun, string)
 }
@@ -391,7 +391,7 @@ nse_funcs$str_split <- function(string, pattern, n = Inf, simplify = FALSE) {
     string,
     options = list(
       pattern =
-        opts$pattern,
+      opts$pattern,
       reverse = FALSE,
       max_splits = n - 1L
     )
