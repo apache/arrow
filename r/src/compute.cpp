@@ -180,7 +180,7 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     return out;
   }
 
-  if (func_name == "element_wise_min" || func_name == "element_wise_max") {
+  if (func_name == "min_element_wise" || func_name == "max_element_wise") {
     using Options = arrow::compute::ElementWiseAggregateOptions;
     bool skip_nulls = true;
     if (!Rf_isNull(options["skip_nulls"])) {

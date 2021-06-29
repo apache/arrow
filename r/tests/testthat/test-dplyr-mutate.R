@@ -438,4 +438,14 @@ test_that("mutate and pmin/pmax", {
       collect(),
     df
   )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        max_val_1 = pmax(val1 - 100, 200, val1 * 100, na.rm = T),
+        min_val_1 = pmin(val1 - 100, 100, val1 * 100, na.rm = T),
+      ) %>%
+      collect(),
+    df
+  )
 })

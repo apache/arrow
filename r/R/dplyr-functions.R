@@ -400,7 +400,7 @@ nse_funcs$str_split <- function(string, pattern, n = Inf, simplify = FALSE) {
 
 nse_funcs$pmin <- function(..., na.rm = FALSE) {
   build_expr(
-    "element_wise_min",
+    "min_element_wise",
     ...,
     options = list(skip_nulls = na.rm)
   )
@@ -408,7 +408,7 @@ nse_funcs$pmin <- function(..., na.rm = FALSE) {
 
 nse_funcs$pmax <- function(..., na.rm = FALSE) {
   build_expr(
-    "element_wise_max",
+    "max_element_wise",
     ...,
     options = list(skip_nulls = na.rm)
   )
