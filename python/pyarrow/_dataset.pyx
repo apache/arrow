@@ -3074,3 +3074,48 @@ def _filesystemdataset_write(
     c_scanner = data.unwrap()
     with nogil:
         check_status(CFileSystemDataset.Write(c_options, c_scanner))
+
+
+# basic test to roundtrip through a BoundFunction
+
+ctypedef CStatus visit_string_cb(const c_string&)
+
+cdef extern from * namespace "arrow::py" nogil:
+    """
+    #include <functional>
+    #include <string>
+    #include <vector>
+
+    #include "arrow/status.h"
+
+    namespace arrow {
+    namespace py {
+
+    Status VisitStrings(const std::vector<std::string>& strs,
+                        std::function<Status(const std::string&)> cb) {
+      for (const std::string& str : strs) {
+        RETURN_NOT_OK(cb(str));
+      }
+      return Status::OK();
+    }
+
+    }  // namespace py
+    }  // namespace arrow
+    """
+    cdef CStatus CVisitStrings" arrow::py::VisitStrings"(
+        vector[c_string], function[visit_string_cb])
+
+
+cdef void _visit_strings_impl(py_cb, const c_string& s) except *:
+    py_cb(frombytes(s))
+
+def _visit_strings(strings, cb):
+    cdef:
+        function[visit_string_cb] c_cb
+        vector[c_string] c_strings
+
+    c_cb = BindFunction[visit_string_cb](&_visit_strings_impl, cb)
+    for s in strings:
+        c_strings.push_back(tobytes(s))
+
+    check_status(CVisitStrings(c_strings, c_cb))

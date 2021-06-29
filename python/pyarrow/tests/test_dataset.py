@@ -3403,3 +3403,13 @@ def test_dataset_null_to_dictionary_cast(tempdir, dataset_reader):
     )
     table = dataset_reader.to_table(fsds)
     assert table.schema == schema
+
+
+def test_visit_strings_adhoc():
+    import pyarrow._dataset as _ds
+
+    strings = ['a', 'b', 'c']
+    visited = []
+    _ds._visit_strings(strings, visited.append)
+
+    assert visited == strings
