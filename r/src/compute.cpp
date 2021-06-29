@@ -40,7 +40,7 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__cast(
   arrow::ArrayVector columns(nc);
   for (int i = 0; i < nc; i++) {
     columns[i] = ValueOrStop(
-      arrow::compute::Cast(*batch->column(i), schema->field(i)->type(), *opts));
+        arrow::compute::Cast(*batch->column(i), schema->field(i)->type(), *opts));
   }
 
   return arrow::RecordBatch::Make(schema, batch->num_rows(), std::move(columns));
@@ -58,7 +58,7 @@ std::shared_ptr<arrow::Table> Table__cast(const std::shared_ptr<arrow::Table>& t
   for (int i = 0; i < nc; i++) {
     arrow::Datum value(table->column(i));
     arrow::Datum out =
-      ValueOrStop(arrow::compute::Cast(value, schema->field(i)->type(), *opts));
+        ValueOrStop(arrow::compute::Cast(value, schema->field(i)->type(), *opts));
     columns[i] = out.chunked_array();
   }
   return arrow::Table::Make(schema, std::move(columns), table->num_rows());
@@ -104,23 +104,23 @@ arrow::Datum as_cpp<arrow::Datum>(SEXP x) {
 
 SEXP from_datum(arrow::Datum datum) {
   switch (datum.kind()) {
-  case arrow::Datum::SCALAR:
-    return cpp11::to_r6(datum.scalar());
+    case arrow::Datum::SCALAR:
+      return cpp11::to_r6(datum.scalar());
 
-  case arrow::Datum::ARRAY:
-    return cpp11::to_r6(datum.make_array());
+    case arrow::Datum::ARRAY:
+      return cpp11::to_r6(datum.make_array());
 
-  case arrow::Datum::CHUNKED_ARRAY:
-    return cpp11::to_r6(datum.chunked_array());
+    case arrow::Datum::CHUNKED_ARRAY:
+      return cpp11::to_r6(datum.chunked_array());
 
-  case arrow::Datum::RECORD_BATCH:
-    return cpp11::to_r6(datum.record_batch());
+    case arrow::Datum::RECORD_BATCH:
+      return cpp11::to_r6(datum.record_batch());
 
-  case arrow::Datum::TABLE:
-    return cpp11::to_r6(datum.table());
+    case arrow::Datum::TABLE:
+      return cpp11::to_r6(datum.table());
 
-  default:
-    break;
+    default:
+      break;
   }
 
   cpp11::stop("from_datum: Not implemented for Datum %s", datum.ToString().c_str());
@@ -150,7 +150,7 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     // false means descending, true means ascending
     auto order = cpp11::as_cpp<bool>(options["order"]);
     auto out =
-      std::make_shared<Options>(Options(order ? Order::Descending : Order::Ascending));
+        std::make_shared<Options>(Options(order ? Order::Descending : Order::Ascending));
     return out;
   }
 
@@ -165,7 +165,7 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     std::vector<Key> keys;
     for (size_t i = 0; i < names.size(); i++) {
       keys.push_back(
-        Key(names[i], (orders[i] > 0) ? Order::Descending : Order::Ascending));
+          Key(names[i], (orders[i] > 0) ? Order::Descending : Order::Ascending));
     }
     auto out = std::make_shared<Options>(Options(keys));
     return out;
