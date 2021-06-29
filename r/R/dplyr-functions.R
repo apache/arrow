@@ -281,11 +281,9 @@ nse_funcs$str_trim <- function(string, side = c("both", "left", "right")) {
 }
 
 nse_funcs$str_sub <- function(string, start = 1L, end = -1L) {
-  start <- match.arg(start)
-  end <- match.arg(end)
   Expression$create(
     "utf8_slice_codeunits",
-    options = list(start = start, stop = stop)
+    options = list(start = start, stop = end)
   )
 }
 
