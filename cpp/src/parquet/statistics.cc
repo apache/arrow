@@ -91,7 +91,7 @@ struct UnsignedCompareHelperBase {
   static_assert(sizeof(T) == sizeof(UCType), "T and UCType not the same size");
 
   // NOTE: according to the C++ spec, unsigned-to-signed conversion is
-  // implementation-defined if the original value does not fix in the signed type
+  // implementation-defined if the original value does not fit in the signed type
   // (i.e., two's complement cannot be assumed even on mainstream machines,
   // because the compiler may decide otherwise).  Hence the use of `SafeCopy`
   // below for deterministic bit-casting.
@@ -99,9 +99,8 @@ struct UnsignedCompareHelperBase {
   //  https://en.cppreference.com/w/cpp/language/implicit_conversion)
 
   static const T DefaultMin() { return SafeCopy<T>(std::numeric_limits<UCType>::max()); }
-  static const T DefaultMax() {
-    return SafeCopy<T>(std::numeric_limits<UCType>::lowest());
-  }
+  static const T DefaultMax() { return 0; }
+
   static T Coalesce(T val, T fallback) { return val; }
 
   static bool Compare(int type_length, T a, T b) {
