@@ -24,7 +24,6 @@ from contextlib import contextmanager
 import os
 import signal
 import threading
-import weakref
 
 from pyarrow.util import _break_traceback_cycle_from_frame
 
