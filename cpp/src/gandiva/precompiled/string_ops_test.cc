@@ -2460,9 +2460,7 @@ TEST(TestStringOps, TestParseURL) {
   // Optimal cases.
   const char* expected_host = "github.io";
   auto out_value = parse_url_utf8_utf8(ctx_ptr, url, url_len, "HOST", 4, &out_len);
-  EXPECT_EQ(ALL_BYTES_MATCH,
-            memcmp(out_value,
-                   expected_host, out_len));
+  EXPECT_EQ(ALL_BYTES_MATCH, memcmp(out_value, expected_host, out_len));
 
   const char* expected_protocol = "http";
   out_value = parse_url_utf8_utf8(ctx_ptr, url, url_len, "PROTOCOL", 8, &out_len);
@@ -2492,7 +2490,7 @@ TEST(TestStringOps, TestParseURL) {
 
   const char* expected_query_value2 = "v1";
   out_value =
-    parse_url_query_key_utf8_utf8(ctx_ptr, url, url_len, "QUERY", 5, "k1", 2, &out_len);
+      parse_url_query_key_utf8_utf8(ctx_ptr, url, url_len, "QUERY", 5, "k1", 2, &out_len);
   EXPECT_EQ(strlen(expected_query_value2), out_len);
   EXPECT_EQ(ALL_BYTES_MATCH, memcmp(out_value, expected_query_value2, out_len));
 
