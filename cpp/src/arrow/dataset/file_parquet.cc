@@ -153,6 +153,8 @@ parquet::ArrowReaderProperties MakeArrowReaderProperties(
     auto column_index = metadata.schema()->ColumnIndex(name);
     properties.set_read_dictionary(column_index, true);
   }
+  properties.set_coerce_int96_timestamp_unit(
+      format.reader_options.coerce_int96_timestamp_unit);
   return properties;
 }
 
@@ -289,7 +291,9 @@ bool ParquetFileFormat::Equals(const FileFormat& other) const {
       checked_cast<const ParquetFileFormat&>(other).reader_options;
 
   // FIXME implement comparison for decryption options
-  return reader_options.dict_columns == other_reader_options.dict_columns;
+  return (reader_options.dict_columns == other_reader_options.dict_columns &&
+          reader_options.coerce_int96_timestamp_unit ==
+              other_reader_options.coerce_int96_timestamp_unit);
 }
 
 ParquetFileFormat::ParquetFileFormat(const parquet::ReaderProperties& reader_properties) {

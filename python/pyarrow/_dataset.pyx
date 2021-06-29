@@ -1397,17 +1397,56 @@ cdef class ParquetReadOptions(_Weakrefable):
     dictionary_columns : list of string, default None
         Names of columns which should be dictionary encoded as
         they are read.
+    coerce_int96_timestamp_unit : str, default None.
+        Cast timestamps that are stored in INT96 format to a particular
+        resolution (e.g. 'ms'). Setting to None is equivalent to 'ns'
+        and therefore INT96 timestamps will be infered as timestamps
+        in nanoseconds.
     """
 
     cdef public:
         set dictionary_columns
+        TimeUnit _coerce_int96_timestamp_unit
 
     # Also see _PARQUET_READ_OPTIONS
-    def __init__(self, dictionary_columns=None):
+    def __init__(self, dictionary_columns=None,
+                 coerce_int96_timestamp_unit=None):
         self.dictionary_columns = set(dictionary_columns or set())
+        self.coerce_int96_timestamp_unit = coerce_int96_timestamp_unit
+
+    @property
+    def coerce_int96_timestamp_unit(self):
+        unit = self._coerce_int96_timestamp_unit
+        if unit == TimeUnit_SECOND:
+            return "s"
+        elif unit == TimeUnit_MILLI:
+            return "ms"
+        elif unit == TimeUnit_MICRO:
+            return "us"
+        elif unit == TimeUnit_NANO:
+            return "ns"
+        else:
+            return None
+
+    @coerce_int96_timestamp_unit.setter
+    def coerce_int96_timestamp_unit(self, unit):
+        if unit is None or unit == "ns":
+            self._coerce_int96_timestamp_unit = TimeUnit_NANO
+        elif unit == "us":
+            self._coerce_int96_timestamp_unit = TimeUnit_MICRO
+        elif unit == "ms":
+            self._coerce_int96_timestamp_unit = TimeUnit_MILLI
+        elif unit == "s":
+            self._coerce_int96_timestamp_unit = TimeUnit_SECOND
+        else:
+            raise ValueError(
+                f"Invalid value for coerce_int96_timestamp_unit: {unit}"
+            )
 
     def equals(self, ParquetReadOptions other):
-        return self.dictionary_columns == other.dictionary_columns
+        return (self.dictionary_columns == other.dictionary_columns and
+                self.coerce_int96_timestamp_unit ==
+                other.coerce_int96_timestamp_unit)
 
     def __eq__(self, other):
         try:
@@ -1416,8 +1455,11 @@ cdef class ParquetReadOptions(_Weakrefable):
             return False
 
     def __repr__(self):
-        return (f"<ParquetReadOptions"
-                f" dictionary_columns={self.dictionary_columns}>")
+        return (
+            f"<ParquetReadOptions"
+            f" dictionary_columns={self.dictionary_columns}"
+            f" coerce_int96_timestamp_unit={self.coerce_int96_timestamp_unit}>"
+        )
 
 
 cdef class ParquetFileWriteOptions(FileWriteOptions):
@@ -1500,7 +1542,9 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
         self._set_arrow_properties()
 
 
-cdef set _PARQUET_READ_OPTIONS = {'dictionary_columns'}
+cdef set _PARQUET_READ_OPTIONS = {
+    'dictionary_columns', 'coerce_int96_timestamp_unit'
+}
 
 
 cdef class ParquetFileFormat(FileFormat):
@@ -1565,6 +1609,8 @@ cdef class ParquetFileFormat(FileFormat):
         if read_options.dictionary_columns is not None:
             for column in read_options.dictionary_columns:
                 options.dict_columns.insert(tobytes(column))
+        options.coerce_int96_timestamp_unit = \
+            read_options._coerce_int96_timestamp_unit
 
         self.init(<shared_ptr[CFileFormat]> wrapped)
         self.default_fragment_scan_options = default_fragment_scan_options
@@ -1650,11 +1696,6 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         ignored if a scan is already parallelized across input files to avoid
         thread contention. This option will be removed after support is added
         for simultaneous parallelization across files and columns.
-    coerce_int96_timestamp_unit : str, default None.
-        Cast timestamps that are stored in INT96 format to a particular
-        resolution (e.g. 'ms'). Setting to None is equivalent to 'ns'
-        and therefore INT96 timestamps will be infered as timestamps
-        in nanoseconds.
     """
 
     cdef:
@@ -1666,8 +1707,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
     def __init__(self, bint use_buffered_stream=False,
                  buffer_size=8192,
                  bint pre_buffer=False,
-                 bint enable_parallel_column_conversion=False,
-                 coerce_int96_timestamp_unit=None):
+                 bint enable_parallel_column_conversion=False):
         self.init(shared_ptr[CFragmentScanOptions](
             new CParquetFragmentScanOptions()))
         self.use_buffered_stream = use_buffered_stream
@@ -1675,7 +1715,6 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         self.pre_buffer = pre_buffer
         self.enable_parallel_column_conversion = \
             enable_parallel_column_conversion
-        self.coerce_int96_timestamp_unit = coerce_int96_timestamp_unit
 
     cdef void init(self, const shared_ptr[CFragmentScanOptions]& sp):
         FragmentScanOptions.init(self, sp)
@@ -1717,51 +1756,6 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         self.arrow_reader_properties().set_pre_buffer(pre_buffer)
 
     @property
-    def coerce_int96_timestamp_unit(self):
-        unit = self.arrow_reader_properties().coerce_int96_timestamp_unit()
-        if unit == TimeUnit_SECOND:
-            return "s"
-        elif unit == TimeUnit_MILLI:
-            return "ms"
-        elif unit == TimeUnit_MICRO:
-            return "us"
-        elif unit == TimeUnit_NANO:
-            return "ns"
-        else:
-            return None
-
-    @coerce_int96_timestamp_unit.setter
-    def coerce_int96_timestamp_unit(self, coerce_int96_timestamp_unit):
-        if (
-            coerce_int96_timestamp_unit is None or
-            coerce_int96_timestamp_unit == "ns"
-        ):
-            (
-                self.arrow_reader_properties()
-                .set_coerce_int96_timestamp_unit(TimeUnit_NANO)
-            )
-        elif coerce_int96_timestamp_unit == "us":
-            (
-                self.arrow_reader_properties()
-                .set_coerce_int96_timestamp_unit(TimeUnit_MICRO)
-            )
-        elif coerce_int96_timestamp_unit == "ms":
-            (
-                self.arrow_reader_properties()
-                .set_coerce_int96_timestamp_unit(TimeUnit_MILLI)
-            )
-        elif coerce_int96_timestamp_unit == "s":
-            (
-                self.arrow_reader_properties()
-                .set_coerce_int96_timestamp_unit(TimeUnit_SECOND)
-            )
-        else:
-            raise ValueError(
-                f"Invalid value for coerce_int96_timestamp_unit: "
-                f"{coerce_int96_timestamp_unit}"
-            )
-
-    @property
     def enable_parallel_column_conversion(self):
         return self.parquet_options.enable_parallel_column_conversion
 
@@ -1777,16 +1771,13 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
             self.buffer_size == other.buffer_size and
             self.pre_buffer == other.pre_buffer and
             self.enable_parallel_column_conversion ==
-            other.enable_parallel_column_conversion and
-            self.coerce_int96_timestamp_unit ==
-            other.coerce_int96_timestamp_unit
+            other.enable_parallel_column_conversion
         )
 
     def __reduce__(self):
         return ParquetFragmentScanOptions, (
             self.use_buffered_stream, self.buffer_size, self.pre_buffer,
-            self.enable_parallel_column_conversion,
-            self.coerce_int96_timestamp_unit
+            self.enable_parallel_column_conversion
         )
 
 

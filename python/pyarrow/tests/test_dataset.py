@@ -629,13 +629,18 @@ def test_partition_keys():
 def test_parquet_read_options():
     opts1 = ds.ParquetReadOptions()
     opts2 = ds.ParquetReadOptions(dictionary_columns=['a', 'b'])
+    opts3 = ds.ParquetReadOptions(coerce_int96_timestamp_unit="ms")
 
     assert opts1.dictionary_columns == set()
 
     assert opts2.dictionary_columns == {'a', 'b'}
 
+    assert opts1.coerce_int96_timestamp_unit == "ns"
+    assert opts3.coerce_int96_timestamp_unit == "ms"
+
     assert opts1 == opts1
     assert opts1 != opts2
+    assert opts1 != opts3
 
 
 def test_parquet_scan_options():
@@ -644,7 +649,6 @@ def test_parquet_scan_options():
     opts3 = ds.ParquetFragmentScanOptions(
         buffer_size=2**13, use_buffered_stream=True)
     opts4 = ds.ParquetFragmentScanOptions(buffer_size=2**13, pre_buffer=True)
-    opts5 = ds.ParquetFragmentScanOptions(coerce_int96_timestamp_unit="s")
 
     assert opts1.use_buffered_stream is False
     assert opts1.buffer_size == 2**13
@@ -662,13 +666,10 @@ def test_parquet_scan_options():
     assert opts4.buffer_size == 2**13
     assert opts4.pre_buffer is True
 
-    assert opts5.coerce_int96_timestamp_unit == "s"
-
     assert opts1 == opts1
     assert opts1 != opts2
     assert opts2 != opts3
     assert opts3 != opts4
-    assert opts4 != opts5
 
 
 def test_file_format_pickling():
