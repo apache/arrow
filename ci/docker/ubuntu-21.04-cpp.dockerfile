@@ -57,7 +57,6 @@ RUN if [ "${llvm}" -gt "10" ]; then \
 
 ARG gcc_version=""
 RUN if [ "${gcc_version}" = "" ]; then \
-      exit 222 && \
       apt-get update -y -q && \
       apt-get install -y -q --no-install-recommends \
           g++ \
