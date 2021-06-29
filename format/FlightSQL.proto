@@ -22,18 +22,30 @@ option java_package = "org.apache.arrow.flight.sql.impl";
 package arrow.flight.protocol.sql;
 
 /*
- * Wrapper for the result of a "GetSQLInfo" action.
+ * Represents a metadata request. Used in the command member of FlightDescriptor
+ * for the following RPC calls:
+ *  - GetSchema: return the schema of the query.
+ *  - GetFlightInfo: execute the query.
+ *
+ * The returned schema will be:
+ * <
+ *  info_name: utf8,
+ *  value: dense_union<string_value: string, int_value: int32, bigint_value: int64, int32_bitmask: int32>
+ * >
+ * where there is one row per requested piece of metadata information.
  */
-message ActionGetSQLInfoResult {
+message CommandGetSqlInfo {
   /*
    * Values are modelled after ODBC's SQLGetInfo() function. This information is intended to provide
    * Flight SQL clients with basic, SQL syntax and SQL functions related information.
    * More information types can be added in future releases.
    * E.g. more SQL syntax support types, scalar functions support, type conversion support etc.
    *
+   * // TODO: Flesh out the available set of metadata below.
+   *
    * Initially, Flight SQL will support the following information types:
    * - Server Information
-   * -
+   * - Syntax Information
    *
    * 1. Server Information: Provides basic information about the Flight SQL Server.
    *
@@ -48,9 +60,6 @@ message ActionGetSQLInfoResult {
    *
    * Indicates whether the Flight SQL Server is read only.
    * FLIGHT_SQL_SERVER_READ_ONLY
-   *
-   * Indicates whether the Flight SQL Server supports both read and write.
-   * FLIGHT_SQL_SERVER_READ_WRITE
    *
    * 2. SQL Syntax Information: provides information about SQL syntax supported by the Flight SQL Server.
    *
@@ -77,63 +86,46 @@ message ActionGetSQLInfoResult {
    * SQL_QUOTED_IDENTIFIER_CASE
    *
    */
-  map<string, GetSQLInfoValue> flight_sql_info = 1;
+  repeated string info = 1;
 
-  // Implementation specific custom SQLInfo values.
-  map<string, GetSQLInfoValue> custom_info = 2;
+  // Implementation specific custom SqlInfo values.
+  repeated string custom_info = 2;
 }
 
 /*
- * Wrapper for values returned in ActionGetSQLInfoResult.
+ Represents a request to retrieve the list of catalogs on a Flight SQL enabled backend.
+ * Used in the command member of FlightDescriptor for the following RPC calls:
+ *  - GetSchema: return the schema of the query.
+ *  - GetFlightInfo: execute the query.
+ *
+ * The returned schema will be:
+ * <
+ *  catalog_name: utf8
+ * >
+ * The returned data should be ordered by catalog_name.
  */
-message GetSQLInfoValue {
-  oneof value {
-    string string_value = 1;
-    int32 integer_value = 2;
-    int32 integer_bitmask = 3;
-    int32 integer_flag = 4;
-    bytes binary_value = 5;
-    int64 long_value = 6;
-  }
+message CommandGetCatalogs {
 }
 
 /*
- * Request message for the "GetCatalogs" action on a 
- * Flight SQL enabled backend. 
- * Requests a list of catalogs available in the server.
+ * Represents a request to retrieve the list of schemas on a Flight SQL enabled backend.
+ * Used in the command member of FlightDescriptor for the following RPC calls:
+ *  - GetSchema: return the schema of the query.
+ *  - GetFlightInfo: execute the query.
+ *
+ * The returned schema will be:
+ * <
+ *  catalog_name: utf8,
+ *  schema_name: utf8
+ * >
+ * The returned data should be ordered by catalog_name, then schema_name.
  */
-message ActionGetCatalogsRequest {
-  /*
-   * Specifies the order of result values.
-   */ 
-  ResultsOrder order = 1;
-}
-
-/*
- * Wrap the result of a "GetCatalogs" action.
- */
-message ActionGetCatalogsResult {
-  repeated string catalog = 1;
-}
-
-/*
- * Request message for the "GetSchemas" action on a 
- * Flight SQL enabled backend. 
- * Requests a list of schemas available in the server.
- */
-message ActionGetSchemasRequest {
-  /*
-   * Specifies the order of result values with precedence:
-   *  - catalog
-   *  - schema
-   */
-  ResultsOrder order = 1;
-
+message CommandGetSchemas {
   /*
    * Specifies the Catalog to search for schemas.
-   * If omitted, then schemas for all catalogs are searched.
+   * If omitted, then all catalogs are searched.
    */ 
-  string catalog = 2;
+  string catalog = 1;
 
   /*
    * Specifies a filter pattern for schemas to search for.
@@ -142,100 +134,84 @@ message ActionGetSchemasRequest {
    *    - "%" means to match any substring with 0 or more characters.
    *    - "_" means to match any one character.
    */
-  string schema_filter_pattern = 3;
+  string schema_filter_pattern = 2;
 }
 
 /*
- * Wrap the result of a "GetSchemas" action.
- */
-message ActionGetSchemasResult {
-  string catalog = 1;
-  string schema = 2;
-}
-
-/*
- * Request message for the "GetTables" action on a 
- * Flight SQL enabled backend. 
- * Requests a list of tables available in the server.
+ * Represents a request to retrieve the list of tables, and optionally their schemas, on a Flight SQL enabled backend.
+ * Used in the command member of FlightDescriptor for the following RPC calls:
+ *  - GetSchema: return the schema of the query.
+ *  - GetFlightInfo: execute the query.
+ *
+ * The returned schema will be:
+ * <
+ *  catalog_name: utf8,
+ *  schema_name: utf8,
+ *  table_name: utf8,
+ *  table_type: utf8,
+ *  table_schema: bytes
+ * >
+ * The returned data should be ordered by catalog_name, schema_name, table_name, then table_type.
  */
 message ActionGetTablesRequest {
   /*
-   * Specifies the order of result values with prescendence:
-   *  - catalog
-   *  - schema
-   *  - table_type
-   *  - table
+   * Specifies the Catalog to search for schemas.
+   * If omitted, then all catalogs are searched.
    */
-  ResultsOrder order = 1;
-
-  // Specifies the Catalog to search for schemas.
-  string catalog = 2;
+  string catalog = 1;
 
   /* Specifies a filter pattern for schemas to search for.
-   * When no schema_filter_pattern is provided, the pattern will not be used to narrow the search.
+   * When no schema_filter_pattern is provided, all schemas matching other filters are searched.
    * In the pattern string, two special characters can be used to denote matching rules:
    *    - "%" means to match any substring with 0 or more characters.
    *    - "_" means to match any one character.
    */
-  string schema_filter_pattern = 3;
+  string schema_filter_pattern = 2;
 
   /* Specifies a filter pattern for tables to search for.
-   * When no schema_filter_pattern is provided, the pattern will not be used to narrow the search.
+   * When no table_name_filter_pattern is provided, all tables matching other filters are searched.
    * In the pattern string, two special characters can be used to denote matching rules:
    *    - "%" means to match any substring with 0 or more characters.
    *    - "_" means to match any one character.
    */
-  string table_name_filter_pattern = 4;
+  string table_name_filter_pattern = 3;
 
   // Specifies a filter of table types which must match.
-  repeated string table_types = 5;
+  repeated string table_types = 4;
 
   // Specifies if the schema should be returned for found tables.
-  bool include_schema = 6; 
+  bool include_schema = 5;
 }
 
 /*
- * Wrap the result of a "GetTables" action.
+ * Represents a request to retrieve the list of table types on a Flight SQL enabled backend.
+ * Used in the command member of FlightDescriptor for the following RPC calls:
+ *  - GetSchema: return the schema of the query.
+ *  - GetFlightInfo: execute the query.
+ *
+ * The returned schema will be:
+ * <
+ *  table_type: utf8
+ * >
+ * The returned data should be ordered by table_type.
  */
-message ActionGetTablesResult {
-  string catalog = 1;
-  string schema = 2;
-  string table = 3;
-  string table_type = 4;
-
-  /*
-   * Schema of the dataset as described in Schema.fbs::Schema, it is serialized as an IPC message.
-   * Null if include_schema on request is false.
-   */
-  bytes arrow_metadata = 5; 
-}
-
-/*
- * Wrap the result of a "GetTableTypes" action.
- */
-message ActionGetTableTypesResult {
-  /*
-   * Indicates the type of the table. E.g. table (regular data table) , view, system table etc.
-   */
-  string table_type = 1;
+message CommandGetTableTypes {
 }
 
 // SQL Execution Action Messages
 
 /*
- * Request message for the "GetPreparedStatement" action on a 
- * Flight SQL enabled backend.
+ * Request message for the "GetPreparedStatement" action on a Flight SQL enabled backend.
  */
-message ActionGetPreparedStatementRequest {
-  // The valid SQL string to get a prepared statement for.
+message ActionCreatePreparedStatementRequest {
+  // The valid SQL string to create a prepared statement for.
   string query = 1;
 }
 
 /*
  * Wrap the result of a "GetPreparedStatement" action.
  */
-message ActionGetPreparedStatementResult {
-
+message ActionCreatePreparedStatementResult {
   // Opaque handle for the prepared statement on the server.
   bytes prepared_statement_handle = 1;
 
@@ -249,8 +225,7 @@ message ActionGetPreparedStatementResult {
 }
 
 /*
- * Request message for the "ClosePreparedStatement" action on a 
- * Flight SQL enabled backend. 
+ * Request message for the "ClosePreparedStatement" action on a Flight SQL enabled backend.
  * Closes server resources associated with the prepared statement handle.
  */
 message ActionClosePreparedStatementRequest {
@@ -273,24 +248,22 @@ message CommandStatementQuery {
 }
 
 /*
- * Represents an instance of executing a prepared statement. Used in the 
- * command member of FlightDescriptor for the following RPC calls:
- * TODO: Is the idea that a Put with parameter values would execute multiple bound versions of the prepared statement
- * TODO: (one for each row)? Seems like that will work ok for Insert statements, but what about other kinds of prepared statements?
+ * Represents an instance of executing a prepared statement. Used in the command member of FlightDescriptor for
+ * the following RPC calls:
  *  - DoPut: bind parameter values.
  *  - GetFlightInfo: execute the prepared statement instance.
  */
 message CommandPreparedStatementQuery {
   // Unique identifier for the instance of the prepared statement to execute.
-  bytes client_execution_handle = 1; 
+  bytes client_execution_handle = 1;
+
   // Opaque handle for the prepared statement on the server.
   bytes prepared_statement_handle = 2;
 }
 
 /*
  * Represents a SQL update query. Used in the command member of FlightDescriptor
- * for the the RPC call DoPut to cause the server to execute the included 
- * SQL update.
+ * for the the RPC call DoPut to cause the server to execute the included SQL update.
  */
 message CommandStatementUpdate {
   // The SQL syntax.
@@ -304,7 +277,8 @@ message CommandStatementUpdate {
  */
 message CommandPreparedStatementUpdate {
   // Unique identifier for the instance of the prepared statement to execute.
-  bytes client_execution_handle = 1; 
+  bytes client_execution_handle = 1;
+
   // Opaque handle for the prepared statement on the server.
   bytes prepared_statement_handle = 2;
 }
@@ -318,20 +292,4 @@ message DoPutUpdateResult {
   // The number of records updated. A return value of -1 represents 
   // an unknown updated record count.
   int64 record_count = 1; 
-}
-
-message ResultsOrder {
-  enum orders {
-    // Protobuf pattern, not used.
-    UNKNOWN = 0;
-
-    // No ordering enforcement.
-    UNORDERED = 1;
-
-    // Order results by ascending value order.
-    ASCENDING = 2;
-
-    // Order results by descending value order.
-    DESCENDING = 3;
-  }
 }
