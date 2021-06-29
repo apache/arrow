@@ -60,19 +60,19 @@ nse_funcs$cast <- function(x, target_type, safe = TRUE, ...) {
 nse_funcs$is <- function(object, class2) {
   if (is.string(class2)) {
     switch(class2,
-      # for R data types, pass off to is.*() functions
-      character = nse_funcs$is.character(object),
-      numeric = nse_funcs$is.numeric(object),
-      integer = nse_funcs$is.integer(object),
-      integer64 = nse_funcs$is.integer64(object),
-      logical = nse_funcs$is.logical(object),
-      factor = nse_funcs$is.factor(object),
-      list = nse_funcs$is.list(object),
-      # for Arrow data types, compare class2 with object$type()$ToString(),
-      # but first strip off any parameters to only compare the top-level data
-      # type,  and canonicalize class2
-      sub("^([^([<]+).*$", "\\1", object$type()$ToString()) ==
-        canonical_type_str(class2)
+           # for R data types, pass off to is.*() functions
+           character = nse_funcs$is.character(object),
+           numeric = nse_funcs$is.numeric(object),
+           integer = nse_funcs$is.integer(object),
+           integer64 = nse_funcs$is.integer64(object),
+           logical = nse_funcs$is.logical(object),
+           factor = nse_funcs$is.factor(object),
+           list = nse_funcs$is.list(object),
+           # for Arrow data types, compare class2 with object$type()$ToString(),
+           # but first strip off any parameters to only compare the top-level data
+           # type,  and canonicalize class2
+           sub("^([^([<]+).*$", "\\1", object$type()$ToString()) ==
+             canonical_type_str(class2)
     )
   } else if (inherits(class2, "DataType")) {
     object$type() == as_type(class2)
@@ -273,9 +273,9 @@ arrow_string_join_function <- function(null_handling, null_replacement = NULL) {
 nse_funcs$str_trim <- function(string, side = c("both", "left", "right")) {
   side <- match.arg(side)
   trim_fun <- switch(side,
-    left = "utf8_ltrim_whitespace",
-    right = "utf8_rtrim_whitespace",
-    both = "utf8_trim_whitespace"
+                     left = "utf8_ltrim_whitespace",
+                     right = "utf8_rtrim_whitespace",
+                     both = "utf8_trim_whitespace"
   )
   Expression$create(trim_fun, string)
 }
@@ -391,7 +391,7 @@ nse_funcs$str_split <- function(string, pattern, n = Inf, simplify = FALSE) {
     string,
     options = list(
       pattern =
-      opts$pattern,
+        opts$pattern,
       reverse = FALSE,
       max_splits = n - 1L
     )
@@ -399,7 +399,7 @@ nse_funcs$str_split <- function(string, pattern, n = Inf, simplify = FALSE) {
 }
 
 nse_funcs$pmin <- function(..., na.rm = FALSE) {
-  Expression$create(
+  build_expr(
     "element_wise_min",
     ...,
     options = list(skip_nulls = na.rm)
@@ -407,7 +407,7 @@ nse_funcs$pmin <- function(..., na.rm = FALSE) {
 }
 
 nse_funcs$pmax <- function(..., na.rm = FALSE) {
-  Expression$create(
+  build_expr(
     "element_wise_max",
     ...,
     options = list(skip_nulls = na.rm)
@@ -527,7 +527,7 @@ nse_funcs$second <- function(x) {
 }
 
 # After ARROW-13054 is completed, we can refactor this for simplicity
-# 
+#
 # Arrow's `day_of_week` kernel counts from 0 (Monday) to 6 (Sunday), whereas
 # `lubridate::wday` counts from 1 to 7, and allows users to specify which day
 # of the week is first (Sunday by default).  This Expression converts the returned

@@ -40,7 +40,7 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__cast(
   arrow::ArrayVector columns(nc);
   for (int i = 0; i < nc; i++) {
     columns[i] = ValueOrStop(
-        arrow::compute::Cast(*batch->column(i), schema->field(i)->type(), *opts));
+      arrow::compute::Cast(*batch->column(i), schema->field(i)->type(), *opts));
   }
 
   return arrow::RecordBatch::Make(schema, batch->num_rows(), std::move(columns));
@@ -58,7 +58,7 @@ std::shared_ptr<arrow::Table> Table__cast(const std::shared_ptr<arrow::Table>& t
   for (int i = 0; i < nc; i++) {
     arrow::Datum value(table->column(i));
     arrow::Datum out =
-        ValueOrStop(arrow::compute::Cast(value, schema->field(i)->type(), *opts));
+      ValueOrStop(arrow::compute::Cast(value, schema->field(i)->type(), *opts));
     columns[i] = out.chunked_array();
   }
   return arrow::Table::Make(schema, std::move(columns), table->num_rows());
@@ -104,23 +104,23 @@ arrow::Datum as_cpp<arrow::Datum>(SEXP x) {
 
 SEXP from_datum(arrow::Datum datum) {
   switch (datum.kind()) {
-    case arrow::Datum::SCALAR:
-      return cpp11::to_r6(datum.scalar());
+  case arrow::Datum::SCALAR:
+    return cpp11::to_r6(datum.scalar());
 
-    case arrow::Datum::ARRAY:
-      return cpp11::to_r6(datum.make_array());
+  case arrow::Datum::ARRAY:
+    return cpp11::to_r6(datum.make_array());
 
-    case arrow::Datum::CHUNKED_ARRAY:
-      return cpp11::to_r6(datum.chunked_array());
+  case arrow::Datum::CHUNKED_ARRAY:
+    return cpp11::to_r6(datum.chunked_array());
 
-    case arrow::Datum::RECORD_BATCH:
-      return cpp11::to_r6(datum.record_batch());
+  case arrow::Datum::RECORD_BATCH:
+    return cpp11::to_r6(datum.record_batch());
 
-    case arrow::Datum::TABLE:
-      return cpp11::to_r6(datum.table());
+  case arrow::Datum::TABLE:
+    return cpp11::to_r6(datum.table());
 
-    default:
-      break;
+  default:
+    break;
   }
 
   cpp11::stop("from_datum: Not implemented for Datum %s", datum.ToString().c_str());
@@ -150,7 +150,7 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     // false means descending, true means ascending
     auto order = cpp11::as_cpp<bool>(options["order"]);
     auto out =
-        std::make_shared<Options>(Options(order ? Order::Descending : Order::Ascending));
+      std::make_shared<Options>(Options(order ? Order::Descending : Order::Ascending));
     return out;
   }
 
@@ -165,7 +165,7 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     std::vector<Key> keys;
     for (size_t i = 0; i < names.size(); i++) {
       keys.push_back(
-          Key(names[i], (orders[i] > 0) ? Order::Descending : Order::Ascending));
+        Key(names[i], (orders[i] > 0) ? Order::Descending : Order::Ascending));
     }
     auto out = std::make_shared<Options>(Options(keys));
     return out;
@@ -182,7 +182,7 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
 
   if (func_name == "element_wise_min" || func_name == "element_wise_max") {
     using Options = arrow::compute::ElementWiseAggregateOptions;
-    bool skip_nulls = false;
+    bool skip_nulls = true;
     if (!Rf_isNull(options["skip_nulls"])) {
       skip_nulls = cpp11::as_cpp<bool>(options["skip_nulls"]);
     }
@@ -200,8 +200,8 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     if (!Rf_isNull(interpolation) && TYPEOF(interpolation) == INTSXP &&
         XLENGTH(interpolation) == 1) {
       out->interpolation =
-          cpp11::as_cpp<enum arrow::compute::QuantileOptions::Interpolation>(
-              interpolation);
+        cpp11::as_cpp<enum arrow::compute::QuantileOptions::Interpolation>(
+            interpolation);
     }
     return out;
   }
@@ -217,8 +217,8 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     auto out = std::make_shared<Options>(Options::Defaults());
     if (!Rf_isNull(options["null_encoding_behavior"])) {
       out->null_encoding_behavior = cpp11::as_cpp<
-          enum arrow::compute::DictionaryEncodeOptions::NullEncodingBehavior>(
-          options["null_encoding_behavior"]);
+        enum arrow::compute::DictionaryEncodeOptions::NullEncodingBehavior>(
+            options["null_encoding_behavior"]);
     }
     return out;
   }
@@ -232,8 +232,8 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     auto out = std::make_shared<Options>(Options::Defaults());
     if (!Rf_isNull(options["null_handling"])) {
       out->null_handling =
-          cpp11::as_cpp<enum arrow::compute::JoinOptions::NullHandlingBehavior>(
-              options["null_handling"]);
+        cpp11::as_cpp<enum arrow::compute::JoinOptions::NullHandlingBehavior>(
+            options["null_handling"]);
     }
     if (!Rf_isNull(options["null_replacement"])) {
       out->null_replacement = cpp11::as_cpp<std::string>(options["null_replacement"]);
@@ -267,8 +267,8 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
   if (func_name == "strptime") {
     using Options = arrow::compute::StrptimeOptions;
     return std::make_shared<Options>(
-        cpp11::as_cpp<std::string>(options["format"]),
-        cpp11::as_cpp<arrow::TimeUnit::type>(options["unit"]));
+      cpp11::as_cpp<std::string>(options["format"]),
+      cpp11::as_cpp<arrow::TimeUnit::type>(options["unit"]));
   }
 
   if (func_name == "split_pattern" || func_name == "split_pattern_regex") {
@@ -336,7 +336,7 @@ SEXP compute__CallFunction(std::string func_name, cpp11::list args, cpp11::list 
   auto opts = make_compute_options(func_name, options);
   auto datum_args = arrow::r::from_r_list<arrow::Datum>(args);
   auto out = ValueOrStop(
-      arrow::compute::CallFunction(func_name, datum_args, opts.get(), gc_context()));
+    arrow::compute::CallFunction(func_name, datum_args, opts.get(), gc_context()));
   return from_datum(std::move(out));
 }
 
@@ -352,7 +352,7 @@ SEXP compute__GroupBy(cpp11::list arguments, cpp11::list keys, cpp11::list optio
     auto opts = make_compute_options(name, name_opts[1]);
 
     aggregates.push_back(
-        arrow::compute::internal::Aggregate{std::move(name), opts.get()});
+      arrow::compute::internal::Aggregate{std::move(name), opts.get()});
     keep_alives.push_back(std::move(opts));
   }
 
