@@ -931,6 +931,26 @@ tasks:
       r_tag: {{ r_tag }}
 {% endfor %}
 
+  test-r-ubuntu-21.04:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        UBUNTU: 21.04
+        CLANG_TOOLS: 9
+      image: ubuntu-r-static
+
+  test-r-gcc-11:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        UBUNTU: 21.04
+        CLANG_TOOLS: 9
+        GCC_VERSION: 11
+      image: ubuntu-r-static
+
+
   test-r-rstudio-r-base-3.6-centos7-devtoolset-8:
     ci: azure
     template: r/azure.linux.yml

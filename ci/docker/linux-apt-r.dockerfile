@@ -19,6 +19,9 @@ ARG base
 FROM ${base}
 ARG arch
 
+ARG arrow_home
+ARG arrow_build_static="OFF"
+
 # Build R
 # [1] https://www.digitalocean.com/community/tutorials/how-to-install-r-on-ubuntu-18-04
 # [2] https://linuxize.com/post/how-to-install-r-on-ubuntu-18-04/#installing-r-packages-from-cran
@@ -84,7 +87,7 @@ COPY python/requirements-build.txt /arrow/python/
 RUN pip install -r arrow/python/requirements-build.txt
 
 ENV \
-    ARROW_BUILD_STATIC=OFF \
+    ARROW_BUILD_STATIC=${arrow_build_static} \
     ARROW_BUILD_TESTS=OFF \
     ARROW_BUILD_UTILITIES=OFF \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
@@ -98,4 +101,5 @@ ENV \
     ARROW_S3=ON \
     ARROW_USE_CCACHE=ON \
     ARROW_USE_GLOG=OFF \
+    ARROW_HOME=${arrow_home} \
     LC_ALL=en_US.UTF-8
