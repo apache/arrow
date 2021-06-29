@@ -144,20 +144,52 @@ struct AppendScalarImpl {
   };
 
   template <typename T>
-  enable_if_has_c_type<T, Status> Visit(const T&) {
-    return UseBuilder<T>(AppendValue{});
+  enable_if_fixed_width<T, Status> Visit(const T&) {
+    auto builder = checked_cast<typename TypeTraits<T>::BuilderType*>(builder_);
+    RETURN_NOT_OK(builder->Reserve(n_repeats_ * (scalar_end_ - scalar_begin_)));
+
+    for (int64_t i = 0; i < n_repeats_; i++) {
+      for (const std::shared_ptr<Scalar>* raw = scalars_begin_; raw != scalars_end_;
+           raw++) {
+        auto scalar = checked_cast<const typename TypeTraits<T>::ScalarType*>(raw->get());
+        if (scalar->is_valid) {
+          builder->UnsafeAppend(scalar->value);
+        } else {
+          builder->UnsafeAppendNull();
+        }
+      }
+    }
+    return Status::OK();
   }
 
   template <typename T>
-  enable_if_has_string_view<T, Status> Visit(const T&) {
-    return UseBuilder<T>(AppendBuffer{});
-  }
+  enable_if_base_binary<T, Status> Visit(const T&) {
+    int64_t data_size = 0;
+    for (const std::shared_ptr<Scalar>* raw = scalars_begin_; raw != scalars_end_;
+           raw++) {
+      auto scalar = checked_cast<const typename TypeTraits<T>::ScalarType*>(raw->get());
+      if (scalar->is_valid) {
+        data_size += scalar->value->size();
+      }
+    }
 
-  template <typename T>
-  enable_if_decimal<T, Status> Visit(const T&) {
-    return UseBuilder<T>(AppendValue{});
-  }
+    auto builder = checked_cast<typename TypeTraits<T>::BuilderType*>(builder_);
+    RETURN_NOT_OK(builder->Reserve(n_repeats_ * (scalar_end_ - scalar_begin_)));
+    RETURN_NOT_OK(builder->ReserveData(n_repeats_ * data_size));
 
+    for (int64_t i = 0; i < n_repeats_; i++) {
+      for (const std::shared_ptr<Scalar>* raw = scalars_begin_; raw != scalars_end_;
+           raw++) {
+        auto scalar = checked_cast<const typename TypeTraits<T>::ScalarType*>(raw->get());
+        if (scalar->is_valid) {
+          builder->UnsafeAppend(util::string_view{*scalar->value});
+        } else {
+          builder->UnsafeAppendNull();
+        }
+      }
+    }
+    return Status::OK();
+  }
   template <typename T>
   enable_if_list_like<T, Status> Visit(const T&) {
     return UseBuilder<T>(AppendList{});
