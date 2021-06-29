@@ -151,22 +151,18 @@ struct AppendScalarImpl {
     return Status::OK();
   }
 
-  struct AppendList {
-    template <typename BuilderType, typename ScalarType>
-    Status operator()(const ScalarType& s, BuilderType* builder) const {
-      RETURN_NOT_OK(builder->Append());
-      const Array& list = *s.value;
-      for (int64_t i = 0; i < list.length(); i++) {
-        ARROW_ASSIGN_OR_RAISE(auto scalar, list.GetScalar(i));
-        RETURN_NOT_OK(builder->value_builder()->AppendScalar(*scalar));
-      }
-      return Status::OK();
-    }
-  };
-
   template <typename T>
   enable_if_list_like<T, Status> Visit(const T&) {
     auto builder = internal::checked_cast<typename TypeTraits<T>::BuilderType*>(builder_);
+    int64_t num_children = 0;
+    for (const std::shared_ptr<Scalar>* scalar = scalars_begin_; scalar != scalars_end_;
+         scalar++) {
+      if (!(*scalar)->is_valid) continue;
+      num_children +=
+          internal::checked_cast<const BaseListScalar&>(**scalar).value->length();
+    }
+    RETURN_NOT_OK(builder->value_builder()->Reserve(num_children * n_repeats_));
+
     for (int64_t i = 0; i < n_repeats_; i++) {
       for (const std::shared_ptr<Scalar>* scalar = scalars_begin_; scalar != scalars_end_;
            scalar++) {
