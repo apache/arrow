@@ -28,7 +28,6 @@ ARG go=1.15
 # Install Archery and integration dependencies
 COPY ci/conda_env_archery.txt /arrow/ci/
 RUN conda install -q \
-        --file arrow/ci/conda_env_cpp.txt \
         --file arrow/ci/conda_env_archery.txt \
         numpy \
         compilers \
