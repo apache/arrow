@@ -98,7 +98,10 @@ Status ArrayBuilder::Advance(int64_t elements) {
 namespace {
 struct AppendScalarImpl {
   template <typename T>
-  enable_if_t<has_c_type<T>::value || is_decimal_type<T>::value, Status> Visit(const T&) {
+  enable_if_t<has_c_type<T>::value || is_decimal_type<T>::value ||
+                  is_fixed_size_binary_type<T>::value,
+              Status>
+  Visit(const T&) {
     auto builder = internal::checked_cast<typename TypeTraits<T>::BuilderType*>(builder_);
     RETURN_NOT_OK(builder->Reserve(n_repeats_ * (scalars_end_ - scalars_begin_)));
 
@@ -118,7 +121,7 @@ struct AppendScalarImpl {
   }
 
   template <typename T>
-  enable_if_has_string_view<T, Status> Visit(const T&) {
+  enable_if_base_binary<T, Status> Visit(const T&) {
     int64_t data_size = 0;
     for (const std::shared_ptr<Scalar>* raw = scalars_begin_; raw != scalars_end_;
          raw++) {
