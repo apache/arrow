@@ -618,13 +618,17 @@ Result<TaggedRecordBatchGenerator> AsyncScanner::ScanBatchesAsync() {
 Result<TaggedRecordBatchGenerator> AsyncScanner::ScanBatchesAsync(
     internal::Executor* cpu_executor) {
   ARROW_ASSIGN_OR_RAISE(auto unordered, ScanBatchesUnorderedAsync(cpu_executor));
-  auto left_after_right = [](const EnumeratedRecordBatch& left,
-                             const EnumeratedRecordBatch& right) {
+  // We need an initial value sentinel, so we use one with fragment.index < 0
+  auto is_before_any = [](const EnumeratedRecordBatch& batch) {
+    return batch.fragment.index < 0;
+  };
+  auto left_after_right = [&is_before_any](const EnumeratedRecordBatch& left,
+                                           const EnumeratedRecordBatch& right) {
     // Before any comes first
-    if (left.fragment.value == nullptr) {
+    if (is_before_any(left)) {
       return false;
     }
-    if (right.fragment.value == nullptr) {
+    if (is_before_any(right)) {
       return true;
     }
     // Compare batches if fragment is the same
@@ -634,10 +638,10 @@ Result<TaggedRecordBatchGenerator> AsyncScanner::ScanBatchesAsync(
     // Otherwise compare fragment
     return left.fragment.index > right.fragment.index;
   };
-  auto is_next = [](const EnumeratedRecordBatch& prev,
-                    const EnumeratedRecordBatch& next) {
+  auto is_next = [is_before_any](const EnumeratedRecordBatch& prev,
+                                 const EnumeratedRecordBatch& next) {
     // Only true if next is the first batch
-    if (prev.fragment.value == nullptr) {
+    if (is_before_any(prev)) {
       return next.fragment.index == 0 && next.record_batch.index == 0;
     }
     // If same fragment, compare batch index
