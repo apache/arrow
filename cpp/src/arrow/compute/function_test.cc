@@ -100,7 +100,8 @@ TEST(FunctionOptions, Equality) {
   options.emplace_back(new ArraySortOptions(SortOrder::Descending));
   options.emplace_back(new SortOptions());
   options.emplace_back(new SortOptions({SortKey("key", SortOrder::Ascending)}));
-  options.emplace_back(new SortOptions({SortKey("key", SortOrder::Descending)}));
+  options.emplace_back(new SortOptions(
+      {SortKey("key", SortOrder::Descending), SortKey("value", SortOrder::Descending)}));
   options.emplace_back(new PartitionNthOptions(/*pivot=*/0));
   options.emplace_back(new PartitionNthOptions(/*pivot=*/42));
 

@@ -32,6 +32,48 @@
 #include "arrow/util/logging.h"
 
 namespace arrow {
+
+namespace internal {
+template <>
+struct EnumTraits<compute::JoinOptions::NullHandlingBehavior>
+    : BasicEnumTraits<compute::JoinOptions::NullHandlingBehavior,
+                      compute::JoinOptions::NullHandlingBehavior::EMIT_NULL,
+                      compute::JoinOptions::NullHandlingBehavior::SKIP,
+                      compute::JoinOptions::NullHandlingBehavior::REPLACE> {
+  static std::string name() { return "JoinOptions::NullHandlingBehavior"; }
+  static std::string value_name(compute::JoinOptions::NullHandlingBehavior value) {
+    switch (value) {
+      case compute::JoinOptions::NullHandlingBehavior::EMIT_NULL:
+        return "EMIT_NULL";
+      case compute::JoinOptions::NullHandlingBehavior::SKIP:
+        return "SKIP";
+      case compute::JoinOptions::NullHandlingBehavior::REPLACE:
+        return "REPLACE";
+    }
+    return "<INVALID>";
+  }
+};
+template <>
+struct EnumTraits<TimeUnit::type>
+    : BasicEnumTraits<TimeUnit::type, TimeUnit::type::SECOND, TimeUnit::type::MILLI,
+                      TimeUnit::type::MICRO, TimeUnit::type::NANO> {
+  static std::string name() { return "TimeUnit::type"; }
+  static std::string value_name(TimeUnit::type value) {
+    switch (value) {
+      case TimeUnit::type::SECOND:
+        return "SECOND";
+      case TimeUnit::type::MILLI:
+        return "MILLI";
+      case TimeUnit::type::MICRO:
+        return "MICRO";
+      case TimeUnit::type::NANO:
+        return "NANO";
+    }
+    return "<INVALID>";
+  }
+};
+}  // namespace internal
+
 namespace compute {
 
 // ----------------------------------------------------------------------
@@ -40,30 +82,6 @@ namespace compute {
 using ::arrow::internal::checked_cast;
 
 namespace internal {
-template <>
-struct EnumTraits<JoinOptions::NullHandlingBehavior>
-    : BasicEnumTraits<JoinOptions::NullHandlingBehavior> {
-  static std::string name() { return "JoinOptions::NullHandlingBehavior"; }
-  static std::array<JoinOptions::NullHandlingBehavior, 3> values() {
-    return {
-        JoinOptions::NullHandlingBehavior::EMIT_NULL,
-        JoinOptions::NullHandlingBehavior::SKIP,
-        JoinOptions::NullHandlingBehavior::REPLACE,
-    };
-  }
-};
-template <>
-struct EnumTraits<TimeUnit::type> : BasicEnumTraits<TimeUnit::type> {
-  static std::string name() { return "TimeUnit::type"; }
-  static std::array<TimeUnit::type, 4> values() {
-    return {
-        TimeUnit::type::SECOND,
-        TimeUnit::type::MILLI,
-        TimeUnit::type::MICRO,
-        TimeUnit::type::NANO,
-    };
-  }
-};
 namespace {
 using ::arrow::internal::DataMember;
 static auto kElementWiseAggregateOptionsType =

@@ -25,6 +25,33 @@
 #include "arrow/util/logging.h"
 
 namespace arrow {
+
+namespace internal {
+template <>
+struct EnumTraits<compute::QuantileOptions::Interpolation>
+    : BasicEnumTraits<compute::QuantileOptions::Interpolation,
+                      compute::QuantileOptions::LINEAR, compute::QuantileOptions::LOWER,
+                      compute::QuantileOptions::HIGHER, compute::QuantileOptions::NEAREST,
+                      compute::QuantileOptions::MIDPOINT> {
+  static std::string name() { return "QuantileOptions::Interpolation"; }
+  static std::string value_name(compute::QuantileOptions::Interpolation value) {
+    switch (value) {
+      case compute::QuantileOptions::LINEAR:
+        return "LINEAR";
+      case compute::QuantileOptions::LOWER:
+        return "LOWER";
+      case compute::QuantileOptions::HIGHER:
+        return "HIGHER";
+      case compute::QuantileOptions::NEAREST:
+        return "NEAREST";
+      case compute::QuantileOptions::MIDPOINT:
+        return "MIDPOINT";
+    }
+    return "<INVALID>";
+  }
+};
+}  // namespace internal
+
 namespace compute {
 
 // ----------------------------------------------------------------------
@@ -33,17 +60,6 @@ namespace compute {
 using ::arrow::internal::checked_cast;
 
 namespace internal {
-template <>
-struct EnumTraits<QuantileOptions::Interpolation>
-    : BasicEnumTraits<QuantileOptions::Interpolation> {
-  static std::string name() { return "QuantileOptions::Interpolation"; }
-  static std::array<QuantileOptions::Interpolation, 5> values() {
-    return {
-        QuantileOptions::LINEAR,  QuantileOptions::LOWER,    QuantileOptions::HIGHER,
-        QuantileOptions::NEAREST, QuantileOptions::MIDPOINT,
-    };
-  }
-};
 namespace {
 using ::arrow::internal::DataMember;
 static auto kScalarAggregateOptionsType = GetFunctionOptionsType<ScalarAggregateOptions>(

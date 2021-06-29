@@ -39,8 +39,40 @@ namespace arrow {
 struct Scalar;
 struct StructScalar;
 using ::arrow::internal::checked_cast;
+
+namespace internal {
+template <>
+struct EnumTraits<compute::SortOrder>
+    : BasicEnumTraits<compute::SortOrder, compute::SortOrder::Ascending,
+                      compute::SortOrder::Descending> {
+  static std::string name() { return "SortOrder"; }
+  static std::string value_name(compute::SortOrder value) {
+    switch (value) {
+      case compute::SortOrder::Ascending:
+        return "Ascending";
+      case compute::SortOrder::Descending:
+        return "Descending";
+    }
+    return "<INVALID>";
+  }
+};
+}  // namespace internal
+
 namespace compute {
 namespace internal {
+
+using arrow::internal::EnumTraits;
+using arrow::internal::has_enum_traits;
+
+template <typename Enum, typename CType = typename std::underlying_type<Enum>::type>
+Result<Enum> ValidateEnumValue(CType raw) {
+  for (auto valid : EnumTraits<Enum>::values()) {
+    if (raw == static_cast<CType>(valid)) {
+      return static_cast<Enum>(raw);
+    }
+  }
+  return Status::Invalid("Invalid value for ", EnumTraits<Enum>::name(), ": ", raw);
+}
 
 class GenericOptionsType : public FunctionOptionsType {
  public:
@@ -63,54 +95,40 @@ Result<std::unique_ptr<FunctionOptions>> FunctionOptionsFromStructScalar(
 ARROW_EXPORT
 Result<std::unique_ptr<FunctionOptions>> DeserializeFunctionOptions(const Buffer& buffer);
 
-template <typename Enum>
-struct EnumTraits;
-
-template <typename Enum>
-struct BasicEnumTraits {
-  using CType = typename std::underlying_type<Enum>::type;
-  using Type = typename CTypeTraits<CType>::ArrowType;
-};
-template <>
-struct EnumTraits<SortOrder> : BasicEnumTraits<SortOrder> {
-  static std::string name() { return "SortOrder"; }
-  static std::array<SortOrder, 2> values() {
-    return {SortOrder::Ascending, SortOrder::Descending};
-  }
-};
-
-template <typename Enum, typename CType = typename std::underlying_type<Enum>::type>
-Result<Enum> ValidateEnumValue(CType raw) {
-  for (auto valid : EnumTraits<Enum>::values()) {
-    if (raw == static_cast<CType>(valid)) {
-      return static_cast<Enum>(raw);
-    }
-  }
-  return Status::Invalid("Invalid value for ", EnumTraits<Enum>::name(), ": ", raw);
-}
-
 template <typename T>
-static inline std::string GenericToString(const T& value) {
+static inline enable_if_t<!has_enum_traits<T>::value, std::string> GenericToString(
+    const T& value) {
   std::stringstream ss;
   ss << value;
   return ss.str();
 }
+
 static inline std::string GenericToString(bool value) { return value ? "true" : "false"; }
+
 static inline std::string GenericToString(const std::string& value) {
   std::stringstream ss;
   ss << '"' << value << '"';
   return ss.str();
 }
+
+template <typename T>
+static inline enable_if_t<has_enum_traits<T>::value, std::string> GenericToString(
+    const T value) {
+  return EnumTraits<T>::value_name(value);
+}
+
 template <typename T>
 static inline std::string GenericToString(const std::shared_ptr<T>& value) {
   std::stringstream ss;
   return value ? value->ToString() : "<NULLPTR>";
 }
+
 static inline std::string GenericToString(const std::shared_ptr<Scalar>& value) {
   std::stringstream ss;
   ss << value->type->ToString() << ":" << value->ToString();
   return ss.str();
 }
+
 static inline std::string GenericToString(
     const std::shared_ptr<const KeyValueMetadata>& value) {
   std::stringstream ss;
@@ -126,6 +144,7 @@ static inline std::string GenericToString(
   ss << '}';
   return ss.str();
 }
+
 static inline std::string GenericToString(const Datum& value) {
   switch (value.kind()) {
     case Datum::NONE:
@@ -145,6 +164,7 @@ static inline std::string GenericToString(const Datum& value) {
   }
   return value.ToString();
 }
+
 template <typename T>
 static inline std::string GenericToString(const std::vector<T>& value) {
   std::stringstream ss;
@@ -159,6 +179,7 @@ static inline std::string GenericToString(const std::vector<T>& value) {
   ss << ']';
   return ss.str();
 }
+
 static inline std::string GenericToString(SortOrder value) {
   switch (value) {
     case SortOrder::Ascending:
@@ -168,6 +189,7 @@ static inline std::string GenericToString(SortOrder value) {
   }
   return "<INVALID SORT ORDER>";
 }
+
 static inline std::string GenericToString(const std::vector<SortKey>& value) {
   std::stringstream ss;
   ss << '[';
@@ -187,6 +209,7 @@ template <typename T>
 static inline bool GenericEquals(const T& left, const T& right) {
   return left == right;
 }
+
 template <typename T>
 static inline bool GenericEquals(const std::shared_ptr<T>& left,
                                  const std::shared_ptr<T>& right) {
@@ -195,9 +218,11 @@ static inline bool GenericEquals(const std::shared_ptr<T>& left,
   }
   return left == right;
 }
+
 static inline bool IsEmpty(const std::shared_ptr<const KeyValueMetadata>& meta) {
   return !meta || meta->size() == 0;
 }
+
 static inline bool GenericEquals(const std::shared_ptr<const KeyValueMetadata>& left,
                                  const std::shared_ptr<const KeyValueMetadata>& right) {
   // Special case since null metadata is considered equivalent to empty
@@ -206,6 +231,7 @@ static inline bool GenericEquals(const std::shared_ptr<const KeyValueMetadata>& 
   }
   return left->Equals(*right);
 }
+
 template <typename T>
 static inline bool GenericEquals(const std::vector<T>& left,
                                  const std::vector<T>& right) {
@@ -221,17 +247,20 @@ static inline decltype(TypeTraits<typename CTypeTraits<T>::ArrowType>::type_sing
 GenericTypeSingleton() {
   return TypeTraits<typename CTypeTraits<T>::ArrowType>::type_singleton();
 }
+
 template <typename T>
 static inline enable_if_same<T, std::shared_ptr<const KeyValueMetadata>,
                              std::shared_ptr<DataType>>
 GenericTypeSingleton() {
   return map(binary(), binary());
 }
+
 template <typename T>
-static inline decltype(TypeTraits<typename EnumTraits<T>::Type>::type_singleton())
+static inline enable_if_t<has_enum_traits<T>::value, std::shared_ptr<DataType>>
 GenericTypeSingleton() {
   return TypeTraits<typename EnumTraits<T>::Type>::type_singleton();
 }
+
 template <typename T>
 static inline enable_if_same<T, SortKey, std::shared_ptr<DataType>>
 GenericTypeSingleton() {
@@ -247,17 +276,19 @@ static inline Result<decltype(MakeScalar(std::declval<T>()))> GenericToScalar(
     const T& value) {
   return MakeScalar(value);
 }
-template <typename T,
-          typename Enable = arrow::internal::void_t<decltype(EnumTraits<T>::name())>>
+
+template <typename T, typename Enable = enable_if_t<has_enum_traits<T>::value>>
 static inline Result<std::shared_ptr<Scalar>> GenericToScalar(const T value) {
   using CType = typename EnumTraits<T>::CType;
   return GenericToScalar(static_cast<CType>(value));
 }
+
 static inline Result<std::shared_ptr<Scalar>> GenericToScalar(const SortKey& value) {
   ARROW_ASSIGN_OR_RAISE(auto name, GenericToScalar(value.name));
   ARROW_ASSIGN_OR_RAISE(auto order, GenericToScalar(value.order));
   return StructScalar::Make({name, order}, {"name", "order"});
 }
+
 static inline Result<std::shared_ptr<Scalar>> GenericToScalar(
     const std::shared_ptr<const KeyValueMetadata>& value) {
   auto ty = GenericTypeSingleton<std::shared_ptr<const KeyValueMetadata>>();
@@ -275,6 +306,7 @@ static inline Result<std::shared_ptr<Scalar>> GenericToScalar(
   RETURN_NOT_OK(map_builder->Finish(&arr));
   return arr->GetScalar(0);
 }
+
 template <typename T>
 static inline Result<std::shared_ptr<Scalar>> GenericToScalar(
     const std::vector<T>& value) {
@@ -294,6 +326,7 @@ static inline Result<std::shared_ptr<Scalar>> GenericToScalar(
   RETURN_NOT_OK(builder->Finish(&out));
   return std::make_shared<ListScalar>(std::move(out));
 }
+
 static inline Result<std::shared_ptr<Scalar>> GenericToScalar(
     const std::shared_ptr<DataType>& value) {
   if (!value) {
@@ -301,14 +334,17 @@ static inline Result<std::shared_ptr<Scalar>> GenericToScalar(
   }
   return MakeNullScalar(value);
 }
+
 static inline Result<std::shared_ptr<Scalar>> GenericToScalar(
     const std::shared_ptr<Scalar>& value) {
   return value;
 }
+
 static inline Result<std::shared_ptr<Scalar>> GenericToScalar(
     const std::shared_ptr<Array>& value) {
   return std::make_shared<ListScalar>(value);
 }
+
 static inline Result<std::shared_ptr<Scalar>> GenericToScalar(const Datum& value) {
   // TODO(ARROW-9434): store in a union instead.
   switch (value.kind()) {
@@ -333,6 +369,7 @@ GenericFromScalar(const std::shared_ptr<Scalar>& value) {
   if (!holder.is_valid) return Status::Invalid("Got null scalar");
   return holder.value;
 }
+
 template <typename T>
 static inline enable_if_primitive_ctype<typename EnumTraits<T>::Type, Result<T>>
 GenericFromScalar(const std::shared_ptr<Scalar>& value) {
@@ -354,6 +391,7 @@ static inline enable_if_same_result<T, std::string> GenericFromScalar(
   if (!holder.is_valid) return Status::Invalid("Got null scalar");
   return holder.value->ToString();
 }
+
 template <typename T>
 static inline enable_if_same_result<T, SortKey> GenericFromScalar(
     const std::shared_ptr<Scalar>& value) {
@@ -374,11 +412,13 @@ static inline enable_if_same_result<T, std::shared_ptr<DataType>> GenericFromSca
     const std::shared_ptr<Scalar>& value) {
   return value->type;
 }
+
 template <typename T>
 static inline enable_if_same_result<T, std::shared_ptr<Scalar>> GenericFromScalar(
     const std::shared_ptr<Scalar>& value) {
   return value;
 }
+
 template <typename T>
 static inline enable_if_same_result<T, std::shared_ptr<const KeyValueMetadata>>
 GenericFromScalar(const std::shared_ptr<Scalar>& value) {
@@ -399,6 +439,7 @@ GenericFromScalar(const std::shared_ptr<Scalar>& value) {
   }
   return key_value_metadata(std::move(keys), std::move(values));
 }
+
 template <typename T>
 static inline enable_if_same_result<T, Datum> GenericFromScalar(
     const std::shared_ptr<Scalar>& value) {
@@ -484,7 +525,7 @@ struct ToStructScalarImpl {
     if (!status_.ok()) return;
     auto result = GenericToScalar(prop.get(obj_));
     if (!result.ok()) {
-      status_ = result.status().WithMessage("Cannot serialize field ", prop.name(),
+      status_ = result.status().WithMessage("Could not serialize field ", prop.name(),
                                             " of options type ", Options::kTypeName, ": ",
                                             result.status().message());
       return;

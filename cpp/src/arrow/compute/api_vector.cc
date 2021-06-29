@@ -38,6 +38,41 @@ namespace arrow {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
+namespace internal {
+using compute::DictionaryEncodeOptions;
+using compute::FilterOptions;
+template <>
+struct EnumTraits<FilterOptions::NullSelectionBehavior>
+    : BasicEnumTraits<FilterOptions::NullSelectionBehavior, FilterOptions::DROP,
+                      FilterOptions::EMIT_NULL> {
+  static std::string name() { return "FilterOptions::NullSelectionBehavior"; }
+  static std::string value_name(FilterOptions::NullSelectionBehavior value) {
+    switch (value) {
+      case FilterOptions::DROP:
+        return "DROP";
+      case FilterOptions::EMIT_NULL:
+        return "EMIT_NULL";
+    }
+    return "<INVALID>";
+  }
+};
+template <>
+struct EnumTraits<DictionaryEncodeOptions::NullEncodingBehavior>
+    : BasicEnumTraits<DictionaryEncodeOptions::NullEncodingBehavior,
+                      DictionaryEncodeOptions::ENCODE, DictionaryEncodeOptions::MASK> {
+  static std::string name() { return "DictionaryEncodeOptions::NullEncodingBehavior"; }
+  static std::string value_name(DictionaryEncodeOptions::NullEncodingBehavior value) {
+    switch (value) {
+      case DictionaryEncodeOptions::ENCODE:
+        return "ENCODE";
+      case DictionaryEncodeOptions::MASK:
+        return "MASK";
+    }
+    return "<INVALID>";
+  }
+};
+}  // namespace internal
+
 namespace compute {
 
 // ----------------------------------------------------------------------
@@ -61,24 +96,6 @@ std::string SortKey::ToString() const {
 }
 
 namespace internal {
-template <>
-struct EnumTraits<FilterOptions::NullSelectionBehavior>
-    : BasicEnumTraits<FilterOptions::NullSelectionBehavior> {
-  static std::string name() { return "FilterOptions::NullSelectionBehavior"; }
-  static std::array<FilterOptions::NullSelectionBehavior, 2> values() {
-    return {FilterOptions::NullSelectionBehavior::DROP,
-            FilterOptions::NullSelectionBehavior::EMIT_NULL};
-  }
-};
-template <>
-struct EnumTraits<DictionaryEncodeOptions::NullEncodingBehavior>
-    : BasicEnumTraits<DictionaryEncodeOptions::NullEncodingBehavior> {
-  static std::string name() { return "DictionaryEncodeOptions::NullEncodingBehavior"; }
-  static std::array<DictionaryEncodeOptions::NullEncodingBehavior, 2> values() {
-    return {DictionaryEncodeOptions::NullEncodingBehavior::ENCODE,
-            DictionaryEncodeOptions::NullEncodingBehavior::MASK};
-  }
-};
 namespace {
 using ::arrow::internal::DataMember;
 static auto kFilterOptionsType = GetFunctionOptionsType<FilterOptions>(

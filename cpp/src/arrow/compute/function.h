@@ -71,6 +71,9 @@ class ARROW_EXPORT FunctionOptions : public util::EqualityComparable<FunctionOpt
   /// \brief Serialize an options struct to a buffer.
   Result<std::shared_ptr<Buffer>> Serialize() const;
   /// \brief Deserialize an options struct from a buffer.
+  /// Note: this will only look for `type_name` in the default FunctionRegistry;
+  /// to use a custom FunctionRegistry, look up the FunctionOptionsType, then
+  /// call FunctionOptionsType::Deserialize().
   static Result<std::unique_ptr<FunctionOptions>> Deserialize(
       const std::string& type_name, const Buffer& buffer);
 

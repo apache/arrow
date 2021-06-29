@@ -608,9 +608,6 @@ cdef class _CastOptions(FunctionOptions):
         FunctionOptions.init(self, move(options))
         self.options = <CCastOptions*> self.wrapped.get()
 
-    cdef const CFunctionOptions* get_options(self) except NULL:
-        return self.options
-
     def _set_options(self, DataType target_type, allow_int_overflow,
                      allow_time_truncate, allow_time_overflow,
                      allow_float_truncate, allow_invalid_utf8):
