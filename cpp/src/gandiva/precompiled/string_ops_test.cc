@@ -1555,6 +1555,26 @@ TEST(TestStringOps, TestBinaryString) {
   EXPECT_EQ(output, "OM");
 }
 
+TEST(TestStringOps, TestFindInSet) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+
+  EXPECT_EQ(find_in_set_utf8_utf8(ctx_ptr, "HI", 2, "HI,B,C", 6), 1);
+  EXPECT_EQ(find_in_set_utf8_utf8(ctx_ptr, "HI", 2, ",B,C,HI", 7), 4);
+  EXPECT_EQ(find_in_set_utf8_utf8(ctx_ptr, "HI", 2, ",B,HI,HI,", 9), 3);
+  EXPECT_EQ(find_in_set_utf8_utf8(ctx_ptr, "", 0, ",B,A,A,", 7), 1);
+  EXPECT_EQ(find_in_set_utf8_utf8(ctx_ptr, "HI", 1, "HI,B,C", 6), 0);
+  EXPECT_EQ(find_in_set_utf8_utf8(ctx_ptr, "", 0, "B,C,A,", 6), 4);
+  EXPECT_EQ(find_in_set_utf8_utf8(ctx_ptr, "", 0, "B,C,,A,", 6), 3);
+
+  EXPECT_EQ(find_in_set_utf8_utf8(ctx_ptr, "", -5, "B,C,,A,", 6), 0);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Invalid input values."));
+  ctx.Reset();
+  EXPECT_EQ(find_in_set_utf8_utf8(ctx_ptr, "", 0, "B,C,,A,", -6), 0);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Invalid input values."));
+  ctx.Reset();
+}
+
 TEST(TestStringOps, TestSplitPart) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);

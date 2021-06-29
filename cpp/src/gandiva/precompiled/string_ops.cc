@@ -1863,6 +1863,39 @@ const char* rpad_utf8_int32(gdv_int64 context, const char* text, gdv_int32 text_
 }
 
 FORCE_INLINE
+gdv_int32 find_in_set_utf8_utf8(gdv_int64 context, const char* in, gdv_int32 in_len,
+                                const char* text, gdv_int32 text_len) {
+  if (in_len < 0 || text_len < 0) {
+    gdv_fn_context_set_error_msg(context, "Invalid input values.");
+    return 0;
+  }
+
+  int last_delimit = 0, count = 1;
+  bool match_delimiter = false;
+  for (int i = 0; i < text_len; i++) {
+    match_delimiter = memcmp(text + i, ",", 1) == 0;
+    // Handle cases for last iteration
+    if (i + 1 == text_len) {
+      // Case 1: last iteration is a delimiter and an empty string is being searched
+      if (match_delimiter && in_len == 0) return count + 1;
+      // Case 2: last iteration is the end of a given string and it should be compared
+      if (mem_compare(text + last_delimit, text_len - last_delimit, in, in_len) == 0) {
+        return count;
+      }
+    }
+    else if (match_delimiter) {
+      // Handle case when it is not last iteration and match delimiter, so we
+      // should compare the previous string
+      if (mem_compare(text + last_delimit, i - last_delimit, in, in_len) == 0)
+        return count;
+      count += 1;
+      last_delimit = i + 1;
+    }
+  }
+  return 0;
+}
+
+FORCE_INLINE
 const char* split_part(gdv_int64 context, const char* text, gdv_int32 text_len,
                        const char* delimiter, gdv_int32 delim_len, gdv_int32 index,
                        gdv_int32* out_len) {
