@@ -379,11 +379,6 @@ tasks:
 
 {% endfor %}
 
-  wheel-osx-test:
-    ci: travis
-    template: python-wheels/travis.osx.test.yml
-
-
 {############################ Python sdist ####################################}
 
   python-sdist:
