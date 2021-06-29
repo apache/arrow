@@ -2448,63 +2448,73 @@ TEST(TestStringOps, TestInstr) {
   result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
   EXPECT_EQ(result, 8);
 }
-TEST(TestStringOps, TestParseURL){
-    gandiva::ExecutionContext ctx;
-    uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+TEST(TestStringOps, TestParseURL) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
 
-    const char* url = "http://github.io/path1/path2/p.php?k1=v1&k2=v2#Ref1";
+  const char* url = "http://userinfo@github.io/path1/path2/p.php?k1=v1&k2=v2#Ref1";
+  int32_t url_len = strlen(url);
+  const int32_t ALL_BYTES_MATCH = 0;
 
-    // Optimal cases.
-    const char* expected_host = "github.io";
-    EXPECT_STREQ(expected_host, parse_url_utf8_utf8(ctx_ptr, url, 51, "HOST", 4));
+  // Optimal cases.
+  const char* expected_host = "github.io";
+  auto out_value = parse_url_utf8_utf8(ctx_ptr, url, url_len, "HOST", 4, &out_len);
+  EXPECT_EQ(ALL_BYTES_MATCH,
+            memcmp(out_value,
+                   expected_host, out_len));
 
-    const char* expected_protocol = "http";
-    EXPECT_STREQ(expected_protocol, parse_url_utf8_utf8(ctx_ptr, url, 51, "PROTOCOL", 8));
+  const char* expected_protocol = "http";
+  out_value = parse_url_utf8_utf8(ctx_ptr, url, url_len, "PROTOCOL", 8, &out_len);
+  EXPECT_EQ(ALL_BYTES_MATCH, memcmp(out_value, expected_protocol, out_len));
 
-    const char* expected_path = "path1/path2/";
-    EXPECT_STREQ(expected_path, parse_url_utf8_utf8(ctx_ptr, url, 51, "PATH", 4));
+  const char* expected_path = "/path1/path2/p.php";
+  out_value = parse_url_utf8_utf8(ctx_ptr, url, url_len, "PATH", 4, &out_len);
+  EXPECT_EQ(ALL_BYTES_MATCH, memcmp(out_value, expected_path, out_len));
 
-    const char* expected_file = "p.php";
-    EXPECT_STREQ(expected_file, parse_url_utf8_utf8(ctx_ptr, url, 51, "FILE", 4));
+  const char* url_simple = "http://github.io/path1/path2/p.php";
+  out_value = parse_url_utf8_utf8(ctx_ptr, url_simple, 34, "PATH", 4, &out_len);
+  EXPECT_EQ(ALL_BYTES_MATCH, memcmp(out_value, expected_path, out_len));
 
-    const char* expected_query = "k1=v1&k2=v2";
-    EXPECT_STREQ(expected_query, parse_url_utf8_utf8(ctx_ptr, url, 51, "QUERY", 5));
+  const char* expected_file = "/path1/path2/p.php?k1=v1&k2=v2";
+  out_value = parse_url_utf8_utf8(ctx_ptr, url, url_len, "FILE", 4, &out_len);
+  EXPECT_EQ(ALL_BYTES_MATCH, memcmp(out_value, expected_file, out_len));
 
-    const char* expected_query_value = "v1";
-    EXPECT_STREQ(expected_query_value, parse_url_query_key_utf8_utf8(ctx_ptr, url, 51, "QUERY", 5, "k1", 2));
+  const char* expected_query = "k1=v1&k2=v2";
+  out_value = parse_url_utf8_utf8(ctx_ptr, url, url_len, "QUERY", 5, &out_len);
+  EXPECT_EQ(ALL_BYTES_MATCH, memcmp(out_value, expected_query, out_len));
 
-    const char* expected_ref = "Ref1";
-    EXPECT_STREQ(expected_ref, parse_url_utf8_utf8(ctx_ptr, url, 51, "REF", 3));
+  const char* expected_query_value = "v2";
+  out_value =
+      parse_url_query_key_utf8_utf8(ctx_ptr, url, url_len, "QUERY", 5, "k2", 2, &out_len);
+  EXPECT_EQ(strlen(expected_query_value), out_len);
+  EXPECT_EQ(ALL_BYTES_MATCH, memcmp(out_value, expected_query_value, out_len));
 
-    const char* expected_autority = "github.io";
-    EXPECT_STREQ(expected_autority, parse_url_utf8_utf8(ctx_ptr, url, 51, "AUTHORITY", 9));
+  const char* expected_query_value2 = "v1";
+  out_value =
+    parse_url_query_key_utf8_utf8(ctx_ptr, url, url_len, "QUERY", 5, "k1", 2, &out_len);
+  EXPECT_EQ(strlen(expected_query_value2), out_len);
+  EXPECT_EQ(ALL_BYTES_MATCH, memcmp(out_value, expected_query_value2, out_len));
 
-    const char* url_ip = "http://127.0.0.0:8080/path1/path2/p.php?k1=v1&k2=v2#Ref1";
-    const char* expected_autority2 = "127.0.0.0:8080";
-    EXPECT_STREQ(expected_autority2, parse_url_utf8_utf8(ctx_ptr, url_ip, 56, "AUTHORITY", 9));
+  const char* expected_ref = "Ref1";
+  out_value = parse_url_utf8_utf8(ctx_ptr, url, url_len, "REF", 3, &out_len);
+  EXPECT_EQ(ALL_BYTES_MATCH, memcmp(out_value, expected_ref, out_len));
 
-    // Error cases
+  const char* expected_autority = "github.io";
+  out_value = parse_url_utf8_utf8(ctx_ptr, url, url_len, "AUTHORITY", 9, &out_len);
+  EXPECT_EQ(ALL_BYTES_MATCH, memcmp(out_value, expected_autority, out_len));
 
-    const char* expected_error = "Invalid part to extract, the accept values are HOST, PATH, QUERY, REF, PROTOCOL, AUTHORITY, FILE, and USERINFO.";
-    parse_url_utf8_utf8(ctx_ptr, url, 51, "HOSTy", 5);
-    EXPECT_TRUE(ctx.has_error());
-    EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr(expected_error));
+  const char* url_ip = "http://127.0.0.0:8080/path1/path2/p.php?k1=v1&k2=v2#Ref1";
+  const char* expected_autority2 = "127.0.0.0:8080";
+  out_value = parse_url_utf8_utf8(ctx_ptr, url_ip, 56, "AUTHORITY", 9, &out_len);
+  EXPECT_EQ(ALL_BYTES_MATCH, memcmp(out_value, expected_autority2, out_len));
 
-    const char* expected_error_missing_element = "Couldn't find the request element";
-    const char* url_without_element = "http://github.io/path1/path2?k1=v1&k2=v2#Ref1";
-    parse_url_utf8_utf8(ctx_ptr, url_without_element, 45, "FILE", 4);
-    EXPECT_TRUE(ctx.has_error());
-    EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr(expected_error));
+  const char* expected_host_ip = "127.0.0.0";
+  out_value = parse_url_utf8_utf8(ctx_ptr, url_ip, 56, "HOST", 4, &out_len);
+  EXPECT_EQ(ALL_BYTES_MATCH, memcmp(out_value, expected_host_ip, out_len));
 
-    const char* url_malformed = "github.io/path1/path2/p.php?k1=v1&k2=v2#Ref1";
-    const char* expected_error_wrong_url = "Invalid URL structure.";
-    parse_url_utf8_utf8(ctx_ptr, url_malformed, 44, "HOST", 4);
-    EXPECT_TRUE(ctx.has_error());
-    EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr(expected_error_wrong_url));
-
-    const char* expected_error_key = "Couldn't find the given query key.";
-    parse_url_query_key_utf8_utf8(ctx_ptr, url, 44, "QUERY", 5, "k3", 2);
-    EXPECT_TRUE(ctx.has_error());
-    EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr(expected_error_key));
+  auto expected_user_info = "userinfo";
+  out_value = parse_url_utf8_utf8(ctx_ptr, url, url_len, "USERINFO", 3, &out_len);
+  EXPECT_EQ(ALL_BYTES_MATCH, memcmp(out_value, expected_user_info, out_len));
 }
 }  // namespace gandiva
