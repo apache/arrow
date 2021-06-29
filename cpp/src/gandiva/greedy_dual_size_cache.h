@@ -24,14 +24,25 @@
 #include <utility>
 
 #include "arrow/util/optional.h"
-#include "gandiva/base_cache.h"
 
 // modified cache to support evict policy using the GreedyDual-Size algorithm.
 namespace gandiva {
+// Defines a base value object supported on the cache that may contain properties
+template <typename ValueType>
+class ValueCacheObject {
+ public:
+  explicit ValueCacheObject(ValueType module, uint64_t cost)
+      : module(module), cost(cost) {}
+  ValueCacheObject() = default;
+  ValueType module;
+  uint64_t cost;
+  bool operator<(const ValueCacheObject& other) const { return this->cost < other.cost; }
+};
+
 // a particular LRU based cache which evicts the least recently used item
 // considering the different costs for each entry.
 template <class Key, class Value>
-class GreedyDualSizeCache : public BaseCache<Key, Value> {
+class GreedyDualSizeCache {
   // inner class to define the priority item
   class PriorityItem {
    public:
@@ -61,23 +72,23 @@ class GreedyDualSizeCache : public BaseCache<Key, Value> {
       Key, std::pair<ValueCacheObject<Value>, typename std::set<PriorityItem>::iterator>,
       hasher>;
 
-  explicit GreedyDualSizeCache(size_t capacity) : BaseCache<Key, Value>(capacity) {
+  explicit GreedyDualSizeCache(size_t capacity) : cache_capacity_(capacity) {
     this->inflation_cost_ = 0;
   }
 
-  GreedyDualSizeCache<Key, Value>() : BaseCache<Key, Value>() {}
+  GreedyDualSizeCache<Key, Value>() : cache_capacity_(capacity) {}
 
   ~GreedyDualSizeCache() = default;
 
-  size_t size() const override { return map_.size(); }
+  size_t size() const { return map_.size(); }
 
-  size_t capacity() const override { return this->cache_capacity_; }
+  size_t capacity() const { return this->cache_capacity_; }
 
-  bool empty() const override { return map_.empty(); }
+  bool empty() const { return map_.empty(); }
 
-  bool contains(const Key& key) override { return map_.find(key) != map_.end(); }
+  bool contains(const Key& key) { return map_.find(key) != map_.end(); }
 
-  void insert(const Key& key, const ValueCacheObject<Value>& value) override {
+  void insert(const Key& key, const ValueCacheObject<Value>& value) {
     typename map_type::iterator i = map_.find(key);
     // check if element is not in the cache to add it
     if (i == map_.end()) {
@@ -95,7 +106,7 @@ class GreedyDualSizeCache : public BaseCache<Key, Value> {
     }
   }
 
-  arrow::util::optional<ValueCacheObject<Value>> get(const Key& key) override {
+  arrow::util::optional<ValueCacheObject<Value>> get(const Key& key) {
     // lookup value in the cache
     typename map_type::iterator value_for_key = map_.find(key);
     if (value_for_key == map_.end()) {
@@ -114,7 +125,7 @@ class GreedyDualSizeCache : public BaseCache<Key, Value> {
     return value_for_key->second.first;
   }
 
-  void clear() override {
+  void clear() {
     map_.clear();
     priority_set_.clear();
   }
@@ -134,5 +145,6 @@ class GreedyDualSizeCache : public BaseCache<Key, Value> {
   map_type map_;
   std::set<PriorityItem> priority_set_;
   int64_t inflation_cost_;
+  size_t cache_capacity_{};
 };
 }  // namespace gandiva

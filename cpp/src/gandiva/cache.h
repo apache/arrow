@@ -23,7 +23,6 @@
 
 #include "gandiva/base_cache.h"
 #include "gandiva/greedy_dual_size_cache.h"
-#include "gandiva/lru_cache.h"
 #include "gandiva/visibility.h"
 
 namespace gandiva {
@@ -38,7 +37,7 @@ template <class KeyType, typename ValueType>
 class Cache {
  public:
   explicit Cache(size_t capacity) {
-    this->cache_ = std::make_unique<LruCache<KeyType, ValueType>>(capacity);
+    this->cache_ = std::make_unique<GreedyDualSizeCache<KeyType, ValueType>>(capacity);
     LogCacheSize(capacity);
   }
 
@@ -59,7 +58,7 @@ class Cache {
   }
 
  private:
-  std::unique_ptr<BaseCache<KeyType, ValueType>> cache_;
+  std::unique_ptr<GreedyDualSizeCache<KeyType, ValueType>> cache_;
   std::mutex mtx_;
 };
 }  // namespace gandiva
