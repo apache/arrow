@@ -289,6 +289,19 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     return std::make_shared<Options>(max_splits, reverse);
   }
 
+  if (func_name == "utf8_slice_codeunits") {
+    using Options = arrow::compute::SliceOptions;
+    int64_t start = 1;
+    int64_t stop = -1;
+    if (!Rf_isNull(options["start"])) {
+      start = cpp11::as_cpp<int64_t>(options["start"]);
+    }
+    if (!Rf_isNull(options["stop"])) {
+      stop = cpp11::as_cpp<int64_t>(options["stop"]);
+    }
+    return std::make_shared<Options>(start, stop);
+  }
+
   if (func_name == "variance" || func_name == "stddev") {
     using Options = arrow::compute::VarianceOptions;
     return std::make_shared<Options>(cpp11::as_cpp<int64_t>(options["ddof"]));
