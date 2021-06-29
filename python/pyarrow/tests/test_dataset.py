@@ -3414,3 +3414,10 @@ def test_visit_strings_adhoc():
     _ds._visit_strings(strings, visited.append)
 
     assert visited == strings
+
+    with pytest.raises(ValueError, match="wtf"):
+        def raise_on_b(s):
+            if s == 'b':
+                raise ValueError('wtf')
+
+        _ds._visit_strings(strings, raise_on_b)

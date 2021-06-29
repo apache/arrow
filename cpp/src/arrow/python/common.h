@@ -199,6 +199,7 @@ struct BoundFunction<void(PyObject*, Args...)> {
       : bound_arg_(bound_arg), unbound_(unbound) {}
 
   Status Invoke(Args... args) const {
+    PyAcquireGIL lock;
     unbound_(bound_arg_.obj(), std::forward<Args>(args)...);
     return CheckPyError();
   }
@@ -219,6 +220,7 @@ struct BoundFunction<Return(PyObject*, Args...)> {
       : bound_arg_(bound_arg), unbound_(unbound) {}
 
   Result<Return> Invoke(Args... args) const {
+    PyAcquireGIL lock;
     Return ret = unbound_(bound_arg_.obj(), std::forward<Args>(args)...);
     RETURN_NOT_OK(CheckPyError());
     return ret;
@@ -238,7 +240,8 @@ std::function<OutFn> BindFunction(Return (*unbound)(PyObject*, Args...),
 
   Py_XINCREF(bound_arg);
   auto bound_fn = std::make_shared<Fn>(unbound, bound_arg);
-  return [bound_fn](Args... args) { return bound_fn->Invoke(args...); };
+  return
+      [bound_fn](Args... args) { return bound_fn->Invoke(std::forward<Args>(args)...); };
 }
 
 // A temporary conversion of a Python object to a bytes area.
