@@ -3096,9 +3096,10 @@ def test_write_dataset_use_threads(tempdir):
 
     target1 = tempdir / 'partitioned1'
     paths_written = []
+
     def writer_pre_finish(writer):
         pass
-        #paths_written.append(writer.path)
+        # paths_written.append(writer.path)
     ds.write_dataset(
         dataset, target1, format="feather", partitioning=partitioning,
         use_threads=True, writer_pre_finish=writer_pre_finish

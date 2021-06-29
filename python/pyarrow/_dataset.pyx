@@ -3038,7 +3038,8 @@ cdef class FragmentWriter(_Weakrefable):
         return FileSystem.wrap(c_filesystem)
 
     @staticmethod
-    cdef void _wrap_visitor(PyObject* raw_visitor, CFileWriter* writer) except *:
+    cdef void _wrap_visitor(PyObject* raw_visitor,
+                            CFileWriter* writer) except *:
         visitor = PyObject_to_object(raw_visitor)
         visitor(FragmentWriter.wrap(writer))
 
@@ -3108,6 +3109,7 @@ cdef extern from * namespace "arrow::py" nogil:
 
 cdef void _visit_strings_impl(py_cb, const c_string& s) except *:
     py_cb(frombytes(s))
+
 
 def _visit_strings(strings, cb):
     cdef:
