@@ -200,8 +200,8 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     if (!Rf_isNull(interpolation) && TYPEOF(interpolation) == INTSXP &&
         XLENGTH(interpolation) == 1) {
       out->interpolation =
-        cpp11::as_cpp<enum arrow::compute::QuantileOptions::Interpolation>(
-            interpolation);
+          cpp11::as_cpp<enum arrow::compute::QuantileOptions::Interpolation>(
+              interpolation);
     }
     return out;
   }
@@ -217,8 +217,8 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     auto out = std::make_shared<Options>(Options::Defaults());
     if (!Rf_isNull(options["null_encoding_behavior"])) {
       out->null_encoding_behavior = cpp11::as_cpp<
-        enum arrow::compute::DictionaryEncodeOptions::NullEncodingBehavior>(
-            options["null_encoding_behavior"]);
+          enum arrow::compute::DictionaryEncodeOptions::NullEncodingBehavior>(
+              options["null_encoding_behavior"]);
     }
     return out;
   }
@@ -232,8 +232,8 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     auto out = std::make_shared<Options>(Options::Defaults());
     if (!Rf_isNull(options["null_handling"])) {
       out->null_handling =
-        cpp11::as_cpp<enum arrow::compute::JoinOptions::NullHandlingBehavior>(
-            options["null_handling"]);
+          cpp11::as_cpp<enum arrow::compute::JoinOptions::NullHandlingBehavior>(
+              options["null_handling"]);
     }
     if (!Rf_isNull(options["null_replacement"])) {
       out->null_replacement = cpp11::as_cpp<std::string>(options["null_replacement"]);
@@ -267,8 +267,8 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
   if (func_name == "strptime") {
     using Options = arrow::compute::StrptimeOptions;
     return std::make_shared<Options>(
-      cpp11::as_cpp<std::string>(options["format"]),
-      cpp11::as_cpp<arrow::TimeUnit::type>(options["unit"]));
+        cpp11::as_cpp<std::string>(options["format"]),
+        cpp11::as_cpp<arrow::TimeUnit::type>(options["unit"]));
   }
 
   if (func_name == "split_pattern" || func_name == "split_pattern_regex") {
@@ -326,7 +326,7 @@ std::shared_ptr<arrow::compute::CastOptions> make_cast_options(cpp11::list optio
 
   SEXP allow_int_overflow = options["allow_int_overflow"];
   if (!Rf_isNull(allow_int_overflow) && cpp11::as_cpp<bool>(allow_int_overflow)) {
-    out->allow_int_overflow = cpp11::as_cpp<bool>(allow_int_overflow);
+      out->allow_int_overflow = cpp11::as_cpp<bool>(allow_int_overflow);
   }
   return out;
 }
@@ -336,7 +336,7 @@ SEXP compute__CallFunction(std::string func_name, cpp11::list args, cpp11::list 
   auto opts = make_compute_options(func_name, options);
   auto datum_args = arrow::r::from_r_list<arrow::Datum>(args);
   auto out = ValueOrStop(
-    arrow::compute::CallFunction(func_name, datum_args, opts.get(), gc_context()));
+      arrow::compute::CallFunction(func_name, datum_args, opts.get(), gc_context()));
   return from_datum(std::move(out));
 }
 
@@ -352,7 +352,7 @@ SEXP compute__GroupBy(cpp11::list arguments, cpp11::list keys, cpp11::list optio
     auto opts = make_compute_options(name, name_opts[1]);
 
     aggregates.push_back(
-      arrow::compute::internal::Aggregate{std::move(name), opts.get()});
+        arrow::compute::internal::Aggregate{std::move(name), opts.get()});
     keep_alives.push_back(std::move(opts));
   }
 
