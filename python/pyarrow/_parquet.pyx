@@ -953,17 +953,19 @@ cdef class ParquetReader(_Weakrefable):
 
         arrow_props.set_pre_buffer(pre_buffer)
 
-        if coerce_int96_timestamp_unit == "s":
-            arrow_props.set_coerce_int96_timestamp_unit(TimeUnit_SECOND)
-        elif coerce_int96_timestamp_unit == "ms":
-            arrow_props.set_coerce_int96_timestamp_unit(TimeUnit_MILLI)
+        if (
+            coerce_int96_timestamp_unit is None or
+            coerce_int96_timestamp_unit == "ns"
+        ):
+            arrow_props.set_coerce_int96_timestamp_unit(TimeUnit_NANO)
         elif coerce_int96_timestamp_unit == "us":
             arrow_props.set_coerce_int96_timestamp_unit(TimeUnit_MICRO)
-        elif (coerce_int96_timestamp_unit == "ns" or
-              coerce_int96_timestamp_unit is None):
-            pass  # default is already set to ns
+        elif coerce_int96_timestamp_unit == "ms":
+            arrow_props.set_coerce_int96_timestamp_unit(TimeUnit_MILLI)
+        elif coerce_int96_timestamp_unit == "s":
+            arrow_props.set_coerce_int96_timestamp_unit(TimeUnit_SECOND)
         else:
-            raise ValueError(f"Invalid value for coerce_timestamps: "
+            raise ValueError(f"Invalid value for coerce_int96_timestamp_unit: "
                              f"{coerce_int96_timestamp_unit}")
 
         self.source = source

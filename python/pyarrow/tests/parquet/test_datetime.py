@@ -278,7 +278,7 @@ def test_coerce_int96_timestamp_unit(unit):
     a_ns = pa.array(d_ns, type=pa.timestamp('ns'))
 
     arrays = {"s": a_s, "ms": a_ms, "us": a_us, "ns": a_ns}
-    names = ['ts:s', 'ts:ms', 'ts:us', 'ts:ns']
+    names = ['ts_s', 'ts_ms', 'ts_us', 'ts_ns']
     table = pa.Table.from_arrays([a_s, a_ms, a_us, a_ns], names)
 
     # For either Parquet version, coercing to nanoseconds is allowed
@@ -294,7 +294,14 @@ def test_coerce_int96_timestamp_unit(unit):
 
 
 @pytest.mark.pandas
-def test_coerce_int96_timestamp_overflow(tempdir):
+@pytest.mark.parametrize('pq_reader_method', ['ParquetFile', 'read_table'])
+def test_coerce_int96_timestamp_overflow(pq_reader_method, tempdir):
+
+    def get_table(pq_reader_method, filename, **kwargs):
+        if pq_reader_method == "ParquetFile":
+            return pq.ParquetFile(filename, **kwargs).read()
+        elif pq_reader_method == "read_table":
+            return pq.read_table(filename, **kwargs)
 
     # Recreating the initial JIRA issue referrenced in ARROW-12096
     oob_dts = [
@@ -313,7 +320,8 @@ def test_coerce_int96_timestamp_overflow(tempdir):
     pq.write_table(a_df, filename, use_deprecated_int96_timestamps=True,
                    version="1.0")
 
-    df_error = pq.read_table(filename).to_pandas(timestamp_as_object=True)
+    tab_error = get_table(pq_reader_method, filename)
+    df_error = tab_error.to_pandas(timestamp_as_object=True)
     out_error = [
         x.strftime("%Y-%m-%s %H:%M:%S.%f")
         for x in df_error.a.to_list()
@@ -321,10 +329,12 @@ def test_coerce_int96_timestamp_overflow(tempdir):
 
     assert out_error != oob_dts_str
 
-    df_correct = pq.read_table(
-        filename, coerce_int96_timestamp_unit="s"
-    ).to_pandas(timestamp_as_object=True)
-
+    tab_correct = get_table(
+        pq_reader_method,
+        filename,
+        coerce_int96_timestamp_unit="s"
+    )
+    df_correct = tab_correct.to_pandas(timestamp_as_object=True)
     out_correct = [
         x.strftime("%Y-%m-%s %H:%M:%S.%f")
         for x in df_correct.a.to_list()
