@@ -77,6 +77,15 @@ class BitWriter {
   // Writes an int zigzag encoded.
   bool PutZigZagVlqInt(int32_t v);
 
+  /// Write a Vlq encoded int64 to the buffer.  Returns false if there was not enough
+  /// room.  The value is written byte aligned.
+  /// For more details on vlq:
+  /// en.wikipedia.org/wiki/Variable-length_quantity
+  bool PutVlqInt(uint64_t v);
+
+  // Writes an int64 zigzag encoded.
+  bool PutZigZagVlqInt(int64_t v);
+
   /// Get a pointer to the next aligned byte and advance the underlying buffer
   /// by num_bytes.
   /// Returns NULL if there was not enough space.
@@ -155,6 +164,14 @@ class BitReader {
   // Reads a zigzag encoded int `into` v.
   bool GetZigZagVlqInt(int32_t* v);
 
+  /// Reads a vlq encoded int64 from the stream.  The encoded int must start at
+  /// the beginning of a byte. Return false if there were not enough bytes in
+  /// the buffer.
+  bool GetVlqInt(uint64_t* v);
+
+  // Reads a zigzag encoded int64 `into` v.
+  bool GetZigZagVlqInt(int64_t* v);
+
   /// Returns the number of bytes left in the stream, not including the current
   /// byte (i.e., there may be an additional fraction of a byte).
   int bytes_left() {
@@ -164,6 +181,9 @@ class BitReader {
 
   /// Maximum byte length of a vlq encoded int
   static constexpr int kMaxVlqByteLength = 5;
+
+  /// Maximum byte length of a vlq encoded int64
+  static constexpr int kMaxVlqByteLengthForInt64 = 10;
 
  private:
   const uint8_t* buffer_;
@@ -418,14 +438,65 @@ inline bool BitReader::GetVlqInt(uint32_t* v) {
 }
 
 inline bool BitWriter::PutZigZagVlqInt(int32_t v) {
-  auto u_v = ::arrow::util::SafeCopy<uint32_t>(v);
-  return PutVlqInt((u_v << 1) ^ (u_v >> 31));
+  uint32_t u_v = ::arrow::util::SafeCopy<uint32_t>(v);
+  v = (u_v << 1) ^ (v >> 31);
+  u_v = ::arrow::util::SafeCopy<uint32_t>(v);
+  return PutVlqInt(u_v);
 }
 
 inline bool BitReader::GetZigZagVlqInt(int32_t* v) {
   uint32_t u;
   if (!GetVlqInt(&u)) return false;
-  *v = ::arrow::util::SafeCopy<int32_t>((u >> 1) ^ (u << 31));
+  *v = ::arrow::util::SafeCopy<int32_t>(u);
+  int32_t temp = ::arrow::util::SafeCopy<int32_t>(u << 31);
+  temp = ((temp >> 31) ^ *v) >> 1;
+  *v = temp ^ (*v & (1 << 31));
+  return true;
+}
+
+inline bool BitWriter::PutVlqInt(uint64_t v) {
+  bool result = true;
+  while ((v & 0xFFFFFFFFFFFFFF80ULL) != 0ULL) {
+    result &= PutAligned<uint8_t>(static_cast<uint8_t>((v & 0x7F) | 0x80), 1);
+    v >>= 7;
+  }
+  result &= PutAligned<uint8_t>(static_cast<uint8_t>(v & 0x7F), 1);
+  return result;
+}
+
+inline bool BitReader::GetVlqInt(uint64_t* v) {
+  uint64_t tmp = 0;
+
+  for (int i = 0; i < kMaxVlqByteLengthForInt64; i++) {
+    uint8_t byte = 0;
+    if (ARROW_PREDICT_FALSE(!GetAligned<uint8_t>(1, &byte))) {
+      return false;
+    }
+    if ((byte & 0x80) != 0) {
+      tmp |= static_cast<uint64_t>(byte & 0x7F) << (7 * i);
+    } else {
+      *v = tmp | (static_cast<uint64_t>(byte) << (7 * i));
+      return true;
+    }
+  }
+
+  return false;
+}
+
+inline bool BitWriter::PutZigZagVlqInt(int64_t v) {
+  uint64_t u_v = ::arrow::util::SafeCopy<uint64_t>(v);
+  v = (u_v << 1) ^ (v >> 63);
+  u_v = ::arrow::util::SafeCopy<uint64_t>(v);
+  return PutVlqInt(u_v);
+}
+
+inline bool BitReader::GetZigZagVlqInt(int64_t* v) {
+  uint64_t u;
+  if (!GetVlqInt(&u)) return false;
+  *v = ::arrow::util::SafeCopy<int64_t>(u);
+  int64_t temp = ::arrow::util::SafeCopy<int64_t>(u << 63);
+  temp = ((temp >> 63) ^ *v) >> 1;
+  *v = temp ^ (*v & (1LL << 63));
   return true;
 }
 

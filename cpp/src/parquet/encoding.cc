@@ -2062,17 +2062,12 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
 
   explicit DeltaBitPackDecoder(const ColumnDescriptor* descr,
                                MemoryPool* pool = ::arrow::default_memory_pool())
-      : DecoderImpl(descr, Encoding::DELTA_BINARY_PACKED), pool_(pool) {
-    if (DType::type_num != Type::INT32 && DType::type_num != Type::INT64) {
-      throw ParquetException("Delta bit pack encoding should only be for integer data.");
-    }
-  }
+      : DecoderImpl(descr, Encoding::DELTA_BINARY_PACKED), pool_(pool) {}
 
   void SetData(int num_values, const uint8_t* data, int len) override {
     this->num_values_ = num_values;
     decoder_ = ::arrow::BitUtil::BitReader(data, len);
-    values_current_block_ = 0;
-    values_current_mini_block_ = 0;
+    InitHeader();
   }
 
   int Decode(T* buffer, int max_values) override {
@@ -2107,55 +2102,75 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
   }
 
  private:
-  void InitBlock() {
-    // The number of values per block.
-    uint32_t block_size;
-    if (!decoder_.GetVlqInt(&block_size)) ParquetException::EofException();
-    if (!decoder_.GetVlqInt(&num_mini_blocks_)) ParquetException::EofException();
-    if (!decoder_.GetVlqInt(&values_current_block_)) {
+  void InitHeader() {
+    if (!decoder_.GetVlqInt(&values_per_block_)) ParquetException::EofException();
+    if (!decoder_.GetVlqInt(&mini_blocks_per_block_)) ParquetException::EofException();
+    if (!decoder_.GetVlqInt(&total_value_count_)) {
       ParquetException::EofException();
     }
     if (!decoder_.GetZigZagVlqInt(&last_value_)) ParquetException::EofException();
 
-    delta_bit_widths_ = AllocateBuffer(pool_, num_mini_blocks_);
-    uint8_t* bit_width_data = delta_bit_widths_->mutable_data();
+    delta_bit_widths_ = AllocateBuffer(pool_, mini_blocks_per_block_);
+    values_per_mini_block_ = values_per_block_ / mini_blocks_per_block_;
+    if (values_per_mini_block_ % 8 != 0) {
+      throw ParquetException("miniBlockSize must be multiple of 8, but it's " +
+                             std::to_string(values_per_mini_block_));
+    }
 
+    mini_block_idx_ = mini_blocks_per_block_;
+    values_current_mini_block_ = 0;
+  }
+
+  void InitBlock() {
     if (!decoder_.GetZigZagVlqInt(&min_delta_)) ParquetException::EofException();
-    for (uint32_t i = 0; i < num_mini_blocks_; ++i) {
+
+    // readBitWidthsForMiniBlocks
+    uint8_t* bit_width_data = delta_bit_widths_->mutable_data();
+    for (uint32_t i = 0; i < mini_blocks_per_block_; ++i) {
       if (!decoder_.GetAligned<uint8_t>(1, bit_width_data + i)) {
         ParquetException::EofException();
       }
     }
-    values_per_mini_block_ = block_size / num_mini_blocks_;
     mini_block_idx_ = 0;
     delta_bit_width_ = bit_width_data[0];
     values_current_mini_block_ = values_per_mini_block_;
   }
 
-  template <typename T>
   int GetInternal(T* buffer, int max_values) {
     max_values = std::min(max_values, this->num_values_);
-    const uint8_t* bit_width_data = delta_bit_widths_->data();
-    for (int i = 0; i < max_values; ++i) {
+    DCHECK_LE((uint32_t)max_values, total_value_count_);
+    int i = 0;
+    while (i < max_values) {
       if (ARROW_PREDICT_FALSE(values_current_mini_block_ == 0)) {
         ++mini_block_idx_;
-        if (mini_block_idx_ < static_cast<size_t>(delta_bit_widths_->size())) {
-          delta_bit_width_ = bit_width_data[mini_block_idx_];
+        if (mini_block_idx_ < mini_blocks_per_block_) {
+          delta_bit_width_ = delta_bit_widths_->data()[mini_block_idx_];
           values_current_mini_block_ = values_per_mini_block_;
         } else {
+          // mini_block_idx_ > mini_blocks_per_block_ only if last_value_ is stored in
+          // header
+          if (ARROW_PREDICT_FALSE(mini_block_idx_ > mini_blocks_per_block_)) {
+            buffer[i++] = last_value_;
+            --total_value_count_;
+          }
           InitBlock();
-          buffer[i] = last_value_;
           continue;
         }
       }
 
-      // TODO: the key to this algorithm is to decode the entire miniblock at once.
-      int64_t delta;
-      if (!decoder_.GetValue(delta_bit_width_, &delta)) ParquetException::EofException();
-      delta += min_delta_;
-      last_value_ += static_cast<int32_t>(delta);
-      buffer[i] = last_value_;
-      --values_current_mini_block_;
+      int values_decode =
+          std::min(values_current_mini_block_, (uint32_t)(max_values - i));
+      if (decoder_.GetBatch(delta_bit_width_, buffer + i, values_decode) !=
+          values_decode) {
+        ParquetException::EofException();
+      }
+      for (int j = 0; j < values_decode; ++j) {
+        buffer[i + j] += last_value_ + min_delta_;
+        last_value_ = buffer[i + j];
+      }
+      values_current_mini_block_ -= values_decode;
+      total_value_count_ -= values_decode;
+      i += values_decode;
     }
     this->num_values_ -= max_values;
     return max_values;
@@ -2163,17 +2178,18 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
 
   MemoryPool* pool_;
   ::arrow::BitUtil::BitReader decoder_;
-  uint32_t values_current_block_;
-  uint32_t num_mini_blocks_;
-  uint64_t values_per_mini_block_;
-  uint64_t values_current_mini_block_;
+  uint32_t values_per_block_;
+  uint32_t mini_blocks_per_block_;
+  uint32_t values_per_mini_block_;
+  uint32_t values_current_mini_block_;
+  uint32_t total_value_count_;
 
-  int32_t min_delta_;
-  size_t mini_block_idx_;
+  T min_delta_;
+  uint32_t mini_block_idx_;
   std::shared_ptr<ResizableBuffer> delta_bit_widths_;
   int delta_bit_width_;
 
-  int32_t last_value_;
+  T last_value_;
 };
 
 // ----------------------------------------------------------------------
@@ -2506,6 +2522,16 @@ std::unique_ptr<Decoder> MakeDecoder(Type::type type_num, Encoding::type encodin
         return std::unique_ptr<Decoder>(new ByteStreamSplitDecoder<DoubleType>(descr));
       default:
         throw ParquetException("BYTE_STREAM_SPLIT only supports FLOAT and DOUBLE");
+        break;
+    }
+  } else if (encoding == Encoding::DELTA_BINARY_PACKED) {
+    switch (type_num) {
+      case Type::INT32:
+        return std::unique_ptr<Decoder>(new DeltaBitPackDecoder<Int32Type>(descr));
+      case Type::INT64:
+        return std::unique_ptr<Decoder>(new DeltaBitPackDecoder<Int64Type>(descr));
+      default:
+        throw ParquetException("DELTA_BINARY_PACKED only supports INT32 and INT64");
         break;
     }
   } else {
