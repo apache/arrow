@@ -715,6 +715,23 @@ class MatchSubstringOptions(_MatchSubstringOptions):
         self._set_options(pattern, ignore_case)
 
 
+cdef class _PadOptions(FunctionOptions):
+    cdef:
+        unique_ptr[CPadOptions] pad_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.pad_options.get()
+
+    def _set_options(self, width, padding):
+        self.pad_options.reset(
+            new CPadOptions(width, tobytes(padding)))
+
+
+class PadOptions(_PadOptions):
+    def __init__(self, width, padding=' '):
+        self._set_options(width, padding)
+
+
 cdef class _TrimOptions(FunctionOptions):
     cdef:
         unique_ptr[CTrimOptions] trim_options

@@ -182,17 +182,33 @@ String Transforms
 .. autosummary::
    :toctree: ../generated/
 
+   ascii_center
+   ascii_lpad
+   ascii_ltrim
+   ascii_ltrim_whitespace
    ascii_lower
    ascii_reverse
+   ascii_rpad
+   ascii_rtrim
+   ascii_rtrim_whitespace
+   ascii_trim
    ascii_upper
    binary_length
    binary_replace_slice
    replace_substring
    replace_substring_regex
+   utf8_center
    utf8_length
    utf8_lower
+   utf8_lpad
+   utf8_ltrim
+   utf8_ltrim_whitespace
    utf8_replace_slice
    utf8_reverse
+   utf8_rpad
+   utf8_rtrim
+   utf8_rtrim_whitespace
+   utf8_trim
    utf8_upper
 
 Containment tests

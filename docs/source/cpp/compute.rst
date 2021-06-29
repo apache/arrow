@@ -538,6 +538,27 @@ String transforms
   If the input is not valid UTF8, then the output is undefined (but the size of output
   buffers will be preserved).
 
+String padding
+~~~~~~~~~~~~~~
+
+These functions append/prepend a given padding byte (ASCII) or codepoint (UTF8) in
+order to center (center), right-align (lpad), or left-align (rpad) a string.
+
++--------------------------+------------+-------------------------+---------------------+----------------------------------------+
+| Function name            | Arity      | Input types             | Output type         | Options class                          |
++==========================+============+=========================+=====================+========================================+
+| ascii_lpad               | Unary      | String-like             | String-like         | :struct:`PadOptions`                   |
++--------------------------+------------+-------------------------+---------------------+----------------------------------------+
+| ascii_rpad               | Unary      | String-like             | String-like         | :struct:`PadOptions`                   |
++--------------------------+------------+-------------------------+---------------------+----------------------------------------+
+| ascii_center             | Unary      | String-like             | String-like         | :struct:`PadOptions`                   |
++--------------------------+------------+-------------------------+---------------------+----------------------------------------+
+| utf8_lpad                | Unary      | String-like             | String-like         | :struct:`PadOptions`                   |
++--------------------------+------------+-------------------------+---------------------+----------------------------------------+
+| utf8_rpad                | Unary      | String-like             | String-like         | :struct:`PadOptions`                   |
++--------------------------+------------+-------------------------+---------------------+----------------------------------------+
+| utf8_center              | Unary      | String-like             | String-like         | :struct:`PadOptions`                   |
++--------------------------+------------+-------------------------+---------------------+----------------------------------------+
 
 String trimming
 ~~~~~~~~~~~~~~~

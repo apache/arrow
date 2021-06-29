@@ -1225,6 +1225,33 @@ TYPED_TEST(TestStringKernels, BinaryJoin) {
                     separators, expected);
 }
 
+TYPED_TEST(TestStringKernels, PadUTF8) {
+  // \xe2\x80\x88 = \u2008 is punctuation space, \xc3\xa1 = \u00E1 = á
+  PadOptions options{/*width=*/5, "\xe2\x80\x88"};
+  this->CheckUnary(
+      "utf8_center", R"([null, "a", "bb", "b\u00E1r", "foobar"])", this->type(),
+      R"([null, "\u2008\u2008a\u2008\u2008", "\u2008\u2008bb\u2008", "\u2008b\u00E1r\u2008", "foobar"])",
+      &options);
+  this->CheckUnary(
+      "utf8_lpad", R"([null, "a", "bb", "b\u00E1r", "foobar"])", this->type(),
+      R"([null, "\u2008\u2008\u2008\u2008a", "\u2008\u2008\u2008bb", "\u2008\u2008b\u00E1r", "foobar"])",
+      &options);
+  this->CheckUnary(
+      "utf8_rpad", R"([null, "a", "bb", "b\u00E1r", "foobar"])", this->type(),
+      R"([null, "a\u2008\u2008\u2008\u2008", "bb\u2008\u2008\u2008", "b\u00E1r\u2008\u2008", "foobar"])",
+      &options);
+
+  PadOptions options_bad{/*width=*/3, /*padding=*/"spam"};
+  auto input = ArrayFromJSON(this->type(), R"(["foo"])");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  ::testing::HasSubstr("Padding must be one codepoint"),
+                                  CallFunction("utf8_lpad", {input}, &options_bad));
+  options_bad.padding = "";
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  ::testing::HasSubstr("Padding must be one codepoint"),
+                                  CallFunction("utf8_lpad", {input}, &options_bad));
+}
+
 #ifdef ARROW_WITH_UTF8PROC
 
 TYPED_TEST(TestStringKernels, TrimWhitespaceUTF8) {
@@ -1370,6 +1397,26 @@ TYPED_TEST(TestStringKernels, SliceCodeunitsNegPos) {
 }
 
 #endif  // ARROW_WITH_UTF8PROC
+
+TYPED_TEST(TestStringKernels, PadAscii) {
+  PadOptions options{/*width=*/5, " "};
+  this->CheckUnary("ascii_center", R"([null, "a", "bb", "bar", "foobar"])", this->type(),
+                   R"([null, "  a  ", "  bb ", " bar ", "foobar"])", &options);
+  this->CheckUnary("ascii_lpad", R"([null, "a", "bb", "bar", "foobar"])", this->type(),
+                   R"([null, "    a", "   bb", "  bar", "foobar"])", &options);
+  this->CheckUnary("ascii_rpad", R"([null, "a", "bb", "bar", "foobar"])", this->type(),
+                   R"([null, "a    ", "bb   ", "bar  ", "foobar"])", &options);
+
+  PadOptions options_bad{/*width=*/3, /*padding=*/"spam"};
+  auto input = ArrayFromJSON(this->type(), R"(["foo"])");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  ::testing::HasSubstr("Padding must be one byte"),
+                                  CallFunction("ascii_lpad", {input}, &options_bad));
+  options_bad.padding = "";
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  ::testing::HasSubstr("Padding must be one byte"),
+                                  CallFunction("ascii_lpad", {input}, &options_bad));
+}
 
 TYPED_TEST(TestStringKernels, TrimWhitespaceAscii) {
   // \xe2\x80\x88 is punctuation space

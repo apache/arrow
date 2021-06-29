@@ -39,6 +39,7 @@ from pyarrow._compute import (  # noqa
     JoinOptions,
     MatchSubstringOptions,
     ModeOptions,
+    PadOptions,
     PartitionNthOptions,
     ProjectOptions,
     QuantileOptions,

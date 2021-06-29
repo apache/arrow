@@ -708,6 +708,18 @@ def test_string_py_compat_boolean(function_name, variant):
             assert arrow_func(ar)[0].as_py() == getattr(c, py_name)()
 
 
+def test_pad():
+    arr = pa.array([None, 'a', 'abcd'])
+    assert pc.ascii_center(arr, width=3).tolist() == [None, ' a ', 'abcd']
+    assert pc.ascii_lpad(arr, width=3).tolist() == [None, '  a', 'abcd']
+    assert pc.ascii_rpad(arr, width=3).tolist() == [None, 'a  ', 'abcd']
+
+    arr = pa.array([None, 'á', 'abcd'])
+    assert pc.utf8_center(arr, width=3).tolist() == [None, ' á ', 'abcd']
+    assert pc.utf8_lpad(arr, width=3).tolist() == [None, '  á', 'abcd']
+    assert pc.utf8_rpad(arr, width=3).tolist() == [None, 'á  ', 'abcd']
+
+
 @pytest.mark.pandas
 def test_replace_slice():
     offsets = range(-3, 4)
