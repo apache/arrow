@@ -676,6 +676,7 @@ class PrimitiveFilterImpl {
               //                  in_position)) {
               //                WriteNotNull(in_position);
               //              }
+              // todo check this!
               bool advance =
                   BitUtil::GetBit(filter_is_valid_, filter_offset_ + in_position) &&
                   BitUtil::GetBit(filter_data_, filter_offset_ + in_position);
@@ -689,15 +690,23 @@ class PrimitiveFilterImpl {
             for (int64_t i = 0; i < filter_block.length; ++i) {
               const bool is_valid =
                   BitUtil::GetBit(filter_is_valid_, filter_offset_ + in_position);
-              if (is_valid &&
-                  BitUtil::GetBit(filter_data_, filter_offset_ + in_position)) {
-                // Filter slot is non-null and set
-                WriteNotNull(in_position);
-              } else if (!is_valid) {
-                // Filter slot is null, so we have a null in the output
-                BitUtil::ClearBit(out_is_valid_, out_offset_ + out_position_);
-                WriteNull();
-              }
+              //              if (is_valid &&
+              //                  BitUtil::GetBit(filter_data_, filter_offset_ +
+              //                  in_position)) {
+              //                // Filter slot is non-null and set
+              //                WriteNotNull(in_position);
+              //              } else if (!is_valid) {
+              //                // Filter slot is null, so we have a null in the output
+              //                BitUtil::ClearBit(out_is_valid_, out_offset_ +
+              //                out_position_); WriteNull();
+              //              }
+              const bool is_out_valid =
+                  is_valid && BitUtil::GetBit(filter_data_, filter_offset_ + in_position);
+              BitUtil::SetBitTo(out_is_valid_, out_offset_ + out_position_, is_out_valid);
+              // todo this will write garbage values to out_data_[out_position_] when
+              //  emitting nulls, rather than writing T{} like in the previous impl
+              out_data_[out_position_] = values_data_[in_position];
+              out_position_ += (is_out_valid || !is_valid);
               ++in_position;
             }
           }
@@ -706,9 +715,10 @@ class PrimitiveFilterImpl {
           if (filter_valid_block.AllSet()) {
             // Filter is non-null but some values are false
             for (int64_t i = 0; i < filter_block.length; ++i) {
-              if (BitUtil::GetBit(filter_data_, filter_offset_ + in_position)) {
-                WriteMaybeNull(in_position);
-              }
+//              if (BitUtil::GetBit(filter_data_, filter_offset_ + in_position)) {
+//                WriteMaybeNull(in_position);
+//              }
+              bool advance = BitUtil::GetBit(filter_data_, filter_offset_ + in_position);
               ++in_position;
             }
           } else if (null_selection_ == FilterOptions::DROP) {
