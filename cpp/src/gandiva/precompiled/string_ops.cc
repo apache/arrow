@@ -1874,7 +1874,7 @@ gdv_int32 find_in_set_utf8_utf8(gdv_int64 context, const char* in, gdv_int32 in_
   bool match_delimiter = false;
   for (int i = 0; i < text_len; i++) {
     match_delimiter = memcmp(text + i, ",", 1) == 0;
-    // Handle cases for last iteration
+    // Handle special cases for last iteration
     if (i + 1 == text_len) {
       // Case 1: last iteration is a delimiter and an empty string is being searched
       if (match_delimiter && in_len == 0) return count + 1;
@@ -1883,11 +1883,12 @@ gdv_int32 find_in_set_utf8_utf8(gdv_int64 context, const char* in, gdv_int32 in_
         return count;
       }
     }
-    else if (match_delimiter) {
+    if (match_delimiter) {
       // Handle case when it is not last iteration and match delimiter, so we
       // should compare the previous string
-      if (mem_compare(text + last_delimit, i - last_delimit, in, in_len) == 0)
+      if (mem_compare(text + last_delimit, i - last_delimit, in, in_len) == 0) {
         return count;
+      }
       count += 1;
       last_delimit = i + 1;
     }

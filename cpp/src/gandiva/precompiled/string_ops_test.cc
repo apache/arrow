@@ -1566,6 +1566,9 @@ TEST(TestStringOps, TestFindInSet) {
   EXPECT_EQ(find_in_set_utf8_utf8(ctx_ptr, "HI", 1, "HI,B,C", 6), 0);
   EXPECT_EQ(find_in_set_utf8_utf8(ctx_ptr, "", 0, "B,C,A,", 6), 4);
   EXPECT_EQ(find_in_set_utf8_utf8(ctx_ptr, "", 0, "B,C,,A,", 6), 3);
+  EXPECT_EQ(find_in_set_utf8_utf8(ctx_ptr, "A", 1, "B,A,", 4), 2);
+  EXPECT_EQ(find_in_set_utf8_utf8(ctx_ptr, "ha", 2, "hao,mn,hc,ha,hef", 16), 4);
+  EXPECT_EQ(find_in_set_utf8_utf8(ctx_ptr, "hef", 3, "hao,mn,hc,ha,hef", 16), 5);
 
   EXPECT_EQ(find_in_set_utf8_utf8(ctx_ptr, "", -5, "B,C,,A,", 6), 0);
   EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Invalid input values."));

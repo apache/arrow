@@ -377,6 +377,10 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      kResultNullIfNull, "gdv_fn_castVARBINARY_float64_int64",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
+      NativeFunction("find_in_set", {}, DataTypeVector{utf8(), utf8()}, int32(),
+                     kResultNullIfNull, "find_in_set_utf8_utf8",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
       NativeFunction("split_part", {}, DataTypeVector{utf8(), utf8(), int32()}, utf8(),
                      kResultNullIfNull, "split_part",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)};
