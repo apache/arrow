@@ -45,6 +45,9 @@ lang-R:
 lang-ruby:
   - ruby/**/*
 
+lang-matlab:
+  - matlab/**/*
+
 flight:
   - cpp/src/arrow/flight/**/*
   - r/R/flight.*
