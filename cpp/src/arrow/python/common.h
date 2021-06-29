@@ -201,7 +201,8 @@ struct BoundFunction<void(PyObject*, Args...)> {
   Status Invoke(Args... args) const {
     PyAcquireGIL lock;
     unbound_(bound_arg_.obj(), std::forward<Args>(args)...);
-    return CheckPyError();
+    RETURN_IF_PYERROR();
+    return Status::OK();
   }
 
   Unbound* unbound_;
@@ -222,7 +223,7 @@ struct BoundFunction<Return(PyObject*, Args...)> {
   Result<Return> Invoke(Args... args) const {
     PyAcquireGIL lock;
     Return ret = unbound_(bound_arg_.obj(), std::forward<Args>(args)...);
-    RETURN_NOT_OK(CheckPyError());
+    RETURN_IF_PYERROR();
     return ret;
   }
 
