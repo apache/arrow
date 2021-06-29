@@ -407,7 +407,7 @@ nse_funcs$pmin <- function(..., na.rm = FALSE) {
 }
 
 nse_funcs$pmax <- function(..., na.rm = FALSE) {
-  Expression$create(
+  build_expr(
     "element_wise_max",
     ...,
     options = list(skip_nulls = na.rm)
