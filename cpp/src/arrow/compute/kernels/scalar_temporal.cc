@@ -146,7 +146,7 @@ struct DayOfWeek {
     return static_cast<T>(
         weekday(year_month_day(floor<days>(sys_time<Duration>(Duration{arg}))))
             .iso_encoding() -
-        1 + options.start_index);
+        1 + options.week_start);
   }
   TemporalComponentExtractionOptions options;
 };
@@ -514,7 +514,7 @@ const FunctionDoc day_of_week_doc{
     "Extract day of the week number",
     ("Week starts on Monday denoted by 0 and ends on Sunday denoted by 6.\n"
      "Returns an error if timestamp has a defined timezone. Null values return null.\n"
-     "TemporalComponentExtractionOptions.start_index can optionally be used to set the "
+     "TemporalComponentExtractionOptions.week_start can optionally be used to set the "
      "index of the day that starts the week."),
     {"values"},
     "TemporalComponentExtractionOptions"};

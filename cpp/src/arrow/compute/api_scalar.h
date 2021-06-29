@@ -245,15 +245,15 @@ class ARROW_EXPORT ProjectOptions : public FunctionOptions {
 };
 
 struct ARROW_EXPORT TemporalComponentExtractionOptions : public FunctionOptions {
-  explicit TemporalComponentExtractionOptions(int64_t start_index = 0)
-      : start_index(start_index) {}
+  explicit TemporalComponentExtractionOptions(int64_t week_start = 0)
+      : week_start(std::move(week_start)) {}
 
   static TemporalComponentExtractionOptions Defaults() {
     return TemporalComponentExtractionOptions{};
   }
 
   /// Index of the first day of the week.
-  int64_t start_index;
+  int64_t week_start;
 };
 
 /// @}

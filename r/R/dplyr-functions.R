@@ -545,6 +545,6 @@ nse_funcs$wday <- function(x, label = FALSE, abbr = TRUE, week_start = getOption
 
   # overall formula to convert from arrow::wday to lubridate::wday is:
   #  ((wday(day) - start + 8) %% 7) + 1
-  ((Expression$create("day_of_week", x) - Expression$scalar(week_start) + 8) %% 7) + 1
+  ((Expression$create("day_of_week", x, options = list(week_start = 1)) - Expression$scalar(week_start) + 8) %% 7) + 1
 
 }
