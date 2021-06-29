@@ -399,7 +399,7 @@ nse_funcs$str_split <- function(string, pattern, n = Inf, simplify = FALSE) {
 }
 
 nse_funcs$pmin <- function(..., na.rm = FALSE) {
-  Expression$create(
+  build_expr(
     "element_wise_min",
     ...,
     options = list(skip_nulls = na.rm)
