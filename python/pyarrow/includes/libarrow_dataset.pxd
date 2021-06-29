@@ -235,6 +235,13 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             vector[int] row_group_ids)
         CStatus EnsureCompleteMetadata()
 
+    cdef cppclass CFileWriter "arrow::dataset::FileWriter":
+        const CFileLocator& destination() const
+
+ctypedef CStatus CFileWriterVisitor(CFileWriter*)
+
+cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
+
     cdef cppclass CFileSystemDatasetWriteOptions \
             "arrow::dataset::FileSystemDatasetWriteOptions":
         shared_ptr[CFileWriteOptions] file_write_options
@@ -243,6 +250,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         shared_ptr[CPartitioning] partitioning
         int max_partitions
         c_string basename_template
+        function[CFileWriterVisitor] writer_pre_finish
 
     cdef cppclass CFileSystemDataset \
             "arrow::dataset::FileSystemDataset"(CDataset):

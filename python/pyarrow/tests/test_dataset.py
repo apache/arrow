@@ -3095,10 +3095,16 @@ def test_write_dataset_use_threads(tempdir):
         pa.schema([("part", pa.string())]), flavor="hive")
 
     target1 = tempdir / 'partitioned1'
+    paths_written = []
+    def writer_pre_finish(writer):
+        pass
+        #paths_written.append(writer.path)
     ds.write_dataset(
         dataset, target1, format="feather", partitioning=partitioning,
-        use_threads=True
+        use_threads=True, writer_pre_finish=writer_pre_finish
     )
+    assert paths_written == []
+
     target2 = tempdir / 'partitioned2'
     ds.write_dataset(
         dataset, target2, format="feather", partitioning=partitioning,
