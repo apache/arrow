@@ -117,6 +117,7 @@ def test_option_class_equality():
         pc.ExtractRegexOptions("pattern"),
         pc.IndexOptions(pa.scalar(1)),
         pc.MatchSubstringOptions("pattern"),
+        pc.PadOptions(5, " "),
         pc.PartitionNthOptions(1),
         pc.ProjectOptions([b"field", b"names"]),
         pc.ReplaceSliceOptions(start=0, stop=1, replacement="a"),

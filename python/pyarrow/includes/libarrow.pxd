@@ -1761,7 +1761,8 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CResult[shared_ptr[CBuffer]] Serialize() const
 
         @staticmethod
-        CResult[unique_ptr[CFunctionOptions]] Deserialize(const CBuffer&)
+        CResult[unique_ptr[CFunctionOptions]] Deserialize(
+            const c_string& type_name, const CBuffer&)
 
     cdef cppclass CFunction" arrow::compute::Function":
         const c_string& name() const
@@ -2036,6 +2037,25 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CSetLookupOptions(CDatum value_set, c_bool skip_nulls)
         CDatum value_set
         c_bool skip_nulls
+
+
+cdef extern from * namespace "arrow::compute":
+    # inlined from compute/function_internal.h to avoid exposing
+    # implementation details
+    """
+    #include "arrow/compute/function.h"
+    namespace arrow {
+    namespace compute {
+    namespace internal {
+    Result<std::unique_ptr<FunctionOptions>> DeserializeFunctionOptions(
+        const Buffer& buffer);
+    } //  namespace internal
+    } //  namespace compute
+    } //  namespace arrow
+    """
+    CResult[unique_ptr[CFunctionOptions]] DeserializeFunctionOptions\
+        " arrow::compute::internal::DeserializeFunctionOptions"(
+            const CBuffer& buffer)
 
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py":

@@ -60,6 +60,8 @@ Result<std::shared_ptr<StructScalar>> FunctionOptionsToStructScalar(
 ARROW_EXPORT
 Result<std::unique_ptr<FunctionOptions>> FunctionOptionsFromStructScalar(
     const StructScalar&);
+ARROW_EXPORT
+Result<std::unique_ptr<FunctionOptions>> DeserializeFunctionOptions(const Buffer& buffer);
 
 template <typename Enum>
 struct EnumTraits;

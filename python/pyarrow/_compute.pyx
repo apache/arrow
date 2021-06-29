@@ -545,7 +545,7 @@ cdef class FunctionOptions(_Weakrefable):
         cdef:
             shared_ptr[CBuffer] c_buf = pyarrow_unwrap_buffer(buf)
             CResult[unique_ptr[CFunctionOptions]] maybe_options = \
-                CFunctionOptions.Deserialize(deref(c_buf))
+                DeserializeFunctionOptions(deref(c_buf))
             unique_ptr[CFunctionOptions] c_options
         c_options = move(GetResultValue(move(maybe_options)))
         type_name = frombytes(c_options.get().options_type().type_name())
@@ -560,6 +560,7 @@ cdef class FunctionOptions(_Weakrefable):
             "join": JoinOptions,
             "match_substring": MatchSubstringOptions,
             "mode": ModeOptions,
+            "pad": PadOptions,
             "partition_nth": PartitionNthOptions,
             "project": ProjectOptions,
             "quantile": QuantileOptions,
@@ -761,15 +762,8 @@ class MatchSubstringOptions(_MatchSubstringOptions):
 
 
 cdef class _PadOptions(FunctionOptions):
-    cdef:
-        unique_ptr[CPadOptions] pad_options
-
-    cdef const CFunctionOptions* get_options(self) except NULL:
-        return self.pad_options.get()
-
     def _set_options(self, width, padding):
-        self.pad_options.reset(
-            new CPadOptions(width, tobytes(padding)))
+        self.wrapped.reset(new CPadOptions(width, tobytes(padding)))
 
 
 class PadOptions(_PadOptions):
