@@ -182,7 +182,7 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
 
   if (func_name == "element_wise_min" || func_name == "element_wise_max") {
     using Options = arrow::compute::ElementWiseAggregateOptions;
-    bool skip_nulls = false;
+    bool skip_nulls = true;
     if (!Rf_isNull(options["skip_nulls"])) {
       skip_nulls = cpp11::as_cpp<bool>(options["skip_nulls"]);
     }
