@@ -60,19 +60,19 @@ nse_funcs$cast <- function(x, target_type, safe = TRUE, ...) {
 nse_funcs$is <- function(object, class2) {
   if (is.string(class2)) {
     switch(class2,
-           # for R data types, pass off to is.*() functions
-           character = nse_funcs$is.character(object),
-           numeric = nse_funcs$is.numeric(object),
-           integer = nse_funcs$is.integer(object),
-           integer64 = nse_funcs$is.integer64(object),
-           logical = nse_funcs$is.logical(object),
-           factor = nse_funcs$is.factor(object),
-           list = nse_funcs$is.list(object),
-           # for Arrow data types, compare class2 with object$type()$ToString(),
-           # but first strip off any parameters to only compare the top-level data
-           # type,  and canonicalize class2
-           sub("^([^([<]+).*$", "\\1", object$type()$ToString()) ==
-             canonical_type_str(class2)
+      # for R data types, pass off to is.*() functions
+      character = nse_funcs$is.character(object),
+      numeric = nse_funcs$is.numeric(object),
+      integer = nse_funcs$is.integer(object),
+      integer64 = nse_funcs$is.integer64(object),
+      logical = nse_funcs$is.logical(object),
+      factor = nse_funcs$is.factor(object),
+      list = nse_funcs$is.list(object),
+      # for Arrow data types, compare class2 with object$type()$ToString(),
+      # but first strip off any parameters to only compare the top-level data
+      # type,  and canonicalize class2
+      sub("^([^([<]+).*$", "\\1", object$type()$ToString()) ==
+        canonical_type_str(class2)
     )
   } else if (inherits(class2, "DataType")) {
     object$type() == as_type(class2)
