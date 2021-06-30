@@ -78,7 +78,7 @@ namespace Apache.Arrow
                     case TimeUnit.Nanosecond:
                         return ticks * 100;
                     case TimeUnit.Microsecond:
-                        return ticks / TimeSpan.TicksPerMillisecond * 1000;
+                        return ticks / 10;
                     case TimeUnit.Millisecond:
                         return ticks / TimeSpan.TicksPerMillisecond;
                     case TimeUnit.Second:
@@ -119,7 +119,7 @@ namespace Apache.Arrow
                     ticks = value / 100;
                     break;
                 case TimeUnit.Microsecond:
-                    ticks = value * TimeSpan.TicksPerMillisecond / 1000;
+                    ticks = value * 10;
                     break;
                 case TimeUnit.Millisecond:
                     ticks = value * TimeSpan.TicksPerMillisecond;
