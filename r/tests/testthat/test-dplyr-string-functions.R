@@ -892,6 +892,22 @@ test_that("substrings", {
     input %>%
       mutate(
         foo = "Apache Arrow",
+        bar1 = substring(foo, 1, 6), # Apache
+        bar2 = substring(foo, 0, 6), # Apache
+        bar3 = substring(foo, -1, 6), # Apache
+        bar4 = substring(foo, 6, 1), # ""
+        bar5 = substring(foo, -1, -2), # ""
+        bar6 = substring(foo, 8, 12) # Arrow
+      ) %>%
+      select(bar1:bar6) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        foo = "Apache Arrow",
         bar1 = str_sub(foo, 1, 6), # Apache
         bar2 = str_sub(foo, 0, 6), # Apache
         bar3 = str_sub(foo, -1, 6), # Apache

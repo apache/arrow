@@ -308,6 +308,10 @@ nse_funcs$substr <- function(string, start, stop) {
   )
 }
 
+nse_funcs$substring <- function(text, first, last = 1000000L) {
+  nse_funcs$substr(string = text, start = first, stop = last)
+}
+
 nse_funcs$str_sub <- function(string, start = 1L, end = -1L) {
   if (start < 0 || end < 0) {
     warning("Negative counts not yet implemented for strings")
