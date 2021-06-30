@@ -489,6 +489,21 @@ endif()
 
 set(ARROW_ALL_SRCS ${ARROW_SRCS} ${ARROW_C_SRCS})
 
+if(ARROW_BUILD_STATIC AND ARROW_BUNDLED_STATIC_LIBS)
+  set(ARROW_BUILD_BUNDLED_DEPENDENCIES TRUE)
+else()
+  set(ARROW_BUILD_BUNDLED_DEPENDENCIES FALSE)
+endif()
+
+if(ARROW_BUILD_BUNDLED_DEPENDENCIES)
+  string(APPEND ARROW_PC_LIBS_PRIVATE " -larrow_bundled_dependencies")
+endif()
+# Need -latomic on Raspbian.
+# See also: https://issues.apache.org/jira/browse/ARROW-12860
+if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux" AND ${CMAKE_SYSTEM_PROCESSOR} MATCHES "armv7")
+  string(APPEND ARROW_PC_LIBS_PRIVATE " -latomic")
+endif()
+
 add_arrow_lib(arrow
               CMAKE_PACKAGE_NAME
               Arrow
@@ -535,7 +550,7 @@ if(ARROW_WITH_BACKTRACE)
   endforeach()
 endif()
 
-if(ARROW_BUILD_STATIC AND ARROW_BUNDLED_STATIC_LIBS)
+if(ARROW_BUILD_BUNDLED_DEPENDENCIES)
   arrow_car(_FIRST_LIB ${ARROW_BUNDLED_STATIC_LIBS})
   arrow_cdr(_OTHER_LIBS ${ARROW_BUNDLED_STATIC_LIBS})
   create_merged_static_lib(arrow_bundled_dependencies

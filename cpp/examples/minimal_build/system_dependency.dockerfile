@@ -37,6 +37,7 @@ RUN apt-get update -y -q && \
       libthrift-dev \
       libutf8proc-dev \
       libzstd-dev \
+      pkg-config \
       protobuf-compiler \
       rapidjson-dev \
       zlib1g-dev && \
