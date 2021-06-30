@@ -232,8 +232,8 @@ table Time {
 /// string to the name of the timezone.
 ///
 /// An "OffsetDateTime" represents a single moment in time combined with a meaningful
-/// offset from UTC.  It is similar to a ZonedDateTime but the offset is a numeric
-/// offset offset string (e.g. "+03:00").
+/// offset from UTC.  To encode an OffsetDateTime as a Timestamp set the timezone string
+/// to the numeric time zone offset string (e.g. "+03:00").
 ///
 /// A "LocalDateTime" does not represent a single moment in time.  It represents a wall
 /// clock time combined with a date.  Because of daylight savings time there may multiple
