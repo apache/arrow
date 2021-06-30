@@ -20,6 +20,8 @@
 #include <cstdint>
 #include <cstring>
 
+#include "arrow/util/logging.h"
+
 namespace arrow {
 namespace BitUtil {
 
@@ -65,6 +67,60 @@ void SetBitsTo(uint8_t* bits, int64_t start_offset, int64_t length, bool bits_ar
   // set/clear leading bits of last byte
   bits[bytes_end - 1] &= last_byte_mask;
   bits[bytes_end - 1] |= static_cast<uint8_t>(fill_byte & ~last_byte_mask);
+}
+
+template <bool value>
+void SetBitmapImpl(uint8_t* data, int64_t offset, int64_t length) {
+  //                 offset  length
+  // data              |<------------->|
+  //   |--------|...|--------|...|--------|
+  //                   |<--->|   |<--->|
+  //                     pro       epi
+  if (ARROW_PREDICT_FALSE(length == 0)) {
+    return;
+  }
+
+  constexpr uint8_t set_byte = value ? UINT8_MAX : 0;
+
+  auto prologue = static_cast<int32_t>(BitUtil::RoundUp(offset, 8) - offset);
+  DCHECK_LT(prologue, 8);
+
+  if (length < prologue) {  // special case where a mask is required
+    //             offset length
+    // data             |<->|
+    //   |--------|...|--------|...
+    //         mask --> |111|
+    //                  |<---->|
+    //                     pro
+    uint8_t mask = BitUtil::kPrecedingBitmask[8 - prologue] ^
+                   BitUtil::kPrecedingBitmask[8 - prologue + length];
+    data[offset / 8] = value ? data[offset / 8] | mask : data[offset / 8] & ~mask;
+    return;
+  }
+
+  // align to a byte boundary
+  data[offset / 8] = BitUtil::SpliceWord(8 - prologue, data[offset / 8], set_byte);
+  offset += prologue;
+  length -= prologue;
+
+  // set values per byte
+  DCHECK_EQ(offset % 8, 0);
+  std::memset(data + offset / 8, set_byte, length / 8);
+  offset += BitUtil::RoundDown(length, 8);
+  length -= BitUtil::RoundDown(length, 8);
+
+  // clean up
+  DCHECK_LT(length, 8);
+  data[offset / 8] =
+      BitUtil::SpliceWord(static_cast<int32_t>(length), set_byte, data[offset / 8]);
+}
+
+void SetBitmap(uint8_t* data, int64_t offset, int64_t length) {
+  SetBitmapImpl<true>(data, offset, length);
+}
+
+void ClearBitmap(uint8_t* data, int64_t offset, int64_t length) {
+  SetBitmapImpl<false>(data, offset, length);
 }
 
 }  // namespace BitUtil
