@@ -26,6 +26,7 @@
 
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -58,10 +59,20 @@ namespace dataset {
 ///
 /// @{
 
-/// \class RadosCluster
-/// \brief An interface to connect to a RADOS cluster and hold the connection
+namespace connection {
+/// \brief An interface for general connections.
+class ARROW_DS_EXPORT Connection {
+ public:
+  virtual Status connect() = 0;
+
+  Connection() = default;
+  virtual ~Connection() = default;
+};
+
+/// \class RadosConnection
+/// \brief An interface to connect to a Rados cluster and hold the connection
 /// information for usage in later stages.
-class ARROW_DS_EXPORT RadosCluster {
+class ARROW_DS_EXPORT RadosConnection : public Connection {
  public:
   struct RadosConnectionCtx {
     std::string ceph_config_path;
@@ -69,15 +80,39 @@ class ARROW_DS_EXPORT RadosCluster {
     std::string user_name;
     std::string cluster_name;
     std::string cls_name;
-  };
-  explicit RadosCluster(RadosConnectionCtx& ctx)
-      : ctx(ctx), rados(new RadosWrapper()), ioCtx(new IoCtxWrapper()) {}
 
-  ~RadosCluster() { Shutdown(); }
+    RadosConnectionCtx(const std::string& ceph_config_path, const std::string& data_pool,
+                       const std::string& user_name, const std::string& cluster_name,
+                       const std::string& cls_name)
+        : ceph_config_path(ceph_config_path),
+          data_pool(data_pool),
+          user_name(user_name),
+          cluster_name(cluster_name),
+          cls_name(cls_name) {}
+  };
+  explicit RadosConnection(const RadosConnectionCtx& ctx)
+      : Connection(),
+        ctx(ctx),
+        rados(new RadosWrapper()),
+        ioCtx(new IoCtxWrapper()),
+        connected(false) {}
+
+  ~RadosConnection() override { shutdown(); }
 
   /// \brief Connect to the Rados cluster.
   /// \return Status.
-  Status Connect() {
+  Status connect() override {
+    if (connected) {
+      return Status::OK();
+    }
+    std::unique_lock<std::mutex> lock(
+        connectionMutex);  // locks the mutex. 1 thread can pass here at a time.
+    if (connected) {       // Another thread handled the connection already.
+      return Status::OK();
+    }
+    connected = true;  // We are the first thread to lock the mutex. Close the gates for
+                       // the others.
+
     if (rados->init2(ctx.user_name.c_str(), ctx.cluster_name.c_str(), 0))
       return Status::Invalid("librados::init2 returned non-zero exit code.");
 
@@ -95,7 +130,7 @@ class ARROW_DS_EXPORT RadosCluster {
 
   /// \brief Shutdown the connection to the Rados cluster.
   /// \return Status.
-  Status Shutdown() {
+  Status shutdown() {
     rados->shutdown();
     return Status::OK();
   }
@@ -103,7 +138,10 @@ class ARROW_DS_EXPORT RadosCluster {
   RadosConnectionCtx ctx;
   RadosInterface* rados;
   IoCtxInterface* ioCtx;
+  bool connected;
+  std::mutex connectionMutex;
 };
+}  // namespace connection
 
 /// \class DirectObjectAccess
 /// \brief Interface for translating the name of a file in CephFS to its
@@ -111,8 +149,9 @@ class ARROW_DS_EXPORT RadosCluster {
 /// and its underlying object.
 class ARROW_DS_EXPORT DirectObjectAccess {
  public:
-  explicit DirectObjectAccess(const std::shared_ptr<RadosCluster>& cluster)
-      : cluster_(std::move(cluster)) {}
+  explicit DirectObjectAccess(
+      const std::shared_ptr<connection::RadosConnection>& connection)
+      : connection_(std::move(connection)) {}
 
   /// \brief Executes the POSIX stat call on a file.
   /// \param[in] path Path of the file.
@@ -145,15 +184,15 @@ class ARROW_DS_EXPORT DirectObjectAccess {
   Status Exec(uint64_t inode, const std::string& fn, ceph::bufferlist& in,
               ceph::bufferlist& out) {
     std::string oid = ConvertFileInodeToObjectID(inode);
-    if (cluster_->ioCtx->exec(oid.c_str(), cluster_->ctx.cls_name.c_str(), fn.c_str(), in,
-                              out)) {
+    if (connection_->ioCtx->exec(oid.c_str(), connection_->ctx.cls_name.c_str(),
+                                 fn.c_str(), in, out)) {
       return Status::ExecutionError("librados::exec returned non-zero exit code.");
     }
     return Status::OK();
   }
 
  protected:
-  std::shared_ptr<RadosCluster> cluster_;
+  std::shared_ptr<connection::RadosConnection> connection_;
 };
 
 /// \class RadosParquetFileFormat
@@ -161,10 +200,14 @@ class ARROW_DS_EXPORT DirectObjectAccess {
 /// scan operations to the Ceph OSDs
 class ARROW_DS_EXPORT RadosParquetFileFormat : public ParquetFileFormat {
  public:
-  explicit RadosParquetFileFormat(const std::string&, const std::string&,
-                                  const std::string&, const std::string&);
+  RadosParquetFileFormat(const std::string& ceph_config_path,
+                         const std::string& data_pool, const std::string& user_name,
+                         const std::string& cluster_name, const std::string& cls_name);
 
-  explicit RadosParquetFileFormat(std::shared_ptr<DirectObjectAccess> doa)
+  explicit RadosParquetFileFormat(
+      const std::shared_ptr<connection::RadosConnection>& conn);
+
+  explicit RadosParquetFileFormat(std::shared_ptr<DirectObjectAccess>& doa)
       : doa_(std::move(doa)) {}
 
   std::string type_name() const override { return "rados-parquet"; }

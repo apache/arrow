@@ -41,14 +41,16 @@ cdef class RadosParquetFileFormat(FileFormat):
         ceph_config_path="/etc/ceph/ceph.conf",
         data_pool="cephfs_data",
         user_name="client.admin",
-        cluster_name="ceph"
+        cluster_name="ceph",
+        cls_name="arrow"
     ):
         self.init(shared_ptr[CFileFormat](
             new CRadosParquetFileFormat(
                 tobytes(ceph_config_path),
                 tobytes(data_pool),
                 tobytes(user_name),
-                tobytes(cluster_name)
+                tobytes(cluster_name),
+                tobytes(cls_name)
             )
         ))
 

@@ -34,5 +34,6 @@ cdef extern from "arrow/dataset/file_rados_parquet.h" \
             c_string ceph_config_path,
             c_string data_pool,
             c_string user_name,
-            c_string cluster_name
+            c_string cluster_name,
+            c_string cls_name
         )

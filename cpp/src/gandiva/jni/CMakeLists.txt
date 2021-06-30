@@ -24,6 +24,8 @@ if(MSVC)
 endif()
 
 # Find JNI
+set(JAVA_AWT_INCLUDE_PATH
+    NotNeeded) # We don't care about Java AWT, only about JNI functionality.
 find_package(JNI REQUIRED)
 
 set(PROTO_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR})
