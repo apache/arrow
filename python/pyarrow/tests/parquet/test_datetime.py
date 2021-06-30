@@ -324,7 +324,7 @@ def test_coerce_int96_timestamp_overflow(pq_reader_method, tempdir):
     df_error = tab_error.to_pandas(timestamp_as_object=True)
     out_error = [
         x.strftime("%Y-%m-%s %H:%M:%S.%f")
-        for x in df_error.a.to_list()
+        for x in df_error["a"].tolist()
     ]
 
     assert out_error != oob_dts_str
@@ -337,7 +337,7 @@ def test_coerce_int96_timestamp_overflow(pq_reader_method, tempdir):
     df_correct = tab_correct.to_pandas(timestamp_as_object=True)
     out_correct = [
         x.strftime("%Y-%m-%s %H:%M:%S.%f")
-        for x in df_correct.a.to_list()
+        for x in df_correct.a.tolist()
     ]
     assert out_correct == oob_dts_str
 
