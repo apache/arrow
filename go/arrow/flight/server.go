@@ -77,7 +77,7 @@ func CreateServerMiddleware(middleware CustomServerMiddleware) ServerMiddleware 
 			}
 
 			err := handler(srv, stream)
-			middleware.CallCompleted(ctx, err)
+			middleware.CallCompleted(stream.Context(), err)
 			return err
 		},
 	}

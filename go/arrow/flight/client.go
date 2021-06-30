@@ -109,12 +109,11 @@ func CreateClientMiddleware(middleware CustomClientMiddleware) ClientMiddleware 
 			// Grab the client stream context because when the finish function or the goroutine below will be
 			// executed it's not guaranteed cs.Context() will be valid.
 			csCtx := cs.Context()
-			hdrmd, _ := cs.Header()
-
 			finishChan := make(chan struct{})
 			isFinished := new(int32)
 			*isFinished = 0
 			finishFunc := func(err error) {
+
 				// since there are multiple code paths that could call finishFunc
 				// we need some sort of synchronization to guard against multiple
 				// calls to finish
@@ -124,10 +123,11 @@ func CreateClientMiddleware(middleware CustomClientMiddleware) ClientMiddleware 
 
 				close(finishChan)
 				if isPostcall {
-					post.CallCompleted(ctx, err)
+					post.CallCompleted(csCtx, err)
 				}
 				if isHdrs {
-					hdrs.HeadersReceived(ctx, metadata.Join(hdrmd, cs.Trailer()))
+					hdrmd, _ := cs.Header()
+					hdrs.HeadersReceived(csCtx, metadata.Join(hdrmd, cs.Trailer()))
 				}
 			}
 			go func() {
