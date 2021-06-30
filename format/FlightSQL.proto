@@ -55,7 +55,7 @@ message CommandGetSqlInfo {
    * The native version of the Flight SQL Server.
    * FLIGHT_SQL_SERVER_VERSION
    *
-   * The Arrow version of the Flight SQL Server.
+   * The Arrow format version of the Flight SQL Server.
    * FLIGHT_SQL_SERVER_ARROW_VERSION
    *
    * Indicates whether the Flight SQL Server is read only.
@@ -85,6 +85,7 @@ message CommandGetSqlInfo {
    * Indicates case sensitivity of quoted identifiers.
    * SQL_QUOTED_IDENTIFIER_CASE
    *
+   * If omitted, then all metadata will be retrieved.
    */
   repeated string info = 1;
 
@@ -153,7 +154,7 @@ message CommandGetSchemas {
  * >
  * The returned data should be ordered by catalog_name, schema_name, table_name, then table_type.
  */
-message ActionGetTablesRequest {
+message CommandGetTables {
   /*
    * Specifies the Catalog to search for schemas.
    * If omitted, then all catalogs are searched.
@@ -250,7 +251,7 @@ message CommandStatementQuery {
 /*
  * Represents an instance of executing a prepared statement. Used in the command member of FlightDescriptor for
  * the following RPC calls:
- *  - DoPut: bind parameter values.
+ *  - DoPut: bind parameter values. All of the bound parameter sets will be executed as a single atomic execution.
  *  - GetFlightInfo: execute the prepared statement instance.
  */
 message CommandPreparedStatementQuery {
