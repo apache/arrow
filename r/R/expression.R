@@ -32,6 +32,8 @@
   "str_to_upper" = "utf8_upper",
   "str_reverse" = "utf8_reverse",
   # str_trim is defined in dplyr-functions.R
+  # str_sub is defined in dplyr-functions.R
+  # substr is defined in dplyr-functions.R
   "year" = "year",
   "isoyear" = "iso_year",
   "quarter" = "quarter",

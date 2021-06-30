@@ -280,7 +280,7 @@ nse_funcs$str_trim <- function(string, side = c("both", "left", "right")) {
   Expression$create(trim_fun, string)
 }
 
-nse_funcs$str_sub <- function(string, start = 1L, end = -1L) {
+nse_funcs$substr <- function(string, start, stop) {
   assert_that(
     length(start) == 1,
     msg = "Start of length != 1 not supported in Arrow"
@@ -289,20 +289,30 @@ nse_funcs$str_sub <- function(string, start = 1L, end = -1L) {
     length(end) == 1,
     msg = "End of length != 1 not supported in Arrow"
   )
-  end <- ifelse(end < 0, start + abs(end), end)
+
+  if (start > stop) {
+    start <- 0
+    stop <- 0
+  } else {
+    start <- max(0, start - 1)
+    stop <- max(0, stop)
+    start_stop <- c(min(start, stop), max(start, stop))
+    start <- start_stop[1]
+    stop <- start_stop[2]
+  }
+
   Expression$create(
     "utf8_slice_codeunits",
     string,
-    options = list(start = start - 1, stop = end)
+    options = list(start = start, stop = stop)
   )
 }
 
-nse_funcs$substr <- function(string, start = 1L, stop = nchar(string)) {
-  Expression$create(
-    "utf8_slice_codeunits",
-    string,
-    options = list(start = start, stop = end)
-  )
+nse_funcs$str_sub <- function(string, start = 1L, end = -1L) {
+  if (start < 0 || end < 0) {
+    warning("Negative counts not yet implemented for strings")
+  }
+  nse_funcs$substr(string, start = start, stop = end)
 }
 
 nse_funcs$grepl <- function(pattern, x, ignore.case = FALSE, fixed = FALSE) {

@@ -769,25 +769,25 @@ test_that("arrow_find_substring and arrow_find_substring_regex", {
 })
 
 test_that("stri_reverse and arrow_ascii_reverse functions", {
-  
+
   df_ascii <- tibble(x = c("Foo\nand bar", "baz\tand qux and quux"))
-  
+
   df_utf8 <- tibble(x = c("Foo\u00A0\u0061nd\u00A0bar", "\u0062az\u00A0and\u00A0qux\u3000and\u00A0quux"))
-  
+
   expect_dplyr_equal(
     input %>%
       mutate(x = stri_reverse(x)) %>%
       collect(),
     df_utf8
   )
-  
+
   expect_dplyr_equal(
     input %>%
       mutate(x = stri_reverse(x)) %>%
       collect(),
     df_ascii
   )
-  
+
   expect_equivalent(
     df_ascii %>%
       Table$create() %>%
@@ -795,7 +795,7 @@ test_that("stri_reverse and arrow_ascii_reverse functions", {
       collect(),
     tibble(x = c("rab dna\nooF", "xuuq dna xuq dna\tzab"))
   )
-  
+
   expect_error(
     df_utf8 %>%
       Table$create() %>%
@@ -806,12 +806,12 @@ test_that("stri_reverse and arrow_ascii_reverse functions", {
 })
 
 test_that("str_like", {
-  
+
   df <- tibble(x = c("Foo and bar", "baz and qux and quux"))
-  
+
   # TODO: After new version of stringr with str_like has been released, update all
   # these tests to use expect_dplyr_equal
-  
+
   # No match - entire string
   expect_equivalent(
     df %>%
@@ -820,7 +820,7 @@ test_that("str_like", {
       collect(),
     tibble(x = c(FALSE, FALSE))
   )
-  
+
   # Match - entire string
   expect_equivalent(
     df %>%
@@ -829,7 +829,7 @@ test_that("str_like", {
       collect(),
     tibble(x = c(TRUE, FALSE))
   )
-  
+
   # Wildcard
   expect_equivalent(
     df %>%
@@ -838,7 +838,7 @@ test_that("str_like", {
       collect(),
     tibble(x = c(TRUE, FALSE))
   )
-  
+
   # Ignore case
   expect_equivalent(
     df %>%
@@ -847,7 +847,7 @@ test_that("str_like", {
       collect(),
     tibble(x = c(FALSE, FALSE))
   )
-  
+
   # Single character
   expect_equivalent(
     df %>%
@@ -856,12 +856,50 @@ test_that("str_like", {
       collect(),
     tibble(x = c(FALSE, TRUE))
   )
-  
+
   # This will give an error until a new version of stringr with str_like has been released
   skip("Test will fail until stringr > 1.4.0 is release")
   expect_dplyr_equal(
     input %>%
       mutate(x = str_like(x, "%baz%")) %>%
+      collect(),
+    df
+  )
+})
+
+test_that("substrings", {
+  df <- tibble(
+    x = "Apache Arrow"
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        foo = "Apache Arrow",
+        bar1 = substr(foo, 1, 6), # Apache
+        bar2 = substr(foo, 0, 6), # Apache
+        bar3 = substr(foo, -1, 6), # Apache
+        bar4 = substr(foo, 6, 1), # ""
+        bar5 = substr(foo, -1, -2), # ""
+        bar6 = substr(foo, 8, 12) # Arrow
+      ) %>%
+      select(bar1:bar6) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        foo = "Apache Arrow",
+        bar1 = str_sub(foo, 1, 6), # Apache
+        bar2 = str_sub(foo, 0, 6), # Apache
+        bar3 = str_sub(foo, -1, 6), # Apache
+        bar4 = str_sub(foo, 6, 1), # ""
+        bar5 = str_sub(foo, -1, -2), # ""
+        bar6 = str_sub(foo, 8, 12) # Arrow
+      ) %>%
+      select(bar1:bar6) %>%
       collect(),
     df
   )
