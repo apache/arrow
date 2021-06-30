@@ -21,7 +21,6 @@
 #include <memory>
 #include <mutex>
 
-#include "gandiva/base_cache.h"
 #include "gandiva/greedy_dual_size_cache.h"
 #include "gandiva/visibility.h"
 
