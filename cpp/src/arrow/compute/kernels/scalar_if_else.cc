@@ -36,7 +36,7 @@ namespace {
 constexpr uint64_t kAllNull = 0;
 constexpr uint64_t kAllValid = ~kAllNull;
 
-util::optional<uint64_t> GetConstantValidityWord(const Datum& data) {
+static util::optional<uint64_t> GetConstantValidityWord(const Datum& data) {
   if (data.is_scalar()) {
     return data.scalar()->is_valid ? kAllValid : kAllNull;
   }
@@ -49,7 +49,7 @@ util::optional<uint64_t> GetConstantValidityWord(const Datum& data) {
   return {};
 }
 
-inline Bitmap GetBitmap(const Datum& datum, int i) {
+static inline Bitmap GetBitmap(const Datum& datum, int i) {
   if (datum.is_scalar()) return {};
   const ArrayData& a = *datum.array();
   return Bitmap{a.buffers[i], a.offset, a.length};
@@ -58,8 +58,10 @@ inline Bitmap GetBitmap(const Datum& datum, int i) {
 // if the condition is null then output is null otherwise we take validity from the
 // selected argument
 // ie. cond.valid & (cond.data & left.valid | ~cond.data & right.valid)
-Status PromoteNullsVisitor(KernelContext* ctx, const Datum& cond_d, const Datum& left_d,
-                           const Datum& right_d, ArrayData* output) {
+template <typename AllocateMem>
+static Status PromoteNullsVisitor(KernelContext* ctx, const Datum& cond_d,
+                                  const Datum& left_d, const Datum& right_d,
+                                  ArrayData* output) {
   auto cond_const = GetConstantValidityWord(cond_d);
   auto left_const = GetConstantValidityWord(left_d);
   auto right_const = GetConstantValidityWord(right_d);
@@ -78,19 +80,37 @@ Status PromoteNullsVisitor(KernelContext* ctx, const Datum& cond_d, const Datum&
   // cond.valid & (cond.data & left.valid | ~cond.data & right.valid)
   // In the following cases, we dont need to allocate out_valid bitmap
 
-  // if cond & left & right all ones, then output is all valid. output validity buffer
-  // is already allocated, hence set all bits
+  // if cond & left & right all ones, then output is all valid.
+  // if output validity buffer is already allocated (NullHandling::
+  // COMPUTED_PREALLOCATE) -> set all bits
+  // else, return nullptr
   if (cond_const == kAllValid && left_const == kAllValid && right_const == kAllValid) {
-    BitUtil::SetBitmap(output->buffers[0]->mutable_data(), output->offset,
-                       output->length);
+    if (AllocateMem::value) {
+      output->buffers[0] = nullptr;
+    } else {  // NullHandling::COMPUTED_NO_PREALLOCATE
+      BitUtil::SetBitmap(output->buffers[0]->mutable_data(), output->offset,
+                         output->length);
+    }
     return Status::OK();
   }
 
   if (left_const == kAllValid && right_const == kAllValid) {
     // if both left and right are valid, no need to calculate out_valid bitmap. Copy
     // cond validity buffer
-    arrow::internal::CopyBitmap(cond.buffers[0]->data(), cond.offset, cond.length,
-                                output->buffers[0]->mutable_data(), output->offset);
+    if (AllocateMem::value) {
+      // if there's an offset, copy bitmap (cannot slice a bitmap)
+      if (cond.offset) {
+        ARROW_ASSIGN_OR_RAISE(
+            output->buffers[0],
+            arrow::internal::CopyBitmap(ctx->memory_pool(), cond.buffers[0]->data(),
+                                        cond.offset, cond.length));
+      } else {  // just copy assign cond validity buffer
+        output->buffers[0] = cond.buffers[0];
+      }
+    } else {
+      arrow::internal::CopyBitmap(cond.buffers[0]->data(), cond.offset, cond.length,
+                                  output->buffers[0]->mutable_data(), output->offset);
+    }
     return Status::OK();
   }
 
@@ -99,6 +119,12 @@ Status PromoteNullsVisitor(KernelContext* ctx, const Datum& cond_d, const Datum&
                    uint64_t r_valid) {
     return c_valid & ((c_data & l_valid) | (~c_data & r_valid));
   };
+
+  if (AllocateMem::value) {
+    // following cases requires a separate out_valid buffer. COMPUTED_NO_PREALLOCATE
+    // would not have allocated buffers for it.
+    ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(cond.length));
+  }
 
   std::array<Bitmap, 1> out_bitmaps{
       Bitmap{output->buffers[0], output->offset, output->length}};
@@ -486,9 +512,8 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
     out_offsets[0] = 0;
 
     // allocate data buffer conservatively
-    auto data_buff_alloc =
-        static_cast<int64_t>((left_offsets[left.length] - left_offsets[0]) +
-                             (right_offsets[right.length] - right_offsets[0]));
+    int64_t data_buff_alloc = std::max(left_offsets[left.length] - left_offsets[0],
+                                       right_offsets[right.length] - right_offsets[0]);
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ResizableBuffer> out_data_buf,
                           ctx->Allocate(data_buff_alloc));
     uint8_t* out_data = out_data_buf->mutable_data();
@@ -905,7 +930,7 @@ struct IfElseFunctor<Type, enable_if_boolean<Type>> {
   }
 };
 
-template <typename Type>
+template <typename Type, typename AllocateMem>
 struct ResolveIfElseExec {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     // cond is scalar
@@ -915,8 +940,8 @@ struct ResolveIfElseExec {
     }
 
     // cond is array. Use functors to sort things out
-    ARROW_RETURN_NOT_OK(
-        PromoteNullsVisitor(ctx, batch[0], batch[1], batch[2], out->mutable_array()));
+    ARROW_RETURN_NOT_OK(PromoteNullsVisitor<AllocateMem>(ctx, batch[0], batch[1],
+                                                         batch[2], out->mutable_array()));
 
     if (batch[1].kind() == Datum::ARRAY) {
       if (batch[2].kind() == Datum::ARRAY) {  // AAA
@@ -938,9 +963,10 @@ struct ResolveIfElseExec {
   }
 };
 
-template <>
-struct ResolveIfElseExec<NullType> {
+template <typename AllocateMem>
+struct ResolveIfElseExec<NullType, AllocateMem> {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    // if all are scalars, return a null scalar
     if (batch[0].is_scalar() && batch[1].is_scalar() && batch[2].is_scalar()) {
       *out = MakeNullScalar(null());
     } else {
@@ -985,7 +1011,8 @@ struct IfElseFunction : ScalarFunction {
 
 void AddNullIfElseKernel(const std::shared_ptr<IfElseFunction>& scalar_function) {
   ScalarKernel kernel({boolean(), null(), null()}, null(),
-                      ResolveIfElseExec<NullType>::Exec);
+                      ResolveIfElseExec<NullType,
+                                        /*AllocateMem=*/std::true_type>::Exec);
   kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
   kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
   kernel.can_write_into_slices = false;
@@ -996,7 +1023,9 @@ void AddNullIfElseKernel(const std::shared_ptr<IfElseFunction>& scalar_function)
 void AddPrimitiveIfElseKernels(const std::shared_ptr<ScalarFunction>& scalar_function,
                                const std::vector<std::shared_ptr<DataType>>& types) {
   for (auto&& type : types) {
-    auto exec = internal::GenerateTypeAgnosticPrimitive<ResolveIfElseExec>(*type);
+    auto exec =
+        internal::GenerateTypeAgnosticPrimitive<ResolveIfElseExec,
+                                                /*AllocateMem=*/std::false_type>(*type);
     // cond array needs to be boolean always
     ScalarKernel kernel({boolean(), type, type}, type, exec);
     kernel.null_handling = NullHandling::COMPUTED_PREALLOCATE;
@@ -1010,11 +1039,15 @@ void AddPrimitiveIfElseKernels(const std::shared_ptr<ScalarFunction>& scalar_fun
 void AddBinaryIfElseKernels(const std::shared_ptr<IfElseFunction>& scalar_function,
                             const std::vector<std::shared_ptr<DataType>>& types) {
   for (auto&& type : types) {
-    auto exec = internal::GenerateTypeAgnosticVarBinaryBase<ResolveIfElseExec>(*type);
+    auto exec =
+        internal::GenerateTypeAgnosticVarBinaryBase<ResolveIfElseExec,
+                                                    /*AllocateMem=*/std::true_type>(
+            *type);
     // cond array needs to be boolean always
     ScalarKernel kernel({boolean(), type, type}, type, exec);
     kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
     kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+    kernel.can_write_into_slices = false;
 
     DCHECK_OK(scalar_function->AddKernel(std::move(kernel)));
   }
@@ -1033,8 +1066,6 @@ namespace internal {
 
 void RegisterScalarIfElse(FunctionRegistry* registry) {
   ScalarKernel scalar_kernel;
-  scalar_kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
-  scalar_kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
 
   auto func = std::make_shared<IfElseFunction>("if_else", Arity::Ternary(), &if_else_doc);
 

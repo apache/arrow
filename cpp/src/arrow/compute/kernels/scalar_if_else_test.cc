@@ -271,9 +271,9 @@ TEST_F(TestIfElseKernel, IfElseBooleanRand) {
 
 TEST_F(TestIfElseKernel, IfElseNull) {
   CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[null, null, null, null]"),
-                    ArrayFromJSON(null(), "[null, null, null, null]"),
-                    ArrayFromJSON(null(), "[null, null, null, null]"),
-                    ArrayFromJSON(null(), "[null, null, null, null]"));
+                           ArrayFromJSON(null(), "[null, null, null, null]"),
+                           ArrayFromJSON(null(), "[null, null, null, null]"),
+                           ArrayFromJSON(null(), "[null, null, null, null]"));
 }
 
 TEST_F(TestIfElseKernel, IfElseMultiType) {
