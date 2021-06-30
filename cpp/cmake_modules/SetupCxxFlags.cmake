@@ -260,7 +260,6 @@ if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wdocumentation")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-missing-braces")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unused-parameter")
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unknown-warning-option")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-constant-logical-operand")
   elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
@@ -342,7 +341,11 @@ if(MSVC)
   # Disable "switch statement contains 'default' but no 'case' labels" warning
   # (required for protobuf, see https://github.com/protocolbuffers/protobuf/issues/6885)
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4065")
+
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  # Avoid error when an unknown warning flag is passed
+  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unknown-warning-option")
+
   if(CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL "7.0" OR CMAKE_CXX_COMPILER_VERSION
                                                        VERSION_GREATER "7.0")
     # Without this, gcc >= 7 warns related to changes in C++17
@@ -383,7 +386,7 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STRE
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Qunused-arguments")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Qunused-arguments")
 
-  # Avoid clang error when an unknown warning flag is passed
+  # Avoid error when an unknown warning flag is passed
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unknown-warning-option")
   # Add colors when paired with ninja
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcolor-diagnostics")

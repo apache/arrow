@@ -28,7 +28,6 @@
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
-#include "arrow/util/atomic_shared_ptr.h"
 #include "arrow/util/hash_util.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
@@ -43,11 +42,15 @@ using internal::checked_pointer_cast;
 
 namespace compute {
 
-Expression::Expression(Call call) {
-  call.hash = std::hash<std::string>{}(call.function_name);
-  for (const auto& arg : call.arguments) {
-    arrow::internal::hash_combine(call.hash, arg.hash());
+void Expression::Call::ComputeHash() {
+  hash = std::hash<std::string>{}(function_name);
+  for (const auto& arg : arguments) {
+    arrow::internal::hash_combine(hash, arg.hash());
   }
+}
+
+Expression::Expression(Call call) {
+  call.ComputeHash();
   impl_ = std::make_shared<Impl>(std::move(call));
 }
 

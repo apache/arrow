@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <mutex>
@@ -68,14 +69,14 @@ class TrackingGenerator {
     return state_->source();
   }
 
-  int num_read() { return state_->num_read; }
+  int num_read() { return state_->num_read.load(); }
 
  private:
   struct State {
     explicit State(AsyncGenerator<T> source) : source(std::move(source)), num_read(0) {}
 
     AsyncGenerator<T> source;
-    int num_read;
+    std::atomic<int> num_read;
   };
 
   std::shared_ptr<State> state_;
