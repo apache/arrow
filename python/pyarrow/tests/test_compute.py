@@ -111,6 +111,41 @@ def test_exported_option_classes():
                                       param.VAR_KEYWORD)
 
 
+def test_option_class_equality():
+    options = [
+        pc.CastOptions.safe(pa.int8()),
+        pc.ExtractRegexOptions("pattern"),
+        pc.IndexOptions(pa.scalar(1)),
+        pc.MatchSubstringOptions("pattern"),
+        pc.PadOptions(5, " "),
+        pc.PartitionNthOptions(1),
+        pc.ProjectOptions([b"field", b"names"]),
+        pc.ReplaceSliceOptions(start=0, stop=1, replacement="a"),
+        pc.ReplaceSubstringOptions("a", "b"),
+        pc.SetLookupOptions(value_set=pa.array([1])),
+        pc.SliceOptions(start=0, stop=1, step=1),
+        pc.SplitPatternOptions(pattern="pattern"),
+        pc.StrptimeOptions("%Y", "s"),
+        pc.TrimOptions(" "),
+    ]
+    classes = {type(option) for option in options}
+    for cls in exported_option_classes:
+        if cls not in classes:
+            try:
+                options.append(cls())
+            except TypeError:
+                pytest.fail(f"Options class is not tested: {cls}")
+    for option in options:
+        assert option == option
+        assert repr(option)
+        buf = option.serialize()
+        deserialized = pc.FunctionOptions.deserialize(buf)
+        assert option == deserialized
+        assert repr(option) == repr(deserialized)
+    for option1, option2 in zip(options, options[1:]):
+        assert option1 != option2
+
+
 def test_list_functions():
     assert len(pc.list_functions()) > 10
     assert "add" in pc.list_functions()

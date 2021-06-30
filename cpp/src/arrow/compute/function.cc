@@ -21,10 +21,13 @@
 #include <memory>
 #include <sstream>
 
+#include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec_internal.h"
+#include "arrow/compute/function_internal.h"
 #include "arrow/compute/kernels/common.h"
+#include "arrow/compute/registry.h"
 #include "arrow/datum.h"
 #include "arrow/util/cpu_info.h"
 
@@ -33,6 +36,38 @@ namespace arrow {
 using internal::checked_cast;
 
 namespace compute {
+Result<std::shared_ptr<Buffer>> FunctionOptionsType::Serialize(
+    const FunctionOptions&) const {
+  return Status::NotImplemented("Serialize for ", type_name());
+}
+
+Result<std::unique_ptr<FunctionOptions>> FunctionOptionsType::Deserialize(
+    const Buffer& buffer) const {
+  return Status::NotImplemented("Deserialize for ", type_name());
+}
+
+std::string FunctionOptions::ToString() const { return options_type()->Stringify(*this); }
+
+bool FunctionOptions::Equals(const FunctionOptions& other) const {
+  if (this == &other) return true;
+  if (options_type() != other.options_type()) return false;
+  return options_type()->Compare(*this, other);
+}
+
+Result<std::shared_ptr<Buffer>> FunctionOptions::Serialize() const {
+  return options_type()->Serialize(*this);
+}
+
+Result<std::unique_ptr<FunctionOptions>> FunctionOptions::Deserialize(
+    const std::string& type_name, const Buffer& buffer) {
+  ARROW_ASSIGN_OR_RAISE(auto options,
+                        GetFunctionRegistry()->GetFunctionOptionsType(type_name));
+  return options->Deserialize(buffer);
+}
+
+void PrintTo(const FunctionOptions& options, std::ostream* os) {
+  *os << options.ToString();
+}
 
 static const FunctionDoc kEmptyFunctionDoc{};
 

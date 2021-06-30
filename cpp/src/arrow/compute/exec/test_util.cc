@@ -392,7 +392,7 @@ ExecNode* MakeDummyNode(ExecPlan* plan, std::string label, int num_inputs,
 
 RecordBatchCollectNode* MakeRecordBatchCollectNode(
     ExecPlan* plan, std::string label, const std::shared_ptr<Schema>& schema) {
-  return internal::checked_cast<RecordBatchCollectNode*>(
+  return arrow::internal::checked_cast<RecordBatchCollectNode*>(
       plan->EmplaceNode<RecordBatchCollectNodeImpl>(plan, std::move(label), schema));
 }
 

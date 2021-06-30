@@ -25,9 +25,9 @@ struct ValueDescr;
 namespace compute {
 
 class Function;
-struct FunctionOptions;
+class FunctionOptions;
 
-struct CastOptions;
+class CastOptions;
 
 struct ExecBatch;
 class ExecContext;
