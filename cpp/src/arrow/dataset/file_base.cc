@@ -544,7 +544,8 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
   for (const auto& part_queue : state.queues) {
     task_group->Append([&] {
       RETURN_NOT_OK(write_options.writer_pre_finish(part_queue.second->writer().get()));
-      return part_queue.second->writer()->Finish();
+      RETURN_NOT_OK(part_queue.second->writer()->Finish());
+      return write_options.writer_post_finish(part_queue.second->writer().get());
     });
   }
   return task_group->Finish();

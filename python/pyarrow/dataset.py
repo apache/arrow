@@ -690,7 +690,7 @@ def _ensure_write_partitioning(scheme):
 def write_dataset(data, base_dir, basename_template=None, format=None,
                   partitioning=None, schema=None,
                   filesystem=None, file_options=None, use_threads=True,
-                  use_async=False, max_partitions=None):
+                  use_async=False, max_partitions=None, file_visitor=None):
     """
     Write a dataset to a given format and partitioning.
 
@@ -731,6 +731,9 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
         (e.g. S3)
     max_partitions : int, default 1024
         Maximum number of partitions any batch may be written into.
+    file_visitor : Function
+        If set, this function will be called with a WrittenFile instance
+        for each file created during the call.
     """
     from pyarrow.fs import _resolve_filesystem_and_path
 
@@ -784,5 +787,5 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
 
     _filesystemdataset_write(
         scanner, base_dir, basename_template, filesystem, partitioning,
-        file_options, max_partitions
+        file_options, max_partitions, file_visitor
     )

@@ -3038,7 +3038,7 @@ def _get_partition_keys(Expression partition_expression):
 
     For example, an expression of
     <pyarrow.dataset.Expression ((part == A:string) and (year == 2016:int32))>
-    is converted to {'part': 'a', 'year': 2016}
+    is converted to {'part': 'A', 'year': 2016}
     """
     cdef:
         CExpression expr = partition_expression.unwrap()
@@ -3053,6 +3053,52 @@ def _get_partition_keys(Expression partition_expression):
     return out
 
 
+ctypedef CParquetFileWriter* _CParquetFileWriterPtr
+
+cdef class WrittenFile(_Weakrefable):
+    """
+    Metadata information about files written as
+    part of a dataset write operation
+    """
+
+    """The full path to the created file"""
+    cdef public str path
+    """If the file is a parquet file this will contain the parquet metadata"""
+    cdef public object metadata
+
+    def __init__(self, path, metadata):
+        self.path = path
+        self.metadata = metadata
+
+cdef void _filesystemdataset_write_visitor(
+        dict visit_args,
+        CFileWriter* file_writer):
+    cdef:
+        str path
+        str base_dir
+        WrittenFile written_file
+        FileMetaData parquet_metadata
+        CParquetFileWriter* parquet_file_writer
+
+    if file_writer == nullptr:
+        return
+
+    parquet_metadata = None
+    path = frombytes(deref(file_writer).destination().path)
+    base_dir = frombytes(visit_args['base_dir'])
+    if deref(deref(file_writer).format()).type_name() == b"parquet":
+        parquet_file_writer = dynamic_cast[_CParquetFileWriterPtr](file_writer)
+        with nogil:
+            metadata = deref(
+                deref(parquet_file_writer).parquet_writer()).metadata()
+        if metadata:
+            parquet_metadata = FileMetaData()
+            parquet_metadata.init(metadata)
+            parquet_metadata.set_file_path(os.path.relpath(path, base_dir))
+    written_file = WrittenFile(path, parquet_metadata)
+    visit_args['file_visitor'](written_file)
+
+
 def _filesystemdataset_write(
     Scanner data not None,
     object base_dir not None,
@@ -3061,6 +3107,7 @@ def _filesystemdataset_write(
     Partitioning partitioning not None,
     FileWriteOptions file_options not None,
     int max_partitions,
+    object file_visitor
 ):
     """
     CFileSystemDataset.Write wrapper
@@ -3069,6 +3116,8 @@ def _filesystemdataset_write(
         CFileSystemDatasetWriteOptions c_options
         shared_ptr[CScanner] c_scanner
         vector[shared_ptr[CRecordBatch]] c_batches
+        dict visit_args
+        function[cb_writer_finish] c_post_finish_cb
 
     c_options.file_write_options = file_options.unwrap()
     c_options.filesystem = filesystem.unwrap()
@@ -3076,6 +3125,12 @@ def _filesystemdataset_write(
     c_options.partitioning = partitioning.unwrap()
     c_options.max_partitions = max_partitions
     c_options.basename_template = tobytes(basename_template)
+    c_post_finish_cb = _filesystemdataset_write_visitor
+    if file_visitor is not None:
+        visit_args = {'base_dir': c_options.base_dir,
+                      'file_visitor': file_visitor}
+        c_options.writer_post_finish = BindFunction[cb_writer_finish_internal](
+            &_filesystemdataset_write_visitor, visit_args)
 
     c_scanner = data.unwrap()
     with nogil:

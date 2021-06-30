@@ -2706,33 +2706,40 @@ def test_feather_format(tempdir, dataset_reader):
         dataset_reader.to_table(ds.dataset(basedir, format="feather"))
 
 
-def _create_parquet_dataset_simple(root_path):
+def _create_parquet_dataset_simple(root_path, use_legacy_dataset):
     import pyarrow.parquet as pq
 
     metadata_collector = []
 
-    for i in range(4):
-        table = pa.table({'f1': [i] * 10, 'f2': np.random.randn(10)})
-        pq.write_to_dataset(
-            table, str(root_path), metadata_collector=metadata_collector
-        )
+    f1_vals = [item for chunk in range(4) for item in [chunk] * 10]
+
+    table = pa.table({'f1': f1_vals, 'f2': np.random.randn(40)})
+    pq.write_to_dataset(
+        table, str(root_path), partition_cols=['f1'],
+        use_legacy_dataset=use_legacy_dataset,
+        metadata_collector=metadata_collector
+    )
+
+    partitionless_schema = pa.schema([pa.field('f2', pa.float64())])
 
     metadata_path = str(root_path / '_metadata')
     # write _metadata file
     pq.write_metadata(
-        table.schema, metadata_path,
+        partitionless_schema, metadata_path,
         metadata_collector=metadata_collector
     )
-    return metadata_path, table
+    return metadata_path, partitionless_schema
 
 
 @pytest.mark.parquet
 @pytest.mark.pandas  # write_to_dataset currently requires pandas
-def test_parquet_dataset_factory(tempdir):
+@pytest.mark.parametrize('use_legacy_dataset', [False, True])
+def test_parquet_dataset_factory(tempdir, use_legacy_dataset):
     root_path = tempdir / "test_parquet_dataset"
-    metadata_path, table = _create_parquet_dataset_simple(root_path)
+    metadata_path, partitionless_schema = _create_parquet_dataset_simple(
+        root_path, use_legacy_dataset)
     dataset = ds.parquet_dataset(metadata_path)
-    assert dataset.schema.equals(table.schema)
+    assert dataset.schema.equals(partitionless_schema)
     assert len(dataset.files) == 4
     result = dataset.to_table()
     assert result.num_rows == 40
@@ -2740,13 +2747,15 @@ def test_parquet_dataset_factory(tempdir):
 
 @pytest.mark.parquet
 @pytest.mark.pandas
-def test_parquet_dataset_factory_invalid(tempdir):
+@pytest.mark.parametrize('use_legacy_dataset', [False, True])
+def test_parquet_dataset_factory_invalid(tempdir, use_legacy_dataset):
     root_path = tempdir / "test_parquet_dataset_invalid"
-    metadata_path, table = _create_parquet_dataset_simple(root_path)
+    metadata_path, partitionless_schema = _create_parquet_dataset_simple(
+        root_path, use_legacy_dataset)
     # remove one of the files
-    list(root_path.glob("*.parquet"))[0].unlink()
+    list(root_path.glob("f1=1/*.parquet"))[0].unlink()
     dataset = ds.parquet_dataset(metadata_path)
-    assert dataset.schema.equals(table.schema)
+    assert dataset.schema.equals(partitionless_schema)
     assert len(dataset.files) == 4
     with pytest.raises(FileNotFoundError):
         dataset.to_table()
@@ -2829,7 +2838,7 @@ def test_parquet_dataset_lazy_filtering(tempdir, open_logging_fs):
     # created with ParquetDatasetFactory from a _metadata file
 
     root_path = tempdir / "test_parquet_dataset_lazy_filtering"
-    metadata_path, _ = _create_parquet_dataset_simple(root_path)
+    metadata_path, _ = _create_parquet_dataset_simple(root_path, True)
 
     # creating the dataset should only open the metadata file
     with assert_opens([metadata_path]):
@@ -2844,11 +2853,11 @@ def test_parquet_dataset_lazy_filtering(tempdir, open_logging_fs):
 
     # filtering fragments should not open any file
     with assert_opens([]):
-        list(dataset.get_fragments(ds.field("f1") > 15))
+        list(dataset.get_fragments(ds.field("f2") > 15))
 
     # splitting by row group should still not open any file
     with assert_opens([]):
-        fragments[0].split_by_row_group(ds.field("f1") > 15)
+        fragments[0].split_by_row_group(ds.field("f2") > 15)
 
     # ensuring metadata of splitted fragment should also not open any file
     with assert_opens([]):
@@ -3129,10 +3138,24 @@ def test_write_dataset_use_threads(tempdir):
         pa.schema([("part", pa.string())]), flavor="hive")
 
     target1 = tempdir / 'partitioned1'
+    paths_written = []
+
+    def file_visitor(written_file):
+        paths_written.append(written_file.path)
+
     ds.write_dataset(
         dataset, target1, format="feather", partitioning=partitioning,
-        use_threads=True
+        use_threads=True, file_visitor=file_visitor
     )
+    expected_paths = [
+        target1 / 'part=a' / 'part-0.feather',
+        target1 / 'part=a' / 'part-1.feather',
+        target1 / 'part=b' / 'part-0.feather',
+        target1 / 'part=b' / 'part-1.feather'
+    ]
+    for path in paths_written:
+        assert pathlib.Path(path) in expected_paths
+
     target2 = tempdir / 'partitioned2'
     ds.write_dataset(
         dataset, target2, format="feather", partitioning=partitioning,
@@ -3164,19 +3187,29 @@ def test_write_table(tempdir):
 
     # with partitioning
     base_dir = tempdir / 'partitioned'
-    partitioning = ds.partitioning(
-        pa.schema([("part", pa.string())]), flavor="hive")
-    ds.write_dataset(table, base_dir, format="feather",
-                     basename_template='dat_{i}.arrow',
-                     partitioning=partitioning)
-    file_paths = list(base_dir.rglob("*"))
     expected_paths = [
         base_dir / "part=a", base_dir / "part=a" / "dat_0.arrow",
         base_dir / "part=b", base_dir / "part=b" / "dat_1.arrow"
     ]
+
+    visited_paths = []
+
+    def file_visitor(written_file):
+        nonlocal visited_paths
+        visited_paths.append(written_file.path)
+
+    partitioning = ds.partitioning(
+        pa.schema([("part", pa.string())]), flavor="hive")
+    ds.write_dataset(table, base_dir, format="feather",
+                     basename_template='dat_{i}.arrow',
+                     partitioning=partitioning, file_visitor=file_visitor)
+    file_paths = list(base_dir.rglob("*"))
     assert set(file_paths) == set(expected_paths)
     result = ds.dataset(base_dir, format="ipc", partitioning=partitioning)
     assert result.to_table().equals(table)
+    assert len(visited_paths) == 2
+    for visited_path in visited_paths:
+        assert pathlib.Path(visited_path) in expected_paths
 
 
 def test_write_table_multiple_fragments(tempdir):
@@ -3303,8 +3336,19 @@ def test_write_dataset_parquet(tempdir):
 
     # using default "parquet" format string
 
+    files_correct_metadata = 0
+
+    def file_visitor(written_file):
+        nonlocal files_correct_metadata
+        if (written_file.metadata is not None and
+                written_file.metadata.num_columns == 3):
+            files_correct_metadata += 1
+
     base_dir = tempdir / 'parquet_dataset'
-    ds.write_dataset(table, base_dir, format="parquet")
+    ds.write_dataset(table, base_dir, format="parquet",
+                     file_visitor=file_visitor)
+
+    assert files_correct_metadata == 1
     # check that all files are present
     file_paths = list(base_dir.rglob("*"))
     expected_paths = [base_dir / "part-0.parquet"]
@@ -3457,3 +3501,20 @@ def test_dataset_null_to_dictionary_cast(tempdir, dataset_reader):
     )
     table = dataset_reader.to_table(fsds)
     assert table.schema == schema
+
+
+def test_visit_strings_adhoc():
+    import pyarrow._dataset as _ds
+
+    strings = ['a', 'b', 'c']
+    visited = []
+    _ds._visit_strings(strings, visited.append)
+
+    assert visited == strings
+
+    with pytest.raises(ValueError, match="wtf"):
+        def raise_on_b(s):
+            if s == 'b':
+                raise ValueError('wtf')
+
+        _ds._visit_strings(strings, raise_on_b)
