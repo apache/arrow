@@ -266,7 +266,8 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
 
   if (func_name == "day_of_week") {
     using Options = arrow::compute::TemporalComponentExtractionOptions;
-    return std::make_shared<Options>(cpp11::as_cpp<int64_t>(options["week_start"]));
+    return std::make_shared<Options>(cpp11::as_cpp<bool>(options["one_based_numbering"]),
+                                     cpp11::as_cpp<uint32_t>(options["week_start"]));
   }
 
   if (func_name == "strptime") {

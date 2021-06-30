@@ -1024,9 +1024,10 @@ Note: this is currently not supported for timestamps with timezone information.
 | subsecond          | Unary      | Temporal          | Double        |        |                                              |
 +--------------------+------------+-------------------+---------------+--------+----------------------------------------------+
 
-* \(1) Outputs the number of the day of the week. Week begins on Monday and is denoted
-  by 0 and ends on Sunday denoted by 6. :struct:`TemporalComponentExtractionOptions`
-  can be used to set the index of the day that starts the week.
+* \(1) Outputs the number of the day of the week. By default week begins on Monday
+  represented by 0 and ends on Sunday represented by 6. :member:`TemporalComponentExtractionOptions::week_start`
+  can be used to set the starting day of the week using ISO convention (Monday=1, Sunday=7). Day numbering can
+  start with 0 or 1 using :member:`TemporalComponentExtractionOptions::week_start` paramter.
 * \(2) First ISO week has the majority (4 or more) of it's days in January. ISO year
   starts with the first ISO week.
   See `ISO 8601 week date definition`_ for more details.

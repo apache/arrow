@@ -136,6 +136,10 @@ struct Day {
 
 // ----------------------------------------------------------------------
 // Extract day of week from timestamp
+//
+// By default week starts on Monday represented by 0 and ends on Sunday represented
+// by 6. Start day of the week (Monday=1, Sunday=7) and numbering start (0 or 1) can be
+// set using TemporalComponentExtractionOptions
 
 template <typename Duration>
 struct DayOfWeek {
@@ -143,11 +147,13 @@ struct DayOfWeek {
 
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
-    return static_cast<T>(
-        weekday(year_month_day(floor<days>(sys_time<Duration>(Duration{arg}))))
-            .iso_encoding() -
-        1 + options.week_start);
+    auto wd = arrow_vendored::date::year_month_weekday(
+                  floor<days>(sys_time<Duration>(Duration{arg})))
+                  .weekday()
+                  .iso_encoding();
+    return (wd + 7 - options.week_start) % 7 + options.one_based_numbering;
   }
+
   TemporalComponentExtractionOptions options;
 };
 
@@ -512,10 +518,12 @@ const FunctionDoc day_doc{
 
 const FunctionDoc day_of_week_doc{
     "Extract day of the week number",
-    ("Week starts on Monday denoted by 0 and ends on Sunday denoted by 6.\n"
+    ("By default Week starts on Monday represented by 0 and ends on Sunday represented "
+     "by 6.\n"
      "Returns an error if timestamp has a defined timezone. Null values return null.\n"
-     "TemporalComponentExtractionOptions.week_start can optionally be used to set the "
-     "index of the day that starts the week."),
+     "TemporalComponentExtractionOptions.week_start can be used to set another starting "
+     "day using ISO convention (Monday=1, Sunday=7). Day numbering can start with 0 or "
+     "1 using TemporalComponentExtractionOptions.one_based_numbering parameter."),
     {"values"},
     "TemporalComponentExtractionOptions"};
 

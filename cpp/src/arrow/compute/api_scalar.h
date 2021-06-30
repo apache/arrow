@@ -245,15 +245,19 @@ class ARROW_EXPORT ProjectOptions : public FunctionOptions {
 };
 
 struct ARROW_EXPORT TemporalComponentExtractionOptions : public FunctionOptions {
-  explicit TemporalComponentExtractionOptions(int64_t week_start = 0)
-      : week_start(std::move(week_start)) {}
+  explicit TemporalComponentExtractionOptions(bool one_based_numbering = false,
+                                              uint32_t week_start = 1)
+      : one_based_numbering(std::move(one_based_numbering)),
+        week_start(std::move(week_start)) {}
 
   static TemporalComponentExtractionOptions Defaults() {
     return TemporalComponentExtractionOptions{};
   }
 
-  /// Index of the first day of the week.
-  int64_t week_start;
+  /// Number days from 1 if true and form 0 if false
+  bool one_based_numbering;
+  /// What day does the week start with (Monday=1, Sunday=7)
+  uint32_t week_start;
 };
 
 /// @}
@@ -725,9 +729,12 @@ ARROW_EXPORT
 Result<Datum> Day(const Datum& values, ExecContext* ctx = NULLPTR);
 
 /// \brief DayOfWeek returns number of the day of the week value for each element of
-/// `values`. Week starts on Monday denoted by 0 and ends on Sunday denoted by 6.
+/// `values`. By default week starts on Monday denoted by 0 and ends on Sunday denoted
+/// by 6. Start day of the week (Monday=1, Sunday=7) and numbering base (0 or 1) can be
+/// set using TemporalComponentExtractionOptions
 ///
 /// \param[in] values input to extract number of the day of the week from
+/// \param[in] options for setting start of the week and day numbering
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
