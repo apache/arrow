@@ -2994,7 +2994,7 @@ def _get_partition_keys(Expression partition_expression):
 
     For example, an expression of
     <pyarrow.dataset.Expression ((part == A:string) and (year == 2016:int32))>
-    is converted to {'part': 'A', 'year': 2016}
+    is converted to {'part': 'a', 'year': 2016}
     """
     cdef:
         CExpression expr = partition_expression.unwrap()
@@ -3009,41 +3009,6 @@ def _get_partition_keys(Expression partition_expression):
     return out
 
 
-cdef class FragmentWriter(_Weakrefable):
-    cdef:
-        CFileWriter* writer
-
-    def __init__(self):
-        _forbid_instantiation(self.__class__)
-
-    cdef void init(self, CFileWriter* writer):
-        self.writer = writer
-
-    @staticmethod
-    cdef wrap(CFileWriter* writer):
-        cdef FragmentWriter self = FragmentWriter.__new__(FragmentWriter)
-        self.init(writer)
-        return self
-
-    @property
-    def path(self):
-        cdef bytes path = deref(self.writer).destination().path
-        return path.decode('utf-8')
-
-    @property
-    def filesystem(self):
-        cdef:
-            shared_ptr[CFileSystem] c_filesystem
-        c_filesystem = deref(self.writer).destination().filesystem
-        return FileSystem.wrap(c_filesystem)
-
-    @staticmethod
-    cdef void _wrap_visitor(PyObject* raw_visitor,
-                            CFileWriter* writer) except *:
-        visitor = PyObject_to_object(raw_visitor)
-        visitor(FragmentWriter.wrap(writer))
-
-
 def _filesystemdataset_write(
     Scanner data not None,
     object base_dir not None,
@@ -3052,7 +3017,6 @@ def _filesystemdataset_write(
     Partitioning partitioning not None,
     FileWriteOptions file_options not None,
     int max_partitions,
-    writer_pre_finish=None,
 ):
     """
     CFileSystemDataset.Write wrapper
@@ -3068,56 +3032,7 @@ def _filesystemdataset_write(
     c_options.partitioning = partitioning.unwrap()
     c_options.max_partitions = max_partitions
     c_options.basename_template = tobytes(basename_template)
-    if writer_pre_finish is not None:
-        c_options.writer_pre_finish = BindFunction[CFileWriterVisitor](
-            &FragmentWriter._wrap_visitor, writer_pre_finish)
 
     c_scanner = data.unwrap()
     with nogil:
         check_status(CFileSystemDataset.Write(c_options, c_scanner))
-
-
-# basic test to roundtrip through a BoundFunction
-
-ctypedef CStatus visit_string_cb(const c_string&)
-
-cdef extern from * namespace "arrow::py" nogil:
-    """
-    #include <functional>
-    #include <string>
-    #include <vector>
-
-    #include "arrow/status.h"
-
-    namespace arrow {
-    namespace py {
-
-    Status VisitStrings(const std::vector<std::string>& strs,
-                        std::function<Status(const std::string&)> cb) {
-      for (const std::string& str : strs) {
-        RETURN_NOT_OK(cb(str));
-      }
-      return Status::OK();
-    }
-
-    }  // namespace py
-    }  // namespace arrow
-    """
-    cdef CStatus CVisitStrings" arrow::py::VisitStrings"(
-        vector[c_string], function[visit_string_cb])
-
-
-cdef void _visit_strings_impl(py_cb, const c_string& s) except *:
-    py_cb(frombytes(s))
-
-
-def _visit_strings(strings, cb):
-    cdef:
-        function[visit_string_cb] c_cb
-        vector[c_string] c_strings
-
-    c_cb = BindFunction[visit_string_cb](&_visit_strings_impl, cb)
-    for s in strings:
-        c_strings.push_back(tobytes(s))
-
-    check_status(CVisitStrings(c_strings, c_cb))

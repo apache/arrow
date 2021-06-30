@@ -34,7 +34,6 @@ from pyarrow._dataset import (  # noqa
     FileSystemFactoryOptions,
     FileWriteOptions,
     Fragment,
-    FragmentWriter,
     HivePartitioning,
     IpcFileFormat,
     IpcFileWriteOptions,
@@ -691,8 +690,7 @@ def _ensure_write_partitioning(scheme):
 def write_dataset(data, base_dir, basename_template=None, format=None,
                   partitioning=None, schema=None,
                   filesystem=None, file_options=None, use_threads=True,
-                  use_async=False, max_partitions=None,
-                  writer_pre_finish=None):
+                  use_async=False, max_partitions=None):
     """
     Write a dataset to a given format and partitioning.
 
@@ -786,5 +784,5 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
 
     _filesystemdataset_write(
         scanner, base_dir, basename_template, filesystem, partitioning,
-        file_options, max_partitions, writer_pre_finish
+        file_options, max_partitions
     )
