@@ -61,7 +61,7 @@ class RadosParquetScanTask : public ScanTask {
     ARROW_RETURN_NOT_OK(doa_->Exec(st.st_ino, "scan_op", request, result));
 
     RecordBatchVector batches;
-    ARROW_RETURN_NOT_OK(DeserializeTable(batches, result));
+    ARROW_RETURN_NOT_OK(DeserializeTable(batches, result, !options_->use_threads));
     return MakeVectorIterator(batches);
   }
 
@@ -194,11 +194,13 @@ Status SerializeTable(std::shared_ptr<Table>& table, ceph::bufferlist& bl,
   return Status::OK();
 }
 
-Status DeserializeTable(RecordBatchVector& batches, ceph::bufferlist& bl) {
+Status DeserializeTable(RecordBatchVector& batches, 
+                        ceph::bufferlist& bl, 
+                        bool use_threads) {
   auto buffer = std::make_shared<Buffer>((uint8_t*)bl.c_str(), bl.length());
   auto buffer_reader = std::make_shared<io::BufferReader>(buffer);
   auto options = ipc::IpcReadOptions::Defaults();
-  options.use_threads = false;
+  options.use_threads = use_threads;
   ARROW_ASSIGN_OR_RAISE(
       auto reader, arrow::ipc::RecordBatchStreamReader::Open(buffer_reader, options));
   ARROW_RETURN_NOT_OK(reader->ReadAll(&batches));

@@ -81,7 +81,7 @@ TEST(TestRadosParquetFileFormat, SerializeDeserializeTable) {
   SerializeTable(table, bl);
 
   RecordBatchVector batches;
-  DeserializeTable(batches, bl);
+  DeserializeTable(batches, bl, false);
   ASSERT_OK_AND_ASSIGN(auto materialized_table, arrow::Table::FromRecordBatches(batches));
 
   ASSERT_EQ(table->Equals(*materialized_table), 1);
