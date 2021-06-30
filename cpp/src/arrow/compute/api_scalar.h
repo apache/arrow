@@ -245,8 +245,9 @@ class ARROW_EXPORT ProjectOptions : public FunctionOptions {
 };
 
 struct ARROW_EXPORT DayOfWeekOptions : public FunctionOptions {
-  explicit DayOfWeekOptions(bool one_based_numbering = false, uint32_t week_start = 1)
+  explicit DayOfWeekOptions(bool one_based_numbering, uint32_t week_start)
       : one_based_numbering(one_based_numbering), week_start(week_start) {}
+  explicit DayOfWeekOptions() : one_based_numbering(false), week_start(1) {}
 
   static DayOfWeekOptions Defaults() { return DayOfWeekOptions{}; }
 
@@ -737,7 +738,7 @@ Result<Datum> Day(const Datum& values, ExecContext* ctx = NULLPTR);
 /// \since 5.0.0
 /// \note API not yet finalized
 ARROW_EXPORT Result<Datum> DayOfWeek(
-    const Datum& values, const DayOfWeekOptions options = DayOfWeekOptions::Defaults(),
+    const Datum& values, DayOfWeekOptions options = DayOfWeekOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
 
 /// \brief DayOfYear returns number of day of the year for each element of `values`.
