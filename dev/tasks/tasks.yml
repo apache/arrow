@@ -949,6 +949,7 @@ tasks:
         CLANG_TOOLS: 9 # can remove this when >=9 is the default
         GCC_VERSION: 11
         ARROW_HOME: ""
+        ARROW_S3: OFF # S3 support is not buildable with gcc11
       image: ubuntu-r-static
 
 

@@ -64,6 +64,16 @@ RUN apt-get update -y && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+ARG gcc_version=""
+RUN if [ "${gcc_version}" != "" ]; then \
+      update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${gcc_version} 100 && \
+      update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${gcc_version} 100 && \
+      update-alternatives --install /usr/bin/cc cc /usr/bin/gcc 30 && \
+      update-alternatives --set cc /usr/bin/gcc && \
+      update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++ 30 && \
+      update-alternatives --set c++ /usr/bin/g++; \
+    fi
+
 # Ensure parallel R package installation, set CRAN repo mirror,
 # and use pre-built binaries where possible
 COPY ci/etc/rprofile /arrow/ci/etc/

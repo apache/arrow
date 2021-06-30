@@ -326,6 +326,7 @@ build_libarrow <- function(src_dir, dst_dir) {
     CC = R_CMD_config("CC"),
     CXX = paste(R_CMD_config("CXX11"), R_CMD_config("CXX11STD")),
     # CXXFLAGS = R_CMD_config("CXX11FLAGS"), # We don't want the same debug symbols
+    ARROW_R_CXXFLAGS = paste(Sys.getenv("ARROW_R_CXXFLAGS", ""), "-fno-lto"),
     LDFLAGS = R_CMD_config("LDFLAGS")
   )
   env_vars <- paste0(names(env_var_list), '="', env_var_list, '"', collapse = " ")

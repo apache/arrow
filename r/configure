@@ -218,6 +218,7 @@ if [ $? -eq 0 ] || [ "$UNAME" = "Darwin" ]; then
   # Check for features
   LIB_DIR=`echo $PKG_DIRS | sed -e 's/^-L//'`
   ARROW_OPTS_CMAKE="$LIB_DIR/cmake/arrow/ArrowOptions.cmake"
+  echo "Checking ARROW_OPTS_CMAKE for features: $ARROW_OPTS_CMAKE"
   # Check for Parquet
   grep 'set(ARROW_PARQUET "ON")' $ARROW_OPTS_CMAKE >/dev/null 2>&1
   if [ $? -eq 0 ]; then
@@ -244,7 +245,7 @@ if [ $? -eq 0 ] || [ "$UNAME" = "Darwin" ]; then
     fi
   fi
   # prepend PKG_DIRS and append BUNDLED_LIBS to PKG_LIBS
-  PKG_LIBS="$PKG_DIRS $PKG_LIBS $BUNDLED_LIBS"
+  PKG_LIBS="$PKG_DIRS $PKG_LIBS $BUNDLED_LIBS -fno-lto"
   echo "PKG_CFLAGS=$PKG_CFLAGS"
   echo "PKG_LIBS=$PKG_LIBS"
 else

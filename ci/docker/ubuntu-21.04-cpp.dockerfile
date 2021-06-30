@@ -55,23 +55,6 @@ RUN if [ "${llvm}" -gt "10" ]; then \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
 
-ARG gcc_version=""
-RUN if [ "${gcc_version}" = "" ]; then \
-      apt-get update -y -q && \
-      apt-get install -y -q --no-install-recommends \
-          g++ \
-          gcc; \
-    else \
-      apt-get update -y -q && \
-      apt-get install -y -q --no-install-recommends software-properties-common && \
-      add-apt-repository ppa:ubuntu-toolchain-r/volatile && \
-      apt-get update -y -q && \
-      apt-get install -y -q --no-install-recommends \
-          g++-${gcc_version} \
-          gcc-${gcc_version}; \
-    fi
-
-
 # Installs C++ toolchain and dependencies
 RUN apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
@@ -151,3 +134,27 @@ ENV ARROW_BUILD_TESTS=ON \
     PARQUET_BUILD_EXECUTABLES=ON \
     PATH=/usr/lib/ccache/:$PATH \
     PYTHON=python3
+
+ARG gcc_version=""
+RUN if [ "${gcc_version}" = "" ]; then \
+      apt-get update -y -q && \
+      apt-get install -y -q --no-install-recommends \
+          g++ \
+          gcc; \
+    else \
+      if [ "${gcc_version}" -gt "10" ]; then \
+          apt-get update -y -q && \
+          apt-get install -y -q --no-install-recommends software-properties-common && \
+          add-apt-repository ppa:ubuntu-toolchain-r/volatile; \
+      fi; \
+      apt-get update -y -q && \
+      apt-get install -y -q --no-install-recommends \
+          g++-${gcc_version} \
+          gcc-${gcc_version} && \
+      update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${gcc_version} 100 && \
+      update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${gcc_version} 100 && \
+      update-alternatives --install /usr/bin/cc cc /usr/bin/gcc 100 && \
+      update-alternatives --set cc /usr/bin/gcc && \
+      update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++ 100 && \
+      update-alternatives --set c++ /usr/bin/g++; \
+    fi

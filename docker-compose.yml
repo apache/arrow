@@ -1008,6 +1008,8 @@ services:
         arch: ${ARCH}
         r: ${R}
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
+        arrow_home: ${ARROW_HOME}
+        gcc_version: ${GCC_VERSION}
     shm_size: *shm-size
     environment:
       <<: *ccache
@@ -1038,6 +1040,7 @@ services:
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
         arrow_home: ${ARROW_HOME}
         arrow_build_static: "ON"
+        gcc_version: ${GCC_VERSION}
     shm_size: *shm-size
     environment:
       <<: *ccache
