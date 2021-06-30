@@ -1623,10 +1623,15 @@ cdef class ParquetFileFormat(FileFormat):
     def read_options(self):
         cdef CParquetFileFormatReaderOptions* options
         options = &self.parquet_format.reader_options
-        return ParquetReadOptions(
+        parquet_read_options = ParquetReadOptions(
             dictionary_columns={frombytes(col)
                                 for col in options.dict_columns},
         )
+        # Read options getter/setter works with strings so setting
+        # the private property which uses the C Type
+        parquet_read_options._coerce_int96_timestamp_unit = \
+            options.coerce_int96_timestamp_unit
+        return parquet_read_options
 
     def make_write_options(self, **kwargs):
         opts = FileFormat.make_write_options(self)

@@ -643,6 +643,17 @@ def test_parquet_read_options():
     assert opts1 != opts3
 
 
+def test_parquet_file_format_read_options():
+    pff1 = ds.ParquetFileFormat()
+    pff2 = ds.ParquetFileFormat(dictionary_columns={'a'})
+    pff3 = ds.ParquetFileFormat(coerce_int96_timestamp_unit="s")
+
+    assert pff1.read_options == ds.ParquetReadOptions()
+    assert pff2.read_options == ds.ParquetReadOptions(dictionary_columns=['a'])
+    assert pff3.read_options == ds.ParquetReadOptions(
+        coerce_int96_timestamp_unit="s")
+
+
 def test_parquet_scan_options():
     opts1 = ds.ParquetFragmentScanOptions()
     opts2 = ds.ParquetFragmentScanOptions(buffer_size=4096)
