@@ -41,7 +41,8 @@ class GoTester(Tester):
     FLIGHT_SERVER_CMD = [
         os.path.join(GOBIN, 'arrow-flight-integration-server')]
     FLIGHT_CLIENT_CMD = [
-        os.path.join(GOBIN, 'arrow-flight-integration-client'), '-host', 'localhost']
+        os.path.join(GOBIN, 'arrow-flight-integration-client'),
+        '-host', 'localhost']
 
     name = 'Go'
 
