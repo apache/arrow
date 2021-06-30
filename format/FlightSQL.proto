@@ -86,11 +86,11 @@ message CommandGetSqlInfo {
    * SQL_QUOTED_IDENTIFIER_CASE
    *
    * If omitted, then all metadata will be retrieved.
+   * Flight SQL Servers may choose to include additional metadata above and beyond the specified set, however they must
+   * at least return the specified set. If additional metadata is included, the metadata names should be prefixed
+   * with "CUSTOM_" to identify them as such.
    */
   repeated string info = 1;
-
-  // Implementation specific custom SqlInfo values.
-  repeated string custom_info = 2;
 }
 
 /*
