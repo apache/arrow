@@ -112,7 +112,7 @@ TEST_F(ScalarTemporalTest, TestTemporalComponentExtraction) {
   CheckScalarUnary("quarter", unit, times, int64(), quarter);
   CheckScalarUnary("hour", unit, times, int64(), hour);
   CheckScalarUnary("minute", unit, times, int64(), minute);
-  CheckScalarUnary("second", unit, times, float64(), second);
+  CheckScalarUnary("second", unit, times, int64(), second);
   CheckScalarUnary("millisecond", unit, times, int64(), millisecond);
   CheckScalarUnary("microsecond", unit, times, int64(), microsecond);
   CheckScalarUnary("nanosecond", unit, times, int64(), nanosecond);
@@ -172,7 +172,7 @@ TEST_F(ScalarTemporalTest, TestTemporalComponentExtractionWithDifferentUnits) {
     CheckScalarUnary("quarter", unit, times_seconds_precision, int64(), quarter);
     CheckScalarUnary("hour", unit, times_seconds_precision, int64(), hour);
     CheckScalarUnary("minute", unit, times_seconds_precision, int64(), minute);
-    CheckScalarUnary("second", unit, times_seconds_precision, float64(), second);
+    CheckScalarUnary("second", unit, times_seconds_precision, int64(), second);
     CheckScalarUnary("millisecond", unit, times_seconds_precision, int64(), zeros);
     CheckScalarUnary("microsecond", unit, times_seconds_precision, int64(), zeros);
     CheckScalarUnary("nanosecond", unit, times_seconds_precision, int64(), zeros);

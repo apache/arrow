@@ -471,7 +471,7 @@ SCALAR_EAGER_UNARY(Microsecond, "microsecond")
 SCALAR_EAGER_UNARY(Nanosecond, "nanosecond")
 SCALAR_EAGER_UNARY(Subsecond, "subsecond")
 
-Result<Datum> DayOfWeek(const Datum& arg, DayOfWeekOptions options, ExecContext* ctx) {
+Result<Datum> DayOfWeek(const Datum& arg, const DayOfWeekOptions options, ExecContext* ctx) {
   return CallFunction("day_of_week", {arg}, &options, ctx);
 }
 

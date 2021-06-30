@@ -635,7 +635,7 @@ void RegisterScalarTemporal(FunctionRegistry* registry) {
   auto minute = MakeTemporal<Minute, Int64Type>("minute", &minute_doc);
   DCHECK_OK(registry->AddFunction(std::move(minute)));
 
-  auto second = MakeTemporal<Second, DoubleType>("second", &second_doc);
+  auto second = MakeTemporal<Second, Int64Type>("second", &second_doc);
   DCHECK_OK(registry->AddFunction(std::move(second)));
 
   auto millisecond =
