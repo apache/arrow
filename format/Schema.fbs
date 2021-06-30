@@ -243,7 +243,7 @@ table Time {
 /// elapsed from the Unix epoch so that a wall clock in UTC would display the desired time.
 /// Futhermore, the timezone string should be set to null.
 ///
-/// In ALL cases the values of the Timestamp column should be the time elapsed from the
+/// In ALL cases the values of the Timestamp column should be an offset from the
 /// Unix epoch.  Libraries that manipulate timestamp data can often treat these values as
 /// UTC regardless of the actual temporal type.
 table Timestamp {
