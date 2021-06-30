@@ -208,6 +208,9 @@ Result<ExecNode*> MakeTestSourceNode(ExecPlan* plan, std::string label,
     ARROW_ASSIGN_OR_RAISE(
         gen, MakeBackgroundGenerator(MakeVectorIterator(std::move(opt_batches)),
                                      internal::GetCpuThreadPool()));
+
+    // ensure that callbacks are not executed immediately on a background thread
+    gen = MakeTransferredGenerator(std::move(gen), internal::GetCpuThreadPool());
   } else {
     gen = MakeVectorGenerator(std::move(opt_batches));
   }
