@@ -34,30 +34,33 @@ namespace gandiva {
 
  private:
   int tmp_;
-}*/;
+}*/
+;
 
 class TestLruCache : public ::testing::Test {
  public:
-  TestLruCache() : cache_(2, 256, 256) {};
+  TestLruCache() : cache_(2, 256, 256){};
 
  protected:
   LruCache<BaseCacheKey, std::shared_ptr<llvm::MemoryBuffer>> cache_;
-
 };
 
 TEST_F(TestLruCache, TestEvict) {
   llvm::StringRef hello_ref("hello");
-  std::unique_ptr<llvm::MemoryBuffer> hello_buffer_uptr = llvm::MemoryBuffer::getMemBuffer(hello_ref);
+  std::unique_ptr<llvm::MemoryBuffer> hello_buffer_uptr =
+      llvm::MemoryBuffer::getMemBuffer(hello_ref);
   std::shared_ptr<llvm::MemoryBuffer> hello_buffer_sptr = std::move(hello_buffer_uptr);
   BaseCacheKey hello_key("test", "1");
 
   llvm::StringRef bye_ref("bye");
-  std::unique_ptr<llvm::MemoryBuffer> bye_buffer_uptr = llvm::MemoryBuffer::getMemBuffer(bye_ref);
+  std::unique_ptr<llvm::MemoryBuffer> bye_buffer_uptr =
+      llvm::MemoryBuffer::getMemBuffer(bye_ref);
   std::shared_ptr<llvm::MemoryBuffer> bye_buffer_sptr = std::move(bye_buffer_uptr);
   BaseCacheKey bye_key("test", "2");
 
   llvm::StringRef hey_ref("hey");
-  std::unique_ptr<llvm::MemoryBuffer> hey_buffer_uptr = llvm::MemoryBuffer::getMemBuffer(hey_ref);
+  std::unique_ptr<llvm::MemoryBuffer> hey_buffer_uptr =
+      llvm::MemoryBuffer::getMemBuffer(hey_ref);
   std::shared_ptr<llvm::MemoryBuffer> hey_buffer_sptr = std::move(hey_buffer_uptr);
   BaseCacheKey hey_key("test", "3");
 
@@ -73,17 +76,20 @@ TEST_F(TestLruCache, TestEvict) {
 
 TEST_F(TestLruCache, TestLruBehavior) {
   llvm::StringRef hello_ref("hello");
-  std::unique_ptr<llvm::MemoryBuffer> hello_buffer_uptr = llvm::MemoryBuffer::getMemBuffer(hello_ref);
+  std::unique_ptr<llvm::MemoryBuffer> hello_buffer_uptr =
+      llvm::MemoryBuffer::getMemBuffer(hello_ref);
   std::shared_ptr<llvm::MemoryBuffer> hello_buffer_sptr = std::move(hello_buffer_uptr);
   BaseCacheKey hello_key("test", "1");
 
   llvm::StringRef bye_ref("bye");
-  std::unique_ptr<llvm::MemoryBuffer> bye_buffer_uptr = llvm::MemoryBuffer::getMemBuffer(bye_ref);
+  std::unique_ptr<llvm::MemoryBuffer> bye_buffer_uptr =
+      llvm::MemoryBuffer::getMemBuffer(bye_ref);
   std::shared_ptr<llvm::MemoryBuffer> bye_buffer_sptr = std::move(bye_buffer_uptr);
   BaseCacheKey bye_key("test", "2");
 
   llvm::StringRef hey_ref("hey");
-  std::unique_ptr<llvm::MemoryBuffer> hey_buffer_uptr = llvm::MemoryBuffer::getMemBuffer(hey_ref);
+  std::unique_ptr<llvm::MemoryBuffer> hey_buffer_uptr =
+      llvm::MemoryBuffer::getMemBuffer(hey_ref);
   std::shared_ptr<llvm::MemoryBuffer> hey_buffer_sptr = std::move(hey_buffer_uptr);
   BaseCacheKey hey_key("test", "3");
 
@@ -98,17 +104,20 @@ TEST_F(TestLruCache, TestLruBehavior) {
 
 TEST_F(TestLruCache, TestEvictObject) {
   llvm::StringRef a_ref("a");
-  std::unique_ptr<llvm::MemoryBuffer> a_buffer_uptr = llvm::MemoryBuffer::getMemBuffer(a_ref);
+  std::unique_ptr<llvm::MemoryBuffer> a_buffer_uptr =
+      llvm::MemoryBuffer::getMemBuffer(a_ref);
   std::shared_ptr<llvm::MemoryBuffer> a_buffer_sptr = std::move(a_buffer_uptr);
   BaseCacheKey a_key("test", "1");
 
   llvm::StringRef b_ref("b");
-  std::unique_ptr<llvm::MemoryBuffer> b_buffer_uptr = llvm::MemoryBuffer::getMemBuffer(b_ref);
+  std::unique_ptr<llvm::MemoryBuffer> b_buffer_uptr =
+      llvm::MemoryBuffer::getMemBuffer(b_ref);
   std::shared_ptr<llvm::MemoryBuffer> b_buffer_sptr = std::move(b_buffer_uptr);
   BaseCacheKey b_key("test", "2");
 
   llvm::StringRef c_ref("c");
-  std::unique_ptr<llvm::MemoryBuffer> c_buffer_uptr = llvm::MemoryBuffer::getMemBuffer(c_ref);
+  std::unique_ptr<llvm::MemoryBuffer> c_buffer_uptr =
+      llvm::MemoryBuffer::getMemBuffer(c_ref);
   std::shared_ptr<llvm::MemoryBuffer> c_buffer_sptr = std::move(c_buffer_uptr);
   BaseCacheKey c_key("test", "3");
 
@@ -124,11 +133,11 @@ TEST_F(TestLruCache, TestEvictObject) {
   // check for evicted objects that are now files
   bool a_file_is_cached = false;
   std::string a_file_name = std::to_string(a_key.Hash()) + ".cache";
-  llvm::SmallString<128>a_cache_file = cache_.getCacheDir();
+  llvm::SmallString<128> a_cache_file = cache_.getCacheDir();
   llvm::sys::path::append(a_cache_file, a_file_name);
 
   std::ifstream a_cached_file(a_cache_file.c_str(), std::ios::binary);
-  if(a_cached_file) {
+  if (a_cached_file) {
     a_file_is_cached = true;
   }
   a_cached_file.close();
@@ -136,11 +145,11 @@ TEST_F(TestLruCache, TestEvictObject) {
 
   bool b_file_is_cached = false;
   std::string b_file_name = std::to_string(b_key.Hash()) + ".cache";
-  llvm::SmallString<128>b_cache_file = cache_.getCacheDir();
+  llvm::SmallString<128> b_cache_file = cache_.getCacheDir();
   llvm::sys::path::append(b_cache_file, a_file_name);
 
   std::ifstream b_cached_file(b_cache_file.c_str(), std::ios::binary);
-  if(b_cached_file) {
+  if (b_cached_file) {
     b_file_is_cached = true;
   }
   b_cached_file.close();
@@ -149,12 +158,14 @@ TEST_F(TestLruCache, TestEvictObject) {
 
 TEST_F(TestLruCache, TestReinsertObject) {
   llvm::StringRef d_ref("d");
-  std::unique_ptr<llvm::MemoryBuffer> d_buffer_uptr = llvm::MemoryBuffer::getMemBuffer(d_ref);
+  std::unique_ptr<llvm::MemoryBuffer> d_buffer_uptr =
+      llvm::MemoryBuffer::getMemBuffer(d_ref);
   std::shared_ptr<llvm::MemoryBuffer> d_buffer_sptr = std::move(d_buffer_uptr);
   BaseCacheKey d_key("test", "4");
 
   llvm::StringRef e_ref("e");
-  std::unique_ptr<llvm::MemoryBuffer> e_buffer_uptr = llvm::MemoryBuffer::getMemBuffer(e_ref);
+  std::unique_ptr<llvm::MemoryBuffer> e_buffer_uptr =
+      llvm::MemoryBuffer::getMemBuffer(e_ref);
   std::shared_ptr<llvm::MemoryBuffer> e_buffer_sptr = std::move(e_buffer_uptr);
   BaseCacheKey e_key("test", "5");
 
@@ -168,11 +179,11 @@ TEST_F(TestLruCache, TestReinsertObject) {
   // check for evicted d object that are now a file
   bool d_file_is_cached = false;
   std::string d_file_name = std::to_string(d_key.Hash()) + ".cache";
-  llvm::SmallString<128>d_cache_file = cache_.getCacheDir();
+  llvm::SmallString<128> d_cache_file = cache_.getCacheDir();
   llvm::sys::path::append(d_cache_file, d_file_name);
 
   std::ifstream d_cached_file(d_cache_file.c_str(), std::ios::binary);
-  if(d_cached_file) {
+  if (d_cached_file) {
     d_file_is_cached = true;
   }
   d_cached_file.close();

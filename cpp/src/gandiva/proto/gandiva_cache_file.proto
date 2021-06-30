@@ -16,22 +16,22 @@
 // under the License.
 
 syntax = "proto2";
-package gandiva.cache.file;
+package gandiva.cache.proto;
 
-message ExpressionString {
-  optional string expression = 1;
-}
-
-message ExpressionsList {
-  repeated ExpressionString expressions = 1;
-}
+//message ExpressionString {
+//  optional string expression = 1;
+//}
+//
+//message ExpressionsList {
+//  repeated ExpressionString expressions = 1;
+//}
 
 message SchemaExpressionsPair {
   optional string schema = 1;
-  optional ExpressionsList expressions = 2;
+  repeated string expressions = 2;
 }
 
 message SchemaExprsPairAndObjectCode {
   optional SchemaExpressionsPair schemaExpressionPair = 1;
-  optional string objectCode = 2;
+  optional bytes objectCode = 2;
 }

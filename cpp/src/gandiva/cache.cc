@@ -20,10 +20,12 @@
 
 namespace gandiva {
 
-//static const int DEFAULT_CACHE_SIZE = 500; //old cache capacity of 500 itens list
-static const size_t DEFAULT_CACHE_SIZE = 256 * 1024 * 1024; //bytes or 256 MiB
-static const size_t DEFAULT_DISK_CACHE_SIZE = 1ULL * 1024 * 1024 * 1024; //bytes or 1 GiB
-static const size_t DEFAULT_RESERVED_SIZE = 10ULL * 1024 * 1024 * 1024; //bytes or 10 GiB
+// static const int DEFAULT_CACHE_SIZE = 500; //old cache capacity of 500 itens list
+static const size_t DEFAULT_CACHE_SIZE = 256 * 1024 * 1024;  // bytes or 256 MiB
+static const size_t DEFAULT_DISK_CACHE_SIZE = 1ULL * 1024 * 1024 * 1024;  // bytes or 1
+                                                                          // GiB
+static const size_t DEFAULT_RESERVED_SIZE = 10ULL * 1024 * 1024 * 1024;  // bytes or 10
+                                                                         // GiB
 
 size_t GetCapacity() {
   size_t capacity;
@@ -39,7 +41,6 @@ size_t GetCapacity() {
   } else {
     capacity = DEFAULT_CACHE_SIZE;
   }
-
 
   return capacity;
 }
@@ -60,7 +61,6 @@ size_t GetDiskCapacity() {
     capacity = DEFAULT_DISK_CACHE_SIZE;
   }
 
-
   return capacity;
 }
 
@@ -79,7 +79,6 @@ size_t GetReserved() {
     reserved = DEFAULT_RESERVED_SIZE;
   }
 
-
   return reserved;
 }
 
@@ -88,9 +87,12 @@ size_t GetReserved() {
 }*/
 
 void LogCacheSizeSafely(size_t capacity, size_t disk_capacity, size_t reserved) {
-  ARROW_LOG(DEBUG) << "Creating gandiva cache with memory capacity of " << capacity << " bytes";
-  ARROW_LOG(DEBUG) << "Creating gandiva cache with disk space of " << disk_capacity << " bytes";
-  ARROW_LOG(DEBUG) << "Creating gandiva cache with reserved disk space of " << reserved << " bytes";
+  ARROW_LOG(DEBUG) << "Creating gandiva cache with memory capacity of " << capacity
+                   << " bytes";
+  ARROW_LOG(DEBUG) << "Creating gandiva cache with disk space of " << disk_capacity
+                   << " bytes";
+  ARROW_LOG(DEBUG) << "Creating gandiva cache with reserved disk space of " << reserved
+                   << " bytes";
 }
 
 }  // namespace gandiva

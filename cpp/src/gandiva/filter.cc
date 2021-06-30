@@ -24,13 +24,13 @@
 
 #include "arrow/util/hash_util.h"
 
+#include "gandiva/base_cache_key.h"
 #include "gandiva/bitmap_accumulator.h"
 #include "gandiva/cache.h"
 #include "gandiva/condition.h"
 #include "gandiva/expr_validator.h"
 #include "gandiva/llvm_generator.h"
 #include "gandiva/selection_vector_impl.h"
-#include "gandiva/base_cache_key.h"
 
 namespace gandiva {
 
@@ -73,7 +73,7 @@ std::string FilterCacheKey::ToString() const {
   std::stringstream ss;
   // indent, window, indent_size, null_rep and skip new lines.
   arrow::PrettyPrintOptions options{0, 10, 2, "null", true};
-      DCHECK_OK(PrettyPrint(*schema_.get(), options, &ss));
+  DCHECK_OK(PrettyPrint(*schema_.get(), options, &ss));
 
   ss << "Condition: [" << expression_as_string_ << "]";
   return ss.str();
@@ -103,11 +103,13 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   ARROW_RETURN_IF(configuration == nullptr,
                   Status::Invalid("Configuration cannot be null"));
 
-  std::shared_ptr<Cache<BaseCacheKey, std::shared_ptr<llvm::MemoryBuffer>>> shared_cache = LLVMGenerator::GetCache();
+  std::shared_ptr<Cache<BaseCacheKey, std::shared_ptr<llvm::MemoryBuffer>>> shared_cache =
+      LLVMGenerator::GetCache();
 
   FilterCacheKey filter_key(schema, configuration, *(condition.get()));
   BaseCacheKey cache_key(filter_key, "filter", condition);
-  std::unique_ptr<BaseCacheKey> base_cache_key = std::make_unique<BaseCacheKey>(cache_key);
+  std::unique_ptr<BaseCacheKey> base_cache_key =
+      std::make_unique<BaseCacheKey>(cache_key);
   std::shared_ptr<BaseCacheKey> shared_base_cache_key = std::move(base_cache_key);
 
   // LLVM ObjectCache flag;
@@ -118,11 +120,11 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
 
   // to use when caching only the obj code
   // Verify if previous filter obj code was cached
-  if(prev_cached_obj != nullptr) {
-    //ARROW_LOG(DEBUG) << "[OBJ-CACHE-LOG]: Object code WAS already cached!";
+  if (prev_cached_obj != nullptr) {
+    // ARROW_LOG(DEBUG) << "[OBJ-CACHE-LOG]: Object code WAS already cached!";
     llvm_flag = true;
   } else {
-    //ARROW_LOG(DEBUG) << "[OBJ-CACHE-LOG]: Object code WAS NOT already cached!";
+    // ARROW_LOG(DEBUG) << "[OBJ-CACHE-LOG]: Object code WAS NOT already cached!";
   }
 
   GandivaObjectCache<BaseCacheKey> obj_cache(shared_cache, shared_base_cache_key);
@@ -135,15 +137,20 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   // Return if the expression is invalid since we will not be able to process further.
   ExprValidator expr_validator(llvm_gen->types(), schema);
   ARROW_RETURN_NOT_OK(expr_validator.Validate(condition));
-  ARROW_RETURN_NOT_OK(llvm_gen->Build({condition}, SelectionVector::Mode::MODE_NONE, obj_cache)); // to use when caching only the obj code
+  ARROW_RETURN_NOT_OK(
+      llvm_gen->Build({condition}, SelectionVector::Mode::MODE_NONE,
+                      obj_cache));  // to use when caching only the obj code
 
   // Instantiate the filter with the completely built llvm generator
   *filter = std::make_shared<Filter>(std::move(llvm_gen), schema, configuration);
 
-  filter->get()->SetCompiledFromCache(llvm_flag); // to use when caching only the obj code
-  used_cache_size_ = shared_cache->getCacheSize(); // track filter cache memory use
+  filter->get()->SetCompiledFromCache(
+      llvm_flag);  // to use when caching only the obj code
+  used_cache_size_ = shared_cache->getCacheSize();  // track filter cache memory use
 
-  ARROW_LOG(DEBUG) << "[DEBUG][FILTER-CACHE-LOG] " + shared_cache->toString(); // to use when caching only the obj code
+  ARROW_LOG(DEBUG)
+      << "[DEBUG][FILTER-CACHE-LOG] " +
+             shared_cache->toString();  // to use when caching only the obj code
 
   return Status::OK();
 }
@@ -181,18 +188,11 @@ Status Filter::Evaluate(const arrow::RecordBatch& batch,
 
 std::string Filter::DumpIR() { return llvm_generator_->DumpIR(); }
 
-void Filter::SetCompiledFromCache(bool flag) {
-  compiled_from_cache_ = flag;
-}
+void Filter::SetCompiledFromCache(bool flag) { compiled_from_cache_ = flag; }
 
-bool Filter::GetCompiledFromCache() {
-  return compiled_from_cache_;
-}
+bool Filter::GetCompiledFromCache() { return compiled_from_cache_; }
 
-size_t Filter::GetUsedCacheSize() {
-
-  return used_cache_size_;
-}
+size_t Filter::GetUsedCacheSize() { return used_cache_size_; }
 
 size_t Filter::used_cache_size_ = 0;
 

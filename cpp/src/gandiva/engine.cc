@@ -303,8 +303,8 @@ Status Engine::FinalizeModule() {
   ARROW_RETURN_IF(llvm::verifyModule(*module_, &llvm::errs()),
                   Status::CodeGenError("Module verification failed after optimizer"));
   // do the compilation
-  if(execution_engine_->hasError()) {
-    //execution_engine_->finalizeObject();
+  if (execution_engine_->hasError()) {
+    // execution_engine_->finalizeObject();
     ARROW_LOG(INFO) << "[OBJ-CACHE-LOG][ERROR]: " << execution_engine_->getErrorMessage();
     module_finalized_ = false;
     return Status::OK();
@@ -313,7 +313,6 @@ Status Engine::FinalizeModule() {
     module_finalized_ = true;
     return Status::OK();
   }
-
 }
 
 void* Engine::CompiledFunction(llvm::Function* irFunction) {

@@ -5,655 +5,216 @@
 
 #include <algorithm>
 
-#include <google/protobuf/io/coded_stream.h>
-#include <google/protobuf/extension_set.h>
-#include <google/protobuf/wire_format_lite.h>
 #include <google/protobuf/descriptor.h>
+#include <google/protobuf/extension_set.h>
 #include <google/protobuf/generated_message_reflection.h>
+#include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/reflection_ops.h>
 #include <google/protobuf/wire_format.h>
+#include <google/protobuf/wire_format_lite.h>
 // @@protoc_insertion_point(includes)
 #include <google/protobuf/port_def.inc>
 
 PROTOBUF_PRAGMA_INIT_SEG
 namespace gandiva {
 namespace cache {
-namespace file {
-constexpr ExpressionString::ExpressionString(
-  ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
-  : expression_(&::PROTOBUF_NAMESPACE_ID::internal::fixed_address_empty_string){}
-struct ExpressionStringDefaultTypeInternal {
-  constexpr ExpressionStringDefaultTypeInternal()
-    : _instance(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized{}) {}
-  ~ExpressionStringDefaultTypeInternal() {}
-  union {
-    ExpressionString _instance;
-  };
-};
-PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT ExpressionStringDefaultTypeInternal _ExpressionString_default_instance_;
-constexpr ExpressionsList::ExpressionsList(
-  ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
-  : expressions_(){}
-struct ExpressionsListDefaultTypeInternal {
-  constexpr ExpressionsListDefaultTypeInternal()
-    : _instance(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized{}) {}
-  ~ExpressionsListDefaultTypeInternal() {}
-  union {
-    ExpressionsList _instance;
-  };
-};
-PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT ExpressionsListDefaultTypeInternal _ExpressionsList_default_instance_;
+namespace proto {
 constexpr SchemaExpressionsPair::SchemaExpressionsPair(
-  ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
-  : schema_(&::PROTOBUF_NAMESPACE_ID::internal::fixed_address_empty_string)
-  , expressions_(nullptr){}
+    ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
+    : expressions_(),
+      schema_(&::PROTOBUF_NAMESPACE_ID::internal::fixed_address_empty_string) {}
 struct SchemaExpressionsPairDefaultTypeInternal {
   constexpr SchemaExpressionsPairDefaultTypeInternal()
-    : _instance(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized{}) {}
+      : _instance(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized{}) {}
   ~SchemaExpressionsPairDefaultTypeInternal() {}
   union {
     SchemaExpressionsPair _instance;
   };
 };
-PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT SchemaExpressionsPairDefaultTypeInternal _SchemaExpressionsPair_default_instance_;
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT SchemaExpressionsPairDefaultTypeInternal
+    _SchemaExpressionsPair_default_instance_;
 constexpr SchemaExprsPairAndObjectCode::SchemaExprsPairAndObjectCode(
-  ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
-  : objectcode_(&::PROTOBUF_NAMESPACE_ID::internal::fixed_address_empty_string)
-  , schemaexpressionpair_(nullptr){}
+    ::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized)
+    : objectcode_(&::PROTOBUF_NAMESPACE_ID::internal::fixed_address_empty_string),
+      schemaexpressionpair_(nullptr) {}
 struct SchemaExprsPairAndObjectCodeDefaultTypeInternal {
   constexpr SchemaExprsPairAndObjectCodeDefaultTypeInternal()
-    : _instance(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized{}) {}
+      : _instance(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized{}) {}
   ~SchemaExprsPairAndObjectCodeDefaultTypeInternal() {}
   union {
     SchemaExprsPairAndObjectCode _instance;
   };
 };
-PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT SchemaExprsPairAndObjectCodeDefaultTypeInternal _SchemaExprsPairAndObjectCode_default_instance_;
-}  // namespace file
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    SchemaExprsPairAndObjectCodeDefaultTypeInternal
+        _SchemaExprsPairAndObjectCode_default_instance_;
+}  // namespace proto
 }  // namespace cache
 }  // namespace gandiva
-static ::PROTOBUF_NAMESPACE_ID::Metadata file_level_metadata_gandiva_5fcache_5ffile_2eproto[4];
-static constexpr ::PROTOBUF_NAMESPACE_ID::EnumDescriptor const** file_level_enum_descriptors_gandiva_5fcache_5ffile_2eproto = nullptr;
-static constexpr ::PROTOBUF_NAMESPACE_ID::ServiceDescriptor const** file_level_service_descriptors_gandiva_5fcache_5ffile_2eproto = nullptr;
+static ::PROTOBUF_NAMESPACE_ID::Metadata
+    file_level_metadata_gandiva_5fcache_5ffile_2eproto[2];
+static constexpr ::PROTOBUF_NAMESPACE_ID::EnumDescriptor const**
+    file_level_enum_descriptors_gandiva_5fcache_5ffile_2eproto = nullptr;
+static constexpr ::PROTOBUF_NAMESPACE_ID::ServiceDescriptor const**
+    file_level_service_descriptors_gandiva_5fcache_5ffile_2eproto = nullptr;
 
-const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_gandiva_5fcache_5ffile_2eproto::offsets[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) = {
-  PROTOBUF_FIELD_OFFSET(::gandiva::cache::file::ExpressionString, _has_bits_),
-  PROTOBUF_FIELD_OFFSET(::gandiva::cache::file::ExpressionString, _internal_metadata_),
-  ~0u,  // no _extensions_
-  ~0u,  // no _oneof_case_
-  ~0u,  // no _weak_field_map_
-  PROTOBUF_FIELD_OFFSET(::gandiva::cache::file::ExpressionString, expression_),
-  0,
-  ~0u,  // no _has_bits_
-  PROTOBUF_FIELD_OFFSET(::gandiva::cache::file::ExpressionsList, _internal_metadata_),
-  ~0u,  // no _extensions_
-  ~0u,  // no _oneof_case_
-  ~0u,  // no _weak_field_map_
-  PROTOBUF_FIELD_OFFSET(::gandiva::cache::file::ExpressionsList, expressions_),
-  PROTOBUF_FIELD_OFFSET(::gandiva::cache::file::SchemaExpressionsPair, _has_bits_),
-  PROTOBUF_FIELD_OFFSET(::gandiva::cache::file::SchemaExpressionsPair, _internal_metadata_),
-  ~0u,  // no _extensions_
-  ~0u,  // no _oneof_case_
-  ~0u,  // no _weak_field_map_
-  PROTOBUF_FIELD_OFFSET(::gandiva::cache::file::SchemaExpressionsPair, schema_),
-  PROTOBUF_FIELD_OFFSET(::gandiva::cache::file::SchemaExpressionsPair, expressions_),
-  0,
-  1,
-  PROTOBUF_FIELD_OFFSET(::gandiva::cache::file::SchemaExprsPairAndObjectCode, _has_bits_),
-  PROTOBUF_FIELD_OFFSET(::gandiva::cache::file::SchemaExprsPairAndObjectCode, _internal_metadata_),
-  ~0u,  // no _extensions_
-  ~0u,  // no _oneof_case_
-  ~0u,  // no _weak_field_map_
-  PROTOBUF_FIELD_OFFSET(::gandiva::cache::file::SchemaExprsPairAndObjectCode, schemaexpressionpair_),
-  PROTOBUF_FIELD_OFFSET(::gandiva::cache::file::SchemaExprsPairAndObjectCode, objectcode_),
-  1,
-  0,
+const ::PROTOBUF_NAMESPACE_ID::uint32
+    TableStruct_gandiva_5fcache_5ffile_2eproto::offsets[] PROTOBUF_SECTION_VARIABLE(
+        protodesc_cold) = {
+        PROTOBUF_FIELD_OFFSET(::gandiva::cache::proto::SchemaExpressionsPair, _has_bits_),
+        PROTOBUF_FIELD_OFFSET(::gandiva::cache::proto::SchemaExpressionsPair,
+                              _internal_metadata_),
+        ~0u,  // no _extensions_
+        ~0u,  // no _oneof_case_
+        ~0u,  // no _weak_field_map_
+        PROTOBUF_FIELD_OFFSET(::gandiva::cache::proto::SchemaExpressionsPair, schema_),
+        PROTOBUF_FIELD_OFFSET(::gandiva::cache::proto::SchemaExpressionsPair,
+                              expressions_),
+        0,
+        ~0u,
+        PROTOBUF_FIELD_OFFSET(::gandiva::cache::proto::SchemaExprsPairAndObjectCode,
+                              _has_bits_),
+        PROTOBUF_FIELD_OFFSET(::gandiva::cache::proto::SchemaExprsPairAndObjectCode,
+                              _internal_metadata_),
+        ~0u,  // no _extensions_
+        ~0u,  // no _oneof_case_
+        ~0u,  // no _weak_field_map_
+        PROTOBUF_FIELD_OFFSET(::gandiva::cache::proto::SchemaExprsPairAndObjectCode,
+                              schemaexpressionpair_),
+        PROTOBUF_FIELD_OFFSET(::gandiva::cache::proto::SchemaExprsPairAndObjectCode,
+                              objectcode_),
+        1,
+        0,
 };
-static const ::PROTOBUF_NAMESPACE_ID::internal::MigrationSchema schemas[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) = {
-  { 0, 6, sizeof(::gandiva::cache::file::ExpressionString)},
-  { 7, -1, sizeof(::gandiva::cache::file::ExpressionsList)},
-  { 13, 20, sizeof(::gandiva::cache::file::SchemaExpressionsPair)},
-  { 22, 29, sizeof(::gandiva::cache::file::SchemaExprsPairAndObjectCode)},
+static const ::PROTOBUF_NAMESPACE_ID::internal::MigrationSchema
+    schemas[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) = {
+        {0, 7, sizeof(::gandiva::cache::proto::SchemaExpressionsPair)},
+        {9, 16, sizeof(::gandiva::cache::proto::SchemaExprsPairAndObjectCode)},
 };
 
-static ::PROTOBUF_NAMESPACE_ID::Message const * const file_default_instances[] = {
-  reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::gandiva::cache::file::_ExpressionString_default_instance_),
-  reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::gandiva::cache::file::_ExpressionsList_default_instance_),
-  reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::gandiva::cache::file::_SchemaExpressionsPair_default_instance_),
-  reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(&::gandiva::cache::file::_SchemaExprsPairAndObjectCode_default_instance_),
+static ::PROTOBUF_NAMESPACE_ID::Message const* const file_default_instances[] = {
+    reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(
+        &::gandiva::cache::proto::_SchemaExpressionsPair_default_instance_),
+    reinterpret_cast<const ::PROTOBUF_NAMESPACE_ID::Message*>(
+        &::gandiva::cache::proto::_SchemaExprsPairAndObjectCode_default_instance_),
 };
 
-const char descriptor_table_protodef_gandiva_5fcache_5ffile_2eproto[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) =
-  "\n\030gandiva_cache_file.proto\022\022gandiva.cach"
-  "e.file\"&\n\020ExpressionString\022\022\n\nexpression"
-  "\030\001 \001(\t\"L\n\017ExpressionsList\0229\n\013expressions"
-  "\030\001 \003(\0132$.gandiva.cache.file.ExpressionSt"
-  "ring\"a\n\025SchemaExpressionsPair\022\016\n\006schema\030"
-  "\001 \001(\t\0228\n\013expressions\030\002 \001(\0132#.gandiva.cac"
-  "he.file.ExpressionsList\"{\n\034SchemaExprsPa"
-  "irAndObjectCode\022G\n\024schemaExpressionPair\030"
-  "\001 \001(\0132).gandiva.cache.file.SchemaExpress"
-  "ionsPair\022\022\n\nobjectCode\030\002 \001(\t"
-  ;
-static ::PROTOBUF_NAMESPACE_ID::internal::once_flag descriptor_table_gandiva_5fcache_5ffile_2eproto_once;
-const ::PROTOBUF_NAMESPACE_ID::internal::DescriptorTable descriptor_table_gandiva_5fcache_5ffile_2eproto = {
-  false, false, 388, descriptor_table_protodef_gandiva_5fcache_5ffile_2eproto, "gandiva_cache_file.proto", 
-  &descriptor_table_gandiva_5fcache_5ffile_2eproto_once, nullptr, 0, 4,
-  schemas, file_default_instances, TableStruct_gandiva_5fcache_5ffile_2eproto::offsets,
-  file_level_metadata_gandiva_5fcache_5ffile_2eproto, file_level_enum_descriptors_gandiva_5fcache_5ffile_2eproto, file_level_service_descriptors_gandiva_5fcache_5ffile_2eproto,
+const char
+    descriptor_table_protodef_gandiva_5fcache_5ffile_2eproto[] PROTOBUF_SECTION_VARIABLE(
+        protodesc_cold) =
+        "\n\030gandiva_cache_file.proto\022\023gandiva.cach"
+        "e.proto\"<\n\025SchemaExpressionsPair\022\016\n\006sche"
+        "ma\030\001 \001(\t\022\023\n\013expressions\030\002 \003(\t\"|\n\034SchemaE"
+        "xprsPairAndObjectCode\022H\n\024schemaExpressio"
+        "nPair\030\001 \001(\0132*.gandiva.cache.proto.Schema"
+        "ExpressionsPair\022\022\n\nobjectCode\030\002 \001(\014";
+static ::PROTOBUF_NAMESPACE_ID::internal::once_flag
+    descriptor_table_gandiva_5fcache_5ffile_2eproto_once;
+const ::PROTOBUF_NAMESPACE_ID::internal::DescriptorTable
+    descriptor_table_gandiva_5fcache_5ffile_2eproto = {
+        false,
+        false,
+        235,
+        descriptor_table_protodef_gandiva_5fcache_5ffile_2eproto,
+        "gandiva_cache_file.proto",
+        &descriptor_table_gandiva_5fcache_5ffile_2eproto_once,
+        nullptr,
+        0,
+        2,
+        schemas,
+        file_default_instances,
+        TableStruct_gandiva_5fcache_5ffile_2eproto::offsets,
+        file_level_metadata_gandiva_5fcache_5ffile_2eproto,
+        file_level_enum_descriptors_gandiva_5fcache_5ffile_2eproto,
+        file_level_service_descriptors_gandiva_5fcache_5ffile_2eproto,
 };
 PROTOBUF_ATTRIBUTE_WEAK ::PROTOBUF_NAMESPACE_ID::Metadata
 descriptor_table_gandiva_5fcache_5ffile_2eproto_metadata_getter(int index) {
-  ::PROTOBUF_NAMESPACE_ID::internal::AssignDescriptors(&descriptor_table_gandiva_5fcache_5ffile_2eproto);
+  ::PROTOBUF_NAMESPACE_ID::internal::AssignDescriptors(
+      &descriptor_table_gandiva_5fcache_5ffile_2eproto);
   return descriptor_table_gandiva_5fcache_5ffile_2eproto.file_level_metadata[index];
 }
 
 // Force running AddDescriptors() at dynamic initialization time.
-PROTOBUF_ATTRIBUTE_INIT_PRIORITY static ::PROTOBUF_NAMESPACE_ID::internal::AddDescriptorsRunner dynamic_init_dummy_gandiva_5fcache_5ffile_2eproto(&descriptor_table_gandiva_5fcache_5ffile_2eproto);
+PROTOBUF_ATTRIBUTE_INIT_PRIORITY static ::PROTOBUF_NAMESPACE_ID::internal::
+    AddDescriptorsRunner dynamic_init_dummy_gandiva_5fcache_5ffile_2eproto(
+        &descriptor_table_gandiva_5fcache_5ffile_2eproto);
 namespace gandiva {
 namespace cache {
-namespace file {
-
-// ===================================================================
-
-class ExpressionString::_Internal {
- public:
-  using HasBits = decltype(std::declval<ExpressionString>()._has_bits_);
-  static void set_has_expression(HasBits* has_bits) {
-    (*has_bits)[0] |= 1u;
-  }
-};
-
-ExpressionString::ExpressionString(::PROTOBUF_NAMESPACE_ID::Arena* arena)
-  : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
-  SharedCtor();
-  RegisterArenaDtor(arena);
-  // @@protoc_insertion_point(arena_constructor:gandiva.cache.file.ExpressionString)
-}
-ExpressionString::ExpressionString(const ExpressionString& from)
-  : ::PROTOBUF_NAMESPACE_ID::Message(),
-      _has_bits_(from._has_bits_) {
-  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  expression_.UnsafeSetDefault(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
-  if (from._internal_has_expression()) {
-    expression_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, from._internal_expression(), 
-      GetArena());
-  }
-  // @@protoc_insertion_point(copy_constructor:gandiva.cache.file.ExpressionString)
-}
-
-void ExpressionString::SharedCtor() {
-expression_.UnsafeSetDefault(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
-}
-
-ExpressionString::~ExpressionString() {
-  // @@protoc_insertion_point(destructor:gandiva.cache.file.ExpressionString)
-  SharedDtor();
-  _internal_metadata_.Delete<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
-}
-
-void ExpressionString::SharedDtor() {
-  GOOGLE_DCHECK(GetArena() == nullptr);
-  expression_.DestroyNoArena(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
-}
-
-void ExpressionString::ArenaDtor(void* object) {
-  ExpressionString* _this = reinterpret_cast< ExpressionString* >(object);
-  (void)_this;
-}
-void ExpressionString::RegisterArenaDtor(::PROTOBUF_NAMESPACE_ID::Arena*) {
-}
-void ExpressionString::SetCachedSize(int size) const {
-  _cached_size_.Set(size);
-}
-
-void ExpressionString::Clear() {
-// @@protoc_insertion_point(message_clear_start:gandiva.cache.file.ExpressionString)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
-  // Prevent compiler warnings about cached_has_bits being unused
-  (void) cached_has_bits;
-
-  cached_has_bits = _has_bits_[0];
-  if (cached_has_bits & 0x00000001u) {
-    expression_.ClearNonDefaultToEmpty();
-  }
-  _has_bits_.Clear();
-  _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
-}
-
-const char* ExpressionString::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) {
-#define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
-  _Internal::HasBits has_bits{};
-  while (!ctx->Done(&ptr)) {
-    ::PROTOBUF_NAMESPACE_ID::uint32 tag;
-    ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
-    CHK_(ptr);
-    switch (tag >> 3) {
-      // optional string expression = 1;
-      case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
-          auto str = _internal_mutable_expression();
-          ptr = ::PROTOBUF_NAMESPACE_ID::internal::InlineGreedyStringParser(str, ptr, ctx);
-          #ifndef NDEBUG
-          ::PROTOBUF_NAMESPACE_ID::internal::VerifyUTF8(str, "gandiva.cache.file.ExpressionString.expression");
-          #endif  // !NDEBUG
-          CHK_(ptr);
-        } else goto handle_unusual;
-        continue;
-      default: {
-      handle_unusual:
-        if ((tag & 7) == 4 || tag == 0) {
-          ctx->SetLastTag(tag);
-          goto success;
-        }
-        ptr = UnknownFieldParse(tag,
-            _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
-            ptr, ctx);
-        CHK_(ptr != nullptr);
-        continue;
-      }
-    }  // switch
-  }  // while
-success:
-  _has_bits_.Or(has_bits);
-  return ptr;
-failure:
-  ptr = nullptr;
-  goto success;
-#undef CHK_
-}
-
-::PROTOBUF_NAMESPACE_ID::uint8* ExpressionString::_InternalSerialize(
-    ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
-  // @@protoc_insertion_point(serialize_to_array_start:gandiva.cache.file.ExpressionString)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
-  (void) cached_has_bits;
-
-  cached_has_bits = _has_bits_[0];
-  // optional string expression = 1;
-  if (cached_has_bits & 0x00000001u) {
-    ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::VerifyUTF8StringNamedField(
-      this->_internal_expression().data(), static_cast<int>(this->_internal_expression().length()),
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::SERIALIZE,
-      "gandiva.cache.file.ExpressionString.expression");
-    target = stream->WriteStringMaybeAliased(
-        1, this->_internal_expression(), target);
-  }
-
-  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::InternalSerializeUnknownFieldsToArray(
-        _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
-  }
-  // @@protoc_insertion_point(serialize_to_array_end:gandiva.cache.file.ExpressionString)
-  return target;
-}
-
-size_t ExpressionString::ByteSizeLong() const {
-// @@protoc_insertion_point(message_byte_size_start:gandiva.cache.file.ExpressionString)
-  size_t total_size = 0;
-
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
-  // Prevent compiler warnings about cached_has_bits being unused
-  (void) cached_has_bits;
-
-  // optional string expression = 1;
-  cached_has_bits = _has_bits_[0];
-  if (cached_has_bits & 0x00000001u) {
-    total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
-        this->_internal_expression());
-  }
-
-  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
-    return ::PROTOBUF_NAMESPACE_ID::internal::ComputeUnknownFieldsSize(
-        _internal_metadata_, total_size, &_cached_size_);
-  }
-  int cached_size = ::PROTOBUF_NAMESPACE_ID::internal::ToCachedSize(total_size);
-  SetCachedSize(cached_size);
-  return total_size;
-}
-
-void ExpressionString::MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_merge_from_start:gandiva.cache.file.ExpressionString)
-  GOOGLE_DCHECK_NE(&from, this);
-  const ExpressionString* source =
-      ::PROTOBUF_NAMESPACE_ID::DynamicCastToGenerated<ExpressionString>(
-          &from);
-  if (source == nullptr) {
-  // @@protoc_insertion_point(generalized_merge_from_cast_fail:gandiva.cache.file.ExpressionString)
-    ::PROTOBUF_NAMESPACE_ID::internal::ReflectionOps::Merge(from, this);
-  } else {
-  // @@protoc_insertion_point(generalized_merge_from_cast_success:gandiva.cache.file.ExpressionString)
-    MergeFrom(*source);
-  }
-}
-
-void ExpressionString::MergeFrom(const ExpressionString& from) {
-// @@protoc_insertion_point(class_specific_merge_from_start:gandiva.cache.file.ExpressionString)
-  GOOGLE_DCHECK_NE(&from, this);
-  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
-  (void) cached_has_bits;
-
-  if (from._internal_has_expression()) {
-    _internal_set_expression(from._internal_expression());
-  }
-}
-
-void ExpressionString::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_copy_from_start:gandiva.cache.file.ExpressionString)
-  if (&from == this) return;
-  Clear();
-  MergeFrom(from);
-}
-
-void ExpressionString::CopyFrom(const ExpressionString& from) {
-// @@protoc_insertion_point(class_specific_copy_from_start:gandiva.cache.file.ExpressionString)
-  if (&from == this) return;
-  Clear();
-  MergeFrom(from);
-}
-
-bool ExpressionString::IsInitialized() const {
-  return true;
-}
-
-void ExpressionString::InternalSwap(ExpressionString* other) {
-  using std::swap;
-  _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
-  swap(_has_bits_[0], other->_has_bits_[0]);
-  expression_.Swap(&other->expression_, &::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), GetArena());
-}
-
-::PROTOBUF_NAMESPACE_ID::Metadata ExpressionString::GetMetadata() const {
-  return GetMetadataStatic();
-}
-
-
-// ===================================================================
-
-class ExpressionsList::_Internal {
- public:
-};
-
-ExpressionsList::ExpressionsList(::PROTOBUF_NAMESPACE_ID::Arena* arena)
-  : ::PROTOBUF_NAMESPACE_ID::Message(arena),
-  expressions_(arena) {
-  SharedCtor();
-  RegisterArenaDtor(arena);
-  // @@protoc_insertion_point(arena_constructor:gandiva.cache.file.ExpressionsList)
-}
-ExpressionsList::ExpressionsList(const ExpressionsList& from)
-  : ::PROTOBUF_NAMESPACE_ID::Message(),
-      expressions_(from.expressions_) {
-  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  // @@protoc_insertion_point(copy_constructor:gandiva.cache.file.ExpressionsList)
-}
-
-void ExpressionsList::SharedCtor() {
-}
-
-ExpressionsList::~ExpressionsList() {
-  // @@protoc_insertion_point(destructor:gandiva.cache.file.ExpressionsList)
-  SharedDtor();
-  _internal_metadata_.Delete<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
-}
-
-void ExpressionsList::SharedDtor() {
-  GOOGLE_DCHECK(GetArena() == nullptr);
-}
-
-void ExpressionsList::ArenaDtor(void* object) {
-  ExpressionsList* _this = reinterpret_cast< ExpressionsList* >(object);
-  (void)_this;
-}
-void ExpressionsList::RegisterArenaDtor(::PROTOBUF_NAMESPACE_ID::Arena*) {
-}
-void ExpressionsList::SetCachedSize(int size) const {
-  _cached_size_.Set(size);
-}
-
-void ExpressionsList::Clear() {
-// @@protoc_insertion_point(message_clear_start:gandiva.cache.file.ExpressionsList)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
-  // Prevent compiler warnings about cached_has_bits being unused
-  (void) cached_has_bits;
-
-  expressions_.Clear();
-  _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
-}
-
-const char* ExpressionsList::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) {
-#define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
-  while (!ctx->Done(&ptr)) {
-    ::PROTOBUF_NAMESPACE_ID::uint32 tag;
-    ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
-    CHK_(ptr);
-    switch (tag >> 3) {
-      // repeated .gandiva.cache.file.ExpressionString expressions = 1;
-      case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
-          ptr -= 1;
-          do {
-            ptr += 1;
-            ptr = ctx->ParseMessage(_internal_add_expressions(), ptr);
-            CHK_(ptr);
-            if (!ctx->DataAvailable(ptr)) break;
-          } while (::PROTOBUF_NAMESPACE_ID::internal::ExpectTag<10>(ptr));
-        } else goto handle_unusual;
-        continue;
-      default: {
-      handle_unusual:
-        if ((tag & 7) == 4 || tag == 0) {
-          ctx->SetLastTag(tag);
-          goto success;
-        }
-        ptr = UnknownFieldParse(tag,
-            _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
-            ptr, ctx);
-        CHK_(ptr != nullptr);
-        continue;
-      }
-    }  // switch
-  }  // while
-success:
-  return ptr;
-failure:
-  ptr = nullptr;
-  goto success;
-#undef CHK_
-}
-
-::PROTOBUF_NAMESPACE_ID::uint8* ExpressionsList::_InternalSerialize(
-    ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
-  // @@protoc_insertion_point(serialize_to_array_start:gandiva.cache.file.ExpressionsList)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
-  (void) cached_has_bits;
-
-  // repeated .gandiva.cache.file.ExpressionString expressions = 1;
-  for (unsigned int i = 0,
-      n = static_cast<unsigned int>(this->_internal_expressions_size()); i < n; i++) {
-    target = stream->EnsureSpace(target);
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(1, this->_internal_expressions(i), target, stream);
-  }
-
-  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::InternalSerializeUnknownFieldsToArray(
-        _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
-  }
-  // @@protoc_insertion_point(serialize_to_array_end:gandiva.cache.file.ExpressionsList)
-  return target;
-}
-
-size_t ExpressionsList::ByteSizeLong() const {
-// @@protoc_insertion_point(message_byte_size_start:gandiva.cache.file.ExpressionsList)
-  size_t total_size = 0;
-
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
-  // Prevent compiler warnings about cached_has_bits being unused
-  (void) cached_has_bits;
-
-  // repeated .gandiva.cache.file.ExpressionString expressions = 1;
-  total_size += 1UL * this->_internal_expressions_size();
-  for (const auto& msg : this->expressions_) {
-    total_size +=
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(msg);
-  }
-
-  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
-    return ::PROTOBUF_NAMESPACE_ID::internal::ComputeUnknownFieldsSize(
-        _internal_metadata_, total_size, &_cached_size_);
-  }
-  int cached_size = ::PROTOBUF_NAMESPACE_ID::internal::ToCachedSize(total_size);
-  SetCachedSize(cached_size);
-  return total_size;
-}
-
-void ExpressionsList::MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_merge_from_start:gandiva.cache.file.ExpressionsList)
-  GOOGLE_DCHECK_NE(&from, this);
-  const ExpressionsList* source =
-      ::PROTOBUF_NAMESPACE_ID::DynamicCastToGenerated<ExpressionsList>(
-          &from);
-  if (source == nullptr) {
-  // @@protoc_insertion_point(generalized_merge_from_cast_fail:gandiva.cache.file.ExpressionsList)
-    ::PROTOBUF_NAMESPACE_ID::internal::ReflectionOps::Merge(from, this);
-  } else {
-  // @@protoc_insertion_point(generalized_merge_from_cast_success:gandiva.cache.file.ExpressionsList)
-    MergeFrom(*source);
-  }
-}
-
-void ExpressionsList::MergeFrom(const ExpressionsList& from) {
-// @@protoc_insertion_point(class_specific_merge_from_start:gandiva.cache.file.ExpressionsList)
-  GOOGLE_DCHECK_NE(&from, this);
-  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
-  (void) cached_has_bits;
-
-  expressions_.MergeFrom(from.expressions_);
-}
-
-void ExpressionsList::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_copy_from_start:gandiva.cache.file.ExpressionsList)
-  if (&from == this) return;
-  Clear();
-  MergeFrom(from);
-}
-
-void ExpressionsList::CopyFrom(const ExpressionsList& from) {
-// @@protoc_insertion_point(class_specific_copy_from_start:gandiva.cache.file.ExpressionsList)
-  if (&from == this) return;
-  Clear();
-  MergeFrom(from);
-}
-
-bool ExpressionsList::IsInitialized() const {
-  return true;
-}
-
-void ExpressionsList::InternalSwap(ExpressionsList* other) {
-  using std::swap;
-  _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
-  expressions_.InternalSwap(&other->expressions_);
-}
-
-::PROTOBUF_NAMESPACE_ID::Metadata ExpressionsList::GetMetadata() const {
-  return GetMetadataStatic();
-}
-
+namespace proto {
 
 // ===================================================================
 
 class SchemaExpressionsPair::_Internal {
  public:
   using HasBits = decltype(std::declval<SchemaExpressionsPair>()._has_bits_);
-  static void set_has_schema(HasBits* has_bits) {
-    (*has_bits)[0] |= 1u;
-  }
-  static const ::gandiva::cache::file::ExpressionsList& expressions(const SchemaExpressionsPair* msg);
-  static void set_has_expressions(HasBits* has_bits) {
-    (*has_bits)[0] |= 2u;
-  }
+  static void set_has_schema(HasBits* has_bits) { (*has_bits)[0] |= 1u; }
 };
 
-const ::gandiva::cache::file::ExpressionsList&
-SchemaExpressionsPair::_Internal::expressions(const SchemaExpressionsPair* msg) {
-  return *msg->expressions_;
-}
 SchemaExpressionsPair::SchemaExpressionsPair(::PROTOBUF_NAMESPACE_ID::Arena* arena)
-  : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
+    : ::PROTOBUF_NAMESPACE_ID::Message(arena), expressions_(arena) {
   SharedCtor();
   RegisterArenaDtor(arena);
-  // @@protoc_insertion_point(arena_constructor:gandiva.cache.file.SchemaExpressionsPair)
+  // @@protoc_insertion_point(arena_constructor:gandiva.cache.proto.SchemaExpressionsPair)
 }
 SchemaExpressionsPair::SchemaExpressionsPair(const SchemaExpressionsPair& from)
-  : ::PROTOBUF_NAMESPACE_ID::Message(),
-      _has_bits_(from._has_bits_) {
-  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  schema_.UnsafeSetDefault(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
+    : ::PROTOBUF_NAMESPACE_ID::Message(),
+      _has_bits_(from._has_bits_),
+      expressions_(from.expressions_) {
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(
+      from._internal_metadata_);
+  schema_.UnsafeSetDefault(
+      &::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
   if (from._internal_has_schema()) {
-    schema_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, from._internal_schema(), 
-      GetArena());
+    schema_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{},
+                from._internal_schema(), GetArena());
   }
-  if (from._internal_has_expressions()) {
-    expressions_ = new ::gandiva::cache::file::ExpressionsList(*from.expressions_);
-  } else {
-    expressions_ = nullptr;
-  }
-  // @@protoc_insertion_point(copy_constructor:gandiva.cache.file.SchemaExpressionsPair)
+  // @@protoc_insertion_point(copy_constructor:gandiva.cache.proto.SchemaExpressionsPair)
 }
 
 void SchemaExpressionsPair::SharedCtor() {
-schema_.UnsafeSetDefault(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
-expressions_ = nullptr;
+  schema_.UnsafeSetDefault(
+      &::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
 }
 
 SchemaExpressionsPair::~SchemaExpressionsPair() {
-  // @@protoc_insertion_point(destructor:gandiva.cache.file.SchemaExpressionsPair)
+  // @@protoc_insertion_point(destructor:gandiva.cache.proto.SchemaExpressionsPair)
   SharedDtor();
   _internal_metadata_.Delete<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
 void SchemaExpressionsPair::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
-  schema_.DestroyNoArena(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
-  if (this != internal_default_instance()) delete expressions_;
+  schema_.DestroyNoArena(
+      &::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
 }
 
 void SchemaExpressionsPair::ArenaDtor(void* object) {
-  SchemaExpressionsPair* _this = reinterpret_cast< SchemaExpressionsPair* >(object);
+  SchemaExpressionsPair* _this = reinterpret_cast<SchemaExpressionsPair*>(object);
   (void)_this;
 }
-void SchemaExpressionsPair::RegisterArenaDtor(::PROTOBUF_NAMESPACE_ID::Arena*) {
-}
-void SchemaExpressionsPair::SetCachedSize(int size) const {
-  _cached_size_.Set(size);
-}
+void SchemaExpressionsPair::RegisterArenaDtor(::PROTOBUF_NAMESPACE_ID::Arena*) {}
+void SchemaExpressionsPair::SetCachedSize(int size) const { _cached_size_.Set(size); }
 
 void SchemaExpressionsPair::Clear() {
-// @@protoc_insertion_point(message_clear_start:gandiva.cache.file.SchemaExpressionsPair)
+  // @@protoc_insertion_point(message_clear_start:gandiva.cache.proto.SchemaExpressionsPair)
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
-  (void) cached_has_bits;
+  (void)cached_has_bits;
 
+  expressions_.Clear();
   cached_has_bits = _has_bits_[0];
-  if (cached_has_bits & 0x00000003u) {
-    if (cached_has_bits & 0x00000001u) {
-      schema_.ClearNonDefaultToEmpty();
-    }
-    if (cached_has_bits & 0x00000002u) {
-      GOOGLE_DCHECK(expressions_ != nullptr);
-      expressions_->Clear();
-    }
+  if (cached_has_bits & 0x00000001u) {
+    schema_.ClearNonDefaultToEmpty();
   }
   _has_bits_.Clear();
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
-const char* SchemaExpressionsPair::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) {
-#define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
+const char* SchemaExpressionsPair::_InternalParse(
+    const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) {
+#define CHK_(x) \
+  if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
   _Internal::HasBits has_bits{};
   while (!ctx->Done(&ptr)) {
     ::PROTOBUF_NAMESPACE_ID::uint32 tag;
@@ -662,21 +223,38 @@ const char* SchemaExpressionsPair::_InternalParse(const char* ptr, ::PROTOBUF_NA
     switch (tag >> 3) {
       // optional string schema = 1;
       case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) ==
+                                  10)) {
           auto str = _internal_mutable_schema();
-          ptr = ::PROTOBUF_NAMESPACE_ID::internal::InlineGreedyStringParser(str, ptr, ctx);
-          #ifndef NDEBUG
-          ::PROTOBUF_NAMESPACE_ID::internal::VerifyUTF8(str, "gandiva.cache.file.SchemaExpressionsPair.schema");
-          #endif  // !NDEBUG
+          ptr =
+              ::PROTOBUF_NAMESPACE_ID::internal::InlineGreedyStringParser(str, ptr, ctx);
+#ifndef NDEBUG
+          ::PROTOBUF_NAMESPACE_ID::internal::VerifyUTF8(
+              str, "gandiva.cache.proto.SchemaExpressionsPair.schema");
+#endif  // !NDEBUG
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
-      // optional .gandiva.cache.file.ExpressionsList expressions = 2;
+      // repeated string expressions = 2;
       case 2:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 18)) {
-          ptr = ctx->ParseMessage(_internal_mutable_expressions(), ptr);
-          CHK_(ptr);
-        } else goto handle_unusual;
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) ==
+                                  18)) {
+          ptr -= 1;
+          do {
+            ptr += 1;
+            auto str = _internal_add_expressions();
+            ptr = ::PROTOBUF_NAMESPACE_ID::internal::InlineGreedyStringParser(str, ptr,
+                                                                              ctx);
+#ifndef NDEBUG
+            ::PROTOBUF_NAMESPACE_ID::internal::VerifyUTF8(
+                str, "gandiva.cache.proto.SchemaExpressionsPair.expressions");
+#endif  // !NDEBUG
+            CHK_(ptr);
+            if (!ctx->DataAvailable(ptr)) break;
+          } while (::PROTOBUF_NAMESPACE_ID::internal::ExpectTag<18>(ptr));
+        } else
+          goto handle_unusual;
         continue;
       default: {
       handle_unusual:
@@ -684,14 +262,16 @@ const char* SchemaExpressionsPair::_InternalParse(const char* ptr, ::PROTOBUF_NA
           ctx->SetLastTag(tag);
           goto success;
         }
-        ptr = UnknownFieldParse(tag,
-            _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
+        ptr = UnknownFieldParse(
+            tag,
+            _internal_metadata_
+                .mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
             ptr, ctx);
         CHK_(ptr != nullptr);
         continue;
       }
     }  // switch
-  }  // while
+  }    // while
 success:
   _has_bits_.Or(has_bits);
   return ptr;
@@ -702,63 +282,66 @@ failure:
 }
 
 ::PROTOBUF_NAMESPACE_ID::uint8* SchemaExpressionsPair::_InternalSerialize(
-    ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
-  // @@protoc_insertion_point(serialize_to_array_start:gandiva.cache.file.SchemaExpressionsPair)
+    ::PROTOBUF_NAMESPACE_ID::uint8* target,
+    ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:gandiva.cache.proto.SchemaExpressionsPair)
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
-  (void) cached_has_bits;
+  (void)cached_has_bits;
 
   cached_has_bits = _has_bits_[0];
   // optional string schema = 1;
   if (cached_has_bits & 0x00000001u) {
     ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::VerifyUTF8StringNamedField(
-      this->_internal_schema().data(), static_cast<int>(this->_internal_schema().length()),
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::SERIALIZE,
-      "gandiva.cache.file.SchemaExpressionsPair.schema");
-    target = stream->WriteStringMaybeAliased(
-        1, this->_internal_schema(), target);
+        this->_internal_schema().data(),
+        static_cast<int>(this->_internal_schema().length()),
+        ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::SERIALIZE,
+        "gandiva.cache.proto.SchemaExpressionsPair.schema");
+    target = stream->WriteStringMaybeAliased(1, this->_internal_schema(), target);
   }
 
-  // optional .gandiva.cache.file.ExpressionsList expressions = 2;
-  if (cached_has_bits & 0x00000002u) {
-    target = stream->EnsureSpace(target);
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(
-        2, _Internal::expressions(this), target, stream);
+  // repeated string expressions = 2;
+  for (int i = 0, n = this->_internal_expressions_size(); i < n; i++) {
+    const auto& s = this->_internal_expressions(i);
+    ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::VerifyUTF8StringNamedField(
+        s.data(), static_cast<int>(s.length()),
+        ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::SERIALIZE,
+        "gandiva.cache.proto.SchemaExpressionsPair.expressions");
+    target = stream->WriteString(2, s, target);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::InternalSerializeUnknownFieldsToArray(
-        _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::
+        InternalSerializeUnknownFieldsToArray(
+            _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(
+                ::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance),
+            target, stream);
   }
-  // @@protoc_insertion_point(serialize_to_array_end:gandiva.cache.file.SchemaExpressionsPair)
+  // @@protoc_insertion_point(serialize_to_array_end:gandiva.cache.proto.SchemaExpressionsPair)
   return target;
 }
 
 size_t SchemaExpressionsPair::ByteSizeLong() const {
-// @@protoc_insertion_point(message_byte_size_start:gandiva.cache.file.SchemaExpressionsPair)
+  // @@protoc_insertion_point(message_byte_size_start:gandiva.cache.proto.SchemaExpressionsPair)
   size_t total_size = 0;
 
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
-  (void) cached_has_bits;
+  (void)cached_has_bits;
 
-  cached_has_bits = _has_bits_[0];
-  if (cached_has_bits & 0x00000003u) {
-    // optional string schema = 1;
-    if (cached_has_bits & 0x00000001u) {
-      total_size += 1 +
-        ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
-          this->_internal_schema());
-    }
-
-    // optional .gandiva.cache.file.ExpressionsList expressions = 2;
-    if (cached_has_bits & 0x00000002u) {
-      total_size += 1 +
-        ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
-          *expressions_);
-    }
-
+  // repeated string expressions = 2;
+  total_size += 1 * ::PROTOBUF_NAMESPACE_ID::internal::FromIntSize(expressions_.size());
+  for (int i = 0, n = expressions_.size(); i < n; i++) {
+    total_size += ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+        expressions_.Get(i));
   }
+
+  // optional string schema = 1;
+  cached_has_bits = _has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    total_size += 1 + ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
+                          this->_internal_schema());
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     return ::PROTOBUF_NAMESPACE_ID::internal::ComputeUnknownFieldsSize(
         _internal_metadata_, total_size, &_cached_size_);
@@ -769,142 +352,141 @@ size_t SchemaExpressionsPair::ByteSizeLong() const {
 }
 
 void SchemaExpressionsPair::MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_merge_from_start:gandiva.cache.file.SchemaExpressionsPair)
+  // @@protoc_insertion_point(generalized_merge_from_start:gandiva.cache.proto.SchemaExpressionsPair)
   GOOGLE_DCHECK_NE(&from, this);
   const SchemaExpressionsPair* source =
-      ::PROTOBUF_NAMESPACE_ID::DynamicCastToGenerated<SchemaExpressionsPair>(
-          &from);
+      ::PROTOBUF_NAMESPACE_ID::DynamicCastToGenerated<SchemaExpressionsPair>(&from);
   if (source == nullptr) {
-  // @@protoc_insertion_point(generalized_merge_from_cast_fail:gandiva.cache.file.SchemaExpressionsPair)
+    // @@protoc_insertion_point(generalized_merge_from_cast_fail:gandiva.cache.proto.SchemaExpressionsPair)
     ::PROTOBUF_NAMESPACE_ID::internal::ReflectionOps::Merge(from, this);
   } else {
-  // @@protoc_insertion_point(generalized_merge_from_cast_success:gandiva.cache.file.SchemaExpressionsPair)
+    // @@protoc_insertion_point(generalized_merge_from_cast_success:gandiva.cache.proto.SchemaExpressionsPair)
     MergeFrom(*source);
   }
 }
 
 void SchemaExpressionsPair::MergeFrom(const SchemaExpressionsPair& from) {
-// @@protoc_insertion_point(class_specific_merge_from_start:gandiva.cache.file.SchemaExpressionsPair)
+  // @@protoc_insertion_point(class_specific_merge_from_start:gandiva.cache.proto.SchemaExpressionsPair)
   GOOGLE_DCHECK_NE(&from, this);
-  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(
+      from._internal_metadata_);
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
-  (void) cached_has_bits;
+  (void)cached_has_bits;
 
-  cached_has_bits = from._has_bits_[0];
-  if (cached_has_bits & 0x00000003u) {
-    if (cached_has_bits & 0x00000001u) {
-      _internal_set_schema(from._internal_schema());
-    }
-    if (cached_has_bits & 0x00000002u) {
-      _internal_mutable_expressions()->::gandiva::cache::file::ExpressionsList::MergeFrom(from._internal_expressions());
-    }
+  expressions_.MergeFrom(from.expressions_);
+  if (from._internal_has_schema()) {
+    _internal_set_schema(from._internal_schema());
   }
 }
 
 void SchemaExpressionsPair::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_copy_from_start:gandiva.cache.file.SchemaExpressionsPair)
+  // @@protoc_insertion_point(generalized_copy_from_start:gandiva.cache.proto.SchemaExpressionsPair)
   if (&from == this) return;
   Clear();
   MergeFrom(from);
 }
 
 void SchemaExpressionsPair::CopyFrom(const SchemaExpressionsPair& from) {
-// @@protoc_insertion_point(class_specific_copy_from_start:gandiva.cache.file.SchemaExpressionsPair)
+  // @@protoc_insertion_point(class_specific_copy_from_start:gandiva.cache.proto.SchemaExpressionsPair)
   if (&from == this) return;
   Clear();
   MergeFrom(from);
 }
 
-bool SchemaExpressionsPair::IsInitialized() const {
-  return true;
-}
+bool SchemaExpressionsPair::IsInitialized() const { return true; }
 
 void SchemaExpressionsPair::InternalSwap(SchemaExpressionsPair* other) {
   using std::swap;
-  _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
+  _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(
+      &other->_internal_metadata_);
   swap(_has_bits_[0], other->_has_bits_[0]);
-  schema_.Swap(&other->schema_, &::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), GetArena());
-  swap(expressions_, other->expressions_);
+  expressions_.InternalSwap(&other->expressions_);
+  schema_.Swap(&other->schema_,
+               &::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(),
+               GetArena());
 }
 
 ::PROTOBUF_NAMESPACE_ID::Metadata SchemaExpressionsPair::GetMetadata() const {
   return GetMetadataStatic();
 }
 
-
 // ===================================================================
 
 class SchemaExprsPairAndObjectCode::_Internal {
  public:
   using HasBits = decltype(std::declval<SchemaExprsPairAndObjectCode>()._has_bits_);
-  static const ::gandiva::cache::file::SchemaExpressionsPair& schemaexpressionpair(const SchemaExprsPairAndObjectCode* msg);
-  static void set_has_schemaexpressionpair(HasBits* has_bits) {
-    (*has_bits)[0] |= 2u;
-  }
-  static void set_has_objectcode(HasBits* has_bits) {
-    (*has_bits)[0] |= 1u;
-  }
+  static const ::gandiva::cache::proto::SchemaExpressionsPair& schemaexpressionpair(
+      const SchemaExprsPairAndObjectCode* msg);
+  static void set_has_schemaexpressionpair(HasBits* has_bits) { (*has_bits)[0] |= 2u; }
+  static void set_has_objectcode(HasBits* has_bits) { (*has_bits)[0] |= 1u; }
 };
 
-const ::gandiva::cache::file::SchemaExpressionsPair&
-SchemaExprsPairAndObjectCode::_Internal::schemaexpressionpair(const SchemaExprsPairAndObjectCode* msg) {
+const ::gandiva::cache::proto::SchemaExpressionsPair&
+SchemaExprsPairAndObjectCode::_Internal::schemaexpressionpair(
+    const SchemaExprsPairAndObjectCode* msg) {
   return *msg->schemaexpressionpair_;
 }
-SchemaExprsPairAndObjectCode::SchemaExprsPairAndObjectCode(::PROTOBUF_NAMESPACE_ID::Arena* arena)
-  : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
+SchemaExprsPairAndObjectCode::SchemaExprsPairAndObjectCode(
+    ::PROTOBUF_NAMESPACE_ID::Arena* arena)
+    : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
   SharedCtor();
   RegisterArenaDtor(arena);
-  // @@protoc_insertion_point(arena_constructor:gandiva.cache.file.SchemaExprsPairAndObjectCode)
+  // @@protoc_insertion_point(arena_constructor:gandiva.cache.proto.SchemaExprsPairAndObjectCode)
 }
-SchemaExprsPairAndObjectCode::SchemaExprsPairAndObjectCode(const SchemaExprsPairAndObjectCode& from)
-  : ::PROTOBUF_NAMESPACE_ID::Message(),
-      _has_bits_(from._has_bits_) {
-  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  objectcode_.UnsafeSetDefault(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
+SchemaExprsPairAndObjectCode::SchemaExprsPairAndObjectCode(
+    const SchemaExprsPairAndObjectCode& from)
+    : ::PROTOBUF_NAMESPACE_ID::Message(), _has_bits_(from._has_bits_) {
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(
+      from._internal_metadata_);
+  objectcode_.UnsafeSetDefault(
+      &::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
   if (from._internal_has_objectcode()) {
-    objectcode_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, from._internal_objectcode(), 
-      GetArena());
+    objectcode_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{},
+                    from._internal_objectcode(), GetArena());
   }
   if (from._internal_has_schemaexpressionpair()) {
-    schemaexpressionpair_ = new ::gandiva::cache::file::SchemaExpressionsPair(*from.schemaexpressionpair_);
+    schemaexpressionpair_ =
+        new ::gandiva::cache::proto::SchemaExpressionsPair(*from.schemaexpressionpair_);
   } else {
     schemaexpressionpair_ = nullptr;
   }
-  // @@protoc_insertion_point(copy_constructor:gandiva.cache.file.SchemaExprsPairAndObjectCode)
+  // @@protoc_insertion_point(copy_constructor:gandiva.cache.proto.SchemaExprsPairAndObjectCode)
 }
 
 void SchemaExprsPairAndObjectCode::SharedCtor() {
-objectcode_.UnsafeSetDefault(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
-schemaexpressionpair_ = nullptr;
+  objectcode_.UnsafeSetDefault(
+      &::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
+  schemaexpressionpair_ = nullptr;
 }
 
 SchemaExprsPairAndObjectCode::~SchemaExprsPairAndObjectCode() {
-  // @@protoc_insertion_point(destructor:gandiva.cache.file.SchemaExprsPairAndObjectCode)
+  // @@protoc_insertion_point(destructor:gandiva.cache.proto.SchemaExprsPairAndObjectCode)
   SharedDtor();
   _internal_metadata_.Delete<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
 void SchemaExprsPairAndObjectCode::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
-  objectcode_.DestroyNoArena(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
+  objectcode_.DestroyNoArena(
+      &::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
   if (this != internal_default_instance()) delete schemaexpressionpair_;
 }
 
 void SchemaExprsPairAndObjectCode::ArenaDtor(void* object) {
-  SchemaExprsPairAndObjectCode* _this = reinterpret_cast< SchemaExprsPairAndObjectCode* >(object);
+  SchemaExprsPairAndObjectCode* _this =
+      reinterpret_cast<SchemaExprsPairAndObjectCode*>(object);
   (void)_this;
 }
-void SchemaExprsPairAndObjectCode::RegisterArenaDtor(::PROTOBUF_NAMESPACE_ID::Arena*) {
-}
+void SchemaExprsPairAndObjectCode::RegisterArenaDtor(::PROTOBUF_NAMESPACE_ID::Arena*) {}
 void SchemaExprsPairAndObjectCode::SetCachedSize(int size) const {
   _cached_size_.Set(size);
 }
 
 void SchemaExprsPairAndObjectCode::Clear() {
-// @@protoc_insertion_point(message_clear_start:gandiva.cache.file.SchemaExprsPairAndObjectCode)
+  // @@protoc_insertion_point(message_clear_start:gandiva.cache.proto.SchemaExprsPairAndObjectCode)
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
-  (void) cached_has_bits;
+  (void)cached_has_bits;
 
   cached_has_bits = _has_bits_[0];
   if (cached_has_bits & 0x00000003u) {
@@ -920,31 +502,35 @@ void SchemaExprsPairAndObjectCode::Clear() {
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
-const char* SchemaExprsPairAndObjectCode::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) {
-#define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
+const char* SchemaExprsPairAndObjectCode::_InternalParse(
+    const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) {
+#define CHK_(x) \
+  if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
   _Internal::HasBits has_bits{};
   while (!ctx->Done(&ptr)) {
     ::PROTOBUF_NAMESPACE_ID::uint32 tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     CHK_(ptr);
     switch (tag >> 3) {
-      // optional .gandiva.cache.file.SchemaExpressionsPair schemaExpressionPair = 1;
+      // optional .gandiva.cache.proto.SchemaExpressionsPair schemaExpressionPair = 1;
       case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) ==
+                                  10)) {
           ptr = ctx->ParseMessage(_internal_mutable_schemaexpressionpair(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
-      // optional string objectCode = 2;
+      // optional bytes objectCode = 2;
       case 2:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 18)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) ==
+                                  18)) {
           auto str = _internal_mutable_objectcode();
-          ptr = ::PROTOBUF_NAMESPACE_ID::internal::InlineGreedyStringParser(str, ptr, ctx);
-          #ifndef NDEBUG
-          ::PROTOBUF_NAMESPACE_ID::internal::VerifyUTF8(str, "gandiva.cache.file.SchemaExprsPairAndObjectCode.objectCode");
-          #endif  // !NDEBUG
+          ptr =
+              ::PROTOBUF_NAMESPACE_ID::internal::InlineGreedyStringParser(str, ptr, ctx);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       default: {
       handle_unusual:
@@ -952,14 +538,16 @@ const char* SchemaExprsPairAndObjectCode::_InternalParse(const char* ptr, ::PROT
           ctx->SetLastTag(tag);
           goto success;
         }
-        ptr = UnknownFieldParse(tag,
-            _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
+        ptr = UnknownFieldParse(
+            tag,
+            _internal_metadata_
+                .mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
             ptr, ctx);
         CHK_(ptr != nullptr);
         continue;
       }
     }  // switch
-  }  // while
+  }    // while
 success:
   _has_bits_.Or(has_bits);
   return ptr;
@@ -970,62 +558,57 @@ failure:
 }
 
 ::PROTOBUF_NAMESPACE_ID::uint8* SchemaExprsPairAndObjectCode::_InternalSerialize(
-    ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
-  // @@protoc_insertion_point(serialize_to_array_start:gandiva.cache.file.SchemaExprsPairAndObjectCode)
+    ::PROTOBUF_NAMESPACE_ID::uint8* target,
+    ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:gandiva.cache.proto.SchemaExprsPairAndObjectCode)
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
-  (void) cached_has_bits;
+  (void)cached_has_bits;
 
   cached_has_bits = _has_bits_[0];
-  // optional .gandiva.cache.file.SchemaExpressionsPair schemaExpressionPair = 1;
+  // optional .gandiva.cache.proto.SchemaExpressionsPair schemaExpressionPair = 1;
   if (cached_has_bits & 0x00000002u) {
     target = stream->EnsureSpace(target);
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
-      InternalWriteMessage(
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::InternalWriteMessage(
         1, _Internal::schemaexpressionpair(this), target, stream);
   }
 
-  // optional string objectCode = 2;
+  // optional bytes objectCode = 2;
   if (cached_has_bits & 0x00000001u) {
-    ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::VerifyUTF8StringNamedField(
-      this->_internal_objectcode().data(), static_cast<int>(this->_internal_objectcode().length()),
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::SERIALIZE,
-      "gandiva.cache.file.SchemaExprsPairAndObjectCode.objectCode");
-    target = stream->WriteStringMaybeAliased(
-        2, this->_internal_objectcode(), target);
+    target = stream->WriteBytesMaybeAliased(2, this->_internal_objectcode(), target);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::InternalSerializeUnknownFieldsToArray(
-        _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::
+        InternalSerializeUnknownFieldsToArray(
+            _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(
+                ::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance),
+            target, stream);
   }
-  // @@protoc_insertion_point(serialize_to_array_end:gandiva.cache.file.SchemaExprsPairAndObjectCode)
+  // @@protoc_insertion_point(serialize_to_array_end:gandiva.cache.proto.SchemaExprsPairAndObjectCode)
   return target;
 }
 
 size_t SchemaExprsPairAndObjectCode::ByteSizeLong() const {
-// @@protoc_insertion_point(message_byte_size_start:gandiva.cache.file.SchemaExprsPairAndObjectCode)
+  // @@protoc_insertion_point(message_byte_size_start:gandiva.cache.proto.SchemaExprsPairAndObjectCode)
   size_t total_size = 0;
 
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
-  (void) cached_has_bits;
+  (void)cached_has_bits;
 
   cached_has_bits = _has_bits_[0];
   if (cached_has_bits & 0x00000003u) {
-    // optional string objectCode = 2;
+    // optional bytes objectCode = 2;
     if (cached_has_bits & 0x00000001u) {
-      total_size += 1 +
-        ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
-          this->_internal_objectcode());
+      total_size += 1 + ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::BytesSize(
+                            this->_internal_objectcode());
     }
 
-    // optional .gandiva.cache.file.SchemaExpressionsPair schemaExpressionPair = 1;
+    // optional .gandiva.cache.proto.SchemaExpressionsPair schemaExpressionPair = 1;
     if (cached_has_bits & 0x00000002u) {
-      total_size += 1 +
-        ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
-          *schemaexpressionpair_);
+      total_size += 1 + ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
+                            *schemaexpressionpair_);
     }
-
   }
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     return ::PROTOBUF_NAMESPACE_ID::internal::ComputeUnknownFieldsSize(
@@ -1036,27 +619,29 @@ size_t SchemaExprsPairAndObjectCode::ByteSizeLong() const {
   return total_size;
 }
 
-void SchemaExprsPairAndObjectCode::MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_merge_from_start:gandiva.cache.file.SchemaExprsPairAndObjectCode)
+void SchemaExprsPairAndObjectCode::MergeFrom(
+    const ::PROTOBUF_NAMESPACE_ID::Message& from) {
+  // @@protoc_insertion_point(generalized_merge_from_start:gandiva.cache.proto.SchemaExprsPairAndObjectCode)
   GOOGLE_DCHECK_NE(&from, this);
   const SchemaExprsPairAndObjectCode* source =
       ::PROTOBUF_NAMESPACE_ID::DynamicCastToGenerated<SchemaExprsPairAndObjectCode>(
           &from);
   if (source == nullptr) {
-  // @@protoc_insertion_point(generalized_merge_from_cast_fail:gandiva.cache.file.SchemaExprsPairAndObjectCode)
+    // @@protoc_insertion_point(generalized_merge_from_cast_fail:gandiva.cache.proto.SchemaExprsPairAndObjectCode)
     ::PROTOBUF_NAMESPACE_ID::internal::ReflectionOps::Merge(from, this);
   } else {
-  // @@protoc_insertion_point(generalized_merge_from_cast_success:gandiva.cache.file.SchemaExprsPairAndObjectCode)
+    // @@protoc_insertion_point(generalized_merge_from_cast_success:gandiva.cache.proto.SchemaExprsPairAndObjectCode)
     MergeFrom(*source);
   }
 }
 
 void SchemaExprsPairAndObjectCode::MergeFrom(const SchemaExprsPairAndObjectCode& from) {
-// @@protoc_insertion_point(class_specific_merge_from_start:gandiva.cache.file.SchemaExprsPairAndObjectCode)
+  // @@protoc_insertion_point(class_specific_merge_from_start:gandiva.cache.proto.SchemaExprsPairAndObjectCode)
   GOOGLE_DCHECK_NE(&from, this);
-  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(
+      from._internal_metadata_);
   ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
-  (void) cached_has_bits;
+  (void)cached_has_bits;
 
   cached_has_bits = from._has_bits_[0];
   if (cached_has_bits & 0x00000003u) {
@@ -1064,34 +649,38 @@ void SchemaExprsPairAndObjectCode::MergeFrom(const SchemaExprsPairAndObjectCode&
       _internal_set_objectcode(from._internal_objectcode());
     }
     if (cached_has_bits & 0x00000002u) {
-      _internal_mutable_schemaexpressionpair()->::gandiva::cache::file::SchemaExpressionsPair::MergeFrom(from._internal_schemaexpressionpair());
+      _internal_mutable_schemaexpressionpair()
+          ->::gandiva::cache::proto::SchemaExpressionsPair::MergeFrom(
+              from._internal_schemaexpressionpair());
     }
   }
 }
 
-void SchemaExprsPairAndObjectCode::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_copy_from_start:gandiva.cache.file.SchemaExprsPairAndObjectCode)
+void SchemaExprsPairAndObjectCode::CopyFrom(
+    const ::PROTOBUF_NAMESPACE_ID::Message& from) {
+  // @@protoc_insertion_point(generalized_copy_from_start:gandiva.cache.proto.SchemaExprsPairAndObjectCode)
   if (&from == this) return;
   Clear();
   MergeFrom(from);
 }
 
 void SchemaExprsPairAndObjectCode::CopyFrom(const SchemaExprsPairAndObjectCode& from) {
-// @@protoc_insertion_point(class_specific_copy_from_start:gandiva.cache.file.SchemaExprsPairAndObjectCode)
+  // @@protoc_insertion_point(class_specific_copy_from_start:gandiva.cache.proto.SchemaExprsPairAndObjectCode)
   if (&from == this) return;
   Clear();
   MergeFrom(from);
 }
 
-bool SchemaExprsPairAndObjectCode::IsInitialized() const {
-  return true;
-}
+bool SchemaExprsPairAndObjectCode::IsInitialized() const { return true; }
 
 void SchemaExprsPairAndObjectCode::InternalSwap(SchemaExprsPairAndObjectCode* other) {
   using std::swap;
-  _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
+  _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(
+      &other->_internal_metadata_);
   swap(_has_bits_[0], other->_has_bits_[0]);
-  objectcode_.Swap(&other->objectcode_, &::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), GetArena());
+  objectcode_.Swap(&other->objectcode_,
+                   &::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(),
+                   GetArena());
   swap(schemaexpressionpair_, other->schemaexpressionpair_);
 }
 
@@ -1099,23 +688,23 @@ void SchemaExprsPairAndObjectCode::InternalSwap(SchemaExprsPairAndObjectCode* ot
   return GetMetadataStatic();
 }
 
-
 // @@protoc_insertion_point(namespace_scope)
-}  // namespace file
+}  // namespace proto
 }  // namespace cache
 }  // namespace gandiva
 PROTOBUF_NAMESPACE_OPEN
-template<> PROTOBUF_NOINLINE ::gandiva::cache::file::ExpressionString* Arena::CreateMaybeMessage< ::gandiva::cache::file::ExpressionString >(Arena* arena) {
-  return Arena::CreateMessageInternal< ::gandiva::cache::file::ExpressionString >(arena);
+template <>
+PROTOBUF_NOINLINE ::gandiva::cache::proto::SchemaExpressionsPair*
+Arena::CreateMaybeMessage<::gandiva::cache::proto::SchemaExpressionsPair>(Arena* arena) {
+  return Arena::CreateMessageInternal<::gandiva::cache::proto::SchemaExpressionsPair>(
+      arena);
 }
-template<> PROTOBUF_NOINLINE ::gandiva::cache::file::ExpressionsList* Arena::CreateMaybeMessage< ::gandiva::cache::file::ExpressionsList >(Arena* arena) {
-  return Arena::CreateMessageInternal< ::gandiva::cache::file::ExpressionsList >(arena);
-}
-template<> PROTOBUF_NOINLINE ::gandiva::cache::file::SchemaExpressionsPair* Arena::CreateMaybeMessage< ::gandiva::cache::file::SchemaExpressionsPair >(Arena* arena) {
-  return Arena::CreateMessageInternal< ::gandiva::cache::file::SchemaExpressionsPair >(arena);
-}
-template<> PROTOBUF_NOINLINE ::gandiva::cache::file::SchemaExprsPairAndObjectCode* Arena::CreateMaybeMessage< ::gandiva::cache::file::SchemaExprsPairAndObjectCode >(Arena* arena) {
-  return Arena::CreateMessageInternal< ::gandiva::cache::file::SchemaExprsPairAndObjectCode >(arena);
+template <>
+PROTOBUF_NOINLINE ::gandiva::cache::proto::SchemaExprsPairAndObjectCode*
+Arena::CreateMaybeMessage<::gandiva::cache::proto::SchemaExprsPairAndObjectCode>(
+    Arena* arena) {
+  return Arena::CreateMessageInternal<
+      ::gandiva::cache::proto::SchemaExprsPairAndObjectCode>(arena);
 }
 PROTOBUF_NAMESPACE_CLOSE
 

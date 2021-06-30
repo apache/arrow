@@ -39,7 +39,7 @@ size_t GetReserved();
 void LogCacheSize(size_t capacity);*/
 
 GANDIVA_EXPORT
-void LogCacheSizeSafely(size_t capacity, size_t disk_capacity,size_t reserved);
+void LogCacheSizeSafely(size_t capacity, size_t disk_capacity, size_t reserved);
 
 template <class KeyType, typename ValueType>
 class Cache {
@@ -48,8 +48,9 @@ class Cache {
   using WriteLock = std::unique_lock<MutexType>;
 
  public:
-  //explicit Cache(size_t capacity) : cache_(capacity) { LogCacheSize(capacity); }
-  explicit Cache(size_t capacity, size_t disk_capacity, size_t reserved) : cache_(capacity, disk_capacity, reserved) {
+  // explicit Cache(size_t capacity) : cache_(capacity) { LogCacheSize(capacity); }
+  explicit Cache(size_t capacity, size_t disk_capacity, size_t reserved)
+      : cache_(capacity, disk_capacity, reserved) {
     LogCacheSizeSafely(capacity, disk_capacity, reserved);
   }
 
@@ -81,19 +82,16 @@ class Cache {
     mtx_.unlock();
   }
 
-  void PutObjectCode(KeyType& cache_key, ValueType object_code, size_t object_cache_size) {
+  void PutObjectCode(KeyType& cache_key, ValueType object_code,
+                     size_t object_cache_size) {
     mtx_.lock();
     cache_.insertObject(cache_key, object_code, object_cache_size);
     mtx_.unlock();
   }
 
-  std::string toString() {
-    return cache_.toString();
-  }
+  std::string toString() { return cache_.toString(); }
 
-  size_t getCacheSize(){
-    return cache_.getLruCacheSize();
-  }
+  size_t getCacheSize() { return cache_.getLruCacheSize(); }
 
   std::pair<size_t, size_t> GetCapacitySafely();
 

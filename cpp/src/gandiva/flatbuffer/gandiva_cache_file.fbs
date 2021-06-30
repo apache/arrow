@@ -17,7 +17,7 @@
 
 //include "gandiva_types.fbs";
 
-namespace gandiva.cache;
+namespace gandiva.cache.fbs;
 
 // TODO: implement this to work with gandiva_types.fbs
 /*table SchemaExpressionsPair {
