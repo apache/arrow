@@ -244,15 +244,12 @@ class ARROW_EXPORT ProjectOptions : public FunctionOptions {
   std::vector<std::shared_ptr<const KeyValueMetadata>> field_metadata;
 };
 
-struct ARROW_EXPORT TemporalComponentExtractionOptions : public FunctionOptions {
-  explicit TemporalComponentExtractionOptions(bool one_based_numbering = false,
-                                              uint32_t week_start = 1)
+struct ARROW_EXPORT DayOfWeekOptions : public FunctionOptions {
+  explicit DayOfWeekOptions(bool one_based_numbering = false, uint32_t week_start = 1)
       : one_based_numbering(std::move(one_based_numbering)),
         week_start(std::move(week_start)) {}
 
-  static TemporalComponentExtractionOptions Defaults() {
-    return TemporalComponentExtractionOptions{};
-  }
+  static DayOfWeekOptions Defaults() { return DayOfWeekOptions{}; }
 
   /// Number days from 1 if true and form 0 if false
   bool one_based_numbering;
@@ -731,7 +728,7 @@ Result<Datum> Day(const Datum& values, ExecContext* ctx = NULLPTR);
 /// \brief DayOfWeek returns number of the day of the week value for each element of
 /// `values`. By default week starts on Monday denoted by 0 and ends on Sunday denoted
 /// by 6. Start day of the week (Monday=1, Sunday=7) and numbering base (0 or 1) can be
-/// set using TemporalComponentExtractionOptions
+/// set using DayOfWeekOptions
 ///
 /// \param[in] values input to extract number of the day of the week from
 /// \param[in] options for setting start of the week and day numbering
@@ -740,10 +737,9 @@ Result<Datum> Day(const Datum& values, ExecContext* ctx = NULLPTR);
 ///
 /// \since 5.0.0
 /// \note API not yet finalized
-ARROW_EXPORT Result<Datum> DayOfWeek(const Datum& values,
-                                     TemporalComponentExtractionOptions options =
-                                         TemporalComponentExtractionOptions::Defaults(),
-                                     ExecContext* ctx = NULLPTR);
+ARROW_EXPORT Result<Datum> DayOfWeek(
+    const Datum& values, DayOfWeekOptions options = DayOfWeekOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
 
 /// \brief DayOfYear returns number of day of the year for each element of `values`.
 /// January 1st maps to day number 1, February 1st to 32, etc.

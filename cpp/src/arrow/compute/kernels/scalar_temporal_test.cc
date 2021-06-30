@@ -116,28 +116,28 @@ TEST(ScalarTemporalTest, TestTemporalComponentExtraction) {
   auto expected_70 = ArrayFromJSON(int64(), day_of_week_week_start_7_zero_based);
   ASSERT_OK_AND_ASSIGN(
       Datum result_70,
-      DayOfWeek(timestamps, TemporalComponentExtractionOptions(
+      DayOfWeek(timestamps, DayOfWeekOptions(
                                 /*one_based_numbering=*/false, /*week_start=*/7)));
   ASSERT_TRUE(result_70.Equals(expected_70));
 
   auto expected_20 = ArrayFromJSON(int64(), day_of_week_week_start_2_zero_based);
   ASSERT_OK_AND_ASSIGN(
       Datum result_20,
-      DayOfWeek(timestamps, TemporalComponentExtractionOptions(
+      DayOfWeek(timestamps, DayOfWeekOptions(
                                 /*one_based_numbering=*/false, /*week_start=*/2)));
   ASSERT_TRUE(result_20.Equals(expected_20));
 
   auto expected_71 = ArrayFromJSON(int64(), day_of_week_week_start_7_one_based);
   ASSERT_OK_AND_ASSIGN(
       Datum result_71,
-      DayOfWeek(timestamps, TemporalComponentExtractionOptions(
+      DayOfWeek(timestamps, DayOfWeekOptions(
                                 /*one_based_numbering=*/true, /*week_start=*/7)));
   ASSERT_TRUE(result_71.Equals(expected_71));
 
   auto expected_21 = ArrayFromJSON(int64(), day_of_week_week_start_2_one_based);
   ASSERT_OK_AND_ASSIGN(
       Datum result_21,
-      DayOfWeek(timestamps, TemporalComponentExtractionOptions(
+      DayOfWeek(timestamps, DayOfWeekOptions(
                                 /*one_based_numbering=*/true, /*week_start=*/2)));
   ASSERT_TRUE(result_21.Equals(expected_21));
 }

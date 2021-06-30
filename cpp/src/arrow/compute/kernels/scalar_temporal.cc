@@ -50,7 +50,7 @@ using arrow_vendored::date::literals::thu;
 using internal::applicator::ScalarUnaryNotNull;
 using internal::applicator::SimpleUnary;
 
-using TemporalComponentExtractState = OptionsWrapper<TemporalComponentExtractionOptions>;
+using DayOfWeekState = OptionsWrapper<DayOfWeekOptions>;
 
 const std::string& GetInputTimezone(const Datum& datum) {
   return checked_cast<const TimestampType&>(*datum.type()).timezone();
@@ -85,11 +85,11 @@ struct TemporalComponentExtract {
 };
 
 template <typename Op, typename OutType>
-struct TemporalComponentExtractWithOptions {
+struct DayOfWeekOptionsWithOptions {
   using OutValue = typename internal::GetOutputType<OutType>::T;
 
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    TemporalComponentExtractionOptions options = TemporalComponentExtractState::Get(ctx);
+    DayOfWeekOptions options = DayOfWeekState::Get(ctx);
 
     RETURN_NOT_OK(TemporalComponentExtractCheckTimezone(batch.values[0]));
     applicator::ScalarUnaryNotNullStateful<OutType, TimestampType, Op> kernel{
@@ -139,11 +139,11 @@ struct Day {
 //
 // By default week starts on Monday represented by 0 and ends on Sunday represented
 // by 6. Start day of the week (Monday=1, Sunday=7) and numbering start (0 or 1) can be
-// set using TemporalComponentExtractionOptions
+// set using DayOfWeekOptions
 
 template <typename Duration>
 struct DayOfWeek {
-  explicit DayOfWeek(TemporalComponentExtractionOptions options) : options(options) {}
+  explicit DayOfWeek(DayOfWeekOptions options) : options(options) {}
 
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
@@ -154,7 +154,7 @@ struct DayOfWeek {
     return (wd + 7 - options.week_start) % 7 + options.one_based_numbering;
   }
 
-  TemporalComponentExtractionOptions options;
+  DayOfWeekOptions options;
 };
 
 // ----------------------------------------------------------------------
@@ -427,8 +427,8 @@ std::shared_ptr<ScalarFunction> MakeTemporal(std::string name, const FunctionDoc
 
 template <template <typename...> class Op, typename OutType>
 std::shared_ptr<ScalarFunction> MakeTemporalWithOptions(
-    std::string name, const FunctionDoc* doc,
-    const TemporalComponentExtractionOptions* default_options, KernelInit init) {
+    std::string name, const FunctionDoc* doc, const DayOfWeekOptions* default_options,
+    KernelInit init) {
   const auto& out_type = TypeTraits<OutType>::type_singleton();
   auto func =
       std::make_shared<ScalarFunction>(name, Arity::Unary(), doc, default_options);
@@ -437,26 +437,25 @@ std::shared_ptr<ScalarFunction> MakeTemporalWithOptions(
     InputType in_type{match::TimestampTypeUnit(unit)};
     switch (unit) {
       case TimeUnit::SECOND: {
-        auto exec =
-            TemporalComponentExtractWithOptions<Op<std::chrono::seconds>, OutType>::Exec;
+        auto exec = DayOfWeekOptionsWithOptions<Op<std::chrono::seconds>, OutType>::Exec;
         DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
         break;
       }
       case TimeUnit::MILLI: {
-        auto exec = TemporalComponentExtractWithOptions<Op<std::chrono::milliseconds>,
-                                                        OutType>::Exec;
+        auto exec =
+            DayOfWeekOptionsWithOptions<Op<std::chrono::milliseconds>, OutType>::Exec;
         DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
         break;
       }
       case TimeUnit::MICRO: {
-        auto exec = TemporalComponentExtractWithOptions<Op<std::chrono::microseconds>,
-                                                        OutType>::Exec;
+        auto exec =
+            DayOfWeekOptionsWithOptions<Op<std::chrono::microseconds>, OutType>::Exec;
         DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
         break;
       }
       case TimeUnit::NANO: {
-        auto exec = TemporalComponentExtractWithOptions<Op<std::chrono::nanoseconds>,
-                                                        OutType>::Exec;
+        auto exec =
+            DayOfWeekOptionsWithOptions<Op<std::chrono::nanoseconds>, OutType>::Exec;
         DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
         break;
       }
@@ -521,11 +520,11 @@ const FunctionDoc day_of_week_doc{
     ("By default Week starts on Monday represented by 0 and ends on Sunday represented "
      "by 6.\n"
      "Returns an error if timestamp has a defined timezone. Null values return null.\n"
-     "TemporalComponentExtractionOptions.week_start can be used to set another starting "
-     "day using ISO convention (Monday=1, Sunday=7). Day numbering can start with 0 or "
-     "1 using TemporalComponentExtractionOptions.one_based_numbering parameter."),
+     "DayOfWeekOptions.week_start can be used to set another starting day using ISO "
+     "convention (Monday=1, Sunday=7). Day numbering can start with 0 or 1 using "
+     "DayOfWeekOptions.one_based_numbering parameter."),
     {"values"},
-    "TemporalComponentExtractionOptions"};
+    "DayOfWeekOptions"};
 
 const FunctionDoc day_of_year_doc{
     "Extract number of day of year",
@@ -609,11 +608,10 @@ void RegisterScalarTemporal(FunctionRegistry* registry) {
   auto day = MakeTemporal<Day, Int64Type>("day", &year_doc);
   DCHECK_OK(registry->AddFunction(std::move(day)));
 
-  static auto default_temporal_component_extraction_options =
-      TemporalComponentExtractionOptions::Defaults();
+  static auto default_day_of_week_options = DayOfWeekOptions::Defaults();
   auto day_of_week = MakeTemporalWithOptions<DayOfWeek, Int64Type>(
-      "day_of_week", &day_of_week_doc, &default_temporal_component_extraction_options,
-      TemporalComponentExtractState::Init);
+      "day_of_week", &day_of_week_doc, &default_day_of_week_options,
+      DayOfWeekState::Init);
   DCHECK_OK(registry->AddFunction(std::move(day_of_week)));
 
   auto day_of_year = MakeTemporal<DayOfYear, Int64Type>("day_of_year", &day_of_year_doc);
