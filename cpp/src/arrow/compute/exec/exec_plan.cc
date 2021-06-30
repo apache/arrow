@@ -41,7 +41,11 @@ namespace {
 struct ExecPlanImpl : public ExecPlan {
   ExecPlanImpl() = default;
 
-  ~ExecPlanImpl() override = default;
+  ~ExecPlanImpl() override {
+    if (started_ && !stopped_) {
+      StopProducing();
+    }
+  }
 
   ExecNode* AddNode(std::unique_ptr<ExecNode> node) {
     if (node->num_inputs() == 0) {
@@ -65,70 +69,73 @@ struct ExecPlanImpl : public ExecPlan {
   }
 
   Status StartProducing() {
-    ARROW_ASSIGN_OR_RAISE(auto sorted_nodes, ReverseTopoSort());
-    Status st;
-    auto it = sorted_nodes.begin();
-    while (it != sorted_nodes.end() && st.ok()) {
-      st &= (*it++)->StartProducing();
+    if (started_) {
+      return Status::Invalid("restarted ExecPlan");
     }
-    if (!st.ok()) {
+    started_ = true;
+
+    // producers precede consumers
+    sorted_nodes_ = TopoSort();
+
+    for (size_t i = 0, rev_i = sorted_nodes_.size() - 1; i < sorted_nodes_.size();
+         ++i, --rev_i) {
+      auto st = sorted_nodes_[rev_i]->StartProducing();
+      if (st.ok()) continue;
+
       // Stop nodes that successfully started, in reverse order
-      // (`it` now points after the node that failed starting, so need to rewind)
-      --it;
-      while (it != sorted_nodes.begin()) {
-        (*--it)->StopProducing();
+      for (; rev_i < sorted_nodes_.size(); ++rev_i) {
+        sorted_nodes_[rev_i]->StopProducing();
       }
+      return st;
     }
-    return st;
+    return Status::OK();
   }
 
-  Result<NodeVector> ReverseTopoSort() {
-    struct TopoSort {
+  void StopProducing() {
+    DCHECK(started_) << "stopped an ExecPlan which never started";
+    stopped_ = true;
+
+    for (const auto& node : sorted_nodes_) {
+      node->StopProducing();
+    }
+  }
+
+  NodeVector TopoSort() {
+    struct Impl {
       const std::vector<std::unique_ptr<ExecNode>>& nodes;
       std::unordered_set<ExecNode*> visited;
       NodeVector sorted;
 
-      explicit TopoSort(const std::vector<std::unique_ptr<ExecNode>>& nodes)
-          : nodes(nodes) {
+      explicit Impl(const std::vector<std::unique_ptr<ExecNode>>& nodes) : nodes(nodes) {
         visited.reserve(nodes.size());
-        sorted.reserve(nodes.size());
-      }
+        sorted.resize(nodes.size());
 
-      Status Sort() {
         for (const auto& node : nodes) {
-          RETURN_NOT_OK(Visit(node.get()));
+          Visit(node.get());
         }
-        DCHECK_EQ(sorted.size(), nodes.size());
+
         DCHECK_EQ(visited.size(), nodes.size());
-        return Status::OK();
       }
 
-      Status Visit(ExecNode* node) {
-        if (visited.count(node) != 0) {
-          return Status::OK();
-        }
+      void Visit(ExecNode* node) {
+        if (visited.count(node) != 0) return;
 
         for (auto input : node->inputs()) {
           // Ensure that producers are inserted before this consumer
-          RETURN_NOT_OK(Visit(input));
+          Visit(input);
         }
 
+        sorted[visited.size()] = node;
         visited.insert(node);
-        sorted.push_back(node);
-        return Status::OK();
       }
+    };
 
-      NodeVector Reverse() {
-        std::reverse(sorted.begin(), sorted.end());
-        return std::move(sorted);
-      }
-    } topo_sort(nodes_);
-
-    RETURN_NOT_OK(topo_sort.Sort());
-    return topo_sort.Reverse();
+    return std::move(Impl{nodes_}.sorted);
   }
 
+  bool started_ = false, stopped_ = false;
   std::vector<std::unique_ptr<ExecNode>> nodes_;
+  NodeVector sorted_nodes_;
   NodeVector sources_, sinks_;
 };
 
@@ -165,6 +172,8 @@ const ExecPlan::NodeVector& ExecPlan::sinks() const { return ToDerived(this)->si
 Status ExecPlan::Validate() { return ToDerived(this)->Validate(); }
 
 Status ExecPlan::StartProducing() { return ToDerived(this)->StartProducing(); }
+
+void ExecPlan::StopProducing() { ToDerived(this)->StopProducing(); }
 
 ExecNode::ExecNode(ExecPlan* plan, std::string label, NodeVector inputs,
                    std::vector<std::string> input_labels,

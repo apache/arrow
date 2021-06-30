@@ -71,7 +71,7 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
   /// is started before all of its inputs.
   Status StartProducing();
 
-  // XXX should we also have `void StopProducing()`?
+  void StopProducing();
 
  protected:
   ExecPlan() = default;

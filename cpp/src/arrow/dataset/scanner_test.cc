@@ -1102,7 +1102,7 @@ static Result<std::vector<compute::ExecBatch>> StartAndCollect(
   auto maybe_collected = CollectAsyncGenerator(gen).result();
   ARROW_ASSIGN_OR_RAISE(auto collected, maybe_collected);
 
-  // RETURN_NOT_OK(plan->StopProducing());
+  plan->StopProducing();
 
   return internal::MapVector(
       [](util::optional<compute::ExecBatch> batch) { return std::move(*batch); },
