@@ -299,6 +299,66 @@ class TestBinaryArithmeticUnsigned : public TestBinaryArithmeticIntegral<T> {};
 template <typename T>
 class TestBinaryArithmeticFloating : public TestBinaryArithmetic<T> {};
 
+template <typename T>
+class TestBitWiseArithmetic : public TestBase {
+ protected:
+  using ArrowType = T;
+  using CType = typename ArrowType::c_type;
+
+  static std::shared_ptr<DataType> type_singleton() {
+    return TypeTraits<ArrowType>::type_singleton();
+  }
+
+  void AssertUnaryOp(const std::string& func, const std::vector<uint8_t>& args,
+                     const std::vector<uint8_t>& expected) {
+    auto input = ExpandByteArray(args);
+    auto output = ExpandByteArray(expected);
+    ASSERT_OK_AND_ASSIGN(Datum actual, CallFunction(func, {input}));
+    ValidateAndAssertEqual(actual.make_array(), output);
+    for (int64_t i = 0; i < output->length(); i++) {
+      ASSERT_OK_AND_ASSIGN(Datum actual, CallFunction(func, {*input->GetScalar(i)}));
+      const auto expected_scalar = *output->GetScalar(i);
+      AssertScalarsEqual(*expected_scalar, *actual.scalar(), /*verbose=*/true);
+    }
+  }
+
+  void AssertBinaryOp(const std::string& func, const std::vector<uint8_t>& arg0,
+                      const std::vector<uint8_t>& arg1,
+                      const std::vector<uint8_t>& expected) {
+    auto input0 = ExpandByteArray(arg0);
+    auto input1 = ExpandByteArray(arg1);
+    auto output = ExpandByteArray(expected);
+    ASSERT_OK_AND_ASSIGN(Datum actual, CallFunction(func, {input0, input1}));
+    ValidateAndAssertEqual(actual.make_array(), output);
+    for (int64_t i = 0; i < output->length(); i++) {
+      ASSERT_OK_AND_ASSIGN(Datum actual, CallFunction(func, {*input0->GetScalar(i),
+                                                             *input1->GetScalar(i)}));
+      const auto expected_scalar = *output->GetScalar(i);
+      AssertScalarsEqual(*expected_scalar, *actual.scalar(), /*verbose=*/true);
+    }
+  }
+
+  // To make it easier to test different widths, tests give bytes which get repeated to
+  // make an array of the actual type
+  std::shared_ptr<Array> ExpandByteArray(const std::vector<uint8_t>& values) {
+    std::vector<CType> c_values(values.size() + 1);
+    for (size_t i = 0; i < values.size(); i++) {
+      std::memset(&c_values[i], values[i], sizeof(CType));
+    }
+    std::vector<bool> valid(values.size() + 1, true);
+    valid.back() = false;
+    std::shared_ptr<Array> arr;
+    ArrayFromVector<ArrowType>(valid, c_values, &arr);
+    return arr;
+  }
+
+  void ValidateAndAssertEqual(const std::shared_ptr<Array>& actual,
+                              const std::shared_ptr<Array>& expected) {
+    ASSERT_OK(actual->ValidateFull());
+    AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+  }
+};
+
 // InputType - OutputType pairs
 using IntegralTypes = testing::Types<Int8Type, Int16Type, Int32Type, Int64Type, UInt8Type,
                                      UInt16Type, UInt32Type, UInt64Type>;
@@ -320,6 +380,31 @@ TYPED_TEST_SUITE(TestBinaryArithmeticIntegral, IntegralTypes);
 TYPED_TEST_SUITE(TestBinaryArithmeticSigned, SignedIntegerTypes);
 TYPED_TEST_SUITE(TestBinaryArithmeticUnsigned, UnsignedIntegerTypes);
 TYPED_TEST_SUITE(TestBinaryArithmeticFloating, FloatingTypes);
+
+TYPED_TEST_SUITE(TestBitWiseArithmetic, IntegralTypes);
+
+TYPED_TEST(TestBitWiseArithmetic, BitWiseNot) {
+  this->AssertUnaryOp("bit_wise_not", std::vector<uint8_t>{0x00, 0x55, 0xAA, 0xFF},
+                      std::vector<uint8_t>{0xFF, 0xAA, 0x55, 0x00});
+}
+
+TYPED_TEST(TestBitWiseArithmetic, BitWiseAnd) {
+  this->AssertBinaryOp("bit_wise_and", std::vector<uint8_t>{0x00, 0xFF, 0x00, 0xFF},
+                       std::vector<uint8_t>{0x00, 0x00, 0xFF, 0xFF},
+                       std::vector<uint8_t>{0x00, 0x00, 0x00, 0xFF});
+}
+
+TYPED_TEST(TestBitWiseArithmetic, BitWiseOr) {
+  this->AssertBinaryOp("bit_wise_or", std::vector<uint8_t>{0x00, 0xFF, 0x00, 0xFF},
+                       std::vector<uint8_t>{0x00, 0x00, 0xFF, 0xFF},
+                       std::vector<uint8_t>{0x00, 0xFF, 0xFF, 0xFF});
+}
+
+TYPED_TEST(TestBitWiseArithmetic, BitWiseXor) {
+  this->AssertBinaryOp("bit_wise_xor", std::vector<uint8_t>{0x00, 0xFF, 0x00, 0xFF},
+                       std::vector<uint8_t>{0x00, 0x00, 0xFF, 0xFF},
+                       std::vector<uint8_t>{0x00, 0xFF, 0xFF, 0x00});
+}
 
 TYPED_TEST(TestBinaryArithmeticIntegral, Add) {
   for (auto check_overflow : {false, true}) {
@@ -1509,6 +1594,125 @@ TEST(TestBinaryArithmeticDecimal, Divide) {
     auto right = ScalarFromJSON(decimal256(1, 0), R"("0")");
     ASSERT_RAISES(Invalid, CallFunction("divide", {left, right}));
   }
+}
+
+TYPED_TEST(TestBinaryArithmeticIntegral, ShiftLeft) {
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+
+    this->AssertBinop(ShiftLeft, "[]", "[]", "[]");
+    this->AssertBinop(ShiftLeft, "[0, 1, 2, 3]", "[2, 3, 4, 5]", "[0, 8, 32, 96]");
+    // Nulls on one side
+    this->AssertBinop(ShiftLeft, "[0, null, 2, 3]", "[2, 3, 4, 5]", "[0, null, 32, 96]");
+    this->AssertBinop(ShiftLeft, "[0, 1, 2, 3]", "[2, 3, null, 5]", "[0, 8, null, 96]");
+    // Nulls on both sides
+    this->AssertBinop(ShiftLeft, "[0, null, 2, 3]", "[2, 3, null, 5]",
+                      "[0, null, null, 96]");
+    // All nulls
+    this->AssertBinop(ShiftLeft, "[null]", "[null]", "[null]");
+
+    // Scalar on the left
+    this->AssertBinop(ShiftLeft, 2, "[null, 5]", "[null, 64]");
+    this->AssertBinop(ShiftLeft, this->MakeNullScalar(), "[null, 5]", "[null, null]");
+    // Scalar on the right
+    this->AssertBinop(ShiftLeft, "[null, 5]", 3, "[null, 40]");
+    this->AssertBinop(ShiftLeft, "[null, 5]", this->MakeNullScalar(), "[null, null]");
+  }
+}
+
+TYPED_TEST(TestBinaryArithmeticIntegral, ShiftRight) {
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+
+    this->AssertBinop(ShiftRight, "[]", "[]", "[]");
+    this->AssertBinop(ShiftRight, "[0, 1, 4, 8]", "[1, 1, 1, 4]", "[0, 0, 2, 0]");
+    // Nulls on one side
+    this->AssertBinop(ShiftRight, "[0, null, 4, 8]", "[1, 1, 1, 4]", "[0, null, 2, 0]");
+    this->AssertBinop(ShiftRight, "[0, 1, 4, 8]", "[1, 1, null, 4]", "[0, 0, null, 0]");
+    // Nulls on both sides
+    this->AssertBinop(ShiftRight, "[0, null, 4, 8]", "[1, 1, null, 4]",
+                      "[0, null, null, 0]");
+    // All nulls
+    this->AssertBinop(ShiftRight, "[null]", "[null]", "[null]");
+
+    // Scalar on the left
+    this->AssertBinop(ShiftRight, 64, "[null, 2, 6]", "[null, 16, 1]");
+    this->AssertBinop(ShiftRight, this->MakeNullScalar(), "[null, 2, 6]",
+                      "[null, null, null]");
+    // Scalar on the right
+    this->AssertBinop(ShiftRight, "[null, 3, 96]", 3, "[null, 0, 12]");
+    this->AssertBinop(ShiftRight, "[null, 3, 96]", this->MakeNullScalar(),
+                      "[null, null, null]");
+  }
+}
+
+TYPED_TEST(TestBinaryArithmeticSigned, ShiftLeftOverflowRaises) {
+  using CType = typename TestFixture::CType;
+  const CType bit_width = static_cast<CType>(std::numeric_limits<CType>::digits);
+  const CType min = std::numeric_limits<CType>::min();
+  this->SetOverflowCheck(true);
+
+  this->AssertBinop(ShiftLeft, "[1]", MakeArray(bit_width - 1),
+                    MakeArray(static_cast<CType>(1) << (bit_width - 1)));
+  this->AssertBinop(ShiftLeft, "[2]", MakeArray(bit_width - 2),
+                    MakeArray(static_cast<CType>(1) << (bit_width - 1)));
+  // Shift a bit into the sign bit
+  this->AssertBinop(ShiftLeft, "[2]", MakeArray(bit_width - 1), MakeArray(min));
+  // Shift a bit past the sign bit
+  this->AssertBinop(ShiftLeft, "[4]", MakeArray(bit_width - 1), "[0]");
+  this->AssertBinop(ShiftLeft, MakeArray(min), "[1]", "[0]");
+  this->AssertBinopRaises(ShiftLeft, "[1, 2]", "[1, -1]",
+                          "shift amount must be >= 0 and less than precision of type");
+  this->AssertBinopRaises(ShiftLeft, "[1]", MakeArray(bit_width),
+                          "shift amount must be >= 0 and less than precision of type");
+
+  this->SetOverflowCheck(false);
+  this->AssertBinop(ShiftLeft, "[1, 1]", MakeArray(-1, bit_width), "[1, 1]");
+}
+
+TYPED_TEST(TestBinaryArithmeticSigned, ShiftRightOverflowRaises) {
+  using CType = typename TestFixture::CType;
+  const CType bit_width = static_cast<CType>(std::numeric_limits<CType>::digits);
+  const CType max = std::numeric_limits<CType>::max();
+  const CType min = std::numeric_limits<CType>::min();
+  this->SetOverflowCheck(true);
+
+  this->AssertBinop(ShiftRight, MakeArray(max), MakeArray(bit_width - 1), "[1]");
+  this->AssertBinop(ShiftRight, "[-1, -1]", "[1, 5]", "[-1, -1]");
+  this->AssertBinop(ShiftRight, MakeArray(min), "[1]", MakeArray(min / 2));
+  this->AssertBinopRaises(ShiftRight, "[1, 2]", "[1, -1]",
+                          "shift amount must be >= 0 and less than precision of type");
+  this->AssertBinopRaises(ShiftRight, "[1]", MakeArray(bit_width),
+                          "shift amount must be >= 0 and less than precision of type");
+
+  this->SetOverflowCheck(false);
+  this->AssertBinop(ShiftRight, "[1, 1]", MakeArray(-1, bit_width), "[1, 1]");
+}
+
+TYPED_TEST(TestBinaryArithmeticUnsigned, ShiftLeftOverflowRaises) {
+  using CType = typename TestFixture::CType;
+  const CType bit_width = static_cast<CType>(std::numeric_limits<CType>::digits);
+  this->SetOverflowCheck(true);
+
+  this->AssertBinop(ShiftLeft, "[1]", MakeArray(bit_width - 1),
+                    MakeArray(static_cast<CType>(1) << (bit_width - 1)));
+  this->AssertBinop(ShiftLeft, "[2]", MakeArray(bit_width - 2),
+                    MakeArray(static_cast<CType>(1) << (bit_width - 1)));
+  this->AssertBinop(ShiftLeft, "[2]", MakeArray(bit_width - 1), "[0]");
+  this->AssertBinop(ShiftLeft, "[4]", MakeArray(bit_width - 1), "[0]");
+  this->AssertBinopRaises(ShiftLeft, "[1]", MakeArray(bit_width),
+                          "shift amount must be >= 0 and less than precision of type");
+}
+
+TYPED_TEST(TestBinaryArithmeticUnsigned, ShiftRightOverflowRaises) {
+  using CType = typename TestFixture::CType;
+  const CType bit_width = static_cast<CType>(std::numeric_limits<CType>::digits);
+  const CType max = std::numeric_limits<CType>::max();
+  this->SetOverflowCheck(true);
+
+  this->AssertBinop(ShiftRight, MakeArray(max), MakeArray(bit_width - 1), "[1]");
+  this->AssertBinopRaises(ShiftRight, "[1]", MakeArray(bit_width),
+                          "shift amount must be >= 0 and less than precision of type");
 }
 
 }  // namespace compute

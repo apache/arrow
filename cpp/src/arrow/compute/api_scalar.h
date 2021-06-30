@@ -308,6 +308,33 @@ Result<Datum> Power(const Datum& left, const Datum& right,
                     ArithmeticOptions options = ArithmeticOptions(),
                     ExecContext* ctx = NULLPTR);
 
+/// \brief Left shift the left array by the right array. Array values must be the
+/// same length. If either operand is null, the result will be null.
+///
+/// \param[in] left the value to shift
+/// \param[in] right the value to shift by
+/// \param[in] options arithmetic options (enable/disable overflow checking), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise left value shifted left by the right value
+ARROW_EXPORT
+Result<Datum> ShiftLeft(const Datum& left, const Datum& right,
+                        ArithmeticOptions options = ArithmeticOptions(),
+                        ExecContext* ctx = NULLPTR);
+
+/// \brief Right shift the left array by the right array. Array values must be the
+/// same length. If either operand is null, the result will be null. Performs a
+/// logical shift for unsigned values, and an arithmetic shift for signed values.
+///
+/// \param[in] left the value to shift
+/// \param[in] right the value to shift by
+/// \param[in] options arithmetic options (enable/disable overflow checking), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise left value shifted right by the right value
+ARROW_EXPORT
+Result<Datum> ShiftRight(const Datum& left, const Datum& right,
+                         ArithmeticOptions options = ArithmeticOptions(),
+                         ExecContext* ctx = NULLPTR);
+
 /// \brief Find the element-wise maximum of any number of arrays or scalars.
 /// Array values must be the same length.
 ///
