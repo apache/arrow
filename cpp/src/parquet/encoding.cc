@@ -42,7 +42,6 @@
 #include "arrow/util/rle_encoding.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/visitor_inline.h"
-
 #include "parquet/exception.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
@@ -2138,7 +2137,7 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
 
   int GetInternal(T* buffer, int max_values) {
     max_values = std::min(max_values, this->num_values_);
-    DCHECK_LE((uint32_t)max_values, total_value_count_);
+    DCHECK_LE(static_cast<uint32_t>(max_values), total_value_count_);
     int i = 0;
     while (i < max_values) {
       if (ARROW_PREDICT_FALSE(values_current_mini_block_ == 0)) {
@@ -2165,7 +2164,11 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
         ParquetException::EofException();
       }
       for (int j = 0; j < values_decode; ++j) {
-        buffer[i + j] += last_value_ + min_delta_;
+        // Addition between min_delta, packed int and last_value should be treated as
+        // unsigned addtion. Overflow is as expected.
+        uint64_t delta =
+            static_cast<uint64_t>(min_delta_) + static_cast<uint64_t>(buffer[i + j]);
+        buffer[i + j] = static_cast<T>(delta + static_cast<uint64_t>(last_value_));
         last_value_ = buffer[i + j];
       }
       values_current_mini_block_ -= values_decode;

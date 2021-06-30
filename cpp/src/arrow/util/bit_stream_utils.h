@@ -20,6 +20,7 @@
 #pragma once
 
 #include <string.h>
+
 #include <algorithm>
 #include <cstdint>
 
@@ -283,8 +284,10 @@ inline void GetValue_(int num_bits, T* v, int max_bytes, const uint8_t* buffer,
 #pragma warning(disable : 4800 4805)
 #endif
     // Read bits of v that crossed into new buffered_values_
-    *v = *v | static_cast<T>(BitUtil::TrailingBits(*buffered_values, *bit_offset)
-                             << (num_bits - *bit_offset));
+    if (ARROW_PREDICT_TRUE(num_bits - *bit_offset < 64)) {
+      *v = *v | static_cast<T>(BitUtil::TrailingBits(*buffered_values, *bit_offset)
+                               << (num_bits - *bit_offset));
+    }
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
@@ -302,8 +305,6 @@ inline bool BitReader::GetValue(int num_bits, T* v) {
 template <typename T>
 inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
   DCHECK(buffer_ != NULL);
-  // TODO: revisit this limit if necessary
-  DCHECK_LE(num_bits, 32);
   DCHECK_LE(num_bits, static_cast<int>(sizeof(T) * 8));
 
   int bit_offset = bit_offset_;
@@ -333,7 +334,18 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
                            reinterpret_cast<uint32_t*>(v + i), batch_size - i, num_bits);
     i += num_unpacked;
     byte_offset += num_unpacked * num_bits / 8;
+  } else if (sizeof(T) == 8 && num_bits > 32) {
+    // Use unpack64 only if num_bits is larger then 32
+    // TODO: improve the performance of internal::unpack64 and remove the restriction of
+    // num_bits
+    int num_unpacked =
+        internal::unpack64(buffer + byte_offset, reinterpret_cast<uint64_t*>(v + i),
+                           batch_size - i, num_bits);
+    i += num_unpacked;
+    byte_offset += num_unpacked * num_bits / 8;
   } else {
+    // TODO: revisit this limit if necessary
+    DCHECK_LE(num_bits, 32);
     const int buffer_size = 1024;
     uint32_t unpack_buffer[buffer_size];
     while (i < batch_size) {
@@ -472,10 +484,10 @@ inline bool BitReader::GetVlqInt(uint64_t* v) {
     if (ARROW_PREDICT_FALSE(!GetAligned<uint8_t>(1, &byte))) {
       return false;
     }
-    if ((byte & 0x80) != 0) {
-      tmp |= static_cast<uint64_t>(byte & 0x7F) << (7 * i);
-    } else {
-      *v = tmp | (static_cast<uint64_t>(byte) << (7 * i));
+    tmp |= static_cast<uint64_t>(byte & 0x7F) << (7 * i);
+
+    if ((byte & 0x80) == 0) {
+      *v = tmp;
       return true;
     }
   }
