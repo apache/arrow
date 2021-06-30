@@ -277,6 +277,12 @@ static inline Result<decltype(MakeScalar(std::declval<T>()))> GenericToScalar(
   return MakeScalar(value);
 }
 
+// For Clang/libc++: when iterating through vector<bool>, we can't
+// pass it by reference so the overload above doesn't apply
+static inline Result<std::shared_ptr<Scalar>> GenericToScalar(bool value) {
+  return MakeScalar(value);
+}
+
 template <typename T, typename Enable = enable_if_t<has_enum_traits<T>::value>>
 static inline Result<std::shared_ptr<Scalar>> GenericToScalar(const T value) {
   using CType = typename EnumTraits<T>::CType;
