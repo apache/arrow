@@ -671,13 +671,15 @@ Decimal256::Decimal256(const std::string& str) : Decimal256() {
 
 std::string Decimal256::ToIntegerString() const {
   std::string result;
-  if (static_cast<int64_t>(little_endian_array()[3]) < 0) {
+  if (IsNegative()) {
     result.push_back('-');
     Decimal256 abs = *this;
     abs.Negate();
-    AppendLittleEndianArrayToString(abs.little_endian_array(), &result);
+    AppendLittleEndianArrayToString(BitUtil::ToLittleEndian(abs.native_endian_array()),
+                                    &result);
   } else {
-    AppendLittleEndianArrayToString(little_endian_array(), &result);
+    AppendLittleEndianArrayToString(BitUtil::ToLittleEndian(native_endian_array()),
+                                    &result);
   }
   return result;
 }
@@ -725,7 +727,7 @@ Status Decimal256::FromString(const util::string_view& s, Decimal256* out,
     ShiftAndAdd(dec.whole_digits, little_endian_array.data(), little_endian_array.size());
     ShiftAndAdd(dec.fractional_digits, little_endian_array.data(),
                 little_endian_array.size());
-    *out = Decimal256(little_endian_array);
+    *out = Decimal256(BitUtil::FromLittleEndian(little_endian_array));
 
     if (dec.sign == '-') {
       out->Negate();
@@ -798,7 +800,7 @@ Result<Decimal256> Decimal256::FromBigEndian(const uint8_t* bytes, int32_t lengt
     length -= word_length;
   }
 
-  return Decimal256(little_endian_array);
+  return Decimal256(BitUtil::FromLittleEndian(little_endian_array));
 }
 
 Status Decimal256::ToArrowStatus(DecimalStatus dstatus) const {
@@ -841,9 +843,9 @@ struct Decimal256RealConversion {
     DCHECK_LT(part1, 1.8446744073709552e+19);  // 2**64
     DCHECK_GE(part0, 0);
     DCHECK_LT(part0, 1.8446744073709552e+19);  // 2**64
-    return Decimal256(std::array<uint64_t, 4>{
-        static_cast<uint64_t>(part0), static_cast<uint64_t>(part1),
-        static_cast<uint64_t>(part2), static_cast<uint64_t>(part3)});
+    return Decimal256(BitUtil::FromLittleEndian<uint64_t, 4>(
+        {static_cast<uint64_t>(part0), static_cast<uint64_t>(part1),
+         static_cast<uint64_t>(part2), static_cast<uint64_t>(part3)}));
   }
 
   static Result<Decimal256> FromReal(Real x, int32_t precision, int32_t scale) {
@@ -865,11 +867,11 @@ struct Decimal256RealConversion {
   static Real ToRealPositive(const Decimal256& decimal, int32_t scale) {
     DCHECK_GE(decimal, 0);
     Real x = 0;
-    const auto& parts = decimal.little_endian_array();
-    x += Derived::two_to_192(static_cast<Real>(parts[3]));
-    x += Derived::two_to_128(static_cast<Real>(parts[2]));
-    x += Derived::two_to_64(static_cast<Real>(parts[1]));
-    x += static_cast<Real>(parts[0]);
+    BitUtil::LittleEndianArrayReader<uint64_t, 4> parts_le(decimal.native_endian_array());
+    x += Derived::two_to_192(static_cast<Real>(parts_le[3]));
+    x += Derived::two_to_128(static_cast<Real>(parts_le[2]));
+    x += Derived::two_to_64(static_cast<Real>(parts_le[1]));
+    x += static_cast<Real>(parts_le[0]);
     if (scale >= -76 && scale <= 76) {
       x *= Derived::powers_of_ten()[-scale + 76];
     } else {
@@ -879,7 +881,7 @@ struct Decimal256RealConversion {
   }
 
   static Real ToReal(Decimal256 decimal, int32_t scale) {
-    if (decimal.little_endian_array()[3] & (1ULL << 63)) {
+    if (decimal.IsNegative()) {
       // Convert the absolute value to avoid precision loss
       decimal.Negate();
       return -ToRealPositive(decimal, scale);

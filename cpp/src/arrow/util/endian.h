@@ -52,6 +52,9 @@
 #define ARROW_BYTE_SWAP32 __builtin_bswap32
 #endif
 
+#include <algorithm>
+#include <array>
+
 #include "arrow/util/type_traits.h"
 #include "arrow/util/ubsan.h"
 
@@ -124,11 +127,22 @@ static inline T ToBigEndian(T value) {
   return ByteSwap(value);
 }
 
+template <typename T, size_t N>
+static inline std::array<T, N> ToBigEndian(std::array<T, N> array) {
+  std::reverse(array.begin(), array.end());
+  return array;
+}
+
 template <typename T, typename = internal::EnableIfIsOneOf<
                           T, int64_t, uint64_t, int32_t, uint32_t, int16_t, uint16_t,
                           uint8_t, int8_t, float, double>>
 static inline T ToLittleEndian(T value) {
   return value;
+}
+
+template <typename T, size_t N>
+static inline std::array<T, N> ToLittleEndian(std::array<T, N> array) {
+  return array;
 }
 #else
 template <typename T, typename = internal::EnableIfIsOneOf<
@@ -138,11 +152,22 @@ static inline T ToBigEndian(T value) {
   return value;
 }
 
+template <typename T, size_t N>
+static inline std::array<T, N> ToBigEndian(std::array<T, N> array) {
+  return array;
+}
+
 template <typename T, typename = internal::EnableIfIsOneOf<
                           T, int64_t, uint64_t, int32_t, uint32_t, int16_t, uint16_t,
                           uint8_t, int8_t, float, double>>
 static inline T ToLittleEndian(T value) {
   return ByteSwap(value);
+}
+
+template <typename T, size_t N>
+static inline std::array<T, N> ToLittleEndian(std::array<T, N> array) {
+  std::reverse(array.begin(), array.end());
+  return array;
 }
 #endif
 
@@ -155,11 +180,22 @@ static inline T FromBigEndian(T value) {
   return ByteSwap(value);
 }
 
+template <typename T, size_t N>
+static inline std::array<T, N> FromBigEndian(std::array<T, N> array) {
+  std::reverse(array.begin(), array.end());
+  return array;
+}
+
 template <typename T, typename = internal::EnableIfIsOneOf<
                           T, int64_t, uint64_t, int32_t, uint32_t, int16_t, uint16_t,
                           uint8_t, int8_t, float, double>>
 static inline T FromLittleEndian(T value) {
   return value;
+}
+
+template <typename T, size_t N>
+static inline std::array<T, N> FromLittleEndian(std::array<T, N> array) {
+  return array;
 }
 #else
 template <typename T, typename = internal::EnableIfIsOneOf<
@@ -169,13 +205,47 @@ static inline T FromBigEndian(T value) {
   return value;
 }
 
+template <typename T, size_t N>
+static inline std::array<T, N> FromBigEndian(std::array<T, N> array) {
+  return array;
+}
+
 template <typename T, typename = internal::EnableIfIsOneOf<
                           T, int64_t, uint64_t, int32_t, uint32_t, int16_t, uint16_t,
                           uint8_t, int8_t, float, double>>
 static inline T FromLittleEndian(T value) {
   return ByteSwap(value);
 }
+
+template <typename T, size_t N>
+static inline std::array<T, N> FromLittleEndian(std::array<T, N> array) {
+  std::reverse(array.begin(), array.end());
+  return array;
+}
 #endif
+
+// Read a native endian array as little endian
+template <typename T, size_t N>
+struct LittleEndianArrayReader {
+  const std::array<T, N>& arr;
+
+  explicit LittleEndianArrayReader(const std::array<T, N>& arr) : arr(arr) {}
+
+  const T& operator[](size_t i) const { return arr[ARROW_LITTLE_ENDIAN ? i : N - 1 - i]; }
+};
+
+// Read/write a native endian array as little endian
+template <typename T, size_t N>
+struct LittleEndianArrayWriter {
+  std::array<T, N>* arr;
+
+  explicit LittleEndianArrayWriter(std::array<T, N>* arr) : arr(arr) {}
+
+  const T& operator[](size_t i) const {
+    return (*arr)[ARROW_LITTLE_ENDIAN ? i : N - 1 - i];
+  }
+  T& operator[](size_t i) { return (*arr)[ARROW_LITTLE_ENDIAN ? i : N - 1 - i]; }
+};
 
 }  // namespace BitUtil
 }  // namespace arrow
