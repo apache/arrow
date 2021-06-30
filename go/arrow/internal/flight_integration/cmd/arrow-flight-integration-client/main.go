@@ -14,6 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Client for use with Arrow Flight Integration tests via archery
 package main
 
 import (
@@ -37,7 +38,7 @@ const retries = 3
 func main() {
 	flag.Parse()
 
-	c := flight_integration.GetScenario(*scenario)
+	c := flight_integration.GetScenario(*scenario, *path)
 	var err error
 	for i := 0; i < retries; i++ {
 		err = c.RunClient(fmt.Sprintf("%s:%d", *host, *port), grpc.WithInsecure())

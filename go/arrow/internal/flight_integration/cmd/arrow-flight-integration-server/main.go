@@ -19,6 +19,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net"
 	"os"
 	"syscall"
 
@@ -37,6 +38,7 @@ func main() {
 	srv := s.MakeServer(*port)
 	srv.Init(fmt.Sprintf("0.0.0.0:%d", *port))
 	srv.SetShutdownOnSignals(syscall.SIGTERM, os.Interrupt)
-	fmt.Println("Server listening on localhost:", *port)
+	_, p, _ := net.SplitHostPort(srv.Addr().String())
+	fmt.Printf("Server listening on localhost:%s\n", p)
 	srv.Serve()
 }

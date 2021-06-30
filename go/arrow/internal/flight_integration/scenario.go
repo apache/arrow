@@ -17,6 +17,7 @@
 package flight_integration
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -26,6 +27,8 @@ import (
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/flight"
+	"github.com/apache/arrow/go/arrow/internal/arrjson"
+	"github.com/apache/arrow/go/arrow/internal/testing/types"
 	"github.com/apache/arrow/go/arrow/ipc"
 	"github.com/apache/arrow/go/arrow/memory"
 	"golang.org/x/xerrors"
@@ -40,13 +43,16 @@ type Scenario interface {
 	RunClient(addr string, opts ...grpc.DialOption) error
 }
 
-func GetScenario(name string) Scenario {
+func GetScenario(name string, args ...string) Scenario {
 	switch name {
 	case "auth:basic_proto":
 		return &authBasicProtoTester{}
 	case "middleware":
 		return &middlewareScenarioTester{}
 	case "":
+		if len(args) > 0 {
+			return &defaultIntegrationTester{path: args[0]}
+		}
 		return &defaultIntegrationTester{}
 	}
 	panic(fmt.Errorf("scenario not found: %s", name))
@@ -57,19 +63,155 @@ type integrationDataSet struct {
 	chunks []array.Record
 }
 
+func consumeFlightLocation(ctx context.Context, loc *flight.Location, tkt *flight.Ticket, orig []array.Record, opts ...grpc.DialOption) error {
+	client, err := flight.NewClientWithMiddleware(loc.GetUri(), nil, nil, opts...)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	stream, err := client.DoGet(ctx, tkt)
+	if err != nil {
+		return err
+	}
+
+	rdr, err := flight.NewRecordReader(stream)
+	if err != nil {
+		return err
+	}
+	defer rdr.Release()
+
+	for i, chunk := range orig {
+		if !rdr.Next() {
+			return xerrors.Errorf("got fewer batches than expected, received so far: %d, expected: %d", i, len(orig))
+		}
+
+		if !array.RecordEqual(chunk, rdr.Record()) {
+			return xerrors.Errorf("batch %d doesn't match", i)
+		}
+
+		if string(rdr.LatestAppMetadata()) != strconv.Itoa(i) {
+			return xerrors.Errorf("expected metadata value: %s, but got: %s", strconv.Itoa(i), string(rdr.LatestAppMetadata()))
+		}
+	}
+
+	if rdr.Next() {
+		return xerrors.Errorf("got more batches than the expected: %d", len(orig))
+	}
+
+	return nil
+}
+
 type defaultIntegrationTester struct {
 	port           int
+	path           string
 	uploadedChunks map[string]integrationDataSet
 }
 
 func (s *defaultIntegrationTester) RunClient(addr string, opts ...grpc.DialOption) error {
+	client, err := flight.NewClientWithMiddleware(addr, nil, nil, opts...)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	ctx := context.Background()
+
+	arrow.RegisterExtensionType(types.NewUUIDType())
+	defer arrow.UnregisterExtensionType("uuid")
+
+	descr := &flight.FlightDescriptor{
+		Type: flight.FlightDescriptor_PATH,
+		Path: []string{s.path},
+	}
+
+	fmt.Println("Opening JSON file '", s.path, "'")
+	r, err := os.Open(s.path)
+	if err != nil {
+		return xerrors.Errorf("could not open JSON file: %q: %w", s.path, err)
+	}
+
+	rdr, err := arrjson.NewReader(r)
+	if err != nil {
+		return xerrors.Errorf("could not create JSON file reader from file: %q: %w", s.path, err)
+	}
+
+	dataSet := integrationDataSet{
+		chunks: make([]array.Record, 0),
+		schema: rdr.Schema(),
+	}
+
+	for {
+		rec, err := rdr.Read()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+		defer rec.Release()
+		dataSet.chunks = append(dataSet.chunks, rec)
+	}
+
+	stream, err := client.DoPut(ctx)
+	if err != nil {
+		return err
+	}
+
+	wr := flight.NewRecordWriter(stream, ipc.WithSchema(dataSet.schema))
+	wr.SetFlightDescriptor(descr)
+
+	for i, rec := range dataSet.chunks {
+		metadata := []byte(strconv.Itoa(i))
+		if err := wr.WriteWithAppMetadata(rec, metadata); err != nil {
+			return err
+		}
+
+		pr, err := stream.Recv()
+		if err != nil {
+			return err
+		}
+
+		acked := pr.GetAppMetadata()
+		switch {
+		case len(acked) == 0:
+			return xerrors.Errorf("expected metadata value: %s, but got nothing.", string(metadata))
+		case !bytes.Equal(metadata, acked):
+			return xerrors.Errorf("expected metadata value: %s, but got: %s", string(metadata), string(acked))
+		}
+	}
+
+	if err := stream.CloseSend(); err != nil {
+		return err
+	}
+
+	info, err := client.GetFlightInfo(ctx, descr)
+	if err != nil {
+		return err
+	}
+
+	if len(info.Endpoint) == 0 {
+		fmt.Fprintln(os.Stderr, "no endpoints returned from flight server.")
+		return xerrors.Errorf("no endpoints returned from flight server")
+	}
+
+	for _, ep := range info.Endpoint {
+		if len(ep.Location) == 0 {
+			return xerrors.Errorf("no locations returned from flight server")
+		}
+
+		for _, loc := range ep.Location {
+			consumeFlightLocation(ctx, loc, ep.Ticket, dataSet.chunks, opts...)
+		}
+	}
+
 	return nil
 }
 
 func (s *defaultIntegrationTester) MakeServer(port int) flight.Server {
 	s.port = port
 	s.uploadedChunks = make(map[string]integrationDataSet)
-	srv := flight.NewFlightServerWithMiddleware(nil, nil)
+	srv := flight.NewServerWithMiddleware(nil, nil)
 	srv.RegisterFlightService(&flight.FlightServiceService{
 		GetFlightInfo: s.GetFlightInfo,
 		DoGet:         s.DoGet,
@@ -249,7 +391,7 @@ type authBasicProtoTester struct{}
 func (s *authBasicProtoTester) RunClient(addr string, opts ...grpc.DialOption) error {
 	auth := &clientAuthBasic{}
 
-	client, err := flight.NewFlightClient(addr, auth, opts...)
+	client, err := flight.NewClientWithMiddleware(addr, auth, nil, opts...)
 	if err != nil {
 		return err
 	}
@@ -279,7 +421,7 @@ func (s *authBasicProtoTester) RunClient(addr string, opts ...grpc.DialOption) e
 }
 
 func (s *authBasicProtoTester) MakeServer(_ int) flight.Server {
-	srv := flight.NewFlightServerWithMiddleware(&authBasicValidator{
+	srv := flight.NewServerWithMiddleware(&authBasicValidator{
 		auth: flight.BasicAuth{Username: authUsername, Password: authPassword}}, nil)
 	srv.RegisterFlightService(&flight.FlightServiceService{
 		DoAction: s.DoAction,
@@ -297,7 +439,7 @@ type middlewareScenarioTester struct{}
 
 func (m *middlewareScenarioTester) RunClient(addr string, opts ...grpc.DialOption) error {
 	tm := &testClientMiddleware{}
-	client, err := flight.NewFlightClientWithMiddleware(addr, nil, []flight.ClientMiddleware{
+	client, err := flight.NewClientWithMiddleware(addr, nil, []flight.ClientMiddleware{
 		flight.CreateClientMiddleware(tm)}, opts...)
 	if err != nil {
 		return err
@@ -329,7 +471,7 @@ func (m *middlewareScenarioTester) RunClient(addr string, opts ...grpc.DialOptio
 }
 
 func (m *middlewareScenarioTester) MakeServer(_ int) flight.Server {
-	srv := flight.NewFlightServerWithMiddleware(nil, []flight.ServerMiddleware{
+	srv := flight.NewServerWithMiddleware(nil, []flight.ServerMiddleware{
 		flight.CreateServerMiddleware(testServerMiddleware{})})
 	srv.RegisterFlightService(&flight.FlightServiceService{
 		GetFlightInfo: m.GetFlightInfo,

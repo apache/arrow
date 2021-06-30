@@ -232,6 +232,11 @@ func CreateServerBearerTokenAuthInterceptors(validator BasicAuthValidator) (grpc
 	return createServerBearerTokenUnaryInterceptor(validator), createServerBearerTokenStreamInterceptor(validator)
 }
 
+// CreateServerBasicAuthMiddleware returns a ServerMiddleware that can be passed to NewServerWithMiddleware
+// in order to automatically add interceptors which will properly enforce auth validation
+// as per the passed in BasicAuthValidator.
+//
+// validator cannot be nil.
 func CreateServerBasicAuthMiddleware(validator BasicAuthValidator) ServerMiddleware {
 	if validator == nil {
 		panic("validator cannot be nil")

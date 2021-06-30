@@ -105,7 +105,7 @@ type server struct {
 // grpc server generated code is still being exported. This only exists to allow
 // the utility of the helpers
 //
-// Deprecated: prefer to use NewFlightServerWithMiddleware
+// Deprecated: prefer to use NewServerWithMiddleware
 func NewFlightServer(auth ServerAuthHandler, opt ...grpc.ServerOption) Server {
 	if auth != nil {
 		opt = append([]grpc.ServerOption{
@@ -120,7 +120,7 @@ func NewFlightServer(auth ServerAuthHandler, opt ...grpc.ServerOption) Server {
 	}
 }
 
-// NewFlightServerWithMiddleware takes a slice of middleware which will be used
+// NewServerWithMiddleware takes a slice of middleware which will be used
 // by grpc and chained, the first middleware will be the outer most with the last
 // middleware being the inner most wrapper around the actual call. It also takes
 // any grpc Server options desired, such as TLS certs and so on which will just
@@ -129,7 +129,7 @@ func NewFlightServer(auth ServerAuthHandler, opt ...grpc.ServerOption) Server {
 // Alternatively, a grpc server can be created normally without this helper as the
 // grpc server generated code is still being exported. This only exists to allow
 // the utility of the helpers
-func NewFlightServerWithMiddleware(auth ServerAuthHandler, middleware []ServerMiddleware, opts ...grpc.ServerOption) Server {
+func NewServerWithMiddleware(auth ServerAuthHandler, middleware []ServerMiddleware, opts ...grpc.ServerOption) Server {
 	unary := make([]grpc.UnaryServerInterceptor, 0, len(middleware))
 	stream := make([]grpc.StreamServerInterceptor, 0, len(middleware))
 	if auth != nil {

@@ -147,7 +147,7 @@ func TestErrorAuths(t *testing.T) {
 }
 
 func TestBasicAuthHelpers(t *testing.T) {
-	s := flight.NewFlightServerWithMiddleware(nil, []flight.ServerMiddleware{flight.CreateServerBasicAuthMiddleware(&validator{})})
+	s := flight.NewServerWithMiddleware(nil, []flight.ServerMiddleware{flight.CreateServerBasicAuthMiddleware(&validator{})})
 	s.Init("localhost:0")
 	f := &HeaderAuthTestFlight{}
 	s.RegisterFlightService(&flight.FlightServiceService{

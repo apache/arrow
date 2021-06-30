@@ -224,6 +224,8 @@ type client struct {
 // Alternatively, a grpc client can be constructed as normal without this helper as the
 // grpc generated client code is still exported. This exists to add utility and helpers
 // around the authentication and passing the token with requests.
+//
+// Deprecated: prefer to use NewClientWithMiddleware
 func NewFlightClient(addr string, auth ClientAuthHandler, opts ...grpc.DialOption) (Client, error) {
 	if auth != nil {
 		opts = append([]grpc.DialOption{
@@ -240,11 +242,11 @@ func NewFlightClient(addr string, auth ClientAuthHandler, opts ...grpc.DialOptio
 	return &client{conn: conn, FlightServiceClient: NewFlightServiceClient(conn), authHandler: auth}, nil
 }
 
-// NewFlightClientWithMiddleware takes a slice of middlewares in addition to the auth and address which will be
+// NewClientWithMiddleware takes a slice of middlewares in addition to the auth and address which will be
 // used by grpc and chained, the first middleware will be the outer most with the last middleware
 // being the inner most wrapper around the actual call. It also passes along the dialoptions passed in such
 // as TLS certs and so on.
-func NewFlightClientWithMiddleware(addr string, auth ClientAuthHandler, middleware []ClientMiddleware, opts ...grpc.DialOption) (Client, error) {
+func NewClientWithMiddleware(addr string, auth ClientAuthHandler, middleware []ClientMiddleware, opts ...grpc.DialOption) (Client, error) {
 	unary := make([]grpc.UnaryClientInterceptor, 0, len(middleware))
 	stream := make([]grpc.StreamClientInterceptor, 0, len(middleware))
 	if auth != nil {
