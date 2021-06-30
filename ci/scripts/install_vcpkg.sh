@@ -28,11 +28,10 @@ vcpkg_version=$1
 vcpkg_destination=$2
 vcpkg_patch=$(realpath $(dirname "${0}")/../vcpkg/ports.patch)
 
-git clone https://github.com/microsoft/vcpkg ${vcpkg_destination}
+git clone --depth 1 --branch ${vcpkg_version} https://github.com/microsoft/vcpkg ${vcpkg_destination}
 
 pushd ${vcpkg_destination}
 
-git checkout ${vcpkg_version}
 ./bootstrap-vcpkg.sh -useSystemBinaries -disableMetrics
 
 if ! git apply --reverse --check --ignore-whitespace ${vcpkg_patch}; then
@@ -41,3 +40,6 @@ if ! git apply --reverse --check --ignore-whitespace ${vcpkg_patch}; then
 fi
 
 popd
+
+# ln -s ${vcpkg_destination}/vcpkg /usr/bin/vcpkg
+# buildtrees/downloads/installed/packages
