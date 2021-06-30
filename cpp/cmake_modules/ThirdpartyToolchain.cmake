@@ -2144,12 +2144,11 @@ macro(build_re2)
 endmacro()
 
 if(ARROW_WITH_RE2)
-  resolve_dependency(re2
-                     HAVE_ALT
-                     TRUE
-                     PC_PACKAGE_NAMES
-                     re2)
-  if(${re2_SOURCE} STREQUAL "SYSTEM" AND NOT re2_PC_FOUND)
+  # Don't specify "PC_PACKAGE_NAMES re2" here because re2.pc may
+  # include -std=c++11. It's not compatible with C source and C++
+  # source not uses C++ 11.
+  resolve_dependency(re2 HAVE_ALT TRUE)
+  if(${re2_SOURCE} STREQUAL "SYSTEM")
     get_target_property(RE2_LIB re2::re2 IMPORTED_LOCATION)
     string(APPEND ARROW_PC_LIBS_PRIVATE " ${RE2_LIB}")
   endif()
