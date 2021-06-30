@@ -218,9 +218,11 @@ enum CompareOperator : int8_t {
   LESS_EQUAL,
 };
 
-struct ARROW_EXPORT CompareOptions {
-  explicit CompareOptions(CompareOperator op) : op(op) {}
-
+class ARROW_EXPORT CompareOptions : public FunctionOptions {
+ public:
+  explicit CompareOptions(CompareOperator op);
+  CompareOptions();
+  constexpr static char const kTypeName[] = "compare";
   enum CompareOperator op;
 };
 

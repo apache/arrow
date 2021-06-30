@@ -72,6 +72,32 @@ struct EnumTraits<TimeUnit::type>
     return "<INVALID>";
   }
 };
+template <>
+struct EnumTraits<compute::CompareOperator>
+    : BasicEnumTraits<
+          compute::CompareOperator, compute::CompareOperator::EQUAL,
+          compute::CompareOperator::NOT_EQUAL, compute::CompareOperator::GREATER,
+          compute::CompareOperator::GREATER_EQUAL, compute::CompareOperator::LESS,
+          compute::CompareOperator::LESS_EQUAL> {
+  static std::string name() { return "compute::CompareOperator"; }
+  static std::string value_name(compute::CompareOperator value) {
+    switch (value) {
+      case compute::CompareOperator::EQUAL:
+        return "EQUAL";
+      case compute::CompareOperator::NOT_EQUAL:
+        return "NOT_EQUAL";
+      case compute::CompareOperator::GREATER:
+        return "GREATER";
+      case compute::CompareOperator::GREATER_EQUAL:
+        return "GREATER_EQUAL";
+      case compute::CompareOperator::LESS:
+        return "LESS";
+      case compute::CompareOperator::LESS_EQUAL:
+        return "LESS_EQUAL";
+    }
+    return "<INVALID>";
+  }
+};
 }  // namespace internal
 
 namespace compute {
@@ -124,6 +150,8 @@ static auto kTrimOptionsType = GetFunctionOptionsType<TrimOptions>(
 static auto kSliceOptionsType = GetFunctionOptionsType<SliceOptions>(
     DataMember("start", &SliceOptions::start), DataMember("stop", &SliceOptions::stop),
     DataMember("step", &SliceOptions::step));
+static auto kCompareOptionsType =
+    GetFunctionOptionsType<CompareOptions>(DataMember("op", &CompareOptions::op));
 static auto kProjectOptionsType = GetFunctionOptionsType<ProjectOptions>(
     DataMember("field_names", &ProjectOptions::field_names),
     DataMember("field_nullability", &ProjectOptions::field_nullability),
@@ -223,6 +251,11 @@ SliceOptions::SliceOptions(int64_t start, int64_t stop, int64_t step)
 SliceOptions::SliceOptions() : SliceOptions(0, 0, 1) {}
 constexpr char SliceOptions::kTypeName[];
 
+CompareOptions::CompareOptions(CompareOperator op)
+    : FunctionOptions(internal::kCompareOptionsType), op(op) {}
+CompareOptions::CompareOptions() : CompareOptions(CompareOperator::EQUAL) {}
+constexpr char CompareOptions::kTypeName[];
+
 ProjectOptions::ProjectOptions(std::vector<std::string> n, std::vector<bool> r,
                                std::vector<std::shared_ptr<const KeyValueMetadata>> m)
     : FunctionOptions(internal::kProjectOptionsType),
@@ -254,6 +287,7 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kPadOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kTrimOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSliceOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kCompareOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kProjectOptionsType));
 }
 }  // namespace internal
