@@ -270,7 +270,7 @@ TEST_F(TestIfElseKernel, IfElseBooleanRand) {
 }
 
 TEST_F(TestIfElseKernel, IfElseNull) {
-  CheckIfElseOutput(ArrayFromJSON(boolean(), "[null, null, null, null]"),
+  CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[null, null, null, null]"),
                     ArrayFromJSON(null(), "[null, null, null, null]"),
                     ArrayFromJSON(null(), "[null, null, null, null]"),
                     ArrayFromJSON(null(), "[null, null, null, null]"));

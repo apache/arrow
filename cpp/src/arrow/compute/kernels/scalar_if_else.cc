@@ -460,8 +460,13 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
   using OffsetType = typename TypeTraits<Type>::OffsetType::c_type;
   using ArrayType = typename TypeTraits<Type>::ArrayType;
 
-  // A - Array
-  // S - Scalar
+  // A - Array, S - Scalar, X = Array/Scalar
+
+  // SXX
+  static Status Call(KernelContext* ctx, const BooleanScalar& cond, const Datum& left,
+                     const Datum& right, Datum* out) {
+    return Status::OK();
+  }
 
   //  AAA
   static Status Call(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
@@ -936,12 +941,12 @@ struct ResolveIfElseExec {
 template <>
 struct ResolveIfElseExec<NullType> {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    if (batch[0].is_scalar()) {
+    if (batch[0].is_scalar() && batch[1].is_scalar() && batch[2].is_scalar()) {
       *out = MakeNullScalar(null());
     } else {
-      const std::shared_ptr<ArrayData>& cond_array = batch[0].array();
-      ARROW_ASSIGN_OR_RAISE(
-          *out, MakeArrayOfNull(null(), cond_array->length, ctx->memory_pool()));
+      int64_t len =
+          std::max(batch[0].length(), std::max(batch[1].length(), batch[2].length()));
+      ARROW_ASSIGN_OR_RAISE(*out, MakeArrayOfNull(null(), len, ctx->memory_pool()));
     }
     return Status::OK();
   }
