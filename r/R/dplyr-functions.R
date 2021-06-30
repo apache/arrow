@@ -281,8 +281,26 @@ nse_funcs$str_trim <- function(string, side = c("both", "left", "right")) {
 }
 
 nse_funcs$str_sub <- function(string, start = 1L, end = -1L) {
+  assert_that(
+    length(start) == 1,
+    msg = "Start of length != 1 not supported in Arrow"
+  )
+  assert_that(
+    length(end) == 1,
+    msg = "End of length != 1 not supported in Arrow"
+  )
+  end <- ifelse(end < 0, start + abs(end), end)
   Expression$create(
     "utf8_slice_codeunits",
+    string,
+    options = list(start = start - 1, stop = end)
+  )
+}
+
+nse_funcs$substr <- function(string, start = 1L, stop = nchar(string)) {
+  Expression$create(
+    "utf8_slice_codeunits",
+    string,
     options = list(start = start, stop = end)
   )
 }
