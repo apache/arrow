@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-aws-sdk-cpp
+aws-sdk-cpp<1.9
 benchmark=1.5.2
 boost-cpp>=1.68.0
 brotli
