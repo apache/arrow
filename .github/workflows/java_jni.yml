@@ -50,7 +50,7 @@ jobs:
     name: AMD64 Debian 9 Java JNI (Gandiva, Plasma, ORC, Dataset)
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 90
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
