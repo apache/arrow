@@ -218,8 +218,34 @@ table Time {
 /// leap seconds, as a 64-bit integer. Note that UNIX time does not include
 /// leap seconds.
 ///
-/// The Timestamp metadata supports both "time zone naive" and "time zone
-/// aware" timestamps. Read about the timezone attribute for more detail
+/// Date & time libraries often have multiple different data types for temporal
+/// data.  In order to ease interoperability between different implementations the
+/// Arrow project has some recommendations for encoding these types into a Timestamp
+/// column.
+///
+/// An "Instant" represents a single moment in time that has no meaningful time zone
+/// or the time zone is unknown.  A column of Instants can also contain values from
+/// multiple time zones.  To encode an instant set the timezone string to "UTC".
+///
+/// A "ZonedDateTime" represents a single moment in time that has a meaningful
+/// reference time zone.  To encode a ZonedDateTime as a Timestamp set the timezone
+/// string to the name of the timezone.
+///
+/// An "OffsetDateTime" represents a single moment in time combined with a meaningful
+/// offset from UTC.  It is similar to a ZonedDateTime but the offset is a numeric
+/// offset offset string (e.g. "+03:00").
+///
+/// A "LocalDateTime" does not represent a single moment in time.  It represents a wall
+/// clock time combined with a date.  Because of daylight savings time there may multiple
+/// Instants that correspond to a single LocalDateTime in any given time zone.  A
+/// LocalDateTime is often stored as a struct or a Date32/Time64 pair.  However, it can
+/// also be encoded into a Timestamp column.  To do so the value should be the the time
+/// elapsed from the Unix epoch so that a wall clock in UTC would display the desired time.
+/// Futhermore, the timezone string should be set to null.
+///
+/// In ALL cases the values of the Timestamp column should be the time elapsed from the
+/// Unix epoch.  Libraries that manipulate timestamp data can often treat these values as
+/// UTC regardless of the actual temporal type.
 table Timestamp {
   unit: TimeUnit;
 
@@ -232,11 +258,9 @@ table Timestamp {
   /// Whether a timezone string is present indicates different semantics about
   /// the data:
   ///
-  /// * If the time zone is null or equal to an empty string, the data is "time
-  ///   zone naive" and shall be displayed *as is* to the user, not localized
-  ///   to the locale of the user. This data can be though of as UTC but
-  ///   without having "UTC" as the time zone, it is not considered to be
-  ///   localized to any time zone
+  /// * If the time zone is null or equal to an empty string, the data is a LocalDateTime
+  ///   and does not represent a single moment in time.  Instead it represents a wall clock
+  ///   time and care should be taken to avoid interpreting it semantically as an Instant.
   ///
   /// * If the time zone is set to a valid value, values can be displayed as
   ///   "localized" to that time zone, even though the underlying 64-bit
