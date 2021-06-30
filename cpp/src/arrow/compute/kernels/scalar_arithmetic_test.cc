@@ -16,6 +16,8 @@
 // under the License.
 
 #include <algorithm>
+#define _USE_MATH_DEFINES
+#include <cmath>
 #include <memory>
 #include <string>
 #include <type_traits>
@@ -90,6 +92,12 @@ class TestUnaryArithmetic : public TestBase {
   void AssertUnaryOp(UnaryFunction func, const std::shared_ptr<Array>& arg,
                      const std::string& expected_json) {
     const auto expected = ArrayFromJSON(type_singleton(), expected_json);
+    return AssertUnaryOp(func, arg, expected);
+  }
+
+  // (Array)
+  void AssertUnaryOp(UnaryFunction func, const std::shared_ptr<Array>& arg,
+                     const std::shared_ptr<Array>& expected) {
     ASSERT_OK_AND_ASSIGN(Datum actual, func(arg, options_, nullptr));
     ValidateAndAssertApproxEqual(actual.make_array(), expected);
 
@@ -108,6 +116,11 @@ class TestUnaryArithmetic : public TestBase {
     auto arg = ArrayFromJSON(type_singleton(), argument);
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(expected_msg),
                                     func(arg, options_, nullptr));
+    for (int64_t i = 0; i < arg->length(); i++) {
+      ASSERT_OK_AND_ASSIGN(auto scalar, arg->GetScalar(i));
+      EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(expected_msg),
+                                      func(scalar, options_, nullptr));
+    }
   }
 
   void AssertUnaryOpNotImplemented(UnaryFunction func, const std::string& argument) {
@@ -232,6 +245,12 @@ class TestBinaryArithmetic : public TestBase {
                    const std::shared_ptr<Array>& right,
                    const std::string& expected_json) {
     const auto expected = ArrayFromJSON(type_singleton(), expected_json);
+    AssertBinop(func, left, right, expected);
+  }
+
+  void AssertBinop(BinaryFunction func, const std::shared_ptr<Array>& left,
+                   const std::shared_ptr<Array>& right,
+                   const std::shared_ptr<Array>& expected) {
     ASSERT_OK_AND_ASSIGN(Datum actual, func(left, right, options_, nullptr));
     ValidateAndAssertApproxEqual(actual.make_array(), expected);
 
@@ -1713,6 +1732,93 @@ TYPED_TEST(TestBinaryArithmeticUnsigned, ShiftRightOverflowRaises) {
   this->AssertBinop(ShiftRight, MakeArray(max), MakeArray(bit_width - 1), "[1]");
   this->AssertBinopRaises(ShiftRight, "[1]", MakeArray(bit_width),
                           "shift amount must be >= 0 and less than precision of type");
+}
+
+TYPED_TEST(TestUnaryArithmeticFloating, TrigSin) {
+  this->SetNansEqual(true);
+  this->AssertUnaryOp(Sin, "[Inf, -Inf]", "[NaN, NaN]");
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+    this->AssertUnaryOp(Sin, "[]", "[]");
+    this->AssertUnaryOp(Sin, "[null, NaN]", "[null, NaN]");
+    this->AssertUnaryOp(Sin, MakeArray(0, M_PI_2, M_PI), "[0, 1, 0]");
+  }
+  this->AssertUnaryOpRaises(Sin, "[Inf, -Inf]", "domain error");
+}
+
+TYPED_TEST(TestUnaryArithmeticFloating, TrigCos) {
+  this->SetNansEqual(true);
+  this->AssertUnaryOp(Cos, "[Inf, -Inf]", "[NaN, NaN]");
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+    this->AssertUnaryOp(Cos, "[]", "[]");
+    this->AssertUnaryOp(Cos, "[null, NaN]", "[null, NaN]");
+    this->AssertUnaryOp(Cos, MakeArray(0, M_PI_2, M_PI), "[1, 0, -1]");
+  }
+  this->AssertUnaryOpRaises(Cos, "[Inf, -Inf]", "domain error");
+}
+
+TYPED_TEST(TestUnaryArithmeticFloating, TrigTan) {
+  this->SetNansEqual(true);
+  this->AssertUnaryOp(Tan, "[Inf, -Inf]", "[NaN, NaN]");
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+    this->AssertUnaryOp(Tan, "[]", "[]");
+    this->AssertUnaryOp(Tan, "[null, NaN]", "[null, NaN]");
+    // N.B. pi/2 isn't representable exactly -> there are no poles
+    // (i.e. tan(pi/2) is merely a large value and not +Inf)
+    this->AssertUnaryOp(Tan, MakeArray(0, M_PI), "[0, 0]");
+  }
+  this->AssertUnaryOpRaises(Tan, "[Inf, -Inf]", "domain error");
+}
+
+TYPED_TEST(TestUnaryArithmeticFloating, TrigAsin) {
+  this->SetNansEqual(true);
+  this->AssertUnaryOp(Asin, "[Inf, -Inf, -2, 2]", "[NaN, NaN, NaN, NaN]");
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+    this->AssertUnaryOp(Asin, "[]", "[]");
+    this->AssertUnaryOp(Asin, "[null, NaN]", "[null, NaN]");
+    this->AssertUnaryOp(Asin, "[0, 1, -1]", MakeArray(0, M_PI_2, -M_PI_2));
+  }
+  this->AssertUnaryOpRaises(Asin, "[Inf, -Inf, -2, 2]", "domain error");
+}
+
+TYPED_TEST(TestUnaryArithmeticFloating, TrigAcos) {
+  this->SetNansEqual(true);
+  this->AssertUnaryOp(Asin, "[Inf, -Inf, -2, 2]", "[NaN, NaN, NaN, NaN]");
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+    this->AssertUnaryOp(Acos, "[]", "[]");
+    this->AssertUnaryOp(Acos, "[null, NaN]", "[null, NaN]");
+    this->AssertUnaryOp(Acos, "[0, 1, -1]", MakeArray(M_PI_2, 0, M_PI));
+  }
+  this->AssertUnaryOpRaises(Acos, "[Inf, -Inf, -2, 2]", "domain error");
+}
+
+TYPED_TEST(TestUnaryArithmeticFloating, TrigAtan) {
+  this->SetNansEqual(true);
+  auto atan = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
+    return Atan(arg, ctx);
+  };
+  this->AssertUnaryOp(atan, "[]", "[]");
+  this->AssertUnaryOp(atan, "[null, NaN]", "[null, NaN]");
+  this->AssertUnaryOp(atan, "[0, 1, -1, Inf, -Inf]",
+                      MakeArray(0, M_PI_4, -M_PI_4, M_PI_2, -M_PI_2));
+}
+
+TYPED_TEST(TestBinaryArithmeticFloating, TrigAtan2) {
+  this->SetNansEqual(true);
+  auto atan2 = [](const Datum& y, const Datum& x, ArithmeticOptions, ExecContext* ctx) {
+    return Atan2(y, x, ctx);
+  };
+  this->AssertBinop(atan2, "[]", "[]", "[]");
+  this->AssertBinop(atan2, "[0, 0, null, NaN]", "[null, NaN, 0, 0]",
+                    "[null, NaN, null, NaN]");
+  this->AssertBinop(atan2, "[0, 0, -0.0, 0, -0.0, 0, 1, 0, -1, Inf, -Inf, 0, 0]",
+                    "[0, 0, 0, -0.0, -0.0, 1, 0, -1, 0, 0, 0, Inf, -Inf]",
+                    MakeArray(0, 0, -0.0, M_PI, -M_PI, 0, M_PI_2, M_PI, -M_PI_2, M_PI_2,
+                              -M_PI_2, 0, M_PI));
 }
 
 }  // namespace compute
