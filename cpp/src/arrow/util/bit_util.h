@@ -295,7 +295,9 @@ static constexpr bool GetBit(const uint8_t* bits, uint64_t i) {
 }
 
 // Gets the i-th bit from a byte. Should only be used with i <= 7.
-static constexpr bool GetBitFromByte(uint8_t byte, uint8_t i) { return byte & kBitmask[i]; }
+static constexpr bool GetBitFromByte(uint8_t byte, uint8_t i) {
+  return byte & kBitmask[i];
+}
 
 static inline void ClearBit(uint8_t* bits, int64_t i) {
   bits[i / 8] &= kFlippedBitmask[i % 8];
