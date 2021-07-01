@@ -293,6 +293,7 @@ class ARROW_EXPORT BasicDecimal256 {
   /// \param[out] remainder the remainder after the division
   DecimalStatus Divide(const BasicDecimal256& divisor, BasicDecimal256* result,
                        BasicDecimal256* remainder) const;
+
   /// \brief Shift left by the given number of bits.
   BasicDecimal256& operator<<=(uint32_t bits);
 
