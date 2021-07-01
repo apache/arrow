@@ -21,6 +21,7 @@ ARG arch
 
 ARG arrow_home
 ARG arrow_build_static="OFF"
+ARG arrow_s3="ON"
 
 # Build R
 # [1] https://www.digitalocean.com/community/tutorials/how-to-install-r-on-ubuntu-18-04
@@ -108,7 +109,7 @@ ENV \
     ARROW_PARQUET=ON \
     ARROW_PLASMA=OFF \
     ARROW_PYTHON=ON \
-    ARROW_S3=ON \
+    ARROW_S3=${arrow_s3} \
     ARROW_USE_CCACHE=ON \
     ARROW_USE_GLOG=OFF \
     ARROW_HOME=${arrow_home} \

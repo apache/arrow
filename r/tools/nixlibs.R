@@ -416,6 +416,10 @@ cmake_version <- function(cmd = "cmake") {
 
 with_s3_support <- function(env_vars) {
   arrow_s3 <- toupper(Sys.getenv("ARROW_S3")) == "ON" || tolower(Sys.getenv("LIBARROW_MINIMAL")) == "false"
+  # but if ARROW_S3=OFF explicitly, we are definitely off, so override
+  if (toupper(Sys.getenv("ARROW_S3")) == "OFF" ) {
+    arrow_s3 <- FALSE
+  }
   if (arrow_s3) {
     # User wants S3 support. If they're using gcc, let's make sure the version is >= 4.9
     # and make sure that we have curl and openssl system libs
