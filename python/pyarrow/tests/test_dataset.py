@@ -3096,6 +3096,7 @@ def test_write_dataset_use_threads(tempdir):
 
     target1 = tempdir / 'partitioned1'
     paths_written = []
+
     def writer_pre_finish(writer):
         paths_written.append(writer.path)
 
