@@ -43,6 +43,7 @@ class ARROW_EXPORT Expression {
     std::string function_name;
     std::vector<Expression> arguments;
     std::shared_ptr<FunctionOptions> options;
+    // Cached hash value
     size_t hash;
 
     // post-Bind properties:
@@ -50,6 +51,8 @@ class ARROW_EXPORT Expression {
     const Kernel* kernel = NULLPTR;
     std::shared_ptr<KernelState> kernel_state;
     ValueDescr descr;
+
+    void ComputeHash();
   };
 
   std::string ToString() const;
