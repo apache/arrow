@@ -50,6 +50,7 @@
   })
 }
 
+#' @importFrom rlang call_stack
 apply_arrow_r_metadata <- function(x, r_metadata) {
   tryCatch({
     columns_metadata <- r_metadata$columns
@@ -60,6 +61,21 @@ apply_arrow_r_metadata <- function(x, r_metadata) {
         }
       }
     } else if (is.list(x) && !inherits(x, "POSIXlt") && !is.null(columns_metadata)) {
+      # If we have a list and "columns_metadata" this is apply row-level metadata
+      # inside of a column in a dataframe.
+
+      # However, if we are inside of a dataset collection, we cannot apply this
+      # row-level metadata, since the order of the rows is not gauranteed to be
+      # the same, so don't even try, but warn what's going on
+      stack <- call_stack()
+      in_dataset_collect <- any(map_lgl(stack, function(x) {
+        !is.null(x$fn_name) && x$fn_name == "collect.arrow_dplyr_query"
+      }))
+      if (in_dataset_collect) {
+        warning("Row-level metadata has been discarded")
+        break
+      }
+
       x <- map2(x, columns_metadata, function(.x, .y) {
         apply_arrow_r_metadata(.x, .y)
       })

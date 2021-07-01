@@ -205,3 +205,27 @@ test_that("metadata of list elements (ARROW-10386)", {
   expect_identical(attr(as.data.frame(tab)$x[[1]], "foo"), "bar")
   expect_identical(attr(as.data.frame(tab)$x[[2]], "baz"), "qux")
 })
+
+
+test_that("metadata of list elements (ARROW-10386)", {
+  skip_if_not_available("dataset")
+  skip_if_not_available("parquet")
+  df <- tibble::tibble(
+    metadata = list(
+      structure(1, my_value_as_attr = 1),
+      structure(2, my_value_as_attr = 2),
+      structure(3, my_value_as_attr = 3),
+      structure(4, my_value_as_attr = 3)),
+    part = c(1, 3, 2, 1)
+  )
+
+  dst_dir <- make_temp_dir()
+  write_dataset(df, dst_dir, partitioning = "part")
+  ds <- open_dataset(dst_dir)
+  expect_warning(
+    df_from_ds <- dplyr::collect(ds),
+    "Row-level metadata has been discarded"
+  )
+
+  expect_equal(df_from_ds[c(1, 4, 3, 2), ], df, check.attributes = FALSE)
+})
