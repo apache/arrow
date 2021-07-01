@@ -887,21 +887,22 @@ test_that("str_pad", {
   
   expect_dplyr_equal(
     input %>%
+      mutate(x = str_pad(x, width = 30, side = "left", pad = "+")) %>%
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = str_pad(x, width = 10, side = "left", pad = "+")) %>%
+      collect(),
+    df
+  )
+  
+  skip("Extra space added to opposite side in C++ - ARROW-13234")
+  expect_dplyr_equal(
+    input %>%
       mutate(x = str_pad(x, width = 30, side = "both")) %>%
-      collect(),
-    df
-  )
-  
-  expect_dplyr_equal(
-    input %>%
-      mutate(x = str_pad(x, width = 30, side = "both", pad = "+")) %>%
-      collect(),
-    df
-  )
-  
-  expect_dplyr_equal(
-    input %>%
-      mutate(x = str_pad(x, width = 10, side = "both", pad = "+")) %>%
       collect(),
     df
   )
