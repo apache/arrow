@@ -41,10 +41,11 @@ jobs:
         shell: bash
         run: archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" {{ flags|default("") }} {{ image }}
 
+    {% if '-r-' in image %}
       - name: Dump R install logs
         run: cat arrow/r/check/arrow.Rcheck/00install.out
-        if: contains("{{ image }}", "-r-")
         continue-on-error: true
+    {% endif %}
 
     {% if arrow.branch == 'master' %}
       {{ macros.github_login_dockerhub()|indent }}
