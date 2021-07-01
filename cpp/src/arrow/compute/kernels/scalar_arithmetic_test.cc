@@ -1827,7 +1827,7 @@ TYPED_TEST(TestUnaryArithmeticFloating, Log) {
   this->SetNansEqual(true);
   for (auto check_overflow : {false, true}) {
     this->SetOverflowCheck(check_overflow);
-    this->AssertUnaryOp(Ln, "[1, 2.7182818284590452354, null, NaN, Inf]",
+    this->AssertUnaryOp(Ln, "[1, 2.718281828459045, null, NaN, Inf]",
                         "[0, 1, null, NaN, Inf]");
     // N.B. min() for float types is smallest normal number > 0
     this->AssertUnaryOp(Ln, std::numeric_limits<CType>::min(),
@@ -1851,26 +1851,32 @@ TYPED_TEST(TestUnaryArithmeticFloating, Log) {
     this->AssertUnaryOp(Log1p, std::numeric_limits<CType>::max(),
                         std::log1p(std::numeric_limits<CType>::max()));
   }
-  this->AssertUnaryOpRaises(Ln, "[0]", "divide by zero");
-  this->AssertUnaryOpRaises(Ln, "[-1]", "domain error");
-  this->AssertUnaryOpRaises(Ln, "[-Inf]", "domain error");
+  this->SetOverflowCheck(false);
+  this->AssertUnaryOp(Ln, "[-Inf, -1, 0, Inf]", "[NaN, NaN, -Inf, Inf]");
+  this->AssertUnaryOp(Log10, "[-Inf, -1, 0, Inf]", "[NaN, NaN, -Inf, Inf]");
+  this->AssertUnaryOp(Log2, "[-Inf, -1, 0, Inf]", "[NaN, NaN, -Inf, Inf]");
+  this->AssertUnaryOp(Log1p, "[-Inf, -2, -1, Inf]", "[NaN, NaN, -Inf, Inf]");
+  this->SetOverflowCheck(true);
+  this->AssertUnaryOpRaises(Ln, "[0]", "logarithm of zero");
+  this->AssertUnaryOpRaises(Ln, "[-1]", "logarithm of negative number");
+  this->AssertUnaryOpRaises(Ln, "[-Inf]", "logarithm of negative number");
   this->AssertUnaryOpRaises(Ln, MakeArray(std::numeric_limits<CType>::lowest()),
-                            "domain error");
-  this->AssertUnaryOpRaises(Log10, "[0]", "divide by zero");
-  this->AssertUnaryOpRaises(Log10, "[-1]", "domain error");
-  this->AssertUnaryOpRaises(Log10, "[-Inf]", "domain error");
+                            "logarithm of negative number");
+  this->AssertUnaryOpRaises(Log10, "[0]", "logarithm of zero");
+  this->AssertUnaryOpRaises(Log10, "[-1]", "logarithm of negative number");
+  this->AssertUnaryOpRaises(Log10, "[-Inf]", "logarithm of negative number");
   this->AssertUnaryOpRaises(Log10, MakeArray(std::numeric_limits<CType>::lowest()),
-                            "domain error");
-  this->AssertUnaryOpRaises(Log2, "[0]", "divide by zero");
-  this->AssertUnaryOpRaises(Log2, "[-1]", "domain error");
-  this->AssertUnaryOpRaises(Log2, "[-Inf]", "domain error");
+                            "logarithm of negative number");
+  this->AssertUnaryOpRaises(Log2, "[0]", "logarithm of zero");
+  this->AssertUnaryOpRaises(Log2, "[-1]", "logarithm of negative number");
+  this->AssertUnaryOpRaises(Log2, "[-Inf]", "logarithm of negative number");
   this->AssertUnaryOpRaises(Log2, MakeArray(std::numeric_limits<CType>::lowest()),
-                            "domain error");
-  this->AssertUnaryOpRaises(Log1p, "[-1]", "divide by zero");
-  this->AssertUnaryOpRaises(Log1p, "[-2]", "domain error");
-  this->AssertUnaryOpRaises(Log1p, "[-Inf]", "domain error");
+                            "logarithm of negative number");
+  this->AssertUnaryOpRaises(Log1p, "[-1]", "logarithm of zero");
+  this->AssertUnaryOpRaises(Log1p, "[-2]", "logarithm of negative number");
+  this->AssertUnaryOpRaises(Log1p, "[-Inf]", "logarithm of negative number");
   this->AssertUnaryOpRaises(Log1p, MakeArray(std::numeric_limits<CType>::lowest()),
-                            "domain error");
+                            "logarithm of negative number");
 }
 
 }  // namespace compute

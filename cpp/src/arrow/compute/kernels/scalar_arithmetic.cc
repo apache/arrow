@@ -704,10 +704,10 @@ struct LogNaturalChecked {
   static enable_if_floating_point<Arg, T> Call(KernelContext*, Arg arg, Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
     if (arg == 0.0) {
-      *st = Status::Invalid("divide by zero");
+      *st = Status::Invalid("logarithm of zero");
       return arg;
     } else if (arg < 0.0) {
-      *st = Status::Invalid("domain error");
+      *st = Status::Invalid("logarithm of negative number");
       return arg;
     }
     return std::log(arg);
@@ -732,10 +732,10 @@ struct Log10Checked {
   static enable_if_floating_point<Arg, T> Call(KernelContext*, Arg arg, Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
     if (arg == 0) {
-      *st = Status::Invalid("divide by zero");
+      *st = Status::Invalid("logarithm of zero");
       return arg;
     } else if (arg < 0) {
-      *st = Status::Invalid("domain error");
+      *st = Status::Invalid("logarithm of negative number");
       return arg;
     }
     return std::log10(arg);
@@ -760,10 +760,10 @@ struct Log2Checked {
   static enable_if_floating_point<Arg, T> Call(KernelContext*, Arg arg, Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
     if (arg == 0.0) {
-      *st = Status::Invalid("divide by zero");
+      *st = Status::Invalid("logarithm of zero");
       return arg;
     } else if (arg < 0.0) {
-      *st = Status::Invalid("domain error");
+      *st = Status::Invalid("logarithm of negative number");
       return arg;
     }
     return std::log2(arg);
@@ -788,10 +788,10 @@ struct Log1pChecked {
   static enable_if_floating_point<Arg, T> Call(KernelContext*, Arg arg, Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
     if (arg == -1) {
-      *st = Status::Invalid("divide by zero");
+      *st = Status::Invalid("logarithm of zero");
       return arg;
     } else if (arg < -1) {
-      *st = Status::Invalid("domain error");
+      *st = Status::Invalid("logarithm of negative number");
       return arg;
     }
     return std::log1p(arg);
@@ -1409,53 +1409,53 @@ const FunctionDoc atan2_doc{
     {"y", "x"}};
 
 const FunctionDoc ln_doc{
-    "Take natural log of arguments element-wise",
+    "Compute natural log of arguments element-wise",
     ("Non-positive values return -inf or NaN. Null values return null.\n"
      "Use function \"ln_checked\" if you want non-positive values to raise an error."),
     {"x"}};
 
 const FunctionDoc ln_checked_doc{
-    "Take natural log of arguments element-wise",
+    "Compute natural log of arguments element-wise",
     ("Non-positive values return -inf or NaN. Null values return null.\n"
      "Use function \"ln\" if you want non-positive values to return "
      "-inf or NaN."),
     {"x"}};
 
 const FunctionDoc log10_doc{
-    "Take log base 10 of arguments element-wise",
+    "Compute log base 10 of arguments element-wise",
     ("Non-positive values return -inf or NaN. Null values return null.\n"
      "Use function \"log10_checked\" if you want non-positive values to raise an error."),
     {"x"}};
 
 const FunctionDoc log10_checked_doc{
-    "Take log base 10 of arguments element-wise",
+    "Compute log base 10 of arguments element-wise",
     ("Non-positive values return -inf or NaN. Null values return null.\n"
      "Use function \"log10\" if you want non-positive values to return "
      "-inf or NaN."),
     {"x"}};
 
 const FunctionDoc log2_doc{
-    "Take log base 2 of arguments element-wise",
+    "Compute log base 2 of arguments element-wise",
     ("Non-positive values return -inf or NaN. Null values return null.\n"
      "Use function \"log2_checked\" if you want non-positive values to raise an error."),
     {"x"}};
 
 const FunctionDoc log2_checked_doc{
-    "Take log base 2 of arguments element-wise",
+    "Compute log base 2 of arguments element-wise",
     ("Non-positive values return -inf or NaN. Null values return null.\n"
      "Use function \"log2\" if you want non-positive values to return "
      "-inf or NaN."),
     {"x"}};
 
 const FunctionDoc log1p_doc{
-    "Take natural log of (1+x) element-wise",
+    "Compute natural log of (1+x) element-wise",
     ("Values <= -1 return -inf or NaN. Null values return null.\n"
      "This function may be more precise than log(1 + x) for x close to zero."
      "Use function \"log1p_checked\" if you want non-positive values to raise an error."),
     {"x"}};
 
 const FunctionDoc log1p_checked_doc{
-    "Take natural log of (1+x) element-wise",
+    "Compute natural log of (1+x) element-wise",
     ("Values <= -1 return -inf or NaN. Null values return null.\n"
      "This function may be more precise than log(1 + x) for x close to zero."
      "Use function \"log1p\" if you want non-positive values to return "
