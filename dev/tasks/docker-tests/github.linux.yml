@@ -43,7 +43,7 @@ jobs:
 
       - name: Dump R install logs
         run: cat arrow/r/check/arrow.Rcheck/00install.out
-        if: contains("{{ image }}"", "-r-")
+        if: contains("{{ image }}", "-r-")
         continue-on-error: true
 
     {% if arrow.branch == 'master' %}
