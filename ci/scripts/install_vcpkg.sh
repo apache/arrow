@@ -40,6 +40,3 @@ if ! git apply --reverse --check --ignore-whitespace ${vcpkg_patch}; then
 fi
 
 popd
-
-# ln -s ${vcpkg_destination}/vcpkg /usr/bin/vcpkg
-# buildtrees/downloads/installed/packages
