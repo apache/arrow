@@ -419,11 +419,11 @@ nse_funcs$str_pad <- function(string, width, side = c("left", "right", "both"), 
   side <- match.arg(side)
   
   if (side == "left") {
-    pad_func = "utf8_lpad_doc"
+    pad_func = "utf8_lpad"
   } else if (side == "right") {
-    pad_func = "utf8_rpad_doc"
+    pad_func = "utf8_rpad"
   } else if (side == "both") {
-    pad_func = "utf8_center_doc"
+    pad_func = "utf8_center"
   }
   
   Expression$create(
