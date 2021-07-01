@@ -359,6 +359,7 @@ tasks:
     ci: github
     template: python-wheels/github.osx.yml
     params:
+      vcpkg_version: "2021.04.30"
       python_version: {{ python_version }}
       macos_deployment_target: {{ macos_version }}
       arrow_s3: {{ arrow_s3 }}
