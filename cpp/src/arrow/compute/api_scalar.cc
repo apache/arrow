@@ -158,6 +158,9 @@ static auto kProjectOptionsType = GetFunctionOptionsType<ProjectOptions>(
     DataMember("field_names", &ProjectOptions::field_names),
     DataMember("field_nullability", &ProjectOptions::field_nullability),
     DataMember("field_metadata", &ProjectOptions::field_metadata));
+static auto kDayOfWeekOptionsType = GetFunctionOptionsType<DayOfWeekOptions>(
+    DataMember("one_based_numbering", &DayOfWeekOptions::one_based_numbering),
+    DataMember("week_start", &DayOfWeekOptions::week_start));
 }  // namespace
 }  // namespace internal
 
@@ -278,6 +281,12 @@ ProjectOptions::ProjectOptions(std::vector<std::string> n)
 ProjectOptions::ProjectOptions() : ProjectOptions(std::vector<std::string>()) {}
 constexpr char ProjectOptions::kTypeName[];
 
+DayOfWeekOptions::DayOfWeekOptions(bool one_based_numbering, uint32_t week_start)
+    : FunctionOptions(internal::kDayOfWeekOptionsType),
+      one_based_numbering(one_based_numbering),
+      week_start(week_start) {}
+constexpr char DayOfWeekOptions::kTypeName[];
+
 namespace internal {
 void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kArithmeticOptionsType));
@@ -296,6 +305,7 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kSliceOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kCompareOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kProjectOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kDayOfWeekOptionsType));
 }
 }  // namespace internal
 

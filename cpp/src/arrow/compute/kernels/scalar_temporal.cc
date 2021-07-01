@@ -85,7 +85,7 @@ struct TemporalComponentExtract {
 };
 
 template <typename Op, typename OutType>
-struct DayOfWeekOptionsWithOptions {
+struct DayOfWeekExec {
   using OutValue = typename internal::GetOutputType<OutType>::T;
 
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
@@ -148,20 +148,23 @@ struct Day {
 
 template <typename Duration>
 struct DayOfWeek {
-  explicit DayOfWeek(DayOfWeekOptions options) : options(options) {}
+  explicit DayOfWeek(DayOfWeekOptions options) : options(options) {
+    for (int i = 0; i < 7; i++) {
+      lookup_table[i] = i + 8 - options.week_start;
+      lookup_table[i] = (lookup_table[i] > 6) ? lookup_table[i] - 7 : lookup_table[i];
+      lookup_table[i] += options.one_based_numbering;
+    }
+  }
 
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
-    auto wd = arrow_vendored::date::year_month_weekday(
-                  floor<days>(sys_time<Duration>(Duration{arg})))
-                  .weekday()
-                  .iso_encoding();
-    if (options.week_start == 1) {
-      return wd + options.one_based_numbering - 1;
-    }
-    return (wd + 7 - options.week_start) % 7 + options.one_based_numbering;
+    const auto wd = arrow_vendored::date::year_month_weekday(
+                        floor<days>(sys_time<Duration>(Duration{arg})))
+                        .weekday()
+                        .iso_encoding();
+    return lookup_table[wd - 1];
   }
-
+  std::array<int64_t, 7> lookup_table;
   DayOfWeekOptions options;
 };
 
@@ -435,35 +438,32 @@ std::shared_ptr<ScalarFunction> MakeTemporal(std::string name, const FunctionDoc
 
 template <template <typename...> class Op, typename OutType>
 std::shared_ptr<ScalarFunction> MakeTemporalWithOptions(
-    std::string name, const FunctionDoc* doc, const DayOfWeekOptions* default_options,
+    std::string name, const FunctionDoc* doc, const DayOfWeekOptions& default_options,
     KernelInit init) {
   const auto& out_type = TypeTraits<OutType>::type_singleton();
   auto func =
-      std::make_shared<ScalarFunction>(name, Arity::Unary(), doc, default_options);
+      std::make_shared<ScalarFunction>(name, Arity::Unary(), doc, &default_options);
 
   for (auto unit : internal::AllTimeUnits()) {
     InputType in_type{match::TimestampTypeUnit(unit)};
     switch (unit) {
       case TimeUnit::SECOND: {
-        auto exec = DayOfWeekOptionsWithOptions<Op<std::chrono::seconds>, OutType>::Exec;
+        auto exec = DayOfWeekExec<Op<std::chrono::seconds>, OutType>::Exec;
         DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
         break;
       }
       case TimeUnit::MILLI: {
-        auto exec =
-            DayOfWeekOptionsWithOptions<Op<std::chrono::milliseconds>, OutType>::Exec;
+        auto exec = DayOfWeekExec<Op<std::chrono::milliseconds>, OutType>::Exec;
         DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
         break;
       }
       case TimeUnit::MICRO: {
-        auto exec =
-            DayOfWeekOptionsWithOptions<Op<std::chrono::microseconds>, OutType>::Exec;
+        auto exec = DayOfWeekExec<Op<std::chrono::microseconds>, OutType>::Exec;
         DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
         break;
       }
       case TimeUnit::NANO: {
-        auto exec =
-            DayOfWeekOptionsWithOptions<Op<std::chrono::nanoseconds>, OutType>::Exec;
+        auto exec = DayOfWeekExec<Op<std::chrono::nanoseconds>, OutType>::Exec;
         DCHECK_OK(func->AddKernel({in_type}, out_type, std::move(exec), init));
         break;
       }
@@ -619,8 +619,7 @@ void RegisterScalarTemporal(FunctionRegistry* registry) {
 
   static auto default_day_of_week_options = DayOfWeekOptions::Defaults();
   auto day_of_week = MakeTemporalWithOptions<DayOfWeek, Int64Type>(
-      "day_of_week", &day_of_week_doc, &default_day_of_week_options,
-      DayOfWeekState::Init);
+      "day_of_week", &day_of_week_doc, default_day_of_week_options, DayOfWeekState::Init);
   DCHECK_OK(registry->AddFunction(std::move(day_of_week)));
 
   auto day_of_year = MakeTemporal<DayOfYear, Int64Type>("day_of_year", &day_of_year_doc);

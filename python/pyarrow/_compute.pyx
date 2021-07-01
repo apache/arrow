@@ -962,15 +962,10 @@ class StrptimeOptions(_StrptimeOptions):
 
 
 cdef class _DayOfWeekOptions(FunctionOptions):
-    cdef:
-        unique_ptr[CDayOfWeekOptions] day_of_week_options
-
-    cdef const CFunctionOptions* get_options(self) except NULL:
-        return self.day_of_week_options.get()
-
     def _set_options(self, one_based_numbering, week_start):
-        self.day_of_week_options.reset(
-            new CDayOfWeekOptions(one_based_numbering, week_start))
+        self.wrapped.reset(
+            new CDayOfWeekOptions(one_based_numbering, week_start)
+        )
 
 
 class DayOfWeekOptions(_DayOfWeekOptions):

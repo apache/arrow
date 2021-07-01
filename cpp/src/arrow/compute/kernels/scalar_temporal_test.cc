@@ -117,51 +117,6 @@ TEST_F(ScalarTemporalTest, TestTemporalComponentExtraction) {
   CheckScalarUnary("microsecond", unit, times, int64(), microsecond);
   CheckScalarUnary("nanosecond", unit, times, int64(), nanosecond);
   CheckScalarUnary("subsecond", unit, times, float64(), subsecond);
-
-  auto timestamps = ArrayFromJSON(unit, times);
-  auto day_of_week_week_start_7_zero_based =
-      "[4, 2, 0, 3, null, 3, 2, 1, 4, 5, 0, 1, 0, 6, 0, 1, 0]";
-  auto day_of_week_week_start_2_zero_based =
-      "[2, 0, 5, 1, null, 1, 0, 6, 2, 3, 5, 6, 5, 4, 5, 6, 5]";
-  auto day_of_week_week_start_7_one_based =
-      "[5, 3, 1, 4, null, 4, 3, 2, 5, 6, 1, 2, 1, 7, 1, 2, 1]";
-  auto day_of_week_week_start_2_one_based =
-      "[3, 1, 6, 2, null, 2, 1, 7, 3, 4, 6, 7, 6, 5, 6, 7, 6]";
-
-  auto expected_70 = ArrayFromJSON(int64(), day_of_week_week_start_7_zero_based);
-  ASSERT_OK_AND_ASSIGN(
-      Datum result_70,
-      DayOfWeek(timestamps, DayOfWeekOptions(
-                                /*one_based_numbering=*/false, /*week_start=*/7)));
-  ASSERT_TRUE(result_70.Equals(expected_70));
-
-  auto expected_20 = ArrayFromJSON(int64(), day_of_week_week_start_2_zero_based);
-  ASSERT_OK_AND_ASSIGN(
-      Datum result_20,
-      DayOfWeek(timestamps, DayOfWeekOptions(
-                                /*one_based_numbering=*/false, /*week_start=*/2)));
-  ASSERT_TRUE(result_20.Equals(expected_20));
-
-  auto expected_71 = ArrayFromJSON(int64(), day_of_week_week_start_7_one_based);
-  ASSERT_OK_AND_ASSIGN(
-      Datum result_71,
-      DayOfWeek(timestamps, DayOfWeekOptions(
-                                /*one_based_numbering=*/true, /*week_start=*/7)));
-  ASSERT_TRUE(result_71.Equals(expected_71));
-
-  auto expected_21 = ArrayFromJSON(int64(), day_of_week_week_start_2_one_based);
-  ASSERT_OK_AND_ASSIGN(
-      Datum result_21,
-      DayOfWeek(timestamps, DayOfWeekOptions(
-                                /*one_based_numbering=*/true, /*week_start=*/2)));
-  ASSERT_TRUE(result_21.Equals(expected_21));
-
-  ASSERT_RAISES(Invalid,
-                DayOfWeek(timestamps, DayOfWeekOptions(/*one_based_numbering=*/true,
-                                                       /*week_start=*/0)));
-  ASSERT_RAISES(Invalid,
-                DayOfWeek(timestamps, DayOfWeekOptions(/*one_based_numbering=*/false,
-                                                       /*week_start=*/8)));
 }
 
 TEST_F(ScalarTemporalTest, TestTemporalComponentExtractionWithDifferentUnits) {
@@ -211,6 +166,55 @@ TEST_F(ScalarTemporalTest, TestZonedTemporalComponentExtraction) {
     ASSERT_RAISES(NotImplemented, Nanosecond(timestamps));
     ASSERT_RAISES(NotImplemented, Subsecond(timestamps));
   }
+}
+
+TEST_F(ScalarTemporalTest, DayOfWeek) {
+  auto unit = timestamp(TimeUnit::NANO);
+
+  auto timestamps = ArrayFromJSON(unit, times);
+  auto day_of_week_week_start_7_zero_based =
+      "[4, 2, 0, 3, null, 3, 2, 1, 4, 5, 0, 1, 0, 6, 0, 1, 0]";
+  auto day_of_week_week_start_2_zero_based =
+      "[2, 0, 5, 1, null, 1, 0, 6, 2, 3, 5, 6, 5, 4, 5, 6, 5]";
+  auto day_of_week_week_start_7_one_based =
+      "[5, 3, 1, 4, null, 4, 3, 2, 5, 6, 1, 2, 1, 7, 1, 2, 1]";
+  auto day_of_week_week_start_2_one_based =
+      "[3, 1, 6, 2, null, 2, 1, 7, 3, 4, 6, 7, 6, 5, 6, 7, 6]";
+
+  auto expected_70 = ArrayFromJSON(int64(), day_of_week_week_start_7_zero_based);
+  ASSERT_OK_AND_ASSIGN(
+      Datum result_70,
+      DayOfWeek(timestamps, DayOfWeekOptions(
+                                /*one_based_numbering=*/false, /*week_start=*/7)));
+  ASSERT_TRUE(result_70.Equals(expected_70));
+
+  auto expected_20 = ArrayFromJSON(int64(), day_of_week_week_start_2_zero_based);
+  ASSERT_OK_AND_ASSIGN(
+      Datum result_20,
+      DayOfWeek(timestamps, DayOfWeekOptions(
+                                /*one_based_numbering=*/false, /*week_start=*/2)));
+  ASSERT_TRUE(result_20.Equals(expected_20));
+
+  auto expected_71 = ArrayFromJSON(int64(), day_of_week_week_start_7_one_based);
+  ASSERT_OK_AND_ASSIGN(
+      Datum result_71,
+      DayOfWeek(timestamps, DayOfWeekOptions(
+                                /*one_based_numbering=*/true, /*week_start=*/7)));
+  ASSERT_TRUE(result_71.Equals(expected_71));
+
+  auto expected_21 = ArrayFromJSON(int64(), day_of_week_week_start_2_one_based);
+  ASSERT_OK_AND_ASSIGN(
+      Datum result_21,
+      DayOfWeek(timestamps, DayOfWeekOptions(
+                                /*one_based_numbering=*/true, /*week_start=*/2)));
+  ASSERT_TRUE(result_21.Equals(expected_21));
+
+  ASSERT_RAISES(Invalid,
+                DayOfWeek(timestamps, DayOfWeekOptions(/*one_based_numbering=*/true,
+                                                       /*week_start=*/0)));
+  ASSERT_RAISES(Invalid,
+                DayOfWeek(timestamps, DayOfWeekOptions(/*one_based_numbering=*/false,
+                                                       /*week_start=*/8)));
 }
 }  // namespace compute
 }  // namespace arrow

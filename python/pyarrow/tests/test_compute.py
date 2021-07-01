@@ -120,6 +120,7 @@ def test_option_class_equality():
         pc.PadOptions(5, " "),
         pc.PartitionNthOptions(1),
         pc.ProjectOptions([b"field", b"names"]),
+        pc.DayOfWeekOptions(False, 0),
         pc.ReplaceSliceOptions(start=0, stop=1, replacement="a"),
         pc.ReplaceSubstringOptions("a", "b"),
         pc.SetLookupOptions(value_set=pa.array([1])),
