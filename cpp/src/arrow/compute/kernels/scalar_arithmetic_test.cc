@@ -1844,7 +1844,7 @@ TYPED_TEST(TestUnaryArithmeticFloating, Log) {
                         std::log2(std::numeric_limits<CType>::min()));
     this->AssertUnaryOp(Log2, std::numeric_limits<CType>::max(),
                         std::log2(std::numeric_limits<CType>::max()));
-    this->AssertUnaryOp(Log1p, "[0, 1.7182818284590452354, null, NaN, Inf]",
+    this->AssertUnaryOp(Log1p, "[0, 1.718281828459045, null, NaN, Inf]",
                         "[0, 1, null, NaN, Inf]");
     this->AssertUnaryOp(Log1p, std::numeric_limits<CType>::min(),
                         std::log1p(std::numeric_limits<CType>::min()));
