@@ -537,8 +537,8 @@ def test_min_max():
 
     # Missing argument
     with pytest.raises(
-            TypeError,
-            match=r"min_max\(\) missing 1 required positional argument"):
+            ValueError,
+            match=r"Function min_max accepts 1 argument"):
         s = pc.min_max()
 
 
@@ -614,6 +614,22 @@ def test_generated_docstrings():
         memory_pool : pyarrow.MemoryPool, optional
             If not passed, will allocate memory from the default memory pool.
         """)
+
+
+def test_generated_signatures():
+    # The self-documentation provided by signatures should show acceptable
+    # options and their default values.
+    sig = inspect.signature(pc.add)
+    assert str(sig) == "(x, y, *, memory_pool=None)"
+    sig = inspect.signature(pc.min_max)
+    assert str(sig) == ("(array, *, memory_pool=None, "
+                        "options=None, skip_nulls=True, min_count=1)")
+    sig = inspect.signature(pc.quantile)
+    assert str(sig) == ("(array, *, memory_pool=None, "
+                        "options=None, q=0.5, interpolation='linear')")
+    sig = inspect.signature(pc.binary_join_element_wise)
+    assert str(sig) == ("(*strings, memory_pool=None, options=None, "
+                        "null_handling='emit_null', null_replacement='')")
 
 
 # We use isprintable to find about codepoints that Python doesn't know, but
