@@ -422,7 +422,7 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
   std::vector<int32_t, arrow::stl::allocator<int32_t>> offsets_;
   std::shared_ptr<ResizableBuffer> data_buffer_;
   const std::shared_ptr<Schema> schema_;
-  WriteOptions options_;
+  const WriteOptions options_;
   ipc::WriteStats stats_;
 };
 
