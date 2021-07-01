@@ -352,7 +352,8 @@ class ARROW_DS_EXPORT ParquetDatasetFactory : public DatasetFactory {
       std::shared_ptr<parquet::arrow::SchemaManifest> manifest,
       std::shared_ptr<Schema> physical_schema, std::string base_path,
       ParquetFactoryOptions options,
-      std::unordered_map<std::string, std::vector<int>> path_to_row_group_ids)
+      std::unordered_map<std::string, std::vector<int>> path_to_row_group_ids,
+      std::vector<std::string> ordered_paths)
       : filesystem_(std::move(filesystem)),
         format_(std::move(format)),
         metadata_(std::move(metadata)),
@@ -360,7 +361,8 @@ class ARROW_DS_EXPORT ParquetDatasetFactory : public DatasetFactory {
         physical_schema_(std::move(physical_schema)),
         base_path_(std::move(base_path)),
         options_(std::move(options)),
-        path_to_row_group_ids_(std::move(path_to_row_group_ids)) {}
+        path_to_row_group_ids_(std::move(path_to_row_group_ids)),
+        ordered_paths_(std::move(ordered_paths)) {}
 
   std::shared_ptr<fs::FileSystem> filesystem_;
   std::shared_ptr<ParquetFileFormat> format_;
@@ -370,6 +372,7 @@ class ARROW_DS_EXPORT ParquetDatasetFactory : public DatasetFactory {
   std::string base_path_;
   ParquetFactoryOptions options_;
   std::unordered_map<std::string, std::vector<int>> path_to_row_group_ids_;
+  std::vector<std::string> ordered_paths_;
 
  private:
   Result<std::vector<std::shared_ptr<FileFragment>>> CollectParquetFragments(

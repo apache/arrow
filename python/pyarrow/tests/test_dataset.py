@@ -2781,6 +2781,22 @@ def test_parquet_dataset_factory_roundtrip(tempdir, use_legacy_dataset):
     result = dataset.to_table()
     assert result.num_rows == 10
 
+def test_parquet_dataset_factory_order(tempdir):
+    import pyarrow.parquet as pq
+    metadatas = []
+    for i in range(10):
+        table = pa.table(
+            {'f1': list(range(i*10, (i+1)*10)), 'f2': np.random.randn(10)})
+        table_path = tempdir / f'{i}.parquet'
+        pq.write_table(table, table_path, metadata_collector=metadatas)
+        metadatas[-1].set_file_path(f'{i}.parquet')
+    metadata_path = str(tempdir / '_metadata')
+    pq.write_metadata(table.schema, metadata_path, metadatas)
+    dataset = ds.parquet_dataset(metadata_path)
+    scanned_table = dataset.to_table()
+    scanned_col = scanned_table.column('f1').to_pylist()
+    assert scanned_col == list(range(0, 100))
+
 
 @pytest.mark.parquet
 @pytest.mark.pandas
