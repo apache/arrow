@@ -559,8 +559,9 @@ cdef class FunctionOptions(_Weakrefable):
 
     def __repr__(self):
         type_name = self.__class__.__name__
-        string_repr = frombytes(self.get_options().ToString())
-        return type_name + string_repr
+        # Remove {} so we can use our own braces
+        string_repr = frombytes(self.get_options().ToString())[1:-1]
+        return f"{type_name}({string_repr})"
 
     def __eq__(self, FunctionOptions other):
         return self.get_options().Equals(deref(other.get_options()))
