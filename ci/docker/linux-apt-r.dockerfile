@@ -19,7 +19,6 @@ ARG base
 FROM ${base}
 ARG arch
 
-ARG arrow_home
 ARG arrow_build_static="OFF"
 ARG arrow_s3="ON"
 
@@ -112,5 +111,4 @@ ENV \
     ARROW_S3=${arrow_s3} \
     ARROW_USE_CCACHE=ON \
     ARROW_USE_GLOG=OFF \
-    ARROW_HOME=${arrow_home} \
     LC_ALL=en_US.UTF-8

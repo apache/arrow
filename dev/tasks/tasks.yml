@@ -937,7 +937,6 @@ tasks:
       env:
         UBUNTU: 21.04
         CLANG_TOOLS: 9 # can remove this when >=9 is the default
-        ARROW_HOME: ""
       image: ubuntu-r-static
 
   test-r-gcc-11:
@@ -948,8 +947,7 @@ tasks:
         UBUNTU: 21.04
         CLANG_TOOLS: 9 # can remove this when >=9 is the default
         GCC_VERSION: 11
-        ARROW_HOME: ""
-        ARROW_S3: OFF # S3 support is not buildable with gcc11
+        ARROW_S3: OFF # S3 support is not buildable with gcc11 right now
       image: ubuntu-r-static
 
 

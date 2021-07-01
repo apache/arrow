@@ -1008,7 +1008,6 @@ services:
         arch: ${ARCH}
         r: ${R}
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
-        arrow_home: ${ARROW_HOME}
         gcc_version: ${GCC_VERSION}
         arrow_s3: ${ARROW_S3}
     shm_size: *shm-size
@@ -1039,7 +1038,6 @@ services:
         arch: ${ARCH}
         r: ${R}
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
-        arrow_home: ${ARROW_HOME}
         arrow_build_static: "ON"
         gcc_version: ${GCC_VERSION}
         arrow_s3: ${ARROW_S3}
@@ -1051,6 +1049,7 @@ services:
       NOT_CRAN: 'true'
       ARROW_SOURCE_HOME: "/arrow"
       ARROW_R_DEV: 'true'
+      FORCE_BUNDLED_BUILD: 'true'
     volumes: *ubuntu-volumes
     command: >
       /bin/bash -c "

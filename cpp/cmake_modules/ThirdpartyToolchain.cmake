@@ -2779,8 +2779,6 @@ macro(build_awssdk)
                       ${EP_LOG_OPTIONS}
                       URL ${AWSSDK_SOURCE_URL}
                       CMAKE_ARGS ${AWSSDK_CMAKE_ARGS}
-                      # CMAKE_ARGS ${AWSSDK_CMAKE_ARGS} "-DCMAKE_PREFIX_PATH=${AWSSDK_PREFIX}\\$<SEMICOLON>${CMAKE_CURRENT_BINARY_DIR}/awssdk_ep-prefix/src/awssdk_ep/crt/aws-crt-cpp/crt"
-                      # PATCH_COMMAND ./prefetch_crt_dependency.sh
                       BUILD_BYPRODUCTS ${AWS_CPP_SDK_COGNITO_IDENTITY_STATIC_LIBRARY}
                                        ${AWS_CPP_SDK_CORE_STATIC_LIBRARY}
                                        ${AWS_CPP_SDK_IDENTITY_MANAGEMENT_STATIC_LIBRARY}
