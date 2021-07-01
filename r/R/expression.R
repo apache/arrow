@@ -30,6 +30,7 @@
   "str_length" = "utf8_length",
   "str_to_lower" = "utf8_lower",
   "str_to_upper" = "utf8_upper",
+  # str_pad is defined in dplyr-functions.R
   "str_reverse" = "utf8_reverse",
   # str_trim is defined in dplyr-functions.R
   "year" = "year",
