@@ -43,7 +43,13 @@ using internal::checked_pointer_cast;
 
 namespace compute {
 
-Expression::Expression(Call call) : impl_(std::make_shared<Impl>(std::move(call))) {}
+Expression::Expression(Call call) {
+  call.hash = std::hash<std::string>{}(call.function_name);
+  for (const auto& arg : call.arguments) {
+    arrow::internal::hash_combine(call.hash, arg.hash());
+  }
+  impl_ = std::make_shared<Impl>(std::move(call));
+}
 
 Expression::Expression(Datum literal)
     : impl_(std::make_shared<Impl>(std::move(literal))) {}
@@ -63,11 +69,6 @@ Expression call(std::string function, std::vector<Expression> arguments,
   call.function_name = std::move(function);
   call.arguments = std::move(arguments);
   call.options = std::move(options);
-
-  call.hash = std::hash<std::string>{}(call.function_name);
-  for (const auto& arg : call.arguments) {
-    arrow::internal::hash_combine(call.hash, arg.hash());
-  }
   return Expression(std::move(call));
 }
 
