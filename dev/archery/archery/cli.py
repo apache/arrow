@@ -115,7 +115,6 @@ def _apply_options(cmd, options):
               help="Specify Arrow source directory")
 # toolchain
 @cpp_toolchain_options
-@java_toolchain_options
 @click.option("--build-type", default=None, type=build_type,
               help="CMake's CMAKE_BUILD_TYPE")
 @click.option("--warn-level", default="production", type=warn_level_type,
