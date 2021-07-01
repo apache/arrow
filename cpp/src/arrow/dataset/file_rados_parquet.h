@@ -237,7 +237,7 @@ class ARROW_DS_EXPORT RadosParquetFileFormat : public ParquetFileFormat {
 
   Result<std::shared_ptr<FileWriter>> MakeWriter(
       std::shared_ptr<io::OutputStream> destination, std::shared_ptr<Schema> schema,
-      std::shared_ptr<FileWriteOptions> options) const override {
+      std::shared_ptr<FileWriteOptions> options) const {
     return Status::NotImplemented("Use the Python API");
   }
 
@@ -282,7 +282,7 @@ ARROW_DS_EXPORT Status SerializeTable(std::shared_ptr<Table>& table, ceph::buffe
 /// \param[in] bl Input bufferlist.
 /// \param[in] use_threads If true, use threads to deserialize a table from a bufferlist.
 /// \return Status.
-ARROW_DS_EXPORT Status DeserializeTable(RecordBatchVector& batches, ceph::bufferlist& bl, 
+ARROW_DS_EXPORT Status DeserializeTable(RecordBatchVector& batches, ceph::bufferlist& bl,
                                         bool use_threads);
 
 /// @}

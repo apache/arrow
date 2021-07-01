@@ -1,0 +1,18 @@
+#!/bin/bash
+set -ex
+
+cd cpp/
+
+if [ ! -d "release" ]; then
+
+mkdir -p release
+cd release/
+cmake -DARROW_CLS=ON -DARROW_PARQUET=ON -DARROW_WITH_SNAPPY=ON -DARROW_WITH_ZLIB=ON -DARROW_BUILD_EXAMPLES=ON -DPARQUET_BUILD_EXAMPLES=ON -DARROW_PYTHON=ON -DARROW_DATASET=ON -DARROW_CSV=ON -DARROW_WITH_LZ4=ON -DARROW_WITH_ZSTD=ON -DARROW_BUILD_TESTS=ON ..
+
+else
+
+cd release/
+
+fi
+
+make -j4 install

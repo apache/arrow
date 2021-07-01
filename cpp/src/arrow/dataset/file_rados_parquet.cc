@@ -194,8 +194,8 @@ Status SerializeTable(std::shared_ptr<Table>& table, ceph::bufferlist& bl,
   return Status::OK();
 }
 
-Status DeserializeTable(RecordBatchVector& batches, 
-                        ceph::bufferlist& bl, 
+Status DeserializeTable(RecordBatchVector& batches,
+                        ceph::bufferlist& bl,
                         bool use_threads) {
   auto buffer = std::make_shared<Buffer>((uint8_t*)bl.c_str(), bl.length());
   auto buffer_reader = std::make_shared<io::BufferReader>(buffer);

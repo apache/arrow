@@ -62,7 +62,7 @@ class SplittedParquetWriter(object):
 
     def write_file(self, filename, table):
         """
-        Update CephFS striping strategy and write 
+        Update CephFS striping strategy and writes
         the table to a set of split files.
 
         Parameters

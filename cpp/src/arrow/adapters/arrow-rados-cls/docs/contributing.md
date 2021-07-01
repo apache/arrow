@@ -17,7 +17,37 @@
   under the License.
 -->
 
-# Setting up the development environment using Docker
+# Setting up the development environment
+
+## Using docker
+
+1. Clone the SkyhookDM repository.
+```bash
+git clone https://github.com/uccross/skyhookdm-arrow
+cd skyhookdm-arrow/
+```
+
+2. Run the SkyhookDM container in interactive mode.
+```bash
+docker run -it -v $PWD:/w -w /w --privileged uccross/skyhookdm-arrow:v0.2.0 bash
+```
+
+3. Install docker.
+```bash
+curl -o- https://get.docker.com | bash
+```
+
+3. Run the build script.
+```bash
+./cpp/src/arrow/adapters/arrow-rados-cls/scripts/build.sh
+```
+
+4. Run the tests script.
+```bash
+./cpp/src/arrow/adapters/arrow-rados-cls/scripts/test.sh
+```
+
+## Using Archery
 
 **NOTE:** Please make sure [docker](https://docs.docker.com/engine/install/ubuntu/) and [docker-compose](https://docs.docker.com/compose/install/) is installed.
 
