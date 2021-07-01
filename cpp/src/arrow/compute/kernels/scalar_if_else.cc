@@ -232,9 +232,19 @@ static constexpr int64_t word_len = sizeof(Word) * 8;
 /// copying data from the right to output, we can copy left data to the output and
 /// invert the cond data to fill right values. Filling out with a scalar is presumed to
 /// be more efficient than filling with an array
+///
+/// `HandleBulk` has the signature:
+///     [](int64_t offset, int64_t length){...}
+/// It should copy `length` number of elements from source array to output array with
+/// `offset` offset in both arrays
+///
+/// `HandleEach` has the signature:
+///     [](int64_t offset){...}
+/// It should copy single element from source array to output array with `offset`
+/// offset in both arrays
 template <typename HandleBulk, typename HandleEach, bool invert = false>
-static void RunIfElseLoop(const ArrayData& cond, HandleBulk handle_bulk,
-                          HandleEach handle_each) {
+static void RunIfElseLoop(const ArrayData& cond, const HandleBulk& handle_bulk,
+                          const HandleEach& handle_each) {
   int64_t data_offset = 0;
   int64_t bit_offset = cond.offset;
   const auto* cond_data = cond.buffers[1]->data();  // this is a BoolArray
@@ -300,9 +310,120 @@ static void RunIfElseLoop(const ArrayData& cond, HandleBulk handle_bulk,
 }
 
 template <typename HandleBulk, typename HandleEach>
-static void RunIfElseLoopInverted(const ArrayData& cond, HandleBulk handle_bulk,
-                                  HandleEach handle_each) {
-  return RunIfElseLoop<HandleBulk, HandleEach, true>(cond, handle_bulk, handle_each);
+static void RunIfElseLoopInverted(const ArrayData& cond, const HandleBulk& handle_bulk,
+                                  const HandleEach& handle_each) {
+  RunIfElseLoop<HandleBulk, HandleEach, true>(cond, handle_bulk, handle_each);
+}
+
+/// Runs the main if_else loop.
+///
+/// `HandleBulk` has the signature:
+///     [](int64_t offset, int64_t length){...}
+/// It should copy `length` number of elements from source array to output array with
+/// `offset` offset in both arrays
+///
+/// `HandleEach` has the signature:
+///     [](int64_t offset){...}
+/// It should copy single element from source array to output array with `offset`
+/// offset in both arrays
+template <typename HandleBulkLeft, typename HandleBulkRight, typename HandleEachLeft,
+          typename HandleEachRight, bool invert = false>
+static void RunIfElseLoop(const ArrayData& cond, const HandleBulkLeft& handle_bulk_left,
+                          const HandleBulkRight& handle_bulk_right,
+                          const HandleEachLeft& handle_each_left,
+                          const HandleEachRight& handle_each_right) {
+  int64_t offset = 0;
+  const auto* cond_data = cond.buffers[1]->data();  // this is a BoolArray
+
+  // There are multiple options for this one. Ex: BitBlockCounter, BitmapWordReader,
+  // BitRunReader, etc. BitRunReader would be efficient for longer contiguous values in
+  // the cond data buffer.
+  // BitmapWordReader was slightly better performant that BitBlockCounter.
+  BitmapWordReader<Word> cond_reader(cond_data, cond.offset, cond.length);
+
+  int64_t cnt = cond_reader.words();
+  while (cnt--) {
+    Word word = cond_reader.NextWord();
+    if (invert) {
+      if (word == UINT64_MAX) {
+        handle_bulk_right(offset, word_len);
+      } else if (word == 0) {
+        handle_bulk_left(offset, word_len);
+      } else {
+        for (int64_t i = 0; i < word_len; ++i) {
+          if (!BitUtil::GetBit(cond_data, cond.offset + offset + i)) {
+            handle_each_right(offset + i);
+          } else {
+            handle_each_left(offset + i);
+          }
+        }
+      }
+    } else {
+      if (word == UINT64_MAX) {
+        handle_bulk_left(offset, word_len);
+      } else if (word == 0) {
+        handle_bulk_right(offset, word_len);
+      } else {
+        for (int64_t i = 0; i < word_len; ++i) {
+          if (BitUtil::GetBit(cond_data, cond.offset + offset + i)) {
+            handle_each_left(offset + i);
+          } else {
+            handle_each_right(offset + i);
+          }
+        }
+      }
+    }
+    offset += word_len;
+  }
+
+  cnt = cond_reader.trailing_bytes();
+  while (cnt--) {
+    int valid_bits;
+    uint8_t byte = cond_reader.NextTrailingByte(valid_bits);
+    if (invert) {
+      if (byte == UINT8_MAX && valid_bits == 8) {
+        handle_bulk_right(offset, 8);
+      } else if (byte == 0 && valid_bits == 8) {
+        handle_bulk_left(offset, 8);
+      } else {
+        for (int i = 0; i < valid_bits; ++i) {
+          if (!BitUtil::GetBit(cond_data, cond.offset + offset + i)) {
+            handle_each_right(offset + i);
+          } else {
+            handle_each_left(offset + i);
+          }
+        }
+      }
+    } else {
+      if (byte == UINT8_MAX && valid_bits == 8) {
+        handle_bulk_left(offset, 8);
+      } else if (byte == 0 && valid_bits == 8) {
+        handle_bulk_right(offset, 8);
+      } else {
+        for (int i = 0; i < valid_bits; ++i) {
+          if (BitUtil::GetBit(cond_data, cond.offset + offset + i)) {
+            handle_each_left(offset + i);
+          } else {
+            handle_each_right(offset + i);
+          }
+        }
+      }
+    }
+    offset += 8;  // doesn't necessarily have to be valid_bits here. Because it
+    // valid_bits < 8, then the loop will exit
+  }
+}
+
+template <typename HandleBulkLeft, typename HandleBulkRight, typename HandleEachLeft,
+          typename HandleEachRight>
+static void RunIfElseLoopInverted(const ArrayData& cond,
+                                  const HandleBulkLeft& handle_bulk_left,
+                                  const HandleBulkRight& handle_bulk_right,
+                                  const HandleEachLeft& handle_each_left,
+                                  const HandleEachRight& handle_each_right) {
+  return RunIfElseLoop<HandleBulkLeft, HandleBulkRight, HandleEachLeft, HandleEachRight,
+                       true>(cond, handle_bulk_left, handle_bulk_right, handle_each_left,
+                             handle_each_right);
 }
 
 /// Runs if-else when cond is a scalar. Two special functions are required,
@@ -310,8 +431,8 @@ static void RunIfElseLoopInverted(const ArrayData& cond, HandleBulk handle_bulk,
 template <typename CopyArrayData, typename BroadcastScalar>
 static Status RunIfElseScalar(const BooleanScalar& cond, const Datum& left,
                               const Datum& right, Datum* out,
-                              CopyArrayData copy_array_data,
-                              BroadcastScalar broadcast_scalar) {
+                              const CopyArrayData& copy_array_data,
+                              const BroadcastScalar& broadcast_scalar) {
   if (left.is_scalar() && right.is_scalar()) {  // output will be a scalar
     if (cond.is_valid) {
       *out = cond.value ? left.scalar() : right.scalar();
@@ -491,6 +612,31 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
   // SXX
   static Status Call(KernelContext* ctx, const BooleanScalar& cond, const Datum& left,
                      const Datum& right, Datum* out) {
+    if (left.is_scalar() && right.is_scalar()) {
+      if (cond.is_valid) {
+        *out = cond.value ? left.scalar() : right.scalar();
+      } else {
+        *out = MakeNullScalar(left.type());
+      }
+      return Status::OK();
+    }
+    // either left or right is an array. Output is always an array
+    int64_t out_arr_len = std::max(left.length(), right.length());
+    if (!cond.is_valid) {
+      // cond is null; just create a null array
+      ARROW_ASSIGN_OR_RAISE(*out,
+                            MakeArrayOfNull(left.type(), out_arr_len, ctx->memory_pool()))
+      return Status::OK();
+    }
+
+    const auto& valid_data = cond.value ? left : right;
+    if (valid_data.is_array()) {
+      *out = valid_data;
+    } else {
+      // valid data is a scalar that needs to be broadcasted
+      ARROW_ASSIGN_OR_RAISE(*out, MakeArrayFromScalar(*valid_data.scalar(), out_arr_len,
+                                                      ctx->memory_pool()));
+    }
     return Status::OK();
   }
 
@@ -518,59 +664,45 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
                           ctx->Allocate(data_buff_alloc));
     uint8_t* out_data = out_data_buf->mutable_data();
 
-    int64_t offset = cond.offset;
-    OffsetType total_bytes_written = 0;
-    while (offset < cond.offset + cond.length) {
-      const BitBlockCount& block = bit_counter.NextWord();
-
-      OffsetType bytes_written = 0;
-      if (block.AllSet()) {
-        // from left
-        bytes_written = left_offsets[block.length] - left_offsets[0];
-        std::memcpy(out_data, left_data + left_offsets[0], bytes_written);
-        // normalize the out_offsets by reducing input start offset, and adding the
-        // offset upto the word
-        std::transform(left_offsets + 1, left_offsets + block.length + 1, out_offsets + 1,
-                       [&](const OffsetType& src_offset) {
-                         return src_offset - left_offsets[0] + out_offsets[0];
-                       });
-      } else if (block.NoneSet()) {
-        // from right
-        bytes_written = right_offsets[block.length] - right_offsets[0];
-        std::memcpy(out_data, right_data + right_offsets[0], bytes_written);
-        // normalize the out_offsets by reducing input start offset, and adding the
-        // offset upto the word
-        std::transform(right_offsets + 1, right_offsets + block.length + 1,
-                       out_offsets + 1, [&](const OffsetType& src_offset) {
-                         return src_offset - right_offsets[0] + out_offsets[0];
-                       });
-      } else {  // selectively copy from left
-        for (auto i = 0; i < block.length; ++i) {
-          OffsetType current_length;
-          if (BitUtil::GetBit(cond_data, offset + i)) {
-            current_length = left_offsets[i + 1] - left_offsets[i];
-            std::memcpy(out_data + bytes_written, left_data + left_offsets[i],
-                        current_length);
-          } else {
-            current_length = right_offsets[i + 1] - right_offsets[i];
-            std::memcpy(out_data + bytes_written, right_data + right_offsets[i],
-                        current_length);
-          }
-          out_offsets[i + 1] = out_offsets[i] + current_length;
-          bytes_written += current_length;
-        }
-      }
-
-      offset += block.length;
-      left_offsets += block.length;
-      right_offsets += block.length;
-      out_offsets += block.length;
-      out_data += bytes_written;
-      total_bytes_written += bytes_written;
-    }
-
+    RunIfElseLoop(
+        cond,
+        [&](int64_t offset, int64_t length) {  // from left bulk
+          auto bytes_written = left_offsets[offset + length] - left_offsets[offset];
+          std::memcpy(out_data + out_offsets[offset], left_data + left_offsets[offset],
+                      bytes_written);
+          // normalize the out_offsets by reducing input start offset, and adding the
+          // offset upto the word
+          std::transform(left_offsets + offset + 1, left_offsets + offset + length + 1,
+                         out_offsets + offset + 1, [&](const OffsetType& src_offset) {
+                           return src_offset - left_offsets[offset] + out_offsets[offset];
+                         });
+        },
+        [&](int64_t offset, int64_t length) {  // from right bulk
+          auto bytes_written = right_offsets[offset + length] - right_offsets[offset];
+          std::memcpy(out_data + out_offsets[offset], right_data + right_offsets[offset],
+                      bytes_written);
+          // normalize the out_offsets by reducing input start offset, and adding the
+          // offset upto the word
+          std::transform(right_offsets + offset + 1, right_offsets + offset + length + 1,
+                         out_offsets + offset + 1, [&](const OffsetType& src_offset) {
+                           return src_offset - right_offsets[offset] +
+                                  out_offsets[offset];
+                         });
+        },
+        [&](int64_t offset) {  // left each
+          auto bytes_written = left_offsets[offset + 1] - left_offsets[offset];
+          std::memcpy(out_data + out_offsets[offset], left_data + left_offsets[offset],
+                      bytes_written);
+          out_offsets[offset + 1] = out_offsets[offset] + bytes_written;
+        },
+        [&](int64_t offset) {  // right each
+          auto bytes_written = right_offsets[offset + 1] - right_offsets[offset];
+          std::memcpy(out_data + out_offsets[offset], right_data + right_offsets[offset],
+                      bytes_written);
+          out_offsets[offset + 1] = out_offsets[offset] + bytes_written;
+        });
     // resize the data buffer
-    ARROW_RETURN_NOT_OK(out_data_buf->Resize(total_bytes_written));
+    ARROW_RETURN_NOT_OK(out_data_buf->Resize(out_offsets[cond.length]));
 
     out->buffers[1] = std::move(out_offset_buf);
     out->buffers[2] = std::move(out_data_buf);
@@ -597,59 +729,46 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
 
     // allocate data buffer conservatively
     auto data_buff_alloc =
-        left_size * cond.length + (right_offsets[right.length] - right_offsets[0]);
+        std::max(left_size * cond.length,
+                 static_cast<size_t>(right_offsets[right.length] - right_offsets[0]));
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ResizableBuffer> out_data_buf,
                           ctx->Allocate(data_buff_alloc));
     uint8_t* out_data = out_data_buf->mutable_data();
 
-    int64_t offset = cond.offset;
-    OffsetType total_bytes_written = 0;
-    while (offset < cond.offset + cond.length) {
-      const BitBlockCount& block = bit_counter.NextWord();
-
-      OffsetType bytes_written = 0;
-      if (block.AllSet()) {
-        // from left
-        bytes_written = block.length * left_size;
-        for (int i = 0; i < block.length; i++) {  // todo use std::fill may be?
-          std::memcpy(out_data + i * left_size, left_data.cbegin(), left_size);
-          out_offsets[i + 1] = out_offsets[i] + left_size;
-        }
-      } else if (block.NoneSet()) {
-        // from right
-        bytes_written = right_offsets[block.length] - right_offsets[0];
-        std::memcpy(out_data, right_data + right_offsets[0], bytes_written);
-        // normalize the out_offsets by reducing input start offset, and adding the
-        // offset upto the word
-        std::transform(right_offsets + 1, right_offsets + block.length + 1,
-                       out_offsets + 1, [&](const OffsetType& src_offset) {
-                         return src_offset - right_offsets[0] + out_offsets[0];
-                       });
-      } else {  // selectively copy from left
-        for (auto i = 0; i < block.length; ++i) {
-          OffsetType current_length;
-          if (BitUtil::GetBit(cond_data, offset + i)) {
-            current_length = left_size;
-            std::memcpy(out_data + bytes_written, left_data.cbegin(), current_length);
-          } else {
-            current_length = right_offsets[i + 1] - right_offsets[i];
-            std::memcpy(out_data + bytes_written, right_data + right_offsets[i],
-                        current_length);
+    RunIfElseLoop(
+        cond,
+        [&](int64_t offset, int64_t length) {  // from left bulk
+          for (int i = 0; i < length; i++) {   // todo use std::fill may be?
+            std::memcpy(out_data + out_offsets[offset] + i * left_size,
+                        left_data.cbegin(), left_size);
+            out_offsets[offset + i + 1] = out_offsets[offset + i] + left_size;
           }
-          out_offsets[i + 1] = out_offsets[i] + current_length;
-          bytes_written += current_length;
-        }
-      }
-
-      offset += block.length;
-      right_offsets += block.length;
-      out_offsets += block.length;
-      out_data += bytes_written;
-      total_bytes_written += bytes_written;
-    }
+        },
+        [&](int64_t offset, int64_t length) {  // from right bulk
+          auto bytes_written = right_offsets[offset + length] - right_offsets[offset];
+          std::memcpy(out_data + out_offsets[offset], right_data + right_offsets[offset],
+                      bytes_written);
+          // normalize the out_offsets by reducing input start offset, and adding the
+          // offset upto the word
+          std::transform(right_offsets + offset + 1, right_offsets + offset + length + 1,
+                         out_offsets + offset + 1, [&](const OffsetType& src_offset) {
+                           return src_offset - right_offsets[offset] +
+                                  out_offsets[offset];
+                         });
+        },
+        [&](int64_t offset) {  // left each
+          std::memcpy(out_data + out_offsets[offset], left_data.cbegin(), left_size);
+          out_offsets[offset + 1] = out_offsets[offset] + left_size;
+        },
+        [&](int64_t offset) {  // right each
+          auto bytes_written = right_offsets[offset + 1] - right_offsets[offset];
+          std::memcpy(out_data + out_offsets[offset], right_data + right_offsets[offset],
+                      bytes_written);
+          out_offsets[offset + 1] = out_offsets[offset] + bytes_written;
+        });
 
     // resize the data buffer
-    ARROW_RETURN_NOT_OK(out_data_buf->Resize(total_bytes_written));
+    ARROW_RETURN_NOT_OK(out_data_buf->Resize(out_offsets[cond.length]));
 
     out->buffers[1] = std::move(out_offset_buf);
     out->buffers[2] = std::move(out_data_buf);
@@ -678,59 +797,44 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
 
     // allocate data buffer conservatively
     auto data_buff_alloc =
-        right_size * cond.length + (left_offsets[left.length] - left_offsets[0]);
+        std::max(right_size * cond.length,
+                 static_cast<size_t>(left_offsets[left.length] - left_offsets[0]));
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ResizableBuffer> out_data_buf,
                           ctx->Allocate(data_buff_alloc));
     uint8_t* out_data = out_data_buf->mutable_data();
 
-    int64_t offset = cond.offset;
-    OffsetType total_bytes_written = 0;
-    while (offset < cond.offset + cond.length) {
-      const BitBlockCount& block = bit_counter.NextWord();
-
-      OffsetType bytes_written = 0;
-      if (block.AllSet()) {
-        // from left
-        bytes_written = left_offsets[block.length] - left_offsets[0];
-        std::memcpy(out_data, left_data + left_offsets[0], bytes_written);
-        // normalize the out_offsets by reducing input start offset, and adding the
-        // offset upto the word
-        std::transform(left_offsets + 1, left_offsets + block.length + 1, out_offsets + 1,
-                       [&](const OffsetType& src_offset) {
-                         return src_offset - left_offsets[0] + out_offsets[0];
-                       });
-      } else if (block.NoneSet()) {
-        // from right
-        bytes_written = block.length * right_size;
-        for (int i = 0; i < block.length; i++) {
-          std::memcpy(out_data + i * right_size, right_data.cbegin(), right_size);
-          out_offsets[i + 1] = out_offsets[i] + right_size;
-        }
-      } else {  // selectively copy from left
-        for (auto i = 0; i < block.length; ++i) {
-          OffsetType current_length;
-          if (BitUtil::GetBit(cond_data, offset + i)) {
-            current_length = left_offsets[i + 1] - left_offsets[i];
-            std::memcpy(out_data + bytes_written, left_data + left_offsets[i],
-                        current_length);
-          } else {
-            current_length = right_size;
-            std::memcpy(out_data + bytes_written, right_data.cbegin(), current_length);
+    RunIfElseLoopInverted(
+        cond,
+        [&](int64_t offset, int64_t length) {  // from left bulk
+          auto bytes_written = left_offsets[offset + length] - left_offsets[offset];
+          std::memcpy(out_data + out_offsets[offset], left_data + left_offsets[offset],
+                      bytes_written);
+          // normalize the out_offsets by reducing input start offset, and adding the
+          // offset upto the word
+          std::transform(left_offsets + offset + 1, left_offsets + offset + length + 1,
+                         out_offsets + offset + 1, [&](const OffsetType& src_offset) {
+                           return src_offset - left_offsets[offset] + out_offsets[offset];
+                         });
+        },
+        [&](int64_t offset, int64_t length) {  // from right bulk
+          for (int i = 0; i < length; i++) {   // todo use std::fill may be?
+            std::memcpy(out_data + out_offsets[offset] + i * right_size,
+                        right_data.cbegin(), right_size);
+            out_offsets[offset + i + 1] = out_offsets[offset + i] + right_size;
           }
-          out_offsets[i + 1] = out_offsets[i] + current_length;
-          bytes_written += current_length;
-        }
-      }
-
-      offset += block.length;
-      left_offsets += block.length;
-      out_offsets += block.length;
-      out_data += bytes_written;
-      total_bytes_written += bytes_written;
-    }
-
+        },
+        [&](int64_t offset) {  // left each
+          auto bytes_written = left_offsets[offset + 1] - left_offsets[offset];
+          std::memcpy(out_data + out_offsets[offset], left_data + left_offsets[offset],
+                      bytes_written);
+          out_offsets[offset + 1] = out_offsets[offset] + bytes_written;
+        },
+        [&](int64_t offset) {  // right each
+          std::memcpy(out_data + out_offsets[offset], right_data.cbegin(), right_size);
+          out_offsets[offset + 1] = out_offsets[offset] + right_size;
+        });
     // resize the data buffer
-    ARROW_RETURN_NOT_OK(out_data_buf->Resize(total_bytes_written));
+    ARROW_RETURN_NOT_OK(out_data_buf->Resize(out_offsets[cond.length]));
 
     out->buffers[1] = std::move(out_offset_buf);
     out->buffers[2] = std::move(out_data_buf);
@@ -756,54 +860,37 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
     out_offsets[0] = 0;
 
     // allocate data buffer conservatively
-    auto data_buff_alloc = right_size * cond.length + left_size * cond.length;
+    auto data_buff_alloc = std::max(right_size * cond.length, left_size * cond.length);
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ResizableBuffer> out_data_buf,
                           ctx->Allocate(data_buff_alloc));
     uint8_t* out_data = out_data_buf->mutable_data();
 
-    int64_t offset = cond.offset;
-    OffsetType total_bytes_written = 0;
-    while (offset < cond.offset + cond.length) {
-      const BitBlockCount& block = bit_counter.NextWord();
-
-      OffsetType bytes_written = 0;
-      if (block.AllSet()) {
-        // from left
-        bytes_written = block.length * left_size;
-        for (int i = 0; i < block.length; i++) {
-          std::memcpy(out_data + i * left_size, left_data.cbegin(), left_size);
-          out_offsets[i + 1] = out_offsets[i] + left_size;
-        }
-      } else if (block.NoneSet()) {
-        // from right
-        bytes_written = block.length * right_size;
-        for (int i = 0; i < block.length; i++) {
-          std::memcpy(out_data + i * right_size, right_data.cbegin(), right_size);
-          out_offsets[i + 1] = out_offsets[i] + right_size;
-        }
-      } else {  // selectively copy from left
-        for (auto i = 0; i < block.length; ++i) {
-          OffsetType current_length;
-          if (BitUtil::GetBit(cond_data, offset + i)) {
-            current_length = left_size;
-            std::memcpy(out_data + bytes_written, left_data.cbegin(), current_length);
-          } else {
-            current_length = right_size;
-            std::memcpy(out_data + bytes_written, right_data.cbegin(), current_length);
+    RunIfElseLoop(
+        cond,
+        [&](int64_t offset, int64_t length) {  // from left bulk
+          for (int i = 0; i < length; i++) {   // todo use std::fill may be?
+            std::memcpy(out_data + out_offsets[offset] + i * left_size,
+                        left_data.cbegin(), left_size);
+            out_offsets[offset + i + 1] = out_offsets[offset + i] + left_size;
           }
-          out_offsets[i + 1] = out_offsets[i] + current_length;
-          bytes_written += current_length;
-        }
-      }
-
-      offset += block.length;
-      out_offsets += block.length;
-      out_data += bytes_written;
-      total_bytes_written += bytes_written;
-    }
-
+        },
+        [&](int64_t offset, int64_t length) {  // from right bulk
+          for (int i = 0; i < length; i++) {   // todo use std::fill may be?
+            std::memcpy(out_data + out_offsets[offset] + i * right_size,
+                        right_data.cbegin(), right_size);
+            out_offsets[offset + i + 1] = out_offsets[offset + i] + right_size;
+          }
+        },
+        [&](int64_t offset) {  // left each
+          std::memcpy(out_data + out_offsets[offset], left_data.cbegin(), left_size);
+          out_offsets[offset + 1] = out_offsets[offset] + left_size;
+        },
+        [&](int64_t offset) {  // right each
+          std::memcpy(out_data + out_offsets[offset], right_data.cbegin(), right_size);
+          out_offsets[offset + 1] = out_offsets[offset] + right_size;
+        });
     // resize the data buffer
-    ARROW_RETURN_NOT_OK(out_data_buf->Resize(total_bytes_written));
+    ARROW_RETURN_NOT_OK(out_data_buf->Resize(out_offsets[cond.length]));
 
     out->buffers[1] = std::move(out_offset_buf);
     out->buffers[2] = std::move(out_data_buf);

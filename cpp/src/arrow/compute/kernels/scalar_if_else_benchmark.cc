@@ -28,7 +28,7 @@ const int64_t elems = 1024 * 1024;
 
 template <typename Type>
 static void IfElseBench(benchmark::State& state) {
-  using CType = typename Type::c_type;
+  //  using CType = typename Type::c_type;
   auto type = TypeTraits<Type>::type_singleton();
   using ArrayType = typename TypeTraits<Type>::ArrayType;
 
@@ -48,13 +48,13 @@ static void IfElseBench(benchmark::State& state) {
     ABORT_NOT_OK(IfElse(cond->Slice(offset), left->Slice(offset), right->Slice(offset)));
   }
 
-  state.SetBytesProcessed(state.iterations() *
-                          ((len - offset) / 8 + 2 * (len - offset) * sizeof(CType)));
+  //  state.SetBytesProcessed(state.iterations() *
+  //                          ((len - offset) / 8 + 2 * (len - offset) * sizeof(CType)));
 }
 
 template <typename Type>
 static void IfElseBenchContiguous(benchmark::State& state) {
-  using CType = typename Type::c_type;
+  //  using CType = typename Type::c_type;
   auto type = TypeTraits<Type>::type_singleton();
   using ArrayType = typename TypeTraits<Type>::ArrayType;
 
@@ -77,8 +77,8 @@ static void IfElseBenchContiguous(benchmark::State& state) {
     ABORT_NOT_OK(IfElse(cond->Slice(offset), left->Slice(offset), right->Slice(offset)));
   }
 
-  state.SetBytesProcessed(state.iterations() *
-                          ((len - offset) / 8 + 2 * (len - offset) * sizeof(CType)));
+  //  state.SetBytesProcessed(state.iterations() *
+  //                          ((len - offset) / 8 + 2 * (len - offset) * sizeof(CType)));
 }
 
 static void IfElseBench64(benchmark::State& state) {
@@ -89,11 +89,27 @@ static void IfElseBench32(benchmark::State& state) {
   return IfElseBench<UInt32Type>(state);
 }
 
+static void IfElseBenchString32(benchmark::State& state) {
+  return IfElseBench<StringType>(state);
+}
+
+static void IfElseBenchString64(benchmark::State& state) {
+  return IfElseBench<LargeStringType>(state);
+}
+
 static void IfElseBench64Contiguous(benchmark::State& state) {
   return IfElseBenchContiguous<UInt64Type>(state);
 }
 
 static void IfElseBench32Contiguous(benchmark::State& state) {
+  return IfElseBenchContiguous<UInt32Type>(state);
+}
+
+static void IfElseBenchString64Contiguous(benchmark::State& state) {
+  return IfElseBenchContiguous<UInt64Type>(state);
+}
+
+static void IfElseBenchString32Contiguous(benchmark::State& state) {
   return IfElseBenchContiguous<UInt32Type>(state);
 }
 
@@ -108,6 +124,12 @@ BENCHMARK(IfElseBench64Contiguous)->Args({elems, 0});
 
 BENCHMARK(IfElseBench32Contiguous)->Args({elems, 99});
 BENCHMARK(IfElseBench64Contiguous)->Args({elems, 99});
+
+BENCHMARK(IfElseBenchString32)->Args({elems, 0});
+BENCHMARK(IfElseBenchString64)->Args({elems, 0});
+
+BENCHMARK(IfElseBenchString32Contiguous)->Args({elems, 99});
+BENCHMARK(IfElseBenchString64Contiguous)->Args({elems, 99});
 
 }  // namespace compute
 }  // namespace arrow

@@ -368,7 +368,7 @@ TYPED_TEST(TestIfElseBaseBinary, IfElseBaseBinaryRand) {
   auto type = TypeTraits<TypeParam>::type_singleton();
 
   random::RandomArrayGenerator rand(/*seed=*/0);
-  int64_t len = 130;
+  int64_t len = 1000;
 
   //  this is to check the BitBlockCount::AllSet/ NoneSet code paths
   ASSERT_OK_AND_ASSIGN(auto temp1, MakeArrayFromScalar(BooleanScalar(true), 64));
