@@ -866,3 +866,44 @@ test_that("str_like", {
     df
   )
 })
+
+test_that("str_pad", {
+  
+  df <- tibble(x = c("Foo and bar", "baz and qux and quux"))
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = str_pad(x, width = 30)) %>%
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = str_pad(x, width = 30, side = "right")) %>%
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = str_pad(x, width = 30, side = "both")) %>%
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = str_pad(x, width = 30, side = "both", pad = "+")) %>%
+      collect(),
+    df
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = str_pad(x, width = 10, side = "both", pad = "+")) %>%
+      collect(),
+    df
+  )
+  
+})
