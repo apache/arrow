@@ -137,7 +137,7 @@ def test_option_class_equality():
                 pytest.fail(f"Options class is not tested: {cls}")
     for option in options:
         assert option == option
-        assert repr(option)
+        assert repr(option).startswith(option.__class__.__name__)
         buf = option.serialize()
         deserialized = pc.FunctionOptions.deserialize(buf)
         assert option == deserialized

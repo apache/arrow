@@ -1756,6 +1756,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CFunctionOptions" arrow::compute::FunctionOptions":
         const CFunctionOptionsType* options_type() const
+        const char* type_name() const
         c_bool Equals(const CFunctionOptions& other)
         c_string ToString()
         CResult[shared_ptr[CBuffer]] Serialize() const

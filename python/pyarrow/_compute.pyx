@@ -558,7 +558,9 @@ cdef class FunctionOptions(_Weakrefable):
         return options
 
     def __repr__(self):
-        return frombytes(self.get_options().ToString())
+        type_name = self.__class__.__name__
+        string_repr = frombytes(self.get_options().ToString())
+        return type_name + string_repr
 
     def __eq__(self, FunctionOptions other):
         return self.get_options().Equals(deref(other.get_options()))
