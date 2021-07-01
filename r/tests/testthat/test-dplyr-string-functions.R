@@ -899,7 +899,6 @@ test_that("str_pad", {
     df
   )
   
-  skip("Extra space added to opposite side in C++ - ARROW-13234")
   expect_dplyr_equal(
     input %>%
       mutate(x = str_pad(x, width = 30, side = "both")) %>%
