@@ -43,7 +43,7 @@ class ARROW_EXPORT FilterOptions : public FunctionOptions {
   };
 
   explicit FilterOptions(NullSelectionBehavior null_selection = DROP);
-  constexpr static char const kTypeName[] = "filter";
+  constexpr static char const kTypeName[] = "FilterOptions";
   static FilterOptions Defaults() { return FilterOptions(); }
 
   NullSelectionBehavior null_selection_behavior = DROP;
@@ -52,7 +52,7 @@ class ARROW_EXPORT FilterOptions : public FunctionOptions {
 class ARROW_EXPORT TakeOptions : public FunctionOptions {
  public:
   explicit TakeOptions(bool boundscheck = true);
-  constexpr static char const kTypeName[] = "take";
+  constexpr static char const kTypeName[] = "TakeOptions";
   static TakeOptions BoundsCheck() { return TakeOptions(true); }
   static TakeOptions NoBoundsCheck() { return TakeOptions(false); }
   static TakeOptions Defaults() { return BoundsCheck(); }
@@ -72,7 +72,7 @@ class ARROW_EXPORT DictionaryEncodeOptions : public FunctionOptions {
   };
 
   explicit DictionaryEncodeOptions(NullEncodingBehavior null_encoding = MASK);
-  constexpr static char const kTypeName[] = "dictionary_encode";
+  constexpr static char const kTypeName[] = "DictionaryEncodeOptions";
   static DictionaryEncodeOptions Defaults() { return DictionaryEncodeOptions(); }
 
   NullEncodingBehavior null_encoding_behavior = MASK;
@@ -104,7 +104,7 @@ class ARROW_EXPORT SortKey : public util::EqualityComparable<SortKey> {
 class ARROW_EXPORT ArraySortOptions : public FunctionOptions {
  public:
   explicit ArraySortOptions(SortOrder order = SortOrder::Ascending);
-  constexpr static char const kTypeName[] = "array_sort";
+  constexpr static char const kTypeName[] = "ArraySortOptions";
   static ArraySortOptions Defaults() { return ArraySortOptions{}; }
 
   SortOrder order;
@@ -113,7 +113,7 @@ class ARROW_EXPORT ArraySortOptions : public FunctionOptions {
 class ARROW_EXPORT SortOptions : public FunctionOptions {
  public:
   explicit SortOptions(std::vector<SortKey> sort_keys = {});
-  constexpr static char const kTypeName[] = "sort";
+  constexpr static char const kTypeName[] = "SortOptions";
   static SortOptions Defaults() { return SortOptions{}; }
 
   std::vector<SortKey> sort_keys;
@@ -124,7 +124,7 @@ class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
  public:
   explicit PartitionNthOptions(int64_t pivot);
   PartitionNthOptions() : PartitionNthOptions(0) {}
-  constexpr static char const kTypeName[] = "partition_nth";
+  constexpr static char const kTypeName[] = "PartitionNthOptions";
 
   /// The index into the equivalent sorted array of the partition pivot element.
   int64_t pivot;

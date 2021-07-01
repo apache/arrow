@@ -53,6 +53,8 @@ TEST(FunctionOptions, Equality) {
   options.emplace_back(new IndexOptions(ScalarFromJSON(int64(), "16")));
   options.emplace_back(new IndexOptions(ScalarFromJSON(boolean(), "true")));
   options.emplace_back(new IndexOptions(ScalarFromJSON(boolean(), "null")));
+  options.emplace_back(new ArithmeticOptions());
+  options.emplace_back(new ArithmeticOptions(/*check_overflow=*/true));
   options.emplace_back(new ElementWiseAggregateOptions());
   options.emplace_back(new ElementWiseAggregateOptions(/*skip_nulls=*/false));
   options.emplace_back(new JoinOptions());

@@ -37,17 +37,17 @@ namespace compute {
 ///
 /// @{
 
-struct ARROW_EXPORT ArithmeticOptions {
+class ARROW_EXPORT ArithmeticOptions : public FunctionOptions {
  public:
-  explicit ArithmeticOptions(bool check_overflow = false)
-      : check_overflow(check_overflow) {}
+  explicit ArithmeticOptions(bool check_overflow = false);
+  constexpr static char const kTypeName[] = "ArithmeticOptions";
   bool check_overflow;
 };
 
 class ARROW_EXPORT ElementWiseAggregateOptions : public FunctionOptions {
  public:
   explicit ElementWiseAggregateOptions(bool skip_nulls = true);
-  constexpr static char const kTypeName[] = "element_wise_aggregate";
+  constexpr static char const kTypeName[] = "ElementWiseAggregateOptions";
   static ElementWiseAggregateOptions Defaults() { return ElementWiseAggregateOptions{}; }
 
   bool skip_nulls;
@@ -67,7 +67,7 @@ class ARROW_EXPORT JoinOptions : public FunctionOptions {
   };
   explicit JoinOptions(NullHandlingBehavior null_handling = EMIT_NULL,
                        std::string null_replacement = "");
-  constexpr static char const kTypeName[] = "join";
+  constexpr static char const kTypeName[] = "JoinOptions";
   static JoinOptions Defaults() { return JoinOptions(); }
   NullHandlingBehavior null_handling;
   std::string null_replacement;
@@ -77,7 +77,7 @@ class ARROW_EXPORT MatchSubstringOptions : public FunctionOptions {
  public:
   explicit MatchSubstringOptions(std::string pattern, bool ignore_case = false);
   MatchSubstringOptions();
-  constexpr static char const kTypeName[] = "match_substring";
+  constexpr static char const kTypeName[] = "MatchSubstringOptions";
 
   /// The exact substring (or regex, depending on kernel) to look for inside input values.
   std::string pattern;
@@ -88,7 +88,7 @@ class ARROW_EXPORT MatchSubstringOptions : public FunctionOptions {
 class ARROW_EXPORT SplitOptions : public FunctionOptions {
  public:
   explicit SplitOptions(int64_t max_splits = -1, bool reverse = false);
-  constexpr static char const kTypeName[] = "split";
+  constexpr static char const kTypeName[] = "SplitOptions";
 
   /// Maximum number of splits allowed, or unlimited when -1
   int64_t max_splits;
@@ -101,7 +101,7 @@ class ARROW_EXPORT SplitPatternOptions : public FunctionOptions {
   explicit SplitPatternOptions(std::string pattern, int64_t max_splits = -1,
                                bool reverse = false);
   SplitPatternOptions();
-  constexpr static char const kTypeName[] = "split_pattern";
+  constexpr static char const kTypeName[] = "SplitPatternOptions";
 
   /// The exact substring to split on.
   std::string pattern;
@@ -115,7 +115,7 @@ class ARROW_EXPORT ReplaceSliceOptions : public FunctionOptions {
  public:
   explicit ReplaceSliceOptions(int64_t start, int64_t stop, std::string replacement);
   ReplaceSliceOptions();
-  constexpr static char const kTypeName[] = "replace_slice";
+  constexpr static char const kTypeName[] = "ReplaceSliceOptions";
 
   /// Index to start slicing at
   int64_t start;
@@ -130,7 +130,7 @@ class ARROW_EXPORT ReplaceSubstringOptions : public FunctionOptions {
   explicit ReplaceSubstringOptions(std::string pattern, std::string replacement,
                                    int64_t max_replacements = -1);
   ReplaceSubstringOptions();
-  constexpr static char const kTypeName[] = "replace_substring";
+  constexpr static char const kTypeName[] = "ReplaceSubstringOptions";
 
   /// Pattern to match, literal, or regular expression depending on which kernel is used
   std::string pattern;
@@ -144,7 +144,7 @@ class ARROW_EXPORT ExtractRegexOptions : public FunctionOptions {
  public:
   explicit ExtractRegexOptions(std::string pattern);
   ExtractRegexOptions();
-  constexpr static char const kTypeName[] = "extract_regex";
+  constexpr static char const kTypeName[] = "ExtractRegexOptions";
 
   /// Regular expression with named capture fields
   std::string pattern;
@@ -155,7 +155,7 @@ class ARROW_EXPORT SetLookupOptions : public FunctionOptions {
  public:
   explicit SetLookupOptions(Datum value_set, bool skip_nulls = false);
   SetLookupOptions();
-  constexpr static char const kTypeName[] = "set_lookup";
+  constexpr static char const kTypeName[] = "SetLookupOptions";
 
   /// The set of values to look up input values into.
   Datum value_set;
@@ -172,7 +172,7 @@ class ARROW_EXPORT StrptimeOptions : public FunctionOptions {
  public:
   explicit StrptimeOptions(std::string format, TimeUnit::type unit);
   StrptimeOptions();
-  constexpr static char const kTypeName[] = "strptime";
+  constexpr static char const kTypeName[] = "StrptimeOptions";
 
   std::string format;
   TimeUnit::type unit;
@@ -182,7 +182,7 @@ class ARROW_EXPORT PadOptions : public FunctionOptions {
  public:
   explicit PadOptions(int64_t width, std::string padding = " ");
   PadOptions();
-  constexpr static char const kTypeName[] = "pad";
+  constexpr static char const kTypeName[] = "PadOptions";
 
   /// The desired string length.
   int64_t width;
@@ -194,7 +194,7 @@ class ARROW_EXPORT TrimOptions : public FunctionOptions {
  public:
   explicit TrimOptions(std::string characters);
   TrimOptions();
-  constexpr static char const kTypeName[] = "trim";
+  constexpr static char const kTypeName[] = "TrimOptions";
 
   /// The individual characters that can be trimmed from the string.
   std::string characters;
@@ -205,7 +205,7 @@ class ARROW_EXPORT SliceOptions : public FunctionOptions {
   explicit SliceOptions(int64_t start, int64_t stop = std::numeric_limits<int64_t>::max(),
                         int64_t step = 1);
   SliceOptions();
-  constexpr static char const kTypeName[] = "slice";
+  constexpr static char const kTypeName[] = "SliceOptions";
   int64_t start, stop, step;
 };
 
@@ -222,7 +222,7 @@ class ARROW_EXPORT CompareOptions : public FunctionOptions {
  public:
   explicit CompareOptions(CompareOperator op);
   CompareOptions();
-  constexpr static char const kTypeName[] = "compare";
+  constexpr static char const kTypeName[] = "CompareOptions";
   enum CompareOperator op;
 };
 
@@ -232,7 +232,7 @@ class ARROW_EXPORT ProjectOptions : public FunctionOptions {
                  std::vector<std::shared_ptr<const KeyValueMetadata>> m);
   explicit ProjectOptions(std::vector<std::string> n);
   ProjectOptions();
-  constexpr static char const kTypeName[] = "project";
+  constexpr static char const kTypeName[] = "ProjectOptions";
 
   /// Names for wrapped columns
   std::vector<std::string> field_names;

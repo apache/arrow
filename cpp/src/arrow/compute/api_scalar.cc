@@ -110,6 +110,8 @@ using ::arrow::internal::checked_cast;
 namespace internal {
 namespace {
 using ::arrow::internal::DataMember;
+static auto kArithmeticOptionsType = GetFunctionOptionsType<ArithmeticOptions>(
+    DataMember("check_overflow", &ArithmeticOptions::check_overflow));
 static auto kElementWiseAggregateOptionsType =
     GetFunctionOptionsType<ElementWiseAggregateOptions>(
         DataMember("skip_nulls", &ElementWiseAggregateOptions::skip_nulls));
@@ -158,6 +160,10 @@ static auto kProjectOptionsType = GetFunctionOptionsType<ProjectOptions>(
     DataMember("field_metadata", &ProjectOptions::field_metadata));
 }  // namespace
 }  // namespace internal
+
+ArithmeticOptions::ArithmeticOptions(bool check_overflow)
+    : FunctionOptions(internal::kArithmeticOptionsType), check_overflow(check_overflow) {}
+constexpr char ArithmeticOptions::kTypeName[];
 
 ElementWiseAggregateOptions::ElementWiseAggregateOptions(bool skip_nulls)
     : FunctionOptions(internal::kElementWiseAggregateOptionsType),
@@ -274,6 +280,7 @@ constexpr char ProjectOptions::kTypeName[];
 
 namespace internal {
 void RegisterScalarOptions(FunctionRegistry* registry) {
+  DCHECK_OK(registry->AddFunctionOptionsType(kArithmeticOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kElementWiseAggregateOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kJoinOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kMatchSubstringOptionsType));
