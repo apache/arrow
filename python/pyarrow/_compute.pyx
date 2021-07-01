@@ -974,7 +974,7 @@ cdef class _DayOfWeekOptions(FunctionOptions):
 
 
 class DayOfWeekOptions(_DayOfWeekOptions):
-    def __init__(self, one_based_numbering=True, week_start=1):
+    def __init__(self, one_based_numbering=False, week_start=1):
         self._set_options(one_based_numbering, week_start)
 
 

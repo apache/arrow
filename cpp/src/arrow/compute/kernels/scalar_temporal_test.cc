@@ -155,6 +155,13 @@ TEST_F(ScalarTemporalTest, TestTemporalComponentExtraction) {
       DayOfWeek(timestamps, DayOfWeekOptions(
                                 /*one_based_numbering=*/true, /*week_start=*/2)));
   ASSERT_TRUE(result_21.Equals(expected_21));
+
+  ASSERT_RAISES(Invalid,
+                DayOfWeek(timestamps, DayOfWeekOptions(/*one_based_numbering=*/true,
+                                                       /*week_start=*/0)));
+  ASSERT_RAISES(Invalid,
+                DayOfWeek(timestamps, DayOfWeekOptions(/*one_based_numbering=*/false,
+                                                       /*week_start=*/8)));
 }
 
 TEST_F(ScalarTemporalTest, TestTemporalComponentExtractionWithDifferentUnits) {

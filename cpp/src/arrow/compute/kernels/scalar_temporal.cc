@@ -90,6 +90,11 @@ struct DayOfWeekOptionsWithOptions {
 
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     DayOfWeekOptions options = DayOfWeekState::Get(ctx);
+    if (options.week_start < 1 || 7 < options.week_start) {
+      return Status::Invalid(
+          "week_start must follow ISO convention (Monday=1, Sunday=7). Got week_start=",
+          options.week_start);
+    }
 
     RETURN_NOT_OK(TemporalComponentExtractCheckTimezone(batch.values[0]));
     applicator::ScalarUnaryNotNullStateful<OutType, TimestampType, Op> kernel{
@@ -151,6 +156,9 @@ struct DayOfWeek {
                   floor<days>(sys_time<Duration>(Duration{arg})))
                   .weekday()
                   .iso_encoding();
+    if (options.week_start == 1) {
+      return wd + options.one_based_numbering - 1;
+    }
     return (wd + 7 - options.week_start) % 7 + options.one_based_numbering;
   }
 
@@ -517,12 +525,13 @@ const FunctionDoc day_doc{
 
 const FunctionDoc day_of_week_doc{
     "Extract day of the week number",
-    ("By default Week starts on Monday represented by 0 and ends on Sunday represented "
+    ("By default, the week starts on Monday represented by 0 and ends on Sunday "
+     "represented "
      "by 6.\n"
-     "Returns an error if timestamp has a defined timezone. Null values return null.\n"
      "DayOfWeekOptions.week_start can be used to set another starting day using ISO "
      "convention (Monday=1, Sunday=7). Day numbering can start with 0 or 1 using "
-     "DayOfWeekOptions.one_based_numbering parameter."),
+     "DayOfWeekOptions.one_based_numbering parameter.\n"
+     "Returns an error if timestamp has a defined timezone. Null values return null."),
     {"values"},
     "DayOfWeekOptions"};
 

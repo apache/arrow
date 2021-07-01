@@ -245,13 +245,12 @@ class ARROW_EXPORT ProjectOptions : public FunctionOptions {
 };
 
 struct ARROW_EXPORT DayOfWeekOptions : public FunctionOptions {
-  explicit DayOfWeekOptions(bool one_based_numbering, uint32_t week_start)
+  explicit DayOfWeekOptions(bool one_based_numbering = false, uint32_t week_start = 1)
       : one_based_numbering(one_based_numbering), week_start(week_start) {}
-  explicit DayOfWeekOptions() : one_based_numbering(false), week_start(1) {}
 
   static DayOfWeekOptions Defaults() { return DayOfWeekOptions{}; }
 
-  /// Number days from 1 if true and form 0 if false
+  /// Number days from 1 if true and from 0 if false
   bool one_based_numbering;
   /// What day does the week start with (Monday=1, Sunday=7)
   uint32_t week_start;
