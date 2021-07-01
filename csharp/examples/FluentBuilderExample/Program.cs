@@ -51,7 +51,7 @@ namespace FluentBuilderExample
             using (var writer = new ArrowFileWriter(stream, recordBatch.Schema))
             {
                 await writer.WriteRecordBatchAsync(recordBatch);
-                await writer.WriteFooterAsync();
+                await writer.WriteEndAsync();
             }
 
             Console.WriteLine("Done");

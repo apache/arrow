@@ -418,3 +418,34 @@ test_that("mutate and write_dataset", {
       summarize(mean = mean(integer))
   )
 })
+
+test_that("mutate and pmin/pmax", {
+  df <- tibble(
+    city = c("Chillan", "Valdivia", "Osorno"),
+    val1 = c(200, 300, NA),
+    val2 = c(100, NA, NA),
+    val3 = c(0, NA, NA)
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        max_val_1 = pmax(val1, val2, val3),
+        max_val_2 = pmax(val1, val2, val3, na.rm = T),
+        min_val_1 = pmin(val1, val2, val3),
+        min_val_2 = pmin(val1, val2, val3, na.rm = T)
+      ) %>%
+      collect(),
+    df
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      mutate(
+        max_val_1 = pmax(val1 - 100, 200, val1 * 100, na.rm = T),
+        min_val_1 = pmin(val1 - 100, 100, val1 * 100, na.rm = T),
+      ) %>%
+      collect(),
+    df
+  )
+})

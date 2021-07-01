@@ -34,29 +34,33 @@ namespace internal {
 namespace {
 
 struct Equal {
-  template <typename T>
-  static constexpr bool Call(KernelContext*, const T& left, const T& right, Status*) {
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr T Call(KernelContext*, const Arg0& left, const Arg1& right, Status*) {
+    static_assert(std::is_same<T, bool>::value && std::is_same<Arg0, Arg1>::value, "");
     return left == right;
   }
 };
 
 struct NotEqual {
-  template <typename T>
-  static constexpr bool Call(KernelContext*, const T& left, const T& right, Status*) {
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr T Call(KernelContext*, const Arg0& left, const Arg1& right, Status*) {
+    static_assert(std::is_same<T, bool>::value && std::is_same<Arg0, Arg1>::value, "");
     return left != right;
   }
 };
 
 struct Greater {
-  template <typename T>
-  static constexpr bool Call(KernelContext*, const T& left, const T& right, Status*) {
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr T Call(KernelContext*, const Arg0& left, const Arg1& right, Status*) {
+    static_assert(std::is_same<T, bool>::value && std::is_same<Arg0, Arg1>::value, "");
     return left > right;
   }
 };
 
 struct GreaterEqual {
-  template <typename T>
-  static constexpr bool Call(KernelContext*, const T& left, const T& right, Status*) {
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr T Call(KernelContext*, const Arg0& left, const Arg1& right, Status*) {
+    static_assert(std::is_same<T, bool>::value && std::is_same<Arg0, Arg1>::value, "");
     return left >= right;
   }
 };
@@ -77,13 +81,15 @@ template <typename T>
 using enable_if_floating_point = enable_if_t<std::is_floating_point<T>::value, T>;
 
 struct Minimum {
-  template <typename T>
-  static enable_if_floating_point<T> Call(T left, T right) {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_floating_point<T> Call(Arg0 left, Arg1 right) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value, "");
     return std::fmin(left, right);
   }
 
-  template <typename T>
-  static enable_if_integer<T> Call(T left, T right) {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_integer<T> Call(Arg0 left, Arg1 right) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value, "");
     return std::min(left, right);
   }
 
@@ -104,13 +110,15 @@ struct Minimum {
 };
 
 struct Maximum {
-  template <typename T>
-  static enable_if_floating_point<T> Call(T left, T right) {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_floating_point<T> Call(Arg0 left, Arg1 right) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value, "");
     return std::fmax(left, right);
   }
 
-  template <typename T>
-  static enable_if_integer<T> Call(T left, T right) {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_integer<T> Call(Arg0 left, Arg1 right) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value, "");
     return std::max(left, right);
   }
 
@@ -291,7 +299,8 @@ struct ScalarMinMax {
         value = UnboxScalar<OutType>::Unbox(scalar);
         valid = true;
       } else {
-        value = Op::Call(value, UnboxScalar<OutType>::Unbox(scalar));
+        value = Op::template Call<OutValue, OutValue, OutValue>(
+            value, UnboxScalar<OutType>::Unbox(scalar));
       }
     }
     out->is_valid = valid;
@@ -396,7 +405,7 @@ struct ScalarMinMax {
             auto u = out_it();
             if (!output->buffers[0] ||
                 BitUtil::GetBit(output->buffers[0]->data(), index)) {
-              writer.Write(Op::Call(u, value));
+              writer.Write(Op::template Call<OutValue, OutValue, OutValue>(u, value));
             } else {
               writer.Write(value);
             }

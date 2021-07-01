@@ -169,7 +169,8 @@ TEST_F(TestFileSystemDataset, ReplaceSchema) {
 
 TEST_F(TestFileSystemDataset, RootPartitionPruning) {
   auto root_partition = equal(field_ref("i32"), literal(5));
-  MakeDataset({fs::File("a"), fs::File("b")}, root_partition);
+  MakeDataset({fs::File("a"), fs::File("b")}, root_partition, {},
+              schema({field("i32", int32()), field("f32", float32())}));
 
   auto GetFragments = [&](compute::Expression filter) {
     return *dataset_->GetFragments(*filter.Bind(*dataset_->schema()));
@@ -191,8 +192,9 @@ TEST_F(TestFileSystemDataset, RootPartitionPruning) {
   AssertFragmentsAreFromPath(GetFragments(equal(field_ref("f32"), literal(3.F))),
                              {"a", "b"});
 
-  // No partition should match
-  MakeDataset({fs::File("a"), fs::File("b")});
+  // No root partition: don't prune any fragments
+  MakeDataset({fs::File("a"), fs::File("b")}, literal(true), {},
+              schema({field("i32", int32()), field("f32", float32())}));
   AssertFragmentsAreFromPath(GetFragments(equal(field_ref("f32"), literal(3.F))),
                              {"a", "b"});
 }

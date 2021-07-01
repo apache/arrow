@@ -371,6 +371,7 @@ if(ARROW_COMPUTE)
        compute/exec/exec_plan.cc
        compute/exec/expression.cc
        compute/function.cc
+       compute/function_internal.cc
        compute/kernel.cc
        compute/registry.cc
        compute/kernels/aggregate_basic.cc

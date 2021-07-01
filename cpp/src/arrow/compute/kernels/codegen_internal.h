@@ -826,7 +826,8 @@ struct ScalarBinary {
     ArrayIterator<Arg0Type> arg0_it(arg0);
     ArrayIterator<Arg1Type> arg1_it(arg1);
     RETURN_NOT_OK(OutputAdapter<OutType>::Write(ctx, out, [&]() -> OutValue {
-      return Op::template Call(ctx, arg0_it(), arg1_it(), &st);
+      return Op::template Call<OutValue, Arg0Value, Arg1Value>(ctx, arg0_it(), arg1_it(),
+                                                               &st);
     }));
     return st;
   }
@@ -837,7 +838,8 @@ struct ScalarBinary {
     ArrayIterator<Arg0Type> arg0_it(arg0);
     auto arg1_val = UnboxScalar<Arg1Type>::Unbox(arg1);
     RETURN_NOT_OK(OutputAdapter<OutType>::Write(ctx, out, [&]() -> OutValue {
-      return Op::template Call(ctx, arg0_it(), arg1_val, &st);
+      return Op::template Call<OutValue, Arg0Value, Arg1Value>(ctx, arg0_it(), arg1_val,
+                                                               &st);
     }));
     return st;
   }
@@ -848,7 +850,8 @@ struct ScalarBinary {
     auto arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
     ArrayIterator<Arg1Type> arg1_it(arg1);
     RETURN_NOT_OK(OutputAdapter<OutType>::Write(ctx, out, [&]() -> OutValue {
-      return Op::template Call(ctx, arg0_val, arg1_it(), &st);
+      return Op::template Call<OutValue, Arg0Value, Arg1Value>(ctx, arg0_val, arg1_it(),
+                                                               &st);
     }));
     return st;
   }
@@ -859,8 +862,9 @@ struct ScalarBinary {
     if (out->scalar()->is_valid) {
       auto arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
       auto arg1_val = UnboxScalar<Arg1Type>::Unbox(arg1);
-      BoxScalar<OutType>::Box(Op::template Call(ctx, arg0_val, arg1_val, &st),
-                              out->scalar().get());
+      BoxScalar<OutType>::Box(
+          Op::template Call<OutValue, Arg0Value, Arg1Value>(ctx, arg0_val, arg1_val, &st),
+          out->scalar().get());
     }
     return st;
   }

@@ -32,6 +32,26 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         pass
 
 
+cdef extern from * namespace "arrow::compute":
+    # inlined from expression_internal.h to avoid
+    # proliferation of #include <unordered_map>
+    """
+    #include <unordered_map>
+
+    #include "arrow/type.h"
+    #include "arrow/datum.h"
+
+    namespace arrow {
+    namespace compute {
+    struct KnownFieldValues {
+      std::unordered_map<FieldRef, Datum, FieldRef::Hash> map;
+    };
+    } //  namespace compute
+    } //  namespace arrow
+    """
+    cdef struct CKnownFieldValues "arrow::compute::KnownFieldValues":
+        unordered_map[CFieldRef, CDatum, CFieldRefHash] map
+
 cdef extern from "arrow/compute/exec/expression.h" \
         namespace "arrow::compute" nogil:
 
@@ -57,7 +77,7 @@ cdef extern from "arrow/compute/exec/expression.h" \
     cdef CResult[CExpression] CDeserializeExpression \
         "arrow::compute::Deserialize"(shared_ptr[CBuffer])
 
-    cdef CResult[unordered_map[CFieldRef, CDatum, CFieldRefHash]] \
+    cdef CResult[CKnownFieldValues] \
         CExtractKnownFieldValues "arrow::compute::ExtractKnownFieldValues"(
             const CExpression& partition_expression)
 

@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -24,6 +25,7 @@
 #include "arrow/compute/type_fwd.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/optional.h"
 #include "arrow/util/visibility.h"
 
 // NOTES:
@@ -48,8 +50,11 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
   ExecNode* AddNode(std::unique_ptr<ExecNode> node);
 
   template <typename Node, typename... Args>
-  ExecNode* EmplaceNode(Args&&... args) {
-    return AddNode(std::unique_ptr<Node>(new Node{std::forward<Args>(args)...}));
+  Node* EmplaceNode(Args&&... args) {
+    auto node = std::unique_ptr<Node>(new Node{std::forward<Args>(args)...});
+    auto out = node.get();
+    AddNode(std::move(node));
+    return out;
   }
 
   /// The initial inputs
@@ -57,15 +62,6 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
 
   /// The final outputs
   const NodeVector& sinks() const;
-
-  // XXX API question:
-  // There are clearly two phases in the ExecPlan lifecycle:
-  // - one construction phase where AddNode() and ExecNode::AddInput() is called
-  //   (with optional validation at the end)
-  // - one execution phase where the nodes are topo-sorted and then started
-  //
-  // => Should we separate out those APIs? e.g. have a ExecPlanBuilder
-  // for the first phase.
 
   Status Validate();
 
@@ -75,7 +71,7 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
   /// is started before all of its inputs.
   Status StartProducing();
 
-  // XXX should we also have `void StopProducing()`?
+  void StopProducing();
 
  protected:
   ExecPlan() = default;
@@ -84,32 +80,26 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
 class ARROW_EXPORT ExecNode {
  public:
   using NodeVector = std::vector<ExecNode*>;
-  using BatchDescr = std::vector<ValueDescr>;
 
   virtual ~ExecNode() = default;
 
   virtual const char* kind_name() = 0;
 
   // The number of inputs/outputs expected by this node
-  int num_inputs() const { return static_cast<int>(input_descrs_.size()); }
+  int num_inputs() const { return static_cast<int>(inputs_.size()); }
   int num_outputs() const { return num_outputs_; }
 
   /// This node's predecessors in the exec plan
   const NodeVector& inputs() const { return inputs_; }
 
-  /// The datatypes accepted by this node for each input
-  const std::vector<BatchDescr>& input_descrs() const { return input_descrs_; }
-
   /// \brief Labels identifying the function of each input.
-  ///
-  /// For example, FilterNode accepts "target" and "filter" inputs.
   const std::vector<std::string>& input_labels() const { return input_labels_; }
 
   /// This node's successors in the exec plan
   const NodeVector& outputs() const { return outputs_; }
 
   /// The datatypes for batches produced by this node
-  const BatchDescr& output_descr() const { return output_descr_; }
+  const std::shared_ptr<Schema>& output_schema() const { return output_schema_; }
 
   /// This node's exec plan
   ExecPlan* plan() { return plan_; }
@@ -118,11 +108,6 @@ class ARROW_EXPORT ExecNode {
   ///
   /// There is no guarantee that this value is non-empty or unique.
   const std::string& label() const { return label_; }
-
-  void AddInput(ExecNode* input) {
-    inputs_.push_back(input);
-    input->outputs_.push_back(this);
-  }
 
   Status Validate() const;
 
@@ -139,7 +124,7 @@ class ARROW_EXPORT ExecNode {
   ///   and StopProducing()
 
   /// Transfer input batch to ExecNode
-  virtual void InputReceived(ExecNode* input, int seq_num, compute::ExecBatch batch) = 0;
+  virtual void InputReceived(ExecNode* input, int seq_num, ExecBatch batch) = 0;
 
   /// Signal error to ExecNode
   virtual void ErrorReceived(ExecNode* input, Status error) = 0;
@@ -222,25 +207,62 @@ class ARROW_EXPORT ExecNode {
   virtual void StopProducing(ExecNode* output) = 0;
 
   /// \brief Stop producing definitively
+  ///
+  /// XXX maybe this should return a Future<>?
   virtual void StopProducing() = 0;
 
  protected:
-  ExecNode(ExecPlan* plan, std::string label, std::vector<BatchDescr> input_descrs,
-           std::vector<std::string> input_labels, BatchDescr output_descr,
+  ExecNode(ExecPlan* plan, std::string label, NodeVector inputs,
+           std::vector<std::string> input_labels, std::shared_ptr<Schema> output_schema,
            int num_outputs);
 
   ExecPlan* plan_;
-
   std::string label_;
 
-  std::vector<BatchDescr> input_descrs_;
-  std::vector<std::string> input_labels_;
   NodeVector inputs_;
+  std::vector<std::string> input_labels_;
 
-  BatchDescr output_descr_;
+  std::shared_ptr<Schema> output_schema_;
   int num_outputs_;
   NodeVector outputs_;
 };
+
+/// \brief Adapt an AsyncGenerator<ExecBatch> as a source node
+///
+/// TODO this should accept an Executor and explicitly handle batches
+/// as they are generated on each of the Executor's threads.
+ARROW_EXPORT
+ExecNode* MakeSourceNode(ExecPlan*, std::string label,
+                         std::shared_ptr<Schema> output_schema,
+                         std::function<Future<util::optional<ExecBatch>>()>);
+
+/// \brief Add a sink node which forwards to an AsyncGenerator<ExecBatch>
+///
+/// Emitted batches will not be ordered; instead they will be tagged with the `seq` at
+/// which they were received.
+ARROW_EXPORT
+std::function<Future<util::optional<ExecBatch>>()> MakeSinkNode(ExecNode* input,
+                                                                std::string label);
+
+/// \brief Make a node which excludes some rows from batches passed through it
+///
+/// The filter Expression will be evaluated against each batch which is pushed to
+/// this node. Any rows for which the filter does not evaluate to `true` will be excluded
+/// in the batch emitted by this node.
+///
+/// If the filter is not already bound, it will be bound against the input's schema.
+ARROW_EXPORT
+Result<ExecNode*> MakeFilterNode(ExecNode* input, std::string label, Expression filter);
+
+/// \brief Make a node which executes expressions on input batches, producing new batches.
+///
+/// Each expression will be evaluated against each batch which is pushed to
+/// this node to produce a corresponding output column.
+///
+/// If exprs are not already bound, they will be bound against the input's schema.
+ARROW_EXPORT
+Result<ExecNode*> MakeProjectNode(ExecNode* input, std::string label,
+                                  std::vector<Expression> exprs);
 
 }  // namespace compute
 }  // namespace arrow

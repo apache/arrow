@@ -824,7 +824,10 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
+        # clang-tools and llvm version need to be synchronized so as
+        # to have the right llvm-symbolizer version
         CLANG_TOOLS: 11
+        LLVM: 11
         UBUNTU: 20.04
       image: ubuntu-cpp-thread-sanitizer
 

@@ -244,7 +244,7 @@ std::shared_ptr<DataType> CommonNumeric(const std::vector<ValueDescr>& descrs) {
 
   for (const auto& descr : descrs) {
     auto id = descr.type->id();
-    auto max_width = is_signed_integer(id) ? &max_width_signed : &max_width_unsigned;
+    auto max_width = &(is_signed_integer(id) ? max_width_signed : max_width_unsigned);
     *max_width = std::max(bit_width(id), *max_width);
   }
 

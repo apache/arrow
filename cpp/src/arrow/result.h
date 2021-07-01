@@ -478,6 +478,11 @@ class ARROW_MUST_USE_TYPE Result : public util::EqualityComparable<Result<T>> {
 ///
 /// WARNING: ARROW_ASSIGN_OR_RAISE `std::move`s its right operand. If you have
 /// an lvalue Result which you *don't* want to move out of cast appropriately.
+///
+/// WARNING: ARROW_ASSIGN_OR_RAISE is not a single expression; it will not
+/// maintain lifetimes of all temporaries in `rexpr` (e.g.
+/// `ARROW_ASSIGN_OR_RAISE(auto x, MakeTemp().GetResultRef());`
+/// will most likely segfault)!
 #define ARROW_ASSIGN_OR_RAISE(lhs, rexpr)                                              \
   ARROW_ASSIGN_OR_RAISE_IMPL(ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), \
                              lhs, rexpr);
@@ -485,7 +490,7 @@ class ARROW_MUST_USE_TYPE Result : public util::EqualityComparable<Result<T>> {
 namespace internal {
 
 template <typename T>
-inline Status GenericToStatus(const Result<T>& res) {
+inline const Status& GenericToStatus(const Result<T>& res) {
   return res.status();
 }
 
@@ -496,9 +501,9 @@ inline Status GenericToStatus(Result<T>&& res) {
 
 }  // namespace internal
 
-template <typename T>
-Result<T> ToResult(T t) {
-  return Result<T>(std::move(t));
+template <typename T, typename R = typename EnsureResult<T>::type>
+R ToResult(T t) {
+  return R(std::move(t));
 }
 
 template <typename T>

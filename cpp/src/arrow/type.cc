@@ -1195,6 +1195,10 @@ std::string FieldRef::ToString() const {
 }
 
 std::vector<FieldPath> FieldRef::FindAll(const Schema& schema) const {
+  if (auto name = this->name()) {
+    return internal::MapVector([](int i) { return FieldPath{i}; },
+                               schema.GetAllFieldIndices(*name));
+  }
   return FindAll(schema.fields());
 }
 

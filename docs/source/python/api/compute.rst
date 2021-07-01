@@ -58,6 +58,42 @@ throws an ``ArrowInvalid`` exception when overflow is detected.
    subtract_checked
    power
    power_checked
+   shift_left
+   shift_left_checked
+   shift_right
+   shift_right_checked
+
+Bit-wise operations do not offer (or need) a checked variant.
+
+.. autosummary::
+   :toctree: ../generated/
+
+   bit_wise_and
+   bit_wise_not
+   bit_wise_or
+   bit_wise_xor
+
+Trigonometric Functions
+-----------------------
+
+Trigonometric functions are also supported, and also offer ``_checked``
+variants which detect domain errors where appropriate.
+
+.. autosummary::
+   :toctree: ../generated/
+
+   acos
+   acos_checked
+   asin
+   asin_checked
+   atan
+   atan2
+   cos
+   cos_checked
+   sin
+   sin_checked
+   tan
+   tan_checked
 
 Comparisons
 -----------

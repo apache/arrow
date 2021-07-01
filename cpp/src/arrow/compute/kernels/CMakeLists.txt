@@ -37,6 +37,7 @@ add_arrow_benchmark(scalar_arithmetic_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(scalar_boolean_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(scalar_cast_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(scalar_compare_benchmark PREFIX "arrow-compute")
+add_arrow_benchmark(scalar_if_else_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(scalar_set_lookup_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(scalar_string_benchmark PREFIX "arrow-compute")
 

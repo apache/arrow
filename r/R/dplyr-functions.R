@@ -437,6 +437,22 @@ nse_funcs$str_split <- function(string, pattern, n = Inf, simplify = FALSE) {
   )
 }
 
+nse_funcs$pmin <- function(..., na.rm = FALSE) {
+  build_expr(
+    "min_element_wise",
+    ...,
+    options = list(skip_nulls = na.rm)
+  )
+}
+
+nse_funcs$pmax <- function(..., na.rm = FALSE) {
+  build_expr(
+    "max_element_wise",
+    ...,
+    options = list(skip_nulls = na.rm)
+  )
+}
+
 # String function helpers
 
 # format `pattern` as needed for case insensitivity and literal matching by RE2

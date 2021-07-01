@@ -397,6 +397,32 @@ TEST_F(TestArray, TestMakeArrayOfNullUnion) {
   }
 }
 
+void AssertAppendScalar(MemoryPool* pool, const std::shared_ptr<Scalar>& scalar) {
+  std::unique_ptr<arrow::ArrayBuilder> builder;
+  auto null_scalar = MakeNullScalar(scalar->type);
+  ASSERT_OK(MakeBuilder(pool, scalar->type, &builder));
+  ASSERT_OK(builder->AppendScalar(*scalar));
+  ASSERT_OK(builder->AppendScalar(*scalar));
+  ASSERT_OK(builder->AppendScalar(*null_scalar));
+  ASSERT_OK(builder->AppendScalars({scalar, null_scalar}));
+  ASSERT_OK(builder->AppendScalar(*scalar, /*n_repeats=*/2));
+  ASSERT_OK(builder->AppendScalar(*null_scalar, /*n_repeats=*/2));
+
+  std::shared_ptr<Array> out;
+  FinishAndCheckPadding(builder.get(), &out);
+  ASSERT_OK(out->ValidateFull());
+  ASSERT_EQ(out->length(), 9);
+  ASSERT_EQ(out->null_count(), 4);
+  for (const auto index : {0, 1, 3, 5, 6}) {
+    ASSERT_FALSE(out->IsNull(index));
+    ASSERT_OK_AND_ASSIGN(auto scalar_i, out->GetScalar(index));
+    AssertScalarsEqual(*scalar, *scalar_i, /*verbose=*/true);
+  }
+  for (const auto index : {2, 4, 7, 8}) {
+    ASSERT_TRUE(out->IsNull(index));
+  }
+}
+
 TEST_F(TestArray, TestMakeArrayFromScalar) {
   ASSERT_OK_AND_ASSIGN(auto null_array, MakeArrayFromScalar(NullScalar(), 5));
   ASSERT_OK(null_array->ValidateFull());
@@ -447,6 +473,10 @@ TEST_F(TestArray, TestMakeArrayFromScalar) {
       ASSERT_EQ(array->null_count(), 0);
     }
   }
+
+  for (auto scalar : scalars) {
+    AssertAppendScalar(pool_, scalar);
+  }
 }
 
 TEST_F(TestArray, TestMakeArrayFromDictionaryScalar) {
@@ -481,6 +511,8 @@ TEST_F(TestArray, TestMakeArrayFromMapScalar) {
     ASSERT_OK_AND_ASSIGN(auto item, array->GetScalar(i));
     ASSERT_TRUE(item->Equals(scalar));
   }
+
+  AssertAppendScalar(pool_, std::make_shared<MapScalar>(scalar));
 }
 
 TEST_F(TestArray, ValidateBuffersPrimitive) {

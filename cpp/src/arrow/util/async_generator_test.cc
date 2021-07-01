@@ -15,12 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <mutex>
 #include <random>
 #include <thread>
 #include <unordered_set>
+#include <utility>
 
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
@@ -51,7 +53,7 @@ AsyncGenerator<T> FailsAt(AsyncGenerator<T> src, int failing_index) {
 
 template <typename T>
 AsyncGenerator<T> SlowdownABit(AsyncGenerator<T> source) {
-  return MakeMappedGenerator<T, T>(std::move(source), [](const T& res) -> Future<T> {
+  return MakeMappedGenerator(std::move(source), [](const T& res) {
     return SleepABitAsync().Then([res]() { return res; });
   });
 }
@@ -67,14 +69,14 @@ class TrackingGenerator {
     return state_->source();
   }
 
-  int num_read() { return state_->num_read; }
+  int num_read() { return state_->num_read.load(); }
 
  private:
   struct State {
     explicit State(AsyncGenerator<T> source) : source(std::move(source)), num_read(0) {}
 
     AsyncGenerator<T> source;
-    int num_read;
+    std::atomic<int> num_read;
   };
 
   std::shared_ptr<State> state_;
@@ -88,8 +90,7 @@ std::function<Future<TestInt>()> BackgroundAsyncVectorIt(
   auto slow_iterator = PossiblySlowVectorIt(v, sleep);
   EXPECT_OK_AND_ASSIGN(
       auto background,
-      MakeBackgroundGenerator<TestInt>(std::move(slow_iterator),
-                                       internal::GetCpuThreadPool(), max_q, q_restart));
+      MakeBackgroundGenerator<TestInt>(std::move(slow_iterator), pool, max_q, q_restart));
   return MakeTransferredGenerator(background, pool);
 }
 
@@ -106,8 +107,7 @@ std::function<Future<TestInt>()> NewBackgroundAsyncVectorIt(std::vector<TestInt>
       });
 
   EXPECT_OK_AND_ASSIGN(auto background,
-                       MakeBackgroundGenerator<TestInt>(std::move(slow_iterator),
-                                                        internal::GetCpuThreadPool()));
+                       MakeBackgroundGenerator<TestInt>(std::move(slow_iterator), pool));
   return MakeTransferredGenerator(background, pool);
 }
 
@@ -176,7 +176,8 @@ class ReentrantChecker {
 template <typename T>
 class ReentrantCheckerGuard {
  public:
-  explicit ReentrantCheckerGuard(ReentrantChecker<T> checker) : checker_(checker) {}
+  explicit ReentrantCheckerGuard(ReentrantChecker<T> checker)
+      : checker_(std::move(checker)) {}
 
   ARROW_DISALLOW_COPY_AND_ASSIGN(ReentrantCheckerGuard);
   ReentrantCheckerGuard(ReentrantCheckerGuard&& other) : checker_(other.checker_) {
