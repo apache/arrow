@@ -30,6 +30,7 @@ env:
   VCPKG_DEFAULT_TRIPLET: x64-osx-static-release
   VCPKG_FEATURE_FLAGS: "-manifests"
   VCPKG_OVERLAY_TRIPLETS: {{ "${{ github.workspace }}/arrow/ci/vcpkg" }}
+  VCPKG_ROOT: {{ "${{ github.workspace }}/vcpkg" }}
 
 jobs:
   build:
@@ -51,11 +52,11 @@ jobs:
         # if: steps.vcpkg-cache.outputs.cache-hit != 'true'
         shell: bash
         run: |
-          [ -d "vcpkg" ] || arrow/ci/scripts/install_vcpkg.sh $VCPKG_VERSION vcpkg
+          [ -d "vcpkg" ] || arrow/ci/scripts/install_vcpkg.sh $VCPKG_VERSION $VCPKG_ROOT
 
       - name: Install Packages
         run: |
-          vcpkg/vcpkg install \
+          $VCPKG_ROOT/vcpkg install \
             abseil \
             boost-filesystem \
             brotli \
@@ -80,7 +81,7 @@ jobs:
 
       {% if arrow_s3 == "ON" %}
       - name: Install AWS SDK C++
-        run: vcpkg/vcpkg install aws-sdk-cpp[config,cognito-identity,core,identity-management,s3,sts,transfer]
+        run: $VCPKG_ROOT/vcpkg install aws-sdk-cpp[config,cognito-identity,core,identity-management,s3,sts,transfer]
       {% endif %}
 
       - name: Setup Multibuild
