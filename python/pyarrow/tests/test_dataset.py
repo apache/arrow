@@ -2781,6 +2781,7 @@ def test_parquet_dataset_factory_roundtrip(tempdir, use_legacy_dataset):
     result = dataset.to_table()
     assert result.num_rows == 10
 
+
 def test_parquet_dataset_factory_order(tempdir):
     import pyarrow.parquet as pq
     metadatas = []
