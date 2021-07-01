@@ -549,38 +549,10 @@ cdef class FunctionOptions(_Weakrefable):
             unique_ptr[CFunctionOptions] c_options
         c_options = move(GetResultValue(move(maybe_options)))
         type_name = frombytes(c_options.get().options_type().type_name())
-        mapping = {
-            "array_sort": ArraySortOptions,
-            "cast": CastOptions,
-            "dictionary_encode": DictionaryEncodeOptions,
-            "element_wise_aggregate": ElementWiseAggregateOptions,
-            "extract_regex": ExtractRegexOptions,
-            "filter": FilterOptions,
-            "index": IndexOptions,
-            "join": JoinOptions,
-            "match_substring": MatchSubstringOptions,
-            "mode": ModeOptions,
-            "pad": PadOptions,
-            "partition_nth": PartitionNthOptions,
-            "project": ProjectOptions,
-            "quantile": QuantileOptions,
-            "replace_slice": ReplaceSliceOptions,
-            "replace_substring": ReplaceSubstringOptions,
-            "set_lookup": SetLookupOptions,
-            "scalar_aggregate": ScalarAggregateOptions,
-            "slice": SliceOptions,
-            "sort": SortOptions,
-            "split": SplitOptions,
-            "split_pattern": SplitPatternOptions,
-            "strptime": StrptimeOptions,
-            "t_digest": TDigestOptions,
-            "take": TakeOptions,
-            "trim": TrimOptions,
-            "variance": VarianceOptions,
-        }
-        if type_name not in mapping:
+        module = globals()
+        if type_name not in module:
             raise ValueError(f"Cannot deserialize '{type_name}'")
-        klass = mapping[type_name]
+        klass = module[type_name]
         options = klass.__new__(klass)
         (<FunctionOptions> options).init(move(c_options))
         return options

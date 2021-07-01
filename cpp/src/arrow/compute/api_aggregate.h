@@ -46,7 +46,7 @@ class ExecContext;
 class ARROW_EXPORT ScalarAggregateOptions : public FunctionOptions {
  public:
   explicit ScalarAggregateOptions(bool skip_nulls = true, uint32_t min_count = 1);
-  constexpr static char const kTypeName[] = "scalar_aggregate";
+  constexpr static char const kTypeName[] = "ScalarAggregateOptions";
   static ScalarAggregateOptions Defaults() { return ScalarAggregateOptions{}; }
 
   bool skip_nulls;
@@ -60,7 +60,7 @@ class ARROW_EXPORT ScalarAggregateOptions : public FunctionOptions {
 class ARROW_EXPORT ModeOptions : public FunctionOptions {
  public:
   explicit ModeOptions(int64_t n = 1);
-  constexpr static char const kTypeName[] = "mode";
+  constexpr static char const kTypeName[] = "ModeOptions";
   static ModeOptions Defaults() { return ModeOptions{}; }
 
   int64_t n = 1;
@@ -73,7 +73,7 @@ class ARROW_EXPORT ModeOptions : public FunctionOptions {
 class ARROW_EXPORT VarianceOptions : public FunctionOptions {
  public:
   explicit VarianceOptions(int ddof = 0);
-  constexpr static char const kTypeName[] = "variance";
+  constexpr static char const kTypeName[] = "VarianceOptions";
   static VarianceOptions Defaults() { return VarianceOptions{}; }
 
   int ddof = 0;
@@ -98,7 +98,7 @@ class ARROW_EXPORT QuantileOptions : public FunctionOptions {
   explicit QuantileOptions(std::vector<double> q,
                            enum Interpolation interpolation = LINEAR);
 
-  constexpr static char const kTypeName[] = "quantile";
+  constexpr static char const kTypeName[] = "QuantileOptions";
   static QuantileOptions Defaults() { return QuantileOptions{}; }
 
   /// quantile must be between 0 and 1 inclusive
@@ -115,7 +115,7 @@ class ARROW_EXPORT TDigestOptions : public FunctionOptions {
                           uint32_t buffer_size = 500);
   explicit TDigestOptions(std::vector<double> q, uint32_t delta = 100,
                           uint32_t buffer_size = 500);
-  constexpr static char const kTypeName[] = "t_digest";
+  constexpr static char const kTypeName[] = "TDigestOptions";
   static TDigestOptions Defaults() { return TDigestOptions{}; }
 
   /// quantile must be between 0 and 1 inclusive
@@ -132,7 +132,7 @@ class ARROW_EXPORT IndexOptions : public FunctionOptions {
   explicit IndexOptions(std::shared_ptr<Scalar> value);
   // Default constructor for serialization
   IndexOptions();
-  constexpr static char const kTypeName[] = "index";
+  constexpr static char const kTypeName[] = "IndexOptions";
 
   std::shared_ptr<Scalar> value;
 };
