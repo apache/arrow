@@ -73,12 +73,11 @@ apply_arrow_r_metadata <- function(x, r_metadata) {
       }))
       if (in_dataset_collect) {
         warning("Row-level metadata has been discarded")
-        break
+      } else {
+        x <- map2(x, columns_metadata, function(.x, .y) {
+          apply_arrow_r_metadata(.x, .y)
+        })
       }
-
-      x <- map2(x, columns_metadata, function(.x, .y) {
-        apply_arrow_r_metadata(.x, .y)
-      })
       x
     }
 
