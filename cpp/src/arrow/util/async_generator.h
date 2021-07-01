@@ -259,43 +259,17 @@ class MappingGenerator {
 /// Note: Errors returned from the `map` function will be propagated
 ///
 /// If the source generator is async-reentrant then this generator will be also
-template <typename T, typename V>
-AsyncGenerator<V> MakeMappedGenerator(AsyncGenerator<T> source_generator,
-                                      std::function<Result<V>(const T&)> map) {
-  std::function<Future<V>(const T&)> future_map = [map](const T& val) -> Future<V> {
-    return Future<V>::MakeFinished(map(val));
-  };
-  return MappingGenerator<T, V>(std::move(source_generator), std::move(future_map));
-}
-template <typename T, typename V>
-AsyncGenerator<V> MakeMappedGenerator(AsyncGenerator<T> source_generator,
-                                      std::function<V(const T&)> map) {
-  std::function<Future<V>(const T&)> maybe_future_map = [map](const T& val) -> Future<V> {
-    return Future<V>::MakeFinished(map(val));
-  };
-  return MappingGenerator<T, V>(std::move(source_generator), std::move(maybe_future_map));
-}
-template <typename T, typename V>
-AsyncGenerator<V> MakeMappedGenerator(AsyncGenerator<T> source_generator,
-                                      std::function<Future<V>(const T&)> map) {
-  return MappingGenerator<T, V>(std::move(source_generator), std::move(map));
-}
-
-template <typename V, typename T, typename MapFunc>
-AsyncGenerator<V> MakeMappedGenerator(AsyncGenerator<T> source_generator, MapFunc map) {
+template <typename T, typename MapFn,
+          typename Mapped = detail::result_of_t<MapFn(const T&)>,
+          typename V = typename EnsureFuture<Mapped>::type::ValueType>
+AsyncGenerator<V> MakeMappedGenerator(AsyncGenerator<T> source_generator, MapFn map) {
   struct MapCallback {
-    MapFunc map;
+    MapFn map_;
 
-    Future<V> operator()(const T& val) { return EnsureFuture(map(val)); }
-
-    Future<V> EnsureFuture(Result<V> val) {
-      return Future<V>::MakeFinished(std::move(val));
-    }
-    Future<V> EnsureFuture(V val) { return Future<V>::MakeFinished(std::move(val)); }
-    Future<V> EnsureFuture(Future<V> val) { return val; }
+    Future<V> operator()(const T& val) { return ToFuture(map_(val)); }
   };
-  std::function<Future<V>(const T&)> map_fn = MapCallback{map};
-  return MappingGenerator<T, V>(std::move(source_generator), map_fn);
+
+  return MappingGenerator<T, V>(std::move(source_generator), MapCallback{std::move(map)});
 }
 
 /// \see MakeSequencingGenerator

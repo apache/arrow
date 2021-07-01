@@ -25,6 +25,7 @@
 #include "arrow/dataset/scanner_internal.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/io/memory.h"
+#include "arrow/io/util_internal.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
@@ -281,6 +282,32 @@ TEST_F(TestParquetFileFormat, CountRowsPredicatePushdown) {
     // TODO(ARROW-12659): SimplifyWithGuarantee can't handle
     // not(is_null) so trying to count with is_null doesn't work
   }
+}
+
+TEST_F(TestParquetFileFormat, MultithreadedScan) {
+  constexpr int64_t kNumRowGroups = 16;
+
+  // See PredicatePushdown test below for a description of the generated data
+  auto reader = ArithmeticDatasetFixture::GetRecordBatchReader(kNumRowGroups);
+  auto source = GetFileSource(reader.get());
+  auto options = std::make_shared<ScanOptions>();
+
+  auto fragment = MakeFragment(*source);
+
+  FragmentDataset dataset(ArithmeticDatasetFixture::schema(), {fragment});
+  ScannerBuilder builder({&dataset, [](...) {}});
+
+  ASSERT_OK(builder.UseAsync(true));
+  ASSERT_OK(builder.UseThreads(true));
+  ASSERT_OK(builder.Project({call("add", {field_ref("i64"), literal(3)})}, {""}));
+  ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
+
+  ASSERT_OK_AND_ASSIGN(auto gen, scanner->ScanBatchesUnorderedAsync());
+
+  auto collect_fut = CollectAsyncGenerator(gen);
+  ASSERT_OK_AND_ASSIGN(auto batches, collect_fut.result());
+
+  ASSERT_EQ(batches.size(), kNumRowGroups);
 }
 
 class TestParquetFileSystemDataset : public WriteFileSystemDatasetMixin,

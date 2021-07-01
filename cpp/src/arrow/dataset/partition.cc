@@ -30,6 +30,7 @@
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
+#include "arrow/compute/exec/expression_internal.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/scalar.h"
@@ -252,7 +253,7 @@ Result<std::string> KeyValuePartitioning::Format(const compute::Expression& expr
   ScalarVector values{static_cast<size_t>(schema_->num_fields()), nullptr};
 
   ARROW_ASSIGN_OR_RAISE(auto known_values, ExtractKnownFieldValues(expr));
-  for (const auto& ref_value : known_values) {
+  for (const auto& ref_value : known_values.map) {
     if (!ref_value.second.is_scalar()) {
       return Status::Invalid("non-scalar partition key ", ref_value.second.ToString());
     }

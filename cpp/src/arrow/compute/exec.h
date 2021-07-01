@@ -28,6 +28,7 @@
 #include <vector>
 
 #include "arrow/array/data.h"
+#include "arrow/compute/exec/expression.h"
 #include "arrow/datum.h"
 #include "arrow/memory_pool.h"
 #include "arrow/result.h"
@@ -186,6 +187,9 @@ struct ARROW_EXPORT ExecBatch {
   /// ExecBatch::length is equal to the length of this array.
   std::shared_ptr<SelectionVector> selection_vector;
 
+  /// A predicate Expression guaranteed to evaluate to true for all rows in this batch.
+  Expression guarantee = literal(true);
+
   /// The semantic length of the ExecBatch. When the values are all scalars,
   /// the length should be set to 1, otherwise the length is taken from the
   /// array values, except when there is a selection vector. When there is a
@@ -203,8 +207,12 @@ struct ARROW_EXPORT ExecBatch {
     return values[i];
   }
 
+  bool Equals(const ExecBatch& other) const;
+
   /// \brief A convenience for the number of values / arguments.
   int num_values() const { return static_cast<int>(values.size()); }
+
+  ExecBatch Slice(int64_t offset, int64_t length) const;
 
   /// \brief A convenience for returning the ValueDescr objects (types and
   /// shapes) from the batch.
@@ -215,7 +223,12 @@ struct ARROW_EXPORT ExecBatch {
     }
     return result;
   }
+
+  ARROW_EXPORT friend void PrintTo(const ExecBatch&, std::ostream*);
 };
+
+inline bool operator==(const ExecBatch& l, const ExecBatch& r) { return l.Equals(r); }
+inline bool operator!=(const ExecBatch& l, const ExecBatch& r) { return !l.Equals(r); }
 
 /// \defgroup compute-call-function One-shot calls to compute functions
 ///

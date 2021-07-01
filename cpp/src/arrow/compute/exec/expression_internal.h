@@ -34,6 +34,10 @@ using internal::checked_cast;
 
 namespace compute {
 
+struct KnownFieldValues {
+  std::unordered_map<FieldRef, Datum, FieldRef::Hash> map;
+};
+
 inline const Expression::Call* CallNotNull(const Expression& expr) {
   auto call = expr.call();
   DCHECK_NE(call, nullptr);
