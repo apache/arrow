@@ -1230,7 +1230,7 @@ TYPED_TEST(TestStringKernels, PadUTF8) {
   PadOptions options{/*width=*/5, "\xe2\x80\x88"};
   this->CheckUnary(
       "utf8_center", R"([null, "a", "bb", "b\u00E1r", "foobar"])", this->type(),
-      R"([null, "\u2008\u2008a\u2008\u2008", "\u2008\u2008bb\u2008", "\u2008b\u00E1r\u2008", "foobar"])",
+      R"([null, "\u2008\u2008a\u2008\u2008", "\u2008bb\u2008\u2008", "\u2008b\u00E1r\u2008", "foobar"])",
       &options);
   this->CheckUnary(
       "utf8_lpad", R"([null, "a", "bb", "b\u00E1r", "foobar"])", this->type(),
@@ -1401,7 +1401,7 @@ TYPED_TEST(TestStringKernels, SliceCodeunitsNegPos) {
 TYPED_TEST(TestStringKernels, PadAscii) {
   PadOptions options{/*width=*/5, " "};
   this->CheckUnary("ascii_center", R"([null, "a", "bb", "bar", "foobar"])", this->type(),
-                   R"([null, "  a  ", "  bb ", " bar ", "foobar"])", &options);
+                   R"([null, "  a  ", " bb  ", " bar ", "foobar"])", &options);
   this->CheckUnary("ascii_lpad", R"([null, "a", "bb", "bar", "foobar"])", this->type(),
                    R"([null, "    a", "   bb", "  bar", "foobar"])", &options);
   this->CheckUnary("ascii_rpad", R"([null, "a", "bb", "bar", "foobar"])", this->type(),
