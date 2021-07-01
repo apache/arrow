@@ -289,7 +289,7 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
       func_name == "utf8_center" || func_name == "ascii_lpad" ||
       func_name == "ascii_rpad" || func_name == "ascii_center") {
     using Options = arrow::compute::PadOptions;
-    return std::make_shared<Options>(cpp11::as_cpp<std::string>(options["width"]),
+    return std::make_shared<Options>(cpp11::as_cpp<int64_t>(options["width"]),
                                      cpp11::as_cpp<std::string>(options["padding"]));
   }
 
