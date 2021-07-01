@@ -37,6 +37,7 @@ Imports:
     vctrs
 Roxygen: list(markdown = TRUE, r6 = FALSE, load = "source")
 RoxygenNote: 7.1.1.9001
+SystemRequirements: libssl: libssl-dev (deb) or openssl-devel (rpm), libcurl: libcurl-openssl-dev (deb) or libcurl-devel (rpm)
 VignetteBuilder: knitr
 Suggests:
     decor,
