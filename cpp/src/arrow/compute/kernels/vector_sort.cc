@@ -543,7 +543,7 @@ class ArrayCountSorter<BooleanType> {
                          const BooleanArray& values, int64_t offset,
                          const ArraySortOptions& options) {
     // first slot reserved for prefix sum
-    std::vector<CounterType> counts(3);
+    std::array<CounterType, 3> counts{0, 0, 0};
 
     CounterType ones, nulls;
     CountBits(values, offset, &ones, &nulls);
