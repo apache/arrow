@@ -73,23 +73,23 @@ class Converter {
       // - the arrow.use_altrep is set to TRUE or unset
       // - the array has at least one element
       // - either it has no nulls or the data is mutable
-      if (arrow::r::GetBoolOption("arrow.use_altrep", true) && array->length() > 0){
+      if (arrow::r::GetBoolOption("arrow.use_altrep", true) && array->length() > 0) {
         switch (array->type()->id()) {
-        case arrow::Type::DOUBLE:
-          if (array->null_count() == 0 || array->data()->buffers[1]->is_mutable()) {
-            return arrow::r::MakeAltrepVectorDouble(array);
-          } else {
-            break;
-          }
+          case arrow::Type::DOUBLE:
+            if (array->null_count() == 0 || array->data()->buffers[1]->is_mutable()) {
+              return arrow::r::MakeAltrepVectorDouble(array, tasks);
+            } else {
+              break;
+            }
 
-        case arrow::Type::INT32:
-          if (array->null_count() == 0 || array->data()->buffers[1]->is_mutable()) {
-            return arrow::r::MakeAltrepVectorInt32(array);
-          } else {
+          case arrow::Type::INT32:
+            if (array->null_count() == 0 || array->data()->buffers[1]->is_mutable()) {
+              return arrow::r::MakeAltrepVectorInt32(array, tasks);
+            } else {
+              break;
+            }
+          default:
             break;
-          }
-        default:
-          break;
         }
       }
     }

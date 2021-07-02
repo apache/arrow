@@ -46,6 +46,8 @@ extern "C" {
 #include <arrow/array.h>
 #include <arrow/util/bitmap_reader.h>
 
+#include "./r_task_group.h"
+
 namespace arrow {
 namespace r {
 
@@ -79,25 +81,29 @@ void UseSentinel(const std::shared_ptr<Array>& array) {
 }
 
 template <int sexp_type>
-  struct AltrepVector {
+struct AltrepVector {
   using data_type = typename std::conditional<sexp_type == INTSXP, int, double>::type;
   static void DeleteArray(std::shared_ptr<Array>* ptr) { delete ptr; }
   using Pointer = cpp11::external_pointer<std::shared_ptr<Array>, DeleteArray>;
 
-  // altrep object around an Array with no nulls
+  // altrep object around an Array
   // data1: an external pointer to a shared pointer to the Array
   // data2: not used
 
-  static SEXP Make(R_altrep_class_t class_t, const std::shared_ptr<Array>& array) {
+  static SEXP Make(R_altrep_class_t class_t, const std::shared_ptr<Array>& array,
+                   RTasks& tasks) {
     // we don't need the whole r6 object, just an external pointer
-    // that retain the array
+    // that retain the Array
     Pointer xp(new std::shared_ptr<Array>(array));
 
-    // TODO: perhaps this can be done aside in parallel
-    //       if Make is given an RTasks
+    // we only get here if the Array data buffer is mutable
+    // UseSentinel() puts the R sentinel where the data is null
     auto null_count = array->null_count();
     if (null_count > 0) {
-      UseSentinel<data_type>(array);
+      tasks.Append(true, [array]() {
+        UseSentinel<data_type>(array);
+        return Status::OK();
+      });
     }
 
     SEXP res = R_new_altrep(class_t, xp, R_NilValue);
@@ -110,7 +116,8 @@ template <int sexp_type>
                           void (*inspect_subtree)(SEXP, int, int, int)) {
     const auto& array = Get(x);
     Rprintf("arrow::Array<%s, nulls=%d> len=%d, Array=<%p>\n",
-            array->type()->ToString().c_str(), array->null_count(), array->length(), array.get());
+            array->type()->ToString().c_str(), array->null_count(), array->length(),
+            array.get());
     inspect_subtree(R_altrep_data1(x), pre, deep + 1, pvec);
     return TRUE;
   }
@@ -141,9 +148,7 @@ template <int sexp_type>
     return const_cast<void*>(Dataptr_or_null(vec));
   }
 
-  static int No_NA(SEXP vec) {
-    return Get(vec)->null_count() == 0;
-  }
+  static int No_NA(SEXP vec) { return Get(vec)->null_count() == 0; }
 
   static void Init(R_altrep_class_t class_t, DllInfo* dll) {
     // altrep
@@ -166,8 +171,8 @@ struct AltrepVectorDouble {
     R_set_altreal_No_NA_method(class_t, AltrepVector<REALSXP>::No_NA);
   }
 
-  static SEXP Make(const std::shared_ptr<Array>& array) {
-    return AltrepVector<REALSXP>::Make(class_t, array);
+  static SEXP Make(const std::shared_ptr<Array>& array, RTasks& tasks) {
+    return AltrepVector<REALSXP>::Make(class_t, array, tasks);
   }
 };
 
@@ -180,8 +185,8 @@ struct AltrepVectorInt32 {
     R_set_altinteger_No_NA_method(class_t, AltrepVector<INTSXP>::No_NA);
   }
 
-  static SEXP Make(const std::shared_ptr<Array>& array) {
-    return AltrepVector<INTSXP>::Make(class_t, array);
+  static SEXP Make(const std::shared_ptr<Array>& array, RTasks& tasks) {
+    return AltrepVector<INTSXP>::Make(class_t, array, tasks);
   }
 };
 
@@ -193,12 +198,12 @@ void Init_Altrep_classes(DllInfo* dll) {
   AltrepVectorInt32::Init(dll);
 }
 
-SEXP MakeAltrepVectorDouble(const std::shared_ptr<Array>& array) {
-  return AltrepVectorDouble::Make(array);
+SEXP MakeAltrepVectorDouble(const std::shared_ptr<Array>& array, RTasks& tasks) {
+  return AltrepVectorDouble::Make(array, tasks);
 }
 
-SEXP MakeAltrepVectorInt32(const std::shared_ptr<Array>& array) {
-  return AltrepVectorInt32::Make(array);
+SEXP MakeAltrepVectorInt32(const std::shared_ptr<Array>& array, RTasks& tasks) {
+  return AltrepVectorInt32::Make(array, tasks);
 }
 
 }  // namespace r
