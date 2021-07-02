@@ -2783,17 +2783,22 @@ def test_parquet_dataset_factory_roundtrip(tempdir, use_legacy_dataset):
 
 
 def test_parquet_dataset_factory_order(tempdir):
+    # The order of the fragments in the dataset should match the order of the
+    # row groups in the _metadata file.
     import pyarrow.parquet as pq
     metadatas = []
+    # Create a dataset where f1 is incrementing from 0 to 100 spread across
+    # 10 files.  Put the row groups in the correct order in _metadata
     for i in range(10):
         table = pa.table(
-            {'f1': list(range(i*10, (i+1)*10)), 'f2': np.random.randn(10)})
+            {'f1': list(range(i*10, (i+1)*10))})
         table_path = tempdir / f'{i}.parquet'
         pq.write_table(table, table_path, metadata_collector=metadatas)
         metadatas[-1].set_file_path(f'{i}.parquet')
     metadata_path = str(tempdir / '_metadata')
     pq.write_metadata(table.schema, metadata_path, metadatas)
     dataset = ds.parquet_dataset(metadata_path)
+    # Ensure the table contains values from 0-100 in the right order
     scanned_table = dataset.to_table()
     scanned_col = scanned_table.column('f1').to_pylist()
     assert scanned_col == list(range(0, 100))

@@ -867,8 +867,8 @@ Result<std::shared_ptr<DatasetFactory>> ParquetDatasetFactory::Make(
   ARROW_ASSIGN_OR_RAISE(auto physical_schema, GetSchema(*metadata, properties));
   ARROW_ASSIGN_OR_RAISE(auto manifest, GetSchemaManifest(*metadata, properties));
 
-  std::unordered_map<std::string, std::vector<int>> path_to_row_group_ids;
-  std::vector<std::string> ordered_paths;
+  std::vector<std::pair<std::string, std::vector<int>>> paths_with_row_group_ids;
+  std::unordered_map<std::string, int> paths_to_index;
 
   for (int i = 0; i < metadata->num_row_groups(); i++) {
     auto row_group = metadata->RowGroup(i);
@@ -878,28 +878,28 @@ Result<std::shared_ptr<DatasetFactory>> ParquetDatasetFactory::Make(
 
     // Insert the path, or increase the count of row groups. It will be assumed that the
     // RowGroup of a file are ordered exactly as in the metadata file.
-    auto inserted_row_group = path_to_row_group_ids.insert({std::move(path), {}});
-    if (inserted_row_group.second) {
-      ordered_paths.push_back(inserted_row_group.first->first);
+    auto inserted_index =
+        paths_to_index.insert({std::move(path), paths_with_row_group_ids.size()});
+    if (inserted_index.second) {
+      paths_with_row_group_ids.push_back({inserted_index.first->first, {}});
     }
-    auto row_groups = &inserted_row_group.first->second;
-    row_groups->emplace_back(i);
+    paths_with_row_group_ids[inserted_index.first->second].second.push_back(i);
   }
 
   return std::shared_ptr<DatasetFactory>(new ParquetDatasetFactory(
       std::move(filesystem), std::move(format), std::move(metadata), std::move(manifest),
       std::move(physical_schema), base_path, std::move(options),
-      std::move(path_to_row_group_ids), std::move(ordered_paths)));
+      std::move(paths_with_row_group_ids)));
 }
 
 Result<std::vector<std::shared_ptr<FileFragment>>>
 ParquetDatasetFactory::CollectParquetFragments(const Partitioning& partitioning) {
-  std::vector<std::shared_ptr<FileFragment>> fragments(path_to_row_group_ids_.size());
+  std::vector<std::shared_ptr<FileFragment>> fragments(paths_with_row_group_ids_.size());
 
   size_t i = 0;
-  for (const auto& e : ordered_paths_) {
-    const auto& path = e;
-    auto metadata_subset = metadata_->Subset(path_to_row_group_ids_[e]);
+  for (const auto& e : paths_with_row_group_ids_) {
+    const auto& path = e.first;
+    auto metadata_subset = metadata_->Subset(e.second);
 
     auto row_groups = internal::Iota(metadata_subset->num_row_groups());
 
@@ -926,10 +926,10 @@ Result<std::vector<std::shared_ptr<Schema>>> ParquetDatasetFactory::InspectSchem
 
   if (auto factory = options_.partitioning.factory()) {
     // Gather paths found in RowGroups' ColumnChunks.
-    std::vector<std::string> stripped(path_to_row_group_ids_.size());
+    std::vector<std::string> stripped(paths_with_row_group_ids_.size());
 
     size_t i = 0;
-    for (const auto& e : path_to_row_group_ids_) {
+    for (const auto& e : paths_with_row_group_ids_) {
       stripped[i++] = StripPrefixAndFilename(e.first, options_.partition_base_dir);
     }
     ARROW_ASSIGN_OR_RAISE(auto partition_schema, factory->Inspect(stripped));
