@@ -33,9 +33,16 @@ rm -rf ${source_dir}/python/pyarrow/*.so.*
 
 echo "=== (${PYTHON_VERSION}) Set OSX SDK and C flags ==="
 # Arrow is 64-bit-only at the moment
-export CFLAGS="-fPIC -arch x86_64 ${CFLAGS//-arch i386/}"
-export CXXFLAGS="-fPIC -arch x86_64 ${CXXFLAGS//-arch i386} -std=c++11"
+export CFLAGS="-fPIC -arch arm64 ${CFLAGS//-arch i386/}"
+export CXXFLAGS="-fPIC -arch arm64 ${CXXFLAGS//-arch i386/} -std=c++11"
 export SDKROOT="$(xcrun --show-sdk-path)"
+
+CMAKE_ARGS=
+ARROW_SIMD_LEVEL=NONE
+#CMAKE_ARGS="${CMAKE_ARGS} -DCMAKE_SYSTEM=Darwin-$(uname -r)"
+#CMAKE_ARGS="${CMAKE_ARGS} -DCMAKE_SYSTEM_NAME=Darwin"
+#CMAKE_ARGS="${CMAKE_ARGS} -DCMAKE_SYSTEM_VERSION=$(uname -r)"
+#CMAKE_ARGS="${CMAKE_ARGS} -DCMAKE_SYSTEM_PROCESSOR=arm64"
 
 echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${ARROW_DATASET:=ON}
@@ -63,13 +70,17 @@ echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 mkdir -p ${build_dir}/build
 pushd ${build_dir}/build
 cmake \
+    -DPython3_NumPy_INCLUDE_DIR=/Users/ursa/kszucs/venv/lib/python3.9/site-packages/numpy/core/include \
     -DARROW_BUILD_SHARED=ON \
+    -DARROW_SIMD_LEVEL=${ARROW_SIMD_LEVEL} \
+    -DCMAKE_APPLE_SILICON_PROCESSOR=arm64 \
+    -DARROW_RUNTIME_SIMD_LEVEL=NONE \
     -DARROW_BUILD_STATIC=OFF \
     -DARROW_BUILD_TESTS=OFF \
     -DARROW_DATASET=${ARROW_DATASET} \
     -DARROW_DEPENDENCY_SOURCE="VCPKG" \
     -DARROW_DEPENDENCY_USE_SHARED=OFF \
-    -DARROW_FLIGHT==${ARROW_FLIGHT} \
+    -DARROW_FLIGHT=${ARROW_FLIGHT} \
     -DARROW_GANDIVA=${ARROW_GANDIVA} \
     -DARROW_HDFS=${ARROW_HDFS} \
     -DARROW_JEMALLOC=${ARROW_JEMALLOC} \
@@ -92,10 +103,11 @@ cmake \
     -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
     -DCMAKE_INSTALL_LIBDIR=lib \
     -DCMAKE_INSTALL_PREFIX=${build_dir}/install \
-    -DCMAKE_UNITY_BUILD=ON \
+    -DCMAKE_UNITY_BUILD=OFF \
     -DOPENSSL_USE_STATIC_LIBS=ON \
     -DVCPKG_MANIFEST_MODE=OFF \
     -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET} \
+    ${CMAKE_ARGS} \
     -G ${CMAKE_GENERATOR} \
     ${source_dir}/cpp
 cmake --build . --target install
