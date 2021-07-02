@@ -251,7 +251,6 @@ void RunIfElseLoop(const ArrayData& cond, const HandleBlock& handle_block) {
   while (cnt--) {
     Word word = cond_reader.NextWord();
 
-    // todo: check if this passes MSVC
     if (word == pickAll) {
       handle_block(data_offset, word_len);
     } else if (word != pickNone) {
@@ -274,7 +273,6 @@ void RunIfElseLoop(const ArrayData& cond, const HandleBlock& handle_block) {
     int valid_bits;
     uint8_t byte = cond_reader.NextTrailingByte(valid_bits);
 
-    // todo: check if this passes MSVC
     if (byte == pickAllByte && valid_bits == 8) {
       handle_block(data_offset, 8);
     } else if (byte != pickNoneByte) {
