@@ -34,29 +34,33 @@ namespace internal {
 namespace {
 
 struct Equal {
-  template <typename T>
-  static constexpr bool Call(KernelContext*, const T& left, const T& right, Status*) {
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr T Call(KernelContext*, const Arg0& left, const Arg1& right, Status*) {
+    static_assert(std::is_same<T, bool>::value && std::is_same<Arg0, Arg1>::value, "");
     return left == right;
   }
 };
 
 struct NotEqual {
-  template <typename T>
-  static constexpr bool Call(KernelContext*, const T& left, const T& right, Status*) {
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr T Call(KernelContext*, const Arg0& left, const Arg1& right, Status*) {
+    static_assert(std::is_same<T, bool>::value && std::is_same<Arg0, Arg1>::value, "");
     return left != right;
   }
 };
 
 struct Greater {
-  template <typename T>
-  static constexpr bool Call(KernelContext*, const T& left, const T& right, Status*) {
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr T Call(KernelContext*, const Arg0& left, const Arg1& right, Status*) {
+    static_assert(std::is_same<T, bool>::value && std::is_same<Arg0, Arg1>::value, "");
     return left > right;
   }
 };
 
 struct GreaterEqual {
-  template <typename T>
-  static constexpr bool Call(KernelContext*, const T& left, const T& right, Status*) {
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr T Call(KernelContext*, const Arg0& left, const Arg1& right, Status*) {
+    static_assert(std::is_same<T, bool>::value && std::is_same<Arg0, Arg1>::value, "");
     return left >= right;
   }
 };
@@ -77,13 +81,15 @@ template <typename T>
 using enable_if_floating_point = enable_if_t<std::is_floating_point<T>::value, T>;
 
 struct Minimum {
-  template <typename T>
-  static enable_if_floating_point<T> Call(T left, T right) {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_floating_point<T> Call(Arg0 left, Arg1 right) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value, "");
     return std::fmin(left, right);
   }
 
-  template <typename T>
-  static enable_if_integer<T> Call(T left, T right) {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_integer<T> Call(Arg0 left, Arg1 right) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value, "");
     return std::min(left, right);
   }
 
@@ -104,13 +110,15 @@ struct Minimum {
 };
 
 struct Maximum {
-  template <typename T>
-  static enable_if_floating_point<T> Call(T left, T right) {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_floating_point<T> Call(Arg0 left, Arg1 right) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value, "");
     return std::fmax(left, right);
   }
 
-  template <typename T>
-  static enable_if_integer<T> Call(T left, T right) {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_integer<T> Call(Arg0 left, Arg1 right) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value, "");
     return std::max(left, right);
   }
 
@@ -291,7 +299,8 @@ struct ScalarMinMax {
         value = UnboxScalar<OutType>::Unbox(scalar);
         valid = true;
       } else {
-        value = Op::Call(value, UnboxScalar<OutType>::Unbox(scalar));
+        value = Op::template Call<OutValue, OutValue, OutValue>(
+            value, UnboxScalar<OutType>::Unbox(scalar));
       }
     }
     out->is_valid = valid;
@@ -396,7 +405,7 @@ struct ScalarMinMax {
             auto u = out_it();
             if (!output->buffers[0] ||
                 BitUtil::GetBit(output->buffers[0]->data(), index)) {
-              writer.Write(Op::Call(u, value));
+              writer.Write(Op::template Call<OutValue, OutValue, OutValue>(u, value));
             } else {
               writer.Write(value);
             }
@@ -467,14 +476,14 @@ const FunctionDoc less_equal_doc{
     ("A null on either side emits a null comparison result."),
     {"x", "y"}};
 
-const FunctionDoc element_wise_min_doc{
+const FunctionDoc min_element_wise_doc{
     "Find the element-wise minimum value",
     ("Nulls will be ignored (default) or propagated. "
      "NaN will be taken over null, but not over any valid float."),
     {"*args"},
     "ElementWiseAggregateOptions"};
 
-const FunctionDoc element_wise_max_doc{
+const FunctionDoc max_element_wise_doc{
     "Find the element-wise maximum value",
     ("Nulls will be ignored (default) or propagated. "
      "NaN will be taken over null, but not over any valid float."),
@@ -501,13 +510,13 @@ void RegisterScalarComparison(FunctionRegistry* registry) {
   // ----------------------------------------------------------------------
   // Variadic element-wise functions
 
-  auto element_wise_min =
-      MakeScalarMinMax<Minimum>("element_wise_min", &element_wise_min_doc);
-  DCHECK_OK(registry->AddFunction(std::move(element_wise_min)));
+  auto min_element_wise =
+      MakeScalarMinMax<Minimum>("min_element_wise", &min_element_wise_doc);
+  DCHECK_OK(registry->AddFunction(std::move(min_element_wise)));
 
-  auto element_wise_max =
-      MakeScalarMinMax<Maximum>("element_wise_max", &element_wise_max_doc);
-  DCHECK_OK(registry->AddFunction(std::move(element_wise_max)));
+  auto max_element_wise =
+      MakeScalarMinMax<Maximum>("max_element_wise", &max_element_wise_doc);
+  DCHECK_OK(registry->AddFunction(std::move(max_element_wise)));
 }
 
 }  // namespace internal

@@ -19,6 +19,7 @@
 
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/ubsan.h"
 
 namespace arrow {
 
@@ -66,7 +67,7 @@ void BitUtil::bits_to_indexes_internal(int64_t hardware_flags, const int num_bit
 #endif
     *num_indexes = 0;
     for (int i = 0; i < num_bits / unroll; ++i) {
-      uint64_t word = reinterpret_cast<const uint64_t*>(bits)[i];
+      uint64_t word = util::SafeLoad(&reinterpret_cast<const uint64_t*>(bits)[i]);
       if (bit_to_search == 0) {
         word = ~word;
       }
@@ -81,7 +82,8 @@ void BitUtil::bits_to_indexes_internal(int64_t hardware_flags, const int num_bit
 #endif
   // Optionally process the last partial word with masking out bits outside range
   if (tail) {
-    uint64_t word = reinterpret_cast<const uint64_t*>(bits)[num_bits / unroll];
+    uint64_t word =
+        util::SafeLoad(&reinterpret_cast<const uint64_t*>(bits)[num_bits / unroll]);
     if (bit_to_search == 0) {
       word = ~word;
     }
@@ -144,7 +146,7 @@ void BitUtil::bits_to_bytes_internal(const int num_bits, const uint8_t* bits,
     unpacked |= (bits_next & 1);
     unpacked &= 0x0101010101010101ULL;
     unpacked *= 255;
-    reinterpret_cast<uint64_t*>(bytes)[i] = unpacked;
+    util::SafeStore(&reinterpret_cast<uint64_t*>(bytes)[i], unpacked);
   }
 }
 
@@ -153,7 +155,7 @@ void BitUtil::bytes_to_bits_internal(const int num_bits, const uint8_t* bytes,
   constexpr int unroll = 8;
   // Process 8 bits at a time
   for (int i = 0; i < (num_bits + unroll - 1) / unroll; ++i) {
-    uint64_t bytes_next = reinterpret_cast<const uint64_t*>(bytes)[i];
+    uint64_t bytes_next = util::SafeLoad(&reinterpret_cast<const uint64_t*>(bytes)[i]);
     bytes_next &= 0x0101010101010101ULL;
     bytes_next |= (bytes_next >> 7);  // Pairs of adjacent output bits in individual bytes
     bytes_next |= (bytes_next >> 14);  // 4 adjacent output bits in individual bytes
@@ -184,7 +186,7 @@ void BitUtil::bits_to_bytes(int64_t hardware_flags, const int num_bits,
     unpacked |= (bits_next & 1);
     unpacked &= 0x0101010101010101ULL;
     unpacked *= 255;
-    reinterpret_cast<uint64_t*>(bytes)[i] = unpacked;
+    util::SafeStore(&reinterpret_cast<uint64_t*>(bytes)[i], unpacked);
   }
 }
 
@@ -201,7 +203,7 @@ void BitUtil::bytes_to_bits(int64_t hardware_flags, const int num_bits,
   // Process 8 bits at a time
   constexpr int unroll = 8;
   for (int i = num_processed / unroll; i < (num_bits + unroll - 1) / unroll; ++i) {
-    uint64_t bytes_next = reinterpret_cast<const uint64_t*>(bytes)[i];
+    uint64_t bytes_next = util::SafeLoad(&reinterpret_cast<const uint64_t*>(bytes)[i]);
     bytes_next &= 0x0101010101010101ULL;
     bytes_next |= (bytes_next >> 7);  // Pairs of adjacent output bits in individual bytes
     bytes_next |= (bytes_next >> 14);  // 4 adjacent output bits in individual bytes
@@ -220,7 +222,7 @@ bool BitUtil::are_all_bytes_zero(int64_t hardware_flags, const uint8_t* bytes,
   uint64_t result_or = 0;
   uint32_t i;
   for (i = 0; i < num_bytes / 8; ++i) {
-    uint64_t x = reinterpret_cast<const uint64_t*>(bytes)[i];
+    uint64_t x = util::SafeLoad(&reinterpret_cast<const uint64_t*>(bytes)[i]);
     result_or |= x;
   }
   if (num_bytes % 8 > 0) {

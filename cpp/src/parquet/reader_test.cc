@@ -31,6 +31,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/make_unique.h"
 
 #include "parquet/column_reader.h"
 #include "parquet/column_scanner.h"
@@ -476,6 +477,83 @@ TEST(TestJSONWithLocalFile, JSONOutput) {
   ASSERT_EQ(json_output, ss.str());
 }
 
+TEST(TestFileReader, BufferedReadsWithDictionary) {
+  const int num_rows = 1000;
+
+  // Make schema
+  schema::NodeVector fields;
+  fields.push_back(PrimitiveNode::Make("field", Repetition::REQUIRED, Type::DOUBLE,
+                                       ConvertedType::NONE));
+  auto schema = std::static_pointer_cast<GroupNode>(
+      GroupNode::Make("schema", Repetition::REQUIRED, fields));
+
+  // Write small batches and small data pages
+  std::shared_ptr<WriterProperties> writer_props = WriterProperties::Builder()
+                                                       .write_batch_size(64)
+                                                       ->data_pagesize(128)
+                                                       ->enable_dictionary()
+                                                       ->build();
+
+  ASSERT_OK_AND_ASSIGN(auto out_file, ::arrow::io::BufferOutputStream::Create());
+  std::shared_ptr<ParquetFileWriter> file_writer =
+      ParquetFileWriter::Open(out_file, schema, writer_props);
+
+  RowGroupWriter* rg_writer = file_writer->AppendRowGroup();
+
+  // write one column
+  ::arrow::random::RandomArrayGenerator rag(0);
+  DoubleWriter* writer = static_cast<DoubleWriter*>(rg_writer->NextColumn());
+  std::shared_ptr<::arrow::Array> col = rag.Float64(num_rows, 0, 100);
+  const auto& col_typed = static_cast<const ::arrow::DoubleArray&>(*col);
+  writer->WriteBatch(num_rows, nullptr, nullptr, col_typed.raw_values());
+  rg_writer->Close();
+  file_writer->Close();
+
+  // Open the reader
+  ASSERT_OK_AND_ASSIGN(auto file_buf, out_file->Finish());
+  auto in_file = std::make_shared<::arrow::io::BufferReader>(file_buf);
+
+  ReaderProperties reader_props;
+  reader_props.enable_buffered_stream();
+  reader_props.set_buffer_size(64);
+  std::unique_ptr<ParquetFileReader> file_reader =
+      ParquetFileReader::Open(in_file, reader_props);
+
+  auto row_group = file_reader->RowGroup(0);
+  auto col_reader = std::static_pointer_cast<DoubleReader>(
+      row_group->ColumnWithExposeEncoding(0, ExposedEncoding::DICTIONARY));
+  EXPECT_EQ(col_reader->GetExposedEncoding(), ExposedEncoding::DICTIONARY);
+
+  auto indices = ::arrow::internal::make_unique<int32_t[]>(num_rows);
+  const double* dict = nullptr;
+  int32_t dict_len = 0;
+  for (int row_index = 0; row_index < num_rows; ++row_index) {
+    const double* tmp_dict = nullptr;
+    int32_t tmp_dict_len = 0;
+    int64_t values_read = 0;
+    int64_t levels_read = col_reader->ReadBatchWithDictionary(
+        /*batch_size=*/1, /*def_levels=*/nullptr, /*rep_levels=*/nullptr,
+        indices.get() + row_index, &values_read, &tmp_dict, &tmp_dict_len);
+
+    if (tmp_dict != nullptr) {
+      EXPECT_EQ(values_read, 1);
+      dict = tmp_dict;
+      dict_len = tmp_dict_len;
+    } else {
+      EXPECT_EQ(values_read, 0);
+    }
+
+    ASSERT_EQ(1, levels_read);
+    ASSERT_EQ(1, values_read);
+  }
+
+  // Check the results
+  for (int row_index = 0; row_index < num_rows; ++row_index) {
+    EXPECT_LT(indices[row_index], dict_len);
+    EXPECT_EQ(dict[indices[row_index]], col_typed.Value(row_index));
+  }
+}
+
 TEST(TestFileReader, BufferedReads) {
   // PARQUET-1636: Buffered reads were broken before introduction of
   // RandomAccessFile::GetStream
@@ -610,17 +688,17 @@ TEST(TestFileReader, TestOpenErrors) {
           ::testing::HasSubstr("Couldn't deserialize thrift: No more data to read")));
 
   EXPECT_FINISHES_AND_RAISES_WITH_MESSAGE_THAT(
-      IOError, ::testing::HasSubstr("Parquet file size is 0 bytes"), OpenBufferAsync(""));
+      Invalid, ::testing::HasSubstr("Parquet file size is 0 bytes"), OpenBufferAsync(""));
   EXPECT_FINISHES_AND_RAISES_WITH_MESSAGE_THAT(
-      IOError, ::testing::HasSubstr("Parquet magic bytes not found"),
+      Invalid, ::testing::HasSubstr("Parquet magic bytes not found"),
       OpenBufferAsync("AAAAPAR0"));
   EXPECT_FINISHES_AND_RAISES_WITH_MESSAGE_THAT(
-      IOError,
+      Invalid,
       ::testing::HasSubstr(
           "Parquet file size is 5 bytes, smaller than the minimum file footer"),
       OpenBufferAsync("APAR1"));
   EXPECT_FINISHES_AND_RAISES_WITH_MESSAGE_THAT(
-      IOError,
+      Invalid,
       ::testing::HasSubstr(
           "Parquet file size is 8 bytes, smaller than the size reported by footer's"),
       OpenBufferAsync("\xFF\xFF\xFF\x0FPAR1"));

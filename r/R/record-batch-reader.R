@@ -21,7 +21,7 @@
 #' communication (IPC)](https://arrow.apache.org/docs/format/Columnar.html#serialization-and-interprocess-communication-ipc):
 #' a "stream" format and a "file" format, known as Feather.
 #' `RecordBatchStreamReader` and `RecordBatchFileReader` are
-#' interfaces for accessing record batches from input sources those formats,
+#' interfaces for accessing record batches from input sources in those formats,
 #' respectively.
 #'
 #' For guidance on how to use these classes, see the examples section.
@@ -94,7 +94,8 @@ RecordBatchReader <- R6Class("RecordBatchReader", inherit = ArrowObject,
   public = list(
     read_next_batch = function() RecordBatchReader__ReadNext(self),
     batches = function() RecordBatchReader__batches(self),
-    read_table = function() Table__from_RecordBatchReader(self)
+    read_table = function() Table__from_RecordBatchReader(self),
+    export_to_c = function(stream_ptr) ExportRecordBatchReader(self, stream_ptr)
   ),
   active = list(
     schema = function() RecordBatchReader__schema(self)
@@ -115,6 +116,8 @@ RecordBatchStreamReader$create <- function(stream) {
   assert_is(stream, "InputStream")
   ipc___RecordBatchStreamReader__Open(stream)
 }
+#' @include arrowExports.R
+RecordBatchReader$import_from_c <- RecordBatchStreamReader$import_from_c <- ImportRecordBatchReader
 
 #' @rdname RecordBatchReader
 #' @usage NULL

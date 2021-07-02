@@ -30,54 +30,55 @@ G_BEGIN_DECLS
  * @title: Fragment classes
  * @include: arrow-dataset-glib/arrow-dataset-glib.h
  *
- * #GADFragment is a base class for all fragment classes.
+ * #GADatasetFragment is a base class for all fragment classes.
  *
- * #GADInMemoryFragment is a class for in-memory fragment.
+ * #GADatasetInMemoryFragment is a class for in-memory fragment.
  *
  * Since: 4.0.0
  */
 
 /* arrow::dataset::Fragment */
 
-typedef struct GADFragmentPrivate_ {
+typedef struct GADatasetFragmentPrivate_ {
   std::shared_ptr<arrow::dataset::Fragment> fragment;
-} GADFragmentPrivate;
+} GADatasetFragmentPrivate;
 
 enum {
   PROP_FRAGMENT = 1,
 };
 
-G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GADFragment,
-                                    gad_fragment,
+G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GADatasetFragment,
+                                    gadataset_fragment,
                                     G_TYPE_OBJECT)
 
-#define GAD_FRAGMENT_GET_PRIVATE(obj)           \
-  static_cast<GADFragmentPrivate *>(            \
-    gad_fragment_get_instance_private(          \
-      GAD_FRAGMENT(obj)))
+#define GADATASET_FRAGMENT_GET_PRIVATE(obj)           \
+  static_cast<GADatasetFragmentPrivate *>(            \
+    gadataset_fragment_get_instance_private(          \
+      GADATASET_FRAGMENT(obj)))
 
 static void
-gad_fragment_finalize(GObject *object)
+gadataset_fragment_finalize(GObject *object)
 {
-  auto priv = GAD_FRAGMENT_GET_PRIVATE(object);
+  auto priv = GADATASET_FRAGMENT_GET_PRIVATE(object);
 
   priv->fragment.~shared_ptr();
 
-  G_OBJECT_CLASS(gad_fragment_parent_class)->finalize(object);
+  G_OBJECT_CLASS(gadataset_fragment_parent_class)->finalize(object);
 }
 
 static void
-gad_fragment_set_property(GObject *object,
-                          guint prop_id,
-                          const GValue *value,
-                          GParamSpec *pspec)
+gadataset_fragment_set_property(GObject *object,
+                                guint prop_id,
+                                const GValue *value,
+                                GParamSpec *pspec)
 {
-  auto priv = GAD_FRAGMENT_GET_PRIVATE(object);
+  auto priv = GADATASET_FRAGMENT_GET_PRIVATE(object);
 
   switch (prop_id) {
   case PROP_FRAGMENT:
     priv->fragment =
-      *static_cast<std::shared_ptr<arrow::dataset::Fragment> *>(g_value_get_pointer(value));
+      *static_cast<std::shared_ptr<arrow::dataset::Fragment> *>(
+        g_value_get_pointer(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -86,19 +87,19 @@ gad_fragment_set_property(GObject *object,
 }
 
 static void
-gad_fragment_init(GADFragment *object)
+gadataset_fragment_init(GADatasetFragment *object)
 {
-  auto priv = GAD_FRAGMENT_GET_PRIVATE(object);
+  auto priv = GADATASET_FRAGMENT_GET_PRIVATE(object);
   new(&priv->fragment) std::shared_ptr<arrow::dataset::Fragment>;
 }
 
 static void
-gad_fragment_class_init(GADFragmentClass *klass)
+gadataset_fragment_class_init(GADatasetFragmentClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->finalize     = gad_fragment_finalize;
-  gobject_class->set_property = gad_fragment_set_property;
+  gobject_class->finalize     = gadataset_fragment_finalize;
+  gobject_class->set_property = gadataset_fragment_set_property;
 
   GParamSpec *spec;
   spec = g_param_spec_pointer("fragment",
@@ -111,35 +112,35 @@ gad_fragment_class_init(GADFragmentClass *klass)
 
 /* arrow::dataset::InMemoryFragment */
 
-G_DEFINE_TYPE(GADInMemoryFragment,
-              gad_in_memory_fragment,
-              GAD_TYPE_FRAGMENT)
+G_DEFINE_TYPE(GADatasetInMemoryFragment,
+              gadataset_in_memory_fragment,
+              GADATASET_TYPE_FRAGMENT)
 
 static void
-gad_in_memory_fragment_init(GADInMemoryFragment *object)
+gadataset_in_memory_fragment_init(GADatasetInMemoryFragment *object)
 {
 }
 
 static void
-gad_in_memory_fragment_class_init(GADInMemoryFragmentClass *klass)
+gadataset_in_memory_fragment_class_init(GADatasetInMemoryFragmentClass *klass)
 {
 }
 
 /**
- * gad_in_memory_fragment_new:
+ * gadataset_in_memory_fragment_new:
  * @schema: A #GArrowSchema.
  * @record_batches: (array length=n_record_batches):
  *   (element-type GArrowRecordBatch): The record batches of the table.
  * @n_record_batches: The number of record batches.
  *
- * Returns: A newly created #GADInMemoryFragment.
+ * Returns: A newly created #GADatasetInMemoryFragment.
  *
  * Since: 4.0.0
  */
-GADInMemoryFragment *
-gad_in_memory_fragment_new(GArrowSchema *schema,
-                           GArrowRecordBatch **record_batches,
-                           gsize n_record_batches)
+GADatasetInMemoryFragment *
+gadataset_in_memory_fragment_new(GArrowSchema *schema,
+                                 GArrowRecordBatch **record_batches,
+                                 gsize n_record_batches)
 {
   auto arrow_schema = garrow_schema_get_raw(schema);
   std::vector<std::shared_ptr<arrow::RecordBatch>> arrow_record_batches;
@@ -151,34 +152,36 @@ gad_in_memory_fragment_new(GArrowSchema *schema,
   auto arrow_in_memory_fragment =
     std::make_shared<arrow::dataset::InMemoryFragment>(arrow_schema,
                                                        arrow_record_batches);
-  return gad_in_memory_fragment_new_raw(&arrow_in_memory_fragment);
+  return gadataset_in_memory_fragment_new_raw(&arrow_in_memory_fragment);
 }
 
 G_END_DECLS
 
-GADFragment *
-gad_fragment_new_raw(std::shared_ptr<arrow::dataset::Fragment> *arrow_fragment)
+GADatasetFragment *
+gadataset_fragment_new_raw(
+  std::shared_ptr<arrow::dataset::Fragment> *arrow_fragment)
 {
   auto fragment =
-    GAD_FRAGMENT(g_object_new(GAD_TYPE_FRAGMENT,
-                              "fragment", arrow_fragment,
-                              NULL));
+    GADATASET_FRAGMENT(g_object_new(GADATASET_TYPE_FRAGMENT,
+                                    "fragment", arrow_fragment,
+                                    NULL));
   return fragment;
 }
 
 std::shared_ptr<arrow::dataset::Fragment>
-gad_fragment_get_raw(GADFragment *fragment)
+gadataset_fragment_get_raw(GADatasetFragment *fragment)
 {
-  auto priv = GAD_FRAGMENT_GET_PRIVATE(fragment);
+  auto priv = GADATASET_FRAGMENT_GET_PRIVATE(fragment);
   return priv->fragment;
 }
 
-GADInMemoryFragment *
-gad_in_memory_fragment_new_raw(std::shared_ptr<arrow::dataset::InMemoryFragment> *arrow_fragment)
+GADatasetInMemoryFragment *
+gadataset_in_memory_fragment_new_raw(
+  std::shared_ptr<arrow::dataset::InMemoryFragment> *arrow_fragment)
 {
   auto fragment =
-    GAD_IN_MEMORY_FRAGMENT(g_object_new(GAD_TYPE_IN_MEMORY_FRAGMENT,
-                                        "fragment", arrow_fragment,
-                                        NULL));
+    GADATASET_IN_MEMORY_FRAGMENT(g_object_new(GADATASET_TYPE_IN_MEMORY_FRAGMENT,
+                                              "fragment", arrow_fragment,
+                                              NULL));
   return fragment;
 }

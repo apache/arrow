@@ -640,17 +640,20 @@ def get_version(root, **kwargs):
         'git describe --dirty --tags --long --match "apache-arrow-[0-9].*"'
     )
     version = parse_git_version(root, **kwargs)
+    tag = str(version.tag)
 
-    # increment the minor version, because there can be patch releases created
-    # from maintenance branches where the tags are unreachable from the
-    # master's HEAD, so the git command above generates 0.17.0.dev300 even if
-    # arrow has a never 0.17.1 patch release
-    pattern = r"^(\d+)\.(\d+)\.(\d+)$"
-    match = re.match(pattern, str(version.tag))
+    # We may get a development tag for the next version, such as "5.0.0.dev0",
+    # or the tag of an already released version, such as "4.0.0".
+    # In the latter case, we need to increment the version so that the computed
+    # version comes after any patch release (the next feature version after
+    # 4.0.0 is 5.0.0).
+    pattern = r"^(\d+)\.(\d+)\.(\d+)"
+    match = re.match(pattern, tag)
     major, minor, patch = map(int, match.groups())
+    if 'dev' not in tag:
+        major += 1
 
-    # the bumped version number after 0.17.x will be 0.18.0.dev300
-    return "{}.{}.{}.dev{}".format(major, minor + 1, patch, version.distance)
+    return "{}.{}.{}.dev{}".format(major, minor, patch, version.distance)
 
 
 class Serializable:

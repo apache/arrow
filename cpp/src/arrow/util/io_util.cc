@@ -472,11 +472,18 @@ namespace {
 
 Result<bool> DoCreateDir(const PlatformFilename& dir_path, bool create_parents) {
 #ifdef _WIN32
-  if (CreateDirectoryW(dir_path.ToNative().c_str(), nullptr)) {
+  const auto s = dir_path.ToNative().c_str();
+  if (CreateDirectoryW(s, nullptr)) {
     return true;
   }
   int errnum = GetLastError();
   if (errnum == ERROR_ALREADY_EXISTS) {
+    const auto attrs = GetFileAttributesW(s);
+    if (attrs == INVALID_FILE_ATTRIBUTES || !(attrs & FILE_ATTRIBUTE_DIRECTORY)) {
+      // Note we propagate the original error, not the GetFileAttributesW() error
+      return IOErrorFromWinError(ERROR_ALREADY_EXISTS, "Cannot create directory '",
+                                 dir_path.ToString(), "': non-directory entry exists");
+    }
     return false;
   }
   if (create_parents && errnum == ERROR_PATH_NOT_FOUND) {
@@ -489,10 +496,17 @@ Result<bool> DoCreateDir(const PlatformFilename& dir_path, bool create_parents) 
   return IOErrorFromWinError(GetLastError(), "Cannot create directory '",
                              dir_path.ToString(), "'");
 #else
-  if (mkdir(dir_path.ToNative().c_str(), S_IRWXU | S_IRWXG | S_IRWXO) == 0) {
+  const auto s = dir_path.ToNative().c_str();
+  if (mkdir(s, S_IRWXU | S_IRWXG | S_IRWXO) == 0) {
     return true;
   }
   if (errno == EEXIST) {
+    struct stat st;
+    if (stat(s, &st) || !S_ISDIR(st.st_mode)) {
+      // Note we propagate the original errno, not the stat() errno
+      return IOErrorFromErrno(EEXIST, "Cannot create directory '", dir_path.ToString(),
+                              "': non-directory entry exists");
+    }
     return false;
   }
   if (create_parents && errno == ENOENT) {

@@ -555,6 +555,19 @@ void ApproxCompareBatch(const RecordBatch& left, const RecordBatch& right,
       [](const Array& left, const Array& right) { return left.ApproxEquals(right); });
 }
 
+std::shared_ptr<Array> TweakValidityBit(const std::shared_ptr<Array>& array,
+                                        int64_t index, bool validity) {
+  auto data = array->data()->Copy();
+  if (data->buffers[0] == nullptr) {
+    data->buffers[0] = *AllocateBitmap(data->length);
+    BitUtil::SetBitsTo(data->buffers[0]->mutable_data(), 0, data->length, true);
+  }
+  BitUtil::SetBitTo(data->buffers[0]->mutable_data(), index, validity);
+  data->null_count = kUnknownNullCount;
+  // Need to return a new array, because Array caches the null bitmap pointer
+  return MakeArray(data);
+}
+
 class LocaleGuard::Impl {
  public:
   explicit Impl(const char* new_locale) : global_locale_(std::locale()) {
@@ -632,16 +645,33 @@ void AssertZeroPadded(const Array& array) {
   }
 }
 
-void TestInitialized(const Array& array) {
-  for (const auto& buffer : array.data()->buffers) {
+void TestInitialized(const Array& array) { TestInitialized(*array.data()); }
+
+void TestInitialized(const ArrayData& array) {
+  uint8_t total = 0;
+  for (const auto& buffer : array.buffers) {
     if (buffer && buffer->capacity() > 0) {
-      int total = 0;
       auto data = buffer->data();
       for (int64_t i = 0; i < buffer->size(); ++i) {
         total ^= data[i];
       }
-      throw_away = total;
     }
+  }
+  uint8_t total_bit = 0;
+  for (uint32_t mask = 1; mask < 256; mask <<= 1) {
+    total_bit ^= (total & mask) != 0;
+  }
+  // This is a dummy condition on all the bits of `total` (which depend on the
+  // entire buffer data).  If not all bits are well-defined, Valgrind will
+  // error with "Conditional jump or move depends on uninitialised value(s)".
+  if (total_bit == 0) {
+    ++throw_away;
+  }
+  for (const auto& child : array.child_data) {
+    TestInitialized(*child);
+  }
+  if (array.dictionary) {
+    TestInitialized(*array.dictionary);
   }
 }
 

@@ -361,6 +361,14 @@ test_that("relocate with selection helpers", {
     input %>% relocate(d, e, f, .before = where(is.numeric)) %>% collect(),
     df
   )
+  # works after other dplyr verbs
+  expect_dplyr_equal(
+    input %>%
+      mutate(c = as.character(c)) %>%
+      relocate(d, e, f, .after = where(is.numeric)) %>%
+      collect(),
+    df
+  )
 })
 
 test_that("explicit type conversions with cast()", {
@@ -800,6 +808,21 @@ test_that("type checks with is_*()", {
   )
 })
 
+test_that("type checks on expressions", {
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        a = is.character(as.character(int)),
+        b = is.integer(as.character(int)),
+        c = is.integer(int + int),
+        d = is.double(int + dbl),
+        e = is.logical(grepl("[def]", chr))
+      ) %>%
+      collect(),
+    tbl
+  )
+})
+
 test_that("as.factor()/dictionary_encode()", {
   skip("ARROW-12632: ExecuteScalarExpression cannot Execute non-scalar expression {x=dictionary_encode(x, {NON-REPRESENTABLE OPTIONS})}")
   df1 <- tibble(x = c("C", "D", "B", NA, "D", "B", "S", "A", "B", "Z", "B"))
@@ -899,3 +922,14 @@ test_that("No duplicate field names are allowed in an arrow_dplyr_query", {
   )
 })
 
+test_that("abs()", {
+  df <- tibble(x = c(-127, -10, -1, -0 , 0, 1, 10, 127, NA))
+
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        abs = abs(x)
+      ) %>% collect(),
+    df
+  )
+})

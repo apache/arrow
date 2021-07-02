@@ -87,22 +87,23 @@ constexpr int kNumScanTasks = 2;
 constexpr int kBatchesPerScanTask = 2;
 constexpr int kRowsPerBatch = 1024;
 class MockFileFormat : public FileFormat {
-  virtual std::string type_name() const { return "mock"; }
-  virtual bool Equals(const FileFormat& other) const { return false; }
-  virtual Result<bool> IsSupported(const FileSource& source) const { return true; }
-  virtual Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const {
+  std::string type_name() const override { return "mock"; }
+  bool Equals(const FileFormat& other) const override { return false; }
+  Result<bool> IsSupported(const FileSource& source) const override { return true; }
+  Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const override {
     return Status::NotImplemented("Not needed for test");
   }
-  virtual Result<std::shared_ptr<FileWriter>> MakeWriter(
+  Result<std::shared_ptr<FileWriter>> MakeWriter(
       std::shared_ptr<io::OutputStream> destination, std::shared_ptr<Schema> schema,
-      std::shared_ptr<FileWriteOptions> options) const {
+      std::shared_ptr<FileWriteOptions> options,
+      fs::FileLocator destination_locator) const override {
     return Status::NotImplemented("Not needed for test");
   }
-  virtual std::shared_ptr<FileWriteOptions> DefaultWriteOptions() { return nullptr; }
+  std::shared_ptr<FileWriteOptions> DefaultWriteOptions() override { return nullptr; }
 
-  virtual Result<ScanTaskIterator> ScanFile(
+  Result<ScanTaskIterator> ScanFile(
       const std::shared_ptr<ScanOptions>& options,
-      const std::shared_ptr<FileFragment>& file) const {
+      const std::shared_ptr<FileFragment>& file) const override {
     auto sch = schema({field("i32", int32())});
     ScanTaskVector scan_tasks;
     for (int i = 0; i < kNumScanTasks; i++) {
@@ -168,7 +169,8 @@ TEST_F(TestFileSystemDataset, ReplaceSchema) {
 
 TEST_F(TestFileSystemDataset, RootPartitionPruning) {
   auto root_partition = equal(field_ref("i32"), literal(5));
-  MakeDataset({fs::File("a"), fs::File("b")}, root_partition);
+  MakeDataset({fs::File("a"), fs::File("b")}, root_partition, {},
+              schema({field("i32", int32()), field("f32", float32())}));
 
   auto GetFragments = [&](compute::Expression filter) {
     return *dataset_->GetFragments(*filter.Bind(*dataset_->schema()));
@@ -190,8 +192,9 @@ TEST_F(TestFileSystemDataset, RootPartitionPruning) {
   AssertFragmentsAreFromPath(GetFragments(equal(field_ref("f32"), literal(3.F))),
                              {"a", "b"});
 
-  // No partition should match
-  MakeDataset({fs::File("a"), fs::File("b")});
+  // No root partition: don't prune any fragments
+  MakeDataset({fs::File("a"), fs::File("b")}, literal(true), {},
+              schema({field("i32", int32()), field("f32", float32())}));
   AssertFragmentsAreFromPath(GetFragments(equal(field_ref("f32"), literal(3.F))),
                              {"a", "b"});
 }

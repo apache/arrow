@@ -128,7 +128,8 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
 
   Result<std::shared_ptr<FileWriter>> MakeWriter(
       std::shared_ptr<io::OutputStream> destination, std::shared_ptr<Schema> schema,
-      std::shared_ptr<FileWriteOptions> options) const override;
+      std::shared_ptr<FileWriteOptions> options,
+      fs::FileLocator destination_locator) const override;
 
   std::shared_ptr<FileWriteOptions> DefaultWriteOptions() override;
 };
@@ -222,7 +223,8 @@ class ARROW_DS_EXPORT ParquetFragmentScanOptions : public FragmentScanOptions {
   /// EXPERIMENTAL: Parallelize conversion across columns. This option is ignored if a
   /// scan is already parallelized across input files to avoid thread contention. This
   /// option will be removed after support is added for simultaneous parallelization
-  /// across files and columns.
+  /// across files and columns. Only affects the threaded reader; the async reader
+  /// will parallelize across columns if use_threads is enabled.
   bool enable_parallel_column_conversion = false;
 };
 
@@ -251,7 +253,8 @@ class ARROW_DS_EXPORT ParquetFileWriter : public FileWriter {
  private:
   ParquetFileWriter(std::shared_ptr<io::OutputStream> destination,
                     std::shared_ptr<parquet::arrow::FileWriter> writer,
-                    std::shared_ptr<ParquetFileWriteOptions> options);
+                    std::shared_ptr<ParquetFileWriteOptions> options,
+                    fs::FileLocator destination_locator);
 
   Status FinishInternal() override;
 

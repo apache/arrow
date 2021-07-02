@@ -1592,6 +1592,8 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         @staticmethod
         CCSVParseOptions Defaults()
 
+        CStatus Validate()
+
     cdef cppclass CCSVConvertOptions" arrow::csv::ConvertOptions":
         c_bool check_utf8
         unordered_map[c_string, shared_ptr[CDataType]] column_types
@@ -1599,6 +1601,7 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         vector[c_string] true_values
         vector[c_string] false_values
         c_bool strings_can_be_null
+        c_bool quoted_strings_can_be_null
         vector[shared_ptr[CTimestampParser]] timestamp_parsers
 
         c_bool auto_dict_encode
@@ -1612,6 +1615,8 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
 
         @staticmethod
         CCSVConvertOptions Defaults()
+
+        CStatus Validate()
 
     cdef cppclass CCSVReadOptions" arrow::csv::ReadOptions":
         c_bool use_threads
@@ -1627,12 +1632,16 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         @staticmethod
         CCSVReadOptions Defaults()
 
+        CStatus Validate()
+
     cdef cppclass CCSVWriteOptions" arrow::csv::WriteOptions":
         c_bool include_header
         int32_t batch_size
 
         @staticmethod
         CCSVWriteOptions Defaults()
+
+        CStatus Validate()
 
     cdef cppclass CCSVReader" arrow::csv::TableReader":
         @staticmethod
@@ -1742,8 +1751,19 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         vector[c_string] arg_names
         c_string options_class
 
+    cdef cppclass CFunctionOptionsType" arrow::compute::FunctionOptionsType":
+        const char* type_name() const
+
     cdef cppclass CFunctionOptions" arrow::compute::FunctionOptions":
-        pass
+        const CFunctionOptionsType* options_type() const
+        const char* type_name() const
+        c_bool Equals(const CFunctionOptions& other)
+        c_string ToString()
+        CResult[shared_ptr[CBuffer]] Serialize() const
+
+        @staticmethod
+        CResult[unique_ptr[CFunctionOptions]] Deserialize(
+            const c_string& type_name, const CBuffer&)
 
     cdef cppclass CFunction" arrow::compute::Function":
         const c_string& name() const
@@ -1787,6 +1807,22 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CElementWiseAggregateOptions(c_bool skip_nulls)
         c_bool skip_nulls
 
+    enum CJoinNullHandlingBehavior \
+            "arrow::compute::JoinOptions::NullHandlingBehavior":
+        CJoinNullHandlingBehavior_EMIT_NULL \
+            "arrow::compute::JoinOptions::EMIT_NULL"
+        CJoinNullHandlingBehavior_SKIP \
+            "arrow::compute::JoinOptions::SKIP"
+        CJoinNullHandlingBehavior_REPLACE \
+            "arrow::compute::JoinOptions::REPLACE"
+
+    cdef cppclass CJoinOptions \
+            "arrow::compute::JoinOptions"(CFunctionOptions):
+        CJoinOptions(CJoinNullHandlingBehavior null_handling,
+                     c_string null_replacement)
+        CJoinNullHandlingBehavior null_handling
+        c_string null_replacement
+
     cdef cppclass CMatchSubstringOptions \
             "arrow::compute::MatchSubstringOptions"(CFunctionOptions):
         CMatchSubstringOptions(c_string pattern, c_bool ignore_case)
@@ -1797,6 +1833,12 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
             "arrow::compute::TrimOptions"(CFunctionOptions):
         CTrimOptions(c_string characters)
         c_string characters
+
+    cdef cppclass CPadOptions \
+            "arrow::compute::PadOptions"(CFunctionOptions):
+        CPadOptions(int64_t width, c_string padding)
+        int64_t width
+        c_string padding
 
     cdef cppclass CSliceOptions \
             "arrow::compute::SliceOptions"(CFunctionOptions):
@@ -1812,10 +1854,19 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         c_bool reverse
 
     cdef cppclass CSplitPatternOptions \
-            "arrow::compute::SplitPatternOptions"(CSplitOptions):
+            "arrow::compute::SplitPatternOptions"(CFunctionOptions):
         CSplitPatternOptions(c_string pattern, int64_t max_splits,
                              c_bool reverse)
+        int64_t max_splits
+        c_bool reverse
         c_string pattern
+
+    cdef cppclass CReplaceSliceOptions \
+            "arrow::compute::ReplaceSliceOptions"(CFunctionOptions):
+        CReplaceSliceOptions(int64_t start, int64_t stop, c_string replacement)
+        int64_t start
+        int64_t stop
+        c_string replacement
 
     cdef cppclass CReplaceSubstringOptions \
             "arrow::compute::ReplaceSubstringOptions"(CFunctionOptions):
@@ -1987,6 +2038,25 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CSetLookupOptions(CDatum value_set, c_bool skip_nulls)
         CDatum value_set
         c_bool skip_nulls
+
+
+cdef extern from * namespace "arrow::compute":
+    # inlined from compute/function_internal.h to avoid exposing
+    # implementation details
+    """
+    #include "arrow/compute/function.h"
+    namespace arrow {
+    namespace compute {
+    namespace internal {
+    Result<std::unique_ptr<FunctionOptions>> DeserializeFunctionOptions(
+        const Buffer& buffer);
+    } //  namespace internal
+    } //  namespace compute
+    } //  namespace arrow
+    """
+    CResult[unique_ptr[CFunctionOptions]] DeserializeFunctionOptions\
+        " arrow::compute::internal::DeserializeFunctionOptions"(
+            const CBuffer& buffer)
 
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py":
@@ -2326,6 +2396,9 @@ cdef extern from 'arrow/c/abi.h':
 cdef extern from 'arrow/c/bridge.h' namespace 'arrow' nogil:
     CStatus ExportType(CDataType&, ArrowSchema* out)
     CResult[shared_ptr[CDataType]] ImportType(ArrowSchema*)
+
+    CStatus ExportField(CField&, ArrowSchema* out)
+    CResult[shared_ptr[CField]] ImportField(ArrowSchema*)
 
     CStatus ExportSchema(CSchema&, ArrowSchema* out)
     CResult[shared_ptr[CSchema]] ImportSchema(ArrowSchema*)

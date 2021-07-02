@@ -16,11 +16,11 @@
 # under the License.
 
 #' @export
-`print.arrow-enum` <- function(x, ...){
+`print.arrow-enum` <- function(x, ...) {
   NextMethod()
 }
 
-enum <- function(class, ..., .list = list(...)){
+enum <- function(class, ..., .list = list(...)) {
   structure(
     .list,
     class = c(class, "arrow-enum")
@@ -139,4 +139,10 @@ QuantileInterpolation <- enum("QuantileInterpolation",
 #' @rdname enums
 NullEncodingBehavior <- enum("NullEncodingBehavior",
   ENCODE = 0L, MASK = 1L
+)
+
+#' @export
+#' @rdname enums
+NullHandlingBehavior <- enum("NullHandlingBehavior",
+  EMIT_NULL = 0L, SKIP = 1L, REPLACE = 2L
 )

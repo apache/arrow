@@ -24,10 +24,12 @@
 #include <arrow-dataset-glib/fragment.h>
 
 std::shared_ptr<arrow::dataset::Fragment>
-gad_fragment_get_raw(GADFragment *fragment);
+gadataset_fragment_get_raw(GADatasetFragment *fragment);
 
-GADFragment*
-gad_fragment_new_raw(std::shared_ptr<arrow::dataset::Fragment> *arrow_fragment);
+GADatasetFragment*
+gadataset_fragment_new_raw(
+  std::shared_ptr<arrow::dataset::Fragment> *arrow_fragment);
 
-GADInMemoryFragment*
-gad_in_memory_fragment_new_raw(std::shared_ptr<arrow::dataset::InMemoryFragment> *arrow_fragment);
+GADatasetInMemoryFragment*
+gadataset_in_memory_fragment_new_raw(
+  std::shared_ptr<arrow::dataset::InMemoryFragment> *arrow_fragment);

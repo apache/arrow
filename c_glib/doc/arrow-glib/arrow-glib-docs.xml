@@ -55,6 +55,10 @@
       <title>Value</title>
       <xi:include href="xml/decimal.xml"/>
     </chapter>
+    <chapter id="scalar">
+      <title>Scalar</title>
+      <xi:include href="xml/scalar.xml"/>
+    </chapter>
     <chapter id="type">
       <title>Type</title>
       <xi:include href="xml/type.xml"/>

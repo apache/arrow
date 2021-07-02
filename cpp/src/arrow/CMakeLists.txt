@@ -261,11 +261,8 @@ set(ARROW_C_SRCS
     vendored/uriparser/UriShorten.c)
 
 set_source_files_properties(vendored/datetime/tz.cpp
-                            PROPERTIES
-                            SKIP_PRECOMPILE_HEADERS
-                            ON
-                            SKIP_UNITY_BUILD_INCLUSION
-                            ON)
+                            PROPERTIES SKIP_PRECOMPILE_HEADERS ON
+                                       SKIP_UNITY_BUILD_INCLUSION ON)
 
 # Disable DLL exports in vendored uriparser library
 add_definitions(-DURI_STATIC_BUILD)
@@ -326,16 +323,12 @@ endif()
 if(_allocator_dependencies)
   if("${CMAKE_GENERATOR}" STREQUAL "Ninja")
     set_source_files_properties(memory_pool.cc PROPERTIES OBJECT_DEPENDS
-                                "${_allocator_dependencies}")
+                                                          "${_allocator_dependencies}")
   else()
     add_dependencies(arrow_dependencies ${_allocator_dependencies})
   endif()
-  set_source_files_properties(memory_pool.cc
-                              PROPERTIES
-                              SKIP_PRECOMPILE_HEADERS
-                              ON
-                              SKIP_UNITY_BUILD_INCLUSION
-                              ON)
+  set_source_files_properties(memory_pool.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON
+                                                        SKIP_UNITY_BUILD_INCLUSION ON)
 endif()
 
 unset(_allocator_dependencies)
@@ -351,14 +344,15 @@ endif()
 #
 
 if(ARROW_CSV)
-  list(APPEND ARROW_SRCS
-              csv/converter.cc
-              csv/chunker.cc
-              csv/column_builder.cc
-              csv/column_decoder.cc
-              csv/options.cc
-              csv/parser.cc
-              csv/reader.cc)
+  list(APPEND
+       ARROW_SRCS
+       csv/converter.cc
+       csv/chunker.cc
+       csv/column_builder.cc
+       csv/column_decoder.cc
+       csv/options.cc
+       csv/parser.cc
+       csv/reader.cc)
   if(ARROW_COMPUTE)
     list(APPEND ARROW_SRCS csv/writer.cc)
   endif()
@@ -367,49 +361,52 @@ if(ARROW_CSV)
 endif()
 
 if(ARROW_COMPUTE)
-  list(APPEND ARROW_SRCS
-              compute/api_aggregate.cc
-              compute/api_scalar.cc
-              compute/api_vector.cc
-              compute/cast.cc
-              compute/exec.cc
-              compute/exec/exec_plan.cc
-              compute/exec/expression.cc
-              compute/function.cc
-              compute/kernel.cc
-              compute/registry.cc
-              compute/kernels/aggregate_basic.cc
-              compute/kernels/aggregate_mode.cc
-              compute/kernels/aggregate_quantile.cc
-              compute/kernels/aggregate_tdigest.cc
-              compute/kernels/aggregate_var_std.cc
-              compute/kernels/codegen_internal.cc
-              compute/kernels/hash_aggregate.cc
-              compute/kernels/scalar_arithmetic.cc
-              compute/kernels/scalar_boolean.cc
-              compute/kernels/scalar_cast_boolean.cc
-              compute/kernels/scalar_cast_internal.cc
-              compute/kernels/scalar_cast_nested.cc
-              compute/kernels/scalar_cast_numeric.cc
-              compute/kernels/scalar_cast_string.cc
-              compute/kernels/scalar_cast_temporal.cc
-              compute/kernels/scalar_compare.cc
-              compute/kernels/scalar_nested.cc
-              compute/kernels/scalar_set_lookup.cc
-              compute/kernels/scalar_string.cc
-              compute/kernels/scalar_validity.cc
-              compute/kernels/scalar_fill_null.cc
-              compute/kernels/scalar_if_else.cc
-              compute/kernels/util_internal.cc
-              compute/kernels/vector_hash.cc
-              compute/kernels/vector_nested.cc
-              compute/kernels/vector_selection.cc
-              compute/kernels/vector_sort.cc
-              compute/exec/key_hash.cc
-              compute/exec/key_map.cc
-              compute/exec/key_compare.cc
-              compute/exec/key_encode.cc
-              compute/exec/util.cc)
+  list(APPEND
+       ARROW_SRCS
+       compute/api_aggregate.cc
+       compute/api_scalar.cc
+       compute/api_vector.cc
+       compute/cast.cc
+       compute/exec.cc
+       compute/exec/exec_plan.cc
+       compute/exec/expression.cc
+       compute/function.cc
+       compute/function_internal.cc
+       compute/kernel.cc
+       compute/registry.cc
+       compute/kernels/aggregate_basic.cc
+       compute/kernels/aggregate_mode.cc
+       compute/kernels/aggregate_quantile.cc
+       compute/kernels/aggregate_tdigest.cc
+       compute/kernels/aggregate_var_std.cc
+       compute/kernels/codegen_internal.cc
+       compute/kernels/hash_aggregate.cc
+       compute/kernels/scalar_arithmetic.cc
+       compute/kernels/scalar_boolean.cc
+       compute/kernels/scalar_cast_boolean.cc
+       compute/kernels/scalar_cast_internal.cc
+       compute/kernels/scalar_cast_nested.cc
+       compute/kernels/scalar_cast_numeric.cc
+       compute/kernels/scalar_cast_string.cc
+       compute/kernels/scalar_cast_temporal.cc
+       compute/kernels/scalar_compare.cc
+       compute/kernels/scalar_nested.cc
+       compute/kernels/scalar_set_lookup.cc
+       compute/kernels/scalar_string.cc
+       compute/kernels/scalar_temporal.cc
+       compute/kernels/scalar_validity.cc
+       compute/kernels/scalar_fill_null.cc
+       compute/kernels/scalar_if_else.cc
+       compute/kernels/util_internal.cc
+       compute/kernels/vector_hash.cc
+       compute/kernels/vector_nested.cc
+       compute/kernels/vector_selection.cc
+       compute/kernels/vector_sort.cc
+       compute/exec/key_hash.cc
+       compute/exec/key_map.cc
+       compute/exec/key_compare.cc
+       compute/exec/key_encode.cc
+       compute/exec/util.cc)
 
   append_avx2_src(compute/kernels/aggregate_basic_avx2.cc)
   append_avx512_src(compute/kernels/aggregate_basic_avx512.cc)
@@ -428,12 +425,13 @@ if(ARROW_FILESYSTEM)
     add_definitions(-DARROW_HDFS)
   endif()
 
-  list(APPEND ARROW_SRCS
-              filesystem/filesystem.cc
-              filesystem/localfs.cc
-              filesystem/mockfs.cc
-              filesystem/path_util.cc
-              filesystem/util_internal.cc)
+  list(APPEND
+       ARROW_SRCS
+       filesystem/filesystem.cc
+       filesystem/localfs.cc
+       filesystem/mockfs.cc
+       filesystem/path_util.cc
+       filesystem/util_internal.cc)
 
   if(ARROW_HDFS)
     list(APPEND ARROW_SRCS filesystem/hdfs.cc)
@@ -441,25 +439,23 @@ if(ARROW_FILESYSTEM)
   if(ARROW_S3)
     list(APPEND ARROW_SRCS filesystem/s3fs.cc)
     set_source_files_properties(filesystem/s3fs.cc
-                                PROPERTIES
-                                SKIP_PRECOMPILE_HEADERS
-                                ON
-                                SKIP_UNITY_BUILD_INCLUSION
-                                ON)
+                                PROPERTIES SKIP_PRECOMPILE_HEADERS ON
+                                           SKIP_UNITY_BUILD_INCLUSION ON)
   endif()
 
   list(APPEND ARROW_TESTING_SRCS filesystem/test_util.cc)
 endif()
 
 if(ARROW_IPC)
-  list(APPEND ARROW_SRCS
-              ipc/dictionary.cc
-              ipc/feather.cc
-              ipc/message.cc
-              ipc/metadata_internal.cc
-              ipc/options.cc
-              ipc/reader.cc
-              ipc/writer.cc)
+  list(APPEND
+       ARROW_SRCS
+       ipc/dictionary.cc
+       ipc/feather.cc
+       ipc/message.cc
+       ipc/metadata_internal.cc
+       ipc/options.cc
+       ipc/reader.cc
+       ipc/writer.cc)
 
   if(ARROW_JSON)
     list(APPEND ARROW_SRCS ipc/json_simple.cc)
@@ -467,15 +463,16 @@ if(ARROW_IPC)
 endif()
 
 if(ARROW_JSON)
-  list(APPEND ARROW_SRCS
-              json/options.cc
-              json/chunked_builder.cc
-              json/chunker.cc
-              json/converter.cc
-              json/object_parser.cc
-              json/object_writer.cc
-              json/parser.cc
-              json/reader.cc)
+  list(APPEND
+       ARROW_SRCS
+       json/options.cc
+       json/chunked_builder.cc
+       json/chunker.cc
+       json/converter.cc
+       json/object_parser.cc
+       json/object_writer.cc
+       json/parser.cc
+       json/reader.cc)
 endif()
 
 if(ARROW_ORC)
@@ -626,12 +623,8 @@ add_arrow_test(misc_test
 
 add_arrow_test(public_api_test)
 
-set_source_files_properties(public_api_test.cc
-                            PROPERTIES
-                            SKIP_PRECOMPILE_HEADERS
-                            ON
-                            SKIP_UNITY_BUILD_INCLUSION
-                            ON)
+set_source_files_properties(public_api_test.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON
+                                                          SKIP_UNITY_BUILD_INCLUSION ON)
 
 add_arrow_test(scalar_test)
 add_arrow_test(type_test)

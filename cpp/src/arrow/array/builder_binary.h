@@ -291,14 +291,7 @@ class BaseBinaryBuilder : public ArrayBuilder {
   }
 
   Status Resize(int64_t capacity) override {
-    // XXX Why is this check necessary?  There is no reason to disallow, say,
-    // binary arrays with more than 2**31 empty or null values.
-    if (capacity > memory_limit()) {
-      return Status::CapacityError("BinaryBuilder cannot reserve space for more than ",
-                                   memory_limit(), " child elements, got ", capacity);
-    }
     ARROW_RETURN_NOT_OK(CheckCapacity(capacity));
-
     // One more than requested for offsets
     ARROW_RETURN_NOT_OK(offsets_builder_.Resize(capacity + 1));
     return ArrayBuilder::Resize(capacity);
@@ -474,6 +467,14 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
+  Status Append(const Buffer& s) {
+    ARROW_RETURN_NOT_OK(Reserve(1));
+    UnsafeAppend(util::string_view(s));
+    return Status::OK();
+  }
+
+  Status Append(const std::shared_ptr<Buffer>& s) { return Append(*s); }
+
   template <size_t NBYTES>
   Status Append(const std::array<uint8_t, NBYTES>& value) {
     ARROW_RETURN_NOT_OK(Reserve(1));
@@ -508,6 +509,10 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
 #endif
     UnsafeAppend(reinterpret_cast<const uint8_t*>(value.data()));
   }
+
+  void UnsafeAppend(const Buffer& s) { UnsafeAppend(util::string_view(s)); }
+
+  void UnsafeAppend(const std::shared_ptr<Buffer>& s) { UnsafeAppend(*s); }
 
   void UnsafeAppendNull() {
     UnsafeAppendToBitmap(false);

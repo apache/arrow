@@ -179,6 +179,10 @@ class ARROW_EXPORT Executor {
   // concurrently).  This may be an approximate number.
   virtual int GetCapacity() = 0;
 
+  // Return true if the thread from which this function is called is owned by this
+  // Executor. Returns false if this Executor does not support this property.
+  virtual bool OwnsThisThread() { return false; }
+
  protected:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Executor);
 
@@ -297,6 +301,8 @@ class ARROW_EXPORT ThreadPool : public Executor {
   // The actual number of workers may lag a bit before being adjusted to
   // match this value.
   int GetCapacity() override;
+
+  bool OwnsThisThread() override;
 
   // Return the number of tasks either running or in the queue.
   int GetNumTasks();

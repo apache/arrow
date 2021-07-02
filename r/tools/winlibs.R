@@ -17,12 +17,12 @@
 
 args <- commandArgs(TRUE)
 VERSION <- args[1]
-if(!file.exists(sprintf("windows/arrow-%s/include/arrow/api.h", VERSION))){
-  if(length(args) > 1){
+if (!file.exists(sprintf("windows/arrow-%s/include/arrow/api.h", VERSION))) {
+  if (length(args) > 1) {
     # Arg 2 would be the path/to/lib.zip
     localfile <- args[2]
     cat(sprintf("*** Using RWINLIB_LOCAL %s\n", localfile))
-    if(!file.exists(localfile)){
+    if (!file.exists(localfile)) {
       cat(sprintf("*** %s does not exist; build will fail\n", localfile))
     }
     file.copy(localfile, "lib.zip")

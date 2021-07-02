@@ -58,6 +58,42 @@ throws an ``ArrowInvalid`` exception when overflow is detected.
    subtract_checked
    power
    power_checked
+   shift_left
+   shift_left_checked
+   shift_right
+   shift_right_checked
+
+Bit-wise operations do not offer (or need) a checked variant.
+
+.. autosummary::
+   :toctree: ../generated/
+
+   bit_wise_and
+   bit_wise_not
+   bit_wise_or
+   bit_wise_xor
+
+Trigonometric Functions
+-----------------------
+
+Trigonometric functions are also supported, and also offer ``_checked``
+variants which detect domain errors where appropriate.
+
+.. autosummary::
+   :toctree: ../generated/
+
+   acos
+   acos_checked
+   asin
+   asin_checked
+   atan
+   atan2
+   cos
+   cos_checked
+   sin
+   sin_checked
+   tan
+   tan_checked
 
 Comparisons
 -----------
@@ -80,8 +116,8 @@ These functions take any number of arguments of a numeric or temporal type.
 .. autosummary::
    :toctree: ../generated/
 
-   element_wise_max
-   element_wise_min
+   max_element_wise
+   min_element_wise
 
 Logical Functions
 -----------------
@@ -159,17 +195,56 @@ String Splitting
    ascii_split_whitespace
    utf8_split_whitespace
 
+String Component Extraction
+---------------------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   extract_regex
+
+String Joining
+--------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   binary_join
+   binary_join_element_wise
+
 String Transforms
 -----------------
 
 .. autosummary::
    :toctree: ../generated/
 
+   ascii_center
+   ascii_lpad
+   ascii_ltrim
+   ascii_ltrim_whitespace
    ascii_lower
    ascii_reverse
+   ascii_rpad
+   ascii_rtrim
+   ascii_rtrim_whitespace
+   ascii_trim
    ascii_upper
+   binary_length
+   binary_replace_slice
+   replace_substring
+   replace_substring_regex
+   utf8_center
+   utf8_length
    utf8_lower
+   utf8_lpad
+   utf8_ltrim
+   utf8_ltrim_whitespace
+   utf8_replace_slice
    utf8_reverse
+   utf8_rpad
+   utf8_rtrim
+   utf8_rtrim_whitespace
+   utf8_trim
    utf8_upper
 
 Containment tests
@@ -179,8 +254,10 @@ Containment tests
    :toctree: ../generated/
 
    count_substring
+   count_substring_regex
    ends_with
    find_substring
+   find_substring_regex
    index_in
    is_in
    match_like

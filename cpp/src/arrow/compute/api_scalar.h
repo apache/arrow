@@ -37,20 +37,47 @@ namespace compute {
 ///
 /// @{
 
-struct ArithmeticOptions : public FunctionOptions {
-  ArithmeticOptions() : check_overflow(false) {}
+class ARROW_EXPORT ArithmeticOptions : public FunctionOptions {
+ public:
+  explicit ArithmeticOptions(bool check_overflow = false);
+  constexpr static char const kTypeName[] = "ArithmeticOptions";
   bool check_overflow;
 };
 
-struct ARROW_EXPORT ElementWiseAggregateOptions : public FunctionOptions {
-  explicit ElementWiseAggregateOptions(bool skip_nulls = true) : skip_nulls(skip_nulls) {}
+class ARROW_EXPORT ElementWiseAggregateOptions : public FunctionOptions {
+ public:
+  explicit ElementWiseAggregateOptions(bool skip_nulls = true);
+  constexpr static char const kTypeName[] = "ElementWiseAggregateOptions";
   static ElementWiseAggregateOptions Defaults() { return ElementWiseAggregateOptions{}; }
+
   bool skip_nulls;
 };
 
-struct ARROW_EXPORT MatchSubstringOptions : public FunctionOptions {
-  explicit MatchSubstringOptions(std::string pattern, bool ignore_case = false)
-      : pattern(std::move(pattern)), ignore_case(ignore_case) {}
+/// Options for var_args_join.
+class ARROW_EXPORT JoinOptions : public FunctionOptions {
+ public:
+  /// How to handle null values. (A null separator always results in a null output.)
+  enum NullHandlingBehavior {
+    /// A null in any input results in a null in the output.
+    EMIT_NULL,
+    /// Nulls in inputs are skipped.
+    SKIP,
+    /// Nulls in inputs are replaced with the replacement string.
+    REPLACE,
+  };
+  explicit JoinOptions(NullHandlingBehavior null_handling = EMIT_NULL,
+                       std::string null_replacement = "");
+  constexpr static char const kTypeName[] = "JoinOptions";
+  static JoinOptions Defaults() { return JoinOptions(); }
+  NullHandlingBehavior null_handling;
+  std::string null_replacement;
+};
+
+class ARROW_EXPORT MatchSubstringOptions : public FunctionOptions {
+ public:
+  explicit MatchSubstringOptions(std::string pattern, bool ignore_case = false);
+  MatchSubstringOptions();
+  constexpr static char const kTypeName[] = "MatchSubstringOptions";
 
   /// The exact substring (or regex, depending on kernel) to look for inside input values.
   std::string pattern;
@@ -58,9 +85,10 @@ struct ARROW_EXPORT MatchSubstringOptions : public FunctionOptions {
   bool ignore_case = false;
 };
 
-struct ARROW_EXPORT SplitOptions : public FunctionOptions {
-  explicit SplitOptions(int64_t max_splits = -1, bool reverse = false)
-      : max_splits(max_splits), reverse(reverse) {}
+class ARROW_EXPORT SplitOptions : public FunctionOptions {
+ public:
+  explicit SplitOptions(int64_t max_splits = -1, bool reverse = false);
+  constexpr static char const kTypeName[] = "SplitOptions";
 
   /// Maximum number of splits allowed, or unlimited when -1
   int64_t max_splits;
@@ -68,21 +96,41 @@ struct ARROW_EXPORT SplitOptions : public FunctionOptions {
   bool reverse;
 };
 
-struct ARROW_EXPORT SplitPatternOptions : public SplitOptions {
+class ARROW_EXPORT SplitPatternOptions : public FunctionOptions {
+ public:
   explicit SplitPatternOptions(std::string pattern, int64_t max_splits = -1,
-                               bool reverse = false)
-      : SplitOptions(max_splits, reverse), pattern(std::move(pattern)) {}
+                               bool reverse = false);
+  SplitPatternOptions();
+  constexpr static char const kTypeName[] = "SplitPatternOptions";
 
-  /// The exact substring to look for inside input values.
+  /// The exact substring to split on.
   std::string pattern;
+  /// Maximum number of splits allowed, or unlimited when -1
+  int64_t max_splits;
+  /// Start splitting from the end of the string (only relevant when max_splits != -1)
+  bool reverse;
 };
 
-struct ARROW_EXPORT ReplaceSubstringOptions : public FunctionOptions {
+class ARROW_EXPORT ReplaceSliceOptions : public FunctionOptions {
+ public:
+  explicit ReplaceSliceOptions(int64_t start, int64_t stop, std::string replacement);
+  ReplaceSliceOptions();
+  constexpr static char const kTypeName[] = "ReplaceSliceOptions";
+
+  /// Index to start slicing at
+  int64_t start;
+  /// Index to stop slicing at
+  int64_t stop;
+  /// String to replace the slice with
+  std::string replacement;
+};
+
+class ARROW_EXPORT ReplaceSubstringOptions : public FunctionOptions {
+ public:
   explicit ReplaceSubstringOptions(std::string pattern, std::string replacement,
-                                   int64_t max_replacements = -1)
-      : pattern(std::move(pattern)),
-        replacement(std::move(replacement)),
-        max_replacements(max_replacements) {}
+                                   int64_t max_replacements = -1);
+  ReplaceSubstringOptions();
+  constexpr static char const kTypeName[] = "ReplaceSubstringOptions";
 
   /// Pattern to match, literal, or regular expression depending on which kernel is used
   std::string pattern;
@@ -92,17 +140,22 @@ struct ARROW_EXPORT ReplaceSubstringOptions : public FunctionOptions {
   int64_t max_replacements;
 };
 
-struct ARROW_EXPORT ExtractRegexOptions : public FunctionOptions {
-  explicit ExtractRegexOptions(std::string pattern) : pattern(std::move(pattern)) {}
+class ARROW_EXPORT ExtractRegexOptions : public FunctionOptions {
+ public:
+  explicit ExtractRegexOptions(std::string pattern);
+  ExtractRegexOptions();
+  constexpr static char const kTypeName[] = "ExtractRegexOptions";
 
   /// Regular expression with named capture fields
   std::string pattern;
 };
 
 /// Options for IsIn and IndexIn functions
-struct ARROW_EXPORT SetLookupOptions : public FunctionOptions {
-  explicit SetLookupOptions(Datum value_set, bool skip_nulls = false)
-      : value_set(std::move(value_set)), skip_nulls(skip_nulls) {}
+class ARROW_EXPORT SetLookupOptions : public FunctionOptions {
+ public:
+  explicit SetLookupOptions(Datum value_set, bool skip_nulls = false);
+  SetLookupOptions();
+  constexpr static char const kTypeName[] = "SetLookupOptions";
 
   /// The set of values to look up input values into.
   Datum value_set;
@@ -115,26 +168,44 @@ struct ARROW_EXPORT SetLookupOptions : public FunctionOptions {
   bool skip_nulls;
 };
 
-struct ARROW_EXPORT StrptimeOptions : public FunctionOptions {
-  explicit StrptimeOptions(std::string format, TimeUnit::type unit)
-      : format(std::move(format)), unit(unit) {}
+class ARROW_EXPORT StrptimeOptions : public FunctionOptions {
+ public:
+  explicit StrptimeOptions(std::string format, TimeUnit::type unit);
+  StrptimeOptions();
+  constexpr static char const kTypeName[] = "StrptimeOptions";
 
   std::string format;
   TimeUnit::type unit;
 };
 
-struct ARROW_EXPORT TrimOptions : public FunctionOptions {
-  explicit TrimOptions(std::string characters) : characters(std::move(characters)) {}
+class ARROW_EXPORT PadOptions : public FunctionOptions {
+ public:
+  explicit PadOptions(int64_t width, std::string padding = " ");
+  PadOptions();
+  constexpr static char const kTypeName[] = "PadOptions";
+
+  /// The desired string length.
+  int64_t width;
+  /// What to pad the string with. Should be one codepoint (Unicode)/byte (ASCII).
+  std::string padding;
+};
+
+class ARROW_EXPORT TrimOptions : public FunctionOptions {
+ public:
+  explicit TrimOptions(std::string characters);
+  TrimOptions();
+  constexpr static char const kTypeName[] = "TrimOptions";
 
   /// The individual characters that can be trimmed from the string.
   std::string characters;
 };
 
-struct ARROW_EXPORT SliceOptions : public FunctionOptions {
+class ARROW_EXPORT SliceOptions : public FunctionOptions {
+ public:
   explicit SliceOptions(int64_t start, int64_t stop = std::numeric_limits<int64_t>::max(),
-                        int64_t step = 1)
-      : start(start), stop(stop), step(step) {}
-
+                        int64_t step = 1);
+  SliceOptions();
+  constexpr static char const kTypeName[] = "SliceOptions";
   int64_t start, stop, step;
 };
 
@@ -147,23 +218,21 @@ enum CompareOperator : int8_t {
   LESS_EQUAL,
 };
 
-struct CompareOptions : public FunctionOptions {
-  explicit CompareOptions(CompareOperator op) : op(op) {}
-
+class ARROW_EXPORT CompareOptions : public FunctionOptions {
+ public:
+  explicit CompareOptions(CompareOperator op);
+  CompareOptions();
+  constexpr static char const kTypeName[] = "CompareOptions";
   enum CompareOperator op;
 };
 
-struct ARROW_EXPORT ProjectOptions : public FunctionOptions {
+class ARROW_EXPORT ProjectOptions : public FunctionOptions {
+ public:
   ProjectOptions(std::vector<std::string> n, std::vector<bool> r,
-                 std::vector<std::shared_ptr<const KeyValueMetadata>> m)
-      : field_names(std::move(n)),
-        field_nullability(std::move(r)),
-        field_metadata(std::move(m)) {}
-
-  explicit ProjectOptions(std::vector<std::string> n)
-      : field_names(std::move(n)),
-        field_nullability(field_names.size(), true),
-        field_metadata(field_names.size(), NULLPTR) {}
+                 std::vector<std::shared_ptr<const KeyValueMetadata>> m);
+  explicit ProjectOptions(std::vector<std::string> n);
+  ProjectOptions();
+  constexpr static char const kTypeName[] = "ProjectOptions";
 
   /// Names for wrapped columns
   std::vector<std::string> field_names;
@@ -267,6 +336,94 @@ Result<Datum> Power(const Datum& left, const Datum& right,
                     ArithmeticOptions options = ArithmeticOptions(),
                     ExecContext* ctx = NULLPTR);
 
+/// \brief Left shift the left array by the right array. Array values must be the
+/// same length. If either operand is null, the result will be null.
+///
+/// \param[in] left the value to shift
+/// \param[in] right the value to shift by
+/// \param[in] options arithmetic options (enable/disable overflow checking), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise left value shifted left by the right value
+ARROW_EXPORT
+Result<Datum> ShiftLeft(const Datum& left, const Datum& right,
+                        ArithmeticOptions options = ArithmeticOptions(),
+                        ExecContext* ctx = NULLPTR);
+
+/// \brief Right shift the left array by the right array. Array values must be the
+/// same length. If either operand is null, the result will be null. Performs a
+/// logical shift for unsigned values, and an arithmetic shift for signed values.
+///
+/// \param[in] left the value to shift
+/// \param[in] right the value to shift by
+/// \param[in] options arithmetic options (enable/disable overflow checking), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise left value shifted right by the right value
+ARROW_EXPORT
+Result<Datum> ShiftRight(const Datum& left, const Datum& right,
+                         ArithmeticOptions options = ArithmeticOptions(),
+                         ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the sine of the array values.
+/// \param[in] arg The values to compute the sine for.
+/// \param[in] options arithmetic options (enable/disable overflow checking), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise sine of the values
+ARROW_EXPORT
+Result<Datum> Sin(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
+                  ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the cosine of the array values.
+/// \param[in] arg The values to compute the cosine for.
+/// \param[in] options arithmetic options (enable/disable overflow checking), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise cosine of the values
+ARROW_EXPORT
+Result<Datum> Cos(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
+                  ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the inverse sine (arcsine) of the array values.
+/// \param[in] arg The values to compute the inverse sine for.
+/// \param[in] options arithmetic options (enable/disable overflow checking), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise inverse sine of the values
+ARROW_EXPORT
+Result<Datum> Asin(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
+                   ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the inverse cosine (arccosine) of the array values.
+/// \param[in] arg The values to compute the inverse cosine for.
+/// \param[in] options arithmetic options (enable/disable overflow checking), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise inverse cosine of the values
+ARROW_EXPORT
+Result<Datum> Acos(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
+                   ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the tangent of the array values.
+/// \param[in] arg The values to compute the tangent for.
+/// \param[in] options arithmetic options (enable/disable overflow checking), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise tangent of the values
+ARROW_EXPORT
+Result<Datum> Tan(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
+                  ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the inverse tangent (arctangent) of the array values.
+/// \param[in] arg The values to compute the inverse tangent for.
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise inverse tangent of the values
+ARROW_EXPORT
+Result<Datum> Atan(const Datum& arg, ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the inverse tangent (arctangent) of y/x, using the
+/// argument signs to determine the correct quadrant.
+/// \param[in] y The y-values to compute the inverse tangent for.
+/// \param[in] x The x-values to compute the inverse tangent for.
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise inverse tangent of the values
+ARROW_EXPORT
+Result<Datum> Atan2(const Datum& y, const Datum& x, ExecContext* ctx = NULLPTR);
+
 /// \brief Find the element-wise maximum of any number of arrays or scalars.
 /// Array values must be the same length.
 ///
@@ -275,7 +432,7 @@ Result<Datum> Power(const Datum& left, const Datum& right,
 /// \param[in] ctx the function execution context, optional
 /// \return the element-wise maximum
 ARROW_EXPORT
-Result<Datum> ElementWiseMax(
+Result<Datum> MaxElementWise(
     const std::vector<Datum>& args,
     ElementWiseAggregateOptions options = ElementWiseAggregateOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
@@ -288,7 +445,7 @@ Result<Datum> ElementWiseMax(
 /// \param[in] ctx the function execution context, optional
 /// \return the element-wise minimum
 ARROW_EXPORT
-Result<Datum> ElementWiseMin(
+Result<Datum> MinElementWise(
     const std::vector<Datum>& args,
     ElementWiseAggregateOptions options = ElementWiseAggregateOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
@@ -307,8 +464,8 @@ Result<Datum> ElementWiseMin(
 /// \since 1.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> Compare(const Datum& left, const Datum& right,
-                      struct CompareOptions options, ExecContext* ctx = NULLPTR);
+Result<Datum> Compare(const Datum& left, const Datum& right, CompareOptions options,
+                      ExecContext* ctx = NULLPTR);
 
 /// \brief Invert the values of a boolean datum
 /// \param[in] value datum to invert
@@ -520,6 +677,189 @@ Result<Datum> FillNull(const Datum& values, const Datum& fill_value,
 ARROW_EXPORT
 Result<Datum> IfElse(const Datum& cond, const Datum& left, const Datum& right,
                      ExecContext* ctx = NULLPTR);
+
+/// \brief Year returns year for each element of `values`
+///
+/// \param[in] values input to extract year from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Year(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief Month returns month for each element of `values`.
+/// Month is encoded as January=1, December=12
+///
+/// \param[in] values input to extract month from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Month(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief Day returns day number for each element of `values`
+///
+/// \param[in] values input to extract day from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Day(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief DayOfWeek returns number of the day of the week value for each element of
+/// `values`. Week starts on Monday denoted by 0 and ends on Sunday denoted by 6.
+///
+/// \param[in] values input to extract number of the day of the week from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> DayOfWeek(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief DayOfYear returns number of day of the year for each element of `values`.
+/// January 1st maps to day number 1, February 1st to 32, etc.
+///
+/// \param[in] values input to extract number of day of the year from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> DayOfYear(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief ISOYear returns ISO year number for each element of `values`.
+/// First week of an ISO year has the majority (4 or more) of its days in January.
+///
+/// \param[in] values input to extract ISO year from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> ISOYear(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief ISOWeek returns ISO week of year number for each element of `values`.
+/// First ISO week has the majority (4 or more) of its days in January.
+/// Week of the year starts with 1 and can run up to 53.
+///
+/// \param[in] values input to extract ISO week of year from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> ISOWeek(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief ISOCalendar returns a (ISO year, ISO week, ISO day of week) struct for
+/// each element of `values`.
+/// ISO week starts on Monday denoted by 1 and ends on Sunday denoted by 7.
+///
+/// \param[in] values input to ISO calendar struct from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> ISOCalendar(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief Quarter returns the quarter of year number for each element of `values`
+/// First quarter maps to 1 and fourth quarter maps to 4.
+///
+/// \param[in] values input to extract quarter of year from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> Quarter(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief Hour returns hour value for each element of `values`
+///
+/// \param[in] values input to extract hour from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Hour(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief Minute returns minutes value for each element of `values`
+///
+/// \param[in] values input to extract minutes from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Minute(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief Second returns seconds value for each element of `values`
+///
+/// \param[in] values input to extract seconds from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Second(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief Millisecond returns number of milliseconds since the last full second
+/// for each element of `values`
+///
+/// \param[in] values input to extract milliseconds from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Millisecond(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief Microsecond returns number of microseconds since the last full millisecond
+/// for each element of `values`
+///
+/// \param[in] values input to extract microseconds from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Microsecond(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief Nanosecond returns number of nanoseconds since the last full millisecond
+/// for each element of `values`
+///
+/// \param[in] values input to extract nanoseconds from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Nanosecond(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief Subsecond returns the fraction of second elapsed since last full second
+/// as a float for each element of `values`
+///
+/// \param[in] values input to extract subsecond from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 5.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> Subsecond(const Datum& values, ExecContext* ctx = NULLPTR);
 
 }  // namespace compute
 }  // namespace arrow

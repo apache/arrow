@@ -87,14 +87,10 @@ mark_as_advanced(PLASMA_ABI_VERSION
                  PLASMA_STORE_SERVER
                  PLASMA_VERSION)
 
-find_package_handle_standard_args(Plasma
-                                  REQUIRED_VARS
-                                  PLASMA_INCLUDE_DIR
-                                  PLASMA_LIB_DIR
-                                  PLASMA_SO_VERSION
-                                  PLASMA_STORE_SERVER
-                                  VERSION_VAR
-                                  PLASMA_VERSION)
+find_package_handle_standard_args(
+  Plasma
+  REQUIRED_VARS PLASMA_INCLUDE_DIR PLASMA_LIB_DIR PLASMA_SO_VERSION PLASMA_STORE_SERVER
+  VERSION_VAR PLASMA_VERSION)
 set(PLASMA_FOUND ${Plasma_FOUND})
 
 if(Plasma_FOUND AND NOT Plasma_FIND_QUIETLY)

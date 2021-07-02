@@ -58,6 +58,7 @@ cdef class ReadOptions(_Weakrefable):
         How much bytes to process at a time from the input stream.
         This will determine multi-threading granularity as well as
         the size of individual record batches or table chunks.
+        Minimum valid value for block size is 1
     skip_rows: int, optional (default 0)
         The number of rows to skip before the column names (if any)
         and the CSV data.
@@ -188,6 +189,9 @@ cdef class ReadOptions(_Weakrefable):
     @skip_rows_after_names.setter
     def skip_rows_after_names(self, value):
         deref(self.options).skip_rows_after_names = value
+
+    def validate(self):
+        check_status(deref(self.options).Validate())
 
     def equals(self, ReadOptions other):
         return (
@@ -359,6 +363,9 @@ cdef class ParseOptions(_Weakrefable):
     def ignore_empty_lines(self, value):
         deref(self.options).ignore_empty_lines = value
 
+    def validate(self):
+        check_status(deref(self.options).Validate())
+
     def equals(self, ParseOptions other):
         return (
             self.delimiter == other.delimiter and
@@ -440,6 +447,12 @@ cdef class ConvertOptions(_Weakrefable):
         If true, then strings in null_values are considered null for
         string columns.
         If false, then all strings are valid string values.
+    quoted_strings_can_be_null: bool, optional (default True)
+        Whether string / binary columns can have quoted null values.
+        If true *and* strings_can_be_null is true, then strings in
+        null_values are considered null for string columns, even when
+        quoted.
+        Otherwise, then all quoted strings are valid string values.
     auto_dict_encode: bool, optional (default False)
         Whether to try to automatically dict-encode string / binary data.
         If true, then when type inference detects a string or binary column,
@@ -471,9 +484,10 @@ cdef class ConvertOptions(_Weakrefable):
 
     def __init__(self, *, check_utf8=None, column_types=None, null_values=None,
                  true_values=None, false_values=None,
-                 strings_can_be_null=None, include_columns=None,
-                 include_missing_columns=None, auto_dict_encode=None,
-                 auto_dict_max_cardinality=None, timestamp_parsers=None):
+                 strings_can_be_null=None, quoted_strings_can_be_null=None,
+                 include_columns=None, include_missing_columns=None,
+                 auto_dict_encode=None, auto_dict_max_cardinality=None,
+                 timestamp_parsers=None):
         if check_utf8 is not None:
             self.check_utf8 = check_utf8
         if column_types is not None:
@@ -486,6 +500,8 @@ cdef class ConvertOptions(_Weakrefable):
             self.false_values = false_values
         if strings_can_be_null is not None:
             self.strings_can_be_null = strings_can_be_null
+        if quoted_strings_can_be_null is not None:
+            self.quoted_strings_can_be_null = quoted_strings_can_be_null
         if include_columns is not None:
             self.include_columns = include_columns
         if include_missing_columns is not None:
@@ -518,6 +534,17 @@ cdef class ConvertOptions(_Weakrefable):
     @strings_can_be_null.setter
     def strings_can_be_null(self, value):
         deref(self.options).strings_can_be_null = value
+
+    @property
+    def quoted_strings_can_be_null(self):
+        """
+        Whether string / binary columns can have quoted null values.
+        """
+        return deref(self.options).quoted_strings_can_be_null
+
+    @quoted_strings_can_be_null.setter
+    def quoted_strings_can_be_null(self, value):
+        deref(self.options).quoted_strings_can_be_null = value
 
     @property
     def column_types(self):
@@ -680,6 +707,9 @@ cdef class ConvertOptions(_Weakrefable):
         out.options.reset(new CCSVConvertOptions(move(options)))
         return out
 
+    def validate(self):
+        check_status(deref(self.options).Validate())
+
     def equals(self, ConvertOptions other):
         return (
             self.check_utf8 == other.check_utf8 and
@@ -689,6 +719,8 @@ cdef class ConvertOptions(_Weakrefable):
             self.false_values == other.false_values and
             self.timestamp_parsers == other.timestamp_parsers and
             self.strings_can_be_null == other.strings_can_be_null and
+            self.quoted_strings_can_be_null ==
+            other.quoted_strings_can_be_null and
             self.auto_dict_encode == other.auto_dict_encode and
             self.auto_dict_max_cardinality ==
             other.auto_dict_max_cardinality and
@@ -699,16 +731,16 @@ cdef class ConvertOptions(_Weakrefable):
     def __getstate__(self):
         return (self.check_utf8, self.column_types, self.null_values,
                 self.true_values, self.false_values, self.timestamp_parsers,
-                self.strings_can_be_null, self.auto_dict_encode,
-                self.auto_dict_max_cardinality, self.include_columns,
-                self.include_missing_columns)
+                self.strings_can_be_null, self.quoted_strings_can_be_null,
+                self.auto_dict_encode, self.auto_dict_max_cardinality,
+                self.include_columns, self.include_missing_columns)
 
     def __setstate__(self, state):
         (self.check_utf8, self.column_types, self.null_values,
          self.true_values, self.false_values, self.timestamp_parsers,
-         self.strings_can_be_null, self.auto_dict_encode,
-         self.auto_dict_max_cardinality, self.include_columns,
-         self.include_missing_columns) = state
+         self.strings_can_be_null, self.quoted_strings_can_be_null,
+         self.auto_dict_encode, self.auto_dict_max_cardinality,
+         self.include_columns, self.include_missing_columns) = state
 
     def __eq__(self, other):
         try:
@@ -940,6 +972,9 @@ cdef class WriteOptions(_Weakrefable):
     @batch_size.setter
     def batch_size(self, value):
         self.options.batch_size = value
+
+    def validate(self):
+        check_status(self.options.Validate())
 
 
 cdef _get_write_options(WriteOptions write_options, CCSVWriteOptions* out):

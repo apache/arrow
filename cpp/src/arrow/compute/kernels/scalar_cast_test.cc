@@ -113,7 +113,7 @@ static void CheckCastZeroCopy(std::shared_ptr<Array> input,
                               std::shared_ptr<DataType> to_type,
                               CastOptions options = CastOptions::Safe()) {
   ASSERT_OK_AND_ASSIGN(auto converted, Cast(*input, to_type, options));
-  ASSERT_OK(converted->ValidateFull());
+  ValidateOutput(*converted);
 
   ASSERT_EQ(input->data()->buffers.size(), converted->data()->buffers.size());
   for (size_t i = 0; i < input->data()->buffers.size(); ++i) {
@@ -1583,7 +1583,7 @@ TEST(Cast, BinaryOrStringToBinary) {
 
       // invalid utf-8 is not an error for binary
       ASSERT_OK_AND_ASSIGN(auto strings, Cast(*invalid_utf8, to_type));
-      ASSERT_OK(strings->ValidateFull());
+      ValidateOutput(*strings);
       AssertBinaryZeroCopy(invalid_utf8, strings);
 
       // invalid utf-8 masked by a null bit is not an error
@@ -1687,12 +1687,12 @@ TEST(Cast, ListToList) {
     auto list_int64 = list_int32->Copy();
     list_int64->type = make_list(int64());
     list_int64->child_data[0] = Cast(list_int32->child_data[0], int64())->array();
-    ASSERT_OK(MakeArray(list_int64)->ValidateFull());
+    ValidateOutput(*list_int64);
 
     auto list_float32 = list_int32->Copy();
     list_float32->type = make_list(float32());
     list_float32->child_data[0] = Cast(list_int32->child_data[0], float32())->array();
-    ASSERT_OK(MakeArray(list_float32)->ValidateFull());
+    ValidateOutput(*list_float32);
 
     CheckCast(MakeArray(list_int32), MakeArray(list_float32));
     CheckCast(MakeArray(list_float32), MakeArray(list_int64));
@@ -1711,7 +1711,7 @@ TEST(Cast, ListToList) {
     auto list_int64 = list_int32->Copy();
     list_int64->type = make_list(int64());
     list_int64->child_data[0] = Cast(list_int32->child_data[0], int64())->array();
-    ASSERT_OK(MakeArray(list_int64)->ValidateFull());
+    ValidateOutput(*list_int64);
 
     CheckCast(MakeArray(list_int32), MakeArray(list_int64));
     CheckCast(MakeArray(list_int64), MakeArray(list_int32));
@@ -1861,7 +1861,7 @@ TEST(Cast, FromDictionary) {
     data->buffers[0] = nullptr;
     data->null_count = 0;
     std::shared_ptr<Array> dict_array = std::make_shared<DictionaryArray>(data);
-    ASSERT_OK(dict_array->ValidateFull());
+    ValidateOutput(*dict_array);
 
     CheckCast(dict_array, no_nulls);
   }

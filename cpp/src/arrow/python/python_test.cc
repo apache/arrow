@@ -307,8 +307,8 @@ TEST_F(DecimalTest, TestInferPrecisionAndNegativeScale) {
   internal::DecimalMetadata metadata;
   ASSERT_OK(metadata.Update(python_decimal.obj()));
 
-  const auto expected_precision = 9;
-  const int32_t expected_scale = -2;
+  const auto expected_precision = 11;
+  const int32_t expected_scale = 0;
 
   ASSERT_EQ(expected_precision, metadata.precision());
   ASSERT_EQ(expected_scale, metadata.scale());

@@ -16,6 +16,8 @@
 // under the License.
 
 #include <algorithm>
+#define _USE_MATH_DEFINES
+#include <cmath>
 #include <memory>
 #include <string>
 #include <type_traits>
@@ -40,19 +42,6 @@
 
 namespace arrow {
 namespace compute {
-
-std::shared_ptr<Array> TweakValidityBit(const std::shared_ptr<Array>& array,
-                                        int64_t index, bool validity) {
-  auto data = array->data()->Copy();
-  if (data->buffers[0] == nullptr) {
-    data->buffers[0] = *AllocateBitmap(data->length);
-    BitUtil::SetBitsTo(data->buffers[0]->mutable_data(), 0, data->length, true);
-  }
-  BitUtil::SetBitTo(data->buffers[0]->mutable_data(), index, validity);
-  data->null_count = kUnknownNullCount;
-  // Need to return a new array, because Array caches the null bitmap pointer
-  return MakeArray(data);
-}
 
 template <typename T>
 class TestUnaryArithmetic : public TestBase {
@@ -103,6 +92,12 @@ class TestUnaryArithmetic : public TestBase {
   void AssertUnaryOp(UnaryFunction func, const std::shared_ptr<Array>& arg,
                      const std::string& expected_json) {
     const auto expected = ArrayFromJSON(type_singleton(), expected_json);
+    return AssertUnaryOp(func, arg, expected);
+  }
+
+  // (Array)
+  void AssertUnaryOp(UnaryFunction func, const std::shared_ptr<Array>& arg,
+                     const std::shared_ptr<Array>& expected) {
     ASSERT_OK_AND_ASSIGN(Datum actual, func(arg, options_, nullptr));
     ValidateAndAssertApproxEqual(actual.make_array(), expected);
 
@@ -121,6 +116,11 @@ class TestUnaryArithmetic : public TestBase {
     auto arg = ArrayFromJSON(type_singleton(), argument);
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(expected_msg),
                                     func(arg, options_, nullptr));
+    for (int64_t i = 0; i < arg->length(); i++) {
+      ASSERT_OK_AND_ASSIGN(auto scalar, arg->GetScalar(i));
+      EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(expected_msg),
+                                      func(scalar, options_, nullptr));
+    }
   }
 
   void AssertUnaryOpNotImplemented(UnaryFunction func, const std::string& argument) {
@@ -138,7 +138,7 @@ class TestUnaryArithmetic : public TestBase {
 
   void ValidateAndAssertApproxEqual(const std::shared_ptr<Array>& actual,
                                     const std::shared_ptr<Array>& expected) {
-    ASSERT_OK(actual->ValidateFull());
+    ValidateOutput(*actual);
     AssertArraysApproxEqual(*expected, *actual, /*verbose=*/true, equal_options_);
   }
 
@@ -245,6 +245,12 @@ class TestBinaryArithmetic : public TestBase {
                    const std::shared_ptr<Array>& right,
                    const std::string& expected_json) {
     const auto expected = ArrayFromJSON(type_singleton(), expected_json);
+    AssertBinop(func, left, right, expected);
+  }
+
+  void AssertBinop(BinaryFunction func, const std::shared_ptr<Array>& left,
+                   const std::shared_ptr<Array>& right,
+                   const std::shared_ptr<Array>& expected) {
     ASSERT_OK_AND_ASSIGN(Datum actual, func(left, right, options_, nullptr));
     ValidateAndAssertApproxEqual(actual.make_array(), expected);
 
@@ -275,7 +281,7 @@ class TestBinaryArithmetic : public TestBase {
 
   void ValidateAndAssertApproxEqual(const std::shared_ptr<Array>& actual,
                                     const std::shared_ptr<Array>& expected) {
-    ASSERT_OK(actual->ValidateFull());
+    ValidateOutput(*actual);
     AssertArraysApproxEqual(*expected, *actual, /*verbose=*/true, equal_options_);
   }
 
@@ -312,6 +318,66 @@ class TestBinaryArithmeticUnsigned : public TestBinaryArithmeticIntegral<T> {};
 template <typename T>
 class TestBinaryArithmeticFloating : public TestBinaryArithmetic<T> {};
 
+template <typename T>
+class TestBitWiseArithmetic : public TestBase {
+ protected:
+  using ArrowType = T;
+  using CType = typename ArrowType::c_type;
+
+  static std::shared_ptr<DataType> type_singleton() {
+    return TypeTraits<ArrowType>::type_singleton();
+  }
+
+  void AssertUnaryOp(const std::string& func, const std::vector<uint8_t>& args,
+                     const std::vector<uint8_t>& expected) {
+    auto input = ExpandByteArray(args);
+    auto output = ExpandByteArray(expected);
+    ASSERT_OK_AND_ASSIGN(Datum actual, CallFunction(func, {input}));
+    ValidateAndAssertEqual(actual.make_array(), output);
+    for (int64_t i = 0; i < output->length(); i++) {
+      ASSERT_OK_AND_ASSIGN(Datum actual, CallFunction(func, {*input->GetScalar(i)}));
+      const auto expected_scalar = *output->GetScalar(i);
+      AssertScalarsEqual(*expected_scalar, *actual.scalar(), /*verbose=*/true);
+    }
+  }
+
+  void AssertBinaryOp(const std::string& func, const std::vector<uint8_t>& arg0,
+                      const std::vector<uint8_t>& arg1,
+                      const std::vector<uint8_t>& expected) {
+    auto input0 = ExpandByteArray(arg0);
+    auto input1 = ExpandByteArray(arg1);
+    auto output = ExpandByteArray(expected);
+    ASSERT_OK_AND_ASSIGN(Datum actual, CallFunction(func, {input0, input1}));
+    ValidateAndAssertEqual(actual.make_array(), output);
+    for (int64_t i = 0; i < output->length(); i++) {
+      ASSERT_OK_AND_ASSIGN(Datum actual, CallFunction(func, {*input0->GetScalar(i),
+                                                             *input1->GetScalar(i)}));
+      const auto expected_scalar = *output->GetScalar(i);
+      AssertScalarsEqual(*expected_scalar, *actual.scalar(), /*verbose=*/true);
+    }
+  }
+
+  // To make it easier to test different widths, tests give bytes which get repeated to
+  // make an array of the actual type
+  std::shared_ptr<Array> ExpandByteArray(const std::vector<uint8_t>& values) {
+    std::vector<CType> c_values(values.size() + 1);
+    for (size_t i = 0; i < values.size(); i++) {
+      std::memset(&c_values[i], values[i], sizeof(CType));
+    }
+    std::vector<bool> valid(values.size() + 1, true);
+    valid.back() = false;
+    std::shared_ptr<Array> arr;
+    ArrayFromVector<ArrowType>(valid, c_values, &arr);
+    return arr;
+  }
+
+  void ValidateAndAssertEqual(const std::shared_ptr<Array>& actual,
+                              const std::shared_ptr<Array>& expected) {
+    ASSERT_OK(actual->ValidateFull());
+    AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+  }
+};
+
 // InputType - OutputType pairs
 using IntegralTypes = testing::Types<Int8Type, Int16Type, Int32Type, Int64Type, UInt8Type,
                                      UInt16Type, UInt32Type, UInt64Type>;
@@ -333,6 +399,31 @@ TYPED_TEST_SUITE(TestBinaryArithmeticIntegral, IntegralTypes);
 TYPED_TEST_SUITE(TestBinaryArithmeticSigned, SignedIntegerTypes);
 TYPED_TEST_SUITE(TestBinaryArithmeticUnsigned, UnsignedIntegerTypes);
 TYPED_TEST_SUITE(TestBinaryArithmeticFloating, FloatingTypes);
+
+TYPED_TEST_SUITE(TestBitWiseArithmetic, IntegralTypes);
+
+TYPED_TEST(TestBitWiseArithmetic, BitWiseNot) {
+  this->AssertUnaryOp("bit_wise_not", std::vector<uint8_t>{0x00, 0x55, 0xAA, 0xFF},
+                      std::vector<uint8_t>{0xFF, 0xAA, 0x55, 0x00});
+}
+
+TYPED_TEST(TestBitWiseArithmetic, BitWiseAnd) {
+  this->AssertBinaryOp("bit_wise_and", std::vector<uint8_t>{0x00, 0xFF, 0x00, 0xFF},
+                       std::vector<uint8_t>{0x00, 0x00, 0xFF, 0xFF},
+                       std::vector<uint8_t>{0x00, 0x00, 0x00, 0xFF});
+}
+
+TYPED_TEST(TestBitWiseArithmetic, BitWiseOr) {
+  this->AssertBinaryOp("bit_wise_or", std::vector<uint8_t>{0x00, 0xFF, 0x00, 0xFF},
+                       std::vector<uint8_t>{0x00, 0x00, 0xFF, 0xFF},
+                       std::vector<uint8_t>{0x00, 0xFF, 0xFF, 0xFF});
+}
+
+TYPED_TEST(TestBitWiseArithmetic, BitWiseXor) {
+  this->AssertBinaryOp("bit_wise_xor", std::vector<uint8_t>{0x00, 0xFF, 0x00, 0xFF},
+                       std::vector<uint8_t>{0x00, 0x00, 0xFF, 0xFF},
+                       std::vector<uint8_t>{0x00, 0xFF, 0xFF, 0x00});
+}
 
 TYPED_TEST(TestBinaryArithmeticIntegral, Add) {
   for (auto check_overflow : {false, true}) {
@@ -1159,6 +1250,575 @@ TYPED_TEST(TestUnaryArithmeticFloating, AbsoluteValue) {
     this->AssertUnaryOp(AbsoluteValue, min, max);
     this->AssertUnaryOp(AbsoluteValue, max, max);
   }
+}
+
+TEST(TestBinaryDecimalArithmetic, DispatchBest) {
+  // decimal, floating point
+  for (std::string name : {"add", "subtract", "multiply", "divide"}) {
+    for (std::string suffix : {"", "_checked"}) {
+      name += suffix;
+
+      CheckDispatchBest(name, {decimal128(1, 0), float32()}, {float32(), float32()});
+      CheckDispatchBest(name, {decimal256(1, 0), float64()}, {float64(), float64()});
+      CheckDispatchBest(name, {float32(), decimal256(1, 0)}, {float32(), float32()});
+      CheckDispatchBest(name, {float64(), decimal128(1, 0)}, {float64(), float64()});
+    }
+  }
+
+  // decimal, decimal
+  for (std::string name : {"add", "subtract"}) {
+    for (std::string suffix : {"", "_checked"}) {
+      name += suffix;
+
+      CheckDispatchBest(name, {decimal128(2, 1), decimal128(2, 1)},
+                        {decimal128(3, 1), decimal128(3, 1)});
+      CheckDispatchBest(name, {decimal256(2, 1), decimal256(2, 1)},
+                        {decimal256(3, 1), decimal256(3, 1)});
+      CheckDispatchBest(name, {decimal128(2, 1), decimal256(2, 1)},
+                        {decimal256(3, 1), decimal256(3, 1)});
+      CheckDispatchBest(name, {decimal256(2, 1), decimal128(2, 1)},
+                        {decimal256(3, 1), decimal256(3, 1)});
+    }
+  }
+  {
+    std::string name = "multiply";
+    for (std::string suffix : {"", "_checked"}) {
+      name += suffix;
+
+      CheckDispatchBest(name, {decimal128(2, 1), decimal128(2, 1)},
+                        {decimal128(5, 2), decimal128(5, 2)});
+      CheckDispatchBest(name, {decimal256(2, 1), decimal256(2, 1)},
+                        {decimal256(5, 2), decimal256(5, 2)});
+      CheckDispatchBest(name, {decimal128(2, 1), decimal256(2, 1)},
+                        {decimal256(5, 2), decimal256(5, 2)});
+      CheckDispatchBest(name, {decimal256(2, 1), decimal128(2, 1)},
+                        {decimal256(5, 2), decimal256(5, 2)});
+    }
+  }
+  {
+    std::string name = "divide";
+    for (std::string suffix : {"", "_checked"}) {
+      name += suffix;
+
+      CheckDispatchBest(name, {decimal128(2, 1), decimal128(2, 1)},
+                        {decimal128(6, 4), decimal128(6, 4)});
+      CheckDispatchBest(name, {decimal256(2, 1), decimal256(2, 1)},
+                        {decimal256(6, 4), decimal256(6, 4)});
+      CheckDispatchBest(name, {decimal128(2, 1), decimal256(2, 1)},
+                        {decimal256(6, 4), decimal256(6, 4)});
+      CheckDispatchBest(name, {decimal256(2, 1), decimal128(2, 1)},
+                        {decimal256(6, 4), decimal256(6, 4)});
+    }
+  }
+
+  // TODO(ARROW-13067): add 'integer, decimal' tests
+}
+
+// reference result from bc (precsion=100, scale=40)
+TEST(TestBinaryArithmeticDecimal, AddSubtract) {
+  // array array, decimal128
+  {
+    auto left = ArrayFromJSON(decimal128(30, 3),
+                              R"([
+        "1.000",
+        "-123456789012345678901234567.890",
+        "98765432109876543210.987",
+        "-999999999999999999999999999.999"
+      ])");
+    auto right = ArrayFromJSON(decimal128(20, 9),
+                               R"([
+        "-1.000000000",
+        "12345678901.234567890",
+        "98765.432101234",
+        "-99999999999.999999999"
+      ])");
+    auto added = ArrayFromJSON(decimal128(37, 9),
+                               R"([
+      "0.000000000",
+      "-123456789012345666555555666.655432110",
+      "98765432109876641976.419101234",
+      "-1000000000000000099999999999.998999999"
+    ])");
+    auto subtracted = ArrayFromJSON(decimal128(37, 9),
+                                    R"([
+      "2.000000000",
+      "-123456789012345691246913469.124567890",
+      "98765432109876444445.554898766",
+      "-999999999999999899999999999.999000001"
+    ])");
+    CheckScalarBinary("add", left, right, added);
+    CheckScalarBinary("subtract", left, right, subtracted);
+  }
+
+  // array array, decimal256
+  {
+    auto left = ArrayFromJSON(decimal256(30, 20),
+                              R"([
+        "-1.00000000000000000001",
+        "1234567890.12345678900000000000",
+        "-9876543210.09876543210987654321",
+        "9999999999.99999999999999999999"
+      ])");
+    auto right = ArrayFromJSON(decimal256(30, 10),
+                               R"([
+        "1.0000000000",
+        "-1234567890.1234567890",
+        "6789.5432101234",
+        "99999999999999999999.9999999999"
+      ])");
+    auto added = ArrayFromJSON(decimal256(41, 20),
+                               R"([
+      "-0.00000000000000000001",
+      "0.00000000000000000000",
+      "-9876536420.55555530870987654321",
+      "100000000009999999999.99999999989999999999"
+    ])");
+    auto subtracted = ArrayFromJSON(decimal256(41, 20),
+                                    R"([
+      "-2.00000000000000000001",
+      "2469135780.24691357800000000000",
+      "-9876549999.64197555550987654321",
+      "-99999999989999999999.99999999990000000001"
+    ])");
+    CheckScalarBinary("add", left, right, added);
+    CheckScalarBinary("subtract", left, right, subtracted);
+  }
+
+  // scalar array
+  {
+    auto left = ScalarFromJSON(decimal128(6, 1), R"("12345.6")");
+    auto right = ArrayFromJSON(decimal128(10, 3),
+                               R"(["1.234", "1234.000", "-9876.543", "666.888"])");
+    auto added = ArrayFromJSON(decimal128(11, 3),
+                               R"(["12346.834", "13579.600", "2469.057", "13012.488"])");
+    auto left_sub_right = ArrayFromJSON(
+        decimal128(11, 3), R"(["12344.366", "11111.600", "22222.143", "11678.712"])");
+    auto right_sub_left = ArrayFromJSON(
+        decimal128(11, 3), R"(["-12344.366", "-11111.600", "-22222.143", "-11678.712"])");
+    CheckScalarBinary("add", left, right, added);
+    CheckScalarBinary("add", right, left, added);
+    CheckScalarBinary("subtract", left, right, left_sub_right);
+    CheckScalarBinary("subtract", right, left, right_sub_left);
+  }
+
+  // scalar scalar
+  {
+    auto left = ScalarFromJSON(decimal256(3, 0), R"("666")");
+    auto right = ScalarFromJSON(decimal256(3, 0), R"("888")");
+    auto added = ScalarFromJSON(decimal256(4, 0), R"("1554")");
+    auto subtracted = ScalarFromJSON(decimal256(4, 0), R"("-222")");
+    CheckScalarBinary("add", left, right, added);
+    CheckScalarBinary("subtract", left, right, subtracted);
+  }
+
+  // decimal128 decimal256
+  {
+    auto left = ScalarFromJSON(decimal128(3, 0), R"("666")");
+    auto right = ScalarFromJSON(decimal256(3, 0), R"("888")");
+    auto added = ScalarFromJSON(decimal256(4, 0), R"("1554")");
+    CheckScalarBinary("add", left, right, added);
+    CheckScalarBinary("add", right, left, added);
+  }
+
+  // decimal float
+  {
+    auto left = ScalarFromJSON(decimal128(3, 0), R"("666")");
+    ASSIGN_OR_ABORT(auto right, arrow::MakeScalar(float64(), 888));
+    ASSIGN_OR_ABORT(auto added, arrow::MakeScalar(float64(), 1554));
+    CheckScalarBinary("add", left, right, added);
+    CheckScalarBinary("add", right, left, added);
+  }
+
+  // TODO: decimal integer
+
+  // failed case: result maybe overflow
+  {
+    std::shared_ptr<Scalar> left, right;
+
+    left = ScalarFromJSON(decimal128(21, 20), R"("0.12345678901234567890")");
+    right = ScalarFromJSON(decimal128(21, 1), R"("1.0")");
+    ASSERT_RAISES(Invalid, CallFunction("add", {left, right}));
+    ASSERT_RAISES(Invalid, CallFunction("subtract", {left, right}));
+
+    left = ScalarFromJSON(decimal256(75, 0), R"("0")");
+    right = ScalarFromJSON(decimal256(2, 1), R"("0.0")");
+    ASSERT_RAISES(Invalid, CallFunction("add", {left, right}));
+    ASSERT_RAISES(Invalid, CallFunction("subtract", {left, right}));
+  }
+}
+
+TEST(TestBinaryArithmeticDecimal, Multiply) {
+  // array array, decimal128
+  {
+    auto left = ArrayFromJSON(decimal128(20, 10),
+                              R"([
+        "1234567890.1234567890",
+        "-0.0000000001",
+        "-9999999999.9999999999"
+      ])");
+    auto right = ArrayFromJSON(decimal128(13, 3),
+                               R"([
+        "1234567890.123",
+        "0.001",
+        "-9999999999.999"
+      ])");
+    auto expected = ArrayFromJSON(decimal128(34, 13),
+                                  R"([
+      "1524157875323319737.9870903950470",
+      "-0.0000000000001",
+      "99999999999989999999.0000000000001"
+    ])");
+    CheckScalarBinary("multiply", left, right, expected);
+  }
+
+  // array array, decimal26
+  {
+    auto left = ArrayFromJSON(decimal256(30, 3),
+                              R"([
+        "123456789012345678901234567.890",
+        "0.000"
+      ])");
+    auto right = ArrayFromJSON(decimal256(20, 9),
+                               R"([
+        "-12345678901.234567890",
+        "99999999999.999999999"
+      ])");
+    auto expected = ArrayFromJSON(decimal256(51, 12),
+                                  R"([
+      "-1524157875323883675034293577501905199.875019052100",
+      "0.000000000000"
+    ])");
+    CheckScalarBinary("multiply", left, right, expected);
+  }
+
+  // scalar array
+  {
+    auto left = ScalarFromJSON(decimal128(3, 2), R"("3.14")");
+    auto right = ArrayFromJSON(decimal128(1, 0), R"(["1", "2", "3", "4", "5"])");
+    auto expected =
+        ArrayFromJSON(decimal128(5, 2), R"(["3.14", "6.28", "9.42", "12.56", "15.70"])");
+    CheckScalarBinary("multiply", left, right, expected);
+    CheckScalarBinary("multiply", right, left, expected);
+  }
+
+  // scalar scalar
+  {
+    auto left = ScalarFromJSON(decimal128(1, 0), R"("1")");
+    auto right = ScalarFromJSON(decimal128(1, 0), R"("1")");
+    auto expected = ScalarFromJSON(decimal128(3, 0), R"("1")");
+    CheckScalarBinary("multiply", left, right, expected);
+  }
+
+  // decimal128 decimal256
+  {
+    auto left = ScalarFromJSON(decimal128(3, 2), R"("6.66")");
+    auto right = ScalarFromJSON(decimal256(3, 1), R"("88.8")");
+    auto expected = ScalarFromJSON(decimal256(7, 3), R"("591.408")");
+    CheckScalarBinary("multiply", left, right, expected);
+    CheckScalarBinary("multiply", right, left, expected);
+  }
+
+  // decimal float
+  {
+    auto left = ScalarFromJSON(decimal128(3, 0), R"("666")");
+    ASSIGN_OR_ABORT(auto right, arrow::MakeScalar(float64(), 888));
+    ASSIGN_OR_ABORT(auto expected, arrow::MakeScalar(float64(), 591408));
+    CheckScalarBinary("multiply", left, right, expected);
+    CheckScalarBinary("multiply", right, left, expected);
+  }
+
+  // TODO: decimal integer
+
+  // failed case: result maybe overflow
+  {
+    auto left = ScalarFromJSON(decimal128(20, 0), R"("1")");
+    auto right = ScalarFromJSON(decimal128(18, 1), R"("1.0")");
+    ASSERT_RAISES(Invalid, CallFunction("multiply", {left, right}));
+  }
+}
+
+TEST(TestBinaryArithmeticDecimal, Divide) {
+  // array array, decimal128
+  {
+    auto left = ArrayFromJSON(decimal128(13, 3), R"(["1234567890.123", "0.001"])");
+    auto right = ArrayFromJSON(decimal128(3, 0), R"(["-987", "999"])");
+    auto expected =
+        ArrayFromJSON(decimal128(17, 7), R"(["-1250828.6627386", "0.0000010"])");
+    CheckScalarBinary("divide", left, right, expected);
+  }
+
+  // array array, decimal256
+  {
+    auto left = ArrayFromJSON(decimal256(20, 10),
+                              R"(["1234567890.1234567890", "9999999999.9999999999"])");
+    auto right = ArrayFromJSON(decimal256(13, 3), R"(["1234567890.123", "0.001"])");
+    auto expected = ArrayFromJSON(
+        decimal256(34, 21),
+        R"(["1.000000000000369999093", "9999999999999.999999900000000000000"])");
+    CheckScalarBinary("divide", left, right, expected);
+  }
+
+  // scalar array
+  {
+    auto left = ScalarFromJSON(decimal128(1, 0), R"("1")");
+    auto right = ArrayFromJSON(decimal128(1, 0), R"(["1", "2", "3", "4"])");
+    auto left_div_right =
+        ArrayFromJSON(decimal128(5, 4), R"(["1.0000", "0.5000", "0.3333", "0.2500"])");
+    auto right_div_left =
+        ArrayFromJSON(decimal128(5, 4), R"(["1.0000", "2.0000", "3.0000", "4.0000"])");
+    CheckScalarBinary("divide", left, right, left_div_right);
+    CheckScalarBinary("divide", right, left, right_div_left);
+  }
+
+  // scalar scalar
+  {
+    auto left = ScalarFromJSON(decimal256(6, 5), R"("2.71828")");
+    auto right = ScalarFromJSON(decimal256(6, 5), R"("3.14159")");
+    auto expected = ScalarFromJSON(decimal256(13, 7), R"("0.8652561")");
+    CheckScalarBinary("divide", left, right, expected);
+  }
+
+  // decimal128 decimal256
+  {
+    auto left = ScalarFromJSON(decimal256(6, 5), R"("2.71828")");
+    auto right = ScalarFromJSON(decimal128(6, 5), R"("3.14159")");
+    auto left_div_right = ScalarFromJSON(decimal256(13, 7), R"("0.8652561")");
+    auto right_div_left = ScalarFromJSON(decimal256(13, 7), R"("1.1557271")");
+    CheckScalarBinary("divide", left, right, left_div_right);
+    CheckScalarBinary("divide", right, left, right_div_left);
+  }
+
+  // decimal float
+  {
+    auto left = ScalarFromJSON(decimal128(3, 0), R"("100")");
+    ASSIGN_OR_ABORT(auto right, arrow::MakeScalar(float64(), 50));
+    ASSIGN_OR_ABORT(auto left_div_right, arrow::MakeScalar(float64(), 2));
+    ASSIGN_OR_ABORT(auto right_div_left, arrow::MakeScalar(float64(), 0.5));
+    CheckScalarBinary("divide", left, right, left_div_right);
+    CheckScalarBinary("divide", right, left, right_div_left);
+  }
+
+  // TODO: decimal integer
+
+  // failed case: result maybe overflow
+  {
+    auto left = ScalarFromJSON(decimal128(20, 20), R"("0.12345678901234567890")");
+    auto right = ScalarFromJSON(decimal128(20, 0), R"("12345678901234567890")");
+    ASSERT_RAISES(Invalid, CallFunction("divide", {left, right}));
+  }
+
+  // failed case: divide by 0
+  {
+    auto left = ScalarFromJSON(decimal256(1, 0), R"("1")");
+    auto right = ScalarFromJSON(decimal256(1, 0), R"("0")");
+    ASSERT_RAISES(Invalid, CallFunction("divide", {left, right}));
+  }
+}
+
+TYPED_TEST(TestBinaryArithmeticIntegral, ShiftLeft) {
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+
+    this->AssertBinop(ShiftLeft, "[]", "[]", "[]");
+    this->AssertBinop(ShiftLeft, "[0, 1, 2, 3]", "[2, 3, 4, 5]", "[0, 8, 32, 96]");
+    // Nulls on one side
+    this->AssertBinop(ShiftLeft, "[0, null, 2, 3]", "[2, 3, 4, 5]", "[0, null, 32, 96]");
+    this->AssertBinop(ShiftLeft, "[0, 1, 2, 3]", "[2, 3, null, 5]", "[0, 8, null, 96]");
+    // Nulls on both sides
+    this->AssertBinop(ShiftLeft, "[0, null, 2, 3]", "[2, 3, null, 5]",
+                      "[0, null, null, 96]");
+    // All nulls
+    this->AssertBinop(ShiftLeft, "[null]", "[null]", "[null]");
+
+    // Scalar on the left
+    this->AssertBinop(ShiftLeft, 2, "[null, 5]", "[null, 64]");
+    this->AssertBinop(ShiftLeft, this->MakeNullScalar(), "[null, 5]", "[null, null]");
+    // Scalar on the right
+    this->AssertBinop(ShiftLeft, "[null, 5]", 3, "[null, 40]");
+    this->AssertBinop(ShiftLeft, "[null, 5]", this->MakeNullScalar(), "[null, null]");
+  }
+}
+
+TYPED_TEST(TestBinaryArithmeticIntegral, ShiftRight) {
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+
+    this->AssertBinop(ShiftRight, "[]", "[]", "[]");
+    this->AssertBinop(ShiftRight, "[0, 1, 4, 8]", "[1, 1, 1, 4]", "[0, 0, 2, 0]");
+    // Nulls on one side
+    this->AssertBinop(ShiftRight, "[0, null, 4, 8]", "[1, 1, 1, 4]", "[0, null, 2, 0]");
+    this->AssertBinop(ShiftRight, "[0, 1, 4, 8]", "[1, 1, null, 4]", "[0, 0, null, 0]");
+    // Nulls on both sides
+    this->AssertBinop(ShiftRight, "[0, null, 4, 8]", "[1, 1, null, 4]",
+                      "[0, null, null, 0]");
+    // All nulls
+    this->AssertBinop(ShiftRight, "[null]", "[null]", "[null]");
+
+    // Scalar on the left
+    this->AssertBinop(ShiftRight, 64, "[null, 2, 6]", "[null, 16, 1]");
+    this->AssertBinop(ShiftRight, this->MakeNullScalar(), "[null, 2, 6]",
+                      "[null, null, null]");
+    // Scalar on the right
+    this->AssertBinop(ShiftRight, "[null, 3, 96]", 3, "[null, 0, 12]");
+    this->AssertBinop(ShiftRight, "[null, 3, 96]", this->MakeNullScalar(),
+                      "[null, null, null]");
+  }
+}
+
+TYPED_TEST(TestBinaryArithmeticSigned, ShiftLeftOverflowRaises) {
+  using CType = typename TestFixture::CType;
+  const CType bit_width = static_cast<CType>(std::numeric_limits<CType>::digits);
+  const CType min = std::numeric_limits<CType>::min();
+  this->SetOverflowCheck(true);
+
+  this->AssertBinop(ShiftLeft, "[1]", MakeArray(bit_width - 1),
+                    MakeArray(static_cast<CType>(1) << (bit_width - 1)));
+  this->AssertBinop(ShiftLeft, "[2]", MakeArray(bit_width - 2),
+                    MakeArray(static_cast<CType>(1) << (bit_width - 1)));
+  // Shift a bit into the sign bit
+  this->AssertBinop(ShiftLeft, "[2]", MakeArray(bit_width - 1), MakeArray(min));
+  // Shift a bit past the sign bit
+  this->AssertBinop(ShiftLeft, "[4]", MakeArray(bit_width - 1), "[0]");
+  this->AssertBinop(ShiftLeft, MakeArray(min), "[1]", "[0]");
+  this->AssertBinopRaises(ShiftLeft, "[1, 2]", "[1, -1]",
+                          "shift amount must be >= 0 and less than precision of type");
+  this->AssertBinopRaises(ShiftLeft, "[1]", MakeArray(bit_width),
+                          "shift amount must be >= 0 and less than precision of type");
+
+  this->SetOverflowCheck(false);
+  this->AssertBinop(ShiftLeft, "[1, 1]", MakeArray(-1, bit_width), "[1, 1]");
+}
+
+TYPED_TEST(TestBinaryArithmeticSigned, ShiftRightOverflowRaises) {
+  using CType = typename TestFixture::CType;
+  const CType bit_width = static_cast<CType>(std::numeric_limits<CType>::digits);
+  const CType max = std::numeric_limits<CType>::max();
+  const CType min = std::numeric_limits<CType>::min();
+  this->SetOverflowCheck(true);
+
+  this->AssertBinop(ShiftRight, MakeArray(max), MakeArray(bit_width - 1), "[1]");
+  this->AssertBinop(ShiftRight, "[-1, -1]", "[1, 5]", "[-1, -1]");
+  this->AssertBinop(ShiftRight, MakeArray(min), "[1]", MakeArray(min / 2));
+  this->AssertBinopRaises(ShiftRight, "[1, 2]", "[1, -1]",
+                          "shift amount must be >= 0 and less than precision of type");
+  this->AssertBinopRaises(ShiftRight, "[1]", MakeArray(bit_width),
+                          "shift amount must be >= 0 and less than precision of type");
+
+  this->SetOverflowCheck(false);
+  this->AssertBinop(ShiftRight, "[1, 1]", MakeArray(-1, bit_width), "[1, 1]");
+}
+
+TYPED_TEST(TestBinaryArithmeticUnsigned, ShiftLeftOverflowRaises) {
+  using CType = typename TestFixture::CType;
+  const CType bit_width = static_cast<CType>(std::numeric_limits<CType>::digits);
+  this->SetOverflowCheck(true);
+
+  this->AssertBinop(ShiftLeft, "[1]", MakeArray(bit_width - 1),
+                    MakeArray(static_cast<CType>(1) << (bit_width - 1)));
+  this->AssertBinop(ShiftLeft, "[2]", MakeArray(bit_width - 2),
+                    MakeArray(static_cast<CType>(1) << (bit_width - 1)));
+  this->AssertBinop(ShiftLeft, "[2]", MakeArray(bit_width - 1), "[0]");
+  this->AssertBinop(ShiftLeft, "[4]", MakeArray(bit_width - 1), "[0]");
+  this->AssertBinopRaises(ShiftLeft, "[1]", MakeArray(bit_width),
+                          "shift amount must be >= 0 and less than precision of type");
+}
+
+TYPED_TEST(TestBinaryArithmeticUnsigned, ShiftRightOverflowRaises) {
+  using CType = typename TestFixture::CType;
+  const CType bit_width = static_cast<CType>(std::numeric_limits<CType>::digits);
+  const CType max = std::numeric_limits<CType>::max();
+  this->SetOverflowCheck(true);
+
+  this->AssertBinop(ShiftRight, MakeArray(max), MakeArray(bit_width - 1), "[1]");
+  this->AssertBinopRaises(ShiftRight, "[1]", MakeArray(bit_width),
+                          "shift amount must be >= 0 and less than precision of type");
+}
+
+TYPED_TEST(TestUnaryArithmeticFloating, TrigSin) {
+  this->SetNansEqual(true);
+  this->AssertUnaryOp(Sin, "[Inf, -Inf]", "[NaN, NaN]");
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+    this->AssertUnaryOp(Sin, "[]", "[]");
+    this->AssertUnaryOp(Sin, "[null, NaN]", "[null, NaN]");
+    this->AssertUnaryOp(Sin, MakeArray(0, M_PI_2, M_PI), "[0, 1, 0]");
+  }
+  this->AssertUnaryOpRaises(Sin, "[Inf, -Inf]", "domain error");
+}
+
+TYPED_TEST(TestUnaryArithmeticFloating, TrigCos) {
+  this->SetNansEqual(true);
+  this->AssertUnaryOp(Cos, "[Inf, -Inf]", "[NaN, NaN]");
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+    this->AssertUnaryOp(Cos, "[]", "[]");
+    this->AssertUnaryOp(Cos, "[null, NaN]", "[null, NaN]");
+    this->AssertUnaryOp(Cos, MakeArray(0, M_PI_2, M_PI), "[1, 0, -1]");
+  }
+  this->AssertUnaryOpRaises(Cos, "[Inf, -Inf]", "domain error");
+}
+
+TYPED_TEST(TestUnaryArithmeticFloating, TrigTan) {
+  this->SetNansEqual(true);
+  this->AssertUnaryOp(Tan, "[Inf, -Inf]", "[NaN, NaN]");
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+    this->AssertUnaryOp(Tan, "[]", "[]");
+    this->AssertUnaryOp(Tan, "[null, NaN]", "[null, NaN]");
+    // N.B. pi/2 isn't representable exactly -> there are no poles
+    // (i.e. tan(pi/2) is merely a large value and not +Inf)
+    this->AssertUnaryOp(Tan, MakeArray(0, M_PI), "[0, 0]");
+  }
+  this->AssertUnaryOpRaises(Tan, "[Inf, -Inf]", "domain error");
+}
+
+TYPED_TEST(TestUnaryArithmeticFloating, TrigAsin) {
+  this->SetNansEqual(true);
+  this->AssertUnaryOp(Asin, "[Inf, -Inf, -2, 2]", "[NaN, NaN, NaN, NaN]");
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+    this->AssertUnaryOp(Asin, "[]", "[]");
+    this->AssertUnaryOp(Asin, "[null, NaN]", "[null, NaN]");
+    this->AssertUnaryOp(Asin, "[0, 1, -1]", MakeArray(0, M_PI_2, -M_PI_2));
+  }
+  this->AssertUnaryOpRaises(Asin, "[Inf, -Inf, -2, 2]", "domain error");
+}
+
+TYPED_TEST(TestUnaryArithmeticFloating, TrigAcos) {
+  this->SetNansEqual(true);
+  this->AssertUnaryOp(Asin, "[Inf, -Inf, -2, 2]", "[NaN, NaN, NaN, NaN]");
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+    this->AssertUnaryOp(Acos, "[]", "[]");
+    this->AssertUnaryOp(Acos, "[null, NaN]", "[null, NaN]");
+    this->AssertUnaryOp(Acos, "[0, 1, -1]", MakeArray(M_PI_2, 0, M_PI));
+  }
+  this->AssertUnaryOpRaises(Acos, "[Inf, -Inf, -2, 2]", "domain error");
+}
+
+TYPED_TEST(TestUnaryArithmeticFloating, TrigAtan) {
+  this->SetNansEqual(true);
+  auto atan = [](const Datum& arg, ArithmeticOptions, ExecContext* ctx) {
+    return Atan(arg, ctx);
+  };
+  this->AssertUnaryOp(atan, "[]", "[]");
+  this->AssertUnaryOp(atan, "[null, NaN]", "[null, NaN]");
+  this->AssertUnaryOp(atan, "[0, 1, -1, Inf, -Inf]",
+                      MakeArray(0, M_PI_4, -M_PI_4, M_PI_2, -M_PI_2));
+}
+
+TYPED_TEST(TestBinaryArithmeticFloating, TrigAtan2) {
+  this->SetNansEqual(true);
+  auto atan2 = [](const Datum& y, const Datum& x, ArithmeticOptions, ExecContext* ctx) {
+    return Atan2(y, x, ctx);
+  };
+  this->AssertBinop(atan2, "[]", "[]", "[]");
+  this->AssertBinop(atan2, "[0, 0, null, NaN]", "[null, NaN, 0, 0]",
+                    "[null, NaN, null, NaN]");
+  this->AssertBinop(atan2, "[0, 0, -0.0, 0, -0.0, 0, 1, 0, -1, Inf, -Inf, 0, 0]",
+                    "[0, 0, 0, -0.0, -0.0, 1, 0, -1, 0, 0, 0, Inf, -Inf]",
+                    MakeArray(0, 0, -0.0, M_PI, -M_PI, 0, M_PI_2, M_PI, -M_PI_2, M_PI_2,
+                              -M_PI_2, 0, M_PI));
 }
 
 }  // namespace compute

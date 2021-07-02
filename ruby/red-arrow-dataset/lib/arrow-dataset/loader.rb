@@ -29,8 +29,7 @@ module ArrowDataset
     end
 
     def require_libraries
-      require "arrow-dataset/in-memory-scan-task"
-      require "arrow-dataset/scan-options"
+      require "arrow-dataset/dataset"
     end
   end
 end

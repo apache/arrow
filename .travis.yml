@@ -69,6 +69,17 @@ jobs:
         LLVM: "10"
         UBUNTU: "20.04"
 
+    - name: "Go on ARM"
+      os: linux
+      arch: arm64-graviton2
+      group: edge
+      virt: vm
+      env:
+        <<: *global_env
+        ARCH: arm64v8
+        ARROW_CI_MODULES: "GO"
+        DOCKER_IMAGE_ID: debian-go
+
     - name: "C++ on s390x"
       os: linux
       arch: s390x
@@ -95,6 +106,9 @@ jobs:
           -e Protobuf_SOURCE=BUNDLED
           -e gRPC_SOURCE=BUNDLED
           "
+        # The LLVM's APT repository causes download error for s390x binary
+        # We should use the LLVM provided by the default APT repository
+        LLVM: "10"
         UBUNTU: "20.04"
 
     - name: "Go on s390x"
@@ -117,6 +131,7 @@ jobs:
         JDK: 11
 
   allow_failures:
+    - name: "Go on ARM"
     - name: "Go on s390x"
     - name: "Java on s390x"
 

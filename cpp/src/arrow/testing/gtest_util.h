@@ -41,6 +41,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/string_builder.h"
 #include "arrow/util/type_fwd.h"
 
 // NOTE: failing must be inline in the macros below, to get correct file / line number
@@ -135,6 +136,11 @@
     ASSERT_OK_AND_ASSIGN(auto _actual, (expr)); \
     ASSERT_EQ(expected, _actual);               \
   } while (0)
+
+// A generalized version of GTest's SCOPED_TRACE that takes arbitrary arguments.
+//   ARROW_SCOPED_TRACE("some variable = ", some_variable, ...)
+
+#define ARROW_SCOPED_TRACE(...) SCOPED_TRACE(::arrow::util::StringBuilder(__VA_ARGS__))
 
 namespace arrow {
 
@@ -275,6 +281,7 @@ ARROW_TESTING_EXPORT void AssertZeroPadded(const Array& array);
 
 // Check if the valid buffer bytes are initialized
 // and cause valgrind warnings otherwise.
+ARROW_TESTING_EXPORT void TestInitialized(const ArrayData& array);
 ARROW_TESTING_EXPORT void TestInitialized(const Array& array);
 
 template <typename BuilderType>
@@ -443,6 +450,14 @@ inline void BitmapFromVector(const std::vector<T>& is_valid,
                              std::shared_ptr<Buffer>* out) {
   ASSERT_OK(GetBitmapFromVector(is_valid, out));
 }
+
+// Given an array, return a new identical array except for one validity bit
+// set to a new value.
+// This is useful to force the underlying "value" of null entries to otherwise
+// invalid data and check that errors don't get reported.
+ARROW_TESTING_EXPORT
+std::shared_ptr<Array> TweakValidityBit(const std::shared_ptr<Array>& array,
+                                        int64_t index, bool validity);
 
 ARROW_TESTING_EXPORT
 void SleepFor(double seconds);

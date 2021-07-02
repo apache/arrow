@@ -48,12 +48,14 @@ Suggests:
     pkgload,
     reticulate,
     rmarkdown,
+    stringi,
     stringr,
     testthat,
     tibble,
     withr
 LinkingTo: cpp11 (>= 0.2.0)
 Collate:
+    'arrowExports.R'
     'enums.R'
     'arrow-package.R'
     'type.R'
@@ -61,7 +63,6 @@ Collate:
     'arrow-datum.R'
     'array.R'
     'arrow-tabular.R'
-    'arrowExports.R'
     'buffer.R'
     'chunked-array.R'
     'io.R'

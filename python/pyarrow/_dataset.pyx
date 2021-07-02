@@ -3001,7 +3001,7 @@ def _get_partition_keys(Expression partition_expression):
         pair[CFieldRef, CDatum] ref_val
 
     out = {}
-    for ref_val in GetResultValue(CExtractKnownFieldValues(expr)):
+    for ref_val in GetResultValue(CExtractKnownFieldValues(expr)).map:
         assert ref_val.first.name() != nullptr
         assert ref_val.second.kind() == DatumType_SCALAR
         val = pyarrow_wrap_scalar(ref_val.second.scalar())

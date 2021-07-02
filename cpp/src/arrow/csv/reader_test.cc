@@ -216,6 +216,74 @@ TEST(StreamingReaderTests, NestedParallelism) {
   TestNestedParallelism(thread_pool, table_factory);
 }
 
+TEST(StreamingReaderTest, BytesRead) {
+  ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(1));
+  auto table_buffer =
+      std::make_shared<Buffer>("a,b,c\n123,456,789\n101,112,131\n415,161,718\n");
+
+  // Basic read without any skips and small block size
+  {
+    auto input = std::make_shared<io::BufferReader>(table_buffer);
+
+    auto read_options = ReadOptions::Defaults();
+    read_options.block_size = 20;
+    ASSERT_OK_AND_ASSIGN(
+        auto streaming_reader,
+        StreamingReader::Make(io::default_io_context(), input, read_options,
+                              ParseOptions::Defaults(), ConvertOptions::Defaults()));
+    std::shared_ptr<RecordBatch> batch;
+    int64_t bytes = 6;  // Size of header
+    do {
+      ASSERT_EQ(bytes, streaming_reader->bytes_read());
+      ASSERT_OK(streaming_reader->ReadNext(&batch));
+      bytes += 12;  // Add size of each row
+    } while (batch);
+    ASSERT_EQ(42, streaming_reader->bytes_read());
+  }
+
+  // Interaction of skip_rows and bytes_read()
+  {
+    auto input = std::make_shared<io::BufferReader>(table_buffer);
+
+    auto read_options = ReadOptions::Defaults();
+    read_options.skip_rows = 2;
+    ASSERT_OK_AND_ASSIGN(
+        auto streaming_reader,
+        StreamingReader::Make(io::default_io_context(), input, read_options,
+                              ParseOptions::Defaults(), ConvertOptions::Defaults()));
+    std::shared_ptr<RecordBatch> batch;
+    // first two rows and third row as header
+    ASSERT_EQ(30, streaming_reader->bytes_read());
+    ASSERT_OK(streaming_reader->ReadNext(&batch));
+    ASSERT_NE(batch.get(), nullptr);
+    ASSERT_EQ(42, streaming_reader->bytes_read());
+    ASSERT_OK(streaming_reader->ReadNext(&batch));
+    ASSERT_EQ(batch.get(), nullptr);
+  }
+
+  // Interaction of skip_rows_after_names and bytes_read()
+  {
+    auto input = std::make_shared<io::BufferReader>(table_buffer);
+
+    auto read_options = ReadOptions::Defaults();
+    read_options.skip_rows_after_names = 2;
+
+    ASSERT_OK_AND_ASSIGN(
+        auto streaming_reader,
+        StreamingReader::Make(io::default_io_context(), input, read_options,
+                              ParseOptions::Defaults(), ConvertOptions::Defaults()));
+    std::shared_ptr<RecordBatch> batch;
+
+    // Just header
+    ASSERT_EQ(6, streaming_reader->bytes_read());
+    ASSERT_OK(streaming_reader->ReadNext(&batch));
+    ASSERT_NE(batch.get(), nullptr);
+    ASSERT_EQ(42, streaming_reader->bytes_read());
+    ASSERT_OK(streaming_reader->ReadNext(&batch));
+    ASSERT_EQ(batch.get(), nullptr);
+  }
+}
+
 TEST(CountRowsAsync, Basics) {
   constexpr int NROWS = 4096;
   ASSERT_OK_AND_ASSIGN(auto table_buffer, MakeSampleCsvBuffer(NROWS));

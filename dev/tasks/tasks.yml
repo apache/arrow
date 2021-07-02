@@ -359,6 +359,7 @@ tasks:
     ci: github
     template: python-wheels/github.osx.yml
     params:
+      vcpkg_version: "2021.04.30"
       python_version: {{ python_version }}
       macos_deployment_target: {{ macos_version }}
       arrow_s3: {{ arrow_s3 }}
@@ -635,10 +636,45 @@ tasks:
     ci: github
     template: java-jars/github.yml
     artifacts:
-      #TODO(kszucs): need to list the rest of the jars here
-      - arrow-gandiva-{no_rc_version}-SNAPSHOT.jar
-      - arrow-orc-{no_rc_version}-SNAPSHOT.jar
+      - arrow-algorithm-{no_rc_version}-SNAPSHOT-tests.jar
+      - arrow-algorithm-{no_rc_version}-SNAPSHOT.jar
+      - arrow-avro-{no_rc_version}-SNAPSHOT-tests.jar
+      - arrow-avro-{no_rc_version}-SNAPSHOT.jar
+      - arrow-compression-{no_rc_version}-SNAPSHOT-tests.jar
+      - arrow-compression-{no_rc_version}-SNAPSHOT.jar
+      - arrow-dataset-{no_rc_version}-SNAPSHOT-tests.jar
       - arrow-dataset-{no_rc_version}-SNAPSHOT.jar
+      - arrow-format-{no_rc_version}-SNAPSHOT-tests.jar
+      - arrow-format-{no_rc_version}-SNAPSHOT.jar
+      - arrow-gandiva-{no_rc_version}-SNAPSHOT-tests.jar
+      - arrow-gandiva-{no_rc_version}-SNAPSHOT.jar
+      - arrow-jdbc-{no_rc_version}-SNAPSHOT-tests.jar
+      - arrow-jdbc-{no_rc_version}-SNAPSHOT.jar
+      - arrow-memory-core-{no_rc_version}-SNAPSHOT-tests.jar
+      - arrow-memory-core-{no_rc_version}-SNAPSHOT.jar
+      - arrow-memory-netty-{no_rc_version}-SNAPSHOT-tests.jar
+      - arrow-memory-netty-{no_rc_version}-SNAPSHOT.jar
+      - arrow-memory-unsafe-{no_rc_version}-SNAPSHOT-tests.jar
+      - arrow-memory-unsafe-{no_rc_version}-SNAPSHOT.jar
+      - arrow-orc-{no_rc_version}-SNAPSHOT-tests.jar
+      - arrow-orc-{no_rc_version}-SNAPSHOT.jar
+      - arrow-performance-{no_rc_version}-SNAPSHOT-tests.jar
+      - arrow-performance-{no_rc_version}-SNAPSHOT.jar
+      - arrow-plasma-{no_rc_version}-SNAPSHOT-tests.jar
+      - arrow-plasma-{no_rc_version}-SNAPSHOT.jar
+      - arrow-tools-{no_rc_version}-SNAPSHOT-jar-with-dependencies.jar
+      - arrow-tools-{no_rc_version}-SNAPSHOT-tests.jar
+      - arrow-tools-{no_rc_version}-SNAPSHOT.jar
+      - arrow-vector-{no_rc_version}-SNAPSHOT-shade-format-flatbuffers.jar
+      - arrow-vector-{no_rc_version}-SNAPSHOT-tests.jar
+      - arrow-vector-{no_rc_version}-SNAPSHOT.jar
+      - benchmarks.jar
+      - flight-core-{no_rc_version}-SNAPSHOT-jar-with-dependencies.jar
+      - flight-core-{no_rc_version}-SNAPSHOT-shaded-ext.jar
+      - flight-core-{no_rc_version}-SNAPSHOT-shaded.jar
+      - flight-core-{no_rc_version}-SNAPSHOT-tests.jar
+      - flight-core-{no_rc_version}-SNAPSHOT.jar
+      - flight-grpc-{no_rc_version}-SNAPSHOT-tests.jar
 
   ############################## NuGet packages ###############################
 
@@ -789,7 +825,10 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
+        # clang-tools and llvm version need to be synchronized so as
+        # to have the right llvm-symbolizer version
         CLANG_TOOLS: 11
+        LLVM: 11
         UBUNTU: 20.04
       image: ubuntu-cpp-thread-sanitizer
 
@@ -844,6 +883,7 @@ tasks:
     template: docker-tests/azure.linux.yml
     params:
       env:
+        ARROW_R_DEV: "TRUE"
         UBUNTU: 18.04
       run: ubuntu-r-valgrind
 
@@ -860,7 +900,7 @@ tasks:
   test-r-version-compatibility:
     ci: github
     template: r/github.linux.version.compatibility.yml
-    
+
   test-r-rtools-35:
     ci: github
     template: r/github.windows.rtools35.yml

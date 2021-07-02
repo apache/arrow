@@ -1201,6 +1201,27 @@ cdef class Field(_Weakrefable):
             flattened = self.field.Flatten()
         return [pyarrow_wrap_field(f) for f in flattened]
 
+    def _export_to_c(self, uintptr_t out_ptr):
+        """
+        Export to a C ArrowSchema struct, given its pointer.
+
+        Be careful: if you don't pass the ArrowSchema struct to a consumer,
+        its memory will leak.  This is a low-level function intended for
+        expert users.
+        """
+        check_status(ExportField(deref(self.field), <ArrowSchema*> out_ptr))
+
+    @staticmethod
+    def _import_from_c(uintptr_t in_ptr):
+        """
+        Import Field from a C ArrowSchema struct, given its pointer.
+
+        This is a low-level function intended for expert users.
+        """
+        with nogil:
+            result = GetResultValue(ImportField(<ArrowSchema*> in_ptr))
+        return pyarrow_wrap_field(result)
+
 
 cdef class Schema(_Weakrefable):
 

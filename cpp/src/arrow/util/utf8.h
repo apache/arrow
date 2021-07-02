@@ -556,5 +556,15 @@ static inline bool UTF8AllOf(const uint8_t* first, const uint8_t* last, bool* re
   return true;
 }
 
+/// Count the number of codepoints in the given string (assuming it is valid UTF8).
+static inline int64_t UTF8Length(const uint8_t* first, const uint8_t* last) {
+  int64_t length = 0;
+  while (first != last) {
+    length += ((*first & 0xc0) != 0x80);
+    ++first;
+  }
+  return length;
+}
+
 }  // namespace util
 }  // namespace arrow

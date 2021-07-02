@@ -67,13 +67,13 @@ get_exported_functions <- function(decorations, export_tag) {
 
 glue_collapse_data <- function(data, ..., sep = ", ", last = "") {
   res <- glue_collapse(glue_data(data, ...), sep = sep, last = last)
-  if(length(res) == 0) res <- ""
+  if (length(res) == 0) res <- ""
   res
 }
 
 wrap_call <- function(name, return_type, args) {
   call <- glue::glue('{name}({list_params})', list_params = glue_collapse_data(args, "{name}"))
-  if(return_type == "void") {
+  if (return_type == "void") {
     glue::glue("\t{call};\n\treturn R_NilValue;", .trim = FALSE)
   } else {
     glue::glue("\treturn cpp11::as_sexp({call});")
@@ -149,7 +149,7 @@ cpp_functions_definitions <- arrow_exports %>%
       sep = "\n",
       real_params = glue_collapse_data(args, "{type} {name}"),
       input_params = glue_collapse_data(args, "\tarrow::r::Input<{type}>::type {name}({name}_sexp);", sep = "\n"),
-      return_line = if(nrow(args)) "\n" else "")
+      return_line = if (nrow(args)) "\n" else "")
 
     glue::glue('
     // {basename(file)}
@@ -162,7 +162,7 @@ cpp_functions_definitions <- arrow_exports %>%
 
 cpp_functions_registration <- arrow_exports %>%
   select(name, return_type, args) %>%
-  pmap_chr(function(name, return_type, args){
+  pmap_chr(function(name, return_type, args) {
     glue('\t\t{{ "_arrow_{name}", (DL_FUNC) &_arrow_{name}, {nrow(args)}}}, ')
   }) %>%
   glue_collapse(sep = "\n")
@@ -214,6 +214,11 @@ glue::glue('\n
 'extern "C" void R_init_arrow(DllInfo* dll){
   R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
   R_useDynamicSymbols(dll, FALSE);
+
+  #if defined(ARROW_R_WITH_ARROW) && defined(HAS_ALTREP)
+  arrow::r::Init_Altrep_classes(dll);
+  #endif
+
 }
 \n')
 

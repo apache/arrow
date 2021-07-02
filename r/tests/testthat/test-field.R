@@ -36,3 +36,18 @@ test_that("Print method for field", {
     "Field\nzz: dictionary<values=string, indices=int32>"
   )
 })
+
+test_that("Field to C-interface", {
+  field <- field("x", time32("s"))
+
+  # export the field via the C-interface
+  ptr <- allocate_arrow_schema()
+  field$export_to_c(ptr)
+
+  # then import it and check that the roundtripped value is the same
+  circle <- Field$import_from_c(ptr)
+  expect_equal(circle, field)
+
+  # must clean up the pointer or we leak
+  delete_arrow_schema(ptr)
+})

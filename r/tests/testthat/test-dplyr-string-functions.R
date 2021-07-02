@@ -20,6 +20,163 @@ skip_if_not_available("utf8proc")
 
 library(dplyr)
 library(stringr)
+library(stringi)
+
+test_that("paste, paste0, and str_c", {
+  df <- tibble(
+    v = c("A", "B", "C"),
+    w = c("a", "b", "c"),
+    x = c("d", NA_character_, "f"),
+    y = c(NA_character_, "h", "i"),
+    z = c(1.1, 2.2, NA)
+  )
+  x <- Expression$field_ref("x")
+  y <- Expression$field_ref("y")
+
+  # no NAs in data
+  expect_dplyr_equal(
+    input %>%
+      transmute(paste(v, w)) %>%
+      collect(),
+    df
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(paste(v, w, sep = "-")) %>%
+      collect(),
+    df
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(paste0(v, w)) %>%
+      collect(),
+    df
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(str_c(v, w)) %>%
+      collect(),
+    df
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(str_c(v, w, sep = "+")) %>%
+      collect(),
+    df
+  )
+
+  # NAs in data
+  expect_dplyr_equal(
+    input %>%
+      transmute(paste(x, y)) %>%
+      collect(),
+    df
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(paste(x, y, sep = "-")) %>%
+      collect(),
+    df
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(str_c(x, y)) %>%
+      collect(),
+    df
+  )
+
+  # non-character column in dots
+  expect_dplyr_equal(
+    input %>%
+      transmute(paste0(x, y, z)) %>%
+      collect(),
+    df
+  )
+
+  # literal string in dots
+  expect_dplyr_equal(
+    input %>%
+      transmute(paste(x, "foo", y)) %>%
+      collect(),
+    df
+  )
+
+  # literal NA in dots
+  expect_dplyr_equal(
+    input %>%
+      transmute(paste(x, NA, y)) %>%
+      collect(),
+    df
+  )
+
+  # expressions in dots
+  expect_dplyr_equal(
+    input %>%
+      transmute(paste0(x, toupper(y), as.character(z))) %>%
+      collect(),
+    df
+  )
+
+  # sep is literal NA
+  # errors in paste() (consistent with base::paste())
+  expect_error(
+    nse_funcs$paste(x, y, sep = NA_character_),
+    "Invalid separator"
+  )
+  # emits null in str_c() (consistent with stringr::str_c())
+  expect_dplyr_equal(
+    input %>%
+      transmute(str_c(x, y, sep = NA_character_)) %>%
+      collect(),
+    df
+  )
+
+  # sep passed in dots to paste0 (which doesn't take a sep argument)
+  expect_dplyr_equal(
+    input %>%
+      transmute(paste0(x, y, sep = "-")) %>%
+      collect(),
+    df
+  )
+
+  # known differences
+
+  # arrow allows the separator to be an array
+  expect_equal(
+    df %>%
+      Table$create() %>%
+      transmute(result = paste(x, y, sep = w)) %>%
+      collect(),
+    df %>%
+      transmute(result = paste(x, w, y, sep = ""))
+  )
+
+  # expected errors
+
+  # collapse argument not supported
+  expect_error(
+    nse_funcs$paste(x, y, collapse = ""),
+    "collapse"
+  )
+  expect_error(
+    nse_funcs$paste0(x, y, collapse = ""),
+    "collapse"
+  )
+  expect_error(
+    nse_funcs$str_c(x, y, collapse = ""),
+    "collapse"
+  )
+
+  # literal vectors of length != 1 not supported
+  expect_error(
+    nse_funcs$paste(x, character(0), y),
+    "Literal vectors of length != 1 not supported in string concatenation"
+  )
+  expect_error(
+    nse_funcs$paste(x, c(",", ";"), y),
+    "Literal vectors of length != 1 not supported in string concatenation"
+  )
+})
 
 test_that("grepl with ignore.case = FALSE and fixed = TRUE", {
   df <- tibble(x = c("Foo", "bar"))
@@ -556,7 +713,6 @@ test_that("strptime", {
     tstamp,
     check.tzone = FALSE
   )
-
 })
 
 test_that("errors in strptime", {
@@ -566,5 +722,147 @@ test_that("errors in strptime", {
   expect_error(
     nse_funcs$strptime(x, tz = "PDT"),
     'Time zone argument not supported by Arrow'
+  )
+})
+
+test_that("arrow_find_substring and arrow_find_substring_regex", {
+
+  df <- tibble(x = c("Foo and Bar", "baz and qux and quux"))
+
+  expect_equivalent(
+    df %>%
+      Table$create() %>%
+      mutate(x = arrow_find_substring(x, options = list(pattern = "b"))) %>%
+      collect(),
+    tibble(x = c(-1, 0))
+  )
+  expect_equivalent(
+    df %>%
+      Table$create() %>%
+      mutate(x = arrow_find_substring(
+        x,
+        options = list(pattern = "b", ignore_case = TRUE)
+      )) %>%
+      collect(),
+    tibble(x = c(8, 0))
+  )
+  expect_equivalent(
+    df %>%
+      Table$create() %>%
+      mutate(x = arrow_find_substring_regex(
+        x,
+        options = list(pattern = "^[fb]")
+      )) %>%
+      collect(),
+    tibble(x = c(-1, 0))
+  )
+  expect_equivalent(
+    df %>%
+      Table$create() %>%
+      mutate(x = arrow_find_substring_regex(
+        x,
+        options = list(pattern = "[AEIOU]", ignore_case = TRUE)
+      )) %>%
+      collect(),
+    tibble(x = c(1, 1))
+  )
+})
+
+test_that("stri_reverse and arrow_ascii_reverse functions", {
+  
+  df_ascii <- tibble(x = c("Foo\nand bar", "baz\tand qux and quux"))
+  
+  df_utf8 <- tibble(x = c("Foo\u00A0\u0061nd\u00A0bar", "\u0062az\u00A0and\u00A0qux\u3000and\u00A0quux"))
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = stri_reverse(x)) %>%
+      collect(),
+    df_utf8
+  )
+  
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = stri_reverse(x)) %>%
+      collect(),
+    df_ascii
+  )
+  
+  expect_equivalent(
+    df_ascii %>%
+      Table$create() %>%
+      mutate(x = arrow_ascii_reverse(x)) %>%
+      collect(),
+    tibble(x = c("rab dna\nooF", "xuuq dna xuq dna\tzab"))
+  )
+  
+  expect_error(
+    df_utf8 %>%
+      Table$create() %>%
+      mutate(x = arrow_ascii_reverse(x)) %>%
+      collect(),
+    "Invalid: Non-ASCII sequence in input"
+  )
+})
+
+test_that("str_like", {
+  
+  df <- tibble(x = c("Foo and bar", "baz and qux and quux"))
+  
+  # TODO: After new version of stringr with str_like has been released, update all
+  # these tests to use expect_dplyr_equal
+  
+  # No match - entire string
+  expect_equivalent(
+    df %>%
+      Table$create() %>%
+      mutate(x = str_like(x, "baz")) %>%
+      collect(),
+    tibble(x = c(FALSE, FALSE))
+  )
+  
+  # Match - entire string
+  expect_equivalent(
+    df %>%
+      Table$create() %>%
+      mutate(x = str_like(x, "Foo and bar")) %>%
+      collect(),
+    tibble(x = c(TRUE, FALSE))
+  )
+  
+  # Wildcard
+  expect_equivalent(
+    df %>%
+      Table$create() %>%
+      mutate(x = str_like(x, "f%", ignore_case = TRUE)) %>%
+      collect(),
+    tibble(x = c(TRUE, FALSE))
+  )
+  
+  # Ignore case
+  expect_equivalent(
+    df %>%
+      Table$create() %>%
+      mutate(x = str_like(x, "f%", ignore_case = FALSE)) %>%
+      collect(),
+    tibble(x = c(FALSE, FALSE))
+  )
+  
+  # Single character
+  expect_equivalent(
+    df %>%
+      Table$create() %>%
+      mutate(x = str_like(x, "_a%")) %>%
+      collect(),
+    tibble(x = c(FALSE, TRUE))
+  )
+  
+  # This will give an error until a new version of stringr with str_like has been released
+  skip("Test will fail until stringr > 1.4.0 is release")
+  expect_dplyr_equal(
+    input %>%
+      mutate(x = str_like(x, "%baz%")) %>%
+      collect(),
+    df
   )
 })

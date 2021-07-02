@@ -69,10 +69,12 @@ class PrettyPrinter {
 };
 
 void PrettyPrinter::OpenArray(const Array& array) {
-  Indent();
+  if (!options_.skip_new_lines) {
+    Indent();
+  }
   (*sink_) << "[";
   if (array.length() > 0) {
-    (*sink_) << "\n";
+    Newline();
     indent_ += options_.indent_size;
   }
 }
@@ -103,7 +105,6 @@ void PrettyPrinter::Newline() {
     return;
   }
   (*sink_) << "\n";
-  Indent();
 }
 
 void PrettyPrinter::Indent() {
@@ -124,11 +125,15 @@ class ArrayPrinter : public PrettyPrinter {
       if (skip_comma) {
         skip_comma = false;
       } else {
-        (*sink_) << ",\n";
+        (*sink_) << ",";
+        Newline();
       }
-      Indent();
+      if (!options_.skip_new_lines) {
+        Indent();
+      }
       if ((i >= options_.window) && (i < (array.length() - options_.window))) {
-        (*sink_) << "...\n";
+        (*sink_) << "...";
+        Newline();
         i = array.length() - options_.window - 1;
         skip_comma = true;
       } else if (array.IsNull(i)) {
@@ -137,7 +142,7 @@ class ArrayPrinter : public PrettyPrinter {
         func(i);
       }
     }
-    (*sink_) << "\n";
+    Newline();
   }
 
   Status WriteDataValues(const BooleanArray& array) {
@@ -248,11 +253,13 @@ class ArrayPrinter : public PrettyPrinter {
       if (skip_comma) {
         skip_comma = false;
       } else {
-        (*sink_) << ",\n";
+        (*sink_) << ",";
+        Newline();
       }
       if ((i >= options_.window) && (i < (array.length() - options_.window))) {
         Indent();
-        (*sink_) << "...\n";
+        (*sink_) << "...";
+        Newline();
         i = array.length() - options_.window - 1;
         skip_comma = true;
       } else if (array.IsNull(i)) {
@@ -261,10 +268,11 @@ class ArrayPrinter : public PrettyPrinter {
       } else {
         std::shared_ptr<Array> slice =
             array.values()->Slice(array.value_offset(i), array.value_length(i));
-        RETURN_NOT_OK(PrettyPrint(*slice, {indent_, options_.window}, sink_));
+        RETURN_NOT_OK(
+            PrettyPrint(*slice, PrettyPrintOptions{indent_, options_.window}, sink_));
       }
     }
-    (*sink_) << "\n";
+    Newline();
     return Status::OK();
   }
 
@@ -274,28 +282,36 @@ class ArrayPrinter : public PrettyPrinter {
       if (skip_comma) {
         skip_comma = false;
       } else {
-        (*sink_) << ",\n";
+        (*sink_) << ",";
+        Newline();
       }
-      if ((i >= options_.window) && (i < (array.length() - options_.window))) {
+
+      if (!options_.skip_new_lines) {
         Indent();
-        (*sink_) << "...\n";
+      }
+
+      if ((i >= options_.window) && (i < (array.length() - options_.window))) {
+        (*sink_) << "...";
+        Newline();
         i = array.length() - options_.window - 1;
         skip_comma = true;
       } else if (array.IsNull(i)) {
-        Indent();
         (*sink_) << options_.null_rep;
       } else {
-        Indent();
-        (*sink_) << "keys:\n";
+        (*sink_) << "keys:";
+        Newline();
         auto keys_slice =
             array.keys()->Slice(array.value_offset(i), array.value_length(i));
-        RETURN_NOT_OK(PrettyPrint(*keys_slice, {indent_, options_.window}, sink_));
-        (*sink_) << "\n";
+        RETURN_NOT_OK(PrettyPrint(*keys_slice,
+                                  PrettyPrintOptions{indent_, options_.window}, sink_));
+        Newline();
         Indent();
-        (*sink_) << "values:\n";
+        (*sink_) << "values:";
+        Newline();
         auto values_slice =
             array.items()->Slice(array.value_offset(i), array.value_length(i));
-        RETURN_NOT_OK(PrettyPrint(*values_slice, {indent_, options_.window}, sink_));
+        RETURN_NOT_OK(PrettyPrint(*values_slice,
+                                  PrettyPrintOptions{indent_, options_.window}, sink_));
       }
     }
     (*sink_) << "\n";
@@ -334,6 +350,7 @@ class ArrayPrinter : public PrettyPrinter {
                        int64_t length) {
     for (size_t i = 0; i < fields.size(); ++i) {
       Newline();
+      Indent();
       std::stringstream ss;
       ss << "-- child " << i << " type: " << fields[i]->type()->ToString() << "\n";
       Write(ss.str());
@@ -361,12 +378,14 @@ class ArrayPrinter : public PrettyPrinter {
     RETURN_NOT_OK(WriteValidityBitmap(array));
 
     Newline();
+    Indent();
     Write("-- type_ids: ");
     UInt8Array type_codes(array.length(), array.type_codes(), nullptr, 0, array.offset());
     RETURN_NOT_OK(PrettyPrint(type_codes, indent_ + options_.indent_size, sink_));
 
     if (array.mode() == UnionMode::DENSE) {
       Newline();
+      Indent();
       Write("-- value_offsets: ");
       Int32Array value_offsets(
           array.length(), checked_cast<const DenseUnionArray&>(array).value_offsets(),
@@ -385,11 +404,13 @@ class ArrayPrinter : public PrettyPrinter {
 
   Status Visit(const DictionaryArray& array) {
     Newline();
+    Indent();
     Write("-- dictionary:\n");
     RETURN_NOT_OK(
         PrettyPrint(*array.dictionary(), indent_ + options_.indent_size, sink_));
 
     Newline();
+    Indent();
     Write("-- indices:\n");
     return PrettyPrint(*array.indices(), indent_ + options_.indent_size, sink_);
   }
@@ -440,6 +461,7 @@ Status ArrayPrinter::WriteValidityBitmap(const Array& array) {
 
   if (array.null_count() > 0) {
     Newline();
+    Indent();
     BooleanArray is_valid(array.length(), array.null_bitmap(), nullptr, 0,
                           array.offset());
     return PrettyPrint(is_valid, indent_ + options_.indent_size, sink_);
@@ -479,19 +501,28 @@ Status PrettyPrint(const ChunkedArray& chunked_arr, const PrettyPrintOptions& op
   for (int i = 0; i < indent; ++i) {
     (*sink) << " ";
   }
-  (*sink) << "[\n";
+  (*sink) << "[";
+  if (!options.skip_new_lines) {
+    *sink << "\n";
+  }
   bool skip_comma = true;
   for (int i = 0; i < num_chunks; ++i) {
     if (skip_comma) {
       skip_comma = false;
     } else {
-      (*sink) << ",\n";
+      (*sink) << ",";
+      if (!options.skip_new_lines) {
+        *sink << "\n";
+      }
     }
     if ((i >= window) && (i < (num_chunks - window))) {
       for (int i = 0; i < indent; ++i) {
         (*sink) << " ";
       }
-      (*sink) << "...\n";
+      (*sink) << "...";
+      if (!options.skip_new_lines) {
+        *sink << "\n";
+      }
       i = num_chunks - window - 1;
       skip_comma = true;
     } else {
@@ -501,7 +532,9 @@ Status PrettyPrint(const ChunkedArray& chunked_arr, const PrettyPrintOptions& op
       RETURN_NOT_OK(printer.Print(*chunked_arr.chunk(i)));
     }
   }
-  (*sink) << "\n";
+  if (!options.skip_new_lines) {
+    *sink << "\n";
+  }
 
   for (int i = 0; i < indent; ++i) {
     (*sink) << " ";
@@ -581,6 +614,7 @@ class SchemaPrinter : public PrettyPrinter {
   void PrintVerboseMetadata(const KeyValueMetadata& metadata) {
     for (int64_t i = 0; i < metadata.size(); ++i) {
       Newline();
+      Indent();
       Write(metadata.key(i) + ": '" + metadata.value(i) + "'");
     }
   }
@@ -588,6 +622,7 @@ class SchemaPrinter : public PrettyPrinter {
   void PrintTruncatedMetadata(const KeyValueMetadata& metadata) {
     for (int64_t i = 0; i < metadata.size(); ++i) {
       Newline();
+      Indent();
       size_t size = metadata.value(i).size();
       size_t truncated_size = std::max<size_t>(10, 70 - metadata.key(i).size() - indent_);
       if (size <= truncated_size) {
@@ -603,6 +638,7 @@ class SchemaPrinter : public PrettyPrinter {
   void PrintMetadata(const std::string& metadata_type, const KeyValueMetadata& metadata) {
     if (metadata.size() > 0) {
       Newline();
+      Indent();
       Write(metadata_type);
       if (options_.truncate_metadata) {
         PrintTruncatedMetadata(metadata);
@@ -616,6 +652,7 @@ class SchemaPrinter : public PrettyPrinter {
     for (int i = 0; i < schema_.num_fields(); ++i) {
       if (i > 0) {
         Newline();
+        Indent();
       } else {
         Indent();
       }
@@ -640,6 +677,7 @@ Status SchemaPrinter::PrintType(const DataType& type, bool nullable) {
   }
   for (int i = 0; i < type.num_fields(); ++i) {
     Newline();
+    Indent();
 
     std::stringstream ss;
     ss << "child " << i << ", ";

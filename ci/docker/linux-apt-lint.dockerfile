@@ -49,12 +49,8 @@ RUN arrow/ci/scripts/install_iwyu.sh /tmp/iwyu /usr/local ${clang_tools}
 RUN ln -s /usr/bin/python3 /usr/local/bin/python && \
     ln -s /usr/bin/pip3 /usr/local/bin/pip
 
-COPY dev/archery/requirements.txt \
-     dev/archery/requirements-lint.txt \
-     /arrow/dev/archery/
-RUN pip install \
-      -r arrow/dev/archery/requirements.txt \
-      -r arrow/dev/archery/requirements-lint.txt
+COPY dev/archery/setup.py /arrow/dev/archery/
+RUN pip install -e arrow/dev/archery[lint]
 
 ENV LC_ALL=C.UTF-8 \
     LANG=C.UTF-8

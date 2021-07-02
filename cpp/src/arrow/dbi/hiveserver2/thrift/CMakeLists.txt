@@ -44,9 +44,9 @@ function(HS2_THRIFT_GEN VAR)
     # All the output files we can determine based on filename.
     #   - Does not include .skeleton.cpp files
     #   - Does not include java output files
-    set(OUTPUT_BE_FILE "${GEN_DIR}/${FIL_WE}_types.cpp" "${GEN_DIR}/${FIL_WE}_types.h"
-                       "${GEN_DIR}/${FIL_WE}_constants.cpp"
-                       "${GEN_DIR}/${FIL_WE}_constants.h")
+    set(OUTPUT_BE_FILE
+        "${GEN_DIR}/${FIL_WE}_types.cpp" "${GEN_DIR}/${FIL_WE}_types.h"
+        "${GEN_DIR}/${FIL_WE}_constants.cpp" "${GEN_DIR}/${FIL_WE}_constants.h")
     list(APPEND ${VAR} ${OUTPUT_BE_FILE})
 
     # BeeswaxService thrift generation
@@ -80,7 +80,9 @@ function(HS2_THRIFT_GEN VAR)
                        VERBATIM)
   endforeach(FIL)
 
-  set(${VAR} ${${VAR}} PARENT_SCOPE)
+  set(${VAR}
+      ${${VAR}}
+      PARENT_SCOPE)
 endfunction(HS2_THRIFT_GEN)
 
 message("Using Thrift compiler: ${THRIFT_COMPILER}")
@@ -102,8 +104,9 @@ set(SRC_FILES
     Status.thrift
     Types.thrift)
 
-set_source_files_properties(Status.thrift PROPERTIES OBJECT_DEPENDS
-                            ${CMAKE_CURRENT_BINARY_DIR}/ErrorCodes.thrift)
+set_source_files_properties(Status.thrift
+                            PROPERTIES OBJECT_DEPENDS
+                                       ${CMAKE_CURRENT_BINARY_DIR}/ErrorCodes.thrift)
 
 # Create a build command for each of the thrift src files and generate
 # a list of files they produce

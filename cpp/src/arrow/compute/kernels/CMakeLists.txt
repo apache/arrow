@@ -27,6 +27,7 @@ add_arrow_compute_test(scalar_test
                        scalar_nested_test.cc
                        scalar_set_lookup_test.cc
                        scalar_string_test.cc
+                       scalar_temporal_test.cc
                        scalar_validity_test.cc
                        scalar_fill_null_test.cc
                        scalar_if_else_test.cc
@@ -36,6 +37,7 @@ add_arrow_benchmark(scalar_arithmetic_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(scalar_boolean_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(scalar_cast_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(scalar_compare_benchmark PREFIX "arrow-compute")
+add_arrow_benchmark(scalar_if_else_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(scalar_set_lookup_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(scalar_string_benchmark PREFIX "arrow-compute")
 

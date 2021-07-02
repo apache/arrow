@@ -365,6 +365,7 @@ services:
       <<: *ccache
       CC: clang-${CLANG_TOOLS}
       CXX: clang++-${CLANG_TOOLS}
+      ARROW_BUILD_STATIC: "OFF"
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_FUZZING: "ON"  # Check fuzz regressions
       ARROW_JEMALLOC: "OFF"
@@ -399,6 +400,7 @@ services:
       <<: *ccache
       CC: clang-${CLANG_TOOLS}
       CXX: clang++-${CLANG_TOOLS}
+      ARROW_BUILD_STATIC: "OFF"
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_DATASET: "ON"
       ARROW_JEMALLOC: "OFF"
@@ -1089,6 +1091,7 @@ services:
         r_bin: RDvalgrind
     environment:
       <<: *ccache
+      ARROW_R_DEV: ${ARROW_R_DEV}
       # AVX512 not supported by Valgrind (similar to ARROW-9851) some runners support AVX512 and some do not
       # so some build might pass without this setting, but we want to ensure that we stay to AVX2 regardless of runner.
       EXTRA_CMAKE_FLAGS: "-DARROW_RUNTIME_SIMD_LEVEL=AVX2"
@@ -1220,12 +1223,12 @@ services:
     #   docker-compose build debian-java
     #   docker-compose build debian-java-jni
     #   docker-compose run debian-java-jni
-    image: ${REPO}:${ARCH}-debian-9-java-jni
+    image: ${REPO}:${ARCH}-debian-9-java-${JDK}-maven-${MAVEN}-jni
     build:
       context: .
       dockerfile: ci/docker/linux-apt-jni.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-debian-9-java-jni
+        - ${REPO}:${ARCH}-debian-9-java-${JDK}-maven-${MAVEN}-jni
       args:
         base: ${REPO}:${ARCH}-debian-9-java-${JDK}-maven-${MAVEN}
         llvm: ${LLVM}
@@ -1293,6 +1296,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-docs
       args:
+        r: ${R}
         jdk: ${JDK}
         node: ${NODE}
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
@@ -1330,10 +1334,7 @@ services:
     environment:
       <<: *ccache
     volumes: *ubuntu-volumes
-    command: >
-      /bin/bash -c "
-        pip install -e /arrow/dev/archery &&
-        archery lint --all --no-clang-tidy --no-iwyu --no-numpydoc"
+    command: archery lint --all --no-clang-tidy --no-iwyu --no-numpydoc
 
   ######################### Integration Tests #################################
 

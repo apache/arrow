@@ -23,6 +23,7 @@
 
 #include "arrow/array/builder_base.h"
 #include "arrow/array/data.h"
+#include "arrow/result.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 
@@ -185,9 +186,9 @@ class NumericBuilder : public ArrayBuilder {
   }
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override {
-    std::shared_ptr<Buffer> data, null_bitmap;
-    ARROW_RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
-    ARROW_RETURN_NOT_OK(data_builder_.Finish(&data));
+    ARROW_ASSIGN_OR_RAISE(auto null_bitmap,
+                          null_bitmap_builder_.FinishWithLength(length_));
+    ARROW_ASSIGN_OR_RAISE(auto data, data_builder_.FinishWithLength(length_));
     *out = ArrayData::Make(type(), length_, {null_bitmap, data}, null_count_);
     capacity_ = length_ = null_count_ = 0;
     return Status::OK();

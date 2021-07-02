@@ -76,7 +76,7 @@
     "eslint-plugin-jest": "24.3.6",
     "esm": "https://github.com/jsg2021/esm/releases/download/v3.x.x-pr883/esm-3.x.x-pr883.tgz",
     "glob": "7.1.7",
-    "google-closure-compiler": "20210505.0.0",
+    "google-closure-compiler": "20210601.0.0",
     "gulp": "4.0.2",
     "gulp-json-transform": "0.4.7",
     "gulp-rename": "2.0.0",
