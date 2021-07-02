@@ -3141,20 +3141,26 @@ def test_write_dataset_use_threads(tempdir):
     paths_written = []
 
     def file_visitor(written_file):
+        print(f'Visiting {written_file.path}')
         paths_written.append(written_file.path)
 
     ds.write_dataset(
         dataset, target1, format="feather", partitioning=partitioning,
         use_threads=True, file_visitor=file_visitor
     )
-    expected_paths = [
+
+    # Since it is a multi-threaded write there is no way to know which
+    # directory gets part-0 and which gets part-1
+    expected_paths_a = {
         target1 / 'part=a' / 'part-0.feather',
-        target1 / 'part=a' / 'part-1.feather',
-        target1 / 'part=b' / 'part-0.feather',
         target1 / 'part=b' / 'part-1.feather'
-    ]
-    for path in paths_written:
-        assert pathlib.Path(path) in expected_paths
+    }
+    expected_paths_b = {
+        target1 / 'part=a' / 'part-1.feather',
+        target1 / 'part=b' / 'part-0.feather'
+    }
+    paths_written_set = set(map(pathlib.Path, paths_written))
+    assert paths_written_set in [expected_paths_a, expected_paths_b]
 
     target2 = tempdir / 'partitioned2'
     ds.write_dataset(
@@ -3501,20 +3507,3 @@ def test_dataset_null_to_dictionary_cast(tempdir, dataset_reader):
     )
     table = dataset_reader.to_table(fsds)
     assert table.schema == schema
-
-
-def test_visit_strings_adhoc():
-    import pyarrow._dataset as _ds
-
-    strings = ['a', 'b', 'c']
-    visited = []
-    _ds._visit_strings(strings, visited.append)
-
-    assert visited == strings
-
-    with pytest.raises(ValueError, match="wtf"):
-        def raise_on_b(s):
-            if s == 'b':
-                raise ValueError('wtf')
-
-        _ds._visit_strings(strings, raise_on_b)

@@ -3080,18 +3080,15 @@ cdef void _filesystemdataset_write_visitor(
         FileMetaData parquet_metadata
         CParquetFileWriter* parquet_file_writer
 
-    if file_writer == nullptr:
-        return
-
     parquet_metadata = None
     path = frombytes(deref(file_writer).destination().path)
-    base_dir = frombytes(visit_args['base_dir'])
     if deref(deref(file_writer).format()).type_name() == b"parquet":
         parquet_file_writer = dynamic_cast[_CParquetFileWriterPtr](file_writer)
         with nogil:
             metadata = deref(
                 deref(parquet_file_writer).parquet_writer()).metadata()
         if metadata:
+            base_dir = frombytes(visit_args['base_dir'])
             parquet_metadata = FileMetaData()
             parquet_metadata.init(metadata)
             parquet_metadata.set_file_path(os.path.relpath(path, base_dir))
@@ -3117,7 +3114,6 @@ def _filesystemdataset_write(
         shared_ptr[CScanner] c_scanner
         vector[shared_ptr[CRecordBatch]] c_batches
         dict visit_args
-        function[cb_writer_finish] c_post_finish_cb
 
     c_options.file_write_options = file_options.unwrap()
     c_options.filesystem = filesystem.unwrap()
@@ -3125,7 +3121,6 @@ def _filesystemdataset_write(
     c_options.partitioning = partitioning.unwrap()
     c_options.max_partitions = max_partitions
     c_options.basename_template = tobytes(basename_template)
-    c_post_finish_cb = _filesystemdataset_write_visitor
     if file_visitor is not None:
         visit_args = {'base_dir': c_options.base_dir,
                       'file_visitor': file_visitor}
