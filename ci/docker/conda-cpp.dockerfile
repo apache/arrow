@@ -20,12 +20,12 @@ ARG arch
 FROM ${repo}:${arch}-conda
 
 # install the required conda packages into the test environment
-COPY ci/conda_env_cpp.yml \
-     ci/conda_env_gandiva.yml \
+COPY ci/conda_env_cpp.txt \
+     ci/conda_env_gandiva.txt \
      /arrow/ci/
 RUN conda install \
-        --file arrow/ci/conda_env_cpp.yml \
-        --file arrow/ci/conda_env_gandiva.yml \
+        --file arrow/ci/conda_env_cpp.txt \
+        --file arrow/ci/conda_env_gandiva.txt \
         compilers \
         doxygen \
         valgrind && \
