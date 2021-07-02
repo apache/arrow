@@ -644,7 +644,7 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
         [&]() { builder.UnsafeAppendNull(); });
     ARROW_ASSIGN_OR_RAISE(auto out_arr, builder.Finish());
 
-    out->null_count = std::move(out_arr->data()->null_count);
+    out->SetNullCount(out_arr->data()->null_count);
     out->buffers[0] = std::move(out_arr->data()->buffers[0]);
     out->buffers[1] = std::move(out_arr->data()->buffers[1]);
     out->buffers[2] = std::move(out_arr->data()->buffers[2]);
@@ -677,7 +677,7 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
         [&]() { builder.UnsafeAppendNull(); });
     ARROW_ASSIGN_OR_RAISE(auto out_arr, builder.Finish());
 
-    out->null_count = std::move(out_arr->data()->null_count);
+    out->SetNullCount(out_arr->data()->null_count);
     out->buffers[0] = std::move(out_arr->data()->buffers[0]);
     out->buffers[1] = std::move(out_arr->data()->buffers[1]);
     out->buffers[2] = std::move(out_arr->data()->buffers[2]);
@@ -711,7 +711,7 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
         [&]() { builder.UnsafeAppendNull(); });
     ARROW_ASSIGN_OR_RAISE(auto out_arr, builder.Finish());
 
-    out->null_count = std::move(out_arr->data()->null_count);
+    out->SetNullCount(out_arr->data()->null_count);
     out->buffers[0] = std::move(out_arr->data()->buffers[0]);
     out->buffers[1] = std::move(out_arr->data()->buffers[1]);
     out->buffers[2] = std::move(out_arr->data()->buffers[2]);
@@ -739,7 +739,7 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
         [&]() { builder.UnsafeAppendNull(); });
     ARROW_ASSIGN_OR_RAISE(auto out_arr, builder.Finish());
 
-    out->null_count = std::move(out_arr->data()->null_count);
+    out->SetNullCount(out_arr->data()->null_count);
     out->buffers[0] = std::move(out_arr->data()->buffers[0]);
     out->buffers[1] = std::move(out_arr->data()->buffers[1]);
     out->buffers[2] = std::move(out_arr->data()->buffers[2]);

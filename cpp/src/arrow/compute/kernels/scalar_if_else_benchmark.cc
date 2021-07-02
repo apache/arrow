@@ -26,9 +26,36 @@ namespace compute {
 
 const int64_t elems = 1024 * 1024;
 
+template <typename Type, typename Enable = void>
+struct SetBytesProcessed {};
+
+template <typename Type>
+struct SetBytesProcessed<Type, enable_if_number<Type>> {
+  static void Set(const std::shared_ptr<Array>& cond, const std::shared_ptr<Array>& left,
+                  const std::shared_ptr<Array>& right, benchmark::State* state) {
+    using CType = typename Type::c_type;
+    state->SetBytesProcessed(state->iterations() *
+                             (cond->length() / 8 + 2 * cond->length() * sizeof(CType)));
+  }
+};
+
+template <typename Type>
+struct SetBytesProcessed<Type, enable_if_base_binary<Type>> {
+  static void Set(const std::shared_ptr<Array>& cond, const std::shared_ptr<Array>& left,
+                  const std::shared_ptr<Array>& right, benchmark::State* state) {
+    using ArrayType = typename TypeTraits<Type>::ArrayType;
+    using OffsetType = typename TypeTraits<Type>::OffsetType::c_type;
+
+    state->SetBytesProcessed(
+        state->iterations() *
+        (cond->length() / 8 + 2 * cond->length() * sizeof(OffsetType) +
+         std::static_pointer_cast<ArrayType>(left)->total_values_length() +
+         std::static_pointer_cast<ArrayType>(right)->total_values_length()));
+  }
+};
+
 template <typename Type>
 static void IfElseBench(benchmark::State& state) {
-  //  using CType = typename Type::c_type;
   auto type = TypeTraits<Type>::type_singleton();
   using ArrayType = typename TypeTraits<Type>::ArrayType;
 
@@ -38,23 +65,24 @@ static void IfElseBench(benchmark::State& state) {
   random::RandomArrayGenerator rand(/*seed=*/0);
 
   auto cond = std::static_pointer_cast<BooleanArray>(
-      rand.ArrayOf(boolean(), len, /*null_probability=*/0.01));
+                  rand.ArrayOf(boolean(), len, /*null_probability=*/0.01))
+                  ->Slice(offset);
   auto left = std::static_pointer_cast<ArrayType>(
-      rand.ArrayOf(type, len, /*null_probability=*/0.01));
+                  rand.ArrayOf(type, len, /*null_probability=*/0.01))
+                  ->Slice(offset);
   auto right = std::static_pointer_cast<ArrayType>(
-      rand.ArrayOf(type, len, /*null_probability=*/0.01));
+                   rand.ArrayOf(type, len, /*null_probability=*/0.01))
+                   ->Slice(offset);
 
   for (auto _ : state) {
-    ABORT_NOT_OK(IfElse(cond->Slice(offset), left->Slice(offset), right->Slice(offset)));
+    ABORT_NOT_OK(IfElse(cond, left, right));
   }
 
-  //  state.SetBytesProcessed(state.iterations() *
-  //                          ((len - offset) / 8 + 2 * (len - offset) * sizeof(CType)));
+  SetBytesProcessed<Type>::Set(cond, left, right, &state);
 }
 
 template <typename Type>
 static void IfElseBenchContiguous(benchmark::State& state) {
-  //  using CType = typename Type::c_type;
   auto type = TypeTraits<Type>::type_singleton();
   using ArrayType = typename TypeTraits<Type>::ArrayType;
 
@@ -65,20 +93,21 @@ static void IfElseBenchContiguous(benchmark::State& state) {
   ASSERT_OK_AND_ASSIGN(auto temp2,
                        MakeArrayFromScalar(BooleanScalar(false), len - len / 2));
   ASSERT_OK_AND_ASSIGN(auto concat, Concatenate({temp1, temp2}));
-  auto cond = std::static_pointer_cast<BooleanArray>(concat);
+  auto cond = std::static_pointer_cast<BooleanArray>(concat)->Slice(offset);
 
   random::RandomArrayGenerator rand(/*seed=*/0);
   auto left = std::static_pointer_cast<ArrayType>(
-      rand.ArrayOf(type, len, /*null_probability=*/0.01));
+                  rand.ArrayOf(type, len, /*null_probability=*/0.01))
+                  ->Slice(offset);
   auto right = std::static_pointer_cast<ArrayType>(
-      rand.ArrayOf(type, len, /*null_probability=*/0.01));
+                   rand.ArrayOf(type, len, /*null_probability=*/0.01))
+                   ->Slice(offset);
 
   for (auto _ : state) {
-    ABORT_NOT_OK(IfElse(cond->Slice(offset), left->Slice(offset), right->Slice(offset)));
+    ABORT_NOT_OK(IfElse(cond, left, right));
   }
 
-  //  state.SetBytesProcessed(state.iterations() *
-  //                          ((len - offset) / 8 + 2 * (len - offset) * sizeof(CType)));
+  SetBytesProcessed<Type>::Set(cond, left, right, &state);
 }
 
 static void IfElseBench64(benchmark::State& state) {
