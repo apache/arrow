@@ -42,16 +42,16 @@ jobs:
       - name: Install System Dependencies
         run: brew install bison coreutils ninja cmake
 
-      - uses: actions/cache@v2
-        id: vcpkg-cache
-        with:
-          path: vcpkg
-          key: vcpkg-{{ macos_deployment_target }}-{{ vcpkg_version }}-{{ "${{ hashFiles('arrow/ci/vcpkg/**') }}" }}
+      # - uses: actions/cache@v2
+      #   id: vcpkg-cache
+      #   with:
+      #     path: vcpkg
+      #     key: vcpkg-{{ macos_deployment_target }}-{{ vcpkg_version }}-{{ "${{ hashFiles('arrow/ci/vcpkg/**') }}" }}
 
       - name: Install Vcpkg
-        if: steps.vcpkg-cache.outputs.cache-hit != 'true'
+        # if: steps.vcpkg-cache.outputs.cache-hit != 'true'
         shell: bash
-        run: arrow/ci/scripts/install_vcpkg.sh $VCPKG_VERSION $VCPKG_ROOT
+        run: arrow/ci/scripts/install_vcpkg.sh {{ vcpkg_version }} $VCPKG_ROOT
 
       - name: Install Packages
         run: |
