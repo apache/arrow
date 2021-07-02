@@ -33,10 +33,7 @@ git clone --depth 1 --branch ${vcpkg_version} https://github.com/microsoft/vcpkg
 pushd ${vcpkg_destination}
 
 ./bootstrap-vcpkg.sh -useSystemBinaries -disableMetrics
-
-if ! git apply --reverse --check --ignore-whitespace ${vcpkg_patch}; then
-  git apply --ignore-whitespace ${vcpkg_patch}
-  echo "Patch successfully applied!"
-fi
+git apply --ignore-whitespace ${vcpkg_patch}
+echo "Patch successfully applied!"
 
 popd
