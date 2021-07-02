@@ -28,7 +28,9 @@
 
 namespace arrow {
 namespace compute {
-// Helper class for efficiently detecting subtrees given fragment partition expressions.
+// Helper class for efficiently detecting subtrees given expressions.
+//
+// Using fragment partition expressions as an example:
 // Partition expressions are broken into conjunction members and each member dictionary
 // encoded to impose a sortable ordering. In addition, subtrees are generated which span
 // groups of fragments and nested subtrees. After encoding each fragment is guaranteed to
@@ -58,10 +60,13 @@ struct SubtreeImpl {
   // Partition expressions are mapped to strings of codes; strings give us lexicographic
   // ordering (and potentially useful optimizations).
   using expression_codes = std::basic_string<expression_code>;
-  // An encoded fragment (if fragment_index is set) or subtree.
+  // An encoded guarantee (if index is set) or subtree.
   struct Encoded {
-    util::optional<int> fragment_index;
-    expression_codes partition_expression;
+    // An external index identifying the corresponding object (e.g. a Fragment) of the
+    // guarantee.
+    util::optional<int> index;
+    // An encoded expression representing a guarantee.
+    expression_codes guarantee;
   };
 
   std::unordered_map<compute::Expression, expression_code, compute::Expression::Hash>
@@ -95,53 +100,78 @@ struct SubtreeImpl {
     codes->push_back(GetOrInsert(expr));
   }
 
-  // Convert an encoded subtree or fragment back into an expression.
+  // Convert an encoded subtree or guarantee back into an expression.
   compute::Expression GetSubtreeExpression(const Encoded& encoded_subtree) {
     // Filters will already be simplified by all of a subtree's ancestors, so
     // we only need to simplify the filter by the trailing conjunction member
     // of each subtree.
-    return code_to_expr_[encoded_subtree.partition_expression.back()];
+    return code_to_expr_[encoded_subtree.guarantee.back()];
   }
 
   // Insert subtrees for each component of an encoded partition expression.
-  void GenerateSubtrees(expression_codes partition_expression,
-                        std::vector<Encoded>* encoded) {
-    while (!partition_expression.empty()) {
-      if (subtree_exprs_.insert(partition_expression).second) {
-        Encoded encoded_subtree{/*fragment_index=*/util::nullopt, partition_expression};
+  void GenerateSubtrees(expression_codes guarantee, std::vector<Encoded>* encoded) {
+    while (!guarantee.empty()) {
+      if (subtree_exprs_.insert(guarantee).second) {
+        Encoded encoded_subtree{/*index=*/util::nullopt, guarantee};
         encoded->push_back(std::move(encoded_subtree));
       }
-      partition_expression.resize(partition_expression.size() - 1);
+      guarantee.resize(guarantee.size() - 1);
     }
   }
 
-  // Encode the fragment's partition expression and generate subtrees for it as well.
-  void EncodeOneExpression(int fragment_index, const Expression& partition_expression,
-                           std::vector<Encoded>* encoded) {
-    Encoded encoded_fragment{fragment_index, {}};
-
-    EncodeConjunctionMembers(partition_expression,
-                             &encoded_fragment.partition_expression);
-
-    GenerateSubtrees(encoded_fragment.partition_expression, encoded);
-
-    encoded->push_back(std::move(encoded_fragment));
+  // Encode a guarantee, and generate subtrees for it as well.
+  void EncodeOneGuarantee(int index, const Expression& guarantee,
+                          std::vector<Encoded>* encoded) {
+    Encoded encoded_guarantee{index, {}};
+    EncodeConjunctionMembers(guarantee, &encoded_guarantee.guarantee);
+    GenerateSubtrees(encoded_guarantee.guarantee, encoded);
+    encoded->push_back(std::move(encoded_guarantee));
   }
 
-  template <typename Fragments>
-  std::vector<Encoded> EncodeFragments(const Fragments& fragments) {
+  template <typename GetGuarantee>
+  std::vector<Encoded> EncodeGuarantees(const GetGuarantee& get, int count) {
     std::vector<Encoded> encoded;
-    for (size_t i = 0; i < fragments.size(); ++i) {
-      EncodeOneExpression(static_cast<int>(i), fragments[i]->partition_expression(),
-                          &encoded);
+    for (int i = 0; i < count; ++i) {
+      EncodeOneGuarantee(i, get(i), &encoded);
     }
     return encoded;
   }
+
+  // Comparator for sort
+  struct ByGuarantee {
+    bool operator()(const Encoded& l, const Encoded& r) {
+      const auto cmp = l.guarantee.compare(r.guarantee);
+      if (cmp != 0) {
+        return cmp < 0;
+      }
+      // Equal guarantees; sort encodings with indices after encodings without
+      return (l.index ? 1 : 0) < (r.index ? 1 : 0);
+    }
+  };
+
+  // Comparator for building a Forest
+  struct IsAncestor {
+    const std::vector<Encoded> encoded;
+
+    bool operator()(int l, int r) const {
+      if (encoded[l].index) {
+        // Leaf-level object (e.g. a Fragment): not an ancestor.
+        return false;
+      }
+
+      const auto& ancestor = encoded[l].guarantee;
+      const auto& descendant = encoded[r].guarantee;
+
+      if (descendant.size() >= ancestor.size()) {
+        return std::equal(ancestor.begin(), ancestor.end(), descendant.begin());
+      }
+      return false;
+    }
+  };
 };
 
 inline bool operator==(const SubtreeImpl::Encoded& l, const SubtreeImpl::Encoded& r) {
-  return l.fragment_index == r.fragment_index &&
-         l.partition_expression == r.partition_expression;
+  return l.index == r.index && l.guarantee == r.guarantee;
 }
 
 }  // namespace compute

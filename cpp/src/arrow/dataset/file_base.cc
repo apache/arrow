@@ -246,43 +246,22 @@ void FileSystemDataset::SetupSubtreePruning() {
   subtrees_ = std::make_shared<FragmentSubtrees>();
   compute::SubtreeImpl impl;
 
-  auto encoded = impl.EncodeFragments(fragments_);
+  auto encoded = impl.EncodeGuarantees(
+      [&](int index) { return fragments_[index]->partition_expression(); },
+      static_cast<int>(fragments_.size()));
 
-  std::sort(
-      encoded.begin(), encoded.end(),
-      [](const compute::SubtreeImpl::Encoded& l, const compute::SubtreeImpl::Encoded& r) {
-        const auto cmp = l.partition_expression.compare(r.partition_expression);
-        if (cmp != 0) {
-          return cmp < 0;
-        }
-        // Equal partition expressions; sort encodings with fragment indices after
-        // encodings without
-        return (l.fragment_index ? 1 : 0) < (r.fragment_index ? 1 : 0);
-      });
+  std::sort(encoded.begin(), encoded.end(), compute::SubtreeImpl::ByGuarantee());
 
   for (const auto& e : encoded) {
-    if (e.fragment_index) {
-      subtrees_->fragments_and_subtrees.emplace_back(*e.fragment_index);
+    if (e.index) {
+      subtrees_->fragments_and_subtrees.emplace_back(*e.index);
     } else {
       subtrees_->fragments_and_subtrees.emplace_back(impl.GetSubtreeExpression(e));
     }
   }
 
-  subtrees_->forest =
-      compute::Forest(static_cast<int>(encoded.size()), [&](int l, int r) {
-        if (encoded[l].fragment_index) {
-          // Fragment: not an ancestor.
-          return false;
-        }
-
-        const auto& ancestor = encoded[l].partition_expression;
-        const auto& descendant = encoded[r].partition_expression;
-
-        if (descendant.size() >= ancestor.size()) {
-          return std::equal(ancestor.begin(), ancestor.end(), descendant.begin());
-        }
-        return false;
-      });
+  subtrees_->forest = compute::Forest(static_cast<int>(encoded.size()),
+                                      compute::SubtreeImpl::IsAncestor{encoded});
 }
 
 Result<FragmentIterator> FileSystemDataset::GetFragmentsImpl(
