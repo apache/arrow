@@ -137,13 +137,16 @@ def test_option_class_equality():
                 pytest.fail(f"Options class is not tested: {cls}")
     for option in options:
         assert option == option
-        assert repr(option)
+        assert repr(option).startswith(option.__class__.__name__)
         buf = option.serialize()
         deserialized = pc.FunctionOptions.deserialize(buf)
         assert option == deserialized
         assert repr(option) == repr(deserialized)
     for option1, option2 in zip(options, options[1:]):
         assert option1 != option2
+
+    assert repr(pc.IndexOptions(pa.scalar(1))) == "IndexOptions(value=int64:1)"
+    assert repr(pc.ArraySortOptions()) == "ArraySortOptions(order=Ascending)"
 
 
 def test_list_functions():
