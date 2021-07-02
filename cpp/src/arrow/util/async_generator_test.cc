@@ -1094,53 +1094,37 @@ TEST(TestAsyncUtil, ReadaheadMove) {
 }
 
 TEST(TestAsyncUtil, ReadaheadFailed) {
-  ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(4));
+  ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(20));
   std::atomic<int32_t> counter(0);
-  std::mutex mx;
-  bool error_unlocked = false;
-  std::condition_variable error_gate;
-  bool ok_unlocked = false;
-  std::condition_variable ok_gate;
+  auto gating_task = GatingTask::Make();
   // All tasks are a little slow.  The first task fails.
   // The readahead will have spawned 9 more tasks and they
   // should all pass
   auto source = [&]() -> Future<TestInt> {
     auto count = counter++;
     return DeferNotOk(thread_pool->Submit([&, count]() -> Result<TestInt> {
-      std::unique_lock<std::mutex> lock(mx);
+      gating_task->Task()();
       if (count == 0) {
-        error_gate.wait(lock, [&] { return error_unlocked; });
         return Status::Invalid("X");
       }
-      ok_gate.wait(lock, [&] { return ok_unlocked; });
       return TestInt(count);
     }));
   };
   auto readahead = MakeReadaheadGenerator<TestInt>(source, 10);
   auto should_be_invalid = readahead();
   // Polling once should allow 10 additional calls to start
-  BusyWait(10, [&] { return counter.load() >= 11; });
-  ASSERT_EQ(11, counter.load());
+  ASSERT_OK(gating_task->WaitForRunning(11));
+  ASSERT_OK(gating_task->Unlock());
 
-  // Unlocking the error (but not the others) will allow the error to put
-  // the readahead generator into a finished state
-  error_unlocked = true;
-  error_gate.notify_one();
+  // Once unlocked the error task should always be the first.  Some number of successful
+  // tasks may follow until the end.
   ASSERT_FINISHES_AND_RAISES(Invalid, should_be_invalid);
 
-  // Now the rest of the futures should still finish ok
-  ok_unlocked = true;
-  ok_gate.notify_all();
-  for (int i = 0; i < 10; i++) {
-    ASSERT_FINISHES_OK_AND_ASSIGN(auto next_val, readahead());
-    ASSERT_EQ(TestInt(i + 1), next_val);
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto remaining_results, CollectAsyncGenerator(readahead));
+  // Don't need to know the exact number of successful tasks (and it may vary)
+  for (std::size_t i = 0; i < remaining_results.size(); i++) {
+    ASSERT_EQ(TestInt(i + 1), remaining_results[i]);
   }
-
-  // The error should have put the readahead into a failure state.  However, it does so
-  // with AddCallback and not Then so there is no guarantee when that will happen.
-  ASSERT_FINISHES_OK_AND_ASSIGN(auto after, readahead());
-  ASSERT_TRUE(IsIterationEnd(after));
-  ASSERT_EQ(11, counter.load());
 }
 
 class EnumeratorTestFixture : public GeneratorTestFixture {
