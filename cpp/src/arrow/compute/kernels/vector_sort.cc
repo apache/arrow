@@ -29,6 +29,8 @@
 #include "arrow/table.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_block_counter.h"
+#include "arrow/util/bitmap.h"
+#include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/optional.h"
 #include "arrow/visitor_inline.h"
@@ -489,6 +491,87 @@ class ArrayCountSorter {
   }
 };
 
+using ::arrow::internal::Bitmap;
+
+template <>
+class ArrayCountSorter<BooleanType> {
+ public:
+  ArrayCountSorter() = default;
+
+  // Returns where null starts.
+  uint64_t* Sort(uint64_t* indices_begin, uint64_t* indices_end,
+                 const BooleanArray& values, int64_t offset,
+                 const ArraySortOptions& options) {
+    // 32bit counter performs much better than 64bit one
+    if (values.length() < (1LL << 32)) {
+      return SortInternal<uint32_t>(indices_begin, indices_end, values, offset, options);
+    } else {
+      return SortInternal<uint64_t>(indices_begin, indices_end, values, offset, options);
+    }
+  }
+
+ private:
+  template <typename CounterType>
+  void CountBits(const BooleanArray& values, int64_t offset, CounterType* set_count,
+                 CounterType* null_count) {
+    if (values.data()->buffers[0]) {  // if validity buffer present
+      Bitmap bitmaps[2]{
+          {values.data()->buffers[0], offset, values.length()},
+          {values.data()->buffers[1], offset, values.length()},
+      };
+      *set_count = 0;
+      *null_count = 0;
+      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 2> words) {
+        // count valid count for the moment
+        *null_count += BitUtil::PopCount(words[0]);
+        *set_count += BitUtil::PopCount(words[0] & words[1]);
+      });
+
+      *null_count = values.length() - *null_count;  // convert valid count to null count
+    } else {                                        // all are valid
+      *null_count = 0;
+      *set_count = ::arrow::internal::CountSetBits(values.data()->buffers[1]->data(),
+                                                   offset, values.length());
+    }
+  }
+
+  // Returns where null starts.
+  //
+  // `offset` is used when this is called on a chunk of a chunked array
+  template <typename CounterType>
+  uint64_t* SortInternal(uint64_t* indices_begin, uint64_t* indices_end,
+                         const BooleanArray& values, int64_t offset,
+                         const ArraySortOptions& options) {
+    // first slot reserved for prefix sum
+    std::vector<CounterType> counts(3);
+
+    CounterType ones, nulls;
+    CountBits(values, offset, &ones, &nulls);
+
+    if (options.order == SortOrder::Ascending) {
+      counts[1] = values.length() - ones - nulls;  // 0's
+      counts[2] = values.length() - nulls;         // 0's + 1's
+      auto null_position = counts[2];
+      auto nulls_begin = indices_begin + null_position;
+      int64_t index = offset;
+      VisitRawValuesInline(
+          values, [&](bool v) { indices_begin[counts[v]++] = index++; },
+          [&]() { indices_begin[null_position++] = index++; });
+      return nulls_begin;
+    } else {
+      counts[0] = values.length() - nulls;  // 0's + 1's
+      counts[1] = ones;                     // 1's
+      auto null_position = counts[0];
+      auto nulls_begin = indices_begin + null_position;
+      int64_t index = offset;
+      VisitRawValuesInline(
+          values, [&](bool v) { indices_begin[counts[v + 1]++] = index++; },
+          [&]() { indices_begin[null_position++] = index++; });
+      return nulls_begin;
+    }
+  }
+};
+
 // Sort integers with counting sort or comparison based sorting algorithm
 // - Use O(n) counting sort if values are in a small range
 // - Use O(nlogn) std::stable_sort otherwise
@@ -542,7 +625,6 @@ struct ArraySorter;
 template <>
 struct ArraySorter<BooleanType> {
   ArrayCountSorter<BooleanType> impl;
-  ArraySorter() : impl(false, true) {}
 };
 
 template <>
