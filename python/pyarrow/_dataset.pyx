@@ -3124,6 +3124,8 @@ def _filesystemdataset_write(
     if file_visitor is not None:
         visit_args = {'base_dir': c_options.base_dir,
                       'file_visitor': file_visitor}
+        # Need to use post_finish because parquet metadata is not available
+        # until after Finish has been called
         c_options.writer_post_finish = BindFunction[cb_writer_finish_internal](
             &_filesystemdataset_write_visitor, visit_args)
 
