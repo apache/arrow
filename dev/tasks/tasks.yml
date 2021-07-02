@@ -937,7 +937,8 @@ tasks:
       env:
         UBUNTU: 21.04
         CLANG_TOOLS: 9 # can remove this when >=9 is the default
-      image: ubuntu-r-static
+      flags: "ARROW_SOURCE_HOME='/arrow' -e FORCE_BUNDLED_BUILD=TRUE -e LIBARROW_BUILD=TRUE"
+      image: ubuntu-r
 
   test-r-gcc-11:
     ci: github
@@ -947,8 +948,9 @@ tasks:
         UBUNTU: 21.04
         CLANG_TOOLS: 9 # can remove this when >=9 is the default
         GCC_VERSION: 11
-        ARROW_S3: OFF # S3 support is not buildable with gcc11 right now
-      image: ubuntu-r-static
+      # S3 support is not buildable with gcc11 right now
+      flags: "-e ARROW_SOURCE_HOME='/arrow' -e FORCE_BUNDLED_BUILD=TRUE -e LIBARROW_BUILD=TRUE -e ARROW_S3=OFF"
+      image: ubuntu-r
 
 
   test-r-rstudio-r-base-3.6-centos7-devtoolset-8:
