@@ -354,7 +354,7 @@ TEST(Subtree, EncodeFragments) {
   SubtreeImpl tree;
   auto encoded = tree.EncodeGuarantees(
       [&](int index) { return fragments[index]->partition_expression(); },
-      fragments.size());
+      static_cast<int>(fragments.size()));
   EXPECT_THAT(
       tree.code_to_expr_,
       ContainerEq(std::vector<compute::Expression>{
