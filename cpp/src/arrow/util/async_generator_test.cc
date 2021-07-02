@@ -1123,7 +1123,7 @@ TEST(TestAsyncUtil, ReadaheadFailed) {
   ASSERT_FINISHES_OK_AND_ASSIGN(auto remaining_results, CollectAsyncGenerator(readahead));
   // Don't need to know the exact number of successful tasks (and it may vary)
   for (std::size_t i = 0; i < remaining_results.size(); i++) {
-    ASSERT_EQ(TestInt(i + 1), remaining_results[i]);
+    ASSERT_EQ(TestInt(static_cast<int>(i) + 1), remaining_results[i]);
   }
 }
 
