@@ -36,7 +36,7 @@ namespace {
 constexpr uint64_t kAllNull = 0;
 constexpr uint64_t kAllValid = ~kAllNull;
 
-static util::optional<uint64_t> GetConstantValidityWord(const Datum& data) {
+util::optional<uint64_t> GetConstantValidityWord(const Datum& data) {
   if (data.is_scalar()) {
     return data.scalar()->is_valid ? kAllValid : kAllNull;
   }
@@ -49,7 +49,7 @@ static util::optional<uint64_t> GetConstantValidityWord(const Datum& data) {
   return {};
 }
 
-static inline Bitmap GetBitmap(const Datum& datum, int i) {
+inline Bitmap GetBitmap(const Datum& datum, int i) {
   if (datum.is_scalar()) return {};
   const ArrayData& a = *datum.array();
   return Bitmap{a.buffers[i], a.offset, a.length};
@@ -59,9 +59,8 @@ static inline Bitmap GetBitmap(const Datum& datum, int i) {
 // selected argument
 // ie. cond.valid & (cond.data & left.valid | ~cond.data & right.valid)
 template <typename AllocateNullBitmap>
-static Status PromoteNullsVisitor(KernelContext* ctx, const Datum& cond_d,
-                                  const Datum& left_d, const Datum& right_d,
-                                  ArrayData* output) {
+Status PromoteNullsVisitor(KernelContext* ctx, const Datum& cond_d, const Datum& left_d,
+                           const Datum& right_d, ArrayData* output) {
   auto cond_const = GetConstantValidityWord(cond_d);
   auto left_const = GetConstantValidityWord(left_d);
   auto right_const = GetConstantValidityWord(right_d);
@@ -238,15 +237,15 @@ static constexpr int64_t word_len = sizeof(Word) * 8;
 /// It should copy `length` number of elements from source array to output array with
 /// `offset` offset in both arrays
 template <typename HandleBlock, bool invert = false>
-static void RunIfElseLoop(const ArrayData& cond, const HandleBlock& handle_block) {
+void RunIfElseLoop(const ArrayData& cond, const HandleBlock& handle_block) {
   int64_t data_offset = 0;
   int64_t bit_offset = cond.offset;
   const auto* cond_data = cond.buffers[1]->data();  // this is a BoolArray
 
   BitmapWordReader<Word> cond_reader(cond_data, cond.offset, cond.length);
 
-  static constexpr Word pickAll = invert ? 0 : UINT64_MAX;
-  static constexpr Word pickNone = ~pickAll;
+  constexpr Word pickAll = invert ? 0 : UINT64_MAX;
+  constexpr Word pickNone = ~pickAll;
 
   int64_t cnt = cond_reader.words();
   while (cnt--) {
@@ -266,9 +265,9 @@ static void RunIfElseLoop(const ArrayData& cond, const HandleBlock& handle_block
     bit_offset += word_len;
   }
 
-  static constexpr uint8_t pickAllByte = invert ? 0 : UINT8_MAX;
+  constexpr uint8_t pickAllByte = invert ? 0 : UINT8_MAX;
   // byte bit-wise inversion is int-wide. Hence XOR with 0xff
-  static constexpr uint8_t pickNoneByte = pickAllByte ^ 0xff;
+  constexpr uint8_t pickNoneByte = pickAllByte ^ 0xff;
 
   cnt = cond_reader.trailing_bytes();
   while (cnt--) {
@@ -291,18 +290,16 @@ static void RunIfElseLoop(const ArrayData& cond, const HandleBlock& handle_block
 }
 
 template <typename HandleBlock>
-static void RunIfElseLoopInverted(const ArrayData& cond,
-                                  const HandleBlock& handle_block) {
+void RunIfElseLoopInverted(const ArrayData& cond, const HandleBlock& handle_block) {
   RunIfElseLoop<HandleBlock, true>(cond, handle_block);
 }
 
 /// Runs if-else when cond is a scalar. Two special functions are required,
 /// 1.CopyArrayData, 2. BroadcastScalar
 template <typename CopyArrayData, typename BroadcastScalar>
-static Status RunIfElseScalar(const BooleanScalar& cond, const Datum& left,
-                              const Datum& right, Datum* out,
-                              const CopyArrayData& copy_array_data,
-                              const BroadcastScalar& broadcast_scalar) {
+Status RunIfElseScalar(const BooleanScalar& cond, const Datum& left, const Datum& right,
+                       Datum* out, const CopyArrayData& copy_array_data,
+                       const BroadcastScalar& broadcast_scalar) {
   if (left.is_scalar() && right.is_scalar()) {  // output will be a scalar
     if (cond.is_valid) {
       *out = cond.value ? left.scalar() : right.scalar();
@@ -461,210 +458,6 @@ struct IfElseFunctor<Type, enable_if_number<Type>> {
 };
 
 template <typename Type>
-struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
-  using OffsetType = typename TypeTraits<Type>::OffsetType::c_type;
-  using ArrayType = typename TypeTraits<Type>::ArrayType;
-  using BuilderType = typename TypeTraits<Type>::BuilderType;
-
-  // A - Array, S - Scalar, X = Array/Scalar
-
-  // SXX
-  static Status Call(KernelContext* ctx, const BooleanScalar& cond, const Datum& left,
-                     const Datum& right, Datum* out) {
-    if (left.is_scalar() && right.is_scalar()) {
-      if (cond.is_valid) {
-        *out = cond.value ? left.scalar() : right.scalar();
-      } else {
-        *out = MakeNullScalar(left.type());
-      }
-      return Status::OK();
-    }
-    // either left or right is an array. Output is always an array
-    int64_t out_arr_len = std::max(left.length(), right.length());
-    if (!cond.is_valid) {
-      // cond is null; just create a null array
-      ARROW_ASSIGN_OR_RAISE(*out,
-                            MakeArrayOfNull(left.type(), out_arr_len, ctx->memory_pool()))
-      return Status::OK();
-    }
-
-    const auto& valid_data = cond.value ? left : right;
-    if (valid_data.is_array()) {
-      *out = valid_data;
-    } else {
-      // valid data is a scalar that needs to be broadcasted
-      ARROW_ASSIGN_OR_RAISE(*out, MakeArrayFromScalar(*valid_data.scalar(), out_arr_len,
-                                                      ctx->memory_pool()));
-    }
-    return Status::OK();
-  }
-
-  //  AAA
-  static Status Call(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
-                     const ArrayData& right, ArrayData* out) {
-    const uint8_t* cond_data = cond.buffers[1]->data();
-    BitBlockCounter bit_counter(cond_data, cond.offset, cond.length);
-
-    const auto* left_offsets = left.GetValues<OffsetType>(1);
-    const uint8_t* left_data = left.buffers[2]->data();
-    const auto* right_offsets = right.GetValues<OffsetType>(1);
-    const uint8_t* right_data = right.buffers[2]->data();
-
-    // allocate data buffer conservatively
-    int64_t data_buff_alloc = left_offsets[left.length] - left_offsets[0] +
-                              right_offsets[right.length] - right_offsets[0];
-
-    BuilderType builder(ctx->memory_pool());
-    ARROW_RETURN_NOT_OK(builder.Reserve(cond.length + 1));
-    ARROW_RETURN_NOT_OK(builder.ReserveData(data_buff_alloc));
-
-    RunLoop(
-        cond, *out,
-        [&](int64_t i) {
-          builder.UnsafeAppend(left_data + left_offsets[i],
-                               left_offsets[i + 1] - left_offsets[i]);
-        },
-        [&](int64_t i) {
-          builder.UnsafeAppend(right_data + right_offsets[i],
-                               right_offsets[i + 1] - right_offsets[i]);
-        },
-        [&]() { builder.AppendNull(); });
-    ARROW_ASSIGN_OR_RAISE(auto out_arr, builder.Finish());
-
-    out->buffers[0] = std::move(out_arr->data()->buffers[0]);
-    out->buffers[1] = std::move(out_arr->data()->buffers[1]);
-    out->buffers[2] = std::move(out_arr->data()->buffers[2]);
-    return Status::OK();
-  }
-
-  // ASA
-  static Status Call(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
-                     const ArrayData& right, ArrayData* out) {
-    const uint8_t* cond_data = cond.buffers[1]->data();
-    BitBlockCounter bit_counter(cond_data, cond.offset, cond.length);
-
-    util::string_view left_data = internal::UnboxScalar<Type>::Unbox(left);
-    auto left_size = static_cast<OffsetType>(left_data.size());
-
-    const auto* right_offsets = right.GetValues<OffsetType>(1);
-    const uint8_t* right_data = right.buffers[2]->data();
-
-    // allocate data buffer conservatively
-    int64_t data_buff_alloc =
-        left_size * cond.length + right_offsets[right.length] - right_offsets[0];
-
-    BuilderType builder(ctx->memory_pool());
-    ARROW_RETURN_NOT_OK(builder.Reserve(cond.length + 1));
-    ARROW_RETURN_NOT_OK(builder.ReserveData(data_buff_alloc));
-
-    RunLoop(
-        cond, *out, [&](int64_t i) { builder.UnsafeAppend(left_data.data(), left_size); },
-        [&](int64_t i) {
-          builder.UnsafeAppend(right_data + right_offsets[i],
-                               right_offsets[i + 1] - right_offsets[i]);
-        },
-        [&]() { builder.AppendNull(); });
-    ARROW_ASSIGN_OR_RAISE(auto out_arr, builder.Finish());
-
-    out->buffers[0] = std::move(out_arr->data()->buffers[0]);
-    out->buffers[1] = std::move(out_arr->data()->buffers[1]);
-    out->buffers[2] = std::move(out_arr->data()->buffers[2]);
-    return Status::OK();
-  }
-
-  // AAS
-  static Status Call(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
-                     const Scalar& right, ArrayData* out) {
-    const uint8_t* cond_data = cond.buffers[1]->data();
-    BitBlockCounter bit_counter(cond_data, cond.offset, cond.length);
-
-    const auto* left_offsets = left.GetValues<OffsetType>(1);
-    const uint8_t* left_data = left.buffers[2]->data();
-
-    util::string_view right_data = internal::UnboxScalar<Type>::Unbox(right);
-    auto right_size = static_cast<OffsetType>(right_data.size());
-
-    // allocate data buffer conservatively
-    int64_t data_buff_alloc =
-        right_size * cond.length + left_offsets[left.length] - left_offsets[0];
-
-    BuilderType builder(ctx->memory_pool());
-    ARROW_RETURN_NOT_OK(builder.Reserve(cond.length + 1));
-    ARROW_RETURN_NOT_OK(builder.ReserveData(data_buff_alloc));
-
-    RunLoop(
-        cond, *out,
-        [&](int64_t i) {
-          builder.UnsafeAppend(left_data + left_offsets[i],
-                               left_offsets[i + 1] - left_offsets[i]);
-        },
-        [&](int64_t i) { builder.UnsafeAppend(right_data.data(), right_size); },
-        [&]() { builder.AppendNull(); });
-    ARROW_ASSIGN_OR_RAISE(auto out_arr, builder.Finish());
-
-    out->buffers[0] = std::move(out_arr->data()->buffers[0]);
-    out->buffers[1] = std::move(out_arr->data()->buffers[1]);
-    out->buffers[2] = std::move(out_arr->data()->buffers[2]);
-    return Status::OK();
-  }
-
-  // ASS
-  static Status Call(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
-                     const Scalar& right, ArrayData* out) {
-    const uint8_t* cond_data = cond.buffers[1]->data();
-    BitBlockCounter bit_counter(cond_data, cond.offset, cond.length);
-
-    util::string_view left_data = internal::UnboxScalar<Type>::Unbox(left);
-    auto left_size = static_cast<OffsetType>(left_data.size());
-
-    util::string_view right_data = internal::UnboxScalar<Type>::Unbox(right);
-    auto right_size = static_cast<OffsetType>(right_data.size());
-
-    // allocate data buffer conservatively
-    int64_t data_buff_alloc = std::max(right_size, left_size) * cond.length;
-    BuilderType builder(ctx->memory_pool());
-    ARROW_RETURN_NOT_OK(builder.Reserve(cond.length + 1));
-    ARROW_RETURN_NOT_OK(builder.ReserveData(data_buff_alloc));
-
-    RunLoop(
-        cond, *out, [&](int64_t i) { builder.UnsafeAppend(left_data.data(), left_size); },
-        [&](int64_t i) { builder.UnsafeAppend(right_data.data(), right_size); },
-        [&]() { builder.AppendNull(); });
-    ARROW_ASSIGN_OR_RAISE(auto out_arr, builder.Finish());
-
-    out->buffers[0] = std::move(out_arr->data()->buffers[0]);
-    out->buffers[1] = std::move(out_arr->data()->buffers[1]);
-    out->buffers[2] = std::move(out_arr->data()->buffers[2]);
-    return Status::OK();
-  }
-
-  template <typename HandleLeft, typename HandleRight, typename HandleNull>
-  static void RunLoop(const ArrayData& cond, const ArrayData& output,
-                      HandleLeft&& handle_left, HandleRight&& handle_right,
-                      HandleNull&& handle_null) {
-    const auto* cond_data = cond.buffers[1]->data();
-
-    if (output.buffers[0]) {  // output may have nulls
-      // output validity buffer is allocated internally from the IfElseFunctor. Therefore
-      // it is cond.length'd with 0 offset.
-      const auto* out_valid = output.buffers[0]->data();
-
-      for (int64_t i = 0; i < cond.length; i++) {
-        if (BitUtil::GetBit(out_valid, i)) {
-          BitUtil::GetBit(cond_data, cond.offset + i) ? handle_left(i) : handle_right(i);
-        } else {
-          handle_null();
-        }
-      }
-    } else {  // output is all valid (no nulls)
-      for (int64_t i = 0; i < cond.length; i++) {
-        BitUtil::GetBit(cond_data, cond.offset + i) ? handle_left(i) : handle_right(i);
-      }
-    }
-  }
-};
-
-template <typename Type>
 struct IfElseFunctor<Type, enable_if_boolean<Type>> {
   // A - Array, S - Scalar, X = Array/Scalar
 
@@ -780,6 +573,202 @@ struct IfElseFunctor<Type, enable_if_boolean<Type>> {
     }
 
     return Status::OK();
+  }
+};
+
+template <typename Type>
+struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
+  using OffsetType = typename TypeTraits<Type>::OffsetType::c_type;
+  using ArrayType = typename TypeTraits<Type>::ArrayType;
+  using BuilderType = typename TypeTraits<Type>::BuilderType;
+
+  // A - Array, S - Scalar, X = Array/Scalar
+
+  // SXX
+  static Status Call(KernelContext* ctx, const BooleanScalar& cond, const Datum& left,
+                     const Datum& right, Datum* out) {
+    if (left.is_scalar() && right.is_scalar()) {
+      if (cond.is_valid) {
+        *out = cond.value ? left.scalar() : right.scalar();
+      } else {
+        *out = MakeNullScalar(left.type());
+      }
+      return Status::OK();
+    }
+    // either left or right is an array. Output is always an array
+    int64_t out_arr_len = std::max(left.length(), right.length());
+    if (!cond.is_valid) {
+      // cond is null; just create a null array
+      ARROW_ASSIGN_OR_RAISE(*out,
+                            MakeArrayOfNull(left.type(), out_arr_len, ctx->memory_pool()))
+      return Status::OK();
+    }
+
+    const auto& valid_data = cond.value ? left : right;
+    if (valid_data.is_array()) {
+      *out = valid_data;
+    } else {
+      // valid data is a scalar that needs to be broadcasted
+      ARROW_ASSIGN_OR_RAISE(*out, MakeArrayFromScalar(*valid_data.scalar(), out_arr_len,
+                                                      ctx->memory_pool()));
+    }
+    return Status::OK();
+  }
+
+  //  AAA
+  static Status Call(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
+                     const ArrayData& right, ArrayData* out) {
+    const auto* left_offsets = left.GetValues<OffsetType>(1);
+    const uint8_t* left_data = left.buffers[2]->data();
+    const auto* right_offsets = right.GetValues<OffsetType>(1);
+    const uint8_t* right_data = right.buffers[2]->data();
+
+    // allocate data buffer conservatively
+    int64_t data_buff_alloc = left_offsets[left.length] - left_offsets[0] +
+                              right_offsets[right.length] - right_offsets[0];
+
+    BuilderType builder(ctx->memory_pool());
+    ARROW_RETURN_NOT_OK(builder.Reserve(cond.length + 1));
+    ARROW_RETURN_NOT_OK(builder.ReserveData(data_buff_alloc));
+
+    RunLoop(
+        cond, *out,
+        [&](int64_t i) {
+          builder.UnsafeAppend(left_data + left_offsets[i],
+                               left_offsets[i + 1] - left_offsets[i]);
+        },
+        [&](int64_t i) {
+          builder.UnsafeAppend(right_data + right_offsets[i],
+                               right_offsets[i + 1] - right_offsets[i]);
+        },
+        [&]() { builder.UnsafeAppendNull(); });
+    ARROW_ASSIGN_OR_RAISE(auto out_arr, builder.Finish());
+
+    out->null_count = std::move(out_arr->data()->null_count);
+    out->buffers[0] = std::move(out_arr->data()->buffers[0]);
+    out->buffers[1] = std::move(out_arr->data()->buffers[1]);
+    out->buffers[2] = std::move(out_arr->data()->buffers[2]);
+    return Status::OK();
+  }
+
+  // ASA
+  static Status Call(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
+                     const ArrayData& right, ArrayData* out) {
+    util::string_view left_data = internal::UnboxScalar<Type>::Unbox(left);
+    auto left_size = static_cast<OffsetType>(left_data.size());
+
+    const auto* right_offsets = right.GetValues<OffsetType>(1);
+    const uint8_t* right_data = right.buffers[2]->data();
+
+    // allocate data buffer conservatively
+    int64_t data_buff_alloc =
+        left_size * cond.length + right_offsets[right.length] - right_offsets[0];
+
+    BuilderType builder(ctx->memory_pool());
+    ARROW_RETURN_NOT_OK(builder.Reserve(cond.length + 1));
+    ARROW_RETURN_NOT_OK(builder.ReserveData(data_buff_alloc));
+
+    RunLoop(
+        cond, *out, [&](int64_t i) { builder.UnsafeAppend(left_data.data(), left_size); },
+        [&](int64_t i) {
+          builder.UnsafeAppend(right_data + right_offsets[i],
+                               right_offsets[i + 1] - right_offsets[i]);
+        },
+        [&]() { builder.UnsafeAppendNull(); });
+    ARROW_ASSIGN_OR_RAISE(auto out_arr, builder.Finish());
+
+    out->null_count = std::move(out_arr->data()->null_count);
+    out->buffers[0] = std::move(out_arr->data()->buffers[0]);
+    out->buffers[1] = std::move(out_arr->data()->buffers[1]);
+    out->buffers[2] = std::move(out_arr->data()->buffers[2]);
+    return Status::OK();
+  }
+
+  // AAS
+  static Status Call(KernelContext* ctx, const ArrayData& cond, const ArrayData& left,
+                     const Scalar& right, ArrayData* out) {
+    const auto* left_offsets = left.GetValues<OffsetType>(1);
+    const uint8_t* left_data = left.buffers[2]->data();
+
+    util::string_view right_data = internal::UnboxScalar<Type>::Unbox(right);
+    auto right_size = static_cast<OffsetType>(right_data.size());
+
+    // allocate data buffer conservatively
+    int64_t data_buff_alloc =
+        right_size * cond.length + left_offsets[left.length] - left_offsets[0];
+
+    BuilderType builder(ctx->memory_pool());
+    ARROW_RETURN_NOT_OK(builder.Reserve(cond.length + 1));
+    ARROW_RETURN_NOT_OK(builder.ReserveData(data_buff_alloc));
+
+    RunLoop(
+        cond, *out,
+        [&](int64_t i) {
+          builder.UnsafeAppend(left_data + left_offsets[i],
+                               left_offsets[i + 1] - left_offsets[i]);
+        },
+        [&](int64_t i) { builder.UnsafeAppend(right_data.data(), right_size); },
+        [&]() { builder.UnsafeAppendNull(); });
+    ARROW_ASSIGN_OR_RAISE(auto out_arr, builder.Finish());
+
+    out->null_count = std::move(out_arr->data()->null_count);
+    out->buffers[0] = std::move(out_arr->data()->buffers[0]);
+    out->buffers[1] = std::move(out_arr->data()->buffers[1]);
+    out->buffers[2] = std::move(out_arr->data()->buffers[2]);
+    return Status::OK();
+  }
+
+  // ASS
+  static Status Call(KernelContext* ctx, const ArrayData& cond, const Scalar& left,
+                     const Scalar& right, ArrayData* out) {
+    util::string_view left_data = internal::UnboxScalar<Type>::Unbox(left);
+    auto left_size = static_cast<OffsetType>(left_data.size());
+
+    util::string_view right_data = internal::UnboxScalar<Type>::Unbox(right);
+    auto right_size = static_cast<OffsetType>(right_data.size());
+
+    // allocate data buffer conservatively
+    int64_t data_buff_alloc = std::max(right_size, left_size) * cond.length;
+    BuilderType builder(ctx->memory_pool());
+    ARROW_RETURN_NOT_OK(builder.Reserve(cond.length + 1));
+    ARROW_RETURN_NOT_OK(builder.ReserveData(data_buff_alloc));
+
+    RunLoop(
+        cond, *out, [&](int64_t i) { builder.UnsafeAppend(left_data.data(), left_size); },
+        [&](int64_t i) { builder.UnsafeAppend(right_data.data(), right_size); },
+        [&]() { builder.UnsafeAppendNull(); });
+    ARROW_ASSIGN_OR_RAISE(auto out_arr, builder.Finish());
+
+    out->null_count = std::move(out_arr->data()->null_count);
+    out->buffers[0] = std::move(out_arr->data()->buffers[0]);
+    out->buffers[1] = std::move(out_arr->data()->buffers[1]);
+    out->buffers[2] = std::move(out_arr->data()->buffers[2]);
+    return Status::OK();
+  }
+
+  template <typename HandleLeft, typename HandleRight, typename HandleNull>
+  static void RunLoop(const ArrayData& cond, const ArrayData& output,
+                      HandleLeft&& handle_left, HandleRight&& handle_right,
+                      HandleNull&& handle_null) {
+    const auto* cond_data = cond.buffers[1]->data();
+
+    if (output.buffers[0]) {  // output may have nulls
+      // output validity buffer is allocated internally from the IfElseFunctor. Therefore
+      // it is cond.length'd with 0 offset.
+      const auto* out_valid = output.buffers[0]->data();
+
+      for (int64_t i = 0; i < cond.length; i++) {
+        if (BitUtil::GetBit(out_valid, i)) {
+          BitUtil::GetBit(cond_data, cond.offset + i) ? handle_left(i) : handle_right(i);
+        } else {
+          handle_null();
+        }
+      }
+    } else {  // output is all valid (no nulls)
+      for (int64_t i = 0; i < cond.length; i++) {
+        BitUtil::GetBit(cond_data, cond.offset + i) ? handle_left(i) : handle_right(i);
+      }
+    }
   }
 };
 
